@@ -1975,7 +1975,11 @@ ByteCodeParser::CallOptimizationResult ByteCodeParser::handleCallVariant(Node* c
             m_currentIndex = osrExitIndex;
             m_exitOK = true;
             processSetLocalQueue();
-            addJumpTo(continuationBlock);
+            if (m_currentBlock->terminal()) {
+                ASSERT(continuationBlock->isEmpty());
+                m_currentBlock->didLink();
+            } else
+                addJumpTo(continuationBlock);
         }
     };
 
@@ -2927,6 +2931,26 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand result, CallVaria
             Node* charCode = addToGraph(StringFromCharCode, get(indexOperand));
 
             setResult(charCode);
+
+            return CallOptimizationResult::Inlined;
+        }
+
+        case GlobalIsNaNIntrinsic: {
+            if (argumentCountIncludingThis < 2)
+                return CallOptimizationResult::DidNothing;
+
+            insertChecks();
+            setResult(addToGraph(GlobalIsNaN, get(virtualRegisterForArgumentIncludingThis(1, registerOffset))));
+
+            return CallOptimizationResult::Inlined;
+        }
+
+        case NumberIsNaNIntrinsic: {
+            if (argumentCountIncludingThis < 2)
+                return CallOptimizationResult::DidNothing;
+
+            insertChecks();
+            setResult(addToGraph(NumberIsNaN, get(virtualRegisterForArgumentIncludingThis(1, registerOffset))));
 
             return CallOptimizationResult::Inlined;
         }

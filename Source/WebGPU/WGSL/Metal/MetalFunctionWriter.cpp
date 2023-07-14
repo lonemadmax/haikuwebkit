@@ -34,7 +34,7 @@
 #include "Constraints.h"
 #include "Types.h"
 #include "WGSLShaderModule.h"
-
+#include <wtf/HashSet.h>
 #include <wtf/SortedArrayMap.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -68,20 +68,22 @@ public:
     void visit(AST::Structure&) override;
     void visit(AST::Variable&) override;
 
+    void visit(const Type*, AST::Expression&);
+    void visit(const Type*, AST::CallExpression&);
+
     void visit(AST::BoolLiteral&) override;
     void visit(AST::AbstractFloatLiteral&) override;
     void visit(AST::AbstractIntegerLiteral&) override;
     void visit(AST::BinaryExpression&) override;
-    void visit(AST::CallExpression&) override;
     void visit(AST::Expression&) override;
     void visit(AST::FieldAccessExpression&) override;
     void visit(AST::Float32Literal&) override;
     void visit(AST::IdentifierExpression&) override;
     void visit(AST::IndexAccessExpression&) override;
     void visit(AST::PointerDereferenceExpression&) override;
+    void visit(AST::UnaryExpression&) override;
     void visit(AST::Signed32Literal&) override;
     void visit(AST::Unsigned32Literal&) override;
-    void visit(AST::UnaryExpression&) override;
 
     void visit(AST::Statement&) override;
     void visit(AST::AssignmentStatement&) override;
@@ -112,6 +114,7 @@ private:
     std::optional<AST::StageAttribute::Stage> m_entryPointStage;
     std::optional<String> m_suffix;
     unsigned m_functionConstantIndex { 0 };
+    HashSet<AST::Function*> m_visitedFunctions;
 };
 
 void FunctionDefinitionWriter::write()
@@ -138,6 +141,9 @@ void FunctionDefinitionWriter::write()
 
 void FunctionDefinitionWriter::visit(AST::Function& functionDefinition)
 {
+    if (!m_visitedFunctions.add(&functionDefinition).isNewEntry)
+        return;
+
     for (auto& callee : m_callGraph.callees(functionDefinition))
         visit(*callee.target);
 
@@ -189,7 +195,7 @@ void FunctionDefinitionWriter::visit(AST::Structure& structDecl)
         unsigned alignment = 0;
         unsigned size = 0;
         unsigned paddingID = 0;
-        bool shouldPack = structDecl.role() == AST::StructureRole::UserDefined;
+        bool shouldPack = structDecl.role() == AST::StructureRole::PackedResource;
         const auto& addPadding = [&](unsigned paddingSize) {
             ASSERT(shouldPack);
             m_stringBuilder.append(m_indent, "uint8_t __padding", ++paddingID, "[", String::number(paddingSize), "]; \n");
@@ -291,6 +297,9 @@ void FunctionDefinitionWriter::visitGlobal(AST::Variable& variable)
 
 void FunctionDefinitionWriter::serializeVariable(AST::Variable& variable)
 {
+    if (variable.flavor() == AST::VariableFlavor::Const)
+        return;
+
     const Type* type = variable.storeType();
     if (isPrimitiveReference(type, Types::Primitive::TextureExternal)) {
         ASSERT(variable.maybeInitializer());
@@ -310,7 +319,7 @@ void FunctionDefinitionWriter::serializeVariable(AST::Variable& variable)
     m_stringBuilder.append(" ", variable.name());
     if (variable.maybeInitializer()) {
         m_stringBuilder.append(" = ");
-        visit(*variable.maybeInitializer());
+        visit(type, *variable.maybeInitializer());
     }
 }
 
@@ -371,7 +380,7 @@ void FunctionDefinitionWriter::visit(AST::StageAttribute& stage)
 
 void FunctionDefinitionWriter::visit(AST::GroupAttribute& group)
 {
-    unsigned bufferIndex = group.group();
+    unsigned bufferIndex = *AST::extractInteger(group.group());
     if (m_entryPointStage.has_value() && *m_entryPointStage == AST::StageAttribute::Stage::Vertex) {
         auto max = m_callGraph.ast().configuration().maxBuffersPlusVertexBuffersForVertexStage;
         bufferIndex = vertexBufferIndexForBindGroup(bufferIndex, max);
@@ -381,7 +390,7 @@ void FunctionDefinitionWriter::visit(AST::GroupAttribute& group)
 
 void FunctionDefinitionWriter::visit(AST::BindingAttribute& binding)
 {
-    m_stringBuilder.append("[[id(", binding.binding(), ")]]");
+    m_stringBuilder.append("[[id(", *AST::extractInteger(binding.binding()), ")]]");
 }
 
 void FunctionDefinitionWriter::visit(AST::LocationAttribute& location)
@@ -391,14 +400,16 @@ void FunctionDefinitionWriter::visit(AST::LocationAttribute& location)
         switch (role) {
         case AST::StructureRole::VertexOutput:
         case AST::StructureRole::FragmentInput:
-            m_stringBuilder.append("[[user(loc", location.location(), ")]]");
+            m_stringBuilder.append("[[user(loc", *AST::extractInteger(location.location()), ")]]");
             return;
         case AST::StructureRole::BindGroup:
         case AST::StructureRole::UserDefined:
         case AST::StructureRole::ComputeInput:
+        case AST::StructureRole::UserDefinedResource:
+        case AST::StructureRole::PackedResource:
             return;
         case AST::StructureRole::VertexInput:
-            m_stringBuilder.append("[[attribute(", location.location(), ")]]");
+            m_stringBuilder.append("[[attribute(", *AST::extractInteger(location.location()), ")]]");
             break;
         }
     }
@@ -445,7 +456,7 @@ void FunctionDefinitionWriter::visit(const Type* type)
         },
         [&](const Vector& vector) {
             auto* primitive = std::get_if<Primitive>(vector.element);
-            if (primitive && m_structRole.has_value() && *m_structRole == AST::StructureRole::UserDefined) {
+            if (primitive && m_structRole.has_value() && *m_structRole == AST::StructureRole::PackedResource) {
                 switch (primitive->kind) {
                 case Types::Primitive::AbstractInt:
                 case Types::Primitive::I32:
@@ -596,7 +607,22 @@ void FunctionDefinitionWriter::visitArgumentBufferParameter(AST::Parameter& para
 
 void FunctionDefinitionWriter::visit(AST::Expression& expression)
 {
-    AST::Visitor::visit(expression);
+    visit(expression.inferredType(), expression);
+}
+
+void FunctionDefinitionWriter::visit(const Type* type, AST::Expression& expression)
+{
+    switch (expression.kind()) {
+    case AST::NodeKind::CallExpression:
+        visit(type, downcast<AST::CallExpression>(expression));
+        break;
+    case AST::NodeKind::IdentityExpression:
+        visit(type, downcast<AST::IdentityExpression>(expression).expression());
+        break;
+    default:
+        AST::Visitor::visit(expression);
+        break;
+    }
 }
 
 static void visitArguments(FunctionDefinitionWriter* writer, AST::CallExpression& call, unsigned startOffset = 0)
@@ -610,24 +636,34 @@ static void visitArguments(FunctionDefinitionWriter* writer, AST::CallExpression
         first = false;
     }
     writer->stringBuilder().append(")");
-};
+}
 
-void FunctionDefinitionWriter::visit(AST::CallExpression& call)
+void FunctionDefinitionWriter::visit(const Type* type, AST::CallExpression& call)
 {
     auto isArray = is<AST::ArrayTypeName>(call.target());
     auto isStruct = !isArray && std::holds_alternative<Types::Struct>(*call.target().resolvedType());
     if (isArray || isStruct) {
         if (isStruct) {
-            visit(call.target().resolvedType());
+            visit(type);
             m_stringBuilder.append(" ");
         }
+        const Type* arrayElementType = nullptr;
+        if (isArray)
+            arrayElementType = std::get<Types::Array>(*type).element;
+
+        const auto& visitArgument = [&](auto& argument) {
+            if (isStruct)
+                visit(argument);
+            else
+                visit(arrayElementType, argument);
+        };
 
         m_stringBuilder.append("{\n");
         {
             IndentationScope scope(m_indent);
             for (auto& argument : call.arguments()) {
                 m_stringBuilder.append(m_indent);
-                visit(argument);
+                visitArgument(argument);
                 m_stringBuilder.append(",\n");
             }
         }
@@ -741,7 +777,7 @@ void FunctionDefinitionWriter::visit(AST::CallExpression& call)
         static constexpr SortedArrayMap baseTypes { baseTypesMappings };
 
         if (AST::ParameterizedTypeName::stringViewToKind(targetName).has_value())
-            visit(call.inferredType());
+            visit(type);
         else if (auto mappedName = baseTypes.get(targetName))
             m_stringBuilder.append(mappedName);
         else
@@ -750,7 +786,7 @@ void FunctionDefinitionWriter::visit(AST::CallExpression& call)
         return;
     }
 
-    visit(call.inferredType());
+    visit(type);
     visitArguments(this, call);
 }
 

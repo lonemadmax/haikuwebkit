@@ -207,7 +207,7 @@ static NSArray *keyCommandsPlaceholderHackForEvernote(id self, SEL _cmd)
     _page->setUseFixedLayout(true);
     _page->setScreenIsBeingCaptured([[[self window] screen] isCaptured]);
 
-    _page->windowScreenDidChange(_page->generateDisplayIDFromPageID(), std::nullopt);
+    _page->windowScreenDidChange(_page->generateDisplayIDFromPageID());
 
 #if ENABLE(FULLSCREEN_API)
     _page->setFullscreenClient(makeUnique<WebKit::FullscreenClient>(self.webView));
@@ -717,9 +717,9 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
 
 #pragma mark PageClientImpl methods
 
-- (std::unique_ptr<WebKit::DrawingAreaProxy>)_createDrawingAreaProxy:(WebKit::WebProcessProxy&)process
+- (std::unique_ptr<WebKit::DrawingAreaProxy>)_createDrawingAreaProxy
 {
-    return makeUnique<WebKit::RemoteLayerTreeDrawingAreaProxyIOS>(*_page, process);
+    return makeUnique<WebKit::RemoteLayerTreeDrawingAreaProxyIOS>(*_page);
 }
 
 - (void)_processDidExit

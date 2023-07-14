@@ -61,7 +61,6 @@
 #include "HTMLMediaElement.h"
 #include "HTMLModelElement.h"
 #include "HTMLNames.h"
-#include "HTMLParserIdioms.h"
 #include "HTMLTextAreaElement.h"
 #include "HitTestResult.h"
 #include "LocalFrame.h"
@@ -2237,8 +2236,8 @@ String AccessibilityObject::invalidStatus() const
     String undefinedValue = "undefined"_s;
 
     // aria-invalid can return false (default), grammar, spelling, or true.
-    String ariaInvalid = stripLeadingAndTrailingHTMLSpaces(getAttribute(aria_invalidAttr));
-    
+    auto ariaInvalid = getAttribute(aria_invalidAttr).string().trim(isASCIIWhitespace);
+
     if (ariaInvalid.isEmpty()) {
         auto* htmlElement = dynamicDowncast<HTMLElement>(this->node());
         if (auto* validatedFormListedElement = htmlElement ? htmlElement->asValidatedFormListedElement() : nullptr) {
@@ -2270,8 +2269,8 @@ bool AccessibilityObject::supportsCurrent() const
 AccessibilityCurrentState AccessibilityObject::currentState() const
 {
     // aria-current can return false (default), true, page, step, location, date or time.
-    String currentStateValue = stripLeadingAndTrailingHTMLSpaces(getAttribute(aria_currentAttr));
-    
+    auto currentStateValue = getAttribute(aria_currentAttr).string().trim(isASCIIWhitespace);
+
     // If "false", empty, or missing, return false state.
     if (currentStateValue.isEmpty() || currentStateValue == "false"_s)
         return AccessibilityCurrentState::False;
@@ -2731,7 +2730,7 @@ String AccessibilityObject::roleDescription() const
 {
     // aria-roledescription takes precedence over any other rule.
     if (supportsARIARoleDescription()) {
-        auto roleDescription = stripLeadingAndTrailingHTMLSpaces(getAttribute(aria_roledescriptionAttr));
+        auto roleDescription = getAttribute(aria_roledescriptionAttr).string().trim(isASCIIWhitespace);
         if (!roleDescription.isEmpty())
             return roleDescription;
     }
@@ -3270,6 +3269,10 @@ bool AccessibilityObject::supportsPressed() const
     
 bool AccessibilityObject::supportsExpanded() const
 {
+    // If this object can toggle an HTML popover, it supports the reporting of its expanded state (which is based on the expanded / collapsed state of that popover).
+    if (popoverTargetElement())
+        return true;
+
     switch (roleValue()) {
     case AccessibilityRole::Button:
     case AccessibilityRole::CheckBox:
@@ -3323,8 +3326,11 @@ bool AccessibilityObject::isExpanded() const
             return parent->isExpanded();
     }
 
-    if (supportsExpanded())
+    if (supportsExpanded()) {
+        if (WeakPtr popoverTargetElement = this->popoverTargetElement())
+            return popoverTargetElement->isPopoverShowing();
         return equalLettersIgnoringASCIICase(getAttribute(aria_expandedAttr), "true"_s);
+    }
 
     return false;  
 }

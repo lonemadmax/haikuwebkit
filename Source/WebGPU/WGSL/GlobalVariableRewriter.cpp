@@ -34,6 +34,7 @@
 #include "WGSLShaderModule.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/SetForScope.h>
 
 namespace WGSL {
 
@@ -52,8 +53,11 @@ public:
     void visit(AST::Function&) override;
     void visit(AST::Variable&) override;
     void visit(AST::IdentifierExpression&) override;
+    void visit(AST::CompoundStatement&) override;
 
 private:
+    enum class Context : uint8_t { Local, Global };
+
     struct Global {
         struct Resource {
             unsigned group;
@@ -75,11 +79,15 @@ private:
         UsedPrivateGlobals privateGlobals;
     };
 
+    struct Insertion {
+        AST::Statement* statement;
+        unsigned index;
+    };
+
     static AST::Identifier argumentBufferParameterName(unsigned group);
     static AST::Identifier argumentBufferStructName(unsigned group);
 
-    void def(const String&);
-    Global* read(const String&);
+    void def(const String&, AST::Variable*);
 
     void collectGlobals();
     void visitEntryPoint(AST::Function&, AST::StageAttribute::Stage, PipelineLayout&);
@@ -90,15 +98,22 @@ private:
     void insertParameters(AST::Function&, const UsedResources&);
     void insertMaterializations(AST::Function&, const UsedResources&);
     void insertLocalDefinitions(AST::Function&, const UsedPrivateGlobals&);
+    void readVariable(AST::IdentifierExpression&, AST::Variable&, Context);
+    void insertBeforeCurrentStatement(AST::Statement&);
+    void packResourceStruct(AST::Variable&);
 
     CallGraph& m_callGraph;
     PrepareResult& m_result;
     HashMap<String, Global> m_globals;
     IndexMap<Vector<std::pair<unsigned, Global*>>> m_groupBindingMap;
-    IndexMap<Type*> m_structTypes;
-    HashSet<String> m_defs;
+    IndexMap<const Type*> m_structTypes;
+    HashMap<String, AST::Variable*> m_defs;
     HashSet<String> m_reads;
     Reflection::EntryPointInformation* m_entryPointInformation { nullptr };
+    unsigned m_constantId { 0 };
+    unsigned m_currentStatementIndex { 0 };
+    Vector<Insertion> m_pendingInsertions;
+    HashMap<const Types::Struct*, const Type*> m_packedStructTypes;
 };
 
 void RewriteGlobalVariables::run()
@@ -143,25 +158,52 @@ void RewriteGlobalVariables::visitCallee(const CallGraph::Callee& callee)
 
 void RewriteGlobalVariables::visit(AST::Function& function)
 {
-    for (auto& parameter : function.parameters())
-        def(parameter.name());
-
-    // FIXME: detect when we shadow a global that a callee needs
-    AST::Visitor::visit(function.body());
-
     for (auto& callee : m_callGraph.callees(function))
         visitCallee(callee);
+
+    for (auto& parameter : function.parameters())
+        def(parameter.name(), nullptr);
+
+    // FIXME: detect when we shadow a global that a callee needs
+    visit(function.body());
 }
 
 void RewriteGlobalVariables::visit(AST::Variable& variable)
 {
-    def(variable.name());
+    def(variable.name(), &variable);
     AST::Visitor::visit(variable);
 }
 
 void RewriteGlobalVariables::visit(AST::IdentifierExpression& identifier)
 {
-    read(identifier.identifier());
+    auto def = m_defs.find(identifier.identifier());
+    if (def != m_defs.end()) {
+        if (def->value)
+            readVariable(identifier, *def->value, Context::Local);
+        return;
+    }
+
+    auto it = m_globals.find(identifier.identifier());
+    if (it == m_globals.end())
+        return;
+    readVariable(identifier, *it->value.declaration, Context::Global);
+}
+
+void RewriteGlobalVariables::visit(AST::CompoundStatement& statement)
+{
+    auto indexScope = SetForScope(m_currentStatementIndex, 0);
+    auto insertionScope = SetForScope(m_pendingInsertions, Vector<Insertion>());
+
+    for (auto& statement : statement.statements()) {
+        AST::Visitor::visit(statement);
+        ++m_currentStatementIndex;
+    }
+
+    unsigned offset = 0;
+    for (auto& insertion : m_pendingInsertions) {
+        m_callGraph.ast().insert(statement.statements(), insertion.index + offset, AST::Statement::Ref(*insertion.statement));
+        ++offset;
+    }
 }
 
 void RewriteGlobalVariables::collectGlobals()
@@ -172,11 +214,11 @@ void RewriteGlobalVariables::collectGlobals()
         std::optional<unsigned> binding;
         for (auto& attribute : globalVar.attributes()) {
             if (is<AST::GroupAttribute>(attribute)) {
-                group = { downcast<AST::GroupAttribute>(attribute).group() };
+                group = { *AST::extractInteger(downcast<AST::GroupAttribute>(attribute).group()) };
                 continue;
             }
             if (is<AST::BindingAttribute>(attribute)) {
-                binding = { downcast<AST::BindingAttribute>(attribute).binding() };
+                binding = { *AST::extractInteger(downcast<AST::BindingAttribute>(attribute).binding()) };
                 continue;
             }
         }
@@ -197,8 +239,67 @@ void RewriteGlobalVariables::collectGlobals()
             Global& global = result.iterator->value;
             auto result = m_groupBindingMap.add(resource->group, Vector<std::pair<unsigned, Global*>>());
             result.iterator->value.append({ resource->binding, &global });
+            packResourceStruct(globalVar);
         }
     }
+}
+
+void RewriteGlobalVariables::packResourceStruct(AST::Variable& global)
+{
+    auto* type = global.maybeTypeName();
+    ASSERT(type);
+    if (!is<AST::NamedTypeName>(*type))
+        return;
+
+    auto& namedTypeName = downcast<AST::NamedTypeName>(*type);
+    auto* structType = std::get_if<Types::Struct>(namedTypeName.resolvedType());
+    if (!structType)
+        return;
+
+    String packedStructName = makeString("__", structType->structure.name(), "_Packed");
+
+    const Type* packedStructType = nullptr;
+    if (structType->structure.role() != AST::StructureRole::UserDefinedResource) {
+        ASSERT(structType->structure.role() == AST::StructureRole::UserDefined);
+        m_callGraph.ast().replace(&structType->structure.role(), AST::StructureRole::UserDefinedResource);
+
+        auto& packedStruct = m_callGraph.ast().astBuilder().construct<AST::Structure>(
+            SourceSpan::empty(),
+            AST::Identifier::make(packedStructName),
+            AST::StructureMember::List(structType->structure.members()),
+            AST::Attribute::List { },
+            AST::StructureRole::PackedResource
+
+        );
+        m_callGraph.ast().append(m_callGraph.ast().structures(), packedStruct);
+        packedStructType = m_callGraph.ast().types().structType(packedStruct);
+        m_packedStructTypes.add(structType, packedStructType);
+    } else
+        packedStructType = m_packedStructTypes.get(structType);
+
+    auto& packedType = m_callGraph.ast().astBuilder().construct<AST::NamedTypeName>(
+        SourceSpan::empty(),
+        AST::Identifier::make(packedStructName)
+    );
+    packedType.m_resolvedType = packedStructType;
+    m_callGraph.ast().replace(namedTypeName, packedType);
+
+    auto* maybeReference = global.maybeReferenceType();
+    ASSERT(maybeReference);
+    ASSERT(is<AST::ReferenceTypeName>(*maybeReference));
+    auto& reference = downcast<AST::ReferenceTypeName>(*maybeReference);
+    auto* referenceType = std::get_if<Types::Reference>(reference.resolvedType());
+    ASSERT(referenceType);
+    auto& packedTypeReference = m_callGraph.ast().astBuilder().construct<AST::ReferenceTypeName>(
+        SourceSpan::empty(),
+        packedType
+    );
+    packedTypeReference.m_resolvedType = m_callGraph.ast().types().referenceType(
+        referenceType->addressSpace,
+        packedType.resolvedType(),
+        referenceType->accessMode
+    );
+    m_callGraph.ast().replace(reference, packedTypeReference);
 }
 
 void RewriteGlobalVariables::visitEntryPoint(AST::Function& function, AST::StageAttribute::Stage stage, PipelineLayout& pipelineLayout)
@@ -233,13 +334,12 @@ auto RewriteGlobalVariables::determineUsedGlobals(PipelineLayout& pipelineLayout
             break;
         case AST::VariableFlavor::Var:
         case AST::VariableFlavor::Let:
+        case AST::VariableFlavor::Const:
             if (!global.resource.has_value()) {
                 usedGlobals.privateGlobals.append(&global);
                 continue;
             }
             break;
-        case AST::VariableFlavor::Const:
-            continue;
         }
 
         auto group = global.resource->group;
@@ -327,7 +427,10 @@ void RewriteGlobalVariables::insertStructs(const UsedResources& usedResources)
                 AST::Identifier::make(global->declaration->name()),
                 *global->declaration->maybeReferenceType(),
                 AST::Attribute::List {
-                    m_callGraph.ast().astBuilder().construct<AST::BindingAttribute>(span, binding)
+                    m_callGraph.ast().astBuilder().construct<AST::BindingAttribute>(
+                        span,
+                        m_callGraph.ast().astBuilder().construct<AST::AbstractIntegerLiteral>(span, binding)
+                    )
                 }
             ));
         }
@@ -355,7 +458,10 @@ void RewriteGlobalVariables::insertParameters(AST::Function& function, const Use
             argumentBufferParameterName(group),
             type,
             AST::Attribute::List {
-                m_callGraph.ast().astBuilder().construct<AST::GroupAttribute>(span, group)
+                m_callGraph.ast().astBuilder().construct<AST::GroupAttribute>(
+                    span,
+                    m_callGraph.ast().astBuilder().construct<AST::AbstractIntegerLiteral>(span, group)
+                )
             },
             AST::ParameterRole::BindGroup
         ));
@@ -405,28 +511,53 @@ void RewriteGlobalVariables::insertMaterializations(AST::Function& function, con
 void RewriteGlobalVariables::insertLocalDefinitions(AST::Function& function, const UsedPrivateGlobals& usedPrivateGlobals)
 {
     for (auto* global : usedPrivateGlobals) {
-        auto& variableStatement = m_callGraph.ast().astBuilder().construct<AST::VariableStatement>(
-            SourceSpan::empty(),
-            *global->declaration
-        );
+        auto& variable = *global->declaration;
+        auto& variableStatement = m_callGraph.ast().astBuilder().construct<AST::VariableStatement>(SourceSpan::empty(), variable);
         m_callGraph.ast().insert(function.body().statements(), 0, std::reference_wrapper<AST::Statement>(variableStatement));
     }
 }
 
-void RewriteGlobalVariables::def(const String& name)
+void RewriteGlobalVariables::def(const String& name, AST::Variable* variable)
 {
-    m_defs.add(name);
+    m_defs.add(name, variable);
 }
 
-auto RewriteGlobalVariables::read(const String& name) -> Global*
+void RewriteGlobalVariables::readVariable(AST::IdentifierExpression& identifier, AST::Variable& variable, Context context)
 {
-    if (m_defs.contains(name))
-        return nullptr;
-    auto it = m_globals.find(name);
-    if (it == m_globals.end())
-        return nullptr;
-    m_reads.add(name);
-    return &it->value;
+    if (variable.flavor() != AST::VariableFlavor::Const) {
+        if (context == Context::Global)
+            m_reads.add(identifier.identifier());
+        return;
+    }
+
+    String newName = makeString("__const", String::number(++m_constantId));
+    auto& newInitializer = m_callGraph.ast().astBuilder().construct<AST::IdentityExpression>(
+        variable.maybeInitializer()->span(),
+        *variable.maybeInitializer()
+    );
+    newInitializer.m_inferredType = identifier.inferredType();
+    auto& newVariable = m_callGraph.ast().astBuilder().construct<AST::Variable>(
+        variable.span(),
+        AST::VariableFlavor::Let,
+        AST::Identifier::make(newName),
+        nullptr,
+        variable.maybeTypeName(),
+        &newInitializer,
+        AST::Attribute::List { }
+    );
+
+    m_callGraph.ast().replace(&identifier.identifier(), AST::Identifier::make(newName));
+
+    auto& statement = m_callGraph.ast().astBuilder().construct<AST::VariableStatement>(
+        SourceSpan::empty(),
+        newVariable
+    );
+    insertBeforeCurrentStatement(statement);
+}
+
+void RewriteGlobalVariables::insertBeforeCurrentStatement(AST::Statement& statement)
+{
+    m_pendingInsertions.append({ &statement, m_currentStatementIndex });
 }
 
 AST::Identifier RewriteGlobalVariables::argumentBufferParameterName(unsigned group)

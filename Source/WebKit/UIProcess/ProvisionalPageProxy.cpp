@@ -177,7 +177,7 @@ void ProvisionalPageProxy::cancel()
 
 void ProvisionalPageProxy::initializeWebPage(RefPtr<API::WebsitePolicies>&& websitePolicies)
 {
-    m_drawingArea = m_page->pageClient().createDrawingAreaProxy(m_process);
+    m_drawingArea = m_page->pageClient().createDrawingAreaProxy();
 
     auto parameters = m_page->creationParameters(m_process, *m_drawingArea, WTFMove(websitePolicies));
     parameters.isProcessSwap = true;
@@ -414,21 +414,21 @@ void ProvisionalPageProxy::decidePolicyForNavigationActionSync(FrameIdentifier f
 
 void ProvisionalPageProxy::logDiagnosticMessageFromWebProcess(const String& message, const String& description, WebCore::ShouldSample shouldSample)
 {
-    MESSAGE_CHECK(m_process, message.isAllASCII());
+    MESSAGE_CHECK(m_process, message.containsOnlyASCII());
 
     m_page->logDiagnosticMessage(message, description, shouldSample);
 }
 
 void ProvisionalPageProxy::logDiagnosticMessageWithEnhancedPrivacyFromWebProcess(const String& message, const String& description, WebCore::ShouldSample shouldSample)
 {
-    MESSAGE_CHECK(m_process, message.isAllASCII());
+    MESSAGE_CHECK(m_process, message.containsOnlyASCII());
 
     m_page->logDiagnosticMessageWithEnhancedPrivacy(message, description, shouldSample);
 }
 
 void ProvisionalPageProxy::logDiagnosticMessageWithValueDictionaryFromWebProcess(const String& message, const String& description, const WebCore::DiagnosticLoggingClient::ValueDictionary& valueDictionary, WebCore::ShouldSample shouldSample)
 {
-    MESSAGE_CHECK(m_process, message.isAllASCII());
+    MESSAGE_CHECK(m_process, message.containsOnlyASCII());
 
     m_page->logDiagnosticMessageWithValueDictionary(message, description, valueDictionary, shouldSample);
 }

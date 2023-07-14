@@ -108,9 +108,6 @@
 
 #if USE(GSTREAMER_GL)
 #include "GLVideoSinkGStreamer.h"
-#include "VideoTextureCopierGStreamer.h"
-
-#define TEXTURE_COPIER_COLOR_CONVERT_FLAG VideoTextureCopierGStreamer::ColorConversion::NoConvert
 #endif // USE(GSTREAMER_GL)
 
 #if USE(TEXTURE_MAPPER_GL)
@@ -141,14 +138,6 @@ using namespace std;
 #if USE(GSTREAMER_HOLEPUNCH)
 static const FloatSize s_holePunchDefaultFrameSize(1280, 720);
 #endif
-
-static void initializeDebugCategory()
-{
-    static std::once_flag onceFlag;
-    std::call_once(onceFlag, [] {
-        GST_DEBUG_CATEGORY_INIT(webkit_media_player_debug, "webkitmediaplayer", 0, "WebKit media player");
-    });
-}
 
 MediaPlayerPrivateGStreamer::MediaPlayerPrivateGStreamer(MediaPlayer* player)
     : m_notifier(MainThreadNotifier<MainThreadNotification>::create())
@@ -292,7 +281,10 @@ private:
 
 void MediaPlayerPrivateGStreamer::registerMediaEngine(MediaEngineRegistrar registrar)
 {
-    initializeDebugCategory();
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [] {
+        GST_DEBUG_CATEGORY_INIT(webkit_media_player_debug, "webkitmediaplayer", 0, "WebKit media player");
+    });
     registrar(makeUnique<MediaPlayerFactoryGStreamer>());
 }
 
@@ -2769,15 +2761,14 @@ bool isMediaDiskCacheDisabled()
 #if PLATFORM(WPE)
     static std::once_flag once;
     std::call_once(once, []() {
-        auto s = String::fromLatin1(std::getenv("WPE_SHELL_DISABLE_MEDIA_DISK_CACHE"));
-        if (!s.isEmpty()) {
-            // FIXME: should this use StringView and equalLettersIgnoringASCIICase? Or even strcmp?
-            // https://github.com/WebKit/WebKit/pull/14233#discussion_r1202410966
-            auto value = s.trim(deprecatedIsSpaceOrNewline).convertToLowercaseWithoutLocale();
-            result = (value == "1"_s || value == "t"_s || value == "true"_s);
+        auto shouldDisableMediaDiskCache = StringView::fromLatin1(std::getenv("WPE_SHELL_DISABLE_MEDIA_DISK_CACHE"));
+        if (!shouldDisableMediaDiskCache.isEmpty()) {
+            result = shouldDisableMediaDiskCache == "1"_s || equalLettersIgnoringASCIICase(shouldDisableMediaDiskCache, "true"_s)
+                || equalLettersIgnoringASCIICase(shouldDisableMediaDiskCache, "t"_s);
         }
     });
 #endif
+    GST_DEBUG("Should disable media disk cache: %s", boolForPrinting(result));
     return result;
 }
 
@@ -3831,43 +3822,6 @@ DestinationColorSpace MediaPlayerPrivateGStreamer::colorSpace()
     return DestinationColorSpace::SRGB();
 }
 
-#if USE(GSTREAMER_GL)
-bool MediaPlayerPrivateGStreamer::copyVideoTextureToPlatformTexture(GraphicsContextGL* context, PlatformGLObject outputTexture, GCGLenum outputTarget, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY)
-{
-    UNUSED_PARAM(context);
-
-    if (m_isUsingFallbackVideoSink)
-        return false;
-
-    Locker sampleLocker { m_sampleMutex };
-
-    if (!GST_IS_SAMPLE(m_sample.get()))
-        return false;
-
-    std::unique_ptr<GstVideoFrameHolder> frameHolder = makeUnique<GstVideoFrameHolder>(m_sample.get(), m_videoDecoderPlatform, m_textureMapperFlags, true);
-
-    std::unique_ptr<TextureMapperPlatformLayerBuffer> layerBuffer = frameHolder->platformLayerBuffer();
-    if (!layerBuffer)
-        return false;
-
-    auto size = frameHolder->size();
-    if (m_videoSourceOrientation.usesWidthAsHeight())
-        size = size.transposedSize();
-
-    if (!m_videoTextureCopier)
-        m_videoTextureCopier = makeUnique<VideoTextureCopierGStreamer>(TEXTURE_COPIER_COLOR_CONVERT_FLAG);
-
-    frameHolder->waitForCPUSync();
-
-    return m_videoTextureCopier->copyVideoTextureToPlatformTexture(*layerBuffer.get(), size, outputTexture, outputTarget, level, internalFormat, format, type, flipY, m_videoSourceOrientation, premultiplyAlpha);
-}
-
-RefPtr<NativeImage> MediaPlayerPrivateGStreamer::nativeImageForCurrentTime()
-{
-    return nullptr;
-}
-#endif // USE(GSTREAMER_GL)
-
 RefPtr<VideoFrame> MediaPlayerPrivateGStreamer::videoFrameForCurrentTime()
 {
     Locker sampleLocker { m_sampleMutex };
@@ -4139,6 +4093,9 @@ void MediaPlayerPrivateGStreamer::setStreamVolumeElement(GstStreamVolume* volume
 
 bool MediaPlayerPrivateGStreamer::updateVideoSinkStatistics()
 {
+    if (!m_videoSink)
+        return false;
+
     uint64_t totalVideoFrames = 0;
     uint64_t droppedVideoFrames = 0;
     GUniqueOutPtr<GstStructure> stats;
@@ -4421,6 +4378,8 @@ String MediaPlayerPrivateGStreamer::codecForStreamId(const String& streamId)
     return m_codecs.get(streamId);
 }
 
-}
+#undef GST_CAT_DEFAULT
 
-#endif // USE(GSTREAMER)
+} // namespace WebCore
+
+#endif //  ENABLE(VIDEO) && USE(GSTREAMER)

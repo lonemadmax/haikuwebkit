@@ -66,7 +66,8 @@
       "name" : "Abrar Rahman Protyasha",
       "nicks" : [
          "aprotyas"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -3611,6 +3612,14 @@
    },
    {
       "emails" : [
+         "jasmine.mok@sony.com",
+         "jasminemok@ucla.edu"
+      ],
+      "github" : "mokjasmine",
+      "name" : "Jasmine Mok"
+   },
+   {
+      "emails" : [
          "lawrence.j@apple.com"
       ],
       "name" : "Jason Lawrence",
@@ -3763,6 +3772,16 @@
       "name" : "Jeremy Orlow",
       "nicks" : [
          "jorlow"
+      ]
+   },
+   {
+      "emails" : [
+         "jcheung23@apple.com",
+         "cheungje@usc.edu"
+      ],
+      "name" : "Jessica Cheung",
+      "nicks" : [
+         "jesxilin"
       ]
    },
    {

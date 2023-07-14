@@ -923,7 +923,7 @@ bool MediaPlayer::isVideoFullscreenStandby() const
 
 FloatSize MediaPlayer::videoInlineSize() const
 {
-    return m_private->videoInlineSize();
+    return client().mediaPlayerVideoInlineSize();
 }
 
 void MediaPlayer::setVideoInlineSizeFenced(const FloatSize& size, const WTF::MachSendRight& fence)
@@ -1966,6 +1966,22 @@ String convertEnumerationToString(MediaPlayer::SupportsType enumerationValue)
     static_assert(static_cast<size_t>(MediaPlayer::SupportsType::MayBeSupported) == 2, "MediaPlayer::SupportsType::MayBeSupported is not 2 as expected");
     ASSERT(static_cast<size_t>(enumerationValue) < std::size(values));
     return values[static_cast<size_t>(enumerationValue)];
+}
+
+WTF::TextStream& operator<<(TextStream& ts, MediaPlayerEnums::VideoGravity gravity)
+{
+    switch (gravity) {
+    case MediaPlayerEnums::VideoGravity::Resize:
+        ts << "resize";
+        break;
+    case MediaPlayerEnums::VideoGravity::ResizeAspect:
+        ts << "resize-aspect";
+        break;
+    case MediaPlayerEnums::VideoGravity::ResizeAspectFill:
+        ts << "resize-aspect-fill";
+        break;
+    }
+    return ts;
 }
 
 String convertEnumerationToString(MediaPlayer::BufferingPolicy enumerationValue)

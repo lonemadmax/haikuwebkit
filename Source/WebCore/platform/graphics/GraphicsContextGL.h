@@ -53,7 +53,6 @@
 #endif
 #endif
 
-
 template<typename... Types>
 struct GCGLSpanTuple;
 
@@ -1343,8 +1342,8 @@ public:
     virtual void bufferData(GCGLenum target, std::span<const uint8_t> data, GCGLenum usage) = 0;
     virtual void bufferSubData(GCGLenum target, GCGLintptr offset, std::span<const uint8_t> data) = 0;
 
-    virtual void readPixels(IntRect, GCGLenum format, GCGLenum type, std::span<uint8_t> data) = 0;
-    virtual void readPixelsBufferObject(IntRect, GCGLenum format, GCGLenum type, GCGLintptr offset) = 0;
+    virtual void readPixels(IntRect, GCGLenum format, GCGLenum type, std::span<uint8_t> data, GCGLint alignment, GCGLint rowLength) = 0;
+    virtual void readPixelsBufferObject(IntRect, GCGLenum format, GCGLenum type, GCGLintptr offset, GCGLint alignment, GCGLint rowLength) = 0;
 
     virtual void texImage2D(GCGLenum target, GCGLint level, GCGLenum internalformat, GCGLsizei width, GCGLsizei height, GCGLint border, GCGLenum format, GCGLenum type,  std::span<const uint8_t> pixels) = 0;
     virtual void texImage2D(GCGLenum target, GCGLint level, GCGLenum internalformat, GCGLsizei width, GCGLsizei height, GCGLint border, GCGLenum format, GCGLenum type, GCGLintptr offset) = 0;
@@ -1477,6 +1476,24 @@ public:
     // ========== EGL related entry points.
 
 #if PLATFORM(COCOA)
+    struct ExternalImageSourceIOSurfaceHandle {
+        MachSendRight handle;
+    };
+    struct ExternalImageSourceMTLSharedTextureHandle {
+        MachSendRight handle;
+    };
+    using ExternalImageSource = std::variant<
+        ExternalImageSourceIOSurfaceHandle,
+        ExternalImageSourceMTLSharedTextureHandle
+        >;
+#else
+    using ExternalImageSource = int;
+#endif
+    using ExternalImageAttachResult = std::tuple<GCEGLImage, IntSize>;
+    virtual std::optional<ExternalImageAttachResult> createAndBindExternalImage(GCGLenum, ExternalImageSource) = 0;
+    virtual void destroyEGLImage(GCEGLImage) = 0;
+
+#if PLATFORM(COCOA)
     using ExternalEGLSyncEvent = std::tuple<MachSendRight, uint64_t>;
 #else
     using ExternalEGLSyncEvent = int;
@@ -1541,6 +1558,11 @@ public:
 
     // GL_EXT_polygon_offset_clamp
     virtual void polygonOffsetClampEXT(GCGLfloat factor, GCGLfloat units, GCGLfloat clamp) = 0;
+
+    // ========== Internal use for WebXR on WebGL1 contexts.
+    virtual void renderbufferStorageMultisampleANGLE(GCGLenum target, GCGLsizei samples, GCGLenum internalformat, GCGLsizei width, GCGLsizei height) = 0;
+    virtual void blitFramebufferANGLE(GCGLint srcX0, GCGLint srcY0, GCGLint srcX1, GCGLint srcY1, GCGLint dstX0, GCGLint dstY0, GCGLint dstX1, GCGLint dstY1, GCGLbitfield mask, GCGLenum filter) = 0;
+
 
     // ========== Other functions.
     GCGLfloat getFloat(GCGLenum pname);
@@ -1616,14 +1638,18 @@ public:
 
     // Computes the bytes per image element for a format and type.
     // Returns zero if format or type is an invalid enum.
-    static unsigned computeBytesPerGroup(GCGLenum format, GCGLenum type);
+    WEBCORE_EXPORT static unsigned computeBytesPerGroup(GCGLenum format, GCGLenum type);
 
-    // Computes the image size in bytes. If paddingInBytes is not null, padding
-    // is also calculated in return. Returns NO_ERROR if succeed, otherwise
-    // return the suggested GL error indicating the cause of the failure:
-    //   INVALID_VALUE if width/height is negative or overflow happens.
-    //   INVALID_ENUM if format/type is illegal.
-    static GCGLenum computeImageSizeInBytes(GCGLenum format, GCGLenum type, GCGLsizei width, GCGLsizei height, GCGLsizei depth, const PixelStoreParameters&, unsigned* imageSizeInBytes, unsigned* paddingInBytes, unsigned* skipSizeInBytes);
+
+    struct PixelRectangleSizes {
+        unsigned initialSkipBytes { 0 };
+        unsigned imageBytes { 0 }; // Size for the tightly packed image, does not include initial skip, alignment, row length skip.
+        unsigned alignedRowBytes { 0 }; // Row bytes including alignment, image, row length skips (rows 0..height-2)
+        unsigned lastRowBytes { 0 }; // Row bytes of the last row, i.e. of the tightly packed image (last row, height - 1).
+    };
+    // Returns nullopt if width/height is negative or overflow happens or if format and type are invalid.
+    // Also validates total bytes (imageBytes + initialSkipBytes)
+    static std::optional<PixelRectangleSizes> computeImageSize(GCGLenum format, GCGLenum type, IntSize, GCGLsizei depth, const PixelStoreParameters&);
 
     // Extracts the contents of the given PixelBuffer into the passed Vector,
     // packing the pixel data according to the given format and type,

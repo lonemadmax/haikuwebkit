@@ -241,12 +241,7 @@ ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::create(ScriptExecutio
     if (!pixelBuffer)
         return Exception { InvalidStateError,  "Buffer has no frame"_s };
 
-    RefPtr<VideoFrame> videoFrame;
-#if PLATFORM(COCOA)
-    videoFrame = VideoFrameCV::createFromPixelBuffer(pixelBuffer.releaseNonNull());
-#elif USE(GSTREAMER)
-    videoFrame = VideoFrameGStreamer::createFromPixelBuffer(pixelBuffer.releaseNonNull(), VideoFrameGStreamer::CanvasContentType::Canvas2D);
-#endif
+    auto videoFrame = VideoFrame::createFromPixelBuffer(pixelBuffer.releaseNonNull(), { PlatformVideoColorPrimaries::Bt709, PlatformVideoTransferCharacteristics::Iec6196621, PlatformVideoMatrixCoefficients::Rgb, true });
 
     if (!videoFrame)
         return Exception { InvalidStateError,  "Unable to create frame from buffer"_s };
@@ -502,12 +497,24 @@ ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::clone(ScriptExecution
 // https://w3c.github.io/webcodecs/#close-videoframe
 void WebCodecsVideoFrame::close()
 {
-    m_data = { };
+    m_data.internalFrame = nullptr;
+
+    m_isDetached = true;
+
+    m_data.format = { };
+
+    m_data.codedWidth = 0;
+    m_data.codedHeight = 0;
+    m_data.displayWidth = 0;
+    m_data.displayHeight = 0;
+    m_data.visibleWidth = 0;
+    m_data.visibleHeight = 0;
+    m_data.visibleLeft = 0;
+    m_data.visibleTop = 0;
 
     m_codedRect = nullptr;
     m_visibleRect = nullptr;
     m_colorSpace = nullptr;
-    m_isDetached = true;
 }
 
 DOMRectReadOnly* WebCodecsVideoFrame::codedRect() const

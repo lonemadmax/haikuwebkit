@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 51;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -65,6 +65,7 @@
 		0794742D25CB33FD00C597EC /* webrtc-remote.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 0794742C25CB33B000C597EC /* webrtc-remote.html */; };
 		0794742D25CB33FD00C597ED /* webrtc-remote-iframe.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 0794742C25CB33B000C597ED /* webrtc-remote-iframe.html */; };
 		0799C34B1EBA3301003B7532 /* disableGetUserMedia.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 0799C34A1EBA32F4003B7532 /* disableGetUserMedia.html */; };
+		079D45F22A2A6BBE003830C7 /* Viewport.mm in Sources */ = {isa = PBXBuildFile; fileRef = 079D45F12A2A6BBE003830C7 /* Viewport.mm */; };
 		07C046CA1E4262A8007201E7 /* CARingBuffer.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 07C046C91E42573E007201E7 /* CARingBuffer.cpp */; };
 		07CE1CF31F06A7E000BF89F5 /* GetUserMediaNavigation.mm in Sources */ = {isa = PBXBuildFile; fileRef = 07CE1CF21F06A7E000BF89F5 /* GetUserMediaNavigation.mm */; };
 		07E1F6A21FFC44FA0096C7EC /* getDisplayMedia.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = 07E1F6A11FFC44F90096C7EC /* getDisplayMedia.html */; };
@@ -578,6 +579,7 @@
 		7B2950E22972AFDE008CC225 /* StreamConnectionEncoderTests.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7B2950DA2972AFDD008CC225 /* StreamConnectionEncoderTests.cpp */; };
 		7B397C0628BE0EAD00239202 /* ConnectionTests.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7B397C0528BE0EAD00239202 /* ConnectionTests.cpp */; };
 		7B397C0828BE394B00239202 /* UtilitiesCocoa.mm in Sources */ = {isa = PBXBuildFile; fileRef = 7C83E0391D0A602700FEBCF3 /* UtilitiesCocoa.mm */; };
+		7B52E86C2A2A1A2200A3251F /* ThreadSafeObjectHeapTests.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7B52E8642A2A1A2200A3251F /* ThreadSafeObjectHeapTests.cpp */; };
 		7B636FC229700F0700F3670F /* StreamConnectionWorkQueueTests.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7B636FC129700F0700F3670F /* StreamConnectionWorkQueueTests.cpp */; };
 		7B6FF89728C22D9400CA76B0 /* WebKit.framework in Product Dependencies */ = {isa = PBXBuildFile; fileRef = 2B648DBA28C1C1F700791F2B /* WebKit.framework */; };
 		7B7392E928F849EC007297FC /* MessageSenderTests.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7B7392E128F849EC007297FC /* MessageSenderTests.cpp */; };
@@ -1255,7 +1257,7 @@
 		F6D67D3826F90206006E0349 /* Int128.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F6D67D3626F90206006E0349 /* Int128.cpp */; };
 		F6F49C6B15545CA70007F39D /* DOMWindowExtensionNoCache_Bundle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F6F49C6615545C8D0007F39D /* DOMWindowExtensionNoCache_Bundle.cpp */; };
 		F6FDDDD614241C6F004F1729 /* push-state.html in Copy Resources */ = {isa = PBXBuildFile; fileRef = F6FDDDD514241C48004F1729 /* push-state.html */; };
-		FE2BCDC72470FDA300DEC33B /* StdLibExtras.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE2BCDC62470FC7000DEC33B /* StdLibExtras.cpp */; };
+		FE2BCDC72470FDA300DEC33B /* StdLibExtrasTests.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE2BCDC62470FC7000DEC33B /* StdLibExtrasTests.cpp */; };
 		FE2D9474245EB2F400E48135 /* Bitmap.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FE2D9473245EB2DF00E48135 /* Bitmap.cpp */; };
 		FEC2A85424CE975F00ADBC35 /* DisallowVMEntry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FEC2A85324CE974E00ADBC35 /* DisallowVMEntry.cpp */; };
 		FEC2A85624CEB65F00ADBC35 /* PropertySlot.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FEC2A85524CEB65F00ADBC35 /* PropertySlot.cpp */; };
@@ -1956,7 +1958,7 @@
 		0451A5A6235E438E009DF945 /* BumpPointerAllocator.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = BumpPointerAllocator.cpp; sourceTree = "<group>"; };
 		0711DF51226A95FB003DD2F7 /* AVFoundationSoftLinkTest.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = AVFoundationSoftLinkTest.mm; sourceTree = "<group>"; };
 		07137049265320E500CA2C9A /* AudioBufferSize.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = AudioBufferSize.mm; sourceTree = "<group>"; };
-		0721D4582838295400A95853 /* start-offset.ts */ = {isa = PBXFileReference; lastKnownFileType = file; path = "start-offset.ts"; sourceTree = "<group>"; };
+		0721D4582838295400A95853 /* start-offset.ts */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.typescript; path = "start-offset.ts"; sourceTree = "<group>"; };
 		0738012E275EADAB000FA77C /* GetDisplayMediaWindowAndScreen.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = GetDisplayMediaWindowAndScreen.mm; sourceTree = "<group>"; };
 		0746645722FF62D000E3451A /* AccessibilityTestSupportProtocol.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AccessibilityTestSupportProtocol.h; sourceTree = "<group>"; };
 		0746645822FF630500E3451A /* AccessibilityTestPlugin.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = AccessibilityTestPlugin.mm; sourceTree = "<group>"; };
@@ -1970,6 +1972,7 @@
 		0794742C25CB33B000C597EC /* webrtc-remote.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = "webrtc-remote.html"; sourceTree = "<group>"; };
 		0794742C25CB33B000C597ED /* webrtc-remote-iframe.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = "webrtc-remote-iframe.html"; sourceTree = "<group>"; };
 		0799C34A1EBA32F4003B7532 /* disableGetUserMedia.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = disableGetUserMedia.html; sourceTree = "<group>"; };
+		079D45F12A2A6BBE003830C7 /* Viewport.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = Viewport.mm; sourceTree = "<group>"; };
 		07C046C91E42573E007201E7 /* CARingBuffer.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = CARingBuffer.cpp; sourceTree = "<group>"; };
 		07CC7DFD2266330800E39181 /* MediaBufferingPolicy.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = MediaBufferingPolicy.mm; sourceTree = "<group>"; };
 		07CD32F52065B5420064A4BE /* AVFoundationPreference.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = AVFoundationPreference.mm; sourceTree = "<group>"; };
@@ -2783,6 +2786,7 @@
 		7B2739F22632AB640040F182 /* ThreadAssertionsTest.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ThreadAssertionsTest.cpp; sourceTree = "<group>"; };
 		7B2950DA2972AFDD008CC225 /* StreamConnectionEncoderTests.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StreamConnectionEncoderTests.cpp; sourceTree = "<group>"; };
 		7B397C0528BE0EAD00239202 /* ConnectionTests.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ConnectionTests.cpp; sourceTree = "<group>"; };
+		7B52E8642A2A1A2200A3251F /* ThreadSafeObjectHeapTests.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ThreadSafeObjectHeapTests.cpp; sourceTree = "<group>"; };
 		7B636FC129700F0700F3670F /* StreamConnectionWorkQueueTests.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StreamConnectionWorkQueueTests.cpp; sourceTree = "<group>"; };
 		7B7392E128F849EC007297FC /* MessageSenderTests.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = MessageSenderTests.cpp; sourceTree = "<group>"; };
 		7B7392EA28F849F3007297FC /* IPCTestUtilities.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IPCTestUtilities.h; sourceTree = "<group>"; };
@@ -3572,7 +3576,7 @@
 		F6F49C6715545C8D0007F39D /* DOMWindowExtensionNoCache.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DOMWindowExtensionNoCache.cpp; sourceTree = "<group>"; };
 		F6FDDDD214241AD4004F1729 /* PrivateBrowsingPushStateNoHistoryCallback.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PrivateBrowsingPushStateNoHistoryCallback.cpp; sourceTree = "<group>"; };
 		F6FDDDD514241C48004F1729 /* push-state.html */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.html; path = "push-state.html"; sourceTree = "<group>"; };
-		FE2BCDC62470FC7000DEC33B /* StdLibExtras.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StdLibExtras.cpp; sourceTree = "<group>"; };
+		FE2BCDC62470FC7000DEC33B /* StdLibExtrasTests.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StdLibExtrasTests.cpp; sourceTree = "<group>"; };
 		FE2D9473245EB2DF00E48135 /* Bitmap.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Bitmap.cpp; sourceTree = "<group>"; };
 		FEB6F74E1B2BA44E009E4922 /* NakedPtr.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = NakedPtr.cpp; sourceTree = "<group>"; };
 		FEC2A85324CE974E00ADBC35 /* DisallowVMEntry.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = DisallowVMEntry.cpp; sourceTree = "<group>"; };
@@ -4468,6 +4472,7 @@
 				F46849BD1EEF58E400B937FE /* UIPasteboardTests.mm */,
 				F402F56B23ECC2FB00865549 /* UIWKInteractionViewProtocol.mm */,
 				E5AA42F1259128AE00410A3D /* UserInterfaceIdiomUpdate.mm */,
+				079D45F12A2A6BBE003830C7 /* Viewport.mm */,
 				F43E3BBE20DADA1E00A4E7ED /* WKScrollViewTests.mm */,
 				514958BD1F7427AC00E87BAD /* WKWebViewAutofillTests.mm */,
 				1CACADA0230620AD0007D54C /* WKWebViewOpaque.mm */,
@@ -4496,6 +4501,7 @@
 				7B2950DA2972AFDD008CC225 /* StreamConnectionEncoderTests.cpp */,
 				7BAA4A8F28CA14AE004CE938 /* StreamConnectionTests.cpp */,
 				7B636FC129700F0700F3670F /* StreamConnectionWorkQueueTests.cpp */,
+				7B52E8642A2A1A2200A3251F /* ThreadSafeObjectHeapTests.cpp */,
 			);
 			path = IPC;
 			sourceTree = "<group>";
@@ -5211,7 +5217,7 @@
 				33C2C9C02651F5B900E407F6 /* SmallSet.cpp */,
 				93FCDB33263631560046DD7D /* SortedArrayMap.cpp */,
 				7BF5017028E55F7A0008BB16 /* StackTraceTest.cpp */,
-				FE2BCDC62470FC7000DEC33B /* StdLibExtras.cpp */,
+				FE2BCDC62470FC7000DEC33B /* StdLibExtrasTests.cpp */,
 				81B50192140F232300D9EB58 /* StringBuilder.cpp */,
 				E3DE273B28A8D67700873DF2 /* StringCommon.cpp */,
 				7CD4C26C1E2C0E6E00929470 /* StringConcatenate.cpp */,
@@ -6087,6 +6093,7 @@
 				7BAA4A9028CA14AE004CE938 /* StreamConnectionTests.cpp in Sources */,
 				7B636FC229700F0700F3670F /* StreamConnectionWorkQueueTests.cpp in Sources */,
 				7B9FC58C28A2717D007570E7 /* TestsController.cpp in Sources */,
+				7B52E86C2A2A1A2200A3251F /* ThreadSafeObjectHeapTests.cpp in Sources */,
 				7B397C0828BE394B00239202 /* UtilitiesCocoa.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -6182,7 +6189,7 @@
 				33C2C9C12651F5B900E407F6 /* SmallSet.cpp in Sources */,
 				93FCDB34263631560046DD7D /* SortedArrayMap.cpp in Sources */,
 				7BF5017828E55F7A0008BB16 /* StackTraceTest.cpp in Sources */,
-				FE2BCDC72470FDA300DEC33B /* StdLibExtras.cpp in Sources */,
+				FE2BCDC72470FDA300DEC33B /* StdLibExtrasTests.cpp in Sources */,
 				7C83DF321D0A590C00FEBCF3 /* StringBuilder.cpp in Sources */,
 				E3DE273C28A8D67800873DF2 /* StringCommon.cpp in Sources */,
 				7CD4C26E1E2C0E6E00929470 /* StringConcatenate.cpp in Sources */,
@@ -6647,6 +6654,7 @@
 				7CCE7F171A411AE600447C4C /* UserMedia.cpp in Sources */,
 				7CCE7F181A411AE600447C4C /* UserMessage.cpp in Sources */,
 				7C83E03A1D0A602700FEBCF3 /* UtilitiesCocoa.mm in Sources */,
+				079D45F22A2A6BBE003830C7 /* Viewport.mm in Sources */,
 				115EB3431EE0BA03003C2C0A /* ViewportSizeForViewportUnits.mm in Sources */,
 				51EB125724C67257000CB030 /* VirtualGamepad.mm in Sources */,
 				0F139E771A423A5B00F590F5 /* WeakObjCPtr.mm in Sources */,

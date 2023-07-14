@@ -605,6 +605,16 @@ static bool isAccessibilityList(Node* node)
         || (nodeHasRole(node, nullAtom()) && (node->hasTagName(ulTag) || node->hasTagName(olTag) || node->hasTagName(dlTag) || node->hasTagName(menuTag)))));
 }
 
+static bool isAccessibilityTree(Node* node)
+{
+    return nodeHasRole(node, "tree"_s);
+}
+
+static bool isAccessibilityTreeItem(Node* node)
+{
+    return nodeHasRole(node, "treeitem"_s);
+}
+
 Ref<AccessibilityObject> AXObjectCache::createObjectFromRenderer(RenderObject* renderer)
 {
     // FIXME: How could renderer->node() ever not be an Element?
@@ -622,9 +632,9 @@ Ref<AccessibilityObject> AXObjectCache::createObjectFromRenderer(RenderObject* r
         return AccessibilityARIAGridCell::create(renderer);
 
     // aria tree
-    if (nodeHasRole(node, "tree"_s))
+    if (isAccessibilityTree(node))
         return AccessibilityTree::create(renderer);
-    if (nodeHasRole(node, "treeitem"_s))
+    if (isAccessibilityTreeItem(node))
         return AccessibilityTreeItem::create(renderer);
 
     if (node && is<HTMLLabelElement>(node) && nodeHasRole(node, nullAtom()))
@@ -689,6 +699,10 @@ static Ref<AccessibilityObject> createFromNode(Node& node)
 {
     if (isAccessibilityList(&node))
         return AccessibilityList::create(node);
+    if (isAccessibilityTree(&node))
+        return AccessibilityTree::create(node);
+    if (isAccessibilityTreeItem(&node))
+        return AccessibilityTreeItem::create(node);
     return AccessibilityNodeObject::create(node);
 }
 
@@ -1458,6 +1472,11 @@ void AXObjectCache::onFocusChange(Node* oldNode, Node* newNode)
         handleFocusedUIElementChanged(oldNode, newNode);
 }
 
+void AXObjectCache::onPopoverTargetToggle(const HTMLFormControlElement& popoverInvokerElement)
+{
+    postNotification(get(const_cast<HTMLFormControlElement*>(&popoverInvokerElement)), &document(), AXExpandedChanged);
+}
+
 void AXObjectCache::deferMenuListValueChange(Element* element)
 {
     if (!element)
@@ -1511,6 +1530,19 @@ static bool isARIATableCell(Node* node)
     return node && (nodeHasRole(node, "gridcell"_s) || nodeHasRole(node, "cell"_s) || nodeHasRole(node, "columnheader"_s) || nodeHasRole(node, "rowheader"_s));
 }
 
+void AXObjectCache::onScrollbarFrameRectChange(const Scrollbar& scrollbar)
+{
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    if (!m_pageID || !isIsolatedTreeEnabled())
+        return;
+
+    if (auto* axScrollbar = get(const_cast<Scrollbar*>(&scrollbar)))
+        m_geometryManager->cacheRect(axScrollbar->objectID(), enclosingIntRect(axScrollbar->relativeFrame()));
+#else
+    UNUSED_PARAM(scrollbar);
+#endif
+}
+
 void AXObjectCache::onSelectedChanged(Node* node)
 {
     if (isARIATableCell(node))
@@ -1520,8 +1552,10 @@ void AXObjectCache::onSelectedChanged(Node* node)
     else if (auto* axObject = getOrCreate(node)) {
         if (auto* ancestor = Accessibility::findAncestor<AccessibilityObject>(*axObject, false, [] (const auto& object) {
             return object.canHaveSelectedChildren();
-        }))
+        })) {
             selectedChildrenChanged(ancestor->node());
+            postNotification(axObject, &node->document(), AXSelectedStateChanged);
+        }
     }
 
     handleMenuItemSelected(node);
@@ -3887,14 +3921,14 @@ void AXObjectCache::onPaint(const RenderObject& renderer, IntRect&& paintRect) c
 {
     if (!m_pageID)
         return;
-    m_geometryManager->onPaint(m_renderObjectMapping.get(const_cast<RenderObject*>(&renderer)), WTFMove(paintRect));
+    m_geometryManager->cacheRect(m_renderObjectMapping.get(const_cast<RenderObject*>(&renderer)), WTFMove(paintRect));
 }
 
 void AXObjectCache::onPaint(const Widget& widget, IntRect&& paintRect) const
 {
     if (!m_pageID)
         return;
-    m_geometryManager->onPaint(m_widgetObjectMapping.get(const_cast<Widget*>(&widget)), WTFMove(paintRect));
+    m_geometryManager->cacheRect(m_widgetObjectMapping.get(const_cast<Widget*>(&widget)), WTFMove(paintRect));
 }
 #endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 

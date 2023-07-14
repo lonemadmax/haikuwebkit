@@ -106,7 +106,6 @@
 #import <WebCore/HTMLLabelElement.h>
 #import <WebCore/HTMLOptGroupElement.h>
 #import <WebCore/HTMLOptionElement.h>
-#import <WebCore/HTMLParserIdioms.h>
 #import <WebCore/HTMLSelectElement.h>
 #import <WebCore/HTMLSummaryElement.h>
 #import <WebCore/HTMLTextAreaElement.h>
@@ -364,7 +363,7 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
                 postLayoutData.selectedEditableImage = contextForElement(*imageElement);
         }
         // FIXME: We should disallow replace when the string contains only CJ characters.
-        postLayoutData.isReplaceAllowed = result.isContentEditable && !result.isInPasswordField && !selectedText.isAllSpecialCharacters<isASCIIWhitespace>();
+        postLayoutData.isReplaceAllowed = result.isContentEditable && !result.isInPasswordField && !selectedText.containsOnly<isASCIIWhitespace>();
     }
 
 #if USE(DICTATION_ALTERNATIVES)
@@ -3469,7 +3468,7 @@ void WebPage::performActionOnElement(uint32_t action, const String& authorizatio
                     titleToCopy = linkElement->attributeWithoutSynchronization(HTMLNames::titleAttr);
                     if (!titleToCopy.length())
                         titleToCopy = linkElement->textContent();
-                    titleToCopy = stripLeadingAndTrailingHTMLSpaces(titleToCopy);
+                    titleToCopy = titleToCopy.trim(isASCIIWhitespace);
                 }
             }
             m_interactionNode->document().editor().writeImageToPasteboard(*Pasteboard::createForCopyAndPaste(PagePasteboardContext::create(element.document().pageID())), element, urlToCopy, titleToCopy);

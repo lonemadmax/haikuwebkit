@@ -2373,7 +2373,7 @@ WebGLAny WebGLRenderingContextBase::getParameter(GCGLenum pname)
     case GraphicsContextGL::NUM_SHADER_BINARY_FORMATS:
         return getIntParameter(pname);
     case GraphicsContextGL::PACK_ALIGNMENT:
-        return getIntParameter(pname);
+        return m_packParameters.alignment;
     case GraphicsContextGL::POLYGON_OFFSET_FACTOR:
         return getFloatParameter(pname);
     case GraphicsContextGL::POLYGON_OFFSET_FILL:
@@ -3279,7 +3279,12 @@ void WebGLRenderingContextBase::makeXRCompatible(MakeXRCompatiblePromise&& promi
         m_isXRCompatible = true;
 
 #if PLATFORM(COCOA) && !PLATFORM(IOS_FAMILY_SIMULATOR)
+        // FIXME: This is ugly. It's something needed at the GraphicsContextGL
+        // level, not WebGLRenderingContext. We should move this down to a
+        // virtual makeXRCompatible or something on GCGL.
         enableSupportedExtension("GL_OES_EGL_image"_s);
+        enableSupportedExtension("GL_EXT_sRGB"_s);
+        enableSupportedExtension("GL_ANGLE_framebuffer_multisample"_s);
 #endif
 
         promise.resolve();
@@ -3310,11 +3315,13 @@ void WebGLRenderingContextBase::pixelStorei(GCGLenum pname, GCGLint param)
     case GraphicsContextGL::PACK_ALIGNMENT:
     case GraphicsContextGL::UNPACK_ALIGNMENT:
         if (param == 1 || param == 2 || param == 4 || param == 8) {
-            if (pname == GraphicsContextGL::PACK_ALIGNMENT)
+            if (pname == GraphicsContextGL::PACK_ALIGNMENT) {
                 m_packParameters.alignment = param;
-            else // GraphicsContextGL::UNPACK_ALIGNMENT:
+                // PACK parameters are client only, not sent to the m_context.
+            } else {
                 m_unpackParameters.alignment = param;
-            m_context->pixelStorei(pname, param);
+                m_context->pixelStorei(pname, param);
+            }
         } else {
             synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "pixelStorei", "invalid parameter for alignment");
             return;
@@ -3332,16 +3339,6 @@ void WebGLRenderingContextBase::polygonOffset(GCGLfloat factor, GCGLfloat units)
         return;
     m_context->polygonOffset(factor, units);
 }
-
-enum class InternalFormatTheme {
-    None,
-    NormalizedFixedPoint,
-    Packed,
-    SignedNormalizedFixedPoint,
-    FloatingPoint,
-    SignedInteger,
-    UnsignedInteger
-};
 
 void WebGLRenderingContextBase::readPixels(GCGLint x, GCGLint y, GCGLsizei width, GCGLsizei height, GCGLenum format, GCGLenum type, RefPtr<ArrayBufferView>&& maybePixels)
 {
@@ -3362,8 +3359,25 @@ void WebGLRenderingContextBase::readPixels(GCGLint x, GCGLint y, GCGLsizei width
     if (!validateTypeAndArrayBufferType("readPixels", ArrayBufferViewFunctionType::ReadPixels, type, &pixels))
         return;
 
+    if (!validateImageFormatAndType("readPixels", format, type))
+        return;
+
+    if (!validateReadPixelsDimensions(width, height))
+        return;
+
+    IntRect rect { x, y, width, height };
+    auto packSizes = GraphicsContextGL::computeImageSize(format, type, rect.size(), 1, m_packParameters);
+    if (!packSizes) {
+        synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "readPixels", "invalid dimensions");
+        return;
+    }
+    if (pixels.byteLength() < packSizes->initialSkipBytes + packSizes->imageBytes) {
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "readPixels", "size too large");
+        return;
+    }
     clearIfComposited(CallerTypeOther);
-    m_context->readPixels(IntRect { x, y, width, height }, format, type, std::span(static_cast<uint8_t*>(pixels.baseAddress()), pixels.byteLength()));
+    std::span<uint8_t> data { static_cast<uint8_t*>(pixels.baseAddress()) + packSizes->initialSkipBytes, packSizes->imageBytes };
+    m_context->readPixels(rect, format, type, data, m_packParameters.alignment, m_packParameters.rowLength);
 }
 
 void WebGLRenderingContextBase::renderbufferStorage(GCGLenum target, GCGLenum internalformat, GCGLsizei width, GCGLsizei height)
@@ -4029,6 +4043,25 @@ WebGLRenderingContextBase::TexImageFunctionType WebGLRenderingContextBase::texIm
     return TexImageFunctionType::TexSubImage;
 }
 
+bool WebGLRenderingContextBase::validateReadPixelsDimensions(GCGLint width, GCGLint height)
+{
+    if (width < 0 || height < 0) {
+        synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "readPixels", "invalid dimensions");
+        return false;
+    }
+    GCGLint dataStoreWidth = m_packParameters.rowLength ? m_packParameters.rowLength : width;
+    if (dataStoreWidth < width) {
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "readPixels", "invalid pack parameters");
+        return false;
+    }
+    auto skipAndWidth = Checked<GCGLint> { m_packParameters.skipPixels } + width;
+    if (skipAndWidth.hasOverflowed() || skipAndWidth > dataStoreWidth) {
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "readPixels", "invalid pack parameters");
+        return false;
+    }
+    return true;
+}
+
 bool WebGLRenderingContextBase::validateTexImageSubRectangle(TexImageFunctionID functionID, const IntRect& imageSize, const IntRect& subRect, GCGLsizei depth, GCGLint unpackImageHeight, bool* selectingSubRectangle)
 {
     const char* functionName = texImageFunctionName(functionID);
@@ -4216,6 +4249,15 @@ bool WebGLRenderingContextBase::validateTypeAndArrayBufferType(const char* funct
     return false;
 }
 
+bool WebGLRenderingContextBase::validateImageFormatAndType(const char* functionName, GCGLenum format, GCGLenum type)
+{
+    if (!GraphicsContextGL::computeBytesPerGroup(format, type)) {
+        synthesizeGLError(GraphicsContextGL::INVALID_ENUM, functionName, "invalid format or type");
+        return false;
+    }
+    return true;
+}
+
 std::optional<std::span<const uint8_t>> WebGLRenderingContextBase::validateTexFuncData(const char* functionName, TexImageDimension texDimension, GCGLsizei width, GCGLsizei height, GCGLsizei depth, GCGLenum format, GCGLenum type, ArrayBufferView* pixels, NullDisposition disposition, GCGLuint srcOffset)
 {
     // All calling functions check isContextLost, so a duplicate check is not
@@ -4235,14 +4277,16 @@ std::optional<std::span<const uint8_t>> WebGLRenderingContextBase::validateTexFu
     if (!validateTypeAndArrayBufferType(functionName, ArrayBufferViewFunctionType::TexImage, type, pixels))
         return std::nullopt;
 
-    unsigned totalBytesRequired, skipBytes;
-    GCGLenum error = m_context->computeImageSizeInBytes(format, type, width, height, depth, computeUnpackPixelStoreParameters(texDimension), &totalBytesRequired, nullptr, &skipBytes);
-    if (error != GraphicsContextGL::NO_ERROR) {
-        synthesizeGLError(error, functionName, "invalid texture dimensions");
+    if (!validateImageFormatAndType(functionName, format, type))
+        return std::nullopt;
+
+    auto packSizes = m_context->computeImageSize(format, type, { width, height }, depth, computeUnpackPixelStoreParameters(texDimension));
+    if (!packSizes) {
+        synthesizeGLError(GraphicsContextGL::INVALID_VALUE, functionName, "invalid texture dimensions");
         return std::nullopt;
     }
 
-    auto dataLength = CheckedSize { totalBytesRequired } + skipBytes;
+    auto dataLength = CheckedSize { packSizes->imageBytes } + packSizes->initialSkipBytes;
     auto offset = CheckedSize { pixels ? JSC::elementSize(pixels->getType()) : 0 } * srcOffset;
     auto total = offset + dataLength;
     if (total.hasOverflowed() || !isInBounds<GCGLsizei>(dataLength)) {

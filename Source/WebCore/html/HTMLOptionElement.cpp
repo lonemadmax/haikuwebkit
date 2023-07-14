@@ -34,7 +34,6 @@
 #include "HTMLDataListElement.h"
 #include "HTMLNames.h"
 #include "HTMLOptGroupElement.h"
-#include "HTMLParserIdioms.h"
 #include "HTMLSelectElement.h"
 #include "NodeName.h"
 #include "NodeRenderStyle.h"
@@ -91,11 +90,10 @@ ExceptionOr<Ref<HTMLOptionElement>> HTMLOptionElement::createForLegacyFactoryFun
 
 bool HTMLOptionElement::isFocusable() const
 {
-    if (!supportsFocus())
+    RefPtr select = ownerSelectElement();
+    if (select && select->usesMenuList())
         return false;
-    // Option elements do not have a renderer.
-    auto* style = const_cast<HTMLOptionElement&>(*this).computedStyle();
-    return style && style->display() != DisplayType::None;
+    return HTMLElement::isFocusable();
 }
 
 bool HTMLOptionElement::matchesDefaultPseudoClass() const
@@ -109,7 +107,7 @@ String HTMLOptionElement::text() const
 
     // FIXME: Is displayStringModifiedByEncoding helpful here?
     // If it's correct here, then isn't it needed in the value and label functions too?
-    return stripLeadingAndTrailingHTMLSpaces(document().displayStringModifiedByEncoding(text)).simplifyWhiteSpace(isASCIIWhitespace);
+    return document().displayStringModifiedByEncoding(text).trim(isASCIIWhitespace).simplifyWhiteSpace(isASCIIWhitespace);
 }
 
 void HTMLOptionElement::setText(String&& text)
@@ -209,7 +207,7 @@ String HTMLOptionElement::value() const
     const AtomString& value = attributeWithoutSynchronization(valueAttr);
     if (!value.isNull())
         return value;
-    return stripLeadingAndTrailingHTMLSpaces(collectOptionInnerText()).simplifyWhiteSpace(isASCIIWhitespace);
+    return collectOptionInnerText().trim(isASCIIWhitespace).simplifyWhiteSpace(isASCIIWhitespace);
 }
 
 void HTMLOptionElement::setValue(const AtomString& value)
@@ -279,15 +277,15 @@ String HTMLOptionElement::label() const
 {
     String label = attributeWithoutSynchronization(labelAttr);
     if (!label.isNull())
-        return stripLeadingAndTrailingHTMLSpaces(label);
-    return stripLeadingAndTrailingHTMLSpaces(collectOptionInnerText()).simplifyWhiteSpace(isASCIIWhitespace);
+        return label.trim(isASCIIWhitespace);
+    return collectOptionInnerText().trim(isASCIIWhitespace).simplifyWhiteSpace(isASCIIWhitespace);
 }
 
 // Same as label() but ignores the label content attribute in quirks mode for compatibility with other browsers.
 String HTMLOptionElement::displayLabel() const
 {
     if (document().inQuirksMode())
-        return stripLeadingAndTrailingHTMLSpaces(collectOptionInnerText()).simplifyWhiteSpace(isASCIIWhitespace);
+        return collectOptionInnerText().trim(isASCIIWhitespace).simplifyWhiteSpace(isASCIIWhitespace);
     return label();
 }
 

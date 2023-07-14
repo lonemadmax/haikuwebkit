@@ -69,14 +69,15 @@ public:
     DrawingAreaType type() const { return m_type; }
     DrawingAreaIdentifier identifier() const { return m_identifier; }
 
-    void startReceivingMessages(WebProcessProxy&);
-    virtual void attachToProvisionalFrameProcess(WebProcessProxy&) = 0;
+    virtual void startReceivingMessages(WebProcessProxy&);
+    virtual void stopReceivingMessages(WebProcessProxy&);
 
     virtual WebCore::DelegatedScrollingMode delegatedScrollingMode() const;
 
     virtual void deviceScaleFactorDidChange() = 0;
     virtual void colorSpaceDidChange() { }
-    virtual void windowScreenDidChange(WebCore::PlatformDisplayID, std::optional<WebCore::FramesPerSecond> /* nominalFramesPerSecond */) { }
+    virtual void windowScreenDidChange(WebCore::PlatformDisplayID) { }
+    virtual std::optional<WebCore::FramesPerSecond> displayNominalFramesPerSecond() { return std::nullopt; }
 
     // FIXME: These should be pure virtual.
     virtual void setBackingStoreIsDiscardable(bool) { }
@@ -105,8 +106,6 @@ public:
     virtual void updateDebugIndicator() { }
 
     virtual void waitForDidUpdateActivityState(ActivityStateChangeID, WebProcessProxy&) { }
-    
-    virtual void dispatchAfterEnsuringDrawing(CompletionHandler<void()>&&) = 0;
 
     // Hide the content until the currently pending update arrives.
     virtual void hideContentUntilPendingUpdate() { ASSERT_NOT_REACHED(); }
@@ -137,7 +136,6 @@ protected:
     DrawingAreaType m_type;
     DrawingAreaIdentifier m_identifier;
     WebPageProxy& m_webPageProxy;
-    Vector<Ref<WebProcessProxy>> m_processesWithRegisteredDrawingAreaProxyMessageReceiver;
 
     WebCore::IntSize m_size;
     WebCore::IntSize m_scrollOffset;

@@ -2090,8 +2090,6 @@ webkit.org/b/230773 imported/w3c/web-platform-tests/css/css-flexbox/fixed-table-
 
 webkit.org/b/230850 remote-layer-tree/ios/uiview-tree-basic.html [ Pass Failure ] 
 
-webkit.org/b/230905 imported/w3c/web-platform-tests/css/css-cascade/layer-counter-style-override.html [ Pass Failure ]
-
 webkit.org/b/231752 [ Debug ] imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-049.html [ Pass Crash ]
 
 webkit.org/b/231083 imported/w3c/web-platform-tests/content-security-policy/generic/policy-inherited-correctly-by-plznavigate.html [ Pass Failure ]
@@ -2380,7 +2378,6 @@ imported/w3c/web-platform-tests/html/user-activation/navigation-state-reset-cros
 imported/w3c/web-platform-tests/html/user-activation/navigation-state-reset-sameorigin.html [ Skip ]
 imported/w3c/web-platform-tests/html/user-activation/user-activation-interface.html [ Skip ]
 imported/w3c/web-platform-tests/html/user-activation/activation-same-and-cross-origin.sub.html [ Skip ]
-imported/w3c/web-platform-tests/html/user-activation/consumption-crossorigin.sub.tentative.html
 
 # WebGL in OffscreenCanvas requires the GPUP.
 imported/w3c/web-platform-tests/html/canvas/offscreen/manual/the-offscreen-canvas/offscreencanvas.getcontext.worker.html [ Skip ]
@@ -2402,8 +2399,6 @@ webkit.org/b/253533 imported/w3c/web-platform-tests/xhr/status.h2.window.html [ 
 fast/forms/date/date-validity-badinput.html [ Skip ]
 fast/forms/datetimelocal/datetimelocal-validity-badinput.html [ Skip ]
 fast/forms/time/time-validity-badinput.html [ Skip ]
-
-webkit.org/b/256613 imported/w3c/web-platform-tests/screen-orientation/fullscreen-interactions.html [ DumpJSConsoleLogInStdErr ]
 
 # Skipping scrollbar-width tests that don't work with overlay scrollbars
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-001.html [ Skip ]

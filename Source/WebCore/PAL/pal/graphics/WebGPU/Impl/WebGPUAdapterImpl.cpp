@@ -82,6 +82,9 @@ static Ref<SupportedFeatures> supportedFeatures(const Vector<WGPUFeatureName>& f
         case WGPUFeatureName_BGRA8UnormStorage:
             result.append("bgra8unorm-storage"_s);
             break;
+        case WGPUFeatureName_Float32Filterable:
+            result.append("float32-filterable"_s);
+            break;
         case WGPUFeatureName_Force32:
             ASSERT_NOT_REACHED();
             continue;
@@ -146,17 +149,14 @@ static bool isFallbackAdapter(WGPUAdapter adapter)
     return properties.adapterType == WGPUAdapterType_CPU;
 }
 
-AdapterImpl::AdapterImpl(WGPUAdapter adapter, ConvertToBackingContext& convertToBackingContext)
-    : Adapter(adapterName(adapter), supportedFeatures(adapter), supportedLimits(adapter), WebGPU::isFallbackAdapter(adapter))
-    , m_backing(adapter)
+AdapterImpl::AdapterImpl(WebGPUPtr<WGPUAdapter>&& adapter, ConvertToBackingContext& convertToBackingContext)
+    : Adapter(adapterName(adapter.get()), supportedFeatures(adapter.get()), supportedLimits(adapter.get()), WebGPU::isFallbackAdapter(adapter.get()))
+    , m_backing(WTFMove(adapter))
     , m_convertToBackingContext(convertToBackingContext)
 {
 }
 
-AdapterImpl::~AdapterImpl()
-{
-    wgpuAdapterRelease(m_backing);
-}
+AdapterImpl::~AdapterImpl() = default;
 
 static bool setMaxIntegerValue(uint32_t& limitValue, uint64_t i)
 {
@@ -306,7 +306,9 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
         &requiredLimits, {
             { },
             "queue"
-        }
+        },
+        nullptr, // FIXME: Implement device lost callback.
+        nullptr,
     };
 
     auto requestedLimits = SupportedLimits::create(limits.maxTextureDimension1D,
@@ -342,8 +344,8 @@ void AdapterImpl::requestDevice(const DeviceDescriptor& descriptor, CompletionHa
         limits.maxComputeWorkgroupsPerDimension);
 
     auto requestedFeatures = supportedFeatures(features);
-    wgpuAdapterRequestDeviceWithBlock(m_backing, &backingDescriptor, makeBlockPtr([protectedThis = Ref { *this }, convertToBackingContext = m_convertToBackingContext.copyRef(), callback = WTFMove(callback), requestedLimits, requestedFeatures](WGPURequestDeviceStatus, WGPUDevice device, const char*) mutable {
-        callback(DeviceImpl::create(device, WTFMove(requestedFeatures), WTFMove(requestedLimits), convertToBackingContext));
+    wgpuAdapterRequestDeviceWithBlock(m_backing.get(), &backingDescriptor, makeBlockPtr([protectedThis = Ref { *this }, convertToBackingContext = m_convertToBackingContext.copyRef(), callback = WTFMove(callback), requestedLimits, requestedFeatures](WGPURequestDeviceStatus, WGPUDevice device, const char*) mutable {
+        callback(DeviceImpl::create(adoptWebGPU(device), WTFMove(requestedFeatures), WTFMove(requestedLimits), convertToBackingContext));
     }).get());
 }
 

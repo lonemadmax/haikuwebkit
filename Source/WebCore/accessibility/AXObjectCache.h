@@ -56,6 +56,7 @@ class Page;
 class RenderBlock;
 class RenderObject;
 class RenderText;
+class Scrollbar;
 class ScrollView;
 class VisiblePosition;
 class Widget;
@@ -181,6 +182,8 @@ public:
     void childrenChanged(RenderObject*, RenderObject* newChild = nullptr);
     void childrenChanged(AccessibilityObject*);
     void onFocusChange(Node* oldFocusedNode, Node* newFocusedNode);
+    void onPopoverTargetToggle(const HTMLFormControlElement&);
+    void onScrollbarFrameRectChange(const Scrollbar&);
     void onSelectedChanged(Node*);
     void onTextSecurityChanged(HTMLInputElement&);
     void onTitleChange(Document&);
@@ -252,7 +255,6 @@ public:
     Vector<RefPtr<AXCoreObject>> objectsForIDs(const Vector<AXID>&) const;
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    std::optional<IntRect> paintRectForID(AXID axID) { return m_geometryManager->paintRectForID(axID); }
     void onPaint(const RenderObject&, IntRect&&) const;
     void onPaint(const Widget&, IntRect&&) const;
 #else
@@ -710,6 +712,8 @@ inline void AXObjectCache::onTitleChange(Document&) { }
 inline void AXObjectCache::onValidityChange(Element&) { }
 inline void AXObjectCache::valueChanged(Element*) { }
 inline void AXObjectCache::onFocusChange(Node*, Node*) { }
+inline void AXObjectCache::onPopoverTargetToggle(const HTMLFormControlElement&) { }
+inline void AXObjectCache::onScrollbarFrameRectChange(const Scrollbar&) { }
 inline void AXObjectCache::deferRecomputeIsIgnoredIfNeeded(Element*) { }
 inline void AXObjectCache::deferRecomputeIsIgnored(Element*) { }
 inline void AXObjectCache::deferTextChangedIfNeeded(Node*) { }

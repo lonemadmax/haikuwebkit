@@ -1251,8 +1251,8 @@ static ExceptionOr<bool> checkPopoverValidity(HTMLElement& element, PopoverVisib
     if (expectedDocument && element.document() != *expectedDocument)
         return Exception { InvalidStateError, "Invalid when the document changes while showing or hiding a popover element"_s };
 
-    if (is<HTMLDialogElement>(element) && element.hasAttributeWithoutSynchronization(HTMLNames::openAttr))
-        return Exception { InvalidStateError, "Element is an open <dialog> element"_s };
+    if (is<HTMLDialogElement>(element) && downcast<HTMLDialogElement>(element).isModal())
+        return Exception { InvalidStateError, "Element is a modal <dialog> element"_s };
 
 #if ENABLE(FULLSCREEN_API)
     if (element.hasFullscreenFlag())
@@ -1265,16 +1265,13 @@ static ExceptionOr<bool> checkPopoverValidity(HTMLElement& element, PopoverVisib
 // https://html.spec.whatwg.org/#topmost-popover-ancestor
 // Consider both DOM ancestors and popovers where the given popover was invoked from as ancestors.
 // Use top layer positions to disambiguate the topmost one when both exist.
-static HTMLElement* topmostPopoverAncestor(Element& newPopover)
+static HTMLElement* topmostPopoverAncestor(HTMLElement& newPopover)
 {
     // Store positions to avoid having to do O(n) search for every popover invoker.
-    HashMap<Ref<Element>, size_t> topLayerPositions;
+    HashMap<Ref<const HTMLElement>, size_t> topLayerPositions;
     size_t i = 0;
-    for (auto& element : newPopover.document().topLayerElements()) {
-        if (!is<HTMLElement>(element) || downcast<HTMLElement>(element.get()).popoverState() != PopoverState::Auto)
-            continue;
+    for (auto& element : newPopover.document().autoPopoverList())
         topLayerPositions.add(element, i++);
-    }
 
     topLayerPositions.add(newPopover, i);
 
@@ -1483,7 +1480,7 @@ ExceptionOr<void> HTMLElement::hidePopover()
 
 ExceptionOr<void> HTMLElement::togglePopover(std::optional<bool> force)
 {
-    if (popoverData() && popoverData()->visibilityState() == PopoverVisibilityState::Showing && !force.value_or(false))
+    if (isPopoverShowing() && !force.value_or(false))
         return hidePopover();
 
     if ((!popoverData() || popoverData()->visibilityState() == PopoverVisibilityState::Hidden) && force.value_or(true))
@@ -1512,7 +1509,7 @@ void HTMLElement::popoverAttributeChanged(const AtomString& value)
 
     Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassPopoverOpen, false);
 
-    if (popoverData() && popoverData()->visibilityState() == PopoverVisibilityState::Showing) {
+    if (isPopoverShowing()) {
         hidePopoverInternal(FocusPreviousElement::Yes, FireEvents::Yes);
         newPopoverState = computePopoverState(attributeWithoutSynchronization(popoverAttr));
     }

@@ -812,8 +812,8 @@ accessibility/progress-indeterminate-value.html [ Skip ]
 # role="spinbutton" elements (month, day, year). WK1 renders date inputs using a contenteditable div.
 accessibility/mac/date-input-increment-decrement.html [ Skip ]
 
-accessibility/display-contents-dynamically-added-children.html [ Skip ]
-accessibility/display-contents-aria-owns.html [ Skip ]
+accessibility/display-contents/dynamically-added-children.html [ Skip ]
+accessibility/display-contents/aria-owns.html [ Skip ]
 
 accessibility/mac/lazy-spellchecking.html [ Skip ]
 
@@ -838,6 +838,11 @@ imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/bufferedAmount/b
 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/bufferedAmount/bufferedAmount-blob.html [ Pass Failure ]
 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/015.html [ Pass Failure ]
 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/readyState/006.html [ Pass Failure ]
+
+# Tests are only relevant in WK2
+http/tests/websocket/tests/hybi/websocket-blocked-sending-cookie-as-third-party-after-redirect.html [ Skip ]
+http/tests/websocket/tests/hybi/websocket-blocked-sending-cookie-as-third-party-after-ws-redirect.html [ Skip ]
+http/tests/websocket/tests/hybi/websocket-blocked-sending-cookie-as-third-party.html [ Skip ]
 
 # ShouldOpenExternalURLs not yet supported in WK1
 loader/navigation-policy [ Skip ]
@@ -1062,8 +1067,6 @@ webkit.org/b/155067 storage/indexeddb/transaction-abort-private.html [ Pass Cras
 webkit.org/b/172092 [ Debug ] fast/parser/adoption-agency-unload-iframe-4.html [ Pass Timeout ]
 
 webkit.org/b/254706 [ Debug ] imported/w3c/web-platform-tests/html/dom/idlharness.https.html [ Pass Timeout ]
-
-webkit.org/b/255235 [ Ventura Debug ] imported/w3c/web-platform-tests/css/css-cascade/layer-counter-style-override.html [ Failure ]
 
 http/tests/security/xss-DENIED-xsl-external-entity.xml [ Skip ]
 
@@ -1569,6 +1572,9 @@ http/tests/inspector/network/resource-response-inspector-override.html [ Skip ]
 inspector/network/intercept-aborted-request.html [ Skip ]
 inspector/network/interceptContinue.html [ Skip ]
 
+# Resource content retrival times out in WebKit1.
+webkit.org/b/257407 http/tests/inspector/network/xhr-request-type.html [ Skip ]
+
 webkit.org/b/164933 http/tests/misc/link-rel-icon-beforeload.html [ Failure ]
 
 # rdar://92764272 ([ Ventura wk1 ] 18 X fast/html/details (layout-tests) are flaky text failures)
@@ -1784,7 +1790,8 @@ webkit.org/b/195098 pointerevents/mouse/enter-leave-order.html [ Failure ]
 webkit.org/b/195098 pointerevents/mouse/over-enter-out-leave.html [ Failure ]
 webkit.org/b/195098 pointerevents/mouse/pointer-capture.html [ Failure ]
 webkit.org/b/195098 pointerevents/mouse/pointer-events-before-mouse-events.html [ Failure ]
-webkit.org/b/195098 pointer-lock/pointermove-movement-delta.html [ Failure ]
+
+webkit.org/b/244304 [ Monterey+ ] pointer-lock/pointermove-movement-delta.html [ Pass Timeout ]
 
 webkit.org/b/196915 [ Debug ] inspector/timeline/timeline-recording.html [ Pass Failure ]
 
@@ -1938,7 +1945,7 @@ accessibility/element-reflection-ariaerrormessage.html [ Skip ]
 accessibility/mac/pseudo-element-text-markers.html [ Skip ]
 accessibility/nested-textareas-value-changed-notifications.html [ Skip ]
 accessibility/selected-state-changed-notifications.html [ Skip ]
-accessibility/display-contents-descendant-menu-item.html [ Skip ]
+accessibility/display-contents/descendant-menu-item.html [ Skip ]
 accessibility/element-line-rects-and-text.html [ Skip ]
 accessibility/mac/line-index-for-textmarker.html [ Skip ]
 accessibility/mac/mathml-elements.html [ Skip ]
@@ -2274,8 +2281,6 @@ http/tests/webshare/ [ Skip ]
 webkit.org/b/230842 [ BigSur Debug ] media/track/audio-track.html [ Pass Crash ]
 
 webkit.org/b/230848 [ BigSur Debug ] webrtc/datachannel/datachannel-gc.html [ Pass Crash ]
-
-webkit.org/b/230905 [ BigSur ] imported/w3c/web-platform-tests/css/css-cascade/layer-counter-style-override.html [ Pass Failure ]
 
 # DumpRenderTree doesn't invoke inspector instrumentation when repainting.
 webkit.org/b/232852 inspector/page/setShowPaintRects.html [ Skip ]

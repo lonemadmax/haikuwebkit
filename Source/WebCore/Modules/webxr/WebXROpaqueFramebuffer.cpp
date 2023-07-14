@@ -95,9 +95,7 @@ void WebXROpaqueFramebuffer::startFrame(const PlatformXR::Device::FrameData::Lay
 
 #if USE(IOSURFACE_FOR_XR_LAYER_DATA)
     ASSERT(data.surface);
-    auto size = data.surface->size();
-    auto bufferWidth = static_cast<uint32_t>(size.width());
-    auto bufferHeight = static_cast<uint32_t>(size.height());
+    auto bufferSize = data.surface->size();
 
     auto gCGL = static_cast<GraphicsContextGLCocoa*>(m_context.graphicsContextGL());
     auto [textureTarget, textureTargetBinding] = gl.externalImageTextureBindingPoint();
@@ -126,50 +124,49 @@ void WebXROpaqueFramebuffer::startFrame(const PlatformXR::Device::FrameData::Lay
     // the textures/renderbuffers.
 
 #if USE(IOSURFACE_FOR_XR_LAYER_DATA)
-    m_opaqueTexture.ensure(*gCGL);
-    gCGL->bindTexture(textureTarget, m_opaqueTexture);
-    gCGL->texParameteri(textureTarget, GL::TEXTURE_MAG_FILTER, GL::LINEAR);
-    gCGL->texParameteri(textureTarget, GL::TEXTURE_MIN_FILTER, GL::LINEAR);
-    gCGL->texParameteri(textureTarget, GL::TEXTURE_WRAP_S, GL::CLAMP_TO_EDGE);
-    gCGL->texParameteri(textureTarget, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE);
+    m_opaqueTexture.ensure(gl);
+    gl.bindTexture(textureTarget, m_opaqueTexture);
+    gl.texParameteri(textureTarget, GL::TEXTURE_MAG_FILTER, GL::LINEAR);
+    gl.texParameteri(textureTarget, GL::TEXTURE_MIN_FILTER, GL::LINEAR);
+    gl.texParameteri(textureTarget, GL::TEXTURE_WRAP_S, GL::CLAMP_TO_EDGE);
+    gl.texParameteri(textureTarget, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE);
 
     // Tell the GraphicsContextGL to use the IOSurface as the backing store for m_opaqueTexture.
     if (data.isShared) {
 #if !PLATFORM(IOS_FAMILY_SIMULATOR)
-        auto surfaceTextureAttachment = gCGL->attachIOSurfaceToSharedTexture(textureTarget, data.surface.get());
+        auto surfaceTextureAttachment = gCGL->createAndBindExternalImage(textureTarget, data.surface.get());
         if (!surfaceTextureAttachment) {
-            m_opaqueTexture.release(*gCGL);
+            m_opaqueTexture.release(gl);
             return;
         }
 
-        auto [textureHandle, textureWidth, textureHeight] = surfaceTextureAttachment.value();
+        auto [textureHandle, textureSize] = surfaceTextureAttachment.value();
         m_ioSurfaceTextureHandle = textureHandle;
-        bufferWidth = textureWidth;
-        bufferHeight = textureHeight;
+        bufferSize = textureSize;
 
         m_ioSurfaceTextureHandleIsShared = true;
 #else
         ASSERT_NOT_REACHED();
 #endif
     } else {
-        m_ioSurfaceTextureHandle = gCGL->createPbufferAndAttachIOSurface(textureTarget, GraphicsContextGLCocoa::PbufferAttachmentUsage::Write, GL::BGRA, bufferWidth, bufferHeight, GL::UNSIGNED_BYTE, data.surface->surface(), 0);
+        m_ioSurfaceTextureHandle = gCGL->createPbufferAndAttachIOSurface(textureTarget, GraphicsContextGLCocoa::PbufferAttachmentUsage::Write, GL::BGRA, bufferSize.width(), bufferSize.height(), GL::UNSIGNED_BYTE, data.surface->surface(), 0);
         m_ioSurfaceTextureHandleIsShared = false;
     }
 
-    if (!bufferWidth || !bufferHeight)
+    if (bufferSize.isEmpty())
         return;
 
     // The drawing target can change size at any point during the session. If this happens, we need
     // to recreate the framebuffer.
-    if (bufferWidth != m_width || bufferHeight != m_height) {
-        m_width = bufferWidth;
-        m_height = bufferHeight;
+    if (static_cast<uint32_t>(bufferSize.width()) != m_width || static_cast<uint32_t>(bufferSize.height()) != m_height) {
+        m_width = bufferSize.width();
+        m_height = bufferSize.height();
         if (!setupFramebuffer())
             return;
     }
 
     if (!m_ioSurfaceTextureHandle) {
-        m_opaqueTexture.release(*gCGL);
+        m_opaqueTexture.release(gl);
         return;
     }
 
@@ -226,7 +223,7 @@ void WebXROpaqueFramebuffer::endFrame()
 
         gl.bindFramebuffer(GL::READ_FRAMEBUFFER, m_framebuffer->object());
         gl.bindFramebuffer(GL::DRAW_FRAMEBUFFER, m_resolvedFBO);
-        gl.blitFramebuffer(0, 0, m_width, m_height, 0, 0, m_width, m_height, GL::COLOR_BUFFER_BIT, GL::NEAREST);
+        gl.blitFramebufferANGLE(0, 0, m_width, m_height, 0, 0, m_width, m_height, GL::COLOR_BUFFER_BIT, GL::NEAREST);
     }
 
 #if USE(MTLSHAREDEVENT_FOR_XR_FRAME_COMPLETION)
@@ -250,15 +247,16 @@ void WebXROpaqueFramebuffer::endFrame()
 
 #if USE(IOSURFACE_FOR_XR_LAYER_DATA)
     if (m_ioSurfaceTextureHandle) {
-        auto gCGL = static_cast<GraphicsContextGLCocoa*>(&gl);
         if (m_ioSurfaceTextureHandleIsShared) {
 #if !PLATFORM(IOS_FAMILY_SIMULATOR)
-            gCGL->detachIOSurfaceFromSharedTexture(m_ioSurfaceTextureHandle);
+            gl.destroyEGLImage(m_ioSurfaceTextureHandle);
 #else
             ASSERT_NOT_REACHED();
 #endif
-        } else
+        } else {
+            auto gCGL = static_cast<GraphicsContextGLCocoa*>(&gl);
             gCGL->destroyPbufferAndDetachIOSurface(m_ioSurfaceTextureHandle);
+        }
         m_ioSurfaceTextureHandle = nullptr;
         m_ioSurfaceTextureHandleIsShared = false;
     }
@@ -284,22 +282,22 @@ bool WebXROpaqueFramebuffer::setupFramebuffer()
 
     // Set up color, depth and stencil formats
     const bool hasDepthOrStencil = m_attributes.stencil || m_attributes.depth;
-    const bool isAntialias = m_attributes.antialias && m_context.isWebGL2();
 
     // Set up recommended samples for WebXR.
-    auto maxSamples = [](GraphicsContextGL& gl) {
+    auto sampleCount = [](GraphicsContextGL& gl, bool isAntialias) {
+        if (!isAntialias)
+            return 0;
+
         // FIXME: check if we can get recommended values from each device platform.
         GCGLint maxSampleCount;
         gl.getIntegerv(GL::MAX_SAMPLES, std::span(&maxSampleCount, 1));
         // Cap the maximum multisample count at 4. Any more than this is likely overkill and will impact performance.
         return std::min(4, maxSampleCount);
-    };
-    int sampleCount = (isAntialias) ? maxSamples(gl) : 0;
+    }(gl, m_attributes.antialias);
 
     gl.bindFramebuffer(GL::FRAMEBUFFER, m_framebuffer->object());
 
-    // FIXME: WebXR spec enable antialiasing on WebGL1 contexts
-    if (isAntialias) {
+    if (m_attributes.antialias) {
         m_resolvedFBO.ensure(gl);
 
         auto colorBuffer = allocateColorStorage(gl, sampleCount, m_width, m_height);
@@ -324,12 +322,7 @@ PlatformGLObject WebXROpaqueFramebuffer::allocateRenderbufferStorage(GraphicsCon
     PlatformGLObject renderbuffer = gl.createRenderbuffer();
     ASSERT(renderbuffer);
     gl.bindRenderbuffer(GL::RENDERBUFFER, renderbuffer);
-    if (m_context.isWebGL2())
-        gl.renderbufferStorageMultisample(GL::RENDERBUFFER, samples, internalFormat, width, height);
-    else {
-        ASSERT(!samples);
-        gl.renderbufferStorage(GL::RENDERBUFFER, internalFormat, width, height);
-    }
+    gl.renderbufferStorageMultisampleANGLE(GL::RENDERBUFFER, samples, internalFormat, width, height);
 
     return renderbuffer;
 }

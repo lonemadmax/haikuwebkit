@@ -68,6 +68,7 @@
 #include "DragControllerAction.h"
 #include "DrawingAreaMessages.h"
 #include "DrawingAreaProxy.h"
+#include "DrawingAreaProxyMessages.h"
 #include "EventDispatcherMessages.h"
 #include "FormDataReference.h"
 #include "FrameInfoData.h"
@@ -353,6 +354,10 @@
 
 #if USE(SYSTEM_PREVIEW)
 #include "SystemPreviewController.h"
+#endif
+
+#if USE(COORDINATED_GRAPHICS)
+#include "DrawingAreaProxyCoordinatedGraphics.h"
 #endif
 
 #if ENABLE(WK_WEB_EXTENSIONS)
@@ -1130,8 +1135,12 @@ void WebPageProxy::swapToProvisionalPage(std::unique_ptr<ProvisionalPageProxy> p
 #if PLATFORM(IOS_FAMILY)
     // On iOS, the displayID is derived from the webPageID.
     m_displayID = generateDisplayIDFromPageID();
+
+    std::optional<FramesPerSecond> nominalFramesPerSecond;
+    if (m_drawingArea)
+        nominalFramesPerSecond = m_drawingArea->displayNominalFramesPerSecond();
     // FIXME: We may want to send WindowScreenDidChange on non-iOS platforms too.
-    send(Messages::WebPage::WindowScreenDidChange(*m_displayID, std::nullopt));
+    send(Messages::WebPage::WindowScreenDidChange(*m_displayID, nominalFramesPerSecond));
 #endif
 
 #if PLATFORM(COCOA)
@@ -1273,6 +1282,9 @@ void WebPageProxy::setDrawingArea(std::unique_ptr<DrawingAreaProxy>&& drawingAre
     m_scrollingCoordinatorProxy = nullptr;
 #endif
 
+    if (m_drawingArea)
+        m_drawingArea->stopReceivingMessages(process());
+
     m_drawingArea = WTFMove(drawingArea);
     if (!m_drawingArea)
         return;
@@ -1291,7 +1303,7 @@ void WebPageProxy::initializeWebPage()
     if (!hasRunningProcess())
         return;
 
-    setDrawingArea(pageClient().createDrawingAreaProxy(m_process));
+    setDrawingArea(pageClient().createDrawingAreaProxy());
     ASSERT(m_drawingArea);
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -4456,7 +4468,7 @@ void WebPageProxy::setIntrinsicDeviceScaleFactor(float scaleFactor)
         m_drawingArea->deviceScaleFactorDidChange();
 }
 
-void WebPageProxy::windowScreenDidChange(PlatformDisplayID displayID, std::optional<FramesPerSecond> nominalFramesPerSecond)
+void WebPageProxy::windowScreenDidChange(PlatformDisplayID displayID)
 {
 #if HAVE(CVDISPLAYLINK)
     if (hasRunningProcess() && m_displayID && m_registeredForFullSpeedUpdates)
@@ -4467,10 +4479,14 @@ void WebPageProxy::windowScreenDidChange(PlatformDisplayID displayID, std::optio
 
     m_displayID = displayID;
     if (m_drawingArea)
-        m_drawingArea->windowScreenDidChange(displayID, nominalFramesPerSecond);
+        m_drawingArea->windowScreenDidChange(displayID);
 
     if (!hasRunningProcess())
         return;
+
+    std::optional<FramesPerSecond> nominalFramesPerSecond;
+    if (m_drawingArea)
+        nominalFramesPerSecond = m_drawingArea->displayNominalFramesPerSecond();
 
     send(Messages::EventDispatcher::PageScreenDidChange(internals().webPageID, displayID, nominalFramesPerSecond));
     send(Messages::WebPage::WindowScreenDidChange(displayID, nominalFramesPerSecond));
@@ -5782,7 +5798,12 @@ void WebPageProxy::createRemoteSubframesInOtherProcesses(WebFrameProxy& newFrame
     auto& internals = this->internals();
 
     // FIXME: We'll also have to use this pattern to update remoteProcessIdentifier so that postMessage continues to work after an iframe changes processes.
-    for (auto& subframePageProxy : internals.domainToSubframePageProxyMap.values()) {
+    for (auto& pair : internals.domainToSubframePageProxyMap) {
+        auto& subframePageProxy = pair.value;
+        if (!subframePageProxy) {
+            ASSERT_NOT_REACHED();
+            continue;
+        }
         if (&subframePageProxy->process() == &newFrameProcess)
             continue;
         subframePageProxy->send(Messages::WebPage::CreateRemoteSubframe(parent->frameID(), newFrame.frameID(), newFrameProcess.coreProcessIdentifier()));
@@ -8557,7 +8578,7 @@ void WebPageProxy::logDiagnosticMessage(const String& message, const String& des
 
 void WebPageProxy::logDiagnosticMessageFromWebProcess(const String& message, const String& description, WebCore::ShouldSample shouldSample)
 {
-    MESSAGE_CHECK(m_process, message.isAllASCII());
+    MESSAGE_CHECK(m_process, message.containsOnlyASCII());
 
     logDiagnosticMessage(message, description, shouldSample);
 }
@@ -8573,7 +8594,7 @@ void WebPageProxy::logDiagnosticMessageWithResult(const String& message, const S
 
 void WebPageProxy::logDiagnosticMessageWithResultFromWebProcess(const String& message, const String& description, uint32_t result, WebCore::ShouldSample shouldSample)
 {
-    MESSAGE_CHECK(m_process, message.isAllASCII());
+    MESSAGE_CHECK(m_process, message.containsOnlyASCII());
 
     logDiagnosticMessageWithResult(message, description, result, shouldSample);
 }
@@ -8589,7 +8610,7 @@ void WebPageProxy::logDiagnosticMessageWithValue(const String& message, const St
 
 void WebPageProxy::logDiagnosticMessageWithValueFromWebProcess(const String& message, const String& description, double value, unsigned significantFigures, ShouldSample shouldSample)
 {
-    MESSAGE_CHECK(m_process, message.isAllASCII());
+    MESSAGE_CHECK(m_process, message.containsOnlyASCII());
 
     logDiagnosticMessageWithValue(message, description, value, significantFigures, shouldSample);
 }
@@ -8605,7 +8626,7 @@ void WebPageProxy::logDiagnosticMessageWithEnhancedPrivacy(const String& message
 
 void WebPageProxy::logDiagnosticMessageWithEnhancedPrivacyFromWebProcess(const String& message, const String& description, WebCore::ShouldSample shouldSample)
 {
-    MESSAGE_CHECK(m_process, message.isAllASCII());
+    MESSAGE_CHECK(m_process, message.containsOnlyASCII());
 
     logDiagnosticMessageWithEnhancedPrivacy(message, description, shouldSample);
 }
@@ -8633,7 +8654,7 @@ void WebPageProxy::logDiagnosticMessageWithValueDictionary(const String& message
 
 void WebPageProxy::logDiagnosticMessageWithValueDictionaryFromWebProcess(const String& message, const String& description, const WebCore::DiagnosticLoggingClient::ValueDictionary& valueDictionary, WebCore::ShouldSample shouldSample)
 {
-    MESSAGE_CHECK(m_process, message.isAllASCII());
+    MESSAGE_CHECK(m_process, message.containsOnlyASCII());
 
     logDiagnosticMessageWithValueDictionary(message, description, valueDictionary, shouldSample);
 }
@@ -8649,7 +8670,7 @@ void WebPageProxy::logDiagnosticMessageWithDomain(const String& message, WebCore
 
 void WebPageProxy::logDiagnosticMessageWithDomainFromWebProcess(const String& message, WebCore::DiagnosticLoggingDomain domain)
 {
-    MESSAGE_CHECK(m_process, message.isAllASCII());
+    MESSAGE_CHECK(m_process, message.containsOnlyASCII());
 
     logDiagnosticMessageWithDomain(message, domain);
 }
@@ -11070,12 +11091,20 @@ void WebPageProxy::clearWheelEventTestMonitor()
 
 void WebPageProxy::callAfterNextPresentationUpdate(CompletionHandler<void()>&& callback)
 {
-    if (!hasRunningProcess() || !m_drawingArea) {
-        callback();
-        return;
-    }
+    if (!hasRunningProcess() || !m_drawingArea)
+        return callback();
 
-    m_drawingArea->dispatchAfterEnsuringDrawing(WTFMove(callback));
+#if PLATFORM(COCOA)
+    auto aggregator = CallbackAggregator::create(WTFMove(callback));
+    auto drawingAreaIdentifier = m_drawingArea->identifier();
+    sendWithAsyncReply(Messages::DrawingArea::DispatchAfterEnsuringDrawing(), [aggregator] { }, drawingAreaIdentifier);
+    for (auto& subframePageProxy : internals().domainToSubframePageProxyMap.values())
+        subframePageProxy->sendWithAsyncReply(Messages::DrawingArea::DispatchAfterEnsuringDrawing(), [aggregator] { }, drawingAreaIdentifier);
+#elif USE(COORDINATED_GRAPHICS)
+    downcast<DrawingAreaProxyCoordinatedGraphics>(*m_drawingArea).dispatchAfterEnsuringDrawing(WTFMove(callback));
+#else
+    callback();
+#endif
 }
 
 void WebPageProxy::setShouldScaleViewToFitDocument(bool shouldScaleViewToFitDocument)
@@ -12549,17 +12578,14 @@ void WebPageProxy::generateTestReport(const String& message, const String& group
     send(Messages::WebPage::GenerateTestReport(message, group));
 }
 
-void WebPageProxy::addSubframePageProxy(const WebCore::RegistrableDomain& domain, Ref<SubframePageProxy>&& subframePageProxy)
+void WebPageProxy::addSubframePageProxy(const WebCore::RegistrableDomain& domain, WeakPtr<SubframePageProxy>&& subframePageProxy)
 {
     internals().domainToSubframePageProxyMap.add(domain, WTFMove(subframePageProxy));
 }
 
-void WebPageProxy::removeSubpageFrameProxyIfUnused(const WebCore::RegistrableDomain& domain)
+void WebPageProxy::removeSubpageFrameProxy(const WebCore::RegistrableDomain& domain)
 {
-    auto& map = internals().domainToSubframePageProxyMap;
-    auto it = map.find(domain);
-    if (it != map.end() && !it->value)
-        map.remove(it);
+    internals().domainToSubframePageProxyMap.remove(domain);
 }
 
 SubframePageProxy* WebPageProxy::subpageFrameProxyForRegistrableDomain(WebCore::RegistrableDomain domain) const

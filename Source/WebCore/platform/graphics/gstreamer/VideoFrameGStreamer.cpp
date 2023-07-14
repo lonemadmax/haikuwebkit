@@ -47,12 +47,17 @@ GST_DEBUG_CATEGORY(webkit_video_frame_debug);
 
 namespace WebCore {
 
-static void ensureDebugCategoryInitialized()
+static void ensureVideoFrameDebugCategoryInitialized()
 {
     static std::once_flag debugRegisteredFlag;
     std::call_once(debugRegisteredFlag, [] {
         GST_DEBUG_CATEGORY_INIT(webkit_video_frame_debug, "webkitvideoframe", 0, "WebKit Video Frame");
     });
+}
+
+RefPtr<VideoFrame> VideoFrame::createFromPixelBuffer(Ref<PixelBuffer>&& pixelBuffer, PlatformVideoColorSpace&& colorSpace)
+{
+    return RefPtr { VideoFrameGStreamer::createFromPixelBuffer(WTFMove(pixelBuffer), VideoFrameGStreamer::CanvasContentType::Canvas2D, VideoFrame::Rotation::None, MediaTime::invalidTime(), { }, 1, false, { }, WTFMove(colorSpace)) };
 }
 
 class GstSampleColorConverter {
@@ -73,7 +78,7 @@ private:
 
 GstSampleColorConverter& GstSampleColorConverter::singleton()
 {
-    ensureDebugCategoryInitialized();
+    ensureVideoFrameDebugCategoryInitialized();
     static NeverDestroyed<GstSampleColorConverter> sharedInstance;
     return sharedInstance;
 }
@@ -294,7 +299,7 @@ Ref<VideoFrameGStreamer> VideoFrameGStreamer::createWrappedSample(const GRefPtr<
     return adoptRef(*new VideoFrameGStreamer(sample, *presentationSize, presentationTime, videoRotation, WTFMove(colorSpace)));
 }
 
-Ref<VideoFrameGStreamer> VideoFrameGStreamer::createFromPixelBuffer(Ref<PixelBuffer>&& pixelBuffer, CanvasContentType canvasContentType, Rotation videoRotation, const MediaTime& presentationTime, const IntSize& destinationSize, double frameRate, bool videoMirrored, std::optional<VideoFrameTimeMetadata>&& metadata)
+Ref<VideoFrameGStreamer> VideoFrameGStreamer::createFromPixelBuffer(Ref<PixelBuffer>&& pixelBuffer, CanvasContentType canvasContentType, Rotation videoRotation, const MediaTime& presentationTime, const IntSize& destinationSize, double frameRate, bool videoMirrored, std::optional<VideoFrameTimeMetadata>&& metadata, PlatformVideoColorSpace&& colorSpace)
 {
     ensureGStreamerInitialized();
 
@@ -358,7 +363,7 @@ Ref<VideoFrameGStreamer> VideoFrameGStreamer::createFromPixelBuffer(Ref<PixelBuf
         sample = adoptGRef(gst_sample_new(buffer.get(), caps.get(), nullptr, nullptr));
     }
 
-    return adoptRef(*new VideoFrameGStreamer(WTFMove(sample), FloatSize(width, height), presentationTime, videoRotation, videoMirrored, WTFMove(metadata)));
+    return adoptRef(*new VideoFrameGStreamer(WTFMove(sample), FloatSize(width, height), presentationTime, videoRotation, videoMirrored, WTFMove(metadata), WTFMove(colorSpace)));
 }
 
 VideoFrameGStreamer::VideoFrameGStreamer(GRefPtr<GstSample>&& sample, const FloatSize& presentationSize, const MediaTime& presentationTime, Rotation videoRotation, bool videoMirrored, std::optional<VideoFrameTimeMetadata>&& metadata, PlatformVideoColorSpace&& colorSpace)
@@ -366,7 +371,7 @@ VideoFrameGStreamer::VideoFrameGStreamer(GRefPtr<GstSample>&& sample, const Floa
     , m_sample(WTFMove(sample))
     , m_presentationSize(presentationSize)
 {
-    ensureDebugCategoryInitialized();
+    ensureVideoFrameDebugCategoryInitialized();
     ASSERT(m_sample);
     GstBuffer* buffer = gst_sample_get_buffer(m_sample.get());
     RELEASE_ASSERT(buffer);
@@ -380,7 +385,7 @@ VideoFrameGStreamer::VideoFrameGStreamer(const GRefPtr<GstSample>& sample, const
     , m_sample(sample)
     , m_presentationSize(presentationSize)
 {
-    ensureDebugCategoryInitialized();
+    ensureVideoFrameDebugCategoryInitialized();
 }
 
 static void copyPlane(uint8_t* destination, const uint8_t* source, uint64_t sourceStride, const ComputedPlaneLayout& spanPlaneLayout)
@@ -549,6 +554,8 @@ RefPtr<ImageGStreamer> VideoFrameGStreamer::convertToImage()
 {
     return GstSampleColorConverter::singleton().convertSampleToImage(m_sample);
 }
+
+#undef GST_CAT_DEFAULT
 
 } // namespace WebCore
 

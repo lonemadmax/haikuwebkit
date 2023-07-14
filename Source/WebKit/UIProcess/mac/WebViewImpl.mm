@@ -1674,13 +1674,13 @@ CGSize WebViewImpl::fixedLayoutSize() const
     return m_page->fixedLayoutSize();
 }
 
-std::unique_ptr<WebKit::DrawingAreaProxy> WebViewImpl::createDrawingAreaProxy(WebProcessProxy& process)
+std::unique_ptr<WebKit::DrawingAreaProxy> WebViewImpl::createDrawingAreaProxy()
 {
     switch (m_drawingAreaType) {
     case DrawingAreaType::TiledCoreAnimation:
         return makeUnique<TiledCoreAnimationDrawingAreaProxy>(m_page);
     case DrawingAreaType::RemoteLayerTree:
-        return makeUnique<RemoteLayerTreeDrawingAreaProxyMac>(m_page, process);
+        return makeUnique<RemoteLayerTreeDrawingAreaProxyMac>(m_page);
     }
 
     ASSERT_NOT_REACHED();
@@ -2035,8 +2035,7 @@ void WebViewImpl::windowDidChangeScreen()
 {
     NSWindow *window = m_targetWindowForMovePreparation ? m_targetWindowForMovePreparation.get() : [m_view window];
     auto displayID = WebCore::displayID(window.screen);
-    auto framesPerSecond = m_page->process().nominalFramesPerSecondForDisplay(displayID);
-    m_page->windowScreenDidChange(displayID, framesPerSecond);
+    m_page->windowScreenDidChange(displayID);
 }
 
 void WebViewImpl::windowDidChangeLayerHosting()

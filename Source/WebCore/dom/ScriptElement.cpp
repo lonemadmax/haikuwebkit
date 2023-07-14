@@ -37,7 +37,6 @@
 #include "EventNames.h"
 #include "FrameLoader.h"
 #include "HTMLNames.h"
-#include "HTMLParserIdioms.h"
 #include "HTMLScriptElement.h"
 #include "IgnoreDestructiveWriteCountIncrementer.h"
 #include "InlineClassicScript.h"
@@ -178,7 +177,7 @@ std::optional<ScriptType> ScriptElement::determineScriptType(LegacyTypeSupport s
     return std::nullopt;
 }
 
-// http://dev.w3.org/html5/spec/Overview.html#prepare-a-script
+// https://html.spec.whatwg.org/multipage/scripting.html#prepare-the-script-element
 bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, LegacyTypeSupport supportLegacyTypes)
 {
     if (m_alreadyStarted)
@@ -232,7 +231,7 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
     if (!document.frame()->script().canExecuteScripts(ReasonForCallingCanExecuteScripts::AboutToExecuteScript))
         return false;
 
-    if (scriptType == ScriptType::Classic && !isScriptForEventSupported())
+    if (scriptType == ScriptType::Classic && isScriptPreventedByAttributes())
         return false;
 
     // According to the spec, the module tag ignores the "charset" attribute as the same to the worker's
@@ -315,7 +314,7 @@ bool ScriptElement::requestClassicScript(const String& sourceURL)
 {
     ASSERT(m_element.isConnected());
     ASSERT(!m_loadableScript);
-    if (!stripLeadingAndTrailingHTMLSpaces(sourceURL).isEmpty()) {
+    if (!StringView(sourceURL).containsOnly<isASCIIWhitespace<UChar>>()) {
         auto script = LoadableClassicScript::create(m_element.nonce(), m_element.attributeWithoutSynchronization(HTMLNames::integrityAttr), referrerPolicy(), fetchPriorityHint(),
             m_element.attributeWithoutSynchronization(HTMLNames::crossoriginAttr), scriptCharset(), m_element.localName(), m_element.isInUserAgentShadowTree(), hasAsyncAttribute());
 
@@ -354,7 +353,7 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
         ASSERT(m_element.isConnected());
 
         String sourceURL = sourceAttributeValue();
-        if (stripLeadingAndTrailingHTMLSpaces(sourceURL).isEmpty()) {
+        if (StringView(sourceURL).containsOnly<isASCIIWhitespace<UChar>>()) {
             dispatchErrorEvent();
             return false;
         }
@@ -399,7 +398,7 @@ bool ScriptElement::requestImportMap(LocalFrame& frame, const String& sourceURL)
 {
     ASSERT(m_element.isConnected());
     ASSERT(!m_loadableScript);
-    if (!stripLeadingAndTrailingHTMLSpaces(sourceURL).isEmpty()) {
+    if (!StringView(sourceURL).containsOnly<isASCIIWhitespace<UChar>>()) {
         auto script = LoadableImportMap::create(m_element.nonce(), m_element.attributeWithoutSynchronization(HTMLNames::integrityAttr), referrerPolicy(),
             m_element.attributeWithoutSynchronization(HTMLNames::crossoriginAttr), m_element.localName(), m_element.isInUserAgentShadowTree(), hasAsyncAttribute());
 
@@ -606,22 +605,6 @@ void ScriptElement::executePendingScript(PendingScript& pendingScript)
 bool ScriptElement::ignoresLoadRequest() const
 {
     return m_alreadyStarted || m_isExternalScript || m_parserInserted == ParserInserted::Yes || !m_element.isConnected();
-}
-
-bool ScriptElement::isScriptForEventSupported() const
-{
-    String eventAttribute = eventAttributeValue();
-    String forAttribute = forAttributeValue();
-    if (!eventAttribute.isNull() && !forAttribute.isNull()) {
-        forAttribute = stripLeadingAndTrailingHTMLSpaces(forAttribute);
-        if (!equalLettersIgnoringASCIICase(forAttribute, "window"_s))
-            return false;
-
-        eventAttribute = stripLeadingAndTrailingHTMLSpaces(eventAttribute);
-        if (!equalLettersIgnoringASCIICase(eventAttribute, "onload"_s) && !equalLettersIgnoringASCIICase(eventAttribute, "onload()"_s))
-            return false;
-    }
-    return true;
 }
 
 String ScriptElement::scriptContent() const

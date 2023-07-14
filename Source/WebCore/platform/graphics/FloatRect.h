@@ -248,6 +248,9 @@ public:
     static FloatRect infiniteRect();
     bool isInfinite() const;
 
+    WEBCORE_EXPORT String toJSONString() const;
+    WEBCORE_EXPORT Ref<JSON::Object> toJSONObject() const;
+
 private:
     FloatPoint m_location;
     FloatSize m_size;
@@ -331,3 +334,16 @@ WEBCORE_EXPORT id makeNSArrayElement(const FloatRect&);
 #endif
 
 }
+
+namespace WTF {
+
+template<typename Type> struct LogArgument;
+template <>
+struct LogArgument<WebCore::FloatRect> {
+    static String toString(const WebCore::FloatRect& rect)
+    {
+        return rect.toJSONString();
+    }
+};
+
+} // namespace WTF

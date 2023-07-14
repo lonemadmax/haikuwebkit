@@ -116,8 +116,8 @@ messages -> RemoteGraphicsContextGL NotRefCounted Stream {{
     void PaintCompositedResultsToVideoFrame() -> (std::optional<WebKit::RemoteVideoFrameProxy::Properties> properties) Synchronous
 #endif
     void SimulateEventForTesting(WebCore::GraphicsContextGL::SimulatedEventForTesting event)
-    void ReadPixelsInline(WebCore::IntRect rect, uint32_t format, uint32_t type, IPC::ArrayReference<uint8_t> data) -> (IPC::ArrayReference<uint8_t> data) Synchronous
-    void ReadPixelsSharedMemory(WebCore::IntRect rect, uint32_t format, uint32_t type, WebKit::SharedMemory::Handle handle) -> (bool success) Synchronous NotStreamEncodable
+    void ReadPixelsInline(WebCore::IntRect rect, uint32_t format, uint32_t type) -> (std::optional<WebCore::IntSize> readArea, IPC::ArrayReference<uint8_t> data) Synchronous
+    void ReadPixelsSharedMemory(WebCore::IntRect rect, uint32_t format, uint32_t type, WebKit::SharedMemory::Handle handle) -> (std::optional<WebCore::IntSize> readArea) Synchronous NotStreamEncodable
     void MultiDrawArraysANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t> firstsAndCounts)
     void MultiDrawArraysInstancedANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t> firstsCountsAandInstanceCounts)
     void MultiDrawElementsANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t> countsAndOffsets, uint32_t type)
@@ -125,6 +125,7 @@ messages -> RemoteGraphicsContextGL NotRefCounted Stream {{
     void MultiDrawArraysInstancedBaseInstanceANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t, uint32_t> firstsCountsInstanceCountsAndBaseInstances)
     void MultiDrawElementsInstancedBaseVertexBaseInstanceANGLE(uint32_t mode, IPC::ArrayReferenceTuple<int32_t, int32_t, int32_t, int32_t, uint32_t> countsOffsetsInstanceCountsBaseVerticesAndBaseInstances, uint32_t type)
 #if PLATFORM(COCOA)
+    void CreateAndBindExternalImage(GCGLenum target, WebCore::GraphicsContextGL::ExternalImageSource source) -> (uint64_t handle, WebCore::IntSize size) Synchronous NotStreamEncodable NotStreamEncodableReply
     void CreateEGLSync(MachSendRight syncEvent, uint64_t signalValue) -> (uint64_t sync) Synchronous NotStreamEncodable NotStreamEncodableReply
 #endif
 {}

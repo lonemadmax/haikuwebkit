@@ -246,7 +246,7 @@ static unsigned offsetForPositionInRun(const InlineIterator::TextBox& textBox, f
 
 inline RenderText::RenderText(Node& node, const String& text)
     : RenderObject(node)
-    , m_isAllASCII(text.impl()->isAllASCII())
+    , m_containsOnlyASCII(text.impl()->containsOnlyASCII())
     , m_text(text)
 {
     ASSERT(!m_text.isNull());
@@ -938,7 +938,7 @@ RenderText::Widths RenderText::trimmedPreferredWidths(float leadWidth, bool& str
 
     unsigned length = this->length();
 
-    if (!length || (stripFrontSpaces && text().isAllSpecialCharacters<isASCIIWhitespace>()))
+    if (!length || (stripFrontSpaces && text().containsOnly<isASCIIWhitespace>()))
         return widths;
 
     widths.min = m_minWidth.value_or(-1);
@@ -1130,7 +1130,7 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Fo
     auto& string = text();
     unsigned length = string.length();
     auto iteratorMode = mapLineBreakToIteratorMode(style.lineBreak());
-    LazyLineBreakIterator breakIterator(string, style.computedLocale(), iteratorMode);
+    CachedLineBreakIteratorFactory lineBreakIteratorFactory(string, style.computedLocale(), iteratorMode);
     bool needsWordSpacing = false;
     bool ignoringSpaces = false;
     bool isSpace = false;
@@ -1212,7 +1212,7 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Fo
             continue;
         }
 
-        bool hasBreak = breakAll || isBreakable(breakIterator, i, nextBreakable, breakNBSP, canUseLineBreakShortcut, keepAllWords, breakAnywhere);
+        bool hasBreak = breakAll || isBreakable(lineBreakIteratorFactory, i, nextBreakable, breakNBSP, canUseLineBreakShortcut, keepAllWords, breakAnywhere);
         bool betweenWords = true;
         unsigned j = i;
         while (c != '\n' && !isSpaceAccordingToStyle(c, style) && c != '\t' && (c != softHyphen || style.hyphens() == Hyphens::None)) {
@@ -1223,7 +1223,7 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Fo
             c = string[j];
             if (U_IS_LEAD(previousCharacter) && U_IS_TRAIL(c))
                 continue;
-            if (isBreakable(breakIterator, j, nextBreakable, breakNBSP, canUseLineBreakShortcut, keepAllWords, breakAnywhere) && characterAt(j - 1) != softHyphen)
+            if (isBreakable(lineBreakIteratorFactory, j, nextBreakable, breakNBSP, canUseLineBreakShortcut, keepAllWords, breakAnywhere) && characterAt(j - 1) != softHyphen)
                 break;
             if (breakAll) {
                 // FIXME: This code is ultra wrong.
@@ -1267,7 +1267,7 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Fo
 
             // Add in wordSpacing to our currMaxWidth, but not if this is the last word on a line or the
             // last word in the run.
-            if ((isSpace || isCollapsibleWhiteSpace) && !containsOnlyHTMLWhitespace(j, length - j))
+            if ((isSpace || isCollapsibleWhiteSpace) && !containsOnlyCSSWhitespace(j, length - j))
                 currMaxWidth += wordSpacing;
 
             if (firstWord) {
@@ -1334,7 +1334,7 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Fo
     setPreferredLogicalWidthsDirty(false);
 }
 
-template<typename CharacterType> static inline bool isAllCollapsibleWhitespace(const CharacterType* characters, unsigned length, const RenderStyle& style)
+template<typename CharacterType> static inline bool containsOnlyCollapsibleWhitespace(const CharacterType* characters, unsigned length, const RenderStyle& style)
 {
     for (unsigned i = 0; i < length; ++i) {
         if (!style.isCollapsibleWhiteSpace(characters[i]))
@@ -1343,14 +1343,15 @@ template<typename CharacterType> static inline bool isAllCollapsibleWhitespace(c
     return true;
 }
 
-bool RenderText::isAllCollapsibleWhitespace() const
+bool RenderText::containsOnlyCollapsibleWhitespace() const
 {
     if (text().is8Bit())
-        return WebCore::isAllCollapsibleWhitespace(text().characters8(), text().length(), style());
-    return WebCore::isAllCollapsibleWhitespace(text().characters16(), text().length(), style());
+        return WebCore::containsOnlyCollapsibleWhitespace(text().characters8(), text().length(), style());
+    return WebCore::containsOnlyCollapsibleWhitespace(text().characters16(), text().length(), style());
 }
 
-template<typename CharacterType> static inline bool isAllPossiblyCollapsibleWhitespace(const CharacterType* characters, unsigned length)
+// FIXME: merge this with isCSSSpace somehow
+template<typename CharacterType> static inline bool containsOnlyPossiblyCollapsibleWhitespace(const CharacterType* characters, unsigned length)
 {
     for (unsigned i = 0; i < length; ++i) {
         if (!(characters[i] == '\n' || characters[i] == ' ' || characters[i] == '\t'))
@@ -1359,14 +1360,14 @@ template<typename CharacterType> static inline bool isAllPossiblyCollapsibleWhit
     return true;
 }
 
-bool RenderText::containsOnlyHTMLWhitespace(unsigned from, unsigned length) const
+bool RenderText::containsOnlyCSSWhitespace(unsigned from, unsigned length) const
 {
     ASSERT(from <= text().length());
     ASSERT(length <= text().length());
     ASSERT(from + length <= text().length());
     if (text().is8Bit())
-        return isAllPossiblyCollapsibleWhitespace(text().characters8() + from, length);
-    return isAllPossiblyCollapsibleWhitespace(text().characters16() + from, length);
+        return containsOnlyPossiblyCollapsibleWhitespace(text().characters8() + from, length);
+    return containsOnlyPossiblyCollapsibleWhitespace(text().characters16() + from, length);
 }
 
 Vector<std::pair<unsigned, unsigned>> RenderText::draggedContentRangesBetweenOffsets(unsigned startOffset, unsigned endOffset) const
@@ -1564,7 +1565,7 @@ void RenderText::setRenderedText(const String& newText)
 #endif
     }
 
-    m_isAllASCII = text().isAllASCII();
+    m_containsOnlyASCII = text().containsOnlyASCII();
     m_canUseSimpleFontCodePath = computeCanUseSimpleFontCodePath();
     
     if (m_text != originalText) {
@@ -1938,31 +1939,31 @@ bool RenderText::hasRenderedText() const
 
 int RenderText::previousOffset(int current) const
 {
-    if (m_isAllASCII || text().is8Bit())
+    if (m_containsOnlyASCII || text().is8Bit())
         return current - 1;
 
-    CachedTextBreakIterator iterator(text(), TextBreakIterator::CaretMode { }, nullAtom());
+    CachedTextBreakIterator iterator(text(), nullptr, 0, TextBreakIterator::CaretMode { }, nullAtom());
     return iterator.preceding(current).value_or(current - 1);
 }
 
 int RenderText::previousOffsetForBackwardDeletion(int current) const
 {
-    CachedTextBreakIterator iterator(text(), TextBreakIterator::DeleteMode { }, nullAtom());
+    CachedTextBreakIterator iterator(text(), nullptr, 0, TextBreakIterator::DeleteMode { }, nullAtom());
     return iterator.preceding(current).value_or(0);
 }
 
 int RenderText::nextOffset(int current) const
 {
-    if (m_isAllASCII || text().is8Bit())
+    if (m_containsOnlyASCII || text().is8Bit())
         return current + 1;
 
-    CachedTextBreakIterator iterator(text(), TextBreakIterator::CaretMode { }, nullAtom());
+    CachedTextBreakIterator iterator(text(), nullptr, 0, TextBreakIterator::CaretMode { }, nullAtom());
     return iterator.following(current).value_or(current + 1);
 }
 
 bool RenderText::computeCanUseSimpleFontCodePath() const
 {
-    if (m_isAllASCII || text().is8Bit())
+    if (m_containsOnlyASCII || text().is8Bit())
         return true;
     return FontCascade::characterRangeCodePath(text().characters16(), length()) == FontCascade::CodePath::Simple;
 }

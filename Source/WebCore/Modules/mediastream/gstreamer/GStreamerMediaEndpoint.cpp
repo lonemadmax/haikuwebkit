@@ -886,7 +886,7 @@ void GStreamerMediaEndpoint::addRemoteStream(GstPad* pad)
             mediaStreamId = String::fromLatin1(msid.get());
     }
 
-    if (!mediaStreamId) {
+    if (mediaStreamId.isEmpty()) {
         if (const char* msidAttribute = gst_sdp_media_get_attribute_val(media, "msid")) {
             auto components = makeString(msidAttribute).split(' ');
             if (components.size() == 2)
@@ -894,7 +894,7 @@ void GStreamerMediaEndpoint::addRemoteStream(GstPad* pad)
         }
     }
 
-    if (!mediaStreamId) {
+    if (mediaStreamId.isEmpty()) {
         GUniquePtr<gchar> name(gst_pad_get_name(pad));
         mediaStreamId = String::fromLatin1(name.get());
     }
@@ -1612,5 +1612,7 @@ struct LogArgument<WebCore::RTCStatsLogger> {
 
 }; // namespace WTF
 #endif // !RELEASE_LOG_DISABLED
+
+#undef GST_CAT_DEFAULT
 
 #endif // USE(GSTREAMER_WEBRTC)

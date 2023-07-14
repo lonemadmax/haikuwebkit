@@ -4156,25 +4156,33 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
     updateRepaintTopAndBottomIfNeeded();
 
     setLogicalHeight(newBorderBoxBottom);
-    if (auto lineClamp = layoutState.lineClamp()) {
+    auto updateLineClampStateAndLogicalHeightIfApplicable = [&] {
+        auto lineClamp = layoutState.lineClamp();
+        if (!lineClamp)
+            return;
         lineClamp->currentLineCount += layoutFormattingContextLineLayout.lineCount();
-        if (!lineClamp->clampedRenderer) {
-            auto clampedContentHeight = [&]() -> std::optional<LayoutUnit> {
-                if (auto clampedHeight = layoutFormattingContextLineLayout.clampedContentLogicalHeight())
-                    return clampedHeight;
-                if (lineClamp->currentLineCount == lineClamp->maximumLineCount) {
-                    // Even if we did not truncate the content, this might be our clamping position.
-                    return computeContentHeight();
-                }
-                return { };
-            };
-            if (auto clampedHeight = clampedContentHeight()) {
-                lineClamp->clampedContentLogicalHeight = clampedHeight;
-                lineClamp->clampedRenderer = this;
+        if (lineClamp->clampedRenderer) {
+            // We've already clamped this flex container at a previous flex item.
+            layoutState.setLineClamp(*lineClamp);
+            return;
+        }
+        auto clampedContentHeight = [&]() -> std::optional<LayoutUnit> {
+            if (auto clampedHeight = layoutFormattingContextLineLayout.clampedContentLogicalHeight())
+                return clampedHeight;
+            if (lineClamp->currentLineCount == lineClamp->maximumLineCount) {
+                // Even if we did not truncate the content, this might be our clamping position.
+                return computeContentHeight();
             }
+            return { };
+        };
+        if (auto logicalHeight = clampedContentHeight()) {
+            lineClamp->clampedContentLogicalHeight = logicalHeight;
+            lineClamp->clampedRenderer = this;
+            setLogicalHeight(borderAndPaddingBefore() + *logicalHeight + borderAndPaddingAfter() + scrollbarLogicalHeight());
         }
         layoutState.setLineClamp(*lineClamp);
-    }
+    };
+    updateLineClampStateAndLogicalHeightIfApplicable();
 }
 
 #if ENABLE(TREE_DEBUGGING)
@@ -4227,7 +4235,7 @@ static inline bool isVisibleRenderText(const RenderObject& renderer)
         return false;
 
     auto& renderText = downcast<RenderText>(renderer);
-    return !renderText.linesBoundingBox().isEmpty() && !renderText.text().isAllSpecialCharacters<isASCIIWhitespace>();
+    return !renderText.linesBoundingBox().isEmpty() && !renderText.text().containsOnly<isASCIIWhitespace>();
 }
 
 static inline bool resizeTextPermitted(const RenderObject& renderer)

@@ -177,14 +177,8 @@ RefPtr<PixelBuffer> GraphicsContextGLANGLE::readPixelsForPaintResults()
     auto pixelBuffer = ByteArrayPixelBuffer::tryCreate(format, getInternalFramebufferSize());
     if (!pixelBuffer)
         return nullptr;
-    ScopedPixelStorageMode packAlignment(GL_PACK_ALIGNMENT);
-    if (packAlignment > 4)
-        packAlignment.pixelStore(4);
-    ScopedPixelStorageMode packRowLength(GL_PACK_ROW_LENGTH, 0, m_isForWebGL2);
-    ScopedPixelStorageMode packSkipRows(GL_PACK_SKIP_ROWS, 0, m_isForWebGL2);
-    ScopedPixelStorageMode packSkipPixels(GL_PACK_SKIP_PIXELS, 0, m_isForWebGL2);
     ScopedBufferBinding scopedPixelPackBufferReset(GL_PIXEL_PACK_BUFFER, 0, m_isForWebGL2);
-
+    setPackParameters(1, 0);
     GL_ReadnPixelsRobustANGLE(0, 0, pixelBuffer->size().width(), pixelBuffer->size().height(), GL_RGBA, GL_UNSIGNED_BYTE, pixelBuffer->sizeInBytes(), nullptr, nullptr, nullptr, pixelBuffer->bytes());
     // FIXME: Rendering to GL_RGB textures with a IOSurface bound to the texture image leaves
     // the alpha in the IOSurface in incorrect state. Also ANGLE GL_ReadPixels will in some
@@ -459,26 +453,34 @@ void GraphicsContextGLANGLE::clearDepth(GCGLclampf depth)
     GL_ClearDepthf(static_cast<float>(depth));
 }
 
-void GraphicsContextGLANGLE::readPixels(IntRect rect, GCGLenum format, GCGLenum type, std::span<uint8_t> data)
+void GraphicsContextGLANGLE::readPixels(IntRect rect, GCGLenum format, GCGLenum type, std::span<uint8_t> data, GCGLint alignment, GCGLint rowLength)
 {
+    if (!makeContextCurrent())
+        return;
+    ScopedBufferBinding scopedPixelPackBufferReset(GL_PIXEL_PACK_BUFFER, 0, m_isForWebGL2);
+    setPackParameters(alignment, rowLength);
     readPixelsImpl(rect, format, type, data.size(), data.data(), false);
 }
 
-bool GraphicsContextGLANGLE::readPixelsWithStatus(IntRect rect, GCGLenum format, GCGLenum type,  std::span<uint8_t> data)
+std::optional<IntSize> GraphicsContextGLANGLE::readPixelsWithStatus(IntRect rect, GCGLenum format, GCGLenum type, std::span<uint8_t> data)
 {
+    if (!makeContextCurrent())
+        return std::nullopt;
+    ScopedBufferBinding scopedPixelPackBufferReset(GL_PIXEL_PACK_BUFFER, 0, m_isForWebGL2);
+    setPackParameters(1, 0); // Used for tight packing read only.
     return readPixelsImpl(rect, format, type, data.size(), data.data(), false);
 }
 
-void GraphicsContextGLANGLE::readPixelsBufferObject(IntRect rect, GCGLenum format, GCGLenum type, GCGLintptr offset)
+void GraphicsContextGLANGLE::readPixelsBufferObject(IntRect rect, GCGLenum format, GCGLenum type, GCGLintptr offset, GCGLint alignment, GCGLint rowLength)
 {
+    if (!makeContextCurrent())
+        return;
+    setPackParameters(alignment, rowLength);
     readPixelsImpl(rect, format, type, 0, reinterpret_cast<uint8_t*>(offset), true);
 }
 
-bool GraphicsContextGLANGLE::readPixelsImpl(IntRect rect, GCGLenum format, GCGLenum type, GCGLsizei bufSize, uint8_t* data, bool readingToPixelBufferObject)
+std::optional<IntSize> GraphicsContextGLANGLE::readPixelsImpl(IntRect rect, GCGLenum format, GCGLenum type, GCGLsizei bufSize, uint8_t* data, bool readingToPixelBufferObject)
 {
-    if (!makeContextCurrent())
-        return false;
-
     // FIXME: remove the two glFlush calls when the driver bug is fixed, i.e.,
     // all previous rendering calls should be done before reading pixels.
     GL_Flush();
@@ -490,15 +492,16 @@ bool GraphicsContextGLANGLE::readPixelsImpl(IntRect rect, GCGLenum format, GCGLe
         GL_Flush();
     }
     updateErrors();
-    GL_ReadnPixelsRobustANGLE(rect.x(), rect.y(), rect.width(), rect.height(), format, type, bufSize, nullptr, nullptr, nullptr, data);
+    GLsizei rows = 0;
+    GLsizei columns = 0;
+    GL_ReadnPixelsRobustANGLE(rect.x(), rect.y(), rect.width(), rect.height(), format, type, bufSize, nullptr, &rows, &columns, data);
     if (attrs.antialias && m_state.boundReadFBO == m_multisampleFBO)
         GL_BindFramebuffer(framebufferTarget, m_multisampleFBO);
 
     if (updateErrors()) {
         // ANGLE detected a failure during the ReadnPixelsRobustANGLE operation. Skip the alpha channel fixup below.
-        return false;
+        return std::nullopt;
     }
-
 
 #if PLATFORM(MAC) || PLATFORM(IOS_FAMILY)
     if (!readingToPixelBufferObject && !attrs.alpha && (format == GraphicsContextGL::RGBA || format == GraphicsContextGL::BGRA) && (type == GraphicsContextGL::UNSIGNED_BYTE) && (m_state.boundReadFBO == m_fbo || (attrs.antialias && m_state.boundReadFBO == m_multisampleFBO)))
@@ -506,7 +509,7 @@ bool GraphicsContextGLANGLE::readPixelsImpl(IntRect rect, GCGLenum format, GCGLe
 #else
     UNUSED_PARAM(readingToPixelBufferObject);
 #endif
-    return true;
+    return IntSize { rows, columns };
 }
 
 // The contents of GraphicsContextGLANGLECommon follow, ported to use ANGLE.
@@ -856,6 +859,14 @@ void GraphicsContextGLANGLE::renderbufferStorageMultisample(GCGLenum target, GCG
         return;
 
     GL_RenderbufferStorageMultisample(target, samples, internalformat, width, height);
+}
+
+void GraphicsContextGLANGLE::renderbufferStorageMultisampleANGLE(GCGLenum target, GCGLsizei samples, GCGLenum internalformat, GCGLsizei width, GCGLsizei height)
+{
+    if (!makeContextCurrent())
+        return;
+
+    GL_RenderbufferStorageMultisampleANGLE(target, samples, internalformat, width, height);
 }
 
 void GraphicsContextGLANGLE::texStorage2D(GCGLenum target, GCGLsizei levels, GCGLenum internalformat, GCGLsizei width, GCGLsizei height)
@@ -2360,6 +2371,14 @@ void GraphicsContextGLANGLE::blitFramebuffer(GCGLint srcX0, GCGLint srcY0, GCGLi
     GL_BlitFramebuffer(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
 }
 
+void GraphicsContextGLANGLE::blitFramebufferANGLE(GCGLint srcX0, GCGLint srcY0, GCGLint srcX1, GCGLint srcY1, GCGLint dstX0, GCGLint dstY0, GCGLint dstX1, GCGLint dstY1, GCGLbitfield mask, GCGLenum filter)
+{
+    if (!makeContextCurrent())
+        return;
+
+    GL_BlitFramebufferANGLE(srcX0, srcY0, srcX1, srcY1, dstX0, dstY0, dstX1, dstY1, mask, filter);
+}
+
 void GraphicsContextGLANGLE::framebufferTextureLayer(GCGLenum target, GCGLenum attachment, PlatformGLObject texture, GCGLint level, GCGLint layer)
 {
     if (!makeContextCurrent())
@@ -2813,6 +2832,17 @@ void GraphicsContextGLANGLE::getActiveUniformBlockiv(GCGLuint program, GCGLuint 
     GL_GetActiveUniformBlockivRobustANGLE(program, uniformBlockIndex, pname, params.size(), nullptr, params.data());
 }
 
+std::optional<GraphicsContextGL::ExternalImageAttachResult> GraphicsContextGLANGLE::createAndBindExternalImage(GCGLenum, ExternalImageSource)
+{
+    notImplemented();
+    return std::nullopt;
+}
+
+void GraphicsContextGLANGLE::destroyEGLImage(GCEGLImage handle)
+{
+    EGL_DestroyImageKHR(platformDisplay(), handle);
+}
+
 GCEGLSync GraphicsContextGLANGLE::createEGLSync(ExternalEGLSyncEvent)
 {
     notImplemented();
@@ -3252,6 +3282,18 @@ GCGLenum GraphicsContextGLANGLE::adjustWebGL1TextureInternalFormat(GCGLenum inte
             return GL_RGB32F;
     }
     return internalformat;
+}
+
+void GraphicsContextGLANGLE::setPackParameters(GCGLint alignment, GCGLint rowLength)
+{
+    if (m_packAlignment != alignment) {
+        GL_PixelStorei(GL_PACK_ALIGNMENT, alignment);
+        m_packAlignment = alignment;
+    }
+    if (m_packRowLength != rowLength) {
+        GL_PixelStorei(GL_PACK_ROW_LENGTH, rowLength);
+        m_packRowLength = rowLength;
+    }
 }
 
 }

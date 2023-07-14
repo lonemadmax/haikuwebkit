@@ -850,6 +850,8 @@ protected:
         NullNotReachable
     };
 
+    // Validates size and pack sizes.
+    bool validateReadPixelsDimensions(GCGLint width, GCGLint height);
     bool validateTexImageSubRectangle(TexImageFunctionID, const IntRect& imageSize, const IntRect& subRect, GCGLsizei depth, GCGLint unpackImageHeight, bool* selectingSubRectangle);
 
     IntRect sentinelEmptyRect();
@@ -925,6 +927,9 @@ protected:
         GCGLsizei width, GCGLsizei height, GCGLsizei depth,
         GCGLint border,
         GCGLenum format, GCGLenum type);
+
+    // Helper function to validate pixel transfer format and type.
+    bool validateImageFormatAndType(const char* functionName, GCGLenum format, GCGLenum type);
 
     // Helper function to validate that the given ArrayBufferView
     // is of the correct type and contains enough data for the texImage call.

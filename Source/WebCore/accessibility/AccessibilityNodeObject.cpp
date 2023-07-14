@@ -605,7 +605,7 @@ bool AccessibilityNodeObject::computeAccessibilityIsIgnored() const
             return true;
 
         // Whitespace only text elements should be ignored when they have no renderer.
-        if (stringValue().isAllSpecialCharacters<deprecatedIsSpaceOrNewline>())
+        if (stringValue().containsOnly<deprecatedIsSpaceOrNewline>())
             return true;
     }
 
@@ -1105,6 +1105,12 @@ Element* AccessibilityNodeObject::anchorElement() const
     }
 
     return nullptr;
+}
+
+Element* AccessibilityNodeObject::popoverTargetElement() const
+{
+    WeakPtr formControlElement = dynamicDowncast<HTMLFormControlElement>(node());
+    return formControlElement ? formControlElement->popoverTargetElement() : nullptr;
 }
 
 AccessibilityObject* AccessibilityNodeObject::internalLinkElement() const

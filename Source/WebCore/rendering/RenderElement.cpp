@@ -321,7 +321,7 @@ inline bool RenderElement::shouldRepaintForStyleDifference(StyleDifference diff)
 {
     auto hasImmediateNonWhitespaceTextChild = [&] {
         for (auto& child : childrenOfType<RenderText>(*this)) {
-            if (!child.isAllCollapsibleWhitespace())
+            if (!child.containsOnlyCollapsibleWhitespace())
                 return true;
         }
         return false;
@@ -1103,7 +1103,6 @@ void RenderElement::clearChildNeedsLayout()
     setNormalChildNeedsLayoutBit(false);
     setPosChildNeedsLayoutBit(false);
     setNeedsSimplifiedNormalFlowLayoutBit(false);
-    setNormalChildNeedsLayoutBit(false);
     setNeedsPositionedMovementLayoutBit(false);
 }
 

@@ -343,6 +343,10 @@ void GPUConnectionToWebProcess::didClose(IPC::Connection& connection)
         m_audioSessionProxy = nullptr;
     }
 #endif
+#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
+    if (auto userMediaCaptureManagerProxy = std::exchange(m_userMediaCaptureManagerProxy, { }))
+        userMediaCaptureManagerProxy->close();
+#endif
 #if ENABLE(VIDEO)
     m_videoFrameObjectHeap->close();
     m_remoteMediaPlayerManagerProxy->clear();
@@ -650,9 +654,22 @@ void GPUConnectionToWebProcess::createRemoteGPU(WebGPUIdentifier identifier, Ren
     auto* renderingBackend = it->value.get();
 
     auto addResult = m_remoteGPUMap.ensure(identifier, [&] {
-        return IPC::ScopedActiveMessageReceiveQueue { RemoteGPU::create([this] (MediaPlayerIdentifier identifier, Function<void(MediaPlayer&)>&& callback) mutable {
-            this->performWithMediaPlayerOnMainThread(identifier, WTFMove(callback));
-        }, identifier, *this, *renderingBackend, WTFMove(connectionHandle)) };
+        return IPC::ScopedActiveMessageReceiveQueue { RemoteGPU::create(
+#if ENABLE(VIDEO) && PLATFORM(COCOA)
+            [&] (std::variant<WebCore::MediaPlayerIdentifier, WebKit::RemoteVideoFrameReference> identifier, Function<void(RefPtr<WebCore::VideoFrame>)>&& callback) mutable {
+                return WTF::switchOn(identifier, [&] (WebCore::MediaPlayerIdentifier i) {
+                    performWithMediaPlayerOnMainThread(i, [&callback](auto& player) {
+                        callback(player.videoFrameForCurrentTime());
+                    });
+                }, [&] (WebKit::RemoteVideoFrameReference i) {
+                    callback(videoFrameObjectHeap().get(RemoteVideoFrameReadReference(WTFMove(i))));
+                });
+            },
+#else
+            [] () mutable {
+            },
+#endif
+            identifier, *this, *renderingBackend, WTFMove(connectionHandle)) };
     });
     ASSERT_UNUSED(addResult, addResult.isNewEntry);
 }
