@@ -27,15 +27,18 @@
 
 #if USE(CG)
 #include <CoreGraphics/CGPath.h>
-#else
+#elif USE(CAIRO)
 #include "RefPtrCairo.h"
 #endif
 
 #if USE(CG)
 typedef struct CGPath PlatformPath;
 typedef PlatformPath* PlatformPathPtr;
-#else
+#elif USE(CAIRO)
 typedef cairo_t* PlatformPathPtr;
+#elif USE(HAIKU)
+class BShape;
+typedef BShape* PlatformPathPtr;
 #endif
 
 namespace WebCore {
@@ -43,9 +46,12 @@ namespace WebCore {
 #if USE(CG)
 class PathCG;
 using PlatformPathImpl = PathCG;
-#else
+#elif USE(CAIRO)
 class PathCairo;
 using PlatformPathImpl = PathCairo;
+#elif USE(HAIKU)
+class PathHaiku;
+using PlatformPathImpl = PathHaiku;
 #endif
 
 } // namespace WebCore

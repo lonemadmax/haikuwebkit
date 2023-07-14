@@ -29,7 +29,7 @@
  */
 
 #include "config.h"
-#include "Path.h"
+#include "PathHaiku.h"
 
 #include "AffineTransform.h"
 #include "FloatRect.h"
@@ -122,22 +122,22 @@ public:
         m_view->MovePenTo(-x, -y);
     }
 
-    bool hitTest(BShape* shape, float x, float y, WindRule rule)
+    bool hitTest(const BShape* shape, float x, float y, WindRule rule)
     {
         prepareHitTest(x, y);
 
-        m_view->FillShape(shape);
+        m_view->FillShape(const_cast<BShape*>(shape));
 
         return hitTestPixel();
     }
 
-    bool hitTest(BShape* shape, float x, float y, const Function<void(GraphicsContext&)>& applier)
+    bool hitTest(const BShape* shape, float x, float y, const Function<void(GraphicsContext&)>& applier)
     {
         prepareHitTest(x, y);
 
         GraphicsContextHaiku context(m_view);
         applier(context);
-        m_view->StrokeShape(shape);
+        m_view->StrokeShape(const_cast<BShape*>(shape));
 
         return hitTestPixel();
     }
@@ -170,69 +170,86 @@ static HitTestBitmap gHitTestBitmap;
 
 // #pragma mark - Path
 
-Path::Path()
-    : m_path(new BShape())
+PathHaiku::PathHaiku()
 {
     gHitTestBitmap.addReference();
 }
 
-Path::Path(const Path& other)
-    : m_path(new BShape(*other.platformPath()))
+
+PathHaiku::PathHaiku(const BShape& platformPath, std::unique_ptr<PathStream>&& elementsStream)
+    : m_platformPath(platformPath)
+    , m_elementsStream(WTFMove(elementsStream))
 {
-    gHitTestBitmap.addReference();
 }
 
-Path::Path(Path&& other)
-{
-    m_path = other.m_path;
-    other.m_path = nullptr;
-    gHitTestBitmap.addReference();
-}
 
-Path::~Path()
+
+PathHaiku::~PathHaiku()
 {
     gHitTestBitmap.removeReference();
-    delete m_path;
 }
 
-Path& Path::operator=(const Path& other)
+
+UniqueRef<PathHaiku> PathHaiku::create()
 {
-    if (&other != this) {
-        m_path->Clear();
-        m_path->AddShape(other.platformPath());
-    }
-
-    return *this;
+    return makeUniqueRef<PathHaiku>();
 }
 
-Path& Path::operator=(Path&& other)
+
+UniqueRef<PathHaiku> PathHaiku::create(const PathStream& stream)
 {
-    if (this == &other)
-        return *this;
-    if (m_path)
-        delete m_path;
-    m_path = other.m_path;
-    other.m_path = nullptr;
-    return *this;
+    auto pathHaiku = PathHaiku::create();
+
+    stream.applySegments([&](const PathSegment& segment) {
+        pathHaiku->appendSegment(segment);
+    });
+
+    return pathHaiku;
 }
 
-FloatPoint Path::currentPointSlowCase() const
+UniqueRef<PathHaiku> PathHaiku::create(const BShape& platformPath, std::unique_ptr<PathStream>&& elementsStream)
 {
-    return m_path->CurrentPosition();
+    return makeUniqueRef<PathHaiku>(platformPath, WTFMove(elementsStream));
 }
 
-bool Path::contains(const FloatPoint& point, WindRule rule) const
+UniqueRef<PathImpl> PathHaiku::clone() const
+{
+    auto elementsStream = m_elementsStream ? m_elementsStream->clone().moveToUniquePtr() : nullptr;
+
+    return PathHaiku::create(m_platformPath, std::unique_ptr<PathStream> { downcast<PathStream>(elementsStream.release()) });
+}
+
+PlatformPathPtr PathHaiku::platformPath() const
+{
+    return const_cast<BShape*>(&m_platformPath);
+}
+
+bool PathHaiku::operator==(const PathImpl& other) const
+{
+    const auto* ptr = dynamic_cast<const PathHaiku*>(&other);
+    if (!ptr)
+        return false;
+    return m_platformPath == ptr->m_platformPath;
+}
+
+FloatPoint PathHaiku::currentPoint() const
+{
+    return m_platformPath.CurrentPosition();
+}
+
+bool PathHaiku::contains(const FloatPoint& point, WindRule rule) const
 {
     gHitTestBitmap.init();
-    return gHitTestBitmap.hitTest(m_path, point.x(), point.y(), rule);
+    return gHitTestBitmap.hitTest(&m_platformPath, point.x(), point.y(), rule);
 }
 
-bool Path::strokeContains(const FloatPoint& point, const Function<void(GraphicsContext&)>& applier) const
+bool PathHaiku::strokeContains(const FloatPoint& point, const Function<void(GraphicsContext&)>& applier) const
 {
     gHitTestBitmap.init();
-    return gHitTestBitmap.hitTest(m_path, point.x(), point.y(), applier);
+    return gHitTestBitmap.hitTest(&m_platformPath, point.x(), point.y(), applier);
 }
 
+#if 0
 void Path::translate(const FloatSize& size)
 {
     // BShapeIterator allows us to modify the path data "in place"
@@ -293,23 +310,24 @@ void Path::translate(const FloatSize& size)
 
     translateIterator.Iterate(m_path);
 }
+#endif
 
-FloatRect Path::boundingRectSlowCase() const
+FloatRect PathHaiku::boundingRect() const
 {
-    return m_path->Bounds();
+    return m_platformPath.Bounds();
 }
 
-void Path::moveToSlowCase(const FloatPoint& p)
+void PathHaiku::moveTo(const FloatPoint& p)
 {
-    m_path->MoveTo(p);
+    m_platformPath.MoveTo(p);
 }
 
-void Path::addLineToSlowCase(const FloatPoint& p)
+void PathHaiku::addLineTo(const FloatPoint& p)
 {
-    m_path->LineTo(p);
+    m_platformPath.LineTo(p);
 }
 
-void Path::addQuadCurveToSlowCase(const FloatPoint& cp, const FloatPoint& p)
+void PathHaiku::addQuadCurveTo(const FloatPoint& cp, const FloatPoint& p)
 {
     BPoint control = cp;
 
@@ -323,27 +341,27 @@ void Path::addQuadCurveToSlowCase(const FloatPoint& cp, const FloatPoint& p)
     points[1].y += (control.y - points[1].y) * (2.0 / 3.0);
 
     points[2] = p;
-    m_path->BezierTo(points);
+    m_platformPath.BezierTo(points);
 }
 
-void Path::addBezierCurveToSlowCase(const FloatPoint& cp1, const FloatPoint& cp2, const FloatPoint& p)
+void PathHaiku::addBezierCurveTo(const FloatPoint& cp1, const FloatPoint& cp2, const FloatPoint& p)
 {
     BPoint points[3];
     points[0] = cp1;
     points[1] = cp2;
     points[2] = p;
-    m_path->BezierTo(points);
+    m_platformPath.BezierTo(points);
 }
 
-void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
+void PathHaiku::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
 {
     if (isEmpty())
         return;
 
-    FloatPoint p0(m_path->CurrentPosition());
+    FloatPoint p0(m_platformPath.CurrentPosition());
 
     if ((p1.x() == p0.x() && p1.y() == p0.y()) || (p1.x() == p2.x() && p1.y() == p2.y()) || radius == 0.f) {
-        m_path->LineTo(p1);
+        m_platformPath.LineTo(p1);
         return;
     }
 
@@ -355,7 +373,7 @@ void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
     double cos_phi = (p1p0.x() * p1p2.x() + p1p0.y() * p1p2.y()) / (p1p0_length * p1p2_length);
     // all points on a line logic
     if (cos_phi == -1) {
-        m_path->LineTo(p1);
+        m_platformPath.LineTo(p1);
         return;
     }
     if (cos_phi == 1) {
@@ -363,7 +381,7 @@ void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
         unsigned int max_length = 65535;
         double factor_max = max_length / p1p0_length;
         FloatPoint ep((p0.x() + factor_max * p1p0.x()), (p0.y() + factor_max * p1p0.y()));
-        m_path->LineTo(ep);
+        m_platformPath.LineTo(ep);
         return;
     }
 
@@ -389,7 +407,7 @@ void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
         sa = 2 * piDouble - sa;
 
     // anticlockwise logic
-    bool anticlockwise = false;
+    RotationDirection direction = RotationDirection::Clockwise;
 
     float factor_p1p2 = tangent / p1p2_length;
     FloatPoint t_p1p2((p1.x() + factor_p1p2 * p1p2.x()), (p1.y() + factor_p1p2 * p1p2.y()));
@@ -399,81 +417,87 @@ void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
     if (orth_p1p2.y() < 0)
         ea = 2 * piDouble - ea;
     if ((sa > ea) && ((sa - ea) < piDouble))
-        anticlockwise = true;
+        direction = RotationDirection::Counterclockwise;
     if ((sa < ea) && ((ea - sa) > piDouble))
-        anticlockwise = true;
+        direction = RotationDirection::Counterclockwise;
 
-    m_path->LineTo(t_p1p0);
+    m_platformPath.LineTo(t_p1p0);
 
-    addArc(p, radius, sa, ea, anticlockwise);
+    addArc(p, radius, sa, ea, direction);
 }
 
-void Path::addPath(const Path&, const AffineTransform&)
+void PathHaiku::addPath(const PathHaiku&, const AffineTransform&)
 {
     // FIXME: This should probably be very similar to Path::transform.
     notImplemented();
 }
 
-void Path::closeSubpath()
+void PathHaiku::closeSubpath()
 {
-    m_path->Close();
+    m_platformPath.Close();
 }
 
-void Path::addArcSlowCase(const FloatPoint& center, float radius,
-       float startAngleRadiants, float endAngleRadiants, bool anticlockwise)
+void PathHaiku::addArc(const FloatPoint& center, float radius,
+       float startAngleRadiants, float endAngleRadiants, RotationDirection direction)
 {
-       // Compute start and end positions
-       float startX = center.x() + radius * cos(startAngleRadiants);
-      float startY = center.y() + radius * sin(startAngleRadiants);
-      float endX   = center.x() + radius * cos(endAngleRadiants);
-       float endY   = center.y() + radius * sin(endAngleRadiants);
+    // Compute start and end positions
+    float startX = center.x() + radius * cos(startAngleRadiants);
+    float startY = center.y() + radius * sin(startAngleRadiants);
+    float endX   = center.x() + radius * cos(endAngleRadiants);
+    float endY   = center.y() + radius * sin(endAngleRadiants);
 
-       // Handle special case of ellipse (the code below isn't stable in that case it seems ?)
-       if ((int)startX == (int)endX && (int)startY == (int)endY)
-       {
-               addEllipse(FloatRect(center.x() - radius, center.y() - radius,
-                       radius * 2, radius * 2));
-               return;
-       }
+    // Handle special case of ellipse (the code below isn't stable in that case it seems ?)
+    if ((int)startX == (int)endX && (int)startY == (int)endY)
+    {
+        addEllipseInRect(FloatRect(center.x() - radius, center.y() - radius,
+            radius * 2, radius * 2));
+        return;
+    }
 
-       // Decide if we are drawing a "large" arc (more than PI rad)
-       bool large = anticlockwise;
-       float coverage = fmodf(endAngleRadiants - startAngleRadiants, 2 * M_PI);
-       if (coverage < 0)
-               coverage += 2 * M_PI;
-       if (coverage >= M_PI)
-               large = !anticlockwise;
+    // Decide if we are drawing a "large" arc (more than PI rad)
+    bool large = direction == RotationDirection::Counterclockwise;
+    float coverage = fmodf(endAngleRadiants - startAngleRadiants, 2 * M_PI);
+    if (coverage < 0)
+        coverage += 2 * M_PI;
+    if (coverage >= M_PI)
+        large = direction == RotationDirection::Clockwise;
 
-       // Draw the radius or whatever line is needed to get to the start point
-       // (or teleport there if there was no previous position)
-       if (hasCurrentPoint())
-               m_path->LineTo(BPoint(startX, startY));
-       else
-               m_path->MoveTo(BPoint(startX, startY));
+    // Draw the radius or whatever line is needed to get to the start point
+    // (or teleport there if there was no previous position)
+    if (!isEmpty())
+        m_platformPath.LineTo(BPoint(startX, startY));
+    else
+        m_platformPath.MoveTo(BPoint(startX, startY));
 
-       // And finally, draw the arc itself
-       m_path->ArcTo(radius, radius, startAngleRadiants, large, anticlockwise,
-               BPoint(endX, endY));
-}
-
-
-void Path::addRect(const FloatRect& r)
-{
-    m_path->MoveTo(BPoint(r.x(), r.y()));
-    m_path->LineTo(BPoint(r.maxX(), r.y()));
-    m_path->LineTo(BPoint(r.maxX(), r.maxY()));
-    m_path->LineTo(BPoint(r.x(), r.maxY()));
-    m_path->Close();
+    // And finally, draw the arc itself
+    m_platformPath.ArcTo(radius, radius, startAngleRadiants, large,
+        direction == RotationDirection::Counterclockwise, BPoint(endX, endY));
 }
 
 
-void Path::addEllipse(FloatPoint p, float radiusX, float radiusY, float rotation,
-    float startAngle, float endAngle, bool anticlockwise) {
+void PathHaiku::addRect(const FloatRect& r)
+{
+    m_platformPath.MoveTo(BPoint(r.x(), r.y()));
+    m_platformPath.LineTo(BPoint(r.maxX(), r.y()));
+    m_platformPath.LineTo(BPoint(r.maxX(), r.maxY()));
+    m_platformPath.LineTo(BPoint(r.x(), r.maxY()));
+    m_platformPath.Close();
+}
+
+
+void PathHaiku::addRoundedRect(FloatRoundedRect const&, WebCore::PathRoundedRect::Strategy)
+{
     notImplemented();
 }
 
 
-void Path::addEllipse(const FloatRect& r)
+void PathHaiku::addEllipse(const FloatPoint& p, float radiusX, float radiusY, float rotation,
+    float startAngle, float endAngle, RotationDirection direction) {
+    notImplemented();
+}
+
+
+void PathHaiku::addEllipseInRect(const FloatRect& r)
 {
     BPoint points[3];
     const float radiusH = r.width() / 2;
@@ -482,55 +506,84 @@ void Path::addEllipse(const FloatRect& r)
     const float middleV = r.y() + radiusV;
     const float kRadiusBezierScale = 0.552284;
 
-    m_path->MoveTo(BPoint(middleH, r.y()));
+    m_platformPath.MoveTo(BPoint(middleH, r.y()));
     points[0].x = middleH + kRadiusBezierScale * radiusH;
     points[0].y = r.y();
     points[1].x = r.maxX();
     points[1].y = middleV - kRadiusBezierScale * radiusV;
     points[2].x = r.maxX();
     points[2].y = middleV;
-    m_path->BezierTo(points);
+    m_platformPath.BezierTo(points);
     points[0].x = r.maxX();
     points[0].y = middleV + kRadiusBezierScale * radiusV;
     points[1].x = middleH + kRadiusBezierScale * radiusH;
     points[1].y = r.maxY();
     points[2].x = middleH;
     points[2].y = r.maxY();
-    m_path->BezierTo(points);
+    m_platformPath.BezierTo(points);
     points[0].x = middleH - kRadiusBezierScale * radiusH;
     points[0].y = r.maxY();
     points[1].x = r.x();
     points[1].y = middleV + kRadiusBezierScale * radiusV;
     points[2].x = r.x();
     points[2].y = middleV;
-    m_path->BezierTo(points);
+    m_platformPath.BezierTo(points);
     points[0].x = r.x();
     points[0].y = middleV - kRadiusBezierScale * radiusV;
     points[1].x = middleH - kRadiusBezierScale * radiusH;
     points[1].y = r.y();
     points[2].x = middleH;
     points[2].y = r.y();
-    m_path->BezierTo(points);
-    m_path->Close();
+    m_platformPath.BezierTo(points);
+    m_platformPath.Close();
 }
 
+#if 0
 void Path::clear()
 {
     m_path->Clear();
 }
+#endif
 
 
-bool Path::isEmptySlowCase() const
+bool PathHaiku::isEmpty() const
 {
-    return !m_path->Bounds().IsValid();
+    return !m_platformPath.Bounds().IsValid();
 }
 
 
-void Path::applyIgnoringInlineData(const PathApplierFunction& function) const
+void PathHaiku::applySegments(const PathSegmentApplier& applier) const
+{
+    applyElements([&](const PathElement& pathElement) {
+        switch (pathElement.type) {
+        case PathElement::Type::MoveToPoint:
+            applier({ PathMoveTo { pathElement.points[0] } });
+            break;
+
+        case PathElement::Type::AddLineToPoint:
+            applier({ PathLineTo { pathElement.points[0] } });
+            break;
+
+        case PathElement::Type::AddQuadCurveToPoint:
+            applier({ PathQuadCurveTo { pathElement.points[0], pathElement.points[1] } });
+            break;
+
+        case PathElement::Type::AddCurveToPoint:
+            applier({ PathBezierCurveTo { pathElement.points[0], pathElement.points[1], pathElement.points[2] } });
+            break;
+
+        case PathElement::Type::CloseSubpath:
+            applier({ std::monostate() });
+            break;
+        }
+    });
+}
+
+void PathHaiku::applyElements(const PathElementApplier& function) const
 {
     class ApplyIterator : public BShapeIterator {
     public:
-        ApplyIterator(const PathApplierFunction& function)
+        ApplyIterator(const PathElementApplier& function)
             : m_function(function)
         {
         }
@@ -589,13 +642,13 @@ void Path::applyIgnoringInlineData(const PathApplierFunction& function) const
         }
 
     private:
-        const PathApplierFunction& m_function;
+        const PathElementApplier& m_function;
     } applyIterator(function);
 
-    applyIterator.Iterate(m_path);
+    applyIterator.Iterate(const_cast<BShape*>(&m_platformPath));
 }
 
-void Path::transform(const AffineTransform& transform)
+void PathHaiku::transform(const AffineTransform& transform)
 {
     // BShapeIterator allows us to modify the path data "in place"
     class TransformIterator : public BShapeIterator {
@@ -650,34 +703,27 @@ void Path::transform(const AffineTransform& transform)
         const AffineTransform& m_transform;
     } transformIterator(transform);
 
-    transformIterator.Iterate(m_path);
+    transformIterator.Iterate(&m_platformPath);
 }
 
-FloatRect Path::strokeBoundingRect(const Function<void(GraphicsContext&)>& applier) const
+FloatRect PathHaiku::strokeBoundingRect(const Function<void(GraphicsContext&)>& applier) const
 {
     // Used by the web inspector to highlight some element
 
-    // Should this be isEmpty() or can an empty path have a non-zero origin?
-    if (isNull())
+    if (isEmpty())
         return FloatRect();
 
     if (applier) {
         notImplemented();
     }
 
-    return m_path->Bounds();
+    return m_platformPath.Bounds();
 }
 
 
-FloatRect Path::fastBoundingRectSlowCase() const
+FloatRect PathHaiku::fastBoundingRect() const
 {
-    return m_path->Bounds();
-}
-
-
-bool Path::isNull() const
-{
-    return !m_path;
+    return m_platformPath.Bounds();
 }
 
 } // namespace WebCore
