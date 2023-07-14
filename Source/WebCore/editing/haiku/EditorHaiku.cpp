@@ -102,7 +102,7 @@ void Editor::writeImageToPasteboard(Pasteboard& pasteboard, Element& imageElemen
         return;
     ASSERT(pasteboardImage.image);
 
-    pasteboardImage.url.url = imageElement.document().completeURL(stripLeadingAndTrailingHTMLSpaces(elementURL(imageElement)));
+    pasteboardImage.url.url = imageElement.document().completeURL(elementURL(imageElement));
     pasteboardImage.url.title = title;
     //pasteboardImage.url.markup = createMarkup(imageElement, IncludeNode, nullptr, ResolveAllURLs);
     pasteboard.write(pasteboardImage);
