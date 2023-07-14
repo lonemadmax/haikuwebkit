@@ -77,7 +77,6 @@ private:
 
     void invokeDidReceiveResponse();
 
-    bool shouldStartHTTPRedirection();
     bool shouldRedirectAsGET(const WebCore::ResourceRequest&, bool crossOrigin);
     void willPerformHTTPRedirection();
 
