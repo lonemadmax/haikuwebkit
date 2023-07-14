@@ -526,7 +526,7 @@ bool Path::isEmptySlowCase() const
 }
 
 
-void Path::applySlowCase(const PathApplierFunction& function) const
+void Path::applyIgnoringInlineData(const PathApplierFunction& function) const
 {
     class ApplyIterator : public BShapeIterator {
     public:

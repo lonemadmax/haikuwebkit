@@ -128,8 +128,6 @@ list(APPEND WebCore_SOURCES
   platform/graphics/haiku/TiledBackingStoreHaiku.cpp
   platform/graphics/haiku/GraphicsLayerHaiku.cpp
 
-  platform/graphics/OpenGLShims.cpp
-
   platform/network/haiku/NetworkStateNotifierHaiku.cpp
   platform/network/curl/PublicSuffixCurl.cpp
 

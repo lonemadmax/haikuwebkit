@@ -55,6 +55,8 @@ public:
 
     static size_t calculateMemoryCost(const Parameters&);
 
+    String debugDescription() const override { return ASCIILiteral::fromLiteralUnsafe("haiku image"); }
+
 protected:
     ImageBufferHaikuSurfaceBackend(const Parameters& parameters, const IntSize& backendSize);
     ImageBufferHaikuSurfaceBackend(const Parameters& parameters);

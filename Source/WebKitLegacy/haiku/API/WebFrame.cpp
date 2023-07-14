@@ -83,7 +83,7 @@ BWebFrame::BWebFrame(BWebPage* webPage, BWebFrame* parentFrame,
 			= static_cast<FrameLoaderClientHaiku&>(data->frame->loader().client());
 		client.setFrame(this);
         fData->frame->init();
-        fData->frame->tree().setName(fData->name);
+        fData->frame->tree().setSpecifiedName(fData->name);
     } else {
         // Will be initialized in BWebFrame::AddChild
     }
@@ -428,7 +428,7 @@ BWebFrame* BWebFrame::AddChild(BWebPage* page, BString name,
     }
     FrameLoaderClientHaiku& client = static_cast<FrameLoaderClientHaiku&>(data->frame->loader().client());
     client.setFrame(frame);
-    data->frame->tree().setName(AtomString::fromUTF8(name.String()));
+    data->frame->tree().setSpecifiedName(AtomString::fromUTF8(name.String()));
 
     data->frame->init();
     // TODO? evas_object_smart_member_add(frame, ewkFrame);

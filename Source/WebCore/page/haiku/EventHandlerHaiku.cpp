@@ -98,7 +98,7 @@ bool EventHandler::eventActivatedView(const PlatformMouseEvent&) const
 
 bool EventHandler::passWheelEventToWidget(const PlatformWheelEvent& event, Widget& widget, OptionSet<WheelEventProcessingSteps> processingSteps)
 {
-    if (!widget.isFrameView())
+    if (!widget.isLocalFrameView())
         return false;
 
     auto& localFrame = static_cast<LocalFrame&>(static_cast<LocalFrameView&>(widget).frame());
