@@ -34,7 +34,7 @@
 #include "SocketStreamHandle.h"
 
 #if PLATFORM(HAIKU)
-#include "WebCore/SocketStreamHandleImpl.h"
+#include "../haiku/WebCoreSupport/SocketStreamHandleImpl.h"
 #else
 #include "SocketStreamHandleImpl.h"
 #endif

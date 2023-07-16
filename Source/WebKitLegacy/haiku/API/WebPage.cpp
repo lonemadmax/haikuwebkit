@@ -126,7 +126,6 @@
 
 #include <wtf/text/AtomString.h>
 #include <wtf/Assertions.h>
-#include <wtf/Span.h>
 #include <wtf/Threading.h>
 
 #if USE(GCRYPT)
@@ -512,7 +511,7 @@ status_t BWebPage::GetContentsAsMHTML(BDataIO& output)
 {
     ssize_t size = 0;
 
-    WTF::Function<void(const WTF::Span<const uint8_t>&)> write = [&size, &output](const Span<const uint8_t>& span) {
+    WTF::Function<void(const std::span<const uint8_t>&)> write = [&size, &output](const std::span<const uint8_t>& span) {
         if (size < 0)
             return;
         ssize_t tmpSize;
