@@ -35,7 +35,7 @@
 
 namespace WebCore {
 
-void SynchronousLoaderClient::didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge&)
+void SynchronousLoaderClient::didReceiveAuthenticationChallenge(ResourceHandle* handle, const AuthenticationChallenge& challenge)
 {
     handle->receivedRequestToContinueWithoutCredential(challenge);
 }

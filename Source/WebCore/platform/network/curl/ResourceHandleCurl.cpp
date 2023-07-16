@@ -41,6 +41,7 @@
 #include "Logging.h"
 #include "NetworkLoadMetrics.h"
 #include "NetworkStorageSession.h"
+#include "OriginAccessPatterns.h"
 #include "ResourceHandleInternal.h"
 #include "SameSiteInfo.h"
 #include "SecurityOrigin.h"
@@ -482,7 +483,7 @@ void ResourceHandle::willSendRequest()
     }
 
     // Check if the redirected url is allowed to access the redirecting url's timing information.
-    if (!hasCrossOriginRedirect() && !WebCore::SecurityOrigin::create(newRequest.url())->canRequest(delegate()->response().url()))
+    if (!hasCrossOriginRedirect() && !WebCore::SecurityOrigin::create(newRequest.url())->canRequest(delegate()->response().url(), OriginAccessPatternsForWebProcess::singleton()))
         markAsHavingCrossOriginRedirect();
 
     incrementRedirectCount();
@@ -561,7 +562,7 @@ void ResourceHandle::handleDataURL()
 
         // didReceiveResponse might cause the client to be deleted.
         if (client()) {
-            auto decodedData = base64Decode(data, Base64DecodeOptions::IgnoreSpacesAndNewLines);
+            auto decodedData = base64Decode(data, Base64DecodeMode::URL);
             if (decodedData && decodedData->size() > 0)
                 client()->didReceiveBuffer(this, SharedBuffer::create(decodedData->data(), decodedData->size()), originalSize);
         }

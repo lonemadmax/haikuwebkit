@@ -159,7 +159,7 @@ bool CurlCacheEntry::loadResponseHeaders()
     while (it != end) {
         size_t splitPosition = it->find(':');
         if (splitPosition != notFound)
-            m_cachedResponse.setHTTPHeaderField(it->left(splitPosition), it->substring(splitPosition+1).stripWhiteSpace());
+            m_cachedResponse.setHTTPHeaderField(it->left(splitPosition), it->substring(splitPosition+1).trim(deprecatedIsSpaceOrNewline));
         ++it;
     }
 

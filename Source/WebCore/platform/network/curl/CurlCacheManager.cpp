@@ -118,7 +118,7 @@ void CurlCacheManager::loadIndex()
     if (indexURLs.size() > 1)
         --end; // Last line is empty
     while (it != end) {
-        String url = it->stripWhiteSpace();
+        String url = it->trim(deprecatedIsSpaceOrNewline);
         auto cacheEntry = makeUnique<CurlCacheEntry>(url, nullptr, m_cacheDir);
 
         if (cacheEntry->isCached() && cacheEntry->entrySize() < m_storageSizeLimit) {
