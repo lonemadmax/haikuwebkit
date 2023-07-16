@@ -90,6 +90,7 @@ class ProtectionSpace;
 class RegistrableDomain;
 class RTCPeerConnectionHandler;
 class ResourceError;
+class ResourceHandle;
 class SecurityOrigin;
 class SharedBuffer;
 class SubstituteData;

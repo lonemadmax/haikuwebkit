@@ -48,6 +48,7 @@
 #include "MemoryCache.h"
 #include "PlatformStrategies.h"
 #include "ProgressTracker.h"
+#include "ResourceHandle.h"
 #include "SecurityOrigin.h"
 #include "SubresourceLoader.h"
 #include <wtf/CompletionHandler.h>

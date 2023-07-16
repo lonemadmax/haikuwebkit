@@ -50,6 +50,7 @@ class AuthenticationChallenge;
 class BlobDataFileReference;
 class Credential;
 class ResourceError;
+class ResourceHandle;
 class ResourceRequest;
 class ResourceResponse;
 }

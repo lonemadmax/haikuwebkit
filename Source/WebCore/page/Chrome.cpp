@@ -47,6 +47,7 @@
 #include "PageGroupLoadDeferrer.h"
 #include "PopupOpeningObserver.h"
 #include "RenderObject.h"
+#include "ResourceHandle.h"
 #include "Settings.h"
 #include "ShareData.h"
 #include "StorageNamespace.h"

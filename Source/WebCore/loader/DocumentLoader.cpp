@@ -82,6 +82,7 @@
 #include "PolicyChecker.h"
 #include "ProgressTracker.h"
 #include "Quirks.h"
+#include "ResourceHandle.h"
 #include "ResourceLoadObserver.h"
 #include "SWClientConnection.h"
 #include "ScriptableDocumentParser.h"
