@@ -52,6 +52,7 @@
     M(History) \
     M(LiveConnect) \
     M(Loading) \
+    M(Network) \
     M(PageCache) \
     M(PluginEvents) \
     M(Plugins) \

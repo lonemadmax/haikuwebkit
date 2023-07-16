@@ -34,6 +34,7 @@
 #include "SocketStreamHandleImpl.h"
 
 #include "SocketStreamHandleClient.h"
+#include "WebKitLogging.h"
 
 #include "WebCore/SocketStreamError.h"
 #include "WebCore/StorageSessionProvider.h"
