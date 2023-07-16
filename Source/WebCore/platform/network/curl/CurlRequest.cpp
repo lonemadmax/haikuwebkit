@@ -35,14 +35,16 @@
 #include "NetworkLoadMetrics.h"
 #include "ResourceError.h"
 #include "SharedBuffer.h"
+#include "SynchronousLoaderClient.h"
 #include <wtf/CrossThreadCopier.h>
 #include <wtf/Language.h>
 #include <wtf/MainThread.h>
 
 namespace WebCore {
 
-CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, EnableMultipart enableMultipart, CaptureNetworkLoadMetrics captureExtraMetrics)
+CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, ShouldSuspend shouldSuspend, EnableMultipart enableMultipart, CaptureNetworkLoadMetrics captureExtraMetrics, RefPtr<SynchronousLoaderMessageQueue>&& messageQueue)
     : m_client(client)
+    , m_messageQueue(WTFMove(messageQueue))
     , m_request(request.isolatedCopy())
     , m_enableMultipart(enableMultipart == EnableMultipart::Yes)
     , m_startState(StartState::WaitingForStart)
@@ -59,6 +61,7 @@ void CurlRequest::invalidateClient()
     ASSERT(isMainThread());
 
     m_client = nullptr;
+    m_messageQueue = nullptr;
 }
 
 void CurlRequest::setAuthenticationScheme(ProtectionSpace::AuthenticationScheme scheme)
@@ -213,7 +216,10 @@ void CurlRequest::callClient(Function<void(CurlRequest&, CurlRequestClient&)>&& 
 
 void CurlRequest::runOnMainThread(Function<void()>&& task)
 {
-    ensureOnMainThread(WTFMove(task));
+    if (m_messageQueue)
+        m_messageQueue->append(makeUnique<Function<void()>>(WTFMove(task)));
+    else
+        ensureOnMainThread(WTFMove(task));
 }
 
 void CurlRequest::runOnWorkerThreadIfRequired(Function<void()>&& task)

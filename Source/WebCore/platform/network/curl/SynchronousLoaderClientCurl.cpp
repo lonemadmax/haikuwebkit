@@ -37,13 +37,16 @@ namespace WebCore {
 
 void SynchronousLoaderClient::didReceiveAuthenticationChallenge(ResourceHandle*, const AuthenticationChallenge&)
 {
-    ASSERT_NOT_REACHED();
+    handle->receivedRequestToContinueWithoutCredential(challenge);
 }
 
 ResourceError SynchronousLoaderClient::platformBadResponseError()
 {
-    ASSERT_NOT_REACHED();
-    return { };
+    int errorCode = 0;
+    URL failingURL;
+    String localizedDescription("Bad Server Response"_s);
+
+    return ResourceError("CURL"_s, errorCode, failingURL, localizedDescription);
 }
 
 }

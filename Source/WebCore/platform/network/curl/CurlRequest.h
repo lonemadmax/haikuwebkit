@@ -43,6 +43,7 @@ class CurlRequestClient;
 class NetworkLoadMetrics;
 class ResourceError;
 class FragmentedSharedBuffer;
+class SynchronousLoaderMessageQueue;
 
 class CurlRequest : public ThreadSafeRefCounted<CurlRequest>, public CurlRequestSchedulerClient, public CurlMultipartHandleClient {
     WTF_MAKE_NONCOPYABLE(CurlRequest);
@@ -63,9 +64,9 @@ public:
         Extended
     };
 
-    static Ref<CurlRequest> create(const ResourceRequest& request, CurlRequestClient& client, EnableMultipart enableMultipart = EnableMultipart::No, CaptureNetworkLoadMetrics captureMetrics = CaptureNetworkLoadMetrics::Basic)
+    static Ref<CurlRequest> create(const ResourceRequest& request, CurlRequestClient& client, ShouldSuspend shouldSuspend = ShouldSuspend::No, EnableMultipart enableMultipart = EnableMultipart::No, CaptureNetworkLoadMetrics captureMetrics = CaptureNetworkLoadMetrics::Basic, RefPtr<SynchronousLoaderMessageQueue>&& messageQueue = nullptr)
     {
-        return adoptRef(*new CurlRequest(request, &client, enableMultipart, captureMetrics));
+        return adoptRef(*new CurlRequest(request, &client, shouldSuspend, enableMultipart, captureMetrics, WTFMove(messageQueue)));
     }
 
     virtual ~CurlRequest();
@@ -97,7 +98,14 @@ public:
     const String& getDownloadedFilePath();
 
 private:
-    WEBCORE_EXPORT CurlRequest(const ResourceRequest&, CurlRequestClient*, EnableMultipart, CaptureNetworkLoadMetrics);
+    enum class Action {
+        None,
+        ReceiveData,
+        StartTransfer,
+        FinishTransfer
+    };
+
+    WEBCORE_EXPORT CurlRequest(const ResourceRequest&, CurlRequestClient*, ShouldSuspend, EnableMultipart, CaptureNetworkLoadMetrics, RefPtr<SynchronousLoaderMessageQueue>&&);
 
     void retain() override { ref(); }
     void release() override { deref(); }
@@ -160,6 +168,7 @@ private:
     Lock m_statusMutex;
     bool m_cancelled { false };
     bool m_completed { false };
+    RefPtr<SynchronousLoaderMessageQueue> m_messageQueue;
 
     ResourceRequest m_request;
     String m_user;

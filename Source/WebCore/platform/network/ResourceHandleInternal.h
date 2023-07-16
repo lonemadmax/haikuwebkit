@@ -38,6 +38,13 @@
 #include "BUrlProtocolHandler.h"
 #endif
 
+#if USE(CURL)
+#include "CurlRequest.h"
+#include "SynchronousLoaderClient.h"
+#include <wtf/MessageQueue.h>
+#include <wtf/MonotonicTime.h>
+#endif
+
 #if PLATFORM(COCOA)
 OBJC_CLASS NSURLAuthenticationChallenge;
 OBJC_CLASS NSURLConnection;
@@ -100,6 +107,13 @@ public:
     // It is almost identical to m_currentWebChallenge.nsURLAuthenticationChallenge(), but has a different sender.
     NSURLAuthenticationChallenge *m_currentMacChallenge { nil };
 #endif
+#if USE(CURL)
+    std::unique_ptr<CurlResourceHandleDelegate> m_delegate;
+    
+    unsigned m_authFailureCount { 0 };
+    RefPtr<CurlRequest> m_curlRequest;
+    RefPtr<SynchronousLoaderMessageQueue> m_messageQueue;
+#endif
     Box<NetworkLoadMetrics> m_networkLoadMetrics;
     MonotonicTime m_startTime;
 
@@ -128,6 +142,10 @@ public:
     bool m_isMainFrameNavigation { false };
 #if PLATFORM(COCOA)
     bool m_startWhenScheduled { false };
+#endif
+#if USE(CURL)
+    bool m_cancelled { false };
+    bool m_addedCacheValidationHeaders { false };
 #endif
 };
 

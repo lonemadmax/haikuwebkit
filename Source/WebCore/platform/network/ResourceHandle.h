@@ -38,6 +38,10 @@
 #include <wtf/RetainPtr.h>
 #endif
 
+#if USE(CURL)
+#include "CurlResourceHandleDelegate.h"
+#endif
+
 #if USE(CF)
 typedef const struct __CFData * CFDataRef;
 #endif
@@ -81,6 +85,11 @@ class SecurityOrigin;
 class FragmentedSharedBuffer;
 class SynchronousLoaderMessageQueue;
 class Timer;
+
+#if USE(CURL)
+class CurlRequest;
+class CurlResourceHandleDelegate;
+#endif
 
 class ResourceHandle : public RefCounted<ResourceHandle>, public AuthenticationClient {
 public:
@@ -135,6 +144,15 @@ public:
 
 #if USE(CURL) || USE(HAIKU)
     ResourceHandleInternal* getInternal() { return d.get(); }
+#endif
+
+#if USE(CURL)
+    bool cancelledOrClientless();
+    CurlResourceHandleDelegate* delegate();
+
+    void continueAfterDidReceiveResponse();
+    void willSendRequest();
+    void continueAfterWillSendRequest(ResourceRequest&&);
 #endif
 
     bool hasAuthenticationChallenge() const;
@@ -214,6 +232,23 @@ private:
 
 #if PLATFORM(COCOA)
     NSURLRequest *applySniffingPoliciesIfNeeded(NSURLRequest *, bool shouldContentSniff, ContentEncodingSniffingPolicy);
+#endif
+
+#if USE(CURL)
+    enum class RequestStatus {
+        NewRequest,
+        ReusedRequest
+    };
+
+    void addCacheValidationHeaders(ResourceRequest&);
+    Ref<CurlRequest> createCurlRequest(ResourceRequest&&, RequestStatus = RequestStatus::NewRequest);
+
+    bool shouldRedirectAsGET(const ResourceRequest&, bool crossOrigin);
+
+    std::optional<Credential> getCredential(const ResourceRequest&, bool);
+    void restartRequestWithCredential(const ProtectionSpace&, const Credential&);
+
+    void handleDataURL();
 #endif
 
     friend class ResourceHandleInternal;
