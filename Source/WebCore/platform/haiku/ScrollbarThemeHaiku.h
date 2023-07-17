@@ -44,6 +44,9 @@ public:
     IntRect forwardButtonRect(Scrollbar&, ScrollbarPart, bool painting) override;
     IntRect trackRect(Scrollbar&, bool painting) override;
 
+    int scrollbarThickness(ScrollbarWidth = ScrollbarWidth::Auto, ScrollbarExpansionState = ScrollbarExpansionState::Expanded) override;
+
+
     void paintScrollbarBackground(GraphicsContext&, Scrollbar&) override;
     void paintButton(GraphicsContext&, Scrollbar&, const IntRect&, ScrollbarPart) override;
     void paintThumb(GraphicsContext&, Scrollbar&, const IntRect&) override;
