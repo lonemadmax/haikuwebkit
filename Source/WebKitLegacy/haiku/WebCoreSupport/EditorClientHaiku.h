@@ -158,6 +158,8 @@ private:
 
     BString m_pendingComposition;
     BString m_pendingPreedit;
+
+    bool m_lastSelectionWasPainted { false };
 };
 
 } // namespace WebCore

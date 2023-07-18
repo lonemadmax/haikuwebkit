@@ -186,6 +186,18 @@ void EditorClientHaiku::respondToChangedSelection(LocalFrame* frame)
     if (!frame)
         return;
 
+    if (!frame->editor().ignoreSelectionChanges()) {
+        auto& selection = frame->selection().selection();
+        bool selectionIsPainted = selection.isRange() || (selection.isCaret() && selection.hasEditableStyle());
+
+        if (m_lastSelectionWasPainted || selectionIsPainted) {
+            if (auto* page = frame->page())
+                page->scheduleRenderingUpdate({ RenderingUpdateStep::LayerFlush });
+        }
+
+        m_lastSelectionWasPainted = selectionIsPainted;
+    }
+
     BMessage message(EDITOR_SELECTION_CHANGED);
     dispatchMessage(message);
 }
