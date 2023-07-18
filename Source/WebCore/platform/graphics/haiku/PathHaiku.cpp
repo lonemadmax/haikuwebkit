@@ -485,9 +485,56 @@ void PathHaiku::addRect(const FloatRect& r)
 }
 
 
-void PathHaiku::addRoundedRect(FloatRoundedRect const&, WebCore::PathRoundedRect::Strategy)
+void PathHaiku::addRoundedRect(FloatRoundedRect const& roundRect, WebCore::PathRoundedRect::Strategy)
 {
-    notImplemented();
+    const FloatRect& rect = roundRect.rect();
+    const FloatSize& topLeft = roundRect.radii().topLeft();
+    const FloatSize& topRight = roundRect.radii().topRight();
+    const FloatSize& bottomLeft = roundRect.radii().bottomLeft();
+    const FloatSize& bottomRight = roundRect.radii().bottomRight();
+
+#if 0
+    // FIXME needs support for Composite SourceIn.
+    if (hasShadow())
+        shadowBlur().drawRectShadow(this, rect, FloatRoundedRect::Radii(topLeft, topRight, bottomLeft, bottomRight));
+#endif
+
+    BPoint points[3];
+    const float kRadiusBezierScale = 1.0f - 0.5522847498f; //  1 - (sqrt(2) - 1) * 4 / 3
+
+    m_platformPath.MoveTo(BPoint(rect.maxX() - topRight.width(), rect.y()));
+    points[0].x = rect.maxX() - kRadiusBezierScale * topRight.width();
+    points[0].y = rect.y();
+    points[1].x = rect.maxX();
+    points[1].y = rect.y() + kRadiusBezierScale * topRight.height();
+    points[2].x = rect.maxX();
+    points[2].y = rect.y() + topRight.height();
+    m_platformPath.BezierTo(points);
+    m_platformPath.LineTo(BPoint(rect.maxX(), rect.maxY() - bottomRight.height()));
+    points[0].x = rect.maxX();
+    points[0].y = rect.maxY() - kRadiusBezierScale * bottomRight.height();
+    points[1].x = rect.maxX() - kRadiusBezierScale * bottomRight.width();
+    points[1].y = rect.maxY();
+    points[2].x = rect.maxX() - bottomRight.width();
+    points[2].y = rect.maxY();
+    m_platformPath.BezierTo(points);
+    m_platformPath.LineTo(BPoint(rect.x() + bottomLeft.width(), rect.maxY()));
+    points[0].x = rect.x() + kRadiusBezierScale * bottomLeft.width();
+    points[0].y = rect.maxY();
+    points[1].x = rect.x();
+    points[1].y = rect.maxY() - kRadiusBezierScale * bottomLeft.height();
+    points[2].x = rect.x();
+    points[2].y = rect.maxY() - bottomLeft.height();
+    m_platformPath.BezierTo(points);
+    m_platformPath.LineTo(BPoint(rect.x(), rect.y() + topLeft.height()));
+    points[0].x = rect.x();
+    points[0].y = rect.y() + kRadiusBezierScale * topLeft.height();
+    points[1].x = rect.x() + kRadiusBezierScale * topLeft.width();
+    points[1].y = rect.y();
+    points[2].x = rect.x() + topLeft.width();
+    points[2].y = rect.y();
+    m_platformPath.BezierTo(points);
+    m_platformPath.Close(); // Automatically completes the shape with the top border
 }
 
 
