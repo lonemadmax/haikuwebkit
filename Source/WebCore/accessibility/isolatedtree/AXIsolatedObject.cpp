@@ -193,7 +193,6 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     if (object.isTable()) {
         setProperty(AXPropertyName::IsTable, true);
         setProperty(AXPropertyName::IsExposable, object.isExposable());
-        setProperty(AXPropertyName::TableLevel, object.tableLevel());
         setProperty(AXPropertyName::SupportsSelectedRows, object.supportsSelectedRows());
         setObjectVectorProperty(AXPropertyName::Columns, object.columns());
         setObjectVectorProperty(AXPropertyName::Rows, object.rows());
@@ -1609,6 +1608,17 @@ bool AXIsolatedObject::hasSameStyle(const AXCoreObject& otherObject) const
         }
         return false;
     });
+}
+
+AXTextMarkerRange AXIsolatedObject::textInputMarkedTextMarkerRange() const
+{
+    auto value = optionalAttributeValue<std::pair<AXID, CharacterRange>>(AXPropertyName::TextInputMarkedTextMarkerRange);
+    if (!value)
+        return { };
+
+    auto start = static_cast<unsigned>(value->second.location);
+    auto end = start + static_cast<unsigned>(value->second.length);
+    return { tree()->treeID(), value->first, start, end };
 }
 
 // The attribute this value is exposed as is not used by VoiceOver or any other AX client on macOS, so we intentionally don't cache it.

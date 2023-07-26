@@ -365,9 +365,11 @@ public:
     void blitFramebufferANGLE(GCGLint srcX0, GCGLint srcY0, GCGLint srcX1, GCGLint srcY1, GCGLint dstX0, GCGLint dstY0, GCGLint dstX1, GCGLint dstY1, GCGLbitfield mask, GCGLenum filter) final;
     void getInternalformativ(GCGLenum target, GCGLenum internalformat, GCGLenum pname, std::span<GCGLint> params) final;
     void setDrawingBufferColorSpace(const WebCore::DestinationColorSpace&) final;
-    RefPtr<WebCore::PixelBuffer> paintRenderingResultsToPixelBuffer() final;
+    RefPtr<WebCore::PixelBuffer> paintRenderingResultsToPixelBuffer(WebCore::GraphicsContextGL::FlipY) final;
     bool destroyEGLSync(GCEGLSync) final;
     void clientWaitEGLSyncWithFlush(GCEGLSync, uint64_t timeout) final;
+
+    bool enableRequiredWebXRExtensions() final;
     // End of list used by generate-gpup-webgl script.
 
     static bool handleMessageToRemovedDestination(IPC::Connection&, IPC::Decoder&);

@@ -1140,7 +1140,7 @@ void RenderBlock::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 
 void RenderBlock::paintContents(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (shouldSkipContent())
+    if (isSkippedContentRoot())
         return;
 
     if (childrenInline())
@@ -2794,7 +2794,8 @@ void RenderBlock::absoluteRects(Vector<IntRect>& rects, const LayoutPoint& accum
         // FIXME: This is wrong for block-flows that are horizontal.
         // https://bugs.webkit.org/show_bug.cgi?id=46781
         rects.append(snappedIntRect(accumulatedOffset.x(), accumulatedOffset.y() - collapsedMarginBefore(), width(), height() + collapsedMarginBefore() + collapsedMarginAfter()));
-        continuation->absoluteRects(rects, accumulatedOffset - toLayoutSize(location() + inlineContinuation()->containingBlock()->location()));
+        auto* containingBlock = inlineContinuation()->containingBlock();
+        continuation->absoluteRects(rects, accumulatedOffset - locationOffset() + containingBlock->locationOffset());
     } else
         rects.append(snappedIntRect(accumulatedOffset, size()));
 }
@@ -3355,7 +3356,7 @@ RenderBox* RenderBlock::findFieldsetLegend(FieldsetFindLegendOption option) cons
 
 void RenderBlock::adjustBorderBoxRectForPainting(LayoutRect& paintRect)
 {
-    if (!isFieldset() || !intrinsicBorderForFieldset())
+    if (!isFieldset() || isSkippedContentRoot() || !intrinsicBorderForFieldset())
         return;
     
     auto* legend = findFieldsetLegend();
@@ -3378,7 +3379,7 @@ void RenderBlock::adjustBorderBoxRectForPainting(LayoutRect& paintRect)
 LayoutRect RenderBlock::paintRectToClipOutFromBorder(const LayoutRect& paintRect)
 {
     LayoutRect clipRect;
-    if (!isFieldset())
+    if (!isFieldset() || isSkippedContentRoot())
         return clipRect;
     auto* legend = findFieldsetLegend();
     if (!legend)
@@ -3521,7 +3522,7 @@ LayoutUnit RenderBlock::adjustIntrinsicLogicalHeightForBoxSizing(LayoutUnit heig
 
 void RenderBlock::paintExcludedChildrenInBorder(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (!isFieldset())
+    if (!isFieldset() || isSkippedContentRoot())
         return;
     
     RenderBox* box = findFieldsetLegend();

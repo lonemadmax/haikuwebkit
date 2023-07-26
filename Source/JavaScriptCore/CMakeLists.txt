@@ -90,6 +90,7 @@ set(JavaScriptCore_OBJECT_LUT_SOURCES
     runtime/JSONObject.cpp
     runtime/JSPromiseConstructor.cpp
     runtime/JSPromisePrototype.cpp
+    runtime/MapConstructor.cpp
     runtime/MapPrototype.cpp
     runtime/NumberConstructor.cpp
     runtime/NumberPrototype.cpp
@@ -211,6 +212,7 @@ set(BUILD_VARIANTS
 )
 
 set(LLINT_ASM
+    llint/InPlaceInterpreter.asm
     llint/LowLevelInterpreter.asm
     llint/LowLevelInterpreter32_64.asm
     llint/LowLevelInterpreter64.asm
@@ -361,6 +363,7 @@ set(JavaScriptCore_BUILTINS_SOURCES
     ${JAVASCRIPTCORE_DIR}/builtins/InternalPromiseConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/IteratorHelpers.js
     ${JAVASCRIPTCORE_DIR}/builtins/IteratorPrototype.js
+    ${JAVASCRIPTCORE_DIR}/builtins/MapConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/MapIteratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/MapPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/ModuleLoader.js
@@ -1145,6 +1148,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/LazyProperty.h
     runtime/LeafExecutable.h
     runtime/Lookup.h
+    runtime/MapConstructor.h
     runtime/MatchResult.h
     runtime/MathCommon.h
     runtime/MegamorphicCache.h
@@ -1280,7 +1284,9 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/WasmFaultSignalHandler.h
     wasm/WasmFormat.h
     wasm/WasmFunctionCodeBlockGenerator.h
+    wasm/WasmFunctionIPIntMetadataGenerator.h
     wasm/WasmHandlerInfo.h
+    wasm/WasmIPIntGenerator.h
     wasm/WasmIndexOrName.h
     wasm/WasmJS.h
     wasm/WasmLLIntBuiltin.h

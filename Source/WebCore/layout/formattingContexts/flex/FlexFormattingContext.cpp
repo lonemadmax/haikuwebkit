@@ -53,7 +53,7 @@ FlexFormattingContext::FlexFormattingContext(const ElementBox& formattingContext
 void FlexFormattingContext::layout(const ConstraintsForFlexContent& constraints)
 {
     auto logicalFlexItems = convertFlexItemsToLogicalSpace(constraints);
-    auto flexLayout = FlexLayout { root() };
+    auto flexLayout = FlexLayout { *this };
 
     auto logicalFlexConstraints = [&] {
         auto flexDirection = root().style().flexDirection();
@@ -99,12 +99,18 @@ FlexLayout::LogicalFlexItems FlexFormattingContext::convertFlexItemsToLogicalSpa
             switch (direction) {
             case FlexDirection::Row:
             case FlexDirection::RowReverse: {
-                if (!style.flexBasis().isAuto())
+                if (style.flexBasis().isAuto()) {
+                    // Auto keyword retrieves the value of the main size property as the used flex-basis.
+                    // If that value is itself auto, then the used value is content.
+                    if (!style.width().isAuto())
+                        mainAxis.definiteFlexBasis = valueForLength(style.width(), constraints.horizontal().logicalWidth);
+                } else if (!style.flexBasis().isContent())
                     mainAxis.definiteFlexBasis = valueForLength(style.flexBasis(), constraints.horizontal().logicalWidth);
-                if (style.maxWidth().isSpecified())
-                    mainAxis.maximumSize = valueForLength(style.maxWidth(), constraints.horizontal().logicalWidth);
-                if (!style.minWidth().isSpecified())
-                    mainAxis.minimumSize = valueForLength(style.minWidth(), constraints.horizontal().logicalWidth);
+                if (style.width().isSpecified()) {
+                    // FIXME: Add support for non-fixed content and clamp them to min/max.
+                    mainAxis.minimumUsedSize = valueForLength(style.width(), constraints.horizontal().logicalWidth);
+                    mainAxis.maximumUsedSize = mainAxis.minimumUsedSize;
+                }
                 if (!style.marginStart().isAuto())
                     mainAxis.marginStart = flexItemGeometry.marginStart();
                 if (!style.marginEnd().isAuto())
@@ -119,6 +125,11 @@ FlexLayout::LogicalFlexItems FlexFormattingContext::convertFlexItemsToLogicalSpa
                 crossAxis.hasSizeAuto = height.isAuto();
                 if (height.isFixed())
                     crossAxis.definiteSize = height.value();
+                if (style.maxHeight().isSpecified())
+                    crossAxis.maximumSize = valueForLength(style.maxHeight(), constraints.availableVerticalSpace().value_or(0));
+                if (style.minHeight().isSpecified())
+                    crossAxis.minimumSize = valueForLength(style.minHeight(), constraints.availableVerticalSpace().value_or(0));
+                crossAxis.borderAndPadding = flexItemGeometry.verticalBorderAndPadding();
                 break;
             }
             case FlexDirection::Column:
@@ -231,38 +242,24 @@ void FlexFormattingContext::setFlexItemsGeometry(const FlexLayout::LogicalFlexIt
         auto& flexItemGeometry = formattingState.boxGeometry(logicalFlexItem.layoutBox());
         auto borderBoxTopLeft = LayoutPoint { };
         auto logicalRect = logicalRects[index];
-        auto usedHorizontalMargin = horizontalMargin(logicalRects[index], flexDirection);
-        auto usedVerticalMargin = verticalMargin(logicalRects[index], flexDirection);
         auto adjustedLogicalTop = !flexBoxLogicalHeightForWarpReserve ? logicalRect.top() : *flexBoxLogicalHeightForWarpReserve - logicalRect.bottom();
 
         switch (flexDirection) {
         case FlexDirection::Row: {
-            borderBoxTopLeft = {
-                constraints.horizontal().logicalLeft + logicalRect.left() + usedHorizontalMargin.start,
-                constraints.logicalTop() + adjustedLogicalTop + usedVerticalMargin.before
-            };
+            borderBoxTopLeft = { constraints.horizontal().logicalLeft + logicalRect.left(), constraints.logicalTop() + adjustedLogicalTop };
             break;
         }
         case FlexDirection::RowReverse:
-            borderBoxTopLeft = {
-                constraints.horizontal().logicalRight() - logicalRect.right() + usedHorizontalMargin.start,
-                constraints.logicalTop() + adjustedLogicalTop + usedVerticalMargin.before
-            };
+            borderBoxTopLeft = { constraints.horizontal().logicalRight() - logicalRect.right(), constraints.logicalTop() + adjustedLogicalTop };
             break;
         case FlexDirection::Column: {
             auto flippedTopLeft = FloatPoint { adjustedLogicalTop, logicalRect.left() };
-            borderBoxTopLeft = {
-                constraints.horizontal().logicalLeft + flippedTopLeft.x() + usedHorizontalMargin.start,
-                constraints.logicalTop() + flippedTopLeft.y() + usedVerticalMargin.before
-            };
+            borderBoxTopLeft = { constraints.horizontal().logicalLeft + flippedTopLeft.x(), constraints.logicalTop() + flippedTopLeft.y() };
             break;
         }
         case FlexDirection::ColumnReverse: {
             auto visualBottom = constraints.logicalTop() + constraints.availableVerticalSpace().value_or(logicalWidth);
-            borderBoxTopLeft = {
-                constraints.horizontal().logicalLeft + adjustedLogicalTop + usedHorizontalMargin.start,
-                visualBottom - logicalRect.right() + usedVerticalMargin.before
-            };
+            borderBoxTopLeft = { constraints.horizontal().logicalLeft + adjustedLogicalTop, visualBottom - logicalRect.right() };
             break;
         }
         default:
@@ -271,15 +268,14 @@ void FlexFormattingContext::setFlexItemsGeometry(const FlexLayout::LogicalFlexIt
         }
         flexItemGeometry.setLogicalTopLeft(borderBoxTopLeft);
 
-        auto horizontalMarginBorderAndPadding = usedHorizontalMargin.start + flexItemGeometry.horizontalBorderAndPadding() + usedHorizontalMargin.end;
-        auto verticallMarginBorderAndPadding = usedVerticalMargin.before + flexItemGeometry.verticalBorderAndPadding() + usedVerticalMargin.after;
-        if (isMainAxisParallelWithInlineAxis) {
-            flexItemGeometry.setContentBoxWidth(logicalRect.width() - horizontalMarginBorderAndPadding);
-            flexItemGeometry.setContentBoxHeight(logicalRect.height() - verticallMarginBorderAndPadding);
-        } else {
-            flexItemGeometry.setContentBoxWidth(logicalRect.height() - horizontalMarginBorderAndPadding);
-            flexItemGeometry.setContentBoxHeight(logicalRect.width() - verticallMarginBorderAndPadding);
+        auto contentBoxWidth = isMainAxisParallelWithInlineAxis ? logicalRect.width() : logicalRect.height();
+        auto contentBoxHeight = isMainAxisParallelWithInlineAxis ? logicalRect.height() : logicalRect.width();
+        if (!logicalFlexItem.isContentBoxBased()) {
+            contentBoxWidth -= flexItemGeometry.horizontalBorderAndPadding();
+            contentBoxHeight -= flexItemGeometry.verticalBorderAndPadding();
         }
+        flexItemGeometry.setContentBoxWidth(contentBoxWidth);
+        flexItemGeometry.setContentBoxHeight(contentBoxHeight);
     }
 }
 

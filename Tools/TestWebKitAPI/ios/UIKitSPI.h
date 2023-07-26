@@ -35,7 +35,6 @@
 #import <UIKit/UIAction_Private.h>
 #import <UIKit/UIApplication_Private.h>
 #import <UIKit/UIBarButtonItemGroup_Private.h>
-#import <UIKit/UICalloutBar.h>
 #import <UIKit/UIKeyboardImpl.h>
 #import <UIKit/UIKeyboard_Private.h>
 #import <UIKit/UIResponder_Private.h>
@@ -50,7 +49,6 @@
 #import <UIKit/UIViewController_Private.h>
 #import <UIKit/UIWKTextInteractionAssistant.h>
 #import <UIKit/UIWebFormAccessory.h>
-#import <UIKit/UIWebTouchEventsGestureRecognizer.h>
 #import <UIKit/_UINavigationInteractiveTransition.h>
 
 IGNORE_WARNINGS_BEGIN("deprecated-implementations")
@@ -142,11 +140,6 @@ WTF_EXTERN_C_END
 @end
 
 @interface UIKeyboard : UIView
-@end
-
-@interface UICalloutBar : UIView
-+ (UICalloutBar *)sharedCalloutBar;
-+ (UICalloutBar *)activeCalloutBar;
 @end
 
 @interface _UINavigationInteractiveTransitionBase : UIPercentDrivenInteractiveTransition
@@ -361,13 +354,6 @@ typedef NS_ENUM(NSUInteger, _UIClickInteractionEvent) {
 @interface UIResponder (Internal)
 - (void)_share:(id)sender;
 @property (nonatomic, readonly) BOOL _requiresKeyboardWhenFirstResponder;
-@end
-
-@interface UIWebGeolocationPolicyDecider : NSObject
-@end
-
-@interface UIWebGeolocationPolicyDecider ()
-+ (instancetype)sharedPolicyDecider;
 @end
 
 @protocol UIWKInteractionViewProtocol_Staging_91919121 <UIWKInteractionViewProtocol>

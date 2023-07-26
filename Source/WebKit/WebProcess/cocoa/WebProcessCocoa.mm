@@ -89,6 +89,7 @@
 #import <WebCore/PlatformMediaSessionManager.h>
 #import <WebCore/PlatformScreen.h>
 #import <WebCore/ProcessCapabilities.h>
+#import <WebCore/PublicSuffix.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/SWContextManager.h>
 #import <WebCore/SystemBattery.h>
@@ -714,6 +715,28 @@ NEVER_INLINE NO_RETURN_DUE_TO_CRASH static void deliberateCrashForTesting()
 #endif
 
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+static void prewarmLogs()
+{
+    // This call will create container manager log objects.
+    // FIXME: this can be removed if we move all calls to topPrivatelyControlledDomain out of the WebContent process.
+    // This would be desirable, since the WebContent process is blocking access to the container manager daemon.
+    topPrivatelyControlledDomain("apple.com"_s);
+
+    static std::array<std::pair<const char*, const char*>, 5> logs { {
+        { "com.apple.CFBundle", "strings" },
+        { "com.apple.network", "" },
+        { "com.apple.CFNetwork", "ATS" },
+        { "com.apple.coremedia", "" },
+        { "com.apple.SafariShared", "Translation" },
+    } };
+
+    for (auto& log : logs) {
+        auto logHandle = adoptOSObject(os_log_create(log.first, log.second));
+        bool enabled = os_log_type_enabled(logHandle.get(), OS_LOG_TYPE_ERROR);
+        UNUSED_PARAM(enabled);
+    }
+}
+
 static void registerLogHook()
 {
     if (os_trace_get_mode() != OS_TRACE_MODE_DISABLE && os_trace_get_mode() != OS_TRACE_MODE_OFF)
@@ -771,6 +794,7 @@ static void registerLogHook()
 void WebProcess::platformInitializeProcess(const AuxiliaryProcessInitializationParameters& parameters)
 {
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+    prewarmLogs();
     registerLogHook();
 #endif
 

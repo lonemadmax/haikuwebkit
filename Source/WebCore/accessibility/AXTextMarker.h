@@ -133,9 +133,9 @@ public:
     String debugDescription() const;
 #endif
 
-private:
-    // Sets m_data.node when the marker is being created with a PlatformTextMarkerData that lacks the node pointer because it was created off the main thread.
+    // Sets m_data.node when the marker was created with a PlatformTextMarkerData that lacks the node pointer because it was created off the main thread.
     void setNodeIfNeeded() const;
+private:
     TextMarkerData m_data;
 };
 
@@ -155,6 +155,7 @@ public:
     operator bool() const { return m_start && m_end; }
     operator VisiblePositionRange() const;
     std::optional<SimpleRange> simpleRange() const;
+    std::optional<CharacterRange> characterRange() const;
 
 #if PLATFORM(MAC)
     RetainPtr<AXTextMarkerRangeRef> platformData() const;
@@ -167,7 +168,7 @@ public:
 
     AXTextMarker start() const { return m_start; }
     AXTextMarker end() const { return m_end; }
-
+    bool isConfinedTo(AXID) const;
 private:
     AXTextMarker m_start;
     AXTextMarker m_end;

@@ -51,7 +51,7 @@ public:
 
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
-    WebCore::LayerHostingContextID hostingContextID() const final { return m_hostingContextID; }
+    WebCore::LayerHostingContextID hostingContextID() const final { return m_hostingContextID.value_or(0); }
 
     void ref() const final { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<WebCore::SampleBufferDisplayLayer, WTF::DestructionThread::MainRunLoop>::ref(); }
     void deref() const final { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<WebCore::SampleBufferDisplayLayer, WTF::DestructionThread::MainRunLoop>::deref(); }
@@ -67,8 +67,7 @@ private:
 #endif
     bool didFail() const final;
     void updateDisplayMode(bool hideDisplayLayer, bool hideRootLayer) final;
-    void updateAffineTransform(CGAffineTransform) final;
-    void updateBoundsAndPosition(CGRect, WebCore::VideoFrameRotation, std::optional<WTF::MachSendRight>&&) final;
+    void updateBoundsAndPosition(CGRect, std::optional<WTF::MachSendRight>&&) final;
     void flush() final;
     void flushAndRemoveImage() final;
     void play() final;
@@ -93,7 +92,7 @@ private:
     bool m_paused { false };
 
     SharedVideoFrameWriter m_sharedVideoFrameWriter;
-    WebCore::LayerHostingContextID m_hostingContextID { 0 };
+    std::optional<WebCore::LayerHostingContextID> m_hostingContextID;
 };
 
 }

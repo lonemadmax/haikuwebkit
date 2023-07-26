@@ -52,7 +52,6 @@
 #include "CSSValueList.h"
 #include "CSSValuePair.h"
 #include "CSSValuePool.h"
-#include "CSSWordBoundaryDetectionValue.h"
 #include "ComposedTreeAncestorIterator.h"
 #include "ContentData.h"
 #include "CursorList.h"
@@ -1575,8 +1574,12 @@ static Ref<CSSValue> valueForAnimationTimingFunction(const TimingFunction& timin
         auto& function = downcast<SpringTimingFunction>(timingFunction);
         return CSSSpringTimingFunctionValue::create(function.mass(), function.stiffness(), function.damping(), function.initialVelocity());
     }
-    case TimingFunction::Type::LinearFunction:
-        return CSSPrimitiveValue::create(CSSValueLinear);
+    case TimingFunction::Type::LinearFunction: {
+        auto& function = downcast<LinearTimingFunction>(timingFunction);
+        if (function.points().isEmpty())
+            return CSSPrimitiveValue::create(CSSValueLinear);
+        return CSSLinearTimingFunctionValue::create(function.points());
+    }
     }
     RELEASE_ASSERT_NOT_REACHED();
 }
@@ -1745,8 +1748,10 @@ static Ref<CSSValue> valueForContainIntrinsicSize(const RenderStyle& style, cons
     case ContainIntrinsicSizeType::Length:
         return zoomAdjustedPixelValueForLength(containIntrinsicLength.value(), style);
     case ContainIntrinsicSizeType::AutoAndLength:
-        return CSSValueList::createSpaceSeparated(CSSPrimitiveValue::create(CSSValueAuto),
+        return CSSValuePair::create(CSSPrimitiveValue::create(CSSValueAuto),
             zoomAdjustedPixelValueForLength(containIntrinsicLength.value(), style));
+    case ContainIntrinsicSizeType::AutoAndNone:
+        return CSSValuePair::create(CSSPrimitiveValue::create(CSSValueAuto), CSSPrimitiveValue::create(CSSValueNone));
     }
     RELEASE_ASSERT_NOT_REACHED();
     return CSSPrimitiveValue::create(CSSValueNone);
@@ -2109,11 +2114,6 @@ static Ref<CSSValue> counterToCSSValue(const RenderStyle& style, CSSPropertyID p
     if (!list.isEmpty())
         return CSSValueList::createSpaceSeparated(WTFMove(list));
     return CSSPrimitiveValue::create(CSSValueNone);
-}
-
-static Ref<CSSValue> wordBoundaryDetection(WordBoundaryDetection wordBoundaryDetection)
-{
-    return CSSWordBoundaryDetectionValue::create(WTFMove(wordBoundaryDetection));
 }
 
 static Ref<CSSValueList> fontFamilyList(const RenderStyle& style)
@@ -4294,9 +4294,6 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
 
     case CSSPropertyQuotes:
         return valueForQuotes(style.quotes());
-
-    case CSSPropertyWordBoundaryDetection:
-        return wordBoundaryDetection(style.wordBoundaryDetection());
 
     // Unimplemented CSS 3 properties (including CSS3 shorthand properties).
     case CSSPropertyAll:

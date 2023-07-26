@@ -121,65 +121,6 @@ imported/w3c/web-platform-tests/mediacapture-streams [ Skip ]
 # MHTML is disabled
 mhtml/ [ Skip ]
 
-# NETSCAPE_PLUGIN_API is disabled
-plugins/npruntime [ Skip ]
-plugins/destroy-during-npp-new-object-with-fallback-content.html [ Skip ]
-plugins/destroy-during-npp-new.html [ Skip ]
-plugins/destroy-plugin-from-callback.html [ Skip ]
-plugins/destroy-stream-twice.html [ Skip ]
-plugins/document-open.html [ Skip ]
-plugins/embed-attributes-setting.html  [ Skip ]
-plugins/embed-inside-object.html [ Skip ]
-plugins/evaluate-js-after-removing-plugin-element.html [ Skip ]
-plugins/form-value.html [ Skip ]
-plugins/get-empty-url.html [ Skip ]
-plugins/get-file-url.html [ Skip ]
-plugins/get-javascript-url.html [ Skip ]
-plugins/get-targeted-javascript-url.html [ Skip ]
-plugins/get-url-notify-with-url-that-fails-to-load.html [ Skip ]
-plugins/geturl-replace-query.html [ Skip ]
-plugins/get-url-that-the-resource-load-delegate-will-disallow.html [ Skip ]
-plugins/get-url-with-blank-target.html [ Skip ]
-plugins/get-url-with-iframe-target.html [ Skip ]
-plugins/get-url-with-javascript-destroying-plugin.html [ Skip ]
-plugins/get-url-with-javascript-url.html [ Skip ]
-plugins/get-user-agent-with-null-npp-from-npp-new.html [ Skip ]
-plugins/geturlnotify-during-document-teardown.html [ Skip ]
-plugins/iframe-plugin-bgcolor.html [ Skip ]
-plugins/inner-html-display-none.html [ Skip ]
-plugins/instance-available-before-stylesheets-loaded.html [ Skip ]
-plugins/instance-available-before-stylesheets-loaded-object.html [ Skip ]
-plugins/keyboard-events.html [ Skip ]
-plugins/layout-in-beforeload-listener-affects-plugin-loading.html [ Skip ]
-plugins/multiple-plugins.html [ Skip ]
-plugins/nested-plugin-objects.html [ Skip ]
-plugins/netscape-destroy-plugin-script-objects.html [ Skip ]
-plugins/netscape-dom-access-and-reload.html [ Skip ]
-plugins/netscape-plugin-property-access-exception.html [ Skip ]
-plugins/netscape-plugin-setwindow-size.html [ Skip ]
-plugins/netscape-plugin-setwindow-size-2.html [ Skip ]
-plugins/npp-set-window-called-during-destruction.html [ Skip ]
-plugins/object-embed-plugin-scripting.html [ Skip ]
-plugins/open-and-close-window-with-plugin.html [ Skip ]
-plugins/override-node-method.html [ Skip ]
-plugins/pass-different-npp-struct.html [ Skip ]
-plugins/plugin-clip-subframe.html [ Skip ]
-plugins/plugin-remove-subframe.html [ Skip ]
-plugins/private-browsing-mode.html [ Skip ]
-plugins/private-browsing-mode-2.html [ Skip ]
-plugins/reentrant-update-widget-positions.html [ Skip ]
-plugins/refcount-leaks.html [ Skip ]
-plugins/reloadplugins-and-pages.html [ Skip ]
-plugins/reloadplugins-no-pages.html [ Skip ]
-plugins/return-error-from-new-stream-doesnt-invoke-destroy-stream.html [ Skip ]
-plugins/return-negative-one-from-write.html [ Skip ]
-plugins/return-npobject.html [ Skip ]
-plugins/script-object-invoke.html [ Skip ]
-plugins/set-status.html [ Skip ]
-plugins/update-widgets-crash.html [ Skip ]
-plugins/windowless_plugin_paint_test.html [ Skip ]
-plugins/window-open.html [ Skip ]
-
 # NOTIFICATIONS is disabled
 fast/history/page-cache-notification-suspendable.html [ Skip ]
 
@@ -321,8 +262,6 @@ fast/events/ondrop-text-html.html [ Skip ]
 fast/events/standalone-image-drag-to-editable.html [ Skip ]
 fast/forms/range/slider-delete-while-dragging-thumb.html [ Skip ]
 http/tests/security/resources/drag-drop-allowed.html [ Skip ]
-plugins/mouse-events-fixedpos.html [ Skip ]
-plugins/mouse-events.html [ Skip ]
 
 # eventSender.contextClick() needs to return a JS array of the context menu items.
 media/context-menu-actions.html [ Skip ]
@@ -441,6 +380,7 @@ fast/canvas/offscreen-clipped.html [ Skip ]
 fast/canvas/offscreen-enabled.html [ Skip ]
 fast/canvas/offscreen-giant-transfer-to-imagebitmap.html [ Skip ]
 fast/canvas/offscreen-scaling.html [ Skip ]
+fast/canvas/offscreen-toggle-display.html [ Skip ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # These areas are not implemented well on WinCairo
@@ -479,9 +419,6 @@ fast/text/user-installed-fonts/shadow.html [ Skip ]
 
 # testRunner.dumpPolicyDelegateCallbacks is not a function
 loader/navigation-policy/should-open-external-urls [ Skip ]
-
-# testRunner.setPluginSupportedMode is not a function
-plugins/unsupported-plugin.html [ Skip ]
 
 # TestRunner::closeIdleLocalStorageDatabases(double) not implemented
 storage/domstorage/localstorage/close-idle-localstorage-databases-immediately.html [ Skip ]
@@ -608,6 +545,10 @@ fast/dom/Window/named-getter-frame-id.html [ Pass Failure ]
 fast/dom/Window/window-special-properties.html [ Pass Failure ]
 
 [ Debug ] fast/html/marquee-reparent-check.html [ Pass Failure ]
+
+# The CookieStore API is not fully implemented on WinCario yet.
+imported/w3c/web-platform-tests/cookie-store [ Skip ]
+imported/w3c/web-platform-tests/cookies/partitioned-cookies/partitioned-cookies.tentative.https.html [ Skip ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # Following tests are labeled "Skip" because not working well and causes crash or timeout
@@ -843,6 +784,7 @@ http/tests/eventsource [ Skip ]
 http/tests/events/touch/ios [ Skip ]
 http/tests/fileapi [ Skip ]
 http/tests/frame-throttling [ Skip ]
+http/tests/fullscreen [ Skip ]
 
 http/tests/globalhistory/history-delegate-basic-refresh-redirect.html [ Failure ]
 http/tests/globalhistory/history-delegate-basic-visited-links.html [ Pass Failure ]
@@ -852,6 +794,9 @@ http/tests/images/image-supports-video.html [ Failure ]
 http/tests/images/mp4-partial-load.html [ Failure ]
 
 webkit.org/b/219225 http/tests/inspector/dom/disconnect-dom-tree-after-main-frame-navigation.html [ Pass Failure ]
+
+# fullscreen isn't supported yet
+http/tests/inspector/dom/didFireEvent.html [ Skip ]
 
 http/tests/inspector/network/eventsource-type.html [ Failure ]
 http/tests/inspector/network/fetch-response-body.html [ Failure ]
@@ -909,7 +854,6 @@ http/tests/navigation/post-308-response.html [ Pass ]
 
 http/tests/notifications [ Skip ]
 http/tests/paymentrequest [ Skip ]
-http/tests/plugins [ Skip ]
 http/tests/pointer-lock [ Skip ]
 http/tests/preconnect [ Skip ]
 http/tests/preload [ Skip ]
@@ -1680,7 +1624,6 @@ fast/forms/range/slider-transformed.html [ Skip ]
 fast/forms/scroll-into-view-and-show-validation-message.html [ Skip ]
 fast/forms/search-cancel-button-style-sharing.html [ Skip ]
 fast/forms/search-display-none-cancel-button.html [ Skip ]
-fast/forms/search-event-delay.html [ Skip ]
 fast/forms/search-input-rtl.html [ Skip ]
 fast/forms/search-rtl.html [ Skip ]
 fast/forms/search-styled.html [ Skip ]
@@ -1912,6 +1855,7 @@ imported/w3c/web-platform-tests/paint-timing [ Skip ]
 imported/w3c/web-platform-tests/payment-request [ Skip ]
 imported/w3c/web-platform-tests/performance-timeline [ Skip ]
 imported/w3c/web-platform-tests/permissions [ Skip ]
+imported/w3c/web-platform-tests/permissions-policy [ Skip ]
 imported/w3c/web-platform-tests/picture-in-picture [ Skip ]
 imported/w3c/web-platform-tests/pointerevents [ Skip ]
 imported/w3c/web-platform-tests/pointerlock [ Skip ]
@@ -1972,7 +1916,6 @@ media/picture-in-picture [ Skip ]
 media/track [ Skip ]
 pageoverlay [ Skip ]
 perf [ Skip ]
-plugins [ Skip ]
 pointerevents [ Skip ]
 printing [ Skip ]
 scrollbars [ Skip ]
@@ -1991,14 +1934,6 @@ webgl/2.0.0/conformance/textures/image_bitmap_from_image_bitmap [ Skip ]
 webgl/2.0.0/conformance2/textures/image_bitmap_from_image_bitmap [ Skip ]
 webxr [ Skip ]
 
-[ Debug ] fast/dom/xml-large.html [ Skip ]
-[ Debug ] fast/regex/pcre-test-1.html [ Skip ]
-[ Debug ] fast/tokenizer/missing-script-tag-closing-bracket.html [ Skip ]
-[ Debug ] fast/workers [ Skip ]
-[ Debug ] fast/xpath/xpath-result-eventlistener-crash.html [ Skip ]
-[ Debug ] fetch/fetch-worker-crash.html [ Skip ]
-[ Debug ] ietestcenter/Javascript [ Skip ]
-[ Debug ] loader/load-defer-resume-crash.html [ Skip ]
 [ Debug ] webgl/2.0.y/conformance/attribs/gl-vertexattribpointer.html [ Skip ] # Slow
 [ Debug ] webgl/2.0.0/conformance/canvas/drawingbuffer-test.html [ Skip ] # Crash by assertion failure
 [ Debug ] webgl/2.0.y/conformance/glsl/bugs/complex-glsl-does-not-crash.html [ Skip ] # Slow
@@ -2015,7 +1950,6 @@ webxr [ Skip ]
 [ Debug ] webgl/2.0.0/conformance2/glsl3/compound-assignment-type-combination.html [ Skip ] # Slow
 [ Debug ] webgl/2.0.0/conformance2/rendering/blitframebuffer-filter-outofbounds.html [ Skip ] # Slow
 [ Debug ] webgl/2.0.0/conformance2/textures/misc/copy-texture-image-luma-format.html [ Skip ] # Slow
-[ Release ] fetch/fetch-worker-crash.html [ Pass Timeout ]
 [ Release ] webgl/2.0.0/conformance/canvas/drawingbuffer-test.html [ Crash Failure ]
 animations/shadow-host-child-change.html [ Skip ]
 animations/steps-transform-rendering-updates.html [ Pass Failure ]
@@ -2101,7 +2035,6 @@ fast/events/selectstart-by-drag.html [ Failure Pass ]
 fast/events/shadow-event-path-2.html [ Failure ]
 fast/events/shadow-event-path.html [ Failure ]
 fast/events/special-key-events-in-input-text.html [ Failure ]
-fast/events/tabindex-focus-blur-all.html [ Timeout ]
 fast/events/wheel/continuous-platform-wheelevent-in-scrolling-div.html [ Failure ]
 fast/events/wheel/platform-wheelevent-paging-x-in-non-scrolling-div.html [ Failure ]
 fast/events/wheel/platform-wheelevent-paging-x-in-non-scrolling-page.html [ Failure ]
@@ -2257,8 +2190,9 @@ webgl/2.0.0/conformance2/rendering/fs-color-type-mismatch-color-buffer-type.html
 webgl/2.0.0/conformance2/state/gl-object-get-calls.html [ Skip ] # Timeout Failure Pass
 webgl/2.0.0/conformance2/textures/misc/tex-image-with-bad-args-from-dom-elements.html [ Skip ] # Timeout
 webgl/2.0.0/conformance2/transform_feedback/transform_feedback.html [ Skip ] # Timeout and flaky
-webgl/webgl-oom-paint-document-no-crash.html [ Skip ]
 workers/bomb.html [ Skip ] # Timeout
+
+webkit.org/b/162830 fast/events/tabindex-focus-blur-all.html [ Pass Timeout ]
 
 # This test is crashing on Buildbot. Skipping this test makes the subsequent test crash. Not sure which preceding test is the root cause.
 webgl/2.0.0/conformance/context/context-creation.html [ Pass Timeout Crash ]
@@ -2310,8 +2244,6 @@ fast/css3-text/font-synthesis.html [ ImageOnlyFailure ]
 fast/css3-text/css3-text-decoration/text-underline-position/underline-visual-overflow-with-subpixel-position.html [ Failure ]
 
 fast/canvas/toDataURL-alpha-permutation.html [ ImageOnlyFailure ]
-
-webgl/2.0.y/conformance2/extensions/webgl-multi-draw-instanced-base-vertex-base-instance.html [ Failure ]
 
 webkit.org/b/243992 fast/text/punctuation-break-all.html [ ImageOnlyFailure ]
 
@@ -2374,6 +2306,7 @@ compositing/backing/zero-opacity-invalidation.html [ Skip ]
 compositing/backing/zero-opacity.html [ Skip ]
 compositing/bounds-in-flipped-writing-mode.html [ Skip ]
 compositing/canvas/accelerated-canvas-compositing-size-limit.html [ Skip ]
+compositing/canvas/accelerated-small-canvas-compositing.html [ Skip ]
 compositing/canvas/hidpi-canvas-backing-store-invalidation-2.html [ Skip ]
 compositing/canvas/hidpi-canvas-backing-store-invalidation.html [ Skip ]
 compositing/canvas/hidpi-canvas-backing-store.html [ Skip ]
@@ -2837,3 +2770,12 @@ http/tests/inspector/network/xhr-request-type.html [ Failure ]
 compositing/overlap-blending/reflection-opacity-huge.html [ ImageOnlyFailure Pass ]
 
 fast/css-grid-layout/grid-item-display.html [ Failure Pass ]
+
+fast/canvas/canvas-ellipse-connecting-line.html [ ImageOnlyFailure ]
+
+fast/html/transient-activation.html [ Skip ]
+
+fast/css/caret-color-with-inherited-color-property.html [ Skip ] # ImageOnlyFailure
+fast/css/caret-color-with-initial-color-property.html [ Skip ] # ImageOnlyFailure
+
+webkit.org/b/257624 fast/dom/SelectorAPI/caseID.html [ Failure Pass ]

@@ -110,11 +110,8 @@ public:
     static constexpr unsigned StructureFlags = Base::StructureFlags | OverridesGetOwnPropertySlot | InterceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero | StructureIsImmortal | OverridesPut;
 
     static constexpr bool needsDestruction = true;
-    static ALWAYS_INLINE void destroy(JSCell* cell)
-    {
-        static_cast<JSString*>(cell)->JSString::~JSString();
-    }
-    
+    static void destroy(JSCell*);
+
     // We specialize the string subspace to get the fastest possible sweep. This wouldn't be
     // necessary if JSString didn't have a destructor.
     template<typename, SubspaceAccess>
@@ -201,8 +198,6 @@ protected:
     DECLARE_DEFAULT_FINISH_CREATION;
 
 public:
-    ~JSString();
-
     Identifier toIdentifier(JSGlobalObject*) const;
     AtomString toAtomString(JSGlobalObject*) const;
     AtomString toExistingAtomString(JSGlobalObject*) const;
@@ -292,6 +287,8 @@ private:
 class JSRopeString final : public JSString {
     friend class JSString;
 public:
+    static void destroy(JSCell*);
+
     template<typename, SubspaceAccess>
     static GCClient::IsoSubspace* subspaceFor(VM& vm)
     {
@@ -594,12 +591,12 @@ public:
     // The rope value will remain a null string in that case.
     JS_EXPORT_PRIVATE const String& resolveRope(JSGlobalObject* nullOrGlobalObjectForOOM) const;
 
-    template<typename Fibers, typename CharacterType>
-    static void resolveToBuffer(Fibers*, CharacterType* buffer, unsigned length);
+    template<typename CharacterType>
+    static void resolveToBuffer(JSString*, JSString*, JSString*, CharacterType* buffer, unsigned length, uint8_t* stackLimit);
 
 private:
-    template<typename Fibers, typename CharacterType>
-    static void resolveToBufferSlow(Fibers*, CharacterType* buffer, unsigned length);
+    template<typename CharacterType>
+    static void resolveToBufferSlow(JSString*, JSString*, JSString*, CharacterType* buffer, unsigned length, uint8_t* stackLimit);
 
     static JSRopeString* create(VM& vm, JSString* s1, JSString* s2)
     {
@@ -632,7 +629,7 @@ private:
     template<typename Function> const String& resolveRopeWithFunction(JSGlobalObject* nullOrGlobalObjectForOOM, Function&&) const;
     JS_EXPORT_PRIVATE AtomString resolveRopeToAtomString(JSGlobalObject*) const;
     JS_EXPORT_PRIVATE RefPtr<AtomStringImpl> resolveRopeToExistingAtomString(JSGlobalObject*) const;
-    template<typename CharacterType> void resolveRopeInternalNoSubstring(CharacterType*) const;
+    template<typename CharacterType> void resolveRopeInternalNoSubstring(CharacterType*, uint8_t* stackLimit) const;
     Identifier toIdentifier(JSGlobalObject*) const;
     void outOfMemory(JSGlobalObject* nullOrGlobalObjectForOOM) const;
     StringView unsafeView(JSGlobalObject*) const;

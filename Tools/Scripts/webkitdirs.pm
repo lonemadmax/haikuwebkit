@@ -1,4 +1,4 @@
-# Copyright (C) 2005-2022 Apple Inc. All rights reserved.
+# Copyright (C) 2005-2023 Apple Inc. All rights reserved.
 # Copyright (C) 2009 Google Inc. All rights reserved.
 # Copyright (C) 2011 Research In Motion Limited. All rights reserved.
 # Copyright (C) 2013 Nokia Corporation and/or its subsidiary(-ies).
@@ -141,6 +141,7 @@ BEGIN {
        &jscProductDir
        &launcherName
        &launcherPath
+       &libFuzzerIsEnabled
        &ltoMode
        &markBaseProductDirectoryAsCreatedByXcodeBuildSystem
        &maxCPULoad
@@ -183,6 +184,7 @@ BEGIN {
        &setXcodeSDK
        &setupMacWebKitEnvironment
        &setupUnixWebKitEnvironment
+       &setupWindowsWebKitEnvironment
        &sharedCommandLineOptions
        &sharedCommandLineOptionsUsage
        &shouldBuildForCrossTarget
@@ -243,6 +245,7 @@ my %nativeArchitectureMap = ();
 my $asanIsEnabled;
 my $tsanIsEnabled;
 my $ubsanIsEnabled;
+my $libFuzzerIsEnabled;
 my $coverageIsEnabled;
 my $forceOptimizationLevel;
 my $ltoMode;
@@ -409,13 +412,13 @@ sub determineBaseProductDir
         $setSharedPrecompsDir = 1 if $buildLocationStyle ne "DeterminedByTargets";
 
         if (!defined($baseProductDir)) {
-            $baseProductDir = join '', readXcodeUserDefault("IDEApplicationwideBuildSettings");
-            $baseProductDir = $1 if $baseProductDir =~ /SYMROOT\s*=\s*\"(.*?)\";/s;
+            my $customPaths = join '', readXcodeUserDefault("IDEApplicationwideBuildSettings");
+            $baseProductDir = $1 if $customPaths =~ /SYMROOT\s*=\s*\"(.*?)\";/s;
         }
 
-        # Expand tilde in pathnames for compatibility
+        # Glob to expand tilde in pathnames
         # (https://bugs.webkit.org/show_bug.cgi?id=249442).
-        ($baseProductDir) = bsd_glob($baseProductDir, GLOB_TILDE) if defined($baseProductDir);
+        ($baseProductDir) = bsd_glob($baseProductDir) if defined($baseProductDir);
 
         if (defined($baseProductDir) && $baseProductDir !~ /^\//) {
             # webkitdirs can be run from arbitrary directories, so any
@@ -440,7 +443,7 @@ sub determineBaseProductDir
         $baseProductDir =~ s|^~/|$ENV{HOME}/|;
         die "Can't handle Xcode product directory with a ~ in it.\n" if $baseProductDir =~ /~/;
         die "Can't handle Xcode product directory with a variable in it.\n" if $baseProductDir =~ /\$/;
-        $baseProductDir = realpath($baseProductDir);
+        $baseProductDir = realpath($baseProductDir) if -e $baseProductDir;
         @baseProductDirOption = ("SYMROOT=$baseProductDir", "OBJROOT=$baseProductDir");
         push(@baseProductDirOption, "SHARED_PRECOMPS_DIR=${baseProductDir}/PrecompiledHeaders") if $setSharedPrecompsDir;
         push(@baseProductDirOption, "INDEX_ENABLE_DATA_STORE=YES", "INDEX_DATA_STORE_DIR=${indexDataStoreDir}") if $indexDataStoreDir;
@@ -615,6 +618,13 @@ sub determineUBSanIsEnabled
     return if defined $ubsanIsEnabled;
     determineBaseProductDir();
     $ubsanIsEnabled = readSanitizerConfiguration("UBSan");
+}
+
+sub determineLibFuzzerIsEnabled
+{
+    return if defined $libFuzzerIsEnabled;
+    determineBaseProductDir();
+    $libFuzzerIsEnabled = readSanitizerConfiguration("LibFuzzer");
 }
 
 sub determineForceOptimizationLevel
@@ -1122,6 +1132,12 @@ sub ubsanIsEnabled()
     return $ubsanIsEnabled;
 }
 
+sub libFuzzerIsEnabled()
+{
+    determineLibFuzzerIsEnabled();
+    return $libFuzzerIsEnabled;
+}
+
 sub coverageIsEnabled()
 {
     determineCoverageIsEnabled();
@@ -1207,6 +1223,7 @@ sub XcodeOptions
     determineASanIsEnabled();
     determineTSanIsEnabled();
     determineUBSanIsEnabled();
+    determineLibFuzzerIsEnabled();
     determineForceOptimizationLevel();
     determineCoverageIsEnabled();
     determineLTOMode();
@@ -1226,15 +1243,15 @@ sub XcodeOptions
     push @options, ("ENABLE_ADDRESS_SANITIZER=YES") if $asanIsEnabled;
     push @options, ("ENABLE_THREAD_SANITIZER=YES") if $tsanIsEnabled;
     push @options, ("ENABLE_UNDEFINED_BEHAVIOR_SANITIZER=YES") if $ubsanIsEnabled;
+    push @options, ("ENABLE_LIBFUZZER=YES") if $libFuzzerIsEnabled;
     push @options, XcodeCoverageSupportOptions() if $coverageIsEnabled;
     push @options, "GCC_OPTIMIZATION_LEVEL=$forceOptimizationLevel" if $forceOptimizationLevel;
     push @options, "WK_LTO_MODE=$ltoMode" if $ltoMode;
     push @options, @baseProductDirOption;
     push @options, "ARCHS=$architecture" if $architecture;
     push @options, "SDKROOT=$xcodeSDK" if $xcodeSDK;
-    if (xcodeVersion() ge "14.0" && xcodeVersion() lt "15.0") {
-        # TAPI_USE_SRCROOT is not recognized by Xcode 14.x, but the feature flag is.
-        push @options, ("-UseSRCROOTSupportForTAPI=YES", "TAPI_USE_SRCROOT=YES");
+    if (xcodeVersion() lt "15.0") {
+        push @options, "TAPI_USE_SRCROOT=YES" if $ENV{UseSRCROOTSupportForTAPI};
     }
 
     my @features = webkitperl::FeatureList::getFeatureOptionList();
@@ -2480,7 +2497,7 @@ sub shouldUseFlatpak()
         return 0;
     }
 
-    if ((defined $ENV{'WEBKIT_JHBUILD'} && $ENV{'WEBKIT_JHBUILD'}) or defined $ENV{'WKDEV_SDK'}) {
+    if ((defined $ENV{'WEBKIT_JHBUILD'} && $ENV{'WEBKIT_JHBUILD'}) or defined $ENV{'WEBKIT_BUILD_USE_SYSTEM_LIBRARIES'}) {
         return 0;
     }
 
@@ -2643,6 +2660,7 @@ sub generateBuildSystemFromCMakeProject
     push @args, "-DENABLE_SANITIZERS=address" if asanIsEnabled();
     push @args, "-DENABLE_SANITIZERS=thread" if tsanIsEnabled();
     push @args, "-DENABLE_SANITIZERS=undefined" if ubsanIsEnabled();
+    push @args, "-DENABLE_SANITIZERS=fuzzer" if libFuzzerIsEnabled();
 
     push @args, "-DLTO_MODE=$ltoMode" if ltoMode();
 
@@ -2909,6 +2927,17 @@ sub setupUnixWebKitEnvironment($)
     my ($productDir) = @_;
 
     $ENV{TEST_RUNNER_INJECTED_BUNDLE_FILENAME} = File::Spec->catfile($productDir, "lib", "libTestRunnerInjectedBundle.so");
+}
+
+sub setupWindowsWebKitEnvironment()
+{
+    my $lib;
+    if ($ENV{WEBKIT_LIBRARIES}) {
+        $lib = File::Spec->catfile($ENV{WEBKIT_LIBRARIES}, 'bin64');
+    } else  {
+        $lib = File::Spec->catfile(sourceDir(), 'WebKitLibraries', 'win', 'bin64');
+    }
+    $ENV{PATH} = $lib . ';' . $ENV{PATH};
 }
 
 sub setupIOSWebKitEnvironment($)

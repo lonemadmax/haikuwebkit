@@ -234,10 +234,3 @@ int main(int argc, const char* argv[])
 
     return EXIT_SUCCESS;
 }
-
-#ifdef _WIN32
-extern "C" __declspec(dllexport) int WINAPI dllLauncherEntryPoint(int argc, const char* argv[])
-{
-    return main(argc, argv);
-}
-#endif

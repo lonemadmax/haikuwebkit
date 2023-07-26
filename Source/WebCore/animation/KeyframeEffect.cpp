@@ -591,7 +591,7 @@ Ref<KeyframeEffect> KeyframeEffect::create(const Element& target, PseudoId pseud
 }
 
 KeyframeEffect::KeyframeEffect(Element* target, PseudoId pseudoId)
-    : m_keyframesName(makeAtomString("keyframe-effect-"_s, UUID::createVersion4Weak()))
+    : m_keyframesName(makeAtomString("keyframe-effect-"_s, WTF::UUID::createVersion4Weak()))
     , m_target(target)
     , m_pseudoId(pseudoId)
 {
@@ -2013,6 +2013,7 @@ void KeyframeEffect::applyPendingAcceleratedActionsOrUpdateTimingProperties()
 
     if (m_pendingAcceleratedActions.isEmpty()) {
         m_pendingAcceleratedActions.append(AcceleratedAction::UpdateProperties);
+        m_lastRecordedAcceleratedAction = AcceleratedAction::Play;
         applyPendingAcceleratedActions();
         m_pendingAcceleratedActions.clear();
     } else

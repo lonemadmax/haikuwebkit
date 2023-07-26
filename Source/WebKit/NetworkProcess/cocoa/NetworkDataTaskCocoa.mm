@@ -224,6 +224,7 @@ NetworkDataTaskCocoa::NetworkDataTaskCocoa(NetworkSession& session, NetworkDataT
     restrictRequestReferrerToOriginIfNeeded(request);
 
     RetainPtr<NSURLRequest> nsRequest = request.nsURLRequest(WebCore::HTTPBodyUpdatePolicy::UpdateHTTPBody);
+    ASSERT(nsRequest);
     RetainPtr<NSMutableURLRequest> mutableRequest = adoptNS([nsRequest.get() mutableCopy]);
 
     if (parameters.isMainFrameNavigation
@@ -336,8 +337,11 @@ NetworkDataTaskCocoa::~NetworkDataTaskCocoa()
         WTFEndSignpost(m_task.get(), "DataTask");
 
     if (m_task && m_sessionWrapper) {
-        auto dataTask = m_sessionWrapper->dataTaskMap.take([m_task taskIdentifier]);
-        RELEASE_ASSERT(dataTask == this);
+        auto& map = m_sessionWrapper->dataTaskMap;
+        auto iterator = map.find([m_task taskIdentifier]);
+        RELEASE_ASSERT(iterator != map.end());
+        ASSERT(!iterator->value.get());
+        map.remove(iterator);
     }
 }
 

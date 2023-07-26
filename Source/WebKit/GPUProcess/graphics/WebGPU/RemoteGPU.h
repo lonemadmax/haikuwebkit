@@ -42,7 +42,7 @@
 #include <wtf/Ref.h>
 #include <wtf/ThreadAssertions.h>
 
-namespace PAL::WebGPU {
+namespace WebCore::WebGPU {
 class GPU;
 struct PresentationContextDescriptor;
 }
@@ -75,7 +75,7 @@ using PerformWithMediaPlayerOnMainThread = Function<void()>;
 class RemoteGPU final : public IPC::StreamMessageReceiver {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static Ref<RemoteGPU> create(PerformWithMediaPlayerOnMainThread&& performWithMediaPlayerOnMainThread, WebGPUIdentifier identifier, GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackend& renderingBackend, IPC::StreamServerConnection::Handle&& serverConnection)
+    static Ref<RemoteGPU> create(PerformWithMediaPlayerOnMainThread&& performWithMediaPlayerOnMainThread, WebGPUIdentifier identifier, GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackend& renderingBackend, Ref<IPC::StreamServerConnection>&& serverConnection)
     {
         auto result = adoptRef(*new RemoteGPU(WTFMove(performWithMediaPlayerOnMainThread), identifier, gpuConnectionToWebProcess, renderingBackend, WTFMove(serverConnection)));
         result->initialize();
@@ -89,7 +89,7 @@ public:
 private:
     friend class WebGPU::ObjectHeap;
 
-    RemoteGPU(PerformWithMediaPlayerOnMainThread&&, WebGPUIdentifier, GPUConnectionToWebProcess&, RemoteRenderingBackend&, IPC::StreamServerConnection::Handle&&);
+    RemoteGPU(PerformWithMediaPlayerOnMainThread&&, WebGPUIdentifier, GPUConnectionToWebProcess&, RemoteRenderingBackend&, Ref<IPC::StreamServerConnection>&&);
 
     RemoteGPU(const RemoteGPU&) = delete;
     RemoteGPU(RemoteGPU&&) = delete;
@@ -118,7 +118,7 @@ private:
     WeakPtr<GPUConnectionToWebProcess> m_gpuConnectionToWebProcess;
     Ref<IPC::StreamConnectionWorkQueue> m_workQueue;
     RefPtr<IPC::StreamServerConnection> m_streamConnection;
-    RefPtr<PAL::WebGPU::GPU> m_backing WTF_GUARDED_BY_CAPABILITY(workQueue());
+    RefPtr<WebCore::WebGPU::GPU> m_backing WTF_GUARDED_BY_CAPABILITY(workQueue());
     Ref<WebGPU::ObjectHeap> m_objectHeap WTF_GUARDED_BY_CAPABILITY(workQueue());
     PerformWithMediaPlayerOnMainThread m_performWithMediaPlayerOnMainThread;
     const WebGPUIdentifier m_identifier;

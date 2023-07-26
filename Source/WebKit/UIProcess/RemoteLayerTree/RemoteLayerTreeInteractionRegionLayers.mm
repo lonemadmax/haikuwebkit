@@ -47,7 +47,9 @@ SOFT_LINK_CONSTANT_MAY_FAIL(RealitySystemSupport, RCPAllowedInputTypesUserInfoKe
 
 @interface CALayer ()
 @property (nonatomic) CGFloat sizeMultiplier;
+#if PLATFORM(VISION)
 @property (nonatomic, copy) void (^effectGroupConfigurator)(CARemoteEffectGroup *group);
+#endif
 @end
 
 namespace WebKit {
@@ -93,11 +95,6 @@ static void configureLayerForInteractionRegion(CALayer *layer, NSString *groupNa
         }];
     }
 }
-#else
-static Class interactionRegionLayerClass() { return [CALayer class]; }
-static void configureLayerForInteractionRegion(CALayer *, NSString *) { }
-static NSDictionary *interactionRegionEffectUserInfo() { return @{ }; }
-#endif // !PLATFORM(VISION)
 
 static void configureLayerAsGuard(CALayer *layer, NSString *groupName)
 {
@@ -107,6 +104,11 @@ static void configureLayerAsGuard(CALayer *layer, NSString *groupName)
     group.userInfo = interactionRegionEffectUserInfo();
     layer.remoteEffects = @[ group ];
 }
+#else
+static Class interactionRegionLayerClass() { return [CALayer class]; }
+static void configureLayerForInteractionRegion(CALayer *, NSString *) { }
+static void configureLayerAsGuard(CALayer *, NSString *) { }
+#endif // !PLATFORM(VISION)
 
 static std::optional<WebCore::InteractionRegion::Type> interactionRegionTypeForLayer(CALayer *layer)
 {
@@ -121,9 +123,9 @@ static NSString * interactionRegionGroupNameForLayer(CALayer *layer)
     return [layer valueForKey:interactionRegionGroupNameKey];
 }
 
-static NSString* interactionRegionGroupNameForRegion(const WebCore::InteractionRegion& interactionRegion)
+static NSString* interactionRegionGroupNameForRegion(const WebCore::PlatformLayerIdentifier& layerID, const WebCore::InteractionRegion& interactionRegion)
 {
-    return makeString("WKInteractionRegion-"_s, interactionRegion.elementIdentifier.toUInt64());
+    return makeString("WKInteractionRegion-"_s, layerID.toString(), interactionRegion.elementIdentifier.toUInt64());
 }
 
 static bool isAnyInteractionRegionLayer(CALayer *layer)
@@ -176,9 +178,9 @@ void insertInteractionRegionLayersForLayer(NSMutableArray *sublayers, CALayer *l
     }
 }
 
-void updateLayersForInteractionRegions(CALayer *layer, RemoteLayerTreeHost& host, const RemoteLayerTreeTransaction::LayerProperties& properties)
+void updateLayersForInteractionRegions(const RemoteLayerTreeNode& node)
 {
-    ASSERT(properties.changedProperties & LayerChange::EventRegionChanged);
+    CALayer *layer = node.interactionRegionsLayer();
 
     HashMap<std::pair<IntRect, InteractionRegion::Type>, CALayer *>existingLayers;
     for (CALayer *sublayer in layer.sublayers) {
@@ -191,12 +193,16 @@ void updateLayersForInteractionRegions(CALayer *layer, RemoteLayerTreeHost& host
     bool applyBackgroundColorForDebugging = [[NSUserDefaults standardUserDefaults] boolForKey:@"WKInteractionRegionDebugFill"];
 
     NSUInteger insertionPoint = 0;
-    for (const WebCore::InteractionRegion& region : properties.eventRegion.interactionRegions()) {
+    for (const WebCore::InteractionRegion& region : node.eventRegion().interactionRegions()) {
+        IntRect rect = region.rectInLayerCoordinates;
+
+        if (node.coverageRect() && !node.coverageRect()->intersects(rect))
+            continue;
+
         bool foundInPosition = false;
         RetainPtr<CALayer> regionLayer;
-        IntRect rect = region.rectInLayerCoordinates;
         auto key = std::make_pair(rect, region.type);
-        auto interactionRegionGroupName = interactionRegionGroupNameForRegion(region);
+        auto interactionRegionGroupName = interactionRegionGroupNameForRegion(node.layerID(), region);
 
         auto layerIterator = existingLayers.find(key);
         if (layerIterator != existingLayers.end()) {

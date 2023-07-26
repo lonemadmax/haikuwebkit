@@ -491,6 +491,11 @@ bool RenderStyle::inheritedEqual(const RenderStyle& other) const
         && m_rareInheritedData == other.m_rareInheritedData;
 }
 
+bool RenderStyle::inheritedCustomPropertiesEqual(const RenderStyle& other) const
+{
+    return m_rareInheritedData->customProperties == other.m_rareInheritedData->customProperties;
+}
+
 bool RenderStyle::fastPathInheritedEqual(const RenderStyle& other) const
 {
     if (m_inheritedFlags.visibility != other.m_inheritedFlags.visibility)
@@ -866,6 +871,9 @@ static bool rareDataChangeRequiresLayout(const StyleRareNonInheritedData& first,
     if (first.scrollbarGutter != second.scrollbarGutter)
         return true;
 
+    if (first.scrollbarWidth != second.scrollbarWidth)
+        return true;
+
     return false;
 }
 
@@ -904,12 +912,12 @@ static bool rareInheritedDataChangeRequiresLayout(const StyleRareInheritedData& 
         || first.lineSnap != second.lineSnap
         || first.lineAlign != second.lineAlign
         || first.hangingPunctuation != second.hangingPunctuation
+        || first.effectiveSkippedContent != second.effectiveSkippedContent
 #if ENABLE(OVERFLOW_SCROLLING_TOUCH)
         || first.useTouchOverflowScrolling != second.useTouchOverflowScrolling
 #endif
         || first.listStyleType != second.listStyleType
-        || first.listStyleImage != second.listStyleImage
-        || first.wordBoundaryDetection != second.wordBoundaryDetection)
+        || first.listStyleImage != second.listStyleImage)
         return true;
 
     if (first.textStrokeWidth != second.textStrokeWidth)
@@ -2030,11 +2038,6 @@ float RenderStyle::computedFontSize() const
     return fontDescription().computedSize();
 }
 
-unsigned RenderStyle::computedFontPixelSize() const
-{
-    return fontDescription().computedPixelSize();
-}
-
 const Length& RenderStyle::wordSpacing() const
 {
     return m_rareInheritedData->wordSpacing;
@@ -2104,7 +2107,7 @@ int RenderStyle::computeLineHeight(const Length& lineHeightLength) const
         return metricsOfPrimaryFont().lineSpacing();
 
     if (lineHeightLength.isPercentOrCalculated())
-        return minimumValueForLength(lineHeightLength, computedFontPixelSize());
+        return minimumValueForLength(lineHeightLength, computedFontSize());
 
     return clampTo<int>(lineHeightLength.value());
 }
@@ -2397,24 +2400,6 @@ Color RenderStyle::colorResolvingCurrentColor(CSSPropertyID colorProperty, bool 
 
             return colorResolvingCurrentColor(CSSPropertyWebkitTextFillColor, visitedLink);
         }
-
-        auto borderStyle = [&] {
-            switch (colorProperty) {
-            case CSSPropertyBorderLeftColor:
-                return borderLeftStyle();
-            case CSSPropertyBorderRightColor:
-                return borderRightStyle();
-            case CSSPropertyBorderTopColor:
-                return borderTopStyle();
-            case CSSPropertyBorderBottomColor:
-                return borderBottomStyle();
-            default:
-                return BorderStyle::None;
-            }
-        }();
-
-        if (!visitedLink && (borderStyle == BorderStyle::Inset || borderStyle == BorderStyle::Outset || borderStyle == BorderStyle::Ridge || borderStyle == BorderStyle::Groove))
-            return { SRGBA<uint8_t> { 238, 238, 238 } };
 
         return visitedLink ? visitedLinkColor() : color();
     }

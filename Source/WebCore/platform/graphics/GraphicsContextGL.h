@@ -1520,6 +1520,8 @@ public:
     // Has no other side-effects.
     virtual bool isExtensionEnabled(const String&) = 0;
 
+    virtual bool enableRequiredWebXRExtensions() { return true; }
+
     // GL_ANGLE_translated_shader_source
     virtual String getTranslatedShaderSourceANGLE(PlatformGLObject) = 0;
 
@@ -1601,7 +1603,7 @@ public:
     // display buffer abstractions that the caller should hold separate to
     // the context.
     virtual void paintRenderingResultsToCanvas(ImageBuffer&) = 0;
-    virtual RefPtr<PixelBuffer> paintRenderingResultsToPixelBuffer() = 0;
+    virtual RefPtr<PixelBuffer> paintRenderingResultsToPixelBuffer(FlipY) = 0;
     virtual void paintCompositedResultsToCanvas(ImageBuffer&) = 0;
 #if ENABLE(MEDIA_STREAM) || ENABLE(WEB_CODECS)
     virtual RefPtr<VideoFrame> paintCompositedResultsToVideoFrame() = 0;

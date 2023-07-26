@@ -34,11 +34,13 @@
 #import "ScrollingTreeFrameScrollingNodeRemoteMac.h"
 #import "ScrollingTreeOverflowScrollingNodeRemoteMac.h"
 #import <WebCore/FrameView.h>
+#import <WebCore/LocalFrameView.h>
 #import <WebCore/ScrollingThread.h>
 #import <WebCore/ScrollingTreeFixedNodeCocoa.h>
 #import <WebCore/ScrollingTreeOverflowScrollProxyNode.h>
 #import <WebCore/ScrollingTreePositionedNode.h>
 #import <WebCore/WebCoreCALayerExtras.h>
+#import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/text/TextStream.h>
 
 namespace WebKit {
@@ -160,11 +162,11 @@ void RemoteScrollingTreeMac::startPendingScrollAnimations()
             continue;
 
         if (auto previousData = std::exchange(data.requestedDataBeforeAnimatedScroll, std::nullopt)) {
-            auto& [positionBeforeAnimatedScroll, scrollType, clamping] = *previousData;
-            targetNode->scrollTo(positionBeforeAnimatedScroll, scrollType, clamping);
+            auto& [type, positionOrDeltaBeforeAnimatedScroll, scrollType, clamping] = *previousData;
+            targetNode->scrollTo(type == ScrollRequestType::DeltaUpdate ? (targetNode->currentScrollPosition() + std::get<FloatSize>(positionOrDeltaBeforeAnimatedScroll)) : std::get<FloatPoint>(positionOrDeltaBeforeAnimatedScroll), scrollType, clamping);
         }
 
-        targetNode->startAnimatedScrollToPosition(data.scrollPosition);
+        targetNode->startAnimatedScrollToPosition(data.destinationPosition(targetNode->currentScrollPosition()));
     }
 
     auto nodesWithPendingKeyboardScrollAnimations = std::exchange(m_nodesWithPendingKeyboardScrollAnimations, { });
@@ -310,20 +312,36 @@ void RemoteScrollingTreeMac::waitForEventDefaultHandlingCompletion(const Platfor
     LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingTreeMac::waitForEventDefaultHandlingCompletion took " << (MonotonicTime::now() - startTime).milliseconds() << "ms - timed out " << !receivedEvent << " gesture state is " << gestureState());
 }
 
+void RemoteScrollingTreeMac::receivedEventAfterDefaultHandling(const WebCore::PlatformWheelEvent& wheelEvent, std::optional<WheelScrollGestureState> gestureState)
+{
+    LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingTreeMac::receivedEventAfterDefaultHandling - " << wheelEvent << " gestureState " << gestureState);
+
+    ASSERT(isMainRunLoop());
+
+    if (!wheelEvent.isGestureStart())
+        return;
+
+    Locker locker { m_treeLock };
+
+    if (m_receivedBeganEventFromMainThread)
+        return;
+
+    setGestureState(gestureState);
+
+    m_receivedBeganEventFromMainThread = true;
+    m_waitingForBeganEventCondition.notifyOne();
+}
+
 WheelEventHandlingResult RemoteScrollingTreeMac::handleWheelEventAfterDefaultHandling(const PlatformWheelEvent& wheelEvent, ScrollingNodeID targetNodeID, std::optional<WheelScrollGestureState> gestureState)
 {
     LOG_WITH_STREAM(Scrolling, stream << "RemoteScrollingTreeMac::handleWheelEventAfterDefaultHandling - targetNodeID " << targetNodeID << " gestureState " << gestureState);
 
     ASSERT(ScrollingThread::isCurrentThread());
+
+    if (!targetNodeID)
+        return WheelEventHandlingResult::unhandled();
     
     Locker locker { m_treeLock };
-
-    if (!m_receivedBeganEventFromMainThread && wheelEvent.isGestureStart()) {
-        setGestureState(gestureState);
-
-        m_receivedBeganEventFromMainThread = true;
-        m_waitingForBeganEventCondition.notifyOne();
-    }
 
     bool allowLatching = false;
     OptionSet<WheelEventProcessingSteps> processingSteps;
@@ -499,6 +517,14 @@ void RemoteScrollingTreeMac::scrollingTreeNodeScrollbarVisibilityDidChange(Scrol
     RunLoop::main().dispatch([strongThis = Ref { *this }, nodeID, orientation, isVisible] {
         if (auto* scrollingCoordinatorProxy = strongThis->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->scrollingTreeNodeScrollbarVisibilityDidChange(nodeID, orientation, isVisible);
+    });
+}
+
+void RemoteScrollingTreeMac::scrollingTreeNodeScrollbarMinimumThumbLengthDidChange(ScrollingNodeID nodeID, ScrollbarOrientation orientation, int minimumThumbLength)
+{
+    RunLoop::main().dispatch([strongThis = Ref { *this }, nodeID, orientation, minimumThumbLength] {
+        if (auto* scrollingCoordinatorProxy = strongThis->scrollingCoordinatorProxy())
+            scrollingCoordinatorProxy->scrollingTreeNodeScrollbarMinimumThumbLengthDidChange(nodeID, orientation, minimumThumbLength);
     });
 }
 

@@ -30,6 +30,7 @@
 #include "ProcessThrottlerClient.h"
 #include <optional>
 #include <wtf/CompletionHandler.h>
+#include <wtf/EnumTraits.h>
 #include <wtf/text/TextStream.h>
 
 #if PLATFORM(COCOA)
@@ -85,10 +86,21 @@ bool ProcessThrottler::addActivity(Activity& activity)
 void ProcessThrottler::removeActivity(Activity& activity)
 {
     ASSERT(isMainRunLoop());
+    if (!m_allowsActivities) {
+        ASSERT(m_foregroundActivities.isEmpty());
+        ASSERT(m_backgroundActivities.isEmpty());
+        return;
+    }
+
+    bool wasRemoved;
     if (activity.isForeground())
-        m_foregroundActivities.remove(&activity);
+        wasRemoved = m_foregroundActivities.remove(&activity);
     else
-        m_backgroundActivities.remove(&activity);
+        wasRemoved = m_backgroundActivities.remove(&activity);
+    ASSERT(wasRemoved);
+    if (!wasRemoved)
+        return;
+
     updateThrottleStateIfNeeded();
 }
 
@@ -172,7 +184,7 @@ void ProcessThrottler::setThrottleState(ProcessThrottleState newState)
     if (m_assertion && m_assertion->isValid() && m_assertion->type() == newType)
         return;
 
-    PROCESSTHROTTLER_RELEASE_LOG("setThrottleState: Updating process assertion type to %u (foregroundActivities=%u, backgroundActivities=%u)", newType, m_foregroundActivities.size(), m_backgroundActivities.size());
+    PROCESSTHROTTLER_RELEASE_LOG("setThrottleState: Updating process assertion type to %u (foregroundActivities=%u, backgroundActivities=%u)", WTF::enumToUnderlyingType(newType), m_foregroundActivities.size(), m_backgroundActivities.size());
 
     // Keep the previous assertion active until the new assertion is taken asynchronously.
     auto previousAssertion = std::exchange(m_assertion, nullptr);
@@ -340,10 +352,16 @@ void ProcessThrottler::setAllowsActivities(bool allow)
         return;
 
     PROCESSTHROTTLER_RELEASE_LOG("setAllowsActivities %d", allow);
-    m_allowsActivities = allow;
 
-    if (!allow)
+    if (!allow) {
+        // Invalidate the activities before setting m_allowsActivities to false, so that the activities
+        // are able to remove themselves from the map.
         invalidateAllActivities();
+    }
+
+    ASSERT(m_foregroundActivities.isEmpty());
+    ASSERT(m_backgroundActivities.isEmpty());
+    m_allowsActivities = allow;
 }
 
 void ProcessThrottler::setShouldTakeNearSuspendedAssertion(bool shouldTakeNearSuspendedAssertion)
@@ -399,6 +417,8 @@ void ProcessThrottler::clearAssertion()
         PROCESSTHROTTLER_RELEASE_LOG("clearAssertion: Releasing near-suspended assertion");
         m_prepareToDropLastAssertionTimeoutTimer.stop();
         m_assertionToClearAfterPrepareToDropLastAssertion = nullptr;
+        if (!m_assertion)
+            m_process.didDropLastAssertion();
     });
 }
 

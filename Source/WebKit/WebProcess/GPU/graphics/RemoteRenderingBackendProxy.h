@@ -121,12 +121,12 @@ public:
         bool hasEmptyDirtyRegion { false };
     };
     
+#if PLATFORM(COCOA)
     struct SwapBuffersResult {
         BufferSet buffers;
         SwapBuffersDisplayRequirement displayRequirement;
     };
 
-#if PLATFORM(COCOA)
     Vector<SwapBuffersResult> prepareBuffersForDisplay(const Vector<LayerPrepareBuffersData>&);
 #endif
 
@@ -155,22 +155,12 @@ public:
 
     SerialFunctionDispatcher& dispatcher() { return m_dispatcher; }
 
-    static constexpr Seconds defaultTimeout = 3_s;
+    static constexpr Seconds defaultTimeout = 15_s;
 private:
     explicit RemoteRenderingBackendProxy(const RemoteRenderingBackendCreationParameters&, SerialFunctionDispatcher&);
 
-    template<typename T>
-    void send(T&& message)
-    {
-        streamConnection().send(WTFMove(message), renderingBackendIdentifier(), Seconds::infinity());
-
-    }
-
-    template<typename T>
-    auto sendSync(T&& message, IPC::Timeout timeout = Seconds::infinity())
-    {
-        return streamConnection().sendSync(WTFMove(message), renderingBackendIdentifier(), timeout);
-    }
+    template<typename T> auto send(T&& message);
+    template<typename T> auto sendSync(T&& message);
 
     // Connection::Client
     void didClose(IPC::Connection&) final;

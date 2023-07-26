@@ -93,6 +93,7 @@ public:
     WEBCORE_EXPORT bool shouldAvoidScrollingWhenFocusedContentIsVisible() const;
     WEBCORE_EXPORT bool shouldUseLegacySelectPopoverDismissalBehaviorInDataActivation() const;
     WEBCORE_EXPORT bool shouldIgnoreAriaForFastPathContentObservationCheck() const;
+    WEBCORE_EXPORT bool shouldIgnoreViewportArgumentsToAvoidExcessiveZoom() const;
     WEBCORE_EXPORT bool shouldLayOutAtMinimumWindowWidthWhenIgnoringScalingConstraints() const;
     WEBCORE_EXPORT bool shouldIgnoreContentObservationForSyntheticClick(bool isFirstSyntheticClickOnPage) const;
     WEBCORE_EXPORT static bool shouldAllowNavigationToCustomProtocolWithoutUserGesture(StringView protocol, const SecurityOriginData& requesterOrigin);
@@ -159,6 +160,7 @@ public:
     bool shouldDisableLazyIframeLoadingQuirk() const;
 
     bool shouldDisableFetchMetadata() const;
+    bool shouldDisablePushStateFilePathRestrictions() const;
 
 #if PLATFORM(COCOA)
     bool shouldAdvertiseSupportForHLSSubtitleTypes() const;
@@ -168,6 +170,10 @@ public:
 
     void setNeedsConfigurableIndexedPropertiesQuirk() { m_needsConfigurableIndexedPropertiesQuirk = true; }
     bool needsConfigurableIndexedPropertiesQuirk() const;
+
+    // webkit.org/b/259091.
+    bool needsToCopyUserSelectNoneQuirk() const { return m_needsToCopyUserSelectNoneQuirk; }
+    void setNeedsToCopyUserSelectNoneQuirk() { m_needsToCopyUserSelectNoneQuirk = true; }
 
 private:
     bool needsQuirks() const;
@@ -231,6 +237,7 @@ private:
     mutable std::optional<bool> m_shouldAdvertiseSupportForHLSSubtitleTypes;
 #endif
     bool m_needsConfigurableIndexedPropertiesQuirk { false };
+    bool m_needsToCopyUserSelectNoneQuirk { false };
 };
 
 } // namespace WebCore

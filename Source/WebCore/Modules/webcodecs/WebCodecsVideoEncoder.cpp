@@ -70,7 +70,7 @@ WebCodecsVideoEncoder::~WebCodecsVideoEncoder()
 static bool isValidEncoderConfig(const WebCodecsVideoEncoderConfig& config, const Settings::Values& settings)
 {
     // FIXME: Check codec more accurately.
-    if (!config.codec.startsWith("vp8"_s) && !config.codec.startsWith("vp09."_s) && !config.codec.startsWith("avc1."_s) && !config.codec.startsWith("hev1."_s) && (!config.codec.startsWith("av01."_s) || !settings.webCodecsAV1Enabled))
+    if (!config.codec.startsWith("vp8"_s) && !config.codec.startsWith("vp09."_s) && !config.codec.startsWith("avc1."_s) && !(config.codec.startsWith("hev1."_s) && settings.webCodecsHEVCEnabled) && !(config.codec.startsWith("hvc1."_s) && settings.webCodecsHEVCEnabled) && !(config.codec.startsWith("av01."_s) && settings.webCodecsAV1Enabled))
         return false;
 
     if (!config.width || !config.height)
@@ -95,6 +95,9 @@ static ExceptionOr<VideoEncoder::Config> createVideoEncoderConfig(const WebCodec
         else if (config.scalabilityMode != "L1T1"_s)
             return Exception { TypeError, "Scalabilty mode is not supported"_s };
     }
+
+    if (config.codec.startsWith("avc1."_s) && (!!(config.width % 2) || !!(config.height % 2)))
+        return Exception { TypeError, "H264 only supports even sized frames"_s };
 
     bool useAnnexB = config.avc && config.avc->format == AvcBitstreamFormat::Annexb;
     return VideoEncoder::Config { config.width, config.height, useAnnexB, config.bitrate.value_or(0), config.framerate.value_or(0), config.latencyMode == LatencyMode::Realtime, scalabilityMode };
@@ -293,7 +296,7 @@ void WebCodecsVideoEncoder::isConfigSupported(ScriptExecutionContext& context, W
 
     auto encoderConfig = createVideoEncoderConfig(config);
     if (encoderConfig.hasException()) {
-        promise->reject(encoderConfig.releaseException());
+        promise->template resolve<IDLDictionary<WebCodecsVideoEncoderSupport>>(WebCodecsVideoEncoderSupport { false, WTFMove(config) });
         return;
     }
 

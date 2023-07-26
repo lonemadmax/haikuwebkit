@@ -1298,6 +1298,9 @@ private:
         case StringLocaleCompare:
             compileStringLocaleCompare();
             break;
+        case StringIndexOf:
+            compileStringIndexOf();
+            break;
         case GetByOffset:
         case GetGetterSetterByOffset:
             compileGetByOffset();
@@ -1754,6 +1757,9 @@ private:
         case DateGetInt32OrNaN:
         case DateGetTime:
             compileDateGet();
+            break;
+        case DateSetTime:
+            compileDateSet();
             break;
         case DataViewGetInt:
         case DataViewGetFloat:
@@ -9446,14 +9452,17 @@ IGNORE_CLANG_WARNINGS_END
             
         case CellUse:
         case NotCellUse:
-        case UntypedUse: {
+        case UntypedUse:
+        case KnownPrimitiveUse: {
             LValue value;
             if (m_node->child1().useKind() == CellUse)
                 value = lowCell(m_node->child1());
             else if (m_node->child1().useKind() == NotCellUse)
                 value = lowNotCell(m_node->child1());
-            else
+            else if (m_node->child1().useKind() == UntypedUse)
                 value = lowJSValue(m_node->child1());
+            else
+                value = lowJSValue(m_node->child1(), ManualOperandSpeculation);
             
             LBasicBlock isCell = m_out.newBlock();
             LBasicBlock notString = m_out.newBlock();
@@ -10029,7 +10038,7 @@ IGNORE_CLANG_WARNINGS_END
             return;
         }
 
-        DFG_ASSERT(m_graph, m_node, childEdge.useKind() == Int32Use, childEdge.useKind());
+        DFG_ASSERT(m_graph, m_node, childEdge.useKind() == Int32Use || childEdge.useKind() == KnownInt32Use, childEdge.useKind());
 
         LValue value = lowInt32(childEdge);
         
@@ -10065,6 +10074,32 @@ IGNORE_CLANG_WARNINGS_END
     {
         auto* globalObject = m_graph.globalObjectFor(m_origin.semantic);
         setInt32(m_out.castToInt32(vmCall(Int64, operationStringLocaleCompare, weakPointer(globalObject), lowString(m_node->child1()), lowString(m_node->child2()))));
+    }
+
+    void compileStringIndexOf()
+    {
+        std::optional<UChar> character;
+        String searchString = m_node->child2()->tryGetString(m_graph);
+        if (!!searchString) {
+            if (searchString.length() == 1)
+                character = searchString.characterAt(0);
+        }
+
+        LValue base = lowString(m_node->child1());
+        LValue search = lowString(m_node->child2());
+        auto* globalObject = m_graph.globalObjectFor(m_origin.semantic);
+        if (m_node->child3()) {
+            if (character)
+                setInt32(m_out.castToInt32(vmCall(Int64, operationStringIndexOfWithIndexWithOneChar, weakPointer(globalObject), base, lowInt32(m_node->child3()), m_out.constInt32(character.value()))));
+            else
+                setInt32(m_out.castToInt32(vmCall(Int64, operationStringIndexOfWithIndex, weakPointer(globalObject), base, search, lowInt32(m_node->child3()))));
+            return;
+        }
+
+        if (character)
+            setInt32(m_out.castToInt32(vmCall(Int64, operationStringIndexOfWithOneChar, weakPointer(globalObject), base, m_out.constInt32(character.value()))));
+        else
+            setInt32(m_out.castToInt32(vmCall(Int64, operationStringIndexOf, weakPointer(globalObject), base, search)));
     }
     
     void compileGetByOffset()
@@ -17896,6 +17931,16 @@ IGNORE_CLANG_WARNINGS_END
         }
     }
 
+    void compileDateSet()
+    {
+        LValue base = lowDateObject(m_node->child1());
+        LValue arg = lowDouble(m_node->child2());
+        LValue time = m_out.add(m_out.doubleTrunc(arg), m_out.constDouble(0));
+        LValue result = m_out.select(m_out.doubleGreaterThan(m_out.doubleAbs(arg), m_out.constDouble(WTF::maxECMAScriptTime)), m_out.constDouble(PNaN), time);
+        m_out.storeDouble(result, base, m_heaps.DateInstance_internalNumber);
+        setDouble(result);
+    }
+
     void compileLoopHint()
     {
         if (LIKELY(!Options::returnEarlyFromInfiniteLoopsForFuzzing()))
@@ -18414,7 +18459,7 @@ IGNORE_CLANG_WARNINGS_END
                 // all of the compiler tiers.
                 jit.emitAllocateWithNonNullAllocator(
                     params[0].gpr(), actualAllocator, allocatorGPR, params.gpScratch(0),
-                    jumpToSlowPath);
+                    jumpToSlowPath, CCallHelpers::SlowAllocationResult::UndefinedBehavior);
                 
                 CCallHelpers::Jump jumpToSuccess;
                 if (!params.fallsThroughToSuccessor(0))

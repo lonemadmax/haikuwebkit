@@ -39,7 +39,10 @@
 #import "WebProcessProxy.h"
 #import <QuartzCore/CoreAnimation.h>
 #import <WebCore/MediaPlayerEnums.h>
+#import <WebCore/NullVideoFullscreenInterface.h>
 #import <WebCore/TimeRanges.h>
+#import <WebCore/VideoFullscreenInterfaceAVKit.h>
+#import <WebCore/VideoFullscreenInterfaceMac.h>
 #import <WebCore/WebAVPlayerLayer.h>
 #import <WebCore/WebAVPlayerLayerView.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
@@ -574,7 +577,9 @@ void VideoFullscreenManagerProxy::removeClientForContext(PlaybackSessionContextI
     clientCount--;
 
     if (clientCount <= 0) {
-        ensureInterface(contextId).setVideoFullscreenModel(nullptr);
+        auto& interface = ensureInterface(contextId);
+        interface.setVideoFullscreenModel(nullptr);
+        interface.invalidate();
         m_playbackSessionManagerProxy->removeClientForContext(contextId);
         m_clientCounts.remove(contextId);
         m_contextMap.remove(contextId);
@@ -741,7 +746,12 @@ void VideoFullscreenManagerProxy::willRemoveLayerForID(PlaybackSessionContextIde
 void VideoFullscreenManagerProxy::setupFullscreenWithID(PlaybackSessionContextIdentifier contextId, WebKit::LayerHostingContextID videoLayerID, const WebCore::FloatRect& screenRect, const WebCore::FloatSize& initialSize, const WebCore::FloatSize& videoDimensions, float hostingDeviceScaleFactor, HTMLMediaElementEnums::VideoFullscreenMode videoFullscreenMode, bool allowsPictureInPicture, bool standby, bool blocksReturnToFullscreenFromPictureInPicture)
 {
     auto& [model, interface] = ensureModelAndInterface(contextId);
-    addClientForContext(contextId);
+
+    // Do not add another refcount for this contextId if the interface is already in
+    // a fullscreen mode, lest the refcounts get out of sync, as removeClientForContext
+    // is only called once both PiP and video fullscreen are fully exited.
+    if (interface->mode() == HTMLMediaElementEnums::VideoFullscreenModeNone)
+        addClientForContext(contextId);
 
     if (m_mockVideoPresentationModeEnabled) {
         if (!videoDimensions.isEmpty())
@@ -863,15 +873,7 @@ void VideoFullscreenManagerProxy::exitFullscreenWithoutAnimationToMode(PlaybackS
         return;
     }
 
-#if PLATFORM(MAC)
     ensureInterface(contextId).exitFullscreenWithoutAnimationToMode(targetMode);
-#else
-    auto& [model, interface] = ensureModelAndInterface(contextId);
-    interface->invalidate();
-    [model->layerHostView() removeFromSuperview];
-    model->setLayerHostView(nullptr);
-    removeClientForContext(contextId);
-#endif
 
     hasVideoInPictureInPictureDidChange(targetMode & MediaPlayerEnums::VideoFullscreenModePictureInPicture);
 }

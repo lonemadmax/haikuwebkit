@@ -30,7 +30,7 @@
 
 #import "FullscreenTouchSecheuristic.h"
 #import "PlaybackSessionManagerProxy.h"
-#import "UIAlertControllerUtilities.h"
+#import "UIKitUtilities.h"
 #import "VideoFullscreenManagerProxy.h"
 #import "WKFullscreenStackView.h"
 #import "WKWebViewIOS.h"
@@ -38,9 +38,14 @@
 #import "WebPageProxy.h"
 #import "WebPreferences.h"
 #import <WebCore/LocalizedStrings.h>
+#import <WebCore/VideoFullscreenInterfaceAVKit.h>
 #import <pal/spi/cocoa/AVKitSPI.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/WeakObjCPtr.h>
+
+namespace WebCore {
+class PlaybackSessionInterfaceAVKit;
+}
 
 static const NSTimeInterval showHideAnimationDuration = 0.1;
 static const NSTimeInterval pipHideAnimationDuration = 0.2;
@@ -135,6 +140,7 @@ private:
 
 @implementation WKFullScreenViewController {
     BOOL _valid;
+    WeakObjCPtr<id<WKFullScreenViewControllerDelegate>> _delegate;
     RetainPtr<UILongPressGestureRecognizer> _touchGestureRecognizer;
     RetainPtr<UIView> _animatingView;
     RetainPtr<UIStackView> _stackView;
@@ -204,10 +210,17 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)dealloc
 {
     [self invalidate];
-
-    [_target release];
-
     [super dealloc];
+}
+
+- (id<WKFullScreenViewControllerDelegate>)delegate
+{
+    return _delegate.get().get();
+}
+
+- (void)setDelegate:(id<WKFullScreenViewControllerDelegate>)delegate
+{
+    _delegate = delegate;
 }
 
 - (void)setSupportedOrientations:(UIInterfaceOrientationMask)supportedOrientations
@@ -239,6 +252,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         [self performSelector:@selector(hideUI) withObject:nil afterDelay:hideDelay];
     }
     [UIView animateWithDuration:showHideAnimationDuration animations:^{
+        [[self delegate] showUI];
         [_stackView setHidden:NO];
         [_stackView setAlpha:1];
         self.prefersStatusBarHidden = NO;
@@ -257,7 +271,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     ASSERT(_valid);
     [NSObject cancelPreviousPerformRequestsWithTarget:self selector:@selector(hideUI) object:nil];
     [UIView animateWithDuration:showHideAnimationDuration animations:^{
-
+        [[self delegate] hideUI];
         if (_topConstraint)
             [NSLayoutConstraint deactivateConstraints:@[_topConstraint.get()]];
         _topConstraint = [[_topGuide topAnchor] constraintEqualToAnchor:self.view.topAnchor constant:self.view.safeAreaInsets.top];
@@ -671,7 +685,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)_cancelAction:(id)sender
 {
     ASSERT(_valid);
-    [[self target] performSelector:[self exitFullScreenAction]];
+    [[self delegate] requestExitFullScreen];
 }
 
 - (void)_togglePiPAction:(id)sender
@@ -685,7 +699,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!playbackSessionManager)
         return;
 
-    PlatformPlaybackSessionInterface* playbackSessionInterface = playbackSessionManager->controlsManagerInterface();
+    WebCore::PlatformPlaybackSessionInterface* playbackSessionInterface = playbackSessionManager->controlsManagerInterface();
     if (!playbackSessionInterface)
         return;
 
@@ -701,7 +715,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)_toggleDimmingAction:(id)sender
 {
     ASSERT(_valid);
-    [[self target] performSelector:[self toggleDimmingAction]];
+    [[self delegate] toggleDimming];
 }
 
 #endif // PLATFORM(VISION)

@@ -177,6 +177,12 @@ void ArgumentCoder<ScrollingStateScrollingNode>::encode(Encoder& encoder, const 
         encoder << mouseLocationState.locationInHorizontalScrollbar;
         encoder << mouseLocationState.locationInVerticalScrollbar;
     }
+
+    if (node.hasChangedProperty(ScrollingStateNode::Property::ScrollbarEnabledState)) {
+        auto scrollbarEnabledState = node.scrollbarEnabledState();
+        encoder << scrollbarEnabledState.horizontalScrollbarIsEnabled;
+        encoder << scrollbarEnabledState.verticalScrollbarIsEnabled;
+    }
 }
 
 void ArgumentCoder<ScrollingStateFrameScrollingNode>::encode(Encoder& encoder, const ScrollingStateFrameScrollingNode& node)
@@ -320,6 +326,18 @@ bool ArgumentCoder<ScrollingStateScrollingNode>::decode(Decoder& decoder, Scroll
         if (!decoder.decode(locationInVerticalScrollbar))
             return false;
         node.setMouseMovedInContentArea({ locationInHorizontalScrollbar, locationInVerticalScrollbar });
+    }
+
+    if (node.hasChangedProperty(ScrollingStateNode::Property::ScrollbarEnabledState)) {
+        bool horizontalScrollbarEnabled;
+        if (!decoder.decode(horizontalScrollbarEnabled))
+            return false;
+
+        bool verticalScrollbarEnabled;
+        if (!decoder.decode(verticalScrollbarEnabled))
+            return false;
+        node.setScrollbarEnabledState(ScrollbarOrientation::Horizontal, horizontalScrollbarEnabled);
+        node.setScrollbarEnabledState(ScrollbarOrientation::Vertical, verticalScrollbarEnabled);
     }
 
     return true;
@@ -652,10 +670,13 @@ static void dump(TextStream& ts, const ScrollingStateScrollingNode& node, bool c
 
     if (!changedPropertiesOnly || node.hasChangedProperty(ScrollingStateNode::Property::RequestedScrollPosition)) {
         const auto& requestedScrollData = node.requestedScrollData();
-        if (requestedScrollData.requestType == ScrollRequestType::CancelAnimatedScroll)
-            ts.dumpProperty("requested-type", "cancel animated scroll");
-        else {
-            ts.dumpProperty("requested-scroll-position", requestedScrollData.scrollPosition);
+        ts.dumpProperty("requested-type", requestedScrollData.requestType);
+        if (requestedScrollData.requestType != ScrollRequestType::CancelAnimatedScroll) {
+            if (requestedScrollData.requestType == ScrollRequestType::DeltaUpdate)
+                ts.dumpProperty("requested-scroll-delta", std::get<FloatSize>(requestedScrollData.scrollPositionOrDelta));
+            else
+                ts.dumpProperty("requested-scroll-position", std::get<FloatPoint>(requestedScrollData.scrollPositionOrDelta));
+
             ts.dumpProperty("requested-scroll-position-is-programatic", requestedScrollData.scrollType);
             ts.dumpProperty("requested-scroll-position-clamping", requestedScrollData.clamping);
             ts.dumpProperty("requested-scroll-position-animated", requestedScrollData.animated == ScrollIsAnimated::Yes);

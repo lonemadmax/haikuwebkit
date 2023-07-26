@@ -38,6 +38,7 @@
 #include "ContentExtensionActions.h"
 #include "ContentExtensionRule.h"
 #include "ContentRuleListResults.h"
+#include "CookieStore.h"
 #include "CrossOriginOpenerPolicy.h"
 #include "Crypto.h"
 #include "CustomElementRegistry.h"
@@ -133,6 +134,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Ref.h>
 #include <wtf/SetForScope.h>
+#include <wtf/SystemTracing.h>
 #include <wtf/URL.h>
 #include <wtf/text/WTFString.h>
 
@@ -1609,12 +1611,17 @@ bool LocalDOMWindow::consumeTransientActivation()
         RefPtr localFrame = dynamicDowncast<LocalFrame>(frame.get());
         if (!localFrame)
             continue;
-        auto* window = localFrame->window();
-        if (!window || window->lastActivationTimestamp() != MonotonicTime::infinity())
-            window->setLastActivationTimestamp(-MonotonicTime::infinity());
+        if (auto* window = localFrame->window())
+            window->consumeLastActivationIfNecessary();
     }
 
     return true;
+}
+
+void LocalDOMWindow::consumeLastActivationIfNecessary()
+{
+    if (!std::isinf(m_lastActivationTimestamp))
+        m_lastActivationTimestamp = -MonotonicTime::infinity();
 }
 
 // https://html.spec.whatwg.org/multipage/interaction.html#activation-notification
@@ -1767,9 +1774,10 @@ void LocalDOMWindow::scrollBy(const ScrollToOptions& options) const
         return;
 
     ScrollToOptions scrollToOptions = normalizeNonFiniteCoordinatesOrFallBackTo(options, 0, 0);
+    FloatSize originalDelta(scrollToOptions.left.value(), scrollToOptions.top.value());
     scrollToOptions.left.value() += view->mapFromLayoutToCSSUnits(view->contentsScrollPosition().x());
     scrollToOptions.top.value() += view->mapFromLayoutToCSSUnits(view->contentsScrollPosition().y());
-    scrollTo(scrollToOptions, ScrollClamping::Clamped, ScrollSnapPointSelectionMethod::Directional);
+    scrollTo(scrollToOptions, ScrollClamping::Clamped, ScrollSnapPointSelectionMethod::Directional, originalDelta);
 }
 
 void LocalDOMWindow::scrollTo(double x, double y, ScrollClamping clamping) const
@@ -1777,7 +1785,7 @@ void LocalDOMWindow::scrollTo(double x, double y, ScrollClamping clamping) const
     scrollTo(ScrollToOptions(x, y), clamping);
 }
 
-void LocalDOMWindow::scrollTo(const ScrollToOptions& options, ScrollClamping clamping, ScrollSnapPointSelectionMethod snapPointSelectionMethod) const
+void LocalDOMWindow::scrollTo(const ScrollToOptions& options, ScrollClamping clamping, ScrollSnapPointSelectionMethod snapPointSelectionMethod, std::optional<FloatSize> originalScrollDelta) const
 {
     if (!isCurrentlyDisplayedInFrame())
         return;
@@ -1805,7 +1813,7 @@ void LocalDOMWindow::scrollTo(const ScrollToOptions& options, ScrollClamping cla
     // FIXME: Should we use document()->scrollingElement()?
     // See https://bugs.webkit.org/show_bug.cgi?id=205059
     auto animated = useSmoothScrolling(scrollToOptions.behavior.value_or(ScrollBehavior::Auto), document()->documentElement()) ? ScrollIsAnimated::Yes : ScrollIsAnimated::No;
-    auto scrollPositionChangeOptions = ScrollPositionChangeOptions::createProgrammaticWithOptions(clamping, animated, snapPointSelectionMethod);
+    auto scrollPositionChangeOptions = ScrollPositionChangeOptions::createProgrammaticWithOptions(clamping, animated, snapPointSelectionMethod, originalScrollDelta);
     view->setContentsScrollPosition(layoutPos, scrollPositionChangeOptions);
 }
 
@@ -2349,7 +2357,14 @@ void LocalDOMWindow::dispatchLoadEvent()
             navigationTiming->documentLoadTiming().setLoadEventStart(now);
     }
 
+    bool isMainFrame = frame() && frame()->isMainFrame();
+    if (isMainFrame)
+        WTFBeginSignpost(document(), "Page Load: Load Event");
+
     dispatchEvent(Event::create(eventNames().loadEvent, Event::CanBubble::No, Event::IsCancelable::No), document());
+
+    if (isMainFrame)
+        WTFEndSignpost(document(), "Page Load: Load Event");
 
     if (shouldMarkLoadEventTimes) {
         auto now = MonotonicTime::now();
@@ -2801,6 +2816,13 @@ void LocalDOMWindow::eventListenersDidChange()
 WebCoreOpaqueRoot root(LocalDOMWindow* window)
 {
     return WebCoreOpaqueRoot { window };
+}
+
+CookieStore& LocalDOMWindow::cookieStore()
+{
+    if (!m_cookieStore)
+        m_cookieStore = CookieStore::create(document());
+    return *m_cookieStore;
 }
 
 } // namespace WebCore

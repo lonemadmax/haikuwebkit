@@ -183,6 +183,8 @@ public:
     MediaPlayer::MovieLoadType movieLoadType() const final;
 
     std::optional<VideoPlaybackQualityMetrics> videoPlaybackQualityMetrics() final;
+    unsigned decodedFrameCount() const final;
+    unsigned droppedFrameCount() const final;
     void acceleratedRenderingStateChanged() final;
     bool performTaskAtMediaTime(Function<void()>&&, const MediaTime&) override;
     void isLoopingChanged() final;
@@ -434,6 +436,7 @@ private:
     void commitLoad();
     void fillTimerFired();
     void didEnd();
+    void setPlaybackFlags(bool isMediaStream);
 
     GstElement* createVideoSink();
     GstElement* createAudioSink();

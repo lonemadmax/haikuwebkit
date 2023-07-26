@@ -36,6 +36,7 @@
 #include "ChromeClient.h"
 #include "ColorBlending.h"
 #include "ContainerNode.h"
+#include "ContentVisibilityDocumentState.h"
 #include "DebugPageOverlays.h"
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
@@ -138,10 +139,6 @@
 #if PLATFORM(IOS_FAMILY)
 #include "DocumentLoader.h"
 #include "LegacyTileCache.h"
-#endif
-
-#if PLATFORM(MAC)
-#include "LocalDefaultSystemAppearance.h"
 #endif
 
 #include "DisplayView.h"
@@ -2411,6 +2408,9 @@ void LocalFrameView::maintainScrollPositionAtAnchor(ContainerNode* anchorNode)
 
     cancelScheduledScrolls();
 
+    if (is<Element>(anchorNode))
+        m_frame->document()->contentVisibilityDocumentState().updateContentRelevancyStatusForScrollIfNeeded(downcast<Element>(*anchorNode));
+
     // We need to update the layout before scrolling, otherwise we could
     // really mess things up if an anchor scroll comes at a bad moment.
     m_frame->document()->updateStyleIfNeeded();
@@ -2464,7 +2464,7 @@ void LocalFrameView::setScrollPosition(const ScrollPosition& scrollPosition, con
     auto snappedPosition = scrollPositionFromOffset(snappedOffset);
 
     if (options.animated == ScrollIsAnimated::Yes)
-        scrollToPositionWithAnimation(snappedPosition, currentScrollType(), options.clamping);
+        scrollToPositionWithAnimation(snappedPosition, options);
     else
         ScrollView::setScrollPosition(snappedPosition, options);
 
@@ -3085,12 +3085,12 @@ bool LocalFrameView::requestStopKeyboardScrollAnimation(bool immediate)
     return false;
 }
 
-bool LocalFrameView::requestScrollToPosition(const ScrollPosition& position, ScrollType scrollType, ScrollClamping clamping, ScrollIsAnimated animated)
+bool LocalFrameView::requestScrollToPosition(const ScrollPosition& position, const ScrollPositionChangeOptions& options)
 {
-    LOG_WITH_STREAM(Scrolling, stream << "LocalFrameView::requestScrollToPosition " << position << " animated  " << (animated == ScrollIsAnimated::Yes));
+    LOG_WITH_STREAM(Scrolling, stream << "LocalFrameView::requestScrollToPosition " << position << " options  " << options);
 
 #if ENABLE(ASYNC_SCROLLING)
-    if (auto* tiledBacking = this->tiledBacking(); tiledBacking && animated == ScrollIsAnimated::No) {
+    if (auto* tiledBacking = this->tiledBacking(); tiledBacking && options.animated == ScrollIsAnimated::No) {
 #if PLATFORM(IOS_FAMILY)
         auto contentSize = exposedContentRect().size();
 #else
@@ -3102,12 +3102,10 @@ bool LocalFrameView::requestScrollToPosition(const ScrollPosition& position, Scr
 
 #if ENABLE(ASYNC_SCROLLING) || USE(COORDINATED_GRAPHICS)
     if (auto scrollingCoordinator = this->scrollingCoordinator())
-        return scrollingCoordinator->requestScrollToPosition(*this, position, scrollType, clamping, animated);
+        return scrollingCoordinator->requestScrollToPosition(*this, position, options);
 #else
     UNUSED_PARAM(position);
-    UNUSED_PARAM(scrollType);
-    UNUSED_PARAM(clamping);
-    UNUSED_PARAM(animated);
+    UNUSED_PARAM(options);
 #endif
 
     return false;
@@ -3914,6 +3912,7 @@ void LocalFrameView::scheduleResizeEventIfNeeded()
 
     auto* document = m_frame->document();
     if (document->quirks().shouldSilenceWindowResizeEvents()) {
+        document->addConsoleMessage(MessageSource::Other, MessageLevel::Info, "Window resize events silenced due to: http://webkit.org/b/258597"_s);
         FRAMEVIEW_RELEASE_LOG(Events, "scheduleResizeEventIfNeeded: Not firing resize events because they are temporarily disabled for this page");
         return;
     }
@@ -4268,17 +4267,17 @@ void LocalFrameView::scrollTo(const ScrollPosition& newPosition)
     didChangeScrollOffset();
 }
 
-void LocalFrameView::scrollToPositionWithAnimation(const ScrollPosition& position, ScrollType scrollType, ScrollClamping)
+void LocalFrameView::scrollToPositionWithAnimation(const ScrollPosition& position, const ScrollPositionChangeOptions& options)
 {
     // FIXME: Why isn't all this in ScrollableArea?
     auto previousScrollType = currentScrollType();
-    setCurrentScrollType(scrollType);
+    setCurrentScrollType(options.type);
 
     if (scrollAnimationStatus() == ScrollAnimationStatus::Animating)
         scrollAnimator().cancelAnimations();
 
     if (position != scrollPosition())
-        ScrollableArea::scrollToPositionWithAnimation(position);
+        ScrollableArea::scrollToPositionWithAnimation(position, options);
 
     setCurrentScrollType(previousScrollType);
 }
@@ -4516,10 +4515,19 @@ void LocalFrameView::updateScrollCorner()
     RenderElement* renderer = nullptr;
     std::unique_ptr<RenderStyle> cornerStyle;
     IntRect cornerRect = scrollCornerRect();
-    
-    if (!cornerRect.isEmpty()) {
+    Document* doc = m_frame->document();
+
+    auto usesStandardScrollbarStyle = [](auto& doc) {
+        if (!doc || !doc->documentElement())
+            return false;
+        if (!doc->documentElement()->renderer())
+            return false;
+
+        return doc->documentElement()->renderer()->style().usesStandardScrollbarStyle();
+    };
+
+    if (!(usesStandardScrollbarStyle(doc) || cornerRect.isEmpty())) {
         // Try the <body> element first as a scroll corner source.
-        Document* doc = m_frame->document();
         Element* body = doc ? doc->bodyOrFrameset() : nullptr;
         if (body && body->renderer()) {
             renderer = body->renderer();
@@ -4568,11 +4576,6 @@ void LocalFrameView::paintScrollCorner(GraphicsContext& context, const IntRect& 
         m_scrollCorner->paintIntoRect(context, cornerRect.location(), cornerRect);
         return;
     }
-
-#if PLATFORM(MAC)
-    // Keep this in sync with ScrollAnimatorMac's effectiveAppearanceForScrollerImp:.
-    LocalDefaultSystemAppearance localAppearance(useDarkAppearanceForScrollbars());
-#endif
 
     ScrollView::paintScrollCorner(context, cornerRect);
 }
@@ -5918,12 +5921,6 @@ void LocalFrameView::firePaintRelatedMilestonesIfNeeded()
 
     OptionSet<LayoutMilestone> milestonesAchieved;
 
-    // Make sure the pending paint milestones have actually been requested before we send them.
-    if (m_milestonesPendingPaint & DidFirstFlushForHeaderLayer) {
-        if (page->requestedLayoutMilestones() & DidFirstFlushForHeaderLayer)
-            milestonesAchieved.add(DidFirstFlushForHeaderLayer);
-    }
-
     if (m_milestonesPendingPaint & DidFirstPaintAfterSuppressedIncrementalRendering) {
         if (page->requestedLayoutMilestones() & DidFirstPaintAfterSuppressedIncrementalRendering)
             milestonesAchieved.add(DidFirstPaintAfterSuppressedIncrementalRendering);
@@ -5933,6 +5930,7 @@ void LocalFrameView::firePaintRelatedMilestonesIfNeeded()
         if (page->requestedLayoutMilestones() & DidFirstMeaningfulPaint)
             milestonesAchieved.add(DidFirstMeaningfulPaint);
         if (m_frame->isMainFrame()) {
+            WTFEmitSignpost(m_frame->document(), "Page Load: First Meaningful Paint");
             if (auto* page = m_frame->page())
                 page->didFirstMeaningfulPaint();
         }
@@ -6313,6 +6311,15 @@ OverscrollBehavior LocalFrameView::verticalOverscrollBehavior()  const
     if (scrollingObject && renderView())
         return scrollingObject->style().overscrollBehaviorY();
     return OverscrollBehavior::Auto;
+}
+
+ScrollbarGutter LocalFrameView::scrollbarGutterStyle()  const
+{
+    auto* document = m_frame->document();
+    auto scrollingObject = document && document->documentElement() ? document->documentElement()->renderer() : nullptr;
+    if (scrollingObject)
+        return scrollingObject->style().scrollbarGutter();
+    return { };
 }
 
 ScrollbarWidth LocalFrameView::scrollbarWidthStyle()  const

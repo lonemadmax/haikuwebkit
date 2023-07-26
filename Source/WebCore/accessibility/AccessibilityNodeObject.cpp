@@ -80,6 +80,7 @@
 #include "TextControlInnerElements.h"
 #include "UserGestureIndicator.h"
 #include "VisibleUnits.h"
+#include <wtf/Scope.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/unicode/CharacterNames.h>
@@ -215,10 +216,42 @@ AccessibilityObject* AccessibilityNodeObject::parentObject() const
     return nullptr;
 }
 
+static Vector<HTMLLabelElement*> labelsForNode(Node* node)
+{
+    auto* element = dynamicDowncast<HTMLElement>(node);
+    if (!element || !element->isLabelable())
+        return { };
+
+    const auto& id = element->getIdAttribute();
+    if (!id.isEmpty()) {
+        if (auto* treeScopeLabels = element->treeScope().labelElementsForId(id); treeScopeLabels && !treeScopeLabels->isEmpty()) {
+            Vector<HTMLLabelElement*> labels;
+            labels.reserveInitialCapacity(treeScopeLabels->size());
+            for (auto* label : *treeScopeLabels)
+                labels.uncheckedAppend(&*dynamicDowncast<HTMLLabelElement>(label));
+            return labels;
+        }
+    }
+
+    if (auto* nearestLabel = ancestorsOfType<HTMLLabelElement>(*element).first()) {
+        // Only use the nearest label if it isn't pointing at something else.
+        const auto& forAttribute = nearestLabel->attributeWithoutSynchronization(forAttr);
+        if (forAttribute.isEmpty() || forAttribute == id)
+            return { nearestLabel };
+    }
+    return { };
+}
+
+static HTMLLabelElement* labelForNode(Node* node)
+{
+    auto labels = labelsForNode(node);
+    return labels.isEmpty() ? nullptr : labels.first();
+}
+
 LayoutRect AccessibilityNodeObject::checkboxOrRadioRect() const
 {
-    auto* label = labelForElement(dynamicDowncast<Element>(node()));
-    if (!label || !label->renderer())
+    auto labels = labelsForNode(node());
+    if (labels.isEmpty())
         return boundingBoxRect();
 
     auto* cache = axObjectCache();
@@ -226,9 +259,14 @@ LayoutRect AccessibilityNodeObject::checkboxOrRadioRect() const
         return boundingBoxRect();
 
     // A checkbox or radio button should encompass its label.
-    auto labelRect = cache->getOrCreate(label)->elementRect();
-    labelRect.unite(boundingBoxRect());
-    return labelRect;
+    auto selfRect = boundingBoxRect();
+    for (auto* label : labels) {
+        if (label->renderer()) {
+            if (auto* axLabel = cache->getOrCreate(label))
+                selfRect.unite(axLabel->elementRect());
+        }
+    }
+    return selfRect;
 }
 
 LayoutRect AccessibilityNodeObject::elementRect() const
@@ -517,8 +555,11 @@ void AccessibilityNodeObject::addChildren()
     // If the need to add more children in addition to existing children arises, 
     // childrenChanged should have been called, leaving the object with no children.
     ASSERT(!m_childrenInitialized);
-    
     m_childrenInitialized = true;
+
+    auto clearDirtySubtree = makeScopeExit([&] {
+        m_subtreeDirty = false;
+    });
 
     WeakPtr node = this->node();
     if (!node || !canHaveChildren())
@@ -536,7 +577,6 @@ void AccessibilityNodeObject::addChildren()
         addChild(objectCache->getOrCreate(child));
 
     updateOwnedChildren();
-    m_subtreeDirty = false;
 }
 
 bool AccessibilityNodeObject::canHaveChildren() const
@@ -1455,6 +1495,96 @@ bool AccessibilityNodeObject::liveRegionAtomic() const
     }
 }
 
+// This function is like a cross-platform version of - (WebCoreTextMarkerRange*)textMarkerRange. It returns
+// a Range that we can convert to a WebCoreTextMarkerRange in the Obj-C file
+VisiblePositionRange AccessibilityNodeObject::visiblePositionRange() const
+{
+    RefPtr node = this->node();
+    if (!node)
+        return VisiblePositionRange();
+
+    VisiblePosition startPos = firstPositionInOrBeforeNode(node.get());
+    VisiblePosition endPos = lastPositionInOrAfterNode(node.get());
+
+    // the VisiblePositions are equal for nodes like buttons, so adjust for that
+    // FIXME: Really?  [button, 0] and [button, 1] are distinct (before and after the button)
+    // I expect this code is only hit for things like empty divs? In which case I don't think
+    // the behavior is correct here -- eseidel
+    if (startPos == endPos) {
+        endPos = endPos.next();
+        if (endPos.isNull())
+            endPos = startPos;
+    }
+
+    return { WTFMove(startPos), WTFMove(endPos) };
+}
+
+VisiblePositionRange AccessibilityNodeObject::selectedVisiblePositionRange() const
+{
+    auto* document = this->document();
+    if (auto* localFrame = document ? document->frame() : nullptr) {
+        if (auto selection = localFrame->selection().selection(); !selection.isNone())
+            return selection;
+    }
+    return { };
+}
+
+int AccessibilityNodeObject::indexForVisiblePosition(const VisiblePosition& position) const
+{
+    RefPtr node = this->node();
+    if (!node)
+        return 0;
+    // We need to consider replaced elements for GTK, as they will be
+    // presented with the 'object replacement character' (0xFFFC).
+    TextIteratorBehaviors behaviors;
+#if USE(ATSPI)
+    behaviors.add(TextIteratorBehavior::EmitsObjectReplacementCharacters);
+#endif
+    return WebCore::indexForVisiblePosition(*node, position, behaviors);
+}
+
+VisiblePosition AccessibilityNodeObject::visiblePositionForIndex(int index) const
+{
+    RefPtr node = this->node();
+    if (!node)
+        return { };
+#if USE(ATSPI)
+    // We need to consider replaced elements for GTK, as they will be presented with the 'object replacement character' (0xFFFC).
+    return WebCore::visiblePositionForIndex(index, node.get(), TextIteratorBehavior::EmitsObjectReplacementCharacters);
+#else
+    return visiblePositionForIndexUsingCharacterIterator(*node, index);
+#endif
+}
+
+VisiblePositionRange AccessibilityNodeObject::visiblePositionRangeForLine(unsigned lineCount) const
+{
+    if (!lineCount)
+        return { };
+
+    auto* document = this->document();
+    auto* renderView = document ? document->renderView() : nullptr;
+    if (!renderView)
+        return { };
+
+    // iterate over the lines
+    // FIXME: This is wrong when lineNumber is lineCount+1, because nextLinePosition takes you to the last offset of the last line.
+    VisiblePosition position = renderView->positionForPoint(IntPoint(), nullptr);
+    while (--lineCount) {
+        auto previousLinePosition = position;
+        position = nextLinePosition(position, 0);
+        if (position.isNull() || position == previousLinePosition)
+            return VisiblePositionRange();
+    }
+
+    // make a caret selection for the marker position, then extend it to the line
+    // NOTE: Ignores results of sel.modify because it returns false when starting at an empty line.
+    // The resulting selection in that case will be a caret at position.
+    FrameSelection selection;
+    selection.setSelection(position);
+    selection.modify(FrameSelection::Alteration::Extend, SelectionDirection::Right, TextGranularity::LineBoundary);
+    return selection.selection();
+}
+
 bool AccessibilityNodeObject::isGenericFocusableElement() const
 {
     if (!canSetFocusAttribute())
@@ -1518,31 +1648,7 @@ AccessibilityObject* AccessibilityNodeObject::correspondingLabelForControlElemen
     if (hasTextAlternative())
         return nullptr;
 
-    if (auto* element = dynamicDowncast<HTMLElement>(node())) {
-        if (auto* label = labelForElement(element))
-            return axObjectCache()->getOrCreate(label);
-    }
-    return nullptr;
-}
-
-HTMLLabelElement* AccessibilityNodeObject::labelForElement(Element* element) const
-{
-    if (!is<HTMLElement>(element) || !downcast<HTMLElement>(element)->isLabelable())
-        return nullptr;
-
-    const AtomString& id = element->getIdAttribute();
-    if (!id.isEmpty()) {
-        if (HTMLLabelElement* label = element->treeScope().labelElementForId(id))
-            return label;
-    }
-
-    if (auto* nearestLabel = ancestorsOfType<HTMLLabelElement>(*element).first()) {
-        // Only use the nearest label if it isn't pointing at something else.
-        const auto& forAttribute = nearestLabel->attributeWithoutSynchronization(forAttr);
-        if (forAttribute.isEmpty() || forAttribute == id)
-            return nearestLabel;
-    }
-    return nullptr;
+    return axObjectCache()->getOrCreate(labelForNode(node()));
 }
 
 String AccessibilityNodeObject::ariaAccessibilityDescription() const
@@ -1649,22 +1755,34 @@ bool AccessibilityNodeObject::isLabelable() const
     return is<HTMLInputElement>(*node) || isControl() || isProgressIndicator() || isMeter();
 }
 
-String AccessibilityNodeObject::textForLabelElement(Element* element) const
+String AccessibilityNodeObject::textForLabelElements(Vector<HTMLLabelElement*>&& labelElements) const
 {
-    String result = String();
-    if (!is<HTMLLabelElement>(*element))
-        return result;
+    auto* cache = axObjectCache();
+    // https://www.w3.org/TR/html-aam-1.0/#input-type-text-input-type-password-input-type-number-input-type-search-input-type-tel-input-type-email-input-type-url-and-textarea-element-accessible-name-computation
+    // "...if more than one label is associated; concatenate by DOM order, delimited by spaces."
+    StringBuilder result;
+    for (auto* labelElement : labelElements) {
+        if (!labelElement)
+            continue;
 
-    auto objectCache = axObjectCache();
-    if (!objectCache)
-        return result;
+        auto appendLabel = [&] (String&& string) {
+            if (string.isEmpty())
+                return;
 
-    HTMLLabelElement* label = downcast<HTMLLabelElement>(element);
-    // Check to see if there's aria-labelledby attribute on the label element.
-    if (AccessibilityObject* labelObject = objectCache->getOrCreate(label))
-        result = labelObject->ariaLabeledByAttribute();
-    
-    return !result.isEmpty() ? result : accessibleNameForNode(label);
+            if (!result.isEmpty())
+                result.append(" ");
+            result.append(WTFMove(string));
+        };
+
+        // Check to see if there's aria-labelledby attribute on the label element.
+        auto* axLabel = cache ? cache->getOrCreate(labelElement) : nullptr;
+        auto ariaLabeledByText = axLabel ? axLabel->ariaLabeledByAttribute() : String();
+        if (!ariaLabeledByText.isEmpty())
+            appendLabel(WTFMove(ariaLabeledByText));
+        else
+            appendLabel(accessibleNameForNode(labelElement));
+    }
+    return result.toString();
 }
 
 HTMLLabelElement* AccessibilityNodeObject::labelElementContainer() const
@@ -1683,24 +1801,20 @@ HTMLLabelElement* AccessibilityNodeObject::labelElementContainer() const
 
 void AccessibilityNodeObject::titleElementText(Vector<AccessibilityText>& textOrder) const
 {
-    Node* node = this->node();
+    RefPtr node = this->node();
     if (!node)
         return;
     
-    if (isLabelable()) {
-        if (HTMLLabelElement* label = labelForElement(downcast<Element>(node))) {
-            String innerText = textForLabelElement(label);
-
-            auto objectCache = axObjectCache();
-            // Only use the <label> text if there's no ARIA override.
-            if (objectCache && !innerText.isEmpty() && !ariaAccessibilityDescription())
-                textOrder.append(AccessibilityText(innerText, isMeter() ? AccessibilityTextSource::Alternative : AccessibilityTextSource::LabelByElement));
+    // Only use <label> text if there's no ARIA override.
+    if (isLabelable() && !ariaAccessibilityDescription()) {
+        String labelText = textForLabelElements(labelsForNode(node.get()));
+        if (!labelText.isEmpty()) {
+            textOrder.append(AccessibilityText(WTFMove(labelText), isMeter() ? AccessibilityTextSource::Alternative : AccessibilityTextSource::LabelByElement));
             return;
         }
     }
     
-    AccessibilityObject* titleUIElement = this->titleUIElement();
-    if (titleUIElement)
+    if (titleUIElement())
         textOrder.append(AccessibilityText(String(), AccessibilityTextSource::LabelByElement));
 }
 
@@ -1712,7 +1826,7 @@ AccessibilityObject* AccessibilityNodeObject::titleUIElement() const
     if (isFigureElement())
         return captionForFigure();
 
-    return axObjectCache()->getOrCreate(labelForElement(dynamicDowncast<Element>(node())));
+    return axObjectCache()->getOrCreate(labelForNode(node()));
 }
 
 bool AccessibilityNodeObject::exposesTitleUIElement() const
@@ -1732,7 +1846,12 @@ bool AccessibilityNodeObject::exposesTitleUIElement() const
     // When <label> element has aria-label or aria-labelledby on it, we shouldn't expose it as the
     // titleUIElement, otherwise its inner text will be announced by a screenreader.
     if (isLabelable()) {
-        if (auto* label = labelForElement(dynamicDowncast<Element>(node()))) {
+        auto labels = labelsForNode(node());
+        // If this element is associated with multiple labels (title UI elements), then claiming to expose
+        // a single title UI element is not correct and will result in some ATs outputting the wrong thing.
+        if (labels.size() >= 2)
+            return false;
+        if (auto* label = labels.isEmpty() ? nullptr : labels[0]) {
             if (!label->attributeWithoutSynchronization(aria_labelAttr).isEmpty())
                 return false;
             if (AccessibilityObject* labelObject = axObjectCache()->getOrCreate(label)) {
@@ -2284,10 +2403,10 @@ String AccessibilityNodeObject::title() const
     }
 
     if (isLabelable()) {
-        RefPtr label = labelForElement(downcast<Element>(node.get()));
+        auto labels = labelsForNode(node.get());
         // Use the label text as the title if 1) the title element is NOT an exposed element and 2) there's no ARIA override.
-        if (label && !exposesTitleUIElement() && !ariaAccessibilityDescription().length())
-            return textForLabelElement(label.get());
+        if (!labels.isEmpty() && !exposesTitleUIElement() && !ariaAccessibilityDescription().length())
+            return textForLabelElements(WTFMove(labels));
     }
 
     // For <select> elements, title should be empty if they are not rendered or have role PopUpButton.

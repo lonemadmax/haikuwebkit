@@ -118,7 +118,7 @@ void RemoteLayerTreeEventDispatcher::invalidate()
 {
     m_displayLinkClient->invalidate();
 
-    stopDisplayLinkObserver();
+    removeDisplayLinkClient();
 
     {
         Locker locker { m_scrollingTreeLock };
@@ -274,21 +274,24 @@ WheelEventHandlingResult RemoteLayerTreeEventDispatcher::internalHandleWheelEven
     return scrollingTree->handleWheelEvent(filteredEvent, processingSteps);
 }
 
-void RemoteLayerTreeEventDispatcher::wheelEventHandlingCompleted(const PlatformWheelEvent& wheelEvent, ScrollingNodeID scrollingNodeID, std::optional<WheelScrollGestureState> gestureState)
+void RemoteLayerTreeEventDispatcher::wheelEventHandlingCompleted(const PlatformWheelEvent& wheelEvent, ScrollingNodeID scrollingNodeID, std::optional<WheelScrollGestureState> gestureState, bool wasHandled)
 {
     ASSERT(isMainRunLoop());
 
     LOG_WITH_STREAM(WheelEvents, stream << "RemoteLayerTreeEventDispatcher::wheelEventHandlingCompleted " << wheelEvent << " - sending event to scrolling thread, node " << 0 << " gestureState " << gestureState);
 
-    ScrollingThread::dispatch([protectedThis = Ref { *this }, wheelEvent, scrollingNodeID, gestureState] {
+    if (auto scrollingTree = this->scrollingTree())
+        scrollingTree->receivedEventAfterDefaultHandling(wheelEvent, gestureState);
+
+    ScrollingThread::dispatch([protectedThis = Ref { *this }, wheelEvent, scrollingNodeID, gestureState, wasHandled] {
         auto scrollingTree = protectedThis->scrollingTree();
         if (!scrollingTree)
             return;
 
         auto result = scrollingTree->handleWheelEventAfterDefaultHandling(wheelEvent, scrollingNodeID, gestureState);
-        RunLoop::main().dispatch([protectedThis, result]() {
+        RunLoop::main().dispatch([protectedThis, wasHandled, result]() {
             if (auto* scrollingCoordinator = protectedThis->scrollingCoordinator())
-                scrollingCoordinator->webPageProxy().wheelEventHandlingCompleted(result.wasHandled);
+                scrollingCoordinator->webPageProxy().wheelEventHandlingCompleted(wasHandled || result.wasHandled);
         });
 
     });
@@ -390,7 +393,7 @@ void RemoteLayerTreeEventDispatcher::stopDisplayLinkObserver()
     if (!m_displayRefreshObserverID)
         return;
 
-    auto* displayLink = this->displayLink();
+    auto* displayLink = existingDisplayLink();
     if (!displayLink)
         return;
 

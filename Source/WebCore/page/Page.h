@@ -243,6 +243,7 @@ enum class RenderingUpdateStep : uint32_t {
     AccessibilityRegionUpdate       = 1 << 20,
 #endif
     RestoreScrollPositionAndViewState = 1 << 21,
+    UpdateContentRelevancy          = 1 << 22,
 };
 
 enum class LinkDecorationFilteringTrigger : uint8_t {
@@ -271,6 +272,7 @@ constexpr OptionSet<RenderingUpdateStep> updateRenderingSteps = {
 #endif
     RenderingUpdateStep::PrepareCanvasesForDisplay,
     RenderingUpdateStep::CaretAnimation,
+    RenderingUpdateStep::UpdateContentRelevancy,
 };
 
 constexpr auto allRenderingUpdateSteps = updateRenderingSteps | OptionSet<RenderingUpdateStep> {
@@ -619,7 +621,7 @@ public:
 #endif
 
 #if USE(SYSTEM_PREVIEW)
-    void handleSystemPreview(const URL&, const SystemPreviewInfo&);
+    void beginSystemPreview(const URL&, const SystemPreviewInfo&, CompletionHandler<void()>&&);
 #endif
 
 #if ENABLE(WEB_AUTHN)
@@ -1053,6 +1055,7 @@ public:
 
     const WeakHashSet<LocalFrame>& rootFrames() const { return m_rootFrames; }
     WEBCORE_EXPORT void addRootFrame(LocalFrame&);
+    WEBCORE_EXPORT void removeRootFrame(LocalFrame&);
 
     void performOpportunisticallyScheduledTasks(MonotonicTime deadline);
 

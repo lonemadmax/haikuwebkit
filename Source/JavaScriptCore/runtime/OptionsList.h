@@ -566,11 +566,12 @@ bool canUseWebAssemblyFastMemory();
     \
     v(Bool, useArrayBufferTransfer, false, Normal, "Expose ArrayBuffer.transfer feature.") \
     v(Bool, useArrayFromAsync, true, Normal, "Expose the Array.fromAsync.") \
-    v(Bool, useArrayGroupMethod, false, Normal, "Expose the group() and groupToMap() methods on Array.") \
+    v(Bool, useArrayGroupMethod, false, Normal, "Expose the Object.groupBy() and Map.groupBy() methods.") \
     v(Bool, useAtomicsWaitAsync, true, Normal, "Expose the waitAsync() methods on Atomics.") \
     v(Bool, useSetMethods, true, Normal, "Expose the various Set.prototype methods for handling combinations of sets") \
     v(Bool, useImportAssertion, false, Normal, "Enable import assertion.") \
     v(Bool, useIntlDurationFormat, true, Normal, "Expose the Intl DurationFormat.") \
+    v(Bool, usePromiseWithResolversMethod, false, Normal, "Expose the Promise.withResolvers() method.") \
     v(Bool, useResizableArrayBuffer, true, Normal, "Expose ResizableArrayBuffer feature.") \
     v(Bool, useSharedArrayBuffer, false, Normal, nullptr) \
     v(Bool, useShadowRealm, false, Normal, "Expose the ShadowRealm object.") \
@@ -583,6 +584,7 @@ bool canUseWebAssemblyFastMemory();
     v(Bool, useWebAssemblySIMD, true, Normal, "Allow the new simd instructions and types from the wasm simd spec.") \
     v(Bool, useWebAssemblyRelaxedSIMD, false, Normal, "Allow the relaxed simd instructions and types from the wasm relaxed simd spec.") \
     v(Bool, useWebAssemblyTailCalls, false, Normal, "Allow the new instructions from the wasm tail calls spec.") \
+    v(Bool, useWasmIPInt, false, Normal, "Use the in-place interpereter for WASM instead of LLInt.") \
 
 
 enum OptionEquivalence {

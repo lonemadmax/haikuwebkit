@@ -232,7 +232,7 @@ class SubstituteData;
 class TextCheckingRequest;
 class VisiblePosition;
 
-enum SyntheticClickType : int8_t;
+enum class SyntheticClickType : uint8_t;
 enum class COEPDisposition : bool;
 enum class CaretAnimatorType : uint8_t;
 enum class CreateNewGroupForHighlight : bool;
@@ -999,7 +999,7 @@ public:
     void didChangeSelection(WebCore::LocalFrame&);
     void didChangeOverflowScrollPosition();
     void didChangeContents();
-    void discardedComposition();
+    void discardedComposition(const WebCore::Document&);
     void canceledComposition();
     void didUpdateComposition();
     void didEndUserTriggeredSelectionChanges();
@@ -1118,7 +1118,7 @@ public:
 #if PLATFORM(IOS_FAMILY)
     void computePagesForPrintingiOS(WebCore::FrameIdentifier, const PrintInfo&, CompletionHandler<void(size_t)>&&);
     void drawToPDFiOS(WebCore::FrameIdentifier, const PrintInfo&, size_t, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
-    void drawToImage(WebCore::FrameIdentifier, const PrintInfo&, size_t, CompletionHandler<void(WebKit::ShareableBitmap::Handle&&)>&&);
+    void drawToImage(WebCore::FrameIdentifier, const PrintInfo&, CompletionHandler<void(WebKit::ShareableBitmap::Handle&&)>&&);
 #endif
 
     void drawToPDF(WebCore::FrameIdentifier, const std::optional<WebCore::FloatRect>&, bool allowTransparentBackground,  CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
@@ -2128,6 +2128,8 @@ private:
 
     bool hasPendingEditorStateUpdate() const;
     bool shouldAvoidComputingPostLayoutDataForEditorState() const;
+
+    void useRedirectionForCurrentNavigation(WebCore::ResourceResponse&&);
 
     WebCore::PageIdentifier m_identifier;
 

@@ -32,8 +32,10 @@
 #import "GraphicsLayer.h"
 #import "ImageBuffer.h"
 #import "LocalCurrentGraphicsContext.h"
+#import "LocalDefaultSystemAppearance.h"
 #import "NSScrollerImpDetails.h"
 #import "PlatformMouseEvent.h"
+#import "ScrollTypesMac.h"
 #import "ScrollView.h"
 #import "ScrollbarTrackCornerSystemImageMac.h"
 #import <Carbon/Carbon.h>
@@ -141,20 +143,6 @@ static bool gUsesOverlayScrollbars = false;
 
 static ScrollbarButtonsPlacement gButtonPlacement = ScrollbarButtonsDoubleEnd;
 
-static NSControlSize scrollbarWidthToNSControlSize(ScrollbarWidth scrollbarWidth)
-{
-    switch (scrollbarWidth) {
-    case ScrollbarWidth::Auto:
-    case ScrollbarWidth::None:
-        return NSControlSizeRegular;
-    case ScrollbarWidth::Thin:
-        return NSControlSizeSmall;
-    }
-
-    ASSERT_NOT_REACHED();
-    return NSControlSizeRegular;
-}
-
 void ScrollbarThemeMac::didCreateScrollerImp(Scrollbar& scrollbar)
 {
 #if PLATFORM(MAC)
@@ -168,11 +156,11 @@ void ScrollbarThemeMac::didCreateScrollerImp(Scrollbar& scrollbar)
 
 void ScrollbarThemeMac::registerScrollbar(Scrollbar& scrollbar)
 {
-    if (scrollbar.isCustomScrollbar())
+    if (scrollbar.isCustomScrollbar() || !scrollbar.shouldRegisterScrollbar())
         return;
 
     bool isHorizontal = scrollbar.orientation() == ScrollbarOrientation::Horizontal;
-    auto scrollerImp = retainPtr([NSScrollerImp scrollerImpWithStyle:ScrollerStyle::recommendedScrollerStyle() controlSize:scrollbarWidthToNSControlSize(scrollbar.widthStyle()) horizontal:isHorizontal replacingScrollerImp:nil]);
+    auto scrollerImp = retainPtr([NSScrollerImp scrollerImpWithStyle:ScrollerStyle::recommendedScrollerStyle() controlSize:nsControlSizeFromScrollbarWidth(scrollbar.widthStyle()) horizontal:isHorizontal replacingScrollerImp:nil]);
     scrollbarMap().add(&scrollbar, WTFMove(scrollerImp));
     didCreateScrollerImp(scrollbar);
     updateEnabledState(scrollbar);
@@ -249,7 +237,7 @@ int ScrollbarThemeMac::scrollbarThickness(ScrollbarWidth scrollbarWidth, Scrollb
     BEGIN_BLOCK_OBJC_EXCEPTIONS
     if (scrollbarWidth == ScrollbarWidth::None)
         return 0;
-    NSScrollerImp *scrollerImp = [NSScrollerImp scrollerImpWithStyle:ScrollerStyle::recommendedScrollerStyle() controlSize:scrollbarWidthToNSControlSize(scrollbarWidth) horizontal:NO replacingScrollerImp:nil];
+    NSScrollerImp *scrollerImp = [NSScrollerImp scrollerImpWithStyle:ScrollerStyle::recommendedScrollerStyle() controlSize:nsControlSizeFromScrollbarWidth(scrollbarWidth) horizontal:NO replacingScrollerImp:nil];
     [scrollerImp setExpanded:(expansionState == ScrollbarExpansionState::Expanded)];
     return [scrollerImp trackBoxWidth];
     END_BLOCK_OBJC_EXCEPTIONS
@@ -450,9 +438,12 @@ IntRect ScrollbarThemeMac::trackRect(Scrollbar& scrollbar, bool painting)
 
 int ScrollbarThemeMac::minimumThumbLength(Scrollbar& scrollbar)
 {
-    BEGIN_BLOCK_OBJC_EXCEPTIONS
-    return [scrollbarMap().get(&scrollbar) knobMinLength];
-    END_BLOCK_OBJC_EXCEPTIONS
+    if (scrollbar.shouldRegisterScrollbar()) {
+        BEGIN_BLOCK_OBJC_EXCEPTIONS
+        return [scrollbarMap().get(&scrollbar) knobMinLength];
+        END_BLOCK_OBJC_EXCEPTIONS
+    } else
+        return scrollbar.minimumThumbLength();
 }
 
 static bool shouldCenterOnThumb(const PlatformMouseEvent& evt)
@@ -582,10 +573,13 @@ bool ScrollbarThemeMac::paint(Scrollbar& scrollbar, GraphicsContext& context, co
     return true;
 }
 
-void ScrollbarThemeMac::paintScrollCorner(ScrollableArea&, GraphicsContext& context, const IntRect& cornerRect)
+void ScrollbarThemeMac::paintScrollCorner(ScrollableArea& area, GraphicsContext& context, const IntRect& cornerRect)
 {
     if (context.paintingDisabled())
         return;
+
+    // Keep this in sync with ScrollAnimatorMac's effectiveAppearanceForScrollerImp:.
+    LocalDefaultSystemAppearance localAppearance(area.useDarkAppearanceForScrollbars());
 
     context.drawSystemImage(ScrollbarTrackCornerSystemImageMac::create(), cornerRect);
 }

@@ -45,6 +45,7 @@
 #include "RenderObject.h"
 #include "RenderTable.h"
 #include "RenderTableCell.h"
+#include <wtf/Scope.h>
 
 #include <queue>
 
@@ -457,6 +458,9 @@ void AccessibilityTable::addChildren()
         AccessibilityRenderObject::addChildren();
         return;
     }
+    auto clearDirtySubtree = makeScopeExit([&] {
+        m_subtreeDirty = false;
+    });
 
     ASSERT(!m_childrenInitialized);
     m_childrenInitialized = true;
@@ -676,6 +680,7 @@ void AccessibilityTable::addChildren()
     }
     addChild(headerContainer(), DescendIfIgnored::No);
 
+    m_subtreeDirty = false;
     // Sometimes the cell gets the wrong role initially because it is created before the parent
     // determines whether it is an accessibility table. Iterate all the cells and allow them to
     // update their roles now that the table knows its status.
@@ -778,17 +783,6 @@ unsigned AccessibilityTable::rowCount()
     updateChildrenIfNecessary();
     
     return m_rows.size();
-}
-
-int AccessibilityTable::tableLevel() const
-{
-    int level = 0;
-    for (AccessibilityObject* obj = static_cast<AccessibilityObject*>(const_cast<AccessibilityTable*>(this)); obj; obj = obj->parentObject()) {
-        if (is<AccessibilityTable>(*obj) && downcast<AccessibilityTable>(*obj).isExposable())
-            ++level;
-    }
-    
-    return level;
 }
 
 AXCoreObject* AccessibilityTable::cellForColumnAndRow(unsigned column, unsigned row)

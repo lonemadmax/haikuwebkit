@@ -77,7 +77,6 @@
 #include "CSSValueList.h"
 #include "CSSValuePair.h"
 #include "CSSVariableReferenceValue.h"
-#include "CSSWordBoundaryDetectionValue.h"
 #include "DeprecatedCSSOMPrimitiveValue.h"
 #include "DeprecatedCSSOMValueList.h"
 #include "EventTarget.h"
@@ -172,6 +171,8 @@ template<typename Visitor> constexpr decltype(auto) CSSValue::visitDerived(Visit
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSLineBoxContainValue>(*this));
     case LinearGradientClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSLinearGradientValue>(*this));
+    case LinearTimingFunctionClass:
+        return std::invoke(std::forward<Visitor>(visitor), downcast<CSSLinearTimingFunctionValue>(*this));
     case NamedImageClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSNamedImageValue>(*this));
     case PrefixedLinearGradientClass:
@@ -216,8 +217,6 @@ template<typename Visitor> constexpr decltype(auto) CSSValue::visitDerived(Visit
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSValuePair>(*this));
     case VariableReferenceClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSVariableReferenceValue>(*this));
-    case WordBoundaryDetectionClass:
-        return std::invoke(std::forward<Visitor>(visitor), downcast<CSSWordBoundaryDetectionValue>(*this));
 #if ENABLE(CSS_PAINTING_API)
     case PaintImageClass:
         return std::invoke(std::forward<Visitor>(visitor), downcast<CSSPaintImageValue>(*this));

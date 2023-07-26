@@ -105,7 +105,7 @@ String AccessibilityObject::descriptionAttributeValue() const
     // Determine if any visible text is available, which influences our usage of title tag.
     bool visibleTextAvailable = false;
     for (const auto& text : textOrder) {
-        if (isVisibleText(text.textSource)) {
+        if (isVisibleText(text.textSource) && !text.text.isEmpty()) {
             visibleTextAvailable = true;
             break;
         }
@@ -188,7 +188,7 @@ String AccessibilityObject::helpTextAttributeValue() const
     // Determine if any descriptive text is available, which influences our usage of title tag.
     bool descriptiveTextAvailable = false;
     for (const auto& text : textOrder) {
-        if (isDescriptiveText(text.textSource)) {
+        if (isDescriptiveText(text.textSource) && !text.text.isEmpty()) {
             descriptiveTextAvailable = true;
             break;
         }
@@ -290,7 +290,7 @@ void attributedStringSetFont(NSMutableAttributedString *attributedString, CTFont
         [fontAttributes setValue:@YES forKey:UIAccessibilityTokenItalic];
 
     [attributedString addAttributes:fontAttributes.get() range:range];
-#endif
+#endif // PLATFORM(IOS_FAMILY)
 
 #if PLATFORM(MAC)
     [fontAttributes setValue:size forKey:NSAccessibilityFontSizeKey];
@@ -300,9 +300,6 @@ void attributedStringSetFont(NSMutableAttributedString *attributedString, CTFont
     auto postScriptName = adoptCF(CTFontCopyPostScriptName(font));
     if (postScriptName)
         [fontAttributes setValue:bridge_cast(postScriptName.get()) forKey:NSAccessibilityFontNameKey];
-    auto displayName = adoptCF(CTFontCopyDisplayName(font));
-    if (displayName)
-        [fontAttributes setValue:bridge_cast(displayName.get()) forKey:NSAccessibilityVisibleNameKey];
     auto traits = CTFontGetSymbolicTraits(font);
     if (traits & kCTFontTraitBold)
         [fontAttributes setValue:@YES forKey:@"AXFontBold"];
@@ -337,11 +334,11 @@ RetainPtr<NSArray> AccessibilityObject::contentForRange(const SimpleRange& range
         if (it.text().length()) {
             auto listMarkerText = listMarkerTextForNodeAndPosition(&node, makeContainerOffsetPosition(it.range().start));
             if (!listMarkerText.isEmpty()) {
-                if (auto attrString = attributedStringCreate(&node, listMarkerText, SpellCheck::No))
+                if (auto attrString = attributedStringCreate(&node, listMarkerText, it.range(), SpellCheck::No))
                     [result addObject:attrString.get()];
             }
 
-            if (auto attrString = attributedStringCreate(&node, it.text(), spellCheck))
+            if (auto attrString = attributedStringCreate(&node, it.text(), it.range(), spellCheck))
                 [result addObject:attrString.get()];
         } else {
             if (Node* replacedNode = it.node()) {

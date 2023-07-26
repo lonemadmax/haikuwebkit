@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -369,6 +369,9 @@ void TextBoxPainter<TextBoxPath>::paintForegroundAndDecorations()
         // Coalesce styles of adjacent marked texts to minimize the number of drawing commands.
         auto coalescedStyledMarkedTexts = StyledMarkedText::coalesceAdjacentWithEqualForeground(styledMarkedTexts);
 
+        if (coalescedStyledMarkedTexts.isEmpty())
+            return;
+
         for (auto& markedText : coalescedStyledMarkedTexts)
             paintCompositionForeground(markedText);
     }
@@ -633,7 +636,7 @@ void TextBoxPainter<TextBoxPath>::paintBackgroundDecorations(TextDecorationPaint
                 overlineOffset(),
                 computedLinethroughCenter(decoratingBox.style, textDecorationThickness, autoTextDecorationThickness),
                 decoratingBox.style.metricsOfPrimaryFont().ascent() + 2.f,
-                wavyStrokeParameters(decoratingBox.style.computedFontPixelSize())
+                wavyStrokeParameters(decoratingBox.style.computedFontSize())
             };
         };
 
@@ -667,7 +670,7 @@ void TextBoxPainter<TextBoxPath>::paintForegroundDecorations(TextDecorationPaint
         , textBoxPaintRect.width()
         , textDecorationThickness
         , linethroughCenter
-        , wavyStrokeParameters(styleToUse.computedFontPixelSize()) }, markedText.style.textDecorationStyles);
+        , wavyStrokeParameters(styleToUse.computedFontSize()) }, markedText.style.textDecorationStyles);
 
     if (m_isCombinedText)
         m_paintInfo.context().concatCTM(rotation(m_paintRect, RotationDirection::Counterclockwise));

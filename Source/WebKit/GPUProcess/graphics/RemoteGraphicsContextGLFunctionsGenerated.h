@@ -1482,11 +1482,11 @@
         assertIsCurrent(workQueue());
         m_context->setDrawingBufferColorSpace(arg0);
     }
-    void paintRenderingResultsToPixelBuffer(CompletionHandler<void(RefPtr<WebCore::PixelBuffer>&&)>&& completionHandler)
+    void paintRenderingResultsToPixelBuffer(WebCore::GraphicsContextGL::FlipY&& arg0, CompletionHandler<void(RefPtr<WebCore::PixelBuffer>&&)>&& completionHandler)
     {
         RefPtr<WebCore::PixelBuffer> returnValue = { };
         assertIsCurrent(workQueue());
-        returnValue = m_context->paintRenderingResultsToPixelBuffer();
+        returnValue = m_context->paintRenderingResultsToPixelBuffer(arg0);
         completionHandler(WTFMove(returnValue));
     }
     void destroyEGLSync(uint64_t arg0, CompletionHandler<void(bool)>&& completionHandler)
@@ -1500,5 +1500,12 @@
     {
         assertIsCurrent(workQueue());
         m_context->clientWaitEGLSyncWithFlush(reinterpret_cast<GCEGLSync>(static_cast<intptr_t>(arg0)), timeout);
+    }
+    void enableRequiredWebXRExtensions(CompletionHandler<void(bool)>&& completionHandler)
+    {
+        bool returnValue = { };
+        assertIsCurrent(workQueue());
+        returnValue = m_context->enableRequiredWebXRExtensions();
+        completionHandler(returnValue);
     }
 

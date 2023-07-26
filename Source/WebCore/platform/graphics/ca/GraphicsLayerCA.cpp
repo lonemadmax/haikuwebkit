@@ -1051,8 +1051,13 @@ static bool keyframeValueListHasSingleIntervalWithLinearOrEquivalentTimingFuncti
         return false;
 
     auto* timingFunction = valueList.at(0).timingFunction();
-    if (!timingFunction || is<LinearTimingFunction>(timingFunction))
+    if (!timingFunction)
         return true;
+
+    if (is<LinearTimingFunction>(timingFunction)) {
+        ASSERT(LinearTimingFunction::identity() == *timingFunction);
+        return true;
+    }
 
     return is<CubicBezierTimingFunction>(timingFunction) && downcast<CubicBezierTimingFunction>(*timingFunction).isLinear();
 }
@@ -1291,6 +1296,7 @@ void GraphicsLayerCA::setContentsToPlatformLayer(PlatformLayer* platformLayer, C
             m_contentsLayer = WTFMove(platformCALayer);
         else
             m_contentsLayer = createPlatformCALayer(platformLayer, this);
+        m_contentsLayer->setBackingStoreAttached(false);
     } else
         m_contentsLayer = nullptr;
 
@@ -2723,6 +2729,10 @@ void GraphicsLayerCA::updateCoverage(const CommitState& commitState)
         backing->setCoverageRect(m_coverageRect);
     }
 
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+    m_layer->setCoverageRect(m_coverageRect);
+#endif
+
     bool requiresBacking = m_intersectsCoverageRect
         || !allowsBackingStoreDetaching()
         || commitState.ancestorWithTransformAnimationIntersectsCoverageRect // FIXME: Compute backing exactly for descendants of animating layers.
@@ -3112,7 +3122,7 @@ void GraphicsLayerCA::updateAnimations()
         caAnimationGroup->setDuration(infiniteDuration);
         caAnimationGroup->setAnimations(animations);
 
-        auto animationGroup = LayerPropertyAnimation(WTFMove(caAnimationGroup), makeString("group-"_s, UUID::createVersion4()), property, 0, 0_s);
+        auto animationGroup = LayerPropertyAnimation(WTFMove(caAnimationGroup), makeString("group-"_s, WTF::UUID::createVersion4()), property, 0, 0_s);
         animationGroup.m_beginTime = animationGroupBeginTime;
 
         setAnimationOnLayer(animationGroup);
@@ -3160,7 +3170,7 @@ void GraphicsLayerCA::updateAnimations()
         caAnimation->setFromValue(matrix);
         caAnimation->setToValue(matrix);
 
-        auto animation = LayerPropertyAnimation(WTFMove(caAnimation), makeString("base-transform-"_s, UUID::createVersion4()), property, 0, 0_s);
+        auto animation = LayerPropertyAnimation(WTFMove(caAnimation), makeString("base-transform-"_s, WTF::UUID::createVersion4()), property, 0, 0_s);
         if (delay)
             animation.m_beginTime = currentTime - animationGroupBeginTime;
 
@@ -3702,7 +3712,7 @@ const TimingFunction& GraphicsLayerCA::timingFunctionForAnimationValue(const Ani
         return *animValue.timingFunction();
     if (anim.defaultTimingFunctionForKeyframes())
         return *anim.defaultTimingFunctionForKeyframes();
-    return LinearTimingFunction::sharedLinearTimingFunction();
+    return LinearTimingFunction::identity();
 }
 
 bool GraphicsLayerCA::setAnimationEndpoints(const KeyframeValueList& valueList, const Animation* animation, PlatformCAAnimation* basicAnim)
@@ -4997,8 +5007,12 @@ Vector<std::pair<String, double>> GraphicsLayerCA::acceleratedAnimationsForTesti
     return animations;
 }
 
-RefPtr<GraphicsLayerAsyncContentsDisplayDelegate> GraphicsLayerCA::createAsyncContentsDisplayDelegate()
+RefPtr<GraphicsLayerAsyncContentsDisplayDelegate> GraphicsLayerCA::createAsyncContentsDisplayDelegate(GraphicsLayerAsyncContentsDisplayDelegate* existing)
 {
+    if (existing && existing->isGraphicsLayerAsyncContentsDisplayDelegateCocoa()) {
+        static_cast<GraphicsLayerAsyncContentsDisplayDelegateCocoa*>(existing)->updateGraphicsLayerCA(*this);
+        return existing;
+    }
     return adoptRef(new GraphicsLayerAsyncContentsDisplayDelegateCocoa(*this));
 }
 

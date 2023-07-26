@@ -8,9 +8,6 @@ list(APPEND WebCore_SOURCES
     platform/network/curl/CookieJarDB.cpp
     platform/network/curl/CookieStorageCurl.cpp
     platform/network/curl/CookieUtil.cpp
-    platform/network/curl/CredentialStorageCurl.cpp
-    platform/network/curl/CurlCacheEntry.cpp
-    platform/network/curl/CurlCacheManager.cpp
     platform/network/curl/CurlContext.cpp
     platform/network/curl/CurlDownload.cpp
     platform/network/curl/CurlFormDataStream.cpp

@@ -50,6 +50,7 @@ ScrollingStateScrollingNode::ScrollingStateScrollingNode(const ScrollingStateScr
 #if PLATFORM(MAC)
     , m_scrollbarHoverState(stateNode.scrollbarHoverState())
     , m_mouseLocationState(stateNode.mouseLocationState())
+    , m_scrollbarEnabledState(stateNode.scrollbarEnabledState())
     , m_verticalScrollerImp(stateNode.verticalScrollerImp())
     , m_horizontalScrollerImp(stateNode.horizontalScrollerImp())
 #endif
@@ -224,7 +225,7 @@ void ScrollingStateScrollingNode::setRequestedScrollData(RequestedScrollData&& s
 
 bool ScrollingStateScrollingNode::hasScrollPositionRequest() const
 {
-    return hasChangedProperty(Property::RequestedScrollPosition) && m_requestedScrollData.requestType == ScrollRequestType::PositionUpdate;
+    return hasChangedProperty(Property::RequestedScrollPosition) && m_requestedScrollData.requestType != ScrollRequestType::CancelAnimatedScroll;
 }
 
 void ScrollingStateScrollingNode::setIsMonitoringWheelEvents(bool isMonitoringWheelEvents)
@@ -302,6 +303,19 @@ void ScrollingStateScrollingNode::setScrollbarHoverState(ScrollbarHoverState hov
     setPropertyChanged(Property::ScrollbarHoverState);
 }
 
+void ScrollingStateScrollingNode::setScrollbarEnabledState(ScrollbarOrientation orientation, bool enabled)
+{
+    if ((orientation == ScrollbarOrientation::Horizontal ? m_scrollbarEnabledState.horizontalScrollbarIsEnabled : m_scrollbarEnabledState.verticalScrollbarIsEnabled) == enabled)
+        return;
+
+    if (orientation == ScrollbarOrientation::Horizontal)
+        m_scrollbarEnabledState.horizontalScrollbarIsEnabled = enabled;
+    else
+        m_scrollbarEnabledState.verticalScrollbarIsEnabled = enabled;
+
+    setPropertyChanged(Property::ScrollbarEnabledState);
+}
+
 void ScrollingStateScrollingNode::dumpProperties(TextStream& ts, OptionSet<ScrollingStateTreeAsTextBehavior> behavior) const
 {
     ScrollingStateNode::dumpProperties(ts, behavior);
@@ -330,12 +344,24 @@ void ScrollingStateScrollingNode::dumpProperties(TextStream& ts, OptionSet<Scrol
     if (m_reachableContentsSize != m_totalContentsSize)
         ts.dumpProperty("reachable contents size", m_reachableContentsSize);
 
-    if (!m_requestedScrollData.scrollPosition.isZero()) {
-        TextStream::GroupScope scope(ts);
-        ts << "requested scroll position "
-            << TextStream::FormatNumberRespectingIntegers(m_requestedScrollData.scrollPosition.x()) << " "
-            << TextStream::FormatNumberRespectingIntegers(m_requestedScrollData.scrollPosition.y());
+    if (m_requestedScrollData.requestType == ScrollRequestType::PositionUpdate) {
+        auto scrollPosition = std::get<FloatPoint>(m_requestedScrollData.scrollPositionOrDelta);
+        if (!scrollPosition.isZero()) {
+            TextStream::GroupScope scope(ts);
+            ts << "requested scroll position "
+            << TextStream::FormatNumberRespectingIntegers(scrollPosition.x()) << " "
+            << TextStream::FormatNumberRespectingIntegers(scrollPosition.y());
+        }
+    } else if (m_requestedScrollData.requestType == ScrollRequestType::DeltaUpdate) {
+        auto scrollDelta = std::get<FloatSize>(m_requestedScrollData.scrollPositionOrDelta);
+        if (!scrollDelta.isZero()) {
+            TextStream::GroupScope scope(ts);
+            ts << "requested scroll delta "
+            << TextStream::FormatNumberRespectingIntegers(scrollDelta.width()) << " "
+            << TextStream::FormatNumberRespectingIntegers(scrollDelta.height());
+        }
     }
+
     if (m_requestedScrollData.scrollType == ScrollType::Programmatic)
         ts.dumpProperty("requested scroll position represents programmatic scroll", true);
 

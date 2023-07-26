@@ -180,7 +180,7 @@ public:
     WEBCORE_EXPORT TiledBacking* tiledBacking() const;
 
     WEBCORE_EXPORT ScrollingNodeID scrollingNodeID() const override;
-    ScrollableArea* scrollableAreaForScrollingNodeID(ScrollingNodeID) const;
+    WEBCORE_EXPORT ScrollableArea* scrollableAreaForScrollingNodeID(ScrollingNodeID) const;
     bool usesAsyncScrolling() const final;
 
     WEBCORE_EXPORT void enterCompositingMode();
@@ -286,7 +286,7 @@ public:
     bool requestStartKeyboardScrollAnimation(const KeyboardScroll&) final;
     bool requestStopKeyboardScrollAnimation(bool immediate) final;
 
-    bool requestScrollToPosition(const ScrollPosition&, ScrollType = ScrollType::Programmatic, ScrollClamping = ScrollClamping::Clamped, ScrollIsAnimated = ScrollIsAnimated::No) final;
+    bool requestScrollToPosition(const ScrollPosition&, const ScrollPositionChangeOptions& options = ScrollPositionChangeOptions::createProgrammatic()) final;
     void stopAsyncAnimatedScroll() final;
 
     bool isUserScrollInProgress() const final;
@@ -718,7 +718,7 @@ public:
 
     void renderLayerDidScroll(const RenderLayer&);
 
-    void scrollToPositionWithAnimation(const ScrollPosition&, ScrollType = ScrollType::Programmatic, ScrollClamping = ScrollClamping::Clamped);
+    void scrollToPositionWithAnimation(const ScrollPosition&, const ScrollPositionChangeOptions& options = ScrollPositionChangeOptions::createProgrammatic());
 
     bool inUpdateEmbeddedObjects() const { return m_inUpdateEmbeddedObjects; }
 
@@ -732,6 +732,7 @@ public:
     OverscrollBehavior horizontalOverscrollBehavior() const final;
     OverscrollBehavior verticalOverscrollBehavior() const final;
 
+    ScrollbarGutter scrollbarGutterStyle() const final;
     ScrollbarWidth scrollbarWidthStyle() const final;
 
 private:

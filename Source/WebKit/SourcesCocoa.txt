@@ -137,7 +137,7 @@ Shared/WebSQLiteDatabaseTracker.cpp
 Shared/cf/ArgumentCodersCF.cpp @no-unify
 Shared/cf/CookieStorageUtilsCF.mm
 
-Shared/cg/ShareableBitmapCG.cpp
+Shared/cg/ShareableBitmapCG.mm
 
 Shared/Authentication/cocoa/AuthenticationChallengeDispositionCocoa.mm
 Shared/Authentication/cocoa/AuthenticationManagerCocoa.mm
@@ -308,7 +308,6 @@ UIProcess/API/Cocoa/NSAttributedString.mm
 UIProcess/API/Cocoa/WKBackForwardList.mm
 UIProcess/API/Cocoa/WKBackForwardListItem.mm
 UIProcess/API/Cocoa/WKBrowsingContextController.mm
-UIProcess/API/Cocoa/WKBrowsingContextGroup.mm
 UIProcess/API/Cocoa/WKConnection.mm
 UIProcess/API/Cocoa/WKContentRuleList.mm
 UIProcess/API/Cocoa/WKContentRuleListStore.mm
@@ -471,7 +470,7 @@ UIProcess/ios/ProcessStateMonitor.mm
 UIProcess/ios/RevealFocusedElementDeferrer.mm
 UIProcess/ios/SmartMagnificationController.mm
 UIProcess/ios/TextCheckerIOS.mm
-UIProcess/ios/UIAlertControllerUtilities.mm
+UIProcess/ios/UIKitUtilities.mm
 UIProcess/ios/ViewGestureControllerIOS.mm
 UIProcess/ios/WebDataListSuggestionsDropdownIOS.mm
 UIProcess/ios/WebPageProxyIOS.mm
@@ -498,6 +497,7 @@ UIProcess/ios/WKStylusDeviceObserver.mm
 UIProcess/ios/WKSyntheticFlagsChangedWebEvent.mm
 UIProcess/ios/WKSyntheticTapGestureRecognizer.mm
 UIProcess/ios/WKTouchActionGestureRecognizer.mm
+UIProcess/ios/WKTouchEventsGestureRecognizer.mm
 UIProcess/ios/WKTextSelectionRect.mm
 UIProcess/ios/WKUSDPreviewView.mm
 UIProcess/ios/WKWebEvent.mm

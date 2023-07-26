@@ -753,7 +753,8 @@ bool Quirks::shouldSilenceWindowResizeEvents() const
 
     auto host = m_document->topDocument().url().host();
     return equalLettersIgnoringASCIICase(host, "nytimes.com"_s) || host.endsWithIgnoringASCIICase(".nytimes.com"_s)
-        || equalLettersIgnoringASCIICase(host, "twitter.com"_s) || host.endsWithIgnoringASCIICase(".twitter.com"_s);
+        || equalLettersIgnoringASCIICase(host, "twitter.com"_s) || host.endsWithIgnoringASCIICase(".twitter.com"_s)
+        || equalLettersIgnoringASCIICase(host, "zillow.com"_s) || host.endsWithIgnoringASCIICase(".zillow.com"_s);
 #else
     return false;
 #endif
@@ -806,6 +807,24 @@ bool Quirks::shouldIgnoreAriaForFastPathContentObservationCheck() const
 
     auto host = m_document->url().host();
     return equalLettersIgnoringASCIICase(host, "www.ralphlauren.com"_s);
+#endif
+    return false;
+}
+
+static bool isWikipediaDomain(const URL& url)
+{
+    static NeverDestroyed wikipediaDomain = RegistrableDomain { URL { "https://wikipedia.org"_s } };
+    return wikipediaDomain->matches(url);
+}
+
+// wikipedia.org https://webkit.org/b/247636
+bool Quirks::shouldIgnoreViewportArgumentsToAvoidExcessiveZoom() const
+{
+    if (!needsQuirks())
+        return false;
+
+#if ENABLE(META_VIEWPORT)
+    return isWikipediaDomain(m_document->url());
 #endif
     return false;
 }
@@ -1019,7 +1038,7 @@ bool Quirks::shouldLayOutAtMinimumWindowWidthWhenIgnoringScalingConstraints() co
 
     // FIXME: We should consider replacing this with a heuristic to determine whether
     // or not the edges of the page mostly lack content after shrinking to fit.
-    return m_document->url().host().endsWithIgnoringASCIICase(".wikipedia.org"_s);
+    return isWikipediaDomain(m_document->url());
 }
 
 // shutterstock.com rdar://58843932
@@ -1570,6 +1589,19 @@ bool Quirks::shouldDisableFetchMetadata() const
 
     auto host = m_document->topDocument().url().host();
     return equalLettersIgnoringASCIICase(host, "victoriassecret.com"_s) || host.endsWithIgnoringASCIICase(".victoriassecret.com"_s);
+}
+
+// Push state file path restrictions break Mimeo Photo Plugin (rdar://112445672).
+bool Quirks::shouldDisablePushStateFilePathRestrictions() const
+{
+    if (!needsQuirks())
+        return false;
+
+#if PLATFORM(MAC)
+    return MacApplication::isMimeoPhotoProject();
+#else
+    return false;
+#endif
 }
 
 #if PLATFORM(COCOA)

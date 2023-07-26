@@ -63,6 +63,7 @@
 #import "WebAutocorrectionContext.h"
 #import "WebAutocorrectionData.h"
 #import "WebCoreArgumentCoders.h"
+#import "WebPage.h"
 #import "WebPageMessages.h"
 #import "WebPageProxyInternals.h"
 #import "WebProcessMessages.h"
@@ -229,7 +230,7 @@ WebCore::FloatRect WebPageProxy::computeLayoutViewportRect(const FloatRect& unob
         constrainedUnobscuredRect.intersect(documentRect);
 
     double minimumScale = pageClient().minimumZoomScale();
-    bool isBelowMinimumScale = displayedContentScale < minimumScale;
+    bool isBelowMinimumScale = displayedContentScale < minimumScale && !WebKit::scalesAreEssentiallyEqual(displayedContentScale, minimumScale);
     if (isBelowMinimumScale) {
         const CGFloat slope = 12;
         CGFloat factor = std::max<CGFloat>(1 - slope * (minimumScale - displayedContentScale), 0);
@@ -1070,14 +1071,14 @@ IPC::Connection::AsyncReplyID WebPageProxy::drawToPDFiOS(FrameIdentifier frameID
     return sendWithAsyncReply(Messages::WebPage::DrawToPDFiOS(frameID, printInfo, pageCount), WTFMove(completionHandler));
 }
 
-IPC::Connection::AsyncReplyID WebPageProxy::drawToImage(FrameIdentifier frameID, const PrintInfo& printInfo, size_t pageCount, CompletionHandler<void(WebKit::ShareableBitmap::Handle&&)>&& completionHandler)
+IPC::Connection::AsyncReplyID WebPageProxy::drawToImage(FrameIdentifier frameID, const PrintInfo& printInfo, CompletionHandler<void(WebKit::ShareableBitmap::Handle&&)>&& completionHandler)
 {
     if (!hasRunningProcess()) {
         completionHandler({ });
         return { };
     }
 
-    return sendWithAsyncReply(Messages::WebPage::DrawToImage(frameID, printInfo, pageCount), WTFMove(completionHandler));
+    return sendWithAsyncReply(Messages::WebPage::DrawToImage(frameID, printInfo), WTFMove(completionHandler));
 }
 
 void WebPageProxy::contentSizeCategoryDidChange(const String& contentSizeCategory)

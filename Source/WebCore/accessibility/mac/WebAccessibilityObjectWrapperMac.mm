@@ -70,6 +70,7 @@
 #import "RenderTextControl.h"
 #import "RenderView.h"
 #import "RenderWidget.h"
+#import "RuntimeApplicationChecks.h"
 #import "ScrollView.h"
 #import "TextIterator.h"
 #import "VisibleUnits.h"
@@ -485,6 +486,10 @@ using namespace WebCore;
 
 #ifndef NSAccessibilityTextInputMarkedRangeAttribute
 #define NSAccessibilityTextInputMarkedRangeAttribute @"AXTextInputMarkedRange"
+#endif
+
+#ifndef NSAccessibilityTextInputMarkedTextMarkerRangeAttribute
+#define NSAccessibilityTextInputMarkedTextMarkerRangeAttribute @"AXTextInputMarkedTextMarkerRange"
 #endif
 
 @implementation WebAccessibilityObjectWrapper
@@ -918,6 +923,7 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         NSAccessibilityEditableAncestorAttribute,
         NSAccessibilityHighestEditableAncestorAttribute,
         NSAccessibilityTextInputMarkedRangeAttribute,
+        NSAccessibilityTextInputMarkedTextMarkerRangeAttribute,
     ];
     static NeverDestroyed spinButtonCommonAttributes = [] {
         auto tempArray = adoptNS([[NSMutableArray alloc] initWithArray:attributes.get().get()]);
@@ -2248,8 +2254,14 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return [NSNumber numberWithBool: backingObject->isIndeterminate()];
 
     if ([attributeName isEqualToString:NSAccessibilityTextInputMarkedRangeAttribute]) {
-        auto range = backingObject->textInputMarkedRange();
-        return range ? [NSValue valueWithRange:*range] : nil;
+        auto range = backingObject->textInputMarkedTextMarkerRange();
+        auto nsRange = range.nsRange();
+        return range && nsRange ? [NSValue valueWithRange:*nsRange] : nil;
+    }
+
+    if ([attributeName isEqualToString:NSAccessibilityTextInputMarkedTextMarkerRangeAttribute]) {
+        auto range = backingObject->textInputMarkedTextMarkerRange();
+        return range ? range.platformData().bridgingAutorelease() : nil;
     }
 
     return nil;
@@ -3700,6 +3712,13 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     return [super accessibilityArrayAttributeCount:attribute];
 }
 ALLOW_DEPRECATED_DECLARATIONS_END
+
+// Implement this for performance reasons, as the default AppKit implementation will iterate upwards
+// until it finds something that responds to this method.
+- (pid_t)accessibilityPresenterProcessIdentifier
+{
+    return WebCore::presentingApplicationPID();
+}
 
 - (NSArray *)accessibilityArrayAttributeValues:(NSString *)attribute index:(NSUInteger)index maxCount:(NSUInteger)maxCount
 {

@@ -137,7 +137,6 @@ private:
     
     // Table support.
     AXIsolatedObject* exposedTableAncestor(bool includeSelf = false) const final { return Accessibility::exposedTableAncestor(*this, includeSelf); }
-    int tableLevel() const override { return intAttributeValue(AXPropertyName::TableLevel); }
     bool supportsSelectedRows() const override { return boolAttributeValue(AXPropertyName::SupportsSelectedRows); }
     AccessibilityChildrenVector columns() final { return tree()->objectsForIDs(vectorAttributeValue<AXID>(AXPropertyName::Columns)); }
     AccessibilityChildrenVector rows() final { return tree()->objectsForIDs(vectorAttributeValue<AXID>(AXPropertyName::Rows)); }
@@ -457,7 +456,7 @@ private:
     bool hasSameStyle(const AXCoreObject&) const override;
     bool hasUnderline() const override { return boolAttributeValue(AXPropertyName::HasUnderline); }
     bool hasHighlighting() const override { return boolAttributeValue(AXPropertyName::HasHighlighting); }
-    std::optional<CharacterRange> textInputMarkedRange() const final { return optionalAttributeValue<CharacterRange>(AXPropertyName::TextInputMarkedRange); }
+    AXTextMarkerRange textInputMarkedTextMarkerRange() const final;
     Element* element() const override;
     Node* node() const override;
     RenderObject* renderer() const override;

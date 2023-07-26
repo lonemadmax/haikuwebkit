@@ -122,7 +122,7 @@ void ServiceWorkerSoftUpdateLoader::loadFromNetwork(NetworkSession& session, Res
     parameters.contentEncodingSniffingPolicy = ContentEncodingSniffingPolicy::Default;
     parameters.needsCertificateInfo = true;
     parameters.request = WTFMove(request);
-    m_networkLoad = makeUnique<NetworkLoad>(*this, nullptr, WTFMove(parameters), session);
+    m_networkLoad = makeUnique<NetworkLoad>(*this, WTFMove(parameters), session);
     m_networkLoad->start();
 
 #if PLATFORM(COCOA)
@@ -130,8 +130,9 @@ void ServiceWorkerSoftUpdateLoader::loadFromNetwork(NetworkSession& session, Res
 #endif
 }
 
-void ServiceWorkerSoftUpdateLoader::willSendRedirectedRequest(ResourceRequest&&, ResourceRequest&&, ResourceResponse&&)
+void ServiceWorkerSoftUpdateLoader::willSendRedirectedRequest(ResourceRequest&&, ResourceRequest&&, ResourceResponse&&, CompletionHandler<void(WebCore::ResourceRequest&&)>&& completionHandler)
 {
+    completionHandler({ });
     fail(ResourceError { ResourceError::Type::Cancellation });
 }
 

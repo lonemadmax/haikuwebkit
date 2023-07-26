@@ -75,6 +75,9 @@ imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interfac
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/audiocontext-sinkid-setsinkid.https.html [ Skip ]
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/audiocontext-sinkid-state-change.https.html [ Skip ]
 
+# Payment request API is not supported on WK1.
+imported/w3c/web-platform-tests/permissions-policy/payment-allowed-by-permissions-policy-attribute-redirect-on-load.https.sub.html [ Skip ]
+
 # No support for the Clear-Site-Data header in WebKit1.
 imported/w3c/web-platform-tests/clear-site-data [ Skip ]
 http/tests/clear-site-data [ Skip ]
@@ -190,37 +193,6 @@ imported/w3c/web-platform-tests/content-security-policy/worker-src/shared-worker
 imported/w3c/web-platform-tests/content-security-policy/worker-src/shared-worker-src-default-fallback.sub.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/worker-src/shared-worker-src-script-fallback.sub.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/worker-src/shared-worker-src-self-fallback.sub.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStoreManager_getSubscriptions_empty.https.any.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStoreManager_getSubscriptions_multiple.https.any.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStoreManager_getSubscriptions_single.https.any.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_subscribe_arguments.https.any.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_subscriptions_empty.https.window.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/idlharness.tentative.https.any.sharedworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/serviceworker_cookieStore_cross_origin.https.sub.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/serviceworker_cookieStore_subscriptions_reset.https.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieListItem_attributes.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStoreManager_getSubscriptions_empty.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStoreManager_getSubscriptions_multiple.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStoreManager_getSubscriptions_single.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_delete_arguments.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_delete_basic.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_getAll_arguments.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_getAll_multiple.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_getAll_set_basic.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_get_arguments.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_get_delete_basic.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_get_set_basic.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_get_set_ordering.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_set_arguments.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_special_names.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/cookieStore_subscribe_arguments.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/encoding.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/idlharness.tentative.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/serviceworker_cookiechange_eventhandler_mismatched_subscription.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/serviceworker_cookiechange_eventhandler_multiple_subscriptions.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/serviceworker_cookiechange_eventhandler_overlapping_subscriptions.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/serviceworker_cookiechange_eventhandler_single_subscription.https.any.serviceworker.html [ Skip ]
-imported/w3c/web-platform-tests/cookie-store/serviceworker_oncookiechange_eventhandler_single_subscription.https.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/dom/idlharness.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/eventsource/eventsource-constructor-empty-url.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/eventsource/eventsource-constructor-url-bogus.any.sharedworker.html [ Skip ]
@@ -854,6 +826,8 @@ accessibility/mac/date-input-increment-decrement.html [ Skip ]
 accessibility/display-contents/dynamically-added-children.html [ Skip ]
 accessibility/display-contents/aria-owns.html [ Skip ]
 
+accessibility/mac/text-field-number-of-characters.html [ Skip ]
+accessibility/mac/content-editable-attributed-string.html [ Skip ]
 accessibility/mac/lazy-spellchecking.html [ Skip ]
 
 # DOM paste access requests are not implemented in WebKit1.
@@ -1017,6 +991,10 @@ http/tests/media/video-webm-stall.html
 
 # Screenshots timeline does not capture screenshots for changes in WebKitLegacy.
 webkit.org/b/251113 inspector/timeline/timeline-event-screenshots.html [ Skip ]
+
+# The CookieStore API is not fully implemented on macOS WK1 yet.
+imported/w3c/web-platform-tests/cookie-store [ Skip ]
+imported/w3c/web-platform-tests/cookies/partitioned-cookies/partitioned-cookies.tentative.https.html [ Skip ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End features not supported in WebKit1
@@ -2349,7 +2327,7 @@ imported/w3c/web-platform-tests/pointerevents/pointerevent_mouse_capture_change_
 imported/w3c/web-platform-tests/pointerevents/pointerevent_mouse_pointercapture_in_frame.html [ Pass Failure ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_pointercapture-in-custom-element.html [ Pass Failure ]
 
-webkit.org/b/236128 imported/w3c/web-platform-tests/html/user-activation/activation-trigger-mouse-right.html [ Skip ]
+webkit.org/b/236128 fullscreen/full-screen-iframe-with-max-width-height.html [ Skip ]
 
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-object-element/object-param-url.html [ ImageOnlyFailure ]
 
@@ -2580,3 +2558,25 @@ imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-color-001.html  [ S
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-color-002.html  [ Skip ]
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-010.html  [ Skip ]
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-014.html  [ Skip ]
+
+# webkit.org/b/258628 Skipping some newly imported pointerevents WPT
+imported/w3c/web-platform-tests/pointerevents/compat/pointerevent_mouse-on-object.html [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/compat/pointerevent_mouse-pointer-preventdefault-passive.html [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_after_target_removed.html?mouse [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_after_target_removed.html?pen [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_contextmenu_is_a_pointerevent.html?mouse [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_fractional_coordinates.html?mouse [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_fractional_coordinates.html?pen [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_pointerout_no_pointer_movement.html [ Skip ]
+
+# Lack of support for WPT custom domains.
+imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/sandbox-top-navigation-escalate-privileges.tentative.sub.window.html [ Failure ]
+
+# rdar://111704637 - 'mousemove' not emitted from 'eventSender.moveMouseTo()'
+fast/html/transient-activation.html [ Skip ]
+
+webkit.org/b/259075 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-079.html [ ImageOnlyFailure ]
+webkit.org/b/259075 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-auto-in-iframe.html [ ImageOnlyFailure ]
+webkit.org/b/259075 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-auto-intrinsic-width.html [ ImageOnlyFailure ]
+webkit.org/b/259075 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-auto-nested.html [ ImageOnlyFailure  ]
+webkit.org/b/259075 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-resize-observer-no-error.html [ ImageOnlyFailure ]

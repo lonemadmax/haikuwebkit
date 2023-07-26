@@ -442,6 +442,7 @@ void Scrollbar::setEnabled(bool e)
         return;
     m_enabled = e;
     theme().updateEnabledState(*this);
+    m_scrollableArea.scrollbarsController().updateScrollbarEnabledState(*this);
     invalidate();
 }
 
@@ -526,6 +527,16 @@ bool Scrollbar::isHiddenByStyle() const
 float Scrollbar::deviceScaleFactor() const
 {
     return m_scrollableArea.deviceScaleFactor();
+}
+
+bool Scrollbar::shouldRegisterScrollbar() const
+{
+    return m_scrollableArea.scrollbarsController().shouldRegisterScrollbars();
+}
+
+int Scrollbar::minimumThumbLength() const
+{
+    return m_scrollableArea.scrollbarsController().minimumThumbLength(m_orientation);
 }
 
 } // namespace WebCore

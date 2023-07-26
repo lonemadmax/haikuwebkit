@@ -253,18 +253,16 @@ ScrollOffset RenderLayerScrollableArea::clampScrollOffset(const ScrollOffset& sc
     return scrollOffset.constrainedBetween(minimumScrollOffset(), maximumScrollOffset());
 }
 
-bool RenderLayerScrollableArea::requestScrollToPosition(const ScrollPosition& position, ScrollType scrollType, ScrollClamping clamping, ScrollIsAnimated animated)
+bool RenderLayerScrollableArea::requestScrollToPosition(const ScrollPosition& position, const ScrollPositionChangeOptions& options)
 {
 #if ENABLE(ASYNC_SCROLLING)
-    LOG_WITH_STREAM(Scrolling, stream << "RenderLayerScrollableArea::requestScrollToPosition " << position << " animated  " << (animated == ScrollIsAnimated::Yes));
+    LOG_WITH_STREAM(Scrolling, stream << "RenderLayerScrollableArea::requestScrollToPosition " << position << " options  " << options);
 
     if (auto* scrollingCoordinator = m_layer.page().scrollingCoordinator())
-        return scrollingCoordinator->requestScrollToPosition(*this, position, scrollType, clamping, animated);
+        return scrollingCoordinator->requestScrollToPosition(*this, position, options);
 #else
     UNUSED_PARAM(position);
-    UNUSED_PARAM(scrollType);
-    UNUSED_PARAM(clamping);
-    UNUSED_PARAM(animated);
+    UNUSED_PARAM(options);
 #endif
     return false;
 }
@@ -312,8 +310,8 @@ ScrollOffset RenderLayerScrollableArea::scrollToOffset(const ScrollOffset& scrol
     auto snappedPosition = scrollPositionFromOffset(snappedOffset);
     if (options.animated == ScrollIsAnimated::Yes) {
         registerScrollableAreaForAnimatedScroll();
-        ScrollableArea::scrollToPositionWithAnimation(snappedPosition);
-    } else if (!requestScrollToPosition(snappedPosition, options.type, options.clamping))
+        ScrollableArea::scrollToPositionWithAnimation(snappedPosition, options);
+    } else if (!requestScrollToPosition(snappedPosition, options))
         scrollToPositionWithoutAnimation(snappedPosition, options.clamping);
 
     setCurrentScrollType(previousScrollType);
@@ -982,10 +980,8 @@ int RenderLayerScrollableArea::verticalScrollbarWidth(OverlayScrollbarSizeReleva
     if (m_vBar && m_vBar->isOverlayScrollbar() && (relevancy == IgnoreOverlayScrollbarSize || !m_vBar->shouldParticipateInHitTesting()))
         return 0;
 
-    if (!m_vBar && m_layer.renderBox() && !(m_layer.renderer().style().scrollbarGutter().isAuto
-        || ScrollbarTheme::theme().usesOverlayScrollbars()) && isHorizontalWritingMode) {
+    if (!m_vBar && isHorizontalWritingMode && !(scrollbarGutterStyle().isAuto || ScrollbarTheme::theme().usesOverlayScrollbars()))
         return ScrollbarTheme::theme().scrollbarThickness(scrollbarWidthStyle());
-    }
 
     if (!m_vBar || !showsOverflowControls())
         return 0;
@@ -998,10 +994,8 @@ int RenderLayerScrollableArea::horizontalScrollbarHeight(OverlayScrollbarSizeRel
     if (m_hBar && m_hBar->isOverlayScrollbar() && (relevancy == IgnoreOverlayScrollbarSize || !m_hBar->shouldParticipateInHitTesting()))
         return 0;
 
-    if (!m_hBar && m_layer.renderBox() && !(m_layer.renderer().style().scrollbarGutter().isAuto
-        || ScrollbarTheme::theme().usesOverlayScrollbars()) && !isHorizontalWritingMode) {
+    if (!m_hBar && !isHorizontalWritingMode && !(scrollbarGutterStyle().isAuto || ScrollbarTheme::theme().usesOverlayScrollbars()))
         return ScrollbarTheme::theme().scrollbarThickness(scrollbarWidthStyle());
-    }
 
     if (!m_hBar || !showsOverflowControls())
         return 0;
@@ -1021,6 +1015,13 @@ OverscrollBehavior RenderLayerScrollableArea::verticalOverscrollBehavior() const
     if (m_layer.renderBox())
         return m_layer.renderer().style().overscrollBehaviorY();
     return OverscrollBehavior::Auto;
+}
+
+ScrollbarGutter RenderLayerScrollableArea::scrollbarGutterStyle()  const
+{
+    if (auto* renderer = m_layer.renderBox())
+        return renderer->style().scrollbarGutter();
+    return { };
 }
 
 ScrollbarWidth RenderLayerScrollableArea::scrollbarWidthStyle()  const
@@ -1098,8 +1099,13 @@ void RenderLayerScrollableArea::computeScrollDimensions()
 {
     m_scrollDimensionsDirty = false;
 
-    m_scrollWidth = roundToInt(overflowRight() - overflowLeft());
-    m_scrollHeight = roundToInt(overflowBottom() - overflowTop());
+    RenderBox* box = m_layer.renderBox();
+    ASSERT(box);
+
+    LayoutRect overflowRect(box->layoutOverflowRect());
+
+    m_scrollWidth = roundToInt(overflowRect.width());
+    m_scrollHeight = roundToInt(overflowRect.height());
 
     computeScrollOrigin();
     computeHasCompositedScrollableOverflow(LayoutUpToDate::Yes);
@@ -1760,7 +1766,7 @@ void RenderLayerScrollableArea::updateScrollCornerStyle()
 {
     auto& renderer = m_layer.renderer();
     RenderElement* actualRenderer = rendererForScrollbar(renderer);
-    auto corner = renderer.hasNonVisibleOverflow() ? actualRenderer->getUncachedPseudoStyle({ PseudoId::ScrollbarCorner }, &actualRenderer->style()) : nullptr;
+    auto corner = (renderer.hasNonVisibleOverflow() && !renderer.style().usesStandardScrollbarStyle()) ? actualRenderer->getUncachedPseudoStyle({ PseudoId::ScrollbarCorner }, &actualRenderer->style()) : nullptr;
 
     if (!corner) {
         clearScrollCorner();

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "LayerProperties.h"
 #include "RemoteLayerTreeTransaction.h"
 #include <WebCore/HTMLMediaElementIdentifier.h>
 #include <WebCore/PlatformCALayer.h>
@@ -118,6 +119,10 @@ public:
 
     void setBackingStoreAttached(bool) override;
     bool backingStoreAttached() const override;
+
+#if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
+    void setCoverageRect(const WebCore::FloatRect&) override;
+#endif
 
     bool geometryFlipped() const override;
     void setGeometryFlipped(bool) override;
@@ -224,8 +229,8 @@ public:
 
     void setClonedLayer(const PlatformCALayer*);
 
-    RemoteLayerTreeTransaction::LayerProperties& properties() { return m_properties; }
-    const RemoteLayerTreeTransaction::LayerProperties& properties() const { return m_properties; }
+    LayerProperties& properties() { return m_properties; }
+    const LayerProperties& properties() const { return m_properties; }
 
     void didCommit();
 
@@ -255,7 +260,7 @@ private:
 
     WebCore::LayerPool& layerPool() override;
 
-    RemoteLayerTreeTransaction::LayerProperties m_properties;
+    LayerProperties m_properties;
     WebCore::PlatformCALayerList m_children;
     PlatformCALayerRemote* m_superlayer { nullptr };
     PlatformCALayerRemote* m_maskLayer { nullptr };

@@ -3060,11 +3060,11 @@ void RemoteGraphicsContextGLProxy::setDrawingBufferColorSpace(const WebCore::Des
     }
 }
 
-RefPtr<WebCore::PixelBuffer> RemoteGraphicsContextGLProxy::paintRenderingResultsToPixelBuffer()
+RefPtr<WebCore::PixelBuffer> RemoteGraphicsContextGLProxy::paintRenderingResultsToPixelBuffer(WebCore::GraphicsContextGL::FlipY arg0)
 {
     if (isContextLost())
         return { };
-    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PaintRenderingResultsToPixelBuffer());
+    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::PaintRenderingResultsToPixelBuffer(arg0));
     if (!sendResult.succeeded()) {
         markContextLost();
         return { };
@@ -3095,6 +3095,19 @@ void RemoteGraphicsContextGLProxy::clientWaitEGLSyncWithFlush(GCEGLSync arg0, ui
         markContextLost();
         return;
     }
+}
+
+bool RemoteGraphicsContextGLProxy::enableRequiredWebXRExtensions()
+{
+    if (isContextLost())
+        return { };
+    auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::EnableRequiredWebXRExtensions());
+    if (!sendResult.succeeded()) {
+        markContextLost();
+        return { };
+    }
+    auto& [returnValue] = sendResult.reply();
+    return returnValue;
 }
 
 }

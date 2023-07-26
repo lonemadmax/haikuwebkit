@@ -103,6 +103,7 @@ public:
     bool isInsetShape() const { return m_classType == InsetShapeClass; }
     bool isLineBoxContainValue() const { return m_classType == LineBoxContainClass; }
     bool isLinearGradientValue() const { return m_classType == LinearGradientClass; }
+    bool isLinearTimingFunctionValue() const { return m_classType == LinearTimingFunctionClass; }
     bool isNamedImageValue() const { return m_classType == NamedImageClass; }
     bool isOffsetRotateValue() const { return m_classType == OffsetRotateClass; }
     bool isPair() const { return m_classType == ValuePairClass; }
@@ -125,7 +126,6 @@ public:
     bool isUnicodeRangeValue() const { return m_classType == UnicodeRangeClass; }
     bool isValueList() const { return m_classType == ValueListClass; }
     bool isVariableReferenceValue() const { return m_classType == VariableReferenceClass; }
-    bool isWordBoundaryDetectionValue() const { return m_classType == WordBoundaryDetectionClass; }
 
 #if ENABLE(CSS_PAINTING_API)
     bool isPaintImageValue() const { return m_classType == PaintImageClass; }
@@ -207,6 +207,7 @@ protected:
         PrefixedRadialGradientClass,
 
         // Timing function classes.
+        LinearTimingFunctionClass,
         CubicBezierTimingFunctionClass,
         SpringTimingFunctionClass,
         StepsTimingFunctionClass,
@@ -246,7 +247,6 @@ protected:
         UnicodeRangeClass,
         ValuePairClass,
         VariableReferenceClass,
-        WordBoundaryDetectionClass,
 
         // Classes that contain vectors, which derive from CSSValueContainingVector.
         ValueListClass,

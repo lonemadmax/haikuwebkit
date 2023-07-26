@@ -92,39 +92,11 @@
     return evaluationResult.autorelease();
 }
 
-#if PLATFORM(MAC)
-
-// Note: this testing strategy makes a couple of assumptions:
-// 1. The network process hasn't already died and allowed the system to reuse the same PID.
-// 2. The API test did not take more than ~120 seconds to run.
-- (NSArray<NSString *> *)collectLogsForNewConnections
-{
-    auto predicate = [NSString stringWithFormat:@"subsystem == 'com.apple.network'"
-        " AND category == 'connection'"
-        " AND eventMessage endswith 'start'"
-        " AND processIdentifier == %d", self._networkProcessIdentifier];
-    RetainPtr pipe = [NSPipe pipe];
-    // FIXME: This is currently reliant on `NSTask`, which is absent on iOS. We should find a way to
-    // make this helper work on both platforms.
-    auto task = adoptNS([NSTask new]);
-    [task setLaunchPath:@"/usr/bin/log"];
-    [task setArguments:@[ @"show", @"--last", @"2m", @"--style", @"json", @"--predicate", predicate ]];
-    [task setStandardOutput:pipe.get()];
-    [task launch];
-    [task waitUntilExit];
-
-    auto rawData = [pipe fileHandleForReading].availableData;
-    auto messages = [NSMutableArray<NSString *> array];
-    for (id messageData in dynamic_objc_cast<NSArray>([NSJSONSerialization JSONObjectWithData:rawData options:0 error:nil]))
-        [messages addObject:dynamic_objc_cast<NSString>([messageData objectForKey:@"eventMessage"])];
-    return messages;
-}
-
-#endif // PLATFORM(MAC)
-
 @end
 
 namespace TestWebKitAPI {
+
+#if HAVE(SYSTEM_SUPPORT_FOR_ADVANCED_PRIVACY_PROTECTIONS)
 
 static IMP makeQueryParameterRequestHandler(NSArray<NSString *> *parameters, bool& didHandleRequest)
 {
@@ -191,6 +163,7 @@ private:
     std::unique_ptr<InstanceMethodSwizzler> m_swizzler;
     bool m_didHandleRequest { false };
 };
+#endif // HAVE(SYSTEM_SUPPORT_FOR_ADVANCED_PRIVACY_PROTECTIONS)
 
 static RetainPtr<TestWKWebView> createWebViewWithAdvancedPrivacyProtections(BOOL enabled = YES, RetainPtr<WKWebpagePreferences>&& preferences = { }, WKWebsiteDataStore *dataStore = nil)
 {
@@ -210,6 +183,8 @@ static RetainPtr<TestWKWebView> createWebViewWithAdvancedPrivacyProtections(BOOL
 
     return adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600) configuration:configuration.get()]);
 }
+
+#if HAVE(SYSTEM_SUPPORT_FOR_ADVANCED_PRIVACY_PROTECTIONS)
 
 TEST(AdvancedPrivacyProtections, DoNotRemoveTrackingQueryParametersWhenPrivacyProtectionsAreDisabled)
 {
@@ -551,8 +526,6 @@ TEST(AdvancedPrivacyProtections, DoNotHideQueryParametersAfterEffectiveSameSiteN
     EXPECT_WK_STREQ("thirdparty: custom://firstparty.co.uk/index.html?hello=123", results[0]);
 }
 
-#if HAVE(SYSTEM_SUPPORT_FOR_ADVANCED_PRIVACY_PROTECTIONS)
-
 TEST(AdvancedPrivacyProtections, LinkPreconnectUsesEnhancedPrivacy)
 {
     auto createMarkupString = [](unsigned serverPort) {
@@ -587,7 +560,7 @@ TEST(AdvancedPrivacyProtections, LinkPreconnectUsesEnhancedPrivacy)
 
 #endif // HAVE(SYSTEM_SUPPORT_FOR_ADVANCED_PRIVACY_PROTECTIONS)
 
-static RetainPtr<TestWKWebView> webViewAfterCrossSiteNavigationWithReducedPrivacy(NSString *initialURLString)
+static RetainPtr<TestWKWebView> webViewAfterCrossSiteNavigationWithReducedPrivacy(NSString *initialURLString, bool withRedirect = false)
 {
     auto preferences = adoptNS([WKWebpagePreferences new]);
     [preferences _setNetworkConnectionIntegrityPolicy:_WKWebsiteNetworkConnectionIntegrityPolicyNone];
@@ -610,6 +583,8 @@ static RetainPtr<TestWKWebView> webViewAfterCrossSiteNavigationWithReducedPrivac
 
     [webView evaluateJavaScript:@"document.querySelector('a').click()" completionHandler:nil];
     [navigationDelegate waitForDidFinishNavigation];
+    if (withRedirect)
+        [navigationDelegate waitForDidFinishNavigation];
 
     return webView;
 }
@@ -628,6 +603,40 @@ TEST(AdvancedPrivacyProtections, DoNotHideReferrerAfterReducingPrivacyProtection
     NSString *expectedReferrer = [NSString stringWithFormat:@"http://localhost:%d/", server.port()];
     EXPECT_WK_STREQ(expectedReferrer, result);
 }
+
+TEST(AdvancedPrivacyProtections, DoNotHideReferrerAfterReducingPrivacyProtectionsWithJSRedirect)
+{
+    HTTPServer server({
+        { "/destination.html"_s, { "<script>window.result = document.referrer;</script>"_s } },
+    }, HTTPServer::Protocol::Http);
+
+    server.addResponse("/source.html"_s, { makeString("<a href='http://127.0.0.1:"_s, server.port(), "/redirect.html'>Link</a>"_s) });
+    server.addResponse("/redirect.html"_s, { makeString("<script>window.location = 'http://localhost:"_s, server.port(), "/destination.html';</script>"_s) });
+
+    auto webView = webViewAfterCrossSiteNavigationWithReducedPrivacy(makeString("http://localhost:"_s, server.port(), "/source.html"_s), true);
+
+    NSString *result = [webView objectByEvaluatingJavaScript:@"window.result"];
+    NSString *expectedReferrer = [NSString stringWithFormat:@"http://127.0.0.1:%d/", server.port()];
+    EXPECT_WK_STREQ(expectedReferrer, result);
+}
+
+TEST(AdvancedPrivacyProtections, DoNotHideReferrerAfterReducingPrivacyProtectionsWithHTTPRedirect)
+{
+    HTTPServer server({
+        { "/destination.html"_s, { "<script>window.result = document.referrer;</script>"_s } },
+    }, HTTPServer::Protocol::Http);
+
+    server.addResponse("/source.html"_s, { makeString("<a href='http://127.0.0.1:"_s, server.port(), "/redirect'>Link</a>"_s) });
+    server.addResponse("/redirect"_s, { 302, {{"Location"_s, makeString("http://localhost:"_s, server.port(), "/destination.html"_s) }}, "redirecting..."_s });
+
+    auto webView = webViewAfterCrossSiteNavigationWithReducedPrivacy(makeString("http://localhost:"_s, server.port(), "/source.html"_s));
+
+    NSString *result = [webView objectByEvaluatingJavaScript:@"window.result"];
+    NSString *expectedReferrer = [NSString stringWithFormat:@"http://localhost:%d/", server.port()];
+    EXPECT_WK_STREQ(expectedReferrer, result);
+}
+
+#if HAVE(SYSTEM_SUPPORT_FOR_ADVANCED_PRIVACY_PROTECTIONS)
 
 TEST(AdvancedPrivacyProtections, DoNotRemoveTrackingParametersAfterReducingPrivacyProtections)
 {
@@ -654,6 +663,35 @@ TEST(AdvancedPrivacyProtections, DoNotRemoveTrackingParametersAfterReducingPriva
     checkForExpectedQueryParameters([NSURL URLWithString:documentURLString]);
     checkForExpectedQueryParameters([webView URL]);
 }
+
+TEST(AdvancedPrivacyProtections, DoNotRemoveTrackingParametersAfterReducingPrivacyProtectionsWithJSRedirect)
+{
+    QueryParameterRequestSwizzler blockListSwizzler { @[ @"someID" ] };
+
+    auto pathAndQuery = "/destination.html?someID=123"_s;
+    HTTPServer server({
+        { pathAndQuery, { "<body>Destination</body>"_s } },
+    }, HTTPServer::Protocol::Http);
+
+    server.addResponse("/source.html"_s, { makeString("<a href='http://127.0.0.1:"_s, server.port(), "/redirect.html'>Link</a>"_s) });
+    server.addResponse("/redirect.html"_s, { makeString("<script>window.location = 'http://localhost:"_s, server.port(), pathAndQuery, "';</script>"_s) });
+
+    auto webView = webViewAfterCrossSiteNavigationWithReducedPrivacy(makeString("http://localhost:"_s, server.port(), "/source.html"_s), true);
+
+    auto checkForExpectedQueryParameters = [](NSURL *url) {
+        auto parameters = [NSURLComponents componentsWithURL:url resolvingAgainstBaseURL:NO].queryItems;
+        EXPECT_EQ(1U, parameters.count);
+        EXPECT_WK_STREQ("someID", parameters.firstObject.name);
+        EXPECT_WK_STREQ("123", parameters.firstObject.value);
+    };
+
+    auto documentURLString = [webView stringByEvaluatingJavaScript:@"document.URL"];
+
+    checkForExpectedQueryParameters([NSURL URLWithString:documentURLString]);
+    checkForExpectedQueryParameters([webView URL]);
+}
+
+#endif // HAVE(SYSTEM_SUPPORT_FOR_ADVANCED_PRIVACY_PROTECTIONS)
 
 TEST(AdvancedPrivacyProtections, HideScreenMetricsFromBindings)
 {
@@ -748,9 +786,10 @@ TEST(AdvancedPrivacyProtections, ClampScreenSizeToFixedValues)
         EXPECT_EQ(expectedSize.height, sizeForBindings.height);
     };
 
-    runTestWithScreenSize(CGSizeMake(393, 852), CGSizeMake(414, 736));
-    runTestWithScreenSize(CGSizeMake(320,  568), CGSizeMake(320,  568));
-    runTestWithScreenSize(CGSizeMake(440,  900), CGSizeMake(414,  736));
+    runTestWithScreenSize(CGSizeMake(320, 568), CGSizeMake(320, 568));
+    runTestWithScreenSize(CGSizeMake(388, 844), CGSizeMake(390, 844));
+    runTestWithScreenSize(CGSizeMake(390, 848), CGSizeMake(390, 844));
+    runTestWithScreenSize(CGSizeMake(440, 900), CGSizeMake(414, 896));
 }
 
 #endif // PLATFORM(IOS_FAMILY)

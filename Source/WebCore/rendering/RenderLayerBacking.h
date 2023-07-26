@@ -88,7 +88,7 @@ public:
     void updateGeometry(const RenderLayer* compositingAncestor);
 
     // Update state the requires that descendant layers have been updated.
-    void updateAfterDescendants(bool reevaluateConfiguration);
+    void updateAfterDescendants();
 
     // Update contents and clipping structure.
     void updateDrawsContent();
@@ -289,6 +289,7 @@ public:
     WEBCORE_EXPORT void setIsTrackingDisplayListReplay(bool);
     WEBCORE_EXPORT String replayDisplayListAsText(OptionSet<DisplayList::AsTextFlag>) const;
 
+    bool shouldPaintUsingCompositeCopy() const { return m_shouldPaintUsingCompositeCopy; }
 private:
     friend class PaintedContentsInfo;
 
@@ -456,6 +457,7 @@ private:
 #if ENABLE(ASYNC_SCROLLING)
     bool m_needsEventRegionUpdate { true };
 #endif
+    bool m_shouldPaintUsingCompositeCopy { false };
 };
 
 enum CanvasCompositingStrategy {

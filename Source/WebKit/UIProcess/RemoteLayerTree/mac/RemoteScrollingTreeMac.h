@@ -47,6 +47,7 @@ public:
     virtual ~RemoteScrollingTreeMac();
 
     void scrollingTreeNodeScrollbarVisibilityDidChange(WebCore::ScrollingNodeID, ScrollbarOrientation, bool) override;
+    void scrollingTreeNodeScrollbarMinimumThumbLengthDidChange(WebCore::ScrollingNodeID, ScrollbarOrientation, int) override;
 
 private:
     void handleWheelEventPhase(WebCore::ScrollingNodeID, WebCore::PlatformWheelEventPhase) override;
@@ -69,6 +70,8 @@ private:
     // "Default handling" here refers to sending the event to the web process for synchronous scrolling, and DOM event handling.
     void willSendEventForDefaultHandling(const WebCore::PlatformWheelEvent&) override;
     void waitForEventDefaultHandlingCompletion(const WebCore::PlatformWheelEvent&) override;
+    void receivedEventAfterDefaultHandling(const WebCore::PlatformWheelEvent&, std::optional<WebCore::WheelScrollGestureState>) override;
+
     WheelEventHandlingResult handleWheelEventAfterDefaultHandling(const WebCore::PlatformWheelEvent&, WebCore::ScrollingNodeID, std::optional<WebCore::WheelScrollGestureState>) override;
 
     void deferWheelEventTestCompletionForReason(WebCore::ScrollingNodeID, WebCore::WheelEventTestMonitor::DeferReason) override;

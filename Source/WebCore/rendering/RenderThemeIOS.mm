@@ -347,7 +347,7 @@ void RenderThemeIOS::adjustCheckboxStyle(RenderStyle& style, const Element* elem
     if (!style.width().isIntrinsicOrAuto() && !style.height().isAuto())
         return;
 
-    int size = std::max(style.computedFontPixelSize(), 10U);
+    auto size = std::max(style.computedFontSize(), 10.f);
     style.setWidth({ size, LengthType::Fixed });
     style.setHeight({ size, LengthType::Fixed });
 }
@@ -506,10 +506,10 @@ void RenderThemeIOS::adjustRadioStyle(RenderStyle& style, const Element* element
     if (!style.width().isIntrinsicOrAuto() && !style.height().isAuto())
         return;
 
-    int size = std::max(style.computedFontPixelSize(), 10U);
+    auto size = std::max(style.computedFontSize(), 10.f);
     style.setWidth({ size, LengthType::Fixed });
     style.setHeight({ size, LengthType::Fixed });
-    style.setBorderRadius({ size / 2, size / 2 });
+    style.setBorderRadius({ static_cast<int>(size / 2), static_cast<int>(size / 2) });
 }
 
 void RenderThemeIOS::paintRadioDecorations(const RenderObject& box, const PaintInfo& paintInfo, const IntRect& rect)
@@ -601,7 +601,7 @@ void RenderThemeIOS::paintTextFieldInnerShadow(const PaintInfo& paintInfo, const
     const FloatSize innerShadowOffset { 0, 5 };
     constexpr auto innerShadowBlur = 10.0f;
     auto innerShadowColor = DisplayP3<float> { 0, 0, 0, 0.04f };
-    context.setShadow(innerShadowOffset, innerShadowBlur, innerShadowColor);
+    context.setDropShadow({ innerShadowOffset, innerShadowBlur, innerShadowColor, ShadowRadiusMode::Default });
     context.setFillColor(Color::black);
 
     Path innerShadowPath;
@@ -1373,7 +1373,7 @@ Color RenderThemeIOS::insertionPointColor()
 
 Color RenderThemeIOS::autocorrectionReplacementMarkerColor(const RenderText& renderer) const
 {
-    auto caretColor = CaretBase::computeCaretColor(renderer.style(), renderer.textNode(), std::nullopt);
+    auto caretColor = CaretBase::computeCaretColor(renderer.style(), renderer.textNode());
     if (!caretColor.isValid())
         caretColor = insertionPointColor();
 
@@ -1651,9 +1651,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return IconAndSize { result, size };
 }
 
-LayoutSize RenderThemeIOS::attachmentIntrinsicSize(const RenderAttachment& renderAttachment) const
+LayoutSize RenderThemeIOS::attachmentIntrinsicSize(const RenderAttachment&) const
 {
-    return LayoutSize(FloatSize(renderAttachment.attachmentElement().isImageOnly() ? attachmentImageOnlySize : attachmentSize) * attachmentDynamicTypeScaleFactor());
+    return LayoutSize(FloatSize(attachmentSize) * attachmentDynamicTypeScaleFactor());
 }
 
 static void paintAttachmentIcon(GraphicsContext& context, AttachmentLayout& info)
@@ -1720,7 +1720,7 @@ bool RenderThemeIOS::paintAttachment(const RenderObject& renderer, const PaintIn
 
     context.translate(toFloatSize(paintRect.location()));
 
-    if (attachment.shouldDrawBorder() && !attachment.attachmentElement().isImageOnly()) {
+    if (attachment.shouldDrawBorder()) {
         auto borderPath = attachmentBorderPath(info);
         paintAttachmentBorder(context, borderPath);
         context.clipPath(borderPath);
@@ -1852,7 +1852,7 @@ void RenderThemeIOS::paintCheckboxRadioInnerShadow(const PaintInfo& paintInfo, c
 
     bool isEmpty = !states.containsAny({ ControlStates::States::Checked, ControlStates::States::Indeterminate });
     auto firstShadowColor = DisplayP3<float> { 0, 0, 0, isEmpty ? 0.05f : 0.1f };
-    context.setShadow(innerShadowOffset, innerShadowBlur, firstShadowColor);
+    context.setDropShadow({ innerShadowOffset, innerShadowBlur, firstShadowColor, ShadowRadiusMode::Default });
     context.setFillColor(Color::black);
 
     Path innerShadowPath;
@@ -1869,7 +1869,7 @@ void RenderThemeIOS::paintCheckboxRadioInnerShadow(const PaintInfo& paintInfo, c
     context.fillPath(innerShadowPath);
 
     constexpr auto secondShadowColor = DisplayP3<float> { 1, 1, 1, 0.5f };
-    context.setShadow(FloatSize { 0, 0 }, 1, secondShadowColor);
+    context.setDropShadow({ FloatSize { 0, 0 }, 1, secondShadowColor, ShadowRadiusMode::Default });
 
     context.fillPath(innerShadowPath);
 }

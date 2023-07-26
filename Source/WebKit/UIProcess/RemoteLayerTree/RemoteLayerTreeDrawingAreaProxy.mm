@@ -27,6 +27,8 @@
 #import "RemoteLayerTreeDrawingAreaProxy.h"
 
 #import "DrawingAreaMessages.h"
+#import "DrawingAreaProxyMessages.h"
+#import "LayerProperties.h"
 #import "Logging.h"
 #import "MessageSenderInlines.h"
 #import "RemoteLayerTreeDrawingAreaProxyMessages.h"
@@ -66,16 +68,10 @@ RemoteLayerTreeDrawingAreaProxy::RemoteLayerTreeDrawingAreaProxy(WebPageProxy& p
 
 RemoteLayerTreeDrawingAreaProxy::~RemoteLayerTreeDrawingAreaProxy() = default;
 
-void RemoteLayerTreeDrawingAreaProxy::startReceivingMessages(WebProcessProxy& process)
+std::span<IPC::ReceiverName> RemoteLayerTreeDrawingAreaProxy::messageReceiverNames() const
 {
-    DrawingAreaProxy::startReceivingMessages(process);
-    process.addMessageReceiver(Messages::RemoteLayerTreeDrawingAreaProxy::messageReceiverName(), m_identifier, *this);
-}
-
-void RemoteLayerTreeDrawingAreaProxy::stopReceivingMessages(WebProcessProxy& process)
-{
-    DrawingAreaProxy::stopReceivingMessages(process);
-    process.removeMessageReceiver(Messages::RemoteLayerTreeDrawingAreaProxy::messageReceiverName(), m_identifier);
+    static std::array<IPC::ReceiverName, 2> names { Messages::DrawingAreaProxy::messageReceiverName(), Messages::RemoteLayerTreeDrawingAreaProxy::messageReceiverName() };
+    return { names };
 }
 
 std::unique_ptr<RemoteLayerTreeHost> RemoteLayerTreeDrawingAreaProxy::detachRemoteLayerTreeHost()
@@ -157,10 +153,25 @@ void RemoteLayerTreeDrawingAreaProxy::willCommitLayerTree(TransactionID transact
 
 void RemoteLayerTreeDrawingAreaProxy::commitLayerTree(IPC::Connection& connection, const Vector<std::pair<RemoteLayerTreeTransaction, RemoteScrollingCoordinatorTransaction>>& transactions)
 {
-    [CATransaction begin];
-    for (auto& transaction : transactions)
+    Vector<MachSendRight> sendRights;
+    for (auto& transaction : transactions) {
+        // commitLayerTreeTransaction consumes the incoming buffers, so we need to grab them first.
+        for (auto& [layerID, properties] : transaction.first.changedLayerProperties()) {
+            const auto backingStoreProperties = properties->backingStoreProperties.get();
+            if (!backingStoreProperties)
+                continue;
+            if (const auto& backendHandle = backingStoreProperties->bufferHandle()) {
+                if (const auto* sendRight = std::get_if<MachSendRight>(&backendHandle.value()))
+                    sendRights.append(*sendRight);
+            }
+        }
+
         commitLayerTreeTransaction(connection, transaction.first, transaction.second);
-    [CATransaction commit];
+    }
+
+    // Keep IOSurface send rights alive until the commit makes it to the render server, otherwise we will
+    // prematurely drop the only reference to them, and `inUse` will be wrong for a brief window.
+    [CATransaction addCommitHandler:[sendRights = WTFMove(sendRights)]() { } forPhase:kCATransactionPhasePostSynchronize];
 }
 
 void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection& connection, const RemoteLayerTreeTransaction& layerTreeTransaction, const RemoteScrollingCoordinatorTransaction& scrollingTreeTransaction)
@@ -216,8 +227,15 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection
 
     // Handle requested scroll position updates from the scrolling tree transaction after didCommitLayerTree()
     // has updated the view size based on the content size.
-    if (requestedScroll)
-        m_webPageProxy.requestScroll(requestedScroll->scrollPosition, layerTreeTransaction.scrollOrigin(), requestedScroll->animated);
+    if (requestedScroll) {
+        auto previousScrollPosition = m_webPageProxy.scrollingCoordinatorProxy()->currentMainFrameScrollPosition();
+        if (auto previousData = std::exchange(requestedScroll->requestedDataBeforeAnimatedScroll, std::nullopt)) {
+            auto& [type, positionOrDeltaBeforeAnimatedScroll, scrollType, clamping] = *previousData;
+            previousScrollPosition = type == ScrollRequestType::DeltaUpdate ? (m_webPageProxy.scrollingCoordinatorProxy()->currentMainFrameScrollPosition() + std::get<FloatSize>(positionOrDeltaBeforeAnimatedScroll)) : std::get<FloatPoint>(positionOrDeltaBeforeAnimatedScroll);
+        }
+
+        m_webPageProxy.requestScroll(requestedScroll->destinationPosition(previousScrollPosition), layerTreeTransaction.scrollOrigin(), requestedScroll->animated);
+    }
 #endif // ENABLE(ASYNC_SCROLLING)
 
     if (m_debugIndicatorLayerTreeHost) {

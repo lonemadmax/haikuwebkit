@@ -26,6 +26,7 @@
 
 #include "AnimationList.h"
 #include "CSSLineBoxContainValue.h"
+#include "Element.h"
 #include "FontCascadeDescription.h"
 #include "GraphicsTypes.h"
 #include "ImageOrientation.h"
@@ -50,7 +51,6 @@
 #include "StyleTransformData.h"
 #include "StyleVisitedLinkColorData.h"
 #include "UnicodeBidi.h"
-#include "WordBoundaryDetection.h"
 
 #if ENABLE(APPLE_PAY)
 #include "ApplePayButtonPart.h"
@@ -169,8 +169,12 @@ inline const AtomString& RenderStyle::computedLocale() const { return fontDescri
 inline OptionSet<Containment> RenderStyle::contain() const { return m_nonInheritedData->rareData->contain; }
 inline std::optional<Length> RenderStyle::containIntrinsicHeight() const { return m_nonInheritedData->rareData->containIntrinsicHeight; }
 inline ContainIntrinsicSizeType RenderStyle::containIntrinsicHeightType() const { return static_cast<ContainIntrinsicSizeType>(m_nonInheritedData->rareData->containIntrinsicHeightType); }
+inline bool RenderStyle::containIntrinsicHeightHasAuto() const { return containIntrinsicHeightType() == ContainIntrinsicSizeType::AutoAndLength || containIntrinsicHeightType() == ContainIntrinsicSizeType::AutoAndNone; }
+inline bool RenderStyle::containIntrinsicLogicalHeightHasAuto() const { return isHorizontalWritingMode() ? containIntrinsicHeightHasAuto() : containIntrinsicWidthHasAuto(); }
 inline ContainIntrinsicSizeType RenderStyle::containIntrinsicLogicalHeightType() const { return isHorizontalWritingMode() ? containIntrinsicHeightType() : containIntrinsicWidthType(); }
 inline ContainIntrinsicSizeType RenderStyle::containIntrinsicLogicalWidthType() const { return isHorizontalWritingMode() ? containIntrinsicWidthType() : containIntrinsicHeightType(); }
+inline bool RenderStyle::containIntrinsicWidthHasAuto() const { return containIntrinsicWidthType() == ContainIntrinsicSizeType::AutoAndLength || containIntrinsicWidthType() == ContainIntrinsicSizeType::AutoAndNone; }
+inline bool RenderStyle::containIntrinsicLogicalWidthHasAuto() const { return isHorizontalWritingMode() ? containIntrinsicWidthHasAuto() : containIntrinsicHeightHasAuto(); }
 inline std::optional<Length> RenderStyle::containIntrinsicWidth() const { return m_nonInheritedData->rareData->containIntrinsicWidth; }
 inline ContainIntrinsicSizeType RenderStyle::containIntrinsicWidthType() const { return static_cast<ContainIntrinsicSizeType>(m_nonInheritedData->rareData->containIntrinsicWidthType); }
 inline const Vector<AtomString>& RenderStyle::containerNames() const { return m_nonInheritedData->rareData->containerNames; }
@@ -191,7 +195,7 @@ inline StyleAppearance RenderStyle::effectiveAppearance() const { return static_
 inline OptionSet<Containment> RenderStyle::effectiveContainment() const { return m_nonInheritedData->rareData->effectiveContainment(); }
 inline bool RenderStyle::effectiveInert() const { return m_rareInheritedData->effectiveInert; }
 inline PointerEvents RenderStyle::effectivePointerEvents() const { return effectiveInert() ? PointerEvents::None : pointerEvents(); }
-inline bool RenderStyle::effectiveSkipsContent() const { return m_rareInheritedData->effectiveSkipsContent; }
+inline bool RenderStyle::effectiveSkippedContent() const { return m_rareInheritedData->effectiveSkippedContent; }
 inline CSSPropertyID RenderStyle::effectiveStrokeColorProperty() const { return hasExplicitlySetStrokeColor() ? CSSPropertyStrokeColor : CSSPropertyWebkitTextStrokeColor; }
 inline OptionSet<TouchAction> RenderStyle::effectiveTouchActions() const { return m_rareInheritedData->effectiveTouchActions; }
 inline UserModify RenderStyle::effectiveUserModify() const { return effectiveInert() ? UserModify::ReadOnly : userModify(); }
@@ -252,7 +256,7 @@ inline bool RenderStyle::hasAutoCaretColor() const { return m_rareInheritedData-
 inline bool RenderStyle::hasAutoColumnCount() const { return m_nonInheritedData->miscData->multiCol->autoCount; }
 inline bool RenderStyle::hasAutoColumnWidth() const { return m_nonInheritedData->miscData->multiCol->autoWidth; }
 inline bool RenderStyle::hasAutoLeftAndRight() const { return left().isAuto() && right().isAuto(); }
-inline bool RenderStyle::hasAutoLengthContainIntrinsicSize() const { return containIntrinsicWidthType() == ContainIntrinsicSizeType::AutoAndLength || containIntrinsicHeightType() == ContainIntrinsicSizeType::AutoAndLength; }
+inline bool RenderStyle::hasAutoLengthContainIntrinsicSize() const { return containIntrinsicWidthHasAuto() || containIntrinsicHeightHasAuto(); }
 inline bool RenderStyle::hasAutoOrphans() const { return m_rareInheritedData->hasAutoOrphans; }
 inline bool RenderStyle::hasAutoSpecifiedZIndex() const { return m_nonInheritedData->boxData->hasAutoSpecifiedZIndex(); }
 inline bool RenderStyle::hasAutoTopAndBottom() const { return top().isAuto() && bottom().isAuto(); }
@@ -463,6 +467,7 @@ constexpr TextEmphasisFill RenderStyle::initialTextEmphasisFill() { return TextE
 constexpr TextEmphasisMark RenderStyle::initialTextEmphasisMark() { return TextEmphasisMark::None; }
 constexpr OptionSet<TextEmphasisPosition> RenderStyle::initialTextEmphasisPosition() { return { TextEmphasisPosition::Over, TextEmphasisPosition::Right }; }
 inline StyleColor RenderStyle::initialTextFillColor() { return StyleColor::currentColor(); }
+inline bool RenderStyle::hasExplicitlySetColor() const { return m_inheritedFlags.hasExplicitlySetColor; }
 constexpr TextGroupAlign RenderStyle::initialTextGroupAlign() { return TextGroupAlign::None; }
 inline Length RenderStyle::initialTextIndent() { return zeroLength(); }
 constexpr TextIndentLine RenderStyle::initialTextIndentLine() { return TextIndentLine::FirstLine; }
@@ -492,7 +497,6 @@ constexpr VerticalAlign RenderStyle::initialVerticalAlign() { return VerticalAli
 constexpr Visibility RenderStyle::initialVisibility() { return Visibility::Visible; }
 constexpr WhiteSpace RenderStyle::initialWhiteSpace() { return WhiteSpace::Normal; }
 constexpr WhiteSpaceCollapse RenderStyle::initialWhiteSpaceCollapse() { return WhiteSpaceCollapse::Collapse; }
-inline WordBoundaryDetection RenderStyle::initialWordBoundaryDetection() { return WordBoundaryDetectionNormal { }; }
 constexpr WordBreak RenderStyle::initialWordBreak() { return WordBreak::Normal; }
 inline Length RenderStyle::initialWordSpacing() { return zeroLength(); }
 constexpr WritingMode RenderStyle::initialWritingMode() { return WritingMode::TopToBottom; }
@@ -717,13 +721,13 @@ inline unsigned short RenderStyle::widows() const { return m_rareInheritedData->
 inline const Length& RenderStyle::width() const { return m_nonInheritedData->boxData->width(); }
 inline WillChangeData* RenderStyle::willChange() const { return m_nonInheritedData->rareData->willChange.get(); }
 inline bool RenderStyle::willChangeCreatesStackingContext() const { return willChange() && willChange()->canCreateStackingContext(); }
-inline const WordBoundaryDetection& RenderStyle::wordBoundaryDetection() const { return m_rareInheritedData->wordBoundaryDetection; }
 inline WordBreak RenderStyle::wordBreak() const { return static_cast<WordBreak>(m_rareInheritedData->wordBreak); }
 constexpr LengthType RenderStyle::zeroLength() { return LengthType::Fixed; }
 inline float RenderStyle::zoom() const { return m_nonInheritedData->rareData->zoom; }
 
 // ignore non-standard ::-webkit-scrollbar when standard properties are in use
-inline bool RenderStyle::usesLegacyScrollbarStyle() const { return hasPseudoStyle(PseudoId::Scrollbar) && scrollbarWidth() == ScrollbarWidth::Auto && !scrollbarColor().has_value(); }
+inline bool RenderStyle::usesStandardScrollbarStyle() const { return scrollbarWidth() != ScrollbarWidth::Auto || scrollbarColor().has_value(); }
+inline bool RenderStyle::usesLegacyScrollbarStyle() const { return hasPseudoStyle(PseudoId::Scrollbar) && !usesStandardScrollbarStyle(); }
 
 #if ENABLE(APPLE_PAY)
 inline ApplePayButtonStyle RenderStyle::applePayButtonStyle() const { return static_cast<ApplePayButtonStyle>(m_nonInheritedData->rareData->applePayButtonStyle); }
@@ -803,7 +807,8 @@ inline bool RenderStyle::InheritedFlags::operator==(const InheritedFlags& other)
         && pointerEvents == other.pointerEvents
         && insideLink == other.insideLink
         && insideDefaultButton == other.insideDefaultButton
-        && writingMode == other.writingMode;
+        && writingMode == other.writingMode
+        && hasExplicitlySetColor == other.hasExplicitlySetColor;
 }
 
 inline bool RenderStyle::NonInheritedFlags::operator==(const NonInheritedFlags& other) const
@@ -963,6 +968,21 @@ constexpr bool RenderStyle::preserveNewline(WhiteSpace mode)
 {
     // Normal and nowrap do not preserve newlines.
     return mode != WhiteSpace::Normal && mode != WhiteSpace::NoWrap;
+}
+
+inline bool isSkippedContentRoot(const RenderStyle& style, const Element* element)
+{
+    switch (style.contentVisibility()) {
+    case ContentVisibility::Visible:
+        return false;
+    case ContentVisibility::Hidden:
+        return true;
+    case ContentVisibility::Auto:
+        return element && !element->isRelevantToUser();
+    };
+
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 inline float adjustFloatForAbsoluteZoom(float value, const RenderStyle& style)

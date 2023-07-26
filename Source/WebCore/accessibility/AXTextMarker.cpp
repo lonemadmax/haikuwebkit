@@ -204,9 +204,11 @@ RefPtr<AXCoreObject> AXTextMarker::object() const
 String AXTextMarker::debugDescription() const
 {
     auto separator = ", ";
+    RefPtr object = this->object();
     return makeString(
         "treeID ", treeID().loggingString()
         , separator, "objectID ", objectID().loggingString()
+        , separator, "role ", object ? accessibilityRoleToString(object->roleValue()) : String("no object"_s)
         , separator, isMainThread() ? node()->debugDescription()
             : makeString("node 0x", hex(reinterpret_cast<uintptr_t>(m_data.node)))
         , separator, "offset ", m_data.offset
@@ -275,6 +277,19 @@ std::optional<SimpleRange> AXTextMarkerRange::simpleRange() const
     return { { *startBoundaryPoint, *endBoundaryPoint } };
 }
 
+std::optional<CharacterRange> AXTextMarkerRange::characterRange() const
+{
+    if (m_start.m_data.objectID != m_end.m_data.objectID
+        || m_start.m_data.treeID != m_end.m_data.treeID)
+        return std::nullopt;
+
+    if (m_start.m_data.characterOffset > m_end.m_data.characterOffset) {
+        ASSERT_NOT_REACHED();
+        return std::nullopt;
+    }
+    return { { m_start.m_data.characterOffset, m_end.m_data.characterOffset - m_start.m_data.characterOffset } };
+}
+
 std::partial_ordering partialOrder(const AXTextMarker& marker1, const AXTextMarker& marker2)
 {
     if (marker1.objectID() == marker2.objectID() && marker1.treeID() == marker2.treeID()) {
@@ -296,6 +311,13 @@ std::partial_ordering partialOrder(const AXTextMarker& marker1, const AXTextMark
         result = treeOrder<ComposedTree>(*startBoundaryPoint, *endBoundaryPoint);
     });
     return result;
+}
+
+bool AXTextMarkerRange::isConfinedTo(AXID objectID) const
+{
+    return m_start.objectID() == objectID
+        && m_end.objectID() == objectID
+        && LIKELY(m_start.treeID() == m_end.treeID());
 }
 
 } // namespace WebCore

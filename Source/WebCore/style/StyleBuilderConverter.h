@@ -48,7 +48,6 @@
 #include "CSSReflectValue.h"
 #include "CSSSubgridValue.h"
 #include "CSSValuePair.h"
-#include "CSSWordBoundaryDetectionValue.h"
 #include "CalcExpressionLength.h"
 #include "CalcExpressionOperation.h"
 #include "CalculationValue.h"
@@ -76,7 +75,7 @@
 #include "TextSpacing.h"
 #include "TouchAction.h"
 #include "TransformFunctions.h"
-#include "WordBoundaryDetection.h"
+#include "WillChangeData.h"
 
 namespace WebCore {
 namespace Style {
@@ -198,6 +197,8 @@ public:
     static GapLength convertGapLength(BuilderState&, const CSSValue&);
 
     static OffsetRotation convertOffsetRotate(BuilderState&, const CSSValue&);
+
+    static OptionSet<Containment> convertContain(BuilderState&, const CSSValue&);
     static Vector<AtomString> convertContainerName(BuilderState&, const CSSValue&);
 
     static OptionSet<MarginTrimType> convertMarginTrim(BuilderState&, const CSSValue&);
@@ -206,8 +207,7 @@ public:
     static TextAutospace convertTextAutospace(BuilderState&, const CSSValue&);
 
     static std::optional<Length> convertBlockStepSize(BuilderState&, const CSSValue&);
-
-    static WordBoundaryDetection convertWordBoundaryDetection(BuilderState&, const CSSValue&);
+    static RefPtr<WillChangeData> convertWillChange(BuilderState&, const CSSValue&);
     
 private:
     friend class BuilderCustom;
@@ -1967,9 +1967,75 @@ inline std::optional<Length> BuilderConverter::convertBlockStepSize(BuilderState
     return convertLength(builderState, value);
 }
 
-inline WordBoundaryDetection BuilderConverter::convertWordBoundaryDetection(BuilderState&, const CSSValue& value)
+inline OptionSet<Containment> BuilderConverter::convertContain(BuilderState&, const CSSValue& value)
 {
-    return downcast<CSSWordBoundaryDetectionValue>(value).value();
+    if (is<CSSPrimitiveValue>(value)) {
+        if (value.valueID() == CSSValueNone)
+            return RenderStyle::initialContainment();
+        if (value.valueID() == CSSValueStrict)
+            return RenderStyle::strictContainment();
+        return RenderStyle::contentContainment();
+    }
+
+    OptionSet<Containment> containment;
+    for (auto& item : downcast<CSSValueList>(value)) {
+        auto& value = downcast<CSSPrimitiveValue>(item);
+        switch (value.valueID()) {
+        case CSSValueSize:
+            containment.add(Containment::Size);
+            break;
+        case CSSValueInlineSize:
+            containment.add(Containment::InlineSize);
+            break;
+        case CSSValueLayout:
+            containment.add(Containment::Layout);
+            break;
+        case CSSValuePaint:
+            containment.add(Containment::Paint);
+            break;
+        case CSSValueStyle:
+            containment.add(Containment::Style);
+            break;
+        default:
+            ASSERT_NOT_REACHED();
+            break;
+        };
+    }
+    return containment;
+}
+
+inline RefPtr<WillChangeData> BuilderConverter::convertWillChange(BuilderState& builderState, const CSSValue& value)
+{
+    if (value.valueID() == CSSValueAuto)
+        return nullptr;
+
+    auto willChange = WillChangeData::create();
+    auto processSingleValue = [&](const CSSValue& item) {
+        if (!is<CSSPrimitiveValue>(item))
+            return;
+        auto& primitiveValue = downcast<CSSPrimitiveValue>(item);
+        switch (primitiveValue.valueID()) {
+        case CSSValueScrollPosition:
+            willChange->addFeature(WillChangeData::Feature::ScrollPosition);
+            break;
+        case CSSValueContents:
+            willChange->addFeature(WillChangeData::Feature::Contents);
+            break;
+        default:
+            if (primitiveValue.isPropertyID()) {
+                if (!isExposed(primitiveValue.propertyID(), &builderState.document().settings()))
+                    break;
+                willChange->addFeature(WillChangeData::Feature::Property, primitiveValue.propertyID());
+            }
+            break;
+        }
+    };
+    if (is<CSSValueList>(value)) {
+        for (auto& item : downcast<CSSValueList>(value))
+            processSingleValue(item);
+    } else
+        processSingleValue(value);
+    return willChange;
 }
 
 } // namespace Style
