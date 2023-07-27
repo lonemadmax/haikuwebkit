@@ -45,7 +45,7 @@ bool GlyphPage::fill(UChar* buffer, unsigned bufferLength)
         if (character == iterator.end())
             break;
 
-        setGlyphForIndex(i, character);
+        setGlyphForIndex(i, character, ColorGlyphType::Outline);
     }
 
     return true;

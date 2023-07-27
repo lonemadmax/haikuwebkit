@@ -227,7 +227,7 @@ void EditorClientHaiku::getClientPasteboardData(const std::optional<SimpleRange>
 {
 }
 
-void EditorClientHaiku::discardedComposition(LocalFrame*)
+void EditorClientHaiku::discardedComposition(const Document&)
 {
 }
 

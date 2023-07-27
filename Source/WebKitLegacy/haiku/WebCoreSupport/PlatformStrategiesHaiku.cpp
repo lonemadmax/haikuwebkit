@@ -63,25 +63,25 @@ PasteboardStrategy* PlatformStrategiesHaiku::createPasteboardStrategy()
 
 class WebBlobRegistry final : public BlobRegistry {
 private:
-    void registerFileBlobURL(const URL& url, Ref<BlobDataFileReference>&& reference, const String& contentType, const String&) final override
+    void registerInternalFileBlobURL(const URL& url, Ref<BlobDataFileReference>&& reference, const String& contentType, const String&) final override
     {
-        m_blobRegistry.registerFileBlobURL(url, WTFMove(reference), contentType);
+        m_blobRegistry.registerInternalFileBlobURL(url, WTFMove(reference), contentType);
     }
-    void registerBlobURL(const URL& url, Vector<BlobPart>&& parts, const String& contentType) final override
+    void registerInternalBlobURL(const URL& url, Vector<BlobPart>&& parts, const String& contentType) final override
     {
-        m_blobRegistry.registerBlobURL(url, WTFMove(parts), contentType);
+        m_blobRegistry.registerInternalBlobURL(url, WTFMove(parts), contentType);
     }
     void registerBlobURL(const URL& url, const URL& srcURL, const PolicyContainer& container) final override
     {
         m_blobRegistry.registerBlobURL(url, srcURL, container);
     }
-    void registerBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, RefPtr<BlobDataFileReference>&& reference, const String& contentType) final override
+    void registerInternalBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, RefPtr<BlobDataFileReference>&& reference, const String& contentType) final override
     {
-        m_blobRegistry.registerBlobURLOptionallyFileBacked(url, srcURL, WTFMove(reference), contentType, { });
+        m_blobRegistry.registerInternalBlobURLOptionallyFileBacked(url, srcURL, WTFMove(reference), contentType, { });
     }
-    void registerBlobURLForSlice(const URL& url, const URL& srcURL, long long start, long long end, const String& contentType) final override
+    void registerInternalBlobURLForSlice(const URL& url, const URL& srcURL, long long start, long long end, const String& contentType) final override
     {
-        m_blobRegistry.registerBlobURLForSlice(url, srcURL, start, end, contentType);
+        m_blobRegistry.registerInternalBlobURLForSlice(url, srcURL, start, end, contentType);
     }
     void unregisterBlobURL(const URL& url) final override
     {

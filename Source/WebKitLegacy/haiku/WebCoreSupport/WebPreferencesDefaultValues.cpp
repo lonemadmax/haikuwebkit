@@ -34,5 +34,10 @@ bool defaultPopoverAttributeEnabled()
     return true;
 }
 
+bool defaultSearchInputIncrementalAttributeAndSearchEventEnabled()
+{
+    return true;
+}
+
 };
 

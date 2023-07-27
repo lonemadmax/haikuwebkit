@@ -6,6 +6,8 @@ if(USE_CURL)
   include(platform/Curl.cmake)
   list(APPEND WebCore_SOURCES
     platform/network/haiku/CurlSSLHandleHaiku.cpp
+    platform/network/curl/CurlCacheEntry.cpp
+    platform/network/curl/CurlCacheManager.cpp
   )
   list(APPEND WebCore_LIBRARIES unistring idn2)
 else()

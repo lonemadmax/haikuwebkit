@@ -81,7 +81,7 @@ public:
 
     void respondToChangedContents() override;
     void respondToChangedSelection(LocalFrame*) override;
-    void discardedComposition(LocalFrame*) override;
+    void discardedComposition(const Document&) override;
     void canceledComposition() override;
 
     void registerUndoStep(UndoStep&) override;
