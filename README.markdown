@@ -24,13 +24,14 @@ Dependencies can be installed (for a gcc2hybrid version) via:
 
     $ pkgman install cmake_x86 gcc_x86 gperf haiku_x86_devel libjpeg_turbo_x86_devel \
     libjxl_x86_devel sqlite_x86_devel libpng16_x86_devel libxml2_x86_devel libxslt_x86_devel \
-    icu66_x86_devel perl python ruby_x86 libexecinfo_x86_devel libwebp_x86_devel ninja_x86 \
+    icu66_x86_devel perl python310 ruby_x86 libexecinfo_x86_devel libwebp_x86_devel ninja_x86 \
     pkgconfig_x86 pywebsocket libpsl_x86_devel libidn2_x86_devel libunistring_x86_devel \
     libavif_x86_devel
 
 Additionally if you want to run the tests:
 
     $ pkgman install lighttpd_x86
+    $ gem install webrick
 
 For the other versions of Haiku, it should be similar but remove all the _x86 suffixes from the
 package names.
@@ -131,7 +132,7 @@ distcc.
 ### Testing the test framework ###
     $ ruby Tools/Scripts/test-webkitruby
     $ perl Tools/Scripts/test-webkitperl
-    $ python Tools/Scripts/test-webkitpy
+    $ python3.10 Tools/Scripts/test-webkitpy
 
 The ruby tests pass (all 2 of them!)
 The perl test almost pass: Failed 1/27 test programs. 1/482 subtests failed.
@@ -194,7 +195,7 @@ can't be stored in the git repo):
 
 You can then run the testsuite:
 
-    $ python Tools/Scripts/run-webkit-tests --platform=haiku --dump-render-tree --no-build \
+    $ python3.10 Tools/Scripts/run-webkit-tests --platform=haiku --dump-render-tree --no-build \
         --no-retry-failures --clobber-old-results --no-new-test-results
 
 The options will prevent the script to try updating DumpRenderTree (it doesn't
