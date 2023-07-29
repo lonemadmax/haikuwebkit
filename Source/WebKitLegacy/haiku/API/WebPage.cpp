@@ -91,6 +91,7 @@
 #include "WebCore/ResourceRequest.h"
 #include "WebCore/ScriptController.h"
 #include "WebCore/Settings.h"
+#include "WebCore/ThreadGlobalData.h"
 #include "WebCore/UserContentController.h"
 #include <WebCore/WebLockRegistry.h>
 
@@ -182,7 +183,6 @@ void WebKitInitializeLogChannelsIfNecessary();
 	// NOTE: This needs to be called when the BApplication is ready.
 	// It won't work as static initialization.
 #if !LOG_DISABLED
-    logChannels().initializeLogChannelsIfNecessary(String::fromUTF8("all=all"));
     WebKitInitializeLogChannelsIfNecessary();
 #endif
     PlatformStrategiesHaiku::initialize();
@@ -211,7 +211,9 @@ void WebKitInitializeLogChannelsIfNecessary();
 	WebKit::iconDatabase().close();
 
 	// There is a crash on exit if the font cache is not empty, so make sure it is
+	// Destroying the thread global data also helps cutting that dependency cycle
 	WebCore::FontCache::invalidateAllFontCaches(WebCore::FontCache::ShouldRunInvalidationCallback::No);
+	WebCore::threadGlobalData().destroy();
 }
 
 /*static*/ void BWebPage::SetCacheModel(BWebKitCacheModel model)
@@ -782,8 +784,8 @@ void BWebPage::requestDownload(const WebCore::ResourceRequest& request,
 
 void BWebPage::paint(BRect rect, bool immediate)
 {
-	if (!rect.IsValid())
-		return;
+    if (!rect.IsValid())
+        return;
     // Block any drawing as long as the BWebView is hidden
     // (should be extended to when the containing BWebWindow is not
     // currently on screen either...)

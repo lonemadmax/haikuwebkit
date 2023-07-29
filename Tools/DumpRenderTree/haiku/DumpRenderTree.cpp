@@ -419,6 +419,7 @@ public:
     DumpRenderTreeApp();
     ~DumpRenderTreeApp() {
         delete m_webWindow->CurrentWebView();
+        BWebPage::ShutdownOnce();
     }
 
     // BApplication
