@@ -252,7 +252,7 @@ static void pathSegmentApplierCallback(void* info, const CGPathElement* element)
         break;
 
     case kCGPathElementCloseSubpath:
-        applier({ std::monostate() });
+        applier({ PathCloseSubpath { } });
         break;
     }
 }
@@ -290,9 +290,10 @@ static void pathElementApplierCallback(void* info, const CGPathElement* element)
     }
 }
 
-void PathCG::applyElements(const PathElementApplier& applier) const
+bool PathCG::applyElements(const PathElementApplier& applier) const
 {
     CGPathApply(platformPath(), (void*)&applier, pathElementApplierCallback);
+    return true;
 }
 
 bool PathCG::isEmpty() const

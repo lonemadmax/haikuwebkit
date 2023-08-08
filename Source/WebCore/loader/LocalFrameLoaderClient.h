@@ -369,6 +369,8 @@ public:
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
     virtual void modelInlinePreviewUUIDs(CompletionHandler<void(Vector<String>)>&&) const { }
 #endif
+
+    virtual void broadcastFrameRemovalToOtherProcesses() = 0;
 };
 
 } // namespace WebCore

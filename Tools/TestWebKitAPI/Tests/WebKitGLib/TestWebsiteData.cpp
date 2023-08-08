@@ -381,6 +381,9 @@ static void testWebsiteDataEphemeral(WebViewTest* test, gconstpointer)
     // Non persistent data can be queried in an ephemeral manager.
 #if ENABLE(2022_GLIB_API)
     auto webView = Test::adoptView(g_object_new(WEBKIT_TYPE_WEB_VIEW,
+#if PLATFORM(WPE)
+        "backend", Test::createWebViewBackend(),
+#endif
         "web-context", webkit_web_view_get_context(test->m_webView),
         "network-session", session.get(),
         nullptr));
@@ -657,7 +660,13 @@ static void prepopulateHstsData()
     // an IP address instead of a domain. In order to be able to test the data manager API with HSTS website data, we
     // prepopulate the HSTS storage using the libsoup API directly.
 
+#if !ENABLE(2022_GLIB_API)
     GUniquePtr<char> hstsDatabase(g_build_filename(Test::dataDirectory(), "hsts-storage.sqlite", nullptr));
+#else
+    GUniquePtr<char> hstsCacheDirectory(g_build_filename(Test::dataDirectory(), "HSTS", nullptr));
+    GUniquePtr<char> hstsDatabase(g_build_filename(hstsCacheDirectory.get(), "hsts-storage.sqlite", nullptr));
+    g_mkdir_with_parents(hstsCacheDirectory.get(), 0700);
+#endif
     GRefPtr<SoupHSTSEnforcer> enforcer = adoptGRef(soup_hsts_enforcer_db_new(hstsDatabase.get()));
     GUniquePtr<SoupHSTSPolicy> policy(soup_hsts_policy_new("webkitgtk.org", 3600, true));
     soup_hsts_enforcer_set_policy(enforcer.get(), policy.get());
@@ -932,7 +941,18 @@ static void testWebViewHandleCorruptedLocalStorage(WebsiteDataTest* test, gconst
     g_assert_cmpstr(fooValue.get(), ==, "");
 
     // Creating a second web view and loading a web page with the same url to read the item from localStorage.
+#if ENABLE(2022_GLIB_API)
+    auto webView = Test::adoptView(g_object_new(WEBKIT_TYPE_WEB_VIEW,
+#if PLATFORM(WPE)
+        "backend", Test::createWebViewBackend(),
+#endif
+        "web-context", webkit_web_view_get_context(test->m_webView),
+        "network-session", test->m_networkSession.get(),
+        nullptr));
+    g_assert_true(webkit_web_view_get_network_session(webView.get()) == test->m_networkSession.get());
+#else
     auto webView = Test::adoptView(Test::createWebView(test->m_webContext.get()));
+#endif
     test->assertObjectIsDeletedWhenTestFinishes(G_OBJECT(webView.get()));
     webkit_web_view_load_html(webView.get(), html, "http://example.com");
     test->waitUntilLoadFinished(webView.get());

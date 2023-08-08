@@ -88,7 +88,7 @@ public:
     void setAcceleratedEffectsAndBaseValues(const WebCore::AcceleratedEffects&, WebCore::AcceleratedEffectValues&) override;
 #endif
 
-    void setMask(WebCore::PlatformCALayer*) override;
+    void setMaskLayer(RefPtr<WebCore::PlatformCALayer>&&) override;
 
     bool isOpaque() const override;
     void setOpaque(bool) override;
@@ -121,7 +121,7 @@ public:
     bool backingStoreAttached() const override;
 
 #if ENABLE(INTERACTION_REGIONS_IN_EVENT_REGION)
-    void setCoverageRect(const WebCore::FloatRect&) override;
+    void setVisibleRect(const WebCore::FloatRect&) override;
 #endif
 
     bool geometryFlipped() const override;
@@ -263,7 +263,6 @@ private:
     LayerProperties m_properties;
     WebCore::PlatformCALayerList m_children;
     PlatformCALayerRemote* m_superlayer { nullptr };
-    PlatformCALayerRemote* m_maskLayer { nullptr };
     HashMap<String, RefPtr<WebCore::PlatformCAAnimation>> m_animations;
 
     bool m_acceleratesDrawing { false };

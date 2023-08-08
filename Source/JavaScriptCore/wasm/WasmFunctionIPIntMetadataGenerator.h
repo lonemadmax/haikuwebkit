@@ -66,10 +66,9 @@ class FunctionIPIntMetadataGenerator {
     friend class IPIntCallee;
 
 public:
-    FunctionIPIntMetadataGenerator(uint32_t functionIndex, const uint8_t* bytecode, const uint32_t bytecodeLength)
+    FunctionIPIntMetadataGenerator(uint32_t functionIndex, const uint8_t* bytecode, const uint32_t)
         : m_functionIndex(functionIndex)
         , m_bytecode(bytecode)
-        , m_bytecodeLength(bytecodeLength)
     {
     }
 
@@ -79,6 +78,8 @@ public:
 
     const uint8_t* getBytecode() const { return m_bytecode; }
     const uint8_t* getMetadata() const { return m_metadata.data(); }
+
+    unsigned addSignature(const TypeDefinition&);
 
 private:
 
@@ -93,8 +94,9 @@ private:
     BitVector m_tailCallSuccessors;
 
     const uint8_t* m_bytecode;
-    const uint32_t m_bytecodeLength;
+    uint32_t m_bytecodeLength { 0 };
     Vector<uint8_t> m_metadata { };
+    uint32_t m_returnMetadata { 0 };
 
     uint32_t m_bytecodeOffset { 0 };
     unsigned m_numLocals { 0 };
@@ -102,6 +104,8 @@ private:
     unsigned m_numArgumentsOnStack { 0 };
     unsigned m_nonArgLocalOffset { 0 };
     Vector<uint32_t> m_argumentLocations { };
+
+    Vector<const TypeDefinition*> m_signatures;
 };
 
 } } // namespace JSC::Wasm

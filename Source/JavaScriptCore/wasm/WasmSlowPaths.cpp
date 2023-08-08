@@ -424,6 +424,17 @@ WASM_SLOW_PATH_DECL(ref_func)
     WASM_RETURN(Wasm::refFunc(instance, instruction.m_functionIndex));
 }
 
+WASM_IPINT_EXTERN_CPP_DECL(ref_func, unsigned index)
+{
+#if CPU(ARM64) || CPU(X86_64)
+    WASM_RETURN_TWO(bitwise_cast<void*>(Wasm::refFunc(instance, index)), 0);
+#else
+    UNUSED_PARAM(instance);
+    UNUSED_PARAM(index);
+    RELEASE_ASSERT_NOT_REACHED("IPInt only supported on ARM64 and X86_64 (for now)");
+#endif
+}
+
 WASM_SLOW_PATH_DECL(array_new)
 {
     auto instruction = pc->as<WasmArrayNew>();
@@ -548,6 +559,21 @@ WASM_SLOW_PATH_DECL(table_get)
     WASM_RETURN(result);
 }
 
+WASM_IPINT_EXTERN_CPP_DECL(table_get, unsigned tableIndex, unsigned index)
+{
+#if CPU(ARM64) || CPU(X86_64)
+    EncodedJSValue result = Wasm::tableGet(instance, tableIndex, index);
+    if (!result)
+        WASM_RETURN_TWO(bitwise_cast<void*>(1L), bitwise_cast<void*>(static_cast<uint64_t>(Wasm::ExceptionType::OutOfBoundsTableAccess)));
+    WASM_RETURN_TWO(bitwise_cast<void*>(result), 0);
+#else
+    UNUSED_PARAM(instance);
+    UNUSED_PARAM(tableIndex);
+    UNUSED_PARAM(index);
+    RELEASE_ASSERT_NOT_REACHED("IPInt only supported on ARMv8 and X86_64 (for now)");
+#endif
+}
+
 WASM_SLOW_PATH_DECL(table_set)
 {
     auto instruction = pc->as<WasmTableSet>();
@@ -556,6 +582,21 @@ WASM_SLOW_PATH_DECL(table_set)
     if (!Wasm::tableSet(instance, instruction.m_tableIndex, index, value))
         WASM_THROW(Wasm::ExceptionType::OutOfBoundsTableAccess);
     WASM_END();
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(table_set, unsigned tableIndex, unsigned index, EncodedJSValue value)
+{
+#if CPU(ARM64) || CPU(X86_64)
+    if (!Wasm::tableSet(instance, tableIndex, index, value))
+        WASM_RETURN_TWO(bitwise_cast<void*>(1L), bitwise_cast<void*>(static_cast<uint64_t>(Wasm::ExceptionType::OutOfBoundsTableAccess)));
+    WASM_RETURN_TWO(0, 0);
+#else
+    UNUSED_PARAM(instance);
+    UNUSED_PARAM(tableIndex);
+    UNUSED_PARAM(index);
+    UNUSED_PARAM(value);
+    RELEASE_ASSERT_NOT_REACHED("IPInt only supports ARM64 and X86_64 (for now)");
+#endif
 }
 
 WASM_SLOW_PATH_DECL(table_init)
@@ -569,6 +610,24 @@ WASM_SLOW_PATH_DECL(table_init)
     WASM_END();
 }
 
+WASM_IPINT_EXTERN_CPP_DECL(table_init, uint32_t* metadata, uint32_t dest, uint64_t srcAndLength)
+{
+#if CPU(ARM64) || CPU(X86_64)
+    uint32_t dstOffset = dest;
+    uint32_t srcOffset = srcAndLength >> 32;
+    uint32_t length = srcAndLength & 0xffffffff;
+    if (!Wasm::tableInit(instance, metadata[0], metadata[1], dstOffset, srcOffset, length))
+        WASM_RETURN_TWO(bitwise_cast<void*>(1L), bitwise_cast<void*>(static_cast<uint64_t>(Wasm::ExceptionType::OutOfBoundsTableAccess)));
+    WASM_RETURN_TWO(0, 0);
+#else
+    UNUSED_PARAM(instance);
+    UNUSED_PARAM(metadata);
+    UNUSED_PARAM(dest);
+    UNUSED_PARAM(srcAndLength);
+    RELEASE_ASSERT_NOT_REACHED("IPInt only supports ARM64 and X86_64 (for now)");
+#endif
+}
+
 WASM_SLOW_PATH_DECL(table_fill)
 {
     auto instruction = pc->as<WasmTableFill>();
@@ -580,12 +639,53 @@ WASM_SLOW_PATH_DECL(table_fill)
     WASM_END();
 }
 
+WASM_IPINT_EXTERN_CPP_DECL(table_fill, uint32_t tableIndex, EncodedJSValue fill, int64_t offsetAndSize)
+{
+#if CPU(ARM64) || CPU(X86_64)
+    uint32_t offset = offsetAndSize >> 32;
+    uint32_t size = offsetAndSize & 0xffffffff;
+    if (!Wasm::tableFill(instance, tableIndex, offset, fill, size))
+        WASM_RETURN_TWO(bitwise_cast<void*>(1L), bitwise_cast<void*>(static_cast<uint64_t>(Wasm::ExceptionType::OutOfBoundsTableAccess)));
+    WASM_RETURN_TWO(0, 0);
+#else
+    UNUSED_PARAM(instance);
+    UNUSED_PARAM(tableIndex);
+    UNUSED_PARAM(fill);
+    UNUSED_PARAM(offsetAndSize);
+    RELEASE_ASSERT_NOT_REACHED("IPInt only supports ARM64 and X86_64 (for now)");
+#endif
+}
+
 WASM_SLOW_PATH_DECL(table_grow)
 {
     auto instruction = pc->as<WasmTableGrow>();
     EncodedJSValue fill = READ(instruction.m_fill).encodedJSValue();
     uint32_t size = READ(instruction.m_size).unboxedUInt32();
     WASM_RETURN(Wasm::tableGrow(instance, instruction.m_tableIndex, fill, size));
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(table_grow, int32_t tableIndex, EncodedJSValue fill, uint32_t size)
+{
+#if CPU(ARM64) || CPU(X86_64)
+    WASM_RETURN_TWO(bitwise_cast<void*>(Wasm::tableGrow(instance, tableIndex, fill, size)), 0);
+#else
+    UNUSED_PARAM(instance);
+    UNUSED_PARAM(tableIndex);
+    UNUSED_PARAM(fill);
+    UNUSED_PARAM(size);
+    RELEASE_ASSERT_NOT_REACHED("IPInt only supported on ARM64 and X86_64 (for now)");
+#endif
+}
+
+WASM_IPINT_EXTERN_CPP_DECL_1P(current_memory)
+{
+#if CPU(ARM64) || CPU(X86_64)
+    size_t size = instance->memory()->handle().size() >> 16;
+    WASM_RETURN_TWO(bitwise_cast<void*>(size), 0);
+#else
+    UNUSED_PARAM(instance);
+    RELEASE_ASSERT_NOT_REACHED("IPInt only supported on ARM64 and X86_64 (for now)");
+#endif
 }
 
 WASM_SLOW_PATH_DECL(grow_memory)
@@ -595,6 +695,95 @@ WASM_SLOW_PATH_DECL(grow_memory)
     auto instruction = pc->as<WasmGrowMemory>();
     int32_t delta = READ(instruction.m_delta).unboxedInt32();
     WASM_RETURN(Wasm::growMemory(instance, delta));
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(memory_grow, int32_t delta)
+{
+    WASM_RETURN_TWO(reinterpret_cast<void*>(Wasm::growMemory(instance, delta)), 0);
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(memory_init, int32_t dataIndex, int32_t dst, int64_t srcAndLength)
+{
+#if CPU(ARM64) || CPU(X86_64)
+    if (!Wasm::memoryInit(instance, dataIndex, dst, srcAndLength >> 32, srcAndLength & 0xffffffff))
+        WASM_RETURN_TWO(bitwise_cast<void*>(1L), bitwise_cast<void*>(static_cast<int64_t>(Wasm::ExceptionType::OutOfBoundsMemoryAccess)));
+    WASM_RETURN_TWO(0, 0);
+#else
+    UNUSED_PARAM(instance);
+    UNUSED_PARAM(dataIndex);
+    UNUSED_PARAM(dst);
+    UNUSED_PARAM(srcAndLength);
+    RELEASE_ASSERT_NOT_REACHED("IPInt only supported on ARM64 and X86_64 (for now)");
+#endif
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(data_drop, int32_t dataIndex)
+{
+    Wasm::dataDrop(instance, dataIndex);
+    WASM_RETURN_TWO(0, 0);
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(memory_copy, int32_t dst, int32_t src, int32_t count)
+{
+#if CPU(ARM64) || CPU(X86_64)
+    if (!Wasm::memoryCopy(instance, dst, src, count))
+        WASM_RETURN_TWO(bitwise_cast<void*>(1L), bitwise_cast<void*>(static_cast<int64_t>(Wasm::ExceptionType::OutOfBoundsMemoryAccess)));
+    WASM_RETURN_TWO(0, 0);
+#else
+    UNUSED_PARAM(instance);
+    UNUSED_PARAM(dst);
+    UNUSED_PARAM(src);
+    UNUSED_PARAM(count);
+    RELEASE_ASSERT_NOT_REACHED("IPInt only supported on ARM64 and X86_64 (for now)");
+#endif
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(memory_fill, int32_t dst, int32_t targetValue, int32_t count)
+{
+#if CPU(ARM64) || CPU(X86_64)
+    if (!Wasm::memoryFill(instance, dst, targetValue, count))
+        WASM_RETURN_TWO(bitwise_cast<void*>(1L), bitwise_cast<void*>(static_cast<int64_t>(Wasm::ExceptionType::OutOfBoundsMemoryAccess)));
+    WASM_RETURN_TWO(0, 0);
+#else
+    UNUSED_PARAM(instance);
+    UNUSED_PARAM(dst);
+    UNUSED_PARAM(targetValue);
+    UNUSED_PARAM(count);
+    RELEASE_ASSERT_NOT_REACHED("IPInt only supported on ARM64 and X86_64 (for now)");
+#endif
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(elem_drop, int32_t dataIndex)
+{
+    Wasm::elemDrop(instance, dataIndex);
+    WASM_RETURN_TWO(0, 0);
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(table_copy, int32_t* metadata, int32_t dst, int64_t srcAndCount)
+{
+#if CPU(ARM64) || CPU(X86_64)
+    if (!Wasm::tableCopy(instance, metadata[0], metadata[1], dst, srcAndCount >> 32, srcAndCount & 0xffffffff))
+        WASM_RETURN_TWO(bitwise_cast<void*>(1L), bitwise_cast<void*>(static_cast<int64_t>(Wasm::ExceptionType::OutOfBoundsTableAccess)));
+    WASM_RETURN_TWO(0, 0);
+#else
+    UNUSED_PARAM(instance);
+    UNUSED_PARAM(metadata);
+    UNUSED_PARAM(dst);
+    UNUSED_PARAM(srcAndCount);
+    RELEASE_ASSERT_NOT_REACHED("IPInt only supported on ARM64 and X86_64 (for now)");
+#endif
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(table_size, int32_t tableIndex)
+{
+#if CPU(ARM64) || CPU(X86_64)
+    int32_t result = Wasm::tableSize(instance, tableIndex);
+    WASM_RETURN_TWO(bitwise_cast<void*>(static_cast<EncodedJSValue>(result)), 0);
+#else
+    UNUSED_PARAM(instance);
+    UNUSED_PARAM(tableIndex);
+    RELEASE_ASSERT_NOT_REACHED("IPInt only supported on ARM64 and X86_64 (for now)");
+#endif
 }
 
 inline UGPRPair doWasmCall(Wasm::Instance* instance, unsigned functionIndex)
@@ -614,7 +803,7 @@ inline UGPRPair doWasmCall(Wasm::Instance* instance, unsigned functionIndex)
     WASM_CALL_RETURN(instance, codePtr.taggedPtr(), WasmEntryPtrTag);
 }
 
-extern "C" UGPRPair doWasmIPIntCall(Wasm::Instance* instance, unsigned functionIndex)
+WASM_IPINT_EXTERN_CPP_DECL(call, unsigned functionIndex)
 {
     return doWasmCall(instance, functionIndex);
 }
@@ -640,6 +829,27 @@ inline UGPRPair doWasmCallIndirect(CallFrame* callFrame, Wasm::Instance* instanc
         WASM_THROW(Wasm::ExceptionType::NullTableEntry);
 
     const auto& callSignature = CALLEE()->signature(typeIndex);
+    if (callSignature.index() != function.m_function.typeIndex)
+        WASM_THROW(Wasm::ExceptionType::BadSignature);
+
+    WASM_CALL_RETURN(function.m_instance, function.m_function.entrypointLoadLocation->taggedPtr(), WasmEntryPtrTag);
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(call_indirect, CallFrame* callFrame, unsigned functionIndex, unsigned* metadataEntry)
+{
+    unsigned tableIndex = metadataEntry[0];
+    unsigned typeIndex = metadataEntry[1];
+    Wasm::FuncRefTable* table = instance->table(tableIndex)->asFuncrefTable();
+
+    if (functionIndex >= table->length())
+        WASM_THROW(Wasm::ExceptionType::OutOfBoundsCallIndirect);
+
+    const Wasm::FuncRefTable::Function& function = table->function(functionIndex);
+
+    if (function.m_function.typeIndex == Wasm::TypeDefinition::invalidIndex)
+        WASM_THROW(Wasm::ExceptionType::NullTableEntry);
+
+    const auto& callSignature = static_cast<Wasm::IPIntCallee*>(callFrame->callee().asWasmCallee())->signature(typeIndex);
     if (callSignature.index() != function.m_function.typeIndex)
         WASM_THROW(Wasm::ExceptionType::BadSignature);
 
@@ -841,11 +1051,34 @@ WASM_SLOW_PATH_DECL(call_builtin)
     WASM_END();
 }
 
+WASM_IPINT_EXTERN_CPP_DECL(set_global_ref, uint32_t globalIndex, JSValue value)
+{
+    instance->setGlobal(globalIndex, value);
+    WASM_RETURN_TWO(0, 0);
+}
+
 WASM_SLOW_PATH_DECL(set_global_ref)
 {
     auto instruction = pc->as<WasmSetGlobalRef>();
     instance->setGlobal(instruction.m_globalIndex, READ(instruction.m_value).jsValue());
     WASM_END_IMPL();
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(get_global_64, unsigned index)
+{
+#if CPU(ARM64) || CPU(X86_64)
+    WASM_RETURN_TWO(bitwise_cast<void*>(instance->loadI64Global(index)), 0);
+#else
+    UNUSED_PARAM(instance);
+    UNUSED_PARAM(index);
+    RELEASE_ASSERT_NOT_REACHED("IPInt only supports ARM64 and X86_64 (for now)");
+#endif
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(set_global_64, unsigned index, uint64_t value)
+{
+    instance->setGlobal(index, value);
+    WASM_RETURN_TWO(0, 0);
 }
 
 WASM_SLOW_PATH_DECL(set_global_ref_portable_binding)
@@ -908,6 +1141,26 @@ WASM_SLOW_PATH_DECL(throw)
     for (unsigned i = 0; i < tag.parameterCount(); ++i)
         values[i] = READ((instruction.m_firstValue - i)).encodedJSValue();
 
+    JSWebAssemblyException* exception = JSWebAssemblyException::create(vm, globalObject->webAssemblyExceptionStructure(), tag, WTFMove(values));
+    throwException(globalObject, throwScope, exception);
+
+    genericUnwind(vm, callFrame);
+    ASSERT(!!vm.callFrameForCatch);
+    ASSERT(!!vm.targetMachinePCForThrow);
+    WASM_RETURN_TWO(vm.targetMachinePCForThrow, nullptr);
+}
+
+WASM_IPINT_EXTERN_CPP_DECL(throw, CallFrame* callFrame, uint32_t exceptionIndex)
+{
+    SlowPathFrameTracer tracer(instance->vm(), callFrame);
+
+    JSGlobalObject* globalObject = instance->globalObject();
+    VM& vm = globalObject->vm();
+    auto throwScope = DECLARE_THROW_SCOPE(vm);
+
+    const Wasm::Tag& tag = instance->tag(exceptionIndex);
+
+    FixedVector<uint64_t> values(tag.parameterCount());
     JSWebAssemblyException* exception = JSWebAssemblyException::create(vm, globalObject->webAssemblyExceptionStructure(), tag, WTFMove(values));
     throwException(globalObject, throwScope, exception);
 

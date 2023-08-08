@@ -316,7 +316,6 @@ static void requestPointerLock(WKPageRef page, const void*)
 static void printFrame(WKPageRef page, WKFrameRef frame, const void*)
 {
     WKPageBeginPrinting(page, frame, WKPrintInfo { 1, 21, 29.7f });
-    WKPageEndPrinting(page);
 }
 
 static bool shouldAllowDeviceOrientationAndMotionAccess(WKPageRef, WKSecurityOriginRef origin, WKFrameInfoRef frame, const void*)
@@ -1964,6 +1963,9 @@ void TestController::didReceiveSynchronousMessageFromInjectedBundle(WKStringRef 
             return completionHandler(nullptr);
         }
 
+        if (WKStringIsEqualToUTF8CString(subMessageName, "WaitForDeferredMouseEvents"))
+            return completionHandler(nullptr);
+
 #if PLATFORM(MAC)
         if (WKStringIsEqualToUTF8CString(subMessageName, "MouseForceClick")) {
             m_eventSenderProxy->mouseForceClick();
@@ -3146,6 +3148,7 @@ UniqueRef<PlatformWebView> TestController::platformCreateOtherPage(PlatformWebVi
 
 WKContextRef TestController::platformAdjustContext(WKContextRef context, WKContextConfigurationRef)
 {
+    m_preferences = adoptWK(WKPreferencesCreate());
     return context;
 }
 

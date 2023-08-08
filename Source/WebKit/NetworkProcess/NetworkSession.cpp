@@ -201,10 +201,6 @@ NetworkSession::~NetworkSession()
 #endif
     for (auto& loader : std::exchange(m_keptAliveLoads, { }))
         loader->abort();
-
-#if ENABLE(BUILT_IN_NOTIFICATIONS)
-    m_networkProcess->removeMessageReceiver(Messages::NotificationManagerMessageHandler::messageReceiverName(), m_sessionID.toUInt64());
-#endif
 }
 
 #if ENABLE(TRACKING_PREVENTION)
@@ -596,13 +592,13 @@ std::unique_ptr<WebSocketTask> NetworkSession::createWebSocketTask(WebPageProxyI
 
 void NetworkSession::registerNetworkDataTask(NetworkDataTask& task)
 {
-    // Unregistration happens automatically in ThreadSafeWeakHashSet::amortizedCleanupIfNeeded.
+    ASSERT(!m_dataTaskSet.contains(task));
     m_dataTaskSet.add(task);
+}
 
-    // FIXME: This is not in a good place. It should probably be in the NetworkDataTask constructor.
-#if ENABLE(INSPECTOR_NETWORK_THROTTLING)
-    task.setEmulatedConditions(m_bytesPerSecondLimit);
-#endif
+void NetworkSession::unregisterNetworkDataTask(NetworkDataTask& task)
+{
+    m_dataTaskSet.remove(task);
 }
 
 NetworkLoadScheduler& NetworkSession::networkLoadScheduler()

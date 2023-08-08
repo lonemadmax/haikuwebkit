@@ -341,18 +341,16 @@ void PathCairo::applySegments(const PathSegmentApplier& applier) const
             break;
 
         case PathElement::Type::CloseSubpath:
-            applier({ std::monostate() });
+            applier({ PathCloseSubpath { } });
             break;
         }
     });
 }
 
-void PathCairo::applyElements(const PathElementApplier& applier) const
+bool PathCairo::applyElements(const PathElementApplier& applier) const
 {
-    if (m_elementsStream) {
-        m_elementsStream->applyElements(applier);
-        return;
-    }
+    if (m_elementsStream && m_elementsStream->applyElements(applier))
+        return true;
 
     CairoUniquePtr<cairo_path_t> pathCopy(cairo_copy_path(platformPath()));
     cairo_path_data_t* data;
@@ -387,6 +385,8 @@ void PathCairo::applyElements(const PathElementApplier& applier) const
             break;
         }
     }
+
+    return true;
 }
 
 bool PathCairo::isEmpty() const
