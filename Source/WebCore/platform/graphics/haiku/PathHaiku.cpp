@@ -620,13 +620,13 @@ void PathHaiku::applySegments(const PathSegmentApplier& applier) const
             break;
 
         case PathElement::Type::CloseSubpath:
-            applier({ std::monostate() });
+            applier({ PathCloseSubpath { } });
             break;
         }
     });
 }
 
-void PathHaiku::applyElements(const PathElementApplier& function) const
+bool PathHaiku::applyElements(const PathElementApplier& function) const
 {
     class ApplyIterator : public BShapeIterator {
     public:
@@ -693,6 +693,7 @@ void PathHaiku::applyElements(const PathElementApplier& function) const
     } applyIterator(function);
 
     applyIterator.Iterate(const_cast<BShape*>(&m_platformPath));
+    return true;
 }
 
 void PathHaiku::transform(const AffineTransform& transform)

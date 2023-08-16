@@ -52,7 +52,7 @@ public:
 
     void addPath(const PathHaiku&, const AffineTransform&);
 
-    void applyElements(const PathElementApplier&) const;
+    bool applyElements(const PathElementApplier&) const;
 
     void transform(const AffineTransform&);
 
