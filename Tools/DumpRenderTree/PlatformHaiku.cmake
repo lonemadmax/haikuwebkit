@@ -13,7 +13,6 @@ list(APPEND DumpRenderTree_SOURCES
 list(APPEND DumpRenderTree_LIBRARIES
 	WebKitLegacy
 	WebCore
-	stdc++fs
 )
 
 list(APPEND DumpRenderTree_INCLUDE_DIRECTORIES
