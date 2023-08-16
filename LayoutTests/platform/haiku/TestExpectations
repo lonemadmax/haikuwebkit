@@ -174,7 +174,6 @@ accessibility/table-with-empty-thead-causes-crash.html [ Pass ]
 animations/animation-playstate-paused-style-resolution.html [ Pass ]
 animations/cross-fade-background-image.html [ ImageOnlyFailure ]
 animations/animation-delay-changed.html [ Failure Pass ]
-animations/animation-welcome-safari.html [ Failure ] # Invalid xhtml
 #20200524 animations/change-keyframes-name.html [ Failure ]
 animations/fill-forwards-auto-height.html [ ImageOnlyFailure ]
 #20200524 animations/play-state-suspend.html [ Failure ]
