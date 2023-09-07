@@ -137,11 +137,11 @@
 
 #if PLATFORM(IOS_FAMILY)
 #import "RunningBoardServicesSPI.h"
-#import "UserInterfaceIdiom.h"
 #import "WKAccessibilityWebPageObjectIOS.h"
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <UIKit/UIAccessibility.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
+#import <pal/system/ios/UserInterfaceIdiom.h>
 #endif
 
 #if PLATFORM(IOS_FAMILY) && USE(APPLE_INTERNAL_SDK)
@@ -236,7 +236,7 @@ id WebProcess::accessibilityFocusedUIElement()
     }
 #endif
 
-    WebPage* page = WebProcess::singleton().focusedWebPage();
+    RefPtr page = WebProcess::singleton().focusedWebPage();
     if (!page || !page->accessibilityRemoteObject())
         return nil;
     return [page->accessibilityRemoteObject() accessibilityFocusedUIElement];
@@ -757,7 +757,12 @@ static void registerLogHook()
     if (os_trace_get_mode() != OS_TRACE_MODE_DISABLE && os_trace_get_mode() != OS_TRACE_MODE_OFF)
         return;
 
-    os_log_set_hook(OS_LOG_TYPE_DEFAULT, ^(os_log_type_t type, os_log_message_t msg) {
+    static os_log_hook_t prevHook = nullptr;
+
+    prevHook = os_log_set_hook(OS_LOG_TYPE_DEFAULT, ^(os_log_type_t type, os_log_message_t msg) {
+        if (prevHook)
+            prevHook(type, msg);
+
         if (msg->buffer_sz > 1024)
             return;
 
@@ -904,9 +909,9 @@ void WebProcess::initializeSandbox(const AuxiliaryProcessInitializationParameter
 
 static NSURL *origin(WebPage& page)
 {
-    auto& mainFrame = page.mainWebFrame();
+    Ref mainFrame = page.mainWebFrame();
 
-    URL mainFrameURL = mainFrame.url();
+    URL mainFrameURL = mainFrame->url();
     Ref<SecurityOrigin> mainFrameOrigin = SecurityOrigin::create(mainFrameURL);
     String mainFrameOriginString;
     if (!mainFrameOrigin->isOpaque())
@@ -1064,8 +1069,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             }
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object))
-                return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(WebProcess::singleton().transformHandlesToObjects(toImpl(wrapper.object)).get())]);
+            if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object)) {
+                RefPtr impl = toImpl(wrapper.object);
+                return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(WebProcess::singleton().transformHandlesToObjects(impl.get()).get())]);
+            }
+
 ALLOW_DEPRECATED_DECLARATIONS_END
             return object;
         }
@@ -1095,8 +1103,10 @@ ALLOW_DEPRECATED_DECLARATIONS_END
                 return controller.handle;
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object))
-                return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(transformObjectsToHandles(toImpl(wrapper.object)).get())]);
+            if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object)) {
+                RefPtr impl = toImpl(wrapper.object);
+                return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(transformObjectsToHandles(impl.get()).get())]);
+            }
 ALLOW_DEPRECATED_DECLARATIONS_END
             return object;
         }
@@ -1135,9 +1145,9 @@ void WebProcess::releaseSystemMallocMemory()
 
 #if PLATFORM(IOS_FAMILY)
 
-void WebProcess::userInterfaceIdiomDidChange(UserInterfaceIdiom idiom)
+void WebProcess::userInterfaceIdiomDidChange(PAL::UserInterfaceIdiom idiom)
 {
-    WebKit::setCurrentUserInterfaceIdiom(idiom);
+    PAL::setCurrentUserInterfaceIdiom(idiom);
 }
 
 bool WebProcess::shouldFreezeOnSuspension() const

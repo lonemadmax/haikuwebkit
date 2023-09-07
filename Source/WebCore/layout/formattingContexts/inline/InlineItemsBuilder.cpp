@@ -243,9 +243,10 @@ void InlineItemsBuilder::collectInlineItems(InlineItems& inlineItems, Formatting
                 handleInlineLevelBox(layoutBox, inlineItems);
             else if (layoutBox->isInlineBox())
                 handleInlineBoxEnd(layoutBox, inlineItems);
-            else if (layoutBox->isFloatingPositioned())
+            else if (layoutBox->isFloatingPositioned()) {
                 inlineItems.append({ layoutBox, InlineItem::Type::Float });
-            else
+                m_isNonBidiTextAndForcedLineBreakOnlyContent = false;
+            } else
                 ASSERT_NOT_REACHED();
 
             if (auto* nextSibling = layoutBox->nextSibling()) {
@@ -254,6 +255,7 @@ void InlineItemsBuilder::collectInlineItems(InlineItems& inlineItems, Formatting
             }
         }
     }
+    m_formattingState.setIsNonBidiTextAndForcedLineBreakOnlyContent(m_isNonBidiTextAndForcedLineBreakOnlyContent);
 }
 
 static void replaceNonPreservedNewLineAndTabCharactersAndAppend(const InlineTextBox& inlineTextBox, StringBuilder& paragraphContentBuilder)
@@ -635,6 +637,7 @@ void InlineItemsBuilder::handleTextContent(const InlineTextBox& inlineTextBox, I
         return inlineItems.append(InlineTextItem::createNonWhitespaceItem(inlineTextBox, { }, contentLength, UBIDI_DEFAULT_LTR, false, { }));
 
     m_contentRequiresVisualReordering = m_contentRequiresVisualReordering || TextUtil::containsStrongDirectionalityText(text);
+    m_isNonBidiTextAndForcedLineBreakOnlyContent = m_isNonBidiTextAndForcedLineBreakOnlyContent && !m_contentRequiresVisualReordering;
     auto& style = inlineTextBox.style();
     auto shouldPreserveSpacesAndTabs = TextUtil::shouldPreserveSpacesAndTabs(inlineTextBox);
     auto shouldPreserveNewline = TextUtil::shouldPreserveNewline(inlineTextBox);
@@ -728,22 +731,29 @@ void InlineItemsBuilder::handleInlineBoxStart(const Box& inlineBox, InlineItems&
     inlineItems.append({ inlineBox, InlineItem::Type::InlineBoxStart });
     auto& style = inlineBox.style();
     m_contentRequiresVisualReordering = m_contentRequiresVisualReordering || !style.isLeftToRightDirection() || (style.rtlOrdering() == Order::Logical && style.unicodeBidi() != UnicodeBidi::Normal);
+    m_isNonBidiTextAndForcedLineBreakOnlyContent = false;
 }
 
 void InlineItemsBuilder::handleInlineBoxEnd(const Box& inlineBox, InlineItems& inlineItems)
 {
     inlineItems.append({ inlineBox, InlineItem::Type::InlineBoxEnd });
+    ASSERT(!m_isNonBidiTextAndForcedLineBreakOnlyContent);
+    m_isNonBidiTextAndForcedLineBreakOnlyContent = false;
     // Inline box end item itself can not trigger bidi content.
     ASSERT(contentRequiresVisualReordering() || inlineBox.style().isLeftToRightDirection() || inlineBox.style().rtlOrdering() == Order::Visual || inlineBox.style().unicodeBidi() == UnicodeBidi::Normal);
 }
 
 void InlineItemsBuilder::handleInlineLevelBox(const Box& layoutBox, InlineItems& inlineItems)
 {
-    if (layoutBox.isAtomicInlineLevelBox())
+    if (layoutBox.isAtomicInlineLevelBox()) {
+        m_isNonBidiTextAndForcedLineBreakOnlyContent = false;
         return inlineItems.append({ layoutBox, InlineItem::Type::Box });
+    }
 
-    if (layoutBox.isLineBreakBox())
+    if (layoutBox.isLineBreakBox()) {
+        m_isNonBidiTextAndForcedLineBreakOnlyContent = m_isNonBidiTextAndForcedLineBreakOnlyContent && !layoutBox.isWordBreakOpportunity();
         return inlineItems.append({ layoutBox, layoutBox.isWordBreakOpportunity() ? InlineItem::Type::WordBreakOpportunity : InlineItem::Type::HardLineBreak });
+    }
 
     ASSERT_NOT_REACHED();
 }

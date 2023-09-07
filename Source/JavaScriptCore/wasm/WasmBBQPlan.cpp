@@ -31,12 +31,12 @@
 #include "JITCompilation.h"
 #include "JSToWasm.h"
 #include "LinkBuffer.h"
+#include "NativeCalleeRegistry.h"
 #include "WasmAirIRGenerator.h"
 #include "WasmB3IRGenerator.h"
 #include "WasmBBQJIT.h"
 #include "WasmCallee.h"
 #include "WasmCalleeGroup.h"
-#include "WasmCalleeRegistry.h"
 #include "WasmIRGeneratorHelpers.h"
 #include "WasmTierUpCount.h"
 #include "WasmTypeDefinitionInlines.h"
@@ -213,7 +213,7 @@ void BBQPlan::work(CompilationEffort effort)
         entrypoint = callee->entrypoint();
 
         if (context.pcToCodeOriginMap)
-            CalleeRegistry::singleton().addPCToCodeOriginMap(callee.ptr(), WTFMove(context.pcToCodeOriginMap));
+            NativeCalleeRegistry::singleton().addPCToCodeOriginMap(callee.ptr(), WTFMove(context.pcToCodeOriginMap));
 
         // We want to make sure we publish our callee at the same time as we link our callsites. This enables us to ensure we
         // always call the fastest code. Any function linked after us will see our new code and the new callsites, which they
@@ -237,10 +237,17 @@ void BBQPlan::work(CompilationEffort effort)
         m_calleeGroup->callsiteCollection().updateCallsitesToCallUs(locker, *m_calleeGroup, CodeLocationLabel<WasmEntryPtrTag>(entrypoint), m_functionIndex, functionIndexSpace);
 
         {
-            LLIntCallee& llintCallee = m_calleeGroup->m_llintCallees->at(m_functionIndex).get();
-            Locker locker { llintCallee.tierUpCounter().m_lock };
-            llintCallee.setReplacement(callee.copyRef(), mode());
-            llintCallee.tierUpCounter().m_compilationStatus = LLIntTierUpCounter::CompilationStatus::Compiled;
+            if (Options::useWasmIPInt()) {
+                IPIntCallee& ipintCallee = m_calleeGroup->m_ipintCallees->at(m_functionIndex).get();
+                Locker locker { ipintCallee.tierUpCounter().m_lock };
+                ipintCallee.setReplacement(callee.copyRef(), mode());
+                ipintCallee.tierUpCounter().m_compilationStatus = LLIntTierUpCounter::CompilationStatus::Compiled;
+            } else {
+                LLIntCallee& llintCallee = m_calleeGroup->m_llintCallees->at(m_functionIndex).get();
+                Locker locker { llintCallee.tierUpCounter().m_lock };
+                llintCallee.setReplacement(callee.copyRef(), mode());
+                llintCallee.tierUpCounter().m_compilationStatus = LLIntTierUpCounter::CompilationStatus::Compiled;
+            }
         }
     }
 
@@ -395,7 +402,7 @@ void BBQPlan::initializeCallees(const CalleeInitializer& callback)
         wasmEntrypointCallee->setEntrypoint(WTFMove(function->entrypoint), WTFMove(m_unlinkedWasmToWasmCalls[internalFunctionIndex]), WTFMove(function->stackmaps), WTFMove(function->exceptionHandlers), WTFMove(m_exceptionHandlerLocations[internalFunctionIndex]), WTFMove(m_allLoopEntrypoints[internalFunctionIndex]), { }, function->osrEntryScratchBufferSize);
 
         if (m_compilationContexts[internalFunctionIndex].pcToCodeOriginMap)
-            CalleeRegistry::singleton().addPCToCodeOriginMap(wasmEntrypointCallee.get(), WTFMove(m_compilationContexts[internalFunctionIndex].pcToCodeOriginMap));
+            NativeCalleeRegistry::singleton().addPCToCodeOriginMap(wasmEntrypointCallee.get(), WTFMove(m_compilationContexts[internalFunctionIndex].pcToCodeOriginMap));
 
         callback(internalFunctionIndex, WTFMove(jsEntrypointCallee), wasmEntrypointCallee.releaseNonNull());
     }

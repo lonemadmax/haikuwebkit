@@ -104,11 +104,6 @@ void DrawingAreaProxyCoordinatedGraphics::deviceScaleFactorDidChange()
     m_webPageProxy.send(Messages::DrawingArea::SetDeviceScaleFactor(m_webPageProxy.deviceScaleFactor()), m_identifier);
 }
 
-void DrawingAreaProxyCoordinatedGraphics::waitForBackingStoreUpdateOnNextPaint()
-{
-    m_hasReceivedFirstUpdate = true;
-}
-
 void DrawingAreaProxyCoordinatedGraphics::setBackingStoreIsDiscardable(bool isBackingStoreDiscardable)
 {
 #if !PLATFORM(WPE)
@@ -183,7 +178,7 @@ void DrawingAreaProxyCoordinatedGraphics::incorporateUpdate(UpdateInfo&& updateI
     if (updateInfo.updateRectBounds.isEmpty())
         return;
 
-    if (!m_backingStore || m_backingStore->size() != updateInfo.viewSize)
+    if (!m_backingStore || m_backingStore->size() != updateInfo.viewSize || m_backingStore->deviceScaleFactor() != updateInfo.deviceScaleFactor)
         m_backingStore = makeUnique<BackingStore>(updateInfo.viewSize, updateInfo.deviceScaleFactor, m_webPageProxy);
 
     Region damageRegion;

@@ -101,7 +101,6 @@ enum TreeType {
 };
 
 [Conditional=WEBGL] enum SimulatedWebGLContextEvent {
-    "ContextChange",
     "GPUStatusFailure",
     "Timeout"
 };
@@ -431,6 +430,8 @@ typedef (FetchRequest or FetchResponse) FetchObject;
 
     // For animations testing, we need a way to get at pseudo elements.
     Element? pseudoElement(Element element, DOMString pseudoId);
+
+    double preferredRenderingUpdateInterval();
 
     DOMString visiblePlaceholder(Element element);
     undefined selectColorInColorChooser(HTMLInputElement element, DOMString colorValue);
@@ -843,6 +844,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     DOMRect selectionBounds();
     StaticRange? selectedRange();
     undefined setSelectionWithoutValidation(Node baseNode, unsigned long baseOffset, Node? extentNode, unsigned long extentOffset);
+    undefined setSelectionFromNone();
 
     [Conditional=MEDIA_SOURCE] undefined initializeMockMediaSource();
     [Conditional=MEDIA_SOURCE] Promise<sequence<DOMString>> bufferedSamplesForTrackId(SourceBuffer buffer, [AtomString] DOMString trackId);

@@ -2281,8 +2281,7 @@ JSC_DEFINE_JIT_OPERATION(operationOptimize, UGPRPair, (VM* vmPointer, uint32_t b
             return encodeResult(nullptr, nullptr);
         }
     } else {
-        if (!codeBlock->shouldOptimizeNow()) {
-            CODEBLOCK_LOG_EVENT(codeBlock, "delayOptimizeToDFG", ("insufficient profiling"));
+        if (!codeBlock->shouldOptimizeNowFromBaseline()) {
             dataLogLnIf(Options::verboseOSR(),
                 "Delaying optimization for ", *codeBlock,
                 " because of insufficient profiling.");
@@ -4064,7 +4063,7 @@ JSC_DEFINE_JIT_OPERATION(operationValueSubProfiledNoOptimize, EncodedJSValue, (J
 
 JSC_DEFINE_JIT_OPERATION(operationDebuggerWillCallNativeExecutable, void, (CallFrame* callFrame))
 {
-    ASSERT(!callFrame->isWasmFrame());
+    ASSERT(!callFrame->isNativeCalleeFrame());
 
     auto* globalObject = callFrame->jsCallee()->globalObject();
     if (!globalObject)

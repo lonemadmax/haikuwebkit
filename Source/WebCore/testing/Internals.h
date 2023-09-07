@@ -298,6 +298,8 @@ public:
     // For animations testing, we need a way to get at pseudo elements.
     ExceptionOr<RefPtr<Element>> pseudoElement(Element&, const String&);
 
+    double preferredRenderingUpdateInterval();
+
     Node* treeScopeRootNode(Node&);
     Node* parentTreeScope(Node&);
 
@@ -761,6 +763,7 @@ public:
     ExceptionOr<Ref<DOMRect>> selectionBounds();
     ExceptionOr<RefPtr<StaticRange>> selectedRange();
     void setSelectionWithoutValidation(Ref<Node> baseNode, unsigned baseOffset, RefPtr<Node> extentNode, unsigned extentOffset);
+    void setSelectionFromNone();
 
     ExceptionOr<bool> isPluginUnavailabilityIndicatorObscured(Element&);
     ExceptionOr<String> unavailablePluginReplacementText(Element&);
@@ -900,7 +903,6 @@ public:
 
 #if ENABLE(WEBGL)
     enum class SimulatedWebGLContextEvent {
-        ContextChange,
         GPUStatusFailure,
         Timeout
     };

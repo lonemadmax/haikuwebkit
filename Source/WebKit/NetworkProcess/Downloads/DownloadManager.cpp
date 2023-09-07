@@ -45,7 +45,7 @@ DownloadManager::DownloadManager(Client& client)
 {
 }
 
-void DownloadManager::startDownload(PAL::SessionID sessionID, DownloadID downloadID, const ResourceRequest& request, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, const String& suggestedName)
+void DownloadManager::startDownload(PAL::SessionID sessionID, DownloadID downloadID, const ResourceRequest& request, const std::optional<WebCore::SecurityOriginData>& topOrigin, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, const String& suggestedName)
 {
     auto* networkSession = client().networkSession(sessionID);
     if (!networkSession)
@@ -55,8 +55,10 @@ void DownloadManager::startDownload(PAL::SessionID sessionID, DownloadID downloa
     parameters.request = request;
     parameters.clientCredentialPolicy = ClientCredentialPolicy::MayAskClientForCredentials;
     parameters.isNavigatingToAppBoundDomain = isNavigatingToAppBoundDomain;
-    if (request.url().protocolIsBlob())
-        parameters.blobFileReferences = client().networkSession(sessionID)->blobRegistry().filesInBlob(request.url());
+    if (request.url().protocolIsBlob()) {
+        parameters.topOrigin = topOrigin ? topOrigin->securityOrigin().ptr() : nullptr;
+        parameters.blobFileReferences = client().networkSession(sessionID)->blobRegistry().filesInBlob(request.url(), topOrigin);
+    }
     parameters.storedCredentialsPolicy = sessionID.isEphemeral() ? StoredCredentialsPolicy::DoNotUse : StoredCredentialsPolicy::Use;
 
     m_pendingDownloads.add(downloadID, makeUnique<PendingDownload>(m_client.parentProcessConnectionForDownloads(), WTFMove(parameters), downloadID, *networkSession, suggestedName));
@@ -73,6 +75,14 @@ void DownloadManager::dataTaskBecameDownloadTask(DownloadID downloadID, std::uni
     ASSERT(!m_downloads.contains(downloadID));
     m_downloadsAfterDestinationDecided.remove(downloadID);
     m_downloads.add(downloadID, WTFMove(download));
+}
+
+void DownloadManager::continueWillSendRequest(DownloadID downloadID, WebCore::ResourceRequest&& request)
+{
+    auto* pendingDownload = m_pendingDownloads.get(downloadID);
+    ASSERT(pendingDownload);
+    if (pendingDownload)
+        pendingDownload->continueWillSendRequest(WTFMove(request));
 }
 
 void DownloadManager::convertNetworkLoadToDownload(DownloadID downloadID, std::unique_ptr<NetworkLoad>&& networkLoad, ResponseCompletionHandler&& completionHandler, Vector<RefPtr<WebCore::BlobDataFileReference>>&& blobFileReferences, const ResourceRequest& request, const ResourceResponse& response)

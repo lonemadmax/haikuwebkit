@@ -98,6 +98,7 @@
 #include "UserContentController.h"
 #include "UserContentURLPattern.h"
 #include "UserGestureIndicator.h"
+#include "UserInputBridge.h"
 #include "UserScript.h"
 #include "UserTypingGestureIndicator.h"
 #include "VisibleUnits.h"
@@ -155,6 +156,7 @@ LocalFrame::LocalFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& frameLoad
     , m_pageZoomFactor(parentPageZoomFactor(this))
     , m_textZoomFactor(parentTextZoomFactor(this))
     , m_eventHandler(makeUniqueRef<EventHandler>(*this))
+    , m_userInputBridge(makeUniqueRef<UserInputBridge>(*this))
 {
     ProcessWarming::initializeNames();
     StaticCSSValuePool::init();
@@ -749,7 +751,7 @@ LocalFrame* LocalFrame::frameForWidget(const Widget& widget)
 
     // Assume all widgets are either a FrameView or owned by a RenderWidget.
     // FIXME: That assumption is not right for scroll bars!
-    return dynamicDowncast<LocalFrame>(downcast<LocalFrameView>(widget).frame());
+    return &downcast<LocalFrameView>(widget).frame();
 }
 
 void LocalFrame::clearTimers(LocalFrameView *view, Document *document)
@@ -759,8 +761,7 @@ void LocalFrame::clearTimers(LocalFrameView *view, Document *document)
     view->layoutContext().unscheduleLayout();
     if (auto* timelines = document->timelinesController())
         timelines->suspendAnimations();
-    if (auto* localFrame = dynamicDowncast<LocalFrame>(view->frame()))
-        localFrame->eventHandler().stopAutoscrollTimer();
+    view->frame().eventHandler().stopAutoscrollTimer();
 }
 
 void LocalFrame::clearTimers()

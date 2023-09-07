@@ -738,7 +738,7 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataS
 
     if (beginsUsingDataStore == BeginsUsingDataStore::Yes) {
         RELEASE_ASSERT(m_processPool);
-        m_processPool->pageBeginUsingWebsiteDataStore(webPage.identifier(), webPage.websiteDataStore());
+        m_processPool->pageBeginUsingWebsiteDataStore(webPage, webPage.websiteDataStore());
     }
 
 #if PLATFORM(MAC) && USE(RUNNINGBOARD)
@@ -755,7 +755,7 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataS
     updateRegistrationWithDataStore();
     updateBackgroundResponsivenessTimer();
     updateBlobRegistryPartitioningState();
-    updateWebGPUEnabledStateInGPUProcess();
+    updatePreferencesEnabledStateInGPUProcess();
     updateDOMRenderingStateInGPUProcess();
 
     // If this was previously a standalone worker process with no pages we need to call didChangeThrottleState()
@@ -788,14 +788,14 @@ void WebProcessProxy::removeWebPage(WebPageProxy& webPage, EndsUsingDataStore en
     reportProcessDisassociatedWithPageIfNecessary(webPage.identifier());
 
     if (endsUsingDataStore == EndsUsingDataStore::Yes)
-        m_processPool->pageEndUsingWebsiteDataStore(webPage.identifier(), webPage.websiteDataStore());
+        m_processPool->pageEndUsingWebsiteDataStore(webPage, webPage.websiteDataStore());
 
     removeVisitedLinkStoreUser(webPage.visitedLinkStore(), webPage.identifier());
     updateRegistrationWithDataStore();
     updateAudibleMediaAssertions();
     updateMediaStreamingActivity();
     updateBackgroundResponsivenessTimer();
-    updateWebGPUEnabledStateInGPUProcess();
+    updatePreferencesEnabledStateInGPUProcess();
     updateDOMRenderingStateInGPUProcess();
     updateBlobRegistryPartitioningState();
 
@@ -1967,12 +1967,16 @@ void WebProcessProxy::updateDOMRenderingStateInGPUProcess()
 #endif
 }
 
-void WebProcessProxy::updateWebGPUEnabledStateInGPUProcess()
+void WebProcessProxy::updatePreferencesEnabledStateInGPUProcess()
 {
 #if ENABLE(GPU_PROCESS)
     if (auto* process = processPool().gpuProcess()) {
         process->updateWebGPUEnabled(*this, WTF::anyOf(pages(), [](const auto& page) {
             return page->preferences().webGPUEnabled();
+        }));
+
+        process->updateWebGLEnabled(*this, WTF::anyOf(pages(), [](const auto& page) {
+            return page->preferences().webGLEnabled();
         }));
     }
 #endif
@@ -2541,6 +2545,12 @@ Logger& WebProcessProxy::logger()
         m_logger->setEnabled(this, alwaysOnLoggingAllowed);
     }
     return *m_logger;
+}
+
+void WebProcessProxy::resetState()
+{
+    m_hasCommittedAnyProvisionalLoads = false;
+    m_hasCommittedAnyMeaningfulProvisionalLoads = false;
 }
 
 TextStream& operator<<(TextStream& ts, const WebProcessProxy& process)

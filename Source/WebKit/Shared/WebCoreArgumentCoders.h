@@ -240,14 +240,6 @@ template<> struct ArgumentCoder<WebCore::KeypressCommand> {
 
 #endif // PLATFORM(COCOA)
 
-#if PLATFORM(IOS_FAMILY)
-template<> struct ArgumentCoder<WebCore::InspectorOverlay::Highlight> {
-    static void encode(Encoder&, const WebCore::InspectorOverlay::Highlight&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::InspectorOverlay::Highlight&);
-};
-
-#endif
-
 #if USE(APPKIT)
 
 template<> struct ArgumentCoder<WebCore::AppKitControlSystemImage> {
@@ -591,7 +583,6 @@ template <> struct EnumTraits<WebCore::CDMInstance::HDCPStatus> {
 template <> struct EnumTraits<WebCore::GraphicsContextGLSimulatedEventForTesting> {
     using values = EnumValues<
     WebCore::GraphicsContextGLSimulatedEventForTesting,
-    WebCore::GraphicsContextGLSimulatedEventForTesting::ContextChange,
     WebCore::GraphicsContextGLSimulatedEventForTesting::GPUStatusFailure,
     WebCore::GraphicsContextGLSimulatedEventForTesting::Timeout
     >;

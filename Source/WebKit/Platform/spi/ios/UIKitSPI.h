@@ -62,6 +62,7 @@
 #import <UIKit/UIPickerView_Private.h>
 #import <UIKit/UIPopoverPresentationController_Private.h>
 #import <UIKit/UIPresentationController_Private.h>
+#import <UIKit/UIPress_Private.h>
 #import <UIKit/UIPrintPageRenderer_Private.h>
 #import <UIKit/UIResponder_Private.h>
 #import <UIKit/UIScene_Private.h>
@@ -125,8 +126,6 @@
 #import <UIKit/UIDragPreview_Private.h>
 #import <UIKit/UIDragSession.h>
 #import <UIKit/UIDropInteraction.h>
-#import <UIKit/UIPreviewInteraction.h>
-#import <UIKit/UIURLDragPreviewView.h>
 #import <UIKit/_UITextDragCaretView.h>
 #endif
 
@@ -215,6 +214,8 @@ typedef struct __IOHIDEvent* IOHIDEventRef;
 typedef struct __GSKeyboard* GSKeyboardRef;
 WTF_EXTERN_C_END
 
+@class UIPressInfo;
+
 @interface UIApplication ()
 - (UIInterfaceOrientation)interfaceOrientation;
 - (void)_cancelAllTouches;
@@ -222,7 +223,6 @@ WTF_EXTERN_C_END
 - (BOOL)isSuspendedUnderLock;
 - (void)_enqueueHIDEvent:(IOHIDEventRef)event;
 - (void)_handleHIDEvent:(IOHIDEventRef)event;
-- (void)handleKeyUIEvent:(UIEvent *)event;
 - (BOOL)_appAdoptsUISceneLifecycle;
 @end
 
@@ -274,8 +274,6 @@ typedef NS_ENUM(NSInteger, _UIDatePickerOverlayAnchor) {
 - (void)setOrientation:(UIDeviceOrientation)orientation animated:(BOOL)animated;
 @property (nonatomic, readonly, retain) NSString *buildVersion;
 @end
-
-static const UIUserInterfaceIdiom UIUserInterfaceIdiomWatch = (UIUserInterfaceIdiom)4;
 
 typedef enum {
     kUIKeyboardInputRepeat                 = 1 << 0,
@@ -502,7 +500,6 @@ typedef struct CGSVGDocument *CGSVGDocumentRef;
 @end
 
 @interface UIResponder ()
-- (void)_handleKeyUIEvent:(UIEvent *)event;
 - (void)_wheelChangedWithEvent:(UIEvent *)event;
 - (void)_beginPinningInputViews;
 - (void)_endPinningInputViews;
@@ -859,7 +856,6 @@ typedef NS_ENUM(NSInteger, UIWKGestureType) {
 - (void)insertTextPlaceholderWithSize:(CGSize)size completionHandler:(void (^)(UITextPlaceholder *))completionHandler;
 - (void)removeTextPlaceholder:(UITextPlaceholder *)placeholder willInsertText:(BOOL)willInsertText completionHandler:(void (^)(void))completionHandler;
 
-- (void)clearSelection;
 - (void)replaceDictatedText:(NSString *)oldText withText:(NSString *)newText;
 - (void)requestDictationContext:(void (^)(NSString *selectedText, NSString *prefixText, NSString *postfixText))completionHandler;
 - (BOOL)pointIsNearMarkedText:(CGPoint)point;
@@ -868,7 +864,6 @@ typedef NS_ENUM(NSInteger, UIWKGestureType) {
 - (void)replaceText:(NSString *)text withText:(NSString *)word;
 - (void)selectWordForReplacement;
 - (BOOL)isReplaceAllowed;
-- (void)selectWordBackward;
 - (UIView *)unscaledView;
 - (CGFloat)inverseScale;
 - (CGRect)unobscuredContentRect;
@@ -1105,10 +1100,6 @@ WTF_EXTERN_C_END
 -(void)insertAtPosition:(UITextPosition *)position;
 -(void)updateToPosition:(UITextPosition *)position;
 -(void)remove;
-@end
-
-@interface UIURLDragPreviewView : UIView
-+ (instancetype)viewWithTitle:(NSString *)title URL:(NSURL *)url;
 @end
 
 @interface _UIParallaxTransitionPanGestureRecognizer : UIScreenEdgePanGestureRecognizer
@@ -1372,7 +1363,7 @@ typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
 - (void)translate:(NSString *)text fromRect:(CGRect)presentationRect;
 @end
 
- @interface UIColor (IPI)
+@interface UIColor (IPI)
 + (UIColor *)insertionPointColor;
 @end
 
@@ -1411,6 +1402,14 @@ typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
 - (void)prepareKeyboardInputModeFromPreferences:(UIKeyboardInputMode *)lastUsedMode;
 - (void)syncInputManagerToAcceptedAutocorrection:(TIKeyboardCandidate *)autocorrection forInput:(TIKeyboardInput *)inputEvent;
 @property (nonatomic, readonly) UIKeyboardInputMode *currentInputModeInPreference;
+@end
+
+@interface UIApplication (IPI)
+- (UIPressInfo *)_pressInfoForPhysicalKeyboardEvent:(UIPhysicalKeyboardEvent *)physicalKeyboardEvent;
+@end
+
+@interface UIPress (IPI)
+- (void)_loadStateFromPressInfo:(UIPressInfo *)pressInfo;
 @end
 
 @class CALayerHost;

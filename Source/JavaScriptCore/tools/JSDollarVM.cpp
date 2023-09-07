@@ -42,6 +42,7 @@
 #include "JITSizeStatistics.h"
 #include "JSArray.h"
 #include "JSCInlines.h"
+#include "JSGlobalProxyInlines.h"
 #include "JSONObject.h"
 #include "JSPromise.h"
 #include "JSString.h"
@@ -3350,7 +3351,7 @@ JSC_DEFINE_HOST_FUNCTION(functionShadowChickenFunctionsOnStack, (JSGlobalObject*
         DollarVMAssertScope assertScope;
         if (visitor->isInlinedDFGFrame())
             return IterationStatus::Continue;
-        if (visitor->isWasmFrame())
+        if (visitor->isNativeCalleeFrame())
             return IterationStatus::Continue;
         result->push(globalObject, jsCast<JSObject*>(visitor->callee().asCell()));
         scope.releaseAssertNoException(); // This function is only called from tests.

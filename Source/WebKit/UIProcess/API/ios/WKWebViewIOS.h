@@ -26,9 +26,11 @@
 #import "WKWebViewInternal.h"
 #import "_WKTapHandlingResult.h"
 
-@class UIScrollEvent;
-
 #if PLATFORM(IOS_FAMILY)
+
+#import "UIKitSPI.h"
+
+@class UIScrollEvent;
 
 namespace WebKit {
 enum class TapHandlingResult : uint8_t;
@@ -157,6 +159,8 @@ enum class TapHandlingResult : uint8_t;
 - (BOOL)_effectiveAppearanceIsDark;
 - (BOOL)_effectiveUserInterfaceLevelIsElevated;
 
+- (_UIDataOwner)_effectiveDataOwner:(_UIDataOwner)clientSuppliedDataOwner;
+
 #if HAVE(UI_WINDOW_SCENE_LIVE_RESIZE)
 - (void)_beginLiveResize;
 - (void)_endLiveResize;
@@ -171,6 +175,8 @@ enum class TapHandlingResult : uint8_t;
 #endif
 
 - (UIColor *)_insertionPointColor;
+
+- (BOOL)_tryToHandleKeyEventInCustomContentView:(UIPressesEvent *)event;
 
 @property (nonatomic, readonly) WKPasswordView *_passwordView;
 @property (nonatomic, readonly) WKWebViewContentProviderRegistry *_contentProviderRegistry;

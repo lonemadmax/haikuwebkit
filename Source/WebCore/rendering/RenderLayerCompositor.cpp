@@ -462,10 +462,13 @@ static inline bool layersLogEnabled()
 }
 #endif
 
+static constexpr Seconds conservativeCompositingPolicyHysteresisDuration { 2_s };
+
 RenderLayerCompositor::RenderLayerCompositor(RenderView& renderView)
     : m_renderView(renderView)
     , m_updateCompositingLayersTimer(*this, &RenderLayerCompositor::updateCompositingLayersTimerFired)
     , m_updateRenderingTimer(*this, &RenderLayerCompositor::scheduleRenderingUpdate)
+    , m_compositingPolicyHysteresis([](PAL::HysteresisState) { }, conservativeCompositingPolicyHysteresisDuration)
 {
 #if PLATFORM(IOS_FAMILY)
     if (m_renderView.frameView().platformWidget())
@@ -594,6 +597,9 @@ bool RenderLayerCompositor::updateCompositingPolicy()
         return m_compositingPolicy != currentPolicy;
     }
 
+    if (!canUpdateCompositingPolicy())
+        return false;
+
     const auto isCurrentlyUnderMemoryPressureOrWarning = [] {
         return MemoryPressureHandler::singleton().isUnderMemoryPressure() || MemoryPressureHandler::singleton().isUnderMemoryWarning();
     };
@@ -608,7 +614,17 @@ bool RenderLayerCompositor::updateCompositingPolicy()
     }
 
     m_compositingPolicy = cachedMemoryPolicy == WTF::MemoryUsagePolicy::Unrestricted ? CompositingPolicy::Normal : CompositingPolicy::Conservative;
-    return m_compositingPolicy != currentPolicy;
+
+    bool didChangePolicy = currentPolicy != m_compositingPolicy;
+    if (didChangePolicy && m_compositingPolicy == CompositingPolicy::Conservative)
+        m_compositingPolicyHysteresis.impulse();
+
+    return didChangePolicy;
+}
+
+bool RenderLayerCompositor::canUpdateCompositingPolicy() const
+{
+    return m_compositingPolicyHysteresis.state() == PAL::HysteresisState::Stopped;
 }
 
 bool RenderLayerCompositor::canRender3DTransforms() const
@@ -4141,9 +4157,6 @@ void RenderLayerCompositor::updateLayerForOverhangAreasBackgroundColor()
         })();
         m_layerForOverhangAreas->setBackgroundColor(backgroundColor);
     }
-
-    if (!backgroundColor.isValid())
-        m_layerForOverhangAreas->setCustomAppearance(GraphicsLayer::CustomAppearance::ScrollingOverhang);
 }
 
 #endif // HAVE(RUBBER_BANDING)
@@ -4349,8 +4362,7 @@ void RenderLayerCompositor::ensureRootLayer()
 
 #if PLATFORM(IOS_FAMILY)
         // Page scale is applied above this on iOS, so we'll just say that our root layer applies it.
-        auto* frame = dynamicDowncast<LocalFrame>(m_renderView.frameView().frame());
-        if (frame && frame->isMainFrame())
+        if (m_renderView.frameView().frame().isMainFrame())
             m_rootContentsLayer->setAppliesPageScale();
 #endif
 
@@ -4475,8 +4487,7 @@ void RenderLayerCompositor::attachRootLayer(RootLayerAttachment attachment)
             ASSERT_NOT_REACHED();
             break;
         case RootLayerAttachedViaChromeClient: {
-            if (auto* frame = dynamicDowncast<LocalFrame>(m_renderView.frameView().frame()))
-                page().chrome().client().attachRootGraphicsLayer(*frame, rootGraphicsLayer());
+            page().chrome().client().attachRootGraphicsLayer(m_renderView.frameView().frame(), rootGraphicsLayer());
             break;
         }
         case RootLayerAttachedViaEnclosingFrame: {
@@ -4526,11 +4537,9 @@ void RenderLayerCompositor::detachRootLayer()
         break;
     }
     case RootLayerAttachedViaChromeClient: {
-        if (auto* frame = dynamicDowncast<LocalFrame>(m_renderView.frameView().frame())) {
-            if (auto* scrollingCoordinator = this->scrollingCoordinator())
-                scrollingCoordinator->frameViewWillBeDetached(m_renderView.frameView());
-            page().chrome().client().attachRootGraphicsLayer(*frame, nullptr);
-        }
+        if (auto* scrollingCoordinator = this->scrollingCoordinator())
+            scrollingCoordinator->frameViewWillBeDetached(m_renderView.frameView());
+        page().chrome().client().attachRootGraphicsLayer(m_renderView.frameView().frame(), nullptr);
     }
     break;
     case RootLayerUnattached:
@@ -4560,7 +4569,7 @@ void RenderLayerCompositor::rootLayerAttachmentChanged()
     if (auto* backing = layer ? layer->backing() : nullptr)
         backing->updateDrawsContent();
 
-    if (auto* frame = dynamicDowncast<LocalFrame>(m_renderView.frameView().frame()); !frame || !frame->isMainFrame())
+    if (!m_renderView.frameView().frame().isMainFrame())
         return;
 
     Ref<GraphicsLayer> overlayHost = page().pageOverlayController().layerWithDocumentOverlays();

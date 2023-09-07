@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2020 Igalia, S.L.
+ * Copyright (C) 2021-2023 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,6 +29,7 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/HashMap.h>
 #include <wtf/Ref.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
@@ -199,11 +201,15 @@ enum class HandJoint : unsigned {
 
 class TrackingAndRenderingClient;
 
-class Device : public ThreadSafeRefCounted<Device>, public CanMakeWeakPtr<Device> {
+class Device : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Device> {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(Device);
 public:
     virtual ~Device() = default;
+
+    void ref() const { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Device>::ref(); }
+    void deref() const { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Device>::deref(); }
+    ThreadSafeWeakPtrControlBlock& controlBlock() const { return ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Device>::controlBlock(); }
 
     using FeatureList = Vector<SessionFeature>;
     bool supports(SessionMode mode) const { return m_supportedFeaturesMap.contains(mode); }
@@ -224,7 +230,6 @@ public:
     // to yield the device's max framebuffer resolution. This resolution can be larger than
     // the native resolution if the device supports supersampling.
     virtual double maxFramebufferScalingFactor() const { return nativeFramebufferScalingFactor(); }
-
 
     virtual void initializeTrackingAndRendering(const WebCore::SecurityOriginData&, SessionMode, const FeatureList&) = 0;
     virtual void shutDownTrackingAndRendering() = 0;
@@ -290,10 +295,7 @@ public:
         };
 
         struct LayerData {
-#if USE(IOSURFACE_FOR_XR_LAYER_DATA)
-            std::unique_ptr<WebCore::IOSurface> surface;
-            bool isShared { false };
-#elif USE(MTLTEXTURE_FOR_XR_LAYER_DATA)
+#if USE(MTLTEXTURE_FOR_XR_LAYER_DATA)
             std::tuple<MachSendRight, bool> colorTexture = { MachSendRight(), false };
             std::tuple<MachSendRight, bool> depthStencilBuffer = { MachSendRight(), false };
 #else
@@ -580,18 +582,14 @@ std::optional<Device::FrameData::StageParameters> Device::FrameData::StageParame
 template<class Encoder>
 void Device::FrameData::LayerData::encode(Encoder& encoder) const
 {
-#if USE(IOSURFACE_FOR_XR_LAYER_DATA)
-    MachSendRight surfaceSendRight = surface ? surface->createSendRight() : MachSendRight();
-    encoder << WTFMove(surfaceSendRight);
-    encoder << isShared;
-#elif USE(MTLTEXTURE_FOR_XR_LAYER_DATA)
-    encoder << std::make_tuple(MachSendRight(std::get<0>(colorTexture)), std::get<1>(colorTexture));
-    encoder << std::make_tuple(MachSendRight(std::get<0>(depthStencilBuffer)), std::get<1>(depthStencilBuffer));
+#if USE(MTLTEXTURE_FOR_XR_LAYER_DATA)
+    encoder << std::tuple(colorTexture);
+    encoder << std::tuple(depthStencilBuffer);
 #else
     encoder << opaqueTexture;
 #endif
 #if USE(MTLSHAREDEVENT_FOR_XR_FRAME_COMPLETION)
-    encoder << completionSyncEvent;
+    encoder << std::tuple(completionSyncEvent);
 #endif
 }
 
@@ -599,14 +597,7 @@ template<class Decoder>
 std::optional<Device::FrameData::LayerData> Device::FrameData::LayerData::decode(Decoder& decoder)
 {
     PlatformXR::Device::FrameData::LayerData layerData;
-#if USE(IOSURFACE_FOR_XR_LAYER_DATA)
-    MachSendRight surfaceSendRight;
-    if (!decoder.decode(surfaceSendRight))
-        return std::nullopt;
-    layerData.surface = WebCore::IOSurface::createFromSendRight(WTFMove(surfaceSendRight));
-    if (!decoder.decode(layerData.isShared))
-        return std::nullopt;
-#elif USE(MTLTEXTURE_FOR_XR_LAYER_DATA)
+#if USE(MTLTEXTURE_FOR_XR_LAYER_DATA)
     if (!decoder.decode(layerData.colorTexture))
         return std::nullopt;
     if (!decoder.decode(layerData.depthStencilBuffer))

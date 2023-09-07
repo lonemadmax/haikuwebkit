@@ -1337,6 +1337,17 @@ ExceptionOr<RefPtr<Element>> Internals::pseudoElement(Element& element, const St
     return pseudoId == "before"_s ? element.beforePseudoElement() : element.afterPseudoElement();
 }
 
+double Internals::preferredRenderingUpdateInterval()
+{
+    auto* document = contextDocument();
+    if (!document)
+        return 0;
+    auto* page = document->page();
+    if (!page)
+        return 0;
+    return page->preferredRenderingUpdateInterval().milliseconds();
+}
+
 ExceptionOr<String> Internals::elementRenderTreeAsText(Element& element)
 {
     element.document().updateStyleIfNeeded();
@@ -1421,7 +1432,7 @@ ExceptionOr<bool> Internals::isTimerThrottled(int timeoutId)
     if (timer->intervalClampedToMinimum() > timer->m_originalInterval)
         return true;
 
-    return !!timer->alignedFireTime(MonotonicTime { });
+    return !!scriptExecutionContext()->alignedFireTime(timer->hasReachedMaxNestingLevel(), MonotonicTime { });
 }
 
 String Internals::requestAnimationFrameThrottlingReasons() const
@@ -4442,6 +4453,11 @@ void Internals::setSelectionWithoutValidation(Ref<Node> baseNode, unsigned baseO
         VisiblePosition { makeDeprecatedLegacyPosition(extentNode.get(), extentOffset) });
 }
 
+void Internals::setSelectionFromNone()
+{
+    contextDocument()->frame()->selection().setSelectionFromNone();
+}
+
 ExceptionOr<bool> Internals::isPluginUnavailabilityIndicatorObscured(Element& element)
 {
     if (!is<HTMLPlugInElement>(element))
@@ -5681,9 +5697,6 @@ void Internals::simulateEventForWebGLContext(SimulatedWebGLContextEvent event, W
 {
     WebGLRenderingContext::SimulatedEventForTesting contextEvent;
     switch (event) {
-    case SimulatedWebGLContextEvent::ContextChange:
-        contextEvent = WebGLRenderingContext::SimulatedEventForTesting::ContextChange;
-        break;
     case SimulatedWebGLContextEvent::GPUStatusFailure:
         contextEvent = WebGLRenderingContext::SimulatedEventForTesting::GPUStatusFailure;
         break;
@@ -6742,7 +6755,7 @@ bool Internals::supportsPictureInPicture()
 
 String Internals::focusRingColor()
 {
-    return serializationForCSS(RenderTheme::singleton().focusRingColor({ }));
+    return serializationForCSS(RenderTheme::singleton().focusRingColor(StyleColorOptions::UseSystemAppearance));
 }
 
 ExceptionOr<unsigned> Internals::createSleepDisabler(const String& reason, bool display)

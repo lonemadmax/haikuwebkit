@@ -91,7 +91,7 @@ InlineDisplayContentBuilder::InlineDisplayContentBuilder(const InlineFormattingC
     m_initialContaingBlockSize = ceiledIntSize(LayoutSize { initialContainingBlockGeometry.contentBoxWidth(), initialContainingBlockGeometry.contentBoxHeight() });
 }
 
-InlineDisplay::Boxes InlineDisplayContentBuilder::build(const LineBuilder::LayoutResult& lineLayoutResult, const LineBox& lineBox)
+InlineDisplay::Boxes InlineDisplayContentBuilder::build(const LineLayoutResult& lineLayoutResult, const LineBox& lineBox)
 {
     auto boxes = InlineDisplay::Boxes { };
     boxes.reserveInitialCapacity(lineLayoutResult.inlineContent.size() + lineBox.nonRootInlineLevelBoxes().size() + 1);
@@ -167,6 +167,22 @@ void InlineDisplayContentBuilder::appendTextDisplayBox(const Line::Run& lineRun,
     auto inkOverflow = [&] {
         auto inkOverflow = textRunRect;
 
+        auto addLetterSpacingOverflow = [&] {
+            auto letterSpacing = style.fontCascade().letterSpacing();
+            if (letterSpacing >= 0)
+                return;
+            // Large negative letter spacing can produce text boxes with negative width (when glyphs position order gets completely backwards (123 turns into 321 starting at an offset))
+            // Such spacing should go to ink overflow.
+            auto textRunWidth = textRunRect.width();
+            if (textRunWidth < 0) {
+                inkOverflow.setWidth({ });
+                inkOverflow.shiftLeftTo(textRunWidth);
+            }
+            // Last letter's negative spacing shrinks logical rect. Push it to ink overflow.
+            inkOverflow.expand(-letterSpacing, { });
+        };
+        addLetterSpacingOverflow();
+
         auto addStrokeOverflow = [&] {
             inkOverflow.inflate(ceilf(style.computedStrokeWidth(m_initialContaingBlockSize)));
         };
@@ -177,15 +193,6 @@ void InlineDisplayContentBuilder::appendTextDisplayBox(const Line::Run& lineRun,
             inkOverflow.inflate(-textShadow.top(), textShadow.right(), textShadow.bottom(), -textShadow.left());
         };
         addTextShadow();
-
-        auto addLetterSpacingOverflow = [&] {
-            auto letterSpacing = style.fontCascade().letterSpacing();
-            if (letterSpacing >= 0)
-                return;
-            // Last letter's negative spacing shrinks logical rect. Push it to ink overflow.
-            inkOverflow.expand(-letterSpacing, { });
-        };
-        addLetterSpacingOverflow();
 
         auto addGlyphOverflow = [&] {
             if (inlineTextBox.canUseSimpleFontCodePath()) {
@@ -433,7 +440,7 @@ void InlineDisplayContentBuilder::appendInlineDisplayBoxAtBidiBoundary(const Box
     });
 }
 
-void InlineDisplayContentBuilder::processNonBidiContent(const LineBuilder::LayoutResult& lineLayoutResult, const LineBox& lineBox, InlineDisplay::Boxes& boxes)
+void InlineDisplayContentBuilder::processNonBidiContent(const LineLayoutResult& lineLayoutResult, const LineBox& lineBox, InlineDisplay::Boxes& boxes)
 {
 #ifndef NDEBUG
     auto hasContent = false;
@@ -653,7 +660,7 @@ void InlineDisplayContentBuilder::adjustVisualGeometryForDisplayBox(size_t displ
         displayBox.setHasContent();
 }
 
-void InlineDisplayContentBuilder::processBidiContent(const LineBuilder::LayoutResult& lineLayoutResult, const LineBox& lineBox, InlineDisplay::Boxes& boxes)
+void InlineDisplayContentBuilder::processBidiContent(const LineLayoutResult& lineLayoutResult, const LineBox& lineBox, InlineDisplay::Boxes& boxes)
 {
     ASSERT(lineLayoutResult.directionality.visualOrderList.size() <= lineLayoutResult.inlineContent.size());
 
@@ -818,7 +825,7 @@ void InlineDisplayContentBuilder::processBidiContent(const LineBuilder::LayoutRe
     handleTrailingOpenInlineBoxes();
 }
 
-void InlineDisplayContentBuilder::processFloatBoxes(const LineBuilder::LayoutResult&)
+void InlineDisplayContentBuilder::processFloatBoxes(const LineLayoutResult&)
 {
     // Float boxes are not part of the inline content so we don't construct inline display boxes for them.
     // However box geometry still needs flipping from logical to visual.
@@ -900,14 +907,14 @@ void InlineDisplayContentBuilder::collectInkOverflowForTextDecorations(InlineDis
             m_contentHasInkOverflow = true;
             auto inflatedVisualOverflowRect = [&] {
                 auto inkOverflowRect = displayBox.inkOverflow();
-                switch (writingMode) {
-                case WritingMode::TopToBottom:
+                switch (writingModeToBlockFlowDirection(writingMode)) {
+                case BlockFlowDirection::TopToBottom:
                     inkOverflowRect.inflate(decorationOverflow.left, decorationOverflow.top, decorationOverflow.right, decorationOverflow.bottom);
                     break;
-                case WritingMode::LeftToRight:
+                case BlockFlowDirection::LeftToRight:
                     inkOverflowRect.inflate(decorationOverflow.bottom, decorationOverflow.right, decorationOverflow.top, decorationOverflow.left);
                     break;
-                case WritingMode::RightToLeft:
+                case BlockFlowDirection::RightToLeft:
                     inkOverflowRect.inflate(decorationOverflow.top, decorationOverflow.right, decorationOverflow.bottom, decorationOverflow.left);
                     break;
                 default:
@@ -923,15 +930,15 @@ void InlineDisplayContentBuilder::collectInkOverflowForTextDecorations(InlineDis
 
 InlineRect InlineDisplayContentBuilder::flipLogicalRectToVisualForWritingModeWithinLine(const InlineRect& logicalRect, const InlineRect& lineLogicalRect, WritingMode writingMode) const
 {
-    switch (writingMode) {
-    case WritingMode::TopToBottom:
+    switch (writingModeToBlockFlowDirection(writingMode)) {
+    case BlockFlowDirection::TopToBottom:
         return logicalRect;
-    case WritingMode::LeftToRight: {
+    case BlockFlowDirection::LeftToRight: {
         // Flip content such that the top (visual left) is now relative to the line bottom instead of the line top.
         auto bottomOffset = lineLogicalRect.height() - logicalRect.bottom();
         return { logicalRect.left(), bottomOffset, logicalRect.height(), logicalRect.width() };
     }
-    case WritingMode::RightToLeft:
+    case BlockFlowDirection::RightToLeft:
         // See InlineFormattingGeometry for more info.
         return { logicalRect.left(), logicalRect.top(), logicalRect.height(), logicalRect.width() };
     default:
@@ -943,14 +950,14 @@ InlineRect InlineDisplayContentBuilder::flipLogicalRectToVisualForWritingModeWit
 
 InlineRect InlineDisplayContentBuilder::flipRootInlineBoxRectToVisualForWritingMode(const InlineRect& rootInlineBoxLogicalRect, WritingMode writingMode) const
 {
-    switch (writingMode) {
-    case WritingMode::TopToBottom: {
+    switch (writingModeToBlockFlowDirection(writingMode)) {
+    case BlockFlowDirection::TopToBottom: {
         auto visualRect = rootInlineBoxLogicalRect;
         visualRect.moveBy({ m_displayLine.left(), m_displayLine.top() });
         return visualRect;
     }
-    case WritingMode::LeftToRight:
-    case WritingMode::RightToLeft: {
+    case BlockFlowDirection::LeftToRight:
+    case BlockFlowDirection::RightToLeft: {
         // See InlineFormattingGeometry for more info.
         auto visualRect = InlineRect { rootInlineBoxLogicalRect.left(), rootInlineBoxLogicalRect.top(), rootInlineBoxLogicalRect.height(), rootInlineBoxLogicalRect.width() };
         visualRect.moveBy({ m_displayLine.left(), m_displayLine.top() });
@@ -965,12 +972,12 @@ InlineRect InlineDisplayContentBuilder::flipRootInlineBoxRectToVisualForWritingM
 
 void InlineDisplayContentBuilder::setLeftForWritingMode(InlineDisplay::Box& displayBox, InlineLayoutUnit logicalLeft, WritingMode writingMode) const
 {
-    switch (writingMode) {
-    case WritingMode::TopToBottom:
+    switch (writingModeToBlockFlowDirection(writingMode)) {
+    case BlockFlowDirection::TopToBottom:
         displayBox.setLeft(logicalLeft);
         break;
-    case WritingMode::LeftToRight:
-    case WritingMode::RightToLeft:
+    case BlockFlowDirection::LeftToRight:
+    case BlockFlowDirection::RightToLeft:
         displayBox.setTop(logicalLeft);
         break;
     default:
@@ -981,12 +988,12 @@ void InlineDisplayContentBuilder::setLeftForWritingMode(InlineDisplay::Box& disp
 
 void InlineDisplayContentBuilder::setRightForWritingMode(InlineDisplay::Box& displayBox, InlineLayoutUnit logicalRight, WritingMode writingMode) const
 {
-    switch (writingMode) {
-    case WritingMode::TopToBottom:
+    switch (writingModeToBlockFlowDirection(writingMode)) {
+    case BlockFlowDirection::TopToBottom:
         displayBox.setRight(logicalRight);
         break;
-    case WritingMode::LeftToRight:
-    case WritingMode::RightToLeft:
+    case BlockFlowDirection::LeftToRight:
+    case BlockFlowDirection::RightToLeft:
         displayBox.setBottom(logicalRight);
         break;
     default:

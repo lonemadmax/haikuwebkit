@@ -1541,10 +1541,12 @@ static String computeMediaKeyFile(const String& mediaKeyDirectory)
     return FileSystem::pathByAppendingComponent(mediaKeyDirectory, "SecureStop.plist"_s);
 }
 
+#if !PLATFORM(COCOA)
 void WebsiteDataStore::allowSpecificHTTPSCertificateForHost(const WebCore::CertificateInfo& certificate, const String& host)
 {
     networkProcess().send(Messages::NetworkProcess::AllowSpecificHTTPSCertificateForHost(sessionID(), certificate, host), 0);
 }
+#endif
 
 void WebsiteDataStore::allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo& certificate)
 {
@@ -1945,6 +1947,7 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     networkSessionParameters.serviceWorkerRegistrationDirectory = resolvedServiceWorkerRegistrationDirectory();
     createHandleFromResolvedPathIfPossible(networkSessionParameters.serviceWorkerRegistrationDirectory, networkSessionParameters.serviceWorkerRegistrationDirectoryExtensionHandle);
     networkSessionParameters.serviceWorkerProcessTerminationDelayEnabled = m_configuration->serviceWorkerProcessTerminationDelayEnabled();
+    networkSessionParameters.inspectionForServiceWorkersAllowed = m_inspectionForServiceWorkersAllowed;
 #endif
     parameters.networkSessionParameters = WTFMove(networkSessionParameters);
 #if ENABLE(TRACKING_PREVENTION)
@@ -2392,6 +2395,7 @@ void WebsiteDataStore::download(const DownloadProxy& downloadProxy, const String
 {
     std::optional<NavigatingToAppBoundDomain> isAppBound = NavigatingToAppBoundDomain::No;
     WebCore::ResourceRequest updatedRequest(downloadProxy.request());
+    std::optional<WebCore::SecurityOriginData> topOrigin;
     // Request's firstPartyForCookies will be used as Original URL of the download request.
     // We set the value to top level document's URL.
     if (auto* initiatingPage = downloadProxy.originatingPage()) {
@@ -2402,6 +2406,7 @@ void WebsiteDataStore::download(const DownloadProxy& downloadProxy, const String
         URL initiatingPageURL = URL { initiatingPage->pageLoadState().url() };
         updatedRequest.setFirstPartyForCookies(initiatingPageURL);
         updatedRequest.setIsSameSite(WebCore::areRegistrableDomainsEqual(initiatingPageURL, downloadProxy.request().url()));
+        topOrigin = initiatingPage->pageLoadState().origin();
         if (!updatedRequest.hasHTTPHeaderField(WebCore::HTTPHeaderName::UserAgent))
             updatedRequest.setHTTPUserAgent(initiatingPage->userAgentForURL(downloadProxy.request().url()));
     } else {
@@ -2411,7 +2416,7 @@ void WebsiteDataStore::download(const DownloadProxy& downloadProxy, const String
             updatedRequest.setHTTPUserAgent(WebPageProxy::standardUserAgent());
     }
     updatedRequest.setIsTopSite(false);
-    networkProcess().send(Messages::NetworkProcess::DownloadRequest(m_sessionID, downloadProxy.downloadID(), updatedRequest, isAppBound, suggestedFilename), 0);
+    networkProcess().send(Messages::NetworkProcess::DownloadRequest(m_sessionID, downloadProxy.downloadID(), updatedRequest, topOrigin, isAppBound, suggestedFilename), 0);
 }
 
 void WebsiteDataStore::resumeDownload(const DownloadProxy& downloadProxy, const API::Data& resumeData, const String& path, CallDownloadDidStart callDownloadDidStart)
@@ -2450,6 +2455,49 @@ void WebsiteDataStore::setCompletionHandlerForRemovalFromNetworkProcess(Completi
         m_completionHandlerForRemovalFromNetworkProcess("New completion handler is set"_s);
 
     m_completionHandlerForRemovalFromNetworkProcess = WTFMove(completionHandler);
+}
+
+#if ENABLE(SERVICE_WORKER)
+
+void WebsiteDataStore::updateServiceWorkerInspectability()
+{
+    if (!m_pages.computeSize())
+        return;
+
+    bool wasInspectable = m_inspectionForServiceWorkersAllowed;
+    m_inspectionForServiceWorkersAllowed = [&] {
+        for (auto& page : m_pages) {
+            if (page.inspectable())
+                return true;
+        }
+        return false;
+    }();
+
+    if (wasInspectable == m_inspectionForServiceWorkersAllowed)
+        return;
+
+    if (RefPtr networkProcess = networkProcessIfExists())
+        networkProcess->send(Messages::NetworkProcess::SetInspectionForServiceWorkersAllowed(m_sessionID, m_inspectionForServiceWorkersAllowed), 0);
+}
+
+#endif // ENABLE(SERVICE_WORKER)
+
+void WebsiteDataStore::addPage(WebPageProxy& page)
+{
+    m_pages.add(page);
+
+#if ENABLE(SERVICE_WORKER)
+    updateServiceWorkerInspectability();
+#endif
+}
+
+void WebsiteDataStore::removePage(WebPageProxy& page)
+{
+    m_pages.remove(page);
+
+#if ENABLE(SERVICE_WORKER)
+    updateServiceWorkerInspectability();
+#endif
 }
 
 }

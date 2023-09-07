@@ -49,7 +49,6 @@
 #include <WebKit/WKIconDatabase.h>
 #include <WebKit/WKMediaKeySystemPermissionCallback.h>
 #include <WebKit/WKMessageListener.h>
-#include <WebKit/WKMockDisplay.h>
 #include <WebKit/WKMockMediaDevice.h>
 #include <WebKit/WKNavigationActionRef.h>
 #include <WebKit/WKNavigationResponseRef.h>
@@ -1245,6 +1244,8 @@ bool TestController::resetStateToConsistentValues(const TestOptions& options, Re
     clearPrivateClickMeasurement();
 
     WKPageDispatchActivityStateUpdateForTesting(m_mainWebView->page());
+
+    WKPageResetProcessState(m_mainWebView->page());
 
     m_didReceiveServerRedirectForProvisionalNavigation = false;
     m_serverTrustEvaluationCallbackCallsCount = 0;
@@ -4077,11 +4078,6 @@ WKRetainPtr<WKStringRef> TestController::takeViewPortSnapshot()
     return adoptWK(WKStringCreateWithUTF8CString("not implemented"));
 }
 #endif
-
-void TestController::sendDisplayConfigurationChangedMessageForTesting()
-{
-    WKSendDisplayConfigurationChangedMessageForTesting(platformContext());
-}
 
 void TestController::setServiceWorkerFetchTimeoutForTesting(double seconds)
 {

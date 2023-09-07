@@ -213,7 +213,15 @@ WKArrayRef WKBundlePageCopyContextMenuItems(WKBundlePageRef pageRef)
 WKArrayRef WKBundlePageCopyContextMenuAtPointInWindow(WKBundlePageRef pageRef, WKPoint point)
 {
 #if ENABLE(CONTEXT_MENUS)
-    WebKit::WebContextMenu* contextMenu = WebKit::toImpl(pageRef)->contextMenuAtPointInWindow(WebKit::toIntPoint(point));
+    WebCore::Page* page = WebKit::toImpl(pageRef)->corePage();
+    if (!page)
+        return nullptr;
+
+    auto* localMainFrame = dynamicDowncast<WebCore::LocalFrame>(page->mainFrame());
+    if (!localMainFrame)
+        return nullptr;
+
+    WebKit::WebContextMenu* contextMenu = WebKit::toImpl(pageRef)->contextMenuAtPointInWindow(localMainFrame->frameID(), WebKit::toIntPoint(point));
     if (!contextMenu)
         return nullptr;
 
@@ -305,37 +313,6 @@ void* WKAccessibilityFocusedUIElement()
     return WebKit::WebProcess::accessibilityFocusedUIElement();
 #else
     return 0;
-#endif
-}
-
-bool WKAccessibilityCanUseSecondaryAXThread(WKBundlePageRef pageRef)
-{
-#if ENABLE(ACCESSIBILITY) && ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    if (!pageRef)
-        return false;
-
-    WebCore::Page* page = WebKit::toImpl(pageRef)->corePage();
-    if (!page)
-        return false;
-    
-    auto* localMainFrame = dynamicDowncast<WebCore::LocalFrame>(page->mainFrame());
-    if (!localMainFrame)
-        return false;
-
-    auto& core = *localMainFrame;
-    if (!core.document())
-        return false;
-
-    WebCore::AXObjectCache::enableAccessibility();
-
-    auto* axObjectCache = core.document()->axObjectCache();
-    if (!axObjectCache)
-        return false;
-
-    return axObjectCache->usedOnAXThread();
-#else
-    UNUSED_PARAM(pageRef);
-    return false;
 #endif
 }
 

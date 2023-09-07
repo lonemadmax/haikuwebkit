@@ -54,6 +54,7 @@
 #import "VideoTrackPrivateWebM.h"
 #import "WebCoreDecompressionSession.h"
 #import "WebMResourceClient.h"
+#import <AVFoundation/AVFoundation.h>
 #import <pal/avfoundation/MediaTimeAVFoundation.h>
 #import <pal/spi/cocoa/AVFoundationSPI.h>
 #import <wtf/MainThread.h>
@@ -68,7 +69,6 @@
 #import <pal/cocoa/AVFoundationSoftLink.h>
 
 @interface AVSampleBufferDisplayLayer (WebCoreAVSampleBufferDisplayLayerQueueManagementPrivate)
-- (void)prerollDecodeWithCompletionHandler:(void (^)(BOOL success))block;
 - (void)expectMinimumUpcomingSampleBufferPresentationTime: (CMTime)minimumUpcomingPresentationTime;
 - (void)resetUpcomingSampleBufferPresentationTimeExpectations;
 @end
@@ -1278,12 +1278,11 @@ void MediaPlayerPrivateWebM::ensureLayer()
         setNetworkState(MediaPlayer::NetworkState::DecodeError);
         return;
     }
-    
-    if ([m_displayLayer respondsToSelector:@selector(setPreventsDisplaySleepDuringVideoPlayback:)])
-        m_displayLayer.get().preventsDisplaySleepDuringVideoPlayback = NO;
+
+    [m_displayLayer setPreventsDisplaySleepDuringVideoPlayback:NO];
 
     if ([m_displayLayer respondsToSelector:@selector(setPreventsAutomaticBackgroundingDuringVideoPlayback:)])
-        m_displayLayer.get().preventsAutomaticBackgroundingDuringVideoPlayback = NO;
+        [m_displayLayer setPreventsAutomaticBackgroundingDuringVideoPlayback:NO];
 
     @try {
         [m_synchronizer addRenderer:m_displayLayer.get()];
@@ -1400,9 +1399,7 @@ void MediaPlayerPrivateWebM::destroyLayer()
         return;
 
     CMTime currentTime = PAL::CMTimebaseGetTime([m_synchronizer timebase]);
-    [m_synchronizer removeRenderer:m_displayLayer.get() atTime:currentTime withCompletionHandler:^(BOOL){
-        // No-op.
-    }];
+    [m_synchronizer removeRenderer:m_displayLayer.get() atTime:currentTime completionHandler:nil];
 
     m_videoLayerManager->didDestroyVideoLayer();
     [m_displayLayer flush];
@@ -1427,9 +1424,7 @@ void MediaPlayerPrivateWebM::destroyDecompressionSession()
 void MediaPlayerPrivateWebM::destroyAudioRenderer(RetainPtr<AVSampleBufferAudioRenderer> renderer)
 {
     CMTime currentTime = PAL::CMTimebaseGetTime([m_synchronizer timebase]);
-    [m_synchronizer removeRenderer:renderer.get() atTime:currentTime withCompletionHandler:^(BOOL){
-        // No-op.
-    }];
+    [m_synchronizer removeRenderer:renderer.get() atTime:currentTime completionHandler:nil];
 
     [renderer flush];
     [renderer stopRequestingMediaData];

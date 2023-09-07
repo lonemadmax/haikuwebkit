@@ -29,7 +29,6 @@
 #if ENABLE(WEBGL)
 
 #include "WebCoreOpaqueRootInlines.h"
-#include "WebGLContextGroup.h"
 #include "WebGLDrawBuffers.h"
 #include "WebGLRenderingContextBase.h"
 #include <JavaScriptCore/SlotVisitor.h>
@@ -47,11 +46,9 @@ namespace {
 
     private:
         WebGLRenderbufferAttachment(WebGLRenderbuffer*);
-        WebGLSharedObject* getObject() const override;
-        bool isSharedObject(WebGLSharedObject*) const override;
+        WebGLObject* getObject() const override;
+        bool isSharedObject(WebGLObject*) const override;
         bool isValid() const override;
-        bool isInitialized() const override;
-        void setInitialized() override;
         void onDetached(const AbstractLocker&, GraphicsContextGL*) override;
         void attach(GraphicsContextGL*, GCGLenum target, GCGLenum attachment) override;
         void unattach(GraphicsContextGL*, GCGLenum target, GCGLenum attachment) override;
@@ -73,12 +70,12 @@ namespace {
     }
 
 
-    WebGLSharedObject* WebGLRenderbufferAttachment::getObject() const
+    WebGLObject* WebGLRenderbufferAttachment::getObject() const
     {
         return m_renderbuffer->object() ? m_renderbuffer.get() : 0;
     }
 
-    bool WebGLRenderbufferAttachment::isSharedObject(WebGLSharedObject* object) const
+    bool WebGLRenderbufferAttachment::isSharedObject(WebGLObject* object) const
     {
         return object == m_renderbuffer;
     }
@@ -86,17 +83,6 @@ namespace {
     bool WebGLRenderbufferAttachment::isValid() const
     {
         return m_renderbuffer->object();
-    }
-
-    bool WebGLRenderbufferAttachment::isInitialized() const
-    {
-        return m_renderbuffer->object() && m_renderbuffer->isInitialized();
-    }
-
-    void WebGLRenderbufferAttachment::setInitialized()
-    {
-        if (m_renderbuffer->object())
-            m_renderbuffer->setInitialized();
     }
 
     void WebGLRenderbufferAttachment::onDetached(const AbstractLocker& locker, GraphicsContextGL* context)
@@ -126,11 +112,9 @@ namespace {
 
     private:
         WebGLTextureAttachment(WebGLTexture*, GCGLenum target, GCGLint level, GCGLint layer);
-        WebGLSharedObject* getObject() const override;
-        bool isSharedObject(WebGLSharedObject*) const override;
+        WebGLObject* getObject() const override;
+        bool isSharedObject(WebGLObject*) const override;
         bool isValid() const override;
-        bool isInitialized() const override;
-        void setInitialized() override;
         void onDetached(const AbstractLocker&, GraphicsContextGL*) override;
         void attach(GraphicsContextGL*, GCGLenum target, GCGLenum attachment) override;
         void unattach(GraphicsContextGL*, GCGLenum target, GCGLenum attachment) override;
@@ -157,12 +141,12 @@ namespace {
     {
     }
 
-    WebGLSharedObject* WebGLTextureAttachment::getObject() const
+    WebGLObject* WebGLTextureAttachment::getObject() const
     {
         return m_texture->object() ? m_texture.get() : 0;
     }
 
-    bool WebGLTextureAttachment::isSharedObject(WebGLSharedObject* object) const
+    bool WebGLTextureAttachment::isSharedObject(WebGLObject* object) const
     {
         return object == m_texture;
     }
@@ -170,17 +154,6 @@ namespace {
     bool WebGLTextureAttachment::isValid() const
     {
         return m_texture->object();
-    }
-
-    bool WebGLTextureAttachment::isInitialized() const
-    {
-        // Textures are assumed to be initialized.
-        return true;
-    }
-
-    void WebGLTextureAttachment::setInitialized()
-    {
-        // Textures are assumed to be initialized.
     }
 
     void WebGLTextureAttachment::onDetached(const AbstractLocker& locker, GraphicsContextGL* context)
@@ -234,8 +207,7 @@ Ref<WebGLFramebuffer> WebGLFramebuffer::createOpaque(WebGLRenderingContextBase& 
 #endif
 
 WebGLFramebuffer::WebGLFramebuffer(WebGLRenderingContextBase& ctx)
-    : WebGLContextObject(ctx)
-    , m_hasEverBeenBound(false)
+    : WebGLObject(ctx)
 {
     setObject(ctx.graphicsContextGL()->createFramebuffer());
 }
@@ -294,7 +266,7 @@ void WebGLFramebuffer::attach(GCGLenum target, GCGLenum attachment, GCGLenum att
         attachmentObject->attach(context()->graphicsContextGL(), target, attachmentPoint);
 }
 
-WebGLSharedObject* WebGLFramebuffer::getAttachmentObject(GCGLenum attachment) const
+WebGLObject* WebGLFramebuffer::getAttachmentObject(GCGLenum attachment) const
 {
     if (!object())
         return 0;
@@ -335,7 +307,7 @@ void WebGLFramebuffer::removeAttachmentFromBoundFramebuffer(const AbstractLocker
     }
 }
 
-void WebGLFramebuffer::removeAttachmentFromBoundFramebuffer(const AbstractLocker& locker, GCGLenum target, WebGLSharedObject* attachment)
+void WebGLFramebuffer::removeAttachmentFromBoundFramebuffer(const AbstractLocker& locker, GCGLenum target, WebGLObject* attachment)
 {
     ASSERT(isBound(target));
     if (!object())

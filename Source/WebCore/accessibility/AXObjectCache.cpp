@@ -504,6 +504,9 @@ AccessibilityObject* AXObjectCache::focusedObjectForNode(Node* focusedNode)
         if (auto* descendant = focus->activeDescendant())
             return descendant;
     }
+
+    if (focus->accessibilityIsIgnored())
+        return focus->parentObjectUnignored();
     return focus;
 }
 
@@ -940,7 +943,7 @@ RefPtr<AXIsolatedTree> AXObjectCache::getOrCreateIsolatedTree()
         tree = AXIsolatedTree::create(*this);
     setIsolatedTreeRoot(tree->rootNode().get());
 
-    AXObjectCache::initializeSecondaryAXThread();
+    initializeAXThreadIfNeeded();
 
     return tree;
 }
@@ -1281,6 +1284,11 @@ void AXObjectCache::handleChildrenChanged(AccessibilityObject& object)
 
             // Do not let any ancestor of an editable object update its children.
             shouldUpdateParent = false;
+        }
+
+        if (auto objects = parent->labelForObjects(); objects.size()) {
+            for (const auto& axObject : objects)
+                postNotification(dynamicDowncast<AccessibilityObject>(axObject.get()), axObject->document(), AXValueChanged);
         }
     }
 
@@ -2150,7 +2158,7 @@ void AXObjectCache::handleActiveDescendantChange(Element& element, const AtomStr
     if (!element.document().frame()->selection().isFocusedAndActive())
         return;
 
-    auto* object = getOrCreate(&element);
+    RefPtr object = getOrCreate(&element);
     if (!object)
         return;
 
@@ -2162,13 +2170,13 @@ void AXObjectCache::handleActiveDescendantChange(Element& element, const AtomStr
     if (element.document().focusedElement() != &element)
         return;
 
-    auto* activeDescendant = object->activeDescendant();
+    RefPtr activeDescendant = object->activeDescendant();
     if (!activeDescendant) {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
         if (object->shouldFocusActiveDescendant()
             && !oldValue.isEmpty() && newValue.isEmpty()) {
             // The focused object just lost its active descendant, so set the IsolatedTree focused object back to it.
-            setIsolatedTreeFocusedObject(object);
+            setIsolatedTreeFocusedObject(object.get());
         }
 #else
         UNUSED_PARAM(oldValue);
@@ -2178,10 +2186,10 @@ void AXObjectCache::handleActiveDescendantChange(Element& element, const AtomStr
     }
 
     // Handle active-descendant changes when the target allows for it, or the controlled object allows for it.
-    AccessibilityObject* target = nullptr;
+    RefPtr<AccessibilityObject> target { nullptr };
     if (object->shouldFocusActiveDescendant()) {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-        setIsolatedTreeFocusedObject(activeDescendant);
+        setIsolatedTreeFocusedObject(activeDescendant.get());
 #endif
         target = object;
     } else if (object->isComboBox()) {
@@ -2206,17 +2214,17 @@ void AXObjectCache::handleActiveDescendantChange(Element& element, const AtomStr
     if (target) {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
         if (target != object)
-            updateIsolatedTree(target, AXNotification::AXActiveDescendantChanged);
+            updateIsolatedTree(target.get(), AXNotification::AXActiveDescendantChanged);
 #endif
 
-        postPlatformNotification(target, AXNotification::AXActiveDescendantChanged);
+        postPlatformNotification(target.get(), AXNotification::AXActiveDescendantChanged);
 
         // Table cell active descendant changes should trigger selected cell changes.
         if (target->isTable() && activeDescendant->isExposedTableCell()) {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-            updateIsolatedTree(target, AXNotification::AXSelectedCellsChanged);
+            updateIsolatedTree(target.get(), AXNotification::AXSelectedCellsChanged);
 #endif
-            postPlatformNotification(target, AXSelectedCellsChanged);
+            postPlatformNotification(target.get(), AXSelectedCellsChanged);
         }
     }
 }
@@ -2286,7 +2294,8 @@ void AXObjectCache::deferAttributeChangeIfNeeded(Element* element, const Qualifi
         AXLOG(makeString("Deferring handling of attribute ", attrName.localName().string(), " for element ", element->debugDescription()));
         return;
     }
-    handleAttributeChange(element, attrName, oldValue, newValue);
+    RefPtr protectedElement { element };
+    handleAttributeChange(protectedElement.get(), attrName, oldValue, newValue);
 }
 
 bool AXObjectCache::shouldProcessAttributeChange(Element* element, const QualifiedName& attrName)
@@ -4080,10 +4089,16 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<Accessibili
         case AXPressedStateChanged:
         case AXRowSpanChanged:
         case AXSelectedChildrenChanged:
-        case AXTextChanged:
         case AXTextSecurityChanged:
         case AXValueChanged:
             updateNode(notification.first);
+            break;
+        case AXTextChanged:
+            updateNode(notification.first);
+            if (RefPtr axParent = notification.first->parentObject(); axParent && axParent->isLabel()) {
+                if (RefPtr correspondingControl = axParent->correspondingControlForLabelElement())
+                    updateNode(correspondingControl.get());
+            }
             break;
         case AXLanguageChanged:
         case AXRowCountChanged:
@@ -4373,6 +4388,11 @@ void AXObjectCache::addRelation(Element* origin, Element* target, AXRelationType
     addRelation(getOrCreate(origin), getOrCreate(target), relationType);
 }
 
+static bool canHaveRelations(Element& element)
+{
+    return !(element.hasTagName(metaTag) || element.hasTagName(headTag) || element.hasTagName(scriptTag) || element.hasTagName(htmlTag) || element.hasTagName(styleTag));
+}
+
 static bool relationCausesCycle(AccessibilityObject* origin, AccessibilityObject* target, AXRelationType relationType)
 {
     // Validate that we're not creating an aria-owns cycle.
@@ -4489,7 +4509,7 @@ void AXObjectCache::updateRelationsForTree(ContainerNode& rootNode)
 {
     ASSERT(!rootNode.parentNode());
     for (auto& element : descendantsOfType<Element>(rootNode)) {
-        if (element.hasTagName(metaTag) || element.hasTagName(headTag) || element.hasTagName(scriptTag) || element.hasTagName(htmlTag) || element.hasTagName(styleTag))
+        if (!canHaveRelations(element))
             continue;
 
         if (RefPtr shadowRoot = element.shadowRoot(); shadowRoot && shadowRoot->mode() != ShadowRootMode::UserAgent)
@@ -4542,7 +4562,7 @@ void AXObjectCache::addRelations(Element& origin, const QualifiedName& attribute
 
 void AXObjectCache::updateRelations(Element& origin, const QualifiedName& attribute)
 {
-    if (origin.hasTagName(metaTag) || origin.hasTagName(headTag) || origin.hasTagName(scriptTag))
+    if (!canHaveRelations(origin))
         return;
 
     auto relationType = attributeToRelationType(attribute);

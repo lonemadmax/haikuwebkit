@@ -769,17 +769,10 @@ Vector<String> Element::getAttributeNames() const
 
 bool Element::hasFocusableStyle() const
 {
-    if (renderer() && renderer()->isSkippedContent()) {
-        auto* candidate = this;
-        while ((candidate = candidate->parentElementInComposedTree())) {
-            if (candidate->renderer() && candidate->renderStyle()->contentVisibility() == ContentVisibility::Hidden)
-                return false;
-        }
-    }
-
     auto isFocusableStyle = [](const RenderStyle* style) {
         return style && style->display() != DisplayType::None && style->display() != DisplayType::Contents
-            && style->visibility() == Visibility::Visible && !style->effectiveInert();
+            && style->visibility() == Visibility::Visible && !style->effectiveInert()
+            && (style->skippedContentReason().value_or(ContentVisibility::Visible) != ContentVisibility::Hidden || style->contentVisibility() != ContentVisibility::Visible);
     };
 
     if (renderStyle())
@@ -958,15 +951,16 @@ void Element::setBeingDragged(bool value)
 
 inline ScrollAlignment toScrollAlignmentForInlineDirection(std::optional<ScrollLogicalPosition> position, WritingMode writingMode, bool isLTR)
 {
+    auto blockFlowDirection = writingModeToBlockFlowDirection(writingMode);
     switch (position.value_or(ScrollLogicalPosition::Nearest)) {
     case ScrollLogicalPosition::Start: {
-        switch (writingMode) {
-        case WritingMode::TopToBottom:
-        case WritingMode::BottomToTop: {
+        switch (blockFlowDirection) {
+        case BlockFlowDirection::TopToBottom:
+        case BlockFlowDirection::BottomToTop: {
             return isLTR ? ScrollAlignment::alignLeftAlways : ScrollAlignment::alignRightAlways;
         }
-        case WritingMode::LeftToRight:
-        case WritingMode::RightToLeft: {
+        case BlockFlowDirection::LeftToRight:
+        case BlockFlowDirection::RightToLeft: {
             return isLTR ? ScrollAlignment::alignTopAlways : ScrollAlignment::alignBottomAlways;
         }
         default:
@@ -977,13 +971,13 @@ inline ScrollAlignment toScrollAlignmentForInlineDirection(std::optional<ScrollL
     case ScrollLogicalPosition::Center:
         return ScrollAlignment::alignCenterAlways;
     case ScrollLogicalPosition::End: {
-        switch (writingMode) {
-        case WritingMode::TopToBottom:
-        case WritingMode::BottomToTop: {
+        switch (blockFlowDirection) {
+        case BlockFlowDirection::TopToBottom:
+        case BlockFlowDirection::BottomToTop: {
             return isLTR ? ScrollAlignment::alignRightAlways : ScrollAlignment::alignLeftAlways;
         }
-        case WritingMode::LeftToRight:
-        case WritingMode::RightToLeft: {
+        case BlockFlowDirection::LeftToRight:
+        case BlockFlowDirection::RightToLeft: {
             return isLTR ? ScrollAlignment::alignBottomAlways : ScrollAlignment::alignTopAlways;
         }
         default:
@@ -1001,16 +995,17 @@ inline ScrollAlignment toScrollAlignmentForInlineDirection(std::optional<ScrollL
 
 inline ScrollAlignment toScrollAlignmentForBlockDirection(std::optional<ScrollLogicalPosition> position, WritingMode writingMode)
 {
+    auto blockFlowDirection = writingModeToBlockFlowDirection(writingMode);
     switch (position.value_or(ScrollLogicalPosition::Start)) {
     case ScrollLogicalPosition::Start: {
-        switch (writingMode) {
-        case WritingMode::TopToBottom:
+        switch (blockFlowDirection) {
+        case BlockFlowDirection::TopToBottom:
             return ScrollAlignment::alignTopAlways;
-        case WritingMode::BottomToTop:
+        case BlockFlowDirection::BottomToTop:
             return ScrollAlignment::alignBottomAlways;
-        case WritingMode::LeftToRight:
+        case BlockFlowDirection::LeftToRight:
             return ScrollAlignment::alignLeftAlways;
-        case WritingMode::RightToLeft:
+        case BlockFlowDirection::RightToLeft:
             return ScrollAlignment::alignRightAlways;
         default:
             ASSERT_NOT_REACHED();
@@ -1020,14 +1015,14 @@ inline ScrollAlignment toScrollAlignmentForBlockDirection(std::optional<ScrollLo
     case ScrollLogicalPosition::Center:
         return ScrollAlignment::alignCenterAlways;
     case ScrollLogicalPosition::End: {
-        switch (writingMode) {
-        case WritingMode::TopToBottom:
+        switch (blockFlowDirection) {
+        case BlockFlowDirection::TopToBottom:
             return ScrollAlignment::alignBottomAlways;
-        case WritingMode::BottomToTop:
+        case BlockFlowDirection::BottomToTop:
             return ScrollAlignment::alignTopAlways;
-        case WritingMode::LeftToRight:
+        case BlockFlowDirection::LeftToRight:
             return ScrollAlignment::alignRightAlways;
-        case WritingMode::RightToLeft:
+        case BlockFlowDirection::RightToLeft:
             return ScrollAlignment::alignLeftAlways;
         default:
             ASSERT_NOT_REACHED();
@@ -1072,7 +1067,7 @@ static std::optional<std::pair<RenderElement*, LayoutRect>> listBoxElementScroll
 
 void Element::scrollIntoView(std::optional<std::variant<bool, ScrollIntoViewOptions>>&& arg)
 {
-    document().contentVisibilityDocumentState().updateContentRelevancyStatusForScrollIfNeeded(*this);
+    document().updateContentRelevancyForScrollIfNeeded(*this);
 
     document().updateLayoutIgnorePendingStylesheets();
 
@@ -1139,7 +1134,7 @@ void Element::scrollIntoView(bool alignToTop)
 
 void Element::scrollIntoViewIfNeeded(bool centerIfNeeded)
 {
-    document().contentVisibilityDocumentState().updateContentRelevancyStatusForScrollIfNeeded(*this);
+    document().updateContentRelevancyForScrollIfNeeded(*this);
 
     document().updateLayoutIgnorePendingStylesheets();
 
@@ -3531,7 +3526,7 @@ void Element::focus(const FocusOptions& options)
         return;
     }
 
-    document->contentVisibilityDocumentState().updateContentRelevancyStatusForScrollIfNeeded(*this);
+    document->updateContentRelevancyForScrollIfNeeded(*this);
 
     RefPtr<Element> newTarget = this;
 
@@ -3873,7 +3868,7 @@ void Element::addToTopLayer()
     document().addTopLayerElement(*this);
     setNodeFlag(NodeFlag::IsInTopLayer);
 
-    document().scheduleContentRelevancyUpdate(ContentRelevancyStatus::IsInTopLayer);
+    document().scheduleContentRelevancyUpdate(ContentRelevancy::IsInTopLayer);
 
     // Invalidate inert state
     invalidateStyleInternal();
@@ -3907,7 +3902,7 @@ void Element::removeFromTopLayer()
     document().removeTopLayerElement(*this);
     clearNodeFlag(NodeFlag::IsInTopLayer);
 
-    document().scheduleContentRelevancyUpdate(ContentRelevancyStatus::IsInTopLayer);
+    document().scheduleContentRelevancyUpdate(ContentRelevancy::IsInTopLayer);
 
     // Invalidate inert state
     invalidateStyleInternal();
@@ -5383,25 +5378,25 @@ bool Element::isPopoverShowing() const
 // https://drafts.csswg.org/css-contain/#relevant-to-the-user
 bool Element::isRelevantToUser() const
 {
-    return hasRareData() && elementRareData()->contentRelevancyStatus();
+    return !contentRelevancy().isEmpty();
 }
 
-OptionSet<ContentRelevancyStatus> Element::contentRelevancyStatus() const
+OptionSet<ContentRelevancy> Element::contentRelevancy() const
 {
     if (!hasRareData())
         return { };
-    return elementRareData()->contentRelevancyStatus();
+    return elementRareData()->contentRelevancy();
 }
 
-void Element::setContentRelevancyStatus(OptionSet<ContentRelevancyStatus> contentRelvancyStatus)
+void Element::setContentRelevancy(OptionSet<ContentRelevancy> contentRelevancy)
 {
-    ensureElementRareData().setContentRelevancyStatus(contentRelvancyStatus);
+    ensureElementRareData().setContentRelevancy(contentRelevancy);
 }
 
 void Element::contentVisibilityViewportChange(bool)
 {
     ASSERT(renderStyle() && renderStyle()->contentVisibility() == ContentVisibility::Auto);
-    document().scheduleContentRelevancyUpdate(ContentRelevancyStatus::OnScreen);
+    document().scheduleContentRelevancyUpdate(ContentRelevancy::OnScreen);
 }
 
 } // namespace WebCore

@@ -1683,6 +1683,12 @@ private:
         case NewRegexp:
             compileNewRegexp();
             break;
+        case NewMap:
+            compileNewMap();
+            break;
+        case NewSet:
+            compileNewSet();
+            break;
         case SetFunctionName:
             compileSetFunctionName();
             break;
@@ -16171,6 +16177,95 @@ IGNORE_CLANG_WARNINGS_END
         setJSValue(m_out.phi(pointerType(), fastResult, slowResult));
     }
 
+    void compileNewMap()
+    {
+        RegisteredStructure structure = m_node->structure();
+
+        LBasicBlock slowCase = m_out.newBlock();
+        LBasicBlock continuation = m_out.newBlock();
+
+        LBasicBlock lastNext = m_out.insertNewBlocksBefore(slowCase);
+
+        ASSERT(JSValue::encode(JSValue()) == 0);
+        Allocator allocator = allocatorForConcurrently<JSMap::BucketType>(vm(), sizeof(JSMap::BucketType), AllocatorForMode::AllocatorIfExists);
+        LValue head = allocateCell(m_out.constIntPtr(allocator.localAllocator()), vm().hashMapBucketMapStructure.get(), slowCase);
+        m_out.store64(m_out.intPtrZero, head, m_heaps.HashMapBucket_next);
+        m_out.store64(m_out.intPtrZero, head, m_heaps.HashMapBucket_prev);
+        m_out.store64(m_out.intPtrZero, head, m_heaps.HashMapBucket_key);
+        m_out.store64(m_out.intPtrZero, head, m_heaps.HashMapBucket_value);
+        mutatorFence();
+
+        LValue fastResultValue = allocateObject<JSMap>(structure, m_out.intPtrZero, slowCase);
+        m_out.store64(head, fastResultValue, m_heaps.HashMapImpl_head);
+        m_out.store64(head, fastResultValue, m_heaps.HashMapImpl_tail);
+        m_out.store64(m_out.intPtrZero, fastResultValue, m_heaps.HashMapImpl_buffer);
+        m_out.store32(m_out.int32Zero, fastResultValue, m_heaps.HashMapImpl_keyCount);
+        m_out.store32(m_out.int32Zero, fastResultValue, m_heaps.HashMapImpl_deleteCount);
+        m_out.store32(m_out.int32Zero, fastResultValue, m_heaps.HashMapImpl_capacity);
+        mutatorFence();
+        ValueFromBlock fastResult = m_out.anchor(fastResultValue);
+        m_out.jump(continuation);
+
+        m_out.appendTo(slowCase, continuation);
+        VM& vm = this->vm();
+        LValue slowResultValue = lazySlowPath(
+            [=, &vm] (const Vector<Location>& locations) -> RefPtr<LazySlowPath::Generator> {
+                return createLazyCallGenerator(vm,
+                    operationNewMap, locations[0].directGPR(), locations[1].directGPR(),
+                    CCallHelpers::TrustedImmPtr(structure.get()));
+            },
+            m_vmValue);
+        ValueFromBlock slowResult = m_out.anchor(slowResultValue);
+        m_out.jump(continuation);
+
+        m_out.appendTo(continuation, lastNext);
+        setJSValue(m_out.phi(pointerType(), fastResult, slowResult));
+    }
+
+    void compileNewSet()
+    {
+        RegisteredStructure structure = m_node->structure();
+
+        LBasicBlock slowCase = m_out.newBlock();
+        LBasicBlock continuation = m_out.newBlock();
+
+        LBasicBlock lastNext = m_out.insertNewBlocksBefore(slowCase);
+
+        ASSERT(JSValue::encode(JSValue()) == 0);
+        Allocator allocator = allocatorForConcurrently<JSSet::BucketType>(vm(), sizeof(JSSet::BucketType), AllocatorForMode::AllocatorIfExists);
+        LValue head = allocateCell(m_out.constIntPtr(allocator.localAllocator()), vm().hashMapBucketSetStructure.get(), slowCase);
+        m_out.store64(m_out.intPtrZero, head, m_heaps.HashMapBucket_next);
+        m_out.store64(m_out.intPtrZero, head, m_heaps.HashMapBucket_prev);
+        m_out.store64(m_out.intPtrZero, head, m_heaps.HashMapBucket_key);
+        mutatorFence();
+
+        LValue fastResultValue = allocateObject<JSSet>(structure, m_out.intPtrZero, slowCase);
+        m_out.store64(head, fastResultValue, m_heaps.HashMapImpl_head);
+        m_out.store64(head, fastResultValue, m_heaps.HashMapImpl_tail);
+        m_out.store64(m_out.intPtrZero, fastResultValue, m_heaps.HashMapImpl_buffer);
+        m_out.store32(m_out.int32Zero, fastResultValue, m_heaps.HashMapImpl_keyCount);
+        m_out.store32(m_out.int32Zero, fastResultValue, m_heaps.HashMapImpl_deleteCount);
+        m_out.store32(m_out.int32Zero, fastResultValue, m_heaps.HashMapImpl_capacity);
+        mutatorFence();
+        ValueFromBlock fastResult = m_out.anchor(fastResultValue);
+        m_out.jump(continuation);
+
+        m_out.appendTo(slowCase, continuation);
+        VM& vm = this->vm();
+        LValue slowResultValue = lazySlowPath(
+            [=, &vm] (const Vector<Location>& locations) -> RefPtr<LazySlowPath::Generator> {
+                return createLazyCallGenerator(vm,
+                    operationNewSet, locations[0].directGPR(), locations[1].directGPR(),
+                    CCallHelpers::TrustedImmPtr(structure.get()));
+            },
+            m_vmValue);
+        ValueFromBlock slowResult = m_out.anchor(slowResultValue);
+        m_out.jump(continuation);
+
+        m_out.appendTo(continuation, lastNext);
+        setJSValue(m_out.phi(pointerType(), fastResult, slowResult));
+    }
+
     void compileSetFunctionName()
     {
         JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
@@ -19924,6 +20019,15 @@ IGNORE_CLANG_WARNINGS_END
                     unsure(continuation), unsure(withinRange));
                             
                 m_out.appendTo(withinRange, continuation);
+                if (isClamped) {
+                    PatchpointValue* patchpoint = m_out.patchpoint(Double);
+                    patchpoint->append(ConstrainedValue(doubleValue, B3::ValueRep::SomeRegister));
+                    patchpoint->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
+                        jit.roundTowardNearestIntDouble(params[1].fpr(), params[0].fpr());
+                    });
+                    patchpoint->effects = Effects::none();
+                    doubleValue = patchpoint;
+                }
                 intValues.append(m_out.anchor(m_out.doubleToInt(doubleValue)));
                 m_out.jump(continuation);
                             

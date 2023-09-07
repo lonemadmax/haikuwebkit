@@ -38,7 +38,6 @@
 #import "RemoteScrollingCoordinatorProxyIOS.h"
 #import "ScrollingTreeScrollingNodeDelegateIOS.h"
 #import "TapHandlingResult.h"
-#import "UIKitSPI.h"
 #import "UIKitUtilities.h"
 #import "VideoFullscreenManagerProxy.h"
 #import "ViewGestureController.h"
@@ -67,6 +66,7 @@
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/UserInterfaceLayoutDirection.h>
+#import <pal/ios/ManagedConfigurationSoftLink.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
 #import <wtf/BlockPtr.h>
@@ -535,22 +535,51 @@ static CGSize roundScrollViewContentSize(const WebKit::WebPageProxy& page, CGSiz
     _page->didLayoutForCustomContentProvider();
 }
 
-ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
-- (void)_handleKeyUIEvent:(::UIEvent *)event
+- (BOOL)_tryToHandleKeyEventInCustomContentView:(UIPressesEvent *)event
 {
     // We only want to handle key events from the hardware keyboard when we are
     // first responder and a custom content view is installed; otherwise,
     // WKContentView will be the first responder and expects to get key events directly.
-    if ([self isFirstResponder] && event._hidEvent) {
+    if (self.isFirstResponder && event._hidEvent) {
         if ([_customContentView respondsToSelector:@selector(web_handleKeyEvent:)]) {
             if ([_customContentView web_handleKeyEvent:event])
-                return;
+                return YES;
         }
     }
-
-    [super _handleKeyUIEvent:event];
+    return NO;
 }
-ALLOW_DEPRECATED_IMPLEMENTATIONS_END
+
+- (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
+{
+    if ([self _tryToHandleKeyEventInCustomContentView:event])
+        return;
+
+    [super pressesBegan:presses withEvent:event];
+}
+
+- (void)pressesChanged:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
+{
+    if ([self _tryToHandleKeyEventInCustomContentView:event])
+        return;
+
+    [super pressesChanged:presses withEvent:event];
+}
+
+- (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
+{
+    if ([self _tryToHandleKeyEventInCustomContentView:event])
+        return;
+
+    [super pressesEnded:presses withEvent:event];
+}
+
+- (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event
+{
+    if ([self _tryToHandleKeyEventInCustomContentView:event])
+        return;
+
+    [super pressesCancelled:presses withEvent:event];
+}
 
 - (void)_willInvokeUIScrollViewDelegateCallback
 {
@@ -3213,6 +3242,28 @@ static bool isLockdownModeWarningNeeded()
 }
 #endif
 
+- (_UIDataOwner)_effectiveDataOwner:(_UIDataOwner)clientSuppliedDataOwner
+{
+    auto isCurrentURLManaged = [&] {
+#if PLATFORM(MACCATALYST)
+        return NO;
+#else
+        return [[PAL::getMCProfileConnectionClass() sharedConnection] isURLManaged:self.URL];
+#endif
+    };
+
+    switch (clientSuppliedDataOwner) {
+    case _UIDataOwnerUndefined:
+        return isCurrentURLManaged() ? _UIDataOwnerEnterprise : _UIDataOwnerUser;
+    case _UIDataOwnerUser:
+    case _UIDataOwnerEnterprise:
+    case _UIDataOwnerShared:
+        return clientSuppliedDataOwner;
+    }
+    ASSERT_NOT_REACHED();
+    return _UIDataOwnerUndefined;
+}
+
 @end
 
 @implementation WKWebView (WKPrivateIOS)
@@ -4218,6 +4269,34 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     return _fullScreenWindowController.get();
 }
+
+#if PLATFORM(VISION)
+
+- (UIMenu *)fullScreenWindowSceneDimmingAction
+{
+    UIDeferredMenuElement *deferredMenu = [UIDeferredMenuElement elementWithUncachedProvider:[weakSelf = WeakObjCPtr<WKWebView>(self)] (void (^completion)(NSArray<UIMenuElement *> *)) {
+        auto strongSelf = weakSelf.get();
+        if (!strongSelf) {
+            completion(@[ ]);
+            return;
+        }
+
+        UIAction *dimmingAction = [UIAction actionWithTitle:WEB_UI_STRING("Auto Dimming", "Menu item label to toggle automatic scene dimming in fullscreen") image:[UIImage _systemImageNamed:@"circle.lefthalf.dotted.inset.half.filled"] identifier:nil handler:[weakSelf] (UIAction *) {
+            auto strongSelf = weakSelf.get();
+            if (!strongSelf)
+                return;
+
+            [strongSelf->_fullScreenWindowController toggleSceneDimming];
+        }];
+        dimmingAction.state = [strongSelf->_fullScreenWindowController prefersSceneDimming] ? UIMenuElementStateOn : UIMenuElementStateOff;
+
+        completion(@[ dimmingAction ]);
+    }];
+
+    return [UIMenu menuWithTitle:@"" image:nil identifier:nil options:UIMenuOptionsDisplayInline children:@[ deferredMenu ]];
+}
+
+#endif // PLATFORM(VISION)
 
 @end
 

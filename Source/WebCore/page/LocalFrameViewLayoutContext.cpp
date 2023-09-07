@@ -55,38 +55,6 @@ namespace WebCore {
 UpdateScrollInfoAfterLayoutTransaction::UpdateScrollInfoAfterLayoutTransaction() = default;
 UpdateScrollInfoAfterLayoutTransaction::~UpdateScrollInfoAfterLayoutTransaction() = default;
 
-void LocalFrameViewLayoutContext::layoutUsingFormattingContext()
-{
-    if (!frame().settings().layoutFormattingContextEnabled())
-        return;
-    // LocalFrameView::setContentsSize temporary disables layout.
-    if (m_disableSetNeedsLayoutCount)
-        return;
-
-    m_layoutState = nullptr;
-    m_layoutTree = nullptr;
-
-    auto& renderView = *this->renderView();
-    m_layoutTree = Layout::TreeBuilder::buildLayoutTree(renderView);
-    m_layoutState = makeUnique<Layout::LayoutState>(*document(), m_layoutTree->root());
-    auto layoutContext = Layout::LayoutContext { *m_layoutState };
-    layoutContext.layout(view().layoutSize());
-
-    // Clean up the render tree state when we don't run RenderView::layout.
-    if (renderView.needsLayout()) {
-        auto contentSize = Layout::BoxGeometry::marginBoxRect(m_layoutState->geometryForBox(*m_layoutState->root().firstChild())).size();
-        renderView.setSize(contentSize);
-        renderView.repaintViewRectangle({ 0, 0, contentSize.width(), contentSize.height() });
-
-        for (auto& descendant : descendantsOfType<RenderObject>(renderView))
-            descendant.clearNeedsLayout();
-        renderView.clearNeedsLayout();
-    }
-#if ASSERT_ENABLED
-    Layout::LayoutContext::verifyAndOutputMismatchingLayoutTree(*m_layoutState, renderView);
-#endif
-}
-
 static bool isObjectAncestorContainerOf(RenderElement& ancestor, RenderElement& descendant)
 {
     for (auto* renderer = &descendant; renderer; renderer = renderer->container()) {
@@ -216,7 +184,7 @@ void LocalFrameViewLayoutContext::performLayout()
     LayoutScope layoutScope(*this);
     TraceScope tracingScope(PerformLayoutStart, PerformLayoutEnd);
     ScriptDisallowedScope::InMainThread scriptDisallowedScope;
-    InspectorInstrumentation::willLayout(downcast<LocalFrame>(view().frame()));
+    InspectorInstrumentation::willLayout(view().frame());
     WeakPtr<RenderElement> layoutRoot;
     
     m_layoutTimer.stop();
@@ -266,7 +234,6 @@ void LocalFrameViewLayoutContext::performLayout()
         RenderTreeNeedsLayoutChecker checker(*renderView());
 #endif
         layoutRoot->layout();
-        layoutUsingFormattingContext();
         ++m_layoutCount;
 #if ENABLE(TEXT_AUTOSIZING)
         applyTextSizingIfNeeded(*layoutRoot.get());
@@ -302,8 +269,8 @@ void LocalFrameViewLayoutContext::performLayout()
         view().didLayout(layoutRoot);
         runOrScheduleAsynchronousTasks();
     }
-    InspectorInstrumentation::didLayout(downcast<LocalFrame>(view().frame()), *layoutRoot);
-    DebugPageOverlays::didLayout(downcast<LocalFrame>(view().frame()));
+    InspectorInstrumentation::didLayout(view().frame(), *layoutRoot);
+    DebugPageOverlays::didLayout(view().frame());
 }
 
 void LocalFrameViewLayoutContext::runOrScheduleAsynchronousTasks()
@@ -670,7 +637,7 @@ void LocalFrameViewLayoutContext::checkLayoutState()
 
 LocalFrame& LocalFrameViewLayoutContext::frame() const
 {
-    return downcast<LocalFrame>(view().frame());
+    return view().frame();
 }
 
 LocalFrameView& LocalFrameViewLayoutContext::view() const

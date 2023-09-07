@@ -518,6 +518,9 @@ void WebProcessPool::createGPUProcessConnection(WebProcessProxy& webProcessProxy
     parameters.isWebGPUEnabled = WTF::anyOf(webProcessProxy.pages(), [](const auto& page) {
         return page->preferences().webGPUEnabled();
     });
+    parameters.isWebGLEnabled = WTF::anyOf(webProcessProxy.pages(), [](const auto& page) {
+        return page->preferences().webGLEnabled();
+    });
     parameters.isDOMRenderingEnabled = WTF::anyOf(webProcessProxy.pages(), [](const auto& page) {
         return page->preferences().useGPUProcessForDOMRenderingEnabled();
     });
@@ -1196,15 +1199,16 @@ void WebProcessPool::updateRemoteWorkerUserAgent(const String& userAgent)
         workerProcess.setRemoteWorkerUserAgent(m_remoteWorkerUserAgent);
 }
 
-void WebProcessPool::pageBeginUsingWebsiteDataStore(WebPageProxyIdentifier pageID, WebsiteDataStore& dataStore)
+void WebProcessPool::pageBeginUsingWebsiteDataStore(WebPageProxy& page, WebsiteDataStore& dataStore)
 {
     RELEASE_ASSERT(RunLoop::isMain());
     RELEASE_ASSERT(m_sessionToPageIDsMap.isValidKey(dataStore.sessionID()));
-    auto result = m_sessionToPageIDsMap.add(dataStore.sessionID(), HashSet<WebPageProxyIdentifier>()).iterator->value.add(pageID);
+    auto result = m_sessionToPageIDsMap.add(dataStore.sessionID(), HashSet<WebPageProxyIdentifier>()).iterator->value.add(page.identifier());
     ASSERT_UNUSED(result, result.isNewEntry);
+    dataStore.addPage(page);
 }
 
-void WebProcessPool::pageEndUsingWebsiteDataStore(WebPageProxyIdentifier pageID, WebsiteDataStore& dataStore)
+void WebProcessPool::pageEndUsingWebsiteDataStore(WebPageProxy& page, WebsiteDataStore& dataStore)
 {
     RELEASE_ASSERT(RunLoop::isMain());
     auto sessionID = dataStore.sessionID();
@@ -1212,6 +1216,7 @@ void WebProcessPool::pageEndUsingWebsiteDataStore(WebPageProxyIdentifier pageID,
     auto iterator = m_sessionToPageIDsMap.find(sessionID);
     RELEASE_ASSERT(iterator != m_sessionToPageIDsMap.end());
 
+    auto pageID = page.identifier();
     auto takenPageID = iterator->value.take(pageID);
     ASSERT_UNUSED(takenPageID, takenPageID == pageID);
 
@@ -1221,6 +1226,7 @@ void WebProcessPool::pageEndUsingWebsiteDataStore(WebPageProxyIdentifier pageID,
         if (sessionID.isEphemeral())
             m_webProcessCache->clearAllProcessesForSession(sessionID);
     }
+    dataStore.removePage(page);
 }
 
 bool WebProcessPool::hasPagesUsingWebsiteDataStore(WebsiteDataStore& dataStore) const
@@ -1870,8 +1876,9 @@ void WebProcessPool::processForNavigation(WebPageProxy& page, WebFrameProxy& fra
     if (!frame.isMainFrame() && page.preferences().siteIsolationEnabled()) {
         RegistrableDomain navigationDomain(navigation.currentRequest().url());
         if (!navigationDomain.isEmpty() && navigationDomain != mainFrameDomain) {
+            frame.setRemotePageProxy(nullptr);
             auto remotePageProxy = RemotePageProxy::create(page, process, navigationDomain);
-            frame.setRemotePageProxy(remotePageProxy);
+            frame.setRemotePageProxy(remotePageProxy.ptr());
             remotePageProxy->injectPageIntoNewProcess();
         }
     }
@@ -2003,7 +2010,7 @@ std::tuple<Ref<WebProcessProxy>, SuspendedPageProxy*, ASCIILiteral> WebProcessPo
     if (!m_configuration->processSwapsOnNavigationWithinSameNonHTTPFamilyProtocol() && !sourceURL.protocolIsInHTTPFamily() && sourceURL.protocol() == targetURL.protocol())
         return { WTFMove(sourceProcess), nullptr, "Navigation within the same non-HTTP(s) protocol"_s };
 
-    if (!sourceURL.isValid() || !targetURL.isValid() || sourceURL.isEmpty() || sourceURL.protocolIsAbout() || targetRegistrableDomain.matches(sourceURL))
+    if (!sourceURL.isValid() || !targetURL.isValid() || sourceURL.isEmpty() || targetRegistrableDomain.matches(sourceURL) || (sourceURL.protocolIsAbout() && (!sourceProcess->hasCommittedAnyMeaningfulProvisionalLoads() || sourceProcess->registrableDomain().matches(targetURL))) || targetRegistrableDomain.matches(sourceURL))
         return { WTFMove(sourceProcess), nullptr, "Navigation is same-site"_s };
 
     auto reason = "Navigation is cross-site"_s;
@@ -2076,20 +2083,6 @@ void WebProcessPool::resetMockMediaDevices()
 #if ENABLE(GPU_PROCESS)
     ensureGPUProcess().resetMockMediaDevices();
 #endif
-#endif
-}
-
-void WebProcessPool::sendDisplayConfigurationChangedMessageForTesting()
-{
-#if PLATFORM(MAC)
-    auto display = CGSMainDisplayID();
-    CGDisplayChangeSummaryFlags flags = kCGDisplaySetModeFlag | kCGDisplayDesktopShapeChangedFlag;
-    for (auto& processPool : WebProcessPool::allProcessPools()) {
-        processPool->sendToAllProcesses(Messages::WebProcess::DisplayConfigurationChanged(display, kCGDisplayBeginConfigurationFlag));
-        processPool->sendToAllProcesses(Messages::WebProcess::DisplayConfigurationChanged(display, flags));
-        if (auto gpuProcess = processPool->gpuProcess())
-            gpuProcess->displayConfigurationChanged(display, flags);
-    }
 #endif
 }
 

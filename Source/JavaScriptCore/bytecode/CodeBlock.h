@@ -720,7 +720,7 @@ public:
     unsigned numberOfDFGCompiles() { return 0; }
 #endif
 
-    bool shouldOptimizeNow();
+    bool shouldOptimizeNowFromBaseline();
     void updateAllNonLazyValueProfilePredictions(const ConcurrentJSLocker&);
     void updateAllLazyValueProfilePredictions(const ConcurrentJSLocker&);
     void updateAllArrayProfilePredictions(const ConcurrentJSLocker&);
@@ -856,6 +856,8 @@ public:
 
     bool loopHintsAreEligibleForFuzzingEarlyReturn() { return m_unlinkedCode->loopHintsAreEligibleForFuzzingEarlyReturn(); }
 
+    double optimizationThresholdScalingFactor() const;
+
 protected:
     void finalizeLLIntInlineCaches();
 #if ENABLE(JIT)
@@ -879,8 +881,6 @@ private:
     CodeBlock* specialOSREntryBlockOrNull();
     
     void noticeIncomingCall(CallFrame* callerFrame);
-    
-    double optimizationThresholdScalingFactor();
 
     void updateAllNonLazyValueProfilePredictionsAndCountLiveness(const ConcurrentJSLocker&, unsigned& numberOfLiveNonArgumentValueProfiles, unsigned& numberOfSamplesInProfiles);
 
@@ -996,7 +996,8 @@ private:
     HashSet<UniquedStringImpl*> m_cachedIdentifierUids;
 #endif
 };
-#if defined(NDEBUG) && COMPILER(GCC_COMPATIBLE)
+/* This check is for normal Release builds; ASSERT_ENABLED changes the size. */
+#if defined(NDEBUG) && !defined(ASSERT_ENABLED) && COMPILER(GCC_COMPATIBLE)
 static_assert(sizeof(CodeBlock) <= 240, "Keep it small for memory saving");
 #endif
 

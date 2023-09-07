@@ -2897,8 +2897,16 @@ public:
 
     ~ObjectAddingAndRemovingItself()
     {
-        EXPECT_TRUE(m_set.contains(*this));
-        m_set.remove(*this);
+        EXPECT_FALSE(m_set.contains(*this));
+        auto sizeBefore = m_set.sizeIncludingEmptyEntriesForTesting();
+        EXPECT_FALSE(m_set.remove(*this));
+        auto sizeAfter = m_set.sizeIncludingEmptyEntriesForTesting();
+        static size_t i { 0 };
+        if (++i == 8) {
+            // Amortized cleanup gets this one during the contains call.
+            EXPECT_EQ(sizeBefore, sizeAfter);
+        } else
+            EXPECT_EQ(sizeBefore, sizeAfter + 1);
         EXPECT_FALSE(m_set.contains(*this));
     }
 

@@ -95,6 +95,7 @@ imported/w3c/web-platform-tests/fetch [ Skip ]
 # Shared workers are only implemented for WebKit2.
 http/tests/navigation/page-cache-shared-worker.html [ Skip ]
 http/tests/workers/shared [ Skip ]
+http/wpt/workers/modules/shared-worker-import-csp.html [ Skip ]
 imported/w3c/web-platform-tests/WebCryptoAPI/historical.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/connect-src/shared-worker-connect-src-allowed.sub.html [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy/connect-src/shared-worker-connect-src-blocked.sub.html [ Skip ]
@@ -612,7 +613,6 @@ imported/w3c/web-platform-tests/fetch/security/1xx-response.any.worker.html [ Sk
 imported/w3c/web-platform-tests/fetch/stale-while-revalidate/fetch.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/stale-while-revalidate/fetch.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/stale-while-revalidate/fetch.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/html/canvas/element/path-objects/2d.path.roundrect.1.radius.dompoint.single.argument.html [ Skip ]
 imported/w3c/web-platform-tests/html/rendering/replaced-elements/embedded-content/cross-domain-iframe-in-multicol.sub.html [ Skip ]
 imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/messagechannel.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/json-module/charset-bom.any.sharedworker.html [ Skip ]
@@ -1582,6 +1582,7 @@ http/tests/inspector/network/intercept-request-with-error.html [ Skip ]
 http/tests/inspector/network/intercept-request-with-response.html [ Skip ]
 http/tests/inspector/network/local-resource-override-basic.html [ Skip ]
 http/tests/inspector/network/local-resource-override-main-resource.html [ Skip ]
+http/tests/inspector/network/local-resource-override-mapped-to-directory.html [ Skip ]
 http/tests/inspector/network/local-resource-override-mapped-to-file.html [ Skip ]
 http/tests/inspector/network/local-resource-override-script-tag.html [ Skip ]
 http/tests/inspector/network/resource-response-inspector-override.html [ Skip ]
@@ -1622,9 +1623,6 @@ fast/html/details-remove-summary-6-and-click.html [ Pass Failure ]
 [ Release ] fast/forms/number/number-spinbutton-gets-disabled-or-readonly.html [ Pass Failure ]
 [ Release ] fast/forms/number/number-spinbutton-in-multi-column.html [ Pass Failure ]
 [ Release ] fast/forms/number/number-spinbutton-state.html [ Pass Failure ]
-
-#rdar://96906411 (REGRESSION(251850@main): imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-createImageBitmap-e_srgb.html is a constant text failure)
-imported/w3c/web-platform-tests/html/canvas/element/manual/wide-gamut-canvas/canvas-createImageBitmap-e_srgb.html [ Skip ]
 
 webkit.org/b/165541 compositing/layer-creation/fixed-overlap-extent-rtl.html [ Failure ]
 webkit.org/b/165541 compositing/rtl/rtl-fixed-overflow.html [ Failure ]
@@ -2591,3 +2589,59 @@ webkit.org/b/259075 imported/w3c/web-platform-tests/css/css-contain/content-visi
 webkit.org/b/259485 [ Ventura ] http/tests/media/hls/track-in-band-multiple-cues.html [ Crash ]
 
 webkit.org/b/259546 [ Debug ] media/modern-media-controls/tracks-support/text-track-selected-via-media-api.html [ Crash Timeout ]
+
+webkit.org/b/260070 fast/selectors/style-invalidation-hover-change-descendants.html [ Pass Failure ]
+webkit.org/b/260070 fast/selectors/style-invalidation-hover-change-siblings.html [ Failure ]
+
+webkit.org/b/260107 [ Debug ] http/wpt/workers/modules/dedicated-worker-import-csp.html [ Skip ]
+webkit.org/b/260111 [ Ventura Release ] http/wpt/workers/modules/dedicated-worker-import-csp.html [ Failure ]
+
+webkit.org/b/260280 fullscreen/fullscreen-no-scrollbars-on-ancestor-root.html [ ImageOnlyFailure ]
+
+# webkit.org/b/260320 Mark expectations for multiple Mac wk1 tests slowing down EWS
+imported/w3c/web-platform-tests/css/css-fonts/font-size-adjust-reload.html [ ImageOnlyFailure Pass ]
+imported/w3c/web-platform-tests/css/selectors/invalidation/nth-child-in-shadow-root.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-backgrounds/background-clip-content-box-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/selectors/invalidation/nth-last-child-in-shadow-root.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/content-security-policy/reporting/report-original-url-on-mixed-content-frame.https.sub.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-085.html [ ImageOnlyFailure ]
+
+# rdar://105177062 (REGRESSION ( Sonoma ): [ Sonoma wk1 ] css3/filters/backdrop/add-remove-add-backdrop-filter.html is a consistent image failure)
+[ Sonoma+ ] css3/filters/backdrop/add-remove-add-backdrop-filter.html [ Pass ImageOnlyFailure ]
+
+# rdar://105178122 (REGRESSION ( Sonoma ): [ Sonoma wk1 ] css3/filters/filter-mask-clip-order.html is a consistent image failure)
+[ Sonoma+ ] css3/filters/filter-mask-clip-order.html [ ImageOnlyFailure ]
+
+# rdar://105178880 (REGRESSION ( Sonoma ): [ Sonoma wk1 ] css3/masking/mask-base64.html is a consistent image failure)
+[ Sonoma+ ] css3/masking/mask-base64.html [ ImageOnlyFailure ]
+
+# rdar://105179850 (REGRESSION ( Sonoma ): [  Sonoma wk1 ] css3/masking/mask-repeat-space-content.html is a consistent image failure)
+[ Sonoma+ ] css3/masking/mask-repeat-space-content.html [ Pass ImageOnlyFailure ]
+
+# rdar://105915702 (REGRESSION ( Sonoma ): [ Sonoma wk1 ] Nine imported/w3c/web-platform-tests/css/css tests are a consistent failure)
+[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-image-3f.html [ ImageOnlyFailure ]
+[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-image-3g.html [ ImageOnlyFailure ]
+[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-image-4a.html [ ImageOnlyFailure ]
+[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-image-4b.html [ ImageOnlyFailure ]
+[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-image-url-image-hash.html [ ImageOnlyFailure ]
+[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-image-url-image.html [ ImageOnlyFailure ]
+[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-size-cover.html [ ImageOnlyFailure ]
+[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-transforms/subpixel-transform-changes-001.html [ ImageOnlyFailure ]
+[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-transforms/subpixel-transform-changes-002.html [ ImageOnlyFailure ]
+
+#rdar://106031213 (REGRESSION ( Sonoma ): [ Sonoma wk1 ] Two media/track/track-webvtt-snap-to-lines tests are a consistent failure)
+[ Sonoma+ ] media/track/track-webvtt-snap-to-lines-inline-style.html [ ImageOnlyFailure ]
+[ Sonoma+ ] media/track/track-webvtt-snap-to-lines-left-right.html [ ImageOnlyFailure ]
+
+# rdar://108816571 ([ Sonoma wk1 ] compositing/backing/solid-color-with-paints-into-ancestor.html is a flaky failure)
+[ Sonoma+ ] compositing/backing/solid-color-with-paints-into-ancestor.html [ Pass ImageOnlyFailure ]
+
+# rdar://111577613 (REGRESSION ( Sonoma ): [ Sonoma ] fast/forms/password-scrolled-after-caps-lock-toggled.html is a consistent failure)
+[ Sonoma+ ] fast/forms/password-scrolled-after-caps-lock-toggled.html [ Timeout ]
+
+# rdar://111398769 (REGRESSION (265250@main): [ macOS ] fast/mediastream/device-change-event-2.html is a consistent failure)
+[ Sonoma+ ] fast/mediastream/device-change-event-2.html [ Failure ]
+
+webkit.org/b/260360 inspector/timeline/timeline-event-TimerFire.html [ Failure ]
+webkit.org/b/260360 inspector/timeline/timeline-event-TimerInstall.html [ Failure ]
+webkit.org/b/260360 inspector/timeline/timeline-event-TimerRemove.html [ Failure ]

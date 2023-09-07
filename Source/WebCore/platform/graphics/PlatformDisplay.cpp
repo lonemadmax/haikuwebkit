@@ -80,7 +80,7 @@
 #include <wtf/NeverDestroyed.h>
 #endif
 
-#if USE(EGL) && USE(GBM)
+#if USE(EGL) && USE(LIBDRM)
 #include "GBMDevice.h"
 #include <xf86drm.h>
 #ifndef EGL_DRM_RENDER_NODE_FILE_EXT
@@ -426,7 +426,7 @@ bool PlatformDisplay::destroyEGLImage(EGLImage image) const
 #endif
 }
 
-#if USE(GBM)
+#if USE(LIBDRM)
 EGLDeviceEXT PlatformDisplay::eglDevice()
 {
     if (!GLContext::isExtensionSupported(eglQueryString(nullptr, EGL_EXTENSIONS), "EGL_EXT_device_query"))
@@ -457,32 +457,54 @@ const String& PlatformDisplay::drmDeviceFile()
     return m_drmDeviceFile.value();
 }
 
-static String drmRenderNodeFromPrimaryDeviceFile(const String& primaryDeviceFile)
+static void drmForeachDevice(Function<bool(drmDevice*)>&& functor)
 {
-    if (primaryDeviceFile.isEmpty())
-        return { };
-
     drmDevicePtr devices[64];
     memset(devices, 0, sizeof(devices));
 
     int numDevices = drmGetDevices2(0, devices, std::size(devices));
     if (numDevices <= 0)
-        return { };
+        return;
+
+    for (int i = 0; i < numDevices; ++i) {
+        if (!functor(devices[i]))
+            break;
+    }
+    drmFreeDevices(devices, numDevices);
+}
+
+static String drmFirstRenderNode()
+{
+    String renderNodeDeviceFile;
+    drmForeachDevice([&](drmDevice* device) {
+        if (!(device->available_nodes & (1 << DRM_NODE_RENDER)))
+            return true;
+
+        renderNodeDeviceFile = String::fromUTF8(device->nodes[DRM_NODE_RENDER]);
+        return false;
+    });
+    return renderNodeDeviceFile;
+}
+
+static String drmRenderNodeFromPrimaryDeviceFile(const String& primaryDeviceFile)
+{
+    if (primaryDeviceFile.isEmpty())
+        return drmFirstRenderNode();
 
     String renderNodeDeviceFile;
-    for (int i = 0; i < numDevices; ++i) {
-        drmDevice* device = devices[i];
+    drmForeachDevice([&](drmDevice* device) {
         if (!(device->available_nodes & (1 << DRM_NODE_PRIMARY | 1 << DRM_NODE_RENDER)))
-            continue;
+            return true;
 
         if (String::fromUTF8(device->nodes[DRM_NODE_PRIMARY]) == primaryDeviceFile) {
             renderNodeDeviceFile = String::fromUTF8(device->nodes[DRM_NODE_RENDER]);
-            break;
+            return false;
         }
-    }
-    drmFreeDevices(devices, numDevices);
 
-    return renderNodeDeviceFile;
+        return true;
+    });
+    // If we fail to find a render node for the device file, just use the device file as render node.
+    return !renderNodeDeviceFile.isEmpty() ? renderNodeDeviceFile : primaryDeviceFile;
 }
 
 const String& PlatformDisplay::drmRenderNodeFile()
@@ -502,13 +524,17 @@ const String& PlatformDisplay::drmRenderNodeFile()
 
             // If EGL_EXT_device_drm_render_node is not present, try to get the render node using DRM API.
             m_drmRenderNodeFile = drmRenderNodeFromPrimaryDeviceFile(drmDeviceFile());
-        } else
-            m_drmRenderNodeFile = String();
+        } else {
+            // If EGLDevice is not available, just get the first render node returned by DRM.
+            m_drmRenderNodeFile = drmFirstRenderNode();
+        }
     }
 
     return m_drmRenderNodeFile.value();
 }
+#endif // USE(LIBDRM)
 
+#if USE(GBM)
 struct gbm_device* PlatformDisplay::gbmDevice()
 {
     auto& device = GBMDevice::singleton();

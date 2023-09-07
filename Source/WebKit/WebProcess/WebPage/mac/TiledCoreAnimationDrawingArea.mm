@@ -145,12 +145,12 @@ void TiledCoreAnimationDrawingArea::sendEnterAcceleratedCompositingModeIfNeeded(
 
 void TiledCoreAnimationDrawingArea::registerScrollingTree()
 {
-    WebProcess::singleton().eventDispatcher().addScrollingTreeForPage(m_webPage);
+    WebProcess::singleton().eventDispatcher().addScrollingTreeForPage(Ref { m_webPage });
 }
 
 void TiledCoreAnimationDrawingArea::unregisterScrollingTree()
 {
-    WebProcess::singleton().eventDispatcher().removeScrollingTreeForPage(m_webPage);
+    WebProcess::singleton().eventDispatcher().removeScrollingTreeForPage(Ref { m_webPage });
 }
 
 void TiledCoreAnimationDrawingArea::setNeedsDisplay()
@@ -349,6 +349,9 @@ void TiledCoreAnimationDrawingArea::updateRendering(UpdateRenderingType flushTyp
     if (layerTreeStateIsFrozen())
         return;
 
+    if (UNLIKELY(!m_webPage.hasRootFrames()))
+        return;
+
     @autoreleasepool {
         scaleViewToFitDocumentIfNeeded();
 
@@ -365,8 +368,10 @@ void TiledCoreAnimationDrawingArea::updateRendering(UpdateRenderingType flushTyp
         }
 
         FloatRect visibleRect = [m_hostingLayer frame];
-        if (auto exposedRect = m_webPage.localMainFrameView()->viewExposedRect())
-            visibleRect.intersect(*exposedRect);
+        if (auto* localMainFrameView = m_webPage.localMainFrameView()) {
+            if (auto exposedRect = localMainFrameView->viewExposedRect())
+                visibleRect.intersect(*exposedRect);
+        }
 
         // Because our view-relative overlay root layer is not attached to the main GraphicsLayer tree, we need to flush it manually.
         if (m_viewOverlayRootLayer)
@@ -641,9 +646,7 @@ void TiledCoreAnimationDrawingArea::updateDebugInfoLayer(bool showLayer)
 
 bool TiledCoreAnimationDrawingArea::shouldUseTiledBackingForFrameView(const LocalFrameView& frameView) const
 {
-    auto* localFrame = dynamicDowncast<LocalFrame>(frameView.frame());
-    return (localFrame && localFrame->isMainFrame())
-        || m_webPage.corePage()->settings().asyncFrameScrollingEnabled();
+    return frameView.frame().isMainFrame() || m_webPage.corePage()->settings().asyncFrameScrollingEnabled();
 }
 
 PlatformCALayer* TiledCoreAnimationDrawingArea::layerForTransientZoom() const

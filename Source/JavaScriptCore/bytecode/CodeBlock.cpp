@@ -2358,7 +2358,8 @@ void CodeBlock::noticeIncomingCall(CallFrame* callerFrame)
 {
     RELEASE_ASSERT(!m_isJettisoned);
 
-    CodeBlock* callerCodeBlock = callerFrame->isWasmFrame() ? nullptr : callerFrame->codeBlock();
+    auto* owner = callerFrame->codeOwnerCell();
+    CodeBlock* callerCodeBlock = jsDynamicCast<CodeBlock*>(owner);
     
     dataLogLnIf(Options::verboseCallLink(), "Noticing call link from ", pointerDump(callerCodeBlock), " to ", *this);
     
@@ -2488,7 +2489,7 @@ int32_t CodeBlock::codeTypeThresholdMultiplier() const
     return 1;
 }
 
-double CodeBlock::optimizationThresholdScalingFactor()
+double CodeBlock::optimizationThresholdScalingFactor() const
 {
     // This expression arises from doing a least-squares fit of
     //
@@ -2942,7 +2943,7 @@ void CodeBlock::updateAllPredictions()
     }
 }
 
-bool CodeBlock::shouldOptimizeNow()
+bool CodeBlock::shouldOptimizeNowFromBaseline()
 {
     dataLogLnIf(Options::verboseOSR(), "Considering optimizing ", *this, "...");
 
@@ -2961,20 +2962,28 @@ bool CodeBlock::shouldOptimizeNow()
         }
     }
 
+    double livenessRate = 1.0;
+    if (numberOfNonArgumentValueProfiles())
+        livenessRate = static_cast<double>(numberOfLiveNonArgumentValueProfiles) / numberOfNonArgumentValueProfiles();
+    double fullnessRate = 1.0;
+    if (totalNumberOfValueProfiles())
+        fullnessRate = static_cast<double>(numberOfSamplesInProfiles) / ValueProfile::numberOfBuckets / totalNumberOfValueProfiles();
+
     if (Options::verboseOSR()) {
         dataLogF(
             "Profile hotness: %lf (%u / %u), %lf (%u / %u)\n",
-            (double)numberOfLiveNonArgumentValueProfiles / numberOfNonArgumentValueProfiles(),
+            livenessRate,
             numberOfLiveNonArgumentValueProfiles, numberOfNonArgumentValueProfiles(),
-            (double)numberOfSamplesInProfiles / ValueProfile::numberOfBuckets / numberOfNonArgumentValueProfiles(),
+            fullnessRate,
             numberOfSamplesInProfiles, ValueProfile::numberOfBuckets * numberOfNonArgumentValueProfiles());
     }
 
-    if ((!numberOfNonArgumentValueProfiles() || (double)numberOfLiveNonArgumentValueProfiles / numberOfNonArgumentValueProfiles() >= Options::desiredProfileLivenessRate())
-        && (!totalNumberOfValueProfiles() || (double)numberOfSamplesInProfiles / ValueProfile::numberOfBuckets / totalNumberOfValueProfiles() >= Options::desiredProfileFullnessRate())
-        && static_cast<unsigned>(m_optimizationDelayCounter) + 1 >= Options::minimumOptimizationDelay())
+    if (livenessRate >= Options::desiredProfileLivenessRate() && fullnessRate >= Options::desiredProfileFullnessRate() && static_cast<unsigned>(m_optimizationDelayCounter) + 1 >= Options::minimumOptimizationDelay())
         return true;
-    
+
+    auto* codeBlock = this;
+    CODEBLOCK_LOG_EVENT(codeBlock, "delayOptimizeToDFG", ("insufficient profiling (", livenessRate,  " / ", fullnessRate, ") for ", numberOfNonArgumentValueProfiles(), " ", totalNumberOfValueProfiles()));
+
     ASSERT(m_optimizationDelayCounter < std::numeric_limits<uint8_t>::max());
     m_optimizationDelayCounter++;
     optimizeAfterWarmUp();

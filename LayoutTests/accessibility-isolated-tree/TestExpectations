@@ -9,11 +9,8 @@ accessibility/frame-disconnect-textmarker-cache-crash.html [ Timeout ]
 accessibility/mac/combobox-activedescendant-notifications.html [ Timeout ]
 accessibility/mac/relationships-in-frames.html [ Timeout ]
 
-# Times out because `innerText` changes on linked <label>s don't update cached AXTitle value.
-accessibility/multiple-label-input.html [ Timeout ]
-
 # Text failures
-accessibility/aria-current.html [ Failure ]
+accessibility/content-editable-set-inner-text-generates-axvalue-notification.html [ Failure ]
 accessibility/dialog-showModal.html [ Failure ]
 accessibility/dynamically-ignored-canvas.html [ Failure ]
 accessibility/element-reflection-ariacontrols.html [ Failure ]
@@ -51,9 +48,6 @@ accessibility/mac/grid-selected-cells.html [ Failure ]
 # Frames are off by 1px vs. non-ITM mode.
 accessibility/table-cells.html [ Failure ]
 accessibility/mac/document-links.html [ Failure ]
-
-# Fails because aria-labelledby text changes don't update in isolated tree mode
-accessibility/aria-labelledby-on-password-input.html [ Failure ]
 
 accessibility/aria-selected-menu-items.html [ Failure ]
 accessibility/aria-owns-hierarchy-remap.html [ Failure ]

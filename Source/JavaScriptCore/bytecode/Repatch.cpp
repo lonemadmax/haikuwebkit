@@ -89,18 +89,6 @@ static void linkSlowFor(VM& vm, CallLinkInfo& callLinkInfo)
     linkSlowPathTo(vm, callLinkInfo, virtualThunk);
 }
 
-static JSCell* webAssemblyOwner(CallFrame* callFrame)
-{
-#if ENABLE(WEBASSEMBLY)
-    // Each WebAssembly.Instance shares the stubs from their WebAssembly.Module, which are therefore the appropriate owner.
-    return jsCast<JSWebAssemblyInstance*>(callFrame->wasmInstance()->owner())->module();
-#else
-    UNUSED_PARAM(callFrame);
-    RELEASE_ASSERT_NOT_REACHED();
-    return nullptr;
-#endif // ENABLE(WEBASSEMBLY)
-}
-
 void linkMonomorphicCall(
     VM& vm, CallFrame* callFrame, CallLinkInfo& callLinkInfo, CodeBlock* calleeCodeBlock,
     JSObject* callee, CodePtr<JSEntryPtrTag> codePtr)
@@ -109,18 +97,8 @@ void linkMonomorphicCall(
 
     CallFrame* callerFrame = callFrame->callerFrame();
 
-    // WebAssembly -> JS stubs don't have a valid CodeBlock.
-    CodeBlock* callerCodeBlock = nullptr;
-    JSCell* owner = nullptr;
-    if (callerFrame->isWasmFrame()) {
-        // When calling this from Wasm, callee is Wasm::Callee.
-        owner = webAssemblyOwner(callerFrame);
-    } else {
-        // Our caller must have a cell for a callee.
-        ASSERT(callerFrame->callee().isCell());
-        callerCodeBlock = callerFrame->codeBlock();
-        owner = callerCodeBlock;
-    }
+    JSCell* owner = callerFrame->codeOwnerCell();
+    CodeBlock* callerCodeBlock = jsDynamicCast<CodeBlock*>(owner); // WebAssembly -> JS stubs don't have a valid CodeBlock.
     ASSERT(owner);
 
     ASSERT(!callLinkInfo.isLinked());
@@ -442,12 +420,6 @@ static InlineCacheAction tryCacheGetBy(JSGlobalObject* globalObject, CodeBlock* 
                     return GiveUpOnCache;
             }
 
-            JSFunction* getter = nullptr;
-            if (slot.isCacheableGetter())
-                getter = jsDynamicCast<JSFunction*>(slot.getterSetter()->getter());
-
-            bool emittingIntrinsicGetter = !loadTargetFromProxy && getter && InlineCacheCompiler::canEmitIntrinsicGetter(stubInfo, getter, structure);
-
             if (slot.isUnset() || slot.slotBase() != baseValue) {
                 if (structure->typeInfo().prohibitsPropertyCaching())
                     return GiveUpOnCache;
@@ -489,11 +461,10 @@ static InlineCacheAction tryCacheGetBy(JSGlobalObject* globalObject, CodeBlock* 
                             conditionSet = generateConditionsForPropertyMiss(
                                 vm, codeBlock, globalObject, structure, propertyName.uid());
                         } else if (!slot.isCacheableCustom()) {
-                            PropertyCondition::Kind prototypeConditionKind = emittingIntrinsicGetter ? PropertyCondition::Equivalence : PropertyCondition::Presence;
                             conditionSet = generateConditionsForPrototypePropertyHit(
                                 vm, codeBlock, globalObject, structure, slot.slotBase(),
-                                propertyName.uid(), prototypeConditionKind);
-                            RELEASE_ASSERT(!conditionSet.isValid() || conditionSet.slotBaseCondition().hasRequiredValue() || conditionSet.slotBaseCondition().offset() == offset);
+                                propertyName.uid());
+                            RELEASE_ASSERT(!conditionSet.isValid() || conditionSet.slotBaseCondition().offset() == offset);
                         } else {
                             conditionSet = generateConditionsForPrototypePropertyHitCustom(
                                 vm, codeBlock, globalObject, structure, slot.slotBase(),
@@ -505,6 +476,10 @@ static InlineCacheAction tryCacheGetBy(JSGlobalObject* globalObject, CodeBlock* 
                     }
                 }
             }
+
+            JSFunction* getter = nullptr;
+            if (slot.isCacheableGetter())
+                getter = jsDynamicCast<JSFunction*>(slot.getterSetter()->getter());
 
             std::optional<DOMAttributeAnnotation> domAttribute;
             if (slot.isCacheableCustom() && slot.domAttribute())
@@ -522,7 +497,7 @@ static InlineCacheAction tryCacheGetBy(JSGlobalObject* globalObject, CodeBlock* 
                     RELEASE_ASSERT_NOT_REACHED();
 
                 newCase = ProxyableAccessCase::create(vm, codeBlock, type, propertyName, offset, structure, conditionSet, loadTargetFromProxy, slot.watchpointSet(), WTFMove(prototypeAccessChain));
-            } else if (emittingIntrinsicGetter)
+            } else if (!loadTargetFromProxy && getter && InlineCacheCompiler::canEmitIntrinsicGetter(stubInfo, getter, structure))
                 newCase = IntrinsicGetterAccessCase::create(vm, codeBlock, propertyName, slot.cachedOffset(), structure, conditionSet, getter, WTFMove(prototypeAccessChain));
             else {
                 if (isPrivate) {
@@ -1714,10 +1689,8 @@ static void linkVirtualFor(VM& vm, CallFrame* callFrame, CallLinkInfo& callLinkI
 {
     CallFrame* callerFrame = callFrame->callerFrame();
 
-    // WebAssembly -> JS stubs don't have a valid CodeBlock.
-    CodeBlock* callerCodeBlock = nullptr;
-    if (!callerFrame->isWasmFrame())
-        callerCodeBlock = callerFrame->codeBlock();
+    JSCell* owner = callerFrame->codeOwnerCell();
+    CodeBlock* callerCodeBlock = jsDynamicCast<CodeBlock*>(owner); // WebAssembly -> JS stubs don't have a valid CodeBlock.
 
     dataLogLnIf(shouldDumpDisassemblyFor(callerCodeBlock),
         "Linking virtual call at ", FullCodeOrigin(callerCodeBlock, callerCodeBlock ? callerFrame->codeOrigin() : CodeOrigin { }));
@@ -1750,19 +1723,14 @@ void linkPolymorphicCall(JSGlobalObject* globalObject, CallFrame* callFrame, Cal
         return;
     }
 
-    // WebAssembly -> JS stubs don't have a valid CodeBlock.
-    CodeBlock* callerCodeBlock = nullptr;
-    JSCell* owner = nullptr;
-    bool isWebAssembly = callerFrame->isWasmFrame();
-    if (isWebAssembly) {
-        // When calling this from Wasm, callee is Wasm::Callee.
-        owner = webAssemblyOwner(callerFrame);
-    } else {
-        // Our caller must have a cell for a callee.
-        callerCodeBlock = callerFrame->codeBlock();
-        owner = callerCodeBlock;
-    }
+    JSCell* owner = callerFrame->codeOwnerCell();
+    CodeBlock* callerCodeBlock = jsDynamicCast<CodeBlock*>(owner); // WebAssembly -> JS stubs don't have a valid CodeBlock.
     ASSERT(owner);
+#if ENABLE(WEBASSEMBLY)
+    bool isWebAssembly = owner->inherits<JSWebAssemblyModule>();
+#else
+    bool isWebAssembly = false;
+#endif
 
     CallVariantList list;
     if (PolymorphicCallStubRoutine* stub = callLinkInfo.stub())

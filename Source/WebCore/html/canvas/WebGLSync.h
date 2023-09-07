@@ -28,11 +28,11 @@
 #if ENABLE(WEBGL)
 
 #include "GraphicsContextGL.h"
-#include "WebGLSharedObject.h"
+#include "WebGLObject.h"
 
 namespace WebCore {
 
-class WebGLSync final : public WebGLSharedObject {
+class WebGLSync final : public WebGLObject {
 public:
     virtual ~WebGLSync();
 
@@ -43,6 +43,8 @@ public:
     bool isSignaled() const;
     void scheduleAllowCacheUpdate(WebGLRenderingContextBase&);
 
+    bool isUsable() const { return object() && !isDeleted(); }
+    bool isInitialized() const { return true; }
 private:
     WebGLSync(WebGLRenderingContextBase&);
 

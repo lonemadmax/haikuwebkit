@@ -680,7 +680,7 @@ auto KeyframeEffect::getKeyframes(Document& document) -> Vector<ComputedKeyframe
             return { };
 
         auto& backingAnimation = downcast<CSSAnimation>(*animation()).backingAnimation();
-        auto* styleScope = Style::Scope::forOrdinal(*m_target, backingAnimation.nameStyleScopeOrdinal());
+        auto* styleScope = Style::Scope::forOrdinal(*m_target, backingAnimation.name().scopeOrdinal);
         if (!styleScope)
             return { };
 
@@ -1072,8 +1072,8 @@ void KeyframeEffect::computeCSSAnimationBlendingKeyframes(const RenderStyle& una
 
     auto& backingAnimation = downcast<CSSAnimation>(*animation()).backingAnimation();
 
-    KeyframeList keyframeList(AtomString { backingAnimation.name().string });
-    if (auto* styleScope = Style::Scope::forOrdinal(*m_target, backingAnimation.nameStyleScopeOrdinal()))
+    KeyframeList keyframeList(AtomString { backingAnimation.name().name });
+    if (auto* styleScope = Style::Scope::forOrdinal(*m_target, backingAnimation.name().scopeOrdinal))
         styleScope->resolver().keyframeStylesForAnimation(*m_target, unanimatedStyle, resolutionContext, keyframeList);
 
     // Ensure resource loads for all the frames.
@@ -1129,8 +1129,7 @@ void KeyframeEffect::computedNeedsForcedLayout()
         if (keyframeStyle->hasTransform()) {
             auto& transformOperations = keyframeStyle->transform();
             for (const auto& operation : transformOperations.operations()) {
-                if (operation->isTranslateTransformOperationType()) {
-                    auto translation = downcast<TranslateTransformOperation>(operation.get());
+                if (auto* translation = dynamicDowncast<TranslateTransformOperation>(operation.get())) {
                     if (translation->x().isPercent() || translation->y().isPercent()) {
                         m_needsForcedLayout = true;
                         return;

@@ -1863,7 +1863,9 @@ void RenderElement::paintFocusRing(const PaintInfo& paintInfo, const RenderStyle
         rect.inflate(outlineOffset);
         pixelSnappedFocusRingRects.append(snapRectToDevicePixels(rect, deviceScaleFactor));
     }
-    Color focusRingColor = usePlatformFocusRingColorForOutlineStyleAuto() ? RenderTheme::singleton().focusRingColor(styleColorOptions()) : style.visitedDependentColorWithColorFilter(CSSPropertyOutlineColor);
+    auto styleOptions = styleColorOptions();
+    styleOptions.add(StyleColorOptions::UseSystemAppearance);
+    auto focusRingColor = usePlatformFocusRingColorForOutlineStyleAuto() ? RenderTheme::singleton().focusRingColor(styleOptions) : style.visitedDependentColorWithColorFilter(CSSPropertyOutlineColor);
     if (useShrinkWrappedFocusRingForOutlineStyleAuto() && style.hasBorderRadius()) {
         Path path = PathUtilities::pathWithShrinkWrappedRectsForOutline(pixelSnappedFocusRingRects, style.border(), outlineOffset, style.direction(), style.writingMode(),
             document().deviceScaleFactor());
@@ -2079,8 +2081,7 @@ static RenderObject::BlockContentHeightType includeNonFixedHeight(const RenderOb
 
 void RenderElement::adjustComputedFontSizesOnBlocks(float size, float visibleWidth)
 {
-    auto* localFrame = dynamicDowncast<LocalFrame>(view().frameView().frame());
-    auto* document = localFrame ? localFrame->document() : nullptr;
+    auto* document = view().frameView().frame().document();
     if (!document)
         return;
 
@@ -2110,8 +2111,7 @@ void RenderElement::adjustComputedFontSizesOnBlocks(float size, float visibleWid
 
 void RenderElement::resetTextAutosizing()
 {
-    auto* localFrame = dynamicDowncast<LocalFrame>(view().frameView().frame());
-    auto* document = localFrame ? localFrame->document() : nullptr;
+    auto* document = view().frameView().frame().document();
     if (!document)
         return;
 

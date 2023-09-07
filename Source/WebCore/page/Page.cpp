@@ -66,6 +66,7 @@
 #include "EventLoop.h"
 #include "EventNames.h"
 #include "ExtensionStyleSheets.h"
+#include "FilterRenderingMode.h"
 #include "FocusController.h"
 #include "FontCache.h"
 #include "FrameLoader.h"
@@ -161,10 +162,10 @@
 #include "TextResourceDecoder.h"
 #include "UserContentProvider.h"
 #include "UserContentURLPattern.h"
-#include "UserInputBridge.h"
 #include "UserScript.h"
 #include "UserStyleSheet.h"
 #include "ValidationMessageClient.h"
+#include "VisibilityState.h"
 #include "VisitedLinkState.h"
 #include "VisitedLinkStore.h"
 #include "VoidCallback.h"
@@ -173,6 +174,7 @@
 #include "WheelEventDeltaFilter.h"
 #include "WheelEventTestMonitor.h"
 #include "Widget.h"
+#include "WindowEventLoop.h"
 #include "WorkerOrWorkletScriptController.h"
 #include <JavaScriptCore/VM.h>
 #include <wtf/FileSystem.h>
@@ -291,7 +293,6 @@ Page::Page(PageConfiguration&& pageConfiguration)
 #if ENABLE(CONTEXT_MENUS)
     , m_contextMenuController(makeUniqueRef<ContextMenuController>(*this, WTFMove(pageConfiguration.contextMenuClient)))
 #endif
-    , m_userInputBridge(makeUniqueRef<UserInputBridge>(*this))
     , m_inspectorController(makeUniqueRef<InspectorController>(*this, WTFMove(pageConfiguration.inspectorClient)))
     , m_pointerCaptureController(makeUniqueRef<PointerCaptureController>(*this))
 #if ENABLE(POINTER_LOCK)
@@ -1685,9 +1686,17 @@ void Page::scheduleRenderingUpdate(OptionSet<RenderingUpdateStep> requestedSteps
 
 void Page::scheduleRenderingUpdateInternal()
 {
-    if (chrome().client().scheduleRenderingUpdate())
-        return;
-    renderingUpdateScheduler().scheduleRenderingUpdate();
+    if (!chrome().client().scheduleRenderingUpdate())
+        renderingUpdateScheduler().scheduleRenderingUpdate();
+
+    auto now = MonotonicTime::now();
+    forEachWindowEventLoop([&](WindowEventLoop& windowEventLoop) {
+        auto interval = preferredRenderingUpdateInterval();
+        auto nextRenderingUpdateTime = m_lastRenderingUpdateTimestamp + interval;
+        if (nextRenderingUpdateTime < now)
+            nextRenderingUpdateTime = now + interval;
+        windowEventLoop.didScheduleRenderingUpdate(*this, nextRenderingUpdateTime);
+    });
 }
 
 void Page::didScheduleRenderingUpdate()
@@ -1743,6 +1752,10 @@ void Page::updateRendering()
     }
 
     m_lastRenderingUpdateTimestamp = MonotonicTime::now();
+
+    forEachWindowEventLoop([&](WindowEventLoop& eventLoop) {
+        eventLoop.didStartRenderingUpdate(*this);
+    });
 
     bool isSVGImagePage = chrome().client().isSVGImageChromeClient();
     if (!isSVGImagePage)
@@ -2034,8 +2047,10 @@ void Page::renderingUpdateCompleted()
         m_unfulfilledRequestedSteps = { };
     }
 
-    if (!isUtilityPage())
-        m_opportunisticTaskScheduler->reschedule(m_lastRenderingUpdateTimestamp + preferredRenderingUpdateInterval());
+    if (!isUtilityPage()) {
+        auto nextRenderingUpdate = m_lastRenderingUpdateTimestamp + preferredRenderingUpdateInterval();
+        m_opportunisticTaskScheduler->reschedule(nextRenderingUpdate);
+    }
 }
 
 void Page::willStartRenderingUpdateDisplay()
@@ -3841,6 +3856,27 @@ void Page::forEachFrame(const Function<void(LocalFrame&)>& functor)
         functor(frame);
 }
 
+void Page::forEachWindowEventLoop(const Function<void(WindowEventLoop&)>& functor)
+{
+    HashSet<Ref<WindowEventLoop>> windowEventLoops;
+    WindowEventLoop* lastEventLoop = nullptr;
+    for (const Frame* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+        if (!localFrame)
+            continue;
+        auto* document = localFrame->document();
+        if (!document)
+            continue;
+        Ref currentEventLoop = document->windowEventLoop();
+        if (lastEventLoop == currentEventLoop.ptr())
+            continue; // Common and faster than a hash table lookup
+        lastEventLoop = currentEventLoop.ptr();
+        windowEventLoops.add(WTFMove(currentEventLoop));
+    }
+    for (auto& eventLoop : windowEventLoops)
+        functor(eventLoop);
+}
+
 bool Page::allowsLoadFromURL(const URL& url, MainFrameMainResource mainFrameMainResource) const
 {
     if (mainFrameMainResource == MainFrameMainResource::No && !m_loadsSubresources)
@@ -3989,9 +4025,9 @@ void Page::abortApplePayAMSUISession(ApplePayAMSUIPaymentHandler& paymentHandler
 #endif // ENABLE(APPLE_PAY_AMS_UI)
 
 #if USE(SYSTEM_PREVIEW)
-void Page::beginSystemPreview(const URL& url, const SystemPreviewInfo& systemPreviewInfo, CompletionHandler<void()>&& completionHandler)
+void Page::beginSystemPreview(const URL& url, const SecurityOriginData& topOrigin, const SystemPreviewInfo& systemPreviewInfo, CompletionHandler<void()>&& completionHandler)
 {
-    chrome().client().beginSystemPreview(url, systemPreviewInfo, WTFMove(completionHandler));
+    chrome().client().beginSystemPreview(url, topOrigin, systemPreviewInfo, WTFMove(completionHandler));
 }
 #endif
 
@@ -4481,6 +4517,10 @@ void Page::reloadExecutionContextsForOrigin(const ClientOrigin& origin, std::opt
 
 void Page::performOpportunisticallyScheduledTasks(MonotonicTime deadline)
 {
+    TraceScope tracingScope(PerformOpportunisticallyScheduledTasksStart, PerformOpportunisticallyScheduledTasksEnd, (deadline - MonotonicTime::now()).microseconds());
+    forEachWindowEventLoop([&](WindowEventLoop& eventLoop) {
+        eventLoop.opportunisticallyRunIdleCallbacks();
+    });
     commonVM().performOpportunisticallyScheduledTasks(deadline);
 }
 

@@ -267,7 +267,7 @@ enum class CollectionType : uint8_t;
 enum CSSPropertyID : uint16_t;
 
 enum class CompositeOperator : uint8_t;
-enum class ContentRelevancyStatus : uint8_t;
+enum class ContentRelevancy : uint8_t;
 enum class DOMAudioSessionType : uint8_t;
 enum class DisabledAdaptations : uint8_t;
 enum class FireEvents : bool;
@@ -1779,9 +1779,11 @@ public:
 #endif
 
     virtual void didChangeViewSize() { }
+    bool isNavigationBlockedByThirdPartyIFrameRedirectBlocking(LocalFrame& targetFrame, const URL& destinationURL);
 
     void updateRelevancyOfContentVisibilityElements();
-    void scheduleContentRelevancyUpdate(ContentRelevancyStatus);
+    void scheduleContentRelevancyUpdate(ContentRelevancy);
+    void updateContentRelevancyForScrollIfNeeded(const Element& scrollAnchor);
 
 protected:
     enum class ConstructionFlag : uint8_t {
@@ -1886,7 +1888,6 @@ private:
     void didLoadResourceSynchronously(const URL&) final;
 
     bool canNavigateInternal(LocalFrame& targetFrame);
-    bool isNavigationBlockedByThirdPartyIFrameRedirectBlocking(LocalFrame& targetFrame, const URL& destinationURL);
 
 #if USE(QUICK_LOOK)
     bool shouldEnforceQuickLookSandbox() const;
@@ -2298,7 +2299,7 @@ private:
     DOMAudioSessionType m_audioSessionType { };
 #endif
 
-    OptionSet<ContentRelevancyStatus> m_contentRelevancyStatusUpdate;
+    OptionSet<ContentRelevancy> m_contentRelevancyUpdate;
 
     StandaloneStatus m_xmlStandalone { StandaloneStatus::Unspecified };
     bool m_hasXMLDeclaration { false };

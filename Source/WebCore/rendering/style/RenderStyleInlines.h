@@ -195,7 +195,6 @@ inline StyleAppearance RenderStyle::effectiveAppearance() const { return static_
 inline OptionSet<Containment> RenderStyle::effectiveContainment() const { return m_nonInheritedData->rareData->effectiveContainment(); }
 inline bool RenderStyle::effectiveInert() const { return m_rareInheritedData->effectiveInert; }
 inline PointerEvents RenderStyle::effectivePointerEvents() const { return effectiveInert() ? PointerEvents::None : pointerEvents(); }
-inline bool RenderStyle::effectiveSkippedContent() const { return m_rareInheritedData->effectiveSkippedContent; }
 inline CSSPropertyID RenderStyle::effectiveStrokeColorProperty() const { return hasExplicitlySetStrokeColor() ? CSSPropertyStrokeColor : CSSPropertyWebkitTextStrokeColor; }
 inline OptionSet<TouchAction> RenderStyle::effectiveTouchActions() const { return m_rareInheritedData->effectiveTouchActions; }
 inline UserModify RenderStyle::effectiveUserModify() const { return effectiveInert() ? UserModify::ReadOnly : userModify(); }
@@ -499,9 +498,10 @@ constexpr WhiteSpace RenderStyle::initialWhiteSpace() { return WhiteSpace::Norma
 constexpr WhiteSpaceCollapse RenderStyle::initialWhiteSpaceCollapse() { return WhiteSpaceCollapse::Collapse; }
 constexpr WordBreak RenderStyle::initialWordBreak() { return WordBreak::Normal; }
 inline Length RenderStyle::initialWordSpacing() { return zeroLength(); }
-constexpr WritingMode RenderStyle::initialWritingMode() { return WritingMode::TopToBottom; }
+constexpr WritingMode RenderStyle::initialWritingMode() { return WritingMode::HorizontalTb; }
 inline InputSecurity RenderStyle::inputSecurity() const { return static_cast<InputSecurity>(m_nonInheritedData->rareData->inputSecurity); }
 inline bool RenderStyle::isColumnFlexDirection() const { return flexDirection() == FlexDirection::Column || flexDirection() == FlexDirection::ColumnReverse; }
+inline bool RenderStyle::isRowFlexDirection() const { return flexDirection() == FlexDirection::Row || flexDirection() == FlexDirection::RowReverse; }
 constexpr bool RenderStyle::isDisplayBlockLevel() const { return isDisplayBlockType(display()); }
 constexpr bool RenderStyle::isDisplayDeprecatedFlexibleBox(DisplayType display) { return display == DisplayType::Box || display == DisplayType::InlineBox; }
 constexpr bool RenderStyle::isDisplayFlexibleBox(DisplayType display) { return display == DisplayType::Flex || display == DisplayType::InlineFlex; }
@@ -646,6 +646,11 @@ inline const StyleColor& RenderStyle::scrollbarTrackColor() const { return m_rar
 inline float RenderStyle::shapeImageThreshold() const { return m_nonInheritedData->rareData->shapeImageThreshold; }
 inline const Length& RenderStyle::shapeMargin() const { return m_nonInheritedData->rareData->shapeMargin; }
 inline ShapeValue* RenderStyle::shapeOutside() const { return m_nonInheritedData->rareData->shapeOutside.get(); }
+inline std::optional<ContentVisibility> RenderStyle::skippedContentReason() const
+{
+    auto reason = static_cast<ContentVisibility>(m_rareInheritedData->effectiveSkippedContent);
+    return reason == ContentVisibility::Visible ? std::nullopt : std::optional { reason };
+}
 inline OptionSet<SpeakAs> RenderStyle::speakAs() const { return OptionSet<SpeakAs>::fromRaw(m_rareInheritedData->speakAs); }
 inline const AtomString& RenderStyle::specifiedLocale() const { return fontDescription().specifiedLocale(); }
 inline int RenderStyle::specifiedZIndex() const { return m_nonInheritedData->boxData->specifiedZIndex(); }
@@ -833,12 +838,12 @@ inline bool RenderStyle::NonInheritedFlags::operator==(const NonInheritedFlags& 
         && usesContainerUnits == other.usesContainerUnits
         && hasExplicitlyInheritedProperties == other.hasExplicitlyInheritedProperties
         && disallowsFastPathInheritance == other.disallowsFastPathInheritance
+        && hasContentNone == other.hasContentNone
         && isUnique == other.isUnique
         && emptyState == other.emptyState
         && firstChildState == other.firstChildState
         && lastChildState == other.lastChildState
         && isLink == other.isLink
-        && hasContentNone == other.hasContentNone
         && styleType == other.styleType
         && pseudoBits == other.pseudoBits;
 }
@@ -968,6 +973,28 @@ constexpr bool RenderStyle::preserveNewline(WhiteSpace mode)
 {
     // Normal and nowrap do not preserve newlines.
     return mode != WhiteSpace::Normal && mode != WhiteSpace::NoWrap;
+}
+
+inline BlockFlowDirection RenderStyle::blockFlowDirection() const
+{
+    return writingModeToBlockFlowDirection(writingMode());
+}
+
+inline TypographicMode RenderStyle::typographicMode() const
+{
+    switch (writingMode()) {
+    case WritingMode::HorizontalTb:
+    case WritingMode::HorizontalBt:
+    case WritingMode::SidewaysLr:
+    case WritingMode::SidewaysRl:
+        return TypographicMode::Horizontal;
+    case WritingMode::VerticalLr:
+    case WritingMode::VerticalRl:
+        return TypographicMode::Vertical;
+    default:
+        ASSERT_NOT_REACHED();
+        return TypographicMode::Horizontal;
+    }
 }
 
 inline bool isSkippedContentRoot(const RenderStyle& style, const Element* element)

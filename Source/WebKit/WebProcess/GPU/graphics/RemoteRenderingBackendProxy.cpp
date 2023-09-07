@@ -281,21 +281,19 @@ void RemoteRenderingBackendProxy::cacheDecomposedGlyphs(Ref<DecomposedGlyphs>&& 
 
 void RemoteRenderingBackendProxy::cacheGradient(Ref<Gradient>&& gradient)
 {
-    auto renderingResourceIdentifier = gradient->renderingResourceIdentifier();
-    send(Messages::RemoteRenderingBackend::CacheGradient(WTFMove(gradient), renderingResourceIdentifier));
+    send(Messages::RemoteRenderingBackend::CacheGradient(WTFMove(gradient)));
 }
 
 void RemoteRenderingBackendProxy::cacheFilter(Ref<Filter>&& filter)
 {
-    auto renderingResourceIdentifier = filter->renderingResourceIdentifier();
-    send(Messages::RemoteRenderingBackend::CacheFilter(WTFMove(filter), renderingResourceIdentifier));
+    send(Messages::RemoteRenderingBackend::CacheFilter(WTFMove(filter)));
 }
 
-void RemoteRenderingBackendProxy::releaseAllRemoteResources()
+void RemoteRenderingBackendProxy::releaseAllDrawingResources()
 {
     if (!m_streamConnection)
         return;
-    send(Messages::RemoteRenderingBackend::ReleaseAllResources());
+    send(Messages::RemoteRenderingBackend::ReleaseAllDrawingResources());
 }
 
 void RemoteRenderingBackendProxy::releaseRenderingResource(RenderingResourceIdentifier renderingResourceIdentifier)

@@ -1242,13 +1242,11 @@
                 "vertical-rl",
                 {
                     "value": "sideways-lr",
-                    "status": "unimplemented",
-                    "url": "https://w3c.github.io/csswg-drafts/css-writing-modes/#block-flow"
+                    "settings-flag": "sidewaysWritingModesEnabled"
                 },
                 {
                     "value": "sideways-rl",
-                    "status": "unimplemented",
-                    "url": "https://w3c.github.io/csswg-drafts/css-writing-modes/#block-flow"
+                    "settings-flag": "sidewaysWritingModesEnabled"
                 },
                 {
                     "value": "lr-tb",
@@ -4463,6 +4461,7 @@
             "status": "experimental"
         },
         "math-style": {
+            "inherited": true,
             "values": [
                 "normal",
                 "compact"
@@ -5219,6 +5218,7 @@
             }
         },
         "paint-order": {
+            "inherited": true,
             "codegen-properties": {
                 "converter": "PaintOrder",
                 "parser-function": "consumePaintOrder",

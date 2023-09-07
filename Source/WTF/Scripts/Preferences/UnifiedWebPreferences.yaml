@@ -2429,7 +2429,6 @@ EventHandlerDrivenSmoothKeyboardScrollingEnabled:
       default: false
     WebKit:
       "PLATFORM(MAC)": WebKit::defaultScrollAnimatorEnabled()
-      "PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
     WebCore:
       default: false
@@ -2788,11 +2787,11 @@ FullscreenSceneDimmingEnabled:
   condition: PLATFORM(VISION)
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 GStreamerEnabled:
   type: bool
@@ -3045,6 +3044,19 @@ IPCTestingAPIEnabled:
   defaultValue:
     WebKit:
       default: false
+
+IgnoreInvalidMessageWhenIPCTestingAPIEnabled:
+  type: bool
+  status: internal
+  category: security
+  humanReadableName: "Ignore Invalid IPC Messages For Testing"
+  humanReadableDescription: "Prevents invalid IPC messages from terminating the caller"
+  webcoreBinding: none
+  condition: ENABLE(IPC_TESTING_API)
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
+      default: true
 
 ImageAnalysisDuringFindInPageEnabled:
   type: bool
@@ -3874,17 +3886,17 @@ LinkPreloadEnabled:
 
 LinkPreloadResponsiveImagesEnabled:
   type: bool
-  status: testable
+  status: stable
   category: networking
   humanReadableName: "Link preload responsive images"
   humanReadableDescription: "Enable link preload responsive images"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 LinkSanitizerEnabled:
   type: bool
@@ -5207,9 +5219,12 @@ ProcessSwapOnCrossSiteWindowOpenEnabled:
    category: networking
    humanReadableName: "Swap Processes on Cross-Site Window Open"
    humanReadableDescription: "Swap WebContent Processes on cross-site window.open"
-   webcoreBinding: none
    exposed: [ WebKit ]
    defaultValue:
+     WebCore:
+       default: false
+     WebKitLegacy:
+       default: false
      WebKit:
        default: false
 
@@ -5329,7 +5344,7 @@ ReportingEnabled:
 
 RequestIdleCallbackEnabled:
   type: bool
-  status: unstable
+  status: stable
   category: dom
   humanReadableName: "requestIdleCallback"
   humanReadableDescription: "Enable requestIdleCallback support"
@@ -5337,6 +5352,7 @@ RequestIdleCallbackEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "USE(CF)": true
       default: false
     WebCore:
       default: false
@@ -6193,6 +6209,20 @@ ShrinksStandaloneImagesToFit:
       default: true
     WebCore:
       default: true
+
+SidewaysWritingModesEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "Sideways writing modes"
+  humanReadableDescription: "Enable support for sideways writing modes"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 SiteIsolationEnabled:
   type: bool
@@ -7390,8 +7420,10 @@ WebCodecsHEVCEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "USE(GSTREAMER)": true
       default: false
     WebCore:
+      "USE(GSTREAMER)": true
       default: false
 
 WebCryptoSafeCurvesEnabled:
@@ -7661,7 +7693,6 @@ WebRTCMediaPipelineAdditionalLoggingEnabled:
   type: bool
   status: internal
   category: media
-  condition: USE(LIBWEBRTC)
   humanReadableName: "WebRTC Media Pipeline Additional Logging"
   humanReadableDescription: "Enable WebRTC Media Pipeline Additional Logging"
   defaultValue:
