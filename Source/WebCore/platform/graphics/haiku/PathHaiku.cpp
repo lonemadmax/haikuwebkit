@@ -696,7 +696,7 @@ bool PathHaiku::applyElements(const PathElementApplier& function) const
     return true;
 }
 
-void PathHaiku::transform(const AffineTransform& transform)
+bool PathHaiku::transform(const AffineTransform& transform)
 {
     // BShapeIterator allows us to modify the path data "in place"
     class TransformIterator : public BShapeIterator {
@@ -752,6 +752,7 @@ void PathHaiku::transform(const AffineTransform& transform)
     } transformIterator(transform);
 
     transformIterator.Iterate(&m_platformPath);
+    return true;
 }
 
 FloatRect PathHaiku::strokeBoundingRect(const Function<void(GraphicsContext&)>& applier) const
