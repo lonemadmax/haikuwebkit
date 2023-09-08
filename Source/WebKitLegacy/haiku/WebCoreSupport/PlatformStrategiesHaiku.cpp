@@ -71,9 +71,9 @@ private:
     {
         m_blobRegistry.registerInternalBlobURL(url, WTFMove(parts), contentType);
     }
-    void registerBlobURL(const URL& url, const URL& srcURL, const PolicyContainer& container) final override
+    void registerBlobURL(const URL& url, const URL& srcURL, const PolicyContainer& container, const std::optional<SecurityOriginData>& topOrigin) final override
     {
-        m_blobRegistry.registerBlobURL(url, srcURL, container);
+        m_blobRegistry.registerBlobURL(url, srcURL, container, topOrigin);
     }
     void registerInternalBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, RefPtr<BlobDataFileReference>&& reference, const String& contentType) final override
     {
@@ -83,17 +83,17 @@ private:
     {
         m_blobRegistry.registerInternalBlobURLForSlice(url, srcURL, start, end, contentType);
     }
-    void unregisterBlobURL(const URL& url) final override
+    void unregisterBlobURL(const URL& url, const std::optional<SecurityOriginData>& topOrigin) final override
     {
-        m_blobRegistry.unregisterBlobURL(url);
+        m_blobRegistry.unregisterBlobURL(url, topOrigin);
     }
-    void registerBlobURLHandle(const URL& url) final override
+    void registerBlobURLHandle(const URL& url, const std::optional<SecurityOriginData>& topOrigin) final override
     {
-        m_blobRegistry.registerBlobURLHandle(url);
+        m_blobRegistry.registerBlobURLHandle(url, topOrigin);
     }
-    void unregisterBlobURLHandle(const URL& url) final override
+    void unregisterBlobURLHandle(const URL& url, const std::optional<SecurityOriginData>& topOrigin) final override
     {
-        m_blobRegistry.unregisterBlobURLHandle(url);
+        m_blobRegistry.unregisterBlobURLHandle(url, topOrigin);
     }
     unsigned long long blobSize(const URL& url) final override
     {
