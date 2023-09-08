@@ -1488,6 +1488,7 @@ void BWebPage::handleSendPageSource(BMessage*)
     BMessage message(B_PAGE_SOURCE_RESULT);
     message.AddString("source", fMainFrame->FrameSource());
     message.AddString("url", fMainFrame->URL());
+    message.AddString("type", fMainFrame->MIMEType());
 
     dispatchMessage(message);
 }

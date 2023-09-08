@@ -65,6 +65,7 @@ public:
 
 			BString				RequestedURL() const;
 			BString				URL() const;
+			BString				MIMEType() const;
 
 			bool				CanCopy() const;
 			bool				CanCut() const;

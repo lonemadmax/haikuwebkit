@@ -152,6 +152,13 @@ BString BWebFrame::URL() const
     return fData->frame->document()->url().string();
 }
 
+BString BWebFrame::MIMEType() const
+{
+    if (fData->frame->document() == NULL)
+        return "";
+    return fData->frame->document()->suggestedMIMEType();
+}
+
 BString BWebFrame::RequestedURL() const
 {
     return fData->requestedURL;
