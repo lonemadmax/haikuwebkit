@@ -3,8 +3,9 @@ LIST(APPEND WTF_SOURCES
     generic/MainThreadGeneric.cpp
 
     unix/MemoryPressureHandlerUnix.cpp
+    unix/UniStdExtrasUnix.cpp
 
-	posix/CPUTimePOSIX.cpp
+posix/CPUTimePOSIX.cpp
     posix/FileSystemPOSIX.cpp
     posix/OSAllocatorPOSIX.cpp
     posix/ThreadingPOSIX.cpp
@@ -28,8 +29,8 @@ LIST(APPEND WTF_LIBRARIES
 )
 
 list(APPEND WTF_INCLUDE_DIRECTORIES
-	/system/develop/headers/private/system/arch/$ENV{BE_HOST_CPU}/
-	/system/develop/headers/private/system
+    /system/develop/headers/private/system/arch/$ENV{BE_HOST_CPU}/
+    /system/develop/headers/private/system
 )
 
 add_definitions(-D_BSD_SOURCE=1)

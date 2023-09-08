@@ -344,10 +344,6 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         std::make_unique<WebKit::WebNavigatorContentUtilsClient>());
 #endif
 
-#if ENABLE(REMOTE_INSPECTOR)
-    fPage->setRemoteInspectionAllowed(true);
-#endif
-
     fSettings = new BWebSettings(&fPage->settings());
 }
 
