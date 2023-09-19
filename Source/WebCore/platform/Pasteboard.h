@@ -96,11 +96,7 @@ struct PasteboardWebContent {
     String text;
     String markup;
 #endif
-#if USE(LIBWPE)
-    String text;
-    String markup;
-#endif
-#if PLATFORM(HAIKU)
+#if USE(LIBWPE)||USE(HAIKU)
     String text;
     String markup;
 #endif

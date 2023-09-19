@@ -62,7 +62,7 @@ header: <WebCore/Pasteboard.h>
     String text;
     String markup;
 #endif
-#if USE(LIBWPE)
+#if USE(LIBWPE) || USE(HAIKU)
     String text;
     String markup;
 #endif
