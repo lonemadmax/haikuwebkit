@@ -26,6 +26,7 @@
 #pragma once
 
 #include "CertificateInfo.h"
+#include "DocumentLoader.h"
 #include "FrameLoaderTypes.h"
 
 namespace WebCore {
