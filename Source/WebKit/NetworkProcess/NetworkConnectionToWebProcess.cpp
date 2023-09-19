@@ -430,13 +430,6 @@ bool NetworkConnectionToWebProcess::didReceiveSyncMessage(IPC::Connection& conne
     return false;
 }
 
-void NetworkConnectionToWebProcess::updateQuotaBasedOnSpaceUsageForTesting(ClientOrigin&& origin)
-{
-    NETWORK_PROCESS_MESSAGE_CHECK(allowTestOnlyIPC());
-    if (auto* session = m_networkProcess->networkSession(sessionID()))
-        session->storageManager().resetQuotaUpdatedBasedOnUsageForTesting(WTFMove(origin));
-}
-
 void NetworkConnectionToWebProcess::didClose(IPC::Connection& connection)
 {
 #if ENABLE(SERVICE_WORKER)
@@ -767,7 +760,7 @@ void NetworkConnectionToWebProcess::convertMainResourceLoadToDownload(std::optio
         return;
     }
 
-    NetworkResourceLoader* loader = m_networkResourceLoaders.get(*mainResourceLoadIdentifier);
+    RefPtr loader = m_networkResourceLoaders.get(*mainResourceLoadIdentifier);
     if (!loader) {
         // If we're trying to download a blob here loader can be null.
         return;
@@ -1048,7 +1041,7 @@ void NetworkConnectionToWebProcess::writeBlobsToTemporaryFilesForIndexedDB(const
             file->revokeFileAccess();
 
         if (auto* session = networkSession())
-            session->storageManager().registerTemporaryBlobFilePaths(m_connection, filePaths);
+            session->protectedStorageManager()->registerTemporaryBlobFilePaths(Ref { m_connection }, filePaths);
 
         completionHandler(WTFMove(filePaths));
     });
@@ -1452,7 +1445,7 @@ void NetworkConnectionToWebProcess::prioritizeResourceLoads(const Vector<WebCore
 
     Vector<NetworkLoad*> loads;
     for (auto identifier : loadIdentifiers) {
-        auto* loader = m_networkResourceLoaders.get(identifier);
+        RefPtr loader = m_networkResourceLoaders.get(identifier);
         if (!loader || !loader->networkLoad())
             continue;
         loads.append(loader->networkLoad());

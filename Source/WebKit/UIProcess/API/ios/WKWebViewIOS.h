@@ -36,6 +36,10 @@ namespace WebKit {
 enum class TapHandlingResult : uint8_t;
 }
 
+namespace WebKit {
+class VisibleContentRectUpdateInfo;
+}
+
 @interface WKWebView (WKViewInternalIOS)
 
 - (void)_setupScrollAndContentViews;
@@ -94,6 +98,7 @@ enum class TapHandlingResult : uint8_t;
 - (void)_willInvokeUIScrollViewDelegateCallback;
 - (void)_didInvokeUIScrollViewDelegateCallback;
 
+- (std::optional<WebKit::VisibleContentRectUpdateInfo>)_createVisibleContentRectUpdateInfo;
 - (void)_scheduleVisibleContentRectUpdate;
 - (void)_scheduleForcedVisibleContentRectUpdate;
 
@@ -141,6 +146,9 @@ enum class TapHandlingResult : uint8_t;
 - (void)_findSelected:(id)sender;
 
 - (id<UITextSearching>)_searchableObject;
+
+- (void)_showFindOverlay;
+- (void)_hideFindOverlay;
 #endif
 
 - (void)_nextAccessoryTab:(id)sender;

@@ -132,6 +132,8 @@
 #endif
 
 namespace WebCore {
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(AXComputedObjectAttributeCache);
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(AXObjectCache);
 
 using namespace HTMLNames;
 
@@ -1225,14 +1227,18 @@ void AXObjectCache::handleAllDeferredChildrenChanged()
         // setting m_subtreeDirty on some high-in-the-tree object, clearing that during AXIsolatedTree::updateChildren,
         // then having it set again by the next children-changed entry, repeat).
         auto deferredChildrenChangedList = std::exchange(m_deferredChildrenChangedList, { });
-        for (auto& child : deferredChildrenChangedList)
-            handleChildrenChanged(*child);
+        for (auto& object : deferredChildrenChangedList)
+            handleChildrenChanged(*object);
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-        if (!tree)
-            continue;
-        for (auto& child : deferredChildrenChangedList)
-            tree->updateChildren(*child);
+        if (tree)
+            tree->updateChildrenForObjects(deferredChildrenChangedList);
+#endif
+
+#if !PLATFORM(COCOA)
+        // Neither the MAC nor IOS_FAMILY ports map AXChildrenChanged to a platform notification.
+        for (auto& object : deferredChildrenChangedList)
+            postPlatformNotification(object.get(), AXChildrenChanged);
 #endif
     }
 }
@@ -1295,8 +1301,6 @@ void AXObjectCache::handleChildrenChanged(AccessibilityObject& object)
     // The role of list objects is dependent on their children, so we'll need to re-compute it here.
     if (is<AccessibilityList>(object))
         object.updateRole();
-
-    postPlatformNotification(&object, AXChildrenChanged);
 }
 
 void AXObjectCache::handleRecomputeCellSlots(AccessibilityTable& axTable)
@@ -1539,6 +1543,41 @@ void AXObjectCache::handleMenuItemSelected(Node* node)
     postNotification(getOrCreate(node), &document(), AXMenuListItemSelected);
 }
 
+// FIXME: Consider also handling updating SelectedChildren of TabLists (this should happen for the oldNode, newNode, and/or the parent of a tab)
+void AXObjectCache::handleTabPanelSelected(Node* oldNode, Node* newNode)
+{
+    auto updateTab = [this] (AccessibilityObject* controlPanel, Node& focusedNode) {
+        if (!controlPanel)
+            return;
+
+        auto controllers = controlPanel->controllers();
+        for (auto& controller : controllers)
+            postNotification(dynamicDowncast<AccessibilityObject>(controller.get()), &focusedNode.document(), AXSelectedStateChanged);
+    };
+
+
+    RefPtr oldObject = get(oldNode);
+    RefPtr<AccessibilityObject> oldFocusedControlledPanel;
+    if (oldObject) {
+        oldFocusedControlledPanel = Accessibility::findAncestor<AccessibilityObject>(*oldObject, false, [] (auto& ancestor) {
+            return ancestor.roleValue() == AccessibilityRole::TabPanel;
+        });
+
+        updateTab(oldFocusedControlledPanel.get(), *oldNode);
+    }
+
+    RefPtr newObject = get(newNode);
+    if (!newObject)
+        return;
+
+    RefPtr newFocusedControlledPanel = Accessibility::findAncestor<AccessibilityObject>(*newObject, false, [] (auto& ancestor) {
+        return ancestor.roleValue() == AccessibilityRole::TabPanel;
+    });
+
+    if (oldFocusedControlledPanel != newFocusedControlledPanel)
+        updateTab(newFocusedControlledPanel.get(), *newNode);
+}
+
 void AXObjectCache::handleRowCountChanged(AccessibilityObject* axObject, Document* document)
 {
     if (!axObject)
@@ -1621,6 +1660,9 @@ void AXObjectCache::handleFocusedUIElementChanged(Node* oldNode, Node* newNode, 
     if (updateModal == UpdateModal::Yes)
         updateCurrentModalNode();
     handleMenuItemSelected(newNode);
+
+    // FIXME: Consider creating a new ancestor flag to only do this work when |oldNode| or |newNode| have a tab panel ancestor (the only time it is necessary)
+    handleTabPanelSelected(oldNode, newNode);
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     setIsolatedTreeFocusedObject(focusedObjectForNode(newNode));
 #endif
@@ -1667,6 +1709,7 @@ void AXObjectCache::onSelectedChanged(Node* node)
     }
 
     handleMenuItemSelected(node);
+    handleTabPanelSelected(nullptr, node);
 }
 
 void AXObjectCache::onTextSecurityChanged(HTMLInputElement& inputElement)
@@ -2296,6 +2339,8 @@ void AXObjectCache::deferAttributeChangeIfNeeded(Element* element, const Qualifi
     }
     RefPtr protectedElement { element };
     handleAttributeChange(protectedElement.get(), attrName, oldValue, newValue);
+    if (attrName == idAttr)
+        relationsNeedUpdate(true);
 }
 
 bool AXObjectCache::shouldProcessAttributeChange(Element* element, const QualifiedName& attrName)
@@ -2371,7 +2416,6 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
     else if (attrName == hrefAttr)
         updateIsolatedTree(get(element), AXURLChanged);
     else if (attrName == idAttr) {
-        relationsNeedUpdate(true);
 #if !LOG_DISABLED
         updateIsolatedTree(get(element), AXIdAttributeChanged);
 #endif
@@ -3852,9 +3896,15 @@ void AXObjectCache::performDeferredCacheUpdate()
     m_deferredTextFormControlValue.clear();
 
     AXLOGDeferredCollection("AttributeChange"_s, m_deferredAttributeChange);
-    for (const auto& attributeChange : m_deferredAttributeChange)
+    bool idAttributeChanged = false;
+    for (const auto& attributeChange : m_deferredAttributeChange) {
         handleAttributeChange(attributeChange.element.get(), attributeChange.attrName, attributeChange.oldValue, attributeChange.newValue);
+        if (attributeChange.attrName == idAttr)
+            idAttributeChanged = true;
+    }
     m_deferredAttributeChange.clear();
+    if (idAttributeChanged)
+        relationsNeedUpdate(true);
 
     if (m_deferredFocusedNodeChange) {
         AXLOG(makeString(
@@ -4020,6 +4070,16 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<Accessibili
         case AXMaximumValueChanged:
             tree->updateNodeProperties(*notification.first, { AXPropertyName::MaxValueForRange, AXPropertyName::ValueForRange });
             break;
+        case AXMenuListItemSelected: {
+            RefPtr ancestor = Accessibility::findAncestor<AccessibilityObject>(*notification.first, false, [] (const auto& object) {
+                return object.isMenu() || object.isMenuBar();
+            });
+            if (ancestor) {
+                tree->updateNodeProperty(*ancestor, AXPropertyName::SelectedChildren);
+                tree->updateNodeProperty(*notification.first, AXPropertyName::IsSelected);
+            }
+            break;
+        }
         case AXMinimumValueChanged:
             tree->updateNodeProperties(*notification.first, { AXPropertyName::MinValueForRange, AXPropertyName::ValueForRange });
             break;
@@ -4104,7 +4164,6 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<Accessibili
         case AXRowCountChanged:
             updateNode(notification.first);
             FALLTHROUGH;
-        case AXChildrenChanged:
         case AXRowCollapsed:
         case AXRowExpanded: {
             auto updatedFields = updatedObjects.get(notification.first->objectID());

@@ -40,6 +40,7 @@
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSCalcOperationNode);
 
 // This is the result of the "To add two types type1 and type2, perform the following steps:" rules.
 
@@ -51,6 +52,11 @@ static const CalculationCategory addSubtractResult[static_cast<unsigned>(Calcula
     { CalculationCategory::PercentNumber, CalculationCategory::Other,         CalculationCategory::PercentNumber, CalculationCategory::PercentNumber, CalculationCategory::Other }, //         CalculationCategory::PercentNumber
     { CalculationCategory::Other,         CalculationCategory::PercentLength, CalculationCategory::PercentLength, CalculationCategory::Other,         CalculationCategory::PercentLength }, // CalculationCategory::PercentLength
 };
+
+static bool isSamePair(CalculationCategory a, CalculationCategory b, CalculationCategory x, CalculationCategory y)
+{
+    return (a == x && b == y) || (a == y && b == x);
+}
 
 static CalculationCategory determineCategory(const CSSCalcExpressionNode& leftSide, const CSSCalcExpressionNode& rightSide, CalcOperator op)
 {
@@ -184,21 +190,13 @@ static std::optional<CalculationCategory> resolvedTypeForStep(CalculationCategor
     if (a == b)
         return a;
 
-    if (a == CalculationCategory::Percent)
-        std::swap(a, b);
-
-    if (a == CalculationCategory::Length)
+    if (isSamePair(a, b, CalculationCategory::Length, CalculationCategory::Percent))
         return CalculationCategory::PercentLength;
 
-    if (a == CalculationCategory::Number)
+    if (isSamePair(a, b, CalculationCategory::Number, CalculationCategory::Percent))
         return CalculationCategory::PercentNumber;
 
     return { };
-}
-
-static bool isSamePair(CalculationCategory a, CalculationCategory b, CalculationCategory x, CalculationCategory y)
-{
-    return (a == x && b == y) || (a == y && b == x);
 }
 
 enum class SortingCategory {
@@ -1062,13 +1060,6 @@ void CSSCalcOperationNode::collectComputedStyleDependencies(ComputedStyleDepende
 {
     for (auto& child : m_children)
         child->collectComputedStyleDependencies(dependencies);
-}
-
-bool CSSCalcOperationNode::convertingToLengthRequiresNonNullStyle(int lengthConversion) const
-{
-    return WTF::anyOf(m_children, [lengthConversion] (auto& child) {
-        return child->convertingToLengthRequiresNonNullStyle(lengthConversion);
-    });
 }
 
 void CSSCalcOperationNode::buildCSSText(const CSSCalcExpressionNode& node, StringBuilder& builder)

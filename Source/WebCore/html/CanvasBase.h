@@ -140,7 +140,7 @@ protected:
 
     virtual ScriptExecutionContext* canvasBaseScriptExecutionContext() const = 0;
 
-    virtual void setSize(const IntSize& size) { m_size = size; }
+    virtual void setSize(const IntSize&);
 
     RefPtr<ImageBuffer> setImageBuffer(RefPtr<ImageBuffer>&&) const;
     virtual bool hasCreatedImageBuffer() const { return false; }
@@ -148,7 +148,7 @@ protected:
 
     void resetGraphicsContextState() const;
 
-    RefPtr<ImageBuffer> allocateImageBuffer(bool usesDisplayListDrawing, bool avoidBackendSizeCheckForTesting) const;
+    RefPtr<ImageBuffer> allocateImageBuffer(bool avoidBackendSizeCheckForTesting) const;
     String lastFillText() const { return m_lastFillText; }
 
 private:

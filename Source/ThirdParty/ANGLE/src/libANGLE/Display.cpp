@@ -433,6 +433,11 @@ rx::DisplayImpl *CreateDisplayFromAttribs(EGLAttrib displayType,
                 break;
             }
 #        endif
+            if (platformType == EGL_PLATFORM_SURFACELESS_MESA)
+            {
+                impl = new rx::DisplayEGL(state);
+                break;
+            }
             break;
 
 #    elif defined(ANGLE_PLATFORM_ANDROID)
@@ -456,11 +461,8 @@ rx::DisplayImpl *CreateDisplayFromAttribs(EGLAttrib displayType,
             impl = new rx::DisplayWGL(state);
 #    elif defined(ANGLE_PLATFORM_LINUX)
 #        if defined(ANGLE_USE_GBM)
-            if (platformType == 0 ||
-                platformType == EGL_PLATFORM_VULKAN_DISPLAY_MODE_HEADLESS_ANGLE)
+            if (platformType == 0)
             {
-                // platformType == EGL_PLATFORM_VULKAN_DISPLAY_MODE_HEADLESS_ANGLE is a hack,
-                // to allow ChromeOS GLES backend to continue functioning when Vulkan is enabled.
                 impl = new rx::DisplayEGL(state);
                 break;
             }
@@ -479,6 +481,11 @@ rx::DisplayImpl *CreateDisplayFromAttribs(EGLAttrib displayType,
                     break;
                 }
 #        endif
+                if (platformType == EGL_PLATFORM_SURFACELESS_MESA)
+                {
+                    impl = new rx::DisplayEGL(state);
+                    break;
+                }
             }
 #    elif defined(ANGLE_PLATFORM_ANDROID)
             impl = new rx::DisplayAndroid(state);
@@ -525,6 +532,12 @@ rx::DisplayImpl *CreateDisplayFromAttribs(EGLAttrib displayType,
                 break;
             }
 #        endif
+            if (platformType == EGL_PLATFORM_SURFACELESS_MESA &&
+                rx::IsVulkanOffscreenDisplayAvailable())
+            {
+                impl = rx::CreateVulkanOffscreenDisplay(state);
+                break;
+            }
 #        if defined(ANGLE_USE_VULKAN_DISPLAY)
             if (platformType == EGL_PLATFORM_VULKAN_DISPLAY_MODE_SIMPLE_ANGLE &&
                 rx::IsVulkanSimpleDisplayAvailable())
@@ -535,6 +548,10 @@ rx::DisplayImpl *CreateDisplayFromAttribs(EGLAttrib displayType,
                      rx::IsVulkanHeadlessDisplayAvailable())
             {
                 impl = rx::CreateVulkanHeadlessDisplay(state);
+            }
+            else if (rx::IsVulkanOffscreenDisplayAvailable())
+            {
+                impl = rx::CreateVulkanOffscreenDisplay(state);
             }
             else
             {
@@ -916,6 +933,7 @@ Display::~Display()
         case EGL_PLATFORM_ANGLE_ANGLE:
         case EGL_PLATFORM_GBM_KHR:
         case EGL_PLATFORM_WAYLAND_EXT:
+        case EGL_PLATFORM_SURFACELESS_MESA:
         {
             ANGLEPlatformDisplayMap *displays      = GetANGLEPlatformDisplayMap();
             ANGLEPlatformDisplayMap::iterator iter = displays->find(ANGLEPlatformDisplay(
@@ -1065,6 +1083,7 @@ Error Display::initialize()
     }
 
     mFrontendFeatures.reset();
+    rx::ApplyFeatureOverrides(&mFrontendFeatures, mState);
     if (!mState.featuresAllDisabled)
     {
         initializeFrontendFeatures();
@@ -2090,6 +2109,10 @@ static ClientExtensions GenerateClientExtensions()
     extensions.platformWaylandEXT = true;
 #endif
 
+#if defined(ANGLE_PLATFORM_LINUX) && (defined(ANGLE_ENABLE_OPENGL) || defined(ANGLE_ENABLE_VULKAN))
+    extensions.platformSurfacelessMESA = true;
+#endif
+
 #if defined(ANGLE_ENABLE_D3D11)
     extensions.platformANGLED3D11ON12 = angle::IsWindows10OrLater();
     extensions.platformANGLEDeviceId  = true;
@@ -2321,8 +2344,6 @@ void Display::initializeFrontendFeatures()
     ANGLE_FEATURE_CONDITION(&mFrontendFeatures, emulatePixelLocalStorage, true);
 
     mImplementation->initializeFrontendFeatures(&mFrontendFeatures);
-
-    rx::ApplyFeatureOverrides(&mFrontendFeatures, mState);
 }
 
 const DisplayExtensions &Display::getExtensions() const

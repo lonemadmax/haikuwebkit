@@ -593,6 +593,9 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalH
             relayoutChildren = true;
         layoutPositionedObjects(relayoutChildren || isDocumentElementRenderer());
     }
+
+    updateDescendantTransformsAfterLayout();
+
     // Add overflow from children (unless we're multi-column, since in that case all our child overflow is clipped anyway).
     computeOverflow(oldClientAfterEdge);
 
@@ -4998,8 +5001,6 @@ LayoutUnit RenderBlockFlow::blockFormattingContextInFlowBlockLevelContentHeight(
     // Child's margin box starting location + border box height + margin after size
     return logicalMarginBoxTopForChild(*lastChild) + logicalMarginBoxHeightForChild(*lastChild);
 }
-
-
 
 }
 // namespace WebCore

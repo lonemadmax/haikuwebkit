@@ -300,6 +300,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/cookie-store/CookieStore.idl \
     $(WebCore)/Modules/cookie-store/CookieStoreGetOptions.idl \
     $(WebCore)/Modules/cookie-store/CookieStoreDeleteOptions.idl \
+    $(WebCore)/Modules/cookie-store/CookieStoreManager.idl \
+    $(WebCore)/Modules/cookie-store/ExtendableCookieChangeEvent.idl \
+    $(WebCore)/Modules/cookie-store/ExtendableCookieChangeEventInit.idl \
     $(WebCore)/Modules/cookie-store/LocalDOMWindow+CookieStore.idl \
     $(WebCore)/Modules/credentialmanagement/BasicCredential.idl \
     $(WebCore)/Modules/credentialmanagement/CredentialCreationOptions.idl \
@@ -714,6 +717,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webauthn/PublicKeyCredentialType.idl \
     $(WebCore)/Modules/webauthn/ResidentKeyRequirement.idl \
     $(WebCore)/Modules/webauthn/UserVerificationRequirement.idl \
+    $(WebCore)/Modules/webcodecs/AudioSampleFormat.idl \
     $(WebCore)/Modules/webcodecs/AvcEncoderConfig.idl \
     $(WebCore)/Modules/webcodecs/BitrateMode.idl \
     $(WebCore)/Modules/webcodecs/LatencyMode.idl \
@@ -726,6 +730,10 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webcodecs/VideoPixelFormat.idl \
     $(WebCore)/Modules/webcodecs/VideoTransferCharacteristics.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsAlphaOption.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsAudioData.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsAudioDataOutputCallback.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsEncodedAudioChunk.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsEncodedAudioChunkType.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsEncodedVideoChunk.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsEncodedVideoChunkMetadata.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsEncodedVideoChunkOutputCallback.idl \
@@ -733,6 +741,10 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webcodecs/WebCodecsErrorCallback.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsCodecState.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsSvcOutputMetadata.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsAudioData.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsAudioDecoder.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsAudioDecoderConfig.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsAudioDecoderSupport.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsVideoDecoder.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsVideoDecoderConfig.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsVideoDecoderSupport.idl \
@@ -756,6 +768,24 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webdriver/Navigator+WebDriver.idl \
     $(WebCore)/Modules/websockets/CloseEvent.idl \
     $(WebCore)/Modules/websockets/WebSocket.idl \
+    $(WebCore)/Modules/webtransport/WebTransport.idl \
+    $(WebCore)/Modules/webtransport/WebTransportBidirectionalStream.idl \
+    $(WebCore)/Modules/webtransport/WebTransportCloseInfo.idl \
+    $(WebCore)/Modules/webtransport/WebTransportCongestionControl.idl \
+    $(WebCore)/Modules/webtransport/WebTransportDatagramDuplexStream.idl \
+    $(WebCore)/Modules/webtransport/WebTransportDatagramStats.idl \
+    $(WebCore)/Modules/webtransport/WebTransportError.idl \
+    $(WebCore)/Modules/webtransport/WebTransportErrorOptions.idl \
+    $(WebCore)/Modules/webtransport/WebTransportErrorSource.idl \
+    $(WebCore)/Modules/webtransport/WebTransportHash.idl \
+    $(WebCore)/Modules/webtransport/WebTransportOptions.idl \
+    $(WebCore)/Modules/webtransport/WebTransportReceiveStream.idl \
+    $(WebCore)/Modules/webtransport/WebTransportReceiveStreamStats.idl \
+    $(WebCore)/Modules/webtransport/WebTransportReliabilityMode.idl \
+    $(WebCore)/Modules/webtransport/WebTransportSendStream.idl \
+    $(WebCore)/Modules/webtransport/WebTransportSendStreamOptions.idl \
+    $(WebCore)/Modules/webtransport/WebTransportSendStreamStats.idl \
+    $(WebCore)/Modules/webtransport/WebTransportStats.idl \
     $(WebCore)/Modules/webxr/Navigator+WebXR.idl \
     $(WebCore)/Modules/webxr/WebXRBoundedReferenceSpace.idl \
     $(WebCore)/Modules/webxr/WebXRFrame+HandInput.idl \
@@ -853,6 +883,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/crypto/parameters/EcdhKeyDeriveParams.idl \
     $(WebCore)/crypto/parameters/EcdsaParams.idl \
     $(WebCore)/crypto/parameters/HkdfParams.idl \
+    $(WebCore)/crypto/parameters/X25519Params.idl \
     $(WebCore)/crypto/parameters/HmacKeyParams.idl \
     $(WebCore)/crypto/parameters/Pbkdf2Params.idl \
     $(WebCore)/crypto/parameters/RsaHashedImportParams.idl \
@@ -967,6 +998,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/ClipboardEvent.idl \
     $(WebCore)/dom/Comment.idl \
     $(WebCore)/dom/CompositionEvent.idl \
+    $(WebCore)/dom/ContentVisibilityAutoStateChangeEvent.idl \
     $(WebCore)/dom/CustomElementRegistry.idl \
     $(WebCore)/dom/CustomEvent.idl \
     $(WebCore)/dom/DOMException.idl \
@@ -1147,7 +1179,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/HTMLMediaElement+AudioOutput.idl \
     $(WebCore)/html/HTMLMediaElement.idl \
     $(WebCore)/html/HTMLMenuElement.idl \
-    $(WebCore)/html/HTMLMenuItemElement.idl \
     $(WebCore)/html/HTMLMetaElement.idl \
     $(WebCore)/html/HTMLMeterElement.idl \
     $(WebCore)/html/HTMLModElement.idl \
@@ -1232,6 +1263,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/canvas/CanvasTextDrawingStyles.idl \
     $(WebCore)/html/canvas/CanvasTransform.idl \
     $(WebCore)/html/canvas/CanvasUserInterface.idl \
+    $(WebCore)/html/canvas/EXTBlendFuncExtended.idl \
     $(WebCore)/html/canvas/EXTBlendMinMax.idl \
     $(WebCore)/html/canvas/EXTClipControl.idl \
     $(WebCore)/html/canvas/EXTColorBufferFloat.idl \

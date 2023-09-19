@@ -339,7 +339,17 @@ AtomString HTMLAnchorElement::target() const
 
 String HTMLAnchorElement::origin() const
 {
-    return SecurityOrigin::create(href()).get().toString();
+    auto url = href();
+    if (!url.isValid())
+        return emptyString();
+    return SecurityOrigin::create(url)->toString();
+}
+
+void HTMLAnchorElement::setProtocol(StringView value)
+{
+    if (auto url = href(); !url.isValid())
+        return;
+    URLDecomposition::setProtocol(value);
 }
 
 String HTMLAnchorElement::text()
@@ -649,7 +659,7 @@ AtomString HTMLAnchorElement::effectiveTarget() const
     auto effectiveTarget = target();
     if (effectiveTarget.isEmpty())
         effectiveTarget = document().baseTarget();
-    return effectiveTarget;
+    return makeTargetBlankIfHasDanglingMarkup(effectiveTarget);
 }
 
 HTMLAnchorElement::EventType HTMLAnchorElement::eventType(Event& event)
@@ -744,9 +754,7 @@ String HTMLAnchorElement::referrerPolicyForBindings() const
 
 ReferrerPolicy HTMLAnchorElement::referrerPolicy() const
 {
-    if (document().settings().referrerPolicyAttributeEnabled())
-        return parseReferrerPolicy(attributeWithoutSynchronization(referrerpolicyAttr), ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
-    return ReferrerPolicy::EmptyString;
+    return parseReferrerPolicy(attributeWithoutSynchronization(referrerpolicyAttr), ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
 }
 
 }

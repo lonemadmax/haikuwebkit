@@ -91,6 +91,7 @@ class TextSizeAdjustment;
 class TextUnderlineOffset;
 class TransformOperations;
 class TransformationMatrix;
+class TransformOperationData;
 class TranslateTransformOperation;
 class WillChangeData;
 
@@ -267,6 +268,7 @@ using LayoutBoxExtent = RectEdges<LayoutUnit>;
 
 namespace Style {
 class CustomPropertyRegistry;
+struct ScopedName;
 }
 
 constexpr auto PublicPseudoIDBits = 9;
@@ -380,7 +382,7 @@ public:
     inline bool hasBorderImageOutsets() const;
     inline LayoutBoxExtent borderImageOutsets() const;
 
-    inline LayoutBoxExtent maskBoxImageOutsets() const;
+    inline LayoutBoxExtent maskBorderOutsets() const;
 
     inline IntOutsets filterOutsets() const;
 
@@ -607,8 +609,8 @@ public:
     inline const LengthSize& maskSizeLength() const;
     inline FillLayer& ensureMaskLayers();
     inline const FillLayer& maskLayers() const;
-    inline const NinePieceImage& maskBoxImage() const;
-    inline StyleImage* maskBoxImageSource() const;
+    inline const NinePieceImage& maskBorder() const;
+    inline StyleImage* maskBorderSource() const;
 
     BorderCollapse borderCollapse() const { return static_cast<BorderCollapse>(m_inheritedFlags.borderCollapse); }
     float horizontalBorderSpacing() const;
@@ -696,7 +698,7 @@ public:
     inline bool containsPaint() const;
     inline bool containsLayoutOrPaint() const;
     inline ContainerType containerType() const;
-    inline const Vector<AtomString>& containerNames() const;
+    inline const Vector<Style::ScopedName>& containerNames() const;
 
     inline ContentVisibility contentVisibility() const;
 
@@ -710,6 +712,8 @@ public:
     inline bool containIntrinsicHeightHasAuto() const;
     inline bool containIntrinsicLogicalWidthHasAuto() const;
     inline bool containIntrinsicLogicalHeightHasAuto() const;
+    inline void containIntrinsicWidthAddAuto();
+    inline void containIntrinsicHeightAddAuto();
     inline std::optional<Length> containIntrinsicWidth() const;
     inline std::optional<Length> containIntrinsicHeight() const;
     inline bool hasAutoLengthContainIntrinsicSize() const;
@@ -895,11 +899,10 @@ public:
     void unapplyTransformOrigin(TransformationMatrix&, const FloatPoint3D& originTranslate) const;
 
     // applyTransform calls applyTransformOrigin(), then applyCSSTransform(), followed by unapplyTransformOrigin().
-    void applyTransform(TransformationMatrix&, const FloatRect& boundingBox) const;
-    void applyTransform(TransformationMatrix&, const FloatRect& boundingBox, OptionSet<TransformOperationOption>) const;
-    void applyCSSTransform(TransformationMatrix&, const FloatRect& boundingBox) const;
-    void applyCSSTransform(TransformationMatrix&, const FloatRect& boundingBox, OptionSet<TransformOperationOption>) const;
-    void applyMotionPathTransform(TransformationMatrix&, const FloatRect& boundingBox) const;
+    void applyTransform(TransformationMatrix&, const TransformOperationData& boundingBox) const;
+    void applyTransform(TransformationMatrix&, const TransformOperationData& boundingBox, OptionSet<TransformOperationOption>) const;
+    void applyCSSTransform(TransformationMatrix&, const TransformOperationData& boundingBox) const;
+    void applyCSSTransform(TransformationMatrix&, const TransformOperationData& boundingBox, OptionSet<TransformOperationOption>) const;
     void setPageScaleTransform(float);
 
     inline bool hasPositionedMask() const;
@@ -977,6 +980,8 @@ public:
     const ScrollSnapAlign& scrollSnapAlign() const;
     ScrollSnapStop scrollSnapStop() const;
 
+    Color effectiveScrollbarThumbColor() const;
+    Color effectiveScrollbarTrackColor() const;
     inline std::optional<ScrollbarColor> scrollbarColor() const;
     inline const StyleColor& scrollbarThumbColor() const;
     inline const StyleColor& scrollbarTrackColor() const;
@@ -1250,8 +1255,8 @@ public:
 
     inline void setMaskImage(RefPtr<StyleImage>&&);
 
-    inline void setMaskBoxImage(const NinePieceImage&);
-    inline void setMaskBoxImageSource(RefPtr<StyleImage>&&);
+    inline void setMaskBorder(const NinePieceImage&);
+    inline void setMaskBorderSource(RefPtr<StyleImage>&&);
     inline void setMaskXPosition(Length&&);
     inline void setMaskYPosition(Length&&);
     inline void setMaskRepeat(FillRepeatXY);
@@ -1269,7 +1274,7 @@ public:
 
     inline void setContain(OptionSet<Containment>);
     inline void setContainerType(ContainerType);
-    inline void setContainerNames(const Vector<AtomString>&);
+    inline void setContainerNames(const Vector<Style::ScopedName>&);
 
     inline void setContainIntrinsicWidthType(ContainIntrinsicSizeType);
     inline void setContainIntrinsicHeightType(ContainIntrinsicSizeType);
@@ -1736,7 +1741,7 @@ public:
     Color colorResolvingCurrentColor(CSSPropertyID colorProperty, bool visitedLink) const;
 
     // Resolves the currentColor keyword, but must not be used for the "color" property which has a different semantic.
-    WEBCORE_EXPORT Color colorResolvingCurrentColor(const StyleColor&) const;
+    WEBCORE_EXPORT Color colorResolvingCurrentColor(const StyleColor&, bool visitedLink = false) const;
 
     WEBCORE_EXPORT Color visitedDependentColor(CSSPropertyID, OptionSet<PaintBehavior> paintBehavior = { }) const;
     WEBCORE_EXPORT Color visitedDependentColorWithColorFilter(CSSPropertyID, OptionSet<PaintBehavior> paintBehavior = { }) const;
@@ -1752,8 +1757,8 @@ public:
 
     inline void setMathStyle(const MathStyle&);
 
-    inline void setTextSpacingTrim(TextSpacingTrim);
-    inline void setTextAutospace(TextAutospace);
+    void setTextSpacingTrim(TextSpacingTrim v);
+    void setTextAutospace(TextAutospace v);
 
     static constexpr Overflow initialOverflowX();
     static constexpr Overflow initialOverflowY();
@@ -1781,8 +1786,6 @@ public:
     static constexpr WritingMode initialWritingMode();
     static constexpr TextCombine initialTextCombine();
     static constexpr TextOrientation initialTextOrientation();
-    static constexpr TextSpacingTrim initialTextSpacingTrim();
-    static constexpr TextAutospace initialTextAutospace();
     static constexpr ObjectFit initialObjectFit();
     static inline LengthPoint initialObjectPosition();
     static constexpr EmptyCell initialEmptyCells();
@@ -1883,7 +1886,7 @@ public:
     static constexpr OptionSet<Containment> contentContainment();
     static constexpr ContainerType initialContainerType();
     static constexpr ContentVisibility initialContentVisibility();
-    static Vector<AtomString> initialContainerNames();
+    static Vector<Style::ScopedName> initialContainerNames();
     static double initialAspectRatioWidth() { return 1.0; }
     static double initialAspectRatioHeight() { return 1.0; }
 
@@ -1927,7 +1930,7 @@ public:
     static constexpr ImageResolutionSnap initialImageResolutionSnap();
     static float initialImageResolution() { return 1; }
     static StyleImage* initialBorderImageSource() { return nullptr; }
-    static StyleImage* initialMaskBoxImageSource() { return nullptr; }
+    static StyleImage* initialMaskBorderSource() { return nullptr; }
     static constexpr PrintColorAdjust initialPrintColorAdjust();
     static QuotesData* initialQuotes() { return nullptr; }
     static inline const AtomString& initialContentAltText();
@@ -2131,7 +2134,7 @@ public:
 
 private:
     struct NonInheritedFlags {
-        bool operator==(const NonInheritedFlags&) const;
+        friend bool operator==(const NonInheritedFlags&, const NonInheritedFlags&) = default;
 
         inline void copyNonInheritedFrom(const NonInheritedFlags&);
 
@@ -2175,7 +2178,7 @@ private:
     };
 
     struct InheritedFlags {
-        bool operator==(const InheritedFlags&) const;
+        friend bool operator==(const InheritedFlags&, const InheritedFlags&) = default;
 
         unsigned emptyCells : 1; // EmptyCell
         unsigned captionSide : 2; // CaptionSide

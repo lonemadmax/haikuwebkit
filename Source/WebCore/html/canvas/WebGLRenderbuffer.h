@@ -36,7 +36,7 @@ class WebGLRenderbuffer final : public WebGLObject {
 public:
     virtual ~WebGLRenderbuffer();
 
-    static Ref<WebGLRenderbuffer> create(WebGLRenderingContextBase&);
+    static RefPtr<WebGLRenderbuffer> create(WebGLRenderingContextBase&);
 
     void setInternalFormat(GCGLenum internalformat)
     {
@@ -62,11 +62,9 @@ public:
     bool isInitialized() const { return m_hasEverBeenBound; }
 
 private:
-    WebGLRenderbuffer(WebGLRenderingContextBase&);
+    WebGLRenderbuffer(WebGLRenderingContextBase&, PlatformGLObject);
 
     void deleteObjectImpl(const AbstractLocker&, GraphicsContextGL*, PlatformGLObject) override;
-
-    bool isRenderbuffer() const override { return true; }
 
     GCGLenum m_internalFormat { GraphicsContextGL::RGBA4 };
     GCGLsizei m_width { 0 };

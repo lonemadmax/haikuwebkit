@@ -5,7 +5,7 @@
  *                     2000 Simon Hausmann <hausmann@kde.org>
  *                     2000 Stefan Schimanski <1Stein@gmx.de>
  *                     2001 George Staikos <staikos@kde.org>
- * Copyright (C) 2004-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2005 Alexey Proskuryakov <ap@nypop.com>
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
@@ -98,7 +98,6 @@
 #include "UserContentController.h"
 #include "UserContentURLPattern.h"
 #include "UserGestureIndicator.h"
-#include "UserInputBridge.h"
 #include "UserScript.h"
 #include "UserTypingGestureIndicator.h"
 #include "VisibleUnits.h"
@@ -156,7 +155,6 @@ LocalFrame::LocalFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& frameLoad
     , m_pageZoomFactor(parentPageZoomFactor(this))
     , m_textZoomFactor(parentTextZoomFactor(this))
     , m_eventHandler(makeUniqueRef<EventHandler>(*this))
-    , m_userInputBridge(makeUniqueRef<UserInputBridge>(*this))
 {
     ProcessWarming::initializeNames();
     StaticCSSValuePool::init();
@@ -330,6 +328,11 @@ void LocalFrame::changeLocation(FrameLoadRequest&& request)
 void LocalFrame::broadcastFrameRemovalToOtherProcesses()
 {
     loader().client().broadcastFrameRemovalToOtherProcesses();
+}
+
+void LocalFrame::didFinishLoadInAnotherProcess()
+{
+    loader().provisionalLoadFailedInAnotherProcess();
 }
 
 void LocalFrame::invalidateContentEventRegionsIfNeeded(InvalidateContentEventRegionsReason reason)
@@ -710,7 +713,7 @@ void LocalFrame::injectUserScriptImmediately(DOMWrapperWorld& world, const UserS
 
     document->setAsRunningUserScripts();
     loader().client().willInjectUserScript(world);
-    m_script->evaluateInWorldIgnoringException(ScriptSourceCode(script.source(), URL(script.url())), world);
+    m_script->evaluateInWorldIgnoringException(ScriptSourceCode(script.source(), JSC::SourceTaintedOrigin::Untainted, URL(script.url())), world);
 }
 
 void LocalFrame::addUserScriptAwaitingNotification(DOMWrapperWorld& world, const UserScript& script)

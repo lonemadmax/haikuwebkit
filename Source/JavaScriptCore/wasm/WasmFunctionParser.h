@@ -104,6 +104,7 @@ struct FunctionParserTypes {
     struct ControlEntry {
         Stack enclosedExpressionStack;
         Stack elseBlockStack;
+        uint32_t localInitStackHeight;
         ControlType controlData;
     };
     using ControlStack = Vector<ControlEntry, 16>;
@@ -127,6 +128,7 @@ public:
     FunctionParser(Context&, const uint8_t* functionStart, size_t functionLength, const TypeDefinition&, const ModuleInformation&);
 
     Result WARN_UNUSED_RETURN parse();
+    Result WARN_UNUSED_RETURN parseConstantExpression();
 
     OpType currentOpcode() const { return m_currentOpcode; }
     size_t currentOpcodeStartingOffset() const { return m_currentOpcodeStartingOffset; }
@@ -137,6 +139,23 @@ public:
     ControlStack& controlStack() { return m_controlStack; }
     Stack& expressionStack() { return m_expressionStack; }
 
+    void pushLocalInitialized(uint32_t index)
+    {
+        if (Options::useWebAssemblyTypedFunctionReferences() && !isDefaultableType(typeOfLocal(index)) && !localIsInitialized(index)) {
+            m_localInitStack.append(index);
+            m_localInitFlags.quickSet(index);
+        }
+    }
+    uint32_t getLocalInitStackHeight() const { return m_localInitStack.size(); }
+    void resetLocalInitStackToHeight(uint32_t height)
+    {
+        if (Options::useWebAssemblyTypedFunctionReferences()) {
+            for (uint32_t i = height; i < m_localInitStack.size(); i++)
+                m_localInitFlags.quickClear(m_localInitStack.takeLast());
+        }
+    };
+    bool localIsInitialized(uint32_t localIndex) { return m_localInitFlags.quickGet(localIndex); }
+
 private:
     static constexpr bool verbose = false;
 
@@ -145,6 +164,7 @@ private:
     PartialResult WARN_UNUSED_RETURN parseUnreachableExpression();
     PartialResult WARN_UNUSED_RETURN unifyControl(Vector<ExpressionType>&, unsigned level);
     PartialResult WARN_UNUSED_RETURN checkBranchTarget(const ControlType&);
+    PartialResult WARN_UNUSED_RETURN checkLocalInitialized(uint32_t);
     PartialResult WARN_UNUSED_RETURN unify(const ControlType&);
 
 #define WASM_TRY_POP_EXPRESSION_STACK_INTO(result, what) do {                               \
@@ -263,6 +283,9 @@ private:
     const TypeDefinition& m_signature;
     const ModuleInformation& m_info;
 
+    Vector<uint32_t> m_localInitStack;
+    BitVector m_localInitFlags;
+
     OpType m_currentOpcode;
     size_t m_currentOpcodeStartingOffset { 0 };
 
@@ -308,6 +331,7 @@ auto FunctionParser<Context>::parse() -> Result
         m_locals.uncheckedAppend(signature.argumentType(i));
 
     uint64_t totalNumberOfLocals = signature.argumentCount();
+    uint64_t totalNonDefaultableLocals = 0;
     for (uint32_t i = 0; i < localGroupsCount; ++i) {
         uint32_t numberOfLocals;
         Type typeOfLocal;
@@ -316,7 +340,11 @@ auto FunctionParser<Context>::parse() -> Result
         totalNumberOfLocals += numberOfLocals;
         WASM_PARSER_FAIL_IF(totalNumberOfLocals > maxFunctionLocals, "Function's number of locals is too big ", totalNumberOfLocals, " maximum ", maxFunctionLocals);
         WASM_PARSER_FAIL_IF(!parseValueType(m_info, typeOfLocal), "can't get Function local's type in group ", i);
-        WASM_PARSER_FAIL_IF(!isDefaultableType(typeOfLocal), "Function locals must have a defaultable type");
+        if (UNLIKELY(!isDefaultableType(typeOfLocal))) {
+            if (!Options::useWebAssemblyTypedFunctionReferences())
+                return fail("Function locals must have a defaultable type");
+            totalNonDefaultableLocals++;
+        }
 
         if (typeOfLocal.isV128()) {
             m_context.notifyFunctionUsesSIMD();
@@ -331,7 +359,34 @@ auto FunctionParser<Context>::parse() -> Result
         WASM_TRY_ADD_TO_CONTEXT(addLocal(typeOfLocal, numberOfLocals));
     }
 
+    if (Options::useWebAssemblyTypedFunctionReferences()) {
+        WASM_PARSER_FAIL_IF(!m_localInitStack.tryReserveCapacity(totalNonDefaultableLocals), "can't allocate enough memory for tracking function's local initialization");
+        m_localInitFlags.ensureSize(totalNumberOfLocals);
+        // Param locals are always considered initialized, so we need to pre-set them.
+        for (uint32_t i = 0; i < signature.argumentCount(); ++i) {
+            if (!isDefaultableType(signature.argumentType(i)))
+                m_localInitFlags.quickSet(i);
+        }
+    }
+
     m_context.didFinishParsingLocals();
+
+    WASM_FAIL_IF_HELPER_FAILS(parseBody());
+
+    return { };
+}
+
+template<typename Context>
+auto FunctionParser<Context>::parseConstantExpression() -> Result
+{
+    WASM_PARSER_FAIL_IF(!m_signature.is<FunctionSignature>(), "type signature was not a function signature");
+    const auto& signature = *m_signature.as<FunctionSignature>();
+    if (signature.numVectors() || signature.numReturnVectors()) {
+        m_context.notifyFunctionUsesSIMD();
+        if (!Context::tierSupportsSIMD)
+            WASM_TRY_ADD_TO_CONTEXT(addCrash());
+    }
+    ASSERT(!signature.argumentCount());
 
     WASM_FAIL_IF_HELPER_FAILS(parseBody());
 
@@ -341,7 +396,7 @@ auto FunctionParser<Context>::parse() -> Result
 template<typename Context>
 auto FunctionParser<Context>::parseBody() -> PartialResult
 {
-    m_controlStack.append({ { }, { }, m_context.addTopLevel(&m_signature) });
+    m_controlStack.append({ { }, { }, 0, m_context.addTopLevel(&m_signature) });
     uint8_t op = 0;
     while (m_controlStack.size()) {
         m_currentOpcodeStartingOffset = m_offset;
@@ -349,7 +404,7 @@ auto FunctionParser<Context>::parseBody() -> PartialResult
         WASM_PARSER_FAIL_IF(!isValidOpType(op), "invalid opcode ", op);
 
         m_currentOpcode = static_cast<OpType>(op);
-#if ENABLE(WEBASSEMBLY_B3JIT)
+#if ENABLE(WEBASSEMBLY_OMGJIT)
         if (UNLIKELY(Options::dumpWasmOpcodeStatistics()))
             WasmOpcodeCounter::singleton().increment(m_currentOpcode);
 #endif
@@ -1463,6 +1518,17 @@ auto FunctionParser<Context>::checkBranchTarget(const ControlType& target) -> Pa
 }
 
 template<typename Context>
+auto FunctionParser<Context>::checkLocalInitialized(uint32_t index) -> PartialResult
+{
+    // If typed funcrefs are off, non-defaultable locals fail earlier.
+    if (!Options::useWebAssemblyTypedFunctionReferences() || isDefaultableType(typeOfLocal(index)))
+        return { };
+
+    WASM_VALIDATOR_FAIL_IF(!localIsInitialized(index), "non-defaultable function local ", index, " is accessed before initialization");
+    return { };
+}
+
+template<typename Context>
 auto FunctionParser<Context>::unify(const ControlType& controlData) -> PartialResult
 {
     const TypeDefinition* typeDefinition = controlData.signature(); // just to avoid a weird compiler error with templates at the next line.
@@ -2261,7 +2327,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         WASM_PARSER_FAIL_IF(!parseVarUInt32(extOp), "can't parse atomic extended opcode");
 
         ExtAtomicOpType op = static_cast<ExtAtomicOpType>(extOp);
-#if ENABLE(WEBASSEMBLY_B3JIT)
+#if ENABLE(WEBASSEMBLY_OMGJIT)
         if (UNLIKELY(Options::dumpWasmOpcodeStatistics()))
             WasmOpcodeCounter::singleton().increment(op);
 #endif
@@ -2378,6 +2444,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
     case GetLocal: {
         uint32_t index;
         WASM_FAIL_IF_HELPER_FAILS(parseIndexForLocal(index));
+        WASM_FAIL_IF_HELPER_FAILS(checkLocalInitialized(index));
 
         ExpressionType result;
         WASM_TRY_ADD_TO_CONTEXT(getLocal(index, result));
@@ -2388,6 +2455,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
     case SetLocal: {
         uint32_t index;
         WASM_FAIL_IF_HELPER_FAILS(parseIndexForLocal(index));
+        pushLocalInitialized(index);
 
         TypedExpression value;
         WASM_TRY_POP_EXPRESSION_STACK_INTO(value, "set_local");
@@ -2400,6 +2468,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
     case TeeLocal: {
         uint32_t index;
         WASM_FAIL_IF_HELPER_FAILS(parseIndexForLocal(index));
+        pushLocalInitialized(index);
 
         WASM_PARSER_FAIL_IF(m_expressionStack.isEmpty(), "can't tee_local on empty expression stack");
         TypedExpression value;
@@ -2654,7 +2723,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         ASSERT_UNUSED(oldSize, oldSize - m_expressionStack.size() == inlineSignature->argumentCount());
         ASSERT(newStack.size() == inlineSignature->argumentCount());
 
-        m_controlStack.append({ WTFMove(m_expressionStack), { },  WTFMove(block) });
+        m_controlStack.append({ WTFMove(m_expressionStack), { }, getLocalInitStackHeight(), WTFMove(block) });
         m_expressionStack = WTFMove(newStack);
         return { };
     }
@@ -2679,7 +2748,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         ASSERT_UNUSED(oldSize, oldSize - m_expressionStack.size() == inlineSignature->argumentCount());
         ASSERT(newStack.size() == inlineSignature->argumentCount());
 
-        m_controlStack.append({ WTFMove(m_expressionStack), { }, WTFMove(loop) });
+        m_controlStack.append({ WTFMove(m_expressionStack), { }, getLocalInitStackHeight(), WTFMove(loop) });
         m_expressionStack = WTFMove(newStack);
         return { };
     }
@@ -2705,7 +2774,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         ASSERT_UNUSED(oldSize, oldSize - m_expressionStack.size() == inlineSignature->argumentCount());
         ASSERT(newStack.size() == inlineSignature->argumentCount());
 
-        m_controlStack.append({ WTFMove(m_expressionStack), newStack, WTFMove(control) });
+        m_controlStack.append({ WTFMove(m_expressionStack), newStack, getLocalInitStackHeight(), WTFMove(control) });
         m_expressionStack = WTFMove(newStack);
         return { };
     }
@@ -2719,6 +2788,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         WASM_FAIL_IF_HELPER_FAILS(unify(controlEntry.controlData));
         WASM_TRY_ADD_TO_CONTEXT(addElse(controlEntry.controlData, m_expressionStack));
         m_expressionStack = WTFMove(controlEntry.elseBlockStack);
+        resetLocalInitStackToHeight(controlEntry.localInitStackHeight);
         return { };
     }
 
@@ -2740,7 +2810,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         ASSERT_UNUSED(oldSize, oldSize - m_expressionStack.size() == inlineSignature->argumentCount());
         ASSERT(newStack.size() == inlineSignature->argumentCount());
 
-        m_controlStack.append({ WTFMove(m_expressionStack), { }, WTFMove(control) });
+        m_controlStack.append({ WTFMove(m_expressionStack), { }, getLocalInitStackHeight(), WTFMove(control) });
         m_expressionStack = WTFMove(newStack);
         return { };
     }
@@ -2772,6 +2842,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
             }
             m_expressionStack.constructAndAppend(argumentType, results[i]);
         }
+        resetLocalInitStackToHeight(controlEntry.localInitStackHeight);
         return { };
     }
 
@@ -2787,6 +2858,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         Stack preCatchStack;
         m_expressionStack.swap(preCatchStack);
         WASM_TRY_ADD_TO_CONTEXT(addCatchAll(preCatchStack, controlEntry.controlData));
+        resetLocalInitStackToHeight(controlEntry.localInitStackHeight);
         return { };
     }
 
@@ -2806,6 +2878,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         WASM_FAIL_IF_HELPER_FAILS(unify(controlEntry.controlData));
         WASM_TRY_ADD_TO_CONTEXT(endBlock(controlEntry, m_expressionStack));
         m_expressionStack.swap(controlEntry.enclosedExpressionStack);
+        resetLocalInitStackToHeight(controlEntry.localInitStackHeight);
         return { };
     }
 
@@ -2923,6 +2996,8 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         WASM_FAIL_IF_HELPER_FAILS(unify(data.controlData));
         WASM_TRY_ADD_TO_CONTEXT(endBlock(data, m_expressionStack));
         m_expressionStack.swap(data.enclosedExpressionStack);
+        if (!ControlType::isTopLevel(data.controlData))
+            resetLocalInitStackToHeight(data.localInitStackHeight);
         return { };
     }
 
@@ -3176,7 +3251,13 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
         return { };
     }
 
-    case GetLocal:
+    case GetLocal: {
+        uint32_t index;
+        WASM_FAIL_IF_HELPER_FAILS(parseIndexForLocal(index));
+        WASM_FAIL_IF_HELPER_FAILS(checkLocalInitialized(index));
+        return { };
+    }
+
     case SetLocal:
     case TeeLocal: {
         uint32_t index;
@@ -3327,7 +3408,7 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
         WASM_PARSER_FAIL_IF(!parseVarUInt32(extOp), "can't parse extended GC opcode");
 
         ExtGCOpType op = static_cast<ExtGCOpType>(extOp);
-#if ENABLE(WEBASSEMBLY_B3JIT)
+#if ENABLE(WEBASSEMBLY_OMGJIT)
         if (UNLIKELY(Options::dumpWasmOpcodeStatistics()))
             WasmOpcodeCounter::singleton().increment(op);
 #endif

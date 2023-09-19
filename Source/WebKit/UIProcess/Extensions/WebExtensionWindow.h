@@ -33,10 +33,15 @@
 
 OBJC_PROTOCOL(_WKWebExtensionWindow);
 
+#ifdef __OBJC__
+#import "_WKWebExtensionWindow.h"
+#endif
+
 namespace WebKit {
 
 class WebExtensionContext;
 class WebExtensionTab;
+struct WebExtensionWindowParameters;
 
 class WebExtensionWindow : public RefCounted<WebExtensionWindow> {
     WTF_MAKE_NONCOPYABLE(WebExtensionWindow);
@@ -56,6 +61,13 @@ public:
         Popup,
     };
 
+    enum class TypeFilter : uint8_t {
+        None   = 0,
+        Normal = 1 << 0,
+        Popup  = 1 << 1,
+        All    = Normal | Popup,
+    };
+
     enum class State : uint8_t {
         Normal,
         Minimized,
@@ -63,10 +75,16 @@ public:
         Fullscreen,
     };
 
+    enum class PopulateTabs : bool { No, Yes };
+
+    using Error = std::optional<String>;
     using TabVector = Vector<Ref<WebExtensionTab>>;
 
     WebExtensionWindowIdentifier identifier() const { return m_identifier; }
-    WebExtensionContext* extensionContext() const { return m_extensionContext.get(); }
+    WebExtensionWindowParameters parameters(PopulateTabs = PopulateTabs::No) const;
+    WebExtensionWindowParameters minimalParameters() const;
+
+    WebExtensionContext* extensionContext() const;
 
     bool operator==(const WebExtensionWindow&) const;
 
@@ -74,12 +92,25 @@ public:
     RefPtr<WebExtensionTab> activeTab() const;
 
     Type type() const;
+
     State state() const;
+    void setState(State, CompletionHandler<void(Error)>&&);
 
     bool isFocused() const;
-    bool isEphemeral() const;
+    void focus(CompletionHandler<void(Error)>&&);
 
+    bool isPrivate() const;
+
+    // Returns the frame using top-down coordinates.
+    CGRect normalizedFrame() const;
+
+    // Handles the frame in the screen's native coordinate system.
     CGRect frame() const;
+    void setFrame(CGRect, CompletionHandler<void(Error)>&&);
+
+    CGRect screenFrame() const;
+
+    void close(CompletionHandler<void(Error)>&&);
 
 #ifdef __OBJC__
     _WKWebExtensionWindow *delegate() const { return m_delegate.getAutoreleased(); }
@@ -95,10 +126,34 @@ private:
     bool m_respondsToActiveTab : 1 { false };
     bool m_respondsToWindowType : 1 { false };
     bool m_respondsToWindowState : 1 { false };
-    bool m_respondsToIsEphemeral : 1 { false };
+    bool m_respondsToSetWindowState : 1 { false };
+    bool m_respondsToIsUsingPrivateBrowsing : 1 { false };
     bool m_respondsToFrame : 1 { false };
+    bool m_respondsToSetFrame : 1 { false };
+    bool m_respondsToScreenFrame : 1 { false };
+    bool m_respondsToFocus : 1 { false };
+    bool m_respondsToClose : 1 { false };
 };
 
+#ifdef __OBJC__
+_WKWebExtensionWindowType toAPI(WebExtensionWindow::Type);
+_WKWebExtensionWindowState toAPI(WebExtensionWindow::State);
+#endif
+
 } // namespace WebKit
+
+namespace WTF {
+
+template<> struct EnumTraits<WebKit::WebExtensionWindow::TypeFilter> {
+    using values = EnumValues<
+        WebKit::WebExtensionWindow::TypeFilter,
+        WebKit::WebExtensionWindow::TypeFilter::None,
+        WebKit::WebExtensionWindow::TypeFilter::Normal,
+        WebKit::WebExtensionWindow::TypeFilter::Popup,
+        WebKit::WebExtensionWindow::TypeFilter::All
+    >;
+};
+
+} // namespace WTF
 
 #endif // ENABLE(WK_WEB_EXTENSIONS)

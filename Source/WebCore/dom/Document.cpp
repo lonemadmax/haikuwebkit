@@ -1493,9 +1493,9 @@ void Document::setVisualUpdatesAllowed(bool visualUpdatesAllowed)
 
     if (Page* page = this->page()) {
         if (frame()->isMainFrame()) {
-            frameView->addPaintPendingMilestones(DidFirstPaintAfterSuppressedIncrementalRendering);
-            if (page->requestedLayoutMilestones() & DidFirstLayoutAfterSuppressedIncrementalRendering)
-                frame()->loader().didReachLayoutMilestone(DidFirstLayoutAfterSuppressedIncrementalRendering);
+            frameView->addPaintPendingMilestones(LayoutMilestone::DidFirstPaintAfterSuppressedIncrementalRendering);
+            if (page->requestedLayoutMilestones() & LayoutMilestone::DidFirstLayoutAfterSuppressedIncrementalRendering)
+                frame()->loader().didReachLayoutMilestone(LayoutMilestone::DidFirstLayoutAfterSuppressedIncrementalRendering);
         }
     }
 
@@ -2322,6 +2322,8 @@ void Document::updateLayoutIgnorePendingStylesheets(Document::RunPostLayoutTasks
             scheduleFullStyleRebuild();
     }
 
+    updateRelevancyOfContentVisibilityElements();
+
     updateLayout();
 
     if (runPostLayoutTasks == RunPostLayoutTasks::Synchronously && view())
@@ -2336,6 +2338,12 @@ std::unique_ptr<RenderStyle> Document::styleForElementIgnoringPendingStylesheets
     ASSERT(!element.isPseudoElement() || pseudoElementSpecifier == PseudoId::None);
     ASSERT(pseudoElementSpecifier == PseudoId::None || parentStyle);
     ASSERT(Style::postResolutionCallbacksAreSuspended());
+
+    std::optional<RenderStyle> updatedDocumentStyle;
+    if (!parentStyle && m_needsFullStyleRebuild) {
+        updatedDocumentStyle.emplace(Style::resolveForDocument(*this));
+        parentStyle = &*updatedDocumentStyle;
+    }
 
     SetForScope change(m_ignorePendingStylesheets, true);
     auto& resolver = element.styleResolver();
@@ -2383,6 +2391,8 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, OptionSet<Dim
         if (owner->document().updateLayoutIfDimensionsOutOfDate(*owner))
             requireFullLayout = true;
     }
+
+    updateRelevancyOfContentVisibilityElements();
 
     updateStyleIfNeeded();
 
@@ -3709,20 +3719,18 @@ void Document::processBaseElement()
         }
     }
 
-    // FIXME: Since this doesn't share code with completeURL it may not handle encodings correctly.
     URL baseElementURL;
-    if (href) {
-        auto trimmedHref = href->string().trim(isASCIIWhitespace);
-        if (!trimmedHref.isEmpty())
-            baseElementURL = URL(fallbackBaseURL(), trimmedHref);
-    }
-    if (m_baseElementURL != baseElementURL && contentSecurityPolicy()->allowBaseURI(baseElementURL)) {
-        if (settings().shouldRestrictBaseURLSchemes() && !SecurityPolicy::isBaseURLSchemeAllowed(baseElementURL))
+    if (href)
+        baseElementURL = completeURL(href->string(), fallbackBaseURL());
+    if (m_baseElementURL != baseElementURL) {
+        if (!contentSecurityPolicy()->allowBaseURI(baseElementURL))
+            m_baseElementURL = { };
+        else if (settings().shouldRestrictBaseURLSchemes() && !SecurityPolicy::isBaseURLSchemeAllowed(baseElementURL)) {
+            m_baseElementURL = { };
             addConsoleMessage(MessageSource::Security, MessageLevel::Error, "Blocked setting " + baseElementURL.stringCenterEllipsizedToLength() + " as the base URL because it does not have an allowed scheme.");
-        else {
+        } else
             m_baseElementURL = baseElementURL;
-            updateBaseURL();
-        }
+        updateBaseURL();
     }
 
     m_baseTarget = target ? *target : nullAtom();
@@ -5885,6 +5893,7 @@ URL Document::completeURL(const String& url, const URL& baseURLOverride, ForceUT
         return URL();
 
     URL baseURL = baseURLForComplete(baseURLOverride);
+    // Same logic as openFunc() in XMLDocumentParserLibxml2.cpp. Keep them in sync.
     if (!m_decoder || forceUTF8 == ForceUTF8::Yes)
         return URL(baseURL, url);
     return URL(baseURL, url, m_decoder->encodingForURLParsing());
@@ -8073,7 +8082,7 @@ void Document::ensurePlugInsInjectedScript(DOMWrapperWorld& world)
     if (!jsString)
         jsString = StringImpl::createWithoutCopying(plugInsJavaScript, sizeof(plugInsJavaScript));
 
-    scriptController.evaluateInWorldIgnoringException(ScriptSourceCode(jsString), world);
+    scriptController.evaluateInWorldIgnoringException(ScriptSourceCode(jsString, JSC::SourceTaintedOrigin::Untainted), world);
 
     m_hasInjectedPlugInsScript = true;
 }
@@ -8340,9 +8349,15 @@ void Document::updateIntersectionObservations()
     if (needsLayout || hasPendingStyleRecalc())
         return;
 
+    updateIntersectionObservations(m_intersectionObservers);
+}
+
+void Document::updateIntersectionObservations(const Vector<WeakPtr<IntersectionObserver>>& intersectionObservers)
+{
+    RELEASE_ASSERT(view() && !(view()->layoutContext().isLayoutPending() || (renderView() && renderView()->needsLayout())) && !hasPendingStyleRecalc());
     Vector<WeakPtr<IntersectionObserver>> intersectionObserversWithPendingNotifications;
 
-    for (auto& weakObserver : m_intersectionObservers) {
+    for (auto& weakObserver : intersectionObservers) {
         RefPtr observer = weakObserver.get();
         if (!observer)
             continue;
@@ -8446,14 +8461,18 @@ void Document::updateResizeObservations(Page& page)
         addConsoleMessage(MessageSource::Other, MessageLevel::Info, "ResizeObservers silenced due to: http://webkit.org/b/258597"_s);
         return;
     }
-    if (!hasResizeObservers() && !m_resizeObserverForContainIntrinsicSize)
+    if (!hasResizeObservers() && !m_resizeObserverForContainIntrinsicSize && !m_contentVisibilityDocumentState)
         return;
 
-    // We need layout the whole frame tree here. Because ResizeObserver could observe element in other frame,
-    // and it could change other frame in deliverResizeObservations().
-    page.layoutIfNeeded();
     size_t resizeObserverDepth = 0;
     while (true) {
+        // We need layout the whole frame tree here. Because ResizeObserver could observe element in other frame,
+        // and it could change other frame in deliverResizeObservations().
+        page.layoutIfNeeded();
+        // If we have determined a change because of visibility we need to get up-to-date layout before reporting any values to resize observers.
+        if (m_contentVisibilityDocumentState && m_contentVisibilityDocumentState->determineInitialVisibleContentVisibility() == HadInitialVisibleContentVisibilityDetermination::Yes)
+            continue;
+
         // Start check resize observers;
         if (!resizeObserverDepth && gatherResizeObservationsForContainIntrinsicSize() != ResizeObserver::maxElementDepth())
             deliverResizeObservations();
@@ -8462,7 +8481,6 @@ void Document::updateResizeObservations(Page& page)
         if (resizeObserverDepth == ResizeObserver::maxElementDepth())
             break;
         deliverResizeObservations();
-        page.layoutIfNeeded();
     }
 
     if (hasSkippedResizeObservations()) {
@@ -8642,7 +8660,7 @@ void Document::unregisterArticleElement(Element& article)
 
 void Document::updateMainArticleElementAfterLayout()
 {
-    ASSERT(page() && page()->requestedLayoutMilestones().contains(DidRenderSignificantAmountOfText));
+    ASSERT(page() && page()->requestedLayoutMilestones().contains(LayoutMilestone::DidRenderSignificantAmountOfText));
 
     // If there are too many article elements on the page, don't consider any one of them to be "main content".
     const unsigned maxNumberOfArticlesBeforeIgnoringMainContentArticle = 10;
@@ -9596,7 +9614,7 @@ bool Document::isObservingContentVisibilityTargets() const
 
 void Document::updateRelevancyOfContentVisibilityElements()
 {
-    if (!isObservingContentVisibilityTargets())
+    if (m_contentRelevancyUpdate.isEmpty() || !isObservingContentVisibilityTargets())
         return;
     if (m_contentVisibilityDocumentState->updateRelevancyOfContentVisibilityElements(m_contentRelevancyUpdate) == DidUpdateAnyContentRelevancy::Yes)
         updateLayoutIgnorePendingStylesheets();

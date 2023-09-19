@@ -30,6 +30,7 @@
 #include "FontCascadeDescription.h"
 #include "FontCascadeFonts.h"
 #include "Path.h"
+#include "TextSpacing.h"
 #include <optional>
 #include <wtf/HashSet.h>
 #include <wtf/WeakPtr.h>
@@ -50,7 +51,7 @@ class TextLayout;
 class TextRun;
 
 namespace DisplayList {
-class InMemoryDisplayList;
+class DisplayList;
 }
     
 struct GlyphData;
@@ -151,6 +152,8 @@ public:
 
     float wordSpacing() const { return m_wordSpacing; }
     float letterSpacing() const { return m_letterSpacing; }
+    TextSpacingTrim textSpacingTrim() const { return m_fontDescription.textSpacingTrim(); }
+    TextAutospace textAutospace() const { return m_fontDescription.textAutospace(); }
     void setWordSpacing(float s) { m_wordSpacing = s; }
     void setLetterSpacing(float s) { m_letterSpacing = s; }
     bool isFixedPitch() const;
@@ -183,7 +186,7 @@ public:
     const FontRanges& fallbackRangesAt(unsigned) const;
     GlyphData glyphDataForCharacter(UChar32, bool mirror, FontVariant = AutoVariant) const;
 
-    const Font* fontForCombiningCharacterSequence(const UChar*, size_t length) const;
+    const Font* fontForCombiningCharacterSequence(StringView) const;
 
     static bool isCJKIdeograph(UChar32);
     static bool isCJKIdeographOrSymbol(UChar32);
@@ -209,7 +212,7 @@ public:
 
     static float syntheticObliqueAngle() { return 14; }
 
-    std::unique_ptr<DisplayList::InMemoryDisplayList> displayListForTextRun(GraphicsContext&, const TextRun&, unsigned from = 0, std::optional<unsigned> to = { }, CustomFontNotReadyAction = CustomFontNotReadyAction::DoNotPaintIfFontNotReady) const;
+    std::unique_ptr<DisplayList::DisplayList> displayListForTextRun(GraphicsContext&, const TextRun&, unsigned from = 0, std::optional<unsigned> to = { }, CustomFontNotReadyAction = CustomFontNotReadyAction::DoNotPaintIfFontNotReady) const;
 
     unsigned generation() const { return m_generation; }
 
@@ -282,6 +285,7 @@ public:
 
     static String normalizeSpaces(const LChar*, unsigned length);
     static String normalizeSpaces(const UChar*, unsigned length);
+    static String normalizeSpaces(StringView);
 
     bool useBackslashAsYenSymbol() const { return m_useBackslashAsYenSymbol; }
     FontCascadeFonts* fonts() const { return m_fonts.get(); }

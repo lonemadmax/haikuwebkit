@@ -63,6 +63,7 @@ private:
 #if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
     void deviceOrPageScaleFactorChanged() override;
     void didChangeViewportAttributes(WebCore::ViewportAttributes&&) override;
+    bool enterAcceleratedCompositingModeIfNeeded() override;
 #endif
 
     bool supportsAsyncScrolling() const override;
@@ -88,6 +89,7 @@ private:
     void displayDidRefresh() override;
     void setDeviceScaleFactor(float) override;
     void forceUpdate() override;
+    void didDiscardBackingStore() override;
 
 #if PLATFORM(GTK)
     void adjustTransientZoom(double scale, WebCore::FloatPoint origin) override;

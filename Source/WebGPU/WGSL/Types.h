@@ -33,6 +33,7 @@
 
 namespace WGSL {
 
+class TypeChecker;
 struct Type;
 
 enum class AddressSpace : uint8_t {
@@ -124,6 +125,11 @@ struct Reference {
     const Type* element;
 };
 
+struct TypeConstructor {
+    ASCIILiteral name;
+    std::function<const Type*(AST::ElaboratedTypeExpression&)> construct;
+};
+
 struct Bottom {
 };
 
@@ -138,6 +144,7 @@ struct Type : public std::variant<
     Types::Function,
     Types::Texture,
     Types::Reference,
+    Types::TypeConstructor,
     Types::Bottom
 > {
     using std::variant<
@@ -149,6 +156,7 @@ struct Type : public std::variant<
         Types::Function,
         Types::Texture,
         Types::Reference,
+        Types::TypeConstructor,
         Types::Bottom
         >::variant;
     void dump(PrintStream&) const;

@@ -1327,6 +1327,13 @@
    },
    {
       "emails" : [
+         "bfan2@apple.com"
+      ],
+      "github" : "briannafan",
+      "name" : "Brianna Fan"
+   },
+   {
+      "emails" : [
          "brunoabinader@gmail.com",
          "bruno.d@partner.samsung.com",
          "bruno.abinader@basyskom.com"
@@ -3318,6 +3325,7 @@
          "hs85jeong@gmail.com"
       ],
       "expertise" : "The EFLWebKit port, Cairo graphics backend",
+      "github" : "hs85jeong",
       "name" : "Hunseop Jeong",
       "nicks" : [
          "hunseop"
@@ -3331,6 +3339,19 @@
       "nicks" : [
          "hyowon"
       ]
+   },
+   {
+      "emails" : [
+         "hysu@apple.com",
+         "hysu.xiong@gmail.com"
+      ],
+      "expertise" : "Performance Testing, Tools",
+      "github" : "xw",
+      "name" : "Hysu Xiong",
+      "nicks" : [
+         "hysu"
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -5830,6 +5851,7 @@
       "emails" : [
          "olivier.blin@softathome.com"
       ],
+      "github" : "blino",
       "name" : "Olivier Blin",
       "nicks" : [
          "blino"
@@ -7474,18 +7496,6 @@
       "nicks" : [
          "seumas"
       ]
-   },
-   {
-      "emails" : [
-         "wdx@apple.com",
-         "w_xiong@apple.com"
-      ],
-      "github" : "xw",
-      "name" : "W.D. Xiong",
-      "nicks" : [
-         "wdx"
-      ],
-      "status" : "committer"
    },
    {
       "emails" : [

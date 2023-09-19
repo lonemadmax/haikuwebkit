@@ -50,7 +50,6 @@
 #include "ImageBitmapRenderingContextSettings.h"
 #include "ImageBuffer.h"
 #include "ImageData.h"
-#include "InMemoryDisplayList.h"
 #include "InspectorInstrumentation.h"
 #include "JSDOMConvertDictionary.h"
 #include "JSNodeCustomInlines.h"
@@ -722,9 +721,11 @@ ExceptionOr<UncachedString> HTMLCanvasElement::toDataURL(const String& mimeType,
         return UncachedString { dataURL(imageData->pixelBuffer(), encodingMIMEType, quality) };
 #endif
 
-    if (document().quirks().shouldEnableCanvas2DAdvancedPrivacyProtectionQuirk()) {
-        if (auto url = document().quirks().advancedPrivacyProtectionSubstituteDataURLForText(lastFillText()); !url.isNull())
-            return UncachedString { url };
+    if (auto url = document().quirks().advancedPrivacyProtectionSubstituteDataURLForScriptWithFeatures(lastFillText(), width(), height()); !url.isNull()) {
+        RELEASE_LOG(FingerprintingMitigation, "HTMLCanvasElement::toDataURL: Quirking returned URL for identified fingerprinting script");
+        auto consoleMessage = "Detected fingerprinting script. Quirking value returned from HTMLCanvasElement.toDataURL()"_s;
+        canvasBaseScriptExecutionContext()->addConsoleMessage(MessageSource::Rendering, MessageLevel::Info, consoleMessage);
+        return UncachedString { url };
     }
 
     makeRenderingResultsAvailable();
@@ -874,11 +875,6 @@ SecurityOrigin* HTMLCanvasElement::securityOrigin() const
     return &document().securityOrigin();
 }
 
-void HTMLCanvasElement::setUsesDisplayListDrawing(bool usesDisplayListDrawing)
-{
-    m_usesDisplayListDrawing = usesDisplayListDrawing;
-}
-
 void HTMLCanvasElement::setAvoidIOSurfaceSizeCheckInWebProcessForTesting()
 {
     m_avoidBackendSizeCheckForTesting = true;
@@ -890,7 +886,7 @@ void HTMLCanvasElement::createImageBuffer() const
 
     m_hasCreatedImageBuffer = true;
     m_didClearImageBuffer = true;
-    setImageBuffer(allocateImageBuffer(m_usesDisplayListDrawing.value_or(false), m_avoidBackendSizeCheckForTesting));
+    setImageBuffer(allocateImageBuffer(m_avoidBackendSizeCheckForTesting));
 
 #if USE(IOSURFACE_CANVAS_BACKING_STORE)
     if (m_context && m_context->is2d()) {

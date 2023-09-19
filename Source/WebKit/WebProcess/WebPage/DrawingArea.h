@@ -153,7 +153,7 @@ public:
     virtual bool addMilestonesToDispatch(OptionSet<WebCore::LayoutMilestone>) { return false; }
 
 #if PLATFORM(COCOA)
-    virtual void updateGeometry(const WebCore::IntSize& viewSize, bool flushSynchronously, const WTF::MachSendRight& fencePort, CompletionHandler<void()>&&) = 0;
+    virtual void updateGeometry(const WebCore::IntSize& viewSize, const std::optional<VisibleContentRectUpdateInfo>&, bool flushSynchronously, const WTF::MachSendRight& fencePort, CompletionHandler<void()>&&) = 0;
 #endif
 
 #if USE(GRAPHICS_LAYER_WC)
@@ -168,6 +168,7 @@ public:
     virtual void updateGeometry(const WebCore::IntSize&, CompletionHandler<void()>&&) = 0;
     virtual void didChangeViewportAttributes(WebCore::ViewportAttributes&&) = 0;
     virtual void deviceOrPageScaleFactorChanged() = 0;
+    virtual bool enterAcceleratedCompositingModeIfNeeded() = 0;
 #endif
 
     virtual void adoptLayersFromDrawingArea(DrawingArea&) { }
@@ -189,12 +190,13 @@ protected:
 
     template<typename T> bool send(T&& message)
     {
-        return m_webPage.send(WTFMove(message), m_identifier.toUInt64(), { });
+        Ref webPage = m_webPage.get();
+        return webPage->send(WTFMove(message), m_identifier.toUInt64(), { });
     }
 
     const DrawingAreaType m_type;
     DrawingAreaIdentifier m_identifier;
-    WebPage& m_webPage;
+    CheckedRef<WebPage> m_webPage;
     WebCore::IntSize m_lastViewSizeForScaleToFit;
     WebCore::IntSize m_lastDocumentSizeForScaleToFit;
     bool m_isScalingViewToFitDocument { false };
@@ -212,6 +214,7 @@ private:
     virtual void targetRefreshRateDidChange(unsigned /*rate*/) { }
     virtual void setDeviceScaleFactor(float) { }
     virtual void forceUpdate() { }
+    virtual void didDiscardBackingStore() { }
 #endif
     virtual void displayDidRefresh() { }
 

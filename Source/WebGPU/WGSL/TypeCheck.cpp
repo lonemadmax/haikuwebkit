@@ -99,11 +99,9 @@ public:
     void visit(AST::AbstractFloatLiteral&) override;
 
     // Types
-    void visit(AST::TypeName&) override;
-    void visit(AST::ArrayTypeName&) override;
-    void visit(AST::NamedTypeName&) override;
-    void visit(AST::ParameterizedTypeName&) override;
-    void visit(AST::ReferenceTypeName&) override;
+    void visit(AST::ArrayTypeExpression&) override;
+    void visit(AST::ElaboratedTypeExpression&) override;
+    void visit(AST::ReferenceTypeExpression&) override;
 
 private:
     enum class VariableKind : uint8_t {
@@ -123,12 +121,16 @@ private:
     void typeError(InferBottom, const SourceSpan&, Arguments&&...);
 
     const Type* infer(AST::Expression&);
-    const Type* resolve(AST::TypeName&);
+    const Type* resolve(AST::Expression&);
+    const Type* lookupType(const AST::Identifier&);
     void inferred(const Type*);
     bool unify(const Type*, const Type*) WARN_UNUSED_RETURN;
     bool isBottom(const Type*) const;
     void introduceType(const AST::Identifier&, const Type*);
     void introduceValue(const AST::Identifier&, const Type*);
+
+    template<typename TargetConstructor, typename... Arguments>
+    void allocateSimpleConstructor(ASCIILiteral, TargetConstructor, Arguments&&...);
 
     template<typename CallArguments>
     const Type* chooseOverload(const char*, const SourceSpan&, const String&, CallArguments&& valueArguments, const Vector<const Type*>& typeArguments);
@@ -152,6 +154,31 @@ TypeChecker::TypeChecker(ShaderModule& shaderModule)
     introduceType(AST::Identifier::make("f32"_s), m_types.f32Type());
     introduceType(AST::Identifier::make("sampler"_s), m_types.samplerType());
     introduceType(AST::Identifier::make("texture_external"_s), m_types.textureExternalType());
+
+    allocateSimpleConstructor("vec2"_s, &TypeStore::vectorType, 2);
+    allocateSimpleConstructor("vec3"_s, &TypeStore::vectorType, 3);
+    allocateSimpleConstructor("vec4"_s, &TypeStore::vectorType, 4);
+    allocateSimpleConstructor("mat2x2"_s, &TypeStore::matrixType, 2, 2);
+    allocateSimpleConstructor("mat2x3"_s, &TypeStore::matrixType, 2, 3);
+    allocateSimpleConstructor("mat2x4"_s, &TypeStore::matrixType, 2, 4);
+    allocateSimpleConstructor("mat3x2"_s, &TypeStore::matrixType, 3, 2);
+    allocateSimpleConstructor("mat3x3"_s, &TypeStore::matrixType, 3, 3);
+    allocateSimpleConstructor("mat3x4"_s, &TypeStore::matrixType, 3, 4);
+    allocateSimpleConstructor("mat4x2"_s, &TypeStore::matrixType, 4, 2);
+    allocateSimpleConstructor("mat4x3"_s, &TypeStore::matrixType, 4, 3);
+    allocateSimpleConstructor("mat4x4"_s, &TypeStore::matrixType, 4, 4);
+
+    allocateSimpleConstructor("texture_1d"_s, &TypeStore::textureType, Types::Texture::Kind::Texture1d);
+    allocateSimpleConstructor("texture_2d"_s, &TypeStore::textureType, Types::Texture::Kind::Texture2d);
+    allocateSimpleConstructor("texture_2d_array"_s, &TypeStore::textureType, Types::Texture::Kind::Texture2dArray);
+    allocateSimpleConstructor("texture_3d"_s, &TypeStore::textureType, Types::Texture::Kind::Texture3d);
+    allocateSimpleConstructor("texture_cube"_s, &TypeStore::textureType, Types::Texture::Kind::TextureCube);
+    allocateSimpleConstructor("texture_cube_array"_s, &TypeStore::textureType, Types::Texture::Kind::TextureCubeArray);
+    allocateSimpleConstructor("texture_multisampled_2d"_s, &TypeStore::textureType, Types::Texture::Kind::TextureMultisampled2d);
+    allocateSimpleConstructor("texture_storage_1d"_s, &TypeStore::textureType, Types::Texture::Kind::TextureStorage1d);
+    allocateSimpleConstructor("texture_storage_2d"_s, &TypeStore::textureType, Types::Texture::Kind::TextureStorage2d);
+    allocateSimpleConstructor("texture_storage_2d_array"_s, &TypeStore::textureType, Types::Texture::Kind::TextureStorage2dArray);
+    allocateSimpleConstructor("texture_storage_3d"_s, &TypeStore::textureType, Types::Texture::Kind::TextureStorage3d);
 
     // This file contains the declarations generated from `TypeDeclarations.rb`
 #include "TypeDeclarations.h" // NOLINT
@@ -238,11 +265,11 @@ void TypeChecker::visitVariable(AST::Variable& variable, VariableKind variableKi
         }
         result = m_types.referenceType(addressSpace, result, accessMode);
         if (auto* maybeTypeName = variable.maybeTypeName()) {
-            auto& referenceType = m_shaderModule.astBuilder().construct<AST::ReferenceTypeName>(
+            auto& referenceType = m_shaderModule.astBuilder().construct<AST::ReferenceTypeExpression>(
                 maybeTypeName->span(),
                 *maybeTypeName
             );
-            referenceType.m_resolvedType = result;
+            referenceType.m_inferredType = result;
             variable.m_referenceType = &referenceType;
         }
     }
@@ -577,21 +604,22 @@ void TypeChecker::visit(AST::IdentifierExpression& identifier)
 void TypeChecker::visit(AST::CallExpression& call)
 {
     auto& target = call.target();
-    bool isNamedType = is<AST::NamedTypeName>(target);
-    bool isParameterizedType = is<AST::ParameterizedTypeName>(target);
+    bool isNamedType = is<AST::IdentifierExpression>(target);
+    bool isParameterizedType = is<AST::ElaboratedTypeExpression>(target);
     if (isNamedType || isParameterizedType) {
         Vector<const Type*> typeArguments;
         String targetName = [&]() -> String {
             if (isNamedType)
-                return downcast<AST::NamedTypeName>(target).name();
-            auto& parameterizedType = downcast<AST::ParameterizedTypeName>(target);
-            typeArguments.append(resolve(parameterizedType.elementType()));
-            return AST::ParameterizedTypeName::baseToString(parameterizedType.base());
+                return downcast<AST::IdentifierExpression>(target).identifier();
+            auto& elaborated = downcast<AST::ElaboratedTypeExpression>(target);
+            for (auto& argument : elaborated.arguments())
+                typeArguments.append(resolve(argument));
+            return elaborated.base();
         }();
 
         auto* targetBinding = isNamedType ? readVariable(targetName) : nullptr;
         if (targetBinding) {
-            target.m_resolvedType = targetBinding->type;
+            target.m_inferredType = targetBinding->type;
             if (targetBinding->kind == Binding::Type) {
                 if (auto* structType = std::get_if<Types::Struct>(targetBinding->type)) {
                     auto numberOfArguments = call.arguments().size();
@@ -663,7 +691,7 @@ void TypeChecker::visit(AST::CallExpression& call)
 
         auto* result = chooseOverload("initializer", call.span(), targetName, call.arguments(), typeArguments);
         if (result) {
-            target.m_resolvedType = result;
+            target.m_inferredType = result;
             return;
         }
 
@@ -674,8 +702,8 @@ void TypeChecker::visit(AST::CallExpression& call)
         return;
     }
 
-    if (is<AST::ArrayTypeName>(target)) {
-        AST::ArrayTypeName& array = downcast<AST::ArrayTypeName>(target);
+    if (is<AST::ArrayTypeExpression>(target)) {
+        AST::ArrayTypeExpression& array = downcast<AST::ArrayTypeExpression>(target);
         const Type* elementType = nullptr;
         unsigned elementCount;
 
@@ -774,14 +802,7 @@ void TypeChecker::visit(AST::AbstractFloatLiteral&)
 }
 
 // Types
-void TypeChecker::visit(AST::TypeName&)
-{
-    // NOTE: this should never be called directly, only through `resolve`, which
-    // captures the inferred type
-    ASSERT_NOT_REACHED();
-}
-
-void TypeChecker::visit(AST::ArrayTypeName& array)
+void TypeChecker::visit(AST::ArrayTypeExpression& array)
 {
     // FIXME: handle the case where there is no element type
     ASSERT(array.maybeElementType());
@@ -804,32 +825,40 @@ void TypeChecker::visit(AST::ArrayTypeName& array)
     inferred(m_types.arrayType(elementType, size));
 }
 
-void TypeChecker::visit(AST::NamedTypeName& namedType)
+const Type* TypeChecker::lookupType(const AST::Identifier& name)
 {
-    auto* binding = readVariable(namedType.name());
+    auto* binding = readVariable(name);
     if (!binding) {
-        typeError(namedType.span(), "unresolved type '", namedType.name(), "'");
-        return;
+        typeError(InferBottom::No, name.span(), "unresolved type '", name, "'");
+        return m_types.bottomType();
     }
 
     if (binding->kind != Binding::Type) {
-        typeError(namedType.span(), "cannot use value '", namedType.name(), "' as type");
+        typeError(InferBottom::No, name.span(), "cannot use value '", name, "' as type");
+        return m_types.bottomType();
+    }
+
+    return binding->type;
+}
+
+void TypeChecker::visit(AST::ElaboratedTypeExpression& type)
+{
+    auto* base = lookupType(type.base());
+    if (isBottom(base)) {
+        inferred(m_types.bottomType());
         return;
     }
 
-    inferred(binding->type);
+    auto* constructor = std::get_if<Types::TypeConstructor>(base);
+    if (!constructor) {
+        typeError(type.span(), "type '", *base, "' does not take template arguments");
+        return;
+    }
+
+    inferred(constructor->construct(type));
 }
 
-void TypeChecker::visit(AST::ParameterizedTypeName& type)
-{
-    auto* elementType = resolve(type.elementType());
-    if (isBottom(elementType))
-        inferred(m_types.bottomType());
-    else
-        inferred(m_types.constructType(type.base(), elementType));
-}
-
-void TypeChecker::visit(AST::ReferenceTypeName&)
+void TypeChecker::visit(AST::ReferenceTypeExpression&)
 {
     // FIXME: we don't yet parse reference types
     ASSERT_NOT_REACHED();
@@ -899,25 +928,19 @@ const Type* TypeChecker::vectorFieldAccess(const Types::Vector& vector, AST::Fie
         return nullptr;
     }
 
-    AST::ParameterizedTypeName::Base base;
     switch (length) {
     case 1:
         return vector.element;
     case 2:
-        base = AST::ParameterizedTypeName::Base::Vec2;
-        break;
     case 3:
-        base = AST::ParameterizedTypeName::Base::Vec3;
-        break;
     case 4:
-        base = AST::ParameterizedTypeName::Base::Vec4;
         break;
     default:
         typeError(access.span(), "invalid vector swizzle size");
         return nullptr;
     }
 
-    return m_types.constructType(base, vector.element);
+    return m_types.vectorType(vector.element, length);
 }
 
 template<typename CallArguments>
@@ -991,10 +1014,13 @@ const Type* TypeChecker::infer(AST::Expression& expression)
     return inferredType;
 }
 
-const Type* TypeChecker::resolve(AST::TypeName& type)
+const Type* TypeChecker::resolve(AST::Expression& type)
 {
     ASSERT(!m_inferredType);
-    AST::Visitor::visit(type);
+    if (is<AST::IdentifierExpression>(type))
+        inferred(lookupType(downcast<AST::IdentifierExpression>(type).identifier()));
+    else
+        AST::Visitor::visit(type);
     ASSERT(m_inferredType);
 
     if (shouldDumpInferredTypes) {
@@ -1004,7 +1030,7 @@ const Type* TypeChecker::resolve(AST::TypeName& type)
         dataLogLn(*m_inferredType);
     }
 
-    type.m_resolvedType = m_inferredType;
+    type.m_inferredType = m_inferredType;
     const Type* inferredType = m_inferredType;
     m_inferredType = nullptr;
 
@@ -1068,6 +1094,25 @@ void TypeChecker::typeError(InferBottom inferBottom, const SourceSpan& span, Arg
 std::optional<FailedCheck> typeCheck(ShaderModule& shaderModule)
 {
     return TypeChecker(shaderModule).check();
+}
+
+template<typename TargetConstructor, typename... Arguments>
+void TypeChecker::allocateSimpleConstructor(ASCIILiteral name, TargetConstructor constructor, Arguments&&... arguments)
+{
+    introduceType(AST::Identifier::make(name), m_types.typeConstructorType(
+        name,
+        [this, constructor, arguments...](AST::ElaboratedTypeExpression& type) -> const Type* {
+            if (type.arguments().size() != 1) {
+                typeError(InferBottom::No, type.span(), "'", type.base(), "' requires 1 template argument");
+                return m_types.bottomType();
+            }
+            auto* elementType = resolve(type.arguments().first());
+            if (isBottom(elementType))
+                return m_types.bottomType();
+
+            return (m_types.*constructor)(elementType, arguments...);
+        }
+    ));
 }
 
 } // namespace WGSL

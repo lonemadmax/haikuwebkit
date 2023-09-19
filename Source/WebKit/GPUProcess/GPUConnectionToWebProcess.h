@@ -29,17 +29,18 @@
 
 #include "Connection.h"
 #include "GPUConnectionToWebProcessMessages.h"
+#include "GPUProcessPreferencesForWebProcess.h"
 #include "MessageReceiverMap.h"
 #include "RemoteAudioHardwareListenerIdentifier.h"
 #include "RemoteAudioSessionIdentifier.h"
 #include "RemoteGPU.h"
-#include "RemoteImageBuffer.h"
 #include "RemoteRemoteCommandListenerIdentifier.h"
 #include "RemoteSerializedImageBufferIdentifier.h"
 #include "RenderingBackendIdentifier.h"
 #include "ScopedActiveMessageReceiveQueue.h"
 #include "ThreadSafeObjectHeap.h"
 #include "WebGPUIdentifier.h"
+#include <WebCore/ImageBuffer.h>
 #include <WebCore/IntDegrees.h>
 #include <WebCore/LibWebRTCEnumTraits.h>
 #include <WebCore/NowPlayingManager.h>
@@ -131,11 +132,10 @@ public:
     static Ref<GPUConnectionToWebProcess> create(GPUProcess&, WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, GPUProcessConnectionParameters&&);
     virtual ~GPUConnectionToWebProcess();
 
-    bool isWebGPUEnabled() { return m_webGPUEnabled; }
-    void updateWebGPUEnabled(bool webGPUEnabled) { m_webGPUEnabled = webGPUEnabled; }
-    bool isWebGLEnabled() { return m_webGLEnabled; }
-    void updateWebGLEnabled(bool webGLEnabled) { m_webGLEnabled = webGLEnabled; }
-    void updateDOMRenderingEnabled(bool isDOMRenderingEnabled) { m_isDOMRenderingEnabled = isDOMRenderingEnabled; }
+    bool isWebGPUEnabled() const { return m_preferences.isWebGPUEnabled; }
+    bool isWebGLEnabled() const { return m_preferences.isWebGLEnabled; }
+
+    void updatePreferences(const GPUProcessPreferencesForWebProcess& preferences) { m_preferences = preferences; }
 
     using WebCore::NowPlayingManager::Client::weakPtrFactory;
     using WebCore::NowPlayingManager::Client::WeakValueType;
@@ -217,7 +217,7 @@ public:
 
     void lowMemoryHandler(WTF::Critical, WTF::Synchronous);
 
-    IPC::ThreadSafeObjectHeap<RemoteSerializedImageBufferIdentifier, RefPtr<RemoteImageBuffer>>& serializedImageBufferHeap() { return m_remoteSerializedImageBufferObjectHeap; }
+    IPC::ThreadSafeObjectHeap<RemoteSerializedImageBufferIdentifier, RefPtr<WebCore::ImageBuffer>>& serializedImageBufferHeap() { return m_remoteSerializedImageBufferObjectHeap; }
 
 #if ENABLE(WEBGL)
     void releaseGraphicsContextGLForTesting(GraphicsContextGLIdentifier);
@@ -362,7 +362,7 @@ private:
     IPC::ScopedActiveMessageReceiveQueue<LibWebRTCCodecsProxy> m_libWebRTCCodecsProxy;
 #endif
 #if HAVE(AUDIT_TOKEN)
-    std::optional<audit_token_t> m_presentingApplicationAuditToken;
+    const std::optional<audit_token_t> m_presentingApplicationAuditToken;
 #endif
 
     RemoteRenderingBackendMap m_remoteRenderingBackendMap;
@@ -370,7 +370,7 @@ private:
     using RemoteGraphicsContextGLMap = HashMap<GraphicsContextGLIdentifier, IPC::ScopedActiveMessageReceiveQueue<RemoteGraphicsContextGL>>;
     RemoteGraphicsContextGLMap m_remoteGraphicsContextGLMap;
 #endif
-    IPC::ThreadSafeObjectHeap<RemoteSerializedImageBufferIdentifier, RefPtr<RemoteImageBuffer>> m_remoteSerializedImageBufferObjectHeap;
+    IPC::ThreadSafeObjectHeap<RemoteSerializedImageBufferIdentifier, RefPtr<WebCore::ImageBuffer>> m_remoteSerializedImageBufferObjectHeap;
     using RemoteGPUMap = HashMap<WebGPUIdentifier, IPC::ScopedActiveMessageReceiveQueue<RemoteGPU>>;
     RemoteGPUMap m_remoteGPUMap;
 #if ENABLE(ENCRYPTED_MEDIA)
@@ -404,10 +404,9 @@ private:
 #endif
 
     RefPtr<RemoteRemoteCommandListenerProxy> m_remoteRemoteCommandListener;
-    bool m_isDOMRenderingEnabled { false };
     bool m_isActiveNowPlayingProcess { false };
-    bool m_isLockdownModeEnabled { false };
-    bool m_allowTestOnlyIPC { false };
+    const bool m_isLockdownModeEnabled { false };
+    const bool m_allowTestOnlyIPC { false };
 #if ENABLE(MEDIA_SOURCE)
     bool m_mockMediaSourceEnabled { false };
 #endif
@@ -418,8 +417,7 @@ private:
 #if ENABLE(IPC_TESTING_API)
     IPCTester m_ipcTester;
 #endif
-    bool m_webGPUEnabled { false };
-    bool m_webGLEnabled { false };
+    GPUProcessPreferencesForWebProcess m_preferences;
 };
 
 } // namespace WebKit

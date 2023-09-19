@@ -205,6 +205,8 @@ public:
     WEBCORE_EXPORT String toJSONString() const;
     WEBCORE_EXPORT Ref<JSON::Object> toJSONObject() const;
 
+    friend bool operator==(const FloatPoint&, const FloatPoint&) = default;
+
 private:
     float m_x { 0 };
     float m_y { 0 };
@@ -252,11 +254,6 @@ inline FloatPoint operator-(const FloatPoint& a, const FloatSize& b)
 inline FloatPoint operator-(const FloatPoint& a)
 {
     return FloatPoint(-a.x(), -a.y());
-}
-
-inline bool operator==(const FloatPoint& a, const FloatPoint& b)
-{
-    return a.x() == b.x() && a.y() == b.y();
 }
 
 inline float operator*(const FloatPoint& a, const FloatPoint& b)

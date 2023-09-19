@@ -30,19 +30,25 @@
 
 #include "ANGLEInstancedArrays.h"
 #include "CachedImage.h"
+#include "EXTBlendFuncExtended.h"
 #include "EXTBlendMinMax.h"
 #include "EXTClipControl.h"
+#include "EXTColorBufferFloat.h"
 #include "EXTColorBufferHalfFloat.h"
+#include "EXTConservativeDepth.h"
 #include "EXTDepthClamp.h"
 #include "EXTDisjointTimerQuery.h"
+#include "EXTDisjointTimerQueryWebGL2.h"
 #include "EXTFloatBlend.h"
 #include "EXTFragDepth.h"
 #include "EXTPolygonOffsetClamp.h"
+#include "EXTRenderSnorm.h"
 #include "EXTShaderTextureLOD.h"
 #include "EXTTextureCompressionBPTC.h"
 #include "EXTTextureCompressionRGTC.h"
 #include "EXTTextureFilterAnisotropic.h"
 #include "EXTTextureMirrorClampToEdge.h"
+#include "EXTTextureNorm16.h"
 #include "EXTsRGB.h"
 #include "HTMLCanvasElement.h"
 #include "HTMLImageElement.h"
@@ -50,8 +56,12 @@
 #include "ImageData.h"
 #include "InspectorInstrumentation.h"
 #include "KHRParallelShaderCompile.h"
+#include "NVShaderNoperspectiveInterpolation.h"
+#include "OESDrawBuffersIndexed.h"
 #include "OESElementIndexUint.h"
 #include "OESFBORenderMipmap.h"
+#include "OESSampleVariables.h"
+#include "OESShaderMultisampleInterpolation.h"
 #include "OESStandardDerivatives.h"
 #include "OESTextureFloat.h"
 #include "OESTextureFloatLinear.h"
@@ -62,6 +72,7 @@
 #include "WebCodecsVideoFrame.h"
 #include "WebCoreOpaqueRootInlines.h"
 #include "WebGLBuffer.h"
+#include "WebGLClipCullDistance.h"
 #include "WebGLColorBufferFloat.h"
 #include "WebGLCompressedTextureASTC.h"
 #include "WebGLCompressedTextureETC.h"
@@ -73,13 +84,18 @@
 #include "WebGLDebugShaders.h"
 #include "WebGLDepthTexture.h"
 #include "WebGLDrawBuffers.h"
+#include "WebGLDrawInstancedBaseVertexBaseInstance.h"
 #include "WebGLFramebuffer.h"
 #include "WebGLLoseContext.h"
 #include "WebGLMultiDraw.h"
+#include "WebGLMultiDrawInstancedBaseVertexBaseInstance.h"
 #include "WebGLPolygonMode.h"
 #include "WebGLProgram.h"
+#include "WebGLProvokingVertex.h"
+#include "WebGLRenderSharedExponent.h"
 #include "WebGLRenderbuffer.h"
 #include "WebGLSampler.h"
+#include "WebGLStencilTexturing.h"
 #include "WebGLTexture.h"
 #include "WebGLTransformFeedback.h"
 #include "WebGLVertexArrayObject.h"
@@ -131,6 +147,7 @@ std::optional<WebGLExtensionAny> WebGLRenderingContext::getExtension(const Strin
     }
 
     ENABLE_IF_REQUESTED(ANGLEInstancedArrays, m_angleInstancedArrays, "ANGLE_instanced_arrays", ANGLEInstancedArrays::supported(*m_context));
+    ENABLE_IF_REQUESTED(EXTBlendFuncExtended, m_extBlendFuncExtended, "EXT_blend_func_extended", EXTBlendFuncExtended::supported(*m_context) && enableDraftExtensions);
     ENABLE_IF_REQUESTED(EXTBlendMinMax, m_extBlendMinMax, "EXT_blend_minmax", EXTBlendMinMax::supported(*m_context));
     ENABLE_IF_REQUESTED(EXTClipControl, m_extClipControl, "EXT_clip_control", EXTClipControl::supported(*m_context) && enableDraftExtensions);
     ENABLE_IF_REQUESTED(EXTColorBufferHalfFloat, m_extColorBufferHalfFloat, "EXT_color_buffer_half_float", EXTColorBufferHalfFloat::supported(*m_context));
@@ -186,8 +203,9 @@ std::optional<Vector<String>> WebGLRenderingContext::getSupportedExtensions()
         result.append(nameLiteral ## _s);
 
     APPEND_IF_SUPPORTED("ANGLE_instanced_arrays", ANGLEInstancedArrays::supported(*m_context))
-    APPEND_IF_SUPPORTED("EXT_clip_control", EXTClipControl::supported(*m_context) && enableDraftExtensions)
+    APPEND_IF_SUPPORTED("EXT_blend_func_extended", EXTBlendFuncExtended::supported(*m_context) && enableDraftExtensions)
     APPEND_IF_SUPPORTED("EXT_blend_minmax", EXTBlendMinMax::supported(*m_context))
+    APPEND_IF_SUPPORTED("EXT_clip_control", EXTClipControl::supported(*m_context) && enableDraftExtensions)
     APPEND_IF_SUPPORTED("EXT_color_buffer_half_float", EXTColorBufferHalfFloat::supported(*m_context))
     APPEND_IF_SUPPORTED("EXT_depth_clamp", EXTDepthClamp::supported(*m_context) && enableDraftExtensions)
     APPEND_IF_SUPPORTED("EXT_disjoint_timer_query", EXTDisjointTimerQuery::supported(*m_context) && scriptExecutionContext()->settingsValues().webGLTimerQueriesEnabled)
@@ -249,7 +267,7 @@ WebGLAny WebGLRenderingContext::getFramebufferAttachmentParameter(GCGLenum targe
     }
 #endif
 
-    RefPtr object = m_framebufferBinding->getAttachmentObject(attachment);
+    auto object = m_framebufferBinding->getAttachmentObject(attachment);
     if (!object) {
         if (pname == GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE)
             return static_cast<unsigned>(GraphicsContextGL::NONE);
@@ -259,18 +277,19 @@ WebGLAny WebGLRenderingContext::getFramebufferAttachmentParameter(GCGLenum targe
         return nullptr;
     }
 
+    const bool isTexture = std::holds_alternative<RefPtr<WebGLTexture>>(*object);
     switch (pname) {
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE:
-        if (object->isTexture())
+        if (isTexture)
             return static_cast<unsigned>(GraphicsContextGL::TEXTURE);
         return static_cast<unsigned>(GraphicsContextGL::RENDERBUFFER);
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_OBJECT_NAME:
-        if (object->isTexture())
-            return static_pointer_cast<WebGLTexture>(WTFMove(object));
-        return static_pointer_cast<WebGLRenderbuffer>(WTFMove(object));
+        if (isTexture)
+            return std::get<RefPtr<WebGLTexture>>(WTFMove(*object));
+        return std::get<RefPtr<WebGLRenderbuffer>>(WTFMove(*object));
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL:
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE:
-        if (!object->isTexture())
+        if (!isTexture)
             break;
         return m_context->getFramebufferAttachmentParameteri(target, attachment, pname);
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING_EXT:

@@ -29,28 +29,10 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "RemoteImageBuffer.h"
+#include <WebCore/ImageBuffer.h>
 
 namespace WebKit {
 using namespace WebCore;
-
-void RemoteResourceCache::cacheImageBuffer(Ref<RemoteImageBuffer>&& imageBuffer)
-{
-    Ref<ImageBuffer> buffer = WTFMove(imageBuffer);
-    m_resourceHeap.add(WTFMove(buffer));
-}
-
-RemoteImageBuffer* RemoteResourceCache::cachedImageBuffer(RenderingResourceIdentifier renderingResourceIdentifier) const
-{
-    return static_cast<RemoteImageBuffer*>(m_resourceHeap.getImageBuffer(renderingResourceIdentifier)); 
-}
-
-RefPtr<RemoteImageBuffer> RemoteResourceCache::takeImageBuffer(RenderingResourceIdentifier renderingResourceIdentifier)
-{
-    RefPtr<RemoteImageBuffer> buffer = cachedImageBuffer(renderingResourceIdentifier);
-    m_resourceHeap.removeImageBuffer(renderingResourceIdentifier);
-    ASSERT(buffer->hasOneRef());
-    return buffer;
-}
 
 void RemoteResourceCache::cacheNativeImage(Ref<NativeImage>&& image)
 {
@@ -72,14 +54,9 @@ void RemoteResourceCache::cacheFilter(Ref<Filter>&& filter)
     m_resourceHeap.add(WTFMove(filter));
 }
 
-NativeImage* RemoteResourceCache::cachedNativeImage(RenderingResourceIdentifier renderingResourceIdentifier) const
+RefPtr<NativeImage> RemoteResourceCache::cachedNativeImage(RenderingResourceIdentifier renderingResourceIdentifier) const
 {
     return m_resourceHeap.getNativeImage(renderingResourceIdentifier);
-}
-
-std::optional<WebCore::SourceImage> RemoteResourceCache::cachedSourceImage(RenderingResourceIdentifier renderingResourceIdentifier) const
-{
-    return m_resourceHeap.getSourceImage(renderingResourceIdentifier);
 }
 
 void RemoteResourceCache::cacheFont(Ref<Font>&& font)
@@ -87,7 +64,7 @@ void RemoteResourceCache::cacheFont(Ref<Font>&& font)
     m_resourceHeap.add(WTFMove(font));
 }
 
-Font* RemoteResourceCache::cachedFont(RenderingResourceIdentifier renderingResourceIdentifier) const
+RefPtr<Font> RemoteResourceCache::cachedFont(RenderingResourceIdentifier renderingResourceIdentifier) const
 {
     return m_resourceHeap.getFont(renderingResourceIdentifier);
 }
@@ -97,22 +74,22 @@ void RemoteResourceCache::cacheFontCustomPlatformData(Ref<FontCustomPlatformData
     m_resourceHeap.add(WTFMove(customPlatformData));
 }
 
-FontCustomPlatformData* RemoteResourceCache::cachedFontCustomPlatformData(RenderingResourceIdentifier renderingResourceIdentifier) const
+RefPtr<FontCustomPlatformData> RemoteResourceCache::cachedFontCustomPlatformData(RenderingResourceIdentifier renderingResourceIdentifier) const
 {
     return m_resourceHeap.getFontCustomPlatformData(renderingResourceIdentifier);
 }
 
-DecomposedGlyphs* RemoteResourceCache::cachedDecomposedGlyphs(RenderingResourceIdentifier renderingResourceIdentifier) const
+RefPtr<DecomposedGlyphs> RemoteResourceCache::cachedDecomposedGlyphs(RenderingResourceIdentifier renderingResourceIdentifier) const
 {
     return m_resourceHeap.getDecomposedGlyphs(renderingResourceIdentifier);
 }
 
-Gradient* RemoteResourceCache::cachedGradient(RenderingResourceIdentifier renderingResourceIdentifier) const
+RefPtr<Gradient> RemoteResourceCache::cachedGradient(RenderingResourceIdentifier renderingResourceIdentifier) const
 {
     return m_resourceHeap.getGradient(renderingResourceIdentifier);
 }
 
-Filter* RemoteResourceCache::cachedFilter(RenderingResourceIdentifier renderingResourceIdentifier) const
+RefPtr<Filter> RemoteResourceCache::cachedFilter(RenderingResourceIdentifier renderingResourceIdentifier) const
 {
     return m_resourceHeap.getFilter(renderingResourceIdentifier);
 }

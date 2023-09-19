@@ -28,7 +28,6 @@
 #include "AbstractLineBuilder.h"
 #include "FloatingContext.h"
 #include "FormattingConstraints.h"
-#include "InlineContentBreaker.h"
 #include "InlineFormattingState.h"
 #include "InlineLayoutState.h"
 #include "InlineLine.h"
@@ -54,10 +53,10 @@ private:
     struct UsedConstraints {
         InlineRect logicalRect;
         InlineLayoutUnit marginStart { 0 };
-        bool isConstrainedByFloat { false };
+        OptionSet<UsedFloat> isConstrainedByFloat { };
     };
     UsedConstraints initialConstraintsForLine(const InlineRect& initialLineLogicalRect, std::optional<bool> previousLineEndsWithLineBreak) const;
-    FloatingContext::Constraints floatConstraints(const InlineRect& lineLogicalRect) const;
+    UsedConstraints floatConstrainedRect(const InlineRect& lineLogicalRect, InlineLayoutUnit marginStart) const;
 
     struct Result {
         InlineContentBreaker::IsEndOfLine isEndOfLine { InlineContentBreaker::IsEndOfLine::No };
@@ -69,10 +68,10 @@ private:
         size_t partialTrailingContentLength { 0 };
         std::optional<InlineLayoutUnit> overflowLogicalWidth { };
     };
-    enum MayOverConstrainLine : bool { No, Yes };
+    enum MayOverConstrainLine : uint8_t { No, Yes, OnlyWhenFirstFloatOnLine };
     bool tryPlacingFloatBox(const Box&, MayOverConstrainLine);
     Result handleInlineContent(const InlineItemRange& needsLayoutRange, const LineCandidate&);
-    std::tuple<InlineRect, bool> adjustedLineRectWithCandidateInlineContent(const LineCandidate&) const;
+    UsedConstraints adjustedLineRectWithCandidateInlineContent(const LineCandidate&) const;
     size_t rebuildLineWithInlineContent(const InlineItemRange& needsLayoutRange, const InlineItem& lastInlineItemToAdd);
     size_t rebuildLineForTrailingSoftHyphen(const InlineItemRange& layoutRange);
     void commitPartialContent(const InlineContentBreaker::ContinuousContent::RunList&, const InlineContentBreaker::Result::PartialTrailingContent&);
@@ -83,10 +82,12 @@ private:
         LayoutUnit sunkenBelowFirstLineOffset;
     };
     std::optional<InitialLetterOffsets> adjustLineRectForInitialLetterIfApplicable(const Box& floatBox);
+    bool isLastLineWithInlineContent(const LineContent&, size_t needsLayoutEnd, bool lineHasInlineContent) const;
 
     bool isFloatLayoutSuspended() const { return !m_suspendedFloats.isEmpty(); }
     bool shouldTryToPlaceFloatBox(const Box& floatBox, LayoutUnit floatBoxMarginBoxWidth, MayOverConstrainLine) const;
 
+    bool isLineConstrainedByFloat() const { return !m_lineIsConstrainedByFloat.isEmpty(); }
     bool isFirstFormattedLine() const { return !m_previousLine.has_value(); }
 
     const InlineFormattingContext& formattingContext() const { return m_inlineFormattingContext; }
@@ -118,7 +119,7 @@ private:
     Vector<const InlineItem*> m_wrapOpportunityList;
     Vector<InlineItem> m_lineSpanningInlineBoxes;
     unsigned m_successiveHyphenatedLineCount { 0 };
-    bool m_lineIsConstrainedByFloat { false };
+    OptionSet<UsedFloat> m_lineIsConstrainedByFloat { };
     std::optional<InlineLayoutUnit> m_initialLetterClearGap;
 };
 

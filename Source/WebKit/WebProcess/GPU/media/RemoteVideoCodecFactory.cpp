@@ -135,12 +135,18 @@ void RemoteVideoCodecFactory::createDecoder(const String& codec, const VideoDeco
         VideoDecoder::createLocalDecoder(codec, config, WTFMove(createCallback), WTFMove(outputCallback), WTFMove(postTaskCallback));
         return;
     }
-    WebProcess::singleton().libWebRTCCodecs().createDecoderAndWaitUntilReady(*type, [width = config.width, height = config.height, description = Vector<uint8_t> { config.description }, createCallback = WTFMove(createCallback), outputCallback = WTFMove(outputCallback), postTaskCallback = WTFMove(postTaskCallback)](auto& internalDecoder) mutable {
+    WebProcess::singleton().libWebRTCCodecs().createDecoderAndWaitUntilReady(*type, codec, [width = config.width, height = config.height, description = Vector<uint8_t> { config.description }, createCallback = WTFMove(createCallback), outputCallback = WTFMove(outputCallback), postTaskCallback = WTFMove(postTaskCallback)](auto* internalDecoder) mutable {
+        if (!internalDecoder) {
+            postTaskCallback([createCallback = WTFMove(createCallback)]() mutable {
+                createCallback(makeUnexpected("Decoder creation failed"_s));
+            });
+            return;
+        }
         if (description.size())
-            WebProcess::singleton().libWebRTCCodecs().setDecoderFormatDescription(internalDecoder, description.data(), description.size(), width, height);
+            WebProcess::singleton().libWebRTCCodecs().setDecoderFormatDescription(*internalDecoder, description.data(), description.size(), width, height);
 
         auto callbacks = RemoteVideoDecoderCallbacks::create(WTFMove(outputCallback), WTFMove(postTaskCallback));
-        UniqueRef<VideoDecoder> decoder = makeUniqueRef<RemoteVideoDecoder>(internalDecoder, callbacks.copyRef(), width, height);
+        UniqueRef<VideoDecoder> decoder = makeUniqueRef<RemoteVideoDecoder>(*internalDecoder, callbacks.copyRef(), width, height);
         callbacks->postTask([createCallback = WTFMove(createCallback), decoder = WTFMove(decoder)]() mutable {
             createCallback(WTFMove(decoder));
         });
@@ -151,7 +157,7 @@ void RemoteVideoCodecFactory::createEncoder(const String& codec, const WebCore::
 {
     LibWebRTCCodecs::initializeIfNeeded();
 
-    auto type = WebProcess::singleton().libWebRTCCodecs().videoCodecTypeFromWebCodec(codec);
+    auto type = WebProcess::singleton().libWebRTCCodecs().videoEncoderTypeFromWebCodec(codec);
     if (!type) {
         VideoEncoder::createLocalEncoder(codec, config, WTFMove(createCallback), WTFMove(descriptionCallback), WTFMove(outputCallback), WTFMove(postTaskCallback));
         return;
@@ -171,9 +177,15 @@ void RemoteVideoCodecFactory::createEncoder(const String& codec, const WebCore::
         }
     }
 
-    WebProcess::singleton().libWebRTCCodecs().createEncoderAndWaitUntilReady(*type, parameters, config.isRealtime, config.useAnnexB, [config, createCallback = WTFMove(createCallback), descriptionCallback = WTFMove(descriptionCallback), outputCallback = WTFMove(outputCallback), postTaskCallback = WTFMove(postTaskCallback)](auto& internalEncoder) mutable {
+    WebProcess::singleton().libWebRTCCodecs().createEncoderAndWaitUntilReady(*type, codec, parameters, config.isRealtime, config.useAnnexB, [config, createCallback = WTFMove(createCallback), descriptionCallback = WTFMove(descriptionCallback), outputCallback = WTFMove(outputCallback), postTaskCallback = WTFMove(postTaskCallback)](auto* internalEncoder) mutable {
+        if (!internalEncoder) {
+            postTaskCallback([createCallback = WTFMove(createCallback)]() mutable {
+                createCallback(makeUnexpected("Encoder creation failed"_s));
+            });
+            return;
+        }
         auto callbacks = RemoteVideoEncoderCallbacks::create(WTFMove(descriptionCallback), WTFMove(outputCallback), WTFMove(postTaskCallback));
-        UniqueRef<VideoEncoder> encoder = makeUniqueRef<RemoteVideoEncoder>(internalEncoder, config, callbacks.copyRef());
+        UniqueRef<VideoEncoder> encoder = makeUniqueRef<RemoteVideoEncoder>(*internalEncoder, config, callbacks.copyRef());
         callbacks->postTask([createCallback = WTFMove(createCallback), encoder = WTFMove(encoder)]() mutable {
             createCallback(WTFMove(encoder));
         });

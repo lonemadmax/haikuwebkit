@@ -2277,7 +2277,7 @@ void RenderBlock::computeBlockPreferredLogicalWidths(LayoutUnit& minLogicalWidth
     ASSERT(!shouldApplyInlineSizeContainment());
 
     const RenderStyle& styleToUse = style();
-    bool nowrap = styleToUse.whiteSpace() == WhiteSpace::NoWrap;
+    auto nowrap = styleToUse.textWrap() == TextWrap::NoWrap && styleToUse.whiteSpaceCollapse() == WhiteSpaceCollapse::Collapse;
 
     RenderObject* child = firstChild();
     RenderBlock* containingBlock = this->containingBlock();
@@ -3546,6 +3546,15 @@ LayoutUnit RenderBlock::layoutOverflowLogicalBottom(const RenderBlock& renderer)
         maxChildLogicalBottom = std::max(maxChildLogicalBottom, childLogicalBottom);
     }
     return std::max(renderer.clientLogicalBottom(), maxChildLogicalBottom + renderer.paddingAfter());
+}
+
+void RenderBlock::updateDescendantTransformsAfterLayout()
+{
+    auto boxes = view().frameView().layoutContext().takeBoxesNeedingTransformUpdateAfterContainerLayout(*this);
+    for (auto& box : boxes) {
+        if (box && box->hasLayer())
+            box->layer()->updateTransform();
+    }
 }
 
 } // namespace WebCore

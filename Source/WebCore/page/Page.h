@@ -127,7 +127,6 @@ class MediaPlaybackTarget;
 class MediaRecorderProvider;
 class MediaSessionCoordinatorPrivate;
 class ModelPlayerProvider;
-class OpportunisticTaskDeferralScope;
 class PageConfiguration;
 class PageConsoleClient;
 class PageDebuggable;
@@ -158,6 +157,7 @@ class SpeechRecognitionConnection;
 class StorageNamespace;
 class StorageNamespaceProvider;
 class StorageProvider;
+class ThermalMitigationNotifier;
 class UserContentProvider;
 class UserContentURLPattern;
 class UserScript;
@@ -946,6 +946,7 @@ public:
     ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking() const { return m_shouldRelaxThirdPartyCookieBlocking; }
 
     bool isLowPowerModeEnabled() const { return m_throttlingReasons.contains(ThrottlingReason::LowPowerMode); }
+    bool isThermalMitigationEnabled() const { return m_throttlingReasons.contains(ThrottlingReason::ThermalMitigation); }
     bool canUpdateThrottlingReason(ThrottlingReason reason) const { return !m_throttlingReasonsOverridenForTesting.contains(reason); }
     WEBCORE_EXPORT void setLowPowerModeEnabledOverrideForTesting(std::optional<bool>);
     WEBCORE_EXPORT void setOutsideViewportThrottlingEnabledForTesting(bool);
@@ -1051,7 +1052,10 @@ public:
     WEBCORE_EXPORT void addRootFrame(LocalFrame&);
     WEBCORE_EXPORT void removeRootFrame(LocalFrame&);
 
+    void opportunisticallyRunIdleCallbacks();
     void performOpportunisticallyScheduledTasks(MonotonicTime deadline);
+
+    bool isWaitingForFirstMeaningfulPaint() const { return m_isWaitingForFirstMeaningfulPaint; }
 
 private:
     struct Navigation {
@@ -1082,6 +1086,7 @@ private:
 #endif
 
     void handleLowModePowerChange(bool);
+    void handleThermalMitigationChange(bool);
 
     enum class TimerThrottlingState { Disabled, Enabled, EnabledIncreasing };
     void hiddenPageDOMTimerThrottlingStateChanged();
@@ -1328,6 +1333,7 @@ private:
 
     std::unique_ptr<PerformanceMonitor> m_performanceMonitor;
     std::unique_ptr<LowPowerModeNotifier> m_lowPowerModeNotifier;
+    std::unique_ptr<ThermalMitigationNotifier> m_thermalMitigationNotifier;
     OptionSet<ThrottlingReason> m_throttlingReasons;
     OptionSet<ThrottlingReason> m_throttlingReasonsOverridenForTesting;
 
@@ -1407,7 +1413,7 @@ private:
     std::unique_ptr<AttachmentElementClient> m_attachmentElementClient;
 #endif
 
-    std::unique_ptr<OpportunisticTaskDeferralScope> m_opportunisticTaskDeferralScopeForFirstPaint;
+    bool m_isWaitingForFirstMeaningfulPaint { false };
     Ref<OpportunisticTaskScheduler> m_opportunisticTaskScheduler;
 
 #if ENABLE(IMAGE_ANALYSIS)

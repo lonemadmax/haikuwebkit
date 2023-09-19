@@ -241,8 +241,8 @@ public:
     struct OverrideViewportSize {
         std::optional<float> width;
         std::optional<float> height;
-    
-        bool operator==(const OverrideViewportSize& rhs) const { return rhs.width == width && rhs.height == height; }
+
+        friend bool operator==(const OverrideViewportSize&, const OverrideViewportSize&) = default;
     };
 
     WEBCORE_EXPORT void setOverrideSizeForCSSDefaultViewportUnits(OverrideViewportSize);
@@ -731,6 +731,8 @@ public:
     OverscrollBehavior horizontalOverscrollBehavior() const final;
     OverscrollBehavior verticalOverscrollBehavior() const final;
 
+    Color scrollbarThumbColorStyle() const final;
+    Color scrollbarTrackColorStyle() const final;
     ScrollbarGutter scrollbarGutterStyle() const final;
     ScrollbarWidth scrollbarWidthStyle() const final;
 

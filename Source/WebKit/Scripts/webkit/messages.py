@@ -61,6 +61,9 @@ NOT_REFCOUNTED_RECEIVER_ATTRIBUTE = 'NotRefCounted'
 NOT_STREAM_ENCODABLE_ATTRIBUTE = 'NotStreamEncodable'
 NOT_STREAM_ENCODABLE_REPLY_ATTRIBUTE = 'NotStreamEncodableReply'
 STREAM_BATCHED_ATTRIBUTE = 'StreamBatched'
+CAN_DISPATCH_OUT_OF_ORDER_ATTRIBUTE = 'CanDispatchOutOfOrder'
+REPLY_CAN_DISPATCH_OUT_OF_ORDER_ATTRIBUTE = 'ReplyCanDispatchOutOfOrder'
+NOT_USING_IPC_CONNECTION_ATTRIBUTE = 'NotUsingIPCConnection'
 
 attributes_to_generate_validators = {
     "messageAllowedWhenWaitingForSyncReply": [ALLOWEDWHENWAITINGFORSYNCREPLY_ATTRIBUTE, SYNCHRONOUS_ATTRIBUTE, STREAM_ATTRIBUTE],
@@ -203,6 +206,8 @@ def message_to_struct_declaration(receiver, message):
     result.append('\n')
     result.append('    static IPC::MessageName name() { return IPC::MessageName::%s_%s; }\n' % (receiver.name, message.name))
     result.append('    static constexpr bool isSync = %s;\n' % ('false', 'true')[message.reply_parameters is not None and message.has_attribute(SYNCHRONOUS_ATTRIBUTE)])
+    result.append('    static constexpr bool canDispatchOutOfOrder = %s;\n' % ('false', 'true')[message.has_attribute(CAN_DISPATCH_OUT_OF_ORDER_ATTRIBUTE)])
+    result.append('    static constexpr bool replyCanDispatchOutOfOrder = %s;\n' % ('false', 'true')[message.reply_parameters is not None and message.has_attribute(REPLY_CAN_DISPATCH_OUT_OF_ORDER_ATTRIBUTE)])
     if receiver.has_attribute(STREAM_ATTRIBUTE):
         result.append('    static constexpr bool isStreamEncodable = %s;\n' % ('true', 'false')[message.has_attribute(NOT_STREAM_ENCODABLE_ATTRIBUTE)])
         if message.reply_parameters is not None:
@@ -265,7 +270,6 @@ def serialized_identifiers():
         'WebCore::BroadcastChannelIdentifier',
         'WebCore::DOMCacheIdentifier',
         'WebCore::DictationContext',
-        'WebCore::DisplayList::ItemBufferIdentifier',
         'WebCore::ElementIdentifier',
         'WebCore::FetchIdentifier',
         'WebCore::FileSystemHandleIdentifier',
@@ -279,13 +283,13 @@ def serialized_identifiers():
         'WebCore::OpaqueOriginIdentifier',
         'WebCore::PageIdentifier',
         'WebCore::PlaybackTargetClientContextIdentifier',
-        'WebCore::PushSubscriptionIdentifier',
         'WebCore::PortIdentifier',
         'WebCore::ProcessIdentifier',
+        'WebCore::PushSubscriptionIdentifier',
+        'WebCore::RTCDataChannelLocalIdentifier',
         'WebCore::RealtimeMediaSourceIdentifier',
         'WebCore::RenderingResourceIdentifier',
         'WebCore::ResourceLoaderIdentifier',
-        'WebCore::RTCDataChannelLocalIdentifier',
         'WebCore::SWServerConnectionIdentifier',
         'WebCore::ServiceWorkerIdentifier',
         'WebCore::ServiceWorkerJobIdentifier',
@@ -325,9 +329,9 @@ def serialized_identifiers():
         'WebKit::RemoteLegacyCDMIdentifier',
         'WebKit::RemoteLegacyCDMSessionIdentifier',
         'WebKit::RemoteMediaResourceIdentifier',
+        'WebKit::RemoteRemoteCommandListenerIdentifier',
         'WebKit::RemoteSerializedImageBufferIdentifier',
         'WebKit::RemoteVideoFrameIdentifier',
-        'WebKit::RemoteRemoteCommandListenerIdentifier',
         'WebKit::RenderingBackendIdentifier',
         'WebKit::RenderingUpdateID',
         'WebKit::RetrieveRecordResponseBodyCallbackIdentifier',
@@ -345,6 +349,8 @@ def serialized_identifiers():
         'WebKit::VideoEncoderIdentifier',
         'WebKit::WebExtensionContextIdentifier',
         'WebKit::WebExtensionControllerIdentifier',
+        'WebKit::WebExtensionTabIdentifier',
+        'WebKit::WebExtensionWindowIdentifier',
         'WebKit::WebGPUIdentifier',
         'WebKit::WebPageProxyIdentifier',
         'WebKit::WebURLSchemeHandlerIdentifier',
@@ -409,14 +415,16 @@ def types_that_cannot_be_forward_declared():
         'WebKit::LegacyCustomProtocolID',
         'WebKit::RemoteMediaSourceIdentifier',
         'WebKit::RemoteSourceBufferIdentifier',
-        'WebKit::RemoteVideoFrameWriteReference',
         'WebKit::RemoteVideoFrameReadReference',
+        'WebKit::RemoteVideoFrameWriteReference',
         'WebKit::RenderingUpdateID',
         'WebKit::TextCheckerRequestID',
         'WebKit::TransactionID',
-        'WebKit::WCLayerTreeHostIdentifier',
         'WebKit::WCContentBufferIdentifier',
+        'WebKit::WCLayerTreeHostIdentifier',
         'WebKit::WebExtensionEventListenerType',
+        'WebKit::WebExtensionTabParameters',
+        'WebKit::WebExtensionWindowParameters',
         'WebKit::XRDeviceIdentifier',
     ] + serialized_identifiers() + types_that_must_be_moved())
 
@@ -544,24 +552,31 @@ def handler_function(receiver, message):
 
 
 def async_message_statement(receiver, message):
-    dispatch_function_args = ['decoder', 'this', '&%s' % handler_function(receiver, message)]
+    if receiver.has_attribute(NOT_USING_IPC_CONNECTION_ATTRIBUTE) and message.reply_parameters is not None and not message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
+        dispatch_function_args = ['decoder', 'WTFMove(replyHandler)', 'this', '&%s' % handler_function(receiver, message)]
+    else:
+        dispatch_function_args = ['decoder', 'this', '&%s' % handler_function(receiver, message)]
 
     dispatch_function = 'handleMessage'
     if message.reply_parameters is not None and not message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
         dispatch_function += 'Async'
     if message.has_attribute(CALL_WITH_REPLY_ID_ATTRIBUTE):
         dispatch_function += 'WithReplyID'
+    if receiver.has_attribute(NOT_USING_IPC_CONNECTION_ATTRIBUTE):
+        dispatch_function += 'WithoutUsingIPCConnection'
 
-    connection = 'connection'
+    connection = 'connection, '
     if receiver.has_attribute(STREAM_ATTRIBUTE):
-        connection = 'connection.connection()'
+        connection = 'connection.connection(), '
+    if receiver.has_attribute(NOT_USING_IPC_CONNECTION_ATTRIBUTE):
+        connection = ''
 
     result = []
     if message.runtime_enablement:
         result.append('    if (decoder.messageName() == Messages::%s::%s::name() && %s)\n' % (receiver.name, message.name, message.runtime_enablement))
     else:
         result.append('    if (decoder.messageName() == Messages::%s::%s::name())\n' % (receiver.name, message.name))
-    result.append('        return IPC::%s<Messages::%s::%s>(%s, %s);\n' % (dispatch_function, receiver.name, message.name, connection, ', '.join(dispatch_function_args)))
+    result.append('        return IPC::%s<Messages::%s::%s>(%s%s);\n' % (dispatch_function, receiver.name, message.name, connection, ', '.join(dispatch_function_args)))
     return result
 
 
@@ -700,7 +715,6 @@ def headers_for_type(type):
         'WebCore::CreateNewGroupForHighlight': ['<WebCore/AppHighlight.h>'],
         'WebCore::DiagnosticLoggingDomain': ['<WebCore/DiagnosticLoggingDomain.h>'],
         'WebCore::DictationContext': ['<WebCore/DictationContext.h>'],
-        'WebCore::DisplayList::ItemBufferIdentifier': ['<WebCore/DisplayList.h>'],
         'WebCore::DocumentMarkerLineStyle': ['<WebCore/GraphicsTypes.h>'],
         'WebCore::DOMPasteAccessCategory': ['<WebCore/DOMPasteAccess.h>'],
         'WebCore::DOMPasteAccessResponse': ['<WebCore/DOMPasteAccess.h>'],
@@ -779,6 +793,7 @@ def headers_for_type(type):
         'WebCore::ScrollPinningBehavior': ['<WebCore/ScrollTypes.h>'],
         'WebCore::ScrollbarOrientation': ['<WebCore/ScrollTypes.h>'],
         'WebCore::SecurityPolicyViolationEventInit': ['<WebCore/SecurityPolicyViolationEvent.h>'],
+        'WebCore::SeekTarget': ['<WebCore/MediaPlayer.h>'],
         'WebCore::SelectionDirection': ['<WebCore/VisibleSelection.h>'],
         'WebCore::SelectionGeometry': ['"EditorState.h"'],
         'WebCore::ServiceWorkerIsInspectable': ['<WebCore/ServiceWorkerTypes.h>'],
@@ -1081,7 +1096,7 @@ def generate_message_handler(receiver):
     result.append('#include "JSIPCBinding.h"\n')
     result.append("#endif\n\n")
 
-    result.append('namespace WebKit {\n\n')
+    result.append('namespace %s {\n\n' % receiver.namespace)
 
     async_messages = []
     sync_messages = []
@@ -1126,7 +1141,10 @@ def generate_message_handler(receiver):
         result.append('}\n')
     else:
         receive_variant = receiver.name if receiver.has_attribute(LEGACY_RECEIVER_ATTRIBUTE) else ''
-        result.append('void %s::didReceive%sMessage(IPC::Connection& connection, IPC::Decoder& decoder)\n' % (receiver.name, receive_variant))
+        if receiver.has_attribute(NOT_USING_IPC_CONNECTION_ATTRIBUTE):
+            result.append('void %s::didReceive%sMessageWithReplyHandler(IPC::Decoder& decoder, Function<void(UniqueRef<IPC::Encoder>&&)>&& replyHandler)\n' % (receiver.name, receive_variant))
+        else:
+            result.append('void %s::didReceive%sMessage(IPC::Connection& connection, IPC::Decoder& decoder)\n' % (receiver.name, receive_variant))
         result.append('{\n')
         if not (receiver.has_attribute(NOT_REFCOUNTED_RECEIVER_ATTRIBUTE) or receiver.has_attribute(STREAM_ATTRIBUTE)):
             result.append('    Ref protectedThis { *this };\n')
@@ -1137,7 +1155,8 @@ def generate_message_handler(receiver):
         if (receiver.superclass):
             result.append('    %s::didReceive%sMessage(connection, decoder);\n' % (receiver.superclass, receive_variant))
         else:
-            result.append('    UNUSED_PARAM(connection);\n')
+            if not receiver.has_attribute(NOT_USING_IPC_CONNECTION_ATTRIBUTE):
+                result.append('    UNUSED_PARAM(connection);\n')
             result.append('    UNUSED_PARAM(decoder);\n')
             result.append('#if ENABLE(IPC_TESTING_API)\n')
             result.append('    if (connection.ignoreInvalidMessageForTesting())\n')

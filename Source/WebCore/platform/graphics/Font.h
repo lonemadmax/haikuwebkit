@@ -167,7 +167,7 @@ public:
     bool supportsCodePoint(UChar32) const;
     bool platformSupportsCodePoint(UChar32, std::optional<UChar32> variation = std::nullopt) const;
 
-    RefPtr<Font> systemFallbackFontForCharacter(UChar32, const FontDescription&, ResolvedEmojiPolicy, IsForPlatformFont) const;
+    RefPtr<Font> systemFallbackFontForCharacterCluster(StringView, const FontDescription&, ResolvedEmojiPolicy, IsForPlatformFont) const;
 
     const GlyphPage* glyphPage(unsigned pageNumber) const;
 
@@ -195,7 +195,7 @@ public:
     bool supportsAllPetiteCaps() const;
 #endif
 
-    bool canRenderCombiningCharacterSequence(const UChar*, size_t) const;
+    bool canRenderCombiningCharacterSequence(StringView) const;
     GlyphBufferAdvance applyTransforms(GlyphBuffer&, unsigned beginningGlyphIndex, unsigned beginningStringIndex, bool enableKerning, bool requiresShaping, const AtomString& locale, StringView text, TextDirection) const;
 
     // Returns nullopt if none of the glyphs are OT-SVG glyphs.

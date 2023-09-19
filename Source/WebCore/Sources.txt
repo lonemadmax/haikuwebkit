@@ -106,8 +106,10 @@ Modules/compression/DecompressionStreamDecoder.cpp
 Modules/contact-picker/ContactsManager.cpp
 Modules/contact-picker/NavigatorContacts.cpp
 Modules/cookie-consent/NavigatorCookieConsent.cpp
+Modules/cookie-store/ExtendableCookieChangeEvent.cpp
 Modules/cookie-store/CookieChangeEvent.cpp
 Modules/cookie-store/CookieStore.cpp
+Modules/cookie-store/CookieStoreManager.cpp
 Modules/credentialmanagement/BasicCredential.cpp
 Modules/credentialmanagement/CredentialsContainer.cpp
 Modules/credentialmanagement/NavigatorCredentials.cpp
@@ -430,6 +432,10 @@ Modules/webauthn/fido/FidoParsingUtils.cpp
 Modules/webauthn/fido/Pin.cpp
 Modules/webauthn/fido/U2fCommandConstructor.cpp
 Modules/webauthn/fido/U2fResponseConverter.cpp
+Modules/webcodecs/WebCodecsAudioDecoder.cpp
+Modules/webcodecs/WebCodecsAudioData.cpp
+Modules/webcodecs/WebCodecsAudioDataAlgorithms.cpp
+Modules/webcodecs/WebCodecsEncodedAudioChunk.cpp
 Modules/webcodecs/WebCodecsEncodedVideoChunk.cpp
 Modules/webcodecs/WebCodecsVideoDecoder.cpp
 Modules/webcodecs/WebCodecsVideoEncoder.cpp
@@ -465,6 +471,12 @@ Modules/websockets/WebSocketExtensionParser.cpp
 Modules/websockets/WebSocketFrame.cpp
 Modules/websockets/WebSocketHandshake.cpp
 Modules/websockets/WorkerThreadableWebSocketChannel.cpp
+Modules/webtransport/WebTransport.cpp
+Modules/webtransport/WebTransportBidirectionalStream.cpp
+Modules/webtransport/WebTransportDatagramDuplexStream.cpp
+Modules/webtransport/WebTransportError.cpp
+Modules/webtransport/WebTransportReceiveStream.cpp
+Modules/webtransport/WebTransportSendStream.cpp
 Modules/webxr/NavigatorWebXR.cpp
 Modules/webxr/WebXRBoundedReferenceSpace.cpp
 Modules/webxr/WebXRFrame.cpp
@@ -756,6 +768,7 @@ crypto/algorithms/CryptoAlgorithmAES_KW.cpp
 crypto/algorithms/CryptoAlgorithmECDH.cpp
 crypto/algorithms/CryptoAlgorithmECDSA.cpp
 crypto/algorithms/CryptoAlgorithmEd25519.cpp
+crypto/algorithms/CryptoAlgorithmX25519.cpp
 crypto/algorithms/CryptoAlgorithmHKDF.cpp
 crypto/algorithms/CryptoAlgorithmHMAC.cpp
 crypto/algorithms/CryptoAlgorithmPBKDF2.cpp
@@ -1033,6 +1046,7 @@ dom/CompositionEvent.cpp
 dom/ConstantPropertyMap.cpp
 dom/ContainerNode.cpp
 dom/ContainerNodeAlgorithms.cpp
+dom/ContentVisibilityAutoStateChangeEvent.cpp
 dom/ContentVisibilityDocumentState.cpp
 dom/ContextDestructionObserver.cpp
 dom/CustomElementDefaultARIA.cpp
@@ -1363,7 +1377,6 @@ html/HTMLMapElement.cpp
 html/HTMLMarqueeElement.cpp
 html/HTMLMediaElement.cpp
 html/HTMLMenuElement.cpp
-html/HTMLMenuItemElement.cpp
 html/HTMLMetaElement.cpp
 html/HTMLMeterElement.cpp
 html/HTMLModElement.cpp
@@ -1467,6 +1480,7 @@ html/canvas/CanvasRenderingContext.cpp
 html/canvas/CanvasRenderingContext2D.cpp
 html/canvas/CanvasRenderingContext2DBase.cpp
 html/canvas/CanvasStyle.cpp
+html/canvas/EXTBlendFuncExtended.cpp
 html/canvas/EXTBlendMinMax.cpp
 html/canvas/EXTClipControl.cpp
 html/canvas/EXTColorBufferFloat.cpp
@@ -1663,6 +1677,7 @@ inspector/agents/WebConsoleAgent.cpp
 inspector/agents/WebDebuggerAgent.cpp
 inspector/agents/WebHeapAgent.cpp
 inspector/agents/page/PageAuditAgent.cpp
+inspector/agents/page/PageCanvasAgent.cpp
 inspector/agents/page/PageConsoleAgent.cpp
 inspector/agents/page/PageDOMDebuggerAgent.cpp
 inspector/agents/page/PageDebuggerAgent.cpp
@@ -1671,6 +1686,7 @@ inspector/agents/page/PageNetworkAgent.cpp
 inspector/agents/page/PageRuntimeAgent.cpp
 inspector/agents/worker/ServiceWorkerAgent.cpp
 inspector/agents/worker/WorkerAuditAgent.cpp
+inspector/agents/worker/WorkerCanvasAgent.cpp
 inspector/agents/worker/WorkerConsoleAgent.cpp
 inspector/agents/worker/WorkerDOMDebuggerAgent.cpp
 inspector/agents/worker/WorkerDebuggerAgent.cpp
@@ -1700,6 +1716,7 @@ layout/formattingContexts/flex/FlexFormattingState.cpp
 layout/floats/FloatAvoider.cpp
 layout/floats/FloatingContext.cpp
 layout/floats/FloatingState.cpp
+layout/formattingContexts/inline/AbstractLineBuilder.cpp
 layout/formattingContexts/inline/InlineContentBalancer.cpp
 layout/formattingContexts/inline/InlineContentBreaker.cpp
 layout/formattingContexts/inline/InlineFormattingContext.cpp
@@ -1778,6 +1795,7 @@ loader/ImageLoader.cpp
 loader/LinkHeader.cpp
 loader/LinkLoader.cpp
 loader/LinkPreloadResourceClients.cpp
+loader/LoaderMalloc.cpp
 loader/LoaderStrategy.cpp
 loader/MediaResourceLoader.cpp
 loader/MixedContentChecker.cpp
@@ -2015,6 +2033,7 @@ page/scrolling/ScrollingTreeStickyNode.cpp
 page/scrolling/ThreadedScrollingCoordinator.cpp
 page/scrolling/ThreadedScrollingTree.cpp
 page/scrolling/ThreadedScrollingTreeScrollingNodeDelegate.cpp
+platform/AudioDecoder.cpp
 platform/CaretAnimator.cpp
 platform/CommonAtomStrings.cpp
 platform/ContentType.cpp
@@ -2096,6 +2115,7 @@ platform/SystemSoundManager.cpp
 platform/StaticPasteboard.cpp
 platform/Theme.cpp
 platform/ThemeTypes.cpp
+platform/ThermalMitigationNotifier.cpp
 platform/ThreadGlobalData.cpp
 platform/ThreadTimers.cpp
 platform/Timer.cpp
@@ -2140,6 +2160,7 @@ platform/audio/MultiChannelResampler.cpp
 platform/audio/Panner.cpp
 platform/audio/PlatformMediaSession.cpp
 platform/audio/PlatformMediaSessionManager.cpp
+platform/audio/PlatformRawAudioData.cpp
 platform/audio/PushPullFIFO.cpp
 platform/audio/Reverb.cpp
 platform/audio/ReverbAccumulationBuffer.cpp
@@ -2304,14 +2325,11 @@ platform/graphics/controls/SliderTrackPart.cpp
 platform/graphics/cpu/arm/filters/FEBlendNeonApplier.cpp
 platform/graphics/displaylists/DisplayList.cpp
 platform/graphics/displaylists/DisplayListDrawingContext.cpp
+platform/graphics/displaylists/DisplayListItem.cpp
 platform/graphics/displaylists/DisplayListItems.cpp
-platform/graphics/displaylists/DisplayListItemBuffer.cpp
-platform/graphics/displaylists/DisplayListItemType.cpp
-platform/graphics/displaylists/DisplayListIterator.cpp
 platform/graphics/displaylists/DisplayListRecorder.cpp
 platform/graphics/displaylists/DisplayListRecorderImpl.cpp
 platform/graphics/displaylists/DisplayListReplayer.cpp
-platform/graphics/displaylists/InMemoryDisplayList.cpp
 platform/graphics/filters/DistantLightSource.cpp
 platform/graphics/filters/FEBlend.cpp
 platform/graphics/filters/FEColorMatrix.cpp
@@ -2385,6 +2403,7 @@ platform/graphics/transforms/TransformOperations.cpp
 platform/graphics/transforms/TransformState.cpp
 platform/graphics/transforms/TransformationMatrix.cpp
 platform/graphics/transforms/TranslateTransformOperation.cpp
+platform/graphics/transforms/Quaternion.cpp
 platform/mediacapabilities/MediaCapabilitiesLogging.cpp
 platform/mediacapabilities/MediaEngineConfigurationFactory.cpp
 platform/mediarecorder/MediaRecorderPrivate.cpp
@@ -2530,6 +2549,7 @@ rendering/LegacyLineLayout.cpp
 rendering/LegacyRootInlineBox.cpp
 rendering/LegacyInlineTextBox.cpp
 rendering/MarkedText.cpp
+rendering/MotionPath.cpp
 rendering/OrderIterator.cpp
 rendering/PathOperation.cpp
 rendering/PointerEventsHitRules.cpp
@@ -2787,7 +2807,6 @@ rendering/updating/RenderTreeBuilderTable.cpp
 rendering/updating/RenderTreePosition.cpp
 rendering/updating/RenderTreeUpdater.cpp
 rendering/updating/RenderTreeUpdaterGeneratedContent.cpp
-replay/UserInputBridge.cpp
 storage/Storage.cpp
 storage/StorageEvent.cpp
 storage/StorageEventDispatcher.cpp
@@ -3175,6 +3194,7 @@ JSBeforeUnloadEvent.cpp
 JSBiquadFilterNode.cpp
 JSBiquadFilterOptions.cpp
 JSBiquadFilterType.cpp
+JSAudioSampleFormat.cpp
 JSAvcEncoderConfig.cpp
 JSBackgroundFetchEvent.cpp
 JSBackgroundFetchEventInit.cpp
@@ -3286,6 +3306,7 @@ JSContactInfo.cpp
 JSContactProperty.cpp
 JSContactsManager.cpp
 JSContactsSelectOptions.cpp
+JSContentVisibilityAutoStateChangeEvent.cpp
 JSConvolverNode.cpp
 JSConvolverOptions.cpp
 JSCookieChangeEvent.cpp
@@ -3296,6 +3317,7 @@ JSCookieSameSite.cpp
 JSCookieStore.cpp
 JSCookieStoreDeleteOptions.cpp
 JSCookieStoreGetOptions.cpp
+JSCookieStoreManager.cpp
 JSCountQueuingStrategy.cpp
 JSCredentialCreationOptions.cpp
 JSCredentialRequestOptions.cpp
@@ -3385,6 +3407,7 @@ JSDoubleRange.cpp
 JSDragEvent.cpp
 JSDynamicsCompressorNode.cpp
 JSDynamicsCompressorOptions.cpp
+JSEXTBlendFuncExtended.cpp
 JSEXTBlendMinMax.cpp
 JSEXTClipControl.cpp
 JSEXTColorBufferFloat.cpp
@@ -3421,6 +3444,8 @@ JSEventListenerOptions.cpp
 JSEventModifierInit.cpp
 JSEventSource.cpp
 JSEventTarget.cpp
+JSExtendableCookieChangeEvent.cpp
+JSExtendableCookieChangeEventInit.cpp
 JSExtendableEvent.cpp
 JSExtendableEventInit.cpp
 JSExtendableMessageEvent.cpp
@@ -3659,7 +3684,6 @@ JSHTMLMapElement.cpp
 JSHTMLMarqueeElement.cpp
 JSHTMLMediaElement.cpp
 JSHTMLMenuElement.cpp
-JSHTMLMenuItemElement.cpp
 JSHTMLMetaElement.cpp
 JSHTMLMeterElement.cpp
 JSHTMLModElement.cpp
@@ -4338,6 +4362,13 @@ JSWaveShaperNode.cpp
 JSWaveShaperOptions.cpp
 JSWebAnimation.cpp
 JSWebCodecsAlphaOption.cpp
+JSWebCodecsAudioData.cpp
+JSWebCodecsAudioDataOutputCallback.cpp
+JSWebCodecsAudioDecoder.cpp
+JSWebCodecsAudioDecoderConfig.cpp
+JSWebCodecsAudioDecoderSupport.cpp
+JSWebCodecsEncodedAudioChunk.cpp
+JSWebCodecsEncodedAudioChunkType.cpp
 JSWebCodecsEncodedVideoChunk.cpp
 JSWebCodecsEncodedVideoChunkMetadata.cpp
 JSWebCodecsEncodedVideoChunkOutputCallback.cpp
@@ -4409,6 +4440,24 @@ JSWebLockManager.cpp
 JSWebLockManagerSnapshot.cpp
 JSWebLockMode.cpp
 JSWebSocket.cpp
+JSWebTransportHash.cpp
+JSWebTransportReceiveStreamStats.cpp
+JSWebTransportErrorOptions.cpp
+JSWebTransportSendStream.cpp
+JSWebTransportSendStreamOptions.cpp
+JSWebTransport.cpp
+JSWebTransportStats.cpp
+JSWebTransportError.cpp
+JSWebTransportDatagramStats.cpp
+JSWebTransportReliabilityMode.cpp
+JSWebTransportDatagramDuplexStream.cpp
+JSWebTransportErrorSource.cpp
+JSWebTransportCloseInfo.cpp
+JSWebTransportOptions.cpp
+JSWebTransportBidirectionalStream.cpp
+JSWebTransportReceiveStream.cpp
+JSWebTransportCongestionControl.cpp
+JSWebTransportSendStreamStats.cpp
 JSWebXRBoundedReferenceSpace.cpp
 JSWebXRFrame.cpp
 JSWebXRHand.cpp
@@ -4446,6 +4495,7 @@ JSWritableStream.cpp
 JSWritableStreamDefaultController.cpp
 JSWritableStreamDefaultWriter.cpp
 JSWritableStreamSink.cpp
+JSX25519Params.cpp
 JSXMLDocument.cpp
 JSXMLHttpRequest.cpp
 JSXMLHttpRequestEventTarget.cpp

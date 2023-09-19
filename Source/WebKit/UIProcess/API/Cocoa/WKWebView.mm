@@ -1180,7 +1180,7 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
     }
 
     auto removeTransientActivation = WebKit::shouldEvaluateJavaScriptWithoutTransientActivation() ? WebCore::RemoveTransientActivation::Yes : WebCore::RemoveTransientActivation::No;
-    _page->runJavaScriptInFrameInScriptWorld({ javaScriptString, sourceURL, !!asAsyncFunction, WTFMove(argumentsMap), !!forceUserGesture, removeTransientActivation }, frameID, *world->_contentWorld.get(), [handler] (auto&& result) {
+    _page->runJavaScriptInFrameInScriptWorld({ javaScriptString, JSC::SourceTaintedOrigin::Untainted, sourceURL, !!asAsyncFunction, WTFMove(argumentsMap), !!forceUserGesture, removeTransientActivation }, frameID, *world->_contentWorld.get(), [handler] (auto&& result) {
         if (!handler)
             return;
 
@@ -3288,28 +3288,28 @@ static inline OptionSet<WebCore::LayoutMilestone> layoutMilestones(_WKRenderingP
     OptionSet<WebCore::LayoutMilestone> milestones;
 
     if (events & _WKRenderingProgressEventFirstLayout)
-        milestones.add(WebCore::DidFirstLayout);
+        milestones.add(WebCore::LayoutMilestone::DidFirstLayout);
 
     if (events & _WKRenderingProgressEventFirstVisuallyNonEmptyLayout)
-        milestones.add(WebCore::DidFirstVisuallyNonEmptyLayout);
+        milestones.add(WebCore::LayoutMilestone::DidFirstVisuallyNonEmptyLayout);
 
     if (events & _WKRenderingProgressEventFirstPaintWithSignificantArea)
-        milestones.add(WebCore::DidHitRelevantRepaintedObjectsAreaThreshold);
+        milestones.add(WebCore::LayoutMilestone::DidHitRelevantRepaintedObjectsAreaThreshold);
 
     if (events & _WKRenderingProgressEventReachedSessionRestorationRenderTreeSizeThreshold)
-        milestones.add(WebCore::ReachedSessionRestorationRenderTreeSizeThreshold);
+        milestones.add(WebCore::LayoutMilestone::ReachedSessionRestorationRenderTreeSizeThreshold);
 
     if (events & _WKRenderingProgressEventFirstLayoutAfterSuppressedIncrementalRendering)
-        milestones.add(WebCore::DidFirstLayoutAfterSuppressedIncrementalRendering);
+        milestones.add(WebCore::LayoutMilestone::DidFirstLayoutAfterSuppressedIncrementalRendering);
 
     if (events & _WKRenderingProgressEventFirstPaintAfterSuppressedIncrementalRendering)
-        milestones.add(WebCore::DidFirstPaintAfterSuppressedIncrementalRendering);
+        milestones.add(WebCore::LayoutMilestone::DidFirstPaintAfterSuppressedIncrementalRendering);
 
     if (events & _WKRenderingProgressEventDidRenderSignificantAmountOfText)
-        milestones.add(WebCore::DidRenderSignificantAmountOfText);
+        milestones.add(WebCore::LayoutMilestone::DidRenderSignificantAmountOfText);
 
     if (events & _WKRenderingProgressEventFirstMeaningfulPaint)
-        milestones.add(WebCore::DidFirstMeaningfulPaint);
+        milestones.add(WebCore::LayoutMilestone::DidFirstMeaningfulPaint);
 
     return milestones;
 }

@@ -36,6 +36,7 @@
 #include "FontSelector.h"
 #include "InlineIteratorTextBox.h"
 #include "InlineTextBoxStyle.h"
+#include "MotionPath.h"
 #include "Pagination.h"
 #include "PathTraversalState.h"
 #include "QuotesData.h"
@@ -1151,7 +1152,7 @@ static bool rareDataChangeRequiresLayerRepaint(const StyleRareNonInheritedData& 
 #endif
 
     // FIXME: In SVG this needs to trigger a layout.
-    if (first.maskBoxImage != second.maskBoxImage)
+    if (first.maskBorder != second.maskBorder)
         return true;
 
     return false;
@@ -1625,25 +1626,25 @@ void RenderStyle::unapplyTransformOrigin(TransformationMatrix& transform, const 
         transform.translate3d(-originTranslate.x(), -originTranslate.y(), -originTranslate.z());
 }
 
-void RenderStyle::applyTransform(TransformationMatrix& transform, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> options) const
+void RenderStyle::applyTransform(TransformationMatrix& transform, const TransformOperationData& transformData, OptionSet<RenderStyle::TransformOperationOption> options) const
 {
     if (!options.contains(RenderStyle::TransformOperationOption::TransformOrigin) || !affectedByTransformOrigin()) {
-        applyCSSTransform(transform, boundingBox, options);
+        applyCSSTransform(transform, transformData, options);
         return;
     }
 
-    auto originTranslate = computeTransformOrigin(boundingBox);
+    auto originTranslate = computeTransformOrigin(transformData.boundingBox());
     applyTransformOrigin(transform, originTranslate);
-    applyCSSTransform(transform, boundingBox, options);
+    applyCSSTransform(transform, transformData, options);
     unapplyTransformOrigin(transform, originTranslate);
 }
 
-void RenderStyle::applyTransform(TransformationMatrix& transform, const FloatRect& boundingBox) const
+void RenderStyle::applyTransform(TransformationMatrix& transform, const TransformOperationData& transformData) const
 {
-    applyTransform(transform, boundingBox, allTransformOperations());
+    applyTransform(transform, transformData, allTransformOperations());
 }
 
-void RenderStyle::applyCSSTransform(TransformationMatrix& transform, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> options) const
+void RenderStyle::applyCSSTransform(TransformationMatrix& transform, const TransformOperationData& operationData, OptionSet<RenderStyle::TransformOperationOption> options) const
 {
     // https://www.w3.org/TR/css-transforms-2/#ctm
     // The transformation matrix is computed from the transform, transform-origin, translate, rotate, scale, and offset properties as follows:
@@ -1651,7 +1652,7 @@ void RenderStyle::applyCSSTransform(TransformationMatrix& transform, const Float
 
     // 2. Translate by the computed X, Y, and Z values of transform-origin.
     // (implemented in applyTransformOrigin)
-
+    auto& boundingBox = operationData.boundingBox();
     // 3. Translate by the computed X, Y, and Z values of translate.
     if (options.contains(RenderStyle::TransformOperationOption::Translate)) {
         if (TransformOperation* translate = m_nonInheritedData->rareData->translate.get())
@@ -1672,7 +1673,7 @@ void RenderStyle::applyCSSTransform(TransformationMatrix& transform, const Float
 
     // 6. Translate and rotate by the transform specified by offset.
     if (options.contains(RenderStyle::TransformOperationOption::Offset))
-        applyMotionPathTransform(transform, boundingBox);
+        MotionPath::applyMotionPathTransform(*this, operationData, transform);
 
     // 7. Multiply by each of the transform functions in transform from left to right.
     auto& transformOperations = m_nonInheritedData->miscData->transform->operations;
@@ -1681,58 +1682,6 @@ void RenderStyle::applyCSSTransform(TransformationMatrix& transform, const Float
 
     // 8. Translate by the negated computed X, Y and Z values of transform-origin.
     // (implemented in unapplyTransformOrigin)
-}
-
-static PathTraversalState getTraversalStateAtDistance(const Path& path, const Length& distance)
-{
-    auto pathLength = path.length();
-    auto distanceValue = floatValueForLength(distance, pathLength);
-
-    float resolvedLength = 0;
-    if (path.isClosed()) {
-        if (pathLength) {
-            resolvedLength = fmod(distanceValue, pathLength);
-            if (resolvedLength < 0)
-                resolvedLength += pathLength;
-        }
-    } else
-        resolvedLength = clampTo<float>(distanceValue, 0, pathLength);
-
-    ASSERT(resolvedLength >= 0);
-    return path.traversalStateAtLength(resolvedLength);
-}
-
-void RenderStyle::applyMotionPathTransform(TransformationMatrix& transform, const FloatRect& boundingBox) const
-{
-    if (!offsetPath())
-        return;
-
-    auto transformOrigin = computeTransformOrigin(boundingBox).xy();
-    auto anchor = transformOrigin;
-    if (!offsetAnchor().x().isAuto())
-        anchor = floatPointForLengthPoint(offsetAnchor(), boundingBox.size()) + boundingBox.location();
-    
-    // Shift element to the point on path specified by offset-path and offset-distance.
-    auto path = offsetPath()->getPath(boundingBox);
-    if (!path)
-        return;
-    auto traversalState = getTraversalStateAtDistance(*path, offsetDistance());
-    transform.translate(traversalState.current().x(), traversalState.current().y());
-
-    // Shift element to the anchor specified by offset-anchor.
-    transform.translate(-anchor.x(), -anchor.y());
-
-    auto shiftToOrigin = anchor - transformOrigin;
-    transform.translate(shiftToOrigin.width(), shiftToOrigin.height());
-
-    // Apply rotation.
-    auto rotation = offsetRotate();
-    if (rotation.hasAuto())
-        transform.rotate(traversalState.normalAngle() + rotation.angle());
-    else
-        transform.rotate(rotation.angle());
-
-    transform.translate(-shiftToOrigin.width(), -shiftToOrigin.height());
 }
 
 void RenderStyle::setPageScaleTransform(float scale)
@@ -2061,12 +2010,12 @@ float RenderStyle::letterSpacing() const
 
 TextSpacingTrim RenderStyle::textSpacingTrim() const
 {
-    return m_rareInheritedData->textSpacingTrim;
+    return fontDescription().textSpacingTrim();
 }
 
 TextAutospace RenderStyle::textAutospace() const
 {
-    return m_rareInheritedData->textAutospace;
+    return fontDescription().textAutospace();
 }
 
 bool RenderStyle::setFontDescription(FontCascadeDescription&& description)
@@ -2181,6 +2130,26 @@ void RenderStyle::setLetterSpacing(float letterSpacing)
     fontCascade().update(selector);
 
     setLetterSpacingWithoutUpdatingFontDescription(letterSpacing);
+}
+
+void RenderStyle::setTextSpacingTrim(TextSpacingTrim value)
+{
+    auto selector = fontCascade().fontSelector();
+    auto description = fontDescription();
+    description.setTextSpacingTrim(value);
+
+    setFontDescription(WTFMove(description));
+    fontCascade().update(selector);
+}
+
+void RenderStyle::setTextAutospace(TextAutospace value)
+{
+    auto selector = fontCascade().fontSelector();
+    auto description = fontDescription();
+    description.setTextAutospace(value);
+
+    setFontDescription(WTFMove(description));
+    fontCascade().update(selector);
 }
 
 void RenderStyle::setLetterSpacingWithoutUpdatingFontDescription(float letterSpacing)
@@ -2415,12 +2384,12 @@ Color RenderStyle::colorResolvingCurrentColor(CSSPropertyID colorProperty, bool 
         return visitedLink ? visitedLinkColor() : color();
     }
 
-    return colorResolvingCurrentColor(result);
+    return colorResolvingCurrentColor(result, visitedLink);
 }
 
-Color RenderStyle::colorResolvingCurrentColor(const StyleColor& color) const
+Color RenderStyle::colorResolvingCurrentColor(const StyleColor& color, bool visitedLink) const
 {
-    return color.resolveColor(this->color());
+    return color.resolveColor(visitedLink ? visitedLinkColor() : this->color());
 }
 
 Color RenderStyle::visitedDependentColor(CSSPropertyID colorProperty, OptionSet<PaintBehavior> paintBehavior) const
@@ -2480,6 +2449,28 @@ Color RenderStyle::effectiveAccentColor() const
         return colorByApplyingColorFilter(colorResolvingCurrentColor(accentColor()));
 
     return colorResolvingCurrentColor(accentColor());
+}
+
+Color RenderStyle::effectiveScrollbarThumbColor() const
+{
+    if (!scrollbarColor().has_value())
+        return { };
+
+    if (hasAppleColorFilter())
+        return colorByApplyingColorFilter(colorResolvingCurrentColor(scrollbarColor().value().thumbColor));
+
+    return colorResolvingCurrentColor(scrollbarColor().value().thumbColor);
+}
+
+Color RenderStyle::effectiveScrollbarTrackColor() const
+{
+    if (!scrollbarColor().has_value())
+        return { };
+
+    if (hasAppleColorFilter())
+        return colorByApplyingColorFilter(colorResolvingCurrentColor(scrollbarColor().value().trackColor));
+
+    return colorResolvingCurrentColor(scrollbarColor().value().trackColor);
 }
 
 const BorderValue& RenderStyle::borderBefore() const

@@ -61,9 +61,9 @@
 #include <WebCore/DictionaryPopupInfo.h>
 #include <WebCore/DisabledAdaptations.h>
 #include <WebCore/DragActions.h>
+#include <WebCore/FocusOptions.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/FrameLoaderTypes.h>
-#include <WebCore/HTMLMenuItemElement.h>
 #include <WebCore/HighlightVisibility.h>
 #include <WebCore/IntSizeHash.h>
 #include <WebCore/LayerHostingContextIdentifier.h>
@@ -205,8 +205,6 @@ class FrameSelection;
 class GraphicsContext;
 class HTMLElement;
 class HTMLImageElement;
-class HTMLMenuElement;
-class HTMLMenuItemElement;
 class HTMLPlugInElement;
 class HTMLVideoElement;
 class IgnoreSelectionChangeForScope;
@@ -234,7 +232,7 @@ class SubstituteData;
 class TextCheckingRequest;
 class VisiblePosition;
 
-enum LayoutMilestone : uint16_t;
+enum class LayoutMilestone : uint16_t;
 
 enum class ActivityState : uint16_t;
 enum class COEPDisposition : bool;
@@ -373,6 +371,7 @@ struct FrameTreeNodeData;
 struct FocusedElementInformation;
 struct FontInfo;
 struct FrameTreeNodeData;
+struct GoToBackForwardItemParameters;
 struct InsertTextOptions;
 struct InteractionInformationAtPosition;
 struct InteractionInformationRequest;
@@ -406,7 +405,7 @@ class PlatformXRSystemProxy;
 using SnapshotOptions = uint32_t;
 using WKEventModifiers = uint32_t;
 
-class WebPage : public API::ObjectImpl<API::Object::Type::BundlePage>, public IPC::MessageReceiver, public IPC::MessageSender {
+class WebPage : public API::ObjectImpl<API::Object::Type::BundlePage>, public IPC::MessageReceiver, public IPC::MessageSender, public CanMakeCheckedPtr {
 public:
     static Ref<WebPage> create(WebCore::PageIdentifier, WebPageCreationParameters&&);
 
@@ -529,11 +528,6 @@ public:
     bool hoverSupportedByAnyAvailablePointingDevice() const;
     std::optional<WebCore::PointerCharacteristics> pointerCharacteristicsOfPrimaryPointingDevice() const;
     OptionSet<WebCore::PointerCharacteristics> pointerCharacteristicsOfAllAvailablePointingDevices() const;
-
-    void didInsertMenuElement(WebCore::HTMLMenuElement&);
-    void didRemoveMenuElement(WebCore::HTMLMenuElement&);
-    void didInsertMenuItemElement(WebCore::HTMLMenuItemElement&);
-    void didRemoveMenuItemElement(WebCore::HTMLMenuItemElement&);
 
     void animationDidFinishForElement(const WebCore::Element&);
 
@@ -1175,11 +1169,6 @@ public:
     void handleAlternativeTextUIResult(const String&);
 #endif
 
-    // For testing purpose.
-    void simulateMouseDown(int button, WebCore::IntPoint, int clickCount, WKEventModifiers, WallTime);
-    void simulateMouseUp(int button, WebCore::IntPoint, int clickCount, WKEventModifiers, WallTime);
-    void simulateMouseMotion(WebCore::IntPoint, WallTime);
-
 #if ENABLE(CONTEXT_MENUS)
     void startWaitingForContextMenuToShow() { m_waitingForContextMenuToShow = true; }
 #endif
@@ -1686,13 +1675,6 @@ private:
 
     void getPlatformEditorStateCommon(const WebCore::LocalFrame&, EditorState&) const;
 
-#if HAVE(TOUCH_BAR)
-    void sendTouchBarMenuDataAddedUpdate(WebCore::HTMLMenuElement&);
-    void sendTouchBarMenuDataRemovedUpdate(WebCore::HTMLMenuElement&);
-    void sendTouchBarMenuItemDataAddedUpdate(WebCore::HTMLMenuItemElement&);
-    void sendTouchBarMenuItemDataRemovedUpdate(WebCore::HTMLMenuItemElement&);
-#endif
-
     bool didReceiveSyncWebPageMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
 
     void updateSizeForCSSDefaultViewportUnits();
@@ -1787,7 +1769,8 @@ private:
     void navigateToPDFLinkWithSimulatedClick(const String& url, WebCore::IntPoint documentPoint, WebCore::IntPoint screenPoint);
     void getPDFFirstPageSize(WebCore::FrameIdentifier, CompletionHandler<void(WebCore::FloatSize)>&&);
     void reload(uint64_t navigationID, OptionSet<WebCore::ReloadOption> reloadOptions, SandboxExtension::Handle&&);
-    void goToBackForwardItem(uint64_t navigationID, const WebCore::BackForwardItemIdentifier&, WebCore::FrameLoadType, WebCore::ShouldTreatAsContinuingLoad, std::optional<WebsitePoliciesData>&&, bool lastNavigationWasAppInitiated, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume, std::optional<String> topPrivatelyControlledDomain);
+    void goToBackForwardItem(GoToBackForwardItemParameters&&);
+    [[noreturn]] void goToBackForwardItemWaitingForProcessLaunch(GoToBackForwardItemParameters&&, WebKit::WebPageProxyIdentifier);
     void tryRestoreScrollPosition();
     void setInitialFocus(bool forward, bool isKeyboardEventValid, const WebKeyboardEvent&, CompletionHandler<void()>&&);
     void updateIsInWindow(bool isInitialState = false);
@@ -1950,7 +1933,6 @@ private:
     void scrollTextRangeToVisible(const WebFoundTextRange&);
     void clearAllDecoratedFoundText();
     void didBeginTextSearchOperation();
-    void didEndTextSearchOperation();
 
     void requestRectForFoundTextRange(const WebFoundTextRange&, CompletionHandler<void(WebCore::FloatRect)>&&);
     void addLayerForFindOverlay(CompletionHandler<void(WebCore::PlatformLayerIdentifier)>&&);

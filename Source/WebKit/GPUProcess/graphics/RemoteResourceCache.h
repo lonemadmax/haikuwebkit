@@ -30,16 +30,17 @@
 #include <WebCore/DisplayListResourceHeap.h>
 #include <WebCore/RenderingResourceIdentifier.h>
 
+namespace WebCore {
+class ImageBuffer;
+}
 namespace WebKit {
 
-class RemoteImageBuffer;
 class RemoteRenderingBackend;
 
 class RemoteResourceCache {
 public:
     RemoteResourceCache() = default;
 
-    void cacheImageBuffer(Ref<RemoteImageBuffer>&&);
     void cacheNativeImage(Ref<WebCore::NativeImage>&&);
     void cacheFont(Ref<WebCore::Font>&&);
     void cacheDecomposedGlyphs(Ref<WebCore::DecomposedGlyphs>&&);
@@ -47,16 +48,12 @@ public:
     void cacheFilter(Ref<WebCore::Filter>&&);
     void cacheFontCustomPlatformData(Ref<WebCore::FontCustomPlatformData>&&);
 
-    RemoteImageBuffer* cachedImageBuffer(WebCore::RenderingResourceIdentifier) const;
-    RefPtr<RemoteImageBuffer> takeImageBuffer(WebCore::RenderingResourceIdentifier);
-    WebCore::NativeImage* cachedNativeImage(WebCore::RenderingResourceIdentifier) const;
-    WebCore::Font* cachedFont(WebCore::RenderingResourceIdentifier) const;
-    WebCore::DecomposedGlyphs* cachedDecomposedGlyphs(WebCore::RenderingResourceIdentifier) const;
-    WebCore::Gradient* cachedGradient(WebCore::RenderingResourceIdentifier) const;
-    WebCore::Filter* cachedFilter(WebCore::RenderingResourceIdentifier) const;
-    WebCore::FontCustomPlatformData* cachedFontCustomPlatformData(WebCore::RenderingResourceIdentifier) const;
-
-    std::optional<WebCore::SourceImage> cachedSourceImage(WebCore::RenderingResourceIdentifier) const;
+    RefPtr<WebCore::NativeImage> cachedNativeImage(WebCore::RenderingResourceIdentifier) const;
+    RefPtr<WebCore::Font> cachedFont(WebCore::RenderingResourceIdentifier) const;
+    RefPtr<WebCore::DecomposedGlyphs> cachedDecomposedGlyphs(WebCore::RenderingResourceIdentifier) const;
+    RefPtr<WebCore::Gradient> cachedGradient(WebCore::RenderingResourceIdentifier) const;
+    RefPtr<WebCore::Filter> cachedFilter(WebCore::RenderingResourceIdentifier) const;
+    RefPtr<WebCore::FontCustomPlatformData> cachedFontCustomPlatformData(WebCore::RenderingResourceIdentifier) const;
 
     void releaseAllResources();
     void releaseAllDrawingResources();

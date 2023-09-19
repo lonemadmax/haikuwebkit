@@ -32,6 +32,7 @@
 #include "BackForwardCache.h"
 #include "BackForwardClient.h"
 #include "BackForwardController.h"
+#include "BadgeClient.h"
 #include "BroadcastChannelRegistry.h"
 #include "CacheStorageProvider.h"
 #include "CachedImage.h"
@@ -160,6 +161,7 @@
 #include "TextIterator.h"
 #include "TextRecognitionResult.h"
 #include "TextResourceDecoder.h"
+#include "ThermalMitigationNotifier.h"
 #include "UserContentProvider.h"
 #include "UserContentURLPattern.h"
 #include "UserScript.h"
@@ -341,6 +343,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_isUtilityPage(isUtilityPageChromeClient(chrome().client()))
     , m_performanceMonitor(isUtilityPage() ? nullptr : makeUnique<PerformanceMonitor>(*this))
     , m_lowPowerModeNotifier(makeUnique<LowPowerModeNotifier>([this](bool isLowPowerModeEnabled) { handleLowModePowerChange(isLowPowerModeEnabled); }))
+    , m_thermalMitigationNotifier(makeUnique<ThermalMitigationNotifier>([this](bool thermalMitigationEnabled) { handleThermalMitigationChange(thermalMitigationEnabled); }))
     , m_performanceLogging(makeUnique<PerformanceLogging>(*this))
 #if PLATFORM(MAC) && (ENABLE(SERVICE_CONTROLS) || ENABLE(TELEPHONE_NUMBER_DETECTION))
     , m_servicesOverlayController(makeUnique<ServicesOverlayController>(*this))
@@ -416,6 +419,9 @@ Page::Page(PageConfiguration&& pageConfiguration)
 
     if (m_lowPowerModeNotifier->isLowPowerModeEnabled())
         m_throttlingReasons.add(ThrottlingReason::LowPowerMode);
+
+    if (m_thermalMitigationNotifier->thermalMitigationEnabled())
+        m_throttlingReasons.add(ThrottlingReason::ThermalMitigation);
 }
 
 Page::~Page()
@@ -1484,12 +1490,12 @@ void Page::didCommitLoad()
         geolocationController->didNavigatePage();
 #endif
 
-    m_opportunisticTaskDeferralScopeForFirstPaint = m_opportunisticTaskScheduler->makeDeferralScope();
+    m_isWaitingForFirstMeaningfulPaint = true;
 }
 
 void Page::didFirstMeaningfulPaint()
 {
-    m_opportunisticTaskDeferralScopeForFirstPaint = nullptr;
+    m_isWaitingForFirstMeaningfulPaint = false;
 }
 
 void Page::didFinishLoad()
@@ -2268,6 +2274,19 @@ void Page::handleLowModePowerChange(bool isLowPowerModeEnabled)
     updateDOMTimerAlignmentInterval();
 }
 
+void Page::handleThermalMitigationChange(bool thermalMitigationEnabled)
+{
+    if (!canUpdateThrottlingReason(ThrottlingReason::ThermalMitigation))
+        return;
+
+    if (thermalMitigationEnabled == m_throttlingReasons.contains(ThrottlingReason::ThermalMitigation))
+        return;
+
+    m_throttlingReasons.set(ThrottlingReason::ThermalMitigation, thermalMitigationEnabled);
+
+    updateDOMTimerAlignmentInterval();
+}
+
 void Page::userStyleSheetLocationChanged()
 {
     // FIXME: Eventually we will move to a model of just being handed the sheet
@@ -2483,10 +2502,11 @@ void Page::updateDOMTimerAlignmentInterval()
     bool needsIncreaseTimer = false;
 
     switch (m_timerThrottlingState) {
-    case TimerThrottlingState::Disabled:
-        m_domTimerAlignmentInterval = isLowPowerModeEnabled() ? DOMTimer::defaultAlignmentIntervalInLowPowerMode() : DOMTimer::defaultAlignmentInterval();
+    case TimerThrottlingState::Disabled: {
+        bool isInLowPowerOrThermallyMitigatedMode = isLowPowerModeEnabled() || isThermalMitigationEnabled();
+        m_domTimerAlignmentInterval = isInLowPowerOrThermallyMitigatedMode ? DOMTimer::defaultAlignmentIntervalInLowPowerOrThermallyMitigatedMode() : DOMTimer::defaultAlignmentInterval();
         break;
-
+    }
     case TimerThrottlingState::Enabled:
         m_domTimerAlignmentInterval = DOMTimer::hiddenPageAlignmentInterval();
         break;
@@ -2510,7 +2530,7 @@ void Page::updateDOMTimerAlignmentInterval()
 
     // If throttling is enabled, auto-increasing of throttling is enabled, and the auto-increase
     // limit has not yet been reached, and then arm the timer to consider an increase. Time to wait
-    // between increases is equal to the current throttle time. Since alinment interval increases
+    // between increases is equal to the current throttle time. Since alignment interval increases
     // exponentially, time between steps is exponential too.
     if (!needsIncreaseTimer)
         m_domTimerAlignmentIntervalIncreaseTimer.stop();
@@ -3070,7 +3090,7 @@ static const double gMaximumUnpaintedAreaRatio = 0.04;
 
 bool Page::isCountingRelevantRepaintedObjects() const
 {
-    return m_isCountingRelevantRepaintedObjects && m_requestedLayoutMilestones.contains(DidHitRelevantRepaintedObjectsAreaThreshold);
+    return m_isCountingRelevantRepaintedObjects && m_requestedLayoutMilestones.contains(LayoutMilestone::DidHitRelevantRepaintedObjectsAreaThreshold);
 }
 
 void Page::startCountingRelevantRepaintedObjects()
@@ -3170,7 +3190,7 @@ void Page::addRelevantRepaintedObject(RenderObject* object, const LayoutRect& ob
         m_isCountingRelevantRepaintedObjects = false;
         resetRelevantPaintedObjectCounter();
         if (auto* frame = dynamicDowncast<LocalFrame>(mainFrame()))
-            frame->loader().didReachLayoutMilestone(DidHitRelevantRepaintedObjectsAreaThreshold);
+            frame->loader().didReachLayoutMilestone(LayoutMilestone::DidHitRelevantRepaintedObjectsAreaThreshold);
     }
 }
 
@@ -4515,12 +4535,15 @@ void Page::reloadExecutionContextsForOrigin(const ClientOrigin& origin, std::opt
     }
 }
 
-void Page::performOpportunisticallyScheduledTasks(MonotonicTime deadline)
+void Page::opportunisticallyRunIdleCallbacks()
 {
-    TraceScope tracingScope(PerformOpportunisticallyScheduledTasksStart, PerformOpportunisticallyScheduledTasksEnd, (deadline - MonotonicTime::now()).microseconds());
-    forEachWindowEventLoop([&](WindowEventLoop& eventLoop) {
+    forEachWindowEventLoop([&](auto& eventLoop) {
         eventLoop.opportunisticallyRunIdleCallbacks();
     });
+}
+
+void Page::performOpportunisticallyScheduledTasks(MonotonicTime deadline)
+{
     commonVM().performOpportunisticallyScheduledTasks(deadline);
 }
 

@@ -33,7 +33,9 @@
 #if ENABLE(WK_WEB_EXTENSIONS)
 
 #import "CocoaHelpers.h"
+#import "Logging.h"
 #import "WebExtensionContext.h"
+#import "WebExtensionUtilities.h"
 #import "_WKWebExtensionTab.h"
 #import "_WKWebExtensionWindow.h"
 
@@ -47,15 +49,63 @@ WebExtensionWindow::WebExtensionWindow(const WebExtensionContext& context, _WKWe
     , m_respondsToActiveTab([delegate respondsToSelector:@selector(activeTabForWebExtensionContext:)])
     , m_respondsToWindowType([delegate respondsToSelector:@selector(windowTypeForWebExtensionContext:)])
     , m_respondsToWindowState([delegate respondsToSelector:@selector(windowStateForWebExtensionContext:)])
-    , m_respondsToIsEphemeral([delegate respondsToSelector:@selector(isEphemeralForWebExtensionContext:)])
+    , m_respondsToSetWindowState([delegate respondsToSelector:@selector(setWindowState:forWebExtensionContext:completionHandler:)])
+    , m_respondsToIsUsingPrivateBrowsing([delegate respondsToSelector:@selector(isUsingPrivateBrowsingForWebExtensionContext:)])
     , m_respondsToFrame([delegate respondsToSelector:@selector(frameForWebExtensionContext:)])
+    , m_respondsToSetFrame([delegate respondsToSelector:@selector(setFrame:forWebExtensionContext:completionHandler:)])
+    , m_respondsToScreenFrame([delegate respondsToSelector:@selector(screenFrameForWebExtensionContext:)])
+    , m_respondsToFocus([delegate respondsToSelector:@selector(focusForWebExtensionContext:completionHandler:)])
+    , m_respondsToClose([delegate respondsToSelector:@selector(closeForWebExtensionContext:completionHandler:)])
 {
     ASSERT([delegate conformsToProtocol:@protocol(_WKWebExtensionWindow)]);
+}
+
+WebExtensionContext* WebExtensionWindow::extensionContext() const
+{
+    return m_extensionContext.get();
 }
 
 bool WebExtensionWindow::operator==(const WebExtensionWindow& other) const
 {
     return this == &other || (m_identifier == other.m_identifier && m_extensionContext == other.m_extensionContext && m_delegate.get() == other.m_delegate.get());
+}
+
+WebExtensionWindowParameters WebExtensionWindow::parameters(PopulateTabs populate) const
+{
+    Vector<WebExtensionTabParameters> tabParameters;
+
+    if (populate == PopulateTabs::Yes) {
+        auto tabs = this->tabs();
+        tabParameters.reserveInitialCapacity(tabs.size());
+
+        for (auto& tab : tabs)
+            tabParameters.uncheckedAppend(tab->parameters());
+    }
+
+    auto frame = this->normalizedFrame();
+
+    return {
+        identifier(),
+        state(),
+        type(),
+        populate == PopulateTabs::Yes ? std::optional(WTFMove(tabParameters)) : std::nullopt,
+        !CGRectIsNull(frame) ? std::optional(frame) : std::nullopt,
+        isFocused(),
+        isPrivate()
+    };
+}
+
+WebExtensionWindowParameters WebExtensionWindow::minimalParameters() const
+{
+    return {
+        identifier(),
+        std::nullopt,
+        type(),
+        std::nullopt,
+        std::nullopt,
+        std::nullopt,
+        std::nullopt
+    };
 }
 
 WebExtensionWindow::TabVector WebExtensionWindow::tabs() const
@@ -105,6 +155,19 @@ RefPtr<WebExtensionTab> WebExtensionWindow::activeTab() const
     return result;
 }
 
+_WKWebExtensionWindowType toAPI(WebExtensionWindow::Type type)
+{
+    switch (type) {
+    case WebExtensionWindow::Type::Normal:
+        return _WKWebExtensionWindowTypeNormal;
+    case WebExtensionWindow::Type::Popup:
+        return _WKWebExtensionWindowTypePopup;
+    }
+
+    ASSERT_NOT_REACHED();
+    return _WKWebExtensionWindowTypeNormal;
+}
+
 static inline WebExtensionWindow::Type toImpl(_WKWebExtensionWindowType type)
 {
     switch (type) {
@@ -151,6 +214,41 @@ WebExtensionWindow::State WebExtensionWindow::state() const
     return toImpl([m_delegate windowStateForWebExtensionContext:m_extensionContext->wrapper()]);
 }
 
+_WKWebExtensionWindowState toAPI(WebExtensionWindow::State state)
+{
+    switch (state) {
+    case WebExtensionWindow::State::Normal:
+        return _WKWebExtensionWindowStateNormal;
+    case WebExtensionWindow::State::Minimized:
+        return _WKWebExtensionWindowStateMinimized;
+    case WebExtensionWindow::State::Maximized:
+        return _WKWebExtensionWindowStateMaximized;
+    case WebExtensionWindow::State::Fullscreen:
+        return _WKWebExtensionWindowStateFullscreen;
+    }
+
+    ASSERT_NOT_REACHED();
+    return _WKWebExtensionWindowStateNormal;
+}
+
+void WebExtensionWindow::setState(WebExtensionWindow::State state, CompletionHandler<void(Error)>&& completionHandler)
+{
+    if (!isValid() || !m_respondsToSetWindowState || !m_respondsToWindowState) {
+        completionHandler(toErrorString(@"windows.update()", nil, @"it is not implemented for 'state'"));
+        return;
+    }
+
+    [m_delegate setWindowState:toAPI(state) forWebExtensionContext:m_extensionContext->wrapper() completionHandler:^(NSError *error) {
+        if (error) {
+            RELEASE_LOG_ERROR(Extensions, "Error for setWindowState: %{private}@", error);
+            completionHandler(error.localizedDescription);
+            return;
+        }
+
+        completionHandler(std::nullopt);
+    }];
+}
+
 bool WebExtensionWindow::isFocused() const
 {
     if (!isValid())
@@ -159,20 +257,106 @@ bool WebExtensionWindow::isFocused() const
     return this == m_extensionContext->focusedWindow();
 }
 
-bool WebExtensionWindow::isEphemeral() const
+void WebExtensionWindow::focus(CompletionHandler<void(Error)>&& completionHandler)
 {
-    if (!isValid() || !m_respondsToIsEphemeral)
+    if (!isValid() || !m_respondsToFocus) {
+        completionHandler(toErrorString(@"windows.update()", nil, @"it is not implemented for 'focused'"));
+        return;
+    }
+
+    [m_delegate focusForWebExtensionContext:m_extensionContext->wrapper() completionHandler:^(NSError *error) {
+        if (error) {
+            RELEASE_LOG_ERROR(Extensions, "Error for window focus: %{private}@", error);
+            completionHandler(error.localizedDescription);
+            return;
+        }
+
+        completionHandler(std::nullopt);
+    }];
+}
+
+bool WebExtensionWindow::isPrivate() const
+{
+    if (!isValid() || !m_respondsToIsUsingPrivateBrowsing)
         return false;
 
-    return [m_delegate isEphemeralForWebExtensionContext:m_extensionContext->wrapper()];
+    return [m_delegate isUsingPrivateBrowsingForWebExtensionContext:m_extensionContext->wrapper()];
+}
+
+CGRect WebExtensionWindow::normalizedFrame() const
+{
+    auto frame = this->frame();
+
+#if PLATFORM(MAC)
+    // Window coordinates on macOS have the origin in the bottom-left corner.
+    // Web Extensions have window coordinates in the top-left corner.
+    auto screenFrame = this->screenFrame();
+    if (!CGRectIsNull(frame) && !CGRectIsEmpty(screenFrame))
+        frame.origin.y = screenFrame.size.height - frame.origin.y - frame.size.height;
+#endif
+
+    return frame;
 }
 
 CGRect WebExtensionWindow::frame() const
 {
     if (!isValid() || !m_respondsToFrame)
-        return CGRectZero;
+        return CGRectNull;
 
-    return [m_delegate frameForWebExtensionContext:m_extensionContext->wrapper()];
+    return CGRectStandardize([m_delegate frameForWebExtensionContext:m_extensionContext->wrapper()]);
+}
+
+void WebExtensionWindow::setFrame(CGRect frame, CompletionHandler<void(Error)>&& completionHandler)
+{
+#if PLATFORM(MAC)
+    if (!isValid() || !m_respondsToSetFrame || !m_respondsToFrame || !m_respondsToScreenFrame)
+#else
+    if (!isValid() || !m_respondsToSetFrame || !m_respondsToFrame)
+#endif
+    {
+        completionHandler(toErrorString(@"windows.update()", nil, @"it is not implemented for 'top', 'left', 'width', and 'height'"));
+        return;
+    }
+
+    ASSERT(!std::isnan(frame.origin.x) && !std::isnan(frame.origin.y) && !std::isnan(frame.size.width) && !std::isnan(frame.size.height));
+
+    frame = CGRectStandardize(frame);
+
+    [m_delegate setFrame:frame forWebExtensionContext:m_extensionContext->wrapper() completionHandler:^(NSError *error) {
+        if (error) {
+            RELEASE_LOG_ERROR(Extensions, "Error for setFrame: %{private}@", error);
+            completionHandler(error.localizedDescription);
+            return;
+        }
+
+        completionHandler(std::nullopt);
+    }];
+}
+
+CGRect WebExtensionWindow::screenFrame() const
+{
+    if (!isValid() || !m_respondsToScreenFrame)
+        return CGRectNull;
+
+    return CGRectStandardize([m_delegate screenFrameForWebExtensionContext:m_extensionContext->wrapper()]);
+}
+
+void WebExtensionWindow::close(CompletionHandler<void(Error)>&& completionHandler)
+{
+    if (!isValid() || !m_respondsToClose) {
+        completionHandler(toErrorString(@"windows.remove()", nil, @"it is not implemented"));
+        return;
+    }
+
+    [m_delegate closeForWebExtensionContext:m_extensionContext->wrapper() completionHandler:^(NSError *error) {
+        if (error) {
+            RELEASE_LOG_ERROR(Extensions, "Error for window close: %{private}@", error);
+            completionHandler(error.localizedDescription);
+            return;
+        }
+
+        completionHandler(std::nullopt);
+    }];
 }
 
 } // namespace WebKit

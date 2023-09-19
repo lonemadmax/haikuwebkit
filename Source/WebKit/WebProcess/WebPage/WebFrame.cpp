@@ -97,7 +97,6 @@
 #include <WebCore/SubresourceLoader.h>
 #include <WebCore/TextIterator.h>
 #include <WebCore/TextResourceDecoder.h>
-#include <WebCore/UserInputBridge.h>
 #include <wtf/text/StringBuilder.h>
 
 #if PLATFORM(COCOA)
@@ -443,8 +442,8 @@ void WebFrame::transitionToLocal(std::optional<WebCore::LayerHostingContextIdent
 
 void WebFrame::didFinishLoadInAnotherProcess()
 {
-    if (auto* remoteFrame = dynamicDowncast<WebCore::RemoteFrame>(m_coreFrame.get()))
-        remoteFrame->didFinishLoadInAnotherProcess();
+    if (m_coreFrame)
+        m_coreFrame->didFinishLoadInAnotherProcess();
 }
 
 void WebFrame::invalidatePolicyListeners()
@@ -1227,7 +1226,7 @@ bool WebFrame::handleContextMenuEvent(const PlatformMouseEvent& platformMouseEve
     if (result.innerNonSharedNode())
         frame = *result.innerNonSharedNode()->document().frame();
 
-    bool handled = coreLocalFrame->userInputBridge().handleContextMenuEvent(platformMouseEvent);
+    bool handled = frame->eventHandler().sendContextMenuEvent(platformMouseEvent);
 #if ENABLE(CONTEXT_MENUS)
     if (handled)
         page()->contextMenu().show();
@@ -1254,7 +1253,7 @@ bool WebFrame::handleMouseEvent(const WebMouseEvent& mouseEvent)
             page()->corePage()->contextMenuController().clearContextMenu();
 #endif
 
-        bool handled = coreLocalFrame->userInputBridge().handleMousePressEvent(platformMouseEvent);
+        bool handled = coreLocalFrame->eventHandler().handleMousePressEvent(platformMouseEvent);
 #if ENABLE(CONTEXT_MENU_EVENT)
         if (isContextClick(platformMouseEvent))
             handled = handleContextMenuEvent(platformMouseEvent);
@@ -1264,7 +1263,7 @@ bool WebFrame::handleMouseEvent(const WebMouseEvent& mouseEvent)
     case PlatformEvent::Type::MouseReleased:
         if (mouseEvent.gestureWasCancelled() == GestureWasCancelled::Yes)
             coreLocalFrame->eventHandler().invalidateClick();
-        return coreLocalFrame->userInputBridge().handleMouseReleaseEvent(platformMouseEvent);
+        return coreLocalFrame->eventHandler().handleMouseReleaseEvent(platformMouseEvent);
 
     case PlatformEvent::Type::MouseMoved:
 #if PLATFORM(COCOA)
@@ -1274,14 +1273,14 @@ bool WebFrame::handleMouseEvent(const WebMouseEvent& mouseEvent)
         // of those cases where the page is not active and the mouse is not pressed, then we can fire a more
         // efficient scrollbars-only version of the event.
         if (!(page()->corePage()->focusController().isActive() || (mouseEvent.button() != WebMouseEventButton::NoButton)))
-            return coreLocalFrame->userInputBridge().handleMouseMoveOnScrollbarEvent(platformMouseEvent);
+            return coreLocalFrame->eventHandler().passMouseMovedEventToScrollbars(platformMouseEvent);
 #endif
-        return coreLocalFrame->userInputBridge().handleMouseMoveEvent(platformMouseEvent);
+        return coreLocalFrame->eventHandler().mouseMoved(platformMouseEvent);
 
     case PlatformEvent::Type::MouseForceChanged:
     case PlatformEvent::Type::MouseForceDown:
     case PlatformEvent::Type::MouseForceUp:
-        return coreLocalFrame->userInputBridge().handleMouseForceEvent(platformMouseEvent);
+        return coreLocalFrame->eventHandler().handleMouseForceEvent(platformMouseEvent);
 
     default:
         ASSERT_NOT_REACHED();
@@ -1300,8 +1299,8 @@ bool WebFrame::handleKeyEvent(const WebKeyboardEvent& keyboardEvent)
 
     Ref frame = page->focusController().focusedOrMainFrame();
     if (keyboardEvent.type() == WebEventType::Char && keyboardEvent.isSystemKey())
-        return frame->userInputBridge().handleAccessKeyEvent(platform(keyboardEvent));
-    return frame->userInputBridge().handleKeyEvent(platform(keyboardEvent));
+        return frame->eventHandler().handleAccessKey(platform(keyboardEvent));
+    return frame->eventHandler().keyEvent(platform(keyboardEvent));
 }
 
 } // namespace WebKit

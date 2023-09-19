@@ -25,12 +25,12 @@
 #include "FontCascade.h"
 
 #include "ComplexTextController.h"
+#include "DisplayList.h"
 #include "DisplayListRecorderImpl.h"
 #include "FloatRect.h"
 #include "FontCache.h"
 #include "GlyphBuffer.h"
 #include "GraphicsContext.h"
-#include "InMemoryDisplayList.h"
 #include "LayoutRect.h"
 #include "TextRun.h"
 #include "WidthIterator.h"
@@ -177,7 +177,7 @@ void FontCascade::drawEmphasisMarks(GraphicsContext& context, const TextRun& run
     drawEmphasisMarks(context, glyphBuffer, mark, startPoint);
 }
 
-std::unique_ptr<DisplayList::InMemoryDisplayList> FontCascade::displayListForTextRun(GraphicsContext& context, const TextRun& run, unsigned from, std::optional<unsigned> to, CustomFontNotReadyAction customFontNotReadyAction) const
+std::unique_ptr<DisplayList::DisplayList> FontCascade::displayListForTextRun(GraphicsContext& context, const TextRun& run, unsigned from, std::optional<unsigned> to, CustomFontNotReadyAction customFontNotReadyAction) const
 {
     ASSERT(!context.paintingDisabled());
     unsigned destination = to.value_or(run.length());
@@ -193,8 +193,8 @@ std::unique_ptr<DisplayList::InMemoryDisplayList> FontCascade::displayListForTex
     if (glyphBuffer.isEmpty())
         return nullptr;
 
-    std::unique_ptr<DisplayList::InMemoryDisplayList> displayList = makeUnique<DisplayList::InMemoryDisplayList>();
-    DisplayList::RecorderImpl recordingContext(*displayList, context.state().cloneForRecording(), { },
+    std::unique_ptr<DisplayList::DisplayList> displayList = makeUnique<DisplayList::DisplayList>();
+    DisplayList::RecorderImpl recordingContext(*displayList, context.state().clone(GraphicsContextState::Purpose::Initial), { },
         context.getCTM(GraphicsContext::DefinitelyIncludeDeviceScale), context.colorSpace(),
         DisplayList::Recorder::DrawGlyphsMode::DeconstructUsingDrawDecomposedGlyphsCommands);
 
@@ -330,7 +330,7 @@ GlyphData FontCascade::glyphDataForCharacter(UChar32 c, bool mirror, FontVariant
     if (mirror)
         c = u_charMirror(c);
 
-    auto emojiPolicy = resolveEmojiPolicy(FontVariantEmoji::Normal, c);
+    auto emojiPolicy = resolveEmojiPolicy(m_fontDescription.variantEmoji(), c);
 
     return m_fonts->glyphDataForCharacter(c, m_fontDescription, variant, emojiPolicy);
 }
@@ -470,6 +470,13 @@ String FontCascade::normalizeSpaces(const UChar* characters, unsigned length)
     return normalizeSpacesInternal(characters, length);
 }
 
+String FontCascade::normalizeSpaces(StringView stringView)
+{
+    if (stringView.is8Bit())
+        return normalizeSpacesInternal(stringView.characters8(), stringView.length());
+    return normalizeSpacesInternal(stringView.characters16(), stringView.length());
+}
+
 static std::atomic<bool> disableFontSubpixelAntialiasingForTesting = false;
 
 void FontCascade::setDisableFontSubpixelAntialiasingForTesting(bool disable)
@@ -509,7 +516,7 @@ FontCascade::CodePath FontCascade::codePath(const TextRun& run, std::optional<un
 
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=150791: @font-face features should also cause this to be complex.
 
-#if (!USE(FONT_VARIANT_VIA_FEATURES) && !USE(FREETYPE))
+#if !USE(FONT_VARIANT_VIA_FEATURES) && !USE(FREETYPE)
     if (run.length() > 1 && (enableKerning() || requiresShaping()))
         return CodePath::Complex;
 #endif
@@ -1536,11 +1543,10 @@ int FontCascade::offsetForPositionForComplexText(const TextRun& run, float x, bo
 
 #if !PLATFORM(COCOA) && !USE(HARFBUZZ)
 // FIXME: Unify this with the macOS and iOS implementation.
-const Font* FontCascade::fontForCombiningCharacterSequence(const UChar* characters, size_t length) const
+const Font* FontCascade::fontForCombiningCharacterSequence(StringView stringView) const
 {
-    UChar32 baseCharacter;
-    size_t baseCharacterLength = 0;
-    U16_NEXT(characters, baseCharacterLength, length, baseCharacter);
+    ASSERT(stringView.length() > 0);
+    UChar32 baseCharacter = *stringView.codePoints().begin();
     GlyphData baseCharacterGlyphData = glyphDataForCharacter(baseCharacter, false, NormalVariant);
 
     if (!baseCharacterGlyphData.glyph)

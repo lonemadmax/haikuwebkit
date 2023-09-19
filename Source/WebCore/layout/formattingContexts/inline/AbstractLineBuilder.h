@@ -25,9 +25,8 @@
 
 #pragma once
 
-#include "FloatingState.h"
-#include "InlineLineTypes.h"
-#include "LayoutUnits.h"
+#include "InlineContentBreaker.h"
+#include "LineLayoutResult.h"
 
 namespace WebCore {
 namespace Layout {
@@ -35,63 +34,6 @@ namespace Layout {
 struct LineInput {
     InlineItemRange needsLayoutRange;
     InlineRect initialLogicalRect;
-};
-
-struct LineLayoutResult {
-    using PlacedFloatList = FloatingState::FloatList;
-    using SuspendedFloatList = Vector<const Box*>;
-
-    InlineItemRange inlineItemRange;
-    Line::RunList inlineContent;
-
-    struct FloatContent {
-        PlacedFloatList placedFloats;
-        SuspendedFloatList suspendedFloats;
-        bool hasIntrusiveFloat { false };
-    };
-    FloatContent floatContent { };
-
-    struct ContentGeometry {
-        InlineLayoutUnit logicalLeft { 0.f };
-        InlineLayoutUnit logicalWidth { 0.f };
-        InlineLayoutUnit logicalRightIncludingNegativeMargin { 0.f }; // Note that with negative horizontal margin value, contentLogicalLeft + contentLogicalWidth is not necessarily contentLogicalRight.
-        std::optional<InlineLayoutUnit> trailingOverflowingContentWidth { };
-    };
-    ContentGeometry contentGeometry { };
-
-    struct LineGeometry {
-        InlineLayoutPoint logicalTopLeft;
-        InlineLayoutUnit logicalWidth { 0.f };
-        InlineLayoutUnit initialLogicalLeftIncludingIntrusiveFloats { 0.f };
-        std::optional<InlineLayoutUnit> initialLetterClearGap { };
-    };
-    LineGeometry lineGeometry { };
-
-    struct HangingContent {
-        bool shouldContributeToScrollableOverflow { false };
-        InlineLayoutUnit logicalWidth { 0.f };
-    };
-    HangingContent hangingContent { };
-
-    struct Directionality {
-        Vector<int32_t> visualOrderList;
-        TextDirection inlineBaseDirection { TextDirection::LTR };
-    };
-    Directionality directionality { };
-
-    struct IsFirstLast {
-        enum class FirstFormattedLine : uint8_t {
-            No,
-            WithinIFC,
-            WithinBFC
-        };
-        FirstFormattedLine isFirstFormattedLine { FirstFormattedLine::WithinIFC };
-        bool isLastLineWithInlineContent { true };
-    };
-    IsFirstLast isFirstLast { };
-    // Misc
-    size_t nonSpanningInlineLevelBoxCount { 0 };
-    std::optional<InlineLayoutUnit> hintForNextLineTopToAvoidIntrusiveFloat { }; // This is only used for cases when intrusive floats prevent any content placement at current vertical position.
 };
 
 class AbstractLineBuilder {
@@ -102,6 +44,8 @@ public:
     void setIntrinsicWidthMode(IntrinsicWidthMode intrinsicWidthMode) { m_intrinsicWidthMode = intrinsicWidthMode; }
 
 protected:
+    std::optional<InlineLayoutUnit> eligibleOverflowWidthAsLeading(const InlineContentBreaker::ContinuousContent::RunList&, const InlineContentBreaker::Result&, bool) const;
+
     std::optional<IntrinsicWidthMode> intrinsicWidthMode() const { return m_intrinsicWidthMode; }
     bool isInIntrinsicWidthMode() const { return !!intrinsicWidthMode(); }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Cameron Zwarich (cwzwarich@uwaterloo.ca)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1820,6 +1820,9 @@ capitalName ## Constructor* lowerName ## Constructor = featureFlag ? capitalName
     }
 
     fixupPrototypeChainWithObjectPrototype(vm);
+
+    if (UNLIKELY(Options::alwaysHaveABadTime()))
+        this->haveABadTime(vm);
 }
 
 bool JSGlobalObject::put(JSCell* cell, JSGlobalObject* globalObject, PropertyName propertyName, JSValue value, PutPropertySlot& slot)
@@ -1883,12 +1886,62 @@ bool JSGlobalObject::defineOwnProperty(JSObject* object, JSGlobalObject* globalO
     RELEASE_AND_RETURN(scope, Base::defineOwnProperty(thisObject, globalObject, propertyName, descriptor, shouldThrow));
 }
 
-void JSGlobalObject::addGlobalVar(const Identifier& ident)
+// https://tc39.es/ecma262/#sec-candeclareglobalfunction
+bool JSGlobalObject::canDeclareGlobalFunction(const Identifier& ident)
+{
+    auto scope = DECLARE_THROW_SCOPE(vm());
+
+    PropertySlot slot(this, PropertySlot::InternalMethodType::GetOwnProperty);
+    bool hasProperty = getOwnPropertySlot(this, this, ident, slot);
+    scope.assertNoExceptionExceptTermination();
+    if (LIKELY(!hasProperty))
+        return isStructureExtensible();
+
+    bool isConfigurable = !(slot.attributes() & PropertyAttribute::DontDelete);
+    if (isConfigurable)
+        return true;
+    bool isDataDescriptor = !(slot.attributes() & (PropertyAttribute::Accessor | PropertyAttribute::CustomAccessor));
+    bool isWritableAndEnumerable = !(slot.attributes() & (PropertyAttribute::ReadOnly | PropertyAttribute::DontEnum));
+    return isDataDescriptor && isWritableAndEnumerable;
+}
+
+// https://tc39.es/ecma262/#sec-createglobalfunctionbinding
+template<BindingCreationContext context>
+void JSGlobalObject::createGlobalFunctionBinding(const Identifier& ident)
+{
+    VM& vm = this->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    PropertySlot slot(this, PropertySlot::InternalMethodType::GetOwnProperty);
+    bool hasProperty = getOwnPropertySlot(this, this, ident, slot);
+    scope.assertNoExceptionExceptTermination();
+    if (UNLIKELY(hasProperty)) {
+        if (slot.attributes() & PropertyAttribute::DontDelete) {
+            ASSERT(!(slot.attributes() & PropertyAttribute::ReadOnly));
+            // Nothing to do here: there is either a symbol table entry or non-configurable writable property
+            // on the structure that will be updated with real function by put_to_scope.
+        } else {
+            unsigned newAttributes = 0;
+            if constexpr (context == BindingCreationContext::Global)
+                newAttributes |= PropertyAttribute::DontDelete;
+            putDirect(vm, ident, jsUndefined(), newAttributes);
+        }
+    } else {
+        ASSERT(isStructureExtensible());
+        if constexpr (context == BindingCreationContext::Global)
+            addSymbolTableEntry(ident);
+        else
+            putDirect(vm, ident, jsUndefined());
+    }
+}
+
+template void JSGlobalObject::createGlobalFunctionBinding<BindingCreationContext::Global>(const Identifier&);
+template void JSGlobalObject::createGlobalFunctionBinding<BindingCreationContext::Eval>(const Identifier&);
+
+void JSGlobalObject::addSymbolTableEntry(const Identifier& ident)
 {
     ConcurrentJSLocker locker(symbolTable()->m_lock);
-    SymbolTableEntry entry = symbolTable()->get(locker, ident.impl());
-    if (!entry.isNull())
-        return;
+    ASSERT(!symbolTable()->contains(locker, ident.impl()));
     
     ScopeOffset offset = symbolTable()->takeNextScopeOffset(locker);
     SymbolTableEntry newEntry(VarOffset(offset), 0);
@@ -1897,14 +1950,6 @@ void JSGlobalObject::addGlobalVar(const Identifier& ident)
     
     ScopeOffset offsetForAssert = addVariables(1, jsUndefined());
     RELEASE_ASSERT(offsetForAssert == offset);
-}
-
-void JSGlobalObject::addFunction(JSGlobalObject* globalObject, const Identifier& propertyName)
-{
-    VM& vm = globalObject->vm();
-    VM::DeletePropertyModeScope scope(vm, VM::DeletePropertyMode::IgnoreConfigurable);
-    JSCell::deleteProperty(this, globalObject, propertyName);
-    addGlobalVar(propertyName);
 }
 
 void JSGlobalObject::setGlobalScopeExtension(JSScope* scope)

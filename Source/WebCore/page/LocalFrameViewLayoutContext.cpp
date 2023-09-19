@@ -240,7 +240,7 @@ void LocalFrameViewLayoutContext::performLayout()
 #endif
         clearSubtreeLayoutRoot();
 
-#if !LOG_DISABLED
+#if !LOG_DISABLED && ENABLE(TREE_DEBUGGING)
         auto layoutLogEnabled = [] {
             return LogLayout.state == WTFLogChannelState::On;
         };
@@ -583,14 +583,6 @@ void LocalFrameViewLayoutContext::pushLayoutState(RenderElement& root)
     m_layoutStateStack.append(makeUnique<RenderLayoutState>(root));
 }
 
-bool LocalFrameViewLayoutContext::pushLayoutStateForPaginationIfNeeded(RenderBlockFlow& layoutRoot)
-{
-    if (layoutState())
-        return false;
-    m_layoutStateStack.append(makeUnique<RenderLayoutState>(layoutRoot, RenderLayoutState::IsPaginated::Yes));
-    return true;
-}
-    
 bool LocalFrameViewLayoutContext::pushLayoutState(RenderBox& renderer, const LayoutSize& offset, LayoutUnit pageHeight, bool pageHeightChanged)
 {
     // We push LayoutState even if layoutState is disabled because it stores layoutDelta too.
@@ -625,6 +617,17 @@ void LocalFrameViewLayoutContext::popLayoutState()
             layoutState->setLineClamp(currentLineClamp);
         }
     }
+}
+
+void LocalFrameViewLayoutContext::setBoxNeedsTransformUpdateAfterContainerLayout(RenderBox& box, RenderBlock& container)
+{
+    auto it = m_containersWithDescendantsNeedingTransformUpdate.ensure(container, [] { return Vector<WeakPtr<RenderBox>>({ }); });
+    it.iterator->value.append(WeakPtr { box });
+}
+
+Vector<WeakPtr<RenderBox>> LocalFrameViewLayoutContext::takeBoxesNeedingTransformUpdateAfterContainerLayout(RenderBlock& container)
+{
+    return m_containersWithDescendantsNeedingTransformUpdate.take(container);
 }
 
 #ifndef NDEBUG

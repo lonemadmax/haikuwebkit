@@ -1489,33 +1489,6 @@ void LocalDOMWindow::setName(const AtomString& string)
 void LocalDOMWindow::setStatus(const String& string)
 {
     m_status = string;
-
-    RefPtr frame = this->frame();
-    if (!frame)
-        return;
-
-    Page* page = frame->page();
-    if (!page)
-        return;
-
-    ASSERT(frame->document()); // Client calls shouldn't be made when the frame is in inconsistent state.
-    page->chrome().setStatusbarText(*frame, m_status);
-}
-
-void LocalDOMWindow::setDefaultStatus(const String& string)
-{
-    m_defaultStatus = string;
-
-    RefPtr frame = this->frame();
-    if (!frame)
-        return;
-
-    Page* page = frame->page();
-    if (!page)
-        return;
-
-    ASSERT(frame->document()); // Client calls shouldn't be made when the frame is in inconsistent state.
-    page->chrome().setStatusbarText(*frame, m_defaultStatus);
 }
 
 WindowProxy* LocalDOMWindow::opener() const
@@ -2607,7 +2580,7 @@ ExceptionOr<RefPtr<LocalFrame>> LocalDOMWindow::createWindow(const String& urlSt
     WindowFeatures windowFeatures = initialWindowFeatures;
 
     // For whatever reason, Firefox uses the first frame to determine the outgoingReferrer. We replicate that behavior here.
-    String referrer = windowFeatures.noreferrer ? String() : SecurityPolicy::generateReferrerHeader(firstFrame.document()->referrerPolicy(), completedURL, firstFrame.loader().outgoingReferrer(), OriginAccessPatternsForWebProcess::singleton());
+    String referrer = windowFeatures.wantsNoReferrer() ? String() : SecurityPolicy::generateReferrerHeader(firstFrame.document()->referrerPolicy(), completedURL, firstFrame.loader().outgoingReferrer(), OriginAccessPatternsForWebProcess::singleton());
     auto initiatedByMainFrame = activeFrame->isMainFrame() ? InitiatedByMainFrame::Yes : InitiatedByMainFrame::Unknown;
 
     ResourceRequest resourceRequest { completedURL, referrer };
@@ -2624,7 +2597,7 @@ ExceptionOr<RefPtr<LocalFrame>> LocalDOMWindow::createWindow(const String& urlSt
     if (!newFrame)
         return RefPtr<LocalFrame> { nullptr };
 
-    bool noopener = windowFeatures.noopener || windowFeatures.noreferrer;
+    bool noopener = windowFeatures.wantsNoOpener();
     if (!noopener)
         newFrame->loader().setOpener(&openerFrame);
 

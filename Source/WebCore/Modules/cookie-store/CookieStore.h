@@ -31,6 +31,7 @@
 #include "EventTarget.h"
 #include <wtf/Forward.h>
 #include <wtf/IsoMalloc.h>
+#include <wtf/RefCounted.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -81,7 +82,7 @@ private:
     void derefEventTarget() final { deref(); }
     void eventListenersDidChange() final;
 
-    std::atomic<bool> m_hasChangeEventListener;
+    bool m_hasChangeEventListener { false };
     WeakPtr<CookieJar> m_cookieJar;
     String m_host;
 };

@@ -1676,6 +1676,11 @@ unsigned ByteCodeParser::inliningCost(CallVariant callee, int argumentCountInclu
         return UINT_MAX;
     }
 
+    if (codeBlock->couldBeTainted() != m_codeBlock->couldBeTainted()) {
+        VERBOSE_LOG("    Failing because taintedness of callee does not match the caller");
+        return UINT_MAX;
+    }
+
     if (!Options::useArityFixupInlining()) {
         if (codeBlock->numParameters() > static_cast<unsigned>(argumentCountIncludingThis)) {
             VERBOSE_LOG("    Failing because of arity mismatch.\n");
@@ -5270,31 +5275,48 @@ void ByteCodeParser::handleGetById(
         return;
     }
 
+    ASSERT(type == AccessType::GetById || type == AccessType::GetByIdDirect || !variant.callLinkStatus());
+
+    auto const getGetter = [&] {
+        if (JSValue getterValue = m_graph.tryGetConstantGetter(loadedValue))
+            return weakJSConstant(getterValue);
+
+        return addToGraph(GetGetter, loadedValue);
+    };
+
+    if (variant.intrinsic() != NoIntrinsic) {
+        auto const addChecks = [&] {
+            Node* getter = getGetter();
+            addToGraph(CheckIsConstant, OpInfo(m_graph.freeze(variant.intrinsicFunction())), getter);
+        };
+
+        if (handleIntrinsicGetter(destination, prediction, variant, base, addChecks)) {
+            if (UNLIKELY(m_graph.compilation()))
+                m_graph.compilation()->noticeInlinedGetById();
+            addToGraph(Phantom, base);
+            return;
+        }
+
+        // We couldn't handle this as an intrinsic and can't emit a direct call
+        // to the intrinsic function--bail and emit a regular GetById
+        if (!variant.callLinkStatus()) {
+            set(destination,
+                addToGraph(getById, OpInfo(identifier), OpInfo(prediction), base));
+            return;
+        }
+    }
+
     if (UNLIKELY(m_graph.compilation()))
         m_graph.compilation()->noticeInlinedGetById();
 
-    ASSERT(type == AccessType::GetById || type == AccessType::GetByIdDirect || !variant.callLinkStatus());
-    if (!variant.callLinkStatus() && variant.intrinsic() == NoIntrinsic) {
+    if (!variant.callLinkStatus()) {
         set(destination, loadedValue);
-        return;
-    }
-    
-    Node* getter = nullptr;
-    if (JSValue getterValue = m_graph.tryGetConstantGetter(loadedValue))
-        getter = weakJSConstant(getterValue);
-    else
-        getter = addToGraph(GetGetter, loadedValue);
-
-    if (handleIntrinsicGetter(destination, prediction, variant, base,
-            [&] () {
-                addToGraph(CheckIsConstant, OpInfo(m_graph.freeze(variant.intrinsicFunction())), getter);
-            })) {
-        addToGraph(Phantom, base);
         return;
     }
 
     // Make a call. We don't try to get fancy with using the smallest operand number because
     // the stack layout phase should compress the stack anyway.
+    Node* getter = getGetter();
     
     unsigned numberOfParameters = 0;
     numberOfParameters++; // The 'this' argument.

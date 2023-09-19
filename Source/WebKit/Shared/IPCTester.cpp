@@ -75,13 +75,13 @@ static int sendTestMessage(const uint8_t* data, size_t size, void* context)
     auto messageContext = reinterpret_cast<SendMessageContext*>(context);
     if (messageContext->shouldStop)
         return 1;
-    auto& testedConnection = messageContext->connection;
-    if (!testedConnection.isValid())
+    Ref testedConnection = messageContext->connection;
+    if (!testedConnection->isValid())
         return 1;
     BinarySemaphore semaphore;
     auto decoder = IPC::Decoder::create(data, size, [&semaphore] (const uint8_t*, size_t) { semaphore.signal(); }, { }); // NOLINT
     if (decoder) {
-        testedConnection.dispatchIncomingMessageForTesting(WTFMove(decoder));
+        testedConnection->dispatchIncomingMessageForTesting(WTFMove(decoder));
         semaphore.wait();
     }
     return 0;
@@ -200,6 +200,16 @@ void IPCTester::createConnectionTesterAndSendAsyncMessages(IPC::Connection& conn
 void IPCTester::releaseConnectionTester(IPCConnectionTesterIdentifier identifier, CompletionHandler<void()>&& completionHandler)
 {
     m_connectionTesters.remove(identifier);
+    completionHandler();
+}
+
+void IPCTester::asyncPing(IPC::Connection&, CompletionHandler<void()>&& completionHandler)
+{
+    completionHandler();
+}
+
+void IPCTester::syncPing(IPC::Connection&, CompletionHandler<void()>&& completionHandler)
+{
     completionHandler();
 }
 

@@ -677,7 +677,7 @@ void WebGL2RenderingContext::framebufferTextureLayer(GCGLenum target, GCGLenum a
         synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "framebufferTextureLayer", "no framebuffer bound");
         return;
     }
-    framebufferBinding->setAttachmentForBoundFramebuffer(target, attachment, texTarget, texture, level, layer);
+    framebufferBinding->setAttachmentForBoundFramebuffer(target, attachment, WebGLFramebuffer::TextureLayerAttachment { texture, level, layer });
 }
 
 WebGLAny WebGL2RenderingContext::getInternalformatParameter(GCGLenum target, GCGLenum internalformat, GCGLenum pname)
@@ -1946,6 +1946,8 @@ RefPtr<WebGLSync> WebGL2RenderingContext::fenceSync(GCGLenum condition, GCGLbitf
         return nullptr;
     }
     auto sync = WebGLSync::create(*this);
+    if (!sync)
+        return nullptr;
     sync->scheduleAllowCacheUpdate(*this);
     return sync;
 }
@@ -2547,6 +2549,7 @@ std::optional<WebGLExtensionAny> WebGL2RenderingContext::getExtension(const Stri
         return *variable; \
     }
 
+    ENABLE_IF_REQUESTED(EXTBlendFuncExtended, m_extBlendFuncExtended, "EXT_blend_func_extended"_s, EXTBlendFuncExtended::supported(*m_context) && enableDraftExtensions);
     ENABLE_IF_REQUESTED(EXTClipControl, m_extClipControl, "EXT_clip_control"_s, EXTClipControl::supported(*m_context) && enableDraftExtensions);
     ENABLE_IF_REQUESTED(EXTColorBufferFloat, m_extColorBufferFloat, "EXT_color_buffer_float"_s, EXTColorBufferFloat::supported(*m_context));
     ENABLE_IF_REQUESTED(EXTColorBufferHalfFloat, m_extColorBufferHalfFloat, "EXT_color_buffer_half_float"_s, EXTColorBufferHalfFloat::supported(*m_context));
@@ -2567,7 +2570,7 @@ std::optional<WebGLExtensionAny> WebGL2RenderingContext::getExtension(const Stri
     ENABLE_IF_REQUESTED(OESSampleVariables, m_oesSampleVariables, "OES_sample_variables"_s, OESSampleVariables::supported(*m_context) && enableDraftExtensions);
     ENABLE_IF_REQUESTED(OESShaderMultisampleInterpolation, m_oesShaderMultisampleInterpolation, "OES_shader_multisample_interpolation"_s, OESShaderMultisampleInterpolation::supported(*m_context) && enableDraftExtensions);
     ENABLE_IF_REQUESTED(OESTextureFloatLinear, m_oesTextureFloatLinear, "OES_texture_float_linear"_s, OESTextureFloatLinear::supported(*m_context));
-    ENABLE_IF_REQUESTED(WebGLClipCullDistance, m_webglClipCullDistance, "WEBGL_clip_cull_distance"_s, WebGLClipCullDistance::supported(*m_context) && enableDraftExtensions);
+    ENABLE_IF_REQUESTED(WebGLClipCullDistance, m_webglClipCullDistance, "WEBGL_clip_cull_distance"_s, WebGLClipCullDistance::supported(*m_context));
     ENABLE_IF_REQUESTED(WebGLCompressedTextureASTC, m_webglCompressedTextureASTC, "WEBGL_compressed_texture_astc"_s, WebGLCompressedTextureASTC::supported(*m_context));
     ENABLE_IF_REQUESTED(WebGLCompressedTextureETC, m_webglCompressedTextureETC, "WEBGL_compressed_texture_etc"_s, WebGLCompressedTextureETC::supported(*m_context));
     ENABLE_IF_REQUESTED(WebGLCompressedTextureETC1, m_webglCompressedTextureETC1, "WEBGL_compressed_texture_etc1"_s, WebGLCompressedTextureETC1::supported(*m_context));
@@ -2601,6 +2604,7 @@ std::optional<Vector<String>> WebGL2RenderingContext::getSupportedExtensions()
     if (condition) \
         result.append(nameLiteral ## _s);
 
+    APPEND_IF_SUPPORTED("EXT_blend_func_extended", EXTBlendFuncExtended::supported(*m_context) && enableDraftExtensions)
     APPEND_IF_SUPPORTED("EXT_clip_control", EXTClipControl::supported(*m_context) && enableDraftExtensions)
     APPEND_IF_SUPPORTED("EXT_color_buffer_float", EXTColorBufferFloat::supported(*m_context))
     APPEND_IF_SUPPORTED("EXT_color_buffer_half_float", EXTColorBufferHalfFloat::supported(*m_context))
@@ -2621,7 +2625,7 @@ std::optional<Vector<String>> WebGL2RenderingContext::getSupportedExtensions()
     APPEND_IF_SUPPORTED("OES_sample_variables", OESSampleVariables::supported(*m_context) && enableDraftExtensions)
     APPEND_IF_SUPPORTED("OES_shader_multisample_interpolation", OESShaderMultisampleInterpolation::supported(*m_context) && enableDraftExtensions)
     APPEND_IF_SUPPORTED("OES_texture_float_linear", OESTextureFloatLinear::supported(*m_context))
-    APPEND_IF_SUPPORTED("WEBGL_clip_cull_distance", WebGLClipCullDistance::supported(*m_context) && enableDraftExtensions)
+    APPEND_IF_SUPPORTED("WEBGL_clip_cull_distance", WebGLClipCullDistance::supported(*m_context))
     APPEND_IF_SUPPORTED("WEBGL_compressed_texture_astc", WebGLCompressedTextureASTC::supported(*m_context))
     APPEND_IF_SUPPORTED("WEBGL_compressed_texture_etc", WebGLCompressedTextureETC::supported(*m_context))
     APPEND_IF_SUPPORTED("WEBGL_compressed_texture_etc1", WebGLCompressedTextureETC1::supported(*m_context))
@@ -2721,10 +2725,10 @@ WebGLAny WebGL2RenderingContext::getFramebufferAttachmentParameter(GCGLenum targ
     if (!validateNonDefaultFramebufferAttachment(functionName, attachment))
         return nullptr;
 
-    RefPtr<WebGLObject> attachmentObject;
+    std::optional<WebGLFramebuffer::AttachmentObject> attachmentObject;
     if (attachment == GraphicsContextGL::DEPTH_STENCIL_ATTACHMENT) {
         attachmentObject = targetFramebuffer->getAttachmentObject(GraphicsContextGL::DEPTH_ATTACHMENT);
-        RefPtr stencilAttachment = targetFramebuffer->getAttachmentObject(GraphicsContextGL::STENCIL_ATTACHMENT);
+        auto stencilAttachment = targetFramebuffer->getAttachmentObject(GraphicsContextGL::STENCIL_ATTACHMENT);
         if (attachmentObject != stencilAttachment) {
             synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, "different objects bound to DEPTH_ATTACHMENT and STENCIL_ATTACHMENT");
             return nullptr;
@@ -2741,19 +2745,20 @@ WebGLAny WebGL2RenderingContext::getFramebufferAttachmentParameter(GCGLenum targ
         return nullptr;
     }
 
+    const bool isTexture = std::holds_alternative<RefPtr<WebGLTexture>>(*attachmentObject);
     switch (pname) {
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE:
-        if (attachmentObject->isTexture())
+        if (isTexture)
             return static_cast<unsigned>(GraphicsContextGL::TEXTURE);
         return static_cast<unsigned>(GraphicsContextGL::RENDERBUFFER);
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_OBJECT_NAME:
-        if (attachmentObject->isTexture())
-            return static_pointer_cast<WebGLTexture>(WTFMove(attachmentObject));
-        return static_pointer_cast<WebGLRenderbuffer>(WTFMove(attachmentObject));
+        if (isTexture)
+            return std::get<RefPtr<WebGLTexture>>(WTFMove(*attachmentObject));
+        return std::get<RefPtr<WebGLRenderbuffer>>(WTFMove(*attachmentObject));
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL:
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE:
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_TEXTURE_LAYER:
-        if (!attachmentObject->isTexture())
+        if (!isTexture)
             break;
         FALLTHROUGH;
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_RED_SIZE:
@@ -2796,17 +2801,6 @@ WebGLFramebuffer* WebGL2RenderingContext::getFramebufferBinding(GCGLenum target)
         return m_framebufferBinding.get();
     }
     return WebGLRenderingContextBase::getFramebufferBinding(target);
-}
-
-WebGLFramebuffer* WebGL2RenderingContext::getReadFramebufferBinding()
-{
-    return m_readFramebufferBinding.get();
-}
-
-void WebGL2RenderingContext::restoreCurrentFramebuffer()
-{
-    bindFramebuffer(GraphicsContextGL::DRAW_FRAMEBUFFER, m_framebufferBinding.get());
-    bindFramebuffer(GraphicsContextGL::READ_FRAMEBUFFER, m_readFramebufferBinding.get());
 }
 
 bool WebGL2RenderingContext::validateNonDefaultFramebufferAttachment(const char* functionName, GCGLenum attachment)

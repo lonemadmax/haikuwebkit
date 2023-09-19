@@ -37,8 +37,9 @@
 
 namespace WebCore {
 
-WebGLObject::WebGLObject(WebGLRenderingContextBase& context)
+WebGLObject::WebGLObject(WebGLRenderingContextBase& context, PlatformGLObject object)
     : m_context(context.createRefForContextObject())
+    , m_object(object)
 {
 }
 
@@ -57,13 +58,6 @@ Lock& WebGLObject::objectGraphLockForContext()
 GraphicsContextGL* WebGLObject::graphicsContextGL() const
 {
     return m_context ? m_context->graphicsContextGL() : nullptr;
-}
-
-void WebGLObject::setObject(PlatformGLObject object)
-{
-    ASSERT(!m_object);
-    ASSERT(!m_deleted);
-    m_object = object;
 }
 
 void WebGLObject::runDestructor()
@@ -101,13 +95,9 @@ void WebGLObject::deleteObject(const AbstractLocker& locker, GraphicsContextGL* 
         m_object = 0;
 }
 
-void WebGLObject::detach()
-{
-    m_attachmentCount = 0; // Make sure OpenGL resource is deleted.
-}
-
 void WebGLObject::onDetached(const AbstractLocker& locker, GraphicsContextGL* context3d)
 {
+    ASSERT(m_attachmentCount); // FIXME: handle attachment with WebGLAttachmentPoint RAII object and remove the ifs.
     if (m_attachmentCount)
         --m_attachmentCount;
     if (m_deleted)

@@ -163,6 +163,7 @@ public:
     GList* m_dataList { nullptr };
 };
 
+#if !ENABLE(2022_GLIB_API)
 static void loadChanged(WebKitWebView* webView, WebKitLoadEvent loadEvent, WebViewTest* test)
 {
     if (loadEvent != WEBKIT_LOAD_FINISHED)
@@ -170,6 +171,7 @@ static void loadChanged(WebKitWebView* webView, WebKitLoadEvent loadEvent, WebVi
     g_signal_handlers_disconnect_by_func(webView, reinterpret_cast<void*>(loadChanged), test);
     g_main_loop_quit(test->m_mainLoop);
 }
+#endif
 
 static void testWebsiteDataConfiguration(WebsiteDataTest* test, gconstpointer)
 {
@@ -428,6 +430,9 @@ static void testWebsiteDataEphemeral(WebViewTest* test, gconstpointer)
 static void testWebsiteDataCache(WebsiteDataTest* test, gconstpointer)
 {
     static const WebKitWebsiteDataTypes cacheTypes = static_cast<WebKitWebsiteDataTypes>(WEBKIT_WEBSITE_DATA_MEMORY_CACHE | WEBKIT_WEBSITE_DATA_DISK_CACHE);
+
+    test->clear(cacheTypes, 0);
+
     GList* dataList = test->fetch(cacheTypes);
     g_assert_null(dataList);
 

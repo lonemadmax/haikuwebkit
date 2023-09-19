@@ -111,8 +111,6 @@ public:
     void fillPathSegment(const WebCore::PathSegment&);
     void fillPath(const WebCore::Path&);
     void fillEllipse(const WebCore::FloatRect&);
-    void convertToLuminanceMask();
-    void transformToColorSpace(const WebCore::DestinationColorSpace&);
 #if ENABLE(VIDEO)
     void paintFrameForMedia(WebCore::MediaPlayerIdentifier, const WebCore::FloatRect& destination);
 #endif
@@ -134,16 +132,16 @@ public:
     void applyFillPattern();
 #endif
     void applyDeviceScaleFactor(float);
-    void flushContext(IPC::Semaphore&&);
-    void flushContextSync(CompletionHandler<void()>&&);
 
 private:
     RemoteDisplayListRecorder(WebCore::ImageBuffer&, WebCore::RenderingResourceIdentifier, RemoteRenderingBackend&);
 
     void drawFilteredImageBufferInternal(std::optional<WebCore::RenderingResourceIdentifier> sourceImageIdentifier, const WebCore::FloatRect& sourceImageRect, WebCore::Filter&, WebCore::FilterResults&);
 
-    RemoteResourceCache& resourceCache();
-    WebCore::GraphicsContext& drawingContext();
+    RemoteResourceCache& resourceCache() const;
+    WebCore::GraphicsContext& drawingContext() { return m_imageBuffer->context(); }
+    RefPtr<WebCore::ImageBuffer> imageBuffer(WebCore::RenderingResourceIdentifier) const;
+    std::optional<WebCore::SourceImage> sourceImage(WebCore::RenderingResourceIdentifier) const;
 
     template<typename T, typename ... AdditionalArgs>
     void handleItem(T&& item, AdditionalArgs&&... args)
@@ -163,7 +161,7 @@ private:
     void setSharedVideoFrameMemory(SharedMemory::Handle&&);
 #endif
 
-    ThreadSafeWeakPtr<WebCore::ImageBuffer> m_imageBuffer;
+    Ref<WebCore::ImageBuffer> m_imageBuffer;
     WebCore::RenderingResourceIdentifier m_imageBufferIdentifier;
     RefPtr<RemoteRenderingBackend> m_renderingBackend;
     std::unique_ptr<WebCore::ControlFactory> m_controlFactory;

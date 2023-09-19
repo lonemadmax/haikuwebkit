@@ -27,6 +27,7 @@
 
 #if ENABLE(WEBGL)
 
+#include "GraphicsContextGL.h"
 #include "WebGLObject.h"
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
@@ -81,7 +82,7 @@ public:
     bool isInitialized() const { return m_hasEverBeenBound; }
 
 private:
-    WebGLTransformFeedback(WebGL2RenderingContext&);
+    WebGLTransformFeedback(WebGL2RenderingContext&, PlatformGLObject);
 
     void deleteObjectImpl(const AbstractLocker&, GraphicsContextGL*, PlatformGLObject) override;
 

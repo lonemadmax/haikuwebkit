@@ -718,6 +718,7 @@ parser/Parser.cpp @no-unify
 parser/ParserArena.cpp
 parser/SourceProvider.cpp
 parser/SourceProviderCache.cpp
+parser/SourceTaintedOrigin.cpp
 parser/UnlinkedSourceCode.cpp
 parser/VariableEnvironment.cpp
 
@@ -1101,8 +1102,6 @@ tools/Integrity.cpp
 tools/JSDollarVM.cpp
 tools/VMInspector.cpp
 
-wasm/WasmAirIRGenerator32_64.cpp @no-unify
-wasm/WasmAirIRGenerator64.cpp @no-unify
 wasm/WasmB3IRGenerator.cpp
 wasm/WasmBBQDisassembler.cpp
 wasm/WasmBBQJIT.cpp @no-unify
@@ -1113,6 +1112,7 @@ wasm/WasmCallee.cpp
 wasm/WasmCalleeGroup.cpp
 wasm/WasmCallingConvention.cpp
 wasm/WasmCompilationMode.cpp
+wasm/WasmConstExprGenerator.cpp
 wasm/WasmContext.cpp
 wasm/WasmEntryPlan.cpp
 wasm/WasmFaultSignalHandler.cpp

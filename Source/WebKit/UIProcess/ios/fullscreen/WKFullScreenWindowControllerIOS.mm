@@ -825,6 +825,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         [_window setAlpha:0];
         [_window setClipsToBounds:YES];
         [_window _setContinuousCornerRadius:kFullScreenWindowCornerRadius];
+        [_window _setPreferredGroundingShadowVisibility:_UIPlatterGroundingShadowVisibilityVisible];
         [_window setNeedsLayout];
         [_window layoutIfNeeded];
     }
@@ -1749,7 +1750,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
     if (self.prefersSceneDimming
         || (!enter && stage.preferredDarkness != originalState.preferredDarkness)) {
         [UIView animateWithDuration:kDarknessAnimationDuration animations:^{
-            stage.preferredDarkness = enter ? MRUIDarknessPreferenceVeryDark : originalState.preferredDarkness;
+            stage.preferredDarkness = enter ? MRUIDarknessPreferenceDark : originalState.preferredDarkness;
         } completion:nil];
     }
 
@@ -1826,7 +1827,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 
     if (self.isFullScreen) {
         MRUIStage *stage = UIApplication.sharedApplication.mrui_activeStage;
-        stage.preferredDarkness = updatedPrefersSceneDimming ? MRUIDarknessPreferenceVeryDark : [_parentWindowState preferredDarkness];
+        stage.preferredDarkness = updatedPrefersSceneDimming ? MRUIDarknessPreferenceDark : [_parentWindowState preferredDarkness];
     }
 }
 

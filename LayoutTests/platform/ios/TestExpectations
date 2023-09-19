@@ -2207,6 +2207,7 @@ accessibility/progress-indeterminate-value.html [ Pass ]
 accessibility/slider-with-lost-renderer.html [ Pass ]
 accessibility/spinbutton-increment-decrement.html [ Pass ]
 accessibility/display-contents/text-under-element.html [ Pass ]
+accessibility/text-aria-role-disabled.html [ Pass ]
 accessibility/text-updates-after-dynamic-change.html [ Pass ]
 accessibility/table-display-block.html [ Pass ]
 accessibility/table-display-flex.html [ Pass ]
@@ -2537,6 +2538,8 @@ webkit.org/b/158836 imported/w3c/web-platform-tests/encrypted-media [ Skip ]
 # These tests fail which are related to browser support of slnt and ital axes in variable fonts and failing due to underlying bug
 webkit.org/b/189483 imported/w3c/web-platform-tests/css/css-fonts/variations/slnt-variable.html [ ImageOnlyFailure ]
 webkit.org/b/189483 imported/w3c/web-platform-tests/css/css-fonts/variations/slnt-backslant-variable.html [ ImageOnlyFailure ]
+
+webkit.org/b/260972 imported/w3c/web-platform-tests/css/css-fonts/font-variant-emoji-2.html [ ImageOnlyFailure ]
 
 # Only Mac has implemented DictionaryLookup
 fast/layers/prevent-hit-test-during-layout.html [ Skip ]
@@ -3742,7 +3745,6 @@ imported/w3c/web-platform-tests/upgrade-insecure-requests/gen/worker-module.http
 webkit.org/b/243690 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/iframe-popup-same-origin-allow-popups-to-same-origin-allow-popups.https.html [ Pass Failure ]
 webkit.org/b/243690 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/iframe-popup-unsafe-none-to-same-origin.https.html [ Pass Failure ]
 webkit.org/b/243690 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/javascript-url.https.html [ Pass Failure ]
-webkit.org/b/243690 imported/w3c/web-platform-tests/html/cross-origin-opener-policy/tentative/restrict-properties/iframe-popup-to-so.https.html [ Pass Failure ]
 
 webkit.org/b/243962 imported/w3c/web-platform-tests/css/css-pseudo/highlight-paired-cascade-005.html [ Pass ImageOnlyFailure ]
 
@@ -4583,6 +4585,13 @@ imported/w3c/web-platform-tests/html/canvas/element/manual/filters/canvas-global
 webkit.org/b/260310 imported/w3c/web-platform-tests/css/cssom-view/scrollIntoView-sideways-rl-writing-mode.html [ Failure ]
 webkit.org/b/260310 imported/w3c/web-platform-tests/css/cssom-view/scrollIntoView-sideways-rl-writing-mode-and-rtl-direction.html [ Failure ]
 
-#webkit.org/b/260490 [iOS] 2 imported/w3c/web-platform-tests/css/css-lists/* tests are constant failures
+#webkit.org/b/260490 [iOS] 2 imported/w3c/web-platform-tests/cssts/* tests are constant failures
 imported/w3c/web-platform-tests/css/css-lists/list-style-image-gradients-dynamic.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-lists/list-style-image-gradients.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-lists/content-property/marker-text-matches-disc.html [ Skip ]
+
+webkit.org/b/257904 http/tests/site-isolation/basic-iframe.html [ Skip ]
+
+# Initial css/compositing test import
+imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-both-parent-and-blended-with-3D-transform.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-parent-with-text.html [ ImageOnlyFailure ]

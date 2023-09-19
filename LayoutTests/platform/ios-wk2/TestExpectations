@@ -664,7 +664,7 @@ fast/dom/frame-loading-via-document-write.html # Timeout
 # CSS transform tests that fail:
 transforms/2d/transform-fixed-container.html [ Failure ]
 
-webkit.org/b/228718 [ Release ] editing/inserting/insert-paragraph-separator-with-html-elements-crash.html [ Pass Failure ]
+webkit.org/b/260555 editing/inserting/insert-paragraph-separator-with-html-elements-crash.html [ Failure ]
 
 # Editing tests that fail:
 editing/inserting/caret-position.html [ Failure ]
@@ -1301,10 +1301,7 @@ webkit.org/b/190848 imported/w3c/web-platform-tests/service-workers/service-work
 
 webkit.org/b/190850 [ Debug ] platform/ios/ios/plugin/youtube-flash-plugin-iframe-no-height-or-width.html [ Pass Failure ] 
 
-# FIXME: Unskip these tests once we have the fix for <rdar://problem/44930119>.
-fast/forms/auto-fill-button/caps-lock-indicator-should-be-visible-after-hiding-auto-fill-strong-password-button.html [ Skip ]
-fast/forms/auto-fill-button/caps-lock-indicator-should-not-be-visible-when-auto-fill-strong-password-button-is-visible.html [ Skip ]
-fast/forms/password-scrolled-after-caps-lock-toggled.html [ Skip ]
+webkit.org/b/261234 fast/forms/auto-fill-button/caps-lock-indicator-should-be-visible-after-hiding-auto-fill-strong-password-button.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/194826 [ Debug ] http/tests/resourceLoadStatistics/do-not-block-top-level-navigation-redirect.html [ Pass Timeout ]
 
@@ -2079,7 +2076,6 @@ fast/events/ios/viewport-no-width-value-allows-double-tap.html [ Skip ]
 fast/visual-viewport/ios/stable-update-with-keyboard.html [ Skip ]
 media/modern-media-controls/media-documents/media-document-audio-ios-sizing.html [ Skip ]
 media/modern-media-controls/media-documents/media-document-video-iphone-sizing.html [ Skip ]
-fast/forms/ios/scroll-to-reveal-focused-select.html [ Failure ]
 fast/scrolling/ios/body-overflow-hidden-height-100-percent-zoomed-1.html [ Failure ]
 
 # This test "fails" on iPhone 12 simulator because it supports P3, may need to rebaseline this reftest
@@ -2169,8 +2165,6 @@ imported/w3c/web-platform-tests/html/browsers/the-window-object/open-close/open-
 imported/w3c/web-platform-tests/html/dom/render-blocking/remove-element-unblocks-rendering.optional.html [ Failure ]
 
 # Time out since import.
-imported/w3c/web-platform-tests/html/cross-origin-opener-policy/iframe-popup-same-origin-allow-popups-to-same-origin.https.html [ Skip ]
-imported/w3c/web-platform-tests/html/cross-origin-opener-policy/tentative/restrict-properties/iframe-popup-to-soap.https.html [ Skip ]
 imported/w3c/web-platform-tests/html/editing/focus/sequential-focus-navigation-and-the-tabindex-attribute/focus-tabindex-event.html [ Skip ]
 
 ######################################################

@@ -110,7 +110,7 @@ enum class ContentRelevancy : uint8_t {
     OnScreen = 1 << 0,
     Focused = 1 << 1,
     IsInTopLayer = 1 << 2,
-    // FIXME: add Selected (see https://bugs.webkit.org/show_bug.cgi?id=258194).
+    Selected = 1 << 3,
 };
 
 namespace Style {
@@ -737,9 +737,7 @@ public:
 
     bool isRelevantToUser() const;
 
-    void contentVisibilityViewportChange(bool);
-
-    OptionSet<ContentRelevancy> contentRelevancy() const;
+    std::optional<OptionSet<ContentRelevancy>> contentRelevancy() const;
     void setContentRelevancy(OptionSet<ContentRelevancy>);
 
 protected:
@@ -767,6 +765,8 @@ protected:
     void ensureFormAssociatedCustomElement();
 
     void updateLabel(TreeScope&, const AtomString& oldForAttributeValue, const AtomString& newForAttributeValue);
+
+    static AtomString makeTargetBlankIfHasDanglingMarkup(const AtomString& target);
 
 private:
     LocalFrame* documentFrameWithNonNullView() const;

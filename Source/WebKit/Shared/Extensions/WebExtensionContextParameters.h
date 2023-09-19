@@ -38,6 +38,7 @@ struct WebExtensionContextParameters {
 
     URL baseURL;
     String uniqueIdentifier;
+    Ref<API::Data> localizationJSON;
     Ref<API::Data> manifestJSON;
     double manifestVersion;
     bool testingMode;

@@ -825,9 +825,11 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         }
 
         // Keep layer hierarchy visibility bits up to date if visibility changes.
-        if (m_style.visibility() != newStyle.visibility()) {
+        bool wasVisible = m_style.visibility() == Visibility::Visible && !m_style.skippedContentReason().has_value();
+        bool willBeVisible = newStyle.visibility() == Visibility::Visible && !newStyle.skippedContentReason().has_value();
+        if (wasVisible != willBeVisible) {
             if (RenderLayer* layer = enclosingLayer()) {
-                if (newStyle.visibility() == Visibility::Visible)
+                if (willBeVisible)
                     layer->setHasVisibleContent();
                 else if (layer->hasVisibleContent() && (this == &layer->renderer() || layer->renderer().style().visibility() != Visibility::Visible))
                     layer->dirtyVisibleContentStatus();
@@ -939,7 +941,7 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
         updateFillImages(oldStyle ? &oldStyle->backgroundLayers() : nullptr, style ? &style->backgroundLayers() : nullptr);
         updateFillImages(oldStyle ? &oldStyle->maskLayers() : nullptr, style ? &style->maskLayers() : nullptr);
         updateImage(oldStyle ? oldStyle->borderImage().image() : nullptr, style ? style->borderImage().image() : nullptr);
-        updateImage(oldStyle ? oldStyle->maskBoxImage().image() : nullptr, style ? style->maskBoxImage().image() : nullptr);
+        updateImage(oldStyle ? oldStyle->maskBorder().image() : nullptr, style ? style->maskBorder().image() : nullptr);
         updateShapeImage(oldStyle ? oldStyle->shapeOutside() : nullptr, style ? style->shapeOutside() : nullptr);
     };
 
@@ -1080,7 +1082,7 @@ void RenderElement::willBeDestroyed()
         for (auto* maskLayer = &style.maskLayers(); maskLayer; maskLayer = maskLayer->next())
             unregisterImage(maskLayer->image());
         unregisterImage(style.borderImage().image());
-        unregisterImage(style.maskBoxImage().image());
+        unregisterImage(style.maskBorder().image());
         if (auto shapeValue = style.shapeOutside())
             unregisterImage(shapeValue->image());
     };
@@ -2268,5 +2270,23 @@ bool RenderElement::isSkippedContentRoot() const
 {
     return WebCore::isSkippedContentRoot(style(), element());
 }
+
+bool RenderElement::hasEligibleContainmentForSizeQuery() const
+{
+    if (!shouldApplyLayoutContainment())
+        return false;
+
+    switch (style().containerType()) {
+    case ContainerType::InlineSize:
+        return shouldApplyInlineSizeContainment();
+    case ContainerType::Size:
+        return shouldApplySizeContainment();
+    case ContainerType::Normal:
+        return true;
+    }
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
 
 }

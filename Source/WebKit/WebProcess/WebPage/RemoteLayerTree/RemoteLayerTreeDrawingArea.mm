@@ -68,7 +68,7 @@ RemoteLayerTreeDrawingArea::RemoteLayerTreeDrawingArea(WebPage& webPage, const W
     , m_scheduleRenderingTimer(*this, &RemoteLayerTreeDrawingArea::scheduleRenderingUpdateTimerFired)
     , m_preferredFramesPerSecond(DefaultPreferredFramesPerSecond)
 {
-    m_webPage.corePage()->settings().setForceCompositingMode(true);
+    webPage.corePage()->settings().setForceCompositingMode(true);
 
     m_commitQueue = adoptOSObject(dispatch_queue_create("com.apple.WebKit.WebContent.RemoteLayerTreeDrawingArea.CommitQueue", nullptr));
 
@@ -149,12 +149,16 @@ void RemoteLayerTreeDrawingArea::setRootCompositingLayer(WebCore::Frame& frame, 
     scheduleRenderingUpdate(ScheduleRenderingUrgency::AsSoonAsPossible);
 }
 
-void RemoteLayerTreeDrawingArea::updateGeometry(const IntSize& viewSize, bool flushSynchronously, const WTF::MachSendRight&, CompletionHandler<void()>&& completionHandler)
+void RemoteLayerTreeDrawingArea::updateGeometry(const IntSize& viewSize, const std::optional<VisibleContentRectUpdateInfo>& info, bool flushSynchronously, const WTF::MachSendRight&, CompletionHandler<void()>&& completionHandler)
 {
     IntSize size = viewSize;
     IntSize contentSize = IntSize(-1, -1);
 
-    Ref webPage = m_webPage;
+    Ref webPage = m_webPage.get();
+
+    if (info)
+        webPage->updateVisibleContentRects(*info, info->timestamp());
+
     if (!webPage->minimumSizeForAutoLayout().width() || webPage->autoSizingShouldExpandToViewHeight() || (!webPage->sizeToContentAutoSizeMaximumSize().width() && !webPage->sizeToContentAutoSizeMaximumSize().height()))
         webPage->setSize(size);
 
@@ -177,12 +181,13 @@ void RemoteLayerTreeDrawingArea::updateGeometry(const IntSize& viewSize, bool fl
 bool RemoteLayerTreeDrawingArea::shouldUseTiledBackingForFrameView(const LocalFrameView& frameView) const
 {
     return frameView.frame().isRootFrame()
-        || m_webPage.corePage()->settings().asyncFrameScrollingEnabled();
+        || m_webPage->corePage()->settings().asyncFrameScrollingEnabled();
 }
 
 void RemoteLayerTreeDrawingArea::updatePreferences(const WebPreferencesStore& preferences)
 {
-    Settings& settings = m_webPage.corePage()->settings();
+    auto& page = *m_webPage->corePage();
+    Settings& settings = page.settings();
 
     // Fixed position elements need to be composited and create stacking contexts
     // in order to be scrolled by the ScrollingCoordinator.
@@ -194,7 +199,7 @@ void RemoteLayerTreeDrawingArea::updatePreferences(const WebPreferencesStore& pr
     m_remoteLayerTreeContext->setUseCGDisplayListsForDOMRendering(preferences.getBoolValueForKey(WebPreferencesKey::useCGDisplayListsForDOMRenderingKey()));
     m_remoteLayerTreeContext->setUseCGDisplayListImageCache(preferences.getBoolValueForKey(WebPreferencesKey::useCGDisplayListImageCacheKey()) && !preferences.getBoolValueForKey(WebPreferencesKey::replayCGDisplayListsIntoBackingStoreKey()));
 
-    DebugPageOverlays::settingsChanged(*m_webPage.corePage());
+    DebugPageOverlays::settingsChanged(page);
 }
 
 void RemoteLayerTreeDrawingArea::forceRepaintAsync(WebPage& page, CompletionHandler<void()>&& completionHandler)
@@ -205,7 +210,7 @@ void RemoteLayerTreeDrawingArea::forceRepaintAsync(WebPage& page, CompletionHand
 
 void RemoteLayerTreeDrawingArea::setDeviceScaleFactor(float deviceScaleFactor)
 {
-    Ref { m_webPage }->setDeviceScaleFactor(deviceScaleFactor);
+    Ref { m_webPage.get() }->setDeviceScaleFactor(deviceScaleFactor);
 }
 
 DelegatedScrollingMode RemoteLayerTreeDrawingArea::delegatedScrollingMode() const
@@ -233,7 +238,7 @@ void RemoteLayerTreeDrawingArea::forceRepaint()
     if (m_isRenderingSuspended)
         return;
 
-    m_webPage.corePage()->forceRepaintAllFrames();
+    m_webPage->corePage()->forceRepaintAllFrames();
     scheduleRenderingUpdate(ScheduleRenderingUrgency::AsSoonAsPossible);
 }
 
@@ -251,13 +256,13 @@ void RemoteLayerTreeDrawingArea::setViewExposedRect(std::optional<WebCore::Float
 {
     m_viewExposedRect = viewExposedRect;
 
-    if (RefPtr frameView = m_webPage.localMainFrameView())
+    if (RefPtr frameView = m_webPage->localMainFrameView())
         frameView->setViewExposedRect(m_viewExposedRect);
 }
 
 WebCore::FloatRect RemoteLayerTreeDrawingArea::exposedContentRect() const
 {
-    RefPtr frameView = m_webPage.localMainFrameView();
+    RefPtr frameView = m_webPage->localMainFrameView();
     if (!frameView)
         return FloatRect();
 
@@ -266,7 +271,7 @@ WebCore::FloatRect RemoteLayerTreeDrawingArea::exposedContentRect() const
 
 void RemoteLayerTreeDrawingArea::setExposedContentRect(const FloatRect& exposedContentRect)
 {
-    RefPtr frameView = m_webPage.localMainFrameView();
+    RefPtr frameView = m_webPage->localMainFrameView();
     if (!frameView)
         return;
     if (frameView->exposedContentRect() == exposedContentRect)
@@ -311,7 +316,8 @@ void RemoteLayerTreeDrawingArea::updateRendering()
     // This function is not reentrant, e.g. a rAF callback may force repaint.
     RELEASE_ASSERT(!m_inUpdateRendering);
 
-    if (auto* page = m_webPage.corePage(); page && !page->rootFrames().computeSize())
+    Ref webPage = m_webPage.get();
+    if (auto* page = webPage->corePage(); page && !page->rootFrames().computeSize())
         return;
 
     RELEASE_ASSERT(!m_updateRenderingTimer.isActive());
@@ -320,12 +326,12 @@ void RemoteLayerTreeDrawingArea::updateRendering()
     scaleViewToFitDocumentIfNeeded();
 
     SetForScope change(m_inUpdateRendering, true);
-    m_webPage.updateRendering();
-    m_webPage.flushPendingIntrinsicContentSizeUpdate();
+    webPage->updateRendering();
+    webPage->flushPendingIntrinsicContentSizeUpdate();
 
-    auto size = m_webPage.size();
+    auto size = webPage->size();
     FloatRect visibleRect(FloatPoint(), size);
-    if (RefPtr mainFrameView = m_webPage.localMainFrameView()) {
+    if (RefPtr mainFrameView = webPage->localMainFrameView()) {
         if (auto exposedRect = mainFrameView->viewExposedRect())
             visibleRect.intersect(*exposedRect);
     }
@@ -334,7 +340,7 @@ void RemoteLayerTreeDrawingArea::updateRendering()
     if (m_remoteLayerTreeContext->nextRenderingUpdateRequiresSynchronousImageDecoding())
         flags.add(FinalizeRenderingUpdateFlags::InvalidateImagesWithAsyncDecodes);
 
-    m_webPage.finalizeRenderingUpdate(flags);
+    webPage->finalizeRenderingUpdate(flags);
 
     willStartRenderingUpdateDisplay();
 
@@ -364,7 +370,7 @@ void RemoteLayerTreeDrawingArea::updateRendering()
         backingStoreCollection.willCommitLayerTree(layerTransaction);
 
         // FIXME: Investigate whether this needs to be done multiple times in a page with multiple root frames.
-        m_webPage.willCommitLayerTree(layerTransaction, rootLayer.frameID);
+        webPage->willCommitLayerTree(layerTransaction, rootLayer.frameID);
         
         layerTransaction.setNewlyReachedPaintingMilestones(std::exchange(m_pendingNewlyReachedPaintingMilestones, { }));
         layerTransaction.setActivityStateChangeID(std::exchange(m_activityStateChangeID, ActivityStateChangeAsynchronous));
@@ -375,8 +381,8 @@ void RemoteLayerTreeDrawingArea::updateRendering()
 
         RemoteScrollingCoordinatorTransaction scrollingTransaction;
 #if ENABLE(ASYNC_SCROLLING)
-        if (m_webPage.scrollingCoordinator())
-            scrollingTransaction = downcast<RemoteScrollingCoordinator>(*m_webPage.scrollingCoordinator()).buildTransaction();
+        if (webPage->scrollingCoordinator())
+            scrollingTransaction = downcast<RemoteScrollingCoordinator>(*webPage->scrollingCoordinator()).buildTransaction();
 #endif
         transactions.uncheckedAppend({ WTFMove(layerTransaction), WTFMove(scrollingTransaction) });
     }
@@ -393,9 +399,9 @@ void RemoteLayerTreeDrawingArea::updateRendering()
     m_pendingBackingStoreFlusher = backingStoreFlusher;
 
     if (haveFlushers)
-        m_webPage.didPaintLayers();
+        webPage->didPaintLayers();
 
-    auto pageID = m_webPage.identifier();
+    auto pageID = webPage->identifier();
     dispatch_async(m_commitQueue.get(), makeBlockPtr([backingStoreFlusher = WTFMove(backingStoreFlusher), pageID] () mutable {
         backingStoreFlusher->flush();
 
@@ -412,7 +418,7 @@ void RemoteLayerTreeDrawingArea::updateRendering()
 
 void RemoteLayerTreeDrawingArea::didCompleteRenderingUpdateDisplay()
 {
-    m_webPage.didFlushLayerTreeAtTime(MonotonicTime::now());
+    m_webPage->didFlushLayerTreeAtTime(MonotonicTime::now());
     DrawingArea::didCompleteRenderingUpdateDisplay();
 }
 
@@ -567,13 +573,14 @@ bool RemoteLayerTreeDrawingArea::scheduleRenderingUpdate()
 
 void RemoteLayerTreeDrawingArea::renderingUpdateFramesPerSecondChanged()
 {
-    auto preferredFramesPerSecond = m_webPage.corePage()->preferredRenderingUpdateFramesPerSecond();
+    auto* page = m_webPage->corePage();
+    auto preferredFramesPerSecond = page->preferredRenderingUpdateFramesPerSecond();
 
     if (preferredFramesPerSecond && preferredFramesPerSecond != m_preferredFramesPerSecond)
         setPreferredFramesPerSecond(*preferredFramesPerSecond);
 
     m_preferredFramesPerSecond = preferredFramesPerSecond;
-    m_preferredRenderingUpdateInterval = m_webPage.corePage()->preferredRenderingUpdateInterval();
+    m_preferredRenderingUpdateInterval = page->preferredRenderingUpdateInterval();
 }
 
 } // namespace WebKit

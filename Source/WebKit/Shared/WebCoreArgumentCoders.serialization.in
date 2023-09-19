@@ -1317,6 +1317,17 @@ struct WebCore::WebCodecsEncodedVideoChunkData {
 };
 #endif
 
+header: <WebCore/WebCodecsEncodedAudioChunk.h>
+#if ENABLE(WEB_CODECS)
+enum class WebCore::WebCodecsEncodedAudioChunkType : bool;
+struct WebCore::WebCodecsEncodedAudioChunkData {
+    WebCore::WebCodecsEncodedAudioChunkType type;
+    int64_t timestamp;
+    std::optional<uint64_t> duration;
+    Vector<uint8_t> buffer;
+};
+#endif
+
 struct WebCore::HTMLModelElementCamera {
     double pitch;
     double yaw;
@@ -1847,22 +1858,25 @@ enum class WebCore::DiagnosticLoggingDomain : uint8_t {
 };
 
 struct WebCore::WindowFeatures {
+    bool hasAdditionalFeatures;
+
     std::optional<float> x;
     std::optional<float> y;
     std::optional<float> width;
     std::optional<float> height;
 
-    bool menuBarVisible;
-    bool statusBarVisible;
-    bool toolBarVisible;
-    bool locationBarVisible;
-    bool scrollbarsVisible;
-    bool resizable;
+    std::optional<bool> popup;
+    std::optional<bool> menuBarVisible;
+    std::optional<bool> statusBarVisible;
+    std::optional<bool> toolBarVisible;
+    std::optional<bool> locationBarVisible;
+    std::optional<bool> scrollbarsVisible;
+    std::optional<bool> resizable;
 
-    bool fullscreen;
-    bool dialog;
-    [NotSerialized] bool noopener;
-    [NotSerialized] bool noreferrer;
+    std::optional<bool> fullscreen;
+    std::optional<bool> dialog;
+    [NotSerialized] std::optional<bool> noopener;
+    [NotSerialized] std::optional<bool> noreferrer;
 
     [NotSerialized] Vector<String> additionalFeatures;
 };
@@ -2665,6 +2679,18 @@ header: <WebCore/RenderStyleConstants.h>
     ViewBox
 };
 
+header: <WebCore/MotionPath.h>
+[CustomHeader] struct WebCore::MotionPathData {
+    WebCore::FloatRoundedRect containingBlockBoundingRect;
+    WebCore::FloatPoint offsetFromContainingBlock;
+    WebCore::FloatPoint usedStartingPosition;
+};
+
+[CustomHeader] class WebCore::TransformOperationData {
+    WebCore::FloatRect boundingBox();
+    std::optional<WebCore::MotionPathData> motionPathData();
+}
+
 header: <WebCore/PathOperation.h>
 [RefCounted, CustomHeader] class WebCore::ReferencePathOperation {
     std::optional<WebCore::Path> path();
@@ -2676,7 +2702,6 @@ header: <WebCore/PathOperation.h>
 }
 
 [RefCounted, CustomHeader] class WebCore::BoxPathOperation {
-    WebCore::Path path();
     WebCore::CSSBoxType referenceBox();
 }
 
@@ -2688,12 +2713,17 @@ header: <WebCore/PathOperation.h>
     Sides
 };
 
+header: <WebCore/LengthPoint.h>
+struct WebCore::LengthPoint {
+    WebCore::Length x();
+    WebCore::Length y();
+}
+
 [RefCounted, CustomHeader] class WebCore::RayPathOperation {
     float angle();
     WebCore::RayPathOperation::Size size();
     bool isContaining();
-    WebCore::FloatRect containingBlockBoundingRect();
-    WebCore::FloatPoint position();
+    WebCore::LengthPoint position();
 }
 
 [RefCounted] class WebCore::PathOperation subclasses {
@@ -3773,6 +3803,14 @@ header: <WebCore/MediaPlayer.h>
     std::optional<Vector<WebCore::FourCC>> allowedMediaAudioCodecIDs;
     std::optional<Vector<WebCore::FourCC>> allowedMediaCaptionFormatTypes;
 };
+
+header: <WebCore/MediaPlayer.h>
+[CustomHeader] struct WebCore::SeekTarget {
+    MediaTime time;
+    MediaTime negativeThreshold;
+    MediaTime positiveThreshold;
+};
+
 #endif
 
 enum class WebCore::MediaPlayerNetworkState : uint8_t {
@@ -5356,10 +5394,6 @@ enum class WebCore::StorageType : uint8_t {
 };
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
-struct WebCore::LengthPoint {
-    WebCore::Length x();
-    WebCore::Length y();
-}
 
 class WebCore::OffsetRotation {
     bool hasAuto();
@@ -5823,3 +5857,32 @@ header: <WebCore/InspectorOverlay.h>
 };
 
 #endif
+
+header: <WebCore/DiagnosticLoggingClient.h>
+[CustomHeader] struct WebCore::DiagnosticLoggingDictionary {
+    HashMap<String, std::variant<String, uint64_t, int64_t, bool, double>> dictionary;
+};
+
+using WebCore::ViewportConstraints::AnchorEdges = unsigned;
+
+header: <WebCore/ScrollingConstraints.h>
+[CustomHeader] class WebCore::FixedPositionViewportConstraints : WebCore::ViewportConstraints {
+    WebCore::FloatSize alignmentOffset();
+    WebCore::ViewportConstraints::AnchorEdges anchorEdges();
+    WebCore::FloatRect viewportRectAtLastLayout();
+    WebCore::FloatPoint layerPositionAtLastLayout();
+};
+
+[CustomHeader] class WebCore::StickyPositionViewportConstraints : WebCore::ViewportConstraints {
+    WebCore::FloatSize alignmentOffset();
+    WebCore::ViewportConstraints::AnchorEdges anchorEdges();
+    float leftOffset();
+    float rightOffset();
+    float topOffset();
+    float bottomOffset();
+    WebCore::FloatRect constrainingRectAtLastLayout();
+    WebCore::FloatRect containingBlockRect();
+    WebCore::FloatRect stickyBoxRect();
+    WebCore::FloatSize stickyOffsetAtLastLayout();
+    WebCore::FloatPoint layerPositionAtLastLayout();
+};

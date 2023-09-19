@@ -311,8 +311,8 @@ static void initiateFontLoadingByAccessingGlyphDataIfApplicable(const String& te
         fontVariant = NormalVariant;
     }
 #endif
-    for (size_t i = 0; i < textContent.length(); ++i)
-        fontCascade.glyphDataForCharacter(textContent[i], false, fontVariant);
+    for (UChar32 character : StringView(textContent).codePoints())
+        fontCascade.glyphDataForCharacter(character, false, fontVariant);
 }
 
 void RenderText::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
@@ -1344,7 +1344,7 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, HashSet<const Fo
     if (!style.autoWrap())
         m_minWidth = m_maxWidth;
 
-    if (style.whiteSpace() == WhiteSpace::Pre) {
+    if (style.whiteSpaceCollapse() == WhiteSpaceCollapse::Preserve && style.textWrap() == TextWrap::NoWrap) {
         if (firstLine)
             m_beginMinWidth = *m_maxWidth;
         m_endMinWidth = currMaxWidth;

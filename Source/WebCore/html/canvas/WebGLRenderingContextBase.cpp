@@ -34,6 +34,7 @@
 #include "DiagnosticLoggingClient.h"
 #include "DiagnosticLoggingKeys.h"
 #include "Document.h"
+#include "EXTBlendFuncExtended.h"
 #include "EXTBlendMinMax.h"
 #include "EXTClipControl.h"
 #include "EXTColorBufferFloat.h"
@@ -557,6 +558,13 @@ static constexpr GCGLenum errorCodeToGLenum(GCGLErrorCode error)
     }
     ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
     return GraphicsContextGL::INVALID_OPERATION;
+}
+
+static String ensureNotNull(const String& text)
+{
+    if (text.isNull())
+        return emptyString();
+    return text;
 }
 
 std::unique_ptr<WebGLRenderingContextBase> WebGLRenderingContextBase::create(CanvasBase& canvas, WebGLContextAttributes& attributes, WebGLVersion type)
@@ -1379,15 +1387,14 @@ void WebGLRenderingContextBase::blendEquationSeparate(GCGLenum modeRGB, GCGLenum
 
 void WebGLRenderingContextBase::blendFunc(GCGLenum sfactor, GCGLenum dfactor)
 {
-    if (isContextLost() || !validateBlendFuncFactors("blendFunc", sfactor, dfactor))
+    if (isContextLost())
         return;
     m_context->blendFunc(sfactor, dfactor);
 }
 
 void WebGLRenderingContextBase::blendFuncSeparate(GCGLenum srcRGB, GCGLenum dstRGB, GCGLenum srcAlpha, GCGLenum dstAlpha)
 {
-    // Note: Alpha does not have the same restrictions as RGB.
-    if (isContextLost() || !validateBlendFuncFactors("blendFunc", srcRGB, dstRGB))
+    if (isContextLost())
         return;
     m_context->blendFuncSeparate(srcRGB, dstRGB, srcAlpha, dstAlpha);
 }
@@ -1600,7 +1607,9 @@ RefPtr<WebGLProgram> WebGLRenderingContextBase::createProgram()
     if (isContextLost())
         return nullptr;
     auto program = WebGLProgram::create(*this);
-    InspectorInstrumentation::didCreateWebGLProgram(*this, program.get());
+    if (!program)
+        return nullptr;
+    InspectorInstrumentation::didCreateWebGLProgram(*this, *program);
     return program;
 }
 
@@ -1941,10 +1950,10 @@ void WebGLRenderingContextBase::framebufferRenderbuffer(GCGLenum target, GCGLenu
     }
 #endif
 
-    framebufferBinding->setAttachmentForBoundFramebuffer(target, attachment, buffer);
+    framebufferBinding->setAttachmentForBoundFramebuffer(target, attachment, RefPtr { buffer });
 }
 
-void WebGLRenderingContextBase::framebufferTexture2D(GCGLenum target, GCGLenum attachment, GCGLenum textarget, WebGLTexture* texture, GCGLint level)
+void WebGLRenderingContextBase::framebufferTexture2D(GCGLenum target, GCGLenum attachment, GCGLenum texTarget, WebGLTexture* texture, GCGLint level)
 {
     if (isContextLost() || !validateFramebufferFuncParameters("framebufferTexture2D", target, attachment))
         return;
@@ -1970,7 +1979,7 @@ void WebGLRenderingContextBase::framebufferTexture2D(GCGLenum target, GCGLenum a
     }
 #endif
 
-    framebufferBinding->setAttachmentForBoundFramebuffer(target, attachment, textarget, texture, level, 0);
+    framebufferBinding->setAttachmentForBoundFramebuffer(target, attachment, WebGLFramebuffer::TextureAttachment { texture, texTarget, level });
 }
 
 void WebGLRenderingContextBase::frontFace(GCGLenum mode)
@@ -2413,6 +2422,11 @@ WebGLAny WebGLRenderingContextBase::getParameter(GCGLenum pname)
         if (m_extClipControl)
             return getUnsignedIntParameter(pname);
         synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getParameter", "invalid parameter name, EXT_clip_control not enabled");
+        return nullptr;
+    case GraphicsContextGL::MAX_DUAL_SOURCE_DRAW_BUFFERS_EXT: // EXT_blend_func_extended
+        if (m_extBlendFuncExtended)
+            return getUnsignedIntParameter(pname);
+        synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getParameter", "invalid parameter name, EXT_blend_func_extended not enabled");
         return nullptr;
     case GraphicsContextGL::MAX_COLOR_ATTACHMENTS_EXT: // EXT_draw_buffers BEGIN
         if (m_webglDrawBuffers || isWebGL2())
@@ -2962,6 +2976,7 @@ bool WebGLRenderingContextBase::extensionIsEnabled(const String& name)
         return variable != nullptr;
 
     CHECK_EXTENSION(m_angleInstancedArrays, "ANGLE_instanced_arrays");
+    CHECK_EXTENSION(m_extBlendFuncExtended, "EXT_blend_func_extended");
     CHECK_EXTENSION(m_extBlendMinMax, "EXT_blend_minmax");
     CHECK_EXTENSION(m_extClipControl, "EXT_clip_control");
     CHECK_EXTENSION(m_extColorBufferFloat, "EXT_color_buffer_float");
@@ -5335,11 +5350,6 @@ WebGLFramebuffer* WebGLRenderingContextBase::getFramebufferBinding(GCGLenum targ
     return nullptr;
 }
 
-WebGLFramebuffer* WebGLRenderingContextBase::getReadFramebufferBinding()
-{
-    return m_framebufferBinding.get();
-}
-
 bool WebGLRenderingContextBase::validateFramebufferFuncParameters(const char* functionName, GCGLenum target, GCGLenum attachment)
 {
     if (!validateFramebufferTarget(target)) {
@@ -5363,18 +5373,6 @@ bool WebGLRenderingContextBase::validateFramebufferFuncParameters(const char* fu
         synthesizeGLError(GraphicsContextGL::INVALID_ENUM, functionName, "invalid attachment");
         return false;
     }
-}
-
-bool WebGLRenderingContextBase::validateBlendFuncFactors(const char* functionName, GCGLenum src, GCGLenum dst)
-{
-    if (((src == GraphicsContextGL::CONSTANT_COLOR || src == GraphicsContextGL::ONE_MINUS_CONSTANT_COLOR)
-        && (dst == GraphicsContextGL::CONSTANT_ALPHA || dst == GraphicsContextGL::ONE_MINUS_CONSTANT_ALPHA))
-        || ((dst == GraphicsContextGL::CONSTANT_COLOR || dst == GraphicsContextGL::ONE_MINUS_CONSTANT_COLOR)
-            && (src == GraphicsContextGL::CONSTANT_ALPHA || src == GraphicsContextGL::ONE_MINUS_CONSTANT_ALPHA))) {
-        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, "incompatible src and dst");
-        return false;
-    }
-    return true;
 }
 
 bool WebGLRenderingContextBase::validateCapability(const char* functionName, GCGLenum cap)
@@ -5684,13 +5682,6 @@ void WebGLRenderingContextBase::simulateEventForTesting(SimulatedEventForTesting
         m_context->simulateEventForTesting(event);
 }
 
-String WebGLRenderingContextBase::ensureNotNull(const String& text) const
-{
-    if (text.isNull())
-        return emptyString();
-    return text;
-}
-
 WebGLRenderingContextBase::LRUImageBufferCache::LRUImageBufferCache(int capacity)
     : m_buffers(capacity)
 {
@@ -5746,14 +5737,6 @@ void WebGLRenderingContextBase::synthesizeLostContextGLError(GCGLenum error, con
     m_contextLostState->errors.add(errorCode);
 }
 
-void WebGLRenderingContextBase::enableOrDisable(GCGLenum capability, bool enable)
-{
-    if (enable)
-        m_context->enable(capability);
-    else
-        m_context->disable(capability);
-}
-
 IntSize WebGLRenderingContextBase::clampedCanvasSize()
 {
     IntSize canvasSize { static_cast<int>(canvasBase().width()), static_cast<int>(canvasBase().height()) };
@@ -5792,17 +5775,6 @@ void WebGLRenderingContextBase::setFramebuffer(const AbstractLocker&, GCGLenum t
     if (target == GraphicsContextGL::FRAMEBUFFER || target == GraphicsContextGL::DRAW_FRAMEBUFFER)
         m_framebufferBinding = buffer;
     m_context->bindFramebuffer(target, objectOrZero(buffer));
-}
-
-void WebGLRenderingContextBase::restoreCurrentFramebuffer()
-{
-    bindFramebuffer(GraphicsContextGL::FRAMEBUFFER, m_framebufferBinding.get());
-}
-
-void WebGLRenderingContextBase::restoreCurrentTexture2D()
-{
-    auto texture = m_textureUnits[m_activeTextureUnit].texture2DBinding.get();
-    bindTexture(GraphicsContextGL::TEXTURE_2D, texture);
 }
 
 bool WebGLRenderingContextBase::supportsDrawBuffers()
@@ -5890,6 +5862,7 @@ template<typename T> void loseExtension(RefPtr<T> extension)
 void WebGLRenderingContextBase::loseExtensions(LostContextMode mode)
 {
     loseExtension(WTFMove(m_angleInstancedArrays));
+    loseExtension(WTFMove(m_extBlendFuncExtended));
     loseExtension(WTFMove(m_extBlendMinMax));
     loseExtension(WTFMove(m_extClipControl));
     loseExtension(WTFMove(m_extColorBufferFloat));

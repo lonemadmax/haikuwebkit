@@ -59,8 +59,7 @@ class InlineFormattingContext final : public FormattingContext {
 public:
     InlineFormattingContext(const ElementBox& formattingContextRoot, InlineFormattingState&);
 
-    InlineLayoutResult layoutInFlowAndFloatContent(const ConstraintsForInlineContent&, InlineLayoutState&, const InlineDamage* = nullptr);
-    void layoutOutOfFlowContent(const ConstraintsForInlineContent&, InlineLayoutState&, const InlineDisplay::Content&);
+    InlineLayoutResult layout(const ConstraintsForInlineContent&, InlineLayoutState&, const InlineDamage* = nullptr);
     IntrinsicWidthConstraints computedIntrinsicSizes(const InlineDamage*);
     LayoutUnit maximumContentSize();
 
@@ -71,18 +70,17 @@ public:
 private:
     InlineLayoutResult lineLayout(AbstractLineBuilder&, const InlineItems&, InlineItemRange, std::optional<PreviousLine>, const ConstraintsForInlineContent&, InlineLayoutState&, const InlineDamage* = nullptr);
     void layoutFloatContentOnly(const ConstraintsForInlineContent&, FloatingState&);
-    void computeStaticPositionForOutOfFlowContent(const FormattingState::OutOfFlowBoxList&, const ConstraintsForInFlowContent&, const InlineDisplay::Content&, const FloatingState&);
 
     void collectContentIfNeeded();
-    InlineRect createDisplayContentForLine(size_t lineIndex, const LineLayoutResult&, const ConstraintsForInlineContent&, const InlineLayoutState&, InlineDisplay::Content&);
+    InlineRect createDisplayContentForInlineContent(size_t lineIndex, const LineLayoutResult&, const ConstraintsForInlineContent&, InlineLayoutState&, InlineDisplay::Content&);
+    void updateBoxGeometryForPlacedFloats(const LineLayoutResult::PlacedFloatList&);
     void resetGeometryForClampedContent(const InlineItemRange& needsDisplayContentRange, const LineLayoutResult::SuspendedFloatList& suspendedFloats, LayoutPoint topleft);
-    bool createDisplayContentForLineFromCachedContent(const ConstraintsForInlineContent&, const InlineLayoutState&, InlineLayoutResult&);
+    bool createDisplayContentForLineFromCachedContent(const ConstraintsForInlineContent&, InlineLayoutState&, InlineLayoutResult&);
 
     InlineFormattingState& formattingState() { return downcast<InlineFormattingState>(FormattingContext::formattingState()); }
 
     const InlineFormattingGeometry m_inlineFormattingGeometry;
     const InlineFormattingQuirks m_inlineFormattingQuirks;
-    std::optional<IntrinsicWidthHandler::LineBreakingResult> m_maximumIntrinsicWidthResultForSingleLine { };
 };
 
 }

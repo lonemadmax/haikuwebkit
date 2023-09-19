@@ -50,8 +50,9 @@ struct ComputedStyleDependencies {
     Vector<CSSPropertyID> properties;
     Vector<CSSPropertyID> rootProperties;
     bool containerDimensions { false };
+    bool viewportDimensions { false };
 
-    bool isEmpty() const { return properties.isEmpty() && rootProperties.isEmpty() && !containerDimensions; }
+    bool isComputationallyIndependent() const { return properties.isEmpty() && rootProperties.isEmpty() && !containerDimensions; }
 };
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSValue);
@@ -130,6 +131,7 @@ public:
     bool isUnicodeRangeValue() const { return m_classType == UnicodeRangeClass; }
     bool isValueList() const { return m_classType == ValueListClass; }
     bool isVariableReferenceValue() const { return m_classType == VariableReferenceClass; }
+    bool isXywhShape() const { return m_classType == XywhShapeClass; }
 
 #if ENABLE(CSS_PAINTING_API)
     bool isPaintImageValue() const { return m_classType == PaintImageClass; }
@@ -254,6 +256,7 @@ protected:
         UnicodeRangeClass,
         ValuePairClass,
         VariableReferenceClass,
+        XywhShapeClass,
 
         // Classes that contain vectors, which derive from CSSValueContainingVector.
         ValueListClass,

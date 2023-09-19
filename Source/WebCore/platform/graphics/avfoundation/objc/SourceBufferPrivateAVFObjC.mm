@@ -1363,9 +1363,10 @@ void SourceBufferPrivateAVFObjC::willSeek()
 
 void SourceBufferPrivateAVFObjC::seekToTime(const MediaTime& time)
 {
-    m_seeking = false;
+    m_seeking = false; // m_seeking must be set to false first, otherwise reenqueueMediaForTime will drop the sample.
     SourceBufferPrivate::seekToTime(time);
 }
+
 FloatSize SourceBufferPrivateAVFObjC::naturalSize()
 {
     return valueOrDefault(m_cachedSize);

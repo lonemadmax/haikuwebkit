@@ -607,6 +607,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/webcodecs/VideoColorSpaceInit.h
     Modules/webcodecs/WebCodecsAlphaOption.h
+    Modules/webcodecs/WebCodecsAudioData.h
+    Modules/webcodecs/WebCodecsAudioInternalData.h
+    Modules/webcodecs/WebCodecsEncodedAudioChunk.h
+    Modules/webcodecs/WebCodecsEncodedAudioChunkData.h
+    Modules/webcodecs/WebCodecsEncodedAudioChunkType.h
     Modules/webcodecs/WebCodecsEncodedVideoChunk.h
     Modules/webcodecs/WebCodecsEncodedVideoChunkData.h
     Modules/webcodecs/WebCodecsEncodedVideoChunkType.h
@@ -1179,7 +1184,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/HTMLMediaElementEnums.h
     html/HTMLMediaElementIdentifier.h
     html/HTMLMenuElement.h
-    html/HTMLMenuItemElement.h
     html/HTMLMetaElement.h
     html/HTMLModElement.h
     html/HTMLOListElement.h
@@ -1214,6 +1218,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/ImageBitmap.h
     html/ImageBitmapBacking.h
     html/ImageData.h
+    html/ImageDataSettings.h
     html/ImageDocument.h
     html/InputMode.h
     html/LinkIconCollector.h
@@ -1237,6 +1242,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/VoidCallback.h
 
     html/canvas/ImageBitmapRenderingContextSettings.h
+    html/canvas/PredefinedColorSpace.h
     html/canvas/WebGLAny.h
     html/canvas/WebGLContextAttributes.h
     html/canvas/WebGLExtensionAny.h
@@ -1364,6 +1370,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     loader/LinkLoader.h
     loader/LinkLoaderClient.h
     loader/LoadSchedulingMode.h
+    loader/LoaderMalloc.h
     loader/LoaderStrategy.h
     loader/LocalFrameLoaderClient.h
     loader/MediaResourceLoader.h
@@ -1465,7 +1472,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/Frame.h
     page/FrameDestructionObserver.h
     page/FrameDestructionObserverInlines.h
-    page/FrameFlattening.h
     page/FrameIdentifier.h
     page/FrameSnapshotting.h
     page/FrameTree.h
@@ -1595,6 +1601,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/scrolling/ThreadedScrollingTree.h
 
     platform/AbortableTaskQueue.h
+    platform/AudioSampleFormat.h
     platform/CaretAnimator.h
     platform/CPUMonitor.h
     platform/ColorChooser.h
@@ -1770,9 +1777,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/audio/PlatformAudioData.h
     platform/audio/PlatformMediaSession.h
     platform/audio/PlatformMediaSessionManager.h
+    platform/audio/PlatformRawAudioData.h
     platform/audio/PushPullFIFO.h
-
-    platform/audio/gstreamer/AudioDestinationGStreamer.h
 
     platform/calc/CalcExpressionNode.h
     platform/calc/CalculationValue.h
@@ -2027,16 +2033,12 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/displaylists/DisplayList.h
     platform/graphics/displaylists/DisplayListDrawingContext.h
     platform/graphics/displaylists/DisplayListImageBuffer.h
-    platform/graphics/displaylists/DisplayListItemBuffer.h
-    platform/graphics/displaylists/DisplayListItemBufferIdentifier.h
-    platform/graphics/displaylists/DisplayListItemType.h
+    platform/graphics/displaylists/DisplayListItem.h
     platform/graphics/displaylists/DisplayListItems.h
-    platform/graphics/displaylists/DisplayListIterator.h
     platform/graphics/displaylists/DisplayListRecorder.h
     platform/graphics/displaylists/DisplayListRecorderImpl.h
     platform/graphics/displaylists/DisplayListReplayer.h
     platform/graphics/displaylists/DisplayListResourceHeap.h
-    platform/graphics/displaylists/InMemoryDisplayList.h
 
     platform/graphics/cv/ImageTransferSessionVT.h
 
@@ -2098,6 +2100,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/transforms/Matrix3DTransformOperation.h
     platform/graphics/transforms/MatrixTransformOperation.h
     platform/graphics/transforms/PerspectiveTransformOperation.h
+    platform/graphics/transforms/Quaternion.h
     platform/graphics/transforms/RotateTransformOperation.h
     platform/graphics/transforms/ScaleTransformOperation.h
     platform/graphics/transforms/SkewTransformOperation.h
@@ -2152,8 +2155,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/mediastream/VideoPreset.h
     platform/mediastream/WebAudioSourceProvider.h
     platform/mediastream/WebRTCProvider.h
-
-    platform/mediastream/gstreamer/GStreamerWebRTCProvider.h
 
     platform/mediastream/libwebrtc/LibWebRTCEnumTraits.h
     platform/mediastream/libwebrtc/LibWebRTCMacros.h
@@ -2272,6 +2273,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/LegacyLineLayout.h
     rendering/LegacyRootInlineBox.h
     rendering/MarkedText.h
+    rendering/MotionPath.h
     rendering/OrderIterator.h
     rendering/OverlapTestRequestClient.h
     rendering/Pagination.h
@@ -2388,8 +2390,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/svg/RenderSVGModelObject.h
     rendering/svg/SVGBoundingBoxComputation.h
     rendering/svg/SVGRenderSupport.h
-
-    replay/UserInputBridge.h
 
     storage/Storage.h
     storage/StorageArea.h

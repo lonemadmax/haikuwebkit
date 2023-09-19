@@ -135,6 +135,13 @@ full-width
 proportional-width
 ruby
 
+// font-variant-emoji
+//
+// normal
+// text
+emoji
+unicode
+
 //
 // CSS_PROP_FONT_WEIGHT:
 //
@@ -950,7 +957,6 @@ exclude
 // Variables Implementation
 //
 var
--internal-variable-value
 
 //
 // Environment Variables
@@ -1423,6 +1429,7 @@ fill-box
 
 // motion path
 path
+xywh
 
 calc
 -webkit-calc

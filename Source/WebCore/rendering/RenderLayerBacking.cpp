@@ -289,7 +289,7 @@ void RenderLayerBacking::willDestroyLayer(const GraphicsLayer* layer)
         compositor().layerTiledBackingUsageChanged(layer, false);
 }
 
-static void clearBackingSharingLayerProviders(Vector<WeakPtr<RenderLayer>>& sharingLayers, const RenderLayer& providerLayer)
+static void clearBackingSharingLayerProviders(const Vector<WeakPtr<RenderLayer>>& sharingLayers, const RenderLayer& providerLayer)
 {
     for (auto& layerWeakPtr : sharingLayers) {
         if (!layerWeakPtr)
@@ -314,14 +314,14 @@ void RenderLayerBacking::setBackingSharingLayers(Vector<WeakPtr<RenderLayer>>&& 
 
     clearBackingSharingLayerProviders(m_backingSharingLayers, m_owningLayer);
 
-    if (sharingLayers != m_backingSharingLayers) {
+    ASSERT(sharingLayersChanged == (m_backingSharingLayers != sharingLayers));
+    if (sharingLayersChanged) {
         if (sharingLayers.size())
             setRequiresOwnBackingStore(true);
         setContentsNeedDisplay(); // This could be optimized to only repaint rects for changed layers.
     }
 
-    auto oldSharingLayers = WTFMove(m_backingSharingLayers);
-    m_backingSharingLayers = WTFMove(sharingLayers);
+    auto oldSharingLayers = std::exchange(m_backingSharingLayers, WTFMove(sharingLayers));
 
     for (auto& layerWeakPtr : m_backingSharingLayers)
         layerWeakPtr->setBackingProviderLayer(&m_owningLayer);
@@ -338,7 +338,8 @@ void RenderLayerBacking::setBackingSharingLayers(Vector<WeakPtr<RenderLayer>>&& 
 void RenderLayerBacking::removeBackingSharingLayer(RenderLayer& layer)
 {
     layer.setBackingProviderLayer(nullptr);
-    m_backingSharingLayers.removeAll(&layer);
+    m_backingSharingLayers.removeFirst(&layer);
+    ASSERT(!m_backingSharingLayers.contains(&layer));
 }
 
 void RenderLayerBacking::clearBackingSharingLayers()
@@ -1668,8 +1669,7 @@ void RenderLayerBacking::updateAfterDescendants()
         m_graphicsLayer->setContentsOpaque(!m_hasSubpixelRounding && m_owningLayer.backgroundIsKnownToBeOpaqueInRect(compositedBounds()));
     }
 
-    bool isSkippedContent = renderer().isSkippedContent();
-    m_graphicsLayer->setContentsVisible(!isSkippedContent && (m_owningLayer.hasVisibleContent() || hasVisibleNonCompositedDescendants()));
+    m_graphicsLayer->setContentsVisible(m_owningLayer.hasVisibleContent() || hasVisibleNonCompositedDescendants());
     if (m_scrollContainerLayer) {
         m_scrollContainerLayer->setContentsVisible(renderer().style().visibility() == Visibility::Visible);
 
