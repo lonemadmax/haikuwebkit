@@ -54,6 +54,8 @@ class BitmapRef: public BBitmap, public RefCounted<BitmapRef>
         {
         }
 
+        using BBitmap::BBitmap;
+
         BitmapRef(const BBitmap& other)
             : BBitmap(other)
         {
