@@ -49,6 +49,7 @@
 #include "WebEventConversion.h"
 #include "WebEventFactory.h"
 #include "WebImage.h"
+#include "WebKeyboardEvent.h"
 #include "WebPage.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
