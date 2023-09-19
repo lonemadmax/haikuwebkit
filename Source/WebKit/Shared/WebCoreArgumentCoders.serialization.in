@@ -1882,7 +1882,7 @@ header: <WebCore/ResourceRequest.h>
 };
 #endif
 
-#if !USE(CURL) && !PLATFORM(COCOA)
+#if !USE(CURL) && !PLATFORM(COCOA) && !PLATFORM(HAIKU)
 header: <WebCore/ResourceRequest.h>
 [CreateUsing=fromResourceRequestData] class WebCore::ResourceRequest {
     std::variant<WebCore::ResourceRequest::RequestData, WebCore::ResourceRequestPlatformData> getRequestDataToSerialize();
