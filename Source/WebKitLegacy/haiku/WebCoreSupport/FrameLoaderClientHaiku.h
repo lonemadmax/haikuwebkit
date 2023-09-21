@@ -217,6 +217,7 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
 
     void sendH2Ping(const WTF::URL&, WTF::CompletionHandler<void(std::experimental::fundamentals_v3::expected<WTF::Seconds, WebCore::ResourceError>&&)>&&) final { notImplemented(); }
     ResourceError httpsUpgradeRedirectLoopError(const ResourceRequest&) const final { notImplemented(); }
+    ResourceError httpNavigationWithHTTPSOnlyError(const ResourceRequest&) const final { notImplemented(); }
  private:
     bool isTertiaryMouseButton(const NavigationAction& action) const;
 

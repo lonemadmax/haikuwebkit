@@ -797,14 +797,14 @@ IntRect GraphicsContextHaiku::clipBounds() const
 }
 
 
-void GraphicsContextHaiku::save()
+void GraphicsContextHaiku::save(GraphicsContextState::Purpose)
 {
     HGTRACE(("save: no values\n"));
     m_view->PushState();
     GraphicsContext::save();
 }
 
-void GraphicsContextHaiku::restore()
+void GraphicsContextHaiku::restore(GraphicsContextState::Purpose)
 {
     HGTRACE(("restore: no values\n"));
     GraphicsContext::restore();

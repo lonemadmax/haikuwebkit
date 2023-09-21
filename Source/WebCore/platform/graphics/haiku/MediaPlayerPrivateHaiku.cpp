@@ -48,7 +48,7 @@ private:
         return makeUnique<MediaPlayerPrivate>(player);
     }
 
-    void getSupportedTypes(HashSet<String, ASCIICaseInsensitiveHash>& types) const final
+    void getSupportedTypes(HashSet<String>& types) const final
     {
         return MediaPlayerPrivate::getSupportedTypes(types);
     }
@@ -258,7 +258,7 @@ float MediaPlayerPrivate::currentTime() const
     return m_currentTime;
 }
 
-void MediaPlayerPrivate::seek(float time)
+void MediaPlayerPrivate::seekToTarget(const SeekTarget& time)
 {
     // TODO we should make sure the cache is ready to serve this. The idea is:
     // * Seek the tracks using SeekToTime
@@ -269,7 +269,7 @@ void MediaPlayerPrivate::seek(float time)
     // Generally, we shouldn't let the reads to the cache return uninitialized
     // data. Note that we will probably need HTTP range requests support.
 
-    bigtime_t newTime = (bigtime_t)(time * 1000000);
+    bigtime_t newTime = (bigtime_t)(time.time.toDouble() * 1000000);
     // Usually, seeking the video is rounded to the nearest keyframe. This
     // modifies newTime, and we pass the adjusted value to the audio track, to
     // keep them in sync
@@ -383,9 +383,9 @@ void MediaPlayerPrivate::IdentifyTracks(const String& url)
 
 // #pragma mark - static methods
 
-static HashSet<String, WTF::ASCIICaseInsensitiveHash> mimeTypeCache()
+static HashSet<String> mimeTypeCache()
 {
-    static NeverDestroyed<HashSet<String, WTF::ASCIICaseInsensitiveHash>> cache;
+    static NeverDestroyed<HashSet<String>> cache;
     static bool typeListInitialized = false;
 
     if (typeListInitialized)
@@ -403,7 +403,7 @@ static HashSet<String, WTF::ASCIICaseInsensitiveHash> mimeTypeCache()
     return cache;
 }
 
-void MediaPlayerPrivate::getSupportedTypes(HashSet<String, WTF::ASCIICaseInsensitiveHash>& types)
+void MediaPlayerPrivate::getSupportedTypes(HashSet<String>& types)
 {
     types = mimeTypeCache();
 }

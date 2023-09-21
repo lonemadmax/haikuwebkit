@@ -118,7 +118,7 @@ std::unique_ptr<ImageBufferHaikuSurfaceBackend>
 ImageBufferHaikuSurfaceBackend::create(const ImageBufferBackend::Parameters& parameters,
     const GraphicsContext&)
 {
-    return create(parameters, ImageBufferCreationContext(nullptr));
+    return create(parameters, ImageBufferCreationContext());
 }
 
 

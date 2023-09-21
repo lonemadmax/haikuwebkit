@@ -85,8 +85,8 @@ public:
     void endTransparencyLayer() override;
     IntRect clipBounds() const override;
 
-    void save() override;
-    void restore() override;
+    void save(GraphicsContextState::Purpose) override;
+    void restore(GraphicsContextState::Purpose) override;
 
     void drawBitmap(BBitmap*, const FloatSize& selfSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& = { });
     void drawBitmap(BBitmap*, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& = { });

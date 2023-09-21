@@ -72,7 +72,7 @@ class MediaPlayerPrivate : public MediaPlayerPrivateInterface,
         float duration() const override;
         float currentTime() const override;
 
-        void seek(float) override;
+        void seekToTarget(const SeekTarget&) final;
         bool seeking() const override;
         bool paused() const override;
 
@@ -97,7 +97,7 @@ class MediaPlayerPrivate : public MediaPlayerPrivateInterface,
             const media_raw_audio_format&);
 
         // engine support
-        static void getSupportedTypes(HashSet<String, WTF::ASCIICaseInsensitiveHash>& types);
+        static void getSupportedTypes(WTF::HashSet<WTF::String>&);
         static MediaPlayer::SupportsType supportsType(const MediaEngineSupportParameters&);
 
         mutable bool m_didReceiveData;
