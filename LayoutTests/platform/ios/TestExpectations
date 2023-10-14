@@ -1035,6 +1035,7 @@ fast/forms/validation-message-maxLength.html [ Skip ]
 fast/forms/ValidityState-valueMissing-002.html [ Skip ]
 fast/frames/focus-controller-crash-change-event.html
 fast/html/details-keyboard-show-hide.html [ Skip ]
+fast/html/details-no-summary-keyboard-show-hide.html [ Skip ]
 fast/html/transient-activation.html [ Skip ]
 fast/shadow-dom/activate-over-slotted-content.html [ Skip ]
 fast/shadow-dom/clear-active-state-in-shadow.html [ Skip ]
@@ -1139,6 +1140,7 @@ fast/css/resize-below-min-size-zoomed.html [ Skip ]
 fast/css/resize-below-min-size.html [ Skip ]
 fast/css/resize-corner-tracking.html [ Skip ]
 fast/css/resize-orthogonal-containing-block.html [ Skip ]
+fast/css/resize-rtl.html [ Skip ]
 fast/css/resize-single-axis.html [ Skip ]
 fast/events/mouse-events-on-textarea-resize.html [ Skip ]
 
@@ -2304,7 +2306,6 @@ imported/blink/fast/pagination/div-x-vertical-lr-ltr.html [ ImageOnlyFailure ]
 imported/blink/fast/pagination/div-x-vertical-lr-rtl.html [ ImageOnlyFailure ]
 imported/blink/fast/pagination/viewport-x-vertical-lr-ltr.html [ ImageOnlyFailure ]
 imported/blink/fast/pagination/viewport-x-vertical-lr-rtl.html [ ImageOnlyFailure ]
-fast/multicol/newmulticol/hide-box-vertical-lr.html [ ImageOnlyFailure ]
 
 # Failing tests related to picture element
 webkit.org/b/152141 fast/picture/image-picture-1x.html [ Skip ]
@@ -3636,6 +3637,9 @@ webkit.org/b/237955 imported/w3c/web-platform-tests/css/css-contain/content-visi
 
 webkit.org/b/239625 imported/w3c/web-platform-tests/css/css-color/opacity-overlapping-letters.html [ ImageOnlyFailure ]
 
+imported/w3c/web-platform-tests/css/css-color/system-color-hightlights-vs-getSelection-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-color/system-color-hightlights-vs-getSelection-002.html [ ImageOnlyFailure ]
+
 webkit.org/b/239567 tables/mozilla/bugs/bug26178.html [ Pass Failure ]
 
 webkit.org/b/240037 css3/background/background-repeat-space-content.html [ Pass ImageOnlyFailure ]
@@ -4370,8 +4374,6 @@ imported/w3c/web-platform-tests/html/dom/elements/global-attributes/dir_auto-tex
 
 webkit.org/b/259228 [ Release ] fast/dom/lazy-image-loading-document-leak.html [ Pass Failure ]
 
-webkit.org/b/259379 http/wpt/webcodecs/videoFrame-video-element.html [ Pass Failure ]
-
 # rdar://102857582 (iOS17-iOS-Simulator queues timing out before finishing layout tests)
 fast/events/ios/rotation/ [ Skip ]
 
@@ -4595,3 +4597,9 @@ webkit.org/b/257904 http/tests/site-isolation/basic-iframe.html [ Skip ]
 # Initial css/compositing test import
 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-both-parent-and-blended-with-3D-transform.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-parent-with-text.html [ ImageOnlyFailure ]
+
+imported/w3c/web-platform-tests/css/filter-effects/backdrop-filter-clip-rect.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/filter-effects/effect-reference-feimage-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/filter-effects/effect-reference-feimage-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/filter-effects/filter-function/filter-function-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/filter-effects/svg-image-root-filter.html [ ImageOnlyFailure ]

@@ -244,7 +244,7 @@ void SVGRenderSupport::layoutChildren(RenderElement& start, bool selfNeedsLayout
 {
     bool layoutSizeChanged = layoutSizeOfNearestViewportChanged(start);
     bool transformChanged = transformToRootChanged(&start);
-    HashSet<RenderElement*> elementsThatDidNotReceiveLayout;
+    WeakHashSet<RenderElement> elementsThatDidNotReceiveLayout;
 
     for (auto& child : childrenOfType<RenderObject>(start)) {
         bool needsLayout = selfNeedsLayout;
@@ -287,19 +287,19 @@ void SVGRenderSupport::layoutChildren(RenderElement& start, bool selfNeedsLayout
             if (!childEverHadLayout)
                 child.repaint();
         } else if (layoutSizeChanged && is<RenderElement>(child))
-            elementsThatDidNotReceiveLayout.add(&downcast<RenderElement>(child));
+            elementsThatDidNotReceiveLayout.add(downcast<RenderElement>(child));
 
         ASSERT(!child.needsLayout());
     }
 
     if (!layoutSizeChanged) {
-        ASSERT(elementsThatDidNotReceiveLayout.isEmpty());
+        ASSERT(elementsThatDidNotReceiveLayout.isEmptyIgnoringNullReferences());
         return;
     }
 
     // If the layout size changed, invalidate all resources of all children that didn't go through the layout() code path.
-    for (auto* element : elementsThatDidNotReceiveLayout)
-        invalidateResourcesOfChildren(*element);
+    for (auto& element : elementsThatDidNotReceiveLayout)
+        invalidateResourcesOfChildren(element);
 }
 
 bool SVGRenderSupport::isOverflowHidden(const RenderElement& renderer)
@@ -347,6 +347,7 @@ inline FloatRect clipPathReferenceBox(const RenderElement& renderer, CSSBoxType 
     case CSSBoxType::BorderBox:
     case CSSBoxType::MarginBox:
     case CSSBoxType::StrokeBox:
+    case CSSBoxType::BoxMissing:
         // FIXME: strokeBoundingBox() takes dasharray into account but shouldn't.
         referenceBox = renderer.strokeBoundingBox();
         break;
@@ -361,7 +362,6 @@ inline FloatRect clipPathReferenceBox(const RenderElement& renderer, CSSBoxType 
     case CSSBoxType::ContentBox:
     case CSSBoxType::FillBox:
     case CSSBoxType::PaddingBox:
-    case CSSBoxType::BoxMissing:
         referenceBox = renderer.objectBoundingBox();
         break;
     }

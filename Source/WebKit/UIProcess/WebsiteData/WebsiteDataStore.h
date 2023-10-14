@@ -39,6 +39,7 @@
 #include <WebCore/SecurityOriginData.h>
 #include <WebCore/SecurityOriginHash.h>
 #include <pal/SessionID.h>
+#include <wtf/CheckedRef.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
 #include <wtf/Identified.h>
@@ -107,6 +108,7 @@ enum class WebsiteDataFetchOption : uint8_t;
 enum class WebsiteDataType : uint32_t;
 
 struct NetworkProcessConnectionInfo;
+struct WebPushMessage;
 struct WebsiteDataRecord;
 struct WebsiteDataStoreParameters;
 
@@ -116,7 +118,7 @@ enum class StorageAccessStatus : uint8_t;
 enum class StorageAccessPromptStatus;
 #endif
 
-class WebsiteDataStore : public API::ObjectImpl<API::Object::Type::WebsiteDataStore>, public Identified<WebsiteDataStore>, public CanMakeWeakPtr<WebsiteDataStore>  {
+class WebsiteDataStore : public API::ObjectImpl<API::Object::Type::WebsiteDataStore>, public Identified<WebsiteDataStore>, public CanMakeWeakPtr<WebsiteDataStore>, public CanMakeCheckedPtr {
 public:
     static Ref<WebsiteDataStore> defaultDataStore();
     static bool defaultDataStoreExists();
@@ -433,7 +435,7 @@ public:
 
     void countNonDefaultSessionSets(CompletionHandler<void(size_t)>&&);
 
-    void showServiceWorkerNotification(IPC::Connection&, const WebCore::NotificationData&);
+    bool showPersistentNotification(IPC::Connection*, const WebCore::NotificationData&);
     void cancelServiceWorkerNotification(const WTF::UUID& notificationID);
     void clearServiceWorkerNotification(const WTF::UUID& notificationID);
     void didDestroyServiceWorkerNotification(const WTF::UUID& notificationID);
@@ -474,7 +476,9 @@ public:
     void setProxyConfigData(Vector<std::pair<Vector<uint8_t>, WTF::UUID>>&&);
 #endif
     void setCompletionHandlerForRemovalFromNetworkProcess(CompletionHandler<void(String&&)>&&);
-    
+
+    void processPushMessage(WebPushMessage&&, CompletionHandler<void(bool)>&&);
+
 private:
     enum class ForceReinitialization : bool { No, Yes };
 #if ENABLE(APP_BOUND_DOMAINS)

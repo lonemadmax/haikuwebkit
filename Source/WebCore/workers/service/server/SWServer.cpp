@@ -70,12 +70,6 @@ SWServer::Connection::~Connection()
         request.callback({ });
 }
 
-HashSet<SWServer*>& SWServer::allServers()
-{
-    static NeverDestroyed<HashSet<SWServer*>> servers;
-    return servers;
-}
-
 SWServer::~SWServer()
 {
     // Destroy the remaining connections before the SWServer gets destroyed since they have a raw pointer
@@ -93,8 +87,6 @@ SWServer::~SWServer()
     }
     for (auto& runningWorker : runningWorkers)
         runningWorker->terminate();
-
-    allServers().remove(this);
 }
 
 SWServerWorker* SWServer::workerByID(ServiceWorkerIdentifier identifier) const
@@ -422,7 +414,6 @@ SWServer::SWServer(SWServerDelegate& delegate, UniqueRef<SWOriginStore>&& origin
         registrationStoreImportComplete();
 
     UNUSED_PARAM(registrationDatabaseDirectory);
-    allServers().add(this);
 }
 
 unsigned SWServer::maxRegistrationCount()
@@ -452,7 +443,7 @@ void SWServer::validateRegistrationDomain(WebCore::RegistrableDomain domain, Ser
         return;
     }
 
-    m_delegate->appBoundDomains([this, weakThis = WeakPtr { *this }, domain = WTFMove(domain), jobTypeAllowed, completionHandler = WTFMove(completionHandler)](auto&& appBoundDomains) mutable {
+    m_delegate->appBoundDomains([this, weakThis = WeakPtr { *this }, domain = WTFMove(domain), jobTypeAllowed, completionHandler = WTFMove(completionHandler)](HashSet<RegistrableDomain>&& appBoundDomains) mutable {
         if (!weakThis)
             return;
         m_hasReceivedAppBoundDomains = true;
@@ -587,7 +578,7 @@ void SWServer::startScriptFetch(const ServiceWorkerJobData& jobData, SWServerReg
         // This is a soft-update job, create directly a network load to fetch the script.
         auto request = createScriptRequest(jobData.scriptURL, jobData, registration);
         request.setHTTPHeaderField(HTTPHeaderName::ServiceWorker, "script"_s);
-        m_delegate->softUpdate(ServiceWorkerJobData { jobData }, shouldRefreshCache, WTFMove(request), [weakThis = WeakPtr { *this }, jobDataIdentifier = jobData.identifier(), registrationKey = jobData.registrationKey()](auto&& result) {
+        m_delegate->softUpdate(ServiceWorkerJobData { jobData }, shouldRefreshCache, WTFMove(request), [weakThis = WeakPtr { *this }, jobDataIdentifier = jobData.identifier(), registrationKey = jobData.registrationKey()](WorkerFetchResult&& result) {
             std::optional<ProcessIdentifier> requestingProcessIdentifier;
             if (weakThis)
                 weakThis->scriptFetchFinished(jobDataIdentifier, registrationKey, requestingProcessIdentifier, WTFMove(result));
@@ -645,7 +636,7 @@ void SWServer::refreshImportedScripts(const ServiceWorkerJobData& jobData, SWSer
     bool shouldRefreshCache = registration.updateViaCache() == ServiceWorkerUpdateViaCache::None || (registration.getNewestWorker() && registration.isStale());
     auto handler = RefreshImportedScriptsHandler::create(urls.size(), WTFMove(callback));
     for (auto& url : urls) {
-        m_delegate->softUpdate(ServiceWorkerJobData { jobData }, shouldRefreshCache, createScriptRequest(url, jobData, registration), [handler, url, size = urls.size()](auto&& result) {
+        m_delegate->softUpdate(ServiceWorkerJobData { jobData }, shouldRefreshCache, createScriptRequest(url, jobData, registration), [handler, url, size = urls.size()](WorkerFetchResult&& result) {
             handler->add(url, WTFMove(result));
         });
     }
@@ -1480,12 +1471,12 @@ void SWServer::softUpdate(SWServerRegistration& registration)
     scheduleJob(WTFMove(jobData));
 }
 
-void SWServer::processPushMessage(std::optional<Vector<uint8_t>>&& data, URL&& registrationURL, CompletionHandler<void(bool)>&& callback)
+void SWServer::processPushMessage(std::optional<Vector<uint8_t>>&& data, std::optional<NotificationPayload>&& notificationPayload, URL&& registrationURL, CompletionHandler<void(bool, std::optional<NotificationPayload>&&)>&& callback)
 {
-    whenImportIsCompletedIfNeeded([this, weakThis = WeakPtr { *this }, data = WTFMove(data), registrationURL = WTFMove(registrationURL), callback = WTFMove(callback)]() mutable {
+    whenImportIsCompletedIfNeeded([this, weakThis = WeakPtr { *this }, data = WTFMove(data), notificationPayload = WTFMove(notificationPayload), registrationURL = WTFMove(registrationURL), callback = WTFMove(callback)]() mutable {
         LOG(Push, "ServiceWorker import is complete, can handle push message now");
         if (!weakThis) {
-            callback(false);
+            callback(false, WTFMove(notificationPayload));
             return;
         }
 
@@ -1494,22 +1485,21 @@ void SWServer::processPushMessage(std::optional<Vector<uint8_t>>&& data, URL&& r
         auto registration = m_scopeToRegistrationMap.get(registrationKey);
         if (!registration) {
             RELEASE_LOG_ERROR(Push, "Cannot process push message: Failed to find SW registration for scope %" SENSITIVE_LOG_STRING, registrationKey.scope().string().utf8().data());
-            callback(true);
+            callback(true, WTFMove(notificationPayload));
             return;
         }
 
         auto* worker = registration->activeWorker();
         if (!worker) {
             RELEASE_LOG_ERROR(Push, "Cannot process push message: No active worker for scope %" SENSITIVE_LOG_STRING, registrationKey.scope().string().utf8().data());
-            callback(true);
+            callback(true, WTFMove(notificationPayload));
             return;
         }
 
-        RELEASE_LOG(Push, "Firing Push event");
-
-        fireFunctionalEvent(*registration, [worker = Ref { *worker }, weakThis = WTFMove(weakThis), data = WTFMove(data), callback = WTFMove(callback)](auto&& connectionOrStatus) mutable {
+        RELEASE_LOG(Push, "Firing push event");
+        fireFunctionalEvent(*registration, [worker = Ref { *worker }, weakThis = WTFMove(weakThis), data = WTFMove(data), notificationPayload = WTFMove(notificationPayload), callback = WTFMove(callback)](auto&& connectionOrStatus) mutable {
             if (!connectionOrStatus.has_value()) {
-                callback(connectionOrStatus.error() == ShouldSkipEvent::Yes);
+                callback(connectionOrStatus.error() == ShouldSkipEvent::Yes, WTFMove(notificationPayload));
                 return;
             }
 
@@ -1517,11 +1507,11 @@ void SWServer::processPushMessage(std::optional<Vector<uint8_t>>&& data, URL&& r
 
             worker->incrementFunctionalEventCounter();
             auto terminateWorkerTimer = makeUnique<Timer>([worker] {
-                RELEASE_LOG_ERROR(ServiceWorker, "Service worker is taking too much time to process a push event");
+                RELEASE_LOG_ERROR(ServiceWorker, "Service worker is taking too much time to process a `push` event");
                 worker->decrementFunctionalEventCounter();
             });
             terminateWorkerTimer->startOneShot(weakThis && weakThis->m_isProcessTerminationDelayEnabled ? defaultTerminationDelay : defaultFunctionalEventDuration);
-            connectionOrStatus.value()->firePushEvent(serviceWorkerIdentifier, data, [callback = WTFMove(callback), terminateWorkerTimer = WTFMove(terminateWorkerTimer), worker = WTFMove(worker)](bool succeeded) mutable {
+            connectionOrStatus.value()->firePushEvent(serviceWorkerIdentifier, data, WTFMove(notificationPayload), [callback = WTFMove(callback), terminateWorkerTimer = WTFMove(terminateWorkerTimer), worker = WTFMove(worker)](bool succeeded, std::optional<NotificationPayload>&& resultPayload) mutable {
                 if (!succeeded)
                     RELEASE_LOG(Push, "Push event was not successfully handled");
                 if (terminateWorkerTimer->isActive()) {
@@ -1529,7 +1519,7 @@ void SWServer::processPushMessage(std::optional<Vector<uint8_t>>&& data, URL&& r
                     terminateWorkerTimer->stop();
                 }
 
-                callback(succeeded);
+                callback(succeeded, WTFMove(resultPayload));
             });
         });
     });

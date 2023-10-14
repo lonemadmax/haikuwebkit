@@ -402,7 +402,7 @@ static InlineCacheAction tryCacheGetBy(JSGlobalObject* globalObject, CodeBlock* 
                     LOG_IC((ICEvent::GetBySelfPatch, structure->classInfoForCells(), Identifier::fromUid(vm, propertyName.uid()), slot.slotBase() == baseValue));
                     structure->startWatchingPropertyForReplacements(vm, slot.cachedOffset());
                     repatchSlowPathCall(codeBlock, stubInfo, appropriateGetByOptimizeFunction(kind));
-                    stubInfo.initGetByIdSelf(locker, codeBlock, structure, slot.cachedOffset(), propertyName);
+                    stubInfo.initGetByIdSelf(locker, codeBlock, structure, slot.cachedOffset());
                     return RetryCacheLater;
                 }
             }
@@ -903,7 +903,7 @@ static InlineCacheAction tryCachePutBy(JSGlobalObject* globalObject, CodeBlock* 
                     if (generatedCodeInline) {
                         LOG_IC((ICEvent::PutBySelfPatch, oldStructure->classInfoForCells(), ident, slot.base() == baseValue));
                         repatchSlowPathCall(codeBlock, stubInfo, appropriatePutByOptimizeFunction(putByKind));
-                        stubInfo.initPutByIdReplace(locker, codeBlock, oldStructure, slot.cachedOffset(), propertyName);
+                        stubInfo.initPutByIdReplace(locker, codeBlock, oldStructure, slot.cachedOffset());
                         return RetryCacheLater;
                     }
                 }
@@ -1287,10 +1287,20 @@ void repatchDeleteBy(JSGlobalObject* globalObject, CodeBlock* codeBlock, DeleteP
 
     if (tryCacheDeleteBy(globalObject, codeBlock, slot, baseValue, oldStructure, propertyName, stubInfo, kind, ecmaMode) == GiveUpOnCache) {
         LOG_IC((ICEvent::DelByReplaceWithGeneric, baseValue.classInfoOrNull(), Identifier::fromUid(globalObject->vm(), propertyName.uid())));
-        if (kind == DelByKind::ById)
-            repatchSlowPathCall(codeBlock, stubInfo, operationDeleteByIdGaveUp);
-        else
-            repatchSlowPathCall(codeBlock, stubInfo, operationDeleteByValGaveUp);
+        switch (kind) {
+        case DelByKind::ByIdStrict:
+            repatchSlowPathCall(codeBlock, stubInfo, operationDeleteByIdStrictGaveUp);
+            break;
+        case DelByKind::ByIdSloppy:
+            repatchSlowPathCall(codeBlock, stubInfo, operationDeleteByIdSloppyGaveUp);
+            break;
+        case DelByKind::ByValStrict:
+            repatchSlowPathCall(codeBlock, stubInfo, operationDeleteByValStrictGaveUp);
+            break;
+        case DelByKind::ByValSloppy:
+            repatchSlowPathCall(codeBlock, stubInfo, operationDeleteByValSloppyGaveUp);
+            break;
+        }
     }
 }
 
@@ -1363,7 +1373,7 @@ static InlineCacheAction tryCacheInBy(
                     LOG_IC((ICEvent::InBySelfPatch, structure->classInfoForCells(), ident, slot.slotBase() == base));
                     structure->startWatchingPropertyForReplacements(vm, slot.cachedOffset());
                     repatchSlowPathCall(codeBlock, stubInfo, operationInByIdOptimize);
-                    stubInfo.initInByIdSelf(locker, codeBlock, structure, slot.cachedOffset(), propertyName);
+                    stubInfo.initInByIdSelf(locker, codeBlock, structure, slot.cachedOffset());
                     return RetryCacheLater;
                 }
             }
@@ -1652,6 +1662,136 @@ static InlineCacheAction tryCacheInstanceOf(
     fireWatchpointsAndClearStubIfNeeded(vm, stubInfo, codeBlock, result);
     
     return result.shouldGiveUpNow() ? GiveUpOnCache : RetryCacheLater;
+}
+
+static InlineCacheAction tryCacheArrayInByVal(JSGlobalObject* globalObject, CodeBlock* codeBlock, JSValue baseValue, JSValue index, StructureStubInfo& stubInfo)
+{
+    ASSERT(baseValue.isCell());
+
+    if (!index.isInt32())
+        return RetryCacheLater;
+
+    VM& vm = globalObject->vm();
+    AccessGenerationResult result;
+
+    {
+        GCSafeConcurrentJSLocker locker(codeBlock->m_lock, globalObject->vm());
+
+        JSCell* base = baseValue.asCell();
+
+        RefPtr<AccessCase> newCase;
+        AccessCase::AccessType accessType = AccessCase::IndexedInt32InHit;
+        if (base->type() == DirectArgumentsType)
+            accessType = AccessCase::IndexedDirectArgumentsInHit;
+        else if (base->type() == ScopedArgumentsType)
+            accessType = AccessCase::IndexedScopedArgumentsInHit;
+        else if (base->type() == StringType)
+            accessType = AccessCase::IndexedStringInHit;
+        else if (isTypedView(base->type())) {
+            auto* typedArray = jsCast<JSArrayBufferView*>(base);
+#if USE(JSVALUE32_64)
+            if (typedArray->isResizableOrGrowableShared())
+                return GiveUpOnCache;
+#endif
+            switch (typedArray->type()) {
+            case Int8ArrayType:
+                accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayInt8InHit : AccessCase::IndexedTypedArrayInt8InHit;
+                break;
+            case Uint8ArrayType:
+                accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayUint8InHit : AccessCase::IndexedTypedArrayUint8InHit;
+                break;
+            case Uint8ClampedArrayType:
+                accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayUint8ClampedInHit : AccessCase::IndexedTypedArrayUint8ClampedInHit;
+                break;
+            case Int16ArrayType:
+                accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayInt16InHit : AccessCase::IndexedTypedArrayInt16InHit;
+                break;
+            case Uint16ArrayType:
+                accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayUint16InHit : AccessCase::IndexedTypedArrayUint16InHit;
+                break;
+            case Int32ArrayType:
+                accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayInt32InHit : AccessCase::IndexedTypedArrayInt32InHit;
+                break;
+            case Uint32ArrayType:
+                accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayUint32InHit : AccessCase::IndexedTypedArrayUint32InHit;
+                break;
+            case Float32ArrayType:
+                accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayFloat32InHit : AccessCase::IndexedTypedArrayFloat32InHit;
+                break;
+            case Float64ArrayType:
+                accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayFloat64InHit : AccessCase::IndexedTypedArrayFloat64InHit;
+                break;
+            // FIXME: Optimize BigInt64Array / BigUint64Array in IC
+            // https://bugs.webkit.org/show_bug.cgi?id=221183
+            case BigInt64ArrayType:
+            case BigUint64ArrayType:
+                return GiveUpOnCache;
+            default:
+                RELEASE_ASSERT_NOT_REACHED();
+            }
+        } else {
+            IndexingType indexingShape = base->indexingType() & IndexingShapeMask;
+            switch (indexingShape) {
+            case Int32Shape:
+                accessType = AccessCase::IndexedInt32InHit;
+                break;
+            case DoubleShape:
+                ASSERT(Options::allowDoubleShape());
+                accessType = AccessCase::IndexedDoubleInHit;
+                break;
+            case ContiguousShape:
+                accessType = AccessCase::IndexedContiguousInHit;
+                break;
+            case ArrayStorageShape:
+                accessType = AccessCase::IndexedArrayStorageInHit;
+                break;
+            case NoIndexingShape: {
+                if (!base->isObject())
+                    return GiveUpOnCache;
+
+                if (base->structure()->mayInterceptIndexedAccesses() || base->structure()->typeInfo().interceptsGetOwnPropertySlotByIndexEvenWhenLengthIsNotZero())
+                    return GiveUpOnCache;
+
+                // FIXME: prepareChainForCaching is conservative. We should have another function which only cares about information related to this IC.
+                auto cacheStatus = prepareChainForCaching(globalObject, base, nullptr, nullptr);
+                if (!cacheStatus)
+                    return GiveUpOnCache;
+
+                if (cacheStatus->usesPolyProto)
+                    return GiveUpOnCache;
+
+                Structure* headStructure = base->structure();
+                ObjectPropertyConditionSet conditionSet = generateConditionsForIndexedMiss(vm, codeBlock, globalObject, headStructure);
+                if (!conditionSet.isValid())
+                    return GiveUpOnCache;
+
+                newCase = AccessCase::create(vm, codeBlock, AccessCase::IndexedNoIndexingInMiss, nullptr, invalidOffset, headStructure, conditionSet);
+                break;
+            }
+            default:
+                return GiveUpOnCache;
+            }
+        }
+
+        if (!newCase)
+            newCase = AccessCase::create(vm, codeBlock, accessType, nullptr);
+
+        result = stubInfo.addAccessCase(locker, globalObject, codeBlock, ECMAMode::strict(), nullptr, newCase.releaseNonNull());
+
+        if (result.generatedSomeCode()) {
+            RELEASE_ASSERT(result.code());
+            InlineAccess::rewireStubAsJumpInAccessNotUsingInlineAccess(codeBlock, stubInfo, CodeLocationLabel<JITStubRoutinePtrTag>(result.code()));
+        }
+    }
+
+    fireWatchpointsAndClearStubIfNeeded(vm, stubInfo, codeBlock, result);
+    return result.shouldGiveUpNow() ? GiveUpOnCache : RetryCacheLater;
+}
+
+void repatchArrayInByVal(JSGlobalObject* globalObject, CodeBlock* codeBlock, JSValue base, JSValue index, StructureStubInfo& stubInfo, InByKind kind)
+{
+    if (tryCacheArrayInByVal(globalObject, codeBlock, base, index, stubInfo) == GiveUpOnCache)
+        repatchSlowPathCall(codeBlock, stubInfo, appropriateInByGaveUpFunction(kind));
 }
 
 void repatchInstanceOf(
@@ -2155,10 +2295,20 @@ void resetPutBy(CodeBlock* codeBlock, StructureStubInfo& stubInfo, PutByKind kin
 
 void resetDelBy(CodeBlock* codeBlock, StructureStubInfo& stubInfo, DelByKind kind)
 {
-    if (kind == DelByKind::ById)
-        repatchSlowPathCall(codeBlock, stubInfo, operationDeleteByIdOptimize);
-    else
-        repatchSlowPathCall(codeBlock, stubInfo, operationDeleteByValOptimize);
+    switch (kind) {
+    case DelByKind::ByIdStrict:
+        repatchSlowPathCall(codeBlock, stubInfo, operationDeleteByIdStrictOptimize);
+        break;
+    case DelByKind::ByIdSloppy:
+        repatchSlowPathCall(codeBlock, stubInfo, operationDeleteByIdSloppyOptimize);
+        break;
+    case DelByKind::ByValStrict:
+        repatchSlowPathCall(codeBlock, stubInfo, operationDeleteByValStrictOptimize);
+        break;
+    case DelByKind::ByValSloppy:
+        repatchSlowPathCall(codeBlock, stubInfo, operationDeleteByValSloppyOptimize);
+        break;
+    }
     InlineAccess::resetStubAsJumpInAccessNotUsingInlineAccess(codeBlock, stubInfo);
 }
 

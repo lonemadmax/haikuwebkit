@@ -486,9 +486,6 @@ void AXIsolatedTree::updateNodeProperties(AXCoreObject& axObject, const Vector<A
         case AXPropertyName::AccessKey:
             propertyMap.set(AXPropertyName::AccessKey, axObject.accessKey().isolatedCopy());
             break;
-        case AXPropertyName::ARIATreeItemContent:
-            propertyMap.set(AXPropertyName::ARIATreeItemContent, axIDs(axObject.ariaTreeItemContent()));
-            break;
         case AXPropertyName::ARIATreeRows: {
             AXCoreObject::AccessibilityChildrenVector ariaTreeRows;
             axObject.ariaTreeRows(ariaTreeRows);
@@ -531,6 +528,9 @@ void AXIsolatedTree::updateNodeProperties(AXCoreObject& axObject, const Vector<A
             propertyMap.set(AXPropertyName::IsChecked, axObject.isChecked());
             propertyMap.set(AXPropertyName::ButtonState, axObject.checkboxOrRadioValue());
             break;
+        case AXPropertyName::IsColumnHeader:
+            propertyMap.set(AXPropertyName::IsColumnHeader, axObject.isColumnHeader());
+            break;
         case AXPropertyName::IsEnabled:
             propertyMap.set(AXPropertyName::IsEnabled, axObject.isEnabled());
             break;
@@ -542,6 +542,9 @@ void AXIsolatedTree::updateNodeProperties(AXCoreObject& axObject, const Vector<A
             break;
         case AXPropertyName::IsSelected:
             propertyMap.set(AXPropertyName::IsSelected, axObject.isSelected());
+            break;
+        case AXPropertyName::IsRowHeader:
+            propertyMap.set(AXPropertyName::IsRowHeader, axObject.isRowHeader());
             break;
         case AXPropertyName::MaxValueForRange:
             propertyMap.set(AXPropertyName::MaxValueForRange, axObject.maxValueForRange());
@@ -555,14 +558,14 @@ void AXIsolatedTree::updateNodeProperties(AXCoreObject& axObject, const Vector<A
         case AXPropertyName::PosInSet:
             propertyMap.set(AXPropertyName::PosInSet, axObject.posInSet());
             break;
-        case AXPropertyName::ReadOnlyValue:
-            propertyMap.set(AXPropertyName::ReadOnlyValue, axObject.readOnlyValue().isolatedCopy());
-            break;
         case AXPropertyName::RoleDescription:
             propertyMap.set(AXPropertyName::RoleDescription, axObject.roleDescription().isolatedCopy());
             break;
         case AXPropertyName::AXRowIndex:
             propertyMap.set(AXPropertyName::AXRowIndex, axObject.axRowIndex());
+            break;
+        case AXPropertyName::CellScope:
+            propertyMap.set(AXPropertyName::CellScope, axObject.cellScope().isolatedCopy());
             break;
         case AXPropertyName::SetSize:
             propertyMap.set(AXPropertyName::SetSize, axObject.setSize());
@@ -576,6 +579,12 @@ void AXIsolatedTree::updateNodeProperties(AXCoreObject& axObject, const Vector<A
             break;
         case AXPropertyName::SelectedChildren:
             propertyMap.set(AXPropertyName::SelectedChildren, axIDs(axObject.selectedChildren()));
+            break;
+        case AXPropertyName::SupportsARIAOwns:
+            propertyMap.set(AXPropertyName::SupportsARIAOwns, axObject.supportsARIAOwns());
+            break;
+        case AXPropertyName::SupportsExpanded:
+            propertyMap.set(AXPropertyName::SupportsExpanded, axObject.supportsExpanded());
             break;
         case AXPropertyName::SupportsPosInSet:
             propertyMap.set(AXPropertyName::SupportsPosInSet, axObject.supportsPosInSet());
@@ -773,18 +782,23 @@ OptionSet<ActivityState> AXIsolatedTree::lockedPageActivityState() const
     return m_pageActivityState;
 }
 
-RefPtr<AXIsolatedObject> AXIsolatedTree::focusedNode()
+AXID AXIsolatedTree::focusedNodeID()
 {
-    AXTRACE("AXIsolatedTree::focusedNode"_s);
     ASSERT(!isMainThread());
     // applyPendingChanges can destroy `this` tree, so protect it until the end of this method.
     Ref protectedThis { *this };
     // Apply pending changes in case focus has changed and hasn't been updated.
     applyPendingChanges();
-    AXLOG(makeString("focusedNodeID ", m_focusedNodeID.loggingString()));
+    return m_focusedNodeID;
+}
+
+RefPtr<AXIsolatedObject> AXIsolatedTree::focusedNode()
+{
+    AXTRACE("AXIsolatedTree::focusedNode"_s);
+    ASSERT(!isMainThread());
     AXLOG("focused node:");
-    AXLOG(objectForID(m_focusedNodeID));
-    return objectForID(m_focusedNodeID);
+    AXLOG(objectForID(focusedNodeID()));
+    return objectForID(focusedNodeID());
 }
 
 RefPtr<AXIsolatedObject> AXIsolatedTree::rootNode()
@@ -811,12 +825,8 @@ void AXIsolatedTree::setFocusedNodeID(AXID axID)
     AXLOG(makeString("axID ", axID.loggingString()));
     ASSERT(isMainThread());
 
-    AXPropertyMap propertyMap;
-    propertyMap.set(AXPropertyName::IsFocused, true);
-
     Locker locker { m_changeLogLock };
     m_pendingFocusedNodeID = axID;
-    m_pendingPropertyChanges.append({ axID, propertyMap });
 }
 
 void AXIsolatedTree::updateLoadingProgress(double newProgressValue)
@@ -947,13 +957,6 @@ void AXIsolatedTree::applyPendingChanges()
 
     if (m_pendingFocusedNodeID != m_focusedNodeID) {
         AXLOG(makeString("focusedNodeID ", m_focusedNodeID.loggingString(), " pendingFocusedNodeID ", m_pendingFocusedNodeID.loggingString()));
-
-        if (m_focusedNodeID.isValid()) {
-            // Set the old focused object's IsFocused property to false.
-            AXPropertyMap propertyMap;
-            propertyMap.set(AXPropertyName::IsFocused, false);
-            m_pendingPropertyChanges.append({ m_focusedNodeID, propertyMap });
-        }
         m_focusedNodeID = m_pendingFocusedNodeID;
     }
 

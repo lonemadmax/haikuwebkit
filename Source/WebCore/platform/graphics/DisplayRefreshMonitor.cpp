@@ -114,7 +114,7 @@ bool DisplayRefreshMonitor::removeClient(DisplayRefreshMonitorClient& client)
 std::optional<FramesPerSecond> DisplayRefreshMonitor::maximumClientPreferredFramesPerSecond() const
 {
     std::optional<FramesPerSecond> maxFramesPerSecond;
-    for (auto* client : m_clients)
+    for (auto& client : m_clients)
         maxFramesPerSecond = std::max<FramesPerSecond>(maxFramesPerSecond.value_or(0), client->preferredFramesPerSecond());
 
     return maxFramesPerSecond;
@@ -203,10 +203,10 @@ void DisplayRefreshMonitor::displayDidRefresh(const DisplayUpdate& displayUpdate
 
     // Copy the hash table and remove clients from it one by one so we don't notify
     // any client twice, but can respond to removal of clients during the delivery process.
-    HashSet<DisplayRefreshMonitorClient*> clientsToBeNotified = m_clients;
+    auto clientsToBeNotified = m_clients;
     m_clientsToBeNotified = &clientsToBeNotified;
     while (!clientsToBeNotified.isEmpty()) {
-        DisplayRefreshMonitorClient* client = clientsToBeNotified.takeAny();
+        auto client = clientsToBeNotified.takeAny();
         client->fireDisplayRefreshIfNeeded(displayUpdate);
 
         // This checks if this function was reentered. In that case, stop iterating

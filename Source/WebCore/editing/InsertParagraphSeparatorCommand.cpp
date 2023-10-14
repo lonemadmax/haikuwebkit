@@ -61,8 +61,8 @@ static Element* highestVisuallyEquivalentDivBelowRoot(Element* startBlock)
     return curBlock;
 }
 
-InsertParagraphSeparatorCommand::InsertParagraphSeparatorCommand(Document& document, bool mustUseDefaultParagraphElement, bool pasteBlockqutoeIntoUnquotedArea, EditAction editingAction)
-    : CompositeEditCommand(document, editingAction)
+InsertParagraphSeparatorCommand::InsertParagraphSeparatorCommand(Ref<Document>&& document, bool mustUseDefaultParagraphElement, bool pasteBlockqutoeIntoUnquotedArea, EditAction editingAction)
+    : CompositeEditCommand(WTFMove(document), editingAction)
     , m_mustUseDefaultParagraphElement(mustUseDefaultParagraphElement)
     , m_pasteBlockqutoeIntoUnquotedArea(pasteBlockqutoeIntoUnquotedArea)
 {
@@ -147,12 +147,12 @@ Ref<Element> InsertParagraphSeparatorCommand::cloneHierarchyUnderNewBlock(const 
     return parent.releaseNonNull();
 }
 
-static bool isPhrasingContent(const Node* node)
+static bool isPhrasingContent(const Node& node)
 {
-    if (!node || !is<Element>(*node))
+    if (!is<Element>(node))
         return false;
 
-    switch (downcast<Element>(*node).elementName()) {
+    switch (downcast<Element>(node).elementName()) {
     case ElementNames::HTML::a:
     case ElementNames::HTML::abbr:
     case ElementNames::HTML::area:
@@ -218,10 +218,10 @@ static bool isPhrasingContent(const Node* node)
 
 static bool isEditableRootPhrasingContent(Position position)
 {
-    auto* editableRoot = highestEditableRoot(position);
+    auto editableRoot = highestEditableRoot(position);
     if (!editableRoot)
         return false;
-    return enclosingNodeOfType(firstPositionInOrBeforeNode(editableRoot), isPhrasingContent);
+    return enclosingNodeOfType(firstPositionInOrBeforeNode(editableRoot.get()), isPhrasingContent);
 }
 
 void InsertParagraphSeparatorCommand::doApply()
@@ -241,13 +241,13 @@ void InsertParagraphSeparatorCommand::doApply()
     }
     
     // FIXME: The parentAnchoredEquivalent conversion needs to be moved into enclosingBlock.
-    RefPtr<Element> startBlock = enclosingBlock(insertionPosition.parentAnchoredEquivalent().containerNode());
+    RefPtr<Element> startBlock = enclosingBlock(insertionPosition.parentAnchoredEquivalent().protectedContainerNode());
     Position canonicalPos = VisiblePosition(insertionPosition).deepEquivalent();
     if (!startBlock
         || !startBlock->nonShadowBoundaryParentNode()
         || isEditableRootPhrasingContent(insertionPosition)
         || isRenderedTable(startBlock.get())
-        || isTableCell(startBlock.get())
+        || isTableCell(*startBlock)
         || is<HTMLFormElement>(*startBlock)
         // FIXME: If the node is hidden, we don't have a canonical position so we will do the wrong thing for tables and <hr>. https://bugs.webkit.org/show_bug.cgi?id=40342
         || (!canonicalPos.isNull() && canonicalPos.deprecatedNode()->renderer() && canonicalPos.deprecatedNode()->renderer()->isTable())
@@ -316,8 +316,8 @@ void InsertParagraphSeparatorCommand::doApply()
             // We can get here if we pasted a copied portion of a blockquote with a newline at the end and are trying to paste it
             // into an unquoted area. We then don't want the newline within the blockquote or else it will also be quoted.
             if (m_pasteBlockqutoeIntoUnquotedArea) {
-                if (Node* highestBlockquote = highestEnclosingNodeOfType(canonicalPos, &isMailBlockquote))
-                    startBlock = downcast<Element>(highestBlockquote);
+                if (RefPtr highestBlockquote = highestEnclosingNodeOfType(canonicalPos, &isMailBlockquote))
+                    startBlock = downcast<Element>(WTFMove(highestBlockquote));
             }
 
             // Most of the time we want to stay at the nesting level of the startBlock (e.g., when nesting within lists).  However,
@@ -429,9 +429,9 @@ void InsertParagraphSeparatorCommand::doApply()
     // FIXME: leadingWhitespacePosition is returning the position before preserved newlines for positions
     // after the preserved newline, causing the newline to be turned into a nbsp.
     if (is<Text>(leadingWhitespace.deprecatedNode())) {
-        Text& textNode = downcast<Text>(*leadingWhitespace.deprecatedNode());
-        ASSERT(!textNode.renderer() || textNode.renderer()->style().collapseWhiteSpace());
-        replaceTextInNodePreservingMarkers(textNode, leadingWhitespace.deprecatedEditingOffset(), 1, nonBreakingSpaceString());
+        auto textNode = downcast<Text>(leadingWhitespace.protectedDeprecatedNode().releaseNonNull());
+        ASSERT(!textNode->renderer() || textNode->renderer()->style().collapseWhiteSpace());
+        replaceTextInNodePreservingMarkers(textNode.get(), leadingWhitespace.deprecatedEditingOffset(), 1, nonBreakingSpaceString());
     }
     
     // Split at pos if in the middle of a text node.

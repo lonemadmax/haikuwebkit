@@ -62,6 +62,11 @@ bool RenderLayerFilters::hasFilterThatShouldBeRestrictedBySecurityOrigin() const
     return m_filter && m_filter->hasFilterThatShouldBeRestrictedBySecurityOrigin();
 }
 
+bool RenderLayerFilters::hasSourceImage() const
+{
+    return m_targetSwitcher && m_targetSwitcher->hasSourceImage();
+}
+
 void RenderLayerFilters::notifyFinished(CachedResource&, const NetworkLoadMetrics&)
 {
     // FIXME: This really shouldn't have to invalidate layer composition,
@@ -93,7 +98,7 @@ void RenderLayerFilters::updateReferenceFilterClients(const FilterOperations& op
             auto* renderer = filterElement->renderer();
             if (!is<RenderSVGResourceFilter>(renderer))
                 continue;
-            downcast<RenderSVGResourceFilter>(*renderer).addClientRenderLayer(&m_layer);
+            downcast<RenderSVGResourceFilter>(*renderer).addClientRenderLayer(m_layer);
             m_internalSVGReferences.append(filterElement);
         }
     }
@@ -108,7 +113,7 @@ void RenderLayerFilters::removeReferenceFilterClients()
 
     for (auto& filterElement : m_internalSVGReferences) {
         if (auto* renderer = filterElement->renderer())
-            downcast<RenderSVGResourceContainer>(*renderer).removeClientRenderLayer(&m_layer);
+            downcast<LegacyRenderSVGResourceContainer>(*renderer).removeClientRenderLayer(m_layer);
     }
     m_internalSVGReferences.clear();
 }
@@ -173,7 +178,7 @@ GraphicsContext* RenderLayerFilters::beginFilterEffect(RenderElement& renderer, 
 
     if (!filter.hasFilterThatMovesPixels())
         m_repaintRect = dirtyRect;
-    else if (hasUpdatedBackingStore)
+    else if (hasUpdatedBackingStore || !hasSourceImage())
         m_repaintRect = filterRegion;
     else {
         m_repaintRect = dirtyRect;

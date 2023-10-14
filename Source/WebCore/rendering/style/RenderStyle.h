@@ -37,6 +37,7 @@ class AutosizeStatus;
 class BorderData;
 class BorderValue;
 class CSSCustomPropertyValue;
+struct CSSPropertiesBitSet;
 class Color;
 class ContentData;
 class CounterContent;
@@ -485,6 +486,8 @@ public:
     float borderAfterWidth() const;
     float borderStartWidth() const;
     float borderEndWidth() const;
+
+    inline bool borderIsEquivalentForPainting(const RenderStyle&) const;
 
     float outlineSize() const { return std::max<float>(0, outlineWidth() + outlineOffset()); }
     float outlineWidth() const;
@@ -1710,6 +1713,7 @@ public:
 
     StyleDifference diff(const RenderStyle&, OptionSet<StyleDifferenceContextSensitiveProperty>& changedContextSensitiveProperties) const;
     bool diffRequiresLayerRepaint(const RenderStyle&, bool isComposited) const;
+    void conservativelyCollectChangedAnimatableProperties(const RenderStyle&, CSSPropertiesBitSet&) const;
 
     constexpr bool isDisplayInlineType() const;
     constexpr bool isOriginalDisplayInlineType() const;

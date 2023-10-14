@@ -1380,6 +1380,13 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfColumns()
     return nullptr;
 }
 
+JSValueRef AccessibilityUIElement::columns()
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    return makeJSArray(makeVector<RefPtr<AccessibilityUIElement>>(attributeValue(NSAccessibilityColumnsAttribute).get()));
+    END_AX_OBJC_EXCEPTIONS
+}
+
 JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfRows()
 {
     BEGIN_AX_OBJC_EXCEPTIONS
@@ -1653,22 +1660,6 @@ void AccessibilityUIElement::clearSelectedChildren() const
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::accessibilityValue() const
 {
-    return createJSString();
-}
-
-JSRetainPtr<JSStringRef> AccessibilityUIElement::documentEncoding()
-{
-    if (auto result = stringAttributeValue(@"AXDocumentEncoding"))
-        return result;
-
-    return createJSString();
-}
-
-JSRetainPtr<JSStringRef> AccessibilityUIElement::documentURI()
-{
-    if (auto result = stringAttributeValue(@"AXDocumentURI"))
-        return result;
-
     return createJSString();
 }
 

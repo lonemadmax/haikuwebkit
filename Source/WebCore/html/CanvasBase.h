@@ -42,7 +42,6 @@ class CanvasObserver;
 class CanvasRenderingContext;
 class Element;
 class Event;
-class GraphicsClient;
 class GraphicsContext;
 class GraphicsContextStateSaver;
 class Image;
@@ -114,8 +113,6 @@ public:
     virtual GraphicsContext* drawingContext() const;
     virtual GraphicsContext* existingDrawingContext() const;
 
-    GraphicsClient* graphicsClient() const;
-
     void didDraw(const std::optional<FloatRect>& rect) { return didDraw(rect, ShouldApplyPostProcessingToDirtyRect::Yes); }
     virtual void didDraw(const std::optional<FloatRect>&, ShouldApplyPostProcessingToDirtyRect);
 
@@ -135,6 +132,8 @@ public:
     bool postProcessPixelBufferResults(Ref<PixelBuffer>&&) const;
     void recordLastFillText(const String&);
 
+    void resetGraphicsContextState() const;
+
 protected:
     explicit CanvasBase(IntSize, const std::optional<NoiseInjectionHashSalt>&);
 
@@ -146,9 +145,7 @@ protected:
     virtual bool hasCreatedImageBuffer() const { return false; }
     static size_t activePixelMemory();
 
-    void resetGraphicsContextState() const;
-
-    RefPtr<ImageBuffer> allocateImageBuffer(bool avoidBackendSizeCheckForTesting) const;
+    RefPtr<ImageBuffer> allocateImageBuffer() const;
     String lastFillText() const { return m_lastFillText; }
 
 private:

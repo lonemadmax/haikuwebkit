@@ -135,16 +135,20 @@ void AccessibilityNodeObject::updateRole()
 
 AccessibilityObject* AccessibilityNodeObject::firstChild() const
 {
-    if (!node())
-        return nullptr;
-    
-    Node* firstChild = node()->firstChild();
-
-    if (!firstChild)
+    auto* currentChild = node() ? node()->firstChild() : nullptr;
+    if (!currentChild)
         return nullptr;
 
-    auto objectCache = axObjectCache();
-    return objectCache ? objectCache->getOrCreate(firstChild) : nullptr;
+    auto* cache = axObjectCache();
+    if (!cache)
+        return nullptr;
+
+    auto* axCurrentChild = cache->getOrCreate(currentChild);
+    while (!axCurrentChild && currentChild) {
+        currentChild = currentChild->nextSibling();
+        axCurrentChild = cache->getOrCreate(currentChild);
+    }
+    return axCurrentChild;
 }
 
 AccessibilityObject* AccessibilityNodeObject::lastChild() const
@@ -2382,10 +2386,17 @@ String AccessibilityNodeObject::textUnderElement(AccessibilityTextUnderElementMo
                 continue;
             }
         }
-        
+
+        if (node) {
+            auto* childParentElement = child->node() ? child->node()->parentElement() : nullptr;
+            // Do not take the textUnderElement for a different element (determined by child's element parent not being us). Otherwise we may doubly-expose the same text.
+            if (childParentElement && childParentElement != node && childParentElement->shadowHost() != node)
+                continue;
+        }
+
         String childText = child->textUnderElement(mode);
         if (childText.length())
-            appendNameToStringBuilder(builder, childText);
+            appendNameToStringBuilder(builder, WTFMove(childText));
     }
 
     return builder.toString().trim(deprecatedIsSpaceOrNewline).simplifyWhiteSpace(isHTMLSpaceButNotLineBreak);
@@ -2854,11 +2865,11 @@ AccessibilityRole AccessibilityNodeObject::determineAriaRoleAttribute() const
     if (role == AccessibilityRole::Presentational && supportsARIAAttributes())
         role = AccessibilityRole::Unknown;
     
-    // The ARIA spec states, "Authors must give each element with role region a brief label that
-    // describes the purpose of the content in the region." The Core AAM states, "Special case:
-    // if the region does not have an accessible name, do not expose the element as a landmark.
-    // Use the native host language role of the element instead."
-    if (role == AccessibilityRole::LandmarkRegion && !hasAttribute(aria_labelAttr) && !hasAttribute(aria_labelledbyAttr))
+    // https://w3c.github.io/aria/#document-handling_author-errors_roles
+    // In situations where an author has not specified names for the form and
+    // region landmarks, it is considered an authoring error. The user agent
+    // MUST treat such element as if no role had been provided.
+    if ((role == AccessibilityRole::LandmarkRegion || role == AccessibilityRole::Form) && getAttribute(aria_labelAttr).isEmpty() && getAttribute(aria_labelledbyAttr).isEmpty() && getAttribute(aria_labeledbyAttr).isEmpty())
         role = AccessibilityRole::Unknown;
 
     if (static_cast<int>(role))
@@ -2883,9 +2894,6 @@ AccessibilityRole AccessibilityNodeObject::remapAriaRoleDueToParent(Accessibilit
         // Selects and listboxes both have options as child roles, but they map to different roles within WebCore.
         if (role == AccessibilityRole::ListBoxOption && parentAriaRole == AccessibilityRole::Menu)
             return AccessibilityRole::MenuItem;
-        // An aria "menuitem" may map to MenuButton or MenuItem depending on its parent.
-        if (role == AccessibilityRole::MenuItem && parentAriaRole == AccessibilityRole::ApplicationGroup)
-            return AccessibilityRole::MenuButton;
         
         // If the parent had a different role, then we don't need to continue searching up the chain.
         if (parentAriaRole != AccessibilityRole::Unknown)

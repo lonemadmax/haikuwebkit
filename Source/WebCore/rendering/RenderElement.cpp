@@ -105,9 +105,10 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderElement);
 
 struct SameSizeAsRenderElement : public RenderObject {
-    unsigned bitfields : 25;
-    void* firstChild;
-    void* lastChild;
+    PackedPtr<RenderObject> firstChild;
+    unsigned bitfields1 : 12;
+    PackedPtr<RenderObject> lastChild;
+    unsigned bitfields2 : 13;
     RenderStyle style;
 };
 
@@ -115,6 +116,7 @@ static_assert(sizeof(RenderElement) == sizeof(SameSizeAsRenderElement), "RenderE
 
 inline RenderElement::RenderElement(ContainerNode& elementOrDocument, RenderStyle&& style, BaseTypeFlags baseTypeFlags)
     : RenderObject(elementOrDocument)
+    , m_firstChild(nullptr)
     , m_baseTypeFlags(baseTypeFlags)
     , m_ancestorLineBoxDirty(false)
     , m_hasInitializedStyle(false)
@@ -122,6 +124,7 @@ inline RenderElement::RenderElement(ContainerNode& elementOrDocument, RenderStyl
     , m_hasPausedImageAnimations(false)
     , m_hasCounterNodeMap(false)
     , m_hasContinuationChainNode(false)
+    , m_lastChild(nullptr)
     , m_isContinuation(false)
     , m_isFirstLetter(false)
     , m_renderBlockHasMarginBeforeQuirk(false)
@@ -132,8 +135,6 @@ inline RenderElement::RenderElement(ContainerNode& elementOrDocument, RenderStyl
     , m_isRegisteredForVisibleInViewportCallback(false)
     , m_visibleInViewportState(static_cast<unsigned>(VisibleInViewportState::Unknown))
     , m_didContributeToVisuallyNonEmptyPixelCount(false)
-    , m_firstChild(nullptr)
-    , m_lastChild(nullptr)
     , m_style(WTFMove(style))
 {
 }
@@ -209,6 +210,15 @@ RenderPtr<RenderElement> RenderElement::createFor(Element& element, RenderStyle&
     case DisplayType::Box:
     case DisplayType::InlineBox:
         return createRenderer<RenderDeprecatedFlexibleBox>(element, WTFMove(style));
+    case DisplayType::RubyBase:
+        return createRenderer<RenderInline>(element, WTFMove(style));
+    case DisplayType::RubyAnnotation:
+        return createRenderer<RenderBlockFlow>(element, WTFMove(style));
+    case DisplayType::Ruby:
+        return createRenderer<RenderInline>(element, WTFMove(style));
+    case DisplayType::RubyBlock:
+        return createRenderer<RenderBlockFlow>(element, WTFMove(style));
+
     default: {
         if (style.isDisplayTableOrTablePart() && rendererTypeOverride.contains(ConstructBlockLevelRendererFor::TableOrTablePart))
             return createRenderer<RenderBlockFlow>(element, WTFMove(style));
@@ -580,7 +590,7 @@ RenderObject* RenderElement::attachRendererInternal(RenderPtr<RenderObject> chil
     }
     if (m_lastChild)
         m_lastChild->setNextSibling(child.get());
-    child->setPreviousSibling(m_lastChild);
+    child->setPreviousSibling(m_lastChild.get());
     m_lastChild = child.get();
     return child.release();
 }
@@ -737,7 +747,7 @@ bool RenderElement::layerCreationAllowedForSubtree() const
     // simply omit the layer creation for any children of a <defs> element (or in general
     // any "hidden container"). For LBSE layers are needed for painting, even if a
     // RenderSVGHiddenContainer is in the render tree ancestor chain -- however they are
-    // never painted directly, only indirectly through the "RenderSVGResourceContainer
+    // never painted directly, only indirectly through the "LegacyRenderSVGResourceContainer
     // elements (such as RenderSVGResourceClipper, RenderSVGResourceMasker, etc.)
     if (document().settings().layerBasedSVGEngineEnabled())
         return true;
@@ -804,6 +814,9 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         if (contentVisibilityChanged) {
             if (oldStyle->contentVisibility() == ContentVisibility::Auto)
                 ContentVisibilityDocumentState::unobserve(*element());
+            auto wasSkippedContent = oldStyle->contentVisibility() == ContentVisibility::Hidden ? IsSkippedContent::Yes : IsSkippedContent::No;
+            auto isSkippedContent = newStyle.contentVisibility() == ContentVisibility::Hidden ? IsSkippedContent::Yes : IsSkippedContent::No;
+            ContentVisibilityDocumentState::updateAnimations(*element(), wasSkippedContent, isSkippedContent);
         }
         if ((contentVisibilityChanged || !oldStyle) && newStyle.contentVisibility() == ContentVisibility::Auto)
             ContentVisibilityDocumentState::observe(*element());
@@ -1963,6 +1976,7 @@ void RenderElement::adjustFragmentedFlowStateOnContainingBlockChangeIfNeeded(con
     auto mayNotBeContainingBlockForDescendantsAnymore = oldStyle.position() != m_style.position()
         || oldStyle.hasTransformRelatedProperty() != m_style.hasTransformRelatedProperty()
         || oldStyle.willChange() != newStyle.willChange()
+        || oldStyle.hasBackdropFilter() != newStyle.hasBackdropFilter()
         || oldStyle.containsLayout() != newStyle.containsLayout()
         || oldStyle.containsSize() != newStyle.containsSize();
     if (!mayNotBeContainingBlockForDescendantsAnymore)
@@ -2249,11 +2263,11 @@ FloatRect RenderElement::referenceBoxRect(CSSBoxType boxType) const
     };
 
     switch (boxType) {
-    case CSSBoxType::BoxMissing:
     case CSSBoxType::ContentBox:
     case CSSBoxType::PaddingBox:
     case CSSBoxType::FillBox:
         return alignReferenceBox(objectBoundingBox());
+    case CSSBoxType::BoxMissing:
     case CSSBoxType::BorderBox:
     case CSSBoxType::MarginBox:
     case CSSBoxType::StrokeBox:
@@ -2288,5 +2302,22 @@ bool RenderElement::hasEligibleContainmentForSizeQuery() const
     return false;
 }
 
+void RenderElement::clearNeedsLayoutForDescendants()
+{
+    for (auto& descendant : descendantsOfType<RenderObject>(*this))
+        descendant.clearNeedsLayout();
+}
+
+void RenderElement::layoutIfNeeded()
+{
+    if (!needsLayout())
+        return;
+    if (isSkippedContentForLayout()) {
+        clearNeedsLayoutForDescendants();
+        clearNeedsLayout();
+        return;
+    }
+    layout();
+}
 
 }

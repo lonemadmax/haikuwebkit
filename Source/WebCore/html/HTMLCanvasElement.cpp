@@ -583,9 +583,10 @@ void HTMLCanvasElement::reset()
     int w = limitToOnlyHTMLNonNegative(attributeWithoutSynchronization(widthAttr), defaultWidth);
     int h = limitToOnlyHTMLNonNegative(attributeWithoutSynchronization(heightAttr), defaultHeight);
 
-    resetGraphicsContextState();
     if (is<CanvasRenderingContext2D>(m_context))
         downcast<CanvasRenderingContext2D>(*m_context).reset();
+    else
+        resetGraphicsContextState();
 
     IntSize oldSize = size();
     IntSize newSize(w, h);
@@ -804,7 +805,7 @@ RefPtr<ImageData> HTMLCanvasElement::getImageData()
     if (pixelBuffer)
         postProcessPixelBufferResults(*pixelBuffer);
 
-    return ImageData::create(static_reference_cast<ByteArrayPixelBuffer>(pixelBuffer.releaseNonNull()));
+    return ImageData::create(downcast<ByteArrayPixelBuffer>(pixelBuffer.releaseNonNull()));
 #else
     return nullptr;
 #endif
@@ -875,18 +876,13 @@ SecurityOrigin* HTMLCanvasElement::securityOrigin() const
     return &document().securityOrigin();
 }
 
-void HTMLCanvasElement::setAvoidIOSurfaceSizeCheckInWebProcessForTesting()
-{
-    m_avoidBackendSizeCheckForTesting = true;
-}
-
 void HTMLCanvasElement::createImageBuffer() const
 {
     ASSERT(!hasCreatedImageBuffer());
 
     m_hasCreatedImageBuffer = true;
     m_didClearImageBuffer = true;
-    setImageBuffer(allocateImageBuffer(m_avoidBackendSizeCheckForTesting));
+    setImageBuffer(allocateImageBuffer());
 
 #if USE(IOSURFACE_CANVAS_BACKING_STORE)
     if (m_context && m_context->is2d()) {

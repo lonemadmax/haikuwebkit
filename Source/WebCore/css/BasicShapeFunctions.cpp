@@ -89,14 +89,25 @@ Ref<CSSValue> valueForBasicShape(const RenderStyle& style, const BasicShape& bas
     switch (basicShape.type()) {
     case BasicShape::Type::Circle: {
         auto& circle = downcast<BasicShapeCircle>(basicShape);
-        return CSSCircleValue::create(basicShapeRadiusToCSSValue(style, circle.radius()),
+        RefPtr radius = basicShapeRadiusToCSSValue(style, circle.radius());
+
+        if (circle.positionWasOmitted())
+            return CSSCircleValue::create(WTFMove(radius), nullptr, nullptr);
+
+        return CSSCircleValue::create(WTFMove(radius),
             valueForCenterCoordinate(style, circle.centerX(), BoxOrient::Horizontal),
             valueForCenterCoordinate(style, circle.centerY(), BoxOrient::Vertical));
     }
     case BasicShape::Type::Ellipse: {
         auto& ellipse = downcast<BasicShapeEllipse>(basicShape);
-        return CSSEllipseValue::create(basicShapeRadiusToCSSValue(style, ellipse.radiusX()),
-            basicShapeRadiusToCSSValue(style, ellipse.radiusY()),
+        RefPtr radiusX = basicShapeRadiusToCSSValue(style, ellipse.radiusX());
+        RefPtr radiusY = basicShapeRadiusToCSSValue(style, ellipse.radiusY());
+
+        if (ellipse.positionWasOmitted())
+            return CSSEllipseValue::create(WTFMove(radiusX), WTFMove(radiusY), nullptr, nullptr);
+
+        return CSSEllipseValue::create(
+            WTFMove(radiusX), WTFMove(radiusY),
             valueForCenterCoordinate(style, ellipse.centerX(), BoxOrient::Horizontal),
             valueForCenterCoordinate(style, ellipse.centerY(), BoxOrient::Vertical));
     }
@@ -126,6 +137,13 @@ Ref<CSSValue> valueForBasicShape(const RenderStyle& style, const BasicShape& bas
             createPair(xywh.topLeftRadius()), createPair(xywh.topRightRadius()),
             createPair(xywh.bottomRightRadius()), createPair(xywh.bottomLeftRadius()));
     }
+    case BasicShape::Type::Rect: {
+        auto& rect = downcast<BasicShapeRect>(basicShape);
+        return CSSRectShapeValue::create(createValue(rect.top()), createValue(rect.right()),
+            createValue(rect.bottom()), createValue(rect.left()),
+            createPair(rect.topLeftRadius()), createPair(rect.topRightRadius()),
+            createPair(rect.bottomRightRadius()), createPair(rect.bottomLeftRadius()));
+    }
     }
     RELEASE_ASSERT_NOT_REACHED();
 }
@@ -133,6 +151,11 @@ Ref<CSSValue> valueForBasicShape(const RenderStyle& style, const BasicShape& bas
 static Length convertToLength(const CSSToLengthConversionData& conversionData, const CSSValue& value)
 {
     return downcast<CSSPrimitiveValue>(value).convertToLength<FixedIntegerConversion | FixedFloatConversion | PercentConversion | CalculatedConversion>(conversionData);
+}
+
+static Length convertToLengthOrAuto(const CSSToLengthConversionData& conversionData, const CSSValue& value)
+{
+    return downcast<CSSPrimitiveValue>(value).convertToLength<FixedIntegerConversion | FixedFloatConversion | PercentConversion | CalculatedConversion | AutoConversion>(conversionData);
 }
 
 static LengthSize convertToLengthSize(const CSSToLengthConversionData& conversionData, const CSSValue* value)
@@ -249,6 +272,20 @@ Ref<BasicShape> basicShapeForValue(const CSSToLengthConversionData& conversionDa
         rect->setInsetY(convertToLength(conversionData, rectValue.insetY()));
         rect->setWidth(convertToLength(conversionData, rectValue.width()));
         rect->setHeight(convertToLength(conversionData, rectValue.height()));
+
+        rect->setTopLeftRadius(convertToLengthSize(conversionData, rectValue.topLeftRadius()));
+        rect->setTopRightRadius(convertToLengthSize(conversionData, rectValue.topRightRadius()));
+        rect->setBottomRightRadius(convertToLengthSize(conversionData, rectValue.bottomRightRadius()));
+        rect->setBottomLeftRadius(convertToLengthSize(conversionData, rectValue.bottomLeftRadius()));
+        return rect;
+    }
+    if (value.isRectShape()) {
+        auto& rectValue = downcast<CSSRectShapeValue>(value);
+        auto rect = BasicShapeRect::create();
+        rect->setTop(convertToLengthOrAuto(conversionData, rectValue.top()));
+        rect->setRight(convertToLengthOrAuto(conversionData, rectValue.right()));
+        rect->setBottom(convertToLengthOrAuto(conversionData, rectValue.bottom()));
+        rect->setLeft(convertToLengthOrAuto(conversionData, rectValue.left()));
 
         rect->setTopLeftRadius(convertToLengthSize(conversionData, rectValue.topLeftRadius()));
         rect->setTopRightRadius(convertToLengthSize(conversionData, rectValue.topRightRadius()));

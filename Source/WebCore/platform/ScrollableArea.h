@@ -244,11 +244,11 @@ public:
     Scrollbar* scrollbarForDirection(ScrollDirection direction) const
     {
         switch (direction) {
-        case ScrollUp:
-        case ScrollDown:
+        case ScrollDirection::ScrollUp:
+        case ScrollDirection::ScrollDown:
             return verticalScrollbar();
-        case ScrollLeft:
-        case ScrollRight:
+        case ScrollDirection::ScrollLeft:
+        case ScrollDirection::ScrollRight:
             return horizontalScrollbar();
         }
         return nullptr;
@@ -410,6 +410,8 @@ public:
     FloatSize deltaForPropagation(const FloatSize&) const;
     WEBCORE_EXPORT virtual float adjustVerticalPageScrollStepForFixedContent(float step);
     virtual bool needsAnimatedScroll() const { return false; }
+    virtual void updateScrollAnchoringElement() { }
+    virtual void updateScrollPositionForScrollAnchoringController() { }
 
 protected:
     WEBCORE_EXPORT ScrollableArea();

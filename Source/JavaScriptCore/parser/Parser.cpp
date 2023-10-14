@@ -313,9 +313,10 @@ Expected<typename Parser<LexerType>::ParseInnerResult, String> Parser<LexerType>
             return makeUnexpected(errorMessage);
     }
 
+    // It's essential to finalize the hoisting before computing captured variables.
+    scope->finalizeSloppyModeFunctionHoisting();
+
     IdentifierSet capturedVariables;
-    UniquedStringImplPtrSet sloppyModeHoistedFunctions;
-    scope->getSloppyModeHoistedFunctions(sloppyModeHoistedFunctions);
     scope->getCapturedVars(capturedVariables);
 
     VariableEnvironment& varDeclarations = scope->declaredVariables();
@@ -353,7 +354,7 @@ Expected<typename Parser<LexerType>::ParseInnerResult, String> Parser<LexerType>
     }
 #endif // ASSERT_ENABLED
 
-    return ParseInnerResult { parameters, sourceElements, scope->takeFunctionDeclarations(), scope->takeDeclaredVariables(), scope->takeLexicalEnvironment(), WTFMove(sloppyModeHoistedFunctions), features, context.numConstants() };
+    return ParseInnerResult { parameters, sourceElements, scope->takeFunctionDeclarations(), scope->takeDeclaredVariables(), scope->takeLexicalEnvironment(), features, context.numConstants() };
 }
 
 template <typename LexerType>
@@ -1611,7 +1612,7 @@ enumerationLoop:
     startLoop();
     TreeStatement statement = parseStatement(context, unused);
     endLoop();
-    failIfFalse(statement, "Expected a statement as the body of a for-", isOfEnumeration ? "of" : "in", "loop");
+    failIfFalse(statement, "Expected a statement as the body of a for-", isOfEnumeration ? "of" : "in", " loop");
     if (pattern) {
         ASSERT(!decls);
         VariableEnvironment lexicalVariables = popLexicalScopeIfNecessary();
@@ -2823,7 +2824,7 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseFunctionDecla
     DeclarationResultMask declarationResult = functionDeclaration.first;
     failIfTrueIfStrict(declarationResult & DeclarationResult::InvalidStrictMode, "Cannot declare a function named '", functionInfo.name->impl(), "' in strict mode");
     if (declarationResult & DeclarationResult::InvalidDuplicateDeclaration)
-        internalFailWithMessage(false, "Cannot declare a function that shadows a let/const/class/function variable '", functionInfo.name->impl(), "' in strict mode");
+        internalFailWithMessage(false, "Cannot declare a function that shadows a let/const/class/function variable '", functionInfo.name->impl(), "'");
     if (exportType == ExportType::Exported) {
         ASSERT_WITH_MESSAGE(declarationDefaultContext != DeclarationDefaultContext::ExportDefault, "Export default case will export the name and binding in the caller.");
         semanticFailIfFalse(exportName(*functionInfo.name), "Cannot export a duplicate function name: '", functionInfo.name->impl(), "'");
@@ -2831,8 +2832,15 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseFunctionDecla
     }
 
     TreeStatement result = context.createFuncDeclStatement(location, functionInfo);
-    if (TreeBuilder::CreatesAST)
-        functionDeclaration.second->appendFunction(getMetadata(functionInfo));
+    if (TreeBuilder::CreatesAST) {
+        FunctionMetadataNode* metadata = getMetadata(functionInfo);
+        functionDeclaration.second->appendFunction(metadata);
+        // FIXME: This convoluted condition is only temporary until Annex B hoisting for global scope is implemented.
+        // https://bugs.webkit.org/show_bug.cgi?id=163209
+        bool isSloppyModeHoistingCandidate = m_statementDepth != 1 && !strictMode() && m_parseMode == SourceParseMode::NormalFunctionMode && (currentScope()->isFunction() || closestParentOrdinaryFunctionNonLexicalScope()->isEvalContext());
+        if (isSloppyModeHoistingCandidate)
+            functionDeclaration.second->addSloppyModeFunctionHoistingCandidate<Scope::NeedsDuplicateDeclarationCheck::No>(metadata);
+    }
     return result;
 }
 
@@ -2881,7 +2889,7 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseAsyncFunction
     DeclarationResultMask declarationResult = functionDeclaration.first;
     failIfTrueIfStrict(declarationResult & DeclarationResult::InvalidStrictMode, "Cannot declare an async function named '", functionInfo.name->impl(), "' in strict mode");
     if (declarationResult & DeclarationResult::InvalidDuplicateDeclaration)
-        internalFailWithMessage(false, "Cannot declare an async function that shadows a let/const/class/function variable '", functionInfo.name->impl(), "' in strict mode");
+        internalFailWithMessage(false, "Cannot declare an async function that shadows a let/const/class/function variable '", functionInfo.name->impl(), "'");
     if (exportType == ExportType::Exported) {
         semanticFailIfFalse(exportName(*functionInfo.name), "Cannot export a duplicate function name: '", functionInfo.name->impl(), "'");
         m_moduleScopeData->exportBinding(*functionInfo.name);

@@ -424,10 +424,7 @@ void WebAutomationSessionProxy::evaluateJavaScriptFunction(WebCore::PageIdentifi
         JSValueMakeNumber(context, callbackTimeout.value_or(-1))
     };
 
-    {
-        WebCore::UserGestureIndicator gestureIndicator(WebCore::ProcessingUserGesture, frame->coreLocalFrame()->document());
-        callPropertyFunction(context, scriptObject, "evaluateJavaScriptFunction"_s, std::size(functionArguments), functionArguments, &exception);
-    }
+    callPropertyFunction(context, scriptObject, "evaluateJavaScriptFunction"_s, std::size(functionArguments), functionArguments, &exception);
 
     if (!exception)
         return;
@@ -486,7 +483,7 @@ void WebAutomationSessionProxy::resolveChildFrameWithOrdinal(WebCore::PageIdenti
         return;
     }
 
-    WebFrame* childFrame = WebFrame::fromCoreFrame(*coreChildFrame);
+    auto childFrame = WebFrame::fromCoreFrame(*coreChildFrame);
     if (!childFrame) {
         completionHandler(frameNotFoundErrorType, std::nullopt);
         return;
@@ -536,7 +533,7 @@ void WebAutomationSessionProxy::resolveChildFrameWithNodeHandle(WebCore::PageIde
         return;
     }
 
-    WebFrame* frameFromElement = WebFrame::fromCoreFrame(*coreFrameFromElement);
+    auto frameFromElement = WebFrame::fromCoreFrame(*coreFrameFromElement);
     if (!frameFromElement) {
         completionHandler(frameNotFoundErrorType, std::nullopt);
         return;
@@ -574,7 +571,7 @@ void WebAutomationSessionProxy::resolveChildFrameWithName(WebCore::PageIdentifie
         return;
     }
 
-    WebFrame* childFrame = WebFrame::fromCoreFrame(*coreChildFrame);
+    auto childFrame = WebFrame::fromCoreFrame(*coreChildFrame);
     if (!childFrame) {
         completionHandler(frameNotFoundErrorType, std::nullopt);
         return;
@@ -600,7 +597,7 @@ void WebAutomationSessionProxy::resolveParentFrame(WebCore::PageIdentifier pageI
         return;
     }
 
-    WebFrame* parentFrame = frame->parentFrame();
+    auto parentFrame = frame->parentFrame();
     if (!parentFrame) {
         completionHandler(frameNotFoundErrorType, std::nullopt);
         return;
@@ -918,7 +915,7 @@ static WebCore::IntRect snapshotElementRectForScreenshot(WebPage& page, WebCore:
 void WebAutomationSessionProxy::takeScreenshot(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, String nodeHandle, bool scrollIntoViewIfNeeded, bool clipToViewport, uint64_t callbackID)
 {
     snapshotRectForScreenshot(pageID, frameID, nodeHandle, scrollIntoViewIfNeeded, clipToViewport, [pageID, frameID, callbackID] (std::optional<String> errorString, WebCore::IntRect&& rect) {
-        ShareableBitmap::Handle handle;
+        std::optional<ShareableBitmap::Handle> handle;
         if (errorString) {
             WebProcess::singleton().parentProcessConnection()->send(Messages::WebAutomationSession::DidTakeScreenshot(callbackID, WTFMove(handle), *errorString), 0);
             return;

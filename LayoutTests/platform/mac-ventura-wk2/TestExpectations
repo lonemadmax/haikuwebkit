@@ -22,7 +22,6 @@ fast/images/mac/animation-context-menu-items-presence.html [ Skip ]
 http/tests/permissions/permission-status-onchange-event-service-worker.html [ Pass Timeout ]
 imported/w3c/web-platform-tests/feature-policy/reporting/picture-in-picture-reporting.html [ Pass Failure ]
 imported/w3c/web-platform-tests/fetch/range/non-matching-range-response.html [ Pass Failure ]
-imported/w3c/web-platform-tests/mimesniff/media/media-sniff.window.html [ Pass Failure ]
 imported/w3c/web-platform-tests/resize-observer/callback-cross-realm-report-exception.html [ Pass Failure ]
 media/media-session/actionHandler-no-document-leak.html [ Pass Failure ]
 scrollingcoordinator/mac/fixed-backgrounds/fixed-background-in-nested-non-cb-overflow.html [ Pass Failure ]
@@ -30,3 +29,5 @@ scrollingcoordinator/mac/fixed-backgrounds/fixed-background-in-nested-overflow.h
 scrollingcoordinator/mac/fixed-backgrounds/fixed-background-in-nested-overflow2.html [ Pass Failure ]
 storage/indexeddb/database-transaction-cycle.html [ Pass Failure ]
 webgl/1.0.x/conformance/glsl/misc/shader-with-non-reserved-words-3-of-8.html [ Pass Timeout ]
+
+webkit.org/b/261444 [ Debug x86_64 ] http/tests/security/referrer-policy-header.html [ Pass Timeout ]

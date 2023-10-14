@@ -32,6 +32,7 @@
 #include "LayoutBoxGeometry.h"
 #include "LayoutInitialContainingBlock.h"
 #include "RenderStyleInlines.h"
+#include "RubyFormattingContext.h"
 #include "TextUtil.h"
 #include <wtf/ListHashSet.h>
 #include <wtf/Range.h>
@@ -103,6 +104,8 @@ InlineDisplay::Boxes InlineDisplayContentBuilder::build(const LineLayoutResult& 
     else
         processNonBidiContent(lineLayoutResult, lineBox, boxes);
     processFloatBoxes(lineLayoutResult);
+
+    applyRubyOverhang(boxes);
 
     collectInkOverflowForTextDecorations(boxes);
     collectInkOverflowForInlineBoxes(boxes);
@@ -284,7 +287,7 @@ void InlineDisplayContentBuilder::appendHardLineBreakDisplayBox(const Line::Run&
     });
 
     auto& boxGeometry = formattingState().boxGeometry(layoutBox);
-    boxGeometry.setLogicalTopLeft(toLayoutPoint(lineBreakBoxRect.topLeft()));
+    boxGeometry.setTopLeft(toLayoutPoint(lineBreakBoxRect.topLeft()));
     boxGeometry.setContentBoxHeight(toLayoutUnit(lineBreakBoxRect.height()));
 }
 
@@ -316,7 +319,7 @@ void InlineDisplayContentBuilder::appendAtomicInlineLevelDisplayBox(const Line::
     });
     // Note that inline boxes are relative to the line and their top position can be negative.
     // Atomic inline boxes are all set. Their margin/border/content box geometries are already computed. We just have to position them here.
-    formattingState().boxGeometry(layoutBox).setLogicalTopLeft(toLayoutPoint(borderBoxRect.topLeft()));
+    formattingState().boxGeometry(layoutBox).setTopLeft(toLayoutPoint(borderBoxRect.topLeft()));
 }
 
 void InlineDisplayContentBuilder::setInlineBoxGeometry(const Box& layoutBox, const InlineRect& rect, bool isFirstInlineBoxFragment)
@@ -329,7 +332,7 @@ void InlineDisplayContentBuilder::setInlineBoxGeometry(const Box& layoutBox, con
         enclosingBorderBoxRect.expandToContain(adjustedRect);
         adjustedRect = enclosingBorderBoxRect;
     }
-    boxGeometry.setLogicalTopLeft(adjustedRect.topLeft());
+    boxGeometry.setTopLeft(adjustedRect.topLeft());
     auto contentBoxHeight = adjustedRect.height() - (boxGeometry.verticalBorder() + boxGeometry.verticalPadding().value_or(0_lu));
     auto contentBoxWidth = adjustedRect.width() - (boxGeometry.horizontalBorder() + boxGeometry.horizontalPadding().value_or(0_lu));
     boxGeometry.setContentBoxHeight(contentBoxHeight);
@@ -385,6 +388,12 @@ void InlineDisplayContentBuilder::appendInlineBoxDisplayBox(const Line::Run& lin
         , isLineFullyTruncatedInBlockDirection()
         , isFirstLastBox(inlineBox)
     });
+
+    if (layoutBox.isRubyBase()) {
+        if (layoutBox.associatedRubyAnnotationBox())
+            m_rubyColumnRangeList.append({ boxes.size() - 1, boxes.size() });
+        appendAssociatedRubyAnnotationBoxIfNeeded(layoutBox, boxes);
+    }
 }
 
 void InlineDisplayContentBuilder::appendSpanningInlineBoxDisplayBox(const Line::Run& lineRun, const InlineLevelBox& inlineBox, const InlineRect& inlineBoxBorderBox, bool linehasContent, InlineDisplay::Boxes& boxes)
@@ -392,6 +401,8 @@ void InlineDisplayContentBuilder::appendSpanningInlineBoxDisplayBox(const Line::
     ASSERT(lineRun.layoutBox().isInlineBox());
     ASSERT(inlineBox.isInlineBox());
     ASSERT(!inlineBox.isFirstBox());
+    // We don't break inside bases yet.
+    ASSERT(!lineRun.layoutBox().isRubyBase());
 
     if (!linehasContent) {
         // When a spanning inline box (e.g. <div>text<span><br></span></div>) lands on an empty line
@@ -424,6 +435,18 @@ void InlineDisplayContentBuilder::appendSpanningInlineBoxDisplayBox(const Line::
     });
 }
 
+void InlineDisplayContentBuilder::handleInlineBoxEnd(const Line::Run& lineRun, const InlineDisplay::Boxes& boxes)
+{
+    if (lineRun.layoutBox().isRubyBase()) {
+        if (m_rubyColumnRangeList.isEmpty()) {
+            ASSERT(!lineRun.layoutBox().associatedRubyAnnotationBox());
+            return;
+        }
+        if (lineRun.layoutBox().associatedRubyAnnotationBox())
+            m_rubyColumnRangeList.last() = { m_rubyColumnRangeList.last().begin(), boxes.size() - 1 };
+    }
+}
+
 void InlineDisplayContentBuilder::appendInlineDisplayBoxAtBidiBoundary(const Box& layoutBox, InlineDisplay::Boxes& boxes)
 {
     // Geometries for inline boxes at bidi boundaries are computed at a post-process step.
@@ -437,6 +460,35 @@ void InlineDisplayContentBuilder::appendInlineDisplayBoxAtBidiBoundary(const Box
         , { }
         , { }
         , isContentful
+        , isLineFullyTruncatedInBlockDirection()
+    });
+}
+
+void InlineDisplayContentBuilder::appendAssociatedRubyAnnotationBoxIfNeeded(const Box& rubyBaseLayoutBox, InlineDisplay::Boxes& boxes)
+{
+    ASSERT(rubyBaseLayoutBox.isRubyBase());
+    auto* annotationBox = rubyBaseLayoutBox.associatedRubyAnnotationBox();
+    if (!annotationBox)
+        return;
+
+    auto annotationBoxPosition = RubyFormattingContext { formattingContext() }.annotationPosition(rubyBaseLayoutBox);
+    // Turn ruby-base relatively positioned annotation box to relative to line box.
+    annotationBoxPosition.moveBy(BoxGeometry::borderBoxTopLeft(formattingContext().geometryForBox(rubyBaseLayoutBox)));
+
+    auto& annotationBoxGeometry = formattingState().boxGeometry(*annotationBox);
+    annotationBoxGeometry.setTopLeft(toLayoutPoint(annotationBoxPosition));
+
+    auto annoationBorderBox = InlineRect { annotationBoxPosition.y(), annotationBoxPosition.x(), annotationBoxGeometry.borderBoxWidth(), annotationBoxGeometry.borderBoxHeight() };
+
+    boxes.append({ m_lineIndex
+        , InlineDisplay::Box::Type::AtomicInlineLevelBox
+        , *annotationBox
+        , UBIDI_DEFAULT_LTR
+        , annoationBorderBox
+        , annoationBorderBox
+        , { }
+        , { }
+        , true
         , isLineFullyTruncatedInBlockDirection()
     });
 }
@@ -504,12 +556,16 @@ void InlineDisplayContentBuilder::processNonBidiContent(const LineLayoutResult& 
             if (layoutBox.style().isOriginalDisplayInlineType()) {
                 auto logicalTopLeft = lineBox.logicalRectForOpaqueBox(lineRun, boxGeometry).topLeft();
                 logicalTopLeft.moveBy(lineBox.logicalRect().topLeft());
-                boxGeometry.setLogicalTopLeft(toLayoutPoint(logicalTopLeft));
+                boxGeometry.setTopLeft(toLayoutPoint(logicalTopLeft));
             } else
                 blockLevelOutOfFlowBoxList.append(index);
             continue;
         }
-        ASSERT(lineRun.isInlineBoxEnd() || lineRun.isWordBreakOpportunity());
+        if (lineRun.isInlineBoxEnd()) {
+            handleInlineBoxEnd(lineRun, boxes);
+            continue;
+        }
+        ASSERT(lineRun.isWordBreakOpportunity());
     }
     setGeometryForBlockLevelOutOfFlowBoxes(blockLevelOutOfFlowBoxList, lineBox, lineLayoutResult.inlineContent);
 }
@@ -613,7 +669,7 @@ void InlineDisplayContentBuilder::adjustVisualGeometryForDisplayBox(size_t displ
             auto boxMarginLeft = marginLeftInInlineDirection(boxGeometry, isLeftToRightDirection);
 
             auto borderBoxLeft = LayoutUnit { contentRightInInlineDirectionVisualOrder + boxMarginLeft };
-            boxGeometry.setLogicalLeft(borderBoxLeft);
+            boxGeometry.setLeft(borderBoxLeft);
             setLeftForWritingMode(displayBox, borderBoxLeft, writingMode);
 
             contentRightInInlineDirectionVisualOrder += boxGeometry.marginBoxWidth();
@@ -698,7 +754,8 @@ void InlineDisplayContentBuilder::processBidiContent(const LineLayoutResult& lin
 
         auto contentRightInInlineDirectionVisualOrder = contentStartInInlineDirectionVisualOrder;
         auto& inlineContent = lineLayoutResult.inlineContent;
-        for (auto visualOrder : lineLayoutResult.directionality.visualOrderList) {
+        for (size_t index = 0; index < lineLayoutResult.directionality.visualOrderList.size(); ++index) {
+            auto visualOrder = lineLayoutResult.directionality.visualOrderList[index];
             ASSERT(inlineContent[visualOrder].bidiLevel() != InlineItem::opaqueBidiLevel);
 
             auto& lineRun = inlineContent[visualOrder];
@@ -779,9 +836,9 @@ void InlineDisplayContentBuilder::processBidiContent(const LineLayoutResult& lin
                 if (layoutBox.style().isOriginalDisplayInlineType()) {
                     auto logicalTopLeft = lineBox.logicalRectForOpaqueBox(lineRun, boxGeometry).topLeft();
                     logicalTopLeft.moveBy(lineBox.logicalRect().topLeft());
-                    boxGeometry.setLogicalTopLeft(toLayoutPoint(logicalTopLeft));
+                    boxGeometry.setTopLeft(toLayoutPoint(logicalTopLeft));
                 } else
-                    blockLevelOutOfFlowBoxList.append(visualOrder);
+                    blockLevelOutOfFlowBoxList.append(index);
                 continue;
             }
             ASSERT_NOT_REACHED();
@@ -909,7 +966,8 @@ void InlineDisplayContentBuilder::setGeometryForBlockLevelOutOfFlowBoxes(const V
         };
         // Block level boxes are placed either at the start of the line or "under" depending whether they have previous inflow sibling.
         auto logicalTop = hasPreviousInFlowContent() ? lineBox.logicalRect().bottom() : lineBox.logicalRect().top();
-        formattingState().boxGeometry(lineRuns[outOfFlowBoxIndex].layoutBox()).setLogicalTopLeft({ constraints().horizontal().logicalLeft, logicalTop });
+        auto& lineRun = visualOrderList.isEmpty() ? lineRuns[outOfFlowBoxIndex] : lineRuns[visualOrderList[outOfFlowBoxIndex]];
+        formattingState().boxGeometry(lineRun.layoutBox()).setTopLeft({ constraints().horizontal().logicalLeft, logicalTop });
     }
 }
 
@@ -979,6 +1037,49 @@ void InlineDisplayContentBuilder::collectInkOverflowForTextDecorations(InlineDis
             };
             displayBox.adjustInkOverflow(inflatedVisualOverflowRect());
         }
+    }
+}
+
+void InlineDisplayContentBuilder::applyRubyOverhang(InlineDisplay::Boxes& boxes) const
+{
+    // FIXME: We are only supposed to apply overhang when annotation box is wider than base, but at this point we can't tell (this needs to be addressed together with annotation box sizing).
+    if (m_rubyColumnRangeList.isEmpty())
+        return;
+
+    auto rubyFormattingContext = RubyFormattingContext { formattingContext() };
+    auto accumulatedShift = InlineLayoutUnit { };
+    size_t currentRubyBaseIndex = 0;
+
+    for (auto index = m_rubyColumnRangeList[0].begin(); index < boxes.size(); ++index) {
+
+        if (currentRubyBaseIndex == m_rubyColumnRangeList.size()) {
+            boxes[index].moveHorizontally(-accumulatedShift);
+            continue;
+        }
+
+        auto handleOverhangBefore = [&] {
+            if (index != m_rubyColumnRangeList[currentRubyBaseIndex].begin())
+                return;
+            auto& rubyBaseLayoutBox = boxes[index].layoutBox();
+            ASSERT(rubyBaseLayoutBox.isRubyBase());
+            ASSERT(rubyBaseLayoutBox.associatedRubyAnnotationBox());
+            accumulatedShift += rubyFormattingContext.overhangForAnnotationBefore(rubyBaseLayoutBox, index, boxes);
+            auto& annotationBoxGeometry = formattingState().boxGeometry(*rubyBaseLayoutBox.associatedRubyAnnotationBox());
+            annotationBoxGeometry.moveHorizontally(LayoutUnit { -accumulatedShift });
+        };
+        handleOverhangBefore();
+
+        boxes[index].moveHorizontally(-accumulatedShift);
+
+        auto handleOverhangAfter = [&] {
+            if (index != m_rubyColumnRangeList[currentRubyBaseIndex].end())
+                return;
+            auto& rubyBaseLayoutBox = boxes[m_rubyColumnRangeList[currentRubyBaseIndex].begin()].layoutBox();
+            ASSERT(rubyBaseLayoutBox.isRubyBase());
+            accumulatedShift += rubyFormattingContext.overhangForAnnotationAfter(rubyBaseLayoutBox, index, boxes);
+            ++currentRubyBaseIndex;
+        };
+        handleOverhangAfter();
     }
 }
 

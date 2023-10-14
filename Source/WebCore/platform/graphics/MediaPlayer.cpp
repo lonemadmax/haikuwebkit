@@ -132,7 +132,7 @@ public:
     bool hasVideo() const final { return false; }
     bool hasAudio() const final { return false; }
 
-    void setPageIsVisible(bool) final { }
+    void setPageIsVisible(bool, String&&) final { }
 
     double durationDouble() const final { return 0; }
 
@@ -378,7 +378,7 @@ const MediaPlayerFactory* MediaPlayer::mediaEngine(MediaPlayerEnums::MediaEngine
     return engines[currentIndex].get();
 }
 
-static const MediaPlayerFactory* bestMediaEngineForSupportParameters(const MediaEngineSupportParameters& parameters, const HashSet<const MediaPlayerFactory*>& attemptedEngines = { }, const MediaPlayerFactory* current = nullptr)
+static const MediaPlayerFactory* bestMediaEngineForSupportParameters(const MediaEngineSupportParameters& parameters, const WeakHashSet<const MediaPlayerFactory>& attemptedEngines = { }, const MediaPlayerFactory* current = nullptr)
 {
     if (parameters.type.isEmpty() && !parameters.isMediaSource && !parameters.isMediaStream)
         return nullptr;
@@ -399,7 +399,7 @@ static const MediaPlayerFactory* bestMediaEngineForSupportParameters(const Media
                 current = nullptr;
             continue;
         }
-        if (attemptedEngines.contains(engine.get()))
+        if (attemptedEngines.contains(*engine))
             continue;
         MediaPlayer::SupportsType engineSupport = engine->supportsTypeAndCodecs(parameters);
         if (engineSupport > supported) {
@@ -438,7 +438,7 @@ const MediaPlayerFactory* MediaPlayer::nextMediaEngine(const MediaPlayerFactory*
 
     auto* nextEngine = engines[currentIndex + 1].get();
     
-    if (m_attemptedEngines.contains(nextEngine))
+    if (m_attemptedEngines.contains(*nextEngine))
         return nextMediaEngine(nextEngine);
     
     return nextEngine;
@@ -627,7 +627,7 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
         m_private = nullptr;
     } else if (m_currentMediaEngine != engine) {
         m_currentMediaEngine = engine;
-        m_attemptedEngines.add(engine);
+        m_attemptedEngines.add(*engine);
         m_private = engine->createMediaEnginePlayer(this);
         if (m_private) {
             client().mediaPlayerEngineUpdated();
@@ -1099,10 +1099,10 @@ void MediaPlayer::setPresentationSize(const IntSize& size)
     m_private->setPresentationSize(size);
 }
 
-void MediaPlayer::setPageIsVisible(bool visible)
+void MediaPlayer::setPageIsVisible(bool visible, String&& sceneIdentifier)
 {
     m_pageIsVisible = visible;
-    m_private->setPageIsVisible(visible);
+    m_private->setPageIsVisible(visible, WTFMove(sceneIdentifier));
 }
 
 void MediaPlayer::setVisibleForCanvas(bool visible)

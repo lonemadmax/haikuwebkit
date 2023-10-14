@@ -49,9 +49,9 @@ static Node* enclosingListChild(Node* node, Node* listNode)
     return listChild;
 }
 
-RefPtr<HTMLElement> InsertListCommand::insertList(Document& document, Type type)
+RefPtr<HTMLElement> InsertListCommand::insertList(Ref<Document>&& document, Type type)
 {
-    RefPtr<InsertListCommand> insertCommand = create(document, type);
+    RefPtr<InsertListCommand> insertCommand = create(WTFMove(document), type);
     insertCommand->apply();
     return insertCommand->m_listElement;
 }
@@ -110,8 +110,8 @@ bool InsertListCommand::selectionHasListOfType(const VisibleSelection& selection
     return true;
 }
 
-InsertListCommand::InsertListCommand(Document& document, Type type)
-    : CompositeEditCommand(document)
+InsertListCommand::InsertListCommand(Ref<Document>&& document, Type type)
+    : CompositeEditCommand(WTFMove(document))
     , m_type(type)
 {
 }
@@ -219,12 +219,12 @@ void InsertListCommand::doApplyForSingleParagraph(bool forceCreateList, const HT
     // FIXME: This will produce unexpected results for a selection that starts just before a
     // table and ends inside the first cell, selectionForParagraphIteration should probably
     // be renamed and deployed inside setEndingSelection().
-    Node* selectionNode = endingSelection().start().deprecatedNode();
-    Node* listChildNode = enclosingListChild(selectionNode);
+    auto selectionNode = endingSelection().start().protectedDeprecatedNode();
+    RefPtr listChildNode = enclosingListChild(selectionNode.get());
     bool switchListType = false;
     if (listChildNode) {
         // Remove the list child.
-        RefPtr<HTMLElement> listNode = enclosingList(listChildNode);
+        RefPtr<HTMLElement> listNode = enclosingList(listChildNode.get());
         if (!listNode) {
             RefPtr<HTMLElement> listElement = fixOrphanedListChild(*listChildNode);
             if (!listElement || !listElement->isConnected())
@@ -280,7 +280,7 @@ void InsertListCommand::doApplyForSingleParagraph(bool forceCreateList, const HT
             return;
         }
         
-        unlistifyParagraph(endingSelection().visibleStart(), *listNode, listChildNode);
+        unlistifyParagraph(endingSelection().visibleStart(), *listNode, listChildNode.get());
     }
 
     if (!listChildNode || switchListType || forceCreateList)
@@ -353,7 +353,7 @@ void InsertListCommand::unlistifyParagraph(const VisiblePosition& originalStart,
 
 static RefPtr<Element> adjacentEnclosingList(const VisiblePosition& pos, const VisiblePosition& adjacentPos, const QualifiedName& listTag)
 {
-    RefPtr<Element> listNode = outermostEnclosingList(adjacentPos.deepEquivalent().deprecatedNode());
+    RefPtr<Element> listNode = outermostEnclosingList(adjacentPos.deepEquivalent().protectedDeprecatedNode().get());
 
     if (!listNode)
         return nullptr;
@@ -364,7 +364,7 @@ static RefPtr<Element> adjacentEnclosingList(const VisiblePosition& pos, const V
     if (!listNode->hasTagName(listTag)
         || listNode->contains(pos.deepEquivalent().deprecatedNode())
         || previousCell != currentCell
-        || enclosingList(listNode.get()) != enclosingList(pos.deepEquivalent().deprecatedNode()))
+        || enclosingList(listNode.get()) != enclosingList(pos.deepEquivalent().protectedDeprecatedNode().get()))
         return nullptr;
 
     return listNode;
@@ -396,13 +396,16 @@ RefPtr<HTMLElement> InsertListCommand::listifyParagraph(const VisiblePosition& o
         listElement = createHTMLElement(document(), listTag);
         appendNode(WTFMove(listItemElement), *listElement);
 
-        if (start == end && isBlock(start.deepEquivalent().deprecatedNode())) {
-            // Inserting the list into an empty paragraph that isn't held open 
-            // by a br or a '\n', will invalidate start and end.  Insert 
-            // a placeholder and then recompute start and end.
-            auto blockPlaceholder = insertBlockPlaceholder(start.deepEquivalent());
-            start = positionBeforeNode(blockPlaceholder.get());
-            end = start;
+        if (start == end) {
+            RefPtr node = start.deepEquivalent().deprecatedNode();
+            if (node && isBlock(*node)) {
+                // Inserting the list into an empty paragraph that isn't held open
+                // by a br or a '\n', will invalidate start and end. Insert
+                // a placeholder and then recompute start and end.
+                auto blockPlaceholder = insertBlockPlaceholder(start.deepEquivalent());
+                start = positionBeforeNode(blockPlaceholder.get());
+                end = start;
+            }
         }
 
         // Insert the list at a position visually equivalent to start of the

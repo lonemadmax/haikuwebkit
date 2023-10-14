@@ -371,6 +371,8 @@ invalid("for (let i = 20 in b) { }");
 invalid("for (const i = 20 in b) { }");
 invalid("for (const {i} = 20 in b) { }");
 invalid("for (let {i} = 20 in b) { }");
+invalid("{ for (a in []) }");
+invalid("{ for (a of []) }");
 valid("function x(i) { for (let i in {}) { } }");
 valid("function x(i) { for (let i of []) { } }");
 valid("function x(i) { for (let i of []) { } }");
@@ -469,6 +471,7 @@ valid("function foo() { { function f1(a) {}; } let f1; }")
 valid("function foo() { { function foo() { }; function foo() { } } }")
 invalid("function foo() { 'use strict'; { function foo() { }; function foo() { } } }")
 invalid("function foo() { let f1; function f1(a) {}; }")
+invalid("function foo() { let f1; async function f1(a) {}; }")
 invalid("let f1; function f1(a) {};")
 invalid("{ function f1(a) {}; let f1; }")
 invalid("{ function f1(a) {}; const f1 = 25; }")

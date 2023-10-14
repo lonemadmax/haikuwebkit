@@ -90,175 +90,6 @@ fn testModulo() {
    _ = vec2(0.0, 0.0) % vec2(1.0, 1.0);
 }
 
-var s: sampler;
-
-var t1d: texture_1d<f32>;
-var t1di: texture_1d<i32>;
-var t1du: texture_1d<u32>;
-
-var t2d: texture_2d<f32>;
-var t2di: texture_2d<i32>;
-var t2du: texture_2d<u32>;
-
-var t2da: texture_2d_array<f32>;
-var t2dai: texture_2d_array<i32>;
-var t2dau: texture_2d_array<u32>;
-
-var t3d: texture_3d<f32>;
-var t3di: texture_3d<i32>;
-var t3du: texture_3d<u32>;
-
-var tm2d: texture_multisampled_2d<f32>;
-var tm2di: texture_multisampled_2d<i32>;
-var tm2du: texture_multisampled_2d<u32>;
-
-var te: texture_external;
-var tc: texture_cube<f32>;
-var tca: texture_cube_array<f32>;
-
-fn testTextureSample() {
-  {
-    _ = textureSample(t1d, s, 1);
-  }
-
-  {
-    _ = textureSample(t2d, s, vec2<f32>(0, 0));
-  }
-
-  {
-    _ = textureSample(t2d, s, vec2<f32>(0, 0), vec2<i32>(1, 1));
-  }
-
-  {
-    _ = textureSample(t2da, s, vec2<f32>(0, 0), 0);
-  }
-
-  {
-    _ = textureSample(t2da, s, vec2<f32>(0, 0), 0, vec2<i32>(1, 1));
-  }
-
-  {
-    _ = textureSample(t3d, s, vec3<f32>(0, 0, 0));
-  }
-
-  {
-    _ = textureSample(tc, s, vec3<f32>(0, 0, 0));
-  }
-
-  {
-    _ = textureSample(t3d, s, vec3<f32>(0, 0, 0), vec3<i32>(0, 0, 0));
-  }
-
-  {
-    _ = textureSample(tca, s, vec3<f32>(0, 0, 0), 0);
-  }
-}
-
-fn testTextureLoad()
-{
-    // [T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(Texture[S, Texture1d], T, U) => Vector[S, 4],
-    {
-        {
-            _ = textureLoad(t1d, 0, 0);
-            _ = textureLoad(t1d, 0i, 0u);
-            _ = textureLoad(t1d, 0u, 0i);
-        }
-        {
-            _ = textureLoad(t1di, 0, 0);
-            _ = textureLoad(t1di, 0i, 0u);
-            _ = textureLoad(t1di, 0u, 0i);
-        }
-        {
-            _ = textureLoad(t1du, 0, 0);
-            _ = textureLoad(t1du, 0i, 0u);
-            _ = textureLoad(t1du, 0u, 0i);
-        }
-    }
-
-    // [T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(Texture[S, Texture2d], Vector[T, 2], U) => Vector[S, 4],
-    {
-        {
-            _ = textureLoad(t2d, vec2(0), 0);
-            _ = textureLoad(t2d, vec2(0i), 0u);
-            _ = textureLoad(t2d, vec2(0u), 0i);
-        }
-        {
-            _ = textureLoad(t2di, vec2(0), 0);
-            _ = textureLoad(t2di, vec2(0i), 0u);
-            _ = textureLoad(t2di, vec2(0u), 0i);
-        }
-        {
-            _ = textureLoad(t2du, vec2(0), 0);
-            _ = textureLoad(t2du, vec2(0i), 0u);
-            _ = textureLoad(t2du, vec2(0u), 0i);
-        }
-    }
-
-    // [T < ConcreteInteger, V < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(Texture[S, Texture2dArray], Vector[T, 2], V, U) => Vector[S, 4],
-    {
-        {
-            _ = textureLoad(t2da, vec2(0), 0, 0);
-            _ = textureLoad(t2da, vec2(0i), 0u, 0i);
-            _ = textureLoad(t2da, vec2(0u), 0i, 0u);
-        }
-        {
-            _ = textureLoad(t2dai, vec2(0), 0, 0);
-            _ = textureLoad(t2dai, vec2(0i), 0u, 0i);
-            _ = textureLoad(t2dai, vec2(0u), 0i, 0u);
-        }
-        {
-            _ = textureLoad(t2dau, vec2(0), 0, 0);
-            _ = textureLoad(t2dau, vec2(0i), 0u, 0i);
-            _ = textureLoad(t2dau, vec2(0u), 0i, 0u);
-        }
-    }
-
-    // [T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(Texture[S, Texture3d], Vector[T, 3], U) => Vector[S, 4],
-    {
-        {
-            _ = textureLoad(t3d, vec3(0), 0);
-            _ = textureLoad(t3d, vec3(0i), 0u);
-            _ = textureLoad(t3d, vec3(0u), 0i);
-        }
-        {
-            _ = textureLoad(t3di, vec3(0), 0);
-            _ = textureLoad(t3di, vec3(0i), 0u);
-            _ = textureLoad(t3di, vec3(0u), 0i);
-        }
-        {
-            _ = textureLoad(t3du, vec3(0), 0);
-            _ = textureLoad(t3du, vec3(0i), 0u);
-            _ = textureLoad(t3du, vec3(0u), 0i);
-        }
-    }
-
-    // [T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(Texture[S, TextureMultisampled2d], Vector[T, 2], U) => Vector[S, 4],
-    {
-        {
-            _ = textureLoad(tm2d, vec2(0), 0);
-            _ = textureLoad(tm2d, vec2(0i), 0u);
-            _ = textureLoad(tm2d, vec2(0u), 0i);
-        }
-        {
-            _ = textureLoad(tm2di, vec2(0), 0);
-            _ = textureLoad(tm2di, vec2(0i), 0u);
-            _ = textureLoad(tm2di, vec2(0u), 0i);
-        }
-        {
-            _ = textureLoad(tm2du, vec2(0), 0);
-            _ = textureLoad(tm2du, vec2(0i), 0u);
-            _ = textureLoad(tm2du, vec2(0u), 0i);
-        }
-    }
-
-    // [T < ConcreteInteger].(TextureExternal, Vector[T, 2]) => Vector[F32, 4],
-    {
-        _ = textureLoad(te, vec2(0));
-        _ = textureLoad(te, vec2(0i));
-        _ = textureLoad(te, vec2(0u));
-    }
-}
-
 fn testUnaryMinus() {
   let x = 1;
   _ = -x;
@@ -353,6 +184,23 @@ fn testComparison() {
     _ = vec2(0.0) <= vec2(1.0);
     _ = vec2(0.0f) <= vec2(1.0f);
   }
+}
+
+fn testAddressOf()
+{
+    var x = 1;
+    testPointerDeference(&x);
+
+    let y: ptr<function, i32> = &x;
+    testPointerDeference(y);
+
+    let z = &x;
+    testPointerDeference(z);
+}
+
+fn testPointerDeference(x: ptr<function, i32>) -> i32
+{
+    return *x;
 }
 
 // 8.6. Logical Expressions (https://gpuweb.github.io/gpuweb/wgsl/#logical-expr)
@@ -755,6 +603,21 @@ fn testSelect()
         _ = select(vec4(13), vec4(42f),  vec4(true));
         _ = select(vec4(13), vec4(42.0), vec4(true));
     }
+}
+
+// 16.4. Array Built-in Functions
+
+var<storage, read> a1: array<i32>;
+var<storage, read_write> a2: array<i32>;
+
+// 16.4.1.
+fn testArrayLength()
+{
+    // [T].(Ptr[Storage, Array[T], Read]) => U32,
+    _ = arrayLength(&a1);
+
+    // [T].(Ptr[Storage, Array[T], ReadWrite]) => U32,
+    _ = arrayLength(&a2);
 }
 
 // 17.5. Numeric Built-in Functions (https://www.w3.org/TR/WGSL/#numeric-builtin-functions)
@@ -2156,3 +2019,510 @@ fn testTrunc()
         _ = trunc(vec4(-1f));
     }
 }
+
+// 16.7. Texture Built-in Functions (https://gpuweb.github.io/gpuweb/wgsl/#texture-builtin-functions)
+
+@group(0) @binding( 0) var s: sampler;
+
+@group(0) @binding( 1) var t1d: texture_1d<f32>;
+@group(0) @binding( 2) var t1di: texture_1d<i32>;
+@group(0) @binding( 3) var t1du: texture_1d<u32>;
+
+@group(0) @binding( 4) var t2d: texture_2d<f32>;
+@group(0) @binding( 5) var t2di: texture_2d<i32>;
+@group(0) @binding( 6) var t2du: texture_2d<u32>;
+
+@group(0) @binding( 7) var t2da: texture_2d_array<f32>;
+@group(0) @binding( 8) var t2dai: texture_2d_array<i32>;
+@group(0) @binding( 9) var t2dau: texture_2d_array<u32>;
+
+@group(0) @binding(10) var t3d: texture_3d<f32>;
+@group(0) @binding(11) var t3di: texture_3d<i32>;
+@group(0) @binding(12) var t3du: texture_3d<u32>;
+
+@group(0) @binding(13) var tm2d: texture_multisampled_2d<f32>;
+@group(0) @binding(14) var tm2di: texture_multisampled_2d<i32>;
+@group(0) @binding(15) var tm2du: texture_multisampled_2d<u32>;
+
+@group(0) @binding(16) var tc: texture_cube<f32>;
+@group(0) @binding(17) var tca: texture_cube_array<f32>;
+
+@group(0) @binding(18) var ts1d: texture_storage_2d<rgba8unorm, read>;
+@group(0) @binding(19) var ts2d: texture_storage_2d<rgba16uint, write>;
+@group(0) @binding(20) var ts2da: texture_storage_2d<r32sint, read_write>;
+@group(0) @binding(21) var ts3d: texture_storage_2d<rgba32float, write>;
+@group(0) @binding(22) var te: texture_external;
+
+var td2d: texture_depth_2d;
+var td2da: texture_depth_2d_array;
+var tdc: texture_depth_cube;
+var tdca: texture_depth_cube_array;
+var tdms2d: texture_depth_multisampled_2d;
+
+// 16.7.1
+// RUN: %metal-compile testTextureDimensions
+@compute @workgroup_size(1)
+fn testTextureDimensions()
+{
+    // FIXME: add declarations for texture storage
+
+    // [S < Concrete32BitNumber].(Texture[S, Texture1d]) => U32,
+    _ = textureDimensions(t1d);
+
+    // [S < Concrete32BitNumber, T < ConcreteInteger].(Texture[S, Texture1d], T) => U32,
+    _ = textureDimensions(t1d, 0);
+
+    // [S < Concrete32BitNumber].(Texture[S, Texture2d]) => Vector[U32, 2],
+    _ = textureDimensions(t2d);
+    // [S < Concrete32BitNumber].(Texture[S, Texture2dArray]) => Vector[U32, 2],
+    _ = textureDimensions(t2da);
+    // [S < Concrete32BitNumber].(Texture[S, TextureCube]) => Vector[U32, 2],
+    _ = textureDimensions(tc);
+    // [S < Concrete32BitNumber].(Texture[S, TextureCubeArray]) => Vector[U32, 2],
+    _ = textureDimensions(tca);
+    // [S < Concrete32BitNumber].(Texture[S, TextureMultisampled2d]) => Vector[U32, 2],
+    _ = textureDimensions(tm2d);
+
+    // [].(texture_depth_2d) => Vector[U32, 2],
+    _ = textureDimensions(td2d);
+    // [].(texture_depth_2d_array) => Vector[U32, 2],
+    _ = textureDimensions(td2da);
+    // [].(texture_depth_cube) => Vector[U32, 2],
+    _ = textureDimensions(tdc);
+    // [].(texture_depth_cube_array) => Vector[U32, 2],
+    _ = textureDimensions(tdca);
+    // [].(texture_depth_multisampled_2d) => Vector[U32, 2],
+    _ = textureDimensions(tdms2d);
+
+    // [].(TextureExternal) => Vector[U32, 2],
+    _ = textureDimensions(te);
+
+    // [S < Concrete32BitNumber, T < ConcreteInteger].(Texture[S, Texture2d], T) => Vector[U32, 2],
+    _ = textureDimensions(t2d, 0);
+    // [S < Concrete32BitNumber, T < ConcreteInteger].(Texture[S, Texture2dArray], T) => Vector[U32, 2],
+    _ = textureDimensions(t2da, 0);
+    // [S < Concrete32BitNumber, T < ConcreteInteger].(Texture[S, TextureCube], T) => Vector[U32, 2],
+    _ = textureDimensions(tc, 0);
+    // [S < Concrete32BitNumber, T < ConcreteInteger].(Texture[S, TextureCubeArray], T) => Vector[U32, 2],
+    _ = textureDimensions(tca, 0);
+    // [T < ConcreteInteger].(texture_depth_2d, T) => Vector[U32, 2],
+    _ = textureDimensions(td2d, 0);
+    // [T < ConcreteInteger].(texture_depth_2d_array, T) => Vector[U32, 2],
+    _ = textureDimensions(td2da, 0);
+    // [T < ConcreteInteger].(texture_depth_cube, T) => Vector[U32, 2],
+    _ = textureDimensions(tdc, 0);
+    // [T < ConcreteInteger].(texture_depth_cube_array, T) => Vector[U32, 2],
+    _ = textureDimensions(tdca, 0);
+
+    // [S < Concrete32BitNumber].(Texture[S, Texture3d]) => Vector[U32, 3],
+    _ = textureDimensions(t3d);
+
+    // [S < Concrete32BitNumber, T < ConcreteInteger].(Texture[S, Texture3d], T) => Vector[U32, 3],
+    _ = textureDimensions(t3d, 0);
+}
+
+// 16.7.2
+fn testTextureGather()
+{
+    // [T < ConcreteInteger, S < Concrete32BitNumber].(T, Texture[S, Texture2d], Sampler, Vector[F32, 2]) => Vector[S, 4],
+    _ = textureGather(0, t2d, s, vec2f(0));
+
+    // [T < ConcreteInteger, S < Concrete32BitNumber].(T, Texture[S, Texture2d], Sampler, Vector[F32, 2], Vector[I32, 2]) => Vector[S, 4],
+    _ = textureGather(0, t2d, s, vec2f(0), vec2i(0));
+
+    // [T < ConcreteInteger, S < Concrete32BitNumber, U < ConcreteInteger].(T, Texture[S, Texture2dArray], Sampler, Vector[F32, 2], U) => Vector[S, 4],
+    _ = textureGather(0, t2da, s, vec2f(0), 0);
+
+    // [T < ConcreteInteger, S < Concrete32BitNumber, U < ConcreteInteger].(T, Texture[S, Texture2dArray], Sampler, Vector[F32, 2], U, Vector[I32, 2]) => Vector[S, 4],
+    _ = textureGather(0, t2da, s, vec2f(0), 0, vec2i(0));
+
+    // [T < ConcreteInteger, S < Concrete32BitNumber].(T, Texture[S, TextureCube], Sampler, Vector[F32, 3]) => Vector[S, 4],
+    _ = textureGather(0, tc, s, vec3f(0));
+
+    // [T < ConcreteInteger, S < Concrete32BitNumber, U < ConcreteInteger].(T, Texture[S, TextureCubeArray], Sampler, Vector[F32, 3], U) => Vector[S, 4],
+    _ = textureGather(0, tca, s, vec3f(0), 0);
+
+    // [].(texture_depth_2d, Sampler, Vector[F32, 2]) => Vector[F32, 4],
+    _ = textureGather(td2d, s, vec2f(0));
+
+    // [].(texture_depth_2d, Sampler, Vector[F32, 2], Vector[I32, 2]) => Vector[F32, 4],
+    _ = textureGather(td2d, s, vec2f(0), vec2i(0));
+
+    // [].(texture_depth_cube, Sampler, Vector[F32, 3]) => Vector[F32, 4],
+    _ = textureGather(tdc, s, vec3f(0));
+
+    // [U < ConcreteInteger].(texture_depth_2d_array, Sampler, Vector[F32, 2], U) => Vector[F32, 4],
+    _ = textureGather(td2da, s, vec2f(0), 0);
+
+    // [U < ConcreteInteger].(texture_depth_2d_array, Sampler, Vector[F32, 2], U, Vector[I32, 2]) => Vector[F32, 4],
+    _ = textureGather(td2da, s, vec2f(0), 0, vec2i(0));
+
+    // [U < ConcreteInteger].(texture_depth_cube_array, Sampler, Vector[F32, 3], U) => Vector[F32, 4],
+    _ = textureGather(tdca, s, vec3f(0), 0);
+}
+
+// 16.7.3 textureGatherCompare
+// FIXME: this only applies to texture_depth, implement
+
+// 16.7.4
+// RUN: %metal-compile testTextureLoad
+@compute @workgroup_size(1)
+fn testTextureLoad()
+{
+    // [T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(Texture[S, Texture1d], T, U) => Vector[S, 4],
+    {
+        {
+            _ = textureLoad(t1d, 0, 0);
+            _ = textureLoad(t1d, 0i, 0u);
+            _ = textureLoad(t1d, 0u, 0i);
+        }
+        {
+            _ = textureLoad(t1di, 0, 0);
+            _ = textureLoad(t1di, 0i, 0u);
+            _ = textureLoad(t1di, 0u, 0i);
+        }
+        {
+            _ = textureLoad(t1du, 0, 0);
+            _ = textureLoad(t1du, 0i, 0u);
+            _ = textureLoad(t1du, 0u, 0i);
+        }
+    }
+
+    // [T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(Texture[S, Texture2d], Vector[T, 2], U) => Vector[S, 4],
+    {
+        {
+            _ = textureLoad(t2d, vec2(0), 0);
+            _ = textureLoad(t2d, vec2(0i), 0u);
+            _ = textureLoad(t2d, vec2(0u), 0i);
+        }
+        {
+            _ = textureLoad(t2di, vec2(0), 0);
+            _ = textureLoad(t2di, vec2(0i), 0u);
+            _ = textureLoad(t2di, vec2(0u), 0i);
+        }
+        {
+            _ = textureLoad(t2du, vec2(0), 0);
+            _ = textureLoad(t2du, vec2(0i), 0u);
+            _ = textureLoad(t2du, vec2(0u), 0i);
+        }
+    }
+
+    // [T < ConcreteInteger, V < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(Texture[S, Texture2dArray], Vector[T, 2], V, U) => Vector[S, 4],
+    {
+        {
+            _ = textureLoad(t2da, vec2(0), 0, 0);
+            _ = textureLoad(t2da, vec2(0i), 0u, 0i);
+            _ = textureLoad(t2da, vec2(0u), 0i, 0u);
+        }
+        {
+            _ = textureLoad(t2dai, vec2(0), 0, 0);
+            _ = textureLoad(t2dai, vec2(0i), 0u, 0i);
+            _ = textureLoad(t2dai, vec2(0u), 0i, 0u);
+        }
+        {
+            _ = textureLoad(t2dau, vec2(0), 0, 0);
+            _ = textureLoad(t2dau, vec2(0i), 0u, 0i);
+            _ = textureLoad(t2dau, vec2(0u), 0i, 0u);
+        }
+    }
+
+    // [T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(Texture[S, Texture3d], Vector[T, 3], U) => Vector[S, 4],
+    {
+        {
+            _ = textureLoad(t3d, vec3(0), 0);
+            _ = textureLoad(t3d, vec3(0i), 0u);
+            _ = textureLoad(t3d, vec3(0u), 0i);
+        }
+        {
+            _ = textureLoad(t3di, vec3(0), 0);
+            _ = textureLoad(t3di, vec3(0i), 0u);
+            _ = textureLoad(t3di, vec3(0u), 0i);
+        }
+        {
+            _ = textureLoad(t3du, vec3(0), 0);
+            _ = textureLoad(t3du, vec3(0i), 0u);
+            _ = textureLoad(t3du, vec3(0u), 0i);
+        }
+    }
+
+    // [T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(Texture[S, TextureMultisampled2d], Vector[T, 2], U) => Vector[S, 4],
+    {
+        {
+            _ = textureLoad(tm2d, vec2(0), 0);
+            _ = textureLoad(tm2d, vec2(0i), 0u);
+            _ = textureLoad(tm2d, vec2(0u), 0i);
+        }
+        {
+            _ = textureLoad(tm2di, vec2(0), 0);
+            _ = textureLoad(tm2di, vec2(0i), 0u);
+            _ = textureLoad(tm2di, vec2(0u), 0i);
+        }
+        {
+            _ = textureLoad(tm2du, vec2(0), 0);
+            _ = textureLoad(tm2du, vec2(0i), 0u);
+            _ = textureLoad(tm2du, vec2(0u), 0i);
+        }
+    }
+
+    // [T < ConcreteInteger].(TextureExternal, Vector[T, 2]) => Vector[F32, 4],
+    {
+        _ = textureLoad(te, vec2(0));
+        _ = textureLoad(te, vec2(0i));
+        _ = textureLoad(te, vec2(0u));
+    }
+
+    // [T < ConcreteInteger, U < ConcreteInteger].(texture_depth_2d, Vector[T, 2], U) => F32,
+    {
+        _ = textureLoad(td2d, vec2(0), 0);
+        _ = textureLoad(td2d, vec2(0i), 0i);
+        _ = textureLoad(td2d, vec2(0u), 0u);
+    }
+
+    // [T < ConcreteInteger, S < ConcreteInteger, U < ConcreteInteger].(texture_depth_2d_array, Vector[T, 2], S, U) => F32,
+    {
+        _ = textureLoad(td2da, vec2(0), 0, 0);
+        _ = textureLoad(td2da, vec2(0i), 0i, 0i);
+        _ = textureLoad(td2da, vec2(0u), 0u, 0u);
+    }
+
+    // [T < ConcreteInteger, U < ConcreteInteger].(texture_depth_multisampled_2d, Vector[T, 2], U) => F32,
+    {
+        _ = textureLoad(tdms2d, vec2(0), 0);
+        _ = textureLoad(tdms2d, vec2(0i), 0i);
+        _ = textureLoad(tdms2d, vec2(0u), 0u);
+    }
+}
+
+// 16.7.5
+fn testTextureNumLayers()
+{
+    // FIXME: add declarations for texture storage
+
+    // [S < Concrete32BitNumber].(Texture[S, Texture2dArray]) => U32,
+    _ = textureNumLayers(t2da);
+
+    // [S < Concrete32BitNumber].(Texture[S, TextureCubeArray]) => U32,
+    _ = textureNumLayers(tca);
+
+    // [].(texture_depth_2d_array) => U32,
+    _ = textureNumLayers(td2da);
+
+    // [].(texture_depth_cube_array) => U32,
+    _ = textureNumLayers(tdca);
+}
+
+// 16.7.6
+fn testTextureNumLevels()
+{
+    // [S < Concrete32BitNumber].(Texture[S, Texture1d]) => U32,
+    _ = textureNumLevels(t1d);
+
+    // [S < Concrete32BitNumber].(Texture[S, Texture2d]) => U32,
+    _ = textureNumLevels(t2d);
+
+    // [S < Concrete32BitNumber].(Texture[S, Texture2dArray]) => U32,
+    _ = textureNumLevels(t2da);
+
+    // [S < Concrete32BitNumber].(Texture[S, Texture3d]) => U32,
+    _ = textureNumLevels(t3d);
+
+    // [S < Concrete32BitNumber].(Texture[S, TextureCube]) => U32,
+    _ = textureNumLevels(tc);
+
+    // [S < Concrete32BitNumber].(Texture[S, TextureCubeArray]) => U32,
+    _ = textureNumLevels(tca);
+
+    // [].(texture_depth_2d) => U32,
+    _ = textureNumLevels(td2d);
+
+    // [].(texture_depth_2d_array) => U32,
+    _ = textureNumLevels(td2da);
+
+    // [].(texture_depth_cube) => U32,
+    _ = textureNumLevels(tdc);
+
+    // [].(texture_depth_cube_array) => U32,
+    _ = textureNumLevels(tdca);
+}
+
+// 16.7.7
+fn testTextureNumSamples()
+{
+    // [S < Concrete32BitNumber].(Texture[S, TextureMultisampled2d]) => U32,
+    _ = textureNumSamples(tm2d);
+
+    // [].(texture_depth_multisampled_2d) => U32,
+    _ = textureNumSamples(tdms2d);
+}
+
+// 16.7.8
+fn testTextureSample()
+{
+    // [].(Texture[F32, Texture1d], Sampler, F32) => Vector[F32, 4],
+    _ = textureSample(t1d, s, 1);
+
+    // [].(Texture[F32, Texture2d], Sampler, Vector[F32, 2]) => Vector[F32, 4],
+    _ = textureSample(t2d, s, vec2<f32>(0, 0));
+
+    // [].(Texture[F32, Texture2d], Sampler, Vector[F32, 2], Vector[I32, 2]) => Vector[F32, 4],
+    _ = textureSample(t2d, s, vec2<f32>(0, 0), vec2<i32>(1, 1));
+
+    // [T < ConcreteInteger].(Texture[F32, Texture2dArray], Sampler, Vector[F32, 2], T) => Vector[F32, 4],
+    _ = textureSample(t2da, s, vec2<f32>(0, 0), 0);
+
+    // [T < ConcreteInteger].(Texture[F32, Texture2dArray], Sampler, Vector[F32, 2], T, Vector[I32, 2]) => Vector[F32, 4],
+    _ = textureSample(t2da, s, vec2<f32>(0, 0), 0, vec2<i32>(1, 1));
+
+    // [].(Texture[F32, Texture3d], Sampler, Vector[F32, 3]) => Vector[F32, 4],
+    _ = textureSample(t3d, s, vec3<f32>(0, 0, 0));
+
+    // [].(Texture[F32, TextureCube], Sampler, Vector[F32, 3]) => Vector[F32, 4],
+    _ = textureSample(tc, s, vec3<f32>(0, 0, 0));
+
+    // [].(Texture[F32, Texture3d], Sampler, Vector[F32, 3], Vector[I32, 3]) => Vector[F32, 4],
+    _ = textureSample(t3d, s, vec3<f32>(0, 0, 0), vec3<i32>(0, 0, 0));
+
+    // [T < ConcreteInteger].(Texture[F32, TextureCubeArray], Sampler, Vector[F32, 3], T) => Vector[F32, 4],
+    _ = textureSample(tca, s, vec3<f32>(0, 0, 0), 0);
+
+    // [].(texture_depth_2d, Sampler, Vector[F32, 2]) => F32,
+    _ = textureSample(td2d, s, vec2f(0));
+
+    // [].(texture_depth_2d, Sampler, Vector[F32, 2], Vector[I32, 2]) => F32,
+    _ = textureSample(td2d, s, vec2f(0), vec2i(0));
+
+    // [T < ConcreteInteger].(texture_depth_2d_array, Sampler, Vector[F32, 2], T) => F32,
+    _ = textureSample(td2da, s, vec2f(0), 0);
+
+    // [T < ConcreteInteger].(texture_depth_2d_array, Sampler, Vector[F32, 2], T, Vector[I32, 2]) => F32,
+    _ = textureSample(td2da, s, vec2f(0), 0, vec2i(0));
+
+    // [].(texture_depth_cube, Sampler, Vector[F32, 3]) => F32,
+    _ = textureSample(tdc, s, vec3f(0));
+
+    // [T < ConcreteInteger].(texture_depth_cube_array, Sampler, Vector[F32, 3], T) => F32,
+    _ = textureSample(tdca, s, vec3f(0), 0);
+}
+
+
+// 16.7.9
+fn testTextureSampleBias()
+{
+    // [].(Texture[F32, Texture2d], Sampler, Vector[F32, 2], F32) => Vector[F32, 4],
+    _ = textureSampleBias(t2d, s, vec2f(0), 0);
+
+    // [].(Texture[F32, Texture2d], Sampler, Vector[F32, 2], F32, Vector[I32, 2]) => Vector[F32, 4],
+    _ = textureSampleBias(t2d, s, vec2f(0), 0, vec2i(0));
+
+    // [T < ConcreteInteger].(Texture[F32, Texture2dArray], Sampler, Vector[F32, 2], T, F32) => Vector[F32, 4],
+    _ = textureSampleBias(t2da, s, vec2f(0), 0, 0);
+
+    // [T < ConcreteInteger].(Texture[F32, Texture2dArray], Sampler, Vector[F32, 2], T, F32, Vector[I32, 2]) => Vector[F32, 4],
+    _ = textureSampleBias(t2da, s, vec2f(0), 0, 0, vec2i(0));
+
+    // [].(Texture[F32, Texture3d], Sampler, Vector[F32, 3], F32) => Vector[F32, 4],
+    _ = textureSampleBias(t3d, s, vec3f(0), 0);
+
+    // [].(Texture[F32, TextureCube], Sampler, Vector[F32, 3], F32) => Vector[F32, 4],
+    _ = textureSampleBias(tc, s, vec3f(0), 0);
+
+    // [].(Texture[F32, Texture3d], Sampler, Vector[F32, 3], F32, Vector[I32, 3]) => Vector[F32, 4],
+    _ = textureSampleBias(t3d, s, vec3f(0), 0, vec3i(0));
+
+    // [T < ConcreteInteger].(Texture[F32, TextureCubeArray], Sampler, Vector[F32, 3], T, F32) => Vector[F32, 4],
+    _ = textureSampleBias(tca, s, vec3f(0), 0, 0);
+}
+
+// 16.7.10 textureSampleCompare
+// FIXME: this only applies to texture_depth, implement
+
+// 16.7.11 textureSampleCompareLevel
+// FIXME: this only applies to texture_depth, implement
+
+// 16.7.12
+fn testTextureSampleGrad()
+{
+    // [].(Texture[F32, Texture2d], Sampler, Vector[F32, 2], Vector[F32, 2], Vector[F32, 2]) => Vector[F32, 4],
+    _ = textureSampleGrad(t2d, s, vec2f(0), vec2f(0), vec2f(0));
+
+    // [].(Texture[F32, Texture2d], Sampler, Vector[F32, 2], Vector[F32, 2], Vector[F32, 2], Vector[I32, 2]) => Vector[F32, 4],
+    _ = textureSampleGrad(t2d, s, vec2f(0), vec2f(0), vec2f(0), vec2i(0));
+
+    // [T < ConcreteInteger].(Texture[F32, Texture2dArray], Sampler, Vector[F32, 2], T, Vector[F32, 2], Vector[F32, 2]) => Vector[F32, 4],
+    _ = textureSampleGrad(t2da, s, vec2f(0), 0, vec2f(0), vec2f(0));
+
+    // [T < ConcreteInteger].(Texture[F32, Texture2dArray], Sampler, Vector[F32, 2], T, Vector[F32, 2], Vector[F32, 2], Vector[I32, 2]) => Vector[F32, 4],
+    _ = textureSampleGrad(t2da, s, vec2f(0), 0, vec2f(0), vec2f(0), vec2i(0));
+
+    // [].(Texture[F32, Texture3d], Sampler, Vector[F32, 3], Vector[F32, 2], Vector[F32, 2]) => Vector[F32, 4],
+    _ = textureSampleGrad(t3d, s, vec3f(0), vec3f(0), vec3f(0));
+
+    // [].(Texture[F32, TextureCube], Sampler, Vector[F32, 3], Vector[F32, 2], Vector[F32, 2]) => Vector[F32, 4],
+    _ = textureSampleGrad(tc, s, vec3f(0), vec3f(0), vec3f(0));
+
+    // [].(Texture[F32, Texture3d], Sampler, Vector[F32, 3], Vector[F32, 2], Vector[F32, 2], Vector[I32, 3]) => Vector[F32, 4],
+    _ = textureSampleGrad(t3d, s, vec3f(0), vec3f(0), vec3f(0), vec3i(0));
+
+    // [T < ConcreteInteger].(Texture[F32, TextureCubeArray], Sampler, Vector[F32, 3], T, Vector[F32, 2], Vector[F32, 2]) => Vector[F32, 4],
+    _ = textureSampleGrad(tca, s, vec3f(0), 0, vec3f(0), vec3f(0));
+}
+
+// 16.7.13
+fn testTextureSampleLevel()
+{
+    // FIXME: add declarations for texture depth
+
+    // [].(Texture[F32, Texture2d], Sampler, Vector[F32, 2], F32) => Vector[F32, 4],
+    _ = textureSampleLevel(t2d, s, vec2f(0), 0);
+
+    // [].(Texture[F32, Texture2d], Sampler, Vector[F32, 2], F32, Vector[I32, 2]) => Vector[F32, 4],
+    _ = textureSampleLevel(t2d, s, vec2f(0), 0, vec2i(0));
+
+    // [T < ConcreteInteger].(Texture[F32, Texture2dArray], Sampler, Vector[F32, 2], T, F32) => Vector[F32, 4],
+    _ = textureSampleLevel(t2da, s, vec2f(0), 0i, 0);
+
+    // [T < ConcreteInteger].(Texture[F32, Texture2dArray], Sampler, Vector[F32, 2], T, F32, Vector[I32, 2]) => Vector[F32, 4],
+    _ = textureSampleLevel(t2da, s, vec2f(0), 0i, 0, vec2i(0));
+
+    // [].(Texture[F32, Texture3d], Sampler, Vector[F32, 3], F32) => Vector[F32, 4],
+    _ = textureSampleLevel(t3d, s, vec3f(0), 0);
+
+    // [].(Texture[F32, TextureCube], Sampler, Vector[F32, 3], F32) => Vector[F32, 4],
+    _ = textureSampleLevel(tc, s, vec3f(0), 0);
+
+    // [].(Texture[F32, Texture3d], Sampler, Vector[F32, 3], F32, Vector[I32, 3]) => Vector[F32, 4],
+    _ = textureSampleLevel(t3d, s, vec3f(0), 0, vec3i(0));
+
+    // [T < ConcreteInteger].(Texture[F32, TextureCubeArray], Sampler, Vector[F32, 3], T, F32) => Vector[F32, 4],
+    _ = textureSampleLevel(tca, s, vec3f(0), 0i, 0f);
+
+    // [T < ConcreteInteger].(texture_depth_2d, Sampler, Vector[F32, 2], T) => F32,
+    _ = textureSampleLevel(td2d, s, vec2f(0), 0i);
+
+    // [T < ConcreteInteger].(texture_depth_2d, Sampler, Vector[F32, 2], T, Vector[I32, 2]) => F32,
+    _ = textureSampleLevel(td2d, s, vec2f(0), 0i, vec2i(0));
+
+    // [S < ConcreteInteger, T < ConcreteInteger].(texture_depth_2d_array, Sampler, Vector[F32, 2], S, T) => F32,
+    _ = textureSampleLevel(td2da, s, vec2f(0), 0i, 0u);
+
+    // [S < ConcreteInteger, T < ConcreteInteger].(texture_depth_2d_array, Sampler, Vector[F32, 2], S, T, Vector[I32, 2]) => F32,
+    _ = textureSampleLevel(td2da, s, vec2f(0), 0i, 0u, vec2i(0));
+
+    // [T < ConcreteInteger].(texture_depth_cube, Sampler, Vector[F32, 3], T) => F32,
+    _ = textureSampleLevel(tdc, s, vec3f(0), 0u);
+
+    // [S < ConcreteInteger, T < ConcreteInteger].(texture_depth_cube_array, Sampler, Vector[F32, 3], S, T) => F32,
+    _ = textureSampleLevel(tdca, s, vec3f(0), 0i, 0u);
+}
+
+// 16.7.14
+fn testTextureSampleBaseClampToEdge() {
+    // [].(TextureExternal, Sampler, Vector[F32, 2]) => Vector[F32, 4],
+    _ = textureSampleBaseClampToEdge(te, s, vec2f(0));
+
+    // [].(Texture[F32, Texture2d], Sampler, Vector[F32, 2]) => Vector[F32, 4],
+    _ = textureSampleBaseClampToEdge(t2d, s, vec2f(0));
+}
+
+// 16.7.15 textureStore
+// FIXME: this only applies to texture_storage, implement

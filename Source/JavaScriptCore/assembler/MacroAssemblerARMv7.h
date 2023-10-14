@@ -592,6 +592,13 @@ public:
         urshift32(dest, imm, dest);
     }
 
+    void addUnsignedRightShift32(RegisterID src1, RegisterID src2, TrustedImm32 amount, RegisterID dest)
+    {
+        // dest = src1 + (src2 >> amount)
+        urshift32(src2, amount, dataTempRegister);
+        add32(src1, dataTempRegister, dest);
+    }
+
     void sub32(RegisterID src, RegisterID dest)
     {
         m_assembler.sub(dest, dest, src);
@@ -1281,6 +1288,17 @@ public:
         ArmAddress armAddress = setupArmAddress(AbsoluteAddress(address));
         ASSERT(armAddress.type == ArmAddress::HasOffset);
         storePair32(src1, src2, Address(armAddress.base, armAddress.u.offset));
+    }
+
+    void transfer32(Address src, Address dest)
+    {
+        load32(src, dataTempRegister);
+        store32(dataTempRegister, dest);
+    }
+
+    void transferPtr(Address src, Address dest)
+    {
+        transfer32(src, dest);
     }
 
     void storeCond8(RegisterID src, Address addr, RegisterID result)
@@ -2337,6 +2355,12 @@ public:
     {
         // use addressTempRegister incase the branch32 we call uses dataTempRegister. :-/
         load32WithUnalignedHalfWords(left, addressTempRegister);
+        return branch32(cond, addressTempRegister, right);
+    }
+
+    Jump branch32WithMemory16(RelationalCondition cond, Address left, RegisterID right)
+    {
+        MacroAssemblerHelpers::load16OnCondition(*this, cond, left, addressTempRegister);
         return branch32(cond, addressTempRegister, right);
     }
 

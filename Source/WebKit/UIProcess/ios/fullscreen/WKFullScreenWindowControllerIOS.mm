@@ -607,7 +607,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 {
     NSMethodSignature *signature = [super methodSignatureForSelector:aSelector];
     if (!signature)
-        signature = [(NSObject *)_originalDelegate methodSignatureForSelector:aSelector];
+        signature = [(NSObject *)_originalDelegate.get() methodSignatureForSelector:aSelector];
     return signature;
 }
 
@@ -907,7 +907,7 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         if (auto* manager = self._manager)
             manager->setAnimatingFullScreen(true);
 
-        WebCore::ViewportArguments arguments { WebCore::ViewportArguments::CSSDeviceAdaptation };
+        WebCore::ViewportArguments arguments { WebCore::ViewportArguments::Type::CSSDeviceAdaptation };
         arguments.zoom = WebKit::ZoomForFullscreenWindow;
         arguments.minZoom = WebKit::ZoomForFullscreenWindow;
         arguments.maxZoom = WebKit::ZoomForFullscreenWindow;

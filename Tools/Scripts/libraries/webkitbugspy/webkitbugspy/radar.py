@@ -113,6 +113,7 @@ class Tracker(GenericTracker):
         if authentication:
             self.client = self.library.RadarClient(
                 authentication, self.library.ClientSystemIdentifier(library_name, str(library_version)),
+                retry_policy=self.radarclient().RetryPolicy(),
             )
         else:
             self.client = None
@@ -269,6 +270,11 @@ class Tracker(GenericTracker):
                     issue._project = project
                     issue._component = issue._component[len(project):].lstrip()
                     break
+
+        if member == 'duplicates':
+            issue._duplicates = []
+            for r in radar.relationships([self.radarclient().Relationship.TYPE_ORIGINAL_OF]):
+                issue._duplicates.append(self.issue(r.related_radar.id))
 
         return issue
 

@@ -31,14 +31,17 @@
 #include "FormDataReference.h"
 #include "FrameInfoData.h"
 #include "HandleMessage.h"
+#include "NativeWebMouseEvent.h"
 #include "NavigationActionData.h"
 #include "RemotePageDrawingAreaProxy.h"
 #include "RemotePageVisitedLinkStoreRegistration.h"
 #include "WebFrameProxy.h"
+#include "WebPageMessages.h"
 #include "WebPageProxy.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcessMessages.h"
 #include "WebProcessProxy.h"
+#include <WebCore/RemoteMouseEventData.h>
 
 namespace WebKit {
 
@@ -52,6 +55,9 @@ RemotePageProxy::RemotePageProxy(WebPageProxy& page, WebProcessProxy& process, c
         m_messageReceiverRegistration.transferMessageReceivingFrom(*registrationToTransfer, *this);
     else
         m_messageReceiverRegistration.startReceivingMessages(m_process, m_webPageID, *this);
+
+    m_process->addRemotePageProxy(*this);
+
     page.addRemotePageProxy(domain, *this);
 }
 
@@ -78,6 +84,7 @@ void RemotePageProxy::injectPageIntoNewProcess()
 
 RemotePageProxy::~RemotePageProxy()
 {
+    m_process->removeRemotePageProxy(*this);
     if (m_page)
         m_page->removeRemotePageProxy(m_domain);
 }
@@ -180,6 +187,17 @@ bool RemotePageProxy::didReceiveSyncMessage(IPC::Connection& connection, IPC::De
         return m_page->didReceiveSyncMessage(connection, decoder, encoder);
 
     return false;
+}
+
+void RemotePageProxy::sendMouseEvent(const WebCore::FrameIdentifier& frameID, const NativeWebMouseEvent& event, std::optional<Vector<SandboxExtensionHandle>>&& sandboxExtensions)
+{
+    sendWithAsyncReply(Messages::WebPage::MouseEvent(frameID, event, sandboxExtensions), [this, protectedThis = Ref { *this }, sandboxExtensions = WTFMove(sandboxExtensions)] (std::optional<WebEventType> eventType, bool handled, std::optional<WebCore::RemoteMouseEventData> remoteMouseEventData) mutable {
+        if (!m_page)
+            return;
+        if (!eventType)
+            return;
+        m_page->handleMouseEventReply(*eventType, handled, remoteMouseEventData, WTFMove(sandboxExtensions));
+    });
 }
 
 }

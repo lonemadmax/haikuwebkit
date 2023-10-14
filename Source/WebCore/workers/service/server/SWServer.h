@@ -31,6 +31,7 @@
 #include "BackgroundFetchStore.h"
 #include "ClientOrigin.h"
 #include "ExceptionOr.h"
+#include "NotificationPayload.h"
 #include "PageIdentifier.h"
 #include "SWServerDelegate.h"
 #include "SWServerWorker.h"
@@ -211,8 +212,6 @@ public:
     std::optional<ExceptionData> claim(SWServerWorker&);
     WEBCORE_EXPORT void terminateContextConnectionWhenPossible(const RegistrableDomain&, ProcessIdentifier);
 
-    WEBCORE_EXPORT static HashSet<SWServer*>& allServers();
-
     enum class IsBeingCreatedClient : bool { No, Yes };
     WEBCORE_EXPORT void registerServiceWorkerClient(ClientOrigin&&, ServiceWorkerClientData&&, const std::optional<ServiceWorkerRegistrationIdentifier>&, String&& userAgent, IsBeingCreatedClient);
     WEBCORE_EXPORT void unregisterServiceWorkerClient(const ClientOrigin&, ScriptExecutionContextIdentifier);
@@ -254,7 +253,7 @@ public:
     LastNavigationWasAppInitiated clientIsAppInitiatedForRegistrableDomain(const RegistrableDomain&);
     bool shouldRunServiceWorkersOnMainThreadForTesting() const { return m_shouldRunServiceWorkersOnMainThreadForTesting; }
 
-    WEBCORE_EXPORT void processPushMessage(std::optional<Vector<uint8_t>>&&, URL&&, CompletionHandler<void(bool)>&&);
+    WEBCORE_EXPORT void processPushMessage(std::optional<Vector<uint8_t>>&&, std::optional<NotificationPayload>&&, URL&&, CompletionHandler<void(bool, std::optional<NotificationPayload>&&)>&&);
     WEBCORE_EXPORT void processNotificationEvent(NotificationData&&, NotificationEventType, CompletionHandler<void(bool)>&&);
 
     enum class ShouldSkipEvent : bool { No, Yes };

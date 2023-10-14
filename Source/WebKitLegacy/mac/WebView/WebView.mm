@@ -37,6 +37,7 @@
 #import "DOMInternal.h"
 #import "DOMNodeInternal.h"
 #import "DOMRangeInternal.h"
+#import "LegacyHistoryItemClient.h"
 #import "LegacySocketProvider.h"
 #import "PageStorageSessionProvider.h"
 #import "SocketStreamHandleImpl.h"
@@ -1520,6 +1521,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         makeUniqueRef<WebCore::DummyStorageProvider>(),
         makeUniqueRef<WebCore::DummyModelPlayerProvider>(),
         WebCore::EmptyBadgeClient::create(),
+        LegacyHistoryItemClient::singleton(),
 #if ENABLE(CONTEXT_MENUS)
         makeUniqueRef<WebContextMenuClient>(self),
 #endif
@@ -1781,6 +1783,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
         makeUniqueRef<WebCore::DummyStorageProvider>(),
         makeUniqueRef<WebCore::DummyModelPlayerProvider>(),
         WebCore::EmptyBadgeClient::create(),
+        LegacyHistoryItemClient::singleton(),
 #if ENABLE(APPLE_PAY)
         makeUniqueRef<WebPaymentCoordinatorClient>(),
 #endif
@@ -1810,7 +1813,6 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     _private->page->settings().setDefaultFontSize([_private->preferences defaultFontSize]);
     _private->page->settings().setDefaultFixedFontSize(13);
     _private->page->settings().setAcceleratedDrawingEnabled([preferences acceleratedDrawingEnabled]);
-    _private->page->settings().setDisplayListDrawingEnabled([preferences displayListDrawingEnabled]);
 
     _private->page->settings().setFontFallbackPrefersPictographs(true);
     _private->page->settings().setPictographFontFamily("AppleColorEmoji"_s);
@@ -1888,7 +1890,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
                 continue;
             auto *document = localFrame->document();
             if (document)
-                document->updateLayoutIgnorePendingStylesheets();
+                document->updateLayout(WebCore::LayoutOptions::IgnorePendingStylesheets);
         }
     });
 }
@@ -9787,7 +9789,7 @@ static NSTextAlignment nsTextAlignmentFromRenderStyle(const WebCore::RenderStyle
     auto* page = core(self);
     if (!page)
         return @[];
-    return createNSArray(page->editableElementsInRect(rect), [] (auto& coreElement) {
+    return createNSArray(page->editableElementsInRect(rect), [] (auto&& coreElement) {
         return kit(coreElement.ptr());
     }).autorelease();
 }

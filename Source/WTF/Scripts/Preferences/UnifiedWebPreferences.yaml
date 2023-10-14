@@ -430,18 +430,18 @@ AlternateFullScreenControlDesignEnabled:
 
 AlternateWebMPlayerEnabled:
   type: bool
-  status: unstable
+  status: stable
   category: media
   humanReadableName: "Alternate WebM Player"
   humanReadableDescription: "Enable Alternate WebM Player"
-  condition: ENABLE(ALTERNATE_WEBM_PLAYER)
+  condition: ENABLE(ALTERNATE_WEBM_PLAYER) && ENABLE(MEDIA_SOURCE)
   defaultValue:
     WebKitLegacy:
-     default: false
+     default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 AlwaysZoomOnDoubleTap:
   type: bool
@@ -797,7 +797,8 @@ BeaconAPIEnabled:
 
 BlobRegistryTopOriginPartitioningEnabled:
   type: bool
-  status: unstable
+  status: preview
+  category: security
   humanReadableName: "Partition Blob URL Registry"
   humanReadableDescription: "Partition Blob URL Registry by Top-Level Origin"
   defaultValue:
@@ -865,6 +866,21 @@ BroadcastChannelOriginPartitioningEnabled:
     WebCore:
       default: true
 
+BuiltInCDMKeyGroupingStrategyEnabled:
+  type: bool
+  status: unstable
+  category: media
+  humanReadableName: "Built-in CDM key grouping strategy"
+  humanReadableDescription: "Enable built-in CDM key grouping strategy"
+  condition: ENABLE(ENCRYPTED_MEDIA)
+  defaultValue:
+    WebCore:
+      default: false
+    WebKit:
+      default: false
+    WebKitLegacy:
+      default: false
+
 BuiltInNotificationsEnabled:
   type: bool
   status: unstable
@@ -892,6 +908,20 @@ CFNetworkNetworkLoaderEnabled:
     WebKit:
       default: false
 
+CSS3DTransformBackfaceVisibilityInteroperabilityEnabled:
+  type: bool
+  status: preview
+  category: css
+  humanReadableName: "CSS 3D Transform Interoperability for backface-visibility"
+  humanReadableDescription: "Enable 3D transform behavior for backface-visibility that is specification-compliant but backwards incompatible"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSS3DTransformInteroperabilityEnabled:
   type: bool
   status: stable
@@ -905,6 +935,20 @@ CSS3DTransformInteroperabilityEnabled:
       default: true
     WebCore:
       default: true
+
+CSSBasedRubyEnabled:
+  type: bool
+  status: unstable
+  category: css
+  humanReadableName: "CSS based Ruby implementation in IFC"
+  humanReadableDescription: "CSS based Ruby implementation in IFC"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 CSSCascadeLayersEnabled:
   type: bool
@@ -1005,17 +1049,17 @@ CSSContainmentEnabled:
 
 CSSContentVisibilityEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS Content Visibility"
   humanReadableDescription: "Enable CSS content-visibility"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSCounterStyleAtRuleImageSymbolsEnabled:
   type: bool
@@ -1453,6 +1497,25 @@ CSSTypedOMEnabled:
       default: true
     WebCore:
       default: true
+
+CSSUnprefixedBackdropFilterEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS Unprefixed Backdrop Filter"
+  humanReadableDescription: "Enable unprefixed backdrop-filter CSS property"
+  condition: ENABLE(FILTERS_LEVEL_2)
+  defaultValue:
+    WebKitLegacy:
+      "ENABLE(UNPREFIXED_BACKDROP_FILTER)": true
+      default: false
+    WebKit:
+      "ENABLE(UNPREFIXED_BACKDROP_FILTER)": true
+      default: false
+    WebCore:
+      "ENABLE(UNPREFIXED_BACKDROP_FILTER)": true
+      default: false
+
 
 CSSWhiteSpaceLonghandsEnabled:
   type: bool
@@ -2131,6 +2194,22 @@ DeclarativeShadowDOMInDOMParserEnabled:
     WebCore:
       default: false
 
+DeclarativeWebPush:
+  type: bool
+  status: unstable
+  category: dom
+  defaultsOverridable: true
+  condition: ENABLE(DECLARATIVE_WEB_PUSH)
+  humanReadableName: "Declarative Web Push"
+  humanReadableDescription: "Enable Declarative Web Push"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 DefaultARIAForCustomElementsEnabled:
   type: bool
   status: stable
@@ -2378,20 +2457,6 @@ DisallowSyncXHRDuringPageDismissalEnabled:
       default: true
     WebCore:
       default: true
-
-DisplayListDrawingEnabled:
-  type: bool
-  status: unstable
-  defaultsOverridable: true
-  humanReadableName: "DisplayList Drawing"
-  humanReadableDescription: "Enable display-list drawing"
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
 
 # FIXME: This is on by default in WebKit2. Perhaps we should consider turning it on for WebKitLegacy as well.
 DownloadAttributeEnabled:
@@ -2952,18 +3017,19 @@ GoogleAntiFlickerOptimizationQuirkEnabled:
 
 GraphicsContextFiltersEnabled:
    type: bool
-   status: unstable
+   status: stable
+   category: media
    webcoreOnChange: setNeedsRelayoutAllFrames
    humanReadableName: "GraphicsContext Filter Rendering"
    humanReadableDescription: "GraphicsContext Filter Rendering"
    condition: USE(GRAPHICS_CONTEXT_FILTERS)
    defaultValue:
      WebKitLegacy:
-       default: false
+       default: true
      WebKit:
-       default: false
+       default: true
      WebCore:
-       default: false
+       default: true
 
 HTTPEquivEnabled:
   type: bool
@@ -5364,7 +5430,7 @@ ReportingEnabled:
 
 RequestIdleCallbackEnabled:
   type: bool
-  status: stable
+  status: preview
   category: dom
   humanReadableName: "requestIdleCallback"
   humanReadableDescription: "Enable requestIdleCallback support"
@@ -5372,7 +5438,6 @@ RequestIdleCallbackEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "USE(CF)": true
       default: false
     WebCore:
       default: false
@@ -6744,6 +6809,20 @@ UndoManagerAPIEnabled:
     WebCore:
       default: false
 
+UnifiedPDFEnabled:
+  type: bool
+  status: internal
+  category: security
+  humanReadableName: "Unified PDF Viewer"
+  humanReadableDescription: "Enable Unified PDF Viewer"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 UnprefixedFullscreenAPIEnabled:
   type: bool
   status: stable
@@ -7751,7 +7830,7 @@ WebRTCMediaPipelineAdditionalLoggingEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: true
+      default: false
     WebCore:
       default: false
 

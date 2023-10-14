@@ -68,7 +68,6 @@
 #include "RenderSVGBlock.h"
 #include "RenderSVGInline.h"
 #include "RenderSVGModelObject.h"
-#include "RenderSVGResourceContainer.h"
 #include "RenderScrollbarPart.h"
 #include "RenderTableRow.h"
 #include "RenderTheme.h"
@@ -114,15 +113,19 @@ RenderObject::SetLayoutNeededForbiddenScope::~SetLayoutNeededForbiddenScope()
 struct SameSizeAsRenderObject : CanMakeWeakPtr<SameSizeAsRenderObject> {
     virtual ~SameSizeAsRenderObject() = default; // Allocate vtable pointer.
 #if ASSERT_ENABLED
-    WeakHashSet<void*> cachedResourceClientAssociatedResources;
+    WeakHashSet<void*> cachedResourceClientAssociatedResources; // CachedImageClient.
 #endif
-    WeakPtr<Node, WeakPtrImplWithEventTargetData> node;
-    void* pointers[3];
-    CheckedPtr<Layout::Box> layoutBox;
+    uint32_t m_checkedPtrCount; // CanMakeCheckedPtr.
+#if ASSERT_ENABLED && !USE(WEB_THREAD)
+    Ref<Thread> m_thread; // CanMakeCheckedPtr.
+#endif
 #if ASSERT_ENABLED
     unsigned m_debugBitfields : 2;
 #endif
     unsigned m_bitfields;
+    CheckedRef<Node> node;
+    void* pointers[3];
+    CheckedPtr<Layout::Box> layoutBox;
 };
 
 #if CPU(ADDRESS64)
@@ -138,15 +141,15 @@ void RenderObjectDeleter::operator() (RenderObject* renderer) const
 
 RenderObject::RenderObject(Node& node)
     : CachedImageClient()
-    , m_node(node)
-    , m_parent(nullptr)
-    , m_previous(nullptr)
-    , m_next(nullptr)
 #if ASSERT_ENABLED
     , m_hasAXObject(false)
     , m_setNeedsLayoutForbidden(false)
 #endif
     , m_bitfields(node)
+    , m_node(node)
+    , m_parent(nullptr)
+    , m_previous(nullptr)
+    , m_next(nullptr)
 {
     if (RenderView* renderView = node.document().renderView())
         renderView->didCreateRenderer();
@@ -911,8 +914,8 @@ void RenderObject::propagateRepaintToParentWithOutlineAutoIfNeeded(const RenderL
     // FIXME: We should really propagate only when the child renderer sticks out.
     bool repaintRectNeedsConverting = false;
     // Issue repaint on the renderer with outline: auto.
-    for (const auto* renderer = this; renderer; renderer = renderer->parent()) {
-        const auto* originalRenderer = renderer;
+    for (auto* renderer = this; renderer; renderer = renderer->parent()) {
+        auto* originalRenderer = renderer;
         if (is<RenderMultiColumnSet>(renderer->previousSibling()) && !renderer->isLegend()) {
             auto previousMultiColumnSet = downcast<RenderMultiColumnSet>(renderer->previousSibling());
             auto enclosingMultiColumnFlow = previousMultiColumnSet->multiColumnFlow();
@@ -936,7 +939,7 @@ void RenderObject::propagateRepaintToParentWithOutlineAutoIfNeeded(const RenderL
         if (!repaintRectNeedsConverting)
             repaintContainer.repaintRectangle(adjustedRepaintRect);
         else if (is<RenderLayerModelObject>(originalRenderer)) {
-            const auto& rendererWithOutline = downcast<RenderLayerModelObject>(*originalRenderer);
+            auto& rendererWithOutline = downcast<RenderLayerModelObject>(*originalRenderer);
             adjustedRepaintRect = LayoutRect(repaintContainer.localToContainerQuad(FloatRect(adjustedRepaintRect), &rendererWithOutline).boundingBox());
             rendererWithOutline.repaintRectangle(adjustedRepaintRect);
         }
@@ -1126,7 +1129,7 @@ std::optional<FloatRect> RenderObject::computeFloatVisibleRectInContainer(const 
 static void outputRenderTreeLegend(TextStream& stream)
 {
     stream.nextLine();
-    stream << "(B)lock/(I)nline/I(N)line-block, (A)bsolute/Fi(X)ed/(R)elative/Stic(K)y, (F)loating, (O)verflow clip, Anon(Y)mous, (G)enerated, has(L)ayer, hasLayer(S)crollableArea, (C)omposited, (+)Dirty style, (+)Dirty layout";
+    stream << "(B)lock/(I)nline/I(N)line-block, (A)bsolute/Fi(X)ed/(R)elative/Stic(K)y, (F)loating, (O)verflow clip, Anon(Y)mous, (G)enerated, has(L)ayer, hasLayer(S)crollableArea, (C)omposited, Content-visibility:(H)idden/(A)uto, (S)kipped content, (+)Dirty style, (+)Dirty layout";
     stream.nextLine();
 }
 
@@ -1181,11 +1184,11 @@ void RenderObject::outputRegionsInformation(TextStream& stream) const
 
         stream << " [fragment containers ";
         bool first = true;
-        for (const auto* fragment : fragmentContainers) {
+        for (const auto& fragment : fragmentContainers) {
             if (!first)
                 stream << ", ";
             first = false;
-            stream << fragment;
+            stream << &fragment;
         }
         stream << "]";
     }
@@ -1263,6 +1266,19 @@ void RenderObject::outputRenderObject(TextStream& stream, bool mark, int depth) 
 
     if (isComposited())
         stream << "C";
+    else
+        stream << "-";
+
+    auto contentVisibility = style().contentVisibility();
+    if (contentVisibility == ContentVisibility::Hidden)
+        stream << "H";
+    else if (contentVisibility == ContentVisibility::Auto)
+        stream << "A";
+    else
+        stream << "-";
+
+    if (isSkippedContent())
+        stream << "S";
     else
         stream << "-";
 
@@ -2266,7 +2282,7 @@ static Vector<FloatRect> borderAndTextRects(const SimpleRange& range, Coordinate
 
     bool useVisibleBounds = behavior.contains(RenderObject::BoundingRectBehavior::UseVisibleBounds);
 
-    HashSet<Element*> selectedElementsSet;
+    HashSet<RefPtr<Element>> selectedElementsSet;
     for (auto& node : intersectingNodesWithDeprecatedZeroOffsetStartQuirk(range)) {
         if (is<Element>(node))
             selectedElementsSet.add(&downcast<Element>(node));
@@ -2678,6 +2694,11 @@ String RenderObject::debugDescription() const
 bool RenderObject::isSkippedContent() const
 {
     return parent() && parent()->style().skippedContentReason().has_value();
+}
+
+bool RenderObject::isSkippedContentForLayout() const
+{
+    return isSkippedContent() && !view().frameView().layoutContext().needsSkippedContentLayout();
 }
 
 TextStream& operator<<(TextStream& ts, const RenderObject& renderer)

@@ -72,7 +72,7 @@ static inline OptionSet<DocumentMarker::MarkerType> markerTypesForReplacement()
     return { DocumentMarker::Replacement, DocumentMarker::SpellCheckingExemption };
 }
 
-static bool markersHaveIdenticalDescription(const Vector<RenderedDocumentMarker*>& markers)
+static bool markersHaveIdenticalDescription(const Vector<WeakPtr<RenderedDocumentMarker>>& markers)
 {
     if (markers.isEmpty())
         return true;
@@ -142,7 +142,7 @@ void AlternativeTextController::applyPendingCorrection(const VisibleSelection& s
     // Apply pending autocorrection before next round of spell checking.
     bool doApplyCorrection = true;
     VisiblePosition startOfSelection = selectionAfterTyping.visibleStart();
-    VisibleSelection currentWord = VisibleSelection(startOfWord(startOfSelection, LeftWordIfOnBoundary), endOfWord(startOfSelection, RightWordIfOnBoundary));
+    VisibleSelection currentWord = VisibleSelection(startOfWord(startOfSelection, WordSide::LeftWordIfOnBoundary), endOfWord(startOfSelection, WordSide::RightWordIfOnBoundary));
     if (currentWord.visibleEnd() == startOfSelection) {
         if (auto wordRange = currentWord.firstRange()) {
             String wordText = plainText(*wordRange);
@@ -253,7 +253,7 @@ void AlternativeTextController::timerFired()
     case AlternativeTextType::Correction: {
         VisibleSelection selection(m_document.selection().selection());
         VisiblePosition start(selection.start(), selection.affinity());
-        VisiblePosition p = startOfWord(start, LeftWordIfOnBoundary);
+        VisiblePosition p = startOfWord(start, WordSide::LeftWordIfOnBoundary);
         VisibleSelection adjacentWords = VisibleSelection(p, start);
         auto adjacentWordRange = adjacentWords.toNormalizedRange();
         m_document.editor().markAllMisspellingsAndBadGrammarInRanges({ TextCheckingType::Spelling, TextCheckingType::Replacement, TextCheckingType::ShowCorrectionPanel }, adjacentWordRange, adjacentWordRange, std::nullopt);
@@ -407,7 +407,7 @@ void AlternativeTextController::respondToChangedSelection(const VisibleSelection
     if (selectionPosition.isNull())
         return;
     
-    VisiblePosition endPositionOfWord = endOfWord(selectionPosition, LeftWordIfOnBoundary);
+    VisiblePosition endPositionOfWord = endOfWord(selectionPosition, WordSide::LeftWordIfOnBoundary);
     if (selectionPosition != endPositionOfWord)
         return;
 
@@ -417,7 +417,7 @@ void AlternativeTextController::respondToChangedSelection(const VisibleSelection
 
     Node* node = position.containerNode();
     ASSERT(node);
-    for (auto* marker : node->document().markers().markersFor(*node)) {
+    for (auto& marker : node->document().markers().markersFor(*node)) {
         ASSERT(marker);
         if (respondToMarkerAtEndOfWord(*marker, position))
             break;
@@ -472,7 +472,7 @@ void AlternativeTextController::markCorrection(const SimpleRange& replacedRange,
 void AlternativeTextController::recordSpellcheckerResponseForModifiedCorrection(const SimpleRange& rangeOfCorrection, const String& corrected, const String& correction)
 {
     DocumentMarkerController& markers = rangeOfCorrection.startContainer().document().markers();
-    Vector<RenderedDocumentMarker*> correctedOnceMarkers = markers.markersInRange(rangeOfCorrection, DocumentMarker::Autocorrected);
+    auto correctedOnceMarkers = markers.markersInRange(rangeOfCorrection, DocumentMarker::Autocorrected);
     if (correctedOnceMarkers.isEmpty())
         return;
 
@@ -727,7 +727,7 @@ void AlternativeTextController::applyDictationAlternative(const String& alternat
     auto selection = editor.selectedRange();
     if (!selection || !editor.shouldInsertText(alternativeString, *selection, EditorInsertAction::Pasted))
         return;
-    for (auto* marker : selection->startContainer().document().markers().markersInRange(*selection, DocumentMarker::DictationAlternatives))
+    for (auto& marker : selection->startContainer().document().markers().markersInRange(*selection, DocumentMarker::DictationAlternatives))
         removeDictationAlternativesForMarker(*marker);
     applyAlternativeTextToRange(*selection, alternativeString, AlternativeTextType::DictationAlternatives, markerTypesForAppliedDictationAlternative());
 #else

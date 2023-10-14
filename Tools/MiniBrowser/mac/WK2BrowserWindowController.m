@@ -205,10 +205,31 @@ static const int testFooterBannerHeight = 58;
 
 - (void)_webView:(WKWebView *)webView requestNotificationPermissionForSecurityOrigin:(WKSecurityOrigin *)securityOrigin decisionHandler:(void (^)(BOOL))decisionHandler
 {
-    // For testing, grant notification permission to all origins.
-    // FIXME: Consider adding a dialog and in-memory permissions manager
-    NSLog(@"Granting notifications permission to origin %@", securityOrigin);
-    decisionHandler(YES);
+    NSDictionary *permissions = [[NSUserDefaults standardUserDefaults] dictionaryForKey:@"NotificationPermissions"];
+    NSString *originString = [NSString stringWithFormat:@"%@://%@", securityOrigin.protocol, securityOrigin.host];
+    id value = [permissions valueForKey:originString];
+    if (value) {
+        decisionHandler([(NSNumber *)value boolValue]);
+        return;
+    }
+
+    NSAlert* alert = [[NSAlert alloc] init];
+
+    [alert setMessageText:[NSString stringWithFormat:@"Allow notification permissions for %@?", originString]];
+    [alert addButtonWithTitle:@"Deny"];
+    [alert addButtonWithTitle:@"Allow"];
+
+    [alert beginSheetModalForWindow:self.window completionHandler:^void (NSModalResponse response) {
+        BOOL granted = response == NSAlertSecondButtonReturn;
+
+        NSMutableDictionary *permissions = [[[NSUserDefaults standardUserDefaults] dictionaryForKey:@"NotificationPermissions"] mutableCopy];
+        if (!permissions)
+            permissions = [NSMutableDictionary dictionaryWithCapacity:1];
+        [permissions setValue:@(granted) forKey:originString];
+        [[NSUserDefaults standardUserDefaults] setObject:permissions forKey:@"NotificationPermissions"];
+
+        decisionHandler(granted);
+    }];
 }
 
 - (IBAction)setViewScale:(id)sender
@@ -490,7 +511,6 @@ static BOOL areEssentiallyEqual(double a, double b)
     preferences._legacyLineLayoutVisualCoverageEnabled = settings.legacyLineLayoutVisualCoverageEnabled;
     preferences._acceleratedDrawingEnabled = settings.acceleratedDrawingEnabled;
     preferences._resourceUsageOverlayVisible = settings.resourceUsageOverlayVisible;
-    preferences._displayListDrawingEnabled = settings.displayListDrawingEnabled;
     preferences._largeImageAsyncDecodingEnabled = settings.largeImageAsyncDecodingEnabled;
     preferences._animatedImageAsyncDecodingEnabled = settings.animatedImageAsyncDecodingEnabled;
     preferences._colorFilterEnabled = settings.appleColorFilterEnabled;
@@ -558,6 +578,11 @@ static BOOL areEssentiallyEqual(double a, double b)
     }
 }
 
+- (void)updateTitleForBadgeChange
+{
+    [self updateTitle:_webView.title];
+}
+
 - (void)updateTitle:(NSString *)title
 {
     if (!title.length) {
@@ -567,6 +592,9 @@ static BOOL areEssentiallyEqual(double a, double b)
 
     if (!title.length)
         title = @"MiniBrowser";
+
+    if (BrowserAppDelegate.currentBadge)
+        title = [title stringByAppendingFormat:@" (%@)", BrowserAppDelegate.currentBadge];
 
     self.window.title = title;
 

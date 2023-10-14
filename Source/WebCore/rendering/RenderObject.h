@@ -73,7 +73,7 @@ class RenderLayerModelObject;
 class RenderFragmentContainer;
 class RenderTheme;
 class RenderTreeBuilder;
-class HighlightData;
+class RenderHighlight;
 class TransformState;
 class VisiblePosition;
 
@@ -96,7 +96,7 @@ class PseudoElementRequest;
 }
 
 // Base class for all rendering tree objects.
-class RenderObject : public CachedImageClient {
+class RenderObject : public CachedImageClient, public CanMakeCheckedPtr {
     WTF_MAKE_ISO_ALLOCATED(RenderObject);
     friend class RenderBlock;
     friend class RenderBlockFlow;
@@ -269,7 +269,7 @@ public:
     virtual bool isRenderScrollbarPart() const { return false; }
     virtual bool isRenderVTTCue() const { return false; }
 
-    bool isDocumentElementRenderer() const { return document().documentElement() == m_node; }
+    bool isDocumentElementRenderer() const { return document().documentElement() == m_node.ptr(); }
     bool isBody() const { return node() && node()->hasTagName(HTMLNames::bodyTag); }
     bool isHR() const { return node() && node()->hasTagName(HTMLNames::hrTag); }
     bool isLegend() const;
@@ -495,8 +495,7 @@ public:
     { 
         if (isAnonymous())
             return nullptr;
-        ASSERT(m_node);
-        return m_node.get(); 
+        return m_node.ptr();
     }
 
     Node* nonPseudoNode() const { return isPseudoElement() ? nullptr : node(); }
@@ -506,8 +505,8 @@ public:
     // pseudo elements for which their parent node is returned.
     Node* generatingNode() const { return isPseudoElement() ? generatingPseudoHostElement() : node(); }
 
-    Document& document() const { ASSERT(m_node); return m_node->document(); }
-    TreeScope& treeScopeForSVGReferences() const { ASSERT(m_node); return m_node->treeScopeForSVGReferences(); }
+    Document& document() const { return m_node.get().document(); }
+    TreeScope& treeScopeForSVGReferences() const { return m_node.get().treeScopeForSVGReferences(); }
     LocalFrame& frame() const;
     Page& page() const;
     Settings& settings() const { return page().settings(); }
@@ -805,6 +804,7 @@ public:
     bool isSkippedContent() const;
 
     bool isSkippedContentRoot() const;
+    bool isSkippedContentForLayout() const;
 
 protected:
     //////////////////////////////////////////
@@ -813,7 +813,7 @@ protected:
     void setNextSibling(RenderObject* next) { m_next = next; }
     void setParent(RenderElement*);
     //////////////////////////////////////////
-    Node& nodeForNonAnonymous() const { ASSERT(!isAnonymous()); ASSERT(m_node); return *m_node; }
+    Node& nodeForNonAnonymous() const { ASSERT(!isAnonymous()); return m_node.get(); }
 
     void adjustRectForOutlineAndShadow(LayoutRect&) const;
 
@@ -863,14 +863,6 @@ private:
     void setNeedsLayoutIsForbidden(bool flag) const { m_setNeedsLayoutForbidden = flag; }
     void checkBlockPositionedObjectsNeedLayout();
 #endif
-
-    WeakPtr<Node, WeakPtrImplWithEventTargetData> m_node;
-
-    RenderElement* m_parent;
-    RenderObject* m_previous;
-    RenderObject* m_next;
-
-    CheckedPtr<Layout::Box> m_layoutBox;
 
 #if ASSERT_ENABLED
     bool m_hasAXObject : 1;
@@ -992,6 +984,14 @@ private:
     };
 
     RenderObjectBitfields m_bitfields;
+
+    CheckedRef<Node> m_node;
+
+    RenderElement* m_parent;
+    RenderObject* m_previous;
+    RenderObject* m_next;
+
+    CheckedPtr<Layout::Box> m_layoutBox;
 
     // FIXME: This should be RenderElementRareData.
     class RenderObjectRareData {

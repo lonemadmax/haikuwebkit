@@ -51,6 +51,7 @@
 #include <WebCore/Image.h>
 #include <WebCore/MIMETypeRegistry.h>
 #include <stdio.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/RunLoop.h>
 #include <wtf/text/WTFString.h>
 
@@ -61,10 +62,10 @@ using namespace WebCore;
 
 class WebPageProxy;
 
-static HashMap<FrameIdentifier, WebFrameProxy*>& allFrames()
+static HashMap<FrameIdentifier, CheckedPtr<WebFrameProxy>>& allFrames()
 {
     ASSERT(RunLoop::isMain());
-    static NeverDestroyed<HashMap<FrameIdentifier, WebFrameProxy*>> map;
+    static NeverDestroyed<HashMap<FrameIdentifier, CheckedPtr<WebFrameProxy>>> map;
     return map.get();
 }
 
@@ -431,7 +432,6 @@ void WebFrameProxy::commitProvisionalFrame(FrameIdentifier frameID, FrameInfoDat
 {
     ASSERT(m_page);
     if (m_provisionalFrame) {
-        m_provisionalFrame->process().provisionalFrameCommitted(*this);
         m_process->send(Messages::WebPage::DidCommitLoadInAnotherProcess(frameID, m_provisionalFrame->layerHostingContextIdentifier()), m_page->webPageID());
         m_process = m_provisionalFrame->process();
         m_remotePageProxy = m_provisionalFrame->takeRemotePageProxy();
@@ -451,8 +451,8 @@ void WebFrameProxy::getFrameInfo(CompletionHandler<void(FrameTreeNodeData&&)>&& 
         {
             // FIXME: We currently have to drop child frames that are currently not subframes of this frame
             // (e.g. they are in the back/forward cache). They really should not be part of m_childFrames.
-            auto nonEmptyChildFrameData = WTF::compactMap(WTFMove(m_childFrameData), [](auto&& data) {
-                return WTFMove(data);
+            auto nonEmptyChildFrameData = WTF::compactMap(WTFMove(m_childFrameData), [](std::optional<FrameTreeNodeData>&& data) {
+                return std::forward<decltype(data)>(data);
             });
             m_completionHandler(FrameTreeNodeData {
                 WTFMove(m_currentFrameData),
@@ -496,6 +496,18 @@ FrameTreeCreationParameters WebFrameProxy::frameTreeCreationParameters() const
             return frame->frameTreeCreationParameters();
         })
     };
+}
+
+RefPtr<RemotePageProxy> WebFrameProxy::remotePageProxy()
+{
+    return m_remotePageProxy;
+}
+
+void WebFrameProxy::removeRemotePagesForSuspension()
+{
+    m_remotePageProxy = nullptr;
+    for (auto& child : m_childFrames)
+        child->removeRemotePagesForSuspension();
 }
 
 } // namespace WebKit

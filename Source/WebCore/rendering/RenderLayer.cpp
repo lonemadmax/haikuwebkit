@@ -313,6 +313,8 @@ RenderLayer::RenderLayer(RenderLayerModelObject& renderer)
     , m_forcedStackingContext(renderer.isMedia())
     , m_isNormalFlowOnly(false)
     , m_isCSSStackingContext(false)
+    , m_canBeBackdropRoot(false)
+    , m_hasBackdropFilterDescendantsWithoutRoot(false)
     , m_isOpportunisticStackingContext(false)
     , m_zOrderListsDirty(false)
     , m_normalFlowListDirty(true)
@@ -354,6 +356,7 @@ RenderLayer::RenderLayer(RenderLayerModelObject& renderer)
 {
     setIsNormalFlowOnly(shouldBeNormalFlowOnly());
     setIsCSSStackingContext(shouldBeCSSStackingContext());
+    setCanBeBackdropRoot(computeCanBeBackdropRoot());
 
     m_isSelfPaintingLayer = shouldBeSelfPaintingLayer();
 
@@ -394,12 +397,6 @@ RenderLayer::~RenderLayer()
 
     clearLayerScrollableArea();
     clearLayerFilters();
-
-    if (paintsIntoProvidedBacking()) {
-        auto* backingProviderLayer = this->backingProviderLayer();
-        if (backingProviderLayer->backing())
-            backingProviderLayer->backing()->removeBackingSharingLayer(*this);
-    }
 
     // Child layers will be deleted by their corresponding render objects, so
     // we don't need to delete them ourselves.
@@ -613,6 +610,23 @@ bool RenderLayer::shouldBeCSSStackingContext() const
     return !renderer().style().hasAutoUsedZIndex() || renderer().shouldApplyLayoutOrPaintContainment() || isRenderViewLayer();
 }
 
+bool RenderLayer::computeCanBeBackdropRoot() const
+{
+    if (!renderer().settings().cssUnprefixedBackdropFilterEnabled())
+        return false;
+
+    return renderer().isTransparent()
+        || renderer().hasBackdropFilter()
+        || renderer().hasClipPath()
+        || renderer().hasFilter()
+#if ENABLE(CSS_COMPOSITING)
+        || renderer().hasBlendMode()
+#endif
+        || renderer().hasMask()
+        || renderer().isDocumentElementRenderer()
+        || (renderer().style().willChange() && renderer().style().willChange()->canBeBackdropRoot());
+}
+
 bool RenderLayer::setIsNormalFlowOnly(bool isNormalFlowOnly)
 {
     if (isNormalFlowOnly == m_isNormalFlowOnly)
@@ -654,6 +668,14 @@ bool RenderLayer::setIsCSSStackingContext(bool isCSSStackingContext)
         return false;
 
     isStackingContextChanged();
+    return true;
+}
+
+bool RenderLayer::setCanBeBackdropRoot(bool canBeBackdropRoot)
+{
+    if (m_canBeBackdropRoot == canBeBackdropRoot)
+        return false;
+    m_canBeBackdropRoot = canBeBackdropRoot;
     return true;
 }
 
@@ -2175,6 +2197,9 @@ RenderLayer* RenderLayer::clippingRootForPainting() const
         if (current->transform() || compositedWithOwnBackingStore(*current))
             return const_cast<RenderLayer*>(current);
 
+        if (renderer().settings().css3DTransformBackfaceVisibilityInteroperabilityEnabled() && current->participatesInPreserve3D() && current->renderer().style().backfaceVisibility() == BackfaceVisibility::Hidden)
+            return const_cast<RenderLayer*>(current);
+
         if (current->paintsIntoProvidedBacking())
             return current->backingProviderLayer();
     }
@@ -2287,8 +2312,10 @@ static LayoutRect transparencyClipBox(const RenderLayer& layer, const RenderLaye
         result.move(paginationLayer->offsetFromAncestor(rootLayer));
         return result;
     }
-    
-    LayoutRect clipRect = layer.boundingBox(rootLayer, layer.offsetFromAncestor(rootLayer), transparencyBehavior == HitTestingTransparencyClipBox ? RenderLayer::UseFragmentBoxesIncludingCompositing : RenderLayer::UseFragmentBoxesExcludingCompositing);
+
+    OptionSet<RenderLayer::CalculateLayerBoundsFlag> flags = transparencyBehavior == HitTestingTransparencyClipBox ? RenderLayer::UseFragmentBoxesIncludingCompositing : RenderLayer::UseFragmentBoxesExcludingCompositing;
+    flags.add(RenderLayer::IncludeRootBackgroundPaintingArea);
+    auto clipRect = layer.boundingBox(rootLayer, layer.offsetFromAncestor(rootLayer), flags);
     expandClipRectForDescendantsAndReflection(clipRect, layer, rootLayer, transparencyBehavior, paintBehavior);
     clipRect.expand(toLayoutBoxExtent(layer.filterOutsets()));
 
@@ -2365,12 +2392,12 @@ static RenderLayer* findCommonAncestor(const RenderLayer& firstLayer, const Rend
     if (&firstLayer == &secondLayer)
         return const_cast<RenderLayer*>(&firstLayer);
 
-    HashSet<const RenderLayer*> ancestorChain;
+    WeakHashSet<const RenderLayer> ancestorChain;
     for (auto* currLayer = &firstLayer; currLayer; currLayer = currLayer->parent())
-        ancestorChain.add(currLayer);
+        ancestorChain.add(*currLayer);
 
     for (auto* currLayer = &secondLayer; currLayer; currLayer = currLayer->parent()) {
-        if (ancestorChain.contains(currLayer))
+        if (ancestorChain.contains(*currLayer))
             return const_cast<RenderLayer*>(currLayer);
     }
     return nullptr;
@@ -3163,13 +3190,18 @@ GraphicsContext* RenderLayer::setupFilters(GraphicsContext& destinationContext, 
 
 void RenderLayer::applyFilters(GraphicsContext& originalContext, const LayerPaintingInfo& paintingInfo, OptionSet<PaintBehavior> behavior, const LayerFragments& layerFragments)
 {
-    // FIXME: Handle more than one fragment.
-    ClipRect backgroundRect = layerFragments.isEmpty() ? ClipRect() : layerFragments[0].backgroundRect;
-
     GraphicsContextStateSaver stateSaver(originalContext, false);
-    RegionContextStateSaver regionContextStateSaver(paintingInfo.regionContext);
+    bool needsClipping = m_filters->hasSourceImage();
 
-    clipToRect(originalContext, stateSaver, regionContextStateSaver, paintingInfo, behavior, backgroundRect);
+    if (needsClipping) {
+        // FIXME: Handle more than one fragment.
+        ClipRect backgroundRect = layerFragments.isEmpty() ? ClipRect() : layerFragments[0].backgroundRect;
+
+        RegionContextStateSaver regionContextStateSaver(paintingInfo.regionContext);
+
+        clipToRect(originalContext, stateSaver, regionContextStateSaver, paintingInfo, behavior, backgroundRect);
+    }
+
     m_filters->applyFilterEffect(originalContext);
 }
 
@@ -4847,6 +4879,15 @@ LayoutRect RenderLayer::localBoundingBox(OptionSet<CalculateLayerBoundsFlag> fla
             box->flipForWritingMode(result); // The mask clip rect is in physical coordinates, so we have to flip, since localBoundingBox is not.
         } else
             result = box->visualOverflowRect();
+
+        if (flags.contains(IncludeRootBackgroundPaintingArea) && renderer().isDocumentElementRenderer()) {
+            // If the root layer becomes composited (e.g. because some descendant with negative z-index is composited),
+            // then it has to be big enough to cover the viewport in order to display the background. This is akin
+            // to the code in RenderBox::paintRootBoxFillLayers().
+            auto& frameView = renderer().view().frameView();
+            result.setWidth(std::max(result.width(), frameView.contentsWidth() - result.x()));
+            result.setHeight(std::max(result.height(), frameView.contentsHeight() - result.y()));
+        }
     }
     return result;
 }
@@ -4944,21 +4985,12 @@ LayoutRect RenderLayer::calculateLayerBounds(const RenderLayer* ancestorLayer, c
         return renderer().view().unscaledDocumentRect();
     }
 
-    LayoutRect boundingBoxRect = localBoundingBox(flags);
+    LayoutRect boundingBoxRect = localBoundingBox(flags | IncludeRootBackgroundPaintingArea);
     if (renderer().view().frameView().hasFlippedBlockRenderers()) {
         if (is<RenderBox>(renderer()))
             downcast<RenderBox>(renderer()).flipForWritingMode(boundingBoxRect);
         else
             renderer().containingBlock()->flipForWritingMode(boundingBoxRect);
-    }
-
-    if (renderer().isDocumentElementRenderer()) {
-        // If the root layer becomes composited (e.g. because some descendant with negative z-index is composited),
-        // then it has to be big enough to cover the viewport in order to display the background. This is akin
-        // to the code in RenderBox::paintRootBoxFillLayers().
-        const LocalFrameView& frameView = renderer().view().frameView();
-        boundingBoxRect.setWidth(std::max(boundingBoxRect.width(), frameView.contentsWidth() - boundingBoxRect.x()));
-        boundingBoxRect.setHeight(std::max(boundingBoxRect.height(), frameView.contentsHeight() - boundingBoxRect.y()));
     }
 
     LayoutRect unionBounds = boundingBoxRect;
@@ -5383,6 +5415,7 @@ bool RenderLayer::isVisuallyNonEmpty(PaintedContentRequest* request) const
 void RenderLayer::styleChanged(StyleDifference diff, const RenderStyle* oldStyle)
 {
     setIsNormalFlowOnly(shouldBeNormalFlowOnly());
+    setCanBeBackdropRoot(computeCanBeBackdropRoot());
 
     if (setIsCSSStackingContext(shouldBeCSSStackingContext())) {
 #if ENABLE(CSS_COMPOSITING)

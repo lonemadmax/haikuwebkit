@@ -588,7 +588,7 @@ void WebLoaderStrategy::remove(ResourceLoader* resourceLoader)
         return;
     }
 
-    if (auto task = m_urlSchemeTasks.take(resourceLoader->identifier())) {
+    if (RefPtr task = m_urlSchemeTasks.take(resourceLoader->identifier()).get()) {
         ASSERT(!m_internallyFailedResourceLoaders.contains(resourceLoader));
         task->stopLoading();
         return;
@@ -814,15 +814,15 @@ bool WebLoaderStrategy::usePingLoad() const
 
 void WebLoaderStrategy::startPingLoad(LocalFrame& frame, ResourceRequest& request, const HTTPHeaderMap& originalRequestHeaders, const FetchOptions& options, ContentSecurityPolicyImposition policyCheck, PingLoadCompletionHandler&& completionHandler)
 {
-    auto* webFrame = WebFrame::fromCoreFrame(frame);
-    auto* document = frame.document();
+    auto webFrame = WebFrame::fromCoreFrame(frame);
+    RefPtr document = frame.document();
     if (!document || !webFrame) {
         if (completionHandler)
             completionHandler(internalError(request.url()), { });
         return;
     }
 
-    auto* webPage = webFrame->page();
+    RefPtr webPage = webFrame->page();
     if (!webPage) {
         if (completionHandler)
             completionHandler(internalError(request.url()), { });

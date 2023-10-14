@@ -51,7 +51,7 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(ShadowRoot);
 
 struct SameSizeAsShadowRoot : public DocumentFragment, public TreeScope {
     uint8_t flagsAndModes[3];
-    WeakPtr<Element, WeakPtrImplWithEventTargetData> host;
+    CheckedPtr<Element> host;
     void* styleSheetList;
     void* styleScope;
     void* slotAssignment;
@@ -198,7 +198,7 @@ ExceptionOr<void> ShadowRoot::setInnerHTML(const String& markup)
         return { };
     }
 
-    auto fragment = createFragmentForInnerOuterHTML(*host(), markup, { ParserContentPolicy::AllowScriptingContent, ParserContentPolicy::AllowPluginContent });
+    auto fragment = createFragmentForInnerOuterHTML(*protectedHost(), markup, { ParserContentPolicy::AllowScriptingContent, ParserContentPolicy::AllowPluginContent });
     if (fragment.hasException())
         return fragment.releaseException();
     return replaceChildrenWithFragment(*this, fragment.releaseReturnValue());

@@ -608,6 +608,7 @@ static inline void disableAllJITOptions()
 
     Options::dumpDisassembly() = false;
     Options::asyncDisassembly() = false;
+    Options::dumpBaselineDisassembly() = false;
     Options::dumpDFGDisassembly() = false;
     Options::dumpFTLDisassembly() = false;
     Options::dumpRegExpDisassembly() = false;
@@ -688,6 +689,7 @@ void Options::notifyOptionsChanged()
     Options::useWebAssemblySIMD() = false;
     Options::useBBQJIT() = false;
 #endif
+    Options::useDataICInFTL() = false; // Currently, it is not completed. Disable forcefully.
 
     if (!Options::allowDoubleShape())
         Options::useJIT() = false; // We don't support JIT with !allowDoubleShape. So disable it.
@@ -706,6 +708,7 @@ void Options::notifyOptionsChanged()
 
         if (Options::dumpDisassembly()
             || Options::asyncDisassembly()
+            || Options::dumpBaselineDisassembly()
             || Options::dumpDFGDisassembly()
             || Options::dumpFTLDisassembly()
             || Options::dumpRegExpDisassembly()
