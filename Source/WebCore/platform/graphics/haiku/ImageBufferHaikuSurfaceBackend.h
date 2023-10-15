@@ -48,7 +48,8 @@ public:
     ~ImageBufferHaikuSurfaceBackend();
 
     GraphicsContext& context() override;
-    WTF::RefPtr<WebCore::NativeImage> copyNativeImage(BackingStoreCopy) override;
+    WTF::RefPtr<WebCore::NativeImage> copyNativeImage() override;
+    WTF::RefPtr<WebCore::NativeImage> createNativeImageReference() override;
     void getPixelBuffer(const IntRect&, PixelBuffer&) override;
     void putPixelBuffer(const PixelBuffer&, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat) override;
     unsigned bytesPerRow() const override;

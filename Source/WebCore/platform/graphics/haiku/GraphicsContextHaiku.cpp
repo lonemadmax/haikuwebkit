@@ -59,7 +59,7 @@ namespace WebCore {
 
 
 GraphicsContextHaiku::GraphicsContextHaiku(BView* view)
-    : GraphicsContext({
+    : GraphicsContext(IsDeferred::No, {
         GraphicsContextState::Change::StrokeThickness,
         GraphicsContextState::Change::StrokeBrush,
         GraphicsContextState::Change::Alpha,

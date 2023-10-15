@@ -49,13 +49,13 @@ PlatformMouseEvent::PlatformMouseEvent(const BMessage* message)
         message->FindInt32("buttons", &buttons);
 
     if (buttons & B_PRIMARY_MOUSE_BUTTON)
-        m_button = LeftButton;
+        m_button = MouseButton::Left;
     else if (buttons & B_SECONDARY_MOUSE_BUTTON)
-        m_button = RightButton;
+        m_button = MouseButton::Right;
     else if (buttons & B_TERTIARY_MOUSE_BUTTON)
-        m_button = MiddleButton;
+        m_button = MouseButton::Middle;
     else
-        m_button = NoButton;
+        m_button = MouseButton::None;
 
     switch (message->what) {
     case B_MOUSE_DOWN:

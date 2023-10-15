@@ -34,6 +34,7 @@
 #include "FocusController.h"
 #include "Frame.h"
 #include "FrameView.h"
+#include "HandleMouseEventResult.h"
 #include "HitTestResult.h"
 #include "KeyboardEvent.h"
 #include "MouseEventWithHitTestResults.h"

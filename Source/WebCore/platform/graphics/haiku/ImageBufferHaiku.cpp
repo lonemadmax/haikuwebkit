@@ -86,18 +86,25 @@ ImageBufferData::~ImageBufferData()
 }
 
 
-WTF::RefPtr<WebCore::NativeImage> ImageBufferHaikuSurfaceBackend::copyNativeImage(WebCore::BackingStoreCopy doCopy)
+WTF::RefPtr<WebCore::NativeImage> ImageBufferHaikuSurfaceBackend::copyNativeImage()
 {
     if (m_data.m_view)
         m_data.m_view->Sync();
 
-    if (doCopy == DontCopyBackingStore) {
-        PlatformImagePtr ref = m_data.m_image;
-        return NativeImage::create(std::move(ref));
-    } else {
-        BitmapRef* ref = new BitmapRef(*(BBitmap*)m_data.m_image.get());
-        return NativeImage::create(ref);
-    }
+    // This actually creates a new BBitmap and copies the data
+    BitmapRef* ref = new BitmapRef(*(BBitmap*)m_data.m_image.get());
+    return NativeImage::create(ref);
+}
+
+
+WTF::RefPtr<WebCore::NativeImage> ImageBufferHaikuSurfaceBackend::createNativeImageReference()
+{
+    if (m_data.m_view)
+        m_data.m_view->Sync();
+
+    // This just creates a new reference to the existing BBitmap
+    PlatformImagePtr ref = m_data.m_image;
+    return NativeImage::create(std::move(ref));
 }
 
 

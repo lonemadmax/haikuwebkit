@@ -67,7 +67,7 @@ class MediaPlayerPrivate : public MediaPlayerPrivateInterface,
         bool hasAudio() const override;
         bool hasVideo() const override;
 
-        void setPageIsVisible(bool) override;
+        void setPageIsVisible(bool, WTF::String&&) override;
 
         float duration() const override;
         float currentTime() const override;

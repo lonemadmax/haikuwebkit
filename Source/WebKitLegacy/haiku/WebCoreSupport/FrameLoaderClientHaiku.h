@@ -207,6 +207,7 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
     AtomString overrideMediaType() const override;
 
     void dispatchDidClearWindowObjectInWorld(DOMWrapperWorld&) override;
+    void dispatchLoadEventToOwnerElementInAnotherProcess() override;
 
     Ref<FrameNetworkingContext> createNetworkingContext() override;
     void updateCachedDocumentLoader(WebCore::DocumentLoader&) override { }

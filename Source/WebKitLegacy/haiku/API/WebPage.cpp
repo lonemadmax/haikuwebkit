@@ -39,6 +39,7 @@
 #include "FrameLoaderClientHaiku.h"
 #include "IconDatabase.h"
 #include "InspectorClientHaiku.h"
+#include "LegacyHistoryItemClient.h"
 #include "NotificationClientHaiku.h"
 #include "PageStorageSessionProvider.h"
 #include "PlatformStrategiesHaiku.h"
@@ -69,6 +70,7 @@
 #include "WebCore/FrameLoader.h"
 #include "WebCore/FrameView.h"
 #include "WebCore/GraphicsContextHaiku.h"
+#include "WebCore/HandleMouseEventResult.h"
 #include "WebCore/LibWebRTCProvider.h"
 #include "WebCore/LogInitialization.h"
 #include "WebCore/MediaRecorderProvider.h"
@@ -305,6 +307,7 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         makeUniqueRef<WebCore::DummyStorageProvider>(),
         makeUniqueRef<WebCore::DummyModelPlayerProvider>(),
         EmptyBadgeClient::create(),
+        LegacyHistoryItemClient::singleton(),
         makeUniqueRef<ContextMenuClientHaiku>(this),
         makeUniqueRef<ChromeClientHaiku>(this, webView)
     );
@@ -1255,7 +1258,7 @@ void BWebPage::handleMouseEvent(const BMessage* message)
 #endif
 
         // Handle context menus, if necessary.
-        if (event.button() == RightButton) {
+        if (event.button() == MouseButton::Right) {
             fPage->contextMenuController().clearContextMenu();
 
             WebCore::LocalFrame& focusedFrame = fPage->focusController().focusedOrMainFrame();
@@ -1358,35 +1361,35 @@ void BWebPage::handleKeyEvent(BMessage* message)
 		switch (bytes.ByteAt(0)) {
 			case B_UP_ARROW:
 				granularity = ScrollGranularity::Line;
-				direction = ScrollUp;
+				direction = ScrollDirection::ScrollUp;
 				break;
 			case B_DOWN_ARROW:
 				granularity = ScrollGranularity::Line;
-				direction = ScrollDown;
+				direction = ScrollDirection::ScrollDown;
 				break;
 			case B_LEFT_ARROW:
 				granularity = ScrollGranularity::Line;
-				direction = ScrollLeft;
+				direction = ScrollDirection::ScrollLeft;
 				break;
 			case B_RIGHT_ARROW:
 				granularity = ScrollGranularity::Line;
-				direction = ScrollRight;
+				direction = ScrollDirection::ScrollRight;
 				break;
 			case B_HOME:
 				granularity = ScrollGranularity::Document;
-				direction = ScrollUp;
+				direction = ScrollDirection::ScrollUp;
 				break;
 			case B_END:
 				granularity = ScrollGranularity::Document;
-				direction = ScrollDown;
+				direction = ScrollDirection::ScrollDown;
 				break;
 			case B_PAGE_UP:
 				granularity = ScrollGranularity::Page;
-				direction = ScrollUp;
+				direction = ScrollDirection::ScrollUp;
 				break;
 			case B_PAGE_DOWN:
 				granularity = ScrollGranularity::Page;
-				direction = ScrollDown;
+				direction = ScrollDirection::ScrollDown;
 				break;
 			default:
 				return;

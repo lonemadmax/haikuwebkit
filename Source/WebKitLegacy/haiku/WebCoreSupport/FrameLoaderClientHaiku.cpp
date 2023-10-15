@@ -995,7 +995,7 @@ Ref<FrameNetworkingContext> FrameLoaderClientHaiku::createNetworkingContext()
 bool FrameLoaderClientHaiku::isTertiaryMouseButton(const NavigationAction& action) const
 {
     if (action.mouseEventData().has_value()) {
-        return (action.mouseEventData()->button == 1);
+        return (action.mouseEventData()->button == MouseButton::Middle);
     }
     return false;
 }
@@ -1005,6 +1005,10 @@ status_t FrameLoaderClientHaiku::dispatchNavigationRequested(const ResourceReque
     BMessage message(NAVIGATION_REQUESTED);
     message.AddString("url", request.url().string());
     return dispatchMessage(message);
+}
+
+void FrameLoaderClientHaiku::dispatchLoadEventToOwnerElementInAnotherProcess()
+{
 }
 
 status_t FrameLoaderClientHaiku::dispatchMessage(BMessage& message, bool allowChildFrame) const
