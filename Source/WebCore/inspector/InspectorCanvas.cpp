@@ -892,6 +892,7 @@ Ref<Protocol::Canvas::Canvas> InspectorCanvas::buildObjectForCanvas(bool capture
         if (is<WebGL2RenderingContext>(m_context))
             return Protocol::Canvas::ContextType::WebGL2;
 #endif
+
         ASSERT_NOT_REACHED();
         return Protocol::Canvas::ContextType::Canvas2D;
     }();

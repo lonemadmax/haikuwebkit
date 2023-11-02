@@ -41,6 +41,7 @@
 #include "WebSWContextManagerConnectionMessages.h"
 #include "WebSWServerConnection.h"
 #include <WebCore/NotificationData.h>
+#include <WebCore/NotificationPayload.h>
 #include <WebCore/SWServer.h>
 #include <WebCore/ServiceWorkerContextData.h>
 
@@ -69,6 +70,11 @@ WebSWServerToContextConnection::~WebSWServerToContextConnection()
 
     if (auto* server = this->server(); server && server->contextConnectionForRegistrableDomain(registrableDomain()) == this)
         server->removeContextConnection(*this);
+}
+
+NetworkProcess& WebSWServerToContextConnection::networkProcess()
+{
+    return m_connection.networkProcess();
 }
 
 IPC::Connection& WebSWServerToContextConnection::ipcConnection() const
@@ -154,12 +160,16 @@ void WebSWServerToContextConnection::fireNotificationEvent(ServiceWorkerIdentifi
         if (!--weakThis->m_processingFunctionalEventCount)
             weakThis->m_connection.networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::EndServiceWorkerBackgroundProcessing { weakThis->webProcessIdentifier() }, 0);
 
+#if ENABLE(TRACKING_PREVENTION)
         auto* session = weakThis->m_connection.networkSession();
         if (auto* resourceLoadStatistics = session ? session->resourceLoadStatistics() : nullptr; resourceLoadStatistics && wasProcessed && eventType == NotificationEventType::Click) {
             return resourceLoadStatistics->setMostRecentWebPushInteractionTime(RegistrableDomain(weakThis->registrableDomain()), [callback = WTFMove(callback), wasProcessed] () mutable {
                 callback(wasProcessed);
             });
         }
+#else
+        UNUSED_PARAM(eventType);
+#endif
 
         callback(wasProcessed);
     });

@@ -309,6 +309,25 @@ bool IsAnyAttachment3DWithoutAllLayers(const RenderTargetCache<RenderTargetVk> &
 
     return false;
 }
+
+// Should be called when the image type is VK_IMAGE_TYPE_3D.  Typically, the subresource, offsets
+// and extents are filled in as if images are 2D layers (because depth slices of 3D images are also
+// specified through "layers" everywhere, particularly by gl::ImageIndex).  This function adjusts
+// the layer base/count and offsets.z/extents.z appropriately after these structs are set up.
+void AdjustLayersAndDepthFor3DImages(VkImageSubresourceLayers *subresource,
+                                     VkOffset3D *offsetsStart,
+                                     VkOffset3D *offsetsEnd)
+{
+    // The struct must be set up as if the image was 2D array.
+    ASSERT(offsetsStart->z == 0);
+    ASSERT(offsetsEnd->z == 1);
+
+    offsetsStart->z = subresource->baseArrayLayer;
+    offsetsEnd->z   = subresource->baseArrayLayer + subresource->layerCount;
+
+    subresource->baseArrayLayer = 0;
+    subresource->layerCount     = 1;
+}
 }  // anonymous namespace
 
 FramebufferVk::FramebufferVk(RendererVk *renderer, const gl::FramebufferState &state)
@@ -400,11 +419,11 @@ angle::Result FramebufferVk::invalidateSub(const gl::Context *context,
         return invalidate(context, count, attachments);
     }
 
-    // If there are deferred clears, redefer them.  syncState may have accumulated deferred clears,
+    // If there are deferred clears, restage them.  syncState may have accumulated deferred clears,
     // but if the framebuffer's attachments are used after this call not through the framebuffer,
     // those clears wouldn't get flushed otherwise (for example as the destination of
     // glCopyTex[Sub]Image, shader storage image, etc).
-    redeferClears(contextVk);
+    restageDeferredClears(contextVk);
 
     if (contextVk->hasActiveRenderPass() &&
         rotatedInvalidateArea.encloses(contextVk->getStartedRenderPassCommands().getRenderArea()))
@@ -456,7 +475,11 @@ angle::Result FramebufferVk::clearImpl(const gl::Context *context,
     ContextVk *contextVk = vk::GetImpl(context);
 
     const gl::Rectangle scissoredRenderArea = getRotatedScissoredRenderArea(contextVk);
-    ASSERT(scissoredRenderArea.width != 0 && scissoredRenderArea.height != 0);
+    if (scissoredRenderArea.width == 0 || scissoredRenderArea.height == 0)
+    {
+        restageDeferredClears(contextVk);
+        return angle::Result::Continue;
+    }
 
     // This function assumes that only enabled attachments are asked to be cleared.
     ASSERT((clearColorBuffers & mState.getEnabledDrawBuffers()) == clearColorBuffers);
@@ -620,7 +643,7 @@ angle::Result FramebufferVk::clearImpl(const gl::Context *context,
             }
             else
             {
-                redeferClears(contextVk);
+                restageDeferredClears(contextVk);
             }
         }
 
@@ -979,6 +1002,23 @@ angle::Result FramebufferVk::blitWithCommand(ContextVk *contextVk,
     blit.dstOffsets[0]                 = {destArea.x0(), destArea.y0(), 0};
     blit.dstOffsets[1]                 = {destArea.x1(), destArea.y1(), 1};
 
+    // Note: vkCmdBlitImage doesn't actually work between 3D and 2D array images due to Vulkan valid
+    // usage restrictions (https://gitlab.khronos.org/vulkan/vulkan/-/issues/3490), but drivers seem
+    // to work as expected anyway.  ANGLE continues to use vkCmdBlitImage in that case.
+
+    const bool isSrc3D = srcImage->getType() == VK_IMAGE_TYPE_3D;
+    const bool isDst3D = dstImage->getType() == VK_IMAGE_TYPE_3D;
+    if (isSrc3D)
+    {
+        AdjustLayersAndDepthFor3DImages(&blit.srcSubresource, &blit.srcOffsets[0],
+                                        &blit.srcOffsets[1]);
+    }
+    if (isDst3D)
+    {
+        AdjustLayersAndDepthFor3DImages(&blit.dstSubresource, &blit.dstOffsets[0],
+                                        &blit.dstOffsets[1]);
+    }
+
     commandBuffer->blitImage(srcImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                              dstImage->getImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &blit,
                              gl_vk::GetFilter(filter));
@@ -996,7 +1036,7 @@ angle::Result FramebufferVk::blit(const gl::Context *context,
     RendererVk *renderer = contextVk->getRenderer();
     UtilsVk &utilsVk     = contextVk->getUtils();
 
-    // If any clears were picked up when syncing the read framebuffer (as the blit source), redefer
+    // If any clears were picked up when syncing the read framebuffer (as the blit source), restage
     // them.  They correspond to attachments that are not used in the blit.  This will cause the
     // read framebuffer to become dirty, so the attachments will be synced again on the next command
     // that might be using them.
@@ -1005,7 +1045,7 @@ angle::Result FramebufferVk::blit(const gl::Context *context,
     FramebufferVk *srcFramebufferVk       = vk::GetImpl(srcFramebuffer);
     if (srcFramebufferVk->mDeferredClears.any())
     {
-        srcFramebufferVk->redeferClearsForReadFramebuffer(contextVk);
+        srcFramebufferVk->restageDeferredClearsForReadFramebuffer(contextVk);
     }
 
     // We can sometimes end up in a blit with some clear commands saved. Ensure all clear commands
@@ -1230,7 +1270,9 @@ angle::Result FramebufferVk::blit(const gl::Context *context,
         // be hard to guarantee the image stretching remains perfect.  That also allows us not to
         // have to transform back the destination clipping to source.
         //
-        // Non-identity pre-rotation cases do not use Vulkan's builtin blit.
+        // Non-identity pre-rotation cases do not use Vulkan's builtin blit.  Additionally, blits
+        // between 3D and non-3D-non-layer-0 images are forbidden (possibly due to an oversight:
+        // https://gitlab.khronos.org/vulkan/vulkan/-/issues/3490)
         //
         // For simplicity, we either blit all render targets with a Vulkan command, or none.
         bool canBlitWithCommand =
@@ -1688,8 +1730,8 @@ angle::Result FramebufferVk::invalidateImpl(ContextVk *contextVk,
         }
     }
 
-    // If there are still deferred clears, redefer them.  See relevant comment in invalidateSub.
-    redeferClears(contextVk);
+    // If there are still deferred clears, restage them. See relevant comment in invalidateSub.
+    restageDeferredClears(contextVk);
 
     const auto &colorRenderTargets           = mRenderTargetCache.getColors();
     RenderTargetVk *depthStencilRenderTarget = mRenderTargetCache.getDepthStencil();
@@ -2596,23 +2638,23 @@ VkClearValue FramebufferVk::getCorrectedColorClearValue(size_t colorIndexGL,
     return clearValue;
 }
 
-void FramebufferVk::redeferClears(ContextVk *contextVk)
+void FramebufferVk::restageDeferredClears(ContextVk *contextVk)
 {
-    // Called when redeferring clears of the draw framebuffer.  In that case, there can't be any
+    // Called when restaging clears of the draw framebuffer.  In that case, there can't be any
     // render passes open, otherwise the clear would have applied to the render pass.  In the
     // exceptional occasion in blit where the read framebuffer accumulates deferred clears, it can
-    // be deferred while this assumption doesn't hold (and redeferClearsForReadFramebuffer should be
-    // used instead).
+    // be deferred while this assumption doesn't hold (and restageDeferredClearsForReadFramebuffer
+    // should be used instead).
     ASSERT(!contextVk->hasActiveRenderPass() || !mDeferredClears.any());
-    redeferClearsImpl(contextVk);
+    restageDeferredClearsImpl(contextVk);
 }
 
-void FramebufferVk::redeferClearsForReadFramebuffer(ContextVk *contextVk)
+void FramebufferVk::restageDeferredClearsForReadFramebuffer(ContextVk *contextVk)
 {
-    redeferClearsImpl(contextVk);
+    restageDeferredClearsImpl(contextVk);
 }
 
-void FramebufferVk::redeferClearsImpl(ContextVk *contextVk)
+void FramebufferVk::restageDeferredClearsImpl(ContextVk *contextVk)
 {
     // Set the appropriate aspect and clear values for depth and stencil.
     VkImageAspectFlags dsAspectFlags  = 0;

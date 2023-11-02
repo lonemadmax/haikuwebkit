@@ -30,6 +30,7 @@
 
 #if ENABLE(WEBGL)
 
+#include "BitmapImage.h"
 #include "FormatConverter.h"
 #include "GCGLSpan.h"
 #include "GraphicsContext.h"
@@ -484,7 +485,7 @@ bool GraphicsContextGL::packImageData(Image* image, const void* pixels, GCGLenum
 
     if (!packPixels(static_cast<const uint8_t*>(pixels), sourceFormat, sourceImageWidth, sourceImageHeight, sourceImageSubRectangle, depth, sourceUnpackAlignment, unpackImageHeight, format, type, alphaOp, data.data(), flipY))
         return false;
-    if (ImageObserver* observer = image->imageObserver())
+    if (auto observer = image->imageObserver())
         observer->didDraw(*image);
     return true;
 }
@@ -652,9 +653,8 @@ RefPtr<Image> GraphicsContextGL::videoFrameToImage(VideoFrame& frame)
     auto imageBuffer = ImageBuffer::create(size, RenderingPurpose::Unspecified, 1, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
     if (!imageBuffer)
         return { };
-
     imageBuffer->context().paintVideoFrame(frame, { { }, size }, true);
-    return imageBuffer->copyImage(DontCopyBackingStore);
+    return BitmapImage::create(ImageBuffer::sinkIntoNativeImage(WTFMove(imageBuffer)));
 }
 #endif
 

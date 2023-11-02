@@ -532,11 +532,9 @@ bool GraphicsLayerCA::replaceChild(GraphicsLayer* oldChild, Ref<GraphicsLayer>&&
     return false;
 }
 
-void GraphicsLayerCA::removeFromParent()
+void GraphicsLayerCA::willModifyChildren()
 {
-    if (m_parent)
-        downcast<GraphicsLayerCA>(*m_parent).noteSublayersChanged();
-    GraphicsLayer::removeFromParent();
+    noteSublayersChanged();
 }
 
 void GraphicsLayerCA::setMaskLayer(RefPtr<GraphicsLayer>&& layer)
@@ -559,7 +557,7 @@ void GraphicsLayerCA::setReplicatedLayer(GraphicsLayer* layer)
         return;
 
     GraphicsLayer::setReplicatedLayer(layer);
-    noteLayerPropertyChanged(ReplicatedLayerChanged);
+    noteLayerPropertyChanged(ReplicatedLayerChanged | ChildrenChanged);
 }
 
 void GraphicsLayerCA::setReplicatedByLayer(RefPtr<GraphicsLayer>&& layer)
@@ -1137,7 +1135,7 @@ void GraphicsLayerCA::pauseAnimation(const String& animationName, double timeOff
     }
 }
 
-void GraphicsLayerCA::removeAnimation(const String& animationName)
+void GraphicsLayerCA::removeAnimation(const String& animationName, std::optional<AnimatedProperty> property)
 {
     LOG_WITH_STREAM(Animations, stream << "GraphicsLayerCA " << this << " id " << primaryLayerID() << " removeAnimation " << animationName << " (is running " << animationIsRunning(animationName) << ")");
 
@@ -1145,6 +1143,10 @@ void GraphicsLayerCA::removeAnimation(const String& animationName)
         // There may be several animations with the same name in the case of transform animations
         // animating multiple components as individual animations.
         if (animation.m_name == animationName && !animation.m_pendingRemoval) {
+            // If a specific property is provided, we must check we only remove the animations
+            // for this specific property.
+            if (property && animation.m_property != *property)
+                continue;
             animation.m_pendingRemoval = true;
             noteLayerPropertyChanged(AnimationChanged | CoverageRectChanged);
         }
@@ -2257,6 +2259,7 @@ void GraphicsLayerCA::updateSublayerList(bool maxLayerDepthReached)
     appendCustomAndClippingLayers(primaryLayerChildren);
 
     bool clippingLayerHostsChildren = m_contentsRectClipsDescendants && m_contentsClippingLayer;
+    bool structuralLayerHostsChildren = !clippingLayerHostsChildren && m_structuralLayer && structuralLayerPurpose() != StructuralLayerPurpose::StructuralLayerForBackdrop;
     if (m_contentsClippingLayer) {
         PlatformCALayerList clippingChildren;
         if (clippingLayerHostsChildren)
@@ -2269,11 +2272,13 @@ void GraphicsLayerCA::updateSublayerList(bool maxLayerDepthReached)
         PlatformCALayerList layerList;
         appendStructuralLayerChildren(layerList);
 
-        if (!clippingLayerHostsChildren)
+        if (structuralLayerHostsChildren)
             buildChildLayerList(layerList);
 
         m_structuralLayer->setSublayers(layerList);
-    } else if (!clippingLayerHostsChildren)
+    }
+
+    if (!clippingLayerHostsChildren && !structuralLayerHostsChildren)
         buildChildLayerList(primaryLayerChildren);
 
     m_layer->setSublayers(primaryLayerChildren);
@@ -2435,7 +2440,8 @@ void GraphicsLayerCA::updateContentsOpaque(float pageScaleFactor)
 
 void GraphicsLayerCA::updateBackfaceVisibility()
 {
-    if (m_structuralLayer && structuralLayerPurpose() == StructuralLayerForReplicaFlattening) {
+    if (m_structuralLayer && (structuralLayerPurpose() == StructuralLayerForReplicaFlattening || structuralLayerPurpose() == StructuralLayerForBackdrop)) {
+
         m_structuralLayer->setDoubleSided(m_backfaceVisibility);
 
         if (m_layerClones) {
@@ -3582,7 +3588,7 @@ bool GraphicsLayerCA::createTransformAnimationsFromKeyframes(const KeyframeValue
     const auto& primitives = prefix.primitives();
     unsigned numberOfSharedPrimitives = valueList.size() > 1 ? primitives.size() : 0;
 
-    removeAnimation(animationName);
+    removeAnimation(animationName, valueList.property());
 
     for (unsigned animationIndex = 0; animationIndex < numberOfSharedPrimitives; ++animationIndex) {
         if (!appendToUncommittedAnimations(valueList, primitives[animationIndex], animation, animationName, boxSize, animationIndex, timeOffset, false /* isMatrixAnimation */, keyframesShouldUseAnimationWideTimingFunction))
@@ -3647,7 +3653,7 @@ bool GraphicsLayerCA::createFilterAnimationsFromKeyframes(const KeyframeValueLis
             return false;
     }
 
-    removeAnimation(animationName);
+    removeAnimation(animationName, valueList.property());
 
     for (int animationIndex = 0; animationIndex < numAnimations; ++animationIndex) {
         if (!appendToUncommittedAnimations(valueList, operations.operations().at(animationIndex).get(), animation, animationName, animationIndex, timeOffset, keyframesShouldUseAnimationWideTimingFunction))

@@ -63,7 +63,7 @@
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "HTMLPlugInImageElement.h"
-#include "HighlightRegister.h"
+#include "HighlightRegistry.h"
 #include "ImageDocument.h"
 #include "InspectorClient.h"
 #include "InspectorController.h"
@@ -218,7 +218,7 @@ LocalFrameView::LocalFrameView(LocalFrame& frame)
     ScrollableArea::setVerticalScrollElasticity(verticalElasticity);
     ScrollableArea::setHorizontalScrollElasticity(horizontalElasticity);
 #endif
-    if (frame.document() && frame.document()->settings().cssScrollAnchoringEnabled())
+    if (m_frame->settings().cssScrollAnchoringEnabled())
         m_scrollAnchoringController = WTF::makeUnique<ScrollAnchoringController>(*this);
 }
 
@@ -1405,7 +1405,7 @@ RenderBox* LocalFrameView::embeddedContentBox() const
 void LocalFrameView::addEmbeddedObjectToUpdate(RenderEmbeddedObject& embeddedObject)
 {
     if (!m_embeddedObjectsToUpdate)
-        m_embeddedObjectsToUpdate = makeUnique<ListHashSet<RenderEmbeddedObject*>>();
+        m_embeddedObjectsToUpdate = makeUnique<ListHashSet<CheckedPtr<RenderEmbeddedObject>>>();
 
     auto& element = embeddedObject.frameOwnerElement();
     if (is<HTMLPlugInImageElement>(element))
@@ -2321,7 +2321,7 @@ bool LocalFrameView::scrollToFragment(const URL& url)
             
             auto highlightRanges = FragmentDirectiveRangeFinder::findRangesFromTextDirectives(parsedTextDirectives, document);
             for (auto range : highlightRanges)
-                document->fragmentHighlightRegister().addAnnotationHighlightWithRange(StaticRange::create(range));
+                document->fragmentHighlightRegistry().addAnnotationHighlightWithRange(StaticRange::create(range));
             
             if (highlightRanges.size()) {
                 auto range = highlightRanges.first();
@@ -2859,7 +2859,9 @@ void LocalFrameView::scrollOffsetChangedViaPlatformWidgetImpl(const ScrollOffset
     updateCompositingLayersAfterScrolling();
     repaintSlowRepaintObjects();
     scrollPositionChanged(scrollPositionFromOffset(oldOffset), scrollPositionFromOffset(newOffset));
-    
+    invalidateScrollAnchoringElement();
+    updateScrollAnchoringElement();
+
     if (auto* renderView = this->renderView()) {
         if (renderView->usesCompositing())
             renderView->compositor().didChangeVisibleRect();
@@ -2895,9 +2897,6 @@ void LocalFrameView::scrollPositionChanged(const ScrollPosition& oldPosition, co
         if (auto* layer = renderView->layer())
             m_frame->editor().renderLayerDidScroll(*layer);
     }
-
-    invalidateScrollAnchoringElement();
-    updateScrollAnchoringElement();
 }
 
 void LocalFrameView::applyRecursivelyWithVisibleRect(const Function<void(LocalFrameView& frameView, const IntRect& visibleRect)>& apply)
@@ -3816,6 +3815,16 @@ void LocalFrameView::flushAnyPendingPostLayoutTasks()
         updateEmbeddedObjectsTimerFired();
 }
 
+CheckedRef<const LocalFrameViewLayoutContext> LocalFrameView::checkedLayoutContext() const
+{
+    return m_layoutContext;
+}
+
+CheckedRef<LocalFrameViewLayoutContext> LocalFrameView::checkedLayoutContext()
+{
+    return m_layoutContext;
+}
+
 void LocalFrameView::performPostLayoutTasks()
 {
     ScriptDisallowedScope::InMainThread scriptDisallowedScope;
@@ -3867,24 +3876,6 @@ void LocalFrameView::performPostLayoutTasks()
     m_frame->document()->scheduleDeferredAXObjectCacheUpdate();
 }
 
-void LocalFrameView::invalidateScrollAnchoringElement()
-{
-    if (m_scrollAnchoringController)
-        m_scrollAnchoringController->invalidateAnchorElement();
-}
-
-void LocalFrameView::updateScrollAnchoringElement()
-{
-    if (m_scrollAnchoringController)
-        m_scrollAnchoringController->updateAnchorElement();
-}
-
-void LocalFrameView::updateScrollPositionForScrollAnchoringController()
-{
-    if (m_scrollAnchoringController)
-        m_scrollAnchoringController->adjustScrollPositionForAnchoring();
-}
-
 void LocalFrameView::dequeueScrollableAreaForScrollAnchoringUpdate(ScrollableArea& scrollableArea)
 {
     m_scrollableAreasWithScrollAnchoringControllersNeedingUpdate.remove(scrollableArea);
@@ -3893,6 +3884,15 @@ void LocalFrameView::dequeueScrollableAreaForScrollAnchoringUpdate(ScrollableAre
 void LocalFrameView::queueScrollableAreaForScrollAnchoringUpdate(ScrollableArea& scrollableArea)
 {
     m_scrollableAreasWithScrollAnchoringControllersNeedingUpdate.add(scrollableArea);
+}
+
+void LocalFrameView::updateScrollAnchoringElementsForScrollableAreas()
+{
+    updateScrollAnchoringElement();
+    if (!m_scrollableAreas)
+        return;
+    for (auto& scrollableArea : *m_scrollableAreas)
+        scrollableArea.updateScrollAnchoringElement();
 }
 
 void LocalFrameView::updateScrollAnchoringPositionForScrollableAreas()
@@ -4336,11 +4336,11 @@ float LocalFrameView::adjustVerticalPageScrollStepForFixedContent(float step)
     float topObscuredArea = 0;
     float bottomObscuredArea = 0;
     for (const auto& positionedObject : *positionedObjects) {
-        const RenderStyle& style = positionedObject->style();
+        const RenderStyle& style = positionedObject.style();
         if (style.position() != PositionType::Fixed || style.visibility() == Visibility::Hidden || !style.opacity())
             continue;
 
-        FloatQuad contentQuad = positionedObject->absoluteContentQuad();
+        FloatQuad contentQuad = positionedObject.absoluteContentQuad();
         if (!contentQuad.isRectilinear())
             continue;
 
@@ -5043,21 +5043,25 @@ void LocalFrameView::updateLayoutAndStyleIfNeededRecursive()
     ASSERT(!needsLayout());
 }
 
-void LocalFrameView::incrementVisuallyNonEmptyCharacterCount(const String& inlineText)
-{
-    if (m_visuallyNonEmptyCharacterCount > visualCharacterThreshold && m_hasReachedSignificantRenderedTextThreshold)
-        return;
+#include <span>
 
-    auto nonWhitespaceLength = [](auto& inlineText) {
-        auto length = inlineText.length();
-        for (unsigned i = 0; i < inlineText.length(); ++i) {
-            if (!isASCIIWhitespace(inlineText[i]))
-                continue;
-            --length;
-        }
-        return length;
-    };
-    m_visuallyNonEmptyCharacterCount += nonWhitespaceLength(inlineText);
+template<typename CharacterType>
+static unsigned nonWhitespaceLength(const CharacterType* characters, unsigned length)
+{
+    unsigned result = length;
+    for (unsigned i = 0; i < length; ++i) {
+        if (isASCIIWhitespace(characters[i]))
+            --result;
+    }
+    return result;
+}
+
+void LocalFrameView::incrementVisuallyNonEmptyCharacterCountSlowCase(const String& inlineText)
+{
+    if (inlineText.is8Bit())
+        m_visuallyNonEmptyCharacterCount += nonWhitespaceLength(inlineText.characters8(), inlineText.length());
+    else
+        m_visuallyNonEmptyCharacterCount += nonWhitespaceLength(inlineText.characters16(), inlineText.length());
     ++m_textRendererCountForVisuallyNonEmptyCharacters;
 }
 
@@ -6013,6 +6017,11 @@ LocalFrame& LocalFrameView::frame() const
     return m_frame;
 }
 
+Ref<LocalFrame> LocalFrameView::protectedFrame() const
+{
+    return m_frame;
+}
+
 RenderView* LocalFrameView::renderView() const
 {
     return m_frame->contentRenderer();
@@ -6446,6 +6455,24 @@ float LocalFrameView::deviceScaleFactor() const
 void LocalFrameView::writeRenderTreeAsText(TextStream& ts, OptionSet<RenderAsTextFlag> behavior)
 {
     externalRepresentationForLocalFrame(ts, frame(), behavior);
+}
+
+void LocalFrameView::updateScrollAnchoringElement()
+{
+    if (m_scrollAnchoringController)
+        m_scrollAnchoringController->updateAnchorElement();
+}
+
+void LocalFrameView::updateScrollPositionForScrollAnchoringController()
+{
+    if (m_scrollAnchoringController)
+        m_scrollAnchoringController->adjustScrollPositionForAnchoring();
+}
+
+void LocalFrameView::invalidateScrollAnchoringElement()
+{
+    if (m_scrollAnchoringController)
+        m_scrollAnchoringController->invalidateAnchorElement();
 }
 
 } // namespace WebCore

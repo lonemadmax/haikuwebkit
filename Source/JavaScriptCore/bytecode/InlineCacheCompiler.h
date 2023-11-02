@@ -32,6 +32,7 @@
 #include "JSFunctionInlines.h"
 #include "MacroAssembler.h"
 #include "ScratchRegisterAllocator.h"
+#include "StructureStubClearingWatchpoint.h"
 #include <wtf/FixedVector.h>
 #include <wtf/Vector.h>
 
@@ -45,7 +46,6 @@ class CodeBlock;
 class PolymorphicAccess;
 class ProxyObjectAccessCase;
 class StructureStubInfo;
-class WatchpointsOnStructureStubInfo;
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(PolymorphicAccess);
 
@@ -197,11 +197,12 @@ inline bool canUseMegamorphicPutById(VM& vm, UniquedStringImpl* uid)
 
 class InlineCacheCompiler {
 public:
-    InlineCacheCompiler(VM& vm, JSGlobalObject* globalObject, ECMAMode ecmaMode, StructureStubInfo& stubInfo)
+    InlineCacheCompiler(JITType jitType, VM& vm, JSGlobalObject* globalObject, ECMAMode ecmaMode, StructureStubInfo& stubInfo)
         : m_vm(vm)
         , m_globalObject(globalObject)
         , m_stubInfo(&stubInfo)
         , m_ecmaMode(ecmaMode)
+        , m_jitType(jitType)
     {
     }
 
@@ -289,6 +290,8 @@ public:
     static void emitDataICPrologue(CCallHelpers&);
     static void emitDataICEpilogue(CCallHelpers&);
 
+    bool useHandlerIC() const;
+
 private:
     CallSiteIndex callSiteIndexForExceptionHandlingOrOriginal();
     const ScalarRegisterSet& liveRegistersToPreserveAtExceptionHandlingCallSite();
@@ -302,6 +305,7 @@ private:
     JSGlobalObject* const m_globalObject;
     StructureStubInfo* m_stubInfo { nullptr };
     const ECMAMode m_ecmaMode { ECMAMode::sloppy() };
+    JITType m_jitType;
     CCallHelpers* m_jit { nullptr };
     ScratchRegisterAllocator* m_allocator { nullptr };
     MacroAssembler::JumpList m_success;

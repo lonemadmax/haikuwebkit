@@ -160,6 +160,7 @@ def types_that_must_be_moved():
         'std::optional<MachSendRight>',
         'std::optional<WebKit::ShareableBitmap::Handle>',
         'std::optional<WebKit::ShareableResource::Handle>',
+        'std::optional<WebKit::SharedMemory::Handle>',
         'std::optional<WebKit::SharedVideoFrame::Buffer>',
         'std::optional<Win32Handle>'
     ]
@@ -234,11 +235,11 @@ def message_to_struct_declaration(receiver, message):
         result.append('    using ReplyArguments = std::tuple<%s>;\n' % ', '.join([parameter.type for parameter in message.reply_parameters]))
         if not message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
             if len(message.reply_parameters) == 0:
-                result.append('    using Promise = WTF::NativePromise<void, IPC::Error, true>;\n')
+                result.append('    using Promise = WTF::NativePromise<void, IPC::Error>;\n')
             elif len(message.reply_parameters) == 1:
-                result.append('    using Promise = WTF::NativePromise<%s, IPC::Error, true>;\n' % message.reply_parameters[0].type)
+                result.append('    using Promise = WTF::NativePromise<%s, IPC::Error>;\n' % message.reply_parameters[0].type)
             else:
-                result.append('    using Promise = WTF::NativePromise<std::tuple<%s>, IPC::Error, true>;\n' % ', '.join([parameter.type for parameter in message.reply_parameters]))
+                result.append('    using Promise = WTF::NativePromise<std::tuple<%s>, IPC::Error>;\n' % ', '.join([parameter.type for parameter in message.reply_parameters]))
 
     if len(function_parameters):
         result.append('    %s%s(%s)' % (len(function_parameters) == 1 and 'explicit ' or '', message.name, ', '.join([' '.join(x) for x in function_parameters])))
@@ -282,7 +283,6 @@ def serialized_identifiers():
         'IPC::AsyncReplyID',
         'WebCore::BackgroundFetchRecordIdentifier',
         'WebCore::BroadcastChannelIdentifier',
-        'WebCore::DOMCacheIdentifier',
         'WebCore::DictationContext',
         'WebCore::ElementIdentifier',
         'WebCore::FetchIdentifier',
@@ -369,6 +369,8 @@ def serialized_identifiers():
         'WebKit::WebExtensionWindowIdentifier',
         'WebKit::WebGPUIdentifier',
         'WebKit::WebPageProxyIdentifier',
+        'WebKit::WebTransportSessionIdentifier',
+        'WebKit::WebTransportStreamIdentifier',
         'WebKit::WebURLSchemeHandlerIdentifier',
     ]
 
@@ -391,6 +393,7 @@ def types_that_cannot_be_forward_declared():
         'String',
         'WebCore::BackForwardItemIdentifier',
         'WebCore::ControlStyle',
+        'WebCore::DOMCacheIdentifier',
         'WebCore::DestinationColorSpace',
         'WebCore::DiagnosticLoggingDomain',
         'WebCore::DictationContext',
@@ -442,6 +445,8 @@ def types_that_cannot_be_forward_declared():
         'WebKit::WCLayerTreeHostIdentifier',
         'WebKit::WebExtensionContentWorldType',
         'WebKit::WebExtensionEventListenerType',
+        'WebKit::WebExtensionScriptInjectionParameters',
+        'WebKit::WebExtensionScriptInjectionResultParameters',
         'WebKit::WebExtensionTab::ImageFormat',
         'WebKit::WebExtensionTabParameters',
         'WebKit::WebExtensionTabQueryParameters',
@@ -590,7 +595,7 @@ def async_message_statement(receiver, message):
 
     connection = 'connection, '
     if receiver.has_attribute(STREAM_ATTRIBUTE):
-        connection = 'connection.connection(), '
+        connection = 'connection.protectedConnection(), '
     if receiver.has_attribute(NOT_USING_IPC_CONNECTION_ATTRIBUTE):
         connection = ''
 
@@ -753,6 +758,7 @@ def headers_for_type(type):
         'WebCore::EventMakesGamepadsVisible': ['<WebCore/GamepadProviderClient.h>'],
         'WebCore::ExceptionDetails': ['<WebCore/JSDOMExceptionHandling.h>'],
         'WebCore::FileChooserSettings': ['<WebCore/FileChooser.h>'],
+        'WebCore::FillLightMode': ['<WebCore/FillLightMode.h>'],
         'WebCore::FirstPartyWebsiteDataRemovalMode': ['<WebCore/NetworkStorageSession.h>'],
         'WebCore::FontChanges': ['<WebCore/FontAttributeChanges.h>'],
         'WebCore::FontSmoothingMode': ['<WebCore/GraphicsTypes.h>'],
@@ -764,6 +770,7 @@ def headers_for_type(type):
         'WebCore::HasInsecureContent': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::HighlightRequestOriginatedInApp': ['<WebCore/AppHighlight.h>'],
         'WebCore::HighlightVisibility': ['<WebCore/HighlightVisibility.h>'],
+        'WebCore::ImageBufferParameters': ['<WebCore/ImageBuffer.h>'],
         'WebCore::IncludeSecureCookies': ['<WebCore/CookieJar.h>'],
         'WebCore::IndexedDB::ObjectStoreOverwriteMode': ['<WebCore/IndexedDB.h>'],
         'WebCore::InputMode': ['<WebCore/InputMode.h>'],
@@ -780,6 +787,7 @@ def headers_for_type(type):
         'WebCore::MediaProducerMediaCaptureKind': ['<WebCore/MediaProducer.h>'],
         'WebCore::MediaProducerMediaState': ['<WebCore/MediaProducer.h>'],
         'WebCore::MediaProducerMutedState': ['<WebCore/MediaProducer.h>'],
+        'WebCore::MediaSettingsRange': ['<WebCore/MediaSettingsRange.h>'],
         'WebCore::MessagePortChannelProvider::HasActivity': ['<WebCore/MessagePortChannelProvider.h>'],
         'WebCore::ModalContainerControlType': ['<WebCore/ModalContainerTypes.h>'],
         'WebCore::ModalContainerDecision': ['<WebCore/ModalContainerTypes.h>'],
@@ -795,6 +803,7 @@ def headers_for_type(type):
         'WebCore::PathDataLine': ['<WebCore/PathSegmentData.h>'],
         'WebCore::PathDataQuadCurve': ['<WebCore/PathSegmentData.h>'],
         'WebCore::PixelFormat': ['<WebCore/ImageBufferBackend.h>'],
+        'WebCore::PhotoCapabilitiesOrError': ['<WebCore/RealtimeMediaSource.h>'],
         'WebCore::PlatformTextTrackData': ['<WebCore/PlatformTextTrack.h>'],
         'WebCore::PlatformWheelEventPhase': ['<WebCore/PlatformWheelEvent.h>'],
         'WebCore::PlaybackSessionModel::PlaybackState': ['<WebCore/PlaybackSessionModel.h>'],
@@ -807,6 +816,7 @@ def headers_for_type(type):
         'WebCore::PushSubscriptionIdentifier': ['<WebCore/PushSubscriptionIdentifier.h>'],
         'WebCore::ReasonForDismissingAlternativeText': ['<WebCore/AlternativeTextClient.h>'],
         'WebCore::RecentSearch': ['<WebCore/SearchPopupMenu.h>'],
+        'WebCore::RedEyeReduction': ['<WebCore/RedEyeReduction.h>'],
         'WebCore::ReloadOption': ['<WebCore/FrameLoaderTypes.h>'],
         'WebCore::RenderAsTextFlag': ['<WebCore/RenderTreeAsText.h>'],
         'WebCore::RenderingPurpose': ['<WebCore/RenderingMode.h>'],
@@ -938,6 +948,7 @@ def headers_for_type(type):
         'WebKit::TapIdentifier': ['"IdentifierTypes.h"'],
         'WebKit::TextCheckerRequestID': ['"IdentifierTypes.h"'],
         'WebKit::WebEventType': ['"WebEvent.h"'],
+        'WebKit::WebExtensionContext::InstallReason': ['"WebExtensionContext.h"'],
         'WebKit::WebExtensionTab::ImageFormat': ['"WebExtensionTab.h"'],
         'WebKit::WebGPU::BindGroupDescriptor': ['"WebGPUBindGroupDescriptor.h"'],
         'WebKit::WebGPU::BindGroupEntry': ['"WebGPUBindGroupEntry.h"'],
@@ -1010,6 +1021,8 @@ def headers_for_type(type):
         'WebKit::WebPushD::PushMessageForTesting': ['"PushMessageForTesting.h"'],
         'WebKit::WebPushD::WebPushDaemonConnectionConfiguration': ['"WebPushDaemonConnectionConfiguration.h"'],
         'WebKit::WebScriptMessageHandlerData': ['"WebUserContentControllerDataTypes.h"'],
+        'WebKit::WebTransportSessionIdentifier': ['"WebTransportSession.h"'],
+        'WebKit::WebTransportStreamIdentifier': ['"WebTransportSession.h"'],
         'WebKit::WebUserScriptData': ['"WebUserContentControllerDataTypes.h"'],
         'WebKit::WebUserStyleSheetData': ['"WebUserContentControllerDataTypes.h"'],
         'WTF::UnixFileDescriptor': ['<wtf/unix/UnixFileDescriptor.h>'],
@@ -1161,7 +1174,7 @@ def generate_message_handler(receiver):
             result.append('    UNUSED_PARAM(decoder);\n')
             result.append('    UNUSED_PARAM(connection);\n')
             result.append('#if ENABLE(IPC_TESTING_API)\n')
-            result.append('    if (connection.connection().ignoreInvalidMessageForTesting())\n')
+            result.append('    if (connection.protectedConnection()->ignoreInvalidMessageForTesting())\n')
             result.append('        return;\n')
             result.append('#endif // ENABLE(IPC_TESTING_API)\n')
             result.append('    ASSERT_NOT_REACHED_WITH_MESSAGE("Unhandled stream message %s to %" PRIu64, IPC::description(decoder.messageName()), decoder.destinationID());\n')

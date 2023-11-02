@@ -67,11 +67,15 @@ public:
     static Ref<RemotePageProxy> create(WebPageProxy& page, WebProcessProxy& process, const WebCore::RegistrableDomain& domain, WebPageProxyMessageReceiverRegistration* registrationToTransfer = nullptr) { return adoptRef(*new RemotePageProxy(page, process, domain, registrationToTransfer)); }
     ~RemotePageProxy();
 
+    WebPageProxy* page() const { return m_page.get(); }
+
     template<typename M> void send(M&&);
     template<typename M, typename C> void sendWithAsyncReply(M&&, C&&);
     template<typename M, typename C> void sendWithAsyncReply(M&&, C&&, const ObjectIdentifierGenericBase&);
 
     void injectPageIntoNewProcess();
+
+    WebPageProxyMessageReceiverRegistration& messageReceiverRegistration() { return m_messageReceiverRegistration; }
 
     WebProcessProxy& process() { return m_process.get(); }
     WebCore::PageIdentifier pageID() const { return m_webPageID; }

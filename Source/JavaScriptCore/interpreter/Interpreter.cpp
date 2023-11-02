@@ -423,7 +423,7 @@ public:
                 auto* nativeCallee = visitor->callee().asNativeCallee();
                 switch (nativeCallee->category()) {
                 case NativeCallee::Category::Wasm: {
-                    m_results.uncheckedAppend(StackFrame(visitor->wasmFunctionIndexOrName()));
+                    m_results.append(StackFrame(visitor->wasmFunctionIndexOrName()));
                     break;
                 }
                 case NativeCallee::Category::InlineCache: {
@@ -431,10 +431,10 @@ public:
                 }
                 }
             } else if (!!visitor->codeBlock() && !visitor->codeBlock()->unlinkedCodeBlock()->isBuiltinFunction()) {
-                m_results.uncheckedAppend(
+                m_results.append(
                     StackFrame(m_vm, m_owner, visitor->callee().asCell(), visitor->codeBlock(), visitor->bytecodeIndex()));
             } else {
-                m_results.uncheckedAppend(
+                m_results.append(
                     StackFrame(m_vm, m_owner, visitor->callee().asCell()));
             }
             return IterationStatus::Continue;
@@ -581,7 +581,11 @@ CatchInfo::CatchInfo(const Wasm::HandlerInfo* handler, const Wasm::Callee* calle
         m_catchPCForInterpreter = { static_cast<WasmInstruction*>(nullptr) };
         if (callee->compilationMode() == Wasm::CompilationMode::LLIntMode)
             m_catchPCForInterpreter = { static_cast<const Wasm::LLIntCallee*>(callee)->instructions().at(handler->m_target).ptr() };
-        else {
+        else if (callee->compilationMode() == Wasm::CompilationMode::IPIntMode) {
+            m_catchPCForInterpreter = handler->m_target;
+            m_catchMetadataPCForInterpreter = handler->m_targetMetadata;
+            m_tryDepthForThrow = handler->m_tryDepth;
+        } else {
 #if USE(JSVALUE64) && ENABLE(JIT)
             m_nativeCode = Wasm::Thunks::singleton().stub(Wasm::catchInWasmThunkGenerator).template retagged<ExceptionHandlerPtrTag>().code();
             m_nativeCodeForDispatchAndCatch = handler->m_nativeCode;

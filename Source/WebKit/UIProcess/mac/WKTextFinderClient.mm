@@ -34,6 +34,7 @@
 #import "WebFindOptions.h"
 #import "WebImage.h"
 #import "WebPageProxy.h"
+#import <WebCore/NativeImage.h>
 #import <algorithm>
 #import <pal/spi/mac/NSTextFinderSPI.h>
 #import <wtf/BlockPtr.h>
@@ -197,7 +198,7 @@ private:
     matchIndices.reserveInitialCapacity(matches.count);
     for (id match in matches) {
         if ([match isKindOfClass:WKTextFinderMatch.class])
-            matchIndices.uncheckedAppend([(WKTextFinderMatch *)match index]);
+            matchIndices.append([(WKTextFinderMatch *)match index]);
     }
     _page->replaceMatches(WTFMove(matchIndices), replacementText, selectionOnly, [collector = makeBlockPtr(resultCollector)] (uint64_t numberOfReplacements) {
         collector(numberOfReplacements);

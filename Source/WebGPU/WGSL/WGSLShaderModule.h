@@ -68,9 +68,17 @@ public:
     void setUsesPackArray() { m_usesPackArray = true; }
     void clearUsesPackArray() { m_usesPackArray = false; }
 
+    bool usesPackedStructs() const { return m_usesPackedStructs; }
+    void setUsesPackedStructs() { m_usesPackedStructs = true; }
+    void clearUsesPackedStructs() { m_usesPackedStructs = false; }
+
     bool usesUnpackArray() const { return m_usesUnpackArray; }
     void setUsesUnpackArray() { m_usesUnpackArray = true; }
     void clearUsesUnpackArray() { m_usesUnpackArray = false; }
+
+    bool usesWorkgroupUniformLoad() const { return m_usesWorkgroupUniformLoad; }
+    void setUsesWorkgroupUniformLoad() { m_usesWorkgroupUniformLoad = true; }
+    void clearUsesWorkgroupUniformLoad() { m_usesWorkgroupUniformLoad = false; }
 
     template<typename T>
     std::enable_if_t<std::is_base_of_v<AST::Node, T>, void> replace(T* current, T&& replacement)
@@ -92,7 +100,7 @@ public:
     }
 
     template<typename CurrentType, typename ReplacementType>
-    std::enable_if_t<sizeof(CurrentType) < sizeof(ReplacementType), void> replace(CurrentType& current, ReplacementType& replacement)
+    std::enable_if_t<sizeof(CurrentType) < sizeof(ReplacementType) || std::is_same_v<ReplacementType, AST::Expression>, void> replace(CurrentType& current, ReplacementType& replacement)
     {
         m_replacements.append([&current, currentCopy = current]() mutable {
             bitwise_cast<AST::IdentityExpression*>(&current)->~IdentityExpression();
@@ -104,7 +112,7 @@ public:
     }
 
     template<typename CurrentType, typename ReplacementType>
-    std::enable_if_t<sizeof(CurrentType) >= sizeof(ReplacementType), void> replace(CurrentType& current, ReplacementType& replacement)
+    std::enable_if_t<sizeof(CurrentType) >= sizeof(ReplacementType) && !std::is_same_v<ReplacementType, AST::Expression>, void> replace(CurrentType& current, ReplacementType& replacement)
     {
         m_replacements.append([&current, currentCopy = current]() mutable {
             bitwise_cast<ReplacementType*>(&current)->~ReplacementType();
@@ -146,6 +154,37 @@ public:
         });
     }
 
+    template<typename T, size_t size, typename T2, size_t size2>
+    void insertVector(const Vector<T, size>& constVector, size_t position, const Vector<T2, size2>& value)
+    {
+        auto& vector = const_cast<Vector<T, size>&>(constVector);
+        vector.insertVector(position, value);
+        m_replacements.append([&vector, position, length = value.size()]() {
+            vector.remove(position, length);
+        });
+    }
+
+    template<typename T, size_t size>
+    void remove(const Vector<T, size>& constVector, size_t position)
+    {
+        auto& vector = const_cast<Vector<T, size>&>(constVector);
+        auto entry = vector[position];
+        m_replacements.append([&vector, position, entry]() mutable {
+            vector.insert(position, entry);
+        });
+        vector.remove(position);
+    }
+
+    template<typename T, size_t size>
+    void clear(const Vector<T, size>& constVector)
+    {
+        auto& vector = const_cast<Vector<T, size>&>(constVector);
+        m_replacements.append([&vector, contents = WTFMove(vector)]() mutable {
+            vector = contents;
+        });
+        vector.clear();
+    }
+
     void revertReplacements()
     {
         for (int i = m_replacements.size() - 1; i >= 0; --i)
@@ -176,7 +215,9 @@ private:
     String m_source;
     bool m_usesExternalTextures { false };
     bool m_usesPackArray { false };
+    bool m_usesPackedStructs { false };
     bool m_usesUnpackArray { false };
+    bool m_usesWorkgroupUniformLoad { false };
     Configuration m_configuration;
     AST::Directive::List m_directives;
     AST::Function::List m_functions;

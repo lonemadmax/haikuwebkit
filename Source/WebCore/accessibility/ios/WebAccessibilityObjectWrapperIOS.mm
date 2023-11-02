@@ -322,7 +322,7 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
     // Elements that can be returned when performing fuzzy hit testing.
     switch (role) {
     case AccessibilityRole::Button:
-    case AccessibilityRole::CheckBox:
+    case AccessibilityRole::Checkbox:
     case AccessibilityRole::ColorWell:
     case AccessibilityRole::ComboBox:
     case AccessibilityRole::DisclosureTriangle:
@@ -726,6 +726,9 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
             if (parent->isSelected())
                 traits |= [self _axSelectedTrait];
             break;
+        case AccessibilityRole::Summary:
+            traits |= [self _axButtonTrait];
+            break;
         default:
             if ([self _accessibilityIsLandmarkRole:parentRole])
                 traits |= [self _axContainedByLandmarkTrait];
@@ -871,7 +874,7 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
         traits |= [self _axRadioButtonTrait] | [self _axToggleTrait];
         break;
     case AccessibilityRole::ToggleButton:
-    case AccessibilityRole::CheckBox:
+    case AccessibilityRole::Checkbox:
     case AccessibilityRole::Switch:
         traits |= ([self _axButtonTrait] | [self _axToggleTrait]);
         break;
@@ -880,6 +883,9 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
         break;
     case AccessibilityRole::StaticText:
         traits |= [self _axStaticTextTrait];
+        break;
+    case AccessibilityRole::Summary:
+        traits |= [self _axButtonTrait];
         break;
     case AccessibilityRole::Slider:
     case AccessibilityRole::SpinButton:
@@ -945,7 +951,7 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
     case AccessibilityRole::Button:
     case AccessibilityRole::ToggleButton:
     case AccessibilityRole::PopUpButton:
-    case AccessibilityRole::CheckBox:
+    case AccessibilityRole::Checkbox:
     case AccessibilityRole::ColorWell:
     case AccessibilityRole::RadioButton:
     case AccessibilityRole::Slider:
@@ -1687,7 +1693,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 
     if (result) {
         auto notificationName = AXObjectCache::notificationPlatformName(AXObjectCache::AXNotification::AXPageScrolled).createNSString();
-        [self postNotification:notificationName.get()];
+        [self accessibilityOverrideProcessNotification:notificationName.get()];
 
         CGPoint scrollPos = [self _accessibilityScrollPosition];
         NSString *testString = [NSString stringWithFormat:@"AXScroll [position: %.2f %.2f]", scrollPos.x, scrollPos.y];
@@ -1696,6 +1702,20 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
 
     // This means that this object handled the scroll and no other ancestor should attempt scrolling.
     return result;
+}
+
+- (void)accessibilityOverrideProcessNotification:(NSString *)notificationName
+{
+    // This is overridden by the Accessibility system to post-process notifications.
+    // When it is done, it will call back into handleNotificationRelayToChrome.
+}
+
+- (void)handleNotificationRelayToChrome:(NSString *)notificationName notificationData:(NSData *)notificationData
+{
+    if (![self _prepareAccessibilityCall])
+        return;
+
+    self.axBackingObject->axObjectCache()->relayNotification({ notificationName }, notificationData);
 }
 
 - (CGRect)_accessibilityRelativeFrame
@@ -2002,7 +2022,15 @@ static NSArray *accessibleElementsForObjects(const AXCoreObject::AccessibilityCh
     if (![self _prepareAccessibilityCall])
         return NO;
 
-    return self.axBackingObject->press();
+    if (self.axBackingObject->press())
+        return true;
+
+    // On iOS, only the static text within a <summary> is exposed, not the <summary> itself.
+    // So if this activation was for <summary> text, we should toggle the expanded state of the containing <details>.
+    if (self.axBackingObject->isStaticText())
+        return self.axBackingObject->toggleDetailsAncestor();
+
+    return false;
 }
 
 - (id)attachmentView
@@ -2044,11 +2072,6 @@ static RenderObject* rendererForView(WAKView* view)
     if (obj)
         return obj->parentObjectUnignored()->wrapper();
     return nil;
-}
-
-- (void)postNotification:(NSString *)notificationName
-{
-    // The UIKit accessibility wrapper will override and post appropriate notification.
 }
 
 // These will be used by the UIKit wrapper to calculate an appropriate description of scroll status.

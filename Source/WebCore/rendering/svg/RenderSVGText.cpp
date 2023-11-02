@@ -60,7 +60,7 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGText);
 
 RenderSVGText::RenderSVGText(SVGTextElement& element, RenderStyle&& style)
-    : RenderSVGBlock(element, WTFMove(style))
+    : RenderSVGBlock(Type::SVGText, element, WTFMove(style))
 {
 }
 
@@ -526,8 +526,7 @@ void RenderSVGText::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
             return;
 
         if (paintInfo.phase == PaintPhase::ClippingMask) {
-            // FIXME: [LBSE] Upstream SVGRenderSupport changes
-            // SVGRenderSupport::paintSVGClippingMask(*this, paintInfo);
+            SVGRenderSupport::paintSVGClippingMask(*this, paintInfo);
             return;
         }
 
@@ -589,7 +588,7 @@ FloatRect RenderSVGText::strokeBoundingBox() const
     return strokeBoundaries;
 }
 
-FloatRect RenderSVGText::repaintRectInLocalCoordinates() const
+FloatRect RenderSVGText::repaintRectInLocalCoordinates(RepaintRectCalculation repaintRectCalculation) const
 {
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (document().settings().layerBasedSVGEngineEnabled())
@@ -597,7 +596,7 @@ FloatRect RenderSVGText::repaintRectInLocalCoordinates() const
 #endif
 
     FloatRect repaintRect = strokeBoundingBox();
-    SVGRenderSupport::intersectRepaintRectWithResources(*this, repaintRect);
+    SVGRenderSupport::intersectRepaintRectWithResources(*this, repaintRect, repaintRectCalculation);
 
     if (const ShadowData* textShadow = style().textShadow())
         textShadow->adjustRectForShadow(repaintRect);

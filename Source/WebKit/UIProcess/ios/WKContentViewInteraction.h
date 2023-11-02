@@ -48,6 +48,7 @@
 #import <WebKit/WKContactPicker.h>
 #import <WebKit/WKDeferringGestureRecognizer.h>
 #import <WebKit/WKFileUploadPanel.h>
+#import <WebKit/WKFormAccessoryView.h>
 #import <WebKit/WKFormPeripheral.h>
 #import <WebKit/WKKeyboardScrollingAnimator.h>
 #import <WebKit/WKShareSheet.h>
@@ -147,12 +148,6 @@ class WebPageProxy;
 #endif
 #endif
 
-typedef void (^UIWKAutocorrectionCompletionHandler)(UIWKAutocorrectionRects *rectsForInput);
-typedef void (^UIWKAutocorrectionContextHandler)(UIWKAutocorrectionContext *autocorrectionContext);
-typedef void (^UIWKDictationContextHandler)(NSString *selectedText, NSString *beforeText, NSString *afterText);
-typedef void (^UIWKSelectionCompletionHandler)(void);
-typedef void (^UIWKSelectionWithDirectionCompletionHandler)(BOOL selectionEndIsMoving);
-
 typedef BlockPtr<void(WebKit::InteractionInformationAtPosition)> InteractionInformationCallback;
 typedef std::pair<WebKit::InteractionInformationRequest, InteractionInformationCallback> InteractionInformationRequestAndCallback;
 
@@ -180,7 +175,6 @@ typedef std::pair<WebKit::InteractionInformationRequest, InteractionInformationC
     M(_translate) \
     M(_promptForReplace) \
     M(_share) \
-    M(_showTextStyleOptions) \
     M(_transliterateChinese) \
     M(_nextAccessoryTab) \
     M(_previousAccessoryTab) \
@@ -262,7 +256,7 @@ struct RemoveBackgroundData {
 
 enum class ProceedWithTextSelectionInImage : bool { No, Yes };
 
-enum ImageAnalysisRequestIdentifierType { };
+enum class ImageAnalysisRequestIdentifierType { };
 using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIdentifierType>;
 
 struct ImageAnalysisContextMenuActionData {
@@ -344,7 +338,7 @@ struct ImageAnalysisContextMenuActionData {
     OptionSet<WebKit::SuppressSelectionAssistantReason> _suppressSelectionAssistantReasons;
 
     RetainPtr<UITextInputTraits> _traits;
-    RetainPtr<UIWebFormAccessory> _formAccessoryView;
+    RetainPtr<WKFormAccessoryView> _formAccessoryView;
     RetainPtr<WKTapHighlightView> _tapHighlightView;
     RetainPtr<UIView> _interactionViewsContainerView;
     RetainPtr<WKTargetedPreviewContainer> _contextMenuHintContainerView;
@@ -371,7 +365,6 @@ struct ImageAnalysisContextMenuActionData {
     Vector<bool> _focusStateStack;
 #if HAVE(LINK_PREVIEW)
 #if USE(UICONTEXTMENU)
-    RetainPtr<UIContextMenuInteraction> _contextMenuInteraction;
     RetainPtr<WKContextMenuElementInfo> _contextMenuElementInfo;
     BOOL _showLinkPreviews;
     RetainPtr<UIViewController> _contextMenuLegacyPreviewController;
@@ -380,11 +373,13 @@ struct ImageAnalysisContextMenuActionData {
     BOOL _contextMenuActionProviderDelegateNeedsOverride;
     BOOL _contextMenuIsUsingAlternateURLForImage;
     BOOL _isDisplayingContextMenuWithAnimation;
-    BOOL _useCompactMenuForContextMenuInteraction;
     BOOL _useContextMenuInteractionDismissalPreview;
 #endif
     RetainPtr<UIPreviewItemController> _previewItemController;
 #endif
+
+    RetainPtr<UIGestureRecognizer> _textInteractionLoupeGestureRecognizer;
+    RetainPtr<UIGestureRecognizer> _textInteractionTapGestureRecognizer;
 
     RefPtr<WebCore::TextIndicator> _textIndicator;
     RetainPtr<WebTextIndicatorLayer> _textIndicatorLayer;
@@ -443,7 +438,6 @@ struct ImageAnalysisContextMenuActionData {
     RefPtr<WebKit::RevealFocusedElementDeferrer> _revealFocusedElementDeferrer;
 
     BOOL _isEditable;
-    BOOL _showingTextStyleOptions;
     BOOL _hasValidPositionInformation;
     BOOL _isTapHighlightIDValid;
     BOOL _isTapHighlightFading;
@@ -467,6 +461,7 @@ struct ImageAnalysisContextMenuActionData {
     WebCore::PointerID _commitPotentialTapPointerId;
 
     BOOL _keyboardDidRequestDismissal;
+    BOOL _isKeyboardScrollingAnimationRunning;
 
     BOOL _candidateViewNeedsUpdate;
     BOOL _seenHardwareKeyDownInNonEditableElement;
@@ -489,6 +484,7 @@ struct ImageAnalysisContextMenuActionData {
     NSInteger _dropAnimationCount;
 
     BOOL _hasSetUpInteractions;
+    std::optional<BOOL> _cachedHasCustomTintColor;
     NSUInteger _ignoreSelectionCommandFadeCount;
     NSUInteger _activeTextInteractionCount;
     NSInteger _suppressNonEditableSingleTapTextInteractionCount;
@@ -558,11 +554,14 @@ struct ImageAnalysisContextMenuActionData {
     WebCore::FloatRect _imageAnalysisInteractionBounds;
     std::optional<WebKit::RemoveBackgroundData> _removeBackgroundData;
 #endif
+#if HAVE(UI_ASYNC_TEXT_INPUT)
+    __weak id<UIAsyncTextInputDelegate> _asyncSystemInputDelegate;
+#endif
 }
 
 @end
 
-@interface WKContentView (WKInteraction) <UIGestureRecognizerDelegate, UITextAutoscrolling, UITextInputMultiDocument, UITextInputPrivate, UIWebFormAccessoryDelegate, WKTouchEventsGestureRecognizerDelegate, UIWKInteractionViewProtocol, _UITextInputTranslationSupport, WKActionSheetAssistantDelegate, WKFileUploadPanelDelegate, WKKeyboardScrollViewAnimatorDelegate, WKDeferringGestureRecognizerDelegate
+@interface WKContentView (WKInteraction) <UIGestureRecognizerDelegate, UITextAutoscrolling, UITextInputMultiDocument, UITextInputPrivate, WKFormAccessoryViewDelegate, WKTouchEventsGestureRecognizerDelegate, UIWKInteractionViewProtocol, _UITextInputTranslationSupport, WKActionSheetAssistantDelegate, WKFileUploadPanelDelegate, WKKeyboardScrollViewAnimatorDelegate, WKDeferringGestureRecognizerDelegate
 #if HAVE(CONTACTSUI)
     , WKContactPickerDelegate
 #endif
@@ -579,6 +578,9 @@ struct ImageAnalysisContextMenuActionData {
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     , WKMouseInteractionDelegate
 #endif
+#if HAVE(UI_ASYNC_DRAG_INTERACTION)
+    , _UIAsyncDragInteractionDelegate
+#endif
 >
 
 @property (nonatomic, readonly) CGPoint lastInteractionLocation;
@@ -588,7 +590,7 @@ struct ImageAnalysisContextMenuActionData {
 @property (nonatomic, readonly) const WebKit::InteractionInformationAtPosition& positionInformation;
 @property (nonatomic, readonly) const WebKit::WKAutoCorrectionData& autocorrectionData;
 @property (nonatomic, readonly) const WebKit::FocusedElementInformation& focusedElementInformation;
-@property (nonatomic, readonly) UIWebFormAccessory *formAccessoryView;
+@property (nonatomic, readonly) WKFormAccessoryView *formAccessoryView;
 @property (nonatomic, readonly) UITextInputAssistantItem *inputAssistantItemForWebView;
 @property (nonatomic, readonly) UIView *inputViewForWebView;
 @property (nonatomic, readonly) UIView *inputAccessoryViewForWebView;
@@ -600,6 +602,7 @@ struct ImageAnalysisContextMenuActionData {
 @property (nonatomic, readonly) WebKit::GestureRecognizerConsistencyEnforcer& gestureRecognizerConsistencyEnforcer;
 @property (nonatomic, readonly) CGRect tapHighlightViewRect;
 @property (nonatomic, readonly) UIGestureRecognizer *imageAnalysisGestureRecognizer;
+@property (nonatomic, readonly, getter=isKeyboardScrollingAnimationRunning) BOOL keyboardScrollingAnimationRunning;
 
 #if ENABLE(DATALIST_ELEMENT)
 @property (nonatomic, strong) UIView <WKFormControl> *dataListTextSuggestionsInputView;
@@ -715,9 +718,9 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)startRelinquishingFirstResponderToFocusedElement;
 - (void)stopRelinquishingFirstResponderToFocusedElement;
 
-// UIWebFormAccessoryDelegate protocol
 - (void)accessoryDone;
 - (void)accessoryOpen;
+- (void)accessoryTab:(BOOL)isNext;
 
 - (void)updateFocusedElementValueAsColor:(UIColor *)value;
 - (void)updateFocusedElementValue:(NSString *)value;
@@ -856,6 +859,8 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 - (BOOL)_allowAnimationControls;
 #endif
+
+- (void)dismissFormAccessoryView;
 
 #if ENABLE(DATALIST_ELEMENT)
 - (void)_selectDataListOption:(NSInteger)optionIndex;

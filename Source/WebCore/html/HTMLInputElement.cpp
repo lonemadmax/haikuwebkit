@@ -1853,6 +1853,11 @@ bool HTMLInputElement::isCheckbox() const
     return m_inputType->isCheckbox();
 }
 
+bool HTMLInputElement::isSwitch() const
+{
+    return document().settings().switchControlEnabled() && isCheckbox() && hasAttributeWithoutSynchronization(switchAttr);
+}
+
 bool HTMLInputElement::isRangeControl() const
 {
     return m_inputType->isRangeControl();
@@ -2232,7 +2237,7 @@ RenderStyle HTMLInputElement::createInnerTextStyle(const RenderStyle& style)
     adjustInnerTextStyle(style, textBlockStyle);
 
     textBlockStyle.setWhiteSpaceCollapse(WhiteSpaceCollapse::Preserve);
-    textBlockStyle.setTextWrap(TextWrap::NoWrap);
+    textBlockStyle.setTextWrapMode(TextWrapMode::NoWrap);
     textBlockStyle.setOverflowWrap(OverflowWrap::Normal);
     textBlockStyle.setOverflowX(Overflow::Hidden);
     textBlockStyle.setOverflowY(Overflow::Hidden);
@@ -2255,7 +2260,7 @@ RenderStyle HTMLInputElement::createInnerTextStyle(const RenderStyle& style)
         // Do not allow line-height to be smaller than our default.
         if (textBlockStyle.metricsOfPrimaryFont().lineSpacing() > style.computedLineHeight())
             return true;
-        return isText() && !style.logicalHeight().isAuto();
+        return isText() && !style.logicalHeight().isAuto() && !hasAutoFillStrongPasswordButton();
     };
     if (shouldUseInitialLineHeight())
         textBlockStyle.setLineHeight(RenderStyle::initialLineHeight());

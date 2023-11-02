@@ -41,7 +41,6 @@ class StreamConnectionWorkQueue;
 
 struct StreamServerConnectionHandle {
     WTF_MAKE_NONCOPYABLE(StreamServerConnectionHandle);
-    StreamServerConnectionHandle() = default;
     StreamServerConnectionHandle(Connection::Handle&& connection, StreamConnectionBuffer::Handle&& bufferHandle)
         : outOfStreamConnection(WTFMove(connection))
         , buffer(WTFMove(bufferHandle))
@@ -77,6 +76,7 @@ public:
     void stopReceivingMessages(ReceiverName, uint64_t destinationID);
 
     Connection& connection() { return m_connection; }
+    Ref<Connection> protectedConnection() { return m_connection; }
 
     enum DispatchResult : bool {
         HasNoMessages,
@@ -113,7 +113,7 @@ private:
     bool dispatchOutOfStreamMessage(Decoder&&);
 
     using WakeUpClient = StreamServerConnectionBuffer::WakeUpClient;
-    Ref<IPC::Connection> m_connection;
+    const Ref<IPC::Connection> m_connection;
     RefPtr<StreamConnectionWorkQueue> m_workQueue;
     StreamServerConnectionBuffer m_buffer;
 

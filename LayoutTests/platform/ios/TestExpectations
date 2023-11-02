@@ -68,6 +68,10 @@ media/wireless-route-monitoring.html [ Pass ]
 # mac-only IPC test
 ipc/webpageproxy-correctionpanel-no-crash.html [ Skip ]
 
+# iOS 17 and above support word-break: auto-phrase.
+# Individually failing tests should be marked in separate expectations.
+imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase [ Pass ]
+
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End platform-specific directories.
 #//////////////////////////////////////////////////////////////////////////////////////////
@@ -103,6 +107,8 @@ printing
 
 # Tests that rely on custom domain names.
 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/overlapping-navigations-and-traversals/tentative/nav-cancelation-2.sub.html [ Skip ]
+imported/w3c/web-platform-tests/cookies/attributes/domain.sub.html [ Skip ]
+imported/w3c/web-platform-tests/cookies/ordering/ordering.sub.html [ Skip ]
 
 # Web Notifications are not supported on iOS.
 http/tests/notifications
@@ -249,8 +255,9 @@ media/video-size-intrinsic-scale.html [ WontFix ]
 media/video-element-fullscreen-not-in-dom-accelerated-iphone.html [ Pass ]
 
 # MediaSource is not currently supported on iOS.
-media/media-source/media-managedmse-airplay.html [ Pass ]
 media/media-source
+media/media-source/media-managedmse-airplay.html [ Pass ]
+media/media-source/media-managedmse-idl.html [ Pass ]
 http/tests/media/media-source [ Skip ]
 imported/w3c/web-platform-tests/media-source/ [ Skip ]
 fast/history/page-cache-media-source-closed-2.html [ Skip ]
@@ -376,6 +383,7 @@ fast/events/mouse-force-up.html [ Skip ]
 
 # testRunner.setPageVisibility is not implemented for iOS
 webkit.org/b/165799 fast/dom/timer-throttling-hidden-page.html [ Skip ]
+webkit.org/b/165799 fast/dom/timer-throttling-hidden-page-2.html [ Skip ]
 webkit.org/b/165799 fast/dom/timer-throttling-hidden-page-non-nested.html [ Skip ]
 webkit.org/b/165799 fast/events/page-visibility-onvisibilitychange.html [ Skip ]
 webkit.org/b/165799 media/media-playback-page-visibility.html [ Skip ]
@@ -540,8 +548,8 @@ fast/events/mouse-cursor-multiframecur.html [ Skip ]
 fast/events/mouse-cursor-no-mousemove.html [ Skip ]
 fast/events/mouse-cursor-udpate-during-raf.html [ Skip ]
 fast/events/mouse-cursor.html [ Skip ]
-fast/events/mouse-drag-from-frame-to-other-frame.html [ Skip ]
-fast/events/mouse-drag-from-frame.html [ Skip ]
+fast/events/cancel-mousedown-and-drag-from-frame-to-other-frame.html [ Skip ]
+fast/events/cancel-mousedown-and-drag-to-frame.html [ Skip ]
 fast/events/mouse-focus-imagemap.html [ Skip ]
 fast/events/mouse-moved-remove-frame-crash.html [ Skip ]
 fast/events/mouse-relative-position.html [ Skip ]
@@ -1673,10 +1681,8 @@ fast/forms/number/number-spinbutton-change-and-input-events.html [ Failure ]
 fast/forms/number/number-spinbutton-click-in-iframe.html [ Failure ]
 fast/forms/number/number-wheel-event.html [ Failure ]
 fast/forms/password-placeholder-text-security.html [ Pass ImageOnlyFailure ]
-fast/forms/placeholder-position.html [ Failure ]
 fast/forms/radio/indeterminate-radio.html [ Pass Failure ]
 fast/forms/range/slider-padding.html [ Failure ]
-fast/forms/search/search-size-with-decorations.html [ Failure ]
 fast/forms/select-clientheight-large-size.html [ Failure ]
 fast/forms/select-clientheight-with-multiple-attr.html [ Failure ]
 fast/forms/select-live-pseudo-selectors.html [ Failure ]
@@ -2203,6 +2209,11 @@ accessibility/menu-list-crash2.html [ Pass ]
 accessibility/multiple-attribute-change-crash.html [ Pass ]
 accessibility/node-only-inert-object.html [ Pass ]
 accessibility/node-only-object-element-rect.html [ Pass ]
+accessibility/out-of-bounds-rowspan.html [ Pass ]
+accessibility/out-of-bounds-rowspan-display-none.html [ Pass ]
+accessibility/out-of-bounds-rowspan-aria-hidden.html [ Pass ]
+accessibility/out-of-bounds-rowspan-presentational-row.html [ Pass ]
+accessibility/out-of-bounds-rowspan-orphan-rows.html [ Pass ]
 accessibility/page-reload-deadlock.html [ Pass ]
 accessibility/placeholder.html [ Pass ]
 accessibility/progress-indeterminate-value.html [ Pass ]
@@ -2356,8 +2367,6 @@ webkit.org/b/154055 perf/adding-radio-buttons.html [ Pass Timeout Failure ]
 
 webkit.org/b/76121 imported/blink/fast/events/event-trusted.html [ Skip ]
 
-webkit.org/b/154253 animations/animation-delay-changed.html [ Pass Failure ]
-
 webkit.org/b/184608 [ Debug ] animations/added-while-suspended.html [ Skip ]
 webkit.org/b/184608 [ Debug ] transitions/created-while-suspended.html [ Skip ]
 
@@ -2398,6 +2407,8 @@ fast/scrolling/rtl-scrollbars-sticky-iframe.html [ ImageOnlyFailure ]
 fast/forms/listbox-padding-clip-selected.html [ ImageOnlyFailure ]
 fast/forms/listbox-respects-padding-bottom.html [ Failure ]
 fast/forms/listbox-top-padding-do-not-clip-items.html [ Failure ]
+fast/forms/vertical-writing-mode/listbox-drag-horizontal-scrollbar.html [ Failure ]
+fast/forms/vertical-writing-mode/listbox-horizontal-scrollbar.html [ ImageOnlyFailure ]
 
 # No focusring on iOS.
 fast/images/image-map-outline-in-positioned-container.html [ Pass ImageOnlyFailure ]
@@ -2786,7 +2797,7 @@ webkit.org/b/177323 imported/w3c/web-platform-tests/fetch/security/embedded-cred
 
 webkit.org/b/177445 fast/loader/form-submission-after-beforeunload-cancel.html [ Pass Timeout ]
 
-webkit.org/b/177397 compositing/masks/compositing-clip-path-change-no-repaint.html [ Pass Failure ]
+webkit.org/b/177397 [ Release ] compositing/masks/compositing-clip-path-change-no-repaint.html [ Pass Failure ]
 
 webkit.org/b/177617 http/tests/storageAccess/request-storage-access-top-frame.html [ Pass Timeout ]
 
@@ -3166,7 +3177,8 @@ webkit.org/b/207767 http/wpt/service-workers/online.https.html [ Pass Failure ]
 
 webkit.org/b/207768 http/wpt/service-workers/useragent.https.html [ Pass Failure ]
 
-webkit.org/b/254706 imported/w3c/web-platform-tests/html/dom/idlharness.https.html [ Pass Failure ]
+webkit.org/b/254706 [ Release ] imported/w3c/web-platform-tests/html/dom/idlharness.https.html [ Pass Failure ]
+webkit.org/b/254706 [ Debug ] imported/w3c/web-platform-tests/html/dom/idlharness.https.html [ Slow Pass Failure ]
 
 webkit.org/b/205216 imported/w3c/web-platform-tests/content-security-policy/reporting/report-same-origin-with-cookies.html [ Pass Failure DumpJSConsoleLogInStdErr ]
 
@@ -3266,11 +3278,16 @@ webkit.org/b/214299 imported/w3c/web-platform-tests/css/css-ui/outline-with-padd
 
 webkit.org/b/214498 imported/w3c/web-platform-tests/cors/remote-origin.htm [ Pass ]
 
-fast/text/selection-is-prevent-defaulted.html [ Failure ]
+fast/text/canceled-mousemove-does-not-prevent-selectionchange.html [ Failure ]
 
 # FIXME: These tests require UIScriptControllerIOS additions to know when a date/time picker is presented
 fast/forms/date/date-show-hide-picker.html [ Skip ]
 fast/forms/datetimelocal/datetimelocal-show-hide-picker.html [ Skip ]
+fast/forms/date/date-show-picker.html [ Skip ]
+fast/forms/datetimelocal/datetimelocal-show-picker.html [ Skip ]
+
+# showPicker not yet implemented for iOS
+webkit.org/b/261703 fast/forms/select/select-show-picker.html [ Skip ]
 
 # <rdar://problem/59636115> REGRESSION: [ iOS & macOS ] two imported/w3c/web-platform-tests/WebCryptoAPI are failing
 imported/w3c/web-platform-tests/WebCryptoAPI/import_export/rsa_importKey.https.worker.html [ Failure ]
@@ -3334,9 +3351,6 @@ imported/w3c/web-platform-tests/fetch/connection-pool/network-partition-key.html
 # rdar://80384054 ([ iOS15 ] css3/filters/filter-repaint-shadow-layer-child.html is flaky failure)
 css3/filters/filter-repaint-shadow-layer-child.html [ Pass ImageOnlyFailure ]
 
-# rdar://80392795 ([ iOS15 ] http/tests/misc/object-embedding-svg-delayed-size-negotiation-2.htm is a flaky failure)
-http/tests/misc/object-embedding-svg-delayed-size-negotiation-2.htm [ Pass Failure ]
-
 # rdar://80393008 ([ iOS15 ] http/tests/security/contentSecurityPolicy/connect-src-websocket-allowed.html is a flaky crash)
 http/tests/security/contentSecurityPolicy/connect-src-websocket-allowed.html  [ Pass Crash ]
 
@@ -3374,6 +3388,11 @@ imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiobuffersourcenode
 
 webkit.org/b/221466 imported/w3c/web-platform-tests/uievents/keyboard/modifier-keys.html [ Skip ]
 webkit.org/b/221465 imported/w3c/web-platform-tests/uievents/keyboard/modifier-keys-combinations.html [ Skip ]
+webkit.org/b/262723 imported/w3c/web-platform-tests/uievents/mouse/cancel-mousedown-in-subframe.html [ Skip ]
+
+# https://webkit.org/b/263067 ([iOS] uievents/mouse/synthetic-mouse-enter-leave-over-out-button-state-after-target-removed.tentative.html WPT consistently times out in iOS 16 open source config)
+imported/w3c/web-platform-tests/uievents/mouse/synthetic-mouse-enter-leave-over-out-button-state-after-target-removed.tentative.html?buttonType=LEFT&button=0&buttons=1 [ Skip ]
+imported/w3c/web-platform-tests/uievents/mouse/synthetic-mouse-enter-leave-over-out-button-state-after-target-removed.tentative.html?buttonType=MIDDLE&button=1&buttons=4 [ Skip ]
 
 # iOS15 supports this emoji.
 fast/text/mending-heart.html [ Pass ]
@@ -3645,8 +3664,6 @@ webkit.org/b/239567 tables/mozilla/bugs/bug26178.html [ Pass Failure ]
 webkit.org/b/240037 css3/background/background-repeat-space-content.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/240069 fast/css/continuationCrash.html [ Pass Failure ]
-
-webkit.org/b/237552 imported/w3c/web-platform-tests/html/browsers/history/the-location-interface/same-hash.html [ Pass Failure ]
 
 webkit.org/b/240123 imported/w3c/web-platform-tests/webrtc/protocol/rtp-clockrate.html [ Pass Failure ]
 
@@ -3940,6 +3957,8 @@ imported/w3c/web-platform-tests/css/css-writing-modes/forms/color-input-appearan
 # <select> are always menulists on iOS, regardless of multiple/size attributes, these tests assume the listbox appearance that desktop platforms have.
 imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-multiple-scrolling.optional.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-size-scrolling-and-sizing.optional.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-multiple-options-visual-order.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-multiple-keyboard-selection.optional.html [ Failure ]
 fast/forms/select/multiselect-in-listbox-mouse-release-outside.html [ Skip ]
 
 # To investigate: might need to relax the tests, or adapt native thumb appearance.
@@ -4339,8 +4358,6 @@ webkit.org/b/229934 webgl/1.0.x/conformance/extensions/webgl-depth-texture.html 
 webkit.org/b/254398 webgl/2.0.y/conformance/extensions/webgl-compressed-texture-astc.html [ Failure ]
 
 # webkit.org/b/255177 Batch mark expectations for newly failing tests introduced with iOS 16.4 update
-css3/filters/effect-blur.html [ ImageOnlyFailure ]
-css3/filters/effect-invert.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-backgrounds/background-clip/clip-text-multi-line.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-4.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-backgrounds/background-repeat-space-5.html [ ImageOnlyFailure ]
@@ -4355,7 +4372,7 @@ webaudio/ScriptProcessor/scriptprocessor-offlineaudiocontext.html [ Failure ]
 
 webkit.org/b/256189 [ Debug ] ipc/wait-for-video-output-will-change.html [ Crash ]
 
-webkit.org/256217 [ Debug ] imported/w3c/web-platform-tests/background-fetch/port-blocking.https.window.html [ Pass Crash ]
+webkit.org/b/256217 [ Debug ] imported/w3c/web-platform-tests/background-fetch/port-blocking.https.window.html [ Pass Crash ]
 webkit.org/b/258328 [ Debug ] imported/w3c/web-platform-tests/webcodecs/videoFrame-construction.crossOriginSource.sub.html [ Pass Failure ]
 
 webkit.org/b/258532 svg/zoom/page/text-with-non-scaling-stroke.html [ Pass ImageOnlyFailure ]
@@ -4437,39 +4454,6 @@ editing/selection/ios/selection-is-visible-after-focusing-editable-area.html [ T
 editing/selection/ios/show-selection-in-transformed-container-2.html [ Timeout ]
 editing/selection/ios/show-selection-in-transformed-container.html [ Timeout ]
 
-# rdar://104627548 (REGRESSION (iOS17 ): [ iOS17 Debug ] 28 webaudio tests consistently crash: ASSERTION FAILED: isBusGood)
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/audioparam-nominal-range.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/automation-rate.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-panner-connections.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-panner.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-pannernode-interface/automation-changes.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-pannernode-interface/ctor-panner.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-pannernode-interface/distance-exponential.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-pannernode-interface/distance-inverse.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-pannernode-interface/distance-linear.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-pannernode-interface/panner-automation-basic.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-pannernode-interface/panner-automation-equalpower-stereo.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-pannernode-interface/panner-automation-position.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-pannernode-interface/panner-equalpower-stereo.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-pannernode-interface/panner-equalpower.html [ Crash ]
-webaudio/AudioListener/audiolistener-automation-position.html [ Crash ]
-webaudio/AudioListener/audiolistener-set-position.html [ Crash ]
-webaudio/AudioParam/audioparam-k-rate.html [ Crash ]
-webaudio/AudioParam/audioparam-nominal-range.html [ Crash ]
-webaudio/AudioParam/audioparam-processing.html [ Crash ]
-webaudio/OfflineAudioContext/offlineaudiocontext-leak-after-rendering-with-nodes.html [ Crash ]
-webaudio/Panner/panner-cone-gain-nan.html [ Crash ]
-webaudio/construct-node-with-closed-context.html [ Crash ]
-webaudio/distance-exponential.html [ Crash ]
-webaudio/distance-inverse.html [ Crash ]
-webaudio/distance-linear.html [ Crash ]
-webaudio/dom-exceptions.html [ Crash ]
-webaudio/panner-equalpower-stereo.html [ Crash ]
-webaudio/panner-equalpower.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-pannernode-interface/panner-distance-clamping.html [ Crash ]
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-pannernode-interface/pannernode-basic.window.html [ Crash ]
-webaudio/pannernode-basic.html [ Crash ]
-
 # rdar://104646153 ([ iOS17 ] Four flaky crashing test: com.apple.WebCore: WebCore::JSVMClientData::~JSVMClientData)
 imported/w3c/web-platform-tests/fetch/api/credentials/authentication-basic.any.serviceworker.html [ Pass Crash ]
 imported/w3c/web-platform-tests/webaudio/idlharness.https.window.html [ Pass Crash ]
@@ -4529,16 +4513,12 @@ fast/borders/wrong-border-color-when-radius-is-present.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/white-space/textarea-pre-wrap-013.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-ui/text-overflow-028.html [ ImageOnlyFailure ]
 editing/spelling/editing-word-with-marker-1.html [ Failure ]
-fast/css/rtl-ordering.html [ Failure ]
 fast/css/text-overflow-input.html [ Failure ]
 fast/events/ios/key-command-italic.html [ Failure ]
 fast/forms/basic-inputs.html [ Failure ]
 fast/forms/input-appearance-height.html [ Failure ]
 fast/forms/input-value.html [ Failure ]
-fast/forms/listbox-bidi-align.html [ Failure ]
 fast/forms/placeholder-pseudo-style.html [ Failure ]
-fast/forms/select-visual-hebrew.html [ Failure ]
-fast/forms/time/time-input-rendering-basic.html [ Failure ]
 fast/scrolling/ios/body-overflow-hidden-height-100-percent-keyboard.html [ Failure ]
 http/wpt/webcodecs/videoFrame-colorSpace.html [ Failure ]
 http/wpt/webcodecs/webcodecs-gc.html [ Failure ]
@@ -4562,7 +4542,6 @@ imported/w3c/web-platform-tests/fetch/range/non-matching-range-response.html [ F
 imported/w3c/web-platform-tests/html/semantics/disabled-elements/disabled-event-dispatch.tentative.html [ Failure ]
 imported/w3c/web-platform-tests/html/semantics/popovers/light-dismiss-event-ordering.html [ Failure ]
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-anchor-nesting.html [ Failure ]
-imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss.html [ Failure ]
 imported/w3c/web-platform-tests/service-workers/service-worker/fetch-request-redirect.https.html [ Failure ]
 imported/w3c/web-platform-tests/xhr/open-method-case-sensitive.htm [ Failure ]
 media/media-can-play-h265-video.html [ Failure ]
@@ -4592,7 +4571,13 @@ imported/w3c/web-platform-tests/css/css-lists/list-style-image-gradients-dynamic
 imported/w3c/web-platform-tests/css/css-lists/list-style-image-gradients.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-lists/content-property/marker-text-matches-disc.html [ Skip ]
 
+http/tests/site-isolation/mouse-events/ [ Skip ]
 webkit.org/b/257904 http/tests/site-isolation/basic-iframe.html [ Skip ]
+webkit.org/b/257904 http/tests/site-isolation/draw-after-navigation.html [ Skip ]
+webkit.org/b/257904 http/tests/site-isolation/selection-focus.html [ Skip ]
+
+# This test can't be enabled on iOS until EventSenderProxyIOS::keyDown() is implemented.
+http/tests/site-isolation/key-events.html [ Skip ]
 
 # Initial css/compositing test import
 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-both-parent-and-blended-with-3D-transform.html [ ImageOnlyFailure ]
@@ -4603,3 +4588,95 @@ imported/w3c/web-platform-tests/css/filter-effects/effect-reference-feimage-001.
 imported/w3c/web-platform-tests/css/filter-effects/effect-reference-feimage-003.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/filter-effects/filter-function/filter-function-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/filter-effects/svg-image-root-filter.html [ ImageOnlyFailure ]
+
+# rdar://113930861 (3D transforms with scaleZ(0) don't get rendered, even when combined with other transforms using preserve-3d (260224))
+compositing/geometry/clipped-out-perspective.html [ ImageOnlyFailure ]
+compositing/overlap-blending/opacity-and-infinity.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-transforms/perspective-split-by-zero-w.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-transforms/preserve3d-and-filter-with-perspective.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-transforms/preserve3d-pseudo-element.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-transforms/transform-table-009.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-transforms/transform-table-010.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-transforms/transform-table-011.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-transforms/transform3d-preserve3d-011.html [ ImageOnlyFailure ]
+
+# rdar://114289511 (REGRESSION ( Sonoma ): [ iOS17 ] 9* fast/text/canvas-color-fonts/..COLR tests are a consistent image failure)
+fast/text/canvas-color-fonts/COLR.html [ ImageOnlyFailure ]
+fast/text/canvas-color-fonts/fill-color-shadow-COLR.html [ ImageOnlyFailure ]
+fast/text/canvas-color-fonts/fill-color-shadow-ctm-COLR.html [ ImageOnlyFailure ]
+fast/text/canvas-color-fonts/linedash-COLR.html [ ImageOnlyFailure ]
+fast/text/canvas-color-fonts/stroke-color-COLR.html [ ImageOnlyFailure ]
+fast/text/canvas-color-fonts/stroke-color-shadow-COLR.html [ ImageOnlyFailure ]
+fast/text/canvas-color-fonts/stroke-color-shadow-ctm-COLR.html [ ImageOnlyFailure ]
+fast/text/canvas-color-fonts/stroke-gradient-COLR-3.html [ ImageOnlyFailure ]
+fast/text/canvas-color-fonts/stroke-gradient-COLR-4.html [ ImageOnlyFailure ]
+
+# rdar://114471087 (REGRESSION ( Sonoma ): [ iOS17 ] 18 imported/w3c/web-platform-tests/css/css-fonts/ tests are a consistent image failure)
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-13.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-16.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-17.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-18.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-19.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-22.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-3.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-4.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-5.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-6.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-7.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-8.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-9.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-add.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-modify.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/font-palette-remove.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/palette-values-rule-add.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-fonts/palette-values-rule-delete.html [ ImageOnlyFailure ]
+
+# webkit.org/b/262663 (REGRESSION(iOS17/Sonoma): 8 WebCryptoAPI tests are constantly crashing.)
+imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/failures_X25519.https.any.html [ Crash ]
+imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/failures_X25519.https.any.worker.html [ Crash ]
+imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/successes_X25519.https.any.html [ Crash ]
+imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/successes_X25519.https.any.worker.html [ Crash ]
+imported/w3c/web-platform-tests/WebCryptoAPI/import_export/okp_importKey.https.any.html [ Crash ]
+imported/w3c/web-platform-tests/WebCryptoAPI/import_export/okp_importKey.https.any.worker.html [ Crash ]
+imported/w3c/web-platform-tests/WebCryptoAPI/import_export/okp_importKey_failures_X25519.https.any.html [ Crash ]
+imported/w3c/web-platform-tests/WebCryptoAPI/import_export/okp_importKey_failures_X25519.https.any.worker.html  [ Crash ]
+
+webkit.org/b/263136 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-011.html [ ImageOnlyFailure ]
+
+webkit.org/b/263466 fast/mediastream/getDisplayMedia-max-constraints4.html [ Failure ]
+
+webkit.org/b/263471 fast/forms/ios/keydown-in-hidden-contenteditable-with-inputmode-none.html [ Pass Failure ]
+
+webkit.org/b/263479 platform/ios/mediastream/getUserMedia-override-audio-session-interruption.html [ Pass Failure ]
+
+webkit.org/b/263396 css3/color/text.html [ Skip ]
+
+# webkit.org/b/263439 [ iOS ] Several WPTs using wheel actions are timing out after b243272
+imported/w3c/web-platform-tests/css/css-overscroll-behavior/overscroll-behavior.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/snap-at-user-scroll-end.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-transforms/scroll-preserve-3d.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-mousewheel-event-listener-on-body.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-mousewheel-event-listener-on-div.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-mousewheel-event-listener-on-document.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-mousewheel-event-listener-on-root.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-mousewheel-event-listener-on-window.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-wheel-event-listener-on-body.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-wheel-event-listener-on-div.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-wheel-event-listener-on-document.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-wheel-event-listener-on-root.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-wheel-event-listener-on-window.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-mousewheel-event-listener-on-body.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-mousewheel-event-listener-on-div.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-mousewheel-event-listener-on-document.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-mousewheel-event-listener-on-root.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-mousewheel-event-listener-on-window.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-wheel-event-listener-on-body.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-wheel-event-listener-on-div.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-wheel-event-listener-on-document.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-wheel-event-listener-on-root.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-wheel-event-listener-on-window.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/scrolling/iframe-chains.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-event-for-user-scroll.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-event-not-fired-on-no-scroll.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss.html [ Skip ]
+imported/w3c/web-platform-tests/uievents/order-of-events/mouse-events/wheel-scrolling.html [ Skip ]

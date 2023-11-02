@@ -42,11 +42,23 @@ class SVGGraphicsElement;
 class LegacyRenderSVGShape : public LegacyRenderSVGModelObject {
     WTF_MAKE_ISO_ALLOCATED(LegacyRenderSVGShape);
 public:
+    friend FloatRect SVGRenderSupport::calculateApproximateStrokeBoundingBox(const RenderElement&);
+
+    enum class ShapeType : uint8_t {
+        Empty,
+        Path,
+        Line,
+        Rectangle,
+        RoundedRectangle,
+        Ellipse,
+        Circle,
+    };
+
     enum PointCoordinateSpace {
         GlobalCoordinateSpace,
         LocalCoordinateSpace
     };
-    LegacyRenderSVGShape(SVGGraphicsElement&, RenderStyle&&);
+    LegacyRenderSVGShape(Type, SVGGraphicsElement&, RenderStyle&&);
     virtual ~LegacyRenderSVGShape();
 
     inline SVGGraphicsElement& graphicsElement() const;
@@ -73,10 +85,14 @@ public:
     }
     void clearPath() { m_path = nullptr; }
 
+    ShapeType shapeType() const { return m_shapeType; }
+
 protected:
     void element() const = delete;
 
-    virtual void updateShapeFromElement();
+    Path& ensurePath();
+
+    virtual void updateShapeFromElement() = 0;
     virtual bool isEmpty() const;
     virtual bool shapeDependentStrokeContains(const FloatPoint&, PointCoordinateSpace = GlobalCoordinateSpace);
     virtual bool shapeDependentFillContains(const FloatPoint&, const WindRule) const;
@@ -87,15 +103,16 @@ protected:
     AffineTransform nonScalingStrokeTransform() const;
     Path* nonScalingStrokePath(const Path*, const AffineTransform&) const;
 
-    FloatRect m_fillBoundingBox;
-    FloatRect m_strokeBoundingBox;
+    virtual FloatRect adjustStrokeBoundingBoxForMarkersAndZeroLengthLinecaps(RepaintRectCalculation, FloatRect strokeBoundingBox) const { return strokeBoundingBox; }
+
+    FloatRect strokeBoundingBox() const final;
 
 private:
     // Hit-detection separated for the fill and the stroke
     bool fillContains(const FloatPoint&, bool requiresFill = true, const WindRule fillRule = WindRule::NonZero);
     bool strokeContains(const FloatPoint&, bool requiresStroke = true);
 
-    FloatRect repaintRectInLocalCoordinates() const final { return m_repaintBoundingBox; }
+    FloatRect repaintRectInLocalCoordinates(RepaintRectCalculation = RepaintRectCalculation::Fast) const final;
     const AffineTransform& localToParentTransform() const final { return m_localTransform; }
     AffineTransform localTransform() const final { return m_localTransform; }
 
@@ -110,36 +127,36 @@ private:
     bool nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const FloatPoint& pointInParent, HitTestAction) final;
 
     FloatRect objectBoundingBox() const final { return m_fillBoundingBox; }
-    FloatRect strokeBoundingBox() const final { return m_strokeBoundingBox; }
-    FloatRect calculateObjectBoundingBox() const;
     FloatRect calculateStrokeBoundingBox() const;
     void updateRepaintBoundingBox();
 
     bool setupNonScalingStrokeContext(AffineTransform&, GraphicsContextStateSaver&);
 
-    bool shouldGenerateMarkerPositions() const;
-    FloatRect markerRect(float strokeWidth) const;
+    FloatRect calculateApproximateStrokeBoundingBox() const;
     
     std::unique_ptr<Path> createPath() const;
-    void processMarkerPositions();
 
     void fillShape(const RenderStyle&, GraphicsContext&);
     void strokeShapeInternal(const RenderStyle&, GraphicsContext&);
     void strokeShape(const RenderStyle&, GraphicsContext&);
     void fillStrokeMarkers(PaintInfo&);
-    void drawMarkers(PaintInfo&);
 
+    virtual void drawMarkers(PaintInfo&) { }
+
+protected:
+    FloatRect m_fillBoundingBox;
+    mutable Markable<FloatRect, FloatRect::MarkableTraits> m_strokeBoundingBox;
 private:
     FloatRect m_repaintBoundingBox;
-    FloatRect m_repaintBoundingBoxExcludingShadow;
 
     bool m_needsBoundariesUpdate : 1;
     bool m_needsShapeUpdate : 1;
     bool m_needsTransformUpdate : 1;
-
+protected:
+    ShapeType m_shapeType : 3 { ShapeType::Empty };
+private:
     AffineTransform m_localTransform;
     std::unique_ptr<Path> m_path;
-    Vector<MarkerPosition> m_markerPositions;
 };
 
 } // namespace WebCore

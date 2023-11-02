@@ -29,11 +29,8 @@
 #include "APIFrameHandle.h"
 #include "APIPageHandle.h"
 #include "AudioMediaStreamTrackRendererInternalUnitManager.h"
-#include "AuthenticationManager.h"
 #include "AuxiliaryProcessMessages.h"
-#include "DrawingArea.h"
 #include "EventDispatcher.h"
-#include "GPUProcessConnectionParameters.h"
 #include "InjectedBundle.h"
 #include "LibWebRTCNetwork.h"
 #include "Logging.h"
@@ -41,8 +38,6 @@
 #include "NetworkProcessConnection.h"
 #include "NetworkProcessConnectionInfo.h"
 #include "NetworkSession.h"
-#include "NetworkSessionCreationParameters.h"
-#include "ProcessAssertion.h"
 #include "RemoteAudioHardwareListener.h"
 #include "RemoteAudioSession.h"
 #include "RemoteLegacyCDMFactory.h"
@@ -57,12 +52,12 @@
 #include "WebBadgeClient.h"
 #include "WebBroadcastChannelRegistry.h"
 #include "WebCacheStorageProvider.h"
+#include "WebChromeClient.h"
 #include "WebConnectionToUIProcess.h"
 #include "WebCookieJar.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebFileSystemStorageConnection.h"
 #include "WebFrame.h"
-#include "WebFrameNetworkingContext.h"
 #include "WebGamepadProvider.h"
 #include "WebGeolocationManager.h"
 #include "WebIDBConnectionToServer.h"
@@ -77,11 +72,9 @@
 #include "WebPaymentCoordinator.h"
 #include "WebPermissionController.h"
 #include "WebPlatformStrategies.h"
-#include "WebPluginInfoProvider.h"
 #include "WebProcessCreationParameters.h"
 #include "WebProcessDataStoreParameters.h"
 #include "WebProcessMessages.h"
-#include "WebProcessPoolMessages.h"
 #include "WebProcessProxyMessages.h"
 #include "WebResourceLoadObserver.h"
 #include "WebSWClientConnection.h"
@@ -175,7 +168,7 @@
 #include <WebCore/ImageDecoderCG.h>
 #endif
 
-#if PLATFORM(MAC)
+#if HAVE(DISPLAY_LINK)
 #include <WebCore/DisplayRefreshMonitorManager.h>
 #endif
 
@@ -183,16 +176,11 @@
 #include "WebSQLiteDatabaseTracker.h"
 #endif
 
-#if ENABLE(SEC_ITEM_SHIM)
-#include "SecItemShim.h"
-#endif
-
 #if ENABLE(NOTIFICATIONS)
 #include "WebNotificationManager.h"
 #endif
 
 #if ENABLE(GPU_PROCESS)
-#include "GPUConnectionToWebProcessMessages.h"
 #include "GPUProcessConnection.h"
 #endif
 
@@ -661,6 +649,8 @@ void WebProcess::setWebsiteDataStoreParameters(WebProcessDataStoreParameters&& p
     
 #endif
 
+    m_mediaKeysStorageDirectory = parameters.mediaKeyStorageDirectory;
+    m_mediaKeysStorageSalt = parameters.mediaKeysStorageSalt;
     for (auto& supplement : m_supplements.values())
         supplement->setWebsiteDataStore(parameters);
 
@@ -696,8 +686,7 @@ void WebProcess::setIsInProcessCache(bool isInProcessCache)
     }
 
     updateProcessName(IsInProcessInitialization::No);
-
-    IPC::AccessibilityProcessSuspendedNotification(isInProcessCache);
+    accessibilityRelayProcessSuspended(isInProcessCache);
 #else
     UNUSED_PARAM(isInProcessCache);
 #endif
@@ -1348,6 +1337,11 @@ void WebProcess::gpuProcessConnectionClosed(GPUProcessConnection& connection)
 
     m_gpuProcessConnection = nullptr;
 
+    for (auto& page : m_pageMap.values()) {
+        if (page)
+            page->gpuProcessConnectionWasDestroyed();
+    }
+
 #if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
     if (m_audioMediaStreamTrackRendererInternalUnitManager)
         m_audioMediaStreamTrackRendererInternalUnitManager->restartAllUnits();
@@ -1626,7 +1620,7 @@ void WebProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime estim
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-    IPC::AccessibilityProcessSuspendedNotification(true);
+    accessibilityRelayProcessSuspended(true);
     updateFreezerStatus();
 #endif
 
@@ -1634,6 +1628,15 @@ void WebProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime estim
         WEBPROCESS_RELEASE_LOG(ProcessSuspension, "prepareToSuspend: Process is ready to suspend");
         completionHandler();
     });
+}
+
+void WebProcess::accessibilityRelayProcessSuspended(bool suspended)
+{
+    if (m_pageMap.isEmpty())
+        return;
+
+    // Take the first webpage. We only need to have the process on the other side relay this for the WebProcess.
+    AXRelayProcessSuspendedNotification(*m_pageMap.begin()->value, AXRelayProcessSuspendedNotification::AutomaticallySend::No).sendProcessSuspendMessage(suspended);
 }
 
 void WebProcess::markAllLayersVolatile(CompletionHandler<void()>&& completionHandler)
@@ -1691,7 +1694,7 @@ void WebProcess::processDidResume()
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-    IPC::AccessibilityProcessSuspendedNotification(false);
+    accessibilityRelayProcessSuspended(false);
 #endif
 
 #if ENABLE(VIDEO)
@@ -2079,10 +2082,10 @@ void WebProcess::grantUserMediaDeviceSandboxExtensions(MediaDeviceSandboxExtensi
 static inline void checkDocumentsCaptureStateConsistency(const Vector<String>& extensionIDs)
 {
 #if ASSERT_ENABLED
-    bool isCapturingAudio = WTF::anyOf(Document::allDocumentsMap().values(), [](auto* document) {
+    bool isCapturingAudio = WTF::anyOf(Document::allDocumentsMap().values(), [](auto& document) {
         return document->mediaState() & MediaProducer::MicrophoneCaptureMask;
     });
-    bool isCapturingVideo = WTF::anyOf(Document::allDocumentsMap().values(), [](auto* document) {
+    bool isCapturingVideo = WTF::anyOf(Document::allDocumentsMap().values(), [](auto& document) {
         return document->mediaState() & MediaProducer::VideoCaptureMask;
     });
 
@@ -2148,7 +2151,7 @@ void WebProcess::setClientBadge(WebPageProxyIdentifier pageIdentifier, const Web
     parentProcessConnection()->send(Messages::WebProcessProxy::SetClientBadge(pageIdentifier, origin, badge), 0);
 }
 
-#if HAVE(CVDISPLAYLINK)
+#if HAVE(DISPLAY_LINK)
 void WebProcess::displayDidRefresh(uint32_t displayID, const DisplayUpdate& displayUpdate)
 {
     ASSERT(RunLoop::isMain());
@@ -2359,6 +2362,23 @@ bool WebProcess::allowsFirstPartyForCookies(const URL& firstParty)
     return AuxiliaryProcess::allowsFirstPartyForCookies(firstParty, [&] {
         return AuxiliaryProcess::allowsFirstPartyForCookies(WebCore::RegistrableDomain { firstParty }, m_allowedFirstPartiesForCookies);
     });
+}
+
+WebTransportSession* WebProcess::webTransportSession(WebTransportSessionIdentifier identifier)
+{
+    return m_webTransportSessions.get(identifier).get();
+}
+
+void WebProcess::addWebTransportSession(WebTransportSessionIdentifier identifier, WebTransportSession& session)
+{
+    ASSERT(!m_webTransportSessions.contains(identifier));
+    m_webTransportSessions.set(identifier, session);
+}
+
+void WebProcess::removeWebTransportSession(WebTransportSessionIdentifier identifier)
+{
+    ASSERT(m_webTransportSessions.contains(identifier));
+    m_webTransportSessions.remove(identifier);
 }
 
 } // namespace WebKit

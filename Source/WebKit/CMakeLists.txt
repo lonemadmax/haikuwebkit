@@ -29,6 +29,7 @@ set(WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/NetworkProcess/storage"
     "${WEBKIT_DIR}/NetworkProcess/watchos"
     "${WEBKIT_DIR}/NetworkProcess/webrtc"
+    "${WEBKIT_DIR}/NetworkProcess/webtransport"
     "${WEBKIT_DIR}/Platform"
     "${WEBKIT_DIR}/Platform/IPC"
     "${WEBKIT_DIR}/PluginProcess"
@@ -213,14 +214,14 @@ set(WebKit_MESSAGES_IN_FILES
     NetworkProcess/SharedWorker/WebSharedWorkerServerConnection
     NetworkProcess/SharedWorker/WebSharedWorkerServerToContextConnection
 
-    NetworkProcess/cache/CacheStorageEngineConnection
-
     NetworkProcess/storage/NetworkStorageManager
 
     NetworkProcess/webrtc/NetworkMDNSRegister
     NetworkProcess/webrtc/NetworkRTCMonitor
     NetworkProcess/webrtc/NetworkRTCProvider
     NetworkProcess/webrtc/RTCDataChannelRemoteManagerProxy
+
+    NetworkProcess/webtransport/NetworkTransportSession
 
     Shared/AuxiliaryProcess
     Shared/IPCConnectionTester
@@ -314,6 +315,7 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/Network/NetworkProcessConnection
     WebProcess/Network/WebResourceLoader
     WebProcess/Network/WebSocketChannel
+    WebProcess/Network/WebTransportSession
 
     WebProcess/Notifications/WebNotificationManager
 
@@ -346,6 +348,7 @@ set(WebKit_MESSAGES_IN_FILES
 )
 
 set(WebKit_SERIALIZATION_IN_FILES
+    GPUProcess/GPUProcessCreationParameters.serialization.in
     GPUProcess/GPUProcessSessionParameters.serialization.in
 
     GPUProcess/graphics/PathSegment.serialization.in
@@ -369,12 +372,19 @@ set(WebKit_SERIALIZATION_IN_FILES
 
     Platform/SharedMemory.serialization.in
 
+    Shared/AccessibilityPreferences.serialization.in
+    Shared/AuxiliaryProcessCreationParameters.serialization.in
     Shared/BackgroundFetchState.serialization.in
     Shared/CallbackID.serialization.in
+    Shared/DebuggableInfoData.serialization.in
     Shared/DisplayListArgumentCoders.serialization.in
+    Shared/DocumentEditingContext.serialization.in
+    Shared/DrawingAreaInfo.serialization.in
+    Shared/EditingRange.serialization.in
     Shared/EditorState.serialization.in
     Shared/FileSystemSyncAccessHandleInfo.serialization.in
     Shared/FocusedElementInformation.serialization.in
+    Shared/FontInfo.serialization.in
     Shared/FrameInfoData.serialization.in
     Shared/FrameTreeCreationParameters.serialization.in
     Shared/FrameTreeNodeData.serialization.in
@@ -389,7 +399,10 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/Pasteboard.serialization.in
     Shared/PlatformPopupMenuData.serialization.in
     Shared/PolicyDecision.serialization.in
+    Shared/RTCNetwork.serialization.in
+    Shared/RemoteWorkerInitializationData.serialization.in
     Shared/RemoteWorkerType.serialization.in
+    Shared/ResourceLoadInfo.serialization.in
     Shared/SameDocumentNavigationType.serialization.in
     Shared/SessionState.serialization.in
     Shared/ShareableBitmap.serialization.in
@@ -397,16 +410,22 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/TextFlags.serialization.in
     Shared/TextRecognitionResult.serialization.in
     Shared/UpdateInfo.serialization.in
+    Shared/VisibleContentRectUpdateInfo.serialization.in
     Shared/WTFArgumentCoders.serialization.in
     Shared/WebCoreArgumentCoders.serialization.in
     Shared/WebEvent.serialization.in
+    Shared/WebFoundTextRange.serialization.in
     Shared/WebHitTestResultData.serialization.in
+    Shared/WebNavigationDataStore.serialization.in
     Shared/WebPageCreationParameters.serialization.in
+    Shared/WebPageGroupData.serialization.in
+    Shared/WebPageNetworkParameters.serialization.in
     Shared/WebPopupItem.serialization.in
     Shared/WebProcessCreationParameters.serialization.in
     Shared/WebProcessDataStoreParameters.serialization.in
     Shared/WebPushDaemonConnectionConfiguration.serialization.in
     Shared/WebPushMessage.serialization.in
+    Shared/WebUserContentControllerDataTypes.serialization.in
     Shared/WebsiteDataStoreParameters.serialization.in
     Shared/WebsitePoliciesData.serialization.in
 
@@ -497,15 +516,23 @@ set(WebKit_SERIALIZATION_IN_FILES
 
     Shared/XR/XRSystem.serialization.in
 
+    WebProcess/GPU/GPUProcessConnectionInfo.serialization.in
+
     WebProcess/GPU/graphics/BufferIdentifierSet.serialization.in
     WebProcess/GPU/graphics/PrepareBackingStoreBuffersData.serialization.in
 
+    WebProcess/GPU/media/MediaOverridesForTesting.serialization.in
     WebProcess/GPU/media/RemoteAudioSessionConfiguration.serialization.in
     WebProcess/GPU/media/RemoteCDMConfiguration.serialization.in
+    WebProcess/GPU/media/RemoteCDMInstanceConfiguration.serialization.in
     WebProcess/GPU/media/RemoteMediaPlayerConfiguration.serialization.in
     WebProcess/GPU/media/RemoteMediaPlayerState.serialization.in
 
     WebProcess/GPU/webrtc/SharedVideoFrame.serialization.in
+
+    WebProcess/MediaStream/MediaDeviceSandboxExtensions.serialization.in
+
+    WebProcess/Network/NetworkProcessConnectionInfo.serialization.in
 
     WebProcess/WebCoreSupport/WebSpeechSynthesisVoice.serialization.in
 )

@@ -256,6 +256,14 @@ RetainPtr<NSData> WebPage::accessibilityRemoteTokenData() const
     return newAccessibilityRemoteToken([NSUUID UUID]);
 }
 
+void WebPage::relayAccessibilityNotification(const String& notificationName, const RetainPtr<NSData>& notificationData)
+{
+    IPC::DataReference dataToken = { };
+    if ([notificationData length])
+        dataToken = IPC::DataReference(reinterpret_cast<const uint8_t*>([notificationData bytes]), [notificationData length]);
+    send(Messages::WebPageProxy::RelayAccessibilityNotification(notificationName, dataToken));
+}
+
 static void computeEditableRootHasContentAndPlainText(const VisibleSelection& selection, EditorState::PostLayoutData& data)
 {
     data.hasContent = false;
@@ -396,7 +404,9 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
             // rather than the focused element. This causes caret colors in editable children to be
             // ignored in favor of the editing host's caret color. See: <https://webkit.org/b/229809>.
             if (RefPtr editableRoot = selection.rootEditableElement(); editableRoot && editableRoot->renderer()) {
-                postLayoutData.caretColor = CaretBase::computeCaretColor(editableRoot->renderer()->style(), editableRoot.get());
+                auto& style = editableRoot->renderer()->style();
+                postLayoutData.caretColor = CaretBase::computeCaretColor(style, editableRoot.get());
+                postLayoutData.hasCaretColorAuto = style.hasAutoCaretColor();
                 postLayoutData.hasGrammarDocumentMarkers = editableRoot->document().markers().hasMarkers(makeRangeSelectingNodeContents(*editableRoot), DocumentMarker::Grammar);
             }
         }
@@ -517,6 +527,7 @@ void WebPage::restorePageState(const HistoryItem& historyItem)
             scrollPosition = FloatPoint(historyItem.scrollPosition());
         }
 
+        RELEASE_LOG(Scrolling, "WebPage::restorePageState with matching minimumLayoutSize; historyItem.shouldRestoreScrollPosition %d, scrollPosition.y %d", historyItem.shouldRestoreScrollPosition(), historyItem.scrollPosition().y());
         send(Messages::WebPageProxy::RestorePageState(scrollPosition, frameView.scrollOrigin(), historyItem.obscuredInsets(), boundedScale));
     } else {
         IntSize oldContentSize = historyItem.contentSize();
@@ -533,6 +544,7 @@ void WebPage::restorePageState(const HistoryItem& historyItem)
                 newCenter = FloatRect(historyItem.unobscuredContentRect()).center();
         }
 
+        RELEASE_LOG(Scrolling, "WebPage::restorePageState with mismatched minimumLayoutSize; historyItem.shouldRestoreScrollPosition %d, unobscured rect top %d, scale %.2f", historyItem.shouldRestoreScrollPosition(), historyItem.unobscuredContentRect().y(), newScale);
         scalePage(newScale, IntPoint());
         send(Messages::WebPageProxy::RestorePageCenterAndScale(newCenter, newScale));
     }
@@ -877,7 +889,7 @@ void WebPage::completeSyntheticClick(Node& nodeRespondingToClick, const WebCore:
     if (!localMainFrame)
         return;
 
-    RefPtr oldFocusedFrame = CheckedRef(m_page->focusController())->focusedFrame();
+    RefPtr oldFocusedFrame = CheckedRef(m_page->focusController())->focusedLocalFrame();
     RefPtr<Element> oldFocusedElement = oldFocusedFrame ? oldFocusedFrame->document()->focusedElement() : nullptr;
 
     SetForScope userIsInteractingChange { m_userIsInteracting, true };
@@ -900,7 +912,7 @@ void WebPage::completeSyntheticClick(Node& nodeRespondingToClick, const WebCore:
     if (m_isClosed)
         return;
 
-    RefPtr newFocusedFrame = CheckedRef(m_page->focusController())->focusedFrame();
+    RefPtr newFocusedFrame = CheckedRef(m_page->focusController())->focusedLocalFrame();
     RefPtr<Element> newFocusedElement = newFocusedFrame ? newFocusedFrame->document()->focusedElement() : nullptr;
 
     if (nodeRespondingToClick.document().settings().contentChangeObserverEnabled() && !nodeRespondingToClick.document().quirks().shouldDisableContentChangeObserver()) {
@@ -1109,7 +1121,7 @@ void WebPage::sendTapHighlightForNodeIfNecessary(WebKit::TapIdentifier requestID
     }
 
     if (is<HTMLAreaElement>(node)) {
-        node = downcast<HTMLAreaElement>(node)->imageElement();
+        node = downcast<HTMLAreaElement>(node)->imageElement().get();
         if (!node)
             return;
     }
@@ -3505,15 +3517,16 @@ void WebPage::performActionOnElement(uint32_t action, const String& authorizatio
         RefPtr<FragmentedSharedBuffer> buffer = cachedImage->resourceBuffer();
         if (!buffer)
             return;
-        SharedMemory::Handle handle;
+        std::optional<SharedMemory::Handle> handle;
         {
             auto sharedMemoryBuffer = SharedMemory::copyBuffer(*buffer);
             if (!sharedMemoryBuffer)
                 return;
-            if (auto memoryHandle = sharedMemoryBuffer->createHandle(SharedMemory::Protection::ReadOnly))
-                handle = WTFMove(*memoryHandle);
+            handle = sharedMemoryBuffer->createHandle(SharedMemory::Protection::ReadOnly);
         }
-        send(Messages::WebPageProxy::SaveImageToLibrary(WTFMove(handle), authorizationToken));
+        if (!handle)
+            return;
+        send(Messages::WebPageProxy::SaveImageToLibrary(WTFMove(*handle), authorizationToken));
     }
 
     handleAnimationActions(element, action);
@@ -4209,7 +4222,7 @@ void WebPage::viewportConfigurationChanged(ZoomToInitialScale zoomToInitialScale
 
     auto* mainFrameView = this->localMainFrameView();
     if (!mainFrameView) {
-        // FIXME: This is hit in some site isolation tests on iOS. Investigate and fix.
+        // FIXME: This is hit in some site isolation tests on iOS. Investigate and fix. <rdar://116201382>
         return;
     }
 
@@ -4652,7 +4665,7 @@ String WebPage::platformUserAgent(const URL&) const
 
     auto* mainFrame = m_mainFrame->coreLocalFrame();
     if (!mainFrame) {
-        // FIXME: Add a user agent for loads from iframe processes.
+        // FIXME: Add a user agent for loads from iframe processes. <rdar://116201535>
         return { };
     }
 
@@ -4727,7 +4740,7 @@ void WebPage::hardwareKeyboardAvailabilityChanged(bool keyboardIsAttached)
 {
     m_keyboardIsAttached = keyboardIsAttached;
 
-    if (RefPtr focusedFrame = CheckedRef(m_page->focusController())->focusedFrame())
+    if (RefPtr focusedFrame = CheckedRef(m_page->focusController())->focusedLocalFrame())
         focusedFrame->eventHandler().capsLockStateMayHaveChanged();
 }
 

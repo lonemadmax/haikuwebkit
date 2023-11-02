@@ -47,6 +47,7 @@
 #include "RenderImage.h"
 #include "ShadowPseudoIds.h"
 #include "ShadowRoot.h"
+#include "TreeScopeInlines.h"
 #include "UserAgentStyleSheets.h"
 #include <wtf/text/AtomString.h>
 
@@ -73,7 +74,7 @@ bool hasImageControls(const HTMLElement& element)
     if (!shadowRoot || shadowRoot->mode() != ShadowRootMode::UserAgent)
         return false;
 
-    return shadowRoot->hasElementWithId(*imageControlsElementIdentifier().impl());
+    return shadowRoot->hasElementWithId(imageControlsElementIdentifier());
 }
 
 static RefPtr<HTMLElement> imageControlsHost(const Node& node)

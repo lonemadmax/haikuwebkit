@@ -54,6 +54,8 @@
  * through many bytes to find their target, constants are stored in LEB128, and a myriad of other reasons.
  * For IPInt, we design metadata to act as "supporting information" for the interpreter, allowing it to quickly
  * find important values such as constants, indices, and branch targets.
+ *
+ * FIXME: We should consider not aligning on Apple ARM64 cores since they don't typically have a penatly for unaligned loads/stores.
  * 
  * 2. Metadata Structure
  * ---------------------
@@ -154,9 +156,11 @@ private:
     CatchKind m_catchKind;
 
     Vector<uint32_t> m_awaitingUpdate;
-    int32_t m_pendingOffset = -1;
-    int32_t m_pc = -1;
-    int32_t m_mc = -1;
+    int32_t m_pendingOffset { -1 };
+    int32_t m_pc { -1 };
+    int32_t m_mc { -1 };
+    int32_t m_pcEnd { -1 };
+    uint32_t m_tryDepth { 0 };
 };
 
 class IPIntGenerator {
@@ -280,7 +284,7 @@ public:
 
     // GC
 
-    PartialResult WARN_UNUSED_RETURN addI31New(ExpressionType, ExpressionType&);
+    PartialResult WARN_UNUSED_RETURN addRefI31(ExpressionType, ExpressionType&);
     PartialResult WARN_UNUSED_RETURN addI31GetS(ExpressionType, ExpressionType&);
     PartialResult WARN_UNUSED_RETURN addI31GetU(ExpressionType, ExpressionType&);
     PartialResult WARN_UNUSED_RETURN addArrayNew(uint32_t, ExpressionType, ExpressionType, ExpressionType&);
@@ -297,8 +301,8 @@ public:
     PartialResult WARN_UNUSED_RETURN addStructSet(ExpressionType, const StructType&, uint32_t, ExpressionType);
     PartialResult WARN_UNUSED_RETURN addRefTest(ExpressionType, bool, int32_t, ExpressionType&);
     PartialResult WARN_UNUSED_RETURN addRefCast(ExpressionType, bool, int32_t, ExpressionType&);
-    PartialResult WARN_UNUSED_RETURN addExternInternalize(ExpressionType, ExpressionType&);
-    PartialResult WARN_UNUSED_RETURN addExternExternalize(ExpressionType, ExpressionType&);
+    PartialResult WARN_UNUSED_RETURN addAnyConvertExtern(ExpressionType, ExpressionType&);
+    PartialResult WARN_UNUSED_RETURN addExternConvertAny(ExpressionType, ExpressionType&);
 
     // Basic operators
 
@@ -482,14 +486,22 @@ public:
     void didPopValueFromStack(ExpressionType, String) { }
     void willParseOpcode() { }
     void didParseOpcode() { }
-    void dump(const ControlStack&, const Stack*) { }
+    void dump(const ControlStack&, const Stack*);
+
+    void convertTryToCatch(ControlType& tryBlock, CatchKind);
 
     static constexpr bool tierSupportsSIMD = true;
 private:
+    Checked<uint32_t> m_tryDepth { 0 };
+    uint32_t m_maxTryDepth { 0 };
     FunctionParser<IPIntGenerator>* m_parser { nullptr };
     ModuleInformation& m_info;
     std::unique_ptr<FunctionIPIntMetadataGenerator> m_metadata;
 
+    // FIXME: If rethrow is not used in practice we should consider just reparsing the function to update the SP offsets.
+    Vector<uint32_t> m_catchSPMetadataOffsets;
+
+    bool m_usesRethrow { false };
     bool m_usesSIMD { false };
 };
 
@@ -712,7 +724,7 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::setGlobal(uint32_t index, Expre
 
 // Loads and Stores
 
-// Implementation status: UNIMPLEMENTED
+// Implementation status: DONE.
 
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::load(LoadOpType, ExpressionType, ExpressionType&, uint32_t offset)
 {
@@ -727,12 +739,20 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::store(StoreOpType, ExpressionTy
 
 // Memories
 
-// Implementation status: UNIMPLEMENTED
+// Implementation status: DONE.
 
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addGrowMemory(ExpressionType, ExpressionType&) { return { }; }
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCurrentMemory(ExpressionType&) { return { }; }
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::addMemoryFill(ExpressionType, ExpressionType, ExpressionType) { return { }; }
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::addMemoryCopy(ExpressionType, ExpressionType, ExpressionType) { return { }; }
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::addMemoryFill(ExpressionType, ExpressionType, ExpressionType)
+{
+    m_metadata->addLength(getCurrentInstructionLength());
+    return { };
+}
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::addMemoryCopy(ExpressionType, ExpressionType, ExpressionType)
+{
+    m_metadata->addLength(getCurrentInstructionLength());
+    return { };
+}
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addMemoryInit(unsigned dataIndex, ExpressionType, ExpressionType, ExpressionType)
 {
     m_metadata->addLEB128ConstantInt32AndLength(dataIndex, getCurrentInstructionLength());
@@ -746,21 +766,55 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addDataDrop(unsigned dataIndex)
 
 // Atomics
 
-// Implementation status: UNIMPLEMENTED
+// Implementation status: DONE.
 
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicLoad(ExtAtomicOpType, Type, ExpressionType, ExpressionType&, uint32_t) { return { }; }
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicStore(ExtAtomicOpType, Type, ExpressionType, ExpressionType, uint32_t) { return { }; }
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicBinaryRMW(ExtAtomicOpType, Type, ExpressionType, ExpressionType, ExpressionType&, uint32_t) { return { }; }
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicCompareExchange(ExtAtomicOpType, Type, ExpressionType, ExpressionType, ExpressionType, ExpressionType&, uint32_t) { return { }; }
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicWait(ExtAtomicOpType, ExpressionType, ExpressionType, ExpressionType, ExpressionType&, uint32_t) { return { }; }
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicNotify(ExtAtomicOpType, ExpressionType, ExpressionType, ExpressionType&, uint32_t) { return { }; }
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicFence(ExtAtomicOpType, uint8_t) { return { }; }
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicLoad(ExtAtomicOpType, Type, ExpressionType, ExpressionType&, uint32_t offset)
+{
+    m_metadata->addLEB128ConstantInt32AndLength(offset, getCurrentInstructionLength());
+    return { };
+}
+
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicStore(ExtAtomicOpType, Type, ExpressionType, ExpressionType, uint32_t offset)
+{
+    m_metadata->addLEB128ConstantInt32AndLength(offset, getCurrentInstructionLength());
+    return { };
+}
+
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicBinaryRMW(ExtAtomicOpType, Type, ExpressionType, ExpressionType, ExpressionType&, uint32_t offset)
+{
+    m_metadata->addLEB128ConstantInt32AndLength(offset, getCurrentInstructionLength());
+    return { };
+}
+
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicCompareExchange(ExtAtomicOpType, Type, ExpressionType, ExpressionType, ExpressionType, ExpressionType&, uint32_t offset)
+{
+    m_metadata->addLEB128ConstantInt32AndLength(offset, getCurrentInstructionLength());
+    return { };
+}
+
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicWait(ExtAtomicOpType, ExpressionType, ExpressionType, ExpressionType, ExpressionType&, uint32_t offset)
+{
+    m_metadata->addLEB128ConstantInt32AndLength(offset, getCurrentInstructionLength());
+    return { };
+}
+
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicNotify(ExtAtomicOpType, ExpressionType, ExpressionType, ExpressionType&, uint32_t offset)
+{
+    m_metadata->addLEB128ConstantInt32AndLength(offset, getCurrentInstructionLength());
+    return { };
+}
+
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::atomicFence(ExtAtomicOpType, uint8_t)
+{
+    m_metadata->addLength(getCurrentInstructionLength());
+    return { };
+}
 
 // GC
 
 // Implementation status: UNIMPLEMENTED
 
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::addI31New(ExpressionType, ExpressionType&) { return { }; }
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::addRefI31(ExpressionType, ExpressionType&) { return { }; }
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addI31GetS(ExpressionType, ExpressionType&) { return { }; }
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addI31GetU(ExpressionType, ExpressionType&) { return { }; }
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addArrayNew(uint32_t, ExpressionType, ExpressionType, ExpressionType&) { return { }; }
@@ -777,8 +831,8 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addStructGet(ExpressionType, co
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addStructSet(ExpressionType, const StructType&, uint32_t, ExpressionType) { return { }; }
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addRefTest(ExpressionType, bool, int32_t, ExpressionType&) { return { }; }
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addRefCast(ExpressionType, bool, int32_t, ExpressionType&) { return { }; }
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::addExternInternalize(ExpressionType, ExpressionType&) { return { }; }
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::addExternExternalize(ExpressionType, ExpressionType&) { return { }; }
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::addAnyConvertExtern(ExpressionType, ExpressionType&) { return { }; }
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::addExternConvertAny(ExpressionType, ExpressionType&) { return { }; }
 
 // Integer Arithmetic
 
@@ -935,7 +989,11 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addI64TruncSF32(ExpressionType,
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addI64TruncUF64(ExpressionType, ExpressionType&) { return { }; }
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addI64TruncUF32(ExpressionType, ExpressionType&) { return { }; }
 
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::truncSaturated(Ext1OpType, ExpressionType, ExpressionType&, Type, Type) { return { }; }
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::truncSaturated(Ext1OpType, ExpressionType, ExpressionType&, Type, Type)
+{
+    m_metadata->addLength(getCurrentInstructionLength());
+    return { };
+}
 
 // Conversions
 
@@ -974,7 +1032,7 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addSelect(ExpressionType, Expre
 
 inline void IPIntGenerator::condenseControlFlowInstructions()
 {
-    // Peek at the next instruction: if it's not a block or loop, go through and resolve all the metadata entries
+    // Peek at the next instruction: if it's not a block, go through and resolve all the metadata entries
     auto nextOpcode = m_metadata->m_bytecode[m_parser->offset()];
     if (nextOpcode != OpType::Block) {
         // next PC (to skip type signature)
@@ -1013,18 +1071,11 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addLoop(BlockSignature signatur
 
     // Loop OSR
 
-    // We don't care what we're putting in as long as we put in something to represent a value
-    // Will get everything off the stack
-    int numOSREntryDataValues = m_metadata->m_numLocals;
-    for (unsigned controlIndex = 0; controlIndex < m_parser->controlStack().size(); ++controlIndex) {
-        Stack& expressionStack = m_parser->controlStack()[controlIndex].enclosedExpressionStack;
-        numOSREntryDataValues += expressionStack.size();
-    }
-    numOSREntryDataValues += oldStack.size();
+    unsigned numOSREntryDataValues = m_parser->getStackHeightInValues();
     numOSREntryDataValues += newStack.size();
-    Vector<VirtualRegister> osrEntryData(numOSREntryDataValues);
+
     // Note the +1: we do this to avoid having 0 as a key in the map, since the current map can't handle 0 as a key
-    m_metadata->tierUpCounter().add(m_parser->currentOpcodeStartingOffset() - m_metadata->m_bytecodeOffset + 1, LLIntTierUpCounter::OSREntryData { loopIndex, osrEntryData });
+    m_metadata->tierUpCounter().add(m_parser->currentOpcodeStartingOffset() - m_metadata->m_bytecodeOffset + 1, IPIntTierUpCounter::OSREntryData { loopIndex, numOSREntryDataValues, m_tryDepth });
 
     return { };
 }
@@ -1079,22 +1130,70 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addElseToUnreachable(ControlTyp
 
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addTry(BlockSignature signature, Stack& oldStack, ControlType& block, Stack& newStack)
 {
+    m_tryDepth++;
+    m_maxTryDepth = std::max(m_maxTryDepth, m_tryDepth.value());
+
     splitStack(signature, oldStack, newStack);
     block = ControlType(signature, BlockType::Try);
+    block.m_pc = m_parser->currentOpcodeStartingOffset() - m_metadata->m_bytecodeOffset;
+    block.m_tryDepth = m_tryDepth;
+
+    // FIXME: Should this participate the same skipping that block does?
+    // The upside is that we skip a bunch of sequential try/block instructions.
+    // The downside is that try needs more metadata.
+    // It's not clear that code would want to have many nested try blocks
+    // though.
+    m_metadata->addLength(getCurrentInstructionLength());
     return { };
+}
+
+void IPIntGenerator::convertTryToCatch(ControlType& tryBlock, CatchKind catchKind)
+{
+    ASSERT(ControlType::isTry(tryBlock));
+    ControlType catchBlock = ControlType(tryBlock.signature(), BlockType::Catch, catchKind);
+    catchBlock.m_pc = tryBlock.m_pc;
+    catchBlock.m_pcEnd = m_parser->currentOpcodeStartingOffset() - m_metadata->m_bytecodeOffset;
+    catchBlock.m_tryDepth = tryBlock.m_tryDepth;
+
+    tryBlock = WTFMove(catchBlock);
 }
 
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCatch(unsigned exceptionIndex, const TypeDefinition& exceptionSignature, Stack&, ControlType& block, ResultList& results)
 {
+
     return addCatchToUnreachable(exceptionIndex, exceptionSignature, block, results);
 }
 
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCatchToUnreachable(unsigned, const TypeDefinition& exceptionSignature, ControlType& block, ResultList& results)
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCatchToUnreachable(unsigned exceptionIndex, const TypeDefinition& exceptionSignature, ControlType& block, ResultList& results)
 {
+    if (ControlType::isTry(block))
+        convertTryToCatch(block, CatchKind::Catch);
+
     const FunctionSignature& signature = *exceptionSignature.as<FunctionSignature>();
-    for (unsigned i = 0; i < signature.argumentCount(); i ++)
+    for (unsigned i = 0; i < signature.argumentCount(); i++)
         results.append(Value { });
-    block = ControlType(block.signature(), BlockType::Catch);
+
+    // FIXME: If this is actually unreachable we shouldn't need metadata.
+    block.m_awaitingUpdate.append(m_metadata->m_metadata.size());
+    m_metadata->addBlankSpace(8);
+
+    m_metadata->m_exceptionHandlers.append({
+        HandlerType::Catch,
+        static_cast<uint32_t>(block.m_pc),
+        static_cast<uint32_t>(block.m_pcEnd),
+        static_cast<uint32_t>(m_parser->offset() - m_metadata->m_bytecodeOffset),
+        static_cast<uint32_t>(m_metadata->m_metadata.size()),
+        m_tryDepth,
+        exceptionIndex
+    });
+
+    auto size = m_metadata->m_metadata.size();
+    m_metadata->addBlankSpace(4);
+    // IPInt stack entries are 16 bytes to keep the stack aligned. With the exception of locals, which are only 8 bytes.
+    uint32_t stackSizeInV128 = results.size() + m_parser->getStackHeightInValues() + roundUpToMultipleOf<2>(m_metadata->m_numLocals) / 2;
+    m_catchSPMetadataOffsets.append(size);
+    WRITE_TO_METADATA(m_metadata->m_metadata.data() + size, stackSizeInV128, uint32_t);
+
     return { };
 }
 
@@ -1105,14 +1204,81 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCatchAll(Stack&, ControlType
 
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCatchAllToUnreachable(ControlType& block)
 {
-    block = ControlType(block.signature(), BlockType::Catch, CatchKind::CatchAll);
+    if (ControlType::isTry(block))
+        convertTryToCatch(block, CatchKind::CatchAll);
+    else
+        block.m_catchKind = CatchKind::CatchAll;
+
+    // FIXME: If this is actually unreachable we shouldn't need metadata.
+    block.m_awaitingUpdate.append(m_metadata->m_metadata.size());
+    m_metadata->addBlankSpace(8);
+
+    m_metadata->m_exceptionHandlers.append({
+        HandlerType::CatchAll,
+        static_cast<uint32_t>(block.m_pc),
+        static_cast<uint32_t>(block.m_pcEnd),
+        static_cast<uint32_t>(m_parser->offset() - m_metadata->m_bytecodeOffset),
+        static_cast<uint32_t>(m_metadata->m_metadata.size()),
+        m_tryDepth,
+        0
+    });
+
+    auto size = m_metadata->m_metadata.size();
+    m_metadata->addBlankSpace(4);
+    // IPInt stack entries are 16 bytes to keep the stack aligned. With the exception of locals, which are only 8 bytes.
+    uint32_t stackSizeInV128 = m_parser->getStackHeightInValues() + roundUpToMultipleOf<2>(m_metadata->m_numLocals) / 2;
+    m_catchSPMetadataOffsets.append(size);
+    WRITE_TO_METADATA(m_metadata->m_metadata.data() + size, stackSizeInV128, uint32_t);
+
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::addDelegate(ControlType&, ControlType&) { return { }; }
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::addDelegateToUnreachable(ControlType&, ControlType&) { return { }; }
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::addThrow(unsigned, Vector<ExpressionType>&, Stack&) { return { }; }
-PartialResult WARN_UNUSED_RETURN IPIntGenerator::addRethrow(unsigned, ControlType&) { return { }; }
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::addDelegate(ControlType& target, ControlType& data)
+{
+    return addDelegateToUnreachable(target, data);
+}
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::addDelegateToUnreachable(ControlType& target, ControlType& data)
+{
+    // FIXME: If this is actually unreachable we shouldn't need metadata.
+    auto size = m_metadata->m_metadata.size();
+    data.m_awaitingUpdate.append(size);
+    m_metadata->addBlankSpace(8);
+
+    ASSERT(ControlType::isTry(target) || ControlType::isTopLevel(target));
+    unsigned targetDepth = ControlType::isTry(target) ? target.m_tryDepth : 0;
+
+    m_metadata->m_exceptionHandlers.append({
+        HandlerType::Delegate,
+        static_cast<uint32_t>(data.m_pc),
+        static_cast<uint32_t>(data.m_pcEnd),
+        static_cast<uint32_t>(m_parser->offset() - m_metadata->m_bytecodeOffset),
+        static_cast<uint32_t>(m_metadata->m_metadata.size()),
+        m_tryDepth,
+        targetDepth
+    });
+
+    return { };
+}
+
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::addThrow(unsigned exceptionIndex, Vector<ExpressionType>&, Stack&)
+{
+    auto size = m_metadata->m_metadata.size();
+    m_metadata->addBlankSpace(4);
+    WRITE_TO_METADATA(m_metadata->m_metadata.data() + size, exceptionIndex, uint32_t);
+
+    return { };
+}
+
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::addRethrow(unsigned, ControlType& catchBlock)
+{
+    m_usesRethrow = true;
+
+    auto size = m_metadata->m_metadata.size();
+    m_metadata->addBlankSpace(4);
+    WRITE_TO_METADATA(m_metadata->m_metadata.data() + size, catchBlock.m_tryDepth, uint32_t);
+
+    return { };
+}
 
 // Control Flow Branches
 
@@ -1168,6 +1334,9 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addEndToUnreachable(ControlEntr
         entry.enclosedExpressionStack.constructAndAppend(signature.returnType(i), Value { });
     auto block = entry.controlData;
 
+    if (ControlType::isTry(block) || ControlType::isAnyCatch(block))
+        --m_tryDepth;
+
     if (ControlType::isTopLevel(block)) {
         // Hit the end
         // Resolve all condensing ends to jump here
@@ -1199,12 +1368,12 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addEndToUnreachable(ControlEntr
     if (ControlType::isIf(block)) {
         // if .. end
         m_metadata->m_repeatedControlFlowInstructionMetadataOffsets.append(entry.controlData.m_pendingOffset);
-    } else if (ControlType::isBlock(block)) {
+    } else if (ControlType::isBlock(block) || ControlType::isAnyCatch(block) || ControlType::isTry(block)) {
         if (block.m_pendingOffset != -1) {
             // (if..) else .. end
             m_metadata->m_repeatedControlFlowInstructionMetadataOffsets.append(entry.controlData.m_pendingOffset);
         } else {
-            // If it's a block, resolve all the jumps
+            // If it's a block or catch or try (delegate), resolve all the jumps
             for (auto x : block.m_awaitingUpdate) {
                 m_metadata->m_repeatedControlFlowInstructionMetadataOffsets.append(x);
             }
@@ -1391,6 +1560,12 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::addCrash() { return { }; }
 
 std::unique_ptr<FunctionIPIntMetadataGenerator> IPIntGenerator::finalize()
 {
+    if (m_usesRethrow) {
+        m_metadata->m_numAlignedRethrowSlots = roundUpToMultipleOf<2>(m_maxTryDepth);
+        for (uint32_t catchSPOffset : m_catchSPMetadataOffsets)
+            *reinterpret_cast_ptr<uint32_t*>(m_metadata->m_metadata.data() + catchSPOffset) += m_metadata->m_numAlignedRethrowSlots;
+    }
+
     return WTFMove(m_metadata);
 }
 
@@ -1402,6 +1577,10 @@ Expected<std::unique_ptr<FunctionIPIntMetadataGenerator>, String> parseAndCompil
     return generator.finalize();
 }
 
+void IPIntGenerator::dump(const ControlStack&, const Stack*)
+{
+    dataLogLn("PC: ", m_parser->currentOpcodeStartingOffset() - m_metadata->m_bytecodeOffset, " MC: ", m_metadata->m_metadata.size());
+}
 
 } } // namespace JSC::Wasm
 

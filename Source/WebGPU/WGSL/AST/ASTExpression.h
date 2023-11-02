@@ -27,6 +27,7 @@
 
 #include "ASTBuilder.h"
 #include "ASTNode.h"
+#include "ConstantValue.h"
 #include <wtf/ReferenceWrapperVector.h>
 
 namespace WGSL {
@@ -54,13 +55,18 @@ public:
 
     const Type* inferredType() const { return m_inferredType; }
 
+    const std::optional<ConstantValue>& constantValue() const { return m_constantValue; }
+    void setConstantValue(ConstantValue value) { m_constantValue = value; }
+
 protected:
     Expression(SourceSpan span)
         : Node(span)
     { }
 
-private:
     const Type* m_inferredType { nullptr };
+
+private:
+    std::optional<ConstantValue> m_constantValue { std::nullopt };
 };
 
 } // namespace AST

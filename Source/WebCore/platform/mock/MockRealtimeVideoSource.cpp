@@ -33,6 +33,7 @@
 
 #if ENABLE(MEDIA_STREAM)
 #include "CaptureDevice.h"
+#include "FillLightMode.h"
 #include "GraphicsContext.h"
 #include "ImageBuffer.h"
 #include "IntRect.h"
@@ -44,6 +45,7 @@
 #include "RealtimeMediaSourceSettings.h"
 #include "VideoFrame.h"
 #include <math.h>
+#include <wtf/NativePromise.h>
 #include <wtf/UUID.h>
 #include <wtf/text/StringConcatenateNumbers.h>
 
@@ -86,9 +88,7 @@ MockRealtimeVideoSource::MockRealtimeVideoSource(String&& deviceID, AtomString&&
     ASSERT(device);
     m_device = *device;
 
-    m_dashWidths.reserveInitialCapacity(2);
-    m_dashWidths.uncheckedAppend(6);
-    m_dashWidths.uncheckedAppend(6);
+    m_dashWidths.appendList({ 6, 6 });
 
     if (mockDisplay()) {
         auto& properties = std::get<MockDisplayProperties>(m_device.properties);
@@ -152,7 +152,7 @@ const RealtimeMediaSourceCapabilities& MockRealtimeVideoSource::capabilities()
         updateCapabilities(capabilities);
 
         if (facingMode == VideoFacingMode::Environment) {
-            capabilities.setFocusDistance(CapabilityValueOrRange(0.2, std::numeric_limits<double>::max()));
+            capabilities.setFocusDistance(CapabilityRange(0.2, std::numeric_limits<double>::max()));
             supportedConstraints.setSupportsFocusDistance(true);
         }
 
@@ -161,20 +161,61 @@ const RealtimeMediaSourceCapabilities& MockRealtimeVideoSource::capabilities()
             capabilities.setWhiteBalanceModes(WTFMove(whiteBalanceModes));
             supportedConstraints.setSupportsWhiteBalanceMode(true);
         }
+
+        if (std::get<MockCameraProperties>(m_device.properties).hasTorch) {
+            capabilities.setTorch(true);
+            supportedConstraints.setSupportsTorch(true);
+        }
+
         capabilities.setSupportedConstraints(supportedConstraints);
     } else if (mockDisplay()) {
-        capabilities.setWidth(CapabilityValueOrRange(72, std::get<MockDisplayProperties>(m_device.properties).defaultSize.width()));
-        capabilities.setHeight(CapabilityValueOrRange(45, std::get<MockDisplayProperties>(m_device.properties).defaultSize.height()));
-        capabilities.setFrameRate(CapabilityValueOrRange(.01, 60.0));
+        capabilities.setWidth(CapabilityRange(72, std::get<MockDisplayProperties>(m_device.properties).defaultSize.width()));
+        capabilities.setHeight(CapabilityRange(45, std::get<MockDisplayProperties>(m_device.properties).defaultSize.height()));
+        capabilities.setFrameRate(CapabilityRange(.01, 60.0));
     } else {
-        capabilities.setWidth(CapabilityValueOrRange(72, 2880));
-        capabilities.setHeight(CapabilityValueOrRange(45, 1800));
-        capabilities.setFrameRate(CapabilityValueOrRange(.01, 60.0));
+        capabilities.setWidth(CapabilityRange(72, 2880));
+        capabilities.setHeight(CapabilityRange(45, 1800));
+        capabilities.setFrameRate(CapabilityRange(.01, 60.0));
     }
 
     m_capabilities = WTFMove(capabilities);
 
     return m_capabilities.value();
+}
+
+void MockRealtimeVideoSource::getPhotoCapabilities(PhotoCapabilitiesHandler&& completion)
+{
+    if (m_photoCapabilities) {
+        completion({ *m_photoCapabilities });
+        return;
+    }
+
+    auto capabilities = this->capabilities();
+    PhotoCapabilities photoCapabilities;
+
+    auto height = capabilities.height();
+    photoCapabilities.imageHeight = { height.longRange().max, height.longRange().min, 1 };
+
+    auto width = capabilities.width();
+    photoCapabilities.imageWidth = { width.longRange().max, width.longRange().min, 1 };
+
+    m_photoCapabilities = WTFMove(photoCapabilities);
+
+    completion({ *m_photoCapabilities });
+}
+
+auto MockRealtimeVideoSource::getPhotoSettings() -> Ref<PhotoSettingsNativePromise>
+{
+    if (!m_photoSettings) {
+        std::optional<FillLightMode> fillLightMode;
+        if (std::get<MockCameraProperties>(m_device.properties).hasTorch)
+            fillLightMode = { torch() ? FillLightMode::Flash : FillLightMode::Off };
+
+        auto settings = this->settings();
+        m_photoSettings = PhotoSettings { fillLightMode, settings.height(), settings.width(), { } };
+    }
+
+    return PhotoSettingsNativePromise::createAndResolve(*m_photoSettings);
 }
 
 static bool isZoomSupported(const Vector<VideoPreset>& presets)
@@ -229,6 +270,12 @@ const RealtimeMediaSourceSettings& MockRealtimeVideoSource::settings()
             supportedConstraints.setSupportsWhiteBalanceMode(true);
             settings.setWhiteBalanceMode(whiteBalanceMode());
         }
+
+        if (std::get<MockCameraProperties>(m_device.properties).hasTorch) {
+            supportedConstraints.setSupportsTorch(true);
+            settings.setTorch(torch());
+        }
+
     } else {
         supportedConstraints.setSupportsDisplaySurface(true);
         supportedConstraints.setSupportsLogicalSurface(true);
@@ -269,6 +316,8 @@ void MockRealtimeVideoSource::settingsDidChange(OptionSet<RealtimeMediaSourceSet
         m_statsFontSize = m_baseFontSize * .5;
         m_imageBuffer = nullptr;
     }
+    if (settings.contains(RealtimeMediaSourceSettings::Flag::Torch))
+        m_photoSettings = std::nullopt;
 }
 
 void MockRealtimeVideoSource::startCaptureTimer()
@@ -486,7 +535,7 @@ void MockRealtimeVideoSource::generateFrame()
         m_delayUntil = MonotonicTime();
     }
 
-    ImageBuffer* buffer = imageBuffer();
+    RefPtr buffer = imageBuffer();
     if (!buffer)
         return;
 
@@ -516,7 +565,6 @@ ImageBuffer* MockRealtimeVideoSource::imageBuffer() const
     if (!m_imageBuffer)
         return nullptr;
 
-    m_imageBuffer->context().setImageInterpolationQuality(InterpolationQuality::Default);
     m_imageBuffer->context().setStrokeThickness(1);
 
     return m_imageBuffer.get();

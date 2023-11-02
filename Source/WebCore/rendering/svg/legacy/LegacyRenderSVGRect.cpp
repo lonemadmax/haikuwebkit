@@ -37,7 +37,7 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(LegacyRenderSVGRect);
 
 LegacyRenderSVGRect::LegacyRenderSVGRect(SVGRectElement& element, RenderStyle&& style)
-    : LegacyRenderSVGShape(element, WTFMove(style))
+    : LegacyRenderSVGShape(Type::LegacySVGRect, element, WTFMove(style))
 {
 }
 
@@ -52,10 +52,12 @@ void LegacyRenderSVGRect::updateShapeFromElement()
 {
     // Before creating a new object we need to clear the cached bounding box
     // to avoid using garbage.
+    clearPath();
+    m_shapeType = ShapeType::Empty;
     m_fillBoundingBox = FloatRect();
+    m_strokeBoundingBox = std::nullopt;
     m_innerStrokeRect = FloatRect();
     m_outerStrokeRect = FloatRect();
-    clearPath();
 
     SVGLengthContext lengthContext(&rectElement());
     FloatSize boundingBoxSize(lengthContext.valueForLength(style().width(), SVGLengthMode::Width), lengthContext.valueForLength(style().height(), SVGLengthMode::Height));
@@ -64,9 +66,14 @@ void LegacyRenderSVGRect::updateShapeFromElement()
     if (boundingBoxSize.isEmpty())
         return;
 
-    if (rectElement().rx().value(lengthContext) > 0 || rectElement().ry().value(lengthContext) > 0 || hasNonScalingStroke()) {
-        // Fall back to LegacyRenderSVGShape
-        LegacyRenderSVGShape::updateShapeFromElement();
+    if (rectElement().rx().value(lengthContext) > 0 || rectElement().ry().value(lengthContext) > 0)
+        m_shapeType = ShapeType::RoundedRectangle;
+    else
+        m_shapeType = ShapeType::Rectangle;
+
+    if (m_shapeType != ShapeType::Rectangle || hasNonScalingStroke()) {
+        // Fallback to path-based approach.
+        m_fillBoundingBox = ensurePath().boundingRect();
         return;
     }
 
@@ -90,7 +97,7 @@ void LegacyRenderSVGRect::updateShapeFromElement()
 #if USE(CG)
     // CoreGraphics can inflate the stroke by 1px when drawing a rectangle with antialiasing disabled at non-integer coordinates, we need to compensate.
     if (style().svgStyle().shapeRendering() == ShapeRendering::CrispEdges)
-        m_strokeBoundingBox.inflate(1);
+        m_strokeBoundingBox->inflate(1);
 #endif
 }
 
@@ -134,8 +141,8 @@ bool LegacyRenderSVGRect::shapeDependentStrokeContains(const FloatPoint& point, 
 {
     // The optimized code below does not support non-smooth strokes so we need to
     // fall back to LegacyRenderSVGShape::shapeDependentStrokeContains in these cases.
-    if (!hasSmoothStroke() && !hasPath())
-        LegacyRenderSVGShape::updateShapeFromElement();
+    if (!hasSmoothStroke())
+        ensurePath();
 
     if (hasPath())
         return LegacyRenderSVGShape::shapeDependentStrokeContains(point, pointCoordinateSpace);

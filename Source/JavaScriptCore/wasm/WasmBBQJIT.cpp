@@ -3659,11 +3659,11 @@ public:
     }
 
     // GC
-    PartialResult WARN_UNUSED_RETURN addI31New(ExpressionType value, ExpressionType& result)
+    PartialResult WARN_UNUSED_RETURN addRefI31(ExpressionType value, ExpressionType& result)
     {
         if (value.isConst()) {
             result = Value::fromI64((value.asI32() & 0x7fffffff) | JSValue::NumberTag);
-            LOG_INSTRUCTION("I31New", value, RESULT(result));
+            LOG_INSTRUCTION("RefI31", value, RESULT(result));
             return { };
         }
 
@@ -3673,7 +3673,7 @@ public:
         result = topValue(TypeKind::I64);
         Location resultLocation = allocateWithHint(result, initialValue);
 
-        LOG_INSTRUCTION("I31New", value, RESULT(result));
+        LOG_INSTRUCTION("RefI31", value, RESULT(result));
 
         m_jit.and32(TrustedImm32(0x7fffffff), initialValue.asGPR(), resultLocation.asGPR());
         m_jit.or64(TrustedImm64(JSValue::NumberTag), resultLocation.asGPR());
@@ -4208,17 +4208,17 @@ public:
     }
 
 
-    PartialResult WARN_UNUSED_RETURN addExternInternalize(ExpressionType reference, ExpressionType& result)
+    PartialResult WARN_UNUSED_RETURN addAnyConvertExtern(ExpressionType reference, ExpressionType& result)
     {
         Vector<Value, 8> arguments = {
             reference
         };
         result = topValue(TypeKind::Anyref);
-        emitCCall(&operationWasmExternInternalize, arguments, result);
+        emitCCall(&operationWasmAnyConvertExtern, arguments, result);
         return { };
     }
 
-    PartialResult WARN_UNUSED_RETURN addExternExternalize(ExpressionType reference, ExpressionType& result)
+    PartialResult WARN_UNUSED_RETURN addExternConvertAny(ExpressionType reference, ExpressionType& result)
     {
         result = reference;
         return { };
@@ -6975,22 +6975,45 @@ public:
         unsigned stackMapIndex = 0;
         for (unsigned i = 0; i < m_locals.size(); i ++)
             stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(m_locals[i]), toB3Type(m_localTypes[i]));
-        for (const ControlEntry& entry : m_parser->controlStack()) {
-            for (const TypedExpression& expr : entry.enclosedExpressionStack)
-                stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
-            if (ControlData::isAnyCatch(entry.controlData)) {
+
+        if (Options::useWasmIPInt()) {
+            // Do rethrow slots first because IPInt has them in a shadow stack.
+            for (const ControlEntry& entry : m_parser->controlStack()) {
                 for (unsigned i = 0; i < entry.controlData.implicitSlots(); i ++) {
                     Value exception = this->exception(entry.controlData);
                     stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(exception)), B3::Int64); // Exceptions are EncodedJSValues, so they are always Int64
                 }
             }
-        }
-        for (const TypedExpression& expr : enclosingStack)
-            stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
-        for (unsigned i = 0; i < data.argumentLocations().size(); i ++)
-            stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(data.argumentLocations()[i]), toB3Type(data.argumentType(i).kind));
-        RELEASE_ASSERT(stackMapIndex == numElements);
 
+            for (const ControlEntry& entry : m_parser->controlStack()) {
+                for (const TypedExpression& expr : entry.enclosedExpressionStack)
+                    stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
+            }
+
+            for (const TypedExpression& expr : enclosingStack)
+                stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
+            for (unsigned i = 0; i < data.argumentLocations().size(); i ++)
+                stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(data.argumentLocations()[i]), toB3Type(data.argumentType(i).kind));
+
+
+        } else {
+            for (const ControlEntry& entry : m_parser->controlStack()) {
+                for (const TypedExpression& expr : entry.enclosedExpressionStack)
+                    stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
+                if (ControlData::isAnyCatch(entry.controlData)) {
+                    for (unsigned i = 0; i < entry.controlData.implicitSlots(); i ++) {
+                        Value exception = this->exception(entry.controlData);
+                        stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(exception)), B3::Int64); // Exceptions are EncodedJSValues, so they are always Int64
+                    }
+                }
+            }
+            for (const TypedExpression& expr : enclosingStack)
+                stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(locationOf(expr.value())), toB3Type(expr.type().kind));
+            for (unsigned i = 0; i < data.argumentLocations().size(); i ++)
+                stackMap[stackMapIndex ++] = OSREntryValue(toB3Rep(data.argumentLocations()[i]), toB3Type(data.argumentType(i).kind));
+        }
+
+        RELEASE_ASSERT(stackMapIndex == numElements);
         m_osrEntryScratchBufferSize = std::max(m_osrEntryScratchBufferSize, numElements + BBQCallee::extraOSRValuesForLoopIndex);
         return stackMap;
     }
@@ -7493,7 +7516,7 @@ public:
 
             for (unsigned index = 0; index < targets.size(); ++index) {
                 Box<CCallHelpers::Label> label = Box<CCallHelpers::Label>::create(m_jit.label());
-                labels.uncheckedAppend(label);
+                labels.append(label);
                 bool isCodeEmitted = currentControlData().addExit(*this, targets[index]->targetLocations(), results);
                 if (isCodeEmitted)
                     targets[index]->addBranch(m_jit.jump());
@@ -7512,10 +7535,7 @@ public:
 
             fallThrough.link(&m_jit);
         } else {
-            Vector<int64_t> cases;
-            cases.reserveInitialCapacity(targets.size());
-            for (size_t i = 0; i < targets.size(); ++i)
-                cases.uncheckedAppend(i);
+            Vector<int64_t> cases(targets.size(), [](size_t i) { return i; });
 
             BinarySwitch binarySwitch(wasmScratchGPR, cases, BinarySwitch::Int32);
             while (binarySwitch.advance(m_jit)) {
@@ -7718,18 +7738,13 @@ public:
         // We'll directly use these when passing parameters, since no other instructions we emit here should
         // overwrite registers currently occupied by values.
 
-        Vector<Value, N> resolvedArguments;
-        resolvedArguments.reserveInitialCapacity(arguments.size());
-        for (unsigned i = 0; i < arguments.size(); i ++) {
-            if (arguments[i].isConst())
-                resolvedArguments.uncheckedAppend(arguments[i]);
-            else
-                resolvedArguments.uncheckedAppend(Value::pinned(arguments[i].type(), locationOf(arguments[i])));
-
+        auto resolvedArguments = WTF::map<N>(arguments, [&](auto& argument) {
+            auto value = argument.isConst() ? argument : Value::pinned(argument.type(), locationOf(argument));
             // Like other value uses, we count this as a use here, and end the lifetimes of any temps we passed.
             // This saves us the work of having to spill them to their canonical slots.
-            consume(arguments[i]);
-        }
+            consume(argument);
+            return value;
+        });
 
         // At this point in the program, argumentLocations doesn't represent the state of the register allocator.
         // We need to be careful not to allocate any new registers before passing them to the function, since that
@@ -7755,10 +7770,9 @@ public:
         }
 
         // Finally, we parallel-move arguments to the parameter locations.
-        Vector<Location, N> parameterLocations;
-        parameterLocations.reserveInitialCapacity(callInfo.params.size());
-        for (const auto& param : callInfo.params)
-            parameterLocations.uncheckedAppend(Location::fromArgumentLocation(param));
+        auto parameterLocations = WTF::map<N>(callInfo.params, [](auto& param) {
+            return Location::fromArgumentLocation(param);
+        });
         emitShuffle(resolvedArguments, parameterLocations);
     }
 
@@ -7801,10 +7815,9 @@ public:
     {
         // Currently, we assume the Wasm calling convention is the same as the C calling convention
         Vector<Type, 16> resultTypes;
-        Vector<Type, 16> argumentTypes;
-        argumentTypes.reserveInitialCapacity(arguments.size());
-        for (const Value& value : arguments)
-            argumentTypes.uncheckedAppend(Type { value.type(), 0u });
+        auto argumentTypes = WTF::map<16>(arguments, [](auto& value) {
+            return Type { value.type(), 0u };
+        });
         RefPtr<TypeDefinition> functionType = TypeInformation::typeDefinitionForFunction(resultTypes, argumentTypes);
         CallInformation callInfo = wasmCallingConvention().callInformationFor(*functionType, CallRole::Caller);
         Checked<int32_t> calleeStackSize = WTF::roundUpToMultipleOf(stackAlignmentBytes(), callInfo.headerAndArgumentStackSizeInBytes);
@@ -7830,10 +7843,10 @@ public:
 
         // Currently, we assume the Wasm calling convention is the same as the C calling convention
         Vector<Type, 16> resultTypes = { Type { result.type(), 0u } };
-        Vector<Type, 16> argumentTypes;
-        argumentTypes.reserveInitialCapacity(arguments.size());
-        for (const Value& value : arguments)
-            argumentTypes.uncheckedAppend(Type { value.type(), 0u });
+        auto argumentTypes = WTF::map<16>(arguments, [](auto& value) {
+            return Type { value.type(), 0u };
+        });
+
         RefPtr<TypeDefinition> functionType = TypeInformation::typeDefinitionForFunction(resultTypes, argumentTypes);
         CallInformation callInfo = wasmCallingConvention().callInformationFor(*functionType, CallRole::Caller);
         Checked<int32_t> calleeStackSize = WTF::roundUpToMultipleOf(stackAlignmentBytes(), callInfo.headerAndArgumentStackSizeInBytes);

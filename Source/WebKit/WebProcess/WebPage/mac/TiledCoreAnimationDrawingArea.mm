@@ -28,7 +28,6 @@
 
 #if PLATFORM(MAC)
 
-#import "DisplayRefreshMonitorMac.h"
 #import "DrawingAreaProxyMessages.h"
 #import "EventDispatcher.h"
 #import "LayerHostingContext.h"
@@ -36,6 +35,7 @@
 #import "Logging.h"
 #import "MessageSenderInlines.h"
 #import "ViewGestureControllerMessages.h"
+#import "WebDisplayRefreshMonitor.h"
 #import "WebFrame.h"
 #import "WebPage.h"
 #import "WebPageCreationParameters.h"
@@ -506,7 +506,7 @@ void TiledCoreAnimationDrawingArea::setExposedContentRect(const FloatRect&)
     ASSERT_NOT_REACHED();
 }
 
-void TiledCoreAnimationDrawingArea::updateGeometry(const IntSize& viewSize, const std::optional<VisibleContentRectUpdateInfo>&, bool flushSynchronously, const WTF::MachSendRight& fencePort, CompletionHandler<void()>&& completionHandler)
+void TiledCoreAnimationDrawingArea::updateGeometry(const IntSize& viewSize, bool flushSynchronously, const WTF::MachSendRight& fencePort, CompletionHandler<void()>&& completionHandler)
 {
     m_inUpdateGeometry = true;
 
@@ -575,7 +575,7 @@ std::optional<WebCore::DestinationColorSpace> TiledCoreAnimationDrawingArea::dis
 
 RefPtr<WebCore::DisplayRefreshMonitor> TiledCoreAnimationDrawingArea::createDisplayRefreshMonitor(PlatformDisplayID displayID)
 {
-    return DisplayRefreshMonitorMac::create(displayID);
+    return WebDisplayRefreshMonitor::create(displayID);
 }
 
 void TiledCoreAnimationDrawingArea::updateLayerHostingContext()

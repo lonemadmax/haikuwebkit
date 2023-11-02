@@ -36,10 +36,6 @@ namespace WebKit {
 enum class TapHandlingResult : uint8_t;
 }
 
-namespace WebKit {
-class VisibleContentRectUpdateInfo;
-}
-
 @interface WKWebView (WKViewInternalIOS)
 
 - (void)_setupScrollAndContentViews;
@@ -98,7 +94,6 @@ class VisibleContentRectUpdateInfo;
 - (void)_willInvokeUIScrollViewDelegateCallback;
 - (void)_didInvokeUIScrollViewDelegateCallback;
 
-- (std::optional<WebKit::VisibleContentRectUpdateInfo>)_createVisibleContentRectUpdateInfo;
 - (void)_scheduleVisibleContentRectUpdate;
 - (void)_scheduleForcedVisibleContentRectUpdate;
 
@@ -131,7 +126,6 @@ class VisibleContentRectUpdateInfo;
 - (void)_define:(id)sender;
 - (void)_lookup:(id)sender;
 - (void)_share:(id)sender;
-- (void)_showTextStyleOptions:(id)sender;
 - (void)_promptForReplace:(id)sender;
 - (void)_transliterateChinese:(id)sender;
 - (void)replace:(id)sender;
@@ -204,6 +198,7 @@ class VisibleContentRectUpdateInfo;
 @property (nonatomic, readonly) BOOL _isWindowResizingEnabled;
 #endif
 
+@property (nonatomic, readonly) WKVelocityTrackingScrollView *_scrollViewInternal;
 @property (nonatomic, readonly) CGRect _contentRectForUserInteraction;
 
 @end

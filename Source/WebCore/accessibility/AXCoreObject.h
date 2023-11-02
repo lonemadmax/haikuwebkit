@@ -94,7 +94,7 @@ struct AccessibilityText;
 struct CharacterRange;
 struct ScrollRectToVisibleOptions;
 
-enum AXIDType { };
+enum class AXIDType { };
 using AXID = ObjectIdentifier<AXIDType>;
 
 enum class AXAncestorFlag : uint8_t {
@@ -130,7 +130,7 @@ enum class AccessibilityRole {
     Canvas,
     Caption,
     Cell,
-    CheckBox,
+    Checkbox,
     Code,
     ColorWell,
     Column,
@@ -310,8 +310,8 @@ ALWAYS_INLINE String accessibilityRoleToString(AccessibilityRole role)
         return "Caption"_s;
     case AccessibilityRole::Cell:
         return "Cell"_s;
-    case AccessibilityRole::CheckBox:
-        return "CheckBox"_s;
+    case AccessibilityRole::Checkbox:
+        return "Checkbox"_s;
     case AccessibilityRole::Code:
         return "Code"_s;
     case AccessibilityRole::ColorWell:
@@ -615,7 +615,7 @@ enum class AccessibilitySearchKey {
     Blockquote,
     BoldFont,
     Button,
-    CheckBox,
+    Checkbox,
     Control,
     DifferentType,
     FontChange,
@@ -821,6 +821,7 @@ struct AccessibilityIsIgnoredFromParentData {
 class AXCoreObject : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<AXCoreObject> {
 public:
     virtual ~AXCoreObject() = default;
+    virtual String dbg() const = 0;
 
     void setObjectID(AXID axID) { m_id = axID; }
     AXID objectID() const { return m_id; }
@@ -850,7 +851,7 @@ public:
     virtual bool isSecureField() const = 0;
     virtual bool isNativeTextControl() const = 0;
     bool isWebArea() const { return roleValue() == AccessibilityRole::WebArea; }
-    bool isCheckbox() const { return roleValue() == AccessibilityRole::CheckBox; }
+    bool isCheckbox() const { return roleValue() == AccessibilityRole::Checkbox; }
     bool isRadioButton() const { return roleValue() == AccessibilityRole::RadioButton; }
     bool isListBox() const { return roleValue() == AccessibilityRole::ListBox; }
     virtual bool isListBoxOption() const = 0;
@@ -1089,8 +1090,6 @@ public:
 
     // Called on the root AX object to return the deepest available element.
     virtual AXCoreObject* accessibilityHitTest(const IntPoint&) const = 0;
-    // Called on the AX object after the render tree determines which is the right AccessibilityRenderObject.
-    virtual AXCoreObject* elementAccessibilityHitTest(const IntPoint&) const = 0;
 
     virtual AXCoreObject* focusedUIElement() const = 0;
 
@@ -1276,11 +1275,13 @@ public:
     virtual VisiblePositionRange styleRangeForPosition(const VisiblePosition&) const = 0;
     virtual VisiblePositionRange visiblePositionRangeForRange(const CharacterRange&) const = 0;
     virtual VisiblePositionRange lineRangeForPosition(const VisiblePosition&) const = 0;
-    virtual VisiblePositionRange selectedVisiblePositionRange() const = 0;
 
     virtual std::optional<SimpleRange> rangeForCharacterRange(const CharacterRange&) const = 0;
 #if PLATFORM(COCOA)
     virtual AXTextMarkerRange textMarkerRangeForNSRange(const NSRange&) const = 0;
+#endif
+#if PLATFORM(MAC)
+    virtual AXTextMarkerRange selectedTextMarkerRange() = 0;
 #endif
 
     virtual String stringForRange(const SimpleRange&) const = 0;

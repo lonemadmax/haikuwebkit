@@ -76,15 +76,13 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderView);
 
 RenderView::RenderView(Document& document, RenderStyle&& style)
-    : RenderBlockFlow(document, WTFMove(style))
+    : RenderBlockFlow(Type::View, document, WTFMove(style))
     , m_frameView(*document.view())
     , m_initialContainingBlock(makeUniqueRef<Layout::InitialContainingBlock>(RenderStyle::clone(this->style())))
-    , m_layoutState(makeUniqueRef<Layout::LayoutState>(document, *m_initialContainingBlock, Layout::LayoutState::FormattingContextIntegrationType::Inline))
+    , m_layoutState(makeUniqueRef<Layout::LayoutState>(document, *m_initialContainingBlock))
     , m_selection(*this)
     , m_lazyRepaintTimer(*this, &RenderView::lazyRepaintTimerFired)
 {
-    setIsRenderView();
-
     // FIXME: We should find a way to enforce this at compile time.
     ASSERT(document.view());
 
@@ -102,6 +100,8 @@ RenderView::RenderView(Document& document, RenderStyle&& style)
 RenderView::~RenderView()
 {
     ASSERT_WITH_MESSAGE(m_rendererCount == 1, "All other renderers in this render tree should have been destroyed");
+
+    deleteLines();
 }
 
 void RenderView::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
@@ -502,8 +502,8 @@ void RenderView::repaintRootContents()
 
     // Always use layoutOverflowRect() to fix rdar://problem/27182267.
     // This should be cleaned up via webkit.org/b/159913 and webkit.org/b/159914.
-    auto* repaintContainer = containerForRepaint().renderer;
-    repaintUsingContainer(repaintContainer, computeRectForRepaint(layoutOverflowRect(), repaintContainer));
+    CheckedPtr repaintContainer = containerForRepaint().renderer;
+    repaintUsingContainer(repaintContainer.get(), computeRectForRepaint(layoutOverflowRect(), repaintContainer.get()));
 }
 
 void RenderView::repaintViewRectangle(const LayoutRect& repaintRect) const

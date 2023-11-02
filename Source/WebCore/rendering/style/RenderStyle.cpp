@@ -55,6 +55,7 @@
 #include "StyleSelfAlignmentData.h"
 #include "StyleTextBoxEdge.h"
 #include "StyleTreeResolver.h"
+#include "TransformOperationData.h"
 #include <algorithm>
 #include <wtf/MathExtras.h>
 #include <wtf/PointerComparison.h>
@@ -190,7 +191,8 @@ RenderStyle::RenderStyle(CreateDefaultStyleTag)
 #endif
     m_inheritedFlags.direction = static_cast<unsigned>(initialDirection());
     m_inheritedFlags.whiteSpaceCollapse = static_cast<unsigned>(initialWhiteSpaceCollapse());
-    m_inheritedFlags.textWrap = static_cast<unsigned>(initialTextWrap());
+    m_inheritedFlags.textWrapMode = static_cast<unsigned>(initialTextWrapMode());
+    m_inheritedFlags.textWrapStyle = static_cast<unsigned>(initialTextWrapStyle());
     m_inheritedFlags.borderCollapse = static_cast<unsigned>(initialBorderCollapse());
     m_inheritedFlags.rtlOrdering = static_cast<unsigned>(initialRTLOrdering());
     m_inheritedFlags.boxDirection = static_cast<unsigned>(initialBoxDirection());
@@ -1066,7 +1068,8 @@ bool RenderStyle::changeRequiresLayout(const RenderStyle& other, OptionSet<Style
         || m_inheritedFlags.textTransform != other.m_inheritedFlags.textTransform
         || m_inheritedFlags.direction != other.m_inheritedFlags.direction
         || m_inheritedFlags.whiteSpaceCollapse != other.m_inheritedFlags.whiteSpaceCollapse
-        || m_inheritedFlags.textWrap != other.m_inheritedFlags.textWrap
+        || m_inheritedFlags.textWrapMode != other.m_inheritedFlags.textWrapMode
+        || m_inheritedFlags.textWrapStyle != other.m_inheritedFlags.textWrapStyle
         || m_nonInheritedFlags.clear != other.m_nonInheritedFlags.clear
         || m_nonInheritedFlags.unicodeBidi != other.m_nonInheritedFlags.unicodeBidi)
         return true;
@@ -1449,8 +1452,10 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyCursor);
         if (first.whiteSpaceCollapse != second.whiteSpaceCollapse)
             changingProperties.m_properties.set(CSSPropertyWhiteSpaceCollapse);
-        if (first.textWrap != second.textWrap)
-            changingProperties.m_properties.set(CSSPropertyTextWrap);
+        if (first.textWrapMode != second.textWrapMode)
+            changingProperties.m_properties.set(CSSPropertyTextWrapMode);
+        if (first.textWrapStyle != second.textWrapStyle)
+            changingProperties.m_properties.set(CSSPropertyTextWrapStyle);
         if (first.borderCollapse != second.borderCollapse)
             changingProperties.m_properties.set(CSSPropertyBorderCollapse);
         if (first.printColorAdjust != second.printColorAdjust)
@@ -1914,7 +1919,9 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyTextSpacingTrim);
             changingProperties.m_properties.set(CSSPropertyTextAutospace);
             changingProperties.m_properties.set(CSSPropertyFontStyle);
+#if ENABLE(VARIATION_FONTS)
             changingProperties.m_properties.set(CSSPropertyFontVariationSettings);
+#endif
             changingProperties.m_properties.set(CSSPropertyFontWeight);
             changingProperties.m_properties.set(CSSPropertyFontSizeAdjust);
             changingProperties.m_properties.set(CSSPropertyFontFamily);
@@ -2303,7 +2310,7 @@ void RenderStyle::applyTransform(TransformationMatrix& transform, const Transfor
         return;
     }
 
-    auto originTranslate = computeTransformOrigin(transformData.boundingBox());
+    auto originTranslate = computeTransformOrigin(transformData.boundingBox);
     applyTransformOrigin(transform, originTranslate);
     applyCSSTransform(transform, transformData, options);
     unapplyTransformOrigin(transform, originTranslate);
@@ -2322,7 +2329,7 @@ void RenderStyle::applyCSSTransform(TransformationMatrix& transform, const Trans
 
     // 2. Translate by the computed X, Y, and Z values of transform-origin.
     // (implemented in applyTransformOrigin)
-    auto& boundingBox = operationData.boundingBox();
+    auto& boundingBox = operationData.boundingBox;
     // 3. Translate by the computed X, Y, and Z values of translate.
     if (options.contains(RenderStyle::TransformOperationOption::Translate)) {
         if (TransformOperation* translate = m_nonInheritedData->rareData->translate.get())
@@ -2743,22 +2750,22 @@ int RenderStyle::computeLineHeight(const Length& lineHeightLength) const
 }
 
 // FIXME: Remove this after all old calls to whiteSpace() are replaced with appropriate
-// calls to whiteSpaceCollapse() and textWrap().
+// calls to whiteSpaceCollapse() and textWrapMode().
 WhiteSpace RenderStyle::whiteSpace() const
 {
     auto whiteSpaceCollapse = static_cast<WhiteSpaceCollapse>(m_inheritedFlags.whiteSpaceCollapse);
-    auto textWrap = static_cast<TextWrap>(m_inheritedFlags.textWrap);
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::BreakSpaces && textWrap == TextWrap::Wrap)
+    auto textWrapMode = static_cast<TextWrapMode>(m_inheritedFlags.textWrapMode);
+    if (whiteSpaceCollapse == WhiteSpaceCollapse::BreakSpaces && textWrapMode == TextWrapMode::Wrap)
         return WhiteSpace::BreakSpaces;
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Collapse && textWrap == TextWrap::Wrap)
+    if (whiteSpaceCollapse == WhiteSpaceCollapse::Collapse && textWrapMode == TextWrapMode::Wrap)
         return WhiteSpace::Normal;
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Collapse && textWrap == TextWrap::NoWrap)
+    if (whiteSpaceCollapse == WhiteSpaceCollapse::Collapse && textWrapMode == TextWrapMode::NoWrap)
         return WhiteSpace::NoWrap;
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrap == TextWrap::NoWrap)
+    if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrapMode == TextWrapMode::NoWrap)
         return WhiteSpace::Pre;
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::PreserveBreaks && textWrap == TextWrap::Wrap)
+    if (whiteSpaceCollapse == WhiteSpaceCollapse::PreserveBreaks && textWrapMode == TextWrapMode::Wrap)
         return WhiteSpace::PreLine;
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrap == TextWrap::Wrap)
+    if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrapMode == TextWrapMode::Wrap)
         return WhiteSpace::PreWrap;
 
     // Reachable for combinations that can't be represented with the white-space syntax.

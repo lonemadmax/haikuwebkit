@@ -41,6 +41,7 @@
 #include "PlatformXRSystem.h"
 #include "ProvisionalFrameProxy.h"
 #include "ProvisionalPageProxy.h"
+#include "RemotePageProxy.h"
 #include "RemoteWorkerType.h"
 #include "ServiceWorkerNotificationHandler.h"
 #include "SpeechRecognitionPermissionRequest.h"
@@ -241,16 +242,6 @@ Ref<WebProcessProxy> WebProcessProxy::createForRemoteWorkers(RemoteWorkerType wo
     return proxy;
 }
 
-#if ENABLE(WEBCONTENT_CRASH_TESTING)
-Ref<WebProcessProxy> WebProcessProxy::createForWebContentCrashy(WebProcessPool& processPool)
-{
-    auto proxy = adoptRef(*new WebProcessProxy(processPool, nullptr, IsPrewarmed::No, CrossOriginMode::Shared, LockdownMode::Disabled));
-    proxy->setIsCrashyProcess();
-    proxy->connect();
-    return proxy;
-}
-#endif
-
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 class UIProxyForCapture final : public UserMediaCaptureManagerProxy::ConnectionProxy {
     WTF_MAKE_FAST_ALLOCATED;
@@ -342,7 +333,7 @@ WebProcessProxy::~WebProcessProxy()
 
     WebPasteboardProxy::singleton().removeWebProcessProxy(*this);
 
-#if HAVE(CVDISPLAYLINK)
+#if HAVE(DISPLAY_LINK)
     processPool().displayLinks().stopDisplayLinks(m_displayLinkClient);
 #endif
 
@@ -435,6 +426,28 @@ void WebProcessProxy::updateRegistrationWithDataStore()
     }
 }
 
+void WebProcessProxy::initializePreferencesForGPUProcess(const WebPageProxy& page)
+{
+#if ENABLE(GPU_PROCESS)
+    if (!m_preferencesForGPUProcess)
+        m_preferencesForGPUProcess = page.preferencesForGPUProcess();
+    else
+        ASSERT(*m_preferencesForGPUProcess == page.preferencesForGPUProcess());
+#else
+    UNUSED_PARAM(page);
+#endif
+}
+
+bool WebProcessProxy::hasSameGPUProcessPreferencesAs(const API::PageConfiguration& pageConfiguration) const
+{
+#if ENABLE(GPU_PROCESS)
+    return !m_preferencesForGPUProcess || *m_preferencesForGPUProcess == pageConfiguration.preferencesForGPUProcess();
+#else
+    UNUSED_PARAM(pageConfiguration);
+    return true;
+#endif
+}
+
 void WebProcessProxy::addProvisionalPageProxy(ProvisionalPageProxy& provisionalPage)
 {
     WEBPROCESSPROXY_RELEASE_LOG(Loading, "addProvisionalPageProxy: provisionalPage=%p, pageProxyID=%" PRIu64 ", webPageID=%" PRIu64, &provisionalPage, provisionalPage.page().identifier().toUInt64(), provisionalPage.webPageID().toUInt64());
@@ -443,6 +456,7 @@ void WebProcessProxy::addProvisionalPageProxy(ProvisionalPageProxy& provisionalP
     ASSERT(!m_provisionalPages.contains(provisionalPage));
     markProcessAsRecentlyUsed();
     m_provisionalPages.add(provisionalPage);
+    initializePreferencesForGPUProcess(provisionalPage.page());
     updateRegistrationWithDataStore();
 }
 
@@ -467,6 +481,7 @@ void WebProcessProxy::addRemotePageProxy(RemotePageProxy& remotePage)
     ASSERT(!m_remotePages.contains(remotePage));
     m_remotePages.add(remotePage);
     markProcessAsRecentlyUsed();
+    initializePreferencesForGPUProcess(*remotePage.page());
 }
 
 void WebProcessProxy::removeRemotePageProxy(RemotePageProxy& remotePage)
@@ -500,11 +515,6 @@ void WebProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOpt
         processPool().setShouldMakeNextWebProcessLaunchFailForTesting(false);
         launchOptions.shouldMakeProcessLaunchFailForTesting = true;
     }
-
-#if ENABLE(WEBCONTENT_CRASH_TESTING)
-    if (isCrashyProcess())
-        launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("is-webcontent-crashy"_s, "1"_s);
-#endif
 
     if (m_serviceWorkerInformation) {
         launchOptions.extraInitializationData.add<HashTranslatorASCIILiteral>("service-worker-process"_s, "1"_s);
@@ -579,7 +589,7 @@ void WebProcessProxy::connectionWillOpen(IPC::Connection& connection)
     // reply from the UIProcess, which would be unsafe.
     connection.setOnlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage(true);
 
-#if HAVE(CVDISPLAYLINK)
+#if HAVE(DISPLAY_LINK)
     m_displayLinkClient.setConnection(&connection);
 #endif
 }
@@ -589,11 +599,39 @@ void WebProcessProxy::processWillShutDown(IPC::Connection& connection)
     WEBPROCESSPROXY_RELEASE_LOG(Process, "processWillShutDown:");
     ASSERT_UNUSED(connection, this->connection() == &connection);
 
-#if HAVE(CVDISPLAYLINK)
+#if HAVE(DISPLAY_LINK)
     m_displayLinkClient.setConnection(nullptr);
     processPool().displayLinks().stopDisplayLinks(m_displayLinkClient);
 #endif
 }
+
+#if HAVE(DISPLAY_LINK)
+std::optional<unsigned> WebProcessProxy::nominalFramesPerSecondForDisplay(WebCore::PlatformDisplayID displayID)
+{
+    return processPool().displayLinks().nominalFramesPerSecondForDisplay(displayID);
+}
+
+void WebProcessProxy::startDisplayLink(DisplayLinkObserverID observerID, WebCore::PlatformDisplayID displayID, WebCore::FramesPerSecond preferredFramesPerSecond)
+{
+    ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
+    processPool().displayLinks().startDisplayLink(m_displayLinkClient, observerID, displayID, preferredFramesPerSecond);
+}
+
+void WebProcessProxy::stopDisplayLink(DisplayLinkObserverID observerID, WebCore::PlatformDisplayID displayID)
+{
+    processPool().displayLinks().stopDisplayLink(m_displayLinkClient, observerID, displayID);
+}
+
+void WebProcessProxy::setDisplayLinkPreferredFramesPerSecond(DisplayLinkObserverID observerID, WebCore::PlatformDisplayID displayID, WebCore::FramesPerSecond preferredFramesPerSecond)
+{
+    processPool().displayLinks().setDisplayLinkPreferredFramesPerSecond(m_displayLinkClient, observerID, displayID, preferredFramesPerSecond);
+}
+
+void WebProcessProxy::setDisplayLinkForDisplayWantsFullSpeedUpdates(WebCore::PlatformDisplayID displayID, bool wantsFullSpeedUpdates)
+{
+    processPool().displayLinks().setDisplayLinkForDisplayWantsFullSpeedUpdates(m_displayLinkClient, displayID, wantsFullSpeedUpdates);
+}
+#endif
 
 void WebProcessProxy::shutDown()
 {
@@ -748,6 +786,8 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataS
         m_processPool->pageBeginUsingWebsiteDataStore(webPage, webPage.websiteDataStore());
     }
 
+    initializePreferencesForGPUProcess(webPage);
+
 #if PLATFORM(MAC) && USE(RUNNINGBOARD)
     if (webPage.preferences().backgroundWebContentRunningBoardThrottlingEnabled())
         setRunningBoardThrottlingEnabled();
@@ -762,7 +802,6 @@ void WebProcessProxy::addExistingWebPage(WebPageProxy& webPage, BeginsUsingDataS
     updateRegistrationWithDataStore();
     updateBackgroundResponsivenessTimer();
     updateBlobRegistryPartitioningState();
-    updatePreferencesForGPUProcess();
 
     // If this was previously a standalone worker process with no pages we need to call didChangeThrottleState()
     // to update our process assertions on the network process since standalone worker processes do not hold
@@ -801,7 +840,6 @@ void WebProcessProxy::removeWebPage(WebPageProxy& webPage, EndsUsingDataStore en
     updateAudibleMediaAssertions();
     updateMediaStreamingActivity();
     updateBackgroundResponsivenessTimer();
-    updatePreferencesForGPUProcess();
     updateBlobRegistryPartitioningState();
 
     maybeShutDown();
@@ -985,11 +1023,13 @@ void WebProcessProxy::getNetworkProcessConnection(CompletionHandler<void(Network
 }
 
 #if ENABLE(GPU_PROCESS)
+
 void WebProcessProxy::createGPUProcessConnection(IPC::Connection::Handle&& connectionIdentifier, WebKit::GPUProcessConnectionParameters&& parameters)
 {
-    if (!m_preferencesForGPUProcess)
-        m_preferencesForGPUProcess = computePreferencesForGPUProcess();
-    parameters.preferences = *m_preferencesForGPUProcess;
+    auto& gpuPreferences = preferencesForGPUProcess();
+    ASSERT(gpuPreferences);
+    if (gpuPreferences)
+        parameters.preferences = *gpuPreferences;
 
     m_processPool->createGPUProcessConnection(*this, WTFMove(connectionIdentifier), WTFMove(parameters));
 }
@@ -1110,14 +1150,13 @@ void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReas
 #endif
 
     // There is a nested transaction in WebPageProxy::resetStateAfterProcessExited() that we don't want to commit before the client call below (dispatchProcessDidTerminate).
-    Vector<PageLoadState::Transaction> pageLoadStateTransactions;
-    pageLoadStateTransactions.reserveInitialCapacity(pages.size());
-    for (auto& page : pages) {
-        if (page) {
-            pageLoadStateTransactions.uncheckedAppend(page->pageLoadState().transaction());
-            page->resetStateAfterProcessTermination(reason);
-        }
-    }
+    auto pageLoadStateTransactions = WTF::compactMap(pages, [&](auto& page) -> std::optional<PageLoadState::Transaction> {
+        if (!page)
+            return std::nullopt;
+        auto transaction = page->pageLoadState().transaction();
+        page->resetStateAfterProcessTermination(reason);
+        return transaction;
+    });
 
     for (auto& provisionalPage : provisionalPages) {
         if (provisionalPage)
@@ -1965,32 +2004,6 @@ void WebProcessProxy::updateBlobRegistryPartitioningState() const
         networkProcess->setBlobRegistryTopOriginPartitioningEnabled(sessionID(),  dataStore->isBlobRegistryPartitioningEnabled());
 }
 
-#if ENABLE(GPU_PROCESS)
-GPUProcessPreferencesForWebProcess WebProcessProxy::computePreferencesForGPUProcess() const
-{
-    GPUProcessPreferencesForWebProcess preferences;
-    for (auto& page : pages()) {
-        preferences.isWebGPUEnabled |= page->preferences().webGPUEnabled();
-        preferences.isWebGLEnabled |= page->preferences().webGLEnabled();
-        preferences.isDOMRenderingEnabled |= page->preferences().useGPUProcessForDOMRenderingEnabled();
-    }
-    return preferences;
-}
-#endif
-
-void WebProcessProxy::updatePreferencesForGPUProcess()
-{
-#if ENABLE(GPU_PROCESS)
-    if (auto* process = processPool().gpuProcess()) {
-        auto newPreferences = computePreferencesForGPUProcess();
-        if (m_preferencesForGPUProcess != newPreferences) {
-            m_preferencesForGPUProcess = newPreferences;
-            process->updatePreferencesForWebProcess(*this, newPreferences);
-        }
-    }
-#endif
-}
-
 #if !PLATFORM(COCOA)
 const MemoryCompactLookupOnlyRobinHoodHashSet<String>& WebProcessProxy::platformPathsWithAssumedReadAccess()
 {
@@ -2444,7 +2457,7 @@ void WebProcessProxy::enableRemoteWorkers(RemoteWorkerType workerType, const Use
 
 void WebProcessProxy::markProcessAsRecentlyUsed()
 {
-    liveProcessesLRU().appendOrMoveToLast(*this);
+    liveProcessesLRU().moveToLastIfPresent(*this);
 }
 
 void WebProcessProxy::systemBeep()

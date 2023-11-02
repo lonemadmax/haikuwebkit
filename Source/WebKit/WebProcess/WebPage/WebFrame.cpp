@@ -121,7 +121,7 @@ static uint64_t generateListenerID()
     return uniqueListenerID++;
 }
 
-// FIXME: Remove receivedMainFrameIdentifierFromUIProcess in favor of a more correct way of sending frame tree deltas to each process.
+// FIXME: Remove receivedMainFrameIdentifierFromUIProcess in favor of a more correct way of sending frame tree deltas to each process. <rdar://116201135>
 void WebFrame::initWithCoreMainFrame(WebPage& page, Frame& coreFrame, bool receivedMainFrameIdentifierFromUIProcess)
 {
     if (!receivedMainFrameIdentifierFromUIProcess)
@@ -159,7 +159,7 @@ Ref<WebFrame> WebFrame::createRemoteSubframe(WebPage& page, WebFrame& parent, We
     auto coreFrame = RemoteFrame::createSubframe(*page.corePage(), WTFMove(client), frameID, *parent.coreFrame());
     frame->m_coreFrame = coreFrame.get();
 
-    // FIXME: Pass in a name and call FrameTree::setName here.
+    // FIXME: Pass in a name and call FrameTree::setName here. <rdar://116201307>
     return frame;
 }
 
@@ -243,7 +243,8 @@ FrameInfoData WebFrame::info() const
         m_coreFrame ? m_coreFrame->tree().specifiedName().string() : String(),
         frameID(),
         parent ? std::optional<WebCore::FrameIdentifier> { parent->frameID() } : std::nullopt,
-        getCurrentProcessID()
+        getCurrentProcessID(),
+        isFocused()
     };
 
     return info;
@@ -269,7 +270,7 @@ FrameTreeNodeData WebFrame::frameTreeData() const
             ASSERT_NOT_REACHED();
             continue;
         }
-        data.children.uncheckedAppend(childWebFrame->frameTreeData());
+        data.children.append(childWebFrame->frameTreeData());
     }
 
     return data;
@@ -366,7 +367,7 @@ void WebFrame::didCommitLoadInAnotherProcess(std::optional<WebCore::LayerHosting
     if (!parent)
         newFrame->takeWindowProxyFrom(*localFrame);
     auto remoteFrameView = WebCore::RemoteFrameView::create(newFrame);
-    // FIXME: We need a corresponding setView(nullptr) during teardown to break the ref cycle.
+    // FIXME: We need a corresponding setView(nullptr) during teardown to break the ref cycle. <rdar://116200737>
     newFrame->setView(remoteFrameView.ptr());
     if (ownerRenderer)
         ownerRenderer->setWidget(remoteFrameView.ptr());
@@ -427,14 +428,14 @@ void WebFrame::transitionToLocal(std::optional<WebCore::LayerHostingContextIdent
     auto client = makeUniqueRef<WebLocalFrameLoaderClient>(*this, WTFMove(invalidator));
     auto localFrame = parent ? LocalFrame::createSubframeHostedInAnotherProcess(*corePage, WTFMove(client), m_frameID, *parent) : LocalFrame::createMainFrame(*corePage, WTFMove(client), m_frameID);
     m_coreFrame = localFrame.ptr();
+    if (localFrame->isMainFrame())
+        corePage->setMainFrame(localFrame);
     localFrame->init();
 
     if (layerHostingContextIdentifier)
         setLayerHostingContextIdentifier(*layerHostingContextIdentifier);
     if (localFrame->isRootFrame())
         corePage->addRootFrame(localFrame.get());
-    if (localFrame->isMainFrame())
-        corePage->setMainFrame(WTFMove(localFrame));
 
     if (auto* webPage = page(); webPage && m_coreFrame->isRootFrame()) {
         if (auto* drawingArea = webPage->drawingArea())
@@ -725,7 +726,7 @@ Ref<API::Array> WebFrame::childFrames()
         ASSERT(webFrame);
         if (!webFrame)
             continue;
-        vector.uncheckedAppend(webFrame);
+        vector.append(webFrame);
     }
 
     return API::Array::create(WTFMove(vector));
@@ -1108,7 +1109,7 @@ void WebFrame::documentLoaderDetached(uint64_t navigationID)
 }
 
 #if PLATFORM(COCOA)
-RetainPtr<CFDataRef> WebFrame::webArchiveData(FrameFilterFunction callback, void* context)
+RetainPtr<CFDataRef> WebFrame::webArchiveData(FrameFilterFunction callback, void* context, const String& mainResourceFileName)
 {
     Ref document = *coreLocalFrame()->document();
     auto archive = LegacyWebArchive::create(document, [this, callback, context](auto& frame) -> bool {
@@ -1119,7 +1120,7 @@ RetainPtr<CFDataRef> WebFrame::webArchiveData(FrameFilterFunction callback, void
         ASSERT(webFrame);
 
         return callback(toAPI(this), toAPI(webFrame.get()), context);
-    });
+    }, mainResourceFileName);
 
     if (!archive)
         return nullptr;
@@ -1292,6 +1293,17 @@ WebCore::HandleMouseEventResult WebFrame::handleMouseEvent(const WebMouseEvent& 
 
 bool WebFrame::handleKeyEvent(const WebKeyboardEvent& keyboardEvent)
 {
+    auto* coreFrame = coreLocalFrame();
+    if (!coreFrame)
+        return false;
+
+    if (keyboardEvent.type() == WebEventType::Char && keyboardEvent.isSystemKey())
+        return coreFrame->eventHandler().handleAccessKey(platform(keyboardEvent));
+    return coreFrame->eventHandler().keyEvent(platform(keyboardEvent));
+}
+
+bool WebFrame::isFocused() const
+{
     if (!m_coreFrame)
         return false;
 
@@ -1299,10 +1311,7 @@ bool WebFrame::handleKeyEvent(const WebKeyboardEvent& keyboardEvent)
     if (!page)
         return false;
 
-    Ref frame = page->focusController().focusedOrMainFrame();
-    if (keyboardEvent.type() == WebEventType::Char && keyboardEvent.isSystemKey())
-        return frame->eventHandler().handleAccessKey(platform(keyboardEvent));
-    return frame->eventHandler().keyEvent(platform(keyboardEvent));
+    return m_coreFrame->page()->focusController().focusedFrame() == coreFrame();
 }
 
 } // namespace WebKit

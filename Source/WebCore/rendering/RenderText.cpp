@@ -84,16 +84,14 @@ using namespace WTF::Unicode;
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderText);
 
 struct SameSizeAsRenderText : public RenderObject {
-    void* pointers[2];
-    uint32_t bitfields : 16;
 #if ENABLE(TEXT_AUTOSIZING)
     float candidateTextSize;
 #endif
-    float widths[2];
-    std::optional<float> minWidth;
-    std::optional<float> maxWidth;
-    std::optional<bool> canUseSimplifiedTextMeasuring;
+    float widths[4];
+    void* pointers[2];
     String text;
+    std::optional<bool> canUseSimplifiedTextMeasuring;
+    uint32_t bitfields : 16;
 };
 
 static_assert(sizeof(RenderText) == sizeof(SameSizeAsRenderText), "RenderText should stay small");
@@ -245,23 +243,23 @@ static unsigned offsetForPositionInRun(const InlineIterator::TextBox& textBox, f
     return textBox.fontCascade().offsetForPosition(textBox.textRun(InlineIterator::TextRunMode::Editing), x - textBox.logicalLeftIgnoringInlineDirection(), true);
 }
 
-inline RenderText::RenderText(Node& node, const String& text)
-    : RenderObject(node)
-    , m_containsOnlyASCII(text.impl()->containsOnlyASCII())
+inline RenderText::RenderText(Type type, Node& node, const String& text)
+    : RenderObject(type, node)
     , m_text(text)
+    , m_containsOnlyASCII(text.impl()->containsOnlyASCII())
 {
     ASSERT(!m_text.isNull());
     setIsText();
     m_canUseSimpleFontCodePath = computeCanUseSimpleFontCodePath();
 }
 
-RenderText::RenderText(Text& textNode, const String& text)
-    : RenderText(static_cast<Node&>(textNode), text)
+RenderText::RenderText(Type type, Text& textNode, const String& text)
+    : RenderText(type, static_cast<Node&>(textNode), text)
 {
 }
 
-RenderText::RenderText(Document& document, const String& text)
-    : RenderText(static_cast<Node&>(document), text)
+RenderText::RenderText(Type type, Document& document, const String& text)
+    : RenderText(type, static_cast<Node&>(document), text)
 {
 }
 
@@ -279,11 +277,6 @@ ASCIILiteral RenderText::renderName() const
 Text* RenderText::textNode() const
 {
     return downcast<Text>(RenderObject::node());
-}
-
-bool RenderText::isTextFragment() const
-{
-    return false;
 }
 
 bool RenderText::computeUseBackslashAsYenSymbol() const
@@ -551,11 +544,10 @@ static Vector<LayoutRect> characterRects(const InlineIterator::TextBox& run, uns
         return { };
 
     if (auto* svgTextBox = dynamicDowncast<SVGInlineTextBox>(run.legacyInlineBox())) {
-        Vector<LayoutRect> rects;
-        rects.reserveInitialCapacity(clampedEnd - clampedStart);
-        for (auto index = clampedStart; index < clampedEnd; ++index)
-            rects.uncheckedAppend(svgTextBox->localSelectionRect(index, index + 1));
-        return rects;
+        return Vector<LayoutRect>(clampedEnd - clampedStart, [&, clampedStart = clampedStart](size_t i) {
+            size_t index = clampedStart + i;
+            return svgTextBox->localSelectionRect(index, index + 1);
+        });
     }
 
     auto lineSelectionRect = LineSelection::logicalRect(*run.lineBox());
@@ -614,7 +606,7 @@ Vector<FloatQuad> RenderText::absoluteQuadsForRange(unsigned start, unsigned end
 
             for (auto& rect : rects) {
                 if (FloatRect localRect { rect }; !localRect.isZero())
-                    quads.uncheckedAppend(localToAbsoluteQuad(localRect, UseTransforms, wasFixed));
+                    quads.append(localToAbsoluteQuad(localRect, UseTransforms, wasFixed));
             }
             continue;
         }
@@ -1051,7 +1043,7 @@ TextBreakIterator::ContentAnalysis mapWordBreakToContentAnalysis(WordBreak wordB
     case WordBreak::KeepAll:
     case WordBreak::BreakWord:
         return TextBreakIterator::ContentAnalysis::Mechanical;
-    case WordBreak::Auto:
+    case WordBreak::AutoPhrase:
         return TextBreakIterator::ContentAnalysis::Linguistic;
     }
     return TextBreakIterator::ContentAnalysis::Mechanical;
@@ -1344,7 +1336,7 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, WeakHashSet<cons
     if (!style.autoWrap())
         m_minWidth = m_maxWidth;
 
-    if (style.whiteSpaceCollapse() == WhiteSpaceCollapse::Preserve && style.textWrap() == TextWrap::NoWrap) {
+    if (style.whiteSpaceCollapse() == WhiteSpaceCollapse::Preserve && style.textWrapMode() == TextWrapMode::NoWrap) {
         if (firstLine)
             m_beginMinWidth = *m_maxWidth;
         m_endMinWidth = currMaxWidth;

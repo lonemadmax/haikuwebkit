@@ -206,8 +206,9 @@ std::unique_ptr<Page> createPageForSanitizingWebContent()
 
     FrameLoader& loader = frame->loader();
     static constexpr ASCIILiteral markup = "<!DOCTYPE html><html><body></body></html>"_s;
-    ASSERT(loader.activeDocumentLoader());
-    auto& writer = loader.activeDocumentLoader()->writer();
+    RefPtr activeDocumentLoader = loader.activeDocumentLoader();
+    ASSERT(activeDocumentLoader);
+    auto& writer = activeDocumentLoader->writer();
     writer.setMIMEType("text/html"_s);
     writer.begin();
     writer.insertDataSynchronously(markup);
@@ -916,8 +917,8 @@ static RefPtr<EditingStyle> styleFromMatchedRulesAndInlineDecl(Node& node)
     if (!is<HTMLElement>(node))
         return nullptr;
 
-    auto& element = downcast<HTMLElement>(node);
-    auto style = EditingStyle::create(element.inlineStyle());
+    Ref element = downcast<HTMLElement>(node);
+    auto style = EditingStyle::create(element->inlineStyle());
     style->mergeStyleFromRules(element);
     return style;
 }
@@ -1181,11 +1182,11 @@ Ref<DocumentFragment> createFragmentFromMarkup(Document& document, const String&
     return fragment;
 }
 
-String serializeFragment(const Node& node, SerializedNodes root, Vector<Ref<Node>>* nodes, ResolveURLs resolveURLs, Vector<QualifiedName>* tagNamesToSkip, std::optional<SerializationSyntax> serializationSyntax)
+String serializeFragment(const Node& node, SerializedNodes root, Vector<Ref<Node>>* nodes, ResolveURLs resolveURLs, Vector<QualifiedName>* tagNamesToSkip, std::optional<SerializationSyntax> serializationSyntax, HashMap<String, String>&& replacementURLStrings)
 {
     if (!serializationSyntax)
         serializationSyntax = node.document().isHTMLDocument() ? SerializationSyntax::HTML : SerializationSyntax::XML;
-    MarkupAccumulator accumulator(nodes, resolveURLs, *serializationSyntax);
+    MarkupAccumulator accumulator(nodes, resolveURLs, *serializationSyntax, WTFMove(replacementURLStrings));
     return accumulator.serializeNodes(const_cast<Node&>(node), root, tagNamesToSkip);
 }
 
@@ -1410,14 +1411,14 @@ Ref<DocumentFragment> createFragmentForImageAndURL(Document& document, const Str
 static Vector<Ref<HTMLElement>> collectElementsToRemoveFromFragment(ContainerNode& container)
 {
     Vector<Ref<HTMLElement>> toRemove;
-    for (auto& element : childrenOfType<HTMLElement>(container)) {
+    for (Ref element : childrenOfType<HTMLElement>(container)) {
         if (is<HTMLHtmlElement>(element)) {
             toRemove.append(element);
-            collectElementsToRemoveFromFragment(element);
+            collectElementsToRemoveFromFragment(WTFMove(element));
             continue;
         }
         if (is<HTMLHeadElement>(element) || is<HTMLBodyElement>(element))
-            toRemove.append(element);
+            toRemove.append(WTFMove(element));
     }
     return toRemove;
 }
@@ -1479,14 +1480,17 @@ ExceptionOr<void> replaceChildrenWithFragment(ContainerNode& container, Ref<Docu
         return { };
     }
 
-    auto* containerChild = containerNode->firstChild();
+    // We don't Use RefPtr here because canUseSetDataOptimization() below relies on the
+    // containerChild's ref count.
+    WeakPtr containerChild = containerNode->firstChild();
     if (containerChild && !containerChild->nextSibling()) {
         if (is<Text>(*containerChild) && hasOneTextChild(fragment) && canUseSetDataOptimization(downcast<Text>(*containerChild), mutation)) {
-            downcast<Text>(*containerChild).setData(downcast<Text>(*fragment->firstChild()).data());
+            Ref { downcast<Text>(*containerChild) }->setData(downcast<Text>(*fragment->firstChild()).data());
             return { };
         }
 
-        return containerNode->replaceChild(fragment, *containerChild);
+        Ref protectedContainerChild { *containerChild };
+        return containerNode->replaceChild(fragment, protectedContainerChild);
     }
 
     containerNode->removeChildren();

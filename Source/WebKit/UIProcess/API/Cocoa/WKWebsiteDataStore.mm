@@ -548,11 +548,9 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
         fetchOptions.add(WebKit::WebsiteDataFetchOption::ComputeSizes);
 
     _websiteDataStore->fetchData(WebKit::toWebsiteDataTypes(dataTypes), fetchOptions, [completionHandlerCopy = WTFMove(completionHandlerCopy)](auto websiteDataRecords) {
-        Vector<RefPtr<API::Object>> elements;
-        elements.reserveInitialCapacity(websiteDataRecords.size());
-
-        for (auto& websiteDataRecord : websiteDataRecords)
-            elements.uncheckedAppend(API::WebsiteDataRecord::create(WTFMove(websiteDataRecord)));
+        auto elements = WTF::map(websiteDataRecords, [](auto& websiteDataRecord) -> RefPtr<API::Object> {
+            return API::WebsiteDataRecord::create(WTFMove(websiteDataRecord));
+        });
 
         completionHandlerCopy(wrapper(API::Array::create(WTFMove(elements))));
     });
@@ -721,10 +719,9 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
 
 #if ENABLE(TRACKING_PREVENTION)
     _websiteDataStore->getAllStorageAccessEntries(webPageProxy->identifier(), [completionHandler = makeBlockPtr(completionHandler)](auto domains) {
-        Vector<RefPtr<API::Object>> apiDomains;
-        apiDomains.reserveInitialCapacity(domains.size());
-        for (auto& domain : domains)
-            apiDomains.uncheckedAppend(API::String::create(domain));
+        auto apiDomains = WTF::map(domains, [](auto& domain) -> RefPtr<API::Object> {
+            return API::String::create(domain);
+        });
         completionHandler(wrapper(API::Array::create(WTFMove(apiDomains))));
     });
 #else
@@ -939,10 +936,9 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
 {
 #if ENABLE(APP_BOUND_DOMAINS)
     _websiteDataStore->getAppBoundDomains([completionHandler = makeBlockPtr(completionHandler)](auto& domains) mutable {
-        Vector<RefPtr<API::Object>> apiDomains;
-        apiDomains.reserveInitialCapacity(domains.size());
-        for (auto& domain : domains)
-            apiDomains.uncheckedAppend(API::String::create(domain.string()));
+        auto apiDomains = WTF::map(domains, [](auto& domain) -> RefPtr<API::Object> {
+            return API::String::create(domain.string());
+        });
         completionHandler(wrapper(API::Array::create(WTFMove(apiDomains))));
     });
 #else
@@ -954,10 +950,9 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
 {
 #if ENABLE(APP_BOUND_DOMAINS)
     _websiteDataStore->getAppBoundSchemes([completionHandler = makeBlockPtr(completionHandler)](auto& schemes) mutable {
-        Vector<RefPtr<API::Object>> apiSchemes;
-        apiSchemes.reserveInitialCapacity(schemes.size());
-        for (auto& scheme : schemes)
-            apiSchemes.uncheckedAppend(API::String::create(scheme));
+        auto apiSchemes = WTF::map(schemes, [](auto& scheme) -> RefPtr<API::Object> {
+            return API::String::create(scheme);
+        });
         completionHandler(wrapper(API::Array::create(WTFMove(apiSchemes))));
     });
 #else

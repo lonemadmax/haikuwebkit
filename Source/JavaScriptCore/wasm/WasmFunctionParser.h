@@ -59,7 +59,7 @@ void splitStack(BlockSignature originalSignature, EnclosingStack& enclosingStack
     ASSERT(enclosingStack.size() >= signature->as<FunctionSignature>()->argumentCount());
     unsigned offset = enclosingStack.size() - signature->as<FunctionSignature>()->argumentCount();
     for (unsigned i = 0; i < signature->as<FunctionSignature>()->argumentCount(); ++i)
-        newStack.uncheckedAppend(enclosingStack.at(i + offset));
+        newStack.append(enclosingStack.at(i + offset));
     enclosingStack.shrink(offset);
 }
 
@@ -155,6 +155,14 @@ public:
         }
     };
     bool localIsInitialized(uint32_t localIndex) { return m_localInitFlags.quickGet(localIndex); }
+
+    uint32_t getStackHeightInValues() const
+    {
+        uint32_t result = m_expressionStack.size();
+        for (const ControlEntry& entry : m_controlStack)
+            result += entry.enclosedExpressionStack.size();
+        return result;
+    }
 
 private:
     static constexpr bool verbose = false;
@@ -328,7 +336,7 @@ auto FunctionParser<Context>::parse() -> Result
 
     WASM_PARSER_FAIL_IF(!m_locals.tryReserveCapacity(signature.argumentCount()), "can't allocate enough memory for function's ", signature.argumentCount(), " arguments");
     for (uint32_t i = 0; i < signature.argumentCount(); ++i)
-        m_locals.uncheckedAppend(signature.argumentType(i));
+        m_locals.append(signature.argumentType(i));
 
     uint64_t totalNumberOfLocals = signature.argumentCount();
     uint64_t totalNonDefaultableLocals = 0;
@@ -354,7 +362,7 @@ auto FunctionParser<Context>::parse() -> Result
 
         WASM_PARSER_FAIL_IF(!m_locals.tryReserveCapacity(totalNumberOfLocals), "can't allocate enough memory for function's ", totalNumberOfLocals, " locals");
         for (uint32_t i = 0; i < numberOfLocals; ++i)
-            m_locals.uncheckedAppend(typeOfLocal);
+            m_locals.append(typeOfLocal);
 
         WASM_TRY_ADD_TO_CONTEXT(addLocal(typeOfLocal, numberOfLocals));
     }
@@ -508,7 +516,7 @@ auto FunctionParser<Context>::truncSaturated(Ext1OpType op, Type returnType, Typ
     TypedExpression value;
     WASM_TRY_POP_EXPRESSION_STACK_INTO(value, "unary");
 
-    WASM_VALIDATOR_FAIL_IF(value.type() != operandType, "trunc-saturated value type mismatch");
+    WASM_VALIDATOR_FAIL_IF(value.type() != operandType, "trunc-saturated value type mismatch. Expected: ", operandType, " but expression stack has ", value.type());
 
     ExpressionType result;
     WASM_TRY_ADD_TO_CONTEXT(truncSaturated(op, value, result, returnType, operandType));
@@ -1884,13 +1892,13 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
 
         ExtGCOpType op = static_cast<ExtGCOpType>(extOp);
         switch (op) {
-        case ExtGCOpType::I31New: {
+        case ExtGCOpType::RefI31: {
             TypedExpression value;
-            WASM_TRY_POP_EXPRESSION_STACK_INTO(value, "i31.new");
-            WASM_VALIDATOR_FAIL_IF(!value.type().isI32(), "i31.new value to type ", value.type(), " expected ", TypeKind::I32);
+            WASM_TRY_POP_EXPRESSION_STACK_INTO(value, "ref.i31");
+            WASM_VALIDATOR_FAIL_IF(!value.type().isI32(), "ref.i31 value to type ", value.type(), " expected ", TypeKind::I32);
 
             ExpressionType result;
-            WASM_TRY_ADD_TO_CONTEXT(addI31New(value, result));
+            WASM_TRY_ADD_TO_CONTEXT(addRefI31(value, result));
 
             m_expressionStack.constructAndAppend(Type { TypeKind::Ref, static_cast<TypeIndex>(TypeKind::I31ref) }, result);
             return { };
@@ -2025,8 +2033,8 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
 
             uint32_t dataIndex;
             WASM_PARSER_FAIL_IF(!parseVarUInt32(dataIndex), "can't get data segment index for array.new_data");
-            WASM_VALIDATOR_FAIL_IF(!(m_info.numberOfDataSegments.value()), "array.new_data in module with no data segments");
-            WASM_VALIDATOR_FAIL_IF(dataIndex >= m_info.numberOfDataSegments, "array.new_data segment index ",
+            WASM_VALIDATOR_FAIL_IF(!(m_info.dataSegmentsCount()), "array.new_data in module with no data segments");
+            WASM_VALIDATOR_FAIL_IF(dataIndex >= m_info.dataSegmentsCount(), "array.new_data segment index ",
                 dataIndex, " is out of bounds (maximum data segment index is ", *m_info.numberOfDataSegments -1, ")");
 
             // Get the array size
@@ -2171,8 +2179,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         }
         // The struct.new and struct.new_canon instructions are identical but with different opcodes for compatibility with both the spec & other implementations.
         // FIXME: Remove this redundancy when the GC proposal's opcode numbering is finalized.
-        case ExtGCOpType::StructNew:
-        case ExtGCOpType::StructNewCanon: {
+        case ExtGCOpType::StructNew: {
             uint32_t typeIndex;
             WASM_FAIL_IF_HELPER_FAILS(parseStructTypeIndex(typeIndex, "struct.new"));
 
@@ -2200,8 +2207,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
             m_expressionStack.constructAndAppend(Type { TypeKind::Ref, typeDefinition->index() }, result);
             return { };
         }
-        case ExtGCOpType::StructNewDefault:
-        case ExtGCOpType::StructNewCanonDefault: {
+        case ExtGCOpType::StructNewDefault: {
             uint32_t typeIndex;
             WASM_FAIL_IF_HELPER_FAILS(parseStructTypeIndex(typeIndex, "struct.new_default"));
 
@@ -2295,23 +2301,23 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
 
             return { };
         }
-        case ExtGCOpType::ExternInternalize: {
+        case ExtGCOpType::AnyConvertExtern: {
             TypedExpression reference;
-            WASM_TRY_POP_EXPRESSION_STACK_INTO(reference, "extern.internalize");
-            WASM_VALIDATOR_FAIL_IF(!isExternref(reference.type()), "extern.internalize reference to type ", reference.type(), " expected ", TypeKind::Externref);
+            WASM_TRY_POP_EXPRESSION_STACK_INTO(reference, "any.convert_extern");
+            WASM_VALIDATOR_FAIL_IF(!isExternref(reference.type()), "any.convert_extern reference to type ", reference.type(), " expected ", TypeKind::Externref);
 
             ExpressionType result;
-            WASM_TRY_ADD_TO_CONTEXT(addExternInternalize(reference, result));
+            WASM_TRY_ADD_TO_CONTEXT(addAnyConvertExtern(reference, result));
             m_expressionStack.constructAndAppend(anyrefType(reference.type().isNullable()), result);
             return { };
         }
-        case ExtGCOpType::ExternExternalize: {
+        case ExtGCOpType::ExternConvertAny: {
             TypedExpression reference;
-            WASM_TRY_POP_EXPRESSION_STACK_INTO(reference, "extern.externalize");
-            WASM_VALIDATOR_FAIL_IF(!isSubtype(reference.type(), anyrefType()), "extern.externalize reference to type ", reference.type(), " expected ", TypeKind::Anyref);
+            WASM_TRY_POP_EXPRESSION_STACK_INTO(reference, "extern.convert_any");
+            WASM_VALIDATOR_FAIL_IF(!isSubtype(reference.type(), anyrefType()), "extern.convert_any reference to type ", reference.type(), " expected ", TypeKind::Anyref);
 
             ExpressionType result;
-            WASM_TRY_ADD_TO_CONTEXT(addExternExternalize(reference, result));
+            WASM_TRY_ADD_TO_CONTEXT(addExternConvertAny(reference, result));
             m_expressionStack.constructAndAppend(externrefType(reference.type().isNullable()), result);
             return { };
         }
@@ -2952,7 +2958,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
             uint32_t target;
             WASM_PARSER_FAIL_IF(!parseVarUInt32(target), "can't get ", i, "th target for br_table");
             WASM_PARSER_FAIL_IF(target >= m_controlStack.size(), "br_table's ", i, "th target ", target, " exceeds control stack size ", m_controlStack.size());
-            targets.uncheckedAppend(&m_controlStack[m_controlStack.size() - 1 - target].controlData);
+            targets.append(&m_controlStack[m_controlStack.size() - 1 - target].controlData);
         }
 
         WASM_PARSER_FAIL_IF(!parseVarUInt32(defaultTargetIndex), "can't get default target for br_table");
@@ -3414,7 +3420,7 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
 #endif
 
         switch (op) {
-        case ExtGCOpType::I31New:
+        case ExtGCOpType::RefI31:
         case ExtGCOpType::I31GetS:
         case ExtGCOpType::I31GetU:
             return { };
@@ -3450,14 +3456,12 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
         }
         case ExtGCOpType::ArrayLen:
             return { };
-        case ExtGCOpType::StructNew:
-        case ExtGCOpType::StructNewCanon: {
+        case ExtGCOpType::StructNew: {
             uint32_t unused;
             WASM_FAIL_IF_HELPER_FAILS(parseStructTypeIndex(unused, "struct.new"));
             return { };
         }
-        case ExtGCOpType::StructNewDefault:
-        case ExtGCOpType::StructNewCanonDefault: {
+        case ExtGCOpType::StructNewDefault: {
             uint32_t unused;
             WASM_FAIL_IF_HELPER_FAILS(parseStructTypeIndex(unused, "struct.new_default"));
             return { };

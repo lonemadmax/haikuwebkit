@@ -585,7 +585,7 @@ bool RenderLayerBacking::shouldSetContentsDisplayDelegate() const
 void RenderLayerBacking::layerWillBeDestroyed()
 {
     auto& renderer = this->renderer();
-    if (is<RenderEmbeddedObject>(renderer) && downcast<RenderEmbeddedObject>(renderer).allowsAcceleratedCompositing()) {
+    if (RenderLayerCompositor::isCompositedPlugin(renderer)) {
         auto* pluginViewBase = downcast<PluginViewBase>(downcast<RenderWidget>(renderer).widget());
         if (pluginViewBase && m_graphicsLayer->contentsLayerForMedia())
             pluginViewBase->detachPluginLayer();
@@ -1107,8 +1107,10 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
 
     // FIXME: Overlow controls need to be above the flattening layer?
     if (auto* flatteningLayer = tileCacheFlatteningLayer()) {
-        if (layerConfigChanged || flatteningLayer->parent() != m_graphicsLayer.get())
+        if (layerConfigChanged || flatteningLayer->parent() != m_graphicsLayer.get()) {
+            // FIXME: m_graphicsLayer children are clobbered in RenderLayerCompositor::updateBackingAndHierarchy(); this probably doesn't work.
             m_graphicsLayer->addChild(*flatteningLayer);
+        }
     }
 
     if (updateMaskingLayer(renderer().hasMask(), renderer().hasClipPath()))
@@ -1148,17 +1150,34 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
         layerConfigChanged = true;
     }
 
-    if (is<RenderEmbeddedObject>(renderer()) && downcast<RenderEmbeddedObject>(renderer()).allowsAcceleratedCompositing()) {
-        auto* pluginViewBase = downcast<PluginViewBase>(downcast<RenderWidget>(renderer()).widget());
+    auto attachPluginLayer = [&](RenderEmbeddedObject& rendererEmbeddedObject) {
+        auto* pluginViewBase = dynamicDowncast<PluginViewBase>(rendererEmbeddedObject.widget());
+        if (!pluginViewBase)
+            return;
+
 #if PLATFORM(IOS_FAMILY)
+        // FIXME: This code can probably be removed: webkit.org/b/262808
         if (pluginViewBase && !m_graphicsLayer->contentsLayerForMedia()) {
             pluginViewBase->detachPluginLayer();
             pluginViewBase->attachPluginLayer();
         }
 #else
-        m_graphicsLayer->setContentsToPlatformLayer(pluginViewBase->platformLayer(), GraphicsLayer::ContentsLayerPurpose::Plugin);
+        switch (pluginViewBase->layerHostingStrategy()) {
+        case PluginLayerHostingStrategy::None:
+            break;
+        case PluginLayerHostingStrategy::PlatformLayer:
+            m_graphicsLayer->setContentsToPlatformLayer(pluginViewBase->platformLayer(), GraphicsLayer::ContentsLayerPurpose::Plugin);
+            break;
+        case PluginLayerHostingStrategy::GraphicsLayer:
+            // layer is parented in RenderLayerCompositor::updateBackingAndHierarchy().
+            break;
+        }
 #endif
-    }
+    };
+
+    if (RenderLayerCompositor::isCompositedPlugin(renderer()))
+        attachPluginLayer(downcast<RenderEmbeddedObject>(renderer()));
+
 #if ENABLE(VIDEO)
     else if (is<RenderVideo>(renderer()) && downcast<RenderVideo>(renderer()).shouldDisplayVideo()) {
         auto& videoElement = downcast<HTMLVideoElement>(*renderer().element());
@@ -1200,12 +1219,13 @@ bool RenderLayerBacking::updateConfiguration(const RenderLayer* compositingAnces
         layerConfigChanged = true;
     }
 #endif
-    if (is<RenderWidget>(renderer()) && compositor.parentFrameContentLayers(downcast<RenderWidget>(renderer()))) {
+    // FIXME: Why do we do this twice?
+    if (is<RenderWidget>(renderer()) && compositor.attachWidgetContentLayers(downcast<RenderWidget>(renderer()))) {
         m_owningLayer.setNeedsCompositingGeometryUpdate();
         layerConfigChanged = true;
     }
 
-    if (RenderLayerCompositor::isCompositedSubframeRenderer(renderer())) {
+    if (RenderLayerCompositor::hasCompositedWidgetContents(renderer())) {
         m_graphicsLayer->setContentsRectClipsDescendants(true);
         updateContentsRects();
     }
@@ -1729,6 +1749,21 @@ void RenderLayerBacking::updateDirectlyCompositedBoxDecorations(PaintedContentsI
     // to also update the contentsRect.
     updateDirectlyCompositedBackgroundColor(contentsInfo, didUpdateContentsRect);
     updateDirectlyCompositedBackgroundImage(contentsInfo, didUpdateContentsRect);
+}
+
+GraphicsLayer* RenderLayerBacking::layerForContents() const
+{
+    if (!RenderLayerCompositor::isCompositedPlugin(renderer()))
+        return nullptr;
+
+    auto* pluginViewBase = dynamicDowncast<PluginViewBase>(downcast<RenderEmbeddedObject>(renderer()).widget());
+    if (!pluginViewBase)
+        return nullptr;
+
+    if (pluginViewBase->layerHostingStrategy() != PluginLayerHostingStrategy::GraphicsLayer)
+        return nullptr;
+
+    return pluginViewBase->graphicsLayer();
 }
 
 void RenderLayerBacking::updateInternalHierarchy()
@@ -2668,8 +2703,10 @@ static inline bool hasVisibleBoxDecorations(const RenderStyle& style)
     return style.hasVisibleBorder() || style.hasBorderRadius() || style.hasOutline() || style.hasEffectiveAppearance() || style.boxShadow() || style.hasFilter();
 }
 
-static bool canDirectlyCompositeBackgroundBackgroundImage(const RenderStyle& style)
+static bool canDirectlyCompositeBackgroundBackgroundImage(const RenderElement& renderer)
 {
+    const RenderStyle& style = renderer.style();
+
     if (!GraphicsLayer::supportsContentsTiling())
         return false;
 
@@ -2677,7 +2714,7 @@ static bool canDirectlyCompositeBackgroundBackgroundImage(const RenderStyle& sty
     if (fillLayer.next())
         return false;
 
-    if (!fillLayer.imagesAreLoaded())
+    if (!fillLayer.imagesAreLoaded(&renderer))
         return false;
 
     if (fillLayer.attachment() != FillAttachment::ScrollBackground)
@@ -2700,15 +2737,17 @@ static bool canDirectlyCompositeBackgroundBackgroundImage(const RenderStyle& sty
     return true;
 }
 
-static bool hasPaintedBoxDecorationsOrBackgroundImage(const RenderStyle& style)
+static bool hasPaintedBoxDecorationsOrBackgroundImage(const RenderElement& renderer)
 {
+    const RenderStyle& style = renderer.style();
+
     if (hasVisibleBoxDecorations(style))
         return true;
 
     if (!style.hasBackgroundImage())
         return false;
 
-    return !canDirectlyCompositeBackgroundBackgroundImage(style);
+    return !canDirectlyCompositeBackgroundBackgroundImage(renderer);
 }
 
 static inline bool hasPerspectiveOrPreserves3D(const RenderStyle& style)
@@ -2846,7 +2885,7 @@ static bool supportsDirectlyCompositedBoxDecorations(const RenderLayerModelObjec
     if (renderer.hasClip())
         return false;
 
-    if (hasPaintedBoxDecorationsOrBackgroundImage(style))
+    if (hasPaintedBoxDecorationsOrBackgroundImage(renderer))
         return false;
 
     // FIXME: We can't create a directly composited background if this
@@ -2906,7 +2945,7 @@ bool RenderLayerBacking::paintsContent(RenderLayer::PaintedContentRequest& reque
 
 static bool isCompositedPlugin(RenderObject& renderer)
 {
-    return is<RenderEmbeddedObject>(renderer) && downcast<RenderEmbeddedObject>(renderer).allowsAcceleratedCompositing();
+    return is<RenderEmbeddedObject>(renderer) && downcast<RenderEmbeddedObject>(renderer).requiresAcceleratedCompositing();
 }
 
 // A "simple container layer" is a RenderLayer which has no visible content to render.
@@ -2923,7 +2962,7 @@ bool RenderLayerBacking::isSimpleContainerCompositingLayer(PaintedContentsInfo& 
     if (renderer().isRenderReplaced() && !isCompositedPlugin(renderer()))
         return false;
 
-    if (renderer().isTextControl())
+    if (renderer().isRenderTextControl())
         return false;
 
     if (contentsInfo.paintsBoxDecorations() || contentsInfo.paintsContent())
@@ -3173,7 +3212,7 @@ void RenderLayerBacking::contentChanged(ContentChangeType changeType)
     }
 #endif
 
-    if ((changeType == BackgroundImageChanged) && canDirectlyCompositeBackgroundBackgroundImage(renderer().style()))
+    if ((changeType == BackgroundImageChanged) && canDirectlyCompositeBackgroundBackgroundImage(renderer()))
         m_owningLayer.setNeedsCompositingConfigurationUpdate();
 
     if ((changeType == MaskImageChanged) && m_maskLayer)
@@ -4088,7 +4127,7 @@ void RenderLayerBacking::animationPaused(double timeOffset, const String& animat
 
 void RenderLayerBacking::animationFinished(const String& animationName)
 {
-    m_graphicsLayer->removeAnimation(animationName);
+    m_graphicsLayer->removeAnimation(animationName, std::nullopt);
     m_owningLayer.setNeedsPostLayoutCompositingUpdate();
     m_owningLayer.setNeedsCompositingGeometryUpdate();
 }

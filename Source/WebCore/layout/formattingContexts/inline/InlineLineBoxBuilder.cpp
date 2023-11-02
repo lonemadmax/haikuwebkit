@@ -37,9 +37,8 @@
 namespace WebCore {
 namespace Layout {
 
-LineBoxBuilder::LineBoxBuilder(const InlineFormattingContext& inlineFormattingContext, const InlineLayoutState& inlineLayoutState, const LineLayoutResult& lineLayoutResult)
+LineBoxBuilder::LineBoxBuilder(const InlineFormattingContext& inlineFormattingContext, const LineLayoutResult& lineLayoutResult)
     : m_inlineFormattingContext(inlineFormattingContext)
-    , m_inlineLayoutState(inlineLayoutState)
     , m_lineLayoutResult(lineLayoutResult)
 {
 }
@@ -66,6 +65,10 @@ LineBox LineBoxBuilder::build(size_t lineIndex)
     adjustInlineBoxHeightsForLineBoxContainIfApplicable(lineBox);
     computeLineBoxGeometry(lineBox);
     adjustOutsideListMarkersPosition(lineBox);
+
+    if (auto adjustment = formattingContext().quirks().adjustmentForLineGridLineSnap(lineBox))
+        expandAboveRootInlineBox(lineBox, *adjustment);
+
     return lineBox;
 }
 
@@ -216,7 +219,7 @@ void LineBoxBuilder::setLayoutBoundsForInlineBox(InlineLevelBox& inlineBox, Font
             }
         }
         if (inlineBox.layoutBox().isRubyBase()) {
-            auto [over, under] = RubyFormattingContext { formattingContext() }.annotationVerticalExtent(inlineBox.layoutBox());
+            auto [over, under] = RubyFormattingContext { formattingContext() }.annotationContributionToLayoutBounds(inlineBox.layoutBox());
             ascent += over;
             descent += under;
         }
@@ -427,7 +430,7 @@ void LineBoxBuilder::constructInlineLevelBoxes(LineBox& lineBox)
             setVerticalPropertiesForInlineLevelBox(lineBox, lineBreakBox);
             lineBox.addInlineLevelBox(WTFMove(lineBreakBox));
 
-            if (layoutState().inStandardsMode() || InlineFormattingQuirks::lineBreakBoxAffectsParentInlineBox(lineBox))
+            if (layoutState().inStandardsMode() || InlineQuirks::lineBreakBoxAffectsParentInlineBox(lineBox))
                 lineBox.parentInlineBox(run).setHasContent();
             continue;
         }
@@ -691,9 +694,8 @@ void LineBoxBuilder::computeLineBoxGeometry(LineBox& lineBox) const
 
 void LineBoxBuilder::adjustOutsideListMarkersPosition(LineBox& lineBox)
 {
-    auto floatingContext = FloatingContext { formattingContext(), blockLayoutState().floatingState() };
     auto lineBoxRect = lineBox.logicalRect();
-    auto floatConstraints = floatingContext.constraints(LayoutUnit { lineBoxRect.top() }, LayoutUnit { lineBoxRect.bottom() }, FloatingContext::MayBeAboveLastFloat::No);
+    auto floatConstraints = formattingContext().floatingContext().constraints(LayoutUnit { lineBoxRect.top() }, LayoutUnit { lineBoxRect.bottom() }, FloatingContext::MayBeAboveLastFloat::No);
 
     auto lineBoxOffset = lineBoxRect.left() - lineLayoutResult().lineGeometry.initialLogicalLeftIncludingIntrusiveFloats;
     auto rootInlineBoxLogicalLeft = lineBox.logicalRectForRootInlineBox().left();
@@ -707,7 +709,7 @@ void LineBoxBuilder::adjustOutsideListMarkersPosition(LineBox& lineBox)
         auto listMarkerInitialOffsetFromRootInlineBox = listMarkerInlineLevelBox.logicalLeft() - rootInlineBoxOffsetFromContentBoxOrIntrusiveFloat;
         auto logicalLeft = listMarkerInitialOffsetFromRootInlineBox;
         auto nestedListMarkerMarginStart = [&] {
-            auto nestedOffset = inlineLayoutState().nestedListMarkerOffset(listMarkerBox);
+            auto nestedOffset = layoutState().nestedListMarkerOffset(listMarkerBox);
             if (nestedOffset == LayoutUnit::min())
                 return 0_lu;
             // Nested list markers (in standards mode) share the same line and have offsets as if they had dedicated lines.
@@ -732,10 +734,18 @@ void LineBoxBuilder::adjustMarginStartForListMarker(const ElementBox& listMarker
 {
     if (!nestedListMarkerMarginStart && !rootInlineBoxOffset)
         return;
-    auto& listMarkerGeometry = const_cast<InlineFormattingState&>(formattingContext().formattingState()).boxGeometry(listMarkerBox);
+    auto& listMarkerGeometry = const_cast<InlineFormattingContext&>(formattingContext()).geometryForBox(listMarkerBox);
     // Make sure that the line content does not get pulled in to logical left direction due to
     // the large negative margin (i.e. this ensures that logical left of the list content stays at the line start)
     listMarkerGeometry.setHorizontalMargin({ listMarkerGeometry.marginStart() + nestedListMarkerMarginStart - LayoutUnit { rootInlineBoxOffset }, listMarkerGeometry.marginEnd() - nestedListMarkerMarginStart + LayoutUnit { rootInlineBoxOffset } });
+}
+
+void LineBoxBuilder::expandAboveRootInlineBox(LineBox& lineBox, InlineLayoutUnit expansion) const
+{
+    lineBox.rootInlineBox().setLogicalTop(lineBox.rootInlineBox().logicalTop() + expansion);
+    auto lineBoxRect = lineBox.logicalRect();
+    lineBoxRect.expandVertically(expansion);
+    lineBox.setLogicalRect(lineBoxRect);
 }
 
 }

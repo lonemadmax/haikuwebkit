@@ -60,7 +60,6 @@
 #include "FontSelectionValueInlines.h"
 #include "GridPositionsResolver.h"
 #include "HTMLFrameOwnerElement.h"
-#include "MotionPath.h"
 #include "NodeRenderStyle.h"
 #include "PerspectiveTransformOperation.h"
 #include "QuotesData.h"
@@ -80,6 +79,7 @@
 #include "StyleResolver.h"
 #include "StyleScope.h"
 #include "Styleable.h"
+#include "TransformOperationData.h"
 #include "TranslateTransformOperation.h"
 #include "WebAnimationUtilities.h"
 
@@ -358,15 +358,15 @@ static RefPtr<CSSValue> valueForNinePieceImage(CSSPropertyID propertyID, const N
 static Ref<CSSValue> fontSizeAdjustFromStyle(const RenderStyle& style)
 {
     auto fontSizeAdjust = style.fontSizeAdjust();
-    if (!fontSizeAdjust.value)
+    if (fontSizeAdjust.isNone())
         return CSSPrimitiveValue::create(CSSValueNone);
 
     auto metric = fontSizeAdjust.metric;
-    float value = *fontSizeAdjust.value;
+    auto value = fontSizeAdjust.isFromFont() ? fontSizeAdjust.resolve(style.computedFontSize(), style.metricsOfPrimaryFont()) : fontSizeAdjust.value.asOptional();
     if (metric == FontSizeAdjust::Metric::ExHeight)
-        return fontSizeAdjust.isFromFont ? CSSPrimitiveValue::create(CSSValueFromFont) : CSSPrimitiveValue::create(value);
+        return CSSPrimitiveValue::create(*value);
 
-    return CSSValuePair::create(createConvertingToCSSValueID(metric), fontSizeAdjust.isFromFont ? CSSPrimitiveValue::create(CSSValueFromFont) : CSSPrimitiveValue::create(value));
+    return CSSValuePair::create(createConvertingToCSSValueID(metric), CSSPrimitiveValue::create(*value));
 }
 
 static Ref<CSSPrimitiveValue> textSpacingTrimFromStyle(const RenderStyle& style)
@@ -577,28 +577,41 @@ static RefPtr<CSSValue> positionOffsetValue(const RenderStyle& style, CSSPropert
     return CSSPrimitiveValue::create(CSSValueAuto);
 }
 
+RefPtr<CSSValue> ComputedStyleExtractor::textWrapShorthandValue(const RenderStyle& style) const
+{
+    auto textWrapMode = style.textWrapMode();
+    auto textWrapStyle = style.textWrapStyle();
+
+    if (textWrapStyle == TextWrapStyle::Auto)
+        return createConvertingToCSSValueID(textWrapMode);
+    if (textWrapMode == TextWrapMode::Wrap)
+        return createConvertingToCSSValueID(textWrapStyle);
+
+    return CSSValuePair::create(createConvertingToCSSValueID(textWrapMode), createConvertingToCSSValueID(textWrapStyle));
+}
+
 RefPtr<CSSValue> ComputedStyleExtractor::whiteSpaceShorthandValue(const RenderStyle& style) const
 {
     auto whiteSpaceCollapse = style.whiteSpaceCollapse();
-    auto textWrap = style.textWrap();
+    auto textWrapMode = style.textWrapMode();
 
     // Convert to backwards-compatible keywords if possible.
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Collapse && textWrap == TextWrap::Wrap)
+    if (whiteSpaceCollapse == WhiteSpaceCollapse::Collapse && textWrapMode == TextWrapMode::Wrap)
         return CSSPrimitiveValue::create(CSSValueNormal);
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrap == TextWrap::NoWrap)
+    if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrapMode == TextWrapMode::NoWrap)
         return CSSPrimitiveValue::create(CSSValuePre);
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrap == TextWrap::Wrap)
+    if (whiteSpaceCollapse == WhiteSpaceCollapse::Preserve && textWrapMode == TextWrapMode::Wrap)
         return CSSPrimitiveValue::create(CSSValuePreWrap);
-    if (whiteSpaceCollapse == WhiteSpaceCollapse::PreserveBreaks && textWrap == TextWrap::Wrap)
+    if (whiteSpaceCollapse == WhiteSpaceCollapse::PreserveBreaks && textWrapMode == TextWrapMode::Wrap)
         return CSSPrimitiveValue::create(CSSValuePreLine);
 
     // Omit default longhand values.
     if (whiteSpaceCollapse == WhiteSpaceCollapse::Collapse)
-        return createConvertingToCSSValueID(textWrap);
-    if (textWrap == TextWrap::Wrap)
+        return createConvertingToCSSValueID(textWrapMode);
+    if (textWrapMode == TextWrapMode::Wrap)
         return createConvertingToCSSValueID(whiteSpaceCollapse);
 
-    return CSSValuePair::create(createConvertingToCSSValueID(whiteSpaceCollapse), createConvertingToCSSValueID(textWrap));
+    return CSSValuePair::create(createConvertingToCSSValueID(whiteSpaceCollapse), createConvertingToCSSValueID(textWrapMode));
 }
 
 Ref<CSSPrimitiveValue> ComputedStyleExtractor::currentColorOrValidColor(const RenderStyle& style, const StyleColor& color)
@@ -1064,7 +1077,7 @@ static void addValuesForNamedGridLinesAtIndex(OrderedNamedLinesCollector& collec
 
 static Ref<CSSValueList> valueForGridTrackSizeList(GridTrackSizingDirection direction, const RenderStyle& style)
 {
-    auto& autoTrackSizes = direction == ForColumns ? style.gridAutoColumns() : style.gridAutoRows();
+    auto& autoTrackSizes = direction == GridTrackSizingDirection::ForColumns ? style.gridAutoColumns() : style.gridAutoRows();
 
     CSSValueListBuilder list;
     for (auto& trackSize : autoTrackSizes)
@@ -1096,10 +1109,10 @@ static void populateSubgridLineNameList(CSSValueListBuilder& list, OrderedNamedL
 
 static Ref<CSSValue> valueForGridTrackList(GridTrackSizingDirection direction, RenderObject* renderer, const RenderStyle& style)
 {
-    bool isRowAxis = direction == ForColumns;
+    bool isRowAxis = direction == GridTrackSizingDirection::ForColumns;
     bool isRenderGrid = is<RenderGrid>(renderer);
     bool isSubgrid = isRowAxis ? style.gridSubgridColumns() : style.gridSubgridRows();
-    bool isMasonry = (direction == ForRows) ? style.gridMasonryRows() : style.gridMasonryColumns();
+    bool isMasonry = (direction == GridTrackSizingDirection::ForRows) ? style.gridMasonryRows() : style.gridMasonryColumns();
     auto& trackSizes = isRowAxis ? style.gridColumnTrackSizes() : style.gridRowTrackSizes();
     auto& autoRepeatTrackSizes = isRowAxis ? style.gridAutoRepeatColumns() : style.gridAutoRepeatRows();
 
@@ -2852,7 +2865,7 @@ static Ref<CSSFontValue> fontShorthandValue(const RenderStyle& style, ComputedSt
         return variantSettingsOmittingExpressible.isAllNormal()
             && fontStretch
             && fontStyle
-            && !description.fontSizeAdjust().value
+            && description.fontSizeAdjust().isNone()
             && description.kerning() == Kerning::Auto
             && description.featureSettings().isEmpty()
             && description.opticalSizing() == FontOpticalSizing::Enabled
@@ -2887,10 +2900,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::propertyValue(CSSPropertyID propertyID,
     if (!styledElement)
         return nullptr;
 
-    // FIXME: For now, we always allow access to white-space longhands.
-    // We should remove this hack once white-space longhands are no longer under a feature flag.
-    bool isWhiteSpaceLonghand = (propertyID == CSSPropertyWhiteSpaceCollapse || propertyID == CSSPropertyTextWrap);
-    if (!isWhiteSpaceLonghand && !isExposed(propertyID, m_element->document().settings())) {
+    if (!isExposed(propertyID, m_element->document().settings())) {
         // Exit quickly, and avoid us ever having to update layout in this case.
         return nullptr;
     }
@@ -2956,9 +2966,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     auto& cssValuePool = CSSValuePool::singleton();
     propertyID = CSSProperty::resolveDirectionAwareProperty(propertyID, style.direction(), style.writingMode());
 
-    // FIXME: For now, we always allow access to white-space longhands.
-    // We should remove this hack once white-space longhands are no longer under a feature flag.
-    ASSERT((propertyID == CSSPropertyWhiteSpaceCollapse || propertyID == CSSPropertyTextWrap) || isExposed(propertyID, m_element->document().settings()));
+    ASSERT(isExposed(propertyID, m_element->document().settings()));
 
     switch (propertyID) {
     case CSSPropertyInvalid:
@@ -2967,13 +2975,6 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         if (style.hasAutoAccentColor())
             return CSSPrimitiveValue::create(CSSValueAuto);
         return currentColorOrValidColor(style, style.accentColor());
-    }
-    case CSSPropertyAlignTracks:
-    case CSSPropertyJustifyTracks: {
-        CSSValueListBuilder list;
-        for (auto alignment : (propertyID == CSSPropertyAlignTracks) ? style.alignTracks() : style.justifyTracks())
-            list.append(valueForContentPositionAndDistributionWithOverflowAlignment(alignment));
-        return CSSValueList::createCommaSeparated(WTFMove(list));
     }
     case CSSPropertyBackgroundColor:
         return m_allowVisitedStyle ? cssValuePool.createColorValue(style.visitedDependentColor(CSSPropertyBackgroundColor)) : currentColorOrValidColor(style, style.backgroundColor());
@@ -3379,14 +3380,14 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     // depending on the size of the explicit grid or the number of implicit tracks added to the grid. See
     // http://lists.w3.org/Archives/Public/www-style/2013Nov/0014.html
     case CSSPropertyGridAutoColumns:
-        return valueForGridTrackSizeList(ForColumns, style);
+        return valueForGridTrackSizeList(GridTrackSizingDirection::ForColumns, style);
     case CSSPropertyGridAutoRows:
-        return valueForGridTrackSizeList(ForRows, style);
+        return valueForGridTrackSizeList(GridTrackSizingDirection::ForRows, style);
 
     case CSSPropertyGridTemplateColumns:
-        return valueForGridTrackList(ForColumns, renderer, style);
+        return valueForGridTrackList(GridTrackSizingDirection::ForColumns, renderer, style);
     case CSSPropertyGridTemplateRows:
-        return valueForGridTrackList(ForRows, renderer, style);
+        return valueForGridTrackList(GridTrackSizingDirection::ForRows, renderer, style);
 
     case CSSPropertyGridColumnStart:
         return valueForGridPosition(style.gridItemColumnStart());
@@ -3727,7 +3728,11 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     case CSSPropertyTextTransform:
         return renderTextTransformFlagsToCSSValue(style.textTransform());
     case CSSPropertyTextWrap:
-        return createConvertingToCSSValueID(style.textWrap());
+        return textWrapShorthandValue(style);
+    case CSSPropertyTextWrapMode:
+        return createConvertingToCSSValueID(style.textWrapMode());
+    case CSSPropertyTextWrapStyle:
+        return createConvertingToCSSValueID(style.textWrapStyle());
     case CSSPropertyTop:
         return positionOffsetValue(style, CSSPropertyTop, renderer);
     case CSSPropertyUnicodeBidi:
@@ -4112,7 +4117,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         CSSValueListBuilder list;
         for (auto* currLayer = &layers; currLayer; currLayer = currLayer->next())
             list.append(createConvertingToCSSValueID(currLayer->blendMode()));
-        return CSSValueList::createSpaceSeparated(WTFMove(list));
+        return CSSValueList::createCommaSeparated(WTFMove(list));
     }
     case CSSPropertyBackground:
         return getBackgroundShorthandValue();
@@ -4539,13 +4544,11 @@ Ref<CSSValueList> ComputedStyleExtractor::getCSSPropertyValuesForGridShorthand(c
 
 Ref<MutableStyleProperties> ComputedStyleExtractor::copyProperties(std::span<const CSSPropertyID> properties) const
 {
-    Vector<CSSProperty> vector;
-    vector.reserveInitialCapacity(properties.size());
-    for (auto property : properties) {
+    auto vector = WTF::compactMap(properties, [&](auto& property) -> std::optional<CSSProperty> {
         if (auto value = propertyValue(property))
-            vector.uncheckedAppend(CSSProperty(property, WTFMove(value), false));
-    }
-    vector.shrinkToFit();
+            return CSSProperty(property, WTFMove(value), false);
+        return std::nullopt;
+    });
     return MutableStyleProperties::create(WTFMove(vector));
 }
 

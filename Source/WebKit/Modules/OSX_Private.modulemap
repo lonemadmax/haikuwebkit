@@ -1679,16 +1679,6 @@ framework module WebKit_Private [system] {
     export *
   }
 
-  explicit module XPCEndpoint {
-    header "XPCEndpoint.h"
-    export *
-  }
-
-  explicit module XPCEndpointClient {
-    header "XPCEndpointClient.h"
-    export *
-  }
-
   explicit module _WKAppHighlight {
     header "_WKAppHighlight.h"
     export *
@@ -2119,6 +2109,16 @@ framework module WebKit_Private [system] {
     export *
   }
 
+  explicit module _WKWebExtensionAction {
+    header "_WKWebExtensionAction.h"
+    export *
+  }
+
+  explicit module _WKWebExtensionActionPrivate {
+    header "_WKWebExtensionActionPrivate.h"
+    export *
+  }
+
   explicit module _WKWebExtensionContext {
     header "_WKWebExtensionContext.h"
     export *
@@ -2166,6 +2166,16 @@ framework module WebKit_Private [system] {
 
   explicit module _WKWebExtensionMatchPatternPrivate {
     header "_WKWebExtensionMatchPatternPrivate.h"
+    export *
+  }
+
+  explicit module _WKWebExtensionMessagePort {
+    header "_WKWebExtensionMessagePort.h"
+    export *
+  }
+
+  explicit module _WKWebExtensionMessagePortPrivate {
+    header "_WKWebExtensionMessagePortPrivate.h"
     export *
   }
 

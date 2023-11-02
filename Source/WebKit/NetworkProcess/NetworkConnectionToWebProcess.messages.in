@@ -47,7 +47,7 @@ messages -> NetworkConnectionToWebProcess LegacyReceiver {
 
     CookiesForDOMAsync(URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, URL url, std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::PageIdentifier> pageID, enum:bool WebCore::IncludeSecureCookies includeSecureCookies, enum:bool WebCore::ApplyTrackingPrevention applyTrackingPrevention, enum:bool WebCore::ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, struct WebCore::CookieStoreGetOptions options) -> (std::optional<Vector<WebCore::Cookie>> cookies)
 
-    SetCookieFromDOMAsync(URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, URL url, std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::PageIdentifier> pageID, enum:bool WebCore::ApplyTrackingPrevention applyTrackingPrevention, enum:bool WebCore::ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, struct WebCore::Cookie cookie) -> (bool setSuccessfully)
+    SetCookieFromDOMAsync(URL firstParty, struct WebCore::SameSiteInfo sameSiteInfo, URL url, std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::PageIdentifier> pageID, enum:bool WebCore::ApplyTrackingPrevention applyTrackingPrevention, struct WebCore::Cookie cookie, enum:bool WebCore::ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking) -> (bool setSuccessfully)
 
 #if HAVE(COOKIE_CHANGE_LISTENER_API)
     SubscribeToCookieChangeNotifications(String host) AllowedWhenWaitingForSyncReply
@@ -133,4 +133,7 @@ messages -> NetworkConnectionToWebProcess LegacyReceiver {
     NavigatorGetPushSubscription(URL scopeURL) -> (Expected<std::optional<WebCore::PushSubscriptionData>, WebCore::ExceptionData> result)
     NavigatorGetPushPermissionState(URL scopeURL) -> (Expected<uint8_t, WebCore::ExceptionData> result)
 #endif
+
+    InitializeWebTransportSession(URL url) -> (std::optional<WebKit::WebTransportSessionIdentifier> identifier)
+    DestroyWebTransportSession(WebKit::WebTransportSessionIdentifier identifier)
 }

@@ -23,7 +23,6 @@
 
 GPUProcess/GPUProcess.cpp
 GPUProcess/GPUConnectionToWebProcess.cpp
-GPUProcess/GPUProcessCreationParameters.cpp
 GPUProcess/GPUProcessPreferences.cpp
 GPUProcess/ShapeDetection/RemoteBarcodeDetector.cpp
 GPUProcess/ShapeDetection/RemoteFaceDetector.cpp
@@ -181,10 +180,6 @@ NetworkProcess/storage/SessionStorageManager.cpp
 NetworkProcess/storage/StorageAreaBase.cpp
 NetworkProcess/storage/StorageAreaRegistry.cpp
 
-NetworkProcess/cache/CacheStorageEngine.cpp
-NetworkProcess/cache/CacheStorageEngineCache.cpp
-NetworkProcess/cache/CacheStorageEngineCaches.cpp
-NetworkProcess/cache/CacheStorageEngineConnection.cpp
 NetworkProcess/cache/AsyncRevalidation.cpp
 NetworkProcess/cache/NetworkCache.cpp
 NetworkProcess/cache/NetworkCacheBlobStorage.cpp
@@ -202,19 +197,21 @@ NetworkProcess/cache/PrefetchCache.cpp
 NetworkProcess/webrtc/NetworkMDNSRegister.cpp
 NetworkProcess/webrtc/RTCDataChannelRemoteManagerProxy.cpp
 
+NetworkProcess/webtransport/NetworkTransportBidirectionalStream.cpp
+NetworkProcess/webtransport/NetworkTransportSendStream.cpp
+NetworkProcess/webtransport/NetworkTransportSession.cpp
+NetworkProcess/webtransport/NetworkTransportReceiveStream.cpp
+
 Platform/IPC/DaemonCoders.cpp
 
-Shared/AccessibilityPreferences.cpp
 Shared/ActivityAssertion.cpp
 Shared/AuxiliaryProcess.cpp
-Shared/AuxiliaryProcessCreationParameters.cpp
 Shared/BlobDataFileReferenceWithSandboxExtension.cpp
 Shared/CacheModel.cpp
 Shared/ContextMenuContextData.cpp
 Shared/DebuggableInfoData.cpp
 Shared/EditingRange.cpp
 Shared/EditorState.cpp
-Shared/FontInfo.cpp
 Shared/InspectorExtensionTypes.cpp
 Shared/IPCConnectionTester.cpp
 Shared/IPCStreamTester.cpp
@@ -226,7 +223,6 @@ Shared/PrintInfo.cpp
 Shared/ProcessTerminationReason.cpp
 Shared/RTCNetwork.cpp
 Shared/RTCPacketOptions.cpp
-Shared/RemoteWorkerInitializationData.cpp
 Shared/ScrollingAccelerationCurve.cpp
 Shared/SessionState.cpp
 Shared/ShareableBitmapHandle.cpp
@@ -260,14 +256,12 @@ Shared/WebKit2Initialize.cpp
 Shared/WebMemorySampler.cpp
 Shared/WebMouseEvent.cpp
 Shared/WebPageGroupData.cpp
-Shared/WebPageNetworkParameters.cpp
 Shared/WebPlatformTouchPoint.cpp
 Shared/WebPopupItem.cpp
 Shared/WebPreferencesDefaultValues.cpp
 Shared/WebPreferencesStore.cpp
 Shared/WebPushMessage.cpp
 Shared/WebTouchEvent.cpp
-Shared/WebUserContentControllerDataTypes.cpp
 Shared/WebWheelEventCoalescer.cpp
 Shared/WebWheelEvent.cpp
 Shared/WebsitePoliciesData.cpp
@@ -379,12 +373,14 @@ Shared/WebGPU/WebGPUVertexState.cpp
 
 Shared/WebsiteData/WebsiteData.cpp
 
-Shared/XR/XRDeviceInfo.cpp
 Shared/XR/XRDeviceProxy.cpp
 
 UIProcess/AuxiliaryProcessProxy.cpp
 UIProcess/BackgroundProcessResponsivenessTimer.cpp
+UIProcess/BrowsingContextGroup.cpp
 UIProcess/DeviceIdHashSaltStorage.cpp
+UIProcess/DisplayLink.cpp
+UIProcess/DisplayLinkProcessProxyClient.cpp
 UIProcess/DrawingAreaProxy.cpp
 UIProcess/FrameLoadState.cpp
 UIProcess/GeolocationPermissionRequestManagerProxy.cpp
@@ -763,6 +759,9 @@ WebProcess/Network/WebResourceLoader.cpp
 WebProcess/Network/WebSocketChannel.cpp @no-unify
 WebProcess/Network/WebSocketChannelManager.cpp
 WebProcess/Network/WebSocketProvider.cpp
+WebProcess/Network/WebTransportReceiveStreamSource.cpp
+WebProcess/Network/WebTransportSendStreamSink.cpp
+WebProcess/Network/WebTransportSession.cpp
 
 WebProcess/Network/webrtc/LibWebRTCNetwork.cpp
 WebProcess/Network/webrtc/LibWebRTCNetworkManager.cpp
@@ -845,6 +844,7 @@ WebProcess/WebPage/WebBackForwardListProxy.cpp
 WebProcess/WebPage/WebContextMenu.cpp
 WebProcess/WebPage/WebCookieCache.cpp
 WebProcess/WebPage/WebCookieJar.cpp
+WebProcess/WebPage/WebDisplayRefreshMonitor.cpp
 WebProcess/WebPage/WebDocumentLoader.cpp
 WebProcess/WebPage/WebFoundTextRangeController.cpp
 WebProcess/WebPage/WebFrame.cpp
@@ -870,6 +870,7 @@ IPCStreamTesterProxyMessageReceiver.cpp
 IPCTesterMessageReceiver.cpp
 IPCTesterReceiverMessageReceiver.cpp
 NetworkBroadcastChannelRegistryMessageReceiver.cpp
+NetworkTransportSessionMessageReceiver.cpp
 RTCDataChannelRemoteManagerMessageReceiver.cpp
 RTCDataChannelRemoteManagerProxyMessageReceiver.cpp
 RemoteAudioMediaStreamTrackRendererInternalUnitManagerMessageReceiver.cpp
@@ -921,3 +922,4 @@ WebSharedWorkerContextManagerConnectionMessageReceiver.cpp
 WebSharedWorkerObjectConnectionMessageReceiver.cpp
 WebSharedWorkerServerConnectionMessageReceiver.cpp
 WebSharedWorkerServerToContextConnectionMessageReceiver.cpp
+WebTransportSessionMessageReceiver.cpp

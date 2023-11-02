@@ -80,12 +80,13 @@ void WebExtensionAPIPort::add()
 
 void WebExtensionAPIPort::remove()
 {
+    disconnect();
+
     auto entry = webExtensionPorts().find(channelIdentifier());
-    RELEASE_ASSERT(entry != webExtensionPorts().end());
+    if (entry == webExtensionPorts().end())
+        return;
 
     entry->value.remove(this);
-
-    disconnect();
 
     if (!entry->value.isEmpty())
         return;
@@ -100,7 +101,7 @@ NSString *WebExtensionAPIPort::name()
 
 NSDictionary *WebExtensionAPIPort::sender()
 {
-    return toWebAPI(m_senderParameters);
+    return m_senderParameters ? toWebAPI(m_senderParameters.value()) : nil;
 }
 
 JSValue *WebExtensionAPIPort::error()

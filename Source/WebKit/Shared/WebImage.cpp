@@ -39,8 +39,7 @@ RefPtr<WebImage> WebImage::create(const IntSize& size, ImageOptions options, con
         auto purpose = (options & ImageOptionsShareable) ? RenderingPurpose::ShareableSnapshot : RenderingPurpose::Snapshot;
         purpose = (options & ImageOptionsLocal) ? RenderingPurpose::ShareableLocalSnapshot : purpose;
         
-        auto buffer = client->createImageBuffer(size, RenderingMode::Unaccelerated, purpose, 1, colorSpace, PixelFormat::BGRA8);
-        if (buffer)
+        if (auto buffer = client->createImageBuffer(size, purpose, 1, colorSpace, PixelFormat::BGRA8, { }))
             return WebImage::create(buffer.releaseNonNull());
     }
 
@@ -57,15 +56,17 @@ RefPtr<WebImage> WebImage::create(const IntSize& size, ImageOptions options, con
     return WebImage::create(buffer.releaseNonNull());
 }
 
-RefPtr<WebImage> WebImage::create(const ImageBufferBackend::Parameters& parameters, ShareableBitmap::Handle&& handle)
+RefPtr<WebImage> WebImage::create(ImageBufferParameters&& parameters, ShareableBitmap::Handle&& handle)
 {
-    auto backend = ImageBufferShareableBitmapBackend::create(parameters, WTFMove(handle));
+    // FIXME: These should be abstracted as a encodable image buffer handle.
+    auto backendParameters = ImageBuffer::backendParameters(parameters);
+    auto backend = ImageBufferShareableBitmapBackend::create(backendParameters, WTFMove(handle));
     if (!backend)
         return nullptr;
     
-    auto info = ImageBuffer::populateBackendInfo<ImageBufferShareableBitmapBackend>(parameters);
+    auto info = ImageBuffer::populateBackendInfo<ImageBufferShareableBitmapBackend>(backendParameters);
 
-    auto buffer = ImageBuffer::create(parameters, info, WTFMove(backend));
+    auto buffer = ImageBuffer::create(WTFMove(parameters), info, WTFMove(backend));
     if (!buffer)
         return nullptr;
 
@@ -87,7 +88,7 @@ IntSize WebImage::size() const
     return m_buffer->backendSize();
 }
 
-const ImageBufferBackend::Parameters& WebImage::parameters() const
+const ImageBufferParameters& WebImage::parameters() const
 {
     return m_buffer->parameters();
 }

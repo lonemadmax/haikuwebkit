@@ -68,7 +68,7 @@ public:
     using TreeScope::getElementById;
     using TreeScope::rootNode;
 
-    WEBCORE_EXPORT Style::Scope& styleScope();
+    Style::Scope& styleScope() { return *m_styleScope; }
     StyleSheetList& styleSheets();
 
     bool delegatesFocus() const { return m_delegatesFocus; }
@@ -177,12 +177,17 @@ inline ContainerNode* Node::parentOrShadowHostNode() const
     return parentNode();
 }
 
+inline RefPtr<ContainerNode> Node::protectedParentOrShadowHostNode() const
+{
+    return parentOrShadowHostNode();
+}
+
 inline bool hasShadowRootParent(const Node& node)
 {
     return node.parentNode() && node.parentNode()->isShadowRoot();
 }
 
-Vector<ShadowRoot*> assignedShadowRootsIfSlotted(const Node&);
+Vector<Ref<ShadowRoot>> assignedShadowRootsIfSlotted(const Node&);
 
 } // namespace WebCore
 

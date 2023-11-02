@@ -1,0 +1,5 @@
+#include "Base-libvpx.xcconfig"
+
+PRODUCT_NAME = vp9_dec_fuzzer;
+
+OTHER_CFLAGS = $(inherited) -DDECODER=vp9;

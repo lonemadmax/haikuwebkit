@@ -89,6 +89,7 @@ public:
     static Ref<VTTCueBox> create(Document&, VTTCue&);
 
     void applyCSSProperties() override;
+    void applyCSSPropertiesWithRegion();
 
     void setFontSizeFromCaptionUserPrefs(int fontSize) { m_fontSizeFromCaptionUserPrefs = fontSize; }
 
@@ -198,7 +199,7 @@ public:
     CueType cueType() const override { return WebVTT; }
     bool isRenderable() const final { return !m_content.isEmpty(); }
 
-    void didChange() final;
+    void didChange(bool = false) final;
 
     double calculateComputedTextPosition() const;
     PositionAlignSetting calculateComputedPositionAlignment() const;
@@ -232,6 +233,7 @@ private:
 
     void determineTextDirection();
     void calculateDisplayParameters();
+    void calculateDisplayParametersWithRegion();
     void obtainCSSBoxes();
 
     enum CueSetting {

@@ -167,6 +167,7 @@ LocalSampleBufferDisplayLayer::LocalSampleBufferDisplayLayer(RetainPtr<AVSampleB
 void LocalSampleBufferDisplayLayer::initialize(bool hideRootLayer, IntSize size, CompletionHandler<void(bool didSucceed)>&& callback)
 {
     m_sampleBufferDisplayLayer.get().anchorPoint = { .5, .5 };
+    m_sampleBufferDisplayLayer.get().videoGravity = AVLayerVideoGravityResizeAspectFill;
 
     m_processingQueue->dispatch([this, weakThis = ThreadSafeWeakPtr { *this }, layer = RetainPtr { m_sampleBufferDisplayLayer }]() mutable {
         auto protectedThis = weakThis.get();
@@ -288,6 +289,7 @@ void LocalSampleBufferDisplayLayer::updateSampleLayerBoundsAndPosition(std::opti
 
         m_sampleBufferDisplayLayer = adoptNS([PAL::allocAVSampleBufferDisplayLayerInstance() init]);
         m_sampleBufferDisplayLayer.get().anchorPoint = { .5, .5 };
+        m_sampleBufferDisplayLayer.get().videoGravity = AVLayerVideoGravityResizeAspectFill;
         [m_sampleBufferDisplayLayer setName:@"LocalSampleBufferDisplayLayer AVSampleBufferDisplayLayer"];
 
         auto layerBounds = bounds.value_or(m_rootLayer.get().bounds);
@@ -357,6 +359,8 @@ void LocalSampleBufferDisplayLayer::flushAndRemoveImage()
 static void setSampleBufferAsDisplayImmediately(CMSampleBufferRef sampleBuffer)
 {
     CFArrayRef attachmentsArray = PAL::CMSampleBufferGetSampleAttachmentsArray(sampleBuffer, true);
+    if (!attachmentsArray)
+        return;
     for (CFIndex i = 0; i < CFArrayGetCount(attachmentsArray); ++i) {
         CFMutableDictionaryRef attachments = checked_cf_cast<CFMutableDictionaryRef>(CFArrayGetValueAtIndex(attachmentsArray, i));
         CFDictionarySetValue(attachments, PAL::kCMSampleAttachmentKey_DisplayImmediately, kCFBooleanTrue);

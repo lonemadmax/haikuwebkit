@@ -429,6 +429,15 @@ ScrollPosition ScrollView::adjustScrollPositionWithinRange(const ScrollPosition&
     return scrollPosition.constrainedBetween(minimumScrollPosition(), maximumScrollPosition());
 }
 
+void ScrollView::cacheCurrentScrollState()
+{
+    m_cachedScrollPosition = scrollPosition();
+#if PLATFORM(IOS_FAMILY)
+    m_cachedUnobscuredContentRect = unobscuredContentRect();
+    m_cachedExposedContentRect = exposedContentRect();
+#endif
+}
+
 ScrollPosition ScrollView::documentScrollPositionRelativeToViewOrigin() const
 {
     return scrollPosition() - IntSize(
@@ -1112,6 +1121,30 @@ Scrollbar* ScrollView::scrollbarAtPoint(const IntPoint& windowPoint)
     if (m_verticalScrollbar && m_verticalScrollbar->shouldParticipateInHitTesting() && m_verticalScrollbar->frameRect().contains(convertedPoint))
         return m_verticalScrollbar.get();
     return 0;
+}
+
+IntPoint ScrollView::convertChildToSelf(const Widget* child, IntPoint point) const
+{
+    if (!isScrollViewScrollbar(child))
+        point -= toIntSize(documentScrollPositionRelativeToViewOrigin());
+    point.moveBy(child->location());
+    return point;
+}
+
+FloatPoint ScrollView::convertChildToSelf(const Widget* child, FloatPoint point) const
+{
+    if (!isScrollViewScrollbar(child))
+        point -= toFloatSize(documentScrollPositionRelativeToViewOrigin());
+    point.moveBy(child->location());
+    return point;
+}
+
+IntPoint ScrollView::convertSelfToChild(const Widget* child, IntPoint point) const
+{
+    if (!isScrollViewScrollbar(child))
+        point += toIntSize(documentScrollPositionRelativeToViewOrigin());
+    point.moveBy(-child->location());
+    return point;
 }
 
 void ScrollView::setScrollbarOverlayStyle(ScrollbarOverlayStyle overlayStyle)

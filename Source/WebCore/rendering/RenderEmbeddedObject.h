@@ -55,7 +55,7 @@ public:
 
     void handleUnavailablePluginIndicatorEvent(Event*);
 
-    bool allowsAcceleratedCompositing() const;
+    bool requiresAcceleratedCompositing() const override;
 
     LayoutRect unavailablePluginIndicatorBounds(const LayoutPoint& accumulatedOffset) const;
 
@@ -71,11 +71,8 @@ private:
     void willBeDestroyed() final;
 
     ASCIILiteral renderName() const final { return "RenderEmbeddedObject"_s; }
-    bool isEmbeddedObject() const final { return true; }
 
     bool showsUnavailablePluginIndicator() const { return isPluginUnavailable() && m_isUnavailablePluginIndicatorState != UnavailablePluginIndicatorState::Hidden; }
-
-    bool requiresLayer() const final;
 
     bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction) final;
 

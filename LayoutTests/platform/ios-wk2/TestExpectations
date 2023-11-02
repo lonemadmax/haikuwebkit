@@ -1460,8 +1460,6 @@ webkit.org/b/228087 [ Debug ] media/video-seek-with-negative-playback.html [ Pas
 
 webkit.org/b/230708 [ Debug ] media/video-ended-seek-crash.html [ Pass Timeout ]
 
-webkit.org/b/208656 storage/indexeddb/modern/transactions-stop-on-navigation.html [ Pass Failure ]
-
 webkit.org/b/208662 http/tests/security/contentSecurityPolicy/javascript-url-blocked-by-default-src-star.html [ Pass Failure ]
 
 webkit.org/b/208601 fast/backgrounds/hidpi-bitmap-background-on-subpixel-position.html [ Pass ImageOnlyFailure ]
@@ -2305,8 +2303,6 @@ webkit.org/b/243589 [ Debug ] imported/w3c/web-platform-tests/service-workers/se
 webkit.org/b/244228 [ Release arm64 ] imported/w3c/web-platform-tests/css/css-transforms/transforms-skewY.html [ Pass ImageOnlyFailure ]
 webkit.org/b/244228 [ Release arm64 ] imported/w3c/web-platform-tests/css/css-transforms/css-skew-002.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/244297 [ Release arm64 ] svg/transforms/transformed-text-fill-gradient.html [ Pass ImageOnlyFailure ]
-
 # Cocoa ports run WPT tests over localhost so the URL is treated as secure even though not HTTPs.
 imported/w3c/web-platform-tests/clear-site-data/navigation-insecure.html [ Skip ]
 imported/w3c/web-platform-tests/clear-site-data/resource.html [ Skip ]
@@ -2487,6 +2483,16 @@ webkit.org/b/260224 imported/w3c/web-platform-tests/css/css-transforms/transform
 webkit.org/b/260224 imported/w3c/web-platform-tests/css/css-transforms/transform3d-preserve3d-011.html [ ImageOnlyFailure ]
 
 webkit.org/b/260322 imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss-flat-tree.html [ Failure ]
+webkit.org/b/260322 imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss-flat-tree-nested.html [ Failure ]
 
 webkit.org/b/261957 media/audio-play-with-video-element-interrupted.html [ Pass Timeout ]
-webkit.org/b/262020 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-video.html [ ImageOnlyFailure ]
+
+# Requires the fix in rdar://108457321.
+css3/scroll-snap/ios/scroll-snap-mainframe-pinch-out.html [ Skip ]
+
+webkit.org/b/263048 accessibility/ios-simulator/input-type-time.html [ Failure ]
+webkit.org/b/263052 fast/events/ios/keydown-keyup-keypress-keys-in-non-editable-using-chinese-keyboard.html [ Failure ]
+
+# re-baseline candidates, will file new bugs if not approved
+webkit.org/b/263053 fast/text/international/unicode-bidi-plaintext-in-textarea.html [ Failure ]
+webkit.org/b/263053 svg/custom/svg-fonts-in-html.html [ Failure ]

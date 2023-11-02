@@ -453,7 +453,14 @@ IntPoint PageClientImpl::accessibilityScreenToRootView(const IntPoint& point)
         rootViewPoint = [contentView accessibilityConvertPointFromSceneReferenceCoordinates:rootViewPoint];
     return IntPoint(rootViewPoint);
 }
-    
+
+void PageClientImpl::relayAccessibilityNotification(const String& notificationName, const RetainPtr<NSData>& notificationData)
+{
+    auto contentView = this->contentView();
+    if ([contentView respondsToSelector:@selector(accessibilityRelayNotification:notificationData:)])
+        [contentView accessibilityRelayNotification:notificationName notificationData:notificationData.get()];
+}
+
 IntRect PageClientImpl::rootViewToAccessibilityScreen(const IntRect& rect)
 {
     CGRect rootViewRect = rect;
@@ -884,11 +891,6 @@ void PageClientImpl::didFinishNavigation(API::Navigation* navigation)
 void PageClientImpl::didFailNavigation(API::Navigation* navigation)
 {
     [webView() _didFailNavigation:navigation];
-}
-
-std::optional<WebKit::VisibleContentRectUpdateInfo> PageClientImpl::createVisibleContentRectUpdateInfo()
-{
-    return [webView() _createVisibleContentRectUpdateInfo];
 }
 
 void PageClientImpl::didSameDocumentNavigationForMainFrame(SameDocumentNavigationType navigationType)

@@ -6028,13 +6028,13 @@ static RefPtr<CSSValue> consumeLinear(CSSParserTokenRange& range)
             double inputHigh = i < steps.size() ? *steps[i].input : std::max(1.0, largestInput);
             double inputAverage = (inputLow + inputHigh) / (i - *missingInputRunStart + 1);
             for (size_t j = *missingInputRunStart; j < i; ++j)
-                points.uncheckedAppend({ steps[j].output, inputAverage * (j - *missingInputRunStart + 1) });
+                points.append({ steps[j].output, inputAverage * (j - *missingInputRunStart + 1) });
 
             missingInputRunStart = std::nullopt;
         }
 
         if (i < steps.size() && steps[i].input)
-            points.uncheckedAppend({ steps[i].output, *steps[i].input });
+            points.append({ steps[i].output, *steps[i].input });
     }
     ASSERT(!missingInputRunStart);
     ASSERT(points.size() == steps.size());
@@ -7539,37 +7539,6 @@ template<CSSPropertyID property> RefPtr<CSSValue> consumeBackgroundSize(CSSParse
     if (shouldCoalesce)
         return CSSValuePair::create(horizontal.releaseNonNull(), vertical.releaseNonNull());
     return CSSValuePair::createNoncoalescing(horizontal.releaseNonNull(), vertical.releaseNonNull());
-}
-
-RefPtr<CSSValueList> consumeAlignTracks(CSSParserTokenRange& range)
-{
-    CSSValueListBuilder parsedValues;
-    do {
-        if (range.atEnd())
-            break;
-        auto value = consumeContentDistributionOverflowPosition(range, isContentPositionKeyword);
-        if (!value)
-            return nullptr;
-        parsedValues.append(value.releaseNonNull());
-    } while (consumeCommaIncludingWhitespace(range));
-    return CSSValueList::createCommaSeparated(WTFMove(parsedValues));
-}
-
-RefPtr<CSSValueList> consumeJustifyTracks(CSSParserTokenRange& range)
-{
-    CSSValueListBuilder parsedValues;
-    do {
-        if (range.atEnd())
-            break;
-        // justify-tracks property does not allow the <baseline-position> values.
-        if (isBaselineKeyword(range.peek().id()))
-            return nullptr;
-        auto value = consumeContentDistributionOverflowPosition(range, isContentPositionOrLeftOrRightKeyword);
-        if (!value)
-            return nullptr;
-        parsedValues.append(value.releaseNonNull());
-    } while (consumeCommaIncludingWhitespace(range));
-    return CSSValueList::createCommaSeparated(WTFMove(parsedValues));
 }
 
 RefPtr<CSSValue> consumeGridAutoFlow(CSSParserTokenRange& range)

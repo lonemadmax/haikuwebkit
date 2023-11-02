@@ -180,6 +180,7 @@ public:
     uint64_t domCacheSize(JSStringRef origin);
     void setAllowStorageQuotaIncrease(bool);
     void setQuota(uint64_t);
+    void setOriginQuotaRatioEnabled(bool);
 
     // Failed load condition testing
     void forceImmediateCompletion();
@@ -233,6 +234,7 @@ public:
     bool shouldFinishAfterDownload() const { return m_shouldFinishAfterDownload; }
     void setShouldLogDownloadCallbacks(bool);
     void setShouldLogDownloadSize(bool);
+    void setShouldLogDownloadExpectedSize(bool);
 
     bool shouldAllowEditing() const { return m_shouldAllowEditing; }
 
@@ -458,6 +460,7 @@ public:
     void setStatisticsCrossSiteLoadWithLinkDecoration(JSStringRef fromHost, JSStringRef toHost);
     void setStatisticsTimeToLiveUserInteraction(double seconds);
     void setStatisticsNotifyPagesWhenDataRecordsWereScanned(bool);
+    void setStatisticsTimeAdvanceForTesting(double);
     void setStatisticsIsRunningTest(bool);
     void setStatisticsShouldClassifyResourcesBeforeDataRecordsRemoval(bool);
     void setStatisticsMinimumTimeBetweenDataRecordsRemoval(double);
@@ -536,7 +539,7 @@ public:
     void setMockCameraOrientation(unsigned);
     bool isMockRealtimeMediaSourceCenterEnabled();
     void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
-    void triggerMockMicrophoneConfigurationChange();
+    void triggerMockCaptureConfigurationChange(bool forMicrophone, bool forDisplay);
 
     bool hasAppBoundSession();
     void clearAppBoundSession();

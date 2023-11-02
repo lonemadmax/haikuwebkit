@@ -66,7 +66,7 @@ void AccessibilityObject::detachFromParent()
         overrideAttachmentParent(nullptr);
 }
 
-void AccessibilityObject::overrideAttachmentParent(AXCoreObject* parent)
+void AccessibilityObject::overrideAttachmentParent(AccessibilityObject* parent)
 {
     if (!isAttachment())
         return;
@@ -764,7 +764,7 @@ PlatformRoleMap createPlatformRoleMap()
         { AccessibilityRole::Unknown, NSAccessibilityUnknownRole },
         { AccessibilityRole::Button, NSAccessibilityButtonRole },
         { AccessibilityRole::RadioButton, NSAccessibilityRadioButtonRole },
-        { AccessibilityRole::CheckBox, NSAccessibilityCheckBoxRole },
+        { AccessibilityRole::Checkbox, NSAccessibilityCheckBoxRole },
         { AccessibilityRole::Slider, NSAccessibilitySliderRole },
         { AccessibilityRole::TabGroup, NSAccessibilityTabGroupRole },
         { AccessibilityRole::TextField, NSAccessibilityTextFieldRole },

@@ -92,7 +92,7 @@ private:
         RefPtr<Node> m_lastNodeInserted;
     };
 
-    Node* insertAsListItems(HTMLElement& listElement, Node* insertionNode, const Position&, InsertedNodes&);
+    RefPtr<Node> insertAsListItems(HTMLElement& listElement, Node* insertionNode, const Position&, InsertedNodes&);
 
     void updateNodesInserted(Node*);
     bool shouldRemoveEndBR(Node*, const VisiblePosition&);
@@ -124,6 +124,8 @@ private:
 
     ReplacementFragment* ensureReplacementFragment();
     bool performTrivialReplace(const ReplacementFragment&);
+
+    RefPtr<DocumentFragment> protectedDocumentFragment() const { return m_documentFragment; }
 
     VisibleSelection m_visibleSelectionForInsertedText;
     Position m_startOfInsertedContent;

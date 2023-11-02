@@ -80,11 +80,11 @@ CSSFontSelector::CSSFontSelector(ScriptExecutionContext& context)
     if (is<Document>(context)) {
         m_fontFamilyNames.reserveInitialCapacity(familyNames->size());
         for (auto& familyName : familyNames.get())
-            m_fontFamilyNames.uncheckedConstructAndAppend(familyName);
+            m_fontFamilyNames.constructAndAppend(familyName);
     } else {
-        m_fontFamilyNames.reserveInitialCapacity(familyNamesData->size());
-        for (auto& familyName : familyNamesData.get())
-            m_fontFamilyNames.uncheckedAppend(familyName);
+        m_fontFamilyNames.appendContainerWithMapping(familyNamesData.get(), [](auto& familyName) {
+            return familyName;
+        });
     }
 
     FontCache::forCurrentThread().addClient(*this);
@@ -382,11 +382,13 @@ FontRanges CSSFontSelector::fontRangesForFamily(const FontDescription& fontDescr
     bool resolveGenericFamilyFirst = familyName == m_fontFamilyNames.at(FamilyNamesIndex::StandardFamily);
 
     AtomString familyForLookup = familyName;
-    std::optional<FontDescription> overrideFontDescription;
+    bool isGeneric = false;
     const FontDescription* fontDescriptionForLookup = &fontDescription;
     auto resolveAndAssignGenericFamily = [&] {
-        if (auto genericFamilyOptional = resolveGenericFamily(fontDescription, familyName))
+        if (auto genericFamilyOptional = resolveGenericFamily(fontDescription, familyName)) {
             familyForLookup = *genericFamilyOptional;
+            isGeneric = true;
+        }
     };
 
     const auto& fontPaletteValues = lookupFontPaletteValues(familyName, fontDescription);
@@ -399,7 +401,7 @@ FontRanges CSSFontSelector::fontRangesForFamily(const FontDescription& fontDescr
     if (face) {
         if (document && document->settings().webAPIStatisticsEnabled())
             ResourceLoadObserver::shared().logFontLoad(*document, familyForLookup.string(), true);
-        return face->fontRanges(*fontDescriptionForLookup, fontPaletteValues, fontFeatureValues);
+        return { face->fontRanges(*fontDescriptionForLookup, fontPaletteValues, fontFeatureValues), isGeneric };
     }
 
     if (!resolveGenericFamilyFirst)
@@ -408,7 +410,7 @@ FontRanges CSSFontSelector::fontRangesForFamily(const FontDescription& fontDescr
     auto font = FontCache::forCurrentThread().fontForFamily(*fontDescriptionForLookup, familyForLookup, { { }, { }, fontPaletteValues, fontFeatureValues, 1.0 });
     if (document && document->settings().webAPIStatisticsEnabled())
         ResourceLoadObserver::shared().logFontLoad(*document, familyForLookup.string(), !!font);
-    return FontRanges { WTFMove(font) };
+    return { FontRanges { WTFMove(font) }, isGeneric };
 }
 
 void CSSFontSelector::clearFonts()

@@ -37,7 +37,7 @@ public:
     void layout() override;
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) final;
 
-    bool isSVGResourceContainer() const final { return true; }
+    bool isLegacySVGResourceContainer() const final { return true; }
 
     static float computeTextPaintingScale(const RenderElement&);
     static AffineTransform transformOnNonScalingStroke(RenderObject*, const AffineTransform& resourceTransform);
@@ -49,7 +49,7 @@ public:
     void markAllClientLayersForInvalidation();
 
 protected:
-    LegacyRenderSVGResourceContainer(SVGElement&, RenderStyle&&);
+    LegacyRenderSVGResourceContainer(Type, SVGElement&, RenderStyle&&);
 
     enum InvalidationMode {
         LayoutAndBoundariesInvalidation,
@@ -62,6 +62,7 @@ protected:
     virtual bool selfNeedsClientInvalidation() const { return everHadLayout() && selfNeedsLayout(); }
 
     void markAllClientsForInvalidation(InvalidationMode);
+    void markAllClientsForInvalidationIfNeeded(InvalidationMode, WeakHashSet<RenderObject>* visitedRenderers);
     void markClientForInvalidation(RenderObject&, InvalidationMode);
 
 private:
@@ -84,7 +85,7 @@ inline LegacyRenderSVGResourceContainer* getRenderSVGResourceContainerById(TreeS
     if (id.isEmpty())
         return nullptr;
 
-    if (LegacyRenderSVGResourceContainer* renderResource = treeScope.svgResourceById(id))
+    if (LegacyRenderSVGResourceContainer* renderResource = treeScope.lookupLegacySVGResoureById(id))
         return renderResource;
 
     return nullptr;
@@ -104,4 +105,4 @@ Renderer* getRenderSVGResourceById(TreeScope& treeScope, const AtomString& id)
 
 } // namespace WebCore
 
-SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(LegacyRenderSVGResourceContainer, isSVGResourceContainer())
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(LegacyRenderSVGResourceContainer, isLegacySVGResourceContainer())

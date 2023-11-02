@@ -94,8 +94,8 @@ static void moveWidgetToParentSoon(Widget& child, LocalFrameView* parent)
     WidgetHierarchyUpdatesSuspensionScope::scheduleWidgetToMove(child, parent);
 }
 
-RenderWidget::RenderWidget(HTMLFrameOwnerElement& element, RenderStyle&& style)
-    : RenderReplaced(element, WTFMove(style))
+RenderWidget::RenderWidget(Type type, HTMLFrameOwnerElement& element, RenderStyle&& style)
+    : RenderReplaced(type, element, WTFMove(style))
 {
     relaxAdoptionRequirement();
     setInline(false);
@@ -446,7 +446,7 @@ bool RenderWidget::requiresLayer() const
 bool RenderWidget::requiresAcceleratedCompositing() const
 {
     // If this is a renderer with a contentDocument and that document needs a layer, then we need a layer.
-    if (Document* contentDocument = frameOwnerElement().contentDocument()) {
+    if (auto* contentDocument = frameOwnerElement().contentDocument()) {
         if (RenderView* view = contentDocument->renderView())
             return view->usesCompositing();
     }

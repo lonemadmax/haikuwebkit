@@ -54,6 +54,8 @@
 #include "EventHandler.h"
 #include "FocusController.h"
 #include "FrameSelection.h"
+#include "HTMLBodyElement.h"
+#include "HTMLHtmlElement.h"
 #include "HitTestResult.h"
 #include "InspectorInstrumentation.h"
 #include "LineClampValue.h"
@@ -82,6 +84,9 @@ namespace WebCore {
 RenderLayerScrollableArea::RenderLayerScrollableArea(RenderLayer& layer)
     : m_layer(layer)
 {
+    auto& renderer = m_layer.renderer();
+    if (renderer.document().settings().cssScrollAnchoringEnabled() && !is<HTMLHtmlElement>(renderer.element()) && !is<HTMLBodyElement>(renderer.element()))
+        m_scrollAnchoringController = WTF::makeUnique<ScrollAnchoringController>(*this);
 }
 
 RenderLayerScrollableArea::~RenderLayerScrollableArea()
@@ -379,11 +384,11 @@ void RenderLayerScrollableArea::scrollTo(const ScrollPosition& position)
     }
 
     LocalFrame& frame = renderer.frame();
-    auto* repaintContainer = renderer.containerForRepaint().renderer;
+    CheckedPtr repaintContainer = renderer.containerForRepaint().renderer;
     // The caret rect needs to be invalidated after scrolling
     frame.selection().setCaretRectNeedsUpdate();
 
-    LayoutRect rectForRepaint = layer().repaintRects() ? layer().repaintRects()->clippedOverflowRect : renderer.clippedOverflowRectForRepaint(repaintContainer);
+    LayoutRect rectForRepaint = layer().repaintRects() ? layer().repaintRects()->clippedOverflowRect : renderer.clippedOverflowRectForRepaint(repaintContainer.get());
 
     FloatQuad quadForFakeMouseMoveEvent = FloatQuad(rectForRepaint);
     if (repaintContainer)
@@ -404,7 +409,7 @@ void RenderLayerScrollableArea::scrollTo(const ScrollPosition& position)
 
     // Just schedule a full repaint of our object.
     if (requiresRepaint) {
-        renderer.repaintUsingContainer(repaintContainer, rectForRepaint);
+        renderer.repaintUsingContainer(repaintContainer.get(), rectForRepaint);
 
         // We also have to repaint any descendant composited layers that have fixed backgrounds.
         if (auto slowRepaintObjects = view.frameView().slowRepaintObjects()) {
@@ -1301,8 +1306,8 @@ void RenderLayerScrollableArea::updateScrollbarsAfterLayout()
         }
 
         // FIXME: This does not belong here.
-        RenderObject* parent = renderer.parent();
-        if (parent && parent->isFlexibleBox() && renderer.isBox())
+        auto* parent = renderer.parent();
+        if (is<RenderFlexibleBox>(parent) && renderer.isBox())
             downcast<RenderFlexibleBox>(parent)->clearCachedMainSizeForChild(*m_layer.renderBox());
     }
 
@@ -2024,5 +2029,24 @@ float RenderLayerScrollableArea::deviceScaleFactor() const
 {
     return m_layer.renderer().document().deviceScaleFactor();
 }
+
+void RenderLayerScrollableArea::updateScrollAnchoringElement()
+{
+    if (m_scrollAnchoringController)
+        m_scrollAnchoringController->updateAnchorElement();
+}
+
+void RenderLayerScrollableArea::updateScrollPositionForScrollAnchoringController()
+{
+    if (m_scrollAnchoringController)
+        m_scrollAnchoringController->adjustScrollPositionForAnchoring();
+}
+
+void RenderLayerScrollableArea::invalidateScrollAnchoringElement()
+{
+    if (m_scrollAnchoringController)
+        m_scrollAnchoringController->invalidateAnchorElement();
+}
+
 
 } // namespace WebCore

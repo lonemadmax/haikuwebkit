@@ -77,6 +77,9 @@ static bool shouldAllowElement(const Element& element)
         return false;
 
     if (auto* input = dynamicDowncast<HTMLInputElement>(element)) {
+        if (input->isDisabledFormControl())
+            return false;
+
         // Do not allow regions for the <input type='range'>, because we make one for the thumb.
         if (input->isRangeControl())
             return false;
@@ -93,7 +96,7 @@ static bool shouldAllowAccessibilityRoleAsPointerCursorReplacement(const Element
 {
     switch (AccessibilityObject::ariaRoleToWebCoreRole(element.attributeWithoutSynchronization(HTMLNames::roleAttr))) {
     case AccessibilityRole::Button:
-    case AccessibilityRole::CheckBox:
+    case AccessibilityRole::Checkbox:
     case AccessibilityRole::DisclosureTriangle:
     case AccessibilityRole::ImageMapLink:
     case AccessibilityRole::Link:
@@ -105,6 +108,7 @@ static bool shouldAllowAccessibilityRoleAsPointerCursorReplacement(const Element
     case AccessibilityRole::MenuItemRadio:
     case AccessibilityRole::PopUpButton:
     case AccessibilityRole::RadioButton:
+    case AccessibilityRole::Switch:
     case AccessibilityRole::ToggleButton:
         return true;
     default:
@@ -250,7 +254,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
         // Could be a `<label for="...">` or a label with a descendant.
         // In cases where both elements get a region we want to group them by the same `elementIdentifier`.
         auto associatedElement = downcast<HTMLLabelElement>(matchedElement)->control();
-        if (associatedElement) {
+        if (associatedElement && !associatedElement->isDisabledFormControl()) {
             hasPointer = true;
             elementIdentifier = associatedElement->identifier();
         }

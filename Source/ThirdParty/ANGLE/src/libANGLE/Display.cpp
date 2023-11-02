@@ -91,9 +91,6 @@ namespace egl
 
 namespace
 {
-// Use standard mutex for now.
-using ContextMutexType = std::mutex;
-
 struct TLSData
 {
     angle::UnlockedTailCall unlockedTailCall;
@@ -921,7 +918,6 @@ Display::Display(EGLenum platform, EGLNativeDisplayType displayId, Device *eglDe
       mGlobalTextureShareGroupUsers(0),
       mGlobalSemaphoreShareGroupUsers(0),
       mTerminatedByApi(false),
-      mActiveThreads(),
       mSingleThreadPool(nullptr),
       mMultiThreadPool(nullptr)
 {}
@@ -1129,13 +1125,10 @@ Error Display::initialize()
     mSingleThreadPool = angle::WorkerThreadPool::Create(1, ANGLEPlatformCurrent());
     mMultiThreadPool  = angle::WorkerThreadPool::Create(0, ANGLEPlatformCurrent());
 
-    if (kIsSharedContextMutexEnabled)
+    if (kIsContextMutexEnabled)
     {
-        ASSERT(!mSharedContextMutexManager);
-        mSharedContextMutexManager.reset(new SharedContextMutexManager<ContextMutexType>());
-
         ASSERT(mManagersMutex == nullptr);
-        mManagersMutex = mSharedContextMutexManager->create();
+        mManagersMutex = new ContextMutex();
         mManagersMutex->addRef();
     }
 
@@ -1186,12 +1179,6 @@ Error Display::terminate(Thread *thread, TerminateReason terminateReason)
     if (terminateReason == TerminateReason::Api)
     {
         mTerminatedByApi = true;
-
-        // Remove thread from active thread set if there is no context current.
-        if (thread->getContext() == nullptr)
-        {
-            mActiveThreads.erase(thread);
-        }
     }
 
     // All subsequent calls assume the display to be valid and terminated by app.
@@ -1235,17 +1222,8 @@ Error Display::terminate(Thread *thread, TerminateReason terminateReason)
     {
         if (context.second->isReferenced())
         {
-            if (terminateReason == TerminateReason::NoActiveThreads)
-            {
-                ASSERT(mTerminatedByApi);
-                context.second->release();
-                (void)context.second->unMakeCurrent(this);
-            }
-            else
-            {
-                contextsStillCurrent.emplace(context);
-                continue;
-            }
+            contextsStillCurrent.emplace(context);
+            continue;
         }
 
         // Add context that is not current to mInvalidContextSet for cleanup.
@@ -1276,8 +1254,6 @@ Error Display::terminate(Thread *thread, TerminateReason terminateReason)
     ASSERT(mGlobalTextureShareGroupUsers == 0 && mTextureManager == nullptr);
     ASSERT(mGlobalSemaphoreShareGroupUsers == 0 && mSemaphoreManager == nullptr);
 
-    mSharedContextMutexManager.reset();
-
     if (mManagersMutex != nullptr)
     {
         mManagersMutex->release();
@@ -1298,7 +1274,7 @@ Error Display::terminate(Thread *thread, TerminateReason terminateReason)
 
     // Before tearing down the backend device, ensure all deferred operations are run.  It is not
     // possible to defer them beyond this point.
-    GetCurrentThreadUnlockedTailCall()->run();
+    GetCurrentThreadUnlockedTailCall()->run(nullptr);
 
     mImplementation->terminate();
 
@@ -1335,23 +1311,6 @@ Error Display::releaseThread()
     }
     ANGLE_TRY(mImplementation->releaseThread());
     return destroyInvalidEglObjects();
-}
-
-void Display::addActiveThread(Thread *thread)
-{
-    mActiveThreads.insert(thread);
-}
-
-void Display::threadCleanup(Thread *thread)
-{
-    mActiveThreads.erase(thread);
-    const bool noActiveThreads = mActiveThreads.size() == 0;
-
-    (void)terminate(thread, noActiveThreads ? TerminateReason::NoActiveThreads
-                                            : TerminateReason::InternalCleanup);
-
-    // This "thread" is no longer active, reset its cached context
-    thread->setCurrent(nullptr);
 }
 
 std::vector<const Config *> Display::getConfigs(const egl::AttributeMap &attribs) const
@@ -1604,22 +1563,23 @@ Error Display::createContext(const Config *configuration,
         shareSemaphores = mSemaphoreManager;
     }
 
+    ScopedContextMutexLock mutexLock;
     ContextMutex *sharedContextMutex = nullptr;
-    if (kIsSharedContextMutexEnabled)
+    if (kIsContextMutexEnabled)
     {
+        ASSERT(mManagersMutex != nullptr);
         if (shareContext != nullptr)
         {
-            ASSERT(shareContext->isSharedContextMutexActive());
-            sharedContextMutex = shareContext->getContextMutex();
+            sharedContextMutex = shareContext->getContextMutex().getRoot();
         }
         else if (shareTextures != nullptr || shareSemaphores != nullptr)
         {
-            sharedContextMutex = mManagersMutex;
+            mutexLock          = ScopedContextMutexLock(mManagersMutex);
+            sharedContextMutex = mManagersMutex->getRoot();
         }
         // When using shareTextures/Semaphores all Contexts in the Group must use mManagersMutex.
-        ASSERT(mManagersMutex != nullptr);
         ASSERT((shareTextures == nullptr && shareSemaphores == nullptr) ||
-               sharedContextMutex == mManagersMutex);
+               sharedContextMutex == mManagersMutex->getRoot());
     }
 
     gl::MemoryProgramCache *programCachePointer = &mMemoryProgramCache;
@@ -1728,9 +1688,7 @@ Error Display::makeCurrent(Thread *thread,
     }
 
     {
-        ASSERT(context == nullptr || context->getContextMutex() != nullptr);
-        ScopedContextMutexLock lock(context != nullptr ? context->getContextMutex() : nullptr,
-                                    context, kContextMutexMayBeNull);
+        ScopedContextMutexLock lock(context != nullptr ? &context->getContextMutex() : nullptr);
 
         thread->setCurrent(context);
 
@@ -1825,7 +1783,7 @@ void Display::destroyImageImpl(Image *image, ImageMap *images)
     mImageHandleAllocator.release(image->id().value);
     {
         // Need AddRefLock because there may be ContextMutex destruction.
-        ScopedContextMutexAddRefLock lock(image->getSharedContextMutex(), kContextMutexMayBeNull);
+        ScopedContextMutexAddRefLock lock(image->getContextMutex());
         iter->second->release(this);
     }
     images->erase(iter);

@@ -28,6 +28,7 @@
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 
 #include <WebCore/RealtimeMediaSource.h>
+#include <wtf/Deque.h>
 
 namespace IPC {
 class Connection;
@@ -72,6 +73,8 @@ public:
     void stopProducingData();
     void endProducingData();
     void applyConstraints(const WebCore::MediaConstraints&, WebCore::RealtimeMediaSource::ApplyConstraintsHandler&&);
+    void getPhotoCapabilities(WebCore::RealtimeMediaSource::PhotoCapabilitiesHandler&&);
+    Ref<WebCore::RealtimeMediaSource::PhotoSettingsNativePromise> getPhotoSettings();
 
     void whenReady(CompletionHandler<void(WebCore::CaptureSourceError&&)>&&);
     void setAsReady();

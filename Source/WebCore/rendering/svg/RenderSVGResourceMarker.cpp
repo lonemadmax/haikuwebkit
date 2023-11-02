@@ -35,7 +35,7 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGResourceMarker);
 
 RenderSVGResourceMarker::RenderSVGResourceMarker(SVGMarkerElement& element, RenderStyle&& style)
-    : LegacyRenderSVGResourceContainer(element, WTFMove(style))
+    : LegacyRenderSVGResourceContainer(Type::SVGResourceMarker, element, WTFMove(style))
 {
 }
 
@@ -54,9 +54,9 @@ void RenderSVGResourceMarker::layout()
     LegacyRenderSVGContainer::layout();
 }
 
-void RenderSVGResourceMarker::removeAllClientsFromCache(bool markForInvalidation)
+void RenderSVGResourceMarker::removeAllClientsFromCacheIfNeeded(bool markForInvalidation, WeakHashSet<RenderObject>* visitedRenderers)
 {
-    markAllClientsForInvalidation(markForInvalidation ? LayoutAndBoundariesInvalidation : ParentOnlyInvalidation);
+    markAllClientsForInvalidationIfNeeded(markForInvalidation ? LayoutAndBoundariesInvalidation : ParentOnlyInvalidation, visitedRenderers);
 }
 
 void RenderSVGResourceMarker::removeClientFromCache(RenderElement& client, bool markForInvalidation)
@@ -70,9 +70,9 @@ void RenderSVGResourceMarker::applyViewportClip(PaintInfo& paintInfo)
         paintInfo.context().clip(m_viewport);
 }
 
-FloatRect RenderSVGResourceMarker::markerBoundaries(const AffineTransform& markerTransformation) const
+FloatRect RenderSVGResourceMarker::markerBoundaries(RepaintRectCalculation repaintRectCalculation, const AffineTransform& markerTransformation) const
 {
-    FloatRect coordinates = LegacyRenderSVGContainer::repaintRectInLocalCoordinates();
+    FloatRect coordinates = LegacyRenderSVGContainer::repaintRectInLocalCoordinates(repaintRectCalculation);
 
     // Map repaint rect into parent coordinate space, in which the marker boundaries have to be evaluated
     coordinates = localToParentTransform().mapRect(coordinates);

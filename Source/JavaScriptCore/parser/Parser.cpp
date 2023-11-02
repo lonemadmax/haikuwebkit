@@ -172,9 +172,6 @@ Parser<LexerType>::Parser(VM& vm, const SourceCode& source, ImplementationVisibi
     if (isModuleParseMode(parseMode))
         m_moduleScopeData = ModuleScopeData::create();
 
-    if (isProgramOrModuleParseMode(parseMode))
-        scope->setIsGlobalCodeScope();
-
     next();
 }
 
@@ -338,6 +335,8 @@ Expected<typename Parser<LexerType>::ParseInnerResult, String> Parser<LexerType>
         features |= NonSimpleParameterListFeature;
     if (scope->usesImportMeta())
         features |= ImportMetaFeature;
+    if (m_seenArgumentsDotLength && scope->hasDeclaredGlobalArguments())
+        features |= ArgumentsFeature;
 
 #if ASSERT_ENABLED
     if (m_parsingBuiltin && isProgramParseMode(parseMode)) {
@@ -2056,28 +2055,16 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseStatement(Tre
     case DEFAULT:
         // These tokens imply the end of a set of source elements
         return 0;
-    case LET: {
-        // https://tc39.es/ecma262/#sec-expression-statement
-        // ExpressionStatement's lookahead includes `let [` sequence.
-        SavePoint savePoint = createSavePoint(context);
-        next();
-        failIfTrue(match(OPENBRACKET), "Cannot use lexical declaration in single-statement context");
-        restoreSavePoint(context, savePoint);
-        if (!strictMode())
-            goto identcase;
-        goto defaultCase;
-    }
-    case IDENT:
-        if (UNLIKELY(*m_token.m_data.ident == m_vm.propertyNames->async && !m_token.m_data.escaped)) {
-            SavePoint savePoint = createSavePoint(context);
-            next();
-            failIfTrue(match(FUNCTION) && !m_lexer->hasLineTerminatorBeforeToken(), "Cannot use async function declaration in single-statement context");
-            restoreSavePoint(context, savePoint);
+    case ESCAPED_KEYWORD:
+        if (!matchAllowedEscapedContextualKeyword()) {
+            failDueToUnexpectedToken();
+            break;
         }
         FALLTHROUGH;
+    case LET:
+    case IDENT:
     case AWAIT:
     case YIELD: {
-        identcase:
         bool allowFunctionDeclarationAsStatement = false;
         result = parseExpressionOrLabelStatement(context, allowFunctionDeclarationAsStatement);
         shouldSetPauseLocation = !context.shouldSkipPauseLocation(result);
@@ -2090,7 +2077,6 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseStatement(Tre
         nonTrivialExpressionCount = m_parserState.nonTrivialExpressionCount;
         FALLTHROUGH;
     default:
-        defaultCase:
         TreeStatement exprStatement = parseExpressionStatement(context);
         if (directive && nonTrivialExpressionCount != m_parserState.nonTrivialExpressionCount)
             directive = nullptr;
@@ -2114,14 +2100,6 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseFunctionDecla
 {
     semanticFailIfTrue(strictMode(), "Function declarations are only allowed inside blocks or switch statements in strict mode");
     failIfFalse(parentAllowsFunctionDeclarationAsStatement, "Function declarations are only allowed inside block statements or at the top level of a program");
-    if (!currentScope()->isFunction() && !closestParentOrdinaryFunctionNonLexicalScope()->isEvalContext()) {
-        // We only implement annex B.3.3 if we're in function mode or eval mode. Otherwise, we fall back
-        // to hoisting behavior.
-        // FIXME: https://bugs.webkit.org/show_bug.cgi?id=155813
-        DepthManager statementDepth(&m_statementDepth);
-        m_statementDepth = 1;
-        return parseFunctionDeclaration(context, FunctionDeclarationType::Statement);
-    }
 
     // Any function declaration that isn't in a block is a syntax error unless it's
     // in an if/else statement. If it's in an if/else statement, we will magically
@@ -2633,7 +2611,7 @@ template <class TreeBuilder> bool Parser<LexerType>::parseFunctionInfo(TreeBuild
         // BytecodeGenerator emits code to throw TypeError when a class constructor is "call"ed.
         // Set ConstructorKind to None for non-constructor methods of classes.
     
-        if (parentScope->isGlobalCodeScope() && m_defaultConstructorKindForTopLevelFunction != ConstructorKind::None) {
+        if (parentScope->isGlobalCode() && m_defaultConstructorKindForTopLevelFunction != ConstructorKind::None) {
             constructorKind = m_defaultConstructorKindForTopLevelFunction;
             expectedSuperBinding = m_defaultConstructorKindForTopLevelFunction == ConstructorKind::Extends ? SuperBinding::Needed : SuperBinding::NotNeeded;
         }
@@ -2835,11 +2813,18 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseFunctionDecla
     if (TreeBuilder::CreatesAST) {
         FunctionMetadataNode* metadata = getMetadata(functionInfo);
         functionDeclaration.second->appendFunction(metadata);
-        // FIXME: This convoluted condition is only temporary until Annex B hoisting for global scope is implemented.
-        // https://bugs.webkit.org/show_bug.cgi?id=163209
-        bool isSloppyModeHoistingCandidate = m_statementDepth != 1 && !strictMode() && m_parseMode == SourceParseMode::NormalFunctionMode && (currentScope()->isFunction() || closestParentOrdinaryFunctionNonLexicalScope()->isEvalContext());
-        if (isSloppyModeHoistingCandidate)
+        bool isSloppyModeHoistingCandidate = m_statementDepth != 1 && !strictMode() && m_parseMode == SourceParseMode::NormalFunctionMode;
+        if (isSloppyModeHoistingCandidate) {
+            // Functions declared inside a function inside a nested block scope in sloppy mode are subject to this
+            // crazy rule defined inside Annex B.3.2 in the ECMA-262 spec. It basically states that we will create
+            // the function as a local block scoped variable, but when we evaluate the block that the function is
+            // contained in, we will assign the function to a "var" variable only if declaring such a "var" wouldn't
+            // be a syntax error and if there isn't a parameter with the same name. (It would only be a syntax error if
+            // there are is a let/class/const with the same name). Note that this mean we only do the "var" hoisting
+            // binding if the block evaluates. For example, this means we wont won't perform the binding if it's inside
+            // the untaken branch of an if statement.
             functionDeclaration.second->addSloppyModeFunctionHoistingCandidate<Scope::NeedsDuplicateDeclarationCheck::No>(metadata);
+        }
     }
     return result;
 }
@@ -3425,24 +3410,21 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseExpressionOrL
     Vector<LabelInfo> labels;
     JSTokenLocation location;
     do {
-        JSTextPosition start = tokenStartPosition();
-        location = tokenLocation();
         if (!nextTokenIsColon()) {
             // If we hit this path we're making a expression statement, which
             // by definition can't make use of continue/break so we can just
             // ignore any labels we might have accumulated.
-            TreeExpression expression = parseExpression(context, IsOnlyChildOfStatement::Yes);
-            failIfFalse(expression, "Cannot parse expression statement");
-            if (!autoSemiColon())
-                failDueToUnexpectedToken();
-            return context.createExprStatement(location, expression, start, m_lastTokenEndPosition.line);
+            return parseExpressionStatement(context);
         }
 
+        semanticFailIfTrue(isPossiblyEscapedLet(m_token) && strictMode(), "Cannot use 'let' as a label ", disallowedIdentifierLetReason());
         semanticFailIfTrue(isDisallowedIdentifierAwait(m_token), "Cannot use 'await' as a label ", disallowedIdentifierAwaitReason());
         semanticFailIfTrue(isDisallowedIdentifierYield(m_token), "Cannot use 'yield' as a label ", disallowedIdentifierYieldReason());
 
         const Identifier* ident = m_token.m_data.ident;
+        JSTextPosition start = tokenStartPosition();
         JSTextPosition end = tokenEndPosition();
+        location = tokenLocation();
         next();
         consumeOrFail(COLON, "Labels must be followed by a ':'");
 
@@ -3484,23 +3466,38 @@ template <typename LexerType>
 template <class TreeBuilder> TreeStatement Parser<LexerType>::parseExpressionStatement(TreeBuilder& context)
 {
     switch (m_token.m_type) {
-    // Consult: http://www.ecma-international.org/ecma-262/6.0/index.html#sec-expression-statement
-    // The ES6 spec mandates that we should fail from FUNCTION token here. We handle this case 
-    // in parseStatement() which is the only caller of parseExpressionStatement().
-    // We actually allow FUNCTION in situations where it should not be allowed unless we're in strict mode.
+    // https://tc39.es/ecma262/#sec-expression-statement
+    // Despite the spec's requirement to fail from FUNCTION token here, Annex B.3.1
+    // permits a labelled FunctionDeclaration in sloppy mode for web compatibility
+    // reasons. We implement this semantics in parseStatement().
     case CLASSTOKEN:
         failWithMessage("'class' declaration is not directly within a block statement");
         break;
-    default:
-        // FIXME: when implementing 'let' we should fail when we see the token sequence "let [".
-        // https://bugs.webkit.org/show_bug.cgi?id=142944
+    case LET: {
+        SavePoint savePoint = createSavePoint(context);
+        next();
+        failIfTrue(match(OPENBRACKET), "Cannot use lexical declaration in single-statement context");
+        restoreSavePoint(context, savePoint);
         break;
     }
+    case IDENT:
+        if (UNLIKELY(*m_token.m_data.ident == m_vm.propertyNames->async && !m_token.m_data.escaped)) {
+            SavePoint savePoint = createSavePoint(context);
+            next();
+            failIfTrue(match(FUNCTION) && !m_lexer->hasLineTerminatorBeforeToken(), "Cannot use async function declaration in single-statement context");
+            restoreSavePoint(context, savePoint);
+        }
+        break;
+    default:
+        break;
+    }
+
     JSTextPosition start = tokenStartPosition();
     JSTokenLocation location(tokenLocation());
     TreeExpression expression = parseExpression(context, IsOnlyChildOfStatement::Yes);
     failIfFalse(expression, "Cannot parse expression statement");
-    failIfFalse(autoSemiColon(), "Parse error");
+    if (!autoSemiColon())
+        failDueToUnexpectedToken();
     return context.createExprStatement(location, expression, start, m_lastTokenEndPosition.line);
 }
 
@@ -5033,6 +5030,51 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::createResolveAndU
 }
 
 template <typename LexerType>
+template <class TreeBuilder> TreeExpression Parser<LexerType>::tryParseArgumentsDotLengthForFastPath(TreeBuilder& context)
+{
+    // There is a fast path for getting `arguments.length` by reading `argumentCountIncludingThis`
+    // directly from CallFrame. In that case, no need to materialize `arguments` object. The fast
+    // path for `arguments.length` is applied by excluding 'arguments.length` pattern for
+    // ArgumentsFeature except for two cases:
+    // 1. 'arguments.length` modifications.
+    // 2. Function level global variable declaration with identifier `arguments`.
+    if (context.hasArgumentsFeature() || !match(IDENT) || !isArgumentsIdentifier())
+        return 0;
+
+    // If semantic checks fail here, then let `parsePrimaryExpression` handle the error thrown.
+    // Note that these checks must align to the checks in `parsePrimaryExpression` under
+    // the clause with token type IDENT.
+    if (UNLIKELY(currentScope()->isStaticBlock()
+        || m_parserState.isParsingClassFieldInitializer
+        || currentScope()->evalContextType() == EvalContextType::InstanceFieldEvalContext))
+        return 0;
+
+    SavePoint argumentsSavePoint = createSavePoint(context);
+    JSTextPosition primaryStart = tokenStartPosition();
+    JSTokenLocation primaryLocation(tokenLocation());
+    next();
+    if (match(DOT)) {
+        SavePoint argumentsDotSavePoint = createSavePoint(context);
+        next();
+        if (match(IDENT) && *m_token.m_data.ident == m_vm.propertyNames->length) {
+            m_seenArgumentsDotLength = true;
+
+            bool isEval = false;
+            const Identifier* argumentsIdentifier = &m_vm.propertyNames->arguments;
+            currentScope()->useVariable(argumentsIdentifier, isEval);
+            m_parserState.lastIdentifier = argumentsIdentifier;
+
+            bool needToCheckUsesArguments = false;
+            TreeExpression argumentsDotExpression = context.createResolve(primaryLocation, *argumentsIdentifier, primaryStart, lastTokenEndPosition(), needToCheckUsesArguments);
+            restoreSavePoint(context, argumentsDotSavePoint);
+            return argumentsDotExpression;
+        }
+    }
+    restoreSavePoint(context, argumentsSavePoint);
+    return 0;
+}
+
+template <typename LexerType>
 template <class TreeBuilder> TreeExpression Parser<LexerType>::parsePrimaryExpression(TreeBuilder& context)
 {
     failIfStackOverflow();
@@ -5293,7 +5335,7 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseMemberExpres
             semanticFailIfFalse(currentScope()->isFunction() || currentScope()->isStaticBlock() || isFunctionEvalContextType || isClassFieldInitializer, "new.target is only valid inside functions or static blocks");
             baseIsNewTarget = true;
             if (currentScope()->isArrowFunction()) {
-                semanticFailIfFalse(!closestOrdinaryFunctionScope->isGlobalCodeScope() || isFunctionEvalContextType || isClassFieldInitializer, "new.target is not valid inside arrow functions in global code");
+                semanticFailIfFalse(!closestOrdinaryFunctionScope->isGlobalCode() || isFunctionEvalContextType || isClassFieldInitializer, "new.target is not valid inside arrow functions in global code");
                 currentScope()->setInnerArrowFunctionUsesNewTarget();
             }
             ASSERT(lastNewTokenLocation.line);
@@ -5360,7 +5402,10 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseMemberExpres
     } else if (!baseIsNewTarget) {
         const bool isAsync = matchContextualKeyword(m_vm.propertyNames->async);
 
-        base = parsePrimaryExpression(context);
+        if (TreeExpression argumentsDotLengthExpression = tryParseArgumentsDotLengthForFastPath(context))
+            base = argumentsDotLengthExpression;
+        else
+            base = parsePrimaryExpression(context);
         failIfFalse(base, "Cannot parse base expression");
         if (UNLIKELY(isAsync && context.isResolve(base) && !m_lexer->hasLineTerminatorBeforeToken())) {
             if (matchSpecIdentifier()) {

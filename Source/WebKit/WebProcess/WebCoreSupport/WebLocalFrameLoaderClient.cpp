@@ -424,15 +424,7 @@ void WebLocalFrameLoaderClient::dispatchDidChangeLocationWithinPage()
     if (!webPage)
         return;
 
-    RefPtr<API::Object> userData;
-
-    auto navigationID = static_cast<WebDocumentLoader&>(*m_frame->coreLocalFrame()->loader().documentLoader()).navigationID();
-
-    // Notify the bundle client.
-    webPage->injectedBundleLoaderClient().didSameDocumentNavigationForFrame(*webPage, m_frame, SameDocumentNavigationType::AnchorNavigation, userData);
-
-    // Notify the UIProcess.
-    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrame(m_frame->frameID(), navigationID, SameDocumentNavigationType::AnchorNavigation, m_frame->coreLocalFrame()->document()->url(), UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
+    webPage->didSameDocumentNavigationForFrame(m_frame);
 }
 
 void WebLocalFrameLoaderClient::dispatchDidChangeMainDocument()
@@ -568,7 +560,7 @@ void WebLocalFrameLoaderClient::dispatchDidStartProvisionalLoad()
 
 #if ENABLE(WK_WEB_EXTENSIONS)
     // Notify the extensions controller.
-    if (auto* extensionControllerProxy = webPage->webExtensionControllerProxy())
+    if (RefPtr extensionControllerProxy = webPage->webExtensionControllerProxy())
         extensionControllerProxy->didStartProvisionalLoadForFrame(*webPage, m_frame, url);
 #endif
 
@@ -625,7 +617,7 @@ void WebLocalFrameLoaderClient::dispatchDidCommitLoad(std::optional<HasInsecureC
 
 #if ENABLE(WK_WEB_EXTENSIONS)
     // Notify the extensions controller.
-    if (auto* extensionControllerProxy = webPage->webExtensionControllerProxy())
+    if (RefPtr extensionControllerProxy = webPage->webExtensionControllerProxy())
         extensionControllerProxy->didCommitLoadForFrame(*webPage, m_frame, m_frame->url());
 #endif
 
@@ -744,7 +736,7 @@ void WebLocalFrameLoaderClient::dispatchDidFinishLoad()
 
 #if ENABLE(WK_WEB_EXTENSIONS)
     // Notify the extensions controller.
-    if (auto* extensionControllerProxy = webPage->webExtensionControllerProxy())
+    if (RefPtr extensionControllerProxy = webPage->webExtensionControllerProxy())
         extensionControllerProxy->didFinishLoadForFrame(*webPage, m_frame, m_frame->url());
 #endif
 
@@ -1053,16 +1045,16 @@ void WebLocalFrameLoaderClient::revertToProvisionalState(DocumentLoader*)
 
 inline bool WebLocalFrameLoaderClient::hasPlugInView() const
 {
-#if !ENABLE(PDFKIT_PLUGIN)
-    return false;
-#else
+#if ENABLE(PDF_PLUGIN)
     return m_pluginView;
+#else
+    return false;
 #endif
 }
 
 void WebLocalFrameLoaderClient::setMainDocumentError(DocumentLoader*, const ResourceError&)
 {
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     if (!m_pluginView)
         return;
     
@@ -1120,7 +1112,7 @@ void WebLocalFrameLoaderClient::committedLoad(DocumentLoader* loader, const Shar
         loader->cancelMainResourceLoad(pluginWillHandleLoadError(loader->response()));
 #endif
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     // Calling commitData did not create the plug-in view.
     if (!m_pluginView)
         return;
@@ -1153,7 +1145,7 @@ void WebLocalFrameLoaderClient::finishedLoading(DocumentLoader* loader)
         webPage->send(Messages::WebPageProxy::DidFinishLoadingDataForCustomContentProvider(loader->response().suggestedFilename(), dataReference));
     }
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     if (!m_pluginView)
         return;
 
@@ -1593,23 +1585,23 @@ RefPtr<LocalFrame> WebLocalFrameLoaderClient::createFrame(const AtomString& name
 
 RefPtr<Widget> WebLocalFrameLoaderClient::createPlugin(const IntSize&, HTMLPlugInElement& pluginElement, const URL& url, const Vector<AtomString>&, const Vector<AtomString>&, const String& mimeType, bool loadManually)
 {
-#if !ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
+    return PluginView::create(pluginElement, url, mimeType, loadManually && !m_frameCameFromBackForwardCache);
+#else
     UNUSED_PARAM(pluginElement);
     UNUSED_PARAM(url);
     UNUSED_PARAM(mimeType);
     UNUSED_PARAM(loadManually);
     return nullptr;
-#else
-    return PluginView::create(pluginElement, url, mimeType, loadManually && !m_frameCameFromBackForwardCache);
 #endif
 }
 
 void WebLocalFrameLoaderClient::redirectDataToPlugin(Widget& pluginWidget)
 {
-#if !ENABLE(PDFKIT_PLUGIN)
-    UNUSED_PARAM(pluginWidget);
-#else
+#if ENABLE(PDF_PLUGIN)
     m_pluginView = static_cast<PluginView*>(&pluginWidget);
+#else
+    UNUSED_PARAM(pluginWidget);
 #endif
 }
 
@@ -1706,12 +1698,12 @@ void WebLocalFrameLoaderClient::dispatchGlobalObjectAvailable(DOMWrapperWorld& w
     if (!webPage)
         return;
 
-    webPage->injectedBundleLoaderClient().globalObjectIsAvailableForFrame(*webPage, m_frame, world);
-
 #if ENABLE(WK_WEB_EXTENSIONS)
-    if (auto* extensionControllerProxy = webPage->webExtensionControllerProxy())
+    if (RefPtr extensionControllerProxy = webPage->webExtensionControllerProxy())
         extensionControllerProxy->globalObjectIsAvailableForFrame(*webPage, m_frame, world);
 #endif
+
+    webPage->injectedBundleLoaderClient().globalObjectIsAvailableForFrame(*webPage, m_frame, world);
 }
 
 void WebLocalFrameLoaderClient::dispatchServiceWorkerGlobalObjectAvailable(DOMWrapperWorld& world)
@@ -1720,12 +1712,12 @@ void WebLocalFrameLoaderClient::dispatchServiceWorkerGlobalObjectAvailable(DOMWr
     if (!webPage)
         return;
 
-    webPage->injectedBundleLoaderClient().serviceWorkerGlobalObjectIsAvailableForFrame(*webPage, m_frame, world);
-
 #if ENABLE(WK_WEB_EXTENSIONS)
-    if (auto* extensionControllerProxy = webPage->webExtensionControllerProxy())
+    if (RefPtr extensionControllerProxy = webPage->webExtensionControllerProxy())
         extensionControllerProxy->serviceWorkerGlobalObjectIsAvailableForFrame(*webPage, m_frame, world);
 #endif
+
+    webPage->injectedBundleLoaderClient().serviceWorkerGlobalObjectIsAvailableForFrame(*webPage, m_frame, world);
 }
 
 void WebLocalFrameLoaderClient::willInjectUserScript(DOMWrapperWorld& world)
@@ -1931,7 +1923,7 @@ void WebLocalFrameLoaderClient::notifyPageOfAppBoundBehavior()
 }
 #endif
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
 
 bool WebLocalFrameLoaderClient::shouldUsePDFPlugin(const String& contentType, StringView path) const
 {

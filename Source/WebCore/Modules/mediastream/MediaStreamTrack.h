@@ -32,11 +32,14 @@
 #include "ActiveDOMObject.h"
 #include "DoubleRange.h"
 #include "EventTarget.h"
+#include "IDLTypes.h"
 #include "LongRange.h"
 #include "MediaProducer.h"
 #include "MediaStreamTrackPrivate.h"
 #include "MediaTrackCapabilities.h"
 #include "MediaTrackConstraints.h"
+#include "PhotoCapabilities.h"
+#include "PhotoSettings.h"
 #include "PlatformMediaSession.h"
 #include <wtf/LoggerHelper.h>
 
@@ -110,7 +113,6 @@ public:
         std::optional<double> aspectRatio;
         std::optional<double> frameRate;
         String facingMode;
-        String whiteBalanceMode;
         std::optional<double> volume;
         std::optional<int> sampleRate;
         std::optional<int> sampleSize;
@@ -118,12 +120,18 @@ public:
         String displaySurface;
         String deviceId;
         String groupId;
+
+        String whiteBalanceMode;
         std::optional<double> zoom;
+        std::optional<bool> torch;
     };
     TrackSettings getSettings() const;
 
     using TrackCapabilities = MediaTrackCapabilities;
     TrackCapabilities getCapabilities() const;
+
+    void getPhotoCapabilities(DOMPromiseDeferred<IDLDictionary<PhotoCapabilities>>&&) const;
+    void getPhotoSettings(DOMPromiseDeferred<IDLDictionary<PhotoSettings>>&&) const;
 
     const MediaTrackConstraints& getConstraints() const { return m_constraints; }
     void setConstraints(MediaTrackConstraints&& constraints) { m_constraints = WTFMove(constraints); }

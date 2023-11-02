@@ -110,6 +110,7 @@ public:
     void writeRenderTreeAsText(TextStream&, OptionSet<RenderAsTextFlag>) override;
 
     WEBCORE_EXPORT LocalFrame& frame() const final;
+    Ref<LocalFrame> protectedFrame() const;
 
     WEBCORE_EXPORT RenderView* renderView() const;
 
@@ -131,6 +132,8 @@ public:
 
     const LocalFrameViewLayoutContext& layoutContext() const { return m_layoutContext; }
     LocalFrameViewLayoutContext& layoutContext() { return m_layoutContext; }
+    CheckedRef<const LocalFrameViewLayoutContext> checkedLayoutContext() const;
+    CheckedRef<LocalFrameViewLayoutContext> checkedLayoutContext();
 
     WEBCORE_EXPORT bool didFirstLayout() const;
 
@@ -736,13 +739,14 @@ public:
     ScrollbarGutter scrollbarGutterStyle() const final;
     ScrollbarWidth scrollbarWidthStyle() const final;
 
-    void updateScrollAnchoringElement() final;
-    void updateScrollPositionForScrollAnchoringController() final;
-    void invalidateScrollAnchoringElement();
-
     void dequeueScrollableAreaForScrollAnchoringUpdate(ScrollableArea&);
     void queueScrollableAreaForScrollAnchoringUpdate(ScrollableArea&);
+    void updateScrollAnchoringElementsForScrollableAreas();
     void updateScrollAnchoringPositionForScrollableAreas();
+
+    void updateScrollAnchoringElement() final;
+    void updateScrollPositionForScrollAnchoringController() final;
+    void invalidateScrollAnchoringElement() final;
 
 private:
     explicit LocalFrameView(LocalFrame&);
@@ -756,6 +760,8 @@ private:
 
     bool isVerticalDocument() const final;
     bool isFlippedDocument() const final;
+
+    void incrementVisuallyNonEmptyCharacterCountSlowCase(const String&);
 
     void reset();
     void init();
@@ -942,7 +948,7 @@ private:
     std::unique_ptr<Display::View> m_displayView;
 
     HashSet<CheckedPtr<Widget>> m_widgetsInRenderTree;
-    std::unique_ptr<ListHashSet<RenderEmbeddedObject*>> m_embeddedObjectsToUpdate;
+    std::unique_ptr<ListHashSet<CheckedPtr<RenderEmbeddedObject>>> m_embeddedObjectsToUpdate;
     std::unique_ptr<WeakHashSet<RenderElement>> m_slowRepaintObjects;
 
     RefPtr<ContainerNode> m_maintainScrollPositionAnchor;
@@ -1024,8 +1030,9 @@ private:
     ViewportRendererType m_viewportRendererType { ViewportRendererType::None };
     ScrollPinningBehavior m_scrollPinningBehavior { ScrollPinningBehavior::DoNotPin };
     SelectionRevealMode m_selectionRevealModeForFocusedElement { SelectionRevealMode::DoNotReveal };
-    std::unique_ptr<ScrollAnchoringController> m_scrollAnchoringController;
     ScrollableAreaSet m_scrollableAreasWithScrollAnchoringControllersNeedingUpdate;
+
+    std::unique_ptr<ScrollAnchoringController> m_scrollAnchoringController;
 
     bool m_shouldUpdateWhileOffscreen { true };
     bool m_overflowStatusDirty { true };
@@ -1081,6 +1088,19 @@ inline void LocalFrameView::incrementVisuallyNonEmptyPixelCount(const IntSize& s
         m_visuallyNonEmptyPixelCount = std::numeric_limits<decltype(m_visuallyNonEmptyPixelCount)>::max();
     else
         m_visuallyNonEmptyPixelCount = area;
+}
+
+inline void LocalFrameView::incrementVisuallyNonEmptyCharacterCount(const String& inlineText)
+{
+    if (m_visuallyNonEmptyCharacterCount > visualCharacterThreshold && m_hasReachedSignificantRenderedTextThreshold)
+        return;
+
+    incrementVisuallyNonEmptyCharacterCountSlowCase(inlineText);
+}
+
+inline RefPtr<LocalFrameView> LocalFrame::protectedView() const
+{
+    return m_view;
 }
 
 WTF::TextStream& operator<<(WTF::TextStream&, const LocalFrameView&);

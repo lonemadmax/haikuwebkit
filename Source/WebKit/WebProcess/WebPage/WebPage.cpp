@@ -190,6 +190,7 @@
 #include <WebCore/DeprecatedGlobalSettings.h>
 #include <WebCore/Document.h>
 #include <WebCore/DocumentFragment.h>
+#include <WebCore/DocumentInlines.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/DocumentMarkerController.h>
 #include <WebCore/DocumentStorageAccess.h>
@@ -221,7 +222,7 @@
 #include <WebCore/HTTPParsers.h>
 #include <WebCore/HandleMouseEventResult.h>
 #include <WebCore/Highlight.h>
-#include <WebCore/HighlightRegister.h>
+#include <WebCore/HighlightRegistry.h>
 #include <WebCore/HistoryController.h>
 #include <WebCore/HistoryItem.h>
 #include <WebCore/HitTestResult.h>
@@ -327,14 +328,14 @@
 #include "DefaultWebBrowserChecks.h"
 #include "InsertTextOptions.h"
 #include "PlaybackSessionManager.h"
+#include "RemoteLayerTreeDrawingArea.h"
 #include "RemoteLayerTreeTransaction.h"
 #include "RemoteObjectRegistryMessages.h"
 #include "TextCheckingControllerProxy.h"
-#include "VideoFullscreenManager.h"
+#include "VideoPresentationManager.h"
 #include "WKStringCF.h"
 #include "WebRemoteObjectRegistry.h"
 #include <WebCore/LegacyWebArchive.h>
-#include <WebCore/UTIRegistry.h>
 #include <pal/spi/cg/ImageIOSPI.h>
 #include <wtf/MachSendRight.h>
 #include <wtf/spi/darwin/SandboxSPI.h>
@@ -349,7 +350,6 @@
 #if PLATFORM(IOS_FAMILY)
 #include "InteractionInformationAtPosition.h"
 #include "InteractionInformationRequest.h"
-#include "RemoteLayerTreeDrawingArea.h"
 #include "WebAutocorrectionContext.h"
 #include <CoreGraphics/CoreGraphics.h>
 #include <WebCore/Icon.h>
@@ -494,7 +494,7 @@ Ref<WebPage> WebPage::create(PageIdentifier pageID, WebPageCreationParameters&& 
     static bool hasSetLaunchVariable = false;
     if (!hasSetLaunchVariable) {
         auto auditToken = WebProcess::singleton().auditTokenForSelf();
-        sandbox_enable_state_flag("WebContentProcessLaunched", *auditToken);
+        sandbox_enable_state_flag("local:WebContentProcessLaunched", *auditToken);
         hasSetLaunchVariable = true;
     };
 #endif
@@ -504,17 +504,13 @@ Ref<WebPage> WebPage::create(PageIdentifier pageID, WebPageCreationParameters&& 
 
 static Vector<UserContentURLPattern> parseAndAllowAccessToCORSDisablingPatterns(const Vector<String>& input)
 {
-    Vector<UserContentURLPattern> parsedPatterns;
-    parsedPatterns.reserveInitialCapacity(input.size());
-    for (const auto& pattern : input) {
+    return WTF::compactMap(input, [](auto& pattern) -> std::optional<UserContentURLPattern> {
         UserContentURLPattern parsedPattern(pattern);
-        if (parsedPattern.isValid()) {
-            WebCore::OriginAccessPatternsForWebProcess::singleton().allowAccessTo(parsedPattern);
-            parsedPatterns.uncheckedAppend(WTFMove(parsedPattern));
-        }
-    }
-    parsedPatterns.shrinkToFit();
-    return parsedPatterns;
+        if (!parsedPattern.isValid())
+            return std::nullopt;
+        WebCore::OriginAccessPatternsForWebProcess::singleton().allowAccessTo(parsedPattern);
+        return parsedPattern;
+    });
 }
 
 static std::variant<UniqueRef<LocalFrameLoaderClient>, UniqueRef<RemoteFrameClient>> clientForMainFrame(Ref<WebFrame>&& mainFrame, auto frameType)
@@ -612,6 +608,9 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #endif
     , m_overriddenMediaType(parameters.overriddenMediaType)
     , m_processDisplayName(parameters.processDisplayName)
+#if PLATFORM(GTK) && USE(GBM)
+    , m_preferredBufferFormats(WTFMove(parameters.preferredBufferFormats))
+#endif
 #if ENABLE(APP_BOUND_DOMAINS)
     , m_limitsNavigationsToAppBoundDomains(parameters.limitsNavigationsToAppBoundDomains)
 #endif
@@ -677,7 +676,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         makeUniqueRef<WebSpeechRecognitionProvider>(pageID),
         makeUniqueRef<MediaRecorderProvider>(*this),
         WebProcess::singleton().broadcastChannelRegistry(),
-        makeUniqueRef<WebStorageProvider>(),
+        makeUniqueRef<WebStorageProvider>(WebProcess::singleton().mediaKeysStorageDirectory(), WebProcess::singleton().mediaKeysStorageSalt()),
         makeUniqueRef<WebModelPlayerProvider>(*this),
         WebProcess::singleton().badgeClient(),
         m_historyItemClient.copyRef(),
@@ -797,7 +796,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     if (m_drawingArea->enterAcceleratedCompositingModeIfNeeded() && !parameters.isProcessSwap)
         m_drawingArea->sendEnterAcceleratedCompositingModeIfNeeded();
 #endif
-    // FIXME: Refactor frame construction and remove receivedMainFrameIdentifierFromUIProcess.
+    // FIXME: Refactor frame construction and remove receivedMainFrameIdentifierFromUIProcess. <rdar://116201135>
     if (!receivedMainFrameIdentifierFromUIProcess || parameters.openerFrameIdentifier)
         m_drawingArea->addRootFrame(m_mainFrame->frameID());
     m_drawingArea->setShouldScaleViewToFitDocument(parameters.shouldScaleViewToFitDocument);
@@ -954,11 +953,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     for (auto& mimeType : parameters.mimeTypesWithCustomContentProviders)
         m_mimeTypesWithCustomContentProviders.add(mimeType);
 
-
-#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-    if (WebMediaKeyStorageManager* manager = webProcess.supplement<WebMediaKeyStorageManager>())
-        m_page->settings().setMediaKeysStorageDirectory(manager->mediaKeyStorageDirectory());
-#endif
     if (parameters.viewScaleFactor != 1)
         scaleView(parameters.viewScaleFactor);
 
@@ -966,7 +960,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
 #if PLATFORM(COCOA)
     setSmartInsertDeleteEnabled(parameters.smartInsertDeleteEnabled);
-    WebCore::setAdditionalSupportedImageTypes(parameters.additionalSupportedImageTypes);
 #endif
 
 #if HAVE(APP_ACCENT_COLORS)
@@ -1075,14 +1068,14 @@ void WebPage::createRemoteSubframe(WebCore::FrameIdentifier parentID, WebCore::F
     WebFrame::createRemoteSubframe(*this, *parentFrame, newChildID);
 }
 
-void WebPage::getFrameInfo(WebCore::FrameIdentifier frameID, CompletionHandler<void(FrameInfoData&&)>&& completionHandler)
+void WebPage::getFrameInfo(WebCore::FrameIdentifier frameID, CompletionHandler<void(std::optional<FrameInfoData>&&)>&& completionHandler)
 {
     RefPtr frame = WebProcess::singleton().webFrame(frameID);
-    if (!frame) {
-        ASSERT_NOT_REACHED();
-        return completionHandler({ });
-    }
-    frame->getFrameInfo(WTFMove(completionHandler));
+    if (!frame)
+        return completionHandler(std::nullopt);
+    frame->getFrameInfo([completionHandler = WTFMove(completionHandler)](auto&& frameInfo) mutable {
+        completionHandler(WTFMove(frameInfo));
+    });
 }
 
 void WebPage::getFrameTree(CompletionHandler<void(FrameTreeNodeData&&)>&& completionHandler)
@@ -1129,6 +1122,15 @@ void WebPage::gpuProcessConnectionDidBecomeAvailable(GPUProcessConnection& gpuPr
     UNUSED_PARAM(gpuProcessConnection);
 #endif
 }
+
+void WebPage::gpuProcessConnectionWasDestroyed()
+{
+#if PLATFORM(COCOA)
+    if (auto* remoteLayerTreeDrawingArea = dynamicDowncast<RemoteLayerTreeDrawingArea>(m_drawingArea.get()))
+        remoteLayerTreeDrawingArea->gpuProcessConnectionWasDestroyed();
+#endif
+}
+
 #endif
 
 void WebPage::requestMediaPlaybackState(CompletionHandler<void(WebKit::MediaPlaybackState)>&& completionHandler)
@@ -1258,7 +1260,7 @@ WebPage::~WebPage()
     
     m_sandboxExtensionTracker.invalidate();
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     for (auto& pluginView : m_pluginViews)
         pluginView.webPageDestroyed();
 #endif
@@ -1285,8 +1287,8 @@ WebPage::~WebPage()
     if (m_playbackSessionManager)
         m_playbackSessionManager->invalidate();
 
-    if (m_videoFullscreenManager)
-        m_videoFullscreenManager->invalidate();
+    if (m_videoPresentationManager)
+        m_videoPresentationManager->invalidate();
 #endif
 
     for (auto& completionHandler : std::exchange(m_markLayersAsVolatileCompletionHandlers, { }))
@@ -1387,9 +1389,12 @@ EditorState WebPage::editorState(ShouldPerformLayout shouldPerformLayout) const
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
 
     EditorState result;
+    auto sanitizeEditorStateOnceCreated = makeScopeExit([&result] {
+        result.clipOwnedRectExtentsToNumericLimits();
+    });
 
-#if ENABLE(PDFKIT_PLUGIN)
-    if (PluginView* pluginView = focusedPluginViewForFrame(frame)) {
+#if ENABLE(PDF_PLUGIN)
+    if (auto* pluginView = focusedPluginViewForFrame(frame)) {
         if (!pluginView->getSelectionString().isNull()) {
             result.selectionIsNone = false;
             result.selectionIsRange = true;
@@ -1587,7 +1592,7 @@ Ref<API::Array> WebPage::trackedRepaintRects()
     return API::Array::create(WTFMove(repaintRects));
 }
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
 
 PluginView* WebPage::focusedPluginViewForFrame(LocalFrame& frame)
 {
@@ -1625,8 +1630,8 @@ void WebPage::executeEditingCommand(const String& commandName, const String& arg
 
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
 
-#if ENABLE(PDFKIT_PLUGIN)
-    if (PluginView* pluginView = focusedPluginViewForFrame(frame)) {
+#if ENABLE(PDF_PLUGIN)
+    if (auto* pluginView = focusedPluginViewForFrame(frame)) {
         pluginView->handleEditingCommand(commandName, argument);
         return;
     }
@@ -1676,8 +1681,8 @@ bool WebPage::isEditingCommandEnabled(const String& commandName)
 {
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
 
-#if ENABLE(PDFKIT_PLUGIN)
-    if (PluginView* pluginView = focusedPluginViewForFrame(frame))
+#if ENABLE(PDF_PLUGIN)
+    if (auto* pluginView = focusedPluginViewForFrame(frame))
         return pluginView->isEditingCommandEnabled(commandName);
 #endif
 
@@ -2291,7 +2296,7 @@ void WebPage::drawRect(GraphicsContext& graphicsContext, const IntRect& rect)
 
 double WebPage::textZoomFactor() const
 {
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     if (auto* pluginView = mainFramePlugIn())
         return pluginView->pageScaleFactor();
 #endif
@@ -2304,7 +2309,7 @@ double WebPage::textZoomFactor() const
 
 void WebPage::setTextZoomFactor(double zoomFactor)
 {
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     if (auto* pluginView = mainFramePlugIn()) {
         pluginView->setPageScaleFactor(zoomFactor);
         return;
@@ -2319,7 +2324,7 @@ void WebPage::setTextZoomFactor(double zoomFactor)
 
 double WebPage::pageZoomFactor() const
 {
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     if (auto* pluginView = mainFramePlugIn())
         return pluginView->pageScaleFactor();
 #endif
@@ -2332,7 +2337,7 @@ double WebPage::pageZoomFactor() const
 
 void WebPage::setPageZoomFactor(double zoomFactor)
 {
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     if (auto* pluginView = mainFramePlugIn()) {
         pluginView->setPageScaleFactor(zoomFactor);
         return;
@@ -2408,7 +2413,7 @@ void WebPage::clearHistory()
 
 void WebPage::setPageAndTextZoomFactors(double pageZoomFactor, double textZoomFactor)
 {
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     if (auto* pluginView = mainFramePlugIn()) {
         pluginView->setPageScaleFactor(pageZoomFactor);
         return;
@@ -2443,7 +2448,7 @@ void WebPage::scalePage(double scale, const IntPoint& origin)
     }
 #endif
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     if (auto* pluginView = mainFramePlugIn()) {
         // Since the main-frame PDF plug-in handles the page scale factor, make sure to reset WebCore's page scale.
         // Otherwise, we can end up with an immutable but non-1 page scale applied by WebCore on top of whatever the plugin does.
@@ -2463,7 +2468,7 @@ void WebPage::scalePage(double scale, const IntPoint& origin)
     if (!willChangeScaleFactor)
         return;
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     for (auto& pluginView : m_pluginViews)
         pluginView.pageScaleFactorDidChange();
 #endif
@@ -2502,7 +2507,7 @@ void WebPage::scalePageInViewCoordinates(double scale, IntPoint centerInViewCoor
 
 double WebPage::totalScaleFactor() const
 {
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     if (auto* pluginView = mainFramePlugIn())
         return pluginView->pageScaleFactor();
 #endif
@@ -3000,7 +3005,7 @@ static DestinationColorSpace snapshotColorSpace(SnapshotOptions options, WebPage
 
 static ImageOptions snapshotImageOptions(LocalFrame& frame)
 {
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     return WebPage::pluginViewForFrame(&frame) ? ImageOptionsLocal : ImageOptionsShareable;
 #else
     return ImageOptionsShareable;
@@ -3175,7 +3180,7 @@ void WebPage::updateDrawingAreaLayerTreeFreezeState()
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     // When the browser is in the background, we should not freeze the layer tree
     // if the page has a video playing in picture-in-picture.
-    if (m_videoFullscreenManager && m_videoFullscreenManager->hasVideoPlayingInPictureInPicture() && m_layerTreeFreezeReasons.hasExactlyOneBitSet() && m_layerTreeFreezeReasons.contains(LayerTreeFreezeReason::BackgroundApplication)) {
+    if (m_videoPresentationManager && m_videoPresentationManager->hasVideoPlayingInPictureInPicture() && m_layerTreeFreezeReasons.hasExactlyOneBitSet() && m_layerTreeFreezeReasons.contains(LayerTreeFreezeReason::BackgroundApplication)) {
         m_drawingArea->setLayerTreeStateIsFrozen(false);
         return;
     }
@@ -3544,8 +3549,8 @@ void WebPage::validateCommand(const String& commandName, CompletionHandler<void(
     int32_t state = 0;
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
 
-#if ENABLE(PDFKIT_PLUGIN)
-    if (PluginView* pluginView = focusedPluginViewForFrame(frame))
+#if ENABLE(PDF_PLUGIN)
+    if (auto* pluginView = focusedPluginViewForFrame(frame))
         isEnabled = pluginView->isEditingCommandEnabled(commandName);
     else
 #endif
@@ -3809,7 +3814,7 @@ void WebPage::setTopContentInset(float contentInset)
 
     m_page->setTopContentInset(contentInset);
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     for (auto& pluginView : m_pluginViews)
         pluginView.topContentInsetDidChange();
 #endif
@@ -4066,7 +4071,7 @@ IntPoint WebPage::screenToRootView(const IntPoint& point)
     
 IntRect WebPage::rootViewToScreen(const IntRect& rect)
 {
-    auto sendResult = sendSync(Messages::WebPageProxy::RootViewToScreen(rect));
+    auto sendResult = sendSync(Messages::WebPageProxy::RootViewToScreen(rect.toRectWithExtentsClippedToNumericLimits()));
     auto [screenRect] = sendResult.takeReplyOr(IntRect { });
     return screenRect;
 }
@@ -4260,8 +4265,8 @@ void WebPage::getMainResourceDataOfFrame(FrameIdentifier frameID, CompletionHand
     RefPtr<FragmentedSharedBuffer> buffer;
     if (RefPtr frame = WebProcess::singleton().webFrame(frameID)) {
         RefPtr coreFrame = frame->coreLocalFrame();
-#if ENABLE(PDFKIT_PLUGIN)
-        if (PluginView* pluginView = pluginViewForFrame(coreFrame.get()))
+#if ENABLE(PDF_PLUGIN)
+        if (auto* pluginView = pluginViewForFrame(coreFrame.get()))
             buffer = pluginView->liveResourceData();
         if (!buffer)
 #endif
@@ -4296,6 +4301,20 @@ void WebPage::getResourceDataFromFrame(FrameIdentifier frameID, const String& re
     }
 
     callback(IPC::SharedBufferReference(WTFMove(buffer)));
+}
+
+void WebPage::getWebArchiveOfFrameWithFileName(WebCore::FrameIdentifier frameID, const String& fileName, CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&& completionHandler)
+{
+    std::optional<IPC::SharedBufferReference> result;
+#if PLATFORM(COCOA)
+    if (RefPtr frame = WebProcess::singleton().webFrame(frameID)) {
+        if (RetainPtr<CFDataRef> data = frame->webArchiveData(nullptr, nullptr, fileName))
+            result = IPC::SharedBufferReference(SharedBuffer::create(data.get()));
+    }
+#else
+    UNUSED_PARAM(frameID);
+#endif
+    completionHandler(result);
 }
 
 void WebPage::getWebArchiveOfFrame(FrameIdentifier frameID, CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&& callback)
@@ -4743,11 +4762,11 @@ void WebPage::updateRendering()
 
 bool WebPage::hasRootFrames()
 {
-    bool result = m_page && !m_page->rootFrames().isEmptyIgnoringNullReferences();
-    if (!result) {
+    bool result = m_page && !m_page->rootFrames().isEmpty();
+#if ASSERT_ENABLED
+    if (!result)
         ASSERT(m_page->settings().processSwapOnCrossSiteWindowOpenEnabled());
-        ASSERT(!m_page->settings().siteIsolationEnabled());
-    }
+#endif
     return result;
 }
 
@@ -4885,11 +4904,11 @@ PlaybackSessionManager& WebPage::playbackSessionManager()
     return *m_playbackSessionManager;
 }
 
-VideoFullscreenManager& WebPage::videoFullscreenManager()
+VideoPresentationManager& WebPage::videoPresentationManager()
 {
-    if (!m_videoFullscreenManager)
-        m_videoFullscreenManager = VideoFullscreenManager::create(*this, playbackSessionManager());
-    return *m_videoFullscreenManager;
+    if (!m_videoPresentationManager)
+        m_videoPresentationManager = VideoPresentationManager::create(*this, playbackSessionManager());
+    return *m_videoPresentationManager;
 }
 
 void WebPage::videoControlsManagerDidChange()
@@ -5675,7 +5694,7 @@ void WebPage::mainFrameDidLayout()
 #endif
 }
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
 
 void WebPage::addPluginView(PluginView& pluginView)
 {
@@ -5689,7 +5708,7 @@ void WebPage::removePluginView(PluginView& pluginView)
     m_pluginViews.remove(pluginView);
 }
 
-#endif
+#endif // ENABLE(PDF_PLUGIN)
 
 void WebPage::sendSetWindowFrame(const FloatRect& windowFrame)
 {
@@ -7198,9 +7217,9 @@ void WebPage::didCommitLoad(WebFrame* frame)
 #endif
 #endif // PLATFORM(IOS_FAMILY)
 
+    RefPtr coreFrame = frame->coreLocalFrame();
 #if ENABLE(META_VIEWPORT)
     resetViewportDefaultConfiguration(frame);
-    RefPtr coreFrame = frame->coreLocalFrame();
     
     bool viewportChanged = false;
 
@@ -7227,6 +7246,14 @@ void WebPage::didCommitLoad(WebFrame* frame)
 
 #if USE(OS_STATE)
     m_loadCommitTime = WallTime::now();
+#endif
+
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+    if (coreFrame->isMainFrame() && !usesEphemeralSession()) {
+        if (RefPtr loader = coreFrame->document()->loader(); loader
+            && loader->advancedPrivacyProtections().contains(AdvancedPrivacyProtections::BaselineProtections))
+            WEBPAGE_RELEASE_LOG(AdvancedPrivacyProtections, "didCommitLoad: advanced privacy protections enabled in non-ephemeral session");
+    }
 #endif
 
     themeColorChanged();
@@ -7264,6 +7291,22 @@ void WebPage::didFinishLoad(WebFrame& frame)
 #if ENABLE(VIEWPORT_RESIZING)
     shrinkToFitContent(ZoomToInitialScale::Yes);
 #endif
+}
+
+void WebPage::didSameDocumentNavigationForFrame(WebFrame& frame)
+{
+    RefPtr<API::Object> userData;
+
+    auto navigationID = static_cast<WebDocumentLoader&>(*frame.coreLocalFrame()->loader().documentLoader()).navigationID();
+
+    if (frame.isMainFrame())
+        m_pendingNavigationID = 0;
+
+    // Notify the bundle client.
+    injectedBundleLoaderClient().didSameDocumentNavigationForFrame(*this, frame, SameDocumentNavigationType::AnchorNavigation, userData);
+
+    // Notify the UIProcess.
+    send(Messages::WebPageProxy::DidSameDocumentNavigationForFrame(frame.frameID(), navigationID, SameDocumentNavigationType::AnchorNavigation, frame.coreLocalFrame()->document()->url(), UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
 }
 
 void WebPage::testProcessIncomingSyncMessagesWhenWaitingForSyncReply(CompletionHandler<void(bool)>&& reply)
@@ -7867,7 +7910,10 @@ WebCore::DOMPasteAccessResponse WebPage::requestDOMPasteAccess(WebCore::DOMPaste
     // should be removed once <rdar://problem/16207002> is resolved.
     preemptivelySendAutocorrectionContext();
 #endif
-    auto sendResult = sendSyncWithDelayedReply(Messages::WebPageProxy::RequestDOMPasteAccess(pasteAccessCategory, rectForElementAtInteractionLocation(), originIdentifier), IPC::SendSyncOption::InformPlatformProcessWillSuspend);
+
+    AXRelayProcessSuspendedNotification(*this);
+
+    auto sendResult = sendSyncWithDelayedReply(Messages::WebPageProxy::RequestDOMPasteAccess(pasteAccessCategory, rectForElementAtInteractionLocation(), originIdentifier));
     auto [response] = sendResult.takeReplyOr(WebCore::DOMPasteAccessResponse::DeniedForGesture);
     return response;
 }
@@ -8605,7 +8651,7 @@ bool WebPage::createAppHighlightInSelectedRange(WebCore::CreateNewGroupForHighli
     if (!selectionRange)
         return false;
 
-    document->appHighlightRegister().addAnnotationHighlightWithRange(StaticRange::create(selectionRange.value()));
+    document->appHighlightRegistry().addAnnotationHighlightWithRange(StaticRange::create(selectionRange.value()));
     document->appHighlightStorage().storeAppHighlight(StaticRange::create(selectionRange.value()));
 
     return true;
@@ -8634,7 +8680,7 @@ void WebPage::setAppHighlightsVisibility(WebCore::HighlightVisibility appHighlig
         if (!localFrame)
             continue;
         if (RefPtr document = localFrame->document())
-            document->appHighlightRegister().setHighlightVisibility(appHighlightVisibility);
+            document->appHighlightRegistry().setHighlightVisibility(appHighlightVisibility);
     }
 }
 
@@ -8756,7 +8802,7 @@ void WebPage::setInteractionRegionsEnabled(bool enable)
 
 bool WebPage::handlesPageScaleGesture()
 {
-#if !ENABLE(PDFKIT_PLUGIN)
+#if !ENABLE(LEGACY_PDFKIT_PLUGIN)
     return false;
 #else
     return mainFramePlugIn();
@@ -8919,6 +8965,14 @@ void WebPage::dispatchLoadEventToFrameOwnerElement(WebCore::FrameIdentifier fram
 
     if (coreRemoteFrame->ownerElement())
         coreRemoteFrame->ownerElement()->dispatchEvent(Event::create(eventNames().loadEvent, Event::CanBubble::No, Event::IsCancelable::No));
+}
+
+void WebPage::frameWasFocusedInAnotherProcess(WebCore::FrameIdentifier frameID)
+{
+    auto* frame = WebProcess::singleton().webFrame(frameID);
+    if (!frame)
+        return;
+    m_page->focusController().setFocusedFrame(frame->coreFrame(), FocusController::BroadcastFocusedFrame::No);
 }
 
 } // namespace WebKit

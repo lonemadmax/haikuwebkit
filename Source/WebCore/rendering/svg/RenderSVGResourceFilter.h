@@ -62,13 +62,13 @@ public:
     inline SVGFilterElement& filterElement() const;
     bool isIdentity() const;
 
-    void removeAllClientsFromCache(bool markForInvalidation = true) override;
+    void removeAllClientsFromCacheIfNeeded(bool markForInvalidation, WeakHashSet<RenderObject>* visitedRenderers) override;
     void removeClientFromCache(RenderElement&, bool markForInvalidation = true) override;
 
     bool applyResource(RenderElement&, const RenderStyle&, GraphicsContext*&, OptionSet<RenderSVGResourceMode>) override;
     void postApplyResource(RenderElement&, GraphicsContext*&, OptionSet<RenderSVGResourceMode>, const Path*, const RenderElement*) override;
 
-    FloatRect resourceBoundingBox(const RenderObject&) override;
+    FloatRect resourceBoundingBox(const RenderObject&, RepaintRectCalculation) override;
 
     inline SVGUnitTypes::SVGUnitType filterUnits() const;
     inline SVGUnitTypes::SVGUnitType primitiveUnits() const;
@@ -83,7 +83,6 @@ private:
     void element() const = delete;
 
     ASCIILiteral renderName() const override { return "RenderSVGResourceFilter"_s; }
-    bool isSVGResourceFilter() const override { return true; }
 
     HashMap<RenderObject*, std::unique_ptr<FilterData>> m_rendererFilterDataMap;
 };

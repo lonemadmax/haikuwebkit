@@ -103,6 +103,9 @@ public:
 private:
     explicit WebExtensionContextProxy(const WebExtensionContextParameters&);
 
+    // Action
+    void dispatchActionClickedEvent(const std::optional<WebExtensionTabParameters>&);
+
     // Alarms
     void dispatchAlarmsEvent(const WebExtensionAlarmParameters&);
 
@@ -118,6 +121,8 @@ private:
     void internalDispatchRuntimeConnectEvent(WebCore::DOMWrapperWorld&, WebExtensionPortChannelIdentifier, const String& name, std::optional<WebExtensionFrameIdentifier>, const WebExtensionMessageSenderParameters&, CompletionHandler<void(size_t firedEventCount)>&&);
     void dispatchRuntimeMessageEvent(WebExtensionContentWorldType, const String& messageJSON, std::optional<WebExtensionFrameIdentifier>, const WebExtensionMessageSenderParameters&, CompletionHandler<void(std::optional<String> replyJSON)>&&);
     void dispatchRuntimeConnectEvent(WebExtensionContentWorldType, WebExtensionPortChannelIdentifier, const String& name, std::optional<WebExtensionFrameIdentifier>, const WebExtensionMessageSenderParameters&, CompletionHandler<void(size_t firedEventCount)>&&);
+    void dispatchRuntimeInstalledEvent(WebExtensionContext::InstallReason, String previousVersion);
+    void dispatchRuntimeStartupEvent();
 
     // Tabs
     void dispatchTabsCreatedEvent(const WebExtensionTabParameters&);
@@ -134,7 +139,7 @@ private:
     void dispatchWebNavigationEvent(WebExtensionEventListenerType, WebPageProxyIdentifier, WebCore::FrameIdentifier, URL);
 
     // Windows
-    void dispatchWindowsEvent(WebExtensionEventListenerType, std::optional<WebExtensionWindowParameters>);
+    void dispatchWindowsEvent(WebExtensionEventListenerType, const std::optional<WebExtensionWindowParameters>&);
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;

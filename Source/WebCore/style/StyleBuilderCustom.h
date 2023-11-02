@@ -978,8 +978,8 @@ inline void BuilderCustom::applyValueFontFamily(BuilderState& builderState, CSSV
         families = Vector<AtomString>::from(WTFMove(family));
     } else {
         auto& valueList = downcast<CSSValueList>(value);
-        families.reserveInitialCapacity(valueList.length());
-        for (auto& item : valueList) {
+        bool isFirstFont = true;
+        families = WTF::compactMap(valueList, [&](auto& item) -> std::optional<AtomString> {
             auto& contentValue = downcast<CSSPrimitiveValue>(item);
             AtomString family;
             bool isGenericFamily = false;
@@ -993,11 +993,13 @@ inline void BuilderCustom::applyValueFontFamily(BuilderState& builderState, CSSV
                 ASSERT(!family.isEmpty());
             }
             if (family.isNull())
-                continue;
-            if (families.isEmpty())
+                return std::nullopt;
+            if (isFirstFont) {
                 fontDescription.setIsSpecifiedFont(!isGenericFamily);
-            families.uncheckedAppend(WTFMove(family));
-        }
+                isFirstFont = false;
+            }
+            return family;
+        });
         if (families.isEmpty())
             return;
     }
@@ -1845,8 +1847,8 @@ inline void BuilderCustom::applyValueGridTemplateAreas(BuilderState& builderStat
 
     NamedGridLinesMap implicitNamedGridColumnLines;
     NamedGridLinesMap implicitNamedGridRowLines;
-    BuilderConverter::createImplicitNamedGridLinesFromGridArea(newNamedGridAreas, implicitNamedGridColumnLines, ForColumns);
-    BuilderConverter::createImplicitNamedGridLinesFromGridArea(newNamedGridAreas, implicitNamedGridRowLines, ForRows);
+    BuilderConverter::createImplicitNamedGridLinesFromGridArea(newNamedGridAreas, implicitNamedGridColumnLines, GridTrackSizingDirection::ForColumns);
+    BuilderConverter::createImplicitNamedGridLinesFromGridArea(newNamedGridAreas, implicitNamedGridRowLines, GridTrackSizingDirection::ForRows);
     builderState.style().setImplicitNamedGridColumnLines(implicitNamedGridColumnLines);
     builderState.style().setImplicitNamedGridRowLines(implicitNamedGridRowLines);
 

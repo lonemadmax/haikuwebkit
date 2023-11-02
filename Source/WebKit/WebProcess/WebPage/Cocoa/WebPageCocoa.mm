@@ -30,6 +30,7 @@
 #import "InsertTextOptions.h"
 #import "LoadParameters.h"
 #import "MessageSenderInlines.h"
+#import "PDFPlugin.h"
 #import "PluginView.h"
 #import "UserMediaCaptureManager.h"
 #import "WKAccessibilityWebPageObjectBase.h"
@@ -41,6 +42,7 @@
 #import "WebRemoteObjectRegistry.h"
 #import <WebCore/DeprecatedGlobalSettings.h>
 #import <WebCore/DictionaryLookup.h>
+#import <WebCore/DocumentInlines.h>
 #import <WebCore/DocumentMarkerController.h>
 #import <WebCore/Editing.h>
 #import <WebCore/Editor.h>
@@ -59,6 +61,7 @@
 #import <WebCore/HitTestResult.h>
 #import <WebCore/ImageOverlay.h>
 #import <WebCore/LocalFrameView.h>
+#import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/MutableStyleProperties.h>
 #import <WebCore/NetworkExtensionContentFilter.h>
 #import <WebCore/NodeRenderStyle.h>
@@ -69,6 +72,8 @@
 #import <WebCore/RenderLayer.h>
 #import <WebCore/RenderedDocumentMarker.h>
 #import <WebCore/TextIterator.h>
+#import <WebCore/UTIRegistry.h>
+#import <WebCore/UTIUtilities.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 
@@ -109,6 +114,8 @@ void WebPage::platformInitialize(const WebPageCreationParameters& parameters)
 #if PLATFORM(IOS_FAMILY)
     setInsertionPointColor(parameters.insertionPointColor);
 #endif
+    WebCore::setAdditionalSupportedImageTypes(parameters.additionalSupportedImageTypes);
+    WebCore::setImageSourceAllowableTypes(WebCore::allowableImageTypes());
 }
 
 void WebPage::platformDidReceiveLoadParameters(const LoadParameters& parameters)
@@ -135,10 +142,26 @@ void WebPage::requestActiveNowPlayingSessionInfo(CompletionHandler<void(bool, bo
 
     completionHandler(hasActiveSession, registeredAsNowPlayingApplication, title, duration, elapsedTime, uniqueIdentifier);
 }
-    
+
+#if ENABLE(PDF_PLUGIN)
+bool WebPage::shouldUsePDFPlugin(const String& contentType, StringView path) const
+{
+    return pdfPluginEnabled()
+#if ENABLE(PDFJS)
+        && !corePage()->settings().pdfJSViewerEnabled()
+#endif
+#if ENABLE(LEGACY_PDFKIT_PLUGIN)
+        && PDFPlugin::pdfKitLayerControllerIsAvailable()
+#endif
+        && (MIMETypeRegistry::isPDFOrPostScriptMIMEType(contentType)
+            || (contentType.isEmpty()
+                && (path.endsWithIgnoringASCIICase(".pdf"_s) || path.endsWithIgnoringASCIICase(".ps"_s))));
+}
+#endif
+
 void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
 {
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     if (auto* pluginView = mainFramePlugIn()) {
         if (pluginView->performDictionaryLookupAtLocation(floatPoint))
             return;
@@ -315,27 +338,26 @@ void WebPage::addDictationAlternative(const String& text, DictationContext conte
 
 void WebPage::dictationAlternativesAtSelection(CompletionHandler<void(Vector<DictationContext>&&)>&& completion)
 {
-    Vector<DictationContext> contexts;
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
     RefPtr document = frame->document();
     if (!document) {
-        completion(WTFMove(contexts));
+        completion({ });
         return;
     }
 
     auto selection = frame->selection().selection();
     auto expandedSelectionRange = VisibleSelection { selection.visibleStart().previous(CannotCrossEditingBoundary), selection.visibleEnd().next(CannotCrossEditingBoundary) }.range();
     if (!expandedSelectionRange) {
-        completion(WTFMove(contexts));
+        completion({ });
         return;
     }
 
     auto markers = document->markers().markersInRange(*expandedSelectionRange, DocumentMarker::DictationAlternatives);
-    contexts.reserveInitialCapacity(markers.size());
-    for (auto& marker : markers) {
+    auto contexts = WTF::compactMap(markers, [](auto& marker) -> std::optional<DictationContext> {
         if (std::holds_alternative<DocumentMarker::DictationData>(marker->data()))
-            contexts.uncheckedAppend(std::get<DocumentMarker::DictationData>(marker->data()).context);
-    }
+            return std::get<DocumentMarker::DictationData>(marker->data()).context;
+        return std::nullopt;
+    });
     completion(WTFMove(contexts));
 }
 
@@ -551,7 +573,7 @@ void WebPage::getPlatformEditorStateCommon(const LocalFrame& frame, EditorState&
 
 void WebPage::getPDFFirstPageSize(WebCore::FrameIdentifier frameID, CompletionHandler<void(WebCore::FloatSize)>&& completionHandler)
 {
-#if !ENABLE(PDFKIT_PLUGIN)
+#if !ENABLE(LEGACY_PDFKIT_PLUGIN)
     return completionHandler({ });
 #else
     RefPtr webFrame = WebProcess::singleton().webFrame(frameID);

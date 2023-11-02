@@ -38,6 +38,8 @@
 #include "JSDOMPromiseDeferred.h"
 #include "JSMeteringMode.h"
 #include "JSOverconstrainedError.h"
+#include "JSPhotoCapabilities.h"
+#include "JSPhotoSettings.h"
 #include "LocalFrame.h"
 #include "Logging.h"
 #include "MediaConstraints.h"
@@ -49,6 +51,7 @@
 #include "NotImplemented.h"
 #include "OverconstrainedError.h"
 #include "Page.h"
+#include "PhotoCapabilities.h"
 #include "PlatformMediaSessionManager.h"
 #include "RealtimeMediaSourceCenter.h"
 #include "ScriptExecutionContext.h"
@@ -56,6 +59,7 @@
 #include "WebAudioSourceProvider.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/IsoMallocInlines.h>
+#include <wtf/NativePromise.h>
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -274,8 +278,6 @@ MediaStreamTrack::TrackSettings MediaStreamTrack::getSettings() const
         result.frameRate = settings.frameRate();
     if (settings.supportsFacingMode())
         result.facingMode = convertEnumerationToString(settings.facingMode());
-    if (settings.supportsWhiteBalanceMode())
-        result.whiteBalanceMode = convertEnumerationToString(settings.whiteBalanceMode());
     if (settings.supportsVolume())
         result.volume = settings.volume();
     if (settings.supportsSampleRate())
@@ -290,8 +292,13 @@ MediaStreamTrack::TrackSettings MediaStreamTrack::getSettings() const
         result.groupId = m_groupId;
     if (settings.supportsDisplaySurface() && settings.displaySurface() != DisplaySurfaceType::Invalid)
         result.displaySurface = RealtimeMediaSourceSettings::displaySurface(settings.displaySurface());
+
+    if (settings.supportsWhiteBalanceMode())
+        result.whiteBalanceMode = convertEnumerationToString(settings.whiteBalanceMode());
     if (settings.supportsZoom())
         result.zoom = settings.zoom();
+    if (settings.supportsTorch())
+        result.torch = settings.torch();
 
     return result;
 }
@@ -305,6 +312,47 @@ MediaStreamTrack::TrackCapabilities MediaStreamTrack::getCapabilities() const
         result.displaySurface = RealtimeMediaSourceSettings::displaySurface(settings.displaySurface());
 
     return result;
+}
+
+void MediaStreamTrack::getPhotoCapabilities(DOMPromiseDeferred<IDLDictionary<PhotoCapabilities>>&& promise) const
+{
+    m_private->getPhotoCapabilities([protectedThis = Ref { *this }, promise = WTFMove(promise)](auto&& result) mutable {
+        if (!result) {
+            // https://w3c.github.io/mediacapture-image/#ref-for-dom-imagecapture-getphotocapabilities②
+            // If the data cannot be gathered for any reason (for example, the MediaStreamTrack being ended
+            // asynchronously), then reject p with a new DOMException whose name is OperationError, and
+            // abort these steps.
+            promise.reject(Exception { OperationError, WTFMove(result.errorMessage) });
+            return;
+        }
+        if (protectedThis->m_readyState != State::Live) {
+            promise.reject(Exception { OperationError, "Track has ended"_s });
+            return;
+        }
+
+        promise.resolve(WTFMove(*result.capabilities));
+    });
+}
+
+void MediaStreamTrack::getPhotoSettings(DOMPromiseDeferred<IDLDictionary<PhotoSettings>>&& promise) const
+{
+    m_private->getPhotoSettings()->whenSettled(RunLoop::main(), [protectedThis = Ref { *this }, promise = WTFMove(promise)] (auto&& result) mutable {
+
+        // https://w3c.github.io/mediacapture-image/#ref-for-dom-imagecapture-getphotosettings②
+        // If the data cannot be gathered for any reason (for example, the MediaStreamTrack being ended
+        // asynchronously), then reject p with a new DOMException whose name is OperationError, and
+        // abort these steps.
+        if (!result) {
+            promise.reject(Exception { OperationError, WTFMove(result.error()) });
+            return;
+        }
+        if (protectedThis->m_readyState != State::Live) {
+            promise.reject(Exception { OperationError, "Track has ended"_s });
+            return;
+        }
+
+        promise.resolve(WTFMove(result.value()));
+    });
 }
 
 static MediaConstraints createMediaConstraints(const std::optional<MediaTrackConstraints>& constraints)
@@ -409,6 +457,8 @@ MediaProducerMediaStateFlags MediaStreamTrack::captureState(Document& document)
 
 void MediaStreamTrack::updateCaptureAccordingToMutedState(Document& document)
 {
+    RELEASE_LOG_INFO(WebRTC, "MediaStreamTrack::updateCaptureAccordingToMutedState");
+
     for (RefPtr captureTrack : allCaptureTracks()) {
         if (captureTrack->scriptExecutionContext() == &document && !captureTrack->ended())
             captureTrack->updateToPageMutedState();
@@ -417,6 +467,8 @@ void MediaStreamTrack::updateCaptureAccordingToMutedState(Document& document)
 
 void MediaStreamTrack::updateVideoCaptureAccordingMicrophoneInterruption(Document& document, bool isMicrophoneInterrupted)
 {
+    RELEASE_LOG_INFO(WebRTC, "MediaStreamTrack::updateVideoCaptureAccordingMicrophoneInterruption %d", isMicrophoneInterrupted);
+
     auto* page = document.page();
     for (RefPtr captureTrack : allCaptureTracks()) {
         RefPtr context = captureTrack->scriptExecutionContext();

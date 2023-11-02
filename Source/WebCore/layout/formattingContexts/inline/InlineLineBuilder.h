@@ -28,7 +28,6 @@
 #include "AbstractLineBuilder.h"
 #include "FloatingContext.h"
 #include "FormattingConstraints.h"
-#include "InlineFormattingState.h"
 #include "InlineLayoutState.h"
 #include "InlineLine.h"
 #include "InlineLineTypes.h"
@@ -41,7 +40,7 @@ struct LineCandidate;
 
 class LineBuilder : public AbstractLineBuilder {
 public:
-    LineBuilder(const InlineFormattingContext&, const InlineLayoutState&, FloatingState&, HorizontalConstraints rootHorizontalConstraints, const InlineItems&);
+    LineBuilder(InlineFormattingContext&, HorizontalConstraints rootHorizontalConstraints, const InlineItemList&);
     virtual ~LineBuilder() { };
     LineLayoutResult layoutInlineContent(const LineInput&, const std::optional<PreviousLine>&) final;
 
@@ -92,28 +91,29 @@ private:
     bool isLineConstrainedByFloat() const { return !m_lineIsConstrainedByFloat.isEmpty(); }
     bool isFirstFormattedLine() const { return !m_previousLine.has_value(); }
 
+    InlineFormattingContext& formattingContext() { return m_inlineFormattingContext; }
     const InlineFormattingContext& formattingContext() const { return m_inlineFormattingContext; }
-    const InlineLayoutState& inlineLayoutState() const { return m_inlineLayoutState; }
-    const BlockLayoutState& blockLayoutState() const { return m_inlineLayoutState.parentBlockLayoutState(); }
-    FloatingState& floatingState() { return m_floatingState; }
-    const FloatingState& floatingState() const { return const_cast<LineBuilder&>(*this).floatingState(); }
+    const FloatingContext& floatingContext() const { return m_floatingContext; }
+
+    const InlineLayoutState& layoutState() const;
+    InlineLayoutState& layoutState();
+    const BlockLayoutState& blockLayoutState() const { return layoutState().parentBlockLayoutState(); }
     const ElementBox& root() const;
     const RenderStyle& rootStyle() const;
 
 private:
     std::optional<PreviousLine> m_previousLine { };
-    const InlineFormattingContext& m_inlineFormattingContext;
-    const InlineLayoutState& m_inlineLayoutState;
-    FloatingState& m_floatingState;
+    InlineFormattingContext& m_inlineFormattingContext;
     std::optional<HorizontalConstraints> m_rootHorizontalConstraints;
 
     Line m_line;
+    const FloatingContext& m_floatingContext;
     InlineRect m_lineInitialLogicalRect;
     InlineRect m_lineLogicalRect;
     InlineLayoutUnit m_lineMarginStart { 0.f };
     InlineLayoutUnit m_initialIntrusiveFloatsWidth { 0.f };
     InlineLayoutUnit m_candidateContentMaximumHeight { 0.f };
-    const InlineItems& m_inlineItems;
+    const InlineItemList& m_inlineItemList;
     LineLayoutResult::PlacedFloatList m_placedFloats;
     LineLayoutResult::SuspendedFloatList m_suspendedFloats;
     std::optional<InlineTextItem> m_partialLeadingTextItem;

@@ -67,7 +67,6 @@
 #include "ScrollbarGutter.h"
 #include "Settings.h"
 #include "StyleBuilderState.h"
-#include "StyleFontSizeFunctions.h"
 #include "StyleReflection.h"
 #include "StyleScrollSnapPoints.h"
 #include "StyleTextBoxEdge.h"
@@ -1290,7 +1289,7 @@ inline bool BuilderConverter::createGridPosition(const CSSValue& value, GridPosi
 inline void BuilderConverter::createImplicitNamedGridLinesFromGridArea(const NamedGridAreaMap& namedGridAreas, NamedGridLinesMap& namedGridLines, GridTrackSizingDirection direction)
 {
     for (auto& area : namedGridAreas.map) {
-        GridSpan areaSpan = direction == ForRows ? area.value.rows : area.value.columns;
+        GridSpan areaSpan = direction == GridTrackSizingDirection::ForRows ? area.value.rows : area.value.columns;
         {
             auto& startVector = namedGridLines.map.add(area.key + "-start"_s, Vector<unsigned>()).iterator->value;
             startVector.append(areaSpan.startLine());
@@ -1307,11 +1306,10 @@ inline void BuilderConverter::createImplicitNamedGridLinesFromGridArea(const Nam
 
 inline Vector<GridTrackSize> BuilderConverter::convertGridTrackSizeList(BuilderState& builderState, const CSSValue& value)
 {
-    auto validateValueAndAppend = [&builderState](Vector<GridTrackSize>& trackSizes, const CSSValue& value) {
-        ASSERT(!value.isGridLineNamesValue());
-        ASSERT(!value.isGridAutoRepeatValue());
-        ASSERT(!value.isGridIntegerRepeatValue());
-        trackSizes.uncheckedAppend(convertGridTrackSize(builderState, value));
+    auto validateValue = [](const CSSValue& value) {
+        ASSERT_UNUSED(value, !value.isGridLineNamesValue());
+        ASSERT_UNUSED(value, !value.isGridAutoRepeatValue());
+        ASSERT_UNUSED(value, !value.isGridIntegerRepeatValue());
     };
 
     if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value)) {
@@ -1320,23 +1318,19 @@ inline Vector<GridTrackSize> BuilderConverter::convertGridTrackSizeList(BuilderS
             return RenderStyle::initialGridAutoRows();
         }
         // Values coming from CSS Typed OM may not have been converted to a CSSValueList yet.
-        Vector<GridTrackSize> trackSizes;
-        trackSizes.reserveInitialCapacity(1);
-        validateValueAndAppend(trackSizes, *primitiveValue);
-        return trackSizes;
+        validateValue(*primitiveValue);
+        return Vector<GridTrackSize>({ convertGridTrackSize(builderState, *primitiveValue) });
     }
 
-    Vector<GridTrackSize> trackSizes;
     if (is<CSSValueList>(value))  {
         auto& valueList = downcast<CSSValueList>(value);
-        trackSizes.reserveInitialCapacity(valueList.length());
-        for (auto& currentValue : valueList)
-            validateValueAndAppend(trackSizes, currentValue);
-    } else {
-        trackSizes.reserveInitialCapacity(1);
-        validateValueAndAppend(trackSizes, value);
+        return WTF::map(valueList, [&](auto& currentValue) {
+            validateValue(currentValue);
+            return convertGridTrackSize(builderState, currentValue);
+        });
     }
-    return trackSizes;
+    validateValue(value);
+    return Vector<GridTrackSize>({ convertGridTrackSize(builderState, value) });
 }
 
 inline GridTrackSize BuilderConverter::convertGridTrackSize(BuilderState& builderState, const CSSValue& value)
@@ -1609,7 +1603,7 @@ inline FontVariationSettings BuilderConverter::convertFontVariationSettings(Buil
     return settings;
 }
 
-inline FontSizeAdjust BuilderConverter::convertFontSizeAdjust(BuilderState& builderState, const CSSValue& value)
+inline FontSizeAdjust BuilderConverter::convertFontSizeAdjust(BuilderState&, const CSSValue& value)
 {
     if (is<CSSPrimitiveValue>(value)) {
         auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
@@ -1619,12 +1613,13 @@ inline FontSizeAdjust BuilderConverter::convertFontSizeAdjust(BuilderState& buil
 
         auto defaultMetric = FontSizeAdjust::Metric::ExHeight;
         if (primitiveValue.isNumber())
-            return { defaultMetric, false, primitiveValue.floatValue() };
+            return { defaultMetric, FontSizeAdjust::ValueType::Number, primitiveValue.floatValue() };
 
         ASSERT(primitiveValue.valueID() == CSSValueFromFont);
-        // The primary font could be null in the current builder state where
-        // a fallback font is used. So, we use the parent style instead.
-        return { defaultMetric, true, aspectValueOfPrimaryFont(builderState.parentStyle(), defaultMetric) };
+        // We cannot determine the primary font here, so we defer resolving the
+        // aspect value for from-font to when the primary font is created.
+        // See FontCascadeFonts::primaryFont().
+        return { defaultMetric, FontSizeAdjust::ValueType::FromFont, std::nullopt };
     }
 
     ASSERT(value.isPair());
@@ -1633,10 +1628,10 @@ inline FontSizeAdjust BuilderConverter::convertFontSizeAdjust(BuilderState& buil
     auto metric = fromCSSValueID<FontSizeAdjust::Metric>(downcast<CSSPrimitiveValue>(pair.first()).valueID());
     auto& primitiveValue = downcast<CSSPrimitiveValue>(pair.second());
     if (primitiveValue.isNumber())
-        return { metric, false, primitiveValue.floatValue() };
+        return { metric, FontSizeAdjust::ValueType::Number, primitiveValue.floatValue() };
 
     ASSERT(primitiveValue.valueID() == CSSValueFromFont);
-    return { metric, true, aspectValueOfPrimaryFont(builderState.parentStyle(), metric) };
+    return { metric, FontSizeAdjust::ValueType::FromFont, std::nullopt };
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -1692,13 +1687,9 @@ inline SVGLengthValue BuilderConverter::convertSVGLengthValue(BuilderState& buil
 inline Vector<SVGLengthValue> BuilderConverter::convertSVGLengthVector(BuilderState& builderState, const CSSValue& value, ShouldConvertNumberToPxLength shouldConvertNumberToPxLength)
 {
     auto& valueList = downcast<CSSValueList>(value);
-
-    Vector<SVGLengthValue> svgLengths;
-    svgLengths.reserveInitialCapacity(valueList.length());
-    for (auto& item : valueList)
-        svgLengths.uncheckedAppend(convertSVGLengthValue(builderState, item, shouldConvertNumberToPxLength));
-
-    return svgLengths;
+    return WTF::map(valueList, [&](auto& item) {
+        return convertSVGLengthValue(builderState, item, shouldConvertNumberToPxLength);
+    });
 }
 
 inline Vector<SVGLengthValue> BuilderConverter::convertStrokeDashArray(BuilderState& builderState, const CSSValue& value)

@@ -143,7 +143,7 @@ Modules/geolocation/GeolocationCoordinates.cpp
 Modules/geolocation/NavigatorGeolocation.cpp
 Modules/highlight/AppHighlightRangeData.cpp
 Modules/highlight/AppHighlightStorage.cpp
-Modules/highlight/HighlightRegister.cpp
+Modules/highlight/HighlightRegistry.cpp
 Modules/highlight/Highlight.cpp
 Modules/indexeddb/IDBCursor.cpp
 Modules/indexeddb/IDBCursorWithValue.cpp
@@ -228,6 +228,7 @@ Modules/mediasource/VideoPlaybackQuality.cpp
 Modules/mediastream/CanvasCaptureMediaStreamTrack.cpp
 Modules/mediastream/MediaDeviceInfo.cpp
 Modules/mediastream/InputDeviceInfo.cpp
+Modules/mediastream/ImageCapture.cpp
 Modules/mediastream/MediaDevices.cpp
 Modules/mediastream/MediaStream.cpp
 Modules/mediastream/MediaStreamTrack.cpp
@@ -475,12 +476,18 @@ Modules/websockets/WebSocketExtensionParser.cpp
 Modules/websockets/WebSocketFrame.cpp
 Modules/websockets/WebSocketHandshake.cpp
 Modules/websockets/WorkerThreadableWebSocketChannel.cpp
+Modules/webtransport/DatagramSink.cpp
+Modules/webtransport/DatagramSource.cpp
 Modules/webtransport/WebTransport.cpp
 Modules/webtransport/WebTransportBidirectionalStream.cpp
+Modules/webtransport/WebTransportBidirectionalStreamConstructionParameters.cpp
+Modules/webtransport/WebTransportBidirectionalStreamSource.cpp
 Modules/webtransport/WebTransportDatagramDuplexStream.cpp
 Modules/webtransport/WebTransportError.cpp
 Modules/webtransport/WebTransportReceiveStream.cpp
+Modules/webtransport/WebTransportReceiveStreamSource.cpp
 Modules/webtransport/WebTransportSendStream.cpp
+Modules/webtransport/WebTransportSession.cpp
 Modules/webxr/NavigatorWebXR.cpp
 Modules/webxr/WebXRBoundedReferenceSpace.cpp
 Modules/webxr/WebXRFrame.cpp
@@ -1720,14 +1727,12 @@ layout/formattingContexts/flex/FlexLayout.cpp
 layout/formattingContexts/flex/FlexFormattingState.cpp
 layout/floats/FloatAvoider.cpp
 layout/floats/FloatingContext.cpp
-layout/floats/FloatingState.cpp
+layout/floats/PlacedFloats.cpp
 layout/formattingContexts/inline/AbstractLineBuilder.cpp
 layout/formattingContexts/inline/InlineContentBalancer.cpp
 layout/formattingContexts/inline/InlineContentBreaker.cpp
 layout/formattingContexts/inline/InlineFormattingContext.cpp
-layout/formattingContexts/inline/InlineFormattingGeometry.cpp
-layout/formattingContexts/inline/InlineFormattingQuirks.cpp
-layout/formattingContexts/inline/InlineFormattingState.cpp
+layout/formattingContexts/inline/InlineFormattingUtils.cpp
 layout/formattingContexts/inline/InlineItem.cpp
 layout/formattingContexts/inline/InlineItemsBuilder.cpp
 layout/formattingContexts/inline/InlineLine.cpp
@@ -1736,6 +1741,7 @@ layout/formattingContexts/inline/InlineLineBoxBuilder.cpp
 layout/formattingContexts/inline/InlineLineBuilder.cpp
 layout/formattingContexts/inline/InlineLineBoxVerticalAligner.cpp
 layout/formattingContexts/inline/InlineTextItem.cpp
+layout/formattingContexts/inline/InlineQuirks.cpp
 layout/formattingContexts/inline/IntrinsicWidthHandler.cpp
 layout/formattingContexts/inline/TextOnlySimpleLineBuilder.cpp
 layout/formattingContexts/inline/display/InlineDisplayContent.cpp
@@ -2270,6 +2276,7 @@ platform/graphics/ImageBufferBackend.cpp
 platform/graphics/ImageBufferPipe.cpp
 platform/graphics/ImageDecoder.cpp
 platform/graphics/ImageFrame.cpp
+platform/graphics/ImagePaintingOptions.cpp
 platform/graphics/ImageSource.cpp
 platform/graphics/InbandGenericCue.cpp
 platform/graphics/ImageResolution.cpp
@@ -2515,6 +2522,7 @@ plugins/DOMPluginArray.cpp
 plugins/PluginData.cpp
 plugins/PluginInfoProvider.cpp
 rendering/AccessibilityRegionContext.cpp
+rendering/AncestorSubgridIterator.cpp
 rendering/AutoTableLayout.cpp
 rendering/BackgroundPainter.cpp
 rendering/BaselineAlignment.cpp
@@ -2652,6 +2660,7 @@ rendering/TextBoxPainter.cpp
 rendering/TextDecorationPainter.cpp
 rendering/TextPaintStyle.cpp
 rendering/TextPainter.cpp
+rendering/TransformOperationData.cpp
 rendering/line/LineBreaker.cpp
 rendering/line/LineInfo.cpp
 rendering/line/LineWidth.cpp
@@ -2696,6 +2705,8 @@ rendering/style/RenderStyle.cpp
 rendering/style/RenderStyleConstants.cpp
 rendering/style/SVGRenderStyle.cpp
 rendering/style/SVGRenderStyleDefs.cpp
+rendering/style/ScrollbarColor.cpp
+rendering/style/ScrollbarGutter.cpp
 rendering/style/ShadowData.cpp
 rendering/style/ShapeValue.cpp
 rendering/style/StyleBackgroundData.cpp
@@ -2726,8 +2737,6 @@ rendering/style/StyleNonInheritedData.cpp
 rendering/style/StylePaintImage.cpp
 rendering/style/StyleRareInheritedData.cpp
 rendering/style/StyleRareNonInheritedData.cpp
-rendering/style/ScrollbarColor.cpp
-rendering/style/ScrollbarGutter.cpp
 rendering/style/StyleSelfAlignmentData.cpp
 rendering/style/StyleSurroundData.cpp
 rendering/style/StyleTransformData.cpp
@@ -2743,6 +2752,7 @@ rendering/svg/legacy/LegacyRenderSVGModelObject.cpp
 rendering/svg/legacy/LegacyRenderSVGPath.cpp
 rendering/svg/legacy/LegacyRenderSVGRect.cpp
 rendering/svg/legacy/LegacyRenderSVGResourceContainer.cpp
+rendering/svg/legacy/LegacyRenderSVGResourceClipper.cpp
 rendering/svg/legacy/LegacyRenderSVGRoot.cpp
 rendering/svg/legacy/LegacyRenderSVGShape.cpp
 rendering/svg/legacy/LegacyRenderSVGTransformableContainer.cpp
@@ -2761,6 +2771,7 @@ rendering/svg/RenderSVGPath.cpp
 rendering/svg/RenderSVGRect.cpp
 rendering/svg/RenderSVGResource.cpp
 rendering/svg/RenderSVGResourceClipper.cpp
+rendering/svg/RenderSVGResourceContainer.cpp
 rendering/svg/RenderSVGResourceFilter.cpp
 rendering/svg/RenderSVGResourceFilterPrimitive.cpp
 rendering/svg/RenderSVGResourceGradient.cpp
@@ -2820,7 +2831,6 @@ storage/StorageEvent.cpp
 storage/StorageEventDispatcher.cpp
 storage/StorageMap.cpp
 storage/StorageNamespaceProvider.cpp
-storage/StorageQuotaManager.cpp
 storage/StorageUtilities.cpp
 style/AttributeChangeInvalidation.cpp
 style/ChildChangeInvalidation.cpp
@@ -2996,6 +3006,7 @@ svg/animation/SVGSMILElement.cpp
 svg/graphics/SVGImage.cpp
 svg/graphics/SVGImageCache.cpp
 svg/graphics/SVGImageForContainer.cpp
+svg/graphics/SVGResourceImage.cpp
 svg/graphics/filters/SVGFilter.cpp
 svg/properties/SVGAnimatedProperty.cpp
 svg/properties/SVGAnimationAdditiveValueFunctionImpl.cpp
@@ -3295,6 +3306,7 @@ JSChannelMergerOptions.cpp
 JSChannelSplitterNode.cpp
 JSChannelSplitterOptions.cpp
 JSCharacterData.cpp
+JSCheckVisibilityOptions.cpp
 JSChildNode.cpp
 JSClipboard.cpp
 JSClipboardEvent.cpp
@@ -3488,6 +3500,7 @@ JSFileSystemFileHandle.cpp
 JSFileSystemHandle.cpp
 JSFileSystemSyncAccessHandle.cpp
 JSFillMode.cpp
+JSFillLightMode.cpp
 JSFlacEncoderConfig.cpp
 JSFocusEvent.cpp
 JSFocusOptions.cpp
@@ -3735,7 +3748,7 @@ JSHTMLVideoElement.cpp
 JSHardwareAcceleration.cpp
 JSHashChangeEvent.cpp
 JSHdrMetadataType.cpp
-JSHighlightRegister.cpp
+JSHighlightRegistry.cpp
 JSHighlight.cpp
 JSHistory.cpp
 JSHkdfParams.cpp
@@ -3763,6 +3776,7 @@ JSImageBitmap.cpp
 JSImageBitmapOptions.cpp
 JSImageBitmapRenderingContext.cpp
 JSImageBitmapRenderingContextSettings.cpp
+JSImageCapture.cpp
 JSImageData.cpp
 JSImageDataSettings.cpp
 JSImageSmoothingQuality.cpp
@@ -3822,20 +3836,21 @@ JSMediaKeys.cpp
 JSMediaKeysRequirement.cpp
 JSMediaList.cpp
 JSMediaMetadata.cpp
-JSMediaSessionCoordinator.cpp
-JSMediaSessionCoordinatorState.cpp
 JSMediaMetadataInit.cpp
 JSMediaPositionState.cpp
 JSMediaQueryList.cpp
 JSMediaQueryListEvent.cpp
 JSMediaRecorder.cpp
 JSMediaRecorderErrorEvent.cpp
+JSMediaSessionCoordinator.cpp
+JSMediaSessionCoordinatorState.cpp
 JSMediaSessionActionDetails.cpp
 JSMediaSessionActionHandler.cpp
 JSMediaSessionAction.cpp
 JSMediaSessionPlaybackState.cpp
 JSMediaSessionReadyState.cpp
 JSMediaSession.cpp
+JSMediaSettingsRange.cpp
 JSMediaSource.cpp
 JSMediaStream.cpp
 JSMediaStreamAudioDestinationNode.cpp
@@ -3956,6 +3971,8 @@ JSPermissionName.cpp
 JSPermissionState.cpp
 JSPermissionStatus.cpp
 JSPermissions.cpp
+JSPhotoCapabilities.cpp
+JSPhotoSettings.cpp
 JSPictureInPictureEvent.cpp
 JSPictureInPictureWindow.cpp
 JSPlaneLayout.cpp
@@ -3989,6 +4006,7 @@ JSPushSubscriptionChangeEventInit.cpp
 JSPushSubscriptionJSON.cpp
 JSPushSubscriptionOptions.cpp
 JSPushSubscriptionOptionsInit.cpp
+JSRedEyeReduction.cpp
 JSRTCAnswerOptions.cpp
 JSRTCCertificate.cpp
 JSRTCConfiguration.cpp
@@ -4012,7 +4030,9 @@ JSRTCIceComponent.cpp
 JSRTCIceConnectionState.cpp
 JSRTCIceGatheringState.cpp
 JSRTCIceProtocol.cpp
+JSRTCIceRole.cpp
 JSRTCIceServer.cpp
+JSRTCIceServerTransportProtocol.cpp
 JSRTCIceTcpCandidateType.cpp
 JSRTCIceTransport.cpp
 JSRTCIceTransportState.cpp
@@ -4196,7 +4216,6 @@ JSSVGPreserveAspectRatio.cpp
 JSSVGRadialGradientElement.cpp
 JSSVGRect.cpp
 JSSVGRectElement.cpp
-JSSVGRenderingIntent.cpp
 JSSVGSVGElement.cpp
 JSSVGScriptElement.cpp
 JSSVGSetElement.cpp

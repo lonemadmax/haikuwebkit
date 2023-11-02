@@ -373,7 +373,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/geolocation/PositionOptions.idl
 
     Modules/highlight/Highlight.idl
-    Modules/highlight/HighlightRegister.idl
+    Modules/highlight/HighlightRegistry.idl
 
     Modules/indexeddb/IDBCursor.idl
     Modules/indexeddb/IDBCursorDirection.idl
@@ -445,10 +445,13 @@ set(WebCore_NON_SVG_IDL_FILES
 
     Modules/mediastream/CanvasCaptureMediaStreamTrack.idl
     Modules/mediastream/DoubleRange.idl
+    Modules/mediastream/FillLightMode.idl
+    Modules/mediastream/ImageCapture.idl
     Modules/mediastream/InputDeviceInfo.idl
     Modules/mediastream/LongRange.idl
     Modules/mediastream/MediaDeviceInfo.idl
     Modules/mediastream/MediaDevices.idl
+    Modules/mediastream/MediaSettingsRange.idl
     Modules/mediastream/MediaStream.idl
     Modules/mediastream/MediaStreamTrack.idl
     Modules/mediastream/MediaStreamTrackEvent.idl
@@ -459,6 +462,8 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediastream/Navigator+MediaDevices.idl
     Modules/mediastream/OverconstrainedError.idl
     Modules/mediastream/OverconstrainedErrorEvent.idl
+    Modules/mediastream/PhotoCapabilities.idl
+    Modules/mediastream/PhotoSettings.idl
     Modules/mediastream/RTCAnswerOptions.idl
     Modules/mediastream/RTCCertificate.idl
     Modules/mediastream/RTCConfiguration.idl
@@ -482,7 +487,9 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediastream/RTCIceConnectionState.idl
     Modules/mediastream/RTCIceGatheringState.idl
     Modules/mediastream/RTCIceProtocol.idl
+    Modules/mediastream/RTCIceRole.idl
     Modules/mediastream/RTCIceServer.idl
+    Modules/mediastream/RTCIceServerTransportProtocol.idl
     Modules/mediastream/RTCIceTcpCandidateType.idl
     Modules/mediastream/RTCIceTransport.idl
     Modules/mediastream/RTCIceTransportState.idl
@@ -527,6 +534,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediastream/RTCStatsReport.idl
     Modules/mediastream/RTCTrackEvent.idl
     Modules/mediastream/RTCTransformEvent.idl
+    Modules/mediastream/RedEyeReduction.idl
 
     Modules/model-element/HTMLModelElement.idl
     Modules/model-element/HTMLModelElementCamera.idl
@@ -1003,6 +1011,7 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/BroadcastChannel.idl
     dom/CDATASection.idl
     dom/CharacterData.idl
+    dom/CheckVisibilityOptions.idl
     dom/ChildNode.idl
     dom/ClipboardEvent.idl
     dom/Comment.idl
@@ -1568,7 +1577,6 @@ set(WebCore_SVG_IDL_FILES
     svg/SVGRadialGradientElement.idl
     svg/SVGRect.idl
     svg/SVGRectElement.idl
-    svg/SVGRenderingIntent.idl
     svg/SVGSVGElement.idl
     svg/SVGScriptElement.idl
     svg/SVGSetElement.idl
@@ -2229,6 +2237,7 @@ set(WebCoreTestSupport_IDL_FILES
     testing/MockCDMFactory.idl
     testing/MockContentFilterSettings.idl
     testing/MockPageOverlay.idl
+    testing/MockWebAuthenticationConfiguration.idl
     testing/ServiceWorkerInternals.idl
     testing/TypeConversions.idl
 )
@@ -2253,6 +2262,7 @@ if (ENABLE_WEBXR)
     list(APPEND WebCoreTestSupport_IDL_FILES
         testing/FakeXRBoundsPoint.idl
         testing/FakeXRButtonStateInit.idl
+        testing/FakeXRJointStateInit.idl
         testing/FakeXRInputSourceInit.idl
         testing/FakeXRRigidTransformInit.idl
         testing/FakeXRViewInit.idl
@@ -2605,7 +2615,6 @@ GENERATE_BINDINGS(WebCoreBindings
     INPUT_FILES ${WebCore_IDL_FILES}
     PP_INPUT_FILES ${WebCore_IDL_FILES} ${WebCoreTestSupport_IDL_FILES}
     BASE_DIR ${WEBCORE_DIR}
-    IDL_INCLUDES ${WebCore_IDL_INCLUDES} ${WebCore_DERIVED_SOURCES_DIR}
     FEATURES ${FEATURE_DEFINES_JAVASCRIPT}
     DESTINATION ${WebCore_DERIVED_SOURCES_DIR}
     GENERATOR JS
@@ -2635,7 +2644,7 @@ GENERATE_BINDINGS(WebCoreTestSupportBindings
     OUTPUT_SOURCE WebCoreTestSupport_SOURCES
     INPUT_FILES ${WebCoreTestSupport_IDL_FILES}
     BASE_DIR ${WEBCORE_DIR}
-    IDL_INCLUDES ${WebCore_IDL_INCLUDES} ${WebCore_DERIVED_SOURCES_DIR} ${WebCoreTestSupport_IDL_INCLUDES}
+    INCLUDED_FILES ${WebCore_IDL_FILES}
     FEATURES ${FEATURE_DEFINES_JAVASCRIPT}
     DESTINATION ${WebCore_DERIVED_SOURCES_DIR}
     GENERATOR JS)

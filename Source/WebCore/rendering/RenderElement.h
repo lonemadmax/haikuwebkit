@@ -127,6 +127,8 @@ public:
     bool isRenderBlockFlow() const;
     bool isRenderReplaced() const;
     bool isRenderInline() const;
+    bool isRenderFlexibleBox() const;
+    bool isRenderTextControl() const;
 
     virtual bool isChildAllowed(const RenderObject&, const RenderStyle&) const { return true; }
     void didAttachChild(RenderObject& child, RenderObject* beforeChild);
@@ -292,6 +294,7 @@ public:
     bool createsNewFormattingContext() const;
 
     bool isSkippedContentRoot() const;
+    bool isSkippedContentRootForLayout() const;
 
     void clearNeedsLayoutForDescendants();
 
@@ -303,12 +306,14 @@ protected:
         RenderReplacedFlag          = 1 << 3,
         RenderBlockFlag             = 1 << 4,
         RenderBlockFlowFlag         = 1 << 5,
+        RenderFlexibleBoxFlag       = 1 << 6,
+        RenderTextControlFlag       = 1 << 7,
     };
     
     typedef unsigned BaseTypeFlags;
 
-    RenderElement(Element&, RenderStyle&&, BaseTypeFlags);
-    RenderElement(Document&, RenderStyle&&, BaseTypeFlags);
+    RenderElement(Type, Element&, RenderStyle&&, BaseTypeFlags);
+    RenderElement(Type, Document&, RenderStyle&&, BaseTypeFlags);
 
     bool layerCreationAllowedForSubtree() const;
 
@@ -351,7 +356,7 @@ protected:
     inline bool shouldApplySizeOrStyleContainment(bool) const;
 
 private:
-    RenderElement(ContainerNode&, RenderStyle&&, BaseTypeFlags);
+    RenderElement(Type, ContainerNode&, RenderStyle&&, BaseTypeFlags);
     void node() const = delete;
     void nonPseudoNode() const = delete;
     void generatingNode() const = delete;
@@ -392,7 +397,7 @@ private:
     void clearReferencedSVGResources();
 
     PackedPtr<RenderObject> m_firstChild;
-    unsigned m_baseTypeFlags : 6;
+    unsigned m_baseTypeFlags : 8;
     unsigned m_ancestorLineBoxDirty : 1;
     unsigned m_hasInitializedStyle : 1;
 
@@ -471,6 +476,16 @@ inline bool RenderElement::isRenderInline() const
     return m_baseTypeFlags & RenderInlineFlag;
 }
 
+inline bool RenderElement::isRenderFlexibleBox() const
+{
+    return m_baseTypeFlags & RenderFlexibleBoxFlag;
+}
+
+inline bool RenderElement::isRenderTextControl() const
+{
+    return m_baseTypeFlags & RenderTextControlFlag;
+}
+
 inline Element* RenderElement::generatingElement() const
 {
     return downcast<Element>(RenderObject::generatingNode());
@@ -511,6 +526,21 @@ inline bool RenderObject::isRenderInline() const
     return is<RenderElement>(*this) && downcast<RenderElement>(*this).isRenderInline();
 }
 
+inline bool RenderObject::isRenderFlexibleBox() const
+{
+    return is<RenderElement>(*this) && downcast<RenderElement>(*this).isRenderFlexibleBox();
+}
+
+inline bool RenderObject::isRenderTextControl() const
+{
+    return is<RenderElement>(*this) && downcast<RenderElement>(*this).isRenderTextControl();
+}
+
+inline bool RenderObject::isFlexibleBoxIncludingDeprecated() const
+{
+    return isRenderFlexibleBox() || isDeprecatedFlexibleBox();
+}
+
 inline const RenderStyle& RenderObject::style() const
 {
     if (isText())
@@ -528,6 +558,11 @@ inline const RenderStyle& RenderObject::firstLineStyle() const
 inline RenderElement* ContainerNode::renderer() const
 {
     return downcast<RenderElement>(Node::renderer());
+}
+
+inline CheckedPtr<RenderElement> ContainerNode::checkedRenderer() const
+{
+    return renderer();
 }
 
 inline RenderObject* RenderElement::firstInFlowChild() const
@@ -555,6 +590,16 @@ inline bool RenderObject::isSkippedContentRoot() const
     if (isText())
         return false;
     return downcast<RenderElement>(*this).isSkippedContentRoot();
+}
+
+inline RenderElement* RenderObject::parent() const
+{
+    return m_parent.get();
+}
+
+inline CheckedPtr<RenderElement> RenderObject::checkedParent() const
+{
+    return m_parent;
 }
 
 } // namespace WebCore

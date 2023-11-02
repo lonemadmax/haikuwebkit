@@ -993,9 +993,8 @@ void AccessibilityRenderObject::titleElementText(Vector<AccessibilityText>& text
     
 AccessibilityObject* AccessibilityRenderObject::titleUIElement() const
 {
-    if (m_renderer && isFieldset() && exposesTitleUIElement())
+    if (m_renderer && isFieldset())
         return axObjectCache()->getOrCreate(dynamicDowncast<RenderBlock>(m_renderer.get())->findFieldsetLegend(RenderBlock::FieldsetIncludeFloatingOrOutOfFlow));
-
     return AccessibilityNodeObject::titleUIElement();
 }
     
@@ -1067,14 +1066,10 @@ bool AccessibilityRenderObject::computeAccessibilityIsIgnored() const
     if (decision == AccessibilityObjectInclusion::IgnoreObject)
         return true;
 
-    // If this element is within a parent that cannot have children, it should not be exposed.
-    if (isDescendantOfBarrenParent())
-        return true;    
-
     if (roleValue() == AccessibilityRole::Ignored)
         return true;
 
-    if (roleValue() == AccessibilityRole::Presentational || inheritsPresentationalRole())
+    if (ignoredFromPresentationalRole())
         return true;
 
     // WebAreas should be ignored if their iframe container is marked as presentational.
@@ -1160,7 +1155,7 @@ bool AccessibilityRenderObject::computeAccessibilityIsIgnored() const
     if (isControl())
         return false;
     
-    if (isFigureElement())
+    if (isFigureElement() || isSummary())
         return false;
 
     switch (roleValue()) {
@@ -1512,12 +1507,12 @@ AccessibilityObject* AccessibilityRenderObject::accessibilityParentForImageMap(H
     if (!map)
         return nullptr;
 
-    HTMLImageElement* imageElement = map->imageElement();
+    RefPtr imageElement = map->imageElement();
     if (!imageElement)
         return nullptr;
     
-    if (AXObjectCache* cache = axObjectCache())
-        return cache->getOrCreate(imageElement);
+    if (CheckedPtr cache = axObjectCache())
+        return cache->getOrCreate(imageElement.get());
     
     return nullptr;
 }
@@ -1539,7 +1534,7 @@ AXCoreObject::AccessibilityChildrenVector AccessibilityRenderObject::documentLin
         } else {
             auto* parent = current->parentNode();
             if (is<HTMLAreaElement>(*current) && is<HTMLMapElement>(parent)) {
-                auto* parentImage = downcast<HTMLMapElement>(parent)->imageElement();
+                RefPtr parentImage = downcast<HTMLMapElement>(parent)->imageElement();
                 auto* parentImageRenderer = parentImage ? parentImage->renderer() : nullptr;
                 if (auto* parentImageAxObject = document.axObjectCache()->getOrCreate(parentImageRenderer)) {
                     for (const auto& child : parentImageAxObject->children()) {
@@ -1604,15 +1599,14 @@ int AccessibilityRenderObject::indexForVisiblePosition(const VisiblePosition& po
     return AccessibilityNodeObject::indexForVisiblePosition(position);
 }
 
-Element* AccessibilityRenderObject::rootEditableElementForPosition(const Position& position) const
+RefPtr<Element> AccessibilityRenderObject::rootEditableElementForPosition(const Position& position) const
 {
     // Find the root editable or pseudo-editable (i.e. having an editable ARIA role) element.
-    Element* result = nullptr;
-    
-    Element* rootEditableElement = position.rootEditableElement();
+    RefPtr<Element> result;
+    RefPtr rootEditableElement = position.rootEditableElement();
 
-    for (Element* e = position.element(); e && e != rootEditableElement; e = e->parentElement()) {
-        if (nodeIsTextControl(e))
+    for (RefPtr e = position.anchorElementAncestor(); e && e != rootEditableElement; e = e->parentElement()) {
+        if (nodeIsTextControl(e.get()))
             result = e;
         if (e->hasTagName(bodyTag))
             break;
@@ -1853,7 +1847,7 @@ IntRect AccessibilityRenderObject::doAXBoundsForRangeUsingCharacterOffset(const 
     return boundsForRange(*range);
 }
 
-AXCoreObject* AccessibilityRenderObject::accessibilityImageMapHitTest(HTMLAreaElement* area, const IntPoint& point) const
+AccessibilityObject* AccessibilityRenderObject::accessibilityImageMapHitTest(HTMLAreaElement* area, const IntPoint& point) const
 {
     if (!area)
         return nullptr;
@@ -1868,13 +1862,13 @@ AXCoreObject* AccessibilityRenderObject::accessibilityImageMapHitTest(HTMLAreaEl
 
     for (const auto& child : parent->children()) {
         if (child->elementRect().contains(point))
-            return child.get();
+            return dynamicDowncast<AccessibilityObject>(child.get());
     }
 
     return nullptr;
 }
 
-AXCoreObject* AccessibilityRenderObject::remoteSVGElementHitTest(const IntPoint& point) const
+AccessibilityObject* AccessibilityRenderObject::remoteSVGElementHitTest(const IntPoint& point) const
 {
     AccessibilityObject* remote = remoteSVGRootElement(Create);
     if (!remote)
@@ -1884,7 +1878,7 @@ AXCoreObject* AccessibilityRenderObject::remoteSVGElementHitTest(const IntPoint&
     return remote->accessibilityHitTest(IntPoint(offset));
 }
 
-AXCoreObject* AccessibilityRenderObject::elementAccessibilityHitTest(const IntPoint& point) const
+AccessibilityObject* AccessibilityRenderObject::elementAccessibilityHitTest(const IntPoint& point) const
 {
     if (isSVGImage())
         return remoteSVGElementHitTest(point);
@@ -1898,7 +1892,7 @@ static bool shouldUseShadowHostForHitTesting(Node* shadowHost)
     return shadowHost && !shadowHost->hasTagName(videoTag);
 }
 
-AXCoreObject* AccessibilityRenderObject::accessibilityHitTest(const IntPoint& point) const
+AccessibilityObject* AccessibilityRenderObject::accessibilityHitTest(const IntPoint& point) const
 {
     if (!m_renderer || !m_renderer->hasLayer())
         return nullptr;
@@ -1937,7 +1931,7 @@ AXCoreObject* AccessibilityRenderObject::accessibilityHitTest(const IntPoint& po
 
     result->updateChildrenIfNecessary();
     // Allow the element to perform any hit-testing it might need to do to reach non-render children.
-    result = static_cast<AccessibilityObject*>(result->elementAccessibilityHitTest(point));
+    result = result->elementAccessibilityHitTest(point);
     
     if (result && result->accessibilityIsIgnored()) {
         // If this element is the label of a control, a hit test should return the control.

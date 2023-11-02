@@ -623,32 +623,11 @@ static void webKitMediaSrcStreamFlush(Stream* stream, bool isSeekingFlush)
         // The resulting segment is brand new, but with a different start time.
         WebKitMediaSrcPrivate* priv = stream->source->priv;
         DataMutexLocker streamingMembers { stream->streamingMembersDataMutex };
-        streamingMembers->segment.base = 0;
         streamingMembers->segment.rate = priv->rate;
         streamingMembers->segment.start = streamingMembers->segment.time = priv->startTime;
-    } else {
-        // In the case of non-seeking flushes we don't reset the timeline, so instead we need to increase the `base` field
-        // by however running time we're starting after the flush.
-
-        GstClockTime pipelineStreamTime;
-        gst_element_query_position(findPipeline(GRefPtr<GstElement>(GST_ELEMENT(stream->source))).get(), GST_FORMAT_TIME,
-            reinterpret_cast<gint64*>(&pipelineStreamTime));
-        GST_DEBUG_OBJECT(stream->source, "pipelineStreamTime from position query: %" GST_TIME_FORMAT, GST_TIME_ARGS(pipelineStreamTime));
-        // GST_CLOCK_TIME_NONE is returned when the pipeline is not yet pre-rolled (e.g. just after a seek). In this case
-        // we don't need to adjust the segment though, as running time has not advanced.
-        if (GST_CLOCK_TIME_IS_VALID(pipelineStreamTime)) {
-            DataMutexLocker streamingMembers { stream->streamingMembersDataMutex };
-            // We need to increase the base by the running time accumulated during the previous segment.
-
-            GstClockTime pipelineRunningTime = gst_segment_to_running_time(&streamingMembers->segment, GST_FORMAT_TIME, pipelineStreamTime);
-            assert(GST_CLOCK_TIME_IS_VALID(pipelineRunningTime));
-            GST_DEBUG_OBJECT(stream->source, "Resetting segment to current pipeline running time (%" GST_TIME_FORMAT") and stream time (%" GST_TIME_FORMAT ")",
-                GST_TIME_ARGS(pipelineRunningTime), GST_TIME_ARGS(pipelineStreamTime));
-            streamingMembers->segment.base = pipelineRunningTime;
-
-            streamingMembers->segment.start = streamingMembers->segment.time = static_cast<GstClockTime>(pipelineStreamTime);
-        }
     }
+    // In the case of non-seeking flushes we don't reset the timeline, so the buffers will
+    // have the same running time as before and we don't need to alter the segment.
 
     if (!skipFlush) {
         // By taking the stream lock we are waiting for the streaming thread task to stop if it hadn't yet.
@@ -660,6 +639,18 @@ static void webKitMediaSrcStreamFlush(Stream* stream, bool isSeekingFlush)
             GST_DEBUG_OBJECT(stream->pad.get(), "StreamingMembers mutex taken, using it to set isFlushing = false.");
             streamingMembers->isFlushing = false;
             streamingMembers->doesNeedSegmentEvent = true;
+
+            if (!webkitGstCheckVersion(1, 22, 0)) {
+                // In older GST versions STREAM_COLLECTION event is delivered to decodebin3
+                // from parsebin src pad probe. On the way, this event is cached inside
+                // parser element (GstBaseParse) and pushed downstream with first frame.
+                // Flushing before first frame is handled by the parser,
+                // the event is dropped from GstBaseParse and never reaches decodebin3.
+                // GST 1.21.3 added STREAM_COLLECTION event handling on decodebin3 sink pad directly
+                // so this workaround is not needed anymore.
+                GST_DEBUG_OBJECT(stream->pad.get(), "Reset hasPushedStreamCollectionEvent");
+                streamingMembers->hasPushedStreamCollectionEvent = false;
+            }
         }
 
         GST_DEBUG_OBJECT(stream->pad.get(), "Sending FLUSH_STOP downstream (resetTime = %s).", boolForPrinting(isSeekingFlush));

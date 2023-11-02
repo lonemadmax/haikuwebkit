@@ -212,7 +212,8 @@ ExceptionOr<CombinedPlaneLayout> computeLayoutAndAllocationSize(const DOMRectIni
         computedLayout.sourceHeight = parsedRect.height / sampleHeight;
         computedLayout.sourceLeftBytes = pixelSampleCount * parsedRect.x / sampleWidthBytes;
         computedLayout.sourceWidthBytes = pixelSampleCount * parsedRect.width / sampleWidthBytes;
-
+        if (!computedLayout.sourceWidthBytes)
+            return Exception { TypeError, "layout width bytes is zero"_s };
         if (layout) {
             if (layout.value()[i].stride < computedLayout.sourceWidthBytes)
                 return Exception { TypeError, "layout stride is invalid"_s };
@@ -231,15 +232,15 @@ ExceptionOr<CombinedPlaneLayout> computeLayoutAndAllocationSize(const DOMRectIni
         if (!WTF::safeAdd(planeSize, computedLayout.destinationOffset, planeEnd) || planeEnd > std::numeric_limits<uint32_t>::max())
             return Exception { TypeError, "planeEnd is too big"_s };
 
-        endOffsets.uncheckedAppend(planeEnd);
+        endOffsets.append(planeEnd);
         minAllocationSize = std::max(minAllocationSize, planeEnd);
 
-        for (size_t j = 1; j < i; ++j) {
+        for (size_t j = 0; j < i; ++j) {
             if (planeEnd > computedLayouts[j].destinationOffset && endOffsets[j] > computedLayout.destinationOffset)
                 return Exception { TypeError, "planes are overlapping"_s };
         }
 
-        computedLayouts.uncheckedAppend(computedLayout);
+        computedLayouts.append(computedLayout);
     }
 
     return CombinedPlaneLayout { minAllocationSize, WTFMove(computedLayouts) };

@@ -60,7 +60,7 @@ const int defaultWidth = 300;
 const int defaultHeight = 150;
 
 LegacyRenderSVGRoot::LegacyRenderSVGRoot(SVGSVGElement& element, RenderStyle&& style)
-    : RenderReplaced(element, WTFMove(style))
+    : RenderReplaced(Type::LegacySVGRoot, element, WTFMove(style))
     , m_isLayoutSizeChanged(false)
     , m_needsBoundariesOrTransformUpdate(true)
     , m_hasBoxDecorations(false)
@@ -259,13 +259,13 @@ void LegacyRenderSVGRoot::paintReplaced(PaintInfo& paintInfo, const LayoutPoint&
         auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
         if (!resources || !resources->filter()) {
             if (paintInfo.phase == PaintPhase::Foreground)
-                page().addRelevantUnpaintedObject(this, visualOverflowRect());
+                page().addRelevantUnpaintedObject(*this, visualOverflowRect());
             return;
         }
     }
 
     if (paintInfo.phase == PaintPhase::Foreground)
-        page().addRelevantRepaintedObject(this, visualOverflowRect());
+        page().addRelevantRepaintedObject(*this, visualOverflowRect());
 
     // Make a copy of the PaintInfo because applyTransform will modify the damage rect.
     PaintInfo childPaintInfo(paintInfo);
@@ -362,7 +362,7 @@ LayoutRect LegacyRenderSVGRoot::clippedOverflowRect(const RenderLayerModelObject
     if (isInsideEntirelyHiddenLayer())
         return { };
 
-    FloatRect contentRepaintRect = m_localToBorderBoxTransform.mapRect(repaintRectInLocalCoordinates());
+    auto contentRepaintRect = m_localToBorderBoxTransform.mapRect(repaintRectInLocalCoordinates(context.repaintRectCalculation()));
     contentRepaintRect.intersect(snappedIntRect(borderBoxRect()));
 
     LayoutRect repaintRect = enclosingLayoutRect(contentRepaintRect);
@@ -414,9 +414,45 @@ const RenderObject* LegacyRenderSVGRoot::pushMappingToContainer(const RenderLaye
 
 void LegacyRenderSVGRoot::updateCachedBoundaries()
 {
-    SVGRenderSupport::computeContainerBoundingBoxes(*this, m_objectBoundingBox, m_objectBoundingBoxValid, m_strokeBoundingBox, m_repaintBoundingBox);
-    SVGRenderSupport::intersectRepaintRectWithResources(*this, m_repaintBoundingBox);
-    m_repaintBoundingBox.inflate(horizontalBorderAndPaddingExtent());
+    m_strokeBoundingBox = std::nullopt;
+    m_repaintBoundingBox = { };
+    m_accurateRepaintBoundingBox = std::nullopt;
+    FloatRect repaintBoundingBox;
+    SVGRenderSupport::computeContainerBoundingBoxes(*this, m_objectBoundingBox, m_objectBoundingBoxValid, repaintBoundingBox);
+    SVGRenderSupport::intersectRepaintRectWithResources(*this, repaintBoundingBox);
+    repaintBoundingBox.inflate(horizontalBorderAndPaddingExtent());
+    m_repaintBoundingBox = repaintBoundingBox;
+}
+
+FloatRect LegacyRenderSVGRoot::strokeBoundingBox() const
+{
+    // FIXME: Once we enable approximate repainting bounding box computation, m_strokeBoundingBox becomes std::nullopt in updateCachedBoundaries and gets lazily computed.
+    // https://bugs.webkit.org/show_bug.cgi?id=262409
+    if (!m_strokeBoundingBox) {
+        // Initialize m_strokeBoundingBox before calling computeContainerStrokeBoundingBox, since recursively referenced markers can cause us to re-enter here.
+        m_strokeBoundingBox = FloatRect { };
+        m_strokeBoundingBox = SVGRenderSupport::computeContainerStrokeBoundingBox(*this);
+    }
+    return *m_strokeBoundingBox;
+}
+
+FloatRect LegacyRenderSVGRoot::repaintRectInLocalCoordinates(RepaintRectCalculation repaintRectCalculation) const
+{
+    if (repaintRectCalculation == RepaintRectCalculation::Fast)
+        return m_repaintBoundingBox;
+
+    if (!m_accurateRepaintBoundingBox) {
+        // Initialize m_accurateRepaintBoundingBox before calling computeContainerBoundingBoxes, since recursively referenced markers can cause us to re-enter here.
+        m_accurateRepaintBoundingBox = FloatRect { };
+        FloatRect objectBoundingBox;
+        FloatRect repaintBoundingBox;
+        bool objectBoundingBoxValid = true;
+        SVGRenderSupport::computeContainerBoundingBoxes(*this, objectBoundingBox, objectBoundingBoxValid, repaintBoundingBox, RepaintRectCalculation::Accurate);
+        SVGRenderSupport::intersectRepaintRectWithResources(*this, repaintBoundingBox, RepaintRectCalculation::Accurate);
+        repaintBoundingBox.inflate(horizontalBorderAndPaddingExtent());
+        m_accurateRepaintBoundingBox = repaintBoundingBox;
+    }
+    return *m_accurateRepaintBoundingBox;
 }
 
 bool LegacyRenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction hitTestAction)

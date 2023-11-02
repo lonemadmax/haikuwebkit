@@ -727,13 +727,6 @@ RetainPtr<NSDictionary> WebProcess::additionalStateForDiagnosticReport() const
 
 #endif // USE(OS_STATE)
 
-#if ENABLE(WEBCONTENT_CRASH_TESTING)
-NEVER_INLINE NO_RETURN_DUE_TO_CRASH static void deliberateCrashForTesting()
-{
-    CRASH();
-}
-#endif
-
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
 static void prewarmLogs()
 {
@@ -793,7 +786,8 @@ static void registerLogHook()
         static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("Log Queue", WorkQueue::QOS::Background));
 
         queue.get()->dispatchWithQOS([logFormat = WTFMove(logFormat), logChannel = WTFMove(logChannel), logCategory = WTFMove(logCategory), type = type, buffer = WTFMove(buffer), privdata = WTFMove(privdata), qos] {
-            os_log_message_s msg = { 0 };
+            os_log_message_s msg;
+            memset(&msg, 0, sizeof(msg));
 
             msg.format = logFormat.data();
             msg.buffer = buffer.data();
@@ -847,11 +841,6 @@ void WebProcess::platformInitializeProcess(const AuxiliaryProcessInitializationP
         m_processType = ProcessType::PrewarmedWebContent;
     else
         m_processType = ProcessType::WebContent;
-
-#if ENABLE(WEBCONTENT_CRASH_TESTING)
-    if (parameters.extraInitializationData.get<HashTranslatorASCIILiteral>("is-webcontent-crashy"_s) == "1"_s)
-        deliberateCrashForTesting();
-#endif
 
 #if USE(OS_STATE)
     registerWithStateDumper("WebContent state"_s);
@@ -1233,19 +1222,19 @@ void WebProcess::accessibilityPreferencesDidChange(const AccessibilityPreference
 {
 #if HAVE(PER_APP_ACCESSIBILITY_PREFERENCES)
     auto appID = CFSTR("com.apple.WebKit.WebContent");
-    auto reduceMotionEnabled = preferences.reduceMotionEnabled;
+    auto reduceMotionEnabled = fromWebKitAXValueState(preferences.reduceMotionEnabled);
     if (_AXSReduceMotionEnabledApp(appID) != reduceMotionEnabled)
         _AXSSetReduceMotionEnabledApp(reduceMotionEnabled, appID);
-    auto increaseButtonLegibility = preferences.increaseButtonLegibility;
+    auto increaseButtonLegibility = fromWebKitAXValueState(preferences.increaseButtonLegibility);
     if (_AXSIncreaseButtonLegibilityApp(appID) != increaseButtonLegibility)
         _AXSSetIncreaseButtonLegibilityApp(increaseButtonLegibility, appID);
-    auto enhanceTextLegibility = preferences.enhanceTextLegibility;
+    auto enhanceTextLegibility = fromWebKitAXValueState(preferences.enhanceTextLegibility);
     if (_AXSEnhanceTextLegibilityEnabledApp(appID) != enhanceTextLegibility)
         _AXSSetEnhanceTextLegibilityEnabledApp(enhanceTextLegibility, appID);
-    auto darkenSystemColors = preferences.darkenSystemColors;
+    auto darkenSystemColors = fromWebKitAXValueState(preferences.darkenSystemColors);
     if (_AXDarkenSystemColorsApp(appID) != darkenSystemColors)
         _AXSSetDarkenSystemColorsApp(darkenSystemColors, appID);
-    auto invertColorsEnabled = preferences.invertColorsEnabled;
+    auto invertColorsEnabled = fromWebKitAXValueState(preferences.invertColorsEnabled);
     if (_AXSInvertColorsEnabledApp(appID) != invertColorsEnabled)
         _AXSInvertColorsSetEnabledApp(invertColorsEnabled, appID);
 #endif

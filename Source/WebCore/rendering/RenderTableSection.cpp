@@ -91,13 +91,13 @@ static inline void updateLogicalHeightForCell(RenderTableSection::RowStruct& row
 }
 
 RenderTableSection::RenderTableSection(Element& element, RenderStyle&& style)
-    : RenderBox(element, WTFMove(style), 0)
+    : RenderBox(Type::TableSection, element, WTFMove(style), 0)
 {
     setInline(false);
 }
 
 RenderTableSection::RenderTableSection(Document& document, RenderStyle&& style)
-    : RenderBox(document, WTFMove(style), 0)
+    : RenderBox(Type::TableSection, document, WTFMove(style), 0)
 {
     setInline(false);
 }
@@ -514,8 +514,8 @@ void RenderTableSection::relayoutCellIfFlexed(RenderTableCell& cell, int rowInde
 
     if (!cellChildrenFlex) {
         if (TrackedRendererListHashSet* percentHeightDescendants = cell.percentHeightDescendants()) {
-            for (auto* descendant : *percentHeightDescendants) {
-                if (flexAllChildren || shouldFlexCellChild(cell, *descendant)) {
+            for (auto& descendant : *percentHeightDescendants) {
+                if (flexAllChildren || shouldFlexCellChild(cell, descendant)) {
                     cellChildrenFlex = true;
                     break;
                 }

@@ -69,7 +69,7 @@ void RemoteLayerWithRemoteRenderingBackingStoreCollection::prepareBackingStoresF
             continue;
         }
 
-        prepareBuffersData.uncheckedAppend({
+        prepareBuffersData.append({
             {
                 backingStore.bufferForType(RemoteLayerBackingStore::BufferType::Front),
                 backingStore.bufferForType(RemoteLayerBackingStore::BufferType::Back),
@@ -79,7 +79,7 @@ void RemoteLayerWithRemoteRenderingBackingStoreCollection::prepareBackingStoresF
             backingStore.hasEmptyDirtyRegion(),
         });
         
-        backingStoreList.uncheckedAppend(backingStore);
+        backingStoreList.append(backingStore);
     }
 
     if (prepareBuffersData.size()) {
@@ -102,8 +102,10 @@ void RemoteLayerWithRemoteRenderingBackingStoreCollection::prepareBackingStoresF
 
 RefPtr<WebCore::ImageBuffer> RemoteLayerWithRemoteRenderingBackingStoreCollection::allocateBufferForBackingStore(const RemoteLayerBackingStore& backingStore)
 {
-    auto renderingMode = backingStore.type() == RemoteLayerBackingStore::Type::IOSurface ? WebCore::RenderingMode::Accelerated : WebCore::RenderingMode::Unaccelerated;
-    return remoteRenderingBackendProxy().createImageBuffer(backingStore.size(), renderingMode, WebCore::RenderingPurpose::LayerBacking, backingStore.scale(), backingStore.colorSpace(), backingStore.pixelFormat());
+    OptionSet<ImageBufferOptions> options;
+    if (backingStore.type() == RemoteLayerBackingStore::Type::IOSurface)
+        options.add(WebCore::ImageBufferOptions::Accelerated);
+    return remoteRenderingBackendProxy().createImageBuffer(backingStore.size(), WebCore::RenderingPurpose::LayerBacking, backingStore.scale(), backingStore.colorSpace(), backingStore.pixelFormat(), options);
 }
 
 bool RemoteLayerWithRemoteRenderingBackingStoreCollection::collectBackingStoreBufferIdentifiersToMarkVolatile(RemoteLayerBackingStore& backingStore, OptionSet<VolatilityMarkingBehavior> markingBehavior, MonotonicTime now, Vector<WebCore::RenderingResourceIdentifier>& identifiers)
@@ -223,6 +225,15 @@ void RemoteLayerWithRemoteRenderingBackingStoreCollection::sendMarkBuffersVolati
         LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerWithRemoteRenderingBackingStoreCollection::sendMarkBuffersVolatile: marked all volatile " << markedAllVolatile);
         completionHandler(markedAllVolatile);
     });
+}
+
+void RemoteLayerWithRemoteRenderingBackingStoreCollection::gpuProcessConnectionWasDestroyed()
+{
+    for (auto& backingStore : m_liveBackingStore)
+        backingStore.setNeedsDisplay();
+
+    for (auto& backingStore : m_unparentedBackingStore)
+        backingStore.setNeedsDisplay();
 }
 
 } // namespace WebKit

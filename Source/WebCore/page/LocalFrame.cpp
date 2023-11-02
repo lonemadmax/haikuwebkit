@@ -169,6 +169,9 @@ LocalFrame::LocalFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& frameLoad
     // Pause future ActiveDOMObjects if this frame is being created while the page is in a paused state.
     if (LocalFrame* parent = dynamicDowncast<LocalFrame>(tree().parent()); parent && parent->activeDOMObjectsAndAnimationsSuspended())
         suspendActiveDOMObjectsAndAnimations();
+
+    if (auto page = this->page(); page && isRootFrame())
+        page->removeRootFrame(*this);
 }
 
 void LocalFrame::init()
@@ -217,14 +220,22 @@ LocalFrame::~LocalFrame()
         localMainFrame->selfOnlyDeref();
 }
 
+bool LocalFrame::isRootFrame() const
+{
+    if (auto* parent = tree().parent())
+        return is<RemoteFrame>(parent);
+    ASSERT(&mainFrame() == this);
+    return true;
+}
+
 void LocalFrame::addDestructionObserver(FrameDestructionObserver& observer)
 {
-    m_destructionObservers.add(&observer);
+    m_destructionObservers.add(observer);
 }
 
 void LocalFrame::removeDestructionObserver(FrameDestructionObserver& observer)
 {
-    m_destructionObservers.remove(&observer);
+    m_destructionObservers.remove(observer);
 }
 
 void LocalFrame::setView(RefPtr<LocalFrameView>&& view)
@@ -772,13 +783,33 @@ void LocalFrame::clearTimers()
     clearTimers(m_view.get(), document());
 }
 
+CheckedRef<const FrameLoader> LocalFrame::checkedLoader() const
+{
+    return m_loader.get();
+}
+
+CheckedRef<FrameLoader> LocalFrame::checkedLoader()
+{
+    return m_loader.get();
+}
+
+CheckedRef<ScriptController> LocalFrame::checkedScript()
+{
+    return m_script.get();
+}
+
+CheckedRef<const ScriptController> LocalFrame::checkedScript() const
+{
+    return m_script.get();
+}
+
 void LocalFrame::willDetachPage()
 {
     if (LocalFrame* parent = dynamicDowncast<LocalFrame>(tree().parent()))
         parent->loader().checkLoadComplete();
 
     for (auto& observer : m_destructionObservers)
-        observer->willDetachPage();
+        observer.willDetachPage();
 
     // FIXME: It's unclear as to why this is called more than once, but it is,
     // so page() could be NULL.
@@ -871,15 +902,15 @@ void LocalFrame::createView(const IntSize& viewportSize, const std::optional<Col
 {
     ASSERT(page());
 
-    bool isMainFrame = this->isMainFrame();
+    bool isRootFrame = this->isRootFrame();
 
-    if (isMainFrame && view())
+    if (isRootFrame && view())
         view()->setParentVisible(false);
 
     setView(nullptr);
 
     RefPtr<LocalFrameView> frameView;
-    if (isMainFrame) {
+    if (isRootFrame) {
         frameView = LocalFrameView::create(*this, viewportSize);
         frameView->setFixedLayoutSize(fixedLayoutSize);
 #if USE(COORDINATED_GRAPHICS)
@@ -897,7 +928,7 @@ void LocalFrame::createView(const IntSize& viewportSize, const std::optional<Col
 
     frameView->updateBackgroundRecursively(backgroundColor);
 
-    if (isMainFrame)
+    if (isRootFrame)
         frameView->setParentVisible(true);
 
     if (ownerRenderer())
@@ -1169,6 +1200,11 @@ LocalFrame* LocalFrame::contentFrameFromWindowOrFrameElement(JSContextRef contex
     if (!jsNode || !is<HTMLFrameOwnerElement>(jsNode->wrapped()))
         return nullptr;
     return dynamicDowncast<LocalFrame>(downcast<HTMLFrameOwnerElement>(jsNode->wrapped()).contentFrame());
+}
+
+RefPtr<LocalFrameView> Document::protectedView() const
+{
+    return view();
 }
 
 #if ENABLE(DATA_DETECTION)

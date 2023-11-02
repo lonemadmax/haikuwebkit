@@ -96,6 +96,7 @@
 #include <wtf/text/AtomString.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringConcatenateNumbers.h>
+#include <wtf/text/StringToIntegerConversion.h>
 #include <wtf/UniStdExtras.h>
 #include <wtf/URL.h>
 #include <wtf/WallTime.h>
@@ -387,7 +388,8 @@ void MediaPlayerPrivateGStreamer::play()
     }
 
     if (!m_playbackRate) {
-        m_isPlaybackRatePaused = true;
+        if (m_playbackRatePausedState == PlaybackRatePausedState::ManuallyPaused)
+            m_playbackRatePausedState = PlaybackRatePausedState::RatePaused;
         return;
     }
 
@@ -411,7 +413,7 @@ void MediaPlayerPrivateGStreamer::pause()
     if (isMediaStreamPlayer())
         m_pausedTime = currentMediaTime();
 
-    m_isPlaybackRatePaused = false;
+    m_playbackRatePausedState = PlaybackRatePausedState::ManuallyPaused;
     GstState currentState, pendingState;
     gst_element_get_state(m_pipeline.get(), &currentState, &pendingState, 0);
     if (currentState < GST_STATE_PAUSED && pendingState <= GST_STATE_PAUSED)
@@ -433,15 +435,17 @@ bool MediaPlayerPrivateGStreamer::paused() const
         return true;
     }
 
-    if (m_isPlaybackRatePaused) {
+    if (m_playbackRatePausedState == PlaybackRatePausedState::RatePaused
+        || m_playbackRatePausedState == PlaybackRatePausedState::ShouldMoveToPlaying) {
         GST_DEBUG_OBJECT(pipeline(), "Playback rate is 0, simulating PAUSED state");
         return false;
     }
 
-    GstState state;
-    gst_element_get_state(m_pipeline.get(), &state, nullptr, 0);
-    bool paused = state <= GST_STATE_PAUSED;
-    GST_LOG_OBJECT(pipeline(), "Paused: %s", toString(paused).utf8().data());
+    GstState state, pending;
+    auto stateChange = gst_element_get_state(m_pipeline.get(), &state, &pending, 0);
+    bool paused = state <= GST_STATE_PAUSED || (stateChange == GST_STATE_CHANGE_ASYNC && pending == GST_STATE_PAUSED);
+    GST_LOG_OBJECT(pipeline(), "Paused: %s (state %s, pending %s, state change %s)", boolForPrinting(paused),
+        gst_element_state_get_name(state), gst_element_state_get_name(pending), gst_element_state_change_return_get_name(stateChange));
     return paused;
 }
 
@@ -584,15 +588,6 @@ void MediaPlayerPrivateGStreamer::updatePlaybackRate()
         }
     }
 
-    if (m_isPlaybackRatePaused) {
-        GstState state, pending;
-
-        gst_element_get_state(m_pipeline.get(), &state, &pending, 0);
-        if (state != GST_STATE_PLAYING && pending != GST_STATE_PLAYING)
-            changePipelineState(GST_STATE_PLAYING);
-        m_isPlaybackRatePaused = false;
-    }
-
     m_isChangingRate = false;
     if (auto player = m_player.get())
         player->rateChanged();
@@ -661,21 +656,23 @@ void MediaPlayerPrivateGStreamer::setRate(float rate)
         return;
     }
 
-    GstState state, pending;
-
     m_playbackRate = rateClamped;
     m_isChangingRate = true;
 
-    gst_element_get_state(m_pipeline.get(), &state, &pending, 0);
-
     if (!rateClamped) {
         m_isChangingRate = false;
-        m_isPlaybackRatePaused = true;
-        if (state != GST_STATE_PAUSED && pending != GST_STATE_PAUSED)
-            changePipelineState(GST_STATE_PAUSED);
+        if (m_playbackRatePausedState == PlaybackRatePausedState::Playing || m_playbackRatePausedState == PlaybackRatePausedState::ShouldMoveToPlaying) {
+            m_playbackRatePausedState = PlaybackRatePausedState::RatePaused;
+            updateStates();
+        }
         return;
+    } else if (m_playbackRatePausedState == PlaybackRatePausedState::RatePaused) {
+        m_playbackRatePausedState = PlaybackRatePausedState::ShouldMoveToPlaying;
+        updateStates();
     }
 
+    GstState state, pending;
+    gst_element_get_state(m_pipeline.get(), &state, &pending, 0);
     if ((state != GST_STATE_PLAYING && state != GST_STATE_PAUSED)
         || (pending == GST_STATE_PAUSED))
         return;
@@ -1558,7 +1555,7 @@ void MediaPlayerPrivateGStreamer::handleStreamCollectionMessage(GstMessage* mess
     // WebKitMediaSrc) parsebin and decodebin3 emit their own stream-collection messages, but late,
     // and sometimes with duplicated streams. Let's only listen for stream-collection messages from
     // the source to avoid these issues.
-    if (!g_str_has_prefix(GST_OBJECT_NAME(m_source.get()), "filesrc") && GST_MESSAGE_SRC(message) != GST_OBJECT(m_source.get())) {
+    if (!(g_str_has_prefix(GST_OBJECT_NAME(m_source.get()), "filesrc") || WEBKIT_IS_WEB_SRC(m_source.get())) && GST_MESSAGE_SRC(message) != GST_OBJECT(m_source.get())) {
         GST_DEBUG_OBJECT(pipeline(), "Ignoring redundant STREAM_COLLECTION from %" GST_PTR_FORMAT, message->src);
         return;
     }
@@ -1861,7 +1858,7 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
 
         // The MediaPlayerPrivateGStreamer superclass now processes what it needs by calling updateStates() in handleMessage() for
         // GST_MESSAGE_STATE_CHANGED. However, subclasses still need to override asyncStateChangeDone() to do their own stuff.
-        asyncStateChangeDone();
+        didPreroll();
         break;
     case GST_MESSAGE_STATE_CHANGED: {
         GstState newState;
@@ -2238,9 +2235,11 @@ void MediaPlayerPrivateGStreamer::configureElement(GstElement* element)
     auto classifiers = elementClass.split('/');
 
     // In GStreamer 1.20 and older urisourcebin mishandles source elements with dynamic pads. This
-    // is not an issue in 1.22.
+    // is not an issue in 1.22. Streams parsing is not needed for MediaStream cases because we do it
+    // upfront for incoming WebRTC MediaStreams. It is however needed for MSE, otherwise decodebin3
+    // might not auto-plug hardware decoders.
     if (webkitGstCheckVersion(1, 22, 0) && g_str_has_prefix(elementName.get(), "urisourcebin") && (isMediaSource() || isMediaStreamPlayer()))
-        g_object_set(element, "use-buffering", FALSE, "parse-streams", FALSE, nullptr);
+        g_object_set(element, "use-buffering", FALSE, "parse-streams", !isMediaStreamPlayer(), nullptr);
 
     // In case of playbin3 with <video ... preload="auto">, instantiate
     // downloadbuffer element, otherwise the playbin3 would instantiate
@@ -2338,7 +2337,11 @@ void MediaPlayerPrivateGStreamer::configureDownloadBuffer(GstElement* element)
     g_signal_connect_swapped(element, "notify::temp-location", G_CALLBACK(downloadBufferFileCreatedCallback), this);
 
     // Set the GstDownloadBuffer size to our preferred value controls the thresholds for buffering events.
-    g_object_set(element, "max-size-bytes", 100 * KB, nullptr);
+    auto cacheSizeBytesStr = StringView::fromLatin1(std::getenv("WPE_SHELL_MEDIA_DISK_CACHE_SIZE_BYTES"));
+    auto cacheSizeBytes = parseInteger<unsigned long>(cacheSizeBytesStr).value_or(100 * KB);
+    auto cacheSizeNSecStr = StringView::fromLatin1(std::getenv("WPE_SHELL_MEDIA_DISK_CACHE_SIZE_NSEC"));
+    auto cacheSizeNSec = parseInteger<unsigned long long>(cacheSizeNSecStr).value_or(5000000000);
+    g_object_set(element, "max-size-bytes", cacheSizeBytes, "max-size-time", cacheSizeNSec, nullptr);
 
     GUniqueOutPtr<char> oldDownloadTemplate;
     g_object_get(element, "temp-template", &oldDownloadTemplate.outPtr(), nullptr);
@@ -2507,8 +2510,10 @@ void MediaPlayerPrivateGStreamer::updateStates()
                 m_areVolumeAndMuteInitialized = true;
             }
 
-            if (didBuffering && !m_isBuffering && !m_isPaused && m_playbackRate) {
-                GST_INFO_OBJECT(pipeline(), "[Buffering] Restarting playback.");
+            if ((didBuffering && !m_isBuffering && !m_isPaused && m_playbackRate)
+                || m_playbackRatePausedState == PlaybackRatePausedState::ShouldMoveToPlaying) {
+                m_playbackRatePausedState = PlaybackRatePausedState::Playing;
+                GST_INFO_OBJECT(pipeline(), "[Buffering] Restarting playback (because of buffering or resuming from zero playback rate)");
                 changePipelineState(GST_STATE_PLAYING);
             }
         } else if (m_currentState == GST_STATE_PLAYING) {
@@ -2516,7 +2521,7 @@ void MediaPlayerPrivateGStreamer::updateStates()
 
             shouldPauseForBuffering = (m_isBuffering && !m_isLiveStream.value_or(false));
             if (shouldPauseForBuffering || !m_playbackRate) {
-                GST_INFO_OBJECT(pipeline(), "[Buffering] Pausing stream for buffering.");
+                GST_INFO_OBJECT(pipeline(), "[Buffering] Pausing stream for buffering or because of zero playback rate.");
                 changePipelineState(GST_STATE_PAUSED);
             }
         } else
@@ -3370,7 +3375,18 @@ void MediaPlayerPrivateGStreamer::pushDMABufToCompositor()
         downcast<TextureMapperPlatformLayerProxyDMABuf>(proxy).pushDMABuf(
             DMABufObject(reinterpret_cast<uintptr_t>(gst_buffer_peek_memory(buffer, 0))),
             [&](auto&& object) {
-                object.format = DMABufFormat::create(fourccValue(GST_VIDEO_INFO_FORMAT(&videoInfo)));
+                bool infoHasDrmFormat = false;
+                uint32_t fourcc = 0;
+#if GST_CHECK_VERSION(1, 23, 0)
+                GstVideoInfoDmaDrm drmInfo;
+                infoHasDrmFormat = gst_video_info_dma_drm_from_caps(&drmInfo, caps);
+                if (infoHasDrmFormat)
+                    fourcc = drmInfo.drm_fourcc;
+#endif
+                if (!fourcc)
+                    fourcc = fourccValue(GST_VIDEO_INFO_FORMAT(&videoInfo));
+
+                object.format = DMABufFormat::create(fourcc);
                 object.colorSpace = colorSpaceForColorimetry(&GST_VIDEO_INFO_COLORIMETRY(&videoInfo));
                 object.width = GST_VIDEO_INFO_WIDTH(&videoInfo);
                 object.height = GST_VIDEO_INFO_HEIGHT(&videoInfo);
@@ -3383,12 +3399,8 @@ void MediaPlayerPrivateGStreamer::pushDMABufToCompositor()
                 // but left for later.
                 object.releaseFlag = DMABufReleaseFlag { };
 
-                // No way (yet) to retrieve the modifier information. Until then, no modifiers are specified
-                // for this DMABufObject (via the modifierPresent and modifierValue member variables).
-
                 // For each plane, the relevant data (stride, offset, skip, dmabuf fd) is retrieved and assigned
-                // as appropriate. Modifier values are zeroed out for now, since GStreamer doesn't yet provide
-                // the information.
+                // as appropriate.
                 for (unsigned i = 0; i < object.format.numPlanes; ++i) {
                     gsize offset = GST_VIDEO_INFO_PLANE_OFFSET(&videoInfo, i);
                     guint memid = 0;
@@ -3405,6 +3417,11 @@ void MediaPlayerPrivateGStreamer::pushDMABufToCompositor()
                     gst_video_format_info_component(videoInfo.finfo, i, comp);
                     object.offset[i] = offset;
                     object.stride[i] = GST_VIDEO_INFO_PLANE_STRIDE(&videoInfo, i);
+                    object.modifierPresent[i] = infoHasDrmFormat;
+#if GST_CHECK_VERSION(1, 23, 0)
+                    if (infoHasDrmFormat)
+                        object.modifierValue[i] = drmInfo.drm_modifier;
+#endif
                 }
                 return WTFMove(object);
             }, m_textureMapperFlags);

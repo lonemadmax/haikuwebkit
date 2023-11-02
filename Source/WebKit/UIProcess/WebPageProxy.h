@@ -136,6 +136,7 @@ enum ScrollbarOverlayStyle : uint8_t;
 enum class ActivityState : uint16_t;
 enum class AdvancedPrivacyProtections : uint16_t;
 enum class AlternativeTextType : uint8_t;
+enum class ArchiveError : uint8_t;
 enum class AutocorrectionResponse : uint8_t;
 enum class AutoplayEvent : uint8_t;
 enum class AutoplayEventFlags : uint8_t;
@@ -224,7 +225,7 @@ struct FrameIdentifierType;
 struct GrammarDetail;
 struct HTMLMediaElementIdentifierType;
 struct HTMLModelElementCamera;
-struct ImageBufferBackendParameters;
+struct ImageBufferParameters;
 struct InspectorOverlayHighlight;
 struct LinkIcon;
 struct LinkDecorationFilteringData;
@@ -318,6 +319,7 @@ namespace WebKit {
 
 class AudioSessionRoutingArbitratorProxy;
 class AuthenticationChallengeProxy;
+class BrowsingContextGroup;
 class CallbackID;
 class ContextMenuContextData;
 class DownloadProxy;
@@ -365,7 +367,7 @@ class SystemPreviewController;
 class UserData;
 class UserMediaPermissionRequestManagerProxy;
 class UserMediaPermissionRequestProxy;
-class VideoFullscreenManagerProxy;
+class VideoPresentationManagerProxy;
 class ViewSnapshot;
 class VisibleContentRectUpdateInfo;
 class VisitedLinkStore;
@@ -418,6 +420,7 @@ struct FocusedElementInformation;
 struct FrameInfoData;
 struct FrameTreeCreationParameters;
 struct FrameTreeNodeData;
+struct GPUProcessPreferencesForWebProcess;
 struct GeolocationIdentifierType;
 struct InputMethodState;
 struct InsertTextOptions;
@@ -536,6 +539,13 @@ public:
     bool isLockdownModeExplicitlySet() const { return m_isLockdownModeExplicitlySet; }
     bool shouldEnableLockdownMode() const;
 
+#if ENABLE(GPU_PROCESS)
+    GPUProcessPreferencesForWebProcess preferencesForGPUProcess() const;
+#endif
+
+    bool hasSameGPUProcessPreferencesAs(const API::PageConfiguration&) const;
+    bool hasSameGPUProcessPreferencesAs(const WebPageProxy& page) const { return hasSameGPUProcessPreferencesAs(page.configuration()); }
+
     void processIsNoLongerAssociatedWithPage(WebProcessProxy&);
 
 #if ENABLE(DATA_DETECTION)
@@ -605,6 +615,10 @@ public:
 
     WebUserContentControllerProxy& userContentController() { return m_userContentController.get(); }
 
+#if ENABLE(WK_WEB_EXTENSIONS)
+    WebExtensionController* webExtensionController();
+#endif
+
     bool hasSleepDisabler() const;
 
 #if ENABLE(FULLSCREEN_API)
@@ -616,7 +630,7 @@ public:
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     PlaybackSessionManagerProxy* playbackSessionManager();
-    VideoFullscreenManagerProxy* videoFullscreenManager();
+    VideoPresentationManagerProxy* videoPresentationManager();
     void setMockVideoPresentationModeEnabled(bool);
 #endif
 
@@ -1113,6 +1127,7 @@ public:
     void wheelEventHandlingCompleted(bool wasHandled);
 
     bool isProcessingKeyboardEvents() const;
+    void sendKeyEvent(const NativeWebKeyboardEvent&);
     bool handleKeyboardEvent(const NativeWebKeyboardEvent&);
 #if PLATFORM(WIN)
     void dispatchPendingCharEvents(const NativeWebKeyboardEvent&);
@@ -1303,7 +1318,7 @@ public:
     void getImageForFindMatch(int32_t matchIndex);
     void selectFindMatch(int32_t matchIndex);
     void indicateFindMatch(int32_t matchIndex);
-    void didGetImageForFindMatch(const WebCore::ImageBufferBackendParameters&, ShareableBitmapHandle&& contentImageHandle, uint32_t matchIndex);
+    void didGetImageForFindMatch(WebCore::ImageBufferParameters&&, ShareableBitmapHandle&& contentImageHandle, uint32_t matchIndex);
     void hideFindUI();
     void hideFindIndicator();
     void countStringMatches(const String&, OptionSet<FindOptions>, unsigned maxMatchCount);
@@ -1338,6 +1353,7 @@ public:
 #if ENABLE(MHTML)
     void getContentsAsMHTMLData(CompletionHandler<void(API::Data*)>&&);
 #endif
+    void saveResources(WebFrameProxy*, const String& directory, const String& suggestedMainResourceName, CompletionHandler<void(Expected<void, WebCore::ArchiveError>)>&&);
     void getMainResourceDataOfFrame(WebFrameProxy*, CompletionHandler<void(API::Data*)>&&);
     void getResourceDataFromFrame(WebFrameProxy&, API::URL*, CompletionHandler<void(API::Data*)>&&);
     void getRenderTreeExternalRepresentation(CompletionHandler<void(const String&)>&&);
@@ -1532,13 +1548,12 @@ public:
 
     void saveDataToFileInDownloadsFolder(String&& suggestedFilename, String&& mimeType, URL&& originatingURL, API::Data&);
     void savePDFToFileInDownloadsFolder(String&& suggestedFilename, URL&& originatingURL, const IPC::DataReference&);
-#if ENABLE(PDFKIT_PLUGIN)
-    void savePDFToTemporaryFolderAndOpenWithNativeApplication(const String& suggestedFilename, FrameInfoData&&, const IPC::DataReference&, const String& pdfUUID);
-#endif
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN) && PLATFORM(MAC)
+    void savePDFToTemporaryFolderAndOpenWithNativeApplication(const String& suggestedFilename, FrameInfoData&&, const IPC::DataReference&, const String& pdfUUID);
     void showPDFContextMenu(const PDFContextMenu&, PDFPluginIdentifier, CompletionHandler<void(std::optional<int32_t>&&)>&&);
 #endif
+
     WebCore::IntRect visibleScrollerThumbRect() const;
 
     uint64_t renderTreeSize() const { return m_renderTreeSize; }
@@ -2057,10 +2072,13 @@ public:
     bool canUseCredentialStorage() { return m_canUseCredentialStorage; }
     void setCanUseCredentialStorage(bool);
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_HUD)
     void createPDFHUD(PDFPluginIdentifier, const WebCore::IntRect&);
     void updatePDFHUDLocation(PDFPluginIdentifier, const WebCore::IntRect&);
     void removePDFHUD(PDFPluginIdentifier);
+#endif
+
+#if ENABLE(PDF_PLUGIN) && PLATFORM(MAC)
     void pdfZoomIn(PDFPluginIdentifier);
     void pdfZoomOut(PDFPluginIdentifier);
     void pdfSaveToPDF(PDFPluginIdentifier);
@@ -2157,11 +2175,14 @@ public:
     WKQuickLookPreviewController *quickLookPreviewController() const { return m_quickLookPreviewController.get(); }
 #endif
 
-    RemotePageProxy* remotePageProxyForRegistrableDomain(WebCore::RegistrableDomain) const;
-    void addRemotePageProxy(const WebCore::RegistrableDomain&, WeakPtr<RemotePageProxy>&&);
+    WebProcessProxy* processForRegistrableDomain(const WebCore::RegistrableDomain&);
+    RemotePageProxy* remotePageProxyForRegistrableDomain(const WebCore::RegistrableDomain&) const;
+    void addRemotePageProxy(const WebCore::RegistrableDomain&, RemotePageProxy&);
     void removeRemotePageProxy(const WebCore::RegistrableDomain&);
     void setRemotePageProxyInOpenerProcess(Ref<RemotePageProxy>&&);
-    void addOpenedRemotePageProxy(Ref<RemotePageProxy>&&);
+    RefPtr<RemotePageProxy> takeRemotePageProxyInOpenerProcessIfDomainEquals(const WebCore::RegistrableDomain&);
+    void addOpenedRemotePageProxy(WebPageProxyIdentifier, Ref<RemotePageProxy>&&);
+    void removeOpenedRemotePageProxy(WebPageProxyIdentifier);
 
     void createRemoteSubframesInOtherProcesses(WebFrameProxy&);
     void broadcastFrameRemovalToOtherProcesses(IPC::Connection&, WebCore::FrameIdentifier);
@@ -2386,6 +2407,9 @@ private:
     void rootViewToScreen(const WebCore::IntRect& viewRect, CompletionHandler<void(const WebCore::IntRect&)>&&);
     void accessibilityScreenToRootView(const WebCore::IntPoint& screenPoint, CompletionHandler<void(WebCore::IntPoint)>&&);
     void rootViewToAccessibilityScreen(const WebCore::IntRect& viewRect, CompletionHandler<void(WebCore::IntRect)>&&);
+#if PLATFORM(IOS_FAMILY)
+    void relayAccessibilityNotification(const String&, const IPC::DataReference&);
+#endif
     void runBeforeUnloadConfirmPanel(WebCore::FrameIdentifier, FrameInfoData&&, const String& message, CompletionHandler<void(bool)>&&);
     void didChangeViewportProperties(const WebCore::ViewportAttributes&);
     void pageDidScroll(const WebCore::IntPoint&);
@@ -2570,6 +2594,8 @@ private:
 
     void discardQueuedMouseEvents();
 
+    void mouseEventHandlingCompleted(std::optional<WebEventType>, bool handled);
+    void keyEventHandlingCompleted(std::optional<WebEventType>, bool handled);
     void didReceiveEvent(WebEventType, bool handled);
     void didUpdateRenderingAfterCommittingLoad();
 #if PLATFORM(IOS_FAMILY)
@@ -2584,7 +2610,7 @@ private:
     static WebCore::ScreenOrientationType toScreenOrientationType(WebCore::IntDegrees);
 #endif
 
-    void focusedFrameChanged(const std::optional<WebCore::FrameIdentifier>&);
+    void focusedFrameChanged(IPC::Connection&, const std::optional<WebCore::FrameIdentifier>&);
 
     void didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, const IPC::DataReference&);
 
@@ -2655,13 +2681,14 @@ private:
 
     WebWheelEventCoalescer& wheelEventCoalescer();
 
-#if HAVE(CVDISPLAYLINK)
+#if HAVE(DISPLAY_LINK)
     void wheelEventHysteresisUpdated(PAL::HysteresisState);
     void updateDisplayLinkFrequency();
 #endif
     void updateWheelEventActivityAfterProcessSwap();
 
 #if ENABLE(TOUCH_EVENTS)
+    void touchEventHandlingCompleted(std::optional<WebEventType>, bool handled);
     void updateTouchEventTracking(const WebTouchEvent&);
     WebCore::TrackingType touchEventTrackingType(const WebTouchEvent&) const;
 #endif
@@ -2811,6 +2838,8 @@ private:
 
     void dispatchLoadEventToFrameOwnerElement(WebCore::FrameIdentifier);
 
+    void broadcastFocusedFrameToOtherProcesses(IPC::Connection&, const WebCore::FrameIdentifier&);
+
     struct Internals;
     Internals& internals() { return m_internals; }
     const Internals& internals() const { return m_internals; }
@@ -2920,7 +2949,7 @@ private:
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     RefPtr<PlaybackSessionManagerProxy> m_playbackSessionManager;
-    RefPtr<VideoFullscreenManagerProxy> m_videoFullscreenManager;
+    RefPtr<VideoPresentationManagerProxy> m_videoPresentationManager;
     bool m_mockVideoPresentationModeEnabled { false };
 #endif
 
@@ -3309,6 +3338,7 @@ private:
 #endif
 
     RefPtr<WebPageProxy> m_pageToCloneSessionStorageFrom;
+    Ref<BrowsingContextGroup> m_browsingContextGroup;
 };
 
 } // namespace WebKit

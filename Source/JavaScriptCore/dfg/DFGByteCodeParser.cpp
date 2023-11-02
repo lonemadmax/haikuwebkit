@@ -946,8 +946,9 @@ private:
     
     SpeculatedType getPredictionWithoutOSRExit(BytecodeIndex bytecodeIndex)
     {
-        auto getValueProfilePredictionFromForCodeBlockAndBytecodeOffset = [&] (CodeBlock* codeBlock, const CodeOrigin& codeOrigin)
+        auto getValueProfilePredictionFromForCodeBlockAndBytecodeOffset = [&] (InlineStackEntry* inlineStackEntry, const CodeOrigin& codeOrigin)
         {
+            CodeBlock* codeBlock = inlineStackEntry->m_profiledBlock;
             // If this instruction is derived from op_call_ignore_result, then we do not need to care about the result's prediction.
             // Let's just return SpecFullTop to avoid SpecNone related ForceOSRExit.
             auto instruction = codeBlock->instructions().at(codeOrigin.bytecodeIndex().offset());
@@ -957,8 +958,9 @@ private:
 
             SpeculatedType prediction;
             {
-                ConcurrentJSLocker locker(codeBlock->m_lock);
-                prediction = codeBlock->valueProfilePredictionForBytecodeIndex(locker, codeOrigin.bytecodeIndex());
+                JSValue* specFailValue = inlineStackEntry->m_specFailValueProfileBuckets.get(bytecodeIndex);
+                ConcurrentJSLocker locker(codeBlock->valueProfileLock());
+                prediction = codeBlock->valueProfilePredictionForBytecodeIndex(locker, codeOrigin.bytecodeIndex(), specFailValue);
             }
             auto* fuzzerAgent = m_vm->fuzzerAgent();
             if (UNLIKELY(fuzzerAgent))
@@ -967,7 +969,7 @@ private:
             return prediction;
         };
 
-        SpeculatedType prediction = getValueProfilePredictionFromForCodeBlockAndBytecodeOffset(m_inlineStackTop->m_profiledBlock, CodeOrigin(bytecodeIndex, inlineCallFrame()));
+        SpeculatedType prediction = getValueProfilePredictionFromForCodeBlockAndBytecodeOffset(m_inlineStackTop, CodeOrigin(bytecodeIndex, inlineCallFrame()));
         if (prediction != SpecNone)
             return prediction;
 
@@ -1001,7 +1003,7 @@ private:
             while (stack->m_inlineCallFrame != codeOrigin->inlineCallFrame())
                 stack = stack->m_caller;
 
-            return getValueProfilePredictionFromForCodeBlockAndBytecodeOffset(stack->m_profiledBlock, *codeOrigin);
+            return getValueProfilePredictionFromForCodeBlockAndBytecodeOffset(stack, *codeOrigin);
         }
 
         default:
@@ -1053,7 +1055,7 @@ private:
 
     ArrayMode getArrayMode(const ConcurrentJSLocker& locker, ArrayProfile& profile, Array::Action action)
     {
-        profile.computeUpdatedPrediction(locker, m_inlineStackTop->m_profiledBlock);
+        profile.computeUpdatedPrediction(m_inlineStackTop->m_profiledBlock);
         bool makeSafe = profile.outOfBounds(locker);
         return ArrayMode::fromObserved(locker, &profile, action, makeSafe);
     }
@@ -1274,6 +1276,8 @@ private:
         // which are based on OSR exit profiles that past DFG compilations of this
         // code block had gathered.
         LazyOperandValueProfileParser m_lazyOperands;
+
+        HashMap<BytecodeIndex, JSValue*> m_specFailValueProfileBuckets;
         
         ICStatusMap m_baselineMap;
         ICStatusContext m_optimizedContext;
@@ -2176,7 +2180,7 @@ bool ByteCodeParser::handleVarargsInlining(Node* callTargetNode, Operand result,
             // calls.
             if (codeBlock && argument < static_cast<unsigned>(codeBlock->numParameters())) {
                 ConcurrentJSLocker locker(codeBlock->valueProfileLock());
-                ValueProfile& profile = codeBlock->valueProfileForArgument(argument);
+                ArgumentValueProfile& profile = codeBlock->valueProfileForArgument(argument);
                 variable->predict(profile.computeUpdatedPrediction(locker));
             }
             
@@ -7792,7 +7796,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 Node* value = addToGraph(ExtractCatchLocal, OpInfo(numberOfLocals), OpInfo(localPredictions[numberOfLocals]));
                 ++numberOfLocals;
                 addToGraph(MovHint, OpInfo(operand), value);
-                localsToSet.uncheckedAppend(std::make_pair(operand, value));
+                localsToSet.append(std::make_pair(operand, value));
             });
             if (numberOfLocals)
                 addToGraph(ClearCatchLocals);
@@ -9420,15 +9424,16 @@ ByteCodeParser::InlineStackEntry::InlineStackEntry(
 {
     {
         m_exitProfile.initialize(m_profiledBlock->unlinkedCodeBlock());
+        m_lazyOperands.initialize(m_profiledBlock->lazyValueProfiles());
+        m_specFailValueProfileBuckets = m_profiledBlock->lazyValueProfiles().speculationFailureValueProfileBucketsMap();
 
-        ConcurrentJSLocker locker(m_profiledBlock->m_lock);
-        m_lazyOperands.initialize(locker, m_profiledBlock->lazyOperandValueProfiles(locker));
-        
         // We do this while holding the lock because we want to encourage StructureStubInfo's
         // to be potentially added to operations and because the profiled block could be in the
         // middle of LLInt->JIT tier-up in which case we would be adding the info's right now.
-        if (m_profiledBlock->hasBaselineJITProfiling())
+        if (m_profiledBlock->hasBaselineJITProfiling()) {
+            ConcurrentJSLocker locker(m_profiledBlock->m_lock);
             m_profiledBlock->getICStatusMap(locker, m_baselineMap);
+        }
     }
     
     CodeBlock* optimizedBlock = m_profiledBlock->replacement();

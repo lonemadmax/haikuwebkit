@@ -85,11 +85,9 @@ enum class SendOption : uint8_t {
 };
 
 enum class SendSyncOption : uint8_t {
-    // Use this to inform that this sync call will suspend this process until the user responds with input.
-    InformPlatformProcessWillSuspend = 1 << 0,
-    UseFullySynchronousModeForTesting = 1 << 1,
-    ForceDispatchWhenDestinationIsWaitingForUnboundedSyncReply = 1 << 2,
-    MaintainOrderingWithAsyncMessages = 1 << 3,
+    UseFullySynchronousModeForTesting = 1 << 0,
+    ForceDispatchWhenDestinationIsWaitingForUnboundedSyncReply = 1 << 1,
+    MaintainOrderingWithAsyncMessages = 1 << 2,
 };
 
 enum class WaitForOption {
@@ -200,10 +198,13 @@ struct ConnectionAsyncReplyHandler {
     AsyncReplyID replyID;
 };
 
+enum class ConnectionSyncRequestIDType { };
+using ConnectionSyncRequestID = AtomicObjectIdentifier<ConnectionSyncRequestIDType>;
+
 class Connection : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<Connection, WTF::DestructionThread::MainRunLoop> {
 public:
-    enum SyncRequestIDType { };
-    using SyncRequestID = AtomicObjectIdentifier<SyncRequestIDType>;
+    enum class SyncRequestIDType { };
+    using SyncRequestID = ConnectionSyncRequestID;
     using AsyncReplyID = IPC::AsyncReplyID;
 
     class Client : public MessageReceiver {
@@ -527,9 +528,6 @@ private:
     void enqueueIncomingMessage(std::unique_ptr<Decoder>) WTF_REQUIRES_LOCK(m_incomingMessagesLock);
     size_t incomingMessagesDispatchingBatchSize() const;
 
-    void willSendSyncMessage(OptionSet<SendSyncOption>);
-    void didReceiveSyncReply(OptionSet<SendSyncOption>);
-
     Timeout timeoutRespectingIgnoreTimeoutsForTesting(Timeout) const;
 
 #if PLATFORM(COCOA)
@@ -717,7 +715,7 @@ template<typename T>
 Ref<typename T::Promise> Connection::sendWithPromisedReply(T&& message, uint64_t destinationID, OptionSet<SendOption> sendOptions)
 {
     static_assert(!T::isSync, "Async message expected");
-    typename T::Promise::Producer producer(__func__, WTF::PromiseDispatchMode::RunSynchronouslyOnTarget);
+    typename T::Promise::Producer producer(WTF::PromiseDispatchMode::RunSynchronouslyOnTarget);
     Ref<typename T::Promise> promise = producer;
     auto handler = makeAsyncReplyHandler<T>(WTFMove(producer));
     auto encoder = makeUniqueRef<Encoder>(T::name(), destinationID);
@@ -847,25 +845,25 @@ Connection::AsyncReplyHandler Connection::makeAsyncReplyHandler(typename T::Prom
         {
             [producer = WTFMove(producer)] (Decoder* decoder) mutable {
                 if (!decoder) {
-                    producer.reject(Error::InvalidConnection, __func__);
+                    producer.reject(Error::InvalidConnection);
                     return;
                 }
                 if (!decoder->isValid()) {
-                    producer.reject(Error::FailedToDecodeReplyArguments, __func__);
+                    producer.reject(Error::FailedToDecodeReplyArguments);
                     return;
                 }
                 if constexpr (!std::tuple_size_v<typename T::ReplyArguments>) {
-                    producer.resolve(__func__);
+                    producer.resolve();
                     return;
                 } else if (auto arguments = decoder->decode<typename T::ReplyArguments>()) {
                     if constexpr (std::tuple_size_v<typename T::ReplyArguments> == 1)
-                        producer.resolve(std::get<0>(WTFMove(*arguments)), __func__);
+                        producer.resolve(std::get<0>(WTFMove(*arguments)));
                     else
-                        producer.resolve(WTFMove(*arguments), __func__);
+                        producer.resolve(WTFMove(*arguments));
                     return;
                 }
                 ASSERT_NOT_REACHED();
-                producer.reject(Error::FailedToDecodeReplyArguments, __func__);
+                producer.reject(Error::FailedToDecodeReplyArguments);
             }, callThread
         },
         AsyncReplyID::generate()
@@ -895,7 +893,5 @@ public:
 private:
     static std::atomic<unsigned> unboundedSynchronousIPCCount;
 };
-
-void AccessibilityProcessSuspendedNotification(bool suspended);
 
 } // namespace IPC

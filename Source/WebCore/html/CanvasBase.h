@@ -122,7 +122,6 @@ public:
     bool hasActiveInspectorCanvasCallTracer() const;
 
     bool shouldAccelerate(const IntSize&) const;
-    bool shouldAccelerate(unsigned area) const;
 
     WEBCORE_EXPORT static void setMaxCanvasAreaForTesting(std::optional<size_t>);
 
@@ -133,6 +132,9 @@ public:
     void recordLastFillText(const String&);
 
     void resetGraphicsContextState() const;
+
+    void setNoiseInjectionSalt(NoiseInjectionHashSalt salt) { m_canvasNoiseHashSalt = salt; }
+    bool havePendingCanvasNoiseInjection() const { return m_canvasNoiseInjection.haveDirtyRects(); }
 
 protected:
     explicit CanvasBase(IntSize, const std::optional<NoiseInjectionHashSalt>&);
@@ -151,6 +153,7 @@ protected:
 private:
     bool shouldInjectNoiseBeforeReadback() const;
     virtual void createImageBuffer() const { }
+    bool shouldAccelerate(uint64_t area) const;
 
     mutable IntSize m_size;
     mutable Lock m_imageBufferAssignmentLock;

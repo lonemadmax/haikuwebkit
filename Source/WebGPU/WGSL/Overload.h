@@ -43,17 +43,23 @@ struct TypeVariable {
 struct AbstractVector;
 struct AbstractMatrix;
 struct AbstractTexture;
+struct AbstractTextureStorage;
+struct AbstractChannelFormat;
 struct AbstractReference;
 struct AbstractPointer;
 struct AbstractArray;
+struct AbstractAtomic;
 
 using AbstractTypeImpl = std::variant<
     AbstractVector,
     AbstractMatrix,
     AbstractTexture,
+    AbstractTextureStorage,
+    AbstractChannelFormat,
     AbstractReference,
     AbstractPointer,
     AbstractArray,
+    AbstractAtomic,
     TypeVariable,
     const Type*
 >;
@@ -75,6 +81,16 @@ struct AbstractTexture {
     AbstractType element;
 };
 
+struct AbstractTextureStorage {
+    Types::TextureStorage::Kind kind;
+    AbstractValue format;
+    AbstractValue access;
+};
+
+struct AbstractChannelFormat {
+    AbstractValue format;
+};
+
 struct AbstractReference {
     AbstractValue addressSpace;
     AbstractType element;
@@ -85,9 +101,16 @@ struct AbstractPointer {
     AbstractValue addressSpace;
     AbstractType element;
     AbstractValue accessMode;
+
+    AbstractPointer(AbstractValue, AbstractType);
+    AbstractPointer(AbstractValue, AbstractType, AbstractValue);
 };
 
 struct AbstractArray {
+    AbstractType element;
+};
+
+struct AbstractAtomic {
     AbstractType element;
 };
 
@@ -126,4 +149,5 @@ void printInternal(PrintStream&, const WGSL::TypeVariable&);
 void printInternal(PrintStream&, const WGSL::AbstractType&);
 void printInternal(PrintStream&, const WGSL::OverloadCandidate&);
 void printInternal(PrintStream&, WGSL::Types::Texture::Kind);
+void printInternal(PrintStream&, WGSL::Types::TextureStorage::Kind);
 } // namespace WTF

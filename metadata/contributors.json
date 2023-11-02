@@ -250,6 +250,13 @@
    },
    {
       "emails" : [
+         "ajeet@apple.com"
+      ],
+      "github" : "ajjeet",
+      "name" : "Ajeet Dyondi"
+   },
+   {
+      "emails" : [
          "akiss@inf.u-szeged.hu"
       ],
       "name" : "Akos Kiss",
@@ -1330,7 +1337,8 @@
          "bfan2@apple.com"
       ],
       "github" : "briannafan",
-      "name" : "Brianna Fan"
+      "name" : "Brianna Fan",
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -1366,10 +1374,12 @@
          "sun.shin@lge.com"
       ],
       "expertise" : "WebRTC, WTF, GPU Accelerated Rendering and Compositing",
+      "github" : "xingri",
       "name" : "Byungseon(Sun) Shin",
       "nicks" : [
          "xingri"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -2265,6 +2275,13 @@
    },
    {
       "emails" : [
+         "dfourny@apple.com"
+      ],
+      "github" : "dfourny-apple",
+      "name" : "Dimitri Fourny"
+   },
+   {
+      "emails" : [
          "dglazkov@chromium.org"
       ],
       "expertise" : "The Chromium Port, Shadow DOM, DOM, HTML Forms, Shadow DOM, Web Components, V8 Bindings, InspectorController, garden-o-matic",
@@ -2534,6 +2551,7 @@
          "fantasai.bugs@inkedblade.net",
          "fantasai@apple.com"
       ],
+      "github" : "fantasai",
       "name" : "Elika Etemad",
       "nicks" : [
          "fantasai"
@@ -3039,6 +3057,17 @@
    },
    {
       "emails" : [
+         "ggabrielli@suse.de",
+         "crazybyte@protonmail.com"
+      ],
+      "github" : "staypirate",
+      "name" : "Gianluca Gabrielli",
+      "nicks" : [
+         "crazybyte"
+      ]
+   },
+   {
+      "emails" : [
          "girish@forwardbias.in",
          "ramakrishnan.girish@gmail.com"
       ],
@@ -3381,6 +3410,13 @@
       "nicks" : [
          "iana"
       ]
+   },
+   {
+      "emails" : [
+         "ian.grunert@gmail.com"
+      ],
+      "github" : "iangrunert",
+      "name" : "Ian Grunert"
    },
    {
       "emails" : [
@@ -4484,6 +4520,16 @@
    },
    {
       "emails" : [
+         "webkit@keithcirkel.co.uk"
+      ],
+      "github" : "keithamus",
+      "name" : "Keith Cirkel",
+      "nicks" : [
+         "keithamus"
+      ]
+   },
+   {
+      "emails" : [
          "keith_miller@apple.com"
       ],
       "expertise" : "JavaScript/ECMAScript",
@@ -4949,6 +4995,16 @@
    },
    {
       "emails" : [
+         "lindseywild@github.com"
+      ],
+      "github" : "lindseywild",
+      "name" : "Lindsey Wild",
+      "nicks" : [
+         "lindseywild"
+      ]
+   },
+   {
+      "emails" : [
          "lingho@apple.com",
          "ling@aliko.com"
       ],
@@ -5178,6 +5234,14 @@
       "nicks" : [
          "bdash"
       ]
+   },
+   {
+      "emails" : [
+         "darbinyan@apple.com"
+      ],
+      "github" : "martadarbinyan",
+      "name" : "Marta Darbinyan",
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -5636,6 +5700,15 @@
          "qinmin@chromium.org"
       ],
       "name" : "Min Qin"
+   },
+   {
+      "emails" : [
+         "moe@sigmaos.com",
+         "bazzimoe3@gmail.com"
+      ],
+      "expertise" : "WebKit on macOS",
+      "github" : "MoeBazziGIT",
+      "name" : "Moe Bazzi"
    },
    {
       "emails" : [
@@ -6866,6 +6939,19 @@
       "nicks" : [
          "tronical"
       ]
+   },
+   {
+      "emails" : [
+         "simon.lewis@apple.com"
+      ],
+      "expertise" : "Security",
+      "github" : "sheeparegreat",
+      "name" : "Simon Lewis",
+      "nicks" : [
+         "sheeparegreat",
+         "simon.lewis"
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [

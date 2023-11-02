@@ -226,10 +226,14 @@ static bool shouldInheritTextDecorationsInEffect(const RenderStyle& style, const
     // Media elements have a special rendering where the media controls do not use a proper containing
     // block model which means we need to manually stop text-decorations to apply to text inside media controls.
     auto isAtMediaUAShadowBoundary = [&] {
+#if ENABLE(VIDEO)
         if (!element)
             return false;
         auto* parentNode = element->parentNode();
         return parentNode && parentNode->isUserAgentShadowRoot() && parentNode->parentOrShadowHostElement()->isMediaElement();
+#else
+        return false;
+#endif
     }();
 
     // Outermost <svg> roots are considered to be atomic inline-level.
@@ -535,7 +539,7 @@ void Adjuster::adjust(RenderStyle& style, const RenderStyle* userAgentAppearance
             // Make horizontal marquees not wrap.
             if (!isVertical) {
                 style.setWhiteSpaceCollapse(WhiteSpaceCollapse::Collapse);
-                style.setTextWrap(TextWrap::NoWrap);
+                style.setTextWrapMode(TextWrapMode::NoWrap);
                 style.setTextAlign(TextAlignMode::Start);
             }
             // Apparently this is the expected legacy behavior.
@@ -893,8 +897,8 @@ void Adjuster::adjustForSiteSpecificQuirks(RenderStyle& style) const
 
             auto& div = downcast<HTMLDivElement>(*m_element);
             if (div.hasClass() && div.classNames().contains(instreamNativeVideoDivClass)) {
-                auto* video = div.treeScope().getElementById(videoElementID);
-                if (is<HTMLVideoElement>(video) && downcast<HTMLVideoElement>(*video).isFullscreen())
+                RefPtr video = dynamicDowncast<HTMLVideoElement>(div.treeScope().getElementById(videoElementID));
+                if (video && video->isFullscreen())
                     style.setEffectiveDisplay(DisplayType::Block);
             }
         }

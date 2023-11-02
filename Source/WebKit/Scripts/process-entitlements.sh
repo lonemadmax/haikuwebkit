@@ -28,10 +28,6 @@ function mac_process_webcontent_entitlements()
             plistbuddy Add :com.apple.avfoundation.allow-system-wide-context bool YES
             plistbuddy add :com.apple.QuartzCore.webkit-limited-types bool YES
         fi
-        if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 120000 ))
-        then
-            plistbuddy add :com.apple.coreaudio.allow-vorbis-decode bool YES
-        fi
         if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 130000 ))
         then
             plistbuddy Add :com.apple.private.gpu-restricted bool YES
@@ -64,10 +60,6 @@ function mac_process_webcontent_captiveportal_entitlements()
             plistbuddy Add :com.apple.private.security.message-filter bool YES
             plistbuddy Add :com.apple.avfoundation.allow-system-wide-context bool YES
             plistbuddy add :com.apple.QuartzCore.webkit-limited-types bool YES
-        fi
-        if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 120000 ))
-        then
-            plistbuddy add :com.apple.coreaudio.allow-vorbis-decode bool YES
         fi
         if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 130000 ))
         then
@@ -184,25 +176,18 @@ function webcontent_sandbox_entitlements()
     plistbuddy Add :com.apple.private.security.mutable-state-flags:0 string AppCacheDisabled
     plistbuddy Add :com.apple.private.security.mutable-state-flags:1 string EnableExperimentalSandbox
     plistbuddy Add :com.apple.private.security.mutable-state-flags:2 string BlockIOKitInWebContentSandbox
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:3 string WebContentProcessLaunched
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:3 string local:WebContentProcessLaunched
     plistbuddy Add :com.apple.private.security.enable-state-flags array
     plistbuddy Add :com.apple.private.security.enable-state-flags:0 string AppCacheDisabled
     plistbuddy Add :com.apple.private.security.enable-state-flags:1 string EnableExperimentalSandbox
     plistbuddy Add :com.apple.private.security.enable-state-flags:2 string BlockIOKitInWebContentSandbox
-    plistbuddy Add :com.apple.private.security.enable-state-flags:3 string WebContentProcessLaunched
+    plistbuddy Add :com.apple.private.security.enable-state-flags:3 string local:WebContentProcessLaunched
 }
 
 function mac_process_webcontent_shared_entitlements()
 {
     if [[ "${WK_USE_RESTRICTED_ENTITLEMENTS}" == YES ]]
     then
-        if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 101400 ))
-        then
-            plistbuddy Add :com.apple.tcc.delegated-services array
-            plistbuddy Add :com.apple.tcc.delegated-services:1 string kTCCServiceMicrophone
-            plistbuddy Add :com.apple.tcc.delegated-services:0 string kTCCServiceCamera
-        fi
-
         if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 110000 ))
         then
             plistbuddy Add :com.apple.security.cs.jit-write-allowlist bool YES
@@ -212,6 +197,7 @@ function mac_process_webcontent_shared_entitlements()
         then
             plistbuddy Add :com.apple.private.verified-jit bool YES
             plistbuddy Add :com.apple.security.cs.single-jit bool YES
+            plistbuddy add :com.apple.coreaudio.allow-vorbis-decode bool YES
         fi
 
         if (( "${TARGET_MAC_OS_X_VERSION_MAJOR}" >= 130000 ))
@@ -374,10 +360,8 @@ function ios_family_process_webcontent_shared_entitlements()
     plistbuddy Add :com.apple.private.webinspector.proxy-application bool YES
     plistbuddy Add :com.apple.private.webkit.use-xpc-endpoint bool YES
     plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
-    plistbuddy Add :com.apple.tcc.delegated-services array
-    plistbuddy Add :com.apple.tcc.delegated-services:0 string kTCCServiceCamera
-    plistbuddy Add :com.apple.tcc.delegated-services:1 string kTCCServiceMicrophone
     plistbuddy Add :com.apple.private.sandbox.profile string com.apple.WebKit.WebContent
+    plistbuddy add :com.apple.coreaudio.allow-vorbis-decode bool YES
     webcontent_sandbox_entitlements
 }
 
@@ -446,6 +430,8 @@ function ios_family_process_gpu_entitlements()
     plistbuddy Add :com.apple.security.exception.mach-lookup.global-name:0 string com.apple.systemstatus.activityattribution
     plistbuddy Add :com.apple.private.attribution.explicitly-assumed-identities array
     plistbuddy Add :com.apple.private.attribution.explicitly-assumed-identities:0:type string wildcard
+
+    plistbuddy add :com.apple.coreaudio.allow-vorbis-decode bool YES
 }
 
 function ios_family_process_adattributiond_entitlements()
@@ -464,6 +450,7 @@ function ios_family_process_webpushd_entitlements()
 
 function ios_family_process_network_entitlements()
 {
+    plistbuddy Add :com.apple.private.coreservices.canmaplsdatabase bool YES
     plistbuddy Add :com.apple.private.webkit.adattributiond bool YES
     plistbuddy Add :com.apple.private.webkit.webpush bool YES
     plistbuddy Add :com.apple.multitasking.systemappassertions bool YES
@@ -509,7 +496,6 @@ then
     if [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent.Development ]]; then mac_process_webcontent_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent ]]; then mac_process_webcontent_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent.CaptivePortal ]]; then mac_process_webcontent_captiveportal_entitlements
-    elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent.Crashy ]]; then mac_process_webcontent_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.Networking ]]; then mac_process_network_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.GPU ]]; then mac_process_gpu_entitlements
     elif [[ "${PRODUCT_NAME}" == webpushd ]]; then mac_process_webpushd_entitlements
@@ -522,7 +508,6 @@ then
     if [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent.Development ]]; then maccatalyst_process_webcontent_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent ]]; then maccatalyst_process_webcontent_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent.CaptivePortal ]]; then maccatalyst_process_webcontent_captiveportal_entitlements
-    elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent.Crashy ]]; then maccatalyst_process_webcontent_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.Networking ]]; then maccatalyst_process_network_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.GPU ]]; then maccatalyst_process_gpu_entitlements
     else echo "Unsupported/unknown product: ${PRODUCT_NAME}"
@@ -533,10 +518,12 @@ elif [[ "${WK_PLATFORM_NAME}" == iphoneos ||
 then
     if [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent.Development ]]; then true
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent ]]; then ios_family_process_webcontent_entitlements
+    elif [[ "${PRODUCT_NAME}" == WebContentExtension ]]; then ios_family_process_webcontent_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent.CaptivePortal ]]; then ios_family_process_webcontent_captiveportal_entitlements
-    elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent.Crashy ]]; then ios_family_process_webcontent_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.Networking ]]; then ios_family_process_network_entitlements
+    elif [[ "${PRODUCT_NAME}" == NetworkingExtension ]]; then ios_family_process_network_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.GPU ]]; then ios_family_process_gpu_entitlements
+    elif [[ "${PRODUCT_NAME}" == GPUExtension ]]; then ios_family_process_gpu_entitlements
     elif [[ "${PRODUCT_NAME}" == adattributiond ]]; then
         ios_family_process_adattributiond_entitlements
     elif [[ "${PRODUCT_NAME}" == webpushd ]]; then

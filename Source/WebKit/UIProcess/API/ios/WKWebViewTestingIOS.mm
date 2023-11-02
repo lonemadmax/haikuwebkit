@@ -151,7 +151,7 @@ static void dumpSeparatedLayerProperties(TextStream&, CALayer *) { }
 
 - (void)dismissFormAccessoryView
 {
-    [_contentView accessoryDone];
+    [_contentView dismissFormAccessoryView];
 }
 
 - (NSArray<NSString *> *)_filePickerAcceptedTypeIdentifiers
@@ -434,6 +434,11 @@ static void dumpUIView(TextStream& ts, UIView *view)
 - (UITapGestureRecognizer *)_singleTapGestureRecognizer
 {
     return [_contentView singleTapGestureRecognizer];
+}
+
+- (BOOL)_isKeyboardScrollingAnimationRunning
+{
+    return [_contentView isKeyboardScrollingAnimationRunning];
 }
 
 - (void)_simulateElementAction:(_WKElementActionType)actionType atLocation:(CGPoint)location

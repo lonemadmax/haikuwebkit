@@ -245,7 +245,7 @@ void Clipboard::getType(ClipboardItem& item, const String& type, Ref<DeferredPro
     if (type == "text/html"_s) {
         WebContentMarkupReader markupReader { *frame };
         activePasteboard().read(markupReader, WebContentReadingPolicy::OnlyRichTextTypes, itemIndex);
-        resultAsString = WTFMove(markupReader.markup);
+        resultAsString = markupReader.takeMarkup();
     }
 
     // FIXME: Support reading custom data.
@@ -369,7 +369,7 @@ void Clipboard::ItemWriter::didSetAllData()
             reject();
             return;
         }
-        customData.uncheckedAppend(*data);
+        customData.append(*data);
     }
 
     m_pasteboard->writeCustomData(WTFMove(customData));

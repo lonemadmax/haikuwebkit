@@ -221,9 +221,11 @@ private:
     // RealtimeMediaSouce::VideoFrameObserver
     void videoFrameAvailable(VideoFrame&, VideoFrameTimeMetadata) final;
 
+#if ENABLE(VIDEO_PRESENTATION_MODE)
     RetainPtr<PlatformLayer> createVideoFullscreenLayer() override;
     void setVideoFullscreenLayer(PlatformLayer*, Function<void()>&& completionHandler) override;
     void setVideoFullscreenFrame(FloatRect) override;
+#endif
 
     AudioSourceProvider* audioSourceProvider() final;
 
@@ -235,6 +237,7 @@ private:
 
     LayerHostingContextID hostingContextID() const final;
     void setVideoLayerSizeFenced(const FloatSize&, WTF::MachSendRight&&) final;
+    void requestHostingContextID(LayerHostingContextIDCallback&&) final;
 
     ThreadSafeWeakPtr<MediaPlayer> m_player;
     RefPtr<MediaStreamPrivate> m_mediaStreamPrivate;
@@ -303,6 +306,7 @@ private:
 
     std::optional<CGRect> m_storedBounds;
     static NativeImageCreator m_nativeImageCreator;
+    LayerHostingContextIDCallback m_layerHostingContextIDCallback;
 };
 
 }

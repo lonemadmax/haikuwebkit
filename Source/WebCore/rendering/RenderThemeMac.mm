@@ -43,7 +43,6 @@
 #import "Icon.h"
 #import "Image.h"
 #import "ImageControlsButtonMac.h"
-#import "LocalCurrentGraphicsContext.h"
 #import "LocalDefaultSystemAppearance.h"
 #import "LocalFrame.h"
 #import "LocalFrameView.h"
@@ -1091,7 +1090,7 @@ void RenderThemeMac::adjustMenuListStyle(RenderStyle& style, const Element* e) c
 
     // White-space is locked to pre
     style.setWhiteSpaceCollapse(WhiteSpaceCollapse::Preserve);
-    style.setTextWrap(TextWrap::NoWrap);
+    style.setTextWrapMode(TextWrapMode::NoWrap);
 
     // Set the button's vertical size.
     setSizeFromFont(style, menuListButtonSizes());
@@ -1614,7 +1613,6 @@ bool RenderThemeMac::paintAttachment(const RenderObject& renderer, const PaintIn
         progress = progressString.toFloat(&validProgress);
 
     GraphicsContext& context = paintInfo.context();
-    LocalCurrentGraphicsContext localContext(context);
     GraphicsContextStateSaver saver(context);
 
     context.translate(toFloatSize(paintRect.location()));

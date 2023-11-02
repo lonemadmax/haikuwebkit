@@ -612,7 +612,7 @@ public:
 
 #if ENABLE(APPLE_PAY_AMS_UI)
     bool hasActiveApplePayAMSUISession() const { return m_activeApplePayAMSUIPaymentHandler; }
-    bool startApplePayAMSUISession(Document&, ApplePayAMSUIPaymentHandler&, const ApplePayAMSUIRequest&);
+    bool startApplePayAMSUISession(const URL&, ApplePayAMSUIPaymentHandler&, const ApplePayAMSUIRequest&);
     void abortApplePayAMSUISession(ApplePayAMSUIPaymentHandler&);
 #endif
 
@@ -773,8 +773,8 @@ public:
     void setIsCountingRelevantRepaintedObjects(bool isCounting) { m_isCountingRelevantRepaintedObjects = isCounting; }
     void startCountingRelevantRepaintedObjects();
     void resetRelevantPaintedObjectCounter();
-    void addRelevantRepaintedObject(RenderObject*, const LayoutRect& objectPaintRect);
-    void addRelevantUnpaintedObject(RenderObject*, const LayoutRect& objectPaintRect);
+    void addRelevantRepaintedObject(const RenderObject&, const LayoutRect& objectPaintRect);
+    void addRelevantUnpaintedObject(const RenderObject&, const LayoutRect& objectPaintRect);
 
     WEBCORE_EXPORT void suspendActiveDOMObjectsAndAnimations();
     WEBCORE_EXPORT void resumeActiveDOMObjectsAndAnimations();
@@ -984,8 +984,8 @@ public:
 
     WEBCORE_EXPORT void forEachDocument(const Function<void(Document&)>&) const;
     void forEachMediaElement(const Function<void(HTMLMediaElement&)>&);
-    static void forEachDocumentFromMainFrame(const LocalFrame&, const Function<void(Document&)>&);
-    void forEachFrame(const Function<void(LocalFrame&)>&);
+    static void forEachDocumentFromMainFrame(const Frame&, const Function<void(Document&)>&);
+    void forEachLocalFrame(const Function<void(LocalFrame&)>&);
     void forEachWindowEventLoop(const Function<void(WindowEventLoop&)>&);
 
     bool shouldDisableCorsForRequestTo(const URL&) const;
@@ -1052,12 +1052,14 @@ public:
     void willBeginScrolling();
     void didFinishScrolling();
 
-    const WeakHashSet<LocalFrame>& rootFrames() const { return m_rootFrames; }
+    const HashSet<CheckedRef<LocalFrame>>& rootFrames() const { return m_rootFrames; }
     WEBCORE_EXPORT void addRootFrame(LocalFrame&);
     WEBCORE_EXPORT void removeRootFrame(LocalFrame&);
 
     void opportunisticallyRunIdleCallbacks();
     void performOpportunisticallyScheduledTasks(MonotonicTime deadline);
+    String ensureMediaKeysStorageDirectoryForOrigin(const SecurityOriginData&);
+    WEBCORE_EXPORT void setMediaKeysStorageDirectory(const String&);
 
     bool isWaitingForLoadToFinish() const { return m_isWaitingForLoadToFinish; }
 
@@ -1142,7 +1144,7 @@ private:
     UniqueRef<ProgressTracker> m_progress;
 
     UniqueRef<BackForwardController> m_backForwardController;
-    WeakHashSet<LocalFrame> m_rootFrames;
+    HashSet<CheckedRef<LocalFrame>> m_rootFrames;
     UniqueRef<EditorClient> m_editorClient;
     Ref<Frame> m_mainFrame;
 
@@ -1252,8 +1254,8 @@ private:
     int m_footerHeight { 0 };
 
     std::unique_ptr<RenderingUpdateScheduler> m_renderingUpdateScheduler;
+    WeakHashSet<const RenderObject> m_relevantUnpaintedRenderObjects;
 
-    HashSet<RenderObject*> m_relevantUnpaintedRenderObjects;
     Region m_topRelevantPaintedRegion;
     Region m_bottomRelevantPaintedRegion;
     Region m_relevantUnpaintedRegion;
@@ -1458,9 +1460,19 @@ inline Page* Frame::page() const
     return m_page.get();
 }
 
+inline CheckedPtr<Page> Frame::checkedPage() const
+{
+    return m_page.get();
+}
+
 inline Page* Document::page() const
 {
     return m_frame ? m_frame->page() : nullptr;
+}
+
+inline CheckedPtr<Page> Document::checkedPage() const
+{
+    return page();
 }
 
 WTF::TextStream& operator<<(WTF::TextStream&, RenderingUpdateStep);

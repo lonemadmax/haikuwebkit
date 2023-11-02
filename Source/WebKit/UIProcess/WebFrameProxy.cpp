@@ -400,7 +400,7 @@ void WebFrameProxy::prepareForProvisionalNavigationInProcess(WebProcessProxy& pr
     }
 
     if (!m_provisionalFrame || navigation.currentRequestIsCrossSiteRedirect()) {
-        // FIXME: Main resource (of main or subframe) request redirects should go straight from the network to UI process so we don't need to make the processes for each domain in a redirect chain.
+        // FIXME: Main resource (of main or subframe) request redirects should go straight from the network to UI process so we don't need to make the processes for each domain in a redirect chain. <rdar://116202119>
         RegistrableDomain navigationDomain(navigation.currentRequest().url());
         RefPtr remotePageProxy = m_page->remotePageProxyForRegistrableDomain(navigationDomain);
         if (remotePageProxy)
@@ -411,7 +411,7 @@ void WebFrameProxy::prepareForProvisionalNavigationInProcess(WebProcessProxy& pr
         }
 
         m_provisionalFrame = makeUnique<ProvisionalFrameProxy>(*this, process, WTFMove(remotePageProxy));
-        // FIXME: This gives too much cookie access. This should be removed when a RemoteFrame is given a topOrigin member.
+        // FIXME: This gives too much cookie access. This should be removed when a RemoteFrame is given a topOrigin member. <rdar://116201929>
         auto giveAllCookieAccess = LoadedWebArchive::Yes;
         WebCore::RegistrableDomain domain { };
         page()->websiteDataStore().networkProcess().sendWithAsyncReply(Messages::NetworkProcess::AddAllowedFirstPartyForCookies(process.coreProcessIdentifier(), domain, giveAllCookieAccess), WTFMove(completionHandler));
@@ -469,20 +469,25 @@ void WebFrameProxy::getFrameInfo(CompletionHandler<void(FrameTreeNodeData&&)>&& 
     };
 
     auto aggregator = FrameInfoCallbackAggregator::create(WTFMove(completionHandler), m_childFrames.size());
-    m_process->sendWithAsyncReply(Messages::WebPage::GetFrameInfo(m_frameID), [aggregator] (FrameInfoData&& info) {
-        aggregator->setCurrentFrameData(WTFMove(info));
+    m_process->sendWithAsyncReply(Messages::WebPage::GetFrameInfo(m_frameID), [aggregator] (std::optional<FrameInfoData>&& info) {
+        if (info)
+            aggregator->setCurrentFrameData(WTFMove(*info));
     }, m_page->webPageID());
 
     bool isSiteIsolationEnabled = page() && page()->preferences().siteIsolationEnabled();
     size_t index = 0;
     for (auto& childFrame : m_childFrames) {
         childFrame->getFrameInfo([aggregator, index = index++, frameID = this->frameID(), isSiteIsolationEnabled] (FrameTreeNodeData&& data) {
+            if (!data.info.frameID)
+                return; // No WebFrame with the requested frameID in the WebProcess.
+
             // FIXME: m_childFrames currently contains iframes that are in the back/forward cache, not currently
             // connected to this parent frame. They should really not be part of m_childFrames anymore.
             // FIXME: With site isolation enabled, remote frames currently don't have a parentFrameID so we temporarily
             // ignore this check.
             if (data.info.parentFrameID != frameID && !isSiteIsolationEnabled)
                 return;
+
             aggregator->addChildFrameData(index, WTFMove(data));
         });
     }
@@ -508,6 +513,15 @@ void WebFrameProxy::removeRemotePagesForSuspension()
     m_remotePageProxy = nullptr;
     for (auto& child : m_childFrames)
         child->removeRemotePagesForSuspension();
+}
+
+bool WebFrameProxy::isFocused() const
+{
+    auto* webPage = page();
+    if (!webPage)
+        return false;
+
+    return webPage->focusedFrame() == this;
 }
 
 } // namespace WebKit

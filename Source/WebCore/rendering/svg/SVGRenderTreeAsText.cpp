@@ -32,6 +32,7 @@
 
 #include "ColorSerialization.h"
 #include "LegacyRenderSVGImage.h"
+#include "LegacyRenderSVGResourceClipperInlines.h"
 #include "LegacyRenderSVGRoot.h"
 #include "LegacyRenderSVGShapeInlines.h"
 #include "NodeRenderStyle.h"
@@ -41,7 +42,6 @@
 #include "RenderSVGContainer.h"
 #include "RenderSVGGradientStopInlines.h"
 #include "RenderSVGInlineText.h"
-#include "RenderSVGResourceClipperInlines.h"
 #include "RenderSVGResourceFilterInlines.h"
 #include "RenderSVGResourceLinearGradientInlines.h"
 #include "RenderSVGResourceMarkerInlines.h"
@@ -282,7 +282,7 @@ static TextStream& writePositionAndStyle(TextStream& ts, const RenderElement& re
         ts << " clipped";
     }
 
-    ts << " " << enclosingIntRect(renderer.absoluteClippedOverflowRectForRepaint());
+    ts << " " << enclosingIntRect(renderer.absoluteClippedOverflowRectForRenderTreeAsText());
 
     writeSVGPaintingFeatures(ts, renderer, behavior);
     return ts;
@@ -481,7 +481,7 @@ void writeSVGResourceContainer(TextStream& ts, const LegacyRenderSVGResourceCont
             dummyFilter->externalRepresentation(ts, FilterRepresentation::TestOutput);
         }
     } else if (resource.resourceType() == ClipperResourceType) {
-        const auto& clipper = static_cast<const RenderSVGResourceClipper&>(resource);
+        const auto& clipper = static_cast<const LegacyRenderSVGResourceClipper&>(resource);
         writeNameValuePair(ts, "clipPathUnits", clipper.clipPathUnits());
         ts << "\n";
     } else if (resource.resourceType() == MarkerResourceType) {
@@ -605,26 +605,29 @@ void writeResources(TextStream& ts, const RenderObject& renderer, OptionSet<Rend
     // For now leave the DRT output as is, but later on we should change this so cycles are properly ignored in the DRT output.
     if (style.hasPositionedMask()) {
         auto* maskImage = style.maskImage();
-        if (is<StyleCachedImage>(maskImage)) {
-            auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(downcast<StyleCachedImage>(*maskImage).reresolvedURL(renderer.document()).string(), renderer.document());
+        auto& document = renderer.document();
+        auto reresolvedURL = maskImage->reresolvedURL(document);
+
+        if (!reresolvedURL.isEmpty()) {
+            auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(reresolvedURL.string(), document);
             if (auto* masker = getRenderSVGResourceById<RenderSVGResourceMasker>(renderer.treeScopeForSVGReferences(), resourceID)) {
                 ts << indent << " ";
                 writeNameAndQuotedValue(ts, "masker", resourceID);
                 ts << " ";
                 writeStandardPrefix(ts, *masker, behavior, WriteIndentOrNot::No);
-                ts << " " << masker->resourceBoundingBox(renderer) << "\n";
+                ts << " " << masker->resourceBoundingBox(renderer, RepaintRectCalculation::Accurate) << "\n";
             }
         }
     }
     if (style.clipPath() && is<ReferencePathOperation>(style.clipPath())) {
         auto resourceClipPath = downcast<ReferencePathOperation>(style.clipPath());
         AtomString id = resourceClipPath->fragment();
-        if (RenderSVGResourceClipper* clipper = getRenderSVGResourceById<RenderSVGResourceClipper>(renderer.treeScopeForSVGReferences(), id)) {
+        if (LegacyRenderSVGResourceClipper* clipper = getRenderSVGResourceById<LegacyRenderSVGResourceClipper>(renderer.treeScopeForSVGReferences(), id)) {
             ts << indent << " ";
             writeNameAndQuotedValue(ts, "clipPath", resourceClipPath->fragment());
             ts << " ";
             writeStandardPrefix(ts, *clipper, behavior, WriteIndentOrNot::No);
-            ts << " " << clipper->resourceBoundingBox(renderer) << "\n";
+            ts << " " << clipper->resourceBoundingBox(renderer, RepaintRectCalculation::Accurate) << "\n";
         }
     }
     if (style.hasFilter()) {
@@ -639,7 +642,7 @@ void writeResources(TextStream& ts, const RenderObject& renderer, OptionSet<Rend
                     writeNameAndQuotedValue(ts, "filter", id);
                     ts << " ";
                     writeStandardPrefix(ts, *filter, behavior, WriteIndentOrNot::No);
-                    ts << " " << filter->resourceBoundingBox(renderer) << "\n";
+                    ts << " " << filter->resourceBoundingBox(renderer, RepaintRectCalculation::Accurate) << "\n";
                 }
             }
         }

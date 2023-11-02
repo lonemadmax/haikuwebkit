@@ -36,6 +36,7 @@
 
 #include "RenderGeometryMap.h"
 #include "RenderLayer.h"
+#include "RenderLayerInlines.h"
 #include "RenderLayerModelObject.h"
 #include "RenderObjectInlines.h"
 #include "RenderSVGModelObjectInlines.h"
@@ -54,13 +55,13 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGModelObject);
 
-RenderSVGModelObject::RenderSVGModelObject(Document& document, RenderStyle&& style)
-    : RenderLayerModelObject(document, WTFMove(style), 0)
+RenderSVGModelObject::RenderSVGModelObject(Type type, Document& document, RenderStyle&& style)
+    : RenderLayerModelObject(type, document, WTFMove(style), 0)
 {
 }
 
-RenderSVGModelObject::RenderSVGModelObject(SVGElement& element, RenderStyle&& style)
-    : RenderLayerModelObject(element, WTFMove(style), 0)
+RenderSVGModelObject::RenderSVGModelObject(Type type, SVGElement& element, RenderStyle&& style)
+    : RenderLayerModelObject(type, element, WTFMove(style), 0)
 {
 }
 
@@ -224,7 +225,9 @@ bool RenderSVGModelObject::checkIntersection(RenderElement* renderer, const Floa
     SVGElement* svgElement = downcast<SVGElement>(renderer->element());
     ASSERT(is<SVGGraphicsElement>(svgElement));
     auto ctm = downcast<SVGGraphicsElement>(*svgElement).getCTM(SVGLocatable::DisallowStyleUpdate);
-    return intersectsAllowingEmpty(rect, ctm.mapRect(renderer->repaintRectInLocalCoordinates()));
+    // FIXME: [SVG] checkEnclosure implementation is inconsistent
+    // https://bugs.webkit.org/show_bug.cgi?id=262709
+    return intersectsAllowingEmpty(rect, ctm.mapRect(renderer->repaintRectInLocalCoordinates(RepaintRectCalculation::Accurate)));
 }
 
 bool RenderSVGModelObject::checkEnclosure(RenderElement* renderer, const FloatRect& rect)
@@ -236,7 +239,9 @@ bool RenderSVGModelObject::checkEnclosure(RenderElement* renderer, const FloatRe
     SVGElement* svgElement = downcast<SVGElement>(renderer->element());
     ASSERT(is<SVGGraphicsElement>(svgElement));
     auto ctm = downcast<SVGGraphicsElement>(*svgElement).getCTM(SVGLocatable::DisallowStyleUpdate);
-    return rect.contains(ctm.mapRect(renderer->repaintRectInLocalCoordinates()));
+    // FIXME: [SVG] checkEnclosure implementation is inconsistent
+    // https://bugs.webkit.org/show_bug.cgi?id=262709
+    return rect.contains(ctm.mapRect(renderer->repaintRectInLocalCoordinates(RepaintRectCalculation::Accurate)));
 }
 
 LayoutSize RenderSVGModelObject::cachedSizeForOverflowClip() const
@@ -265,6 +270,14 @@ bool RenderSVGModelObject::applyCachedClipAndScrollPosition(LayoutRect& rect, co
         intersects = !rect.isEmpty();
     }
     return intersects;
+}
+
+Path RenderSVGModelObject::computeClipPath(AffineTransform& transform) const
+{
+    if (layer()->isTransformed())
+        transform.multiply(layer()->currentTransform(RenderStyle::individualTransformOperations()).toAffineTransform());
+
+    return pathFromGraphicsElement(&downcast<SVGGraphicsElement>(element()));
 }
 
 } // namespace WebCore

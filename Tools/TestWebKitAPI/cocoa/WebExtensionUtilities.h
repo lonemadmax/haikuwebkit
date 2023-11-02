@@ -28,15 +28,9 @@
 #if ENABLE(WK_WEB_EXTENSIONS)
 
 #include "TestCocoa.h"
+#include "TestWebExtensionsDelegate.h"
 #include "Utilities.h"
 #include "WTFTestUtilities.h"
-#include <WebKit/_WKWebExtensionContextPrivate.h>
-#include <WebKit/_WKWebExtensionControllerConfigurationPrivate.h>
-#include <WebKit/_WKWebExtensionControllerDelegatePrivate.h>
-#include <WebKit/_WKWebExtensionControllerPrivate.h>
-#include <WebKit/_WKWebExtensionPrivate.h>
-#include <WebKit/_WKWebExtensionTab.h>
-#include <WebKit/_WKWebExtensionWindow.h>
 
 #ifdef __OBJC__
 
@@ -59,6 +53,7 @@
 @property (nonatomic, readonly, copy) NSArray<TestWebExtensionWindow *> *windows;
 
 - (TestWebExtensionWindow *)openNewWindow;
+- (TestWebExtensionWindow *)openNewWindowUsingPrivateBrowsing:(BOOL)usesPrivateBrowsing;
 - (void)focusWindow:(TestWebExtensionWindow *)window;
 - (void)closeWindow:(TestWebExtensionWindow *)window;
 
@@ -66,18 +61,20 @@
 
 - (void)load;
 - (void)run;
+- (void)runForTimeInterval:(NSTimeInterval)interval;
 - (void)loadAndRun;
+- (void)done;
 
 @end
 
 @interface TestWebExtensionTab : NSObject <_WKWebExtensionTab>
 
-- (instancetype)initWithWindow:(id<_WKWebExtensionWindow>)window extensionController:(_WKWebExtensionController *)extensionController NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithWindow:(TestWebExtensionWindow *)window extensionController:(_WKWebExtensionController *)extensionController NS_DESIGNATED_INITIALIZER;
 
-@property (nonatomic, weak) id<_WKWebExtensionWindow> window;
+@property (nonatomic, weak) TestWebExtensionWindow * window;
 @property (nonatomic, strong) WKWebView *mainWebView;
 
-@property (nonatomic, weak) id<_WKWebExtensionTab> parentTab;
+@property (nonatomic, weak) TestWebExtensionTab *parentTab;
 
 @property (nonatomic, getter=isPinned) bool pinned;
 @property (nonatomic, getter=isMuted) bool muted;
@@ -91,23 +88,24 @@
 @property (nonatomic, copy) void (^reloadFromOrigin)(void);
 @property (nonatomic, copy) void (^goBack)(void);
 @property (nonatomic, copy) void (^goForward)(void);
-@property (nonatomic, copy) void (^duplicate)(_WKWebExtensionTabCreationOptions *, void (^completionHandler)(id<_WKWebExtensionTab>, NSError *));
+@property (nonatomic, copy) void (^duplicate)(_WKWebExtensionTabCreationOptions *, void (^completionHandler)(TestWebExtensionTab *, NSError *));
 
 @end
 
 @interface TestWebExtensionWindow : NSObject <_WKWebExtensionWindow>
 
-- (instancetype)initWithExtensionController:(_WKWebExtensionController *)extensionController NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithExtensionController:(_WKWebExtensionController *)extensionController usesPrivateBrowsing:(BOOL)usesPrivateBrowsing NS_DESIGNATED_INITIALIZER;
 
-@property (nonatomic, copy) NSArray<id<_WKWebExtensionTab>> *tabs;
-@property (nonatomic, strong) id<_WKWebExtensionTab> activeTab;
+@property (nonatomic, copy) NSArray<TestWebExtensionTab *> *tabs;
+@property (nonatomic, strong) TestWebExtensionTab * activeTab;
 
 - (TestWebExtensionTab *)openNewTab;
 - (TestWebExtensionTab *)openNewTabAtIndex:(NSUInteger)index;
 
-- (void)closeTab:(id<_WKWebExtensionTab>)tab;
-- (void)replaceTab:(id<_WKWebExtensionTab>)oldTab withTab:(id<_WKWebExtensionTab>)newTab;
-- (void)moveTab:(id<_WKWebExtensionTab>)oldTab toIndex:(NSUInteger)newIndex;
+- (void)closeTab:(TestWebExtensionTab *)tab;
+- (void)closeTab:(TestWebExtensionTab *)tab windowIsClosing:(BOOL)windowIsClosing;
+- (void)replaceTab:(TestWebExtensionTab *)oldTab withTab:(TestWebExtensionTab *)newTab;
+- (void)moveTab:(TestWebExtensionTab *)oldTab toIndex:(NSUInteger)newIndex;
 
 @property (nonatomic) _WKWebExtensionWindowState windowState;
 @property (nonatomic) _WKWebExtensionWindowType windowType;
@@ -115,7 +113,7 @@
 @property (nonatomic) CGRect frame;
 @property (nonatomic) CGRect screenFrame;
 
-@property (nonatomic, getter=isUsingPrivateBrowsing) BOOL usingPrivateBrowsing;
+@property (nonatomic, readonly, getter=isUsingPrivateBrowsing) BOOL usingPrivateBrowsing;
 
 @property (nonatomic, copy) void (^didFocus)(void);
 @property (nonatomic, copy) void (^didClose)(void);
@@ -127,6 +125,7 @@
 OBJC_CLASS TestWebExtensionManager;
 OBJC_CLASS TestWebExtensionTab;
 OBJC_CLASS TestWebExtensionWindow;
+OBJC_CLASS TestWebExtensionsDelegate;
 
 #endif // __OBJC__
 

@@ -395,7 +395,7 @@ void ElementRuleCollector::collectMatchingShadowPseudoElementRules(const MatchRe
     auto& rules = matchRequest.ruleSet;
 #if ENABLE(VIDEO)
     // FXIME: WebVTT should not be done by styling UA shadow trees like this.
-    if (element().isWebVTTElement())
+    if (element().isWebVTTElement() || element().isWebVTTRubyElement() || element().isWebVTTRubyTextElement())
         collectMatchingRulesForList(&rules.cuePseudoRules(), matchRequest);
 #endif
     auto& pseudoId = element().shadowPseudoId();
@@ -665,7 +665,12 @@ bool ElementRuleCollector::hasAnyMatchingRules(const RuleSet& ruleSet)
 
 void ElementRuleCollector::addMatchedProperties(MatchedProperties&& matchedProperties, DeclarationOrigin declarationOrigin)
 {
-    declarationsForOrigin(declarationOrigin).append(WTFMove(matchedProperties));
+    auto& declarations = declarationsForOrigin(declarationOrigin);
+    if (!declarations.isEmpty() && declarations.last() == matchedProperties) {
+        // It might also be beneficial to overwrite the previous declaration (insteading of appending) if it affects the same exact properties.
+        return;
+    }
+    declarations.append(WTFMove(matchedProperties));
 }
 
 void ElementRuleCollector::addAuthorKeyframeRules(const StyleRuleKeyframe& keyframe)

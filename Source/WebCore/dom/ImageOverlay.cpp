@@ -57,9 +57,11 @@
 #include "Text.h"
 #include "TextIterator.h"
 #include "TextRecognitionResult.h"
+#include "TreeScopeInlines.h"
 #include "UserAgentStyleSheets.h"
 #include "VisibleSelection.h"
 #include <wtf/Range.h>
+#include <wtf/Scope.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/AtomString.h>
 
@@ -110,7 +112,7 @@ bool hasOverlay(const HTMLElement& element)
     if (LIKELY(!shadowRoot || shadowRoot->mode() != ShadowRootMode::UserAgent))
         return false;
 
-    return shadowRoot->hasElementWithId(*imageOverlayElementIdentifier().impl());
+    return shadowRoot->hasElementWithId(imageOverlayElementIdentifier());
 }
 
 static RefPtr<HTMLElement> imageOverlayHost(const Node& node)
@@ -404,7 +406,7 @@ static Elements updateSubtree(HTMLElement& element, const TextRecognitionResult&
                 textContainer->classList().add(imageOverlayTextClass());
                 lineContainer->appendChild(textContainer);
                 textContainer->appendChild(Text::create(document.get(), child.hasLeadingWhitespace ? makeString('\n', child.text) : String { child.text }));
-                lineElements.children.uncheckedAppend(WTFMove(textContainer));
+                lineElements.children.append(WTFMove(textContainer));
             }
 
             if (line.hasTrailingNewline) {
@@ -412,7 +414,7 @@ static Elements updateSubtree(HTMLElement& element, const TextRecognitionResult&
                 lineContainer->appendChild(*lineElements.lineBreak);
             }
 
-            elements.lines.uncheckedAppend(WTFMove(lineElements));
+            elements.lines.append(WTFMove(lineElements));
         }
 
 #if ENABLE(DATA_DETECTION)
@@ -421,7 +423,7 @@ static Elements updateSubtree(HTMLElement& element, const TextRecognitionResult&
             auto dataDetectorContainer = DataDetection::createElementForImageOverlay(document.get(), dataDetector);
             dataDetectorContainer->classList().add(imageOverlayDataDetectorClass());
             elements.root->appendChild(dataDetectorContainer);
-            elements.dataDetectors.uncheckedAppend(WTFMove(dataDetectorContainer));
+            elements.dataDetectors.append(WTFMove(dataDetectorContainer));
         }
 #endif // ENABLE(DATA_DETECTION)
 
@@ -441,7 +443,7 @@ static Elements updateSubtree(HTMLElement& element, const TextRecognitionResult&
                 blockContainer->setInlineStyleProperty(CSSPropertyTextAlign, CSSValueStart);
 
             elements.root->appendChild(blockContainer);
-            elements.blocks.uncheckedAppend(WTFMove(blockContainer));
+            elements.blocks.append(WTFMove(blockContainer));
         }
     }
 
@@ -630,9 +632,6 @@ void updateWithTextRecognitionResult(HTMLElement& element, const TextRecognition
         bool mayRequireAdjustment { true };
     };
 
-    Vector<FontSizeAdjustmentState> elementsToAdjust;
-    elementsToAdjust.reserveInitialCapacity(result.blocks.size());
-
     auto setInlineStylesForBlock = [&](HTMLElement& block, float scale, float targetHeight) {
         float fontSize = scale * targetHeight;
         float borderRadius = fontSize / 5 + (targetHeight - fontSize) / 50;
@@ -645,16 +644,18 @@ void updateWithTextRecognitionResult(HTMLElement& element, const TextRecognition
     };
 
     ASSERT(result.blocks.size() == elements.blocks.size());
-    for (size_t index = 0; index < result.blocks.size(); ++index) {
-        auto& block = result.blocks[index];
+
+    size_t index = 0;
+    auto elementsToAdjust = WTF::compactMap(result.blocks, [&](auto& block) -> std::optional<FontSizeAdjustmentState> {
+        auto incrementIndex = makeScopeExit([&index] { ++index; });
         if (block.normalizedQuad.isEmpty())
-            continue;
+            return std::nullopt;
 
         auto blockContainer = elements.blocks[index];
         auto bounds = fitElementToQuad(blockContainer.get(), convertToContainerCoordinates(block.normalizedQuad), ConstrainHeight::No);
         setInlineStylesForBlock(blockContainer.get(), initialScaleForFontSize, bounds.size.height());
-        elementsToAdjust.uncheckedAppend({ WTFMove(blockContainer), bounds.size });
-    }
+        return FontSizeAdjustmentState { WTFMove(blockContainer), bounds.size };
+    });
 
     unsigned currentIteration = 0;
     while (!elementsToAdjust.isEmpty()) {

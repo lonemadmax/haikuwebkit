@@ -1640,7 +1640,7 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(Document& document, Ca
     if (!image)
         return { };
 
-    ImageObserver* observer = image->imageObserver();
+    auto observer = image->imageObserver();
 
     if (image->drawsSVGImage()) {
         image->setImageObserver(nullptr);
@@ -1676,7 +1676,7 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(Document& document, Ca
     didDraw(repaintEntireCanvas, normalizedDstRect);
 
     if (image->drawsSVGImage())
-        image->setImageObserver(observer);
+        image->setImageObserver(WTFMove(observer));
 
     return { };
 }
@@ -1709,7 +1709,7 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(CanvasBase& sourceCanv
 
     Ref protectedCanvas { sourceCanvas };
     // FIXME: Do this through platform-independent GraphicsContext API.
-    ImageBuffer* buffer = sourceCanvas.buffer();
+    RefPtr buffer = sourceCanvas.buffer();
     if (!buffer)
         return { };
 
@@ -1823,7 +1823,7 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(ImageBitmap& imageBitm
     if (!state().hasInvertibleTransform)
         return { };
 
-    ImageBuffer* buffer = imageBitmap.buffer();
+    RefPtr buffer = imageBitmap.buffer();
     if (!buffer)
         return { };
 
@@ -1921,16 +1921,16 @@ void CanvasRenderingContext2DBase::compositeBuffer(ImageBuffer& buffer, const In
     c->clipOut(bufferRect);
     c->clearRect(canvasRect);
     c->restore();
-    c->drawImageBuffer(buffer, bufferRect.location(), state().globalComposite);
+    c->drawImageBuffer(buffer, bufferRect.location(), { state().globalComposite });
     c->restore();
 }
 
-static void drawImageToContext(Image& image, GraphicsContext& context, const FloatRect& dest, const FloatRect& src, const ImagePaintingOptions& options)
+static void drawImageToContext(Image& image, GraphicsContext& context, const FloatRect& dest, const FloatRect& src, ImagePaintingOptions options)
 {
     context.drawImage(image, dest, src, options);
 }
 
-static void drawImageToContext(ImageBuffer& imageBuffer, GraphicsContext& context, const FloatRect& dest, const FloatRect& src, const ImagePaintingOptions& options)
+static void drawImageToContext(ImageBuffer& imageBuffer, GraphicsContext& context, const FloatRect& dest, const FloatRect& src, ImagePaintingOptions options)
 {
     context.drawImageBuffer(imageBuffer, dest, src, options);
 }
@@ -2277,7 +2277,7 @@ void CanvasRenderingContext2DBase::prepareForDisplay()
 
 bool CanvasRenderingContext2DBase::needsPreparationForDisplay() const
 {
-    auto buffer = canvasBase().buffer();
+    RefPtr buffer = canvasBase().buffer();
     if (buffer && buffer->prefersPreparationForDisplay())
         return true;
 
@@ -2425,7 +2425,7 @@ ExceptionOr<Ref<ImageData>> CanvasRenderingContext2DBase::getImageData(int sx, i
         m_cachedImageData->imageData = nullptr;
 
     canvasBase().makeRenderingResultsAvailable();
-    ImageBuffer* buffer = canvasBase().buffer();
+    RefPtr buffer = canvasBase().buffer();
     if (!buffer) {
         auto imageData = ImageData::createUninitialized(imageDataRect.width(), imageDataRect.height(), m_settings.colorSpace, settings);
         if (!imageData.hasException())
@@ -2453,7 +2453,7 @@ void CanvasRenderingContext2DBase::putImageData(ImageData& data, int dx, int dy)
 
 void CanvasRenderingContext2DBase::putImageData(ImageData& data, int dx, int dy, int dirtyX, int dirtyY, int dirtyWidth, int dirtyHeight)
 {
-    ImageBuffer* buffer = canvasBase().buffer();
+    RefPtr buffer = canvasBase().buffer();
     if (!buffer)
         return;
 

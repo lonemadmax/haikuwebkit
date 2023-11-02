@@ -1561,7 +1561,7 @@ static void WebKitInitializeGamepadProviderIfNecessary()
     WebCore::provideNotification(_private->page, new WebNotificationClient(self));
 #endif
 #if ENABLE(ENCRYPTED_MEDIA)
-    WebCore::provideMediaKeySystemTo(*_private->page, *new WebMediaKeySystemClient());
+    WebCore::provideMediaKeySystemTo(*_private->page, WebMediaKeySystemClient::singleton());
 #endif
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -2925,7 +2925,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-    settings.setMediaKeysStorageDirectory([preferences mediaKeysStorageDirectory]);
+    _private->page->setMediaKeysStorageDirectory([preferences mediaKeysStorageDirectory]);
 #endif
 
     // FIXME: Is this relevent to WebKitLegacy? If not, we should remove it.

@@ -257,8 +257,12 @@ public:
             break;
 
         case SourceParseMode::ProgramMode:
+            setIsGlobalCode();
+            break;
+
         case SourceParseMode::ModuleAnalyzeMode:
         case SourceParseMode::ModuleEvaluateMode:
+            setIsModuleCode();
             break;
         }
     }
@@ -271,11 +275,10 @@ public:
     bool isAsyncFunctionBoundary() const { return m_isAsyncFunctionBoundary; }
     bool isPrivateNameScope() const { return m_isClassScope; }
     bool isClassScope() const { return m_isClassScope; }
+    bool isGlobalCode() const { return m_isGlobalCode; }
+    bool isModuleCode() const { return m_isModuleCode; }
 
     bool hasArguments() const { return m_hasArguments; }
-
-    void setIsGlobalCodeScope() { m_isGlobalCodeScope = true; }
-    bool isGlobalCodeScope() const { return m_isGlobalCodeScope; }
 
     void setIsSimpleCatchParameterScope() { m_isSimpleCatchParameterScope = true; }
     bool isSimpleCatchParameterScope() { return m_isSimpleCatchParameterScope; }
@@ -353,7 +356,6 @@ public:
         // We want to track if callee is captured, but we don't want to act like it's a 'var'
         // because that would cause the BytecodeGenerator to emit bad code.
         addResult.iterator->value.clearIsVar();
-        addResult.iterator->value.setIsFunction();
 
         DeclarationResultMask result = DeclarationResult::Valid;
         if (isEvalOrArgumentsIdentifier(m_vm, ident))
@@ -374,29 +376,45 @@ public:
         return result;
     }
 
-    DeclarationResultMask declareFunction(const Identifier* ident, bool declareAsVar)
+    DeclarationResultMask declareFunctionAsVar(const Identifier* ident)
     {
-        ASSERT(m_allowsVarDeclarations || m_allowsLexicalDeclarations);
+        ASSERT(m_allowsVarDeclarations);
         DeclarationResultMask result = DeclarationResult::Valid;
         bool isValidStrictMode = !isEvalOrArgumentsIdentifier(m_vm, ident);
         if (!isValidStrictMode)
             result |= DeclarationResult::InvalidStrictMode;
         m_isValidStrictMode = m_isValidStrictMode && isValidStrictMode;
-        auto addResult = declareAsVar ? m_declaredVariables.add(ident->impl()) : m_lexicalVariables.add(ident->impl());
-        if (declareAsVar) {
-            addResult.iterator->value.setIsVar();
-            if (m_lexicalVariables.contains(ident->impl()))
-                result |= DeclarationResult::InvalidDuplicateDeclaration;
-        } else {
-            addResult.iterator->value.setIsLet();
-            ASSERT_WITH_MESSAGE(!m_declaredVariables.size(), "We should only declare a function as a lexically scoped variable in scopes where var declarations aren't allowed. I.e, in strict mode and not at the top-level scope of a function or program.");
-            if (!addResult.isNewEntry) {
-                if (strictMode() || !addResult.iterator->value.isFunction())
-                    result |= DeclarationResult::InvalidDuplicateDeclaration;
-            }
-        }
 
+        auto addResult = m_declaredVariables.add(ident->impl());
+        addResult.iterator->value.setIsVar();
         addResult.iterator->value.setIsFunction();
+
+        if (m_lexicalVariables.contains(ident->impl()))
+            result |= DeclarationResult::InvalidDuplicateDeclaration;
+        return result;
+    }
+
+    DeclarationResultMask declareFunctionAsLet(const Identifier* ident, bool isFunctionDeclaration)
+    {
+        ASSERT(m_allowsLexicalDeclarations);
+        DeclarationResultMask result = DeclarationResult::Valid;
+        bool isValidStrictMode = !isEvalOrArgumentsIdentifier(m_vm, ident);
+        if (!isValidStrictMode)
+            result |= DeclarationResult::InvalidStrictMode;
+        m_isValidStrictMode = m_isValidStrictMode && isValidStrictMode;
+
+        auto addResult = m_lexicalVariables.add(ident->impl());
+        if (!addResult.isNewEntry) {
+            if (strictMode() || !addResult.iterator->value.isFunctionDeclaration() || !isFunctionDeclaration)
+                result |= DeclarationResult::InvalidDuplicateDeclaration;
+        }
+        if (m_declaredVariables.contains(ident->impl()) || m_variablesBeingHoisted.contains(ident->impl()))
+            result |= DeclarationResult::InvalidDuplicateDeclaration;
+
+        addResult.iterator->value.setIsLet();
+        addResult.iterator->value.setIsFunction();
+        if (isFunctionDeclaration)
+            addResult.iterator->value.setIsFunctionDeclaration();
 
         return result;
     }
@@ -449,6 +467,12 @@ public:
             result |= DeclarationResult::InvalidStrictMode;
 
         return result;
+    }
+
+    ALWAYS_INLINE bool hasDeclaredGlobalArguments()
+    {
+        const Identifier& ident = m_vm.propertyNames->arguments;
+        return hasLexicallyDeclaredVariable(ident) || hasDeclaredVariable(ident) || shadowsArguments();
     }
 
     ALWAYS_INLINE bool hasDeclaredVariable(const Identifier& ident)
@@ -561,8 +585,8 @@ public:
         DeclarationResultMask result = DeclarationResult::Valid;
         bool isArgumentsIdent = isArguments(m_vm, ident);
         auto addResult = m_declaredVariables.add(ident->impl());
-        bool isValidStrictMode = (addResult.isNewEntry || !addResult.iterator->value.isParameter())
-            && m_vm.propertyNames->eval != *ident && !isArgumentsIdent;
+        bool isDuplicateParameter = !addResult.isNewEntry && addResult.iterator->value.isParameter();
+        bool isValidStrictMode = !isDuplicateParameter && m_vm.propertyNames->eval != *ident && !isArgumentsIdent;
         addResult.iterator->value.clearIsVar();
         addResult.iterator->value.setIsParameter();
         m_isValidStrictMode = m_isValidStrictMode && isValidStrictMode;
@@ -571,7 +595,7 @@ public:
             result |= DeclarationResult::InvalidStrictMode;
         if (isArgumentsIdent)
             m_shadowsArguments = true;
-        if (!addResult.isNewEntry && !addResult.iterator->value.isFunction())
+        if (isDuplicateParameter)
             result |= DeclarationResult::InvalidDuplicateDeclaration;
 
         return result;
@@ -908,6 +932,17 @@ private:
         m_isAsyncFunctionBoundary = true;
     }
 
+    void setIsGlobalCode()
+    {
+        m_isGlobalCode = true;
+    }
+
+    void setIsModuleCode()
+    {
+        setIsGlobalCode();
+        m_isModuleCode = true;
+    }
+
     const VM& m_vm;
     ImplementationVisibility m_implementationVisibility;
     LexicalScopeFeatures m_lexicalScopeFeatures;
@@ -927,7 +962,8 @@ private:
     bool m_isAsyncFunction : 1;
     bool m_isAsyncFunctionBoundary : 1 { false };
     bool m_isLexicalScope : 1 { false };
-    bool m_isGlobalCodeScope : 1 { false };
+    bool m_isGlobalCode : 1 { false };
+    bool m_isModuleCode : 1 { false };
     bool m_isSimpleCatchParameterScope : 1 { false };
     bool m_isCatchBlockScope : 1 { false };
     bool m_isStaticBlock : 1 { false };
@@ -1437,35 +1473,20 @@ private:
 
     std::pair<DeclarationResultMask, ScopeRef> declareFunction(const Identifier* ident)
     {
-        if ((m_statementDepth == 1) || (!strictMode() && !currentScope()->isFunction() && !closestParentOrdinaryFunctionNonLexicalScope()->isEvalContext())) {
+        if (m_statementDepth == 1 && !currentScope()->isModuleCode()) {
             // Functions declared at the top-most scope (both in sloppy and strict mode) are declared as vars
-            // for backwards compatibility. This allows us to declare functions with the same name more than once.
-            // In sloppy mode, we always declare functions as vars.
-            bool declareAsVar = true;
+            // for backwards compatibility, allowing us to declare functions with the same name more than once, except
+            // Module code. Please see https://webkit.org/b/263269 for detailed explanation and ECMA-262 references.
             ScopeRef variableScope = currentVariableScope();
-            return std::make_pair(variableScope->declareFunction(ident, declareAsVar), variableScope);
+            return std::make_pair(variableScope->declareFunctionAsVar(ident), variableScope);
         }
 
-        bool declareAsVar = false;
         ScopeRef lexicalVariableScope = currentLexicalDeclarationScope();
         if (lexicalVariableScope->isCatchBlockScope() && lexicalVariableScope.containingScope()->hasLexicallyDeclaredVariable(*ident))
             return std::make_pair(DeclarationResult::InvalidDuplicateDeclaration, lexicalVariableScope);
 
-        if (!strictMode()) {
-            ASSERT(currentScope()->isFunction() || closestParentOrdinaryFunctionNonLexicalScope()->isEvalContext());
-
-            // Functions declared inside a function inside a nested block scope in sloppy mode are subject to this
-            // crazy rule defined inside Annex B.3.3 in the ES6 spec. It basically states that we will create
-            // the function as a local block scoped variable, but when we evaluate the block that the function is
-            // contained in, we will assign the function to a "var" variable only if declaring such a "var" wouldn't
-            // be a syntax error and if there isn't a parameter with the same name. (It would only be a syntax error if
-            // there are is a let/class/const with the same name). Note that this mean we only do the "var" hoisting 
-            // binding if the block evaluates. For example, this means we wont won't perform the binding if it's inside
-            // the untaken branch of an if statement.
-            return std::make_pair(lexicalVariableScope->declareFunction(ident, declareAsVar), lexicalVariableScope);
-        }
-
-        return std::make_pair(lexicalVariableScope->declareFunction(ident, declareAsVar), lexicalVariableScope);
+        bool isFunctionDeclaration = m_parseMode == SourceParseMode::NormalFunctionMode;
+        return std::make_pair(lexicalVariableScope->declareFunctionAsLet(ident, isFunctionDeclaration), lexicalVariableScope);
     }
 
     NEVER_INLINE bool hasDeclaredVariable(const Identifier& ident)
@@ -1802,6 +1823,7 @@ private:
     template <class TreeBuilder> ALWAYS_INLINE TreeExpression parseUnaryExpression(TreeBuilder&);
     template <class TreeBuilder> NEVER_INLINE TreeExpression parseAwaitExpression(TreeBuilder&);
     template <class TreeBuilder> TreeExpression parseMemberExpression(TreeBuilder&);
+    template <class TreeBuilder> ALWAYS_INLINE TreeExpression tryParseArgumentsDotLengthForFastPath(TreeBuilder&);
     template <class TreeBuilder> ALWAYS_INLINE TreeExpression parsePrimaryExpression(TreeBuilder&);
     template <class TreeBuilder> ALWAYS_INLINE TreeExpression parseArrayLiteral(TreeBuilder&);
     template <class TreeBuilder> ALWAYS_INLINE TreeExpression parseObjectLiteral(TreeBuilder&);
@@ -2150,6 +2172,7 @@ private:
     bool m_isInsideOrdinaryFunction;
     bool m_seenTaggedTemplateInNonReparsingFunctionMode { false };
     bool m_seenPrivateNameUseInNonReparsingFunctionMode { false };
+    bool m_seenArgumentsDotLength { false };
 };
 
 

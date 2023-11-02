@@ -98,13 +98,6 @@ public:
     const String& getDownloadedFilePath();
 
 private:
-    enum class Action {
-        None,
-        ReceiveData,
-        StartTransfer,
-        FinishTransfer
-    };
-
     WEBCORE_EXPORT CurlRequest(const ResourceRequest&, CurlRequestClient*, ShouldSuspend, EnableMultipart, CaptureNetworkLoadMetrics, RefPtr<SynchronousLoaderMessageQueue>&&);
 
     void retain() override { ref(); }
@@ -122,9 +115,10 @@ private:
     CURL* setupTransfer() override;
     size_t willSendData(char*, size_t, size_t);
     size_t didReceiveHeader(String&&);
-    size_t didReceiveData(const SharedBuffer&);
-    void didReceiveHeaderFromMultipart(const Vector<String>&) override;
-    void didReceiveDataFromMultipart(const SharedBuffer&) override;
+    size_t didReceiveData(std::span<const uint8_t>);
+    void didReceiveHeaderFromMultipart(Vector<String>&&) override;
+    void didReceiveDataFromMultipart(std::span<const uint8_t>) override;
+    void didCompleteFromMultipart() override;
     void didCompleteTransfer(CURLcode) override;
     void didCancelTransfer() override;
     void finalizeTransfer();
@@ -174,7 +168,6 @@ private:
     String m_password;
     unsigned long m_authType { CURLAUTH_ANY };
     bool m_shouldDisableServerTrustEvaluation { false };
-    bool m_enableMultipart { false };
 
     enum class StartState : uint8_t { StartSuspended, WaitingForStart, DidStart };
     StartState m_startState;

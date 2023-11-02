@@ -27,7 +27,6 @@
 #include "NetworkConnectionToWebProcess.h"
 
 #include "BlobDataFileReferenceWithSandboxExtension.h"
-#include "CacheStorageEngineConnectionMessages.h"
 #include "DataReference.h"
 #include "LogInitialization.h"
 #include "Logging.h"
@@ -54,6 +53,8 @@
 #include "NetworkSocketChannel.h"
 #include "NetworkSocketChannelMessages.h"
 #include "NetworkStorageManager.h"
+#include "NetworkTransportSession.h"
+#include "NetworkTransportSessionMessages.h"
 #include "NotificationManagerMessageHandlerMessages.h"
 #include "PingLoad.h"
 #include "PreconnectTask.h"
@@ -283,8 +284,9 @@ void NetworkConnectionToWebProcess::didReceiveMessage(IPC::Connection& connectio
     }
 #endif
 
-    if (decoder.messageReceiverName() == Messages::CacheStorageEngineConnection::messageReceiverName()) {
-        cacheStorageConnection().didReceiveMessage(connection, decoder);
+    if (decoder.messageReceiverName() == Messages::NetworkTransportSession::messageReceiverName()) {
+        if (auto* networkTransportSession = m_networkTransportSessions.get(WebTransportSessionIdentifier(decoder.destinationID())))
+            networkTransportSession->didReceiveMessage(connection, decoder);
         return;
     }
     
@@ -384,13 +386,6 @@ void NetworkConnectionToWebProcess::unregisterToRTCDataChannelProxy()
         m_networkProcess->rtcDataChannelProxy().unregisterConnectionToWebProcess(*this);
 }
 #endif
-
-CacheStorageEngineConnection& NetworkConnectionToWebProcess::cacheStorageConnection()
-{
-    if (!m_cacheStorageConnection)
-        m_cacheStorageConnection = CacheStorageEngineConnection::create(*this);
-    return *m_cacheStorageConnection;
-}
 
 bool NetworkConnectionToWebProcess::didReceiveSyncMessage(IPC::Connection& connection, IPC::Decoder& decoder, UniqueRef<IPC::Encoder>& reply)
 {
@@ -866,7 +861,7 @@ void NetworkConnectionToWebProcess::cookiesForDOMAsync(const URL& firstParty, co
     completionHandler(WTFMove(result));
 }
 
-void NetworkConnectionToWebProcess::setCookieFromDOMAsync(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::PageIdentifier> pageID, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, WebCore::Cookie&& cookie, CompletionHandler<void(bool)>&& completionHandler)
+void NetworkConnectionToWebProcess::setCookieFromDOMAsync(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::PageIdentifier> pageID, ApplyTrackingPrevention applyTrackingPrevention, WebCore::Cookie&& cookie, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, CompletionHandler<void(bool)>&& completionHandler)
 {
     NETWORK_PROCESS_MESSAGE_CHECK(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty));
 
@@ -874,7 +869,7 @@ void NetworkConnectionToWebProcess::setCookieFromDOMAsync(const URL& firstParty,
     if (!networkStorageSession)
         return completionHandler(false);
 
-    auto result = networkStorageSession->setCookieFromDOM(firstParty, sameSiteInfo, url, frameID, pageID, applyTrackingPrevention, shouldRelaxThirdPartyCookieBlocking, WTFMove(cookie));
+    auto result = networkStorageSession->setCookieFromDOM(firstParty, sameSiteInfo, url, frameID, pageID, applyTrackingPrevention, cookie, shouldRelaxThirdPartyCookieBlocking);
 #if ENABLE(TRACKING_PREVENTION) && !RELEASE_LOG_DISABLED
     if (auto* session = networkSession()) {
         if (session->shouldLogCookieInformation())
@@ -1318,7 +1313,7 @@ void NetworkConnectionToWebProcess::establishSWServerConnection()
         return;
 
     auto& server = session->ensureSWServer();
-    auto connection = makeUnique<WebSWServerConnection>(m_networkProcess, server, m_connection.get(), m_webProcessIdentifier);
+    auto connection = makeUnique<WebSWServerConnection>(*this, server, m_connection.get(), m_webProcessIdentifier);
 
     m_swConnection = *connection;
     server.addConnection(WTFMove(connection));
@@ -1517,7 +1512,6 @@ void NetworkConnectionToWebProcess::navigatorSubscribeToPushService(URL&& scopeU
     });
 }
 
-
 void NetworkConnectionToWebProcess::navigatorUnsubscribeFromPushService(URL&& scopeURL, const PushSubscriptionIdentifier& subscriptionIdentifier, CompletionHandler<void(Expected<bool, WebCore::ExceptionData>&&)>&& completionHandler)
 {
     auto* session = networkSession();
@@ -1552,6 +1546,24 @@ void NetworkConnectionToWebProcess::navigatorGetPushPermissionState(URL&& scopeU
     session->notificationManager().getPushPermissionState(WTFMove(scopeURL), WTFMove(completionHandler));
 }
 #endif // ENABLE(DECLARATIVE_WEB_PUSH)
+
+void NetworkConnectionToWebProcess::initializeWebTransportSession(URL&& url, CompletionHandler<void(std::optional<WebTransportSessionIdentifier>)>&& completionHandler)
+{
+    NetworkTransportSession::initialize(*this, WTFMove(url), [this, weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)] (std::unique_ptr<NetworkTransportSession>&& session) mutable {
+        if (!session || !weakThis)
+            return completionHandler(std::nullopt);
+        auto identifier = session->identifier();
+        ASSERT(!m_networkTransportSessions.contains(identifier));
+        m_networkTransportSessions.set(identifier, makeUniqueRefFromNonNullUniquePtr(WTFMove(session)));
+        completionHandler(identifier);
+    });
+}
+
+void NetworkConnectionToWebProcess::destroyWebTransportSession(WebTransportSessionIdentifier identifier)
+{
+    ASSERT(m_networkTransportSessions.contains(identifier));
+    m_networkTransportSessions.remove(identifier);
+}
 
 } // namespace WebKit
 

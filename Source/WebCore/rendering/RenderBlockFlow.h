@@ -54,8 +54,8 @@ enum LineCount {
 class RenderBlockFlow : public RenderBlock {
     WTF_MAKE_ISO_ALLOCATED(RenderBlockFlow);
 public:
-    RenderBlockFlow(Element&, RenderStyle&&);
-    RenderBlockFlow(Document&, RenderStyle&&);
+    RenderBlockFlow(Type, Element&, RenderStyle&&, BaseTypeFlags = 0);
+    RenderBlockFlow(Type, Document&, RenderStyle&&, BaseTypeFlags = 0);
     virtual ~RenderBlockFlow();
         
     void layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalHeight = 0_lu) override;
@@ -148,7 +148,6 @@ public:
         
         MarginValues m_margins;
         int m_lineBreakToAvoidWidow;
-        std::unique_ptr<LegacyRootInlineBox> m_lineGridBox;
 
         WeakPtr<RenderMultiColumnFlow> m_multiColumnFlow;
 
@@ -259,13 +258,6 @@ public:
     void clearDidBreakAtLineToAvoidWidow();
     void setDidBreakAtLineToAvoidWidow();
     bool didBreakAtLineToAvoidWidow() const { return hasRareBlockFlowData() && rareBlockFlowData()->m_didBreakAtLineToAvoidWidow; }
-
-    LegacyRootInlineBox* lineGridBox() const { return hasRareBlockFlowData() ? rareBlockFlowData()->m_lineGridBox.get() : nullptr; }
-    void setLineGridBox(std::unique_ptr<LegacyRootInlineBox> box)
-    {
-        ensureRareBlockFlowData().m_lineGridBox = WTFMove(box);
-    }
-    void layoutLineGridBox();
 
     RenderMultiColumnFlow* multiColumnFlow() const { return hasRareBlockFlowData() ? multiColumnFlowSlowCase() : nullptr; }
     RenderMultiColumnFlow* multiColumnFlowSlowCase() const;

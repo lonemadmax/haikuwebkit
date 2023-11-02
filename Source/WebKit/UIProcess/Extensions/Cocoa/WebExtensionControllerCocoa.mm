@@ -54,7 +54,7 @@ namespace WebKit {
 
 String WebExtensionController::storageDirectory(WebExtensionContext& extensionContext) const
 {
-    if (m_configuration->storageIsPersistent() && extensionContext.storageIsPersistent())
+    if (m_configuration->storageIsPersistent() && extensionContext.hasCustomUniqueIdentifier())
         return FileSystem::pathByAppendingComponent(m_configuration->storageDirectory(), extensionContext.uniqueIdentifier());
     return nullString();
 }
@@ -71,7 +71,7 @@ bool WebExtensionController::load(WebExtensionContext& extensionContext, NSError
         return false;
     }
 
-    if (!m_extensionContextBaseURLMap.add(extensionContext.baseURL(), extensionContext)) {
+    if (!m_extensionContextBaseURLMap.add(extensionContext.baseURL().protocolHostAndPort(), extensionContext)) {
         RELEASE_LOG_ERROR(Extensions, "Extension context already loaded with same base URL: %{private}@", (NSURL *)extensionContext.baseURL());
         m_extensionContexts.remove(extensionContext);
         if (outError)
@@ -98,7 +98,7 @@ bool WebExtensionController::load(WebExtensionContext& extensionContext, NSError
 
     if (!extensionContext.load(*this, extensionDirectory, outError)) {
         m_extensionContexts.remove(extensionContext);
-        m_extensionContextBaseURLMap.remove(extensionContext.baseURL());
+        m_extensionContextBaseURLMap.remove(extensionContext.baseURL().protocolHostAndPort());
 
         for (auto& processPool : m_processPools)
             processPool.removeMessageReceiver(Messages::WebExtensionContext::messageReceiverName(), extensionContext.identifier());
@@ -125,8 +125,9 @@ bool WebExtensionController::unload(WebExtensionContext& extensionContext, NSErr
         return false;
     }
 
-    ASSERT(m_extensionContextBaseURLMap.contains(extensionContext.baseURL()));
-    m_extensionContextBaseURLMap.remove(extensionContext.baseURL());
+    bool result = m_extensionContextBaseURLMap.remove(extensionContext.baseURL().protocolHostAndPort());
+    UNUSED_VARIABLE(result);
+    ASSERT(result);
 
     sendToAllProcesses(Messages::WebExtensionControllerProxy::Unload(extensionContext.identifier()), m_identifier);
 
@@ -156,8 +157,9 @@ void WebExtensionController::addPage(WebPageProxy& page)
 
     Ref pool = page.process().processPool();
     addProcessPool(pool);
+
     Ref controller = page.userContentController();
-    addUserContentController(controller);
+    addUserContentController(controller, page.websiteDataStore().isPersistent() ? ForPrivateBrowsing::No : ForPrivateBrowsing::Yes);
 }
 
 void WebExtensionController::removePage(WebPageProxy& page)
@@ -167,6 +169,7 @@ void WebExtensionController::removePage(WebPageProxy& page)
 
     Ref pool = page.process().processPool();
     removeProcessPool(pool);
+
     Ref controller = page.userContentController();
     removeUserContentController(controller);
 }
@@ -198,13 +201,22 @@ void WebExtensionController::removeProcessPool(WebProcessPool& processPool)
     m_processPools.remove(processPool);
 }
 
-void WebExtensionController::addUserContentController(WebUserContentControllerProxy& userContentController)
+void WebExtensionController::addUserContentController(WebUserContentControllerProxy& userContentController, ForPrivateBrowsing forPrivateBrowsing)
 {
-    if (!m_userContentControllers.add(userContentController))
+    if (forPrivateBrowsing == ForPrivateBrowsing::No)
+        m_allNonPrivateUserContentControllers.add(userContentController);
+    else
+        m_allPrivateUserContentControllers.add(userContentController);
+
+    if (!m_allUserContentControllers.add(userContentController))
         return;
 
-    for (auto& context : m_extensionContexts)
+    for (auto& context : m_extensionContexts) {
+        if (!context->hasAccessInPrivateBrowsing() && forPrivateBrowsing == ForPrivateBrowsing::Yes)
+            continue;
+
         context->addInjectedContent(userContentController);
+    }
 }
 
 void WebExtensionController::removeUserContentController(WebUserContentControllerProxy& userContentController)
@@ -218,7 +230,9 @@ void WebExtensionController::removeUserContentController(WebUserContentControlle
     for (auto& context : m_extensionContexts)
         context->removeInjectedContent(userContentController);
 
-    m_userContentControllers.remove(userContentController);
+    m_allNonPrivateUserContentControllers.remove(userContentController);
+    m_allPrivateUserContentControllers.remove(userContentController);
+    m_allUserContentControllers.remove(userContentController);
 }
 
 RefPtr<WebExtensionContext> WebExtensionController::extensionContext(const WebExtension& extension) const
@@ -233,7 +247,7 @@ RefPtr<WebExtensionContext> WebExtensionController::extensionContext(const WebEx
 
 RefPtr<WebExtensionContext> WebExtensionController::extensionContext(const URL& url) const
 {
-    return m_extensionContextBaseURLMap.get(url.truncatedForUseAsBase());
+    return m_extensionContextBaseURLMap.get(url.protocolHostAndPort());
 }
 
 WebExtensionController::WebExtensionSet WebExtensionController::extensions() const
@@ -273,6 +287,14 @@ void WebExtensionController::didCommitLoadForFrame(WebPageProxyIdentifier pageID
         // FIXME: We need to turn pageID into a _WKWebExtensionTab and pass that here.
         if (!context->hasPermission(frameURL))
             continue;
+
+        for (auto& styleSheet : context->dynamicallyInjectedUserStyleSheets()) {
+            auto page = WebProcessProxy::webPage(pageID);
+            WebUserContentControllerProxy& controller = page.get()->userContentController();
+            controller.removeUserStyleSheet(styleSheet);
+        }
+
+        context->dynamicallyInjectedUserStyleSheets().clear();
 
         context->wakeUpBackgroundContentIfNecessaryToFireEvents(listenerTypes, [&] {
             context->sendToProcessesForEvent(completedEventType, Messages::WebExtensionContextProxy::DispatchWebNavigationEvent(completedEventType, pageID, frameID, frameURL));

@@ -2649,14 +2649,11 @@ void JSObject::getOwnIndexedPropertyNames(JSGlobalObject*, PropertyNameArray& pr
             }
             
             if (SparseArrayValueMap* map = storage->m_sparseMap.get()) {
-                Vector<unsigned, 0, UnsafeVectorOverflow> keys;
-                keys.reserveInitialCapacity(map->size());
-                
-                SparseArrayValueMap::const_iterator end = map->end();
-                for (SparseArrayValueMap::const_iterator it = map->begin(); it != end; ++it) {
-                    if (mode == DontEnumPropertiesMode::Include || !(it->value.attributes() & PropertyAttribute::DontEnum))
-                        keys.uncheckedAppend(static_cast<unsigned>(it->key));
-                }
+                auto keys = WTF::compactMap<0, UnsafeVectorOverflow>(*map, [mode](auto& entry) ->std::optional<unsigned> {
+                    if (mode == DontEnumPropertiesMode::Include || !(entry.value.attributes() & PropertyAttribute::DontEnum))
+                        return static_cast<unsigned>(entry.key);
+                    return std::nullopt;
+                });
                 
                 std::sort(keys.begin(), keys.end());
                 for (unsigned i = 0; i < keys.size(); ++i)
@@ -2816,7 +2813,7 @@ static bool putIndexedDescriptor(JSGlobalObject* globalObject, SparseArrayValueM
         else if (oldDescriptor.isAccessorDescriptor())
             entryInMap->forceSet(vm, map, jsUndefined(), attributes);
         else
-            entryInMap->forceSet(attributes);
+            entryInMap->forceSet(map, attributes);
         return true;
     }
 
@@ -2838,7 +2835,7 @@ static bool putIndexedDescriptor(JSGlobalObject* globalObject, SparseArrayValueM
     }
 
     ASSERT(descriptor.isGenericDescriptor());
-    entryInMap->forceSet(descriptor.attributesOverridingCurrent(oldDescriptor));
+    entryInMap->forceSet(map, descriptor.attributesOverridingCurrent(oldDescriptor));
     return true;
 }
 
@@ -4071,7 +4068,7 @@ void JSObject::putOwnDataPropertyBatching(VM& vm, const RefPtr<UniquedStringImpl
             PropertyOffset offset;
             if (Structure* newStructure = Structure::addPropertyTransitionToExistingStructure(structure, propertyName, 0, offset)) {
                 structure = newStructure;
-                offsets.uncheckedAppend(offset);
+                offsets.append(offset);
                 continue;
             }
 
@@ -4079,7 +4076,7 @@ void JSObject::putOwnDataPropertyBatching(VM& vm, const RefPtr<UniquedStringImpl
             offset = structure->get(vm, propertyName, currentAttributes);
             if (offset != invalidOffset) {
                 structure->didReplaceProperty(offset);
-                offsets.uncheckedAppend(offset);
+                offsets.append(offset);
                 continue;
             }
 
@@ -4099,7 +4096,7 @@ void JSObject::putOwnDataPropertyBatching(VM& vm, const RefPtr<UniquedStringImpl
             ASSERT(newStructure->isValidOffset(offset));
 
             structure = newStructure;
-            offsets.uncheckedAppend(offset);
+            offsets.append(offset);
         }
 
         // Flush batching here. Note that it is possible that offsets.size() is not equal to size, if we stop batching due to transition-watchpoint-firing.

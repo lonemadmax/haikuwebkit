@@ -27,6 +27,7 @@
 #include "OpportunisticTaskScheduler.h"
 
 #include "Page.h"
+#include <wtf/SystemTracing.h>
 
 namespace WebCore {
 
@@ -99,6 +100,9 @@ void OpportunisticTaskScheduler::runLoopObserverFired()
     auto deadline = std::exchange(m_currentDeadline, MonotonicTime { });
     page->opportunisticallyRunIdleCallbacks();
     if (UNLIKELY(!page))
+        return;
+
+    if (!page->settings().opportunisticSweepingAndGarbageCollectionEnabled())
         return;
 
     page->performOpportunisticallyScheduledTasks(deadline);

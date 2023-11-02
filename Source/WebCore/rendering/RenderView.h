@@ -74,6 +74,7 @@ public:
     float zoomFactor() const;
 
     LocalFrameView& frameView() const { return m_frameView; }
+    Ref<LocalFrameView> protectedFrameView() const { return m_frameView; }
 
     Layout::InitialContainingBlock& initialContainingBlock() { return m_initialContainingBlock.get(); }
     const Layout::InitialContainingBlock& initialContainingBlock() const { return m_initialContainingBlock.get(); }
@@ -238,6 +239,7 @@ private:
     // Include this RenderView.
     uint64_t m_rendererCount { 1 };
 
+    // Note that currently RenderView::layoutBox(), if it exists, is a child of m_initialContainingBlock.
     UniqueRef<Layout::InitialContainingBlock> m_initialContainingBlock;
     UniqueRef<Layout::LayoutState> m_layoutState;
 

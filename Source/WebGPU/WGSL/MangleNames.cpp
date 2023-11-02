@@ -40,6 +40,7 @@ struct MangledName {
     enum Kind : uint8_t {
         Type,
         Local,
+        Global,
         Parameter,
         Function,
         Field,
@@ -55,6 +56,7 @@ struct MangledName {
         static const ASCIILiteral prefixes[] = {
             "type"_s,
             "local"_s,
+            "global"_s,
             "parameter"_s,
             "function"_s,
             "field"_s,
@@ -76,6 +78,7 @@ public:
     void run();
 
     void visit(AST::Function&) override;
+    void visit(AST::Parameter&) override;
     void visit(AST::VariableStatement&) override;
     void visit(AST::Structure&) override;
     void visit(AST::Variable&) override;
@@ -113,8 +116,10 @@ void NameManglerVisitor::run()
         String originalName = function.name();
         introduceVariable(function.name(), MangledName::Function);
         auto it = m_result.entryPoints.find(originalName);
-        if (it != m_result.entryPoints.end())
+        if (it != m_result.entryPoints.end()) {
+            it->value.originalName = originalName;
             it->value.mangledName = function.name();
+        }
         visit(function);
     }
 }
@@ -122,19 +127,13 @@ void NameManglerVisitor::run()
 void NameManglerVisitor::visit(AST::Function& function)
 {
     ContextScope functionScope(this);
+    AST::Visitor::visit(function);
+}
 
-    for (auto& parameter : function.parameters()) {
-        AST::Visitor::visit(parameter.typeName());
-        introduceVariable(parameter.name(), MangledName::Parameter);
-    }
-
-    // It's important that we call the base visitor here directly, otherwise
-    // our overwritten visitor will introduce a new ContextScope for the compound
-    // statement, which would allow shadowing the function's parameters
-    AST::Visitor::visit(function.body());
-
-    if (function.maybeReturnType())
-        AST::Visitor::visit(*function.maybeReturnType());
+void NameManglerVisitor::visit(AST::Parameter& parameter)
+{
+    AST::Visitor::visit(parameter.typeName());
+    introduceVariable(parameter.name(), MangledName::Parameter);
 }
 
 void NameManglerVisitor::visit(AST::Structure& structure)
@@ -154,33 +153,7 @@ void NameManglerVisitor::visit(AST::Structure& structure)
 
 void NameManglerVisitor::visit(AST::Variable& variable)
 {
-    String originalName = variable.name();
-    for (auto& attribute : variable.attributes()) {
-        if (is<AST::IdAttribute>(attribute)) {
-            unsigned value;
-            auto& expression = downcast<AST::IdAttribute>(attribute).value();
-            if (is<AST::AbstractIntegerLiteral>(expression))
-                value = downcast<AST::AbstractIntegerLiteral>(expression).value();
-            else if (is<AST::Signed32Literal>(expression))
-                value = downcast<AST::Signed32Literal>(expression).value();
-            else if (is<AST::Unsigned32Literal>(expression))
-                value = downcast<AST::Unsigned32Literal>(expression).value();
-            else {
-                // Constants must be resolved at an earlier phase
-                RELEASE_ASSERT_NOT_REACHED();
-            }
-            originalName = String::number(value);
-            break;
-        }
-    }
-
-    const String& mangledName = variable.name();
-
-    for (auto& entry : m_result.entryPoints) {
-        auto it = entry.value.specializationConstants.find(originalName);
-        if (it != entry.value.specializationConstants.end())
-            it->value.mangledName = mangledName;
-    }
+    visitVariableDeclaration(variable, MangledName::Global);
 }
 
 void NameManglerVisitor::visit(AST::VariableStatement& variable)
@@ -190,8 +163,9 @@ void NameManglerVisitor::visit(AST::VariableStatement& variable)
 
 void NameManglerVisitor::visitVariableDeclaration(AST::Variable& variable, MangledName::Kind kind)
 {
-    introduceVariable(variable.name(), kind);
     AST::Visitor::visit(variable);
+
+    introduceVariable(variable.name(), kind);
 }
 
 void NameManglerVisitor::visit(AST::CompoundStatement& statement)
@@ -235,7 +209,6 @@ MangledName NameManglerVisitor::makeMangledName(const String& name, MangledName:
 
 void NameManglerVisitor::readVariable(AST::Identifier& name) const
 {
-    // FIXME: this should be unconditional
     if (const auto* mangledName = ContextProvider::readVariable(name))
         m_callGraph.ast().replace(&name, AST::Identifier::makeWithSpan(name.span(), mangledName->toString()));
 }

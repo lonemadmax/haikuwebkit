@@ -257,7 +257,7 @@ RefPtr<WebCore::VideoFrame> RemoteGraphicsContextGLProxy::paintCompositedResults
     auto [result] = sendResult.takeReply();
     if (!result)
         return nullptr;
-    return RemoteVideoFrameProxy::create(WebProcess::singleton().ensureGPUProcessConnection().connection(), WebProcess::singleton().ensureGPUProcessConnection().videoFrameObjectHeapProxy(), WTFMove(*result));
+    return RemoteVideoFrameProxy::create(WebProcess::singleton().ensureGPUProcessConnection().protectedConnection(), WebProcess::singleton().ensureGPUProcessConnection().videoFrameObjectHeapProxy(), WTFMove(*result));
 }
 #endif
 
@@ -388,7 +388,7 @@ void RemoteGraphicsContextGLProxy::readPixels(IntRect rect, GCGLenum format, GCG
         if (!replyBuffer)
             goto inlineCase;
         auto handle = replyBuffer->createHandle(SharedMemory::Protection::ReadWrite);
-        if (!handle || handle->isNull())
+        if (!handle)
             goto inlineCase;
         auto sendResult = sendSync(Messages::RemoteGraphicsContextGL::ReadPixelsSharedMemory(rect, format, type, WTFMove(*handle)));
         if (!sendResult.succeeded()) {

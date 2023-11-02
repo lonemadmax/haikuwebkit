@@ -28,6 +28,7 @@
 
 #include "BreakLines.h"
 #include "FontCascade.h"
+#include "InlineLineTypes.h"
 #include "InlineTextItem.h"
 #include "Latin1TextIterator.h"
 #include "LayoutInlineTextBox.h"
@@ -382,13 +383,13 @@ bool TextUtil::shouldPreserveNewline(const Box& layoutBox)
 bool TextUtil::isWrappingAllowed(const RenderStyle& style)
 {
     // https://www.w3.org/TR/css-text-4/#text-wrap
-    return style.textWrap() != TextWrap::NoWrap;
+    return style.textWrapMode() != TextWrapMode::NoWrap;
 }
 
 bool TextUtil::shouldTrailingWhitespaceHang(const RenderStyle& style)
 {
     // https://www.w3.org/TR/css-text-4/#white-space-phase-2
-    return style.whiteSpaceCollapse() == WhiteSpaceCollapse::Preserve && style.textWrap() != TextWrap::NoWrap;
+    return style.whiteSpaceCollapse() == WhiteSpaceCollapse::Preserve && style.textWrapMode() != TextWrapMode::NoWrap;
 }
 
 TextBreakIterator::LineMode::Behavior TextUtil::lineBreakIteratorMode(LineBreak lineBreak)
@@ -417,7 +418,7 @@ TextBreakIterator::ContentAnalysis TextUtil::contentAnalysis(WordBreak wordBreak
     case WordBreak::KeepAll:
     case WordBreak::BreakWord:
         return TextBreakIterator::ContentAnalysis::Mechanical;
-    case WordBreak::Auto:
+    case WordBreak::AutoPhrase:
         return TextBreakIterator::ContentAnalysis::Linguistic;
     }
     return TextBreakIterator::ContentAnalysis::Mechanical;
@@ -551,6 +552,21 @@ float TextUtil::hangableStopOrCommaEndWidth(const InlineTextItem& inlineTextItem
     return width(inlineTextItem, style.fontCascade(), trailingPosition, trailingPosition + 1, { });
 }
 
+template<typename CharacterType>
+static bool canUseSimplifiedTextMeasuringForCharacters(std::span<const CharacterType> characters, const FontCascade& fontCascade, const Font& primaryFont, bool whitespaceIsCollapsed)
+{
+    auto* rawCharacters = characters.data();
+    for (unsigned i = 0; i < characters.size(); ++i) {
+        auto character = rawCharacters[i]; // Not using characters[i] to bypass the bounds check.
+        if (!WidthIterator::characterCanUseSimplifiedTextMeasuring(character, whitespaceIsCollapsed))
+            return false;
+        auto glyphData = fontCascade.glyphDataForCharacter(character, false);
+        if (!glyphData.isValid() || glyphData.font != &primaryFont)
+            return false;
+    }
+    return true;
+}
+
 bool TextUtil::canUseSimplifiedTextMeasuring(StringView textContent, const RenderStyle& style, const RenderStyle* firstLineStyle)
 {
     ASSERT(textContent.is8Bit() || FontCascade::characterRangeCodePath(textContent.characters16(), textContent.length()) == FontCascade::CodePath::Simple);
@@ -573,24 +589,23 @@ bool TextUtil::canUseSimplifiedTextMeasuring(StringView textContent, const Rende
         return false;
 
     auto whitespaceIsCollapsed = style.collapseWhiteSpace();
-    for (unsigned i = 0; i < textContent.length(); ++i) {
-        auto character = textContent[i];
-        if (!WidthIterator::characterCanUseSimplifiedTextMeasuring(character, whitespaceIsCollapsed))
-            return false;
-        auto glyphData = fontCascade.glyphDataForCharacter(character, false);
-        if (!glyphData.isValid() || glyphData.font != &primaryFont)
-            return false;
-    }
-    return true;
+    if (textContent.is8Bit())
+        return canUseSimplifiedTextMeasuringForCharacters(textContent.span8(), fontCascade, primaryFont, whitespaceIsCollapsed);
+    return canUseSimplifiedTextMeasuringForCharacters(textContent.span16(), fontCascade, primaryFont, whitespaceIsCollapsed);
 }
 
 void TextUtil::computedExpansions(const Line::RunList& runs, WTF::Range<size_t> runRange, size_t hangingTrailingWhitespaceLength, ExpansionInfo& expansionInfo)
 {
     // Collect and distribute the expansion opportunities.
     expansionInfo.opportunityCount = 0;
-    expansionInfo.opportunityList.resizeToFit(runs.size());
-    expansionInfo.behaviorList.resizeToFit(runs.size());
-    auto lastRunIndexWithContent = std::optional<size_t> { };
+    auto rangeSize = runRange.end() - runRange.begin();
+    if (rangeSize > runs.size()) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+    expansionInfo.opportunityList.resizeToFit(rangeSize);
+    expansionInfo.behaviorList.resizeToFit(rangeSize);
+    auto lastExpansionIndexWithContent = std::optional<size_t> { };
 
     // Line start behaves as if we had an expansion here (i.e. fist runs should not start with allowing left expansion).
     auto runIsAfterExpansion = true;
@@ -603,7 +618,8 @@ void TextUtil::computedExpansions(const Line::RunList& runs, WTF::Range<size_t> 
         }
         return { };
     }();
-    for (size_t runIndex = runRange.begin(); runIndex < runRange.end(); ++runIndex) {
+    for (size_t index = 0; index < rangeSize; ++index) {
+        auto runIndex = runRange.begin() + index;
         auto& run = runs[runIndex];
         auto expansionBehavior = ExpansionBehavior::defaultBehavior();
         size_t expansionOpportunitiesInRun = 0;
@@ -628,22 +644,22 @@ void TextUtil::computedExpansions(const Line::RunList& runs, WTF::Range<size_t> 
         } else if (run.isBox())
             runIsAfterExpansion = false;
 
-        expansionInfo.behaviorList[runIndex] = expansionBehavior;
-        expansionInfo.opportunityList[runIndex] = expansionOpportunitiesInRun;
+        expansionInfo.behaviorList[index] = expansionBehavior;
+        expansionInfo.opportunityList[index] = expansionOpportunitiesInRun;
         expansionInfo.opportunityCount += expansionOpportunitiesInRun;
 
         if (run.isText() || run.isBox())
-            lastRunIndexWithContent = runIndex;
+            lastExpansionIndexWithContent = index;
     }
     // Forbid right expansion in the last run to prevent trailing expansion at the end of the line.
-    if (lastRunIndexWithContent && expansionInfo.opportunityList[*lastRunIndexWithContent]) {
-        expansionInfo.behaviorList[*lastRunIndexWithContent].right = ExpansionBehavior::Behavior::Forbid;
+    if (lastExpansionIndexWithContent && expansionInfo.opportunityList[*lastExpansionIndexWithContent]) {
+        expansionInfo.behaviorList[*lastExpansionIndexWithContent].right = ExpansionBehavior::Behavior::Forbid;
         if (runIsAfterExpansion) {
             // When the last run has an after expansion (e.g. CJK ideograph) we need to remove this trailing expansion opportunity.
             // Note that this is not about trailing collapsible whitespace as at this point we trimmed them all.
-            ASSERT(expansionInfo.opportunityCount && expansionInfo.opportunityList[*lastRunIndexWithContent]);
+            ASSERT(expansionInfo.opportunityCount && expansionInfo.opportunityList[*lastExpansionIndexWithContent]);
             --expansionInfo.opportunityCount;
-            --expansionInfo.opportunityList[*lastRunIndexWithContent];
+            --expansionInfo.opportunityList[*lastExpansionIndexWithContent];
         }
     }
 }

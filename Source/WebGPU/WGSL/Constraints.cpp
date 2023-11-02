@@ -60,6 +60,7 @@ bool satisfies(const Type* type, Constraint constraint)
 
     case Types::Primitive::Void:
     case Types::Primitive::Sampler:
+    case Types::Primitive::SamplerComparison:
     case Types::Primitive::TextureExternal:
     case Types::Primitive::AccessMode:
     case Types::Primitive::TexelFormat:
@@ -134,6 +135,7 @@ const Type* satisfyOrPromote(const Type* type, Constraint constraint, const Type
 
     case Types::Primitive::Void:
     case Types::Primitive::Sampler:
+    case Types::Primitive::SamplerComparison:
     case Types::Primitive::TextureExternal:
     case Types::Primitive::AccessMode:
     case Types::Primitive::TexelFormat:
@@ -166,6 +168,9 @@ const Type* concretize(const Type* type, TypeStore& types)
             return type;
         },
         [&](const Bottom&) -> const Type* {
+            return type;
+        },
+        [&](const Atomic&) -> const Type* {
             return type;
         },
         [&](const Function&) -> const Type* {

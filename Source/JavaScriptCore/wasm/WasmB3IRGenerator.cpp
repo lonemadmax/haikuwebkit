@@ -619,7 +619,7 @@ public:
     PartialResult WARN_UNUSED_RETURN truncSaturated(Ext1OpType, ExpressionType operand, ExpressionType& result, Type returnType, Type operandType);
 
     // GC
-    PartialResult WARN_UNUSED_RETURN addI31New(ExpressionType value, ExpressionType& result);
+    PartialResult WARN_UNUSED_RETURN addRefI31(ExpressionType value, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addI31GetS(ExpressionType ref, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addI31GetU(ExpressionType ref, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addArrayNew(uint32_t index, ExpressionType size, ExpressionType value, ExpressionType& result);
@@ -636,8 +636,8 @@ public:
     PartialResult WARN_UNUSED_RETURN addStructSet(ExpressionType structReference, const StructType&, uint32_t fieldIndex, ExpressionType value);
     PartialResult WARN_UNUSED_RETURN addRefTest(ExpressionType reference, bool allowNull, int32_t heapType, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addRefCast(ExpressionType reference, bool allowNull, int32_t heapType, ExpressionType& result);
-    PartialResult WARN_UNUSED_RETURN addExternInternalize(ExpressionType reference, ExpressionType& result);
-    PartialResult WARN_UNUSED_RETURN addExternExternalize(ExpressionType reference, ExpressionType& result);
+    PartialResult WARN_UNUSED_RETURN addAnyConvertExtern(ExpressionType reference, ExpressionType& result);
+    PartialResult WARN_UNUSED_RETURN addExternConvertAny(ExpressionType reference, ExpressionType& result);
 
     // Basic operators
 #define X(name, opcode, short, idx, ...) \
@@ -1333,7 +1333,7 @@ auto B3IRGenerator::addLocal(Type type, uint32_t count) -> PartialResult
 
     for (uint32_t i = 0; i < count; ++i) {
         Variable* local = m_proc.addVariable(toB3Type(type));
-        m_locals.uncheckedAppend(local);
+        m_locals.append(local);
         if (type.isV128())
             m_currentBlock->appendNew<VariableValue>(m_proc, Set, Origin(), local, constant(toB3Type(type), v128_t { }, Origin()));
         else {
@@ -2911,7 +2911,7 @@ auto B3IRGenerator::truncSaturated(Ext1OpType op, ExpressionType argVar, Express
     return { };
 }
 
-auto B3IRGenerator::addI31New(ExpressionType value, ExpressionType& result) -> PartialResult
+auto B3IRGenerator::addRefI31(ExpressionType value, ExpressionType& result) -> PartialResult
 {
     Value* i64 = m_currentBlock->appendNew<Value>(m_proc, B3::ZExt32, origin(), get(value));
     Value* truncated = m_currentBlock->appendNew<Value>(m_proc, B3::BitAnd, origin(), i64, constant(Int64, 0x7fffffff));
@@ -3539,13 +3539,13 @@ Value* B3IRGenerator::emitNotRTTKind(Value* rtt, RTTKind targetKind)
     return m_currentBlock->appendNew<Value>(m_proc, NotEqual, origin(), kind, constant(Int32, static_cast<uint8_t>(targetKind)));
 }
 
-auto B3IRGenerator::addExternInternalize(ExpressionType reference, ExpressionType& result) -> PartialResult
+auto B3IRGenerator::addAnyConvertExtern(ExpressionType reference, ExpressionType& result) -> PartialResult
 {
-    result = push(callWasmOperation(m_currentBlock, toB3Type(anyrefType()), operationWasmExternInternalize, get(reference)));
+    result = push(callWasmOperation(m_currentBlock, toB3Type(anyrefType()), operationWasmAnyConvertExtern, get(reference)));
     return { };
 }
 
-auto B3IRGenerator::addExternExternalize(ExpressionType reference, ExpressionType& result) -> PartialResult
+auto B3IRGenerator::addExternConvertAny(ExpressionType reference, ExpressionType& result) -> PartialResult
 {
     result = push(get(reference));
     return { };
@@ -3912,18 +3912,39 @@ void B3IRGenerator::emitLoopTierUpCheck(uint32_t loopIndex, const Stack& enclosi
     Vector<Value*> stackmap;
     for (auto& local : m_locals)
         stackmap.append(get(local));
-    for (unsigned controlIndex = 0; controlIndex < m_parser->controlStack().size(); ++controlIndex) {
-        auto& data = m_parser->controlStack()[controlIndex].controlData;
-        auto& expressionStack = m_parser->controlStack()[controlIndex].enclosedExpressionStack;
-        for (TypedExpression value : expressionStack)
+
+    if (Options::useWasmIPInt()) {
+        // Do rethrow slots first because IPInt has them in a shadow stack.
+        for (unsigned controlIndex = 0; controlIndex < m_parser->controlStack().size(); ++controlIndex) {
+            auto& data = m_parser->controlStack()[controlIndex].controlData;
+            if (ControlType::isAnyCatch(data))
+                stackmap.append(get(data.exception()));
+        }
+
+        for (unsigned controlIndex = 0; controlIndex < m_parser->controlStack().size(); ++controlIndex) {
+            auto& expressionStack = m_parser->controlStack()[controlIndex].enclosedExpressionStack;
+            for (TypedExpression value : expressionStack)
+                stackmap.append(get(value));
+        }
+        for (TypedExpression value : enclosingStack)
             stackmap.append(get(value));
-        if (ControlType::isAnyCatch(data))
-            stackmap.append(get(data.exception()));
+        for (TypedExpression value : newStack)
+            stackmap.append(get(value));
+    } else {
+        for (unsigned controlIndex = 0; controlIndex < m_parser->controlStack().size(); ++controlIndex) {
+            auto& data = m_parser->controlStack()[controlIndex].controlData;
+            auto& expressionStack = m_parser->controlStack()[controlIndex].enclosedExpressionStack;
+            for (TypedExpression value : expressionStack)
+                stackmap.append(get(value));
+            if (ControlType::isAnyCatch(data))
+                stackmap.append(get(data.exception()));
+        }
+        for (TypedExpression value : enclosingStack)
+            stackmap.append(get(value));
+        for (TypedExpression value : newStack)
+            stackmap.append(get(value));
     }
-    for (TypedExpression value : enclosingStack)
-        stackmap.append(get(value));
-    for (TypedExpression value : newStack)
-        stackmap.append(get(value));
+
 
     PatchpointValue* patch = m_currentBlock->appendNew<PatchpointValue>(m_proc, B3::Void, origin);
     Effects effects = Effects::none();

@@ -34,6 +34,7 @@
 #include "RenderBlockFlow.h"
 #include "RenderDeprecatedFlexibleBox.h"
 #include "RenderFlexibleBox.h"
+#include "RenderFrameSet.h"
 #include "RenderGrid.h"
 #include "RenderImage.h"
 #include "RenderInline.h"
@@ -53,18 +54,6 @@
 namespace WebCore {
 namespace LayoutIntegration {
 
-static std::optional<AvoidanceReason> canUseForBlockStyle(const RenderBlockFlow& blockContainer)
-{
-    ASSERT(is<RenderBlockFlow>(blockContainer));
-
-    auto& style = blockContainer.style();
-    if (style.lineAlign() != LineAlign::None)
-        return AvoidanceReason::FlowHasLineAlignEdges;
-    if (style.lineSnap() != LineSnap::None)
-        return AvoidanceReason::FlowHasLineSnap;
-    return { };
-}
-
 static std::optional<AvoidanceReason> canUseForChild(const RenderObject& child)
 {
     if (is<RenderText>(child)) {
@@ -82,6 +71,7 @@ static std::optional<AvoidanceReason> canUseForChild(const RenderObject& child)
 
     if (is<RenderBlockFlow>(renderer)
         || is<RenderGrid>(renderer)
+        || is<RenderFrameSet>(renderer)
         || is<RenderFlexibleBox>(renderer)
         || is<RenderDeprecatedFlexibleBox>(renderer)
         || is<RenderReplaced>(renderer)
@@ -109,8 +99,6 @@ static std::optional<AvoidanceReason> canUseForLineLayoutWithReason(const Render
 {
     if (!DeprecatedGlobalSettings::inlineFormattingContextIntegrationEnabled())
         return AvoidanceReason::FeatureIsDisabled;
-    if (flow.isRenderView())
-        return AvoidanceReason::FlowIsInitialContainingBlock;
     if (!flow.firstChild()) {
         // Non-SVG code does not call into layoutInlineChildren with no children anymore.
         ASSERT(is<RenderSVGBlock>(flow));
@@ -123,17 +111,12 @@ static std::optional<AvoidanceReason> canUseForLineLayoutWithReason(const Render
         if (auto childReason = canUseForChild(child))
             return *childReason;
     }
-    return canUseForBlockStyle(flow);
+    return { };
 }
 
 bool canUseForLineLayout(const RenderBlockFlow& flow)
 {
     return !canUseForLineLayoutWithReason(flow);
-}
-
-bool canUseForLineLayoutAfterBlockStyleChange(const RenderBlockFlow& blockContainer, StyleDifference diff)
-{
-    return diff == StyleDifference::Layout ? canUseForLineLayout(blockContainer) : true;
 }
 
 bool canUseForPreferredWidthComputation(const RenderBlockFlow& blockContainer)
@@ -176,8 +159,6 @@ bool shouldInvalidateLineLayoutPathAfterChangeFor(const RenderBlockFlow& rootBlo
     };
     if (!isSupportedParent())
         return true;
-    if (lineLayout.hasOutOfFlowContent())
-        return true;
     if (rootBlockContainer.containsFloats())
         return true;
 
@@ -196,6 +177,17 @@ bool shouldInvalidateLineLayoutPathAfterChangeFor(const RenderBlockFlow& rootBlo
         // FIXME: InlineItemsBuilder needs some work to support paragraph level bidi handling.
         return true;
     }
+    auto hasFirstLetter = [&] {
+        // FIXME: RenderTreeUpdater::updateTextRenderer produces odd values for offset/length when first-letter is present webkit.org/b/263343
+        if (rootBlockContainer.style().hasPseudoStyle(PseudoId::FirstLetter))
+            return true;
+        if (rootBlockContainer.isAnonymous())
+            return rootBlockContainer.containingBlock() && rootBlockContainer.containingBlock()->style().hasPseudoStyle(PseudoId::FirstLetter);
+        return false;
+    };
+    if (hasFirstLetter())
+        return true;
+
     if (lineLayout.isDamaged()) {
         auto previousDamages = lineLayout.damageReasons();
         if (previousDamages && previousDamages != Layout::InlineDamage::Reason::Append) {
@@ -203,7 +195,9 @@ bool shouldInvalidateLineLayoutPathAfterChangeFor(const RenderBlockFlow& rootBlo
             return true;
         }
     }
-    if (rootBlockContainer.style().direction() == TextDirection::RTL || rootBlockContainer.style().textWrap() == TextWrap::Balance)
+
+    bool shouldBalance = rootBlockContainer.style().textWrapMode() == TextWrapMode::Wrap && rootBlockContainer.style().textWrapStyle() == TextWrapStyle::Balance;
+    if (rootBlockContainer.style().direction() == TextDirection::RTL || shouldBalance)
         return true;
 
     auto rootHasNonSupportedRenderer = [&] {
@@ -273,7 +267,7 @@ bool canUseForFlexLayout(const RenderFlexibleBox& flexBox)
         // FIXME: No nested flexbox support.
         if (flexItem.isFlexibleBoxIncludingDeprecated())
             return false;
-        if (flexItem.isFieldset() || flexItem.isTextControl())
+        if (flexItem.isFieldset() || flexItem.isRenderTextControl())
             return false;
         if (flexItem.isTable())
             return false;

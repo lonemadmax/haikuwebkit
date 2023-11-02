@@ -360,10 +360,10 @@ void HTMLImageElement::attributeChanged(const QualifiedName& name, const AtomStr
         break;
     case AttributeNames::usemapAttr:
         if (isInTreeScope() && !m_parsedUsemap.isNull())
-            treeScope().removeImageElementByUsemap(*m_parsedUsemap.impl(), *this);
+            treeScope().removeImageElementByUsemap(m_parsedUsemap, *this);
         m_parsedUsemap = parseHTMLHashNameReference(newValue);
         if (isInTreeScope() && !m_parsedUsemap.isNull())
-            treeScope().addImageElementByUsemap(*m_parsedUsemap.impl(), *this);
+            treeScope().addImageElementByUsemap(m_parsedUsemap, *this);
         break;
     case AttributeNames::compositeAttr: {
         // FIXME: images don't support blend modes in their compositing attribute.
@@ -395,9 +395,9 @@ void HTMLImageElement::attributeChanged(const QualifiedName& name, const AtomStr
             const AtomString& id = getIdAttribute();
             if (!id.isEmpty() && id != getNameAttribute()) {
                 if (willHaveName)
-                    document.addDocumentNamedItem(*id.impl(), *this);
+                    document.addDocumentNamedItem(id, *this);
                 else
-                    document.removeDocumentNamedItem(*id.impl(), *this);
+                    document.removeDocumentNamedItem(id, *this);
             }
         }
         m_hadNameBeforeAttributeChanged = willHaveName;
@@ -435,7 +435,7 @@ RenderPtr<RenderElement> HTMLImageElement::createElementRenderer(RenderStyle&& s
     if (style.hasContent())
         return RenderElement::createFor(*this, WTFMove(style));
 
-    return createRenderer<RenderImage>(*this, WTFMove(style), nullptr, m_imageDevicePixelRatio);
+    return createRenderer<RenderImage>(RenderObject::Type::Image, *this, WTFMove(style), nullptr, m_imageDevicePixelRatio);
 }
 
 bool HTMLImageElement::canStartSelection() const
@@ -485,7 +485,7 @@ Node::InsertedIntoAncestorResult HTMLImageElement::insertedIntoAncestor(Insertio
     Node::InsertedIntoAncestorResult insertNotificationRequest = HTMLElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
 
     if (insertionType.treeScopeChanged && !m_parsedUsemap.isNull())
-        treeScope().addImageElementByUsemap(*m_parsedUsemap.impl(), *this);
+        treeScope().addImageElementByUsemap(m_parsedUsemap, *this);
 
     if (is<HTMLPictureElement>(&parentOfInsertedTree) && &parentOfInsertedTree == parentElement()) {
         // FIXME: When the hack in HTMLConstructionSite::createHTMLElementOrFindCustomElementInterface to eagerly call setPictureElement is removed, we can just assert !pictureElement().
@@ -506,7 +506,7 @@ Node::InsertedIntoAncestorResult HTMLImageElement::insertedIntoAncestor(Insertio
 void HTMLImageElement::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
 {
     if (removalType.treeScopeChanged && !m_parsedUsemap.isNull())
-        oldParentOfRemovedTree.treeScope().removeImageElementByUsemap(*m_parsedUsemap.impl(), *this);
+        oldParentOfRemovedTree.treeScope().removeImageElementByUsemap(m_parsedUsemap, *this);
 
     if (is<HTMLPictureElement>(oldParentOfRemovedTree) && !parentElement()) {
         ASSERT(pictureElement() == &oldParentOfRemovedTree);
@@ -658,12 +658,23 @@ String HTMLImageElement::completeURLsInAttributeValue(const URL& base, const Att
     return HTMLElement::completeURLsInAttributeValue(base, attribute, resolveURLs);
 }
 
-bool HTMLImageElement::matchesUsemap(const AtomStringImpl& name) const
+Attribute HTMLImageElement::replaceURLsInAttributeValue(const Attribute& attribute, const HashMap<String, String>& replacementURLStrings) const
 {
-    return m_parsedUsemap.impl() == &name;
+    if (attribute.name() != srcsetAttr)
+        return attribute;
+
+    if (replacementURLStrings.isEmpty())
+        return attribute;
+
+    return Attribute { srcsetAttr, AtomString { replaceURLsInSrcsetAttribute(*this, StringView(attribute.value()), replacementURLStrings) } };
 }
 
-HTMLMapElement* HTMLImageElement::associatedMapElement() const
+bool HTMLImageElement::matchesUsemap(const AtomString& name) const
+{
+    return m_parsedUsemap == name;
+}
+
+RefPtr<HTMLMapElement> HTMLImageElement::associatedMapElement() const
 {
     return treeScope().getImageMap(m_parsedUsemap);
 }
@@ -760,6 +771,18 @@ void HTMLImageElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) const
     addSubresourceURL(urls, document().completeURL(imageSourceURL()));
     // FIXME: What about when the usemap attribute begins with "#"?
     addSubresourceURL(urls, document().completeURL(attributeWithoutSynchronization(usemapAttr)));
+}
+
+void HTMLImageElement::addCandidateSubresourceURLs(ListHashSet<URL>& urls) const
+{
+    auto src = attributeWithoutSynchronization(srcAttr);
+    if (!src.isEmpty()) {
+        URL url { resolveURLStringIfNeeded(src) };
+        if (!url.isNull())
+            urls.add(url);
+    }
+
+    getURLsFromSrcsetAttribute(*this, attributeWithoutSynchronization(srcsetAttr), urls);
 }
 
 void HTMLImageElement::didMoveToNewDocument(Document& oldDocument, Document& newDocument)

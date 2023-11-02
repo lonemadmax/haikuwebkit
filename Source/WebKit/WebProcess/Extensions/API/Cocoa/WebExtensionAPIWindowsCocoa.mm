@@ -272,7 +272,7 @@ bool WebExtensionAPIWindows::parseWindowCreateOptions(NSDictionary *options, Web
 
     if (NSString *url = objectForKey<NSString>(options, urlKey, true)) {
         WebExtensionTabParameters tabParameters;
-        tabParameters.url = URL { url };
+        tabParameters.url = URL { extensionContext().baseURL(), url };
 
         if (!tabParameters.url.value().isValid()) {
             *outExceptionString = toErrorString(nil, urlKey, @"'%@' is not a valid URL", url);
@@ -286,14 +286,14 @@ bool WebExtensionAPIWindows::parseWindowCreateOptions(NSDictionary *options, Web
 
         for (NSString *url in urls) {
             WebExtensionTabParameters tabParameters;
-            tabParameters.url = URL { url };
+            tabParameters.url = URL { extensionContext().baseURL(), url };
 
             if (!tabParameters.url.value().isValid()) {
                 *outExceptionString = toErrorString(nil, urlKey, @"'%@' is not a valid URL", url);
                 return false;
             }
 
-            tabs.uncheckedAppend(WTFMove(tabParameters));
+            tabs.append(WTFMove(tabParameters));
         }
 
         parameters.tabs = WTFMove(tabs);
@@ -595,7 +595,7 @@ inline WebExtensionAPIWindows::WindowTypeFilter toWindowTypeFilter(WebExtensionW
     }
 }
 
-void WebExtensionContextProxy::dispatchWindowsEvent(WebExtensionEventListenerType type, std::optional<WebExtensionWindowParameters> windowParameters)
+void WebExtensionContextProxy::dispatchWindowsEvent(WebExtensionEventListenerType type, const std::optional<WebExtensionWindowParameters>& windowParameters)
 {
     auto filter = windowParameters ? toWindowTypeFilter(windowParameters.value().type.value()) : WebExtensionAPIWindows::WindowTypeFilter::All;
 

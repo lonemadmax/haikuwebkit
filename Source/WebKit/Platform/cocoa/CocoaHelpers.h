@@ -86,11 +86,19 @@ T *objectForKey(const RetainPtr<NSDictionary>& dictionary, id key, bool returnin
     return objectForKey<T>(dictionary.get(), key, returningNilIfEmpty, containingObjectsOfClass);
 }
 
+inline bool boolForKey(NSDictionary *dictionary, id key, bool defaultValue)
+{
+    NSNumber *value = dynamic_objc_cast<NSNumber>(dictionary[key]);
+    return value ? value.boolValue : defaultValue;
+}
+
 enum class JSONOptions {
     FragmentsAllowed = 1 << 0, /// Allows for top-level scalar types, in addition to arrays and dictionaries.
 };
 
 using JSONOptionSet = OptionSet<JSONOptions>;
+
+bool isValidJSONObject(id, JSONOptionSet = { });
 
 id parseJSON(NSString *, JSONOptionSet = { }, NSError ** = nullptr);
 id parseJSON(NSData *, JSONOptionSet = { }, NSError ** = nullptr);

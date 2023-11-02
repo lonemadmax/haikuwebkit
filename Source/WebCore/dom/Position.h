@@ -84,6 +84,7 @@ public:
     WEBCORE_EXPORT Node* containerNode() const; // null for a before/after position anchored to a node with no parent
     RefPtr<Node> protectedContainerNode() const { return containerNode(); }
     Text* containerText() const;
+    RefPtr<Text> protectedContainerText() const;
     Element* containerOrParentElement() const;
 
     int computeOffsetInContainerNode() const;  // O(n) for before/after-anchored positions, O(1) for parent-anchored positions
@@ -123,7 +124,7 @@ public:
     TreeScope* treeScope() const { return m_anchorNode ? &m_anchorNode->treeScope() : nullptr; }
     Element* rootEditableElement() const
     {
-        Node* container = containerNode();
+        RefPtr container = containerNode();
         return container ? container->rootEditableElement() : nullptr;
     }
 
@@ -136,7 +137,7 @@ public:
     bool isNotNull() const { return m_anchorNode; }
     bool isOrphan() const { return m_anchorNode && !m_anchorNode->isConnected(); }
 
-    Element* element() const;
+    RefPtr<Element> anchorElementAncestor() const;
 
     // Move up or down the DOM by one position.
     // Offsets are computed using render text for nodes that have renderers - but note that even when
@@ -155,7 +156,7 @@ public:
 
     // Returns true if the visually equivalent positions around have different editability
     bool atEditingBoundary() const;
-    Node* parentEditingBoundary() const;
+    RefPtr<Node> parentEditingBoundary() const;
     
     bool atStartOfTree() const;
     bool atEndOfTree() const;
@@ -184,7 +185,7 @@ public:
     static bool hasRenderedNonAnonymousDescendantsWithHeight(const RenderElement&);
     static bool nodeIsUserSelectNone(Node*);
     static bool nodeIsUserSelectAll(const Node*);
-    static Node* rootUserSelectAllForNode(Node*);
+    static RefPtr<Node> rootUserSelectAllForNode(Node*);
 
     void debugPosition(const char* msg = "") const;
 

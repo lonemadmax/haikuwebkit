@@ -31,6 +31,7 @@
 
 #include "LayerFragment.h"
 #include "RenderBlockFlow.h"
+#include "RenderFragmentedFlow.h"
 #include "VisiblePosition.h"
 #include <memory>
 
@@ -55,7 +56,7 @@ public:
     virtual void attachFragment();
     virtual void detachFragment();
 
-    RenderFragmentedFlow* fragmentedFlow() const { return m_fragmentedFlow; }
+    RenderFragmentedFlow* fragmentedFlow() const { return m_fragmentedFlow.get(); }
 
     // Valid fragments do not create circular dependencies with other flows.
     bool isValid() const { return m_isValid; }
@@ -119,8 +120,8 @@ public:
     virtual Vector<LayoutRect> fragmentRectsForFlowContentRect(const LayoutRect&) const;
 
 protected:
-    RenderFragmentContainer(Element&, RenderStyle&&, RenderFragmentedFlow*);
-    RenderFragmentContainer(Document&, RenderStyle&&, RenderFragmentedFlow*);
+    RenderFragmentContainer(Type, Element&, RenderStyle&&, RenderFragmentedFlow*);
+    RenderFragmentContainer(Type, Document&, RenderStyle&&, RenderFragmentedFlow*);
 
     void ensureOverflowForBox(const RenderBox*, RefPtr<RenderOverflow>&, bool) const;
 
@@ -144,7 +145,7 @@ private:
     LayoutPoint mapFragmentPointIntoFragmentedFlowCoordinates(const LayoutPoint&);
 
 protected:
-    RenderFragmentedFlow* m_fragmentedFlow;
+    WeakPtr<RenderFragmentedFlow> m_fragmentedFlow;
 
 private:
     LayoutRect m_fragmentedFlowPortionRect;

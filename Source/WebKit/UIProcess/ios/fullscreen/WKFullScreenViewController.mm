@@ -24,14 +24,14 @@
  */
 
 #import "config.h"
+#import "WKFullScreenViewController.h"
 
 #if ENABLE(FULLSCREEN_API) && PLATFORM(IOS_FAMILY)
-#import "WKFullScreenViewController.h"
 
 #import "FullscreenTouchSecheuristic.h"
 #import "PlaybackSessionManagerProxy.h"
 #import "UIKitUtilities.h"
-#import "VideoFullscreenManagerProxy.h"
+#import "VideoPresentationManagerProxy.h"
 #import "WKFullscreenStackView.h"
 #import "WKWebViewIOS.h"
 #import "WebFullScreenManagerProxy.h"
@@ -372,8 +372,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     ASSERT(_valid);
     auto page = [self._webView _page];
-    auto* videoFullscreenManager = page ? page->videoFullscreenManager() : nullptr;
-    auto* videoFullscreenInterface = videoFullscreenManager ? videoFullscreenManager->controlsManagerInterface() : nullptr;
+    auto* videoPresentationManager = page ? page->videoPresentationManager() : nullptr;
+    auto* videoFullscreenInterface = videoPresentationManager ? videoPresentationManager->controlsManagerInterface() : nullptr;
     auto* playbackSessionInterface = videoFullscreenInterface ? &videoFullscreenInterface->playbackSessionInterface() : nullptr;
 
     _playbackClient.setInterface(playbackSessionInterface);
@@ -444,7 +444,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     ASSERT(_valid);
     _prefersHomeIndicatorAutoHidden = value;
+#if !PLATFORM(APPLETV)
     [self setNeedsUpdateOfHomeIndicatorAutoHidden];
+#endif
 }
 
 - (void)setPlaying:(BOOL)isPlaying
@@ -518,10 +520,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     UIImage *doneImage;
     UIImage *startPiPImage;
     UIImage *stopPiPImage;
+
+    // FIXME: Rename `alternateFullScreenControlDesignEnabled` to something that explains it is for visionOS.
     auto alternateFullScreenControlDesignEnabled = self._webView._page->preferences().alternateFullScreenControlDesignEnabled();
     
     if (alternateFullScreenControlDesignEnabled) {
-        buttonSize = CGSizeMake(38.0, 38.0);
+        buttonSize = CGSizeMake(48.0, 48.0);
         doneImage = [UIImage systemImageNamed:@"arrow.down.right.and.arrow.up.left"];
         startPiPImage = nil;
         stopPiPImage = nil;
@@ -553,6 +557,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         [_cancelButton setConfiguration:cancelButtonConfiguration];
 
 #if PLATFORM(VISION)
+        // FIXME: I think PLATFORM(VISION) is always true when `alternateFullScreenControlDesignEnabled` is true.
         _moreActionsButton = [self _createButtonWithExtrinsicContentSize:buttonSize];
         [_moreActionsButton setConfiguration:cancelButtonConfiguration];
         [_moreActionsButton setMenu:self._webView.fullScreenWindowSceneDimmingAction];
@@ -575,8 +580,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         [_pipButton addTarget:self action:@selector(_togglePiPAction:) forControlEvents:UIControlEventTouchUpInside];
         
         RetainPtr<WKFullscreenStackView> stackView = adoptNS([[WKFullscreenStackView alloc] init]);
+#if PLATFORM(APPLETV)
+        [stackView addArrangedSubviewForTV:_cancelButton.get()];
+#else
         [stackView addArrangedSubview:_cancelButton.get() applyingMaterialStyle:AVBackgroundViewMaterialStyleSecondary tintEffectStyle:AVBackgroundViewTintEffectStyleSecondary];
         [stackView addArrangedSubview:_pipButton.get() applyingMaterialStyle:AVBackgroundViewMaterialStylePrimary tintEffectStyle:AVBackgroundViewTintEffectStyleSecondary];
+#endif
         _stackView = WTFMove(stackView);
     }
 
@@ -593,7 +602,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [_bannerLabel setText:[NSString stringWithFormat:WEB_UI_NSSTRING(@"”%@” is in full screen.\nSwipe down to exit.", "Full Screen Warning Banner Content Text"), (NSString *)self.location]];
 
     auto banner = adoptNS([[WKFullscreenStackView alloc] init]);
+#if PLATFORM(APPLETV)
+    [banner addArrangedSubviewForTV:_bannerLabel.get()];
+#else
     [banner addArrangedSubview:_bannerLabel.get() applyingMaterialStyle:AVBackgroundViewMaterialStyleSecondary tintEffectStyle:AVBackgroundViewTintEffectStyleSecondary];
+#endif
     _banner = WTFMove(banner);
     [_banner setTranslatesAutoresizingMaskIntoConstraints:NO];
 
@@ -608,7 +621,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     NSLayoutYAxisAnchor *topAnchor = [_topGuide topAnchor];
     NSLayoutConstraint *stackViewToTopGuideConstraint;
     if (alternateFullScreenControlDesignEnabled)
-        stackViewToTopGuideConstraint = [[_stackView topAnchor] constraintEqualToSystemSpacingBelowAnchor:topAnchor multiplier:2];
+        stackViewToTopGuideConstraint = [[_stackView topAnchor] constraintEqualToSystemSpacingBelowAnchor:topAnchor multiplier:3];
     else
         stackViewToTopGuideConstraint = [[_stackView topAnchor] constraintEqualToAnchor:topAnchor];
     _topConstraint = [topAnchor constraintEqualToAnchor:safeArea.topAnchor];

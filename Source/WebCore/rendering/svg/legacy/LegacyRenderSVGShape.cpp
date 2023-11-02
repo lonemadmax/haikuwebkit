@@ -53,8 +53,8 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(LegacyRenderSVGShape);
 
-LegacyRenderSVGShape::LegacyRenderSVGShape(SVGGraphicsElement& element, RenderStyle&& style)
-    : LegacyRenderSVGModelObject(element, WTFMove(style))
+LegacyRenderSVGShape::LegacyRenderSVGShape(Type type, SVGGraphicsElement& element, RenderStyle&& style)
+    : LegacyRenderSVGModelObject(type, element, WTFMove(style))
     , m_needsBoundariesUpdate(false) // Default is false, the cached rects are empty from the beginning.
     , m_needsShapeUpdate(true) // Default is true, so we grab a Path object once from SVGGraphicsElement.
     , m_needsTransformUpdate(true) // Default is true, so we grab a AffineTransform object once from SVGGraphicsElement.
@@ -62,15 +62,6 @@ LegacyRenderSVGShape::LegacyRenderSVGShape(SVGGraphicsElement& element, RenderSt
 }
 
 LegacyRenderSVGShape::~LegacyRenderSVGShape() = default;
-
-void LegacyRenderSVGShape::updateShapeFromElement()
-{
-    m_path = createPath();
-    processMarkerPositions();
-
-    m_fillBoundingBox = calculateObjectBoundingBox();
-    m_strokeBoundingBox = calculateStrokeBoundingBox();
-}
 
 bool LegacyRenderSVGShape::isEmpty() const
 {
@@ -202,21 +193,6 @@ AffineTransform LegacyRenderSVGShape::nonScalingStrokeTransform() const
     return graphicsElement().getScreenCTM(SVGLocatable::DisallowStyleUpdate);
 }
 
-bool LegacyRenderSVGShape::shouldGenerateMarkerPositions() const
-{
-    if (!style().svgStyle().hasMarkers())
-        return false;
-
-    if (!graphicsElement().supportsMarkers())
-        return false;
-
-    auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
-    if (!resources)
-        return false;
-
-    return resources->markerStart() || resources->markerMid() || resources->markerEnd();
-}
-
 void LegacyRenderSVGShape::fillShape(const RenderStyle& style, GraphicsContext& originalContext)
 {
     GraphicsContext* context = &originalContext;
@@ -274,8 +250,7 @@ void LegacyRenderSVGShape::fillStrokeMarkers(PaintInfo& childPaintInfo)
             strokeShape(style(), childPaintInfo.context());
             break;
         case PaintType::Markers:
-            if (!m_markerPositions.isEmpty())
-                drawMarkers(childPaintInfo);
+            drawMarkers(childPaintInfo);
             break;
         }
     }
@@ -373,45 +348,16 @@ bool LegacyRenderSVGShape::nodeAtFloatPoint(const HitTestRequest& request, HitTe
     return false;
 }
 
-static inline RenderSVGResourceMarker* markerForType(SVGMarkerType type, RenderSVGResourceMarker* markerStart, RenderSVGResourceMarker* markerMid, RenderSVGResourceMarker* markerEnd)
+FloatRect LegacyRenderSVGShape::strokeBoundingBox() const
 {
-    switch (type) {
-    case StartMarker:
-        return markerStart;
-    case MidMarker:
-        return markerMid;
-    case EndMarker:
-        return markerEnd;
+    if (m_shapeType == ShapeType::Empty)
+        return { };
+    if (!m_strokeBoundingBox) {
+        // Initialize m_strokeBoundingBox before calling calculateStrokeBoundingBox, since recursively referenced markers can cause us to re-enter here.
+        m_strokeBoundingBox = FloatRect { };
+        m_strokeBoundingBox = calculateStrokeBoundingBox();
     }
-
-    ASSERT_NOT_REACHED();
-    return 0;
-}
-
-FloatRect LegacyRenderSVGShape::markerRect(float strokeWidth) const
-{
-    ASSERT(!m_markerPositions.isEmpty());
-
-    auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
-    ASSERT(resources);
-
-    RenderSVGResourceMarker* markerStart = resources->markerStart();
-    RenderSVGResourceMarker* markerMid = resources->markerMid();
-    RenderSVGResourceMarker* markerEnd = resources->markerEnd();
-    ASSERT(markerStart || markerMid || markerEnd);
-
-    FloatRect boundaries;
-    unsigned size = m_markerPositions.size();
-    for (unsigned i = 0; i < size; ++i) {
-        if (RenderSVGResourceMarker* marker = markerForType(m_markerPositions[i].type, markerStart, markerMid, markerEnd))
-            boundaries.unite(marker->markerBoundaries(marker->markerTransformation(m_markerPositions[i].origin, m_markerPositions[i].angle, strokeWidth)));
-    }
-    return boundaries;
-}
-
-FloatRect LegacyRenderSVGShape::calculateObjectBoundingBox() const
-{
-    return path().boundingRect();
+    return *m_strokeBoundingBox;
 }
 
 FloatRect LegacyRenderSVGShape::calculateStrokeBoundingBox() const
@@ -437,18 +383,34 @@ FloatRect LegacyRenderSVGShape::calculateStrokeBoundingBox() const
         }
     }
 
-    if (!m_markerPositions.isEmpty())
-        strokeBoundingBox.unite(markerRect(strokeWidth()));
+    return adjustStrokeBoundingBoxForMarkersAndZeroLengthLinecaps(RepaintRectCalculation::Accurate, strokeBoundingBox);
+}
 
-    return strokeBoundingBox;
+FloatRect LegacyRenderSVGShape::calculateApproximateStrokeBoundingBox() const
+{
+    if (m_shapeType == ShapeType::Empty)
+        return { };
+
+    if (m_strokeBoundingBox)
+        return *m_strokeBoundingBox;
+
+    return SVGRenderSupport::calculateApproximateStrokeBoundingBox(*this);
 }
 
 void LegacyRenderSVGShape::updateRepaintBoundingBox()
 {
-    m_repaintBoundingBoxExcludingShadow = strokeBoundingBox();
-    SVGRenderSupport::intersectRepaintRectWithResources(*this, m_repaintBoundingBoxExcludingShadow);
+    m_repaintBoundingBox = calculateApproximateStrokeBoundingBox();
+    SVGRenderSupport::intersectRepaintRectWithResources(*this, m_repaintBoundingBox);
+}
 
-    m_repaintBoundingBox = m_repaintBoundingBoxExcludingShadow;
+FloatRect LegacyRenderSVGShape::repaintRectInLocalCoordinates(RepaintRectCalculation repaintRectCalculation) const
+{
+    if (repaintRectCalculation == RepaintRectCalculation::Fast)
+        return m_repaintBoundingBox;
+
+    FloatRect strokeBoundingBox = this->strokeBoundingBox();
+    SVGRenderSupport::intersectRepaintRectWithResources(*this, strokeBoundingBox, RepaintRectCalculation::Accurate);
+    return strokeBoundingBox;
 }
 
 float LegacyRenderSVGShape::strokeWidth() const
@@ -466,47 +428,16 @@ bool LegacyRenderSVGShape::hasSmoothStroke() const
         && style().capStyle() == LineCap::Butt;
 }
 
-void LegacyRenderSVGShape::drawMarkers(PaintInfo& paintInfo)
+Path& LegacyRenderSVGShape::ensurePath()
 {
-    ASSERT(!m_markerPositions.isEmpty());
-
-    auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
-    if (!resources)
-        return;
-
-    RenderSVGResourceMarker* markerStart = resources->markerStart();
-    RenderSVGResourceMarker* markerMid = resources->markerMid();
-    RenderSVGResourceMarker* markerEnd = resources->markerEnd();
-    if (!markerStart && !markerMid && !markerEnd)
-        return;
-
-    float strokeWidth = this->strokeWidth();
-    unsigned size = m_markerPositions.size();
-    for (unsigned i = 0; i < size; ++i) {
-        if (RenderSVGResourceMarker* marker = markerForType(m_markerPositions[i].type, markerStart, markerMid, markerEnd))
-            marker->draw(paintInfo, marker->markerTransformation(m_markerPositions[i].origin, m_markerPositions[i].angle, strokeWidth));
-    }
+    if (!hasPath())
+        m_path = createPath();
+    return path();
 }
 
 std::unique_ptr<Path> LegacyRenderSVGShape::createPath() const
 {
     return makeUnique<Path>(pathFromGraphicsElement(&graphicsElement()));
-}
-
-void LegacyRenderSVGShape::processMarkerPositions()
-{
-    m_markerPositions.clear();
-
-    if (!shouldGenerateMarkerPositions())
-        return;
-
-    ASSERT(m_path);
-
-    SVGMarkerData markerData(m_markerPositions, SVGResourcesCache::cachedResourcesForRenderer(*this)->markerReverseStart());
-    m_path->applyElements([&markerData](const PathElement& pathElement) {
-        SVGMarkerData::updateFromPathElement(markerData, pathElement);
-    });
-    markerData.pathIsDone();
 }
 
 }

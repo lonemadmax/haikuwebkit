@@ -32,7 +32,7 @@
 #include "FloatRoundedRect.h"
 #include "FrameSelection.h"
 #include "HTMLAttachmentElement.h"
-#include "RenderBoxModelObjectInlines.h"
+#include "RenderBoxInlines.h"
 #include "RenderChildIterator.h"
 #include "RenderStyleSetters.h"
 #include "RenderTheme.h"
@@ -46,7 +46,7 @@ using namespace HTMLNames;
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderAttachment);
 
 RenderAttachment::RenderAttachment(HTMLAttachmentElement& element, RenderStyle&& style)
-    : RenderReplaced(element, WTFMove(style), LayoutSize())
+    : RenderReplaced(Type::Attachment, element, WTFMove(style), LayoutSize())
     , m_isWideLayout(element.isWideLayout())
 {
 #if ENABLE(SERVICE_CONTROLS)

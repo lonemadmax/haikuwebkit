@@ -46,6 +46,7 @@ public:
 
     bool hasSelfPaintingLayer() const;
     RenderLayer* layer() const { return m_layer.get(); }
+    CheckedPtr<RenderLayer> checkedLayer() const;
 
     void styleWillChange(StyleDifference, const RenderStyle& newStyle) override;
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
@@ -104,8 +105,8 @@ public:
     void applyTransform(TransformationMatrix&, const RenderStyle&, const FloatRect& boundingBox) const;
 
 protected:
-    RenderLayerModelObject(Element&, RenderStyle&&, BaseTypeFlags);
-    RenderLayerModelObject(Document&, RenderStyle&&, BaseTypeFlags);
+    RenderLayerModelObject(Type, Element&, RenderStyle&&, BaseTypeFlags);
+    RenderLayerModelObject(Type, Document&, RenderStyle&&, BaseTypeFlags);
 
     void createLayer();
     void willBeDestroyed() override;

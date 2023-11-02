@@ -81,7 +81,7 @@ static constexpr auto replacementTextColor = SRGBA<uint8_t> { 240, 240, 240 };
 static constexpr auto unavailablePluginBorderColor = Color::white.colorWithAlphaByte(216);
 
 RenderEmbeddedObject::RenderEmbeddedObject(HTMLFrameOwnerElement& element, RenderStyle&& style)
-    : RenderWidget(element, WTFMove(style))
+    : RenderWidget(Type::EmbeddedObject, element, WTFMove(style))
     , m_isPluginUnavailable(false)
     , m_unavailablePluginIndicatorIsPressed(false)
     , m_mouseDownWasInUnavailablePluginIndicator(false)
@@ -99,21 +99,19 @@ void RenderEmbeddedObject::willBeDestroyed()
     RenderWidget::willBeDestroyed();
 }
 
-bool RenderEmbeddedObject::requiresLayer() const
+bool RenderEmbeddedObject::requiresAcceleratedCompositing() const
 {
-    if (RenderWidget::requiresLayer())
+    if (RenderWidget::requiresAcceleratedCompositing())
         return true;
-    
-    return allowsAcceleratedCompositing();
-}
 
-bool RenderEmbeddedObject::allowsAcceleratedCompositing() const
-{
+    auto* pluginViewBase = dynamicDowncast<PluginViewBase>(widget());
+    if (!pluginViewBase)
+        return false;
 #if PLATFORM(IOS_FAMILY)
     // The timing of layer creation is different on the phone, since the plugin can only be manipulated from the main thread.
-    return is<PluginViewBase>(widget()) && downcast<PluginViewBase>(*widget()).willProvidePluginLayer();
+    return pluginViewBase->willProvidePluginLayer();
 #else
-    return is<PluginViewBase>(widget()) && downcast<PluginViewBase>(*widget()).platformLayer();
+    return pluginViewBase->layerHostingStrategy() != PluginLayerHostingStrategy::None;
 #endif
 }
 
@@ -186,13 +184,13 @@ void RenderEmbeddedObject::paint(PaintInfo& paintInfo, const LayoutPoint& paintO
 
     if (isPluginUnavailable()) {
         if (countsTowardsRelevantObjects)
-            page().addRelevantUnpaintedObject(this, visualOverflowRect());
+            page().addRelevantUnpaintedObject(*this, visualOverflowRect());
         RenderReplaced::paint(paintInfo, paintOffset);
         return;
     }
 
     if (countsTowardsRelevantObjects)
-        page().addRelevantRepaintedObject(this, visualOverflowRect());
+        page().addRelevantRepaintedObject(*this, visualOverflowRect());
 
     RenderWidget::paint(paintInfo, paintOffset);
 }

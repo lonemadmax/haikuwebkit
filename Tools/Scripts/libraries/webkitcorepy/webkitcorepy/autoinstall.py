@@ -134,16 +134,20 @@ class Package(object):
                 file = tarfile.open(self.path)
                 # Prevent write-protected files which can't be overwritten by manually setting permissions
                 for tarred in file:
-                    tarred.mode = 0o777 if tarred.isdir() else 0o644
+                    tarred.mode = 0o777 if tarred.isdir() else (0o644 | (tarred.mode & 0o111))
                 try:
                     file.extractall(target)
                 finally:
                     file.close()
             elif self.extension in ['whl', 'zip']:
                 with zipfile.ZipFile(self.path, 'r') as file:
-                    file.extractall(target)
+                    for zip_info in file.infolist():
+                        file_path = file.extract(zip_info, target)
+                        mode = (zip_info.external_attr >> 16) & 0x1FF
+                        mode = 0o777 if getattr(zip_info, 'is_dir', lambda: False)() else (0o644 | (mode & 0o111))
+                        os.chmod(file_path, mode)
             else:
-                raise OSError('{} has an  unrecognized package format'.format(self.path))
+                raise OSError('{} has an unrecognized package format'.format(self.path))
 
     def __init__(self, import_name, version=None, pypi_name=None, slow_install=False, wheel=False, aliases=None, implicit_deps=None):
         self.name = import_name
@@ -276,14 +280,10 @@ class Package(object):
         if self.is_cached():
             return
 
-        # Make sure that setuptools, tomli, setuptools_scm, wheel and packaging are installed, since setup.py relies on them
-        if self.name not in ['wheel', 'packaging', 'setuptools', 'tomli', 'setuptools_scm']:
-            AutoInstall.install('wheel')
-            AutoInstall.install('packaging')
-            AutoInstall.install('setuptools')
-            if sys.version_info >= (3, 0):
-                AutoInstall.install('tomli')
-            AutoInstall.install('setuptools_scm')
+        # Make sure that base libraries are installed, since setup.py relies on them
+        if self.name not in AutoInstall.BASE_LIBRARIES:
+            for library in AutoInstall.BASE_LIBRARIES:
+                AutoInstall.install(library)
 
         # In some cases a package may check if another package is installed without actually
         # importing it, which would make the AutoInstall to miss the dependency as it would
@@ -309,6 +309,9 @@ class Package(object):
 
             try:
                 shutil.rmtree(self.location, ignore_errors=True)
+                as_py_file = '{}.py'.format(self.location)
+                if os.path.isfile(as_py_file):
+                    os.remove(as_py_file)
 
                 AutoInstall.log('Downloading {}...'.format(archive))
                 archive.download()
@@ -385,7 +388,14 @@ class Package(object):
                 else:
                     # We might not need setup.py at all, check if we have dist-info and the library in the temporary location
                     to_be_moved = os.listdir(temp_location)
-                    if self.name not in to_be_moved and any(element.endswith('.dist-info') for element in to_be_moved):
+                    has_module_or_package = self.name in to_be_moved or '{}.py'.format(self.name) in to_be_moved
+                    if (
+                        archive.extension != 'whl'
+                        or not has_module_or_package
+                        or not any(
+                            element.endswith('.dist-info') for element in to_be_moved
+                        )
+                    ):
                         raise OSError('Cannot install {}, could not find setup.py'.format(self.name))
                     for directory in to_be_moved:
                         shutil.rmtree(os.path.join(AutoInstall.directory, directory), ignore_errors=True)
@@ -432,6 +442,11 @@ class AutoInstall(object):
     LOCK_FILE = 'autoinstall.lock'
     DISABLE_ENV_VAR = 'DISABLE_WEBKITCOREPY_AUTOINSTALLER'
     CA_CERT_PATH_ENV_VAR = 'AUTOINSTALL_CA_CERT_PATH'
+
+    # This list of libraries is required to install other libraries, and must be installed first
+    BASE_LIBRARIES = ['setuptools', 'wheel', 'pyparsing', 'packaging', 'setuptools_scm']
+    if sys.version_info >= (3, 0):
+        BASE_LIBRARIES.insert(-1, 'tomli')
 
     directory = None
     index = _default_pypi_index()

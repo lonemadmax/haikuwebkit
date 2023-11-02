@@ -370,7 +370,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/geolocation/PositionCallback.idl \
     $(WebCore)/Modules/geolocation/PositionErrorCallback.idl \
     $(WebCore)/Modules/geolocation/PositionOptions.idl \
-    $(WebCore)/Modules/highlight/HighlightRegister.idl \
+    $(WebCore)/Modules/highlight/HighlightRegistry.idl \
     $(WebCore)/Modules/highlight/Highlight.idl \
     $(WebCore)/Modules/indexeddb/IDBCursor.idl \
     $(WebCore)/Modules/indexeddb/IDBCursorDirection.idl \
@@ -436,10 +436,13 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediasession/Navigator+MediaSession.idl \
     $(WebCore)/Modules/mediastream/CanvasCaptureMediaStreamTrack.idl \
     $(WebCore)/Modules/mediastream/DoubleRange.idl \
+    $(WebCore)/Modules/mediastream/FillLightMode.idl \
     $(WebCore)/Modules/mediastream/LongRange.idl \
+    $(WebCore)/Modules/mediastream/ImageCapture.idl \
     $(WebCore)/Modules/mediastream/InputDeviceInfo.idl \
     $(WebCore)/Modules/mediastream/MediaDeviceInfo.idl \
     $(WebCore)/Modules/mediastream/MediaDevices.idl \
+    $(WebCore)/Modules/mediastream/MediaSettingsRange.idl \
     $(WebCore)/Modules/mediastream/MediaStream.idl \
     $(WebCore)/Modules/mediastream/MediaStreamTrack.idl \
     $(WebCore)/Modules/mediastream/MediaStreamTrackEvent.idl \
@@ -450,6 +453,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediastream/Navigator+MediaDevices.idl \
     $(WebCore)/Modules/mediastream/OverconstrainedError.idl \
     $(WebCore)/Modules/mediastream/OverconstrainedErrorEvent.idl \
+    $(WebCore)/Modules/mediastream/PhotoCapabilities.idl \
+    $(WebCore)/Modules/mediastream/PhotoSettings.idl \
+    $(WebCore)/Modules/mediastream/RedEyeReduction.idl \
     $(WebCore)/Modules/mediastream/RTCAnswerOptions.idl \
     $(WebCore)/Modules/mediastream/RTCCertificate.idl \
     $(WebCore)/Modules/mediastream/RTCConfiguration.idl \
@@ -473,7 +479,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediastream/RTCIceConnectionState.idl \
     $(WebCore)/Modules/mediastream/RTCIceGatheringState.idl \
     $(WebCore)/Modules/mediastream/RTCIceProtocol.idl \
+    $(WebCore)/Modules/mediastream/RTCIceRole.idl \
     $(WebCore)/Modules/mediastream/RTCIceServer.idl \
+    $(WebCore)/Modules/mediastream/RTCIceServerTransportProtocol.idl \
     $(WebCore)/Modules/mediastream/RTCIceTcpCandidateType.idl \
     $(WebCore)/Modules/mediastream/RTCIceTransport.idl \
     $(WebCore)/Modules/mediastream/RTCIceTransportState.idl \
@@ -1006,6 +1014,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/BroadcastChannel.idl \
     $(WebCore)/dom/CDATASection.idl \
     $(WebCore)/dom/CharacterData.idl \
+    $(WebCore)/dom/CheckVisibilityOptions.idl \
     $(WebCore)/dom/ChildNode.idl \
     $(WebCore)/dom/ClipboardEvent.idl \
     $(WebCore)/dom/Comment.idl \
@@ -1574,7 +1583,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/svg/SVGRadialGradientElement.idl \
     $(WebCore)/svg/SVGRect.idl \
     $(WebCore)/svg/SVGRectElement.idl \
-    $(WebCore)/svg/SVGRenderingIntent.idl \
     $(WebCore)/svg/SVGSVGElement.idl \
     $(WebCore)/svg/SVGScriptElement.idl \
     $(WebCore)/svg/SVGSetElement.idl \
@@ -2333,11 +2341,7 @@ PREPROCESS_IDLS_SCRIPTS = \
 
 # JS bindings generator
 
-IDL_INCLUDES = \
-    $(WebCore)/Modules \
-    $(ADDITIONAL_BINDING_IDLS_PATHS)
-
-IDL_COMMON_ARGS = $(IDL_INCLUDES:%=--include %) --write-dependencies --outputDir .
+IDL_COMMON_ARGS = --write-dependencies --outputDir .
 
 JS_BINDINGS_SCRIPTS = $(COMMON_BINDINGS_SCRIPTS) $(WebCore)/bindings/scripts/CodeGeneratorJS.pm
 
@@ -2428,15 +2432,15 @@ vpath %.idl $(ADDITIONAL_BINDING_IDLS_PATHS) $(WebCore)/bindings/scripts
 # -------------------------------------------------
 define GENERATE_BINDINGS_template
 
-JS$(call get_bare_name,$(1)).cpp JS$(call get_bare_name,$(1)).h: $(1) $$(JS_BINDINGS_SCRIPTS) $$(IDL_ATTRIBUTES_FILE) $$(IDL_INTERMEDIATE_FILES) $$(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES)
+JS$(call get_bare_name,$(1)).cpp JS$(call get_bare_name,$(1)).h: $(1) $$(JS_BINDINGS_SCRIPTS) $$(IDL_ATTRIBUTES_FILE) $$(IDL_INTERMEDIATE_FILES) $$(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES) $(IDL_FILE_NAMES_LIST)
 	$$(PERL) $$(WebCore)/bindings/scripts/generate-bindings.pl \
 		$$(IDL_COMMON_ARGS) \
 		--defines "$$(FEATURE_AND_PLATFORM_DEFINES) LANGUAGE_JAVASCRIPT" \
 		--generator JS \
 		--idlAttributesFile $$(IDL_ATTRIBUTES_FILE) \
+		--idlFileNamesList $(IDL_FILE_NAMES_LIST) \
 		--supplementalDependencyFile $$(SUPPLEMENTAL_DEPENDENCY_FILE) \
 		$$<
-
 endef
 # -------------------------------------------------
 

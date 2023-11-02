@@ -254,7 +254,7 @@ bytecode/InstructionStream.cpp
 bytecode/IntrinsicGetterAccessCase.cpp
 bytecode/JumpTable.cpp
 bytecode/LLIntPrototypeLoadAdaptiveStructureWatchpoint.cpp
-bytecode/LazyOperandValueProfile.cpp
+bytecode/LazyValueProfile.cpp
 bytecode/LinkTimeConstant.cpp
 bytecode/MetadataTable.cpp
 bytecode/MethodOfGettingAValueProfile.cpp
@@ -1025,6 +1025,7 @@ runtime/ScriptExecutable.cpp
 runtime/SetConstructor.cpp
 runtime/SetIteratorPrototype.cpp
 runtime/SetPrototype.cpp
+runtime/SideDataRepository.cpp
 runtime/SimpleTypedArrayController.cpp
 runtime/SmallStrings.cpp
 runtime/SparseArrayValueMap.cpp
@@ -1126,6 +1127,7 @@ wasm/WasmInstance.cpp
 wasm/WasmInstance.h
 wasm/WasmIPIntGenerator.cpp
 wasm/WasmIPIntPlan.cpp
+wasm/WasmIPIntSlowPaths.cpp
 wasm/WasmLLIntGenerator.cpp
 wasm/WasmLLIntPlan.cpp
 wasm/WasmLLIntTierUpCounter.cpp

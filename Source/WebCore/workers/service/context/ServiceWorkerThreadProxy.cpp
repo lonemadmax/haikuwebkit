@@ -40,6 +40,7 @@
 #include "Logging.h"
 #include "MessageWithMessagePorts.h"
 #include "NotificationData.h"
+#include "NotificationPayload.h"
 #include "PlatformStrategies.h"
 #include "ScriptExecutionContextIdentifier.h"
 #include "ServiceWorkerClientData.h"
@@ -335,8 +336,12 @@ void ServiceWorkerThreadProxy::fireMessageEvent(MessageWithMessagePorts&& messag
 
 void ServiceWorkerThreadProxy::fireInstallEvent()
 {
-    ASSERT(isMainThread());
-    thread().willPostTaskToFireInstallEvent();
+    ASSERT(!isMainThread());
+
+    callOnMainRunLoop([protectedThis = Ref { *this }] {
+        protectedThis->thread().willPostTaskToFireInstallEvent();
+    });
+
     thread().runLoop().postTask([this, protectedThis = Ref { *this }](auto&) mutable {
         thread().queueTaskToFireInstallEvent();
     });
@@ -344,9 +349,13 @@ void ServiceWorkerThreadProxy::fireInstallEvent()
 
 void ServiceWorkerThreadProxy::fireActivateEvent()
 {
-    ASSERT(isMainThread());
-    thread().willPostTaskToFireActivateEvent();
-    thread().runLoop().postTask([this, protectedThis = Ref { *this }](auto&) mutable {
+    ASSERT(!isMainThread());
+
+    callOnMainRunLoop([protectedThis = Ref { *this }] {
+        protectedThis->thread().willPostTaskToFireActivateEvent();
+    });
+
+    thread().runLoop().postTask([this, protectedThis = Ref { *this }](auto&) {
         thread().queueTaskToFireActivateEvent();
     });
 }

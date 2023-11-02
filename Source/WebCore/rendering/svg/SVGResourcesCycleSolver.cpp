@@ -22,7 +22,6 @@
 
 #include "Logging.h"
 #include "RenderAncestorIterator.h"
-#include "RenderSVGResourceClipper.h"
 #include "RenderSVGResourceFilter.h"
 #include "RenderSVGResourceMarker.h"
 #include "RenderSVGResourceMasker.h"
@@ -47,7 +46,7 @@ bool SVGResourcesCycleSolver::resourceContainsCycles(LegacyRenderSVGResourceCont
 
     RenderObject* node = &resource;
     while (node) {
-        if (node != &resource && node->isSVGResourceContainer()) {
+        if (node != &resource && node->isLegacySVGResourceContainer()) {
             node = node->nextInPreOrderAfterChildren(&resource);
             continue;
         }

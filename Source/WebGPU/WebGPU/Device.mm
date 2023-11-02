@@ -307,14 +307,24 @@ void Device::generateAnInternalError(String&& message)
 
 uint32_t Device::maxBuffersPlusVertexBuffersForVertexStage() const
 {
-    // FIXME: use value in HardwareCapabilities from https://github.com/gpuweb/gpuweb/issues/2749
-    return 8;
+    ASSERT(m_capabilities.limits.maxBindGroupsPlusVertexBuffers > 0);
+    return m_capabilities.limits.maxBindGroupsPlusVertexBuffers;
 }
 
-uint32_t Device::vertexBufferIndexForBindGroup(uint32_t groupIndex, uint32_t maxIndex) const
+uint32_t Device::maxBuffersForFragmentStage() const
 {
-    maxIndex = maxIndex ?: maxBuffersPlusVertexBuffersForVertexStage();
-    return WGSL::vertexBufferIndexForBindGroup(groupIndex, maxIndex);
+    return m_capabilities.limits.maxBindGroups;
+}
+
+uint32_t Device::maxBuffersForComputeStage() const
+{
+    return m_capabilities.limits.maxBindGroups;
+}
+
+uint32_t Device::vertexBufferIndexForBindGroup(uint32_t groupIndex) const
+{
+    ASSERT(maxBuffersPlusVertexBuffersForVertexStage() > 0);
+    return WGSL::vertexBufferIndexForBindGroup(groupIndex, maxBuffersPlusVertexBuffersForVertexStage() - 1);
 }
 
 void Device::captureFrameIfNeeded() const

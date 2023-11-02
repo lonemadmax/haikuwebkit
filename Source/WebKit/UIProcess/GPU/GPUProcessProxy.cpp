@@ -413,9 +413,9 @@ void GPUProcessProxy::setMockCaptureDevicesInterrupted(bool isCameraInterrupted,
     send(Messages::GPUProcess::SetMockCaptureDevicesInterrupted { isCameraInterrupted, isMicrophoneInterrupted }, 0);
 }
 
-void GPUProcessProxy::triggerMockMicrophoneConfigurationChange()
+void GPUProcessProxy::triggerMockCaptureConfigurationChange(bool forMicrophone, bool forDisplay)
 {
-    send(Messages::GPUProcess::TriggerMockMicrophoneConfigurationChange { }, 0);
+    send(Messages::GPUProcess::TriggerMockCaptureConfigurationChange { forMicrophone, forDisplay }, 0);
 }
 #endif // ENABLE(MEDIA_STREAM)
 
@@ -447,11 +447,6 @@ void GPUProcessProxy::processWillShutDown(IPC::Connection& connection)
 std::optional<bool> GPUProcessProxy::s_hasVP9HardwareDecoder;
 std::optional<bool> GPUProcessProxy::s_hasVP9ExtensionSupport;
 #endif
-
-void GPUProcessProxy::updatePreferencesForWebProcess(WebProcessProxy& webProcessProxy, const GPUProcessPreferencesForWebProcess& preferences)
-{
-    send(Messages::GPUProcess::UpdatePreferencesForWebProcess(webProcessProxy.coreProcessIdentifier(), preferences), 0);
-}
 
 void GPUProcessProxy::createGPUProcessConnection(WebProcessProxy& webProcessProxy, IPC::Connection::Handle&& connectionIdentifier, GPUProcessConnectionParameters&& parameters)
 {

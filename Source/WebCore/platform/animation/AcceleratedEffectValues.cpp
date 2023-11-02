@@ -30,9 +30,9 @@
 
 #include "IntSize.h"
 #include "LengthFunctions.h"
-#include "MotionPath.h"
 #include "Path.h"
 #include "RenderStyleInlines.h"
+#include "TransformOperationData.h"
 
 namespace WebCore {
 
@@ -42,9 +42,7 @@ AcceleratedEffectValues::AcceleratedEffectValues(const AcceleratedEffectValues& 
 
     auto& transformOperations = transform.operations();
     auto& srcTransformOperations = src.transform.operations();
-    transformOperations.reserveCapacity(srcTransformOperations.size());
-    for (auto& srcTransformOperation : srcTransformOperations)
-        transformOperations.uncheckedAppend(srcTransformOperation.copyRef());
+    transformOperations.appendVector(srcTransformOperations);
 
     translate = src.translate.copyRef();
     scale = src.scale.copyRef();
@@ -144,9 +142,9 @@ AcceleratedEffectValues::AcceleratedEffectValues(const RenderStyle& style, const
 
     auto& transformOperations = transform.operations();
     auto& srcTransformOperations = style.transform().operations();
-    transformOperations.reserveCapacity(srcTransformOperations.size());
-    for (auto& srcTransformOperation : srcTransformOperations)
-        transformOperations.uncheckedAppend(srcTransformOperation->selfOrCopyWithResolvedCalculatedValues(borderBoxSize));
+    transformOperations.appendContainerWithMapping(srcTransformOperations, [&](auto& srcTransformOperation) {
+        return srcTransformOperation->selfOrCopyWithResolvedCalculatedValues(borderBoxSize);
+    });
 
     if (auto* srcTranslate = style.translate())
         translate = srcTranslate->selfOrCopyWithResolvedCalculatedValues(borderBoxSize);

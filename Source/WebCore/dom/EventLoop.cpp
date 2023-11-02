@@ -188,9 +188,12 @@ void EventLoop::queueTask(std::unique_ptr<EventLoopTask>&& task)
     m_tasks.append(WTFMove(task));
 }
 
-EventLoopTimerHandle EventLoop::scheduleTask(Seconds timeout, std::unique_ptr<EventLoopTask>&& action)
+EventLoopTimerHandle EventLoop::scheduleTask(Seconds timeout, TimerAlignment* alignment, HasReachedMaxNestingLevel hasReachedMaxNestingLevel, std::unique_ptr<EventLoopTask>&& action)
 {
     auto timer = EventLoopTimer::create(EventLoopTimer::Type::OneShot, WTFMove(action));
+    if (alignment)
+        timer->setTimerAlignment(*alignment);
+    timer->setHasReachedMaxNestingLevel(hasReachedMaxNestingLevel == HasReachedMaxNestingLevel::Yes);
     timer->startOneShot(timeout);
     if (timer->group()->isSuspended())
         timer->suspend();
@@ -211,9 +214,12 @@ void EventLoop::removeScheduledTimer(EventLoopTimer& timer)
     invalidateNextTimerFireTimeCache();
 }
 
-EventLoopTimerHandle EventLoop::scheduleRepeatingTask(Seconds nextTimeout, Seconds interval, std::unique_ptr<EventLoopTask>&& action)
+EventLoopTimerHandle EventLoop::scheduleRepeatingTask(Seconds nextTimeout, Seconds interval, TimerAlignment* alignment, HasReachedMaxNestingLevel hasReachedMaxNestingLevel, std::unique_ptr<EventLoopTask>&& action)
 {
     auto timer = EventLoopTimer::create(EventLoopTimer::Type::Repeating, WTFMove(action));
+    if (alignment)
+        timer->setTimerAlignment(*alignment);
+    timer->setHasReachedMaxNestingLevel(hasReachedMaxNestingLevel == HasReachedMaxNestingLevel::Yes);
     timer->startRepeating(nextTimeout, interval);
     if (timer->group()->isSuspended())
         timer->suspend();
@@ -340,6 +346,14 @@ void EventLoop::clearAllTasks()
     m_groupsWithSuspendedTasks.clear();
 }
 
+bool EventLoop::hasTasksForFullyActiveDocument() const
+{
+    return m_tasks.containsIf([](auto& task) {
+        auto group = task->group();
+        return group && !group->isStoppedPermanently() && !group->isSuspended();
+    });
+}
+
 void EventLoop::forEachAssociatedContext(const Function<void(ScriptExecutionContext&)>& apply)
 {
     m_associatedContexts.forEach(apply);
@@ -390,7 +404,7 @@ void EventLoopTaskGroup::markAsReadyToStop()
 
     bool wasSuspended = isSuspended();
     m_state = State::ReadyToStop;
-    if (auto* eventLoop = m_eventLoop.get())
+    if (RefPtr eventLoop = m_eventLoop.get())
         eventLoop->stopAssociatedGroupsIfNecessary();
 
     for (auto& timer : m_timers)
@@ -430,12 +444,17 @@ void EventLoopTaskGroup::resume()
         timer.resume();
 }
 
+RefPtr<EventLoop> EventLoopTaskGroup::protectedEventLoop() const
+{
+    return m_eventLoop.get();
+}
+
 void EventLoopTaskGroup::queueTask(std::unique_ptr<EventLoopTask>&& task)
 {
     if (m_state == State::Stopped || !m_eventLoop)
         return;
     ASSERT(task->group() == this);
-    m_eventLoop->queueTask(WTFMove(task));
+    protectedEventLoop()->queueTask(WTFMove(task));
 }
 
 class EventLoopFunctionDispatchTask : public EventLoopTask {
@@ -461,13 +480,13 @@ void EventLoopTaskGroup::queueMicrotask(EventLoop::TaskFunction&& function)
 {
     if (m_state == State::Stopped || !m_eventLoop)
         return;
-    m_eventLoop->queueMicrotask(makeUnique<EventLoopFunctionDispatchTask>(TaskSource::Microtask, *this, WTFMove(function)));
+    protectedEventLoop()->queueMicrotask(makeUnique<EventLoopFunctionDispatchTask>(TaskSource::Microtask, *this, WTFMove(function)));
 }
 
 void EventLoopTaskGroup::performMicrotaskCheckpoint()
 {
-    if (m_eventLoop)
-        m_eventLoop->performMicrotaskCheckpoint();
+    if (RefPtr eventLoop = m_eventLoop.get())
+        eventLoop->performMicrotaskCheckpoint();
 }
 
 void EventLoopTaskGroup::runAtEndOfMicrotaskCheckpoint(EventLoop::TaskFunction&& function)
@@ -482,7 +501,14 @@ EventLoopTimerHandle EventLoopTaskGroup::scheduleTask(Seconds timeout, TaskSourc
 {
     if (m_state == State::Stopped || !m_eventLoop)
         return { };
-    return m_eventLoop->scheduleTask(timeout, makeUnique<EventLoopFunctionDispatchTask>(source, *this, WTFMove(function)));
+    return protectedEventLoop()->scheduleTask(timeout, nullptr, HasReachedMaxNestingLevel::No, makeUnique<EventLoopFunctionDispatchTask>(source, *this, WTFMove(function)));
+}
+
+EventLoopTimerHandle EventLoopTaskGroup::scheduleTask(Seconds timeout, TimerAlignment& alignment, HasReachedMaxNestingLevel hasReachedMaxNestingLevel, TaskSource source, EventLoop::TaskFunction&& function)
+{
+    if (m_state == State::Stopped || !m_eventLoop)
+        return { };
+    return protectedEventLoop()->scheduleTask(timeout, &alignment, hasReachedMaxNestingLevel, makeUnique<EventLoopFunctionDispatchTask>(source, *this, WTFMove(function)));
 }
 
 void EventLoopTaskGroup::removeScheduledTimer(EventLoopTimer& timer)
@@ -497,7 +523,14 @@ EventLoopTimerHandle EventLoopTaskGroup::scheduleRepeatingTask(Seconds nextTimeo
 {
     if (m_state == State::Stopped || !m_eventLoop)
         return { };
-    return m_eventLoop->scheduleRepeatingTask(nextTimeout, interval, makeUnique<EventLoopFunctionDispatchTask>(source, *this, WTFMove(function)));
+    return protectedEventLoop()->scheduleRepeatingTask(nextTimeout, interval, nullptr, HasReachedMaxNestingLevel::No, makeUnique<EventLoopFunctionDispatchTask>(source, *this, WTFMove(function)));
+}
+
+EventLoopTimerHandle EventLoopTaskGroup::scheduleRepeatingTask(Seconds nextTimeout, Seconds interval, TimerAlignment& alignment, HasReachedMaxNestingLevel hasReachedMaxNestingLevel, TaskSource source, EventLoop::TaskFunction&& function)
+{
+    if (m_state == State::Stopped || !m_eventLoop)
+        return { };
+    return protectedEventLoop()->scheduleRepeatingTask(nextTimeout, interval, &alignment, hasReachedMaxNestingLevel, makeUnique<EventLoopFunctionDispatchTask>(source, *this, WTFMove(function)));
 }
 
 void EventLoopTaskGroup::removeRepeatingTimer(EventLoopTimer& timer)
@@ -506,16 +539,6 @@ void EventLoopTaskGroup::removeRepeatingTimer(EventLoopTimer& timer)
     if (RefPtr eventLoop = m_eventLoop.get())
         eventLoop->removeRepeatingTimer(timer);
     m_timers.remove(timer);
-}
-
-void EventLoopTaskGroup::setTimerAlignment(EventLoopTimerHandle handle, TimerAlignment& timerAlignment)
-{
-    if (!handle.m_timer)
-        return;
-    ASSERT(m_timers.contains(*handle.m_timer));
-    handle.m_timer->setTimerAlignment(timerAlignment);
-    if (RefPtr eventLoop = m_eventLoop.get())
-        eventLoop->invalidateNextTimerFireTimeCache();
 }
 
 void EventLoopTaskGroup::didChangeTimerAlignmentInterval(EventLoopTimerHandle handle)

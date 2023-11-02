@@ -136,7 +136,7 @@ RenderPtr<RenderElement> HTMLPlugInImageElement::createElementRenderer(RenderSty
         return RenderElement::createFor(*this, WTFMove(style));
 
     if (isImageType())
-        return createRenderer<RenderImage>(*this, WTFMove(style));
+        return createRenderer<RenderImage>(RenderObject::Type::Image, *this, WTFMove(style));
 
     return HTMLPlugInElement::createElementRenderer(WTFMove(style), insertionPosition);
 }
@@ -268,7 +268,7 @@ void HTMLPlugInImageElement::resumeFromDocumentSuspension()
 
 bool HTMLPlugInImageElement::shouldBypassCSPForPDFPlugin(const String& contentType) const
 {
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     // We only consider bypassing this CSP check if plugins are disabled. In that case we know that
     // any plugin used is a browser implementation detail. It is not safe to skip this check
     // if plugins are enabled in case an external plugin is used to load PDF content.

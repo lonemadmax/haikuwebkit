@@ -20,7 +20,6 @@ fast/images/mac [ Pass ]
 [ Debug ] displaylists [ Pass ]
 
 # Disable plug-in tests on Apple Silicon
-[ arm64 ] compositing/plugins [ Skip ]
 [ arm64 ] http/tests/plugins [ Skip ]
 [ arm64 ] imported/blink/plugins [ Skip ]
 [ arm64 ] platform/mac-wk2/plugins [ Skip ]
@@ -57,6 +56,8 @@ fast/images/mac [ Pass ]
 
 # Tests that rely on custom domain names.
 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/overlapping-navigations-and-traversals/nav-cancelation-2.sub.html [ Skip ]
+imported/w3c/web-platform-tests/cookies/attributes/domain.sub.html [ Skip ]
+imported/w3c/web-platform-tests/cookies/ordering/ordering.sub.html [ Skip ]
 
 fast/forms/search/search-padding-cancel-results-buttons.html [ Pass ]
 fast/forms/search/search-results-hidden-crash.html [ Pass ]
@@ -95,6 +96,13 @@ http/tests/media/fairplay [ Pass ]
 media/track/track-description-cue.html [ Pass ]
 media/track/track-extended-descriptions.html [ Pass ]
 media/media-source/remoteplayback-from-source-element.html [ Pass ]
+
+# macOS 14 and above support word-break: auto-phrase.
+# Individually failing tests should be marked in separate expectations.
+[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase [ Pass ]
+
+# Variable size packet is only supported on Sonoma and later.
+[ Monterey Ventura ] media/media-webm-opus-variable-length.html [ Failure ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End platform-specific directories.
@@ -205,7 +213,6 @@ media/track/track-webvtt-snap-to-lines-inline-style.html [ Pass Crash ]
 # Perf tests are very flaky, because they run in parallel with other tests.
 perf
 
-webkit.org/b/113598 animations/animation-delay-changed.html [ Pass Failure ]
 webkit.org/b/113599 svg/animations/reinserting-svg-into-document.html [ Pass Failure ]
 
 webkit.org/b/184608 [ Debug ] animations/added-while-suspended.html [ Skip ]
@@ -807,12 +814,7 @@ webkit.org/b/103926 media/track/opera/interfaces/TextTrackCue/line.html [ Skip ]
 webkit.org/b/103926 media/track/opera/interfaces/TextTrackCue/snapToLines.html [ Skip ]
 webkit.org/b/103926 media/track/opera/interfaces/TextTrackCue/text.html [ Skip ]
 webkit.org/b/103926 media/track/opera/interfaces/TextTrackCue/vertical.html [ Skip ]
-webkit.org/b/103926 media/track/opera/track/webvtt/parsing/001.html [ Skip ]
-webkit.org/b/103926 media/track/opera/track/webvtt/parsing-cue-data/tests/entities.html [ Skip ] 
-webkit.org/b/103926 media/track/opera/track/webvtt/parsing-cue-data/tests/tags.html [ Skip ]
 webkit.org/b/103926 media/track/opera/track/webvtt/rendering/adhoc/12345_timestamps.html [ Skip ]
-webkit.org/b/103926 media/track/opera/track/webvtt/parsing-cue-data/tests/timestamps.html [ Skip ]
-webkit.org/b/103926 media/track/opera/track/webvtt/parsing-cue-data/tests/tree-building.html [ Skip ]
 webkit.org/b/103926 media/track/opera/track/webvtt/rendering/adhoc/cue_font_size_transition.html [ Skip ]
 webkit.org/b/103926 media/track/opera/track/webvtt/rendering/adhoc/voice_with_evil_timestamp.html [ Skip ]
 
@@ -901,9 +903,6 @@ fast/canvas/canvas-draw-canvas-on-canvas-shadow.html [ Pass Failure ]
 fast/canvas/canvas-fillRect-gradient-shadow.html [ Pass Failure ]
 
 webkit.org/b/230313 [ Monterey+ ] fast/canvas/canvas-draw-canvas-on-canvas-flushing-order.html [ Pass ImageOnlyFailure ]
-
-# SVG gradients are not bit-for-bit equivalent through a scale.
-webkit.org/b/142192 svg/transforms/transformed-text-fill-gradient.html [ ImageOnlyFailure ]
 
 # Underlines' starting and ending positions need to be pixel-snapped
 webkit.org/b/142087 fast/css3-text/css3-text-decoration/no-gap-between-two-rounded-textboxes.html [ ImageOnlyFailure ]
@@ -1461,7 +1460,7 @@ imported/w3c/web-platform-tests/pointerevents/compat/pointerevent_mouseevent_key
 imported/w3c/web-platform-tests/pointerevents/compat/pointerevent_touch-action_two-finger_interaction.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_after_target_appended.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_after_target_removed.html?touch [ Skip ]
-imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes_hoverable_pointers.html?mouse [ Skip ]
+webkit.org/b/262172 imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes_hoverable_pointers.html?mouse [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes_hoverable_pointers.html?pen [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes_hoverable_rightbutton.html?mouse [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes_hoverable_rightbutton.html?pen [ Skip ]
@@ -1480,8 +1479,6 @@ imported/w3c/web-platform-tests/pointerevents/pointerevent_contextmenu_is_a_poin
 imported/w3c/web-platform-tests/pointerevents/pointerevent_disabled_form_control.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_disabled_form_control.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_fractional_coordinates.html?touch [ Skip ]
-imported/w3c/web-platform-tests/pointerevents/pointerevent_hit_test_scroll.html [ Skip ]
-imported/w3c/web-platform-tests/pointerevents/pointerevent_hit_test_scroll_visible_descendant.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_iframe-touch-action-none_touch.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_mouse_pointercapture_inactivate_pointer.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_movementxy.html?touch [ Skip ]
@@ -1895,9 +1892,6 @@ imported/w3c/web-platform-tests/css/filter-effects/css-filters-animation-saturat
 # rdar://66842535 ([AS Layout Tests] REGRESSION (r265488): fast/text/letter-spacing-shaping.html is a constant ImageOnlyFailure)
 [ arm64 ] fast/text/letter-spacing-shaping.html [ Pass ImageOnlyFailure ]
 
-# rdar://66861801 ([AS Layout Tests] REGRESSION (r265487): svg/W3C-I18N/tspan-direction-rtl.svg is a constant failure)
-[ arm64 ] svg/W3C-I18N/tspan-direction-rtl.svg [ Failure ]
-
 webkit.org/b/223002 [ Monterey+ arm64 ] webgl/1.0.3/conformance/textures/texture-copying-feedback-loops.html [ Skip ]
 webkit.org/b/223002 [ Monterey+ arm64 ] webgl/2.0.0/conformance/textures/misc/texture-copying-feedback-loops.html [ Skip ]
 
@@ -1972,9 +1966,6 @@ webkit.org/b/217621 media/video-buffering-allowed.html [ Pass Timeout ]
 [ BigSur ] fast/text/system-font-width-7.html [ ImageOnlyFailure ]
 [ BigSur ] fast/text/system-font-width-8.html [ ImageOnlyFailure ]
 [ BigSur ] fast/text/system-font-width-9.html [ ImageOnlyFailure ]
-
-# WebM support is on Monterey and later
-[ BigSur ] http/tests/media/video-webm-stall.html [ Skip ]
 
 webkit.org/b/221152 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioworklet-interface/audioworkletnode-automatic-pull.https.html [ Pass Failure ]
 
@@ -2701,13 +2692,14 @@ webkit.org/b/237415 webgl/1.0.x/conformance/rendering/clipping-wide-points.html 
 [ Ventura x86_64 ] imported/w3c/web-platform-tests/css/css-color/parsing/color-valid-relative-color.html [ Failure ]
 
 # webkit.org/b/255427 [ Ventura ] 4/13 batch mark expectations and branch bugs
-[ Ventura ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-audiobuffersource-connections.html [ Pass Failure ]
-[ Ventura ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-dynamics-compressor-connections.html [ Pass Failure ]
-[ Ventura ] svg/W3C-SVG-1.1/metadata-example-01-b.svg [ Pass Failure ]
-[ Ventura ] svg/custom/use-on-symbol-inside-pattern.svg [ Pass Failure ]
-[ Ventura ] webaudio/ScriptProcessor/scriptprocessor-offlineaudiocontext.html [ Pass Failure ]
-[ Ventura ] imported/mozilla/svg/smil/style/anim-css-fontsize-1-from-by-pct-pct.svg [ Pass ImageOnlyFailure ]
-[ Ventura ] imported/mozilla/svg/smil/style/anim-css-fontsize-1-from-to-pct-pct.svg [ Pass ImageOnlyFailure ]
+[ Ventura+ arm64 ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-audiobuffersource-connections.html [ Failure ]
+[ Ventura+ arm64 ] imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-dynamics-compressor-connections.html [ Failure ]
+[ Ventura+ arm64 ] svg/W3C-SVG-1.1/metadata-example-01-b.svg [ Failure ]
+[ Ventura+ arm64 ] svg/custom/use-on-symbol-inside-pattern.svg [ Failure ]
+[ Ventura+ arm64 ] webaudio/ScriptProcessor/scriptprocessor-offlineaudiocontext.html [ Failure ]
+[ Ventura+ arm64 ] imported/mozilla/svg/smil/style/anim-css-fontsize-1-from-by-pct-pct.svg [ ImageOnlyFailure ]
+[ Ventura+ arm64 ] imported/mozilla/svg/smil/style/anim-css-fontsize-1-from-to-pct-pct.svg [ ImageOnlyFailure ]
+[ Ventura+ x86_64 ] fast/shrink-wrap/rect-shrink-wrap.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/255788 [ Ventura+ Debug ] tiled-drawing/scrolling/scroll-snap/scroll-snap-mandatory-async-overflow.html [ Skip ]
 
@@ -2733,31 +2725,15 @@ webkit.org/b/259712 [ Monterey+ ] media/media-source/media-source-paint-after-di
 # rdar://110876540 ASSERTION FAILED: firstChild(): [ macOS ] (258183)
 [ Debug ] media/modern-media-controls/tracks-support/text-track-selected-via-media-api.html [ Pass Crash ]
 
-webkit.org/b/259539 [ Debug ] storage/indexeddb/cursor-update.html [ Pass Failure Crash ]
-
 webkit.org/b/259190 http/tests/images/heic-as-heif.html [ Pass ImageOnlyFailure ]
 
 # webkit.org/b/259373 Migrate macOS Sonoma test expectations to OpenSource, add expectation files to Down-Levels
-[ Monterey ] css1/box_properties/acid_test.html [ Pass Failure ImageOnlyFailure ]
-[ Monterey ] css2.1/t09-c5526c-display-00-e.html [ Pass Failure ImageOnlyFailure ]
-[ Monterey ] fast/block/basic/011.html [ Pass Failure ImageOnlyFailure ]
-[ Monterey ] fast/block/basic/minheight.html [ Pass Failure ImageOnlyFailure ]
-[ Monterey ] fast/block/margin-collapse/103.html [ Pass Failure ImageOnlyFailure ]
-[ Monterey ] fast/css/002.html [ Pass Failure ImageOnlyFailure ]
-[ Monterey ] fast/invalid/008.html [ Pass Failure ImageOnlyFailure ]
-[ Monterey ] fast/overflow/003.xml [ Pass Failure ImageOnlyFailure ]
-[ Monterey ] fast/text/basic/generic-family-reset.html [ Pass Failure ImageOnlyFailure ]
-[ Monterey ] imported/w3c/web-platform-tests/fetch/content-length/api-and-duplicate-headers.any.html [ Pass Failure ]
-[ Monterey ] imported/w3c/web-platform-tests/fetch/content-length/api-and-duplicate-headers.any.worker.html [ Pass Failure ]
 [ Monterey ] imported/w3c/web-platform-tests/mathml/presentation-markup/mrow/mrow-fallback.html [ Pass Failure ]
 [ Monterey ] imported/w3c/web-platform-tests/mathml/presentation-markup/tables/table-002.html [ Pass Failure ]
 [ Monterey ] imported/w3c/web-platform-tests/mathml/presentation-markup/tables/table-003.html [ Pass Failure ]
 [ Monterey ] imported/w3c/web-platform-tests/mathml/relations/css-styling/floats/not-floating-001.html [ Pass Failure ]
-[ Monterey ] imported/w3c/web-platform-tests/mathml/relations/css-styling/ignored-properties-001.html [ Pass Failure ]
 [ Monterey ] imported/w3c/web-platform-tests/mathml/relations/css-styling/width-height-001.html [ Pass Failure ]
 [ Monterey ] imported/w3c/web-platform-tests/mathml/relations/html5-tree/dynamic-childlist-002.html [ Pass Failure ]
-[ Monterey ] scrollbars/overflow-scrollbar-combinations.html  [ Pass ImageOnlyFailure ]
-[ Monterey ] svg/custom/svg-fonts-in-html.html [ Pass ImageOnlyFailure ]
 
 # Sonoma has one extra whitespace for some reason.
 [ Sonoma+ ] imported/w3c/web-platform-tests/accname/name/comp_host_language_label.html [ Failure ]
@@ -2776,7 +2752,7 @@ webkit.org/b/130490 media/video-remote-control-playpause.html [ Pass Timeout Cra
 
 webkit.org/b/260529 [ Ventura+ x86_64 ] animations/suspend-resume-animation-events.html [ Pass Failure ]
 # rdar://102494267 ([ New Test ] (248203@main): [ Sonoma ] http/tests/media/hls/track-in-band-hls-metadata-cue-duration.html is a consistent failure)
-http/tests/media/hls/track-in-band-hls-metadata-cue-duration.html [ Pass Failure ]
+[ Ventura+ ] http/tests/media/hls/track-in-band-hls-metadata-cue-duration.html [ Failure ]
 
 # rdar://103047570 (REGRESSION (Sonoma): fast/speechsynthesis/speech-synthesis-real-client-version.html is a consistent timeout)
 fast/speechsynthesis/speech-synthesis-real-client-version.html [ Timeout ]
@@ -2807,25 +2783,11 @@ fast/forms/caps-lock-indicator-width.html [ Skip ]
 editing/input/composition-underline-color.html [ ImageOnlyFailure ]
 
 # rdar://111233922 (REGRESSION ( Sonoma ): [ Sonoma ] Two imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior tests are a consistent image failure)
-imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-009.html [ Pass ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-010.html [ Pass ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-009.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-010.html [ ImageOnlyFailure ]
 
 # rdar://106116937 ([UI-side compositing] fast/scrolling/mac/scrollbars/very-wide-overlay-scrollbar.html times out)
 fast/scrolling/mac/scrollbars/very-wide-overlay-scrollbar.html [ ImageOnlyFailure Timeout ]
-
-# rdar://111424377 (PROGRESSION (263656@main): [ Sonoma ] Three fast/scrolling/mac/scrollbars are a consistent failure or timeout)
-fast/scrolling/mac/scrollbars/overlay-scrollbar-reveal.html [ Timeout ]
-fast/scrolling/mac/scrollbars/scrollbar-state.html [ Timeout ]
-fast/scrolling/mac/scrollbars/overlay-scrollbar-state.html [ Timeout ]
-
-imported/w3c/web-platform-tests/css/css-text/word-break/auto [ Pass ]
-
-imported/w3c/web-platform-tests/css/css-text/word-break/auto/word-break-auto-000.html [ Pass ImageOnlyFailure Failure ]
-imported/w3c/web-platform-tests/css/css-text/word-break/auto/word-break-auto-001.html [ Pass ImageOnlyFailure Failure ]
-imported/w3c/web-platform-tests/css/css-text/word-break/auto/word-break-auto-002.html [ Pass ImageOnlyFailure Failure ]
-imported/w3c/web-platform-tests/css/css-text/word-break/auto/word-break-auto-003.html [ Pass ImageOnlyFailure Failure ]
-imported/w3c/web-platform-tests/css/css-text/word-break/auto/word-break-auto-004.html [ Pass ImageOnlyFailure Failure ]
-imported/w3c/web-platform-tests/css/css-text/word-break/auto/word-break-auto-005.html [ Pass ImageOnlyFailure Failure ]
 
 # Failing after OS migration rdar://112624778 (Migrate macOS Sonoma test expectations to OpenSource, add expectation files to Down-Levels (259373))
 fast/css/caret-color-auto.html [ Pass ImageOnlyFailure ]
@@ -2879,3 +2841,53 @@ webkit.org/b/261958 [ Release ] inspector/console/timestamp.html [ Pass Failure 
 
 # Results changed with Sonoma
 [ Monterey Ventura ] imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/mime-types/canPlayType.html [ Failure ]
+
+webkit.org/b/261306 imported/w3c/web-platform-tests/content-security-policy/reporting-api/report-to-directive-allowed-in-meta.https.sub.html [ Failure ]
+
+# webkit.org/b/262595 (REGRESSION(Sonoma): [ Sonoma ] 2 lookup menu-related tests are constant text failures.)
+[ Sonoma ] editing/mac/dictionary-lookup/dictionary-lookup.html [ Failure ]
+[ Sonoma ] editing/selection/context-menu-text-selection-lookup.html [ Failure ]
+
+# rdar://113991102 (REGRESSION ( Sonoma ): [ Sonoma ] 10 fast/text/canvas-color-fonts/..COLR tests are a consistent image failure)
+[ Sonoma+ ] fast/text/canvas-color-fonts/linedash-COLR.html [ ImageOnlyFailure ]
+[ Sonoma+ ] fast/text/canvas-color-fonts/stroke-color-COLR.html [ ImageOnlyFailure ]
+[ Sonoma+ ] fast/text/canvas-color-fonts/stroke-color-shadow-COLR.html [ ImageOnlyFailure ]
+[ Sonoma+ ] fast/text/canvas-color-fonts/stroke-color-shadow-ctm-COLR.html [ ImageOnlyFailure ]
+
+# rdar://114294654 (REGRESSION (265615@main): [ Sonoma ] fast/attachment/cocoa/wide-attachment-rendering.html is a constant failure)
+[ Sonoma+ ] fast/attachment/cocoa/wide-attachment-rendering.html [ Failure ]
+
+# webkit.org/b/262663 (REGRESSION(iOS17/Sonoma): 8 WebCryptoAPI tests are constantly crashing.)
+[ Sonoma ] imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/failures_X25519.https.any.html [ Crash ]
+[ Sonoma ] imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/failures_X25519.https.any.worker.html [ Crash ]
+[ Sonoma ] imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/successes_X25519.https.any.html [ Crash ]
+[ Sonoma ] imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/successes_X25519.https.any.worker.html [ Crash ]
+[ Sonoma ] imported/w3c/web-platform-tests/WebCryptoAPI/import_export/okp_importKey.https.any.html [ Crash ]
+[ Sonoma ] imported/w3c/web-platform-tests/WebCryptoAPI/import_export/okp_importKey.https.any.worker.html [ Crash ]
+[ Sonoma ] imported/w3c/web-platform-tests/WebCryptoAPI/import_export/okp_importKey_failures_X25519.https.any.html [ Crash ]
+[ Sonoma ] imported/w3c/web-platform-tests/WebCryptoAPI/import_export/okp_importKey_failures_X25519.https.any.worker.html [ Crash ]
+
+webkit.org/b/262732 [ Sonoma+ ] fast/css/text-overflow-input.html [ Failure ]
+
+# webkit.org/b/263226 (REGRESSION(268692@main?): [ macOS ] 7 tests under imported/w3c/web-platform-tests/media-source/mediasource-* are flaky failures.)
+imported/w3c/web-platform-tests/media-source/mediasource-config-change-mp4-av-audio-bitrate.html [ Pass Failure ]
+imported/w3c/web-platform-tests/media-source/mediasource-config-change-mp4-av-video-bitrate.html [ Pass Failure ]
+imported/w3c/web-platform-tests/media-source/mediasource-play-then-seek-back.html [ Pass Failure ]
+imported/w3c/web-platform-tests/media-source/mediasource-play.html [ Pass Failure ]
+imported/w3c/web-platform-tests/media-source/mediasource-redundant-seek.html [ Pass Failure ]
+imported/w3c/web-platform-tests/media-source/mediasource-remove-preserves-currentTime.html [ Pass Failure ]
+imported/w3c/web-platform-tests/media-source/mediasource-remove.html [ Pass Failure ]
+
+# webkit.org/b/263441 [ mac-wk1 ] Several WPTs using wheel actions are timing out after b243272
+# webkit.org/b/263476 [ mac-wk2 ] Some WPTs exercising wheel actions interface timing out on pre-Sonoma MacOS after b243272
+imported/w3c/web-platform-tests/css/css-overscroll-behavior/overscroll-behavior.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/input/snap-area-overflow-boundary.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-transforms/scroll-preserve-3d.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-mousewheel-event-listener-on-div.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-wheel-event-listener-on-div.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-mousewheel-event-listener-on-div.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-wheel-event-listener-on-div.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/scrolling/iframe-chains.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-event-for-user-scroll.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss.html [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_touch-action-mouse.html [ Skip ]

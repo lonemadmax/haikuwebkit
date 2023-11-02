@@ -213,6 +213,13 @@ public:
     }
 
     template <typename U>
+    bool moveToLastIfPresent(const U& value)
+    {
+        amortizedCleanupIfNeeded();
+        return m_set.moveToLastIfPresent(*static_cast<const T&>(value).weakPtrFactory().template createWeakPtr<T>(const_cast<U&>(value), assertionsPolicy).m_impl);
+    }
+
+    template <typename U>
     AddResult prependOrMoveToFirst(const U& value)
     {
         amortizedCleanupIfNeeded();
@@ -381,20 +388,8 @@ private:
     mutable unsigned m_maxOperationCountWithoutCleanup { 0 };
 };
 
-template<typename MapFunction, typename T, typename WeakMapImpl>
-struct Mapper<MapFunction, const WeakListHashSet<T, WeakMapImpl> &, void> {
-    using SourceItemType = T&;
-    using DestinationItemType = typename std::invoke_result<MapFunction, SourceItemType&>::type;
-
-    static Vector<DestinationItemType> map(const WeakListHashSet<T, WeakMapImpl>& source, const MapFunction& mapFunction)
-    {
-        Vector<DestinationItemType> result;
-        result.reserveInitialCapacity(source.computeSize());
-        for (auto& item : source)
-            result.uncheckedAppend(mapFunction(item));
-        return result;
-    }
-};
+template<typename T, typename WeakMapImpl>
+size_t containerSize(const WeakListHashSet<T, WeakMapImpl>& container) { return container.computeSize(); }
 
 template<typename T, typename WeakMapImpl>
 inline auto copyToVector(const WeakListHashSet<T, WeakMapImpl>& collection) -> Vector<WeakPtr<T, WeakMapImpl>> {

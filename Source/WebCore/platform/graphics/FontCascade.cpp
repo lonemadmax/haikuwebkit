@@ -286,6 +286,15 @@ float FontCascade::width(const TextRun& run, WeakHashSet<const Font>* fallbackFo
     return result;
 }
 
+template<typename CharacterType>
+static void addGlyphsFromText(GlyphBuffer& glyphBuffer, const Font& font, const CharacterType* characters, unsigned length)
+{
+    for (unsigned i = 0; i < length; ++i) {
+        auto glyph = font.glyphForCharacter(characters[i]);
+        glyphBuffer.add(glyph, font, font.widthForGlyph(glyph), i);
+    }
+}
+
 float FontCascade::widthForSimpleText(StringView text, TextDirection textDirection) const
 {
     if (text.isNull() || text.isEmpty())
@@ -298,10 +307,10 @@ float FontCascade::widthForSimpleText(StringView text, TextDirection textDirecti
     GlyphBuffer glyphBuffer;
     auto& font = primaryFont();
     ASSERT(!font.syntheticBoldOffset()); // This function should only be called when RenderText::computeCanUseSimplifiedTextMeasuring() returns true, and that function requires no synthetic bold.
-    for (size_t i = 0; i < text.length(); ++i) {
-        auto glyph = font.glyphForCharacter(text[i]);
-        glyphBuffer.add(glyph, font, font.widthForGlyph(glyph), i);
-    }
+    if (text.is8Bit())
+        addGlyphsFromText(glyphBuffer, font, text.characters8(), text.length());
+    else
+        addGlyphsFromText(glyphBuffer, font, text.characters16(), text.length());
 
     auto initialAdvance = font.applyTransforms(glyphBuffer, 0, 0, enableKerning(), requiresShaping(), fontDescription().computedLocale(), text, textDirection);
     auto width = 0.f;
@@ -410,14 +419,12 @@ Vector<LayoutRect> FontCascade::characterSelectionRectsForText(const TextRun& ru
 
     bool rtl = run.rtl();
 
-    Vector<LayoutRect> characterRects;
-    characterRects.reserveInitialCapacity(to - from);
-
     // FIXME: We could further optimize this by using the simple text codepath when applicable.
     ComplexTextController controller(*this, run);
     controller.advance(from);
 
-    for (auto current = from + 1; current <= to; ++current) {
+    return Vector<LayoutRect>(to - from, [&](size_t i) {
+        auto current = from + i + 1;
         auto characterRect = selectionRect;
         auto beforeWidth = controller.runWidthSoFar();
 
@@ -426,10 +433,8 @@ Vector<LayoutRect> FontCascade::characterSelectionRectsForText(const TextRun& ru
 
         characterRect.move(rtl ? controller.totalAdvance().width() - afterWidth : beforeWidth, 0);
         characterRect.setWidth(LayoutUnit::fromFloatCeil(afterWidth - beforeWidth));
-        characterRects.uncheckedAppend(WTFMove(characterRect));
-    }
-
-    return characterRects;
+        return characterRect;
+    });
 }
 
 void FontCascade::adjustSelectionRectForText(const TextRun& run, LayoutRect& selectionRect, unsigned from, std::optional<unsigned> to) const

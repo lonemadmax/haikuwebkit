@@ -187,7 +187,7 @@
 #endif
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
-#include "VideoFullscreenModel.h"
+#include "VideoPresentationModel.h"
 #endif
 
 #if ENABLE(MEDIA_SESSION)
@@ -858,7 +858,7 @@ bool HTMLMediaElement::rendererIsNeeded(const RenderStyle& style)
 
 RenderPtr<RenderElement> HTMLMediaElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    return createRenderer<RenderMedia>(*this, WTFMove(style));
+    return createRenderer<RenderMedia>(RenderObject::Type::Media, *this, WTFMove(style));
 }
 
 bool HTMLMediaElement::childShouldCreateRenderer(const Node& child) const
@@ -2985,15 +2985,7 @@ void HTMLMediaElement::mediaPlayerKeyNeeded(const SharedBuffer& initData)
 
 String HTMLMediaElement::mediaPlayerMediaKeysStorageDirectory() const
 {
-    auto* page = document().page();
-    if (!page || page->usesEphemeralSession())
-        return emptyString();
-
-    String storageDirectory = document().settings().mediaKeysStorageDirectory();
-    if (storageDirectory.isEmpty())
-        return emptyString();
-
-    return FileSystem::pathByAppendingComponent(storageDirectory, document().securityOrigin().data().databaseIdentifier());
+    return document().mediaKeysStorageDirectory();
 }
 
 void HTMLMediaElement::webkitSetMediaKeys(WebKitMediaKeys* mediaKeys)
@@ -6393,17 +6385,71 @@ void HTMLMediaElement::resume()
     updateRenderer();
 }
 
-bool HTMLMediaElement::hasLiveSource() const
-{
-    // FIXME: Handle the case of an ended media stream as srcObject.
-    return m_player && m_player->hasMediaEngine() && (!ended() || seeking() || m_networkState >= NETWORK_IDLE);
-}
-
 bool HTMLMediaElement::virtualHasPendingActivity() const
 {
-    return m_controlsState == ControlsState::Initializing
-        || (hasAudio() && isPlaying())
-        || (hasLiveSource() && hasEventListeners());
+    // NOTE: This method will be called from a non-main thread.
+
+    // A media element has pending activity if:
+    // * It is initializing its media controls
+    if (m_controlsState == ControlsState::Initializing)
+        return true;
+
+    // A paused media element may become a playing media element
+    // if it was paused due to an interruption:
+    bool isPlayingOrPossbilyCouldPlay = [&] {
+        if (isPlaying())
+            return true;
+
+        auto* mediaSession = this->mediaSessionIfExists();
+        if (!mediaSession)
+            return false;
+
+        if (mediaSession->state() != PlatformMediaSession::Interrupted)
+            return false;
+
+        auto stateToRestore = mediaSession->stateToRestore();
+        return stateToRestore == PlatformMediaSession::Autoplaying
+            || stateToRestore == PlatformMediaSession::Playing;
+    }();
+
+    // * It is playing, and is audible to the user:
+    if (isPlayingOrPossbilyCouldPlay && canProduceAudio())
+        return true;
+
+    // If a media element is not directly observable by the user, it cannot
+    // have pending activity if it does not have event listeners:
+    if (!hasEventListeners())
+        return false;
+
+    // A media element has pending activity if it has event listeners and:
+    // * The load algorithm is pending, and will thus fire "loadstart" events:
+    if (m_resourceSelectionTaskCancellationGroup.hasPendingTask())
+        return true;
+
+    // * It has a media engine and:
+    if (m_player && m_player->hasMediaEngine()) {
+        // * It is playing, and will thus fire "timeupdate" and "ended" events:
+        if (isPlayingOrPossbilyCouldPlay)
+            return true;
+
+        // * It is seeking, and will thus fire "seeked" events:
+        if (seeking())
+            return true;
+
+        // * It is loading, and will thus fire "progress" or "stalled" events:
+        if (m_networkState == NETWORK_LOADING)
+            return true;
+
+#if ENABLE(MEDIA_STREAM)
+        // * It has a live MediaStream object:
+        if (m_mediaStreamSrcObject)
+            return true;
+#endif
+    }
+
+    // Otherwise, the media element will fire no events at event listeners, and
+    // thus does not have observable pending activity.
+    return false;
 }
 
 void HTMLMediaElement::mediaVolumeDidChange()
@@ -9084,6 +9130,6 @@ bool HTMLMediaElement::shouldDisableHDR() const
     return !screenSupportsHighDynamicRange(document().view());
 }
 
-}
+} // namespace WebCore
 
-#endif
+#endif // ENABLE(VIDEO)

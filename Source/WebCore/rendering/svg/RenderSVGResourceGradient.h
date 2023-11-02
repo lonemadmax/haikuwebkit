@@ -61,15 +61,15 @@ class RenderSVGResourceGradient : public LegacyRenderSVGResourceContainer {
 public:
     SVGGradientElement& gradientElement() const { return static_cast<SVGGradientElement&>(LegacyRenderSVGResourceContainer::element()); }
 
-    void removeAllClientsFromCache(bool markForInvalidation = true) final;
+    void removeAllClientsFromCacheIfNeeded(bool markForInvalidation, WeakHashSet<RenderObject>* visitedRenderers) final;
     void removeClientFromCache(RenderElement&, bool markForInvalidation = true) final;
 
     bool applyResource(RenderElement&, const RenderStyle&, GraphicsContext*&, OptionSet<RenderSVGResourceMode>) final;
     void postApplyResource(RenderElement&, GraphicsContext*&, OptionSet<RenderSVGResourceMode>, const Path*, const RenderElement*) final;
-    FloatRect resourceBoundingBox(const RenderObject&) final { return FloatRect(); }
+    FloatRect resourceBoundingBox(const RenderObject&, RepaintRectCalculation) final { return FloatRect(); }
 
 protected:
-    RenderSVGResourceGradient(SVGGradientElement&, RenderStyle&&);
+    RenderSVGResourceGradient(Type, SVGGradientElement&, RenderStyle&&);
 
     static GradientColorStops stopsByApplyingColorFilter(const GradientColorStops&, const RenderStyle&);
     static GradientSpreadMethod platformSpreadMethodFromSVGType(SVGSpreadMethodType);

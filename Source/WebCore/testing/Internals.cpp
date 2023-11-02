@@ -68,6 +68,7 @@
 #include "DisabledAdaptations.h"
 #include "DisplayList.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "DocumentMarkerController.h"
 #include "DocumentTimeline.h"
@@ -106,7 +107,7 @@
 #include "HTMLSelectElement.h"
 #include "HTMLTextAreaElement.h"
 #include "HTMLVideoElement.h"
-#include "HighlightRegister.h"
+#include "HighlightRegistry.h"
 #include "HistoryController.h"
 #include "HistoryItem.h"
 #include "HitTestResult.h"
@@ -800,7 +801,7 @@ ExceptionOr<double> Internals::svgAnimationsInterval(SVGSVGElement& element) con
 Vector<Ref<SVGSVGElement>> Internals::allSVGSVGElements() const
 {
     Vector<Ref<SVGSVGElement>> elements;
-    for (auto* document : Document::allDocuments()) {
+    for (auto& document : Document::allDocuments()) {
         if (!document->svgExtensions())
             continue;
         elements.appendVector(document->accessSVGExtensions().allSVGSVGElements());
@@ -2912,7 +2913,7 @@ unsigned Internals::numberOfIDBTransactions() const
 unsigned Internals::numberOfLiveNodes() const
 {
     unsigned nodeCount = 0;
-    for (auto* document : Document::allDocuments())
+    for (auto& document : Document::allDocuments())
         nodeCount += document->referencingNodeCount();
     return nodeCount;
 }
@@ -3793,6 +3794,16 @@ void Internals::setMockVideoPresentationModeEnabled(bool enabled)
     document->page()->chrome().client().setMockVideoPresentationModeEnabled(enabled);
 }
 #endif
+
+void Internals::setCanvasNoiseInjectionSalt(HTMLCanvasElement& element, unsigned long long salt)
+{
+    return element.setNoiseInjectionSalt(salt);
+}
+
+bool Internals::doesCanvasHavePendingCanvasNoiseInjection(HTMLCanvasElement& element) const
+{
+    return element.havePendingCanvasNoiseInjection();
+}
 
 void Internals::setApplicationCacheOriginQuota(unsigned long long quota)
 {
@@ -6748,11 +6759,11 @@ unsigned Internals::numberOfAppHighlights()
     Document* document = contextDocument();
     if (!document)
         return 0;
-    auto appHighlightRegister = document->appHighlightRegisterIfExists();
-    if (!appHighlightRegister)
+    auto appHighlightRegistry = document->appHighlightRegistryIfExists();
+    if (!appHighlightRegistry)
         return 0;
     unsigned numHighlights = 0;
-    for (auto& highlight : appHighlightRegister->map())
+    for (auto& highlight : appHighlightRegistry->map())
         numHighlights += highlight.value->highlightRanges().size();
     return numHighlights;
 }

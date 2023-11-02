@@ -40,6 +40,8 @@
 #include "MediaAccessDenialReason.h"
 #include "MediaConstraints.h"
 #include "MediaDeviceHashSalts.h"
+#include "PhotoCapabilities.h"
+#include "PhotoSettings.h"
 #include "PlatformLayer.h"
 #include "RealtimeMediaSourceCapabilities.h"
 #include "RealtimeMediaSourceFactory.h"
@@ -47,6 +49,7 @@
 #include "VideoFrameTimeMetadata.h"
 #include <wtf/CheckedPtr.h>
 #include <wtf/CompletionHandler.h>
+#include <wtf/Forward.h>
 #include <wtf/Lock.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -78,6 +81,7 @@ enum class VideoFrameRotation : uint16_t;
 
 struct CaptureSourceError;
 struct CaptureSourceOrError;
+struct PhotoCapabilitiesOrError;
 struct VideoFrameAdaptor;
 
 class WEBCORE_EXPORT RealtimeMediaSource
@@ -175,9 +179,6 @@ public:
     double frameRate() const { return m_frameRate; }
     void setFrameRate(double);
 
-    double zoom() const { return m_zoom; }
-    void setZoom(double);
-
     VideoFacingMode facingMode() const { return m_facingMode; }
     void setFacingMode(VideoFacingMode);
 
@@ -186,6 +187,12 @@ public:
 
     double volume() const { return m_volume; }
     void setVolume(double);
+
+    double zoom() const { return m_zoom; }
+    void setZoom(double);
+
+    double torch() const { return m_torch; }
+    void setTorch(bool);
 
     int sampleRate() const { return m_sampleRate; }
     void setSampleRate(int);
@@ -203,6 +210,12 @@ public:
     virtual void ref() const = 0;
     virtual void deref() const = 0;
     virtual ThreadSafeWeakPtrControlBlock& controlBlock() const = 0;
+
+    using PhotoCapabilitiesHandler = CompletionHandler<void(PhotoCapabilitiesOrError&&)>;
+    virtual void getPhotoCapabilities(PhotoCapabilitiesHandler&&);
+
+    using PhotoSettingsNativePromise = NativePromise<PhotoSettings, String>;
+    virtual Ref<PhotoSettingsNativePromise> getPhotoSettings();
 
     struct ApplyConstraintsError {
         String badConstraint;
@@ -265,8 +278,8 @@ protected:
 
     void scheduleDeferredTask(Function<void()>&&);
 
-    virtual void beginConfiguration() { }
-    virtual void commitConfiguration() { }
+    virtual void startApplyingConstraints() { }
+    virtual void endApplyingConstraints() { }
 
     bool selectSettings(const MediaConstraints&, FlattenedConstraint&, String&);
     double fitnessDistance(const MediaConstraint&);
@@ -343,13 +356,15 @@ private:
     // Set on sample generation thread.
     IntSize m_intrinsicSize;
     double m_frameRate { 30 };
-    double m_zoom { 1 };
     double m_volume { 1 };
     double m_sampleRate { 0 };
     double m_sampleSize { 0 };
     double m_fitnessScore { 0 };
     VideoFacingMode m_facingMode { VideoFacingMode::User };
+
     MeteringMode m_whiteBalanceMode { MeteringMode::None };
+    double m_zoom { 1 };
+    bool m_torch { false };
 
     bool m_muted { false };
     bool m_pendingSettingsDidChangeNotification { false };
@@ -385,6 +400,25 @@ struct CaptureSourceOrError {
 
     RefPtr<RealtimeMediaSource> captureSource;
     CaptureSourceError error;
+};
+
+struct PhotoCapabilitiesOrError {
+    PhotoCapabilitiesOrError() = default;
+    PhotoCapabilitiesOrError(std::optional<PhotoCapabilities>&& capabilities, String&& errorMessage)
+        : capabilities(WTFMove(capabilities))
+        , errorMessage(WTFMove(errorMessage))
+    { }
+    PhotoCapabilitiesOrError(PhotoCapabilities& capabilities)
+        : capabilities({ capabilities })
+    { }
+    explicit PhotoCapabilitiesOrError(String&& errorMessage)
+        : errorMessage(WTFMove(errorMessage))
+    { }
+
+    operator bool() const { return capabilities.has_value(); }
+
+    std::optional<PhotoCapabilities> capabilities;
+    String errorMessage;
 };
 
 String convertEnumerationToString(RealtimeMediaSource::Type);

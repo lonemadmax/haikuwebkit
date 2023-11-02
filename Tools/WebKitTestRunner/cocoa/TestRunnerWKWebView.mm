@@ -36,7 +36,6 @@
 #import <wtf/RetainPtr.h>
 
 #if PLATFORM(IOS_FAMILY)
-#import "UIKitSPI.h"
 #import "UIKitSPIForTesting.h"
 #import <WebKit/WKWebViewPrivate.h>
 
@@ -49,10 +48,6 @@
 - (void)_scheduleVisibleContentRectUpdate;
 
 @end
-#endif
-
-#if HAVE(PEPPER_UI_CORE)
-#import "PepperUICoreSPI.h"
 #endif
 
 struct CustomMenuActionInfo {
@@ -273,14 +268,22 @@ IGNORE_WARNINGS_END
 - (void)_dismissAllContextMenuInteractions
 {
 #if USE(UICONTEXTMENU)
-    for (id <UIInteraction> interaction in self.contentView.interactions) {
-        if (auto contextMenuInteraction = dynamic_objc_cast<UIContextMenuInteraction>(interaction)) {
-            [UIView performWithoutAnimation:^{
-                [contextMenuInteraction dismissMenu];
-            }];
+    auto dismissContextMenuInteractionsForView = ^(UIView *view) {
+        for (id<UIInteraction> interaction in view.interactions) {
+            if (auto contextMenuInteraction = dynamic_objc_cast<UIContextMenuInteraction>(interaction)) {
+                [UIView performWithoutAnimation:^{
+                    [contextMenuInteraction dismissMenu];
+                }];
+            }
         }
+    };
+
+    for (UIView *subview in self.contentView.subviews) {
+        if ([subview isKindOfClass:UIButton.class])
+            dismissContextMenuInteractionsForView(subview);
     }
-#endif
+    dismissContextMenuInteractionsForView(self.contentView);
+#endif // USE(UICONTEXTMENU)
 }
 
 - (void)setAllowedMenuActions:(NSArray<NSString *> *)actions
@@ -380,6 +383,9 @@ IGNORE_WARNINGS_END
     auto scroller = self.scrollView;
     if (scroller.isZooming || scroller.isAnimatingZoom || scroller.isAnimatingScroll
         || scroller.isVerticalBouncing || scroller.isHorizontalBouncing || scroller.isZoomBouncing)
+        return YES;
+
+    if (self._keyboardScrollingAnimationRunning)
         return YES;
 
     static NeverDestroyed<RetainPtr<NSSet>> animationKeyNames = [NSSet setWithArray:@[
@@ -522,10 +528,10 @@ IGNORE_WARNINGS_END
 static bool isQuickboardViewController(UIViewController *viewController)
 {
 #if HAVE(PEPPER_UI_CORE)
-    if ([viewController isKindOfClass:PUICQuickboardViewController.class])
+    if ([viewController isKindOfClass:NSClassFromString(@"PUICQuickboardViewController")])
         return true;
 #if HAVE(QUICKBOARD_CONTROLLER)
-    if ([viewController isKindOfClass:PUICQuickboardRemoteViewController.class])
+    if ([viewController isKindOfClass:NSClassFromString(@"PUICQuickboardRemoteViewController")])
         return true;
 #endif // HAVE(QUICKBOARD_CONTROLLER)
 #endif // HAVE(PEPPER_UI_CORE)

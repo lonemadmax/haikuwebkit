@@ -539,6 +539,7 @@ void* fastMalloc(size_t size)
     if (!AvoidRecordingScope::avoidRecordingCount())
         MallocCallTracker::singleton().recordMalloc(result, size);
 #endif
+    BPROFILE_ALLOCATION(NON_JS_CELL, result, size);
     return result;
 }
 
@@ -551,6 +552,7 @@ void* fastZeroedMalloc(size_t size)
     if (!AvoidRecordingScope::avoidRecordingCount())
         MallocCallTracker::singleton().recordMalloc(result, size);
 #endif
+    BPROFILE_ALLOCATION(NON_JS_CELL, result, size);
     return result;
 }
 
@@ -558,7 +560,9 @@ TryMallocReturnValue tryFastZeroedMalloc(size_t size)
 {
     FAIL_IF_EXCEEDS_LIMIT(size);
     ASSERT(!forbidMallocUseScopeCount || disableMallocRestrictionScopeCount);
-    return bmalloc::api::tryZeroedMalloc(size);
+    void* result = bmalloc::api::tryZeroedMalloc(size);
+    BPROFILE_TRY_ALLOCATION(NON_JS_CELL, result, size);
+    return result;
 }
 
 void* fastCalloc(size_t numElements, size_t elementSize)
@@ -569,6 +573,7 @@ void* fastCalloc(size_t numElements, size_t elementSize)
     void* result = fastZeroedMalloc(checkedSize);
     if (!result)
         CRASH();
+    BPROFILE_ALLOCATION(NON_JS_CELL, result, size);
     return result;
 }
 
@@ -581,6 +586,7 @@ void* fastRealloc(void* object, size_t size)
     if (!AvoidRecordingScope::avoidRecordingCount())
         MallocCallTracker::singleton().recordRealloc(object, result, size);
 #endif
+    BPROFILE_ALLOCATION(NON_JS_CELL, result, size);
     return result;
 }
 
@@ -624,6 +630,7 @@ void* fastAlignedMalloc(size_t alignment, size_t size)
     if (!AvoidRecordingScope::avoidRecordingCount())
         MallocCallTracker::singleton().recordMalloc(result, size);
 #endif
+    BPROFILE_ALLOCATION(NON_JS_CELL, result, size);
     return result;
 }
 
@@ -636,6 +643,7 @@ void* tryFastAlignedMalloc(size_t alignment, size_t size)
     if (!AvoidRecordingScope::avoidRecordingCount())
         MallocCallTracker::singleton().recordMalloc(result, size);
 #endif
+    BPROFILE_TRY_ALLOCATION(NON_JS_CELL, result, size);
     return result;
 }
 
@@ -648,7 +656,9 @@ TryMallocReturnValue tryFastMalloc(size_t size)
 {
     FAIL_IF_EXCEEDS_LIMIT(size);
     ASSERT(!forbidMallocUseScopeCount || disableMallocRestrictionScopeCount);
-    return bmalloc::api::tryMalloc(size);
+    void* result = bmalloc::api::tryMalloc(size);
+    BPROFILE_TRY_ALLOCATION(NON_JS_CELL, result, size);
+    return result;
 }
 
 TryMallocReturnValue tryFastCalloc(size_t numElements, size_t elementSize)
@@ -665,7 +675,9 @@ TryMallocReturnValue tryFastRealloc(void* object, size_t newSize)
 {
     FAIL_IF_EXCEEDS_LIMIT(newSize);
     ASSERT(!forbidMallocUseScopeCount || disableMallocRestrictionScopeCount);
-    return bmalloc::api::tryRealloc(object, newSize);
+    void* result = bmalloc::api::tryRealloc(object, newSize);
+    BPROFILE_TRY_ALLOCATION(NON_JS_CELL, result, size);
+    return result;
 }
 
 void releaseFastMallocFreeMemoryForThisThread()

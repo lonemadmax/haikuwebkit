@@ -36,8 +36,8 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGBlock);
 
-RenderSVGBlock::RenderSVGBlock(SVGGraphicsElement& element, RenderStyle&& style)
-    : RenderBlockFlow(element, WTFMove(style))
+RenderSVGBlock::RenderSVGBlock(Type type, SVGGraphicsElement& element, RenderStyle&& style)
+    : RenderBlockFlow(type, element, WTFMove(style))
 {
 }
 
@@ -157,7 +157,7 @@ LayoutRect RenderSVGBlock::clippedOverflowRect(const RenderLayerModelObject* rep
     UNUSED_PARAM(context);
 #endif
 
-    return SVGRenderSupport::clippedOverflowRectForRepaint(*this, repaintContainer);
+    return SVGRenderSupport::clippedOverflowRectForRepaint(*this, repaintContainer, context);
 }
 
 std::optional<LayoutRect> RenderSVGBlock::computeVisibleRectInContainer(const LayoutRect& rect, const RenderLayerModelObject* container, VisibleRectContext context) const

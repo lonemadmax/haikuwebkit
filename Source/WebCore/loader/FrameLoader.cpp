@@ -2869,7 +2869,7 @@ void FrameLoader::detachChildren()
         auto* localChild = dynamicDowncast<LocalFrame>(child);
         if (!localChild)
             continue;
-        childrenToDetach.uncheckedAppend(*localChild);
+        childrenToDetach.append(*localChild);
     }
     for (auto& child : childrenToDetach)
         child->loader().detachFromParent();
@@ -4530,6 +4530,16 @@ void FrameLoader::advanceStatePastInitialEmptyDocument()
         stateMachine().advanceTo(FrameLoaderStateMachine::DisplayingInitialEmptyDocumentPostCommit);
     if (stateMachine().isDisplayingInitialEmptyDocument() && stateMachine().committedFirstRealDocumentLoad())
         stateMachine().advanceTo(FrameLoaderStateMachine::CommittedFirstRealLoad);
+}
+
+void FrameLoader::incrementPtrCount() const
+{
+    m_frame.incrementPtrCount();
+}
+
+void FrameLoader::decrementPtrCount() const
+{
+    m_frame.decrementPtrCount();
 }
 
 } // namespace WebCore

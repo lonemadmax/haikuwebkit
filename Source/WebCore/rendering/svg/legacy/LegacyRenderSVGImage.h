@@ -57,7 +57,6 @@ private:
     void element() const = delete;
 
     ASCIILiteral renderName() const override { return "RenderSVGImage"_s; }
-    bool isLegacySVGImage() const override { return true; }
     bool canHaveChildren() const override { return false; }
 
     const AffineTransform& localToParentTransform() const override { return m_localTransform; }
@@ -65,7 +64,7 @@ private:
     FloatRect calculateObjectBoundingBox() const;
     FloatRect objectBoundingBox() const override { return m_objectBoundingBox; }
     FloatRect strokeBoundingBox() const override { return m_objectBoundingBox; }
-    FloatRect repaintRectInLocalCoordinates() const override { return m_repaintBoundingBox; }
+    FloatRect repaintRectInLocalCoordinates(RepaintRectCalculation = RepaintRectCalculation::Fast) const override { return m_repaintBoundingBox; }
 
     void addFocusRingRects(Vector<LayoutRect>&, const LayoutPoint& additionalOffset, const RenderLayerModelObject* paintContainer = 0) const override;
 

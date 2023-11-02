@@ -42,6 +42,7 @@ interface TestRunner {
     undefined waitUntilDownloadFinished();
     undefined setShouldLogDownloadCallbacks(boolean value);
     undefined setShouldLogDownloadSize(boolean value);
+    undefined setShouldLogDownloadExpectedSize(boolean value);
 
     const unsigned short RENDER_TREE_SHOW_ALL_LAYERS            = 1;
     const unsigned short RENDER_TREE_SHOW_LAYER_NESTING         = 2;
@@ -77,6 +78,7 @@ interface TestRunner {
     unsigned long domCacheSize(DOMString origin);
     undefined setAllowStorageQuotaIncrease(boolean value);
     undefined setQuota(unsigned long long quota);
+    undefined setOriginQuotaRatioEnabled(boolean value);
 
     // Special options.
     undefined keepWebHistory();
@@ -346,6 +348,7 @@ interface TestRunner {
     boolean statisticsNotifyObserver();
     undefined statisticsProcessStatisticsAndDataRecords();
     undefined statisticsUpdateCookieBlocking(object completionHandler);
+    undefined setStatisticsTimeAdvanceForTesting(double value);
     undefined setStatisticsIsRunningTest(boolean value);
     undefined setStatisticsShouldClassifyResourcesBeforeDataRecordsRemoval(boolean value);
     undefined setStatisticsMinimumTimeBetweenDataRecordsRemoval(double seconds);
@@ -413,7 +416,7 @@ interface TestRunner {
     undefined setMockCameraOrientation(unsigned long orientation);
     boolean isMockRealtimeMediaSourceCenterEnabled();
     undefined setMockCaptureDevicesInterrupted(boolean isCameraInterrupted, boolean isMicrophoneInterrupted);
-    undefined triggerMockMicrophoneConfigurationChange();
+    undefined triggerMockCaptureConfigurationChange(boolean forMicrophone, boolean forDisplay);
 
     boolean hasAppBoundSession();
     undefined clearAppBoundSession();

@@ -45,6 +45,7 @@
 #include "SecurityContext.h"
 #include "StoredCredentialsPolicy.h"
 #include "Timer.h"
+#include <wtf/CheckedRef.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
@@ -103,6 +104,10 @@ class FrameLoader final {
 public:
     FrameLoader(LocalFrame&, UniqueRef<LocalFrameLoaderClient>&&);
     ~FrameLoader();
+
+    // For use with CheckedPtr / CheckedRef. Forwards the pointer counting to the owning frame.
+    void incrementPtrCount() const;
+    void decrementPtrCount() const;
 
     WEBCORE_EXPORT void init();
     void initForSynthesizedDocument(const URL&);

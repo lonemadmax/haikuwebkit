@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,6 +28,7 @@
 
 #if ENABLE(WEBASSEMBLY)
 
+#include "InPlaceInterpreter.h"
 #include "LLIntExceptions.h"
 #include "NativeCalleeRegistry.h"
 #include "WasmCallingConvention.h"
@@ -179,11 +180,34 @@ IPIntCallee::IPIntCallee(FunctionIPIntMetadataGenerator& generator, size_t index
     , m_argumINTBytecode(WTFMove(generator.m_argumINTBytecode))
     , m_argumINTBytecodePointer(m_argumINTBytecode.data())
     , m_returnMetadata(generator.m_returnMetadata)
-    , m_localSizeToAlloc(roundUpToMultipleOf(2, generator.m_numLocals))
+    , m_localSizeToAlloc(roundUpToMultipleOf<2>(generator.m_numLocals))
+    , m_numRethrowSlotsToAlloc(generator.m_numAlignedRethrowSlots)
     , m_numLocals(generator.m_numLocals)
     , m_numArgumentsOnStack(generator.m_numArgumentsOnStack)
     , m_tierUpCounter(WTFMove(generator.m_tierUpCounter))
 {
+    if (size_t count = generator.m_exceptionHandlers.size()) {
+        m_exceptionHandlers = FixedVector<HandlerInfo>(count);
+        for (size_t i = 0; i < count; i++) {
+            const UnlinkedHandlerInfo& unlinkedHandler = generator.m_exceptionHandlers[i];
+            HandlerInfo& handler = m_exceptionHandlers[i];
+            void* ptr = reinterpret_cast<void*>(unlinkedHandler.m_type == HandlerType::Catch ? ipint_catch_entry : ipint_catch_all_entry);
+            void* untagged = CodePtr<CFunctionPtrTag>::fromTaggedPtr(ptr).template untaggedPtr();
+            void* retagged = nullptr;
+#if ENABLE(JIT_CAGE)
+            if (Options::useJITCage())
+#else
+            if (false)
+#endif
+                retagged = tagCodePtr<ExceptionHandlerPtrTag>(untagged);
+            else
+                retagged = WTF::tagNativeCodePtrImpl<ExceptionHandlerPtrTag>(untagged);
+            assertIsTaggedWith<ExceptionHandlerPtrTag>(retagged);
+
+            CodeLocationLabel<ExceptionHandlerPtrTag> target(retagged);
+            handler.initialize(unlinkedHandler, target);
+        }
+    }
 }
 
 void IPIntCallee::setEntrypoint(CodePtr<WasmEntryPtrTag> entrypoint)

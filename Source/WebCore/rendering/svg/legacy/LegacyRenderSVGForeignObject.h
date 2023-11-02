@@ -44,14 +44,13 @@ public:
 
     FloatRect objectBoundingBox() const override { return FloatRect(FloatPoint(), m_viewport.size()); }
     FloatRect strokeBoundingBox() const override { return FloatRect(FloatPoint(), m_viewport.size()); }
-    FloatRect repaintRectInLocalCoordinates() const override { return FloatRect(FloatPoint(), m_viewport.size()); }
+    FloatRect repaintRectInLocalCoordinates(RepaintRectCalculation = RepaintRectCalculation::Fast) const override { return FloatRect(FloatPoint(), m_viewport.size()); }
 
     bool nodeAtFloatPoint(const HitTestRequest&, HitTestResult&, const FloatPoint& pointInParent, HitTestAction) override;
 
     void setNeedsTransformUpdate() override { m_needsTransformUpdate = true; }
 
 private:
-    bool isLegacySVGForeignObject() const override { return true; }
     void graphicsElement() const = delete;
     ASCIILiteral renderName() const override { return "RenderSVGForeignObject"_s; }
 

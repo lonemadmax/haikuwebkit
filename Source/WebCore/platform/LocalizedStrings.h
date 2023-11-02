@@ -231,8 +231,8 @@ namespace WebCore {
     String AXButtonActionVerb();
     String AXRadioButtonActionVerb();
     String AXTextFieldActionVerb();
-    String AXCheckedCheckBoxActionVerb();
-    String AXUncheckedCheckBoxActionVerb();
+    String AXCheckedCheckboxActionVerb();
+    String AXUncheckedCheckboxActionVerb();
     String AXMenuListActionVerb();
     String AXMenuListPopupActionVerb();
     String AXLinkActionVerb();
@@ -310,6 +310,7 @@ namespace WebCore {
     String validationMessageValueMissingForMultipleFileText();
     String validationMessageValueMissingForRadioText();
     String validationMessageValueMissingForSelectText();
+    String validationMessageValueMissingForSwitchText();
     String validationMessageTypeMismatchText();
     String validationMessageTypeMismatchForEmailText();
     String validationMessageTypeMismatchForMultipleEmailText();

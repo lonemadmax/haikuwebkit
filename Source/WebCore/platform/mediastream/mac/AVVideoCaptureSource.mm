@@ -26,8 +26,9 @@
 #import "config.h"
 #import "AVVideoCaptureSource.h"
 
-#if ENABLE(MEDIA_STREAM) && USE(AVFOUNDATION)
+#if ENABLE(MEDIA_STREAM) && HAVE(AVCAPTUREDEVICE)
 
+#import "FillLightMode.h"
 #import "ImageBuffer.h"
 #import "ImageTransferSessionVT.h"
 #import "IntRect.h"
@@ -46,6 +47,8 @@
 #import <objc/runtime.h>
 #import <pal/avfoundation/MediaTimeAVFoundation.h>
 #import <pal/spi/cocoa/AVFoundationSPI.h>
+#import <wtf/NativePromise.h>
+#import <wtf/Scope.h>
 
 #import "CoreVideoSoftLink.h"
 #import <pal/cocoa/AVFoundationSoftLink.h>
@@ -182,6 +185,7 @@ AVVideoCaptureSource::AVVideoCaptureSource(AVCaptureDevice* avDevice, const Capt
     , m_device(avDevice)
     , m_zoomScaleFactor(cameraZoomScaleFactor([avDevice deviceType]))
     , m_verifyCapturingTimer(*this, &AVVideoCaptureSource::verifyIsCapturing)
+    , m_defaultTorchMode((int64_t)[m_device torchMode])
 {
     [m_device addObserver:m_objcObserver.get() forKeyPath:@"suspended" options:NSKeyValueObservingOptionNew context:(void *)nil];
 }
@@ -269,6 +273,30 @@ void AVVideoCaptureSource::stopProducingData()
 #endif
 }
 
+void AVVideoCaptureSource::startApplyingConstraints()
+{
+    ASSERT(!m_hasBegunConfigurationForConstraints);
+    m_hasBegunConfigurationForConstraints = false;
+}
+
+void AVVideoCaptureSource::endApplyingConstraints()
+{
+    if (!m_hasBegunConfigurationForConstraints)
+        return;
+
+    m_hasBegunConfigurationForConstraints = false;
+    commitConfiguration();
+}
+
+void AVVideoCaptureSource::beginConfigurationForConstraintsIfNeeded()
+{
+    if (m_hasBegunConfigurationForConstraints)
+        return;
+
+    m_hasBegunConfigurationForConstraints = true;
+    beginConfiguration();
+}
+
 void AVVideoCaptureSource::beginConfiguration()
 {
     if (++m_beginConfigurationCount > 1)
@@ -284,10 +312,8 @@ void AVVideoCaptureSource::commitConfiguration()
     if (!m_beginConfigurationCount || --m_beginConfigurationCount > 0)
         return;
 
-    if (!m_session)
-        return;
-
-    [m_session commitConfiguration];
+    if (m_session)
+        [m_session commitConfiguration];
 }
 
 void AVVideoCaptureSource::settingsDidChange(OptionSet<RealtimeMediaSourceSettings::Flag> settings)
@@ -296,6 +322,8 @@ void AVVideoCaptureSource::settingsDidChange(OptionSet<RealtimeMediaSourceSettin
 
     if (settings.contains(RealtimeMediaSourceSettings::Flag::WhiteBalanceMode))
         updateWhiteBalanceMode();
+    if (settings.contains(RealtimeMediaSourceSettings::Flag::Torch))
+        updateTorch();
 }
 
 static bool isZoomSupported(const Vector<VideoPreset>& presets)
@@ -311,11 +339,11 @@ static Vector<MeteringMode> supportedWhiteBalanceModes(AVCaptureDevice* device)
     whiteBalanceModes.reserveInitialCapacity(3);
 
     if ([device isWhiteBalanceModeSupported:AVCaptureWhiteBalanceModeLocked])
-        whiteBalanceModes.uncheckedAppend(MeteringMode::Manual);
+        whiteBalanceModes.append(MeteringMode::Manual);
     if ([device isWhiteBalanceModeSupported:AVCaptureWhiteBalanceModeAutoWhiteBalance])
-        whiteBalanceModes.uncheckedAppend(MeteringMode::SingleShot);
+        whiteBalanceModes.append(MeteringMode::SingleShot);
     if ([device isWhiteBalanceModeSupported:AVCaptureWhiteBalanceModeContinuousAutoWhiteBalance])
-        whiteBalanceModes.uncheckedAppend(MeteringMode::Continuous);
+        whiteBalanceModes.append(MeteringMode::Continuous);
 
     return whiteBalanceModes;
 }
@@ -364,6 +392,11 @@ const RealtimeMediaSourceSettings& AVVideoCaptureSource::settings()
         settings.setWhiteBalanceMode(meteringModeFromAVCaptureWhiteBalanceMode([device() whiteBalanceMode]));
     }
 
+    if ([device() hasTorch]) {
+        supportedConstraints.setSupportsTorch(true);
+        settings.setTorch([device() torchMode] == AVCaptureTorchModeOn);
+    }
+
     settings.setSupportedConstraints(supportedConstraints);
 
     m_currentSettings = WTFMove(settings);
@@ -385,30 +418,87 @@ const RealtimeMediaSourceCapabilities& AVVideoCaptureSource::capabilities()
     if ([videoDevice position] == AVCaptureDevicePositionBack)
         capabilities.addFacingMode(VideoFacingMode::Environment);
 
+    auto supportedConstraints = settings().supportedConstraints();
+
 #if HAVE(AVCAPTUREDEVICE_MINFOCUSLENGTH)
     double minimumFocusDistance = [videoDevice minimumFocusDistance];
     if (minimumFocusDistance != -1.0) {
         ASSERT(minimumFocusDistance >= 0);
-        auto supportedConstraints = settings().supportedConstraints();
         supportedConstraints.setSupportsFocusDistance(true);
         capabilities.setFocusDistance({ minimumFocusDistance / 1000, std::numeric_limits<double>::max() });
-        capabilities.setSupportedConstraints(supportedConstraints);
     }
 #endif // HAVE(AVCAPTUREDEVICE_MINFOCUSLENGTH)
 
     auto whiteBalanceModes = supportedWhiteBalanceModes(videoDevice);
     if (!whiteBalanceModes.isEmpty()) {
-        auto supportedConstraints = settings().supportedConstraints();
         supportedConstraints.setSupportsWhiteBalanceMode(true);
         capabilities.setWhiteBalanceModes(WTFMove(whiteBalanceModes));
-        capabilities.setSupportedConstraints(supportedConstraints);
     }
 
+    if ([videoDevice hasTorch]) {
+        supportedConstraints.setSupportsTorch(true);
+        capabilities.setTorch(true);
+    }
+
+    capabilities.setSupportedConstraints(supportedConstraints);
     updateCapabilities(capabilities);
 
     m_capabilities = WTFMove(capabilities);
 
     return *m_capabilities;
+}
+
+void AVVideoCaptureSource::getPhotoCapabilities(PhotoCapabilitiesHandler&& completion)
+{
+    if (m_photoCapabilities) {
+        completion({ *m_photoCapabilities });
+        return;
+    }
+
+    auto capabilities = this->capabilities();
+    PhotoCapabilities photoCapabilities;
+
+    auto height = capabilities.height();
+    photoCapabilities.imageHeight = { height.longRange().max, height.longRange().min, 1 };
+
+    auto width = capabilities.width();
+    photoCapabilities.imageWidth = { width.longRange().max, width.longRange().min, 1 };
+
+    m_photoCapabilities = WTFMove(photoCapabilities);
+
+    completion({ *m_photoCapabilities });
+}
+
+static FillLightMode toFillLightMode(AVCaptureTorchMode mode)
+{
+    switch (mode) {
+    case AVCaptureTorchModeOff:
+        return FillLightMode::Off;
+        break;
+    case AVCaptureTorchModeOn:
+        return FillLightMode::Flash;
+        break;
+    case AVCaptureTorchModeAuto:
+        return FillLightMode::Auto;
+        break;
+    }
+
+    ASSERT_NOT_REACHED();
+    return FillLightMode::Auto;
+}
+
+auto AVVideoCaptureSource::getPhotoSettings() -> Ref<PhotoSettingsNativePromise>
+{
+    if (!m_photoSettings) {
+        std::optional<FillLightMode> fillLightMode;
+        if ([device() hasTorch])
+            fillLightMode = { toFillLightMode([device() torchMode]) };
+
+        auto settings = this->settings();
+        m_photoSettings = PhotoSettings { fillLightMode, settings.height(), settings.width(), { } };
+    }
+
+    return PhotoSettingsNativePromise::createAndResolve(*m_photoSettings);
 }
 
 NSMutableArray* AVVideoCaptureSource::cameraCaptureDeviceTypes()
@@ -469,18 +559,30 @@ bool AVVideoCaptureSource::prefersPreset(const VideoPreset& preset)
 
 void AVVideoCaptureSource::setFrameRateAndZoomWithPreset(double requestedFrameRate, double requestedZoom, std::optional<VideoPreset>&& preset)
 {
+    requestedZoom *= m_zoomScaleFactor;
+    if (m_currentFrameRate == requestedFrameRate && m_currentZoom == requestedZoom && preset && m_currentPreset && preset->format() == m_currentPreset->format())
+        return;
+
+    beginConfigurationForConstraintsIfNeeded();
+
     m_currentPreset = WTFMove(preset);
     if (m_currentPreset)
         setIntrinsicSize({ m_currentPreset->size().width(), m_currentPreset->size().height() });
 
     m_currentFrameRate = requestedFrameRate;
-    m_currentZoom = m_zoomScaleFactor * requestedZoom;
+    m_currentZoom = requestedZoom;
 
     setSessionSizeFrameRateAndZoom();
 }
 
+static bool isSameFrameRateRange(AVFrameRateRange* a, AVFrameRateRange* b)
+{
+    return a.minFrameRate == b.minFrameRate && a.maxFrameRate == b.maxFrameRate && !PAL::CMTimeCompare(a.minFrameDuration, b.minFrameDuration) && !PAL::CMTimeCompare(a.maxFrameDuration, b.maxFrameDuration);
+}
+
 void AVVideoCaptureSource::setSessionSizeFrameRateAndZoom()
 {
+    ASSERT(m_beginConfigurationCount);
     if (!m_session)
         return;
 
@@ -492,65 +594,63 @@ void AVVideoCaptureSource::setSessionSizeFrameRateAndZoom()
     auto* frameRateRange = frameDurationForFrameRate(m_currentFrameRate);
     ASSERT(frameRateRange);
 
-    if (m_appliedPreset && m_appliedPreset->format() == m_currentPreset->format() && m_appliedFrameRateRange.get() == frameRateRange && m_appliedZoom == m_currentZoom) {
+    if (m_appliedPreset && m_appliedPreset->format() == m_currentPreset->format() && isSameFrameRateRange(m_appliedFrameRateRange.get(), frameRateRange) && m_appliedZoom == m_currentZoom) {
         ALWAYS_LOG_IF(loggerPtr(), LOGIDENTIFIER, " settings already match");
         return;
     }
 
     ASSERT(m_currentPreset->format());
 
-    NSError *error = nil;
+    if (!lockForConfiguration())
+        return;
+
     beginConfiguration();
     @try {
-        if ([device() lockForConfiguration:&error]) {
-            [device() setActiveFormat:m_currentPreset->format()];
+        [device() setActiveFormat:m_currentPreset->format()];
 
 #if PLATFORM(MAC)
-            auto settingsDictionary = @{
-                (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(avVideoCapturePixelBufferFormat()),
-                (__bridge NSString *)kCVPixelBufferWidthKey: @(m_currentPreset->size().width()),
-                (__bridge NSString *)kCVPixelBufferHeightKey: @(m_currentPreset->size().height()),
-                (__bridge NSString *)kCVPixelBufferIOSurfacePropertiesKey : @{ }
-            };
-            [m_videoOutput setVideoSettings:settingsDictionary];
+        auto settingsDictionary = @{
+            (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(avVideoCapturePixelBufferFormat()),
+            (__bridge NSString *)kCVPixelBufferWidthKey: @(m_currentPreset->size().width()),
+            (__bridge NSString *)kCVPixelBufferHeightKey: @(m_currentPreset->size().height()),
+            (__bridge NSString *)kCVPixelBufferIOSurfacePropertiesKey : @{ }
+        };
+        [m_videoOutput setVideoSettings:settingsDictionary];
 #endif
 
-            if (frameRateRange) {
-                m_currentFrameRate = clampTo(m_currentFrameRate, frameRateRange.minFrameRate, frameRateRange.maxFrameRate);
+        if (frameRateRange) {
+            m_currentFrameRate = clampTo(m_currentFrameRate, frameRateRange.minFrameRate, frameRateRange.maxFrameRate);
 
-                auto frameDuration = PAL::CMTimeMake(1, m_currentFrameRate);
-                if (PAL::CMTimeCompare(frameDuration, frameRateRange.minFrameDuration) < 0)
-                    frameDuration = frameRateRange.minFrameDuration;
-                else if (PAL::CMTimeCompare(frameDuration, frameRateRange.maxFrameDuration) > 0)
-                    frameDuration = frameRateRange.maxFrameDuration;
+            auto frameDuration = PAL::CMTimeMake(1, m_currentFrameRate);
+            if (PAL::CMTimeCompare(frameDuration, frameRateRange.minFrameDuration) < 0)
+                frameDuration = frameRateRange.minFrameDuration;
+            else if (PAL::CMTimeCompare(frameDuration, frameRateRange.maxFrameDuration) > 0)
+                frameDuration = frameRateRange.maxFrameDuration;
 
-                ALWAYS_LOG_IF(loggerPtr(), LOGIDENTIFIER, "setting frame rate to ", m_currentFrameRate, ", duration ", PAL::toMediaTime(frameDuration));
+            ALWAYS_LOG_IF(loggerPtr(), LOGIDENTIFIER, "setting frame rate to ", m_currentFrameRate, ", duration ", PAL::toMediaTime(frameDuration));
 
-                [device() setActiveVideoMinFrameDuration: frameDuration];
-                [device() setActiveVideoMaxFrameDuration: frameDuration];
-            } else
-                ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "cannot find proper frame rate range for the selected preset\n");
+            [device() setActiveVideoMinFrameDuration: frameDuration];
+            [device() setActiveVideoMaxFrameDuration: frameDuration];
+        } else
+            ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "cannot find proper frame rate range for the selected preset\n");
 
 #if PLATFORM(IOS_FAMILY)
-            if (m_currentZoom != m_appliedZoom) {
-                ALWAYS_LOG_IF(loggerPtr(), LOGIDENTIFIER, "setting zoom to ", m_currentZoom);
-                [device() setVideoZoomFactor:m_currentZoom];
-                m_appliedZoom = m_currentZoom;
-            }
+        if (m_currentZoom != m_appliedZoom) {
+            ALWAYS_LOG_IF(loggerPtr(), LOGIDENTIFIER, "setting zoom to ", m_currentZoom);
+            [device() setVideoZoomFactor:m_currentZoom];
+            m_appliedZoom = m_currentZoom;
+        }
 #endif
 
-            [device() unlockForConfiguration];
-            m_appliedFrameRateRange = frameRateRange;
-            m_appliedPreset = m_currentPreset;
-        }
+        m_appliedFrameRateRange = frameRateRange;
+        m_appliedPreset = m_currentPreset;
     } @catch(NSException *exception) {
         ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "error configuring device ", exception.name, ", reason : ", exception.reason);
-        [device() unlockForConfiguration];
         ASSERT_NOT_REACHED();
     }
-    commitConfiguration();
 
-    ERROR_LOG_IF(error && loggerPtr(), LOGIDENTIFIER, error);
+    [device() unlockForConfiguration];
+    commitConfiguration();
 }
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
@@ -582,26 +682,60 @@ static inline IntDegrees sensorOrientation(AVCaptureVideoOrientation videoOrient
 }
 ALLOW_DEPRECATED_DECLARATIONS_END
 
+bool AVVideoCaptureSource::lockForConfiguration()
+{
+    ASSERT(device());
+
+    NSError *error = nil;
+    if ([device() lockForConfiguration:&error])
+        return true;
+
+    ERROR_LOG_IF(loggerPtr() && error, LOGIDENTIFIER, "error locking configuration ", error);
+    ERROR_LOG_IF(loggerPtr() && !error, LOGIDENTIFIER, "unknown error locking configuration");
+
+    return false;
+}
+
 void AVVideoCaptureSource::updateWhiteBalanceMode()
 {
-    beginConfiguration();
+    beginConfigurationForConstraintsIfNeeded();
 
-    auto mode = whiteBalanceModeFromMeteringMode(whiteBalanceMode());
-    NSError *error = nil;
+    if (!lockForConfiguration())
+        return;
+
     auto* device = this->device();
     @try {
-        if ([device lockForConfiguration:&error]) {
-            if (!error)
-                device.whiteBalanceMode = mode;
-            else
-                ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "error locking configuration ", error);
-        }
+        device.whiteBalanceMode = whiteBalanceModeFromMeteringMode(whiteBalanceMode());
     } @catch(NSException *exception) {
         ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "error setting white balance mode ", [[exception name] UTF8String], ", reason : ", exception.reason);
     }
 
     [device unlockForConfiguration];
-    commitConfiguration();
+}
+
+void AVVideoCaptureSource::updateTorch()
+{
+    beginConfigurationForConstraintsIfNeeded();
+
+    if (!lockForConfiguration())
+        return;
+
+    auto* device = this->device();
+    @try {
+        if (torch()) {
+            NSError *error = nil;
+            if (![device setTorchModeOnWithLevel:AVCaptureMaxAvailableTorchLevel error:&error]) {
+                ERROR_LOG_IF(loggerPtr() && error, LOGIDENTIFIER, "error turning on torch ", error);
+                ERROR_LOG_IF(loggerPtr() && !error, LOGIDENTIFIER, "unknown error on torch");
+            }
+        } else
+            [device setTorchMode:(AVCaptureTorchMode)m_defaultTorchMode];
+
+    } @catch(NSException *exception) {
+        ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "error turning on torch ", exception.name, ", reason : ", exception.reason);
+    }
+
+    [device unlockForConfiguration];
 }
 
 IntDegrees AVVideoCaptureSource::sensorOrientationFromVideoOutput()
@@ -644,10 +778,7 @@ bool AVVideoCaptureSource::setupSession()
 #endif
     [m_session addObserver:m_objcObserver.get() forKeyPath:@"running" options:NSKeyValueObservingOptionNew context:(void *)nil];
 
-    beginConfiguration();
     bool success = setupCaptureSession();
-    commitConfiguration();
-
     if (!success)
         captureFailed();
 
@@ -675,6 +806,9 @@ AVFrameRateRange* AVVideoCaptureSource::frameDurationForFrameRate(double rate)
 bool AVVideoCaptureSource::setupCaptureSession()
 {
     ALWAYS_LOG_IF(loggerPtr(), LOGIDENTIFIER);
+
+    beginConfiguration();
+    auto scopeExit = WTF::makeScopeExit([&] { commitConfiguration(); });
 
     NSError *error = nil;
     RetainPtr<AVCaptureDeviceInput> videoIn = adoptNS([PAL::allocAVCaptureDeviceInputInstance() initWithDevice:device() error:&error]);
@@ -988,4 +1122,4 @@ void AVVideoCaptureSource::deviceDisconnected(RetainPtr<NSNotification> notifica
 
 @end
 
-#endif // ENABLE(MEDIA_STREAM)
+#endif // ENABLE(MEDIA_STREAM) && HAVE(AVCAPTUREDEVICE)

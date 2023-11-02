@@ -40,7 +40,7 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGRect);
 
 RenderSVGRect::RenderSVGRect(SVGRectElement& element, RenderStyle&& style)
-    : RenderSVGShape(element, WTFMove(style))
+    : RenderSVGShape(Type::SVGRect, element, WTFMove(style))
 {
 }
 
@@ -55,10 +55,13 @@ void RenderSVGRect::updateShapeFromElement()
 {
     // Before creating a new object we need to clear the cached bounding box
     // to avoid using garbage.
+    clearPath();
+    m_shapeType = ShapeType::Empty;
     m_fillBoundingBox = FloatRect();
+    m_strokeBoundingBox = std::nullopt;
+    m_approximateStrokeBoundingBox = std::nullopt;
     m_innerStrokeRect = FloatRect();
     m_outerStrokeRect = FloatRect();
-    clearPath();
 
     SVGLengthContext lengthContext(&rectElement());
     FloatSize boundingBoxSize(lengthContext.valueForLength(style().width(), SVGLengthMode::Width), lengthContext.valueForLength(style().height(), SVGLengthMode::Height));
@@ -67,9 +70,14 @@ void RenderSVGRect::updateShapeFromElement()
     if (boundingBoxSize.isEmpty())
         return;
 
-    if (rectElement().rx().value(lengthContext) > 0 || rectElement().ry().value(lengthContext) > 0 || hasNonScalingStroke()) {
-        // Fall back to RenderSVGShape
-        RenderSVGShape::updateShapeFromElement();
+    if (rectElement().rx().value(lengthContext) > 0 || rectElement().ry().value(lengthContext) > 0)
+        m_shapeType = ShapeType::RoundedRectangle;
+    else
+        m_shapeType = ShapeType::Rectangle;
+
+    if (m_shapeType != ShapeType::Rectangle || hasNonScalingStroke()) {
+        // Fallback to path-based approach.
+        m_fillBoundingBox = ensurePath().boundingRect();
         return;
     }
 
@@ -93,7 +101,7 @@ void RenderSVGRect::updateShapeFromElement()
 #if USE(CG)
     // CoreGraphics can inflate the stroke by 1px when drawing a rectangle with antialiasing disabled at non-integer coordinates, we need to compensate.
     if (style().svgStyle().shapeRendering() == ShapeRendering::CrispEdges)
-        m_strokeBoundingBox.inflate(1);
+        m_strokeBoundingBox->inflate(1);
 #endif
 }
 
@@ -137,8 +145,8 @@ bool RenderSVGRect::shapeDependentStrokeContains(const FloatPoint& point, PointC
 {
     // The optimized code below does not support non-smooth strokes so we need
     // to fall back to RenderSVGShape::shapeDependentStrokeContains in these cases.
-    if (!hasSmoothStroke() && !hasPath())
-        RenderSVGShape::updateShapeFromElement();
+    if (!hasSmoothStroke())
+        ensurePath();
 
     if (hasPath())
         return RenderSVGShape::shapeDependentStrokeContains(point, pointCoordinateSpace);

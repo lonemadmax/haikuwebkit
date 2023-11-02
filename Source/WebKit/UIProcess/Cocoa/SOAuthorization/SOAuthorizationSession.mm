@@ -73,11 +73,9 @@ static const char* toString(const SOAuthorizationSession::InitiatingAction& acti
 
 static Vector<WebCore::Cookie> toCookieVector(NSArray<NSHTTPCookie *> *cookies)
 {
-    Vector<WebCore::Cookie> result;
-    result.reserveInitialCapacity(cookies.count);
-    for (id cookie in cookies)
-        result.uncheckedAppend(cookie);
-    return result;
+    return Vector<WebCore::Cookie>(cookies.count, [cookies](size_t i) {
+        return WebCore::Cookie { cookies[i] };
+    });
 }
 
 static bool isSameOrigin(const WebCore::ResourceRequest& request, const WebCore::ResourceResponse& response)
@@ -235,6 +233,18 @@ void SOAuthorizationSession::continueStartAfterDecidePolicy(const SOAuthorizatio
         SOAuthorizationOptionInitiatorOrigin: (NSString *)initiatorOrigin,
         SOAuthorizationOptionInitiatingAction: @(static_cast<NSInteger>(m_action))
     };
+#if PLATFORM(IOS_FAMILY)
+    RetainPtr<WKWebView> webView = m_page->cocoaView();
+    id webViewUIDelegate = [webView UIDelegate];
+    if ([webViewUIDelegate respondsToSelector:@selector(_hostSceneIdentifierForWebView:)]) {
+        NSString *callerSceneID = [webViewUIDelegate _hostSceneIdentifierForWebView:webView.get()];
+        if (callerSceneID) {
+            NSMutableDictionary *mutableAuthorizationOptions = [authorizationOptions mutableCopy];
+            mutableAuthorizationOptions[@"callerSceneIdentifier"] = callerSceneID;
+            authorizationOptions = mutableAuthorizationOptions;
+        }
+    }
+#endif
     [m_soAuthorization setAuthorizationOptions:authorizationOptions];
 
 #if PLATFORM(IOS) || PLATFORM(VISION)

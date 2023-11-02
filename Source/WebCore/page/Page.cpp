@@ -433,6 +433,7 @@ Page::~Page()
     m_validationMessageClient = nullptr;
     m_diagnosticLoggingClient = nullptr;
     m_performanceLoggingClient = nullptr;
+    m_rootFrames.clear();
     if (auto* localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get()))
         localMainFrame->setView(nullptr);
     setGroupName(String());
@@ -444,7 +445,7 @@ Page::~Page()
 
     m_inspectorController->inspectedPageDestroyed();
 
-    forEachFrame([] (LocalFrame& frame) {
+    forEachLocalFrame([] (LocalFrame& frame) {
         frame.willDetachPage();
         frame.detachFromPage();
     });
@@ -770,13 +771,13 @@ void Page::setNeedsRecalcStyleInAllFrames()
 
 void Page::refreshPlugins(bool reload)
 {
-    HashSet<PluginInfoProvider*> pluginInfoProviders;
+    WeakHashSet<PluginInfoProvider> pluginInfoProviders;
 
     for (auto& page : allPages())
-        pluginInfoProviders.add(&page->pluginInfoProvider());
+        pluginInfoProviders.add(page->pluginInfoProvider());
 
     for (auto& pluginInfoProvider : pluginInfoProviders)
-        pluginInfoProvider->refresh(reload);
+        pluginInfoProvider.refresh(reload);
 }
 
 PluginData& Page::pluginData()
@@ -1084,16 +1085,13 @@ uint32_t Page::replaceRangesWithText(const Vector<SimpleRange>& rangesToReplace,
 {
     // FIXME: In the future, we should respect the `selectionOnly` flag by checking whether each range being replaced is contained within its frame's selection.
 
-    Vector<FindReplacementRange> replacementRanges;
-    replacementRanges.reserveInitialCapacity(rangesToReplace.size());
-
-    for (auto& range : rangesToReplace) {
+    auto replacementRanges = WTF::compactMap(rangesToReplace, [&](auto& range) -> std::optional<FindReplacementRange> {
         RefPtr highestRoot = highestEditableRoot(makeDeprecatedLegacyPosition(range.start));
         if (!highestRoot || highestRoot != highestEditableRoot(makeDeprecatedLegacyPosition(range.end)) || !highestRoot->document().frame())
-            continue;
+            return std::nullopt;
         auto scope = makeRangeSelectingNodeContents(*highestRoot);
-        replacementRanges.uncheckedAppend({ WTFMove(highestRoot), characterRange(scope, range) });
-    }
+        return FindReplacementRange { WTFMove(highestRoot), characterRange(scope, range) };
+    });
 
     replaceRanges(*this, replacementRanges, replacementText);
     return rangesToReplace.size();
@@ -3131,16 +3129,16 @@ static LayoutRect relevantViewRect(RenderView* view)
     return relevantViewRect;
 }
 
-void Page::addRelevantRepaintedObject(RenderObject* object, const LayoutRect& objectPaintRect)
+void Page::addRelevantRepaintedObject(const RenderObject& object, const LayoutRect& objectPaintRect)
 {
     if (!isCountingRelevantRepaintedObjects())
         return;
 
     // Objects inside sub-frames are not considered to be relevant.
-    if (&object->frame() != &mainFrame())
+    if (&object.frame() != &mainFrame())
         return;
 
-    LayoutRect relevantRect = relevantViewRect(&object->view());
+    LayoutRect relevantRect = relevantViewRect(&object.view());
 
     // The objects are only relevant if they are being painted within the viewRect().
     if (!objectPaintRect.intersects(snappedIntRect(relevantRect)))
@@ -3192,13 +3190,13 @@ void Page::addRelevantRepaintedObject(RenderObject* object, const LayoutRect& ob
     }
 }
 
-void Page::addRelevantUnpaintedObject(RenderObject* object, const LayoutRect& objectPaintRect)
+void Page::addRelevantUnpaintedObject(const RenderObject& object, const LayoutRect& objectPaintRect)
 {
     if (!isCountingRelevantRepaintedObjects())
         return;
 
     // The objects are only relevant if they are being painted within the relevantViewRect().
-    if (!objectPaintRect.intersects(snappedIntRect(relevantViewRect(&object->view()))))
+    if (!objectPaintRect.intersects(snappedIntRect(relevantViewRect(&object.view()))))
         return;
 
     m_relevantUnpaintedRenderObjects.add(object);
@@ -3391,7 +3389,7 @@ void Page::notifyToInjectUserScripts()
 {
     m_hasBeenNotifiedToInjectUserScripts = true;
 
-    forEachFrame([] (LocalFrame& frame) {
+    forEachLocalFrame([] (LocalFrame& frame) {
         frame.injectUserScriptsAwaitingNotification();
     });
 }
@@ -3827,7 +3825,7 @@ RenderingUpdateScheduler* Page::existingRenderingUpdateScheduler()
     return m_renderingUpdateScheduler.get();
 }
 
-void Page::forEachDocumentFromMainFrame(const LocalFrame& mainFrame, const Function<void(Document&)>& functor)
+void Page::forEachDocumentFromMainFrame(const Frame& mainFrame, const Function<void(Document&)>& functor)
 {
     Vector<Ref<Document>> documents;
     for (const Frame* frame = &mainFrame; frame; frame = frame->tree().traverseNext()) {
@@ -3845,8 +3843,7 @@ void Page::forEachDocumentFromMainFrame(const LocalFrame& mainFrame, const Funct
 
 void Page::forEachDocument(const Function<void(Document&)>& functor) const
 {
-    if (auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame()))
-        forEachDocumentFromMainFrame(*localMainFrame, functor);
+    forEachDocumentFromMainFrame(mainFrame(), functor);
 }
 
 void Page::forEachMediaElement(const Function<void(HTMLMediaElement&)>& functor)
@@ -3860,7 +3857,7 @@ void Page::forEachMediaElement(const Function<void(HTMLMediaElement&)>& functor)
 #endif
 }
 
-void Page::forEachFrame(const Function<void(LocalFrame&)>& functor)
+void Page::forEachLocalFrame(const Function<void(LocalFrame&)>& functor)
 {
     Vector<Ref<LocalFrame>> frames;
     for (auto* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
@@ -4008,14 +4005,14 @@ void Page::setPaymentCoordinator(std::unique_ptr<PaymentCoordinator>&& paymentCo
 
 #if ENABLE(APPLE_PAY_AMS_UI)
 
-bool Page::startApplePayAMSUISession(Document& document, ApplePayAMSUIPaymentHandler& paymentHandler, const ApplePayAMSUIRequest& request)
+bool Page::startApplePayAMSUISession(const URL& originatingURL, ApplePayAMSUIPaymentHandler& paymentHandler, const ApplePayAMSUIRequest& request)
 {
     if (hasActiveApplePayAMSUISession())
         return false;
 
     m_activeApplePayAMSUIPaymentHandler = &paymentHandler;
 
-    chrome().client().startApplePayAMSUISession(document.url(), request, [weakThis = WeakPtr { *this }, paymentHandlerPtr = &paymentHandler] (std::optional<bool>&& result) {
+    chrome().client().startApplePayAMSUISession(originatingURL, request, [weakThis = WeakPtr { *this }, paymentHandlerPtr = &paymentHandler] (std::optional<bool>&& result) {
         auto strongThis = weakThis.get();
         if (!strongThis)
             return;
@@ -4507,8 +4504,20 @@ void Page::addRootFrame(LocalFrame& frame)
 void Page::removeRootFrame(LocalFrame& frame)
 {
     ASSERT(frame.isRootFrame());
-    ASSERT(m_rootFrames.contains(frame));
     m_rootFrames.remove(frame);
+}
+
+String Page::ensureMediaKeysStorageDirectoryForOrigin(const SecurityOriginData& origin)
+{
+    if (usesEphemeralSession())
+        return emptyString();
+
+    return m_storageProvider->ensureMediaKeysStorageDirectoryForOrigin(origin);
+}
+
+void Page::setMediaKeysStorageDirectory(const String& directory)
+{
+    m_storageProvider->setMediaKeysStorageDirectory(directory);
 }
 
 void Page::reloadExecutionContextsForOrigin(const ClientOrigin& origin, std::optional<FrameIdentifier> triggeringFrame) const

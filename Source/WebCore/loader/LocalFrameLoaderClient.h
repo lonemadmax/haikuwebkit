@@ -362,7 +362,7 @@ public:
     virtual void notifyPageOfAppBoundBehavior() { }
 #endif
 
-#if ENABLE(PDFKIT_PLUGIN)
+#if ENABLE(PDF_PLUGIN)
     virtual bool shouldUsePDFPlugin(const String&, StringView) const { return false; }
 #endif
 

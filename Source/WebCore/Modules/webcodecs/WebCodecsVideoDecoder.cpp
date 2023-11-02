@@ -110,7 +110,8 @@ static VideoDecoder::Config createVideoDecoderConfig(const WebCodecsVideoDecoder
     return {
         description,
         config.codedWidth.value_or(0),
-        config.codedHeight.value_or(0)
+        config.codedHeight.value_or(0),
+        config.hardwareAcceleration == HardwareAcceleration::PreferSoftware
     };
 }
 
@@ -269,11 +270,9 @@ ExceptionOr<void> WebCodecsVideoDecoder::closeDecoder(Exception&& exception)
         return result;
     m_state = WebCodecsCodecState::Closed;
     m_internalDecoder = nullptr;
-    if (exception.code() != AbortError) {
-        queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [this, exception = WTFMove(exception)]() mutable {
-            m_error->handleEvent(DOMException::create(WTFMove(exception)));
-        });
-    }
+    if (exception.code() != AbortError)
+        m_error->handleEvent(DOMException::create(WTFMove(exception)));
+
     return { };
 }
 

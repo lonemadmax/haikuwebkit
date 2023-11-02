@@ -78,12 +78,12 @@ public:
     ChildWidgetState updateWidgetPosition() WARN_UNUSED_RETURN;
     WEBCORE_EXPORT IntRect windowClipRect() const;
 
-    bool requiresAcceleratedCompositing() const;
+    virtual bool requiresAcceleratedCompositing() const;
 
     RemoteFrame* remoteFrame() const;
 
 protected:
-    RenderWidget(HTMLFrameOwnerElement&, RenderStyle&&);
+    RenderWidget(Type, HTMLFrameOwnerElement&, RenderStyle&&);
 
     void willBeDestroyed() override;
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) final;

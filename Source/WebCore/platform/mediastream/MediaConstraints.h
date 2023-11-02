@@ -125,6 +125,12 @@ public:
         return std::abs(a - b) <= epsilon;
     }
 
+    template<typename RangeType>
+    double fitnessDistance(const RangeType& range) const
+    {
+        return fitnessDistance(range.min, range.max);
+    }
+
     double fitnessDistance(ValueType rangeMin, ValueType rangeMax) const
     {
         // https://w3c.github.io/mediacapture-main/#dfn-applyconstraints
@@ -231,6 +237,12 @@ public:
             return m_ideal.value();
 
         return 0;
+    }
+
+    template<typename RangeType>
+    ValueType valueForCapabilityRange(ValueType current, const RangeType& range) const
+    {
+        return valueForCapabilityRange(current, range.min, range.max);
     }
 
     ValueType valueForCapabilityRange(ValueType current, ValueType capabilityMin, ValueType capabilityMax) const
@@ -619,7 +631,6 @@ public:
     std::optional<IntConstraint> sampleSize() const { return m_sampleSize; }
 
     std::optional<DoubleConstraint> aspectRatio() const { return m_aspectRatio; }
-    std::optional<DoubleConstraint> zoom() const { return m_zoom; }
     std::optional<DoubleConstraint> frameRate() const { return m_frameRate; }
     std::optional<DoubleConstraint> volume() const { return m_volume; }
 
@@ -628,9 +639,12 @@ public:
     std::optional<BooleanConstraint> logicalSurface() const { return m_logicalSurface; }
 
     std::optional<StringConstraint> facingMode() const { return m_facingMode; }
-    std::optional<StringConstraint> whiteBalanceMode() const { return m_whiteBalanceMode; }
     std::optional<StringConstraint> deviceId() const { return m_deviceId; }
     std::optional<StringConstraint> groupId() const { return m_groupId; }
+
+    std::optional<StringConstraint> whiteBalanceMode() const { return m_whiteBalanceMode; }
+    std::optional<DoubleConstraint> zoom() const { return m_zoom; }
+    std::optional<BooleanConstraint> torch() const { return m_torch; }
 
 private:
     friend struct IPC::ArgumentCoder<MediaTrackConstraintSetMap, void>;
@@ -640,7 +654,6 @@ private:
     std::optional<IntConstraint> m_sampleSize;
 
     std::optional<DoubleConstraint> m_aspectRatio;
-    std::optional<DoubleConstraint> m_zoom;
     std::optional<DoubleConstraint> m_frameRate;
     std::optional<DoubleConstraint> m_volume;
 
@@ -649,9 +662,12 @@ private:
     std::optional<BooleanConstraint> m_logicalSurface;
 
     std::optional<StringConstraint> m_facingMode;
-    std::optional<StringConstraint> m_whiteBalanceMode;
     std::optional<StringConstraint> m_deviceId;
     std::optional<StringConstraint> m_groupId;
+
+    std::optional<StringConstraint> m_whiteBalanceMode;
+    std::optional<DoubleConstraint> m_zoom;
+    std::optional<BooleanConstraint> m_torch;
 };
 
 class FlattenedConstraint {

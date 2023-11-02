@@ -318,6 +318,63 @@ TEST(WTF_Vector, CopyFromOtherMinCapacity)
     EXPECT_FALSE(vector != vectorCopy);
 }
 
+TEST(WTF_Vector, ConstructorOtherRawPointerTypeAndLength)
+{
+    const UChar uchars[] = { 'b', 'a', 'r' };
+    Vector<LChar> vector(uchars, 3);
+    EXPECT_EQ(vector.size(), 3U);
+    EXPECT_EQ(vector[0], 'b');
+    EXPECT_EQ(vector[1], 'a');
+    EXPECT_EQ(vector[2], 'r');
+}
+
+TEST(WTF_Vector, ConstructorTakingLengthAndFunctor)
+{
+    Vector<size_t> vector(5, [](size_t i) { return i; });
+    EXPECT_EQ(vector.size(), 5U);
+    EXPECT_EQ(vector[0], 0U);
+    EXPECT_EQ(vector[1], 1U);
+    EXPECT_EQ(vector[2], 2U);
+    EXPECT_EQ(vector[3], 3U);
+    EXPECT_EQ(vector[4], 4U);
+}
+
+TEST(WTF_Vector, AppendList)
+{
+    Vector<size_t> vector({ 1, 2, 3 });
+    EXPECT_EQ(vector.size(), 3U);
+    EXPECT_EQ(vector[0], 1U);
+    EXPECT_EQ(vector[1], 2U);
+    EXPECT_EQ(vector[2], 3U);
+    vector.appendList({ 4, 5, 6 });
+    EXPECT_EQ(vector.size(), 6U);
+    EXPECT_EQ(vector[0], 1U);
+    EXPECT_EQ(vector[1], 2U);
+    EXPECT_EQ(vector[2], 3U);
+    EXPECT_EQ(vector[3], 4U);
+    EXPECT_EQ(vector[4], 5U);
+    EXPECT_EQ(vector[5], 6U);
+}
+
+TEST(WTF_Vector, AppendContainerWithMapping)
+{
+    Vector<size_t> vector({ 1, 2, 3 });
+    ListHashSet<std::pair<size_t, size_t>> set;
+    set.add({ 2, 2 });
+    set.add({ 2, 3 });
+    set.add({ 1, 5 });
+    vector.appendContainerWithMapping(set, [](auto& pair) {
+        return pair.first + pair.second;
+    });
+    EXPECT_EQ(vector.size(), 6U);
+    EXPECT_EQ(vector[0], 1U);
+    EXPECT_EQ(vector[1], 2U);
+    EXPECT_EQ(vector[2], 3U);
+    EXPECT_EQ(vector[3], 4U);
+    EXPECT_EQ(vector[4], 5U);
+    EXPECT_EQ(vector[5], 6U);
+}
+
 TEST(WTF_Vector, Reverse)
 {
     Vector<int> intVector;
@@ -373,7 +430,7 @@ TEST(WTF_Vector, MoveOnly_UncheckedAppend)
     vector.reserveInitialCapacity(100);
     for (size_t i = 0; i < 100; ++i) {
         MoveOnly moveOnly(i);
-        vector.uncheckedAppend(WTFMove(moveOnly));
+        vector.append(WTFMove(moveOnly));
         EXPECT_EQ(0U, moveOnly.value());
     }
 
@@ -914,7 +971,7 @@ TEST(WTF_Vector, MapStaticFunctionMoveOnly)
 
     vector.reserveInitialCapacity(3);
     for (unsigned i = 0; i < 3; ++i)
-        vector.uncheckedAppend(MoveOnly { i });
+        vector.append(MoveOnly { i });
 
     auto mapped = WTF::map(vector, multiplyByTwoMoveOnly);
 
@@ -946,7 +1003,7 @@ TEST(WTF_Vector, MapLambdaMove)
 
     vector.reserveInitialCapacity(3);
     for (unsigned i = 0; i < 3; ++i)
-        vector.uncheckedAppend(MoveOnly { i });
+        vector.append(MoveOnly { i });
 
 
     unsigned counter = 0;

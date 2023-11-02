@@ -154,6 +154,7 @@ public:
     WEBCORE_EXPORT const URL& baseURI() const;
     
     void getSubresourceURLs(ListHashSet<URL>&) const;
+    void getCandidateSubresourceURLs(ListHashSet<URL>&) const;
 
     WEBCORE_EXPORT ExceptionOr<void> insertBefore(Node& newChild, RefPtr<Node>&& refChild);
     WEBCORE_EXPORT ExceptionOr<void> replaceChild(Node& newChild, Node& oldChild);
@@ -220,6 +221,8 @@ public:
 
 #if ENABLE(VIDEO)
     virtual bool isWebVTTElement() const { return false; }
+    virtual bool isWebVTTRubyElement() const { return false; }
+    virtual bool isWebVTTRubyTextElement() const { return false; }
 #endif
     bool isStyledElement() const { return hasNodeFlag(NodeFlag::IsHTMLElement) || hasNodeFlag(NodeFlag::IsSVGElement) || hasNodeFlag(NodeFlag::IsMathMLElement); }
     virtual bool isAttributeNode() const { return false; }
@@ -270,7 +273,8 @@ public:
     Node* nonBoundaryShadowTreeRootNode();
 
     // Node's parent or shadow tree host.
-    ContainerNode* parentOrShadowHostNode() const; // Defined in ShadowRoot.h
+    inline ContainerNode* parentOrShadowHostNode() const; // Defined in ShadowRoot.h
+    inline RefPtr<ContainerNode> protectedParentOrShadowHostNode() const; // Defined in ShadowRoot.h
     ContainerNode* parentInComposedTree() const;
     Element* parentElementInComposedTree() const;
     Element* parentOrShadowHostElement() const;
@@ -528,6 +532,15 @@ public:
     bool m_adoptionIsRequired { true };
 #endif
 
+    void relaxAdoptionRequirement()
+    {
+#if ASSERT_ENABLED
+        ASSERT_WITH_SECURITY_IMPLICATION(!m_deletionHasBegun);
+        ASSERT(m_adoptionIsRequired);
+        m_adoptionIsRequired = false;
+#endif
+    }
+
     HashMap<Ref<MutationObserver>, MutationRecordDeliveryOptions> registeredMutationObservers(MutationObserverOptionType, const QualifiedName* attributeName);
     void registerMutationObserver(MutationObserver&, MutationObserverOptions, const MemoryCompactLookupOnlyRobinHoodHashSet<AtomString>& attributeFilter);
     void unregisterMutationObserver(MutationObserverRegistration&);
@@ -704,6 +717,7 @@ protected:
     ALWAYS_INLINE void clearStyleFlags(OptionSet<NodeStyleFlag>);
 
     virtual void addSubresourceAttributeURLs(ListHashSet<URL>&) const { }
+    virtual void addCandidateSubresourceURLs(ListHashSet<URL>&) const { }
 
     bool hasRareData() const { return !!m_rareDataWithBitfields.pointer(); }
     NodeRareData* rareData() const { return m_rareDataWithBitfields.pointer(); }

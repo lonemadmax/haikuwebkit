@@ -76,7 +76,7 @@ public:
     { }
 
     template<typename OtherType, typename OtherPtrTraits> CheckedPtr(CheckedPtr<OtherType, OtherPtrTraits>&& other)
-        : m_ptr { PtrTraits::exchange(other.m_ptr, nullptr) }
+        : m_ptr { OtherPtrTraits::exchange(other.m_ptr, nullptr) }
     { }
 
     CheckedPtr(CheckedRef<T, PtrTraits>& other)
@@ -114,6 +114,8 @@ public:
     ALWAYS_INLINE T* get() const { return PtrTraits::unwrap(m_ptr); }
     ALWAYS_INLINE T& operator*() const { ASSERT(m_ptr); return *get(); }
     ALWAYS_INLINE T* operator->() const { return get(); }
+
+    CheckedRef<T> releaseNonNull() { ASSERT(m_ptr); return CheckedRef { *PtrTraits::unwrap(std::exchange(m_ptr, nullptr)), CheckedRef<T>::Adopt }; }
 
     bool operator==(const T* other) const { return m_ptr == other; }
     template<typename U> bool operator==(U* other) const { return m_ptr == other; }
@@ -226,7 +228,11 @@ template<typename P> struct HashTraits<CheckedPtr<P>> : SimpleClassHashTraits<Ch
 
 template<typename P> struct DefaultHash<CheckedPtr<P>> : PtrHash<CheckedPtr<P>> { };
 
+template<typename> struct PackedPtrTraits;
+template<typename T> using PackedCheckedPtr = CheckedPtr<T, PackedPtrTraits<T>>;
+
 } // namespace WTF
 
 using WTF::CheckedPtr;
+using WTF::PackedCheckedPtr;
 

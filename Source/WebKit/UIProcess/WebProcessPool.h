@@ -70,11 +70,13 @@ OBJC_CLASS WKWebInspectorPreferenceObserver;
 #endif
 
 #if PLATFORM(MAC)
-#include "DisplayLink.h"
 #include <WebCore/PowerObserverMac.h>
 #include <pal/system/SystemSleepListener.h>
 #endif
 
+#if HAVE(DISPLAY_LINK)
+#include "DisplayLink.h"
+#endif
 
 #if ENABLE(IPC_TESTING_API)
 #include "IPCTester.h"
@@ -244,7 +246,7 @@ public:
     void displayPropertiesChanged(const WebCore::ScreenProperties&, WebCore::PlatformDisplayID, CGDisplayChangeSummaryFlags);
 #endif
 
-#if HAVE(CVDISPLAYLINK)
+#if HAVE(DISPLAY_LINK)
     DisplayLinkCollection& displayLinks() { return m_displayLinks; }
 #endif
 
@@ -310,7 +312,7 @@ public:
 
     void reportWebContentCPUTime(Seconds cpuTime, uint64_t activityState);
 
-    Ref<WebProcessProxy> processForRegistrableDomain(WebsiteDataStore&, const WebCore::RegistrableDomain&, WebProcessProxy::LockdownMode); // Will return an existing one if limit is met or due to caching.
+    Ref<WebProcessProxy> processForRegistrableDomain(WebsiteDataStore&, const WebCore::RegistrableDomain&, WebProcessProxy::LockdownMode, const API::PageConfiguration&); // Will return an existing one if limit is met or due to caching.
 
     void prewarmProcess();
 
@@ -442,10 +444,6 @@ public:
     void lockdownModeStateChanged();
 #endif
 
-#if ENABLE(WEBCONTENT_CRASH_TESTING)
-    static bool shouldCrashWhenCreatingWebProcess() { return s_shouldCrashWhenCreatingWebProcess; }
-#endif
-
     ForegroundWebProcessToken foregroundWebProcessToken() const { return ForegroundWebProcessToken(m_foregroundWebProcessCounter.count()); }
     BackgroundWebProcessToken backgroundWebProcessToken() const { return BackgroundWebProcessToken(m_backgroundWebProcessCounter.count()); }
     bool hasForegroundWebProcesses() const { return m_foregroundWebProcessCounter.value(); }
@@ -530,7 +528,8 @@ public:
     bool operator==(const WebProcessPool& other) const { return (this == &other); }
 
 private:
-    void platformInitialize();
+    enum class NeedsGlobalStaticInitialization : bool { No, Yes };
+    void platformInitialize(NeedsGlobalStaticInitialization);
 
     void platformInitializeWebProcess(const WebProcessProxy&, WebProcessCreationParameters&);
     void platformInvalidateContext();
@@ -570,10 +569,6 @@ private:
 
     void registerNotificationObservers();
     void unregisterNotificationObservers();
-
-#if ENABLE(WEBCONTENT_CRASH_TESTING)
-    static void initializeShouldCrashWhenCreatingWebProcess();
-#endif
 #endif
 
     void setApplicationIsActive(bool);
@@ -756,10 +751,6 @@ private:
     bool m_cookieStoragePartitioningEnabled { false };
 #endif
 
-#if ENABLE(WEBCONTENT_CRASH_TESTING)
-    static bool s_shouldCrashWhenCreatingWebProcess;
-#endif
-
     struct Paths {
         String injectedBundlePath;
         String uiProcessBundleResourcePath;
@@ -785,7 +776,7 @@ private:
 
     HashMap<WebCore::RegistrableDomain, std::unique_ptr<WebCore::PrewarmInformation>> m_prewarmInformationPerRegistrableDomain;
 
-#if HAVE(CVDISPLAYLINK)
+#if HAVE(DISPLAY_LINK)
     DisplayLinkCollection m_displayLinks;
 #endif
 
@@ -817,7 +808,6 @@ private:
     bool m_delaysWebProcessLaunchDefaultValue { globalDelaysWebProcessLaunchDefaultValue() };
 
     static bool s_useSeparateServiceWorkerProcess;
-    static bool s_didGlobalStaticInitialization;
 
 #if ENABLE(TRACKING_PREVENTION)
     HashSet<WebCore::RegistrableDomain> m_domainsWithUserInteraction;

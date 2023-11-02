@@ -113,6 +113,7 @@ TypeStore::TypeStore()
     m_u32 = allocateType<Primitive>(Primitive::U32);
     m_f32 = allocateType<Primitive>(Primitive::F32);
     m_sampler = allocateType<Primitive>(Primitive::Sampler);
+    m_samplerComparison = allocateType<Primitive>(Primitive::SamplerComparison);
     m_textureExternal = allocateType<Primitive>(Primitive::TextureExternal);
     m_accessMode = allocateType<Primitive>(Primitive::AccessMode);
     m_texelFormat = allocateType<Primitive>(Primitive::TexelFormat);
@@ -122,6 +123,8 @@ TypeStore::TypeStore()
     m_textureDepthCube = allocateType<TextureDepth>(TextureDepth::Kind::TextureDepthCube);
     m_textureDepthArrayCube = allocateType<TextureDepth>(TextureDepth::Kind::TextureDepthCubeArray);
     m_textureDepthMultisampled2d = allocateType<TextureDepth>(TextureDepth::Kind::TextureDepthMultisampled2d);
+    m_atomicI32 = allocateType<Atomic>(m_i32);
+    m_atomicU32 = allocateType<Atomic>(m_u32);
 }
 
 const Type* TypeStore::structType(AST::Structure& structure, HashMap<String, const Type*>&& fields)
@@ -209,6 +212,14 @@ const Type* TypeStore::pointerType(AddressSpace addressSpace, const Type* elemen
     type = allocateType<Pointer>(addressSpace, accessMode, element);
     m_cache.insert(key, type);
     return type;
+}
+
+const Type* TypeStore::atomicType(const Type* type)
+{
+    if (type == m_i32)
+        return m_atomicI32;
+    ASSERT(type == m_u32);
+    return m_atomicU32;
 }
 
 const Type* TypeStore::typeConstructorType(ASCIILiteral name, std::function<const Type*(AST::ElaboratedTypeExpression&)>&& constructor)

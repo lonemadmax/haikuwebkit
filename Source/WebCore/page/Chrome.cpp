@@ -128,6 +128,13 @@ IntRect Chrome::rootViewToAccessibilityScreen(const IntRect& rect) const
     return m_client->rootViewToAccessibilityScreen(rect);
 }
 
+#if PLATFORM(IOS_FAMILY)
+void Chrome::relayAccessibilityNotification(const String& notificationName, const RetainPtr<NSData>& notificationData) const
+{
+    return m_client->relayAccessibilityNotification(notificationName, notificationData);
+}
+#endif
+
 PlatformPageClient Chrome::platformPageClient() const
 {
     return m_client->platformPageClient();
@@ -188,7 +195,7 @@ void Chrome::focusedElementChanged(Element* element)
     m_client->focusedElementChanged(element);
 }
 
-void Chrome::focusedFrameChanged(LocalFrame* frame)
+void Chrome::focusedFrameChanged(Frame* frame)
 {
     m_client->focusedFrameChanged(frame);
 }
@@ -545,9 +552,9 @@ void Chrome::setCursorHiddenUntilMouseMoves(bool hiddenUntilMouseMoves)
     m_client->setCursorHiddenUntilMouseMoves(hiddenUntilMouseMoves);
 }
 
-RefPtr<ImageBuffer> Chrome::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat, bool avoidBackendSizeCheck) const
+RefPtr<ImageBuffer> Chrome::createImageBuffer(const FloatSize& size, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat, OptionSet<ImageBufferOptions> options) const
 {
-    return m_client->createImageBuffer(size, renderingMode, purpose, resolutionScale, colorSpace, pixelFormat, avoidBackendSizeCheck);
+    return m_client->createImageBuffer(size, purpose, resolutionScale, colorSpace, pixelFormat, options);
 }
 
 RefPtr<ImageBuffer> Chrome::sinkIntoImageBuffer(std::unique_ptr<SerializedImageBuffer> imageBuffer)
@@ -566,11 +573,12 @@ RefPtr<GraphicsContextGL> Chrome::createGraphicsContextGL(const GraphicsContextG
     return m_client->createGraphicsContextGL(attributes);
 }
 #endif
-
+#if HAVE(WEBGPU_IMPLEMENTATION)
 RefPtr<WebGPU::GPU> Chrome::createGPUForWebGPU() const
 {
     return m_client->createGPUForWebGPU();
 }
+#endif
 
 RefPtr<ShapeDetection::BarcodeDetector> Chrome::createBarcodeDetector(const ShapeDetection::BarcodeDetectorOptions& barcodeDetectorOptions) const
 {

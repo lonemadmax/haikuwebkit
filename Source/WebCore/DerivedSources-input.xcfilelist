@@ -498,7 +498,7 @@ $(PROJECT_DIR)/Modules/geolocation/PositionError.idl
 $(PROJECT_DIR)/Modules/geolocation/PositionErrorCallback.idl
 $(PROJECT_DIR)/Modules/geolocation/PositionOptions.idl
 $(PROJECT_DIR)/Modules/highlight/Highlight.idl
-$(PROJECT_DIR)/Modules/highlight/HighlightRegister.idl
+$(PROJECT_DIR)/Modules/highlight/HighlightRegistry.idl
 $(PROJECT_DIR)/Modules/indexeddb/IDBCursor.idl
 $(PROJECT_DIR)/Modules/indexeddb/IDBCursorDirection.idl
 $(PROJECT_DIR)/Modules/indexeddb/IDBCursorWithValue.idl
@@ -563,10 +563,13 @@ $(PROJECT_DIR)/Modules/mediasource/VideoPlaybackQuality.idl
 $(PROJECT_DIR)/Modules/mediasource/VideoTrack+MediaSource.idl
 $(PROJECT_DIR)/Modules/mediastream/CanvasCaptureMediaStreamTrack.idl
 $(PROJECT_DIR)/Modules/mediastream/DoubleRange.idl
+$(PROJECT_DIR)/Modules/mediastream/FillLightMode.idl
+$(PROJECT_DIR)/Modules/mediastream/ImageCapture.idl
 $(PROJECT_DIR)/Modules/mediastream/InputDeviceInfo.idl
 $(PROJECT_DIR)/Modules/mediastream/LongRange.idl
 $(PROJECT_DIR)/Modules/mediastream/MediaDeviceInfo.idl
 $(PROJECT_DIR)/Modules/mediastream/MediaDevices.idl
+$(PROJECT_DIR)/Modules/mediastream/MediaSettingsRange.idl
 $(PROJECT_DIR)/Modules/mediastream/MediaStream.idl
 $(PROJECT_DIR)/Modules/mediastream/MediaStreamTrack.idl
 $(PROJECT_DIR)/Modules/mediastream/MediaStreamTrackEvent.idl
@@ -577,6 +580,8 @@ $(PROJECT_DIR)/Modules/mediastream/MeteringMode.idl
 $(PROJECT_DIR)/Modules/mediastream/Navigator+MediaDevices.idl
 $(PROJECT_DIR)/Modules/mediastream/OverconstrainedError.idl
 $(PROJECT_DIR)/Modules/mediastream/OverconstrainedErrorEvent.idl
+$(PROJECT_DIR)/Modules/mediastream/PhotoCapabilities.idl
+$(PROJECT_DIR)/Modules/mediastream/PhotoSettings.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCAnswerOptions.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCCertificate.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCConfiguration.idl
@@ -600,7 +605,9 @@ $(PROJECT_DIR)/Modules/mediastream/RTCIceComponent.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCIceConnectionState.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCIceGatheringState.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCIceProtocol.idl
+$(PROJECT_DIR)/Modules/mediastream/RTCIceRole.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCIceServer.idl
+$(PROJECT_DIR)/Modules/mediastream/RTCIceServerTransportProtocol.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCIceTcpCandidateType.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCIceTransport.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCIceTransportState.idl
@@ -648,6 +655,7 @@ $(PROJECT_DIR)/Modules/mediastream/RTCSignalingState.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCStatsReport.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCTrackEvent.idl
 $(PROJECT_DIR)/Modules/mediastream/RTCTransformEvent.idl
+$(PROJECT_DIR)/Modules/mediastream/RedEyeReduction.idl
 $(PROJECT_DIR)/Modules/model-element/HTMLModelElement.idl
 $(PROJECT_DIR)/Modules/model-element/HTMLModelElementCamera.idl
 $(PROJECT_DIR)/Modules/modern-media-controls/controls/activity-indicator.css
@@ -1303,6 +1311,7 @@ $(PROJECT_DIR)/dom/BeforeUnloadEvent.idl
 $(PROJECT_DIR)/dom/BroadcastChannel.idl
 $(PROJECT_DIR)/dom/CDATASection.idl
 $(PROJECT_DIR)/dom/CharacterData.idl
+$(PROJECT_DIR)/dom/CheckVisibilityOptions.idl
 $(PROJECT_DIR)/dom/ChildNode.idl
 $(PROJECT_DIR)/dom/ClipboardEvent.idl
 $(PROJECT_DIR)/dom/Comment.idl
@@ -1913,7 +1922,6 @@ $(PROJECT_DIR)/svg/SVGPreserveAspectRatio.idl
 $(PROJECT_DIR)/svg/SVGRadialGradientElement.idl
 $(PROJECT_DIR)/svg/SVGRect.idl
 $(PROJECT_DIR)/svg/SVGRectElement.idl
-$(PROJECT_DIR)/svg/SVGRenderingIntent.idl
 $(PROJECT_DIR)/svg/SVGSVGElement.idl
 $(PROJECT_DIR)/svg/SVGScriptElement.idl
 $(PROJECT_DIR)/svg/SVGSetElement.idl

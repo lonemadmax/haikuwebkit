@@ -79,13 +79,18 @@ AXLogger::AXLogger(const String& methodName)
         if (!m_methodName.isEmpty())
             LOG_WITH_STREAM(Accessibility, stream << m_methodName << " {");
     }
+    m_startTime = MonotonicTime::now();
 }
 
 AXLogger::~AXLogger()
 {
-    if (shouldLog()) {
-        if (!m_methodName.isEmpty())
-            LOG_WITH_STREAM(Accessibility, stream << "} " << m_methodName);
+    static const Seconds ExecutionTimeThreshold { 1_s };
+    auto elapsedTime = MonotonicTime::now() - m_startTime;
+    if (shouldLog() && !m_methodName.isEmpty()) {
+        if (elapsedTime > ExecutionTimeThreshold)
+            LOG_WITH_STREAM(Accessibility, stream << "} " << m_methodName << " exceeded ExecutionTimeThreshold " << elapsedTime);
+        else
+            LOG_WITH_STREAM(Accessibility, stream << "} " << m_methodName << " took " << elapsedTime);
     }
 }
 
@@ -204,6 +209,7 @@ void AXLogger::log(const String& collectionName, const AXObjectCache::DeferredCo
         [&size] (const WeakHashSet<Element, WeakPtrImplWithEventTargetData>& typedCollection) { size = typedCollection.computeSize(); },
         [&size] (const WeakHashSet<HTMLTableElement, WeakPtrImplWithEventTargetData>& typedCollection) { size = typedCollection.computeSize(); },
         [&size] (const WeakHashSet<AccessibilityTable>& typedCollection) { size = typedCollection.computeSize(); },
+        [&size] (const WeakHashSet<AccessibilityTableCell>& typedCollection) { size = typedCollection.computeSize(); },
         [&size] (const WeakListHashSet<Node, WeakPtrImplWithEventTargetData>& typedCollection) { size = typedCollection.computeSize(); },
         [&size] (const WeakHashMap<Element, String, WeakPtrImplWithEventTargetData>& typedCollection) { size = typedCollection.computeSize(); },
         [] (auto&) {
@@ -257,8 +263,8 @@ TextStream& operator<<(TextStream& stream, AccessibilitySearchKey searchKey)
     case AccessibilitySearchKey::Button:
         stream << "Button";
         break;
-    case AccessibilitySearchKey::CheckBox:
-        stream << "CheckBox";
+    case AccessibilitySearchKey::Checkbox:
+        stream << "Checkbox";
         break;
     case AccessibilitySearchKey::Control:
         stream << "Control";
@@ -568,6 +574,9 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
     case AXObjectCache::AXNotification::AXFlowToChanged:
         stream << "AXFlowToChanged";
         break;
+    case AXObjectCache::AXNotification::AXFocusableStateChanged:
+        stream << "AXFocusableStateChanged";
+        break;
     case AXObjectCache::AXNotification::AXFocusedUIElementChanged:
         stream << "AXFocusedUIElementChanged";
         break;
@@ -672,6 +681,9 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
         break;
     case AXObjectCache::AXNotification::AXScrolledToAnchor:
         stream << "AXScrolledToAnchor";
+        break;
+    case AXObjectCache::AXNotification::AXLabelCreated:
+        stream << "AXLabelCreated";
         break;
     case AXObjectCache::AXNotification::AXLiveRegionCreated:
         stream << "AXLiveRegionCreated";

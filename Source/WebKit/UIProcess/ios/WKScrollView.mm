@@ -173,6 +173,13 @@ static BOOL shouldForwardScrollViewDelegateMethodToExternalDelegate(SEL selector
     self.directionalLockEnabled = YES;
     self.automaticallyAdjustsScrollIndicatorInsets = YES;
 
+#if HAVE(UISCROLLVIEW_ALLOWS_KEYBOARD_SCROLLING)
+    // In iOS 17, the default value of `-[UIScrollView allowsKeyboardScrolling]` is `NO`.
+    // To maintain existing behavior of WKScrollView, this property must be initially set to `YES`.
+    self.allowsKeyboardScrolling = YES;
+#endif
+
+
 // FIXME: Likely we can remove this special case for watchOS and tvOS.
 #if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
     _contentInsetAdjustmentBehaviorWasExternallyOverridden = (self.contentInsetAdjustmentBehavior != UIScrollViewContentInsetAdjustmentAutomatic);
@@ -293,49 +300,6 @@ static BOOL shouldForwardScrollViewDelegateMethodToExternalDelegate(SEL selector
 static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
 {
     return CGFAbs(a - b) < 1;
-}
-
-- (CGFloat)_rubberBandOffsetForOffset:(CGFloat)newOffset maxOffset:(CGFloat)maxOffset minOffset:(CGFloat)minOffset range:(CGFloat)range outside:(BOOL *)outside
-{
-    UIEdgeInsets contentInsets = self.contentInset;
-    CGSize contentSize = self.contentSize;
-    CGRect bounds = self.bounds;
-
-    CGFloat minimalHorizontalRange = bounds.size.width - contentInsets.left - contentInsets.right;
-    CGFloat contentWidthAtMinimumScale = contentSize.width * (self.minimumZoomScale / self.zoomScale);
-    if (contentWidthAtMinimumScale < minimalHorizontalRange) {
-        CGFloat unobscuredEmptyHorizontalMarginAtMinimumScale = minimalHorizontalRange - contentWidthAtMinimumScale;
-        minimalHorizontalRange -= unobscuredEmptyHorizontalMarginAtMinimumScale;
-    }
-    if (contentSize.width < minimalHorizontalRange) {
-        if (valuesAreWithinOnePixel(minOffset, -contentInsets.left)
-            && valuesAreWithinOnePixel(maxOffset, contentSize.width + contentInsets.right - bounds.size.width)
-            && valuesAreWithinOnePixel(range, bounds.size.width)) {
-
-            CGFloat emptyHorizontalMargin = (minimalHorizontalRange - contentSize.width) / 2;
-            minOffset -= emptyHorizontalMargin;
-            maxOffset = minOffset;
-        }
-    }
-
-    CGFloat minimalVerticalRange = bounds.size.height - contentInsets.top - contentInsets.bottom;
-    CGFloat contentHeightAtMinimumScale = contentSize.height * (self.minimumZoomScale / self.zoomScale);
-    if (contentHeightAtMinimumScale < minimalVerticalRange) {
-        CGFloat unobscuredEmptyVerticalMarginAtMinimumScale = minimalVerticalRange - contentHeightAtMinimumScale;
-        minimalVerticalRange -= unobscuredEmptyVerticalMarginAtMinimumScale;
-    }
-    if (contentSize.height < minimalVerticalRange) {
-        if (valuesAreWithinOnePixel(minOffset, -contentInsets.top)
-            && valuesAreWithinOnePixel(maxOffset, contentSize.height + contentInsets.bottom - bounds.size.height)
-            && valuesAreWithinOnePixel(range, bounds.size.height)) {
-
-            CGFloat emptyVerticalMargin = (minimalVerticalRange - contentSize.height) / 2;
-            minOffset -= emptyVerticalMargin;
-            maxOffset = minOffset;
-        }
-    }
-
-    return [super _rubberBandOffsetForOffset:newOffset maxOffset:maxOffset minOffset:minOffset range:range outside:outside];
 }
 
 - (void)setContentInset:(UIEdgeInsets)contentInset
@@ -515,47 +479,6 @@ static inline bool valuesAreWithinOnePixel(CGFloat a, CGFloat b)
 - (void)_updateZoomability
 {
     [super setZoomEnabled:(_zoomEnabledByClient && _zoomEnabledInternal)];
-}
-
-- (void)_sendPinchGestureActionEarlyIfNeeded
-{
-    static BOOL canHandlePinch = NO;
-    static std::once_flag flag;
-    std::call_once(flag, [] {
-        canHandlePinch = [UIScrollView instancesRespondToSelector:@selector(handlePinch:)];
-    });
-
-    if (UNLIKELY(!canHandlePinch)) {
-        static BOOL shouldLogFault = YES;
-        if (shouldLogFault) {
-            RELEASE_LOG_FAULT(Scrolling, "UIScrollView no longer responds to -handlePinch:.");
-            shouldLogFault = NO;
-        }
-        return;
-    }
-
-    if (!self.zooming)
-        return;
-
-    auto pinchGesture = self.pinchGestureRecognizer;
-    if (pinchGesture.state != UIGestureRecognizerStateEnded)
-        return;
-
-    auto activeTouchEvent = [pinchGesture _activeEventOfType:UIEventTypeTouches];
-    if (!activeTouchEvent)
-        return;
-
-    if ([pinchGesture _activeTouchesForEvent:activeTouchEvent].count)
-        return;
-
-    [self handlePinch:pinchGesture];
-}
-
-- (void)handlePan:(UIPanGestureRecognizer *)gesture
-{
-    [self _sendPinchGestureActionEarlyIfNeeded];
-
-    [super handlePan:gesture];
 }
 
 #if PLATFORM(WATCHOS)

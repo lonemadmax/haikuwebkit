@@ -114,7 +114,7 @@ Ref<ShaderModule> Device::createShaderModule(const WGPUShaderModuleDescriptor& d
     if (!shaderModuleParameters)
         return ShaderModule::createInvalid(*this);
 
-    auto checkResult = WGSL::staticCheck(fromAPI(shaderModuleParameters->wgsl.code), std::nullopt, { maxBuffersPlusVertexBuffersForVertexStage() });
+    auto checkResult = WGSL::staticCheck(fromAPI(shaderModuleParameters->wgsl.code), std::nullopt, { maxBuffersPlusVertexBuffersForVertexStage(), maxBuffersForFragmentStage(), maxBuffersForComputeStage() });
 
     if (std::holds_alternative<WGSL::SuccessfulCheck>(checkResult)) {
         if (shaderModuleParameters->hints && descriptor.hintCount) {
@@ -129,6 +129,7 @@ Ref<ShaderModule> Device::createShaderModule(const WGPUShaderModuleDescriptor& d
         for (const auto& error : failedCheck.errors) {
             message.print("\n"_s, error);
         }
+        dataLogLn(message.toString());
         generateAValidationError(message.toString());
         return ShaderModule::createInvalid(*this);
     }
@@ -363,9 +364,18 @@ WGSL::PipelineLayout ShaderModule::convertPipelineLayout(const PipelineLayout& p
         WGSL::BindGroupLayout wgslBindGroupLayout;
         for (auto& entry : bindGroupLayout.entries()) {
             WGSL::BindGroupLayoutEntry wgslEntry;
-            wgslEntry.binding = entry.binding;
-            wgslEntry.visibility.fromRaw(entry.visibility);
-            wgslEntry.bindingMember = convertBindingLayout(entry.bindingLayout);
+            wgslEntry.binding = entry.value.binding;
+            wgslEntry.visibility = wgslEntry.visibility.fromRaw(entry.value.visibility);
+            wgslEntry.bindingMember = convertBindingLayout(entry.value.bindingLayout);
+            wgslEntry.vertexArgumentBufferIndex = entry.value.argumentBufferIndices[WebGPU::ShaderStage::Vertex];
+            wgslEntry.vertexArgumentBufferSizeIndex = entry.value.bufferSizeArgumentBufferIndices[WebGPU::ShaderStage::Vertex];
+            wgslEntry.vertexBufferDynamicOffset = entry.value.vertexDynamicOffset;
+            wgslEntry.fragmentArgumentBufferIndex = entry.value.argumentBufferIndices[WebGPU::ShaderStage::Fragment];
+            wgslEntry.fragmentArgumentBufferSizeIndex = entry.value.bufferSizeArgumentBufferIndices[WebGPU::ShaderStage::Fragment];
+            wgslEntry.fragmentBufferDynamicOffset = entry.value.fragmentDynamicOffset;
+            wgslEntry.computeArgumentBufferIndex = entry.value.argumentBufferIndices[WebGPU::ShaderStage::Compute];
+            wgslEntry.computeArgumentBufferSizeIndex = entry.value.bufferSizeArgumentBufferIndices[WebGPU::ShaderStage::Compute];
+            wgslEntry.computeBufferDynamicOffset = entry.value.computeDynamicOffset;
             wgslBindGroupLayout.entries.append(wgslEntry);
         }
 

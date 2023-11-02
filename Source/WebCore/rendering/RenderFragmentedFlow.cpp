@@ -55,8 +55,8 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderFragmentedFlow);
 
-RenderFragmentedFlow::RenderFragmentedFlow(Document& document, RenderStyle&& style)
-    : RenderBlockFlow(document, WTFMove(style))
+RenderFragmentedFlow::RenderFragmentedFlow(Type type, Document& document, RenderStyle&& style)
+    : RenderBlockFlow(type, document, WTFMove(style))
     , m_currentFragmentMaintainer(nullptr)
     , m_fragmentsInvalidated(false)
     , m_fragmentsHaveUniformLogicalWidth(true)
@@ -956,7 +956,7 @@ void RenderFragmentedFlow::mapLocalToContainer(const RenderLayerModelObject* anc
 
         // If the repaint container is nullptr, we have to climb up to the RenderView, otherwise swap
         // it with the fragment's repaint container.
-        ancestorContainer = ancestorContainer ? fragment->containerForRepaint().renderer : nullptr;
+        ancestorContainer = ancestorContainer ? fragment->containerForRepaint().renderer.get() : nullptr;
 
         if (RenderFragmentedFlow* fragmentFragmentedFlow = fragment->enclosingFragmentedFlow()) {
             RenderFragmentContainer* startFragment = nullptr;

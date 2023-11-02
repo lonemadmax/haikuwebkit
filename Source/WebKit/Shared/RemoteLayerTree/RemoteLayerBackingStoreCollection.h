@@ -29,6 +29,7 @@
 #import <wtf/HashSet.h>
 #import <wtf/Noncopyable.h>
 #import <wtf/OptionSet.h>
+#import <wtf/WeakHashSet.h>
 #import <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -71,6 +72,8 @@ public:
     void scheduleVolatilityTimer();
 
     virtual RefPtr<WebCore::ImageBuffer> allocateBufferForBackingStore(const RemoteLayerBackingStore&);
+
+    virtual void gpuProcessConnectionWasDestroyed() { }
 
 protected:
     RemoteLayerTreeContext& layerTreeContext() const { return m_layerTreeContext; }

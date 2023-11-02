@@ -54,21 +54,12 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGShape);
 
-RenderSVGShape::RenderSVGShape(SVGGraphicsElement& element, RenderStyle&& style)
-    : RenderSVGModelObject(element, WTFMove(style))
+RenderSVGShape::RenderSVGShape(Type type, SVGGraphicsElement& element, RenderStyle&& style)
+    : RenderSVGModelObject(type, element, WTFMove(style))
 {
 }
 
 RenderSVGShape::~RenderSVGShape() = default;
-
-void RenderSVGShape::updateShapeFromElement()
-{
-    m_path = createPath();
-    processMarkerPositions();
-
-    m_fillBoundingBox = calculateObjectBoundingBox();
-    m_strokeBoundingBox = calculateStrokeBoundingBox();
-}
 
 bool RenderSVGShape::isEmpty() const
 {
@@ -191,21 +182,6 @@ AffineTransform RenderSVGShape::nonScalingStrokeTransform() const
     return graphicsElement().getScreenCTM(SVGLocatable::DisallowStyleUpdate);
 }
 
-bool RenderSVGShape::shouldGenerateMarkerPositions() const
-{
-    if (!style().svgStyle().hasMarkers())
-        return false;
-
-    if (!graphicsElement().supportsMarkers())
-        return false;
-
-    auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
-    if (!resources)
-        return false;
-
-    return resources->markerStart() || resources->markerMid() || resources->markerEnd();
-}
-
 void RenderSVGShape::fillShape(const RenderStyle& style, GraphicsContext& originalContext)
 {
     GraphicsContext* context = &originalContext;
@@ -263,8 +239,7 @@ void RenderSVGShape::fillStrokeMarkers(PaintInfo& childPaintInfo)
             strokeShape(style(), childPaintInfo.context());
             break;
         case PaintType::Markers:
-            if (!m_markerPositions.isEmpty())
-                drawMarkers(childPaintInfo);
+            drawMarkers(childPaintInfo);
             break;
         }
     }
@@ -277,8 +252,7 @@ void RenderSVGShape::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
         return;
 
     if (paintInfo.phase == PaintPhase::ClippingMask) {
-        // FIXME: [LBSE] Upstream SVGRenderSupport changes
-        // SVGRenderSupport::paintSVGClippingMask(*this, paintInfo);
+        SVGRenderSupport::paintSVGClippingMask(*this, paintInfo);
         return;
     }
 
@@ -361,7 +335,7 @@ bool RenderSVGShape::nodeAtPoint(const HitTestRequest& request, HitTestResult& r
 
         if (hitRules.canHitStroke && (svgStyle.hasStroke() || !hitRules.requireStroke) && strokeContains(localPoint, hitRules.requireStroke)) {
             updateHitTestResult(result, locationInContainer.point() - toLayoutSize(adjustedLocation));
-            if (result.addNodeToListBasedTestResult(nodeForHitTest(), request, locationInContainer, m_strokeBoundingBox) == HitTestProgress::Stop)
+            if (result.addNodeToListBasedTestResult(nodeForHitTest(), request, locationInContainer, strokeBoundingBox()) == HitTestProgress::Stop)
                 return true;
             return false;
         }
@@ -378,50 +352,16 @@ bool RenderSVGShape::nodeAtPoint(const HitTestRequest& request, HitTestResult& r
     return false;
 }
 
-static inline RenderSVGResourceMarker* markerForType(SVGMarkerType type, RenderSVGResourceMarker* markerStart, RenderSVGResourceMarker* markerMid, RenderSVGResourceMarker* markerEnd)
+FloatRect RenderSVGShape::strokeBoundingBox() const
 {
-    switch (type) {
-    case StartMarker:
-        return markerStart;
-    case MidMarker:
-        return markerMid;
-    case EndMarker:
-        return markerEnd;
+    if (m_shapeType == ShapeType::Empty)
+        return { };
+    if (!m_strokeBoundingBox) {
+        // Initialize m_strokeBoundingBox before calling calculateStrokeBoundingBox, since recursively referenced markers can cause us to re-enter here.
+        m_strokeBoundingBox = FloatRect { };
+        m_strokeBoundingBox = calculateStrokeBoundingBox();
     }
-
-    ASSERT_NOT_REACHED();
-    return 0;
-}
-
-FloatRect RenderSVGShape::computeMarkerBoundingBox(const SVGBoundingBoxComputation::DecorationOptions&) const
-{
-    if (m_markerPositions.isEmpty())
-        return FloatRect();
-
-    auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
-    ASSERT(resources);
-
-    auto* markerStart = resources->markerStart();
-    auto* markerMid = resources->markerMid();
-    auto* markerEnd = resources->markerEnd();
-    if (!markerStart && !markerMid && !markerEnd)
-        return FloatRect();
-
-    FloatRect boundaries;
-    unsigned size = m_markerPositions.size();
-    for (unsigned i = 0; i < size; ++i) {
-        if (auto* marker = markerForType(m_markerPositions[i].type, markerStart, markerMid, markerEnd)) {
-            // FIXME: [LBSE] Upstream RenderSVGResourceMarker changes
-            // boundaries.unite(marker->computeMarkerBoundingBox(options, marker->markerTransformation(m_markerPositions[i].origin, m_markerPositions[i].angle, strokeWidth())));
-            boundaries.unite(marker->markerBoundaries(marker->markerTransformation(m_markerPositions[i].origin, m_markerPositions[i].angle, strokeWidth())));
-        }
-    }
-    return boundaries;
-}
-
-FloatRect RenderSVGShape::calculateObjectBoundingBox() const
-{
-    return path().boundingRect();
+    return *m_strokeBoundingBox;
 }
 
 FloatRect RenderSVGShape::calculateStrokeBoundingBox() const
@@ -447,7 +387,24 @@ FloatRect RenderSVGShape::calculateStrokeBoundingBox() const
         }
     }
 
-    return strokeBoundingBox;
+    return adjustStrokeBoundingBoxForZeroLengthLinecaps(RepaintRectCalculation::Accurate, strokeBoundingBox);
+}
+
+FloatRect RenderSVGShape::approximateStrokeBoundingBox() const
+{
+    if (m_shapeType == ShapeType::Empty)
+        return { };
+    if (!m_approximateStrokeBoundingBox)
+        m_approximateStrokeBoundingBox = calculateApproximateStrokeBoundingBox();
+    return *m_approximateStrokeBoundingBox;
+}
+
+FloatRect RenderSVGShape::calculateApproximateStrokeBoundingBox() const
+{
+    if (m_strokeBoundingBox)
+        return *m_strokeBoundingBox;
+
+    return SVGRenderSupport::calculateApproximateStrokeBoundingBox(*this);
 }
 
 float RenderSVGShape::strokeWidth() const
@@ -465,55 +422,16 @@ bool RenderSVGShape::hasSmoothStroke() const
         && style().capStyle() == LineCap::Butt;
 }
 
-void RenderSVGShape::drawMarkers(PaintInfo&)
+Path& RenderSVGShape::ensurePath()
 {
-    ASSERT(!m_markerPositions.isEmpty());
-
-    auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
-    if (!resources)
-        return;
-
-    auto* markerStart = resources->markerStart();
-    auto* markerMid = resources->markerMid();
-    auto* markerEnd = resources->markerEnd();
-    if (!markerStart && !markerMid && !markerEnd)
-        return;
-
-    float strokeWidth = this->strokeWidth();
-    unsigned size = m_markerPositions.size();
-    for (unsigned i = 0; i < size; ++i) {
-        if (auto* marker = markerForType(m_markerPositions[i].type, markerStart, markerMid, markerEnd)) {
-            UNUSED_PARAM(marker);
-            UNUSED_PARAM(strokeWidth);
-
-            // FIXME: [LBSE] Upstream RenderLayer changes
-            // ASSERT(marker->hasLayer());
-            // GraphicsContextStateSaver stateSaver(paintInfo.context());
-            // auto contentTransform = marker->markerTransformation(m_markerPositions[i].origin, m_markerPositions[i].angle, strokeWidth);
-            // marker->layer()->paintSVGResourceLayer(paintInfo.context(), LayoutRect::infiniteRect(), contentTransform);
-        }
-    }
+    if (!hasPath())
+        m_path = createPath();
+    return path();
 }
 
 std::unique_ptr<Path> RenderSVGShape::createPath() const
 {
     return makeUnique<Path>(pathFromGraphicsElement(&graphicsElement()));
-}
-
-void RenderSVGShape::processMarkerPositions()
-{
-    m_markerPositions.clear();
-
-    if (!shouldGenerateMarkerPositions())
-        return;
-
-    ASSERT(m_path);
-
-    SVGMarkerData markerData(m_markerPositions, SVGResourcesCache::cachedResourcesForRenderer(*this)->markerReverseStart());
-    m_path->applyElements([&markerData](const PathElement& pathElement) {
-        SVGMarkerData::updateFromPathElement(markerData, pathElement);
-    });
-    markerData.pathIsDone();
 }
 
 void RenderSVGShape::styleWillChange(StyleDifference diff, const RenderStyle& newStyle)

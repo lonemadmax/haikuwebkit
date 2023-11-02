@@ -29,6 +29,12 @@
 
 #import <Foundation/Foundation.h>
 
+typedef NS_ENUM(NSInteger, _WKHitTestResultElementType) {
+    _WKHitTestResultElementTypeNone,
+    _WKHitTestResultElementTypeAudio,
+    _WKHitTestResultElementTypeVideo,
+} WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
+
 WK_CLASS_AVAILABLE(macos(10.12), ios(16.0))
 @interface _WKHitTestResult : NSObject <NSCopying>
 
@@ -42,8 +48,11 @@ WK_CLASS_AVAILABLE(macos(10.12), ios(16.0))
 @property (nonatomic, readonly, copy) NSString *lookupText;
 
 @property (nonatomic, readonly, getter=isContentEditable) BOOL contentEditable;
+@property (nonatomic, readonly, getter=isSelected) BOOL selected WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @property (nonatomic, readonly) CGRect elementBoundingBox;
+
+@property (nonatomic, readonly) _WKHitTestResultElementType elementType WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 @end
 

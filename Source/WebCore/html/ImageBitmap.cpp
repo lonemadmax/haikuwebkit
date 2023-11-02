@@ -237,14 +237,14 @@ static InterpolationQuality interpolationQualityForResizeQuality(ImageBitmapOpti
     case ImageBitmapOptions::ResizeQuality::Pixelated:
         return InterpolationQuality::DoNotInterpolate;
     case ImageBitmapOptions::ResizeQuality::Low:
-        return InterpolationQuality::Default; // Low is the default.
+        return InterpolationQuality::Low;
     case ImageBitmapOptions::ResizeQuality::Medium:
         return InterpolationQuality::Medium;
     case ImageBitmapOptions::ResizeQuality::High:
         return InterpolationQuality::High;
     }
     ASSERT_NOT_REACHED();
-    return InterpolationQuality::Default;
+    return InterpolationQuality::Low;
 }
 
 static AlphaPremultiplication alphaPremultiplicationForPremultiplyAlpha(ImageBitmapOptions::PremultiplyAlpha premultiplyAlpha)
@@ -656,7 +656,7 @@ void ImageBitmap::createCompletionHandler(ScriptExecutionContext& scriptExecutio
         return;
     }
 
-    auto imageForRender = existingImageBitmap->buffer()->copyImage();
+    auto imageForRender = BitmapImage::create(existingImageBitmap->buffer()->copyNativeImage());
 
     FloatRect destRect(FloatPoint(), outputSize);
     bitmapData->context().drawImage(*imageForRender, destRect, sourceRectangle.releaseReturnValue(), { interpolationQualityForResizeQuality(options.resizeQuality), options.resolvedImageOrientation(ImageOrientation::Orientation::None) });
@@ -685,7 +685,7 @@ void ImageBitmap::createCompletionHandler(ScriptExecutionContext& scriptExecutio
     completionHandler(WTFMove(imageBitmap));
 }
 
-class ImageBitmapImageObserver final : public RefCounted<ImageBitmapImageObserver>, public ImageObserver {
+class ImageBitmapImageObserver final : public ImageObserver {
 public:
     static Ref<ImageBitmapImageObserver> create(String mimeType, long long expectedContentLength, const URL& sourceUrl)
     {

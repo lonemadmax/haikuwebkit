@@ -95,8 +95,6 @@ public:
     static void configureWebsiteDataStoreTemporaryDirectories(WKWebsiteDataStoreConfigurationRef);
     static WKWebsiteDataStoreRef defaultWebsiteDataStore();
 
-    static WKURLRef createTestURL(const char* pathOrURL);
-
     static const WTF::Seconds defaultShortTimeout;
     static const WTF::Seconds noTimeout;
 
@@ -203,6 +201,7 @@ public:
     void setShouldLogCanAuthenticateAgainstProtectionSpace(bool shouldLog) { m_shouldLogCanAuthenticateAgainstProtectionSpace = shouldLog; }
     void setShouldLogDownloadCallbacks(bool shouldLog) { m_shouldLogDownloadCallbacks = shouldLog; }
     void setShouldLogDownloadSize(bool shouldLog) { m_shouldLogDownloadSize = shouldLog; }
+    void setShouldLogDownloadExpectedSize(bool shouldLog) { m_shouldLogDownloadExpectedSize = shouldLog; }
 
     bool isCurrentInvocation(TestInvocation* invocation) const { return invocation == m_currentInvocation.get(); }
 
@@ -248,6 +247,7 @@ public:
     void statisticsProcessStatisticsAndDataRecords();
     void statisticsUpdateCookieBlocking();
     void setStatisticsNotifyPagesWhenDataRecordsWereScanned(bool);
+    void setStatisticsTimeAdvanceForTesting(double);
     void setStatisticsIsRunningTest(bool);
     void setStatisticsShouldClassifyResourcesBeforeDataRecordsRemoval(bool);
     void setStatisticsMinimumTimeBetweenDataRecordsRemoval(double);
@@ -321,6 +321,7 @@ public:
 
     void setAllowStorageQuotaIncrease(bool);
     void setQuota(uint64_t);
+    void setOriginQuotaRatioEnabled(bool);
 
     bool didReceiveServerRedirectForProvisionalNavigation() const { return m_didReceiveServerRedirectForProvisionalNavigation; }
     void clearDidReceiveServerRedirectForProvisionalNavigation() { m_didReceiveServerRedirectForProvisionalNavigation = false; }
@@ -333,7 +334,7 @@ public:
     void setMockCameraOrientation(uint64_t);
     bool isMockRealtimeMediaSourceCenterEnabled() const;
     void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
-    void triggerMockMicrophoneConfigurationChange();
+    void triggerMockCaptureConfigurationChange(bool forMicrophone, bool forDisplay);
     bool hasAppBoundSession();
 
     void injectUserScript(WKStringRef);
@@ -432,7 +433,9 @@ private:
 
     void runTestingServerLoop();
     bool runTest(const char* pathOrURL);
-    
+
+    WKURLRef createTestURL(const char* pathOrURL);
+
     // Returns false if timed out.
     bool waitForCompletion(const WTF::Function<void ()>&, WTF::Seconds timeout);
 
@@ -518,6 +521,9 @@ private:
     static void didFinishNavigation(WKPageRef, WKNavigationRef, WKTypeRef userData, const void*);
     void didFinishNavigation(WKPageRef, WKNavigationRef);
 
+    static void didFailProvisionalNavigation(WKPageRef, WKNavigationRef, WKErrorRef, WKTypeRef, const void*);
+    void didFailProvisionalNavigation(WKPageRef, WKErrorRef);
+
     // WKDownloadClient
     static void navigationActionDidBecomeDownload(WKPageRef, WKNavigationActionRef, WKDownloadRef, const void*);
     static void navigationResponseDidBecomeDownload(WKPageRef, WKNavigationResponseRef, WKDownloadRef, const void*);
@@ -533,7 +539,7 @@ private:
     bool downloadDidReceiveServerRedirectToURL(WKDownloadRef, WKURLRequestRef);
     static void downloadDidReceiveAuthenticationChallenge(WKDownloadRef, WKAuthenticationChallengeRef, const void *clientInfo);
 
-    void downloadDidWriteData(long long totalBytesWritten);
+    void downloadDidWriteData(long long totalBytesWritten, long long totalBytesExpectedToWrite);
     static void downloadDidWriteData(WKDownloadRef, long long bytesWritten, long long totalBytesWritten, long long totalBytesExpectedToWrite, const void* clientInfo);
 
     static void webProcessDidTerminate(WKPageRef,  WKProcessTerminationReason, const void* clientInfo);
@@ -602,6 +608,7 @@ private:
     static const char* libraryPathForTesting();
     static const char* platformLibraryPathForTesting();
 
+    WKRetainPtr<WKURLRef> m_mainResourceURL;
     std::unique_ptr<TestInvocation> m_currentInvocation;
 #if PLATFORM(COCOA)
     std::unique_ptr<ClassMethodSwizzler> m_calendarSwizzler;
@@ -746,7 +753,9 @@ private:
     bool m_isMediaKeySystemPermissionGranted { true };
 
     std::optional<long long> m_downloadTotalBytesWritten;
+    std::optional<uint64_t> m_downloadTotalBytesExpectedToWrite;
     bool m_shouldLogDownloadSize { false };
+    bool m_shouldLogDownloadExpectedSize { false };
     bool m_dumpPolicyDelegateCallbacks { false };
 };
 

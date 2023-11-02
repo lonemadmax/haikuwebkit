@@ -36,6 +36,7 @@ SOFT_LINK_FRAMEWORK_FOR_HEADER(PAL, AVFoundation)
 //    #define AVAssetCache PAL::getAVAssetCacheClass()
 // because they make it difficult to use the class name in source code.
 
+SOFT_LINK_CLASS_FOR_HEADER(PAL, AVAsset)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVAssetCache)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVAssetCollection)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVAssetExportSession)
@@ -88,7 +89,7 @@ SOFT_LINK_CLASS_FOR_HEADER(PAL, AVRouteDetector)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVVideoPerformanceMetrics)
 #endif
 
-#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
+#if HAVE(AVCAPTUREDEVICE)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVCaptureConnection)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVCaptureDevice)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVCaptureDeviceFormat)
@@ -329,7 +330,7 @@ SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionRouteChangeReason
 #define AVAudioSessionRouteChangeReasonKey PAL::get_AVFoundation_AVAudioSessionRouteChangeReasonKey()
 #endif // PLATFORM(IOS_FAMILY)
 
-#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
+#if HAVE(AVCAPTUREDEVICE)
 SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, AVFoundation, AVCaptureDeviceTypeBuiltInWideAngleCamera, NSString *)
 #define AVCaptureDeviceTypeBuiltInWideAngleCamera PAL::get_AVFoundation_AVCaptureDeviceTypeBuiltInWideAngleCamera()
 SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, AVFoundation, AVCaptureDeviceTypeBuiltInTelephotoCamera, NSString *)
@@ -348,10 +349,10 @@ SOFT_LINK_CONSTANT_MAY_FAIL_FOR_HEADER(PAL, AVFoundation, AVCaptureDeviceTypeExt
 #define AVCaptureDeviceTypeExternalUnknown PAL::get_AVFoundation_AVCaptureDeviceTypeExternalUnknown()
 #endif
 
-#if PLATFORM(IOS_FAMILY) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
+#if PLATFORM(IOS_FAMILY) && !PLATFORM(WATCHOS)
 SOFT_LINK_FUNCTION_FOR_HEADER(PAL, AVFoundation, AVCaptureSessionSetAuthorizedToUseCameraInMultipleForegroundAppLayout, void, (AVCaptureSession *session), (session))
 #define AVCaptureSessionSetAuthorizedToUseCameraInMultipleForegroundAppLayout softLink_AVFoundation_AVCaptureSessionSetAuthorizedToUseCameraInMultipleForegroundAppLayout
-#endif // PLATFORM(IOS_FAMILY) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
+#endif // PLATFORM(IOS_FAMILY) && !PLATFORM(WATCHOS)
 
 #if !PLATFORM(WATCHOS)
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVRouteDetectorMultipleRoutesDetectedDidChangeNotification, NSString *)
@@ -383,5 +384,8 @@ SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAudioSessionPortCarAudio, NSS
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVSpeechSynthesisAvailableVoicesDidChangeNotification, NSString *)
 #define AVSpeechSynthesisAvailableVoicesDidChangeNotification PAL::get_AVFoundation_AVSpeechSynthesisAvailableVoicesDidChangeNotification()
 #endif // HAVE(AVSPEECHSYNTHESIS_VOICES_CHANGE_NOTIFICATION)
+
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVCaptureMaxAvailableTorchLevel, float)
+#define AVCaptureMaxAvailableTorchLevel PAL::get_AVFoundation_AVCaptureMaxAvailableTorchLevel()
 
 #endif // USE(AVFOUNDATION)

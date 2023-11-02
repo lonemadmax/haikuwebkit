@@ -284,15 +284,10 @@ ExceptionOr<Ref<AudioBuffer>> BaseAudioContext::createBuffer(unsigned numberOfCh
     return AudioBuffer::create(AudioBufferOptions {numberOfChannels, length, sampleRate});
 }
 
-void BaseAudioContext::decodeAudioData(Ref<ArrayBuffer>&& audioData, RefPtr<AudioBufferCallback>&& successCallback, RefPtr<AudioBufferCallback>&& errorCallback)
+void BaseAudioContext::decodeAudioData(Ref<ArrayBuffer>&& audioData, RefPtr<AudioBufferCallback>&& successCallback, RefPtr<AudioBufferCallback>&& errorCallback, Ref<DeferredPromise>&& promise)
 {
-    decodeAudioData(WTFMove(audioData), WTFMove(successCallback), WTFMove(errorCallback), std::nullopt);
-}
-
-void BaseAudioContext::decodeAudioData(Ref<ArrayBuffer>&& audioData, RefPtr<AudioBufferCallback>&& successCallback, RefPtr<AudioBufferCallback>&& errorCallback, std::optional<Ref<DeferredPromise>>&& promise)
-{
-    if (promise && (!document() || !document()->isFullyActive())) {
-        promise.value()->reject(Exception { InvalidStateError, "Document is not fully active"_s });
+    if (!document() || !document()->isFullyActive()) {
+        promise->reject(Exception { InvalidStateError, "Document is not fully active"_s });
         return;
     }
 
@@ -300,18 +295,16 @@ void BaseAudioContext::decodeAudioData(Ref<ArrayBuffer>&& audioData, RefPtr<Audi
         m_audioDecoder = makeUnique<AsyncAudioDecoder>();
 
     auto p = m_audioDecoder->decodeAsync(WTFMove(audioData), sampleRate());
-    p->whenSettled(RunLoop::main(), __func__, [this, activity = makePendingActivity(*this), successCallback = WTFMove(successCallback), errorCallback = WTFMove(errorCallback), promise = WTFMove(promise)] (DecodingTaskPromise::Result&& result) mutable {
+    p->whenSettled(RunLoop::main(), [this, activity = makePendingActivity(*this), successCallback = WTFMove(successCallback), errorCallback = WTFMove(errorCallback), promise = WTFMove(promise)] (DecodingTaskPromise::Result&& result) mutable {
         queueTaskKeepingObjectAlive(*this, TaskSource::InternalAsyncTask, [successCallback = WTFMove(successCallback), errorCallback = WTFMove(errorCallback), promise = WTFMove(promise), result = WTFMove(result)]() mutable {
             if (!result) {
-                if (promise)
-                    promise.value()->reject(Exception { result.error(), "Decoding failed"_s });
+                promise->reject(WTFMove(result.error()));
                 if (errorCallback)
                     errorCallback->handleEvent(nullptr);
                 return;
             }
             auto audioBuffer = WTFMove(result.value());
-            if (promise)
-                promise.value()->resolve<IDLInterface<AudioBuffer>>(audioBuffer.get());
+            promise->resolve<IDLInterface<AudioBuffer>>(audioBuffer.get());
             if (successCallback)
                 successCallback->handleEvent(audioBuffer.ptr());
         });

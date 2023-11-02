@@ -114,7 +114,7 @@ static const NSInteger SecurityLevelError = -42811;
     Vector<RetainPtr<AVContentKeyRequest>> requests;
     requests.reserveInitialCapacity(keyRequests.count);
     [keyRequests enumerateObjectsUsingBlock:[&](AVContentKeyRequest* request, NSUInteger, BOOL*) {
-        requests.uncheckedAppend(request);
+        requests.append(request);
     }];
     _parent->didProvideRequests(WTFMove(requests));
 }
@@ -1480,12 +1480,9 @@ void CDMInstanceSessionFairPlayStreamingAVFObjC::updateKeyStatuses(std::optional
 
 auto CDMInstanceSessionFairPlayStreamingAVFObjC::copyKeyStatuses() const -> KeyStatusVector
 {
-    KeyStatusVector copiedKeyStatuses;
-    copiedKeyStatuses.reserveInitialCapacity(m_keyStatuses.size());
-    for (auto& status : m_keyStatuses)
-        copiedKeyStatuses.uncheckedAppend({ status.first.copyRef(), status.second });
-    return copiedKeyStatuses;
-
+    return WTF::map(m_keyStatuses, [](auto& status) {
+        return std::pair<Ref<SharedBuffer>, KeyStatus> { status.first.copyRef(), status.second };
+    });
 }
 
 void CDMInstanceSessionFairPlayStreamingAVFObjC::outputObscuredDueToInsufficientExternalProtectionChanged(bool obscured)
@@ -1613,8 +1610,8 @@ bool CDMInstanceSessionFairPlayStreamingAVFObjC::isLicenseTypeSupported(LicenseT
 
 Vector<RetainPtr<AVContentKey>> CDMInstanceSessionFairPlayStreamingAVFObjC::contentKeyGroupDataSourceKeys() const
 {
-    return WTF::flatMap(m_requests, [](auto& request) {
-        return WTF::compactMap(request.requests, [](auto& request) {
+    return flatMap(m_requests, [](auto& request) {
+        return compactMap(request.requests, [](auto& request) {
             return RetainPtr { [request contentKey] };
         });
     });
@@ -1630,6 +1627,11 @@ const void* CDMInstanceSessionFairPlayStreamingAVFObjC::contentKeyGroupDataSourc
 const Logger& CDMInstanceSessionFairPlayStreamingAVFObjC::contentKeyGroupDataSourceLogger() const
 {
     return logger();
+}
+
+WTFLogChannel& CDMInstanceSessionFairPlayStreamingAVFObjC::contentKeyGroupDataSourceLogChannel() const
+{
+    return logChannel();
 }
 
 #endif // !RELEASE_LOG_DISABLED

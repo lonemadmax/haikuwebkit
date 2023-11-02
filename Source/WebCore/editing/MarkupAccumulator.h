@@ -35,6 +35,7 @@ namespace WebCore {
 class Attribute;
 class DocumentType;
 class Element;
+class LocalFrame;
 class Node;
 class Range;
 
@@ -64,7 +65,7 @@ constexpr auto EntityMaskInHTMLAttributeValue = { EntityMask::Amp, EntityMask::Q
 class MarkupAccumulator {
     WTF_MAKE_NONCOPYABLE(MarkupAccumulator);
 public:
-    MarkupAccumulator(Vector<Ref<Node>>*, ResolveURLs, SerializationSyntax);
+    MarkupAccumulator(Vector<Ref<Node>>*, ResolveURLs, SerializationSyntax, HashMap<String, String>&& replacementURLStrings = { });
     virtual ~MarkupAccumulator();
 
     String serializeNodes(Node& targetNode, SerializedNodes, Vector<QualifiedName>* tagNamesToSkip = nullptr);
@@ -106,11 +107,15 @@ private:
     bool inXMLFragmentSerialization() const { return m_serializationSyntax == SerializationSyntax::XML; }
     void generateUniquePrefix(QualifiedName&, const Namespaces&);
     QualifiedName xmlAttributeSerialization(const Attribute&, Namespaces*);
+    LocalFrame* frameForAttributeReplacement(const Element&) const;
+    Attribute replaceAttributeIfNecessary(const Element&, const Attribute&);
+    void appendURLAttributeIfNecessary(StringBuilder&, const Element&, Namespaces*);
 
     StringBuilder m_markup;
     const ResolveURLs m_resolveURLs;
     const SerializationSyntax m_serializationSyntax;
     unsigned m_prefixLevel { 0 };
+    HashMap<String, String> m_replacementURLStrings;
 };
 
 inline void MarkupAccumulator::endAppendingNode(const Node& node)

@@ -491,20 +491,18 @@ void LocalDOMWindow::willDestroyCachedFrame()
 {
     // It is necessary to copy m_observers to a separate vector because the Observer may
     // unregister themselves from the LocalDOMWindow as a result of the call to willDestroyGlobalObjectInCachedFrame.
-    for (auto* observer : copyToVector(m_observers)) {
-        if (m_observers.contains(observer))
-            observer->willDestroyGlobalObjectInCachedFrame();
-    }
+    m_observers.forEach([](auto& observer) {
+        observer.willDestroyGlobalObjectInCachedFrame();
+    });
 }
 
 void LocalDOMWindow::willDestroyDocumentInFrame()
 {
     // It is necessary to copy m_observers to a separate vector because the Observer may
     // unregister themselves from the LocalDOMWindow as a result of the call to willDestroyGlobalObjectInFrame.
-    for (auto* observer : copyToVector(m_observers)) {
-        if (m_observers.contains(observer))
-            observer->willDestroyGlobalObjectInFrame();
-    }
+    m_observers.forEach([](auto& observer) {
+        observer.willDestroyGlobalObjectInFrame();
+    });
 }
 
 void LocalDOMWindow::willDetachDocumentFromFrame()
@@ -516,10 +514,9 @@ void LocalDOMWindow::willDetachDocumentFromFrame()
 
     // It is necessary to copy m_observers to a separate vector because the Observer may
     // unregister themselves from the LocalDOMWindow as a result of the call to willDetachGlobalObjectFromFrame.
-    for (auto& observer : copyToVector(m_observers)) {
-        if (m_observers.contains(observer))
-            observer->willDetachGlobalObjectFromFrame();
-    }
+    m_observers.forEach([](auto& observer) {
+        observer.willDetachGlobalObjectFromFrame();
+    });
 
     if (m_performance)
         m_performance->clearResourceTimings();
@@ -550,12 +547,12 @@ void LocalDOMWindow::decrementGamepadEventListenerCount()
 
 void LocalDOMWindow::registerObserver(Observer& observer)
 {
-    m_observers.add(&observer);
+    m_observers.add(observer);
 }
 
 void LocalDOMWindow::unregisterObserver(Observer& observer)
 {
-    m_observers.remove(&observer);
+    m_observers.remove(observer);
 }
 
 void LocalDOMWindow::resetUnlessSuspendedForDocumentSuspension()
@@ -570,10 +567,9 @@ void LocalDOMWindow::suspendForBackForwardCache()
     SetForScope isSuspendingObservers(m_isSuspendingObservers, true);
     RELEASE_ASSERT(frame());
 
-    for (auto* observer : copyToVector(m_observers)) {
-        if (m_observers.contains(observer))
-            observer->suspendForBackForwardCache();
-    }
+    m_observers.forEach([](auto& observer) {
+        observer.suspendForBackForwardCache();
+    });
     RELEASE_ASSERT(frame());
 
     m_suspendedForDocumentSuspension = true;
@@ -581,10 +577,9 @@ void LocalDOMWindow::suspendForBackForwardCache()
 
 void LocalDOMWindow::resumeFromBackForwardCache()
 {
-    for (auto* observer : copyToVector(m_observers)) {
-        if (m_observers.contains(observer))
-            observer->resumeFromBackForwardCache();
-    }
+    m_observers.forEach([](auto& observer) {
+        observer.resumeFromBackForwardCache();
+    });
 
     m_suspendedForDocumentSuspension = false;
 }
@@ -782,13 +777,6 @@ void LocalDOMWindow::unfreezeNowTimestamp()
 ReducedResolutionSeconds LocalDOMWindow::frozenNowTimestamp() const
 {
     return m_frozenNowTimestamp.value_or(nowTimestamp());
-}
-
-Location& LocalDOMWindow::location()
-{
-    if (!m_location)
-        m_location = Location::create(*this);
-    return *m_location;
 }
 
 VisualViewport& LocalDOMWindow::visualViewport()
@@ -1056,7 +1044,7 @@ void LocalDOMWindow::focus(bool allowFocus)
         return;
 
     // Clear the current frame's focused node if a new frame is about to be focused.
-    RefPtr focusedFrame = CheckedRef(page->focusController())->focusedFrame();
+    RefPtr focusedFrame = CheckedRef(page->focusController())->focusedLocalFrame();
     if (focusedFrame && focusedFrame != frame)
         focusedFrame->document()->setFocusedElement(nullptr);
 
@@ -1551,6 +1539,11 @@ SecurityOrigin* LocalDOMWindow::securityOrigin() const
 Document* LocalDOMWindow::document() const
 {
     return downcast<Document>(ContextDestructionObserver::scriptExecutionContext());
+}
+
+RefPtr<Document> LocalDOMWindow::protectedDocument() const
+{
+    return document();
 }
 
 void LocalDOMWindow::overrideTransientActivationDurationForTesting(std::optional<Seconds>&& override)
@@ -2474,8 +2467,8 @@ void LocalDOMWindow::setLocation(LocalDOMWindow& activeWindow, const URL& comple
         return;
 
     // We want a new history item if we are processing a user gesture.
-    LockHistory lockHistory = (locking != LockHistoryBasedOnGestureState || !UserGestureIndicator::processingUserGesture()) ? LockHistory::Yes : LockHistory::No;
-    LockBackForwardList lockBackForwardList = (locking != LockHistoryBasedOnGestureState) ? LockBackForwardList::Yes : LockBackForwardList::No;
+    LockHistory lockHistory = (locking != SetLocationLocking::LockHistoryBasedOnGestureState || !UserGestureIndicator::processingUserGesture()) ? LockHistory::Yes : LockHistory::No;
+    LockBackForwardList lockBackForwardList = (locking != SetLocationLocking::LockHistoryBasedOnGestureState) ? LockBackForwardList::Yes : LockBackForwardList::No;
     frame->navigationScheduler().scheduleLocationChange(*activeDocument, activeDocument->securityOrigin(),
         // FIXME: What if activeDocument()->frame() is 0?
         completedURL, activeDocument->frame()->loader().outgoingReferrer(),
@@ -2776,11 +2769,6 @@ void LocalDOMWindow::eventListenersDidChange()
         else
             windowsInterestedInStorageEvents().remove(*this);
     }
-}
-
-WebCoreOpaqueRoot root(LocalDOMWindow* window)
-{
-    return WebCoreOpaqueRoot { window };
 }
 
 CookieStore& LocalDOMWindow::cookieStore()

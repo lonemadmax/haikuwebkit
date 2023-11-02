@@ -43,6 +43,8 @@ enum class RenderSVGResourceMode {
     ApplyToText    = 1 << 2 // used in combination with ApplyTo{Fill|Stroke}Mode
 };
 
+enum class RepaintRectCalculation;
+
 class Color;
 class FloatRect;
 class GraphicsContext;
@@ -57,12 +59,13 @@ public:
     RenderSVGResource() = default;
     virtual ~RenderSVGResource() = default;
 
-    virtual void removeAllClientsFromCache(bool markForInvalidation = true) = 0;
+    void removeAllClientsFromCache(bool markForInvalidation = true);
+    virtual void removeAllClientsFromCacheIfNeeded(bool markForInvalidation, WeakHashSet<RenderObject>* visitedRenderers) = 0;
     virtual void removeClientFromCache(RenderElement&, bool markForInvalidation = true) = 0;
 
     virtual bool applyResource(RenderElement&, const RenderStyle&, GraphicsContext*&, OptionSet<RenderSVGResourceMode>) = 0;
     virtual void postApplyResource(RenderElement&, GraphicsContext*&, OptionSet<RenderSVGResourceMode>, const Path*, const RenderElement* /* shape */) { }
-    virtual FloatRect resourceBoundingBox(const RenderObject&) = 0;
+    virtual FloatRect resourceBoundingBox(const RenderObject&, RepaintRectCalculation) = 0;
 
     virtual RenderSVGResourceType resourceType() const = 0;
 
@@ -72,6 +75,7 @@ public:
     static RenderSVGResourceSolidColor* sharedSolidPaintingResource();
 
     static void markForLayoutAndParentResourceInvalidation(RenderObject&, bool needsLayout = true);
+    static void markForLayoutAndParentResourceInvalidationIfNeeded(RenderObject&, bool needsLayout, WeakHashSet<RenderObject>* visitedRenderers);
 
 protected:
     void fillAndStrokePathOrShape(GraphicsContext&, OptionSet<RenderSVGResourceMode>, const Path*, const RenderElement* shape) const;

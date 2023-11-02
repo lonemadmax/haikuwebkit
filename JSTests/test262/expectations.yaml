@@ -1,220 +1,12 @@
 ---
-test/annexB/built-ins/Function/createdynfn-html-close-comment-params.js:
-  default: "SyntaxError: Unexpected token '}'. Expected a parameter pattern or a ')' in parameter list."
-  strict mode: "SyntaxError: Unexpected token '}'. Expected a parameter pattern or a ')' in parameter list."
-test/annexB/built-ins/Function/createdynfn-html-open-comment-params.js:
-  default: "SyntaxError: Unexpected token '}'. Expected a parameter pattern or a ')' in parameter list."
-  strict mode: "SyntaxError: Unexpected token '}'. Expected a parameter pattern or a ')' in parameter list."
 test/annexB/language/function-code/block-decl-func-skip-arguments.js:
   default: 'Test262Error: Expected SameValue(«function arguments() {}», «[object Arguments]») to be true'
-test/annexB/language/global-code/block-decl-global-block-scoping.js:
-  default: "TypeError: f is not a function. (In 'f()', 'f' is 123)"
-test/annexB/language/global-code/block-decl-global-existing-block-fn-no-init.js:
-  default: 'Test262Error: Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/block-decl-global-existing-fn-update.js:
-  default: 'Test262Error: Expected SameValue(«outer declaration», «inner declaration») to be true'
-test/annexB/language/global-code/block-decl-global-existing-non-enumerable-global-init.js:
-  default: 'Test262Error: descriptor should not be enumerable; descriptor should be configurable'
-test/annexB/language/global-code/block-decl-global-init.js:
-  default: 'Test262Error: binding is initialized to `undefined` Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/block-decl-global-no-skip-try.js:
-  default: 'Test262Error: Initialized binding created prior to evaluation Expected SameValue(«function f() { return 123; }», «undefined») to be true'
-test/annexB/language/global-code/block-decl-global-skip-early-err-block.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/block-decl-global-skip-early-err-for-in.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/block-decl-global-skip-early-err-for-of.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/block-decl-global-skip-early-err-for.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/block-decl-global-skip-early-err-switch.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/block-decl-global-skip-early-err-try.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/block-decl-global-skip-early-err.js:
-  default: "SyntaxError: Cannot declare a function that shadows a let/const/class/function variable 'f' in strict mode."
-test/annexB/language/global-code/if-decl-else-decl-a-global-block-scoping.js:
-  default: "TypeError: f is not a function. (In 'f()', 'f' is 123)"
-test/annexB/language/global-code/if-decl-else-decl-a-global-existing-block-fn-no-init.js:
-  default: 'Test262Error: Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/if-decl-else-decl-a-global-existing-fn-update.js:
-  default: 'Test262Error: Expected SameValue(«outer declaration», «inner declaration») to be true'
-test/annexB/language/global-code/if-decl-else-decl-a-global-existing-non-enumerable-global-init.js:
-  default: 'Test262Error: descriptor should not be enumerable; descriptor should be configurable'
-test/annexB/language/global-code/if-decl-else-decl-a-global-init.js:
-  default: 'Test262Error: binding is initialized to `undefined` Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/if-decl-else-decl-a-global-no-skip-try.js:
-  default: 'Test262Error: Initialized binding created prior to evaluation Expected SameValue(«function f() { return 123; }», «undefined») to be true'
-test/annexB/language/global-code/if-decl-else-decl-a-global-skip-early-err-block.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-decl-a-global-skip-early-err-for-in.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-decl-a-global-skip-early-err-for-of.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-decl-a-global-skip-early-err-for.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-decl-a-global-skip-early-err-switch.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-decl-a-global-skip-early-err-try.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-decl-a-global-skip-early-err.js:
-  default: "SyntaxError: Cannot declare a function that shadows a let/const/class/function variable 'f' in strict mode."
-test/annexB/language/global-code/if-decl-else-decl-b-global-block-scoping.js:
-  default: "TypeError: f is not a function. (In 'f()', 'f' is 123)"
-test/annexB/language/global-code/if-decl-else-decl-b-global-existing-block-fn-no-init.js:
-  default: 'Test262Error: Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/if-decl-else-decl-b-global-existing-fn-update.js:
-  default: 'Test262Error: Expected SameValue(«outer declaration», «inner declaration») to be true'
-test/annexB/language/global-code/if-decl-else-decl-b-global-existing-non-enumerable-global-init.js:
-  default: 'Test262Error: descriptor should not be enumerable; descriptor should be configurable'
-test/annexB/language/global-code/if-decl-else-decl-b-global-init.js:
-  default: 'Test262Error: binding is initialized to `undefined` Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/if-decl-else-decl-b-global-no-skip-try.js:
-  default: 'Test262Error: Initialized binding created prior to evaluation Expected SameValue(«function f() { return 123; }», «undefined») to be true'
-test/annexB/language/global-code/if-decl-else-decl-b-global-skip-early-err-block.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-decl-b-global-skip-early-err-for-in.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-decl-b-global-skip-early-err-for-of.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-decl-b-global-skip-early-err-for.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-decl-b-global-skip-early-err-switch.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-decl-b-global-skip-early-err-try.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-decl-b-global-skip-early-err.js:
-  default: "SyntaxError: Cannot declare a function that shadows a let/const/class/function variable 'f' in strict mode."
-test/annexB/language/global-code/if-decl-else-stmt-global-block-scoping.js:
-  default: "TypeError: f is not a function. (In 'f()', 'f' is 123)"
-test/annexB/language/global-code/if-decl-else-stmt-global-existing-block-fn-no-init.js:
-  default: 'Test262Error: Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/if-decl-else-stmt-global-existing-fn-update.js:
-  default: 'Test262Error: Expected SameValue(«outer declaration», «inner declaration») to be true'
-test/annexB/language/global-code/if-decl-else-stmt-global-existing-non-enumerable-global-init.js:
-  default: 'Test262Error: descriptor should not be enumerable; descriptor should be configurable'
-test/annexB/language/global-code/if-decl-else-stmt-global-init.js:
-  default: 'Test262Error: binding is initialized to `undefined` Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/if-decl-else-stmt-global-no-skip-try.js:
-  default: 'Test262Error: Initialized binding created prior to evaluation Expected SameValue(«function f() { return 123; }», «undefined») to be true'
-test/annexB/language/global-code/if-decl-else-stmt-global-skip-early-err-block.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-stmt-global-skip-early-err-for-in.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-stmt-global-skip-early-err-for-of.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-stmt-global-skip-early-err-for.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-stmt-global-skip-early-err-switch.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-stmt-global-skip-early-err-try.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-else-stmt-global-skip-early-err.js:
-  default: "SyntaxError: Cannot declare a function that shadows a let/const/class/function variable 'f' in strict mode."
-test/annexB/language/global-code/if-decl-no-else-global-block-scoping.js:
-  default: "TypeError: f is not a function. (In 'f()', 'f' is 123)"
-test/annexB/language/global-code/if-decl-no-else-global-existing-block-fn-no-init.js:
-  default: 'Test262Error: Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/if-decl-no-else-global-existing-fn-update.js:
-  default: 'Test262Error: Expected SameValue(«outer declaration», «inner declaration») to be true'
-test/annexB/language/global-code/if-decl-no-else-global-existing-non-enumerable-global-init.js:
-  default: 'Test262Error: descriptor should not be enumerable; descriptor should be configurable'
-test/annexB/language/global-code/if-decl-no-else-global-init.js:
-  default: 'Test262Error: binding is initialized to `undefined` Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/if-decl-no-else-global-no-skip-try.js:
-  default: 'Test262Error: Initialized binding created prior to evaluation Expected SameValue(«function f() { return 123; }», «undefined») to be true'
-test/annexB/language/global-code/if-decl-no-else-global-skip-early-err-block.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-no-else-global-skip-early-err-for-in.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-no-else-global-skip-early-err-for-of.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-no-else-global-skip-early-err-for.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-no-else-global-skip-early-err-switch.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-no-else-global-skip-early-err-try.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-decl-no-else-global-skip-early-err.js:
-  default: "SyntaxError: Cannot declare a function that shadows a let/const/class/function variable 'f' in strict mode."
-test/annexB/language/global-code/if-stmt-else-decl-global-block-scoping.js:
-  default: "TypeError: f is not a function. (In 'f()', 'f' is 123)"
-test/annexB/language/global-code/if-stmt-else-decl-global-existing-block-fn-no-init.js:
-  default: 'Test262Error: Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/if-stmt-else-decl-global-existing-fn-update.js:
-  default: 'Test262Error: Expected SameValue(«outer declaration», «inner declaration») to be true'
-test/annexB/language/global-code/if-stmt-else-decl-global-existing-non-enumerable-global-init.js:
-  default: 'Test262Error: descriptor should not be enumerable; descriptor should be configurable'
-test/annexB/language/global-code/if-stmt-else-decl-global-init.js:
-  default: 'Test262Error: binding is initialized to `undefined` Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/if-stmt-else-decl-global-no-skip-try.js:
-  default: 'Test262Error: Initialized binding created prior to evaluation Expected SameValue(«function f() { return 123; }», «undefined») to be true'
-test/annexB/language/global-code/if-stmt-else-decl-global-skip-early-err-block.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-stmt-else-decl-global-skip-early-err-for-in.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-stmt-else-decl-global-skip-early-err-for-of.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-stmt-else-decl-global-skip-early-err-for.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-stmt-else-decl-global-skip-early-err-switch.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-stmt-else-decl-global-skip-early-err-try.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/if-stmt-else-decl-global-skip-early-err.js:
-  default: "SyntaxError: Cannot declare a function that shadows a let/const/class/function variable 'f' in strict mode."
-test/annexB/language/global-code/switch-case-global-block-scoping.js:
-  default: "TypeError: f is not a function. (In 'f()', 'f' is 123)"
-test/annexB/language/global-code/switch-case-global-existing-block-fn-no-init.js:
-  default: 'Test262Error: Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/switch-case-global-existing-fn-update.js:
-  default: 'Test262Error: Expected SameValue(«outer declaration», «inner declaration») to be true'
-test/annexB/language/global-code/switch-case-global-existing-non-enumerable-global-init.js:
-  default: 'Test262Error: descriptor should not be enumerable; descriptor should be configurable'
-test/annexB/language/global-code/switch-case-global-init.js:
-  default: 'Test262Error: binding is initialized to `undefined` Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/switch-case-global-no-skip-try.js:
-  default: 'Test262Error: Initialized binding created prior to evaluation Expected SameValue(«function f() { return 123; }», «undefined») to be true'
-test/annexB/language/global-code/switch-case-global-skip-early-err-block.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/switch-case-global-skip-early-err-for-in.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/switch-case-global-skip-early-err-for-of.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/switch-case-global-skip-early-err-for.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/switch-case-global-skip-early-err-switch.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/switch-case-global-skip-early-err-try.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/switch-case-global-skip-early-err.js:
-  default: "SyntaxError: Cannot declare a function that shadows a let/const/class/function variable 'f' in strict mode."
-test/annexB/language/global-code/switch-dflt-global-block-scoping.js:
-  default: "TypeError: f is not a function. (In 'f()', 'f' is 123)"
-test/annexB/language/global-code/switch-dflt-global-existing-block-fn-no-init.js:
-  default: 'Test262Error: Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/switch-dflt-global-existing-fn-update.js:
-  default: 'Test262Error: Expected SameValue(«outer declaration», «inner declaration») to be true'
-test/annexB/language/global-code/switch-dflt-global-existing-non-enumerable-global-init.js:
-  default: 'Test262Error: descriptor should not be enumerable; descriptor should be configurable'
-test/annexB/language/global-code/switch-dflt-global-init.js:
-  default: 'Test262Error: binding is initialized to `undefined` Expected SameValue(«function f() {  }», «undefined») to be true'
-test/annexB/language/global-code/switch-dflt-global-no-skip-try.js:
-  default: 'Test262Error: Initialized binding created prior to evaluation Expected SameValue(«function f() { return 123; }», «undefined») to be true'
-test/annexB/language/global-code/switch-dflt-global-skip-early-err-block.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/switch-dflt-global-skip-early-err-for-in.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/switch-dflt-global-skip-early-err-for-of.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/switch-dflt-global-skip-early-err-for.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/switch-dflt-global-skip-early-err-switch.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/switch-dflt-global-skip-early-err-try.js:
-  default: 'Test262Error: An initialized binding is not created prior to evaluation Expected a ReferenceError to be thrown but no exception was thrown at all'
-test/annexB/language/global-code/switch-dflt-global-skip-early-err.js:
-  default: "SyntaxError: Cannot declare a function that shadows a let/const/class/function variable 'f' in strict mode."
+test/built-ins/Array/fromAsync/this-constructor-operations.js:
+  default: 'Test262:AsyncTestFailure:Test262Error: Test262Error: Expected [construct MyArray, defineProperty A[0], defineProperty A[1], set A.length] and [construct MyArray, construct MyArray, defineProperty A[0], defineProperty A[1], set A.length] to have the same contents. order of operations for array-like argument'
+  strict mode: 'Test262:AsyncTestFailure:Test262Error: Test262Error: Expected [construct MyArray, defineProperty A[0], defineProperty A[1], set A.length] and [construct MyArray, construct MyArray, defineProperty A[0], defineProperty A[1], set A.length] to have the same contents. order of operations for array-like argument'
+test/built-ins/Array/fromAsync/this-constructor.js:
+  default: 'Test262:AsyncTestFailure:Test262Error: Test262Error: constructor is called once Expected SameValue(«2», «1») to be true'
+  strict mode: 'Test262:AsyncTestFailure:Test262Error: Test262Error: constructor is called once Expected SameValue(«2», «1») to be true'
 test/built-ins/ArrayBuffer/prototype/detached/detached-buffer-resizable.js:
   default: 'Test262Error: Resizable ArrayBuffer with maxByteLength of 0 is not detached Expected SameValue(«undefined», «false») to be true'
   strict mode: 'Test262Error: Resizable ArrayBuffer with maxByteLength of 0 is not detached Expected SameValue(«undefined», «false») to be true'
@@ -291,8 +83,8 @@ test/built-ins/ArrayBuffer/prototype/transfer/new-length-non-number.js:
   default: 'Test262Error: Expected SameValue(«0», «2») to be true'
   strict mode: 'Test262Error: Expected SameValue(«0», «2») to be true'
 test/built-ins/ArrayBuffer/prototype/transfer/nonconstructor.js:
-  default: "TypeError: undefined is not an object (evaluating 'Object.prototype.hasOwnProperty.call(ArrayBuffer.prototype.transfer, 'prototype')')"
-  strict mode: "TypeError: undefined is not an object (evaluating 'Object.prototype.hasOwnProperty.call(ArrayBuffer.prototype.transfer, 'prototype')')"
+  default: 'Test262Error: isConstructor invoked with a non-function value'
+  strict mode: 'Test262Error: isConstructor invoked with a non-function value'
 test/built-ins/ArrayBuffer/prototype/transfer/this-is-detached.js:
   default: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
   strict mode: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
@@ -357,8 +149,8 @@ test/built-ins/ArrayBuffer/prototype/transferToFixedLength/new-length-non-number
   default: 'Test262Error: Expected SameValue(«0», «2») to be true'
   strict mode: 'Test262Error: Expected SameValue(«0», «2») to be true'
 test/built-ins/ArrayBuffer/prototype/transferToFixedLength/nonconstructor.js:
-  default: "TypeError: undefined is not an object (evaluating 'Object.prototype.hasOwnProperty.call(ArrayBuffer.prototype.transferToFixedLength, 'prototype')')"
-  strict mode: "TypeError: undefined is not an object (evaluating 'Object.prototype.hasOwnProperty.call(ArrayBuffer.prototype.transferToFixedLength, 'prototype')')"
+  default: 'Test262Error: isConstructor invoked with a non-function value'
+  strict mode: 'Test262Error: isConstructor invoked with a non-function value'
 test/built-ins/ArrayBuffer/prototype/transferToFixedLength/this-is-detached.js:
   default: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
   strict mode: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
@@ -380,30 +172,12 @@ test/built-ins/Function/internals/Construct/derived-return-val-realm.js:
 test/built-ins/Function/internals/Construct/derived-this-uninitialized-realm.js:
   default: 'Test262Error: Expected a ReferenceError but got a different error constructor with the same name'
   strict mode: 'Test262Error: Expected a ReferenceError but got a different error constructor with the same name'
-test/built-ins/Function/prototype/toString/AsyncFunction.js:
-  default: "SyntaxError: Unexpected token ';'. Expected a ')' or a ',' after a parameter declaration."
-  strict mode: "SyntaxError: Unexpected token ';'. Expected a ')' or a ',' after a parameter declaration."
-test/built-ins/Function/prototype/toString/AsyncGenerator.js:
-  default: "SyntaxError: Unexpected token ';'. Expected a ')' or a ',' after a parameter declaration."
-  strict mode: "SyntaxError: Unexpected token ';'. Expected a ')' or a ',' after a parameter declaration."
-test/built-ins/Function/prototype/toString/Function.js:
-  default: "SyntaxError: Unexpected token ';'. Expected a ')' or a ',' after a parameter declaration."
-  strict mode: "SyntaxError: Unexpected token ';'. Expected a ')' or a ',' after a parameter declaration."
-test/built-ins/Function/prototype/toString/GeneratorFunction.js:
-  default: "SyntaxError: Unexpected keyword 'yield'. Expected a ')' or a ',' after a parameter declaration."
-  strict mode: "SyntaxError: Unexpected keyword 'yield'. Expected a ')' or a ',' after a parameter declaration."
 test/built-ins/Function/prototype/toString/built-in-function-object.js:
   default: 'Test262Error: Conforms to NativeFunction Syntax: "function $*() {\n    [native code]\n}" (%RegExp%.$*)'
   strict mode: 'Test262Error: Conforms to NativeFunction Syntax: "function $*() {\n    [native code]\n}" (%RegExp%.$*)'
-test/built-ins/Map/groupBy/callback-arg.js:
-  default: 'Test262Error: only two arguments are passed Expected SameValue(«3», «2») to be true'
-  strict mode: 'Test262Error: only two arguments are passed Expected SameValue(«3», «2») to be true'
 test/built-ins/Object/entries/order-after-define-property-with-function.js:
   default: 'Test262Error: Expected [a, name] and [name, a] to have the same contents. '
   strict mode: 'Test262Error: Expected [a, name] and [name, a] to have the same contents. '
-test/built-ins/Object/groupBy/callback-arg.js:
-  default: 'Test262Error: only two arguments are passed Expected SameValue(«3», «2») to be true'
-  strict mode: 'Test262Error: only two arguments are passed Expected SameValue(«3», «2») to be true'
 test/built-ins/Object/keys/order-after-define-property-with-function.js:
   default: 'Test262Error: Expected [a, length] and [length, a] to have the same contents. '
   strict mode: 'Test262Error: Expected [a, length] and [length, a] to have the same contents. '
@@ -476,22 +250,52 @@ test/built-ins/RegExp/prototype/exec/u-lastindex-adv.js:
 test/built-ins/RegExp/quantifier-integer-limit.js:
   default: 'SyntaxError: Invalid regular expression: number too large in {} quantifier'
   strict mode: 'SyntaxError: Invalid regular expression: number too large in {} quantifier'
+test/built-ins/RegExp/unicodeSets/generated/rgi-emoji-15.1.js:
+  default: 'Test262Error: `\p{RGI_Emoji}` should match ⛓️‍💥 (U+0026D3 U+00FE0F U+00200D U+01F4A5)'
+  strict mode: 'Test262Error: `\p{RGI_Emoji}` should match ⛓️‍💥 (U+0026D3 U+00FE0F U+00200D U+01F4A5)'
+test/built-ins/Temporal/Duration/compare/exhaustive.js:
+  default: 'RangeError: Cannot compare a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot compare a duration of years, months, or weeks without a relativeTo option'
+test/built-ins/Temporal/Duration/compare/instances-identical.js:
+  default: 'RangeError: Cannot compare a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot compare a duration of years, months, or weeks without a relativeTo option'
+test/built-ins/Temporal/Duration/compare/relativeto-propertybag-ambiguous-wall-clock-time.js:
+  default: 'Test262Error: Expected [] and [has calendar.dateAdd, has calendar.dateFromFields, has calendar.dateUntil, has calendar.day, has calendar.dayOfWeek, has calendar.dayOfYear, has calendar.daysInMonth, has calendar.daysInWeek, has calendar.daysInYear, has calendar.fields, has calendar.id, has calendar.inLeapYear, has calendar.mergeFields, has calendar.month, has calendar.monthCode, has calendar.monthDayFromFields, has calendar.monthsInYear, has calendar.weekOfYear, has calendar.year, has calendar.yearMonthFromFields, has calendar.yearOfWeek, get calendar.fields, call calendar.fields, get calendar.dateFromFields, call calendar.dateFromFields, has timeZone.getOffsetNanosecondsFor, has timeZone.getPossibleInstantsFor, has timeZone.id, get timeZone.getPossibleInstantsFor, call timeZone.getPossibleInstantsFor, get timeZone.getOffsetNanosecondsFor, call timeZone.getOffsetNanosecondsFor, call timeZone.getOffsetNanosecondsFor, get timeZone.getPossibleInstantsFor, call timeZone.getPossibleInstantsFor] to have the same contents. order of operations converting property bag at skipped wall-clock time'
+  strict mode: 'Test262Error: Expected [] and [has calendar.dateAdd, has calendar.dateFromFields, has calendar.dateUntil, has calendar.day, has calendar.dayOfWeek, has calendar.dayOfYear, has calendar.daysInMonth, has calendar.daysInWeek, has calendar.daysInYear, has calendar.fields, has calendar.id, has calendar.inLeapYear, has calendar.mergeFields, has calendar.month, has calendar.monthCode, has calendar.monthDayFromFields, has calendar.monthsInYear, has calendar.weekOfYear, has calendar.year, has calendar.yearMonthFromFields, has calendar.yearOfWeek, get calendar.fields, call calendar.fields, get calendar.dateFromFields, call calendar.dateFromFields, has timeZone.getOffsetNanosecondsFor, has timeZone.getPossibleInstantsFor, has timeZone.id, get timeZone.getPossibleInstantsFor, call timeZone.getPossibleInstantsFor, get timeZone.getOffsetNanosecondsFor, call timeZone.getOffsetNanosecondsFor, call timeZone.getOffsetNanosecondsFor, get timeZone.getPossibleInstantsFor, call timeZone.getPossibleInstantsFor] to have the same contents. order of operations converting property bag at skipped wall-clock time'
+test/built-ins/Temporal/Duration/compare/relativeto-propertybag-builtin-calendar-no-array-iteration.js:
+  default: 'RangeError: Cannot compare a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot compare a duration of years, months, or weeks without a relativeTo option'
+test/built-ins/Temporal/Duration/compare/relativeto-propertybag-getpossibleinstantsfor-called-with-iso8601-calendar.js:
+  default: 'RangeError: Cannot compare a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot compare a duration of years, months, or weeks without a relativeTo option'
 test/built-ins/Temporal/Duration/compare/relativeto-propertybag-invalid-offset-string.js:
   default: 'Test262Error: "1000 is not a valid offset string Expected a TypeError but got a RangeError'
   strict mode: 'Test262Error: "1000 is not a valid offset string Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/Duration/compare/relativeto-propertybag-timezone-string.js:
-  default: 'TypeError: Property description must be an object.'
-  strict mode: 'TypeError: Property description must be an object.'
+  default: 'RangeError: Cannot compare a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot compare a duration of years, months, or weeks without a relativeTo option'
 test/built-ins/Temporal/Duration/from/argument-non-string.js:
   default: 'Test262Error: undefined Expected a TypeError but got a RangeError'
   strict mode: 'Test262Error: undefined Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/Duration/prototype/add/argument-not-object.js:
   default: 'Test262Error: undefined Expected a TypeError but got a RangeError'
   strict mode: 'Test262Error: undefined Expected a TypeError but got a RangeError'
+test/built-ins/Temporal/Duration/prototype/add/nanoseconds-to-days-loop-indefinitely.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, timeZone)')"
 test/built-ins/Temporal/Duration/prototype/add/precision-exact-mathematical-values.js:
   default: 'Test262Error: duration1.add(duration2) nanoseconds result Expected SameValue(«24», «0») to be true'
   strict mode: 'Test262Error: duration1.add(duration2) nanoseconds result Expected SameValue(«24», «0») to be true'
+test/built-ins/Temporal/Duration/prototype/add/relativeto-propertybag-ambiguous-wall-clock-time.js:
+  default: 'RangeError: Cannot add a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot add a duration of years, months, or weeks without a relativeTo option'
+test/built-ins/Temporal/Duration/prototype/add/relativeto-propertybag-builtin-calendar-no-array-iteration.js:
+  default: 'RangeError: Cannot add a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot add a duration of years, months, or weeks without a relativeTo option'
 test/built-ins/Temporal/Duration/prototype/add/relativeto-propertybag-calendar-string.js:
+  default: 'RangeError: Cannot add a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot add a duration of years, months, or weeks without a relativeTo option'
+test/built-ins/Temporal/Duration/prototype/add/relativeto-propertybag-getpossibleinstantsfor-called-with-iso8601-calendar.js:
   default: 'RangeError: Cannot add a duration of years, months, or weeks without a relativeTo option'
   strict mode: 'RangeError: Cannot add a duration of years, months, or weeks without a relativeTo option'
 test/built-ins/Temporal/Duration/prototype/add/relativeto-propertybag-invalid-offset-string.js:
@@ -503,37 +307,64 @@ test/built-ins/Temporal/Duration/prototype/round/constructor-in-calendar-fields.
 test/built-ins/Temporal/Duration/prototype/round/duplicate-calendar-fields.js:
   default: 'Test262Error: Expected a RangeError but got a Error'
   strict mode: 'Test262Error: Expected a RangeError but got a Error'
+test/built-ins/Temporal/Duration/prototype/round/duration-out-of-range-added-to-relativeto.js:
+  default: 'Test262Error: Expected a RangeError but got a Error'
+  strict mode: 'Test262Error: Expected a RangeError but got a Error'
 test/built-ins/Temporal/Duration/prototype/round/largestunit-correct-rebalancing.js:
   default: 'RangeError: Cannot round a duration of years, months, or weeks without a relativeTo option'
   strict mode: "ReferenceError: Can't find variable: unit"
+test/built-ins/Temporal/Duration/prototype/round/nanoseconds-to-days-loop-indefinitely.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, timeZone)')"
 test/built-ins/Temporal/Duration/prototype/round/precision-exact-in-round-duration.js:
   default: 'Test262Error:  hours result Expected SameValue(«100000», «100001») to be true'
   strict mode: 'Test262Error:  hours result Expected SameValue(«100000», «100001») to be true'
 test/built-ins/Temporal/Duration/prototype/round/proto-in-calendar-fields.js:
   default: 'Test262Error: Expected a RangeError but got a Error'
   strict mode: 'Test262Error: Expected a RangeError but got a Error'
+test/built-ins/Temporal/Duration/prototype/round/relativeto-propertybag-ambiguous-wall-clock-time.js:
+  default: 'Error: FIXME: years, months, or weeks rounding with relativeTo not implemented yet'
+  strict mode: 'Error: FIXME: years, months, or weeks rounding with relativeTo not implemented yet'
+test/built-ins/Temporal/Duration/prototype/round/relativeto-propertybag-builtin-calendar-no-array-iteration.js:
+  default: 'Error: FIXME: years, months, or weeks rounding with relativeTo not implemented yet'
+  strict mode: 'Error: FIXME: years, months, or weeks rounding with relativeTo not implemented yet'
 test/built-ins/Temporal/Duration/prototype/round/relativeto-propertybag-calendar-string.js:
   default: 'Error: FIXME: years, months, or weeks rounding with relativeTo not implemented yet'
   strict mode: 'Error: FIXME: years, months, or weeks rounding with relativeTo not implemented yet'
+test/built-ins/Temporal/Duration/prototype/round/relativeto-propertybag-getpossibleinstantsfor-called-with-iso8601-calendar.js:
+  default: 'Error: FIXME: years, months, or weeks rounding with relativeTo not implemented yet'
+  strict mode: 'Error: FIXME: years, months, or weeks rounding with relativeTo not implemented yet'
+test/built-ins/Temporal/Duration/prototype/round/rounding-is-noop.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, timeZone, calendar)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, timeZone, calendar)')"
 test/built-ins/Temporal/Duration/prototype/round/roundingincrement-non-integer.js:
   default: 'Error: FIXME: years, months, or weeks rounding with relativeTo not implemented yet'
   strict mode: 'Error: FIXME: years, months, or weeks rounding with relativeTo not implemented yet'
 test/built-ins/Temporal/Duration/prototype/round/roundingincrement-out-of-range.js:
   default: 'Test262Error: Expected a RangeError but got a Error'
   strict mode: 'Test262Error: Expected a RangeError but got a Error'
-test/built-ins/Temporal/Duration/prototype/round/zero-day-length-1.js:
+test/built-ins/Temporal/Duration/prototype/round/zero-day-length.js:
   default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, tz, \"iso8601\")')"
   strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, tz, \"iso8601\")')"
-test/built-ins/Temporal/Duration/prototype/round/zero-day-length-2.js:
-  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, tz, cal)')"
-  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, tz, cal)')"
 test/built-ins/Temporal/Duration/prototype/subtract/argument-not-object.js:
   default: 'Test262Error: undefined Expected a TypeError but got a RangeError'
   strict mode: 'Test262Error: undefined Expected a TypeError but got a RangeError'
+test/built-ins/Temporal/Duration/prototype/subtract/nanoseconds-to-days-loop-indefinitely.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, timeZone)')"
 test/built-ins/Temporal/Duration/prototype/subtract/precision-exact-mathematical-values.js:
   default: 'Test262Error: duration1.subtract(duration2) nanoseconds result Expected SameValue(«24», «0») to be true'
   strict mode: 'Test262Error: duration1.subtract(duration2) nanoseconds result Expected SameValue(«24», «0») to be true'
+test/built-ins/Temporal/Duration/prototype/subtract/relativeto-propertybag-ambiguous-wall-clock-time.js:
+  default: 'RangeError: Cannot subtract a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot subtract a duration of years, months, or weeks without a relativeTo option'
+test/built-ins/Temporal/Duration/prototype/subtract/relativeto-propertybag-builtin-calendar-no-array-iteration.js:
+  default: 'RangeError: Cannot subtract a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot subtract a duration of years, months, or weeks without a relativeTo option'
 test/built-ins/Temporal/Duration/prototype/subtract/relativeto-propertybag-calendar-string.js:
+  default: 'RangeError: Cannot subtract a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot subtract a duration of years, months, or weeks without a relativeTo option'
+test/built-ins/Temporal/Duration/prototype/subtract/relativeto-propertybag-getpossibleinstantsfor-called-with-iso8601-calendar.js:
   default: 'RangeError: Cannot subtract a duration of years, months, or weeks without a relativeTo option'
   strict mode: 'RangeError: Cannot subtract a duration of years, months, or weeks without a relativeTo option'
 test/built-ins/Temporal/Duration/prototype/subtract/relativeto-propertybag-invalid-offset-string.js:
@@ -548,24 +379,36 @@ test/built-ins/Temporal/Duration/prototype/toString/order-of-operations.js:
 test/built-ins/Temporal/Duration/prototype/toString/precision-exact-mathematical-values.js:
   default: 'Test262Error: Expected SameValue(«PT10000000000000.004096S», «PT10000000000000.004097S») to be true'
   strict mode: 'Test262Error: Expected SameValue(«PT10000000000000.004096S», «PT10000000000000.004097S») to be true'
+test/built-ins/Temporal/Duration/prototype/total/duration-out-of-range-added-to-relativeto.js:
+  default: 'Test262Error: Expected a RangeError to be thrown but no exception was thrown at all'
+  strict mode: 'Test262Error: Expected a RangeError to be thrown but no exception was thrown at all'
+test/built-ins/Temporal/Duration/prototype/total/nanoseconds-to-days-loop-indefinitely.js:
+  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, timeZone)')"
+  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, timeZone)')"
 test/built-ins/Temporal/Duration/prototype/total/precision-exact-mathematical-values-1.js:
   default: 'Test262Error: return value of total() Expected SameValue(«4000», «4000.0000000000005») to be true'
   strict mode: 'Test262Error: return value of total() Expected SameValue(«4000», «4000.0000000000005») to be true'
 test/built-ins/Temporal/Duration/prototype/total/precision-exact-mathematical-values-2.js:
   default: 'Test262Error: Expected SameValue(«4001», «4000.9999999999995») to be true'
   strict mode: 'Test262Error: Expected SameValue(«4001», «4000.9999999999995») to be true'
+test/built-ins/Temporal/Duration/prototype/total/relativeto-propertybag-ambiguous-wall-clock-time.js:
+  default: 'RangeError: Cannot total a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot total a duration of years, months, or weeks without a relativeTo option'
+test/built-ins/Temporal/Duration/prototype/total/relativeto-propertybag-builtin-calendar-no-array-iteration.js:
+  default: 'RangeError: Cannot total a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot total a duration of years, months, or weeks without a relativeTo option'
 test/built-ins/Temporal/Duration/prototype/total/relativeto-propertybag-calendar-string.js:
+  default: 'RangeError: Cannot total a duration of years, months, or weeks without a relativeTo option'
+  strict mode: 'RangeError: Cannot total a duration of years, months, or weeks without a relativeTo option'
+test/built-ins/Temporal/Duration/prototype/total/relativeto-propertybag-getpossibleinstantsfor-called-with-iso8601-calendar.js:
   default: 'RangeError: Cannot total a duration of years, months, or weeks without a relativeTo option'
   strict mode: 'RangeError: Cannot total a duration of years, months, or weeks without a relativeTo option'
 test/built-ins/Temporal/Duration/prototype/total/relativeto-propertybag-invalid-offset-string.js:
   default: 'Test262Error: "0 is not a valid offset string Expected a TypeError but got a RangeError'
   strict mode: 'Test262Error: "0 is not a valid offset string Expected a TypeError but got a RangeError'
-test/built-ins/Temporal/Duration/prototype/total/zero-day-length-1.js:
+test/built-ins/Temporal/Duration/prototype/total/zero-day-length.js:
   default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, tz, \"iso8601\")')"
   strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, tz, \"iso8601\")')"
-test/built-ins/Temporal/Duration/prototype/total/zero-day-length-2.js:
-  default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, tz, cal)')"
-  strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, tz, cal)')"
 test/built-ins/Temporal/Instant/compare/argument-string-date-with-utc-offset.js:
   default: "RangeError: '1970-01-01T00Z[!UTC]' is not a valid Temporal.Instant string"
   strict mode: "RangeError: '1970-01-01T00Z[!UTC]' is not a valid Temporal.Instant string"
@@ -885,8 +728,8 @@ test/built-ins/Temporal/PlainDate/prototype/subtract/order-of-operations.js:
   default: 'Test262Error: Expected [get fields.days, get fields.days.valueOf, call fields.days.valueOf, get fields.hours, get fields.hours.valueOf, call fields.hours.valueOf, get fields.microseconds, get fields.microseconds.valueOf, call fields.microseconds.valueOf, get fields.milliseconds, get fields.milliseconds.valueOf, call fields.milliseconds.valueOf, get fields.minutes, get fields.minutes.valueOf, call fields.minutes.valueOf, get fields.months, get fields.months.valueOf, call fields.months.valueOf, get fields.nanoseconds, get fields.nanoseconds.valueOf, call fields.nanoseconds.valueOf, get fields.seconds, get fields.seconds.valueOf, call fields.seconds.valueOf, get fields.weeks, get fields.weeks.valueOf, call fields.weeks.valueOf, get fields.years, get fields.years.valueOf, call fields.years.valueOf, get options.overflow, get options.overflow.toString, call options.overflow.toString] and [get fields.days, get fields.days.valueOf, call fields.days.valueOf, get fields.hours, get fields.hours.valueOf, call fields.hours.valueOf, get fields.microseconds, get fields.microseconds.valueOf, call fields.microseconds.valueOf, get fields.milliseconds, get fields.milliseconds.valueOf, call fields.milliseconds.valueOf, get fields.minutes, get fields.minutes.valueOf, call fields.minutes.valueOf, get fields.months, get fields.months.valueOf, call fields.months.valueOf, get fields.nanoseconds, get fields.nanoseconds.valueOf, call fields.nanoseconds.valueOf, get fields.seconds, get fields.seconds.valueOf, call fields.seconds.valueOf, get fields.weeks, get fields.weeks.valueOf, call fields.weeks.valueOf, get fields.years, get fields.years.valueOf, call fields.years.valueOf, get this.calendar.dateAdd, call this.calendar.dateAdd, get options.overflow, get options.overflow.toString, call options.overflow.toString] to have the same contents. order of operations'
   strict mode: 'Test262Error: Expected [get fields.days, get fields.days.valueOf, call fields.days.valueOf, get fields.hours, get fields.hours.valueOf, call fields.hours.valueOf, get fields.microseconds, get fields.microseconds.valueOf, call fields.microseconds.valueOf, get fields.milliseconds, get fields.milliseconds.valueOf, call fields.milliseconds.valueOf, get fields.minutes, get fields.minutes.valueOf, call fields.minutes.valueOf, get fields.months, get fields.months.valueOf, call fields.months.valueOf, get fields.nanoseconds, get fields.nanoseconds.valueOf, call fields.nanoseconds.valueOf, get fields.seconds, get fields.seconds.valueOf, call fields.seconds.valueOf, get fields.weeks, get fields.weeks.valueOf, call fields.weeks.valueOf, get fields.years, get fields.years.valueOf, call fields.years.valueOf, get options.overflow, get options.overflow.toString, call options.overflow.toString] and [get fields.days, get fields.days.valueOf, call fields.days.valueOf, get fields.hours, get fields.hours.valueOf, call fields.hours.valueOf, get fields.microseconds, get fields.microseconds.valueOf, call fields.microseconds.valueOf, get fields.milliseconds, get fields.milliseconds.valueOf, call fields.milliseconds.valueOf, get fields.minutes, get fields.minutes.valueOf, call fields.minutes.valueOf, get fields.months, get fields.months.valueOf, call fields.months.valueOf, get fields.nanoseconds, get fields.nanoseconds.valueOf, call fields.nanoseconds.valueOf, get fields.seconds, get fields.seconds.valueOf, call fields.seconds.valueOf, get fields.weeks, get fields.weeks.valueOf, call fields.weeks.valueOf, get fields.years, get fields.years.valueOf, call fields.years.valueOf, get this.calendar.dateAdd, call this.calendar.dateAdd, get options.overflow, get options.overflow.toString, call options.overflow.toString] to have the same contents. order of operations'
 test/built-ins/Temporal/PlainDate/prototype/toPlainDateTime/argument-number.js:
-  default: 'Test262Error: A number is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
-  strict mode: 'Test262Error: A number is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
+  default: 'Test262Error: A number (1) is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: A number (1) is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/PlainDate/prototype/toPlainDateTime/argument-string-date-with-utc-offset.js:
   default: 'RangeError: invalid time string'
   strict mode: 'RangeError: invalid time string'
@@ -963,8 +806,8 @@ test/built-ins/Temporal/PlainDateTime/calendar-undefined.js:
   default: 'Test262Error: Expected SameValue(«undefined», «iso8601») to be true'
   strict mode: 'Test262Error: Expected SameValue(«undefined», «iso8601») to be true'
 test/built-ins/Temporal/PlainDateTime/compare/argument-number.js:
-  default: 'Test262Error: A number is not a valid ISO string for PlainDateTime (first argument) Expected a TypeError but got a RangeError'
-  strict mode: 'Test262Error: A number is not a valid ISO string for PlainDateTime (first argument) Expected a TypeError but got a RangeError'
+  default: 'Test262Error: A number (1) is not a valid ISO string for PlainDateTime (first argument) Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: A number (1) is not a valid ISO string for PlainDateTime (first argument) Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/PlainDateTime/compare/argument-propertybag-calendar-case-insensitive.js:
   default: 'RangeError: invalid calendar ID'
   strict mode: 'RangeError: invalid calendar ID'
@@ -984,8 +827,8 @@ test/built-ins/Temporal/PlainDateTime/compare/proto-in-calendar-fields.js:
   default: 'Test262Error: Expected a RangeError to be thrown but no exception was thrown at all'
   strict mode: 'Test262Error: Expected a RangeError to be thrown but no exception was thrown at all'
 test/built-ins/Temporal/PlainDateTime/from/argument-number.js:
-  default: 'Test262Error: A number is not a valid ISO string for PlainDateTime Expected a TypeError but got a RangeError'
-  strict mode: 'Test262Error: A number is not a valid ISO string for PlainDateTime Expected a TypeError but got a RangeError'
+  default: 'Test262Error: A number (1) is not a valid ISO string for PlainDateTime Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: A number (1) is not a valid ISO string for PlainDateTime Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/PlainDateTime/from/argument-propertybag-calendar-string.js:
   default: 'Test262Error: calendar slot stores a string Expected SameValue(«iso8601», «iso8601») to be true'
   strict mode: 'Test262Error: calendar slot stores a string Expected SameValue(«iso8601», «iso8601») to be true'
@@ -1044,8 +887,8 @@ test/built-ins/Temporal/PlainDateTime/prototype/daysInYear/builtin-calendar-no-o
   default: 'TypeError: Property description must be an object.'
   strict mode: 'TypeError: Property description must be an object.'
 test/built-ins/Temporal/PlainDateTime/prototype/equals/argument-number.js:
-  default: 'Test262Error: A number is not a valid ISO string for PlainDateTime Expected a TypeError but got a RangeError'
-  strict mode: 'Test262Error: A number is not a valid ISO string for PlainDateTime Expected a TypeError but got a RangeError'
+  default: 'Test262Error: A number (1) is not a valid ISO string for PlainDateTime Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: A number (1) is not a valid ISO string for PlainDateTime Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/PlainDateTime/prototype/equals/argument-string-date-with-utc-offset.js:
   default: 'RangeError: invalid date string'
   strict mode: 'RangeError: invalid date string'
@@ -1140,8 +983,8 @@ test/built-ins/Temporal/PlainDateTime/prototype/withPlainDate/argument-wrong-typ
   default: 'Test262Error: undefined does not convert to a valid ISO string Expected a TypeError but got a RangeError'
   strict mode: 'Test262Error: undefined does not convert to a valid ISO string Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-number.js:
-  default: 'Test262Error: A number is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
-  strict mode: 'Test262Error: A number is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
+  default: 'Test262Error: A number (1) is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: A number (1) is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/PlainDateTime/prototype/withPlainTime/argument-string-date-with-utc-offset.js:
   default: 'RangeError: invalid time string'
   strict mode: 'RangeError: invalid time string'
@@ -1170,8 +1013,8 @@ test/built-ins/Temporal/PlainDateTime/prototype/yearOfWeek/validate-calendar-val
   default: 'Test262Error: undefined undefined not converted to integer Expected a TypeError to be thrown but no exception was thrown at all'
   strict mode: 'Test262Error: undefined undefined not converted to integer Expected a TypeError to be thrown but no exception was thrown at all'
 test/built-ins/Temporal/PlainTime/compare/argument-number.js:
-  default: 'Test262Error: A number is not a valid ISO string for PlainTime (first argument) Expected a TypeError but got a RangeError'
-  strict mode: 'Test262Error: A number is not a valid ISO string for PlainTime (first argument) Expected a TypeError but got a RangeError'
+  default: 'Test262Error: A number (1) is not a valid ISO string for PlainTime (first argument) Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: A number (1) is not a valid ISO string for PlainTime (first argument) Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/PlainTime/compare/argument-string-date-with-utc-offset.js:
   default: 'RangeError: invalid time string'
   strict mode: 'RangeError: invalid time string'
@@ -1179,8 +1022,8 @@ test/built-ins/Temporal/PlainTime/compare/argument-wrong-type.js:
   default: 'Test262Error: undefined does not convert to a valid ISO string (first argument) Expected a TypeError but got a RangeError'
   strict mode: 'Test262Error: undefined does not convert to a valid ISO string (first argument) Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/PlainTime/from/argument-number.js:
-  default: 'Test262Error: A number is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
-  strict mode: 'Test262Error: A number is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
+  default: 'Test262Error: A number (1) is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: A number (1) is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/PlainTime/from/argument-string-date-with-utc-offset.js:
   default: 'RangeError: invalid time string'
   strict mode: 'RangeError: invalid time string'
@@ -1203,8 +1046,8 @@ test/built-ins/Temporal/PlainTime/prototype/add/precision-exact-mathematical-val
   default: 'RangeError: hour is out of range'
   strict mode: 'RangeError: hour is out of range'
 test/built-ins/Temporal/PlainTime/prototype/equals/argument-number.js:
-  default: 'Test262Error: A number is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
-  strict mode: 'Test262Error: A number is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
+  default: 'Test262Error: A number (1) is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: A number (1) is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/PlainTime/prototype/equals/argument-string-date-with-utc-offset.js:
   default: 'RangeError: invalid time string'
   strict mode: 'RangeError: invalid time string'
@@ -1215,8 +1058,8 @@ test/built-ins/Temporal/PlainTime/prototype/getISOFields/field-traversal-order.j
   default: 'Test262Error: Expected [calendar, isoHour, isoMicrosecond, isoMillisecond, isoMinute, isoNanosecond, isoSecond] and [isoHour, isoMicrosecond, isoMillisecond, isoMinute, isoNanosecond, isoSecond] to have the same contents. '
   strict mode: 'Test262Error: Expected [calendar, isoHour, isoMicrosecond, isoMillisecond, isoMinute, isoNanosecond, isoSecond] and [isoHour, isoMicrosecond, isoMillisecond, isoMinute, isoNanosecond, isoSecond] to have the same contents. '
 test/built-ins/Temporal/PlainTime/prototype/since/argument-number.js:
-  default: 'Test262Error: A number is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
-  strict mode: 'Test262Error: A number is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
+  default: 'Test262Error: A number (1) is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: A number (1) is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/PlainTime/prototype/since/argument-string-date-with-utc-offset.js:
   default: 'RangeError: invalid time string'
   strict mode: 'RangeError: invalid time string'
@@ -1263,8 +1106,8 @@ test/built-ins/Temporal/PlainTime/prototype/toString/order-of-operations.js:
   default: 'Test262Error: Expected [get options.smallestUnit, get options.smallestUnit.toString, call options.smallestUnit.toString, get options.roundingMode, get options.roundingMode.toString, call options.roundingMode.toString] and [get options.fractionalSecondDigits, get options.fractionalSecondDigits.toString, call options.fractionalSecondDigits.toString, get options.roundingMode, get options.roundingMode.toString, call options.roundingMode.toString, get options.smallestUnit, get options.smallestUnit.toString, call options.smallestUnit.toString] to have the same contents. order of operations'
   strict mode: 'Test262Error: Expected [get options.smallestUnit, get options.smallestUnit.toString, call options.smallestUnit.toString, get options.roundingMode, get options.roundingMode.toString, call options.roundingMode.toString] and [get options.fractionalSecondDigits, get options.fractionalSecondDigits.toString, call options.fractionalSecondDigits.toString, get options.roundingMode, get options.roundingMode.toString, call options.roundingMode.toString, get options.smallestUnit, get options.smallestUnit.toString, call options.smallestUnit.toString] to have the same contents. order of operations'
 test/built-ins/Temporal/PlainTime/prototype/until/argument-number.js:
-  default: 'Test262Error: A number is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
-  strict mode: 'Test262Error: A number is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
+  default: 'Test262Error: A number (1) is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
+  strict mode: 'Test262Error: A number (1) is not a valid ISO string for PlainTime Expected a TypeError but got a RangeError'
 test/built-ins/Temporal/PlainTime/prototype/until/argument-string-date-with-utc-offset.js:
   default: 'RangeError: invalid time string'
   strict mode: 'RangeError: invalid time string'
@@ -1289,10 +1132,7 @@ test/built-ins/TypedArrayConstructors/ctors-bigint/object-arg/number-tobigint.js
 test/harness/asyncHelpers-asyncTest-without-async-flag.js:
   default: "Test262Error: Without 'async' flag, $DONE should not be defined"
   strict mode: "Test262Error: Without 'async' flag, $DONE should not be defined"
-test/harness/temporalHelpers-cross-date-line-time-zone.js:
-  default: "TypeError: afterOffset.getOffsetNanosecondsFor is not a function. (In 'afterOffset.getOffsetNanosecondsFor(instant)', 'afterOffset.getOffsetNanosecondsFor' is undefined)"
-  strict mode: "TypeError: afterOffset.getOffsetNanosecondsFor is not a function. (In 'afterOffset.getOffsetNanosecondsFor(instant)', 'afterOffset.getOffsetNanosecondsFor' is undefined)"
-test/harness/temporalHelpers-one-shift-time-zone.js:
+test/harness/temporalHelpers-sample-time-zones.js:
   default: "TypeError: realTz.getOffsetNanosecondsFor is not a function. (In 'realTz.getOffsetNanosecondsFor(shiftInstant)', 'realTz.getOffsetNanosecondsFor' is undefined)"
   strict mode: "TypeError: realTz.getOffsetNanosecondsFor is not a function. (In 'realTz.getOffsetNanosecondsFor(shiftInstant)', 'realTz.getOffsetNanosecondsFor' is undefined)"
 test/intl402/DateTimeFormat/prototype/format/temporal-zoneddatetime-not-supported.js:
@@ -1308,47 +1148,44 @@ test/intl402/DateTimeFormat/prototype/formatToParts/temporal-zoneddatetime-not-s
   default: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, timeZone)')"
   strict mode: "TypeError: undefined is not a constructor (evaluating 'new Temporal.ZonedDateTime(0n, timeZone)')"
 test/intl402/DateTimeFormat/prototype/resolvedOptions/hourCycle-default.js:
-  default: 'Test262Error: Expected SameValue(«h24», «h23») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«h24», «h23») to be true'
+  default: 'Test262Error: Expected SameValue(«h23», «h24») to be true'
+  strict mode: 'Test262Error: Expected SameValue(«h23», «h24») to be true'
 test/intl402/DateTimeFormat/timezone-case-insensitive.js:
   default: 'Test262Error: Time zone created from string "America/Argentina/Buenos_Aires" Expected SameValue(«America/Buenos_Aires», «America/Argentina/Buenos_Aires») to be true'
   strict mode: 'Test262Error: Time zone created from string "America/Argentina/Buenos_Aires" Expected SameValue(«America/Buenos_Aires», «America/Argentina/Buenos_Aires») to be true'
 test/intl402/DateTimeFormat/timezone-not-canonicalized.js:
   default: 'Test262Error: Expected SameValue(«Asia/Calcutta», «Asia/Kolkata») to be true'
   strict mode: 'Test262Error: Expected SameValue(«Asia/Calcutta», «Asia/Kolkata») to be true'
+test/intl402/DurationFormat/constructor-options-fractionalDigits-valid.js:
+  default: 'Test262Error: undefined is supported by DurationFormat Expected SameValue(«0», «undefined») to be true'
+  strict mode: 'Test262Error: undefined is supported by DurationFormat Expected SameValue(«0», «undefined») to be true'
+test/intl402/DurationFormat/prototype/format/negative-durationstyle-digital-en.js:
+  default: 'Test262Error: DurationFormat format output using digital style option Expected SameValue(«-1 yr, -2 mths, -3 wks, -3 days, -4:-05:-06», «-1 yr, -2 mths, -3 wks, -3 days, -4:-05:-06.007008009») to be true'
+  strict mode: 'Test262Error: DurationFormat format output using digital style option Expected SameValue(«-1 yr, -2 mths, -3 wks, -3 days, -4:-05:-06», «-1 yr, -2 mths, -3 wks, -3 days, -4:-05:-06.007008009») to be true'
+test/intl402/DurationFormat/prototype/format/precision-exact-mathematical-values.js:
+  default: 'Test262Error: Duration is {"seconds":10000000,"nanoseconds":1} Expected SameValue(«0:00:10,000,000», «0:00:10,000,000.000000002») to be true'
+  strict mode: 'Test262Error: Duration is {"seconds":10000000,"nanoseconds":1} Expected SameValue(«0:00:10,000,000», «0:00:10,000,000.000000002») to be true'
+test/intl402/DurationFormat/prototype/format/style-digital-en.js:
+  default: 'Test262Error: Assert DurationFormat format output using digital style option Expected SameValue(«1 yr, 2 mths, 3 wks, 3 days, 4:05:06», «1 yr, 2 mths, 3 wks, 3 days, 4:05:06.007008009») to be true'
+  strict mode: 'Test262Error: Assert DurationFormat format output using digital style option Expected SameValue(«1 yr, 2 mths, 3 wks, 3 days, 4:05:06», «1 yr, 2 mths, 3 wks, 3 days, 4:05:06.007008009») to be true'
+test/intl402/DurationFormat/prototype/format/style-digital-fractionalDigits-undefined.js:
+  default: 'Test262Error: format output with nanosecond digits and fractionalDigits: undefined using digital style option Expected SameValue(«1:22:33», «1:22:33.111222333») to be true'
+  strict mode: 'Test262Error: format output with nanosecond digits and fractionalDigits: undefined using digital style option Expected SameValue(«1:22:33», «1:22:33.111222333») to be true'
+test/intl402/DurationFormat/prototype/formatToParts/formatToParts-style-digital-en.js:
+  default: 'Test262Error: Using style : digital: length Expected SameValue(«5», «7») to be true'
+  strict mode: 'Test262Error: Using style : digital: length Expected SameValue(«5», «7») to be true'
+test/intl402/DurationFormat/prototype/formatToParts/negative-duration-formatToParts-style-digital-en.js:
+  default: 'Test262Error: Using style : digital: length Expected SameValue(«28», «30») to be true'
+  strict mode: 'Test262Error: Using style : digital: length Expected SameValue(«28», «30») to be true'
 test/intl402/Intl/getCanonicalLocales/non-iana-canon.js:
   default: 'Test262Error: The value of Intl.getCanonicalLocales(tag)[0] equals the value of `canonical` Expected SameValue(«en-US-u-va-posix», «posix») to be true'
   strict mode: 'Test262Error: The value of Intl.getCanonicalLocales(tag)[0] equals the value of `canonical` Expected SameValue(«en-US-u-va-posix», «posix») to be true'
-test/intl402/Intl/getCanonicalLocales/preferred-grandfathered.js:
-  default: 'Test262Error: Expected SameValue(«cel-gaulish», «xtg») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«cel-gaulish», «xtg») to be true'
-test/intl402/Intl/getCanonicalLocales/transformed-ext-canonical.js:
-  default: 'Test262Error: Expected SameValue(«sl-t-sl-rozaj-biske-1994», «sl-t-sl-1994-biske-rozaj») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«sl-t-sl-rozaj-biske-1994», «sl-t-sl-1994-biske-rozaj») to be true'
-test/intl402/Intl/getCanonicalLocales/unicode-ext-canonicalize-region.js:
-  default: 'Test262Error: Expected SameValue(«und-u-rg-no23», «und-u-rg-no50») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«und-u-rg-no23», «und-u-rg-no50») to be true'
-test/intl402/Intl/getCanonicalLocales/unicode-ext-canonicalize-subdivision.js:
-  default: 'Test262Error: Expected SameValue(«und-NO-u-sd-no23», «und-NO-u-sd-no50») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«und-NO-u-sd-no23», «und-NO-u-sd-no50») to be true'
-test/intl402/Intl/supportedValuesOf/numberingSystems-with-simple-digit-mappings.js:
-  default: 'Test262Error: kawi with simple digit mappings is supported'
-  strict mode: 'Test262Error: kawi with simple digit mappings is supported'
 test/intl402/Locale/extensions-grandfathered.js:
   default: 'Test262Error: Expected SameValue(«fr-Cyrl-FR-gaulish-u-nu-latn», «fr-Cyrl-FR-u-nu-latn») to be true'
   strict mode: 'Test262Error: Expected SameValue(«fr-Cyrl-FR-gaulish-u-nu-latn», «fr-Cyrl-FR-u-nu-latn») to be true'
-test/intl402/Locale/getters-grandfathered.js:
-  default: 'Test262Error: Expected SameValue(«cel-gaulish», «xtg») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«cel-gaulish», «xtg») to be true'
-test/intl402/Locale/likely-subtags-grandfathered.js:
-  default: 'Test262Error: Expected SameValue(«cel-gaulish», «xtg») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«cel-gaulish», «xtg») to be true'
 test/intl402/Locale/prototype/minimize/removing-likely-subtags-first-adds-likely-subtags.js:
   default: 'Test262Error: "und".minimize() should be "en" Expected SameValue(«en-u-va-posix», «en») to be true'
   strict mode: 'Test262Error: "und".minimize() should be "en" Expected SameValue(«en-u-va-posix», «en») to be true'
-test/intl402/NumberFormat/prototype/format/numbering-systems.js:
-  default: 'Test262Error: numberingSystem: kawi, digit: 0 Expected SameValue(«0», «𑽐») to be true'
-  strict mode: 'Test262Error: numberingSystem: kawi, digit: 0 Expected SameValue(«0», «𑽐») to be true'
 test/intl402/NumberFormat/prototype/format/useGrouping-extended-en-IN.js:
   default: 'Test262Error: notation: "compact" Expected SameValue(«1K», «1T») to be true'
   strict mode: 'Test262Error: notation: "compact" Expected SameValue(«1K», «1T») to be true'
@@ -1370,132 +1207,6 @@ test/intl402/Temporal/Duration/prototype/subtract/relativeto-sub-minute-offset.j
 test/intl402/Temporal/Duration/prototype/total/relativeto-sub-minute-offset.js:
   default: 'RangeError: Cannot total a duration of years, months, or weeks without a relativeTo option'
   strict mode: 'RangeError: Cannot total a duration of years, months, or weeks without a relativeTo option'
-test/language/block-scope/syntax/redeclaration/async-function-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-function-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-function-name-redeclaration-attempt-with-class.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-function-name-redeclaration-attempt-with-const.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-function-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-function-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-function-name-redeclaration-attempt-with-let.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-function-name-redeclaration-attempt-with-var.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-class.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-const.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-let.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-var.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/class-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/class-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/class-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/class-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/const-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/const-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/const-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/const-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/function-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/function-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/function-name-redeclaration-attempt-with-class.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/function-name-redeclaration-attempt-with-const.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/function-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/function-name-redeclaration-attempt-with-let.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/function-name-redeclaration-attempt-with-var.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/generator-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/generator-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/generator-name-redeclaration-attempt-with-class.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/generator-name-redeclaration-attempt-with-const.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/generator-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/generator-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/generator-name-redeclaration-attempt-with-let.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/generator-name-redeclaration-attempt-with-var.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/inner-block-var-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/inner-block-var-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/inner-block-var-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/inner-block-var-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/inner-block-var-redeclaration-attempt-after-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/inner-block-var-redeclaration-attempt-after-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/inner-block-var-redeclaration-attempt-after-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/inner-block-var-redeclaration-attempt-after-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/let-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/let-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/let-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/let-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/var-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/var-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/var-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/var-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/var-redeclaration-attempt-after-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/var-redeclaration-attempt-after-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/var-redeclaration-attempt-after-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/block-scope/syntax/redeclaration/var-redeclaration-attempt-after-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
 test/language/eval-code/direct/arrow-fn-body-cntns-arguments-func-decl-arrow-func-declare-arguments-assign-incl-def-param-arrow-arguments.js:
   default: 'Test262Error: globalThis.arguments unchanged Expected SameValue(«param», «undefined») to be true'
 test/language/eval-code/direct/arrow-fn-body-cntns-arguments-func-decl-arrow-func-declare-arguments-assign.js:
@@ -1590,8 +1301,8 @@ test/language/expressions/assignment/dstr/array-rest-lref-err.js:
   default: 'Test262Error: Expected SameValue(«1», «0») to be true'
   strict mode: 'Test262Error: Expected SameValue(«1», «0») to be true'
 test/language/expressions/assignment/fn-name-lhs-cover.js:
-  default: 'Test262Error: descriptor value should be '
-  strict mode: 'Test262Error: descriptor value should be '
+  default: 'Test262Error: descriptor value should be ; object value should be '
+  strict mode: 'Test262Error: descriptor value should be ; object value should be '
 test/language/expressions/assignmenttargettype/direct-callexpression-arguments.js:
   default: 'Test262: This statement should not be evaluated.'
 test/language/expressions/assignmenttargettype/parenthesized-callexpression-arguments.js:
@@ -1671,19 +1382,15 @@ test/language/expressions/compound-assignment/S11.13.2_A7.8_T4.js:
 test/language/expressions/compound-assignment/S11.13.2_A7.9_T4.js:
   default: 'Test262Error: Expected true but got false'
   strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/dynamic-import/catch/nested-async-gen-await-eval-script-code-target.js:
-  module: 'Test262:AsyncTestFailure:Test262Error: [object Object]'
-test/language/expressions/dynamic-import/catch/nested-async-gen-return-await-eval-script-code-target.js:
-  module: 'Test262:AsyncTestFailure:Test262Error: [object Object]'
 test/language/expressions/dynamic-import/for-await-resolution-and-error-agen-yield.js:
   default: 'Test262:AsyncTestFailure:Test262Error: Test262Error: f Expected SameValue(«null», «foo») to be true'
   strict mode: 'Test262:AsyncTestFailure:Test262Error: Test262Error: f Expected SameValue(«null», «foo») to be true'
 test/language/expressions/dynamic-import/import-assertions/2nd-param-assert-enumeration-abrupt.js:
   default: 'Test262:AsyncTestFailure:Test262Error: Test262Error: Expected promise to be rejected, but promise was fulfilled.'
   strict mode: 'Test262:AsyncTestFailure:Test262Error: Test262Error: Expected promise to be rejected, but promise was fulfilled.'
-test/language/expressions/dynamic-import/import-assertions/2nd-param-assert-enumeration.js:
-  default: 'Test262Error: Expected SameValue(«0», «2») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«0», «2») to be true'
+test/language/expressions/dynamic-import/import-assertions/2nd-param-assert-enumeration-enumerable.js:
+  default: 'Test262Error: Expected [] and [type] to have the same contents. '
+  strict mode: 'Test262Error: Expected [] and [type] to have the same contents. '
 test/language/expressions/dynamic-import/import-assertions/2nd-param-assert-non-object.js:
   default: 'Test262:AsyncTestFailure:Test262Error: Test262Error: Promise for null was not rejected.'
   strict mode: 'Test262:AsyncTestFailure:Test262Error: Test262Error: Promise for null was not rejected.'
@@ -1804,38 +1511,10 @@ test/language/import/import-assertions/json-via-namespace.js:
 test/language/literals/regexp/u-astral-char-class-invert.js:
   default: 'Test262Error: Expected SameValue(«�», «null») to be true'
   strict mode: 'Test262Error: Expected SameValue(«�», «null») to be true'
-test/language/module-code/early-dup-top-function-async-generator.js:
-  module: 'Test262: This statement should not be evaluated.'
-test/language/module-code/early-dup-top-function-async.js:
-  module: 'Test262: This statement should not be evaluated.'
-test/language/module-code/early-dup-top-function-generator.js:
-  module: 'Test262: This statement should not be evaluated.'
-test/language/module-code/early-dup-top-function.js:
-  module: 'Test262: This statement should not be evaluated.'
 test/language/module-code/import-assertions/eval-gtbndng-indirect-faux-assertion.js:
-  raw: "SyntaxError: Unexpected identifier 'x'. import call expects one or two arguments."
+  raw: "SyntaxError: Unexpected token '*'. import call expects one or two arguments."
 test/language/module-code/import-assertions/import-assertion-empty.js:
   module: "SyntaxError: Unexpected identifier 'assert'. Expected a ';' following a targeted import declaration."
-test/language/module-code/import-assertions/import-assertion-key-identifiername.js:
-  module: "SyntaxError: Unexpected identifier 'assert'. Expected a ';' following a targeted import declaration."
-test/language/module-code/import-assertions/import-assertion-key-string-double.js:
-  module: "SyntaxError: Unexpected identifier 'assert'. Expected a ';' following a targeted import declaration."
-test/language/module-code/import-assertions/import-assertion-key-string-single.js:
-  module: "SyntaxError: Unexpected identifier 'assert'. Expected a ';' following a targeted import declaration."
-test/language/module-code/import-assertions/import-assertion-many.js:
-  module: "SyntaxError: Unexpected identifier 'assert'. Expected a ';' following a targeted import declaration."
-test/language/module-code/import-assertions/import-assertion-newlines.js:
-  module: "SyntaxError: Unexpected identifier 'assert'. Expected a ';' following a targeted import declaration."
-test/language/module-code/import-assertions/import-assertion-trlng-comma.js:
-  module: "SyntaxError: Unexpected identifier 'assert'. Expected a ';' following a targeted import declaration."
-test/language/module-code/import-assertions/import-assertion-value-string-double.js:
-  module: "SyntaxError: Unexpected identifier 'assert'. Expected a ';' following a targeted import declaration."
-test/language/module-code/import-assertions/import-assertion-value-string-single.js:
-  module: "SyntaxError: Unexpected identifier 'assert'. Expected a ';' following a targeted import declaration."
-test/language/module-code/parse-err-hoist-lex-fun.js:
-  module: 'Test262: This statement should not be evaluated.'
-test/language/module-code/parse-err-hoist-lex-gen.js:
-  module: 'Test262: This statement should not be evaluated.'
 test/language/statements/async-generator/generator-created-after-decl-inst.js:
   default: 'Test262Error: Expected SameValue(«[object AsyncGenerator]», «[object AsyncGenerator]») to be false'
   strict mode: 'Test262Error: Expected SameValue(«[object AsyncGenerator]», «[object AsyncGenerator]») to be false'
@@ -2002,126 +1681,12 @@ test/language/statements/generators/generator-created-after-decl-inst.js:
   strict mode: 'Test262Error: Expected SameValue(«[object Generator]», «[object Generator]») to be false'
 test/language/statements/generators/scope-param-rest-elem-var-open.js:
   default: 'Test262Error: Expected SameValue(«outside», «inside») to be true'
-test/language/statements/labeled/decl-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
-test/language/statements/labeled/decl-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
-test/language/statements/labeled/let-array-with-newline.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/let/block-local-closure-set-before-initialization.js:
-  default: 'Test262Error: Expected a ReferenceError to be thrown but no exception was thrown at all'
 test/language/statements/let/dstr/ary-init-iter-get-err-array-prototype.js:
   default: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
   strict mode: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
 test/language/statements/let/dstr/ary-ptrn-elem-id-iter-val-array-prototype.js:
   default: 'Test262Error: Expected SameValue(«3», «42») to be true'
   strict mode: 'Test262Error: Expected SameValue(«3», «42») to be true'
-test/language/statements/switch/scope-lex-async-function.js:
-  default: Expected uncaught exception with name 'ReferenceError' but none was thrown
-test/language/statements/switch/scope-lex-async-generator.js:
-  default: Expected uncaught exception with name 'ReferenceError' but none was thrown
-test/language/statements/switch/scope-lex-generator.js:
-  default: Expected uncaught exception with name 'ReferenceError' but none was thrown
-test/language/statements/switch/syntax/redeclaration/async-function-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-function-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-function-name-redeclaration-attempt-with-class.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-function-name-redeclaration-attempt-with-const.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-function-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-function-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-function-name-redeclaration-attempt-with-let.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-function-name-redeclaration-attempt-with-var.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-class.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-const.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-let.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/async-generator-name-redeclaration-attempt-with-var.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/class-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/class-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/class-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/class-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/const-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/const-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/const-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/const-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/function-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/function-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/function-name-redeclaration-attempt-with-class.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/function-name-redeclaration-attempt-with-const.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/function-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/function-name-redeclaration-attempt-with-let.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/function-name-redeclaration-attempt-with-var.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/generator-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/generator-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/generator-name-redeclaration-attempt-with-class.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/generator-name-redeclaration-attempt-with-const.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/generator-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/generator-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/generator-name-redeclaration-attempt-with-let.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/generator-name-redeclaration-attempt-with-var.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/let-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/let-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/let-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/let-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/var-name-redeclaration-attempt-with-async-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/var-name-redeclaration-attempt-with-async-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/var-name-redeclaration-attempt-with-function.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
-test/language/statements/switch/syntax/redeclaration/var-name-redeclaration-attempt-with-generator.js:
-  default: 'Test262: This statement should not be evaluated.'
-  strict mode: 'Test262: This statement should not be evaluated.'
 test/language/statements/variable/dstr/ary-init-iter-get-err-array-prototype.js:
   default: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
   strict mode: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'

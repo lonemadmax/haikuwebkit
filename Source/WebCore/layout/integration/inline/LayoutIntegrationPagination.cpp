@@ -26,9 +26,10 @@
 #include "config.h"
 #include "LayoutIntegrationPagination.h"
 
-#include "FloatingState.h"
+#include "BlockLayoutState.h"
 #include "FontCascade.h"
 #include "InlineIteratorLineBox.h"
+#include "PlacedFloats.h"
 #include "RenderBlockFlow.h"
 #include "RenderStyleInlines.h"
 #include "RenderTableCell.h"
@@ -36,23 +37,39 @@
 namespace WebCore {
 namespace LayoutIntegration {
 
-Vector<LineAdjustment> computeAdjustmentsForPagination(const InlineContent& inlineContent, const Layout::FloatingState& floatingState, RenderBlockFlow& flow)
+static LayoutUnit computeFirstLineSnapAdjustment(const InlineDisplay::Line& line, const Layout::BlockLayoutState::LineGrid& lineGrid)
+{
+    auto gridLineHeight = lineGrid.rowHeight;
+
+    auto& gridFontMetrics = lineGrid.primaryFont->fontMetrics();
+    auto lineGridFontAscent = gridFontMetrics.ascent(line.baselineType());
+    auto lineGridFontHeight = gridFontMetrics.height();
+    auto lineGridHalfLeading = (gridLineHeight - lineGridFontHeight) / 2;
+    auto firstLineTop = lineGrid.topRowOffset;
+    auto firstTextTop = firstLineTop + lineGridHalfLeading;
+    auto firstBaselinePosition = firstTextTop + lineGridFontAscent;
+
+    auto baseline =  LayoutUnit { line.baseline() };
+    return lineGrid.paginationOrigin.value_or(LayoutSize { }).height() + firstBaselinePosition - baseline;
+}
+
+Vector<LineAdjustment> computeAdjustmentsForPagination(const InlineContent& inlineContent, const Layout::PlacedFloats& placedFloats, const Layout::BlockLayoutState& blockLayoutState, RenderBlockFlow& flow)
 {
     auto lineCount = inlineContent.displayContent().lines.size();
     Vector<LineAdjustment> adjustments { lineCount };
 
     HashMap<size_t, LayoutUnit, DefaultHash<size_t>, WTF::UnsignedWithZeroKeyHashTraits<size_t>>  lineFloatBottomMap;
-    for (auto& item : floatingState.floats()) {
-        if (!item.layoutBox())
+    for (auto& floatBox : placedFloats.list()) {
+        if (!floatBox.layoutBox())
             continue;
 
-        auto& renderer = downcast<RenderBox>(inlineContent.rendererForLayoutBox(*item.layoutBox()));
+        auto& renderer = downcast<RenderBox>(inlineContent.rendererForLayoutBox(*floatBox.layoutBox()));
         bool isUsplittable = renderer.isUnsplittableForPagination();
 
-        auto placedByLine = item.placedByLine();
+        auto placedByLine = floatBox.placedByLine();
         if (!placedByLine) {
             if (isUsplittable) {
-                auto rect = item.absoluteRectWithMargin();
+                auto rect = floatBox.absoluteRectWithMargin();
                 flow.updateMinimumPageHeight(rect.top(), rect.height());
             }
             continue;
@@ -60,7 +77,7 @@ Vector<LineAdjustment> computeAdjustmentsForPagination(const InlineContent& inli
 
         auto floatMinimumBottom = [&] {
             if (isUsplittable)
-                return item.absoluteRectWithMargin().bottom();
+                return floatBox.absoluteRectWithMargin().bottom();
 
             if (auto* block = dynamicDowncast<RenderBlockFlow>(renderer)) {
                 if (auto firstLine = InlineIterator::firstLineBoxFor(*block))
@@ -109,8 +126,13 @@ Vector<LineAdjustment> computeAdjustmentsForPagination(const InlineContent& inli
 
         accumulatedOffset += adjustment.strut;
 
-        if (adjustment.isFirstAfterPageBreak && !lineIndex)
-            accumulatedOffset += inlineContent.clearGapBeforeFirstLine;
+        if (adjustment.isFirstAfterPageBreak) {
+            if (!lineIndex)
+                accumulatedOffset += inlineContent.clearGapBeforeFirstLine;
+
+            if (flow.style().lineSnap() != LineSnap::None && blockLayoutState.lineGrid())
+                accumulatedOffset += computeFirstLineSnapAdjustment(inlineContent.displayContent().lines[lineIndex], *blockLayoutState.lineGrid());
+        }
 
         adjustments[lineIndex] = LineAdjustment { accumulatedOffset, adjustment.isFirstAfterPageBreak };
 
