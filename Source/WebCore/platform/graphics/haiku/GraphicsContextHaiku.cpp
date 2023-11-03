@@ -93,7 +93,7 @@ void GraphicsContextHaiku::drawRect(const FloatRect& rect, float borderThickness
     strokeRect(rect, borderThickness);
 }
 
-void GraphicsContextHaiku::drawNativeImageInternal(NativeImage& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+void GraphicsContextHaiku::drawNativeImageInternal(NativeImage& image, const FloatSize& imageSize, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)
 {
     HGTRACE(("drawNativeImage:  src([%f:%f] [%f:%f])\n", srcRect.x(), srcRect.y(), srcRect.width(), srcRect.height()));
     HGTRACE(("                 dest([%f:%f] [%f:%f])\n", destRect.x(), destRect.y(), destRect.width(), destRect.height()));
@@ -348,7 +348,7 @@ void GraphicsContextHaiku::resetClip()
 
 void GraphicsContextHaiku::drawPattern(NativeImage& image, const FloatRect& destRect,
     const FloatRect& tileRect, const AffineTransform& transform,
-    const FloatPoint& phase, const FloatSize& spacing, const ImagePaintingOptions& options)
+    const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
 {
     HGTRACE(("drawPattern: (--todo print values)\n"));
     drawBitmap(image.platformImage().get(), image.size(), destRect, tileRect, transform, phase, spacing, options);

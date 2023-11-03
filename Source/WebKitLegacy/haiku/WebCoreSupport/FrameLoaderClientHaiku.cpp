@@ -160,18 +160,44 @@ bool FrameLoaderClientHaiku::dispatchDidLoadResourceFromMemoryCache(DocumentLoad
     return false;
 }
 
-void FrameLoaderClientHaiku::assignIdentifierToInitialRequest(ResourceLoaderIdentifier /*identifier*/,
-                                                              DocumentLoader* /*loader*/,
-                                                              const ResourceRequest& /*request*/)
+void FrameLoaderClientHaiku::assignIdentifierToInitialRequest(ResourceLoaderIdentifier identifier,
+                                                              DocumentLoader* loader,
+                                                              const ResourceRequest& request)
 {
-    notImplemented();
+#if 0
+    WebCore::Page* webPage = m_webFrame->Frame()->page();
+    if (!webPage)
+        return;
+
+    bool pageIsProvisionallyLoading = false;
+    if (FrameLoader* frameLoader = loader ? loader->frameLoader() : nullptr)
+        pageIsProvisionallyLoading = frameLoader->provisionalDocumentLoader() == loader;
+
+    webPage->injectedBundleResourceLoadClient().didInitiateLoadForResource(*webPage, m_webFrame, identifier, request, pageIsProvisionallyLoading);
+
+    webPage->addResourceRequest(identifier, request);
+#endif
 }
 
 void FrameLoaderClientHaiku::dispatchWillSendRequest(DocumentLoader* /*loader*/, ResourceLoaderIdentifier /*identifier*/,
-                                                     ResourceRequest& /*request*/,
+                                                     ResourceRequest& request,
                                                      const ResourceResponse& /*redirectResponse*/)
 {
-    notImplemented();
+    WebCore::Page* webPage = m_webFrame->Frame()->page();
+    if (!webPage)
+        return;
+
+    // The API can return a completely new request. We should ensure that at least the requester
+    // is kept, so that if this is a main resource load it's still considered as such.
+    auto requester = request.requester();
+    auto appInitiatedValue = request.isAppInitiated();
+#if 0
+    webPage->injectedBundleResourceLoadClient().willSendRequestForFrame(*webPage, m_frame, identifier, request, redirectResponse);
+#endif
+    if (!request.isNull()) {
+        request.setRequester(requester);
+        request.setIsAppInitiated(appInitiatedValue);
+    }
 }
 
 bool FrameLoaderClientHaiku::shouldUseCredentialStorage(DocumentLoader*, ResourceLoaderIdentifier)
@@ -228,7 +254,8 @@ void FrameLoaderClientHaiku::dispatchDidReceiveAuthenticationChallenge(DocumentL
                 persistence = CredentialPersistencePermanent;
             }
 
-            Credential credential(String::fromUTF8(user.String()), String::fromUTF8(password.String()), persistence);
+            Credential credential(String::fromUTF8(user.String()),
+                String::fromUTF8(password.String()), persistence);
             challenge.authenticationClient()->receivedCredential(challenge, credential);
         }
     }

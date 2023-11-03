@@ -66,7 +66,7 @@ namespace WebCore {
         void takeFocus(FocusDirection) override;
 
         void focusedElementChanged(Element*) override;
-        void focusedFrameChanged(LocalFrame*) override;
+        void focusedFrameChanged(Frame*) override;
 
         Page* createWindow(LocalFrame&, const WindowFeatures&, const NavigationAction&) override;
         void closeWindow() override;

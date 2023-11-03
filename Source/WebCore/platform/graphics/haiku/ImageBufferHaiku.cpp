@@ -112,12 +112,11 @@ std::unique_ptr<ImageBufferHaikuSurfaceBackend>
 ImageBufferHaikuSurfaceBackend::create(const ImageBufferBackend::Parameters& parameters,
     const ImageBufferCreationContext&)
 {
-    IntSize backendSize = calculateBackendSize(parameters);
-    if (backendSize.isEmpty())
+    if (parameters.backendSize.isEmpty())
         return nullptr;
 
     return std::unique_ptr<ImageBufferHaikuSurfaceBackend>(
-        new ImageBufferHaikuSurfaceBackend(parameters, backendSize));
+        new ImageBufferHaikuSurfaceBackend(parameters, parameters.backendSize));
 }
 
 
@@ -232,9 +231,8 @@ Vector<uint8_t> encodeData(BBitmap* bitmap, const String& mimeType, std::optiona
 
 size_t ImageBufferHaikuSurfaceBackend::calculateMemoryCost(const Parameters& parameters)
 {
-    IntSize backendSize = calculateBackendSize(parameters);
-    int bytesPerRow = backendSize.width() * 4;
-    return ImageBufferBackend::calculateMemoryCost(backendSize, bytesPerRow);
+    int bytesPerRow = parameters.backendSize.width() * 4;
+    return ImageBufferBackend::calculateMemoryCost(parameters.backendSize, bytesPerRow);
 }
 
 } // namespace WebCore

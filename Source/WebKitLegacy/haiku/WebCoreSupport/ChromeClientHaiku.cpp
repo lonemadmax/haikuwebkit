@@ -124,7 +124,7 @@ void ChromeClientHaiku::focusedElementChanged(Element* node)
         unfocus();
 }
 
-void ChromeClientHaiku::focusedFrameChanged(LocalFrame*)
+void ChromeClientHaiku::focusedFrameChanged(Frame*)
 {
     notImplemented();
 }

@@ -161,17 +161,19 @@ bool RenderThemeHaiku::paintSliderThumb(const RenderObject& object, const PaintI
 #if ENABLE(VIDEO)
 String RenderThemeHaiku::mediaControlsStyleSheet()
 {
-    return ASCIILiteral::fromLiteralUnsafe(mediaControlsBaseUserAgentStyleSheet);
+#if ENABLE(MODERN_MEDIA_CONTROLS)
+    if (m_mediaControlsStyleSheet.isEmpty())
+        m_mediaControlsStyleSheet = StringImpl::createWithoutCopying(ModernMediaControlsUserAgentStyleSheet, sizeof(ModernMediaControlsUserAgentStyleSheet));
+    return m_mediaControlsStyleSheet;
+#else
+    return emptyString();
+#endif
 }
 
 Vector<String, 2> RenderThemeHaiku::mediaControlsScripts()
 {
-#if ENABLE(MEDIA_CONTROLS_SCRIPT)
-    // FIXME store the thing in a member variable like it is done in the windows theme
-    StringBuilder scriptBuilder;
-    scriptBuilder.appendCharacters(mediaControlsLocalizedStringsJavaScript, sizeof(mediaControlsLocalizedStringsJavaScript));
-    scriptBuilder.appendCharacters(mediaControlsBaseJavaScript, sizeof(mediaControlsBaseJavaScript));
-    return { scriptBuilder.toString() };
+#if ENABLE(MODERN_MEDIA_CONTROLS)
+    return { StringImpl::createWithoutCopying(ModernMediaControlsJavaScript, sizeof(ModernMediaControlsJavaScript)) };
 #else
     return { };
 #endif
@@ -384,6 +386,20 @@ rgb_color RenderThemeHaiku::colorForValue(color_which colorConstant, bool useDar
             return BPrivate::GetSystemColor(colorConstant, false);
     }
     return ui_color(colorConstant);
+}
+
+
+String RenderThemeHaiku::mediaControlsBase64StringForIconNameAndType(const String& iconName, const String& iconType)
+{
+    // TODO
+    notImplemented();
+    return { };
+}
+
+String RenderThemeHaiku::mediaControlsFormattedStringForDuration(double durationInSeconds)
+{
+    // FIXME: Format this somehow, maybe through BDateTime?
+    return makeString(durationInSeconds);
 }
 
 

@@ -42,7 +42,7 @@ using ImageBufferPlatformBitmapBackend = ImageBufferCGBitmapBackend;
 using ImageBufferPlatformBackend = ImageBufferCairoBackend;
 using ImageBufferPlatformBitmapBackend = ImageBufferCairoImageSurfaceBackend;
 #elif USE(HAIKU)
-using PlatformImageBufferBackend = ImageBufferHaikuSurfaceBackend;
+using ImageBufferPlatformBitmapBackend = ImageBufferHaikuSurfaceBackend;
 #endif
 
 } // namespace WebCore

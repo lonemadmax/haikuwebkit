@@ -176,7 +176,7 @@ PathHaiku::PathHaiku()
 }
 
 
-PathHaiku::PathHaiku(const BShape& platformPath, std::unique_ptr<PathStream>&& elementsStream)
+PathHaiku::PathHaiku(const BShape& platformPath, RefPtr<PathStream>&& elementsStream)
     : m_platformPath(platformPath)
     , m_elementsStream(WTFMove(elementsStream))
 {
@@ -190,13 +190,21 @@ PathHaiku::~PathHaiku()
 }
 
 
-UniqueRef<PathHaiku> PathHaiku::create()
+Ref<PathHaiku> PathHaiku::create()
 {
-    return makeUniqueRef<PathHaiku>();
+    return adoptRef(* new PathHaiku());
 }
 
 
-UniqueRef<PathHaiku> PathHaiku::create(const PathStream& stream)
+Ref<PathHaiku> PathHaiku::create(const PathSegment& segment)
+{
+    auto pathHaiku = PathHaiku::create();
+    pathHaiku->appendSegment(segment);
+    return pathHaiku;
+}
+
+
+Ref<PathHaiku> PathHaiku::create(const PathStream& stream)
 {
     auto pathHaiku = PathHaiku::create();
 
@@ -207,29 +215,21 @@ UniqueRef<PathHaiku> PathHaiku::create(const PathStream& stream)
     return pathHaiku;
 }
 
-UniqueRef<PathHaiku> PathHaiku::create(const BShape& platformPath, std::unique_ptr<PathStream>&& elementsStream)
+Ref<PathHaiku> PathHaiku::create(const BShape& platformPath, RefPtr<PathStream>&& elementsStream)
 {
-    return makeUniqueRef<PathHaiku>(platformPath, WTFMove(elementsStream));
+    return adoptRef(*new PathHaiku(platformPath, WTFMove(elementsStream)));
 }
 
-UniqueRef<PathImpl> PathHaiku::clone() const
+Ref<PathImpl> PathHaiku::copy() const
 {
-    auto elementsStream = m_elementsStream ? m_elementsStream->clone().moveToUniquePtr() : nullptr;
+    auto elementsStream = m_elementsStream ? RefPtr<PathImpl> { m_elementsStream->copy() } : nullptr;
 
-    return PathHaiku::create(m_platformPath, std::unique_ptr<PathStream> { downcast<PathStream>(elementsStream.release()) });
+    return PathHaiku::create(m_platformPath, downcast<PathStream>(WTFMove(elementsStream)));
 }
 
 PlatformPathPtr PathHaiku::platformPath() const
 {
     return const_cast<BShape*>(&m_platformPath);
-}
-
-bool PathHaiku::operator==(const PathImpl& other) const
-{
-    const auto* ptr = dynamic_cast<const PathHaiku*>(&other);
-    if (!ptr)
-        return false;
-    return m_platformPath == ptr->m_platformPath;
 }
 
 FloatPoint PathHaiku::currentPoint() const

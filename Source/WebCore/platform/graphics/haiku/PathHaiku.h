@@ -38,17 +38,16 @@ class GraphicsContext;
 
 class PathHaiku final: public PathImpl {
 public:
-    static UniqueRef<PathHaiku> create();
-    static UniqueRef<PathHaiku> create(const PathStream&);
-    static UniqueRef<PathHaiku> create(const BShape&, std::unique_ptr<PathStream>&& = nullptr);
+    static Ref<PathHaiku> create();
+    static Ref<PathHaiku> create(const PathSegment&);
+    static Ref<PathHaiku> create(const PathStream&);
+    static Ref<PathHaiku> create(const BShape&, RefPtr<PathStream>&& = nullptr);
 
     PathHaiku();
-    PathHaiku(const BShape&, std::unique_ptr<PathStream>&&);
+    PathHaiku(const BShape&, RefPtr<PathStream>&&);
     ~PathHaiku();
 
     PlatformPathPtr platformPath() const;
-
-    bool operator==(const PathImpl&) const final;
 
     void addPath(const PathHaiku&, const AffineTransform&);
 
@@ -62,7 +61,7 @@ public:
     FloatRect strokeBoundingRect(const Function<void(GraphicsContext&)>& strokeStyleApplier) const;
 
 private:
-    UniqueRef<PathImpl> clone() const final;
+    Ref<PathImpl> copy() const final;
 
     void moveTo(const FloatPoint&) final;
 
@@ -89,7 +88,7 @@ private:
     FloatRect boundingRect() const final;
 
     BShape m_platformPath;
-    std::unique_ptr<PathStream> m_elementsStream;
+    RefPtr<PathStream> m_elementsStream;
 };
 
 #if 0

@@ -46,7 +46,8 @@ void WebKitInitializeLogChannelsIfNecessary()
     haveInitializedLoggingChannels = true;
 
     // FIXME: Get the log channel string from somewhere so people don't have to hardcode it here.
-    WTFInitializeLogChannelStatesFromString(logChannels, logChannelCount, "all=all");
+    //logChannels().initializeLogChannelsIfNecessary(String::fromUTF8("all=all"));
+    //WTFInitializeLogChannelStatesFromString(logChannels, logChannelCount, "all=all");
 }
 
 #endif // !LOG_DISABLED || !RELEASE_LOG_DISABLED

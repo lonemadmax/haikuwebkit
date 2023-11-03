@@ -58,15 +58,15 @@ bool EventHandler::tabsToAllFormControls(KeyboardEvent*) const
 
 void EventHandler::focusDocumentView()
 {
-    BView* view = m_frame.view()->platformWidget();
+    BView* view = m_frame->view()->platformWidget();
     if (view && view->LockLooperWithTimeout(5000) == B_OK) {
         view->MakeFocus(true);
         view->UnlockLooper();
     }
 
-    Page* page = m_frame.page();
+    Page* page = m_frame->page();
     if (page)
-        page->focusController().setFocusedFrame(&m_frame);
+        page->focusController().setFocusedFrame(&m_frame.get());
 }
 
 bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestResults& event)

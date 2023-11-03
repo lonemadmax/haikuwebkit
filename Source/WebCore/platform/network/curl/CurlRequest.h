@@ -42,7 +42,6 @@ namespace WebCore {
 class CurlRequestClient;
 class NetworkLoadMetrics;
 class ResourceError;
-class FragmentedSharedBuffer;
 class SynchronousLoaderMessageQueue;
 
 class CurlRequest : public ThreadSafeRefCounted<CurlRequest>, public CurlRequestSchedulerClient, public CurlMultipartHandleClient {
@@ -54,19 +53,14 @@ public:
         Yes = true
     };
 
-    enum class EnableMultipart : bool {
-        No = false,
-        Yes = true
-    };
-
     enum class CaptureNetworkLoadMetrics : uint8_t {
         Basic,
         Extended
     };
 
-    static Ref<CurlRequest> create(const ResourceRequest& request, CurlRequestClient& client, ShouldSuspend shouldSuspend = ShouldSuspend::No, EnableMultipart enableMultipart = EnableMultipart::No, CaptureNetworkLoadMetrics captureMetrics = CaptureNetworkLoadMetrics::Basic, RefPtr<SynchronousLoaderMessageQueue>&& messageQueue = nullptr)
+    static Ref<CurlRequest> create(const ResourceRequest& request, CurlRequestClient& client, ShouldSuspend shouldSuspend = ShouldSuspend::No, CaptureNetworkLoadMetrics captureMetrics = CaptureNetworkLoadMetrics::Basic, RefPtr<SynchronousLoaderMessageQueue>&& messageQueue = nullptr)
     {
-        return adoptRef(*new CurlRequest(request, &client, shouldSuspend, enableMultipart, captureMetrics, WTFMove(messageQueue)));
+        return adoptRef(*new CurlRequest(request, &client, shouldSuspend, captureMetrics, WTFMove(messageQueue)));
     }
 
     virtual ~CurlRequest();
@@ -98,7 +92,7 @@ public:
     const String& getDownloadedFilePath();
 
 private:
-    WEBCORE_EXPORT CurlRequest(const ResourceRequest&, CurlRequestClient*, ShouldSuspend, EnableMultipart, CaptureNetworkLoadMetrics, RefPtr<SynchronousLoaderMessageQueue>&&);
+    WEBCORE_EXPORT CurlRequest(const ResourceRequest&, CurlRequestClient*, ShouldSuspend, CaptureNetworkLoadMetrics, RefPtr<SynchronousLoaderMessageQueue>&&);
 
     void retain() override { ref(); }
     void release() override { deref(); }
@@ -146,7 +140,7 @@ private:
     NetworkLoadMetrics networkLoadMetrics();
 
     // Download
-    void writeDataToDownloadFileIfEnabled(const FragmentedSharedBuffer&);
+    void writeDataToDownloadFileIfEnabled(std::span<const unsigned char>);
     void closeDownloadFile();
     void cleanupDownloadFile();
 

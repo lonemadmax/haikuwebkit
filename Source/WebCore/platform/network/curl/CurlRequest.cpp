@@ -42,19 +42,11 @@
 
 namespace WebCore {
 
-<<<<<<< HEAD
-CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, ShouldSuspend shouldSuspend, EnableMultipart enableMultipart, CaptureNetworkLoadMetrics captureExtraMetrics, RefPtr<SynchronousLoaderMessageQueue>&& messageQueue)
-=======
-CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, CaptureNetworkLoadMetrics captureExtraMetrics)
->>>>>>> c33e776c5776c72225d37ba5dc1b4e07b9006c27
+CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, ShouldSuspend shouldSuspend, CaptureNetworkLoadMetrics captureExtraMetrics, RefPtr<SynchronousLoaderMessageQueue>&& messageQueue)
     : m_client(client)
     , m_messageQueue(WTFMove(messageQueue))
     , m_request(request.isolatedCopy())
-<<<<<<< HEAD
-    , m_enableMultipart(enableMultipart == EnableMultipart::Yes)
     , m_startState(StartState::WaitingForStart)
-=======
->>>>>>> c33e776c5776c72225d37ba5dc1b4e07b9006c27
     , m_formDataStream(m_request.httpBody())
     , m_captureExtraMetrics(captureExtraMetrics == CaptureNetworkLoadMetrics::Extended)
 {
@@ -425,16 +417,8 @@ size_t CurlRequest::didReceiveData(std::span<const uint8_t> receivedData)
 
     m_totalReceivedSize += receivedData.size();
 
-<<<<<<< HEAD
-    writeDataToDownloadFileIfEnabled(buffer);
+    writeDataToDownloadFileIfEnabled(receivedData);
 
-    if (receiveBytes) {
-        if (m_multipartHandle)
-            m_multipartHandle->didReceiveData(buffer);
-        else {
-            callClient([buffer = Ref { buffer }](CurlRequest& request, CurlRequestClient& client) {
-                client.curlDidReceiveData(request, buffer);
-=======
     if (receivedData.size()) {
         if (m_multipartHandle) {
             m_multipartHandle->didReceiveMessage(receivedData);
@@ -443,7 +427,6 @@ size_t CurlRequest::didReceiveData(std::span<const uint8_t> receivedData)
         } else {
             callClient([buffer = SharedBuffer::create(receivedData)](CurlRequest& request, CurlRequestClient& client) mutable {
                 client.curlDidReceiveData(request, WTFMove(buffer));
->>>>>>> c33e776c5776c72225d37ba5dc1b4e07b9006c27
             });
         }
     }
@@ -788,7 +771,7 @@ const String& CurlRequest::getDownloadedFilePath()
     return m_downloadFilePath;
 }
 
-void CurlRequest::writeDataToDownloadFileIfEnabled(const FragmentedSharedBuffer& buffer)
+void CurlRequest::writeDataToDownloadFileIfEnabled(std::span<const unsigned char> buffer)
 {
     {
         Locker locker { m_downloadMutex };
@@ -801,7 +784,7 @@ void CurlRequest::writeDataToDownloadFileIfEnabled(const FragmentedSharedBuffer&
     }
 
     if (m_downloadFileHandle != FileSystem::invalidPlatformFileHandle)
-        FileSystem::writeToFile(m_downloadFileHandle, buffer.makeContiguous()->data(), buffer.size());
+        FileSystem::writeToFile(m_downloadFileHandle, buffer.data(), buffer.size());
 }
 
 void CurlRequest::closeDownloadFile()

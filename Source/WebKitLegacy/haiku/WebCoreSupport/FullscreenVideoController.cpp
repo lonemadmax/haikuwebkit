@@ -24,7 +24,7 @@
  */
 
 
-#if ENABLE(VIDEO) && !USE(GSTREAMER) && !USE(MEDIA_FOUNDATION)
+#if ENABLE(VIDEO)
 
 #include "FullscreenVideoController.h"
 
@@ -39,10 +39,7 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringConcatenateNumbers.h>
 
-#if USE(CA)
-#include <WebCore/PlatformCALayerClient.h>
-#include <WebCore/PlatformCALayerWin.h>
-#endif
+#include <ControlLook.h>
 
 using namespace WebCore;
 
@@ -72,8 +69,6 @@ static const int borderThickness = 2;
 // Colors
 static constexpr auto backgroundColor = SRGBA<uint8_t> { 32, 32, 32, 160 };
 static constexpr auto borderColor = SRGBA<uint8_t> { 160, 160, 160 };
-static constexpr auto sliderGutterColor = SRGBA<uint8_t> { 20, 20, 20 };
-static constexpr auto sliderButtonColor = SRGBA<uint8_t> { 128, 128, 128 };
 static constexpr auto textColor = Color::white;
 
 HUDButton::HUDButton(HUDButtonType type, const IntPoint& position)
@@ -129,29 +124,26 @@ HUDSlider::HUDSlider(HUDSliderButtonShape shape, int buttonSize, const IntRect& 
 
 void HUDSlider::draw(GraphicsContext& context)
 {
+    BView* view = context.platformContext();
+    rgb_color barColor = be_control_look->SliderBarColor(ui_color(B_PANEL_BACKGROUND_COLOR));
     // Draw gutter
-    IntSize radius(m_rect.height() / 2, m_rect.height() / 2);
-    context.fillRoundedRect(FloatRoundedRect(m_rect, radius, radius, radius, radius), Color(sliderGutterColor));
+    be_control_look->DrawSliderBar(view, m_rect, view->Bounds(), ui_color(B_PANEL_BACKGROUND_COLOR),
+            ui_color(B_DOCUMENT_TEXT_COLOR), barColor, 1, 0, B_HORIZONTAL);
 
     // Draw button
-    context.setStrokeColor(Color(sliderButtonColor));
-    context.setFillColor(Color(sliderButtonColor));
-
-    if (m_buttonShape == RoundButton) {
-        context.drawEllipse(IntRect(m_rect.location().x() + m_buttonPosition, m_rect.location().y() - (m_buttonSize - m_rect.height()) / 2, m_buttonSize, m_buttonSize));
-        return;
-    }
-
-    // Draw a diamond
     float half = static_cast<float>(m_buttonSize) / 2;
 
-    Vector<FloatPoint> points = {
-        FloatPoint(m_rect.location().x() + m_buttonPosition + half, m_rect.location().y()),
-        FloatPoint(m_rect.location().x() + m_buttonPosition + m_buttonSize, m_rect.location().y() + half),
-        FloatPoint(m_rect.location().x() + m_buttonPosition + half, m_rect.location().y() + m_buttonSize),
-        FloatPoint(m_rect.location().x() + m_buttonPosition, m_rect.location().y() + half)
-    };
-    context.drawPath(Path::polygonPathFromPoints(points));
+    BRect r = m_rect;
+    r.left += m_buttonPosition;
+    r.InsetBy(-half, -half);
+
+    if (m_buttonShape == RoundButton) {
+        be_control_look->DrawSliderThumb(view, r, view->Bounds(), ui_color(B_PANEL_BACKGROUND_COLOR),
+                0, B_HORIZONTAL);
+    } else {
+        be_control_look->DrawSliderTriangle(view, r, view->Bounds(), ui_color(B_PANEL_BACKGROUND_COLOR),
+                0, B_HORIZONTAL);
+    }
 }
 
 void HUDSlider::drag(const IntPoint& point, bool start)

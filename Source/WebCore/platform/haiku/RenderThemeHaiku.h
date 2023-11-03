@@ -26,6 +26,8 @@
 #define RenderThemeHaiku_h
 
 #include "RenderTheme.h"
+#include "HTMLMediaElement.h"
+#include "MediaControlTextTrackContainerElement.h"
 
 namespace WebCore {
 
@@ -95,6 +97,12 @@ private:
     rgb_color colorForControl(const RenderObject&) const;
     rgb_color colorForValue(color_which, bool useDarkAppearance) const;
 
+#if ENABLE(VIDEO) && ENABLE(MODERN_MEDIA_CONTROLS)
+    String mediaControlsBase64StringForIconNameAndType(const String&, const String&) final;
+    String mediaControlsFormattedStringForDuration(double) final;
+
+    String m_mediaControlsStyleSheet;
+#endif // ENABLE(VIDEO) && ENABLE(MODERN_MEDIA_CONTROLS)
 };
 
 } // namespace WebCore
