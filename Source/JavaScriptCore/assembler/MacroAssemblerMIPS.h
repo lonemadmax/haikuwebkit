@@ -93,6 +93,7 @@ public:
     };
 
     enum ResultCondition {
+        Carry, // <- not implemented
         Overflow,
         Signed,
         PositiveOrZero,
@@ -433,15 +434,11 @@ public:
 
     void lshift32(TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
-            return;
         m_assembler.sll(dest, dest, imm.m_value);
     }
 
     void lshift32(RegisterID src, TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
-            return move(src, dest);
         m_assembler.sll(dest, src, imm.m_value);
     }
 
@@ -668,15 +665,11 @@ public:
 
     void rshift32(TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
-            return;
         m_assembler.sra(dest, dest, imm.m_value);
     }
 
     void rshift32(RegisterID src, TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
-            return move(src, dest);
         m_assembler.sra(dest, src, imm.m_value);
     }
 
@@ -692,15 +685,11 @@ public:
 
     void urshift32(TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
-            return;
         m_assembler.srl(dest, dest, imm.m_value);
     }
 
     void urshift32(RegisterID src, TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
-            return move(src, dest);
         m_assembler.srl(dest, src, imm.m_value);
     }
 

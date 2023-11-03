@@ -97,7 +97,6 @@ static bool shouldAllowAccessibilityRoleAsPointerCursorReplacement(const Element
     switch (AccessibilityObject::ariaRoleToWebCoreRole(element.attributeWithoutSynchronization(HTMLNames::roleAttr))) {
     case AccessibilityRole::Button:
     case AccessibilityRole::Checkbox:
-    case AccessibilityRole::DisclosureTriangle:
     case AccessibilityRole::ImageMapLink:
     case AccessibilityRole::Link:
     case AccessibilityRole::WebCoreLink:
@@ -312,7 +311,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
         }
     }
 
-    if (!regionRenderer.hasVisibleBoxDecorations() && !renderer.hasVisibleBoxDecorations()) {
+    if (!regionRenderer.hasVisibleBoxDecorations() && !renderer.hasVisibleBoxDecorations() && !renderer.style().hasExplicitlySetBorderRadius()) {
         // We can safely tweak the bounds and radius without causing visual mismatch.
         borderRadius = std::max<float>(borderRadius, regionRenderer.document().settings().interactionRegionMinimumCornerRadius());
         if (isInlineNonBlock)

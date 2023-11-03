@@ -115,7 +115,10 @@ struct RequestedScrollData {
     std::optional<std::tuple<ScrollRequestType, std::variant<FloatPoint, FloatSize>, ScrollType, ScrollClamping>> requestedDataBeforeAnimatedScroll { };
 
     void merge(RequestedScrollData&&);
-    WEBCORE_EXPORT FloatPoint destinationPosition(const FloatPoint&) const;
+
+    WEBCORE_EXPORT FloatPoint destinationPosition(FloatPoint currentScrollPosition) const;
+    WEBCORE_EXPORT static FloatPoint computeDestinationPosition(FloatPoint currentScrollPosition, ScrollRequestType, const std::variant<FloatPoint, FloatSize>& scrollPositionOrDelta);
+
     bool comparePositionOrDelta(const RequestedScrollData& other) const
     {
         if (requestType == ScrollRequestType::PositionUpdate)
@@ -205,13 +208,13 @@ struct WheelEventHandlingResult {
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, SynchronousScrollingReason);
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, ScrollingNodeType);
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, ScrollingLayerPositionAction);
-WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, ScrollableAreaParameters);
+WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const ScrollableAreaParameters&);
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, ViewportRectStability);
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, WheelEventHandlingResult);
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, WheelEventProcessingSteps);
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, ScrollRequestType);
 WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, ScrollUpdateType);
-WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, RequestedScrollData);
+WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const RequestedScrollData&);
 
 } // namespace WebCore
 

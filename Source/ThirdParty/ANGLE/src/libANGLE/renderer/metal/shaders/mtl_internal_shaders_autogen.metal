@@ -1737,7 +1737,15 @@ enum
     X2R10G10B10_SSCALED_VERTEX,
     X2R10G10B10_UINT_VERTEX,
     X2R10G10B10_UNORM_VERTEX,
-    X2R10G10B10_USCALED_VERTEX
+    X2R10G10B10_USCALED_VERTEX,
+    EXTERNAL0,
+    EXTERNAL1,
+    EXTERNAL2,
+    EXTERNAL3,
+    EXTERNAL4,
+    EXTERNAL5,
+    EXTERNAL6,
+    EXTERNAL7
 };
 
 }
@@ -3130,6 +3138,24 @@ vertex void expandVertexFormatComponentsVS(uint index [[vertex_id]],
                                            device uchar *dstBuffer [[buffer(2)]])
 {
     expandVertexFormatComponents(index, options, srcBuffer, dstBuffer);
+}
+
+
+kernel void linearizeBlocks(ushort2 position [[thread_position_in_grid]],
+                            constant uint2 *dimensions [[buffer(0)]],
+                            constant uint2 *srcBuffer [[buffer(1)]],
+                            device uint2 *dstBuffer [[buffer(2)]])
+{
+    if (any(uint2(position) >= *dimensions))
+    {
+        return;
+    }
+    uint2 t = uint2(position);
+    t = (t | (t << 8)) & 0x00FF00FF;
+    t = (t | (t << 4)) & 0x0F0F0F0F;
+    t = (t | (t << 2)) & 0x33333333;
+    t = (t | (t << 1)) & 0x55555555;
+    dstBuffer[position.y * (*dimensions).x + position.x] = srcBuffer[(t.x << 1) | t.y];
 }
 # 6 "temp_master_source.metal" 2
 # 1 "./visibility.metal" 1

@@ -173,6 +173,7 @@
 #include "NodeWithIndex.h"
 #include "NoiseInjectionPolicy.h"
 #include "NotificationController.h"
+#include "OpportunisticTaskScheduler.h"
 #include "OverflowEvent.h"
 #include "PageConsoleClient.h"
 #include "PageGroup.h"
@@ -598,7 +599,7 @@ Document::Document(LocalFrame* frame, const Settings& settings, const URL& url, 
     , m_cachedResourceLoader(createCachedResourceLoader(frame))
     , m_creationURL(url)
     , m_domTreeVersion(++s_globalTreeVersion)
-    , m_styleScope(makeUnique<Style::Scope>(*this))
+    , m_styleScope(makeUniqueRef<Style::Scope>(*this))
     , m_extensionStyleSheets(makeUnique<ExtensionStyleSheets>(*this))
     , m_visitedLinkState(makeUnique<VisitedLinkState>(*this))
     , m_markers(makeUniqueRef<DocumentMarkerController>(*this))
@@ -3656,6 +3657,8 @@ void Document::setURL(const URL& url)
     // SecurityContext::securityOrigin may not be initialized at this time if setURL() is called in the constructor, therefore calling topOrigin() is not always safe.
     auto topOrigin = isTopDocument() && !SecurityContext::securityOrigin() ? SecurityOrigin::create(url)->data() : this->topOrigin().data();
     m_url = { WTFMove(newURL), topOrigin };
+    if (m_frame)
+        m_frame->documentURLDidChange(m_url);
 
     m_documentURI = m_url.url().string();
     m_adjustedURL = adjustedURL();
@@ -3679,6 +3682,7 @@ const URL& Document::urlForBindings() const
         if (preNavigationURL.isEmpty() || RegistrableDomain { preNavigationURL }.matches(securityOrigin().data()))
             return false;
 
+#if ENABLE(PUBLIC_SUFFIX_LIST)
         auto areSameSiteIgnoringPublicSuffix = [](StringView domain, StringView otherDomain) {
             auto domainString = topPrivatelyControlledDomain(domain.toStringWithoutCopying());
             auto otherDomainString = topPrivatelyControlledDomain(otherDomain.toStringWithoutCopying());
@@ -3695,6 +3699,7 @@ const URL& Document::urlForBindings() const
         auto currentHost = securityOrigin().data().host();
         if (areSameSiteIgnoringPublicSuffix(preNavigationURL.host(), currentHost))
             return false;
+#endif // ENABLE(PUBLIC_SUFFIX_LIST)
 
         if (!m_hasLoadedThirdPartyScript)
             return false;
@@ -3703,8 +3708,10 @@ const URL& Document::urlForBindings() const
             if (RegistrableDomain { sourceURL }.matches(securityOrigin().data()))
                 return false;
 
+#if ENABLE(PUBLIC_SUFFIX_LIST)
             if (areSameSiteIgnoringPublicSuffix(sourceURL.host(), currentHost))
                 return false;
+#endif // ENABLE(PUBLIC_SUFFIX_LIST)
         }
 
         return true;
@@ -3769,13 +3776,22 @@ void Document::setBaseURLOverride(const URL& url)
     updateBaseURL();
 }
 
+HTMLBaseElement* Document::firstBaseElement() const
+{
+    return m_firstBaseElement.get();
+}
+
 void Document::processBaseElement()
 {
     // Find the first href attribute in a base element and the first target attribute in a base element.
     AtomString href;
     AtomString target;
+    RefPtr<HTMLBaseElement> baseElement;
     auto baseDescendants = descendantsOfType<HTMLBaseElement>(*this);
     for (auto& base : baseDescendants) {
+        if (!baseElement)
+            baseElement = &base;
+
         if (href.isNull()) {
             auto& value = base.attributeWithoutSynchronization(hrefAttr);
             if (!value.isNull()) {
@@ -3809,6 +3825,7 @@ void Document::processBaseElement()
     }
 
     m_baseTarget = WTFMove(target);
+    m_firstBaseElement = WTFMove(baseElement);
 }
 
 String Document::userAgent(const URL& url) const
@@ -6486,6 +6503,11 @@ Document& Document::topDocument() const
     return *document;
 }
 
+CheckedRef<ScriptRunner> Document::checkedScriptRunner()
+{
+    return *m_scriptRunner;
+}
+
 ExceptionOr<Ref<Attr>> Document::createAttribute(const AtomString& localName)
 {
     if (!isValidName(localName))
@@ -7447,6 +7469,8 @@ int Document::requestIdleCallback(Ref<IdleRequestCallback>&& callback, Seconds t
 {
     if (!m_idleCallbackController)
         m_idleCallbackController = makeUnique<IdleCallbackController>(*this);
+    if (auto page = checkedPage())
+        page->opportunisticTaskScheduler().willQueueIdleCallback();
     return m_idleCallbackController->queueIdleCallback(WTFMove(callback), timeout);
 }
 
@@ -9301,17 +9325,6 @@ void Document::detachFromFrame()
     observeFrame(nullptr);
 }
 
-void Document::frameWasDisconnectedFromOwner()
-{
-    if (!frame())
-        return;
-
-    if (RefPtr window = domWindow())
-        window->willDetachDocumentFromFrame();
-
-    detachFromFrame();
-}
-
 bool Document::hitTest(const HitTestRequest& request, HitTestResult& result)
 {
     return hitTest(request, result.hitTestLocation(), result);
@@ -9457,7 +9470,7 @@ void Document::dispatchSystemPreviewActionEvent(const SystemPreviewInfo& systemP
         return;
 
     auto event = MessageEvent::create(message, securityOrigin().toString());
-    UserGestureIndicator gestureIndicator(ProcessingUserGesture, this);
+    UserGestureIndicator gestureIndicator(IsProcessingUserGesture::Yes, this);
     element->dispatchEvent(event);
 }
 #endif
@@ -9769,6 +9782,21 @@ String Document::mediaKeysStorageDirectory()
 Ref<CSSFontSelector> Document::protectedFontSelector() const
 {
     return m_fontSelector;
+}
+
+CheckedRef<Style::Scope> Document::checkedStyleScope()
+{
+    return m_styleScope.get();
+}
+
+CheckedRef<const Style::Scope> Document::checkedStyleScope() const
+{
+    return m_styleScope.get();
+}
+
+RefPtr<LocalFrameView> Document::protectedView() const
+{
+    return view();
 }
 
 } // namespace WebCore

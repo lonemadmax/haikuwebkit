@@ -37,8 +37,19 @@ void ConstantValue::dump(PrintStream& out) const
         [&](double d) {
             out.print(String::number(d));
         },
+        [&](float f) {
+            out.print(String::number(f));
+            if (std::isfinite(f))
+                out.print("f");
+        },
         [&](int64_t i) {
             out.print(String::number(i));
+        },
+        [&](int32_t i) {
+            out.print(String::number(i), "i");
+        },
+        [&](uint32_t u) {
+            out.print(String::number(u), "u");
         },
         [&](bool b) {
             out.print(b ? "true" : "false");
@@ -58,6 +69,17 @@ void ConstantValue::dump(PrintStream& out) const
             out.print("vec", v.elements.size(), "(");
             bool first = true;
             for (const auto& element : v.elements) {
+                if (!first)
+                    out.print(", ");
+                first = false;
+                out.print(element);
+            }
+            out.print(")");
+        },
+        [&](const ConstantMatrix& m) {
+            out.print("mat", m.columns, "x", m.rows, "(");
+            bool first = true;
+            for (const auto& element : m.elements) {
                 if (!first)
                     out.print(", ");
                 first = false;

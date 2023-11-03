@@ -541,6 +541,11 @@ ScrollingCoordinator* Page::scrollingCoordinator()
     return m_scrollingCoordinator.get();
 }
 
+RefPtr<ScrollingCoordinator> Page::protectedScrollingCoordinator()
+{
+    return scrollingCoordinator();
+}
+
 String Page::scrollingStateTreeAsText()
 {
     auto* localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
@@ -678,6 +683,11 @@ void Page::progressFinished(LocalFrame& frameWithCompletedProgress) const
 void Page::setMainFrame(Ref<Frame>&& frame)
 {
     m_mainFrame = WTFMove(frame);
+}
+
+void Page::setMainFrameURL(const URL& url)
+{
+    m_mainFrameURL = url;
 }
 
 bool Page::openedByDOM() const
@@ -2051,7 +2061,7 @@ void Page::renderingUpdateCompleted()
 
     if (!isUtilityPage()) {
         auto nextRenderingUpdate = m_lastRenderingUpdateTimestamp + preferredRenderingUpdateInterval();
-        m_opportunisticTaskScheduler->reschedule(nextRenderingUpdate);
+        m_opportunisticTaskScheduler->rescheduleIfNeeded(nextRenderingUpdate);
     }
 }
 
@@ -2178,7 +2188,12 @@ void Page::setImageAnimationEnabled(bool enabled)
     updatePlayStateForAllAnimations();
     chrome().client().isAnyAnimationAllowedToPlayDidChange(enabled);
 }
-#endif
+
+void Page::setSystemAllowsAnimationControls(bool isAllowed)
+{
+    m_systemAllowsAnimationControls = isAllowed;
+}
+#endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 
 void Page::suspendScriptedAnimations()
 {
@@ -3385,6 +3400,11 @@ UserContentProvider& Page::userContentProvider()
     return m_userContentProvider;
 }
 
+Ref<UserContentProvider> Page::protectedUserContentProvider()
+{
+    return m_userContentProvider;
+}
+
 void Page::notifyToInjectUserScripts()
 {
     m_hasBeenNotifiedToInjectUserScripts = true;
@@ -4560,6 +4580,16 @@ void Page::performOpportunisticallyScheduledTasks(MonotonicTime deadline)
     if (m_opportunisticTaskScheduler->hasImminentlyScheduledWork())
         options.add(JSC::VM::SchedulerOptions::HasImminentlyScheduledWork);
     commonVM().performOpportunisticallyScheduledTasks(deadline, options);
+}
+
+CheckedRef<ProgressTracker> Page::checkedProgress()
+{
+    return m_progress.get();
+}
+
+CheckedRef<const ProgressTracker> Page::checkedProgress() const
+{
+    return m_progress.get();
 }
 
 String Page::sceneIdentifier() const

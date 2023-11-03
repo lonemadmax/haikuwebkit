@@ -364,6 +364,8 @@ GENERATED_MESSAGES_FILES_AS_PATTERNS := $(subst .,%,$(GENERATED_MESSAGES_FILES))
 
 MESSAGES_IN_FILES := $(addsuffix .messages.in,$(MESSAGE_RECEIVERS))
 
+SANDBOX_IMPORT_DIR=$(SDKROOT)/usr/local/share/sandbox/profiles/embedded/imports
+
 .PHONY : all
 
 all : $(GENERATED_MESSAGES_FILES)
@@ -404,16 +406,20 @@ all : $(SANDBOX_PROFILES_WITHOUT_WEBPUSHD) $(WEBPUSHD_SANDBOX_PROFILE) $(SANDBOX
 %.sb : %.sb.in
 	@echo Pre-processing $* sandbox profile...
 	grep -o '^[^;]*' $< | $(CC) $(SANITIZE_FLAGS) $(SDK_FLAGS) $(TARGET_TRIPLE_FLAGS) $(SANDBOX_DEFINES) $(TEXT_PREPROCESSOR_FLAGS) $(FRAMEWORK_FLAGS) $(HEADER_FLAGS) $(EXTERNAL_FLAGS) -include "wtf/Platform.h" - > $@
-	if [ -e "/usr/local/bin/sbutil" ]; then \
-		if [[ $(SDK_NAME) =~ "iphoneos" ]]; then \
+	xcrun --sdk $(SDK_NAME) -f sbutil; \
+	if [[ $$? == 0 ]]; then \
+		if [[ $(SDK_NAME) =~ "iphone" || $(SDK_NAME) =~ "watch" || $(SDK_NAME) =~ "appletv" ]]; then \
 			if [[ $* == "com.apple.WebKit.adattributiond" || $* == "com.apple.WebKit.webpushd" ]]; then \
-				sbutil compile -D IMPORT_DIR=$(SDKROOT)/usr/local/share/sandbox/profiles/embedded/imports $@ > /dev/null; \
+				if [ ! -e $(SANDBOX_IMPORT_DIR) ]; then \
+					exit 0; \
+				fi; \
+				xcrun --sdk $(SDK_NAME) sbutil compile -D IMPORT_DIR=$(SANDBOX_IMPORT_DIR) $@ > /dev/null; \
 				if [[ $$? != 0 ]]; then \
 					exit 1; \
 				fi \
 			fi; \
 			if [[ $* == "com.apple.WebKit.GPU" || $* == "com.apple.WebKit.Networking" || $* == "com.apple.WebKit.WebContent" ]]; then \
-				sbutil compile $@ > /dev/null; \
+				xcrun --sdk $(SDK_NAME) sbutil compile $@ > /dev/null; \
 				if [[ $$? != 0 ]]; then \
 					exit 1; \
 				fi \
@@ -421,7 +427,7 @@ all : $(SANDBOX_PROFILES_WITHOUT_WEBPUSHD) $(WEBPUSHD_SANDBOX_PROFILE) $(SANDBOX
 		fi; \
 		if [[ $(SDK_NAME) =~ "mac" ]]; then \
 			if [[ $* == "com.apple.WebKit.GPUProcess" || $* == "com.apple.WebKit.NetworkProcess" || $* == "com.apple.WebProcess" ]]; then \
-				sbutil compile -D ENABLE_SANDBOX_MESSAGE_FILTER=YES -D WEBKIT2_FRAMEWORK_DIR=dir -D HOME_DIR=dir -D HOME_LIBRARY_PREFERENCES_DIR=dir -D DARWIN_USER_CACHE_DIR=dir -D DARWIN_USER_TEMP_DIR=dir $@ > /dev/null; \
+				xcrun --sdk $(SDK_NAME) sbutil compile -D ENABLE_SANDBOX_MESSAGE_FILTER=YES -D WEBKIT2_FRAMEWORK_DIR=dir -D HOME_DIR=dir -D HOME_LIBRARY_PREFERENCES_DIR=dir -D DARWIN_USER_CACHE_DIR=dir -D DARWIN_USER_TEMP_DIR=dir $@ > /dev/null; \
 				if [[ $$? != 0 ]]; then \
 					exit 1; \
 				fi \
@@ -525,7 +531,10 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/API/APIURLResponse.serialization.in \
 	Shared/AccessibilityPreferences.serialization.in \
 	Shared/AlternativeTextClient.serialization.in \
+	Shared/AppPrivacyReportTestingData.serialization.in \
 	Shared/Cocoa/CacheStoragePolicy.serialization.in \
+	Shared/Cocoa/CoreIPCData.serialization.in \
+	Shared/Cocoa/CoreIPCDate.serialization.in \
 	Shared/Cocoa/DataDetectionResult.serialization.in \
 	Shared/Cocoa/InsertTextOptions.serialization.in \
 	Shared/Cocoa/RevealItem.serialization.in \
@@ -575,15 +584,19 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/RemoteWorkerInitializationData.serialization.in \
 	Shared/RemoteWorkerType.serialization.in \
 	Shared/ResourceLoadInfo.serialization.in \
+	Shared/ResourceLoadStatisticsParameters.serialization.in \
 	Shared/SameDocumentNavigationType.serialization.in \
 	Shared/SessionState.serialization.in \
 	Shared/ShareableBitmap.serialization.in \
 	Shared/ShareableResource.serialization.in \
 	Shared/TextFlags.serialization.in \
 	Shared/TextRecognitionResult.serialization.in \
+	Shared/UserContentControllerParameters.serialization.in \
 	Shared/UserInterfaceIdiom.serialization.in \
+	Shared/ViewWindowCoordinates.serialization.in \
 	Shared/VisibleContentRectUpdateInfo.serialization.in \
 	Shared/WTFArgumentCoders.serialization.in \
+	Shared/WebBackForwardListCounts.serialization.in \
 	Shared/WebCoreArgumentCoders.serialization.in \
 	Shared/WebEvent.serialization.in \
 	Shared/WebFoundTextRange.serialization.in \
@@ -603,6 +616,9 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/Databases/IndexedDB/WebIDBResult.serialization.in \
 	Shared/RemoteLayerTree/RemoteLayerTree.serialization.in \
 	Shared/RemoteLayerTree/RemoteScrollingCoordinatorTransaction.serialization.in \
+	Shared/cf/CFTypes.serialization.in \
+	Shared/cf/CoreIPCBoolean.serialization.in \
+	Shared/cf/CoreIPCNumber.serialization.in \
 	Shared/mac/PDFContextMenuItem.serialization.in \
 	Shared/mac/SecItemRequestData.serialization.in \
 	Shared/mac/SecItemResponseData.serialization.in \
@@ -741,6 +757,7 @@ EXTENSION_INTERFACES = \
     WebExtensionAPIExtension \
     WebExtensionAPILocalization \
     WebExtensionAPINamespace \
+    WebExtensionAPINotifications \
     WebExtensionAPIPermissions \
     WebExtensionAPIPort \
     WebExtensionAPIRuntime \

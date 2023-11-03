@@ -70,9 +70,10 @@ public:
     bool hasVideo() const final { return false; };
     bool hasAudio() const final { return false; };
 
-    void setPageIsVisible(bool) final { };
+    void setPageIsVisible(bool, String&&) final { };
 
     bool seeking() const final { return false; }
+    void seekToTarget(const SeekTarget&) final { }
 
     bool paused() const final { return false; };
 
@@ -111,7 +112,7 @@ private:
     IntSize m_size;
     RunLoop::Timer m_readyTimer;
     MediaPlayer::NetworkState m_networkState;
-#if USE(TEXTURE_MAPPER_GL)
+#if USE(TEXTURE_MAPPER)
 #if USE(NICOSIA)
     Ref<Nicosia::ContentLayer> m_nicosiaLayer;
 #else

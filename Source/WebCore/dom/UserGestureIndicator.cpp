@@ -44,9 +44,10 @@ static RefPtr<UserGestureToken>& currentToken()
     return token;
 }
 
-UserGestureToken::UserGestureToken(ProcessingUserGestureState state, UserGestureType gestureType, Document* document, std::optional<WTF::UUID> authorizationToken)
-    : m_state(state)
+UserGestureToken::UserGestureToken(IsProcessingUserGesture isProcessingUserGesture, UserGestureType gestureType, Document* document, std::optional<WTF::UUID> authorizationToken, CanRequestDOMPaste canRequestDOMPaste)
+    : m_isProcessingUserGesture(isProcessingUserGesture)
     , m_gestureType(gestureType)
+    , m_canRequestDOMPaste(canRequestDOMPaste)
     , m_authorizationToken(authorizationToken)
 {
     if (!document || !processingUserGesture())
@@ -106,15 +107,15 @@ void UserGestureToken::forEachImpactedDocument(Function<void(Document&)>&& funct
     m_documentsImpactedByUserGesture.forEach(function);
 }
 
-UserGestureIndicator::UserGestureIndicator(std::optional<ProcessingUserGestureState> state, Document* document, UserGestureType gestureType, ProcessInteractionStyle processInteractionStyle, std::optional<WTF::UUID> authorizationToken)
+UserGestureIndicator::UserGestureIndicator(std::optional<IsProcessingUserGesture> isProcessingUserGesture, Document* document, UserGestureType gestureType, ProcessInteractionStyle processInteractionStyle, std::optional<WTF::UUID> authorizationToken, CanRequestDOMPaste canRequestDOMPaste)
     : m_previousToken { currentToken() }
 {
     ASSERT(isMainThread());
 
-    if (state)
-        currentToken() = UserGestureToken::create(state.value(), gestureType, document, authorizationToken);
+    if (isProcessingUserGesture)
+        currentToken() = UserGestureToken::create(isProcessingUserGesture.value(), gestureType, document, authorizationToken, canRequestDOMPaste);
 
-    if (state && document && currentToken()->processingUserGesture()) {
+    if (isProcessingUserGesture && document && currentToken()->processingUserGesture()) {
         document->updateLastHandledUserGestureTimestamp(currentToken()->startTime());
         if (processInteractionStyle == ProcessInteractionStyle::Immediate)
             ResourceLoadObserver::shared().logUserInteractionWithReducedTimeResolution(document->topDocument());

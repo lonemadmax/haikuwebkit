@@ -34,6 +34,7 @@ scrollingcoordinator/ios [ Skip ]
 swipe [ Pass ]
 http/tests/swipe [ Pass ]
 tiled-drawing [ Pass ]
+ipc/restrictedendpoints/mac [ Pass ]
 
 fast/events/autoscroll-when-zoomed.html [ Pass ]
 fast/events/autoscroll-main-document.html [ Pass ]
@@ -91,6 +92,10 @@ webkit.org/b/175611 imported/w3c/web-platform-tests/payment-request/allowpayment
 imported/w3c/web-platform-tests/payment-request/payment-request-hasenrolledinstrument-method.tentative.https.html [ DumpJSConsoleLogInStdErr ]
 imported/w3c/web-platform-tests/payment-request/payment-request-canmakepayment-method.https.html [ DumpJSConsoleLogInStdErr ]
 imported/w3c/web-platform-tests/payment-request/show-method-optional-promise-rejects.https.html [ DumpJSConsoleLogInStdErr ]
+
+# These tests are checking that WebContent is terminated when performing an invalid IPC operation for WK2.
+# They crash in debug (as expected) so we skip them there. <rdar://problem/117742950>
+[ Debug ] ipc/restrictedendpoints/mac/deny-access-modelElement.html [ Skip ]
 
 # This test is failing due to lack of user activation.
 imported/w3c/web-platform-tests/payment-request/payment-is-showing.https.html [ Skip ]
@@ -597,6 +602,20 @@ webkit.org/b/151709 [ Release ] http/tests/xmlhttprequest/workers/methods.html [
 
 webkit.org/b/231372 [ BigSur arm64 Debug ] http/tests/xmlhttprequest/access-control-response-with-body.html [ Pass Crash ]
 
+# webkit.org/b/263955 Twelve css WPTs are failing with async overflow scrolling enabled on macOS
+imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-parent-element-overflow-scroll.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-grid/grid-model/grid-container-scrollbar-vertical-lr-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-grid/grid-model/grid-container-scrollbar-vertical-rl-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/clip/clip-rect-scroll.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-overflow/overflow-auto-scrollbar-gutter-intrinsic-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-position/position-fixed-scroll-nested-fixed.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scrollbars/textarea-scrollbar-width-none.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ui/outline-negative-offset-composited-scroll.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scroll-snap/snap-inline-block.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-transforms/transform3d-preserve3d-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-element.html [ Failure ]
+imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-smooth-positions.html [ Failure ]
+
 ### END OF (1) Classified failures with bug reports
 ########################################
 
@@ -696,8 +715,6 @@ webkit.org/b/71298 accessibility/mac/iframe-with-title-correct-hierarchy.html
 ### START OF (5) Features that are not supported when NetworkProcess is enabled (i.e. they only work on Mountain Lion, and not on newer OS versions).
 
 # There is no network load scheduling or prioritization with NetworkProcess.
-webkit.org/b/123431 http/tests/css/link-css-disabled-value-with-slow-loading-sheet-in-error.html [ Pass Failure ]
-webkit.org/b/123431 http/tests/css/link-css-disabled-value-with-slow-loading-sheet.html [ Pass Failure ]
 webkit.org/b/123431 http/tests/local/link-stylesheet-load-order-preload.html [ Failure ]
 webkit.org/b/123431 http/tests/local/link-stylesheet-load-order.html [ Failure ]
 
@@ -1011,7 +1028,6 @@ webkit.org/b/206708 fast/animation/request-animation-frame-iframe.html [ Pass Fa
 [ Release ] imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/event_progress.html [ Pass Failure ]
 [ Release ] imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/event_playing_noautoplay.html [ Pass Failure ]
 [ Release ] imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/event_playing.html [ Pass Failure ]
-[ Release ] imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/readyState_during_canplay.html [ Pass Failure ]
 [ Release ] imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/readyState_during_playing.html [ Pass Failure ]
 [ Release ] imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/readyState_during_loadedmetadata.html [ Pass Failure ]
 [ Release ] imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/readyState_during_loadeddata.html [ Pass Failure ]
@@ -1425,16 +1441,6 @@ webkit.org/b/228337 [ Release Debug arm64 ] fast/selectors/selection-window-inac
 
 webkit.org/b/228528 [ BigSur Debug arm64 ] fast/text/emoji-overlap.html [ Pass ImageOnlyFailure ]
 
-# rdar://81988829 ([ Monterey wk2 Guard-Malloc arm64 ] fast/text/canvas-color-fonts/* tests are image failing)
-[ Monterey arm64 ] fast/text/canvas-color-fonts/fill-color-COLR.html [ ImageOnlyFailure ]
-[ Monterey arm64 ] fast/text/canvas-color-fonts/fill-gradient-COLR-2.html [ ImageOnlyFailure ]
-[ Monterey arm64 ] fast/text/canvas-color-fonts/linedash-COLR.html [ ImageOnlyFailure ]
-[ Monterey arm64 ] fast/text/canvas-color-fonts/linedash-outlines.html [ ImageOnlyFailure ]
-[ Monterey arm64 ] fast/text/canvas-color-fonts/stroke-gradient-COLR-2.html [ ImageOnlyFailure ]
-[ Monterey arm64 ] fast/text/canvas-color-fonts/stroke-gradient-COLR-3.html [ ImageOnlyFailure ]
-[ Monterey arm64 ] fast/text/canvas-color-fonts/stroke-gradient-COLR-4.html [ ImageOnlyFailure ]
-[ Monterey arm64 ] fast/text/canvas-color-fonts/stroke-gradient-COLR-5.html [ ImageOnlyFailure ]
-
 webkit.org/b/228591 fast/scrolling/mac/programmatic-scroll-overrides-rubberband.html [ Pass Failure ]
 
 webkit.org/b/229156 [ Monterey+ ] webrtc/video-addTrack.html [ Pass Failure ]
@@ -1834,13 +1840,8 @@ webkit.org/b/260225 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-GC.
 [ Sonoma+ ] fast/scrolling/mac/scrollbars/overflow-in-iframe-overlay-scrollbar-reveal.html [ Failure ]
 [ Sonoma+ ] fast/scrolling/mac/scrollbars/overflow-overlay-scrollbar-reveal.html [ Failure ]
 
-# rdar://107459829 ([UI Side Compositing] REGRESSION(262176@main-262166@main): fast/scrolling/mac/scrollbars/overlay-scrollbar-state.html and fast/scrolling/mac/scrollbars/scrollbar-state.html fail)
-[ Sonoma+ ] fast/scrolling/mac/scrollbars/overlay-scrollbar-state.html [ Failure ]
-[ Sonoma+ ] fast/scrolling/mac/scrollbars/scrollbar-state.html [ Failure ]
-
 # rdar://107437068 ([UI side compositing] fast/mediastream/video-rotation.html fails)
 [ Sonoma+ ] fast/mediastream/video-rotation.html [ Failure ]
-
 
 # rdar://104152683 (REGRESSION (Sonoma): [ Sonoma ] compositing/video/video-border-radius-clipping.html is a consistent image failure)
 [ Sonoma+ ] compositing/video/video-border-radius-clipping.html [ ImageOnlyFailure ]
@@ -1946,61 +1947,13 @@ webkit.org/b/262411 [ Sonoma+ ] fast/scrolling/scroll-to-anchor-zoomed-header.ht
 [ Monterey+ ] http/wpt/mediarecorder/pause-recording.html [ Pass Failure Crash ]
 [ Sonoma ] http/wpt/mediarecorder/record-96KHz-sources.html [ Crash ]
 
-# rdar://113373567 (REGRESSION ( Sonoma ): [ Sonoma ] 18 imported/w3c/web-platform-tests/css/css-fonts/ tests are a consistent image failure)
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-13.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-16.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-17.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-18.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-19.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-22.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-3.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-4.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-5.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-6.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-7.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-8.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-9.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-add.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-modify.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/font-palette-remove.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/palette-values-rule-add.html [ ImageOnlyFailure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/css-fonts/palette-values-rule-delete.html [ ImageOnlyFailure ]
-
-# rdar://113991102 (REGRESSION ( Sonoma ): [ Sonoma ] 10 fast/text/canvas-color-fonts/..COLR tests are a consistent image failure)
-[ Sonoma+ ] fast/text/canvas-color-fonts/COLR.html [ ImageOnlyFailure ]
-[ Sonoma+ ] fast/text/canvas-color-fonts/fill-color-shadow-COLR.html [ ImageOnlyFailure ]
-[ Sonoma+ ] fast/text/canvas-color-fonts/fill-color-shadow-ctm-COLR.html [ ImageOnlyFailure ]
-[ Sonoma+ ] fast/text/canvas-color-fonts/stroke-gradient-COLR-3.html [ ImageOnlyFailure ]
-[ Sonoma+ ] fast/text/canvas-color-fonts/stroke-gradient-COLR-4.html [ ImageOnlyFailure ]
-
-# rdar://114328372 (REGRESSION (262629@main): [ Sonoma wk2 ] fast/box-shadow/inset-spread-box-shadow-split-inline.html is a constant failure)
-[ Sonoma+ ] fast/box-shadow/inset-spread-box-shadow-split-inline.html [ ImageOnlyFailure ]
-
 # rdar://114452082 (REGRESSION (262124@main?): [ Sonoma wk2 ] imported/w3c/web-platform-tests/mimesniff/media/media-sniff.window.html is a consistent failure)
 [ Sonoma+ ] imported/w3c/web-platform-tests/mimesniff/media/media-sniff.window.html [ Failure ]
 
 # rdar://114294654 (REGRESSION (265615@main): [ Sonoma ] fast/attachment/cocoa/wide-attachment-rendering.html is a constant failure)
 [ Sonoma+ ] fast/attachment/cocoa/wide-attachment-rendering.html [ Failure ]
 
-webkit.org/b/262915 [ Sonoma+ ] compositing/plugins/pdf/pdf-in-embed-rounded-border.html [ ImageOnlyFailure ]
-
-webkit.org/b/262917 [ Sonoma+ ] compositing/plugins/pdf/pdf-in-embed.html [ Failure ]
-
-# webkit.org/b/262987 REGRESSION ( Sonoma): [ Sonoma ] 3 tests in fast/attachment/mac/ are consistently failing
-[ Sonoma+ ] fast/attachment/mac/attachment-keynote.html [ Pass ImageOnlyFailure ]
-[ Sonoma+ ] fast/attachment/mac/attachment-numbers.html [ Pass ImageOnlyFailure ]
-[ Sonoma+ ] fast/attachment/mac/attachment-pages.html [ Pass ImageOnlyFailure ]
-
-webkit.org/b/177397 [ Sonoma+ Release ] compositing/masks/compositing-clip-path-change-no-repaint.html [ Pass Failure ]
-
-# webkit.org/b/263027 REGRESSION ( Sonoma ): [ Sonoma wk2 ] 3 tests in webrtc are consistent failure
-[ Sonoma+ Release arm64 ] webrtc/video-replace-track.html [ Failure ]
-[ Sonoma+ Release arm64 ] webrtc/video-stats.html [ Failure ]
-[ Sonoma+ Release arm64 ] webrtc/video.html [ Failure ]
-
 webkit.org/b/263049 [ Sonoma+ ] fast/forms/scroll-into-view-and-show-validation-message.html [ Pass Failure ]
-
-webkit.org/b/263085 [ Sonoma+ Release ] fast/attachment/attachment-uti.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/263095 [ Sonoma+ ] svg/clip-path/clip-path-objectboundingbox-003.svg [ Pass ImageOnlyFailure ]
 
@@ -2009,16 +1962,27 @@ webkit.org/b/263136 [ Sonoma+ ] imported/w3c/web-platform-tests/css/css-text/lin
 webkit.org/b/263227 imported/w3c/web-platform-tests/webrtc/simulcast/basic.https.html [ Pass Failure ]
 webkit.org/b/263227 imported/w3c/web-platform-tests/webrtc/protocol/handover-datachannel.html [ Pass Failure ]
 
-webkit.org/b/262344 [ Sonoma+ x86_64 ] imported/blink/css3/filters/effect-drop-shadow-clip-abspos.html [ ImageOnlyFailure ]
-
-webkit.org/b/263282 [ Sonoma+ ] fast/replaced/replaced-breaking.html [ Failure ]
-
-webkit.org/b/263296 [ Sonoma+ arm64 ] compositing/hidpi-compositing-layer-with-tile-layers-on-subpixel-position.html [ ImageOnlyFailure ]
-
-webkit.org/b/263347 [ Sonoma+ Release ] compositing/reflections/repaint-with-reflection.html [ Pass ImageOnlyFailure ]
-
-webkit.org/b/263407 [ Sonoma+ ] fast/selectors/text-field-selection-stroke-color.html [ Pass ImageOnlyFailure ]
-
 webkit.org/b/261356 [ Debug ] fast/mediastream/device-change-event-2.html [ Pass Timeout ] # CHANGE TO [ Pass Timeout ] WITHOUT DEBUG AFTER FIX ACCORDING TO webkit.org/b/188924
 
 webkit.org/b/263396 css3/color/text.html [ Skip ]
+
+webkit.org/b/263738 fast/clip/overflow-hidden-with-border-radius-overflow-clipping-parent.html [ ImageOnlyFailure ]
+
+webkit.org/b/263754 [ Sonoma+ x86_64 ] css3/filters/effect-drop-shadow-clip-abspos.html [ ImageOnlyFailure ]
+
+# WebGPU
+http/tests/webgpu/webgpu/api/operation/rendering/stencil.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/rendering/indirect_draw.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/vertex_state/index_format.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/rendering/draw.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/sampling/filter_mode.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/sampling/lod_clamp.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/sampling/anisotropy.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/adapter/requestAdapterInfo.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/adapter/requestAdapter.html [ Pass ]
+
+webkit.org/b/263920 svg/transforms/transformed-text-fill-gradient.html [ ImageOnlyFailure ]
+
+# rdar://117706782 (REGRESSION (269897@main): [ Sonoma wk2 ] 2 tests in imported/w3c/web-platform-t ests/css/cssom-view/ are a constant failure
+[ Sonoma+ ] imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-window.html [ Failure ]
+[ Sonoma+ ] imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-root.html [ Failure ]

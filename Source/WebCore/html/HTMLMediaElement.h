@@ -648,7 +648,7 @@ public:
     void updateMediaState();
 
 protected:
-    constexpr static auto CreateHTMLMediaElement = CreateHTMLElement | NodeFlag::HasCustomStyleResolveCallbacks;
+    static constexpr auto CreateHTMLMediaElement = CreateHTMLElement | NodeFlag::HasCustomStyleResolveCallbacks;
     HTMLMediaElement(const QualifiedName&, Document&, bool createdByParser);
     virtual ~HTMLMediaElement();
 
@@ -962,6 +962,8 @@ private:
     bool shouldOverrideBackgroundLoadingRestriction() const override;
     bool canProduceAudio() const final;
     bool isAudible() const final { return canProduceAudio(); };
+    bool isEnded() const final { return ended(); }
+    MediaTime mediaSessionDuration() const final;
     bool hasMediaStreamSource() const final;
     void processIsSuspendedChanged() final;
     bool shouldOverridePauseDuringRouteChange() const final;

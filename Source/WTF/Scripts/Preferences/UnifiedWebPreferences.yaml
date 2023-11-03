@@ -1441,9 +1441,23 @@ CSSTextUnderlinePositionLeftRightEnabled:
     WebCore:
       default: false
 
-CSSTextWrapStyleEnabled:
+CSSTextWrapPrettyEnabled:
   type: bool
   status: testable
+  category: css
+  humanReadableName: "CSS text-wrap: pretty"
+  humanReadableDescription: "Enable the pretty value for text-wrap-style"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+CSSTextWrapStyleEnabled:
+  type: bool
+  status: preview
   category: css
   humanReadableName: "CSS text-wrap-style property"
   humanReadableDescription: "Enable the property text-wrap-style, defined in CSS Text 4"
@@ -2165,20 +2179,6 @@ DeclarativeShadowDOMEnabled:
     WebCore:
       default: true
 
-DeclarativeShadowDOMInDOMParserEnabled:
-  type: bool
-  status: testable
-  category: dom
-  humanReadableName: "DOMParser support for Declarative Shadow DOM"
-  humanReadableDescription: "Enable Declarative Shadow DOM in DOMParser"
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
 DeclarativeWebPush:
   type: bool
   status: unstable
@@ -2357,34 +2357,6 @@ DiagnosticLoggingEnabled:
       default: false
     WebCore:
       default: false
-
-DialogElementEnabled:
-  type: bool
-  status: stable
-  category: html
-  humanReadableName: "HTML <dialog> element"
-  humanReadableDescription: "Enable HTML <dialog> element"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
-DirPseudoEnabled:
-  type: bool
-  status: stable
-  category: css
-  humanReadableName: ":dir pseudo-class"
-  humanReadableDescription: "Enable the directionality pseudo-class :dir"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
 
 DirectoryUploadEnabled:
   type: bool
@@ -2674,19 +2646,6 @@ FasterClicksEnabled:
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: true
-
-FetchAPIEnabled:
-  type: bool
-  status: mature
-  humanReadableName: "Fetch API"
-  humanReadableDescription: "Fetch API"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
       default: true
 
 # FIXME: This seems to be accidentally enabled for WebKit1 right now due to the old code using the
@@ -3101,7 +3060,7 @@ HiddenPageDOMTimerThrottlingEnabled:
 
 HighlightAPIEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "Highlight API"
   humanReadableDescription: "Highlight API support"
@@ -3294,20 +3253,6 @@ IndexedDBAPIEnabled:
   status: embedder
   humanReadableName: "IndexedDB API"
   humanReadableDescription: "IndexedDB API"
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-    WebCore:
-      default: true
-
-InertAttributeEnabled:
-  type: bool
-  status: stable
-  category: html
-  humanReadableName: "HTML inert attribute"
-  humanReadableDescription: "Enable inert attribute support"
   defaultValue:
     WebKitLegacy:
       default: true
@@ -4532,7 +4477,7 @@ MediaSourceEnabled:
 
 MediaSourceInlinePaintingEnabled:
   type: bool
-  status: unstable
+  status: mature
   category: media
   humanReadableName: "Experimental MediaSource Inline Painting"
   humanReadableDescription: "Experimental MediaSource Inline Painting"
@@ -4736,6 +4681,20 @@ MuteCameraOnMicrophoneInterruptionEnabled:
       default: false
     WebKit:
       "PLATFORM(IOS_FAMILY)": true
+      default: false
+    WebCore:
+      default: false
+
+NavigationAPIEnabled:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "Navigation API"
+  humanReadableDescription: "Enable Navigation API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
       default: false
     WebCore:
       default: false
@@ -4963,6 +4922,22 @@ OverscrollBehaviorEnabled:
       "PLATFORM(WIN) || PLATFORM(GTK) || PLATFORM(WPE)": false
       default: true
 
+PDFJSViewerEnabled:
+  type: bool
+  status: testable
+  category: html
+  humanReadableName: "Enable PDF.js viewer"
+  humanReadableDescription: "Enable PDF.js viewer"
+  condition: ENABLE(PDFJS)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      "PLATFORM(GTK) || PLATFORM(WPE)": true
+      default: false
+    WebCore:
+      default: false
+
 PDFPluginEnabled:
   type: bool
   status: embedder
@@ -4973,6 +4948,19 @@ PDFPluginEnabled:
     WebKit:
       "PLATFORM(IOS_FAMILY)": false
       default: true
+
+PDFPluginHUDEnabled:
+  type: bool
+  status: embedder
+  condition: PLATFORM(COCOA)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      "PLATFORM(IOS_FAMILY)": false
+      default: true
+    WebCore:
+      default: false
 
 PageAtRuleSupportEnabled:
   type: bool
@@ -5065,22 +5053,6 @@ PasswordEchoEnabled:
       default: false
     WebKit:
       "PLATFORM(IOS_FAMILY) && !PLATFORM(MACCATALYST)": true
-      default: false
-    WebCore:
-      default: false
-
-PdfJSViewerEnabled:
-  type: bool
-  status: testable
-  category: html
-  humanReadableName: "Enable PDF.js viewer"
-  humanReadableDescription: "Enable PDF.js viewer"
-  condition: ENABLE(PDFJS)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      "PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
     WebCore:
       default: false
@@ -5231,7 +5203,7 @@ PreferFasterClickOverDoubleTap:
 
 PreferPageRenderingUpdatesNear60FPSEnabled:
   type: bool
-  status: developer
+  status: stable
   category: dom
   humanReadableName: "Prefer Page Rendering Updates near 60fps"
   humanReadableDescription: "Prefer page rendering updates near 60 frames per second rather than using the display's refresh rate"
@@ -6521,16 +6493,6 @@ StorageBlockingPolicy:
     WebCore:
       default: StorageBlockingPolicy::AllowAll
 
-StrictSecureDecodingForAllObjC:
-  type: bool
-  status: internal
-  humanReadableName: "Enable strict decoding of all ObjC classes"
-  webcoreBinding: none
-  exposed: [ WebKit ]
-  defaultValue:
-    WebKit:
-      default: true
-
 SubgridEnabled:
   type: bool
   status: stable
@@ -6558,7 +6520,8 @@ SuppressesIncrementalRendering:
 
 SwitchControlEnabled:
   type: bool
-  status: unstable
+  status: testable
+  category: html
   humanReadableName: "HTML switch control"
   humanReadableDescription: "Enable HTML switch control"
   defaultValue:
@@ -7511,7 +7474,7 @@ WebCodecsAudioEnabled:
 
 WebCodecsHEVCEnabled:
   type: bool
-  status: preview
+  status: stable
   category: media
   humanReadableName: "WebCodecs HEVC codec"
   humanReadableDescription: "Enable WebCodecs HEVC codec"
@@ -7521,9 +7484,11 @@ WebCodecsHEVCEnabled:
       default: false
     WebKit:
       "USE(GSTREAMER)": true
+      "PLATFORM(COCOA)": true
       default: false
     WebCore:
       "USE(GSTREAMER)": true
+      "PLATFORM(COCOA)": true
       default: false
 
 WebCodecsVideoEnabled:

@@ -453,6 +453,9 @@ imported/w3c/web-platform-tests/quirks/line-height-in-list-item.tentative.html [
 # Accessibility-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
 
+# AXObjectCache::announce not implemented.
+accessibility/announcement-notification.html [ Skip ]
+
 # Timing out since added in https://bugs.webkit.org/show_bug.cgi?id=249283.
 accessibility/progress-element-value-changes.html [ Skip ]
 
@@ -1510,15 +1513,21 @@ webkit.org/b/217267 http/tests/workers/service/postmessage-after-sw-process-cras
 webkit.org/b/221239 [ Debug ] imported/w3c/web-platform-tests/fetch/api/redirect/redirect-empty-location.any.html [ Skip ]
 webkit.org/b/221239 [ Debug ] imported/w3c/web-platform-tests/fetch/api/redirect/redirect-empty-location.any.worker.html [ Skip ]
 
+webkit.org/b/185254 http/tests/cache/network-error-during-revalidation.html [ DumpJSConsoleLogInStdErr ]
 webkit.org/b/185254 http/tests/xmlhttprequest/XMLHttpRequestException.html [ DumpJSConsoleLogInStdErr ]
 webkit.org/b/185254 http/tests/xmlhttprequest/connection-error-sync.html [ DumpJSConsoleLogInStdErr ]
 webkit.org/b/185254 http/tests/xmlhttprequest/onloadend-event-after-error.html [ DumpJSConsoleLogInStdErr ]
 webkit.org/b/185254 http/tests/xmlhttprequest/onloadend-event-after-sync-requests.html [ DumpJSConsoleLogInStdErr ]
 webkit.org/b/185254 http/tests/xmlhttprequest/response-access-on-error.html [ DumpJSConsoleLogInStdErr ]
+webkit.org/b/185254 http/tests/xmlhttprequest/state-after-network-error.html [ DumpJSConsoleLogInStdErr ]
 
 webkit.org/b/233796 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/refresh [ Failure ]
 
 webkit.org/b/258547 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/overlapping-navigations-and-traversals/nav-cancelation-2.sub.html [ Failure ]
+
+webkit.org/b/263629 http/tests/multipart/win-boundary-crash.html [ Skip ] # Crash
+
+webkit.org/b/263867 http/tests/multipart/images.html [ ImageOnlyFailure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of SOUP and Networking-related bugs
@@ -1772,9 +1781,6 @@ webkit.org/b/251106 webgl/2.0.y/conformance/offscreencanvas/offscreencanvas-time
 # Fails when using two textures.
 webkit.org/b/258296 webrtc/canvas-to-peer-connection.html [ Failure Timeout ]
 
-# Likely a Mesa failure, likely will be fixed by next ANGLE import.
-webgl/2.0.y/conformance2/extensions/webgl-stencil-texturing.html [ Failure Pass ]
-
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of WebGL-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -1795,11 +1801,7 @@ webkit.org/b/262989 imported/w3c/web-platform-tests/webrtc-stats/getStats-remote
 webkit.org/b/262989 imported/w3c/web-platform-tests/webrtc-stats/outbound-rtp.https.html [ Failure ]
 webkit.org/b/262989 imported/w3c/web-platform-tests/webrtc-stats/rtp-stats-creation.html [ Failure ]
 webkit.org/b/262989 imported/w3c/web-platform-tests/webrtc-stats/supported-stats.https.html [ Failure ]
-# TransportStats is missing required key for RTCDtlsTransportState causing a crash in the following
-webkit.org/b/262989 imported/w3c/web-platform-tests/webrtc-stats/hardware-capability-stats.https.html [ Skip ]
-webrtc/audio-muted-stats.html [ Skip ]
-webrtc/video-autoplay2.html [ Skip ]
-webrtc/video-mute.html [ Skip ]
+webkit.org/b/262989 imported/w3c/web-platform-tests/webrtc-stats/hardware-capability-stats.https.html [ Failure ]
 
 # This ends up calling WKPageTriggerMockMicrophoneConfigurationChange which is specific to GPUProcess.
 fast/mediastream/mediastreamtrack-configurationchange.html [ Skip ]
@@ -1824,6 +1826,9 @@ fast/mediastream/mediastreamtrack-video-frameRate-clone-increasing.html [ Failur
 fast/mediastream/video-rotation.html [ Skip ]
 webrtc/video-rotation-no-cvo.html [ Failure Timeout ]
 webrtc/video-rotation-black.html [ Crash Failure Pass Timeout ]
+
+# No AudioSession category handling in WPE/GTK ports.
+fast/mediastream/microphone-interruption-and-audio-session.html [ Skip ]
 
 webkit.org/b/261329 webrtc/video-clone-track.html [ Failure ]
 
@@ -2709,7 +2714,6 @@ webkit.org/b/136159 fast/borders/hidpi-border-painting-groove.html [ ImageOnlyFa
 webkit.org/b/136159 fast/borders/hidpi-border-painting-ridge.html [ ImageOnlyFailure ]
 webkit.org/b/136537 fast/sub-pixel/client-width-height-snapping.html [ Failure ]
 webkit.org/b/137096 svg/text/alt-glyph-for-surrogate-pair.svg [ ImageOnlyFailure ]
-webkit.org/b/139489 http/tests/css/link-css-disabled-value-with-slow-loading-sheet.html [ Failure Pass ]
 webkit.org/b/143469 fast/borders/border-image-fill-no-border.html [ ImageOnlyFailure ]
 webkit.org/b/144575 http/tests/loading/promote-img-preload-priority.html [ Failure ]
 webkit.org/b/146724 fast/text/word-break-keep-all.html [ ImageOnlyFailure ]
@@ -2909,7 +2913,6 @@ webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/Close-reason-unpa
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/Close-server-initiated-close.any.html?wss [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/Close-server-initiated-close.any.worker.html?wss [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/Close-undefined.any.worker.html?wss [ Failure Pass ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/Create-asciiSep-protocol-string.any.html?wss [ Failure ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/Create-blocked-port.any.html?wss [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/Create-blocked-port.any.worker.html?wss [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/Create-extensions-empty.any.html?wss [ Failure Pass ]
@@ -2920,42 +2923,27 @@ webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/Create-invalid-ur
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/Create-invalid-urls.any.worker.html [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/Create-non-absolute-url.any.html [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/Create-non-absolute-url.any.worker.html [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/Create-nonAscii-protocol-string.any.html?wss [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/Create-on-worker-shutdown.any.worker.html [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/Create-protocol-with-space.any.html?wss [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/Create-protocols-repeated.any.html?wss [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/Create-url-with-space.any.html?wss [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/Create-url-with-windows-1252-encoding.html [ Failure ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/Create-valid-url-array-protocols.any.html?wss [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/Create-valid-url-array-protocols.any.worker.html?wss [ Failure Pass ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/Create-valid-url-protocol-empty.any.html?wss [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/Create-valid-url-protocol-empty.any.worker.html?wss [ Failure ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/multi-globals/message-received.html?wss [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/unload-a-document/003.html?wss [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/unload-a-document/004.html?wss [ Failure Pass ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/binaryType-wrong-value.any.html?wss [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/constructor/004.html?wss [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/constructor/007.html?wss [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/constructor/010.html [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/constructor/010.html?wss [ Failure ]
 webkit.org/b/206652 imported/w3c/web-platform-tests/websockets/constructor/011.html [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/constructor/011.html?wss [ Failure ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/constructor/016.html?wss [ Failure Pass ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/constructor/021.html?wss [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/bufferedAmount/bufferedAmount-deleting.html?wss [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/close/close-basic.html?wss [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/close/close-connecting.html?wss [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/close/close-multiple.html?wss [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/close/close-nested.html?wss [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/close/close-return.html?wss [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/015.html?wss [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/017.html [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/017.html?wss [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/018.html [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/018.html?wss [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/019.html?wss [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/020.html?wss [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/readyState/003.html?wss [ Failure ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/readyState/008.html?wss [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/send/005.html?wss [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/send/008.html?wss [ Failure Pass ]
@@ -2969,7 +2957,6 @@ webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/opening-handshake
 webkit.org/b/252878 imported/w3c/web-platform-tests/websockets/opening-handshake/005.html?wss [ Failure Pass ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/security/001.html [ Failure ]
 webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/security/001.html?wss [ Failure ]
-webkit.org/b/251347 imported/w3c/web-platform-tests/websockets/security/002.html?wss [ Failure ]
 
 webkit.org/b/201259 http/wpt/beacon/cors/crossorigin-arraybufferview-no-preflight.html [ Failure ]
 webkit.org/b/201268 accessibility/insert-newline.html [ Timeout ]
@@ -3024,7 +3011,6 @@ webkit.org/b/207678 imported/w3c/web-platform-tests/url/a-element-origin.html [ 
 webkit.org/b/207678 imported/w3c/web-platform-tests/url/a-element-origin-xhtml.xhtml [ Failure ]
 webkit.org/b/207678 imported/w3c/web-platform-tests/url/a-element-xhtml.xhtml?exclude=(file|javascript|mailto) [ Failure ]
 webkit.org/b/207711 [ Debug ] fast/selectors/slow-style-sharing-with-long-cousin-list.html [ Timeout ]
-webkit.org/b/207711 [ Debug ] imported/w3c/web-platform-tests/css/mediaqueries/test_media_queries.html [ Timeout ]
 webkit.org/b/208121 http/tests/cache/disk-cache/disk-cache-vary-cookie.html [ Failure ]
 webkit.org/b/208139 http/tests/cache/disk-cache/disk-cache-vary-cookie-private.html [ Failure ]
 webkit.org/b/208368 imported/w3c/web-platform-tests/wasm/jsapi/constructor/instantiate-bad-imports.any.worker.html [ Failure Pass ]

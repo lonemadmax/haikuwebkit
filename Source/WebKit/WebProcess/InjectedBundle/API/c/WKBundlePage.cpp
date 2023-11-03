@@ -251,6 +251,13 @@ void WKAccessibilityTestingInjectPreference(WKBundlePageRef pageRef, WKStringRef
 #endif
 }
 
+void WKAccessibilityEnable()
+{
+#if ENABLE(ACCESSIBILITY)
+    WebCore::AXObjectCache::enableAccessibility();
+#endif
+}
+
 void* WKAccessibilityRootObject(WKBundlePageRef pageRef)
 {
 #if ENABLE(ACCESSIBILITY)
@@ -316,6 +323,32 @@ void* WKAccessibilityFocusedUIElement()
     return WebKit::WebProcess::accessibilityFocusedUIElement();
 #else
     return 0;
+#endif
+}
+
+void WKAccessibilityAnnounce(WKBundlePageRef pageRef, WKStringRef message)
+{
+#if ENABLE(ACCESSIBILITY)
+    if (!pageRef)
+        return;
+
+    auto* page = WebKit::toImpl(pageRef)->corePage();
+    if (!page)
+        return;
+
+    auto* localMainFrame = dynamicDowncast<WebCore::LocalFrame>(page->mainFrame());
+    if (!localMainFrame)
+        return;
+
+    auto& core = *localMainFrame;
+    if (!core.document())
+        return;
+
+    if (auto* cache = core.document()->axObjectCache())
+        cache->announce(WebKit::toWTFString(message));
+#else // ENABLE(ACCESSIBILITY)
+    UNUSED_PARAM(pageRef);
+    UNUSED_PARAM(message);
 #endif
 }
 
@@ -870,6 +903,7 @@ WKCaptionUserPreferencesTestingModeTokenRef WKBundlePageCreateCaptionUserPrefere
     return WebKit::toAPI(&API::CaptionUserPreferencesTestingModeToken::create(captionPreferences).leakRef());
 #else
     UNUSED_PARAM(page);
+    return { };
 #endif
 }
 

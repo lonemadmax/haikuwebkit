@@ -74,4 +74,22 @@ void AuxiliaryProcessProxy::platformStartConnectionTerminationWatchdog()
 #endif
 }
 
+#if USE(EXTENSIONKIT)
+RetainPtr<_SEExtensionProcess> AuxiliaryProcessProxy::extensionProcess() const
+{
+    if (!m_processLauncher)
+        return nullptr;
+    return m_processLauncher->extensionProcess();
+}
+#endif
+
+void AuxiliaryProcessProxy::platformGetLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
+{
+#if USE(EXTENSIONKIT)
+    launchOptions.launchAsExtensions = s_manageProcessesAsExtensions;
+#else
+    UNUSED_PARAM(launchOptions);
+#endif
+}
+
 } // namespace WebKit

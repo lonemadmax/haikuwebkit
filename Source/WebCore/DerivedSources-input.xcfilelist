@@ -1246,6 +1246,7 @@ $(PROJECT_DIR)/css/dialog.css
 $(PROJECT_DIR)/css/fullscreen.css
 $(PROJECT_DIR)/css/horizontalFormControls.css
 $(PROJECT_DIR)/css/html.css
+$(PROJECT_DIR)/css/htmlSwitchControl.css
 $(PROJECT_DIR)/css/legacyFormControlsIOS.css
 $(PROJECT_DIR)/css/make-css-file-arrays.pl
 $(PROJECT_DIR)/css/makeSelectorPseudoClassAndCompatibilityElementMap.py
@@ -1745,6 +1746,14 @@ $(PROJECT_DIR)/page/LocalDOMWindow.idl
 $(PROJECT_DIR)/page/Location.idl
 $(PROJECT_DIR)/page/Navigator+IsLoggedIn.idl
 $(PROJECT_DIR)/page/Navigator+UserActivation.idl
+$(PROJECT_DIR)/page/NavigateEvent.idl
+$(PROJECT_DIR)/page/Navigation.idl
+$(PROJECT_DIR)/page/NavigationCurrentEntryChangeEvent.idl
+$(PROJECT_DIR)/page/NavigationDestination.idl
+$(PROJECT_DIR)/page/NavigationHistoryEntry.idl
+$(PROJECT_DIR)/page/NavigationInterceptHandler.idl
+$(PROJECT_DIR)/page/NavigationNavigationType.idl
+$(PROJECT_DIR)/page/NavigationTransition.idl
 $(PROJECT_DIR)/page/Navigator.idl
 $(PROJECT_DIR)/page/NavigatorCookies.idl
 $(PROJECT_DIR)/page/NavigatorID.idl
@@ -2025,7 +2034,6 @@ $(PROJECT_DIR)/worklets/WorkletGlobalScope.idl
 $(PROJECT_DIR)/worklets/WorkletOptions.idl
 $(PROJECT_DIR)/xml/CustomXPathNSResolver.idl
 $(PROJECT_DIR)/xml/DOMParser.idl
-$(PROJECT_DIR)/xml/ParseFromStringOptions.idl
 $(PROJECT_DIR)/xml/XMLHttpRequest.idl
 $(PROJECT_DIR)/xml/XMLHttpRequestEventTarget.idl
 $(PROJECT_DIR)/xml/XMLHttpRequestProgressEvent.idl

@@ -119,16 +119,7 @@ void CollectGarbage(std::vector<vk::GarbageObject> *garbageOut, ArgT object, Arg
 }
 
 // Recursive function to process variable arguments for garbage destroy
-inline void DestroyGarbage(VkDevice device) {}
-template <typename ArgT, typename... ArgsT>
-void DestroyGarbage(VkDevice device, ArgT object, ArgsT... objectsIn)
-{
-    if (object->valid())
-    {
-        object->destroy(device);
-    }
-    DestroyGarbage(device, objectsIn...);
-}
+inline void DestroyGarbage(RendererVk *renderer) {}
 
 class WaitableCompressEvent
 {
@@ -323,34 +314,12 @@ class RendererVk : angle::NonCopyable
     {
         if (hasResourceUseFinished(use))
         {
-            DestroyGarbage(mDevice, garbageIn...);
+            DestroyGarbage(this, garbageIn...);
         }
         else
         {
             std::vector<vk::GarbageObject> sharedGarbage;
             CollectGarbage(&sharedGarbage, garbageIn...);
-            if (!sharedGarbage.empty())
-            {
-                collectGarbage(use, std::move(sharedGarbage));
-            }
-        }
-    }
-
-    void collectAllocationGarbage(const vk::ResourceUse &use, vk::Allocation &allocationGarbageIn)
-    {
-        if (!allocationGarbageIn.valid())
-        {
-            return;
-        }
-
-        if (hasResourceUseFinished(use))
-        {
-            allocationGarbageIn.destroy(getAllocator());
-        }
-        else
-        {
-            std::vector<vk::GarbageObject> sharedGarbage;
-            CollectGarbage(&sharedGarbage, &allocationGarbageIn);
             if (!sharedGarbage.empty())
             {
                 collectGarbage(use, std::move(sharedGarbage));
@@ -749,6 +718,17 @@ class RendererVk : angle::NonCopyable
     // Static function to get Vulkan object type name.
     static const char *GetVulkanObjectTypeName(VkObjectType type);
 
+    bool nullColorAttachmentWithExternalFormatResolve() const
+    {
+#if defined(ANGLE_PLATFORM_ANDROID)
+        ASSERT(mFeatures.supportsExternalFormatResolve.enabled);
+        return mExternalFormatResolveProperties.nullColorAttachmentWithExternalFormatResolve;
+#else
+        return false;
+#endif
+    }
+    vk::ExternalFormatTable mExternalFormatTable;
+
   private:
     angle::Result setupDevice(DisplayVk *displayVk);
     angle::Result createDeviceAndQueue(DisplayVk *displayVk, uint32_t queueFamilyIndex);
@@ -915,6 +895,10 @@ class RendererVk : angle::NonCopyable
     VkPhysicalDeviceHostImageCopyPropertiesEXT mHostImageCopyProperties;
     std::vector<VkImageLayout> mHostImageCopySrcLayoutsStorage;
     std::vector<VkImageLayout> mHostImageCopyDstLayoutsStorage;
+#if defined(ANGLE_PLATFORM_ANDROID)
+    VkPhysicalDeviceExternalFormatResolveFeaturesANDROID mExternalFormatResolveFeatures;
+    VkPhysicalDeviceExternalFormatResolvePropertiesANDROID mExternalFormatResolveProperties;
+#endif
 
     angle::PackedEnumBitSet<gl::ShadingRate, uint8_t> mSupportedFragmentShadingRates;
     std::vector<VkQueueFamilyProperties> mQueueFamilyProperties;
@@ -1132,6 +1116,26 @@ ANGLE_INLINE angle::Result RendererVk::checkCompletedCommands(vk::Context *conte
 ANGLE_INLINE angle::Result RendererVk::retireFinishedCommands(vk::Context *context)
 {
     return mCommandQueue.retireFinishedCommands(context);
+}
+
+template <typename ArgT, typename... ArgsT>
+void DestroyGarbage(RendererVk *renderer, ArgT object, ArgsT... objectsIn)
+{
+    if (object->valid())
+    {
+        object->destroy(renderer->getDevice());
+    }
+    DestroyGarbage(renderer, objectsIn...);
+}
+
+template <typename... ArgsT>
+void DestroyGarbage(RendererVk *renderer, vk::Allocation *object, ArgsT... objectsIn)
+{
+    if (object->valid())
+    {
+        object->destroy(renderer->getAllocator());
+    }
+    DestroyGarbage(renderer, objectsIn...);
 }
 }  // namespace rx
 

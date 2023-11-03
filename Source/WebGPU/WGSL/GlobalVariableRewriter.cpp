@@ -394,7 +394,7 @@ auto RewriteGlobalVariables::getPacking(AST::FieldAccessExpression& expression) 
         return Packing::Unpacked;
     ASSERT(std::holds_alternative<Types::Struct>(*baseType));
     auto& structType = std::get<Types::Struct>(*baseType);
-    auto* fieldType = structType.fields.get(expression.fieldName());
+    auto* fieldType = structType.fields.get(expression.originalFieldName());
     return packingForType(fieldType);
 }
 
@@ -467,6 +467,7 @@ auto RewriteGlobalVariables::getPacking(AST::CallExpression& call) -> Packing
             );
             strideExpression.m_inferredType = m_callGraph.ast().types().u32Type();
 
+            m_callGraph.ast().setUsesDivision();
             auto& elementCount = m_callGraph.ast().astBuilder().construct<AST::BinaryExpression>(
                 SourceSpan::empty(),
                 length,
@@ -508,23 +509,10 @@ void RewriteGlobalVariables::collectGlobals()
     auto& globalVars = m_callGraph.ast().variables();
     Vector<std::tuple<AST::Variable*, unsigned>> bufferLengths;
     for (auto& globalVar : globalVars) {
-        std::optional<unsigned> group;
-        std::optional<unsigned> binding;
-        for (auto& attribute : globalVar.attributes()) {
-            if (is<AST::GroupAttribute>(attribute)) {
-                group = downcast<AST::GroupAttribute>(attribute).group().constantValue()->toInt();
-                continue;
-            }
-            if (is<AST::BindingAttribute>(attribute)) {
-                binding = downcast<AST::BindingAttribute>(attribute).binding().constantValue()->toInt();
-                continue;
-            }
-        }
-
         std::optional<Global::Resource> resource;
-        if (group.has_value()) {
-            RELEASE_ASSERT(binding.has_value());
-            resource = { *group, *binding };
+        if (globalVar.group().has_value()) {
+            RELEASE_ASSERT(globalVar.binding().has_value());
+            resource = { *globalVar.group(), *globalVar.binding() };
         }
 
         dataLogLnIf(shouldLogGlobalVariableRewriting, "> Found global: ", globalVar.name(), ", isResource: ", resource.has_value() ? "yes" : "no");
@@ -543,7 +531,7 @@ void RewriteGlobalVariables::collectGlobals()
             packResource(globalVar);
 
             if (!m_generatedLayout || containsRuntimeArray(globalVar.maybeReferenceType()->inferredType()))
-                bufferLengths.append({ &globalVar, *group });
+                bufferLengths.append({ &globalVar, resource->group });
         }
     }
 
@@ -714,7 +702,7 @@ const Type* RewriteGlobalVariables::packStructType(const Types::Struct* structTy
         if (packType(member.type().inferredType()))
             packedAnyMember = true;
     }
-    if (!packedAnyMember)
+    if (!packedAnyMember && !structType->structure.hasSizeOrAlignmentAttributes())
         return nullptr;
 
     ASSERT(structType->structure.role() == AST::StructureRole::UserDefined);
@@ -761,17 +749,7 @@ void RewriteGlobalVariables::visitEntryPoint(const CallGraph::EntryPoint& entryP
 
     m_entryPointInformation = &entryPoint.information;
 
-    switch (entryPoint.stage) {
-    case AST::StageAttribute::Stage::Compute:
-        m_stage = ShaderStage::Compute;
-        break;
-    case AST::StageAttribute::Stage::Vertex:
-        m_stage = ShaderStage::Vertex;
-        break;
-    case AST::StageAttribute::Stage::Fragment:
-        m_stage = ShaderStage::Fragment;
-        break;
-    }
+    m_stage = entryPoint.stage;
 
     auto it = m_pipelineLayouts.find(m_entryPointInformation->originalName);
     ASSERT(it != m_pipelineLayouts.end());
@@ -1036,18 +1014,6 @@ auto RewriteGlobalVariables::determineUsedGlobals() -> UsedGlobals
         auto group = global.resource->group;
         auto result = usedGlobals.resources.add(group, IndexMap<Global*>());
         result.iterator->value.add(global.resource->binding, &global);
-
-        if (m_generatedLayout) {
-            if (m_generatedLayout->bindGroupLayouts.size() <= group)
-                m_generatedLayout->bindGroupLayouts.grow(group + 1);
-
-            m_generatedLayout->bindGroupLayouts[group].entries.append({
-                .binding = global.resource->binding,
-                .visibility = m_stage,
-                .bindingMember = bindingMemberForGlobal(global),
-                .name = global.declaration->name()
-            });
-        }
     }
     return usedGlobals;
 }
@@ -1083,15 +1049,10 @@ void RewriteGlobalVariables::usesOverride(AST::Variable& variable)
         RELEASE_ASSERT_NOT_REACHED();
     }
 
-    String originalName = variable.originalName();
-    for (auto& attribute : variable.attributes()) {
-        if (is<AST::IdAttribute>(attribute)) {
-            originalName = String::number(downcast<AST::IdAttribute>(attribute).value().constantValue()->toInt());
-            break;
-        }
-    }
-
-    m_entryPointInformation->specializationConstants.add(originalName, Reflection::SpecializationConstant { variable.name(), constantType, variable.maybeInitializer() });
+    String entryName = variable.originalName();
+    if (variable.id())
+        entryName = String::number(*variable.id());
+    m_entryPointInformation->specializationConstants.add(entryName, Reflection::SpecializationConstant { variable.name(), constantType, variable.maybeInitializer() });
 }
 
 Vector<unsigned> RewriteGlobalVariables::insertStructs(const UsedResources& usedResources)
@@ -1108,6 +1069,8 @@ Vector<unsigned> RewriteGlobalVariables::insertStructs(const UsedResources& used
         const IndexMap<Global*>& usedBindings = usedResource->value;
 
         Vector<std::pair<unsigned, AST::StructureMember*>> entries;
+        unsigned metalId = 0;
+        HashMap<AST::Variable*, unsigned> bufferSizeToOwnerMap;
         for (auto [binding, globalName] : bindingGlobalMap) {
             if (!usedBindings.contains(binding))
                 continue;
@@ -1120,7 +1083,39 @@ Vector<unsigned> RewriteGlobalVariables::insertStructs(const UsedResources& used
             auto& global = it->value;
             ASSERT(global.declaration->maybeTypeName());
 
-            entries.append({ binding, &createArgumentBufferEntry(binding, *global.declaration) });
+            entries.append({ metalId, &createArgumentBufferEntry(metalId, *global.declaration) });
+
+            if (m_generatedLayout->bindGroupLayouts.size() <= group)
+                m_generatedLayout->bindGroupLayouts.grow(group + 1);
+
+            BindGroupLayoutEntry entry {
+                .binding = metalId,
+                .webBinding = global.resource->binding,
+                .visibility = m_stage,
+                .bindingMember = bindingMemberForGlobal(global),
+                .name = global.declaration->name()
+            };
+
+            auto bufferSizeIt = m_bufferLengthMap.find(global.declaration);
+            if (bufferSizeIt != m_bufferLengthMap.end()) {
+                auto* variable = bufferSizeIt->value;
+                bufferSizeToOwnerMap.add(variable, m_generatedLayout->bindGroupLayouts[group].entries.size());
+            } else if (auto ownerIt = bufferSizeToOwnerMap.find(global.declaration); ownerIt != bufferSizeToOwnerMap.end()) {
+                // FIXME: since we only ever generate a layout for one shader stage
+                // at a time, we always store the indices in the vertex slot, but
+                // we should use a structs to pass information from the compiler to
+                // the API (instead of reusing the same struct the API uses to pass
+                // information to the compiler)
+                m_generatedLayout->bindGroupLayouts[group].entries[ownerIt->value].vertexArgumentBufferSizeIndex = metalId;
+            }
+
+            auto* type = global.declaration->storeType();
+            if (isPrimitive(type, Types::Primitive::TextureExternal))
+                metalId += 4;
+            else
+                ++metalId;
+
+            m_generatedLayout->bindGroupLayouts[group].entries.append(WTFMove(entry));
         }
 
         if (entries.isEmpty())
@@ -1241,8 +1236,10 @@ Vector<unsigned> RewriteGlobalVariables::insertStructs(const PipelineLayout& lay
             }
         }
 
-        if (entries.isEmpty())
+        if (entries.isEmpty()) {
+            ++group;
             continue;
+        }
 
         groups.append(group);
         finalizeArgumentBufferStruct(group++, entries);

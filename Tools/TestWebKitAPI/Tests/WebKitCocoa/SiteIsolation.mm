@@ -333,54 +333,91 @@ TEST(SiteIsolation, BasicPostMessageWindowOpen)
     EXPECT_WK_STREQ(alert.get(), "opened page received pong");
 }
 
+struct WebViewAndDelegates {
+    RetainPtr<WKWebView> webView;
+    RetainPtr<TestNavigationDelegate> navigationDelegate;
+    RetainPtr<TestUIDelegate> uiDelegate;
+};
+
+static std::pair<WebViewAndDelegates, WebViewAndDelegates> openerAndOpenedViews(const HTTPServer& server)
+{
+    __block WebViewAndDelegates opener;
+    __block WebViewAndDelegates opened;
+    opener.navigationDelegate = adoptNS([TestNavigationDelegate new]);
+    [opener.navigationDelegate allowAnyTLSCertificate];
+    auto configuration = server.httpsProxyConfiguration();
+    enableSiteIsolation(configuration);
+    enableWindowOpenPSON(configuration);
+    opener.webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration]);
+    opener.webView.get().navigationDelegate = opener.navigationDelegate.get();
+    opener.uiDelegate = adoptNS([TestUIDelegate new]);
+    opener.uiDelegate.get().createWebViewWithConfiguration = ^(WKWebViewConfiguration *configuration, WKNavigationAction *action, WKWindowFeatures *windowFeatures) {
+        enableSiteIsolation(configuration);
+        enableWindowOpenPSON(configuration);
+        opened.webView = adoptNS([[WKWebView alloc] initWithFrame:CGRectZero configuration:configuration]);
+        opened.navigationDelegate = adoptNS([TestNavigationDelegate new]);
+        [opened.navigationDelegate allowAnyTLSCertificate];
+        opened.uiDelegate = adoptNS([TestUIDelegate new]);
+        opened.webView.get().navigationDelegate = opened.navigationDelegate.get();
+        opened.webView.get().UIDelegate = opened.uiDelegate.get();
+        return opened.webView.get();
+    };
+    [opener.webView setUIDelegate:opener.uiDelegate.get()];
+    opener.webView.get().configuration.preferences.javaScriptCanOpenWindowsAutomatically = YES;
+    [opener.webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    while (!opened.webView)
+        Util::spinRunLoop();
+    [opened.navigationDelegate waitForDidFinishNavigation];
+    return { WTFMove(opener), WTFMove(opened) };
+}
+
 TEST(SiteIsolation, NavigationAfterWindowOpen)
 {
     HTTPServer server({
-        { "/example_opener"_s, { "<script>w = window.open('https://webkit.org/webkit')</script>"_s } },
+        { "/example"_s, { "<script>w = window.open('https://webkit.org/webkit')</script>"_s } },
         { "/webkit"_s, { "hi"_s } },
         { "/example_opened_after_navigation"_s, { "hi"_s } }
     }, HTTPServer::Protocol::HttpsProxy);
 
-    auto navigationDelegate = adoptNS([TestNavigationDelegate new]);
-    [navigationDelegate allowAnyTLSCertificate];
-    auto configuration = server.httpsProxyConfiguration();
-    enableSiteIsolation(configuration);
-    enableWindowOpenPSON(configuration);
-    auto openerWebView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 800, 600) configuration:configuration]);
-    openerWebView.get().navigationDelegate = navigationDelegate.get();
-    auto uiDelegate = adoptNS([TestUIDelegate new]);
-    __block RetainPtr<WKWebView> openedWebView;
-    __block RetainPtr<TestNavigationDelegate> openedNavigationDelegate;
-    uiDelegate.get().createWebViewWithConfiguration = ^(WKWebViewConfiguration *configuration, WKNavigationAction *action, WKWindowFeatures *windowFeatures) {
-        enableSiteIsolation(configuration);
-        enableWindowOpenPSON(configuration);
-        openedWebView = adoptNS([[WKWebView alloc] initWithFrame:CGRectZero configuration:configuration]);
-        openedNavigationDelegate = adoptNS([TestNavigationDelegate new]);
-        [openedNavigationDelegate allowAnyTLSCertificate];
-        openedWebView.get().navigationDelegate = openedNavigationDelegate.get();
-        return openedWebView.get();
-    };
-    [openerWebView setUIDelegate:uiDelegate.get()];
-    openerWebView.get().configuration.preferences.javaScriptCanOpenWindowsAutomatically = YES;
+    auto [opener, opened] = openerAndOpenedViews(server);
+    checkFrameTreesInProcesses(opener.webView.get(), { { "https://example.com"_s }, { RemoteFrame } });
+    checkFrameTreesInProcesses(opened.webView.get(), { { RemoteFrame }, { "https://webkit.org"_s } });
+    pid_t webKitPid = findFramePID(frameTrees(opener.webView.get()).get(), FrameType::Remote);
 
-    [openerWebView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example_opener"]]];
-    while (!openedWebView)
-        Util::spinRunLoop();
-    [openedNavigationDelegate waitForDidFinishNavigation];
+    [opened.webView evaluateJavaScript:@"window.location = 'https://example.com/example_opened_after_navigation'" completionHandler:nil];
+    [opened.navigationDelegate waitForDidFinishNavigation];
 
-    checkFrameTreesInProcesses(openerWebView.get(), { { "https://example.com"_s }, { RemoteFrame } });
-    checkFrameTreesInProcesses(openedWebView.get(), { { RemoteFrame }, { "https://webkit.org"_s } });
-    pid_t webKitPid = findFramePID(frameTrees(openerWebView.get()).get(), FrameType::Remote);
-
-    [openedWebView evaluateJavaScript:@"window.location = 'https://example.com/example_opened_after_navigation'" completionHandler:nil];
-    [openedNavigationDelegate waitForDidFinishNavigation];
-
-    checkFrameTreesInProcesses(openerWebView.get(), { { "https://example.com"_s } });
-    checkFrameTreesInProcesses(openedWebView.get(), { { "https://example.com"_s } });
+    checkFrameTreesInProcesses(opener.webView.get(), { { "https://example.com"_s } });
+    checkFrameTreesInProcesses(opened.webView.get(), { { "https://example.com"_s } });
 
     while (processStillRunning(webKitPid))
         Util::spinRunLoop();
 }
+
+TEST(SiteIsolation, CloseAfterWindowOpen)
+{
+    HTTPServer server({
+        { "/example"_s, { "<script>w = window.open('https://webkit.org/webkit')</script>"_s } },
+        { "/webkit"_s, { "hi"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [opener, opened] = openerAndOpenedViews(server);
+    pid_t webKitPid = findFramePID(frameTrees(opener.webView.get()).get(), FrameType::Remote);
+    [opener.webView evaluateJavaScript:@"w.close()" completionHandler:nil];
+    [opened.uiDelegate waitForDidClose];
+    opened.webView = nullptr;
+    while (processStillRunning(webKitPid))
+        Util::spinRunLoop();
+    checkFrameTreesInProcesses(opener.webView.get(), { { "https://example.com"_s } });
+}
+
+// FIXME: <rdar://117383420> Add a test that deallocates the opened WKWebView without being asked to by JS.
+// Check state using native *and* JS APIs. Make sure processes are torn down as expected.
+// Same with the opener WKWebView. We would probably need to set remotePageProxyInOpenerProcess
+// to null manually to make the process terminate.
+//
+// Also test when the opener frame (if it's an iframe) is removed from the tree and garbage collected.
+// That should probably do some teardown that should be visible from the API.
 
 TEST(SiteIsolation, PostMessageWithMessagePorts)
 {
@@ -1433,6 +1470,68 @@ TEST(SiteIsolation, EvaluateJavaScriptInFrame)
         done = true;
     }];
     Util::run(&done);
+}
+
+TEST(SiteIsolation, MainFrameURLAfterFragmentNavigation)
+{
+    NSString *json = @"["
+        "{\"action\":{\"type\":\"block\"},\"trigger\":{\"url-filter\":\"blocked_when_fragment_in_top_url\", \"if-top-url\":[\"fragment\"]}},"
+        "{\"action\":{\"type\":\"block\"},\"trigger\":{\"url-filter\":\"always_blocked\", \"if-top-url\":[\"http\"]}}"
+    "]";
+    __block bool doneRemoving { false };
+    [WKContentRuleListStore.defaultStore removeContentRuleListForIdentifier:@"Identifier" completionHandler:^(NSError *error) {
+        doneRemoving = true;
+    }];
+    Util::run(&doneRemoving);
+    __block RetainPtr<WKContentRuleList> list;
+    [WKContentRuleListStore.defaultStore compileContentRuleListForIdentifier:@"Identifier" encodedContentRuleList:json completionHandler:^(WKContentRuleList *ruleList, NSError *error) {
+        list = ruleList;
+    }];
+    while (!list)
+        Util::spinRunLoop();
+
+    HTTPServer server({
+        { "/example"_s, { "<iframe src='https://webkit.org/webkit'></iframe>"_s } },
+        { "/webkit"_s, { "hi"_s } },
+        { "/blocked_when_fragment_in_top_url"_s, { "loaded successfully"_s } },
+        { "/always_blocked"_s, { "loaded successfully"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+    [webView.get().configuration.userContentController addContentRuleList:list.get()];
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    __block RetainPtr<WKFrameInfo> childFrameInfo;
+    [webView _frames:^(_WKFrameTreeNode *mainFrame) {
+        childFrameInfo = mainFrame.childFrames.firstObject.info;
+    }];
+    while (!childFrameInfo)
+        Util::spinRunLoop();
+
+    auto canLoadURLInIFrame = [childFrameInfo = RetainPtr { childFrameInfo }, webView = RetainPtr { webView }] (NSString *path) -> bool {
+        __block std::optional<bool> loadedSuccessfully;
+        [webView callAsyncJavaScript:[NSString stringWithFormat:@"try { let response = await fetch('%@'); return await response.text() } catch (e) { return 'load failed' }", path] arguments:nil inFrame:childFrameInfo.get() inContentWorld:WKContentWorld.pageWorld completionHandler:^(id result, NSError *error) {
+            if ([result isEqualToString:@"loaded successfully"])
+                loadedSuccessfully = true;
+            else if ([result isEqualToString:@"load failed"])
+                loadedSuccessfully = false;
+            else
+                EXPECT_FALSE(true);
+        }];
+        while (!loadedSuccessfully)
+            Util::spinRunLoop();
+        return *loadedSuccessfully;
+    };
+    EXPECT_TRUE(canLoadURLInIFrame(@"/blocked_when_fragment_in_top_url"));
+    EXPECT_FALSE(canLoadURLInIFrame(@"/always_blocked"));
+
+    [webView evaluateJavaScript:@"window.location = '#fragment'" completionHandler:nil];
+    while (![webView.get().URL.fragment isEqualToString:@"fragment"])
+        Util::spinRunLoop();
+
+    EXPECT_FALSE(canLoadURLInIFrame(@"/blocked_when_fragment_in_top_url"));
+    EXPECT_FALSE(canLoadURLInIFrame(@"/always_blocked"));
 }
 
 }

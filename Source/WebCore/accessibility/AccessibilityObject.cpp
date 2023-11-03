@@ -32,6 +32,7 @@
 #include "AXLogger.h"
 #include "AXObjectCache.h"
 #include "AXTextMarker.h"
+#include "AccessibilityMockObject.h"
 #include "AccessibilityRenderObject.h"
 #include "AccessibilityScrollView.h"
 #include "AccessibilityTable.h"
@@ -1306,7 +1307,7 @@ bool AccessibilityObject::press()
     if (hitTestElement && hitTestElement->isDescendantOf(*pressElement))
         pressElement = hitTestElement;
     
-    UserGestureIndicator gestureIndicator(ProcessingUserGesture, document);
+    UserGestureIndicator gestureIndicator(IsProcessingUserGesture::Yes, document);
     
     bool dispatchedEvent = false;
 #if PLATFORM(IOS_FAMILY)
@@ -2489,14 +2490,9 @@ const AtomString& AccessibilityObject::getAttribute(const QualifiedName& attribu
     return nullAtom();
 }
 
-std::optional<String> AccessibilityObject::attributeValue(const String& attributeName) const
+String AccessibilityObject::nameAttribute() const
 {
-    if (attributeName == "name"_s) {
-        auto value = getAttribute(nameAttr);
-        if (!value.isNull())
-            return value;
-    }
-    return std::nullopt;
+    return getAttribute(nameAttr);
 }
 
 int AccessibilityObject::getIntegralAttribute(const QualifiedName& attributeName) const
@@ -2887,7 +2883,7 @@ bool AccessibilityObject::supportsPressAction() const
 {
     if (isButton())
         return true;
-    if (roleValue() == AccessibilityRole::Details || isSummary())
+    if (roleValue() == AccessibilityRole::Details)
         return true;
     
     RefPtr actionElement = this->actionElement();
@@ -2921,7 +2917,7 @@ bool AccessibilityObject::supportsPressAction() const
         if (!candidate)
             continue;
 
-        if (candidate->isStaticText() || candidate->isControl() || candidate->isImage() || candidate->isHeading() || candidate->isLink() || candidate->isSummary()) {
+        if (candidate->isStaticText() || candidate->isControl() || candidate->isImage() || candidate->isHeading() || candidate->isLink()) {
             matches += 1;
             if (matches >= 2)
                 return false;
@@ -3391,7 +3387,6 @@ bool AccessibilityObject::supportsExpanded() const
     case AccessibilityRole::Checkbox:
     case AccessibilityRole::ColumnHeader:
     case AccessibilityRole::ComboBox:
-    case AccessibilityRole::DisclosureTriangle:
     case AccessibilityRole::GridCell:
     case AccessibilityRole::Link:
     case AccessibilityRole::ListBox:
@@ -3468,7 +3463,6 @@ bool AccessibilityObject::supportsRowCountChange() const
     case AccessibilityRole::TreeGrid:
     case AccessibilityRole::Grid:
     case AccessibilityRole::Table:
-    case AccessibilityRole::Browser:
         return true;
     default:
         return false;
@@ -4307,7 +4301,6 @@ bool AccessibilityObject::shouldFocusActiveDescendant() const
     case AccessibilityRole::Meter:
     case AccessibilityRole::ProgressIndicator:
     case AccessibilityRole::Toolbar:
-    case AccessibilityRole::Outline:
     case AccessibilityRole::Tree:
     case AccessibilityRole::Grid:
     /* FIXME: replace these with actual roles when they are added to AccessibilityRole
@@ -4415,7 +4408,7 @@ static bool isRadioButtonInDifferentAdhocGroup(RefPtr<AXCoreObject> axObject, AX
     if (!referenceObject || !referenceObject->isRadioButton())
         return true;
 
-    return axObject->attributeValue("name"_s) != referenceObject->attributeValue("name"_s);
+    return axObject->nameAttribute() != referenceObject->nameAttribute();
 }
 
 static bool isAccessibilityObjectSearchMatchAtIndex(RefPtr<AXCoreObject> axObject, const AccessibilitySearchCriteria& criteria, size_t index)

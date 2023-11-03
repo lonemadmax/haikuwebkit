@@ -2433,49 +2433,11 @@ void WebPage::updateSelectionWithExtentPoint(const WebCore::IntPoint& point, boo
     callback(m_selectionAnchor == Start);
 }
 
-void WebPage::requestDictationContext(CompletionHandler<void(const String&, const String&, const String&)>&& completionHandler)
-{
-    Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
-    VisiblePosition startPosition = frame->selection().selection().start();
-    VisiblePosition endPosition = frame->selection().selection().end();
-    const unsigned dictationContextWordCount = 5;
-
-    String selectedText = plainTextForContext(frame->selection().selection().toNormalizedRange());
-
-    String contextBefore;
-    if (startPosition != startOfEditableContent(startPosition)) {
-        VisiblePosition currentPosition = startPosition;
-        VisiblePosition lastPosition = startPosition;
-        for (unsigned i = 0; i < dictationContextWordCount; ++i) {
-            currentPosition = startOfWord(positionOfNextBoundaryOfGranularity(lastPosition, TextGranularity::WordGranularity, SelectionDirection::Backward));
-            if (currentPosition.isNull())
-                break;
-            lastPosition = currentPosition;
-        }
-        contextBefore = plainTextForContext(makeSimpleRange(lastPosition, startPosition));
-    }
-
-    String contextAfter;
-    if (endPosition != endOfEditableContent(endPosition)) {
-        VisiblePosition currentPosition = endPosition;
-        VisiblePosition lastPosition = endPosition;
-        for (unsigned i = 0; i < dictationContextWordCount; ++i) {
-            currentPosition = endOfWord(positionOfNextBoundaryOfGranularity(lastPosition, TextGranularity::WordGranularity, SelectionDirection::Forward));
-            if (currentPosition.isNull())
-                break;
-            lastPosition = currentPosition;
-        }
-        contextAfter = plainTextForContext(makeSimpleRange(endPosition, lastPosition));
-    }
-
-    completionHandler(selectedText, contextBefore, contextAfter);
-}
 #if ENABLE(REVEAL)
-RetainPtr<RVItem> WebPage::revealItemForCurrentSelection()
+RevealItem WebPage::revealItemForCurrentSelection()
 {
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
     auto selection = frame->selection().selection();
-    RetainPtr<RVItem> item;
     if (!selection.isNone()) {
         std::optional<SimpleRange> fullCharacterRange;
         if (selection.isRange()) {
@@ -2490,11 +2452,11 @@ RetainPtr<RVItem> WebPage::revealItemForCurrentSelection()
             if (fullCharacterRange) {
                 auto selectionRange = NSMakeRange(characterCount(*makeSimpleRange(fullCharacterRange->start, selectionStart)), characterCount(*makeSimpleRange(selectionStart, selectionEnd)));
                 String itemString = plainText(*fullCharacterRange);
-                item = adoptNS([PAL::allocRVItemInstance() initWithText:itemString selectedRange:selectionRange]);
+                return { itemString, selectionRange };
             }
         }
     }
-    return item;
+    return { };
 }
 
 void WebPage::requestRVItemInCurrentSelectedRange(CompletionHandler<void(const WebKit::RevealItem&)>&& completionHandler)
@@ -4673,9 +4635,13 @@ String WebPage::platformUserAgent(const URL&) const
     if (!document)
         return String();
 
-    if (document->quirks().shouldAvoidUsingIOS13ForGmail() && osNameForUserAgent() == "iPhone OS"_s)
-        return standardUserAgentWithApplicationName({ }, "12_1_3"_s);
+    if (osNameForUserAgent() == "iPhone OS"_s) {
+        if (document->quirks().shouldAvoidUsingIOS13ForGmail())
+            return standardUserAgentWithApplicationName({ }, "12_1_3"_s);
 
+        if (document->quirks().shouldAvoidUsingIOS17UserAgentForFacebook())
+            return standardUserAgentWithApplicationName({ }, "16_6_1"_s);
+    }
     return String();
 }
 
@@ -5121,7 +5087,7 @@ void WebPage::focusTextInputContextAndPlaceCaret(const ElementContext& elementCo
 
     // FIXME: Do not focus an element if it moved or the caret point is outside its bounds
     // because we only want to do so if the caret can be placed.
-    UserGestureIndicator gestureIndicator { ProcessingUserGesture, &target->document() };
+    UserGestureIndicator gestureIndicator { IsProcessingUserGesture::Yes, &target->document() };
     SetForScope userIsInteractingChange { m_userIsInteracting, true };
     CheckedRef(m_page->focusController())->setFocusedElement(target.get(), targetFrame);
 

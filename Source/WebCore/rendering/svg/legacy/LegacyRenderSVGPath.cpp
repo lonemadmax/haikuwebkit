@@ -55,6 +55,7 @@ void LegacyRenderSVGPath::updateShapeFromElement()
     m_shapeType = ShapeType::Empty;
     m_fillBoundingBox = ensurePath().boundingRect();
     m_strokeBoundingBox = std::nullopt;
+    m_approximateStrokeBoundingBox = std::nullopt;
     processMarkerPositions();
     updateZeroLengthSubpaths();
 
@@ -197,7 +198,7 @@ void LegacyRenderSVGPath::strokeZeroLengthSubpaths(GraphicsContext& context) con
     }
 }
 
-static inline RenderSVGResourceMarker* markerForType(SVGMarkerType type, RenderSVGResourceMarker* markerStart, RenderSVGResourceMarker* markerMid, RenderSVGResourceMarker* markerEnd)
+static inline LegacyRenderSVGResourceMarker* markerForType(SVGMarkerType type, LegacyRenderSVGResourceMarker* markerStart, LegacyRenderSVGResourceMarker* markerMid, LegacyRenderSVGResourceMarker* markerEnd)
 {
     switch (type) {
     case StartMarker:
@@ -236,16 +237,16 @@ void LegacyRenderSVGPath::drawMarkers(PaintInfo& paintInfo)
     if (!resources)
         return;
 
-    RenderSVGResourceMarker* markerStart = resources->markerStart();
-    RenderSVGResourceMarker* markerMid = resources->markerMid();
-    RenderSVGResourceMarker* markerEnd = resources->markerEnd();
+    LegacyRenderSVGResourceMarker* markerStart = resources->markerStart();
+    LegacyRenderSVGResourceMarker* markerMid = resources->markerMid();
+    LegacyRenderSVGResourceMarker* markerEnd = resources->markerEnd();
     if (!markerStart && !markerMid && !markerEnd)
         return;
 
     float strokeWidth = this->strokeWidth();
     unsigned size = m_markerPositions.size();
     for (unsigned i = 0; i < size; ++i) {
-        if (RenderSVGResourceMarker* marker = markerForType(m_markerPositions[i].type, markerStart, markerMid, markerEnd))
+        if (auto* marker = markerForType(m_markerPositions[i].type, markerStart, markerMid, markerEnd))
             marker->draw(paintInfo, marker->markerTransformation(m_markerPositions[i].origin, m_markerPositions[i].angle, strokeWidth));
     }
 }
@@ -257,15 +258,15 @@ FloatRect LegacyRenderSVGPath::markerRect(RepaintRectCalculation repaintRectCalc
     auto* resources = SVGResourcesCache::cachedResourcesForRenderer(*this);
     ASSERT(resources);
 
-    RenderSVGResourceMarker* markerStart = resources->markerStart();
-    RenderSVGResourceMarker* markerMid = resources->markerMid();
-    RenderSVGResourceMarker* markerEnd = resources->markerEnd();
+    auto* markerStart = resources->markerStart();
+    auto* markerMid = resources->markerMid();
+    auto* markerEnd = resources->markerEnd();
     ASSERT(markerStart || markerMid || markerEnd);
 
     FloatRect boundaries;
     unsigned size = m_markerPositions.size();
     for (unsigned i = 0; i < size; ++i) {
-        if (RenderSVGResourceMarker* marker = markerForType(m_markerPositions[i].type, markerStart, markerMid, markerEnd))
+        if (auto* marker = markerForType(m_markerPositions[i].type, markerStart, markerMid, markerEnd))
             boundaries.unite(marker->markerBoundaries(repaintRectCalculation, marker->markerTransformation(m_markerPositions[i].origin, m_markerPositions[i].angle, strokeWidth)));
     }
     return boundaries;

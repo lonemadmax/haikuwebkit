@@ -23,6 +23,7 @@
 #include "CDATASection.h"
 
 #include "Document.h"
+#include "DocumentInlines.h"
 #include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {

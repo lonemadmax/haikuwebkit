@@ -122,6 +122,9 @@ void RenderPassEncoder::executePreDrawCommands()
 
 void RenderPassEncoder::draw(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance)
 {
+    if (!instanceCount || !vertexCount)
+        return;
+
     // FIXME: validation according to
     // https://gpuweb.github.io/gpuweb/#dom-gpurendercommandsmixin-draw
     executePreDrawCommands();
@@ -135,6 +138,9 @@ void RenderPassEncoder::draw(uint32_t vertexCount, uint32_t instanceCount, uint3
 
 void RenderPassEncoder::drawIndexed(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t baseVertex, uint32_t firstInstance)
 {
+    if (!instanceCount || !indexCount)
+        return;
+
     executePreDrawCommands();
     auto firstIndexOffsetInBytes = firstIndex * (m_indexType == MTLIndexTypeUInt16 ? sizeof(uint16_t) : sizeof(uint32_t));
     [m_renderCommandEncoder drawIndexedPrimitives:m_primitiveType indexCount:indexCount indexType:m_indexType indexBuffer:m_indexBuffer indexBufferOffset:(m_indexBufferOffset + firstIndexOffsetInBytes) instanceCount:instanceCount baseVertex:baseVertex baseInstance:firstInstance];
@@ -142,6 +148,9 @@ void RenderPassEncoder::drawIndexed(uint32_t indexCount, uint32_t instanceCount,
 
 void RenderPassEncoder::drawIndexedIndirect(const Buffer& indirectBuffer, uint64_t indirectOffset)
 {
+    if (!m_indexBuffer.length || !indirectBuffer.buffer().length)
+        return;
+
     executePreDrawCommands();
     [m_renderCommandEncoder drawIndexedPrimitives:m_primitiveType indexType:m_indexType indexBuffer:m_indexBuffer indexBufferOffset:m_indexBufferOffset indirectBuffer:indirectBuffer.buffer() indirectBufferOffset:indirectOffset];
 }
@@ -176,21 +185,25 @@ void RenderPassEncoder::executeBundles(Vector<std::reference_wrapper<const Rende
 {
     for (auto& bundle : bundles) {
         const auto& renderBundle = bundle.get();
-        if (renderBundle.currentPipelineState())
-            [m_renderCommandEncoder setRenderPipelineState:renderBundle.currentPipelineState()];
-        if (renderBundle.depthStencilState())
-            [m_renderCommandEncoder setDepthStencilState:renderBundle.depthStencilState()];
-        [m_renderCommandEncoder setCullMode:renderBundle.cullMode()];
-        [m_renderCommandEncoder setFrontFacingWinding:renderBundle.frontFace()];
-        [m_renderCommandEncoder setDepthClipMode:renderBundle.depthClipMode()];
+        if (renderBundle.replayCommands(m_renderCommandEncoder))
+            continue;
 
-        for (const auto& resource : renderBundle.resources()) {
-            if (resource.renderStages & (MTLRenderStageVertex | MTLRenderStageFragment))
-                [m_renderCommandEncoder useResources:&resource.mtlResources[0] count:resource.mtlResources.size() usage:resource.usage stages:resource.renderStages];
+        for (RenderBundleICBWithResources* icb in renderBundle.renderBundlesResources()) {
+            if (id<MTLDepthStencilState> depthStencilState = icb.depthStencilState)
+                [m_renderCommandEncoder setDepthStencilState:depthStencilState];
+            [m_renderCommandEncoder setCullMode:icb.cullMode];
+            [m_renderCommandEncoder setFrontFacingWinding:icb.frontFace];
+            [m_renderCommandEncoder setDepthClipMode:icb.depthClipMode];
+            [m_renderCommandEncoder setDepthBias:icb.depthBias slopeScale:icb.depthBiasSlopeScale clamp:icb.depthBiasClamp];
+
+            for (const auto& resource : *icb.resources) {
+                if (resource.renderStages & (MTLRenderStageVertex | MTLRenderStageFragment))
+                    [m_renderCommandEncoder useResources:&resource.mtlResources[0] count:resource.mtlResources.size() usage:resource.usage stages:resource.renderStages];
+            }
+
+            id<MTLIndirectCommandBuffer> indirectCommandBuffer = icb.indirectCommandBuffer;
+            [m_renderCommandEncoder executeCommandsInBuffer:indirectCommandBuffer withRange:NSMakeRange(0, indirectCommandBuffer.size)];
         }
-
-        id<MTLIndirectCommandBuffer> icb = renderBundle.indirectCommandBuffer();
-        [m_renderCommandEncoder executeCommandsInBuffer:icb withRange:NSMakeRange(0, icb.size)];
     }
 }
 
@@ -298,6 +311,7 @@ void RenderPassEncoder::setPipeline(const RenderPipeline& pipeline)
     [m_renderCommandEncoder setCullMode:pipeline.cullMode()];
     [m_renderCommandEncoder setFrontFacingWinding:pipeline.frontFace()];
     [m_renderCommandEncoder setDepthClipMode:pipeline.depthClipMode()];
+    [m_renderCommandEncoder setDepthBias:pipeline.depthBias() slopeScale:pipeline.depthBiasSlopeScale() clamp:pipeline.depthBiasClamp()];
 }
 
 void RenderPassEncoder::setScissorRect(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
@@ -308,7 +322,7 @@ void RenderPassEncoder::setScissorRect(uint32_t x, uint32_t y, uint32_t width, u
 
 void RenderPassEncoder::setStencilReference(uint32_t reference)
 {
-    [m_renderCommandEncoder setStencilReferenceValue:reference];
+    [m_renderCommandEncoder setStencilReferenceValue:(reference & 0xFF)];
 }
 
 void RenderPassEncoder::setVertexBuffer(uint32_t slot, const Buffer& buffer, uint64_t offset, uint64_t size)

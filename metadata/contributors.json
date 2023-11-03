@@ -52,11 +52,13 @@
       "emails" : [
          "abigail_fox@apple.com"
       ],
+      "github" : "abigailfox",
       "name" : "Abigail Fox",
       "nicks" : [
          "abigailf",
          "abigailfox"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -5076,7 +5078,8 @@
          "luke@warlow.dev"
       ],
       "github" : "lukewarlow",
-      "name" : "Luke Warlow"
+      "name" : "Luke Warlow",
+      "status" : "committer"
    },
    {
       "emails" : [

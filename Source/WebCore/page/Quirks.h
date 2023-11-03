@@ -100,6 +100,7 @@ public:
     WEBCORE_EXPORT bool needsYouTubeMouseOutQuirk() const;
 
     WEBCORE_EXPORT bool shouldAvoidUsingIOS13ForGmail() const;
+    WEBCORE_EXPORT bool shouldAvoidUsingIOS17UserAgentForFacebook() const;
 
     bool needsGMailOverflowScrollQuirk() const;
     bool needsYouTubeOverflowScrollQuirk() const;
@@ -174,6 +175,10 @@ public:
     bool shouldStarBeFeaturePolicyDefaultValue() const;
     bool shouldDisableDataURLPaddingValidation() const;
 
+    bool needsDisableDOMPasteAccessQuirk() const;
+
+    bool shouldDisableElementFullscreenQuirk() const;
+
 private:
     bool needsQuirks() const;
     bool isDomain(const String&) const;
@@ -236,6 +241,9 @@ private:
     bool m_needsToCopyUserSelectNoneQuirk { false };
     mutable std::optional<bool> m_shouldStarBeFeaturePolicyDefaultValueQuirk;
     mutable std::optional<bool> m_shouldDisableDataURLPaddingValidation;
+    mutable std::optional<bool> m_needsDisableDOMPasteAccessQuirk;
+    mutable std::optional<bool> m_shouldAvoidUsingIOS17UserAgentForFacebook;
+    mutable std::optional<bool> m_shouldDisableElementFullscreen;
 };
 
 } // namespace WebCore

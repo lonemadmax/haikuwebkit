@@ -152,6 +152,7 @@ public:
     virtual ~WebProcessPool();
 
     API::ProcessPoolConfiguration& configuration() { return m_configuration.get(); }
+    Ref<API::ProcessPoolConfiguration> protectedConfiguration() { return m_configuration; }
 
     static Vector<Ref<WebProcessPool>> allProcessPools();
 
@@ -173,6 +174,7 @@ public:
     void removeMessageReceiver(IPC::ReceiverName, uint64_t destinationID);
 
     WebBackForwardCache& backForwardCache() { return m_backForwardCache.get(); }
+    CheckedRef<WebBackForwardCache> checkedBackForwardCache();
     
     void addMessageReceiver(IPC::ReceiverName messageReceiverName, const ObjectIdentifierGenericBase& destinationID, IPC::MessageReceiver& receiver)
     {
@@ -209,6 +211,7 @@ public:
     void processDidFinishLaunching(WebProcessProxy&);
 
     WebProcessCache& webProcessCache() { return m_webProcessCache.get(); }
+    CheckedRef<WebProcessCache> checkedWebProcessCache();
 
     // Disconnect the process from the context.
     void disconnectProcess(WebProcessProxy&);
@@ -363,6 +366,7 @@ public:
     void createGPUProcessConnection(WebProcessProxy&, IPC::Connection::Handle&&, WebKit::GPUProcessConnectionParameters&&);
 
     GPUProcessProxy& ensureGPUProcess();
+    Ref<GPUProcessProxy> ensureProtectedGPUProcess();
     GPUProcessProxy* gpuProcess() const { return m_gpuProcess.get(); }
 #endif
     // Network Process Management
@@ -818,6 +822,10 @@ private:
     std::unique_ptr<WebCore::PowerObserver> m_powerObserver;
     std::unique_ptr<PAL::SystemSleepListener> m_systemSleepListener;
     Vector<int> m_openDirectoryNotifyTokens;
+#endif
+#if ENABLE(NOTIFYD_BLOCKING_IN_WEBCONTENT)
+    Vector<int> m_notifyTokens;
+    Vector<RetainPtr<NSObject>> m_notificationObservers;
 #endif
 #if ENABLE(IPC_TESTING_API)
     IPCTester m_ipcTester;

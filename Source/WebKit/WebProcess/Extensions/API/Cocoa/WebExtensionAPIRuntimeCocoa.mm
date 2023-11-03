@@ -173,6 +173,45 @@ void WebExtensionAPIRuntime::getPlatformInfo(Ref<WebExtensionCallbackHandler>&& 
     callback->call(platformInfo);
 }
 
+void WebExtensionAPIRuntime::getBackgroundPage(Ref<WebExtensionCallbackHandler>&& callback)
+{
+    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/getBackgroundPage
+
+    if (auto backgroundPage = extensionContext().backgroundPage()) {
+        callback->call(toWindowObject(callback->globalContext(), *backgroundPage));
+        return;
+    }
+
+    WebProcess::singleton().sendWithAsyncReply(Messages::WebExtensionContext::RuntimeGetBackgroundPage(), [protectedThis = Ref { *this }, callback = WTFMove(callback)](std::optional<WebCore::PageIdentifier> pageIdentifier, std::optional<String> error) {
+        if (error) {
+            callback->reportError(error.value());
+            return;
+        }
+
+        if (!pageIdentifier) {
+            callback->call(NSNull.null);
+            return;
+        }
+
+        auto* page = WebProcess::singleton().webPage(pageIdentifier.value());
+        if (!page) {
+            callback->call(NSNull.null);
+            return;
+        }
+
+        callback->call(toWindowObject(callback->globalContext(), *page));
+    }, extensionContext().identifier());
+}
+
+void WebExtensionAPIRuntime::setUninstallURL(URL, Ref<WebExtensionCallbackHandler>&& callback)
+{
+    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/setUninstallURL
+
+    // FIXME: rdar://58000001 Consider implementing runtime.setUninstallURL(), matching the behavior of other browsers.
+
+    callback->call();
+}
+
 JSValue *WebExtensionAPIRuntime::lastError()
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/lastError

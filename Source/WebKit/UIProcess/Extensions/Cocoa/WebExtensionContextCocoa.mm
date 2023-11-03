@@ -41,8 +41,10 @@
 #import "WKUIDelegatePrivate.h"
 #import "WKWebViewConfigurationInternal.h"
 #import "WKWebViewInternal.h"
+#import "WKWebpagePreferencesPrivate.h"
 #import "WKWebsiteDataStorePrivate.h"
 #import "WebExtensionAction.h"
+#import "WebExtensionContextProxyMessages.h"
 #import "WebExtensionTab.h"
 #import "WebExtensionURLSchemeHandler.h"
 #import "WebExtensionWindow.h"
@@ -1302,6 +1304,9 @@ RefPtr<WebExtensionTab> WebExtensionContext::getTab(WebPageProxyIdentifier webPa
     if (identifier)
         return getTab(identifier.value());
 
+    if (m_backgroundWebView && webPageProxyIdentifier == m_backgroundWebView.get()._page->identifier())
+        return nullptr;
+
     RefPtr<WebExtensionTab> result;
 
     for (auto& tab : openTabs()) {
@@ -1714,47 +1719,127 @@ void WebExtensionContext::setTestingMode(bool testingMode)
     m_testingMode = testingMode;
 }
 
+std::optional<WebCore::PageIdentifier> WebExtensionContext::backgroundPageIdentifier() const
+{
+    if (!m_backgroundWebView || extension().backgroundContentIsServiceWorker())
+        return std::nullopt;
+
+    return m_backgroundWebView.get()._page->webPageID();
+}
+
+Vector<WebExtensionContext::PageIdentifierTuple> WebExtensionContext::popupPageIdentifiers() const
+{
+    Vector<PageIdentifierTuple> result;
+
+    auto addWebViewPageIdentifier = [&](auto& action) {
+        auto *webView = action->popupWebView(WebExtensionAction::LoadOnFirstAccess::No);
+        if (!webView)
+            return;
+
+        RefPtr tab = action->tab();
+        RefPtr window = tab ? tab->window() : action->window();
+
+        result.append({ webView._page->webPageID(), tab ? std::optional(tab->identifier()) : std::nullopt, window ? std::optional(window->identifier()) : std::nullopt });
+    };
+
+    for (auto entry : m_actionWindowMap)
+        addWebViewPageIdentifier(entry.value);
+
+    for (auto entry : m_actionTabMap)
+        addWebViewPageIdentifier(entry.value);
+
+    if (m_defaultAction)
+        addWebViewPageIdentifier(m_defaultAction);
+
+    return result;
+}
+
+Vector<WebExtensionContext::PageIdentifierTuple> WebExtensionContext::tabPageIdentifiers() const
+{
+    Vector<PageIdentifierTuple> result;
+
+    for (auto& tab : openTabs()) {
+        auto window = tab->window();
+        for (WKWebView *webView in tab->webViews())
+            result.append({ webView._page->webPageID(), tab->identifier(), window ? std::optional(window->identifier()) : std::nullopt });
+    }
+
+    return result;
+}
+
 WKWebView *WebExtensionContext::relatedWebView()
 {
+    ASSERT(isLoaded());
+
     if (m_backgroundWebView)
         return m_backgroundWebView.get();
 
-    for (auto entry : m_actionTabMap) {
-        if (auto *webView = entry.value->popupWebView(WebExtensionAction::LoadOnFirstAccess::No))
-            return webView;
-    }
-
-    if (m_defaultAction) {
-        if (auto *webView = m_defaultAction->popupWebView(WebExtensionAction::LoadOnFirstAccess::No))
-            return webView;
+    for (auto& page : extensionController()->allPages()) {
+        if (auto* mainFrame = page.mainFrame()) {
+            if (isURLForThisExtension(mainFrame->url()))
+                return page.cocoaView().get();
+        }
     }
 
     return nil;
 }
 
-WKWebViewConfiguration *WebExtensionContext::webViewConfiguration()
+NSString *WebExtensionContext::processDisplayName()
 {
-    ASSERT(isLoaded());
+ALLOW_NONLITERAL_FORMAT_BEGIN
+    return [NSString localizedStringWithFormat:WEB_UI_STRING("%@ Web Extension", "Extension's process name that appears in Activity Monitor where the parameter is the name of the extension"), extension().displayShortName()];
+ALLOW_NONLITERAL_FORMAT_END
+}
+
+NSArray *WebExtensionContext::corsDisablingPatterns()
+{
+    NSMutableSet<NSString *> *patterns = [NSMutableSet set];
+
+    auto requestedMatchPatterns = m_extension->allRequestedMatchPatterns();
+    for (auto& requestedMatchPattern : requestedMatchPatterns)
+        [patterns addObjectsFromArray:requestedMatchPattern->expandedStrings()];
+
+    // Include manifest optional permission origins here, these should be dynamically added when the are granted
+    // but we need SPI to update corsDisablingPatterns outside of the WKWebViewConfiguration to do that.
+    // FIXME: <rdar://problem/61837474> Web Extensions: Need the ability to update corsDisablingPatterns on WKWebView
+    auto optionalPermissionMatchPatterns = m_extension->allRequestedMatchPatterns();
+    for (auto& optionalMatchPattern : optionalPermissionMatchPatterns)
+        [patterns addObjectsFromArray:optionalMatchPattern->expandedStrings()];
+
+    return [patterns allObjects];
+}
+
+WKWebViewConfiguration *WebExtensionContext::webViewConfiguration(WebViewPurpose purpose)
+{
+    if (!isLoaded())
+        return nil;
 
     WKWebViewConfiguration *configuration = [extensionController()->configuration().webViewConfiguration() copy];
+    configuration._corsDisablingPatterns = corsDisablingPatterns();
+    configuration._crossOriginAccessControlCheckEnabled = NO;
+    configuration._processDisplayName = processDisplayName();
+    configuration._relatedWebView = relatedWebView();
+    configuration._requiredWebExtensionBaseURL = baseURL();
+    configuration._shouldRelaxThirdPartyCookieBlocking = YES;
 
-    // When using manifest v2 the web views need to use the same process.
-    if (extension().supportsManifestVersion(2))
-        configuration._relatedWebView = relatedWebView();
+    configuration.defaultWebpagePreferences._autoplayPolicy = _WKWebsiteAutoplayPolicyAllow;
 
-    // Use the weak property to avoid a reference cycle while an extension web view is being held by the context.
-    configuration._weakWebExtensionController = extensionController()->wrapper();
-    configuration._webExtensionController = nil;
+    if (purpose == WebViewPurpose::Tab) {
+        configuration._webExtensionController = extensionController()->wrapper();
+        configuration._weakWebExtensionController = nil;
+    } else {
+        // Use the weak property to avoid a reference cycle while an extension web view is owned by the context.
+        configuration._weakWebExtensionController = extensionController()->wrapper();
+        configuration._webExtensionController = nil;
+    }
 
-    configuration._processDisplayName = extension().webProcessDisplayName();
-
-    // FIXME: <https://webkit.org/b/263286> Consider allowing the background page to throttle or be suspended.
-    auto *preferences = configuration.preferences;
-    preferences._hiddenPageDOMTimerThrottlingEnabled = NO;
-    preferences._pageVisibilityBasedProcessSuppressionEnabled = NO;
-    preferences.inactiveSchedulingPolicy = WKInactiveSchedulingPolicyNone;
-
-    // FIXME: Configure other extension web view configuration properties.
+    if (purpose == WebViewPurpose::Background) {
+        // FIXME: <https://webkit.org/b/263286> Consider allowing the background page to throttle or be suspended.
+        auto *preferences = configuration.preferences;
+        preferences._hiddenPageDOMTimerThrottlingEnabled = NO;
+        preferences._pageVisibilityBasedProcessSuppressionEnabled = NO;
+        preferences.inactiveSchedulingPolicy = WKInactiveSchedulingPolicyNone;
+    }
 
     return configuration;
 }
@@ -1795,7 +1880,7 @@ void WebExtensionContext::loadBackgroundWebView()
         return;
 
     ASSERT(!m_backgroundWebView);
-    m_backgroundWebView = [[WKWebView alloc] initWithFrame:CGRectZero configuration:webViewConfiguration()];
+    m_backgroundWebView = [[WKWebView alloc] initWithFrame:CGRectZero configuration:webViewConfiguration(WebViewPurpose::Background)];
 
     m_lastBackgroundContentLoadDate = NSDate.now;
 
@@ -1811,6 +1896,9 @@ void WebExtensionContext::loadBackgroundWebView()
     extension().removeError(WebExtension::Error::BackgroundContentFailedToLoad);
 
     if (!extension().backgroundContentIsServiceWorker()) {
+        auto backgroundPage = m_backgroundWebView.get()._page;
+        backgroundPage->process().send(Messages::WebExtensionContextProxy::SetBackgroundPageIdentifier(backgroundPage->webPageID()), identifier());
+
         [m_backgroundWebView loadRequest:[NSURLRequest requestWithURL:backgroundContentURL()]];
         return;
     }

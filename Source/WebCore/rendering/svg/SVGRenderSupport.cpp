@@ -29,8 +29,9 @@
 
 #include "ElementAncestorIteratorInlines.h"
 #include "LegacyRenderSVGResourceClipper.h"
+#include "LegacyRenderSVGResourceMarker.h"
+#include "LegacyRenderSVGResourceMasker.h"
 #include "LegacyRenderSVGRoot.h"
-#include "LegacyRenderSVGShape.h"
 #include "LegacyRenderSVGShapeInlines.h"
 #include "LegacyRenderSVGTransformableContainer.h"
 #include "LegacyRenderSVGViewportContainer.h"
@@ -42,10 +43,8 @@
 #include "RenderLayer.h"
 #include "RenderSVGResourceClipper.h"
 #include "RenderSVGResourceFilter.h"
-#include "RenderSVGResourceMarker.h"
-#include "RenderSVGResourceMasker.h"
 #include "RenderSVGRoot.h"
-#include "RenderSVGShape.h"
+#include "RenderSVGShapeInlines.h"
 #include "RenderSVGText.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGGeometryElement.h"
@@ -341,7 +340,7 @@ void SVGRenderSupport::intersectRepaintRectWithResources(const RenderElement& re
     if (LegacyRenderSVGResourceClipper* clipper = resources->clipper())
         repaintRect.intersect(clipper->resourceBoundingBox(renderer, repaintRectCalculation));
 
-    if (RenderSVGResourceMasker* masker = resources->masker())
+    if (auto* masker = resources->masker())
         repaintRect.intersect(masker->resourceBoundingBox(renderer, repaintRectCalculation));
 }
 
@@ -668,6 +667,7 @@ void SVGRenderSupport::paintSVGClippingMask(const RenderLayerModelObject& render
         return;
 
     ASSERT(renderer.isSVGLayerAwareRenderer());
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
     const auto& referenceClipPathOperation = downcast<ReferencePathOperation>(*renderer.style().clipPath());
     auto* renderResource = renderer.document().lookupSVGResourceById(referenceClipPathOperation.fragment());
     if (!renderResource)
@@ -675,6 +675,7 @@ void SVGRenderSupport::paintSVGClippingMask(const RenderLayerModelObject& render
 
     if (auto clipper = dynamicDowncast<RenderSVGResourceClipper>(renderResource))
         clipper->applyMaskClipping(paintInfo, renderer, renderer.objectBoundingBox());
+#endif // ENABLE(LAYER_BASED_SVG_ENGINE)
 }
 
 }

@@ -336,6 +336,7 @@
 #include "WKStringCF.h"
 #include "WebRemoteObjectRegistry.h"
 #include <WebCore/LegacyWebArchive.h>
+#include <WebCore/UTIRegistry.h>
 #include <pal/spi/cg/ImageIOSPI.h>
 #include <wtf/MachSendRight.h>
 #include <wtf/spi/darwin/SandboxSPI.h>
@@ -527,7 +528,7 @@ static std::variant<UniqueRef<LocalFrameLoaderClient>, UniqueRef<RemoteFrameClie
 
 WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     : m_identifier(pageID)
-    , m_mainFrame(WebFrame::create(*this, parameters.subframeProcessFrameTreeCreationParameters ? parameters.subframeProcessFrameTreeCreationParameters->frameID : (parameters.mainFrameIdentifier ? *parameters.mainFrameIdentifier : WebCore::FrameIdentifier::generate())))
+    , m_mainFrame(WebFrame::create(*this, parameters.subframeProcessPageParameters ? parameters.subframeProcessPageParameters->frameTreeParameters.frameID : (parameters.mainFrameIdentifier ? *parameters.mainFrameIdentifier : WebCore::FrameIdentifier::generate())))
     , m_viewSize(parameters.viewSize)
     , m_drawingAreaType(parameters.drawingAreaType)
     , m_alwaysShowsHorizontalScroller { parameters.alwaysShowsHorizontalScroller }
@@ -657,7 +658,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     m_pageGroup = WebProcess::singleton().webPageGroup(parameters.pageGroupData);
 
     auto frameType { Frame::FrameType::Local };
-    if (parameters.subframeProcessFrameTreeCreationParameters && !parameters.openerFrameIdentifier)
+    if (parameters.subframeProcessPageParameters && !parameters.openerFrameIdentifier)
         frameType = Frame::FrameType::Remote;
 
     PageConfiguration pageConfiguration(
@@ -735,7 +736,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
 #if ENABLE(WK_WEB_EXTENSIONS)
     if (parameters.webExtensionControllerParameters)
-        m_webExtensionController = WebExtensionControllerProxy::getOrCreate(parameters.webExtensionControllerParameters.value());
+        m_webExtensionController = WebExtensionControllerProxy::getOrCreate(parameters.webExtensionControllerParameters.value(), this);
 #endif
 
     m_corsDisablingPatterns = WTFMove(parameters.corsDisablingPatterns);
@@ -773,7 +774,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         WebProcess::singleton().switchFromStaticFontRegistryToUserFontRegistry(WTFMove(parameters.fontMachExtensionHandles));
 #endif
 
-    bool receivedMainFrameIdentifierFromUIProcess = !!parameters.subframeProcessFrameTreeCreationParameters;
+    bool receivedMainFrameIdentifierFromUIProcess = !!parameters.subframeProcessPageParameters;
     
     m_page = makeUnique<Page>(WTFMove(pageConfiguration));
 
@@ -816,14 +817,15 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     m_page->settings().setBackForwardCacheExpirationInterval(Seconds::infinity());
 
     m_mainFrame->initWithCoreMainFrame(*this, m_page->mainFrame(), receivedMainFrameIdentifierFromUIProcess);
-    if (auto& subframeProcessFrameTreeCreationParameters = parameters.subframeProcessFrameTreeCreationParameters) {
-        for (auto& childParameters : subframeProcessFrameTreeCreationParameters->children)
+    if (auto& subframeProcessPageParameters = parameters.subframeProcessPageParameters) {
+        for (auto& childParameters : subframeProcessPageParameters->frameTreeParameters.children)
             constructFrameTree(m_mainFrame.get(), childParameters);
+        m_page->setMainFrameURL(subframeProcessPageParameters->initialMainDocumentURL);
     }
 
     if (parameters.isProcessSwap && parameters.openerFrameIdentifier) {
-        if (auto* openerFrame = WebProcess::singleton().webFrame(*parameters.openerFrameIdentifier)) {
-            if (auto* coreMainFrame = m_mainFrame->coreLocalFrame())
+        if (RefPtr openerFrame = WebProcess::singleton().webFrame(*parameters.openerFrameIdentifier)) {
+            if (RefPtr coreMainFrame = m_mainFrame->coreLocalFrame())
                 coreMainFrame->loader().setOpener(openerFrame->coreRemoteFrame());
             else
                 ASSERT_NOT_REACHED();
@@ -893,6 +895,8 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     setUseFormSemanticContext(parameters.useFormSemanticContext);
     setHeaderBannerHeight(parameters.headerBannerHeight);
     setFooterBannerHeight(parameters.footerBannerHeight);
+    if (parameters.viewWindowCoordinates)
+        windowAndViewFramesChanged(*parameters.viewWindowCoordinates);
 #endif
 
     // If the page is created off-screen, its visibilityState should be prerender.
@@ -960,6 +964,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
 #if PLATFORM(COCOA)
     setSmartInsertDeleteEnabled(parameters.smartInsertDeleteEnabled);
+    WebCore::setAdditionalSupportedImageTypes(parameters.additionalSupportedImageTypes);
 #endif
 
 #if HAVE(APP_ACCENT_COLORS)
@@ -1111,6 +1116,12 @@ void WebPage::frameWasRemovedInAnotherProcess(WebCore::FrameIdentifier frameID)
         return;
     }
     frame->removeFromTree();
+}
+
+void WebPage::mainFrameURLChangedInAnotherProcess(const URL& newURL)
+{
+    if (auto* page = corePage())
+        page->setMainFrameURL(newURL);
 }
 
 #if ENABLE(GPU_PROCESS)
@@ -4445,7 +4456,7 @@ static void adjustSettingsForLockdownMode(Settings& settings, const WebPreferenc
     settings.setMathMLEnabled(false);
 #endif
 #if ENABLE(PDFJS)
-    settings.setPdfJSViewerEnabled(true);
+    settings.setPDFJSViewerEnabled(true);
 #endif
 #if USE(SYSTEM_PREVIEW)
     settings.setSystemPreviewEnabled(false);
@@ -5007,85 +5018,78 @@ NotificationPermissionRequestManager* WebPage::notificationPermissionRequestMana
 #if ENABLE(DRAG_SUPPORT)
 
 #if PLATFORM(GTK)
-void WebPage::performDragControllerAction(DragControllerAction action, const IntPoint& clientPosition, const IntPoint& globalPosition, OptionSet<DragOperation> draggingSourceOperationMask, SelectionData&& selectionData, OptionSet<DragApplicationFlags> flags)
+void WebPage::performDragControllerAction(DragControllerAction action, const IntPoint& clientPosition, const IntPoint& globalPosition, OptionSet<DragOperation> draggingSourceOperationMask, SelectionData&& selectionData, OptionSet<DragApplicationFlags> flags, CompletionHandler<void(std::optional<WebCore::DragOperation>, WebCore::DragHandlingMethod, bool, unsigned, WebCore::IntRect, WebCore::IntRect)>&& completionHandler)
 {
-    if (!m_page) {
-        send(Messages::WebPageProxy::DidPerformDragControllerAction(std::nullopt, DragHandlingMethod::None, false, 0, { }, { }));
-        return;
-    }
+    if (!m_page)
+        return completionHandler(std::nullopt, DragHandlingMethod::None, false, 0, { }, { });
 
     DragData dragData(&selectionData, clientPosition, globalPosition, draggingSourceOperationMask, flags, anyDragDestinationAction(), m_identifier);
     switch (action) {
     case DragControllerAction::Entered: {
         auto resolvedDragOperation = m_page->dragController().dragEntered(WTFMove(dragData));
-        send(Messages::WebPageProxy::DidPerformDragControllerAction(resolvedDragOperation, m_page->dragController().dragHandlingMethod(), m_page->dragController().mouseIsOverFileInput(), m_page->dragController().numberOfItemsToBeAccepted(), { }, { }));
-        return;
+        return completionHandler(resolvedDragOperation, m_page->dragController().dragHandlingMethod(), m_page->dragController().mouseIsOverFileInput(), m_page->dragController().numberOfItemsToBeAccepted(), { }, { });
     }
     case DragControllerAction::Updated: {
         auto resolvedDragOperation = m_page->dragController().dragUpdated(WTFMove(dragData));
-        send(Messages::WebPageProxy::DidPerformDragControllerAction(resolvedDragOperation, m_page->dragController().dragHandlingMethod(), m_page->dragController().mouseIsOverFileInput(), m_page->dragController().numberOfItemsToBeAccepted(), { }, { }));
-        return;
+        return completionHandler(resolvedDragOperation, m_page->dragController().dragHandlingMethod(), m_page->dragController().mouseIsOverFileInput(), m_page->dragController().numberOfItemsToBeAccepted(), { }, { });
     }
     case DragControllerAction::Exited:
         m_page->dragController().dragExited(WTFMove(dragData));
-        return;
+        return completionHandler(std::nullopt, DragHandlingMethod::None, false, 0, { }, { });
 
     case DragControllerAction::PerformDragOperation: {
         m_page->dragController().performDragOperation(WTFMove(dragData));
-        return;
+        return completionHandler(std::nullopt, DragHandlingMethod::None, false, 0, { }, { });
     }
     }
     ASSERT_NOT_REACHED();
 }
 #else
-void WebPage::performDragControllerAction(DragControllerAction action, WebCore::DragData&& dragData, SandboxExtension::Handle&& sandboxExtensionHandle, Vector<SandboxExtension::Handle>&& sandboxExtensionsHandleArray)
+void WebPage::performDragControllerAction(DragControllerAction action, WebCore::DragData&& dragData, CompletionHandler<void(std::optional<WebCore::DragOperation>, WebCore::DragHandlingMethod, bool, unsigned, WebCore::IntRect, WebCore::IntRect)>&& completionHandler)
 {
-    if (!m_page) {
-        send(Messages::WebPageProxy::DidPerformDragControllerAction(std::nullopt, DragHandlingMethod::None, false, 0, { }, { }));
-        return;
-    }
+    if (!m_page)
+        return completionHandler(std::nullopt, DragHandlingMethod::None, false, 0, { }, { });
 
     switch (action) {
     case DragControllerAction::Entered: {
         auto resolvedDragOperation = m_page->dragController().dragEntered(WTFMove(dragData));
-        send(Messages::WebPageProxy::DidPerformDragControllerAction(resolvedDragOperation, m_page->dragController().dragHandlingMethod(), m_page->dragController().mouseIsOverFileInput(), m_page->dragController().numberOfItemsToBeAccepted(), m_page->dragCaretController().caretRectInRootViewCoordinates(), m_page->dragCaretController().editableElementRectInRootViewCoordinates()));
-        return;
+        return completionHandler(resolvedDragOperation, m_page->dragController().dragHandlingMethod(), m_page->dragController().mouseIsOverFileInput(), m_page->dragController().numberOfItemsToBeAccepted(), m_page->dragCaretController().caretRectInRootViewCoordinates(), m_page->dragCaretController().editableElementRectInRootViewCoordinates());
     }
     case DragControllerAction::Updated: {
         auto resolvedDragOperation = m_page->dragController().dragUpdated(WTFMove(dragData));
-        send(Messages::WebPageProxy::DidPerformDragControllerAction(resolvedDragOperation, m_page->dragController().dragHandlingMethod(), m_page->dragController().mouseIsOverFileInput(), m_page->dragController().numberOfItemsToBeAccepted(), m_page->dragCaretController().caretRectInRootViewCoordinates(), m_page->dragCaretController().editableElementRectInRootViewCoordinates()));
-        return;
+        return completionHandler(resolvedDragOperation, m_page->dragController().dragHandlingMethod(), m_page->dragController().mouseIsOverFileInput(), m_page->dragController().numberOfItemsToBeAccepted(), m_page->dragCaretController().caretRectInRootViewCoordinates(), m_page->dragCaretController().editableElementRectInRootViewCoordinates());
     }
     case DragControllerAction::Exited:
         m_page->dragController().dragExited(WTFMove(dragData));
-        send(Messages::WebPageProxy::DidPerformDragControllerAction(std::nullopt, DragHandlingMethod::None, false, 0, { }, { }));
-        return;
-        
-    case DragControllerAction::PerformDragOperation: {
-        ASSERT(!m_pendingDropSandboxExtension);
-
-        m_pendingDropSandboxExtension = SandboxExtension::create(WTFMove(sandboxExtensionHandle));
-        for (size_t i = 0; i < sandboxExtensionsHandleArray.size(); i++) {
-            if (auto extension = SandboxExtension::create(WTFMove(sandboxExtensionsHandleArray[i])))
-                m_pendingDropExtensionsForFileUpload.append(extension);
-        }
-
-        bool handled = m_page->dragController().performDragOperation(WTFMove(dragData));
-
-        // If we started loading a local file, the sandbox extension tracker would have adopted this
-        // pending drop sandbox extension. If not, we'll play it safe and clear it.
-        m_pendingDropSandboxExtension = nullptr;
-
-        m_pendingDropExtensionsForFileUpload.clear();
-        send(Messages::WebPageProxy::DidPerformDragOperation(handled));
-        return;
-    }
+        return completionHandler(std::nullopt, DragHandlingMethod::None, false, 0, { }, { });
+    case DragControllerAction::PerformDragOperation:
+        break;
     }
     ASSERT_NOT_REACHED();
 }
+
+void WebPage::performDragOperation(WebCore::DragData&& dragData, SandboxExtension::Handle&& sandboxExtensionHandle, Vector<SandboxExtension::Handle>&& sandboxExtensionsHandleArray, CompletionHandler<void(bool)>&& completionHandler)
+{
+    ASSERT(!m_pendingDropSandboxExtension);
+
+    m_pendingDropSandboxExtension = SandboxExtension::create(WTFMove(sandboxExtensionHandle));
+    for (size_t i = 0; i < sandboxExtensionsHandleArray.size(); i++) {
+        if (auto extension = SandboxExtension::create(WTFMove(sandboxExtensionsHandleArray[i])))
+            m_pendingDropExtensionsForFileUpload.append(extension);
+    }
+
+    bool handled = m_page->dragController().performDragOperation(WTFMove(dragData));
+
+    // If we started loading a local file, the sandbox extension tracker would have adopted this
+    // pending drop sandbox extension. If not, we'll play it safe and clear it.
+    m_pendingDropSandboxExtension = nullptr;
+
+    m_pendingDropExtensionsForFileUpload.clear();
+    completionHandler(handled);
+}
 #endif
 
-void WebPage::dragEnded(WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, OptionSet<WebCore::DragOperation> dragOperationMask)
+void WebPage::dragEnded(WebCore::IntPoint clientPosition, WebCore::IntPoint globalPosition, OptionSet<WebCore::DragOperation> dragOperationMask, CompletionHandler<void()>&& completionHandler)
 {
     IntPoint adjustedClientPosition(clientPosition.x() + m_page->dragController().dragOffset().x(), clientPosition.y() + m_page->dragController().dragOffset().y());
     IntPoint adjustedGlobalPosition(globalPosition.x() + m_page->dragController().dragOffset().x(), globalPosition.y() + m_page->dragController().dragOffset().y());
@@ -5094,12 +5098,12 @@ void WebPage::dragEnded(WebCore::IntPoint clientPosition, WebCore::IntPoint glob
     RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
     RefPtr view = localMainFrame ? localMainFrame->view() : nullptr;
     if (!view)
-        return;
+        return completionHandler();
     // FIXME: These are fake modifier keys here, but they should be real ones instead.
     PlatformMouseEvent event(adjustedClientPosition, adjustedGlobalPosition, MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, { }, WallTime::now(), 0, WebCore::SyntheticClickType::NoTap);
     localMainFrame->eventHandler().dragSourceEndedAt(event, dragOperationMask);
 
-    send(Messages::WebPageProxy::DidEndDragging());
+    completionHandler();
 
     m_isStartingDrag = false;
 }
@@ -5720,13 +5724,13 @@ void WebPage::sendSetWindowFrame(const FloatRect& windowFrame)
 
 #if PLATFORM(COCOA)
 
-void WebPage::windowAndViewFramesChanged(const FloatRect& windowFrameInScreenCoordinates, const FloatRect& windowFrameInUnflippedScreenCoordinates, const FloatRect& viewFrameInWindowCoordinates, const FloatPoint& accessibilityViewCoordinates)
+void WebPage::windowAndViewFramesChanged(const ViewWindowCoordinates& coordinates)
 {
-    m_windowFrameInScreenCoordinates = windowFrameInScreenCoordinates;
-    m_windowFrameInUnflippedScreenCoordinates = windowFrameInUnflippedScreenCoordinates;
-    m_viewFrameInWindowCoordinates = viewFrameInWindowCoordinates;
+    m_windowFrameInScreenCoordinates = coordinates.windowFrameInScreenCoordinates;
+    m_windowFrameInUnflippedScreenCoordinates = coordinates.windowFrameInUnflippedScreenCoordinates;
+    m_viewFrameInWindowCoordinates = coordinates.viewFrameInWindowCoordinates;
 
-    m_accessibilityPosition = accessibilityViewCoordinates;
+    m_accessibilityPosition = coordinates.accessibilityViewCoordinates;
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     cacheAXPosition(m_accessibilityPosition);
 #endif
@@ -6520,7 +6524,7 @@ void WebPage::insertTextAsync(const String& text, const EditingRange& replacemen
 
     Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
 
-    UserGestureIndicator gestureIndicator { options.processingUserGesture ? ProcessingUserGesture : NotProcessingUserGesture, frame->document() };
+    UserGestureIndicator gestureIndicator { options.processingUserGesture ? IsProcessingUserGesture::Yes : IsProcessingUserGesture::No, frame->document() };
 
     bool replacesText = false;
     if (replacementEditingRange.location != notFound) {
@@ -6539,9 +6543,13 @@ void WebPage::insertTextAsync(const String& text, const EditingRange& replacemen
         focusedElement->dispatchEvent(Event::create(eventNames().keydownEvent, Event::CanBubble::Yes, Event::IsCancelable::Yes));
 
     if (!frame->editor().hasComposition()) {
-        // An insertText: might be handled by other responders in the chain if we don't handle it.
-        // One example is space bar that results in scrolling down the page.
-        frame->editor().insertText(text, nullptr, replacesText ? TextEventInputAutocompletion : TextEventInputKeyboard);
+        if (text.isEmpty() && frame->selection().isRange())
+            frame->editor().deleteWithDirection(SelectionDirection::Backward, TextGranularity::CharacterGranularity, false, true);
+        else {
+            // An insertText: might be handled by other responders in the chain if we don't handle it.
+            // One example is space bar that results in scrolling down the page.
+            frame->editor().insertText(text, nullptr, replacesText ? TextEventInputAutocompletion : TextEventInputKeyboard);
+        }
     } else
         frame->editor().confirmComposition(text);
 
@@ -8827,6 +8835,7 @@ void WebPage::generateTestReport(String&& message, String&& group)
 void WebPage::updateImageAnimationEnabled()
 {
     corePage()->setImageAnimationEnabled(WebProcess::singleton().imageAnimationEnabled());
+    corePage()->setSystemAllowsAnimationControls(!WebProcess::singleton().imageAnimationEnabled());
 }
 
 void WebPage::pauseAllAnimations(CompletionHandler<void()>&& completionHandler)

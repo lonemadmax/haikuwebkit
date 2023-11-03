@@ -27,6 +27,7 @@
 
 #include "EventTarget.h"
 #include "GlobalWindowIdentifier.h"
+#include <wtf/CheckedRef.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
 
@@ -45,10 +46,9 @@ class DOMWindow : public RefCounted<DOMWindow>, public EventTarget {
 public:
     virtual ~DOMWindow();
 
-    static HashMap<GlobalWindowIdentifier, DOMWindow*>& allWindows();
-
     const GlobalWindowIdentifier& identifier() const { return m_identifier; }
     virtual Frame* frame() const = 0;
+    RefPtr<Frame> protectedFrame() const;
 
     virtual bool isLocalDOMWindow() const = 0;
     virtual bool isRemoteDOMWindow() const = 0;

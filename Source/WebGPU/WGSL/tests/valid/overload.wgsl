@@ -317,14 +317,20 @@ fn testBitwise()
 
   {
     _ = 1  << 2;
-    _ = 1i << 2i;
+    _ = 1i << 2u;
     _ = 1u << 2u;
+    _ = vec2(1) << vec2(2);
+    _ = vec2(1i) << vec2(2u);
+    _ = vec2(1u) << vec2(2u);
   }
 
   {
     _ = 1  >> 2;
-    _ = 1i >> 2i;
+    _ = 1i >> 2u;
     _ = 1u >> 2u;
+    _ = vec2(1) >> vec2(2);
+    _ = vec2(1i) >> vec2(2u);
+    _ = vec2(1u) >> vec2(2u);
   }
 }
 
@@ -1710,27 +1716,38 @@ fn testPow()
 // 17.5.45
 fn testQuantizeToF16() {
     // [].(F32) => F32,
+    // FIXME: we don't support this as constant yet, since there's no f16 implementation.
+    // In order to avoid constant evaluation we use a non-const argument. We
+    // should re-enable the commented-out tests below once we implement f16.
     {
-        _ = quantizeToF16(0);
-        _ = quantizeToF16(0.0);
-        _ = quantizeToF16(0f);
+        let x = 0f;
+        _ = quantizeToF16(x);
+        // _ = quantizeToF16(0);
+        // _ = quantizeToF16(0.0);
+        // _ = quantizeToF16(0f);
     }
 
     // [N].(Vector[F32, N]) => Vector[F32, N],
     {
-        _ = quantizeToF16(vec2(0));
-        _ = quantizeToF16(vec2(0.0));
-        _ = quantizeToF16(vec2(0f));
+        let x = vec2(0f);
+        _ = quantizeToF16(x);
+        // _ = quantizeToF16(vec2(0));
+        // _ = quantizeToF16(vec2(0.0));
+        // _ = quantizeToF16(vec2(0f));
     }
     {
-        _ = quantizeToF16(vec3(0));
-        _ = quantizeToF16(vec3(0.0));
-        _ = quantizeToF16(vec3(0f));
+        let x = vec3(0f);
+        _ = quantizeToF16(x);
+        // _ = quantizeToF16(vec3(0));
+        // _ = quantizeToF16(vec3(0.0));
+        // _ = quantizeToF16(vec3(0f));
     }
     {
-        _ = quantizeToF16(vec4(0));
-        _ = quantizeToF16(vec4(0.0));
-        _ = quantizeToF16(vec4(0f));
+        let x = vec4(0f);
+        _ = quantizeToF16(x);
+        // _ = quantizeToF16(vec4(0));
+        // _ = quantizeToF16(vec4(0.0));
+        // _ = quantizeToF16(vec4(0f));
     }
 }
 
@@ -2328,22 +2345,26 @@ fn testTextureGatherCompare()
 @compute @workgroup_size(1)
 fn testTextureLoad()
 {
+    let x: i32 = 0;
     // [T < ConcreteInteger, U < ConcreteInteger, S < Concrete32BitNumber].(Texture[S, Texture1d], T, U) => Vector[S, 4],
     {
         {
             _ = textureLoad(t1d, 0, 0);
             _ = textureLoad(t1d, 0i, 0u);
             _ = textureLoad(t1d, 0u, 0i);
+            _ = textureLoad(t1d, 0u, x);
         }
         {
             _ = textureLoad(t1di, 0, 0);
             _ = textureLoad(t1di, 0i, 0u);
             _ = textureLoad(t1di, 0u, 0i);
+            _ = textureLoad(t1di, 0u, x);
         }
         {
             _ = textureLoad(t1du, 0, 0);
             _ = textureLoad(t1du, 0i, 0u);
             _ = textureLoad(t1du, 0u, 0i);
+            _ = textureLoad(t1du, 0u, x);
         }
     }
 
@@ -2353,16 +2374,19 @@ fn testTextureLoad()
             _ = textureLoad(t2d, vec2(0), 0);
             _ = textureLoad(t2d, vec2(0i), 0u);
             _ = textureLoad(t2d, vec2(0u), 0i);
+            _ = textureLoad(t2d, vec2(0u), x);
         }
         {
             _ = textureLoad(t2di, vec2(0), 0);
             _ = textureLoad(t2di, vec2(0i), 0u);
             _ = textureLoad(t2di, vec2(0u), 0i);
+            _ = textureLoad(t2di, vec2(0u), x);
         }
         {
             _ = textureLoad(t2du, vec2(0), 0);
             _ = textureLoad(t2du, vec2(0i), 0u);
             _ = textureLoad(t2du, vec2(0u), 0i);
+            _ = textureLoad(t2du, vec2(0u), x);
         }
     }
 
@@ -2372,16 +2396,19 @@ fn testTextureLoad()
             _ = textureLoad(t2da, vec2(0), 0, 0);
             _ = textureLoad(t2da, vec2(0i), 0u, 0i);
             _ = textureLoad(t2da, vec2(0u), 0i, 0u);
+            _ = textureLoad(t2da, vec2(0u), x, x);
         }
         {
             _ = textureLoad(t2dai, vec2(0), 0, 0);
             _ = textureLoad(t2dai, vec2(0i), 0u, 0i);
             _ = textureLoad(t2dai, vec2(0u), 0i, 0u);
+            _ = textureLoad(t2dau, vec2(0u), x, x);
         }
         {
             _ = textureLoad(t2dau, vec2(0), 0, 0);
             _ = textureLoad(t2dau, vec2(0i), 0u, 0i);
             _ = textureLoad(t2dau, vec2(0u), 0i, 0u);
+            _ = textureLoad(t2dau, vec2(0u), x, x);
         }
     }
 
@@ -2410,16 +2437,19 @@ fn testTextureLoad()
             _ = textureLoad(tm2d, vec2(0), 0);
             _ = textureLoad(tm2d, vec2(0i), 0u);
             _ = textureLoad(tm2d, vec2(0u), 0i);
+            _ = textureLoad(tm2d, vec2(0u), x);
         }
         {
             _ = textureLoad(tm2di, vec2(0), 0);
             _ = textureLoad(tm2di, vec2(0i), 0u);
             _ = textureLoad(tm2di, vec2(0u), 0i);
+            _ = textureLoad(tm2di, vec2(0u), x);
         }
         {
             _ = textureLoad(tm2du, vec2(0), 0);
             _ = textureLoad(tm2du, vec2(0i), 0u);
             _ = textureLoad(tm2du, vec2(0u), 0i);
+            _ = textureLoad(tm2du, vec2(0u), x);
         }
     }
 
@@ -2435,6 +2465,7 @@ fn testTextureLoad()
         _ = textureLoad(td2d, vec2(0), 0);
         _ = textureLoad(td2d, vec2(0i), 0i);
         _ = textureLoad(td2d, vec2(0u), 0u);
+        _ = textureLoad(td2d, vec2(0u), x);
     }
 
     // [T < ConcreteInteger, S < ConcreteInteger, U < ConcreteInteger].(texture_depth_2d_array, Vector[T, 2], S, U) => F32,
@@ -2442,6 +2473,7 @@ fn testTextureLoad()
         _ = textureLoad(td2da, vec2(0), 0, 0);
         _ = textureLoad(td2da, vec2(0i), 0i, 0i);
         _ = textureLoad(td2da, vec2(0u), 0u, 0u);
+        _ = textureLoad(td2da, vec2(0u), x, x);
     }
 
     // [T < ConcreteInteger, U < ConcreteInteger].(texture_depth_multisampled_2d, Vector[T, 2], U) => F32,
@@ -2449,6 +2481,7 @@ fn testTextureLoad()
         _ = textureLoad(tdms2d, vec2(0), 0);
         _ = textureLoad(tdms2d, vec2(0i), 0i);
         _ = textureLoad(tdms2d, vec2(0u), 0u);
+        _ = textureLoad(tdms2d, vec2(0u), x);
     }
 }
 

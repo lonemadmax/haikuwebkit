@@ -264,7 +264,7 @@ void WebProcessPool::setMediaAccessibilityPreferences(WebProcessProxy& process)
 
 static void logProcessPoolState(const WebProcessPool& pool)
 {
-    for (const auto& process : pool.processes()) {
+    for (Ref process : pool.processes()) {
         WTF::TextStream stream;
         stream << process;
 
@@ -304,6 +304,10 @@ void WebProcessPool::platformInitialize(NeedsGlobalStaticInitialization needsGlo
         for (const auto& pool : WebProcessPool::allProcessPools())
             logProcessPoolState(pool.get());
     });
+
+#if USE(EXTENSIONKIT)
+    AuxiliaryProcessProxy::setManageProcessesAsExtensions(CFPreferencesGetAppBooleanValue(CFSTR("manageProcessesAsExtensions"), CFSTR("com.apple.WebKit"), nullptr));
+#endif
 }
 
 void WebProcessPool::platformResolvePathsForSandboxExtensions()
@@ -426,7 +430,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     parameters.systemHasBattery = systemHasBattery();
     parameters.systemHasAC = cachedSystemHasAC().value_or(true);
-    parameters.strictSecureDecodingForAllObjCEnabled = IPC::strictSecureDecodingForAllObjCEnabled();
 
 #if PLATFORM(IOS_FAMILY)
     parameters.currentUserInterfaceIdiom = PAL::currentUserInterfaceIdiom();
@@ -492,7 +495,6 @@ void WebProcessPool::platformInitializeNetworkProcess(NetworkProcessCreationPara
     NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
 
     parameters.networkATSContext = adoptCF(_CFNetworkCopyATSContext());
-    parameters.strictSecureDecodingForAllObjCEnabled = IPC::strictSecureDecodingForAllObjCEnabled();
 
     parameters.shouldSuppressMemoryPressureHandler = [defaults boolForKey:WebKitSuppressMemoryPressureHandlerDefaultsKey];
 
@@ -647,6 +649,61 @@ void WebProcessPool::registerNotificationObservers()
 {
     m_weakObserver = adoptNS([[WKProcessPoolWeakObserver alloc] initWithWeakPtr:*this]);
 
+#if ENABLE(NOTIFYD_BLOCKING_IN_WEBCONTENT)
+    const Vector<ASCIILiteral> notificationMessages = {
+        "com.apple.WebKit.LibraryPathDiagnostics"_s,
+        "com.apple.WebKit.deleteAllCode"_s,
+        "com.apple.WebKit.dumpGCHeap"_s,
+        "com.apple.WebKit.dumpUntrackedMallocs"_s,
+        "com.apple.WebKit.fullGC"_s,
+        "com.apple.WebKit.logMemStats"_s,
+        "com.apple.WebKit.logPageState"_s,
+        "com.apple.WebKit.showAllDocuments"_s,
+        "com.apple.WebKit.showBackForwardCache"_s,
+        "com.apple.WebKit.showGraphicsLayerTree"_s,
+        "com.apple.WebKit.showLayerTree"_s,
+        "com.apple.WebKit.showLayoutTree"_s,
+        "com.apple.WebKit.showMemoryCache"_s,
+        "com.apple.WebKit.showPaintOrderTree"_s,
+        "com.apple.WebKit.showRenderTree"_s,
+        "com.apple.language.changed"_s,
+        "com.apple.system.lowpowermode"_s,
+        "org.WebKit.lowMemory"_s,
+        "org.WebKit.lowMemory.begin"_s,
+        "org.WebKit.lowMemory.end"_s,
+        "org.WebKit.memoryWarning"_s,
+        "org.WebKit.memoryWarning.begin"_s,
+        "org.WebKit.memoryWarning.end"_s,
+    };
+    m_notifyTokens = WTF::compactMap(notificationMessages, [this](const ASCIILiteral& message) -> std::optional<int> {
+        int notifyToken = 0;
+        auto status = notify_register_dispatch(message, &notifyToken, dispatch_get_main_queue(), ^(int token) {
+            if (!m_processes.isEmpty()) {
+                String messageString(message);
+                for (auto& process : m_processes)
+                    process->send(Messages::WebProcess::PostNotification(messageString), 0);
+            }
+        });
+        if (status)
+            return std::nullopt;
+        return notifyToken;
+    });
+
+    const Vector<NSString*> nsNotificationMessages = {
+        NSProcessInfoPowerStateDidChangeNotification
+    };
+    m_notificationObservers = WTF::compactMap(nsNotificationMessages, [this](NSString* message) -> RetainPtr<NSObject>  {
+        RetainPtr<NSObject> observer = [[NSNotificationCenter defaultCenter] addObserverForName:message object:nil queue:[NSOperationQueue currentQueue] usingBlock:^(NSNotification *notification) {
+            if (!m_processes.isEmpty()) {
+                String messageString(message);
+                for (auto& process : m_processes)
+                    process->send(Messages::WebProcess::PostObserverNotification(message), 0);
+            }
+        }];
+        return observer;
+    });
+#endif
+
 #if !PLATFORM(IOS_FAMILY)
     m_powerObserver = makeUnique<WebCore::PowerObserver>([weakThis = WeakPtr { *this }] {
         if (weakThis)
@@ -786,6 +843,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 void WebProcessPool::unregisterNotificationObservers()
 {
+#if ENABLE(NOTIFYD_BLOCKING_IN_WEBCONTENT)
+    for (auto token : m_notifyTokens)
+        notify_cancel(token);
+    for (auto observer : m_notificationObservers)
+        [[NSNotificationCenter defaultCenter] removeObserver:observer.get()];
+#endif
 #if !PLATFORM(IOS_FAMILY)
     m_powerObserver = nullptr;
     m_systemSleepListener = nullptr;
@@ -934,12 +997,12 @@ void WebProcessPool::lockdownModeStateChanged()
 
     WEBPROCESSPOOL_RELEASE_LOG(Loading, "WebProcessPool::lockdownModeStateChanged() isNowEnabled=%d", isNowEnabled);
 
-    for (auto& process : m_processes) {
+    for (Ref process : m_processes) {
         bool processHasLockdownModeEnabled = process->lockdownMode() == WebProcessProxy::LockdownMode::Enabled;
         if (processHasLockdownModeEnabled == isNowEnabled)
             continue;
 
-        for (auto& page : process->pages()) {
+        for (Ref page : process->pages()) {
             // When the Lockdown mode changes globally at system level, we reload every page that relied on the system setting (rather
             // than being explicitly opted in/out by the client app at navigation or PageConfiguration level).
             if (page->isLockdownModeExplicitlySet())
@@ -1014,7 +1077,7 @@ void WebProcessPool::setProcessesShouldSuspend(bool shouldSuspend)
 
 #if ENABLE(WEBXR) && !USE(OPENXR)
         if (!m_processesShouldSuspend) {
-            for (auto& page : process->pages())
+            for (Ref page : process->pages())
                 page->restartXRSessionActivityOnProcessResumeIfNeeded();
         }
 #endif

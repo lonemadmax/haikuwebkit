@@ -57,6 +57,20 @@ ScrollingStateNode::ScrollingStateNode(const ScrollingStateNode& stateNode, Scro
     scrollingStateTree().addNode(*this);
 }
 
+ScrollingStateNode::ScrollingStateNode(ScrollingNodeType nodeType, ScrollingNodeID nodeID, Vector<Ref<ScrollingStateNode>>&& children, OptionSet<ScrollingStateNodeProperty> changedProperties, std::optional<PlatformLayerIdentifier> layerID)
+    : m_nodeType(nodeType)
+    , m_nodeID(nodeID)
+    , m_changedProperties(changedProperties)
+    , m_children(WTFMove(children))
+    , m_layer(layerID.value_or(PlatformLayerIdentifier { }))
+{
+    for (auto& child : m_children) {
+        ASSERT(!child->parent());
+        child->setParent(this);
+    }
+    ASSERT(parentPointersAreCorrect());
+}
+
 ScrollingStateNode::~ScrollingStateNode() = default;
 
 void ScrollingStateNode::attachAfterDeserialization(ScrollingStateTree& tree)

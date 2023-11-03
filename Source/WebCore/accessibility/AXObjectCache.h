@@ -336,6 +336,7 @@ public:
     enum AXNotification {
         AXAccessKeyChanged,
         AXActiveDescendantChanged,
+        AXAnnouncementRequested,
         AXAutocorrectionOccured,
         AXAutofillTypeChanged,
         AXCellSlotsChanged,
@@ -349,6 +350,7 @@ public:
         AXDescribedByChanged,
         AXDisabledStateChanged,
         AXDropEffectChanged,
+        AXExtendedDescriptionChanged,
         AXFlowToChanged,
         AXFocusableStateChanged,
         AXFocusedUIElementChanged,
@@ -363,6 +365,7 @@ public:
         AXLayoutComplete,
         AXLevelChanged,
         AXLoadComplete,
+        AXNameChanged,
         AXNewDocumentLoadComplete,
         AXPageScrolled,
         AXPlaceholderChanged,
@@ -422,6 +425,8 @@ public:
     void postNotification(RenderObject*, AXNotification, PostTarget = PostTarget::Element);
     void postNotification(Node*, AXNotification, PostTarget = PostTarget::Element);
     void postNotification(AccessibilityObject*, Document*, AXNotification, PostTarget = PostTarget::Element);
+    // Requests clients to announce to the user the given message in the way they deem appropriate.
+    WEBCORE_EXPORT void announce(const String&);
 
 #ifndef NDEBUG
     void showIntent(const AXTextStateChangeIntent&);
@@ -457,7 +462,7 @@ public:
     constexpr const std::optional<PageIdentifier>& pageID() const { return m_pageID; }
 
 #if PLATFORM(MAC)
-    static void setShouldRepostNotificationsForTests(bool value);
+    static void setShouldRepostNotificationsForTests(bool);
 #endif
     void deferRecomputeIsIgnoredIfNeeded(Element*);
     void deferRecomputeIsIgnored(Element*);
@@ -514,9 +519,15 @@ protected:
     void postTextStateChangePlatformNotification(AccessibilityObject*, AXTextEditType, const String&, const VisiblePosition&);
     void postTextReplacementPlatformNotificationForTextControl(AccessibilityObject*, const String& deletedText, const String& insertedText, HTMLTextFormControlElement&);
     void postTextReplacementPlatformNotification(AccessibilityObject*, AXTextEditType, const String&, AXTextEditType, const String&, const VisiblePosition&);
-#else
+#else // PLATFORM(COCOA) || USE(ATSPI)
     static AXTextChange textChangeForEditType(AXTextEditType);
     void nodeTextChangePlatformNotification(AccessibilityObject*, AXTextChange, unsigned, const String&);
+#endif
+
+#if PLATFORM(COCOA)
+    WEBCORE_EXPORT void postPlatformAnnouncementNotification(const String&);
+#else
+    void postPlatformAnnouncementNotification(const String&) { }
 #endif
 
     void frameLoadingEventPlatformNotification(AccessibilityObject*, AXLoadingEvent);
@@ -729,7 +740,7 @@ bool nodeHasGridRole(Node*);
 bool nodeHasCellRole(Node*);
 // This will let you know if aria-hidden was explicitly set to false.
 bool isNodeAriaVisible(Node*);
-    
+
 #if !ENABLE(ACCESSIBILITY)
 inline AccessibilityObjectInclusion AXComputedObjectAttributeCache::getIgnored(AXID) const { return AccessibilityObjectInclusion::DefaultBehavior; }
 inline AccessibilityReplacedText::AccessibilityReplacedText(const VisibleSelection&) { }
@@ -809,7 +820,7 @@ inline void AXObjectCache::postLiveRegionChangeNotification(AccessibilityObject*
 inline void AXObjectCache::postNotification(AccessibilityObject*, Document*, AXNotification, PostTarget) { }
 inline void AXObjectCache::postNotification(Node*, AXNotification, PostTarget) { }
 inline void AXObjectCache::postNotification(RenderObject*, AXNotification, PostTarget) { }
-inline void AXObjectCache::postPlatformNotification(AXCoreObject*, AXNotification) { }
+inline void AXObjectCache::announce(const String&) { }
 inline void AXObjectCache::postTextReplacementNotification(Node*, AXTextEditType, const String&, AXTextEditType, const String&, const VisiblePosition&) { }
 inline void AXObjectCache::postTextReplacementNotificationForTextControl(HTMLTextFormControlElement&, const String&, const String&) { }
 inline void AXObjectCache::postTextStateChangeNotification(Node*, AXTextEditType, const String&, const VisiblePosition&) { }

@@ -68,8 +68,8 @@ webkit.org/b/204115 imported/w3c/web-platform-tests/pointerevents/pointerevent_t
 webkit.org/b/204115 imported/w3c/web-platform-tests/pointerevents/pointerevent_touch-action-pan-x-pan-y_touch.html [ Skip ]
 webkit.org/b/204115 imported/w3c/web-platform-tests/pointerevents/pointerevent_pointerout_pen.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/capturing_boundary_event_handler_at_ua_shadowdom.html?touch [ Skip ]
-imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes.html?touch [ Skip ]
-imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes_under_load.html?touch [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes.https.html?touch [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes_under_load.https.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_after_target_appended.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_after_target_removed.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes_hoverable_pointers.html?pen [ Skip ]
@@ -196,6 +196,7 @@ webkit.org/b/201270 [ Release ] http/tests/security/navigate-when-restoring-cach
 webkit.org/b/201270 [ Debug ] http/tests/security/navigate-when-restoring-cached-page.html [ Crash ]
 webkit.org/b/201270 [ Release ] http/tests/security/showModalDialog-sync-cross-origin-page-load2.html [ Timeout ]
 webkit.org/b/201270 [ Debug ] http/tests/security/showModalDialog-sync-cross-origin-page-load2.html [ Crash ]
+webkit.org/b/263720 http/tests/security/redirect-BLOCKED-to-localURL.html [ Crash ]
 
 # WebInspector.
 webkit.org/b/217966 [ Release ] inspector/console/queryHolders.html [ Failure Timeout ]
@@ -1410,6 +1411,8 @@ webkit.org/b/213386 fast/images/low-memory-decode.html [ Timeout ]
 
 webkit.org/b/214801 fast/forms/datalist/datalist-show-hide.html [ Failure Pass ]
 
+webkit.org/b/262852 fast/forms/datalist/datalist-show-picker.html [ Failure ]
+
 webkit.org/b/214802 http/tests/navigation/ping-attribute/anchor-ping-and-follow-redirect-when-sending-ping.html [ Failure Pass ]
 
 webkit.org/b/230017 http/wpt/cross-origin-opener-policy/non-secure-to-secure-context-navigation.https.html [ Failure Pass ]
@@ -1972,7 +1975,6 @@ Bug(GTK) fast/backgrounds/background-position-parsing.html [ Failure ]
 Bug(GTK) fast/css/sticky/sticky-top-zoomed.html [ ImageOnlyFailure ]
 
 # There is no network load scheduling or prioritization with NetworkProcess.
-webkit.org/b/123431 http/tests/css/link-css-disabled-value-with-slow-loading-sheet-in-error.html [ Failure Pass ]
 webkit.org/b/123431 http/tests/local/link-stylesheet-load-order-preload.html [ Failure ]
 webkit.org/b/123431 http/tests/local/link-stylesheet-load-order.html [ Failure ]
 
@@ -2204,6 +2206,7 @@ webkit.org/b/179605 editing/execCommand/underline-selection-containing-image.htm
 webkit.org/b/179722 compositing/accelerated-layers-after-back.html [ Failure ]
 
 webkit.org/b/181662 fast/forms/auto-fill-button/input-strong-password-auto-fill-button.html [ Missing Failure ]
+webkit.org/b/181662 fast/forms/auto-fill-button/input-strong-password-viewable-baseline-alignment.html [ ImageOnlyFailure ]
 
 webkit.org/b/182103 fast/forms/textarea-scrolled-type.html [ Failure ]
 webkit.org/b/182103 fast/forms/focus-selection-textarea.html [ Failure ]
@@ -2211,9 +2214,6 @@ webkit.org/b/182103 fast/forms/focus-selection-textarea.html [ Failure ]
 webkit.org/b/182763 accessibility/gtk/aria-activedescendant-changed-notification.html [ Failure ]
 
 webkit.org/b/183902 fast/dom/frame-loading-via-document-write.html [ Failure ]
-
-webkit.org/b/185254 http/tests/xmlhttprequest/state-after-network-error.html [ Failure ]
-webkit.org/b/185254 http/tests/cache/network-error-during-revalidation.html [ Failure ]
 
 # Imported css-text test suite from WPT
 webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/letter-spacing/letter-spacing-control-chars-001.html [ ImageOnlyFailure ]
@@ -2474,9 +2474,6 @@ imported/w3c/web-platform-tests/css/css-tables/tentative/caption.html [ Failure 
 imported/w3c/web-platform-tests/css/css-tables/tentative/colgroup-col.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-tables/tentative/table-quirks.html [ Failure ]
 
-imported/w3c/web-platform-tests/css/css-color/deprecated-sameas-018.html [ Failure ImageOnlyFailure Timeout ]
-imported/w3c/web-platform-tests/css/css-color/deprecated-sameas-019.html [ Failure ]
-imported/w3c/web-platform-tests/css/css-color/system-color-compute.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-color/system-color-consistency.html [ Failure ]
 
 # Timeout
@@ -2659,5 +2656,7 @@ webkit.org/b/261024 webgl/2.0.y/conformance/rendering/color-mask-preserved-durin
 webkit.org/b/261024 webrtc/utf8-sdp.html [ Pass Timeout ]
 
 imported/w3c/web-platform-tests/css/filter-effects/backdrop-filter-plus-filter.html [ ImageOnlyFailure ]
+
+fast/canvas/font-family-system-ui-canvas.html [ Skip ]
 
 fast/line-grid [ Skip ]

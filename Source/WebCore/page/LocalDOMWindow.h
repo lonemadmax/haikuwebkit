@@ -72,6 +72,7 @@ class IdleRequestCallback;
 class LocalDOMWindowProperty;
 class Location;
 class MediaQueryList;
+class Navigation;
 class Navigator;
 class Node;
 class NodeList;
@@ -142,6 +143,7 @@ public:
     void resumeFromBackForwardCache();
 
     WEBCORE_EXPORT LocalFrame* frame() const final;
+    RefPtr<LocalFrame> protectedFrame() const;
 
     RefPtr<MediaQueryList> matchMedia(const String&);
 
@@ -256,6 +258,7 @@ public:
     RefPtr<WebKitPoint> webkitConvertPointFromNodeToPage(Node*, const WebKitPoint*) const;
 
     PageConsoleClient* console() const;
+    CheckedPtr<PageConsoleClient> checkedConsole() const;
 
     void printErrorMessage(const String&) const;
 
@@ -379,6 +382,9 @@ public:
     WebKitNamespace* webkitNamespace();
 #endif
 
+    // Navigation API
+    Navigation& navigation();
+
     // FIXME: When this LocalDOMWindow is no longer the active LocalDOMWindow (i.e.,
     // when its document is no longer the document that is displayed in its
     // frame), we would like to zero out m_frame to avoid being confused
@@ -401,6 +407,8 @@ public:
     bool mayReuseForNavigation() const { return m_mayReuseForNavigation; }
 
     Page* page() const;
+    CheckedPtr<Page> checkedPage() const;
+
     WEBCORE_EXPORT static void forEachWindowInterestedInStorageEvents(const Function<void(LocalDOMWindow&)>&);
 
     CookieStore& cookieStore();
@@ -454,6 +462,7 @@ private:
     mutable RefPtr<BarProp> m_statusbar;
     mutable RefPtr<BarProp> m_toolbar;
     mutable RefPtr<VisualViewport> m_visualViewport;
+    mutable RefPtr<Navigation> m_navigation;
 
     String m_status;
 

@@ -532,6 +532,9 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
     case AXObjectCache::AXNotification::AXActiveDescendantChanged:
         stream << "AXActiveDescendantChanged";
         break;
+    case AXObjectCache::AXNotification::AXAnnouncementRequested:
+        stream << "AXAnnouncement";
+        break;
     case AXObjectCache::AXNotification::AXAutocorrectionOccured:
         stream << "AXAutocorrectionOccured";
         break;
@@ -570,6 +573,9 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
         break;
     case AXObjectCache::AXNotification::AXDropEffectChanged:
         stream << "AXDropEffectChanged";
+        break;
+    case AXObjectCache::AXNotification::AXExtendedDescriptionChanged:
+        stream << "AXExtendedDescriptionChanged";
         break;
     case AXObjectCache::AXNotification::AXFlowToChanged:
         stream << "AXFlowToChanged";
@@ -624,6 +630,9 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
         break;
     case AXObjectCache::AXNotification::AXMultiSelectableStateChanged:
         stream << "AXMultiSelectableStateChanged";
+        break;
+    case AXObjectCache::AXNotification::AXNameChanged:
+        stream << "AXNameChanged";
         break;
     case AXObjectCache::AXNotification::AXNewDocumentLoadComplete:
         stream << "AXNewDocumentLoadComplete";

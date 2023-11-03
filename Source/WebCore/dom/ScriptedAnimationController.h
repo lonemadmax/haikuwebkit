@@ -27,8 +27,10 @@
 #pragma once
 
 #include "AnimationFrameRate.h"
+#include "Document.h"
 #include "ReducedResolutionSeconds.h"
 #include "Timer.h"
+#include <wtf/CheckedPtr.h>
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
@@ -36,7 +38,6 @@
 
 namespace WebCore {
 
-class Document;
 class ImminentlyScheduledWorkScope;
 class Page;
 class RequestAnimationFrameCallback;

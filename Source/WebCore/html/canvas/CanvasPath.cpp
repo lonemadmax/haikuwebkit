@@ -50,8 +50,10 @@ void CanvasPath::closePath()
     if (m_path.isEmpty())
         return;
 
-    FloatRect boundRect = m_path.fastBoundingRect();
-    if (boundRect.width() || boundRect.height())
+    // The closePath() method, when invoked, must do nothing if the object's path has no subpaths.
+    // Otherwise, it must mark the last subpath as closed, create a new subpath whose first point
+    // is the same as the previous subpath's first point, and finally add this new subpath to the path.
+    if (m_path.hasSubpaths())
         m_path.closeSubpath();
 }
 
@@ -140,21 +142,19 @@ ExceptionOr<void> CanvasPath::arcTo(float x1, float y1, float x2, float y2, floa
 
 static void normalizeAngles(float& startAngle, float& endAngle, bool anticlockwise)
 {
-    float newStartAngle = startAngle;
+    constexpr auto twoPiFloat = 2 * piFloat;
+    float newStartAngle = fmodf(startAngle, twoPiFloat);
     if (newStartAngle < 0)
-        newStartAngle = (2 * piFloat) + fmodf(newStartAngle, -(2 * piFloat));
-    else
-        newStartAngle = fmodf(newStartAngle, 2 * piFloat);
+        newStartAngle += twoPiFloat;
 
     float delta = newStartAngle - startAngle;
     startAngle = newStartAngle;
     endAngle = endAngle + delta;
-    ASSERT(newStartAngle >= 0 && (newStartAngle < 2 * piFloat || WTF::areEssentiallyEqual<float>(newStartAngle, 2 * piFloat)));
-
-    if (anticlockwise && startAngle - endAngle >= 2 * piFloat)
-        endAngle = startAngle - 2 * piFloat;
-    else if (!anticlockwise && endAngle - startAngle >= 2 * piFloat)
-        endAngle = startAngle + 2 * piFloat;
+    ASSERT(newStartAngle >= 0 && (newStartAngle < twoPiFloat || WTF::areEssentiallyEqual<float>(newStartAngle, twoPiFloat)));
+    if (anticlockwise && startAngle - endAngle >= twoPiFloat)
+        endAngle = startAngle - twoPiFloat;
+    else if (!anticlockwise && endAngle - startAngle >= twoPiFloat)
+        endAngle = startAngle + twoPiFloat;
 }
 
 ExceptionOr<void> CanvasPath::arc(float x, float y, float radius, float startAngle, float endAngle, bool anticlockwise)

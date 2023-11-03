@@ -26,6 +26,7 @@
 #include "TextBoxPainter.h"
 
 #include "CompositionHighlight.h"
+#include "DocumentInlines.h"
 #include "DocumentMarkerController.h"
 #include "Editor.h"
 #include "EventRegion.h"

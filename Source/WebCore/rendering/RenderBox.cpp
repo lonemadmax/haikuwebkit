@@ -3761,8 +3761,13 @@ LayoutUnit RenderBox::availableLogicalHeightUsing(const Length& h, AvailableLogi
     if (isFlexItem() && downcast<RenderFlexibleBox>(*parent()).useChildOverridingLogicalHeightForPercentageResolution(*this))
         return overridingContentLogicalHeight();
 
-    if (shouldComputeLogicalHeightFromAspectRatio())
-        return blockSizeFromAspectRatio(borderAndPaddingLogicalWidth(), borderAndPaddingLogicalHeight(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth(), style().aspectRatioType(), isRenderReplaced());
+    if (shouldComputeLogicalHeightFromAspectRatio()) {
+        auto borderAndPaddingLogicalHeight = this->borderAndPaddingLogicalHeight();
+        auto borderBoxLogicalHeight = blockSizeFromAspectRatio(borderAndPaddingLogicalWidth(), borderAndPaddingLogicalHeight, style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth(), style().aspectRatioType(), isRenderReplaced());
+        if (heightType == AvailableLogicalHeightType::ExcludeMarginBorderPadding)
+            return borderBoxLogicalHeight - borderAndPaddingLogicalHeight;
+        return borderBoxLogicalHeight;
+    }
 
     if (h.isPercentOrCalculated() && isOutOfFlowPositioned() && !isRenderFragmentedFlow()) {
         // FIXME: This is wrong if the containingBlock has a perpendicular writing mode.
@@ -5692,6 +5697,25 @@ LayoutBoxExtent RenderBox::scrollPaddingForViewportRect(const LayoutRect& viewpo
 
 LayoutUnit synthesizedBaseline(const RenderBox& box, const RenderStyle& parentStyle, LineDirectionMode direction, BaselineSynthesisEdge edge)
 {
+    auto baselineType = [&] {
+        // https://drafts.csswg.org/css-inline-3/#alignment-baseline-property
+        // https://drafts.csswg.org/css-inline-3/#dominant-baseline-property
+
+        auto isHorizontalWritingMode = parentStyle.isHorizontalWritingMode();
+        auto textOrientation = parentStyle.textOrientation();
+
+        if (isHorizontalWritingMode || textOrientation == TextOrientation::Sideways)
+            return FontBaseline::AlphabeticBaseline;
+        if (textOrientation == TextOrientation::Upright || textOrientation == TextOrientation::Mixed)
+            return FontBaseline::CentralBaseline;
+
+        ASSERT_NOT_IMPLEMENTED_YET();
+        return FontBaseline::AlphabeticBaseline;
+    }();
+
+    if (baselineType == FontBaseline::AlphabeticBaseline && parentStyle.writingMode() == WritingMode::VerticalLr)
+        return 0_lu;
+
     auto boxSize = direction == HorizontalLine ? box.height() : box.width();
 
     if (edge == ContentBox)
@@ -5699,7 +5723,7 @@ LayoutUnit synthesizedBaseline(const RenderBox& box, const RenderStyle& parentSt
     else if (edge == MarginBox)
         boxSize += direction == HorizontalLine ? box.verticalMarginExtent() : box.horizontalMarginExtent();
     
-    if (parentStyle.isHorizontalWritingMode() || parentStyle.textOrientation() == TextOrientation::Sideways)
+    if (baselineType == FontBaseline::AlphabeticBaseline)
         return boxSize;
     return boxSize / 2;
 }

@@ -164,7 +164,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'trigger-crash-log-submission',
             'set-build-summary'
         ],
-        'macOS-AppleSilicon-Ventura-Debug-Build-EWS': [
+        'macOS-AppleSilicon-Sonoma-Debug-Build-EWS': [
             'configure-build',
             'check-change-relevance',
             'validate-change',
@@ -180,7 +180,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'validate-change',
             'compile-webkit'
         ],
-        'macOS-AppleSilicon-Ventura-Debug-WK2-Tests-EWS': [
+        'macOS-AppleSilicon-Sonoma-Debug-WK2-Tests-EWS': [
             'configure-build',
             'validate-change',
             'configuration',
@@ -422,39 +422,6 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'kill-old-processes',
             'validate-change',
             'compile-jsc',
-            'jscore-test'
-        ],
-        'JSC-MIPSEL-32bits-Build-EWS': [
-            'configure-build',
-            'check-change-relevance',
-            'validate-change',
-            'configuration',
-            'clean-up-git-repo',
-            'checkout-source',
-            'fetch-branch-references',
-            'checkout-specific-revision',
-            'show-identifier',
-            'apply-patch',
-            'checkout-pull-request',
-            'kill-old-processes',
-            'validate-change',
-            'compile-jsc'
-        ],
-        'JSC-MIPSEL-32bits-Tests-EWS': [
-            'configure-build',
-            'check-change-relevance',
-            'validate-change',
-            'configuration',
-            'clean-up-git-repo',
-            'checkout-source',
-            'fetch-branch-references',
-            'checkout-specific-revision',
-            'show-identifier',
-            'apply-patch',
-            'checkout-pull-request',
-            'download-built-product',
-            'extract-built-product',
-            'kill-old-processes',
             'jscore-test'
         ],
         'JSC-ARMv7-32bits-Build-EWS': [

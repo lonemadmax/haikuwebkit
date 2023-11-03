@@ -669,7 +669,7 @@ void InputType::createShadowSubtree()
 {
 }
 
-void InputType::destroyShadowSubtree()
+void InputType::removeShadowSubtree()
 {
     ASSERT(element());
     RefPtr<ShadowRoot> root = element()->userAgentShadowRoot();
@@ -677,6 +677,7 @@ void InputType::destroyShadowSubtree()
         return;
 
     root->removeChildren();
+    m_hasCreatedShadowSubtree = false;
 }
 
 Decimal InputType::parseToNumber(const String&, const Decimal& defaultValue) const

@@ -118,8 +118,10 @@
 #import <UIKit/_UITextDragCaretView.h>
 #endif
 
-#if HAVE(UI_ASYNC_TEXT_INPUT)
+#if HAVE(UI_ASYNC_TEXT_INTERACTION)
 #import <UIKit/UIAsyncTextInput.h>
+#import <UIKit/UIAsyncTextInputClient.h>
+#import <UIKit/UIAsyncTextInteraction.h>
 #import <UIKit/UIKeyEventContext.h>
 #endif
 
@@ -130,6 +132,10 @@
 
 #if HAVE(UI_CONTEXT_MENU_ASYNC_CONFIGURATION)
 #import <UIKit/_UIContextMenuAsyncConfiguration.h>
+#endif
+
+#if HAVE(UI_TEXT_CURSOR_DRAG_ANIMATOR)
+#import <UIKit/_UITextCursorDragAnimator.h>
 #endif
 
 #if HAVE(UIFINDINTERACTION)
@@ -538,6 +544,7 @@ typedef enum {
 @end
 
 @interface UITextInteractionAssistant : NSObject
+- (instancetype)initWithView:(UIResponder <UITextInput> *)view;
 @end
 
 @interface UITextInteractionAssistant ()
@@ -709,11 +716,6 @@ typedef NS_ENUM(NSInteger, UIWKGestureType) {
 @class UIWKDocumentContext;
 
 @protocol UIWKInteractionViewProtocol
-#if HAVE(UI_WK_DOCUMENT_CONTEXT)
-- (void)adjustSelectionWithDelta:(NSRange)deltaRange completionHandler:(void (^)(void))completionHandler;
-- (void)requestDocumentContext:(UIWKDocumentRequest *)request completionHandler:(void (^)(UIWKDocumentContext *))completionHandler;
-- (void)selectPositionAtPoint:(CGPoint)point withContextRequest:(UIWKDocumentRequest *)request completionHandler:(void (^)(UIWKDocumentContext *))completionHandler;
-#endif
 
 - (void)changeSelectionWithGestureAt:(CGPoint)point withGesture:(UIWKGestureType)gestureType withState:(UIGestureRecognizerState)state;
 - (void)changeSelectionWithTouchAt:(CGPoint)point withSelectionTouch:(UIWKSelectionTouch)touch baseIsStart:(BOOL)baseIsStart withFlags:(UIWKSelectionFlags)flags;
@@ -724,8 +726,6 @@ typedef NS_ENUM(NSInteger, UIWKGestureType) {
 - (void)requestAutocorrectionContextWithCompletionHandler:(void (^)(UIWKAutocorrectionContext *autocorrectionContext))completionHandler;
 
 - (void)requestAutocorrectionRectsForString:(NSString *)input withCompletionHandler:(void (^)(UIWKAutocorrectionRects *rectsForInput))completionHandler;
-
-- (void)applyAutocorrection:(NSString *)correction toString:(NSString *)input withCompletionHandler:(void (^)(UIWKAutocorrectionRects *rectsForCorrection))completionHandler;
 
 - (NSString *)markedText;
 - (BOOL)hasMarkedText;
@@ -739,7 +739,6 @@ typedef NS_ENUM(NSInteger, UIWKGestureType) {
 - (void)removeTextPlaceholder:(UITextPlaceholder *)placeholder willInsertText:(BOOL)willInsertText completionHandler:(void (^)(void))completionHandler;
 
 - (void)replaceDictatedText:(NSString *)oldText withText:(NSString *)newText;
-- (void)requestDictationContext:(void (^)(NSString *selectedText, NSString *prefixText, NSString *postfixText))completionHandler;
 - (BOOL)pointIsNearMarkedText:(CGPoint)point;
 - (NSString *)selectedText;
 - (NSArray<NSTextAlternatives *> *)alternativesForSelectedText;
@@ -1067,6 +1066,7 @@ typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
 @interface UITextInteractionAssistant (IPI)
 - (void)willStartScrollingOrZooming;
 - (void)didEndScrollingOrZooming;
+- (void)selectWord;
 @end
 
 #if USE(UICONTEXTMENU)

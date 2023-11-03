@@ -66,7 +66,28 @@ struct ConstantVector {
     FixedVector<ConstantValue> elements;
 };
 
-using BaseValue = std::variant<double, int64_t, bool, ConstantArray, ConstantVector>;
+struct ConstantMatrix {
+    ConstantMatrix(uint32_t columns, uint32_t rows)
+        : columns(columns)
+        , rows(rows)
+        , elements(columns * rows)
+    {
+    }
+
+    ConstantMatrix(uint32_t columns, uint32_t rows, const FixedVector<ConstantValue>& elements)
+        : columns(columns)
+        , rows(rows)
+        , elements(elements)
+    {
+        RELEASE_ASSERT(elements.size() == columns * rows);
+    }
+
+    uint32_t columns;
+    uint32_t rows;
+    FixedVector<ConstantValue> elements;
+};
+
+using BaseValue = std::variant<float, double, int32_t, uint32_t, int64_t, bool, ConstantArray, ConstantVector, ConstantMatrix>;
 struct ConstantValue : BaseValue {
     ConstantValue() = default;
 
@@ -74,24 +95,57 @@ struct ConstantValue : BaseValue {
 
     void dump(PrintStream&) const;
 
-    bool isInt() const { return std::holds_alternative<int64_t>(*this); }
-    bool isNumber() const { return isInt() || std::holds_alternative<double>(*this); }
+    bool isBool() const { return std::holds_alternative<bool>(*this); }
+    bool isI32() const { return std::holds_alternative<int32_t>(*this); }
+    bool isU32() const { return std::holds_alternative<uint32_t>(*this); }
+    bool isAbstractInt() const { return std::holds_alternative<int64_t>(*this); }
+    bool isF32() const { return std::holds_alternative<float>(*this); }
+    bool isAbstractFloat() const { return std::holds_alternative<double>(*this); }
+    bool isVector() const { return std::holds_alternative<ConstantVector>(*this); }
+    bool isMatrix() const { return std::holds_alternative<ConstantMatrix>(*this); }
+    bool isArray() const { return std::holds_alternative<ConstantArray>(*this); }
 
     bool toBool() const { return std::get<bool>(*this); }
-    int64_t toInt() const
+    float toF32() const { return std::get<float>(*this); }
+
+    int64_t integerValue() const
     {
-        ASSERT(isNumber());
-        if (auto* i = std::get_if<int64_t>(this))
-            return *i;
-        return static_cast<int64_t>(std::get<double>(*this));
+        if (auto* i32 = std::get_if<int32_t>(this))
+            return *i32;
+        if (auto* u32 = std::get_if<uint32_t>(this))
+            return *u32;
+        if (auto* abstractInt = std::get_if<int64_t>(this))
+            return *abstractInt;
+        RELEASE_ASSERT_NOT_REACHED();
     }
-    double toDouble() const
+
+    const ConstantVector& toVector() const
     {
-        ASSERT(isNumber());
-        if (auto* d = std::get_if<double>(this))
-            return *d;
-        return static_cast<double>(std::get<int64_t>(*this));
+        return std::get<ConstantVector>(*this);
     }
 };
+
+template<typename To, typename From>
+std::optional<To> convertInteger(From value)
+{
+    auto result = Checked<To, RecordOverflow>(value);
+    if (UNLIKELY(result.hasOverflowed()))
+        return std::nullopt;
+    return { result.value() };
+}
+
+template<typename To, typename From>
+std::optional<To> convertFloat(From value)
+{
+    static_assert(std::is_floating_point<To>::value || std::is_same<To, __fp16>::value, "Result type is expected to be a floating point type: double, float, or __fp16");
+    if (value > std::numeric_limits<To>::max())
+        return std::nullopt;
+    if (value < std::numeric_limits<To>::lowest())
+        return std::nullopt;
+    if (std::abs(value) < std::numeric_limits<To>::min())
+        return { 0 };
+
+    return { value };
+}
 
 } // namespace WGSL

@@ -726,17 +726,7 @@ IGNORE_GCC_WARNINGS_END
 
     switch (parseMode) {
     case SourceParseMode::GeneratorWrapperFunctionMode:
-    case SourceParseMode::GeneratorWrapperMethodMode: {
-        m_generatorRegister = addVar();
-
-        // FIXME: Emit to_this only when Generator uses it.
-        // https://bugs.webkit.org/show_bug.cgi?id=151586
-        emitToThis();
-
-        emitCreateGenerator(m_generatorRegister, &m_calleeRegister);
-        break;
-    }
-
+    case SourceParseMode::GeneratorWrapperMethodMode:
     case SourceParseMode::AsyncGeneratorWrapperMethodMode:
     case SourceParseMode::AsyncGeneratorWrapperFunctionMode: {
         m_generatorRegister = addVar();
@@ -745,7 +735,6 @@ IGNORE_GCC_WARNINGS_END
         // https://bugs.webkit.org/show_bug.cgi?id=151586
         emitToThis();
 
-        emitCreateAsyncGenerator(m_generatorRegister, &m_calleeRegister);
         break;
     }
 
@@ -878,6 +867,11 @@ IGNORE_GCC_WARNINGS_END
         if (m_scopeNode->needsNewTargetRegisterForThisScope())
             emitLoadNewTargetFromArrowFunctionLexicalEnvironment();
     }
+
+    if (isGeneratorWrapperParseMode(parseMode))
+        emitCreateGenerator(m_generatorRegister, &m_calleeRegister);
+    else if (isAsyncGeneratorWrapperParseMode(parseMode))
+        emitCreateAsyncGenerator(m_generatorRegister, &m_calleeRegister);
     
     // Set up the lexical environment scope as the generator frame. We store the saved and resumed generator registers into this scope with the symbol keys.
     // Since they are symbol keyed, these variables cannot be reached from the usual code.
@@ -3420,7 +3414,7 @@ RegisterID* BytecodeGenerator::emitNewClassFieldInitializerFunction(RegisterID* 
 
     FunctionMetadataNode metadata(parserArena(), JSTokenLocation(), JSTokenLocation(), 0, 0, 0, 0, 0, ImplementationVisibility::Private, StrictModeLexicalFeature, ConstructorKind::None, superBinding, 0, parseMode, false);
     metadata.finishParsing(m_scopeNode->source(), Identifier(), FunctionMode::MethodDefinition);
-    auto initializer = UnlinkedFunctionExecutable::create(m_vm, m_scopeNode->source(), &metadata, isBuiltinFunction() ? UnlinkedBuiltinFunction : UnlinkedNormalFunction, constructAbility, scriptMode(), WTFMove(variablesUnderTDZ), WTFMove(parentPrivateNameEnvironment), newDerivedContextType, NeedsClassFieldInitializer::No, PrivateBrandRequirement::None);
+    auto initializer = UnlinkedFunctionExecutable::create(m_vm, m_scopeNode->source(), &metadata, isBuiltinFunction() ? UnlinkedBuiltinFunction : UnlinkedNormalFunction, constructAbility, InlineAttribute::Always, scriptMode(), WTFMove(variablesUnderTDZ), WTFMove(parentPrivateNameEnvironment), newDerivedContextType, NeedsClassFieldInitializer::No, PrivateBrandRequirement::None);
     initializer->setClassFieldLocations(WTFMove(classFieldLocations));
 
     unsigned index = m_codeBlock->addFunctionExpr(initializer);

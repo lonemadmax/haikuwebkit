@@ -74,6 +74,8 @@
 @property (nonatomic, weak) TestWebExtensionWindow * window;
 @property (nonatomic, strong) WKWebView *mainWebView;
 
+- (void)changeWebViewIfNeededForURL:(NSURL *)url forExtensionContext:(_WKWebExtensionContext *)context;
+
 @property (nonatomic, weak) TestWebExtensionTab *parentTab;
 
 @property (nonatomic, getter=isPinned) bool pinned;
@@ -135,6 +137,8 @@ namespace TestWebKitAPI::Util {
 
 inline NSString *constructScript(NSArray *lines) { return [lines componentsJoinedByString:@"\n"]; }
 inline NSString *constructJSArrayOfStrings(NSArray *elements) { return [NSString stringWithFormat:@"['%@']", [elements componentsJoinedByString:@"', '"]]; }
+
+NSData *makePNGData(CGSize, SEL colorSelector);
 
 #endif
 

@@ -300,9 +300,6 @@ void InlineDisplayContentBuilder::appendAtomicInlineLevelDisplayBox(const Line::
     ASSERT(lineRun.layoutBox().isAtomicInlineLevelBox());
     auto& layoutBox = lineRun.layoutBox();
 
-    if (layoutBox.isRubyAnnotationBox())
-        return appendIntercharacterRubyAnnotationBox(lineRun, boxes);
-
     auto& style = !m_lineIndex ? layoutBox.firstLineStyle() : layoutBox.style();
     auto isContentful = true;
     auto inkOverflow = [&] {
@@ -396,9 +393,10 @@ void InlineDisplayContentBuilder::appendInlineBoxDisplayBox(const Line::Run& lin
         , isFirstLastBox(inlineBox)
     });
 
-    if (layoutBox.isRubyBase() && isInterlinearAnnotationBox(layoutBox.associatedRubyAnnotationBox())) {
-        m_interlinearRubyColumnRangeList.append({ boxes.size() - 1, boxes.size() });
-        appendInterlinearRubyAnnotationBox(layoutBox, boxes);
+    if (layoutBox.isRubyBase()) {
+        if (isInterlinearAnnotationBox(layoutBox.associatedRubyAnnotationBox()))
+            m_interlinearRubyColumnRangeList.append({ boxes.size() - 1, boxes.size() });
+        appendRubyAnnotationBox(layoutBox, boxes);
     }
 }
 
@@ -456,7 +454,6 @@ void InlineDisplayContentBuilder::handleInlineBoxEnd(const Line::Run& lineRun, c
         m_interlinearRubyColumnRangeList.last() = { m_interlinearRubyColumnRangeList.last().begin(), boxes.size() - 1 };
         return;
     }
-    m_interCharacterRubyBase = &lineRun.layoutBox();
 }
 
 void InlineDisplayContentBuilder::appendInlineDisplayBoxAtBidiBoundary(const Box& layoutBox, InlineDisplay::Boxes& boxes)
@@ -476,10 +473,9 @@ void InlineDisplayContentBuilder::appendInlineDisplayBoxAtBidiBoundary(const Box
     });
 }
 
-void InlineDisplayContentBuilder::appendInterlinearRubyAnnotationBox(const Box& rubyBaseLayoutBox, InlineDisplay::Boxes& boxes)
+void InlineDisplayContentBuilder::appendRubyAnnotationBox(const Box& rubyBaseLayoutBox, InlineDisplay::Boxes& boxes)
 {
     ASSERT(rubyBaseLayoutBox.isRubyBase());
-    ASSERT(isInterlinearAnnotationBox(rubyBaseLayoutBox.associatedRubyAnnotationBox()));
 
     auto& annotationBox = *rubyBaseLayoutBox.associatedRubyAnnotationBox();
     auto rubyFormattingContext = RubyFormattingContext { formattingContext() };
@@ -496,33 +492,6 @@ void InlineDisplayContentBuilder::appendInterlinearRubyAnnotationBox(const Box& 
         , InlineDisplay::Box::Type::AtomicInlineLevelBox
         , annotationBox
         , UBIDI_DEFAULT_LTR
-        , visualBorderBoxRect
-        , visualBorderBoxRect
-        , { }
-        , { }
-        , true
-        , isLineFullyTruncatedInBlockDirection()
-    });
-}
-
-void InlineDisplayContentBuilder::appendIntercharacterRubyAnnotationBox(const Line::Run& lineRun, InlineDisplay::Boxes& boxes)
-{
-    auto& annotationBox = lineRun.layoutBox();
-    ASSERT(!annotationBox.isInterlinearRubyAnnotationBox());
-    auto rubyFormattingContext = RubyFormattingContext { formattingContext() };
-    auto visualBorderBoxTopLeft = rubyFormattingContext.placeAnnotationBox(*m_interCharacterRubyBase);
-    auto visualContentBoxSize = rubyFormattingContext.sizeAnnotationBox(*m_interCharacterRubyBase);
-
-    auto& annotationBoxGeometry = formattingContext().geometryForBox(annotationBox);
-    annotationBoxGeometry.setTopLeft(toLayoutPoint(visualBorderBoxTopLeft));
-    annotationBoxGeometry.setContentBoxSize(toLayoutSize(visualContentBoxSize));
-
-    auto visualBorderBoxRect = BoxGeometry::borderBoxRect(annotationBoxGeometry);
-
-    boxes.append({ m_lineIndex
-        , InlineDisplay::Box::Type::AtomicInlineLevelBox
-        , annotationBox
-        , lineRun.bidiLevel()
         , visualBorderBoxRect
         , visualBorderBoxRect
         , { }
@@ -794,10 +763,10 @@ void InlineDisplayContentBuilder::processBidiContent(const LineLayoutResult& lin
         auto contentRightInInlineDirectionVisualOrder = contentStartInInlineDirectionVisualOrder;
         auto& inlineContent = lineLayoutResult.inlineContent;
         for (size_t index = 0; index < lineLayoutResult.directionality.visualOrderList.size(); ++index) {
-            auto visualOrder = lineLayoutResult.directionality.visualOrderList[index];
-            ASSERT(inlineContent[visualOrder].bidiLevel() != InlineItem::opaqueBidiLevel);
+            auto logicalIndex = lineLayoutResult.directionality.visualOrderList[index];
+            ASSERT(inlineContent[logicalIndex].bidiLevel() != InlineItem::opaqueBidiLevel);
 
-            auto& lineRun = inlineContent[visualOrder];
+            auto& lineRun = inlineContent[logicalIndex];
             auto& layoutBox = lineRun.layoutBox();
 
             auto needsDisplayBoxOrGeometrySetting = !lineRun.isWordBreakOpportunity() && !lineRun.isInlineBoxEnd();
@@ -982,32 +951,75 @@ void InlineDisplayContentBuilder::collectInkOverflowForInlineBoxes(InlineDisplay
     }
 }
 
-void InlineDisplayContentBuilder::setGeometryForBlockLevelOutOfFlowBoxes(const Vector<size_t> indexListOfOutOfFlowBoxes, const LineBox& lineBox, const Line::RunList& lineRuns, const Vector<int32_t>& visualOrderList)
+static inline size_t runIndex(auto i, auto listSize, auto isLeftToRightDirection)
 {
+    if (isLeftToRightDirection)
+        return i;
+    auto lastIndex = listSize - 1;
+    return lastIndex - i;
+}
+
+static inline void setGeometryForOutOfFlowBoxes(const Vector<size_t>& indexListOfOutOfFlowBoxes, std::optional<size_t> firstOutOfFlowIndexWithPreviousInflowSibling, const Line::RunList& lineRuns, const Vector<int32_t>& visualOrderList, InlineFormattingContext& formattingContext, const LineBox& lineBox, const ConstraintsForInlineContent& constraints)
+{
+    auto isLeftToRightDirection = formattingContext.root().style().isLeftToRightDirection();
+    auto outOfFlowBoxListSize = indexListOfOutOfFlowBoxes.size();
+
+    auto outOfFlowBox = [&](size_t i) -> const Box& {
+        auto outOfFlowRunIndex = indexListOfOutOfFlowBoxes[runIndex(i, outOfFlowBoxListSize, isLeftToRightDirection)];
+        return (visualOrderList.isEmpty() ? lineRuns[outOfFlowRunIndex] : lineRuns[visualOrderList[outOfFlowRunIndex]]).layoutBox();
+    };
+    // Set geometry on "before inflow content" boxes first, followed by the "after inflow content" list.
+    auto beforeAfterBoundary = firstOutOfFlowIndexWithPreviousInflowSibling.value_or(outOfFlowBoxListSize);
+    // These out of flow boxes "sit" on the line start (they are before any inflow content e.g. <div><div class=out-of-flow></div>some text<div>)
+    for (size_t i = 0; i < beforeAfterBoundary; ++i)
+        formattingContext.geometryForBox(outOfFlowBox(i)).setTopLeft({ constraints.horizontal().logicalLeft, lineBox.logicalRect().top() });
+    // These out of flow boxes are all _after_ an inflow content and get "wrapped" to the next line.
+    for (size_t i = beforeAfterBoundary; i < outOfFlowBoxListSize; ++i)
+        formattingContext.geometryForBox(outOfFlowBox(i)).setTopLeft({ constraints.horizontal().logicalLeft, lineBox.logicalRect().bottom() });
+}
+
+void InlineDisplayContentBuilder::setGeometryForBlockLevelOutOfFlowBoxes(const Vector<size_t>& indexListOfOutOfFlowBoxes, const LineBox& lineBox, const Line::RunList& lineRuns, const Vector<int32_t>& visualOrderList)
+{
+    if (indexListOfOutOfFlowBoxes.isEmpty())
+        return;
+
+    // Block level boxes are placed either at the start of the line or "under" depending whether they have previous inflow sibling.
+    // Here we figure out if a particular out of flow box has an inflow sibling or not.
+    // 1. Find the first inflow content. Any out of flow box after this gets moved _under_ the line box.
+    // 2. Loop through the out of flow boxes (indexListOfOutOfFlowBoxes) and set their vertical geometry depending whether they are before or after the first inflow content.
+    // Note that there's an extra layer of directionality here: in case of right to left inline direction, the before inflow content check starts from the right edge and progresses in a leftward manner
+    // and not in visual order. However this is not logical order either (which is more about bidi than inline direction). So LTR starts at the left while RTL starts at the right and in
+    // both cases jumping from run to run in bidi order.
     auto& formattingContext = this->formattingContext();
-    auto outOfFlowContentHasPreviousInFlowSiblingWithContentOrDecoration = false;
+    auto isLeftToRightDirection = root().style().isLeftToRightDirection();
 
-    for (size_t i = 0; i < indexListOfOutOfFlowBoxes.size(); ++i) {
-        auto outOfFlowBoxIndex = indexListOfOutOfFlowBoxes[i];
-        ASSERT(outOfFlowBoxIndex < lineRuns.size());
-
-        auto hasPreviousInFlowContent = [&] {
-            if (outOfFlowContentHasPreviousInFlowSiblingWithContentOrDecoration)
-                return true;
-            for (size_t previousRunIndex = !i ? 0 : indexListOfOutOfFlowBoxes[i - 1] + 1; previousRunIndex < outOfFlowBoxIndex; ++previousRunIndex) {
-                auto& previousRun = visualOrderList.isEmpty() ? lineRuns[previousRunIndex] : lineRuns[visualOrderList[previousRunIndex]];
-                if (Line::Run::isContentfulOrHasDecoration(previousRun, formattingContext)) {
-                    outOfFlowContentHasPreviousInFlowSiblingWithContentOrDecoration = true;
-                    return true;
-                }
-            }
-            return false;
-        };
-        // Block level boxes are placed either at the start of the line or "under" depending whether they have previous inflow sibling.
-        auto logicalTop = hasPreviousInFlowContent() ? lineBox.logicalRect().bottom() : lineBox.logicalRect().top();
-        auto& lineRun = visualOrderList.isEmpty() ? lineRuns[outOfFlowBoxIndex] : lineRuns[visualOrderList[outOfFlowBoxIndex]];
-        formattingContext.geometryForBox(lineRun.layoutBox()).setTopLeft({ constraints().horizontal().logicalLeft, logicalTop });
+    auto firstContentfulInFlowRunIndex = std::optional<size_t> { };
+    auto contentListSize = visualOrderList.isEmpty() ? lineRuns.size() : visualOrderList.size();
+    for (size_t i = 0; i < contentListSize; ++i) {
+        auto index = runIndex(i, contentListSize, isLeftToRightDirection);
+        auto& lineRun = visualOrderList.isEmpty() ? lineRuns[index] : lineRuns[visualOrderList[index]];
+        if (lineRun.layoutBox().isInFlow() && Line::Run::isContentfulOrHasDecoration(lineRun, formattingContext)) {
+            firstContentfulInFlowRunIndex = index;
+            break;
+        }
     }
+
+    if (!firstContentfulInFlowRunIndex) {
+        setGeometryForOutOfFlowBoxes(indexListOfOutOfFlowBoxes, { }, lineRuns, visualOrderList, formattingContext, lineBox, constraints());
+        return;
+    }
+
+    auto firstOutOfFlowIndexWithPreviousInflowSibling = std::optional<size_t> { };
+    auto outOfFlowBoxListSize = indexListOfOutOfFlowBoxes.size();
+    for (size_t i = 0; i < outOfFlowBoxListSize; ++i) {
+        auto outOfFlowIndex = runIndex(i, outOfFlowBoxListSize, isLeftToRightDirection);
+        auto hasPreviousInflowSibling = (isLeftToRightDirection && indexListOfOutOfFlowBoxes[outOfFlowIndex] > *firstContentfulInFlowRunIndex) || (!isLeftToRightDirection && indexListOfOutOfFlowBoxes[outOfFlowIndex] < *firstContentfulInFlowRunIndex);
+        if (hasPreviousInflowSibling) {
+            firstOutOfFlowIndexWithPreviousInflowSibling = outOfFlowIndex;
+            break;
+        }
+    }
+    setGeometryForOutOfFlowBoxes(indexListOfOutOfFlowBoxes, firstOutOfFlowIndexWithPreviousInflowSibling, lineRuns, visualOrderList, formattingContext, lineBox, constraints());
 }
 
 static float logicalBottomForTextDecorationContent(const InlineDisplay::Boxes& boxes, bool isHorizontalWritingMode)
@@ -1087,41 +1099,34 @@ void InlineDisplayContentBuilder::applyRubyOverhang(InlineDisplay::Boxes& boxes)
 
     auto isHorizontalWritingMode = root().style().isHorizontalWritingMode();
     auto rubyFormattingContext = RubyFormattingContext { formattingContext() };
-    auto accumulatedShift = InlineLayoutUnit { };
-    size_t currentRubyBaseIndex = 0;
+    for (auto startEndPair : m_interlinearRubyColumnRangeList) {
+        auto rubyBaseIndex = startEndPair.begin();
+        auto& rubyBaseLayoutBox = boxes[rubyBaseIndex].layoutBox();
+        ASSERT(rubyBaseLayoutBox.isRubyBase());
+        ASSERT(isInterlinearAnnotationBox(rubyBaseLayoutBox.associatedRubyAnnotationBox()));
 
-    for (auto index = m_interlinearRubyColumnRangeList[0].begin(); index < boxes.size(); ++index) {
+        auto beforeOverhang = rubyFormattingContext.overhangForAnnotationBefore(rubyBaseLayoutBox, rubyBaseIndex, boxes);
+        auto afterOverhang = rubyFormattingContext.overhangForAnnotationAfter(rubyBaseLayoutBox, rubyBaseIndex, startEndPair.end(), boxes);
 
-        if (currentRubyBaseIndex == m_interlinearRubyColumnRangeList.size()) {
-            isHorizontalWritingMode ? boxes[index].moveHorizontally(-accumulatedShift) : boxes[index].moveVertically(-accumulatedShift);
-            continue;
-        }
-
-        auto handleOverhangBefore = [&] {
-            if (index != m_interlinearRubyColumnRangeList[currentRubyBaseIndex].begin())
-                return;
-            auto& rubyBaseLayoutBox = boxes[index].layoutBox();
-            ASSERT(rubyBaseLayoutBox.isRubyBase());
-            ASSERT(isInterlinearAnnotationBox(rubyBaseLayoutBox.associatedRubyAnnotationBox()));
-            accumulatedShift += rubyFormattingContext.overhangForAnnotationBefore(rubyBaseLayoutBox, index, boxes);
-            auto& annotationBoxGeometry = formattingContext().geometryForBox(*rubyBaseLayoutBox.associatedRubyAnnotationBox());
-            isHorizontalWritingMode ? annotationBoxGeometry.moveHorizontally(LayoutUnit { -accumulatedShift }) : annotationBoxGeometry.moveVertically(LayoutUnit { -accumulatedShift });
+        // FIXME: If this turns out to be a pref bottleneck, make sure we pass in the accumulated shift to overhangForAnnotationBefore/after and
+        // offset all box geometry as we check for overlap.
+        auto moveBoxRangeToVisualLeft = [&](auto start, auto end, auto shiftValue) {
+            for (auto index = start; index <= end; ++index) {
+                isHorizontalWritingMode ? boxes[index].moveHorizontally(LayoutUnit { -shiftValue }) : boxes[index].moveVertically(LayoutUnit { -shiftValue });
+                auto updateAnnotationGeometryIfNeeded = [&] {
+                    auto& layoutBox = boxes[index].layoutBox();
+                    if (!layoutBox.isRubyBase() || !layoutBox.associatedRubyAnnotationBox())
+                        return;
+                    auto& annotationBoxGeometry = formattingContext().geometryForBox(*layoutBox.associatedRubyAnnotationBox());
+                    isHorizontalWritingMode ? annotationBoxGeometry.moveHorizontally(LayoutUnit { -shiftValue }) : annotationBoxGeometry.moveVertically(LayoutUnit { -shiftValue });
+                };
+                updateAnnotationGeometryIfNeeded();
+            }
         };
-        handleOverhangBefore();
-
-        isHorizontalWritingMode ? boxes[index].moveHorizontally(LayoutUnit { -accumulatedShift }) : boxes[index].moveVertically(LayoutUnit { -accumulatedShift });
-
-        auto handleOverhangAfter = [&] {
-            if (index != m_interlinearRubyColumnRangeList[currentRubyBaseIndex].end())
-                return;
-            auto rubyBaseIndex = m_interlinearRubyColumnRangeList[currentRubyBaseIndex].begin();
-            auto& rubyBaseLayoutBox = boxes[rubyBaseIndex].layoutBox();
-            ASSERT(rubyBaseLayoutBox.isRubyBase());
-            ASSERT(isInterlinearAnnotationBox(rubyBaseLayoutBox.associatedRubyAnnotationBox()));
-            accumulatedShift += rubyFormattingContext.overhangForAnnotationAfter(rubyBaseLayoutBox, rubyBaseIndex, index, boxes);
-            ++currentRubyBaseIndex;
-        };
-        handleOverhangAfter();
+        if (beforeOverhang)
+            moveBoxRangeToVisualLeft(rubyBaseIndex, boxes.size() - 1, beforeOverhang);
+        if (afterOverhang)
+            moveBoxRangeToVisualLeft(startEndPair.end() + 1, boxes.size() - 1, afterOverhang);
     }
 }
 

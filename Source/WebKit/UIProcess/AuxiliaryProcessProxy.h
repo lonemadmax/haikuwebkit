@@ -29,6 +29,7 @@
 #include "MessageReceiverMap.h"
 #include "ProcessLauncher.h"
 #include "ProcessThrottler.h"
+#include "ProcessThrottlerClient.h"
 #include "ResponsivenessTimer.h"
 #include <WebCore/ProcessIdentifier.h>
 #include <memory>
@@ -50,7 +51,12 @@ class SandboxExtensionHandle;
 
 struct AuxiliaryProcessCreationParameters;
 
-class AuxiliaryProcessProxy : public ThreadSafeRefCounted<AuxiliaryProcessProxy, WTF::DestructionThread::MainRunLoop>, public ResponsivenessTimer::Client, private ProcessLauncher::Client, public IPC::Connection::Client {
+class AuxiliaryProcessProxy
+    : public ThreadSafeRefCounted<AuxiliaryProcessProxy, WTF::DestructionThread::MainRunLoop>
+    , public ResponsivenessTimer::Client
+    , private ProcessLauncher::Client
+    , public IPC::Connection::Client
+    , public ProcessThrottlerClient {
     WTF_MAKE_NONCOPYABLE(AuxiliaryProcessProxy);
 
 protected:
@@ -98,6 +104,8 @@ public:
         ASSERT(m_connection);
         return m_connection.get();
     }
+
+    RefPtr<IPC::Connection> protectedConnection() const { return connection(); }
 
     bool hasConnection() const
     {
@@ -173,6 +181,11 @@ public:
     void wakeUpTemporarilyForIPC();
 #endif
 
+#if USE(EXTENSIONKIT)
+    RetainPtr<_SEExtensionProcess> extensionProcess() const;
+    static void setManageProcessesAsExtensions(bool manageProcessesAsExtensions) { s_manageProcessesAsExtensions = manageProcessesAsExtensions; }
+#endif
+
 protected:
     // ProcessLauncher::Client
     void didFinishLaunching(ProcessLauncher*, IPC::Connection::Identifier) override;
@@ -184,7 +197,7 @@ protected:
     virtual ASCIILiteral processName() const = 0;
 
     virtual void getLaunchOptions(ProcessLauncher::LaunchOptions&);
-    virtual void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&) { };
+    virtual void platformGetLaunchOptions(ProcessLauncher::LaunchOptions&);
 
     struct PendingMessage {
         UniqueRef<IPC::Encoder> encoder;
@@ -232,6 +245,9 @@ private:
     std::unique_ptr<ProcessThrottler::ForegroundActivity> m_lifetimeActivity;
     RefPtr<ProcessAssertion> m_boostedJetsamAssertion;
 #endif
+#endif
+#if USE(EXTENSIONKIT)
+    static bool s_manageProcessesAsExtensions;
 #endif
 };
 

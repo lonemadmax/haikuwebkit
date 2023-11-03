@@ -281,21 +281,21 @@ bool GetCompressedBufferSizeAndRowLengthForTextureWithFormat(const TextureRef &t
                                                              size_t *bytesPerImageOut)
 {
     gl::Extents size = texture->size(index);
-    GLuint bufferSizeInBytes;
+    ASSERT(size.depth == 1);
     GLuint bufferRowInBytes;
-    if (!textureObjFormat.intendedInternalFormat().computeCompressedImageSize(size,
-                                                                              &bufferSizeInBytes))
+    if (!textureObjFormat.intendedInternalFormat().computeCompressedImageRowPitch(
+            size.width, &bufferRowInBytes))
     {
         return false;
     }
-    size.height = 1;
-    if (!textureObjFormat.intendedInternalFormat().computeCompressedImageSize(size,
-                                                                              &bufferRowInBytes))
+    GLuint bufferSizeInBytes;
+    if (!textureObjFormat.intendedInternalFormat().computeCompressedImageDepthPitch(
+            size.height, bufferRowInBytes, &bufferSizeInBytes))
     {
         return false;
     }
-    *bytesPerImageOut = bufferSizeInBytes;
     *bytesPerRowOut   = bufferRowInBytes;
+    *bytesPerImageOut = bufferSizeInBytes;
     return true;
 }
 static angle::Result InitializeCompressedTextureContents(const gl::Context *context,
@@ -1033,15 +1033,8 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(id<MTLDevice> metalDevice,
                                                  freeWhenDone:NO];
         auto options  = [[[MTLCompileOptions alloc] init] ANGLE_MTL_AUTORELEASE];
 
-        auto *platform   = ANGLEPlatformCurrent();
-        double startTime = platform->currentTime(platform);
-
         NSError *nsError = nil;
         auto library = [metalDevice newLibraryWithSource:nsSource options:options error:&nsError];
-
-        double endTime = platform->currentTime(platform);
-        ERR() << "CreateShaderLibrary newLibraryWithSource duration: "
-              << (endTime - startTime) * 1000.0 << "ms";
 
         [nsSource ANGLE_MTL_AUTORELEASE];
 

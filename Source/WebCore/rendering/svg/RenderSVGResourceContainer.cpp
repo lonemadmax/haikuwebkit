@@ -21,7 +21,9 @@
 #include "config.h"
 #include "RenderSVGResourceContainer.h"
 
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
 #include "RenderLayer.h"
+#include "RenderSVGModelObjectInlines.h"
 #include "RenderSVGRoot.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGResourcesCache.h"
@@ -84,3 +86,5 @@ void RenderSVGResourceContainer::registerResource()
 }
 
 }
+
+#endif // ENABLE(LAYER_BASED_SVG_ENGINE)

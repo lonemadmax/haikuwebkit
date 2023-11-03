@@ -1342,6 +1342,14 @@ set(WebCore_NON_SVG_IDL_FILES
     page/LocalDOMWindow+VisualViewport.idl
     page/LocalDOMWindow.idl
     page/Location.idl
+    page/NavigateEvent.idl
+    page/Navigation.idl
+    page/NavigationCurrentEntryChangeEvent.idl
+    page/NavigationDestination.idl
+    page/NavigationHistoryEntry.idl
+    page/NavigationInterceptHandler.idl
+    page/NavigationNavigationType.idl
+    page/NavigationTransition.idl
     page/Navigator+UserActivation.idl
     page/Navigator.idl
     page/NavigatorCookies.idl
@@ -1459,7 +1467,6 @@ set(WebCore_NON_SVG_IDL_FILES
 
     xml/CustomXPathNSResolver.idl
     xml/DOMParser.idl
-    xml/ParseFromStringOptions.idl
     xml/XMLHttpRequest.idl
     xml/XMLHttpRequestEventTarget.idl
     xml/XMLHttpRequestProgressEvent.idl
@@ -1858,6 +1865,7 @@ set(WebCore_USER_AGENT_STYLE_SHEETS
     ${WEBCORE_DIR}/css/fullscreen.css
     ${WEBCORE_DIR}/css/horizontalFormControls.css
     ${WEBCORE_DIR}/css/html.css
+    ${WEBCORE_DIR}/css/htmlSwitchControl.css
     ${WEBCORE_DIR}/css/mathml.css
     ${WEBCORE_DIR}/css/plugIns.css
     ${WEBCORE_DIR}/css/popover.css

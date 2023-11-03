@@ -7,159 +7,6 @@ test/built-ins/Array/fromAsync/this-constructor-operations.js:
 test/built-ins/Array/fromAsync/this-constructor.js:
   default: 'Test262:AsyncTestFailure:Test262Error: Test262Error: constructor is called once Expected SameValue(«2», «1») to be true'
   strict mode: 'Test262:AsyncTestFailure:Test262Error: Test262Error: constructor is called once Expected SameValue(«2», «1») to be true'
-test/built-ins/ArrayBuffer/prototype/detached/detached-buffer-resizable.js:
-  default: 'Test262Error: Resizable ArrayBuffer with maxByteLength of 0 is not detached Expected SameValue(«undefined», «false») to be true'
-  strict mode: 'Test262Error: Resizable ArrayBuffer with maxByteLength of 0 is not detached Expected SameValue(«undefined», «false») to be true'
-test/built-ins/ArrayBuffer/prototype/detached/detached-buffer.js:
-  default: 'Test262Error: Expected SameValue(«undefined», «false») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«undefined», «false») to be true'
-test/built-ins/ArrayBuffer/prototype/detached/invoked-as-accessor.js:
-  default: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
-  strict mode: 'Test262Error: Expected a TypeError to be thrown but no exception was thrown at all'
-test/built-ins/ArrayBuffer/prototype/detached/invoked-as-func.js:
-  default: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor("
-  strict mode: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor("
-test/built-ins/ArrayBuffer/prototype/detached/length.js:
-  default: "TypeError: undefined is not an object (evaluating 'desc.get')"
-  strict mode: "TypeError: undefined is not an object (evaluating 'desc.get')"
-test/built-ins/ArrayBuffer/prototype/detached/name.js:
-  default: "TypeError: undefined is not an object (evaluating 'desc.get')"
-  strict mode: "TypeError: undefined is not an object (evaluating 'desc.get')"
-test/built-ins/ArrayBuffer/prototype/detached/prop-desc.js:
-  default: "TypeError: undefined is not an object (evaluating 'desc.set')"
-  strict mode: "TypeError: undefined is not an object (evaluating 'desc.set')"
-test/built-ins/ArrayBuffer/prototype/detached/this-has-no-arraybufferdata-internal.js:
-  default: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor("
-  strict mode: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor("
-test/built-ins/ArrayBuffer/prototype/detached/this-is-not-object.js:
-  default: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor("
-  strict mode: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor("
-test/built-ins/ArrayBuffer/prototype/detached/this-is-sharedarraybuffer-resizable.js:
-  default: "TypeError: undefined is not an object (evaluating 'detached.get')"
-  strict mode: "TypeError: undefined is not an object (evaluating 'detached.get')"
-test/built-ins/ArrayBuffer/prototype/detached/this-is-sharedarraybuffer.js:
-  default: "TypeError: undefined is not an object (evaluating 'detached.get')"
-  strict mode: "TypeError: undefined is not an object (evaluating 'detached.get')"
-test/built-ins/ArrayBuffer/prototype/transfer/descriptor.js:
-  default: 'Test262Error: obj should have an own property transfer'
-  strict mode: 'Test262Error: obj should have an own property transfer'
-test/built-ins/ArrayBuffer/prototype/transfer/extensible.js:
-  default: 'Test262Error: Expected true but got false'
-  strict mode: 'Test262Error: Expected true but got false'
-test/built-ins/ArrayBuffer/prototype/transfer/from-fixed-to-larger-no-resizable.js:
-  default: "TypeError: source.transfer is not a function. (In 'source.transfer(5)', 'source.transfer' is undefined)"
-  strict mode: "TypeError: source.transfer is not a function. (In 'source.transfer(5)', 'source.transfer' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transfer/from-fixed-to-same-no-resizable.js:
-  default: "TypeError: source.transfer is not a function. (In 'source.transfer()', 'source.transfer' is undefined)"
-  strict mode: "TypeError: source.transfer is not a function. (In 'source.transfer()', 'source.transfer' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transfer/from-fixed-to-smaller-no-resizable.js:
-  default: "TypeError: source.transfer is not a function. (In 'source.transfer(3)', 'source.transfer' is undefined)"
-  strict mode: "TypeError: source.transfer is not a function. (In 'source.transfer(3)', 'source.transfer' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transfer/from-fixed-to-zero-no-resizable.js:
-  default: "TypeError: source.transfer is not a function. (In 'source.transfer(0)', 'source.transfer' is undefined)"
-  strict mode: "TypeError: source.transfer is not a function. (In 'source.transfer(0)', 'source.transfer' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transfer/from-resizable-to-larger.js:
-  default: 'Test262Error: dest.resizable Expected SameValue(«false», «true») to be true'
-  strict mode: 'Test262Error: dest.resizable Expected SameValue(«false», «true») to be true'
-test/built-ins/ArrayBuffer/prototype/transfer/from-resizable-to-same.js:
-  default: 'Test262Error: dest.resizable Expected SameValue(«false», «true») to be true'
-  strict mode: 'Test262Error: dest.resizable Expected SameValue(«false», «true») to be true'
-test/built-ins/ArrayBuffer/prototype/transfer/from-resizable-to-smaller.js:
-  default: 'Test262Error: dest.resizable Expected SameValue(«false», «true») to be true'
-  strict mode: 'Test262Error: dest.resizable Expected SameValue(«false», «true») to be true'
-test/built-ins/ArrayBuffer/prototype/transfer/from-resizable-to-zero.js:
-  default: 'Test262Error: dest.resizable Expected SameValue(«false», «true») to be true'
-  strict mode: 'Test262Error: dest.resizable Expected SameValue(«false», «true») to be true'
-test/built-ins/ArrayBuffer/prototype/transfer/length.js:
-  default: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
-  strict mode: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
-test/built-ins/ArrayBuffer/prototype/transfer/name.js:
-  default: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
-  strict mode: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
-test/built-ins/ArrayBuffer/prototype/transfer/new-length-excessive.js:
-  default: 'Test262Error: Expected a RangeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a RangeError but got a TypeError'
-test/built-ins/ArrayBuffer/prototype/transfer/new-length-non-number.js:
-  default: 'Test262Error: Expected SameValue(«0», «2») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«0», «2») to be true'
-test/built-ins/ArrayBuffer/prototype/transfer/nonconstructor.js:
-  default: 'Test262Error: isConstructor invoked with a non-function value'
-  strict mode: 'Test262Error: isConstructor invoked with a non-function value'
-test/built-ins/ArrayBuffer/prototype/transfer/this-is-detached.js:
-  default: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
-test/built-ins/ArrayBuffer/prototype/transfer/this-is-not-arraybuffer-object.js:
-  default: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
-test/built-ins/ArrayBuffer/prototype/transfer/this-is-not-object.js:
-  default: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/descriptor.js:
-  default: 'Test262Error: obj should have an own property transferToFixedLength'
-  strict mode: 'Test262Error: obj should have an own property transferToFixedLength'
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/extensible.js:
-  default: 'Test262Error: Expected true but got false'
-  strict mode: 'Test262Error: Expected true but got false'
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/from-fixed-to-larger-no-resizable.js:
-  default: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(5)', 'source.transferToFixedLength' is undefined)"
-  strict mode: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(5)', 'source.transferToFixedLength' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/from-fixed-to-larger.js:
-  default: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(5)', 'source.transferToFixedLength' is undefined)"
-  strict mode: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(5)', 'source.transferToFixedLength' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/from-fixed-to-same-no-resizable.js:
-  default: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength()', 'source.transferToFixedLength' is undefined)"
-  strict mode: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength()', 'source.transferToFixedLength' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/from-fixed-to-same.js:
-  default: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength()', 'source.transferToFixedLength' is undefined)"
-  strict mode: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength()', 'source.transferToFixedLength' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/from-fixed-to-smaller-no-resizable.js:
-  default: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(3)', 'source.transferToFixedLength' is undefined)"
-  strict mode: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(3)', 'source.transferToFixedLength' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/from-fixed-to-smaller.js:
-  default: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(3)', 'source.transferToFixedLength' is undefined)"
-  strict mode: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(3)', 'source.transferToFixedLength' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/from-fixed-to-zero-no-resizable.js:
-  default: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(0)', 'source.transferToFixedLength' is undefined)"
-  strict mode: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(0)', 'source.transferToFixedLength' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/from-fixed-to-zero.js:
-  default: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(0)', 'source.transferToFixedLength' is undefined)"
-  strict mode: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(0)', 'source.transferToFixedLength' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/from-resizable-to-larger.js:
-  default: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(5)', 'source.transferToFixedLength' is undefined)"
-  strict mode: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(5)', 'source.transferToFixedLength' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/from-resizable-to-same.js:
-  default: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength()', 'source.transferToFixedLength' is undefined)"
-  strict mode: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength()', 'source.transferToFixedLength' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/from-resizable-to-smaller.js:
-  default: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(3)', 'source.transferToFixedLength' is undefined)"
-  strict mode: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(3)', 'source.transferToFixedLength' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/from-resizable-to-zero.js:
-  default: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(0)', 'source.transferToFixedLength' is undefined)"
-  strict mode: "TypeError: source.transferToFixedLength is not a function. (In 'source.transferToFixedLength(0)', 'source.transferToFixedLength' is undefined)"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/length.js:
-  default: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
-  strict mode: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/name.js:
-  default: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
-  strict mode: "TypeError: undefined is not an object (evaluating 'Object.getOwnPropertyDescriptor(obj, name)')"
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/new-length-excessive.js:
-  default: 'Test262Error: Expected a RangeError but got a TypeError'
-  strict mode: 'Test262Error: Expected a RangeError but got a TypeError'
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/new-length-non-number.js:
-  default: 'Test262Error: Expected SameValue(«0», «2») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«0», «2») to be true'
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/nonconstructor.js:
-  default: 'Test262Error: isConstructor invoked with a non-function value'
-  strict mode: 'Test262Error: isConstructor invoked with a non-function value'
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/this-is-detached.js:
-  default: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/this-is-not-arraybuffer-object.js:
-  default: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
-test/built-ins/ArrayBuffer/prototype/transferToFixedLength/this-is-not-object.js:
-  default: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«undefined», «function») to be true'
 test/built-ins/AsyncGeneratorPrototype/return/return-suspendedStart-broken-promise.js:
   default: 'Error: broken promise'
   strict mode: 'Error: broken promise'
@@ -1163,8 +1010,8 @@ test/intl402/DurationFormat/prototype/format/negative-durationstyle-digital-en.j
   default: 'Test262Error: DurationFormat format output using digital style option Expected SameValue(«-1 yr, -2 mths, -3 wks, -3 days, -4:-05:-06», «-1 yr, -2 mths, -3 wks, -3 days, -4:-05:-06.007008009») to be true'
   strict mode: 'Test262Error: DurationFormat format output using digital style option Expected SameValue(«-1 yr, -2 mths, -3 wks, -3 days, -4:-05:-06», «-1 yr, -2 mths, -3 wks, -3 days, -4:-05:-06.007008009») to be true'
 test/intl402/DurationFormat/prototype/format/precision-exact-mathematical-values.js:
-  default: 'Test262Error: Duration is {"seconds":10000000,"nanoseconds":1} Expected SameValue(«0:00:10,000,000», «0:00:10,000,000.000000002») to be true'
-  strict mode: 'Test262Error: Duration is {"seconds":10000000,"nanoseconds":1} Expected SameValue(«0:00:10,000,000», «0:00:10,000,000.000000002») to be true'
+  default: 'Test262Error: Duration is {"seconds":10000000,"nanoseconds":1} Expected SameValue(«0:00:10,000,000», «0:00:10,000,000.000000001») to be true'
+  strict mode: 'Test262Error: Duration is {"seconds":10000000,"nanoseconds":1} Expected SameValue(«0:00:10,000,000», «0:00:10,000,000.000000001») to be true'
 test/intl402/DurationFormat/prototype/format/style-digital-en.js:
   default: 'Test262Error: Assert DurationFormat format output using digital style option Expected SameValue(«1 yr, 2 mths, 3 wks, 3 days, 4:05:06», «1 yr, 2 mths, 3 wks, 3 days, 4:05:06.007008009») to be true'
   strict mode: 'Test262Error: Assert DurationFormat format output using digital style option Expected SameValue(«1 yr, 2 mths, 3 wks, 3 days, 4:05:06», «1 yr, 2 mths, 3 wks, 3 days, 4:05:06.007008009») to be true'
@@ -1189,9 +1036,6 @@ test/intl402/Locale/prototype/minimize/removing-likely-subtags-first-adds-likely
 test/intl402/NumberFormat/prototype/format/useGrouping-extended-en-IN.js:
   default: 'Test262Error: notation: "compact" Expected SameValue(«1K», «1T») to be true'
   strict mode: 'Test262Error: notation: "compact" Expected SameValue(«1K», «1T») to be true'
-test/intl402/NumberFormat/prototype/format/value-decimal-string.js:
-  default: 'Test262Error: Expected SameValue(«1», «1.0000000000000001») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«1», «1.0000000000000001») to be true'
 test/intl402/Temporal/Duration/compare/relativeto-sub-minute-offset.js:
   default: 'RangeError: Cannot compare a duration of years, months, or weeks without a relativeTo option'
   strict mode: 'RangeError: Cannot compare a duration of years, months, or weeks without a relativeTo option'
@@ -1307,11 +1151,6 @@ test/language/expressions/assignmenttargettype/direct-callexpression-arguments.j
   default: 'Test262: This statement should not be evaluated.'
 test/language/expressions/assignmenttargettype/parenthesized-callexpression-arguments.js:
   default: 'Test262: This statement should not be evaluated.'
-test/language/expressions/async-generator/early-errors-expression-yield-as-function-binding-identifier.js:
-  default: 'Test262: This statement should not be evaluated.'
-test/language/expressions/async-generator/generator-created-after-decl-inst.js:
-  default: 'Test262Error: Expected SameValue(«[object AsyncGenerator]», «[object AsyncGenerator]») to be false'
-  strict mode: 'Test262Error: Expected SameValue(«[object AsyncGenerator]», «[object AsyncGenerator]») to be false'
 test/language/expressions/call/eval-realm-indirect.js:
   default: 'Test262Error: Expected SameValue(«inside», «outside») to be true'
 test/language/expressions/call/eval-spread-empty-leading.js:
@@ -1405,9 +1244,6 @@ test/language/expressions/dynamic-import/import-assertions/2nd-param-get-assert-
   strict mode: 'Test262:AsyncTestFailure:Test262Error: Test262Error: Expected an error, but observed no error'
 test/language/expressions/function/scope-param-rest-elem-var-open.js:
   default: 'Test262Error: Expected SameValue(«outside», «inside») to be true'
-test/language/expressions/generators/generator-created-after-decl-inst.js:
-  default: 'Test262Error: Expected SameValue(«[object Generator]», «[object Generator]») to be false'
-  strict mode: 'Test262Error: Expected SameValue(«[object Generator]», «[object Generator]») to be false'
 test/language/expressions/generators/scope-param-rest-elem-var-open.js:
   default: 'Test262Error: Expected SameValue(«outside», «inside») to be true'
 test/language/expressions/instanceof/prototype-getter-with-primitive.js:
@@ -1515,9 +1351,6 @@ test/language/module-code/import-assertions/eval-gtbndng-indirect-faux-assertion
   raw: "SyntaxError: Unexpected token '*'. import call expects one or two arguments."
 test/language/module-code/import-assertions/import-assertion-empty.js:
   module: "SyntaxError: Unexpected identifier 'assert'. Expected a ';' following a targeted import declaration."
-test/language/statements/async-generator/generator-created-after-decl-inst.js:
-  default: 'Test262Error: Expected SameValue(«[object AsyncGenerator]», «[object AsyncGenerator]») to be false'
-  strict mode: 'Test262Error: Expected SameValue(«[object AsyncGenerator]», «[object AsyncGenerator]») to be false'
 test/language/statements/async-generator/return-undefined-implicit-and-explicit.js:
   default: 'Test262:AsyncTestFailure:Test262Error: Test262Error: Expected [tick 1, g1 ret, tick 2, g2 ret, g3 ret, g4 ret] and [tick 1, g1 ret, g2 ret, tick 2, g3 ret, g4 ret] to have the same contents. Ticks for implicit and explicit return undefined'
   strict mode: 'Test262:AsyncTestFailure:Test262Error: Test262Error: Expected [tick 1, g1 ret, tick 2, g2 ret, g3 ret, g4 ret] and [tick 1, g1 ret, g2 ret, tick 2, g3 ret, g4 ret] to have the same contents. Ticks for implicit and explicit return undefined'
@@ -1671,14 +1504,8 @@ test/language/statements/for/dstr/var-ary-ptrn-elem-id-iter-val-array-prototype.
   strict mode: 'Test262Error: Expected SameValue(«3», «42») to be true'
 test/language/statements/for/head-lhs-let.js:
   default: "SyntaxError: Unexpected token ';'. Expected a parameter pattern or a ')' in parameter list."
-test/language/statements/for/scope-body-lex-open.js:
-  default: 'Test262Error: Expected SameValue(«inside», «outside») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«inside», «outside») to be true'
 test/language/statements/function/scope-param-rest-elem-var-open.js:
   default: 'Test262Error: Expected SameValue(«outside», «inside») to be true'
-test/language/statements/generators/generator-created-after-decl-inst.js:
-  default: 'Test262Error: Expected SameValue(«[object Generator]», «[object Generator]») to be false'
-  strict mode: 'Test262Error: Expected SameValue(«[object Generator]», «[object Generator]») to be false'
 test/language/statements/generators/scope-param-rest-elem-var-open.js:
   default: 'Test262Error: Expected SameValue(«outside», «inside») to be true'
 test/language/statements/let/dstr/ary-init-iter-get-err-array-prototype.js:

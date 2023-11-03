@@ -20,14 +20,17 @@
 
 #pragma once
 
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+
+#include "LegacyRenderSVGResource.h"
 #include "RenderSVGHiddenContainer.h"
-#include "RenderSVGResource.h"
 
 namespace WebCore {
 
 class RenderLayer;
 
-class RenderSVGResourceContainer : public RenderSVGHiddenContainer, public RenderSVGResource {
+// FIXME: Get rid of LegacyRenderSVGResource inheritance.
+class RenderSVGResourceContainer : public RenderSVGHiddenContainer, public LegacyRenderSVGResource {
     WTF_MAKE_ISO_ALLOCATED(RenderSVGResourceContainer);
 public:
     virtual ~RenderSVGResourceContainer();
@@ -56,3 +59,5 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderSVGResourceContainer, isSVGResourceContainer())
+
+#endif // ENABLE(LAYER_BASED_SVG_ENGINE)

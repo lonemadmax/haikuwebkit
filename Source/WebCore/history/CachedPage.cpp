@@ -27,6 +27,7 @@
 #include "CachedPage.h"
 
 #include "Document.h"
+#include "DocumentLoader.h"
 #include "Element.h"
 #include "FocusController.h"
 #include "FrameLoader.h"
@@ -205,6 +206,11 @@ void CachedPage::clear()
 bool CachedPage::hasExpired() const
 {
     return MonotonicTime::now() > m_expirationTime;
+}
+
+RefPtr<DocumentLoader> CachedPage::protectedDocumentLoader() const
+{
+    return documentLoader();
 }
 
 } // namespace WebCore

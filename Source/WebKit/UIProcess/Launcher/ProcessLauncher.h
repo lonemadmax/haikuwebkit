@@ -90,6 +90,9 @@ public:
         HashMap<String, String> extraInitializationData;
         bool nonValidInjectedCodeAllowed { false };
         bool shouldMakeProcessLaunchFailForTesting { false };
+#if USE(EXTENSIONKIT)
+        bool launchAsExtensions { false };
+#endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(HAIKU)
         HashMap<CString, SandboxPermission> extraSandboxPaths;
@@ -114,6 +117,10 @@ public:
 
     void terminateProcess();
     void invalidate();
+
+#if USE(EXTENSIONKIT)
+    RetainPtr<_SEExtensionProcess> extensionProcess() const { return m_process; }
+#endif
 
 private:
     ProcessLauncher(Client*, LaunchOptions&&);

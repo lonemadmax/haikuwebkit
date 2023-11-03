@@ -31,6 +31,7 @@
 #include "SandboxExtension.h"
 #include "SessionState.h"
 #include "UserContentControllerParameters.h"
+#include "ViewWindowCoordinates.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebPageGroupData.h"
 #include "WebPageProxyIdentifier.h"
@@ -168,6 +169,7 @@ struct WebPageCreationParameters {
     bool useFormSemanticContext { false };
     int headerBannerHeight { 0 };
     int footerBannerHeight { 0 };
+    std::optional<ViewWindowCoordinates> viewWindowCoordinates;
 #endif
 #if ENABLE(META_VIEWPORT)
     bool ignoresViewportScaleLimits;
@@ -291,7 +293,11 @@ struct WebPageCreationParameters {
 
     WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension { WebCore::ContentSecurityPolicyModeForExtension::None };
 
-    std::optional<FrameTreeCreationParameters> subframeProcessFrameTreeCreationParameters;
+    struct SubframeProcessPageParameters {
+        URL initialMainDocumentURL;
+        FrameTreeCreationParameters frameTreeParameters;
+    };
+    std::optional<SubframeProcessPageParameters> subframeProcessPageParameters;
     std::optional<WebCore::FrameIdentifier> openerFrameIdentifier;
     std::optional<WebCore::FrameIdentifier> mainFrameIdentifier;
 

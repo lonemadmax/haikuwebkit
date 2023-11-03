@@ -52,6 +52,20 @@ struct rgb_color;
 
 namespace WebCore {
 
+struct OutOfLineColorDataForIPC {
+    ColorSpace colorSpace;
+    float c1;
+    float c2;
+    float c3;
+    float alpha;
+};
+
+struct ColorDataForIPC {
+    bool isSemantic;
+    bool usesFunctionSerialization;
+    std::variant<PackedColor::RGBA, OutOfLineColorDataForIPC> data;
+};
+
 // Able to represent:
 //    - Special "invalid color" state, treated as transparent black but distinguishable
 //    - 4x 8-bit (0-255) sRGBA, stored inline, no allocation
@@ -63,19 +77,6 @@ public:
     enum class Flags {
         Semantic                        = 1 << 0,
         UseColorFunctionSerialization   = 1 << 1,
-    };
-
-    struct ColorDataForIPC {
-        struct OutOfLineColorData {
-            ColorSpace colorSpace;
-            float c1;
-            float c2;
-            float c3;
-            float alpha;
-        };
-        bool isSemantic;
-        bool usesFunctionSerialization;
-        std::variant<PackedColor::RGBA, OutOfLineColorData> data;
     };
 
     Color() = default;
@@ -146,7 +147,8 @@ public:
 
     Color semanticColor() const;
 
-    // Returns the underlying color if its type is SRGBA<uint8_t>.
+    // Returns the underlying color if its type is inline.
+    std::optional<PackedColor::RGBA> tryGetAsPackedInline() const;
     std::optional<SRGBA<uint8_t>> tryGetAsSRGBABytes() const;
 
 #if PLATFORM(GTK)
@@ -479,6 +481,13 @@ inline PackedColor::RGBA Color::asPackedInline() const
 {
     ASSERT(isInline());
     return decodedPackedInlineColor(m_colorAndFlags);
+}
+
+inline std::optional<PackedColor::RGBA> Color::tryGetAsPackedInline() const
+{
+    if (isInline())
+        return asPackedInline();
+    return std::nullopt;
 }
 
 inline std::optional<SRGBA<uint8_t>> Color::tryGetAsSRGBABytes() const

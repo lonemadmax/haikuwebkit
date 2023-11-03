@@ -442,6 +442,7 @@ struct TextCheckerRequestType;
 struct TransactionIDType;
 struct URLSchemeTaskParameters;
 struct UserMessage;
+struct ViewWindowCoordinates;
 struct WebAutocorrectionContext;
 struct WebAutocorrectionData;
 struct WebBackForwardListCounts;
@@ -515,6 +516,7 @@ public:
     static void forMostVisibleWebPageIfAny(PAL::SessionID, const WebCore::SecurityOriginData&, CompletionHandler<void(WebPageProxy*)>&&);
 
     const API::PageConfiguration& configuration() const;
+    Ref<API::PageConfiguration> protectedConfiguration() const;
 
     using Identifier = WebPageProxyIdentifier;
 
@@ -533,6 +535,7 @@ public:
     WebNavigationState& navigationState() { return *m_navigationState; }
 
     WebsiteDataStore& websiteDataStore() { return m_websiteDataStore; }
+    Ref<WebsiteDataStore> protectedWebsiteDataStore() const;
 
     void addPreviouslyVisitedPath(const String&);
 
@@ -559,10 +562,12 @@ public:
 #endif
 
     WebBackForwardList& backForwardList() { return m_backForwardList; }
+    Ref<WebBackForwardList> protectedBackForwardList() const;
 
     bool addsVisitedLinks() const { return m_addsVisitedLinks; }
     void setAddsVisitedLinks(bool addsVisitedLinks) { m_addsVisitedLinks = addsVisitedLinks; }
     VisitedLinkStore& visitedLinkStore() { return m_visitedLinkStore; }
+    Ref<VisitedLinkStore> protectedVisitedLinkStore();
 
     void exitFullscreenImmediately();
     void fullscreenMayReturnToInline();
@@ -572,6 +577,8 @@ public:
     bool isSuspended() const { return m_isSuspended; }
 
     WebInspectorUIProxy* inspector() const;
+    RefPtr<WebInspectorUIProxy> protectedInspector() const;
+
     GeolocationPermissionRequestManagerProxy& geolocationPermissionRequestManager();
 
     void resourceLoadDidSendRequest(ResourceLoadInfo&&, WebCore::ResourceRequest&&);
@@ -600,7 +607,6 @@ public:
 
     void getAllFrames(CompletionHandler<void(FrameTreeNodeData&&)>&&);
     void getAllFrameTrees(CompletionHandler<void(Vector<FrameTreeNodeData>&&)>&&);
-    std::optional<FrameTreeCreationParameters> frameTreeCreationParameters() const;
 
 #if ENABLE(REMOTE_INSPECTOR)
     void setIndicating(bool);
@@ -936,7 +942,6 @@ public:
     bool applyAutocorrection(const String& correction, const String& originalText, bool isCandidate);
     void requestAutocorrectionContext();
     void handleAutocorrectionContext(const WebAutocorrectionContext&);
-    void requestDictationContext(CompletionHandler<void(const String&, const String&, const String&)>&&);
 #if ENABLE(REVEAL)
     void requestRVItemInCurrentSelectedRange(CompletionHandler<void(const RevealItem&)>&&);
     void prepareSelectionForContextMenuWithLocationInView(WebCore::IntPoint, CompletionHandler<void(bool, const RevealItem&)>&&);
@@ -1388,9 +1393,8 @@ public:
     // Drag and drop support.
     void dragEntered(WebCore::DragData&, const String& dragStorageName = String());
     void dragUpdated(WebCore::DragData&, const String& dragStorageName = String());
-    void dragExited(WebCore::DragData&, const String& dragStorageName = String());
+    void dragExited(WebCore::DragData&);
     void performDragOperation(WebCore::DragData&, const String& dragStorageName, SandboxExtensionHandle&&, Vector<SandboxExtensionHandle>&&);
-    void didPerformDragOperation(bool handled);
 
     void didPerformDragControllerAction(std::optional<WebCore::DragOperation>, WebCore::DragHandlingMethod, bool mouseIsOverFileInput, unsigned numberOfItemsToBeAccepted, const WebCore::IntRect& insertionRect, const WebCore::IntRect& editableElementRect);
     void dragEnded(const WebCore::IntPoint& clientPosition, const WebCore::IntPoint& globalPosition, OptionSet<WebCore::DragOperation>);
@@ -1462,9 +1466,12 @@ public:
 
     const WebPreferences& preferences() const { return m_preferences; }
     WebPreferences& preferences() { return m_preferences; }
+    Ref<WebPreferences> protectedPreferences() const;
+
     void setPreferences(WebPreferences&);
 
     WebPageGroup& pageGroup() { return m_pageGroup; }
+    Ref<WebPageGroup> protectedPageGroup() const;
 
     bool hasRunningProcess() const;
     void launchInitialProcessIfNecessary();
@@ -1477,7 +1484,6 @@ public:
     WebCore::IntRect currentDragCaretRect() const;
     WebCore::IntRect currentDragCaretEditableElementRect() const;
     void resetCurrentDragInformation();
-    void didEndDragging();
 #endif
 
     void preferencesDidChange();
@@ -1540,6 +1546,7 @@ public:
     void drawPagesForPrinting(WebFrameProxy*, const PrintInfo&, CompletionHandler<void(std::optional<SharedMemoryHandle>&&, WebCore::ResourceError&&)>&&);
 #endif
 
+    const PageLoadState& pageLoadState() const;
     PageLoadState& pageLoadState();
 
 #if PLATFORM(COCOA)
@@ -1876,7 +1883,7 @@ public:
 
     void getTextFragmentMatch(CompletionHandler<void(const String&)>&&);
 
-    WebPreferencesStore preferencesStore() const;
+    const WebPreferencesStore& preferencesStore() const;
 
     void setDefersLoadingForTesting(bool);
 
@@ -2186,6 +2193,7 @@ public:
 
     void createRemoteSubframesInOtherProcesses(WebFrameProxy&);
     void broadcastFrameRemovalToOtherProcesses(IPC::Connection&, WebCore::FrameIdentifier);
+    void broadcastMainFrameURLChangeToOtherProcesses(IPC::Connection&, const URL&);
 
     void addOpenedPage(WebPageProxy&);
     bool hasOpenedPage() const;
@@ -2282,6 +2290,10 @@ public:
 #endif
 
     WebPageProxyMessageReceiverRegistration& messageReceiverRegistration();
+
+#if HAVE(ESIM_AUTOFILL_SYSTEM_SUPPORT)
+    bool shouldAllowAutoFillForCellularIdentifiers() const;
+#endif
 
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
@@ -2666,7 +2678,7 @@ private:
     void didReleaseAllTouchPoints() { }
 #endif // PLATFORM(IOS_FAMILY)
 
-    void performDragControllerAction(DragControllerAction, WebCore::DragData&, const String& dragStorageName, SandboxExtensionHandle&&, Vector<SandboxExtensionHandle>&&);
+    void performDragControllerAction(DragControllerAction, WebCore::DragData&);
 
     void updateBackingStoreDiscardableState();
 
@@ -3180,7 +3192,10 @@ private:
     bool m_hasScheduledActivityStateUpdate { false };
     Vector<CompletionHandler<void()>> m_activityStateUpdateCallbacks;
 #endif
-        
+#if PLATFORM(MAC)
+    std::unique_ptr<ViewWindowCoordinates> m_viewWindowCoordinates;
+#endif
+
     std::optional<WebCore::ScrollbarOverlayStyle> m_scrollbarOverlayStyle;
 
     ActivityStateChangeID m_currentActivityStateChangeID { };

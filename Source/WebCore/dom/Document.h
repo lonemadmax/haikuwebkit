@@ -136,6 +136,7 @@ class GPUCanvasContext;
 class GraphicsClient;
 class HTMLAllCollection;
 class HTMLAttachmentElement;
+class HTMLBaseElement;
 class HTMLBodyElement;
 class HTMLCanvasElement;
 class HTMLCollection;
@@ -400,6 +401,12 @@ public:
     // Resolve ambiguity for CanMakeCheckedPtr.
     void incrementPtrCount() const { static_cast<const ContainerNode*>(this)->incrementPtrCount(); }
     void decrementPtrCount() const { static_cast<const ContainerNode*>(this)->decrementPtrCount(); }
+#if CHECKED_POINTER_DEBUG
+    void registerCheckedPtr(const void* pointer) const { static_cast<const ContainerNode*>(this)->registerCheckedPtr(pointer); }
+    void copyCheckedPtr(const void* source, const void* destination) const { static_cast<const ContainerNode*>(this)->copyCheckedPtr(source, destination); }
+    void moveCheckedPtr(const void* source, const void* destination) const { static_cast<const ContainerNode*>(this)->moveCheckedPtr(source, destination); }
+    void unregisterCheckedPtr(const void* pointer) const { static_cast<const ContainerNode*>(this)->unregisterCheckedPtr(pointer); }
+#endif // CHECKED_POINTER_DEBUG
 
     // Nodes belonging to this document increase referencingNodeCount -
     // these are enough to keep the document from being destroyed, but
@@ -623,8 +630,11 @@ public:
 
     WEBCORE_EXPORT StyleSheetList& styleSheets();
 
-    Style::Scope& styleScope() { return *m_styleScope; }
-    const Style::Scope& styleScope() const { return *m_styleScope; }
+    Style::Scope& styleScope() { return m_styleScope; }
+    const Style::Scope& styleScope() const { return m_styleScope; }
+    CheckedRef<Style::Scope> checkedStyleScope();
+    CheckedRef<const Style::Scope> checkedStyleScope() const;
+
     ExtensionStyleSheets& extensionStyleSheets() { return *m_extensionStyleSheets; }
     const ExtensionStyleSheets& extensionStyleSheets() const { return *m_extensionStyleSheets; }
 
@@ -780,6 +790,7 @@ public:
     const URL& baseURLOverride() const { return m_baseURLOverride; }
     const URL& baseElementURL() const { return m_baseElementURL; }
     const AtomString& baseTarget() const { return m_baseTarget; }
+    HTMLBaseElement* firstBaseElement() const;
     void processBaseElement();
 
     URL baseURLForComplete(const URL& baseURLOverride) const;
@@ -1154,6 +1165,7 @@ public:
     bool isTopDocument() const { return &topDocument() == this; }
     
     ScriptRunner& scriptRunner() { return *m_scriptRunner; }
+    CheckedRef<ScriptRunner> checkedScriptRunner();
     ScriptModuleLoader& moduleLoader() { return *m_moduleLoader; }
 
     Element* currentScript() const { return !m_currentScriptStack.isEmpty() ? m_currentScriptStack.last().get() : nullptr; }
@@ -1724,8 +1736,6 @@ public:
     WEBCORE_EXPORT bool isRunningUserScripts() const;
     WEBCORE_EXPORT void setAsRunningUserScripts();
 
-    void frameWasDisconnectedFromOwner();
-
     WEBCORE_EXPORT bool hitTest(const HitTestRequest&, HitTestResult&);
     bool hitTest(const HitTestRequest&, const HitTestLocation&, HitTestResult&);
 #if ASSERT_ENABLED
@@ -1831,6 +1841,8 @@ public:
 
     void invalidateDOMCookieCache();
 
+    void detachFromFrame();
+
 protected:
     enum class ConstructionFlag : uint8_t {
         Synthesized = 1 << 0,
@@ -1905,8 +1917,6 @@ private:
 
     void pendingTasksTimerFired();
     bool isCookieAverse() const;
-
-    void detachFromFrame();
 
     template<CollectionType> Ref<HTMLCollection> ensureCachedCollection();
 
@@ -1998,6 +2008,8 @@ private:
 
     AtomString m_baseTarget;
 
+    WeakPtr<HTMLBaseElement, WeakPtrImplWithEventTargetData> m_firstBaseElement;
+
     // MIME type of the document in case it was cloned or created by XHR.
     String m_overriddenMIMEType;
 
@@ -2019,7 +2031,7 @@ private:
     WeakHashSet<NodeIterator> m_nodeIterators;
     HashSet<CheckedRef<Range>> m_ranges;
 
-    std::unique_ptr<Style::Scope> m_styleScope;
+    UniqueRef<Style::Scope> m_styleScope;
     std::unique_ptr<ExtensionStyleSheets> m_extensionStyleSheets;
     RefPtr<StyleSheetList> m_styleSheetList;
 

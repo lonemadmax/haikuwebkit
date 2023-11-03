@@ -54,6 +54,8 @@ public:
 
     WindowProxy& windowProxy() { return m_windowProxy; }
     const WindowProxy& windowProxy() const { return m_windowProxy; }
+    Ref<WindowProxy> protectedWindowProxy() const;
+
     DOMWindow* window() const { return virtualWindow(); }
     FrameTree& tree() const { return m_treeNode; }
     FrameIdentifier frameID() const { return m_frameID; }
@@ -66,9 +68,13 @@ public:
     WEBCORE_EXPORT bool isRootFrame() const;
 
     WEBCORE_EXPORT void detachFromPage();
+
     inline HTMLFrameOwnerElement* ownerElement() const; // Defined in HTMLFrameOwnerElement.h.
+    inline RefPtr<HTMLFrameOwnerElement> protectedOwnerElement() const; // Defined in HTMLFrameOwnerElement.h.
+
     WEBCORE_EXPORT void disconnectOwnerElement();
     NavigationScheduler& navigationScheduler() const { return m_navigationScheduler.get(); }
+    CheckedRef<NavigationScheduler> checkedNavigationScheduler() const;
     WEBCORE_EXPORT void takeWindowProxyFrom(Frame&);
 
     virtual void frameDetached() = 0;
@@ -82,6 +88,8 @@ public:
 protected:
     Frame(Page&, FrameIdentifier, FrameType, HTMLFrameOwnerElement*, Frame* parent);
     void resetWindowProxy();
+
+    virtual void frameWasDisconnectedFromOwner() const { }
 
 private:
     virtual DOMWindow* virtualWindow() const = 0;

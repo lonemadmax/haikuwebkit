@@ -222,7 +222,7 @@ void VideoPresentationModelContext::setVideoDimensions(const WebCore::FloatSize&
         return;
 
     m_videoDimensions = videoDimensions;
-    ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, videoDimensions);
+    ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, videoDimensions, ", clients=", m_clients.computeSize());
     m_clients.forEach([&](auto& client) {
         client.videoDimensionsChanged(videoDimensions);
     });
@@ -695,6 +695,9 @@ PlatformLayerContainer VideoPresentationManagerProxy::createLayerWithID(Playback
         [playerLayer layoutIfNeeded];
     }
 
+    if (m_page)
+        m_page->send(Messages::VideoPresentationManager::EnsureUpdatedVideoDimensions(contextId, nativeSize));
+
     return model->playerLayer();
 }
 
@@ -723,6 +726,19 @@ RetainPtr<WKLayerHostView> VideoPresentationManagerProxy::createLayerHostViewWit
 }
 
 #if PLATFORM(IOS_FAMILY)
+PlatformVideoFullscreenInterface* VideoPresentationManagerProxy::returningToStandbyInterface() const
+{
+    if (m_contextMap.isEmpty())
+        return nullptr;
+
+    for (auto& value : copyToVector(m_contextMap.values())) {
+        auto& interface = std::get<1>(value);
+        if (interface && interface->returningToStandby())
+            return interface.get();
+    }
+    return nullptr;
+}
+
 RetainPtr<WKVideoView> VideoPresentationManagerProxy::createViewWithID(PlaybackSessionContextIdentifier contextId, WebKit::LayerHostingContextID videoLayerID, const WebCore::FloatSize& initialSize, const WebCore::FloatSize& nativeSize, float hostingDeviceScaleFactor)
 {
     auto& [model, interface] = ensureModelAndInterface(contextId);
@@ -755,6 +771,9 @@ RetainPtr<WKVideoView> VideoPresentationManagerProxy::createViewWithID(PlaybackS
         model->setPlayerView(playerView.get());
         model->setVideoView(videoView.get());
     }
+
+    if (m_page)
+        m_page->send(Messages::VideoPresentationManager::EnsureUpdatedVideoDimensions(contextId, nativeSize));
 
     return model->videoView();
 }

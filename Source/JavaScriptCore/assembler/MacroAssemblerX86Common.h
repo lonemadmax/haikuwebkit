@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2008-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -79,6 +79,7 @@ public:
     };
 
     enum ResultCondition {
+        Carry = X86Assembler::ConditionC,
         Overflow = X86Assembler::ConditionO,
         Signed = X86Assembler::ConditionS,
         PositiveOrZero = X86Assembler::ConditionNS,
@@ -470,8 +471,6 @@ public:
 
     void lshift32(TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
-            return;
         m_assembler.shll_i8r(imm.m_value, dest);
     }
     
@@ -767,8 +766,6 @@ public:
 
     void rshift32(TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
-            return;
         m_assembler.sarl_i8r(imm.m_value, dest);
     }
     
@@ -804,8 +801,6 @@ public:
 
     void urshift32(TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
-            return;
         m_assembler.shrl_i8r(imm.m_value, dest);
     }
     
@@ -817,8 +812,6 @@ public:
 
     void rotateRight32(TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
-            return;
         m_assembler.rorl_i8r(imm.m_value, dest);
     }
 
@@ -852,8 +845,6 @@ public:
 
     void rotateLeft32(TrustedImm32 imm, RegisterID dest)
     {
-        if (UNLIKELY(!imm.m_value))
-            return;
         m_assembler.roll_i8r(imm.m_value, dest);
     }
 

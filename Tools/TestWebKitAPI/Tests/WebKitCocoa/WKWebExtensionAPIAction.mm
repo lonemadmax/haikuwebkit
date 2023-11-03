@@ -55,36 +55,6 @@ static auto *actionPopupManifest = @{
     },
 };
 
-NSData *makePNGData(CGSize size, SEL colorSelector) {
-#if USE(APPKIT)
-    auto image = adoptNS([[NSImage alloc] initWithSize:size]);
-
-    [image lockFocus];
-
-    [[NSColor performSelector:colorSelector] setFill];
-    NSRectFill(NSMakeRect(0, 0, size.width, size.height));
-
-    [image unlockFocus];
-
-    auto cgImageRef = [image CGImageForProposedRect:NULL context:nil hints:nil];
-    auto newImageRep = adoptNS([[NSBitmapImageRep alloc] initWithCGImage:cgImageRef]);
-    newImageRep.get().size = size;
-
-    return [newImageRep representationUsingType:NSBitmapImageFileTypePNG properties:@{ }];
-#else
-    UIGraphicsBeginImageContextWithOptions(size, NO, 1.0);
-
-    [[UIColor performSelector:colorSelector] setFill];
-    UIRectFill(CGRectMake(0, 0, size.width, size.height));
-
-    auto *image = UIGraphicsGetImageFromCurrentImageContext();
-
-    UIGraphicsEndImageContext();
-
-    return UIImagePNGRepresentation(image);
-#endif
-}
-
 TEST(WKWebExtensionAPIAction, Errors)
 {
     auto *backgroundScript = Util::constructScript(@[
@@ -95,8 +65,8 @@ TEST(WKWebExtensionAPIAction, Errors)
         @"browser.test.assertThrows(() => browser.action.setIcon({windowId: true, path: 'icon.png'}), /'windowId' is expected to be a number, but a boolean was provided/i)",
         @"browser.test.assertThrows(() => browser.action.setPopup({tabId: 'bad', popup: 'popup.html'}), /'tabId' is expected to be a number, but a string was provided/i)",
         @"browser.test.assertThrows(() => browser.action.setPopup({windowId: 'bad', popup: 'popup.html'}), /'windowId' is expected to be a number, but a string was provided/i)",
-        @"browser.test.assertThrows(() => browser.action.setBadgeText({tabId: 1.2, text: '1'}), /'tabID' value is invalid, because it is not a tab identifier/i)",
-        @"browser.test.assertThrows(() => browser.action.setBadgeText({windowId: -3, text: '2'}), /'windowID' value is invalid, because it is not a window identifier/i)",
+        @"browser.test.assertThrows(() => browser.action.setBadgeText({tabId: 1.2, text: '1'}), /'tabId' value is invalid, because it is not a tab identifier/i)",
+        @"browser.test.assertThrows(() => browser.action.setBadgeText({windowId: -3, text: '2'}), /'windowId' value is invalid, because it is not a window identifier/i)",
         @"browser.test.assertThrows(() => browser.action.enable('bad'), /'tabId' value is invalid, because a number is expected/i)",
         @"browser.test.assertThrows(() => browser.action.disable('bad'), /'tabId' value is invalid, because a number is expected/i)",
         @"browser.test.assertThrows(() => browser.action.isEnabled({tabId: Infinity}), /'tabId' is expected to be a number, but Infinity was provided/i)",
@@ -109,10 +79,10 @@ TEST(WKWebExtensionAPIAction, Errors)
         @"browser.test.assertThrows(() => browser.action.setBadgeText({tabId: 1}), /'details' value is invalid, because it is missing required keys: 'text'/i)",
         @"browser.test.assertThrows(() => browser.action.setBadgeText({windowId: 1}), /'details' value is invalid, because it is missing required keys: 'text'/i)",
 
-        @"browser.test.assertThrows(() => browser.action.setTitle({tabId: 1, windowId: 1, title: null}), /'details' value is invalid, because it cannot specify both 'tabId' and 'windowID'/i)",
-        @"browser.test.assertThrows(() => browser.action.setIcon({tabId: 1, windowId: 1, path: null}), /'details' value is invalid, because it cannot specify both 'tabId' and 'windowID'/i)",
-        @"browser.test.assertThrows(() => browser.action.setPopup({tabId: 1, windowId: 1, popup: null}), /'details' value is invalid, because it cannot specify both 'tabId' and 'windowID'/i)",
-        @"browser.test.assertThrows(() => browser.action.setBadgeText({tabId: 1, windowId: 1, text: null}), /'details' value is invalid, because it cannot specify both 'tabId' and 'windowID'/i)",
+        @"browser.test.assertThrows(() => browser.action.setTitle({tabId: 1, windowId: 1, title: null}), /'details' value is invalid, because it cannot specify both 'tabId' and 'windowId'/i)",
+        @"browser.test.assertThrows(() => browser.action.setIcon({tabId: 1, windowId: 1, path: null}), /'details' value is invalid, because it cannot specify both 'tabId' and 'windowId'/i)",
+        @"browser.test.assertThrows(() => browser.action.setPopup({tabId: 1, windowId: 1, popup: null}), /'details' value is invalid, because it cannot specify both 'tabId' and 'windowId'/i)",
+        @"browser.test.assertThrows(() => browser.action.setBadgeText({tabId: 1, windowId: 1, text: null}), /'details' value is invalid, because it cannot specify both 'tabId' and 'windowId'/i)",
 
         @"await browser.test.assertRejects(browser.action.getTitle({tabId: 9999}), /tab not found/i)",
         @"await browser.test.assertRejects(browser.action.getTitle({windowId: 9999}), /window not found/i)",
@@ -163,8 +133,8 @@ TEST(WKWebExtensionAPIAction, PresentActionPopup)
         @"browser.test.yield('Test Popup Action')"
     ]);
 
-    auto *smallToolbarIcon = makePNGData(CGSizeMake(16, 16), @selector(redColor));
-    auto *largeToolbarIcon = makePNGData(CGSizeMake(32, 32), @selector(blueColor));
+    auto *smallToolbarIcon = Util::makePNGData(CGSizeMake(16, 16), @selector(redColor));
+    auto *largeToolbarIcon = Util::makePNGData(CGSizeMake(32, 32), @selector(blueColor));
 
     auto *resources = @{
         @"background.js": backgroundScript,
@@ -222,7 +192,7 @@ TEST(WKWebExtensionAPIAction, SetDefaultActionProperties)
         @"browser.action.openPopup()"
     ]);
 
-    auto *extraLargeToolbarIcon = makePNGData(CGSizeMake(48, 48), @selector(yellowColor));
+    auto *extraLargeToolbarIcon = Util::makePNGData(CGSizeMake(48, 48), @selector(yellowColor));
 
     auto *resources = @{
         @"background.js": backgroundScript,
@@ -286,9 +256,9 @@ TEST(WKWebExtensionAPIAction, TabSpecificActionProperties)
         @"browser.action.openPopup({ windowId: currentTab.windowId })"
     ]);
 
-    auto *smallToolbarIcon = makePNGData(CGSizeMake(16, 16), @selector(redColor));
-    auto *largeToolbarIcon = makePNGData(CGSizeMake(32, 32), @selector(blueColor));
-    auto *extraLargeToolbarIcon = makePNGData(CGSizeMake(48, 48), @selector(yellowColor));
+    auto *smallToolbarIcon = Util::makePNGData(CGSizeMake(16, 16), @selector(redColor));
+    auto *largeToolbarIcon = Util::makePNGData(CGSizeMake(32, 32), @selector(blueColor));
+    auto *extraLargeToolbarIcon = Util::makePNGData(CGSizeMake(48, 48), @selector(yellowColor));
 
     auto *resources = @{
         @"background.js": backgroundScript,
@@ -391,8 +361,8 @@ TEST(WKWebExtensionAPIAction, WindowSpecificActionProperties)
         @"browser.action.openPopup({ windowId: currentWindowId })"
     ]);
 
-    auto *defaultToolbarIcon = makePNGData(CGSizeMake(32, 32), @selector(redColor));
-    auto *windowToolbarIcon = makePNGData(CGSizeMake(48, 48), @selector(greenColor));
+    auto *defaultToolbarIcon = Util::makePNGData(CGSizeMake(32, 32), @selector(redColor));
+    auto *windowToolbarIcon = Util::makePNGData(CGSizeMake(48, 48), @selector(greenColor));
 
     auto *resources = @{
         @"background.js": backgroundScript,
@@ -463,7 +433,7 @@ TEST(WKWebExtensionAPIAction, SetIconSinglePath)
         @"browser.action.openPopup()"
     ]);
 
-    auto *extraLargeToolbarIcon = makePNGData(CGSizeMake(48, 48), @selector(yellowColor));
+    auto *extraLargeToolbarIcon = Util::makePNGData(CGSizeMake(48, 48), @selector(yellowColor));
 
     auto *resources = @{
         @"background.js": backgroundScript,
@@ -492,9 +462,9 @@ TEST(WKWebExtensionAPIAction, SetIconMultipleSizes)
         @"browser.action.openPopup()"
     ]);
 
-    auto *largeToolbarIcon = makePNGData(CGSizeMake(48, 48), @selector(yellowColor));
-    auto *extraLargeToolbarIcon = makePNGData(CGSizeMake(96, 96), @selector(greenColor));
-    auto *superExtraLargeToolbarIcon = makePNGData(CGSizeMake(128, 128), @selector(purpleColor));
+    auto *largeToolbarIcon = Util::makePNGData(CGSizeMake(48, 48), @selector(yellowColor));
+    auto *extraLargeToolbarIcon = Util::makePNGData(CGSizeMake(96, 96), @selector(greenColor));
+    auto *superExtraLargeToolbarIcon = Util::makePNGData(CGSizeMake(128, 128), @selector(purpleColor));
 
     auto *resources = @{
         @"background.js": backgroundScript,
@@ -732,7 +702,7 @@ TEST(WKWebExtensionAPIAction, BrowserAction)
         @"browser.browserAction.openPopup()"
     ]);
 
-    auto *extraLargeToolbarIcon = makePNGData(CGSizeMake(48, 48), @selector(yellowColor));
+    auto *extraLargeToolbarIcon = Util::makePNGData(CGSizeMake(48, 48), @selector(yellowColor));
 
     auto *resources = @{
         @"background.js": backgroundScript,
@@ -816,7 +786,7 @@ TEST(WKWebExtensionAPIAction, PageAction)
         @"browser.pageAction.openPopup()"
     ]);
 
-    auto *extraLargeToolbarIcon = makePNGData(CGSizeMake(48, 48), @selector(yellowColor));
+    auto *extraLargeToolbarIcon = Util::makePNGData(CGSizeMake(48, 48), @selector(yellowColor));
 
     auto *resources = @{
         @"background.js": backgroundScript,

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "FrameInfoData.h"
 #include "NetworkSessionCreationParameters.h"
 #include "WebDeviceOrientationAndMotionAccessController.h"
 #include "WebFramePolicyListenerProxy.h"
@@ -138,6 +139,7 @@ public:
     
     NetworkProcessProxy& networkProcess() const;
     NetworkProcessProxy& networkProcess();
+    Ref<NetworkProcessProxy> protectedNetworkProcess() const;
     NetworkProcessProxy* networkProcessIfExists() { return m_networkProcess.get(); }
     
     static WebsiteDataStore* existingDataStoreForSessionID(PAL::SessionID);
@@ -300,6 +302,7 @@ public:
     void allowTLSCertificateChainForLocalPCMTesting(const WebCore::CertificateInfo&);
 
     DeviceIdHashSaltStorage& deviceIdHashSaltStorage() { return m_deviceIdHashSaltStorage.get(); }
+    Ref<DeviceIdHashSaltStorage> protectedDeviceIdHashSaltStorage();
 
     WebsiteDataStoreParameters parameters();
     static Vector<WebsiteDataStoreParameters> parametersFromEachWebsiteDataStore();
@@ -501,7 +504,8 @@ private:
 
     WebsiteDataStore();
     static WorkQueue& websiteDataStoreIOQueue();
-    Ref<NetworkProcessProxy> protectedNetworkProcess() const;
+
+    Ref<WorkQueue> protectedQueue() const;
 
     // FIXME: Only Cocoa ports respect ShouldCreateDirectory, so you cannot rely on it to create
     // directories. This is confusing.

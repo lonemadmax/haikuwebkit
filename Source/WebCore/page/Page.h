@@ -324,6 +324,8 @@ public:
     Frame& mainFrame() { return m_mainFrame.get(); }
     const Frame& mainFrame() const { return m_mainFrame.get(); }
     WEBCORE_EXPORT void setMainFrame(Ref<Frame>&&);
+    const URL& mainFrameURL() const { return m_mainFrameURL; }
+    WEBCORE_EXPORT void setMainFrameURL(const URL&);
 
     bool openedByDOM() const;
     WEBCORE_EXPORT void setOpenedByDOM();
@@ -397,6 +399,7 @@ public:
     void updateValidationBubbleStateIfNeeded();
 
     WEBCORE_EXPORT ScrollingCoordinator* scrollingCoordinator();
+    WEBCORE_EXPORT RefPtr<ScrollingCoordinator> protectedScrollingCoordinator();
 
     WEBCORE_EXPORT String scrollingStateTreeAsText();
     WEBCORE_EXPORT String synchronousScrollingReasonsAsText();
@@ -408,8 +411,12 @@ public:
     WEBCORE_EXPORT void settingsDidChange();
 
     Settings& settings() const { return *m_settings; }
+
     ProgressTracker& progress() { return m_progress.get(); }
     const ProgressTracker& progress() const { return m_progress.get(); }
+    CheckedRef<ProgressTracker> checkedProgress();
+    CheckedRef<const ProgressTracker> checkedProgress() const;
+
     void progressEstimateChanged(LocalFrame&) const;
     void progressFinished(LocalFrame&) const;
     BackForwardController& backForward() { return m_backForwardController.get(); }
@@ -699,10 +706,12 @@ public:
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
     void updatePlayStateForAllAnimations();
     WEBCORE_EXPORT void setImageAnimationEnabled(bool);
+    WEBCORE_EXPORT void setSystemAllowsAnimationControls(bool isAllowed);
     void addIndividuallyPlayingAnimationElement(HTMLImageElement&);
     void removeIndividuallyPlayingAnimationElement(HTMLImageElement&);
 #endif
     bool imageAnimationEnabled() const { return m_imageAnimationEnabled; }
+    bool systemAllowsAnimationControls() const { return m_systemAllowsAnimationControls; }
 
     void userStyleSheetLocationChanged();
     const String& userStyleSheet() const;
@@ -835,6 +844,7 @@ public:
     PluginInfoProvider& pluginInfoProvider();
 
     WEBCORE_EXPORT UserContentProvider& userContentProvider();
+    WEBCORE_EXPORT Ref<UserContentProvider> protectedUserContentProvider();
     WEBCORE_EXPORT void setUserContentProvider(Ref<UserContentProvider>&&);
 
     ScreenOrientationManager* screenOrientationManager() const;
@@ -1147,6 +1157,7 @@ private:
     HashSet<CheckedRef<LocalFrame>> m_rootFrames;
     UniqueRef<EditorClient> m_editorClient;
     Ref<Frame> m_mainFrame;
+    URL m_mainFrameURL;
 
     RefPtr<PluginData> m_pluginData;
 
@@ -1235,6 +1246,7 @@ private:
 
     bool m_canStartMedia { true };
     bool m_imageAnimationEnabled { true };
+    bool m_systemAllowsAnimationControls { false };
     // Elements containing animations that are individually playing (potentially overriding the page-wide m_imageAnimationEnabled state).
     WeakHashSet<HTMLImageElement, WeakPtrImplWithEventTargetData> m_individuallyPlayingAnimationElements;
 

@@ -121,6 +121,7 @@ static bool defaultShouldDecidePolicyBeforeLoadingQuickLookPreview()
     LazyInitialized<RetainPtr<WKPreferences>> _preferences;
     LazyInitialized<RetainPtr<WKUserContentController>> _userContentController;
 #if ENABLE(WK_WEB_EXTENSIONS)
+    RetainPtr<NSURL> _requiredWebExtensionBaseURL;
     RetainPtr<_WKWebExtensionController> _webExtensionController;
     WeakObjCPtr<_WKWebExtensionController> _weakWebExtensionController;
 #endif
@@ -411,6 +412,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 
 #if ENABLE(WK_WEB_EXTENSIONS)
+    configuration._requiredWebExtensionBaseURL = self._requiredWebExtensionBaseURL;
+
     if (auto *controller = self->_webExtensionController.get())
         configuration._webExtensionController = controller;
 
@@ -522,6 +525,22 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)setUserContentController:(WKUserContentController *)userContentController
 {
     _userContentController.set(userContentController);
+}
+
+- (NSURL *)_requiredWebExtensionBaseURL
+{
+#if ENABLE(WK_WEB_EXTENSIONS)
+    return _requiredWebExtensionBaseURL.get();
+#else
+    return nil;
+#endif
+}
+
+- (void)_setRequiredWebExtensionBaseURL:(NSURL *)baseURL
+{
+#if ENABLE(WK_WEB_EXTENSIONS)
+    _requiredWebExtensionBaseURL = baseURL;
+#endif
 }
 
 - (_WKWebExtensionController *)_strongWebExtensionController
@@ -1432,10 +1451,14 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
 {
     bool allowed = WebCore::applicationBundleIdentifier() == "com.apple.WebKit.TestWebKitAPI"_s;
 #if PLATFORM(MAC)
-    allowed = allowed || WebCore::MacApplication::isSafari();
+    allowed |= WebCore::MacApplication::isSafari();
 #elif PLATFORM(IOS_FAMILY)
-    allowed = allowed || WebCore::IOSApplication::isMobileSafari() || WebCore::IOSApplication::isSafariViewService();
+    allowed |= WebCore::IOSApplication::isMobileSafari() || WebCore::IOSApplication::isSafariViewService();
 #endif
+#if ENABLE(WK_WEB_EXTENSIONS)
+    allowed |= !!_requiredWebExtensionBaseURL;
+#endif
+
     if (!allowed)
         [NSException raise:NSObjectNotAvailableException format:@"_shouldRelaxThirdPartyCookieBlocking may only be used by Safari."];
 

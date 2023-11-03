@@ -28,6 +28,7 @@
 #include "VisibleUnits.h"
 
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "Editing.h"
 #include "HTMLBRElement.h"
 #include "HTMLElement.h"

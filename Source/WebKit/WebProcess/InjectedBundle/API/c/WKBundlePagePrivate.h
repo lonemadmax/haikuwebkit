@@ -93,9 +93,11 @@ WK_EXPORT bool WKBundlePageIsUsingDarkAppearance(WKBundlePageRef page);
 
 WK_EXPORT bool WKBundlePageCanShowMIMEType(WKBundlePageRef, WKStringRef mimeType);
 
+WK_EXPORT void WKAccessibilityEnable();
 WK_EXPORT void* WKAccessibilityRootObject(WKBundlePageRef);
 WK_EXPORT void* WKAccessibilityFocusedObject(WKBundlePageRef);
 WK_EXPORT void* WKAccessibilityFocusedUIElement();
+WK_EXPORT void WKAccessibilityAnnounce(WKBundlePageRef, WKStringRef);
 WK_EXPORT void WKAccessibilityTestingInjectPreference(WKBundlePageRef, WKStringRef domain, WKStringRef key, WKStringRef encodedValue);
 
 WK_EXPORT void WKAccessibilitySetForceDeferredSpellChecking(bool);

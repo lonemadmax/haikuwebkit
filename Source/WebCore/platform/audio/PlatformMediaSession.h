@@ -38,6 +38,10 @@
 #include "MediaPlaybackTargetClient.h"
 #endif
 
+namespace WTF {
+class MediaTime;
+}
+
 namespace WebCore {
 
 class Document;
@@ -163,6 +167,8 @@ public:
     bool isSuspended() const;
     bool isPlaying() const;
     bool isAudible() const;
+    bool isEnded() const;
+    WTF::MediaTime duration() const;
 
     bool shouldOverrideBackgroundLoadingRestriction() const;
 
@@ -208,10 +214,13 @@ public:
     public:
         virtual ~AudioCaptureSource() = default;
         virtual bool isCapturingAudio() const = 0;
+        virtual bool wantsToCaptureAudio() const = 0;
     };
 
     virtual std::optional<NowPlayingInfo> nowPlayingInfo() const;
     virtual void updateMediaUsageIfChanged() { }
+
+    virtual bool isLongEnoughForMainContent() const { return false; }
 
     MediaSessionIdentifier mediaSessionIdentifier() const { return m_mediaSessionIdentifier; }
 
@@ -260,9 +269,11 @@ public:
     virtual bool supportsSeeking() const = 0;
 
     virtual bool canProduceAudio() const { return false; }
-    virtual bool isSuspended() const { return false; };
-    virtual bool isPlaying() const { return false; };
-    virtual bool isAudible() const { return false; };
+    virtual bool isSuspended() const { return false; }
+    virtual bool isPlaying() const { return false; }
+    virtual bool isAudible() const { return false; }
+    virtual bool isEnded() const { return false; }
+    virtual WTF::MediaTime mediaSessionDuration() const;
 
     virtual bool shouldOverrideBackgroundPlaybackRestriction(PlatformMediaSession::InterruptionType) const = 0;
     virtual bool shouldOverrideBackgroundLoadingRestriction() const { return false; }

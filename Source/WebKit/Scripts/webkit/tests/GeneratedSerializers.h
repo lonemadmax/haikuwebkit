@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +27,7 @@
 #include <wtf/ArgumentCoder.h>
 #include <wtf/OptionSet.h>
 #include <wtf/Ref.h>
+#include <wtf/RetainPtr.h>
 
 #if ENABLE(BOOL_ENUM)
 namespace EnumNamespace { enum class BoolEnumType : bool; }
@@ -70,6 +71,13 @@ namespace WebKit { class Fabulous; }
 namespace WebCore { struct Amazing; }
 namespace JSC { enum class Incredible; }
 namespace Testing { enum class StorageSize : uint8_t; }
+namespace WebCore { class ScrollingStateFrameHostingNode; }
+namespace WebCore { class ScrollingStateFrameHostingNodeWithStuffAfterTuple; }
+#if USE(CFBAR)
+#endif
+#if USE(CFBAR)
+typedef struct __CFBar * CFBarRef;
+#endif
 
 namespace IPC {
 
@@ -207,6 +215,45 @@ template<> struct ArgumentCoder<WebKit::TemplateTest<Testing::StorageSize>> {
     static void encode(Encoder&, const WebKit::TemplateTest<Testing::StorageSize>&);
     static std::optional<WebKit::TemplateTest<Testing::StorageSize>> decode(Decoder&);
 };
+
+template<> struct ArgumentCoder<WebCore::ScrollingStateFrameHostingNode> {
+    static void encode(Encoder&, const WebCore::ScrollingStateFrameHostingNode&);
+    static std::optional<Ref<WebCore::ScrollingStateFrameHostingNode>> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<WebCore::ScrollingStateFrameHostingNodeWithStuffAfterTuple> {
+    static void encode(Encoder&, const WebCore::ScrollingStateFrameHostingNodeWithStuffAfterTuple&);
+    static std::optional<Ref<WebCore::ScrollingStateFrameHostingNodeWithStuffAfterTuple>> decode(Decoder&);
+};
+
+template<> struct ArgumentCoder<CFFooRef> {
+    static void encode(Encoder&, CFFooRef);
+};
+template<> struct ArgumentCoder<RetainPtr<CFFooRef>> {
+    static void encode(Encoder& encoder, const RetainPtr<CFFooRef>& retainPtr)
+    {
+        ArgumentCoder<CFFooRef>::encode(encoder, retainPtr.get());
+    }
+    static std::optional<RetainPtr<CFFooRef>> decode(Decoder&);
+};
+
+#if USE(CFBAR)
+template<> struct ArgumentCoder<CFBarRef> {
+    static void encode(Encoder&, CFBarRef);
+    static void encode(StreamConnectionEncoder&, CFBarRef);
+};
+template<> struct ArgumentCoder<RetainPtr<CFBarRef>> {
+    static void encode(Encoder& encoder, const RetainPtr<CFBarRef>& retainPtr)
+    {
+        ArgumentCoder<CFBarRef>::encode(encoder, retainPtr.get());
+    }
+    static void encode(StreamConnectionEncoder& encoder, const RetainPtr<CFBarRef>& retainPtr)
+    {
+        ArgumentCoder<CFBarRef>::encode(encoder, retainPtr.get());
+    }
+    static std::optional<RetainPtr<CFBarRef>> decode(Decoder&);
+};
+#endif
 
 } // namespace IPC
 

@@ -2102,6 +2102,43 @@ ts","version":4,"num_passes":42158,"pixel_tests_enabled":false,"date":"11:28AM o
         self.expectOutcome(result=SUCCESS, state_string='Passed layout tests')
         return self.runStep()
 
+    def test_failure_no_failure_limits(self):
+        self.configureStep()
+        self.setProperty('fullPlatform', 'ios-simulator')
+        self.setProperty('configuration', 'release')
+        self.setProperty('github_labels', ['no-failure-limits'])
+
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        logfiles={'json': self.jsonFileName},
+                        logEnviron=False,
+                        maxTime=60 * 90,
+                        command=['python3', 'Tools/Scripts/run-webkit-tests', '--no-build', '--no-show-results', '--no-new-test-results', '--clobber-old-results', '--release', '--results-directory', 'layout-test-results', '--debug-rwt-logging', '--no-retry'],
+                        )
+            + ExpectShell.log('stdio', stdout='9 failures found.')
+            + 2,
+        )
+        self.expectOutcome(result=FAILURE, state_string='layout-tests (failure)')
+        return self.runStep()
+
+    def test_success_no_failure_limits(self):
+        self.configureStep()
+        self.setProperty('fullPlatform', 'ios-simulator')
+        self.setProperty('configuration', 'release')
+        self.setProperty('github_labels', ['no-failure-limits'])
+
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        logfiles={'json': self.jsonFileName},
+                        logEnviron=False,
+                        maxTime=60 * 90,
+                        command=['python3', 'Tools/Scripts/run-webkit-tests', '--no-build', '--no-show-results', '--no-new-test-results', '--clobber-old-results', '--release', '--results-directory', 'layout-test-results', '--debug-rwt-logging', '--no-retry'],
+                        )
+            + 0,
+        )
+        self.expectOutcome(result=SUCCESS, state_string='Passed layout tests')
+        return self.runStep()
+
 
 class TestReRunWebKitTests(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
@@ -5873,7 +5910,6 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                         {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                         {'context': 'jsc-armv7', 'state': 'SUCCESS'},
                         {'context': 'jsc-i386', 'state': 'SUCCESS'},
-                        {'context': 'jsc-mips', 'state': 'SUCCESS'},
                         {'context': 'mac', 'state': 'SUCCESS'},
                         {'context': 'mac-AS-debug', 'state': 'SUCCESS'},
                         {'context': 'mac-AS-debug-wk2', 'state': 'SUCCESS'},
@@ -5899,7 +5935,6 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                         {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                         {'context': 'jsc-armv7', 'state': 'SUCCESS'},
                         {'context': 'jsc-i386', 'state': 'SUCCESS'},
-                        {'context': 'jsc-mips', 'state': 'SUCCESS'},
                         {'context': 'services', 'state': 'SUCCESS'},
                         {'context': 'style', 'state': 'SUCCESS'},
                         {'context': 'tv', 'state': 'SUCCESS'},
@@ -5923,7 +5958,6 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                         {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                         {'context': 'jsc-armv7', 'state': 'SUCCESS'},
                         {'context': 'jsc-i386', 'state': 'SUCCESS'},
-                        {'context': 'jsc-mips', 'state': 'SUCCESS'},
                         {'context': 'mac', 'state': 'SUCCESS'},
                         {'context': 'mac-AS-debug', 'state': 'SUCCESS'},
                         {'context': 'mac-wk1', 'state': 'SUCCESS'},
@@ -5948,7 +5982,6 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                         {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                         {'context': 'jsc-armv7', 'state': 'SUCCESS'},
                         {'context': 'jsc-i386', 'state': 'SUCCESS'},
-                        {'context': 'jsc-mips', 'state': 'SUCCESS'},
                         {'context': 'mac-AS-debug', 'state': 'SUCCESS'},
                         {'context': 'services', 'state': 'SUCCESS'},
                         {'context': 'style', 'state': 'SUCCESS'},
@@ -5987,7 +6020,6 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                             {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                             {'context': 'jsc-armv7', 'state': 'SUCCESS'},
                             {'context': 'jsc-i386', 'state': 'SUCCESS'},
-                            {'context': 'jsc-mips', 'state': 'SUCCESS'},
                             {'context': 'mac', 'state': 'SUCCESS'},
                             {'context': 'mac-AS-debug', 'state': 'SUCCESS'},
                             {'context': 'mac-AS-debug-wk2', 'state': 'SUCCESS'},
@@ -6013,7 +6045,6 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                         {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                         {'context': 'jsc-armv7', 'state': 'SUCCESS'},
                         {'context': 'jsc-i386', 'state': 'SUCCESS'},
-                        {'context': 'jsc-mips', 'state': 'SUCCESS'},
                         {'context': 'services', 'state': 'SUCCESS'},
                         {'context': 'style', 'state': 'SUCCESS'},
                         {'context': 'tv', 'state': 'SUCCESS'},
@@ -6037,7 +6068,6 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                         {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                         {'context': 'jsc-armv7', 'state': 'SUCCESS'},
                         {'context': 'jsc-i386', 'state': 'SUCCESS'},
-                        {'context': 'jsc-mips', 'state': 'SUCCESS'},
                         {'context': 'mac', 'state': 'SUCCESS'},
                         {'context': 'mac-AS-debug', 'state': 'SUCCESS'},
                         {'context': 'mac-wk1', 'state': 'SUCCESS'},
@@ -6062,7 +6092,6 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                         {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                         {'context': 'jsc-armv7', 'state': 'SUCCESS'},
                         {'context': 'jsc-i386', 'state': 'SUCCESS'},
-                        {'context': 'jsc-mips', 'state': 'SUCCESS'},
                         {'context': 'mac-AS-debug', 'state': 'SUCCESS'},
                         {'context': 'services', 'state': 'SUCCESS'},
                         {'context': 'style', 'state': 'SUCCESS'},
@@ -8224,7 +8253,7 @@ class TestUpdatePullRequest(BuildStepMixinAdditions, unittest.TestCase):
 <pre>
 [Merge-Queue] Add http credential helper
 <a href="https://bugs.webkit.org/show_bug.cgi?id=238553">https://bugs.webkit.org/show_bug.cgi?id=238553</a>
-&lt;rdar://problem/91044821&gt;
+&lt;<a href="https://rdar.apple.com/problem/91044821">rdar://problem/91044821</a>&gt;
 
 Reviewed by NOBODY (OOPS!).
 
@@ -8390,11 +8419,11 @@ Date:   Tue Mar 29 16:04:35 2022 -0700
                 description,
                 '''#### 9140b95e718e7342366bbcdc29cb1ba0f9328422
 <pre>
-Cherry-pick 252432.1026@safari-7614-branch (2a8469e53b2f). rdar://107367418
+Cherry-pick 252432.1026@safari-7614-branch (2a8469e53b2f). <a href="https://rdar.apple.com/107367418">rdar://107367418</a>
 
     Remove inheritance of designMode attribute
     <a href="https://bugs.webkit.org/show_bug.cgi?id=248615">https://bugs.webkit.org/show_bug.cgi?id=248615</a>
-    rdar://102868995
+    <a href="https://rdar.apple.com/102868995">rdar://102868995</a>
 
     Reviewed by Wenson Hsieh and Jonathan Bedard.
 
@@ -8420,11 +8449,11 @@ Canonical link: <a href="https://commits.webkit.org/262299@main">https://commits
 ----------------------------------------------------------------------
 #### 6ec5319be307db36a27ea61d208cf68ce84abd67
 <pre>
-Cherry-pick 252432.1024@safari-7614-branch (2ea437d75522). rdar://107367090
+Cherry-pick 252432.1024@safari-7614-branch (2ea437d75522). <a href="https://rdar.apple.com/107367090">rdar://107367090</a>
 
     Use-after-free in ContactsManager::select
     <a href="https://bugs.webkit.org/show_bug.cgi?id=250351">https://bugs.webkit.org/show_bug.cgi?id=250351</a>
-    rdar://101241436
+    <a href="https://rdar.apple.com/101241436">rdar://101241436</a>
 
     Reviewed by Wenson Hsieh and Jonathan Bedard.
 

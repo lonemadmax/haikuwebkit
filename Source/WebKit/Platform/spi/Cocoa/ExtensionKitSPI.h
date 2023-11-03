@@ -34,12 +34,23 @@ typedef void(^_SEServiceInteruptionHandler)();
 
 @end
 
+@protocol _SEGrant <NSObject>
+-(BOOL)invalidateWithError:(NSError* _Nullable*)error;
+@property (readonly) BOOL isValid;
+@end
+
+@interface _SECapabilities : NSObject
++(instancetype)assertionWithDomain:(NSString*)domain name:(NSString*)name;
+@end
+
 NS_REFINED_FOR_SWIFT
 @interface _SEExtensionProcess: NSObject
 
 -(nullable xpc_connection_t)makeLibXPCConnectionError:(NSError* _Nullable*)error;
 
 -(void)invalidate;
+
+-(nullable id<_SEGrant>)grantCapabilities:(_SECapabilities*)capabilities error:(NSError* _Nullable*)error;
 
 @end
 

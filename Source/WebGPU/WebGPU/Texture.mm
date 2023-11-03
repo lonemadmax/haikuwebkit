@@ -145,7 +145,7 @@ static std::optional<WGPUFeatureName> featureRequirementForFormat(WGPUTextureFor
     }
 }
 
-static bool isCompressedFormat(WGPUTextureFormat format)
+bool Texture::isCompressedFormat(WGPUTextureFormat format)
 {
     // https://gpuweb.github.io/gpuweb/#packed-formats
     switch (format) {
@@ -757,6 +757,7 @@ static bool isRenderableFormat(WGPUTextureFormat format)
     case WGPUTextureFormat_RGBA8Sint:
     case WGPUTextureFormat_BGRA8Unorm:
     case WGPUTextureFormat_BGRA8UnormSrgb:
+    case WGPUTextureFormat_RGB10A2Uint:
     case WGPUTextureFormat_RGB10A2Unorm:
     case WGPUTextureFormat_RG32Float:
     case WGPUTextureFormat_RG32Uint:
@@ -779,7 +780,6 @@ static bool isRenderableFormat(WGPUTextureFormat format)
     case WGPUTextureFormat_RG8Snorm:
     case WGPUTextureFormat_RGBA8Snorm:
     case WGPUTextureFormat_RGB9E5Ufloat:
-    case WGPUTextureFormat_RGB10A2Uint:
     case WGPUTextureFormat_BC1RGBAUnorm:
     case WGPUTextureFormat_BC1RGBAUnormSrgb:
     case WGPUTextureFormat_BC2RGBAUnorm:
@@ -1257,7 +1257,7 @@ bool Device::validateCreateTexture(const WGPUTextureDescriptor& descriptor, cons
         if (descriptor.sampleCount != 1)
             return false;
 
-        if (isCompressedFormat(descriptor.format) || Texture::isDepthOrStencilFormat(descriptor.format))
+        if (Texture::isCompressedFormat(descriptor.format) || Texture::isDepthOrStencilFormat(descriptor.format))
             return false;
         break;
     case WGPUTextureDimension_2D:
@@ -1283,7 +1283,7 @@ bool Device::validateCreateTexture(const WGPUTextureDescriptor& descriptor, cons
         if (descriptor.sampleCount != 1)
             return false;
 
-        if (isCompressedFormat(descriptor.format) || Texture::isDepthOrStencilFormat(descriptor.format))
+        if (Texture::isCompressedFormat(descriptor.format) || Texture::isDepthOrStencilFormat(descriptor.format))
             return false;
         break;
     case WGPUTextureDimension_Force32:
@@ -1338,7 +1338,7 @@ bool Device::validateCreateTexture(const WGPUTextureDescriptor& descriptor, cons
     return true;
 }
 
-MTLTextureUsage Texture::usage(WGPUTextureUsageFlags usage)
+MTLTextureUsage Texture::usage(WGPUTextureUsageFlags usage, WGPUTextureFormat format)
 {
     MTLTextureUsage result = MTLTextureUsageUnknown;
     if (usage & WGPUTextureUsage_TextureBinding)
@@ -1347,8 +1347,8 @@ MTLTextureUsage Texture::usage(WGPUTextureUsageFlags usage)
         result |= MTLTextureUsageShaderWrite;
     if (usage & WGPUTextureUsage_RenderAttachment)
         result |= MTLTextureUsageRenderTarget;
-    // FIXME(PERFORMANCE): Consider setting MTLTextureUsagePixelFormatView on all depth/stencil textures,
-    // because supposedly it's free and it could be useful in writeBuffer().
+    if (Texture::isDepthOrStencilFormat(format))
+        result |= MTLTextureUsagePixelFormatView;
     return result;
 }
 
@@ -1638,7 +1638,7 @@ uint32_t Texture::texelBlockSize(WGPUTextureFormat format) // Bytes
         return 8;
     case WGPUTextureFormat_BC2RGBAUnorm:
     case WGPUTextureFormat_BC2RGBAUnormSrgb:
-        return 8;
+        return 16;
     case WGPUTextureFormat_BC3RGBAUnorm:
     case WGPUTextureFormat_BC3RGBAUnormSrgb:
         return 16;
@@ -1658,12 +1658,12 @@ uint32_t Texture::texelBlockSize(WGPUTextureFormat format) // Bytes
     case WGPUTextureFormat_ETC2RGB8UnormSrgb:
     case WGPUTextureFormat_ETC2RGB8A1Unorm:
     case WGPUTextureFormat_ETC2RGB8A1UnormSrgb:
-    case WGPUTextureFormat_ETC2RGBA8Unorm:
-    case WGPUTextureFormat_ETC2RGBA8UnormSrgb:
         return 8;
     case WGPUTextureFormat_EACR11Unorm:
     case WGPUTextureFormat_EACR11Snorm:
         return 8;
+    case WGPUTextureFormat_ETC2RGBA8Unorm:
+    case WGPUTextureFormat_ETC2RGBA8UnormSrgb:
     case WGPUTextureFormat_EACRG11Unorm:
     case WGPUTextureFormat_EACRG11Snorm:
         return 16;
@@ -1991,7 +1991,7 @@ Ref<Texture> Device::createTexture(const WGPUTextureDescriptor& descriptor)
 
     MTLTextureDescriptor *textureDescriptor = [MTLTextureDescriptor new];
 
-    textureDescriptor.usage = Texture::usage(descriptor.usage);
+    textureDescriptor.usage = Texture::usage(descriptor.usage, descriptor.format);
 
     switch (descriptor.dimension) {
     case WGPUTextureDimension_1D:
@@ -2291,6 +2291,18 @@ static WGPUExtent3D computeRenderExtent(const WGPUExtent3D& baseSize, uint32_t m
     return extent;
 }
 
+static MTLPixelFormat resolvedPixelFormat(MTLPixelFormat viewPixelFormat, MTLPixelFormat sourcePixelFormat)
+{
+    switch (viewPixelFormat) {
+    case MTLPixelFormatStencil8:
+        return sourcePixelFormat == MTLPixelFormatDepth32Float_Stencil8 ? MTLPixelFormatX32_Stencil8 : sourcePixelFormat;
+    case MTLPixelFormatDepth32Float:
+        return sourcePixelFormat;
+    default:
+        return viewPixelFormat;
+    }
+}
+
 Ref<TextureView> Texture::createView(const WGPUTextureViewDescriptor& inputDescriptor)
 {
     if (inputDescriptor.nextInChain)
@@ -2353,7 +2365,7 @@ Ref<TextureView> Texture::createView(const WGPUTextureViewDescriptor& inputDescr
 
     auto slices = NSMakeRange(descriptor->baseArrayLayer, descriptor->arrayLayerCount);
 
-    id<MTLTexture> texture = [m_texture newTextureViewWithPixelFormat:pixelFormat textureType:textureType levels:levels slices:slices];
+    id<MTLTexture> texture = [m_texture newTextureViewWithPixelFormat:resolvedPixelFormat(pixelFormat, m_texture.pixelFormat) textureType:textureType levels:levels slices:slices];
     if (!texture)
         return TextureView::createInvalid(m_device);
 
@@ -2465,14 +2477,7 @@ bool Texture::validateImageCopyTexture(const WGPUImageCopyTexture& imageCopyText
     if (imageCopyTexture.origin.y % blockHeight)
         return false;
 
-    if (Texture::isDepthOrStencilFormat(fromAPI(imageCopyTexture.texture).format())
-        || fromAPI(imageCopyTexture.texture).sampleCount() > 1) {
-        auto subresourceSize = imageCopyTextureSubresourceSize(imageCopyTexture);
-        if (subresourceSize.width != copySize.width
-            || subresourceSize.height != copySize.height
-            || subresourceSize.depthOrArrayLayers != copySize.depthOrArrayLayers)
-            return false;
-    }
+    UNUSED_PARAM(copySize);
 
     return true;
 }
@@ -2763,14 +2768,17 @@ bool Texture::validateTextureCopyRange(const WGPUImageCopyTexture& imageCopyText
 bool Texture::validateLinearTextureData(const WGPUTextureDataLayout& layout, uint64_t byteSize, WGPUTextureFormat format, WGPUExtent3D copyExtent)
 {
     // https://gpuweb.github.io/gpuweb/#abstract-opdef-validating-linear-texture-data
-
     uint32_t blockWidth = Texture::texelBlockWidth(format);
     uint32_t blockHeight = Texture::texelBlockHeight(format);
     uint32_t blockSize = Texture::texelBlockSize(format);
 
     auto widthInBlocks = copyExtent.width / blockWidth;
+    if (copyExtent.width % blockWidth)
+        return false;
 
     auto heightInBlocks = copyExtent.height / blockHeight;
+    if (copyExtent.height % blockHeight)
+        return false;
 
     auto bytesInLastRow = checkedProduct<uint64_t>(blockSize, widthInBlocks);
     if (bytesInLastRow.hasOverflowed())

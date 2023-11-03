@@ -511,7 +511,6 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 
     setSystemHasBattery(parameters.systemHasBattery);
     setSystemHasAC(parameters.systemHasAC);
-    IPC::setStrictSecureDecodingForAllObjCEnabled(parameters.strictSecureDecodingForAllObjCEnabled);
 
 #if PLATFORM(IOS_FAMILY)
     RenderThemeIOS::setCSSValueToSystemColorMap(WTFMove(parameters.cssValueToSystemColorMap));
@@ -1502,6 +1501,19 @@ void WebProcess::revokeLaunchServicesSandboxExtension()
         m_launchServicesExtension = nullptr;
     }
 }
+#endif
+
+#if ENABLE(NOTIFYD_BLOCKING_IN_WEBCONTENT)
+void WebProcess::postNotification(const String& message)
+{
+    notify_post(message.ascii().data());
+}
+
+void WebProcess::postObserverNotification(const String& message)
+{
+    [[NSNotificationCenter defaultCenter] postNotificationName:message object:nil];
+}
+
 #endif
 
 } // namespace WebKit

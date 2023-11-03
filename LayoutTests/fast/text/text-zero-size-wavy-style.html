@@ -11,8 +11,8 @@
             testRunner.dumpAsText();
             testRunner.waitUntilDone();
 
-            window.requestAnimationFrame((timeStamp) => {
-                window.requestAnimationFrame((timeStamp) => {
+            window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(() => {
                     testRunner.notifyDone();
                 });
             });

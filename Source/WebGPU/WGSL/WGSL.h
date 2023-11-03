@@ -27,6 +27,7 @@
 
 #include "CompilationMessage.h"
 #include "ConstantValue.h"
+#include "WGSLEnums.h"
 #include <cinttypes>
 #include <cstdint>
 #include <memory>
@@ -139,14 +140,9 @@ struct ExternalTextureBindingLayout {
     // Sentinel
 };
 
-enum class ShaderStage : uint8_t {
-    Vertex = 0x1,
-    Fragment = 0x2,
-    Compute = 0x4
-};
-
 struct BindGroupLayoutEntry {
     uint32_t binding;
+    uint32_t webBinding;
     OptionSet<ShaderStage> visibility;
     using BindingMember = std::variant<BufferBindingLayout, SamplerBindingLayout, TextureBindingLayout, StorageTextureBindingLayout, ExternalTextureBindingLayout>;
     BindingMember bindingMember;

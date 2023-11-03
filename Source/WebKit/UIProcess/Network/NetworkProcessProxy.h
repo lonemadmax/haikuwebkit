@@ -27,6 +27,7 @@
 
 #include "AppPrivacyReport.h"
 #include "AuxiliaryProcessProxy.h"
+#include "BackgroundFetchState.h"
 #include "DataReference.h"
 #include "DataTaskIdentifier.h"
 #include "IdentifierTypes.h"
@@ -104,7 +105,7 @@ struct WebPushMessage;
 struct WebsiteData;
 struct WebsiteDataStoreParameters;
 
-class NetworkProcessProxy final : public AuxiliaryProcessProxy, private ProcessThrottlerClient {
+class NetworkProcessProxy final : public AuxiliaryProcessProxy {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     using RegistrableDomain = WebCore::RegistrableDomain;

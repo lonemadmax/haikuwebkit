@@ -20,6 +20,8 @@
 
 #pragma once
 
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+
 #include "RenderSVGResourceContainer.h"
 #include "SVGUnitTypes.h"
 
@@ -41,6 +43,7 @@ public:
     void applyPathClipping(GraphicsContext&, const FloatRect& objectBoundingBox, SVGGraphicsElement&);
     void applyMaskClipping(PaintInfo&, const RenderLayerModelObject& targetRenderer, const FloatRect& objectBoundingBox);
 
+    // FIXME: Remove LegacyRenderSVGResource support methods.
     void removeAllClientsFromCacheIfNeeded(bool, WeakHashSet<RenderObject>*) final { }
     void removeClientFromCache(RenderElement&, bool = true) final { }
 
@@ -63,3 +66,5 @@ private:
 }
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderSVGResourceClipper, isSVGResourceClipper())
+
+#endif // ENABLE(LAYER_BASED_SVG_ENGINE)

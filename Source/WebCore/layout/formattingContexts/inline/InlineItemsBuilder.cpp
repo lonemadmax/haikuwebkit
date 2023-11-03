@@ -484,8 +484,14 @@ static inline void buildBidiParagraph(const RenderStyle& rootStyle, const Inline
             // Floats are not part of the inline content which make them opaque to bidi.
             inlineItemOffsetList.append({ });
         } else if (inlineItem.isOpaque()) {
-            // opaque items are also opaque to bidi.
-            inlineItemOffsetList.append({ });
+            if (inlineItem.layoutBox().isOutOfFlowPositioned()) {
+                // Out of flow boxes participate in inflow layout as if they were static positioned.
+                inlineItemOffsetList.append({ paragraphContentBuilder.length() });
+                paragraphContentBuilder.append(objectReplacementCharacter);
+            } else {
+                // truly opaque items are also opaque to bidi.
+                inlineItemOffsetList.append({ });
+            }
         } else
             ASSERT_NOT_IMPLEMENTED_YET();
 
@@ -773,11 +779,10 @@ void InlineItemsBuilder::handleInlineBoxEnd(const Box& inlineBox, InlineItemList
 
 void InlineItemsBuilder::handleInlineLevelBox(const Box& layoutBox, InlineItemList& inlineItemList)
 {
+    if (layoutBox.isRubyAnnotationBox())
+        return;
+
     if (layoutBox.isAtomicInlineLevelBox()) {
-        if (layoutBox.isRubyAnnotationBox() && layoutBox.style().rubyPosition() != RubyPosition::InterCharacter) {
-            // inter-linear annotation boxes do not participate in inline layout (only inter-characters do).
-            return;
-        }
         m_isNonBidiTextAndForcedLineBreakOnlyContent = false;
         return inlineItemList.append({ layoutBox, InlineItem::Type::Box });
     }

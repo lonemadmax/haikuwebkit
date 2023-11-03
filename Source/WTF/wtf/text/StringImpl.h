@@ -197,6 +197,8 @@ class StringImpl : private StringImplShape {
     template<typename> friend struct WTF::BufferFromStaticDataTranslator;
     template<typename> friend struct WTF::HashAndCharactersTranslator;
 
+    friend WTF_EXPORT_PRIVATE bool equal(const StringImpl&, const StringImpl&);
+
 public:
     enum BufferOwnership { BufferInternal, BufferOwned, BufferSubstring, BufferExternal };
 
@@ -1163,7 +1165,7 @@ inline void StringImpl::deref()
 
 inline UChar StringImpl::at(unsigned i) const
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(i < m_length);
+    RELEASE_ASSERT(i < m_length);
     return is8Bit() ? m_data8[i] : m_data16[i];
 }
 

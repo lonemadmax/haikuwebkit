@@ -282,12 +282,16 @@ PseudoId CSSSelector::pseudoId(PseudoElementType type)
     return PseudoId::None;
 }
 
-CSSSelector::PseudoElementType CSSSelector::parsePseudoElementType(StringView name)
+CSSSelector::PseudoElementType CSSSelector::parsePseudoElementType(StringView name, CSSParserMode mode)
 {
     if (name.isNull())
         return PseudoElementUnknown;
 
     auto type = parsePseudoElementString(name);
+    if (mode != UASheetMode && type == PseudoElementWebKitCustom
+        && (equalLettersIgnoringASCIICase(name, "thumb"_s) || equalLettersIgnoringASCIICase(name, "track"_s)))
+        return PseudoElementUnknown;
+
     if (type == PseudoElementUnknown) {
         if (name.startsWith("-webkit-"_s) || name.startsWith("-apple-"_s))
             type = PseudoElementWebKitCustom;
@@ -731,6 +735,12 @@ String CSSSelector::selectorText(StringView separator, StringView rightSide) con
                 cs->selectorList()->buildSelectorsText(builder);
                 builder.append(')');
                 break;
+            case CSSSelector::PseudoElementHighlight: {
+                builder.append("::highlight(");
+                serializeIdentifier(cs->argumentList()->first().identifier, builder);
+                builder.append(')');
+                break;
+            }
             case CSSSelector::PseudoElementPart: {
                 builder.append("::part(");
                 bool isFirst = true;

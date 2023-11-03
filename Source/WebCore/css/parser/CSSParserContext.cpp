@@ -104,6 +104,7 @@ CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBas
     , cssWordBreakAutoPhraseEnabled { document.settings().cssWordBreakAutoPhraseEnabled() }
     , popoverAttributeEnabled { document.settings().popoverAttributeEnabled() }
     , sidewaysWritingModesEnabled { document.settings().sidewaysWritingModesEnabled() }
+    , cssTextWrapPrettyEnabled { document.settings().cssTextWrapPrettyEnabled() }
     , propertySettings { CSSPropertySettings { document.settings() } }
 {
 }
@@ -138,24 +139,22 @@ void add(Hasher& hasher, const CSSParserContext& context)
         | context.cssWordBreakAutoPhraseEnabled             << 23
         | context.popoverAttributeEnabled                   << 24
         | context.sidewaysWritingModesEnabled               << 25
-        | (uint64_t)context.mode                            << 26; // This is multiple bits, so keep it last.
+        | context.cssTextWrapPrettyEnabled                  << 26
+        | (uint64_t)context.mode                            << 27; // This is multiple bits, so keep it last.
     add(hasher, context.baseURL, context.charset, context.propertySettings, bits);
 }
 
 ResolvedURL CSSParserContext::completeURL(const String& string) const
 {
     auto result = [&] () -> ResolvedURL {
-        // See also Document::completeURL(const String&)
+        // See also Document::completeURL(const String&), but note that CSS always uses UTF-8 for URLs
         if (string.isNull())
             return { };
 
         if (CSSValue::isCSSLocalURL(string))
             return { string, URL { string } };
 
-        if (charset.isEmpty())
-            return { string, { baseURL, string } };
-        auto encodingForURLParsing = PAL::TextEncoding { charset }.encodingForFormSubmissionOrURLParsing();
-        return { string, { baseURL, string, encodingForURLParsing == PAL::UTF8Encoding() ? nullptr : &encodingForURLParsing } };
+        return { string, { baseURL, string } };
     }();
 
     if (mode == WebVTTMode && !result.resolvedURL.protocolIsData())

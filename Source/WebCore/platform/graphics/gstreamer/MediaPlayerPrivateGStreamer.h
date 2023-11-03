@@ -45,6 +45,7 @@
 #include <wtf/Forward.h>
 #include <wtf/Lock.h>
 #include <wtf/LoggerHelper.h>
+#include <wtf/OptionSet.h>
 #include <wtf/RunLoop.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/AtomStringHash.h>
@@ -59,10 +60,9 @@ typedef struct _GstMpegtsSection GstMpegtsSection;
 #undef GST_USE_UNSTABLE_API
 #endif
 
-#if USE(TEXTURE_MAPPER_GL)
-#include "TextureMapperGL.h"
+#if USE(TEXTURE_MAPPER)
 #if USE(NICOSIA)
-#include "NicosiaContentLayerTextureMapperImpl.h"
+#include "NicosiaContentLayer.h"
 #else
 #include "TextureMapperPlatformLayerProxyProvider.h"
 #endif
@@ -77,14 +77,14 @@ typedef struct _GstVideoInfo GstVideoInfo;
 
 namespace WebCore {
 
-class BitmapTextureGL;
+class BitmapTexture;
 class GLContext;
 class GraphicsContext;
 class GraphicsContextGL;
 class IntSize;
 class IntRect;
 
-#if USE(TEXTURE_MAPPER_GL)
+#if USE(TEXTURE_MAPPER)
 class TextureMapperPlatformLayerProxy;
 #endif
 
@@ -102,6 +102,8 @@ class VideoTrackPrivateGStreamer;
 class GBMBufferSwapchain;
 #endif
 
+enum class TextureMapperFlags : uint16_t;
+
 void registerWebKitGStreamerElements();
 
 // Use eager initialization for the WeakPtrFactory since we construct WeakPtrs on another thread.
@@ -110,9 +112,9 @@ class MediaPlayerPrivateGStreamer : public MediaPlayerPrivateInterface
 #if !RELEASE_LOG_DISABLED
     , private LoggerHelper
 #endif
-#if USE(TEXTURE_MAPPER_GL)
+#if USE(TEXTURE_MAPPER)
 #if USE(NICOSIA)
-    , public Nicosia::ContentLayerTextureMapperImpl::Client
+    , public Nicosia::ContentLayer::Client
 #else
     , public PlatformLayer
 #endif
@@ -187,7 +189,7 @@ public:
     bool performTaskAtMediaTime(Function<void()>&&, const MediaTime&) override;
     void isLoopingChanged() final;
 
-#if USE(TEXTURE_MAPPER_GL)
+#if USE(TEXTURE_MAPPER)
     PlatformLayer* platformLayer() const override;
 #if PLATFORM(WIN)
     // FIXME: Accelerated rendering has not been implemented for WinCairo yet.
@@ -285,7 +287,7 @@ protected:
     GstElement* createVideoSinkGL();
 #endif
 
-#if USE(TEXTURE_MAPPER_GL)
+#if USE(TEXTURE_MAPPER)
     void pushTextureToCompositor();
 #if USE(NICOSIA)
     void swapBuffersIfNeeded() final;
@@ -333,7 +335,7 @@ protected:
     void loadingFailed(MediaPlayer::NetworkState, MediaPlayer::ReadyState = MediaPlayer::ReadyState::HaveNothing, bool forceNotifications = false);
     void loadStateChanged();
 
-#if USE(TEXTURE_MAPPER_GL)
+#if USE(TEXTURE_MAPPER)
     void updateTextureMapperFlags();
 #endif
 
@@ -373,8 +375,8 @@ protected:
     GRefPtr<GstElement> m_source { nullptr };
     bool m_areVolumeAndMuteInitialized { false };
 
-#if USE(TEXTURE_MAPPER_GL)
-    TextureMapperGL::Flags m_textureMapperFlags { TextureMapperGL::NoFlag };
+#if USE(TEXTURE_MAPPER)
+    OptionSet<TextureMapperFlags> m_textureMapperFlags;
 #endif
 
     GRefPtr<GstStreamVolume> m_volumeElement;
@@ -544,7 +546,7 @@ private:
     Lock m_drawLock;
     RunLoop::Timer m_drawTimer WTF_GUARDED_BY_LOCK(m_drawLock);
     RunLoop::Timer m_readyTimerHandler;
-#if USE(TEXTURE_MAPPER_GL)
+#if USE(TEXTURE_MAPPER)
 #if USE(NICOSIA)
     RefPtr<Nicosia::ContentLayer> m_nicosiaLayer;
 #else

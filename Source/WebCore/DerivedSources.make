@@ -1411,6 +1411,14 @@ JS_BINDING_IDLS := \
     $(WebCore)/page/LocalDOMWindow+Selection.idl \
     $(WebCore)/page/LocalDOMWindow+VisualViewport.idl \
     $(WebCore)/page/Location.idl \
+    $(WebCore)/page/NavigateEvent.idl \
+    $(WebCore)/page/Navigation.idl \
+    $(WebCore)/page/NavigationCurrentEntryChangeEvent.idl \
+    $(WebCore)/page/NavigationDestination.idl \
+    $(WebCore)/page/NavigationHistoryEntry.idl \
+    $(WebCore)/page/NavigationInterceptHandler.idl \
+    $(WebCore)/page/NavigationNavigationType.idl \
+    $(WebCore)/page/NavigationTransition.idl \
     $(WebCore)/page/Navigator.idl \
     $(WebCore)/page/Navigator+IsLoggedIn.idl \
     $(WebCore)/page/Navigator+UserActivation.idl \
@@ -1676,7 +1684,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/worklets/WorkletOptions.idl \
     $(WebCore)/xml/CustomXPathNSResolver.idl \
     $(WebCore)/xml/DOMParser.idl \
-    $(WebCore)/xml/ParseFromStringOptions.idl \
     $(WebCore)/xml/XMLHttpRequest.idl \
     $(WebCore)/xml/XMLHttpRequestEventTarget.idl \
     $(WebCore)/xml/XMLHttpRequestProgressEvent.idl \
@@ -1976,6 +1983,7 @@ USER_AGENT_STYLE_SHEETS = \
     $(WebCore)/css/fullscreen.css \
     $(WebCore)/css/horizontalFormControls.css \
     $(WebCore)/css/html.css \
+    $(WebCore)/css/htmlSwitchControl.css \
     $(WebCore)/css/legacyFormControlsIOS.css \
     $(WebCore)/css/mathml.css \
     $(WebCore)/css/mediaControls.css \

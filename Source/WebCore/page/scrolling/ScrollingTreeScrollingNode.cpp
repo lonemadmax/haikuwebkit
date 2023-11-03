@@ -313,14 +313,32 @@ void ScrollingTreeScrollingNode::handleScrollPositionRequest(const RequestedScro
     if (scrollingTree().scrollingTreeNodeRequestsScroll(scrollingNodeID(), requestedScrollData))
         return;
 
-    auto scrollToPosition = requestedScrollData.destinationPosition(currentScrollPosition());
+    auto currentScrollPosition = this->currentScrollPosition();
+
+    if (requestedScrollData.requestedDataBeforeAnimatedScroll) {
+        auto& [requestType, positionOrDeltaBeforeAnimatedScroll, scrollType, clamping] = *requestedScrollData.requestedDataBeforeAnimatedScroll;
+
+        switch (requestType) {
+        case ScrollRequestType::PositionUpdate:
+        case ScrollRequestType::DeltaUpdate: {
+            auto intermediatePosition = RequestedScrollData::computeDestinationPosition(currentScrollPosition, requestType, positionOrDeltaBeforeAnimatedScroll);
+            scrollTo(intermediatePosition, scrollType, clamping);
+            break;
+        }
+        case ScrollRequestType::CancelAnimatedScroll:
+            stopAnimatedScroll();
+            break;
+        }
+    }
+
+    auto destinationPosition = requestedScrollData.destinationPosition(currentScrollPosition);
 
     if (requestedScrollData.animated == ScrollIsAnimated::Yes) {
-        startAnimatedScrollToPosition(scrollToPosition);
+        startAnimatedScrollToPosition(destinationPosition);
         return;
     }
 
-    scrollTo(scrollToPosition, requestedScrollData.scrollType, requestedScrollData.clamping);
+    scrollTo(destinationPosition, requestedScrollData.scrollType, requestedScrollData.clamping);
 }
 
 FloatPoint ScrollingTreeScrollingNode::adjustedScrollPosition(const FloatPoint& scrollPosition, ScrollClamping clamping) const

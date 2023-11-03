@@ -577,7 +577,6 @@ public:
     int computeLineHeight(const Length&) const;
 
     WhiteSpace whiteSpace() const;
-    static constexpr bool autoWrap(WhiteSpace);
     inline bool autoWrap() const;
     static constexpr bool preserveNewline(WhiteSpace);
     inline bool preserveNewline() const;
@@ -600,7 +599,8 @@ public:
     inline FillSizeType backgroundSizeType() const;
     inline const LengthSize& backgroundSizeLength() const;
     inline FillLayer& ensureBackgroundLayers();
-    inline const FillLayer& backgroundLayers() const;
+    inline const FillLayer& backgroundLayers() const; // Defined in RenderStyleInlines.h.
+    inline Ref<const FillLayer> protectedBackgroundLayers() const; // Defined in RenderStyleInlines.h.
     inline BlendMode backgroundBlendMode() const;
 
     inline StyleImage* maskImage() const;
@@ -613,7 +613,8 @@ public:
     inline FillSizeType maskSizeType() const;
     inline const LengthSize& maskSizeLength() const;
     inline FillLayer& ensureMaskLayers();
-    inline const FillLayer& maskLayers() const;
+    inline const FillLayer& maskLayers() const; // Defined in RenderStyleInlines.h.
+    inline Ref<const FillLayer> protectedMaskLayers() const; // Defined in RenderStyleInlines.h.
     inline const NinePieceImage& maskBorder() const;
     inline StyleImage* maskBorderSource() const;
 
@@ -1655,7 +1656,8 @@ public:
     inline void setKerning(SVGLengthValue);
 
     inline void setShapeOutside(RefPtr<ShapeValue>&&);
-    inline ShapeValue* shapeOutside() const;
+    inline ShapeValue* shapeOutside() const; // Defined in RenderStyleInlines.h.
+    inline RefPtr<ShapeValue> protectedShapeOutside() const; // Defined in RenderStyleInlines.h.
     static ShapeValue* initialShapeOutside() { return nullptr; }
 
     inline const Length& shapeMargin() const;
@@ -1797,7 +1799,6 @@ public:
     static inline ListStyleType initialListStyleType();
     static constexpr OptionSet<TextTransform> initialTextTransform();
     static constexpr Visibility initialVisibility();
-    static constexpr WhiteSpace initialWhiteSpace();
     static constexpr WhiteSpaceCollapse initialWhiteSpaceCollapse();
     static float initialHorizontalBorderSpacing() { return 0; }
     static float initialVerticalBorderSpacing() { return 0; }
@@ -1836,7 +1837,7 @@ public:
     static constexpr TextDecorationSkipInk initialTextDecorationSkipInk();
     static constexpr TextUnderlinePosition initialTextUnderlinePosition();
     static constexpr TextUnderlineOffset initialTextUnderlineOffset();
-    static constexpr TextDecorationThickness initialTextDecorationThickness();
+    static inline TextDecorationThickness initialTextDecorationThickness();
     static float initialZoom() { return 1.0f; }
     static constexpr TextZoom initialTextZoom();
     static float initialOutlineOffset() { return 0; }

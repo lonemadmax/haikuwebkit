@@ -20,6 +20,8 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+webkit_platform_headers: <WebCore/Color.h> <WebCore/ColorTypes.h>
+
 header: <WebCore/DOMCacheEngine.h>
 [CustomHeader] struct WebCore::DOMCacheEngine::CacheInfo {
     WebCore::DOMCacheIdentifier identifier
@@ -309,7 +311,9 @@ enum class WebCore::AutofillFieldName : uint8_t {
     Email,
     Impp,
     WebAuthn,
-    OneTimeCode
+    OneTimeCode,
+    DeviceEID,
+    DeviceIMEI,
 };
 
 enum class WebCore::NonAutofillCredentialType : bool;
@@ -1792,17 +1796,12 @@ struct WebCore::ViewportArguments {
 
 header: <WebCore/DisplayListItems.h>
 [AdditionalEncoder=StreamConnectionEncoder, CustomHeader] class WebCore::DisplayList::SetInlineFillColor {
-    uint8_t colorData().resolved().red
-    uint8_t colorData().resolved().green
-    uint8_t colorData().resolved().blue
-    uint8_t colorData().resolved().alpha
+    WebCore::PackedColor::RGBA colorData()
 }
 
-[AdditionalEncoder=StreamConnectionEncoder, CustomHeader] class WebCore::DisplayList::SetInlineStrokeColor {
-    uint8_t colorData().resolved().red
-    uint8_t colorData().resolved().green
-    uint8_t colorData().resolved().blue
-    uint8_t colorData().resolved().alpha
+[AdditionalEncoder=StreamConnectionEncoder, CustomHeader] class WebCore::DisplayList::SetInlineStroke {
+    std::optional<WebCore::PackedColor::RGBA> colorData()
+    std::optional<float> thickness()
 }
 
 header: <WebCore/HTTPHeaderMap.h>
@@ -2028,7 +2027,7 @@ class WebCore::BlobPart {
     std::variant<Vector<uint8_t>, URL> m_dataOrURL;
 };
 
-enum class WebCore::ColorSpace : uint8_t {
+[WebKitPlatform] enum class WebCore::ColorSpace : uint8_t {
     A98RGB,
     DisplayP3,
     ExtendedA98RGB,
@@ -2052,12 +2051,12 @@ enum class WebCore::ColorSpace : uint8_t {
 }
 
 header: <WebCore/ColorTypes.h>
-[CustomHeader, AdditionalEncoder=StreamConnectionEncoder] struct WebCore::PackedColor::RGBA {
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder, WebKitPlatform] struct WebCore::PackedColor::RGBA {
     uint32_t value;
 }
 
 header: <WebCore/Color.h>
-[Nested, CustomHeader, AdditionalEncoder=StreamConnectionEncoder] struct WebCore::Color::ColorDataForIPC::OutOfLineColorData {
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder, WebKitPlatform] struct WebCore::OutOfLineColorDataForIPC {
     WebCore::ColorSpace colorSpace;
     float c1;
     float c2;
@@ -2065,14 +2064,14 @@ header: <WebCore/Color.h>
     float alpha;
 }
 
-[Nested, AdditionalEncoder=StreamConnectionEncoder] struct WebCore::Color::ColorDataForIPC {
+[CustomHeader, AdditionalEncoder=StreamConnectionEncoder, WebKitPlatform] struct WebCore::ColorDataForIPC {
     bool isSemantic;
     bool usesFunctionSerialization;
-    std::variant<WebCore::PackedColor::RGBA, WebCore::Color::ColorDataForIPC::OutOfLineColorData> data;
+    std::variant<WebCore::PackedColor::RGBA, WebCore::OutOfLineColorDataForIPC> data;
 }
 
-[AdditionalEncoder=StreamConnectionEncoder] class WebCore::Color {
-    std::optional<WebCore::Color::ColorDataForIPC> data();
+[AdditionalEncoder=StreamConnectionEncoder, WebKitPlatform] class WebCore::Color {
+    std::optional<WebCore::ColorDataForIPC> data();
 }
 
 struct WebCore::MediaCapabilitiesInfo {
@@ -3218,7 +3217,8 @@ enum class WebCore::StyleAppearance : uint8_t {
     SearchFieldCancelButton,
     SliderThumbHorizontal,
     SliderThumbVertical,
-    Switch
+    SwitchThumb,
+    SwitchTrack
 };
 
 #if ENABLE(APPLE_PAY)
@@ -3701,7 +3701,9 @@ header: <WebCore/ScrollingStateNode.h>
     ScrollPosition
     ScrollOrigin
     ScrollableAreaParams
+#if ENABLE(SCROLLING_THREAD)
     ReasonsForSynchronousScrolling
+#endif
     RequestedScrollPosition
     SnapOffsetsInfo
     CurrentHorizontalSnapOffsetIndex

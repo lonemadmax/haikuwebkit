@@ -46,6 +46,7 @@ namespace JSC {
 
 JS_EXPORT_PRIVATE bool canUseJITCage();
 bool canUseWebAssemblyFastMemory();
+bool canUseHandlerIC();
 
 // How do JSC VM options work?
 // ===========================
@@ -165,6 +166,7 @@ bool canUseWebAssemblyFastMemory();
     v(Bool, verboseFTLCompilation, false, Normal, nullptr) \
     v(Bool, logCompilationChanges, false, Normal, nullptr) \
     v(Bool, printEachOSRExit, false, Normal, nullptr) \
+    v(Bool, useJITAsserts, ASSERT_ENABLED, Normal, nullptr) \
     v(Bool, validateDoesGC, ASSERT_ENABLED, Normal, nullptr) \
     v(Bool, validateGraph, false, Normal, nullptr) \
     v(Bool, validateGraphAtEachPhase, false, Normal, nullptr) \
@@ -410,7 +412,7 @@ bool canUseWebAssemblyFastMemory();
     v(Bool, exitOnResourceExhaustion, false, Normal, nullptr) \
     v(Bool, useExceptionFuzz, false, Normal, nullptr) \
     v(Unsigned, fireExceptionFuzzAt, 0, Normal, nullptr) \
-    v(Bool, validateDFGExceptionHandling, false, Normal, "Causes the DFG to emit code validating exception handling for each node that can exit") /* This is true by default on Debug builds */\
+    v(Bool, validateDFGExceptionHandling, ASSERT_ENABLED, Normal, "Causes the DFG to emit code validating exception handling for each node that can exit") \
     v(Bool, dumpSimulatedThrows, false, Normal, "Dumps the call stack of the last simulated throw if exception scope verification fails") \
     v(Bool, validateExceptionChecks, false, Normal, "Verifies that needed exception checks are performed.") \
     v(Unsigned, unexpectedExceptionStackTraceLimit, 100, Normal, "Stack trace limit for debugging unexpected exceptions observed in the VM") \
@@ -550,7 +552,7 @@ bool canUseWebAssemblyFastMemory();
     v(Bool, dumpBaselineJITSizeStatistics, false, Normal, nullptr) \
     v(Bool, dumpDFGJITSizeStatistics, false, Normal, nullptr) \
     v(Bool, verboseExecutablePoolAllocation, false, Normal, nullptr) \
-    v(Bool, useHandlerIC, !isIOS(), Normal, nullptr) \
+    v(Bool, useHandlerIC, canUseHandlerIC(), Normal, nullptr) \
     v(Bool, useDataICInFTL, false, Normal, nullptr) \
     v(Bool, useDataICSharing, false, Normal, nullptr) \
     v(Bool, useLLIntICs, true, Normal, "Use property and call ICs in LLInt code.") \

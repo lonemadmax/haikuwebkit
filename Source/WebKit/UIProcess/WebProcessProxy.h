@@ -45,6 +45,7 @@
 #include <WebCore/CrossOriginMode.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/MediaProducer.h>
+#include <WebCore/MessageWithMessagePorts.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/RegistrableDomain.h>
@@ -142,9 +143,9 @@ using WebProcessWithMediaStreamingCounter = RefCounter<WebProcessWithMediaStream
 using WebProcessWithMediaStreamingToken = WebProcessWithMediaStreamingCounter::Token;
 enum class CheckBackForwardList : bool { No, Yes };
 
-class WebProcessProxy : public AuxiliaryProcessProxy, private ProcessThrottlerClient {
+class WebProcessProxy : public AuxiliaryProcessProxy {
 public:
-    using WebPageProxyMap = HashMap<WebPageProxyIdentifier, WeakPtr<WebPageProxy>>;
+    using WebPageProxyMap = HashMap<WebPageProxyIdentifier, CheckedRef<WebPageProxy>>;
     using UserInitiatedActionByAuthorizationTokenMap = HashMap<WTF::UUID, RefPtr<API::UserInitiatedAction>>;
     typedef HashMap<uint64_t, RefPtr<API::UserInitiatedAction>> UserInitiatedActionMap;
 
@@ -162,6 +163,7 @@ public:
     static Vector<std::pair<WebCore::ProcessIdentifier, WebCore::RegistrableDomain>> allowedFirstPartiesForCookies();
 
     WebConnection* webConnection() const { return m_webConnection.get(); }
+    RefPtr<WebConnection> protectedWebConnection() const { return m_webConnection; }
 
     unsigned suspendedPageCount() const { return m_suspendedPages.computeSize(); }
     void addSuspendedPageProxy(SuspendedPageProxy&);
@@ -169,6 +171,7 @@ public:
 
     WebProcessPool* processPoolIfExists() const;
     WebProcessPool& processPool() const;
+    Ref<WebProcessPool> protectedProcessPool() const;
 
 #if ENABLE(GPU_PROCESS)
     const std::optional<GPUProcessPreferencesForWebProcess>& preferencesForGPUProcess() const { return m_preferencesForGPUProcess; }
@@ -186,6 +189,7 @@ public:
     void disableRemoteWorkers(OptionSet<RemoteWorkerType>);
 
     WebsiteDataStore* websiteDataStore() const { ASSERT(m_websiteDataStore); return m_websiteDataStore.get(); }
+    RefPtr<WebsiteDataStore> protectedWebsiteDataStore() const;
     void setWebsiteDataStore(WebsiteDataStore&);
     
     PAL::SessionID sessionID() const;
@@ -212,7 +216,7 @@ public:
     void addRemotePageProxy(RemotePageProxy&);
     void removeRemotePageProxy(RemotePageProxy&);
 
-    Vector<RefPtr<WebPageProxy>> pages() const;
+    Vector<Ref<WebPageProxy>> pages() const;
     unsigned pageCount() const { return m_pageMap.size(); }
     unsigned provisionalPageCount() const { return m_provisionalPages.computeSize(); }
     unsigned visiblePageCount() const { return m_visiblePageCounter.value(); }
@@ -520,11 +524,11 @@ protected:
     void validateFreezerStatus();
 
 private:
-    using WebProcessProxyMap = HashMap<WebCore::ProcessIdentifier, WeakPtr<WebProcessProxy>>;
+    using WebProcessProxyMap = HashMap<WebCore::ProcessIdentifier, CheckedRef<WebProcessProxy>>;
     static WebProcessProxyMap& allProcessMap();
-    static Vector<RefPtr<WebProcessProxy>> allProcesses();
+    static Vector<Ref<WebProcessProxy>> allProcesses();
     static WebPageProxyMap& globalPageMap();
-    static Vector<RefPtr<WebPageProxy>> globalPages();
+    static Vector<Ref<WebPageProxy>> globalPages();
 
     void initializePreferencesForGPUProcess(const WebPageProxy&);
 
@@ -539,6 +543,7 @@ private:
     void didDestroyFrame(WebCore::FrameIdentifier, WebPageProxyIdentifier);
     void didDestroyUserGestureToken(uint64_t);
     void postMessageToRemote(WebCore::FrameIdentifier, std::optional<WebCore::SecurityOriginData>, const WebCore::MessageWithMessagePorts&);
+    void closeRemoteFrame(WebCore::FrameIdentifier);
     void renderTreeAsText(WebCore::FrameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag>, CompletionHandler<void(String&&)>&&);
 
     bool canBeAddedToWebProcessCache() const;

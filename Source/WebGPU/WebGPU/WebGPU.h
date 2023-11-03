@@ -67,6 +67,10 @@
 #include <stdint.h>
 #include <stddef.h>
 
+#ifdef __cplusplus
+#include <wtf/text/WTFString.h>
+#endif
+
 #define WGPU_ARRAY_LAYER_COUNT_UNDEFINED (0xffffffffUL)
 #define WGPU_COPY_STRIDE_UNDEFINED (0xffffffffUL)
 #define WGPU_LIMIT_U32_UNDEFINED (0xffffffffUL)
@@ -673,6 +677,7 @@ typedef enum WGPUVertexFormat {
     WGPUVertexFormat_Sint32x2 = 0x0000001C,
     WGPUVertexFormat_Sint32x3 = 0x0000001D,
     WGPUVertexFormat_Sint32x4 = 0x0000001E,
+    WGPUVertexFormat_Unorm10_10_10_2 = 0x0000001F,
     WGPUVertexFormat_Force32 = 0x7FFFFFFF
 } WGPUVertexFormat WGPU_ENUM_ATTRIBUTE;
 
@@ -821,7 +826,11 @@ typedef struct WGPUCommandEncoderDescriptor {
 
 typedef struct WGPUCompilationMessage {
     WGPUChainedStruct const * nextInChain;
+#ifdef __cplusplus
+    WTF::String message;
+#else
     WGPU_NULLABLE char const * message;
+#endif
     WGPUCompilationMessageType type;
     uint64_t lineNum;
     uint64_t linePos;

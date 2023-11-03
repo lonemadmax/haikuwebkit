@@ -84,16 +84,12 @@ LayerTreeHost::LayerTreeHost(WebPage& webPage, WebCore::PlatformDisplayID displa
     scaledSize.scale(m_webPage.deviceScaleFactor());
     float scaleFactor = m_webPage.deviceScaleFactor() * m_viewportController.pageScaleFactor();
 
-    TextureMapper::PaintFlags paintFlags = 0;
-    if (m_surface->shouldPaintMirrored())
-        paintFlags |= TextureMapper::PaintingMirrored;
-
 #if HAVE(DISPLAY_LINK)
     // FIXME: remove the displayID from ThreadedCompositor too.
     auto displayID = m_webPage.corePage()->displayID();
-    m_compositor = ThreadedCompositor::create(*this, displayID, scaledSize, scaleFactor, paintFlags);
+    m_compositor = ThreadedCompositor::create(*this, displayID, scaledSize, scaleFactor, m_surface->shouldPaintMirrored());
 #else
-    m_compositor = ThreadedCompositor::create(*this, *this, displayID, scaledSize, scaleFactor, paintFlags);
+    m_compositor = ThreadedCompositor::create(*this, *this, displayID, scaledSize, scaleFactor, m_surface->shouldPaintMirrored());
 #endif
     m_layerTreeContext.contextID = m_surface->surfaceID();
     m_surface->didCreateCompositingRunLoop(m_compositor->compositingRunLoop());
@@ -126,11 +122,6 @@ void LayerTreeHost::setLayerFlushSchedulingEnabled(bool layerFlushingEnabled)
 
     cancelPendingLayerFlush();
     m_compositor->suspend();
-}
-
-void LayerTreeHost::setShouldNotifyAfterNextScheduledLayerFlush(bool notifyAfterScheduledLayerFlush)
-{
-    m_notifyAfterScheduledLayerFlush = notifyAfterScheduledLayerFlush;
 }
 
 void LayerTreeHost::scheduleLayerFlush()
@@ -178,7 +169,7 @@ void LayerTreeHost::layerFlushTimerFired()
     flags.add(FinalizeRenderingUpdateFlags::ApplyScrollingTreeLayerPositions);
 #endif
 
-    bool didSync = m_coordinator.flushPendingLayerChanges(flags);
+    m_coordinator.flushPendingLayerChanges(flags);
 
 #if PLATFORM(GTK)
     // If we have an active transient zoom, we want the zoom to win over any changes
@@ -186,11 +177,6 @@ void LayerTreeHost::layerFlushTimerFired()
     if (m_transientZoom)
         applyTransientZoomToLayers(m_transientZoomScale, m_transientZoomOrigin);
 #endif
-
-    if (m_notifyAfterScheduledLayerFlush && didSync) {
-        m_webPage.drawingArea()->layerHostDidFlushLayers();
-        m_notifyAfterScheduledLayerFlush = false;
-    }
 
 #if HAVE(DISPLAY_LINK)
     m_compositor->updateScene();

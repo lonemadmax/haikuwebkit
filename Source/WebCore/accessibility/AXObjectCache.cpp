@@ -1537,7 +1537,7 @@ void AXObjectCache::postNotification(AccessibilityObject* object, Document* docu
 
 void AXObjectCache::checkedStateChanged(Node* node)
 {
-    postNotification(node, AXObjectCache::AXCheckedStateChanged);
+    postNotification(node, AXCheckedStateChanged);
 }
 
 void AXObjectCache::autofillTypeChanged(Node* node)
@@ -1938,7 +1938,7 @@ void AXObjectCache::postTextStateChangeNotification(Node* node, const AXTextStat
 
     postTextStateChangeNotification(getOrCreate(node), intent, selection);
 #else
-    postNotification(node->renderer(), AXObjectCache::AXSelectedTextChanged, PostTarget::ObservableParent);
+    postNotification(node->renderer(), AXSelectedTextChanged, PostTarget::ObservableParent);
     UNUSED_PARAM(intent);
     UNUSED_PARAM(selection);
 #endif
@@ -2145,7 +2145,7 @@ void AXObjectCache::liveRegionChangedNotificationPostTimerFired()
         return;
 
     for (auto& object : m_liveRegionObjectsSet)
-        postNotification(object.get(), object->document(), AXObjectCache::AXLiveRegionChanged);
+        postNotification(object.get(), object->document(), AXLiveRegionChanged);
     m_liveRegionObjectsSet.clear();
 }
 
@@ -2277,6 +2277,8 @@ void AXObjectCache::handleActiveDescendantChange(Element& element, const AtomStr
             target = ownedObject;
         else if (auto* controlledObject = Accessibility::findRelatedObjectInAncestry(*object, AXRelationType::ControllerFor, *activeDescendant))
             target = controlledObject;
+        else
+            target = object;
 #endif
     } else {
         // Check to see if the active descendant is a child of the controlled object. Then we have to use that
@@ -2430,7 +2432,7 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
             axObject->updateRole();
     }
     else if (attrName == disabledAttr)
-        postNotification(element, AXObjectCache::AXDisabledStateChanged);
+        postNotification(element, AXDisabledStateChanged);
     else if (attrName == forAttr && is<HTMLLabelElement>(element))
         handleLabelForChanged(downcast<HTMLLabelElement>(*element), oldValue);
     else if (attrName == requiredAttr)
@@ -2447,11 +2449,13 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
     else if (attrName == headersAttr)
         updateIsolatedTree(get(element), AXTableHeadersChanged);
     else if (attrName == langAttr)
-        updateIsolatedTree(get(element), AXObjectCache::AXLanguageChanged);
+        updateIsolatedTree(get(element), AXLanguageChanged);
+    else if (attrName == nameAttr)
+        postNotification(get(element), nullptr, AXNameChanged);
     else if (attrName == placeholderAttr)
         postNotification(element, AXPlaceholderChanged);
-    else if (attrName == hrefAttr)
-        updateIsolatedTree(get(element), AXURLChanged);
+    else if (attrName == hrefAttr || attrName == srcAttr)
+        postNotification(element, AXURLChanged);
     else if (attrName == idAttr) {
 #if !LOG_DISABLED
         updateIsolatedTree(get(element), AXIdAttributeChanged);
@@ -2481,11 +2485,11 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
     else if (attrName == aria_atomicAttr)
         postNotification(element, AXIsAtomicChanged);
     else if (attrName == aria_busyAttr)
-        postNotification(element, AXObjectCache::AXElementBusyChanged);
+        postNotification(element, AXElementBusyChanged);
     else if (attrName == aria_controlsAttr)
         postNotification(element, AXControlledObjectsChanged);
     else if (attrName == aria_valuenowAttr || attrName == aria_valuetextAttr)
-        postNotification(element, AXObjectCache::AXValueChanged);
+        postNotification(element, AXValueChanged);
     else if (attrName == aria_labelAttr && element->hasTagName(htmlTag)) {
         // When aria-label changes on an <html> element, it's the web area who needs to re-compute its accessibility text.
         handleTextChanged(get(&element->document()));
@@ -2516,6 +2520,8 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
     }
     else if (attrName == aria_describedbyAttr)
         postNotification(element, AXDescribedByChanged);
+    else if (attrName == aria_descriptionAttr)
+        postNotification(element, AXExtendedDescriptionChanged);
     else if (attrName == aria_dropeffectAttr)
         postNotification(element, AXDropEffectChanged);
     else if (attrName == aria_flowtoAttr)
@@ -2571,19 +2577,19 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
         }
     }
     else if (attrName == aria_invalidAttr)
-        postNotification(element, AXObjectCache::AXInvalidStatusChanged);
+        postNotification(element, AXInvalidStatusChanged);
     else if (attrName == aria_modalAttr)
         deferModalChange(element);
     else if (attrName == aria_currentAttr)
-        postNotification(element, AXObjectCache::AXCurrentStateChanged);
+        postNotification(element, AXCurrentStateChanged);
     else if (attrName == aria_disabledAttr)
-        postNotification(element, AXObjectCache::AXDisabledStateChanged);
+        postNotification(element, AXDisabledStateChanged);
     else if (attrName == aria_pressedAttr)
-        postNotification(element, AXObjectCache::AXPressedStateChanged);
+        postNotification(element, AXPressedStateChanged);
     else if (attrName == aria_readonlyAttr)
-        postNotification(element, AXObjectCache::AXReadOnlyStatusChanged);
+        postNotification(element, AXReadOnlyStatusChanged);
     else if (attrName == aria_requiredAttr)
-        postNotification(element, AXObjectCache::AXRequiredStatusChanged);
+        postNotification(element, AXRequiredStatusChanged);
     else if (attrName == aria_roledescriptionAttr)
         handleRoleDescriptionChanged(element);
     else if (attrName == aria_rowcountAttr)
@@ -2592,7 +2598,7 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
         deferRowspanChange(get(element));
         recomputeParentTableProperties(element, { TableProperty::CellSlots, TableProperty::Exposed });
     } else if (attrName == aria_sortAttr)
-        postNotification(element, AXObjectCache::AXSortDirectionChanged);
+        postNotification(element, AXSortDirectionChanged);
     else if (attrName == aria_ownsAttr) {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
         if (oldValue.isEmpty() || newValue.isEmpty())
@@ -4157,6 +4163,9 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<Accessibili
         case AXExpandedChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::IsExpanded);
             break;
+        case AXExtendedDescriptionChanged:
+            tree->updateNodeProperty(*notification.first, AXPropertyName::ExtendedDescription);
+            break;
         case AXFocusableStateChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::CanSetFocusAttribute);
             break;
@@ -4178,6 +4187,9 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<Accessibili
         }
         case AXMinimumValueChanged:
             tree->updateNodeProperties(*notification.first, { AXPropertyName::MinValueForRange, AXPropertyName::ValueForRange });
+            break;
+        case AXNameChanged:
+            tree->updateNodeProperty(*notification.first, AXPropertyName::NameAttribute);
             break;
         case AXOrientationChanged:
             tree->updateNodeProperty(*notification.first, AXPropertyName::Orientation);
@@ -4813,6 +4825,18 @@ std::optional<Vector<AXID>> AXObjectCache::relatedObjectIDsFor(const AXCoreObjec
         return std::nullopt;
     return targetsIterator->value;
 }
+
+#if PLATFORM(COCOA)
+void AXObjectCache::announce(const String& message)
+{
+    postPlatformAnnouncementNotification(message);
+}
+#else
+void AXObjectCache::announce(const String&)
+{
+    // FIXME: implement in other platforms.
+}
+#endif
 
 AXAttributeCacheEnabler::AXAttributeCacheEnabler(AXObjectCache* cache)
     : m_cache(cache)

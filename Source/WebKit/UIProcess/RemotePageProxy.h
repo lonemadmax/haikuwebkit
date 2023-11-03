@@ -26,6 +26,7 @@
 #pragma once
 
 #include "MessageReceiver.h"
+#include "NavigationActionData.h"
 #include "WebPageProxyMessageReceiverRegistration.h"
 #include "WebProcessProxy.h"
 #include <WebCore/FrameIdentifier.h>
@@ -68,6 +69,7 @@ public:
     ~RemotePageProxy();
 
     WebPageProxy* page() const { return m_page.get(); }
+    RefPtr<WebPageProxy> protectedPage() const;
 
     template<typename M> void send(M&&);
     template<typename M, typename C> void sendWithAsyncReply(M&&, C&&);
@@ -78,6 +80,7 @@ public:
     WebPageProxyMessageReceiverRegistration& messageReceiverRegistration() { return m_messageReceiverRegistration; }
 
     WebProcessProxy& process() { return m_process.get(); }
+    Ref<WebProcessProxy> protectedProcess() const;
     WebCore::PageIdentifier pageID() const { return m_webPageID; }
     const WebCore::RegistrableDomain& domain() const { return m_domain; }
 

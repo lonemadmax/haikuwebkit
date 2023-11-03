@@ -156,9 +156,9 @@ static MTLPrimitiveTopologyClass topologyType(WGPUPrimitiveTopology topology)
     case WGPUPrimitiveTopology_PointList:
         return MTLPrimitiveTopologyClassPoint;
     case WGPUPrimitiveTopology_LineStrip:
+    case WGPUPrimitiveTopology_LineList:
         return MTLPrimitiveTopologyClassLine;
     case WGPUPrimitiveTopology_TriangleList:
-    case WGPUPrimitiveTopology_LineList:
     case WGPUPrimitiveTopology_TriangleStrip:
         return MTLPrimitiveTopologyClassTriangle;
     case WGPUPrimitiveTopology_Force32:
@@ -245,13 +245,13 @@ static MTLVertexFormat vertexFormat(WGPUVertexFormat vertexFormat)
 {
     switch (vertexFormat) {
     case WGPUVertexFormat_Uint8x2:
-        return MTLVertexFormatUInt2;
+        return MTLVertexFormatUChar2;
     case WGPUVertexFormat_Uint8x4:
-        return MTLVertexFormatUInt4;
+        return MTLVertexFormatUChar4;
     case WGPUVertexFormat_Sint8x2:
-        return MTLVertexFormatInt2;
+        return MTLVertexFormatChar2;
     case WGPUVertexFormat_Sint8x4:
-        return MTLVertexFormatInt4;
+        return MTLVertexFormatChar4;
     case WGPUVertexFormat_Unorm8x2:
         return MTLVertexFormatUChar2Normalized;
     case WGPUVertexFormat_Unorm8x4:
@@ -304,6 +304,8 @@ static MTLVertexFormat vertexFormat(WGPUVertexFormat vertexFormat)
         return MTLVertexFormatInt3;
     case WGPUVertexFormat_Sint32x4:
         return MTLVertexFormatInt4;
+    case WGPUVertexFormat_Unorm10_10_10_2:
+        return MTLVertexFormatUInt1010102Normalized;
     case WGPUVertexFormat_Force32:
     case WGPUVertexFormat_Undefined:
         ASSERT_NOT_REACHED();
@@ -311,8 +313,11 @@ static MTLVertexFormat vertexFormat(WGPUVertexFormat vertexFormat)
     }
 }
 
-static MTLVertexStepFunction stepFunction(WGPUVertexStepMode stepMode)
+static MTLVertexStepFunction stepFunction(WGPUVertexStepMode stepMode, auto arrayStride)
 {
+    if (!arrayStride)
+        return MTLVertexStepFunctionConstant;
+
     switch (stepMode) {
     case WGPUVertexStepMode_Vertex:
         return MTLVertexStepFunctionPerVertex;
@@ -332,9 +337,13 @@ static MTLVertexDescriptor *createVertexDescriptor(WGPUVertexState vertexState)
 
     for (size_t bufferIndex = 0; bufferIndex < vertexState.bufferCount; ++bufferIndex) {
         auto& buffer = vertexState.buffers[bufferIndex];
-        vertexDescriptor.layouts[bufferIndex].stride = buffer.arrayStride;
-        vertexDescriptor.layouts[bufferIndex].stepFunction = stepFunction(buffer.stepMode);
-        // FIXME: need to assign stepRate with per-instance data?
+        if (buffer.arrayStride == WGPU_COPY_STRIDE_UNDEFINED)
+            continue;
+
+        vertexDescriptor.layouts[bufferIndex].stride = std::max<NSUInteger>(sizeof(int), buffer.arrayStride);
+        vertexDescriptor.layouts[bufferIndex].stepFunction = stepFunction(buffer.stepMode, buffer.arrayStride);
+        if (vertexDescriptor.layouts[bufferIndex].stepFunction == MTLVertexStepFunctionConstant)
+            vertexDescriptor.layouts[bufferIndex].stepRate = 0;
         for (size_t i = 0; i < buffer.attributeCount; ++i) {
             auto& attribute = buffer.attributes[i];
             const auto& mtlAttribute = vertexDescriptor.attributes[attribute.shaderLocation];
@@ -351,7 +360,7 @@ static void populateStencilOperation(MTLStencilDescriptor *mtlStencil, const WGP
 {
     mtlStencil.stencilCompareFunction =  convertToMTLCompare(stencil.compare);
     mtlStencil.stencilFailureOperation = convertToMTLStencilOperation(stencil.failOp);
-    mtlStencil.depthStencilPassOperation = convertToMTLStencilOperation(stencil.depthFailOp);
+    mtlStencil.depthFailureOperation = convertToMTLStencilOperation(stencil.depthFailOp);
     mtlStencil.depthStencilPassOperation = convertToMTLStencilOperation(stencil.passOp);
     mtlStencil.writeMask = stencilWriteMask;
     mtlStencil.readMask = stencilReadMask;
@@ -443,13 +452,6 @@ void Device::addPipelineLayouts(Vector<Vector<WGPUBindGroupLayoutEntry>>& pipeli
         auto& entries = pipelineEntries[pipelineLayoutIndex];
         HashMap<String, uint64_t> entryMap;
         for (auto& entry : bindGroupLayout.entries) {
-            if (auto existingIndex = entries.findIf([&](auto& existingEntry) {
-                return existingEntry.binding == entry.binding;
-            }); existingIndex != WTF::notFound) {
-                entries[existingIndex].visibility |= convertVisibility(entry.visibility);
-                continue;
-            }
-
             WGPUBindGroupLayoutEntry newEntry = { };
             uint64_t minBindingSize = 0;
             WGPUBufferBindingType bufferTypeOverride = WGPUBufferBindingType_Undefined;
@@ -461,7 +463,7 @@ void Device::addPipelineLayouts(Vector<Vector<WGPUBindGroupLayoutEntry>>& pipeli
             } else
                 entryMap.set(entryName, entry.binding);
 
-            newEntry.binding = entry.binding;
+            newEntry.binding = entry.webBinding;
             newEntry.visibility = convertVisibility(entry.visibility);
             WTF::switchOn(entry.bindingMember, [&](const WGSL::BufferBindingLayout& bufferBinding) {
                 newEntry.buffer = WGPUBufferBindingLayout {
@@ -514,7 +516,7 @@ Ref<PipelineLayout> Device::generatePipelineLayout(const Vector<Vector<WGPUBindG
         bindGroupLayoutDescriptor.label = "getBindGroup() generated layout";
         bindGroupLayoutDescriptor.entryCount = entries.size();
         bindGroupLayoutDescriptor.entries = entries.size() ? &entries[0] : nullptr;
-        bindGroupLayoutsRefs.append(createBindGroupLayout(bindGroupLayoutDescriptor));
+        bindGroupLayoutsRefs.append(createBindGroupLayout(bindGroupLayoutDescriptor, true));
         bindGroupLayouts.append(&bindGroupLayoutsRefs[bindGroupLayoutsRefs.size() - 1].get());
     }
 
@@ -598,6 +600,9 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
 
         for (uint32_t i = 0; i < fragmentDescriptor.targetCount; ++i) {
             const auto& targetDescriptor = fragmentDescriptor.targets[i];
+            if (targetDescriptor.format == WGPUTextureFormat_Undefined)
+                continue;
+
             const auto& mtlColorAttachment = mtlRenderPipelineDescriptor.colorAttachments[i];
 
             mtlColorAttachment.pixelFormat = Texture::pixelFormat(targetDescriptor.format);
@@ -622,6 +627,7 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
     }
 
     MTLDepthStencilDescriptor *depthStencilDescriptor = nil;
+    float depthBias = 0.f, depthBiasSlopeScale = 0.f, depthBiasClamp = 0.f;
     if (auto depthStencil = descriptor.depthStencil) {
         MTLPixelFormat depthStencilFormat = Texture::pixelFormat(depthStencil->format);
         bool isStencilOnlyFormat = Device::isStencilOnlyFormat(depthStencilFormat);
@@ -634,6 +640,9 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
         depthStencilDescriptor.depthWriteEnabled = depthStencil->depthWriteEnabled;
         populateStencilOperation(depthStencilDescriptor.frontFaceStencil, depthStencil->stencilFront, depthStencil->stencilReadMask, depthStencil->stencilWriteMask);
         populateStencilOperation(depthStencilDescriptor.backFaceStencil, depthStencil->stencilBack, depthStencil->stencilReadMask, depthStencil->stencilWriteMask);
+        depthBias = depthStencil->depthBias;
+        depthBiasSlopeScale = depthStencil->depthBiasSlopeScale;
+        depthBiasClamp = depthStencil->depthBiasClamp;
     }
 
     mtlRenderPipelineDescriptor.rasterSampleCount = descriptor.multisample.count ?: 1;
@@ -669,9 +678,9 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
         return RenderPipeline::createInvalid(*this);
 
     if (!pipelineLayout)
-        return RenderPipeline::create(renderPipelineState, mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, generatePipelineLayout(bindGroupEntries), *this);
+        return RenderPipeline::create(renderPipelineState, mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, generatePipelineLayout(bindGroupEntries), depthBias, depthBiasSlopeScale, depthBiasClamp, *this);
 
-    return RenderPipeline::create(renderPipelineState, mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, const_cast<PipelineLayout&>(*pipelineLayout), *this);
+    return RenderPipeline::create(renderPipelineState, mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, const_cast<PipelineLayout&>(*pipelineLayout), depthBias, depthBiasSlopeScale, depthBiasClamp, *this);
 }
 
 void Device::createRenderPipelineAsync(const WGPURenderPipelineDescriptor& descriptor, CompletionHandler<void(WGPUCreatePipelineAsyncStatus, Ref<RenderPipeline>&&, String&& message)>&& callback)
@@ -682,7 +691,7 @@ void Device::createRenderPipelineAsync(const WGPURenderPipelineDescriptor& descr
     });
 }
 
-RenderPipeline::RenderPipeline(id<MTLRenderPipelineState> renderPipelineState, MTLPrimitiveType primitiveType, std::optional<MTLIndexType> indexType, MTLWinding frontFace, MTLCullMode cullMode, MTLDepthClipMode clipMode, MTLDepthStencilDescriptor *depthStencilDescriptor, Ref<PipelineLayout>&& pipelineLayout, Device& device)
+RenderPipeline::RenderPipeline(id<MTLRenderPipelineState> renderPipelineState, MTLPrimitiveType primitiveType, std::optional<MTLIndexType> indexType, MTLWinding frontFace, MTLCullMode cullMode, MTLDepthClipMode clipMode, MTLDepthStencilDescriptor *depthStencilDescriptor, Ref<PipelineLayout>&& pipelineLayout, float depthBias, float depthBiasSlopeScale, float depthBiasClamp, Device& device)
     : m_renderPipelineState(renderPipelineState)
     , m_device(device)
     , m_primitiveType(primitiveType)
@@ -690,6 +699,9 @@ RenderPipeline::RenderPipeline(id<MTLRenderPipelineState> renderPipelineState, M
     , m_frontFace(frontFace)
     , m_cullMode(cullMode)
     , m_clipMode(clipMode)
+    , m_depthBias(depthBias)
+    , m_depthBiasSlopeScale(depthBiasSlopeScale)
+    , m_depthBiasClamp(depthBiasClamp)
     , m_depthStencilDescriptor(depthStencilDescriptor)
     , m_depthStencilState(depthStencilDescriptor ? [device.device() newDepthStencilStateWithDescriptor:depthStencilDescriptor] : nil)
     , m_pipelineLayout(WTFMove(pipelineLayout))

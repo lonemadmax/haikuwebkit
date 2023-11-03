@@ -250,7 +250,7 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection
             ++m_countOfTransactionsWithNonEmptyLayerChanges;
 
         if (m_remoteLayerTreeHost->updateLayerTree(layerTreeTransaction)) {
-            if (layerTreeTransaction.transactionID() >= state.transactionIDForUnhidingContent)
+            if (!m_replyForUnhidingContent)
                 webPageProxy->setRemoteLayerTreeRootNode(m_remoteLayerTreeHost->rootNode());
             else
                 m_remoteLayerTreeHost->detachRootLayer();
@@ -279,13 +279,14 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection
     // Handle requested scroll position updates from the scrolling tree transaction after didCommitLayerTree()
     // has updated the view size based on the content size.
     if (requestedScroll) {
-        auto previousScrollPosition = webPageProxy->scrollingCoordinatorProxy()->currentMainFrameScrollPosition();
+        auto currentScrollPosition = webPageProxy->scrollingCoordinatorProxy()->currentMainFrameScrollPosition();
         if (auto previousData = std::exchange(requestedScroll->requestedDataBeforeAnimatedScroll, std::nullopt)) {
-            auto& [type, positionOrDeltaBeforeAnimatedScroll, scrollType, clamping] = *previousData;
-            previousScrollPosition = type == ScrollRequestType::DeltaUpdate ? (webPageProxy->scrollingCoordinatorProxy()->currentMainFrameScrollPosition() + std::get<FloatSize>(positionOrDeltaBeforeAnimatedScroll)) : std::get<FloatPoint>(positionOrDeltaBeforeAnimatedScroll);
+            auto& [requestType, positionOrDeltaBeforeAnimatedScroll, scrollType, clamping] = *previousData;
+            if (requestType != ScrollRequestType::CancelAnimatedScroll)
+                currentScrollPosition = RequestedScrollData::computeDestinationPosition(currentScrollPosition, requestType, positionOrDeltaBeforeAnimatedScroll);
         }
 
-        webPageProxy->requestScroll(requestedScroll->destinationPosition(previousScrollPosition), layerTreeTransaction.scrollOrigin(), requestedScroll->animated);
+        webPageProxy->requestScroll(requestedScroll->destinationPosition(currentScrollPosition), layerTreeTransaction.scrollOrigin(), requestedScroll->animated);
     }
 #endif // ENABLE(ASYNC_SCROLLING)
 
@@ -547,7 +548,17 @@ void RemoteLayerTreeDrawingAreaProxy::waitForDidUpdateActivityState(ActivityStat
 
 void RemoteLayerTreeDrawingAreaProxy::hideContentUntilPendingUpdate()
 {
-    m_webPageProxyProcessState.transactionIDForUnhidingContent = nextLayerTreeTransactionID();
+    if (m_replyForUnhidingContent && protectedWebPageProxy()->process().hasConnection()) {
+        if (auto replyHandlerToCancel = protectedWebPageProxy()->process().connection()->takeAsyncReplyHandler(m_replyForUnhidingContent))
+            replyHandlerToCancel(nullptr);
+    }
+
+    m_replyForUnhidingContent = protectedWebPageProxy()->sendWithAsyncReply(Messages::DrawingArea::DispatchAfterEnsuringDrawing(), [weakThis = WeakPtr { this }] {
+        if (weakThis) {
+            weakThis->protectedWebPageProxy()->setRemoteLayerTreeRootNode(weakThis->m_remoteLayerTreeHost->rootNode());
+            weakThis->m_replyForUnhidingContent = AsyncReplyID { };
+        }
+    }, identifier());
     m_remoteLayerTreeHost->detachRootLayer();
 }
 

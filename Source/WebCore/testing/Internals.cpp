@@ -4793,6 +4793,13 @@ void Internals::endAudioSessionInterruption()
 #endif
 }
 
+void Internals::clearAudioSessionInterruptionFlag()
+{
+#if USE(AUDIO_SESSION)
+    AudioSession::sharedSession().clearInterruptionFlagForTesting();
+#endif
+}
+
 void Internals::suspendAllMediaBuffering()
 {
     auto frame = this->frame();
@@ -5006,7 +5013,11 @@ void Internals::mockMediaPlaybackTargetPickerDismissPopup()
 
 bool Internals::isMonitoringWirelessRoutes() const
 {
+#if ENABLE(VIDEO)
     return PlatformMediaSessionManager::sharedManager().isMonitoringWirelessTargets();
+#else
+    return false;
+#endif // ENABLE(VIDEO)
 }
 
 ExceptionOr<Ref<MockPageOverlay>> Internals::installMockPageOverlay(PageOverlayType type)
@@ -5419,13 +5430,13 @@ bool Internals::isProcessingUserGesture()
 
 void Internals::withUserGesture(RefPtr<VoidCallback>&& callback)
 {
-    UserGestureIndicator gestureIndicator(ProcessingUserGesture, contextDocument());
+    UserGestureIndicator gestureIndicator(IsProcessingUserGesture::Yes, contextDocument());
     callback->handleEvent();
 }
 
 void Internals::withoutUserGesture(RefPtr<VoidCallback>&& callback)
 {
-    UserGestureIndicator gestureIndicator(NotProcessingUserGesture, contextDocument());
+    UserGestureIndicator gestureIndicator(IsProcessingUserGesture::No, contextDocument());
     callback->handleEvent();
 }
 
@@ -6509,6 +6520,8 @@ void Internals::setIsPlayingToAutomotiveHeadUnit(bool isPlaying)
 {
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
     PlatformMediaSessionManager::sharedManager().setIsPlayingToAutomotiveHeadUnit(isPlaying);
+#else
+    UNUSED_PARAM(isPlaying);
 #endif
 }
 

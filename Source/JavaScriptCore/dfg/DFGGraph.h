@@ -923,8 +923,8 @@ public:
 
     // This uses either constant property inference or property type inference to derive a good abstract
     // value for some property accessed with the given abstract value base.
-    AbstractValue inferredValueForProperty(
-        const AbstractValue& base, PropertyOffset, StructureClobberState);
+    AbstractValue inferredValueForProperty(const AbstractValue& base, PropertyOffset, StructureClobberState);
+    AbstractValue inferredValueForProperty(const AbstractValue& base, const RegisteredStructureSet&, PropertyOffset, StructureClobberState);
     
     FullBytecodeLiveness& livenessFor(CodeBlock*);
     FullBytecodeLiveness& livenessFor(InlineCallFrame*);
@@ -1231,6 +1231,7 @@ public:
     Bag<StackAccessData> m_stackAccessData;
     Bag<LazyJSValue> m_lazyJSValues;
     Bag<CallDOMGetterData> m_callDOMGetterData;
+    Bag<CallCustomAccessorData> m_callCustomAccessorData;
     Bag<BitVector> m_bitVectors;
     Vector<InlineVariableData, 4> m_inlineVariableData;
     HashMap<CodeBlock*, std::unique_ptr<FullBytecodeLiveness>> m_bytecodeLiveness;

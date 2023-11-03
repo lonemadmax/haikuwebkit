@@ -43,6 +43,7 @@
 #include <WebCore/FetchIdentifier.h>
 #include <WebCore/MessagePortChannelRegistry.h>
 #include <WebCore/NotificationEventType.h>
+#include <WebCore/NotificationPayload.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/PrivateClickMeasurement.h>
 #include <WebCore/PushPermissionState.h>
@@ -145,6 +146,13 @@ public:
 
     using CanMakeThreadSafeCheckedPtr::incrementPtrCount;
     using CanMakeThreadSafeCheckedPtr::decrementPtrCount;
+#if CHECKED_POINTER_DEBUG
+    using CanMakeThreadSafeCheckedPtr::registerCheckedPtr;
+    using CanMakeThreadSafeCheckedPtr::copyCheckedPtr;
+    using CanMakeThreadSafeCheckedPtr::moveCheckedPtr;
+    using CanMakeThreadSafeCheckedPtr::unregisterCheckedPtr;
+#endif // CHECKED_POINTER_DEBUG
+
 
     NetworkProcess(AuxiliaryProcessInitializationParameters&&);
     ~NetworkProcess();

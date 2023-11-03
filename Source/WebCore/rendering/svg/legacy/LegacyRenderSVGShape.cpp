@@ -35,9 +35,9 @@
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "LayoutRepainter.h"
+#include "LegacyRenderSVGResourceMarker.h"
 #include "LegacyRenderSVGShapeInlines.h"
 #include "PointerEventsHitRules.h"
-#include "RenderSVGResourceMarker.h"
 #include "RenderSVGResourceSolidColor.h"
 #include "RenderStyleInlines.h"
 #include "SVGPathData.h"
@@ -116,7 +116,7 @@ bool LegacyRenderSVGShape::fillContains(const FloatPoint& point, bool requiresFi
         return false;
 
     Color fallbackColor;
-    if (requiresFill && !RenderSVGResource::fillPaintingResource(*this, style(), fallbackColor))
+    if (requiresFill && !LegacyRenderSVGResource::fillPaintingResource(*this, style(), fallbackColor))
         return false;
 
     return shapeDependentFillContains(point, fillRule);
@@ -124,11 +124,16 @@ bool LegacyRenderSVGShape::fillContains(const FloatPoint& point, bool requiresFi
 
 bool LegacyRenderSVGShape::strokeContains(const FloatPoint& point, bool requiresStroke)
 {
-    if (strokeBoundingBox().isEmpty() || !strokeBoundingBox().contains(point))
+    // "A zero value causes no stroke to be painted."
+    if (!strokeWidth())
+        return false;
+
+    auto approximateStrokeBoundingBox = this->approximateStrokeBoundingBox();
+    if (approximateStrokeBoundingBox.isEmpty() || !approximateStrokeBoundingBox.contains(point))
         return false;
 
     Color fallbackColor;
-    if (requiresStroke && !RenderSVGResource::strokePaintingResource(*this, style(), fallbackColor))
+    if (requiresStroke && !LegacyRenderSVGResource::strokePaintingResource(*this, style(), fallbackColor))
         return false;
 
     return shapeDependentStrokeContains(point);
@@ -197,11 +202,11 @@ void LegacyRenderSVGShape::fillShape(const RenderStyle& style, GraphicsContext& 
 {
     GraphicsContext* context = &originalContext;
     Color fallbackColor;
-    if (RenderSVGResource* fillPaintingResource = RenderSVGResource::fillPaintingResource(*this, style, fallbackColor)) {
+    if (LegacyRenderSVGResource* fillPaintingResource = LegacyRenderSVGResource::fillPaintingResource(*this, style, fallbackColor)) {
         if (fillPaintingResource->applyResource(*this, style, context, RenderSVGResourceMode::ApplyToFill))
             fillPaintingResource->postApplyResource(*this, context, RenderSVGResourceMode::ApplyToFill, nullptr, this);
         else if (fallbackColor.isValid()) {
-            RenderSVGResourceSolidColor* fallbackResource = RenderSVGResource::sharedSolidPaintingResource();
+            RenderSVGResourceSolidColor* fallbackResource = LegacyRenderSVGResource::sharedSolidPaintingResource();
             fallbackResource->setColor(fallbackColor);
             if (fallbackResource->applyResource(*this, style, context, RenderSVGResourceMode::ApplyToFill))
                 fallbackResource->postApplyResource(*this, context, RenderSVGResourceMode::ApplyToFill, nullptr, this);
@@ -213,11 +218,11 @@ void LegacyRenderSVGShape::strokeShapeInternal(const RenderStyle& style, Graphic
 {
     GraphicsContext* context = &originalContext;
     Color fallbackColor;
-    if (RenderSVGResource* strokePaintingResource = RenderSVGResource::strokePaintingResource(*this, style, fallbackColor)) {
+    if (LegacyRenderSVGResource* strokePaintingResource = LegacyRenderSVGResource::strokePaintingResource(*this, style, fallbackColor)) {
         if (strokePaintingResource->applyResource(*this, style, context, RenderSVGResourceMode::ApplyToStroke))
             strokePaintingResource->postApplyResource(*this, context, RenderSVGResourceMode::ApplyToStroke, nullptr, this);
         else if (fallbackColor.isValid()) {
-            RenderSVGResourceSolidColor* fallbackResource = RenderSVGResource::sharedSolidPaintingResource();
+            RenderSVGResourceSolidColor* fallbackResource = LegacyRenderSVGResource::sharedSolidPaintingResource();
             fallbackResource->setColor(fallbackColor);
             if (fallbackResource->applyResource(*this, style, context, RenderSVGResourceMode::ApplyToStroke))
                 fallbackResource->postApplyResource(*this, context, RenderSVGResourceMode::ApplyToStroke, nullptr, this);
@@ -386,6 +391,18 @@ FloatRect LegacyRenderSVGShape::calculateStrokeBoundingBox() const
     return adjustStrokeBoundingBoxForMarkersAndZeroLengthLinecaps(RepaintRectCalculation::Accurate, strokeBoundingBox);
 }
 
+FloatRect LegacyRenderSVGShape::approximateStrokeBoundingBox() const
+{
+    if (m_shapeType == ShapeType::Empty)
+        return { };
+    if (!m_approximateStrokeBoundingBox) {
+        // Initialize m_approximateStrokeBoundingBox before calling calculateApproximateStrokeBoundingBox, since recursively referenced markers can cause us to re-enter here.
+        m_approximateStrokeBoundingBox = FloatRect { };
+        m_approximateStrokeBoundingBox = calculateApproximateStrokeBoundingBox();
+    }
+    return *m_approximateStrokeBoundingBox;
+}
+
 FloatRect LegacyRenderSVGShape::calculateApproximateStrokeBoundingBox() const
 {
     if (m_shapeType == ShapeType::Empty)
@@ -399,7 +416,7 @@ FloatRect LegacyRenderSVGShape::calculateApproximateStrokeBoundingBox() const
 
 void LegacyRenderSVGShape::updateRepaintBoundingBox()
 {
-    m_repaintBoundingBox = calculateApproximateStrokeBoundingBox();
+    m_repaintBoundingBox = approximateStrokeBoundingBox();
     SVGRenderSupport::intersectRepaintRectWithResources(*this, m_repaintBoundingBox);
 }
 
@@ -417,15 +434,6 @@ float LegacyRenderSVGShape::strokeWidth() const
 {
     SVGLengthContext lengthContext(&graphicsElement());
     return lengthContext.valueForLength(style().strokeWidth());
-}
-
-bool LegacyRenderSVGShape::hasSmoothStroke() const
-{
-    const SVGRenderStyle& svgStyle = style().svgStyle();
-    return svgStyle.strokeDashArray().isEmpty()
-        && style().strokeMiterLimit() == defaultMiterLimit
-        && style().joinStyle() == LineJoin::Miter
-        && style().capStyle() == LineCap::Butt;
 }
 
 Path& LegacyRenderSVGShape::ensurePath()

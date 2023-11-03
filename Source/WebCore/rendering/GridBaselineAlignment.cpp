@@ -31,6 +31,7 @@
 #include "config.h"
 #include "GridBaselineAlignment.h"
 
+#include "AncestorSubgridIterator.h"
 #include "BaselineAlignmentInlines.h"
 #include "RenderBoxInlines.h"
 #include "RenderGrid.h"
@@ -60,51 +61,64 @@ LayoutUnit GridBaselineAlignment::marginUnderForChild(const RenderBox& child, Gr
 
 LayoutUnit GridBaselineAlignment::logicalAscentForChild(const RenderBox& child, GridAxis baselineAxis, ItemPosition position) const
 {
-    LayoutUnit ascent = ascentForChild(child, baselineAxis, position);
-    return (isDescentBaselineForChild(child, baselineAxis) || position == ItemPosition::LastBaseline) ? descentForChild(child, ascent, baselineAxis) : ascent;
+    auto hasOrthogonalAncestorSubgrids = [&] {
+        for (auto& currentAncestorSubgrid : ancestorSubgridsOfGridItem(child, GridTrackSizingDirection::ForRows)) {
+            if (currentAncestorSubgrid.isHorizontalWritingMode() != currentAncestorSubgrid.parent()->isHorizontalWritingMode())
+                return true;
+        }
+        return false;
+    };
+
+    ExtraMarginsFromSubgrids extraMarginsFromAncestorSubgrids;
+    if (baselineAxis == GridAxis::GridColumnAxis && !hasOrthogonalAncestorSubgrids())
+        extraMarginsFromAncestorSubgrids = GridLayoutFunctions::extraMarginForSubgridAncestors(GridTrackSizingDirection::ForRows, child);
+
+    LayoutUnit ascent = ascentForChild(child, baselineAxis, position) + extraMarginsFromAncestorSubgrids.extraTrackStartMargin();
+    return (isDescentBaselineForChild(child, baselineAxis) || position == ItemPosition::LastBaseline) ? descentForChild(child, ascent, baselineAxis, extraMarginsFromAncestorSubgrids) : ascent;
 }
 
 LayoutUnit GridBaselineAlignment::ascentForChild(const RenderBox& child, GridAxis baselineAxis, ItemPosition position) const
 {
+    static const LayoutUnit noValidBaseline = LayoutUnit(-1);
+
     ASSERT(position == ItemPosition::Baseline || position == ItemPosition::LastBaseline);
+    auto baseline = 0_lu;
     LayoutUnit margin = isDescentBaselineForChild(child, baselineAxis) ? marginUnderForChild(child, baselineAxis) : marginOverForChild(child, baselineAxis);
-    std::optional<LayoutUnit> computedBaselineValue = position == ItemPosition::Baseline ? child.firstLineBaseline() : child.lastLineBaseline();
-    LayoutUnit baseline(isParallelToBaselineAxisForChild(child, baselineAxis) ? computedBaselineValue.value_or(LayoutUnit(-1)) : LayoutUnit(-1));
-    // We take border-box's under edge if no valid baseline.
-    if (baseline == -1) {
-        ASSERT(!child.needsLayout());
-        if (isHorizontalBaselineAxis(baselineAxis))
-            return isFlippedWritingMode(m_blockFlow) ? child.size().width().toInt() + margin : margin;
-        return child.size().height() + margin;
+
+    if (baselineAxis == GridAxis::GridColumnAxis) {
+        ASSERT(child.parentStyle());
+        auto* parentStyle = child.parentStyle();
+
+        auto alignmentContextDirection = [&] {
+            return child.parentStyle()->isHorizontalWritingMode() ? LineDirectionMode::HorizontalLine : LineDirectionMode::VerticalLine;
+        };
+
+        if (!isParallelToBaselineAxisForChild(child, baselineAxis))
+            return (parentStyle ? synthesizedBaseline(child, *child.parentStyle(), alignmentContextDirection(), BaselineSynthesisEdge::BorderBox) : 0_lu) + margin;
+        auto ascent = position == ItemPosition::Baseline ? child.firstLineBaseline() : child.lastLineBaseline();
+        if (!ascent)
+            return (parentStyle ? synthesizedBaseline(child, *child.parentStyle(), alignmentContextDirection(), BaselineSynthesisEdge::BorderBox) : 0_lu) + margin;
+        baseline = ascent.value();
+    } else {
+        auto computedBaselineValue = position == ItemPosition::Baseline ? child.firstLineBaseline() : child.lastLineBaseline();
+        baseline = isParallelToBaselineAxisForChild(child, baselineAxis) ? computedBaselineValue.value_or(noValidBaseline) : noValidBaseline;
+        // We take border-box's under edge if no valid baseline.
+        if (baseline == noValidBaseline) {
+            ASSERT(!child.needsLayout());
+            if (isHorizontalBaselineAxis(baselineAxis))
+                return isFlippedWritingMode(m_blockFlow) ? child.size().width().toInt() + margin : margin;
+            return child.size().height() + margin;
+        }
     }
 
-    auto subgridOffset = [&] {
-        if (position == ItemPosition::LastBaseline || baselineAxis == GridAxis::GridRowAxis)
-            return 0_lu;
-
-        auto offset = 0_lu;
-        const auto* currentSubgrid = dynamicDowncast<RenderGrid>(child.parent());
-        while (currentSubgrid && currentSubgrid->isSubgridRows()) {
-            auto isPlacedAtFirstTrackInSubgrid = [&] {
-                return !currentSubgrid->gridSpanForChild(child, GridTrackSizingDirection::ForRows).startLine();
-            }();
-
-            if (!isPlacedAtFirstTrackInSubgrid || GridLayoutFunctions::isOrthogonalParent(*currentSubgrid, *currentSubgrid->parent()))
-                return 0_lu;
-            offset += currentSubgrid->marginAndBorderAndPaddingBefore();
-            currentSubgrid = dynamicDowncast<RenderGrid>(currentSubgrid->parent());
-        }
-        return offset;
-    }();
-
-    return subgridOffset + margin + baseline;
+    return margin + baseline;
 }
 
-LayoutUnit GridBaselineAlignment::descentForChild(const RenderBox& child, LayoutUnit ascent, GridAxis baselineAxis) const
+LayoutUnit GridBaselineAlignment::descentForChild(const RenderBox& child, LayoutUnit ascent, GridAxis baselineAxis, ExtraMarginsFromSubgrids extraMarginsFromAncestorSubgrids) const
 {
     ASSERT(!child.needsLayout());
     if (isParallelToBaselineAxisForChild(child, baselineAxis))
-        return child.marginLogicalHeight() + child.logicalHeight() - ascent;
+        return extraMarginsFromAncestorSubgrids.extraTotalMargin() + child.marginLogicalHeight() + child.logicalHeight() - ascent;
     return child.marginLogicalWidth() + child.logicalWidth() - ascent;
 }
 
