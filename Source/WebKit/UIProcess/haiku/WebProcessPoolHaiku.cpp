@@ -27,11 +27,11 @@
 #include "WebProcessPool.h"
 
 #include "WebProcessCreationParameters.h"
-#include "NotImplemented.h"
+#include <WebCore/NotImplemented.h>
 
 namespace WebKit {
 
-void WebProcessPool::platformInitialize()
+void WebProcessPool::platformInitialize(NeedsGlobalStaticInitialization)
 {
     notImplemented();
 }
@@ -48,7 +48,6 @@ void WebProcessPool::platformInitializeWebProcess(const WebKit::WebProcessProxy&
 
 void WebProcessPool::platformInvalidateContext()
 {
-    notImplemented();
 }
 
 void WebProcessPool::platformResolvePathsForSandboxExtensions()
