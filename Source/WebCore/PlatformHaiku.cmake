@@ -2,6 +2,8 @@ include(platform/Haiku.cmake)
 include(platform/ImageDecoders.cmake)
 include(platform/OpenSSL.cmake)
 
+add_definitions(-D_DEFAULT_SOURCE)
+
 if(USE_CURL)
   include(platform/Curl.cmake)
   list(APPEND WebCore_SOURCES

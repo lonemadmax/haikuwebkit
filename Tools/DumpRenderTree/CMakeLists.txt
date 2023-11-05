@@ -1,6 +1,8 @@
 set(DumpRenderTree_DIR "${TOOLS_DIR}/DumpRenderTree")
 set(DumpRenderTree_BINDINGS_DIR "${TOOLS_DIR}/DumpRenderTree/Bindings")
 
+add_definitions(-D_DEFAULT_SOURCE=1)
+
 file(MAKE_DIRECTORY ${DumpRenderTree_DERIVED_SOURCES_DIR})
 
 set(DumpRenderTree_SOURCES

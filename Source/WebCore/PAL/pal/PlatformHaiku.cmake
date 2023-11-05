@@ -1,3 +1,5 @@
+add_definitions(-D_DEFAULT_SOURCE=1)
+
 list(APPEND PAL_SOURCES
     crypto/openssl/CryptoDigestOpenSSL.cpp
 

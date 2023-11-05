@@ -51,6 +51,11 @@
 #include <wtf/spi/darwin/AbortWithReasonSPI.h>
 #endif
 
+#if OS(HAIKU)
+#include <kernel/OS.h>
+#include <String.h>
+#endif
+
 #if USE(OS_LOG)
 #include <os/log.h>
 #endif

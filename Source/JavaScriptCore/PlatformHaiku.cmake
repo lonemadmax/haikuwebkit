@@ -1,5 +1,7 @@
 include(inspector/remote/Socket.cmake)
 
+add_definitions(-D_DEFAULT_SOURCE)
+
 list(APPEND JavaScriptCore_PUBLIC_FRAMEWORK_HEADERS
     API/JSStringRefBSTR.h
     API/JavaScriptCore.h
