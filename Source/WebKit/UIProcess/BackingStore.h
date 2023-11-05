@@ -61,7 +61,9 @@ public:
 #endif
 
     void paint(PlatformGraphicsContext, const WebCore::IntRect&);
+#if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
     void incorporateUpdate(UpdateInfo&&);
+#endif
 
 private:
     void incorporateUpdate(ShareableBitmap*, UpdateInfo&&);
