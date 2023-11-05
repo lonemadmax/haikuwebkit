@@ -31,11 +31,10 @@
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/MemoryStatistics.h>
 #include <WebCore/CommonVM.h>
-#include <WebCore/JSDOMWindow.h>
-#include "NotImplemented.h"
+#include <WebCore/NotImplemented.h>
 #include <string.h>
 #include <wtf/WallTime.h>
-#include <wtf/text/WTFString.h>  
+#include <wtf/text/WTFString.h>
 
 #include <OS.h>
 
