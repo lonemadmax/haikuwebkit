@@ -26,13 +26,13 @@
 #include "config.h"
 #include "InjectedBundle.h"
 
-#include "NotImplemented.h"
+#include <WebCore/NotImplemented.h>
 
 using namespace WebCore;
 
 namespace WebKit {
 
-bool InjectedBundle::initialize(const WebProcessCreationParameters&, API::Object* initializationUserData)
+bool InjectedBundle::initialize(const WebProcessCreationParameters&, RefPtr<API::Object>&& initializationUserData)
 {
     notImplemented();
 }
