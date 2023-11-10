@@ -42,6 +42,7 @@ IF (ENABLE_VIDEO_TRACK)
 ENDIF ()
 
 add_definitions("-include WebKitPrefix.h")
+add_definitions("-D_DEFAULT_SOURCE")
 
 LIST(APPEND WebKitLegacy_SOURCES
     haiku/WebCoreSupport/BackForwardList.cpp

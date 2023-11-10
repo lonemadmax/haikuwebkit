@@ -53,7 +53,7 @@
 
 #if OS(HAIKU)
 #include <kernel/OS.h>
-#include <String.h>
+#include <stdio.h>
 #endif
 
 #if USE(OS_LOG)
@@ -784,9 +784,10 @@ inline void WTFCrashWithInfo(int line, const char* filename, const char* functio
 #endif
 {
 #if PLATFORM(HAIKU)
-    BString str;
-    str.SetToFormat("%s:%d: %s, %d", filename, line, function, d);
-    debugger(str.String());
+    char* str = NULL;
+    asprintf(&str, "%s:%d: %s, %d", filename, line, function, d);
+    debugger(str);
+    free(str);
     abort();
 #else
     CRASH();
