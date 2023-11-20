@@ -137,6 +137,7 @@ inline RenderElement::RenderElement(Type type, ContainerNode& elementOrDocument,
     , m_didContributeToVisuallyNonEmptyPixelCount(false)
     , m_style(WTFMove(style))
 {
+    ASSERT(RenderObject::isRenderElement());
 }
 
 RenderElement::RenderElement(Type type, Element& element, RenderStyle&& style, BaseTypeFlags baseTypeFlags)
@@ -757,7 +758,7 @@ bool RenderElement::layerCreationAllowedForSubtree() const
 
     RenderElement* parentRenderer = parent();
     while (parentRenderer) {
-        if (parentRenderer->isLegacySVGHiddenContainer())
+        if (parentRenderer->isLegacyRenderSVGHiddenContainer())
             return false;
         parentRenderer = parentRenderer->parent();
     }
@@ -1009,6 +1010,14 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
         updateOutlineAutoAncestor(hasOutlineAuto);
         issueRepaintForOutlineAuto(hasOutlineAuto ? outlineStyleForRepaint().outlineSize() : oldStyle->outlineSize());
     }
+
+    bool shouldCheckIfInAncestorChain = false;
+    if (frame().settings().cssScrollAnchoringEnabled() && (style().outOfFlowPositionStyleDidChange(oldStyle) || (shouldCheckIfInAncestorChain = style().scrollAnchoringSuppressionStyleDidChange(oldStyle)))) {
+        LOG_WITH_STREAM(ScrollAnchoring, stream << "RenderElement::styleDidChange() found node with style change: " << *this << " from: " << oldStyle->position() <<" to: " << style().position());
+        auto* controller = findScrollAnchoringControllerForRenderer(*this);
+        if (controller && (!shouldCheckIfInAncestorChain || (shouldCheckIfInAncestorChain && controller->isInScrollAnchoringAncestorChain(*this))))
+            controller->notifyChildHadSuppressingStyleChange();
+    }
 }
 
 void RenderElement::insertedIntoTree(IsInternalMove isInternalMove)
@@ -1240,7 +1249,7 @@ static bool mustRepaintBackgroundOrBorder(const RenderElement& renderer)
     return false;
 }
 
-bool RenderElement::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repaintContainer, const LayoutRect& oldClippedOverflowRect, const LayoutRect& oldOutlineAndBoxShadowBox, const LayoutRect* newClippedOverflowRectPtr, const LayoutRect* newOutlineAndBoxShadowBoxRectPtr)
+bool RenderElement::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repaintContainer, RequiresFullRepaint requiresFullRepaint, const LayoutRect& oldClippedOverflowRect, const LayoutRect& oldOutlineAndBoxShadowBox, const LayoutRect* newClippedOverflowRectPtr, const LayoutRect* newOutlineAndBoxShadowBoxRectPtr)
 {
     if (view().printing())
         return false; // Don't repaint if we're printing.
@@ -1250,7 +1259,7 @@ bool RenderElement::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* rep
     LayoutRect newClippedOverflowRect = newClippedOverflowRectPtr ? *newClippedOverflowRectPtr : clippedOverflowRectForRepaint(repaintContainer);
     LayoutRect newOutlineAndBoxShadowBox;
 
-    bool fullRepaint = selfNeedsLayout();
+    bool fullRepaint = requiresFullRepaint == RequiresFullRepaint::Yes;
 
     if (!fullRepaint && oldClippedOverflowRect != newClippedOverflowRect && style().hasBorderRadius()) {
         auto oldRadius = style().getRoundedBorderFor(oldClippedOverflowRect).radii();
@@ -1270,9 +1279,14 @@ bool RenderElement::repaintAfterLayoutIfNeeded(const RenderLayerModelObject* rep
         repaintContainer = &view();
 
     if (fullRepaint) {
-        repaintUsingContainer(repaintContainer, oldClippedOverflowRect);
-        if (newClippedOverflowRect != oldClippedOverflowRect)
+        if (newClippedOverflowRect.contains(oldClippedOverflowRect))
             repaintUsingContainer(repaintContainer, newClippedOverflowRect);
+        else if (oldClippedOverflowRect.contains(newClippedOverflowRect))
+            repaintUsingContainer(repaintContainer, oldClippedOverflowRect);
+        else {
+            repaintUsingContainer(repaintContainer, oldClippedOverflowRect);
+            repaintUsingContainer(repaintContainer, newClippedOverflowRect);
+        }
         return true;
     }
 
@@ -2117,7 +2131,7 @@ void RenderElement::adjustComputedFontSizesOnBlocks(float size, float visibleWid
             depthStack.append(newFixedDepth);
 
         int stackSize = depthStack.size();
-        if (is<RenderBlockFlow>(*descendant) && !descendant->isListItem() && (!stackSize || currentDepth - depthStack[stackSize - 1] > TextAutoSizingFixedHeightDepth))
+        if (is<RenderBlockFlow>(*descendant) && !descendant->isRenderListItem() && (!stackSize || currentDepth - depthStack[stackSize - 1] > TextAutoSizingFixedHeightDepth))
             downcast<RenderBlockFlow>(*descendant).adjustComputedFontSizes(size, visibleWidth);
         newFixedDepth = 0;
     }
@@ -2147,7 +2161,7 @@ void RenderElement::resetTextAutosizing()
             depthStack.append(newFixedDepth);
 
         int stackSize = depthStack.size();
-        if (is<RenderBlockFlow>(*descendant) && !descendant->isListItem() && (!stackSize || currentDepth - depthStack[stackSize - 1] > TextAutoSizingFixedHeightDepth))
+        if (is<RenderBlockFlow>(*descendant) && !descendant->isRenderListItem() && (!stackSize || currentDepth - depthStack[stackSize - 1] > TextAutoSizingFixedHeightDepth))
             downcast<RenderBlockFlow>(*descendant).resetComputedFontSize();
         newFixedDepth = 0;
     }
@@ -2201,7 +2215,7 @@ bool RenderElement::createsNewFormattingContext() const
     if (isWritingModeRoot() && isBlockContainer())
         return true;
     return isInlineBlockOrInlineTable() || isFlexItemIncludingDeprecated()
-        || isTableCell() || isTableCaption() || isFieldset() || isDocumentElementRenderer() || isRenderFragmentedFlow() || isSVGForeignObject()
+        || isRenderTableCell() || isRenderTableCaption() || isFieldset() || isDocumentElementRenderer() || isRenderFragmentedFlow() || isRenderSVGForeignObject()
         || style().specifiesColumns() || style().columnSpan() == ColumnSpan::All || style().display() == DisplayType::FlowRoot || establishesIndependentFormattingContext();
 }
 
@@ -2239,7 +2253,7 @@ FloatRect RenderElement::referenceBoxRect(CSSBoxType boxType) const
         // including a translation to the enclosing transformed ancestor ('offsetFromAncestor').
         // Avoid that, and move by -nominalSVGLayoutLocation().
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
-        if (isSVGLayerAwareRenderer() && !isSVGRoot() && document().settings().layerBasedSVGEngineEnabled())
+        if (isSVGLayerAwareRenderer() && !isRenderSVGRoot() && document().settings().layerBasedSVGEngineEnabled())
             referenceBox.moveBy(-downcast<RenderLayerModelObject>(*this).nominalSVGLayoutLocation());
 #endif
         return referenceBox;

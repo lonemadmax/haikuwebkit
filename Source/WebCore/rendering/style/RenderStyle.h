@@ -98,7 +98,7 @@ class WillChangeData;
 enum CSSPropertyID : uint16_t;
 enum GridAutoFlow : uint8_t;
 enum PageSizeType : uint8_t;
-enum PaginationMode : uint8_t;
+enum class PaginationMode : uint8_t;
 
 enum class ApplePayButtonStyle : uint8_t;
 enum class ApplePayButtonType : uint8_t;
@@ -1096,6 +1096,11 @@ public:
     inline void setMinHeight(Length&&);
     inline void setMaxHeight(Length&&);
 
+    inline void setLogicalMinWidth(Length&&);
+    inline void setLogicalMaxWidth(Length&&);
+    inline void setLogicalMinHeight(Length&&);
+    inline void setLogicalMaxHeight(Length&&);
+
     inline void resetBorder();
     inline void resetBorderExceptRadius();
     inline void resetBorderTop();
@@ -1301,6 +1306,8 @@ public:
     inline void setMarginRight(Length&&);
     void setMarginStart(Length&&);
     void setMarginEnd(Length&&);
+    void setMarginBefore(Length&&);
+    void setMarginAfter(Length&&);
 
     inline void resetPadding();
     inline void setPaddingBox(LengthBox&&);
@@ -2135,6 +2142,8 @@ public:
     static constexpr BlockStepInsert initialBlockStepInsert();
     inline BlockStepInsert blockStepInsert() const;
     inline void setBlockStepInsert(BlockStepInsert);
+    bool scrollAnchoringSuppressionStyleDidChange(const RenderStyle*) const;
+    bool outOfFlowPositionStyleDidChange(const RenderStyle*) const;
 
 private:
     struct NonInheritedFlags {

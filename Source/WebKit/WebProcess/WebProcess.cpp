@@ -285,6 +285,12 @@ WebProcess::WebProcess()
 #endif
     , m_cacheStorageProvider(WebCacheStorageProvider::create())
     , m_badgeClient(WebBadgeClient::create())
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
+    , m_remoteMediaPlayerManager(RemoteMediaPlayerManager::create())
+#endif
+#if ENABLE(GPU_PROCESS) && HAVE(AVASSETREADER)
+    , m_remoteImageDecoderAVFManager(RemoteImageDecoderAVFManager::create())
+#endif
     , m_broadcastChannelRegistry(WebBroadcastChannelRegistry::create())
     , m_cookieJar(WebCookieJar::create())
     , m_dnsPrefetchHystereris([this](PAL::HysteresisState state) { if (state == PAL::HysteresisState::Stopped) m_dnsPrefetchedHosts.clear(); })
@@ -313,14 +319,6 @@ WebProcess::WebProcess()
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     addSupplement<UserMediaCaptureManager>();
-#endif
-
-#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
-    addSupplement<RemoteMediaPlayerManager>();
-#endif
-
-#if ENABLE(GPU_PROCESS) && HAVE(AVASSETREADER)
-    addSupplement<RemoteImageDecoderAVFManager>();
 #endif
 
 #if ENABLE(GPU_PROCESS) && ENABLE(ENCRYPTED_MEDIA)
@@ -507,6 +505,9 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 
     for (auto& supplement : m_supplements.values())
         supplement->initialize(parameters);
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
+    m_remoteMediaPlayerManager->initialize(parameters);
+#endif
 
     setCacheModel(parameters.cacheModel);
 
@@ -840,6 +841,7 @@ void WebProcess::createWebPage(PageIdentifier pageID, WebPageCreationParameters&
     // It is necessary to check for page existence here since during a window.open() (or targeted
     // link) the WebPage gets created both in the synchronous handler and through the normal way. 
     auto result = m_pageMap.add(pageID, nullptr);
+    m_hasEverHadAnyWebPages = true;
     if (result.isNewEntry) {
         ASSERT(!result.iterator->value);
         auto page = WebPage::create(pageID, WTFMove(parameters));

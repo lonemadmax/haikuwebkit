@@ -52,12 +52,7 @@ static std::atomic<size_t> s_activePixelMemory { 0 };
 
 namespace WebCore {
 
-#if USE(CG)
 constexpr InterpolationQuality defaultInterpolationQuality = InterpolationQuality::Low;
-#else
-constexpr InterpolationQuality defaultInterpolationQuality = InterpolationQuality::Medium;
-#endif
-
 static std::optional<size_t> maxCanvasAreaForTesting;
 
 CanvasBase::CanvasBase(IntSize size, const std::optional<NoiseInjectionHashSalt>& noiseHashSalt)
@@ -185,11 +180,14 @@ void CanvasBase::notifyObserversCanvasChanged(const std::optional<FloatRect>& re
 void CanvasBase::didDraw(const std::optional<FloatRect>& rect, ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
 {
     // FIXME: We should exclude rects with ShouldApplyPostProcessingToDirtyRect::No
-    if (shouldInjectNoiseBeforeReadback() && shouldApplyPostProcessingToDirtyRect == ShouldApplyPostProcessingToDirtyRect::Yes) {
-        if (rect)
-            m_canvasNoiseInjection.updateDirtyRect(intersection(enclosingIntRect(*rect), { { }, size() }));
-        else
-            m_canvasNoiseInjection.updateDirtyRect({ { }, size() });
+    if (shouldInjectNoiseBeforeReadback()) {
+        if (shouldApplyPostProcessingToDirtyRect == ShouldApplyPostProcessingToDirtyRect::Yes) {
+            if (rect)
+                m_canvasNoiseInjection.updateDirtyRect(intersection(enclosingIntRect(*rect), { { }, size() }));
+            else
+                m_canvasNoiseInjection.updateDirtyRect({ { }, size() });
+        } else if (!rect)
+            m_canvasNoiseInjection.clearDirtyRect();
     }
 }
 

@@ -81,7 +81,6 @@ class SerializedType(object):
         self.alias = None
         self.condition = condition
         self.encoders = ['Encoder']
-        self.serialize_with_function_calls = False
         self.return_ref = False
         self.create_using = False
         self.populate_from_empty_constructor = False
@@ -585,10 +584,10 @@ def encode_type(type):
             result.append('    if (instance.' + bits_variable_name + ' & ' + member.optional_tuple_bit() + ')')
             result.append('        encoder << instance.' + member.name + ';')
         else:
-            if type.rvalue and not type.serialize_with_function_calls:
-                result.append('    encoder << WTFMove(instance.' + member.name + ('()' if type.serialize_with_function_calls else '') + ');')
+            if type.rvalue and '()' not in member.name:
+                result.append('    encoder << WTFMove(instance.' + member.name + ');')
             else:
-                result.append('    encoder << instance.' + member.name + ('()' if type.serialize_with_function_calls else '') + ';')
+                result.append('    encoder << instance.' + member.name + ';')
         if member.condition is not None:
             result.append('#endif')
 
@@ -633,7 +632,7 @@ def decode_type(type):
         if len(decodable_classes) == 1:
             match = re.search("RetainPtr<(.*)>", member.type)
             assert match
-            result.append('    auto ' + sanitized_variable_name + ' = IPC::decode<' + match.groups()[0] + '>(decoder, @[ ' + decodable_classes[0] + ' ]);')
+            result.append('    auto ' + sanitized_variable_name + ' = decoder.decodeWithAllowedClasses<' + match.groups()[0] + '>({ ' + decodable_classes[0] + ' });')
         elif member.is_subclass:
             result.append('    if (type == ' + type.subclass_enum_name() + "::" + member.name + ') {')
             typename = member.namespace + "::" + member.name

@@ -107,7 +107,7 @@ static RefPtr<ShaderModule> earlyCompileShaderModule(Device& device, std::varian
 
 Ref<ShaderModule> Device::createShaderModule(const WGPUShaderModuleDescriptor& descriptor)
 {
-    if (!descriptor.nextInChain)
+    if (!descriptor.nextInChain || !isValid())
         return ShaderModule::createInvalid(*this);
 
     auto shaderModuleParameters = findShaderModuleParameters(descriptor);
@@ -368,7 +368,8 @@ WGSL::PipelineLayout ShaderModule::convertPipelineLayout(const PipelineLayout& p
             wgslEntry.vertexBufferDynamicOffset = entry.value.vertexDynamicOffset;
             wgslEntry.fragmentArgumentBufferIndex = entry.value.argumentBufferIndices[WebGPU::ShaderStage::Fragment];
             wgslEntry.fragmentArgumentBufferSizeIndex = entry.value.bufferSizeArgumentBufferIndices[WebGPU::ShaderStage::Fragment];
-            wgslEntry.fragmentBufferDynamicOffset = entry.value.fragmentDynamicOffset;
+            if (entry.value.fragmentDynamicOffset)
+                wgslEntry.fragmentBufferDynamicOffset = *entry.value.fragmentDynamicOffset + 2;
             wgslEntry.computeArgumentBufferIndex = entry.value.argumentBufferIndices[WebGPU::ShaderStage::Compute];
             wgslEntry.computeArgumentBufferSizeIndex = entry.value.bufferSizeArgumentBufferIndices[WebGPU::ShaderStage::Compute];
             wgslEntry.computeBufferDynamicOffset = entry.value.computeDynamicOffset;

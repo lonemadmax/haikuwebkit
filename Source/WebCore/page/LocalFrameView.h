@@ -747,6 +747,7 @@ public:
     void updateScrollAnchoringElement() final;
     void updateScrollPositionForScrollAnchoringController() final;
     void invalidateScrollAnchoringElement() final;
+    ScrollAnchoringController* scrollAnchoringController() { return m_scrollAnchoringController.get(); }
 
 private:
     explicit LocalFrameView(LocalFrame&);
@@ -879,7 +880,7 @@ private:
 
     void updateEmbeddedObjectsTimerFired();
     bool updateEmbeddedObjects();
-    void updateEmbeddedObject(RenderEmbeddedObject&);
+    void updateEmbeddedObject(const WeakPtr<RenderEmbeddedObject>&);
 
     void updateWidgetPositionsTimerFired();
 

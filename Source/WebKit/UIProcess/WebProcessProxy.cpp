@@ -199,6 +199,11 @@ Vector<Ref<WebPageProxy>> WebProcessProxy::pages() const
     });
 }
 
+Vector<WeakPtr<RemotePageProxy>> WebProcessProxy::remotePages() const
+{
+    return WTF::copyToVector(m_remotePages);
+}
+
 void WebProcessProxy::forWebPagesWithOrigin(PAL::SessionID sessionID, const SecurityOriginData& origin, const Function<void(WebPageProxy&)>& callback)
 {
     for (Ref page : globalPages()) {
@@ -339,8 +344,8 @@ WebProcessProxy::~WebProcessProxy()
     WebPasteboardProxy::singleton().removeWebProcessProxy(*this);
 
 #if HAVE(DISPLAY_LINK)
-    // Prewarmed / cached processes may not have a process pool on destruction.
-    if (RefPtr processPool = m_processPool.get())
+    // Unable to ref the process pool as it may have started destruction.
+    if (auto* processPool = m_processPool.get())
         processPool->displayLinks().stopDisplayLinks(m_displayLinkClient);
 #endif
 
@@ -553,7 +558,7 @@ bool WebProcessProxy::shouldSendPendingMessage(const PendingMessage& message)
         if (decoder->decode(loadParameters) && decoder->decode(resourceDirectoryURL) && decoder->decode(pageID) && decoder->decode(checkAssumedReadAccessToResourceURL)) {
             if (RefPtr page = WebProcessProxy::webPage(pageID)) {
                 page->maybeInitializeSandboxExtensionHandle(static_cast<WebProcessProxy&>(*this), loadParameters.request.url(), resourceDirectoryURL, loadParameters.sandboxExtensionHandle, checkAssumedReadAccessToResourceURL);
-                send(Messages::WebPage::LoadRequest(loadParameters), decoder->destinationID());
+                send(Messages::WebPage::LoadRequest(WTFMove(loadParameters)), decoder->destinationID());
             }
         } else
             ASSERT_NOT_REACHED();
@@ -578,7 +583,7 @@ bool WebProcessProxy::shouldSendPendingMessage(const PendingMessage& message)
             if (RefPtr item = WebBackForwardListItem::itemForID(parameters->backForwardItemID))
                 page->maybeInitializeSandboxExtensionHandle(static_cast<WebProcessProxy&>(*this), URL { item->url() }, item->resourceDirectoryURL(), parameters->sandboxExtensionHandle);
         }
-        send(Messages::WebPage::GoToBackForwardItem(*parameters), decoder->destinationID());
+        send(Messages::WebPage::GoToBackForwardItem(WTFMove(*parameters)), decoder->destinationID());
         return false;
     }
     return true;
@@ -1275,14 +1280,7 @@ void WebProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
 #endif
 
 #if USE(RUNNINGBOARD)
-#if USE(EXTENSIONKIT_ASSERTIONS)
-    m_throttler.didConnectToProcess(extensionProcess());
-#else
-    if (connection()) {
-        if (xpc_connection_t xpcConnection = connection()->xpcConnection())
-            m_throttler.didConnectToProcess(xpc_connection_get_pid(xpcConnection));
-    }
-#endif // USE(EXTENSIONKIT_ASSERTIONS)
+    m_throttler.didConnectToProcess(*this);
 #if PLATFORM(MAC)
     for (Ref page : pages()) {
         if (page->preferences().backgroundWebContentRunningBoardThrottlingEnabled())
@@ -1821,7 +1819,7 @@ void WebProcessProxy::updateAudibleMediaAssertions()
     if (hasAudibleWebPage) {
         WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "updateAudibleMediaAssertions: Taking MediaPlayback assertion for WebProcess");
         m_audibleMediaActivity = AudibleMediaActivity {
-            ProcessAssertion::create(processID(), "WebKit Media Playback"_s, ProcessAssertionType::MediaPlayback),
+            ProcessAssertion::create(*this, "WebKit Media Playback"_s, ProcessAssertionType::MediaPlayback),
             processPool().webProcessWithAudibleMediaToken()
         };
     } else {

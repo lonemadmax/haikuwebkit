@@ -131,7 +131,6 @@ public:
     void setBufferedDirty(bool flag);
 
     MediaTime highestPresentationTimestamp() const;
-    void readyStateChanged();
 
     size_t memoryCost() const;
 
@@ -165,7 +164,6 @@ private:
 
     // SourceBufferPrivateClient
     void sourceBufferPrivateDidReceiveInitializationSegment(InitializationSegment&&, CompletionHandler<void(ReceiveResult)>&&) final;
-    void sourceBufferPrivateStreamEndedWithDecodeError() final;
     void sourceBufferPrivateAppendComplete(AppendResult) final;
     void sourceBufferPrivateBufferedChanged(const PlatformTimeRanges&, CompletionHandler<void()>&&) final;
     void sourceBufferPrivateHighestPresentationTimestampChanged(const MediaTime&) final;

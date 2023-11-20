@@ -461,6 +461,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSRuleList.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSRuleList.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSScale.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSScale.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSScopeRule.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSScopeRule.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSSkew.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSSkew.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSSkewX.cpp
@@ -2742,6 +2744,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScreenOrientation.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScreenOrientation.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScriptProcessorNode.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScriptProcessorNode.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollAxis.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollAxis.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollBehavior.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollBehavior.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollIntoViewOptions.cpp
@@ -2750,6 +2754,10 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollLogicalPosition.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollLogicalPosition.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollOptions.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollOptions.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollTimeline.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollTimeline.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollTimelineOptions.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollTimelineOptions.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollToOptions.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSScrollToOptions.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSSecurityPolicyViolationEvent.cpp
@@ -2978,6 +2986,10 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSVideoTrackMediaSource.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSVideoTrackMediaSource.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSVideoTransferCharacteristics.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSVideoTransferCharacteristics.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSViewTimeline.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSViewTimeline.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSViewTimelineOptions.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSViewTimelineOptions.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSVisibilityState.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSVisibilityState.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSVisualViewport.cpp

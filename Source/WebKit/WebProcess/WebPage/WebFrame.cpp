@@ -91,7 +91,7 @@
 #include <WebCore/RemoteDOMWindow.h>
 #include <WebCore/RemoteFrame.h>
 #include <WebCore/RemoteFrameView.h>
-#include <WebCore/RemoteMouseEventData.h>
+#include <WebCore/RemoteUserInputEventData.h>
 #include <WebCore/RenderLayerCompositor.h>
 #include <WebCore/RenderTreeAsText.h>
 #include <WebCore/RenderView.h>
@@ -160,7 +160,7 @@ Ref<WebFrame> WebFrame::createRemoteSubframe(WebPage& page, WebFrame& parent, We
     auto coreFrame = RemoteFrame::createSubframe(*page.corePage(), WTFMove(client), frameID, *parent.coreFrame());
     frame->m_coreFrame = coreFrame.get();
 
-    // FIXME: Pass in a name and call FrameTree::setName here. <rdar://116201307>
+    // FIXME: Pass in a name and call FrameTree::setSpecifiedName here. <rdar://116201307>
     return frame;
 }
 
@@ -199,6 +199,11 @@ WebPage* WebFrame::page() const
 
     auto* page = m_coreFrame->page();
     return page ? WebPage::fromCorePage(*page) : nullptr;
+}
+
+RefPtr<WebPage> WebFrame::protectedPage() const
+{
+    return page();
 }
 
 RefPtr<WebFrame> WebFrame::fromCoreFrame(const Frame& frame)
@@ -363,15 +368,13 @@ void WebFrame::didCommitLoadInAnotherProcess(std::optional<WebCore::LayerHosting
     auto client = makeUniqueRef<WebRemoteFrameClient>(*this, WTFMove(invalidator));
     auto newFrame = ownerElement
         ? WebCore::RemoteFrame::createSubframeWithContentsInAnotherProcess(*corePage, WTFMove(client), m_frameID, *ownerElement, layerHostingContextIdentifier)
-        : parent ? WebCore::RemoteFrame::createSubframe(*corePage, WTFMove(client), m_frameID, *parent) : WebCore::RemoteFrame::createMainFrame(*corePage, WTFMove(client), m_frameID);
-
-    if (!parent)
+        : parent ? WebCore::RemoteFrame::createSubframe(*corePage, WTFMove(client), m_frameID, *parent) : WebCore::RemoteFrame::createMainFrame(*corePage, WTFMove(client), m_frameID, localFrame->loader().opener());
+    if (!parent) {
+        corePage->setMainFrame(newFrame.copyRef());
         newFrame->takeWindowProxyFrom(*localFrame);
-    auto remoteFrameView = WebCore::RemoteFrameView::create(newFrame);
-    // FIXME: We need a corresponding setView(nullptr) during teardown to break the ref cycle. <rdar://116200737>
-    newFrame->setView(remoteFrameView.ptr());
+    }
     if (ownerRenderer)
-        ownerRenderer->setWidget(remoteFrameView.ptr());
+        ownerRenderer->setWidget(newFrame->view());
 
     m_coreFrame = newFrame.get();
 
@@ -1103,9 +1106,9 @@ void WebFrame::setTextDirection(const String& direction)
         localFrame->editor().setBaseWritingDirection(WritingDirection::RightToLeft);
 }
 
-void WebFrame::documentLoaderDetached(uint64_t navigationID)
+void WebFrame::documentLoaderDetached(uint64_t navigationID, bool loadWillContinueInAnotherProcess)
 {
-    if (auto* page = this->page())
+    if (auto* page = this->page(); page && !loadWillContinueInAnotherProcess)
         page->send(Messages::WebPageProxy::DidDestroyNavigation(navigationID));
 }
 

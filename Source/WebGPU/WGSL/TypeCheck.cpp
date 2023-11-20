@@ -381,11 +381,13 @@ void TypeChecker::visitVariable(AST::Variable& variable, VariableKind variableKi
             }
         } else if (unify(result, initializerType))
             variable.maybeInitializer()->m_inferredType = result;
-        else
+        else {
             typeError(InferBottom::No, variable.span(), "cannot initialize var of type '", *result, "' with value of type '", *initializerType, "'");
+            result = m_types.bottomType();
+        }
     }
 
-    if (value)
+    if (value && !isBottom(result))
         convertValue(variable.span(), result, *value);
 
     if (variable.flavor() == AST::VariableFlavor::Const && result != m_types.bottomType()) {
@@ -574,15 +576,23 @@ void TypeChecker::visit(AST::CompoundAssignmentStatement& statement)
     infer(statement.leftExpression());
     infer(statement.rightExpression());
 
-    if (statement.operation() == AST::BinaryOperation::Divide) {
+    const char* operationName = nullptr;
+    if (statement.operation() == AST::BinaryOperation::Divide)
+        operationName = "division";
+    else if (statement.operation() == AST::BinaryOperation::Modulo)
+        operationName = "modulo";
+    if (operationName) {
         auto* rightType = statement.rightExpression().inferredType();
         if (auto* vectorType = std::get_if<Types::Vector>(rightType))
             rightType = vectorType->element;
         if (satisfies(rightType, Constraints::Integer)) {
-            m_shaderModule.setUsesDivision();
+            if (statement.operation() == AST::BinaryOperation::Divide)
+                m_shaderModule.setUsesDivision();
+            else
+                m_shaderModule.setUsesModulo();
             auto rightValue = statement.rightExpression().constantValue();
             if (rightValue && containsZero(*rightValue, statement.rightExpression().inferredType()))
-                typeError(InferBottom::No, statement.span(), "invalid division by zero");
+                typeError(InferBottom::No, statement.span(), "invalid ", operationName, " by zero");
         }
     }
 }
@@ -745,6 +755,20 @@ void TypeChecker::visit(AST::FieldAccessExpression& access)
             return it->value;
         }
 
+        if (auto* primitiveStruct = std::get_if<Types::PrimitiveStruct>(baseType)) {
+            const auto& keys = Types::PrimitiveStruct::keys[primitiveStruct->kind];
+            auto* key = keys.tryGet(access.fieldName().id());
+            if (!key) {
+                typeError(access.span(), "struct '", *baseType, "' does not have a member called '", access.fieldName(), "'");
+                return nullptr;
+            }
+            if (auto constant = access.base().constantValue()) {
+                auto& constantStruct = std::get<ConstantStruct>(*constant);
+                access.setConstantValue(constantStruct.fields.get(access.fieldName().id()));
+            }
+            return primitiveStruct->values[*key];
+        }
+
         if (std::holds_alternative<Types::Vector>(*baseType)) {
             auto& vector = std::get<Types::Vector>(*baseType);
             auto* result = vectorFieldAccess(vector, access);
@@ -774,6 +798,23 @@ void TypeChecker::visit(AST::FieldAccessExpression& access)
 
 void TypeChecker::visit(AST::IndexAccessExpression& access)
 {
+    const auto& constantAccess = [&]<typename T>() {
+        auto constantBase = access.base().constantValue();
+        auto constantIndex = access.index().constantValue();
+        bool isConstant = constantBase && constantIndex;
+
+        if (!isConstant)
+            return;
+
+        auto constant = std::get<T>(*constantBase);
+        auto index = constantIndex->integerValue();
+        auto size = constant.upperBound();
+        if (index < 0 || static_cast<size_t>(index) >= size)
+            typeError(InferBottom::No, access.span(), "index ", String::number(index), " is out of bounds [0..", String::number(size - 1), "]");
+        else
+            access.setConstantValue(constant[index]);
+    };
+
     const auto& accessImpl = [&](const Type* base) -> const Type* {
         if (isBottom(base))
             return m_types.bottomType();
@@ -781,14 +822,14 @@ void TypeChecker::visit(AST::IndexAccessExpression& access)
 
         const Type* result = nullptr;
         if (auto* array = std::get_if<Types::Array>(base)) {
-            // FIXME: check bounds if index is constant
             result = array->element;
+            constantAccess.operator()<ConstantArray>();
         } else if (auto* vector = std::get_if<Types::Vector>(base)) {
-            // FIXME: check bounds if index is constant
             result = vector->element;
+            constantAccess.operator()<ConstantVector>();
         } else if (auto* matrix = std::get_if<Types::Matrix>(base)) {
-            // FIXME: check bounds if index is constant
             result = m_types.vectorType(matrix->rows, matrix->element);
+            constantAccess.operator()<ConstantMatrix>();
         }
 
         if (!result) {
@@ -825,16 +866,24 @@ void TypeChecker::visit(AST::BinaryExpression& binary)
 {
     chooseOverload("operator", binary, toString(binary.operation()), ReferenceWrapperVector<AST::Expression, 2> { binary.leftExpression(), binary.rightExpression() }, { });
 
-    if (binary.operation() == AST::BinaryOperation::Divide) {
+    const char* operationName = nullptr;
+    if (binary.operation() == AST::BinaryOperation::Divide)
+        operationName = "division";
+    else if (binary.operation() == AST::BinaryOperation::Modulo)
+        operationName = "modulo";
+    if (operationName) {
         auto* rightType = binary.rightExpression().inferredType();
         if (auto* vectorType = std::get_if<Types::Vector>(rightType))
             rightType = vectorType->element;
         if (satisfies(rightType, Constraints::Integer)) {
-            m_shaderModule.setUsesDivision();
+            if (binary.operation() == AST::BinaryOperation::Divide)
+                m_shaderModule.setUsesDivision();
+            else
+                m_shaderModule.setUsesModulo();
             auto leftValue = binary.leftExpression().constantValue();
             auto rightValue = binary.rightExpression().constantValue();
             if (!leftValue && rightValue && containsZero(*rightValue, binary.rightExpression().inferredType()))
-                typeError(InferBottom::No, binary.span(), "invalid division by zero");
+                typeError(InferBottom::No, binary.span(), "invalid ", operationName, " by zero");
         }
     }
 }
@@ -961,6 +1010,8 @@ void TypeChecker::visit(AST::CallExpression& call)
             // FIXME: this will go away once we track used intrinsics properly
             if (targetName == "workgroupUniformLoad"_s)
                 m_shaderModule.setUsesWorkgroupUniformLoad();
+            else if (targetName == "frexp"_s)
+                m_shaderModule.setUsesFrexp();
             target.m_inferredType = result;
             return;
         }
@@ -1350,7 +1401,7 @@ const Type* TypeChecker::chooseOverload(const char* kind, AST::Expression& expre
                 auto result = constantFunction(overload->result, WTFMove(arguments));
                 if (!result)
                     typeError(InferBottom::No, expression.span(), result.error());
-                else
+                else if (convertValue(expression.span(), overload->result, *result))
                     setConstantValue(expression, WTFMove(*result));
             }
         }
@@ -1634,6 +1685,18 @@ bool TypeChecker::convertValue(const SourceSpan& span, const Type* type, Constan
         [&](const Types::Struct&) -> Conversion {
             // FIXME: this should be supported
             RELEASE_ASSERT_NOT_REACHED();
+        },
+        [&](const Types::PrimitiveStruct& primitiveStruct) -> Conversion {
+            auto& constantStruct = std::get<ConstantStruct>(value);
+            const auto& keys = Types::PrimitiveStruct::keys[primitiveStruct.kind];
+            for (auto& entry : constantStruct.fields) {
+                auto* key = keys.tryGet(entry.key);
+                RELEASE_ASSERT(key);
+                auto* type = primitiveStruct.values[*key];
+                if (!convertValue(span, type, entry.value, explicitConversion))
+                    return FailedInner;
+            }
+            return Success;
         },
         [&](const Types::Function&) -> Conversion {
             RELEASE_ASSERT_NOT_REACHED();

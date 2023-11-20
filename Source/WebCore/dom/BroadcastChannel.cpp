@@ -96,7 +96,7 @@ BroadcastChannel::MainThreadBridge::MainThreadBridge(BroadcastChannel& channel, 
     : m_broadcastChannel(channel)
     , m_identifier(BroadcastChannelIdentifier::generate())
     , m_name(name.isolatedCopy())
-    , m_origin(partitionedSecurityOriginFromContext(*channel.scriptExecutionContext()).isolatedCopy())
+    , m_origin(partitionedSecurityOriginFromContext(*channel.protectedScriptExecutionContext()).isolatedCopy())
 {
 }
 
@@ -195,7 +195,7 @@ ExceptionOr<void> BroadcastChannel::postMessage(JSC::JSGlobalObject& globalObjec
         return { };
 
     if (m_isClosed)
-        return Exception { InvalidStateError, "This BroadcastChannel is closed"_s };
+        return Exception { ExceptionCode::InvalidStateError, "This BroadcastChannel is closed"_s };
 
     Vector<RefPtr<MessagePort>> ports;
     auto messageData = SerializedScriptValue::create(globalObject, message, { }, ports, SerializationForStorage::No, SerializationContext::WorkerPostMessage);

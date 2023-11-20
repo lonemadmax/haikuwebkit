@@ -311,7 +311,7 @@ void DataTransfer::didAddFileToItemList()
 DataTransferItemList& DataTransfer::items(Document& document)
 {
     if (!m_itemList)
-        m_itemList = makeUnique<DataTransferItemList>(document, *this);
+        m_itemList = makeUniqueWithoutRefCountedCheck<DataTransferItemList>(document, *this);
     return *m_itemList;
 }
 
@@ -539,8 +539,8 @@ void DataTransfer::setDragImage(Element& element, int x, int y)
         return;
 
     CachedResourceHandle<CachedImage> image;
-    if (is<HTMLImageElement>(element) && !element.isConnected())
-        image = downcast<HTMLImageElement>(element).cachedImage();
+    if (auto* imageElement = dynamicDowncast<HTMLImageElement>(element); imageElement && !imageElement->isConnected())
+        image = imageElement->cachedImage();
 
     m_dragLocation = IntPoint(x, y);
 

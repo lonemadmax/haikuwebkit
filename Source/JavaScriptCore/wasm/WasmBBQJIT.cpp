@@ -1697,7 +1697,6 @@ public:
             Location resultLocation = allocate(result);
             switch (type.kind) {
             case TypeKind::I32:
-            case TypeKind::I31ref:
                 m_jit.load32(Address(wasmScratchGPR), resultLocation.asGPR());
                 break;
             case TypeKind::I64:
@@ -1724,6 +1723,7 @@ public:
             case TypeKind::Externref:
             case TypeKind::Array:
             case TypeKind::Arrayref:
+            case TypeKind::I31ref:
             case TypeKind::Eqref:
             case TypeKind::Anyref:
             case TypeKind::Nullref:
@@ -1815,7 +1815,6 @@ public:
 
             switch (type.kind) {
             case TypeKind::I32:
-            case TypeKind::I31ref:
                 m_jit.store32(valueLocation.asGPR(), Address(wasmScratchGPR));
                 break;
             case TypeKind::I64:
@@ -1842,6 +1841,7 @@ public:
             case TypeKind::Externref:
             case TypeKind::Array:
             case TypeKind::Arrayref:
+            case TypeKind::I31ref:
             case TypeKind::Eqref:
             case TypeKind::Anyref:
             case TypeKind::Nullref:
@@ -3662,7 +3662,7 @@ public:
     PartialResult WARN_UNUSED_RETURN addRefI31(ExpressionType value, ExpressionType& result)
     {
         if (value.isConst()) {
-            result = Value::fromI64((value.asI32() & 0x7fffffff) | JSValue::NumberTag);
+            result = Value::fromI64((((value.asI32() & 0x7fffffff) << 1) >> 1) | JSValue::NumberTag);
             LOG_INSTRUCTION("RefI31", value, RESULT(result));
             return { };
         }
@@ -3676,6 +3676,8 @@ public:
         LOG_INSTRUCTION("RefI31", value, RESULT(result));
 
         m_jit.and32(TrustedImm32(0x7fffffff), initialValue.asGPR(), resultLocation.asGPR());
+        m_jit.lshift32(TrustedImm32(1), resultLocation.asGPR());
+        m_jit.rshift32(TrustedImm32(1), resultLocation.asGPR());
         m_jit.or64(TrustedImm64(JSValue::NumberTag), resultLocation.asGPR());
         return { };
     }
@@ -3707,8 +3709,6 @@ public:
         m_jit.move(initialValue.asGPR(), resultLocation.asGPR());
         emitThrowOnNullReference(ExceptionType::NullI31Get, resultLocation);
 
-        m_jit.lshift32(TrustedImm32(1), resultLocation.asGPR());
-        m_jit.rshift32(TrustedImm32(1), resultLocation.asGPR());
         return { };
     }
 
@@ -3716,7 +3716,7 @@ public:
     {
         if (value.isConst()) {
             if (JSValue::decode(value.asI64()).isNumber())
-                result = Value::fromI32(value.asI64());
+                result = Value::fromI32(value.asI64() & 0x7fffffffu);
             else {
                 emitThrowException(ExceptionType::NullI31Get);
                 result = Value::fromI32(0);
@@ -3738,6 +3738,7 @@ public:
 
         m_jit.move(initialValue.asGPR(), resultLocation.asGPR());
         emitThrowOnNullReference(ExceptionType::NullI31Get, resultLocation);
+        m_jit.and32(TrustedImm32(0x7fffffff), resultLocation.asGPR(), resultLocation.asGPR());
 
         return { };
     }
@@ -4018,10 +4019,26 @@ public:
         unsigned fieldOffset = *structType.offsetOfField(fieldIndex);
         RELEASE_ASSERT((std::numeric_limits<int32_t>::max() & fieldOffset) == fieldOffset);
 
-        TypeKind kind = toValueKind(structType.field(fieldIndex).type.as<Type>().kind);
+        TypeKind kind = toValueKind(structType.field(fieldIndex).type.unpacked().kind);
         if (value.isConst()) {
             switch (kind) {
             case TypeKind::I32:
+                if (structType.field(fieldIndex).type.is<PackedType>()) {
+                    ScratchScope<1, 0> scratches(*this);
+                    // If it's a packed type, we materialize the constant to ensure constant blinding.
+                    emitMoveConst(value, Location::fromGPR(scratches.gpr(0)));
+                    switch (structType.field(fieldIndex).type.as<PackedType>()) {
+                    case PackedType::I8:
+                        m_jit.store8(scratches.gpr(0), MacroAssembler::Address(wasmScratchGPR, fieldOffset));
+                        break;
+                    case PackedType::I16:
+                        m_jit.store16(scratches.gpr(0), MacroAssembler::Address(wasmScratchGPR, fieldOffset));
+                        break;
+                    }
+                    break;
+                }
+                m_jit.store32(MacroAssembler::Imm32(value.asI32()), MacroAssembler::Address(wasmScratchGPR, fieldOffset));
+                break;
             case TypeKind::F32:
                 m_jit.store32(MacroAssembler::Imm32(value.asI32()), MacroAssembler::Address(wasmScratchGPR, fieldOffset));
                 break;
@@ -4039,6 +4056,17 @@ public:
         Location valueLocation = loadIfNecessary(value);
         switch (kind) {
         case TypeKind::I32:
+            if (structType.field(fieldIndex).type.is<PackedType>()) {
+                switch (structType.field(fieldIndex).type.as<PackedType>()) {
+                case PackedType::I8:
+                    m_jit.store8(valueLocation.asGPR(), MacroAssembler::Address(wasmScratchGPR, fieldOffset));
+                    break;
+                case PackedType::I16:
+                    m_jit.store16(valueLocation.asGPR(), MacroAssembler::Address(wasmScratchGPR, fieldOffset));
+                    break;
+                }
+                break;
+            }
             m_jit.store32(valueLocation.asGPR(), MacroAssembler::Address(wasmScratchGPR, fieldOffset));
             break;
         case TypeKind::I64:
@@ -4110,9 +4138,9 @@ public:
         return { };
     }
 
-    PartialResult WARN_UNUSED_RETURN addStructGet(Value structValue, const StructType& structType, uint32_t fieldIndex, Value& result)
+    PartialResult WARN_UNUSED_RETURN addStructGet(ExtGCOpType structGetKind, Value structValue, const StructType& structType, uint32_t fieldIndex, Value& result)
     {
-        TypeKind resultKind = structType.field(fieldIndex).type.as<Type>().kind;
+        TypeKind resultKind = structType.field(fieldIndex).type.unpacked().kind;
         if (structValue.isConst()) {
             // This is the only constant struct currently possible.
             ASSERT(JSValue::decode(structValue.asRef()).isNull());
@@ -4135,6 +4163,32 @@ public:
 
         switch (result.type()) {
         case TypeKind::I32:
+            if (structType.field(fieldIndex).type.is<PackedType>()) {
+                switch (structType.field(fieldIndex).type.as<PackedType>()) {
+                case PackedType::I8:
+                    m_jit.load8(MacroAssembler::Address(wasmScratchGPR, fieldOffset), resultLocation.asGPR());
+                    break;
+                case PackedType::I16:
+                    m_jit.load16(MacroAssembler::Address(wasmScratchGPR, fieldOffset), resultLocation.asGPR());
+                    break;
+                }
+                switch (structGetKind) {
+                case ExtGCOpType::StructGetU:
+                    LOG_INSTRUCTION("StructGetU", structValue, fieldIndex, RESULT(result));
+                    return { };
+                case ExtGCOpType::StructGetS: {
+                    size_t elementSize = structType.field(fieldIndex).type.as<PackedType>() == PackedType::I8 ? sizeof(uint8_t) : sizeof(uint16_t);
+                    uint8_t bitShift = (sizeof(uint32_t) - elementSize) * 8;
+                    m_jit.lshift32(TrustedImm32(bitShift), resultLocation.asGPR());
+                    m_jit.rshift32(TrustedImm32(bitShift), resultLocation.asGPR());
+                    LOG_INSTRUCTION("StructGetS", structValue, fieldIndex, RESULT(result));
+                    return { };
+                }
+                default:
+                    RELEASE_ASSERT_NOT_REACHED();
+                    return { };
+                }
+            }
             m_jit.load32(MacroAssembler::Address(wasmScratchGPR, fieldOffset), resultLocation.asGPR());
             break;
         case TypeKind::I64:
@@ -7505,8 +7559,6 @@ public:
 
         constexpr unsigned minCasesForTable = 7;
         if (minCasesForTable <= targets.size()) {
-            Vector<Box<CCallHelpers::Label>> labels;
-            labels.reserveInitialCapacity(targets.size());
             auto* jumpTable = m_callee.addJumpTable(targets.size());
             auto fallThrough = m_jit.branch32(RelationalCondition::AboveOrEqual, wasmScratchGPR, TrustedImm32(targets.size()));
             m_jit.zeroExtend32ToWord(wasmScratchGPR, wasmScratchGPR);
@@ -7514,19 +7566,19 @@ public:
             m_jit.addPtr(TrustedImmPtr(jumpTable->data()), wasmScratchGPR);
             m_jit.farJump(Address(wasmScratchGPR), JSSwitchPtrTag);
 
-            for (unsigned index = 0; index < targets.size(); ++index) {
-                Box<CCallHelpers::Label> label = Box<CCallHelpers::Label>::create(m_jit.label());
-                labels.append(label);
-                bool isCodeEmitted = currentControlData().addExit(*this, targets[index]->targetLocations(), results);
+            auto labels = WTF::map(targets, [&](auto& target) {
+                auto label = Box<CCallHelpers::Label>::create(m_jit.label());
+                bool isCodeEmitted = currentControlData().addExit(*this, target->targetLocations(), results);
                 if (isCodeEmitted)
-                    targets[index]->addBranch(m_jit.jump());
+                    target->addBranch(m_jit.jump());
                 else {
                     // It is common that we do not need to emit anything before jumping to the target block.
                     // In that case, we put Box<Label> which will be filled later when the end of the block is linked.
                     // We put direct jump to that block in the link task.
-                    targets[index]->addLabel(WTFMove(label));
+                    target->addLabel(Box { label });
                 }
-            }
+                return label;
+            });
 
             m_jit.addLinkTask([labels = WTFMove(labels), jumpTable](LinkBuffer& linkBuffer) {
                 for (unsigned index = 0; index < labels.size(); ++index)

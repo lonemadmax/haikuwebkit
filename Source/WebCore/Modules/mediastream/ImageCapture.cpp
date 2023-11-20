@@ -28,7 +28,9 @@
 
 #if ENABLE(MEDIA_STREAM)
 
+#include "JSBlob.h"
 #include "JSPhotoCapabilities.h"
+#include "TaskSource.h"
 #include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
@@ -38,7 +40,7 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(ImageCapture);
 ExceptionOr<Ref<ImageCapture>> ImageCapture::create(Document& document, Ref<MediaStreamTrack> track)
 {
     if (track->kind() != "video"_s)
-        return Exception { NotSupportedError, "Invalid track kind"_s };
+        return Exception { ExceptionCode::NotSupportedError, "Invalid track kind"_s };
 
     auto imageCapture = adoptRef(*new ImageCapture(document, track));
     imageCapture->suspendIfNeeded();
@@ -53,10 +55,22 @@ ImageCapture::ImageCapture(Document& document, Ref<MediaStreamTrack> track)
 
 ImageCapture::~ImageCapture() = default;
 
+void ImageCapture::takePhoto(PhotoSettings&& settings, DOMPromiseDeferred<IDLInterface<Blob>>&& promise)
+{
+    m_track->takePhoto(WTFMove(settings))->whenSettled(RunLoop::main(), [protectedThis = Ref { *this }, promise = WTFMove(promise)] (auto&& result) mutable {
+        queueTaskKeepingObjectAlive(protectedThis.get(), TaskSource::ImageCapture, [promise = WTFMove(promise), result = WTFMove(result), protectedThis] () mutable {
+            if (result)
+                promise.resolve(Blob::create(protectedThis->scriptExecutionContext(), WTFMove(get<0>(result.value())), WTFMove(get<1>(result.value()))));
+            else
+                promise.reject(WTFMove(result.error()));
+        });
+    });
+}
+
 void ImageCapture::getPhotoCapabilities(PhotoCapabilitiesPromise&& promise)
 {
     if (m_track->readyState() == MediaStreamTrack::State::Ended) {
-        promise.reject(Exception { InvalidStateError, "Track has ended"_s });
+        promise.reject(Exception { ExceptionCode::InvalidStateError, "Track has ended"_s });
         return;
     }
 
@@ -69,7 +83,7 @@ void ImageCapture::getPhotoSettings(PhotoSettingsPromise&& promise)
         // https://w3c.github.io/mediacapture-image/#ref-for-dom-imagecapture-getphotosettings②
         // If the readyState of track provided in the constructor is not live, return a promise
         // rejected with a new DOMException whose name is InvalidStateError, and abort these steps.
-        promise.reject(Exception { InvalidStateError, "Track has ended"_s });
+        promise.reject(Exception { ExceptionCode::InvalidStateError, "Track has ended"_s });
         return;
     }
 

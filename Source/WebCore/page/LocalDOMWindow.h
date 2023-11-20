@@ -145,7 +145,7 @@ public:
     WEBCORE_EXPORT LocalFrame* frame() const final;
     RefPtr<LocalFrame> protectedFrame() const;
 
-    RefPtr<MediaQueryList> matchMedia(const String&);
+    RefPtr<WebCore::MediaQueryList> matchMedia(const String&);
 
     WEBCORE_EXPORT unsigned pendingUnloadEventListeners() const;
 
@@ -347,6 +347,8 @@ public:
 #endif
 
     Performance& performance() const;
+    Ref<Performance> protectedPerformance() const;
+
     WEBCORE_EXPORT ReducedResolutionSeconds nowTimestamp() const;
     void freezeNowTimestamp();
     void unfreezeNowTimestamp();

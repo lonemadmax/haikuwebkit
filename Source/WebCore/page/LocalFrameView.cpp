@@ -168,7 +168,7 @@ Pagination::Mode paginationModeForRenderStyle(const RenderStyle& style)
 {
     auto overflow = style.overflowY();
     if (overflow != Overflow::PagedX && overflow != Overflow::PagedY)
-        return Unpaginated;
+        return Pagination::Mode::Unpaginated;
 
     bool isHorizontalWritingMode = style.isHorizontalWritingMode();
     auto textDirection = style.direction();
@@ -179,16 +179,16 @@ Pagination::Mode paginationModeForRenderStyle(const RenderStyle& style)
     // is vertical, then the block flow direction dictates the choice.
     if (overflow == Overflow::PagedX) {
         if ((isHorizontalWritingMode && textDirection == TextDirection::LTR) || blockFlowDirection == BlockFlowDirection::LeftToRight)
-            return LeftToRightPaginated;
-        return RightToLeftPaginated;
+            return Pagination::Mode::LeftToRightPaginated;
+        return Pagination::Mode::RightToLeftPaginated;
     }
 
     // paged-y always corresponds to TopToBottomPaginated or BottomToTopPaginated. If the WritingMode
     // is horizontal, then the block flow direction dictates the choice. If the WritingMode
     // is vertical, then we use TextDirection to choose between those options. 
     if (blockFlowDirection == BlockFlowDirection::TopToBottom || (!isHorizontalWritingMode && textDirection == TextDirection::RTL))
-        return TopToBottomPaginated;
-    return BottomToTopPaginated;
+        return Pagination::Mode::TopToBottomPaginated;
+    return Pagination::Mode::BottomToTopPaginated;
 }
 
 LocalFrameView::LocalFrameView(LocalFrame& frame)
@@ -2559,7 +2559,7 @@ void LocalFrameView::scrollToFocusedElementInternal()
         updateTarget = updateTarget->shadowHost();
 
     auto* renderer = updateTarget->renderer();
-    if (!renderer || renderer->isWidget())
+    if (!renderer || renderer->isRenderWidget())
         return;
 
     bool insideFixed;
@@ -3751,15 +3751,16 @@ void LocalFrameView::scrollToTextFragmentRange()
     TemporarySelectionChange selectionChange(document, { range }, { TemporarySelectionOption::RevealSelection, TemporarySelectionOption::RevealSelectionBounds, TemporarySelectionOption::UserTriggered, TemporarySelectionOption::ForceCenterScroll });
 }
 
-void LocalFrameView::updateEmbeddedObject(RenderEmbeddedObject& embeddedObject)
+void LocalFrameView::updateEmbeddedObject(const WeakPtr<RenderEmbeddedObject>& embeddedObject)
 {
+    // The to-be-updated renderer is passed in as WeakPtr for convenience, but it will be alive at this point.
+    ASSERT(embeddedObject);
+
     // No need to update if it's already crashed or known to be missing.
-    if (embeddedObject.isPluginUnavailable())
+    if (embeddedObject->isPluginUnavailable())
         return;
 
-    auto& element = embeddedObject.frameOwnerElement();
-
-    WeakPtr weakRenderer { embeddedObject };
+    auto& element = embeddedObject->frameOwnerElement();
 
     if (is<HTMLPlugInImageElement>(element)) {
         auto& pluginElement = downcast<HTMLPlugInImageElement>(element);
@@ -3769,10 +3770,10 @@ void LocalFrameView::updateEmbeddedObject(RenderEmbeddedObject& embeddedObject)
         ASSERT_NOT_REACHED();
 
     // It's possible the renderer was destroyed below updateWidget() since loading a plugin may execute arbitrary JavaScript.
-    if (!weakRenderer)
+    if (!embeddedObject)
         return;
 
-    auto ignoreWidgetState = embeddedObject.updateWidgetPosition();
+    auto ignoreWidgetState = embeddedObject->updateWidgetPosition();
     UNUSED_PARAM(ignoreWidgetState);
 }
 
@@ -3789,10 +3790,19 @@ bool LocalFrameView::updateEmbeddedObjects()
     m_embeddedObjectsToUpdate->add(nullptr);
 
     while (!m_embeddedObjectsToUpdate->isEmpty()) {
-        auto embeddedObject = m_embeddedObjectsToUpdate->takeFirst();
-        if (!embeddedObject)
-            break;
-        updateEmbeddedObject(*embeddedObject);
+        // The CheckedPtr value taken from the ListHashSet shouldn't be kept alive during the update since
+        // the underlying object can be destroyed, leaving the CheckedPtr dangling. Instead, construct a WeakPtr
+        // that can be passed to the updateEmbeddedObject() method.
+
+        WeakPtr<RenderEmbeddedObject> weakObject;
+        {
+            CheckedPtr embeddedObject = m_embeddedObjectsToUpdate->takeFirst();
+            if (!embeddedObject)
+                break;
+
+            weakObject = *embeddedObject;
+        }
+        updateEmbeddedObject(weakObject);
     }
 
     return m_embeddedObjectsToUpdate->isEmpty();
@@ -4641,19 +4651,45 @@ Color LocalFrameView::documentBackgroundColor() const
     // Background images are unfortunately impractical to include.
 
     // Return invalid Color objects whenever there is insufficient information.
-    if (!m_frame->document())
+    auto* backgroundDocument = [&] {
+#if ENABLE(FULLSCREEN_API)
+        if (auto* page = m_frame->page()) {
+            if (auto* fullscreenDocument = page->outermostFullscreenDocument())
+                return fullscreenDocument;
+        }
+#endif
+        return m_frame->document();
+    }();
+
+    if (!backgroundDocument)
         return Color();
 
-    auto* htmlElement = m_frame->document()->documentElement();
-    auto* bodyElement = m_frame->document()->bodyOrFrameset();
+    auto* htmlElement = backgroundDocument->documentElement();
+    auto* bodyElement = backgroundDocument->bodyOrFrameset();
+#if ENABLE(FULLSCREEN_API)
+    auto* fullscreenElement = backgroundDocument->fullscreenManager().fullscreenElement();
+#else
+    Element* fullscreenElement = nullptr;
+#endif
 
     // Start with invalid colors.
     Color htmlBackgroundColor;
     Color bodyBackgroundColor;
+    Color fullscreenBackgroundColor;
     if (htmlElement && htmlElement->renderer())
         htmlBackgroundColor = htmlElement->renderer()->style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
     if (bodyElement && bodyElement->renderer())
         bodyBackgroundColor = bodyElement->renderer()->style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+    if (fullscreenElement && fullscreenElement->renderer())
+        fullscreenBackgroundColor = fullscreenElement->renderer()->style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+
+    // Replace or blend the fullscreen background color with the body background color, if present.
+    if (fullscreenBackgroundColor.isValid()) {
+        if (!bodyBackgroundColor.isValid())
+            bodyBackgroundColor = fullscreenBackgroundColor;
+        else
+            bodyBackgroundColor = blendSourceOver(bodyBackgroundColor, fullscreenBackgroundColor);
+    }
 
     if (!bodyBackgroundColor.isValid()) {
         if (!htmlBackgroundColor.isValid())
@@ -5976,8 +6012,6 @@ void LocalFrameView::firePaintRelatedMilestonesIfNeeded()
     if (m_milestonesPendingPaint & LayoutMilestone::DidFirstMeaningfulPaint) {
         if (page->requestedLayoutMilestones() & LayoutMilestone::DidFirstMeaningfulPaint)
             milestonesAchieved.add(LayoutMilestone::DidFirstMeaningfulPaint);
-        if (m_frame->isMainFrame())
-            WTFEmitSignpost(m_frame->document(), "Page Load: First Meaningful Paint");
     }
 
     m_milestonesPendingPaint = { };

@@ -34,6 +34,7 @@
 #include "Document.h"
 #include "Event.h"
 #include "EventNames.h"
+#include "ExceptionCode.h"
 #include "FrameLoader.h"
 #include "JSDOMPromiseDeferred.h"
 #include "JSMeteringMode.h"
@@ -314,6 +315,42 @@ MediaStreamTrack::TrackCapabilities MediaStreamTrack::getCapabilities() const
     return result;
 }
 
+auto MediaStreamTrack::takePhoto(PhotoSettings&& settings) -> Ref<TakePhotoPromise>
+{
+    // https://w3c.github.io/mediacapture-image/#dom-imagecapture-takephoto
+    // If the readyState of track provided in the constructor is not live, return
+    // a promise rejected with a new DOMException whose name is InvalidStateError,
+    // and abort these steps.
+    if (m_ended)
+        return TakePhotoPromise::createAndReject(Exception { ExceptionCode::InvalidStateError, "Track has ended"_s });
+
+    TakePhotoPromise::Producer producer;
+    Ref<TakePhotoPromise> promise = producer;
+
+    m_private->takePhoto(WTFMove(settings))->whenSettled(RunLoop::main(),
+        [protectedThis = Ref { *this }, producer = WTFMove(producer)] (auto&& result) mutable {
+
+        // https://w3c.github.io/mediacapture-image/#dom-imagecapture-takephoto
+        // If the operation cannot be completed for any reason (for example, upon
+        // invocation of multiple takePhoto() method calls in rapid succession),
+        // then reject p with a new DOMException whose name is UnknownError, and
+        // abort these steps.
+        if (!result) {
+            producer.reject(Exception { ExceptionCode::UnknownError, WTFMove(result.error()) });
+            return;
+        }
+
+        if (RefPtr context = protectedThis->scriptExecutionContext(); !context || context->activeDOMObjectsAreStopped() || protectedThis->m_ended) {
+            producer.reject(Exception { ExceptionCode::OperationError, "Track has ended"_s });
+            return;
+        }
+
+        producer.resolve(WTFMove(result.value()));
+    });
+
+    return promise;
+}
+
 void MediaStreamTrack::getPhotoCapabilities(DOMPromiseDeferred<IDLDictionary<PhotoCapabilities>>&& promise) const
 {
     m_private->getPhotoCapabilities([protectedThis = Ref { *this }, promise = WTFMove(promise)](auto&& result) mutable {
@@ -322,11 +359,11 @@ void MediaStreamTrack::getPhotoCapabilities(DOMPromiseDeferred<IDLDictionary<Pho
             // If the data cannot be gathered for any reason (for example, the MediaStreamTrack being ended
             // asynchronously), then reject p with a new DOMException whose name is OperationError, and
             // abort these steps.
-            promise.reject(Exception { OperationError, WTFMove(result.errorMessage) });
+            promise.reject(Exception { ExceptionCode::OperationError, WTFMove(result.errorMessage) });
             return;
         }
         if (protectedThis->m_readyState != State::Live) {
-            promise.reject(Exception { OperationError, "Track has ended"_s });
+            promise.reject(Exception { ExceptionCode::OperationError, "Track has ended"_s });
             return;
         }
 
@@ -343,11 +380,11 @@ void MediaStreamTrack::getPhotoSettings(DOMPromiseDeferred<IDLDictionary<PhotoSe
         // asynchronously), then reject p with a new DOMException whose name is OperationError, and
         // abort these steps.
         if (!result) {
-            promise.reject(Exception { OperationError, WTFMove(result.error()) });
+            promise.reject(Exception { ExceptionCode::OperationError, WTFMove(result.error()) });
             return;
         }
         if (protectedThis->m_readyState != State::Live) {
-            promise.reject(Exception { OperationError, "Track has ended"_s });
+            promise.reject(Exception { ExceptionCode::OperationError, "Track has ended"_s });
             return;
         }
 
@@ -367,15 +404,20 @@ static MediaConstraints createMediaConstraints(const std::optional<MediaTrackCon
 
 void MediaStreamTrack::applyConstraints(const std::optional<MediaTrackConstraints>& constraints, DOMPromiseDeferred<void>&& promise)
 {
-    auto completionHandler = [this, protectedThis = Ref { *this }, constraints, promise = WTFMove(promise)](auto&& error) mutable {
+    if (m_ended) {
+        promise.reject(Exception { ExceptionCode::InvalidAccessError, "Track has ended"_s });
+        return;
+    }
+
+    m_private->applyConstraints(createMediaConstraints(constraints), [protectedThis = Ref { *this }, constraints, promise = WTFMove(promise)](auto&& error) mutable {
         if (error) {
             promise.rejectType<IDLInterface<OverconstrainedError>>(OverconstrainedError::create(WTFMove(error->badConstraint), WTFMove(error->message)));
             return;
         }
+
+        protectedThis->m_constraints = valueOrDefault(constraints);
         promise.resolve();
-        m_constraints = valueOrDefault(constraints);
-    };
-    m_private->applyConstraints(createMediaConstraints(constraints), WTFMove(completionHandler));
+    });
 }
 
 void MediaStreamTrack::addObserver(Observer& observer)

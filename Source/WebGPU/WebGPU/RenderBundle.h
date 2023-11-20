@@ -72,7 +72,9 @@ public:
     Device& device() const { return m_device; }
     NSArray<RenderBundleICBWithResources*> *renderBundlesResources() const { return m_renderBundlesResources; }
 
-    bool replayCommands(id<MTLRenderCommandEncoder>) const;
+    void replayCommands(id<MTLRenderCommandEncoder>) const;
+    void updateMinMaxDepths(float minDepth, float maxDepth);
+
 private:
     RenderBundle(NSArray<RenderBundleICBWithResources*> *, RefPtr<RenderBundleEncoder>, Device&);
     RenderBundle(Device&);
@@ -80,6 +82,8 @@ private:
     const Ref<Device> m_device;
     RefPtr<RenderBundleEncoder> m_renderBundleEncoder;
     NSArray<RenderBundleICBWithResources*> *m_renderBundlesResources;
+    float m_minDepth { 0.f };
+    float m_maxDepth { 1.f };
 };
 
 } // namespace WebGPU

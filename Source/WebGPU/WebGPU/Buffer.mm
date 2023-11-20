@@ -106,7 +106,7 @@ id<MTLBuffer> Device::safeCreateBuffer(NSUInteger length, MTLStorageMode storage
 
 Ref<Buffer> Device::createBuffer(const WGPUBufferDescriptor& descriptor)
 {
-    if (descriptor.nextInChain)
+    if (descriptor.nextInChain || !isValid())
         return Buffer::createInvalid(*this);
 
     // https://gpuweb.github.io/gpuweb/#dom-gpudevice-createbuffer
@@ -114,7 +114,8 @@ Ref<Buffer> Device::createBuffer(const WGPUBufferDescriptor& descriptor)
     if (!validateCreateBuffer(*this, descriptor)) {
         generateAValidationError("Validation failure."_s);
 
-        return Buffer::createInvalid(*this);
+        if (!validateCreateBuffer(*this, descriptor))
+            return Buffer::createInvalid(*this);
     }
 
     // FIXME(PERFORMANCE): Consider write-combining CPU cache mode.
@@ -224,6 +225,7 @@ void* Buffer::getMappedRange(size_t offset, size_t size)
     m_mappedRanges.add({ offset, offset + rangeSize });
     m_mappedRanges.compact();
 
+    m_device->getQueue().waitUntilIdle();
     ASSERT(m_buffer.contents);
     return static_cast<char*>(m_buffer.contents) + offset;
 }

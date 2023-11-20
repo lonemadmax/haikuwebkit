@@ -236,7 +236,7 @@ LineBuilder::LineBuilder(InlineFormattingContext& inlineFormattingContext, Horiz
 
 LineLayoutResult LineBuilder::layoutInlineContent(const LineInput& lineInput, const std::optional<PreviousLine>& previousLine)
 {
-    auto previousLineEndsWithLineBreak = !previousLine ? std::nullopt : std::make_optional(previousLine->endsWithLineBreak);
+    auto previousLineEndsWithLineBreak = !previousLine || !previousLine->hasInlineContent ? std::nullopt : std::make_optional(previousLine->endsWithLineBreak);
     initialize(lineInput.initialLogicalRect, initialConstraintsForLine(lineInput.initialLogicalRect, previousLineEndsWithLineBreak), lineInput.needsLayoutRange, previousLine);
     auto lineContent = placeInlineAndFloatContent(lineInput.needsLayoutRange);
     auto result = m_line.close();
@@ -507,7 +507,7 @@ LineContent LineBuilder::placeInlineAndFloatContent(const InlineItemRange& needs
             auto runsExpandHorizontally = [&] {
                 if (isInIntrinsicWidthMode())
                     return false;
-                if (root().isRubyAnnotationBox()) {
+                if (root().isRubyAnnotationBox() && rootStyle.textAlign() == RenderStyle::initialTextAlign()) {
                     // FIXME: This is a workaround until after we generate inline boxes for annotation content.
                     return true;
                 }
@@ -627,7 +627,7 @@ void LineBuilder::candidateContentForLine(LineCandidate& lineCandidate, size_t c
     }
 
     auto appendRubyContainerIfApplicable = [&] {
-        auto isRubyContent = currentInlineItemIndex < layoutRange.endIndex() && (m_inlineItemList[currentInlineItemIndex].layoutBox().isRuby() || m_inlineItemList[currentInlineItemIndex].layoutBox().isRubyBase());
+        auto isRubyContent = currentInlineItemIndex < layoutRange.endIndex() && (m_inlineItemList[currentInlineItemIndex].layoutBox().isRuby() || m_inlineItemList[currentInlineItemIndex].layoutBox().isRenderRubyBase());
         if (!isRubyContent)
             return false;
         // We must be at a ruby container/base and we should let the ruby formatting context handle the rest of the ruby content.

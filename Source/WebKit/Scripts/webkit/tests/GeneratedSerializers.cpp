@@ -36,6 +36,7 @@
 #include "FooWrapper.h"
 #include "HeaderWithoutCondition"
 #include "LayerProperties.h"
+#include "RValueWithFunctionCalls.h"
 #if ENABLE(TEST_FEATURE)
 #include "SecondMemberType.h"
 #endif
@@ -203,7 +204,7 @@ std::optional<Namespace::OtherClass> ArgumentCoder<Namespace::OtherClass>::decod
 {
     auto a = decoder.decode<int>();
     auto b = decoder.decode<bool>();
-    auto dataDetectorResults = IPC::decode<NSArray>(decoder, @[ NSArray.class, PAL::getDDScannerResultClass() ]);
+    auto dataDetectorResults = decoder.decodeWithAllowedClasses<NSArray>({ NSArray.class, PAL::getDDScannerResultClass() });
     if (UNLIKELY(!decoder.isValid()))
         return std::nullopt;
     return {
@@ -562,8 +563,8 @@ void ArgumentCoder<SoftLinkedMember>::encode(Encoder& encoder, const SoftLinkedM
 
 std::optional<SoftLinkedMember> ArgumentCoder<SoftLinkedMember>::decode(Decoder& decoder)
 {
-    auto firstMember = IPC::decode<DDActionContext>(decoder, @[ PAL::getDDActionContextClass() ]);
-    auto secondMember = IPC::decode<DDActionContext>(decoder, @[ PAL::getDDActionContextClass() ]);
+    auto firstMember = decoder.decodeWithAllowedClasses<DDActionContext>({ PAL::getDDActionContextClass() });
+    auto secondMember = decoder.decodeWithAllowedClasses<DDActionContext>({ PAL::getDDActionContextClass() });
     if (UNLIKELY(!decoder.isValid()))
         return std::nullopt;
     return {
@@ -1121,6 +1122,25 @@ std::optional<RetainPtr<CFBarRef>> ArgumentCoder<RetainPtr<CFBarRef>>::decode(De
 }
 
 #endif
+
+void ArgumentCoder<WebKit::RValueWithFunctionCalls>::encode(Encoder& encoder, WebKit::RValueWithFunctionCalls&& instance)
+{
+    static_assert(std::is_same_v<std::remove_cvref_t<decltype(instance.callFunction())>, SandboxExtensionHandle>);
+
+    encoder << instance.callFunction();
+}
+
+std::optional<WebKit::RValueWithFunctionCalls> ArgumentCoder<WebKit::RValueWithFunctionCalls>::decode(Decoder& decoder)
+{
+    auto callFunction = decoder.decode<SandboxExtensionHandle>();
+    if (UNLIKELY(!decoder.isValid()))
+        return std::nullopt;
+    return {
+        WebKit::RValueWithFunctionCalls {
+            WTFMove(*callFunction)
+        }
+    };
+}
 
 } // namespace IPC
 

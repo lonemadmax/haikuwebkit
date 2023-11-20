@@ -255,6 +255,21 @@ NSNotificationName const _WKWebExtensionErrorsWereUpdatedNotification = @"_WKWeb
     return _webExtension->backgroundContentIsPersistent();
 }
 
+- (BOOL)hasOptionsPage
+{
+    return _webExtension->hasOptionsPage();
+}
+
+- (BOOL)hasOverrideNewTabPage
+{
+    return _webExtension->hasOverrideNewTabPage();
+}
+
+- (BOOL)hasCommands
+{
+    return _webExtension->hasCommands();
+}
+
 - (BOOL)_backgroundContentIsServiceWorker
 {
     return _webExtension->backgroundContentIsServiceWorker();
@@ -417,6 +432,21 @@ NSNotificationName const _WKWebExtensionErrorsWereUpdatedNotification = @"_WKWeb
 }
 
 - (BOOL)backgroundContentIsPersistent
+{
+    return NO;
+}
+
+- (BOOL)hasOptionsPage
+{
+    return NO;
+}
+
+- (BOOL)hasOverrideNewTabPage
+{
+    return NO;
+}
+
+- (BOOL)hasCommands
 {
     return NO;
 }

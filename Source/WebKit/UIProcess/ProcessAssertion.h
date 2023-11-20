@@ -42,9 +42,10 @@ OBJC_CLASS RBSAssertion;
 OBJC_CLASS WKRBSAssertionDelegate;
 #endif // USE(RUNNINGBOARD)
 
-#if USE(EXTENSIONKIT_ASSERTIONS)
+#if USE(EXTENSIONKIT)
 OBJC_CLASS _SEExtensionProcess;
-OBJC_CLASS _SEGrant;
+OBJC_CLASS _SECapabilities;
+OBJC_PROTOCOL(_SEGrant);
 #endif
 
 namespace WebKit {
@@ -67,11 +68,10 @@ class ProcessAssertion : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<
     WTF_MAKE_FAST_ALLOCATED;
 public:
     enum class Mode : bool { Sync, Async };
-#if USE(EXTENSIONKIT_ASSERTIONS)
+#if USE(EXTENSIONKIT)
     static Ref<ProcessAssertion> create(RetainPtr<_SEExtensionProcess>, const String& reason, ProcessAssertionType, Mode = Mode::Async, const String& environmentIdentifier = emptyString(), CompletionHandler<void()>&& acquisisionHandler = nullptr);
-#else
-    static Ref<ProcessAssertion> create(ProcessID, const String& reason, ProcessAssertionType, Mode = Mode::Async, const String& environmentIdentifier = emptyString(), CompletionHandler<void()>&& acquisisionHandler = nullptr);
 #endif
+    static Ref<ProcessAssertion> create(ProcessID, const String& reason, ProcessAssertionType, Mode = Mode::Async, const String& environmentIdentifier = emptyString(), CompletionHandler<void()>&& acquisisionHandler = nullptr);
     static Ref<ProcessAssertion> create(AuxiliaryProcessProxy&, const String& reason, ProcessAssertionType, Mode = Mode::Async, CompletionHandler<void()>&& acquisisionHandler = nullptr);
 
     static double remainingRunTimeInSeconds(ProcessID);
@@ -88,6 +88,8 @@ public:
 protected:
     ProcessAssertion(ProcessID, const String& reason, ProcessAssertionType, const String& environmentIdentifier);
     ProcessAssertion(AuxiliaryProcessProxy&, const String& reason, ProcessAssertionType);
+
+    void init(const String& environmentIdentifier);
 
     void aquireAssertion(Mode, CompletionHandler<void()>&&);
 
@@ -110,23 +112,19 @@ private:
 #endif
     Function<void()> m_prepareForInvalidationHandler;
     Function<void()> m_invalidationHandler;
-#if USE(EXTENSIONKIT_ASSERTIONS)
+#if USE(EXTENSIONKIT)
+    RetainPtr<_SECapabilities> m_capabilities;
     RetainPtr<_SEGrant> m_grant;
+    RetainPtr<_SEExtensionProcess> m_process;
 #endif
 };
 
 class ProcessAndUIAssertion final : public ProcessAssertion {
 public:
-    static Ref<ProcessAndUIAssertion> create(ProcessID pid, const String& reason, ProcessAssertionType type, Mode mode = Mode::Async, const String& environmentIdentifier = emptyString(), CompletionHandler<void()>&& acquisisionHandler = nullptr)
+    static Ref<ProcessAndUIAssertion> create(AuxiliaryProcessProxy& process, const String& reason, ProcessAssertionType type, Mode mode = Mode::Async, CompletionHandler<void()>&& acquisisionHandler = nullptr)
     {
-        auto assertion = adoptRef(*new ProcessAndUIAssertion(pid, reason, type, environmentIdentifier));
-        if (mode == Mode::Async)
-            assertion->acquireAsync(WTFMove(acquisisionHandler));
-        else {
-            assertion->acquireSync();
-            if (acquisisionHandler)
-                acquisisionHandler();
-        }
+        auto assertion = adoptRef(*new ProcessAndUIAssertion(process, reason, type));
+        assertion->aquireAssertion(mode, WTFMove(acquisisionHandler));
         return assertion;
     }
     ~ProcessAndUIAssertion();
@@ -139,7 +137,7 @@ public:
 #endif
 
 private:
-    ProcessAndUIAssertion(ProcessID, const String& reason, ProcessAssertionType, const String& environmentIdentifier);
+    ProcessAndUIAssertion(AuxiliaryProcessProxy&, const String& reason, ProcessAssertionType);
 
 #if PLATFORM(IOS_FAMILY)
     void processAssertionWasInvalidated() final;

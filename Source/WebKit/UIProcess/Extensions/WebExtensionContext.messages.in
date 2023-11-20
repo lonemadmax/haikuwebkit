@@ -45,6 +45,9 @@ messages -> WebExtensionContext {
     AlarmsGetAll() -> (Vector<WebKit::WebExtensionAlarmParameters> alarms);
     AlarmsClearAll() -> ();
 
+    // Commands
+    CommandsGetAll() -> (Vector<WebKit::WebExtensionCommandParameters> commands);
+
     // Event APIs
     AddListener(WebKit::WebPageProxyIdentifier identifier, WebKit::WebExtensionEventListenerType type, WebKit::WebExtensionContentWorldType contentWorldType);
     RemoveListener(WebKit::WebPageProxyIdentifier identifier, WebKit::WebExtensionEventListenerType type, WebKit::WebExtensionContentWorldType contentWorldType, size_t removedCount);
@@ -64,6 +67,8 @@ messages -> WebExtensionContext {
 
     // Runtime APIs
     RuntimeGetBackgroundPage() -> (std::optional<WebCore::PageIdentifier> pageIdentifier, std::optional<String> error);
+    RuntimeOpenOptionsPage() -> (std::optional<String> error);
+    RuntimeReload();
     RuntimeSendMessage(String extensionID, String messageJSON, struct WebKit::WebExtensionMessageSenderParameters senderParameters) -> (std::optional<String> replyJSON, std::optional<String> error);
     RuntimeConnect(String extensionID, WebKit::WebExtensionPortChannelIdentifier channelIdentifier, String name, struct WebKit::WebExtensionMessageSenderParameters senderParameters) -> (std::optional<String> error);
     RuntimeSendNativeMessage(String applicationID, String messageJSON) -> (std::optional<String> replyJSON, std::optional<String> error);
@@ -102,6 +107,10 @@ messages -> WebExtensionContext {
     TestMessage(String message, String sourceURL, unsigned lineNumber);
     TestYielded(String message, String sourceURL, unsigned lineNumber);
     TestFinished(bool result, String message, String sourceURL, unsigned lineNumber);
+
+    // WebNavigation APIs
+    WebNavigationGetAllFrames(WebKit::WebExtensionTabIdentifier tabIdentifier) -> (std::optional<Vector<WebKit::WebExtensionFrameParameters>> allFrameParameters)
+    WebNavigationGetFrame(WebKit::WebExtensionTabIdentifier tabIdentifier, WebKit::WebExtensionFrameIdentifier frameIdentifier) -> (std::optional<WebKit::WebExtensionFrameParameters> frameParameters)
 
     // Windows APIs
     WindowsCreate(WebKit::WebExtensionWindowParameters creationParameters) -> (std::optional<WebKit::WebExtensionWindowParameters> windowParameters, WebKit::WebExtensionWindow::Error error);

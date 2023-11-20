@@ -255,8 +255,11 @@ public:
 
     PartialResult WARN_UNUSED_RETURN addRefI31(ExpressionType value, ExpressionType& result)
     {
-        if (m_mode == Mode::Evaluate)
-            result = ConstExprValue(JSValue::encode(JSValue(static_cast<int>(value.getValue() & 0x7fffffff))));
+        if (m_mode == Mode::Evaluate) {
+            JSValue i31 = JSValue((((static_cast<int32_t>(value.getValue()) & 0x7fffffff) << 1) >> 1));
+            ASSERT(i31.isInt32());
+            result = ConstExprValue(JSValue::encode(i31));
+        }
         return { };
     }
 
@@ -346,7 +349,7 @@ public:
         return { };
     }
 
-    PartialResult WARN_UNUSED_RETURN addStructGet(ExpressionType, const StructType&, uint32_t, ExpressionType&) CONST_EXPR_STUB
+    PartialResult WARN_UNUSED_RETURN addStructGet(ExtGCOpType, ExpressionType, const StructType&, uint32_t, ExpressionType&) CONST_EXPR_STUB
     PartialResult WARN_UNUSED_RETURN addStructSet(ExpressionType, const StructType&, uint32_t, ExpressionType) CONST_EXPR_STUB
     PartialResult WARN_UNUSED_RETURN addRefTest(ExpressionType, bool, int32_t, ExpressionType&) CONST_EXPR_STUB
     PartialResult WARN_UNUSED_RETURN addRefCast(ExpressionType, bool, int32_t, ExpressionType&) CONST_EXPR_STUB

@@ -362,8 +362,8 @@ const Vector<CheckedRef<Element>>* TreeScope::labelElementsForId(const AtomStrin
         // Populate the map on first access.
         m_labelsByForAttribute = makeUnique<TreeScopeOrderedMap>();
 
-        for (auto& label : descendantsOfType<HTMLLabelElement>(m_rootNode)) {
-            const AtomString& forValue = label.attributeWithoutSynchronization(forAttr);
+        for (Ref label : descendantsOfType<HTMLLabelElement>(m_rootNode)) {
+            const AtomString& forValue = label->attributeWithoutSynchronization(forAttr);
             if (!forValue.isEmpty())
                 addLabel(forValue, label);
         }
@@ -425,8 +425,7 @@ RefPtr<Node> TreeScope::nodeFromPoint(const LayoutPoint& clientPoint, LayoutPoin
 
 RefPtr<Element> TreeScope::elementFromPoint(double clientX, double clientY)
 {
-    Document& document = documentScope();
-    if (!document.hasLivingRenderTree())
+    if (!protectedDocumentScope()->hasLivingRenderTree())
         return nullptr;
 
     auto node = nodeFromPoint(LayoutPoint { clientX, clientY }, nullptr);
@@ -487,8 +486,8 @@ Vector<RefPtr<Element>> TreeScope::elementsFromPoint(double clientX, double clie
         lastNode = node;
     }
 
-    if (m_rootNode.isDocumentNode()) {
-        if (Element* rootElement = downcast<Document>(m_rootNode).documentElement()) {
+    if (auto* rootDocument = dynamicDowncast<Document>(m_rootNode)) {
+        if (Element* rootElement = rootDocument->documentElement()) {
             if (elements.isEmpty() || elements.last() != rootElement)
                 elements.append(rootElement);
         }
@@ -510,8 +509,10 @@ RefPtr<Element> TreeScope::findAnchor(StringView name)
         return nullptr;
     if (RefPtr element = getElementById(name))
         return element;
-    for (Ref anchor : descendantsOfType<HTMLAnchorElement>(m_rootNode)) {
-        if (m_rootNode.document().inQuirksMode()) {
+    auto inQuirksMode = documentScope().inQuirksMode();
+    Ref rootNode = m_rootNode;
+    for (Ref anchor : descendantsOfType<HTMLAnchorElement>(rootNode)) {
+        if (inQuirksMode) {
             // Quirks mode, ASCII case-insensitive comparison of names.
             // FIXME: This behavior is not mentioned in the HTML specification.
             // We should either remove this or get this into the specification.
@@ -529,8 +530,11 @@ RefPtr<Element> TreeScope::findAnchor(StringView name)
 static Element* focusedFrameOwnerElement(Frame* focusedFrame, LocalFrame* currentFrame)
 {
     for (; focusedFrame; focusedFrame = focusedFrame->tree().parent()) {
-        if (focusedFrame->tree().parent() == currentFrame)
-            return is<LocalFrame>(focusedFrame) ? downcast<LocalFrame>(focusedFrame)->ownerElement() : nullptr;
+        if (focusedFrame->tree().parent() == currentFrame) {
+            if (auto* localFrame = dynamicDowncast<LocalFrame>(focusedFrame))
+                return localFrame->ownerElement();
+            return nullptr;
+        }
     }
     return nullptr;
 }

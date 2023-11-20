@@ -95,6 +95,8 @@ RenderView::RenderView(Document& document, RenderStyle&& style)
     setPreferredLogicalWidthsDirty(true, MarkOnlyThis);
     
     setPositionState(PositionType::Absolute); // to 0,0 :)
+
+    ASSERT(isRenderView());
 }
 
 RenderView::~RenderView()
@@ -112,7 +114,7 @@ void RenderView::styleDidChange(StyleDifference diff, const RenderStyle* oldStyl
     bool directionChanged = oldStyle && style().direction() != oldStyle->direction();
 
     if ((writingModeChanged || directionChanged) && multiColumnFlow()) {
-        if (frameView().pagination().mode != Unpaginated)
+        if (frameView().pagination().mode != Pagination::Mode::Unpaginated)
             updateColumnProgressionFromStyle(style());
         updateStylesForColumnChildren(oldStyle);
     }
@@ -182,7 +184,7 @@ LayoutUnit RenderView::availableLogicalHeight(AvailableLogicalHeightType) const
 
 bool RenderView::isChildAllowed(const RenderObject& child, const RenderStyle&) const
 {
-    return child.isBox();
+    return child.isRenderBox();
 }
 
 void RenderView::layout()
@@ -208,7 +210,7 @@ void RenderView::layout()
                 || box.style().logicalHeight().isPercentOrCalculated()
                 || box.style().logicalMinHeight().isPercentOrCalculated()
                 || box.style().logicalMaxHeight().isPercentOrCalculated()
-                || box.isSVGRootOrLegacySVGRoot()
+                || box.isRenderOrLegacyRenderSVGRoot()
                 )
                 box.setChildNeedsLayout(MarkOnlyThis);
         }
@@ -339,7 +341,7 @@ void RenderView::mapAbsoluteToLocalPoint(OptionSet<MapCoordinatesMode> mode, Tra
 
 bool RenderView::requiresColumns(int) const
 {
-    return frameView().pagination().mode != Unpaginated;
+    return frameView().pagination().mode != Pagination::Mode::Unpaginated;
 }
 
 void RenderView::computeColumnCountAndWidth()
@@ -360,7 +362,7 @@ void RenderView::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     ASSERT(LayoutPoint(IntPoint(paintOffset.x(), paintOffset.y())) == paintOffset);
 
     // This avoids painting garbage between columns if there is a column gap.
-    if (frameView().pagination().mode != Unpaginated && paintInfo.shouldPaintWithinRoot(*this))
+    if (frameView().pagination().mode != Pagination::Mode::Unpaginated && paintInfo.shouldPaintWithinRoot(*this))
         paintInfo.context().fillRect(paintInfo.rect, frameView().baseBackgroundColor());
 
     paintObject(paintInfo, paintOffset);
@@ -512,18 +514,22 @@ void RenderView::repaintViewRectangle(const LayoutRect& repaintRect) const
         return;
 
     // FIXME: enclosingRect is needed as long as we integral snap ScrollView/FrameView/RenderWidget size/position.
-    IntRect enclosingRect = enclosingIntRect(repaintRect);
+    auto enclosingRect = enclosingIntRect(repaintRect);
     if (auto ownerElement = document().ownerElement()) {
-        RenderBox* ownerBox = ownerElement->renderBox();
+        auto* ownerBox = ownerElement->renderBox();
         if (!ownerBox)
             return;
         LayoutRect viewRect = this->viewRect();
 #if PLATFORM(IOS_FAMILY)
         // Don't clip using the visible rect since clipping is handled at a higher level on iPhone.
+        // FIXME: This statement is wrong for iframes.
         LayoutRect adjustedRect = enclosingRect;
 #else
         LayoutRect adjustedRect = intersection(enclosingRect, viewRect);
 #endif
+        if (adjustedRect.isEmpty())
+            return;
+
         adjustedRect.moveBy(-viewRect.location());
         adjustedRect.moveBy(ownerBox->contentBoxRect().location());
 
@@ -1050,7 +1056,7 @@ unsigned RenderView::pageNumberForBlockProgressionOffset(int offset) const
 {
     int columnNumber = 0;
     const Pagination& pagination = page().pagination();
-    if (pagination.mode == Unpaginated)
+    if (pagination.mode == Pagination::Mode::Unpaginated)
         return columnNumber;
     
     bool progressionIsInline = false;
@@ -1075,7 +1081,7 @@ unsigned RenderView::pageNumberForBlockProgressionOffset(int offset) const
 unsigned RenderView::pageCount() const
 {
     const Pagination& pagination = page().pagination();
-    if (pagination.mode == Unpaginated)
+    if (pagination.mode == Pagination::Mode::Unpaginated)
         return 0;
     
     if (multiColumnFlow() && multiColumnFlow()->firstMultiColumnSet())

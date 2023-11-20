@@ -1177,13 +1177,13 @@ void WebsiteDataStore::scheduleClearInMemoryAndPersistent(WallTime modifiedSince
     protectedNetworkProcess()->scheduleClearInMemoryAndPersistent(m_sessionID, modifiedSince, shouldGrandfather, WTFMove(completionHandler));
 }
 
-void WebsiteDataStore::getResourceLoadStatisticsDataSummary(CompletionHandler<void(Vector<WebResourceLoadStatisticsStore::ThirdPartyData>&&)>&& completionHandler)
+void WebsiteDataStore::getResourceLoadStatisticsDataSummary(CompletionHandler<void(Vector<ITPThirdPartyData>&&)>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
 
     class LocalCallbackAggregator : public RefCounted<LocalCallbackAggregator> {
     public:
-        static Ref<LocalCallbackAggregator> create(CompletionHandler<void(Vector<WebResourceLoadStatisticsStore::ThirdPartyData>&&)>&& completionHandler)
+        static Ref<LocalCallbackAggregator> create(CompletionHandler<void(Vector<ITPThirdPartyData>&&)>&& completionHandler)
         {
             return adoptRef(*new LocalCallbackAggregator(WTFMove(completionHandler)));
         }
@@ -1195,26 +1195,26 @@ void WebsiteDataStore::getResourceLoadStatisticsDataSummary(CompletionHandler<vo
             m_completionHandler(WTFMove(m_results));
         }
 
-        void addResult(Vector<WebResourceLoadStatisticsStore::ThirdPartyData>&& results)
+        void addResult(Vector<ITPThirdPartyData>&& results)
         {
             m_results.appendVector(WTFMove(results));
         }
 
     private:
-        LocalCallbackAggregator(CompletionHandler<void(Vector<WebResourceLoadStatisticsStore::ThirdPartyData>&&)>&& completionHandler)
+        LocalCallbackAggregator(CompletionHandler<void(Vector<ITPThirdPartyData>&&)>&& completionHandler)
             : m_completionHandler(WTFMove(completionHandler))
         {
             ASSERT(RunLoop::isMain());
         }
 
-        CompletionHandler<void(Vector<WebResourceLoadStatisticsStore::ThirdPartyData>&&)> m_completionHandler;
-        Vector<WebResourceLoadStatisticsStore::ThirdPartyData> m_results;
+        CompletionHandler<void(Vector<ITPThirdPartyData>&&)> m_completionHandler;
+        Vector<ITPThirdPartyData> m_results;
     };
     
     Ref localCallbackAggregator = LocalCallbackAggregator::create(WTFMove(completionHandler));
     
     Ref wtfCallbackAggregator = CallbackAggregator::create([this, protectedThis = Ref { *this }, localCallbackAggregator] {
-        protectedNetworkProcess()->getResourceLoadStatisticsDataSummary(m_sessionID, [localCallbackAggregator](Vector<WebResourceLoadStatisticsStore::ThirdPartyData>&& data) {
+        protectedNetworkProcess()->getResourceLoadStatisticsDataSummary(m_sessionID, [localCallbackAggregator](Vector<ITPThirdPartyData>&& data) {
             localCallbackAggregator->addResult(WTFMove(data));
         });
     });
@@ -1813,11 +1813,6 @@ bool WebsiteDataStore::isBlobRegistryPartitioningEnabled() const
     });
 }
 
-void WebsiteDataStore::setAllowsAnySSLCertificateForWebSocket(bool allows)
-{
-    protectedNetworkProcess()->sendSync(Messages::NetworkProcess::SetAllowsAnySSLCertificateForWebSocket(allows), 0);
-}
-
 void WebsiteDataStore::dispatchOnQueue(Function<void()>&& function)
 {
     protectedQueue()->dispatch(WTFMove(function));
@@ -1930,9 +1925,6 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     networkSessionParameters.pcmMachServiceName = m_configuration->pcmMachServiceName();
     networkSessionParameters.webPushMachServiceName = m_configuration->webPushMachServiceName();
     networkSessionParameters.webPushPartitionString = m_configuration->webPushPartitionString();
-#if !HAVE(NSURLSESSION_WEBSOCKET)
-    networkSessionParameters.shouldAcceptInsecureCertificatesForWebSockets = m_configuration->shouldAcceptInsecureCertificatesForWebSockets();
-#endif
     networkSessionParameters.isBlobRegistryTopOriginPartitioningEnabled = isBlobRegistryPartitioningEnabled();
     networkSessionParameters.unifiedOriginStorageLevel = m_configuration->unifiedOriginStorageLevel();
     networkSessionParameters.perOriginStorageQuota = perOriginStorageQuota();
@@ -2428,7 +2420,7 @@ void WebsiteDataStore::resumeDownload(const DownloadProxy& downloadProxy, const 
             sandboxExtensionHandle = WTFMove(*handle);
     }
 
-    protectedNetworkProcess()->send(Messages::NetworkProcess::ResumeDownload(m_sessionID, downloadProxy.downloadID(), resumeData.dataReference(), path, sandboxExtensionHandle, callDownloadDidStart), 0);
+    protectedNetworkProcess()->send(Messages::NetworkProcess::ResumeDownload(m_sessionID, downloadProxy.downloadID(), resumeData.dataReference(), path, WTFMove(sandboxExtensionHandle), callDownloadDidStart), 0);
 }
 
 bool WebsiteDataStore::hasActivePages()

@@ -346,6 +346,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/cookie-store/CookieStoreGetOptions.h
 
+    Modules/credentialmanagement/CredentialRequestOptions.h
+
     Modules/encryptedmedia/CDMClient.h
     Modules/encryptedmedia/MediaKeySystemClient.h
     Modules/encryptedmedia/MediaKeySystemController.h
@@ -677,6 +679,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     animation/IterationCompositeOperation.h
     animation/KeyframeAnimationOptions.h
     animation/KeyframeEffectOptions.h
+    animation/KeyframeInterpolation.h
     animation/PlaybackDirection.h
     animation/WebAnimationTypes.h
 
@@ -1260,7 +1263,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/canvas/WebGLContextAttributes.h
     html/canvas/WebGLExtensionAny.h
     html/canvas/WebGLExtensionAnyInlines.h
-    html/canvas/WebGLStateTracker.h
 
     html/forms/FileIconLoader.h
 
@@ -1535,7 +1537,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/RemoteFrame.h
     page/RemoteFrameClient.h
     page/RemoteFrameView.h
-    page/RemoteMouseEventData.h
+    page/RemoteUserInputEventData.h
     page/RenderingUpdateScheduler.h
     page/ScreenOrientationLockType.h
     page/ScreenOrientationType.h
@@ -2002,6 +2004,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ScreenDataOverrides.h
     platform/graphics/ShouldLocalizeAxisNames.h
     platform/graphics/SourceBrush.h
+    platform/graphics/SourceBrushLogicalGradient.h
     platform/graphics/SourceBufferPrivate.h
     platform/graphics/SourceBufferPrivateClient.h
     platform/graphics/SourceImage.h
@@ -2045,6 +2048,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/controls/SearchFieldResultsPart.h
     platform/graphics/controls/SliderThumbPart.h
     platform/graphics/controls/SliderTrackPart.h
+    platform/graphics/controls/SwitchThumbPart.h
+    platform/graphics/controls/SwitchTrackPart.h
     platform/graphics/controls/TextAreaPart.h
     platform/graphics/controls/TextFieldPart.h
     platform/graphics/controls/ToggleButtonPart.h

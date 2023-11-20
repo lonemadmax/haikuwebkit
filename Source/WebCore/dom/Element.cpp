@@ -379,8 +379,7 @@ void Element::hideNonceSlow()
     ASSERT(isConnected());
     ASSERT(hasAttributeWithoutSynchronization(nonceAttr));
 
-    const auto& csp = document().contentSecurityPolicy();
-    if (!csp->isHeaderDelivered())
+    if (!protectedDocument()->checkedContentSecurityPolicy()->isHeaderDelivered())
         return;
 
     // Retain previous IDL nonce.
@@ -598,8 +597,7 @@ void Element::cloneShadowTreeIfPossible(Element& newHost)
 
     Ref clonedShadowRoot = [&] {
         Ref clone = oldShadowRoot->cloneNodeInternal(newHost.document(), Node::CloningOperation::SelfWithTemplateContent);
-        RELEASE_ASSERT(is<ShadowRoot>(clone));
-        return downcast<ShadowRoot>(WTFMove(clone));
+        return checkedDowncast<ShadowRoot>(WTFMove(clone));
     }();
     newHost.addShadowRoot(clonedShadowRoot.copyRef());
     oldShadowRoot->cloneChildNodes(clonedShadowRoot);
@@ -674,7 +672,7 @@ NamedNodeMap& Element::attributes() const
     if (NamedNodeMap* attributeMap = rareData.attributeMap())
         return *attributeMap;
 
-    rareData.setAttributeMap(makeUnique<NamedNodeMap>(const_cast<Element&>(*this)));
+    rareData.setAttributeMap(makeUniqueWithoutRefCountedCheck<NamedNodeMap>(const_cast<Element&>(*this)));
     return *rareData.attributeMap();
 }
 
@@ -697,8 +695,8 @@ void Element::synchronizeAllAttributes() const
         static_cast<const StyledElement*>(this)->synchronizeStyleAttributeInternal();
     }
     
-    if (isSVGElement())
-        downcast<SVGElement>(const_cast<Element&>(*this)).synchronizeAllAttributes();
+    if (auto* svgElement = dynamicDowncast<SVGElement>(*this))
+        const_cast<SVGElement&>(*svgElement).synchronizeAllAttributes();
 }
 
 ALWAYS_INLINE void Element::synchronizeAttribute(const QualifiedName& name) const
@@ -711,8 +709,8 @@ ALWAYS_INLINE void Element::synchronizeAttribute(const QualifiedName& name) cons
         return;
     }
 
-    if (isSVGElement())
-        downcast<SVGElement>(const_cast<Element&>(*this)).synchronizeAttribute(name);
+    if (auto* svgElement = dynamicDowncast<SVGElement>(*this))
+        const_cast<SVGElement&>(*svgElement).synchronizeAttribute(name);
 }
 
 static ALWAYS_INLINE bool isStyleAttribute(const Element& element, const AtomString& attributeLocalName)
@@ -734,8 +732,8 @@ ALWAYS_INLINE void Element::synchronizeAttribute(const AtomString& localName) co
         return;
     }
 
-    if (isSVGElement())
-        downcast<SVGElement>(const_cast<Element&>(*this)).synchronizeAttribute(QualifiedName(nullAtom(), localName, nullAtom()));
+    if (auto* svgElement = dynamicDowncast<SVGElement>(*this))
+        const_cast<SVGElement&>(*svgElement).synchronizeAttribute(QualifiedName(nullAtom(), localName, nullAtom()));
 }
 
 const AtomString& Element::getAttribute(const QualifiedName& name) const
@@ -1055,20 +1053,22 @@ inline ScrollAlignment toScrollAlignmentForBlockDirection(std::optional<ScrollLo
 static std::optional<std::pair<CheckedRef<RenderElement>, LayoutRect>> listBoxElementScrollIntoView(const Element& element)
 {
     auto owningSelectElement = [](const Element& element) -> HTMLSelectElement* {
-        if (is<HTMLOptionElement>(element))
-            return downcast<HTMLOptionElement>(element).ownerSelectElement();
+        if (auto* optionElement = dynamicDowncast<HTMLOptionElement>(element))
+            return optionElement->ownerSelectElement();
 
-        if (is<HTMLOptGroupElement>(element))
-            return downcast<HTMLOptGroupElement>(element).ownerSelectElement();
+        if (auto* optGroupElement = dynamicDowncast<HTMLOptGroupElement>(element))
+            return optGroupElement->ownerSelectElement();
 
         return nullptr;
     };
 
     RefPtr selectElement = owningSelectElement(element);
-    if (!selectElement || !selectElement->renderer() || !is<RenderListBox>(selectElement->renderer()))
+    if (!selectElement)
         return std::nullopt;
 
-    CheckedRef renderListBox = downcast<RenderListBox>(*selectElement->renderer());
+    CheckedPtr renderListBox = dynamicDowncast<RenderListBox>(selectElement->renderer());
+    if (!renderListBox)
+        return std::nullopt;
     
     auto itemIndex = selectElement->listItems().find(&element);
     if (itemIndex != notFound)
@@ -1077,7 +1077,7 @@ static std::optional<std::pair<CheckedRef<RenderElement>, LayoutRect>> listBoxEl
         itemIndex = 0;
 
     auto itemLocalRect = renderListBox->itemBoundingBoxRect({ }, itemIndex);
-    return std::pair<CheckedRef<RenderElement>, LayoutRect> { WTFMove(renderListBox), itemLocalRect };
+    return std::pair<CheckedRef<RenderElement>, LayoutRect> { renderListBox.releaseNonNull(), itemLocalRect };
 }
 
 void Element::scrollIntoView(std::optional<std::variant<bool, ScrollIntoViewOptions>>&& arg)
@@ -1485,7 +1485,7 @@ int Element::clientWidth()
         // Currently, WebKit doesn't have table wrapper box, and we are supposed to
         // retrieve clientWidth/Height from table wrapper box, not table grid box. So
         // when we retrieve clientWidth/Height, it includes table's border size.
-        if (renderer->isTable())
+        if (renderer->isRenderTable())
             clientWidth += renderer->borderLeft() + renderer->borderRight();
         return convertToNonSubpixelValue(adjustLayoutUnitForAbsoluteZoom(clientWidth, *renderer).toDouble());
     }
@@ -1519,7 +1519,7 @@ int Element::clientHeight()
         // Currently, WebKit doesn't have table wrapper box, and we are supposed to
         // retrieve clientWidth/Height from table wrapper box, not table grid box. So
         // when we retrieve clientWidth/Height, it includes table's border size.
-        if (renderer->isTable())
+        if (renderer->isRenderTable())
             clientHeight += renderer->borderTop() + renderer->borderBottom();
         return convertToNonSubpixelValue(adjustLayoutUnitForAbsoluteZoom(clientHeight, *renderer).toDouble());
     }
@@ -1758,15 +1758,13 @@ LayoutRect Element::absoluteEventBounds(bool& boundsIncludeAllDescendantElements
             result = LayoutRect(checkedRenderer()->localToAbsoluteQuad(*localRect, UseTransforms, &includesFixedPositionElements).boundingBox());
     } else {
         CheckedPtr renderer = this->renderer();
-        if (is<RenderBox>(renderer.get())) {
-            auto& box = downcast<RenderBox>(*renderer);
-
+        if (auto* box = dynamicDowncast<RenderBox>(renderer.get())) {
             bool computedBounds = false;
             
-            if (CheckedPtr fragmentedFlow = box.enclosingFragmentedFlow()) {
+            if (CheckedPtr fragmentedFlow = box->enclosingFragmentedFlow()) {
                 bool wasFixed = false;
                 Vector<FloatQuad> quads;
-                if (fragmentedFlow->absoluteQuadsForBox(quads, &wasFixed, &box)) {
+                if (fragmentedFlow->absoluteQuadsForBox(quads, &wasFixed, box)) {
                     result = LayoutRect(unitedBoundingBoxes(quads));
                     computedBounds = true;
                 } else {
@@ -1781,9 +1779,9 @@ LayoutRect Element::absoluteEventBounds(bool& boundsIncludeAllDescendantElements
             }
 
             if (!computedBounds) {
-                LayoutRect overflowRect = box.layoutOverflowRect();
-                result = LayoutRect(box.localToAbsoluteQuad(FloatRect(overflowRect), UseTransforms, &includesFixedPositionElements).boundingBox());
-                boundsIncludeAllDescendantElements = layoutOverflowRectContainsAllDescendants(box);
+                LayoutRect overflowRect = box->layoutOverflowRect();
+                result = LayoutRect(box->localToAbsoluteQuad(FloatRect(overflowRect), UseTransforms, &includesFixedPositionElements).boundingBox());
+                boundsIncludeAllDescendantElements = layoutOverflowRectContainsAllDescendants(*box);
             }
         } else
             result = LayoutRect(renderer->absoluteBoundingBoxRect(true /* useTransforms */, &includesFixedPositionElements));
@@ -1821,30 +1819,33 @@ LayoutRect Element::absoluteEventHandlerBounds(bool& includesFixedPositionElemen
 static std::optional<std::pair<CheckedRef<RenderObject>, LayoutRect>> listBoxElementBoundingBox(const Element& element)
 {
     auto owningSelectElement = [](const Element& element) -> HTMLSelectElement* {
-        if (is<HTMLOptionElement>(element))
-            return downcast<HTMLOptionElement>(element).ownerSelectElement();
+        if (auto* optionElement = dynamicDowncast<HTMLOptionElement>(element))
+            return optionElement->ownerSelectElement();
         
-        if (is<HTMLOptGroupElement>(element))
-            return downcast<HTMLOptGroupElement>(element).ownerSelectElement();
+        if (auto* optGroupElement = dynamicDowncast<HTMLOptGroupElement>(element))
+            return optGroupElement->ownerSelectElement();
 
         return nullptr;
     };
 
     RefPtr selectElement = owningSelectElement(element);
-    if (!selectElement || !selectElement->renderer() || !is<RenderListBox>(selectElement->renderer()))
+    if (!selectElement)
         return std::nullopt;
 
-    CheckedRef listBoxRenderer = downcast<RenderListBox>(*selectElement->renderer());
+    CheckedPtr listBoxRenderer = dynamicDowncast<RenderListBox>(selectElement->renderer());
+    if (!listBoxRenderer)
+        return std::nullopt;
+
     std::optional<LayoutRect> boundingBox;
-    if (is<HTMLOptionElement>(element))
-        boundingBox = listBoxRenderer->localBoundsOfOption(downcast<HTMLOptionElement>(element));
-    else if (is<HTMLOptGroupElement>(element))
-        boundingBox = listBoxRenderer->localBoundsOfOptGroup(downcast<HTMLOptGroupElement>(element));
+    if (RefPtr optionElement = dynamicDowncast<HTMLOptionElement>(element))
+        boundingBox = listBoxRenderer->localBoundsOfOption(*optionElement);
+    else if (RefPtr optGroupElement = dynamicDowncast<HTMLOptGroupElement>(element))
+        boundingBox = listBoxRenderer->localBoundsOfOptGroup(*optGroupElement);
 
     if (!boundingBox)
         return { };
 
-    return std::pair<CheckedRef<RenderObject>, LayoutRect> { WTFMove(listBoxRenderer), boundingBox.value() };
+    return std::pair<CheckedRef<RenderObject>, LayoutRect> { listBoxRenderer.releaseNonNull(), boundingBox.value() };
 }
 
 Ref<DOMRectList> Element::getClientRects()
@@ -1955,7 +1956,7 @@ const AtomString& Element::getAttributeNS(const AtomString& namespaceURI, const 
 ExceptionOr<bool> Element::toggleAttribute(const AtomString& qualifiedName, std::optional<bool> force)
 {
     if (!Document::isValidName(qualifiedName))
-        return Exception { InvalidCharacterError, makeString("Invalid qualified name: '", qualifiedName, "'") };
+        return Exception { ExceptionCode::InvalidCharacterError, makeString("Invalid qualified name: '", qualifiedName, "'") };
 
     synchronizeAttribute(qualifiedName);
 
@@ -1979,7 +1980,7 @@ ExceptionOr<bool> Element::toggleAttribute(const AtomString& qualifiedName, std:
 ExceptionOr<void> Element::setAttribute(const AtomString& qualifiedName, const AtomString& value)
 {
     if (!Document::isValidName(qualifiedName))
-        return Exception { InvalidCharacterError, makeString("Invalid qualified name: '", qualifiedName, "'") };
+        return Exception { ExceptionCode::InvalidCharacterError, makeString("Invalid qualified name: '", qualifiedName, "'") };
 
     synchronizeAttribute(qualifiedName);
     auto caseAdjustedQualifiedName = shouldIgnoreAttributeCase(*this) ? qualifiedName.convertToASCIILowercase() : qualifiedName;
@@ -2931,7 +2932,7 @@ static bool canAttachAuthorShadowRoot(const Element& element)
 ExceptionOr<ShadowRoot&> Element::attachShadow(const ShadowRootInit& init)
 {
     if (!canAttachAuthorShadowRoot(*this))
-        return Exception { NotSupportedError };
+        return Exception { ExceptionCode::NotSupportedError };
     if (RefPtr shadowRoot = this->shadowRoot()) {
         if (shadowRoot->isDeclarativeShadowRoot()) {
             ChildListMutationScope mutation(*shadowRoot);
@@ -2939,10 +2940,10 @@ ExceptionOr<ShadowRoot&> Element::attachShadow(const ShadowRootInit& init)
             shadowRoot->setIsDeclarativeShadowRoot(false);
             return *shadowRoot;
         }
-        return Exception { NotSupportedError };
+        return Exception { ExceptionCode::NotSupportedError };
     }
     if (init.mode == ShadowRootMode::UserAgent)
-        return Exception { TypeError };
+        return Exception { ExceptionCode::TypeError };
     Ref shadow = ShadowRoot::create(document(), init.mode, init.slotAssignment,
         init.delegatesFocus ? ShadowRoot::DelegatesFocus::Yes : ShadowRoot::DelegatesFocus::No,
         init.cloneable ? ShadowRoot::Cloneable::Yes : ShadowRoot::Cloneable::No,
@@ -3236,7 +3237,7 @@ ExceptionOr<RefPtr<Attr>> Element::setAttributeNode(Attr& attrNode)
     // InUseAttributeError: Raised if node is an Attr that is already an attribute of another Element object.
     // The DOM user must explicitly clone Attr nodes to re-use them in other elements.
     if (attrNode.ownerElement() && attrNode.ownerElement() != this)
-        return Exception { InUseAttributeError };
+        return Exception { ExceptionCode::InUseAttributeError };
 
     {
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
@@ -3283,7 +3284,7 @@ ExceptionOr<RefPtr<Attr>> Element::setAttributeNodeNS(Attr& attrNode)
     // InUseAttributeError: Raised if node is an Attr that is already an attribute of another Element object.
     // The DOM user must explicitly clone Attr nodes to re-use them in other elements.
     if (attrNode.ownerElement() && attrNode.ownerElement() != this)
-        return Exception { InUseAttributeError };
+        return Exception { ExceptionCode::InUseAttributeError };
 
     // Attr::value() will return its 'm_standaloneValue' member any time its Element is set to nullptr. We need to cache this value
     // before making changes to attrNode's Element connections.
@@ -3313,18 +3314,18 @@ ExceptionOr<RefPtr<Attr>> Element::setAttributeNodeNS(Attr& attrNode)
 ExceptionOr<Ref<Attr>> Element::removeAttributeNode(Attr& attr)
 {
     if (attr.ownerElement() != this)
-        return Exception { NotFoundError };
+        return Exception { ExceptionCode::NotFoundError };
 
     ASSERT(&document() == &attr.document());
 
     synchronizeAllAttributes();
 
     if (!m_elementData)
-        return Exception { NotFoundError };
+        return Exception { ExceptionCode::NotFoundError };
 
     auto existingAttributeIndex = m_elementData->findAttributeIndexByName(attr.qualifiedName());
     if (existingAttributeIndex == ElementData::attributeNotFound)
-        return Exception { NotFoundError };
+        return Exception { ExceptionCode::NotFoundError };
 
     Ref oldAttrNode { attr };
 
@@ -3341,7 +3342,7 @@ ExceptionOr<QualifiedName> Element::parseAttributeName(const AtomString& namespa
         return parseResult.releaseException();
     QualifiedName parsedAttributeName { parseResult.releaseReturnValue() };
     if (!Document::hasValidNamespaceForAttributes(parsedAttributeName))
-        return Exception { NamespaceError };
+        return Exception { ExceptionCode::NamespaceError };
     return parsedAttributeName;
 }
 
@@ -3404,8 +3405,10 @@ bool Element::removeAttribute(const AtomString& qualifiedName)
     AtomString caseAdjustedQualifiedName = shouldIgnoreAttributeCase(*this) ? qualifiedName.convertToASCIILowercase() : qualifiedName;
     unsigned index = elementData()->findAttributeIndexByName(caseAdjustedQualifiedName, false);
     if (index == ElementData::attributeNotFound) {
-        if (UNLIKELY(caseAdjustedQualifiedName == styleAttr) && elementData()->styleAttributeIsDirty() && is<StyledElement>(*this))
-            downcast<StyledElement>(*this).removeAllInlineStyleProperties();
+        if (UNLIKELY(caseAdjustedQualifiedName == styleAttr) && elementData()->styleAttributeIsDirty()) {
+            if (auto* styledElement = dynamicDowncast<StyledElement>(*this))
+                styledElement->removeAllInlineStyleProperties();
+        }
         return false;
     }
 
@@ -3776,10 +3779,10 @@ ExceptionOr<void> Element::setOuterHTML(const String& html)
     if (UNLIKELY(!parent)) {
         if (!parentNode())
             return { };
-        return Exception { NoModificationAllowedError, "Cannot set outerHTML on element because its parent is not an Element"_s };
+        return Exception { ExceptionCode::NoModificationAllowedError, "Cannot set outerHTML on element because its parent is not an Element"_s };
     }
 
-    RefPtr prev = previousSibling();
+    RefPtr previous = previousSibling();
     RefPtr next = nextSibling();
 
     auto fragment = createFragmentForInnerOuterHTML(*parent, html, { ParserContentPolicy::AllowScriptingContent, ParserContentPolicy::AllowPluginContent });
@@ -3791,14 +3794,13 @@ ExceptionOr<void> Element::setOuterHTML(const String& html)
         return replaceResult.releaseException();
 
     // The following is not part of the specification but matches Blink's behavior as of June 2021.
-    RefPtr node = next ? next->previousSibling() : nullptr;
-    if (is<Text>(node)) {
-        auto result = mergeWithNextTextNode(downcast<Text>(*node));
+    if (RefPtr nodeText = next ? dynamicDowncast<Text>(next->previousSibling()) : nullptr) {
+        auto result = mergeWithNextTextNode(*nodeText);
         if (result.hasException())
             return result.releaseException();
     }
-    if (is<Text>(prev)) {
-        auto result = mergeWithNextTextNode(downcast<Text>(*prev));
+    if (RefPtr previousText = dynamicDowncast<Text>(WTFMove(previous))) {
+        auto result = mergeWithNextTextNode(*previousText);
         if (result.hasException())
             return result.releaseException();
     }
@@ -3808,9 +3810,9 @@ ExceptionOr<void> Element::setOuterHTML(const String& html)
 ExceptionOr<void> Element::setInnerHTML(const String& html)
 {
     Ref container = [this]() -> Ref<ContainerNode> {
-        if (!is<HTMLTemplateElement>(*this))
-            return *this;
-        return downcast<HTMLTemplateElement>(*this).content();
+        if (auto* templateElement = dynamicDowncast<HTMLTemplateElement>(*this))
+            return templateElement->content();
+        return *this;
     }();
 
     // Parsing empty string creates additional elements only inside <html> container
@@ -3879,13 +3881,15 @@ static void forEachRenderLayer(Element& element, const std::function<void(Render
     if (!layerModelObject)
         return;
 
-    if (!is<RenderBoxModelObject>(*layerModelObject)) {
+
+    CheckedPtr renderBoxModelObject = dynamicDowncast<RenderBoxModelObject>(*layerModelObject);
+    if (!renderBoxModelObject) {
         if (layerModelObject->hasLayer())
             function(*layerModelObject->layer());
         return;
     }
 
-    RenderBoxModelObject::forRendererAndContinuations(downcast<RenderBoxModelObject>(*layerModelObject), [function](RenderBoxModelObject& renderer) {
+    RenderBoxModelObject::forRendererAndContinuations(*renderBoxModelObject, [function](RenderBoxModelObject& renderer) {
         if (renderer.hasLayer())
             function(*renderer.layer());
     });
@@ -4073,9 +4077,8 @@ const RenderStyle* Element::resolveComputedStyle(ResolveComputedStyleMode mode)
             auto change = Style::determineChange(*existing, *style);
             if (change > Style::Change::NonInherited) {
                 for (Ref child : composedTreeChildren(*element)) {
-                    if (!is<Element>(child))
-                        continue;
-                    downcast<Element>(child.get()).setNodeFlag(NodeFlag::IsComputedStyleInvalidFlag);
+                    if (RefPtr childElement = dynamicDowncast<Element>(WTFMove(child)))
+                        childElement->setNodeFlag(NodeFlag::IsComputedStyleInvalidFlag);
                 }
             }
         }
@@ -4337,7 +4340,7 @@ DOMTokenList& Element::classList()
 {
     ElementRareData& data = ensureElementRareData();
     if (!data.classList())
-        data.setClassList(makeUnique<DOMTokenList>(*this, HTMLNames::classAttr));
+        data.setClassList(makeUniqueWithoutRefCountedCheck<DOMTokenList>(*this, HTMLNames::classAttr));
     return *data.classList();
 }
 
@@ -4350,7 +4353,7 @@ DOMTokenList& Element::part()
 {
     auto& data = ensureElementRareData();
     if (!data.partList())
-        data.setPartList(makeUnique<DOMTokenList>(*this, HTMLNames::partAttr));
+        data.setPartList(makeUniqueWithoutRefCountedCheck<DOMTokenList>(*this, HTMLNames::partAttr));
     return *data.partList();
 }
 
@@ -4358,7 +4361,7 @@ DatasetDOMStringMap& Element::dataset()
 {
     ElementRareData& data = ensureElementRareData();
     if (!data.dataset())
-        data.setDataset(makeUnique<DatasetDOMStringMap>(*this));
+        data.setDataset(makeUniqueWithoutRefCountedCheck<DatasetDOMStringMap>(*this));
     return *data.dataset();
 }
 
@@ -4410,10 +4413,9 @@ void Element::setUnsignedIntegralAttribute(const QualifiedName& attributeName, u
 bool Element::childShouldCreateRenderer(const Node& child) const
 {
     // Only create renderers for SVG elements whose parents are SVG elements, or for proper <svg xmlns="svgNS"> subdocuments.
-    if (child.isSVGElement()) {
+    if (auto* childElement = dynamicDowncast<SVGElement>(child)) {
         ASSERT(!isSVGElement());
-        const SVGElement& childElement = downcast<SVGElement>(child);
-        return is<SVGSVGElement>(childElement) && childElement.isValid();
+        return is<SVGSVGElement>(*childElement) && childElement->isValid();
     }
     return true;
 }
@@ -4549,14 +4551,14 @@ const AnimationCollection* Element::animations(PseudoId pseudoId) const
     return nullptr;
 }
 
-bool Element::hasCompletedTransitionForProperty(PseudoId pseudoId, const AnimatableProperty& property) const
+bool Element::hasCompletedTransitionForProperty(PseudoId pseudoId, const AnimatableCSSProperty& property) const
 {
     if (auto* animationData = animationRareData(pseudoId))
         return animationData->completedTransitionsByProperty().contains(property);
     return false;
 }
 
-bool Element::hasRunningTransitionForProperty(PseudoId pseudoId, const AnimatableProperty& property) const
+bool Element::hasRunningTransitionForProperty(PseudoId pseudoId, const AnimatableCSSProperty& property) const
 {
     if (auto* animationData = animationRareData(pseudoId))
         return animationData->runningTransitionsByProperty().contains(property);
@@ -4570,14 +4572,14 @@ bool Element::hasRunningTransitions(PseudoId pseudoId) const
     return false;
 }
 
-const AnimatablePropertyToTransitionMap* Element::completedTransitionsByProperty(PseudoId pseudoId) const
+const AnimatableCSSPropertyToTransitionMap* Element::completedTransitionsByProperty(PseudoId pseudoId) const
 {
     if (auto* animationData = animationRareData(pseudoId))
         return &animationData->completedTransitionsByProperty();
     return nullptr;
 }
 
-const AnimatablePropertyToTransitionMap* Element::runningTransitionsByProperty(PseudoId pseudoId) const
+const AnimatableCSSPropertyToTransitionMap* Element::runningTransitionsByProperty(PseudoId pseudoId) const
 {
     if (auto* animationData = animationRareData(pseudoId))
         return &animationData->runningTransitionsByProperty();
@@ -4601,12 +4603,12 @@ void Element::setAnimationsCreatedByMarkup(PseudoId pseudoId, CSSAnimationCollec
     ensureAnimationRareData(pseudoId).setAnimationsCreatedByMarkup(WTFMove(animations));
 }
 
-AnimatablePropertyToTransitionMap& Element::ensureCompletedTransitionsByProperty(PseudoId pseudoId)
+AnimatableCSSPropertyToTransitionMap& Element::ensureCompletedTransitionsByProperty(PseudoId pseudoId)
 {
     return ensureAnimationRareData(pseudoId).completedTransitionsByProperty();
 }
 
-AnimatablePropertyToTransitionMap& Element::ensureRunningTransitionsByProperty(PseudoId pseudoId)
+AnimatableCSSPropertyToTransitionMap& Element::ensureRunningTransitionsByProperty(PseudoId pseudoId)
 {
     return ensureAnimationRareData(pseudoId).runningTransitionsByProperty();
 }
@@ -4718,8 +4720,8 @@ bool Element::fastAttributeLookupAllowed(const QualifiedName& name) const
     if (name == HTMLNames::styleAttr)
         return false;
 
-    if (isSVGElement())
-        return !downcast<SVGElement>(*this).isAnimatedPropertyAttribute(name);
+    if (auto* svgElement = dynamicDowncast<SVGElement>(*this))
+        return !svgElement->isAnimatedPropertyAttribute(name);
 
     return true;
 }
@@ -4744,9 +4746,8 @@ inline void Element::updateName(const AtomString& oldName, const AtomString& new
 
     if (!isConnected())
         return;
-    if (!is<HTMLDocument>(document()))
-        return;
-    updateNameForDocument(downcast<HTMLDocument>(document()), oldName, newName);
+    if (RefPtr htmlDocument = dynamicDowncast<HTMLDocument>(document()))
+        updateNameForDocument(*htmlDocument, oldName, newName);
 }
 
 void Element::updateNameForTreeScope(TreeScope& scope, const AtomString& oldName, const AtomString& newName)
@@ -4795,9 +4796,8 @@ inline void Element::updateId(const AtomString& oldId, const AtomString& newId, 
 
     if (!isConnected())
         return;
-    if (!is<HTMLDocument>(document()))
-        return;
-    updateIdForDocument(downcast<HTMLDocument>(protectedDocument()), oldId, newId, HTMLDocumentNamedItemMapsUpdatingCondition::UpdateOnlyIfDiffersFromNameAttribute);
+    if (RefPtr htmlDocument = dynamicDowncast<HTMLDocument>(document()))
+        updateIdForDocument(*htmlDocument, oldId, newId, HTMLDocumentNamedItemMapsUpdatingCondition::UpdateOnlyIfDiffersFromNameAttribute);
 }
 
 void Element::updateIdForTreeScope(TreeScope& scope, const AtomString& oldId, const AtomString& newId, NotifyObservers notifyObservers)
@@ -5082,10 +5082,11 @@ void Element::cloneAttributesFromElement(const Element& other)
 
     // If 'other' has a mutable ElementData, convert it to an immutable one so we can share it between both elements.
     // We can only do this if there is no CSSOM wrapper for other's inline style, and there are no presentation attributes.
-    if (is<UniqueElementData>(*other.m_elementData)
-        && !other.m_elementData->presentationalHintStyle()
-        && (!other.m_elementData->inlineStyle() || !other.m_elementData->inlineStyle()->hasCSSOMWrapper()))
-        const_cast<Element&>(other).m_elementData = downcast<UniqueElementData>(*other.m_elementData).makeShareableCopy();
+    auto* uniqueElementData = dynamicDowncast<UniqueElementData>(*other.m_elementData);
+    if (uniqueElementData
+        && !uniqueElementData->presentationalHintStyle()
+        && (!uniqueElementData->inlineStyle() || !uniqueElementData->inlineStyle()->hasCSSOMWrapper()))
+        const_cast<Element&>(other).m_elementData = uniqueElementData->makeShareableCopy();
 
     if (!other.m_elementData->isUnique())
         m_elementData = other.m_elementData;
@@ -5203,7 +5204,7 @@ ExceptionOr<Node*> Element::insertAdjacent(const String& where, Ref<Node>&& newC
         return newChild.ptr();
     }
 
-    return Exception { SyntaxError };
+    return Exception { ExceptionCode::SyntaxError };
 }
 
 ExceptionOr<Element*> Element::insertAdjacentElement(const String& where, Element& newChild)
@@ -5220,12 +5221,12 @@ static ExceptionOr<ContainerNode&> contextNodeForInsertion(const String& where, 
     if (equalLettersIgnoringASCIICase(where, "beforebegin"_s) || equalLettersIgnoringASCIICase(where, "afterend"_s)) {
         RefPtr parent = element.parentNode();
         if (!parent || is<Document>(*parent))
-            return Exception { NoModificationAllowedError };
+            return Exception { ExceptionCode::NoModificationAllowedError };
         return *parent;
     }
     if (equalLettersIgnoringASCIICase(where, "afterbegin"_s) || equalLettersIgnoringASCIICase(where, "beforeend"_s))
         return element;
-    return Exception { SyntaxError };
+    return Exception { ExceptionCode::SyntaxError };
 }
 
 // Step 2 of https://w3c.github.io/DOM-Parsing/#dom-element-insertadjacenthtml.
@@ -5234,10 +5235,11 @@ static ExceptionOr<Ref<Element>> contextElementForInsertion(const String& where,
     auto contextNodeResult = contextNodeForInsertion(where, element);
     if (contextNodeResult.hasException())
         return contextNodeResult.releaseException();
-    Ref contextNode = contextNodeResult.releaseReturnValue();
-    if (!is<Element>(contextNode) || (contextNode->document().isHTMLDocument() && is<HTMLHtmlElement>(contextNode)))
-        return Ref<Element> { HTMLBodyElement::create(contextNode->protectedDocument()) };
-    return downcast<Element>(contextNode);
+    auto& contextNode = contextNodeResult.releaseReturnValue();
+    RefPtr contextElement = dynamicDowncast<Element>(contextNode);
+    if (!contextElement || (contextNode.document().isHTMLDocument() && is<HTMLHtmlElement>(contextNode)))
+        return Ref<Element> { HTMLBodyElement::create(contextNode.protectedDocument()) };
+    return contextElement.releaseNonNull();
 }
 
 // https://w3c.github.io/DOM-Parsing/#dom-element-insertadjacenthtml
@@ -5400,7 +5402,7 @@ void Element::ensureFormAssociatedCustomElement()
     RELEASE_ASSERT(is<HTMLMaybeFormAssociatedCustomElement>(*this));
     auto& data = ensureElementRareData();
     if (!data.formAssociatedCustomElement())
-        data.setFormAssociatedCustomElement(makeUnique<FormAssociatedCustomElement>(downcast<HTMLMaybeFormAssociatedCustomElement>(*this)));
+        data.setFormAssociatedCustomElement(makeUniqueWithoutRefCountedCheck<FormAssociatedCustomElement>(downcast<HTMLMaybeFormAssociatedCustomElement>(*this)));
 }
 
 FormAssociatedCustomElement& Element::formAssociatedCustomElementUnsafe() const
@@ -5472,7 +5474,7 @@ bool Element::checkVisibility(const CheckVisibilityOptions& options)
     if (style->display() == DisplayType::Contents)
         return false;
 
-    if (options.checkVisibilityCSS && style->visibility() != Visibility::Visible)
+    if ((options.visibilityProperty || options.checkVisibilityCSS) && style->visibility() != Visibility::Visible)
         return false;
 
     RefPtr parent = parentElementInComposedTree();
@@ -5491,7 +5493,7 @@ bool Element::checkVisibility(const CheckVisibilityOptions& options)
     if (isSkippedContentWithReason(ContentVisibility::Hidden))
         return false;
 
-    if (options.checkContentVisibilityAuto && isSkippedContentWithReason(ContentVisibility::Auto))
+    if (options.contentVisibilityAuto && isSkippedContentWithReason(ContentVisibility::Auto))
         return false;
 
     for (RefPtr ancestor = this; ancestor; ancestor = ancestor->parentElementInComposedTree()) {
@@ -5499,7 +5501,7 @@ bool Element::checkVisibility(const CheckVisibilityOptions& options)
         if (ancestorStyle->display() == DisplayType::None)
             return false;
 
-        if (options.checkOpacity && ancestorStyle->opacity() == 0.0f)
+        if ((options.opacityProperty || options.checkOpacity) && ancestorStyle->opacity() == 0.0f)
             return false;
     }
 

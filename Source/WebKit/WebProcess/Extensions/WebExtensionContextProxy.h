@@ -80,8 +80,6 @@ public:
 
     _WKWebExtensionLocalization *localization() { return m_localization.get(); }
 
-    static _WKWebExtensionLocalization *parseLocalization(API::Data&);
-
     bool inTestingMode() { return m_testingMode; }
 
     static WebCore::DOMWrapperWorld& mainWorld() { return WebCore::mainThreadNormalWorld(); }
@@ -117,11 +115,17 @@ public:
 private:
     explicit WebExtensionContextProxy(const WebExtensionContextParameters&);
 
+    static _WKWebExtensionLocalization *parseLocalization(API::Data&, const URL& baseURL);
+
     // Action
     void dispatchActionClickedEvent(const std::optional<WebExtensionTabParameters>&);
 
     // Alarms
     void dispatchAlarmsEvent(const WebExtensionAlarmParameters&);
+
+    // Commands
+    void dispatchCommandsCommandEvent(const String& identifier, const std::optional<WebExtensionTabParameters>&);
+    void dispatchCommandsChangedEvent(const String& identifier, const String& oldShortcut, const String& newShortcut);
 
     // Extension
     void setBackgroundPageIdentifier(WebCore::PageIdentifier);
@@ -155,7 +159,7 @@ private:
     void dispatchTabsRemovedEvent(WebExtensionTabIdentifier, WebExtensionWindowIdentifier, WebExtensionContext::WindowIsClosing);
 
     // Web Navigation
-    void dispatchWebNavigationEvent(WebExtensionEventListenerType, WebPageProxyIdentifier, WebCore::FrameIdentifier, URL);
+    void dispatchWebNavigationEvent(WebExtensionEventListenerType, WebExtensionTabIdentifier, WebExtensionFrameIdentifier, WebExtensionFrameIdentifier parentFrameID, const URL&, WallTime);
 
     // Windows
     void dispatchWindowsEvent(WebExtensionEventListenerType, const std::optional<WebExtensionWindowParameters>&);

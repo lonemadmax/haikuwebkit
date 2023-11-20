@@ -22,6 +22,7 @@
 #include "config.h"
 #include "CSSFontFaceRule.h"
 
+#include "MutableStyleProperties.h"
 #include "PropertySetCSSStyleDeclaration.h"
 #include "StyleProperties.h"
 #include "StyleRule.h"
@@ -53,7 +54,7 @@ String CSSFontFaceRule::cssText() const
     return cssTextInternal(m_fontFaceRule->properties().asText());
 }
 
-String CSSFontFaceRule::cssTextWithReplacementURLs(const HashMap<String, String>& replacementURLStrings) const
+String CSSFontFaceRule::cssTextWithReplacementURLs(const HashMap<String, String>& replacementURLStrings, const HashMap<RefPtr<CSSStyleSheet>, String>&) const
 {
     auto mutableStyleProperties = m_fontFaceRule->properties().mutableCopy();
     mutableStyleProperties->setReplacementURLForSubresources(replacementURLStrings);

@@ -49,19 +49,19 @@ namespace WebKit {
 
 using namespace WebCore;
 
-Ref<SourceBufferPrivateRemote> SourceBufferPrivateRemote::create(GPUProcessConnection& gpuProcessConnection, RemoteSourceBufferIdentifier remoteSourceBufferIdentifier, const MediaSourcePrivateRemote& mediaSourcePrivate, const MediaPlayerPrivateRemote& mediaPlayerPrivate)
+Ref<SourceBufferPrivateRemote> SourceBufferPrivateRemote::create(GPUProcessConnection& gpuProcessConnection, RemoteSourceBufferIdentifier remoteSourceBufferIdentifier, MediaSourcePrivateRemote& mediaSourcePrivate, const MediaPlayerPrivateRemote& mediaPlayerPrivate)
 {
     return adoptRef(*new SourceBufferPrivateRemote(gpuProcessConnection, remoteSourceBufferIdentifier, mediaSourcePrivate, mediaPlayerPrivate));
 }
 
-SourceBufferPrivateRemote::SourceBufferPrivateRemote(GPUProcessConnection& gpuProcessConnection, RemoteSourceBufferIdentifier remoteSourceBufferIdentifier, const MediaSourcePrivateRemote& mediaSourcePrivate, const MediaPlayerPrivateRemote& mediaPlayerPrivate)
-    : m_gpuProcessConnection(gpuProcessConnection)
+SourceBufferPrivateRemote::SourceBufferPrivateRemote(GPUProcessConnection& gpuProcessConnection, RemoteSourceBufferIdentifier remoteSourceBufferIdentifier, MediaSourcePrivateRemote& mediaSourcePrivate, const MediaPlayerPrivateRemote& mediaPlayerPrivate)
+    : SourceBufferPrivate(mediaSourcePrivate)
+    , m_gpuProcessConnection(gpuProcessConnection)
     , m_remoteSourceBufferIdentifier(remoteSourceBufferIdentifier)
-    , m_mediaSourcePrivate(mediaSourcePrivate)
     , m_mediaPlayerPrivate(mediaPlayerPrivate)
 #if !RELEASE_LOG_DISABLED
-    , m_logger(m_mediaSourcePrivate->logger())
-    , m_logIdentifier(m_mediaSourcePrivate->nextSourceBufferLogIdentifier())
+    , m_logger(mediaSourcePrivate.logger())
+    , m_logIdentifier(mediaSourcePrivate.nextSourceBufferLogIdentifier())
 #endif
 {
     ALWAYS_LOG(LOGIDENTIFIER);
@@ -141,7 +141,7 @@ MediaPlayer::ReadyState SourceBufferPrivateRemote::readyState() const
 
 void SourceBufferPrivateRemote::setReadyState(MediaPlayer::ReadyState state)
 {
-    if (!m_mediaSourcePrivate)
+    if (!m_mediaSource)
         return;
 
     if (m_mediaPlayerPrivate)
@@ -156,14 +156,15 @@ void SourceBufferPrivateRemote::setReadyState(MediaPlayer::ReadyState state)
 
 void SourceBufferPrivateRemote::setActive(bool active)
 {
-    if (!m_mediaSourcePrivate)
+    SourceBufferPrivate::setActive(active);
+
+    if (!m_mediaSource)
         return;
 
     auto gpuProcessConnection = m_gpuProcessConnection.get();
     if (!isGPURunning())
         return;
 
-    m_isActive = active;
     gpuProcessConnection->connection().send(Messages::RemoteSourceBufferProxy::SetActive(active), m_remoteSourceBufferIdentifier);
 }
 
@@ -185,6 +186,7 @@ void SourceBufferPrivateRemote::setMediaSourceEnded(bool isEnded)
         return;
 
     gpuProcessConnection->connection().send(Messages::RemoteSourceBufferProxy::SetMediaSourceEnded(isEnded), m_remoteSourceBufferIdentifier);
+    SourceBufferPrivate::setMediaSourceEnded(isEnded);
 }
 
 void SourceBufferPrivateRemote::setMode(SourceBufferAppendMode mode)
@@ -196,15 +198,7 @@ void SourceBufferPrivateRemote::setMode(SourceBufferAppendMode mode)
     gpuProcessConnection->connection().send(Messages::RemoteSourceBufferProxy::SetMode(mode), m_remoteSourceBufferIdentifier);
 }
 
-void SourceBufferPrivateRemote::clientReadyStateChanged(bool sourceIsEnded)
-{
-    auto gpuProcessConnection = m_gpuProcessConnection.get();
-    if (isGPURunning())
-        gpuProcessConnection->connection().send(Messages::RemoteSourceBufferProxy::ClientReadyStateChanged(sourceIsEnded), m_remoteSourceBufferIdentifier);
-    SourceBufferPrivate::updateBufferedFromTrackBuffers(m_trackBufferRanges, sourceIsEnded);
-}
-
-void SourceBufferPrivateRemote::removeCodedFrames(const MediaTime& start, const MediaTime& end, const MediaTime& currentMediaTime, bool isEnded, CompletionHandler<void()>&& completionHandler)
+void SourceBufferPrivateRemote::removeCodedFrames(const MediaTime& start, const MediaTime& end, const MediaTime& currentMediaTime, CompletionHandler<void()>&& completionHandler)
 {
     auto gpuProcessConnection = m_gpuProcessConnection.get();
     if (!isGPURunning()) {
@@ -213,7 +207,7 @@ void SourceBufferPrivateRemote::removeCodedFrames(const MediaTime& start, const 
     }
 
     gpuProcessConnection->connection().sendWithAsyncReply(
-        Messages::RemoteSourceBufferProxy::RemoveCodedFrames(start, end, currentMediaTime, isEnded), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](WebCore::PlatformTimeRanges&& buffered, uint64_t totalTrackBufferSizeInBytes) mutable {
+        Messages::RemoteSourceBufferProxy::RemoveCodedFrames(start, end, currentMediaTime), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](WebCore::PlatformTimeRanges&& buffered, uint64_t totalTrackBufferSizeInBytes) mutable {
             m_totalTrackBufferSizeInBytes = totalTrackBufferSizeInBytes;
             setBufferedRanges(WTFMove(buffered));
             completionHandler();
@@ -221,13 +215,13 @@ void SourceBufferPrivateRemote::removeCodedFrames(const MediaTime& start, const 
         m_remoteSourceBufferIdentifier);
 }
 
-void SourceBufferPrivateRemote::evictCodedFrames(uint64_t newDataSize, uint64_t maximumBufferSize, const MediaTime& currentTime, bool isEnded)
+void SourceBufferPrivateRemote::evictCodedFrames(uint64_t newDataSize, uint64_t maximumBufferSize, const MediaTime& currentTime)
 {
     auto gpuProcessConnection = m_gpuProcessConnection.get();
     if (!isGPURunning())
         return;
 
-    auto sendResult = gpuProcessConnection->connection().sendSync(Messages::RemoteSourceBufferProxy::EvictCodedFrames(newDataSize, maximumBufferSize, currentTime, isEnded), m_remoteSourceBufferIdentifier);
+    auto sendResult = gpuProcessConnection->connection().sendSync(Messages::RemoteSourceBufferProxy::EvictCodedFrames(newDataSize, maximumBufferSize, currentTime), m_remoteSourceBufferIdentifier);
     if (sendResult.succeeded()) {
         PlatformTimeRanges buffered;
         std::tie(buffered, m_totalTrackBufferSizeInBytes) = sendResult.takeReply();
@@ -457,12 +451,6 @@ void SourceBufferPrivateRemote::sourceBufferPrivateDidReceiveInitializationSegme
     m_client->sourceBufferPrivateDidReceiveInitializationSegment(WTFMove(segment), WTFMove(completionHandler));
 }
 
-void SourceBufferPrivateRemote::sourceBufferPrivateStreamEndedWithDecodeError()
-{
-    if (m_client)
-        m_client->sourceBufferPrivateStreamEndedWithDecodeError();
-}
-
 void SourceBufferPrivateRemote::sourceBufferPrivateAppendComplete(SourceBufferPrivateClient::AppendResult appendResult, uint64_t totalTrackBufferSizeInBytes, const MediaTime& timestampOffset)
 {
     m_totalTrackBufferSizeInBytes = totalTrackBufferSizeInBytes;
@@ -525,14 +513,14 @@ uint64_t SourceBufferPrivateRemote::totalTrackBufferSizeInBytes() const
     return m_totalTrackBufferSizeInBytes;
 }
 
-void SourceBufferPrivateRemote::memoryPressure(uint64_t maximumBufferSize, const MediaTime& currentTime, bool isEnded)
+void SourceBufferPrivateRemote::memoryPressure(uint64_t maximumBufferSize, const MediaTime& currentTime)
 {
     auto gpuProcessConnection = m_gpuProcessConnection.get();
     if (!isGPURunning())
         return;
 
     gpuProcessConnection->connection().sendWithAsyncReply(
-        Messages::RemoteSourceBufferProxy::MemoryPressure(maximumBufferSize, currentTime, isEnded), [this, protectedThis = Ref { *this }](WebCore::PlatformTimeRanges&& buffer, uint64_t totalTrackBufferSizeInBytes) mutable {
+        Messages::RemoteSourceBufferProxy::MemoryPressure(maximumBufferSize, currentTime), [this, protectedThis = Ref { *this }](WebCore::PlatformTimeRanges&& buffer, uint64_t totalTrackBufferSizeInBytes) mutable {
             m_totalTrackBufferSizeInBytes = totalTrackBufferSizeInBytes;
             setBufferedRanges(WTFMove(buffer));
         },

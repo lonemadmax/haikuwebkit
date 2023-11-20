@@ -49,6 +49,7 @@ RenderAttachment::RenderAttachment(HTMLAttachmentElement& element, RenderStyle&&
     : RenderReplaced(Type::Attachment, element, WTFMove(style), LayoutSize())
     , m_isWideLayout(element.isWideLayout())
 {
+    ASSERT(isRenderAttachment());
 #if ENABLE(SERVICE_CONTROLS)
     m_hasShadowControls = element.isImageMenuEnabled();
 #endif

@@ -1459,6 +1459,33 @@ struct WebCore::WebLockManagerSnapshot {
 };
 
 #if ENABLE(WEB_AUTHN)
+
+[CustomHeader] struct WebCore::AuthenticatorResponseBaseData {
+    RefPtr<JSC::ArrayBuffer> rawId;
+    std::optional<WebCore::AuthenticationExtensionsClientOutputs> extensionOutputs;
+};
+
+[CustomHeader] struct WebCore::AuthenticatorAttestationResponseData {
+    RefPtr<JSC::ArrayBuffer> rawId;
+    std::optional<WebCore::AuthenticationExtensionsClientOutputs> extensionOutputs;
+    RefPtr<JSC::ArrayBuffer> attestationObject;
+    Vector<WebCore::AuthenticatorTransport> transports;
+};
+
+[CustomHeader] struct WebCore::AuthenticatorAssertionResponseData {
+    RefPtr<JSC::ArrayBuffer> rawId;
+    std::optional<WebCore::AuthenticationExtensionsClientOutputs> extensionOutputs;
+    RefPtr<JSC::ArrayBuffer> authenticatorData;
+    RefPtr<JSC::ArrayBuffer> signature;
+    RefPtr<JSC::ArrayBuffer> userHandle;
+};
+
+using WebCore::AuthenticatorResponseDataSerializableForm = std::variant<std::nullptr_t, WebCore::AuthenticatorResponseDataBase, WebCore::AuthenticatorAttestationResponseData, WebCore::AuthenticatorAssertionResponseData>;
+
+struct WebCore::AuthenticatorResponseData {
+    WebCore::AuthenticatorResponseDataSerializableForm getSerializableForm();
+};
+
 [Nested] struct WebCore::AuthenticationExtensionsClientInputs::LargeBlobInputs {
     String support;
     std::optional<bool> read;
@@ -3217,6 +3244,7 @@ enum class WebCore::StyleAppearance : uint8_t {
     SearchFieldCancelButton,
     SliderThumbHorizontal,
     SliderThumbVertical,
+    Switch,
     SwitchThumb,
     SwitchTrack
 };
@@ -5748,33 +5776,37 @@ struct WebCore::AcceleratedEffectValues {
 #endif
 }
 
-header: <WebCore/AcceleratedEffect.h>
-[CustomHeader] struct WebCore::AcceleratedEffectKeyframe {
-    double offset;
-    WebCore::AcceleratedEffectValues values;
+struct WebCore::AnimationEffectTiming {
     RefPtr<WebCore::TimingFunction> timingFunction;
-    std::optional<WebCore::CompositeOperation> compositeOperation;
-    OptionSet<WebCore::AcceleratedEffectProperty> animatedProperties;
+    WebCore::FillMode fill;
+    WebCore::PlaybackDirection direction;
+    double iterationStart;
+    double iterations;
+    WTF::Seconds delay;
+    WTF::Seconds endDelay;
+    WTF::Seconds iterationDuration;
+    WTF::Seconds activeDuration;
+    WTF::Seconds endTime;
+};
+
+header: <WebCore/AcceleratedEffect.h>
+[CustomHeader, Nested] class WebCore::AcceleratedEffect::Keyframe {
+    double offset();
+    WebCore::AcceleratedEffectValues values();
+    RefPtr<WebCore::TimingFunction> timingFunction();
+    std::optional<WebCore::CompositeOperation> compositeOperation();
+    OptionSet<WebCore::AcceleratedEffectProperty> animatedProperties();
 };
 
 [RefCounted] class WebCore::AcceleratedEffect {
-    Vector<WebCore::AcceleratedEffectKeyframe> keyframes();
+    WebCore::AnimationEffectTiming timing();
+    Vector<WebCore::AcceleratedEffect::Keyframe> keyframes();
     WebCore::WebAnimationType animationType();
-    WebCore::FillMode fill();
-    WebCore::PlaybackDirection direction();
     WebCore::CompositeOperation compositeOperation();
-    RefPtr<WebCore::TimingFunction> timingFunction();
     RefPtr<WebCore::TimingFunction> defaultKeyframeTimingFunction();
     OptionSet<WebCore::AcceleratedEffectProperty> animatedProperties();
     bool paused();
-    double iterationStart();
-    double iterations();
     double playbackRate();
-    WTF::Seconds delay();
-    WTF::Seconds endDelay();
-    WTF::Seconds iterationDuration();
-    WTF::Seconds activeDuration();
-    WTF::Seconds endTime();
     std::optional<WTF::Seconds> startTime();
     std::optional<WTF::Seconds> holdTime();
 };
@@ -6224,7 +6256,7 @@ using WebCore::FontSelectionValue::BackingType = int16_t;
     std::optional<WebCore::FontSelectionRange> slope;
 };
 
-struct WebCore::RemoteMouseEventData {
+struct WebCore::RemoteUserInputEventData {
     WebCore::FrameIdentifier targetFrameID;
     WebCore::IntPoint transformedPoint;
 };
@@ -6484,6 +6516,7 @@ header: <WebCore/GraphicsContextState.h>
     StrokeThickness,
     StrokeStyle,
     CompositeMode,
+    DropShadow,
     Style,
     Alpha,
     TextDrawingMode,
@@ -6513,6 +6546,7 @@ header: <WebCore/GraphicsContextState.h>
     float m_strokeThickness;
     WebCore::StrokeStyle m_strokeStyle;
     WebCore::CompositeMode m_compositeMode;
+    std::optional<WebCore::GraphicsDropShadow> m_dropShadow;
     std::optional<WebCore::GraphicsStyle> m_style;
     float m_alpha;
     WebCore::InterpolationQuality m_imageInterpolationQuality;
@@ -6529,9 +6563,175 @@ header: <WebCore/GraphicsContextState.h>
     WebCore::GraphicsContextState::Purpose m_purpose;
 };
 
+[AdditionalEncoder=StreamConnectionEncoder] struct WebCore::SourceBrushLogicalGradient {
+    std::variant<Ref<WebCore::Gradient>, WebCore::RenderingResourceIdentifier> serializableGradient();
+    WebCore::AffineTransform spaceTransform;
+};
+
+class WebCore::ContentSecurityPolicyResponseHeaders {
+    Vector<std::pair<String, WebCore::ContentSecurityPolicyHeaderType>> headers();
+    int httpStatusCode();
+};
+
+class WebCore::DragImage {
+    std::optional<WebCore::TextIndicatorData> indicatorData();
+    std::optional<WebCore::Path> visiblePath();
+};
+
+struct WebCore::DragItem {
+    WebCore::DragImage image;
+    WebCore::FloatPoint imageAnchorPoint;
+    std::optional<WebCore::DragSourceAction> sourceAction;
+    WebCore::IntPoint eventPositionInContentCoordinates;
+    WebCore::IntPoint dragLocationInContentCoordinates;
+    WebCore::IntPoint dragLocationInWindowCoordinates;
+    String title;
+    URL url;
+    WebCore::IntRect dragPreviewFrameInRootViewCoordinates;
+    bool containsSelection;
+    WebCore::PromisedAttachmentInfo promisedAttachmentInfo;
+    [NotSerialized] WebCore::PasteboardWriterData data;
+};
+
 #if PLATFORM(COCOA)
 struct WebCore::KeypressCommand {
     String commandName;
     String text;
 }
+#endif
+
+[Nested] enum class WebCore::UserStyleLevel : bool;
+
+header: <WebCore/WheelEventTestMonitor.h>
+[OptionSet] enum class WebCore::WheelEventTestMonitorDeferReason : uint16_t {
+    HandlingWheelEvent,
+    HandlingWheelEventOnMainThread,
+    PostMainThreadWheelEventHandling,
+    RubberbandInProgress,
+    ScrollSnapInProgress,
+    ScrollAnimationInProgress,
+    ScrollingThreadSyncNeeded,
+    ContentScrollInProgress,
+    RequestedScrollPosition,
+};
+
+header: <WebCore/CrossOriginAccessControl.h>
+[OptionSet] enum class WebCore::HTTPHeadersToKeepFromCleaning : uint8_t {
+    ContentType,
+    Referer,
+    Origin,
+    UserAgent,
+    AcceptEncoding,
+    CacheControl,
+};
+
+enum class WebCore::ExceptionCode : uint8_t {
+    IndexSizeError,
+    HierarchyRequestError,
+    WrongDocumentError,
+    InvalidCharacterError,
+    NoModificationAllowedError,
+    NotFoundError,
+    NotSupportedError,
+    InUseAttributeError,
+    InvalidStateError,
+    SyntaxError,
+    InvalidModificationError,
+    NamespaceError,
+    InvalidAccessError,
+    TypeMismatchError,
+    SecurityError,
+    NetworkError,
+    AbortError,
+    URLMismatchError,
+    QuotaExceededError,
+    TimeoutError,
+    InvalidNodeTypeError,
+    DataCloneError,
+    EncodingError,
+    NotReadableError,
+    UnknownError,
+    ConstraintError,
+    DataError,
+    TransactionInactiveError,
+    ReadonlyError,
+    VersionError,
+    OperationError,
+    NotAllowedError,
+    RangeError,
+    TypeError,
+    JSSyntaxError,
+    StackOverflowError,
+    OutOfMemoryError,
+    ExistingExceptionError,
+}
+
+header: <WebCore/BackgroundFetchFailureReason.h>
+enum class WebCore::BackgroundFetchFailureReason : uint8_t {
+    EmptyString,
+    Aborted,
+    BadStatus,
+    FetchError,
+    QuotaExceeded,
+    DownloadTotalExceeded
+};
+
+header: <WebCore/BackgroundFetchResult.h>
+enum class WebCore::BackgroundFetchResult : uint8_t {
+    EmptyString,
+    Success,
+    Failure
+};
+
+enum class WebCore::ResourceErrorBaseType : uint8_t {
+     Null,
+     General,
+     AccessControl,
+     Cancellation,
+     Timeout,
+}
+
+enum class WebCore::CredentialPersistence : uint8_t {
+     None,
+     ForSession,
+     Permanent,
+}
+header: <WebCore/Pagination.h>
+enum class WebCore::PaginationMode : uint8_t {
+    Unpaginated,
+    LeftToRightPaginated,
+    RightToLeftPaginated,
+    TopToBottomPaginated,
+    BottomToTopPaginated
+};
+
+header: <WebCore/RenderObject.h>
+enum class WebCore::RepaintRectCalculation : bool;
+
+[Nested] enum class WebCore::HdrMetadataType : uint8_t {
+    SmpteSt2086,
+    SmpteSt209410,
+    SmpteSt209440,
+};
+
+[Nested] enum class WebCore::TransferFunction : uint8_t {
+     SRGB,
+     PQ,
+     HLG,
+};
+
+[Nested] enum class WebCore::ColorGamut : uint8_t {
+    SRGB,
+    P3,
+    Rec2020,
+};
+
+#if ENABLE(WEB_AUTHN)
+header: <WebCore/CredentialRequestOptions.h>
+enum class WebCore::MediationRequirement : uint8_t {
+    Silent,
+    Optional,
+    Required,
+    Conditional,
+};
 #endif

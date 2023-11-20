@@ -556,6 +556,7 @@ accessibility/isolatedtree/AXIsolatedObject.cpp
 accessibility/isolatedtree/AXIsolatedTree.cpp
 animation/AcceleratedTimeline.cpp
 animation/AnimationEffect.cpp
+animation/AnimationEffectTiming.cpp
 animation/AnimationEventBase.cpp
 animation/AnimationPlaybackEvent.cpp
 animation/AnimationTimeline.cpp
@@ -574,6 +575,8 @@ animation/ElementAnimationRareData.cpp
 animation/FrameRateAligner.cpp
 animation/KeyframeEffect.cpp
 animation/KeyframeEffectStack.cpp
+animation/ScrollTimeline.cpp
+animation/ViewTimeline.cpp
 animation/WebAnimation.cpp
 animation/WebAnimationUtilities.cpp
 bindings/js/CachedModuleScriptLoader.cpp
@@ -859,6 +862,7 @@ css/CSSNamespaceRule.cpp
 css/CSSOffsetRotateValue.cpp
 css/CSSPageRule.cpp
 css/CSSPaintImageValue.cpp
+css/CSSPendingSubstitutionValue.cpp
 css/CSSPrimitiveValue.cpp
 css/CSSProperty.cpp
 css/CSSPropertyRule.cpp
@@ -870,6 +874,7 @@ css/CSSReflectValue.cpp
 css/CSSRegisteredCustomProperty.cpp
 css/CSSRule.cpp
 css/CSSRuleList.cpp
+css/CSSScopeRule.cpp
 css/CSSSegmentedFontFace.cpp
 css/CSSSelector.cpp
 css/CSSSelectorList.cpp
@@ -1546,6 +1551,7 @@ html/canvas/WebGLCompressedTextureS3TCsRGB.cpp
 html/canvas/WebGLContextEvent.cpp
 html/canvas/WebGLDebugRendererInfo.cpp
 html/canvas/WebGLDebugShaders.cpp
+html/canvas/WebGLDefaultFramebuffer.cpp
 html/canvas/WebGLDepthTexture.cpp
 html/canvas/WebGLDrawBuffers.cpp
 html/canvas/WebGLDrawInstancedBaseVertexBaseInstance.cpp
@@ -1565,7 +1571,6 @@ html/canvas/WebGLRenderingContextBase.cpp
 html/canvas/WebGLSampler.cpp
 html/canvas/WebGLShader.cpp
 html/canvas/WebGLShaderPrecisionFormat.cpp
-html/canvas/WebGLStateTracker.cpp
 html/canvas/WebGLStencilTexturing.cpp
 html/canvas/WebGLSync.cpp
 html/canvas/WebGLTexture.cpp
@@ -3271,6 +3276,7 @@ JSCSSPropertyRule.cpp
 JSCSSRule.cpp
 JSCSSRuleList.cpp
 JSCSSStyleDeclaration.cpp
+JSCSSScopeRule.cpp
 JSCSSStyleRule.cpp
 JSCSSStyleSheet.cpp
 JSCSSSupportsRule.cpp
@@ -4257,10 +4263,13 @@ JSSVGZoomAndPan.cpp
 JSScreen.cpp
 JSScreenOrientation.cpp
 JSScriptProcessorNode.cpp
+JSScrollAxis.cpp
 JSScrollBehavior.cpp
 JSScrollIntoViewOptions.cpp
 JSScrollLogicalPosition.cpp
 JSScrollOptions.cpp
+JSScrollTimeline.cpp
+JSScrollTimelineOptions.cpp
 JSScrollToOptions.cpp
 JSSecurityPolicyViolationEvent.cpp
 JSSecurityPolicyViolationEventDisposition.cpp
@@ -4400,6 +4409,8 @@ JSVideoTrack.cpp
 JSVideoTrackConfiguration.cpp
 JSVideoTrackList.cpp
 JSVideoTransferCharacteristics.cpp
+JSViewTimeline.cpp
+JSViewTimelineOptions.cpp
 JSVisibilityState.cpp
 JSVisualViewport.cpp
 JSVoidCallback.cpp

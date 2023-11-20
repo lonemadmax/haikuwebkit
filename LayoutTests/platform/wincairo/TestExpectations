@@ -70,6 +70,9 @@ fast/forms/time [ Skip ]
 fast/forms/week [ Skip ]
 fast/forms/datalist/ [ Skip ]
 
+# Not supported yet
+fast/forms/vertical-writing-mode [ Skip ]
+
 # FILTERS_LEVEL_2 is disabled
 compositing/layer-creation/will-change-on-normal-flow-content.html [ Skip ]
 
@@ -306,30 +309,15 @@ webkit.org/b/103926 media/track/opera [ Skip ]
 # TODO Impossible to test text-only-zoom from DRT on Windows
 webkit.org/b/35013 svg/zoom/text/ [ Skip ]
 
-# We don't support Wasm.
-imported/w3c/web-platform-tests/wasm [ Skip ]
-js/dom/webassembly-memory-normal-fail.html [ Failure ]
-js/dom/webassembly-memory-shared-basic.html [ Failure ]
-js/dom/webassembly-memory-shared-fail.html [ Failure ]
-storage/indexeddb/wasm-exceptions.html [ Skip ]
-wasm/iframe-parent-postmessage.html [ Skip ]
-wasm/iframe-postmessage.html [ Skip ]
-wasm/window-postmessage.html [ Skip ]
-webgl/2.0.y/conformance2/wasm [ Skip ]
-workers/wasm-hashset-many-2.html [ Skip ]
-workers/wasm-hashset-many.html [ Skip ]
-workers/wasm-hashset.html [ Skip ]
-workers/wasm-long-compile-many.html [ Skip ]
-workers/wasm-long-compile.html [ Skip ]
-workers/wasm-mem-post-message.html [ Skip ]
-workers/wasm-references.html [ Skip ]
-
 # These are Mac specific for now.
 fast/url/user-visible [ Skip ]
 
 # These tests reference specific fonts on Mac port.
-Bug(GTK) fast/text/font-weights.html [ WontFix ]
-Bug(GTK) fast/text/font-weights-zh.html [ WontFix ]
+fast/text/font-weights.html [ Skip ]
+fast/text/font-weights-zh.html [ Skip ]
+
+# SoftBank emoji isn't supported
+fast/text/softbank-emoji.html [ Skip ]
 
 # This requires a specific font on Mac
 fast/text/hidpi-text-selection-gap-between-words.html [ Skip ]
@@ -530,9 +518,6 @@ fast/images/animated-gif-window-resizing.html [ Skip ] # Timeout
 
 fast/gradients/conic-gradient-alpha.html [ ImageOnlyFailure ]
 
-fast/forms/vertical-writing-mode/meter.html [ ImageOnlyFailure ]
-fast/forms/vertical-writing-mode/progress.html [ ImageOnlyFailure ]
-
 # entire directory fails
 dom/svg/level3/xpath [ Skip ]
 
@@ -549,6 +534,8 @@ webkit.org/b/221445 fast/text/system-font-width-8.html [ Skip ]
 webkit.org/b/221445 fast/text/system-font-width-9.html [ Skip ]
 webkit.org/b/221445 fast/text/system-font-width.html [ Skip ]
 webkit.org/b/221445 fast/text/international/system-language/jp-circled.html [ Skip ]
+
+webkit.org/b/264710 [ Debug ] fast/svg/svg_should_not_crash.html [ Skip ] # Makes a subsequent test crash
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # crypto
@@ -896,7 +883,6 @@ http/tests/xmlhttprequest/abort-should-cancel-load.html [ Failure ]
 http/tests/xmlhttprequest/access-control-basic-allow-list-request-headers.html [ Failure ]
 http/tests/xmlhttprequest/basic-auth-default.html [ Failure ]
 http/tests/xmlhttprequest/basic-auth-nopassword.html [ Failure ]
-http/tests/xmlhttprequest/chunked-progress-event-expectedLength.html [ Failure ]
 http/tests/xmlhttprequest/cross-origin-authorization.html [ Failure ]
 http/tests/xmlhttprequest/cross-origin-cookie-storage.html [ Failure ]
 http/tests/xmlhttprequest/cross-origin-no-authorization.html [ Failure ]
@@ -907,7 +893,6 @@ http/tests/xmlhttprequest/re-login-async.html [ Failure ]
 http/tests/xmlhttprequest/re-login.html [ Failure ]
 http/tests/xmlhttprequest/redirect-credentials-responseURL.html [ Failure ]
 http/tests/xmlhttprequest/simple-cross-origin-denied-events-post.html [ Failure ]
-http/tests/xmlhttprequest/upload-progress-events-gc.html [ Skip ] # Timeout
 
 # Fails on Buildbot
 http/tests/xmlhttprequest/resetting-timeout-to-zero.html [ Failure Pass ]
@@ -1760,6 +1745,7 @@ imported/w3c/web-platform-tests/fullscreen [ Skip ]
 imported/w3c/web-platform-tests/geolocation-API [ Skip ]
 imported/w3c/web-platform-tests/hr-time [ Skip ]
 imported/w3c/web-platform-tests/html [ Skip ]
+imported/w3c/web-platform-tests/html-aam [ Skip ]
 imported/w3c/web-platform-tests/imagebitmap-renderingcontext [ Skip ]
 imported/w3c/web-platform-tests/images [ Skip ]
 imported/w3c/web-platform-tests/inert [ Skip ]
@@ -1813,6 +1799,8 @@ imported/w3c/web-platform-tests/upgrade-insecure-requests [ Skip ]
 imported/w3c/web-platform-tests/url [ Skip ]
 imported/w3c/web-platform-tests/user-timing [ Skip ]
 imported/w3c/web-platform-tests/visual-viewport [ Skip ]
+imported/w3c/web-platform-tests/wasm/jsapi [ Skip ]
+imported/w3c/web-platform-tests/wasm/webapi [ Skip ]
 imported/w3c/web-platform-tests/web-animations [ Skip ]
 imported/w3c/web-platform-tests/web-locks [ Skip ]
 imported/w3c/web-platform-tests/web-share [ Skip ]
@@ -1895,8 +1883,6 @@ fast/canvas/canvas-color-space-display-p3-ImageData.html [ Failure ]
 fast/canvas/canvas-color-space-display-p3.html [ ImageOnlyFailure ]
 fast/canvas/canvas-ellipse-zero-lineto.html [ Failure ]
 fast/canvas/canvas-fillPath-shadow.html [ Failure ]
-fast/canvas/canvas-imageSmoothingEnabled.html [ Failure ]
-fast/canvas/canvas-imageSmoothingQuality.html [ Failure ]
 fast/canvas/canvas-measureText-2.html [ Failure ]
 fast/canvas/canvas-quadratic-same-endpoint.html [ Failure ]
 fast/canvas/canvas-toDataURL-webp.html [ Failure ]
@@ -1945,7 +1931,7 @@ fast/events/keydown-numpad-keys.html [ Failure ]
 fast/events/mouseover-button.html [ Failure ]
 fast/events/mouseup-from-button2.html [ Failure ]
 fast/events/option-tab.html [ Failure ]
-fast/events/scroll-in-scaled-page-with-overflow-hidden.html [ Failure Timeout ]
+fast/events/scroll-in-scaled-page-with-overflow-hidden.html [ Skip ] # Timeout
 fast/events/shadow-event-path-2.html [ Failure ]
 fast/events/shadow-event-path.html [ Failure ]
 fast/events/special-key-events-in-input-text.html [ Failure ]
@@ -2677,3 +2663,17 @@ webkit.org/b/263953 fast/url/idna2008.html [ Failure ]
 webkit.org/b/263953 fast/url/url-hostname-encoding.html [ Failure ]
 
 webkit.org/b/261308 imported/w3c/web-platform-tests/cookies/path/default.html [ Pass Failure ]
+
+webkit.org/b/264433 http/tests/websocket/tests/hybi/secure-cookie-secure-connection.pl [ Skip ] # Timeout
+webkit.org/b/264433 http/tests/websocket/tests/hybi/simple-wss.html [ Skip ] # Failure
+webkit.org/b/264433 imported/w3c/web-platform-tests/cookies/schemeful-same-site/schemeful-websockets.sub.tentative.html [ Skip ] # Failure
+webkit.org/b/264433 imported/w3c/web-platform-tests/cookies/secure/set-from-wss.https.sub.html [ Skip ] # Failure
+
+imported/w3c/web-platform-tests/wasm/serialization/module/nested-worker-success.any.worker.html [ Skip ] # Failure
+imported/w3c/web-platform-tests/wasm/serialization/module/serialization-via-notifications-api.any.html [ Skip ] # Failure
+imported/w3c/web-platform-tests/wasm/serialization/module/serialization-via-notifications-api.any.worker.html [ Skip ] # Failure
+
+workers/wasm-hashset-many-2.html [ Skip ] # Timeout
+workers/wasm-hashset-many.html [ Skip ] # Timeout
+workers/wasm-hashset.html [ Skip ] # Timeout
+workers/wasm-references.html [ Skip ] # Timeout

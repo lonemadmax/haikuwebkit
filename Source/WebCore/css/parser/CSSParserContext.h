@@ -76,7 +76,6 @@ struct CSSParserContext {
     bool colorMixEnabled { false };
     bool constantPropertiesEnabled { false };
     bool counterStyleAtRuleImageSymbolsEnabled { false };
-    bool cssColor4 { false };
     bool relativeColorSyntaxEnabled { false };
     bool springTimingFunctionEnabled { false };
 #if ENABLE(CSS_TRANSFORM_STYLE_OPTIMIZED_3D)
@@ -93,6 +92,7 @@ struct CSSParserContext {
     bool masonryEnabled { false };
     bool cssNestingEnabled { false };
     bool cssPaintingAPIEnabled { false };
+    bool cssScopeAtRuleEnabled { false };
     bool cssTextUnderlinePositionLeftRightEnabled { false };
     bool cssWordBreakAutoPhraseEnabled { false };
     bool popoverAttributeEnabled { false };

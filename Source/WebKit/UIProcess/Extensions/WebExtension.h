@@ -84,6 +84,7 @@ public:
 
     enum class CacheResult : bool { No, Yes };
     enum class SuppressNotification : bool { No, Yes };
+    enum class SuppressNotFoundErrors : bool { No, Yes };
 
     enum class Error : uint8_t {
         Unknown = 1,
@@ -95,12 +96,15 @@ public:
         InvalidActionIcon,
         InvalidBackgroundContent,
         InvalidBackgroundPersistence,
+        InvalidCommands,
         InvalidContentScripts,
+        InvalidContentSecurityPolicy,
         InvalidDeclarativeNetRequest,
         InvalidDescription,
         InvalidExternallyConnectable,
         InvalidIcon,
         InvalidName,
+        InvalidOptionsPage,
         InvalidURLOverrides,
         InvalidVersion,
         InvalidWebAccessibleResources,
@@ -115,6 +119,21 @@ public:
 
     using PermissionsSet = HashSet<String>;
     using MatchPatternSet = HashSet<Ref<WebExtensionMatchPattern>>;
+
+    // Needs to match UIKeyModifierFlags and NSEventModifierFlags.
+    enum class ModifierFlags : uint32_t {
+        Shift   = 1 << 17,
+        Control = 1 << 18,
+        Option  = 1 << 19,
+        Command = 1 << 20
+    };
+
+    struct CommandData {
+        String identifier;
+        String description;
+        String activationKey;
+        OptionSet<ModifierFlags> modifierFlags;
+    };
 
     struct InjectedContentData {
         MatchPatternSet includeMatchPatterns;
@@ -136,7 +155,14 @@ public:
         NSArray *expandedExcludeMatchPatternStrings() const;
     };
 
+    struct WebAccessibleResourceData {
+        MatchPatternSet matchPatterns;
+        Vector<String> resourcePathPatterns;
+    };
+
+    using CommandsVector = Vector<CommandData>;
     using InjectedContentVector = Vector<InjectedContentData>;
+    using WebAccessibleResourcesVector = Vector<WebAccessibleResourceData>;
 
     static const PermissionsSet& supportedPermissions();
 
@@ -156,14 +182,14 @@ public:
     bool validateResourceData(NSURL *, NSData *, NSError **);
 #endif
 
-    bool isAccessibleResourcePath(NSString *, NSURL *frameDocumentURL);
+    bool isWebAccessibleResource(const URL& resourceURL, const URL& pageURL);
 
     NSURL *resourceFileURLForPath(NSString *);
 
     UTType *resourceTypeForPath(NSString *);
 
-    NSString *resourceStringForPath(NSString *, CacheResult = CacheResult::No);
-    NSData *resourceDataForPath(NSString *, CacheResult = CacheResult::No);
+    NSString *resourceStringForPath(NSString *, CacheResult = CacheResult::No, SuppressNotFoundErrors = SuppressNotFoundErrors::No);
+    NSData *resourceDataForPath(NSString *, CacheResult = CacheResult::No, SuppressNotFoundErrors = SuppressNotFoundErrors::No);
 
     _WKWebExtensionLocalization *localization();
     NSLocale *defaultLocale();
@@ -174,11 +200,16 @@ public:
     NSString *displayDescription();
     NSString *version();
 
+    NSString *contentSecurityPolicy();
+
     CocoaImage *icon(CGSize idealSize);
 
     CocoaImage *actionIcon(CGSize idealSize);
     NSString *displayActionLabel();
     NSString *actionPopupPath();
+    bool hasAction();
+    bool hasBrowserAction();
+    bool hasPageAction();
 
     CocoaImage *imageForPath(NSString *);
 
@@ -193,6 +224,15 @@ public:
 
     NSString *backgroundContentPath();
     NSString *generatedBackgroundContent();
+
+    bool hasOptionsPage();
+    bool hasOverrideNewTabPage();
+
+    NSString *optionsPagePath();
+    NSString *overrideNewTabPagePath();
+
+    const CommandsVector& commands();
+    bool hasCommands();
 
     const InjectedContentVector& staticInjectedContents();
     bool hasStaticInjectedContentForURL(NSURL *);
@@ -233,8 +273,14 @@ private:
     void populateBackgroundPropertiesIfNeeded();
     void populateContentScriptPropertiesIfNeeded();
     void populatePermissionsPropertiesIfNeeded();
+    void populatePagePropertiesIfNeeded();
+    void populateContentSecurityPolicyStringsIfNeeded();
+    void populateWebAccessibleResourcesIfNeeded();
+    void populateCommandsIfNeeded();
 
     InjectedContentVector m_staticInjectedContents;
+    WebAccessibleResourcesVector m_webAccessibleResources;
+    CommandsVector m_commands;
 
     MatchPatternSet m_permissionMatchPatterns;
     MatchPatternSet m_optionalPermissionMatchPatterns;
@@ -269,19 +315,28 @@ private:
     RetainPtr<NSString> m_displayActionLabel;
     RetainPtr<NSString> m_actionPopupPath;
 
+    RetainPtr<NSString> m_contentSecurityPolicy;
+
     RetainPtr<NSArray> m_backgroundScriptPaths;
     RetainPtr<NSString> m_backgroundPagePath;
     RetainPtr<NSString> m_backgroundServiceWorkerPath;
     RetainPtr<NSString> m_generatedBackgroundContent;
-    bool m_backgroundContentIsPersistent = false;
-    bool m_backgroundPageUsesModules = false;
 
-    bool m_parsedManifest = false;
-    bool m_parsedManifestDisplayStrings = false;
-    bool m_parsedManifestActionProperties = false;
-    bool m_parsedManifestBackgroundProperties = false;
-    bool m_parsedManifestContentScriptProperties = false;
-    bool m_parsedManifestPermissionProperties = false;
+    RetainPtr<NSString> m_optionsPagePath;
+    RetainPtr<NSString> m_overrideNewTabPagePath;
+
+    bool m_backgroundContentIsPersistent : 1 { false };
+    bool m_backgroundPageUsesModules : 1 { false };
+    bool m_parsedManifest : 1 { false };
+    bool m_parsedManifestDisplayStrings : 1 { false };
+    bool m_parsedManifestContentSecurityPolicyStrings : 1 { false };
+    bool m_parsedManifestActionProperties : 1 { false };
+    bool m_parsedManifestBackgroundProperties : 1 { false };
+    bool m_parsedManifestContentScriptProperties : 1 { false };
+    bool m_parsedManifestPermissionProperties : 1 { false };
+    bool m_parsedManifestPageProperties : 1 { false };
+    bool m_parsedManifestWebAccessibleResources : 1 { false };
+    bool m_parsedManifestCommands : 1 { false };
 };
 
 #ifdef __OBJC__
@@ -290,6 +345,20 @@ NSSet<_WKWebExtensionPermission> *toAPI(const WebExtension::PermissionsSet&);
 NSSet<_WKWebExtensionMatchPattern *> *toAPI(const WebExtension::MatchPatternSet&);
 
 #endif
+
+} // namespace WebKit
+
+namespace WTF {
+
+template<> struct EnumTraits<WebKit::WebExtension::ModifierFlags> {
+    using values = EnumValues<
+        WebKit::WebExtension::ModifierFlags,
+        WebKit::WebExtension::ModifierFlags::Shift,
+        WebKit::WebExtension::ModifierFlags::Control,
+        WebKit::WebExtension::ModifierFlags::Option,
+        WebKit::WebExtension::ModifierFlags::Command
+    >;
+};
 
 } // namespace WebKit
 

@@ -401,6 +401,7 @@ auto RewriteGlobalVariables::getPacking(AST::FieldAccessExpression& expression) 
 auto RewriteGlobalVariables::getPacking(AST::IndexAccessExpression& expression) -> Packing
 {
     auto basePacking = pack(Packing::Either, expression.base());
+    pack(Packing::Unpacked, expression.index());
     if (basePacking & Packing::Unpacked)
         return Packing::Unpacked;
     auto* baseType = expression.base().inferredType();
@@ -976,6 +977,8 @@ static BindGroupLayoutEntry::BindingMember bindingMemberForGlobal(auto& global)
             .hasDynamicOffset = false,
             .minBindingSize = 0
         };
+    }, [&](const PrimitiveStruct&) -> BindGroupLayoutEntry::BindingMember {
+        RELEASE_ASSERT_NOT_REACHED();
     }, [&](const Reference&) -> BindGroupLayoutEntry::BindingMember {
         RELEASE_ASSERT_NOT_REACHED();
     }, [&](const Pointer&) -> BindGroupLayoutEntry::BindingMember {

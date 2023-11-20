@@ -125,6 +125,10 @@
 #import <UIKit/UIKeyEventContext.h>
 #endif
 
+#if HAVE(UI_ASYNC_TEXT_INTERACTION_DELEGATE)
+#import <UIKit/UIAsyncTextInteractionDelegate.h>
+#endif
+
 #if HAVE(UI_ASYNC_DRAG_INTERACTION)
 #import <UIKit/UIDragInteraction_AsyncSupport.h>
 #import <UIKit/_UIAsyncDragInteraction.h>
@@ -507,7 +511,8 @@ typedef enum {
 @property (nonatomic, retain) UIColor *insertionPointColor;
 @property (nonatomic, retain) UIColor *selectionBarColor;
 @property (nonatomic, retain) UIColor *selectionHighlightColor;
-@property (nonatomic, readwrite) BOOL isSingleLineDocument;
+@property (nonatomic) BOOL isSingleLineDocument;
+@property (nonatomic) BOOL learnsCorrections;
 @end
 
 @protocol UITextInputDelegatePrivate
@@ -977,24 +982,6 @@ typedef NS_OPTIONS(NSInteger, UIWKDocumentRequestFlags) {
 @property (nonatomic, strong) UIImage *image;
 @end
 
-typedef NS_ENUM(NSUInteger, _UIContextMenuLayout) {
-    _UIContextMenuLayoutCompactMenu = 3,
-};
-
-@interface _UIContextMenuStyle : NSObject <NSCopying>
-@property (nonatomic) _UIContextMenuLayout preferredLayout;
-@property (nonatomic) UIEdgeInsets preferredEdgeInsets;
-+ (instancetype)defaultStyle;
-@end
-
-#if USE(UICONTEXTMENU)
-
-@interface UIContextMenuInteraction ()
-- (void)_presentMenuAtLocation:(CGPoint)location;
-@end
-
-#endif // USE(UICONTEXTMENU)
-
 #if HAVE(LINK_PREVIEW) && USE(UICONTEXTMENU)
 @interface _UIClickInteraction : NSObject <UIInteraction>
 @end
@@ -1168,6 +1155,7 @@ typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
 - (void)pasteAndMatchStyle:(id)sender;
 - (void)makeTextWritingDirectionNatural:(id)sender;
 @property (nonatomic, setter=_setSuppressSoftwareKeyboard:) BOOL _suppressSoftwareKeyboard;
+@property (nonatomic, readonly) UITextInteractionAssistant *interactionAssistant;
 @end
 
 @interface _UINavigationInteractiveTransitionBase ()
@@ -1193,6 +1181,10 @@ typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
 @protocol UITextInputInternal <UITextInputPrivate>
 @optional
 @property (nonatomic, readonly) CGRect _selectionClipRect;
+@end
+
+@interface UIDragItem (Staging_117702233)
+- (void)_setNeedsDropPreviewUpdate;
 @end
 
 @interface UIDevice ()
@@ -1221,6 +1213,27 @@ typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
 @property (nonatomic, copy) NSArray<NSValue *> *autocorrectedRanges;
 @end
 #endif
+
+#if HAVE(UI_ASYNC_TEXT_INTERACTION)
+
+@interface UIAsyncTextInteraction (Staging_117831560)
+
+- (void)presentEditMenuForSelection;
+- (void)dismissEditMenuForSelection;
+
+- (void)selectionChanged;
+- (void)editabilityChanged;
+
+@property (nonatomic, readonly) UITextSelectionDisplayInteraction *textSelectionDisplayInteraction;
+
+#if USE(UICONTEXTMENU)
+@property (nonatomic, weak) id<UIContextMenuInteractionDelegate> contextMenuInteractionDelegate;
+@property (nonatomic, readonly) UIContextMenuInteraction *contextMenuInteraction;
+#endif
+
+@end
+
+#endif // HAVE(UI_ASYNC_TEXT_INTERACTION)
 
 WTF_EXTERN_C_BEGIN
 

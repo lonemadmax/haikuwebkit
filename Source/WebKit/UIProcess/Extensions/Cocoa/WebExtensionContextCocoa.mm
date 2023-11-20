@@ -75,7 +75,7 @@ static NSString * const lastSeenBaseURLStateKey = @"LastSeenBaseURL";
 static NSString * const lastSeenVersionStateKey = @"LastSeenVersion";
 
 // Update this value when any changes are made to the WebExtensionEventListenerType enum.
-static constexpr NSInteger currentBackgroundContentListenerStateVersion = 1;
+static constexpr NSInteger currentBackgroundContentListenerStateVersion = 2;
 
 @interface _WKWebExtensionContextDelegate : NSObject <WKNavigationDelegate, WKUIDelegate> {
     WeakPtr<WebKit::WebExtensionContext> _webExtensionContext;
@@ -253,6 +253,28 @@ bool WebExtensionContext::unload(NSError **outError)
     return true;
 }
 
+bool WebExtensionContext::reload(NSError **outError)
+{
+    if (outError)
+        *outError = nil;
+
+    if (!isLoaded()) {
+        RELEASE_LOG_ERROR(Extensions, "Extension context not loaded");
+        if (outError)
+            *outError = createError(Error::NotLoaded);
+        return false;
+    }
+
+    Ref controller = *m_extensionController;
+    if (!controller->unload(*this, outError))
+        return false;
+
+    if (!controller->load(*this, outError))
+        return false;
+
+    return true;
+}
+
 String WebExtensionContext::stateFilePath() const
 {
     if (!storageIsPersistent())
@@ -398,6 +420,20 @@ bool WebExtensionContext::hasInjectedContentForURL(NSURL *url)
     }
 
     return false;
+}
+
+URL WebExtensionContext::optionsPageURL() const
+{
+    if (!extension().hasOptionsPage())
+        return { };
+    return { m_baseURL, extension().optionsPagePath() };
+}
+
+URL WebExtensionContext::overrideNewTabPageURL() const
+{
+    if (!extension().hasOverrideNewTabPage())
+        return { };
+    return { m_baseURL, extension().overrideNewTabPagePath() };
 }
 
 void WebExtensionContext::setHasAccessInPrivateBrowsing(bool hasAccess)
@@ -1657,12 +1693,42 @@ void WebExtensionContext::performAction(WebExtensionTab* tab, UserTriggered user
         userGesturePerformed(*tab);
 
     auto action = getOrCreateAction(tab);
-    if (action->hasPopup()) {
+    if (action->presentsPopup()) {
         action->presentPopupWhenReady();
         return;
     }
 
     fireActionClickedEventIfNeeded(tab);
+}
+
+const WebExtensionContext::CommandsVector& WebExtensionContext::commands()
+{
+    if (m_populatedCommands)
+        return m_commands;
+
+    m_commands = WTF::map(extension().commands(), [&](auto& data) {
+        return WebExtensionCommand::create(*this, data);
+    });
+
+    m_populatedCommands = true;
+
+    return m_commands;
+}
+
+void WebExtensionContext::performCommand(WebExtensionCommand& command, UserTriggered userTriggered)
+{
+    auto currentWindow = frontmostWindow();
+    auto activeTab = currentWindow ? currentWindow->activeTab() : nullptr;
+
+    if (command.isActionCommand()) {
+        performAction(activeTab.get(), userTriggered);
+        return;
+    }
+
+    if (activeTab && userTriggered == UserTriggered::Yes)
+        userGesturePerformed(*activeTab);
+
+    fireCommandEventIfNeeded(command, activeTab.get());
 }
 
 void WebExtensionContext::userGesturePerformed(WebExtensionTab& tab)
@@ -1814,7 +1880,10 @@ WKWebViewConfiguration *WebExtensionContext::webViewConfiguration(WebViewPurpose
     if (!isLoaded())
         return nil;
 
+    bool isManifestVersion3 = extension().supportsManifestVersion(3);
+
     WKWebViewConfiguration *configuration = [extensionController()->configuration().webViewConfiguration() copy];
+    configuration._contentSecurityPolicyModeForExtension = isManifestVersion3 ? _WKContentSecurityPolicyModeForExtensionManifestV3 : _WKContentSecurityPolicyModeForExtensionManifestV2;
     configuration._corsDisablingPatterns = corsDisablingPatterns();
     configuration._crossOriginAccessControlCheckEnabled = NO;
     configuration._processDisplayName = processDisplayName();
@@ -2318,7 +2387,7 @@ void WebExtensionContext::addInjectedContent(const InjectedContentVector& inject
             if (!styleSheetString)
                 continue;
 
-            auto userStyleSheet = API::UserStyleSheet::create(WebCore::UserStyleSheet { styleSheetString, URL { m_baseURL, styleSheetPath }, makeVector<String>(includeMatchPatterns), makeVector<String>(excludeMatchPatterns), injectedFrames, WebCore::UserStyleUserLevel, std::nullopt }, executionWorld);
+            auto userStyleSheet = API::UserStyleSheet::create(WebCore::UserStyleSheet { styleSheetString, URL { m_baseURL, styleSheetPath }, makeVector<String>(includeMatchPatterns), makeVector<String>(excludeMatchPatterns), injectedFrames, WebCore::UserStyleLevel::User, std::nullopt }, executionWorld);
             originInjectedStyleSheets.append(userStyleSheet);
 
             for (auto& userContentController : userContentControllers)

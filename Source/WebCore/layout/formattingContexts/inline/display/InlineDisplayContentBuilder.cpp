@@ -393,8 +393,9 @@ void InlineDisplayContentBuilder::appendInlineBoxDisplayBox(const Line::Run& lin
         , isFirstLastBox(inlineBox)
     });
 
-    if (layoutBox.isRubyBase()) {
-        if (isInterlinearAnnotationBox(layoutBox.associatedRubyAnnotationBox()))
+    if (auto* annotationBox = layoutBox.associatedRubyAnnotationBox()) {
+        ASSERT(layoutBox.isRenderRubyBase());
+        if (isInterlinearAnnotationBox(annotationBox))
             m_interlinearRubyColumnRangeList.append({ boxes.size() - 1, boxes.size() });
         appendRubyAnnotationBox(layoutBox, boxes);
     }
@@ -406,7 +407,7 @@ void InlineDisplayContentBuilder::appendSpanningInlineBoxDisplayBox(const Line::
     ASSERT(inlineBox.isInlineBox());
     ASSERT(!inlineBox.isFirstBox());
     // We don't break inside bases yet.
-    ASSERT(!lineRun.layoutBox().isRubyBase());
+    ASSERT(!lineRun.layoutBox().isRenderRubyBase());
 
     if (!linehasContent) {
         // When a spanning inline box (e.g. <div>text<span><br></span></div>) lands on an empty line
@@ -441,7 +442,7 @@ void InlineDisplayContentBuilder::appendSpanningInlineBoxDisplayBox(const Line::
 
 void InlineDisplayContentBuilder::handleInlineBoxEnd(const Line::Run& lineRun, const InlineDisplay::Boxes& boxes)
 {
-    if (!lineRun.layoutBox().isRubyBase())
+    if (!lineRun.layoutBox().isRenderRubyBase())
         return;
     auto* annotationBox = lineRun.layoutBox().associatedRubyAnnotationBox();
     if (!annotationBox)
@@ -475,7 +476,7 @@ void InlineDisplayContentBuilder::appendInlineDisplayBoxAtBidiBoundary(const Box
 
 void InlineDisplayContentBuilder::appendRubyAnnotationBox(const Box& rubyBaseLayoutBox, InlineDisplay::Boxes& boxes)
 {
-    ASSERT(rubyBaseLayoutBox.isRubyBase());
+    ASSERT(rubyBaseLayoutBox.isRenderRubyBase());
 
     auto& annotationBox = *rubyBaseLayoutBox.associatedRubyAnnotationBox();
     auto rubyFormattingContext = RubyFormattingContext { formattingContext() };
@@ -676,8 +677,8 @@ void InlineDisplayContentBuilder::adjustVisualGeometryForDisplayBox(size_t displ
             auto& boxGeometry = formattingContext().geometryForBox(layoutBox);
             auto boxMarginLeft = marginLeftInInlineDirection(boxGeometry, isLeftToRightDirection);
 
-            auto borderBoxLeft = LayoutUnit { contentRightInInlineDirectionVisualOrder + boxMarginLeft };
-            boxGeometry.setLeft(borderBoxLeft);
+            auto borderBoxLeft = InlineLayoutUnit { contentRightInInlineDirectionVisualOrder + boxMarginLeft };
+            setLeftForWritingMode(boxGeometry, LayoutUnit { borderBoxLeft }, writingMode);
             setLeftForWritingMode(displayBox, borderBoxLeft, writingMode);
 
             contentRightInInlineDirectionVisualOrder += boxGeometry.marginBoxWidth();
@@ -1102,7 +1103,7 @@ void InlineDisplayContentBuilder::applyRubyOverhang(InlineDisplay::Boxes& boxes)
     for (auto startEndPair : m_interlinearRubyColumnRangeList) {
         auto rubyBaseIndex = startEndPair.begin();
         auto& rubyBaseLayoutBox = boxes[rubyBaseIndex].layoutBox();
-        ASSERT(rubyBaseLayoutBox.isRubyBase());
+        ASSERT(rubyBaseLayoutBox.isRenderRubyBase());
         ASSERT(isInterlinearAnnotationBox(rubyBaseLayoutBox.associatedRubyAnnotationBox()));
 
         auto beforeOverhang = rubyFormattingContext.overhangForAnnotationBefore(rubyBaseLayoutBox, rubyBaseIndex, boxes);
@@ -1115,7 +1116,7 @@ void InlineDisplayContentBuilder::applyRubyOverhang(InlineDisplay::Boxes& boxes)
                 isHorizontalWritingMode ? boxes[index].moveHorizontally(LayoutUnit { -shiftValue }) : boxes[index].moveVertically(LayoutUnit { -shiftValue });
                 auto updateAnnotationGeometryIfNeeded = [&] {
                     auto& layoutBox = boxes[index].layoutBox();
-                    if (!layoutBox.isRubyBase() || !layoutBox.associatedRubyAnnotationBox())
+                    if (!layoutBox.isRenderRubyBase() || !layoutBox.associatedRubyAnnotationBox())
                         return;
                     auto& annotationBoxGeometry = formattingContext().geometryForBox(*layoutBox.associatedRubyAnnotationBox());
                     isHorizontalWritingMode ? annotationBoxGeometry.moveHorizontally(LayoutUnit { -shiftValue }) : annotationBoxGeometry.moveVertically(LayoutUnit { -shiftValue });
@@ -1177,16 +1178,17 @@ InlineRect InlineDisplayContentBuilder::flipRootInlineBoxRectToVisualForWritingM
     return rootInlineBoxLogicalRect;
 }
 
-void InlineDisplayContentBuilder::setLeftForWritingMode(InlineDisplay::Box& displayBox, InlineLayoutUnit logicalLeft, WritingMode writingMode) const
+template <typename BoxType, typename LayoutUnitType>
+void InlineDisplayContentBuilder::setLeftForWritingMode(BoxType& box, LayoutUnitType logicalLeft, WritingMode writingMode) const
 {
     switch (writingModeToBlockFlowDirection(writingMode)) {
     case BlockFlowDirection::TopToBottom:
     case BlockFlowDirection::BottomToTop:
-        displayBox.setLeft(logicalLeft);
+        box.setLeft(logicalLeft);
         break;
     case BlockFlowDirection::LeftToRight:
     case BlockFlowDirection::RightToLeft:
-        displayBox.setTop(logicalLeft);
+        box.setTop(logicalLeft);
         break;
     default:
         ASSERT_NOT_REACHED();

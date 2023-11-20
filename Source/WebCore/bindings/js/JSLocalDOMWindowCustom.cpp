@@ -247,6 +247,8 @@ bool JSLocalDOMWindow::getOwnPropertySlotByIndex(JSObject* object, JSGlobalObjec
 
     // These are also allowed cross-origin, so come before the access check.
     if (frame && index < frame->tree().scopedChildCount()) {
+        // FIXME: <rdar://118263337> LocalDOMWindow::length needs to include RemoteFrames.
+        // This should also work if it's a RemoteFrame, it should just return a RemoteDOMWindow.
         if (auto* scopedChild = dynamicDowncast<LocalFrame>(frame->tree().scopedChild(index))) {
             slot.setValue(thisObject, static_cast<unsigned>(JSC::PropertyAttribute::ReadOnly), toJS(lexicalGlobalObject, scopedChild->document()->domWindow()));
             return true;
@@ -643,7 +645,7 @@ static inline JSC::EncodedJSValue jsLocalDOMWindowInstanceFunction_openDatabaseB
 
     if (!DeprecatedGlobalSettings::webSQLEnabled()) {
         if (name != "null"_s || version != "null"_s || displayName != "null"_s || estimatedSize)
-            propagateException(*lexicalGlobalObject, throwScope, Exception(UnknownError, "Web SQL is deprecated"_s));
+            propagateException(*lexicalGlobalObject, throwScope, Exception(ExceptionCode::UnknownError, "Web SQL is deprecated"_s));
         return JSValue::encode(constructEmptyObject(lexicalGlobalObject, castedThis->globalObject()->objectPrototype()));
     }
 

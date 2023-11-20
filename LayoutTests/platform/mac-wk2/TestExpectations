@@ -614,7 +614,6 @@ imported/w3c/web-platform-tests/css/css-ui/outline-negative-offset-composited-sc
 imported/w3c/web-platform-tests/css/css-scroll-snap/snap-inline-block.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-transforms/transform3d-preserve3d-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-element.html [ Failure ]
-imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-smooth-positions.html [ Failure ]
 
 ### END OF (1) Classified failures with bug reports
 ########################################
@@ -1744,7 +1743,7 @@ webgl/2.0.y/conformance2/offscreencanvas/offscreencanvas-transfer-image-bitmap.h
 
 webkit.org/b/251187 [ Debug ] imported/w3c/web-platform-tests/fetch/api/redirect/redirect-back-to-original-origin.any.html [ Pass Crash ]
 
-webkit.org/b/250046 [ Monterey+ ] svg/clip-path/clip-opacity-translate.svg [ ImageOnlyFailure ]
+webkit.org/b/250046 [ Monterey+ ] svg/clip-path/clip-opacity-translate.svg [ Pass ImageOnlyFailure ]
 
 # Early hints require network callbacks that are only present in macOS 12 / iOS 15 or greater.
 [ Monterey+ ] http/wpt/loading/early-hints [ Pass ]
@@ -1842,9 +1841,6 @@ webkit.org/b/260225 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-GC.
 
 # rdar://107437068 ([UI side compositing] fast/mediastream/video-rotation.html fails)
 [ Sonoma+ ] fast/mediastream/video-rotation.html [ Failure ]
-
-# rdar://104152683 (REGRESSION (Sonoma): [ Sonoma ] compositing/video/video-border-radius-clipping.html is a consistent image failure)
-[ Sonoma+ ] compositing/video/video-border-radius-clipping.html [ ImageOnlyFailure ]
 
 # rdar://108508177 (REGRESSION (262629@main): [ Sonoma wk2 ] Two compositing/hidpi-image-backing-store tests are a consistent failure)
 compositing/hidpi-image-backing-store-scaled.html [ Failure ]
@@ -1966,13 +1962,14 @@ webkit.org/b/261356 [ Debug ] fast/mediastream/device-change-event-2.html [ Pass
 
 webkit.org/b/263396 css3/color/text.html [ Skip ]
 
-webkit.org/b/263738 fast/clip/overflow-hidden-with-border-radius-overflow-clipping-parent.html [ ImageOnlyFailure ]
-
 webkit.org/b/263754 [ Sonoma+ x86_64 ] css3/filters/effect-drop-shadow-clip-abspos.html [ ImageOnlyFailure ]
 
 # WebGPU
+http/tests/webgpu/webgpu/api/operation/compute_pipeline/overrides.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/device/lost.html [ Pass ]
 http/tests/webgpu/webgpu/api/operation/rendering/stencil.html [ Pass ]
 http/tests/webgpu/webgpu/api/operation/rendering/indirect_draw.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/reflection.html [ Pass ]
 http/tests/webgpu/webgpu/api/operation/vertex_state/index_format.html [ Pass ]
 http/tests/webgpu/webgpu/api/operation/rendering/draw.html [ Pass ]
 http/tests/webgpu/webgpu/api/operation/sampling/filter_mode.html [ Pass ]
@@ -1980,9 +1977,25 @@ http/tests/webgpu/webgpu/api/operation/sampling/lod_clamp.html [ Pass ]
 http/tests/webgpu/webgpu/api/operation/sampling/anisotropy.html [ Pass ]
 http/tests/webgpu/webgpu/api/operation/adapter/requestAdapterInfo.html [ Pass ]
 http/tests/webgpu/webgpu/api/operation/adapter/requestAdapter.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/adapter/requestDevice.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/onSubmittedWorkDone.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/queue/writeBuffer.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/render_pipeline/culling_tests.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/render_pipeline/overrides.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/render_pipeline/primitive_topology.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/memory_sync/buffer/single_buffer.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/memory_sync/buffer/multiple_buffers.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/memory_sync/texture/same_subresource.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/command_buffer/programmable/state_tracking.html [ Pass ]
 
-webkit.org/b/263920 svg/transforms/transformed-text-fill-gradient.html [ ImageOnlyFailure ]
+webkit.org/b/263920 svg/transforms/transformed-text-fill-gradient.html [ Pass ImageOnlyFailure ]
 
-# rdar://117706782 (REGRESSION (269897@main): [ Sonoma wk2 ] 2 tests in imported/w3c/web-platform-t ests/css/cssom-view/ are a constant failure
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-window.html [ Failure ]
-[ Sonoma+ ] imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-root.html [ Failure ]
+webkit.org/b/264266 [ Ventura+ x86_64 ] imported/w3c/web-platform-tests/css/filter-effects/filters-drop-shadow-002.html [ ImageOnlyFailure ]
+
+webkit.org/b/264306 [ Sonoma+ ] fast/scrolling/mac/scrollbars/very-wide-overlay-scrollbar.html [ Pass ImageOnlyFailure Timeout ]
+
+webkit.org/b/264362 [ Sonoma+ ] fast/rendering/render-style-null-optgroup-crash.html [ Pass Failure ]
+
+webkit.org/b/264615 [ Sonoma+ Release x86_64 ] fast/text/canvas-color-fonts/stroke-gradient-COLR.html [ Failure ]
+
+webkit.org/b/264751 fast/frames/iframe-window-focus.html [ Pass Failure ]

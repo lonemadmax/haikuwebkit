@@ -122,7 +122,7 @@ public:
 
     // FIXME: Make these standalone and move to relevant files.
     bool isRenderLayerModelObject() const;
-    bool isBoxModelObject() const;
+    bool isRenderBoxModelObject() const;
     bool isRenderBlock() const;
     bool isRenderBlockFlow() const;
     bool isRenderReplaced() const;
@@ -170,7 +170,8 @@ public:
     void setStyleInternal(RenderStyle&& style) { m_style = WTFMove(style); }
 
     // Repaint only if our old bounds and new bounds are different. The caller may pass in newBounds and newOutlineBox if they are known.
-    bool repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repaintContainer, const LayoutRect& oldBounds, const LayoutRect& oldOutlineBox, const LayoutRect* newBoundsPtr = nullptr, const LayoutRect* newOutlineBoxPtr = nullptr);
+    enum class RequiresFullRepaint : bool { No, Yes };
+    bool repaintAfterLayoutIfNeeded(const RenderLayerModelObject* repaintContainer, RequiresFullRepaint, const LayoutRect& oldBounds, const LayoutRect& oldOutlineBox, const LayoutRect* newBoundsPtr = nullptr, const LayoutRect* newOutlineBoxPtr = nullptr);
 
     bool borderImageIsLoadedAndCanBeRendered() const;
     bool isVisibleIgnoringGeometry() const;
@@ -284,7 +285,7 @@ public:
 
     bool isWritingModeRoot() const { return !parent() || parent()->style().writingMode() != style().writingMode(); }
 
-    bool isDeprecatedFlexItem() const { return !isInline() && !isFloatingOrOutOfFlowPositioned() && parent() && parent()->isDeprecatedFlexibleBox(); }
+    bool isDeprecatedFlexItem() const { return !isInline() && !isFloatingOrOutOfFlowPositioned() && parent() && parent()->isRenderDeprecatedFlexibleBox(); }
     bool isFlexItemIncludingDeprecated() const { return !isInline() && !isFloatingOrOutOfFlowPositioned() && parent() && parent()->isFlexibleBoxIncludingDeprecated(); }
 
     virtual LayoutRect paintRectToClipOutFromBorder(const LayoutRect&) { return { }; }
@@ -360,7 +361,7 @@ private:
     void node() const = delete;
     void nonPseudoNode() const = delete;
     void generatingNode() const = delete;
-    void isText() const = delete;
+    void isRenderText() const = delete;
     void isRenderElement() const = delete;
 
     RenderObject* firstChildSlow() const final { return firstChild(); }
@@ -451,7 +452,7 @@ inline bool RenderElement::isRenderLayerModelObject() const
     return m_baseTypeFlags & RenderLayerModelObjectFlag;
 }
 
-inline bool RenderElement::isBoxModelObject() const
+inline bool RenderElement::isRenderBoxModelObject() const
 {
     return m_baseTypeFlags & RenderBoxModelObjectFlag;
 }
@@ -501,9 +502,9 @@ inline bool RenderObject::isRenderLayerModelObject() const
     return is<RenderElement>(*this) && downcast<RenderElement>(*this).isRenderLayerModelObject();
 }
 
-inline bool RenderObject::isBoxModelObject() const
+inline bool RenderObject::isRenderBoxModelObject() const
 {
-    return is<RenderElement>(*this) && downcast<RenderElement>(*this).isBoxModelObject();
+    return is<RenderElement>(*this) && downcast<RenderElement>(*this).isRenderBoxModelObject();
 }
 
 inline bool RenderObject::isRenderBlock() const
@@ -538,19 +539,19 @@ inline bool RenderObject::isRenderTextControl() const
 
 inline bool RenderObject::isFlexibleBoxIncludingDeprecated() const
 {
-    return isRenderFlexibleBox() || isDeprecatedFlexibleBox();
+    return isRenderFlexibleBox() || isRenderDeprecatedFlexibleBox();
 }
 
 inline const RenderStyle& RenderObject::style() const
 {
-    if (isText())
+    if (isRenderText())
         return m_parent->style();
     return downcast<RenderElement>(*this).style();
 }
 
 inline const RenderStyle& RenderObject::firstLineStyle() const
 {
-    if (isText())
+    if (isRenderText())
         return m_parent->firstLineStyle();
     return downcast<RenderElement>(*this).firstLineStyle();
 }
@@ -587,7 +588,7 @@ inline RenderObject* RenderElement::lastInFlowChild() const
 
 inline bool RenderObject::isSkippedContentRoot() const
 {
-    if (isText())
+    if (isRenderText())
         return false;
     return downcast<RenderElement>(*this).isSkippedContentRoot();
 }

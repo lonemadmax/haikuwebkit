@@ -103,6 +103,7 @@ public:
     bool hasFeature(WGPUFeatureName);
     bool popErrorScope(CompletionHandler<void(WGPUErrorType, String&&)>&& callback);
     void pushErrorScope(WGPUErrorFilter);
+    void setDeviceLostCallback(Function<void(WGPUDeviceLostReason, String&&)>&&);
     void setUncapturedErrorCallback(Function<void(WGPUErrorType, String&&)>&&);
     void setLabel(String&&);
 
@@ -127,6 +128,7 @@ public:
     uint32_t vertexBufferIndexForBindGroup(uint32_t groupIndex) const;
 
     static bool isStencilOnlyFormat(MTLPixelFormat);
+    bool shouldStopCaptureAfterSubmit();
 
 private:
     Device(id<MTLDevice>, id<MTLCommandQueue> defaultQueue, HardwareCapabilities&&, Adapter&);

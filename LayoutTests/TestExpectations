@@ -826,10 +826,13 @@ imported/w3c/web-platform-tests/html/rendering/non-replaced-elements/the-page/bo
 imported/w3c/web-platform-tests/html/rendering/replaced-elements/embedded-content/change-src-while-not-displayed.html [ ImageOnlyFailure Pass ]
 imported/w3c/web-platform-tests/html/rendering/replaced-elements/images/input-image-content.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/replaced-elements/the-select-element/select-empty.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/rendering/widgets/field-sizing-input-number.tentative.html [ Failure ]
+imported/w3c/web-platform-tests/html/rendering/widgets/field-sizing-input-text.tentative.html [ Failure ]
 imported/w3c/web-platform-tests/html/rendering/widgets/button-layout/anonymous-button-content-box.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/widgets/button-layout/inline-level.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/widgets/button-layout/propagate-text-decoration.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/widgets/the-select-element/option-checked-styling.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/rendering/widgets/the-select-element/option-add-label-quirks.html [ Failure ]
 imported/w3c/web-platform-tests/html/rendering/non-replaced-elements/the-fieldset-and-legend-elements/legend-painting-order.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/input-image-inline-alt.html [ ImageOnlyFailure ]
 webkit.org/b/252594 imported/w3c/web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/video-inline-size-containment-no-crash.html [ Skip ]
@@ -1350,6 +1353,8 @@ http/tests/media/fairplay [ Skip ]
 # End platform-specific tests.
 #//////////////////////////////////////////////////////////////////////////////////////////
 
+webkit.org/b/52669 animations/dynamic-stylesheet-loading.html [ Pass Failure ]
+
 webkit.org/b/111612 animations/animation-delay-changed.html [ Pass Failure ]
 
 # media/video-seek-after-end.html is flaky
@@ -1480,10 +1485,6 @@ webkit.org/b/132791 svg/as-object/sizing/svg-in-object-placeholder-height-auto.h
 webkit.org/b/133057 fast/table/border-collapsing/collapsed-borders-adjoining-sections.html [ ImageOnlyFailure ]
 
 webkit.org/b/169075 editing/selection/extend-by-character-007.html [ Failure ]
-
-# <select> element vertical writing mode support is not yet enabled
-fast/forms/vertical-writing-mode/listbox-drag-horizontal-scrollbar.html [ Failure ]
-fast/forms/vertical-writing-mode/listbox-horizontal-scrollbar.html [ ImageOnlyFailure ]
 
 # CSS Font Loading is not yet enabled on all platforms
 webkit.org/b/135390 fast/css/fontloader-download-error.html [ Skip ]
@@ -4400,14 +4401,6 @@ webkit.org/b/230080 imported/w3c/web-platform-tests/css/css-transforms/transform
 webkit.org/b/230080 imported/w3c/web-platform-tests/css/css-transforms/individual-transform/animation/individual-transform-ordering.html [ ImageOnlyFailure ]
 webkit.org/b/230080 imported/w3c/web-platform-tests/css/css-transforms/transform-fixed-bg-008.tentative.html [ ImageOnlyFailure ]
 
-# Vertical form controls support.
-webkit.org/b/248262 imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-multiple-appearance-native-horizontal.optional.html [ ImageOnlyFailure ]
-webkit.org/b/248262 imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-multiple-appearance-native-vlr.optional.html [ ImageOnlyFailure ]
-webkit.org/b/248262 imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-multiple-appearance-native-vrl.optional.html [ ImageOnlyFailure ]
-webkit.org/b/248262 imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-multiple-appearance-none-horizontal.optional.html [ ImageOnlyFailure ]
-webkit.org/b/248262 imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-multiple-appearance-none-vlr.optional.html [ ImageOnlyFailure ]
-webkit.org/b/248262 imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-multiple-appearance-none-vrl.optional.html [ ImageOnlyFailure ]
-
 webkit.org/b/208396 http/tests/misc/object-embedding-svg-delayed-size-negotiation-2.htm [ Pass Failure ]
 
 # Untriaged writing-mode failures.
@@ -5498,9 +5491,6 @@ webkit.org/b/245080 fast/text/whitespace/nowrap-clear-float.html [ Failure ]
 
 webkit.org/b/255255 fast/text/text-underline-vertical-first-line-decoration.html [ ImageOnlyFailure ]
 webkit.org/b/255287 fast/block/lineboxcontain/inline-box-vertical.html [ Failure ]
-
-# This is marked as passing on WK2.
-fast/canvas/large-getImageData.html [ Skip ]
 
 # This should fail, but it flakey-passes, so skipping now.
 fast/canvas/canvas-noise-injection.html [ Skip ]
@@ -6812,18 +6802,74 @@ imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/animation-wit
 imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/animation-with-overflow-hidden.html [ Skip ]
 imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/animation-with-root-scroller.html [ Skip ]
 imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/animation-with-transform.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/cancel-animation.html [ Skip ]
 imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/constructor-no-document.html [ Skip ]
 imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/custom-property.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/effect-updateTiming.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/finish-animation.html [ Skip ]
 imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/layout-changes-on-percentage-based-timeline.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/pause-animation.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/play-animation.html [ Skip ]
 imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/progress-based-effect-delay.tentative.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/reverse-animation.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/scroll-animation-effect-fill-modes.tentative.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/scroll-animation-effect-phases.tentative.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/scroll-animation.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/scroll-animation-inactive-timeline.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/scroll-timeline-invalidation.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/scroll-timeline-range.html [ Skip ]
 imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/set-current-time-before-play.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/setting-current-time.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/setting-playback-rate.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/setting-start-time.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/setting-timeline.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/two-animations-attach-to-same-scroll-timeline-cancel-one.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/update-playback-rate.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/updating-the-finished-state.html [ Skip ]
 imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/two-animations-attach-to-same-scroll-timeline.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/block-view-timeline-current-time-vertical-rl.tentative.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/block-view-timeline-current-time.tentative.html [ Skip ] 
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/block-view-timeline-nested-subject.tentative.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/inline-view-timeline-current-time.tentative.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/sticky/view-timeline-sticky-offscreen-1.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/sticky/view-timeline-sticky-offscreen-2.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/sticky/view-timeline-sticky-offscreen-3.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/sticky/view-timeline-sticky-offscreen-4.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/sticky/view-timeline-sticky-offscreen-5.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/sticky/view-timeline-sticky-offscreen-6.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/sticky/view-timeline-sticky-offscreen-7.html [ Skip ]
 imported/w3c/web-platform-tests/scroll-animations/view-timelines/range-boundary.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/timeline-offset-in-keyframe.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/view-timeline-get-set-range.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/view-timeline-inset.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/view-timeline-range.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/view-timeline-range-large-subject.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/view-timeline-root-source.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/view-timeline-snapport.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/view-timeline-sticky-block.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/view-timeline-sticky-inline.html [ Skip ]
+imported/w3c/web-platform-tests/scroll-animations/view-timelines/view-timeline-subject-size-changes.html [ Skip ]
+
+
+
+
+# webkit.org/b/229520 CSS @scope unimplemented
+imported/w3c/web-platform-tests/css/css-cascade/import-conditional-002.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-cascade/scope-visited.html [ Skip ]
+
 
 # other scroll-animations failures
 webkit.org/b/263871 imported/w3c/web-platform-tests/scroll-animations/css/animation-timeline-none.html [ Failure ]
 webkit.org/b/263872 imported/w3c/web-platform-tests/scroll-animations/css/printing/animation-timeline-none-with-progress-print.tentative.html [ ImageOnlyFailure ]
 webkit.org/b/263873 imported/w3c/web-platform-tests/scroll-animations/css/printing/scroll-timeline-default-iframe-print.html [ ImageOnlyFailure ]
 
+imported/w3c/web-platform-tests/css/css-nesting/host-nesting-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-nesting/host-nesting-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-nesting/host-nesting-005.html [ ImageOnlyFailure ]
+
 webkit.org/b/263923 animations/transition-and-animation-2.html [ Failure Pass ]
+
+# CloseWatcher related timeouts
+imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-cancel-events.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-cancel-preventDefault.html [ Skip ]
+imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-canceling.html [ Skip ]

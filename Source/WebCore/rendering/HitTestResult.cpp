@@ -183,6 +183,14 @@ LocalFrame* HitTestResult::innerNodeFrame() const
     return 0;
 }
 
+LocalFrame* HitTestResult::frame() const
+{
+    if (m_innerNonSharedNode)
+        return m_innerNonSharedNode->document().frame();
+
+    return nullptr;
+}
+
 LocalFrame* HitTestResult::targetFrame() const
 {
     if (!m_innerURLElement)
@@ -460,7 +468,7 @@ HTMLMediaElement* HitTestResult::mediaElement() const
     if (!m_innerNonSharedNode)
         return nullptr;
 
-    if (!(m_innerNonSharedNode->renderer() && m_innerNonSharedNode->renderer()->isMedia()))
+    if (!(m_innerNonSharedNode->renderer() && m_innerNonSharedNode->renderer()->isRenderMedia()))
         return nullptr;
 
     if (is<HTMLMediaElement>(*m_innerNonSharedNode))

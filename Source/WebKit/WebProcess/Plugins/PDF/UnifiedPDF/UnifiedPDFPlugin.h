@@ -48,14 +48,19 @@ private:
 
     void teardown() override;
 
-    void createPDFDocument() override;
     void installPDFDocument() override;
 
     CGFloat scaleFactor() const override;
 
+    WebCore::IntSize contentsSize() const override;
+    unsigned firstPageHeight() const override;
+
     RetainPtr<PDFDocument> pdfDocumentForPrinting() const override;
     WebCore::FloatSize pdfDocumentSizeForPrinting() const override;
 
+    void scheduleRenderingUpdate();
+
+    void updateLayout();
     void geometryDidChange(const WebCore::IntSize&, const WebCore::AffineTransform&) override;
 
     RefPtr<WebCore::FragmentedSharedBuffer> liveResourceData() const override;
@@ -84,16 +89,35 @@ private:
     id accessibilityAssociatedPluginParentForElement(WebCore::Element*) const override;
 
     // GraphicsLayerClient
+    void notifyFlushRequired(const GraphicsLayer*) override;
     void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect&, OptionSet<WebCore::GraphicsLayerPaintBehavior>) override;
     float deviceScaleFactor() const override;
 
     void updateLayerHierarchy();
 
+    void didChangeScrollOffset() override;
+    void didChangeIsInWindow();
+
+    void didChangeSettings() override;
+
+    void invalidateScrollbarRect(WebCore::Scrollbar&, const WebCore::IntRect&) override;
+    void invalidateScrollCornerRect(const WebCore::IntRect&) override;
+
+    // HUD Actions.
+#if ENABLE(PDF_HUD)
+    void zoomIn() final;
+    void zoomOut() final;
+    void save(CompletionHandler<void(const String&, const URL&, const IPC::DataReference&)>&&) final;
+    void openWithPreview(CompletionHandler<void(const String&, FrameInfoData&&, const IPC::DataReference&, const String&)>&&) final;
+#endif
+
     RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(const String& name, GraphicsLayer::Type);
 
     PDFDocumentLayout m_documentLayout;
     RefPtr<WebCore::GraphicsLayer> m_rootLayer;
-    RefPtr<WebCore::GraphicsLayer> m_contentsLayer; // FIXME: Temporary, this will be replaced with a TiledBacking.
+    RefPtr<WebCore::GraphicsLayer> m_clippingLayer;
+    RefPtr<WebCore::GraphicsLayer> m_scrollingLayer;
+    RefPtr<WebCore::GraphicsLayer> m_contentsLayer;
 };
 
 } // namespace WebKit

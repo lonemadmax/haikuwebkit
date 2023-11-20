@@ -298,7 +298,7 @@ void TextDecorationPainter::paintBackgroundDecorations(const RenderStyle& style,
     if (clipping)
         m_context.restore();
     else if (m_shadow)
-        m_context.clearShadow();
+        m_context.clearDropShadow();
 }
 
 void TextDecorationPainter::paintForegroundDecorations(const ForegroundDecorationGeometry& foregroundDecorationGeometry, const Styles& decorationStyle)
@@ -362,7 +362,7 @@ static void collectStylesForRenderer(TextDecorationPainter::Styles& result, cons
         const auto& style = styleForRenderer(*current);
         extractDecorations(style, style.textDecorationLine());
 
-        if (current->isRubyText())
+        if (current->isRenderRubyText())
             return;
 
         current = current->parent();

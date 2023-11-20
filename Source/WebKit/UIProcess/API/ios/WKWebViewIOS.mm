@@ -3024,6 +3024,14 @@ static WebCore::IntDegrees activeOrientation(WKWebView *webView)
 #endif
 }
 
+- (void)_resetScrollViewInsetAdjustmentBehavior
+{
+#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
+    [_scrollView _resetContentInsetAdjustmentBehavior];
+    [self _updateScrollViewInsetAdjustmentBehavior];
+#endif
+}
+
 - (void)_setAvoidsUnsafeArea:(BOOL)avoidsUnsafeArea
 {
     if (_perProcessState.avoidsUnsafeArea == avoidsUnsafeArea)
@@ -3409,6 +3417,51 @@ static bool isLockdownModeWarningNeeded()
     _page->findClient().didRemoveLayerForFindOverlay(_page.get());
 }
 
+- (BOOL)_haveSetUnobscuredSafeAreaInsets
+{
+    return _haveSetUnobscuredSafeAreaInsets;
+}
+
+- (void)_resetContentOffset
+{
+    [_scrollView setContentOffset:[self _initialContentOffsetForScrollView]];
+}
+
+- (void)_resetUnobscuredSafeAreaInsets
+{
+    _haveSetUnobscuredSafeAreaInsets = NO;
+    _unobscuredSafeAreaInsets = { };
+    [self _scheduleVisibleContentRectUpdate];
+}
+
+- (BOOL)_hasOverriddenLayoutParameters
+{
+    return _viewLayoutSizeOverride
+        || _minimumUnobscuredSizeOverride
+        || _maximumUnobscuredSizeOverride;
+}
+
+- (std::optional<CGSize>)_viewLayoutSizeOverride
+{
+    return _viewLayoutSizeOverride;
+}
+
+- (std::optional<CGSize>)_minimumUnobscuredSizeOverride
+{
+    return _minimumUnobscuredSizeOverride;
+}
+
+- (std::optional<CGSize>)_maximumUnobscuredSizeOverride
+{
+    return _maximumUnobscuredSizeOverride;
+}
+
+- (void)_resetObscuredInsets
+{
+    _haveSetObscuredInsets = NO;
+    _obscuredInsets = { };
+    [self _scheduleVisibleContentRectUpdate];
+}
 @end
 
 @implementation WKWebView (WKPrivateIOS)
@@ -4079,13 +4132,18 @@ static bool isLockdownModeWarningNeeded()
 
 - (void)_overrideLayoutParametersWithMinimumLayoutSize:(CGSize)minimumLayoutSize maximumUnobscuredSizeOverride:(CGSize)maximumUnobscuredSizeOverride
 {
-    LOG_WITH_STREAM(VisibleRects, stream << "-[WKWebView " << _page->identifier() << " _overrideLayoutParametersWithMinimumLayoutSize:" << WebCore::FloatSize(minimumLayoutSize) << " maximumUnobscuredSizeOverride:" << WebCore::FloatSize(maximumUnobscuredSizeOverride) << "]");
+    [self _overrideLayoutParametersWithMinimumLayoutSize:minimumLayoutSize minimumUnobscuredSizeOverride:minimumLayoutSize maximumUnobscuredSizeOverride:maximumUnobscuredSizeOverride];
+}
+
+- (void)_overrideLayoutParametersWithMinimumLayoutSize:(CGSize)minimumLayoutSize minimumUnobscuredSizeOverride:(CGSize)minimumUnobscuredSizeOverride maximumUnobscuredSizeOverride:(CGSize)maximumUnobscuredSizeOverride
+{
+    LOG_WITH_STREAM(VisibleRects, stream << "-[WKWebView " << _page->identifier() << " _overrideLayoutParametersWithMinimumLayoutSize:" << WebCore::FloatSize(minimumLayoutSize) << " minimumUnobscuredSizeOverride:" << WebCore::FloatSize(minimumUnobscuredSizeOverride) << " maximumUnobscuredSizeOverride:" << WebCore::FloatSize(maximumUnobscuredSizeOverride) << "]");
 
     if (minimumLayoutSize.width < 0 || minimumLayoutSize.height < 0)
         RELEASE_LOG_FAULT(VisibleRects, "%s: Error: attempting to override layout parameters with negative width or height: %@", __PRETTY_FUNCTION__, NSStringFromCGSize(minimumLayoutSize));
 
     [self _setViewLayoutSizeOverride:CGSizeMake(std::max<CGFloat>(0, minimumLayoutSize.width), std::max<CGFloat>(0, minimumLayoutSize.height))];
-    [self _setMinimumUnobscuredSizeOverride:minimumLayoutSize];
+    [self _setMinimumUnobscuredSizeOverride:minimumUnobscuredSizeOverride];
     [self _setMaximumUnobscuredSizeOverride:maximumUnobscuredSizeOverride];
 }
 
@@ -4094,6 +4152,10 @@ static bool isLockdownModeWarningNeeded()
     _viewLayoutSizeOverride = std::nullopt;
     _minimumUnobscuredSizeOverride = std::nullopt;
     _maximumUnobscuredSizeOverride = std::nullopt;
+
+    _page->setMinimumUnobscuredSize({ });
+    _page->setDefaultUnobscuredSize({ });
+    _page->setMaximumUnobscuredSize({ });
 }
 
 static std::optional<WebCore::ViewportArguments> viewportArgumentsFromDictionary(NSDictionary<NSString *, NSString *> *viewportArgumentPairs)

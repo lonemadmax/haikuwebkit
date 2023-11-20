@@ -69,7 +69,7 @@ static MTLStoreAction storeAction(WGPUStoreOp storeOp)
 
 Ref<CommandEncoder> Device::createCommandEncoder(const WGPUCommandEncoderDescriptor& descriptor)
 {
-    if (descriptor.nextInChain)
+    if (descriptor.nextInChain || !isValid())
         return CommandEncoder::createInvalid(*this);
 
     captureFrameIfNeeded();
@@ -216,7 +216,7 @@ Ref<ComputePassEncoder> CommandEncoder::beginComputePass(const WGPUComputePassDe
     id<MTLComputeCommandEncoder> computeCommandEncoder = [m_commandBuffer computeCommandEncoderWithDescriptor:computePassDescriptor];
     computeCommandEncoder.label = fromAPI(descriptor.label);
 
-    return ComputePassEncoder::create(computeCommandEncoder, descriptor, m_device);
+    return ComputePassEncoder::create(computeCommandEncoder, descriptor, *this, m_device);
 }
 
 bool CommandEncoder::validateRenderPassDescriptor(const WGPURenderPassDescriptor& descriptor) const
@@ -286,7 +286,6 @@ Ref<RenderPassEncoder> CommandEncoder::beginRenderPass(const WGPURenderPassDescr
             mtlAttachment.resolveLevel = 0;
             mtlAttachment.resolveSlice = 0;
             mtlAttachment.resolveDepthPlane = 0;
-            mtlAttachment.storeAction = MTLStoreActionMultisampleResolve;
         }
     }
 
@@ -376,7 +375,7 @@ Ref<RenderPassEncoder> CommandEncoder::beginRenderPass(const WGPURenderPassDescr
 
     auto mtlRenderCommandEncoder = [m_commandBuffer renderCommandEncoderWithDescriptor:mtlDescriptor];
 
-    return RenderPassEncoder::create(mtlRenderCommandEncoder, descriptor, visibilityResultBufferSize, depthReadOnly, stencilReadOnly, m_device);
+    return RenderPassEncoder::create(mtlRenderCommandEncoder, descriptor, visibilityResultBufferSize, depthReadOnly, stencilReadOnly, *this, m_device);
 }
 
 bool CommandEncoder::validateCopyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, const Buffer& destination, uint64_t destinationOffset, uint64_t size)
@@ -1192,6 +1191,11 @@ void CommandEncoder::writeTimestamp(QuerySet& querySet, uint32_t queryIndex)
 void CommandEncoder::setLabel(String&& label)
 {
     m_commandBuffer.label = label;
+}
+
+void CommandEncoder::lock(bool shouldLock)
+{
+    m_state = shouldLock ? EncoderState::Locked : EncoderState::Open;
 }
 
 } // namespace WebGPU

@@ -37,8 +37,6 @@ public:
 
     void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
 
-    bool isSVGResourceContainer() const final { return true; }
-
     void idChanged();
 
 protected:
@@ -58,6 +56,6 @@ private:
 
 } // namespace WebCore
 
-SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderSVGResourceContainer, isSVGResourceContainer())
+SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderSVGResourceContainer, isRenderSVGResourceContainer())
 
 #endif // ENABLE(LAYER_BASED_SVG_ENGINE)

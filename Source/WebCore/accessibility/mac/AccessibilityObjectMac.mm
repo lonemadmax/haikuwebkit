@@ -137,9 +137,6 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
     if (isMenuListPopup() || isMenuListOption())
         return AccessibilityObjectInclusion::IgnoreObject;
 
-    if (roleValue() == AccessibilityRole::Caption && ariaRoleAttribute() == AccessibilityRole::Unknown)
-        return AccessibilityObjectInclusion::IgnoreObject;
-    
     if (roleValue() == AccessibilityRole::Mark)
         return AccessibilityObjectInclusion::IncludeObject;
 
@@ -873,7 +870,7 @@ PlatformRoleMap createPlatformRoleMap()
         { AccessibilityRole::RubyRun, NSAccessibilityGroupRole },
         { AccessibilityRole::RubyText, NSAccessibilityGroupRole },
         { AccessibilityRole::Details, NSAccessibilityGroupRole },
-        { AccessibilityRole::Summary, NSAccessibilityButtonRole },
+        { AccessibilityRole::Summary, NSAccessibilityDisclosureTriangleRole },
         { AccessibilityRole::SVGTextPath, NSAccessibilityGroupRole },
         { AccessibilityRole::SVGText, NSAccessibilityGroupRole },
         { AccessibilityRole::SVGTSpan, NSAccessibilityGroupRole },

@@ -67,15 +67,6 @@
 /* Extension's process name that appears in Activity Monitor where the parameter is the name of the extension */
 "%@ Web Extension" = "%@ Web Extension";
 
-/* Extension's process name for background content that appears in Activity Monitor where the parameter is the name of the extension */
-"%@ Web Extension Background Content" = "%@ Web Extension Background Content";
-
-/* Extension's process name for popups that appears in Activity Monitor where the parameter is the name of the extension */
-"%@ Web Extension Popup" = "%@ Web Extension Popup";
-
-/* Extension's process name for tabs that appears in Activity Monitor where the parameter is the name of the extension */
-"%@ Web Extension Tab" = "%@ Web Extension Tab";
-
 /* Visible name of Web Inspector's web process. The argument is the application name. */
 "%@ Web Inspector" = "%@ Web Inspector";
 
@@ -126,9 +117,6 @@
 
 /* 1× media controls context menu playback speed label */
 "1× (Media Controls Menu Playback Speed)" = "1×";
-
-/* Menu item title for KEYGEN pop-up menu */
-"2048 (High Grade)" = "2048 (High Grade)";
 
 /* 2× media controls context menu playback speed label */
 "2× (Media Controls Menu Playback Speed)" = "2×";
@@ -481,14 +469,20 @@
 /* Display name for easy reader (i.e. 3rd-grade level) text tracks. */
 "Easy Reader (text track)" = "Easy Reader";
 
-/* WKWebExtensionErrorInvalidManifestEntry description for URL overrides */
-"Empty or invalid URL overrides manifest entry" = "Empty or invalid URL overrides manifest entry";
-
 /* WKWebExtensionErrorInvalidManifestEntry description for background */
 "Empty or invalid `background` manifest entry." = "Empty or invalid `background` manifest entry.";
 
+/* WKWebExtensionErrorInvalidManifestEntry description for browser URL overrides */
+"Empty or invalid `browser_url_overrides` manifest entry" = "Empty or invalid `browser_url_overrides` manifest entry";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for chrome URL overrides */
+"Empty or invalid `chrome_url_overrides` manifest entry" = "Empty or invalid `chrome_url_overrides` manifest entry";
+
 /* WKWebExtensionErrorInvalidManifestEntry description for content_scripts */
 "Empty or invalid `content_scripts` manifest entry." = "Empty or invalid `content_scripts` manifest entry.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for content_security_policy */
+"Empty or invalid `content_security_policy` manifest entry." = "Empty or invalid `content_security_policy` manifest entry.";
 
 /* WKWebExtensionErrorInvalidManifestEntry description for default_icon in action only */
 "Empty or invalid `default_icon` for the `action` manifest entry." = "Empty or invalid `default_icon` for the `action` manifest entry.";
@@ -496,8 +490,26 @@
 /* WKWebExtensionErrorInvalidManifestEntry description for default_icon in browser_action or page_action */
 "Empty or invalid `default_icon` for the `browser_action` or `page_action` manifest entry." = "Empty or invalid `default_icon` for the `browser_action` or `page_action` manifest entry.";
 
+/* WKWebExtensionErrorInvalidManifestEntry description for invalid command description */
+"Empty or invalid `description` in the `commands` manifest entry." = "Empty or invalid `description` in the `commands` manifest entry.";
+
 /* WKWebExtensionErrorInvalidManifestEntry description for externally_connectable */
 "Empty or invalid `externally_connectable` manifest entry." = "Empty or invalid `externally_connectable` manifest entry.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for invalid new tab entry */
+"Empty or invalid `newtab` manifest entry." = "Empty or invalid `newtab` manifest entry.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for options page */
+"Empty or invalid `options_page` manifest entry" = "Empty or invalid `options_page` manifest entry";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for options UI */
+"Empty or invalid `options_ui` manifest entry" = "Empty or invalid `options_ui` manifest entry";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for invalid command */
+"Empty or invalid command in the `commands` manifest entry." = "Empty or invalid command in the `commands` manifest entry.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for invalid command identifier */
+"Empty or invalid identifier in the `commands` manifest entry." = "Empty or invalid identifier in the `commands` manifest entry.";
 
 /* Video Enter Full Screen context menu item */
 "Enter Full Screen" = "Enter Full Screen";
@@ -643,6 +655,9 @@
 /* Inspect Element context menu item */
 "Inspect Element" = "Inspect Element";
 
+/* WKWebExtensionErrorInvalidManifestEntry description for commands */
+"Invalid `commands` manifest entry." = "Invalid `commands` manifest entry.";
+
 /* WKWebExtensionErrorInvalidBackgroundPersistence description */
 "Invalid `persistent` manifest entry." = "Invalid `persistent` manifest entry.";
 
@@ -654,6 +669,9 @@
 
 /* WKWebExtensionErrorInvalidBackgroundPersistence description for iOS */
 "Invalid `persistent` manifest entry. A non-persistent background is required on iOS and iPadOS." = "Invalid `persistent` manifest entry. A non-persistent background is required on iOS and iPadOS.";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for invalid command shortcut */
+"Invalid `suggested_key` in the `commands` manifest entry." = "Invalid `suggested_key` in the `commands` manifest entry.";
 
 /* WKWebExtensionErrorInvalidManifestEntry description for web_accessible_resources */
 "Invalid `web_accessible_resources` manifest entry." = "Invalid `web_accessible_resources` manifest entry.";
@@ -687,9 +705,6 @@
 
 /* Undo action name */
 "Justify (Undo action name)" = "Justify";
-
-/* Name of keychain key generated by the KEYGEN tag */
-"Key from %@" = "Key from %@";
 
 /* Languages media controls context menu title */
 "Languages (Media Controls Menu)" = "Languages";
@@ -951,9 +966,6 @@
 
 /* Description of the primary type supported by the PDF pseudo plug-in. Visible in the Installed Plug-ins page in Safari. */
 "Portable Document Format (Safari)" = "Portable Document Format";
-
-/* Description of the PostScript type supported by the PDF pseudo plug-in. Visible in the Installed Plug-ins page in Safari. */
-"PostScript" = "PostScript";
 
 /* Title for file upload progress view */
 "Preparing (file upload)" = "Preparing…";
@@ -1281,6 +1293,9 @@
 
 /* prompt string in authentication panel */
 "To view this page, you must log in to this area on %@:" = "To view this page, you must log in to this area on %@:";
+
+/* WKWebExtensionErrorInvalidManifestEntry description for too many command shortcuts */
+"Too many shortcuts specified for `commands`, only 4 shortcuts are allowed." = "Too many shortcuts specified for `commands`, only 4 shortcuts are allowed.";
 
 /* Label for the top up with Apple Pay button. */
 "Top up with Apple Pay" = "Top up with Apple Pay";
@@ -1770,6 +1785,9 @@
 
 /* accessibility label for a date field year input. */
 "year" = "year";
+
+/* Accessibility message to indicate that a page is being processed to be accessed. */
+"Processing page" = "Processing page";
 
 /* Message for requesting access to the device motion and orientation */
 "“%@” Would Like to Access Motion and Orientation" = "“%@” Would Like to Access Motion and Orientation";

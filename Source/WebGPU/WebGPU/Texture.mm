@@ -1304,7 +1304,7 @@ bool Device::validateCreateTexture(const WGPUTextureDescriptor& descriptor, cons
         if (descriptor.size.depthOrArrayLayers != 1)
             return false;
 
-        if (descriptor.usage & WGPUTextureUsage_StorageBinding)
+        if ((descriptor.usage & WGPUTextureUsage_StorageBinding) || !(descriptor.usage & WGPUTextureUsage_RenderAttachment))
             return false;
 
         if (!isRenderableFormat(descriptor.format))
@@ -1970,7 +1970,7 @@ static MTLStorageMode storageMode(bool deviceHasUnifiedMemory, bool supportsNonP
 
 Ref<Texture> Device::createTexture(const WGPUTextureDescriptor& descriptor)
 {
-    if (descriptor.nextInChain)
+    if (descriptor.nextInChain || !isValid())
         return Texture::createInvalid(*this);
 
     // https://gpuweb.github.io/gpuweb/#dom-gpudevice-createtexture
@@ -2799,7 +2799,7 @@ bool Texture::validateLinearTextureData(const WGPUTextureDataLayout& layout, uin
             return false;
     }
 
-    if (layout.rowsPerImage != WGPU_COPY_STRIDE_UNDEFINED) {
+    if (copyExtent.height > 1 && layout.rowsPerImage != WGPU_COPY_STRIDE_UNDEFINED) {
         if (layout.rowsPerImage < heightInBlocks)
             return false;
     }

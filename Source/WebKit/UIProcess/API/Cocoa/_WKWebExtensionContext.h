@@ -34,6 +34,7 @@
 @class WKWebViewConfiguration;
 @class _WKWebExtension;
 @class _WKWebExtensionAction;
+@class _WKWebExtensionCommand;
 @class _WKWebExtensionController;
 
 NS_ASSUME_NONNULL_BEGIN
@@ -188,6 +189,24 @@ WK_CLASS_AVAILABLE(macos(13.3), ios(16.4))
  originate from this extension's base URL.
  */
 @property (nonatomic, readonly, copy, nullable) WKWebViewConfiguration *webViewConfiguration;
+
+/*!
+ @abstract The URL of the extension's options page, if the extension has one.
+ @discussion This property holds the URL for the dedicated options page, if provided by the extension; otherwise `nil` if no page is defined.
+ The app should provide access to this page through a user interface element.
+ @note Navigation to the options page is only possible after this extension has been loaded.
+ @seealso webViewConfiguration
+ */
+@property (nonatomic, readonly, copy, nullable) NSURL *optionsPageURL;
+
+/*!
+ @abstract The URL to use as an alternative to the default new tab page, if the extension has one.
+ @discussion This property holds the URL for a new tab page, if provided by the extension; otherwise `nil` if no page is defined.
+ The app should prompt the user for permission to use the extension's new tab page as the default.
+ @note Navigation to the override new tab page is only possible after this extension has been loaded.
+ @seealso webViewConfiguration
+ */
+@property (nonatomic, readonly, copy, nullable) NSURL *overrideNewTabPageURL;
 
 /*!
  @abstract The currently granted permissions and their expiration dates.
@@ -470,8 +489,9 @@ WK_CLASS_AVAILABLE(macos(13.3), ios(16.4))
  @param tab The tab for which to retrieve the extension action, or `nil` to get the default action.
  @discussion The returned object represents the action specific to the tab when provided; otherwise, it returns the default action. The default
  action is useful when the context is unrelated to a specific tab. When possible, specify the tab to get the most context-relevant action.
+ @seealso performActionForTab:
  */
-- (_WKWebExtensionAction *)actionForTab:(nullable id <_WKWebExtensionTab>)tab NS_SWIFT_NAME(action(for:));
+- (nullable _WKWebExtensionAction *)actionForTab:(nullable id <_WKWebExtensionTab>)tab NS_SWIFT_NAME(action(for:));
 
 /*!
  @abstract Performs the extension action associated with the specified tab or performs the default action if `nil` is passed.
@@ -482,6 +502,21 @@ WK_CLASS_AVAILABLE(macos(13.3), ios(16.4))
  no action is performed for popup actions.
  */
 - (void)performActionForTab:(nullable id <_WKWebExtensionTab>)tab NS_SWIFT_NAME(performAction(for:));
+
+/*!
+ @abstract An array of commands associated with the extension context.
+ @discussion This property returns an array of all the commands currently available within the extension context. It allows for inspection of the
+ commands that have been registered and their current configuration.
+ @seealso performCommand:
+ */
+@property (nonatomic, readonly, copy) NSArray<_WKWebExtensionCommand *> *commands;
+
+/*!
+ @abstract Performs the specified command, triggering events specific to this extension.
+ @param command The command to be performed.
+ @discussion This method performs the given command as if it was triggered by a user gesture within the context of the focused window and active tab.
+ */
+- (void)performCommand:(_WKWebExtensionCommand *)command;
 
 /*!
  @abstract Should be called by the app when a user gesture is performed in a specific tab.

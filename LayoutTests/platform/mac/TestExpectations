@@ -2311,7 +2311,7 @@ svg/transforms/layout-tiny-elements-in-scaled-group.svg [ ImageOnlyFailure ]
 svg/transforms/rotation-origin-in-small-units.svg [ ImageOnlyFailure ]
 svg/transforms/rotation-tiny-element-in-group.svg [ ImageOnlyFailure ]
 svg/transforms/transform-origin-and-box-getCTM.html [ Failure ]
-svg/transforms/transformed-child-in-container.svg [ ImageOnlyFailure ]
+svg/transforms/transformed-child-in-container.svg [ Pass ImageOnlyFailure ]
 svg/transforms/translation-tiny-element.svg [ ImageOnlyFailure ]
 
 # Timing out since its import.
@@ -2433,9 +2433,6 @@ webkit.org/b/259190 http/tests/images/heic-as-heif.html [ Pass ImageOnlyFailure 
 [ Monterey ] imported/w3c/web-platform-tests/mathml/relations/css-styling/width-height-001.html [ Pass Failure ]
 [ Monterey ] imported/w3c/web-platform-tests/mathml/relations/html5-tree/dynamic-childlist-002.html [ Pass Failure ]
 
-# Sonoma has one extra whitespace for some reason.
-[ Sonoma+ ] imported/w3c/web-platform-tests/accname/name/comp_host_language_label.html [ Failure ]
-
 webkit.org/b/260224 [ Ventura+ ] compositing/geometry/clipped-out-perspective.html [ ImageOnlyFailure ]
 webkit.org/b/260224 [ Ventura+ ] compositing/overlap-blending/opacity-and-infinity.html [ ImageOnlyFailure ]
 webkit.org/b/260224 [ Ventura+ ] imported/w3c/web-platform-tests/css/css-transforms/perspective-split-by-zero-w.html [ ImageOnlyFailure ]
@@ -2537,8 +2534,6 @@ webkit.org/b/261958 [ Release ] inspector/console/timestamp.html [ Pass Failure 
 # Results changed with Sonoma
 [ Monterey Ventura ] imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/mime-types/canPlayType.html [ Failure ]
 
-webkit.org/b/261306 imported/w3c/web-platform-tests/content-security-policy/reporting-api/report-to-directive-allowed-in-meta.https.sub.html [ Failure ]
-
 # webkit.org/b/262595 (REGRESSION(Sonoma): [ Sonoma ] 2 lookup menu-related tests are constant text failures.)
 [ Sonoma ] editing/mac/dictionary-lookup/dictionary-lookup.html [ Failure ]
 [ Sonoma ] editing/selection/context-menu-text-selection-lookup.html [ Failure ]
@@ -2607,17 +2602,12 @@ webkit.org/b/245347 imported/w3c/web-platform-tests/css/css-color/deprecated-sam
 
 webkit.org/b/264001 [ Debug ] imported/w3c/web-platform-tests/requestidlecallback/callback-multiple-calls.html [ Pass Failure ]
 
-# webkit.org/b/264042 [ Sonoma EWS ] Suppress failures on EWS to avoid false positives on patches
-[ Sonoma+ ] css2.1/t09-c5526c-display-00-e.html [ Pass ImageOnlyFailure Failure ]
-[ Sonoma+ ] css3/filters/effect-opacity-hw.html [ Pass ImageOnlyFailure Failure ]
-[ Sonoma+ ] fast/block/basic/011.html [ Pass ImageOnlyFailure Failure ]
-[ Sonoma+ ] fast/block/basic/minheight.html [ Pass ImageOnlyFailure Failure ]
-[ Sonoma+ ] fast/block/margin-collapse/103.html [ Pass ImageOnlyFailure Failure ]
-[ Sonoma+ ] fast/css/002.html [ Pass ImageOnlyFailure Failure ]
-[ Sonoma+ ] fast/invalid/008.html [ Pass ImageOnlyFailure Failure ] 
-[ Sonoma+ ] fast/overflow/003.xml [ Pass ImageOnlyFailure Failure ]
-[ Sonoma+ ] fast/scrolling/scroll-snap-crash.html [ Skip ]
-[ Sonoma+ ] fast/text/basic/generic-family-reset.html [ Pass ImageOnlyFailure Failure ]
-[ Sonoma+ ] scrollbars/overflow-scrollbar-combinations.html [ Pass ImageOnlyFailure Failure ]
-[ Sonoma+ ] svg/custom/svg-fonts-in-html.html [ Pass ImageOnlyFailure Failure ]
-[ Sonoma+ ] tables/mozilla/bugs/bug2479-2.html [ Pass ImageOnlyFailure Failure ]
+# webkit.org/b/264419 ([ Sonoma 14.1+ ] Multiple tests are constantly failing following update from 14.0.)
+webkit.org/b/264544 [ Sonoma+ ] css3/filters/effect-opacity-hw.html [ ImageOnlyFailure ]
+webkit.org/b/263783 [ Sonoma+ ] fast/scrolling/scroll-snap-crash.html [ Skip ]
+
+webkit.org/b/264177 requestidlecallback/requestidlecallback-deadline-shortened-by-rendering-update.html [ Pass Failure ]
+
+webkit.org/b/264527 imported/w3c/web-platform-tests/css/css-cascade/idlharness.html [ Pass Failure ]
+
+webkit.org/b/264607 [ Sonoma+ ] css1/box_properties/acid_test.html [ Pass Timeout ]

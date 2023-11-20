@@ -196,7 +196,7 @@ void ProvisionalPageProxy::initializeWebPage(RefPtr<API::WebsitePolicies>&& webs
     bool sendPageCreationParameters { true };
     auto parameters = m_page->creationParameters(m_process, *m_drawingArea, WTFMove(websitePolicies));
 
-    if (page().preferences().processSwapOnCrossSiteWindowOpenEnabled()) {
+    if (page().preferences().processSwapOnCrossSiteWindowOpenEnabled() || page().preferences().siteIsolationEnabled()) {
         RegistrableDomain navigationDomain(m_request.url());
         RefPtr openerFrame = m_page->openerFrame();
         if (RefPtr openerPage = openerFrame ? openerFrame->page() : nullptr) {
@@ -214,6 +214,10 @@ void ProvisionalPageProxy::initializeWebPage(RefPtr<API::WebsitePolicies>&& webs
                 };
                 m_process->send(Messages::WebPage::TransitionFrameToLocal(localFrameCreationParameters, m_page->mainFrame()->frameID()), m_webPageID);
                 sendPageCreationParameters = false;
+            } else if (RefPtr existingRemotePageProxy = openerPage->remotePageProxyForRegistrableDomain(navigationDomain)) {
+                ASSERT(existingRemotePageProxy->process().processID() == m_process->processID());
+                openerPage->addOpenedRemotePageProxy(m_page->identifier(), existingRemotePageProxy.releaseNonNull());
+                m_needsCookieAccessAddedInNetworkProcess = true;
             } else {
                 auto remotePageProxy = RemotePageProxy::create(*openerPage, m_process, navigationDomain);
                 remotePageProxy->injectPageIntoNewProcess();
@@ -224,7 +228,7 @@ void ProvisionalPageProxy::initializeWebPage(RefPtr<API::WebsitePolicies>&& webs
 
     parameters.isProcessSwap = true;
     if (sendPageCreationParameters) {
-        m_process->send(Messages::WebProcess::CreateWebPage(m_webPageID, parameters), 0);
+        m_process->send(Messages::WebProcess::CreateWebPage(m_webPageID, WTFMove(parameters)), 0);
         m_process->addVisitedLinkStoreUser(m_page->visitedLinkStore(), m_page->identifier());
     }
 
@@ -283,9 +287,9 @@ void ProvisionalPageProxy::goToBackForwardItem(API::Navigation& navigation, WebB
 
     GoToBackForwardItemParameters parameters { navigation.navigationID(), item.itemID(), *navigation.backForwardFrameLoadType(), shouldTreatAsContinuingLoad, WTFMove(websitePoliciesData), m_page->lastNavigationWasAppInitiated(), existingNetworkResourceLoadIdentifierToResume, topPrivatelyControlledDomain, WTFMove(sandboxExtensionHandle) };
     if (!m_process->isLaunching() || !itemURL.protocolIsFile())
-        send(Messages::WebPage::GoToBackForwardItem(parameters));
+        send(Messages::WebPage::GoToBackForwardItem(WTFMove(parameters)));
     else
-        send(Messages::WebPage::GoToBackForwardItemWaitingForProcessLaunch(parameters, m_page->identifier()));
+        send(Messages::WebPage::GoToBackForwardItemWaitingForProcessLaunch(WTFMove(parameters), m_page->identifier()));
 
     m_process->startResponsivenessTimer();
 }
@@ -305,7 +309,7 @@ void ProvisionalPageProxy::didCreateMainFrame(FrameIdentifier frameID)
     ASSERT(!m_mainFrame);
 
     RefPtr<WebFrameProxy> previousMainFrame = m_page->mainFrame();
-    if (page().preferences().processSwapOnCrossSiteWindowOpenEnabled() && m_page->openerFrame()) {
+    if (m_page->openerFrame() && (page().preferences().processSwapOnCrossSiteWindowOpenEnabled() || page().preferences().siteIsolationEnabled())) {
         ASSERT(m_page->mainFrame()->frameID() == frameID);
         m_mainFrame = m_page->mainFrame();
     } else
@@ -356,7 +360,7 @@ void ProvisionalPageProxy::didStartProvisionalLoadForFrame(FrameIdentifier frame
         return;
 
     // When this is true, we are reusing the main WebFrameProxy and its frame state will be updated in didStartProvisionalLoadForFrameShared.
-    bool isCrossSiteWindowOpen = page().preferences().processSwapOnCrossSiteWindowOpenEnabled() && m_page->openerFrame();
+    bool isCrossSiteWindowOpen = m_page->openerFrame() && (page().preferences().processSwapOnCrossSiteWindowOpenEnabled() || page().preferences().siteIsolationEnabled());
 
     // Clients expect the Page's main frame's expectedURL to be the provisional one when a provisional load is started.
     if (auto* pageMainFrame = m_page->mainFrame(); pageMainFrame && !isCrossSiteWindowOpen)
@@ -390,7 +394,7 @@ void ProvisionalPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameI
 
     PROVISIONALPAGEPROXY_RELEASE_LOG(ProcessSwapping, "didCommitLoadForFrame: frameID=%" PRIu64, frameID.object().toUInt64());
     auto page = protectedPage();
-    if (page->preferences().processSwapOnCrossSiteWindowOpenEnabled()) {
+    if (page->preferences().processSwapOnCrossSiteWindowOpenEnabled() || page->preferences().siteIsolationEnabled()) {
         RefPtr openerFrame = m_page->openerFrame();
         if (RefPtr openerPage = openerFrame ? openerFrame->page() : nullptr) {
             RegistrableDomain openerDomain(openerFrame->url());

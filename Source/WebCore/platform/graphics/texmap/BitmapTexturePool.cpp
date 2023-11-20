@@ -40,19 +40,20 @@ BitmapTexturePool::BitmapTexturePool()
 {
 }
 
-RefPtr<BitmapTexture> BitmapTexturePool::acquireTexture(const IntSize& size, const BitmapTexture::Flags flags)
+RefPtr<BitmapTexture> BitmapTexturePool::acquireTexture(const IntSize& size, OptionSet<BitmapTexture::Flags> flags)
 {
     Entry* selectedEntry = std::find_if(m_textures.begin(), m_textures.end(),
         [&](Entry& entry) {
             return entry.m_texture->refCount() == 1
                 && entry.m_texture->size() == size
-                && (entry.m_texture->flags() & BitmapTexture::DepthBuffer) == (flags & BitmapTexture::DepthBuffer);
+                && entry.m_texture->flags().contains(BitmapTexture::Flags::DepthBuffer) == flags.contains(BitmapTexture::Flags::DepthBuffer);
         });
 
     if (selectedEntry == m_textures.end()) {
-        m_textures.append(Entry(BitmapTexture::create(flags)));
+        m_textures.append(Entry(BitmapTexture::create(size, flags)));
         selectedEntry = &m_textures.last();
-    }
+    } else
+        selectedEntry->m_texture->reset(size, flags);
 
     scheduleReleaseUnusedTextures();
     selectedEntry->markIsInUse();

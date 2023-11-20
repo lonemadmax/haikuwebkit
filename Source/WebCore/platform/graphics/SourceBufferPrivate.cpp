@@ -32,6 +32,7 @@
 #include "Logging.h"
 #include "MediaDescription.h"
 #include "MediaSample.h"
+#include "MediaSourcePrivate.h"
 #include "PlatformTimeRanges.h"
 #include "SampleMap.h"
 #include "SharedBuffer.h"
@@ -58,11 +59,43 @@ static const MediaTime discontinuityTolerance = MediaTime(1, 1);
 static const unsigned evictionAlgorithmInitialTimeChunk = 30000;
 static const unsigned evictionAlgorithmTimeChunkLowThreshold = 3000;
 
-SourceBufferPrivate::SourceBufferPrivate() = default;
+SourceBufferPrivate::SourceBufferPrivate(MediaSourcePrivate& parent)
+    : m_mediaSource(&parent)
+{
+}
 
 SourceBufferPrivate::~SourceBufferPrivate()
 {
     abortPendingOperations();
+}
+
+void SourceBufferPrivate::removedFromMediaSource()
+{
+    ALWAYS_LOG(LOGIDENTIFIER);
+
+    Ref<SourceBufferPrivate> protectedThis { *this };
+
+    // m_mediaSource may hold the last reference to ourselves.
+    if (m_mediaSource)
+        m_mediaSource->removeSourceBuffer(*this);
+
+    clearMediaSource();
+}
+
+MediaTime SourceBufferPrivate::currentMediaTime() const
+{
+    if (!m_mediaSource)
+        return { };
+
+    return m_mediaSource->currentMediaTime();
+}
+
+MediaTime SourceBufferPrivate::duration() const
+{
+    if (!m_mediaSource)
+        return { };
+
+    return m_mediaSource->duration();
 }
 
 void SourceBufferPrivate::resetTimestampOffsetInTrackBuffers()
@@ -115,12 +148,7 @@ Vector<PlatformTimeRanges> SourceBufferPrivate::trackBuffersRanges() const
     });
 }
 
-void SourceBufferPrivate::clientReadyStateChanged(bool sourceIsEnded)
-{
-    updateBufferedFromTrackBuffers(trackBuffersRanges(), sourceIsEnded);
-}
-
-void SourceBufferPrivate::updateBufferedFromTrackBuffers(const Vector<PlatformTimeRanges>& trackBuffers, bool sourceIsEnded, CompletionHandler<void()>&& completionHandler)
+void SourceBufferPrivate::updateBufferedFromTrackBuffers(const Vector<PlatformTimeRanges>& trackBuffers, CompletionHandler<void()>&& completionHandler)
 {
     // 3.1 Attributes, buffered
     // https://rawgit.com/w3c/media-source/45627646344eea0170dd1cbc5a3d508ca751abb8/media-source-respec.html#dom-sourcebuffer-buffered
@@ -152,7 +180,7 @@ void SourceBufferPrivate::updateBufferedFromTrackBuffers(const Vector<PlatformTi
         auto trackRanges = trackBuffer;
 
         // 4.2 If readyState is "ended", then set the end time on the last range in track ranges to highest end time.
-        if (sourceIsEnded)
+        if (m_isMediaSourceEnded)
             trackRanges.add(trackRanges.maximumBufferedTime(), highestEndTime);
 
         // 4.3 Let new intersection ranges equal the intersection between the intersection ranges and the track ranges.
@@ -195,13 +223,13 @@ void SourceBufferPrivate::rewindOperationState()
     }
 }
 
-void SourceBufferPrivate::appendCompleted(bool parsingSucceeded, bool isEnded, Function<void()>&& preAppendCompletedTask)
+void SourceBufferPrivate::appendCompleted(bool parsingSucceeded, Function<void()>&& preAppendCompletedTask)
 {
     DEBUG_LOG(LOGIDENTIFIER);
 
     rewindOperationState();
     if (parsingSucceeded)
-        queueOperation(AppendCompletedOperation { m_abortCount, isEnded, WTFMove(preAppendCompletedTask) });
+        queueOperation(AppendCompletedOperation { m_abortCount, WTFMove(preAppendCompletedTask) });
     else
         queueOperation(ErrorOperation { });
 }
@@ -218,7 +246,7 @@ void SourceBufferPrivate::processAppendCompletedOperation(AppendCompletedOperati
     if (isAttached())
         m_client->sourceBufferPrivateTrackBuffersChanged(trackBuffers);
 
-    updateBufferedFromTrackBuffers(trackBuffers, operation.isEnded, [weakSelf = WeakPtr { *this }, this, operation = WTFMove(operation)] () mutable {
+    updateBufferedFromTrackBuffers(trackBuffers, [weakSelf = WeakPtr { *this }, this, operation = WTFMove(operation)] () mutable {
         if (!weakSelf || !isAttached())
             return;
 
@@ -306,8 +334,7 @@ void SourceBufferPrivate::clearTrackBuffers(bool shouldReportToClient)
         m_client->sourceBufferPrivateTrackBuffersChanged({ });
         m_client->sourceBufferPrivateReportExtraMemoryCost(totalTrackBufferSizeInBytes());
     }
-    bool isEnded = true;
-    updateBufferedFromTrackBuffers({ }, isEnded);
+    updateBufferedFromTrackBuffers({ });
 }
 
 void SourceBufferPrivate::bufferedSamplesForTrackId(const AtomString& trackId, CompletionHandler<void(Vector<String>&&)>&& completionHandler)
@@ -344,6 +371,8 @@ void SourceBufferPrivate::setMediaSourceEnded(bool isEnded)
         return;
 
     m_isMediaSourceEnded = isEnded;
+
+    updateBufferedFromTrackBuffers(trackBuffersRanges());
 
     if (m_isMediaSourceEnded) {
         for (auto& trackBufferPair : m_trackBufferMap) {
@@ -469,7 +498,7 @@ MediaTime SourceBufferPrivate::findPreviousSyncSamplePresentationTime(const Medi
     return previousSyncSamplePresentationTime;
 }
 
-void SourceBufferPrivate::removeCodedFrames(const MediaTime& start, const MediaTime& end, const MediaTime& currentTime, bool isEnded, CompletionHandler<void()>&& completionHandler)
+void SourceBufferPrivate::removeCodedFrames(const MediaTime& start, const MediaTime& end, const MediaTime& currentTime, CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(start < end);
     if (start >= end) {
@@ -511,7 +540,7 @@ void SourceBufferPrivate::removeCodedFrames(const MediaTime& start, const MediaT
         m_client->sourceBufferPrivateReportExtraMemoryCost(totalTrackBufferSizeInBytes());
     }
 
-    updateBufferedFromTrackBuffers(trackBuffers, isEnded, WTFMove(completionHandler));
+    updateBufferedFromTrackBuffers(trackBuffers, WTFMove(completionHandler));
 }
 
 size_t SourceBufferPrivate::platformEvictionThreshold() const
@@ -531,7 +560,7 @@ bool SourceBufferPrivate::hasTooManySamples() const
     return currentSize > evictionThreshold;
 }
 
-void SourceBufferPrivate::evictCodedFrames(uint64_t newDataSize, uint64_t maximumBufferSize, const MediaTime& currentTime, bool isEnded)
+void SourceBufferPrivate::evictCodedFrames(uint64_t newDataSize, uint64_t maximumBufferSize, const MediaTime& currentTime)
 {
     // 3.5.13 Coded Frame Eviction Algorithm
     // http://www.w3.org/TR/media-source/#sourcebuffer-coded-frame-eviction
@@ -557,7 +586,7 @@ void SourceBufferPrivate::evictCodedFrames(uint64_t newDataSize, uint64_t maximu
     DEBUG_LOG(LOGIDENTIFIER, "currentTime = ", currentTime, ", require ", initialBufferedSize + newDataSize, " bytes, maximum buffer size is ", maximumBufferSize);
 #endif
 
-    isBufferFull = evictFrames(newDataSize, maximumBufferSize, currentTime, isEnded);
+    isBufferFull = evictFrames(newDataSize, maximumBufferSize, currentTime);
 
     if (!isBufferFull) {
 #if !RELEASE_LOG_DISABLED
@@ -767,8 +796,6 @@ void SourceBufferPrivate::processInitOperation(InitOperation&& initOperation)
                 return;
             }
 
-            completionHandler(result);
-
             if (!m_errored) {
                 rewindOperationState();
                 m_didReceiveInitializationSegmentErrored |= result != ReceiveResult::Succeeded;
@@ -776,6 +803,9 @@ void SourceBufferPrivate::processInitOperation(InitOperation&& initOperation)
                 m_receivedFirstInitializationSegment = true;
                 m_pendingInitializationSegmentForChangeType = false;
             }
+
+            completionHandler(result);
+
             processPendingOperations();
         };
         if (!m_client || !m_client->isAsync()) {
@@ -984,17 +1014,6 @@ void SourceBufferPrivate::processMediaSample(Ref<MediaSample>&& sample)
             }
             trackBuffer.setNeedRandomAccessFlag(true);
             m_client->sourceBufferPrivateDidDropSample();
-            return;
-        }
-
-        // If the decode timestamp is less than the presentation start time, then run the end of stream
-        // algorithm with the error parameter set to "decode", and abort these steps.
-        // NOTE: Until <https://www.w3.org/Bugs/Public/show_bug.cgi?id=27487> is resolved, we will only check
-        // the presentation timestamp.
-        MediaTime presentationStartTime = MediaTime::zeroTime();
-        if (presentationTimestamp < presentationStartTime) {
-            ERROR_LOG(LOGIDENTIFIER, "failing because presentationTimestamp (", presentationTimestamp, ") < presentationStartTime (", presentationStartTime, ")");
-            m_client->sourceBufferPrivateStreamEndedWithDecodeError();
             return;
         }
 
@@ -1248,18 +1267,18 @@ void SourceBufferPrivate::resetParserState()
     queueOperation(ResetParserOperation { });
 }
 
-void SourceBufferPrivate::memoryPressure(uint64_t maximumBufferSize, const MediaTime& currentTime, bool isEnded)
+void SourceBufferPrivate::memoryPressure(uint64_t maximumBufferSize, const MediaTime& currentTime)
 {
     ALWAYS_LOG(LOGIDENTIFIER, "isActive = ", isActive());
     if (isActive()) {
-        evictFrames(maximumBufferSize, maximumBufferSize, currentTime, isEnded);
+        evictFrames(maximumBufferSize, maximumBufferSize, currentTime);
         return;
     }
     resetTrackBuffers();
     clearTrackBuffers(true);
 }
 
-bool SourceBufferPrivate::evictFrames(uint64_t newDataSize, uint64_t maximumBufferSize, const MediaTime& currentTime, bool isEnded)
+bool SourceBufferPrivate::evictFrames(uint64_t newDataSize, uint64_t maximumBufferSize, const MediaTime& currentTime)
 {
     auto isBufferFull = true;
 
@@ -1280,7 +1299,7 @@ bool SourceBufferPrivate::evictFrames(uint64_t newDataSize, uint64_t maximumBuff
 
             // 4. For each range in removal ranges, run the coded frame removal algorithm with start and
             // end equal to the removal range start and end timestamp respectively.
-            removeCodedFrames(rangeStart, rangeEnd, currentTime, isEnded);
+            removeCodedFrames(rangeStart, rangeEnd, currentTime);
             if (m_buffered.minimumBufferedTime() == rangeStart)
                 break; // Nothing evicted.
 
@@ -1316,7 +1335,7 @@ bool SourceBufferPrivate::evictFrames(uint64_t newDataSize, uint64_t maximumBuff
 
             // 4. For each range in removal ranges, run the coded frame removal algorithm with start and
             // end equal to the removal range start and end timestamp respectively.
-            removeCodedFrames(rangeStart, rangeEnd, currentTime, isEnded);
+            removeCodedFrames(rangeStart, rangeEnd, currentTime);
             if (m_buffered.maximumBufferedTime() == rangeEnd)
                 break; // Nothing evicted.
 
@@ -1327,6 +1346,15 @@ bool SourceBufferPrivate::evictFrames(uint64_t newDataSize, uint64_t maximumBuff
     } while (isBufferFull && timeChunkAsMilliseconds >= evictionAlgorithmTimeChunkLowThreshold);
 
     return isBufferFull;
+}
+
+void SourceBufferPrivate::setActive(bool isActive)
+{
+    ALWAYS_LOG(LOGIDENTIFIER, isActive);
+
+    m_isActive = isActive;
+    if (m_mediaSource)
+        m_mediaSource->sourceBufferPrivateDidChangeActiveState(*this, isActive);
 }
 
 } // namespace WebCore

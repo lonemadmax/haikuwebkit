@@ -197,7 +197,7 @@ void ArgumentCoder<WebCore::Credential>::encodePlatformData(Encoder& encoder, co
 
 bool ArgumentCoder<WebCore::Credential>::decodePlatformData(Decoder& decoder, WebCore::Credential& credential)
 {
-    auto nsCredential = IPC::decode<NSURLCredential>(decoder);
+    std::optional<RetainPtr<NSURLCredential>> nsCredential = decoder.decode<RetainPtr<NSURLCredential>>();
     if (!nsCredential)
         return false;
     credential = WebCore::Credential { nsCredential->get() };
@@ -209,7 +209,7 @@ void ArgumentCoder<WebCore::SerializedPlatformDataCueValue>::encodePlatformData(
 {
     ASSERT(value.platformType() == WebCore::SerializedPlatformDataCueValue::PlatformType::ObjC);
     if (value.platformType() == WebCore::SerializedPlatformDataCueValue::PlatformType::ObjC)
-        encodeObject(encoder, value.nativeValue().get());
+        encodeObjectWithWrapper(encoder, value.nativeValue().get());
 }
 
 std::optional<WebCore::SerializedPlatformDataCueValue>  ArgumentCoder<WebCore::SerializedPlatformDataCueValue>::decodePlatformData(Decoder& decoder, WebCore::SerializedPlatformDataCueValue::PlatformType platformType)
@@ -219,7 +219,7 @@ std::optional<WebCore::SerializedPlatformDataCueValue>  ArgumentCoder<WebCore::S
     if (platformType != WebCore::SerializedPlatformDataCueValue::PlatformType::ObjC)
         return std::nullopt;
 
-    auto object = decodeObject(decoder, WebCore::SerializedPlatformDataCueMac::allowedClassesForNativeValues());
+    auto object = decodeObjectFromWrapper(decoder, WebCore::SerializedPlatformDataCueMac::allowedClassesForNativeValues());
     if (!object)
         return std::nullopt;
 

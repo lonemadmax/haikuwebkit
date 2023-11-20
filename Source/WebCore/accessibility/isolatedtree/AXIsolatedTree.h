@@ -203,6 +203,7 @@ enum class AXPropertyName : uint16_t {
     RowIndexRange,
     ScreenRelativePosition,
     SelectedChildren,
+    SelectedTextRange,
     SetSize,
     SortDirection,
     SpeechHint,
@@ -291,6 +292,7 @@ public:
     void updateNodeAndDependentProperties(AccessibilityObject&);
     void updatePropertiesForSelfAndDescendants(AccessibilityObject&, const Vector<AXPropertyName>&);
     void updateFrame(AXID, IntRect&&);
+    void overrideNodeProperties(AXID, AXPropertyMap&&);
 
     double loadingProgress() { return m_loadingProgress; }
     void updateLoadingProgress(double);
@@ -327,6 +329,7 @@ public:
 private:
     AXIsolatedTree(AXObjectCache&);
     static void storeTree(AXObjectCache&, const Ref<AXIsolatedTree>&);
+    void reportCreationProgress(AXObjectCache&, unsigned percentComplete);
 
     // Queue this isolated tree up to destroy itself on the secondary thread.
     // We can't destroy the tree on the main-thread (by removing all `Ref`s to it)
@@ -364,9 +367,11 @@ private:
     unsigned m_maxTreeDepth { 0 };
     WeakPtr<AXObjectCache> m_axObjectCache;
     OptionSet<ActivityState> m_pageActivityState;
-    RefPtr<AccessibilityObject> m_rootOfSubtreeBeingUpdated;
     RefPtr<AXGeometryManager> m_geometryManager;
     bool m_isEmptyContentTree { false };
+    // Reference to a temporary, empty content tree that this tree will replace. Used for updating the empty content tree while this is built.
+    RefPtr<AXIsolatedTree> m_replacingTree;
+    RefPtr<AccessibilityObject> m_rootOfSubtreeBeingUpdated;
 
     // Stores the parent ID and children IDS for a given IsolatedObject.
     struct ParentChildrenIDs {

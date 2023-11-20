@@ -40,6 +40,7 @@ Queue::Queue(id<MTLCommandQueue> commandQueue, Device& device)
     : m_commandQueue(commandQueue)
     , m_device(device)
 {
+    m_pendingCommandBuffers = [NSMutableSet set];
 }
 
 Queue::Queue(Device& device)
@@ -120,7 +121,7 @@ void Queue::onSubmittedWorkScheduled(CompletionHandler<void()>&& completionHandl
     callbacks.append(WTFMove(completionHandler));
 }
 
-bool Queue::validateSubmit(const Vector<std::reference_wrapper<const CommandBuffer>>& commands) const
+bool Queue::validateSubmit(const Vector<std::reference_wrapper<CommandBuffer>>& commands) const
 {
     for (auto command : commands) {
         if (!isValidToUseWith(command.get(), *this))
@@ -139,6 +140,9 @@ bool Queue::validateSubmit(const Vector<std::reference_wrapper<const CommandBuff
 
 void Queue::commitMTLCommandBuffer(id<MTLCommandBuffer> commandBuffer)
 {
+    if (!commandBuffer || commandBuffer.status >= MTLCommandBufferStatusCommitted)
+        return;
+
     ASSERT(commandBuffer.commandQueue == m_commandQueue);
     [commandBuffer addScheduledHandler:[protectedThis = Ref { *this }](id<MTLCommandBuffer>) {
         protectedThis->scheduleWork(CompletionHandler<void(void)>([protectedThis = protectedThis.copyRef()]() {
@@ -147,19 +151,21 @@ void Queue::commitMTLCommandBuffer(id<MTLCommandBuffer> commandBuffer)
                 callback();
         }, CompletionHandlerCallThread::AnyThread));
     }];
-    [commandBuffer addCompletedHandler:[protectedThis = Ref { *this }](id<MTLCommandBuffer>) {
-        protectedThis->scheduleWork(CompletionHandler<void(void)>([protectedThis = protectedThis.copyRef()]() {
+    [commandBuffer addCompletedHandler:[protectedThis = Ref { *this }](id<MTLCommandBuffer> commandBuffer) {
+        protectedThis->scheduleWork(CompletionHandler<void(void)>([commandBuffer, protectedThis = protectedThis.copyRef()]() {
             ++(protectedThis->m_completedCommandBufferCount);
+            [protectedThis->m_pendingCommandBuffers removeObject:commandBuffer];
             for (auto& callback : protectedThis->m_onSubmittedWorkDoneCallbacks.take(protectedThis->m_completedCommandBufferCount))
                 callback(WGPUQueueWorkDoneStatus_Success);
         }, CompletionHandlerCallThread::AnyThread));
     }];
 
+    [m_pendingCommandBuffers addObject:commandBuffer];
     [commandBuffer commit];
     ++m_submittedCommandBufferCount;
 }
 
-void Queue::submit(Vector<std::reference_wrapper<const CommandBuffer>>&& commands)
+void Queue::submit(Vector<std::reference_wrapper<CommandBuffer>>&& commands)
 {
     // https://gpuweb.github.io/gpuweb/#dom-gpuqueue-submit
 
@@ -170,10 +176,22 @@ void Queue::submit(Vector<std::reference_wrapper<const CommandBuffer>>&& command
 
     finalizeBlitCommandEncoder();
 
-    for (auto commandBuffer : commands)
-        commitMTLCommandBuffer(commandBuffer.get().commandBuffer());
+    NSMutableArray<id<MTLCommandBuffer>> *commandBuffersToSubmit = [NSMutableArray arrayWithCapacity:commands.size()];
+    for (auto commandBuffer : commands) {
+        auto& command = commandBuffer.get();
+        if (id<MTLCommandBuffer> mtlBuffer = command.commandBuffer())
+            [commandBuffersToSubmit addObject:mtlBuffer];
+        else {
+            m_device.generateAValidationError("Command buffer appears twice."_s);
+            return;
+        }
+        command.makeInvalid();
+    }
 
-    if ([MTLCaptureManager sharedCaptureManager].isCapturing)
+    for (id<MTLCommandBuffer> commandBuffer in commandBuffersToSubmit)
+        commitMTLCommandBuffer(commandBuffer);
+
+    if ([MTLCaptureManager sharedCaptureManager].isCapturing && m_device.shouldStopCaptureAfterSubmit())
         [[MTLCaptureManager sharedCaptureManager] stopCapture];
 }
 
@@ -205,6 +223,13 @@ bool Queue::validateWriteBuffer(const Buffer& buffer, uint64_t bufferOffset, siz
         return false;
 
     return true;
+}
+
+void Queue::waitUntilIdle()
+{
+    finalizeBlitCommandEncoder();
+    for (id<MTLCommandBuffer> commandBuffer in m_pendingCommandBuffers)
+        [commandBuffer waitUntilCompleted];
 }
 
 void Queue::writeBuffer(const Buffer& buffer, uint64_t bufferOffset, const void* data, size_t size)
@@ -246,6 +271,11 @@ void Queue::writeBuffer(const Buffer& buffer, uint64_t bufferOffset, const void*
         }
     }
 
+    writeBuffer(buffer.buffer(), bufferOffset, data, size);
+}
+
+void Queue::writeBuffer(id<MTLBuffer> buffer, uint64_t bufferOffset, const void* data, size_t size)
+{
     ensureBlitCommandEncoder();
     // FIXME(PERFORMANCE): Suballocate, so the common case doesn't need to hit the kernel.
     // FIXME(PERFORMANCE): Should this temporary buffer really be shared?
@@ -258,7 +288,7 @@ void Queue::writeBuffer(const Buffer& buffer, uint64_t bufferOffset, const void*
     [m_blitCommandEncoder
         copyFromBuffer:temporaryBuffer
         sourceOffset:0
-        toBuffer:buffer.buffer()
+        toBuffer:buffer
         destinationOffset:static_cast<NSUInteger>(bufferOffset)
         size:static_cast<NSUInteger>(size)];
 }
@@ -326,6 +356,9 @@ void Queue::writeTexture(const WGPUImageCopyTexture& destination, const void* da
 
     auto logicalSize = texture.logicalMiplevelSpecificTextureExtent(destination.mipLevel);
     auto widthForMetal = std::min(size.width, logicalSize.width);
+    if (!widthForMetal)
+        return;
+
     auto heightForMetal = std::min(size.height, logicalSize.height);
     auto depthForMetal = std::min(size.depthOrArrayLayers, logicalSize.depthOrArrayLayers);
 
@@ -352,14 +385,13 @@ void Queue::writeTexture(const WGPUImageCopyTexture& destination, const void* da
         return;
     }
 
-    constexpr auto levelInfoRowBlockBytes = 0;
     id<MTLTexture> mtlTexture = texture.texture();
     auto textureDimension = texture.dimension();
     NSUInteger maxRowBytes = textureDimension == WGPUTextureDimension_3D ? (2048 * blockSize) : bytesPerRow;
-    if (bytesPerRow % blockSize || (bytesPerRow > maxRowBytes)) {
-        auto blockHeight = Texture::texelBlockHeight(textureFormat);
-        bool isCompressed = Texture::isCompressedFormat(textureFormat);
-
+    bool isCompressed = Texture::isCompressedFormat(textureFormat);
+    auto blockHeight = Texture::texelBlockHeight(textureFormat);
+    auto blockWidth = Texture::texelBlockWidth(textureFormat);
+    if (!isCompressed && (bytesPerRow % blockSize || (bytesPerRow > maxRowBytes))) {
         WGPUExtent3D newSize {
             .width = size.width,
             .height = isCompressed ? blockSize : blockHeight,
@@ -373,9 +405,6 @@ void Queue::writeTexture(const WGPUImageCopyTexture& destination, const void* da
                 .bytesPerRow = std::min<uint32_t>(maxRowBytes, dataLayout.bytesPerRow),
                 .rowsPerImage = newSize.height
             };
-
-            if (isCompressed)
-                bytesPerRow = levelInfoRowBlockBytes;
 
             for (uint32_t z = 0, endZ = std::max<uint32_t>(1, depthForMetal); z < endZ; ++z) {
                 WGPUImageCopyTexture newDestination = destination;
@@ -394,15 +423,33 @@ void Queue::writeTexture(const WGPUImageCopyTexture& destination, const void* da
             return;
         }
 
-        if (heightForMetal == 1) {
-            bytesPerRow = 0;
-            bytesPerImage = 0;
-        } else {
-            bytesPerRow = levelInfoRowBlockBytes;
-            bytesPerImage = 0;
-            if (auto add = widthForMetal % blockSize)
-                widthForMetal = std::min<NSUInteger>(widthForMetal + (blockSize - add), logicalSize.width);
+        ASSERT(heightForMetal == 1);
+        bytesPerRow = 0;
+        bytesPerImage = 0;
+    }
+
+    Vector<uint8_t> newData;
+    const auto levelInfoRowBlockBytes = blockSize * (widthForMetal / blockWidth);
+    const auto newBytesPerRow = blockSize * (widthForMetal / blockWidth);
+    if (isCompressed && levelInfoRowBlockBytes != bytesPerRow && (widthForMetal == logicalSize.width && heightForMetal == logicalSize.height)) {
+        auto maxY = std::max<size_t>(blockHeight, heightForMetal) / blockHeight;
+        auto newBytesPerImage = levelInfoRowBlockBytes * std::max<size_t>(blockHeight, logicalSize.height) / blockHeight;
+        auto maxZ = std::max<size_t>(1, size.depthOrArrayLayers);
+        newData.resize(newBytesPerImage * maxZ);
+        memset(&newData[0], 0, newData.size());
+        for (size_t z = 0; z < maxZ; ++z) {
+            for (size_t y = 0; y < maxY; ++y) {
+                auto sourceBytes = static_cast<const uint8_t*>(data) + y * bytesPerRow + z * bytesPerImage;
+                RELEASE_ASSERT(y * bytesPerRow + z * bytesPerImage + newBytesPerRow <= dataByteSize);
+                auto destBytes = &newData[0] + y * newBytesPerRow + z * newBytesPerImage;
+                memcpy(destBytes, sourceBytes, newBytesPerRow);
+            }
         }
+
+        bytesPerRow = levelInfoRowBlockBytes;
+        dataByteSize = newData.size();
+        bytesPerImage = newBytesPerImage;
+        data = &newData[0];
     }
 
     // FIXME(PERFORMANCE): Instead of checking whether or not the whole queue is idle,
@@ -606,7 +653,7 @@ void wgpuQueueOnSubmittedWorkDoneWithBlock(WGPUQueue queue, WGPUQueueWorkDoneBlo
 
 void wgpuQueueSubmit(WGPUQueue queue, size_t commandCount, const WGPUCommandBuffer* commands)
 {
-    Vector<std::reference_wrapper<const WebGPU::CommandBuffer>> commandsToForward;
+    Vector<std::reference_wrapper<WebGPU::CommandBuffer>> commandsToForward;
     for (uint32_t i = 0; i < commandCount; ++i)
         commandsToForward.append(WebGPU::fromAPI(commands[i]));
     WebGPU::fromAPI(queue).submit(WTFMove(commandsToForward));
