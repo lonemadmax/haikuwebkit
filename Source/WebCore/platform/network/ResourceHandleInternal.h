@@ -109,8 +109,8 @@ public:
     NSURLAuthenticationChallenge *m_currentMacChallenge { nil };
 #endif
 #if USE(CURL)
-    std::unique_ptr<CurlResourceHandleDelegate> m_delegate;
-    
+    RefPtr<CurlResourceHandleDelegate> m_delegate;
+
     unsigned m_authFailureCount { 0 };
     RefPtr<CurlRequest> m_curlRequest;
     RefPtr<SynchronousLoaderMessageQueue> m_messageQueue;

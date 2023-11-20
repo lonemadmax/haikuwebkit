@@ -38,7 +38,7 @@ namespace WebCore {
 
         virtual OptionSet<DragSourceAction> dragSourceActionMaskForPoint(const IntPoint&) override;
 
-        virtual void startDrag(DragItem, DataTransfer&, LocalFrame&) override;
+        virtual void startDrag(DragItem, DataTransfer&, Frame&) override;
     private:
         BWebView* m_webView;
     };

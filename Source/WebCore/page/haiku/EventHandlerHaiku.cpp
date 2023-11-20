@@ -73,7 +73,7 @@ bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestR
 {
     // Figure out which view to send the event to.
     RenderObject* target = event.targetNode() ? event.targetNode()->renderer() : 0;
-    if (!target || !target->isWidget())
+    if (!target || !target->isRenderWidget())
         return false;
     return passMouseDownEventToWidget(downcast<RenderWidget>(target)->widget());
 }

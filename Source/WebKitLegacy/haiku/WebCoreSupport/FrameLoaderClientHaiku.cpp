@@ -248,10 +248,10 @@ void FrameLoaderClientHaiku::dispatchDidReceiveAuthenticationChallenge(DocumentL
             challenge.authenticationClient()->receivedRequestToContinueWithoutCredential(challenge);
         else {
             bool rememberCredentials = false;
-            CredentialPersistence persistence = CredentialPersistenceForSession;
+            CredentialPersistence persistence = CredentialPersistence::ForSession;
             if (authenticationReply.FindBool("rememberCredentials",
                 &rememberCredentials) == B_OK && rememberCredentials) {
-                persistence = CredentialPersistencePermanent;
+                persistence = CredentialPersistence::Permanent;
             }
 
             Credential credential(String::fromUTF8(user.String()),

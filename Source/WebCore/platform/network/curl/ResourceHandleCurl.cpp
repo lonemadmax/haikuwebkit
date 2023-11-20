@@ -159,7 +159,7 @@ Ref<CurlRequest> ResourceHandle::createCurlRequest(ResourceRequest&& request, Re
 CurlResourceHandleDelegate* ResourceHandle::delegate()
 {
     if (!d->m_delegate)
-        d->m_delegate = makeUnique<CurlResourceHandleDelegate>(*this);
+        d->m_delegate = adoptRef(new CurlResourceHandleDelegate(*this));
 
     return d->m_delegate.get();
 }
@@ -215,7 +215,7 @@ void ResourceHandle::didReceiveAuthenticationChallenge(const AuthenticationChall
     String partition = firstRequest().cachePartition();
 
     if (!d->m_user.isNull() && !d->m_password.isNull()) {
-        Credential credential(d->m_user, d->m_password, CredentialPersistenceNone);
+        Credential credential(d->m_user, d->m_password, CredentialPersistence::None);
 
         URL urlToStore;
         if (challenge.failureResponse().httpStatusCode() == 401)
@@ -327,7 +327,7 @@ void ResourceHandle::receivedChallengeRejection(const AuthenticationChallenge&)
 std::optional<Credential> ResourceHandle::getCredential(const ResourceRequest& request, bool redirect)
 {
     // m_user/m_pass are credentials given manually, for instance, by the arguments passed to XMLHttpRequest.open().
-    Credential credential { d->m_user, d->m_password, CredentialPersistenceNone };
+    Credential credential { d->m_user, d->m_password, CredentialPersistence::None };
 
     if (shouldUseCredentialStorage()) {
         String partition = request.cachePartition();
