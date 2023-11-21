@@ -329,7 +329,7 @@ struct WebViewAndDelegates {
     RetainPtr<TestUIDelegate> uiDelegate;
 };
 
-static std::pair<WebViewAndDelegates, WebViewAndDelegates> openerAndOpenedViews(const HTTPServer& server)
+static std::pair<WebViewAndDelegates, WebViewAndDelegates> openerAndOpenedViews(const HTTPServer& server, NSString *url = @"https://example.com/example")
 {
     __block WebViewAndDelegates opener;
     __block WebViewAndDelegates opened;
@@ -352,7 +352,7 @@ static std::pair<WebViewAndDelegates, WebViewAndDelegates> openerAndOpenedViews(
     };
     [opener.webView setUIDelegate:opener.uiDelegate.get()];
     opener.webView.get().configuration.preferences.javaScriptCanOpenWindowsAutomatically = YES;
-    [opener.webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    [opener.webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:url]]];
     while (!opened.webView)
         Util::spinRunLoop();
     [opened.navigationDelegate waitForDidFinishNavigation];
@@ -380,6 +380,34 @@ TEST(SiteIsolation, NavigationAfterWindowOpen)
 
     while (processStillRunning(webKitPid))
         Util::spinRunLoop();
+}
+
+TEST(SiteIsolation, WindowOpenRedirect)
+{
+    HTTPServer server({
+        { "/example1"_s, { "<script>w = window.open('https://webkit.org/webkit1')</script>"_s } },
+        { "/webkit1"_s, { 302, { { "Location"_s, "/webkit2"_s } }, "redirecting..."_s } },
+        { "/webkit2"_s, { "loaded!"_s } },
+        { "/example2"_s, { "<script>w = window.open('https://webkit.org/webkit3')</script>"_s } },
+        { "/webkit3"_s, { 302, { { "Location"_s, "https://example.com/example3"_s } }, "redirecting..."_s } },
+        { "/example3"_s, { "loaded!"_s } },
+        { "/example4"_s, { "<script>w = window.open('https://webkit.org/webkit4')</script>"_s } },
+        { "/webkit4"_s, { 302, { { "Location"_s, "https://apple.com/apple"_s } }, "redirecting..."_s } },
+        { "/apple"_s, { "loaded!"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    {
+        auto [opener, opened] = openerAndOpenedViews(server, @"https://example.com/example1");
+        EXPECT_WK_STREQ(opened.webView.get().URL.absoluteString, "https://webkit.org/webkit2");
+    }
+    {
+        auto [opener, opened] = openerAndOpenedViews(server, @"https://example.com/example2");
+        EXPECT_WK_STREQ(opened.webView.get().URL.absoluteString, "https://example.com/example3");
+    }
+    {
+        auto [opener, opened] = openerAndOpenedViews(server, @"https://example.com/example4");
+        EXPECT_WK_STREQ(opened.webView.get().URL.absoluteString, "https://apple.com/apple");
+    }
 }
 
 TEST(SiteIsolation, CloseAfterWindowOpen)
@@ -1271,7 +1299,7 @@ TEST(SiteIsolation, PropagateMouseEventsToSubframe)
     "<iframe src='https://domain2.com/subframe'></iframe>"_s;
 
     auto subframeHTML = "<script>"
-    "    addEventListener('mousemove', window.parent.postMessage('mousemove', '*'));"
+    "    addEventListener('mousemove', (event) => { window.parent.postMessage('mousemove', '*') });"
     "    addEventListener('mousedown', (event) => { window.parent.postMessage('mousedown,' + event.pageX + ',' + event.pageY, '*') });"
     "    addEventListener('mouseup', (event) => { window.parent.postMessage('mouseup,' + event.pageX + ',' + event.pageY, '*') });"
     "</script>"_s;
@@ -1293,6 +1321,7 @@ TEST(SiteIsolation, PropagateMouseEventsToSubframe)
 
     CGPoint eventLocationInWindow = [webView convertPoint:CGPointMake(50, 50) toView:nil];
     [webView mouseEnterAtPoint:eventLocationInWindow];
+    [webView mouseMoveToPoint:eventLocationInWindow withFlags:0];
     [webView mouseDownAtPoint:eventLocationInWindow simulatePressure:NO];
     [webView mouseUpAtPoint:eventLocationInWindow];
     [webView waitForPendingMouseEvents];
@@ -1317,11 +1346,10 @@ TEST(SiteIsolation, DragEvents)
     auto subframeHTML = "<body>"
     "<div id='draggable' draggable='true' style='width: 100px; height: 100px; background-color: blue;'></div>"
     "<script>"
-    "    draggable.addEventListener('dragstart', window.parent.postMessage('dragstart', '*'));"
-    "    draggable.addEventListener('drag', window.parent.postMessage('drag', '*'));"
-    "    draggable.addEventListener('dragend', window.parent.postMessage('dragend', '*'));"
-    "    draggable.addEventListener('dragenter', window.parent.postMessage('dragenter', '*'));"
-    "    draggable.addEventListener('dragleave', window.parent.postMessage('dragleave', '*'));"
+    "    draggable.addEventListener('dragstart', (event) => { window.parent.postMessage('dragstart', '*') });"
+    "    draggable.addEventListener('dragend', (event) => { window.parent.postMessage('dragend', '*') });"
+    "    draggable.addEventListener('dragenter', (event) => { window.parent.postMessage('dragenter', '*') });"
+    "    draggable.addEventListener('dragleave', (event) => { window.parent.postMessage('dragleave', '*') });"
     "</script>"
     "</body>"_s;
 
@@ -1344,12 +1372,11 @@ TEST(SiteIsolation, DragEvents)
     [simulator runFrom:CGPointMake(50, 50) to:CGPointMake(150, 150)];
 
     NSArray<NSString *> *events = [webView objectByEvaluatingJavaScript:@"window.events"];
-    EXPECT_EQ(5U, events.count);
+    EXPECT_EQ(4U, events.count);
     EXPECT_WK_STREQ("dragstart", events[0]);
-    EXPECT_WK_STREQ("drag", events[1]);
-    EXPECT_WK_STREQ("dragend", events[2]);
-    EXPECT_WK_STREQ("dragenter", events[3]);
-    EXPECT_WK_STREQ("dragleave", events[4]);
+    EXPECT_WK_STREQ("dragenter", events[1]);
+    EXPECT_WK_STREQ("dragleave", events[2]);
+    EXPECT_WK_STREQ("dragend", events[3]);
 }
 #endif
 
@@ -1568,6 +1595,47 @@ TEST(SiteIsolation, MainFrameURLAfterFragmentNavigation)
 
     EXPECT_FALSE(canLoadURLInIFrame(@"/blocked_when_fragment_in_top_url"));
     EXPECT_FALSE(canLoadURLInIFrame(@"/always_blocked"));
+}
+
+TEST(SiteIsolation, FocusOpenedWindow)
+{
+    auto openerHTML = "<script>"
+    "    let w = window.open('https://domain2.com/opened');"
+    "</script>"_s;
+    HTTPServer server({
+        { "/example"_s, { openerHTML } },
+        { "/opened"_s, { ""_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto [opener, opened] = openerAndOpenedViews(server);
+
+    RetainPtr<WKFrameInfo> openerInfo;
+    RetainPtr<WKFrameInfo> openedInfo;
+    auto getUpdatedFrameInfo = [&] (WKWebView *openerWebView, WKWebView *openedWebView) {
+        __block bool done = false;
+        [openerWebView _frames:^(_WKFrameTreeNode *mainFrame) {
+            openerInfo = mainFrame.info;
+            done = true;
+        }];
+        Util::run(&done);
+
+        done = false;
+        [openedWebView _frames:^(_WKFrameTreeNode *mainFrame) {
+            openedInfo = mainFrame.info;
+            done = true;
+        }];
+        Util::run(&done);
+    };
+
+    getUpdatedFrameInfo(opener.webView.get(), opened.webView.get());
+    EXPECT_FALSE([openerInfo _isFocused]);
+    EXPECT_FALSE([openedInfo _isFocused]);
+
+    [opener.webView.get() evaluateJavaScript:@"w.focus()" completionHandler:nil];
+
+    do {
+        getUpdatedFrameInfo(opener.webView.get(), opened.webView.get());
+    } while (![openedInfo _isFocused]);
+    EXPECT_FALSE([openerInfo _isFocused]);
 }
 
 }

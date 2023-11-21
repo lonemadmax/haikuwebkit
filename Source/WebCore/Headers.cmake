@@ -48,7 +48,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/WebGPU/GPUCompilationMessageType.h
     Modules/WebGPU/GPUComputePassDescriptor.h
     Modules/WebGPU/GPUComputePassEncoder.h
-    Modules/WebGPU/GPUComputePassTimestampLocation.h
     Modules/WebGPU/GPUComputePassTimestampWrites.h
     Modules/WebGPU/GPUComputePipeline.h
     Modules/WebGPU/GPUComputePipelineDescriptor.h
@@ -106,7 +105,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/WebGPU/GPURenderPassDescriptor.h
     Modules/WebGPU/GPURenderPassEncoder.h
     Modules/WebGPU/GPURenderPassLayout.h
-    Modules/WebGPU/GPURenderPassTimestampLocation.h
     Modules/WebGPU/GPURenderPassTimestampWrites.h
     Modules/WebGPU/GPURenderPipeline.h
     Modules/WebGPU/GPURenderPipelineDescriptor.h
@@ -209,7 +207,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/WebGPU/InternalAPI/WebGPUCompositorIntegration.h
     Modules/WebGPU/InternalAPI/WebGPUComputePassDescriptor.h
     Modules/WebGPU/InternalAPI/WebGPUComputePassEncoder.h
-    Modules/WebGPU/InternalAPI/WebGPUComputePassTimestampLocation.h
     Modules/WebGPU/InternalAPI/WebGPUComputePassTimestampWrites.h
     Modules/WebGPU/InternalAPI/WebGPUComputePipeline.h
     Modules/WebGPU/InternalAPI/WebGPUComputePipelineDescriptor.h
@@ -267,7 +264,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/WebGPU/InternalAPI/WebGPURenderPassDescriptor.h
     Modules/WebGPU/InternalAPI/WebGPURenderPassEncoder.h
     Modules/WebGPU/InternalAPI/WebGPURenderPassLayout.h
-    Modules/WebGPU/InternalAPI/WebGPURenderPassTimestampLocation.h
     Modules/WebGPU/InternalAPI/WebGPURenderPassTimestampWrites.h
     Modules/WebGPU/InternalAPI/WebGPURenderPipeline.h
     Modules/WebGPU/InternalAPI/WebGPURenderPipelineDescriptor.h
@@ -560,6 +556,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/speech/SpeechRecognitionResultData.h
     Modules/speech/SpeechRecognitionUpdate.h
     Modules/speech/SpeechRecognizer.h
+    Modules/speech/SpeechSynthesisErrorCode.h
+    Modules/speech/SpeechSynthesisUtterance.h
+    Modules/speech/SpeechSynthesisVoice.h
 
     Modules/storage/DummyStorageProvider.h
     Modules/storage/StorageConnection.h
@@ -1089,6 +1088,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     editing/FrameSelection.h
     editing/HTMLInterchange.h
     editing/InlineRunAndOffset.h
+    editing/MarkupExclusionRule.h
     editing/SelectionGeometryGatherer.h
     editing/SerializedAttachmentData.h
     editing/SmartReplace.h
@@ -1278,6 +1278,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/track/TextTrackCue.h
     html/track/TrackBase.h
     html/track/VTTCue.h
+    html/track/VTTRegion.h
     html/track/VideoTrack.h
     html/track/VideoTrackClient.h
 
@@ -1394,6 +1395,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     loader/MixedContentChecker.h
     loader/NavigationAction.h
     loader/NavigationRequester.h
+    loader/NavigationScheduler.h
     loader/NetscapePlugInStreamLoader.h
     loader/PCMSites.h
     loader/PCMTokens.h
@@ -1496,7 +1498,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/FrameView.h
     page/GlobalFrameIdentifier.h
     page/GlobalWindowIdentifier.h
-    page/HandleMouseEventResult.h
+    page/HandleUserInputEventResult.h
     page/ImageAnalysisQueue.h
     page/InteractionRegion.h
     page/LayoutMilestone.h
@@ -1677,6 +1679,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/MediaCapabilitiesEncodingInfo.h
     platform/MediaCapabilitiesInfo.h
     platform/MediaDescription.h
+    platform/MediaPromiseTypes.h
     platform/MediaSample.h
     platform/MediaSelectionOption.h
     platform/MediaSessionGroupIdentifier.h
@@ -1700,6 +1703,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/PlatformEvent.h
     platform/PlatformExportMacros.h
     platform/PlatformKeyboardEvent.h
+    platform/PlatformMediaError.h
     platform/PlatformMouseEvent.h
     platform/PlatformPasteboard.h
     platform/PlatformScreen.h

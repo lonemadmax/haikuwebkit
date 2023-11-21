@@ -171,6 +171,7 @@ private:
     std::optional<VideoFrameMetadata> videoFrameMetadata() final;
     void setResourceOwner(const ProcessIdentity&) final { ASSERT_NOT_REACHED(); }
     void renderVideoWillBeDestroyed() final { destroyLayers(); }
+    void setShouldMaintainAspectRatio(bool) final;
 
     MediaPlayer::ReadyState currentReadyState();
     void updateReadyState();
@@ -181,6 +182,8 @@ private:
     void checkSelectedVideoTrack();
     void updateDisplayLayer();
 
+    enum class SizeChanged : bool { No, Yes };
+    void scheduleTaskForCharacteristicsChanged(SizeChanged);
     void scheduleDeferredTask(Function<void ()>&&);
 
     void layersAreInitialized(IntSize, bool);
@@ -301,12 +304,12 @@ private:
     uint64_t m_sampleCount { 0 };
     uint64_t m_lastVideoFrameMetadataSampleCount { 0 };
     Seconds m_presentationTime { 0 };
-    FloatSize m_videoFrameSize;
     VideoFrameTimeMetadata m_sampleMetadata;
 
     std::optional<CGRect> m_storedBounds;
     static NativeImageCreator m_nativeImageCreator;
     LayerHostingContextIDCallback m_layerHostingContextIDCallback;
+    bool m_shouldMaintainAspectRatio { true };
 };
 
 }

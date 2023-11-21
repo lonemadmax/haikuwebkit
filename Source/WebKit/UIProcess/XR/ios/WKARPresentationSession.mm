@@ -28,8 +28,13 @@
 
 #if ENABLE(WEBXR) && USE(ARKITXR_IOS)
 
+#import "Logging.h"
+
 #import <Metal/Metal.h>
+#import <wtf/RunLoop.h>
 #import <wtf/WeakObjCPtr.h>
+
+#import "ARKitSoftLink.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -97,7 +102,6 @@ NS_ASSUME_NONNULL_BEGIN
 
     // Metal state
     RetainPtr<id<MTLDevice>> _device;
-    RetainPtr<id<MTLCommandQueue>> _commandQueue;
     RetainPtr<id<MTLSharedEvent>> _completionEvent;
     NSUInteger _renderingFrameIndex;
 
@@ -123,15 +127,19 @@ NS_ASSUME_NONNULL_BEGIN
 
 #pragma mark - WKARPresentationSession
 
--(ARSession *)session {
+- (ARFrame *)currentFrame {
+    return [_session currentFrame];
+}
+
+- (ARSession *)session {
     return (ARSession *) _session;
 }
 
--(nonnull id<MTLSharedEvent>)completionEvent {
+- (nonnull id<MTLSharedEvent>)completionEvent {
     return (id<MTLSharedEvent>) _completionEvent;
 }
 
--(nullable id<MTLTexture>)colorTexture {
+- (nullable id<MTLTexture>)colorTexture {
     return [_currentDrawable texture];
 }
 
@@ -144,6 +152,7 @@ NS_ASSUME_NONNULL_BEGIN
     }
 
     _capturedImage = currentFrame.capturedImage;
+    _currentDrawable = [_metalLayer nextDrawable];
     _renderingFrameIndex += 1;
 
     return 1;
@@ -151,17 +160,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)present
 {
-    RetainPtr<id<MTLCommandBuffer>> currentCommandBuffer = [_commandQueue commandBuffer];
-    if (!currentCommandBuffer) {
-        RELEASE_LOG_ERROR(XR, "WKARPresentationSession: failed to obtain command buffer");
-        return;
-    }
-
-    [currentCommandBuffer setLabel:@"WKARPresentationSession"];
-    [currentCommandBuffer encodeWaitForEvent:_completionEvent.get() value:_renderingFrameIndex];
-    [currentCommandBuffer commit];
-    [currentCommandBuffer waitUntilScheduled];
-
     [CATransaction begin];
     {
         [_cameraLayer setContents:(id) _capturedImage.get()];
@@ -207,6 +205,7 @@ NS_ASSUME_NONNULL_BEGIN
     [_metalLayer setPixelFormat:MTLPixelFormatBGRA8Unorm_sRGB];
     [_metalLayer setPresentsWithTransaction:YES];
     [_metalLayer setFrame:[_cameraLayer bounds]];
+    [_metalLayer setAffineTransform:CGAffineTransformMakeScale(1, -1)];
 }
 
 #if !PLATFORM(VISION)
@@ -247,7 +246,6 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)_loadMetal
 {
-    _commandQueue = [_device newCommandQueue];
     _completionEvent = adoptNS([_device newSharedEvent]);
     _renderingFrameIndex = 0;
 }

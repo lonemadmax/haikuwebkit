@@ -3376,7 +3376,7 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
     bool selectionAndBackgroundsOnly = paintingInfo.paintBehavior.contains(PaintBehavior::SelectionAndBackgroundsOnly);
     bool selectionOnly = paintingInfo.paintBehavior.contains(PaintBehavior::SelectionOnly);
 
-    SinglePaintFrequencyTracking singlePaintFrequencyTracking(m_paintFrequencyTracker, page().lastRenderingUpdateTimestamp());
+    m_paintFrequencyTracker.track(page().lastRenderingUpdateTimestamp());
 
     LayerFragments layerFragments;
     RenderObject* subtreePaintRootForRenderer = nullptr;
@@ -5866,7 +5866,7 @@ bool RenderLayer::isBitmapOnly() const
 
 void RenderLayer::simulateFrequentPaint()
 {
-    SinglePaintFrequencyTracking { m_paintFrequencyTracker, page().lastRenderingUpdateTimestamp() };
+    m_paintFrequencyTracker.track(page().lastRenderingUpdateTimestamp());
 }
 
 RenderLayerScrollableArea* RenderLayer::scrollableArea() const
@@ -6134,6 +6134,7 @@ static void outputPaintOrderTreeRecursive(TextStream& stream, const WebCore::Ren
 
         auto scrollingNodeID = backing.scrollingNodeIDForRole(WebCore::ScrollCoordinationRole::Scrolling);
         auto frameHostingNodeID = backing.scrollingNodeIDForRole(WebCore::ScrollCoordinationRole::FrameHosting);
+        auto pluginHostingNodeID = backing.scrollingNodeIDForRole(WebCore::ScrollCoordinationRole::PluginHosting);
         auto viewportConstrainedNodeID = backing.scrollingNodeIDForRole(WebCore::ScrollCoordinationRole::ViewportConstrained);
         auto positionedNodeID = backing.scrollingNodeIDForRole(WebCore::ScrollCoordinationRole::Positioning);
 
@@ -6149,6 +6150,13 @@ static void outputPaintOrderTreeRecursive(TextStream& stream, const WebCore::Ren
                 if (!first)
                     stream << ", ";
                 stream << "fh " << frameHostingNodeID;
+                first = false;
+            }
+
+            if (pluginHostingNodeID) {
+                if (!first)
+                    stream << ", ";
+                stream << "ph " << pluginHostingNodeID;
                 first = false;
             }
 

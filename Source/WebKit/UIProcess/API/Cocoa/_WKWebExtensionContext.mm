@@ -497,6 +497,11 @@ static inline WebKit::WebExtensionContext::PermissionState toImpl(_WKWebExtensio
     return _webExtensionContext->hasAccessToAllHosts();
 }
 
+- (BOOL)hasInjectedContent
+{
+    return _webExtensionContext->hasInjectedContent();
+}
+
 - (BOOL)hasInjectedContentForURL:(NSURL *)url
 {
     NSParameterAssert([url isKindOfClass:NSURL.class]);
@@ -711,15 +716,13 @@ static inline WebKit::WebExtensionContext::TabSet toImpl(NSSet<id<_WKWebExtensio
 
 static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(_WKWebExtensionTabChangedProperties properties)
 {
-    OptionSet<WebKit::WebExtensionTab::ChangedProperties> result;
-
     if (properties == _WKWebExtensionTabChangedPropertiesNone)
-        return result;
+        return { };
 
-    if (properties == _WKWebExtensionTabChangedPropertiesAll) {
-        result.add(WebKit::WebExtensionTab::ChangedProperties::All);
-        return result;
-    }
+    if (properties == _WKWebExtensionTabChangedPropertiesAll)
+        return WebKit::WebExtensionTab::allChangedProperties();
+
+    OptionSet<WebKit::WebExtensionTab::ChangedProperties> result;
 
     if (properties & _WKWebExtensionTabChangedPropertiesAudible)
         result.add(WebKit::WebExtensionTab::ChangedProperties::Audible);
@@ -1003,6 +1006,11 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(_WKWe
 }
 
 - (BOOL)hasAccessToAllHosts
+{
+    return NO;
+}
+
+- (BOOL)hasInjectedContent
 {
     return NO;
 }

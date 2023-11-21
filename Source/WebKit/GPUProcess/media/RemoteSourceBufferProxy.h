@@ -71,17 +71,15 @@ private:
     RemoteSourceBufferProxy(GPUConnectionToWebProcess&, RemoteSourceBufferIdentifier, Ref<WebCore::SourceBufferPrivate>&&, RemoteMediaPlayerProxy&);
 
     // SourceBufferPrivateClient
-    void sourceBufferPrivateDidReceiveInitializationSegment(InitializationSegment&&, CompletionHandler<void(ReceiveResult)>&&) final;
-    void sourceBufferPrivateAppendComplete(WebCore::SourceBufferPrivateClient::AppendResult) final;
-    void sourceBufferPrivateBufferedChanged(const WebCore::PlatformTimeRanges&, CompletionHandler<void()>&&) final;
+    Ref<WebCore::MediaPromise> sourceBufferPrivateDidReceiveInitializationSegment(InitializationSegment&&) final;
+    Ref<WebCore::MediaPromise> sourceBufferPrivateBufferedChanged(const WebCore::PlatformTimeRanges&) final;
     void sourceBufferPrivateTrackBuffersChanged(const Vector<WebCore::PlatformTimeRanges>&) final;
     void sourceBufferPrivateHighestPresentationTimestampChanged(const MediaTime&) final;
-    void sourceBufferPrivateDurationChanged(const MediaTime&, CompletionHandler<void()>&&) final;
+    Ref<WebCore::MediaPromise> sourceBufferPrivateDurationChanged(const MediaTime&) final;
     void sourceBufferPrivateDidParseSample(double sampleDuration) final;
     void sourceBufferPrivateDidDropSample() final;
     void sourceBufferPrivateDidReceiveRenderingError(int64_t errorCode) final;
     void sourceBufferPrivateReportExtraMemoryCost(uint64_t extraMemory) final;
-    bool isAsync() const final { return true; }
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
@@ -90,7 +88,7 @@ private:
     void setActive(bool);
     void canSwitchToType(const WebCore::ContentType&, CompletionHandler<void(bool)>&&);
     void setMode(WebCore::SourceBufferAppendMode);
-    void append(IPC::SharedBufferReference&&, CompletionHandler<void(std::optional<WebKit::SharedMemory::Handle>&&)>&&);
+    void append(IPC::SharedBufferReference&&, CompletionHandler<void(WebCore::MediaPromise::Result, uint64_t, const MediaTime&)>&&);
     void abort();
     void resetParserState();
     void removedFromMediaSource();
@@ -111,11 +109,11 @@ private:
     void setTimestampOffset(const MediaTime&);
     void setAppendWindowStart(const MediaTime&);
     void setAppendWindowEnd(const MediaTime&);
-    void computeSeekTime(const WebCore::SeekTarget&, CompletionHandler<void(const MediaTime&)>&&);
+    void computeSeekTime(const WebCore::SeekTarget&, CompletionHandler<void(WebCore::SourceBufferPrivate::ComputeSeekPromise::Result&&)>&&);
     void seekToTime(const MediaTime&);
     void updateTrackIds(Vector<std::pair<TrackPrivateRemoteIdentifier, TrackPrivateRemoteIdentifier>>&&);
-    void bufferedSamplesForTrackId(TrackPrivateRemoteIdentifier, CompletionHandler<void(Vector<String>&&)>&&);
-    void enqueuedSamplesForTrackID(TrackPrivateRemoteIdentifier, CompletionHandler<void(Vector<String>&&)>&&);
+    void bufferedSamplesForTrackId(TrackPrivateRemoteIdentifier, CompletionHandler<void(WebCore::SourceBufferPrivate::SamplesPromise::Result&&)>&&);
+    void enqueuedSamplesForTrackID(TrackPrivateRemoteIdentifier, CompletionHandler<void(WebCore::SourceBufferPrivate::SamplesPromise::Result&&)>&&);
     void memoryPressure(uint64_t maximumBufferSize, const MediaTime& currentTime, CompletionHandler<void(WebCore::PlatformTimeRanges&&, uint64_t)>&&);
     void minimumUpcomingPresentationTimeForTrackID(const AtomString&, CompletionHandler<void(MediaTime)>&&);
     void setMaximumQueueDepthForTrackID(const AtomString&, uint64_t);

@@ -77,7 +77,7 @@
 #include <WebCore/HTMLNames.h>
 #include <WebCore/HTMLSelectElement.h>
 #include <WebCore/HTMLTextAreaElement.h>
-#include <WebCore/HandleMouseEventResult.h>
+#include <WebCore/HandleUserInputEventResult.h>
 #include <WebCore/ImageBuffer.h>
 #include <WebCore/JSCSSStyleDeclaration.h>
 #include <WebCore/JSElement.h>
@@ -142,7 +142,7 @@ Ref<WebFrame> WebFrame::createSubframe(WebPage& page, WebFrame& parent, const At
     auto coreFrame = LocalFrame::createSubframe(*page.corePage(), makeUniqueRef<WebLocalFrameLoaderClient>(frame.get(), frame->makeInvalidator()), frameID, ownerElement);
     frame->m_coreFrame = coreFrame.get();
 
-    page.send(Messages::WebPageProxy::DidCreateSubframe(parent.frameID(), coreFrame->frameID()));
+    page.send(Messages::WebPageProxy::DidCreateSubframe(parent.frameID(), coreFrame->frameID(), frameName));
 
     coreFrame->tree().setSpecifiedName(frameName);
     ASSERT(ownerElement.document().frame());
@@ -151,7 +151,7 @@ Ref<WebFrame> WebFrame::createSubframe(WebPage& page, WebFrame& parent, const At
     return frame;
 }
 
-Ref<WebFrame> WebFrame::createRemoteSubframe(WebPage& page, WebFrame& parent, WebCore::FrameIdentifier frameID)
+Ref<WebFrame> WebFrame::createRemoteSubframe(WebPage& page, WebFrame& parent, WebCore::FrameIdentifier frameID, const String& frameName)
 {
     auto frame = create(page, frameID);
     auto client = makeUniqueRef<WebRemoteFrameClient>(frame.copyRef(), frame->makeInvalidator());
@@ -159,8 +159,7 @@ Ref<WebFrame> WebFrame::createRemoteSubframe(WebPage& page, WebFrame& parent, We
     RELEASE_ASSERT(parent.coreFrame());
     auto coreFrame = RemoteFrame::createSubframe(*page.corePage(), WTFMove(client), frameID, *parent.coreFrame());
     frame->m_coreFrame = coreFrame.get();
-
-    // FIXME: Pass in a name and call FrameTree::setSpecifiedName here. <rdar://116201307>
+    coreFrame->tree().setSpecifiedName(AtomString(frameName));
     return frame;
 }
 
@@ -373,6 +372,7 @@ void WebFrame::didCommitLoadInAnotherProcess(std::optional<WebCore::LayerHosting
         corePage->setMainFrame(newFrame.copyRef());
         newFrame->takeWindowProxyFrom(*localFrame);
     }
+    newFrame->tree().setSpecifiedName(localFrame->tree().specifiedName());
     if (ownerRenderer)
         ownerRenderer->setWidget(newFrame->view());
 
@@ -406,6 +406,7 @@ void WebFrame::removeFromTree()
         corePage->removeRootFrame(*localFrame);
     if (RefPtr parent = coreFrame->tree().parent())
         parent->tree().removeChild(*coreFrame);
+    coreFrame->disconnectView();
 }
 
 void WebFrame::transitionToLocal(std::optional<WebCore::LayerHostingContextIdentifier> layerHostingContextIdentifier)
@@ -432,9 +433,13 @@ void WebFrame::transitionToLocal(std::optional<WebCore::LayerHostingContextIdent
     auto client = makeUniqueRef<WebLocalFrameLoaderClient>(*this, WTFMove(invalidator));
     auto localFrame = parent ? LocalFrame::createSubframeHostedInAnotherProcess(*corePage, WTFMove(client), m_frameID, *parent) : LocalFrame::createMainFrame(*corePage, WTFMove(client), m_frameID);
     m_coreFrame = localFrame.ptr();
-    if (localFrame->isMainFrame())
-        corePage->setMainFrame(localFrame);
+    remoteFrame->setView(nullptr);
     localFrame->init();
+    localFrame->tree().setSpecifiedName(remoteFrame->tree().specifiedName());
+    if (localFrame->isMainFrame()) {
+        corePage->setMainFrame(localFrame);
+        localFrame->takeWindowProxyFrom(*remoteFrame);
+    }
 
     if (layerHostingContextIdentifier)
         setLayerHostingContextIdentifier(*layerHostingContextIdentifier);
@@ -1113,7 +1118,7 @@ void WebFrame::documentLoaderDetached(uint64_t navigationID, bool loadWillContin
 }
 
 #if PLATFORM(COCOA)
-RetainPtr<CFDataRef> WebFrame::webArchiveData(FrameFilterFunction callback, void* context, const String& mainResourceFileName)
+RetainPtr<CFDataRef> WebFrame::webArchiveData(FrameFilterFunction callback, void* context, const Vector<WebCore::MarkupExclusionRule>& exclusionRules, const String& mainResourceFileName)
 {
     Ref document = *coreLocalFrame()->document();
     auto archive = LegacyWebArchive::create(document, [this, callback, context](auto& frame) -> bool {
@@ -1124,7 +1129,7 @@ RetainPtr<CFDataRef> WebFrame::webArchiveData(FrameFilterFunction callback, void
         ASSERT(webFrame);
 
         return callback(toAPI(this), toAPI(webFrame.get()), context);
-    }, mainResourceFileName);
+    }, exclusionRules, mainResourceFileName);
 
     if (!archive)
         return nullptr;
@@ -1242,7 +1247,7 @@ bool WebFrame::handleContextMenuEvent(const PlatformMouseEvent& platformMouseEve
 }
 #endif
 
-WebCore::HandleMouseEventResult WebFrame::handleMouseEvent(const WebMouseEvent& mouseEvent)
+WebCore::HandleUserInputEventResult WebFrame::handleMouseEvent(const WebMouseEvent& mouseEvent)
 {
     auto* coreLocalFrame = dynamicDowncast<LocalFrame>(coreFrame());
     if (!coreLocalFrame)

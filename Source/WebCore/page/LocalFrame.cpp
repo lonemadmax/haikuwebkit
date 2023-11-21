@@ -161,7 +161,7 @@ LocalFrame::LocalFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& frameLoad
     ProcessWarming::initializeNames();
     StaticCSSValuePool::init();
 
-    if (auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame()); localMainFrame && ownerElement)
+    if (auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame()); localMainFrame && parent)
         localMainFrame->selfOnlyRef();
 
 #ifndef NDEBUG
@@ -964,6 +964,26 @@ LocalDOMWindow* LocalFrame::window() const
 DOMWindow* LocalFrame::virtualWindow() const
 {
     return window();
+}
+
+void LocalFrame::disconnectView()
+{
+    setView(nullptr);
+}
+
+void LocalFrame::setOpener(Frame* opener)
+{
+    loader().setOpener(opener);
+}
+
+const Frame* LocalFrame::opener() const
+{
+    return loader().opener();
+}
+
+Frame* LocalFrame::opener()
+{
+    return loader().opener();
 }
 
 FrameView* LocalFrame::virtualView() const

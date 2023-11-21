@@ -229,6 +229,7 @@ struct ImageBufferParameters;
 struct InspectorOverlayHighlight;
 struct LinkIcon;
 struct LinkDecorationFilteringData;
+struct MarkupExclusionRule;
 struct MediaControlsContextMenuItem;
 struct MediaDeviceHashSalts;
 struct MediaKeySystemRequestIdentifierType;
@@ -455,8 +456,6 @@ struct WebPreferencesStore;
 struct WebSpeechSynthesisVoice;
 struct WebsitePoliciesData;
 
-enum SelectionFlags : uint8_t;
-
 enum class ContentAsStringIncludesChildFrames : bool;
 enum class DragControllerAction : uint8_t;
 enum class FindDecorationStyle : uint8_t;
@@ -474,6 +473,7 @@ enum class QuickLookPreviewActivity : uint8_t;
 enum class RespectSelectionAnchor : bool;
 enum class SOAuthorizationLoadPolicy : bool;
 enum class SameDocumentNavigationType : uint8_t;
+enum class SelectionFlags : uint8_t;
 enum class SelectionTouch : uint8_t;
 enum class ShouldDelayClosingUntilFirstLayerFlush : bool;
 enum class SyntheticEditingCommandType : uint8_t;
@@ -1355,7 +1355,7 @@ public:
 #if ENABLE(MHTML)
     void getContentsAsMHTMLData(CompletionHandler<void(API::Data*)>&&);
 #endif
-    void saveResources(WebFrameProxy*, const String& directory, const String& suggestedMainResourceName, CompletionHandler<void(Expected<void, WebCore::ArchiveError>)>&&);
+    void saveResources(WebFrameProxy*, const Vector<WebCore::MarkupExclusionRule>&, const String& directory, const String& suggestedMainResourceName, CompletionHandler<void(Expected<void, WebCore::ArchiveError>)>&&);
     void getMainResourceDataOfFrame(WebFrameProxy*, CompletionHandler<void(API::Data*)>&&);
     void getResourceDataFromFrame(WebFrameProxy&, API::URL*, CompletionHandler<void(API::Data*)>&&);
     void getRenderTreeExternalRepresentation(CompletionHandler<void(const String&)>&&);
@@ -2188,7 +2188,7 @@ public:
     void addOpenedRemotePageProxy(WebPageProxyIdentifier, Ref<RemotePageProxy>&&);
     void removeOpenedRemotePageProxy(WebPageProxyIdentifier);
 
-    void createRemoteSubframesInOtherProcesses(WebFrameProxy&);
+    void createRemoteSubframesInOtherProcesses(WebFrameProxy&, const String& frameName);
     void broadcastFrameRemovalToOtherProcesses(IPC::Connection&, WebCore::FrameIdentifier);
     void broadcastMainFrameURLChangeToOtherProcesses(IPC::Connection&, const URL&);
 
@@ -2292,6 +2292,8 @@ public:
     bool shouldAllowAutoFillForCellularIdentifiers() const;
 #endif
 
+    void broadcastFocusedFrameToOtherProcesses(IPC::Connection&, const WebCore::FrameIdentifier&);
+
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
     void platformInitialize();
@@ -2343,7 +2345,7 @@ private:
 #endif
 
     void didCreateMainFrame(WebCore::FrameIdentifier);
-    void didCreateSubframe(WebCore::FrameIdentifier parent, WebCore::FrameIdentifier newFrameID);
+    void didCreateSubframe(WebCore::FrameIdentifier parent, WebCore::FrameIdentifier newFrameID, const String& frameName);
 
     void didStartProvisionalLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, uint64_t navigationID, URL&&, URL&& unreachableURL, const UserData&);
     void didReceiveServerRedirectForProvisionalLoadForFrame(WebCore::FrameIdentifier, uint64_t navigationID, WebCore::ResourceRequest&&, const UserData&);
@@ -2847,7 +2849,12 @@ private:
 
     void dispatchLoadEventToFrameOwnerElement(WebCore::FrameIdentifier);
 
-    void broadcastFocusedFrameToOtherProcesses(IPC::Connection&, const WebCore::FrameIdentifier&);
+    template<typename F> void sendToWebPage(std::optional<WebCore::FrameIdentifier>, F&&);
+    template<typename M, typename C> void sendToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&, C&&);
+    template<typename M> void sendToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&);
+
+    void sendPreventableTouchEvent(WebCore::FrameIdentifier, const NativeWebTouchEvent&);
+    void sendUnpreventableTouchEvent(WebCore::FrameIdentifier, const NativeWebTouchEvent&);
 
     struct Internals;
     Internals& internals() { return m_internals; }
@@ -3010,7 +3017,9 @@ private:
     RefPtr<WebContextMenuProxy> m_activeContextMenu;
 #endif
 
+#if PLATFORM(MAC)
     RefPtr<API::HitTestResult> m_lastMouseMoveHitTestResult;
+#endif
 
     RefPtr<WebOpenPanelResultListenerProxy> m_openPanelResultListener;
 

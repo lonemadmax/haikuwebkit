@@ -90,11 +90,13 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::IsControl, object.isControl());
     setProperty(AXPropertyName::IsEnabled, object.isEnabled());
     setProperty(AXPropertyName::IsExpanded, object.isExpanded());
+    setProperty(AXPropertyName::IsFileUploadButton, object.isFileUploadButton());
     setProperty(AXPropertyName::IsIndeterminate, object.isIndeterminate());
     setProperty(AXPropertyName::IsInlineText, object.isInlineText());
     setProperty(AXPropertyName::IsInputImage, object.isInputImage());
     setProperty(AXPropertyName::IsLink, object.isLink());
     setProperty(AXPropertyName::IsList, object.isList());
+    setProperty(AXPropertyName::IsMeter, object.isMeter());
     setProperty(AXPropertyName::IsMultiSelectable, object.isMultiSelectable());
     setProperty(AXPropertyName::IsRequired, object.isRequired());
     setProperty(AXPropertyName::IsSecureField, object.isSecureField());
@@ -166,6 +168,7 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::IsKeyboardFocusable, object.isKeyboardFocusable());
     setProperty(AXPropertyName::BrailleRoleDescription, object.brailleRoleDescription().isolatedCopy());
     setProperty(AXPropertyName::BrailleLabel, object.brailleLabel().isolatedCopy());
+    setProperty(AXPropertyName::IsNonNativeTextControl, object.isNonNativeTextControl());
 
     RefPtr geometryManager = tree()->geometryManager();
     std::optional frame = geometryManager ? geometryManager->cachedRectForID(object.objectID()) : std::nullopt;
@@ -305,10 +308,13 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     }
 
     if (object.isScrollView() || object.isWebArea()) {
-        // For the ScrollView and WebArea objects, cache the TitleAttributeValue and DescriptionAttributeValue eagerly to avoid hitting the main thread in getOrRetrievePropertyValue during the construction of the isolated tree.
-        m_propertyMap.set(AXPropertyName::TitleAttributeValue, object.titleAttributeValue().isolatedCopy());
-        m_propertyMap.set(AXPropertyName::DescriptionAttributeValue, object.descriptionAttributeValue().isolatedCopy());
-        m_propertyMap.set(AXPropertyName::HelpText, object.helpTextAttributeValue().isolatedCopy());
+        // For the ScrollView and WebArea objects, cache the AccessibilityText property eagerly to avoid hitting the main thread in getOrRetrievePropertyValue during the construction of the isolated tree.
+        Vector<AccessibilityText> texts;
+        object.accessibilityText(texts);
+        auto axTextValue = texts.map([] (const auto& text) -> AccessibilityText {
+            return { text.text.isolatedCopy(), text.textSource };
+        });
+        setProperty(AXPropertyName::AccessibilityText, axTextValue);
 
         if (object.isScrollView()) {
             setObjectProperty(AXPropertyName::VerticalScrollBar, object.scrollBar(AccessibilityOrientation::Vertical));
@@ -320,8 +326,11 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
         }
     }
 
-    if (object.isWidget())
+    if (object.isWidget()) {
         setProperty(AXPropertyName::IsWidget, true);
+        setProperty(AXPropertyName::IsPlugin, object.isPlugin());
+        setProperty(AXPropertyName::IsVisible, object.isVisible());
+    }
 
     auto descriptor = object.title();
     if (descriptor.length())
@@ -341,11 +350,14 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     // These properties are only needed on the AXCoreObject interface due to their use in ATSPI,
     // so only cache them for ATSPI.
 #if PLATFORM(ATSPI)
+    // We cache IsVisible on all platforms just for Widgets above. In ATSPI, this should be cached on all objects.
+    if (!object.isWidget())
+        setProperty(AXPropertyName::IsVisible, object.isVisible());
+
     setProperty(AXPropertyName::ActionVerb, object.actionVerb().isolatedCopy());
     setProperty(AXPropertyName::IsFieldset, object.isFieldset());
     setProperty(AXPropertyName::IsPressed, object.isPressed());
     setProperty(AXPropertyName::IsSelectedOptionActive, object.isSelectedOptionActive());
-    setProperty(AXPropertyName::IsVisible, object.isVisible());
     setProperty(AXPropertyName::LocalizedActionVerb, object.localizedActionVerb().isolatedCopy());
 #endif
 
@@ -587,6 +599,15 @@ std::optional<AXCoreObject::AccessibilityChildrenVector> AXIsolatedObject::mathR
         return { radicand };
     }
     return std::nullopt;
+}
+
+bool AXIsolatedObject::fileUploadButtonReturnsValueInTitle() const
+{
+#if PLATFORM(MAC)
+    return true;
+#else
+    return false;
+#endif
 }
 
 AXIsolatedObject* AXIsolatedObject::focusedUIElement() const
@@ -939,17 +960,7 @@ T AXIsolatedObject::getOrRetrievePropertyValue(AXPropertyName propertyName)
 
         AXPropertyValueVariant value;
         switch (propertyName) {
-#if PLATFORM(COCOA)
-        case AXPropertyName::DescriptionAttributeValue:
-            value = axObject->descriptionAttributeValue().isolatedCopy();
-            break;
-        case AXPropertyName::HelpText:
-            value = axObject->helpTextAttributeValue().isolatedCopy();
-            break;
-        case AXPropertyName::TitleAttributeValue:
-            value = axObject->titleAttributeValue().isolatedCopy();
-            break;
-#endif
+        // FIXME: Once textUnderElement can be retrieved from the AX thread and/or is faster, cache this eagerly.
         case AXPropertyName::AccessibilityText: {
             Vector<AccessibilityText> texts;
             axObject->accessibilityText(texts);
@@ -1507,12 +1518,6 @@ bool AXIsolatedObject::isListBoxOption() const
 }
 
 bool AXIsolatedObject::isMockObject() const
-{
-    ASSERT_NOT_REACHED();
-    return false;
-}
-
-bool AXIsolatedObject::isNonNativeTextControl() const
 {
     ASSERT_NOT_REACHED();
     return false;

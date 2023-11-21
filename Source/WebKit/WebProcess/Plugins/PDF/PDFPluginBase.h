@@ -54,6 +54,7 @@ class HTMLPlugInElement;
 class ResourceResponse;
 class Scrollbar;
 class SharedBuffer;
+enum class PlatformCursorType : uint8_t;
 }
 
 namespace WebKit {
@@ -108,7 +109,7 @@ public:
 
     virtual RefPtr<WebCore::FragmentedSharedBuffer> liveResourceData() const = 0;
 
-    virtual bool wantsWheelEvents() const { return true; }
+    virtual bool wantsWheelEvents() const = 0;
     virtual bool handleMouseEvent(const WebMouseEvent&) = 0;
     virtual bool handleWheelEvent(const WebWheelEvent&) = 0;
     virtual bool handleMouseEnterEvent(const WebMouseEvent&) = 0;
@@ -166,6 +167,8 @@ public:
     virtual void save(CompletionHandler<void(const String&, const URL&, const IPC::DataReference&)>&&) = 0;
     virtual void openWithPreview(CompletionHandler<void(const String&, FrameInfoData&&, const IPC::DataReference&, const String&)>&&) = 0;
 #endif
+
+    void notifyCursorChanged(WebCore::PlatformCursorType);
 
 protected:
     explicit PDFPluginBase(WebCore::HTMLPlugInElement&);
@@ -230,6 +233,7 @@ protected:
 
     WeakPtr<PluginView> m_view;
     WeakPtr<WebFrame> m_frame;
+    WeakPtr<WebCore::HTMLPlugInElement, WebCore::WeakPtrImplWithEventTargetData> m_element;
 
     PDFPluginIdentifier m_identifier;
 

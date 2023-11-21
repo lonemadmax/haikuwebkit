@@ -83,24 +83,24 @@ const PlatformTimeRanges& RemoteMediaSourceProxy::buffered() const
     return m_buffered;
 }
 
-void RemoteMediaSourceProxy::waitForTarget(const WebCore::SeekTarget& target, CompletionHandler<void(const MediaTime&)>&& completionHandler)
+Ref<MediaTimePromise> RemoteMediaSourceProxy::waitForTarget(const SeekTarget& target)
 {
-    if (!m_connectionToWebProcess) {
-        completionHandler(MediaTime::invalidTime());
-        return;
-    }
+    if (!m_connectionToWebProcess)
+        return MediaTimePromise::createAndReject(PlatformMediaError::IPCError);
 
-    m_connectionToWebProcess->connection().sendWithAsyncReply(Messages::MediaSourcePrivateRemote::WaitForTarget(target), WTFMove(completionHandler), m_identifier);
+    return m_connectionToWebProcess->connection().sendWithPromisedReply(Messages::MediaSourcePrivateRemote::ProxyWaitForTarget(target), m_identifier)->whenSettled(RunLoop::current(), [](auto&& result) {
+        return result ? MediaTimePromise::createAndSettle(WTFMove(*result)) : MediaTimePromise::createAndReject(PlatformMediaError::IPCError);
+    });
 }
 
-void RemoteMediaSourceProxy::seekToTime(const MediaTime& time, CompletionHandler<void()>&& completionHandler)
+Ref<MediaPromise> RemoteMediaSourceProxy::seekToTime(const MediaTime& time)
 {
-    if (!m_connectionToWebProcess) {
-        completionHandler();
-        return;
-    }
+    if (!m_connectionToWebProcess)
+        return MediaPromise::createAndReject(PlatformMediaError::IPCError);
 
-    m_connectionToWebProcess->connection().sendWithAsyncReply(Messages::MediaSourcePrivateRemote::SeekToTime(time), WTFMove(completionHandler), m_identifier);
+    return m_connectionToWebProcess->connection().sendWithPromisedReply(Messages::MediaSourcePrivateRemote::ProxySeekToTime(time), m_identifier)->whenSettled(RunLoop::current(), [](auto&& result) {
+        return result ? MediaPromise::createAndSettle(WTFMove(*result)) : MediaPromise::createAndReject(PlatformMediaError::IPCError);
+    });
 }
 
 void RemoteMediaSourceProxy::monitorSourceBuffers()

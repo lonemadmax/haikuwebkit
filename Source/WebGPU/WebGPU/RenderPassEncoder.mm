@@ -37,32 +37,22 @@
 
 namespace WebGPU {
 
-constexpr auto startIndexForFragmentDynamicOffsets = 2;
-
-RenderPassEncoder::RenderPassEncoder(id<MTLRenderCommandEncoder> renderCommandEncoder, const WGPURenderPassDescriptor& descriptor, NSUInteger visibilityResultBufferSize, bool depthReadOnly, bool stencilReadOnly, CommandEncoder& parentEncoder, Device& device)
+RenderPassEncoder::RenderPassEncoder(id<MTLRenderCommandEncoder> renderCommandEncoder, const WGPURenderPassDescriptor& descriptor, NSUInteger visibilityResultBufferSize, bool depthReadOnly, bool stencilReadOnly, CommandEncoder& parentEncoder, id<MTLBuffer> visibilityResultBuffer, Device& device)
     : m_renderCommandEncoder(renderCommandEncoder)
     , m_device(device)
     , m_visibilityResultBufferSize(visibilityResultBufferSize)
     , m_depthReadOnly(depthReadOnly)
     , m_stencilReadOnly(stencilReadOnly)
     , m_parentEncoder(&parentEncoder)
+    , m_visibilityResultBuffer(visibilityResultBuffer)
 {
     m_parentEncoder->lock(true);
 
     if (m_device->baseCapabilities().counterSamplingAPI == HardwareCapabilities::BaseCapabilities::CounterSamplingAPI::CommandBoundary) {
-        for (uint32_t i = 0; i < descriptor.timestampWriteCount; ++i) {
-            const auto& timestampWrite = descriptor.timestampWrites[i];
-            switch (timestampWrite.location) {
-            case WGPURenderPassTimestampLocation_Beginning:
-                [m_renderCommandEncoder sampleCountersInBuffer:fromAPI(timestampWrite.querySet).counterSampleBuffer() atSampleIndex:timestampWrite.queryIndex withBarrier:NO];
-                break;
-            case WGPURenderPassTimestampLocation_End:
-                m_pendingTimestampWrites.append({ fromAPI(timestampWrite.querySet), timestampWrite.queryIndex });
-                break;
-            case WGPURenderPassTimestampLocation_Force32:
-                ASSERT_NOT_REACHED();
-                break;
-            }
+        if (descriptor.timestampWrites) {
+            const auto& timestampWrite = *descriptor.timestampWrites;
+            [m_renderCommandEncoder sampleCountersInBuffer:fromAPI(timestampWrite.querySet).counterSampleBuffer() atSampleIndex:timestampWrite.beginningOfPassWriteIndex withBarrier:NO];
+            m_pendingTimestampWrites.append({ fromAPI(timestampWrite.querySet), timestampWrite.endOfPassWriteIndex });
         }
     }
 }
@@ -83,21 +73,16 @@ void RenderPassEncoder::beginOcclusionQuery(uint32_t queryIndex)
     if (queryIndex < m_visibilityResultBufferSize) {
         m_visibilityResultBufferOffset = queryIndex;
         [m_renderCommandEncoder setVisibilityResultMode:MTLVisibilityResultModeCounting offset:queryIndex];
+        m_queryBufferIndicesToClear.add(m_visibilityResultBufferOffset);
     }
-}
-
-void RenderPassEncoder::beginPipelineStatisticsQuery(const QuerySet& querySet, uint32_t queryIndex)
-{
-    UNUSED_PARAM(querySet);
-    UNUSED_PARAM(queryIndex);
 }
 
 static void setViewportMinMaxDepthIntoBuffer(auto& fragmentDynamicOffsets, float minDepth, float maxDepth)
 {
     static_assert(sizeof(fragmentDynamicOffsets[0]) == sizeof(minDepth), "expect dynamic offsets container to have matching size to depth values");
-    static_assert(startIndexForFragmentDynamicOffsets == 2, "code path assumes value is 2");
-    if (fragmentDynamicOffsets.size() < startIndexForFragmentDynamicOffsets)
-        fragmentDynamicOffsets.grow(startIndexForFragmentDynamicOffsets);
+    static_assert(RenderBundleEncoder::startIndexForFragmentDynamicOffsets > 1, "code path assumes value is 2 or more");
+    if (fragmentDynamicOffsets.size() < RenderBundleEncoder::startIndexForFragmentDynamicOffsets)
+        fragmentDynamicOffsets.grow(RenderBundleEncoder::startIndexForFragmentDynamicOffsets);
 
     using destType = typename std::remove_reference<decltype(fragmentDynamicOffsets[0])>::type;
     fragmentDynamicOffsets[0] = bitwise_cast<destType>(minDepth);
@@ -108,6 +93,8 @@ void RenderPassEncoder::executePreDrawCommands()
 {
     if (!m_pipeline)
         return;
+
+    m_queryBufferIndicesToClear.remove(m_visibilityResultBufferOffset);
 
     for (auto& kvp : m_bindGroupDynamicOffsets) {
         auto& pipelineLayout = m_pipeline->pipelineLayout();
@@ -126,7 +113,7 @@ void RenderPassEncoder::executePreDrawCommands()
             auto& fragmentOffsets = *pfragmentOffsets;
             auto startIndex = pipelineLayout.fragmentOffsetForBindGroup(bindGroupIndex);
             RELEASE_ASSERT(fragmentOffsets.size() <= m_fragmentDynamicOffsets.size() + startIndex);
-            memcpy(&m_fragmentDynamicOffsets[startIndex + startIndexForFragmentDynamicOffsets], &fragmentOffsets[0], sizeof(fragmentOffsets[0]) * fragmentOffsets.size());
+            memcpy(&m_fragmentDynamicOffsets[startIndex + RenderBundleEncoder::startIndexForFragmentDynamicOffsets], &fragmentOffsets[0], sizeof(fragmentOffsets[0]) * fragmentOffsets.size());
         }
     }
 
@@ -201,15 +188,22 @@ void RenderPassEncoder::endPass()
     m_renderCommandEncoder = nil;
 
     m_parentEncoder->lock(false);
-}
 
-void RenderPassEncoder::endPipelineStatisticsQuery()
-{
+    if (m_queryBufferIndicesToClear.size()) {
+        id<MTLBlitCommandEncoder> blitCommandEncoder = m_parentEncoder->ensureBlitCommandEncoder();
+        for (auto& offset : m_queryBufferIndicesToClear)
+            [blitCommandEncoder fillBuffer:m_visibilityResultBuffer range:NSMakeRange(static_cast<NSUInteger>(offset), sizeof(uint64_t)) value:0];
+
+        m_queryBufferIndicesToClear.clear();
+        m_parentEncoder->finalizeBlitCommandEncoder();
+    }
 
 }
 
 void RenderPassEncoder::executeBundles(Vector<std::reference_wrapper<RenderBundle>>&& bundles)
 {
+    m_queryBufferIndicesToClear.remove(m_visibilityResultBufferOffset);
+
     for (auto& bundle : bundles) {
         auto& renderBundle = bundle.get();
         renderBundle.updateMinMaxDepths(m_minDepth, m_maxDepth);
@@ -330,7 +324,7 @@ void RenderPassEncoder::setPipeline(const RenderPipeline& pipeline)
     m_pipeline = &pipeline;
 
     m_vertexDynamicOffsets.resize(pipeline.pipelineLayout().sizeOfVertexDynamicOffsets());
-    m_fragmentDynamicOffsets.resize(pipeline.pipelineLayout().sizeOfFragmentDynamicOffsets() + startIndexForFragmentDynamicOffsets);
+    m_fragmentDynamicOffsets.resize(pipeline.pipelineLayout().sizeOfFragmentDynamicOffsets() + RenderBundleEncoder::startIndexForFragmentDynamicOffsets);
 
     if (pipeline.renderPipelineState())
         [m_renderCommandEncoder setRenderPipelineState:pipeline.renderPipelineState()];
@@ -340,6 +334,10 @@ void RenderPassEncoder::setPipeline(const RenderPipeline& pipeline)
     [m_renderCommandEncoder setFrontFacingWinding:pipeline.frontFace()];
     [m_renderCommandEncoder setDepthClipMode:pipeline.depthClipMode()];
     [m_renderCommandEncoder setDepthBias:pipeline.depthBias() slopeScale:pipeline.depthBiasSlopeScale() clamp:pipeline.depthBiasClamp()];
+    if (m_fragmentDynamicOffsets.size() < RenderBundleEncoder::startIndexForFragmentDynamicOffsets)
+        m_fragmentDynamicOffsets.grow(RenderBundleEncoder::startIndexForFragmentDynamicOffsets);
+    static_assert(RenderBundleEncoder::startIndexForFragmentDynamicOffsets > 2, "code path assumes value is greater than 2");
+    m_fragmentDynamicOffsets[2] = pipeline.sampleMask();
 }
 
 void RenderPassEncoder::setScissorRect(uint32_t x, uint32_t y, uint32_t width, uint32_t height)
@@ -390,11 +388,6 @@ void wgpuRenderPassEncoderBeginOcclusionQuery(WGPURenderPassEncoder renderPassEn
     WebGPU::fromAPI(renderPassEncoder).beginOcclusionQuery(queryIndex);
 }
 
-void wgpuRenderPassEncoderBeginPipelineStatisticsQuery(WGPURenderPassEncoder renderPassEncoder, WGPUQuerySet querySet, uint32_t queryIndex)
-{
-    WebGPU::fromAPI(renderPassEncoder).beginPipelineStatisticsQuery(WebGPU::fromAPI(querySet), queryIndex);
-}
-
 void wgpuRenderPassEncoderDraw(WGPURenderPassEncoder renderPassEncoder, uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance)
 {
     WebGPU::fromAPI(renderPassEncoder).draw(vertexCount, instanceCount, firstVertex, firstInstance);
@@ -423,11 +416,6 @@ void wgpuRenderPassEncoderEndOcclusionQuery(WGPURenderPassEncoder renderPassEnco
 void wgpuRenderPassEncoderEnd(WGPURenderPassEncoder renderPassEncoder)
 {
     WebGPU::fromAPI(renderPassEncoder).endPass();
-}
-
-void wgpuRenderPassEncoderEndPipelineStatisticsQuery(WGPURenderPassEncoder renderPassEncoder)
-{
-    WebGPU::fromAPI(renderPassEncoder).endPipelineStatisticsQuery();
 }
 
 void wgpuRenderPassEncoderExecuteBundles(WGPURenderPassEncoder renderPassEncoder, size_t bundlesCount, const WGPURenderBundle* bundles)

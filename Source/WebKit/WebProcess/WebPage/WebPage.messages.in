@@ -194,7 +194,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     LoadData(struct WebKit::LoadParameters loadParameters)
     LoadSimulatedRequestAndResponse(struct WebKit::LoadParameters loadParameters, WebCore::ResourceResponse simulatedResponse)
     LoadAlternateHTML(struct WebKit::LoadParameters loadParameters)
-    CreateRemoteSubframe(WebCore::FrameIdentifier parentID, WebCore::FrameIdentifier newChildID)
+    CreateRemoteSubframe(WebCore::FrameIdentifier parentID, WebCore::FrameIdentifier newChildID, String frameName)
 
     GetFrameInfo(WebCore::FrameIdentifier frameID) -> (std::optional<WebKit::FrameInfoData> data)
     GetFrameTree() -> (struct WebKit::FrameTreeNodeData data)
@@ -237,7 +237,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     GetSelectionAsWebArchiveData() -> (std::optional<IPC::SharedBufferReference> data)
     GetSourceForFrame(WebCore::FrameIdentifier frameID) -> (String string)
     GetWebArchiveOfFrame(WebCore::FrameIdentifier frameID) -> (std::optional<IPC::SharedBufferReference> dataReference)
-    GetWebArchiveOfFrameWithFileName(WebCore::FrameIdentifier frameID, String fileName) -> (std::optional<IPC::SharedBufferReference> dataReference)
+    GetWebArchiveOfFrameWithFileName(WebCore::FrameIdentifier frameID, Vector<WebCore::MarkupExclusionRule> markupExclusionRules, String fileName) -> (std::optional<IPC::SharedBufferReference> dataReference)
 
     RunJavaScriptInFrameInScriptWorld(struct WebCore::RunJavaScriptParameters parameters, std::optional<WebCore::FrameIdentifier> frameID, std::pair<WebKit::ContentWorldIdentifier, String> world) -> (IPC::DataReference resultData, std::optional<WebCore::ExceptionDetails> details)
 
@@ -390,7 +390,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
     # Open panel.
 #if PLATFORM(IOS_FAMILY)
-    DidChooseFilesForOpenPanelWithDisplayStringAndIcon(Vector<String> fileURLs, String displayString, IPC::DataReference iconData, WebKit::SandboxExtension::Handle machBootstrapHandle, WebKit::SandboxExtension::Handle frontboardServicesSandboxExtension, WebKit::SandboxExtension::Handle iconServicesSandboxExtension)
+    DidChooseFilesForOpenPanelWithDisplayStringAndIcon(Vector<String> fileURLs, String displayString, IPC::DataReference iconData, WebKit::SandboxExtension::Handle machBootstrapHandle, WebKit::SandboxExtension::Handle iconServicesSandboxExtension)
 #endif
     DidChooseFilesForOpenPanel(Vector<String> fileURLs, Vector<String> replacementURLs)
     DidCancelForOpenPanel()
@@ -707,7 +707,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
     ScrollToRect(WebCore::FloatRect targetRect, WebCore::FloatPoint origin)
 
-    NavigateServiceWorkerClient(WebCore::ScriptExecutionContextIdentifier documentIdentifier, URL url) -> (bool result)
+    NavigateServiceWorkerClient(WebCore::ScriptExecutionContextIdentifier documentIdentifier, URL url) -> (enum:uint8_t WebCore::ScheduleLocationChangeResult result)
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
     ModelInlinePreviewDidLoad(WebCore::PlatformLayerIdentifier layerID)

@@ -183,6 +183,8 @@ public:
 
     WEBCORE_EXPORT ScrollingNodeID scrollingNodeID() const override;
     WEBCORE_EXPORT ScrollableArea* scrollableAreaForScrollingNodeID(ScrollingNodeID) const;
+    void setPluginScrollableAreaForScrollingNodeID(ScrollingNodeID nodeID, ScrollableArea& area) { m_scrollingNodeIDToPluginScrollableAreaMap.add(nodeID, &area); }
+    void removePluginScrollableAreaForScrollingNodeID(ScrollingNodeID nodeID) { m_scrollingNodeIDToPluginScrollableAreaMap.remove(nodeID); }
     bool usesAsyncScrolling() const final;
 
     WEBCORE_EXPORT void enterCompositingMode();
@@ -720,8 +722,6 @@ public:
 
     void renderLayerDidScroll(const RenderLayer&);
 
-    void scrollToPositionWithAnimation(const ScrollPosition&, const ScrollPositionChangeOptions& options = ScrollPositionChangeOptions::createProgrammatic());
-
     bool inUpdateEmbeddedObjects() const { return m_inUpdateEmbeddedObjects; }
 
     String debugDescription() const final;
@@ -951,6 +951,8 @@ private:
     HashSet<CheckedPtr<Widget>> m_widgetsInRenderTree;
     std::unique_ptr<ListHashSet<CheckedPtr<RenderEmbeddedObject>>> m_embeddedObjectsToUpdate;
     std::unique_ptr<WeakHashSet<RenderElement>> m_slowRepaintObjects;
+
+    HashMap<ScrollingNodeID, WeakPtr<ScrollableArea>> m_scrollingNodeIDToPluginScrollableAreaMap;
 
     RefPtr<ContainerNode> m_maintainScrollPositionAnchor;
     RefPtr<ContainerNode> m_scheduledMaintainScrollPositionAnchor;

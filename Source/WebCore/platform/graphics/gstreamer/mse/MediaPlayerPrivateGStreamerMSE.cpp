@@ -49,7 +49,9 @@
 #include <gst/video/video.h>
 #include <wtf/Condition.h>
 #include <wtf/HashSet.h>
+#include <wtf/NativePromise.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/RunLoop.h>
 #include <wtf/StringPrintStream.h>
 #include <wtf/URL.h>
 #include <wtf/text/AtomString.h>
@@ -195,11 +197,11 @@ bool MediaPlayerPrivateGStreamerMSE::doSeek(const SeekTarget& target, float rate
     // Notify MediaSource and have new frames enqueued (when they're available).
     // Seek should only continue once the seekToTarget completionhandler has run.
     // This will also add support for fastSeek once done (see webkit.org/b/260607)
-    m_mediaSource->waitForTarget(target, [this, weakThis = WeakPtr { this }](const MediaTime& time) {
-        if (!weakThis)
+    m_mediaSource->waitForTarget(target)->whenSettled(RunLoop::current(), [this, weakThis = WeakPtr { this }](auto&& result) {
+        if (!weakThis || !result)
             return;
 
-        m_mediaSource->seekToTime(time, [] { });
+        m_mediaSource->seekToTime(*result);
 
         auto player = m_player.get();
         if (player && !player->isVideoPlayer() && m_audioSink) {
@@ -304,6 +306,7 @@ void MediaPlayerPrivateGStreamerMSE::sourceSetup(GstElement* sourceElement)
 {
     ASSERT(WEBKIT_IS_MEDIA_SRC(sourceElement));
     GST_DEBUG_OBJECT(pipeline(), "Source %p setup (old was: %p)", sourceElement, m_source.get());
+    webKitMediaSrcSetPlayer(WEBKIT_MEDIA_SRC(sourceElement), WeakPtr { *this });
     m_source = sourceElement;
 
     if (m_mediaSourcePrivate->hasAllTracks())

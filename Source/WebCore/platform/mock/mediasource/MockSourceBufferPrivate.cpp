@@ -38,6 +38,7 @@
 #include "MockTracks.h"
 #include "SourceBufferPrivateClient.h"
 #include <JavaScriptCore/ArrayBuffer.h>
+#include <wtf/NativePromise.h>
 #include <wtf/StringPrintStream.h>
 
 namespace WebCore {
@@ -139,12 +140,11 @@ MockMediaSourcePrivate* MockSourceBufferPrivate::mediaSourcePrivate() const
     return static_cast<MockMediaSourcePrivate*>(m_mediaSource.get());
 }
 
-void MockSourceBufferPrivate::appendInternal(Ref<SharedBuffer>&& data)
+Ref<MediaPromise> MockSourceBufferPrivate::appendInternal(Ref<SharedBuffer>&& data)
 {
     m_inputBuffer.appendVector(data->extractData());
-    bool parsingSucceeded = true;
 
-    while (m_inputBuffer.size() && parsingSucceeded) {
+    while (m_inputBuffer.size()) {
         auto buffer = ArrayBuffer::create(m_inputBuffer.data(), m_inputBuffer.size());
         uint64_t boxLength = MockBox::peekLength(buffer.ptr());
         if (boxLength > buffer->byteLength())
@@ -157,19 +157,18 @@ void MockSourceBufferPrivate::appendInternal(Ref<SharedBuffer>&& data)
         } else if (type == MockSampleBox::type()) {
             MockSampleBox sampleBox = MockSampleBox(buffer.ptr());
             didReceiveSample(sampleBox);
-        } else
-            parsingSucceeded = false;
+        } else {
+            m_inputBuffer.clear();
+            return MediaPromise::createAndReject(PlatformMediaError::ParsingError);
+        }
         m_inputBuffer.remove(0, boxLength);
     }
 
-    SourceBufferPrivate::appendCompleted(parsingSucceeded);
+    return MediaPromise::createAndResolve();
 }
 
 void MockSourceBufferPrivate::didReceiveInitializationSegment(const MockInitializationBox& initBox)
 {
-    if (!m_client)
-        return;
-
     SourceBufferPrivateClient::InitializationSegment segment;
     segment.duration = initBox.duration();
 
@@ -193,17 +192,11 @@ void MockSourceBufferPrivate::didReceiveInitializationSegment(const MockInitiali
         }
     }
 
-    SourceBufferPrivate::didReceiveInitializationSegment(
-        WTFMove(segment),
-        [] (auto&) { return true; },
-        [] (auto) { });
+    SourceBufferPrivate::didReceiveInitializationSegment(WTFMove(segment));
 }
 
 void MockSourceBufferPrivate::didReceiveSample(const MockSampleBox& sampleBox)
 {
-    if (!m_client)
-        return;
-
     SourceBufferPrivate::didReceiveSample(MockMediaSample::create(sampleBox));
 }
 
@@ -222,9 +215,9 @@ void MockSourceBufferPrivate::setReadyState(MediaPlayer::ReadyState readyState)
         mediaSourcePrivate()->player().setReadyState(readyState);
 }
 
-void MockSourceBufferPrivate::enqueuedSamplesForTrackID(const AtomString&, CompletionHandler<void(Vector<String>&&)>&& completionHandler)
+Ref<SourceBufferPrivate::SamplesPromise> MockSourceBufferPrivate::enqueuedSamplesForTrackID(const AtomString&)
 {
-    completionHandler(copyToVector(m_enqueuedSamples));
+    return SamplesPromise::createAndResolve(copyToVector(m_enqueuedSamples));
 }
 
 MediaTime MockSourceBufferPrivate::minimumUpcomingPresentationTimeForTrackID(const AtomString&)

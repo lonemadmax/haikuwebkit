@@ -72,8 +72,9 @@ class Element;
 class Event;
 class EventTarget;
 class FloatQuad;
+class Frame;
 class HTMLFrameSetElement;
-class HandleMouseEventResult;
+class HandleUserInputEventResult;
 class HitTestResult;
 class KeyboardEvent;
 class KeyboardScrollingAnimator;
@@ -207,16 +208,16 @@ public:
     bool tabsToLinks(KeyboardEvent*) const;
     bool tabsToAllFormControls(KeyboardEvent*) const;
 
-    WEBCORE_EXPORT HandleMouseEventResult mouseMoved(const PlatformMouseEvent&);
+    WEBCORE_EXPORT HandleUserInputEventResult mouseMoved(const PlatformMouseEvent&);
     WEBCORE_EXPORT bool passMouseMovedEventToScrollbars(const PlatformMouseEvent&);
 
     WEBCORE_EXPORT void lostMouseCapture();
 
-    WEBCORE_EXPORT HandleMouseEventResult handleMousePressEvent(const PlatformMouseEvent&);
+    WEBCORE_EXPORT HandleUserInputEventResult handleMousePressEvent(const PlatformMouseEvent&);
     WEBCORE_EXPORT OptionSet<HitTestRequest::Type> getHitTypeForMouseMoveEvent(const PlatformMouseEvent&, bool onlyUpdateScrollbars = false);
     WEBCORE_EXPORT HitTestResult getHitTestResultForMouseEvent(const PlatformMouseEvent&);
-    HandleMouseEventResult handleMouseMoveEvent(const PlatformMouseEvent&, HitTestResult* = nullptr, bool onlyUpdateScrollbars = false);
-    WEBCORE_EXPORT HandleMouseEventResult handleMouseReleaseEvent(const PlatformMouseEvent&);
+    HandleUserInputEventResult handleMouseMoveEvent(const PlatformMouseEvent&, HitTestResult* = nullptr, bool onlyUpdateScrollbars = false);
+    WEBCORE_EXPORT HandleUserInputEventResult handleMouseReleaseEvent(const PlatformMouseEvent&);
     WEBCORE_EXPORT bool handleMouseForceEvent(const PlatformMouseEvent&);
 
     WEBCORE_EXPORT bool handleWheelEvent(const PlatformWheelEvent&, OptionSet<WheelEventProcessingSteps>);
@@ -240,7 +241,7 @@ public:
     void updateTouchLastGlobalPositionAndDelta(PointerID, const IntPoint&, InTouchEventHandling, InMotion);
     bool dispatchTouchEvent(const PlatformTouchEvent&, const AtomString&, const EventTargetTouchArrayMap&, float, float);
     bool dispatchSimulatedTouchEvent(IntPoint location);
-    LocalFrame* touchEventTargetSubframe() const { return m_touchEventTargetSubframe.get(); }
+    Frame* touchEventTargetSubframe() const { return m_touchEventTargetSubframe.get(); }
     const TouchArray& touches() const { return m_touches; }
 #endif
 
@@ -329,7 +330,7 @@ public:
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
-    WEBCORE_EXPORT bool handleTouchEvent(const PlatformTouchEvent&);
+    WEBCORE_EXPORT HandleUserInputEventResult handleTouchEvent(const PlatformTouchEvent&);
 #endif
 
     bool useHandCursor(Node*, bool isOverLink, bool shiftKey);
@@ -441,7 +442,7 @@ private:
     bool isInsideScrollbar(const IntPoint&) const;
 
 #if ENABLE(TOUCH_EVENTS)
-    bool dispatchSyntheticTouchEventIfEnabled(const PlatformMouseEvent&);
+    HandleUserInputEventResult dispatchSyntheticTouchEventIfEnabled(const PlatformMouseEvent&);
 #endif
     
     enum class FireMouseOverOut : bool { No, Yes };
@@ -599,7 +600,7 @@ private:
     bool canMouseDownStartSelect(const MouseEventWithHitTestResults&);
     bool mouseDownMayStartSelect() const;
 
-    std::optional<RemoteUserInputEventData> mouseEventDataForRemoteFrame(const RemoteFrame*, const IntPoint&);
+    std::optional<RemoteUserInputEventData> userInputEventDataForRemoteFrame(const RemoteFrame*, const IntPoint&);
 
     bool isCapturingMouseEventsElement() const { return m_capturingMouseEventsElement || m_isCapturingRootElementForMouseEvents; }
     void resetCapturingMouseEventsElement()
@@ -712,7 +713,7 @@ private:
     unsigned m_touchIdentifierForPrimaryTouch { 0 };
 
     TouchArray m_touches;
-    RefPtr<LocalFrame> m_touchEventTargetSubframe;
+    RefPtr<Frame> m_touchEventTargetSubframe;
     HashMap<PointerID, std::pair<IntPoint, IntPoint>, WTF::IntHash<PointerID>, WTF::UnsignedWithZeroKeyHashTraits<PointerID>> m_touchLastGlobalPositionAndDeltaMap;
 #endif
 

@@ -110,7 +110,7 @@ media/encrypted-media/
 printing
 
 # Tests that rely on custom domain names.
-imported/w3c/web-platform-tests/html/browsers/browsing-the-web/overlapping-navigations-and-traversals/tentative/nav-cancelation-2.sub.html [ Skip ]
+imported/w3c/web-platform-tests/html/browsers/browsing-the-web/overlapping-navigations-and-traversals/nav-cancelation-2.sub.html [ Skip ]
 imported/w3c/web-platform-tests/cookies/attributes/domain.sub.html [ Skip ]
 imported/w3c/web-platform-tests/cookies/ordering/ordering.sub.html [ Skip ]
 
@@ -396,6 +396,7 @@ webkit.org/b/165799 svg/animations/animations-paused-in-background-page-iframe.h
 webkit.org/b/165799 svg/animations/animations-paused-in-background-page.html [ Skip ]
 webkit.org/b/165799 webaudio/silent-audio-interrupted-in-background.html [ Skip ]
 webkit.org/b/165799 imported/w3c/web-platform-tests/screen-orientation/hidden_document.html
+webkit.org/b/165799 fast/mediastream/device-change-event-2.html [ Skip ]
 
 # AutoFill button is not supported
 fast/forms/auto-fill-button/mouse-down-input-mouse-release-auto-fill-button.html
@@ -862,6 +863,9 @@ svg/text/select-text-svgfont.html [ Skip ]
 svg/text/selection-doubleclick.svg [ Skip ]
 svg/text/selection-tripleclick.svg [ Skip ]
 imported/w3c/web-platform-tests/css/css-shadow-parts/invalidation-part-pseudo.html [ Skip ]
+
+# No test_driver.click() support for iOS testing
+webkit.org/b/264285 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-summary-element/interactive-content.html [ Skip ]
 
 # Overscroll-behavior on iOS needs SkyEcho19E179/StarE21E168a: https://bugs.webkit.org/show_bug.cgi?id=235852
 fast/scrolling/sync-scroll-overscroll-behavior-element.html [ Skip ]
@@ -4613,6 +4617,8 @@ webkit.org/b/263471 fast/forms/ios/keydown-in-hidden-contenteditable-with-inputm
 
 webkit.org/b/263396 css3/color/text.html [ Skip ]
 
+webkit.org/b/265053 imported/w3c/web-platform-tests/css/css-sizing/button-min-width.html [ Failure ]
+
 # webkit.org/b/263439 [ iOS ] Several WPTs using wheel actions are timing out after b243272
 imported/w3c/web-platform-tests/css/css-overscroll-behavior/overscroll-behavior.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-scroll-snap/snap-at-user-scroll-end.html [ Skip ]
@@ -4645,9 +4651,6 @@ imported/w3c/web-platform-tests/uievents/order-of-events/mouse-events/wheel-scro
 
 #rdar://118015813 ([ iOS ]imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-root.html is a flaky text failure (264281))
 imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-root.html [ Pass Failure ]
-
-#rdar://118018816 ([ iOS ] imported/w3c/web-platform-tests/screen-orientation/active-lock.html is a flaky failure (264287))
-imported/w3c/web-platform-tests/screen-orientation/active-lock.html [ Pass Failure ]
 
 # Failing word-break: auto-phrase tests.
 webkit.org/b/257698 imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase/word-break-auto-phrase-004.html [ ImageOnlyFailure ]

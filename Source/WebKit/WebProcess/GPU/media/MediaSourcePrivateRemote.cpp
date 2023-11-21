@@ -35,6 +35,8 @@
 #include "RemoteSourceBufferIdentifier.h"
 #include "SourceBufferPrivateRemote.h"
 #include <WebCore/NotImplemented.h>
+#include <wtf/NativePromise.h>
+#include <wtf/RunLoop.h>
 
 namespace WebCore {
 #if !RELEASE_LOG_DISABLED
@@ -164,20 +166,30 @@ void MediaSourcePrivateRemote::setTimeFudgeFactor(const MediaTime& fudgeFactor)
     gpuProcessConnection->connection().send(Messages::RemoteMediaSourceProxy::SetTimeFudgeFactor(fudgeFactor), m_identifier);
 }
 
-void MediaSourcePrivateRemote::waitForTarget(const WebCore::SeekTarget& target, CompletionHandler<void(const MediaTime&)>&& completionHandler)
+Ref<MediaTimePromise> MediaSourcePrivateRemote::waitForTarget(const WebCore::SeekTarget& target)
 {
-    if (m_client)
-        m_client->waitForTarget(target, WTFMove(completionHandler));
-    else
-        completionHandler(MediaTime::invalidTime());
+    ASSERT_NOT_REACHED();
+    return MediaTimePromise::createAndReject(PlatformMediaError::LogicError);
 }
 
-void MediaSourcePrivateRemote::seekToTime(const MediaTime& time, CompletionHandler<void()>&& completionHandler)
+void MediaSourcePrivateRemote::proxyWaitForTarget(const WebCore::SeekTarget& target, CompletionHandler<void(MediaTimePromise::Result&&)>&& completionHandler)
 {
-    if (m_client)
-        m_client->seekToTime(time, WTFMove(completionHandler));
-    else
-        completionHandler();
+    if (!m_client)
+        return completionHandler(makeUnexpected(PlatformMediaError::ClientDisconnected));
+    m_client->waitForTarget(target)->whenSettled(RunLoop::current(), WTFMove(completionHandler));
+}
+
+Ref<MediaPromise> MediaSourcePrivateRemote::seekToTime(const MediaTime& time)
+{
+    ASSERT_NOT_REACHED();
+    return MediaPromise::createAndReject(PlatformMediaError::LogicError);
+}
+
+void MediaSourcePrivateRemote::proxySeekToTime(const MediaTime& time, CompletionHandler<void(MediaPromise::Result&&)>&& completionHandler)
+{
+    if (!m_client)
+        return completionHandler(makeUnexpected(PlatformMediaError::SourceRemoved));
+    m_client->seekToTime(time)->whenSettled(RunLoop::current(), WTFMove(completionHandler));
 }
 
 void MediaSourcePrivateRemote::mediaSourcePrivateShuttingDown(CompletionHandler<void()>&& completionHandler)

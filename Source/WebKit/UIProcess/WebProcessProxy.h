@@ -399,10 +399,6 @@ public:
     void enableRemoteInspectorIfNeeded();
 #endif
     
-#if PLATFORM(COCOA)
-    void unblockAccessibilityServerIfNeeded();
-#endif
-
     void updateAudibleMediaAssertions();
     void updateMediaStreamingActivity();
 
@@ -546,6 +542,7 @@ private:
     void didDestroyUserGestureToken(uint64_t);
     void postMessageToRemote(WebCore::FrameIdentifier, std::optional<WebCore::SecurityOriginData>, const WebCore::MessageWithMessagePorts&);
     void closeRemoteFrame(WebCore::FrameIdentifier);
+    void focusRemoteFrame(WebCore::FrameIdentifier);
     void renderTreeAsText(WebCore::FrameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag>, CompletionHandler<void(String&&)>&&);
 
     bool canBeAddedToWebProcessCache() const;
@@ -678,10 +675,6 @@ private:
 
 #if HAVE(DISPLAY_LINK)
     DisplayLinkProcessProxyClient m_displayLinkClient;
-#endif
-
-#if PLATFORM(COCOA)
-    bool m_hasSentMessageToUnblockAccessibilityServer { false };
 #endif
 
     HashMap<String, uint64_t> m_pageURLRetainCountMap;

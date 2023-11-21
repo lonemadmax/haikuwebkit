@@ -277,6 +277,7 @@ struct ImageAnalysisContextMenuActionData {
 
 } // namespace WebKit
 
+@class WKExtendedTextInputTraits;
 @class WKFocusedElementInfo;
 @protocol UIMenuBuilder;
 @protocol WKFormControl;
@@ -346,7 +347,8 @@ struct ImageAnalysisContextMenuActionData {
     RetainPtr<WKTextInteractionWrapper> _textInteractionWrapper;
     OptionSet<WebKit::SuppressSelectionAssistantReason> _suppressSelectionAssistantReasons;
 
-    RetainPtr<UITextInputTraits> _traits;
+    RetainPtr<UITextInputTraits> _legacyTextInputTraits;
+    RetainPtr<WKExtendedTextInputTraits> _extendedTextInputTraits;
     RetainPtr<WKFormAccessoryView> _formAccessoryView;
     RetainPtr<WKTapHighlightView> _tapHighlightView;
     RetainPtr<UIView> _interactionViewsContainerView;
@@ -488,6 +490,8 @@ struct ImageAnalysisContextMenuActionData {
     BOOL _isHidingKeyboard;
     BOOL _isInterpretingKeyEvent;
     BOOL _isPresentingEditMenu;
+    BOOL _isHandlingActiveKeyEvent;
+    BOOL _isHandlingActivePressesEvent;
 
     BOOL _focusRequiresStrongPasswordAssistance;
     BOOL _waitingForEditDragSnapshot;
@@ -565,7 +569,7 @@ struct ImageAnalysisContextMenuActionData {
     std::optional<WebKit::RemoveBackgroundData> _removeBackgroundData;
 #endif
 #if HAVE(UI_ASYNC_TEXT_INTERACTION)
-    __weak id<UIAsyncTextInputDelegate> _asyncSystemInputDelegate;
+    __weak id<UIAsyncTextInputDelegate_Staging> _asyncSystemInputDelegate;
 #endif
 }
 
@@ -620,6 +624,7 @@ struct ImageAnalysisContextMenuActionData {
 @property (nonatomic, readonly, getter=isKeyboardScrollingAnimationRunning) BOOL keyboardScrollingAnimationRunning;
 @property (nonatomic, readonly) UIView *unscaledView;
 @property (nonatomic, readonly) BOOL isPresentingEditMenu;
+@property (nonatomic, readonly) CGSize sizeForLegacyFormControlPickerViews;
 
 #if ENABLE(DATALIST_ELEMENT)
 @property (nonatomic, strong) UIView <WKFormControl> *dataListTextSuggestionsInputView;

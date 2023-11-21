@@ -1016,6 +1016,17 @@ media/W3C/video/canPlayType/canPlayType_two_implies_one_1.html [ Failure ]
 media/W3C/video/canPlayType/canPlayType_two_implies_one_2.html [ Failure ]
 media/media-can-play-webm.html [ Failure ]
 
+# VP9/VP8 are not supported on WK1 and turned off by default
+media/media-source/media-source-webm-configuration-change.html [ Failure ]
+media/media-source/media-source-webm-configuration-framerate.html [ Failure ]
+media/media-source/media-source-webm-configuration-vp9-header-color.html [ Failure ]
+
+# CRABS WebM isn't supported in WK1
+media/media-webm-opus-buffered.html [ Failure ]
+media/media-webm-opus-error.html [ Failure ]
+media/media-webm-opus-variable-length.html [ Failure ]
+media/media-webm-no-duration.html [ Failure ]
+
 # Screenshots timeline does not capture screenshots for changes in WebKitLegacy.
 webkit.org/b/251113 inspector/timeline/timeline-event-screenshots.html [ Skip ]
 
@@ -1536,6 +1547,7 @@ accessibility/focusable-ancestor.html [ Skip ]
 
 # Missing AccessibilityUIElement::{editableAncestor, highestEditableAncestor} implementations.
 accessibility/editable-ancestor.html [ Skip ]
+accessibility/content-editable-property-change.html [ Skip ]
 
 # <rdar://problem/26050923> The result is probably still a pass, but we don't have a way
 # to have platform specific results that are different between WK1 and WK2.
@@ -1546,6 +1558,7 @@ accessibility/parent-delete.html [ Failure ]
 accessibility/mac/basic-embed-pdf-accessibility.html [ Skip ]
 accessibility/mac/iframe-pdf.html [ Skip ]
 accessibility/mac/scrolling-in-pdf-crash.html [ Skip ]
+accessibility/mac/widget-visibility.html [ Skip ]
 
 # rdar://problem/26478296
 svg/hixie/text/003.html [ Failure ]
@@ -2687,8 +2700,6 @@ fast/events/cancel-mousedown-and-drag-to-frame.html [ Failure ]
 
 # SVG gradients are not bit-for-bit equivalent through a scale.
 webkit.org/b/142192 svg/transforms/transformed-text-fill-gradient.html [ ImageOnlyFailure ]
-
-webkit.org/b/263568 [ arm64 ] media/media-source/media-source-webm-configuration-framerate.html [ Failure ]
 
 # rdar://117432620 [ arm64 ] 2 tests in imported/w3c/web-platform-tests/css/css-backgrounds/background-size have constant image failure
 imported/w3c/web-platform-tests/css/css-backgrounds/background-size/background-size-cover.xht [ ImageOnlyFailure ]

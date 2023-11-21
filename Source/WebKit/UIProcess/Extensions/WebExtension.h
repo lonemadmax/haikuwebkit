@@ -128,6 +128,16 @@ public:
         Command = 1 << 20
     };
 
+    static constexpr OptionSet<ModifierFlags> allModifierFlags()
+    {
+        return {
+            ModifierFlags::Shift,
+            ModifierFlags::Control,
+            ModifierFlags::Option,
+            ModifierFlags::Command
+        };
+    }
+
     struct CommandData {
         String identifier;
         String description;
@@ -160,9 +170,16 @@ public:
         Vector<String> resourcePathPatterns;
     };
 
+    struct DeclarativeNetRequestRulesetData {
+        String rulesetID;
+        bool enabled;
+        String jsonPath;
+    };
+
     using CommandsVector = Vector<CommandData>;
     using InjectedContentVector = Vector<InjectedContentData>;
     using WebAccessibleResourcesVector = Vector<WebAccessibleResourceData>;
+    using DeclarativeNetRequestRulesetVector = Vector<DeclarativeNetRequestRulesetData>;
 
     static const PermissionsSet& supportedPermissions();
 
@@ -207,6 +224,7 @@ public:
     CocoaImage *actionIcon(CGSize idealSize);
     NSString *displayActionLabel();
     NSString *actionPopupPath();
+
     bool hasAction();
     bool hasBrowserAction();
     bool hasPageAction();
@@ -234,8 +252,12 @@ public:
     const CommandsVector& commands();
     bool hasCommands();
 
+    const DeclarativeNetRequestRulesetVector& declarativeNetRequestRulesets();
+    bool hasContentModificationRules() { return !declarativeNetRequestRulesets().isEmpty(); }
+
     const InjectedContentVector& staticInjectedContents();
     bool hasStaticInjectedContentForURL(NSURL *);
+    bool hasStaticInjectedContent();
 
     // Permissions requested by the extension in their manifest.
     // These are not the currently allowed permissions.
@@ -277,10 +299,14 @@ private:
     void populateContentSecurityPolicyStringsIfNeeded();
     void populateWebAccessibleResourcesIfNeeded();
     void populateCommandsIfNeeded();
+    void populateDeclarativeNetRequestPropertiesIfNeeded();
+
+    std::optional<WebExtension::DeclarativeNetRequestRulesetData> parseDeclarativeNetRequestRulesetDictionary(NSDictionary *, NSError **);
 
     InjectedContentVector m_staticInjectedContents;
     WebAccessibleResourcesVector m_webAccessibleResources;
     CommandsVector m_commands;
+    DeclarativeNetRequestRulesetVector m_declarativeNetRequestRulesets;
 
     MatchPatternSet m_permissionMatchPatterns;
     MatchPatternSet m_optionalPermissionMatchPatterns;
@@ -337,6 +363,7 @@ private:
     bool m_parsedManifestPageProperties : 1 { false };
     bool m_parsedManifestWebAccessibleResources : 1 { false };
     bool m_parsedManifestCommands : 1 { false };
+    bool m_parsedManifestDeclarativeNetRequestRulesets : 1 { false };
 };
 
 #ifdef __OBJC__

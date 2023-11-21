@@ -431,7 +431,7 @@ enum class WebCore::ScrollGranularity : uint8_t {
     WebCore::FetchOptions options;
     String referrer;
     WebCore::FetchHeadersGuard responseHeadersGuard;
-    WebCore::ResourceResponse::CrossThreadData response;
+    WebCore::ResourceResponseData response;
     std::variant<std::nullptr_t, Ref<WebCore::FormData>, Ref<WebCore::SharedBuffer>> responseBody;
     uint64_t responseBodySize;
 };
@@ -1821,16 +1821,6 @@ struct WebCore::ViewportArguments {
 };
 #endif // ENABLE(META_VIEWPORT)
 
-header: <WebCore/DisplayListItems.h>
-[AdditionalEncoder=StreamConnectionEncoder, CustomHeader] class WebCore::DisplayList::SetInlineFillColor {
-    WebCore::PackedColor::RGBA colorData()
-}
-
-[AdditionalEncoder=StreamConnectionEncoder, CustomHeader] class WebCore::DisplayList::SetInlineStroke {
-    std::optional<WebCore::PackedColor::RGBA> colorData()
-    std::optional<float> thickness()
-}
-
 header: <WebCore/HTTPHeaderMap.h>
 [Nested, CustomHeader] struct WebCore::HTTPHeaderMap::CommonHeader {
     WebCore::HTTPHeaderName key;
@@ -3033,38 +3023,15 @@ using WebCore::ResourceResponseBase::Type = WebCore::ResourceResponseBaseType;
 using WebCore::ResourceResponseBase::Tainting = WebCore::ResourceResponseBaseTainting;
 using WebCore::ResourceResponseBase::Source = WebCore::ResourceResponseBaseSource;
 
-[Nested] struct WebCore::ResourceResponseBase::ResponseData {
-    URL m_url;
-    AtomString m_mimeType;
-    long long m_expectedContentLength;
-    AtomString m_textEncodingName;
-    AtomString m_httpStatusText;
-    AtomString m_httpVersion;
-    WebCore::HTTPHeaderMap m_httpHeaderFields;
-    Box<WebCore::NetworkLoadMetrics> m_networkLoadMetrics;
-
-    short m_httpStatusCode;
-    std::optional<WebCore::CertificateInfo> m_certificateInfo;
-
-    WebCore::ResourceResponseBase::Source m_source;
-    WebCore::ResourceResponseBase::Type m_type;
-    WebCore::ResourceResponseBase::Tainting m_tainting;
-
-    bool m_isRedirected;
-    WebCore::UsedLegacyTLS m_usedLegacyTLS;
-    WebCore::WasPrivateRelayed m_wasPrivateRelayed;
-    bool m_isRangeRequested;
-}
-
 class WebCore::ResourceResponseBase {
-    std::optional<WebCore::ResourceResponseBase::ResponseData> getResponseData()
+    std::optional<WebCore::ResourceResponseData> getResponseData()
 }
 
 class WebCore::ResourceResponse : WebCore::ResourceResponseBase {
 }
 
 header: <WebCore/ResourceResponseBase.h>
-[CustomHeader] struct WebCore::ResourceResponseBaseCrossThreadData {
+[CustomHeader] struct WebCore::ResourceResponseData {
     URL url;
     String mimeType;
     long long expectedContentLength;
@@ -3083,8 +3050,6 @@ header: <WebCore/ResourceResponseBase.h>
     bool isRangeRequested;
     std::optional<WebCore::CertificateInfo> certificateInfo;
 };
-
-using WebCore::ResourceResponseBase::CrossThreadData = WebCore::ResourceResponseBaseCrossThreadData;
 
 enum class WebCore::ReferrerPolicy : uint8_t {
     EmptyString,
@@ -5236,6 +5201,13 @@ enum class WebCore::ShouldOpenExternalURLsPolicy : uint8_t {
     ShouldAllow,
 };
 
+header: <WebCore/NavigationScheduler.h>
+enum class WebCore::ScheduleLocationChangeResult : uint8_t {
+    Stopped,
+    Completed,
+    Started
+};
+
 header: <WebCore/DocumentLoader.h>
 [CustomHeader] enum class WebCore::MouseEventPolicy : uint8_t {
     Default,
@@ -6617,12 +6589,13 @@ header: <WebCore/WheelEventTestMonitor.h>
 
 header: <WebCore/CrossOriginAccessControl.h>
 [OptionSet] enum class WebCore::HTTPHeadersToKeepFromCleaning : uint8_t {
-    ContentType,
-    Referer,
-    Origin,
-    UserAgent,
     AcceptEncoding,
     CacheControl,
+    ContentType,
+    Origin,
+    Pragma,
+    Referer,
+    UserAgent,
 };
 
 enum class WebCore::ExceptionCode : uint8_t {
@@ -6666,6 +6639,7 @@ enum class WebCore::ExceptionCode : uint8_t {
     ExistingExceptionError,
 }
 
+#if ENABLE(SERVICE_WORKER)
 header: <WebCore/BackgroundFetchFailureReason.h>
 enum class WebCore::BackgroundFetchFailureReason : uint8_t {
     EmptyString,
@@ -6675,13 +6649,16 @@ enum class WebCore::BackgroundFetchFailureReason : uint8_t {
     QuotaExceeded,
     DownloadTotalExceeded
 };
+#endif
 
+#if ENABLE(SERVICE_WORKER)
 header: <WebCore/BackgroundFetchResult.h>
 enum class WebCore::BackgroundFetchResult : uint8_t {
     EmptyString,
     Success,
     Failure
 };
+#endif
 
 enum class WebCore::ResourceErrorBaseType : uint8_t {
      Null,
@@ -6726,6 +6703,12 @@ enum class WebCore::RepaintRectCalculation : bool;
     Rec2020,
 };
 
+[RefCounted, AdditionalEncoder=StreamConnectionEncoder] class WebCore::ByteArrayPixelBuffer {
+    WebCore:: PixelBufferFormat format();
+    WebCore::IntSize size();
+    std::span<const uint8_t> dataSpan();
+}
+
 #if ENABLE(WEB_AUTHN)
 header: <WebCore/CredentialRequestOptions.h>
 enum class WebCore::MediationRequirement : uint8_t {
@@ -6734,4 +6717,89 @@ enum class WebCore::MediationRequirement : uint8_t {
     Required,
     Conditional,
 };
+
+#if ENABLE(VIDEO)
+header: <WebCore/VTTCue.h>
+[Nested] enum class WebCore::VTTDirectionSetting : uint8_t {
+    Horizontal,
+    VerticalGrowingLeft,
+    VerticalGrowingRight,
+};
+
+[Nested] enum class WebCore::VTTLineAlignSetting : uint8_t {
+    Start,
+    Center,
+    End,
+};
+
+[Nested] enum class WebCore::VTTPositionAlignSetting : uint8_t {
+    LineLeft,
+    Center,
+    LineRight,
+    Auto,
+};
+
+[Nested] enum class WebCore::VTTAlignSetting : uint8_t {
+    Start,
+    Center,
+    End,
+    Left,
+    Right,
+};
 #endif
+
+#if ENABLE(CONTEXT_MENUS)
+header: <WebCore/ContextMenuContext.h>
+enum class WebCore::ContextMenuContextType : uint8_t {
+    ContextMenu,
+#if ENABLE(SERVICE_CONTROLS)
+    ServicesMenu,
+#endif
+#if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS)
+    MediaControls,
+#endif
+};
+#endif
+
+#if ENABLE(TRACKING_PREVENTION)
+header: <WebCore/CrossSiteNavigationDataTransfer.h>
+[OptionSet] enum class WebCore::CrossSiteNavigationDataTransferFlag : uint8_t {
+    DestinationLinkDecoration,
+    ReferrerLinkDecoration
+};
+#endif
+
+header: <WebCore/ScrollingCoordinatorTypes.h>
+[Nested, OptionSet] enum class WebCore::SynchronousScrollingReason : uint8_t {
+    ForcedOnMainThread,
+    HasViewportConstrainedObjectsWithoutSupportingFixedLayers,
+    HasNonLayerViewportConstrainedObjects,
+    IsImageDocument,
+    HasSlowRepaintObjects,
+    DescendantScrollersHaveSynchronousScrolling
+};
+
+header: <WebCore/ScrollingCoordinatorTypes.h>
+[Nested] enum class WebCore::ScrollRequestType : uint8_t {
+    PositionUpdate,
+    DeltaUpdate,
+    CancelAnimatedScroll
+};
+
+header: <WebCore/ScrollingCoordinatorTypes.h>
+[Nested] enum class WebCore::KeyboardScrollAction : uint8_t {
+    StartAnimation,
+    StopWithAnimation,
+    StopImmediately
+};
+
+struct WebCore::MarkupExclusionRule {
+    AtomString elementLocalName;
+    Vector<std::pair<AtomString, AtomString>> attributes;
+};
+
+header: <WebCore/Font.h>
+[Nested] enum class WebCore::FontOrigin : bool;
+[Nested] enum class WebCore::FontIsInterstitial : bool;
+[Nested] enum class WebCore::FontVisibility : bool;
+[Nested] enum class WebCore::FontIsOrientationFallback : bool;

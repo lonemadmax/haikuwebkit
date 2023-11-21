@@ -98,7 +98,6 @@ public:
     void notifyDisplayModeChanged(int);
 
     void notifySelectionChanged(PDFSelection *);
-    void notifyCursorChanged(uint64_t /* PDFLayerControllerCursorType */);
 
     // HUD Actions.
 #if ENABLE(PDF_HUD)
@@ -177,6 +176,7 @@ private:
 
     RefPtr<WebCore::FragmentedSharedBuffer> liveResourceData() const override;
 
+    bool wantsWheelEvents() const override { return true; }
     bool handleMouseEvent(const WebMouseEvent&) override;
     bool handleWheelEvent(const WebWheelEvent&) override;
     bool handleMouseEnterEvent(const WebMouseEvent&) override;

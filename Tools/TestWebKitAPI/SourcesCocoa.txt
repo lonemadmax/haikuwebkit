@@ -38,6 +38,7 @@ cocoa/TestInspectorURLSchemeHandler.mm
 cocoa/TestLegacyDownloadDelegate.mm
 cocoa/TestNavigationDelegate.mm
 cocoa/TestProtocol.mm
+cocoa/TestResourceLoadDelegate.mm
 cocoa/TestUIDelegate.mm
 cocoa/TestWKWebView.mm
 cocoa/TestWebExtensionsDelegate.mm
@@ -290,6 +291,7 @@ Tests/WebKitCocoa/WKWebExtension.mm
 Tests/WebKitCocoa/WKWebExtensionAPIAction.mm
 Tests/WebKitCocoa/WKWebExtensionAPIAlarms.mm
 Tests/WebKitCocoa/WKWebExtensionAPICommands.mm
+Tests/WebKitCocoa/WKWebExtensionAPIDeclarativeNetRequest.mm
 Tests/WebKitCocoa/WKWebExtensionAPIEvent.mm
 Tests/WebKitCocoa/WKWebExtensionAPIExtension.mm
 Tests/WebKitCocoa/WKWebExtensionAPINamespace.mm

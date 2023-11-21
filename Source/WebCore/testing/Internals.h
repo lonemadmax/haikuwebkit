@@ -57,7 +57,10 @@
 #include "InternalsAdditions.h"
 #endif
 
+#if ENABLE(DATA_DETECTION)
 OBJC_CLASS DDScannerResult;
+#endif
+
 OBJC_CLASS VKCImageAnalysis;
 
 namespace WebCore {
@@ -199,6 +202,7 @@ public:
     ExceptionOr<String> elementRenderTreeAsText(Element&);
     bool hasPausedImageAnimations(Element&);
 
+    bool isFullyActive(Document&);
     bool isPaintingFrequently(Element&);
     void incrementFrequentPaintCounter(Element&);
 

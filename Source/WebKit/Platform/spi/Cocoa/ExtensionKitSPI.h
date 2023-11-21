@@ -23,6 +23,8 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if USE(EXTENSIONKIT)
+
 NS_ASSUME_NONNULL_BEGIN
 
 @interface _SEServiceConfiguration: NSObject
@@ -41,6 +43,8 @@ typedef void(^_SEServiceInteruptionHandler)();
 
 @interface _SECapabilities : NSObject
 +(instancetype)assertionWithDomain:(NSString*)domain name:(NSString*)name;
++(instancetype)assertionWithDomain:(NSString*)domain name:(NSString*)name environmentIdentifier:(NSString*)environmentIdentifier;
++(instancetype)assertionWithDomain:(NSString*)domain name:(NSString*)name environmentIdentifier:(NSString*)environmentIdentifier willInvalidate:(void (^)())willInvalidateBlock didInvalidate:(void (^)())didInvalidateBlock;
 @end
 
 NS_REFINED_FOR_SWIFT
@@ -80,3 +84,5 @@ NS_REFINED_FOR_SWIFT
 @end
 
 NS_ASSUME_NONNULL_END
+
+#endif // USE(EXTENSIONKIT)

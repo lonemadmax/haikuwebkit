@@ -669,6 +669,16 @@ struct AccessibilitySearchTextCriteria {
     { }
 };
 
+struct AccessibilityText {
+    String text;
+    AccessibilityTextSource textSource;
+
+    AccessibilityText(const String& text, const AccessibilityTextSource& source)
+        : text(text)
+        , textSource(source)
+    { }
+};
+
 enum class AccessibilityTextOperationType {
     Select,
     Replace,
@@ -743,7 +753,7 @@ enum class AXRelationType : uint8_t {
     OwnedBy,
     OwnerFor,
 };
-using AXRelations = HashMap<AXRelationType, Vector<AXID>, DefaultHash<uint8_t>, WTF::UnsignedWithZeroKeyHashTraits<uint8_t>>;
+using AXRelations = HashMap<AXRelationType, ListHashSet<AXID>, DefaultHash<uint8_t>, WTF::UnsignedWithZeroKeyHashTraits<uint8_t>>;
 
 enum class SpinButtonType : bool {
     // The spin button is standalone. It has no separate controls, and should receive and perform actions itself.
@@ -816,6 +826,7 @@ public:
     virtual bool isControl() const = 0;
     // lists support (l, ul, ol, dl)
     virtual bool isList() const = 0;
+    virtual bool isFileUploadButton() const = 0;
 
     // Table support.
     virtual bool isTable() const = 0;
@@ -892,6 +903,7 @@ public:
     bool isTreeItem() const { return roleValue() == AccessibilityRole::TreeItem; }
     bool isScrollbar() const { return roleValue() == AccessibilityRole::ScrollBar; }
     bool isButton() const;
+    virtual bool isMeter() const = 0;
 
     virtual HashMap<String, AXEditingStyleValueVariant> resolvedEditingStyles() const = 0;
 
@@ -1156,6 +1168,7 @@ public:
     virtual Widget* widget() const = 0;
     virtual PlatformWidget platformWidget() const = 0;
     virtual Widget* widgetForAttachmentView() const = 0;
+    virtual bool isPlugin() const = 0;
 
     // FIXME: Remove the following methods from the AXCoreObject interface and instead use methods such as axScrollView() if needed.
     virtual Page* page() const = 0;
@@ -1359,12 +1372,13 @@ public:
     virtual bool preventKeyboardDOMEventDispatch() const = 0;
     virtual void setPreventKeyboardDOMEventDispatch(bool) = 0;
     virtual String speechHintAttributeValue() const = 0;
-    virtual String descriptionAttributeValue() const = 0;
+    virtual bool fileUploadButtonReturnsValueInTitle() const = 0;
+    String descriptionAttributeValue() const;
     bool shouldComputeDescriptionAttributeValue() const;
-    virtual String helpTextAttributeValue() const = 0;
+    String helpTextAttributeValue() const;
     // This should be the visible text that's actually on the screen if possible.
     // If there's alternative text, that can override the title.
-    virtual String titleAttributeValue() const = 0;
+    String titleAttributeValue() const;
     bool shouldComputeTitleAttributeValue() const;
 
     virtual bool hasApplePDFAnnotationAttribute() const = 0;

@@ -261,6 +261,13 @@ using namespace WebCore;
 
 #pragma mark - Helpers
 
+#if ENABLE(DATA_DETECTION)
+template<> Class getClass<DDScannerResult>()
+{
+    return PAL::getDDScannerResultClass();
+}
+#endif
+
 NSType typeFromObject(id object)
 {
     ASSERT(object);
@@ -270,16 +277,24 @@ NSType typeFromObject(id object)
         return NSType::Array;
     if ([object isKindOfClass:[WebCore::CocoaColor class]])
         return NSType::Color;
+#if ENABLE(DATA_DETECTION)
+    if (PAL::isDataDetectorsCoreFrameworkAvailable() && [object isKindOfClass:[PAL::getDDScannerResultClass() class]])
+        return NSType::DDScannerResult;
+#endif
     if ([object isKindOfClass:[NSData class]])
         return NSType::Data;
     if ([object isKindOfClass:[NSDate class]])
         return NSType::Date;
+    if ([object isKindOfClass:[NSError class]])
+        return NSType::Error;
     if ([object isKindOfClass:[NSDictionary class]])
         return NSType::Dictionary;
     if ([object isKindOfClass:[CocoaFont class]])
         return NSType::Font;
     if ([object isKindOfClass:[NSNumber class]])
         return NSType::Number;
+    if ([object isKindOfClass:[NSValue class]])
+        return NSType::NSValue;
     if ([object isKindOfClass:[NSString class]])
         return NSType::String;
     if ([object isKindOfClass:[NSURL class]])
@@ -378,6 +393,7 @@ static bool shouldEnableStrictMode(Decoder& decoder, const HashSet<Class>& allow
 #if ENABLE(IMAGE_ANALYSIS) && HAVE(VK_IMAGE_ANALYSIS)
     // blocked by rdar://108673895
     if (PAL::isVisionKitCoreFrameworkAvailable()
+        && PAL::getVKCImageAnalysisClass()
         && allowedClasses.contains(PAL::getVKCImageAnalysisClass())
         && isDecodingKnownVKCImageAnalysisMessageFromUIProcess(decoder)
         && isInWebProcess())
@@ -418,17 +434,23 @@ static constexpr bool haveSecureActionContext = false;
 
 #if ENABLE(DATA_DETECTION)
     // rdar://107553330 - don't re-introduce rdar://107676726
-    if (PAL::isDataDetectorsCoreFrameworkAvailable() && allowedClasses.contains(PAL::getDDScannerResultClass()))
+    if (PAL::isDataDetectorsCoreFrameworkAvailable()
+        && PAL::getDDScannerResultClass()
+        && allowedClasses.contains(PAL::getDDScannerResultClass()))
         return haveSecureActionContext;
 #if PLATFORM(MAC)
     // rdar://107553348 - don't re-introduce rdar://107676726
-    if (PAL::isDataDetectorsFrameworkAvailable() && allowedClasses.contains(PAL::getWKDDActionContextClass()))
+    if (PAL::isDataDetectorsFrameworkAvailable()
+        && PAL::getWKDDActionContextClass()
+        && allowedClasses.contains(PAL::getWKDDActionContextClass()))
         return haveSecureActionContext;
 #endif // PLATFORM(MAC)
 #endif // ENABLE(DATA_DETECTION)
 #if ENABLE(REVEAL)
     // rdar://107553310 - don't re-introduce rdar://107673064
-    if (PAL::isRevealCoreFrameworkAvailable() && allowedClasses.contains(PAL::getRVItemClass()))
+    if (PAL::isRevealCoreFrameworkAvailable()
+        && PAL::getRVItemClass()
+        && allowedClasses.contains(PAL::getRVItemClass()))
         return haveSecureActionContext;
 #endif // ENABLE(REVEAL)
 
@@ -439,7 +461,9 @@ static constexpr bool haveSecureActionContext = false;
 #else
     static constexpr bool haveStrictDecodableCNContact = false;
 #endif
-    if (PAL::isPassKitCoreFrameworkAvailable() && allowedClasses.contains(PAL::getPKPaymentMethodClass()))
+    if (PAL::isPassKitCoreFrameworkAvailable()
+        && PAL::getPKPaymentMethodClass()
+        && allowedClasses.contains(PAL::getPKPaymentMethodClass()))
         return haveStrictDecodableCNContact;
 
     // Don't reintroduce rdar://108660074
@@ -448,7 +472,9 @@ static constexpr bool haveSecureActionContext = false;
 #else
     static constexpr bool haveStrictDecodablePKContact = false;
 #endif
-    if (PAL::isPassKitCoreFrameworkAvailable() && allowedClasses.contains(PAL::getPKContactClass()))
+    if (PAL::isPassKitCoreFrameworkAvailable()
+        && PAL::getPKContactClass()
+        && allowedClasses.contains(PAL::getPKContactClass()))
         return haveStrictDecodablePKContact;
 #endif
 
@@ -476,9 +502,9 @@ static constexpr bool haveSecureActionContext = false;
     if (allowedClasses.contains(NSShadow.class) // rdar://107553244
         || allowedClasses.contains(NSTextAttachment.class) // rdar://107553273
 #if ENABLE(APPLE_PAY)
-        || (PAL::isPassKitCoreFrameworkAvailable() && allowedClasses.contains(PAL::getPKPaymentSetupFeatureClass())) // rdar://107553409
-        || (PAL::isPassKitCoreFrameworkAvailable() && allowedClasses.contains(PAL::getPKPaymentMerchantSessionClass())) // rdar://107553452
-        || (PAL::isPassKitCoreFrameworkAvailable() && allowedClasses.contains(PAL::getPKPaymentClass()) && isInWebProcess())
+        || (PAL::isPassKitCoreFrameworkAvailable() && PAL::getPKPaymentSetupFeatureClass() && allowedClasses.contains(PAL::getPKPaymentSetupFeatureClass())) // rdar://107553409
+        || (PAL::isPassKitCoreFrameworkAvailable() && PAL::getPKPaymentMerchantSessionClass() && allowedClasses.contains(PAL::getPKPaymentMerchantSessionClass())) // rdar://107553452
+        || (PAL::isPassKitCoreFrameworkAvailable() && PAL::getPKPaymentClass() && allowedClasses.contains(PAL::getPKPaymentClass()) && isInWebProcess())
 #endif // ENABLE(APPLE_PAY)
         || (allowedClasses.contains(NSURLCredential.class) && isDecodingKnownNSURLCredentialMessage(decoder))) // rdar://107553367
         return true;

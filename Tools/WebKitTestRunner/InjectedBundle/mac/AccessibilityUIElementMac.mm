@@ -1298,9 +1298,9 @@ unsigned AccessibilityUIElement::uiElementCountForSearchPredicate(JSContextRef c
 {
     BEGIN_AX_OBJC_EXCEPTIONS
     NSDictionary *parameterizedAttribute = searchPredicateParameterizedAttributeForSearchCriteria(context, startElement, isDirectionNext, UINT_MAX, searchKey, searchText, visibleOnly, immediateDescendantsOnly);
-    auto value = attributeValueForParameter(@"AXUIElementCountForSearchPredicate", parameterizedAttribute);
-    if ([value isKindOfClass:[NSNumber class]])
-        return [value unsignedIntValue];
+    auto value = attributeValueForParameter(@"AXUIElementsForSearchPredicate", parameterizedAttribute);
+    if ([value isKindOfClass:[NSArray class]])
+        return [value count];
     END_AX_OBJC_EXCEPTIONS
     
     return 0;
@@ -2574,6 +2574,11 @@ bool AccessibilityUIElement::isFirstItemInSuggestion() const
 }
 
 bool AccessibilityUIElement::isLastItemInSuggestion() const
+{
+    return false;
+}
+
+bool AccessibilityUIElement::isInNonNativeTextControl() const
 {
     return false;
 }

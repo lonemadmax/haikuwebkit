@@ -761,6 +761,7 @@ constexpr CursorVisibility RenderStyle::initialCursorVisibility() { return Curso
 #if ENABLE(DARK_MODE_CSS)
 inline StyleColorScheme RenderStyle::colorScheme() const { return m_rareInheritedData->colorScheme; }
 constexpr StyleColorScheme RenderStyle::initialColorScheme() { return { }; }
+inline bool RenderStyle::hasExplicitlySetColorScheme() const { return m_nonInheritedData->miscData->hasExplicitlySetColorScheme; }
 #endif
 
 #if ENABLE(FILTERS_LEVEL_2)
@@ -936,17 +937,16 @@ inline TypographicMode RenderStyle::typographicMode() const
 
 inline bool isSkippedContentRoot(const RenderStyle& style, const Element* element)
 {
-    switch (style.contentVisibility()) {
-    case ContentVisibility::Visible:
+    if (style.contentVisibility() == ContentVisibility::Visible)
         return false;
-    case ContentVisibility::Hidden:
+    // FIXME (https://bugs.webkit.org/show_bug.cgi?id=265020): check more display types.
+    // FIXME: try to avoid duplication with shouldApplySizeOrStyleContainment.
+    if (style.isDisplayTableOrTablePart() && style.display() != DisplayType::TableCaption)
+        return false;
+    if (style.contentVisibility() == ContentVisibility::Hidden)
         return true;
-    case ContentVisibility::Auto:
-        return element && !element->isRelevantToUser();
-    };
-
-    ASSERT_NOT_REACHED();
-    return false;
+    ASSERT(style.contentVisibility() == ContentVisibility::Auto);
+    return element && !element->isRelevantToUser();
 }
 
 inline float adjustFloatForAbsoluteZoom(float value, const RenderStyle& style)

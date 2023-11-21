@@ -4086,14 +4086,14 @@ bool Page::startApplePayAMSUISession(const URL& originatingURL, ApplePayAMSUIPay
     m_activeApplePayAMSUIPaymentHandler = &paymentHandler;
 
     chrome().client().startApplePayAMSUISession(originatingURL, request, [weakThis = WeakPtr { *this }, paymentHandlerPtr = &paymentHandler] (std::optional<bool>&& result) {
-        auto strongThis = weakThis.get();
-        if (!strongThis)
+        auto protectedThis = weakThis.get();
+        if (!protectedThis)
             return;
 
-        if (paymentHandlerPtr != strongThis->m_activeApplePayAMSUIPaymentHandler)
+        if (paymentHandlerPtr != protectedThis->m_activeApplePayAMSUIPaymentHandler)
             return;
 
-        if (auto activePaymentHandler = std::exchange(strongThis->m_activeApplePayAMSUIPaymentHandler, nullptr))
+        if (auto activePaymentHandler = std::exchange(protectedThis->m_activeApplePayAMSUIPaymentHandler, nullptr))
             activePaymentHandler->finishSession(WTFMove(result));
     });
     return true;
@@ -4294,7 +4294,7 @@ void Page::removeInjectedUserStyleSheet(UserStyleSheet& userStyleSheet)
 void Page::mainFrameDidChangeToNonInitialEmptyDocument()
 {
     auto* localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
-    ASSERT_UNUSED(localMainFrame, localMainFrame && !localMainFrame->loader().stateMachine().isDisplayingInitialEmptyDocument());
+    ASSERT_UNUSED(localMainFrame, !localMainFrame || !localMainFrame->loader().stateMachine().isDisplayingInitialEmptyDocument());
     for (auto& userStyleSheet : m_userStyleSheetsPendingInjection)
         injectUserStyleSheet(userStyleSheet);
     m_userStyleSheetsPendingInjection.clear();

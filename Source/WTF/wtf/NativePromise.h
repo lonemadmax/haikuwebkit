@@ -690,7 +690,7 @@ private:
                 }
                 return;
             }
-            m_targetQueue->dispatch([this, strongThis = Ref { *this }, promise = Ref { promise }, operation = *promise.m_result ? "Resolving" : "Rejecting"] () mutable {
+            m_targetQueue->dispatch([this, protectedThis = Ref { *this }, promise = Ref { promise }, operation = *promise.m_result ? "Resolving" : "Rejecting"] () mutable {
                 PROMISE_LOG(operation, " then() call made from ", m_logSiteIdentifier, "[", promise.get(), " callback:", (const void*)this, "]");
                 if (m_disconnected) {
                     PROMISE_LOG("ThenCallback disconnected aborting [callback:", (const void*)this, " callSite:", m_logSiteIdentifier, "]");
@@ -1074,7 +1074,7 @@ private:
         assertIsHeld(m_lock);
         ASSERT(!isNothing());
         auto producer = WTFMove(other);
-        producer.promise().settleAsChainedPromise(maybeMove(m_result), { "<chained promise>", nullptr });
+        producer.promise()->settleAsChainedPromise(maybeMove(m_result), { "<chained promise>", nullptr });
     }
 
     // Replicate either std::optional<Result> if Exclusive or Ref<std::optional<Result>> otherwise.
@@ -1231,6 +1231,12 @@ public:
         return *m_promise;
     }
 
+    Ref<PromiseType> promise() const
+    {
+        ASSERT(m_promise, "used after move");
+        return *m_promise;
+    }
+
     // Allow calling ->then()/whenSettled() again for more promise chaining.
     // Defined -> operator for consistency in calling pattern.
     Producer* operator->() { return this; }
@@ -1272,12 +1278,6 @@ public:
     }
 
 private:
-    PromiseType& promise() const
-    {
-        ASSERT(m_promise, "used after move");
-        return *m_promise;
-    }
-
     void setDispatchMode(PromiseDispatchMode dispatchMode, const Logger::LogSiteIdentifier& callSite) const
     {
         ASSERT(m_promise, "used after move");

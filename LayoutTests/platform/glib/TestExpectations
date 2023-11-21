@@ -491,6 +491,7 @@ accessibility/focusable-ancestor.html [ Skip ]
 
 # Missing AccessibilityUIElement::{editableAncestor, highestEditableAncestor} implementations.
 accessibility/editable-ancestor.html [ Skip ]
+accessibility/content-editable-property-change.html [ Skip ]
 
 # Timing out since it was added in https://bugs.webkit.org/show_bug.cgi?id=239434.
 accessibility/text-updates-after-dynamic-change.html [ Skip ]
@@ -1092,7 +1093,6 @@ webkit.org/b/167108 imported/w3c/web-platform-tests/media-source/mediasource-dur
 
 # Crash in bug #176019.
 webkit.org/b/167108 imported/w3c/web-platform-tests/media-source/mediasource-endofstream.html [ Failure ]
-webkit.org/b/167108 imported/w3c/web-platform-tests/media-source/mediasource-errors.html [ Failure ]
 webkit.org/b/210486 imported/w3c/web-platform-tests/media-source/mediasource-correct-frames-after-reappend.html [ Failure ]
 
 webkit.org/b/226804 imported/w3c/web-platform-tests/media-source/mediasource-changetype-play.html [ Failure ]
@@ -1105,6 +1105,7 @@ webkit.org/b/167108 imported/w3c/web-platform-tests/media-source/mediasource-tra
 webkit.org/b/146720 media/accessiblity-describes-video.html [ Failure ]
 
 webkit.org/b/227934 media/media-source/media-webm-vorbis-partial.html [ Failure ]
+webkit.org/b/265016 media/media-webm-opus-error.html [ Failure ]
 
 webkit.org/b/229973 media/track/in-band/track-in-band-kate-ogg-cues-added-once.html [ Failure Pass ]
 webkit.org/b/229973 media/track/in-band/track-in-band-srt-mkv-cues-added-once.html [ Failure Pass ]
@@ -1219,6 +1220,10 @@ webkit.org/b/155196 security/contentSecurityPolicy/video-with-file-url-allowed-b
 webkit.org/b/254207 media/media-source/media-source-monitor-playing-event.html [ Pass Timeout ]
 
 webkit.org/b/264708 [ Debug ] media/media-source/media-source-error-crash.html [ Pass Crash ]
+webkit.org/b/264708 [ Debug ] imported/w3c/web-platform-tests/media-source/mediasource-errors.html [ Pass Crash ]
+webkit.org/b/264708 [ Debug ] imported/w3c/web-platform-tests/media-source/mediasource-invalid-codec.html [ Pass Crash ]
+
+webkit.org/b/264934 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioworklet-interface/audioworklet-registerprocessor-called-on-globalthis.https.html [ Pass Crash ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of GStreamer-related bugs
@@ -1831,6 +1836,8 @@ webkit.org/b/79203 fast/mediastream/RTCPeerConnection-stats.html [ Timeout Crash
 webkit.org/b/79203 fast/mediastream/video-srcObject-fit-fill.html [ Pass Timeout ]
 webkit.org/b/230415 fast/mediastream/RTCPeerConnection-iceconnectionstatechange-event.html [ Timeout ]
 webkit.org/b/187603 fast/mediastream/media-stream-track-source-failure.html [ Timeout Failure Pass ]
+
+webkit.org/b/264803 fast/mediastream/mediastreamtrack-video-resize-event.html [ Failure ]
 
 webkit.org/b/262989 imported/w3c/web-platform-tests/webrtc-stats/getStats-remote-candidate-address.html [ Failure ]
 webkit.org/b/262989 imported/w3c/web-platform-tests/webrtc-stats/outbound-rtp.https.html [ Failure ]
@@ -2659,6 +2666,10 @@ imported/w3c/web-platform-tests/cookies/partitioned-cookies/partitioned-cookies.
 #////////////////////////////////////////////////////////////////////////////////////////
 # NEEDS TRIAGING. If unsure, put it in this section.
 #////////////////////////////////////////////////////////////////////////////////////////
+
+webkit.org/b/264936 http/wpt/webrtc/transfer-datachannel-service-worker.https.html [ Pass Crash ]
+
+webkit.org/b/264933 fast/mediastream/image-capture-take-photo.html [ Pass Failure Crash ]
 
 webkit.org/b/264700 security/contentSecurityPolicy/video-with-data-url-allowed-by-media-src-star.html [ Pass ImageOnlyFailure ]
 webkit.org/b/264700 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-video.html [ Pass ImageOnlyFailure ]
@@ -3518,9 +3529,6 @@ imported/w3c/web-platform-tests/preload/preload-type-match.html [ DumpJSConsoleL
 [ Debug ] fast/history/page-cache-closed-audiocontext.html [ Crash ]
 [ Debug ] fast/media/mq-resolution.html [ Crash ]
 [ Debug ] http/tests/loading/sizes/preload-image-sizes-2x.html [ Crash ]
-[ Debug ] http/wpt/dom-ranges-live-range/Range-mutations-deleteData.html [ Crash ]
-[ Debug ] http/wpt/dom-ranges-live-range/Range-mutations-insertData.html [ Crash ]
-[ Debug ] http/wpt/dom-ranges-live-range/Range-mutations-replaceData.html [ Crash ]
 [ Debug ] imported/blink/fast/hidpi/border-background-align.html [ Crash ]
 [ Debug ] imported/blink/svg/zoom/text/lowdpi-zoom-text.html [ Crash ]
 

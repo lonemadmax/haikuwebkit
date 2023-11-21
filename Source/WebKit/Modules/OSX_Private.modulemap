@@ -1694,6 +1694,16 @@ framework module WebKit_Private [system] {
     export *
   }
 
+  explicit module _WKArchiveConfiguration {
+    header "_WKArchiveConfiguration.h"
+    export *
+  }
+
+  explicit module _WKArchiveExclusionRule {
+    header "_WKArchiveExclusionRule.h"
+    export *
+  }
+
   explicit module _WKAuthenticationExtensionsClientInputs {
     header "_WKAuthenticationExtensionsClientInputs.h"
     export *
@@ -2166,6 +2176,16 @@ framework module WebKit_Private [system] {
 
   explicit module _WKWebExtensionControllerPrivate {
     header "_WKWebExtensionControllerPrivate.h"
+    export *
+  }
+
+  explicit module _WKWebExtensionDeclarativeNetRequestRule {
+    header "_WKWebExtensionDeclarativeNetRequestRule.h"
+    export *
+  }
+
+  explicit module _WKWebExtensionDeclarativeNetRequestTranslator {
+    header "_WKWebExtensionDeclarativeNetRequestTranslator.h"
     export *
   }
 

@@ -28,6 +28,7 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "Logging.h"
 #include "RemoteDisplayListRecorderMessages.h"
 #include "RemoteImageBufferProxy.h"
 #include "RemoteRenderingBackendProxy.h"
@@ -219,6 +220,11 @@ void RemoteDisplayListRecorderProxy::recordDrawGlyphs(const Font& font, const Gl
 void RemoteDisplayListRecorderProxy::recordDrawDecomposedGlyphs(const Font& font, const DecomposedGlyphs& decomposedGlyphs)
 {
     send(Messages::RemoteDisplayListRecorder::DrawDecomposedGlyphs(font.renderingResourceIdentifier(), decomposedGlyphs.renderingResourceIdentifier()));
+}
+
+void RemoteDisplayListRecorderProxy::recordDrawDisplayListItems(const Vector<DisplayList::Item>& items, const FloatPoint& destination)
+{
+    send(Messages::RemoteDisplayListRecorder::DrawDisplayListItems(items, destination));
 }
 
 void RemoteDisplayListRecorderProxy::recordDrawImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions options)

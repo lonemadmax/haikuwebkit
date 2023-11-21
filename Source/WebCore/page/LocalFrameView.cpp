@@ -886,6 +886,9 @@ ScrollableArea* LocalFrameView::scrollableAreaForScrollingNodeID(ScrollingNodeID
     if (!renderView)
         return nullptr;
 
+    if (auto area = m_scrollingNodeIDToPluginScrollableAreaMap.get(nodeID))
+        return area.get();
+
     return renderView->compositor().scrollableAreaForScrollingNodeID(nodeID);
 }
 
@@ -4316,21 +4319,6 @@ void LocalFrameView::scrollTo(const ScrollPosition& newPosition)
         scrollPositionChanged(oldPosition, scrollPosition());
 
     didChangeScrollOffset();
-}
-
-void LocalFrameView::scrollToPositionWithAnimation(const ScrollPosition& position, const ScrollPositionChangeOptions& options)
-{
-    // FIXME: Why isn't all this in ScrollableArea?
-    auto previousScrollType = currentScrollType();
-    setCurrentScrollType(options.type);
-
-    if (scrollAnimationStatus() == ScrollAnimationStatus::Animating)
-        scrollAnimator().cancelAnimations();
-
-    if (position != scrollPosition())
-        ScrollableArea::scrollToPositionWithAnimation(position, options);
-
-    setCurrentScrollType(previousScrollType);
 }
 
 float LocalFrameView::adjustVerticalPageScrollStepForFixedContent(float step)

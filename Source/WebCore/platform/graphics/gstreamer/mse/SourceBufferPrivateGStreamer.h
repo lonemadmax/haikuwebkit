@@ -42,6 +42,7 @@
 #include "SourceBufferPrivateClient.h"
 #include "TrackPrivateBaseGStreamer.h"
 #include "WebKitMediaSourceGStreamer.h"
+#include <optional>
 #include <wtf/LoggerHelper.h>
 
 namespace WebCore {
@@ -54,11 +55,11 @@ class SourceBufferPrivateGStreamer final : public SourceBufferPrivate {
 public:
     static bool isContentTypeSupported(const ContentType&);
     static Ref<SourceBufferPrivateGStreamer> create(MediaSourcePrivateGStreamer&, const ContentType&, MediaPlayerPrivateGStreamerMSE&);
-    virtual ~SourceBufferPrivateGStreamer() = default;
+    ~SourceBufferPrivateGStreamer();
 
     constexpr PlatformType platformType() const final { return PlatformType::GStreamer; }
 
-    void appendInternal(Ref<SharedBuffer>&&) final;
+    Ref<MediaPromise> appendInternal(Ref<SharedBuffer>&&) final;
     void resetParserStateInternal() final;
     void removedFromMediaSource() final;
     MediaPlayer::ReadyState readyState() const final;
@@ -69,8 +70,9 @@ public:
     void allSamplesInTrackEnqueued(const AtomString&) final;
     bool isReadyForMoreSamples(const AtomString&) final;
 
-    void didReceiveInitializationSegment(InitializationSegment&&);
-    void didReceiveSample(Ref<MediaSample>&&);
+    bool precheckInitialisationSegment(const InitializationSegment&) final;
+    void processInitialisationSegment(std::optional<InitializationSegment>&&) final;
+
     void didReceiveAllPendingSamples();
     void appendParsingFailed();
 
@@ -91,6 +93,8 @@ public:
     size_t platformEvictionThreshold() const final;
 
 private:
+    friend class AppendPipeline;
+
     SourceBufferPrivateGStreamer(MediaSourcePrivateGStreamer&, const ContentType&, MediaPlayerPrivateGStreamerMSE&);
 
     void notifyClientWhenReadyForMoreSamples(const AtomString&) override;
@@ -101,6 +105,7 @@ private:
     UniqueRef<AppendPipeline> m_appendPipeline;
     AtomString m_trackId;
     HashMap<AtomString, RefPtr<MediaSourceTrackGStreamer>> m_tracks;
+    std::optional<MediaPromise::Producer> m_appendPromise;
 
 #if !RELEASE_LOG_DISABLED
     Ref<const Logger> m_logger;

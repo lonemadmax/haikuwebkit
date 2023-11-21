@@ -254,7 +254,9 @@
 #include <wtf/Language.h>
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/MonotonicTime.h>
+#include <wtf/NativePromise.h>
 #include <wtf/ProcessID.h>
+#include <wtf/RunLoop.h>
 #include <wtf/URLHelpers.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringConcatenateNumbers.h>
@@ -824,6 +826,8 @@ static String styleValidityToToString(Style::Validity validity)
     switch (validity) {
     case Style::Validity::Valid:
         return "NoStyleChange"_s;
+    case Style::Validity::AnimationInvalid:
+        return "AnimationInvalid"_s;
     case Style::Validity::ElementInvalid:
         return "InlineStyleChange"_s;
     case Style::Validity::SubtreeInvalid:
@@ -1365,6 +1369,12 @@ bool Internals::hasPausedImageAnimations(Element& element)
 {
     return element.renderer() && element.renderer()->hasPausedImageAnimations();
 }
+
+bool Internals::isFullyActive(Document& document)
+{
+    return document.isFullyActive();
+}
+
     
 bool Internals::isPaintingFrequently(Element& element)
 {
@@ -4042,50 +4052,51 @@ unsigned Internals::layoutCount() const
 static const char* cursorTypeToString(Cursor::Type cursorType)
 {
     switch (cursorType) {
-    case Cursor::Pointer: return "Pointer";
-    case Cursor::Cross: return "Cross";
-    case Cursor::Hand: return "Hand";
-    case Cursor::IBeam: return "IBeam";
-    case Cursor::Wait: return "Wait";
-    case Cursor::Help: return "Help";
-    case Cursor::EastResize: return "EastResize";
-    case Cursor::NorthResize: return "NorthResize";
-    case Cursor::NorthEastResize: return "NorthEastResize";
-    case Cursor::NorthWestResize: return "NorthWestResize";
-    case Cursor::SouthResize: return "SouthResize";
-    case Cursor::SouthEastResize: return "SouthEastResize";
-    case Cursor::SouthWestResize: return "SouthWestResize";
-    case Cursor::WestResize: return "WestResize";
-    case Cursor::NorthSouthResize: return "NorthSouthResize";
-    case Cursor::EastWestResize: return "EastWestResize";
-    case Cursor::NorthEastSouthWestResize: return "NorthEastSouthWestResize";
-    case Cursor::NorthWestSouthEastResize: return "NorthWestSouthEastResize";
-    case Cursor::ColumnResize: return "ColumnResize";
-    case Cursor::RowResize: return "RowResize";
-    case Cursor::MiddlePanning: return "MiddlePanning";
-    case Cursor::EastPanning: return "EastPanning";
-    case Cursor::NorthPanning: return "NorthPanning";
-    case Cursor::NorthEastPanning: return "NorthEastPanning";
-    case Cursor::NorthWestPanning: return "NorthWestPanning";
-    case Cursor::SouthPanning: return "SouthPanning";
-    case Cursor::SouthEastPanning: return "SouthEastPanning";
-    case Cursor::SouthWestPanning: return "SouthWestPanning";
-    case Cursor::WestPanning: return "WestPanning";
-    case Cursor::Move: return "Move";
-    case Cursor::VerticalText: return "VerticalText";
-    case Cursor::Cell: return "Cell";
-    case Cursor::ContextMenu: return "ContextMenu";
-    case Cursor::Alias: return "Alias";
-    case Cursor::Progress: return "Progress";
-    case Cursor::NoDrop: return "NoDrop";
-    case Cursor::Copy: return "Copy";
-    case Cursor::None: return "None";
-    case Cursor::NotAllowed: return "NotAllowed";
-    case Cursor::ZoomIn: return "ZoomIn";
-    case Cursor::ZoomOut: return "ZoomOut";
-    case Cursor::Grab: return "Grab";
-    case Cursor::Grabbing: return "Grabbing";
-    case Cursor::Custom: return "Custom";
+    case Cursor::Type::Pointer: return "Pointer";
+    case Cursor::Type::Cross: return "Cross";
+    case Cursor::Type::Hand: return "Hand";
+    case Cursor::Type::IBeam: return "IBeam";
+    case Cursor::Type::Wait: return "Wait";
+    case Cursor::Type::Help: return "Help";
+    case Cursor::Type::EastResize: return "EastResize";
+    case Cursor::Type::NorthResize: return "NorthResize";
+    case Cursor::Type::NorthEastResize: return "NorthEastResize";
+    case Cursor::Type::NorthWestResize: return "NorthWestResize";
+    case Cursor::Type::SouthResize: return "SouthResize";
+    case Cursor::Type::SouthEastResize: return "SouthEastResize";
+    case Cursor::Type::SouthWestResize: return "SouthWestResize";
+    case Cursor::Type::WestResize: return "WestResize";
+    case Cursor::Type::NorthSouthResize: return "NorthSouthResize";
+    case Cursor::Type::EastWestResize: return "EastWestResize";
+    case Cursor::Type::NorthEastSouthWestResize: return "NorthEastSouthWestResize";
+    case Cursor::Type::NorthWestSouthEastResize: return "NorthWestSouthEastResize";
+    case Cursor::Type::ColumnResize: return "ColumnResize";
+    case Cursor::Type::RowResize: return "RowResize";
+    case Cursor::Type::MiddlePanning: return "MiddlePanning";
+    case Cursor::Type::EastPanning: return "EastPanning";
+    case Cursor::Type::NorthPanning: return "NorthPanning";
+    case Cursor::Type::NorthEastPanning: return "NorthEastPanning";
+    case Cursor::Type::NorthWestPanning: return "NorthWestPanning";
+    case Cursor::Type::SouthPanning: return "SouthPanning";
+    case Cursor::Type::SouthEastPanning: return "SouthEastPanning";
+    case Cursor::Type::SouthWestPanning: return "SouthWestPanning";
+    case Cursor::Type::WestPanning: return "WestPanning";
+    case Cursor::Type::Move: return "Move";
+    case Cursor::Type::VerticalText: return "VerticalText";
+    case Cursor::Type::Cell: return "Cell";
+    case Cursor::Type::ContextMenu: return "ContextMenu";
+    case Cursor::Type::Alias: return "Alias";
+    case Cursor::Type::Progress: return "Progress";
+    case Cursor::Type::NoDrop: return "NoDrop";
+    case Cursor::Type::Copy: return "Copy";
+    case Cursor::Type::None: return "None";
+    case Cursor::Type::NotAllowed: return "NotAllowed";
+    case Cursor::Type::ZoomIn: return "ZoomIn";
+    case Cursor::Type::ZoomOut: return "ZoomOut";
+    case Cursor::Type::Grab: return "Grab";
+    case Cursor::Type::Grabbing: return "Grabbing";
+    case Cursor::Type::Custom: return "Custom";
+    case Cursor::Type::Invalid: break;
     }
 
     ASSERT_NOT_REACHED();
@@ -4521,15 +4532,15 @@ void Internals::initializeMockMediaSource()
 
 void Internals::bufferedSamplesForTrackId(SourceBuffer& buffer, const AtomString& trackId, BufferedSamplesPromise&& promise)
 {
-    buffer.bufferedSamplesForTrackId(trackId, [promise = WTFMove(promise)](Vector<String>&& samples) mutable {
-        promise.resolve(WTFMove(samples));
+    buffer.bufferedSamplesForTrackId(trackId)->whenSettled(RunLoop::current(), [promise = WTFMove(promise)](auto&& samples) mutable {
+        promise.resolve(WTFMove(*samples));
     });
 }
 
 void Internals::enqueuedSamplesForTrackID(SourceBuffer& buffer, const AtomString& trackID, BufferedSamplesPromise&& promise)
 {
-    return buffer.enqueuedSamplesForTrackID(trackID, [promise = WTFMove(promise)](Vector<String>&& samples) mutable {
-        promise.resolve(WTFMove(samples));
+    buffer.enqueuedSamplesForTrackID(trackID)->whenSettled(RunLoop::current(), [promise = WTFMove(promise)](auto&& samples) mutable {
+        promise.resolve(WTFMove(*samples));
     });
 }
 
@@ -4559,16 +4570,16 @@ void Internals::enableMockMediaCapabilities()
 
 ExceptionOr<void> Internals::beginMediaSessionInterruption(const String& interruptionString)
 {
-    PlatformMediaSession::InterruptionType interruption = PlatformMediaSession::SystemInterruption;
+    PlatformMediaSession::InterruptionType interruption = PlatformMediaSession::InterruptionType::SystemInterruption;
 
     if (equalLettersIgnoringASCIICase(interruptionString, "system"_s))
-        interruption = PlatformMediaSession::SystemInterruption;
+        interruption = PlatformMediaSession::InterruptionType::SystemInterruption;
     else if (equalLettersIgnoringASCIICase(interruptionString, "systemsleep"_s))
-        interruption = PlatformMediaSession::SystemSleep;
+        interruption = PlatformMediaSession::InterruptionType::SystemSleep;
     else if (equalLettersIgnoringASCIICase(interruptionString, "enteringbackground"_s))
-        interruption = PlatformMediaSession::EnteringBackground;
+        interruption = PlatformMediaSession::InterruptionType::EnteringBackground;
     else if (equalLettersIgnoringASCIICase(interruptionString, "suspendedunderlock"_s))
-        interruption = PlatformMediaSession::SuspendedUnderLock;
+        interruption = PlatformMediaSession::InterruptionType::SuspendedUnderLock;
     else
         return Exception { ExceptionCode::InvalidAccessError };
 
@@ -4578,10 +4589,10 @@ ExceptionOr<void> Internals::beginMediaSessionInterruption(const String& interru
 
 void Internals::endMediaSessionInterruption(const String& flagsString)
 {
-    PlatformMediaSession::EndInterruptionFlags flags = PlatformMediaSession::NoFlags;
+    PlatformMediaSession::EndInterruptionFlags flags = PlatformMediaSession::EndInterruptionFlags::NoFlags;
 
     if (equalLettersIgnoringASCIICase(flagsString, "mayresumeplaying"_s))
-        flags = PlatformMediaSession::MayResumePlaying;
+        flags = PlatformMediaSession::EndInterruptionFlags::MayResumePlaying;
 
     PlatformMediaSessionManager::sharedManager().endInterruption(flags);
 }

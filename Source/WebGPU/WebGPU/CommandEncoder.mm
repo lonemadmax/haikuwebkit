@@ -102,10 +102,10 @@ CommandEncoder::~CommandEncoder()
     finalizeBlitCommandEncoder();
 }
 
-void CommandEncoder::ensureBlitCommandEncoder()
+id<MTLBlitCommandEncoder> CommandEncoder::ensureBlitCommandEncoder()
 {
     if (m_blitCommandEncoder && m_pendingTimestampWrites.isEmpty())
-        return;
+        return m_blitCommandEncoder;
 
     auto pendingTimestampWrites = std::exchange(m_pendingTimestampWrites, { });
     if (m_blitCommandEncoder && !pendingTimestampWrites.isEmpty())
@@ -120,6 +120,8 @@ void CommandEncoder::ensureBlitCommandEncoder()
         descriptor.sampleBufferAttachments[i].startOfEncoderSampleIndex = pendingTimestampWrite.queryIndex;
     }
     m_blitCommandEncoder = [m_commandBuffer blitCommandEncoderWithDescriptor:descriptor];
+
+    return m_blitCommandEncoder;
 }
 
 void CommandEncoder::finalizeBlitCommandEncoder()
@@ -141,12 +143,13 @@ bool CommandEncoder::validateComputePassDescriptor(const WGPUComputePassDescript
     // FIXME: Implement this according to
     // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-begincomputepass.
 
-    if (descriptor.timestampWriteCount && !m_device->hasFeature(WGPUFeatureName_TimestampQuery))
-        return false;
+    if (descriptor.timestampWrites) {
+        if (!m_device->hasFeature(WGPUFeatureName_TimestampQuery))
+            return false;
 
-    for (uint32_t i = 0; i < descriptor.timestampWriteCount; ++i) {
-        const auto& timestampWrite = descriptor.timestampWrites[i];
-        if (timestampWrite.queryIndex >= fromAPI(timestampWrite.querySet).count())
+        const auto& timestampWrite = *descriptor.timestampWrites;
+        auto querySetCount = fromAPI(timestampWrite.querySet).count();
+        if (timestampWrite.beginningOfPassWriteIndex >= querySetCount || timestampWrite.endOfPassWriteIndex >= querySetCount)
             return false;
     }
 
@@ -167,7 +170,7 @@ Ref<ComputePassEncoder> CommandEncoder::beginComputePass(const WGPUComputePassDe
     computePassDescriptor.dispatchType = MTLDispatchTypeSerial;
 
     if (m_device->baseCapabilities().counterSamplingAPI == HardwareCapabilities::BaseCapabilities::CounterSamplingAPI::StageBoundary
-        && descriptor.timestampWriteCount) {
+        && descriptor.timestampWrites) {
         // rdar://91371495 is about how we can't just naively transform descriptor.timestampWrites into computePassDescriptor.sampleBufferAttachments.
         // Instead, we can resolve all the information to a dummy counter sample buffer, and then internally remember that the data
         // is in a different place than where it's supposed to be. Later, when we resolve the data, we can resolve it from our dummy
@@ -188,29 +191,11 @@ Ref<ComputePassEncoder> CommandEncoder::beginComputePass(const WGPUComputePassDe
         const auto endIndex = 1;
 
         computePassDescriptor.sampleBufferAttachments[0].sampleBuffer = counterSampleBuffer;
-        // FIXME: Specifying both of these is somewhat wasteful, because we may not actually need them both.
-        // However, actually need to specify both of them, because of rdar://91372549.
-        // When rdar://91372549 is fixed, we'll be able to do a pre-pass over descriptor.timestampWrites to see which of these is actually necessary.
         computePassDescriptor.sampleBufferAttachments[0].startOfEncoderSampleIndex = startIndex;
         computePassDescriptor.sampleBufferAttachments[0].endOfEncoderSampleIndex = endIndex;
 
-        for (uint32_t i = 0; i < descriptor.timestampWriteCount; ++i) {
-            const auto& timestampWrite = descriptor.timestampWrites[i];
-            uint32_t otherIndex = 0;
-            switch (timestampWrite.location) {
-            case WGPUComputePassTimestampLocation_Beginning:
-                otherIndex = startIndex;
-                break;
-            case WGPUComputePassTimestampLocation_End:
-                otherIndex = endIndex;
-                break;
-            case WGPUComputePassTimestampLocation_Force32:
-                ASSERT_NOT_REACHED();
-                return ComputePassEncoder::createInvalid(m_device);
-            }
-            
-            fromAPI(timestampWrite.querySet).setOverrideLocation(timestampWrite.queryIndex, dummyQuerySet, otherIndex);
-        }
+        auto& timestampWrite = *descriptor.timestampWrites;
+        fromAPI(timestampWrite.querySet).setOverrideLocation(dummyQuerySet, timestampWrite.beginningOfPassWriteIndex, timestampWrite.endOfPassWriteIndex);
     }
 
     id<MTLComputeCommandEncoder> computeCommandEncoder = [m_commandBuffer computeCommandEncoderWithDescriptor:computePassDescriptor];
@@ -224,12 +209,13 @@ bool CommandEncoder::validateRenderPassDescriptor(const WGPURenderPassDescriptor
     // FIXME: Implement this according to
     // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-beginrenderpass.
 
-    if (descriptor.timestampWriteCount && !m_device->hasFeature(WGPUFeatureName_TimestampQuery))
-        return false;
+    if (descriptor.timestampWrites) {
+        if (!m_device->hasFeature(WGPUFeatureName_TimestampQuery))
+            return false;
 
-    for (uint32_t i = 0; i < descriptor.timestampWriteCount; ++i) {
-        const auto& timestampWrite = descriptor.timestampWrites[i];
-        if (timestampWrite.queryIndex >= fromAPI(timestampWrite.querySet).count())
+        const auto& timestampWrite = *descriptor.timestampWrites;
+        auto querySetCount = fromAPI(timestampWrite.querySet).count();
+        if (timestampWrite.beginningOfPassWriteIndex >= querySetCount || timestampWrite.endOfPassWriteIndex >= querySetCount)
             return false;
     }
 
@@ -316,14 +302,16 @@ Ref<RenderPassEncoder> CommandEncoder::beginRenderPass(const WGPURenderPassDescr
     }
 
     size_t visibilityResultBufferSize = 0;
+    id<MTLBuffer> visibilityResultBuffer = nil;
     if (auto* wgpuOcclusionQuery = descriptor.occlusionQuerySet) {
         const auto& occlusionQuery = fromAPI(wgpuOcclusionQuery);
         mtlDescriptor.visibilityResultBuffer = occlusionQuery.visibilityBuffer();
+        visibilityResultBuffer = mtlDescriptor.visibilityResultBuffer;
         visibilityResultBufferSize = occlusionQuery.visibilityBuffer().length;
     }
 
     if (m_device->baseCapabilities().counterSamplingAPI == HardwareCapabilities::BaseCapabilities::CounterSamplingAPI::StageBoundary
-        && descriptor.timestampWriteCount) {
+        && descriptor.timestampWrites) {
         // rdar://91371495 is about how we can't just naively transform descriptor.timestampWrites into computePassDescriptor.sampleBufferAttachments.
         // Instead, we can resolve all the information to a dummy counter sample buffer, and then internally remember that the data
         // is in a different place than where it's supposed to be. Later, when we resolve the data, we can resolve it from our dummy
@@ -346,36 +334,18 @@ Ref<RenderPassEncoder> CommandEncoder::beginRenderPass(const WGPURenderPassDescr
         const auto endFragmentIndex = 3;
 
         mtlDescriptor.sampleBufferAttachments[0].sampleBuffer = counterSampleBuffer;
-        // FIXME: Specifying all 4 of these is somewhat wasteful, because we may not actually need them all.
-        // However, actually need to specify all of them, because of rdar://91372549.
-        // When rdar://91372549 is fixed, we'll be able to do a pre-pass over descriptor.timestampWrites to see which of these is actually necessary.
         mtlDescriptor.sampleBufferAttachments[0].startOfVertexSampleIndex = startVertexIndex;
         mtlDescriptor.sampleBufferAttachments[0].endOfVertexSampleIndex = endVertexIndex;
         mtlDescriptor.sampleBufferAttachments[0].startOfFragmentSampleIndex = startFragmentIndex;
         mtlDescriptor.sampleBufferAttachments[0].endOfFragmentSampleIndex = endFragmentIndex;
 
-        for (uint32_t i = 0; i < descriptor.timestampWriteCount; ++i) {
-            const auto& timestampWrite = descriptor.timestampWrites[i];
-            uint32_t otherIndex = 0;
-            switch (timestampWrite.location) {
-            case WGPURenderPassTimestampLocation_Beginning:
-                otherIndex = startVertexIndex;
-                break;
-            case WGPURenderPassTimestampLocation_End:
-                otherIndex = endFragmentIndex;
-                break;
-            case WGPURenderPassTimestampLocation_Force32:
-                ASSERT_NOT_REACHED();
-                return RenderPassEncoder::createInvalid(m_device);
-            }
-
-            fromAPI(timestampWrite.querySet).setOverrideLocation(timestampWrite.queryIndex, dummyQuerySet, otherIndex);
-        }
+        auto& timestampWrite = *descriptor.timestampWrites;
+        fromAPI(timestampWrite.querySet).setOverrideLocation(dummyQuerySet, timestampWrite.beginningOfPassWriteIndex, timestampWrite.endOfPassWriteIndex);
     }
 
     auto mtlRenderCommandEncoder = [m_commandBuffer renderCommandEncoderWithDescriptor:mtlDescriptor];
 
-    return RenderPassEncoder::create(mtlRenderCommandEncoder, descriptor, visibilityResultBufferSize, depthReadOnly, stencilReadOnly, *this, m_device);
+    return RenderPassEncoder::create(mtlRenderCommandEncoder, descriptor, visibilityResultBufferSize, depthReadOnly, stencilReadOnly, *this, visibilityResultBuffer, m_device);
 }
 
 bool CommandEncoder::validateCopyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, const Buffer& destination, uint64_t destinationOffset, uint64_t size)
@@ -1153,11 +1123,6 @@ void CommandEncoder::resolveQuerySet(const QuerySet& querySet, uint32_t firstQue
         [m_blitCommandEncoder copyFromBuffer:querySet.visibilityBuffer() sourceOffset:sizeof(uint64_t) * firstQuery toBuffer:destination.buffer() destinationOffset:destinationOffset size:sizeof(uint64_t) * queryCount];
         break;
     }
-    case WGPUQueryType_PipelineStatistics: {
-        // FIXME: Implement pipeline statistics
-        ASSERT_NOT_REACHED();
-        break;
-    }
     case WGPUQueryType_Timestamp: {
         querySet.encodeResolveCommands(m_blitCommandEncoder, firstQuery, queryCount, destination, destinationOffset);
         break;
@@ -1166,8 +1131,6 @@ void CommandEncoder::resolveQuerySet(const QuerySet& querySet, uint32_t firstQue
         ASSERT_NOT_REACHED();
         break;
     }
-
-    // FIXME: Enqueue any compute shaders we need to fixup or quantize the results.
 }
 
 void CommandEncoder::writeTimestamp(QuerySet& querySet, uint32_t queryIndex)

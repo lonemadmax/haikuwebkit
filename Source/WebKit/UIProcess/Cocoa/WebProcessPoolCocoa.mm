@@ -306,8 +306,7 @@ void WebProcessPool::platformInitialize(NeedsGlobalStaticInitialization needsGlo
     });
 
 #if USE(EXTENSIONKIT)
-    bool manageProcessesAsExtensions = !CFPreferencesGetAppBooleanValue(CFSTR("disableProcessesAsExtensions"), kCFPreferencesCurrentApplication, nullptr);
-    AuxiliaryProcessProxy::setManageProcessesAsExtensions(manageProcessesAsExtensions);
+    AuxiliaryProcessProxy::setManageProcessesAsExtensions(CFPreferencesGetAppBooleanValue(CFSTR("manageProcessesAsExtensions"), CFSTR("com.apple.WebKit"), nullptr));
 #endif
 }
 
@@ -449,7 +448,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) && !ENABLE(TRUSTD_BLOCKING_IN_WEBCONTENT)
     // FIXME: this will not be needed when rdar://74144544 is fixed.
     if (auto trustdExtensionHandle = SandboxExtension::createHandleForMachLookup("com.apple.trustd.agent"_s, std::nullopt))
         parameters.trustdExtensionHandle = WTFMove(*trustdExtensionHandle);
@@ -796,12 +795,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif // !PLATFORM(IOS_FAMILY)
 
 #if PLATFORM(IOS_FAMILY)
-    m_accessibilityEnabledObserver = [[NSNotificationCenter defaultCenter] addObserverForName:(__bridge id)kAXSApplicationAccessibilityEnabledNotification object:nil queue:[NSOperationQueue currentQueue] usingBlock:^(NSNotification *) {
-        if (!_AXSApplicationAccessibilityEnabled())
-            return;
-        for (auto& process : m_processes)
-            process->unblockAccessibilityServerIfNeeded();
-    }];
 #if ENABLE(CFPREFS_DIRECT_MODE)
     m_activationObserver = [[NSNotificationCenter defaultCenter] addObserverForName:@"UIApplicationDidBecomeActiveNotification" object:nil queue:[NSOperationQueue currentQueue] usingBlock:^(NSNotification *notification) {
         startObservingPreferenceChanges();
@@ -877,7 +870,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif // !PLATFORM(IOS_FAMILY)
 
 #if PLATFORM(IOS_FAMILY)
-    [[NSNotificationCenter defaultCenter] removeObserver:m_accessibilityEnabledObserver.get()];
     [[NSNotificationCenter defaultCenter] removeObserver:m_applicationLaunchObserver.get()];
 #endif
 

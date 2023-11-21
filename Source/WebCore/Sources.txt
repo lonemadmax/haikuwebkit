@@ -575,6 +575,7 @@ animation/ElementAnimationRareData.cpp
 animation/FrameRateAligner.cpp
 animation/KeyframeEffect.cpp
 animation/KeyframeEffectStack.cpp
+animation/KeyframeInterpolation.cpp
 animation/ScrollTimeline.cpp
 animation/ViewTimeline.cpp
 animation/WebAnimation.cpp
@@ -1577,6 +1578,7 @@ html/canvas/WebGLTexture.cpp
 html/canvas/WebGLTimerQueryEXT.cpp
 html/canvas/WebGLTransformFeedback.cpp
 html/canvas/WebGLUniformLocation.cpp
+html/canvas/WebGLUtilities.cpp
 html/canvas/WebGLVertexArrayObject.cpp
 html/canvas/WebGLVertexArrayObjectBase.cpp
 html/canvas/WebGLVertexArrayObjectOES.cpp
@@ -2037,6 +2039,8 @@ page/scrolling/ScrollingStateFrameScrollingNode.cpp
 page/scrolling/ScrollingStateNode.cpp
 page/scrolling/ScrollingStateOverflowScrollProxyNode.cpp
 page/scrolling/ScrollingStateOverflowScrollingNode.cpp
+page/scrolling/ScrollingStatePluginHostingNode.cpp
+page/scrolling/ScrollingStatePluginScrollingNode.cpp
 page/scrolling/ScrollingStatePositionedNode.cpp
 page/scrolling/ScrollingStateScrollingNode.cpp
 page/scrolling/ScrollingStateStickyNode.cpp
@@ -2051,6 +2055,8 @@ page/scrolling/ScrollingTreeLatchingController.cpp
 page/scrolling/ScrollingTreeNode.cpp
 page/scrolling/ScrollingTreeOverflowScrollProxyNode.cpp
 page/scrolling/ScrollingTreeOverflowScrollingNode.cpp
+page/scrolling/ScrollingTreePluginHostingNode.cpp
+page/scrolling/ScrollingTreePluginScrollingNode.cpp
 page/scrolling/ScrollingTreePositionedNode.cpp
 page/scrolling/ScrollingTreeScrollingNode.cpp
 page/scrolling/ScrollingTreeScrollingNodeDelegate.cpp
@@ -2098,6 +2104,7 @@ platform/Pasteboard.cpp
 platform/PasteboardCustomData.cpp
 platform/PasteboardWriterData.cpp
 platform/PlatformKeyboardEvent.cpp
+platform/PlatformMediaError.cpp
 platform/PlatformScreen.cpp
 platform/PlatformSpeechSynthesisUtterance.cpp
 platform/PlatformSpeechSynthesisVoice.cpp
@@ -2328,7 +2335,6 @@ platform/graphics/RoundedRect.cpp
 platform/graphics/ShadowBlur.cpp
 platform/graphics/SourceBrush.cpp
 platform/graphics/SourceBufferPrivate.cpp
-platform/graphics/SourceBufferPrivateClient.cpp
 platform/graphics/SourceImage.cpp
 platform/graphics/StringTruncator.cpp
 platform/graphics/SystemFontDatabase.cpp
@@ -2351,6 +2357,8 @@ platform/graphics/controls/MeterPart.cpp
 platform/graphics/controls/ProgressBarPart.cpp
 platform/graphics/controls/SliderTrackPart.cpp
 platform/graphics/cpu/arm/filters/FEBlendNeonApplier.cpp
+platform/graphics/cpu/arm/filters/FECompositeNeonArithmeticApplier.cpp
+platform/graphics/cpu/arm/filters/FELightingNEON.cpp
 platform/graphics/displaylists/DisplayList.cpp
 platform/graphics/displaylists/DisplayListDrawingContext.cpp
 platform/graphics/displaylists/DisplayListItem.cpp
@@ -2394,6 +2402,7 @@ platform/graphics/filters/SpotLightSource.cpp
 platform/graphics/filters/software/FEBlendSoftwareApplier.cpp
 platform/graphics/filters/software/FEColorMatrixSoftwareApplier.cpp
 platform/graphics/filters/software/FEComponentTransferSoftwareApplier.cpp
+platform/graphics/filters/software/FECompositeSoftwareArithmeticApplier.cpp
 platform/graphics/filters/software/FECompositeSoftwareApplier.cpp
 platform/graphics/filters/software/FEConvolveMatrixSoftwareApplier.cpp
 platform/graphics/filters/software/FEDisplacementMapSoftwareApplier.cpp
@@ -3560,7 +3569,6 @@ JSGPUCompilationMessage.cpp
 JSGPUCompilationMessageType.cpp
 JSGPUComputePassDescriptor.cpp
 JSGPUComputePassEncoder.cpp
-JSGPUComputePassTimestampLocation.cpp
 JSGPUComputePassTimestampWrites.cpp
 JSGPUComputePipeline.cpp
 JSGPUComputePipelineDescriptor.cpp
@@ -3626,7 +3634,6 @@ JSGPURenderPassDepthStencilAttachment.cpp
 JSGPURenderPassDescriptor.cpp
 JSGPURenderPassEncoder.cpp
 JSGPURenderPassLayout.cpp
-JSGPURenderPassTimestampLocation.cpp
 JSGPURenderPassTimestampWrites.cpp
 JSGPURenderPipeline.cpp
 JSGPURenderPipelineDescriptor.cpp

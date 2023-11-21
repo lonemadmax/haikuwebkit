@@ -314,17 +314,16 @@ static void setVideoDecoderBehaviors(OptionSet<VideoDecoderBehavior> videoDecode
     if (videoDecoderBehavior.contains(VideoDecoderBehavior::AvoidIOSurface))
         flags |= kVTRestrictions_AvoidIOSurfaceBackings;
 
+#if ENABLE(TRUSTD_BLOCKING_IN_WEBCONTENT)
+    flags |= kVTRestrictions_RegisterLimitedSystemDecodersWithoutValidation;
+#endif
+
     PAL::softLinkVideoToolboxVTRestrictVideoDecoders(flags, allowedCodecTypeList.data(), allowedCodecTypeList.size());
 }
 
 void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& parameters)
 {
     WEBPROCESS_RELEASE_LOG(Process, "WebProcess::platformInitializeWebProcess");
-
-#if USE(EXTENSIONKIT)
-    // Workaround for crash seen when running tests. See rdar://118186487.
-    unsetenv("BSServiceDomains");
-#endif
 
     applyProcessCreationParameters(parameters.auxiliaryProcessParameters);
 
@@ -351,7 +350,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 #endif
 
 #if HAVE(VIDEO_RESTRICTED_DECODING)
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) && !ENABLE(TRUSTD_BLOCKING_IN_WEBCONTENT)
     OSObjectPtr<dispatch_semaphore_t> codeCheckSemaphore;
     if (SandboxExtension::consumePermanently(parameters.trustdExtensionHandle)) {
         // Open up a Mach connection to trustd by doing a code check validation on the main bundle.
@@ -524,7 +523,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 
     WebCore::sleepDisablerClient() = makeUnique<WebSleepDisablerClient>();
 
-#if HAVE(FIG_PHOTO_DECOMPRESSION_SET_HARDWARE_CUTOFF) && !ENABLE(HARDWARE_JPEG)
+#if PLATFORM(MAC) && !ENABLE(HARDWARE_JPEG)
     if (PAL::isMediaToolboxFrameworkAvailable() && PAL::canLoad_MediaToolbox_FigPhotoDecompressionSetHardwareCutoff())
         PAL::softLinkMediaToolboxFigPhotoDecompressionSetHardwareCutoff(kPALFigPhotoContainerFormat_JFIF, INT_MAX);
 #endif
@@ -552,7 +551,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 
     disableURLSchemeCheckInDataDetectors();
 
-#if HAVE(VIDEO_RESTRICTED_DECODING) && PLATFORM(MAC)
+#if HAVE(VIDEO_RESTRICTED_DECODING) && PLATFORM(MAC) && !ENABLE(TRUSTD_BLOCKING_IN_WEBCONTENT)
     if (codeCheckSemaphore)
         dispatch_semaphore_wait(codeCheckSemaphore.get(), DISPATCH_TIME_FOREVER);
 #endif

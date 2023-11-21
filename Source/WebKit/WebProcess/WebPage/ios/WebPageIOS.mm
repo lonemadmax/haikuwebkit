@@ -110,7 +110,7 @@
 #import <WebCore/HTMLSummaryElement.h>
 #import <WebCore/HTMLTextAreaElement.h>
 #import <WebCore/HTMLVideoElement.h>
-#import <WebCore/HandleMouseEventResult.h>
+#import <WebCore/HandleUserInputEventResult.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/Image.h>
@@ -1466,9 +1466,9 @@ void WebPage::selectWithGesture(const IntPoint& point, GestureType gestureType, 
         auto startPosition = VisiblePosition { makeDeprecatedLegacyPosition(markedRange->start) };
         position = std::clamp(position, startPosition, VisiblePosition { makeDeprecatedLegacyPosition(markedRange->end) });
         if (wkGestureState != GestureRecognizerState::Began)
-            flags = distanceBetweenPositions(startPosition, frame->selection().selection().start()) != distanceBetweenPositions(startPosition, position) ? PhraseBoundaryChanged : OptionSet<SelectionFlags> { };
+            flags = distanceBetweenPositions(startPosition, frame->selection().selection().start()) != distanceBetweenPositions(startPosition, position) ? SelectionFlags::PhraseBoundaryChanged : OptionSet<SelectionFlags> { };
         else
-            flags = PhraseBoundaryChanged;
+            flags = SelectionFlags::PhraseBoundaryChanged;
         range = makeSimpleRange(position);
         break;
     }
@@ -1476,7 +1476,7 @@ void WebPage::selectWithGesture(const IntPoint& point, GestureType gestureType, 
     case GestureType::OneFingerTap: {
         auto [adjustedPosition, withinWordBoundary] = wordBoundaryForPositionWithoutCrossingLine(position);
         if (withinWordBoundary == WithinWordBoundary::Yes)
-            flags = WordIsNearTap;
+            flags = SelectionFlags::WordIsNearTap;
         range = makeSimpleRange(adjustedPosition);
         break;
     }
@@ -1865,7 +1865,7 @@ void WebPage::updateSelectionWithTouches(const IntPoint& point, SelectionTouch s
         frame->selection().setSelectedRange(range, position.affinity(), WebCore::FrameSelection::ShouldCloseTyping::Yes, UserTriggered::Yes);
     
     if (selectionFlipped == SelectionWasFlipped::Yes)
-        flags = SelectionFlipped;
+        flags = SelectionFlags::SelectionFlipped;
 
     completionHandler(point, selectionTouch, flags);
 }
@@ -3259,10 +3259,10 @@ static void populateCaretContext(const HitTestResult& hitTestResult, const Inter
 
     bool lineContainsRequestPoint = info.lineCaretExtent.contains(request.point);
     // Force an I-beam cursor if the page didn't request a hand, and we're inside the bounds of the line.
-    if (lineContainsRequestPoint && info.cursor->type() != Cursor::Hand && canForceCaretForPosition(position))
-        info.cursor = Cursor::fromType(Cursor::IBeam);
+    if (lineContainsRequestPoint && info.cursor->type() != Cursor::Type::Hand && canForceCaretForPosition(position))
+        info.cursor = Cursor::fromType(Cursor::Type::IBeam);
 
-    if (!lineContainsRequestPoint && info.cursor->type() == Cursor::IBeam) {
+    if (!lineContainsRequestPoint && info.cursor->type() == Cursor::Type::IBeam) {
         auto approximateLineRectInContentCoordinates = renderer->absoluteBoundingBoxRect();
         approximateLineRectInContentCoordinates.setHeight(renderer->style().computedLineHeight());
         info.lineCaretExtent = view->contentsToRootView(approximateLineRectInContentCoordinates);
@@ -4505,20 +4505,20 @@ void WebPage::willStartUserTriggeredZooming()
 }
 
 #if ENABLE(IOS_TOUCH_EVENTS)
-void WebPage::dispatchAsynchronousTouchEvents(Vector<std::pair<WebTouchEvent, CompletionHandler<void(bool)>>, 1>&& queue)
+void WebPage::dispatchAsynchronousTouchEvents(Vector<EventDispatcher::TouchEventData, 1>&& queue)
 {
-    for (auto& eventAndCallbackID : queue) {
-        bool handled = dispatchTouchEvent(eventAndCallbackID.first);
-        if (auto& completionHandler = eventAndCallbackID.second)
-            completionHandler(handled);
+    for (auto& touchEventData : queue) {
+        auto handleTouchEventResult = dispatchTouchEvent(touchEventData.frameID, touchEventData.event);
+        if (auto& completionHandler = touchEventData.completionHandler)
+            completionHandler(handleTouchEventResult.wasHandled(), handleTouchEventResult.remoteUserInputEventData());
     }
 }
 
-void WebPage::cancelAsynchronousTouchEvents(Vector<std::pair<WebTouchEvent, CompletionHandler<void(bool)>>, 1>&& queue)
+void WebPage::cancelAsynchronousTouchEvents(Vector<EventDispatcher::TouchEventData, 1>&& queue)
 {
-    for (auto& eventAndCallbackID : queue) {
-        if (auto& completionHandler = eventAndCallbackID.second)
-            completionHandler(true);
+    for (auto& touchEventData : queue) {
+        if (auto& completionHandler = touchEventData.completionHandler)
+            completionHandler(true, std::nullopt);
     }
 }
 #endif

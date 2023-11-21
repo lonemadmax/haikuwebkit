@@ -494,7 +494,7 @@ std::optional<Font::Attributes> ArgumentCoder<Font::Attributes>::decode(Decoder&
     if (!origin)
         return std::nullopt;
 
-    std::optional<Font::Interstitial> isInterstitial;
+    std::optional<Font::IsInterstitial> isInterstitial;
     decoder >> isInterstitial;
     if (!isInterstitial)
         return std::nullopt;
@@ -504,7 +504,7 @@ std::optional<Font::Attributes> ArgumentCoder<Font::Attributes>::decode(Decoder&
     if (!visibility)
         return std::nullopt;
 
-    std::optional<Font::OrientationFallback> isTextOrientationFallback;
+    std::optional<Font::IsOrientationFallback> isTextOrientationFallback;
     decoder >> isTextOrientationFallback;
     if (!isTextOrientationFallback)
         return std::nullopt;
@@ -628,7 +628,7 @@ void ArgumentCoder<Cursor>::encode(Encoder& encoder, const Cursor& cursor)
 {
     encoder << cursor.type();
         
-    if (cursor.type() != Cursor::Custom)
+    if (cursor.type() != Cursor::Type::Custom)
         return;
 
     if (cursor.image()->isNull()) {
@@ -650,10 +650,10 @@ bool ArgumentCoder<Cursor>::decode(Decoder& decoder, Cursor& cursor)
     if (!decoder.decode(type))
         return false;
 
-    if (type > Cursor::Custom)
+    if (type > Cursor::Type::Custom)
         return false;
 
-    if (type != Cursor::Custom) {
+    if (type != Cursor::Type::Custom) {
         const Cursor& cursorReference = Cursor::fromType(type);
         // Calling platformCursor here will eagerly create the platform cursor for the cursor singletons inside WebCore.
         // This will avoid having to re-create the platform cursors over and over.
@@ -1976,7 +1976,7 @@ template<class Encoder>
 void ArgumentCoder<PixelBuffer>::encode(Encoder& encoder, const PixelBuffer& pixelBuffer)
 {
     if (LIKELY(is<const ByteArrayPixelBuffer>(pixelBuffer))) {
-        downcast<const ByteArrayPixelBuffer>(pixelBuffer).encode(encoder);
+        encoder << downcast<ByteArrayPixelBuffer>(pixelBuffer);
         return;
     }
     ASSERT_NOT_REACHED();
@@ -1984,7 +1984,7 @@ void ArgumentCoder<PixelBuffer>::encode(Encoder& encoder, const PixelBuffer& pix
 
 std::optional<Ref<PixelBuffer>> ArgumentCoder<PixelBuffer>::decode(Decoder& decoder)
 {
-    return ByteArrayPixelBuffer::decode(decoder);
+    return decoder.decode<Ref<ByteArrayPixelBuffer>>();
 }
 
 template

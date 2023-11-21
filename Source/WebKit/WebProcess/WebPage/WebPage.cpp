@@ -220,7 +220,7 @@
 #include <WebCore/HTMLSelectElement.h>
 #include <WebCore/HTMLTextFormControlElement.h>
 #include <WebCore/HTTPParsers.h>
-#include <WebCore/HandleMouseEventResult.h>
+#include <WebCore/HandleUserInputEventResult.h>
 #include <WebCore/Highlight.h>
 #include <WebCore/HighlightRegistry.h>
 #include <WebCore/HistoryController.h>
@@ -238,6 +238,7 @@
 #include <WebCore/LocalizedStrings.h>
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/MouseEvent.h>
+#include <WebCore/NavigationScheduler.h>
 #include <WebCore/NotImplemented.h>
 #include <WebCore/NotificationController.h>
 #include <WebCore/OriginAccessPatterns.h>
@@ -1052,19 +1053,19 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
 void WebPage::constructFrameTree(WebFrame& parent, const FrameTreeCreationParameters& treeCreationParameters)
 {
-    auto frame = WebFrame::createRemoteSubframe(*this, parent, treeCreationParameters.frameID);
+    auto frame = WebFrame::createRemoteSubframe(*this, parent, treeCreationParameters.frameID, treeCreationParameters.frameName);
     for (auto& parameters : treeCreationParameters.children)
         constructFrameTree(frame, parameters);
 }
 
-void WebPage::createRemoteSubframe(WebCore::FrameIdentifier parentID, WebCore::FrameIdentifier newChildID)
+void WebPage::createRemoteSubframe(WebCore::FrameIdentifier parentID, WebCore::FrameIdentifier newChildID, const String& newChildFrameName)
 {
     RefPtr parentFrame = WebProcess::singleton().webFrame(parentID);
     if (!parentFrame) {
         ASSERT_NOT_REACHED();
         return;
     }
-    WebFrame::createRemoteSubframe(*this, *parentFrame, newChildID);
+    WebFrame::createRemoteSubframe(*this, *parentFrame, newChildID, newChildFrameName);
 }
 
 void WebPage::getFrameInfo(WebCore::FrameIdentifier frameID, CompletionHandler<void(std::optional<FrameInfoData>&&)>&& completionHandler)
@@ -3261,8 +3262,8 @@ void WebPage::markLayersVolatile(CompletionHandler<void(bool)>&& completionHandl
 
 void WebPage::markLayersVolatileOrRetry(MarkLayersVolatileDontRetryReason dontRetryReason)
 {
-    tryMarkLayersVolatile([dontRetryReason, strongThis = Ref { *this }](bool didSucceed) {
-        strongThis->tryMarkLayersVolatileCompletionHandler(dontRetryReason, didSucceed);
+    tryMarkLayersVolatile([dontRetryReason, protectedThis = Ref { *this }](bool didSucceed) {
+        protectedThis->tryMarkLayersVolatileCompletionHandler(dontRetryReason, didSucceed);
     });
 }
 
@@ -3635,25 +3636,29 @@ void WebPage::cancelCurrentInteractionInformationRequest()
 }
 
 #if ENABLE(TOUCH_EVENTS)
-static bool handleTouchEvent(const WebTouchEvent& touchEvent, Page* page)
+static HandleUserInputEventResult handleTouchEvent(FrameIdentifier frameID, const WebTouchEvent& touchEvent, Page* page)
 {
-    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(page->mainFrame());
-    if (!localMainFrame || !localMainFrame->view())
+    RefPtr frame = WebProcess::singleton().webFrame(frameID);
+    if (!frame)
         return false;
 
-    return localMainFrame->eventHandler().handleTouchEvent(platform(touchEvent));
+    RefPtr localFrame = frame->coreLocalFrame();
+    if (!localFrame || !localFrame->view())
+        return false;
+
+    return localFrame->eventHandler().handleTouchEvent(platform(touchEvent));
 }
 #endif
 
 #if ENABLE(IOS_TOUCH_EVENTS)
-bool WebPage::dispatchTouchEvent(const WebTouchEvent& touchEvent)
+HandleUserInputEventResult WebPage::dispatchTouchEvent(FrameIdentifier frameID, const WebTouchEvent& touchEvent)
 {
     SetForScope userIsInteractingChange { m_userIsInteracting, true };
     m_lastInteractionLocation = touchEvent.position();
     CurrentEvent currentEvent(touchEvent);
-    bool handled = handleTouchEvent(touchEvent, m_page.get());
-    updatePotentialTapSecurityOrigin(touchEvent, handled);
-    return handled;
+    auto handleTouchEventResult = handleTouchEvent(frameID, touchEvent, m_page.get());
+    updatePotentialTapSecurityOrigin(touchEvent, handleTouchEventResult.wasHandled());
+    return handleTouchEventResult;
 }
 
 void WebPage::resetPotentialTapSecurityOrigin()
@@ -3684,8 +3689,8 @@ void WebPage::updatePotentialTapSecurityOrigin(const WebTouchEvent& touchEvent, 
         return;
 
     RefPtr touchEventTargetFrame = localMainFrame;
-    while (auto subframe = touchEventTargetFrame->eventHandler().touchEventTargetSubframe())
-        touchEventTargetFrame = subframe;
+    while (RefPtr localSubframe = dynamicDowncast<LocalFrame>(touchEventTargetFrame->eventHandler().touchEventTargetSubframe()))
+        touchEventTargetFrame = WTFMove(localSubframe);
 
     auto& touches = touchEventTargetFrame->eventHandler().touches();
     if (touches.isEmpty())
@@ -3699,9 +3704,13 @@ void WebPage::updatePotentialTapSecurityOrigin(const WebTouchEvent& touchEvent, 
 #elif ENABLE(TOUCH_EVENTS)
 void WebPage::touchEvent(const WebTouchEvent& touchEvent, CompletionHandler<void(std::optional<WebEventType>, bool)>&& completionHandler)
 {
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
+    if (!localMainFrame)
+        return;
+
     CurrentEvent currentEvent(touchEvent);
 
-    bool handled = handleTouchEvent(touchEvent, m_page.get());
+    bool handled = handleTouchEvent(localMainFrame->frameID(), touchEvent, m_page.get()).wasHandled();
 
     completionHandler(touchEvent.type(), handled);
 }
@@ -4314,12 +4323,12 @@ void WebPage::getResourceDataFromFrame(FrameIdentifier frameID, const String& re
     callback(IPC::SharedBufferReference(WTFMove(buffer)));
 }
 
-void WebPage::getWebArchiveOfFrameWithFileName(WebCore::FrameIdentifier frameID, const String& fileName, CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&& completionHandler)
+void WebPage::getWebArchiveOfFrameWithFileName(WebCore::FrameIdentifier frameID, const Vector<WebCore::MarkupExclusionRule>& exclusionRules, const String& fileName, CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&& completionHandler)
 {
     std::optional<IPC::SharedBufferReference> result;
 #if PLATFORM(COCOA)
     if (RefPtr frame = WebProcess::singleton().webFrame(frameID)) {
-        if (RetainPtr<CFDataRef> data = frame->webArchiveData(nullptr, nullptr, fileName))
+        if (RetainPtr<CFDataRef> data = frame->webArchiveData(nullptr, nullptr, exclusionRules, fileName))
             result = IPC::SharedBufferReference(SharedBuffer::create(data.get()));
     }
 #else
@@ -5418,7 +5427,7 @@ void WebPage::changeSelectedIndex(int32_t index)
 }
 
 #if PLATFORM(IOS_FAMILY)
-void WebPage::didChooseFilesForOpenPanelWithDisplayStringAndIcon(const Vector<String>& files, const String& displayString, const IPC::DataReference& iconData, WebKit::SandboxExtension::Handle&& machBootstrapHandle, SandboxExtension::Handle&& frontboardServicesSandboxExtensionHandle, SandboxExtension::Handle&& iconServicesSandboxExtensionHandle)
+void WebPage::didChooseFilesForOpenPanelWithDisplayStringAndIcon(const Vector<String>& files, const String& displayString, const IPC::DataReference& iconData, WebKit::SandboxExtension::Handle&& machBootstrapHandle, SandboxExtension::Handle&& iconServicesSandboxExtensionHandle)
 {
     if (!m_activeOpenPanelResultListener)
         return;
@@ -5428,15 +5437,6 @@ void WebPage::didChooseFilesForOpenPanelWithDisplayStringAndIcon(const Vector<St
         bool consumed = machBootstrapSandboxExtension->consume();
         ASSERT_UNUSED(consumed, consumed);
     }
-
-#if HAVE(FRONTBOARD_SYSTEM_APP_SERVICES)
-    auto frontboardServicesSandboxExtension = SandboxExtension::create(WTFMove(frontboardServicesSandboxExtensionHandle));
-    if (frontboardServicesSandboxExtension) {
-        bool consumed = frontboardServicesSandboxExtension->consume();
-        ASSERT_UNUSED(consumed, consumed);
-    }
-    RELEASE_ASSERT(!sandbox_check(getpid(), "mach-lookup", static_cast<enum sandbox_filter_type>(SANDBOX_FILTER_GLOBAL_NAME | SANDBOX_CHECK_NO_REPORT), "com.apple.frontboard.systemappservices"));
-#endif
 
     auto iconServicesSandboxExtension = SandboxExtension::create(WTFMove(iconServicesSandboxExtensionHandle));
     if (iconServicesSandboxExtension) {
@@ -5456,13 +5456,6 @@ void WebPage::didChooseFilesForOpenPanelWithDisplayStringAndIcon(const Vector<St
 
     m_activeOpenPanelResultListener->didChooseFilesWithDisplayStringAndIcon(files, displayString, icon.get());
     m_activeOpenPanelResultListener = nullptr;
-
-#if HAVE(FRONTBOARD_SYSTEM_APP_SERVICES)
-    if (frontboardServicesSandboxExtension) {
-        bool revoked = frontboardServicesSandboxExtension->revoke();
-        ASSERT_UNUSED(revoked, revoked);
-    }
-#endif
 
     if (iconServicesSandboxExtension) {
         bool revoked = iconServicesSandboxExtension->revoke();
@@ -6942,19 +6935,19 @@ void WebPage::canceledComposition()
     sendEditorStateUpdate();
 }
 
-void WebPage::navigateServiceWorkerClient(ScriptExecutionContextIdentifier documentIdentifier, const URL& url, CompletionHandler<void(bool)>&& callback)
+void WebPage::navigateServiceWorkerClient(ScriptExecutionContextIdentifier documentIdentifier, const URL& url, CompletionHandler<void(WebCore::ScheduleLocationChangeResult)>&& callback)
 {
 #if ENABLE(SERVICE_WORKER)
     RefPtr document = Document::allDocumentsMap().get(documentIdentifier);
     if (!document) {
-        callback(false);
+        callback(WebCore::ScheduleLocationChangeResult::Stopped);
         return;
     }
     document->navigateFromServiceWorker(url, WTFMove(callback));
 #else
     UNUSED_PARAM(documentIdentifier);
     UNUSED_PARAM(url);
-    callback(false);
+    callback(ScheduleLocationChangeResult::Stopped);
 #endif
 }
 

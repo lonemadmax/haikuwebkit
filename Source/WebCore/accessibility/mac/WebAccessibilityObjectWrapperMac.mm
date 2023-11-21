@@ -235,10 +235,6 @@ using namespace WebCore;
 #endif
 
 
-#ifndef NSAccessibilityUIElementCountForSearchPredicateParameterizedAttribute
-#define NSAccessibilityUIElementCountForSearchPredicateParameterizedAttribute @"AXUIElementCountForSearchPredicate"
-#endif
-
 #ifndef NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute
 #define NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute @"AXUIElementsForSearchPredicate"
 #endif
@@ -2396,7 +2392,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
             AXLengthForTextMarkerRangeAttribute,
             NSAccessibilityBoundsForRangeParameterizedAttribute,
             NSAccessibilityStringForRangeParameterizedAttribute,
-            NSAccessibilityUIElementCountForSearchPredicateParameterizedAttribute,
             NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute,
             AXEndTextMarkerForBoundsAttribute,
             AXStartTextMarkerForBoundsAttribute,
@@ -2991,19 +2986,13 @@ enum class TextUnit {
     });
 }
 
-static bool isMatchingPlugin(AXCoreObject* axObject, const AccessibilitySearchCriteria& criteria)
+static bool isMatchingPlugin(AXCoreObject& axObject, const AccessibilitySearchCriteria& criteria)
 {
-    if (!axObject->isWidget())
+    if (!axObject.isPlugin())
         return false;
 
-    return Accessibility::retrieveValueFromMainThread<bool>([&axObject, &criteria] () -> bool {
-        auto* widget = axObject->widget();
-        if (!is<PluginViewBase>(widget))
-            return false;
-
-        return criteria.searchKeys.contains(AccessibilitySearchKey::AnyType)
-            && (!criteria.visibleOnly || downcast<PluginViewBase>(widget)->isVisible());
-    });
+    return criteria.searchKeys.contains(AccessibilitySearchKey::AnyType)
+        && (!criteria.visibleOnly || axObject.isVisible());
 }
 
 ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
@@ -3111,29 +3100,10 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
         return createNSArray(operationResult).autorelease();
     }
 
-    if ([attribute isEqualToString:NSAccessibilityUIElementCountForSearchPredicateParameterizedAttribute]) {
-        AccessibilitySearchCriteria criteria = accessibilitySearchCriteriaForSearchPredicateParameterizedAttribute(dictionary);
-        NSUInteger widgetChildrenSize = 0;
-        if (isMatchingPlugin(backingObject.get(), criteria)) {
-            // FIXME: We should also be searching the tree(s) resulting from `renderWidgetChildren` for matches.
-            // This is tracked by https://bugs.webkit.org/show_bug.cgi?id=230167.
-            if (auto* widgetChildren = [self renderWidgetChildren]) {
-                widgetChildrenSize = [widgetChildren count];
-                if (widgetChildrenSize >= criteria.resultsLimit)
-                    return @(std::min(widgetChildrenSize, NSUInteger(criteria.resultsLimit)));
-                criteria.resultsLimit -= widgetChildrenSize;
-            }
-        }
-
-        AccessibilityObject::AccessibilityChildrenVector results;
-        backingObject->findMatchingObjects(&criteria, results);
-        return @(results.size() + widgetChildrenSize);
-    }
-
     if ([attribute isEqualToString:NSAccessibilityUIElementsForSearchPredicateParameterizedAttribute]) {
         AccessibilitySearchCriteria criteria = accessibilitySearchCriteriaForSearchPredicateParameterizedAttribute(dictionary);
         NSArray *widgetChildren = nil;
-        if (isMatchingPlugin(backingObject.get(), criteria)) {
+        if (isMatchingPlugin(*backingObject, criteria)) {
             // FIXME: We should also be searching the tree(s) resulting from `renderWidgetChildren` for matches.
             // This is tracked by https://bugs.webkit.org/show_bug.cgi?id=230167.
             if (auto* children = [self renderWidgetChildren]) {

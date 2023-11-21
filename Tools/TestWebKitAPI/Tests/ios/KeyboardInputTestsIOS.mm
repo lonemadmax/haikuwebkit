@@ -799,38 +799,6 @@ TEST(KeyboardInputTests, TestWebViewAccessoryDoneDuringStrongPasswordAssistance)
     EXPECT_TRUE([webView _contentViewIsFirstResponder]);
 }
 
-TEST(KeyboardInputTests, SupportsImagePaste)
-{
-    auto inputDelegate = adoptNS([[TestInputDelegate alloc] init]);
-    [inputDelegate setFocusStartsInputSessionPolicyHandler:[&] (WKWebView *, id <_WKFocusedElementInfo>) -> _WKFocusStartsInputSessionPolicy {
-        return _WKFocusStartsInputSessionPolicyAllow;
-    }];
-
-    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 320, 568)]);
-    auto contentView = (id <UITextInputPrivate>)[webView textInputContentView];
-    [webView synchronouslyLoadHTMLString:@"<input id='input'></input><select id='select'></select><div contenteditable id='editor'></div><textarea id='textarea'></textarea>"];
-    [webView _setInputDelegate:inputDelegate.get()];
-
-    [webView stringByEvaluatingJavaScript:@"input.focus()"];
-    EXPECT_TRUE(contentView.supportsImagePaste);
-
-    [webView stringByEvaluatingJavaScript:@"document.activeElement.blur()"];
-    [webView waitForNextPresentationUpdate];
-    [webView stringByEvaluatingJavaScript:@"select.focus()"];
-    EXPECT_FALSE(contentView.supportsImagePaste);
-
-    [webView stringByEvaluatingJavaScript:@"editor.focus()"];
-    EXPECT_TRUE(contentView.supportsImagePaste);
-
-    [webView stringByEvaluatingJavaScript:@"document.activeElement.blur(); input.type = 'color'"];
-    [webView waitForNextPresentationUpdate];
-    [webView stringByEvaluatingJavaScript:@"input.focus()"];
-    EXPECT_FALSE(contentView.supportsImagePaste);
-
-    [webView stringByEvaluatingJavaScript:@"textarea.focus()"];
-    EXPECT_TRUE(contentView.supportsImagePaste);
-}
-
 TEST(KeyboardInputTests, SuppressSoftwareKeyboard)
 {
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 320, 500)]);
@@ -1047,6 +1015,37 @@ TEST(KeyboardInputTests, NoCrashWhenDiscardingMarkedText)
     [webView _close];
 
     Util::runFor(100_ms);
+}
+
+TEST(KeyboardInputTests, CharactersAroundCaretSelection)
+{
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 320, 500)]);
+    auto delegate = adoptNS([TestInputDelegate new]);
+    [webView _setInputDelegate:delegate.get()];
+
+    bool focused = false;
+    [delegate setFocusStartsInputSessionPolicyHandler:[&](WKWebView *, id<_WKFocusedElementInfo>) {
+        focused = true;
+        return _WKFocusStartsInputSessionPolicyAllow;
+    }];
+
+    [webView synchronouslyLoadHTMLString:@"<input autofocus autocapitalize='words' value='foo bar' type='text' />"];
+    Util::run(&focused);
+
+    auto testSelection = [&](unsigned selectionOffset, UTF32Char twoCharactersBefore, UTF32Char characterBefore, UTF32Char characterAfter) {
+        auto script = [NSString stringWithFormat:@"document.querySelector('input').setSelectionRange(%u, %u)", selectionOffset, selectionOffset];
+        [webView objectByEvaluatingJavaScript:script];
+        [webView waitForNextPresentationUpdate];
+
+        auto contentView = [webView textInputContentView];
+        EXPECT_EQ([contentView _characterInRelationToCaretSelection:-2], twoCharactersBefore);
+        EXPECT_EQ([contentView _characterInRelationToCaretSelection:-1], characterBefore);
+        EXPECT_EQ([contentView _characterInRelationToCaretSelection:0], characterAfter);
+    };
+
+    testSelection(1, '\0', 'f', 'o');
+    testSelection(3, 'o', 'o', ' ');
+    testSelection(7, 'a', 'r', '\0');
 }
 
 #if HAVE(REDESIGNED_TEXT_CURSOR)

@@ -80,8 +80,10 @@ GPUProcess/webrtc/RemoteAudioMediaStreamTrackRendererInternalUnitManager.cpp
 Platform/classifier/cocoa/ResourceLoadStatisticsClassifierCocoa.cpp
 Platform/classifier/ResourceLoadStatisticsClassifier.cpp
 
+Platform/cocoa/AssertionCapability.mm @no-unify
 Platform/cocoa/PaymentAuthorizationPresenter.mm
 Platform/cocoa/PaymentAuthorizationViewController.mm
+Platform/cocoa/ProcessCapability.cpp
 Platform/cocoa/WKPaymentAuthorizationDelegate.mm
 Platform/cocoa/WebKitAdditions.mm @no-unify
 Platform/cocoa/WebPrivacyHelpers.mm
@@ -152,8 +154,10 @@ Shared/Cocoa/ARKitSoftLink.mm
 Shared/Cocoa/AuxiliaryProcessCocoa.mm
 Shared/Cocoa/CodeSigning.mm
 Shared/Cocoa/CompletionHandlerCallChecker.mm
+Shared/Cocoa/CoreIPCError.mm
 Shared/Cocoa/CoreTextHelpers.mm
 Shared/Cocoa/DefaultWebBrowserChecks.mm
+Shared/Cocoa/ExtensionKitSoftLink.mm
 Shared/Cocoa/LoadParametersCocoa.mm
 Shared/Cocoa/PDFKitSoftLink.mm
 Shared/Cocoa/RevealItem.mm
@@ -252,6 +256,8 @@ UIProcess/API/C/mac/WKWebsiteDataStoreRefPrivateMac.mm
 UIProcess/API/Cocoa/_WKActivatedElementInfo.mm
 UIProcess/API/Cocoa/_WKAppHighlight.mm
 UIProcess/API/Cocoa/_WKApplicationManifest.mm
+UIProcess/API/Cocoa/_WKArchiveConfiguration.mm
+UIProcess/API/Cocoa/_WKArchiveExclusionRule.mm
 UIProcess/API/Cocoa/_WKAttachment.mm
 UIProcess/API/Cocoa/_WKAutomationSession.mm
 UIProcess/API/Cocoa/_WKAutomationSessionConfiguration.mm
@@ -483,6 +489,7 @@ UIProcess/ios/WKApplicationStateTrackingView.mm
 UIProcess/ios/WKContentView.mm @no-unify
 UIProcess/ios/WKContentViewInteraction.mm @no-unify
 UIProcess/ios/WKDeferringGestureRecognizer.mm
+UIProcess/ios/WKExtendedTextInputTraits.mm
 UIProcess/ios/WKGeolocationProviderIOS.mm
 UIProcess/ios/WKHighlightLongPressGestureRecognizer.mm
 UIProcess/ios/WKImageAnalysisGestureRecognizer.mm
@@ -555,6 +562,7 @@ UIProcess/RemoteLayerTree/mac/RemoteScrollingCoordinatorProxyMac.mm
 UIProcess/RemoteLayerTree/mac/RemoteScrollingTreeMac.mm
 UIProcess/RemoteLayerTree/mac/ScrollingTreeFrameScrollingNodeRemoteMac.cpp
 UIProcess/RemoteLayerTree/mac/ScrollingTreeOverflowScrollingNodeRemoteMac.cpp
+UIProcess/RemoteLayerTree/mac/ScrollingTreePluginScrollingNodeRemoteMac.cpp
 
 UIProcess/RemoteLayerTree/ios/RemoteLayerTreeDrawingAreaProxyIOS.mm
 UIProcess/RemoteLayerTree/ios/RemoteLayerTreeHostIOS.mm
@@ -562,6 +570,7 @@ UIProcess/RemoteLayerTree/ios/RemoteScrollingCoordinatorProxyIOS.mm
 UIProcess/RemoteLayerTree/ios/RemoteScrollingTreeIOS.cpp
 UIProcess/RemoteLayerTree/ios/ScrollingTreeFrameScrollingNodeRemoteIOS.mm
 UIProcess/RemoteLayerTree/ios/ScrollingTreeOverflowScrollingNodeIOS.mm
+UIProcess/RemoteLayerTree/ios/ScrollingTreePluginScrollingNodeIOS.mm
 UIProcess/RemoteLayerTree/ios/ScrollingTreeScrollingNodeDelegateIOS.mm
 
 UIProcess/RemoteLayerTree/RemoteLayerTreeDrawingAreaProxy.mm

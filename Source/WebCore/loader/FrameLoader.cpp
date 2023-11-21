@@ -354,9 +354,10 @@ Ref<LocalFrame> FrameLoader::protectedFrame() const
 
 void FrameLoader::detachFromAllOpenedFrames()
 {
-    for (auto& frame : m_openedFrames)
+    for (auto& frame : m_openedFrames) {
         if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame))
             localFrame->loader().m_opener = nullptr;
+    }
     m_openedFrames.clear();
 }
 
@@ -1425,7 +1426,7 @@ void FrameLoader::loadURL(FrameLoadRequest&& frameLoadRequest, const String& ref
     bool isFormSubmission = formState;
 
     // The search for a target frame is done earlier in the case of form submission.
-    RefPtr targetFrame = isFormSubmission ? nullptr : findFrameForNavigation(effectiveFrameName);
+    RefPtr targetFrame = isFormSubmission ? nullptr : dynamicDowncast<LocalFrame>(findFrameForNavigation(effectiveFrameName));
     if (targetFrame && targetFrame != frame.ptr()) {
         frameLoadRequest.setFrameName(selfTargetFrameName());
         targetFrame->checkedLoader()->loadURL(WTFMove(frameLoadRequest), referrer, newLoadType, event, WTFMove(formState), WTFMove(privateClickMeasurement), completionHandlerCaller.release());
@@ -1536,7 +1537,7 @@ void FrameLoader::load(FrameLoadRequest&& request)
         return;
 
     if (!request.frameName().isEmpty()) {
-        if (RefPtr frame = findFrameForNavigation(request.frameName())) {
+        if (RefPtr frame = dynamicDowncast<LocalFrame>(findFrameForNavigation(request.frameName()))) {
             request.setShouldCheckNewWindowPolicy(false);
             if (&frame->loader() != this) {
                 frame->checkedLoader()->load(WTFMove(request));
@@ -3248,7 +3249,7 @@ void FrameLoader::loadPostRequest(FrameLoadRequest&& request, const String& refe
     workingResourceRequest.setHTTPBody(inRequest.httpBody());
     workingResourceRequest.setHTTPContentType(contentType);
 
-    RefPtr targetFrame = formState || frameName.isEmpty() ? nullptr : findFrameForNavigation(frameName);
+    RefPtr targetFrame = formState || frameName.isEmpty() ? nullptr : dynamicDowncast<LocalFrame>(findFrameForNavigation(frameName));
 
     auto willOpenInNewWindow = !frameName.isEmpty() && !targetFrame ? WillOpenInNewWindow::Yes : WillOpenInNewWindow::No;
     updateRequestAndAddExtraFields(workingResourceRequest, IsMainResource::Yes, loadType, ShouldUpdateAppInitiatedValue::Yes, FrameLoader::IsServiceWorkerNavigationLoad::No, willOpenInNewWindow, &request.requester());
@@ -3987,7 +3988,7 @@ bool FrameLoader::shouldTreatURLAsSrcdocDocument(const URL& url) const
     return ownerElement->hasAttributeWithoutSynchronization(srcdocAttr);
 }
 
-RefPtr<LocalFrame> FrameLoader::findFrameForNavigation(const AtomString& name, Document* activeDocument)
+RefPtr<Frame> FrameLoader::findFrameForNavigation(const AtomString& name, Document* activeDocument)
 {
     // FIXME: Eventually all callers should supply the actual activeDocument so we can call canNavigate with the right document.
     if (!activeDocument)
@@ -3996,9 +3997,8 @@ RefPtr<LocalFrame> FrameLoader::findFrameForNavigation(const AtomString& name, D
     if (!activeDocument)
         return nullptr;
 
-    RefPtr frame = dynamicDowncast<LocalFrame>(m_frame->tree().findBySpecifiedName(name, activeDocument->frame() ? *activeDocument->protectedFrame() : protectedFrame().get()));
-
-    if (!activeDocument->canNavigate(frame.get()))
+    RefPtr frame = m_frame->tree().findBySpecifiedName(name, activeDocument->frame() ? *activeDocument->protectedFrame() : protectedFrame().get());
+    if (!activeDocument->canNavigate(dynamicDowncast<LocalFrame>(frame.get())))
         return nullptr;
 
     return frame;
@@ -4369,7 +4369,7 @@ bool LocalFrameLoaderClient::hasHTMLView() const
     return true;
 }
 
-RefPtr<LocalFrame> createWindow(LocalFrame& openerFrame, LocalFrame& lookupFrame, FrameLoadRequest&& request, WindowFeatures& features, bool& created)
+RefPtr<Frame> createWindow(LocalFrame& openerFrame, LocalFrame& lookupFrame, FrameLoadRequest&& request, WindowFeatures& features, bool& created)
 {
     ASSERT(!features.dialog || request.frameName().isEmpty());
     ASSERT(request.resourceRequest().httpMethod() == "GET"_s);
@@ -4425,12 +4425,12 @@ RefPtr<LocalFrame> createWindow(LocalFrame& openerFrame, LocalFrame& lookupFrame
     if (!page)
         return nullptr;
 
-    RefPtr frame = dynamicDowncast<LocalFrame>(page->mainFrame());
-    if (!frame)
-        return nullptr;
+    Ref frame = page->mainFrame();
 
-    if (isDocumentSandboxed(openerFrame, SandboxPropagatesToAuxiliaryBrowsingContexts))
-        frame->checkedLoader()->forceSandboxFlags(openerFrame.document()->sandboxFlags());
+    if (isDocumentSandboxed(openerFrame, SandboxPropagatesToAuxiliaryBrowsingContexts)) {
+        if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame))
+            localFrame->checkedLoader()->forceSandboxFlags(openerFrame.document()->sandboxFlags());
+    }
 
     if (!isBlankTargetFrameName(request.frameName()))
         frame->tree().setSpecifiedName(request.frameName());
@@ -4498,7 +4498,8 @@ RefPtr<LocalFrame> createWindow(LocalFrame& openerFrame, LocalFrame& lookupFrame
         arguments.width = *features.width;
     if (features.height && *features.height)
         arguments.height = *features.height;
-    frame->setViewportArguments(arguments);
+    if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame))
+        localFrame->setViewportArguments(arguments);
 #endif
 
     if (!frame->page())

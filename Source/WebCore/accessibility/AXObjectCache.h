@@ -59,6 +59,7 @@ class Page;
 class RenderBlock;
 class RenderObject;
 class RenderText;
+class RenderWidget;
 class Scrollbar;
 class ScrollView;
 class VisiblePosition;
@@ -203,6 +204,7 @@ public:
     void onTitleChange(Document&);
     void onValidityChange(Element&);
     void onTextCompositionChange(Node&, CompositionState, bool, const String&, size_t, bool);
+    void onWidgetVisibilityChanged(RenderWidget*);
     void valueChanged(Element*);
     void checkedStateChanged(Node*);
     void autofillTypeChanged(Node*);
@@ -275,7 +277,7 @@ public:
     bool nodeIsTextControl(const Node*);
 
     AccessibilityObject* objectForID(const AXID id) const { return m_objects.get(id); }
-    Vector<RefPtr<AXCoreObject>> objectsForIDs(const Vector<AXID>&) const;
+    template<typename U> Vector<RefPtr<AXCoreObject>> objectsForIDs(const U&) const;
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     void onPaint(const RenderObject&, IntRect&&) const;
@@ -345,6 +347,7 @@ public:
         AXColumnCountChanged,
         AXColumnIndexChanged,
         AXColumnSpanChanged,
+        AXContentEditableAttributeChanged,
         AXControlledObjectsChanged,
         AXCurrentStateChanged,
         AXDescribedByChanged,
@@ -386,6 +389,7 @@ public:
         AXTextCompositionEnded,
         AXURLChanged,
         AXValueChanged,
+        AXVisibilityChanged,
         AXScrolledToAnchor,
         AXLabelCreated,
         AXLiveRegionCreated,
@@ -480,7 +484,7 @@ public:
     AXTreeData treeData();
 
     // Returns the IDs of the objects that relate to the given object with the specified relationship.
-    std::optional<Vector<AXID>> relatedObjectIDsFor(const AXCoreObject&, AXRelationType);
+    std::optional<ListHashSet<AXID>> relatedObjectIDsFor(const AXCoreObject&, AXRelationType);
     void updateRelations(Element&, const QualifiedName&);
 
 #if PLATFORM(IOS_FAMILY)
@@ -629,10 +633,10 @@ private:
     // Relationships between objects.
     static Vector<QualifiedName>& relationAttributes();
     static AXRelationType attributeToRelationType(const QualifiedName&);
-    enum class AddingSymmetricRelation : bool { No, Yes };
+    enum class AddSymmetricRelation : bool { No, Yes };
     static AXRelationType symmetricRelation(AXRelationType);
     void addRelation(Element*, Element*, AXRelationType);
-    void addRelation(AccessibilityObject*, AccessibilityObject*, AXRelationType, AddingSymmetricRelation = AddingSymmetricRelation::No);
+    void addRelation(AccessibilityObject*, AccessibilityObject*, AXRelationType, AddSymmetricRelation = AddSymmetricRelation::Yes);
     void removeRelationByID(AXID originID, AXID targetID, AXRelationType);
     void addRelations(Element&, const QualifiedName&);
     void removeRelations(Element&, AXRelationType);
@@ -729,6 +733,18 @@ private:
 #endif
 };
 
+template<typename U>
+inline Vector<RefPtr<AXCoreObject>> AXObjectCache::objectsForIDs(const U& axIDs) const
+{
+    ASSERT(isMainThread());
+
+    return WTF::compactMap(axIDs, [&](auto& axID) -> std::optional<RefPtr<AXCoreObject>> {
+        if (auto* object = objectForID(axID))
+            return RefPtr { object };
+        return std::nullopt;
+    });
+}
+
 class AXAttributeCacheEnabler
 {
 public:
@@ -793,6 +809,7 @@ inline void AXObjectCache::onFocusChange(Node*, Node*) { }
 inline void AXObjectCache::onPageActivityStateChange(OptionSet<ActivityState>) { }
 inline void AXObjectCache::onPopoverToggle(const HTMLElement&) { }
 inline void AXObjectCache::onScrollbarFrameRectChange(const Scrollbar&) { }
+inline void AXObjectCache::onWidgetVisibilityChanged(RenderWidget*) { }
 inline void AXObjectCache::deferRecomputeIsIgnoredIfNeeded(Element*) { }
 inline void AXObjectCache::deferRecomputeIsIgnored(Element*) { }
 inline void AXObjectCache::deferTextChangedIfNeeded(Node*) { }
@@ -820,7 +837,6 @@ inline void AXObjectCache::onScrollbarUpdate(ScrollView*) { }
 inline void AXObjectCache::handleScrolledToAnchor(const Node*) { }
 inline void AXObjectCache::liveRegionChangedNotificationPostTimerFired() { }
 inline void AXObjectCache::notificationPostTimerFired() { }
-inline Vector<RefPtr<AXCoreObject>> AXObjectCache::objectsForIDs(const Vector<AXID>&) const { return { }; }
 inline void AXObjectCache::passwordNotificationPostTimerFired() { }
 inline void AXObjectCache::performDeferredCacheUpdate() { }
 inline void AXObjectCache::postLiveRegionChangeNotification(AccessibilityObject*) { }
@@ -838,7 +854,7 @@ inline void AXObjectCache::handleRecomputeCellSlots(AccessibilityTable&) { }
 inline void AXObjectCache::onRendererCreated(Element&) { }
 inline void AXObjectCache::updateLoadingProgress(double) { }
 inline SimpleRange AXObjectCache::rangeForNodeContents(Node& node) { return makeRangeSelectingNodeContents(node); }
-inline std::optional<Vector<AXID>> AXObjectCache::relatedObjectIDsFor(const AXCoreObject&, AXRelationType) { return std::nullopt; }
+inline std::optional<ListHashSet<AXID>> AXObjectCache::relatedObjectIDsFor(const AXCoreObject&, AXRelationType) { return std::nullopt; }
 inline void AXObjectCache::updateRelations(Element&, const QualifiedName&) { }
 inline void AXObjectCache::remove(AXID) { }
 inline void AXObjectCache::remove(RenderObject*) { }

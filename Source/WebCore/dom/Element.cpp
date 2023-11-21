@@ -2430,6 +2430,11 @@ void Element::invalidateStyleInternal()
     Node::invalidateStyle(Style::Validity::ElementInvalid);
 }
 
+void Element::invalidateStyleForAnimation()
+{
+    Node::invalidateStyle(Style::Validity::AnimationInvalid);
+}
+
 void Element::invalidateStyleForSubtreeInternal()
 {
     Node::invalidateStyle(Style::Validity::SubtreeInvalid);
@@ -2999,8 +3004,7 @@ ShadowRoot& Element::createUserAgentShadowRoot()
 
 inline void Node::setCustomElementState(CustomElementState state)
 {
-    RELEASE_ASSERT(is<Element>(this));
-    Style::PseudoClassChangeInvalidation styleInvalidation(downcast<Element>(*this),
+    Style::PseudoClassChangeInvalidation styleInvalidation(checkedDowncast<Element>(*this),
         CSSSelector::PseudoClassType::Defined,
         state == CustomElementState::Custom || state == CustomElementState::Uncustomized
     );
@@ -4628,6 +4632,23 @@ void Element::setLastStyleChangeEventStyle(PseudoId pseudoId, std::unique_ptr<co
         ensureAnimationRareData(pseudoId).setLastStyleChangeEventStyle(WTFMove(style));
 }
 
+bool Element::hasPropertiesOverridenAfterAnimation(PseudoId pseudoId) const
+{
+    if (auto* animationData = animationRareData(pseudoId))
+        return animationData->hasPropertiesOverridenAfterAnimation();
+    return false;
+}
+
+void Element::setHasPropertiesOverridenAfterAnimation(PseudoId pseudoId, bool value)
+{
+    if (auto* animationData = animationRareData(pseudoId)) {
+        animationData->setHasPropertiesOverridenAfterAnimation(value);
+        return;
+    }
+    if (value)
+        ensureAnimationRareData(pseudoId).setHasPropertiesOverridenAfterAnimation(true);
+}
+
 void Element::cssAnimationsDidUpdate(PseudoId pseudoId)
 {
     ensureAnimationRareData(pseudoId).cssAnimationsDidUpdate();
@@ -5399,10 +5420,10 @@ void Element::setAttributeStyleMap(Ref<StylePropertyMap>&& map)
 
 void Element::ensureFormAssociatedCustomElement()
 {
-    RELEASE_ASSERT(is<HTMLMaybeFormAssociatedCustomElement>(*this));
+    auto& customElement = checkedDowncast<HTMLMaybeFormAssociatedCustomElement>(*this);
     auto& data = ensureElementRareData();
     if (!data.formAssociatedCustomElement())
-        data.setFormAssociatedCustomElement(makeUniqueWithoutRefCountedCheck<FormAssociatedCustomElement>(downcast<HTMLMaybeFormAssociatedCustomElement>(*this)));
+        data.setFormAssociatedCustomElement(makeUniqueWithoutRefCountedCheck<FormAssociatedCustomElement>(customElement));
 }
 
 FormAssociatedCustomElement& Element::formAssociatedCustomElementUnsafe() const

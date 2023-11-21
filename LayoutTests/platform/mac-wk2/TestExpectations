@@ -615,6 +615,8 @@ imported/w3c/web-platform-tests/css/css-scroll-snap/snap-inline-block.html [ Fai
 imported/w3c/web-platform-tests/css/css-transforms/transform3d-preserve3d-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-element.html [ Failure ]
 
+webkit.org/b/260640 [ Release arm64 ] editing/execCommand/apply-inline-style-to-element-with-no-renderer-crash.html [ Pass Failure ]
+
 ### END OF (1) Classified failures with bug reports
 ########################################
 
@@ -1540,6 +1542,9 @@ webkit.org/b/236328 [ Monterey ] webaudio/decode-audio-data-webm-vorbis.html [ F
 
 webkit.org/b/232497 [ BigSur Debug ] media/media-source/media-source-istypesupported-case-sensitive.html [ Pass Crash ]
 
+# Need to handle object fit MSE for non UI-side compositing
+webkit.org/b/264944 [ Monterey Ventura ] http/tests/media/media-source/media-source-video-fit-fill.html [ Failure ]
+
 fast/text/install-font-style-recalc.html [ Pass ]
 
 webkit.org/b/238880 [ Monterey+ Release ] imported/w3c/web-platform-tests/css/css-text/white-space/pre-wrap-012.html [ Pass ImageOnlyFailure ]
@@ -1802,8 +1807,6 @@ webkit.org/b/259740 [ Ventura Release arm64 ] css3/color-filters/color-filter-ou
 
 webkit.org/b/260113 [ arm64 ] http/wpt/webauthn/ctap-hid-failure.https.html [ Pass Failure ]
 
-webkit.org/b/260225 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-GC.https.html [ Pass Failure ]
-
 # rdar://102425691 ([ New Test ](256068@main): [ Ventura+ ] http/wpt/webcodecs/videoFrame-colorSpace.html is a consistent failure)
 [ Ventura+ ] http/wpt/webcodecs/videoFrame-colorSpace.html [ Pass Failure ]
 
@@ -1925,8 +1928,6 @@ webkit.org/b/261344 requestidlecallback/requestidlecallback-does-not-block-timer
 
 webkit.org/b/261906 imported/w3c/web-platform-tests/editing/run/forwarddelete.html?6001-last [ Slow ]
 
-webkit.org/b/262079 [ Ventura+ arm64 ] fast/gradients/alpha-premultiplied-representable-by-unpremultiplied.html [ ImageOnlyFailure ]
-
 # webkit.org/b/262216 (REGRESSION(268472@main): 5 tests under http/tests/contentextensions/ are consistently failing.)
 http/tests/contentextensions/main-resource-redirect-blocked.py [ Pass Failure ]
 http/tests/contentextensions/main-resource-redirect-error.html [ Pass Failure ]
@@ -1950,8 +1951,6 @@ webkit.org/b/262411 [ Sonoma+ ] fast/scrolling/scroll-to-anchor-zoomed-header.ht
 [ Sonoma+ ] fast/attachment/cocoa/wide-attachment-rendering.html [ Failure ]
 
 webkit.org/b/263049 [ Sonoma+ ] fast/forms/scroll-into-view-and-show-validation-message.html [ Pass Failure ]
-
-webkit.org/b/263095 [ Sonoma+ ] svg/clip-path/clip-path-objectboundingbox-003.svg [ Pass ImageOnlyFailure ]
 
 webkit.org/b/263136 [ Sonoma+ ] imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-011.html [ ImageOnlyFailure ]
 
@@ -1996,6 +1995,4 @@ webkit.org/b/264306 [ Sonoma+ ] fast/scrolling/mac/scrollbars/very-wide-overlay-
 
 webkit.org/b/264362 [ Sonoma+ ] fast/rendering/render-style-null-optgroup-crash.html [ Pass Failure ]
 
-webkit.org/b/264615 [ Sonoma+ Release x86_64 ] fast/text/canvas-color-fonts/stroke-gradient-COLR.html [ Failure ]
-
-webkit.org/b/264751 fast/frames/iframe-window-focus.html [ Pass Failure ]
+webkit.org/b/264783 [ Monterey+ x86_64 ] http/wpt/mediarecorder/record-context-created-late.html [ Failure ]

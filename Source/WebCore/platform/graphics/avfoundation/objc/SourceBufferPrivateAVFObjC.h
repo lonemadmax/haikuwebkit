@@ -153,15 +153,11 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
 private:
     explicit SourceBufferPrivateAVFObjC(MediaSourcePrivateAVFObjC&, Ref<SourceBufferParser>&&);
 
-    using InitializationSegment = SourceBufferPrivateClient::InitializationSegment;
-    void didParseInitializationData(InitializationSegment&&);
-    void didEncounterErrorDuringParsing(int32_t);
     void didProvideMediaDataForTrackId(Ref<MediaSampleAVFObjC>&&, uint64_t trackId, const String& mediaType);
     bool isMediaSampleAllowed(const MediaSample&) const final;
-    void didUpdateFormatDescriptionForTrackId(Ref<TrackInfo>&&, uint64_t);
 
     // SourceBufferPrivate overrides
-    void appendInternal(Ref<SharedBuffer>&&) final;
+    Ref<MediaPromise> appendInternal(Ref<SharedBuffer>&&) final;
     void abort() final;
     void resetParserStateInternal() final;
     MediaPlayer::ReadyState readyState() const final;
@@ -177,11 +173,15 @@ private:
     bool canSwitchToType(const ContentType&) final;
     bool isSeeking() const final;
 
+    bool precheckInitialisationSegment(const InitializationSegment&) final;
+    void processInitialisationSegment(std::optional<InitializationSegment>&&) final;
+    void processFormatDescriptionForTrackId(Ref<TrackInfo>&&, uint64_t) final;
+
     void processPendingTrackChangeTasks();
     void enqueueSample(Ref<MediaSampleAVFObjC>&&, uint64_t trackID);
     void enqueueSampleBuffer(MediaSampleAVFObjC&);
     void didBecomeReadyForMoreSamples(uint64_t trackID);
-    void appendCompleted();
+    void appendCompleted(bool);
     void destroyStreamDataParser();
     void destroyRenderers();
     void clearTracks();
@@ -200,7 +200,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     void keyStatusesChanged();
 #endif
 
-    void setTrackChangeCallbacks(const Vector<Ref<TrackPrivateBase>>& tracks, bool initialized);
+    void setTrackChangeCallbacks(const InitializationSegment&, bool initialized);
 
     HashMap<AtomString, RefPtr<VideoTrackPrivate>> m_videoTracks;
     HashMap<AtomString, RefPtr<AudioTrackPrivate>> m_audioTracks;
@@ -248,7 +248,6 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
 
     std::optional<FloatSize> m_cachedSize;
     FloatSize m_currentSize;
-    bool m_parsingSucceeded { true };
     bool m_waitingForKey { true };
     bool m_seeking { false };
     bool m_layerRequiresFlush { false };

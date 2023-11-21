@@ -113,20 +113,18 @@ void MockMediaSourcePrivate::notifyActiveSourceBuffersChanged()
     m_player.notifyActiveSourceBuffersChanged();
 }
 
-void MockMediaSourcePrivate::waitForTarget(const SeekTarget& target, CompletionHandler<void(const MediaTime&)>&& completionHandler)
+Ref<MediaTimePromise> MockMediaSourcePrivate::waitForTarget(const SeekTarget& target)
 {
-    if (m_client)
-        m_client->waitForTarget(target, WTFMove(completionHandler));
-    else
-        completionHandler(MediaTime::invalidTime());
+    if (!m_client)
+        return MediaTimePromise::createAndReject(PlatformMediaError::ClientDisconnected);
+    return m_client->waitForTarget(target);
 }
 
-void MockMediaSourcePrivate::seekToTime(const MediaTime& time, CompletionHandler<void()>&& completionHandler)
+Ref<MediaPromise> MockMediaSourcePrivate::seekToTime(const MediaTime& time)
 {
-    if (m_client)
-        m_client->seekToTime(time, WTFMove(completionHandler));
-    else
-        completionHandler();
+    if (!m_client)
+        return MediaPromise::createAndReject(PlatformMediaError::ClientDisconnected);
+    return m_client->seekToTime(time);
 }
 
 MediaTime MockMediaSourcePrivate::currentMediaTime() const

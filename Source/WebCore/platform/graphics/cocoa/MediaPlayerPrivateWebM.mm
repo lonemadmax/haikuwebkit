@@ -58,6 +58,7 @@
 #import <pal/avfoundation/MediaTimeAVFoundation.h>
 #import <pal/spi/cocoa/AVFoundationSPI.h>
 #import <wtf/MainThread.h>
+#import <wtf/NativePromise.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/WeakPtr.h>
 #import <wtf/WorkQueue.h>
@@ -111,8 +112,6 @@ MediaPlayerPrivateWebM::~MediaPlayerPrivateWebM()
     clearTracks();
 
     cancelLoad();
-    abort();
-    resetParserState();
 }
 
 #if HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
@@ -213,8 +212,6 @@ void MediaPlayerPrivateWebM::loadFailed(const ResourceError& error)
 void MediaPlayerPrivateWebM::loadFinished(const FragmentedSharedBuffer&)
 {
     ALWAYS_LOG(LOGIDENTIFIER);
-    if (m_readyState >= MediaPlayer::ReadyState::HaveMetadata)
-        setNetworkState(MediaPlayer::NetworkState::Idle);
     m_loadFinished = true;
 }
 
@@ -331,7 +328,13 @@ const PlatformTimeRanges& MediaPlayerPrivateWebM::buffered() const
 
 void MediaPlayerPrivateWebM::setBufferedRanges(PlatformTimeRanges timeRanges)
 {
+    if (m_buffered == timeRanges)
+        return;
     m_buffered = WTFMove(timeRanges);
+    if (auto player = m_player.get()) {
+        player->bufferedTimeRangesChanged();
+        player->seekableTimeRangesChanged();
+    }
 }
 
 void MediaPlayerPrivateWebM::updateBufferedFromTrackBuffers(bool ended)
@@ -375,7 +378,7 @@ void MediaPlayerPrivateWebM::updateDurationFromTrackBuffers()
             continue;
         highestEndTime = std::max(highestEndTime, trackBuffer->highestPresentationTimestamp());
     }
-    
+
     setDuration(WTFMove(highestEndTime));
 }
 
@@ -517,7 +520,7 @@ void MediaPlayerPrivateWebM::setNaturalSize(FloatSize size)
     if (m_readyState < MediaPlayer::ReadyState::HaveMetadata)
         setReadyState(MediaPlayer::ReadyState::HaveMetadata);
 
-    if (m_loadFinished)
+    if (m_delayedIdle)
         setNetworkState(MediaPlayer::NetworkState::Idle);
 }
 
@@ -593,6 +596,8 @@ void MediaPlayerPrivateWebM::setDuration(MediaTime duration)
 
 void MediaPlayerPrivateWebM::setNetworkState(MediaPlayer::NetworkState state)
 {
+    if (state == MediaPlayer::NetworkState::Idle)
+        m_delayedIdle = false;
     if (state == m_networkState)
         return;
 
@@ -883,13 +888,16 @@ void MediaPlayerPrivateWebM::didBecomeReadyForMoreSamples(uint64_t trackId)
     provideMediaData(trackId);
 }
 
-void MediaPlayerPrivateWebM::appendCompleted()
+void MediaPlayerPrivateWebM::appendCompleted(bool success)
 {
     ASSERT(m_pendingAppends > 0);
     m_pendingAppends--;
     INFO_LOG(LOGIDENTIFIER, "pending appends = ", m_pendingAppends);
     setLoadingProgresssed(true);
-    updateBufferedFromTrackBuffers(true);
+    m_errored |= !success;
+    if (!m_errored)
+        updateBufferedFromTrackBuffers(m_loadFinished && !m_pendingAppends);
+
     if (m_loadFinished && !m_pendingAppends) {
         if (!m_hasVideo && !m_hasAudio) {
             ERROR_LOG(LOGIDENTIFIER, "could not load audio or video tracks");
@@ -897,7 +905,16 @@ void MediaPlayerPrivateWebM::appendCompleted()
             setReadyState(MediaPlayer::ReadyState::HaveNothing);
             return;
         }
-        
+        if (m_errored) {
+            ERROR_LOG(LOGIDENTIFIER, "parsing error");
+            setNetworkState(m_readyState >= MediaPlayer::ReadyState::HaveMetadata ? MediaPlayer::NetworkState::DecodeError : MediaPlayer::NetworkState::FormatError);
+            return;
+        }
+        if (m_readyState >= MediaPlayer::ReadyState::HaveMetadata)
+            setNetworkState(MediaPlayer::NetworkState::Idle);
+        else
+            m_delayedIdle = true;
+
         updateDurationFromTrackBuffers();
     }
 }
@@ -1075,16 +1092,9 @@ void MediaPlayerPrivateWebM::didParseInitializationData(InitializationSegment&& 
                 player->addAudioTrack(*track);
         }
     }
-    
+
     if (m_hasAudio && !m_hasVideo)
         setReadyState(MediaPlayer::ReadyState::HaveMetadata);
-}
-
-void MediaPlayerPrivateWebM::didEncounterErrorDuringParsing(int32_t code)
-{
-    ERROR_LOG(LOGIDENTIFIER, code);
-
-    m_parsingSucceeded = false;
 }
 
 void MediaPlayerPrivateWebM::didProvideMediaDataForTrackId(Ref<MediaSampleAVFObjC>&& originalSample, uint64_t trackId, const String& mediaType)
@@ -1136,60 +1146,29 @@ void MediaPlayerPrivateWebM::append(SharedBuffer& buffer)
 
     setNetworkState(MediaPlayer::NetworkState::Loading);
 
-    m_parser->setDidParseInitializationDataCallback([weakThis = WeakPtr { *this }, abortCalled = m_abortCalled.load()] (InitializationSegment&& segment) {
-        if (!weakThis || abortCalled != weakThis->m_abortCalled)
+    m_parser->setDidParseInitializationDataCallback([weakThis = WeakPtr { *this }] (InitializationSegment&& segment) {
+        if (!weakThis)
             return;
 
         weakThis->didParseInitializationData(WTFMove(segment));
     });
 
-    m_parser->setDidEncounterErrorDuringParsingCallback([weakThis = WeakPtr { *this }, abortCalled = m_abortCalled.load()] (int32_t errorCode) {
-        if (!weakThis || abortCalled != weakThis->m_abortCalled)
-            return;
-        weakThis->didEncounterErrorDuringParsing(errorCode);
-    });
-
-    m_parser->setDidProvideMediaDataCallback([weakThis = WeakPtr { *this }, abortCalled = m_abortCalled.load()] (Ref<MediaSampleAVFObjC>&& sample, uint64_t trackId, const String& mediaType) {
-        if (!weakThis || abortCalled != weakThis->m_abortCalled)
+    m_parser->setDidProvideMediaDataCallback([weakThis = WeakPtr { *this }] (Ref<MediaSampleAVFObjC>&& sample, uint64_t trackId, const String& mediaType) {
+        if (!weakThis)
             return;
         weakThis->didProvideMediaDataForTrackId(WTFMove(sample), trackId, mediaType);
     });
 
-    m_parsingSucceeded = true;
     m_pendingAppends++;
 
     SourceBufferParser::Segment segment(Ref { buffer });
-    m_appendQueue->dispatch([weakThis = WeakPtr { *this }, this, segment = WTFMove(segment), parser = m_parser, abortCalled = m_abortCalled.load()]() mutable {
-        // Our destructor ensures all dispatched lambdas are executed before destruction
-        ASSERT(weakThis);
-        if (abortCalled != m_abortCalled)
+    invokeAsync(m_appendQueue, [segment = WTFMove(segment), parser = m_parser]() mutable {
+        return MediaPromise::createAndSettle(parser->appendData(WTFMove(segment)));
+    })->whenSettled(RunLoop::current(), [weakThis = WeakPtr { *this }](auto&& result) {
+        if (!weakThis)
             return;
-        parser->appendData(WTFMove(segment), [weakThis = WTFMove(weakThis), abortCalled]() mutable {
-            callOnMainThread([weakThis = WTFMove(weakThis), abortCalled] {
-                if (!weakThis || abortCalled != weakThis->m_abortCalled)
-                    return;
-
-                weakThis->appendCompleted();
-            });
-        });
+        weakThis->appendCompleted(!!result);
     });
-}
-
-void MediaPlayerPrivateWebM::abort()
-{
-    ERROR_LOG(LOGIDENTIFIER);
-
-    m_abortCalled++;
-}
-
-void MediaPlayerPrivateWebM::resetParserState()
-{
-    ALWAYS_LOG(LOGIDENTIFIER);
-
-    // Wait until all tasks in the workqueue have run.
-    m_appendQueue->dispatchSync([] { });
-    m_processingInitializationSegment = false;
-    m_parser->resetParserState();
 }
 
 void MediaPlayerPrivateWebM::flush()

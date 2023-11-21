@@ -286,6 +286,7 @@ enum class ReferrerPolicySource : uint8_t;
 enum class RouteSharingPolicy : uint8_t;
 enum class ShouldOpenExternalURLsPolicy : uint8_t;
 enum class RenderingUpdateStep : uint32_t;
+enum class ScheduleLocationChangeResult : uint8_t;
 enum class StyleColorOptions : uint8_t;
 enum class MutationObserverOptionType : uint8_t;
 enum class ViolationReportType : uint8_t;
@@ -507,7 +508,7 @@ public:
     WEBCORE_EXPORT String characterSetWithUTF8Fallback() const;
     inline PAL::TextEncoding textEncoding() const;
 
-    inline AtomString encoding() const;
+    WEBCORE_EXPORT AtomString encoding() const;
 
     WEBCORE_EXPORT void setCharset(const String&); // Used by ObjC / GOBject bindings only.
 
@@ -657,6 +658,7 @@ public:
     inline Page* page() const; // Defined in Page.h.
     inline CheckedPtr<Page> checkedPage() const; // Defined in Page.h.
     const Settings& settings() const { return m_settings.get(); }
+    Ref<Settings> protectedSettings() const;
     EditingBehavior editingBehavior() const;
 
     Quirks& quirks() { return m_quirks; }
@@ -1098,7 +1100,7 @@ public:
     const URL& firstPartyForCookies() const { return m_firstPartyForCookies; }
     void setFirstPartyForCookies(const URL& url) { m_firstPartyForCookies = url; }
 
-    bool isFullyActive() const;
+    WEBCORE_EXPORT bool isFullyActive() const;
 
     // The full URL corresponding to the "site for cookies" in the Same-Site Cookies spec.,
     // <https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site-00>. It is either
@@ -1703,7 +1705,7 @@ public:
 #if ENABLE(SERVICE_WORKER)
     void setServiceWorkerConnection(RefPtr<SWClientConnection>&&);
     void updateServiceWorkerClientData() final;
-    WEBCORE_EXPORT void navigateFromServiceWorker(const URL&, CompletionHandler<void(bool)>&&);
+    WEBCORE_EXPORT void navigateFromServiceWorker(const URL&, CompletionHandler<void(ScheduleLocationChangeResult)>&&);
 #endif
 
 #if ENABLE(VIDEO)
@@ -2496,5 +2498,9 @@ WTF::TextStream& operator<<(WTF::TextStream&, const Document&);
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::Document)
     static bool isType(const WebCore::ScriptExecutionContext& context) { return context.isDocument(); }
     static bool isType(const WebCore::Node& node) { return node.isDocumentNode(); }
-    static bool isType(const WebCore::EventTarget& target) { return is<WebCore::Node>(target) && isType(downcast<WebCore::Node>(target)); }
+    static bool isType(const WebCore::EventTarget& target)
+    {
+        auto* node = dynamicDowncast<WebCore::Node>(target);
+        return node && isType(*node);
+    }
 SPECIALIZE_TYPE_TRAITS_END()

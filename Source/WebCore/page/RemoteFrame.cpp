@@ -57,7 +57,6 @@ RemoteFrame::RemoteFrame(Page& page, UniqueRef<RemoteFrameClient>&& client, Fram
     , m_client(WTFMove(client))
     , m_layerHostingContextIdentifier(layerHostingContextIdentifier)
 {
-    // FIXME: We need a corresponding setView(nullptr) during teardown to break the ref cycle. <rdar://116200737>
     setView(RemoteFrameView::create(*this));
 }
 
@@ -71,6 +70,11 @@ DOMWindow* RemoteFrame::virtualWindow() const
 RemoteDOMWindow& RemoteFrame::window() const
 {
     return m_window.get();
+}
+
+void RemoteFrame::disconnectView()
+{
+    m_view = nullptr;
 }
 
 void RemoteFrame::didFinishLoadInAnotherProcess()

@@ -28,9 +28,11 @@
 #if ENABLE(WEBXR) && USE(ARKITXR_IOS)
 
 #import <Metal/Metal.h>
+#import <UIKit/UIKit.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
+@class ARFrame;
 @class ARSession;
 
 @interface WKARPresentationSessionDescriptor : NSObject <NSCopying>
@@ -41,6 +43,7 @@ NS_ASSUME_NONNULL_BEGIN
 @end
 
 @protocol WKARPresentationSession <NSObject>
+@property (nonatomic, retain, readonly) ARFrame *currentFrame;
 @property (nonatomic, retain, readonly) ARSession *session;
 @property (nonatomic, nonnull, retain, readonly) id<MTLSharedEvent> completionEvent;
 @property (nonatomic, nullable, retain, readonly) id<MTLTexture> colorTexture;

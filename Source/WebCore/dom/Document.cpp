@@ -1696,6 +1696,12 @@ String Document::contentType() const
     return "application/xml"_s;
 }
 
+AtomString Document::encoding() const
+{
+    auto encoding = textEncoding().domName();
+    return encoding.isNull() ? nullAtom() : AtomString { encoding };
+}
+
 RefPtr<Range> Document::caretRangeFromPoint(int x, int y)
 {
     auto boundary = caretPositionFromPoint(LayoutPoint(x, y));
@@ -2470,20 +2476,25 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, OptionSet<Dim
 
     updateStyleIfNeeded();
 
-    CheckedPtr renderer = element.renderer();
-    if (!renderer || renderer->needsLayout()) {
-        // If we don't have a renderer or if the renderer needs layout for any reason, give up.
+    bool isVertical = false;
+    bool hasSpecifiedLogicalHeight = false;
+    if (CheckedPtr renderer = element.renderer()) {
+        if (renderer->needsLayout()) {
+            // If the renderer needs layout for any reason, give up.
+            requireFullLayout = true;
+        }
+
+        isVertical = !renderer->isHorizontalWritingMode();
+        hasSpecifiedLogicalHeight = renderer->style().logicalMinHeight() == Length(0, LengthType::Fixed) && renderer->style().logicalHeight().isFixed() && renderer->style().logicalMaxHeight().isAuto();
+    } else // If we don't have a renderer, give up
         requireFullLayout = true;
-    }
 
     // Turn off this optimization for input elements with shadow content.
     if (is<HTMLInputElement>(element))
         requireFullLayout = true;
 
-    bool isVertical = renderer && !renderer->isHorizontalWritingMode();
     bool checkingLogicalWidth = (dimensionsCheck.contains(DimensionsCheck::Width) && !isVertical) || (dimensionsCheck.contains(DimensionsCheck::Height) && isVertical);
     bool checkingLogicalHeight = (dimensionsCheck.contains(DimensionsCheck::Height) && !isVertical) || (dimensionsCheck.contains(DimensionsCheck::Width) && isVertical);
-    bool hasSpecifiedLogicalHeight = renderer && renderer->style().logicalMinHeight() == Length(0, LengthType::Fixed) && renderer->style().logicalHeight().isFixed() && renderer->style().logicalMaxHeight().isAuto();
 
     if (!requireFullLayout) {
         CheckedPtr<RenderBox> previousBox;
@@ -2516,11 +2527,12 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, OptionSet<Dim
 
             // If a block contains floats and the child's height isn't specified, then
             // give up also, since our height could end up being influenced by the floats.
-            if (checkingLogicalHeight && !hasSpecifiedLogicalHeight && currentBox->isRenderBlockFlow()) {
-                CheckedRef currentBlockFlow = downcast<RenderBlockFlow>(*currentBox);
-                if (currentBlockFlow->containsFloats() && previousBox && !previousBox->isFloatingOrOutOfFlowPositioned()) {
-                    requireFullLayout = true;
-                    break;
+            if (checkingLogicalHeight && !hasSpecifiedLogicalHeight) {
+                if (CheckedPtr currentBlockFlow = dynamicDowncast<RenderBlockFlow>(*currentBox)) {
+                    if (currentBlockFlow->containsFloats() && previousBox && !previousBox->isFloatingOrOutOfFlowPositioned()) {
+                        requireFullLayout = true;
+                        break;
+                    }
                 }
             }
 
@@ -3278,7 +3290,6 @@ std::unique_ptr<FontLoadRequest> Document::fontLoadRequest(const String& url, bo
 
 void Document::beginLoadingFontSoon(FontLoadRequest& request)
 {
-    ASSERT(is<CachedFontLoadRequest>(request));
     CachedResourceHandle font = downcast<CachedFontLoadRequest>(request).cachedFont();
     m_fontLoader->beginLoadingFontSoon(*font);
 }
@@ -5589,8 +5600,7 @@ void Document::enqueueOverflowEvent(Ref<Event>&& event)
     // FIXME: This event is totally unspecified.
     RefPtr target = event->target();
     RELEASE_ASSERT(target);
-    RELEASE_ASSERT(is<Node>(target));
-    eventLoop().queueTask(TaskSource::DOMManipulation, [protectedTarget = GCReachableRef<Node>(downcast<Node>(*target)), event = WTFMove(event)] {
+    eventLoop().queueTask(TaskSource::DOMManipulation, [protectedTarget = GCReachableRef<Node>(checkedDowncast<Node>(*target)), event = WTFMove(event)] {
         protectedTarget->dispatchEvent(event);
     });
 }
@@ -8102,6 +8112,11 @@ EditingBehavior Document::editingBehavior() const
     return EditingBehavior { settings().editingBehaviorType() };
 }
 
+Ref<Settings> Document::protectedSettings() const
+{
+    return const_cast<Settings&>(m_settings.get());
+}
+
 float Document::deviceScaleFactor() const
 {
     float deviceScaleFactor = 1.0;
@@ -9286,20 +9301,20 @@ void Document::updateServiceWorkerClientData()
     serviceWorkerConnection->registerServiceWorkerClient(clientOrigin(), ServiceWorkerClientData::from(*this), controllingServiceWorkerRegistrationIdentifier, userAgent(url()));
 }
 
-void Document::navigateFromServiceWorker(const URL& url, CompletionHandler<void(bool)>&& callback)
+void Document::navigateFromServiceWorker(const URL& url, CompletionHandler<void(ScheduleLocationChangeResult)>&& callback)
 {
     if (activeDOMObjectsAreSuspended() || activeDOMObjectsAreStopped()) {
-        callback(false);
+        callback(ScheduleLocationChangeResult::Stopped);
         return;
     }
     eventLoop().queueTask(TaskSource::DOMManipulation, [weakThis = WeakPtr<Document, WeakPtrImplWithEventTargetData> { *this }, url, callback = WTFMove(callback)]() mutable {
         RefPtr frame = weakThis ? weakThis->frame() : nullptr;
         if (!frame) {
-            callback(false);
+            callback(ScheduleLocationChangeResult::Stopped);
             return;
         }
-        frame->navigationScheduler().scheduleLocationChange(*weakThis, weakThis->securityOrigin(), url, frame->loader().outgoingReferrer(), LockHistory::Yes, LockBackForwardList::No, [callback = WTFMove(callback)]() mutable {
-            callback(true);
+        frame->navigationScheduler().scheduleLocationChange(*weakThis, weakThis->securityOrigin(), url, frame->loader().outgoingReferrer(), LockHistory::Yes, LockBackForwardList::No, [callback = WTFMove(callback)](auto result) mutable {
+            callback(result);
         });
     });
 }

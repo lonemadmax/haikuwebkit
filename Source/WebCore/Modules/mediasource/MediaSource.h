@@ -36,11 +36,15 @@
 #include "EventTarget.h"
 #include "ExceptionOr.h"
 #include "HTMLMediaElement.h"
+#include "MediaPromiseTypes.h"
 #include "MediaSourcePrivateClient.h"
 #include "URLRegistry.h"
+#include <optional>
 #include <wtf/LoggerHelper.h>
+#include <wtf/NativePromise.h>
 #include <wtf/RefCounted.h>
 #include <wtf/UniqueRef.h>
+#include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -155,8 +159,8 @@ private:
     static bool isTypeSupported(ScriptExecutionContext&, const String& type, Vector<ContentType>&& contentTypesRequiringHardwareSupport);
 
     void setPrivateAndOpen(Ref<MediaSourcePrivate>&&) final;
-    void waitForTarget(const SeekTarget&, CompletionHandler<void(const MediaTime&)>&&) final;
-    void seekToTime(const MediaTime&, CompletionHandler<void()>&&) final;
+    Ref<MediaTimePromise> waitForTarget(const SeekTarget&) final;
+    Ref<MediaPromise> seekToTime(const MediaTime&) final;
 
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
@@ -185,7 +189,7 @@ private:
     WeakPtr<HTMLMediaElement, WeakPtrImplWithEventTargetData> m_mediaElement;
     MediaTime m_duration;
     std::optional<SeekTarget> m_pendingSeekTarget;
-    CompletionHandler<void(const MediaTime&)> m_seekCompletedHandler;
+    std::optional<MediaTimePromise::Producer> m_seekTargetPromise;
     ReadyState m_readyState { ReadyState::Closed };
     bool m_openDeferred { false };
     bool m_sourceopenPending { false };

@@ -63,10 +63,6 @@ public:
     {
         return static_cast<WorkletGlobalScope&>(Base::wrapped());
     }
-    Ref<WorkletGlobalScope> protectedWrapped() const
-    {
-        return wrapped();
-    }
 public:
     static constexpr unsigned StructureFlags = Base::StructureFlags | JSC::HasStaticPropertyTable;
 protected:

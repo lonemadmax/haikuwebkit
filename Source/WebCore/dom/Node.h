@@ -204,6 +204,7 @@ public:
 
     bool isElementNode() const { return hasNodeFlag(NodeFlag::IsElement); }
     bool isContainerNode() const { return hasNodeFlag(NodeFlag::IsContainerNode); }
+    bool isCharacterData() const { return hasNodeFlag(NodeFlag::IsCharacterData); }
     bool isTextNode() const { return hasNodeFlag(NodeFlag::IsText); }
     bool isHTMLElement() const { return hasNodeFlag(NodeFlag::IsHTMLElement); }
     bool isSVGElement() const { return hasNodeFlag(NodeFlag::IsSVGElement); }
@@ -706,8 +707,8 @@ protected:
         void clearDescendantsNeedStyleResolution() { m_flags = (flags() - NodeStyleFlag::DescendantNeedsStyleResolution - NodeStyleFlag::DirectChildNeedsStyleResolution).toRaw(); }
 
     private:
-        uint16_t m_styleValidity : 2;
-        uint16_t m_flags : 14;
+        uint16_t m_styleValidity : 3;
+        uint16_t m_flags : 13;
     };
 
     StyleBitfields styleBitfields() const { return StyleBitfields::fromRaw(m_rendererWithStyleFlags.type()); }

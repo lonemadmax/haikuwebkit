@@ -151,7 +151,6 @@ WTF_EXTERN_C_END
 @class UITextInputArrowKeyHistory;
 
 @protocol UITextInputPrivate <UITextInput, UITextInputTraits_Private>
-@property (nonatomic, readonly) BOOL supportsImagePaste;
 - (UITextInputTraits *)textInputTraits;
 - (void)insertTextSuggestion:(UITextSuggestion *)textSuggestion;
 - (void)handleKeyWebEvent:(WebEvent *)theEvent withCompletionHandler:(void (^)(WebEvent *, BOOL))completionHandler;
@@ -539,6 +538,7 @@ typedef NS_ENUM(NSUInteger, _UIClickInteractionEvent) {
 @end
 
 @protocol UITextInputInternal
+- (UTF32Char)_characterInRelationToCaretSelection:(int)amount;
 - (CGRect)_selectionClipRect;
 - (void)moveByOffset:(NSInteger)offset;
 @optional
