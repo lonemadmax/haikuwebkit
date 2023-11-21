@@ -60,8 +60,10 @@
 #include "Text.h"
 #include "TextResourceDecoder.h"
 #include "TextTransform.h"
+#include "TextUtil.h"
 #include "VisiblePosition.h"
 #include "WidthIterator.h"
+#include <bitset>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SortedArrayMap.h>
@@ -91,6 +93,8 @@ struct SameSizeAsRenderText : public RenderObject {
     void* pointers[2];
     String text;
     std::optional<bool> canUseSimplifiedTextMeasuring;
+    std::optional<bool> hasPositionDependentContentWidth;
+    std::optional<bool> m_hasStrongDirectionalityContent;
     uint32_t bitfields : 16;
 };
 
@@ -294,19 +298,48 @@ bool RenderText::computeUseBackslashAsYenSymbol() const
     return false;
 }
 
-static void initiateFontLoadingByAccessingGlyphDataIfApplicable(const String& textContent, const FontCascade& fontCascade)
+void RenderText::initiateFontLoadingByAccessingGlyphDataAndComputeCanUseSimplifiedTextMeasuring(const String& textContent)
 {
+    auto& style = this->style();
+    auto& fontCascade = style.fontCascade();
     // See webkit.org/b/252668
     auto fontVariant = AutoVariant;
+    m_canUseSimplifiedTextMeasuring = canUseSimpleFontCodePath();
 #if USE(FONT_VARIANT_VIA_FEATURES)
     if (fontCascade.fontDescription().variantCaps() == FontVariantCaps::Small) {
         // This matches the behavior of ComplexTextController::collectComplexTextRuns(): that function doesn't perform font fallback
         // on the capitalized characters when small caps is enabled, so we shouldn't here either.
         fontVariant = NormalVariant;
+        m_canUseSimplifiedTextMeasuring = false;
     }
 #endif
-    for (UChar32 character : StringView(textContent).codePoints())
-        fontCascade.glyphDataForCharacter(character, false, fontVariant);
+    auto whitespaceIsCollapsed = style.collapseWhiteSpace();
+    auto& primaryFont = fontCascade.primaryFont();
+    m_canUseSimplifiedTextMeasuring = *m_canUseSimplifiedTextMeasuring && !fontCascade.wordSpacing() && !fontCascade.letterSpacing() && !primaryFont.syntheticBoldOffset() && (&firstLineStyle() == &style || &fontCascade == &firstLineStyle().fontCascade());
+
+    if (*m_canUseSimplifiedTextMeasuring) {
+        // Additional check on the font codepath.
+        auto run = TextRun { textContent };
+        run.setCharacterScanForCodePath(false);
+        m_canUseSimplifiedTextMeasuring = fontCascade.codePath(run) == FontCascade::CodePath::Simple;
+    }
+
+    m_hasPositionDependentContentWidth = false;
+    m_hasStrongDirectionalityContent = false;
+    auto mayHaveStrongDirectionalityContent = !textContent.is8Bit();
+    // FIXME: Pre-warm glyph loading in FontCascade with the most common range.
+    std::bitset<256> hasSeen;
+    for (UChar32 character : StringView(textContent).codePoints()) {
+        if (character < 256) {
+            if (hasSeen[character])
+                continue;
+            hasSeen.set(character);
+        }
+        auto glyphData = fontCascade.glyphDataForCharacter(character, false, fontVariant);
+        m_canUseSimplifiedTextMeasuring = *m_canUseSimplifiedTextMeasuring && WidthIterator::characterCanUseSimplifiedTextMeasuring(character, whitespaceIsCollapsed) && glyphData.isValid() && glyphData.font == &primaryFont;
+        m_hasPositionDependentContentWidth = *m_hasPositionDependentContentWidth || character == tabCharacter;
+        m_hasStrongDirectionalityContent = *m_hasStrongDirectionalityContent || (mayHaveStrongDirectionalityContent && Layout::TextUtil::isStrongDirectionalityCharacter(character));
+    }
 }
 
 void RenderText::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
@@ -322,7 +355,7 @@ void RenderText::styleDidChange(StyleDifference diff, const RenderStyle* oldStyl
 
     const RenderStyle& newStyle = style();
     if (!oldStyle)
-        initiateFontLoadingByAccessingGlyphDataIfApplicable(m_text, newStyle.fontCascade());
+        initiateFontLoadingByAccessingGlyphDataAndComputeCanUseSimplifiedTextMeasuring(m_text);
     if (oldStyle && oldStyle->fontCascade() != newStyle.fontCascade())
         m_canUseSimplifiedTextMeasuring = { };
 
@@ -1580,6 +1613,8 @@ void RenderText::setRenderedText(const String& newText)
     m_containsOnlyASCII = text().containsOnlyASCII();
     m_canUseSimpleFontCodePath = computeCanUseSimpleFontCodePath();
     m_canUseSimplifiedTextMeasuring = { };
+    m_hasPositionDependentContentWidth = { };
+    m_hasStrongDirectionalityContent = { };
 
     if (m_text != originalText) {
         originalTextMap().set(this, originalText);

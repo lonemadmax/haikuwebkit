@@ -79,6 +79,8 @@ public:
     static bool shouldPreserveNewline(const Box&);
     static bool isWrappingAllowed(const RenderStyle&);
     static bool shouldTrailingWhitespaceHang(const RenderStyle&);
+
+    static bool isStrongDirectionalityCharacter(UChar32);
     static bool containsStrongDirectionalityText(StringView);
 
     static TextRun ellipsisTextRun(bool isHorizontal = true);
@@ -97,6 +99,7 @@ public:
     static float hangableStopOrCommaEndWidth(const InlineTextItem&, const RenderStyle&);
 
     static bool canUseSimplifiedTextMeasuring(StringView, const RenderStyle& style, const RenderStyle* firstLineStyle);
+    static bool hasPositionDependentContentWidth(StringView);
 
     static void computedExpansions(const Line::RunList&, WTF::Range<size_t> runRange, size_t hangingTrailingWhitespaceLength, ExpansionInfo&);
 };
