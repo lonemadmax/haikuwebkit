@@ -279,7 +279,6 @@ void Widget::hide()
 void Widget::setFocus(bool)
 {
 }
-#endif
 
 void Widget::setIsSelected(bool)
 {

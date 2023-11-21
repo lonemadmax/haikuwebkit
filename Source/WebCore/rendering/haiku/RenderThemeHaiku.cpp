@@ -200,22 +200,6 @@ bool RenderThemeHaiku::paintCheckbox(const RenderObject& object, const PaintInfo
     return false;
 }
 
-void RenderThemeHaiku::setCheckboxSize(RenderStyle& style) const
-{
-    int size = 14;
-
-    // If the width and height are both specified, then we have nothing to do.
-    if (!style.width().isIntrinsicOrAuto() && !style.height().isAuto())
-        return;
-
-    // FIXME: A hard-coded size of 'size' is used. This is wrong but necessary for now.
-    if (style.width().isIntrinsicOrAuto())
-        style.setWidth(Length(size, LengthType::Fixed));
-
-    if (style.height().isAuto())
-        style.setHeight(Length(size, LengthType::Fixed));
-}
-
 bool RenderThemeHaiku::paintRadio(const RenderObject& object, const PaintInfo& info,
 	const FloatRect& floatRect)
 {
@@ -234,12 +218,6 @@ bool RenderThemeHaiku::paintRadio(const RenderObject& object, const PaintInfo& i
     be_control_look->DrawRadioButton(view, rect, view->Bounds(), base, flags);
     view->PopState();
     return false;
-}
-
-void RenderThemeHaiku::setRadioSize(RenderStyle& style) const
-{
-    // This is the same as checkboxes.
-    setCheckboxSize(style);
 }
 
 bool RenderThemeHaiku::paintButton(const RenderObject& object, const PaintInfo& info, const IntRect& intRect)

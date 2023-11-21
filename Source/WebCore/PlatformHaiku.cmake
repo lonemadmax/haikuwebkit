@@ -87,12 +87,12 @@ list(APPEND WebCore_SOURCES
   platform/haiku/PlatformMouseEventHaiku.cpp
   platform/haiku/PlatformScreenHaiku.cpp
   platform/haiku/PopupMenuHaiku.cpp
-  platform/haiku/RenderThemeHaiku.cpp
   platform/haiku/ScrollbarThemeHaiku.cpp
   platform/haiku/SearchPopupMenuHaiku.cpp
   platform/haiku/SharedTimerHaiku.cpp
   platform/haiku/SoundHaiku.cpp
   platform/haiku/TemporaryLinkStubs.cpp
+  platform/haiku/ThemeHaiku.cpp
   platform/haiku/UserAgentHaiku.cpp
   platform/haiku/WidgetHaiku.cpp
 
@@ -141,6 +141,8 @@ list(APPEND WebCore_SOURCES
   platform/text/LocaleICU.cpp
 
   platform/text/haiku/StringHaiku.cpp
+
+  rendering/haiku/RenderThemeHaiku.cpp
 
   inspector/LegacyWebSocketInspectorInstrumentation.cpp
 )
@@ -202,7 +204,7 @@ set(WebCore_USER_AGENT_SCRIPTS
     ${WebCore_DERIVED_SOURCES_DIR}/ModernMediaControls.js
 )
 
-set(WebCore_USER_AGENT_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/platform/haiku/RenderThemeHaiku.cpp)
+set(WebCore_USER_AGENT_SCRIPTS_DEPENDENCIES ${WEBCORE_DIR}/rendering/haiku/RenderThemeHaiku.cpp)
 
 list(APPEND WebCore_LIBRARIES
   ${ICU_LIBRARIES}

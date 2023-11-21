@@ -41,108 +41,108 @@ void Cursor::ensurePlatformCursor() const
     BCursorID which;
     switch(m_type)
     {
-        case Cursor::Pointer:
+        case Cursor::Type::Pointer:
             which = B_CURSOR_ID_SYSTEM_DEFAULT;
             break;
-        case Cursor::Hand:
+        case Cursor::Type::Hand:
             which = B_CURSOR_ID_FOLLOW_LINK;
             break;
-        case Cursor::Cross:
-        case Cursor::Cell:
+        case Cursor::Type::Cross:
+        case Cursor::Type::Cell:
             which = B_CURSOR_ID_CROSS_HAIR;
             break;
-        case Cursor::IBeam:
+        case Cursor::Type::IBeam:
             which = B_CURSOR_ID_I_BEAM;
             break;
-        case Cursor::Help:
+        case Cursor::Type::Help:
             which = B_CURSOR_ID_HELP;
             break;
-        case Cursor::EastResize:
+        case Cursor::Type::EastResize:
             which = B_CURSOR_ID_RESIZE_EAST;
             break;
-        case Cursor::NorthResize:
+        case Cursor::Type::NorthResize:
             which = B_CURSOR_ID_RESIZE_NORTH;
             break;
-        case Cursor::NorthEastResize:
+        case Cursor::Type::NorthEastResize:
             which = B_CURSOR_ID_RESIZE_NORTH_EAST;
             break;
-        case Cursor::NorthWestResize:
+        case Cursor::Type::NorthWestResize:
             which = B_CURSOR_ID_RESIZE_NORTH_WEST;
             break;
-        case Cursor::SouthResize:
+        case Cursor::Type::SouthResize:
             which = B_CURSOR_ID_RESIZE_SOUTH;
             break;
-        case Cursor::SouthEastResize:
+        case Cursor::Type::SouthEastResize:
             which = B_CURSOR_ID_RESIZE_SOUTH_EAST;
             break;
-        case Cursor::SouthWestResize:
+        case Cursor::Type::SouthWestResize:
             which = B_CURSOR_ID_RESIZE_SOUTH_WEST;
             break;
-        case Cursor::WestResize:
+        case Cursor::Type::WestResize:
             which = B_CURSOR_ID_RESIZE_WEST;
             break;
-        case Cursor::NorthSouthResize:
-        case Cursor::RowResize:
+        case Cursor::Type::NorthSouthResize:
+        case Cursor::Type::RowResize:
             which = B_CURSOR_ID_RESIZE_NORTH_SOUTH;
             break;
-        case Cursor::EastWestResize:
-        case Cursor::ColumnResize:
+        case Cursor::Type::EastWestResize:
+        case Cursor::Type::ColumnResize:
             which = B_CURSOR_ID_RESIZE_EAST_WEST;
             break;
-        case Cursor::NorthEastSouthWestResize:
+        case Cursor::Type::NorthEastSouthWestResize:
             which = B_CURSOR_ID_RESIZE_NORTH_EAST_SOUTH_WEST;
             break;
-        case Cursor::NorthWestSouthEastResize:
+        case Cursor::Type::NorthWestSouthEastResize:
             which = B_CURSOR_ID_RESIZE_NORTH_WEST_SOUTH_EAST;
             break;
-        case Cursor::MiddlePanning:
-        case Cursor::EastPanning:
-        case Cursor::NorthPanning:
-        case Cursor::NorthEastPanning:
-        case Cursor::NorthWestPanning:
-        case Cursor::SouthPanning:
-        case Cursor::SouthEastPanning:
-        case Cursor::SouthWestPanning:
-        case Cursor::WestPanning:
-        case Cursor::Grabbing:
+        case Cursor::Type::MiddlePanning:
+        case Cursor::Type::EastPanning:
+        case Cursor::Type::NorthPanning:
+        case Cursor::Type::NorthEastPanning:
+        case Cursor::Type::NorthWestPanning:
+        case Cursor::Type::SouthPanning:
+        case Cursor::Type::SouthEastPanning:
+        case Cursor::Type::SouthWestPanning:
+        case Cursor::Type::WestPanning:
+        case Cursor::Type::Grabbing:
             which = B_CURSOR_ID_GRABBING;
             break;
-        case Cursor::Move:
+        case Cursor::Type::Move:
             which = B_CURSOR_ID_MOVE;
             break;
-        case Cursor::VerticalText:
+        case Cursor::Type::VerticalText:
             which = B_CURSOR_ID_I_BEAM_HORIZONTAL;
             break;
-        case Cursor::ContextMenu:
+        case Cursor::Type::ContextMenu:
             which = B_CURSOR_ID_CONTEXT_MENU;
             break;
-        case Cursor::Alias:
+        case Cursor::Type::Alias:
             which = B_CURSOR_ID_CREATE_LINK;
             break;
-        case Cursor::Wait:
-        case Cursor::Progress:
+        case Cursor::Type::Wait:
+        case Cursor::Type::Progress:
             which = B_CURSOR_ID_PROGRESS;
             break;
-        case Cursor::NoDrop:
-        case Cursor::NotAllowed:
+        case Cursor::Type::NoDrop:
+        case Cursor::Type::NotAllowed:
             which = B_CURSOR_ID_NOT_ALLOWED;
             break;
-        case Cursor::Copy:
+        case Cursor::Type::Copy:
             which = B_CURSOR_ID_COPY;
             break;
-        case Cursor::None:
+        case Cursor::Type::None:
             which = B_CURSOR_ID_NO_CURSOR;
             break;
-        case Cursor::ZoomIn:
+        case Cursor::Type::ZoomIn:
             which = B_CURSOR_ID_ZOOM_IN;
             break;
-        case Cursor::ZoomOut:
+        case Cursor::Type::ZoomOut:
             which = B_CURSOR_ID_ZOOM_OUT;
             break;
-        case Cursor::Grab:
+        case Cursor::Type::Grab:
             which = B_CURSOR_ID_GRAB;
             break;
-        case Cursor::Custom:
+        case Cursor::Type::Custom:
             which = B_CURSOR_ID_SYSTEM_DEFAULT;
             notImplemented();
             // TODO create from bitmap.

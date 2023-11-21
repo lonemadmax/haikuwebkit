@@ -51,10 +51,7 @@ public:
 protected:
 #if !USE(NEW_THEME)
     bool paintCheckbox(const RenderObject&, const PaintInfo&, const FloatRect&) override;
-    void setCheckboxSize(RenderStyle&) const override;
-
     bool paintRadio(const RenderObject&, const PaintInfo&, const FloatRect&) override;
-    void setRadioSize(RenderStyle&) const override;
 
     bool paintButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
 #endif

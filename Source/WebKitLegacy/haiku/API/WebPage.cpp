@@ -70,7 +70,7 @@
 #include "WebCore/FrameLoader.h"
 #include "WebCore/FrameView.h"
 #include "WebCore/GraphicsContextHaiku.h"
-#include "WebCore/HandleMouseEventResult.h"
+#include "WebCore/HandleUserInputEventResult.h"
 #include "WebCore/LibWebRTCProvider.h"
 #include "WebCore/LogInitialization.h"
 #include "WebCore/MediaRecorderProvider.h"
