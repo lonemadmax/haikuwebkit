@@ -200,8 +200,6 @@
 #include "ServicesOverlayController.h"
 #endif
 
-#include "DisplayView.h"
-
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
 #include "MediaSessionCoordinator.h"
 #include "NavigatorMediaSession.h"
@@ -564,7 +562,8 @@ String Page::scrollingStateTreeAsText()
 {
     auto* localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
     if (Document* document = localMainFrame ? localMainFrame->document() : nullptr) {
-        document->updateLayout();
+        if (RefPtr frameView = document->view())
+            frameView->updateLayoutAndStyleIfNeededRecursive(LayoutOptions::UpdateCompositingLayers);
 #if ENABLE(IOS_TOUCH_EVENTS)
         document->updateTouchEventRegions();
 #endif
@@ -894,8 +893,7 @@ bool Page::findString(const String& target, FindOptions options, DidWrap* didWra
         if (didWrap)
             *didWrap = DidWrap::Yes;
         bool found = startFrame->editor().findString(target, options | WrapAround | StartInSelection);
-        if (auto* localFrame = dynamicDowncast<LocalFrame>(frame.get()))
-            focusController->setFocusedFrame(localFrame);
+        focusController->setFocusedFrame(frame.get());
         return found;
     }
 
@@ -1332,7 +1330,7 @@ void Page::setPageScaleFactor(float scale, const IntPoint& origin, bool inStable
 
     if (scale == m_pageScaleFactor) {
         if (view && view->scrollPosition() != origin && !delegatesScaling())
-            document->updateLayoutIgnorePendingStylesheets();
+            document->updateLayoutIgnorePendingStylesheets({ WebCore::LayoutOptions::UpdateCompositingLayers });
     } else {
         m_pageScaleFactor = scale;
 
@@ -1352,8 +1350,10 @@ void Page::setPageScaleFactor(float scale, const IntPoint& origin, bool inStable
         if (view && view->fixedElementsLayoutRelativeToFrame())
             view->setViewportConstrainedObjectsNeedLayout();
 
-        if (view && view->scrollPosition() != origin && !delegatesScaling() && document->renderView() && document->renderView()->needsLayout() && view->didFirstLayout())
+        if (view && view->scrollPosition() != origin && !delegatesScaling() && document->renderView() && document->renderView()->needsLayout() && view->didFirstLayout()) {
             view->layoutContext().layout();
+            view->updateCompositingLayersAfterLayoutIfNeeded();
+        }
     }
 
     if (view && view->scrollPosition() != origin) {
@@ -1411,11 +1411,7 @@ void Page::setDeviceScaleFactor(float scaleFactor)
 void Page::screenPropertiesDidChange()
 {
 #if ENABLE(VIDEO)
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
-    if (!localMainFrame)
-        return;
-
-    auto mode = preferredDynamicRangeMode(localMainFrame->view());
+    auto mode = preferredDynamicRangeMode(mainFrame().virtualView());
     forEachMediaElement([mode] (auto& element) {
         element.setPreferredDynamicRangeMode(mode);
     });
@@ -1581,8 +1577,7 @@ void Page::setShouldSuppressScrollbarAnimations(bool suppressAnimations)
 
 void Page::lockAllOverlayScrollbarsToHidden(bool lockOverlayScrollbars)
 {
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
-    auto* view = localMainFrame ? localMainFrame->view() : nullptr;
+    RefPtr view = mainFrame().virtualView();
     if (!view)
         return;
 
@@ -1614,8 +1609,7 @@ void Page::setVerticalScrollElasticity(ScrollElasticity elasticity)
     
     m_verticalScrollElasticity = elasticity;
 
-    auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
-    if (auto* view = localMainFrame ? localMainFrame->view() : nullptr)
+    if (auto* view = mainFrame().virtualView())
         view->setVerticalScrollElasticity(elasticity);
 }
     
@@ -1693,11 +1687,11 @@ void Page::removeActivityStateChangeObserver(ActivityStateChangeObserver& observ
     m_activityStateChangeObservers.remove(observer);
 }
 
-void Page::layoutIfNeeded()
+void Page::layoutIfNeeded(OptionSet<LayoutOptions> layoutOptions)
 {
     auto* localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
     if (auto* view = localMainFrame ? localMainFrame->view() : nullptr)
-        view->updateLayoutAndStyleIfNeededRecursive();
+        view->updateLayoutAndStyleIfNeededRecursive(layoutOptions);
 }
 
 void Page::scheduleRenderingUpdate(OptionSet<RenderingUpdateStep> requestedSteps)
@@ -1772,7 +1766,7 @@ void Page::updateRendering()
     // This function is not reentrant, e.g. a rAF callback may trigger a forces repaint in testing.
     // This is why we track m_renderingUpdateRemainingSteps as a stack.
     if (m_renderingUpdateRemainingSteps.size() > 1) {
-        layoutIfNeeded();
+        layoutIfNeeded(LayoutOptions::UpdateCompositingLayers);
         m_renderingUpdateRemainingSteps.last().remove(updateRenderingSteps);
         return;
     }
@@ -1894,7 +1888,7 @@ void Page::updateRendering()
     if (m_isTrackingRenderingUpdates)
         ++m_renderingUpdateCount;
 
-    layoutIfNeeded();
+    layoutIfNeeded(LayoutOptions::UpdateCompositingLayers);
     doAfterUpdateRendering();
 
     if (!isSVGImagePage)
@@ -1912,13 +1906,6 @@ void Page::doAfterUpdateRendering()
 {
     // Code here should do once-per-frame work that needs to be done before painting, and requires
     // layout to be up-to-date. It should not run script, trigger layout, or dirty layout.
-
-    if (settings().layoutFormattingContextEnabled()) {
-        forEachDocument([] (Document& document) {
-            if (auto* frameView = document.view())
-                frameView->displayView().prepareForDisplay();
-        });
-    }
 
     auto runProcessingStep = [&](RenderingUpdateStep step, const Function<void(Document&)>& perDocumentFunction) {
         m_renderingUpdateRemainingSteps.last().remove(step);
@@ -1975,7 +1962,7 @@ void Page::doAfterUpdateRendering()
 
     m_renderingUpdateRemainingSteps.last().remove(RenderingUpdateStep::EventRegionUpdate);
 
-auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
+    auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
 #if ENABLE(IOS_TOUCH_EVENTS)
     // updateTouchEventRegions() needs to be called only on the top document.
     if (RefPtr<Document> document = localMainFrame ? localMainFrame->document() : nullptr)
@@ -2420,12 +2407,8 @@ void Page::setDebugger(JSC::Debugger* debugger)
 
     m_debugger = debugger;
 
-    for (auto* frame = &m_mainFrame.get(); frame; frame = frame->tree().traverseNext()) {
-        auto* localFrame = dynamicDowncast<LocalFrame>(frame);
-        if (!localFrame)
-            continue;
-        localFrame->windowProxy().attachDebugger(m_debugger);
-    }
+    for (auto* frame = &m_mainFrame.get(); frame; frame = frame->tree().traverseNext())
+        frame->windowProxy().attachDebugger(m_debugger);
 }
 
 bool Page::hasCustomHTMLTokenizerTimeDelay() const
@@ -2736,9 +2719,7 @@ void Page::resumeAllMediaBuffering()
 
 unsigned Page::subframeCount() const
 {
-    if (auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame()))
-        return localMainFrame->tree().descendantCount();
-    return 0;
+    return mainFrame().tree().descendantCount();
 }
 
 void Page::resumeAnimatingImages()
@@ -4432,7 +4413,6 @@ void Page::resetTextRecognitionResult(const HTMLElement& element)
 
 #endif // ENABLE(IMAGE_ANALYSIS)
 
-#if ENABLE(SERVICE_WORKER)
 JSC::JSGlobalObject* Page::serviceWorkerGlobalObject(DOMWrapperWorld& world)
 {
     if (!m_serviceWorkerGlobalScope)
@@ -4453,7 +4433,6 @@ void Page::setServiceWorkerGlobalScope(ServiceWorkerGlobalScope& serviceWorkerGl
     ASSERT(m_isServiceWorkerPage);
     m_serviceWorkerGlobalScope = serviceWorkerGlobalScope;
 }
-#endif
 
 StorageConnection& Page::storageConnection()
 {

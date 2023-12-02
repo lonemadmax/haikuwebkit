@@ -260,9 +260,7 @@ messages -> WebPageProxy {
     ShowContextMenu(WebKit::ContextMenuContextData contextMenuContextData, WebKit::UserData userData)
 #endif
 
-#if ENABLE(SERVICE_WORKER)
     DidFinishServiceWorkerPageRegistration(bool success)
-#endif
 
     # Database messages
     ExceededDatabaseQuota(WebCore::FrameIdentifier frameID, String originIdentifier, String databaseName, String databaseDisplayName, uint64_t currentQuota, uint64_t currentOriginUsage, uint64_t currentDatabaseUsage, uint64_t expectedUsage) -> (uint64_t newQuota) Synchronous
@@ -623,4 +621,9 @@ messages -> WebPageProxy {
     BroadcastMainFrameURLChangeToOtherProcesses(URL newURL)
 
     DispatchLoadEventToFrameOwnerElement(WebCore::FrameIdentifier frameID)
+
+    CloseRemoteFrame(WebCore::FrameIdentifier frameID)
+    FocusRemoteFrame(WebCore::FrameIdentifier frameID)
+    PostMessageToRemote(WebCore::FrameIdentifier source, String sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData> targetOrigin, struct WebCore::MessageWithMessagePorts message)
+    RenderTreeAsText(WebCore::FrameIdentifier identifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag> behavior) -> (String renderTreeDump) Synchronous
 }

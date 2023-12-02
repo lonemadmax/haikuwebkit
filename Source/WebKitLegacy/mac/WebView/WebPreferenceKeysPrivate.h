@@ -54,7 +54,6 @@
 #define WebKitWebSecurityEnabledPreferenceKey @"WebKitWebSecurityEnabled"
 #define WebKitAllowUniversalAccessFromFileURLsPreferenceKey @"WebKitAllowUniversalAccessFromFileURLs"
 #define WebKitAllowFileAccessFromFileURLsPreferenceKey @"WebKitAllowFileAccessFromFileURLs"
-#define WebKitAllowCrossOriginSubresourcesToAskForCredentialsKey @"WebKitAllowCrossOriginSubresourcesToAskForCredentials"
 #define WebKitAllowTopNavigationToDataURLsPreferenceKey @"WebKitAllowTopNavigationToDataURLs"
 #define WebKitNeedsStorageAccessFromFileURLsQuirkKey @"WebKitNeedsStorageAccessFromFileURLsQuirk"
 #define WebKitJavaScriptCanOpenWindowsAutomaticallyPreferenceKey @"WebKitJavaScriptCanOpenWindowsAutomatically"
@@ -229,7 +228,6 @@
 #define WebKitPictureInPictureAPIEnabledKey @"WebKitPictureInPictureAPIEnabled"
 #define WebKitAllowMediaContentTypesRequiringHardwareSupportAsFallbackKey @"WebKitAllowMediaContentTypesRequiringHardwareSupportAsFallback"
 #define WebKitMediaCapabilitiesEnabledPreferenceKey @"WebKitMediaCapabilitiesEnabled"
-#define WebKitLineHeightUnitsEnabledPreferenceKey @"WebKitLineHeightUnitsEnabled"
 #define WebKitDebugInAppBrowserPrivacyEnabledPreferenceKey @"WebKitDebugInAppBrowserPrivacyEnabled"
 
 
@@ -240,7 +238,6 @@
 #define WebKitHighlightAPIEnabledPreferenceKey @"WebKitHighlightAPIEnabled"
 #define WebKitAsyncClipboardAPIEnabledPreferenceKey @"WebKitAsyncClipboardAPIEnabled"
 #define WebKitVisualViewportAPIEnabledPreferenceKey @"WebKitVisualViewportAPIEnabled"
-#define WebKitSyntheticEditingCommandsEnabledPreferenceKey @"WebKitSyntheticEditingCommandsEnabled"
 #define WebKitCSSOMViewSmoothScrollingEnabledPreferenceKey @"WebKitCSSOMViewSmoothScrollingEnabled"
 #define WebKitWebAnimationsCompositeOperationsEnabledPreferenceKey @"WebKitWebAnimationsCompositeOperationsEnabled"
 #define WebKitWebAnimationsMutableTimelinesEnabledPreferenceKey @"WebKitWebAnimationsMutableTimelinesEnabled"
@@ -254,13 +251,13 @@
 #define WebKitRemotePlaybackEnabledPreferenceKey @"WebKitRemotePlaybackEnabled"
 #define WebKitReadableByteStreamAPIEnabledPreferenceKey @"WebKitReadableByteStreamAPIEnabled"
 #define WebKitMediaRecorderEnabledPreferenceKey @"WebKitMediaRecorderEnabled"
-#define WebKitCSSIndividualTransformPropertiesEnabledPreferenceKey @"WebKitCSSIndividualTransformPropertiesEnabled"
 #define WebKitContactPickerAPIEnabledPreferenceKey @"WebKitContactPickerAPIEnabled"
 #define WebKitSpeechRecognitionEnabledPreferenceKey @"WebKitSpeechRecognitionEnabled"
 #define WebKitPitchCorrectionAlgorithmPreferenceKey @"WebKitPitchCorrectionAlgorithm"
 
 // The preference keys below this point are deprecated and have no effect. They should
 // be removed when it is considered safe to do so.
+#define WebKitAllowCrossOriginSubresourcesToAskForCredentialsKey @"WebKitAllowCrossOriginSubresourcesToAskForCredentials"
 #define WebKitAspectRatioOfImgFromWidthAndHeightEnabledPreferenceKey @"WebKitAspectRatioOfImgFromWidthAndHeightEnabled"
 #define WebKitResizeObserverEnabledPreferenceKey @"WebKitResizeObserverEnabled"
 #define WebKitShadowDOMEnabledPreferenceKey @"WebKitShadowDOMEnabled"
@@ -277,3 +274,4 @@
 #define WebKitDisplayListDrawingEnabledPreferenceKey @"WebKitDisplayListDrawingEnabled"
 #define WebKitTransformStreamAPIEnabledPreferenceKey @"WebKitTransformStreamAPIEnabled"
 #define WebKitIntersectionObserverEnabledPreferenceKey @"WebKitIntersectionObserverEnabled"
+#define WebKitSyntheticEditingCommandsEnabledPreferenceKey @"WebKitSyntheticEditingCommandsEnabled"

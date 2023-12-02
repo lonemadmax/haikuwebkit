@@ -647,11 +647,9 @@ public:
 
     WEBCORE_EXPORT static Page* serviceWorkerPage(ScriptExecutionContextIdentifier);
 
-#if ENABLE(SERVICE_WORKER)
     // Service worker pages have an associated ServiceWorkerGlobalScope on the main thread.
     void setServiceWorkerGlobalScope(ServiceWorkerGlobalScope&);
     WEBCORE_EXPORT JSC::JSGlobalObject* serviceWorkerGlobalObject(DOMWrapperWorld&);
-#endif
 
     // Notifications when the Page starts and stops being presented via a native window.
     WEBCORE_EXPORT void setActivityState(OptionSet<ActivityState>);
@@ -676,7 +674,7 @@ public:
     WEBCORE_EXPORT void addActivityStateChangeObserver(ActivityStateChangeObserver&);
     WEBCORE_EXPORT void removeActivityStateChangeObserver(ActivityStateChangeObserver&);
 
-    WEBCORE_EXPORT void layoutIfNeeded();
+    WEBCORE_EXPORT void layoutIfNeeded(OptionSet<LayoutOptions> = { });
     WEBCORE_EXPORT void updateRendering();
     // A call to updateRendering() that is not followed by a call to finalizeRenderingUpdate().
     WEBCORE_EXPORT void isolatedUpdateRendering();
@@ -1304,10 +1302,7 @@ private:
     Ref<BroadcastChannelRegistry> m_broadcastChannelRegistry;
     RefPtr<WheelEventTestMonitor> m_wheelEventTestMonitor;
     WeakHashSet<ActivityStateChangeObserver> m_activityStateChangeObservers;
-
-#if ENABLE(SERVICE_WORKER)
     WeakPtr<ServiceWorkerGlobalScope, WeakPtrImplWithEventTargetData> m_serviceWorkerGlobalScope;
-#endif
 
 #if ENABLE(RESOURCE_USAGE)
     std::unique_ptr<ResourceUsageOverlay> m_resourceUsageOverlay;
@@ -1338,6 +1333,7 @@ private:
     bool m_mediaBufferingIsSuspended { false };
     bool m_hasResourceLoadClient { false };
     bool m_delegatesScaling { false };
+
 
 #if ENABLE(EDITABLE_REGION)
     bool m_isEditableRegionEnabled { false };

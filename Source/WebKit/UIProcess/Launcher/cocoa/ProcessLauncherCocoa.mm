@@ -139,6 +139,13 @@ static const char* serviceName(const ProcessLauncher::LaunchOptions& launchOptio
     }
 }
 
+ProcessLauncher::~ProcessLauncher()
+{
+#if USE(EXTENSIONKIT)
+    [m_process invalidate];
+#endif
+}
+
 void ProcessLauncher::launchProcess()
 {
     ASSERT(!m_xpcConnection);
@@ -158,6 +165,7 @@ void ProcessLauncher::launchProcess()
                 launcher->m_xpcConnection = adoptOSObject(xpc_connection_create(name, nullptr));
                 launcher->finishLaunchingProcess(name);
             });
+            [process invalidate];
             return;
         }
         callOnMainRunLoop([weakProcessLauncher = weakProcessLauncher, name = name, process = RetainPtr<_SEExtensionProcess>(process)] {

@@ -37,6 +37,7 @@
 #import "KeyEventCodesIOS.h"
 #import "WAKAppKitStubs.h"
 #import "WebEventPrivate.h"
+#import "WindowsKeyboardCodes.h"
 #import <pal/ios/UIKitSoftLink.h>
 #import <pal/spi/cocoa/IOKitSPI.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
@@ -520,7 +521,27 @@ static inline WebEventFlags webEventModifierFlags(UIKeyModifierFlags flags)
         modifiers |= WebEventFlagMaskControlKey;
     if (flags & UIKeyModifierShift)
         modifiers |= WebEventFlagMaskShiftKey;
+    if (flags & UIKeyModifierAlphaShift)
+        modifiers |= WebEventFlagMaskLeftCapsLockKey;
     return modifiers;
+}
+
+static inline bool isChangingKeyModifiers(UIKeyEvent *event)
+{
+    switch (event.keyCode) {
+    case VK_LWIN:
+    case VK_APPS:
+    case VK_CAPITAL:
+    case VK_LSHIFT:
+    case VK_RSHIFT:
+    case VK_LMENU:
+    case VK_RMENU:
+    case VK_LCONTROL:
+    case VK_RCONTROL:
+        return true;
+    default:
+        return false;
+    }
 }
 
 - (instancetype)initWithUIKeyEvent:(UIKeyEvent *)event
@@ -532,7 +553,8 @@ static inline WebEventFlags webEventModifierFlags(UIKeyModifierFlags flags)
     _timestamp = static_cast<CFTimeInterval>(event.timestamp);
     _modifierFlags = webEventModifierFlags(event.modifierFlags);
     _keyboardFlags = 0;
-    // FIXME: Set WebEventKeyboardInputModifierFlagsChanged as needed.
+    if (isChangingKeyModifiers(event))
+        _keyboardFlags |= WebEventKeyboardInputModifierFlagsChanged;
     if (event.keyRepeating)
         _keyboardFlags |= WebEventKeyboardInputRepeat;
 

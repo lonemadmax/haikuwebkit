@@ -1288,16 +1288,6 @@ public:
     [self _setBoolValue: flag forKey: WebKitAllowTopNavigationToDataURLsPreferenceKey];
 }
 
-- (BOOL)allowCrossOriginSubresourcesToAskForCredentials
-{
-    return [self _boolValueForKey:WebKitAllowCrossOriginSubresourcesToAskForCredentialsKey];
-}
-
-- (void)setAllowCrossOriginSubresourcesToAskForCredentials:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitAllowCrossOriginSubresourcesToAskForCredentialsKey];
-}
-
 - (BOOL)needsStorageAccessFromFileURLsQuirk
 {
     return [self _boolValueForKey: WebKitNeedsStorageAccessFromFileURLsQuirkKey];
@@ -2745,16 +2735,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:flag forKey:WebKitMediaCapabilitiesEnabledPreferenceKey];
 }
 
-- (BOOL)lineHeightUnitsEnabled
-{
-    return [self _boolValueForKey:WebKitLineHeightUnitsEnabledPreferenceKey];
-}
-
-- (void)setLineHeightUnitsEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitLineHeightUnitsEnabledPreferenceKey];
-}
-
 - (BOOL)layoutFormattingContextIntegrationEnabled
 {
     return [self _boolValueForKey:WebKitLayoutFormattingContextIntegrationEnabledPreferenceKey];
@@ -2926,16 +2906,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:flag forKey:WebKitVisualViewportAPIEnabledPreferenceKey];
 }
 
-- (BOOL)syntheticEditingCommandsEnabled
-{
-    return [self _boolValueForKey:WebKitSyntheticEditingCommandsEnabledPreferenceKey];
-}
-
-- (void)setSyntheticEditingCommandsEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitSyntheticEditingCommandsEnabledPreferenceKey];
-}
-
 - (BOOL)CSSOMViewSmoothScrollingEnabled
 {
     return [self _boolValueForKey:WebKitCSSOMViewSmoothScrollingEnabledPreferenceKey];
@@ -3076,16 +3046,6 @@ static RetainPtr<NSString>& classIBCreatorID()
     [self _setBoolValue:flag forKey:WebKitMediaRecorderEnabledPreferenceKey];
 }
 
-- (BOOL)CSSIndividualTransformPropertiesEnabled
-{
-    return [self _boolValueForKey:WebKitCSSIndividualTransformPropertiesEnabledPreferenceKey];
-}
-
-- (void)setCSSIndividualTransformPropertiesEnabled:(BOOL)flag
-{
-    [self _setBoolValue:flag forKey:WebKitCSSIndividualTransformPropertiesEnabledPreferenceKey];
-}
-
 - (BOOL)_speechRecognitionEnabled
 {
     return [self _boolValueForKey:WebKitSpeechRecognitionEnabledPreferenceKey];
@@ -3112,6 +3072,24 @@ static RetainPtr<NSString>& classIBCreatorID()
 
 // The preferences in this category are deprecated and have no effect. They should
 // be removed when it is considered safe to do so.
+
+- (BOOL)syntheticEditingCommandsEnabled
+{
+    return YES;
+}
+
+- (void)setSyntheticEditingCommandsEnabled:(BOOL)flag
+{
+}
+
+- (BOOL)allowCrossOriginSubresourcesToAskForCredentials
+{
+    return NO;
+}
+
+- (void)setAllowCrossOriginSubresourcesToAskForCredentials:(BOOL)flag
+{
+}
 
 - (BOOL)aspectRatioOfImgFromWidthAndHeightEnabled
 {
@@ -3340,6 +3318,24 @@ static RetainPtr<NSString>& classIBCreatorID()
 }
 
 - (void)setTransformStreamAPIEnabled:(BOOL)flag
+{
+}
+
+- (BOOL)lineHeightUnitsEnabled
+{
+    return YES;
+}
+
+- (void)setLineHeightUnitsEnabled:(BOOL)flag
+{
+}
+
+- (BOOL)CSSIndividualTransformPropertiesEnabled
+{
+    return YES;
+}
+
+- (void)setCSSIndividualTransformPropertiesEnabled:(BOOL)flag
 {
 }
 

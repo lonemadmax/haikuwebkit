@@ -406,15 +406,12 @@ void WebProcessProxy::setWebsiteDataStore(WebsiteDataStore& dataStore)
 {
     ASSERT(!m_websiteDataStore);
     WEBPROCESSPROXY_RELEASE_LOG(Process, "setWebsiteDataStore() dataStore=%p, sessionID=%" PRIu64, &dataStore, dataStore.sessionID().toUInt64());
+#if PLATFORM(COCOA)
+    if (!m_websiteDataStore)
+        dataStore.protectedNetworkProcess()->sendXPCEndpointToProcess(*this);
+#endif
     m_websiteDataStore = &dataStore;
     logger().setEnabled(this, dataStore.sessionID().isAlwaysOnLoggingAllowed());
-#if PLATFORM(COCOA)
-    if (m_networkProcessToKeepAliveUntilDataStoreIsCreated) {
-        Ref networkProcess = m_websiteDataStore->networkProcess(); // Transfer ownership of the NetworkProcessProxy to the WebsiteDataStore.
-        ASSERT_UNUSED(networkProcess, m_networkProcessToKeepAliveUntilDataStoreIsCreated == networkProcess.ptr());
-        m_networkProcessToKeepAliveUntilDataStoreIsCreated = nullptr;
-    }
-#endif
     updateRegistrationWithDataStore();
     send(Messages::WebProcess::SetWebsiteDataStoreParameters(processPool().webProcessDataStoreParameters(*this, dataStore)), 0);
 
@@ -713,7 +710,6 @@ RefPtr<WebPageProxy> WebProcessProxy::webPageWithActiveXRSession()
 }
 #endif
 
-#if ENABLE(TRACKING_PREVENTION)
 void WebProcessProxy::notifyPageStatisticsAndDataRecordsProcessed()
 {
     for (Ref page : globalPages())
@@ -736,7 +732,6 @@ void WebProcessProxy::setThirdPartyCookieBlockingMode(ThirdPartyCookieBlockingMo
 {
     sendWithAsyncReply(Messages::WebProcess::SetThirdPartyCookieBlockingMode(thirdPartyCookieBlockingMode), WTFMove(completionHandler));
 }
-#endif
 
 Ref<WebPageProxy> WebProcessProxy::createWebPage(PageClient& pageClient, Ref<API::PageConfiguration>&& pageConfiguration)
 {
@@ -1257,15 +1252,6 @@ void WebProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
 #if PLATFORM(COCOA)
     if (m_websiteDataStore)
         m_websiteDataStore->protectedNetworkProcess()->sendXPCEndpointToProcess(*this);
-    else {
-        // Prewarmed web processes don't have a data store but still need a network process to launch properly
-        // because the network process needs to send it the launch services database. Since the data store
-        // normally keeps the network process alive, we stash it in m_networkProcessToKeepAliveUntilDataStoreIsCreated
-        // until the prewarmed web process gets assigned a data store.
-        Ref networkProcess = NetworkProcessProxy::ensureDefaultNetworkProcess();
-        m_networkProcessToKeepAliveUntilDataStoreIsCreated = networkProcess.copyRef();
-        networkProcess->sendXPCEndpointToProcess(*this);
-    }
 #endif
 
     RELEASE_ASSERT(!m_webConnection);
@@ -1386,53 +1372,6 @@ void WebProcessProxy::didDestroyUserGestureToken(uint64_t identifier)
     ASSERT(UserInitiatedActionMap::isValidKey(identifier));
     if (auto removed = m_userInitiatedActionMap.take(identifier); removed && removed->authorizationToken())
         m_userInitiatedActionByAuthorizationTokenMap.remove(*removed->authorizationToken());
-}
-
-void WebProcessProxy::postMessageToRemote(WebCore::FrameIdentifier identifier, std::optional<WebCore::SecurityOriginData> target, const WebCore::MessageWithMessagePorts& message)
-{
-    if (RefPtr destinationFrame = WebFrameProxy::webFrame(identifier))
-        destinationFrame->protectedProcess()->send(Messages::WebProcess::RemotePostMessage(identifier, target, message), 0);
-}
-
-void WebProcessProxy::closeRemoteFrame(WebCore::FrameIdentifier frameID)
-{
-    // FIXME: <rdar://117383252> This, postMessageToRemote, renderTreeAsText, etc. should be messages to the WebPageProxy instead of the process.
-    // They are more the page doing things than the process.
-    RefPtr destinationFrame = WebFrameProxy::webFrame(frameID);
-    if (!destinationFrame || !destinationFrame->isMainFrame())
-        return;
-    if (RefPtr page = destinationFrame->page())
-        page->closePage();
-}
-
-void WebProcessProxy::focusRemoteFrame(WebCore::FrameIdentifier frameID)
-{
-    // FIXME: <rdar://117383252> This, postMessageToRemote, renderTreeAsText, etc. should be messages to the WebPageProxy instead of the process.
-    // They are more the page doing things than the process.
-    RefPtr destinationFrame = WebFrameProxy::webFrame(frameID);
-    if (!destinationFrame || !destinationFrame->isMainFrame())
-        return;
-
-    RefPtr page = destinationFrame->page();
-    if (!page)
-        return;
-
-    page->broadcastFocusedFrameToOtherProcesses(*connection(), frameID);
-    page->setFocus(true);
-}
-
-void WebProcessProxy::renderTreeAsText(WebCore::FrameIdentifier frameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag> behavior, CompletionHandler<void(String&&)>&& completionHandler)
-{
-    RefPtr frame = WebFrameProxy::webFrame(frameIdentifier);
-    if (!frame)
-        return completionHandler("Test Error - frame missing in UI process"_s);
-
-    auto sendResult = frame->process().sendSync(Messages::WebProcess::RenderTreeAsText(frameIdentifier, baseIndent, behavior), 0);
-    if (!sendResult.succeeded())
-        return completionHandler("Test Error - sending WebProcess::RenderTreeAsText failed"_s);
-
-    auto [result] = sendResult.takeReply();
-    completionHandler(WTFMove(result));
 }
 
 bool WebProcessProxy::canBeAddedToWebProcessCache() const
@@ -2271,20 +2210,16 @@ void WebProcessProxy::establishRemoteWorkerContext(RemoteWorkerType workerType, 
 
 void WebProcessProxy::setRemoteWorkerUserAgent(const String& userAgent)
 {
-#if ENABLE(SERVICE_WORKER)
     if (m_serviceWorkerInformation)
         send(Messages::WebSWContextManagerConnection::SetUserAgent { userAgent }, 0);
-#endif
     if (m_sharedWorkerInformation)
         send(Messages::WebSharedWorkerContextManagerConnection::SetUserAgent { userAgent }, 0);
 }
 
 void WebProcessProxy::updateRemoteWorkerPreferencesStore(const WebPreferencesStore& store)
 {
-#if ENABLE(SERVICE_WORKER)
     if (m_serviceWorkerInformation)
         send(Messages::WebSWContextManagerConnection::UpdatePreferencesStore { store }, 0);
-#endif
     if (m_sharedWorkerInformation)
         send(Messages::WebSharedWorkerContextManagerConnection::UpdatePreferencesStore { store }, 0);
 }
@@ -2348,8 +2283,6 @@ void WebProcessProxy::unregisterRemoteWorkerClientProcess(RemoteWorkerType worke
     updateRemoteWorkerProcessAssertion(workerType);
 }
 
-#if ENABLE(SERVICE_WORKER)
-
 bool WebProcessProxy::hasServiceWorkerForegroundActivityForTesting() const
 {
     return m_serviceWorkerInformation ? ProcessThrottler::isValidForegroundActivity(m_serviceWorkerInformation->activity) : false;
@@ -2379,7 +2312,6 @@ void WebProcessProxy::endServiceWorkerBackgroundProcessing()
     m_hasServiceWorkerBackgroundProcessing = false;
     updateRemoteWorkerProcessAssertion(RemoteWorkerType::ServiceWorker);
 }
-#endif // ENABLE(SERVICE_WORKER)
 
 void WebProcessProxy::disableRemoteWorkers(OptionSet<RemoteWorkerType> workerTypes)
 {
@@ -2391,14 +2323,12 @@ void WebProcessProxy::disableRemoteWorkers(OptionSet<RemoteWorkerType> workerTyp
         didDisableWorkers = true;
     }
 
-#if ENABLE(SERVICE_WORKER)
     if (workerTypes.contains(RemoteWorkerType::ServiceWorker) && m_serviceWorkerInformation) {
         WEBPROCESSPROXY_RELEASE_LOG(Process, "disableWorkers: Disabling service workers");
         removeMessageReceiver(Messages::NotificationManagerMessageHandler::messageReceiverName(), m_serviceWorkerInformation->remoteWorkerPageID);
         m_serviceWorkerInformation = { };
         didDisableWorkers = true;
     }
-#endif
 
     if (!didDisableWorkers)
         return;
@@ -2411,10 +2341,8 @@ void WebProcessProxy::disableRemoteWorkers(OptionSet<RemoteWorkerType> workerTyp
     if (workerTypes.contains(RemoteWorkerType::SharedWorker))
         send(Messages::WebSharedWorkerContextManagerConnection::Close { }, 0);
 
-#if ENABLE(SERVICE_WORKER)
     if (workerTypes.contains(RemoteWorkerType::ServiceWorker))
         send(Messages::WebSWContextManagerConnection::Close { }, 0);
-#endif
 
     maybeShutDown();
 }
@@ -2456,10 +2384,8 @@ void WebProcessProxy::enableRemoteWorkers(RemoteWorkerType workerType, const Use
 
     protectedProcessPool()->addRemoteWorkerProcess(*this);
 
-#if ENABLE(SERVICE_WORKER)
     if (workerType == RemoteWorkerType::ServiceWorker)
         addMessageReceiver(Messages::NotificationManagerMessageHandler::messageReceiverName(), m_serviceWorkerInformation->remoteWorkerPageID, ServiceWorkerNotificationHandler::singleton());
-#endif
 
     updateBackgroundResponsivenessTimer();
 

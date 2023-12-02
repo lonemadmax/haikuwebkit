@@ -117,10 +117,18 @@ void RuleSetBuilder::addChildRule(Ref<StyleRuleBase> rule)
             addStyleRule(downcast<StyleRule>(rule));
         return;
 
-    case StyleRuleType::Scope:
-        // FIXME: to implement
-        // https://bugs.webkit.org/show_bug.cgi?id=264500
+    case StyleRuleType::Scope: {
+        auto scopeRule = downcast<StyleRuleScope>(WTFMove(rule));
+        auto previousScopeIdentifier = m_currentScopeIdentifier;
+        if (m_ruleSet) {
+            m_ruleSet->m_scopeRules.append({ scopeRule.copyRef(), previousScopeIdentifier });
+            m_currentScopeIdentifier = m_ruleSet->m_scopeRules.size();
+        }
+        addChildRules(scopeRule->childRules());
+        if (m_ruleSet)
+            m_currentScopeIdentifier = previousScopeIdentifier;
         return;
+    }
 
     case StyleRuleType::Page:
         if (m_ruleSet)
@@ -225,7 +233,7 @@ void RuleSetBuilder::addRulesFromSheetContents(const StyleSheetContents& sheet)
 void RuleSetBuilder::resolveSelectorListWithNesting(StyleRuleWithNesting& rule)
 {
     const CSSSelectorList* parentResolvedSelectorList = nullptr;
-    if (m_styleRuleStack.size()) 
+    if (m_styleRuleStack.size())
         parentResolvedSelectorList =  m_styleRuleStack.last();
 
     // If it's a top-level rule without a nesting parent selector, keep the selector list as is.
@@ -233,7 +241,7 @@ void RuleSetBuilder::resolveSelectorListWithNesting(StyleRuleWithNesting& rule)
         return;
 
     auto resolvedSelectorList = CSSSelectorParser::resolveNestingParent(rule.originalSelectorList(), parentResolvedSelectorList);
-    rule.wrapperAdoptSelectorList(WTFMove(resolvedSelectorList));    
+    rule.wrapperAdoptSelectorList(WTFMove(resolvedSelectorList));
 }
 
 void RuleSetBuilder::addStyleRuleWithSelectorList(const CSSSelectorList& selectorList, const StyleRule& rule)
@@ -243,7 +251,7 @@ void RuleSetBuilder::addStyleRuleWithSelectorList(const CSSSelectorList& selecto
         for (size_t selectorIndex = 0; selectorIndex != notFound; selectorIndex = selectorList.indexOfNextSelectorAfter(selectorIndex)) {
             RuleData ruleData(rule, selectorIndex, selectorListIndex, m_ruleSet->ruleCount());
             m_mediaQueryCollector.addRuleIfNeeded(ruleData);
-            m_ruleSet->addRule(WTFMove(ruleData), m_currentCascadeLayerIdentifier, m_currentContainerQueryIdentifier);
+            m_ruleSet->addRule(WTFMove(ruleData), m_currentCascadeLayerIdentifier, m_currentContainerQueryIdentifier, m_currentScopeIdentifier);
             ++selectorListIndex;
         }
     }
@@ -256,7 +264,7 @@ void RuleSetBuilder::addStyleRule(StyleRuleWithNesting& rule)
 
     auto& selectorList = rule.selectorList();
     addStyleRuleWithSelectorList(selectorList, rule);
-    
+
     // Process nested rules
     m_styleRuleStack.append(&selectorList);
     for (auto& nestedRule : rule.nestedRules())

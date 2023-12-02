@@ -58,6 +58,7 @@
 #include "RenderBox.h"
 #include "RenderStyleSetters.h"
 #include "SVGRenderStyle.h"
+#include "ScopedName.h"
 #include "ScrollbarGutter.h"
 #include "Settings.h"
 #include "StyleCachedImage.h"
@@ -1462,10 +1463,8 @@ private:
     bool animationIsAccelerated(const Settings&) const final
     {
         return property() == CSSPropertyFilter
-#if ENABLE(FILTERS_LEVEL_2)
             || property() == CSSPropertyBackdropFilter
             || property() == CSSPropertyWebkitBackdropFilter
-#endif
             ;
     }
 
@@ -3681,8 +3680,8 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new LineHeightWrapper,
         new PropertyWrapper<float>(CSSPropertyOutlineOffset, &RenderStyle::outlineOffset, &RenderStyle::setOutlineOffset),
         new FloatPropertyWrapper(CSSPropertyOutlineWidth, &RenderStyle::outlineWidth, &RenderStyle::setOutlineWidth, FloatPropertyWrapper::ValueRange::NonNegative),
-        new PropertyWrapper<float>(CSSPropertyLetterSpacing, &RenderStyle::letterSpacing, &RenderStyle::setLetterSpacing),
-        new LengthPropertyWrapper(CSSPropertyWordSpacing, &RenderStyle::wordSpacing, &RenderStyle::setWordSpacing, LengthPropertyWrapper::Flags::IsLengthPercentage),
+        new LengthPropertyWrapper(CSSPropertyLetterSpacing, &RenderStyle::computedLetterSpacing, &RenderStyle::setLetterSpacing, LengthPropertyWrapper::Flags::IsLengthPercentage),
+        new LengthPropertyWrapper(CSSPropertyWordSpacing, &RenderStyle::computedWordSpacing, &RenderStyle::setWordSpacing, LengthPropertyWrapper::Flags::IsLengthPercentage),
         new TextIndentWrapper,
         new VerticalAlignWrapper,
 
@@ -3708,10 +3707,8 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new AcceleratedIndividualTransformPropertyWrapper<TranslateTransformOperation>(CSSPropertyTranslate, &RenderStyle::translate, &RenderStyle::setTranslate),
 
         new PropertyWrapperFilter(CSSPropertyFilter, &RenderStyle::filter, &RenderStyle::setFilter),
-#if ENABLE(FILTERS_LEVEL_2)
         new PropertyWrapperFilter(CSSPropertyBackdropFilter, &RenderStyle::backdropFilter, &RenderStyle::setBackdropFilter),
         new PropertyWrapperFilter(CSSPropertyWebkitBackdropFilter, &RenderStyle::backdropFilter, &RenderStyle::setBackdropFilter),
-#endif
         new PropertyWrapperFilter(CSSPropertyAppleColorFilter, &RenderStyle::appleColorFilter, &RenderStyle::setAppleColorFilter),
 
         new PathOperationPropertyWrapper(CSSPropertyClipPath, &RenderStyle::clipPath, &RenderStyle::setClipPath),
@@ -3872,9 +3869,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscretePropertyWrapper<TextSpacingTrim>(CSSPropertyTextSpacingTrim, &RenderStyle::textSpacingTrim, &RenderStyle::setTextSpacingTrim),
         new DiscretePropertyWrapper<TextAutospace>(CSSPropertyTextAutospace, &RenderStyle::textAutospace, &RenderStyle::setTextAutospace),
 
-#if ENABLE(CSS_BOX_DECORATION_BREAK)
         new DiscretePropertyWrapper<BoxDecorationBreak>(CSSPropertyWebkitBoxDecorationBreak, &RenderStyle::boxDecorationBreak, &RenderStyle::setBoxDecorationBreak),
-#endif
 #if ENABLE(CSS_COMPOSITING)
         new DiscretePropertyWrapper<Isolation>(CSSPropertyIsolation, &RenderStyle::isolation, &RenderStyle::setIsolation),
         new DiscretePropertyWrapper<BlendMode>(CSSPropertyMixBlendMode, &RenderStyle::blendMode, &RenderStyle::setBlendMode),
@@ -3929,7 +3924,8 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscreteSVGPropertyWrapper<const String&>(CSSPropertyMarkerMid, &SVGRenderStyle::markerMidResource, &SVGRenderStyle::setMarkerMidResource),
         new DiscreteSVGPropertyWrapper<const String&>(CSSPropertyMarkerStart, &SVGRenderStyle::markerStartResource, &SVGRenderStyle::setMarkerStartResource),
         new DiscretePropertyWrapper<const ScrollbarGutter>(CSSPropertyScrollbarGutter, &RenderStyle::scrollbarGutter, &RenderStyle::setScrollbarGutter),
-        new DiscretePropertyWrapper<ScrollbarWidth>(CSSPropertyScrollbarWidth, &RenderStyle::scrollbarWidth, &RenderStyle::setScrollbarWidth)
+        new DiscretePropertyWrapper<ScrollbarWidth>(CSSPropertyScrollbarWidth, &RenderStyle::scrollbarWidth, &RenderStyle::setScrollbarWidth),
+        new DiscretePropertyWrapper<std::optional<Style::ScopedName>>(CSSPropertyViewTransitionName, &RenderStyle::viewTransitionName, &RenderStyle::setViewTransitionName)
     };
     const unsigned animatableLonghandPropertiesCount = std::size(animatableLonghandPropertyWrappers);
 
@@ -4129,6 +4125,9 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         case CSSPropertyScrollSnapAlign:
         case CSSPropertyScrollSnapStop:
         case CSSPropertyScrollSnapType:
+        case CSSPropertyScrollTimeline:
+        case CSSPropertyScrollTimelineAxis:
+        case CSSPropertyScrollTimelineName:
         case CSSPropertyTextBoxEdge:
         case CSSPropertySize:
         case CSSPropertySpeakAs:
@@ -4143,7 +4142,6 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         case CSSPropertyTransitionProperty:
         case CSSPropertyTransitionTimingFunction:
         case CSSPropertyUnicodeBidi:
-        case CSSPropertyViewTransitionName:
         case CSSPropertyWillChange:
 #if ENABLE(APPLE_PAY)
         case CSSPropertyApplePayButtonStyle:

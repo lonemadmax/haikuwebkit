@@ -431,6 +431,10 @@
 #include "PlatformXRSystemProxy.h"
 #endif
 
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+#import <WebCore/AcceleratedTimeline.h>
+#endif
+
 namespace WebKit {
 using namespace JSC;
 using namespace WebCore;
@@ -608,7 +612,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #endif
     , m_overriddenMediaType(parameters.overriddenMediaType)
     , m_processDisplayName(parameters.processDisplayName)
-#if PLATFORM(GTK) && USE(GBM)
+#if (PLATFORM(GTK) || PLATFORM(WPE)) && USE(GBM)
     , m_preferredBufferFormats(WTFMove(parameters.preferredBufferFormats))
 #endif
 #if ENABLE(APP_BOUND_DOMAINS)
@@ -1241,13 +1245,11 @@ void WebPage::updateThrottleState()
     else
         m_userActivity.start();
 
-#if ENABLE(SERVICE_WORKER)
     if (m_page && m_page->settings().serviceWorkersEnabled()) {
         RunLoop::main().dispatch([isThrottleable] {
             WebServiceWorkerProvider::singleton().updateThrottleState(isThrottleable);
         });
     }
-#endif
 }
 
 bool WebPage::isThrottleable() const
@@ -1704,7 +1706,7 @@ bool WebPage::isEditingCommandEnabled(const String& commandName)
     
 void WebPage::clearMainFrameName()
 {
-    if (auto* frame = dynamicDowncast<LocalFrame>(mainFrame()))
+    if (auto* frame = mainFrame())
         frame->tree().clearName();
 }
 
@@ -2190,8 +2192,7 @@ void WebPage::setSize(const WebCore::IntSize& viewSize)
         return;
 
     m_viewSize = viewSize;
-    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
-    RefPtr view = localMainFrame ? localMainFrame->view() : nullptr;
+    RefPtr view = m_page->mainFrame().virtualView();
     if (!view) {
         ASSERT_NOT_REACHED();
         return;
@@ -2544,8 +2545,7 @@ void WebPage::scaleView(double scale)
     float pageScale = pageScaleFactor();
 
     IntPoint scrollPositionAtNewScale;
-    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
-    if (RefPtr mainFrameView = localMainFrame ? localMainFrame->view() : nullptr) {
+    if (RefPtr mainFrameView = m_page->mainFrame().virtualView()) {
         double scaleRatio = scale / viewScaleFactor();
         scrollPositionAtNewScale = mainFrameView->scrollPosition();
         scrollPositionAtNewScale.scale(scaleRatio);
@@ -3007,10 +3007,8 @@ void WebPage::paintSnapshotAtSize(const IntRect& rect, const IntSize& bitmapSize
 static DestinationColorSpace snapshotColorSpace(SnapshotOptions options, WebPage& page)
 {
 #if USE(CG)
-    if (options & SnapshotOptionsUseScreenColorSpace) {
-        if (auto* localMainFrame = dynamicDowncast<LocalFrame>(page.corePage()->mainFrame()))
-            return screenColorSpace(localMainFrame->view());
-    }
+    if (options & SnapshotOptionsUseScreenColorSpace)
+        return screenColorSpace(page.corePage()->mainFrame().virtualView());
 #endif
     return DestinationColorSpace::SRGB();
 }
@@ -3463,7 +3461,7 @@ void WebPage::performHitTestForMouseEvent(const WebMouseEvent& event, Completion
     completionHandler(WTFMove(hitTestResultData), modifiers, UserData(WebProcess::singleton().transformObjectsToHandles(WTFMove(userData).get()).get()));
 }
 
-void WebPage::handleWheelEvent(FrameIdentifier frameID, const WebWheelEvent& event, const OptionSet<WheelEventProcessingSteps>& processingSteps, std::optional<bool> willStartSwipe, CompletionHandler<void(WebCore::ScrollingNodeID, std::optional<WebCore::WheelScrollGestureState>, bool)>&& completionHandler)
+void WebPage::handleWheelEvent(FrameIdentifier frameID, const WebWheelEvent& event, const OptionSet<WheelEventProcessingSteps>& processingSteps, std::optional<bool> willStartSwipe, CompletionHandler<void(WebCore::ScrollingNodeID, std::optional<WebCore::WheelScrollGestureState>, bool, std::optional<RemoteUserInputEventData>)>&& completionHandler)
 {
 #if ENABLE(ASYNC_SCROLLING)
     RefPtr remoteScrollingCoordinator = dynamicDowncast<RemoteScrollingCoordinator>(scrollingCoordinator());
@@ -3473,18 +3471,18 @@ void WebPage::handleWheelEvent(FrameIdentifier frameID, const WebWheelEvent& eve
     UNUSED_PARAM(willStartSwipe);
 #endif
 
-    bool handled = wheelEvent(frameID, event, processingSteps, EventDispatcher::WheelEventOrigin::UIProcess);
+    auto handleWheelEventResult = wheelEvent(frameID, event, processingSteps, EventDispatcher::WheelEventOrigin::UIProcess);
 #if ENABLE(ASYNC_SCROLLING)
     if (remoteScrollingCoordinator) {
         auto gestureInfo = remoteScrollingCoordinator->takeCurrentWheelGestureInfo();
-        completionHandler(gestureInfo.wheelGestureNode, gestureInfo.wheelGestureState, handled);
+        completionHandler(gestureInfo.wheelGestureNode, gestureInfo.wheelGestureState, handleWheelEventResult.wasHandled(), handleWheelEventResult.remoteUserInputEventData());
         return;
     }
 #endif
-    completionHandler(0, { }, handled);
+    completionHandler(0, { }, handleWheelEventResult.wasHandled(), handleWheelEventResult.remoteUserInputEventData());
 }
 
-bool WebPage::wheelEvent(const FrameIdentifier& frameID, const WebWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps, EventDispatcher::WheelEventOrigin wheelEventOrigin)
+HandleUserInputEventResult WebPage::wheelEvent(const FrameIdentifier& frameID, const WebWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps, EventDispatcher::WheelEventOrigin wheelEventOrigin)
 {
     m_userActivity.impulse();
 
@@ -3493,15 +3491,15 @@ bool WebPage::wheelEvent(const FrameIdentifier& frameID, const WebWheelEvent& wh
     auto dispatchWheelEvent = [&](const WebWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps) {
         auto* frame = WebProcess::singleton().webFrame(frameID);
         if (!frame || !frame->coreLocalFrame() || !frame->coreLocalFrame()->view())
-            return false;
+            return HandleUserInputEventResult { false };
 
         auto platformWheelEvent = platform(wheelEvent);
         return frame->coreLocalFrame()->eventHandler().handleWheelEvent(platformWheelEvent, processingSteps);
     };
 
-    bool handled = dispatchWheelEvent(wheelEvent, processingSteps);
-    LOG_WITH_STREAM(WheelEvents, stream << "WebPage::wheelEvent - processing steps " << processingSteps << " handled " << handled);
-    return handled;
+    auto handleWheelEventResult = dispatchWheelEvent(wheelEvent, processingSteps);
+    LOG_WITH_STREAM(WheelEvents, stream << "WebPage::wheelEvent - processing steps " << processingSteps << " handled " << handleWheelEventResult.wasHandled());
+    return handleWheelEventResult;
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -3514,7 +3512,7 @@ void WebPage::dispatchWheelEventWithoutScrolling(FrameIdentifier frameID, const 
 #else
     bool isCancelable = true;
 #endif
-    bool handled = this->wheelEvent(frameID, wheelEvent, { isCancelable ? WheelEventProcessingSteps::BlockingDOMEventDispatch : WheelEventProcessingSteps::NonBlockingDOMEventDispatch }, EventDispatcher::WheelEventOrigin::UIProcess);
+    bool handled = this->wheelEvent(frameID, wheelEvent, { isCancelable ? WheelEventProcessingSteps::BlockingDOMEventDispatch : WheelEventProcessingSteps::NonBlockingDOMEventDispatch }, EventDispatcher::WheelEventOrigin::UIProcess).wasHandled();
     // The caller of dispatchWheelEventWithoutScrolling never cares about DidReceiveEvent being sent back.
     completionHandler(handled);
 }
@@ -4429,9 +4427,7 @@ static void adjustSettingsForLockdownMode(Settings& settings, const WebPreferenc
 #if ENABLE(NOTIFICATIONS)
     settings.setNotificationsEnabled(false);
 #endif
-#if ENABLE(SERVICE_WORKER)
     settings.setPushAPIEnabled(false);
-#endif
 #if ENABLE(WEBXR)
     settings.setWebXREnabled(false);
     settings.setWebXRAugmentedRealityModuleEnabled(false);
@@ -4540,7 +4536,6 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
     setForceAlwaysUserScalable(m_forceAlwaysUserScalable || store.getBoolValueForKey(WebPreferencesKey::forceAlwaysUserScalableKey()));
 #endif
 
-#if ENABLE(SERVICE_WORKER)
     if (store.getBoolValueForKey(WebPreferencesKey::serviceWorkerEntitlementDisabledForTestingKey()))
         disableServiceWorkerEntitlement();
 #if ENABLE(APP_BOUND_DOMAINS)
@@ -4554,7 +4549,6 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
         if (!parentProcessHasServiceWorkerEntitlement() && !shouldAllowServiceWorkersForAppBoundViews)
             settings.setServiceWorkersEnabled(false);
     }
-#endif
 
 #if ENABLE(APP_BOUND_DOMAINS)
     m_needsInAppBrowserPrivacyQuirks = store.getBoolValueForKey(WebPreferencesKey::needsInAppBrowserPrivacyQuirksKey());
@@ -4708,6 +4702,13 @@ void WebPage::willCommitLayerTree(RemoteLayerTreeTransaction& layerTransaction, 
     RefPtr frameView = localRootFrame->view();
     if (!frameView)
         return;
+
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+    if (auto* document = localRootFrame->document()) {
+        if (auto* acceleratedTimeline = document->existingAcceleratedTimeline())
+            layerTransaction.setAcceleratedTimelineTimeOrigin(acceleratedTimeline->timeOrigin());
+    }
+#endif
 
     layerTransaction.setContentsSize(frameView->contentsSize());
     layerTransaction.setScrollOrigin(frameView->scrollOrigin());
@@ -5814,7 +5815,7 @@ void WebPage::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decod
 }
 
 bool WebPage::didReceiveSyncMessage(IPC::Connection& connection, IPC::Decoder& decoder, UniqueRef<IPC::Encoder>& replyEncoder)
-{   
+{
     return didReceiveSyncWebPageMessage(connection, decoder, replyEncoder);
 }
 
@@ -6937,18 +6938,12 @@ void WebPage::canceledComposition()
 
 void WebPage::navigateServiceWorkerClient(ScriptExecutionContextIdentifier documentIdentifier, const URL& url, CompletionHandler<void(WebCore::ScheduleLocationChangeResult)>&& callback)
 {
-#if ENABLE(SERVICE_WORKER)
     RefPtr document = Document::allDocumentsMap().get(documentIdentifier);
     if (!document) {
         callback(WebCore::ScheduleLocationChangeResult::Stopped);
         return;
     }
     document->navigateFromServiceWorker(url, WTFMove(callback));
-#else
-    UNUSED_PARAM(documentIdentifier);
-    UNUSED_PARAM(url);
-    callback(ScheduleLocationChangeResult::Stopped);
-#endif
 }
 
 void WebPage::setAlwaysShowsHorizontalScroller(bool alwaysShowsHorizontalScroller)
@@ -7197,9 +7192,7 @@ void WebPage::didCommitLoad(WebFrame* frame)
     m_elementsPendingTextRecognition.clear();
 #endif
 
-#if ENABLE(TRACKING_PREVENTION)
     clearLoadedSubresourceDomains();
-#endif
     
     // If previous URL is invalid, then it's not a real page that's being navigated away from.
     // Most likely, this is actually the first load to be committed in this page.
@@ -7839,7 +7832,6 @@ void WebPage::setIsSuspended(bool suspended)
     suspendForProcessSwap();
 }
 
-#if ENABLE(TRACKING_PREVENTION)
 void WebPage::hasStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, WebFrame& frame, CompletionHandler<void(bool)>&& completionHandler)
 {
     if (hasPageLevelStorageAccess(topFrameDomain, subFrameDomain)) {
@@ -7911,8 +7903,6 @@ void WebPage::clearLoadedSubresourceDomains()
 {
     m_loadedSubresourceDomains.clear();
 }
-
-#endif
 
 #if ENABLE(DEVICE_ORIENTATION)
 void WebPage::shouldAllowDeviceOrientationAndMotionAccess(FrameIdentifier frameID, FrameInfoData&& frameInfo, bool mayPrompt, CompletionHandler<void(DeviceOrientationOrMotionPermissionState)>&& completionHandler)
@@ -9004,6 +8994,60 @@ void WebPage::frameWasFocusedInAnotherProcess(WebCore::FrameIdentifier frameID)
     if (!frame)
         return;
     m_page->focusController().setFocusedFrame(frame->coreFrame(), FocusController::BroadcastFocusedFrame::No);
+}
+
+void WebPage::remotePostMessage(WebCore::FrameIdentifier source, const String& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData>&& targetOrigin, const WebCore::MessageWithMessagePorts& message)
+{
+    RefPtr targetFrame = WebProcess::singleton().webFrame(target);
+    if (!targetFrame)
+        return;
+
+    if (!targetFrame->coreLocalFrame())
+        return;
+
+    RefPtr targetWindow = targetFrame->coreLocalFrame()->window();
+    if (!targetWindow)
+        return;
+
+    RefPtr targetCoreFrame = targetWindow->frame();
+    if (!targetCoreFrame)
+        return;
+
+    RefPtr sourceFrame = WebProcess::singleton().webFrame(source);
+    RefPtr sourceWindow = sourceFrame && sourceFrame->coreFrame() ? &sourceFrame->coreFrame()->windowProxy() : nullptr;
+
+    auto& script = targetCoreFrame->script();
+    auto globalObject = script.globalObject(WebCore::mainThreadNormalWorld());
+    if (!globalObject)
+        return;
+
+    targetWindow->postMessageFromRemoteFrame(*globalObject, WTFMove(sourceWindow), sourceOrigin, WTFMove(targetOrigin), message);
+}
+
+void WebPage::renderTreeAsText(WebCore::FrameIdentifier frameID, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag> behavior, CompletionHandler<void(String&&)>&& completionHandler)
+{
+    RefPtr webFrame = WebProcess::singleton().webFrame(frameID);
+    if (!webFrame) {
+        ASSERT_NOT_REACHED();
+        return completionHandler("Test Error - WebFrame missing in web process"_s);
+    }
+
+    RefPtr coreLocalFrame = webFrame->coreLocalFrame();
+    if (!coreLocalFrame) {
+        ASSERT_NOT_REACHED();
+        return completionHandler("Test Error - WebFrame missing LocalFrame in web process"_s);
+    }
+
+    auto* renderer = coreLocalFrame->contentRenderer();
+    if (!renderer) {
+        ASSERT_NOT_REACHED();
+        return completionHandler("Test Error - WebFrame missing RenderView in web process"_s);
+    }
+
+    auto ts = WebCore::createTextStream(*renderer);
+    ts.setIndent(baseIndent);
+    WebCore::externalRepresentationForLocalFrame(ts, *coreLocalFrame, behavior);
+    completionHandler(ts.release());
 }
 
 } // namespace WebKit

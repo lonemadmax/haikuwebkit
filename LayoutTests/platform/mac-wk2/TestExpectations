@@ -577,7 +577,6 @@ imported/w3c/web-platform-tests/payment-request/payment-request-constructor.http
 imported/w3c/web-platform-tests/payment-request/payment-request-shippingOption-attribute.https.html [ DumpJSConsoleLogInStdErr ]
 
 # A lot of the disk-cache tests are flaky on mac-wk2
-webkit.org/b/169359 http/tests/cache/disk-cache/disk-cache-remove-several-pending-writes.html [ Pass Failure ]
 webkit.org/b/149087 [ Debug ] http/tests/cache/disk-cache/disk-cache-validation-no-body.html [ Pass Failure Timeout ]
 webkit.org/b/149087 [ Debug ] http/tests/cache/disk-cache/disk-cache-validation.html [ Pass Failure Timeout ]
 webkit.org/b/149087 [ Release ] http/tests/cache/disk-cache/disk-cache-validation.html [ Pass Timeout ]
@@ -1343,6 +1342,7 @@ webkit.org/b/223900 [ Debug ] compositing/video/video-update-rendering.html [ Pa
 webkit.org/b/223969 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/processing-after-resume.https.html [ Pass Failure ]
 
 webkit.org/b/219214 inspector/canvas/console-record-2d.html [ Pass Timeout ]
+webkit.org/b/219214 inspector/canvas/console-record-offscreen-canvas-2d.html [ Pass Timeout ]
 
 webkit.org/b/224032 [ arm64 ] tiled-drawing/top-content-inset-fixed-attachment-cover-local.html [ Pass ImageOnlyFailure ]
 
@@ -1432,9 +1432,13 @@ webkit.org/b/228252 [ BigSur Release arm64 ] fast/css-grid-layout/floating-empty
 webkit.org/b/228256 [ Debug ] inspector/canvas/create-context-webgl.html [ Pass Failure ]
 
 webkit.org/b/229043 inspector/canvas/recording-webgl-snapshots.html [ Pass Failure ]
+webkit.org/b/229043 inspector/canvas/recording-offscreen-webgl-snapshots.html [ Pass Failure ]
 webkit.org/b/229043 inspector/canvas/recording-bitmaprenderer-frameCount.html [ Pass Failure ]
+webkit.org/b/229043 inspector/canvas/recording-offscreen-bitmaprenderer-frameCount.html [ Pass Failure ]
 webkit.org/b/229043 inspector/canvas/recording-2d-full.html [ Pass Crash ]
+webkit.org/b/229043 inspector/canvas/recording-offscreen-canvas-2d-full.html [ Pass Crash ]
 webkit.org/b/229237 inspector/canvas/recording-2d-memoryLimit.html [ Pass Crash ]
+webkit.org/b/229237 inspector/canvas/recording-offscreen-canvas-2d-memoryLimit.html [ Pass Crash ]
 
 webkit.org/b/228210 [ Debug ] inspector/model/remote-object/iterator-large.html [ Pass Timeout ]
 
@@ -1809,6 +1813,7 @@ webkit.org/b/260113 [ arm64 ] http/wpt/webauthn/ctap-hid-failure.https.html [ Pa
 
 # rdar://102425691 ([ New Test ](256068@main): [ Ventura+ ] http/wpt/webcodecs/videoFrame-colorSpace.html is a consistent failure)
 [ Ventura+ ] http/wpt/webcodecs/videoFrame-colorSpace.html [ Pass Failure ]
+[ Sonoma+ ] http/wpt/webcodecs/encoder-task-failing.html [ Pass ]
 
 # These tests require compile-time flags in WebKit that are only enabled in iOS 17 and Sonoma. They were marked as Skip in
 # https://bugs.webkit.org/show_bug.cgi?id=248545 — re-enable them here.
@@ -1996,3 +2001,13 @@ webkit.org/b/264306 [ Sonoma+ ] fast/scrolling/mac/scrollbars/very-wide-overlay-
 webkit.org/b/264362 [ Sonoma+ ] fast/rendering/render-style-null-optgroup-crash.html [ Pass Failure ]
 
 webkit.org/b/264783 [ Monterey+ x86_64 ] http/wpt/mediarecorder/record-context-created-late.html [ Failure ]
+
+webkit.org/b/265414 [ Monterey+ ] imported/w3c/web-platform-tests/accname/name/comp_host_language_label.html [ Failure ]
+
+webkit.org/b/260225 [ Monterey+ x86_64 ] imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-GC.https.html [ Pass Failure ]
+
+# rdar://118901410 (NEW TEST (271087@main): [ macOS x86_64 wk2 ] 2 tests in http/wpt/webcodecs are a constant failure)
+http/wpt/webcodecs/h264-encoder-default-config.https.any.html [ Failure ]
+http/wpt/webcodecs/h264-encoder-default-config.https.any.worker.html [ Failure ]
+
+webkit.org/b/265599 [ Sonoma+ Debug x86_64 ] imported/w3c/web-platform-tests/html/browsers/the-window-object/open-close/open-features-tokenization-noreferrer.html [ Pass Crash ]

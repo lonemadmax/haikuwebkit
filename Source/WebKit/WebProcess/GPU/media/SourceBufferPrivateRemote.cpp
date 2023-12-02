@@ -86,10 +86,11 @@ Ref<MediaPromise> SourceBufferPrivateRemote::append(Ref<SharedBuffer>&& data)
     if (!isGPURunning())
         return MediaPromise::createAndReject(PlatformMediaError::IPCError);
 
-    return gpuProcessConnection->connection().sendWithPromisedReply(Messages::RemoteSourceBufferProxy::Append(IPC::SharedBufferReference { WTFMove(data) }), m_remoteSourceBufferIdentifier)->whenSettled(RunLoop::current(), [weakThis = WeakPtr { *static_cast<SourceBufferPrivate*>(this) }, this](auto&& result) {
+    return gpuProcessConnection->connection().sendWithPromisedReply(Messages::RemoteSourceBufferProxy::Append(IPC::SharedBufferReference { WTFMove(data) }), m_remoteSourceBufferIdentifier)->whenSettled(RunLoop::current(), [weakThis = ThreadSafeWeakPtr { *this }, this](auto&& result) {
         if (!result)
             return MediaPromise::createAndReject(PlatformMediaError::IPCError);
-        if (!weakThis)
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis)
             return MediaPromise::createAndReject(PlatformMediaError::SourceRemoved);
 
         m_totalTrackBufferSizeInBytes = std::get<uint64_t>(*result);
@@ -152,7 +153,8 @@ MediaPlayer::ReadyState SourceBufferPrivateRemote::readyState() const
 
 void SourceBufferPrivateRemote::setReadyState(MediaPlayer::ReadyState state)
 {
-    if (!m_mediaSource)
+    auto mediaSource = m_mediaSource.get();
+    if (!mediaSource)
         return;
 
     if (m_mediaPlayerPrivate)
@@ -169,7 +171,8 @@ void SourceBufferPrivateRemote::setActive(bool active)
 {
     SourceBufferPrivate::setActive(active);
 
-    if (!m_mediaSource)
+    auto mediaSource = m_mediaSource.get();
+    if (!mediaSource)
         return;
 
     auto gpuProcessConnection = m_gpuProcessConnection.get();
@@ -238,14 +241,14 @@ void SourceBufferPrivateRemote::evictCodedFrames(uint64_t newDataSize, uint64_t 
     }
 }
 
-void SourceBufferPrivateRemote::addTrackBuffer(const AtomString& trackId, RefPtr<MediaDescription>&&)
+void SourceBufferPrivateRemote::addTrackBuffer(TrackID trackId, RefPtr<MediaDescription>&&)
 {
     ASSERT(m_trackIdentifierMap.contains(trackId));
     auto gpuProcessConnection = m_gpuProcessConnection.get();
     if (!isGPURunning())
         return;
 
-    gpuProcessConnection->connection().send(Messages::RemoteSourceBufferProxy::AddTrackBuffer(m_trackIdentifierMap.get(trackId)), m_remoteSourceBufferIdentifier);
+    gpuProcessConnection->connection().send(Messages::RemoteSourceBufferProxy::AddTrackBuffer(m_trackIdentifierMap.find(trackId)->second), m_remoteSourceBufferIdentifier);
 }
 
 void SourceBufferPrivateRemote::resetTrackBuffers()
@@ -378,7 +381,7 @@ void SourceBufferPrivateRemote::seekToTime(const MediaTime& time)
     gpuProcessConnection->connection().send(Messages::RemoteSourceBufferProxy::SeekToTime(time), m_remoteSourceBufferIdentifier);
 }
 
-void SourceBufferPrivateRemote::updateTrackIds(Vector<std::pair<AtomString, AtomString>>&& trackIdPairs)
+void SourceBufferPrivateRemote::updateTrackIds(Vector<std::pair<TrackID, TrackID>>&& trackIdPairs)
 {
     auto gpuProcessConnection = m_gpuProcessConnection.get();
     if (!isGPURunning())
@@ -387,32 +390,34 @@ void SourceBufferPrivateRemote::updateTrackIds(Vector<std::pair<AtomString, Atom
     auto identifierPairs = trackIdPairs.map([this](auto& trackIdPair) {
         ASSERT(m_prevTrackIdentifierMap.contains(trackIdPair.first));
         ASSERT(m_trackIdentifierMap.contains(trackIdPair.second));
-        return std::pair { m_prevTrackIdentifierMap.take(trackIdPair.first), m_trackIdentifierMap.get(trackIdPair.second) };
+        return std::pair { m_prevTrackIdentifierMap.extract(trackIdPair.first).mapped(), m_trackIdentifierMap.find(trackIdPair.second)->second };
     });
 
     gpuProcessConnection->connection().send(Messages::RemoteSourceBufferProxy::UpdateTrackIds(identifierPairs), m_remoteSourceBufferIdentifier);
 }
 
-Ref<SourceBufferPrivate::SamplesPromise> SourceBufferPrivateRemote::bufferedSamplesForTrackId(const AtomString& trackId)
+Ref<SourceBufferPrivate::SamplesPromise> SourceBufferPrivateRemote::bufferedSamplesForTrackId(TrackID trackId)
 {
     auto gpuProcessConnection = m_gpuProcessConnection.get();
     if (!isGPURunning())
         return SamplesPromise::createAndResolve(Vector<String> { });
 
-    return gpuProcessConnection->connection().sendWithPromisedReply(Messages::RemoteSourceBufferProxy::BufferedSamplesForTrackId(m_trackIdentifierMap.get(trackId)), m_remoteSourceBufferIdentifier)->whenSettled(RunLoop::current(), [](auto&& result) {
+    auto& trackIdIdentifier = m_trackIdentifierMap.find(trackId)->second;
+    return gpuProcessConnection->connection().sendWithPromisedReply(Messages::RemoteSourceBufferProxy::BufferedSamplesForTrackId(trackIdIdentifier), m_remoteSourceBufferIdentifier)->whenSettled(RunLoop::current(), [](auto&& result) {
         if (!result)
             return SamplesPromise::createAndResolve(Vector<String> { });
         return SamplesPromise::createAndSettle(WTFMove(*result));
     });
 }
 
-Ref<SourceBufferPrivate::SamplesPromise> SourceBufferPrivateRemote::enqueuedSamplesForTrackID(const AtomString& trackId)
+Ref<SourceBufferPrivate::SamplesPromise> SourceBufferPrivateRemote::enqueuedSamplesForTrackID(TrackID trackId)
 {
     auto gpuProcessConnection = m_gpuProcessConnection.get();
     if (!isGPURunning())
         return SamplesPromise::createAndResolve(Vector<String> { });
 
-    return gpuProcessConnection->connection().sendWithPromisedReply(Messages::RemoteSourceBufferProxy::EnqueuedSamplesForTrackID(m_trackIdentifierMap.get(trackId)), m_remoteSourceBufferIdentifier)->whenSettled(RunLoop::current(), [](auto&& result) {
+    auto& trackIdIdentifier = m_trackIdentifierMap.find(trackId)->second;
+    return gpuProcessConnection->connection().sendWithPromisedReply(Messages::RemoteSourceBufferProxy::EnqueuedSamplesForTrackID(trackIdIdentifier), m_remoteSourceBufferIdentifier)->whenSettled(RunLoop::current(), [](auto&& result) {
         if (!result)
             return SamplesPromise::createAndResolve(Vector<String> { });
         return SamplesPromise::createAndSettle(WTFMove(*result));
@@ -421,7 +426,8 @@ Ref<SourceBufferPrivate::SamplesPromise> SourceBufferPrivateRemote::enqueuedSamp
 
 void SourceBufferPrivateRemote::sourceBufferPrivateDidReceiveInitializationSegment(InitializationSegmentInfo&& segmentInfo, CompletionHandler<void(WebCore::MediaPromise::Result&&)>&& completionHandler)
 {
-    if (!isAttached() || !m_mediaPlayerPrivate) {
+    RefPtr client = this->client();
+    if (!client || !m_mediaPlayerPrivate) {
         completionHandler(makeUnexpected(WebCore::PlatformMediaError::ClientDisconnected));
         return;
     }
@@ -435,7 +441,7 @@ void SourceBufferPrivateRemote::sourceBufferPrivateDidReceiveInitializationSegme
             RemoteMediaDescription::create(audioTrack.description),
             m_mediaPlayerPrivate->audioTrackPrivateRemote(audioTrack.identifier)
         };
-        m_trackIdentifierMap.add(info.track->id(), audioTrack.identifier);
+        m_trackIdentifierMap.try_emplace(info.track->id(), audioTrack.identifier);
         return info;
     });
 
@@ -444,7 +450,7 @@ void SourceBufferPrivateRemote::sourceBufferPrivateDidReceiveInitializationSegme
             RemoteMediaDescription::create(videoTrack.description),
             m_mediaPlayerPrivate->videoTrackPrivateRemote(videoTrack.identifier)
         };
-        m_trackIdentifierMap.add(info.track->id(), videoTrack.identifier);
+        m_trackIdentifierMap.try_emplace(info.track->id(), videoTrack.identifier);
         return info;
     });
 
@@ -453,23 +459,23 @@ void SourceBufferPrivateRemote::sourceBufferPrivateDidReceiveInitializationSegme
             RemoteMediaDescription::create(textTrack.description),
             m_mediaPlayerPrivate->textTrackPrivateRemote(textTrack.identifier)
         };
-        m_trackIdentifierMap.add(info.track->id(), textTrack.identifier);
+        m_trackIdentifierMap.try_emplace(info.track->id(), textTrack.identifier);
         return info;
     });
 
-    client().sourceBufferPrivateDidReceiveInitializationSegment(WTFMove(segment))->whenSettled(RunLoop::current(), WTFMove(completionHandler));
+    client->sourceBufferPrivateDidReceiveInitializationSegment(WTFMove(segment))->whenSettled(RunLoop::current(), WTFMove(completionHandler));
 }
 
 void SourceBufferPrivateRemote::sourceBufferPrivateHighestPresentationTimestampChanged(const MediaTime& timestamp)
 {
-    if (isAttached())
-        client().sourceBufferPrivateHighestPresentationTimestampChanged(timestamp);
+    if (RefPtr client = this->client())
+        client->sourceBufferPrivateHighestPresentationTimestampChanged(timestamp);
 }
 
 void SourceBufferPrivateRemote::sourceBufferPrivateDurationChanged(const MediaTime& duration, CompletionHandler<void()>&& completionHandler)
 {
-    if (isAttached())
-        client().sourceBufferPrivateDurationChanged(duration)->whenSettled(RunLoop::current(), WTFMove(completionHandler));
+    if (RefPtr client = this->client())
+        client->sourceBufferPrivateDurationChanged(duration)->whenSettled(RunLoop::current(), WTFMove(completionHandler));
     else
         completionHandler();
 }
@@ -486,26 +492,26 @@ void SourceBufferPrivateRemote::sourceBufferPrivateTrackBuffersChanged(Vector<We
 
 void SourceBufferPrivateRemote::sourceBufferPrivateDidParseSample(double sampleDuration)
 {
-    if (isAttached())
-        client().sourceBufferPrivateDidParseSample(sampleDuration);
+    if (RefPtr client = this->client())
+        client->sourceBufferPrivateDidParseSample(sampleDuration);
 }
 
 void SourceBufferPrivateRemote::sourceBufferPrivateDidDropSample()
 {
-    if (isAttached())
-        client().sourceBufferPrivateDidDropSample();
+    if (RefPtr client = this->client())
+        client->sourceBufferPrivateDidDropSample();
 }
 
 void SourceBufferPrivateRemote::sourceBufferPrivateDidReceiveRenderingError(int64_t errorCode)
 {
-    if (isAttached())
-        client().sourceBufferPrivateDidReceiveRenderingError(errorCode);
+    if (RefPtr client = this->client())
+        client->sourceBufferPrivateDidReceiveRenderingError(errorCode);
 }
 
 void SourceBufferPrivateRemote::sourceBufferPrivateReportExtraMemoryCost(uint64_t extraMemory)
 {
-    if (isAttached())
-        client().sourceBufferPrivateReportExtraMemoryCost(extraMemory);
+    if (RefPtr client = this->client())
+        client->sourceBufferPrivateReportExtraMemoryCost(extraMemory);
 }
 
 uint64_t SourceBufferPrivateRemote::totalTrackBufferSizeInBytes() const
@@ -527,7 +533,7 @@ void SourceBufferPrivateRemote::memoryPressure(uint64_t maximumBufferSize, const
         m_remoteSourceBufferIdentifier);
 }
 
-MediaTime SourceBufferPrivateRemote::minimumUpcomingPresentationTimeForTrackID(const AtomString& trackID)
+MediaTime SourceBufferPrivateRemote::minimumUpcomingPresentationTimeForTrackID(TrackID trackID)
 {
     auto gpuProcessConnection = m_gpuProcessConnection.get();
     if (!isGPURunning())
@@ -537,7 +543,7 @@ MediaTime SourceBufferPrivateRemote::minimumUpcomingPresentationTimeForTrackID(c
     return std::get<0>(sendResult.takeReplyOr(MediaTime::invalidTime()));
 }
 
-void SourceBufferPrivateRemote::setMaximumQueueDepthForTrackID(const AtomString& trackID, uint64_t depth)
+void SourceBufferPrivateRemote::setMaximumQueueDepthForTrackID(TrackID trackID, uint64_t depth)
 {
     auto gpuProcessConnection = m_gpuProcessConnection.get();
     if (!isGPURunning())

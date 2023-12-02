@@ -85,7 +85,6 @@ struct CSSParserContext {
     bool focusVisibleEnabled : 1 { false };
     bool hasPseudoClassEnabled : 1 { false };
     bool cascadeLayersEnabled : 1 { false };
-    bool overflowClipEnabled : 1 { false };
     bool gradientPremultipliedAlphaInterpolationEnabled : 1 { false };
     bool gradientInterpolationColorSpacesEnabled : 1 { false };
     bool subgridEnabled : 1 { false };
@@ -98,6 +97,8 @@ struct CSSParserContext {
     bool popoverAttributeEnabled : 1 { false };
     bool sidewaysWritingModesEnabled : 1 { false };
     bool cssTextWrapPrettyEnabled : 1 { false };
+    bool highlightAPIEnabled : 1 { false };
+    bool grammarAndSpellingPseudoElementsEnabled : 1 { false };
 
     // Settings, those affecting properties.
     CSSPropertySettings propertySettings;

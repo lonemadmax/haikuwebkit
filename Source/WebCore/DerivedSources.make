@@ -304,6 +304,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/cookie-store/LocalDOMWindow+CookieStore.idl \
     $(WebCore)/Modules/credentialmanagement/BasicCredential.idl \
     $(WebCore)/Modules/credentialmanagement/CredentialCreationOptions.idl \
+    $(WebCore)/Modules/credentialmanagement/CredentialMediationRequirement.idl \
     $(WebCore)/Modules/credentialmanagement/CredentialRequestOptions.idl \
     $(WebCore)/Modules/credentialmanagement/CredentialsContainer.idl \
     $(WebCore)/Modules/credentialmanagement/Navigator+Credentials.idl \
@@ -1708,8 +1709,6 @@ JS_BINDING_IDLS := \
 ADDITIONAL_BINDING_IDLS = \
     DocumentTouch.idl \
     GestureEvent.idl \
-    Internals+Additions.idl \
-    InternalsAdditions.idl \
     Touch.idl \
     TouchEvent.idl \
     TouchList.idl \
@@ -1987,7 +1986,6 @@ USER_AGENT_STYLE_SHEETS = \
     $(WebCore)/css/horizontalFormControls.css \
     $(WebCore)/css/html.css \
     $(WebCore)/css/htmlSwitchControl.css \
-    $(WebCore)/css/legacyFormControlsIOS.css \
     $(WebCore)/css/mathml.css \
     $(WebCore)/css/mediaControls.css \
     $(WebCore)/css/plugIns.css \

@@ -340,6 +340,8 @@ enum class LayoutOptions : uint8_t {
     RunPostLayoutTasksSynchronously = 1 << 0,
     IgnorePendingStylesheets = 1 << 1,
     ContentVisibilityForceLayout = 1 << 2,
+    UpdateCompositingLayers = 1 << 3,
+    DoNotLayoutAncestorDocuments = 1 << 4,
 };
 
 enum class HttpEquivPolicy {
@@ -451,6 +453,9 @@ public:
 
     bool shouldNotFireMutationEvents() const { return m_shouldNotFireMutationEvents; }
     void setShouldNotFireMutationEvents(bool fire) { m_shouldNotFireMutationEvents = fire; }
+
+    void parseMarkupUnsafe(const String&, OptionSet<ParserContentPolicy>);
+    static Ref<Document> parseHTMLUnsafe(Document&, const String&);
 
     Element* elementForAccessKey(const String& key);
     void invalidateAccessKeyCache();
@@ -691,11 +696,15 @@ public:
     bool needsStyleRecalc() const;
     unsigned lastStyleUpdateSizeForTesting() const { return m_lastStyleUpdateSizeForTesting; }
 
-    WEBCORE_EXPORT void updateLayout(OptionSet<LayoutOptions> = { }, const Element* = nullptr);
+    enum class UpdateLayoutResult {
+        NoChange,
+        ChangesDone,
+    };
+    WEBCORE_EXPORT UpdateLayoutResult updateLayout(OptionSet<LayoutOptions> = { }, const Element* = nullptr);
 
     // updateLayoutIgnorePendingStylesheets() forces layout even if we are waiting for pending stylesheet loads,
     // so calling this may cause a flash of unstyled content (FOUC).
-    void updateLayoutIgnorePendingStylesheets(OptionSet<LayoutOptions> = { }, const Element* = nullptr);
+        WEBCORE_EXPORT UpdateLayoutResult updateLayoutIgnorePendingStylesheets(OptionSet<LayoutOptions> = { }, const Element* = nullptr);
 
     std::unique_ptr<RenderStyle> styleForElementIgnoringPendingStylesheets(Element&, const RenderStyle* parentStyle, PseudoId = PseudoId::None);
 
@@ -734,7 +743,7 @@ public:
 
     bool renderTreeBeingDestroyed() const { return m_renderTreeBeingDestroyed; }
     bool hasLivingRenderTree() const { return renderView() && !renderTreeBeingDestroyed(); }
-    void updateRenderTree(std::unique_ptr<const Style::Update> styleUpdate);
+    void updateRenderTree(std::unique_ptr<Style::Update> styleUpdate);
 
     bool updateLayoutIfDimensionsOutOfDate(Element&, OptionSet<DimensionsCheck> = { DimensionsCheck::All });
 
@@ -1702,11 +1711,9 @@ public:
     const HashMap<String, Ref<HTMLAttachmentElement>>& attachmentElementsByIdentifier() const { return m_attachmentIdentifierToElementMap; }
 #endif
 
-#if ENABLE(SERVICE_WORKER)
     void setServiceWorkerConnection(RefPtr<SWClientConnection>&&);
     void updateServiceWorkerClientData() final;
     WEBCORE_EXPORT void navigateFromServiceWorker(const URL&, CompletionHandler<void(ScheduleLocationChangeResult)>&&);
-#endif
 
 #if ENABLE(VIDEO)
     void forEachMediaElement(const Function<void(HTMLMediaElement&)>&);
@@ -1716,12 +1723,10 @@ public:
     bool handlingTouchEvent() const { return m_handlingTouchEvent; }
 #endif
 
-#if ENABLE(TRACKING_PREVENTION)
     WEBCORE_EXPORT bool hasRequestedPageSpecificStorageAccessWithUserInteraction(const RegistrableDomain&);
     WEBCORE_EXPORT void setHasRequestedPageSpecificStorageAccessWithUserInteraction(const RegistrableDomain&);
     WEBCORE_EXPORT void wasLoadedWithDataTransferFromPrevalentResource();
     void downgradeReferrerToRegistrableDomain();
-#endif
 
     void registerArticleElement(Element&);
     void unregisterArticleElement(Element&);
@@ -2252,14 +2257,10 @@ private:
     RefPtr<WindowEventLoop> m_eventLoop;
     std::unique_ptr<EventLoopTaskGroup> m_documentTaskGroup;
 
-#if ENABLE(SERVICE_WORKER)
     RefPtr<SWClientConnection> m_serviceWorkerConnection;
-#endif
 
-#if ENABLE(TRACKING_PREVENTION)
     RegistrableDomain m_registrableDomainRequestedPageSpecificStorageAccessWithUserInteraction { };
     String m_referrerOverride;
-#endif
     
     std::optional<FixedVector<CSSPropertyID>> m_exposedComputedCSSPropertyIDs;
 

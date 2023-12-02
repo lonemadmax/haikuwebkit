@@ -163,6 +163,7 @@ typedef std::pair<WebKit::InteractionInformationRequest, InteractionInformationC
 #if HAVE(UIFINDINTERACTION)
 #define FOR_EACH_FIND_WKCONTENTVIEW_ACTION(M) \
     M(useSelectionForFind) \
+    M(findSelected) \
     M(_findSelected)
 #else
 #define FOR_EACH_FIND_WKCONTENTVIEW_ACTION(M)
@@ -171,12 +172,18 @@ typedef std::pair<WebKit::InteractionInformationRequest, InteractionInformationC
 #define FOR_EACH_WKCONTENTVIEW_ACTION(M) \
     FOR_EACH_INSERT_TEXT_FROM_CAMERA_WKCONTENTVIEW_ACTION(M) \
     FOR_EACH_FIND_WKCONTENTVIEW_ACTION(M) \
+    M(addShortcut) \
     M(_addShortcut) \
+    M(define) \
     M(_define) \
     M(_lookup) \
+    M(translate) \
     M(_translate) \
+    M(promptForReplace) \
     M(_promptForReplace) \
+    M(share) \
     M(_share) \
+    M(transliterateChinese) \
     M(_transliterateChinese) \
     M(_nextAccessoryTab) \
     M(_previousAccessoryTab) \
@@ -264,6 +271,12 @@ struct RemoveBackgroundData {
 };
 
 enum class ProceedWithTextSelectionInImage : bool { No, Yes };
+
+enum class DynamicImageAnalysisContextMenuState : uint8_t {
+    NotWaiting,
+    WaitingForImageAnalysis,
+    WaitingForVisibleMenu,
+};
 
 enum class ImageAnalysisRequestIdentifierType { };
 using ImageAnalysisRequestIdentifier = ObjectIdentifier<ImageAnalysisRequestIdentifierType>;
@@ -389,8 +402,8 @@ struct ImageAnalysisContextMenuActionData {
     RetainPtr<UIPreviewItemController> _previewItemController;
 #endif
 
-    RetainPtr<UIGestureRecognizer> _textInteractionLoupeGestureRecognizer;
-    RetainPtr<UIGestureRecognizer> _textInteractionTapGestureRecognizer;
+    __weak UIGestureRecognizer *_cachedTextInteractionLoupeGestureRecognizer;
+    __weak UIGestureRecognizer *_cachedTextInteractionTapGestureRecognizer;
 
     RefPtr<WebCore::TextIndicator> _textIndicator;
     RetainPtr<WebTextIndicatorLayer> _textIndicatorLayer;
@@ -509,7 +522,7 @@ struct ImageAnalysisContextMenuActionData {
 
     RetainPtr<NSDictionary> _additionalContextForStrongPasswordAssistance;
 
-    std::optional<UChar32> _lastInsertedCharacterToOverrideCharacterBeforeSelection;
+    std::optional<char32_t> _lastInsertedCharacterToOverrideCharacterBeforeSelection;
     unsigned _selectionChangeNestingLevel;
 
 #if ENABLE(DRAG_SUPPORT)
@@ -558,7 +571,7 @@ struct ImageAnalysisContextMenuActionData {
     RetainPtr<NSString> _visualSearchPreviewTitle;
     CGRect _visualSearchPreviewImageBounds;
 #endif // USE(QUICK_LOOK)
-    BOOL _waitingForDynamicImageAnalysisContextMenuActions;
+    WebKit::DynamicImageAnalysisContextMenuState _dynamicImageAnalysisContextMenuState;
     std::optional<WebKit::ImageAnalysisContextMenuActionData> _imageAnalysisContextMenuActionData;
 #endif // ENABLE(IMAGE_ANALYSIS)
     uint32_t _fullscreenVideoImageAnalysisRequestIdentifier;
@@ -681,6 +694,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)_didNotHandleTapAsClick:(const WebCore::IntPoint&)point;
 - (void)_didHandleTapAsHover;
 - (void)_didCompleteSyntheticClick;
+- (void)_provideSuggestionsToInputDelegate:(NSArray<UITextSuggestion *> *)suggestions;
 
 - (void)_didGetTapHighlightForRequest:(WebKit::TapIdentifier)requestID color:(const WebCore::Color&)color quads:(const Vector<WebCore::FloatQuad>&)highlightedQuads topLeftRadius:(const WebCore::IntSize&)topLeftRadius topRightRadius:(const WebCore::IntSize&)topRightRadius bottomLeftRadius:(const WebCore::IntSize&)bottomLeftRadius bottomRightRadius:(const WebCore::IntSize&)bottomRightRadius nodeHasBuiltInClickHandling:(BOOL)nodeHasBuiltInClickHandling;
 
@@ -829,9 +843,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)_showMediaControlsContextMenu:(WebCore::FloatRect&&)targetFrame items:(Vector<WebCore::MediaControlsContextMenuItem>&&)items completionHandler:(CompletionHandler<void(WebCore::MediaControlsContextMenuItem::ID)>&&)completionHandler;
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 
-#if ENABLE(IOS_FORM_CONTROL_REFRESH)
 - (BOOL)_formControlRefreshEnabled;
-#endif
 
 - (WebCore::DataOwnerType)_dataOwnerForPasteboard:(WebKit::PasteboardAccessIntent)intent;
 

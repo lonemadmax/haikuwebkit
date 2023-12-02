@@ -267,20 +267,6 @@ void SourceBufferParserAVFObjC::flushPendingMediaData()
     [m_parser providePendingMediaData];
 }
 
-void SourceBufferParserAVFObjC::setShouldProvideMediaDataForTrackID(bool should, uint64_t trackID)
-{
-    INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER, "should = ", should, ", trackID = ", trackID);
-    BEGIN_BLOCK_OBJC_EXCEPTIONS
-    [m_parser setShouldProvideMediaData:should forTrackID:trackID];
-    END_BLOCK_OBJC_EXCEPTIONS
-}
-
-bool SourceBufferParserAVFObjC::shouldProvideMediadataForTrackID(uint64_t trackID)
-{
-    INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER, "trackID = ", trackID);
-    return [m_parser shouldProvideMediaDataForTrackID:trackID];
-}
-
 void SourceBufferParserAVFObjC::resetParserState()
 {
     INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER);
@@ -350,7 +336,7 @@ void SourceBufferParserAVFObjC::didFailToParseStreamDataWithError(NSError* error
     m_lastErrorCode.emplace([error code]);
 }
 
-void SourceBufferParserAVFObjC::didProvideMediaDataForTrackID(uint64_t trackID, CMSampleBufferRef sampleBuffer, const String& mediaType, unsigned flags)
+void SourceBufferParserAVFObjC::didProvideMediaDataForTrackID(TrackID trackID, CMSampleBufferRef sampleBuffer, const String& mediaType, unsigned flags)
 {
     INFO_LOG_IF_POSSIBLE(LOGIDENTIFIER, "trackID = ", trackID, ", mediaType = ", mediaType);
     UNUSED_PARAM(flags);

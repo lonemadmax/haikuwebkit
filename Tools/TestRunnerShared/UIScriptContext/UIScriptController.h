@@ -123,6 +123,9 @@ public:
     virtual bool isWindowContentViewFirstResponder() const { notImplemented(); return false; }
     virtual bool isWebContentFirstResponder() const { notImplemented(); return false; }
 
+    virtual void setInlinePrediction(JSStringRef) { notImplemented(); }
+    virtual void acceptInlinePrediction() { notImplemented(); }
+
     virtual void removeViewFromWindow(JSValueRef) { notImplemented(); }
     virtual void addViewToWindow(JSValueRef) { notImplemented(); }
 
@@ -392,6 +395,7 @@ public:
     // Image Analysis
 
     virtual uint64_t currentImageAnalysisRequestID() const { return 0; }
+    virtual void installFakeMachineReadableCodeResultsForImageAnalysis() { }
 
 protected:
     explicit UIScriptController(UIScriptContext&);

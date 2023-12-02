@@ -104,7 +104,7 @@ void RemoteLayerWithRemoteRenderingBackingStoreCollection::prepareBackingStoresF
 
 RefPtr<WebCore::ImageBuffer> RemoteLayerWithRemoteRenderingBackingStoreCollection::allocateBufferForBackingStore(const RemoteLayerBackingStore& backingStore)
 {
-    OptionSet<ImageBufferOptions> options;
+    OptionSet<WebCore::ImageBufferOptions> options;
     if (backingStore.type() == RemoteLayerBackingStore::Type::IOSurface)
         options.add(WebCore::ImageBufferOptions::Accelerated);
     return remoteRenderingBackendProxy().createImageBuffer(backingStore.size(), WebCore::RenderingPurpose::LayerBacking, backingStore.scale(), backingStore.colorSpace(), backingStore.pixelFormat(), options);
@@ -122,12 +122,10 @@ bool RemoteLayerWithRemoteRenderingBackingStoreCollection::collectBackingStoreBu
         if (buffer->volatilityState() != WebCore::VolatilityState::NonVolatile)
             return;
 
-        // Clearing the backend handle in the webcontent process is necessary to have the surface in-use count drop to zero.
-        if (auto* backend = buffer->ensureBackendCreated()) {
-            auto* sharing = backend->toBackendSharing();
-            if (is<ImageBufferBackendHandleSharing>(sharing))
-                downcast<ImageBufferBackendHandleSharing>(*sharing).clearBackendHandle();
-        }
+        // Clearing the backend handle in the Web Content process is necessary to have the surface in-use count drop to zero.
+        auto* sharing = buffer->toBackendSharing();
+        if (is<ImageBufferBackendHandleSharing>(sharing))
+            downcast<ImageBufferBackendHandleSharing>(*sharing).clearBackendHandle();
 
         identifiers.append(buffer->renderingResourceIdentifier());
     };

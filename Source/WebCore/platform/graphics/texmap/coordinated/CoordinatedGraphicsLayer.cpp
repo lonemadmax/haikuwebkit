@@ -705,10 +705,7 @@ void CoordinatedGraphicsLayer::setNeedsDisplayInRect(const FloatRect& initialRec
     if (alreadyRecorded)
         return;
 
-    if (rects.size() < 32)
-        rects.append(rect);
-    else
-        rects[0].unite(rect);
+    rects.append(rect);
 
     notifyFlushRequired();
     addRepaintRect(rect);
@@ -1420,9 +1417,7 @@ bool CoordinatedGraphicsLayer::addAnimation(const KeyframeValueList& valueList, 
         return false;
 
     switch (valueList.property()) {
-#if ENABLE(FILTERS_LEVEL_2)
     case AnimatedProperty::WebkitBackdropFilter:
-#endif
     case AnimatedProperty::Filter: {
         int listIndex = validateFilterOperations(valueList);
         if (listIndex < 0)

@@ -155,6 +155,7 @@ Shared/Cocoa/AuxiliaryProcessCocoa.mm
 Shared/Cocoa/CodeSigning.mm
 Shared/Cocoa/CompletionHandlerCallChecker.mm
 Shared/Cocoa/CoreIPCError.mm
+Shared/Cocoa/CoreIPCLocale.mm
 Shared/Cocoa/CoreTextHelpers.mm
 Shared/Cocoa/DefaultWebBrowserChecks.mm
 Shared/Cocoa/ExtensionKitSoftLink.mm
@@ -486,10 +487,12 @@ UIProcess/ios/WebScreenOrientationManagerProxyIOS.mm
 UIProcess/ios/WKActionSheet.mm
 UIProcess/ios/WKActionSheetAssistant.mm
 UIProcess/ios/WKApplicationStateTrackingView.mm
+UIProcess/ios/WKAxisLockingScrollView.mm
 UIProcess/ios/WKContentView.mm @no-unify
 UIProcess/ios/WKContentViewInteraction.mm @no-unify
 UIProcess/ios/WKDeferringGestureRecognizer.mm
 UIProcess/ios/WKExtendedTextInputTraits.mm
+UIProcess/ios/WKExtrinsicButton.mm
 UIProcess/ios/WKGeolocationProviderIOS.mm
 UIProcess/ios/WKHighlightLongPressGestureRecognizer.mm
 UIProcess/ios/WKImageAnalysisGestureRecognizer.mm

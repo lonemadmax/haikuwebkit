@@ -42,6 +42,7 @@
 #include "WebExtensionFrameIdentifier.h"
 #include "WebExtensionFrameParameters.h"
 #include "WebExtensionMatchPattern.h"
+#include "WebExtensionMenuItem.h"
 #include "WebExtensionMessagePort.h"
 #include "WebExtensionPortChannelIdentifier.h"
 #include "WebExtensionTab.h"
@@ -68,10 +69,12 @@
 OBJC_CLASS NSArray;
 OBJC_CLASS NSDate;
 OBJC_CLASS NSDictionary;
+OBJC_CLASS NSMenu;
 OBJC_CLASS NSMutableDictionary;
 OBJC_CLASS NSString;
 OBJC_CLASS NSURL;
 OBJC_CLASS NSUUID;
+OBJC_CLASS WKContentRuleListStore;
 OBJC_CLASS WKNavigation;
 OBJC_CLASS WKNavigationAction;
 OBJC_CLASS WKWebView;
@@ -83,9 +86,11 @@ OBJC_PROTOCOL(_WKWebExtensionWindow);
 
 namespace WebKit {
 
+class ContextMenuContextData;
 class WebExtension;
 class WebUserContentControllerProxy;
 struct WebExtensionContextParameters;
+struct WebExtensionMenuItemContextParameters;
 
 enum class WebExtensionContextInstallReason : uint8_t {
     None,
@@ -147,6 +152,11 @@ public:
     using PageIdentifierTuple = std::tuple<WebCore::PageIdentifier, std::optional<WebExtensionTabIdentifier>, std::optional<WebExtensionWindowIdentifier>>;
 
     using CommandsVector = Vector<Ref<WebExtensionCommand>>;
+
+    using MenuItemVector = Vector<Ref<WebExtensionMenuItem>>;
+    using MenuItemMap = HashMap<String, Ref<WebExtensionMenuItem>>;
+
+    using DeclarativeNetRequestValidatedRulesets = std::pair<std::optional<WebExtension::DeclarativeNetRequestRulesetVector>, std::optional<String>>;
 
     enum class EqualityOnly : bool { No, Yes };
     enum class WindowIsClosing : bool { No, Yes };
@@ -313,7 +323,18 @@ public:
     void performAction(WebExtensionTab*, UserTriggered = UserTriggered::No);
 
     const CommandsVector& commands();
+    WebExtensionCommand* command(const String& identifier);
     void performCommand(WebExtensionCommand&, UserTriggered = UserTriggered::No);
+
+    NSArray *platformMenuItems(const WebExtensionTab&) const;
+
+    const MenuItemVector& mainMenuItems() const { return m_mainMenuItems; }
+    WebExtensionMenuItem* menuItem(const String& identifier) const;
+    void performMenuItem(WebExtensionMenuItem&, const WebExtensionMenuItemContextParameters&, UserTriggered = UserTriggered::No);
+
+#if PLATFORM(MAC)
+    void addItemsToContextMenu(WebPageProxy&, const ContextMenuContextData&, NSMenu *);
+#endif
 
     void userGesturePerformed(WebExtensionTab&);
     bool hasActiveUserGesture(WebExtensionTab&) const;
@@ -411,8 +432,14 @@ private:
     void removeInjectedContent(MatchPatternSet&);
     void removeInjectedContent(WebExtensionMatchPattern&);
 
-    void loadDeclarativeNetRequestRules();
-    void compileDeclarativeNetRequestRules(NSArray *);
+    void loadDeclarativeNetRequestRules(CompletionHandler<void(bool)>&&);
+    void compileDeclarativeNetRequestRules(NSArray *, CompletionHandler<void(bool)>&&);
+    void removeDeclarativeNetRequestRules();
+    void addDeclarativeNetRequestRulesToPrivateUserContentControllers();
+    WKContentRuleListStore *declarativeNetRequestRuleStore();
+    void saveDeclarativeNetRequestRulesetStateToStorage(NSDictionary *rulesetState);
+    void loadDeclarativeNetRequestRulesetStateFromStorage();
+    void clearDeclarativeNetRequestRulesetState();
 
     // Action APIs
     void actionGetTitle(std::optional<WebExtensionWindowIdentifier>, std::optional<WebExtensionTabIdentifier>, CompletionHandler<void(std::optional<String>, std::optional<String>)>&&);
@@ -437,8 +464,15 @@ private:
 
     // Commands APIs
     void commandsGetAll(CompletionHandler<void(Vector<WebExtensionCommandParameters>)>&&);
-    void fireCommandEventIfNeeded(WebExtensionCommand&, WebExtensionTab*);
-    void fireCommandChangedEventIfNeeded(WebExtensionCommand&, const String& oldShortcut);
+    void fireCommandEventIfNeeded(const WebExtensionCommand&, WebExtensionTab*);
+    void fireCommandChangedEventIfNeeded(const WebExtensionCommand&, const String& oldShortcut);
+
+    // DeclarativeNetRequest APIs
+    void declarativeNetRequestGetEnabledRulesets(CompletionHandler<void(const Vector<String>&)>&&);
+    void declarativeNetRequestUpdateEnabledRulesets(const Vector<String>& rulesetIdentifiersToEnable, const Vector<String>& rulesetIdentifiersToDisable, CompletionHandler<void(std::optional<String>)>&&);
+    DeclarativeNetRequestValidatedRulesets declarativeNetRequestValidateRulesetIdentifiers(const Vector<String>&);
+    size_t declarativeNetRequestEnabledRulesetCount();
+    void declarativeNetRequestToggleRulesets(const Vector<String>& rulesetIdentifiers, bool newValue, NSMutableDictionary *rulesetIdentifiersToEnabledState);
 
     // Event APIs
     void addListener(WebPageProxyIdentifier, WebExtensionEventListenerType, WebExtensionContentWorldType);
@@ -446,6 +480,13 @@ private:
 
     // Extension APIs
     void extensionIsAllowedIncognitoAccess(CompletionHandler<void(bool)>&&);
+
+    // Menus APIs
+    void menusCreate(const WebExtensionMenuItemParameters&, CompletionHandler<void(std::optional<String>)>&&);
+    void menusUpdate(const String& identifier, const WebExtensionMenuItemParameters&, CompletionHandler<void(std::optional<String>)>&&);
+    void menusRemove(const String& identifier, CompletionHandler<void(std::optional<String>)>&&);
+    void menusRemoveAll(CompletionHandler<void(std::optional<String>)>&&);
+    void fireMenusClickedEventIfNeeded(const WebExtensionMenuItem&, bool wasChecked, const WebExtensionMenuItemContextParameters&);
 
     // Permissions APIs
     void permissionsGetAll(CompletionHandler<void(Vector<String> permissions, Vector<String> origins)>&&);
@@ -482,10 +523,11 @@ private:
     void scriptingExecuteScript(const WebExtensionScriptInjectionParameters&, CompletionHandler<void(std::optional<Vector<WebExtensionScriptInjectionResultParameters>>, WebExtensionDynamicScripts::Error)>&&);
     void scriptingInsertCSS(const WebExtensionScriptInjectionParameters&, CompletionHandler<void(WebExtensionDynamicScripts::Error)>&&);
     void scriptingRemoveCSS(const WebExtensionScriptInjectionParameters&, CompletionHandler<void(WebExtensionDynamicScripts::Error)>&&);
-    void scriptingRegisterScripts(const Vector<WebExtensionRegisteredScriptParameters>& scripts, CompletionHandler<void(WebExtensionDynamicScripts::Error)>&&);
+    void scriptingRegisterContentScripts(const Vector<WebExtensionRegisteredScriptParameters>& scripts, CompletionHandler<void(WebExtensionDynamicScripts::Error)>&&);
     void scriptingUpdateRegisteredScripts(const Vector<WebExtensionRegisteredScriptParameters>& scripts, CompletionHandler<void(WebExtensionDynamicScripts::Error)>&&);
-    void scriptingGetRegisteredScripts(const Vector<String>&, CompletionHandler<void(std::optional<Vector<WebExtensionRegisteredScriptParameters>> scripts, WebExtensionDynamicScripts::Error)>&&);
-    void scriptingUnregisterScripts(const Vector<String>&, CompletionHandler<void(std::optional<Vector<WebExtensionRegisteredScriptParameters>> scripts, WebExtensionDynamicScripts::Error)>&&);
+    void scriptingGetRegisteredScripts(const Vector<String>&, CompletionHandler<void(Vector<WebExtensionRegisteredScriptParameters> scripts)>&&);
+    void scriptingUnregisterContentScripts(const Vector<String>&, CompletionHandler<void(WebExtensionDynamicScripts::Error)>&&);
+    bool parseRegisteredContentScripts(const Vector<WebExtensionRegisteredScriptParameters>&, WebExtensionDynamicScripts::WebExtensionRegisteredScript::FirstTimeRegistration, InjectedContentVector&, NSString *callingAPIName, NSString **errorMessage);
 
     // Tabs APIs
     void tabsCreate(WebPageProxyIdentifier, const WebExtensionTabParameters&, CompletionHandler<void(std::optional<WebExtensionTabParameters>, WebExtensionTab::Error)>&&);
@@ -599,6 +641,8 @@ private:
     HashMap<Ref<WebExtensionMatchPattern>, UserScriptVector> m_injectedScriptsPerPatternMap;
     HashMap<Ref<WebExtensionMatchPattern>, UserStyleSheetVector> m_injectedStyleSheetsPerPatternMap;
 
+    HashMap<String, Ref<WebExtensionDynamicScripts::WebExtensionRegisteredScript>> m_registeredScriptsMap;
+
     UserStyleSheetVector m_dynamicallyInjectedUserStyleSheets;
 
     HashMap<String, Ref<WebExtensionAlarm>> m_alarmMap;
@@ -618,6 +662,11 @@ private:
 
     CommandsVector m_commands;
     bool m_populatedCommands { false };
+
+    RetainPtr<WKContentRuleListStore> m_declarativeNetRequestRuleStore;
+
+    MenuItemMap m_menuItems;
+    MenuItemVector m_mainMenuItems;
 };
 
 template<typename T>

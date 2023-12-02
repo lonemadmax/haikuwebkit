@@ -63,6 +63,8 @@ fast/forms/search/search-padding-cancel-results-buttons.html [ Pass ]
 fast/forms/search/search-results-hidden-crash.html [ Pass ]
 fast/forms/search/search-recent-searches.html [ Pass ]
 
+fast/forms/switch/ [ Pass ]
+
 fast/url/user-visible [ Pass ]
 fast/images/eps-as-image.html [ Skip ]
 
@@ -945,9 +947,14 @@ http/tests/security/contentSecurityPolicy/media-src-allowed.html [ Skip ]
 webkit.org/b/229101 http/tests/media/modern-media-controls/pip-support/pip-support-live-broadcast.html [ Pass Failure ]
 
 webkit.org/b/174066 inspector/canvas/console-record-webgl2.html [ Pass Timeout ]
+webkit.org/b/174066 inspector/canvas/console-record-offscreen-webgl2.html [ Pass Timeout ]
 webkit.org/b/173931 inspector/canvas/context-attributes.html [ Pass Timeout ]
 webkit.org/b/178028 inspector/canvas/create-context-2d.html [ Pass Failure Timeout ]
 webkit.org/b/174066 inspector/canvas/create-context-webgl2.html [ Pass Failure Timeout ]
+webkit.org/b/174066 inspector/canvas/recording-offscreen-webgl2-frameCount.html [ Pass Failure Timeout ]
+webkit.org/b/174066 inspector/canvas/recording-offscreen-webgl2-full.html [ Pass Failure Timeout ]
+webkit.org/b/174066 inspector/canvas/recording-offscreen-webgl2-memoryLimit.html [ Pass Failure Timeout ]
+webkit.org/b/174066 inspector/canvas/recording-offscreen-webgl2-snapshots.html [ Pass Failure Timeout ]
 webkit.org/b/174066 inspector/canvas/recording-webgl2-frameCount.html [ Pass Failure Timeout ]
 webkit.org/b/174066 inspector/canvas/recording-webgl2-full.html [ Pass Failure Timeout ]
 webkit.org/b/174066 inspector/canvas/recording-webgl2-memoryLimit.html [ Pass Failure Timeout ]
@@ -2002,8 +2009,6 @@ webkit.org/b/222692 inspector/page/empty-or-missing-resources.html [ Pass Timeou
 [ arm64 ] webrtc/captureCanvas-webrtc-software-h264-high.html [ Pass Failure ]
 webrtc/h264-baseline.html  [ Failure Timeout ]
 
-webkit.org/b/238104 [ arm64 ] webrtc/vp9-profile2.html [ Skip ]
-
 webkit.org/b/223259 [ arm64 ] webgl/2.0.0/conformance2/textures/misc/tex-mipmap-levels.html [ Failure ]
 
 webkit.org/b/223271 [ Debug ] imported/w3c/web-platform-tests/xhr/event-upload-progress.any.worker.html [ Pass Failure ]
@@ -2509,9 +2514,6 @@ webkit.org/b/157589 fast/text-autosizing/ios/text-autosizing-after-back.html [ P
 # webkit.org/b/261308 Batch mark expectations for flaky imported/w3c/web-platform-tests
 [ Monterey+ ] imported/w3c/web-platform-tests/workers/WorkerGlobalScope_ErrorEvent_colno.htm [ Pass Failure ]
 [ Monterey+ Debug ] imported/w3c/web-platform-tests/encoding/streams/realms.window.html [ Pass Failure ]
-[ Monterey+ Debug ] imported/w3c/web-platform-tests/dom/nodes/NodeList-static-length-getter-tampered-2.html [ Pass Timeout ]
-[ Monterey+ Debug ] imported/w3c/web-platform-tests/dom/nodes/NodeList-static-length-getter-tampered-1.html [ Pass Failure Timeout ]
-[ Monterey+ Debug ] imported/w3c/web-platform-tests/dom/nodes/NodeList-static-length-getter-tampered-3.html [ Pass Failure Timeout ]
 [ Monterey+ ] imported/w3c/web-platform-tests/workers/WorkerGlobalScope_ErrorEvent_filename.htm [ Pass Failure ]
 [ Monterey+ ] imported/w3c/web-platform-tests/css/css-writing-modes/forms/text-input-vertical-overflow-no-scroll.html [ Pass Failure Timeout ]
 [ Monterey+ Debug ] imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/javascript-url-return-value-handling-dynamic.html [ Pass Failure ]
@@ -2606,3 +2608,9 @@ webkit.org/b/264177 requestidlecallback/requestidlecallback-deadline-shortened-b
 webkit.org/b/264527 imported/w3c/web-platform-tests/css/css-cascade/idlharness.html [ Pass Failure ]
 
 webkit.org/b/264607 [ Sonoma+ ] css1/box_properties/acid_test.html [ Pass Timeout ]
+
+# webkit.org/b/265536 ([ macOS ] 2 tests in inspector/layers are flaky failures)
+inspector/layers/layers-compositing-reasons.html [ Pass Failure ]
+inspector/layers/layers-blending-compositing-reasons.html [ Pass Failure ]
+
+webkit.org/b/265685 [ Sonoma+ ] http/wpt/webcodecs/encoder-task-failing.html [ Failure ]

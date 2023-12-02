@@ -1514,12 +1514,10 @@ RefPtr<CSSPrimitiveValue> consumeResolution(CSSParserTokenRange& range)
     return consumeMetaConsumer<ResolutionConsumer>(range, { }, ValueRange::NonNegative, CSSParserMode::HTMLStandardMode, UnitlessQuirk::Forbid, UnitlessZeroQuirk::Forbid);
 }
 
-#if ENABLE(CSS_CONIC_GRADIENTS)
 static RefPtr<CSSPrimitiveValue> consumeAngleOrPercent(CSSParserTokenRange& range, CSSParserMode parserMode)
 {
     return consumeMetaConsumer<AngleOrPercentConsumer>(range, { }, ValueRange::All, parserMode, UnitlessQuirk::Forbid, UnitlessZeroQuirk::Allow);
 }
-#endif
 
 static std::optional<LengthOrPercentRaw> consumeLengthOrPercentRaw(CSSParserTokenRange& range, CSSParserMode parserMode)
 {
@@ -3767,12 +3765,10 @@ static std::optional<CSSGradientColorStopList> consumeLengthColorStopList(CSSPar
     return consumeColorStopList(range, context, supportsColorHints, [&] { return consumeLengthOrPercent(range, context.mode, ValueRange::All); });
 }
 
-#if ENABLE(CSS_CONIC_GRADIENTS)
 static std::optional<CSSGradientColorStopList> consumeAngularColorStopList(CSSParserTokenRange& range, const CSSParserContext& context, SupportsColorHints supportsColorHints)
 {
     return consumeColorStopList(range, context, supportsColorHints, [&] { return consumeAngleOrPercent(range, context.mode); });
 }
-#endif
 
 static RefPtr<CSSValue> consumePrefixedRadialGradient(CSSParserTokenRange& range, const CSSParserContext& context, CSSGradientRepeat repeating)
 {
@@ -4251,7 +4247,6 @@ static RefPtr<CSSValue> consumeLinearGradient(CSSParserTokenRange& range, const 
 
 static RefPtr<CSSValue> consumeConicGradient(CSSParserTokenRange& range, const CSSParserContext& context, CSSGradientRepeat repeating)
 {
-#if ENABLE(CSS_CONIC_GRADIENTS)
     // conic-gradient() = conic-gradient(
     //   [ [ from <angle> ]? [ at <position> ]? ] || <color-interpolation-method>,
     //   <angular-color-stop-list>
@@ -4310,12 +4305,6 @@ static RefPtr<CSSValue> consumeConicGradient(CSSParserTokenRange& range, const C
         computedColorInterpolationMethod,
         WTFMove(*stops)
     );
-#else
-    UNUSED_PARAM(range);
-    UNUSED_PARAM(context);
-    UNUSED_PARAM(repeating);
-    return nullptr;
-#endif
 }
 
 RefPtr<CSSValue> consumeImageOrNone(CSSParserTokenRange& range, const CSSParserContext& context)
@@ -4622,15 +4611,16 @@ static RefPtr<CSSFunctionValue> consumeFilterFunction(CSSParserTokenRange& range
         else if (filterType == CSSValueBlur)
             parsedValue = consumeLength(args, HTMLStandardMode, ValueRange::NonNegative);
         else {
-            parsedValue = consumePercent(args, ValueRange::NonNegative);
-            if (!parsedValue)
-                parsedValue = consumeNumber(args, ValueRange::NonNegative);
-            if (parsedValue && !allowsValuesGreaterThanOne(filterType)) {
-                bool isPercentage = downcast<CSSPrimitiveValue>(*parsedValue).isPercentage();
+            RefPtr primitiveValue = consumePercent(args, ValueRange::NonNegative);
+            if (!primitiveValue)
+                primitiveValue = consumeNumber(args, ValueRange::NonNegative);
+            if (primitiveValue && !allowsValuesGreaterThanOne(filterType)) {
+                bool isPercentage = primitiveValue->isPercentage();
                 double maxAllowed = isPercentage ? 100.0 : 1.0;
-                if (downcast<CSSPrimitiveValue>(*parsedValue).doubleValue() > maxAllowed)
-                    parsedValue = CSSPrimitiveValue::create(maxAllowed, isPercentage ? CSSUnitType::CSS_PERCENTAGE : CSSUnitType::CSS_NUMBER);
+                if (primitiveValue->doubleValue() > maxAllowed)
+                    primitiveValue = CSSPrimitiveValue::create(maxAllowed, isPercentage ? CSSUnitType::CSS_PERCENTAGE : CSSUnitType::CSS_NUMBER);
             }
+            parsedValue = WTFMove(primitiveValue);
         }
     }
     if (!parsedValue || !args.atEnd())
@@ -6331,22 +6321,22 @@ RefPtr<CSSValue> consumeTransformFunction(CSSParserTokenRange& range, const CSSP
         break;
     case CSSValueTranslateX:
     case CSSValueTranslateY:
-    case CSSValueTranslate:
-        parsedValue = consumeLengthOrPercent(args, context.mode, ValueRange::All);
-        if (!parsedValue)
+    case CSSValueTranslate: {
+        RefPtr primitiveValue = consumeLengthOrPercent(args, context.mode, ValueRange::All);
+        if (!primitiveValue)
             return nullptr;
         if (functionId == CSSValueTranslate && consumeCommaIncludingWhitespace(args)) {
-            arguments.append(parsedValue.releaseNonNull());
-            parsedValue = consumeLengthOrPercent(args, context.mode, ValueRange::All);
-            if (!parsedValue)
+            arguments.append(primitiveValue.releaseNonNull());
+            primitiveValue = consumeLengthOrPercent(args, context.mode, ValueRange::All);
+            if (!primitiveValue)
                 return nullptr;
-            if (is<CSSPrimitiveValue>(parsedValue)) {
-                auto isZero = downcast<CSSPrimitiveValue>(*parsedValue).isZero();
-                if (isZero && *isZero)
-                    parsedValue = nullptr;
-            }
+            auto isZero = primitiveValue->isZero();
+            if (isZero && *isZero)
+                primitiveValue = nullptr;
         }
+        parsedValue = WTFMove(primitiveValue);
         break;
+    }
     case CSSValueTranslateZ:
         parsedValue = consumeLength(args, context.mode, ValueRange::All);
         break;
@@ -7735,8 +7725,8 @@ static bool isGridTrackFixedSized(const CSSPrimitiveValue& primitiveValue)
 
 static bool isGridTrackFixedSized(const CSSValue& value)
 {
-    if (value.isPrimitiveValue())
-        return isGridTrackFixedSized(downcast<CSSPrimitiveValue>(value));
+    if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value))
+        return isGridTrackFixedSized(*primitiveValue);
     auto& function = downcast<CSSFunctionValue>(value);
     if (function.name() == CSSValueFitContent || function.length() < 2)
         return false;

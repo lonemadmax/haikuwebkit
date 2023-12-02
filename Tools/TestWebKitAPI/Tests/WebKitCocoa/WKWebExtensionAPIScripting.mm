@@ -64,10 +64,10 @@ TEST(WKWebExtensionAPIScripting, Errors)
         @"browser.test.assertThrows(() => browser.scripting.executeScript({'target': { 'tabId': 0 }, func: 'not a function' }), /is expected to be a value, but a string was provided./i)",
 
         @"browser.test.assertThrows(() => browser.scripting.executeScript({'target': { 'tabId': 0 }}), /it must specify either 'func' or 'files'./i)",
-        @"browser.test.assertThrows(() => browser.scripting.executeScript({'target': { 'tabId': 0 }, args: ['args'], files: [0]}), /'files' is expected to be strings in an array, but a number was provided./i)",
+        @"browser.test.assertThrows(() => browser.scripting.executeScript({'target': { 'tabId': 0 }, args: ['args'], files: [0]}), /'files' is expected to be an array of strings, but a number was provided./i)",
 
         @"browser.test.assertThrows(() => browser.scripting.executeScript({'target': { 'tabId': 0, allFrames: true, frameIds: [0] }, files: ['path/to/file']}), /it cannot specify both 'allFrames' and 'frameIds'./i)",
-        @"browser.test.assertThrows(() => browser.scripting.executeScript({'target': { 'tabId': 0, frameIds: ['0'] }, files: ['path/to/file']}), /'frameIds' is expected to be numbers in an array, but a string was provided./i)",
+        @"browser.test.assertThrows(() => browser.scripting.executeScript({'target': { 'tabId': 0, frameIds: ['0'] }, files: ['path/to/file']}), /'frameIds' is expected to be an array of numbers, but a string was provided./i)",
         @"browser.test.assertThrows(() => browser.scripting.executeScript({'target': { 'tabId': 0, frameIds: [-1] }, files: ['path/to/file']}), /'-1' is not a frame identifier./i)",
 
         @"browser.test.assertThrows(() => browser.scripting.executeScript({'target': { 'tabId': 0 }, world: 'world', files: ['path/to/file']}), /it must specify either 'ISOLATED' or 'MAIN'./i)",
@@ -106,12 +106,12 @@ TEST(WKWebExtensionAPIScripting, Errors)
         @"browser.test.assertThrows(() => browser.scripting.updateContentScripts([{ id: '0', matches: [ '*://*/*' ], js: ['path/to/file'], world: 'invalid_world' }]), /it must specify either 'ISOLATED' or 'MAIN'/i)",
 
         @"browser.test.assertThrows(() => browser.scripting.getRegisteredContentScripts([]), /an object is expected/i)",
-        @"browser.test.assertThrows(() => browser.scripting.getRegisteredContentScripts({ ids: 0 }), /'ids' is expected to be an array, but a number was provided/i)",
-        @"browser.test.assertThrows(() => browser.scripting.getRegisteredContentScripts({ ids: [ 0 ] }), /'ids' is expected to be strings in an array, but a number was provided/i)",
+        @"browser.test.assertThrows(() => browser.scripting.getRegisteredContentScripts({ ids: 0 }), /'ids' is expected to be an array of strings, but a number was provided/i)",
+        @"browser.test.assertThrows(() => browser.scripting.getRegisteredContentScripts({ ids: [ 0 ] }), /'ids' is expected to be an array of strings, but a number was provided/i)",
 
         @"browser.test.assertThrows(() => browser.scripting.unregisterContentScripts([]), /an object is expected/i)",
-        @"browser.test.assertThrows(() => browser.scripting.unregisterContentScripts({ ids: 0 }), /'ids' is expected to be an array, but a number was provided/i)",
-        @"browser.test.assertThrows(() => browser.scripting.unregisterContentScripts({ ids: [ 0 ] }), /'ids' is expected to be strings in an array, but a number was provided/i)",
+        @"browser.test.assertThrows(() => browser.scripting.unregisterContentScripts({ ids: 0 }), /'ids' is expected to be an array of strings, but a number was provided/i)",
+        @"browser.test.assertThrows(() => browser.scripting.unregisterContentScripts({ ids: [ 0 ] }), /'ids' is expected to be an array of strings, but a number was provided/i)",
 
         @"browser.test.notifyPass()"
     ]);
@@ -419,6 +419,331 @@ TEST(WKWebExtensionAPIScripting, InsertAndRemoveCSSWithFrameIds)
     [manager.get().defaultTab.mainWebView loadRequest:urlRequest];
 
     [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPIScripting, RegisterContentScripts)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } }
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"function getBackgroundColor() { return window.getComputedStyle(document.body).getPropertyValue('background-color') }",
+
+        @"function getFontSize() { return window.getComputedStyle(document.body).getPropertyValue('font-size') }",
+
+        @"  const pinkValue = 'rgb(255, 192, 203)'",
+
+        @"browser.webNavigation.onCompleted.addListener(async (details) => {",
+        @"  const tabId = details.tabId",
+
+        @"  var expectedResults = [{",
+        @"    allFrames: false,",
+        @"    id: '1',",
+        @"    js: ['changeBackgroundColorScript.js', 'changeBackgroundFontScript.js'],",
+        @"    matches: ['*://localhost/*'],",
+        @"    persistAcrossSessions: true,",
+        @"    runAt: 'document_idle',",
+        @"    world: 'ISOLATED'",
+        @"  }]",
+
+        @"  var results",
+        @"  var resultsPassingIds",
+
+        @"  await browser.scripting.registerContentScripts([{ id: '1', matches: ['*://localhost/*'], js: ['changeBackgroundColorScript.js', 'changeBackgroundFontScript.js'] }])",
+        @"  results = await browser.scripting.getRegisteredContentScripts()",
+        @"  resultsPassingIds = await browser.scripting.getRegisteredContentScripts({ ids: ['1'] })",
+
+        @"  browser.test.assertDeepEq(results, resultsPassingIds)",
+        @"  browser.test.assertDeepEq(results, expectedResults)",
+
+        // Verify scripts injected.
+
+        @"  results = await browser.scripting.executeScript({ target: { tabId: tabId }, func: getBackgroundColor })",
+        @"  browser.test.assertEq(results[0].result, pinkValue)",
+
+        @"  results = await browser.scripting.executeScript({ target: { tabId: tabId }, func: getFontSize })",
+        @"  browser.test.assertEq(results[0].result, '555px')",
+
+        @"  await browser.scripting.unregisterContentScripts()",
+
+        @"  browser.test.notifyPass()",
+        @"})",
+
+        @"browser.test.yield('Load Tab')",
+    ]);
+
+    static auto *changeBackgroundColorScript = @"document.body.style.background = 'pink'";
+    static auto *changeBackgroundFontScript = @"document.body.style.fontSize = '555px'";
+
+    static auto *resources = @{
+        @"background.js": backgroundScript,
+        @"changeBackgroundColorScript.js": changeBackgroundColorScript,
+        @"changeBackgroundFontScript.js": changeBackgroundFontScript,
+    };
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:scriptingManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    auto *urlRequest = server.requestWithLocalhost();
+    auto *url = urlRequest.URL;
+
+    auto *matchPattern = [_WKWebExtensionMatchPattern matchPatternWithScheme:url.scheme host:url.host path:@"/*"];
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionWebNavigation];
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forMatchPattern:matchPattern];
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Load Tab");
+
+    [manager.get().defaultTab.mainWebView loadRequest:urlRequest];
+
+    [manager run];
+}
+
+TEST(WKWebExtensionAPIScripting, UpdateContentScripts)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, "<iframe src='/frame.html'></iframe>"_s } },
+        { "/frame.html"_s, { { { "Content-Type"_s, "text/html"_s } }, "<body style='background-color: blue'></body>"_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"function getBackgroundColor() { return window.getComputedStyle(document.body).getPropertyValue('background-color') }",
+
+        @"function getFontSize() { return window.getComputedStyle(document.body).getPropertyValue('font-size') }",
+
+        @"  const pinkValue = 'rgb(255, 192, 203)'",
+
+        @"browser.webNavigation.onCompleted.addListener(async (details) => {",
+        @"  const tabId = details.tabId",
+
+        @"  var expectedResults = [{",
+        @"    allFrames: false,",
+        @"    id: '1',",
+        @"    js: ['changeBackgroundColorScript.js'],",
+        @"    matches: ['*://localhost/*'],",
+        @"    persistAcrossSessions: true,",
+        @"    runAt: 'document_idle',",
+        @"    world: 'ISOLATED'",
+        @"  }]",
+
+        @"  var results",
+
+        @"  await browser.scripting.registerContentScripts([{ id: '1', matches: ['*://localhost/*'], js: ['changeBackgroundColorScript.js'] }])",
+
+        @"  await browser.scripting.updateContentScripts([{ id: '1', allFrames: true, persistAcrossSessions: false, runAt: 'document_start', world: 'MAIN' }])",
+        @"  results = await browser.scripting.getRegisteredContentScripts()",
+        @"  expectedResults[0].allFrames = true",
+        @"  expectedResults[0].persistAcrossSessions = false",
+        @"  expectedResults[0].runAt = 'document_start'",
+        @"  expectedResults[0].world = 'MAIN'",
+
+        @"  browser.test.assertDeepEq(results, expectedResults)",
+
+        @"  await browser.scripting.updateContentScripts([{ id: '1', js: ['changeBackgroundColorScript.js', 'changeBackgroundFontScript.js'] }])",
+        @"  expectedResults[0].js = ['changeBackgroundColorScript.js', 'changeBackgroundFontScript.js']",
+        @"  results = await browser.scripting.getRegisteredContentScripts()",
+
+        @"  browser.test.assertDeepEq(results, expectedResults)",
+
+        // Verify scripts injected.
+
+        @"  results = await browser.scripting.executeScript({ target: { tabId: tabId, allFrames:true }, func: getBackgroundColor })",
+        @"  browser.test.assertEq(results[0].result, pinkValue)",
+        @"  browser.test.assertEq(results[1].result, pinkValue)",
+
+        @"  results = await browser.scripting.executeScript({ target: { tabId: tabId, allFrames:true }, func: getFontSize })",
+        @"  browser.test.assertEq(results[0].result, '555px')",
+        @"  browser.test.assertEq(results[1].result, '555px')",
+
+        @"  await browser.scripting.unregisterContentScripts()",
+
+        @"  browser.test.notifyPass()",
+        @"})",
+
+        @"browser.test.yield('Load Tab')",
+    ]);
+
+    static auto *changeBackgroundColorScript = @"document.body.style.background = 'pink'";
+    static auto *changeBackgroundFontScript = @"document.body.style.fontSize = '555px'";
+
+    static auto *resources = @{
+        @"background.js": backgroundScript,
+        @"changeBackgroundColorScript.js": changeBackgroundColorScript,
+        @"changeBackgroundFontScript.js": changeBackgroundFontScript,
+    };
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:scriptingManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    auto *urlRequest = server.requestWithLocalhost();
+    auto *url = urlRequest.URL;
+
+    auto *matchPattern = [_WKWebExtensionMatchPattern matchPatternWithScheme:url.scheme host:url.host path:@"/*"];
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionWebNavigation];
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forMatchPattern:matchPattern];
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Load Tab");
+
+    [manager.get().defaultTab.mainWebView loadRequest:urlRequest];
+
+    [manager run];
+}
+
+TEST(WKWebExtensionAPIScripting, GetContentScripts)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } }
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.webNavigation.onCompleted.addListener(async () => {",
+
+        @"  var expectedResults = [{",
+        @"    allFrames: false,",
+        @"    id: '1',",
+        @"    js: ['changeBackgroundColorScript.js'],",
+        @"    matches: ['*://localhost/*'],",
+        @"    persistAcrossSessions: true,",
+        @"    runAt: 'document_idle',",
+        @"    world: 'ISOLATED'",
+        @"  }]",
+
+        @"  var results",
+
+        @"  await browser.scripting.registerContentScripts([{ id: '1', matches: ['*://localhost/*'], js: ['changeBackgroundColorScript.js'] }])",
+
+        @"  results = await browser.scripting.getRegisteredContentScripts()",
+        @"  browser.test.assertDeepEq(results, expectedResults)",
+
+        @"  results = await browser.scripting.getRegisteredContentScripts({ 'ids': ['1'] })",
+        @"  browser.test.assertDeepEq(results, expectedResults)",
+
+        // Unrecognized ids should be ignored.
+        @"  results = await browser.scripting.getRegisteredContentScripts({ 'ids': ['1', '2'] })",
+        @"  browser.test.assertDeepEq(results, expectedResults)",
+
+        @"  await browser.scripting.registerContentScripts([{ id: '2', matches: ['*://localhost/*'], js: ['changeBackgroundFontScript.js'], runAt: 'document_start', world: 'MAIN' }])",
+
+        @"  results = await browser.scripting.getRegisteredContentScripts({ 'ids': ['1', '2'] })",
+        @"  expectedResults.push({ allFrames: false, id: '2', js: ['changeBackgroundFontScript.js'], matches: ['*://localhost/*'], persistAcrossSessions: true, runAt: 'document_start', world: 'MAIN' })",
+        @"  browser.test.assertDeepEq(results, expectedResults)",
+
+        @"  await browser.scripting.unregisterContentScripts()",
+
+        @"  browser.test.notifyPass()",
+        @"})",
+
+        @"browser.test.yield('Load Tab')",
+    ]);
+
+    static auto *changeBackgroundColorScript = @"document.body.style.background = 'pink'";
+    static auto *changeBackgroundFontScript = @"document.body.style.fontSize = '555px'";
+
+    static auto *resources = @{
+        @"background.js": backgroundScript,
+        @"changeBackgroundColorScript.js": changeBackgroundColorScript,
+        @"changeBackgroundFontScript.js": changeBackgroundFontScript,
+    };
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:scriptingManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    auto *urlRequest = server.requestWithLocalhost();
+    auto *url = urlRequest.URL;
+
+    auto *matchPattern = [_WKWebExtensionMatchPattern matchPatternWithScheme:url.scheme host:url.host path:@"/*"];
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionWebNavigation];
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forMatchPattern:matchPattern];
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Load Tab");
+
+    [manager.get().defaultTab.mainWebView loadRequest:urlRequest];
+
+    [manager run];
+}
+
+TEST(WKWebExtensionAPIScripting, UnregisterContentScripts)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } }
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"function getBackgroundColor() { return window.getComputedStyle(document.body).getPropertyValue('background-color') }",
+
+        @"  const pinkValue = 'rgb(255, 192, 203)'",
+        @"  const transparentValue = 'rgba(0, 0, 0, 0)'",
+
+        @"  browser.webNavigation.onCompleted.addListener(async (details) => {",
+        @"    const tabId = details.tabId",
+
+        @"    await browser.scripting.registerContentScripts([{ id: '1', matches: ['*://localhost/*'], js: ['changeBackgroundColorScript.js'] }])",
+
+        @"    var results",
+        @"    results = await browser.scripting.getRegisteredContentScripts()",
+
+        @"    browser.test.assertEq(results.length, 1)",
+
+        @"    await browser.scripting.unregisterContentScripts()",
+        @"    results = await browser.scripting.getRegisteredContentScripts()",
+        @"    browser.test.assertEq(results.length, 0)",
+
+        // Unrecognized ids should return an error and result in a no-op.
+
+        @"    await browser.scripting.registerContentScripts([{ id: '1', matches: ['*://localhost/*'], js: ['changeBackgroundColorScript.js'] }])",
+        @"    browser.test.assertRejects(browser.scripting.unregisterContentScripts({ 'ids': ['1', '2'] }))",
+
+        @"    results = await browser.scripting.executeScript({ target: { tabId: tabId }, func: getBackgroundColor })",
+        @"    browser.test.assertEq(results[0].result, pinkValue)",
+
+        // Tests removal with multiple ids.
+
+        @"    await browser.scripting.registerContentScripts([{ id: '2', matches: ['*://localhost/*'], js: ['changeBackgroundFontScript.js'] }])",
+        @"    results = await browser.scripting.getRegisteredContentScripts()",
+        @"    browser.test.assertEq(results.length, 2)",
+
+        @"    await browser.scripting.unregisterContentScripts({ 'ids': ['1', '2'] })",
+        @"    results = await browser.scripting.getRegisteredContentScripts()",
+        @"    browser.test.assertEq(results.length, 0)",
+
+        @"    browser.test.notifyPass()",
+        @"})",
+
+        @"browser.test.yield('Load Tab')",
+    ]);
+
+    static auto *changeBackgroundColorScript = @"document.body.style.background = 'pink'";
+    static auto *changeBackgroundFontScript = @"document.body.style.fontSize = '555px'";
+
+    static auto *resources = @{
+        @"background.js": backgroundScript,
+        @"changeBackgroundColorScript.js": changeBackgroundColorScript,
+        @"changeBackgroundFontScript.js": changeBackgroundFontScript,
+    };
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:scriptingManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    auto *urlRequest = server.requestWithLocalhost();
+    auto *url = urlRequest.URL;
+
+    auto *matchPattern = [_WKWebExtensionMatchPattern matchPatternWithScheme:url.scheme host:url.host path:@"/*"];
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionWebNavigation];
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forMatchPattern:matchPattern];
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Load Tab");
+
+    [manager.get().defaultTab.mainWebView loadRequest:urlRequest];
+
+    [manager run];
 }
 
 } // namespace TestWebKitAPI

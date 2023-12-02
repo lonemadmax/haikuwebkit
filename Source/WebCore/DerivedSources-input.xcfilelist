@@ -430,6 +430,7 @@ $(PROJECT_DIR)/Modules/cookie-store/ExtendableCookieChangeEventInit.idl
 $(PROJECT_DIR)/Modules/cookie-store/LocalDOMWindow+CookieStore.idl
 $(PROJECT_DIR)/Modules/credentialmanagement/BasicCredential.idl
 $(PROJECT_DIR)/Modules/credentialmanagement/CredentialCreationOptions.idl
+$(PROJECT_DIR)/Modules/credentialmanagement/CredentialMediationRequirement.idl
 $(PROJECT_DIR)/Modules/credentialmanagement/CredentialRequestOptions.idl
 $(PROJECT_DIR)/Modules/credentialmanagement/CredentialsContainer.idl
 $(PROJECT_DIR)/Modules/credentialmanagement/Navigator+Credentials.idl
@@ -1252,7 +1253,6 @@ $(PROJECT_DIR)/css/fullscreen.css
 $(PROJECT_DIR)/css/horizontalFormControls.css
 $(PROJECT_DIR)/css/html.css
 $(PROJECT_DIR)/css/htmlSwitchControl.css
-$(PROJECT_DIR)/css/legacyFormControlsIOS.css
 $(PROJECT_DIR)/css/make-css-file-arrays.pl
 $(PROJECT_DIR)/css/makeSelectorPseudoClassAndCompatibilityElementMap.py
 $(PROJECT_DIR)/css/makeSelectorPseudoElementsMap.py

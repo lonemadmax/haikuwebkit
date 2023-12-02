@@ -103,7 +103,7 @@ const FontCascade& MockRealtimeVideoSource::DrawingState::timeFont()
     auto& description = fontDescription();
     description.setSpecifiedSize(m_baseFontSize);
     description.setComputedSize(m_baseFontSize);
-    m_timeFont = { FontCascadeDescription { description }, 0, 0 };
+    m_timeFont = { FontCascadeDescription { description } };
     m_timeFont->update(nullptr);
 
     return *m_timeFont;
@@ -117,7 +117,7 @@ const FontCascade& MockRealtimeVideoSource::DrawingState::bipBopFont()
     auto& description = fontDescription();
     description.setSpecifiedSize(m_bipBopFontSize);
     description.setComputedSize(m_bipBopFontSize);
-    m_bipBopFont = { FontCascadeDescription { description }, 0, 0 };
+    m_bipBopFont = { FontCascadeDescription { description } };
     m_bipBopFont->update(nullptr);
 
     return *m_bipBopFont;
@@ -131,7 +131,7 @@ const FontCascade& MockRealtimeVideoSource::DrawingState::statsFont()
     auto& description = fontDescription();
     description.setSpecifiedSize(m_statsFontSize);
     description.setComputedSize(m_statsFontSize);
-    m_statsFont = { FontCascadeDescription { description }, 0, 0 };
+    m_statsFont = { FontCascadeDescription { description } };
     m_statsFont->update(nullptr);
 
     return *m_statsFont;
@@ -257,12 +257,10 @@ auto MockRealtimeVideoSource::takePhotoInternal(PhotoSettings&&) -> Ref<TakePhot
     });
 }
 
-void MockRealtimeVideoSource::getPhotoCapabilities(PhotoCapabilitiesHandler&& completion)
+auto MockRealtimeVideoSource::getPhotoCapabilities() -> Ref<PhotoCapabilitiesNativePromise>
 {
-    if (m_photoCapabilities) {
-        completion({ *m_photoCapabilities });
-        return;
-    }
+    if (m_photoCapabilities)
+        return PhotoCapabilitiesNativePromise::createAndResolve(*m_photoCapabilities);
 
     auto capabilities = this->capabilities();
     PhotoCapabilities photoCapabilities;
@@ -275,7 +273,7 @@ void MockRealtimeVideoSource::getPhotoCapabilities(PhotoCapabilitiesHandler&& co
 
     m_photoCapabilities = WTFMove(photoCapabilities);
 
-    completion({ *m_photoCapabilities });
+    return PhotoCapabilitiesNativePromise::createAndResolve(*m_photoCapabilities);
 }
 
 auto MockRealtimeVideoSource::getPhotoSettings() -> Ref<PhotoSettingsNativePromise>

@@ -288,7 +288,12 @@ void NetworkProcessProxy::getNetworkProcessConnection(WebProcessProxy& webProces
 {
     RELEASE_LOG(ProcessSuspension, "%p - NetworkProcessProxy is taking a background assertion because a web process is requesting a connection", this);
     startResponsivenessTimer(UseLazyStop::No);
-    sendWithAsyncReply(Messages::NetworkProcess::CreateNetworkConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), { webProcessProxy.allowTestOnlyIPC() } }, [this, weakThis = WeakPtr { *this }, reply = WTFMove(reply)](auto&& identifier, auto cookieAcceptPolicy) mutable {
+    NetworkProcessConnectionParameters parameters;
+    parameters.allowTestOnlyIPC = webProcessProxy.allowTestOnlyIPC();
+#if ENABLE(IPC_TESTING_API)
+    parameters.ignoreInvalidMessageForTesting = webProcessProxy.ignoreInvalidMessageForTesting();
+#endif
+    sendWithAsyncReply(Messages::NetworkProcess::CreateNetworkConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), parameters }, [this, weakThis = WeakPtr { *this }, reply = WTFMove(reply)](auto&& identifier, auto cookieAcceptPolicy) mutable {
         if (!weakThis) {
             RELEASE_LOG_ERROR(Process, "NetworkProcessProxy::getNetworkProcessConnection: NetworkProcessProxy deallocated during connection establishment");
             return reply({ });
@@ -664,7 +669,6 @@ void NetworkProcessProxy::resourceLoadDidCompleteWithError(WebPageProxyIdentifie
     page->resourceLoadDidCompleteWithError(WTFMove(loadInfo), WTFMove(response), WTFMove(error));
 }
 
-#if ENABLE(TRACKING_PREVENTION)
 void NetworkProcessProxy::dumpResourceLoadStatistics(PAL::SessionID sessionID, CompletionHandler<void(String)>&& completionHandler)
 {
     if (!canSendMessage()) {
@@ -1362,8 +1366,6 @@ void NetworkProcessProxy::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameD
         processPool->setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, SubResourceDomain> { domains }, [callbackAggregator] { });
 }
 
-#endif // ENABLE(TRACKING_PREVENTION)
-
 void NetworkProcessProxy::setPrivateClickMeasurementDebugMode(PAL::SessionID sessionID, bool debugMode)
 {
     if (!canSendMessage())
@@ -1503,8 +1505,6 @@ void NetworkProcessProxy::establishRemoteWorkerContextConnectionToNetworkProcess
     WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(workerType, WTFMove(registrableDomain), requestingProcessIdentifier, serviceWorkerPageIdentifier, sessionID, WTFMove(completionHandler));
 }
 
-#if ENABLE(SERVICE_WORKER)
-
 void NetworkProcessProxy::startServiceWorkerBackgroundProcessing(WebCore::ProcessIdentifier serviceWorkerProcessIdentifier)
 {
     if (auto serviceWorkerProcess = WebProcessProxy::processForIdentifier(serviceWorkerProcessIdentifier))
@@ -1576,8 +1576,6 @@ void NetworkProcessProxy::notifyBackgroundFetchChange(PAL::SessionID sessionID, 
         return;
     store->client().notifyBackgroundFetchChange(backgroundFetchIdentifier, backgroundFetchChange);
 }
-
-#endif // ENABLE(SERVICE_WORKER)
 
 void NetworkProcessProxy::requestStorageSpace(PAL::SessionID sessionID, const WebCore::ClientOrigin& origin, uint64_t currentQuota, uint64_t currentSize, uint64_t spaceRequired, CompletionHandler<void(std::optional<uint64_t> quota)>&& completionHandler)
 {
@@ -1811,7 +1809,6 @@ void NetworkProcessProxy::didExceedMemoryLimit()
 }
 #endif
 
-#if ENABLE(SERVICE_WORKER)
 void NetworkProcessProxy::getPendingPushMessages(PAL::SessionID sessionID, CompletionHandler<void(const Vector<WebPushMessage>&)>&& completionHandler)
 {
     sendWithAsyncReply(Messages::NetworkProcess::GetPendingPushMessages { sessionID }, WTFMove(completionHandler));
@@ -1868,7 +1865,6 @@ void NetworkProcessProxy::processNotificationEvent(const NotificationData& data,
 
     sendWithAsyncReply(Messages::NetworkProcess::ProcessNotificationEvent { data, eventType }, WTFMove(innerCallback));
 }
-#endif // ENABLE(SERVICE_WORKER)
 
 void NetworkProcessProxy::setPushAndNotificationsEnabledForOrigin(PAL::SessionID sessionID, const SecurityOriginData& origin, bool enabled, CompletionHandler<void()>&& callback)
 {

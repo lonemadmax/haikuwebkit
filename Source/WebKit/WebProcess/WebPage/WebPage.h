@@ -206,6 +206,7 @@ class HTMLElement;
 class HTMLImageElement;
 class HTMLPlugInElement;
 class HTMLVideoElement;
+class HandleUserInputEventResult;
 class IgnoreSelectionChangeForScope;
 class IntPoint;
 class IntRect;
@@ -1188,8 +1189,8 @@ public:
     void startWaitingForContextMenuToShow() { m_waitingForContextMenuToShow = true; }
 #endif
 
-    void handleWheelEvent(WebCore::FrameIdentifier, const WebWheelEvent&, const OptionSet<WebCore::WheelEventProcessingSteps>&, std::optional<bool> willStartSwipe, CompletionHandler<void(WebCore::ScrollingNodeID, std::optional<WebCore::WheelScrollGestureState>, bool handled)>&&);
-    bool wheelEvent(const WebCore::FrameIdentifier&, const WebWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>, EventDispatcher::WheelEventOrigin);
+    void handleWheelEvent(WebCore::FrameIdentifier, const WebWheelEvent&, const OptionSet<WebCore::WheelEventProcessingSteps>&, std::optional<bool> willStartSwipe, CompletionHandler<void(WebCore::ScrollingNodeID, std::optional<WebCore::WheelScrollGestureState>, bool handled, std::optional<WebCore::RemoteUserInputEventData>)>&&);
+    WebCore::HandleUserInputEventResult wheelEvent(const WebCore::FrameIdentifier&, const WebWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>, EventDispatcher::WheelEventOrigin);
 
     void wheelEventHandlersChanged(bool);
     void recomputeShortCircuitHorizontalWheelEventsState();
@@ -1393,7 +1394,6 @@ public:
 
     void flushPendingEditorStateUpdate();
 
-#if ENABLE(TRACKING_PREVENTION)
     void hasStorageAccess(WebCore::RegistrableDomain&& subFrameDomain, WebCore::RegistrableDomain&& topFrameDomain, WebFrame&, CompletionHandler<void(bool)>&&);
     void requestStorageAccess(WebCore::RegistrableDomain&& subFrameDomain, WebCore::RegistrableDomain&& topFrameDomain, WebFrame&, WebCore::StorageAccessScope, CompletionHandler<void(WebCore::RequestStorageAccessResult)>&&);
     bool hasPageLevelStorageAccess(const WebCore::RegistrableDomain& topLevelDomain, const WebCore::RegistrableDomain& resourceDomain) const;
@@ -1404,7 +1404,6 @@ public:
     void clearLoadedSubresourceDomains();
     void getLoadedSubresourceDomains(CompletionHandler<void(Vector<WebCore::RegistrableDomain>)>&&);
     const HashSet<WebCore::RegistrableDomain>& loadedSubresourceDomains() const { return m_loadedSubresourceDomains; }
-#endif
 
 #if ENABLE(DEVICE_ORIENTATION)
     void shouldAllowDeviceOrientationAndMotionAccess(WebCore::FrameIdentifier, FrameInfoData&&, bool mayPrompt, CompletionHandler<void(WebCore::DeviceOrientationOrMotionPermissionState)>&&);
@@ -1665,7 +1664,7 @@ public:
     const Logger& logger() const;
     const void* logIdentifier() const;
 
-#if PLATFORM(GTK) && USE(GBM)
+#if (PLATFORM(GTK) || PLATFORM(WPE)) && USE(GBM)
     const Vector<DMABufRendererBufferFormat>& preferredBufferFormats() const { return m_preferredBufferFormats; }
 #endif
 
@@ -2129,6 +2128,10 @@ private:
     void sendMessageToWebProcessExtensionWithReply(UserMessage&&, CompletionHandler<void(UserMessage&&)>&&);
 #endif
 
+#if PLATFORM(WPE) && USE(GBM)
+    void preferredBufferFormatsDidChange(Vector<DMABufRendererBufferFormat>&&);
+#endif
+
     void platformDidScalePage();
 
     Vector<Ref<SandboxExtension>> consumeSandboxExtensions(Vector<SandboxExtension::Handle>&&);
@@ -2144,6 +2147,9 @@ private:
     void dispatchLoadEventToFrameOwnerElement(WebCore::FrameIdentifier);
 
     void frameWasFocusedInAnotherProcess(WebCore::FrameIdentifier);
+
+    void remotePostMessage(WebCore::FrameIdentifier source, const String& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData>&& targetOrigin, const WebCore::MessageWithMessagePorts&);
+    void renderTreeAsText(WebCore::FrameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag>, CompletionHandler<void(String&&)>&&);
 
     WebCore::PageIdentifier m_identifier;
 
@@ -2566,10 +2572,8 @@ private:
     WebCore::Timer m_textAutoSizingAdjustmentTimer;
 #endif
 
-#if ENABLE(TRACKING_PREVENTION)
     HashMap<WebCore::RegistrableDomain, WebCore::RegistrableDomain> m_domainsWithPageLevelStorageAccess;
     HashSet<WebCore::RegistrableDomain> m_loadedSubresourceDomains;
-#endif
 
     AtomString m_overriddenMediaType;
     String m_processDisplayName;
@@ -2577,9 +2581,10 @@ private:
 
 #if PLATFORM(GTK)
     WebCore::Color m_accentColor;
-#if USE(GBM)
-    Vector<DMABufRendererBufferFormat> m_preferredBufferFormats;
 #endif
+
+#if (PLATFORM(GTK) || PLATFORM(WPE)) && USE(GBM)
+    Vector<DMABufRendererBufferFormat> m_preferredBufferFormats;
 #endif
 
 #if ENABLE(APP_BOUND_DOMAINS)

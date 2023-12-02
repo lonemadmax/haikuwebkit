@@ -638,19 +638,14 @@ void InputType::handleBeforeTextInsertedEvent(BeforeTextInsertedEvent&)
 {
 }
 
-#if ENABLE(TOUCH_EVENTS)
-void InputType::handleTouchEvent(TouchEvent&)
-{
-}
-#endif
-
 void InputType::forwardEvent(Event&)
 {
 }
 
 bool InputType::shouldSubmitImplicitly(Event& event)
 {
-    return is<KeyboardEvent>(event) && event.type() == eventNames().keypressEvent && downcast<KeyboardEvent>(event).charCode() == '\r';
+    auto* keyboardEvent = dynamicDowncast<KeyboardEvent>(event);
+    return keyboardEvent && event.type() == eventNames().keypressEvent && keyboardEvent->charCode() == '\r';
 }
 
 RenderPtr<RenderElement> InputType::createInputRenderer(RenderStyle&& style)
@@ -962,13 +957,6 @@ void InputType::subtreeHasChanged()
 {
     ASSERT_NOT_REACHED();
 }
-
-#if ENABLE(TOUCH_EVENTS)
-bool InputType::hasTouchEventHandler() const
-{
-    return false;
-}
-#endif
 
 String InputType::defaultToolTip() const
 {

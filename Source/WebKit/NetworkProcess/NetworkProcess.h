@@ -217,7 +217,6 @@ public:
 
     void registrableDomainsWithLastAccessedTime(PAL::SessionID, CompletionHandler<void(std::optional<HashMap<RegistrableDomain, WallTime>>)>&&);
     void registrableDomainsExemptFromWebsiteDataDeletion(PAL::SessionID, CompletionHandler<void(HashSet<RegistrableDomain>)>&&);
-#if ENABLE(TRACKING_PREVENTION)
     void clearPrevalentResource(PAL::SessionID, RegistrableDomain&&, CompletionHandler<void()>&&);
     void clearUserInteraction(PAL::SessionID, RegistrableDomain&&, CompletionHandler<void()>&&);
     void deleteAndRestrictWebsiteDataForRegistrableDomains(PAL::SessionID, OptionSet<WebsiteDataType>, RegistrableDomainsToDeleteOrRestrictWebsiteDataFor&&, bool shouldNotifyPage, CompletionHandler<void(HashSet<RegistrableDomain>&&)>&&);
@@ -290,7 +289,6 @@ public:
     void setToSameSiteStrictCookiesForTesting(PAL::SessionID, const WebCore::RegistrableDomain&, CompletionHandler<void()>&&);
     void setFirstPartyHostCNAMEDomainForTesting(PAL::SessionID, String&& firstPartyHost, WebCore::RegistrableDomain&& cnameDomain, CompletionHandler<void()>&&);
     void setThirdPartyCNAMEDomainForTesting(PAL::SessionID, WebCore::RegistrableDomain&&, CompletionHandler<void()>&&);
-#endif
 
     void notifyMediaStreamingActivity(bool);
 
@@ -401,7 +399,6 @@ public:
     bool ftpEnabled() const { return m_ftpEnabled; }
     bool builtInNotificationsEnabled() const { return m_builtInNotificationsEnabled; }
 
-#if ENABLE(SERVICE_WORKER)
     void getPendingPushMessages(PAL::SessionID, CompletionHandler<void(const Vector<WebPushMessage>&)>&&);
     void processPushMessage(PAL::SessionID, WebPushMessage&&, WebCore::PushPermissionState, CompletionHandler<void(bool, std::optional<WebCore::NotificationPayload>&&)>&&);
     void processNotificationEvent(WebCore::NotificationData&&, WebCore::NotificationEventType, CompletionHandler<void(bool)>&&);
@@ -412,7 +409,6 @@ public:
     void pauseBackgroundFetch(PAL::SessionID, const String&, CompletionHandler<void()>&&);
     void resumeBackgroundFetch(PAL::SessionID, const String&, CompletionHandler<void()>&&);
     void clickBackgroundFetch(PAL::SessionID, const String&, CompletionHandler<void()>&&);
-#endif
 
     void setPushAndNotificationsEnabledForOrigin(PAL::SessionID, const WebCore::SecurityOriginData&, bool, CompletionHandler<void()>&&);
     void deletePushAndNotificationRegistration(PAL::SessionID, const WebCore::SecurityOriginData&, CompletionHandler<void(const String&)>&&);
@@ -430,10 +426,8 @@ public:
     void addAllowedFirstPartyForCookies(WebCore::ProcessIdentifier, WebCore::RegistrableDomain&&, LoadedWebArchive, CompletionHandler<void()>&&);
     void webProcessWillLoadWebArchive(WebCore::ProcessIdentifier);
 
-#if ENABLE(SERVICE_WORKER)
     void requestBackgroundFetchPermission(PAL::SessionID, const WebCore::ClientOrigin&, CompletionHandler<void(bool)>&&);
     void setInspectionForServiceWorkersAllowed(PAL::SessionID, bool);
-#endif
 
 private:
     void platformInitializeNetworkProcess(const NetworkProcessCreationParameters&);
@@ -481,7 +475,6 @@ private:
 #if PLATFORM(COCOA)
     void publishDownloadProgress(DownloadID, const URL&, SandboxExtensionHandle&&);
 #endif
-    void continueWillSendRequest(DownloadID, WebCore::ResourceRequest&&);
     void dataTaskWithRequest(WebPageProxyIdentifier, PAL::SessionID, WebCore::ResourceRequest&&, const std::optional<WebCore::SecurityOriginData>& topOrigin, IPC::FormDataReference&&, CompletionHandler<void(DataTaskIdentifier)>&&);
     void cancelDataTask(DataTaskIdentifier, PAL::SessionID);
     void applicationDidEnterBackground();

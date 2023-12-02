@@ -346,6 +346,9 @@ static MTLVertexDescriptor *createVertexDescriptor(WGPUVertexState vertexState)
         if (buffer.arrayStride == WGPU_COPY_STRIDE_UNDEFINED)
             continue;
 
+        if (!buffer.attributeCount)
+            continue;
+
         vertexDescriptor.layouts[bufferIndex].stride = std::max<NSUInteger>(sizeof(int), buffer.arrayStride);
         vertexDescriptor.layouts[bufferIndex].stepFunction = stepFunction(buffer.stepMode, buffer.arrayStride);
         if (vertexDescriptor.layouts[bufferIndex].stepFunction == MTLVertexStepFunctionConstant)
@@ -458,6 +461,13 @@ void Device::addPipelineLayouts(Vector<Vector<WGPUBindGroupLayoutEntry>>& pipeli
         auto& entries = pipelineEntries[pipelineLayoutIndex];
         HashMap<String, uint64_t> entryMap;
         for (auto& entry : bindGroupLayout.entries) {
+            // FIXME: https://bugs.webkit.org/show_bug.cgi?id=265204 - use a set instead
+            if (auto existingBindingIndex = entries.findIf([&](const WGPUBindGroupLayoutEntry& e) {
+                return e.binding == entry.webBinding;
+            }); existingBindingIndex != notFound) {
+                entries[existingBindingIndex].visibility |= convertVisibility(entry.visibility);
+                continue;
+            }
             WGPUBindGroupLayoutEntry newEntry = { };
             uint64_t minBindingSize = 0;
             WGPUBufferBindingType bufferTypeOverride = WGPUBufferBindingType_Undefined;
@@ -470,6 +480,7 @@ void Device::addPipelineLayouts(Vector<Vector<WGPUBindGroupLayoutEntry>>& pipeli
                 entryMap.set(entryName, entry.binding);
 
             newEntry.binding = entry.webBinding;
+            newEntry.metalBinding = entry.binding;
             newEntry.visibility = convertVisibility(entry.visibility);
             WTF::switchOn(entry.bindingMember, [&](const WGSL::BufferBindingLayout& bufferBinding) {
                 newEntry.buffer = WGPUBufferBindingLayout {

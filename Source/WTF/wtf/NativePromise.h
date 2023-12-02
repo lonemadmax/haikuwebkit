@@ -546,12 +546,13 @@ private:
         {
             ASSERT(dependentPromisesCount);
             if constexpr (!std::is_void_v<ResolveValueT>)
-                m_resolveValues.resize(dependentPromisesCount);
+                m_resolveValues.grow(dependentPromisesCount);
         }
 
         template<typename ResolveValueType_>
         void resolve(size_t index, ResolveValueType_&& resolveValue)
         {
+            Locker lock { m_lock };
             if (!m_producer) {
                 // Already resolved or rejected.
                 return;
@@ -574,6 +575,7 @@ private:
         template<typename RejectValueType_>
         void reject(RejectValueType_&& rejectValue)
         {
+            Locker lock { m_lock };
             if (!m_producer) {
                 // Already resolved or rejected.
                 return;
@@ -587,12 +589,17 @@ private:
                 m_resolveValues.clear();
         }
 
-        Ref<AllPromiseType> promise() { return static_cast<Ref<AllPromiseType>>(*m_producer); }
+        Ref<AllPromiseType> promise()
+        {
+            Locker lock { m_lock };
+            return m_producer->promise();
+        }
 
     private:
-        NO_UNIQUE_ADDRESS std::conditional_t<!std::is_void_v<ResolveValueT>, Vector<std::optional<ResolveValueType>>, detail::VoidPlaceholder> m_resolveValues;
-        std::unique_ptr<typename AllPromiseType::Producer> m_producer;
-        size_t m_outstandingPromises;
+        Lock m_lock;
+        NO_UNIQUE_ADDRESS std::conditional_t<!std::is_void_v<ResolveValueT>, Vector<std::optional<ResolveValueType>>, detail::VoidPlaceholder> m_resolveValues WTF_GUARDED_BY_LOCK(m_lock);
+        std::unique_ptr<typename AllPromiseType::Producer> m_producer WTF_GUARDED_BY_LOCK(m_lock);
+        size_t m_outstandingPromises WTF_GUARDED_BY_LOCK(m_lock);
     };
 
     class AllSettledPromiseProducer : public ThreadSafeRefCounted<AllSettledPromiseProducer> {
@@ -602,11 +609,12 @@ private:
             , m_outstandingPromises(dependentPromisesCount)
         {
             ASSERT(dependentPromisesCount);
-            m_results.resize(dependentPromisesCount);
+            m_results.grow(dependentPromisesCount);
         }
 
         void settle(size_t index, ResultParam result)
         {
+            Locker lock { m_lock };
             if (!m_producer) {
                 // Already settled.
                 return;
@@ -621,19 +629,22 @@ private:
             }
         }
 
-        Ref<AllSettledPromiseType> promise() { return static_cast<Ref<AllSettledPromiseType>>(*m_producer); }
+        Ref<AllSettledPromiseType> promise()
+        {
+            Locker lock { m_lock };
+            return m_producer->promise();
+        }
 
     private:
-        Vector<std::optional<Result>> m_results;
-        std::unique_ptr<typename AllSettledPromiseType::Producer> m_producer;
-        size_t m_outstandingPromises;
+        Lock m_lock;
+        Vector<std::optional<Result>> m_results WTF_GUARDED_BY_LOCK(m_lock);
+        std::unique_ptr<typename AllSettledPromiseType::Producer> m_producer WTF_GUARDED_BY_LOCK(m_lock);
+        size_t m_outstandingPromises WTF_GUARDED_BY_LOCK(m_lock);
     };
 
 public:
-    template <class Dispatcher>
-    static Ref<AllPromiseType> all(Dispatcher& targetQueue, const Vector<Ref<NativePromise>>& promises)
+    static Ref<AllPromiseType> all(const Vector<Ref<NativePromise>>& promises)
     {
-        static_assert(LooksLikeRCSerialDispatcher<typename RemoveSmartPointer<Dispatcher>::type>::value, "Must be used with a RefCounted SerialFunctionDispatcher");
         if (promises.isEmpty()) {
             if constexpr (std::is_void_v<ResolveValueT>)
                 return AllPromiseType::createAndResolve();
@@ -643,7 +654,7 @@ public:
         auto producer = adoptRef(new AllPromiseProducer(promises.size()));
         auto promise = producer->promise();
         for (size_t i = 0; i < promises.size(); ++i) {
-            promises[i]->whenSettled(targetQueue, [producer, i] (ResultParam result) {
+            promises[i]->whenSettled([producer, i] (ResultParam result) {
                 if (result) {
                     if constexpr (std::is_void_v<ResolveValueT>)
                         producer->resolve(i, detail::VoidPlaceholder());
@@ -660,17 +671,15 @@ public:
         return promise;
     }
 
-    template <class Dispatcher>
-    static Ref<AllSettledPromiseType> allSettled(Dispatcher& targetQueue, const Vector<Ref<NativePromise>>& promises)
+    static Ref<AllSettledPromiseType> allSettled(const Vector<Ref<NativePromise>>& promises)
     {
-        static_assert(LooksLikeRCSerialDispatcher<typename RemoveSmartPointer<Dispatcher>::type>::value, "Must be used with a RefCounted SerialFunctionDispatcher");
         if (promises.isEmpty())
             return AllSettledPromiseType::createAndResolve(Vector<Result>());
 
         auto producer = adoptRef(new AllSettledPromiseProducer(promises.size()));
         auto promise = producer->promise();
         for (size_t i = 0; i < promises.size(); ++i) {
-            promises[i]->whenSettled(targetQueue, [producer, i] (ResultParam result) {
+            promises[i]->whenSettled([producer, i] (ResultParam result) {
                 producer->settle(i, maybeMove(result));
             });
         }
@@ -759,10 +768,7 @@ private:
     template<bool IsChaining, typename ReturnPromiseType_>
     class ThenCallback : public ThenCallbackBase {
     public:
-        static constexpr bool SupportChaining = IsChaining;
-        // We could have the method return void if SupportChaining is false, it would however make it difficult to identify usage errors.
-        // Returning a NativePromise by default allows to have a more user friendly static_assert instead.
-        using ReturnPromiseType = std::conditional_t<IsChaining, ReturnPromiseType_, NativePromise>;
+        using ReturnPromiseType = std::conditional_t<IsChaining, ReturnPromiseType_, GenericPromise>;
         using CallBackType = std::conditional_t<IsChaining, Function<Ref<ReturnPromiseType_>(ResultParam)>, Function<void(ResultParam)>>;
 
         ThenCallback(ManagedSerialFunctionDispatcher&& targetQueue, CallBackType&& function, const Logger::LogSiteIdentifier& callSite)
@@ -783,42 +789,39 @@ private:
             if (ThenCallbackBase::m_targetQueue)
                 assertIsCurrent(*ThenCallbackBase::m_targetQueue);
             ASSERT(m_settleFunction);
+            auto completionProducer = [this] {
+                Locker lock { m_lock };
+                return std::exchange(m_completionProducer, { });
+            }();
             if constexpr (IsChaining) {
                 auto p = m_settleFunction(maybeMove(result));
-                std::unique_ptr<typename ReturnPromiseType::Producer> completionProducer;
-                {
-                    Locker lock { m_lock };
-                    completionProducer = std::exchange(m_completionProducer, { });
-                }
                 if (completionProducer)
                     p->chainTo(WTFMove(*completionProducer), { "<chained completion promise>", nullptr });
-            } else
+            } else {
                 m_settleFunction(maybeMove(result));
+                if (completionProducer)
+                    completionProducer->resolve({ "<chained completion promise>", nullptr });
+            }
 
             m_settleFunction = nullptr;
         }
 
         void setCompletionPromise(std::unique_ptr<typename ReturnPromiseType::Producer>&& completionProducer)
         {
-            if constexpr (IsChaining) {
-                Locker lock { m_lock };
-                m_completionProducer = WTFMove(completionProducer);
-            }
+            Locker lock { m_lock };
+            m_completionProducer = WTFMove(completionProducer);
         }
 
 #if ASSERT_ENABLED
         RefPtr<NativePromiseBase> completionPromise() override
         {
-            if constexpr (IsChaining) {
-                Locker lock { m_lock };
-                return m_completionProducer ? m_completionProducer->promise().ptr() : nullptr;
-            }
-            return nullptr;
+            Locker lock { m_lock };
+            return m_completionProducer ? m_completionProducer->promise().ptr() : nullptr;
         }
 #endif
 
-        NO_UNIQUE_ADDRESS std::conditional_t<IsChaining, Lock, detail::VoidPlaceholder> m_lock;
-        NO_UNIQUE_ADDRESS std::conditional_t<IsChaining, std::unique_ptr<typename ReturnPromiseType::Producer>, detail::VoidPlaceholder> m_completionProducer WTF_GUARDED_BY_LOCK(m_lock);
+        Lock m_lock;
+        std::unique_ptr<typename ReturnPromiseType::Producer> m_completionProducer WTF_GUARDED_BY_LOCK(m_lock);
     private:
         CallBackType m_settleFunction;
     };
@@ -867,13 +870,17 @@ private:
         // Defined -> operator for consistency in calling pattern.
         ThenCommand* operator->() { return this; }
 
+        operator RefPtr<PromiseType>()
+        {
+            return Ref<PromiseType>(*this);
+        }
+
         // Allow conversion from ThenCommand to Ref<NativePromise> like:
         // Ref<NativePromise> p = somePromise->then(...);
         // p->then(thread1, ...);
         // p->then(thread2, ...);
         operator Ref<PromiseType>()
         {
-            static_assert(ThenCallbackType::SupportChaining, "The resolve/reject callback needs to return a Ref<NativePromise> in order to do promise chaining.");
             return completionPromise();
         }
 

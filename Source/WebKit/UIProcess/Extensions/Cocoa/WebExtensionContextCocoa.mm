@@ -32,9 +32,13 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
+#import "APIArray.h"
 #import "CocoaHelpers.h"
+#import "ContextMenuContextData.h"
 #import "InjectUserScriptImmediately.h"
 #import "Logging.h"
+#import "WKContentRuleListInternal.h"
+#import "WKContentRuleListStoreInternal.h"
 #import "WKNavigationActionPrivate.h"
 #import "WKNavigationDelegatePrivate.h"
 #import "WKPreferencesPrivate.h"
@@ -45,14 +49,18 @@
 #import "WKWebsiteDataStorePrivate.h"
 #import "WebExtensionAction.h"
 #import "WebExtensionContextProxyMessages.h"
+#import "WebExtensionDynamicScripts.h"
+#import "WebExtensionMenuItemContextParameters.h"
 #import "WebExtensionTab.h"
 #import "WebExtensionURLSchemeHandler.h"
 #import "WebExtensionWindow.h"
 #import "WebPageProxy.h"
+#import "WebScriptMessageHandler.h"
 #import "WebUserContentControllerProxy.h"
 #import "_WKWebExtensionContextInternal.h"
 #import "_WKWebExtensionControllerDelegatePrivate.h"
 #import "_WKWebExtensionControllerInternal.h"
+#import "_WKWebExtensionDeclarativeNetRequestTranslator.h"
 #import "_WKWebExtensionLocalization.h"
 #import "_WKWebExtensionMatchPatternInternal.h"
 #import "_WKWebExtensionPermission.h"
@@ -73,9 +81,13 @@ static NSString * const backgroundContentEventListenersKey = @"BackgroundContent
 static NSString * const backgroundContentEventListenersVersionKey = @"BackgroundContentEventListenersVersion";
 static NSString * const lastSeenBaseURLStateKey = @"LastSeenBaseURL";
 static NSString * const lastSeenVersionStateKey = @"LastSeenVersion";
+static NSString * const lastLoadedDNRHashStateKey = @"LastLoadedDNRHash";
 
 // Update this value when any changes are made to the WebExtensionEventListenerType enum.
-static constexpr NSInteger currentBackgroundContentListenerStateVersion = 2;
+static constexpr NSInteger currentBackgroundContentListenerStateVersion = 3;
+
+// Update this value when any changes are made to the rule translation logic in _WKWebExtensionDeclarativeNetRequestRule.
+static constexpr NSInteger currentDeclarativeNetRequestRuleTranslatorVersion = 1;
 
 @interface _WKWebExtensionContextDelegate : NSObject <WKNavigationDelegate, WKUIDelegate> {
     WeakPtr<WebKit::WebExtensionContext> _webExtensionContext;
@@ -137,6 +149,8 @@ static constexpr NSInteger currentBackgroundContentListenerStateVersion = 2;
 @end
 
 namespace WebKit {
+
+using namespace WebExtensionDynamicScripts;
 
 WebExtensionContext::WebExtensionContext(Ref<WebExtension>&& extension)
     : WebExtensionContext()
@@ -223,7 +237,8 @@ bool WebExtensionContext::load(WebExtensionController& controller, String storag
 
         // FIXME: <https://webkit.org/b/248429> Support dynamic content scripts by loading them from storage here.
 
-        loadDeclarativeNetRequestRules();
+        loadDeclarativeNetRequestRulesetStateFromStorage();
+        loadDeclarativeNetRequestRules([](bool) { });
 
         addInjectedContent();
     });
@@ -247,6 +262,7 @@ bool WebExtensionContext::unload(NSError **outError)
 
     unloadBackgroundWebView();
     removeInjectedContent();
+    removeDeclarativeNetRequestRules();
 
     m_storageDirectory = nullString();
     m_extensionController = nil;
@@ -452,11 +468,14 @@ void WebExtensionContext::setHasAccessInPrivateBrowsing(bool hasAccess)
         return;
 
     if (m_hasAccessInPrivateBrowsing) {
+        addDeclarativeNetRequestRulesToPrivateUserContentControllers();
         for (auto& controller : extensionController()->allPrivateUserContentControllers())
             addInjectedContent(controller);
     } else {
-        for (auto& controller : extensionController()->allPrivateUserContentControllers())
+        for (auto& controller : extensionController()->allPrivateUserContentControllers()) {
             removeInjectedContent(controller);
+            controller.removeContentRuleList(uniqueIdentifier());
+        }
     }
 }
 
@@ -1852,6 +1871,19 @@ const WebExtensionContext::CommandsVector& WebExtensionContext::commands()
     return m_commands;
 }
 
+WebExtensionCommand* WebExtensionContext::command(const String& commandIdentifier)
+{
+    if (commandIdentifier.isEmpty())
+        return nullptr;
+
+    for (auto& command : commands()) {
+        if (command->identifier() == commandIdentifier)
+            return command.ptr();
+    }
+
+    return nullptr;
+}
+
 void WebExtensionContext::performCommand(WebExtensionCommand& command, UserTriggered userTriggered)
 {
     ASSERT(isLoaded());
@@ -1871,6 +1903,135 @@ void WebExtensionContext::performCommand(WebExtensionCommand& command, UserTrigg
 
     fireCommandEventIfNeeded(command, activeTab.get());
 }
+
+NSArray *WebExtensionContext::platformMenuItems(const WebExtensionTab& tab) const
+{
+    WebExtensionMenuItemContextParameters contextParameters;
+    contextParameters.types = WebExtensionMenuItemContextType::Tab;
+    contextParameters.tabIdentifier = tab.identifier();
+
+    return WebExtensionMenuItem::matchingPlatformMenuItems(mainMenuItems(), contextParameters);
+}
+
+WebExtensionMenuItem* WebExtensionContext::menuItem(const String& identifier) const
+{
+    if (identifier.isEmpty())
+        return nullptr;
+    return m_menuItems.get(identifier);
+}
+
+void WebExtensionContext::performMenuItem(WebExtensionMenuItem& menuItem, const WebExtensionMenuItemContextParameters& contextParameters, UserTriggered userTriggered)
+{
+    ASSERT(isLoaded());
+    if (!isLoaded())
+        return;
+
+    if (contextParameters.tabIdentifier) {
+        RefPtr activeTab = getTab(contextParameters.tabIdentifier.value());
+        if (activeTab && userTriggered == UserTriggered::Yes)
+            userGesturePerformed(*activeTab);
+    }
+
+    if (RefPtr command = menuItem.command()) {
+        performCommand(*command);
+        return;
+    }
+
+    bool wasChecked = menuItem.toggleCheckedIfNeeded(contextParameters);
+    fireMenusClickedEventIfNeeded(menuItem, wasChecked, contextParameters);
+}
+
+#if PLATFORM(MAC)
+void WebExtensionContext::addItemsToContextMenu(WebPageProxy& page, const ContextMenuContextData& contextData, NSMenu *menu)
+{
+    WebExtensionMenuItemContextParameters contextParameters;
+
+    ASSERT(contextData.webHitTestResultData());
+    auto& hitTestData = contextData.webHitTestResultData().value();
+
+    if (!hitTestData.frameInfo)
+        return;
+
+    auto& frameInfo = hitTestData.frameInfo.value();
+    contextParameters.frameIdentifier = toWebExtensionFrameIdentifier(frameInfo);
+    contextParameters.frameURL = frameInfo.request.url();
+
+    RefPtr tab = getTab(page.identifier());
+    if (tab)
+        contextParameters.tabIdentifier = tab->identifier();
+
+    // Don't show context menu items unless the extension has permission, or can be granted permission
+    // with an activeTab user gesture if the user interacts with one of the menu items.
+    if (!hasPermission(frameInfo.request.url(), tab.get()) && (!tab || !frameInfo.isMainFrame || !hasPermission(_WKWebExtensionPermissionActiveTab)))
+        return;
+
+    if (!hitTestData.absoluteImageURL.isEmpty()) {
+        contextParameters.types.add(WebExtensionMenuItemContextType::Image);
+        contextParameters.sourceURL = URL { hitTestData.absoluteImageURL };
+    }
+
+    if (!hitTestData.absoluteMediaURL.isEmpty() && hitTestData.elementType != WebHitTestResultData::ElementType::None) {
+        contextParameters.sourceURL = URL { hitTestData.absoluteMediaURL };
+
+        switch (hitTestData.elementType) {
+        case WebHitTestResultData::ElementType::None:
+            ASSERT_NOT_REACHED();
+            break;
+
+        case WebHitTestResultData::ElementType::Audio:
+            contextParameters.types.add(WebExtensionMenuItemContextType::Audio);
+            break;
+
+        case WebHitTestResultData::ElementType::Video:
+            contextParameters.types.add(WebExtensionMenuItemContextType::Video);
+            break;
+        }
+    }
+
+    if (hitTestData.isContentEditable) {
+        contextParameters.types.add(WebExtensionMenuItemContextType::Editable);
+        contextParameters.editable = true;
+    }
+
+    if (hitTestData.isSelected && !contextData.selectedText().isEmpty()) {
+        contextParameters.types.add(WebExtensionMenuItemContextType::Selection);
+        contextParameters.selectionString = contextData.selectedText();
+    }
+
+    if (!hitTestData.absoluteLinkURL.isEmpty()) {
+        // Links are selected when showing the context menu, so remove the Selection type since Link is more specific.
+        // This matches how built-in context menus work, e.g. hiding Lookup and Translate when on a link.
+        contextParameters.types.remove(WebExtensionMenuItemContextType::Selection);
+
+        contextParameters.types.add(WebExtensionMenuItemContextType::Link);
+        contextParameters.linkURL = URL { hitTestData.absoluteLinkURL };
+        contextParameters.linkText = hitTestData.linkLabel;
+    }
+
+    // The Page and Frame contexts only apply if there are no other contexts.
+    if (contextParameters.types.isEmpty())
+        contextParameters.types.add(frameInfo.isMainFrame ? WebExtensionMenuItemContextType::Page : WebExtensionMenuItemContextType::Frame);
+
+    auto *menuItems = WebExtensionMenuItem::matchingPlatformMenuItems(mainMenuItems(), contextParameters);
+    if (!menuItems.count)
+        return;
+
+    if (menuItems.count == 1) {
+        // Don't allow images for the top-level items, it isn't typical on macOS for context menus.
+        dynamic_objc_cast<NSMenuItem>(menuItems.firstObject).image = nil;
+
+        [menu addItem:menuItems.firstObject];
+        return;
+    }
+
+    auto *extensionItem = [[NSMenuItem alloc] initWithTitle:extension().displayShortName() action:nullptr keyEquivalent:@""];
+    auto *extensionSubmenu = [[NSMenu alloc] init];
+    extensionSubmenu.itemArray = menuItems;
+    extensionItem.submenu = extensionSubmenu;
+
+    [menu addItem:extensionItem];
+}
+#endif
 
 void WebExtensionContext::userGesturePerformed(WebExtensionTab& tab)
 {
@@ -2184,11 +2345,10 @@ void WebExtensionContext::queueStartupAndInstallEventsForExtensionIfNecessary()
     bool extensionVersionDidChange = !m_previousVersion.isEmpty() && m_previousVersion != currentVersion;
 
     if (extensionVersionDidChange) {
-        // FIXME: Remove declarative net request modified rulesets.
-
         [m_state setObject:(NSString *)currentVersion forKey:lastSeenVersionStateKey];
         [m_state removeObjectForKey:backgroundContentEventListenersKey];
         [m_state removeObjectForKey:backgroundContentEventListenersVersionKey];
+        clearDeclarativeNetRequestRulesetState();
 
         writeStateToStorage();
 
@@ -2522,6 +2682,9 @@ void WebExtensionContext::addInjectedContent(const InjectedContentVector& inject
         auto waitForNotification = WebCore::WaitForNotificationBeforeInjecting::No;
         Ref executionWorld = injectedContentData.forMainWorld ? API::ContentWorld::pageContentWorld() : *m_contentScriptWorld;
 
+        auto scriptID = injectedContentData.identifier;
+        bool isRegisteredScript = !scriptID.isEmpty();
+
         for (NSString *scriptPath in injectedContentData.scriptPaths.get()) {
             NSString *scriptString = m_extension->resourceStringForPath(scriptPath, WebExtension::CacheResult::Yes);
             if (!scriptString)
@@ -2532,6 +2695,15 @@ void WebExtensionContext::addInjectedContent(const InjectedContentVector& inject
 
             for (auto& userContentController : userContentControllers)
                 userContentController.addUserScript(userScript, InjectUserScriptImmediately::Yes);
+
+            if (isRegisteredScript) {
+                RefPtr registeredScript = m_registeredScriptsMap.get(scriptID);
+                ASSERT(registeredScript);
+                if (!registeredScript)
+                    continue;
+
+                registeredScript->addUserScript(scriptID, userScript);
+            }
         }
 
         for (NSString *styleSheetPath in injectedContentData.styleSheetPaths.get()) {
@@ -2544,6 +2716,15 @@ void WebExtensionContext::addInjectedContent(const InjectedContentVector& inject
 
             for (auto& userContentController : userContentControllers)
                 userContentController.addUserStyleSheet(userStyleSheet);
+
+            if (isRegisteredScript) {
+                RefPtr registeredScript = m_registeredScriptsMap.get(scriptID);
+                ASSERT(registeredScript);
+                if (!registeredScript)
+                    continue;
+
+                registeredScript->addUserStyleSheet(scriptID, userStyleSheet);
+            }
         }
     }
 }
@@ -2637,19 +2818,114 @@ void WebExtensionContext::removeInjectedContent(WebUserContentControllerProxy& u
     }
 }
 
-void WebExtensionContext::compileDeclarativeNetRequestRules(NSArray *rulesData)
+WKContentRuleListStore *WebExtensionContext::declarativeNetRequestRuleStore()
 {
-    // FIXME: rdar://114823294 - Implement this.
+    if (m_declarativeNetRequestRuleStore)
+        return m_declarativeNetRequestRuleStore.get();
+
+    String contentBlockerStorePath = m_extensionController->configuration().declarativeNetRequestStoreDirectory();
+    if (contentBlockerStorePath.isEmpty())
+        return nil;
+
+    m_declarativeNetRequestRuleStore = [WKContentRuleListStore storeWithURL:[NSURL fileURLWithPath:contentBlockerStorePath]];
+    return m_declarativeNetRequestRuleStore.get();
 }
 
-void WebExtensionContext::loadDeclarativeNetRequestRules()
+void WebExtensionContext::removeDeclarativeNetRequestRules()
+{
+    if (!isLoaded())
+        return;
+
+    // Use all user content controllers in case the extension was briefly allowed in private browsing
+    // and content was injected into any of those content controllers.
+    auto allUserContentControllers = extensionController()->allUserContentControllers();
+
+    for (auto& userContentController : allUserContentControllers)
+        userContentController.removeContentRuleList(uniqueIdentifier());
+}
+
+void WebExtensionContext::addDeclarativeNetRequestRulesToPrivateUserContentControllers()
+{
+    [declarativeNetRequestRuleStore() lookUpContentRuleListForIdentifier:uniqueIdentifier() completionHandler:^(WKContentRuleList *ruleList, NSError *error) {
+        if (!ruleList)
+            return;
+
+        for (auto& controller : extensionController()->allPrivateUserContentControllers())
+            controller.addContentRuleList(*ruleList->_contentRuleList, m_baseURL);
+    }];
+}
+
+static NSString *computeStringHashForContentBlockerRules(NSString *rules)
+{
+    SHA1 sha1;
+    sha1.addBytes(String(rules).span8());
+
+    SHA1::Digest digest;
+    sha1.computeHash(digest);
+
+    auto hashAsCString = SHA1::hexDigest(digest);
+    auto hashAsString = String::fromUTF8(hashAsCString);
+    return [hashAsString stringByAppendingString:[NSString stringWithFormat:@"-%zu", currentDeclarativeNetRequestRuleTranslatorVersion]];
+}
+
+void WebExtensionContext::compileDeclarativeNetRequestRules(NSArray *rulesData, CompletionHandler<void(bool)>&& completionHandler)
+{
+    NSArray<NSString *> *jsonDeserializationErrorStrings;
+    auto *allJSONObjects = [_WKWebExtensionDeclarativeNetRequestTranslator jsonObjectsFromData:rulesData errorStrings:&jsonDeserializationErrorStrings];
+
+    NSArray<NSString *> *parsingErrorStrings;
+    auto *allConvertedRules = [_WKWebExtensionDeclarativeNetRequestTranslator translateRules:allJSONObjects errorStrings:&parsingErrorStrings];
+
+    auto *webKitRules = encodeJSONString(allConvertedRules, JSONOptions::FragmentsAllowed);
+    if (!webKitRules) {
+        completionHandler(false);
+        return;
+    }
+
+    auto *previouslyLoadedHash = objectForKey<NSString>(m_state, lastLoadedDNRHashStateKey);
+    auto *hashOfWebKitRules = computeStringHashForContentBlockerRules(webKitRules);
+
+    [declarativeNetRequestRuleStore() lookUpContentRuleListForIdentifier:uniqueIdentifier() completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), previouslyLoadedHash = String { previouslyLoadedHash }, hashOfWebKitRules = String { hashOfWebKitRules }, webKitRules = String { webKitRules }](WKContentRuleList *foundRuleList, NSError *) mutable {
+        if (foundRuleList) {
+            if ([previouslyLoadedHash isEqualToString:hashOfWebKitRules]) {
+                auto userContentControllers = hasAccessInPrivateBrowsing() ? extensionController()->allUserContentControllers() : extensionController()->allNonPrivateUserContentControllers();
+                for (auto& userContentController : userContentControllers)
+                    userContentController.addContentRuleList(*foundRuleList->_contentRuleList, m_baseURL);
+
+                completionHandler(true);
+                return;
+            }
+        }
+
+        [declarativeNetRequestRuleStore() compileContentRuleListForIdentifier:uniqueIdentifier() encodedContentRuleList:webKitRules completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), hashOfWebKitRules = String { hashOfWebKitRules }](WKContentRuleList *ruleList, NSError *error) mutable {
+            if (error) {
+                RELEASE_LOG_ERROR(Extensions, "Error compiling declarativeNetRequest rules: %{public}@", privacyPreservingDescription(error));
+                completionHandler(false);
+                return;
+            }
+
+            [m_state setObject:hashOfWebKitRules forKey:lastLoadedDNRHashStateKey];
+            writeStateToStorage();
+
+            auto userContentControllers = hasAccessInPrivateBrowsing() ? extensionController()->allUserContentControllers() : extensionController()->allNonPrivateUserContentControllers();
+            for (auto& userContentController : userContentControllers)
+                userContentController.addContentRuleList(*ruleList->_contentRuleList, m_baseURL);
+
+            completionHandler(true);
+        }).get()];
+    }).get()];
+}
+
+void WebExtensionContext::loadDeclarativeNetRequestRules(CompletionHandler<void(bool)>&& completionHandler)
 {
     // FIXME: rdar://118476702 - Load dynamic rules here.
     // FIXME: rdar://118476774 - Load session rules here.
     // FIXME: rdar://118476776 - Set state if the extension should show the blocked resource count as its badge text.
 
-    if (!hasPermission(_WKWebExtensionPermissionDeclarativeNetRequest) && !hasPermission(_WKWebExtensionPermissionDeclarativeNetRequestWithHostAccess))
+    if (!hasPermission(_WKWebExtensionPermissionDeclarativeNetRequest) && !hasPermission(_WKWebExtensionPermissionDeclarativeNetRequestWithHostAccess)) {
+        completionHandler(false);
         return;
+    }
 
     auto *allJSONData = [NSMutableArray array];
 
@@ -2665,11 +2941,13 @@ void WebExtensionContext::loadDeclarativeNetRequestRules()
     }
 
     if (!allJSONData.count) {
-        // FIXME: When dynamic/session rules are supported, we should remove the content blocker if there are no rules.
+        removeDeclarativeNetRequestRules();
+        [declarativeNetRequestRuleStore() removeContentRuleListForIdentifier:uniqueIdentifier() completionHandler:^(NSError *) { }];
+        completionHandler(true);
         return;
     }
 
-    compileDeclarativeNetRequestRules(allJSONData);
+    compileDeclarativeNetRequestRules(allJSONData, WTFMove(completionHandler));
 }
 
 } // namespace WebKit

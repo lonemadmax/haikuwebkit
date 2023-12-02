@@ -2507,8 +2507,9 @@ void RenderLayerCompositor::rootLayerConfigurationChanged()
 void RenderLayerCompositor::updateCompositingForLayerTreeAsTextDump()
 {
     auto& frameView = m_renderView.frameView();
-    frameView.updateLayoutAndStyleIfNeededRecursive();
-    
+
+    frameView.updateLayoutAndStyleIfNeededRecursive(LayoutOptions::UpdateCompositingLayers);
+
     updateEventRegions();
 
     for (auto* child = frameView.frame().tree().firstRenderedChild(); child; child = child->tree().traverseNextRendered()) {
@@ -3325,10 +3326,8 @@ bool RenderLayerCompositor::requiresCompositingForAnimation(RenderLayerModelObje
             return (effectsStack->isCurrentlyAffectingProperty(CSSPropertyOpacity)
                 && (usesCompositing() || (m_compositingTriggers & ChromeClient::AnimatedOpacityTrigger)))
                 || effectsStack->isCurrentlyAffectingProperty(CSSPropertyFilter)
-#if ENABLE(FILTERS_LEVEL_2)
                 || effectsStack->isCurrentlyAffectingProperty(CSSPropertyBackdropFilter)
                 || effectsStack->isCurrentlyAffectingProperty(CSSPropertyWebkitBackdropFilter)
-#endif
                 || effectsStack->isCurrentlyAffectingProperty(CSSPropertyTranslate)
                 || effectsStack->isCurrentlyAffectingProperty(CSSPropertyScale)
                 || effectsStack->isCurrentlyAffectingProperty(CSSPropertyRotate)
@@ -3456,10 +3455,8 @@ bool RenderLayerCompositor::requiresCompositingForCanvas(RenderLayerModelObject&
 
 bool RenderLayerCompositor::requiresCompositingForFilters(RenderLayerModelObject& renderer) const
 {
-#if ENABLE(FILTERS_LEVEL_2)
     if (renderer.hasBackdropFilter())
         return true;
-#endif
 
     if (!(m_compositingTriggers & ChromeClient::FilterTrigger))
         return false;

@@ -190,10 +190,8 @@ bool ApplicationCacheHost::maybeLoadResource(ResourceLoader& loader, const Resou
     if (request.url() != originalURL)
         return false;
 
-#if ENABLE(SERVICE_WORKER)
     if (loader.options().serviceWorkerRegistrationIdentifier)
         return false;
-#endif
 
     ApplicationCacheResource* resource;
     if (!shouldLoadResourceFromApplicationCache(request, resource))
@@ -465,10 +463,8 @@ bool ApplicationCacheHost::scheduleLoadFallbackResourceFromApplicationCache(Reso
     if (!isApplicationCacheEnabled() && !isApplicationCacheBlockedForRequest(loader->request()))
         return false;
 
-#if ENABLE(SERVICE_WORKER)
     if (loader->options().serviceWorkerRegistrationIdentifier)
         return false;
-#endif
 
     ApplicationCacheResource* resource;
     if (!getApplicationCacheFallbackResource(loader->request(), resource, cache))

@@ -56,7 +56,7 @@ struct CompilationContext;
 struct ModuleInformation;
 struct UnlinkedHandlerInfo;
 
-using BlockSignature = const TypeDefinition*;
+using BlockSignature = const FunctionSignature*;
 
 enum class TableElementType : uint8_t {
     Externref,
@@ -73,12 +73,13 @@ inline bool isValueType(Type type)
     case TypeKind::I64:
     case TypeKind::F32:
     case TypeKind::F64:
+        return true;
     case TypeKind::Externref:
     case TypeKind::Funcref:
-        return true;
+        return !Options::useWebAssemblyTypedFunctionReferences();
     case TypeKind::Ref:
     case TypeKind::RefNull:
-        return Options::useWebAssemblyTypedFunctionReferences();
+        return Options::useWebAssemblyTypedFunctionReferences() && type.index != TypeDefinition::invalidIndex;
     case TypeKind::V128:
         return Options::useWebAssemblySIMD();
     default:
@@ -168,7 +169,7 @@ inline bool isNullexternref(Type type)
 
 inline bool isInternalref(Type type)
 {
-    if (!Options::useWebAssemblyGC() || !isRefType(type) || !typeIndexIsType(type.index))
+    if (!Options::useWebAssemblyGC() || !isRefType(type))
         return false;
     if (typeIndexIsType(type.index)) {
         switch (static_cast<TypeKind>(type.index)) {

@@ -307,15 +307,14 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
         setMathscripts(AXPropertyName::MathPostscripts, object);
     }
 
-    if (object.isScrollView() || object.isWebArea()) {
-        // For the ScrollView and WebArea objects, cache the AccessibilityText property eagerly to avoid hitting the main thread in getOrRetrievePropertyValue during the construction of the isolated tree.
-        Vector<AccessibilityText> texts;
-        object.accessibilityText(texts);
-        auto axTextValue = texts.map([] (const auto& text) -> AccessibilityText {
-            return { text.text.isolatedCopy(), text.textSource };
-        });
-        setProperty(AXPropertyName::AccessibilityText, axTextValue);
+    Vector<AccessibilityText> texts;
+    object.accessibilityText(texts);
+    auto axTextValue = texts.map([] (const auto& text) -> AccessibilityText {
+        return { text.text.isolatedCopy(), text.textSource };
+    });
+    setProperty(AXPropertyName::AccessibilityText, axTextValue);
 
+    if (object.isScrollView() || object.isWebArea()) {
         if (object.isScrollView()) {
             setObjectProperty(AXPropertyName::VerticalScrollBar, object.scrollBar(AccessibilityOrientation::Vertical));
             setObjectProperty(AXPropertyName::HorizontalScrollBar, object.scrollBar(AccessibilityOrientation::Horizontal));
@@ -344,8 +343,16 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     if (descriptor.length())
         setProperty(AXPropertyName::ExtendedDescription, descriptor.isolatedCopy());
 
-    if (object.isTextControl())
+    if (object.isTextControl()) {
         setProperty(AXPropertyName::SelectedTextRange, object.selectedTextRange());
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    setProperty(AXPropertyName::TextRuns, object.textRuns());
+#endif
+
+        auto range = object.textInputMarkedTextMarkerRange();
+        if (auto characterRange = range.characterRange(); range && characterRange)
+            setProperty(AXPropertyName::TextInputMarkedTextMarkerRange, std::pair<AXID, CharacterRange>(range.start().objectID(), *characterRange));
+    }
 
     // These properties are only needed on the AXCoreObject interface due to their use in ATSPI,
     // so only cache them for ATSPI.
@@ -429,7 +436,7 @@ void AXIsolatedObject::setProperty(AXPropertyName propertyName, AXPropertyValueV
         [](Vector<AXID>& typedValue) { return typedValue.isEmpty(); },
         [](Vector<std::pair<AXID, AXID>>& typedValue) { return typedValue.isEmpty(); },
         [](Vector<String>& typedValue) { return typedValue.isEmpty(); },
-        [](Path& typedValue) { return typedValue == Path(); },
+        [](Path& typedValue) { return typedValue.isEmpty(); },
         [](OptionSet<AXAncestorFlag>& typedValue) { return typedValue.isEmpty(); },
 #if PLATFORM(COCOA)
         [](RetainPtr<NSAttributedString>& typedValue) { return !typedValue; },
@@ -564,7 +571,7 @@ AXIsolatedObject* AXIsolatedObject::cellForColumnAndRow(unsigned columnIndex, un
 
 void AXIsolatedObject::accessibilityText(Vector<AccessibilityText>& texts) const
 {
-    texts = const_cast<AXIsolatedObject*>(this)->getOrRetrievePropertyValue<Vector<AccessibilityText>>(AXPropertyName::AccessibilityText);
+    texts = vectorAttributeValue<AccessibilityText>(AXPropertyName::AccessibilityText);
 }
 
 void AXIsolatedObject::insertMathPairs(Vector<std::pair<AXID, AXID>>& isolatedPairs, AccessibilityMathMultiscriptPairs& pairs)

@@ -44,8 +44,8 @@ Ref<MockMediaSourcePrivate> MockMediaSourcePrivate::create(MockMediaPlayerMediaS
 }
 
 MockMediaSourcePrivate::MockMediaSourcePrivate(MockMediaPlayerMediaSource& parent, MediaSourcePrivateClient& client)
-    : m_player(parent)
-    , m_client(client)
+    : MediaSourcePrivate(client)
+    , m_player(parent)
 #if !RELEASE_LOG_DISABLED
     , m_logger(m_player.mediaPlayerLogger())
     , m_logIdentifier(m_player.mediaPlayerLogIdentifier())
@@ -72,20 +72,6 @@ MediaSourcePrivate::AddStatus MockMediaSourcePrivate::addSourceBuffer(const Cont
     return AddStatus::Ok;
 }
 
-MediaTime MockMediaSourcePrivate::duration() const
-{
-    if (m_client)
-        return m_client->duration();
-    return MediaTime::invalidTime();
-}
-
-const PlatformTimeRanges& MockMediaSourcePrivate::buffered()
-{
-    if (m_client)
-        return m_client->buffered();
-    return PlatformTimeRanges::emptyRanges();
-}
-
 void MockMediaSourcePrivate::durationChanged(const MediaTime& duration)
 {
     m_player.updateDuration(duration);
@@ -93,7 +79,7 @@ void MockMediaSourcePrivate::durationChanged(const MediaTime& duration)
 
 void MockMediaSourcePrivate::markEndOfStream(EndOfStreamStatus status)
 {
-    if (status == EosNoError)
+    if (status == EndOfStreamStatus::NoError)
         m_player.setNetworkState(MediaPlayer::NetworkState::Loaded);
     MediaSourcePrivate::markEndOfStream(status);
 }
@@ -111,20 +97,6 @@ void MockMediaSourcePrivate::setReadyState(MediaPlayer::ReadyState readyState)
 void MockMediaSourcePrivate::notifyActiveSourceBuffersChanged()
 {
     m_player.notifyActiveSourceBuffersChanged();
-}
-
-Ref<MediaTimePromise> MockMediaSourcePrivate::waitForTarget(const SeekTarget& target)
-{
-    if (!m_client)
-        return MediaTimePromise::createAndReject(PlatformMediaError::ClientDisconnected);
-    return m_client->waitForTarget(target);
-}
-
-Ref<MediaPromise> MockMediaSourcePrivate::seekToTime(const MediaTime& time)
-{
-    if (!m_client)
-        return MediaPromise::createAndReject(PlatformMediaError::ClientDisconnected);
-    return m_client->seekToTime(time);
 }
 
 MediaTime MockMediaSourcePrivate::currentMediaTime() const

@@ -602,6 +602,22 @@ window.UIHelper = class UIHelper {
         });
     }
 
+    static async setInlinePrediction(text)
+    {
+        if (!this.isWebKit2())
+            return Promise.resolve();
+
+        return new Promise(resolve => testRunner.runUIScript(`uiController.setInlinePrediction(\`${text}\`)`, resolve));
+    }
+
+    static async acceptInlinePrediction()
+    {
+        if (!this.isWebKit2())
+            return Promise.resolve();
+
+        return new Promise(resolve => testRunner.runUIScript(`uiController.acceptInlinePrediction()`, resolve));
+    }
+
     static async activateAndWaitForInputSessionAt(x, y)
     {
         if (!this.isWebKit2() || !this.isIOSFamily())
@@ -1076,6 +1092,15 @@ window.UIHelper = class UIHelper {
                     uiController.uiScriptComplete(JSON.stringify(uiController.contentsOfUserInterfaceItem('selectMenu')));
                 };
             })();`, result => resolve(JSON.parse(result).selectMenu));
+        });
+    }
+
+    static contextMenuItems()
+    {
+        return new Promise(resolve => {
+            testRunner.runUIScript(`(() => {
+                uiController.uiScriptComplete(JSON.stringify(uiController.contentsOfUserInterfaceItem('contextMenu')))
+            })()`, result => resolve(result ? JSON.parse(result).contextMenu : null));
         });
     }
 
@@ -1927,6 +1952,16 @@ window.UIHelper = class UIHelper {
 
         return new Promise(resolve => {
             testRunner.runUIScript("uiController.uiScriptComplete(uiController.currentImageAnalysisRequestID)", result => resolve(result));
+        });
+    }
+
+    static installFakeMachineReadableCodeResultsForImageAnalysis()
+    {
+        if (!this.isWebKit2())
+            return Promise.resolve();
+
+        return new Promise(resolve => {
+            testRunner.runUIScript("uiController.installFakeMachineReadableCodeResultsForImageAnalysis()", resolve);
         });
     }
 

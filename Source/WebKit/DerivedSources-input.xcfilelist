@@ -148,6 +148,7 @@ $(PROJECT_DIR)/NetworkProcess/webtransport/NetworkTransportSession.messages.in
 $(PROJECT_DIR)/Platform/IPC/FormDataReference.serialization.in
 $(PROJECT_DIR)/Platform/IPC/IPCSemaphore.serialization.in
 $(PROJECT_DIR)/Platform/IPC/SharedBufferReference.serialization.in
+$(PROJECT_DIR)/Platform/IPC/SharedFileHandle.serialization.in
 $(PROJECT_DIR)/Platform/IPC/StreamServerConnection.serialization.in
 $(PROJECT_DIR)/Platform/SharedMemory.serialization.in
 $(PROJECT_DIR)/PluginProcess/PluginControllerProxy.messages.in
@@ -205,6 +206,7 @@ $(PROJECT_DIR)/Shared/Cocoa/CoreIPCDate.serialization.in
 $(PROJECT_DIR)/Shared/Cocoa/CoreIPCDictionary.serialization.in
 $(PROJECT_DIR)/Shared/Cocoa/CoreIPCError.serialization.in
 $(PROJECT_DIR)/Shared/Cocoa/CoreIPCFont.serialization.in
+$(PROJECT_DIR)/Shared/Cocoa/CoreIPCLocale.serialization.in
 $(PROJECT_DIR)/Shared/Cocoa/CoreIPCNSCFObject.serialization.in
 $(PROJECT_DIR)/Shared/Cocoa/CoreIPCNSValue.serialization.in
 $(PROJECT_DIR)/Shared/Cocoa/CoreIPCSecureCoding.serialization.in
@@ -230,6 +232,7 @@ $(PROJECT_DIR)/Shared/Extensions/WebExtensionControllerParameters.serialization.
 $(PROJECT_DIR)/Shared/Extensions/WebExtensionDynamicScripts.serialization.in
 $(PROJECT_DIR)/Shared/Extensions/WebExtensionEventListenerType.serialization.in
 $(PROJECT_DIR)/Shared/Extensions/WebExtensionFrameParameters.serialization.in
+$(PROJECT_DIR)/Shared/Extensions/WebExtensionMenuItem.serialization.in
 $(PROJECT_DIR)/Shared/Extensions/WebExtensionMessageSenderParameters.serialization.in
 $(PROJECT_DIR)/Shared/Extensions/WebExtensionTab.serialization.in
 $(PROJECT_DIR)/Shared/Extensions/WebExtensionTabParameters.serialization.in
@@ -261,7 +264,6 @@ $(PROJECT_DIR)/Shared/Notifications/NotificationManagerProxy.messages.in
 $(PROJECT_DIR)/Shared/PALArgumentCoders.serialization.in
 $(PROJECT_DIR)/Shared/Pasteboard.serialization.in
 $(PROJECT_DIR)/Shared/PlatformPopupMenuData.serialization.in
-$(PROJECT_DIR)/Shared/Plugins/NPObjectMessageReceiver.messages.in
 $(PROJECT_DIR)/Shared/PolicyDecision.serialization.in
 $(PROJECT_DIR)/Shared/PrintInfo.serialization.in
 $(PROJECT_DIR)/Shared/PushMessageForTesting.serialization.in
@@ -452,9 +454,11 @@ $(PROJECT_DIR)/WebProcess/Extensions/Bindings/Scripts/IDLAttributes.json
 $(PROJECT_DIR)/WebProcess/Extensions/Interfaces/WebExtensionAPIAction.idl
 $(PROJECT_DIR)/WebProcess/Extensions/Interfaces/WebExtensionAPIAlarms.idl
 $(PROJECT_DIR)/WebProcess/Extensions/Interfaces/WebExtensionAPICommands.idl
+$(PROJECT_DIR)/WebProcess/Extensions/Interfaces/WebExtensionAPIDeclarativeNetRequest.idl
 $(PROJECT_DIR)/WebProcess/Extensions/Interfaces/WebExtensionAPIEvent.idl
 $(PROJECT_DIR)/WebProcess/Extensions/Interfaces/WebExtensionAPIExtension.idl
 $(PROJECT_DIR)/WebProcess/Extensions/Interfaces/WebExtensionAPILocalization.idl
+$(PROJECT_DIR)/WebProcess/Extensions/Interfaces/WebExtensionAPIMenus.idl
 $(PROJECT_DIR)/WebProcess/Extensions/Interfaces/WebExtensionAPINamespace.idl
 $(PROJECT_DIR)/WebProcess/Extensions/Interfaces/WebExtensionAPINotifications.idl
 $(PROJECT_DIR)/WebProcess/Extensions/Interfaces/WebExtensionAPIPermissions.idl

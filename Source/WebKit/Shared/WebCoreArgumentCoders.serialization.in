@@ -245,14 +245,12 @@ enum class WebCore::PermissionState : uint8_t {
     Prompt
 };
 
-#if ENABLE(SERVICE_WORKER)
 header: <WebCore/PushPermissionState.h>
 enum class WebCore::PushPermissionState : uint8_t {
     Denied,
     Granted,
     Prompt
 };
-#endif // ENABLE(SERVICE_WORKER)
 
 header: <WebCore/Autofill.h>
 enum class WebCore::AutofillFieldName : uint8_t {
@@ -1381,7 +1379,6 @@ struct WebCore::PermissionDescriptor {
     WebCore::PermissionName name;
 }
 
-#if ENABLE(SERVICE_WORKER)
 struct WebCore::PushSubscriptionData {
     WebCore::PushSubscriptionIdentifier identifier;
     String endpoint;
@@ -1390,7 +1387,6 @@ struct WebCore::PushSubscriptionData {
     Vector<uint8_t> clientECDHPublicKey;
     Vector<uint8_t> sharedAuthenticationSecret;
 };
-#endif
 
 [RefCounted] class WebCore::DeprecationReportBody {
     String id()
@@ -1636,12 +1632,10 @@ struct WebCore::VideoFrameMetadata {
 };
 #endif // ENABLE(VIDEO)
 
-#if ENABLE(SERVICE_WORKER)
 struct WebCore::NavigationPreloadState {
     bool enabled;
     String headerValue;
 };
-#endif // ENABLE(SERVICE_WORKER)
 
 enum class WebCore::RenderingMode : bool
 
@@ -3274,6 +3268,14 @@ enum class WebCore::ApplePayButtonStyle : uint8_t {
     Vector<double> tickRatios();
 }
 
+[RefCounted, AdditionalEncoder=StreamConnectionEncoder] class WebCore::SwitchThumbPart {
+    [Validator='progress >= 0.0f && progress <= 1.0f'] float progress();
+};
+
+[RefCounted, AdditionalEncoder=StreamConnectionEncoder] class WebCore::SwitchTrackPart {
+    [Validator='progress >= 0.0f && progress <= 1.0f'] float progress();
+};
+
 [RefCounted, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DistantLightSource {
     float azimuth();
     float elevation();
@@ -3904,7 +3906,6 @@ header: <WebCore/TextManipulationController.h>
     WebCore::TextManipulationControllerManipulationFailure::Type type;
 };
 
-#if ENABLE(SERVICE_WORKER)
 struct WebCore::BackgroundFetchInformation {
     WebCore::ServiceWorkerRegistrationIdentifier registrationIdentifier;
     String identifier;
@@ -3916,9 +3917,7 @@ struct WebCore::BackgroundFetchInformation {
     WebCore::BackgroundFetchFailureReason failureReason;
     bool recordsAvailable;
 };
-#endif
 
-#if ENABLE(SERVICE_WORKER)
 struct WebCore::BackgroundFetchRequest {
     WebCore::ResourceRequest internalRequest;
     WebCore::FetchOptions options;
@@ -3927,9 +3926,7 @@ struct WebCore::BackgroundFetchRequest {
     String referrer;
     Markable<WebCore::ContentSecurityPolicyResponseHeaders, WebCore::ContentSecurityPolicyResponseHeaders::MarkableTraits> cspResponseHeaders;
 };
-#endif
 
-#if ENABLE(SERVICE_WORKER)
 struct WebCore::BackgroundFetchRecordInformation {
     WebCore::BackgroundFetchRecordIdentifier identifier;
     WebCore::ResourceRequest internalRequest;
@@ -3938,25 +3935,19 @@ struct WebCore::BackgroundFetchRecordInformation {
     WebCore::HTTPHeaderMap httpHeaders;
     String referrer;
 };
-#endif
 
-#if ENABLE(SERVICE_WORKER)
 struct WebCore::BackgroundFetchOptions {
     Vector<WebCore::ImageResource> icons;
     String title;
     uint64_t downloadTotal;
 };
-#endif
 
-
-#if ENABLE(SERVICE_WORKER)
 struct WebCore::ImageResource {
     String src;
     String sizes;
     String type;
     String label;
 };
-#endif // ENABLE(SERVICE_WORKER)
 
 using WebCore::SharedStringHash = uint32_t
 
@@ -4470,6 +4461,7 @@ header: <WebCore/InbandGenericCue.h>
     WebCore::Color m_foregroundColor;
     WebCore::Color m_backgroundColor;
     WebCore::Color m_highlightColor;
+    WebCore::GenericCueData::Alignment m_positionAlign;
     WebCore::GenericCueData::Alignment m_align;
     WebCore::GenericCueData::Status m_status;
 };
@@ -4632,8 +4624,6 @@ header: <WebCore/DragData.h>
     ShowCorrectionPanel,
 };
 
-#if ENABLE(SERVICE_WORKER)
-
 enum class WebCore::ServiceWorkerClientType : uint8_t {
     Window,
     Worker,
@@ -4732,8 +4722,6 @@ struct WebCore::ServiceWorkerJobData {
     [Validator='( type == WebCore::ServiceWorkerJobType::Register && registrationOptions->has_value()) || (type != WebCore::ServiceWorkerJobType::Register && !registrationOptions->has_value() )'] std::optional<WebCore::ServiceWorkerRegistrationOptions> registrationOptions;
 };
 
-#endif //ENABLE(SERVICE_WORKER)
-
 struct WebCore::EventInit {
     bool bubbles;
     bool cancelable;
@@ -4744,8 +4732,6 @@ struct WebCore::MessageWithMessagePorts {
     RefPtr<WebCore::SerializedScriptValue> message;
     Vector<WebCore::TransferredMessagePort> transferredPorts;
 };
-
-#if ENABLE(TRACKING_PREVENTION)
 
 enum class WebCore::StorageAccessWasGranted : bool
 
@@ -4763,8 +4749,6 @@ header: <WebCore/DocumentStorageAccess.h>
     WebCore::RegistrableDomain topFrameDomain;
     WebCore::RegistrableDomain subFrameDomain;
 };
-
-#endif // ENABLE(TRACKING_PREVENTION)
 
 class WebCore::Exception {
     WebCore::ExceptionCode code();
@@ -5379,9 +5363,7 @@ struct WebCore::WorkerOptions {
 };
 
 struct WebCore::WorkerInitializationData {
-#if ENABLE(SERVICE_WORKER)
     std::optional<WebCore::ServiceWorkerData> serviceWorkerData;
-#endif
     std::optional<WebCore::ScriptExecutionContextIdentifier> clientIdentifier;
     String userAgent;
 };
@@ -5401,8 +5383,6 @@ struct WebCore::SharedWorkerKey {
     URL url;
     String name;
 };
-
-#if ENABLE(SERVICE_WORKER)
 
 struct WebCore::ServiceWorkerRegistrationOptions {
     String scope;
@@ -5455,8 +5435,6 @@ struct WebCore::ServiceWorkerContextData {
     std::optional<WebCore::ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier;
     WebCore::NavigationPreloadState navigationPreloadState;
 };
-
-#endif
 
 #if HAVE(SCREEN_CAPTURE_KIT)
 header: <WebCore/DisplayCapturePromptType.h>
@@ -5697,9 +5675,7 @@ class WebCore::OffsetRotation {
     OffsetAnchor,
     OffsetRotate,
     Filter,
-#if ENABLE(FILTERS_LEVEL_2)
     BackdropFilter
-#endif
 };
 
 header: <WebCore/WebAnimationTypes.h>
@@ -5743,9 +5719,7 @@ struct WebCore::AcceleratedEffectValues {
     WebCore::LengthPoint offsetAnchor;
     WebCore::OffsetRotation offsetRotate;
     WebCore::FilterOperations filter;
-#if ENABLE(FILTERS_LEVEL_2)
     WebCore::FilterOperations backdropFilter;
-#endif
 }
 
 struct WebCore::AnimationEffectTiming {
@@ -6039,12 +6013,6 @@ header: <WebCore/PhotoSettings.h>
     std::optional<double> imageHeight;
     std::optional<double> imageWidth;
     std::optional<bool> redEyeReduction;
-};
-
-header: <WebCore/RealtimeMediaSource.h>
-[CustomHeader] struct WebCore::PhotoCapabilitiesOrError {
-    std::optional<WebCore::PhotoCapabilities> capabilities;
-    String errorMessage;
 };
 #endif
 
@@ -6639,7 +6607,6 @@ enum class WebCore::ExceptionCode : uint8_t {
     ExistingExceptionError,
 }
 
-#if ENABLE(SERVICE_WORKER)
 header: <WebCore/BackgroundFetchFailureReason.h>
 enum class WebCore::BackgroundFetchFailureReason : uint8_t {
     EmptyString,
@@ -6649,16 +6616,13 @@ enum class WebCore::BackgroundFetchFailureReason : uint8_t {
     QuotaExceeded,
     DownloadTotalExceeded
 };
-#endif
 
-#if ENABLE(SERVICE_WORKER)
 header: <WebCore/BackgroundFetchResult.h>
 enum class WebCore::BackgroundFetchResult : uint8_t {
     EmptyString,
     Success,
     Failure
 };
-#endif
 
 enum class WebCore::ResourceErrorBaseType : uint8_t {
      Null,
@@ -6710,13 +6674,14 @@ enum class WebCore::RepaintRectCalculation : bool;
 }
 
 #if ENABLE(WEB_AUTHN)
-header: <WebCore/CredentialRequestOptions.h>
+header: <WebCore/MediationRequirement.h>
 enum class WebCore::MediationRequirement : uint8_t {
     Silent,
     Optional,
     Required,
     Conditional,
 };
+#endif
 
 #if ENABLE(VIDEO)
 header: <WebCore/VTTCue.h>
@@ -6761,13 +6726,11 @@ enum class WebCore::ContextMenuContextType : uint8_t {
 };
 #endif
 
-#if ENABLE(TRACKING_PREVENTION)
 header: <WebCore/CrossSiteNavigationDataTransfer.h>
 [OptionSet] enum class WebCore::CrossSiteNavigationDataTransferFlag : uint8_t {
     DestinationLinkDecoration,
     ReferrerLinkDecoration
 };
-#endif
 
 header: <WebCore/ScrollingCoordinatorTypes.h>
 [Nested, OptionSet] enum class WebCore::SynchronousScrollingReason : uint8_t {
@@ -6811,3 +6774,34 @@ enum class WebCore::CaptionUserPreferencesDisplayMode : uint8_t {
     AlwaysOn,
     Manual,
 };
+
+header: <WebCore/InspectorClient.h>
+enum class WebCore::InspectorClientDeveloperPreference : uint8_t {
+    PrivateClickMeasurementDebugModeEnabled,
+    ITPDebugModeEnabled,
+    MockCaptureDevicesEnabled,
+};
+
+#if ENABLE(MEDIA_SOURCE)
+
+header: <WebCore/MediaSourcePrivate.h>
+enum class WebCore::MediaSourcePrivateAddStatus : uint8_t {
+    Ok,
+    NotSupported,
+    ReachedIdLimit
+};
+
+header: <WebCore/MediaSourcePrivate.h>
+enum class WebCore::MediaSourcePrivateEndOfStreamStatus : uint8_t {
+    NoError,
+    NetworkError,
+    DecodeError
+};
+
+header: <WebCore/SourceBufferPrivate.h>
+enum class WebCore::SourceBufferAppendMode : uint8_t {
+    Segments,
+    Sequence
+};
+
+#endif

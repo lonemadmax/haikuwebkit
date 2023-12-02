@@ -78,7 +78,7 @@ private:
     const RealtimeMediaSourceCapabilities& capabilities() final;
     const RealtimeMediaSourceSettings& settings() final;
     Ref<TakePhotoNativePromise> takePhotoInternal(PhotoSettings&&) final;
-    void getPhotoCapabilities(PhotoCapabilitiesHandler&&) final;
+    Ref<PhotoCapabilitiesNativePromise> getPhotoCapabilities() final;
     Ref<PhotoSettingsNativePromise> getPhotoSettings() final;
 
     void startProducingData() override;
@@ -114,7 +114,7 @@ private:
 
     class DrawingState {
     public:
-        DrawingState(float baseFontSize)
+        explicit DrawingState(float baseFontSize)
             : m_baseFontSize(baseFontSize)
             , m_bipBopFontSize(baseFontSize * 2.5)
             , m_statsFontSize(baseFontSize * .5)

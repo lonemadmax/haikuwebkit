@@ -38,12 +38,15 @@
 #include "RenderSVGBlock.h"
 #include "RenderSVGModelObject.h"
 #include "RenderSVGResourceClipper.h"
+#include "RenderSVGResourceMasker.h"
 #include "RenderSVGText.h"
 #include "RenderStyleInlines.h"
 #include "RenderView.h"
 #include "SVGClipPathElement.h"
 #include "SVGGraphicsElement.h"
+#include "SVGMaskElement.h"
 #include "SVGTextElement.h"
+#include "SVGURIReference.h"
 #include "Settings.h"
 #include "StyleScrollSnapPoints.h"
 #include "TransformOperationData.h"
@@ -319,23 +322,23 @@ bool RenderLayerModelObject::shouldPaintSVGRenderer(const PaintInfo& paintInfo, 
     return true;
 }
 
-std::optional<LayoutRect> RenderLayerModelObject::computeVisibleRectInSVGContainer(const LayoutRect& rect, const RenderLayerModelObject* container, RenderObject::VisibleRectContext context) const
+auto RenderLayerModelObject::computeVisibleRectsInSVGContainer(const RepaintRects& rects, const RenderLayerModelObject* container, RenderObject::VisibleRectContext context) const -> std::optional<RepaintRects>
 {
     ASSERT(is<RenderSVGModelObject>(this) || is<RenderSVGBlock>(this));
     ASSERT(!style().hasInFlowPosition());
     ASSERT(!view().frameView().layoutContext().isPaintOffsetCacheEnabled());
 
     if (container == this)
-        return rect;
+        return rects;
 
     bool containerIsSkipped;
     auto* localContainer = this->container(container, containerIsSkipped);
     if (!localContainer)
-        return rect;
+        return rects;
 
     ASSERT_UNUSED(containerIsSkipped, !containerIsSkipped);
 
-    LayoutRect adjustedRect = rect;
+    auto adjustedRects = rects;
 
     LayoutSize locationOffset;
     if (is<RenderSVGModelObject>(this))
@@ -343,30 +346,24 @@ std::optional<LayoutRect> RenderLayerModelObject::computeVisibleRectInSVGContain
     else if (is<RenderSVGBlock>(this))
         locationOffset = downcast<RenderSVGBlock>(*this).locationOffset();
 
-    LayoutPoint topLeft = adjustedRect.location();
-    topLeft.move(locationOffset);
 
     // We are now in our parent container's coordinate space. Apply our transform to obtain a bounding box
     // in the parent's coordinate space that encloses us.
-    if (hasLayer() && layer()->transform()) {
-        adjustedRect = layer()->transform()->mapRect(adjustedRect);
-        topLeft = adjustedRect.location();
-        topLeft.move(locationOffset);
-    }
+    if (hasLayer() && layer()->transform())
+        adjustedRects.transform(*layer()->transform());
 
-    // FIXME: We ignore the lightweight clipping rect that controls use, since if |o| is in mid-layout,
-    // its controlClipRect will be wrong. For overflow clip we use the values cached by the layer.
-    adjustedRect.setLocation(topLeft);
+    adjustedRects.move(locationOffset);
+
     if (localContainer->hasNonVisibleOverflow()) {
-        bool isEmpty = !downcast<RenderLayerModelObject>(*localContainer).applyCachedClipAndScrollPosition(adjustedRect, container, context);
+        bool isEmpty = !downcast<RenderLayerModelObject>(*localContainer).applyCachedClipAndScrollPosition(adjustedRects, container, context);
         if (isEmpty) {
             if (context.options.contains(VisibleRectContextOption::UseEdgeInclusiveIntersection))
                 return std::nullopt;
-            return adjustedRect;
+            return adjustedRects;
         }
     }
 
-    return localContainer->computeVisibleRectInContainer(adjustedRect, container, context);
+    return localContainer->computeVisibleRectsInContainer(adjustedRects, container, context);
 }
 
 void RenderLayerModelObject::mapLocalToSVGContainer(const RenderLayerModelObject* ancestorContainer, TransformState& transformState, OptionSet<MapCoordinatesMode> mode, bool* wasFixed) const
@@ -488,6 +485,31 @@ RenderSVGResourceClipper* RenderLayerModelObject::svgClipperResourceFromStyle() 
 
     return nullptr;
 }
+
+RenderSVGResourceMasker* RenderLayerModelObject::svgMaskerResourceFromStyle() const
+{
+    if (!document().settings().layerBasedSVGEngineEnabled())
+        return nullptr;
+
+    auto* maskImage = style().maskImage();
+    auto reresolvedURL = maskImage ? maskImage->reresolvedURL(document()) : URL();
+    if (reresolvedURL.isEmpty())
+        return nullptr;
+
+    auto resourceID = SVGURIReference::fragmentIdentifierFromIRIString(reresolvedURL.string(), document());
+
+    if (RefPtr referencedMaskerElement = ReferencedSVGResources::referencedMaskElement(treeScopeForSVGReferences(), *maskImage)) {
+        if (auto* referencedMaskerRenderer = dynamicDowncast<RenderSVGResourceMasker>(referencedMaskerElement->renderer()))
+            return referencedMaskerRenderer;
+    }
+
+    if (auto* element = this->element()) {
+        ASSERT(is<SVGElement>(element));
+        document().addPendingSVGResource(resourceID, downcast<SVGElement>(*element));
+    }
+
+    return nullptr;
+}
 #endif // ENABLE(LAYER_BASED_SVG_ENGINE)
 
 CheckedPtr<RenderLayer> RenderLayerModelObject::checkedLayer() const
@@ -558,6 +580,31 @@ void RenderLayerModelObject::repaintOrRelayoutAfterSVGTransformChange()
     updateLayerTransform();
     repaintRendererOrClientsOfReferencedSVGResources();
 }
+
+void RenderLayerModelObject::paintSVGClippingMask(PaintInfo& paintInfo) const
+{
+    ASSERT(paintInfo.phase == PaintPhase::ClippingMask);
+    auto& context = paintInfo.context();
+    if (!paintInfo.shouldPaintWithinRoot(*this) || style().visibility() != Visibility::Visible || context.paintingDisabled())
+        return;
+
+    ASSERT(isSVGLayerAwareRenderer());
+    if (auto* referencedClipperRenderer = svgClipperResourceFromStyle())
+        referencedClipperRenderer->applyMaskClipping(paintInfo, *this, objectBoundingBox());
+}
+
+void RenderLayerModelObject::paintSVGMask(PaintInfo& paintInfo, const LayoutPoint& adjustedPaintOffset) const
+{
+    ASSERT(paintInfo.phase == PaintPhase::Mask);
+    auto& context = paintInfo.context();
+    if (!paintInfo.shouldPaintWithinRoot(*this) || context.paintingDisabled())
+        return;
+
+    ASSERT(isSVGLayerAwareRenderer());
+    if (auto* referencedMaskerRenderer = svgMaskerResourceFromStyle())
+        referencedMaskerRenderer->applyMask(paintInfo, *this, adjustedPaintOffset);
+}
+
 #endif
 
 bool rendererNeedsPixelSnapping(const RenderLayerModelObject& renderer)

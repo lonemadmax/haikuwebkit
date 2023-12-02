@@ -373,11 +373,9 @@ public:
 
     bool isServiceWorkerPageID(WebPageProxyIdentifier) const;
 
-#if ENABLE(SERVICE_WORKER)
     size_t serviceWorkerProxiesCount() const;
     bool hasServiceWorkerForegroundActivityForTesting() const;
     bool hasServiceWorkerBackgroundActivityForTesting() const;
-#endif
     void serviceWorkerProcessCrashed(WebProcessProxy&, ProcessTerminationReason);
 
     void updateRemoteWorkerUserAgent(const String& userAgent);
@@ -467,12 +465,10 @@ public:
 
     void clearCurrentModifierStateForTesting();
 
-#if ENABLE(TRACKING_PREVENTION)
     void setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&&);
     void setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, SubResourceDomain>&&, CompletionHandler<void()>&&);
     void seedResourceLoadStatisticsForTesting(const WebCore::RegistrableDomain& firstPartyDomain, const WebCore::RegistrableDomain& thirdPartyDomain, bool shouldScheduleNotification, CompletionHandler<void()>&&);
     void sendResourceLoadStatisticsDataImmediately(CompletionHandler<void()>&&);
-#endif
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     void setSandboxEnabled(bool enabled) { m_sandboxEnabled = enabled; };
@@ -811,10 +807,8 @@ private:
 
     static bool s_useSeparateServiceWorkerProcess;
 
-#if ENABLE(TRACKING_PREVENTION)
     HashSet<WebCore::RegistrableDomain> m_domainsWithUserInteraction;
     HashMap<TopFrameDomain, SubResourceDomain> m_domainsWithCrossPageStorageAccessQuirk;
-#endif
     
 #if PLATFORM(MAC)
     std::unique_ptr<WebCore::PowerObserver> m_powerObserver;

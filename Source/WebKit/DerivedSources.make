@@ -40,7 +40,6 @@ VPATH = \
     $(WebKit2)/NetworkProcess/storage \
     $(WebKit2)/Platform \
     $(WebKit2)/Resources/SandboxProfiles/ios \
-    $(WebKit2)/Shared/Plugins \
     $(WebKit2)/Shared \
     $(WebKit2)/Shared/API/Cocoa \
     $(WebKit2)/Shared/ApplePay \
@@ -501,6 +500,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Platform/IPC/FormDataReference.serialization.in \
 	Platform/IPC/IPCSemaphore.serialization.in \
 	Platform/IPC/SharedBufferReference.serialization.in \
+        Platform/IPC/SharedFileHandle.serialization.in \
 	Platform/IPC/StreamServerConnection.serialization.in \
 	Platform/SharedMemory.serialization.in \
 	Shared/AuxiliaryProcessCreationParameters.serialization.in \
@@ -525,6 +525,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/Cocoa/CoreIPCDictionary.serialization.in \
 	Shared/Cocoa/CoreIPCError.serialization.in \
 	Shared/Cocoa/CoreIPCFont.serialization.in \
+	Shared/Cocoa/CoreIPCLocale.serialization.in \
 	Shared/Cocoa/CoreIPCNSCFObject.serialization.in \
 	Shared/Cocoa/CoreIPCNSValue.serialization.in \
 	Shared/Cocoa/CoreIPCSecureCoding.serialization.in \
@@ -551,6 +552,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/Extensions/WebExtensionDynamicScripts.serialization.in \
 	Shared/Extensions/WebExtensionEventListenerType.serialization.in \
 	Shared/Extensions/WebExtensionFrameParameters.serialization.in \
+	Shared/Extensions/WebExtensionMenuItem.serialization.in \
 	Shared/Extensions/WebExtensionMessageSenderParameters.serialization.in \
 	Shared/Extensions/WebExtensionTab.serialization.in \
 	Shared/Extensions/WebExtensionWindow.serialization.in \
@@ -766,9 +768,11 @@ EXTENSION_INTERFACES = \
     WebExtensionAPIAction \
     WebExtensionAPIAlarms \
     WebExtensionAPICommands \
+    WebExtensionAPIDeclarativeNetRequest \
     WebExtensionAPIEvent \
     WebExtensionAPIExtension \
     WebExtensionAPILocalization \
+    WebExtensionAPIMenus \
     WebExtensionAPINamespace \
     WebExtensionAPINotifications \
     WebExtensionAPIPermissions \

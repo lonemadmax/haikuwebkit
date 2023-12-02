@@ -629,7 +629,7 @@ TEST(NativePromise, InvokeAsync)
 }
 
 // A chained promise (that is promise->whenSettled([] { return GenericPromise }) is itself a promise
-static Ref<GenericPromise> myMethodReturningThenCommand()
+static Ref<GenericPromise> myMethodReturningThenCommandWithPromise()
 {
     assertIsCurrent(RunLoop::main());
     // You would normally do some work here.
@@ -639,14 +639,30 @@ static Ref<GenericPromise> myMethodReturningThenCommand()
         });
 }
 
+static Ref<GenericPromise> myMethodReturningThenCommandWithVoid()
+{
+    assertIsCurrent(RunLoop::main());
+    // You would normally do some work here.
+    return GenericPromise::createAndReject()->whenSettled(RunLoop::main(),
+        [](GenericPromise::Result result) {
+            EXPECT_FALSE(result.has_value());
+        });
+}
+
 TEST(NativePromise, InvokeAsyncAutoConversion)
 {
     // Ensure that there's no need to cast NativePromise::then() result
     bool done = false;
     AutoWorkQueue awq;
     auto queue = awq.queue();
+    queue->dispatch([queue] {
+        invokeAsync(RunLoop::main(), &myMethodReturningThenCommandWithPromise)->whenSettled(queue,
+            [](GenericPromise::Result result) {
+                EXPECT_TRUE(result.has_value());
+            });
+    });
     queue->dispatch([queue, &done] {
-        invokeAsync(RunLoop::main(), &myMethodReturningThenCommand)->whenSettled(queue,
+        invokeAsync(RunLoop::main(), &myMethodReturningThenCommandWithVoid)->whenSettled(queue,
             [queue, &done](GenericPromise::Result result) {
                 EXPECT_TRUE(result.has_value());
                 queue->beginShutdown();
@@ -726,7 +742,7 @@ TEST(NativePromise, PromiseAllResolve)
         promises.append(TestPromise::createAndResolve(32));
         promises.append(TestPromise::createAndResolve(42));
 
-        TestPromise::all(queue, promises)->then(queue,
+        TestPromise::all(promises)->then(queue,
             [queue](const Vector<int>& resolveValues) {
                 EXPECT_EQ(resolveValues.size(), 3UL);
                 EXPECT_EQ(resolveValues[0], 22);
@@ -748,13 +764,13 @@ TEST(NativePromise, PromiseVoidAllResolve)
         promises.append(GenericPromise::createAndResolve());
         promises.append(GenericPromise::createAndResolve());
 
-        GenericPromise::all(queue, promises)->then(queue,
+        GenericPromise::all(promises)->then(queue,
             [] () {
                 EXPECT_TRUE(true);
             },
             doFail());
 
-        GenericPromise::all(queue, Vector<Ref<GenericPromise>>(10, [](size_t) {
+        GenericPromise::all(Vector<Ref<GenericPromise>>(10, [](size_t) {
             return GenericPromise::createAndResolve();
         }))->then(queue,
             [queue] () {
@@ -780,7 +796,7 @@ TEST(NativePromise, PromiseAllResolveAsync)
             return TestPromise::createAndResolve(42);
         }));
 
-        TestPromise::all(queue, promises)->then(queue,
+        TestPromise::all(promises)->then(queue,
             [queue](const Vector<int>& resolveValues) {
                 EXPECT_EQ(resolveValues.size(), 3UL);
                 EXPECT_EQ(resolveValues[0], 22);
@@ -804,7 +820,7 @@ TEST(NativePromise, PromiseAllReject)
         // Ensure that more than one rejection doesn't cause a crash
         promises.append(TestPromise::createAndReject(52.0));
 
-        TestPromise::all(queue, promises)->then(queue,
+        TestPromise::all(promises)->then(queue,
             doFail(),
             [queue](float rejectValue) {
                 EXPECT_EQ(rejectValue, 32.0);
@@ -833,7 +849,7 @@ TEST(NativePromise, PromiseAllRejectAsync)
             return TestPromise::createAndReject(52.0);
         }));
 
-        TestPromise::all(queue, promises)->then(queue,
+        TestPromise::all(promises)->then(queue,
             doFail(),
             [queue](float rejectValue) {
                 EXPECT_EQ(rejectValue, 32.0);
@@ -853,7 +869,7 @@ TEST(NativePromise, PromiseAllSettled)
         promises.append(TestPromise::createAndResolve(42));
         promises.append(TestPromise::createAndReject(52.0));
 
-        TestPromise::allSettled(queue, promises)->then(
+        TestPromise::allSettled(promises)->then(
             queue,
             [queue](const TestPromise::AllSettledPromiseType::ResolveValueType& resolveValues) {
                 EXPECT_EQ(resolveValues.size(), 4UL);
@@ -891,7 +907,7 @@ TEST(NativePromise, PromiseAllSettledAsync)
             return TestPromise::createAndReject(52.0);
         }));
 
-        TestPromise::allSettled(queue, promises)->then(queue,
+        TestPromise::allSettled(promises)->then(queue,
             [queue](const TestPromise::AllSettledPromiseType::ResolveValueType& resolveValues) {
                 EXPECT_EQ(resolveValues.size(), 4UL);
                 EXPECT_TRUE(resolveValues[0].has_value());
@@ -1331,16 +1347,17 @@ TEST(NativePromise, RunLoop)
 
 TEST(NativePromise, ImplicitConversionWithForwardPreviousReturn)
 {
-    runInCurrentRunLoop([](auto& runLoop) {
+    runInCurrentRunLoopUntilDone([](auto& runLoop, bool& done) {
         TestPromise::Producer producer;
         Ref<TestPromise> promise = producer;
         promise = promise->whenSettled(runLoop,
             [](const TestPromise::Result& result) {
                 return TestPromise::createAndSettle(result);
             });
-        promise->whenSettled(runLoop, [promise](const TestPromise::Result& result) {
-            EXPECT_TRUE(!result.has_value());
-            EXPECT_FALSE(promise->isResolved());
+        promise->whenSettled(runLoop, [promise, &done](const TestPromise::Result& result) {
+            EXPECT_TRUE(result.has_value());
+            EXPECT_TRUE(promise->isResolved());
+            done = true;
         });
         producer.resolve(1);
         Ref<TestPromise> originalPromise = producer;

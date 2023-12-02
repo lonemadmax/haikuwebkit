@@ -423,6 +423,12 @@ public:
 
 #if ENABLE(IMAGE_ANALYSIS)
     static uint64_t currentImageAnalysisRequestID();
+    void installFakeMachineReadableCodeResultsForImageAnalysis();
+    bool shouldUseFakeMachineReadableCodeResultsForImageAnalysis() const;
+#endif
+
+#if PLATFORM(WPE)
+    bool useWPEPlatformAPI() const { return m_useWPEPlatformAPI; }
 #endif
 
 private:
@@ -654,6 +660,10 @@ private:
     Vector<std::unique_ptr<InstanceMethodSwizzler>> m_presentPopoverSwizzlers;
 #endif
 
+#if ENABLE(IMAGE_ANALYSIS)
+    bool m_useFakeMachineReadableCodeResultsForImageAnalysis { false };
+#endif
+
     enum State {
         Initial,
         Resetting,
@@ -760,6 +770,10 @@ private:
     size_t m_downloadIndex { 0 };
     bool m_shouldDownloadContentDispositionAttachments { true };
     bool m_dumpPolicyDelegateCallbacks { false };
+
+#if PLATFORM(WPE)
+    bool m_useWPEPlatformAPI { false };
+#endif
 };
 
 } // namespace WTR

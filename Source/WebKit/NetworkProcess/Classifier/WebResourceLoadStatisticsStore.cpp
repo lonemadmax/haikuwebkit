@@ -26,8 +26,6 @@
 #include "config.h"
 #include "WebResourceLoadStatisticsStore.h"
 
-#if ENABLE(TRACKING_PREVENTION)
-
 #include "APIDictionary.h"
 #include "ITPThirdPartyData.h"
 #include "Logging.h"
@@ -72,9 +70,7 @@ const OptionSet<WebsiteDataType>& WebResourceLoadStatisticsStore::monitoredDataT
         WebsiteDataType::OfflineWebApplicationCache,
         WebsiteDataType::SearchFieldRecentSearches,
         WebsiteDataType::SessionStorage,
-#if ENABLE(SERVICE_WORKER)
         WebsiteDataType::ServiceWorkerRegistrations,
-#endif
         WebsiteDataType::FileSystem,
     }));
 
@@ -1541,5 +1537,3 @@ void WebResourceLoadStatisticsStore::insertExpiredStatisticForTesting(Registrabl
 }
 
 } // namespace WebKit
-
-#endif

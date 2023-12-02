@@ -53,11 +53,11 @@ class BWindow;
 typedef BWebView* PlatformWKView;
 typedef BWindow* PlatformWindow;
 #elif USE(LIBWPE)
-namespace WPEToolingBackends {
-class HeadlessViewBackend;
+namespace WTR {
+class PlatformWebViewClient;
 }
 using PlatformWKView = WKViewRef;
-using PlatformWindow = WPEToolingBackends::HeadlessViewBackend*;
+using PlatformWindow = WTR::PlatformWebViewClient*;
 #elif PLATFORM(WIN)
 using PlatformWKView = WKViewRef;
 using PlatformWindow = HWND;

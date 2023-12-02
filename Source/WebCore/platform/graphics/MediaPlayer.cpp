@@ -107,9 +107,12 @@ namespace WebCore {
 
 // a null player to make MediaPlayer logic simpler
 
-class NullMediaPlayerPrivate final : public MediaPlayerPrivateInterface {
+class NullMediaPlayerPrivate final : public MediaPlayerPrivateInterface, public RefCounted<NullMediaPlayerPrivate> {
 public:
-    explicit NullMediaPlayerPrivate(MediaPlayer*) { }
+    static Ref<NullMediaPlayerPrivate> create(MediaPlayer& player) { return adoptRef(*new NullMediaPlayerPrivate(player)); }
+
+    void ref() final { RefCounted<NullMediaPlayerPrivate>::ref(); }
+    void deref() final { RefCounted<NullMediaPlayerPrivate>::deref(); }
 
     void load(const String&) final { }
 #if ENABLE(MEDIA_SOURCE)
@@ -168,6 +171,8 @@ public:
 
     void paint(GraphicsContext&, const FloatRect&) final { }
     DestinationColorSpace colorSpace() final { return DestinationColorSpace::SRGB(); }
+private:
+    explicit NullMediaPlayerPrivate(MediaPlayer&) { }
 };
 
 #if !RELEASE_LOG_DISABLED
@@ -459,7 +464,7 @@ Ref<MediaPlayer> MediaPlayer::create(MediaPlayerClient& client, MediaPlayerEnums
 MediaPlayer::MediaPlayer(MediaPlayerClient& client)
     : m_client(client)
     , m_reloadTimer(*this, &MediaPlayer::reloadTimerFired)
-    , m_private(makeUnique<NullMediaPlayerPrivate>(this))
+    , m_private(NullMediaPlayerPrivate::create(*this))
     , m_preferredDynamicRangeMode(DynamicRangeMode::Standard)
 {
 }
@@ -467,7 +472,7 @@ MediaPlayer::MediaPlayer(MediaPlayerClient& client)
 MediaPlayer::MediaPlayer(MediaPlayerClient& client, MediaPlayerEnums::MediaEngineIdentifier mediaEngineIdentifier)
     : m_client(client)
     , m_reloadTimer(*this, &MediaPlayer::reloadTimerFired)
-    , m_private(makeUnique<NullMediaPlayerPrivate>(this))
+    , m_private(NullMediaPlayerPrivate::create(*this))
     , m_activeEngineIdentifier(mediaEngineIdentifier)
     , m_preferredDynamicRangeMode(DynamicRangeMode::Standard)
 {
@@ -563,7 +568,7 @@ const MediaPlayerFactory* MediaPlayer::nextBestMediaEngine(const MediaPlayerFact
     parameters.type = m_contentType;
     parameters.url = m_url;
 #if ENABLE(MEDIA_SOURCE)
-    parameters.isMediaSource = !!m_mediaSource;
+    parameters.isMediaSource = !!m_mediaSource.get();
 #endif
 #if ENABLE(MEDIA_STREAM)
     parameters.isMediaStream = !!m_mediaStream;
@@ -595,8 +600,9 @@ void MediaPlayer::reloadAndResumePlaybackIfNeeded()
 
 void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
 {
-#if ENABLE(MEDIA_SOURCE) 
-#define MEDIASOURCE m_mediaSource
+
+#if ENABLE(MEDIA_SOURCE)
+#define MEDIASOURCE m_mediaSource.get()
 #else
 #define MEDIASOURCE 0
 #endif
@@ -645,8 +651,8 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
 
     if (m_private) {
 #if ENABLE(MEDIA_SOURCE)
-        if (m_mediaSource)
-            m_private->load(m_url, m_contentMIMETypeWasInferredFromExtension ? ContentType() : m_contentType, *m_mediaSource);
+        if (RefPtr mediaSource = m_mediaSource.get())
+            m_private->load(m_url, m_contentMIMETypeWasInferredFromExtension ? ContentType() : m_contentType, *mediaSource);
         else
 #endif
 #if ENABLE(MEDIA_STREAM)
@@ -656,7 +662,7 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
 #endif
         m_private->load(m_url, m_contentMIMETypeWasInferredFromExtension ? ContentType() : m_contentType, m_keySystem);
     } else {
-        m_private = makeUnique<NullMediaPlayerPrivate>(this);
+        m_private = NullMediaPlayerPrivate::create(*this);
         if (!m_activeEngineIdentifier
             && installedMediaEngines().size() > 1
             && (nextBestMediaEngine(m_currentMediaEngine) || nextMediaEngine(m_currentMediaEngine)))

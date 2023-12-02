@@ -61,8 +61,8 @@ namespace WebCore {
 LayoutRect SVGRenderSupport::clippedOverflowRectForRepaint(const RenderElement& renderer, const RenderLayerModelObject* repaintContainer, RenderObject::VisibleRectContext context)
 {
     // Return early for any cases where we don't actually paint
-    if (renderer.style().visibility() != Visibility::Visible && !renderer.enclosingLayer()->hasVisibleContent())
-        return LayoutRect();
+    if (renderer.isInsideEntirelyHiddenLayer())
+        return { };
 
     // Pass our local paint rect to computeFloatVisibleRectInContainer() which will
     // map to parent coords and recurse up the parent chain.
@@ -669,23 +669,5 @@ FloatRect SVGRenderSupport::calculateApproximateStrokeBoundingBox(const RenderEl
     return shape.adjustStrokeBoundingBoxForMarkersAndZeroLengthLinecaps(RepaintRectCalculation::Fast, calculate(shape));
 #endif
 }
-
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
-// FIXME: maybe in future RenderLayerModelObject is a better place for this.
-void SVGRenderSupport::paintSVGClippingMask(const RenderLayerModelObject& renderer, PaintInfo& paintInfo)
-{
-    ASSERT(paintInfo.phase == PaintPhase::ClippingMask);
-    auto& style = renderer.style();
-    auto& context = paintInfo.context();
-    if (!paintInfo.shouldPaintWithinRoot(renderer) || style.visibility() != Visibility::Visible || context.paintingDisabled())
-        return;
-
-    ASSERT(renderer.isSVGLayerAwareRenderer());
-
-    ASSERT(renderer.document().settings().layerBasedSVGEngineEnabled());
-    if (auto* referencedClipperRenderer = renderer.svgClipperResourceFromStyle())
-        referencedClipperRenderer->applyMaskClipping(paintInfo, renderer, renderer.objectBoundingBox());
-}
-#endif
 
 }

@@ -1035,6 +1035,9 @@ webkit.org/b/251113 inspector/timeline/timeline-event-screenshots.html [ Skip ]
 imported/w3c/web-platform-tests/cookie-store [ Skip ]
 imported/w3c/web-platform-tests/cookies/partitioned-cookies/partitioned-cookies.tentative.https.html [ Skip ]
 
+# View Transitions API is disabled in WK1.
+imported/w3c/web-platform-tests/css/css-view-transitions [ Skip ]
+
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End features not supported in WebKit1
 #//////////////////////////////////////////////////////////////////////////////////////////
@@ -1847,6 +1850,7 @@ webkit.org/b/199632 http/wpt/prefetch/load-events-dynamic.html [ Skip ]
 webkit.org/b/198177 pointerevents/mouse/compatibility-mouse-events-prevention-mouse-pressed.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/compat/pointerevent_compat-mouse-events-when-removing-nodes.html [ Skip ]
 
+webkit.org/b/198459 [ Debug ] inspector/canvas/recording-offscreen-webgl-full.html [ Slow ]
 webkit.org/b/198459 [ Debug ] inspector/canvas/recording-webgl-full.html [ Slow ]
 
 webkit.org/b/196508 compositing/repaint/scroller-with-foreground-layer-repaints.html [ Pass Failure ]
@@ -2478,6 +2482,10 @@ http/tests/security/contentSecurityPolicy/video-with-https-url-allowed-by-csp-me
 http/tests/security/mixedContent/websocket/insecure-websocket-in-iframe.html [ Pass Failure ]
 http/tests/security/contentSecurityPolicy/script-src-parsing-implicit-and-explicit-port-number.html [ DumpJSConsoleLogInStdErr ]
 imported/w3c/web-platform-tests/webmessaging/broadcastchannel/cross-partition.https.tentative.html [ DumpJSConsoleLogInStdErr ]
+http/tests/security/mixedContent/insecure-image-redirects-to-basic-auth-secure-image.html [ DumpJSConsoleLogInStdErr ]
+http/tests/security/mixedContent/secure-redirect-to-insecure-redirect-to-basic-auth-secure-image.https.html [ DumpJSConsoleLogInStdErr ]
+http/tests/security/mixedContent/secure-redirect-to-secure-redirect-to-basic-auth-insecure-image.https.html [ DumpJSConsoleLogInStdErr ]
+http/tests/security/mixedContent/secure-redirect-to-secure-redirect-to-basic-auth-secure-image.https.html [ DumpJSConsoleLogInStdErr ]
 
 # These tests have been flaky on WK1 since their import.
 imported/w3c/web-platform-tests/websockets/basic-auth.any.html?wss [ Pass Failure ]
@@ -2708,3 +2716,7 @@ imported/w3c/web-platform-tests/css/css-backgrounds/background-size/background-s
 
 # webkit.org/b/263870 [scroll-animations] lots of scroll-animations WPT tests are timing out
 imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/scroll-timeline-snapshotting.html [ Skip ]
+
+fast/css/transform-function-perspective-crash.html [ Failure ]
+
+webkit.org/b/265535 inspector/layers/layers-for-node.html [ Pass Timeout ]

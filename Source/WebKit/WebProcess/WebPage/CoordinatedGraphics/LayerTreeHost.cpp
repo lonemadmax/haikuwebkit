@@ -266,12 +266,14 @@ void LayerTreeHost::sizeDidChange(const IntSize& size)
 void LayerTreeHost::pauseRendering()
 {
     m_isSuspended = true;
+    m_surface->visibilityDidChange(false);
     m_compositor->suspend();
 }
 
 void LayerTreeHost::resumeRendering()
 {
     m_isSuspended = false;
+    m_surface->visibilityDidChange(true);
     m_compositor->resume();
     scheduleLayerFlush();
 }
@@ -558,6 +560,13 @@ void LayerTreeHost::commitTransientZoom(double scale, FloatPoint origin)
     m_transientZoom = false;
     m_transientZoomScale = 1;
     m_transientZoomOrigin = FloatPoint();
+}
+#endif
+
+#if PLATFORM(WPE) && USE(GBM)
+void LayerTreeHost::preferredBufferFormatsDidChange()
+{
+    m_surface->preferredBufferFormatsDidChange();
 }
 #endif
 

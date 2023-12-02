@@ -27,12 +27,340 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
+#import "TestNavigationDelegate.h"
 #import "WebExtensionUtilities.h"
-
 #import <WebKit/_WKWebExtensionDeclarativeNetRequestRule.h>
 #import <WebKit/_WKWebExtensionDeclarativeNetRequestTranslator.h>
 
 namespace TestWebKitAPI {
+
+TEST(WKWebExtensionAPIDeclarativeNetRequest, BlockedLoadTest)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, "<iframe src='/frame.html'></iframe>"_s } },
+        { "/frame.html"_s, { { { "Content-Type"_s, "text/html"_s } }, "<body style='background-color: blue'></body>"_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto *backgroundScript = Util::constructScript(@[
+        // Yield after the background page has loaded so we can load a tab.
+        @"browser.test.yield('Load Tab')"
+    ]);
+
+    auto *declarativeNetRequestManifest = @{
+        @"manifest_version": @3,
+        @"permissions": @[ @"declarativeNetRequest" ],
+        @"background": @{ @"scripts": @[ @"background.js" ], @"type": @"module", @"persistent": @NO },
+        @"declarative_net_request": @{
+            @"rule_resources": @[
+                @{
+                    @"id": @"blockFrame",
+                    @"enabled": @YES,
+                    @"path": @"rules.json"
+                }
+            ]
+        }
+    };
+
+    auto *rules = @"[ { \"id\" : 1, \"priority\": 1, \"action\" : { \"type\" : \"block\" }, \"condition\" : { \"urlFilter\" : \"frame\" } } ]";
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:declarativeNetRequestManifest resources:@{ @"background.js": backgroundScript, @"rules.json": rules  }]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    // Grant the declarativeNetRequest permission.
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionDeclarativeNetRequest];
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Load Tab");
+
+    auto webView = manager.get().defaultTab.mainWebView;
+    auto navigationDelegate = adoptNS([TestNavigationDelegate new]);
+
+    __block bool receivedActionNotification { false };
+    navigationDelegate.get().contentRuleListPerformedAction = ^(WKWebView *, NSString *identifier, _WKContentRuleListAction *action, NSURL *url) {
+        receivedActionNotification = true;
+    };
+
+    webView.navigationDelegate = navigationDelegate.get();
+
+    [webView loadRequest:server.requestWithLocalhost()];
+
+    Util::run(&receivedActionNotification);
+}
+
+TEST(WKWebExtensionAPIDeclarativeNetRequest, BlockedLoadInPrivateBrowsingTest)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, "<iframe src='/frame.html'></iframe>"_s } },
+        { "/frame.html"_s, { { { "Content-Type"_s, "text/html"_s } }, "<body style='background-color: blue'></body>"_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto *backgroundScript = Util::constructScript(@[
+        // Yield after the background page has loaded so we can load a tab.
+        @"browser.test.yield('Load Tab')"
+    ]);
+
+    auto *declarativeNetRequestManifest = @{
+        @"manifest_version": @3,
+        @"permissions": @[ @"declarativeNetRequest" ],
+        @"background": @{ @"scripts": @[ @"background.js" ], @"type": @"module", @"persistent": @NO },
+        @"declarative_net_request": @{
+            @"rule_resources": @[
+                @{
+                    @"id": @"blockFrame",
+                    @"enabled": @YES,
+                    @"path": @"rules.json"
+                }
+            ]
+        }
+    };
+
+    auto *rules = @"[ { \"id\" : 1, \"priority\": 1, \"action\" : { \"type\" : \"block\" }, \"condition\" : { \"urlFilter\" : \"frame\" } } ]";
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:declarativeNetRequestManifest resources:@{ @"background.js": backgroundScript, @"rules.json": rules  }]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    // Grant the declarativeNetRequest permission.
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionDeclarativeNetRequest];
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Load Tab");
+
+    manager.get().context.hasAccessInPrivateBrowsing = YES;
+    [manager closeWindow:manager.get().defaultWindow];
+
+    auto privateWindow = [manager openNewWindowUsingPrivateBrowsing:YES];
+    auto privateTab = privateWindow.tabs.firstObject;
+    auto webView = privateTab.mainWebView;
+
+    auto navigationDelegate = adoptNS([TestNavigationDelegate new]);
+
+    __block bool receivedActionNotification { false };
+    navigationDelegate.get().contentRuleListPerformedAction = ^(WKWebView *, NSString *identifier, _WKContentRuleListAction *action, NSURL *url) {
+        receivedActionNotification = true;
+    };
+
+    webView.navigationDelegate = navigationDelegate.get();
+
+    [webView loadRequest:server.requestWithLocalhost()];
+
+    Util::run(&receivedActionNotification);
+}
+
+TEST(WKWebExtensionAPIDeclarativeNetRequest, GetEnabledRulesets)
+{
+    auto *backgroundScript = Util::constructScript(@[
+        @"const enabledRulesets = await browser.declarativeNetRequest.getEnabledRulesets()",
+        @"browser.test.assertEq(enabledRulesets.length, 1, 'One ruleset should have been enabled')",
+        @"browser.test.assertEq(enabledRulesets[0], 'blockFrame', 'blockFrame should have been enabled')",
+
+        @"browser.test.notifyPass()"
+    ]);
+
+    auto *declarativeNetRequestManifest = @{
+        @"manifest_version": @3,
+        @"permissions": @[ @"declarativeNetRequest" ],
+        @"background": @{ @"scripts": @[ @"background.js" ], @"type": @"module", @"persistent": @NO },
+        @"declarative_net_request": @{
+            @"rule_resources": @[
+                @{
+                    @"id": @"blockFrame",
+                    @"enabled": @YES,
+                    @"path": @"rules.json"
+                },
+                @{
+                    @"id": @"blockFrame2",
+                    @"enabled": @NO,
+                    @"path": @"rules.json"
+                }
+            ]
+        }
+    };
+
+    auto *rules = @"[ { \"id\" : 1, \"priority\": 1, \"action\" : { \"type\" : \"block\" }, \"condition\" : { \"urlFilter\" : \"frame\" } } ]";
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:declarativeNetRequestManifest resources:@{ @"background.js": backgroundScript, @"rules.json": rules  }]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    // Grant the declarativeNetRequest permission.
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionDeclarativeNetRequest];
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPIDeclarativeNetRequest, UpdateEnabledRulesets)
+{
+    auto *backgroundScript = Util::constructScript(@[
+
+        // Test invalid argument types
+        @"browser.test.assertThrows(() => browser.declarativeNetRequest.updateEnabledRulesets({ enableRulesetIds: 5 }), /'options' value is invalid, because 'enableRulesetIds' is expected to be an array of strings/i)",
+        @"browser.test.assertThrows(() => browser.declarativeNetRequest.updateEnabledRulesets({ enableRulesetIds: '5' }), /'options' value is invalid, because 'enableRulesetIds' is expected to be an array of strings/i)",
+        @"browser.test.assertThrows(() => browser.declarativeNetRequest.updateEnabledRulesets({ enableRulesetIds: [5] }), /'options' value is invalid, because 'enableRulesetIds' is expected to be an array of strings/i)",
+
+        @"browser.test.assertThrows(() => browser.declarativeNetRequest.updateEnabledRulesets({ disableRulesetIds: 5 }), /'options' value is invalid, because 'disableRulesetIds' is expected to be an array of strings/i)",
+        @"browser.test.assertThrows(() => browser.declarativeNetRequest.updateEnabledRulesets({ disableRulesetIds: '5' }), /'options' value is invalid, because 'disableRulesetIds' is expected to be an array of strings/i)",
+        @"browser.test.assertThrows(() => browser.declarativeNetRequest.updateEnabledRulesets({ disableRulesetIds: [5] }), /'options' value is invalid, because 'disableRulesetIds' is expected to be an array of strings/i)",
+
+        // The given identifiers must be specified in the manifest.
+        @"await browser.test.assertRejects(browser.declarativeNetRequest.updateEnabledRulesets({ enableRulesetIds: ['notPresentIdentifier'] }), /Invalid ruleset id/i)",
+        @"await browser.test.assertRejects(browser.declarativeNetRequest.updateEnabledRulesets({ disableRulesetIds: ['notPresentIdentifier'] }), /Invalid ruleset id/i)",
+
+        // Before any modifications
+        @"let enabledRulesets = await browser.declarativeNetRequest.getEnabledRulesets()",
+        @"browser.test.assertEq(enabledRulesets.length, 1, 'One ruleset should have been enabled')",
+        @"browser.test.assertEq(enabledRulesets[0], 'blockFrame', 'blockFrame should have been enabled')",
+
+        // Turn off `blockFrame` and turn on `blockFrame2`.
+        @"await browser.declarativeNetRequest.updateEnabledRulesets({ enableRulesetIds: ['blockFrame2'], disableRulesetIds: ['blockFrame'] })",
+
+        // After the modifications
+        @"enabledRulesets = await browser.declarativeNetRequest.getEnabledRulesets()",
+        @"browser.test.assertEq(enabledRulesets.length, 1, 'One ruleset should have been enabled')",
+        @"browser.test.assertEq(enabledRulesets[0], 'blockFrame2', 'blockFrame2 should have been enabled')",
+
+        @"browser.test.notifyPass()"
+    ]);
+
+    auto *declarativeNetRequestManifest = @{
+        @"manifest_version": @3,
+        @"permissions": @[ @"declarativeNetRequest" ],
+        @"background": @{ @"scripts": @[ @"background.js" ], @"type": @"module", @"persistent": @NO },
+        @"declarative_net_request": @{
+            @"rule_resources": @[
+                @{
+                    @"id": @"blockFrame",
+                    @"enabled": @YES,
+                    @"path": @"rules.json"
+                },
+                @{
+                    @"id": @"blockFrame2",
+                    @"enabled": @NO,
+                    @"path": @"rules.json"
+                }
+            ]
+        }
+    };
+
+    auto *rules = @"[ { \"id\" : 1, \"priority\": 1, \"action\" : { \"type\" : \"block\" }, \"condition\" : { \"urlFilter\" : \"frame\" } } ]";
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:declarativeNetRequestManifest resources:@{ @"background.js": backgroundScript, @"rules.json": rules  }]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    // Grant the declarativeNetRequest permission.
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionDeclarativeNetRequest];
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPIDeclarativeNetRequest, UpdateEnabledRulesetsPerformsCompilation)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, "<iframe src='/frame.html'></iframe>"_s } },
+        { "/frame.html"_s, { { { "Content-Type"_s, "text/html"_s } }, "<body style='background-color: blue'></body>"_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto *backgroundScript = Util::constructScript(@[
+        // Before any modifications
+        @"let enabledRulesets = await browser.declarativeNetRequest.getEnabledRulesets()",
+        @"browser.test.assertEq(enabledRulesets.length, 0, 'No rulesets should have been enabled')",
+
+        // Turn on `blockFrame`.
+        @"await browser.declarativeNetRequest.updateEnabledRulesets({ enableRulesetIds: ['blockFrame'] })",
+
+        // After the modifications
+        @"enabledRulesets = await browser.declarativeNetRequest.getEnabledRulesets()",
+        @"browser.test.assertEq(enabledRulesets.length, 1, 'One ruleset should have been enabled')",
+        @"browser.test.assertEq(enabledRulesets[0], 'blockFrame', 'blockFrame should have been enabled')",
+
+        // Yield after the background page has finished updating the rulesets (and performing a compilation) so we can load a tab.
+        @"browser.test.yield('Load Tab')"
+    ]);
+
+    auto *declarativeNetRequestManifest = @{
+        @"manifest_version": @3,
+        @"permissions": @[ @"declarativeNetRequest" ],
+        @"background": @{ @"scripts": @[ @"background.js" ], @"type": @"module", @"persistent": @NO },
+        @"declarative_net_request": @{
+            @"rule_resources": @[
+                @{
+                    @"id": @"blockFrame",
+                    @"enabled": @NO,
+                    @"path": @"rules.json"
+                }
+            ]
+        }
+    };
+
+    auto *rules = @"[ { \"id\" : 1, \"priority\": 1, \"action\" : { \"type\" : \"block\" }, \"condition\" : { \"urlFilter\" : \"frame\" } } ]";
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:declarativeNetRequestManifest resources:@{ @"background.js": backgroundScript, @"rules.json": rules  }]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    // Grant the declarativeNetRequest permission.
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionDeclarativeNetRequest];
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Load Tab");
+
+    auto webView = manager.get().defaultTab.mainWebView;
+    auto navigationDelegate = adoptNS([TestNavigationDelegate new]);
+
+    __block bool receivedActionNotification { false };
+    navigationDelegate.get().contentRuleListPerformedAction = ^(WKWebView *, NSString *identifier, _WKContentRuleListAction *action, NSURL *url) {
+        receivedActionNotification = true;
+    };
+
+    webView.navigationDelegate = navigationDelegate.get();
+
+    [webView loadRequest:server.requestWithLocalhost()];
+
+    Util::run(&receivedActionNotification);
+}
+
+TEST(WKWebExtensionAPIDeclarativeNetRequest, IsRegexSupported)
+{
+    auto *backgroundScript = Util::constructScript(@[
+        // Invalid arguments
+        @"browser.test.assertThrows(() => browser.declarativeNetRequest.isRegexSupported({ }), /'regexOptions' value is invalid, because it is missing required keys: 'regex'/i)",
+        @"browser.test.assertThrows(() => browser.declarativeNetRequest.isRegexSupported({ regex: 5 }), /'regexOptions' value is invalid, because 'regex' is expected to be a string/i)",
+        @"browser.test.assertThrows(() => browser.declarativeNetRequest.isRegexSupported({ regex: ['.*'] }), /'regexOptions' value is invalid, because 'regex' is expected to be a string/i)",
+        @"browser.test.assertThrows(() => browser.declarativeNetRequest.isRegexSupported({ regex: '.*', isCaseSensitive: 'foo' }), /'regexOptions' value is invalid, because 'isCaseSensitive' is expected to be a boolean/i)",
+        @"browser.test.assertThrows(() => browser.declarativeNetRequest.isRegexSupported({ regex: '.*', isCaseSensitive: 5 }), /'regexOptions' value is invalid, because 'isCaseSensitive' is expected to be a boolean/i)",
+        @"browser.test.assertThrows(() => browser.declarativeNetRequest.isRegexSupported({ regex: '.*', requireCapturing: 'bar' }), /'regexOptions' value is invalid, because 'requireCapturing' is expected to be a boolean/i)",
+        @"browser.test.assertThrows(() => browser.declarativeNetRequest.isRegexSupported({ regex: '.*', requireCapturing: 5 }), /'regexOptions' value is invalid, because 'requireCapturing' is expected to be a boolean/i)",
+
+        // Passing cases
+        @"browser.test.assertTrue((await browser.declarativeNetRequest.isRegexSupported({ regex: '.*' })).isSupported)",
+        @"browser.test.assertTrue((await browser.declarativeNetRequest.isRegexSupported({ regex: 'a.*b' })).isSupported)",
+
+        // Failing cases
+        @"browser.test.assertFalse((await browser.declarativeNetRequest.isRegexSupported({ regex: 'Ä' })).isSupported)",
+        @"browser.test.assertFalse((await browser.declarativeNetRequest.isRegexSupported({ regex: '' })).isSupported)",
+        @"browser.test.assertFalse((await browser.declarativeNetRequest.isRegexSupported({ regex: 'a^' })).isSupported)",
+        @"browser.test.assertFalse((await browser.declarativeNetRequest.isRegexSupported({ regex: 'this|that' })).isSupported)",
+        @"browser.test.assertFalse((await browser.declarativeNetRequest.isRegexSupported({ regex: '$$' })).isSupported)",
+
+        @"browser.test.notifyPass()"
+    ]);
+
+    auto *declarativeNetRequestManifest = @{
+        @"manifest_version": @3,
+        @"permissions": @[ @"declarativeNetRequest" ],
+        @"background": @{ @"scripts": @[ @"background.js" ], @"type": @"module", @"persistent": @NO },
+    };
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:declarativeNetRequestManifest resources:@{ @"background.js": backgroundScript  }]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    // Grant the declarativeNetRequest permission.
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionDeclarativeNetRequest];
+
+    [manager loadAndRun];
+}
+
+// MARK: Rule translation tests
 
 TEST(WKWebExtensionAPIDeclarativeNetRequest, RequiredAndOptionalKeys)
 {

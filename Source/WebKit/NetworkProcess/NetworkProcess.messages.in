@@ -59,8 +59,6 @@ messages -> NetworkProcess LegacyReceiver {
     ApplicationDidEnterBackground()
     ApplicationWillEnterForeground()
 
-    ContinueWillSendRequest(WebKit::DownloadID downloadID, WebCore::ResourceRequest request)
-
     FlushCookies(PAL::SessionID sessionID) -> ()
 
 #if !PLATFORM(COCOA)
@@ -79,11 +77,8 @@ messages -> NetworkProcess LegacyReceiver {
 
     PreconnectTo(PAL::SessionID sessionID, WebKit::WebPageProxyIdentifier webPageProxyID, WebCore::PageIdentifier webPageID, WebCore::ResourceRequest request, enum:uint8_t WebCore::StoredCredentialsPolicy storedCredentialsPolicy, std::optional<WebKit::NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain);
 
-#if ENABLE(SERVICE_WORKER)
     SetInspectionForServiceWorkersAllowed(PAL::SessionID sessionID, bool inspectable)
-#endif
 
-#if ENABLE(TRACKING_PREVENTION)
     ClearPrevalentResource(PAL::SessionID sessionID, WebCore::RegistrableDomain resourceDomain) -> ()
     ClearUserInteraction(PAL::SessionID sessionID, WebCore::RegistrableDomain resourceDomain) -> ()
     DumpResourceLoadStatistics(PAL::SessionID sessionID) -> (String dumpedStatistics)
@@ -154,7 +149,6 @@ messages -> NetworkProcess LegacyReceiver {
     SetToSameSiteStrictCookiesForTesting(PAL::SessionID sessionID, WebCore::RegistrableDomain domain) -> ()
     SetFirstPartyHostCNAMEDomainForTesting(PAL::SessionID sessionID, String firstPartyHost, WebCore::RegistrableDomain cnameDomain) -> ()
     SetThirdPartyCNAMEDomainForTesting(PAL::SessionID sessionID, WebCore::RegistrableDomain domain) -> ()
-#endif
 
     SetPrivateClickMeasurementDebugMode(PAL::SessionID sessionID, bool debugMode)
 
@@ -224,7 +218,6 @@ messages -> NetworkProcess LegacyReceiver {
 
     TerminateRemoteWorkerContextConnectionWhenPossible(enum:uint8_t WebKit::RemoteWorkerType workerType, PAL::SessionID sessionID,  WebCore::RegistrableDomain registrableDomain, WebCore::ProcessIdentifier processIdentifier);
 
-#if ENABLE(SERVICE_WORKER)
     GetPendingPushMessages(PAL::SessionID sessionID) -> (Vector<WebKit::WebPushMessage> messages)
     ProcessPushMessage(PAL::SessionID sessionID, struct WebKit::WebPushMessage pushMessage, enum:uint8_t WebCore::PushPermissionState pushPermissionState) -> (bool didSucceed, std::optional<WebCore::NotificationPayload> displayPayload)
     ProcessNotificationEvent(struct WebCore::NotificationData data, enum:bool WebCore::NotificationEventType eventType) -> (bool didSucceed)
@@ -235,7 +228,6 @@ messages -> NetworkProcess LegacyReceiver {
     PauseBackgroundFetch(PAL::SessionID sessionID, String identifier) -> ();
     ResumeBackgroundFetch(PAL::SessionID sessionID, String identifier) -> ();
     ClickBackgroundFetch(PAL::SessionID sessionID, String identifier) -> ();
-#endif
     SetPushAndNotificationsEnabledForOrigin(PAL::SessionID sessionID, WebCore::SecurityOriginData origin, bool enabled) -> ()
     DeletePushAndNotificationRegistration(PAL::SessionID sessionID, WebCore::SecurityOriginData origin) -> (String errorMessage)
     HasPushSubscriptionForTesting(PAL::SessionID sessionID, URL scopeURL) -> (bool hasSubscription)

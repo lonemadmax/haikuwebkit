@@ -211,13 +211,6 @@ void DrawingAreaCoordinatedGraphics::setLayerTreeStateIsFrozen(bool isFrozen)
 void DrawingAreaCoordinatedGraphics::updatePreferences(const WebPreferencesStore& store)
 {
     Settings& settings = m_webPage->corePage()->settings();
-#if PLATFORM(WAYLAND)
-    if (PlatformDisplay::sharedDisplay().type() == PlatformDisplay::Type::Wayland
-        && &PlatformDisplay::sharedDisplayForCompositing() == &PlatformDisplay::sharedDisplay()) {
-        // We failed to create the shared display for compositing, disable accelerated compositing.
-        settings.setAcceleratedCompositingEnabled(false);
-    }
-#endif
     settings.setForceCompositingMode(store.getBoolValueForKey(WebPreferencesKey::forceCompositingModeKey()));
     // Fixed position elements need to be composited and create stacking contexts
     // in order to be scrolled by the ScrollingCoordinator.
@@ -793,5 +786,13 @@ void DrawingAreaCoordinatedGraphics::didDiscardBackingStore()
     // Ensure the next update will cover the entire view, since the UI process discarded its backing store.
     m_dirtyRegion = m_webPage->bounds();
 }
+
+#if PLATFORM(WPE) && USE(GBM)
+void DrawingAreaCoordinatedGraphics::preferredBufferFormatsDidChange()
+{
+    if (m_layerTreeHost)
+        m_layerTreeHost->preferredBufferFormatsDidChange();
+}
+#endif
 
 } // namespace WebKit

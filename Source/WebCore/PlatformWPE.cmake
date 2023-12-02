@@ -46,8 +46,9 @@ list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/glib/ApplicationGLib.h
 
+    platform/graphics/gbm/GBMVersioning.h
+
     platform/graphics/wayland/PlatformDisplayWayland.h
-    platform/graphics/wayland/WlUniquePtr.h
 )
 
 set(CSS_VALUE_PLATFORM_DEFINES "HAVE_OS_DARK_MODE_SUPPORT=1")

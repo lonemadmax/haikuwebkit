@@ -44,15 +44,15 @@
 #include <optional>
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
-#include <wtf/HashMap.h>
 #include <wtf/Logger.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/NativePromise.h>
 #include <wtf/Ref.h>
-#include <wtf/RobinHoodHashMap.h>
+#include <wtf/StdUnorderedMap.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakPtr.h>
-#include <wtf/text/AtomStringHash.h>
+#include <wtf/WorkQueue.h>
 
 namespace WebCore {
 
@@ -74,8 +74,7 @@ enum class SourceBufferAppendMode : uint8_t {
 };
 
 class SourceBufferPrivate
-    : public RefCounted<SourceBufferPrivate>
-    , public CanMakeWeakPtr<SourceBufferPrivate>
+    : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<SourceBufferPrivate, WTF::DestructionThread::Main>
 #if !RELEASE_LOG_DISABLED
     , public LoggerHelper
 #endif
@@ -84,13 +83,7 @@ public:
     WEBCORE_EXPORT SourceBufferPrivate(MediaSourcePrivate&);
     WEBCORE_EXPORT virtual ~SourceBufferPrivate();
 
-    enum class PlatformType {
-        Mock,
-        AVFObjC,
-        GStreamer,
-        Remote
-    };
-    virtual constexpr PlatformType platformType() const = 0;
+    virtual constexpr MediaPlatformType platformType() const = 0;
 
     WEBCORE_EXPORT virtual void setActive(bool);
 
@@ -100,7 +93,6 @@ public:
     // Overrides must call the base class.
     virtual void resetParserState();
     virtual void removedFromMediaSource();
-    void clearMediaSource() { m_mediaSource = nullptr; }
 
     virtual MediaPlayer::ReadyState readyState() const = 0;
     virtual void setReadyState(MediaPlayer::ReadyState) = 0;
@@ -110,7 +102,7 @@ public:
     WEBCORE_EXPORT virtual void setMediaSourceEnded(bool);
     virtual void setMode(SourceBufferAppendMode mode) { m_appendMode = mode; }
     WEBCORE_EXPORT virtual void reenqueueMediaIfNeeded(const MediaTime& currentMediaTime);
-    WEBCORE_EXPORT virtual void addTrackBuffer(const AtomString& trackId, RefPtr<MediaDescription>&&);
+    WEBCORE_EXPORT virtual void addTrackBuffer(TrackID, RefPtr<MediaDescription>&&);
     WEBCORE_EXPORT virtual void resetTrackBuffers();
     WEBCORE_EXPORT virtual void clearTrackBuffers(bool shouldReportToClient = false);
     WEBCORE_EXPORT virtual void setAllTrackBuffersNeedRandomAccess();
@@ -129,7 +121,7 @@ public:
     using ComputeSeekPromise = MediaTimePromise;
     WEBCORE_EXPORT virtual Ref<ComputeSeekPromise> computeSeekTime(const SeekTarget&);
     WEBCORE_EXPORT virtual void seekToTime(const MediaTime&);
-    WEBCORE_EXPORT virtual void updateTrackIds(Vector<std::pair<AtomString, AtomString>>&& trackIdPairs);
+    WEBCORE_EXPORT virtual void updateTrackIds(Vector<std::pair<TrackID, TrackID>>&& trackIdPairs);
 
     WEBCORE_EXPORT void setClient(SourceBufferPrivateClient&);
     WEBCORE_EXPORT void detach();
@@ -152,10 +144,10 @@ public:
 
     // Internals Utility methods
     using SamplesPromise = NativePromise<Vector<String>, int>;
-    WEBCORE_EXPORT virtual Ref<SamplesPromise> bufferedSamplesForTrackId(const AtomString&);
-    WEBCORE_EXPORT virtual Ref<SamplesPromise> enqueuedSamplesForTrackID(const AtomString&);
-    virtual MediaTime minimumUpcomingPresentationTimeForTrackID(const AtomString&) { return MediaTime::invalidTime(); }
-    virtual void setMaximumQueueDepthForTrackID(const AtomString&, uint64_t) { }
+    WEBCORE_EXPORT virtual Ref<SamplesPromise> bufferedSamplesForTrackId(TrackID);
+    WEBCORE_EXPORT virtual Ref<SamplesPromise> enqueuedSamplesForTrackID(TrackID);
+    virtual MediaTime minimumUpcomingPresentationTimeForTrackID(TrackID) { return MediaTime::invalidTime(); }
+    virtual void setMaximumQueueDepthForTrackID(TrackID, uint64_t) { }
 
 #if !RELEASE_LOG_DISABLED
     virtual const Logger& sourceBufferLogger() const = 0;
@@ -171,6 +163,7 @@ public:
     virtual void attemptToDecrypt() { }
 #endif
 
+    WorkQueue& queue() { return m_queue; }
 protected:
     WEBCORE_EXPORT Ref<MediaPromise> updateBufferedFromTrackBuffers(const Vector<PlatformTimeRanges>&);
 
@@ -188,56 +181,56 @@ protected:
     virtual MediaTime timeFudgeFactor() const { return PlatformTimeRanges::timeFudgeFactor(); }
     bool isActive() const { return m_isActive; }
     virtual bool isSeeking() const { return false; }
-    virtual void flush(const AtomString&) { }
-    virtual void enqueueSample(Ref<MediaSample>&&, const AtomString&) { }
-    virtual void allSamplesInTrackEnqueued(const AtomString&) { }
-    virtual bool isReadyForMoreSamples(const AtomString&) { return false; }
-    virtual void notifyClientWhenReadyForMoreSamples(const AtomString&) { }
+    virtual void flush(TrackID) { }
+    virtual void enqueueSample(Ref<MediaSample>&&, TrackID) { }
+    virtual void allSamplesInTrackEnqueued(TrackID) { }
+    virtual bool isReadyForMoreSamples(TrackID) { return false; }
+    virtual void notifyClientWhenReadyForMoreSamples(TrackID) { }
 
-    virtual bool canSetMinimumUpcomingPresentationTime(const AtomString&) const { return false; }
-    virtual void setMinimumUpcomingPresentationTime(const AtomString&, const MediaTime&) { }
-    virtual void clearMinimumUpcomingPresentationTime(const AtomString&) { }
+    virtual bool canSetMinimumUpcomingPresentationTime(TrackID) const { return false; }
+    virtual void setMinimumUpcomingPresentationTime(TrackID, const MediaTime&) { }
+    virtual void clearMinimumUpcomingPresentationTime(TrackID) { }
 
-    void reenqueSamples(const AtomString& trackID);
+    void reenqueSamples(TrackID);
 
     virtual bool precheckInitialisationSegment(const InitializationSegment&) { return true; }
     virtual void processInitialisationSegment(std::optional<InitializationSegment>&&) { }
     virtual void processFormatDescriptionForTrackId(Ref<TrackInfo>&&, uint64_t) { }
 
-    void provideMediaData(const AtomString& trackID);
+    void provideMediaData(TrackID);
 
     virtual bool isMediaSampleAllowed(const MediaSample&) const { return true; }
 
     // Must be called once all samples have been processed.
     WEBCORE_EXPORT void appendCompleted(bool parsingSucceeded, Function<void()>&& = [] { });
 
-    WEBCORE_EXPORT bool isAttached() const;
-    WEBCORE_EXPORT SourceBufferPrivateClient& client() const;
+    WEBCORE_EXPORT RefPtr<SourceBufferPrivateClient> client() const;
 
-    WeakPtr<MediaSourcePrivate> m_mediaSource { nullptr };
+    ThreadSafeWeakPtr<MediaSourcePrivate> m_mediaSource { nullptr };
 
 private:
     void updateHighestPresentationTimestamp();
-    void updateMinimumUpcomingPresentationTime(TrackBuffer&, const AtomString& trackID);
-    void reenqueueMediaForTime(TrackBuffer&, const AtomString& trackID, const MediaTime&);
+    void updateMinimumUpcomingPresentationTime(TrackBuffer&, TrackID);
+    void reenqueueMediaForTime(TrackBuffer&, TrackID, const MediaTime&);
     bool validateInitializationSegment(const InitializationSegment&);
-    void provideMediaData(TrackBuffer&, const AtomString& trackID);
+    void provideMediaData(TrackBuffer&, TrackID);
     void setBufferedDirty(bool);
-    void trySignalAllSamplesInTrackEnqueued(TrackBuffer&, const AtomString& trackID);
+    void trySignalAllSamplesInTrackEnqueued(TrackBuffer&, TrackID);
     MediaTime findPreviousSyncSamplePresentationTime(const MediaTime&);
     Ref<MediaPromise> removeCodedFramesInternal(const MediaTime& start, const MediaTime& end, const MediaTime& currentMediaTime);
     bool evictFrames(uint64_t newDataSize, uint64_t maximumBufferSize, const MediaTime& currentTime);
     virtual Vector<PlatformTimeRanges> trackBuffersRanges() const;
     bool hasTooManySamples() const;
+    void iterateTrackBuffers(Function<void(TrackBuffer&)>&&);
+    void iterateTrackBuffers(Function<void(const TrackBuffer&)>&&) const;
 
     bool m_hasAudio { false };
     bool m_hasVideo { false };
     bool m_isActive { false };
 
-    WeakPtr<SourceBufferPrivateClient> m_client;
+    ThreadSafeWeakPtr<SourceBufferPrivateClient> m_client;
 
-    MemoryCompactRobinHoodHashMap<AtomString, UniqueRef<TrackBuffer>> m_trackBufferMap;
-
+    StdUnorderedMap<TrackID, UniqueRef<TrackBuffer>> m_trackBufferMap;
     SourceBufferAppendMode m_appendMode { SourceBufferAppendMode::Segments };
 
     using OperationPromise = NativePromise<void, PlatformMediaError, WTF::PromiseOption::Default | WTF::PromiseOption::NonExclusive>;
@@ -249,7 +242,7 @@ private:
     size_t m_abortCount { 0 };
 
     void processPendingMediaSamples();
-    bool processMediaSample(Ref<MediaSample>&&);
+    bool processMediaSample(SourceBufferPrivateClient&, Ref<MediaSample>&&);
 
     using SamplesVector = Vector<Ref<MediaSample>>;
     SamplesVector m_pendingSamples;
@@ -265,20 +258,9 @@ private:
 
     bool m_isMediaSourceEnded { false };
     PlatformTimeRanges m_buffered;
+    Ref<WorkQueue> m_queue { WorkQueue::create("SerialBufferPrivate Queue") };
 };
 
 } // namespace WebCore
-
-namespace WTF {
-
-template<> struct EnumTraits<WebCore::SourceBufferAppendMode> {
-    using values = EnumValues<
-        WebCore::SourceBufferAppendMode,
-        WebCore::SourceBufferAppendMode::Segments,
-        WebCore::SourceBufferAppendMode::Sequence
-    >;
-};
-
-}; // namespace WTF
 
 #endif

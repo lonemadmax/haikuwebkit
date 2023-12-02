@@ -45,9 +45,6 @@ set(WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/Shared/FileAPI"
     "${WEBKIT_DIR}/Shared/Gamepad"
     "${WEBKIT_DIR}/Shared/Notifications"
-    "${WEBKIT_DIR}/Shared/Plugins"
-    "${WEBKIT_DIR}/Shared/Plugins/Netscape"
-    "${WEBKIT_DIR}/Shared/Plugins/Netscape/x11"
     "${WEBKIT_DIR}/Shared/RemoteLayerTree"
     "${WEBKIT_DIR}/Shared/WebGPU"
     "${WEBKIT_DIR}/Shared/WebsiteData"
@@ -381,6 +378,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Platform/IPC/FormDataReference.serialization.in
     Platform/IPC/IPCSemaphore.serialization.in
     Platform/IPC/SharedBufferReference.serialization.in
+    Platform/IPC/SharedFileHandle.serialization.in
     Platform/IPC/StreamServerConnection.serialization.in
 
     Platform/SharedMemory.serialization.in
@@ -598,12 +596,6 @@ set(WebProcess_LIBRARIES WebKit)
 set(NetworkProcess_LIBRARIES WebKit)
 set(GPUProcess_LIBRARIES WebKit)
 set(PluginProcess_LIBRARIES WebKit)
-
-if (ENABLE_ENCRYPTED_MEDIA AND ENABLE_OPENCDM)
-  list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
-      ${OPENCDM_INCLUDE_DIRS}
-  )
-endif ()
 
 # For platforms that want to use system-provided OpenGL (ES) / EGL headers,
 # these include directories, libraries or definitions need to be
@@ -925,4 +917,10 @@ else ()
         LIBRARY DESTINATION "${LIB_INSTALL_DIR}"
         RUNTIME DESTINATION "${LIBEXEC_INSTALL_DIR}"
     )
+    if (ENABLE_GPU_PROCESS)
+        install(TARGETS GPUProcess
+            LIBRARY DESTINATION "${LIB_INSTALL_DIR}"
+            RUNTIME DESTINATION "${LIBEXEC_INSTALL_DIR}"
+        )
+    endif ()
 endif ()

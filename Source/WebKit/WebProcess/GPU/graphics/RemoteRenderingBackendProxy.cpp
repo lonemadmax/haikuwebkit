@@ -330,11 +330,9 @@ auto RemoteRenderingBackendProxy::prepareBuffersForDisplay(const Vector<LayerPre
         if (!buffer)
             return;
 
-        if (auto* backend = buffer->ensureBackendCreated()) {
-            auto* sharing = backend->toBackendSharing();
-            if (is<ImageBufferBackendHandleSharing>(sharing))
-                downcast<ImageBufferBackendHandleSharing>(*sharing).clearBackendHandle();
-        }
+        auto* sharing = buffer->toBackendSharing();
+        if (is<ImageBufferBackendHandleSharing>(sharing))
+            downcast<ImageBufferBackendHandleSharing>(*sharing).clearBackendHandle();
     };
 
     auto inputData = WTF::map(prepareBuffersInput, [&](auto& perLayerData) {
@@ -363,7 +361,7 @@ auto RemoteRenderingBackendProxy::prepareBuffersForDisplay(const Vector<LayerPre
         // GPU Process crashed. Set the output data to all null buffers, requiring a full display.
         RELEASE_LOG(RemoteLayerBuffers, "[pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", renderingBackend=%" PRIu64 "] RemoteRenderingBackendProxy::prepareBuffersForDisplay - prepareBuffersForDisplay returned error: %" PUBLIC_LOG_STRING,
             m_parameters.pageProxyID.toUInt64(), m_parameters.pageID.toUInt64(), m_parameters.identifier.toUInt64(), IPC::errorAsString(sendResult.error));
-        outputData.resize(inputData.size());
+        outputData.grow(inputData.size());
         for (auto& perLayerOutputData : outputData)
             perLayerOutputData.displayRequirement = SwapBuffersDisplayRequirement::NeedsFullDisplay;
     } else
@@ -382,11 +380,9 @@ auto RemoteRenderingBackendProxy::prepareBuffersForDisplay(const Vector<LayerPre
             return nullptr;
 
         if (handle) {
-            if (auto* backend = buffer->ensureBackendCreated()) {
-                auto* sharing = backend->toBackendSharing();
-                if (is<ImageBufferBackendHandleSharing>(sharing))
-                    downcast<ImageBufferBackendHandleSharing>(*sharing).setBackendHandle(WTFMove(*handle));
-            }
+            auto* sharing = buffer->toBackendSharing();
+            if (is<ImageBufferBackendHandleSharing>(sharing))
+                downcast<ImageBufferBackendHandleSharing>(*sharing).setBackendHandle(WTFMove(*handle));
         }
 
         if (isFrontBuffer) {

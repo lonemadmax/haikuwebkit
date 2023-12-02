@@ -63,12 +63,11 @@ Ref<MediaSourcePrivateGStreamer> MediaSourcePrivateGStreamer::open(MediaSourcePr
 }
 
 MediaSourcePrivateGStreamer::MediaSourcePrivateGStreamer(MediaSourcePrivateClient& mediaSource, MediaPlayerPrivateGStreamerMSE& playerPrivate)
-    : MediaSourcePrivate()
-    , m_mediaSource(mediaSource)
+    : MediaSourcePrivate(mediaSource)
     , m_playerPrivate(playerPrivate)
 #if !RELEASE_LOG_DISABLED
-    , m_logger(m_playerPrivate.mediaPlayerLogger())
-    , m_logIdentifier(m_playerPrivate.mediaPlayerLogIdentifier())
+    , m_logger(playerPrivate.mediaPlayerLogger())
+    , m_logIdentifier(playerPrivate.mediaPlayerLogIdentifier())
 #endif
 {
 }
@@ -98,7 +97,7 @@ void MediaSourcePrivateGStreamer::durationChanged(const MediaTime&)
 {
     ASSERT(isMainThread());
 
-    MediaTime duration = m_mediaSource ? m_mediaSource->duration() : MediaTime::invalidTime();
+    MediaTime duration = this->duration();
     GST_TRACE_OBJECT(m_playerPrivate.pipeline(), "Duration: %" GST_TIME_FORMAT, GST_TIME_ARGS(toGstClockTime(duration)));
     if (!duration.isValid() || duration.isNegativeInfinite())
         return;
@@ -112,19 +111,19 @@ void MediaSourcePrivateGStreamer::markEndOfStream(EndOfStreamStatus endOfStreamS
 #ifndef GST_DISABLE_GST_DEBUG
     const char* statusString = nullptr;
     switch (endOfStreamStatus) {
-    case EndOfStreamStatus::EosNoError:
+    case EndOfStreamStatus::NoError:
         statusString = "no-error";
         break;
-    case EndOfStreamStatus::EosDecodeError:
+    case EndOfStreamStatus::DecodeError:
         statusString = "decode-error";
         break;
-    case EndOfStreamStatus::EosNetworkError:
+    case EndOfStreamStatus::NetworkError:
         statusString = "network-error";
         break;
     }
     GST_DEBUG_OBJECT(m_playerPrivate.pipeline(), "Marking EOS, status is %s", statusString);
 #endif
-    if (endOfStreamStatus == EosNoError)
+    if (endOfStreamStatus == EndOfStreamStatus::NoError)
         m_playerPrivate.setNetworkState(MediaPlayer::NetworkState::Loaded);
     MediaSourcePrivate::markEndOfStream(endOfStreamStatus);
 }
@@ -137,25 +136,6 @@ MediaPlayer::ReadyState MediaSourcePrivateGStreamer::readyState() const
 void MediaSourcePrivateGStreamer::setReadyState(MediaPlayer::ReadyState state)
 {
     m_playerPrivate.setReadyState(state);
-}
-
-Ref<MediaTimePromise> MediaSourcePrivateGStreamer::waitForTarget(const SeekTarget& target)
-{
-    if (m_mediaSource)
-        return m_mediaSource->waitForTarget(target);
-    return MediaTimePromise::createAndReject(PlatformMediaError::SourceRemoved);
-}
-
-Ref<MediaPromise> MediaSourcePrivateGStreamer::seekToTime(const MediaTime& time)
-{
-    if (m_mediaSource)
-        return m_mediaSource->seekToTime(time);
-    return MediaPromise::createAndReject(PlatformMediaError::SourceRemoved);
-}
-
-MediaTime MediaSourcePrivateGStreamer::duration() const
-{
-    return m_mediaSource ? m_mediaSource->duration() : MediaTime::invalidTime();
 }
 
 MediaTime MediaSourcePrivateGStreamer::currentMediaTime() const
@@ -186,13 +166,6 @@ void MediaSourcePrivateGStreamer::startPlaybackIfHasAllTracks()
         tracks.appendRange(sourceBuffer->tracks().begin(), sourceBuffer->tracks().end());
     }
     m_playerPrivate.startSource(tracks);
-}
-
-const PlatformTimeRanges& MediaSourcePrivateGStreamer::buffered()
-{
-    if (m_mediaSource)
-        return m_mediaSource->buffered();
-    return PlatformTimeRanges::emptyRanges();
 }
 
 void MediaSourcePrivateGStreamer::notifyActiveSourceBuffersChanged()

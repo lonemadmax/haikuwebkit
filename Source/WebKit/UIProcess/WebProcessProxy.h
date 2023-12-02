@@ -45,7 +45,6 @@
 #include <WebCore/CrossOriginMode.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/MediaProducer.h>
-#include <WebCore/MessageWithMessagePorts.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/RegistrableDomain.h>
@@ -84,7 +83,6 @@ struct PluginInfo;
 struct PrewarmInformation;
 class SecurityOriginData;
 enum class PermissionName : uint8_t;
-enum class RenderAsTextFlag : uint16_t;
 enum class ThirdPartyCookieBlockingMode : uint8_t;
 using FramesPerSecond = unsigned;
 using PlatformDisplayID = uint32_t;
@@ -277,14 +275,12 @@ public:
     void deleteWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, WallTime modifiedSince, CompletionHandler<void()>&&);
     void deleteWebsiteDataForOrigins(PAL::SessionID, OptionSet<WebsiteDataType>, const Vector<WebCore::SecurityOriginData>&, CompletionHandler<void()>&&);
 
-#if ENABLE(TRACKING_PREVENTION)
     static void notifyPageStatisticsAndDataRecordsProcessed();
 
     static void notifyWebsiteDataDeletionForRegistrableDomainsFinished();
     static void notifyWebsiteDataScanForRegistrableDomainsFinished();
 
     void setThirdPartyCookieBlockingMode(WebCore::ThirdPartyCookieBlockingMode, CompletionHandler<void()>&&);
-#endif
 
     void enableSuddenTermination();
     void disableSuddenTermination();
@@ -412,13 +408,11 @@ public:
     void registerRemoteWorkerClientProcess(RemoteWorkerType, WebProcessProxy&);
     void unregisterRemoteWorkerClientProcess(RemoteWorkerType, WebProcessProxy&);
     void updateRemoteWorkerProcessAssertion(RemoteWorkerType);
-#if ENABLE(SERVICE_WORKER)
     bool hasServiceWorkerPageProxy(WebPageProxyIdentifier pageProxyID) { return m_serviceWorkerInformation && m_serviceWorkerInformation->remoteWorkerPageProxyID == pageProxyID; }
     bool hasServiceWorkerForegroundActivityForTesting() const;
     bool hasServiceWorkerBackgroundActivityForTesting() const;
     void startServiceWorkerBackgroundProcessing();
     void endServiceWorkerBackgroundProcessing();
-#endif
     void setThrottleStateForTesting(ProcessThrottleState);
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
@@ -544,10 +538,6 @@ private:
     void updateBackForwardItem(const BackForwardListItemState&);
     void didDestroyFrame(WebCore::FrameIdentifier, WebPageProxyIdentifier);
     void didDestroyUserGestureToken(uint64_t);
-    void postMessageToRemote(WebCore::FrameIdentifier, std::optional<WebCore::SecurityOriginData>, const WebCore::MessageWithMessagePorts&);
-    void closeRemoteFrame(WebCore::FrameIdentifier);
-    void focusRemoteFrame(WebCore::FrameIdentifier);
-    void renderTreeAsText(WebCore::FrameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag>, CompletionHandler<void(String&&)>&&);
 
     bool canBeAddedToWebProcessCache() const;
     void shouldTerminate(CompletionHandler<void(bool)>&&);
@@ -695,9 +685,6 @@ private:
 
     VisibleWebPageCounter m_visiblePageCounter;
     RefPtr<WebsiteDataStore> m_websiteDataStore;
-#if PLATFORM(COCOA)
-    RefPtr<NetworkProcessProxy> m_networkProcessToKeepAliveUntilDataStoreIsCreated;
-#endif
 
     bool m_isUnderMemoryPressure { false };
 

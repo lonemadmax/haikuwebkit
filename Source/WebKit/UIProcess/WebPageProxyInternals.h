@@ -269,10 +269,8 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
     HashSet<WebCore::SecurityOriginData> notificationPermissionRequesters;
 #endif
 
-#if ENABLE(SERVICE_WORKER)
     CompletionHandler<void(bool)> serviceWorkerLaunchCompletionHandler;
     CompletionHandler<void(std::optional<WebCore::PageIdentifier>)> serviceWorkerOpenWindowCompletionCallback;
-#endif
 
 #if ENABLE(SPEECH_SYNTHESIS)
     std::optional<SpeechSynthesisData> optionalSpeechSynthesisData;
@@ -286,9 +284,7 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
     Deque<QueuedTouchEvents> touchEventQueue;
 #endif
 
-#if ENABLE(TRACKING_PREVENTION)
     MonotonicTime didFinishDocumentLoadForMainFrameTimestamp;
-#endif
 
 #if ENABLE(UI_SIDE_COMPOSITING)
     VisibleContentRectUpdateInfo lastVisibleContentRectUpdate;

@@ -151,6 +151,8 @@ public:
 
         InjectionTime injectionTime = InjectionTime::DocumentIdle;
 
+        String identifier { ""_s };
+
         bool matchesAboutBlank { false };
         bool injectsIntoAllFrames { false };
         bool forMainWorld { false };
@@ -252,7 +254,7 @@ public:
     const CommandsVector& commands();
     bool hasCommands();
 
-    const DeclarativeNetRequestRulesetVector& declarativeNetRequestRulesets();
+    DeclarativeNetRequestRulesetVector& declarativeNetRequestRulesets();
     bool hasContentModificationRules() { return !declarativeNetRequestRulesets().isEmpty(); }
 
     const InjectedContentVector& staticInjectedContents();

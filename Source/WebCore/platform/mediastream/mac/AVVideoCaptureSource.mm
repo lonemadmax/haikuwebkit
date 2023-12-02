@@ -540,8 +540,10 @@ void AVVideoCaptureSource::resolvePendingPhotoRequest(Vector<uint8_t>&& data, co
 {
     Locker lock { m_photoLock };
 
-    if (!m_photoProducer)
+    if (!m_photoProducer) {
+        ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "no photo producer");
         return;
+    }
 
     m_photoProducer->resolve(std::make_pair(WTFMove(data), mimeType));
     m_photoProducer = nullptr;
@@ -551,8 +553,10 @@ void AVVideoCaptureSource::rejectPendingPhotoRequest(const String& error)
 {
     Locker lock { m_photoLock };
 
-    if (!m_photoProducer)
+    if (!m_photoProducer) {
+        ERROR_LOG_IF(loggerPtr(), LOGIDENTIFIER, "no photo producer");
         return;
+    }
 
     m_photoProducer->reject(error);
     m_photoProducer = nullptr;
@@ -668,12 +672,10 @@ auto AVVideoCaptureSource::takePhotoInternal(PhotoSettings&& photoSettings) -> R
     return promise.releaseNonNull();
 }
 
-void AVVideoCaptureSource::getPhotoCapabilities(PhotoCapabilitiesHandler&& completion)
+auto AVVideoCaptureSource::getPhotoCapabilities() -> Ref<PhotoCapabilitiesNativePromise>
 {
-    if (m_photoCapabilities) {
-        completion({ *m_photoCapabilities });
-        return;
-    }
+    if (m_photoCapabilities)
+        return PhotoCapabilitiesNativePromise::createAndResolve(*m_photoCapabilities);
 
     auto capabilities = this->capabilities();
     PhotoCapabilities photoCapabilities;
@@ -686,7 +688,7 @@ void AVVideoCaptureSource::getPhotoCapabilities(PhotoCapabilitiesHandler&& compl
 
     m_photoCapabilities = WTFMove(photoCapabilities);
 
-    completion({ *m_photoCapabilities });
+    return PhotoCapabilitiesNativePromise::createAndResolve(*m_photoCapabilities);
 }
 
 auto AVVideoCaptureSource::getPhotoSettings() -> Ref<PhotoSettingsNativePromise>
@@ -1121,18 +1123,17 @@ void AVVideoCaptureSource::captureOutputDidOutputSampleBufferFromConnection(AVCa
 
 void AVVideoCaptureSource::captureOutputDidFinishProcessingPhoto(RetainPtr<AVCapturePhotoOutput>, RetainPtr<AVCapturePhoto> photo, RetainPtr<NSError> error)
 {
-    if (!error) {
-        NSData* data = [photo fileDataRepresentation];
-        resolvePendingPhotoRequest({ static_cast<const uint8_t*>(data.bytes), data.length }, "image/jpeg"_s);
-    } else
-        rejectPendingPhotoRequest("AVCapturePhotoOutput failed"_s);
-
     if (error) {
+        rejectPendingPhotoRequest("AVCapturePhotoOutput failed"_s);
         RunLoop::main().dispatch([this, protectedThis = Ref { *this }, logIdentifier = LOGIDENTIFIER, error = WTFMove(error) ] {
             ASSERT(isMainThread());
             ALWAYS_LOG_IF(loggerPtr(), logIdentifier, "failed: ", [error code], ", ", error.get());
         });
+        return;
     }
+
+    NSData* data = [photo fileDataRepresentation];
+    resolvePendingPhotoRequest({ static_cast<const uint8_t*>(data.bytes), data.length }, "image/jpeg"_s);
 }
 
 void AVVideoCaptureSource::captureSessionIsRunningDidChange(bool state)

@@ -77,18 +77,18 @@ LayoutRect RenderSVGModelObject::overflowClipRect(const LayoutPoint&, RenderFrag
     return LayoutRect();
 }
 
-LayoutRect RenderSVGModelObject::clippedOverflowRect(const RenderLayerModelObject* repaintContainer, VisibleRectContext context) const
+LayoutRect RenderSVGModelObject::localRectForRepaint() const
 {
     if (isInsideEntirelyHiddenLayer())
         return { };
 
     ASSERT(!view().frameView().layoutContext().isPaintOffsetCacheEnabled());
-    return computeRect(visualOverflowRectEquivalent(), repaintContainer, context);
+    return visualOverflowRectEquivalent();
 }
 
-std::optional<LayoutRect> RenderSVGModelObject::computeVisibleRectInContainer(const LayoutRect& rect, const RenderLayerModelObject* container, VisibleRectContext context) const
+auto RenderSVGModelObject::computeVisibleRectsInContainer(const RepaintRects& rects, const RenderLayerModelObject* container, VisibleRectContext context) const -> std::optional<RepaintRects>
 {
-    return computeVisibleRectInSVGContainer(rect, container, context);
+    return computeVisibleRectsInSVGContainer(rects, container, context);
 }
 
 const RenderObject* RenderSVGModelObject::pushMappingToContainer(const RenderLayerModelObject* ancestorToStopAt, RenderGeometryMap& geometryMap) const
@@ -251,7 +251,7 @@ LayoutSize RenderSVGModelObject::cachedSizeForOverflowClip() const
     return layer()->size();
 }
 
-bool RenderSVGModelObject::applyCachedClipAndScrollPosition(LayoutRect& rect, const RenderLayerModelObject* container, VisibleRectContext context) const
+bool RenderSVGModelObject::applyCachedClipAndScrollPosition(RepaintRects& rects, const RenderLayerModelObject* container, VisibleRectContext context) const
 {
     // Based on RenderBox::applyCachedClipAndScrollPosition -- unused options removed.
     if (!context.options.contains(VisibleRectContextOption::ApplyContainerClip) && this == container)
@@ -262,13 +262,13 @@ bool RenderSVGModelObject::applyCachedClipAndScrollPosition(LayoutRect& rect, co
         clipRect.expandToInfiniteX();
     if (effectiveOverflowY() == Overflow::Visible)
         clipRect.expandToInfiniteY();
+
     bool intersects;
     if (context.options.contains(VisibleRectContextOption::UseEdgeInclusiveIntersection))
-        intersects = rect.edgeInclusiveIntersect(clipRect);
-    else {
-        rect.intersect(clipRect);
-        intersects = !rect.isEmpty();
-    }
+        intersects = rects.edgeInclusiveIntersect(clipRect);
+    else
+        intersects = rects.intersect(clipRect);
+
     return intersects;
 }
 

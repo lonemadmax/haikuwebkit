@@ -1188,6 +1188,10 @@ static constexpr InitialValue initialValueForLonghand(CSSPropertyID longhand)
         return CSSValueStatic;
     case CSSPropertyPrintColorAdjust:
         return CSSValueEconomy;
+    case CSSPropertyScrollTimelineAxis:
+        return CSSValueBlock;
+    case CSSPropertyScrollTimelineName:
+        return CSSValueNone;
     case CSSPropertyStrokeColor:
         return CSSValueTransparent;
     case CSSPropertyStrokeLinecap:
@@ -1980,7 +1984,8 @@ bool CSSPropertyParser::consumeOverflowShorthand(bool important)
 
 static bool isCustomIdentValue(const CSSValue& value)
 {
-    return is<CSSPrimitiveValue>(value) && downcast<CSSPrimitiveValue>(value).isCustomIdent();
+    auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value);
+    return primitiveValue && primitiveValue->isCustomIdent();
 }
 
 bool CSSPropertyParser::consumeGridItemPositionShorthand(CSSPropertyID shorthandId, bool important)
@@ -2626,6 +2631,36 @@ bool CSSPropertyParser::consumeWhiteSpaceShorthand(bool important)
     return true;
 }
 
+bool CSSPropertyParser::consumeScrollTimelineShorthand(bool important)
+{
+    CSSValueListBuilder namesList;
+    CSSValueListBuilder axesList;
+
+    do {
+        // A valid scroll-timeline-name is required.
+        if (auto name = CSSPropertyParsing::consumeSingleScrollTimelineName(m_range))
+            namesList.append(name.releaseNonNull());
+        else
+            return false;
+
+        // A scroll-timeline-axis is optional.
+        if (m_range.peek().type() == CommaToken || m_range.atEnd())
+            axesList.append(CSSPrimitiveValue::create(CSSValueID::CSSValueBlock));
+        else if (auto axis = CSSPropertyParsing::consumeAxis(m_range))
+            axesList.append(axis.releaseNonNull());
+        else
+            return false;
+    } while (consumeCommaIncludingWhitespace(m_range));
+
+    if (namesList.isEmpty())
+        return false;
+
+    addProperty(CSSPropertyScrollTimelineName, CSSPropertyScrollTimeline, CSSValueList::createCommaSeparated(WTFMove(namesList)), important);
+    if (!axesList.isEmpty())
+        addProperty(CSSPropertyScrollTimelineAxis, CSSPropertyScrollTimeline, CSSValueList::createCommaSeparated(WTFMove(axesList)), important);
+    return true;
+}
+
 bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
 {
     switch (property) {
@@ -2644,7 +2679,7 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
     case CSSPropertyColumns:
         return consumeColumns(important);
     case CSSPropertyAnimation:
-        return consumeAnimationShorthand(animationShorthandForParsing(), important);
+        return consumeAnimationShorthand(animationShorthand(), important);
     case CSSPropertyTransition:
         return consumeAnimationShorthand(transitionShorthandForParsing(), important);
     case CSSPropertyTextDecoration: {
@@ -2853,6 +2888,8 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
         return consumeContainerShorthand(important);
     case CSSPropertyContainIntrinsicSize:
         return consumeContainIntrinsicSizeShorthand(important);
+    case CSSPropertyScrollTimeline:
+        return consumeScrollTimelineShorthand(important);
     case CSSPropertyTextWrap:
         return consumeTextWrapShorthand(important);
     case CSSPropertyWhiteSpace:

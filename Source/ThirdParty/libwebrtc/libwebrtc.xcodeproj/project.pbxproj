@@ -19,8 +19,12 @@
 				449467BF2AE05CA800A9FED0 /* PBXTargetDependency */,
 				449CF1612ADEDE9B00F22CAF /* PBXTargetDependency */,
 				449CF1632ADEDE9D00F22CAF /* PBXTargetDependency */,
+				4460B8C92B155B9200392062 /* PBXTargetDependency */,
+				4460B8CB2B155B9200392062 /* PBXTargetDependency */,
 				446359E02AEA14F000551EEE /* PBXTargetDependency */,
 				449CF1652ADEDEA000F22CAF /* PBXTargetDependency */,
+				4460B8CD2B155B9200392062 /* PBXTargetDependency */,
+				4460B8CF2B155B9200392062 /* PBXTargetDependency */,
 				444A6F0C2AEAE064005FE121 /* PBXTargetDependency */,
 			);
 			name = "Fuzzers (libwebrtc)";
@@ -483,7 +487,6 @@
 		410BA1232570F60C002E2F8A /* deprecated_rtp_sender_egress.cc in Sources */ = {isa = PBXBuildFile; fileRef = 410BA1212570F60C002E2F8A /* deprecated_rtp_sender_egress.cc */; };
 		410BA1242570F60C002E2F8A /* deprecated_rtp_sender_egress.h in Headers */ = {isa = PBXBuildFile; fileRef = 410BA1222570F60C002E2F8A /* deprecated_rtp_sender_egress.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		410BA12D2570F6E4002E2F8A /* libaom_av1_encoder.h in Headers */ = {isa = PBXBuildFile; fileRef = 410BA12B2570F6E3002E2F8A /* libaom_av1_encoder.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		410BA134257103BF002E2F8A /* vp9_temporal_filter.c in Sources */ = {isa = PBXBuildFile; fileRef = 4140363C24AA30A000BCE9B2 /* vp9_temporal_filter.c */; };
 		41109AAE1E5FA19200C0955A /* video_frame_buffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 41109AA71E5FA19200C0955A /* video_frame_buffer.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		41109AB01E5FA19200C0955A /* bitrate_adjuster.h in Headers */ = {isa = PBXBuildFile; fileRef = 41109AA91E5FA19200C0955A /* bitrate_adjuster.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		4119275E2A375ACC007C09F6 /* a_strex.c in Sources */ = {isa = PBXBuildFile; fileRef = 4119275D2A375ACC007C09F6 /* a_strex.c */; };
@@ -2246,6 +2249,8 @@
 		419100E32152ECE700A6F17B /* shortidct4x4llm_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 419100BF2152ECDC00A6F17B /* shortidct4x4llm_neon.c */; };
 		419100E42152ECE700A6F17B /* sixtappredict_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 419100C52152ECDE00A6F17B /* sixtappredict_neon.c */; };
 		419100E52152ECE700A6F17B /* vp8_loopfilter_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 419100B92152ECDB00A6F17B /* vp8_loopfilter_neon.c */; };
+		4191FD472B0E63040067312B /* RTCVideoFrameReorderQueue.mm in Sources */ = {isa = PBXBuildFile; fileRef = 4191FD462B0E63040067312B /* RTCVideoFrameReorderQueue.mm */; };
+		4191FD492B0E631E0067312B /* RTCVideoFrameReorderQueue.h in Headers */ = {isa = PBXBuildFile; fileRef = 4191FD482B0E631D0067312B /* RTCVideoFrameReorderQueue.h */; };
 		4192413A2127372400634FCF /* features_extraction.cc in Sources */ = {isa = PBXBuildFile; fileRef = 419241312127372200634FCF /* features_extraction.cc */; };
 		4192413B2127372400634FCF /* features_extraction.h in Headers */ = {isa = PBXBuildFile; fileRef = 419241322127372200634FCF /* features_extraction.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		4192413C2127372400634FCF /* pitch_search.h in Headers */ = {isa = PBXBuildFile; fileRef = 419241332127372300634FCF /* pitch_search.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -2289,6 +2294,27 @@
 		419241EE21275AFA00634FCF /* simulcast_rate_allocator.cc in Sources */ = {isa = PBXBuildFile; fileRef = 419241EA21275AFA00634FCF /* simulcast_rate_allocator.cc */; };
 		419241EF21275AFA00634FCF /* simulcast_utility.cc in Sources */ = {isa = PBXBuildFile; fileRef = 419241EB21275AFA00634FCF /* simulcast_utility.cc */; };
 		419241F021275AFA00634FCF /* simulcast_rate_allocator.h in Headers */ = {isa = PBXBuildFile; fileRef = 419241EC21275AFA00634FCF /* simulcast_rate_allocator.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		419BA9AD2B15EEF600E0D825 /* vpx_config.h in Headers */ = {isa = PBXBuildFile; fileRef = 419BA9A62B15EEF400E0D825 /* vpx_config.h */; };
+		419BA9AF2B15EEF600E0D825 /* vp8_rtcd.h in Headers */ = {isa = PBXBuildFile; fileRef = 419BA9A82B15EEF500E0D825 /* vp8_rtcd.h */; };
+		419BA9B02B15EEF600E0D825 /* vpx_dsp_rtcd.h in Headers */ = {isa = PBXBuildFile; fileRef = 419BA9A92B15EEF500E0D825 /* vpx_dsp_rtcd.h */; };
+		419BA9B12B15EEF600E0D825 /* vp9_rtcd.h in Headers */ = {isa = PBXBuildFile; fileRef = 419BA9AA2B15EEF600E0D825 /* vp9_rtcd.h */; };
+		419BA9B22B15EEF600E0D825 /* vpx_scale_rtcd.h in Headers */ = {isa = PBXBuildFile; fileRef = 419BA9AB2B15EEF600E0D825 /* vpx_scale_rtcd.h */; };
+		419BA9B32B15F2AD00E0D825 /* vp9_highbd_iht16x16_add_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 4140376524AA311F00BCE9B2 /* vp9_highbd_iht16x16_add_neon.c */; };
+		419BA9B42B15F30300E0D825 /* vp9_highbd_iht4x4_add_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 4140376724AA312000BCE9B2 /* vp9_highbd_iht4x4_add_neon.c */; };
+		419BA9B52B15F30F00E0D825 /* highbd_vpx_convolve8_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 419478772152ED4000275257 /* highbd_vpx_convolve8_neon.c */; };
+		419BA9B62B15F33100E0D825 /* vp9_highbd_iht8x8_add_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 4140376A24AA312100BCE9B2 /* vp9_highbd_iht8x8_add_neon.c */; };
+		419BA9B72B15F35200E0D825 /* highbd_vpx_convolve_copy_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 419478862152ED4400275257 /* highbd_vpx_convolve_copy_neon.c */; };
+		419BA9B92B15F36000E0D825 /* highbd_vpx_convolve_avg_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 419478852152ED4400275257 /* highbd_vpx_convolve_avg_neon.c */; };
+		419BA9BA2B15F36600E0D825 /* highbd_vpx_convolve_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 41953C082152ED6400136625 /* highbd_vpx_convolve_neon.c */; };
+		419BA9BB2B15F38A00E0D825 /* highbd_intrapred_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 419478742152ED3F00275257 /* highbd_intrapred_neon.c */; };
+		419BA9BC2B15F39800E0D825 /* highbd_loopfilter_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 4194787C2152ED4200275257 /* highbd_loopfilter_neon.c */; };
+		419BA9BE2B15F3A800E0D825 /* highbd_idct8x8_add_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 4194788D2152ED4700275257 /* highbd_idct8x8_add_neon.c */; };
+		419BA9BF2B15F3AB00E0D825 /* highbd_idct4x4_add_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 41953C002152ED6200136625 /* highbd_idct4x4_add_neon.c */; };
+		419BA9C02B15F3B000E0D825 /* highbd_idct32x32_add_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 419100E82152ED1600A6F17B /* highbd_idct32x32_add_neon.c */; };
+		419BA9C12B15F3B300E0D825 /* highbd_idct32x32_34_add_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 419100F12152ED1800A6F17B /* highbd_idct32x32_34_add_neon.c */; };
+		419BA9C22B15F3B800E0D825 /* highbd_idct32x32_135_add_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 419478762152ED4000275257 /* highbd_idct32x32_135_add_neon.c */; };
+		419BA9C42B15F3C000E0D825 /* highbd_idct16x16_add_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 419478702152ED3E00275257 /* highbd_idct16x16_add_neon.c */; };
+		419BA9C52B15F90800E0D825 /* highbd_idct32x32_1024_add_neon.c in Sources */ = {isa = PBXBuildFile; fileRef = 4194788A2152ED4600275257 /* highbd_idct32x32_1024_add_neon.c */; };
 		419C829A1FE20CA10040C30F /* interval_budget.cc in Sources */ = {isa = PBXBuildFile; fileRef = 419C82991FE20CA10040C30F /* interval_budget.cc */; };
 		419C829D1FE20D1C0040C30F /* audio_processing_statistics.cc in Sources */ = {isa = PBXBuildFile; fileRef = 419C829B1FE20D1B0040C30F /* audio_processing_statistics.cc */; };
 		419C829E1FE20D1C0040C30F /* audio_processing_statistics.h in Headers */ = {isa = PBXBuildFile; fileRef = 419C829C1FE20D1C0040C30F /* audio_processing_statistics.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -2874,6 +2900,7 @@
 		41CBAF9B212E039300DE1E1D /* threading.c in Sources */ = {isa = PBXBuildFile; fileRef = 4105EBB3212E035C008C0C20 /* threading.c */; };
 		41CBAF9C212E039300DE1E1D /* treereader.h in Headers */ = {isa = PBXBuildFile; fileRef = 4105EBB6212E035D008C0C20 /* treereader.h */; };
 		41CDC66D28F6FC2C00603E59 /* RTCWrappedNativeVideoDecoder.mm in Sources */ = {isa = PBXBuildFile; fileRef = 41795403216985200028266B /* RTCWrappedNativeVideoDecoder.mm */; };
+		41D011582B1639D700B05388 /* vp9_temporal_filter.c in Sources */ = {isa = PBXBuildFile; fileRef = 4140363C24AA30A000BCE9B2 /* vp9_temporal_filter.c */; };
 		41D12414215C51D80036B057 /* dwarf2-info.c in Sources */ = {isa = PBXBuildFile; fileRef = 41D1240E215C51CE0036B057 /* dwarf2-info.c */; };
 		41D12415215C51D80036B057 /* dwarf2-aranges.c in Sources */ = {isa = PBXBuildFile; fileRef = 419EA20F215C51B60082BFD2 /* dwarf2-aranges.c */; };
 		41D12416215C51D80036B057 /* dwarf2-dbgfmt.c in Sources */ = {isa = PBXBuildFile; fileRef = 419EA20E215C51B60082BFD2 /* dwarf2-dbgfmt.c */; };
@@ -3155,6 +3182,18 @@
 		444A6F022AEADFC9005FE121 /* OpenGL.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 44FD16852AEA37E6003636CB /* OpenGL.framework */; platformFilters = (macos, ); };
 		444A6F032AEADFC9005FE121 /* libwebrtc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FB39D0D11200F0E300088E69 /* libwebrtc.dylib */; };
 		444A6F092AEADFD8005FE121 /* vp9_replay_fuzzer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 444A6EEF2AEADFB6005FE121 /* vp9_replay_fuzzer.cc */; };
+		4460B8922B155AFD00392062 /* webrtc_fuzzer_main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 44ABBE952AC64023006B44DD /* webrtc_fuzzer_main.cc */; };
+		4460B8942B155AFD00392062 /* libwebrtc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FB39D0D11200F0E300088E69 /* libwebrtc.dylib */; };
+		4460B89A2B155B1100392062 /* vp8_depacketizer_fuzzer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 4460B8852B15572D00392062 /* vp8_depacketizer_fuzzer.cc */; };
+		4460B8A12B155B2E00392062 /* webrtc_fuzzer_main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 44ABBE952AC64023006B44DD /* webrtc_fuzzer_main.cc */; };
+		4460B8A32B155B2E00392062 /* libwebrtc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FB39D0D11200F0E300088E69 /* libwebrtc.dylib */; };
+		4460B8A92B155B3E00392062 /* vp9_depacketizer_fuzzer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 4460B8872B15572E00392062 /* vp9_depacketizer_fuzzer.cc */; };
+		4460B8B02B155B4E00392062 /* webrtc_fuzzer_main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 44ABBE952AC64023006B44DD /* webrtc_fuzzer_main.cc */; };
+		4460B8B22B155B4E00392062 /* libwebrtc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FB39D0D11200F0E300088E69 /* libwebrtc.dylib */; };
+		4460B8B82B155B5C00392062 /* vp8_qp_parser_fuzzer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 4460B8842B15572D00392062 /* vp8_qp_parser_fuzzer.cc */; };
+		4460B8BF2B155B6A00392062 /* webrtc_fuzzer_main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 44ABBE952AC64023006B44DD /* webrtc_fuzzer_main.cc */; };
+		4460B8C12B155B6A00392062 /* libwebrtc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FB39D0D11200F0E300088E69 /* libwebrtc.dylib */; };
+		4460B8C72B155B7700392062 /* vp9_qp_parser_fuzzer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 4460B8862B15572E00392062 /* vp9_qp_parser_fuzzer.cc */; };
 		446359C32AEA10C900551EEE /* vp8_replay_fuzzer.cc in Sources */ = {isa = PBXBuildFile; fileRef = 446359C22AEA10C900551EEE /* vp8_replay_fuzzer.cc */; };
 		446359C62AEA110100551EEE /* libwebrtc.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FB39D0D11200F0E300088E69 /* libwebrtc.dylib */; };
 		446359C72AEA111E00551EEE /* webrtc_fuzzer_main.cc in Sources */ = {isa = PBXBuildFile; fileRef = 44ABBE952AC64023006B44DD /* webrtc_fuzzer_main.cc */; };
@@ -5263,6 +5302,62 @@
 			proxyType = 1;
 			remoteGlobalIDString = 444A6EF02AEADFC9005FE121;
 			remoteInfo = vp9_replay_fuzzer;
+		};
+		4460B88E2B155AFD00392062 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FB39D0701200ED9200088E69 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FB39D0D01200F0E300088E69;
+			remoteInfo = libwebrtc;
+		};
+		4460B89D2B155B2E00392062 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FB39D0701200ED9200088E69 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FB39D0D01200F0E300088E69;
+			remoteInfo = libwebrtc;
+		};
+		4460B8AC2B155B4E00392062 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FB39D0701200ED9200088E69 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FB39D0D01200F0E300088E69;
+			remoteInfo = libwebrtc;
+		};
+		4460B8BB2B155B6A00392062 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FB39D0701200ED9200088E69 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = FB39D0D01200F0E300088E69;
+			remoteInfo = libwebrtc;
+		};
+		4460B8C82B155B9200392062 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FB39D0701200ED9200088E69 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4460B88C2B155AFD00392062;
+			remoteInfo = vp8_depacketizer_fuzzer;
+		};
+		4460B8CA2B155B9200392062 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FB39D0701200ED9200088E69 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4460B8AA2B155B4E00392062;
+			remoteInfo = vp8_qp_parser_fuzzer;
+		};
+		4460B8CC2B155B9200392062 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FB39D0701200ED9200088E69 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4460B89B2B155B2E00392062;
+			remoteInfo = vp9_depacketizer_fuzzer;
+		};
+		4460B8CE2B155B9200392062 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = FB39D0701200ED9200088E69 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4460B8B92B155B6A00392062;
+			remoteInfo = vp9_qp_parser_fuzzer;
 		};
 		446359C42AEA10F400551EEE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -8059,6 +8154,8 @@
 		419100F32152ED1800A6F17B /* vpx_convolve8_neon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = vpx_convolve8_neon.c; sourceTree = "<group>"; };
 		419100F42152ED1900A6F17B /* vpx_scaled_convolve8_neon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = vpx_scaled_convolve8_neon.c; sourceTree = "<group>"; };
 		419100F52152ED1900A6F17B /* sad4d_neon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sad4d_neon.c; sourceTree = "<group>"; };
+		4191FD462B0E63040067312B /* RTCVideoFrameReorderQueue.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = RTCVideoFrameReorderQueue.mm; sourceTree = "<group>"; };
+		4191FD482B0E631D0067312B /* RTCVideoFrameReorderQueue.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RTCVideoFrameReorderQueue.h; sourceTree = "<group>"; };
 		419241312127372200634FCF /* features_extraction.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = features_extraction.cc; sourceTree = "<group>"; };
 		419241322127372200634FCF /* features_extraction.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = features_extraction.h; sourceTree = "<group>"; };
 		419241332127372300634FCF /* pitch_search.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pitch_search.h; sourceTree = "<group>"; };
@@ -8149,6 +8246,13 @@
 		41953C072152ED6400136625 /* idct8x8_1_add_neon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = idct8x8_1_add_neon.c; sourceTree = "<group>"; };
 		41953C082152ED6400136625 /* highbd_vpx_convolve_neon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = highbd_vpx_convolve_neon.c; sourceTree = "<group>"; };
 		41953C092152ED6400136625 /* quantize_neon.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = quantize_neon.c; sourceTree = "<group>"; };
+		419BA9A52B15EEF400E0D825 /* vpx_config.asm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.asm.asm; path = vpx_config.asm; sourceTree = "<group>"; };
+		419BA9A62B15EEF400E0D825 /* vpx_config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vpx_config.h; sourceTree = "<group>"; };
+		419BA9A72B15EEF500E0D825 /* vpx_config.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = vpx_config.c; sourceTree = "<group>"; };
+		419BA9A82B15EEF500E0D825 /* vp8_rtcd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vp8_rtcd.h; sourceTree = "<group>"; };
+		419BA9A92B15EEF500E0D825 /* vpx_dsp_rtcd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vpx_dsp_rtcd.h; sourceTree = "<group>"; };
+		419BA9AA2B15EEF600E0D825 /* vp9_rtcd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vp9_rtcd.h; sourceTree = "<group>"; };
+		419BA9AB2B15EEF600E0D825 /* vpx_scale_rtcd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vpx_scale_rtcd.h; sourceTree = "<group>"; };
 		419C82991FE20CA10040C30F /* interval_budget.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = interval_budget.cc; sourceTree = "<group>"; };
 		419C829B1FE20D1B0040C30F /* audio_processing_statistics.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = audio_processing_statistics.cc; sourceTree = "<group>"; };
 		419C829C1FE20D1C0040C30F /* audio_processing_statistics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = audio_processing_statistics.h; sourceTree = "<group>"; };
@@ -9119,6 +9223,18 @@
 		444A6EEF2AEADFB6005FE121 /* vp9_replay_fuzzer.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = vp9_replay_fuzzer.cc; sourceTree = "<group>"; };
 		444A6F082AEADFC9005FE121 /* vp9_replay_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vp9_replay_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
 		444A6F0A2AEAE01D005FE121 /* vp9_replay_fuzzer.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = vp9_replay_fuzzer.xcconfig; sourceTree = "<group>"; };
+		4460B8842B15572D00392062 /* vp8_qp_parser_fuzzer.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = vp8_qp_parser_fuzzer.cc; sourceTree = "<group>"; };
+		4460B8852B15572D00392062 /* vp8_depacketizer_fuzzer.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = vp8_depacketizer_fuzzer.cc; sourceTree = "<group>"; };
+		4460B8862B15572E00392062 /* vp9_qp_parser_fuzzer.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = vp9_qp_parser_fuzzer.cc; sourceTree = "<group>"; };
+		4460B8872B15572E00392062 /* vp9_depacketizer_fuzzer.cc */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = vp9_depacketizer_fuzzer.cc; sourceTree = "<group>"; };
+		4460B8882B155A8700392062 /* vp8_depacketizer_fuzzer.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = vp8_depacketizer_fuzzer.xcconfig; sourceTree = "<group>"; };
+		4460B8892B155A8700392062 /* vp8_qp_parser_fuzzer.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = vp8_qp_parser_fuzzer.xcconfig; sourceTree = "<group>"; };
+		4460B88A2B155A8800392062 /* vp9_qp_parser_fuzzer.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = vp9_qp_parser_fuzzer.xcconfig; sourceTree = "<group>"; };
+		4460B88B2B155A8800392062 /* vp9_depacketizer_fuzzer.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = vp9_depacketizer_fuzzer.xcconfig; sourceTree = "<group>"; };
+		4460B8992B155AFD00392062 /* vp8_depacketizer_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vp8_depacketizer_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
+		4460B8A82B155B2E00392062 /* vp9_depacketizer_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vp9_depacketizer_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
+		4460B8B72B155B4E00392062 /* vp8_qp_parser_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vp8_qp_parser_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
+		4460B8C62B155B6A00392062 /* vp9_qp_parser_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vp9_qp_parser_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
 		446359C12AEA108C00551EEE /* vp8_replay_fuzzer */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vp8_replay_fuzzer; sourceTree = BUILT_PRODUCTS_DIR; };
 		446359C22AEA10C900551EEE /* vp8_replay_fuzzer.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = vp8_replay_fuzzer.cc; sourceTree = "<group>"; };
 		446359C92AEA11F400551EEE /* rtp_replayer.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = rtp_replayer.cc; sourceTree = "<group>"; };
@@ -10865,6 +10981,38 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		4460B8932B155AFD00392062 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4460B8942B155AFD00392062 /* libwebrtc.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4460B8A22B155B2E00392062 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4460B8A32B155B2E00392062 /* libwebrtc.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4460B8B12B155B4E00392062 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4460B8B22B155B4E00392062 /* libwebrtc.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4460B8C02B155B6A00392062 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4460B8C12B155B6A00392062 /* libwebrtc.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		446359BB2AEA108C00551EEE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -11041,6 +11189,7 @@
 			isa = PBXGroup;
 			children = (
 				4105EB87212E0240008C0C20 /* ios */,
+				419BA9A32B15EEBD00E0D825 /* linux */,
 				4105EB88212E0245008C0C20 /* mac */,
 			);
 			path = config;
@@ -13453,6 +13602,8 @@
 				416225F6216981F400A91C9B /* RTCVideoEncoderH264.mm */,
 				41009204242E3A4500C5EDA2 /* RTCVideoEncoderH265.h */,
 				41009206242E3A4500C5EDA2 /* RTCVideoEncoderH265.mm */,
+				4191FD482B0E631D0067312B /* RTCVideoFrameReorderQueue.h */,
+				4191FD462B0E63040067312B /* RTCVideoFrameReorderQueue.mm */,
 				416225EE216981F200A91C9B /* UIDevice+H264Profile.h */,
 				417953AE2169823F0028266B /* UIDevice+H264Profile.mm */,
 			);
@@ -13980,6 +14131,28 @@
 				419242222127664E00634FCF /* objc_video_encoder_factory.h */,
 			);
 			path = src;
+			sourceTree = "<group>";
+		};
+		419BA9A32B15EEBD00E0D825 /* linux */ = {
+			isa = PBXGroup;
+			children = (
+				419BA9A42B15EECE00E0D825 /* arm64-highbd */,
+			);
+			path = linux;
+			sourceTree = "<group>";
+		};
+		419BA9A42B15EECE00E0D825 /* arm64-highbd */ = {
+			isa = PBXGroup;
+			children = (
+				419BA9A82B15EEF500E0D825 /* vp8_rtcd.h */,
+				419BA9AA2B15EEF600E0D825 /* vp9_rtcd.h */,
+				419BA9A52B15EEF400E0D825 /* vpx_config.asm */,
+				419BA9A72B15EEF500E0D825 /* vpx_config.c */,
+				419BA9A62B15EEF400E0D825 /* vpx_config.h */,
+				419BA9A92B15EEF500E0D825 /* vpx_dsp_rtcd.h */,
+				419BA9AB2B15EEF600E0D825 /* vpx_scale_rtcd.h */,
+			);
+			path = "arm64-highbd";
 			sourceTree = "<group>";
 		};
 		419C82E71FE20E7D0040C30F /* opus */ = {
@@ -16122,7 +16295,11 @@
 				449467C02AE05D6B00A9FED0 /* rtp_depacketizer_av1_assemble_frame_fuzzer.cc */,
 				449467D02AE05DBF00A9FED0 /* rtp_packetizer_av1_fuzzer.cc */,
 				44ABBE872AC63EF3006B44DD /* sdp_integration_fuzzer.cc */,
+				4460B8852B15572D00392062 /* vp8_depacketizer_fuzzer.cc */,
+				4460B8842B15572D00392062 /* vp8_qp_parser_fuzzer.cc */,
 				446359C22AEA10C900551EEE /* vp8_replay_fuzzer.cc */,
+				4460B8872B15572E00392062 /* vp9_depacketizer_fuzzer.cc */,
+				4460B8862B15572E00392062 /* vp9_qp_parser_fuzzer.cc */,
 				444A6EEF2AEADFB6005FE121 /* vp9_replay_fuzzer.cc */,
 				44ABBE952AC64023006B44DD /* webrtc_fuzzer_main.cc */,
 			);
@@ -19390,8 +19567,12 @@
 				441380CA2AE069CB00C928CB /* rtp_packetizer_av1_fuzzer.xcconfig */,
 				44ABBE972AC641B4006B44DD /* sdp_integration_fuzzer.xcconfig */,
 				449187242AB380BE007266F2 /* vp8_dec_fuzzer.xcconfig */,
+				4460B8882B155A8700392062 /* vp8_depacketizer_fuzzer.xcconfig */,
+				4460B8892B155A8700392062 /* vp8_qp_parser_fuzzer.xcconfig */,
 				44FD166E2AEA16CC003636CB /* vp8_replay_fuzzer.xcconfig */,
 				449187252AB380BE007266F2 /* vp9_dec_fuzzer.xcconfig */,
+				4460B88B2B155A8800392062 /* vp9_depacketizer_fuzzer.xcconfig */,
+				4460B88A2B155A8800392062 /* vp9_qp_parser_fuzzer.xcconfig */,
 				444A6F0A2AEAE01D005FE121 /* vp9_replay_fuzzer.xcconfig */,
 				41F77D1E215BE4AD00E72967 /* yasm.xcconfig */,
 			);
@@ -19890,6 +20071,10 @@
 				44C20E942AB39FA80046C6A8 /* vp9_dec_fuzzer */,
 				446359C12AEA108C00551EEE /* vp8_replay_fuzzer */,
 				444A6F082AEADFC9005FE121 /* vp9_replay_fuzzer */,
+				4460B8992B155AFD00392062 /* vp8_depacketizer_fuzzer */,
+				4460B8A82B155B2E00392062 /* vp9_depacketizer_fuzzer */,
+				4460B8B72B155B4E00392062 /* vp8_qp_parser_fuzzer */,
+				4460B8C62B155B6A00392062 /* vp9_qp_parser_fuzzer */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -20045,6 +20230,34 @@
 				41BAE3C1212E2C5B00E22482 /* vpx_thread.h in Headers */,
 				41BAE3C3212E2C5B00E22482 /* vpx_write_yuv_frame.h in Headers */,
 				4140361724AA294000BCE9B2 /* x86.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4460B88F2B155AFD00392062 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4460B89E2B155B2E00392062 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4460B8AD2B155B4E00392062 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4460B8BC2B155B6A00392062 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -22010,6 +22223,7 @@
 				413E678F216987DB00EF37ED /* RTCVideoFrame.h in Headers */,
 				413E6791216987DB00EF37ED /* RTCVideoFrameBuffer.h in Headers */,
 				413A24411FE1991A00373E99 /* RTCVideoFrameBuffer.h in Headers */,
+				4191FD492B0E631E0067312B /* RTCVideoFrameReorderQueue.h in Headers */,
 				413A246F1FE1991A00373E99 /* RTCVideoRenderer.h in Headers */,
 				DDF30B8E27C5A3F2006A526F /* RTCVideoRenderer.h in Headers */,
 				DDF30B5C27C5A3C5006A526F /* RTCVideoSource+Private.h in Headers */,
@@ -22539,6 +22753,7 @@
 				4131C3DB234C79D10028A615 /* vp8_frame_config.h in Headers */,
 				DDF30A9827C59D22006A526F /* vp8_globals.h in Headers */,
 				5CDD83861E439A3500621E92 /* vp8_header_parser.h in Headers */,
+				419BA9AF2B15EEF600E0D825 /* vp8_rtcd.h in Headers */,
 				41B8D80628C88C7800E5FA37 /* vp8_scalability.h in Headers */,
 				41FCBB6521B1FEF600A5DF27 /* vp8_temporal_layers.h in Headers */,
 				4131C3D6234C79D10028A615 /* vp8_temporal_layers_factory.h in Headers */,
@@ -22547,7 +22762,11 @@
 				414035FA24AA1F5500BCE9B2 /* vp9_frame_buffer_pool.h in Headers */,
 				DDF30A9D27C5A298006A526F /* vp9_globals.h in Headers */,
 				41323A6A26652B1600B38623 /* vp9_profile.h in Headers */,
+				419BA9B12B15EEF600E0D825 /* vp9_rtcd.h in Headers */,
 				412FFA67254B4DAB001DF036 /* vp9_uncompressed_header_parser.h in Headers */,
+				419BA9AD2B15EEF600E0D825 /* vpx_config.h in Headers */,
+				419BA9B02B15EEF600E0D825 /* vpx_dsp_rtcd.h in Headers */,
+				419BA9B22B15EEF600E0D825 /* vpx_scale_rtcd.h in Headers */,
 				412FF937253D8F0A001DF036 /* VTVideoDecoderSPI.h in Headers */,
 				DDF30ACA27C5A364006A526F /* warn_current_thread_is_deadlocked.h in Headers */,
 				5C4B4C811E431F9C002651C8 /* wav_file.h in Headers */,
@@ -22641,6 +22860,78 @@
 			name = vp9_replay_fuzzer;
 			productName = vp9_replay_fuzzer;
 			productReference = 444A6F082AEADFC9005FE121 /* vp9_replay_fuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
+		4460B88C2B155AFD00392062 /* vp8_depacketizer_fuzzer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4460B8952B155AFD00392062 /* Build configuration list for PBXNativeTarget "vp8_depacketizer_fuzzer" */;
+			buildPhases = (
+				4460B88F2B155AFD00392062 /* Headers */,
+				4460B8902B155AFD00392062 /* Sources */,
+				4460B8932B155AFD00392062 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4460B88D2B155AFD00392062 /* PBXTargetDependency */,
+			);
+			name = vp8_depacketizer_fuzzer;
+			productName = vp8_depacketizer_fuzzer;
+			productReference = 4460B8992B155AFD00392062 /* vp8_depacketizer_fuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
+		4460B89B2B155B2E00392062 /* vp9_depacketizer_fuzzer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4460B8A42B155B2E00392062 /* Build configuration list for PBXNativeTarget "vp9_depacketizer_fuzzer" */;
+			buildPhases = (
+				4460B89E2B155B2E00392062 /* Headers */,
+				4460B89F2B155B2E00392062 /* Sources */,
+				4460B8A22B155B2E00392062 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4460B89C2B155B2E00392062 /* PBXTargetDependency */,
+			);
+			name = vp9_depacketizer_fuzzer;
+			productName = vp9_depacketizer_fuzzer;
+			productReference = 4460B8A82B155B2E00392062 /* vp9_depacketizer_fuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
+		4460B8AA2B155B4E00392062 /* vp8_qp_parser_fuzzer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4460B8B32B155B4E00392062 /* Build configuration list for PBXNativeTarget "vp8_qp_parser_fuzzer" */;
+			buildPhases = (
+				4460B8AD2B155B4E00392062 /* Headers */,
+				4460B8AE2B155B4E00392062 /* Sources */,
+				4460B8B12B155B4E00392062 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4460B8AB2B155B4E00392062 /* PBXTargetDependency */,
+			);
+			name = vp8_qp_parser_fuzzer;
+			productName = vp8_qp_parser_fuzzer;
+			productReference = 4460B8B72B155B4E00392062 /* vp8_qp_parser_fuzzer */;
+			productType = "com.apple.product-type.tool";
+		};
+		4460B8B92B155B6A00392062 /* vp9_qp_parser_fuzzer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4460B8C22B155B6A00392062 /* Build configuration list for PBXNativeTarget "vp9_qp_parser_fuzzer" */;
+			buildPhases = (
+				4460B8BC2B155B6A00392062 /* Headers */,
+				4460B8BD2B155B6A00392062 /* Sources */,
+				4460B8C02B155B6A00392062 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4460B8BA2B155B6A00392062 /* PBXTargetDependency */,
+			);
+			name = vp9_qp_parser_fuzzer;
+			productName = vp9_qp_parser_fuzzer;
+			productReference = 4460B8C62B155B6A00392062 /* vp9_qp_parser_fuzzer */;
 			productType = "com.apple.product-type.tool";
 		};
 		446359B62AEA108C00551EEE /* vp8_replay_fuzzer */ = {
@@ -23013,8 +23304,12 @@
 				449467A22AE05C9600A9FED0 /* rtp_packetizer_av1_fuzzer */,
 				44ABBE882AC63F0C006B44DD /* sdp_integration_fuzzer */,
 				448D48332AB0BDB00065014C /* vp8_dec_fuzzer */,
+				4460B88C2B155AFD00392062 /* vp8_depacketizer_fuzzer */,
+				4460B8AA2B155B4E00392062 /* vp8_qp_parser_fuzzer */,
 				446359B62AEA108C00551EEE /* vp8_replay_fuzzer */,
 				44C20E892AB39FA80046C6A8 /* vp9_dec_fuzzer */,
+				4460B89B2B155B2E00392062 /* vp9_depacketizer_fuzzer */,
+				4460B8B92B155B6A00392062 /* vp9_qp_parser_fuzzer */,
 				444A6EF02AEADFC9005FE121 /* vp9_replay_fuzzer */,
 			);
 		};
@@ -23174,17 +23469,26 @@
 				41CB0A40215C8DC90097B8AA /* fwd_txfm_ssse3_x86_64.asm in Sources */,
 				4175EA0B216596DD00B46390 /* gen_scalers.c in Sources */,
 				41EED7842152ED8E000F2A16 /* hadamard_neon.c in Sources */,
+				419BA9C42B15F3C000E0D825 /* highbd_idct16x16_add_neon.c in Sources */,
 				41B675B7216599A80040A75D /* highbd_idct16x16_add_sse2.c in Sources */,
 				4140361824AA2B9700BCE9B2 /* highbd_idct16x16_add_sse4.c in Sources */,
+				419BA9C52B15F90800E0D825 /* highbd_idct32x32_1024_add_neon.c in Sources */,
+				419BA9C22B15F3B800E0D825 /* highbd_idct32x32_135_add_neon.c in Sources */,
+				419BA9C12B15F3B300E0D825 /* highbd_idct32x32_34_add_neon.c in Sources */,
+				419BA9C02B15F3B000E0D825 /* highbd_idct32x32_add_neon.c in Sources */,
 				41B675B9216599A80040A75D /* highbd_idct32x32_add_sse2.c in Sources */,
 				4140362024AA2EB500BCE9B2 /* highbd_idct32x32_add_sse4.c in Sources */,
+				419BA9BF2B15F3AB00E0D825 /* highbd_idct4x4_add_neon.c in Sources */,
 				41B675BB216599A80040A75D /* highbd_idct4x4_add_sse2.c in Sources */,
 				4140361F24AA2E9000BCE9B2 /* highbd_idct4x4_add_sse4.c in Sources */,
+				419BA9BE2B15F3A800E0D825 /* highbd_idct8x8_add_neon.c in Sources */,
 				41B675BD216599A80040A75D /* highbd_idct8x8_add_sse2.c in Sources */,
 				4140361924AA2BB100BCE9B2 /* highbd_idct8x8_add_sse4.c in Sources */,
 				41B675BF216599A80040A75D /* highbd_intrapred_intrin_sse2.c in Sources */,
 				41B675C0216599A80040A75D /* highbd_intrapred_intrin_ssse3.c in Sources */,
+				419BA9BB2B15F38A00E0D825 /* highbd_intrapred_neon.c in Sources */,
 				41CB0A30215C8DAB0097B8AA /* highbd_intrapred_sse2.asm in Sources */,
+				419BA9BC2B15F39800E0D825 /* highbd_loopfilter_neon.c in Sources */,
 				41B675C1216599A80040A75D /* highbd_loopfilter_sse2.c in Sources */,
 				41B675C2216599A80040A75D /* highbd_quantize_intrin_sse2.c in Sources */,
 				41CB0A42215C8DC90097B8AA /* highbd_sad4d_sse2.asm in Sources */,
@@ -23193,6 +23497,10 @@
 				4140378824AA32DC00BCE9B2 /* highbd_temporal_filter_sse4.c in Sources */,
 				41CB0A44215C8DC90097B8AA /* highbd_variance_impl_sse2.asm in Sources */,
 				41B675C3216599A80040A75D /* highbd_variance_sse2.c in Sources */,
+				419BA9B52B15F30F00E0D825 /* highbd_vpx_convolve8_neon.c in Sources */,
+				419BA9B92B15F36000E0D825 /* highbd_vpx_convolve_avg_neon.c in Sources */,
+				419BA9B72B15F35200E0D825 /* highbd_vpx_convolve_copy_neon.c in Sources */,
+				419BA9BA2B15F36600E0D825 /* highbd_vpx_convolve_neon.c in Sources */,
 				41EED79B2152ED8E000F2A16 /* idct16x16_1_add_neon.c in Sources */,
 				41EED79C2152ED8E000F2A16 /* idct16x16_add_neon.c in Sources */,
 				41EED79F2152ED8E000F2A16 /* idct32x32_135_add_neon.c in Sources */,
@@ -23356,8 +23664,11 @@
 				414037B524AB359700BCE9B2 /* vp9_frame_scale_neon.c in Sources */,
 				4140378624AA32DC00BCE9B2 /* vp9_frame_scale_ssse3.c in Sources */,
 				4140378724AA32DC00BCE9B2 /* vp9_highbd_block_error_intrin_sse2.c in Sources */,
+				419BA9B32B15F2AD00E0D825 /* vp9_highbd_iht16x16_add_neon.c in Sources */,
 				4140376024AA311500BCE9B2 /* vp9_highbd_iht16x16_add_sse4.c in Sources */,
+				419BA9B42B15F30300E0D825 /* vp9_highbd_iht4x4_add_neon.c in Sources */,
 				4140376124AA311500BCE9B2 /* vp9_highbd_iht4x4_add_sse4.c in Sources */,
+				419BA9B62B15F33100E0D825 /* vp9_highbd_iht8x8_add_neon.c in Sources */,
 				4140376424AA311500BCE9B2 /* vp9_highbd_iht8x8_add_sse4.c in Sources */,
 				4140373D24AA30DA00BCE9B2 /* vp9_idct.c in Sources */,
 				4140376224AA311500BCE9B2 /* vp9_idct_intrin_sse2.c in Sources */,
@@ -23400,7 +23711,7 @@
 				4140369624AA30B600BCE9B2 /* vp9_speed_features.c in Sources */,
 				4140369D24AA30B600BCE9B2 /* vp9_subexp.c in Sources */,
 				414036CD24AA30B700BCE9B2 /* vp9_svc_layercontext.c in Sources */,
-				410BA134257103BF002E2F8A /* vp9_temporal_filter.c in Sources */,
+				41D011582B1639D700B05388 /* vp9_temporal_filter.c in Sources */,
 				4140373C24AA30DA00BCE9B2 /* vp9_thread_common.c in Sources */,
 				4140374C24AA30DA00BCE9B2 /* vp9_tile_common.c in Sources */,
 				414036CA24AA30B700BCE9B2 /* vp9_tokenize.c in Sources */,
@@ -23524,6 +23835,42 @@
 				444A6EF82AEADFC9005FE121 /* video_renderer_mac.mm in Sources */,
 				444A6F092AEADFD8005FE121 /* vp9_replay_fuzzer.cc in Sources */,
 				444A6EFE2AEADFC9005FE121 /* webrtc_fuzzer_main.cc in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4460B8902B155AFD00392062 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4460B89A2B155B1100392062 /* vp8_depacketizer_fuzzer.cc in Sources */,
+				4460B8922B155AFD00392062 /* webrtc_fuzzer_main.cc in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4460B89F2B155B2E00392062 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4460B8A92B155B3E00392062 /* vp9_depacketizer_fuzzer.cc in Sources */,
+				4460B8A12B155B2E00392062 /* webrtc_fuzzer_main.cc in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4460B8AE2B155B4E00392062 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4460B8B82B155B5C00392062 /* vp8_qp_parser_fuzzer.cc in Sources */,
+				4460B8B02B155B4E00392062 /* webrtc_fuzzer_main.cc in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4460B8BD2B155B6A00392062 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4460B8C72B155B7700392062 /* vp9_qp_parser_fuzzer.cc in Sources */,
+				4460B8BF2B155B6A00392062 /* webrtc_fuzzer_main.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -25247,6 +25594,7 @@
 				413E67652169854600EF37ED /* RTCVideoEncoderVP8.mm in Sources */,
 				414035ED24AA0EBC00BCE9B2 /* RTCVideoEncoderVP9.mm in Sources */,
 				413E6790216987DB00EF37ED /* RTCVideoFrame.mm in Sources */,
+				4191FD472B0E63040067312B /* RTCVideoFrameReorderQueue.mm in Sources */,
 				41CDC66D28F6FC2C00603E59 /* RTCWrappedNativeVideoDecoder.mm in Sources */,
 				413E676D2169854B00EF37ED /* RTCWrappedNativeVideoEncoder.mm in Sources */,
 				41D6B45921273159008F9353 /* rtp_bitrate_configurator.cc in Sources */,
@@ -25645,6 +25993,46 @@
 			target = 444A6EF02AEADFC9005FE121 /* vp9_replay_fuzzer */;
 			targetProxy = 444A6F0B2AEAE064005FE121 /* PBXContainerItemProxy */;
 		};
+		4460B88D2B155AFD00392062 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FB39D0D01200F0E300088E69 /* libwebrtc */;
+			targetProxy = 4460B88E2B155AFD00392062 /* PBXContainerItemProxy */;
+		};
+		4460B89C2B155B2E00392062 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FB39D0D01200F0E300088E69 /* libwebrtc */;
+			targetProxy = 4460B89D2B155B2E00392062 /* PBXContainerItemProxy */;
+		};
+		4460B8AB2B155B4E00392062 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FB39D0D01200F0E300088E69 /* libwebrtc */;
+			targetProxy = 4460B8AC2B155B4E00392062 /* PBXContainerItemProxy */;
+		};
+		4460B8BA2B155B6A00392062 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = FB39D0D01200F0E300088E69 /* libwebrtc */;
+			targetProxy = 4460B8BB2B155B6A00392062 /* PBXContainerItemProxy */;
+		};
+		4460B8C92B155B9200392062 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4460B88C2B155AFD00392062 /* vp8_depacketizer_fuzzer */;
+			targetProxy = 4460B8C82B155B9200392062 /* PBXContainerItemProxy */;
+		};
+		4460B8CB2B155B9200392062 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4460B8AA2B155B4E00392062 /* vp8_qp_parser_fuzzer */;
+			targetProxy = 4460B8CA2B155B9200392062 /* PBXContainerItemProxy */;
+		};
+		4460B8CD2B155B9200392062 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4460B89B2B155B2E00392062 /* vp9_depacketizer_fuzzer */;
+			targetProxy = 4460B8CC2B155B9200392062 /* PBXContainerItemProxy */;
+		};
+		4460B8CF2B155B9200392062 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4460B8B92B155B6A00392062 /* vp9_qp_parser_fuzzer */;
+			targetProxy = 4460B8CE2B155B9200392062 /* PBXContainerItemProxy */;
+		};
 		446359C52AEA10F400551EEE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = FB39D0D01200F0E300088E69 /* libwebrtc */;
@@ -25823,6 +26211,102 @@
 		444A6F072AEADFC9005FE121 /* Production */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 444A6F0A2AEAE01D005FE121 /* vp9_replay_fuzzer.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
+		4460B8962B155AFD00392062 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4460B8882B155A8700392062 /* vp8_depacketizer_fuzzer.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		4460B8972B155AFD00392062 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4460B8882B155A8700392062 /* vp8_depacketizer_fuzzer.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		4460B8982B155AFD00392062 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4460B8882B155A8700392062 /* vp8_depacketizer_fuzzer.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
+		4460B8A52B155B2E00392062 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4460B88B2B155A8800392062 /* vp9_depacketizer_fuzzer.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		4460B8A62B155B2E00392062 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4460B88B2B155A8800392062 /* vp9_depacketizer_fuzzer.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		4460B8A72B155B2E00392062 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4460B88B2B155A8800392062 /* vp9_depacketizer_fuzzer.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
+		4460B8B42B155B4E00392062 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4460B8892B155A8700392062 /* vp8_qp_parser_fuzzer.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		4460B8B52B155B4E00392062 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4460B8892B155A8700392062 /* vp8_qp_parser_fuzzer.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		4460B8B62B155B4E00392062 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4460B8892B155A8700392062 /* vp8_qp_parser_fuzzer.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Production;
+		};
+		4460B8C32B155B6A00392062 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4460B88A2B155A8800392062 /* vp9_qp_parser_fuzzer.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		4460B8C42B155B6A00392062 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4460B88A2B155A8800392062 /* vp9_qp_parser_fuzzer.xcconfig */;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		4460B8C52B155B6A00392062 /* Production */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 4460B88A2B155A8800392062 /* vp9_qp_parser_fuzzer.xcconfig */;
 			buildSettings = {
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -26272,6 +26756,46 @@
 				444A6F052AEADFC9005FE121 /* Debug */,
 				444A6F062AEADFC9005FE121 /* Release */,
 				444A6F072AEADFC9005FE121 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		4460B8952B155AFD00392062 /* Build configuration list for PBXNativeTarget "vp8_depacketizer_fuzzer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4460B8962B155AFD00392062 /* Debug */,
+				4460B8972B155AFD00392062 /* Release */,
+				4460B8982B155AFD00392062 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		4460B8A42B155B2E00392062 /* Build configuration list for PBXNativeTarget "vp9_depacketizer_fuzzer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4460B8A52B155B2E00392062 /* Debug */,
+				4460B8A62B155B2E00392062 /* Release */,
+				4460B8A72B155B2E00392062 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		4460B8B32B155B4E00392062 /* Build configuration list for PBXNativeTarget "vp8_qp_parser_fuzzer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4460B8B42B155B4E00392062 /* Debug */,
+				4460B8B52B155B4E00392062 /* Release */,
+				4460B8B62B155B4E00392062 /* Production */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Production;
+		};
+		4460B8C22B155B6A00392062 /* Build configuration list for PBXNativeTarget "vp9_qp_parser_fuzzer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4460B8C32B155B6A00392062 /* Debug */,
+				4460B8C42B155B6A00392062 /* Release */,
+				4460B8C52B155B6A00392062 /* Production */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Production;

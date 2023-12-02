@@ -58,10 +58,9 @@ class VideoTrackList;
 class WebCoreOpaqueRoot;
 
 class SourceBuffer
-    : public RefCounted<SourceBuffer>
+    : public SourceBufferPrivateClient
     , public ActiveDOMObject
     , public EventTarget
-    , private SourceBufferPrivateClient
     , private AudioTrackClient
     , private VideoTrackClient
     , private TextTrackClient
@@ -118,8 +117,8 @@ public:
     // EventTarget
     ScriptExecutionContext* scriptExecutionContext() const final { return ActiveDOMObject::scriptExecutionContext(); }
 
-    using RefCounted::ref;
-    using RefCounted::deref;
+    using SourceBufferPrivateClient::ref;
+    using SourceBufferPrivateClient::deref;
 
     Document& document() const;
     enum class AppendMode { Segments, Sequence };
@@ -217,10 +216,10 @@ private:
 
     friend class Internals;
     using SamplesPromise = NativePromise<Vector<String>, int>;
-    WEBCORE_EXPORT Ref<SamplesPromise> bufferedSamplesForTrackId(const AtomString&);
-    WEBCORE_EXPORT Ref<SamplesPromise> enqueuedSamplesForTrackID(const AtomString&);
-    WEBCORE_EXPORT MediaTime minimumUpcomingPresentationTimeForTrackID(const AtomString&);
-    WEBCORE_EXPORT void setMaximumQueueDepthForTrackID(const AtomString&, uint64_t);
+    WEBCORE_EXPORT Ref<SamplesPromise> bufferedSamplesForTrackId(TrackID);
+    WEBCORE_EXPORT Ref<SamplesPromise> enqueuedSamplesForTrackID(TrackID);
+    WEBCORE_EXPORT MediaTime minimumUpcomingPresentationTimeForTrackID(TrackID);
+    WEBCORE_EXPORT void setMaximumQueueDepthForTrackID(TrackID, uint64_t);
 
     Ref<SourceBufferPrivate> m_private;
     MediaSource* m_source;

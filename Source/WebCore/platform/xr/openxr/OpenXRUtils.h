@@ -25,11 +25,8 @@
 // EGL symbols required by openxr_platform.h
 #if USE(LIBEPOXY)
 #define __GBM__ 1
-#include "EpoxyEGL.h"
+#include <epoxy/egl.h>
 #else
-#if PLATFORM(WAYLAND)
-#include <wayland-egl.h>
-#endif
 #include <EGL/egl.h>
 #endif
 

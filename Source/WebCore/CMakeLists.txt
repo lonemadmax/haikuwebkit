@@ -97,9 +97,6 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/css/typedom/numeric"
     "${WEBCORE_DIR}/css/typedom/transform"
     "${WEBCORE_DIR}/cssjit"
-    "${WEBCORE_DIR}/display"
-    "${WEBCORE_DIR}/display/compositing"
-    "${WEBCORE_DIR}/display/css"
     "${WEBCORE_DIR}/dom/messageports"
     "${WEBCORE_DIR}/domjit"
     "${WEBCORE_DIR}/editing"
@@ -314,6 +311,7 @@ set(WebCore_NON_SVG_IDL_FILES
 
     Modules/credentialmanagement/BasicCredential.idl
     Modules/credentialmanagement/CredentialCreationOptions.idl
+    Modules/credentialmanagement/CredentialMediationRequirement.idl
     Modules/credentialmanagement/CredentialRequestOptions.idl
     Modules/credentialmanagement/CredentialsContainer.idl
     Modules/credentialmanagement/Navigator+Credentials.idl

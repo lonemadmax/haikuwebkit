@@ -961,6 +961,7 @@ css/parser/CSSPropertyParser.cpp
 css/parser/CSSPropertyParserHelpers.cpp
 css/parser/CSSPropertyParserWorkerSafe.cpp
 css/parser/CSSSelectorParser.cpp
+css/parser/CSSSelectorParserContext.cpp
 css/parser/CSSSupportsParser.cpp
 css/parser/CSSTokenizer.cpp
 css/parser/CSSTokenizerInputStream.cpp
@@ -1020,26 +1021,6 @@ css/typedom/transform/CSSTransformComponent.cpp
 css/typedom/transform/CSSTransformValue.cpp
 css/typedom/transform/CSSTranslate.cpp
 cssjit/SelectorCompiler.cpp
-display/compositing/DisplayLayerController.cpp
-display/css/DisplayBox.cpp
-display/css/DisplayBoxClip.cpp
-display/css/DisplayBoxDecorationData.cpp
-display/css/DisplayBoxDecorationPainter.cpp
-display/css/DisplayBoxFactory.cpp
-display/css/DisplayBoxModelBox.cpp
-display/css/DisplayBoxPainter.cpp
-display/css/DisplayBoxRareGeometry.cpp
-display/css/DisplayContainerBox.cpp
-display/css/DisplayCSSPainter.cpp
-display/css/DisplayFillLayerImageGeometry.cpp
-display/css/DisplayImageBox.cpp
-display/css/DisplayReplacedBox.cpp
-display/css/DisplayStackingItem.cpp
-display/css/DisplayStyle.cpp
-display/css/DisplayTextBox.cpp
-display/DisplayTree.cpp
-display/DisplayTreeBuilder.cpp
-display/DisplayView.cpp
 dom/AbortController.cpp
 dom/AbortSignal.cpp
 dom/AbstractRange.cpp
@@ -1770,6 +1751,7 @@ layout/integration/inline/LayoutIntegrationInlineContent.cpp
 layout/integration/inline/LayoutIntegrationInlineContentPainter.cpp
 layout/integration/inline/LayoutIntegrationLineLayout.cpp
 layout/integration/inline/LayoutIntegrationPagination.cpp
+layout/integration/inline/LayoutIntegrationBoxGeometryUpdater.cpp
 layout/integration/LayoutIntegrationBoxTree.cpp
 layout/integration/LayoutIntegrationCoverage.cpp
 layout/layouttree/LayoutBox.cpp
@@ -2224,6 +2206,7 @@ platform/encryptedmedia/clearkey/CDMClearKey.cpp
 platform/gamepad/EmptyGamepadProvider.cpp
 platform/gamepad/GamepadConstants.cpp
 platform/gamepad/GamepadProvider.cpp
+platform/graphics/AV1Utilities.cpp
 platform/graphics/AlphaPremultiplication.cpp
 platform/graphics/AnimationFrameRate.cpp
 platform/graphics/BifurcatedGraphicsContext.cpp
@@ -2803,6 +2786,7 @@ rendering/svg/RenderSVGPath.cpp
 rendering/svg/RenderSVGRect.cpp
 rendering/svg/RenderSVGResourceClipper.cpp
 rendering/svg/RenderSVGResourceContainer.cpp
+rendering/svg/RenderSVGResourceMasker.cpp
 rendering/svg/RenderSVGRoot.cpp
 rendering/svg/RenderSVGShape.cpp
 rendering/svg/RenderSVGTSpan.cpp
@@ -3364,6 +3348,7 @@ JSCookieStoreGetOptions.cpp
 JSCookieStoreManager.cpp
 JSCountQueuingStrategy.cpp
 JSCredentialCreationOptions.cpp
+JSCredentialMediationRequirement.cpp
 JSCredentialRequestOptions.cpp
 JSCredentialsContainer.cpp
 JSCrypto.cpp

@@ -25,7 +25,6 @@
 #include "RenderReplaced.h"
 
 #include "BackgroundPainter.h"
-#include "DeprecatedGlobalSettings.h"
 #include "DocumentInlines.h"
 #include "DocumentMarkerController.h"
 #include "ElementRuleCollector.h"
@@ -177,7 +176,7 @@ Color RenderReplaced::calculateHighlightColor() const
         }
     }
 #endif
-    if (DeprecatedGlobalSettings::highlightAPIEnabled()) {
+    if (document().settings().highlightAPIEnabled()) {
         if (auto highlightRegistry = document().highlightRegistryIfExists()) {
             for (auto& highlight : highlightRegistry->map()) {
                 for (auto& highlightRange : highlight.value->highlightRanges()) {
@@ -818,18 +817,20 @@ bool RenderReplaced::isHighlighted(HighlightState state, const RenderHighlight& 
     return false;
 }
 
-LayoutRect RenderReplaced::clippedOverflowRect(const RenderLayerModelObject* repaintContainer, VisibleRectContext context) const
+LayoutRect RenderReplaced::localRectForRepaint() const
 {
     if (isInsideEntirelyHiddenLayer())
         return { };
 
     // The selectionRect can project outside of the overflowRect, so take their union
     // for repainting to avoid selection painting glitches.
-    LayoutRect r = unionRect(localSelectionRect(false), visualOverflowRect());
+    auto overflowRect = unionRect(localSelectionRect(false), visualOverflowRect());
+
     // FIXME: layoutDelta needs to be applied in parts before/after transforms and
     // repaint containers. https://bugs.webkit.org/show_bug.cgi?id=23308
-    r.move(view().frameView().layoutContext().layoutDelta());
-    return computeRect(r, repaintContainer, context);
+    overflowRect.move(view().frameView().layoutContext().layoutDelta());
+
+    return overflowRect;
 }
 
 bool RenderReplaced::isContentLikelyVisibleInViewport()

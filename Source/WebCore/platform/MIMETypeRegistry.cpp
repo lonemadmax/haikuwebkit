@@ -96,9 +96,7 @@ constexpr ComparableCaseFoldingASCIILiteral supportedImageMIMETypeArray[] = {
     "application/x-tiff",
     "application/x-win-bitmap",
 #endif
-#if USE(CG) || ENABLE(APNG)
     "image/apng",
-#endif
 #if HAVE(AVIF) || USE(AVIF)
     "image/avif",
 #endif

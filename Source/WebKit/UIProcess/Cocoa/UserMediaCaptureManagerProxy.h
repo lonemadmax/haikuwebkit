@@ -85,7 +85,7 @@ private:
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
-    using CreateSourceCallback = CompletionHandler<void(WebCore::CaptureSourceError&&, WebCore::RealtimeMediaSourceSettings&&, WebCore::RealtimeMediaSourceCapabilities&&)>;
+    using CreateSourceCallback = CompletionHandler<void(const WebCore::CaptureSourceError&, const WebCore::RealtimeMediaSourceSettings&, const WebCore::RealtimeMediaSourceCapabilities&)>;
     void createMediaSourceForCaptureDeviceWithConstraints(WebCore::RealtimeMediaSourceIdentifier, const WebCore::CaptureDevice& deviceID, WebCore::MediaDeviceHashSalts&&, const WebCore::MediaConstraints&, bool shouldUseGPUProcessRemoteFrames, WebCore::PageIdentifier, CreateSourceCallback&&);
     void startProducingData(WebCore::RealtimeMediaSourceIdentifier);
     void stopProducingData(WebCore::RealtimeMediaSourceIdentifier);
@@ -100,7 +100,7 @@ private:
     using TakePhotoCallback = CompletionHandler<void(Expected<std::pair<Vector<uint8_t>, String>, String>&&)>;
     void takePhoto(WebCore::RealtimeMediaSourceIdentifier, WebCore::PhotoSettings&&, TakePhotoCallback&&);
 
-    using GetPhotoCapabilitiesCallback = CompletionHandler<void(WebCore::PhotoCapabilitiesOrError&&)>;
+    using GetPhotoCapabilitiesCallback = CompletionHandler<void(Expected<WebCore::PhotoCapabilities, String>&&)>;
     void getPhotoCapabilities(WebCore::RealtimeMediaSourceIdentifier, GetPhotoCapabilitiesCallback&&);
 
     using GetPhotoSettingsCallback = CompletionHandler<void(Expected<WebCore::PhotoSettings, String>&&)>;

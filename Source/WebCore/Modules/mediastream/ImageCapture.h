@@ -35,6 +35,10 @@
 #include "PhotoCapabilities.h"
 #include "PhotoSettings.h"
 
+namespace WTF {
+class Logger;
+}
+
 namespace WebCore {
 
 class ImageCapture : public RefCounted<ImageCapture>, public ActiveDOMObject {
@@ -45,22 +49,27 @@ public:
     ~ImageCapture();
 
     void takePhoto(PhotoSettings&&, DOMPromiseDeferred<IDLInterface<Blob>>&&);
-
-    using PhotoCapabilitiesPromise = DOMPromiseDeferred<IDLDictionary<PhotoCapabilities>>;
-    void getPhotoCapabilities(PhotoCapabilitiesPromise&&);
-
-    using PhotoSettingsPromise = DOMPromiseDeferred<IDLDictionary<PhotoSettings>>;
-    void getPhotoSettings(PhotoSettingsPromise&&);
+    void getPhotoCapabilities(DOMPromiseDeferred<IDLDictionary<PhotoCapabilities>>&&);
+    void getPhotoSettings(DOMPromiseDeferred<IDLDictionary<PhotoSettings>>&&);
 
     Ref<MediaStreamTrack> track() const { return m_track; }
 
 private:
     ImageCapture(Document&, Ref<MediaStreamTrack>);
 
+    const Logger& logger() const { return m_logger.get(); }
+    const void* logIdentifier() const { return m_logIdentifier; }
+    const char* logClassName() const { return "ImageCapture"; }
+    WTFLogChannel& logChannel() const;
+
     // ActiveDOMObject API.
     const char* activeDOMObjectName() const final;
 
     Ref<MediaStreamTrack> m_track;
+#if !RELEASE_LOG_DISABLED
+    Ref<const Logger> m_logger;
+    const void* m_logIdentifier;
+#endif
 };
 
 }

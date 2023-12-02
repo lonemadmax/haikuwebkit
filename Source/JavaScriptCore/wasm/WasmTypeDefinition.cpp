@@ -118,8 +118,11 @@ StructType::StructType(FieldType* payload, StructFieldCount fieldCount, const Fi
         const auto& fieldType = fieldTypes[fieldIndex];
         hasRecursiveReference |= isRefWithRecursiveReference(fieldType.type);
         getField(fieldIndex) = fieldType;
+
+        const auto& fieldStorageType = field(fieldIndex).type;
+        currentFieldOffset = WTF::roundUpToMultipleOf(typeAlignmentInBytes(fieldStorageType), currentFieldOffset);
         *offsetOfField(fieldIndex) = currentFieldOffset;
-        currentFieldOffset += typeSizeInBytes(field(fieldIndex).type);
+        currentFieldOffset += typeSizeInBytes(fieldStorageType);
     }
 
     m_instancePayloadSize = WTF::roundUpToMultipleOf<sizeof(uint64_t)>(currentFieldOffset);
@@ -855,7 +858,7 @@ TypeInformation::TypeInformation()
             sig->as<FunctionSignature>()->getReturnType(0) = Types::type;                  \
             if (Types::type.isV128())                                                      \
                 sig->as<FunctionSignature>()->setArgumentsOrResultsIncludeV128(true);      \
-            thunkTypes[linearizeType(TypeKind::type)] = sig.get();                         \
+            thunkTypes[linearizeType(TypeKind::type)] = sig->as<FunctionSignature>();      \
             m_typeSet.add(TypeHash { sig.releaseNonNull() });                              \
         }                                                                                  \
     } while (false);
@@ -866,7 +869,7 @@ TypeInformation::TypeInformation()
     {
         RefPtr<TypeDefinition> sig = TypeDefinition::tryCreateFunctionSignature(0, 0);
         sig->ref();
-        thunkTypes[linearizeType(TypeKind::Void)] = sig.get();
+        thunkTypes[linearizeType(TypeKind::Void)] = sig->as<FunctionSignature>();
         m_typeSet.add(TypeHash { sig.releaseNonNull() });
     }
     m_I64_Void = m_typeSet.template add<FunctionParameterTypes>(FunctionParameterTypes { { Wasm::Types::I64 }, { } }).iterator->key;

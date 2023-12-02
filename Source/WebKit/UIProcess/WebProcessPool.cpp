@@ -448,9 +448,7 @@ void WebProcessPool::networkProcessDidTerminate(NetworkProcessProxy& networkProc
 
 void WebProcessPool::serviceWorkerProcessCrashed(WebProcessProxy& proxy, ProcessTerminationReason reason)
 {
-#if ENABLE(SERVICE_WORKER)
     m_client.serviceWorkerProcessDidCrash(this, proxy.processID(), reason);
-#endif
 }
 
 #if ENABLE(GPU_PROCESS)
@@ -781,11 +779,9 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
         WTFMove(mediaKeyStorageSalt),
         WTFMove(javaScriptConfigurationDirectory),
         WTFMove(javaScriptConfigurationDirectoryExtensionHandle),
-#if ENABLE(TRACKING_PREVENTION)
         websiteDataStore.thirdPartyCookieBlockingMode(),
         m_domainsWithUserInteraction,
         m_domainsWithCrossPageStorageAccessQuirk,
-#endif
 #if ENABLE(ARKIT_INLINE_PREVIEW)
         WTFMove(modelElementCacheDirectory),
         WTFMove(modelElementCacheDirectoryExtensionHandle),
@@ -1074,10 +1070,8 @@ Ref<WebProcessProxy> WebProcessPool::processForRegistrableDomain(WebsiteDataStor
         for (Ref process : m_processes) {
             if (process.ptr() == m_prewarmedProcess.get() || process->isDummyProcessProxy())
                 continue;
-#if ENABLE(SERVICE_WORKER)
             if (process->isRunningServiceWorkers())
                 continue;
-#endif
             if (mustMatchDataStore && process->websiteDataStore() != &websiteDataStore)
                 continue;
             return process;
@@ -1110,6 +1104,11 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
         // But if there is an attempt to create a web page without any specified data store, then we have to create it.
         pageConfiguration->setWebsiteDataStore(WebKit::WebsiteDataStore::defaultDataStore());
     }
+
+#if USE(EXTENSIONKIT)
+    auto manageWebKitProcessesAsExtensions = pageConfiguration->preferences()->store().getBoolValueForKey(WebPreferencesKey::manageWebKitProcessesAsExtensionsKey());
+    AuxiliaryProcessProxy::setManageProcessesAsExtensions(manageWebKitProcessesAsExtensions);
+#endif
 
     RefPtr<WebProcessProxy> process;
     auto lockdownMode = pageConfiguration->lockdownModeEnabled() ? WebProcessProxy::LockdownMode::Enabled : WebProcessProxy::LockdownMode::Disabled;
@@ -1532,7 +1531,6 @@ void WebProcessPool::terminateAllWebContentProcesses()
 
 void WebProcessPool::terminateServiceWorkers()
 {
-#if ENABLE(SERVICE_WORKER)
     Ref protectedThis { *this };
     Vector<Ref<WebProcessProxy>> serviceWorkerProcesses;
     remoteWorkerProcesses().forEach([&](auto& process) {
@@ -1541,7 +1539,6 @@ void WebProcessPool::terminateServiceWorkers()
     });
     for (Ref serviceWorkerProcess : serviceWorkerProcesses)
         serviceWorkerProcess->disableRemoteWorkers(RemoteWorkerType::ServiceWorker);
-#endif
 }
 
 void WebProcessPool::updateAutomationCapabilities() const
@@ -1799,10 +1796,8 @@ void WebProcessPool::updateProcessAssertions()
     callOnMainRunLoop([] {
         remoteWorkerProcesses().forEach([](auto& workerProcess) {
             Ref protectedWorkerProcess { workerProcess };
-#if ENABLE(SERVICE_WORKER)
             if (protectedWorkerProcess->isRunningServiceWorkers())
                 protectedWorkerProcess->updateRemoteWorkerProcessAssertion(RemoteWorkerType::ServiceWorker);
-#endif
             if (protectedWorkerProcess->isRunningSharedWorkers())
                 protectedWorkerProcess->updateRemoteWorkerProcessAssertion(RemoteWorkerType::SharedWorker);
         });
@@ -1811,12 +1806,10 @@ void WebProcessPool::updateProcessAssertions()
 
 bool WebProcessPool::isServiceWorkerPageID(WebPageProxyIdentifier pageID) const
 {
-#if ENABLE(SERVICE_WORKER)
     // FIXME: This is inefficient.
     return WTF::anyOf(remoteWorkerProcesses(), [pageID](auto& process) {
         return process.hasServiceWorkerPageProxy(pageID);
     });
-#endif
     return false;
 }
 
@@ -2092,7 +2085,6 @@ void WebProcessPool::clearCurrentModifierStateForTesting()
     sendToAllProcesses(Messages::WebProcess::ClearCurrentModifierStateForTesting());
 }
 
-#if ENABLE(TRACKING_PREVENTION)
 void WebProcessPool::setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&& domains)
 {
     sendToAllProcesses(Messages::WebProcess::SetDomainsWithUserInteraction(domains));
@@ -2129,7 +2121,6 @@ void WebProcessPool::sendResourceLoadStatisticsDataImmediately(CompletionHandler
         process->sendWithAsyncReply(Messages::WebProcess::SendResourceLoadStatisticsDataImmediately(), [callbackAggregator] { });
     }
 }
-#endif
 
 WebProcessWithAudibleMediaToken WebProcessPool::webProcessWithAudibleMediaToken() const
 {
@@ -2232,7 +2223,6 @@ CheckedRef<WebBackForwardCache> WebProcessPool::checkedBackForwardCache()
     return m_backForwardCache.get();
 }
 
-#if ENABLE(SERVICE_WORKER)
 size_t WebProcessPool::serviceWorkerProxiesCount() const
 {
     unsigned count = 0;
@@ -2256,7 +2246,6 @@ bool WebProcessPool::hasServiceWorkerBackgroundActivityForTesting() const
         return process.hasServiceWorkerBackgroundActivityForTesting();
     });
 }
-#endif
 
 #if !PLATFORM(COCOA)
 void addLockdownModeObserver(LockdownModeObserver&)

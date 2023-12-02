@@ -181,7 +181,6 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(WebGLRenderingContextBase);
 
 static constexpr Seconds secondsBetweenRestoreAttempts { 1_s };
 static constexpr int maxGLErrorsAllowedToConsole = 256;
-static constexpr Seconds checkContextLossHandlingDelay { 3_s };
 static constexpr size_t maxActiveContexts = 16;
 static constexpr size_t maxActiveWorkerContexts = 4;
 
@@ -549,11 +548,11 @@ void WebGLRenderingContextBase::initializeContextState()
 
     GCGLint numCombinedTextureImageUnits = m_context->getInteger(GraphicsContextGL::MAX_COMBINED_TEXTURE_IMAGE_UNITS);
     m_textureUnits.clear();
-    m_textureUnits.resize(numCombinedTextureImageUnits);
+    m_textureUnits.grow(numCombinedTextureImageUnits);
 
     GCGLint numVertexAttribs = m_context->getInteger(GraphicsContextGL::MAX_VERTEX_ATTRIBS);
     m_vertexAttribValue.clear();
-    m_vertexAttribValue.resize(numVertexAttribs);
+    m_vertexAttribValue.grow(numVertexAttribs);
 
     m_maxTextureSize = m_context->getInteger(GraphicsContextGL::MAX_TEXTURE_SIZE);
     m_maxTextureLevel = WebGLTexture::computeLevelCount(m_maxTextureSize, m_maxTextureSize);
@@ -4540,8 +4539,8 @@ void WebGLRenderingContextBase::useProgram(WebGLProgram* program)
 
     // Extend the base useProgram method instead of overriding it in
     // WebGL2RenderingContext to keep the preceding validations in the same order.
-    if (isWebGL2()) {
-        if (downcast<WebGL2RenderingContext>(*this).isTransformFeedbackActiveAndNotPaused()) {
+    if (auto* context = dynamicDowncast<WebGL2RenderingContext>(*this)) {
+        if (context->isTransformFeedbackActiveAndNotPaused()) {
             synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "useProgram", "transform feedback is active and not paused");
             return;
         }

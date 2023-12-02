@@ -316,9 +316,7 @@ public:
 
     virtual void willInjectUserScript(DOMWrapperWorld&) { }
 
-#if ENABLE(SERVICE_WORKER)
     virtual void didFinishServiceWorkerPageRegistration(bool success) { UNUSED_PARAM(success); }
-#endif
 
 #if ENABLE(WEB_RTC)
     virtual void dispatchWillStartUsingPeerConnectionHandler(RTCPeerConnectionHandler*) { }
@@ -349,11 +347,9 @@ public:
     virtual void finishedLoadingApplicationManifest(uint64_t, const std::optional<ApplicationManifest>&) { }
 #endif
 
-#if ENABLE(TRACKING_PREVENTION)
     virtual bool hasFrameSpecificStorageAccess() { return false; }
     virtual void didLoadFromRegistrableDomain(RegistrableDomain&&) { }
     virtual Vector<RegistrableDomain> loadedSubresourceDomains() const { return { }; }
-#endif
 
     virtual AllowsContentJavaScript allowsContentJavaScriptFromMostRecentNavigation() const { return AllowsContentJavaScript::Yes; }
 

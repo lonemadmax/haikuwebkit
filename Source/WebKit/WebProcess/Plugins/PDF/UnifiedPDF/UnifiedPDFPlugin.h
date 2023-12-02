@@ -30,14 +30,28 @@
 #include "PDFDocumentLayout.h"
 #include "PDFPluginBase.h"
 #include <WebCore/GraphicsLayer.h>
+#include <wtf/OptionSet.h>
 
 namespace WebKit {
-
 class WebFrame;
+class WebMouseEvent;
 
 class UnifiedPDFPlugin final : public PDFPluginBase, public WebCore::GraphicsLayerClient {
 public:
     static Ref<UnifiedPDFPlugin> create(WebCore::HTMLPlugInElement&);
+
+    enum class PDFElementType : uint16_t {
+        Page       = 1 << 0,
+        Text       = 1 << 1,
+        Annotation = 1 << 2,
+        Link       = 1 << 3,
+        Control    = 1 << 4,
+        TextField  = 1 << 5,
+        Icon       = 1 << 6,
+        Popup      = 1 << 7,
+        Image      = 1 << 8,
+    };
+    using PDFElementTypes = OptionSet<PDFElementType>;
 
 private:
     explicit UnifiedPDFPlugin(WebCore::HTMLPlugInElement&);
@@ -83,11 +97,11 @@ private:
     bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&) override;
     std::tuple<String, PDFSelection *, NSDictionary *> lookupTextAtLocation(const WebCore::FloatPoint&, WebHitTestResultData&) const override;
 
-    RefPtr<ShareableBitmap> snapshot() override;
-
     id accessibilityHitTest(const WebCore::IntPoint&) const override;
     id accessibilityObject() const override;
     id accessibilityAssociatedPluginParentForElement(WebCore::Element*) const override;
+
+    void paint(WebCore::GraphicsContext&, const WebCore::IntRect&) override;
 
     // GraphicsLayerClient
     void notifyFlushRequired(const GraphicsLayer*) override;
@@ -118,6 +132,8 @@ private:
 #endif
 
     RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(const String& name, GraphicsLayer::Type);
+
+    PDFElementTypes pdfElementTypesForPluginPoint(const WebCore::IntPoint&) const;
 
     PDFDocumentLayout m_documentLayout;
     RefPtr<WebCore::GraphicsLayer> m_rootLayer;

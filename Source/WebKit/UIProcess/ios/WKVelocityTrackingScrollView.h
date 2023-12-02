@@ -27,9 +27,9 @@
 
 #if PLATFORM(IOS_FAMILY)
 
-#import <UIKit/UIKit.h>
+#import "WKAxisLockingScrollView.h"
 
-@interface WKVelocityTrackingScrollView : UIScrollView
+@interface WKVelocityTrackingScrollView : WKAxisLockingScrollView
 
 - (void)updateInteractiveScrollVelocity;
 

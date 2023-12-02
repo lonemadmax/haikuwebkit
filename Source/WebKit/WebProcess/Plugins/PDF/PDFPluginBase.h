@@ -92,6 +92,8 @@ public:
 
     virtual bool isComposited() const { return false; }
 
+    virtual bool shouldCreateTransientPaintingSnapshot() const { return false; }
+    virtual RefPtr<ShareableBitmap> snapshot() { return nullptr; }
     virtual void paint(WebCore::GraphicsContext&, const WebCore::IntRect&) { }
 
     virtual CGFloat scaleFactor() const = 0;
@@ -129,8 +131,6 @@ public:
     virtual bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&) = 0;
     virtual std::tuple<String, PDFSelection *, NSDictionary *> lookupTextAtLocation(const WebCore::FloatPoint&, WebHitTestResultData&) const = 0;
 
-    virtual RefPtr<ShareableBitmap> snapshot() = 0;
-
     virtual id accessibilityHitTest(const WebCore::IntPoint&) const = 0;
     virtual id accessibilityObject() const = 0;
     virtual id accessibilityAssociatedPluginParentForElement(WebCore::Element*) const = 0;
@@ -145,13 +145,10 @@ public:
     void streamDidFinishLoading();
     void streamDidFail();
 
-    // FIXME: Rationalize these (both names and behavior).
     WebCore::IntPoint convertFromRootViewToPlugin(const WebCore::IntPoint&) const;
-    WebCore::IntPoint convertFromPluginToPDFView(const WebCore::IntPoint&) const;
-    WebCore::IntPoint convertFromPDFViewToRootView(const WebCore::IntPoint&) const;
-    WebCore::IntRect convertFromPDFViewToRootView(const WebCore::IntRect&) const;
-    WebCore::IntPoint convertFromRootViewToPDFView(const WebCore::IntPoint&) const;
-    WebCore::FloatRect convertFromPDFViewToScreen(const WebCore::FloatRect&) const;
+    WebCore::IntRect convertFromRootViewToPlugin(const WebCore::IntRect&) const;
+    WebCore::IntPoint convertFromPluginToRootView(const WebCore::IntPoint&) const;
+    WebCore::IntRect convertFromPluginToRootView(const WebCore::IntRect&) const;
     WebCore::IntRect boundsOnScreen() const;
 
     WebCore::ScrollPosition scrollPositionForTesting() const { return scrollPosition(); }
@@ -227,7 +224,7 @@ protected:
     // HUD.
 #if ENABLE(PDF_HUD)
     void updatePDFHUDLocation();
-    WebCore::IntRect frameForHUD() const;
+    WebCore::IntRect frameForHUDInRootViewCoordinates() const;
     bool hudEnabled() const;
 #endif
 

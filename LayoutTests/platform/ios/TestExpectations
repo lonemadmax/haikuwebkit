@@ -133,6 +133,7 @@ fast/events/wheel [ Skip ]
 fast/scrolling/iframe-scrollable-after-back.html [ Skip ]
 fast/scrolling/overflow-scrollable-after-back.html [ Skip ]
 fast/scrolling/programmatic-scroll-to-zero-zero.html [ Skip ]
+http/tests/site-isolation/wheel-event-coordinates.html [ Skip ]
 
 # This test requires alpha-channel video support.
 compositing/video/video-background-color.html [ WontFix ]
@@ -4574,6 +4575,7 @@ webkit.org/b/257904 http/tests/site-isolation/basic-iframe.html [ Skip ]
 webkit.org/b/257904 http/tests/site-isolation/double-iframe.html [ Skip ]
 webkit.org/b/257904 http/tests/site-isolation/draw-after-navigation.html [ Skip ]
 webkit.org/b/257904 http/tests/site-isolation/selection-focus.html [ Skip ]
+webkit.org/b/257904 http/tests/site-isolation/basic-iframe-render-output.html [ Failure Timeout Pass ]
 
 # This test can't be enabled on iOS until EventSenderProxyIOS::keyDown() is implemented.
 http/tests/site-isolation/key-events.html [ Skip ]
@@ -4617,8 +4619,6 @@ webkit.org/b/263471 fast/forms/ios/keydown-in-hidden-contenteditable-with-inputm
 
 webkit.org/b/263396 css3/color/text.html [ Skip ]
 
-webkit.org/b/265053 imported/w3c/web-platform-tests/css/css-sizing/button-min-width.html [ Failure ]
-
 # webkit.org/b/263439 [ iOS ] Several WPTs using wheel actions are timing out after b243272
 imported/w3c/web-platform-tests/css/css-overscroll-behavior/overscroll-behavior.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-scroll-snap/snap-at-user-scroll-end.html [ Skip ]
@@ -4651,6 +4651,9 @@ imported/w3c/web-platform-tests/uievents/order-of-events/mouse-events/wheel-scro
 
 #rdar://118015813 ([ iOS ]imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-root.html is a flaky text failure (264281))
 imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-root.html [ Pass Failure ]
+
+#rdar://118020922 ([ iOS ] fast/mediastream/video-srcObject-fit-fill.html is a constant text failure (264293))
+fast/mediastream/video-srcObject-fit-fill.html [ Failure ]
 
 # Failing word-break: auto-phrase tests.
 webkit.org/b/257698 imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase/word-break-auto-phrase-004.html [ ImageOnlyFailure ]

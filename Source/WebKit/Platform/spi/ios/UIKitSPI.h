@@ -1263,10 +1263,42 @@ typedef struct {
 
 @protocol UIAsyncTextInputDelegate_Staging<UIAsyncTextInputDelegate>
 - (void)invalidateTextEntryContext; // Added in rdar://118536368.
-- (void)replaceText:(id)sender; // Added in rdar://118307558.
+- (void)deferReplaceTextActionToSystem:(id)sender; // Added in rdar://118307558.
+- (void)provideCandidateUISuggestions:(NSArray<UITextSuggestion*> *)suggestions; // Added in rdar://117914235.
 @end
 
 #endif // HAVE(UI_ASYNC_TEXT_INTERACTION)
+
+@interface UIResponder (Staging_118307086)
+
+- (void)addShortcut:(id)sender;
+- (void)define:(id)sender;
+- (void)promptForReplace:(id)sender;
+- (void)share:(id)sender;
+- (void)translate:(id)sender;
+- (void)transliterateChinese:(id)sender;
+
+#if HAVE(UIFINDINTERACTION)
+- (void)findSelected:(id)sender;
+#endif
+
+@end
+
+#if !defined(UI_SHIFT_KEY_STATE_ENUM)
+
+typedef NS_ENUM(NSInteger, UIShiftKeyState) {
+    UIShiftKeyStateNone = 0,
+    UIShiftKeyStateShifted,
+    UIShiftKeyStateCapsLocked
+};
+
+#endif
+
+@interface UIResponder (Internal)
+- (BOOL)_requiresKeyboardWhenFirstResponder;
+- (BOOL)_requiresKeyboardResetOnReload;
+- (UTF32Char)_characterInRelationToCaretSelection:(int)amount;
+@end
 
 WTF_EXTERN_C_BEGIN
 

@@ -74,6 +74,7 @@ namespace IPC {
 class Decoder;
 class FormDataReference;
 class SharedBufferReference;
+template<typename> struct ConnectionSendSyncResult;
 using DataReference = std::span<const uint8_t>;
 }
 
@@ -177,6 +178,7 @@ enum class PlatformEventModifier : uint8_t;
 enum class PolicyAction : uint8_t;
 enum class ReasonForDismissingAlternativeText : uint8_t;
 enum class ReloadOption : uint8_t;
+enum class RenderAsTextFlag : uint16_t;
 enum class RouteSharingPolicy : uint8_t;
 enum class ScreenOrientationType : uint8_t;
 enum class ScrollGranularity : uint8_t;
@@ -237,6 +239,7 @@ struct MediaPlayerIdentifierType;
 struct MediaSessionIdentifierType;
 struct MediaStreamRequest;
 struct MediaUsageInfo;
+struct MessageWithMessagePorts;
 struct MockWebAuthenticationConfiguration;
 struct NotificationData;
 struct PageIdentifierType;
@@ -314,6 +317,10 @@ OBJC_CLASS _WKRemoteObjectRegistry;
 
 struct WKPageInjectedBundleClientBase;
 struct wpe_view_backend;
+
+#if PLATFORM(WPE)
+typedef struct _WPEView WPEView;
+#endif
 
 namespace WebKit {
 
@@ -455,6 +462,9 @@ struct WebPopupItem;
 struct WebPreferencesStore;
 struct WebSpeechSynthesisVoice;
 struct WebsitePoliciesData;
+#if PLATFORM(WPE) && USE(GBM)
+struct DMABufRendererBufferFormat;
+#endif
 
 enum class ContentAsStringIncludesChildFrames : bool;
 enum class DragControllerAction : uint8_t;
@@ -1099,6 +1109,10 @@ public:
 
 #if PLATFORM(GTK) && HAVE(APP_ACCENT_COLORS)
     void accentColorDidChange();
+#endif
+
+#if PLATFORM(WPE)
+    WPEView* wpeView() const;
 #endif
 
     const std::optional<WebCore::Color>& backgroundColor() const;
@@ -1833,12 +1847,10 @@ public:
     void scheduleFullEditorStateUpdate();
     void dispatchDidUpdateEditorState();
 
-#if ENABLE(TRACKING_PREVENTION)
     void requestStorageAccessConfirm(const WebCore::RegistrableDomain& subFrameDomain, const WebCore::RegistrableDomain& topFrameDomain, WebCore::FrameIdentifier, CompletionHandler<void(bool)>&&);
     void didCommitCrossSiteLoadWithDataTransferFromPrevalentResource();
     void getLoadedSubresourceDomains(CompletionHandler<void(Vector<WebCore::RegistrableDomain>&&)>&&);
     void clearLoadedSubresourceDomains();
-#endif
 
 #if ENABLE(DEVICE_ORIENTATION)
     void shouldAllowDeviceOrientationAndMotionAccess(WebCore::FrameIdentifier, FrameInfoData&&, bool mayPrompt, CompletionHandler<void(WebCore::DeviceOrientationOrMotionPermissionState)>&&);
@@ -1927,6 +1939,7 @@ public:
 #if ENABLE(CONTENT_FILTERING)
     void contentFilterDidBlockLoadForFrameShared(Ref<WebProcessProxy>&&, const WebCore::ContentFilterUnblockHandler&, WebCore::FrameIdentifier);
 #endif
+    void handleMessageShared(const Ref<WebProcessProxy>&, const String& messageName, const WebKit::UserData&);
 
     void dumpPrivateClickMeasurement(CompletionHandler<void(const String&)>&&);
     void clearPrivateClickMeasurement(CompletionHandler<void()>&&);
@@ -2126,11 +2139,7 @@ public:
     bool acceptsFirstMouse(int eventNumber, const WebMouseEvent&);
 #endif
 
-#if ENABLE(SERVICE_WORKER)
     bool isServiceWorkerPage() const { return m_isServiceWorkerPage; }
-#else
-    bool isServiceWorkerPage() const { return false; }
-#endif
 
 #if PLATFORM(IOS_FAMILY)
     void dispatchWheelEventWithoutScrolling(const WebWheelEvent&, CompletionHandler<void(bool)>&&);
@@ -2214,9 +2223,7 @@ public:
 
     void requestCookieConsent(CompletionHandler<void(WebCore::CookieConsentDecisionResult)>&&);
 
-#if ENABLE(SERVICE_WORKER)
     void setServiceWorkerOpenWindowCompletionCallback(CompletionHandler<void(std::optional<WebCore::PageIdentifier>)>&&);
-#endif
 
 #if ENABLE(VIDEO)
     void beginTextRecognitionForVideoInElementFullScreen(WebCore::MediaPlayerIdentifier, WebCore::FloatRect videoBounds);
@@ -2286,13 +2293,15 @@ public:
     OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtectionsPolicies() const { return m_advancedPrivacyProtectionsPolicies; }
 #endif
 
+#if PLATFORM(WPE) && USE(GBM)
+    void preferredBufferFormatsDidChange();
+#endif
+
     WebPageProxyMessageReceiverRegistration& messageReceiverRegistration();
 
 #if HAVE(ESIM_AUTOFILL_SYSTEM_SUPPORT)
     bool shouldAllowAutoFillForCellularIdentifiers() const;
 #endif
-
-    void broadcastFocusedFrameToOtherProcesses(IPC::Connection&, const WebCore::FrameIdentifier&);
 
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
@@ -2544,11 +2553,15 @@ private:
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     void bindAccessibilityTree(const String&);
+    OptionSet<WebCore::PlatformEventModifier> currentStateOfModifierKeys();
 #endif
 
 #if PLATFORM(GTK)
     void showEmojiPicker(const WebCore::IntRect&, CompletionHandler<void(String)>&&);
-    OptionSet<WebCore::PlatformEventModifier> currentStateOfModifierKeys();
+#endif
+
+#if PLATFORM(WPE) && USE(GBM)
+    Vector<DMABufRendererBufferFormat> preferredBufferFormats() const;
 #endif
 
     // Popup Menu.
@@ -2684,7 +2697,7 @@ private:
     void setRenderTreeSize(uint64_t treeSize) { m_renderTreeSize = treeSize; }
 
     void handleWheelEvent(const WebWheelEvent&);
-    void sendWheelEvent(const WebWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>, WebCore::RectEdges<bool> rubberBandableEdges, std::optional<bool> willStartSwipe, bool wasHandledForScrolling);
+    void sendWheelEvent(WebCore::FrameIdentifier, const WebWheelEvent&, OptionSet<WebCore::WheelEventProcessingSteps>, WebCore::RectEdges<bool> rubberBandableEdges, std::optional<bool> willStartSwipe, bool wasHandledForScrolling);
     void handleWheelEventReply(const WebWheelEvent&, WebCore::ScrollingNodeID, std::optional<WebCore::WheelScrollGestureState>, bool wasHandledForScrolling, bool wasHandledByWebProcess);
 
     void cacheWheelEventScrollingAccelerationCurve(const NativeWebWheelEvent&);
@@ -2793,17 +2806,13 @@ private:
 
     void didAttachToRunningProcess();
 
-#if ENABLE(TRACKING_PREVENTION)
     void logFrameNavigation(const WebFrameProxy&, const URL& pageURL, const WebCore::ResourceRequest&, const URL& redirectURL, bool wasPotentiallyInitiatedByUser);
-#endif
 
 #if ENABLE(SPEECH_SYNTHESIS)
     void resetSpeechSynthesizer();
 #endif
 
-#if ENABLE(SERVICE_WORKER)
     void didFinishServiceWorkerPageRegistration(bool success);
-#endif
     void callLoadCompletionHandlersIfNecessary(bool success);
 
 #if PLATFORM(IOS_FAMILY)
@@ -2849,12 +2858,20 @@ private:
 
     void dispatchLoadEventToFrameOwnerElement(WebCore::FrameIdentifier);
 
-    template<typename F> void sendToWebPage(std::optional<WebCore::FrameIdentifier>, F&&);
+    template<typename F> decltype(auto) sendToWebPage(std::optional<WebCore::FrameIdentifier>, F&&);
     template<typename M, typename C> void sendToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&, C&&);
     template<typename M> void sendToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&);
+    template<typename M> IPC::ConnectionSendSyncResult<M> sendSyncToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&);
 
     void sendPreventableTouchEvent(WebCore::FrameIdentifier, const NativeWebTouchEvent&);
     void sendUnpreventableTouchEvent(WebCore::FrameIdentifier, const NativeWebTouchEvent&);
+
+    void broadcastFocusedFrameToOtherProcesses(IPC::Connection&, const WebCore::FrameIdentifier&);
+
+    void closeRemoteFrame(WebCore::FrameIdentifier);
+    void focusRemoteFrame(IPC::Connection&, WebCore::FrameIdentifier);
+    void postMessageToRemote(WebCore::FrameIdentifier source, const String& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData> targetOrigin, const WebCore::MessageWithMessagePorts&);
+    void renderTreeAsText(WebCore::FrameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag>, CompletionHandler<void(String&&)>&&);
 
     struct Internals;
     Internals& internals() { return m_internals; }
@@ -3271,9 +3288,7 @@ private:
 
     bool m_needsFontAttributes { false };
     bool m_mayHaveUniversalFileReadSandboxExtension { false };
-#if ENABLE(SERVICE_WORKER)
     bool m_isServiceWorkerPage { false };
-#endif
 
     std::unique_ptr<ProvisionalPageProxy> m_provisionalPage;
     std::unique_ptr<SuspendedPageProxy> m_suspendedPageKeptToPreventFlashing;

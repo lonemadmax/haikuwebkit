@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 2004-2005 Allan Sandfeld Jensen (kde@carewolf.com)
  * Copyright (C) 2006, 2007 Nicholas Shanks (webkit@nickshanks.com)
- * Copyright (C) 2005-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2023 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
  * Copyright (C) 2007, 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
@@ -32,6 +32,7 @@
 #include "CSSKeyframeRule.h"
 #include "CSSRuleList.h"
 #include "CSSSelector.h"
+#include "CSSSelectorList.h"
 #include "CSSValueKeywords.h"
 #include "CascadeLevel.h"
 #include "ContainerQueryEvaluator.h"
@@ -430,7 +431,7 @@ void ElementRuleCollector::matchUARules()
 void ElementRuleCollector::matchUARules(const RuleSet& rules)
 {
     clearMatchedRules();
-    
+
     collectMatchingRules(MatchRequest(rules));
 
     sortAndTransferMatchedRules(DeclarationOrigin::UserAgent);
@@ -489,10 +490,10 @@ inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned
     SelectorChecker::CheckingContext context(m_mode);
     context.pseudoId = m_pseudoElementRequest.pseudoId;
     context.scrollbarState = m_pseudoElementRequest.scrollbarState;
-    context.nameForHightlightPseudoElement = m_pseudoElementRequest.highlightName;
+    context.nameIdentifier = m_pseudoElementRequest.nameIdentifier;
     context.styleScopeOrdinal = styleScopeOrdinal;
     context.selectorMatchingState = m_selectorMatchingState;
-    
+
     bool selectorMatches;
 #if ENABLE(CSS_SELECTOR_JIT)
     if (compiledSelector.status == SelectorCompilationStatus::SelectorCheckerWithCheckingContext) {
@@ -539,6 +540,9 @@ void ElementRuleCollector::collectMatchingRulesForList(const RuleSet::RuleDataVe
         if (matchRequest.ruleSet.hasContainerQueries() && !containerQueriesMatch(ruleData, matchRequest))
             continue;
 
+        if (matchRequest.ruleSet.hasScopeRules() && !scopeRulesMatch(ruleData, matchRequest))
+            continue;
+
         auto& rule = ruleData.styleRule();
 
         // If the rule has no properties to apply, then ignore it in the non-debug mode.
@@ -575,6 +579,63 @@ bool ElementRuleCollector::containerQueriesMatch(const RuleData& ruleData, const
         if (!evaluator.evaluate(*query))
             return false;
     }
+    return true;
+}
+
+bool ElementRuleCollector::scopeRulesMatch(const RuleData& ruleData, const MatchRequest& matchRequest)
+{
+    auto scopeRules = matchRequest.ruleSet.scopeRulesFor(ruleData);
+
+    if (scopeRules.isEmpty())
+        return true;
+
+    SelectorChecker checker(element().rootElement()->document());
+    SelectorChecker::CheckingContext context(SelectorChecker::Mode::CollectingRulesIgnoringVirtualPseudoElements);
+
+    auto isWithinScope = [&](auto& rule) {
+        const Element* scopingRoot = nullptr;
+
+        auto ancestorsMatch = [&](const auto& selectorList) {
+            const auto* ancestor = element().parentElement();
+            while (ancestor) {
+                if (ancestor == scopingRoot) {
+                    // The end of the scope has to be a descendant of the start of the scope.
+                    return false;
+                }
+                for (const auto* selector = selectorList.first(); selector; selector = CSSSelectorList::next(selector)) {
+                    auto match = checker.match(*selector, *ancestor, context);
+                    if (match) {
+                        scopingRoot = ancestor;
+                        return true;
+                    }
+                }
+                ancestor = ancestor->parentElement();
+            }
+            return false;
+        };
+
+        const auto& scopeStart = rule->scopeStart();
+        if (!scopeStart.isEmpty()) {
+            if (!ancestorsMatch(scopeStart))
+                return false;
+        }
+
+        const auto& scopeEnd = rule->scopeEnd();
+        if (!scopeEnd.isEmpty()) {
+            if (ancestorsMatch(scopeEnd))
+                return false;
+        }
+
+        // element is in the @scope donut
+        return true;
+    };
+
+    // We need to respect each nested @scope to collect this rule
+    for (auto& rule : scopeRules) {
+        if (!isWithinScope(rule))
+            return false;
+    }
+
     return true;
 }
 
@@ -622,7 +683,7 @@ void ElementRuleCollector::matchAllRules(bool matchAuthorAndUserStyles, bool inc
                 addMatchedProperties({ properties }, DeclarationOrigin::Author);
         }
     }
-    
+
     if (matchAuthorAndUserStyles) {
         clearMatchedRules();
 

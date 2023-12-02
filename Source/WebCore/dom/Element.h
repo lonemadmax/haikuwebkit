@@ -89,6 +89,7 @@ enum class EventHandling : uint8_t;
 enum class EventProcessing : uint8_t;
 enum class FullscreenNavigationUI : uint8_t;
 enum class IsSyntheticClick : bool { No, Yes };
+enum class ParserContentPolicy : uint8_t;
 enum class ResolveURLs : uint8_t { No, NoExcludingURLsForPrivacy, Yes, YesExcludingURLsForPrivacy };
 enum class SelectionRestorationMode : uint8_t;
 
@@ -272,7 +273,6 @@ public:
     WEBCORE_EXPORT ExceptionOr<Ref<Attr>> removeAttributeNode(Attr&);
 
     RefPtr<Attr> attrIfExists(const QualifiedName&);
-    RefPtr<Attr> attrIfExists(const AtomString& localName, bool shouldIgnoreAttributeCase);
     Ref<Attr> ensureAttr(const QualifiedName&);
 
     const Vector<RefPtr<Attr>>& attrNodeList();
@@ -483,6 +483,8 @@ public:
     virtual void updateFocusAppearance(SelectionRestorationMode, SelectionRevealMode = SelectionRevealMode::Reveal);
     virtual void blur();
     virtual void runFocusingStepsForAutofocus();
+
+    ExceptionOr<void> setHTMLUnsafe(const String&);
 
     WEBCORE_EXPORT String innerHTML() const;
     WEBCORE_EXPORT String outerHTML() const;
@@ -696,6 +698,7 @@ public:
     // custom (not style based) renderers. This is expensive and should be avoided.
     // Elements newly added to the tree are also in this state.
     void invalidateStyleAndRenderersForSubtree();
+    void invalidateRenderer();
 
     void invalidateStyleInternal();
     void invalidateStyleForAnimation();
@@ -769,6 +772,8 @@ protected:
     void partAttributeChanged(const AtomString& newValue);
 
     void addShadowRoot(Ref<ShadowRoot>&&);
+
+    ExceptionOr<void> replaceChildrenWithMarkup(const String&, OptionSet<ParserContentPolicy>);
 
     static ExceptionOr<void> mergeWithNextTextNode(Text&);
 
