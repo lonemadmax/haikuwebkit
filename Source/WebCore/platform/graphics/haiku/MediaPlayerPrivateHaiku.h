@@ -40,9 +40,16 @@ namespace WebCore {
 
 class MediaPlayerFactoryHaiku;
 
-class MediaPlayerPrivate : public MediaPlayerPrivateInterface,
-    public CanMakeWeakPtr<MediaPlayerPrivate> {
-    public:
+class MediaPlayerPrivate
+    : public MediaPlayerPrivateInterface
+    , public CanMakeWeakPtr<MediaPlayerPrivate>
+    , public RefCounted<MediaPlayerPrivate>
+{
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    void ref() final { RefCounted::ref(); }
+    void deref() final { RefCounted::deref(); }
+
         friend class MediaPlayerFactoryHaiku;
 
         static void registerMediaEngine(MediaEngineRegistrar);
@@ -90,7 +97,6 @@ class MediaPlayerPrivate : public MediaPlayerPrivateInterface,
         DestinationColorSpace colorSpace() override;
 
     private:
-
         void IdentifyTracks(const String& url);
 
         static void playCallback(void*, void*, size_t,

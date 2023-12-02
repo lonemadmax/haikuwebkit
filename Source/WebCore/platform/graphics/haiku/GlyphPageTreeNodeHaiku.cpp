@@ -32,18 +32,18 @@
 #include "GlyphPage.h"
 
 #include "Font.h"
-#include "../freetype/UTF16UChar32Iterator.h"
 
 
 namespace WebCore {
 
 bool GlyphPage::fill(UChar* buffer, unsigned bufferLength)
 {
-    UTF16UChar32Iterator iterator(buffer, bufferLength);
+    unsigned bufferOffset = 0;
     for (unsigned i = 0;; i++) {
-        UChar32 character = iterator.next();
-        if (character == iterator.end())
+        if (bufferOffset == bufferLength)
             break;
+        char32_t character;
+        U16_NEXT(buffer, bufferOffset, bufferLength, character);
 
         setGlyphForIndex(i, character, ColorGlyphType::Outline);
     }

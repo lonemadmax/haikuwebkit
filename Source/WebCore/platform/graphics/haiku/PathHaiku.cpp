@@ -126,7 +126,10 @@ public:
     {
         prepareHitTest(x, y);
 
+        int32 oldRule = m_view->FillRule();
+        m_view->SetFillRule(rule == WindRule::EvenOdd ? B_EVEN_ODD : B_NONZERO);
         m_view->FillShape(const_cast<BShape*>(shape));
+        m_view->SetFillRule(oldRule);
 
         return hitTestPixel();
     }
@@ -199,7 +202,7 @@ Ref<PathHaiku> PathHaiku::create()
 Ref<PathHaiku> PathHaiku::create(const PathSegment& segment)
 {
     auto pathHaiku = PathHaiku::create();
-    pathHaiku->appendSegment(segment);
+    pathHaiku->addSegment(segment);
     return pathHaiku;
 }
 
@@ -209,7 +212,7 @@ Ref<PathHaiku> PathHaiku::create(const PathStream& stream)
     auto pathHaiku = PathHaiku::create();
 
     stream.applySegments([&](const PathSegment& segment) {
-        pathHaiku->appendSegment(segment);
+        pathHaiku->addSegment(segment);
     });
 
     return pathHaiku;
@@ -317,59 +320,71 @@ FloatRect PathHaiku::boundingRect() const
     return m_platformPath.Bounds();
 }
 
-void PathHaiku::moveTo(const FloatPoint& p)
+void PathHaiku::add(PathMoveTo p)
 {
-    m_platformPath.MoveTo(p);
+    m_platformPath.MoveTo(p.point);
 }
 
-void PathHaiku::addLineTo(const FloatPoint& p)
+void PathHaiku::add(PathLineTo p)
 {
-    m_platformPath.LineTo(p);
+    m_platformPath.LineTo(p.point);
 }
 
-void PathHaiku::addQuadCurveTo(const FloatPoint& cp, const FloatPoint& p)
+void PathHaiku::add(PathQuadCurveTo p)
 {
-    BPoint control = cp;
+    BPoint control = p.controlPoint;
 
     BPoint points[3];
-    points[0] = control;
+    points[0] = p.controlPoint;
     points[0].x += (control.x - points[0].x) * (2.0 / 3.0);
     points[0].y += (control.y - points[0].y) * (2.0 / 3.0);
 
-    points[1] = p;
+    points[1] = p.endPoint;
     points[1].x += (control.x - points[1].x) * (2.0 / 3.0);
     points[1].y += (control.y - points[1].y) * (2.0 / 3.0);
 
-    points[2] = p;
+    points[2] = p.endPoint;
     m_platformPath.BezierTo(points);
 }
 
-void PathHaiku::addBezierCurveTo(const FloatPoint& cp1, const FloatPoint& cp2, const FloatPoint& p)
+void PathHaiku::add(PathBezierCurveTo p)
 {
     BPoint points[3];
-    points[0] = cp1;
-    points[1] = cp2;
-    points[2] = p;
+    points[0] = p.controlPoint1;
+    points[1] = p.controlPoint2;
+    points[2] = p.endPoint;
     m_platformPath.BezierTo(points);
 }
 
-void PathHaiku::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
+static inline float areaOfTriangleFormedByPoints(const FloatPoint& p1, const FloatPoint& p2, const FloatPoint& p3)
 {
+    return p1.x() * (p2.y() - p3.y()) + p2.x() * (p3.y() - p1.y()) + p3.x() * (p1.y() - p2.y());
+}
+
+void PathHaiku::add(PathArcTo arcTo)
+{
+    // FIXME: Why do we return if the path is empty? Can't a path start with an arc?
     if (isEmpty())
         return;
 
     FloatPoint p0(m_platformPath.CurrentPosition());
 
-    if ((p1.x() == p0.x() && p1.y() == p0.y()) || (p1.x() == p2.x() && p1.y() == p2.y()) || radius == 0.f) {
+    const FloatPoint p1 = arcTo.controlPoint1;
+    const FloatPoint p2 = arcTo.controlPoint2;
+    const float radius = arcTo.radius;
+
+    // Draw only a straight line to p1 if any of the points are equal or the radius is zero
+    // or the points are collinear (triangle that the points form has area of zero value).
+    if ((p1.x() == p0.x() && p1.y() == p0.y()) || (p1.x() == p2.x() && p1.y() == p2.y()) || !radius
+        || !areaOfTriangleFormedByPoints(p0, p1, p2)) {
         m_platformPath.LineTo(p1);
         return;
     }
 
     FloatPoint p1p0((p0.x() - p1.x()), (p0.y() - p1.y()));
     FloatPoint p1p2((p2.x() - p1.x()), (p2.y() - p1.y()));
-    float p1p0_length = sqrtf(p1p0.x() * p1p0.x() + p1p0.y() * p1p0.y());
-    float p1p2_length = sqrtf(p1p2.x() * p1p2.x() + p1p2.y() * p1p2.y());
-
+    float p1p0_length = std::hypot(p1p0.x(), p1p0.y());
+    float p1p2_length = std::hypot(p1p2.x(), p1p2.y());
     double cos_phi = (p1p0.x() * p1p2.x() + p1p0.y() * p1p2.y()) / (p1p0_length * p1p2_length);
     // all points on a line logic
     if (cos_phi == -1) {
@@ -390,7 +405,7 @@ void PathHaiku::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radiu
     FloatPoint t_p1p0((p1.x() + factor_p1p0 * p1p0.x()), (p1.y() + factor_p1p0 * p1p0.y()));
 
     FloatPoint orth_p1p0(p1p0.y(), -p1p0.x());
-    float orth_p1p0_length = sqrt(orth_p1p0.x() * orth_p1p0.x() + orth_p1p0.y() * orth_p1p0.y());
+    float orth_p1p0_length = std::hypot(orth_p1p0.x(), orth_p1p0.y());
     float factor_ra = radius / orth_p1p0_length;
 
     // angle between orth_p1p0 and p1p2 to get the right vector orthographic to p1p0
@@ -423,7 +438,7 @@ void PathHaiku::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radiu
 
     m_platformPath.LineTo(t_p1p0);
 
-    addArc(p, radius, sa, ea, direction);
+    add(PathArc { p, radius, sa, ea, direction });
 }
 
 void PathHaiku::addPath(const PathHaiku&, const AffineTransform&)
@@ -432,35 +447,29 @@ void PathHaiku::addPath(const PathHaiku&, const AffineTransform&)
     notImplemented();
 }
 
-void PathHaiku::closeSubpath()
-{
-    m_platformPath.Close();
-}
-
-void PathHaiku::addArc(const FloatPoint& center, float radius,
-       float startAngleRadiants, float endAngleRadiants, RotationDirection direction)
+void PathHaiku::add(PathArc arc)
 {
     // Compute start and end positions
-    float startX = center.x() + radius * cos(startAngleRadiants);
-    float startY = center.y() + radius * sin(startAngleRadiants);
-    float endX   = center.x() + radius * cos(endAngleRadiants);
-    float endY   = center.y() + radius * sin(endAngleRadiants);
+    float startX = arc.center.x() + arc.radius * cos(arc.startAngle);
+    float startY = arc.center.y() + arc.radius * sin(arc.startAngle);
+    float endX   = arc.center.x() + arc.radius * cos(arc.endAngle);
+    float endY   = arc.center.y() + arc.radius * sin(arc.endAngle);
 
     // Handle special case of ellipse (the code below isn't stable in that case it seems ?)
     if ((int)startX == (int)endX && (int)startY == (int)endY)
     {
-        addEllipseInRect(FloatRect(center.x() - radius, center.y() - radius,
-            radius * 2, radius * 2));
+        add(PathEllipseInRect{FloatRect(arc.center.x() - arc.radius, arc.center.y() - arc.radius,
+            arc.radius * 2, arc.radius * 2)});
         return;
     }
 
     // Decide if we are drawing a "large" arc (more than PI rad)
-    bool large = direction == RotationDirection::Counterclockwise;
-    float coverage = fmodf(endAngleRadiants - startAngleRadiants, 2 * M_PI);
+    bool large = arc.direction == RotationDirection::Counterclockwise;
+    float coverage = fmodf(arc.endAngle - arc.startAngle, 2 * M_PI);
     if (coverage < 0)
         coverage += 2 * M_PI;
     if (coverage >= M_PI)
-        large = direction == RotationDirection::Clockwise;
+        large = arc.direction == RotationDirection::Clockwise;
 
     // Draw the radius or whatever line is needed to get to the start point
     // (or teleport there if there was no previous position)
@@ -470,23 +479,24 @@ void PathHaiku::addArc(const FloatPoint& center, float radius,
         m_platformPath.MoveTo(BPoint(startX, startY));
 
     // And finally, draw the arc itself
-    m_platformPath.ArcTo(radius, radius, startAngleRadiants, large,
-        direction == RotationDirection::Counterclockwise, BPoint(endX, endY));
+    m_platformPath.ArcTo(arc.radius, arc.radius, arc.startAngle, large,
+        arc.direction == RotationDirection::Counterclockwise, BPoint(endX, endY));
 }
 
 
-void PathHaiku::addRect(const FloatRect& r)
+void PathHaiku::add(PathRect r)
 {
-    m_platformPath.MoveTo(BPoint(r.x(), r.y()));
-    m_platformPath.LineTo(BPoint(r.maxX(), r.y()));
-    m_platformPath.LineTo(BPoint(r.maxX(), r.maxY()));
-    m_platformPath.LineTo(BPoint(r.x(), r.maxY()));
+    m_platformPath.MoveTo(BPoint(r.rect.x(), r.rect.y()));
+    m_platformPath.LineTo(BPoint(r.rect.maxX(), r.rect.y()));
+    m_platformPath.LineTo(BPoint(r.rect.maxX(), r.rect.maxY()));
+    m_platformPath.LineTo(BPoint(r.rect.x(), r.rect.maxY()));
     m_platformPath.Close();
 }
 
 
-void PathHaiku::addRoundedRect(FloatRoundedRect const& roundRect, WebCore::PathRoundedRect::Strategy)
+void PathHaiku::add(PathRoundedRect roundedRect)
 {
+    const auto& roundRect = roundedRect.roundedRect;
     const FloatRect& rect = roundRect.rect();
     const FloatSize& topLeft = roundRect.radii().topLeft();
     const FloatSize& topRight = roundRect.radii().topRight();
@@ -538,14 +548,21 @@ void PathHaiku::addRoundedRect(FloatRoundedRect const& roundRect, WebCore::PathR
 }
 
 
-void PathHaiku::addEllipse(const FloatPoint& p, float radiusX, float radiusY, float rotation,
-    float startAngle, float endAngle, RotationDirection direction) {
+void PathHaiku::add(PathCloseSubpath)
+{
+    m_platformPath.Close();
+}
+
+
+void PathHaiku::add(PathEllipse)
+{
     notImplemented();
 }
 
 
-void PathHaiku::addEllipseInRect(const FloatRect& r)
+void PathHaiku::add(PathEllipseInRect ellipseInRect)
 {
+    const auto& r = ellipseInRect.rect;
     BPoint points[3];
     const float radiusH = r.width() / 2;
     const float radiusV = r.height() / 2;

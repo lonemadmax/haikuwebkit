@@ -41,7 +41,6 @@
 #include "DOMPasteAccess.h"
 #include "DataListSuggestionPicker.h"
 #include "DatabaseProvider.h"
-#include "DateTimeChooser.h"
 #include "DiagnosticLoggingClient.h"
 #include "DisplayRefreshMonitorFactory.h"
 #include "DocumentFragment.h"

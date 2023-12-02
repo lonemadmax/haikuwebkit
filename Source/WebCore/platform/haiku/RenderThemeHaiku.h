@@ -49,13 +49,6 @@ public:
     Vector<String, 2> mediaControlsScripts() override;
 #endif
 protected:
-#if !USE(NEW_THEME)
-    bool paintCheckbox(const RenderObject&, const PaintInfo&, const FloatRect&) override;
-    bool paintRadio(const RenderObject&, const PaintInfo&, const FloatRect&) override;
-
-    bool paintButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
-#endif
-
     void adjustTextFieldStyle(RenderStyle&, const Element*) const override;
     bool paintTextField(const RenderObject&, const PaintInfo&, const FloatRect&) override;
 

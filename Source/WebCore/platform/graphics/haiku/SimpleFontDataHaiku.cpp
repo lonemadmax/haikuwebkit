@@ -125,7 +125,7 @@ float Font::platformWidthForGlyph(Glyph glyph) const
     return escapements[0] * m_platformData.font()->Size();
 }
 
-bool Font::platformSupportsCodePoint(UChar32 character, std::optional<UChar32> variation) const
+bool Font::platformSupportsCodePoint(char32_t character, std::optional<char32_t> variation) const
 {
     return variation ? false : glyphForCharacter(character);
 }
