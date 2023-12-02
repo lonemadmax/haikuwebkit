@@ -57,8 +57,6 @@ list(APPEND WebCore_INCLUDE_DIRECTORIES
 )
 
 list(APPEND WebCore_SOURCES
-  bindings/js/ScriptControllerHaiku.cpp
-
   editing/haiku/EditorHaiku.cpp
 
   platform/Cursor.cpp
