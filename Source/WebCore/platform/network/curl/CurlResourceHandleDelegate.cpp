@@ -52,12 +52,10 @@ CurlResourceHandleDelegate::CurlResourceHandleDelegate(ResourceHandle& handle)
 
 void CurlResourceHandleDelegate::ref()
 {
-    m_handle.ref();
 }
 
 void CurlResourceHandleDelegate::deref()
 {
-    m_handle.deref();
 }
 
 bool CurlResourceHandleDelegate::cancelledOrClientless()
