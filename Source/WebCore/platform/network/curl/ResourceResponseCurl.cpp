@@ -34,7 +34,7 @@
 
 namespace WebCore {
 
-bool ResourceResponse::isAppendableHeader(const String &key)
+static bool isAppendableHeader(const String &key)
 {
     static constexpr ASCIILiteral appendableHeaders[] = {
         "access-control-allow-headers"_s,
@@ -138,6 +138,7 @@ String ResourceResponse::platformSuggestedFilename() const
     return contentDisposition.toString();
 }
 
+
 bool ResourceResponse::shouldRedirect()
 {
     auto statusCode = httpStatusCode();
@@ -154,35 +155,6 @@ bool ResourceResponse::shouldRedirect()
     return true;
 }
 
-bool ResourceResponse::isMovedPermanently() const
-{
-    return httpStatusCode() == 301;
-}
-
-bool ResourceResponse::isFound() const
-{
-    return httpStatusCode() == 302;
-}
-
-bool ResourceResponse::isSeeOther() const
-{
-    return httpStatusCode() == 303;
-}
-
-bool ResourceResponse::isNotModified() const
-{
-    return httpStatusCode() == 304;
-}
-
-bool ResourceResponse::isUnauthorized() const
-{
-    return httpStatusCode() == 401;
-}
-
-bool ResourceResponse::isProxyAuthenticationRequired() const
-{
-    return httpStatusCode() == 407;
-}
 
 }
 
