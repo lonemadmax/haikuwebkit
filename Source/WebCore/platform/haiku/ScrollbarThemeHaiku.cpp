@@ -131,8 +131,12 @@ void ScrollbarThemeHaiku::paintScrollCorner(ScrollableArea& scrollArea, Graphics
     if (rect.width() == 0 || rect.height() == 0)
         return;
 
-    BRect drawRect = BRect(rect);
     BView* view = context.platformContext();
+    if (view == nullptr)
+        return;
+
+    BRect drawRect = BRect(rect);
+
     view->PushState();
     rgb_color base = colorForScrollbar(B_CONTROL_BACKGROUND_COLOR,
         scrollArea.useDarkAppearanceForScrollbars());
@@ -154,11 +158,13 @@ void ScrollbarThemeHaiku::paintScrollbarBackground(GraphicsContext& context, Scr
 {
     if (!be_control_look)
         return;
+    BView* view = context.platformContext();
+    if (!view)
+        return;
 
     rgb_color base = colorForScrollbar(B_CONTROL_BACKGROUND_COLOR,
         scrollbar.scrollableArea().useDarkAppearanceForScrollbars());
     BRect rect = trackRect(scrollbar, false);
-    BView* view = context.platformContext();
     view->SetHighColor(tint_color(base, B_DARKEN_2_TINT));
 
     enum orientation orientation;
@@ -191,13 +197,15 @@ void ScrollbarThemeHaiku::paintButton(GraphicsContext& context, Scrollbar& scrol
 {
     if (!be_control_look)
         return;
+    BView* view = context.platformContext();
+    if (!view)
+        return;
 
     BRect rect = BRect(intRect);
     rect.right++;
     rect.bottom++;
 
-    BView* view = context.platformContext();
-       bool down = scrollbar.pressedPart() == part;
+    bool down = scrollbar.pressedPart() == part;
 
     rgb_color base = colorForScrollbar(B_CONTROL_BACKGROUND_COLOR,
         scrollbar.scrollableArea().useDarkAppearanceForScrollbars());
@@ -237,9 +245,11 @@ void ScrollbarThemeHaiku::paintThumb(GraphicsContext& context, Scrollbar& scroll
 {
     if (!be_control_look)
         return;
+    BView* view = context.platformContext();
+    if (!view)
+        return;
 
     BRect drawRect = BRect(rect);
-    BView* view = context.platformContext();
     rgb_color base = colorForScrollbar(B_SCROLL_BAR_THUMB_COLOR,
         scrollbar.scrollableArea().useDarkAppearanceForScrollbars());
     rgb_color dark2 = tint_color(base, B_DARKEN_2_TINT);
