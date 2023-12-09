@@ -66,11 +66,10 @@ public:
     void removeSourceBuffer(WebCore::SourceBufferPrivate&) final { }
     void notifyActiveSourceBuffersChanged() final { };
     void durationChanged(const MediaTime&) final;
-    void bufferedChanged(const WebCore::PlatformTimeRanges&) final;
     void markEndOfStream(EndOfStreamStatus) final;
     void unmarkEndOfStream() final;
-    WebCore::MediaPlayer::ReadyState readyState() const final;
-    void setReadyState(WebCore::MediaPlayer::ReadyState) final;
+    WebCore::MediaPlayer::ReadyState mediaPlayerReadyState() const final;
+    void setMediaPlayerReadyState(WebCore::MediaPlayer::ReadyState) final;
 
     void setTimeFudgeFactor(const MediaTime&) final;
 
@@ -95,6 +94,7 @@ private:
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
     void mediaSourcePrivateShuttingDown(CompletionHandler<void()>&&);
     bool isGPURunning() const { return !m_shutdown && m_gpuProcessConnection.get(); }
+    void bufferedChanged(const WebCore::PlatformTimeRanges&) final;
 
     ThreadSafeWeakPtr<GPUProcessConnection> m_gpuProcessConnection;
     RemoteMediaSourceIdentifier m_identifier;
@@ -102,6 +102,7 @@ private:
     WeakPtr<MediaPlayerPrivateRemote> m_mediaPlayerPrivate;
     Vector<RefPtr<SourceBufferPrivateRemote>> m_sourceBuffers;
     bool m_shutdown { false };
+    WebCore::MediaPlayer::ReadyState m_readyState { WebCore::MediaPlayer::ReadyState::HaveNothing };
 
 #if !RELEASE_LOG_DISABLED
     const char* logClassName() const override { return "MediaSourcePrivateRemote"; }

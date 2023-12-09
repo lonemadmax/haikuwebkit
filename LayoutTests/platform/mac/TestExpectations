@@ -1033,8 +1033,6 @@ webkit.org/b/162668 fast/text/woff2-totalsfntsize.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/140217 http/tests/navigation/forward-and-cancel.html [ Pass Failure ]
 
-webkit.org/b/151469 imported/w3c/web-platform-tests/html/syntax/parsing/template/creating-an-element-for-the-token/template-owner-document.html [ Pass Crash ]
-
 webkit.org/b/153809 transitions/clip-path-transitions.html [ Pass Failure ]
 webkit.org/b/153809 transitions/clip-path-path-transitions.html [ Pass Failure ]
 
@@ -1601,9 +1599,6 @@ webkit.org/b/205403 accessibility/presentation-role-iframe.html [ Pass Failure ]
 # The flakey behavior is that sometimes the AXImage with "circle" AXStaticText child sometimes never becomes part of the AX tree.
 # Full investigation at: https://bugs.webkit.org/show_bug.cgi?id=243407
 webkit.org/b/243407 accessibility/add-children-pseudo-element.html [ Pass Failure ]
-
-# Disabled temporarily since it is causing other tests to fail.
-accessibility/mac/isolated-tree-mode-on-off.html [ Skip ]
 
 # Requires (INLINE_PREDICTIONS)
 accessibility/mac/attributed-string/attributed-string-has-completion-annotation.html [ Skip ]
@@ -2464,10 +2459,6 @@ css3/color-filters/color-filter-caret-color.html [ ImageOnlyFailure ]
 fast/css/caret-color-fallback-to-color.html [ ImageOnlyFailure ]
 fast/css/caret-color-span-inside-editable-parent.html [ ImageOnlyFailure ]
 
-# rdar://111079967 (REGRESSION ( Sonoma ): [ Sonoma ] Two editing/caret/color-span-inside-editabl tests are constant image failures)
-editing/caret/color-span-inside-editable-background.html [ ImageOnlyFailure ]
-editing/caret/color-span-inside-editable.html [ ImageOnlyFailure ]
-
 # Caps lock indicator is disabled on Sonoma, as it is provided by the OS.
 fast/forms/caps-lock-indicator-width.html [ Skip ]
 
@@ -2614,3 +2605,6 @@ inspector/layers/layers-compositing-reasons.html [ Pass Failure ]
 inspector/layers/layers-blending-compositing-reasons.html [ Pass Failure ]
 
 webkit.org/b/265685 [ Sonoma+ ] http/wpt/webcodecs/encoder-task-failing.html [ Failure ]
+
+# webkit.org/b/265834 ASSERTION FAILED with void WebCore::ViewTransition::ca llUpdateCallback() result of multiple tests constant crash
+[ Monterey Ventura Debug ] imported/w3c/web-platform-tests/css/css-view-transitions [ Skip ]

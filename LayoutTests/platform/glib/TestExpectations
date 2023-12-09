@@ -1051,6 +1051,10 @@ webkit.org/b/213699 http/wpt/mediarecorder/MediaRecorder-AV-audio-video-dataavai
 webkit.org/b/218317 media/media-source/media-source-trackid-change.html [ Failure ]
 webkit.org/b/238201 media/media-source/media-mp4-hevc-bframes.html [ Failure ]
 
+# GStreamer doesn't set the track's id to the container's value.
+webkit.org/b/265919 media/track/media-audio-track.html [ Failure ]
+webkit.org/b/265919 media/track/media-source-audio-track.html [ Failure ]
+
 # WebProcess's MemoryPressureHandler are disabled, test is nonfunctional
 media/media-source/media-managedmse-memorypressure.html [ Timeout ]
 media/media-source/media-managedmse-memorypressure-inactive.html [ Timeout ]
@@ -1199,6 +1203,8 @@ imported/w3c/web-platform-tests/webcodecs/audio-encoder.https.any.html [ Pass Du
 
 http/tests/webcodecs/h264-reordering.html [ Failure ]
 http/tests/webcodecs/hevc-reordering.html [ Failure ]
+http/wpt/webcodecs/hevc-decoder-annexb.https.any.html [ Failure ]
+http/wpt/webcodecs/hevc-decoder-annexb.https.any.worker.html [ Failure ]
 
 # This test is flaky crashing with the current GStreamer version of the SDK (1.22), raising a
 # critical warning in GStreamer, but the issue is not happening with GStreamer 1.23. So this test is
@@ -3751,6 +3757,54 @@ webkit.org/b/264680 imported/w3c/web-platform-tests/css/css-position/sticky/posi
 webkit.org/b/264680 media/media-source/media-managedmse-resume-after-stall.html [ Pass Timeout ]
 webkit.org/b/264680 media/video-page-visibility-restriction.html [ Pass Timeout ]
 webkit.org/b/264680 webgl/webgl-visible-after-context-restore.html [ ImageOnlyFailure Pass ]
+
+webkit.org/b/265868 [ Debug ] imported/w3c/web-platform-tests/css/css-view-transitions [ Skip ]
+
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/delete.html?2001-3000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/delete.html?3001-4000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/delete.html?4001-5000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/delete.html?5001-6000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/delete.html?7001-last [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/formatblock.html?2001-3000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/formatblock.html?3001-4000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/forwarddelete.html?1-1000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/forwarddelete.html?1001-2000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/forwarddelete.html?2001-3000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/forwarddelete.html?3001-4000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/forwarddelete.html?4001-5000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/forwarddelete.html?5001-6000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/forwarddelete.html?6001-last [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/indent.html [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/insertlinebreak.html [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/insertorderedlist.html [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/insertparagraph.html?1-1000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/insertparagraph.html?1001-2000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/insertparagraph.html?2001-3000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/insertparagraph.html?3001-4000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/insertparagraph.html?4001-5000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/insertparagraph.html?5001-6000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/insertparagraph.html?6001-last [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/inserttext.html?2001-last [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/insertunorderedlist.html [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/justifycenter.html?1001-2000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/justifycenter.html?2001-3000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/justifycenter.html?3001-4000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/justifycenter.html?4001-5000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/justifycenter.html?5001-6000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/justifyfull.html?1-1000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/justifyright.html?3001-4000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/justifyright.html?4001-last [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/multitest.html?1-1000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/multitest.html?1001-2000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/multitest.html?2001-3000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/multitest.html?3001-4000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/multitest.html?4001-5000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/multitest.html?5001-6000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/multitest.html?6001-7000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/multitest.html?7001-8000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/multitest.html?8001-9000 [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/multitest.html?9001-last [ Slow ]
+webkit.org/b/265942 imported/w3c/web-platform-tests/editing/run/removeformat.html [ Slow ]
 
 # End: Common failures between GTK and WPE.
 

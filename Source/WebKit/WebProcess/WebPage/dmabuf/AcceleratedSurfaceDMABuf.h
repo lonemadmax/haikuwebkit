@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if USE(EGL)
+#if (PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM))) && USE(EGL)
 
 #include "AcceleratedSurface.h"
 
@@ -73,11 +73,11 @@ private:
     void didCreateCompositingRunLoop(WTF::RunLoop&) override;
     void willDestroyCompositingRunLoop() override;
 
-#if PLATFORM(WPE) && USE(GBM)
+#if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)
     void preferredBufferFormatsDidChange() override;
 #endif
 
-    void visibilityDidChange(bool);
+    void visibilityDidChange(bool) override;
 
     AcceleratedSurfaceDMABuf(WebPage&, Client&);
 
@@ -200,4 +200,4 @@ private:
 
 } // namespace WebKit
 
-#endif // USE(EGL)
+#endif // (PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM))) && USE(EGL)

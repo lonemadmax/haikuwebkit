@@ -74,7 +74,6 @@ class HitTestingTransformState;
 class Region;
 class RegionContext;
 class RenderFragmentedFlow;
-class RenderGeometryMap;
 class RenderLayerBacking;
 class RenderLayerCompositor;
 class RenderLayerFilters;
@@ -152,7 +151,7 @@ struct ScrollRectToVisibleOptions {
 
 using ScrollingScope = uint64_t;
 
-class RenderLayer : public CanMakeWeakPtr<RenderLayer>, public CanMakeCheckedPtr {
+class RenderLayer : public CanMakeSingleThreadWeakPtr<RenderLayer>, public CanMakeCheckedPtr {
     WTF_MAKE_ISO_ALLOCATED(RenderLayer);
 public:
     friend class RenderReplica;
@@ -964,13 +963,7 @@ private:
     void setAncestorChainHasSelfPaintingLayerDescendant();
     void dirtyAncestorChainHasSelfPaintingLayerDescendantStatus();
 
-    struct RepaintRects {
-        LayoutRect clippedOverflowRect;
-        LayoutRect outlineBoundsRect;
-    };
-
-
-    std::optional<RepaintRects> repaintRects() const
+    std::optional<RenderObject::RepaintRects> repaintRects() const
     {
         if (m_repaintRectsValid)
             return m_repaintRects;
@@ -978,10 +971,10 @@ private:
         return { };
     }
 
-    void computeRepaintRects(const RenderLayerModelObject* repaintContainer, const RenderGeometryMap* = nullptr);
+    void computeRepaintRects(const RenderLayerModelObject* repaintContainer);
     void computeRepaintRectsIncludingDescendants();
 
-    void setRepaintRects(const RepaintRects&);
+    void setRepaintRects(const RenderObject::RepaintRects&);
     void clearRepaintRects();
 
     LayoutRect clipRectRelativeToAncestor(RenderLayer* ancestor, LayoutSize offsetFromAncestor, const LayoutRect& constrainingRect) const;
@@ -1010,7 +1003,7 @@ private:
     // Returns true if the position changed.
     bool updateLayerPosition(OptionSet<UpdateLayerPositionsFlag>* = nullptr);
 
-    void recursiveUpdateLayerPositions(RenderGeometryMap*, OptionSet<UpdateLayerPositionsFlag>);
+    void recursiveUpdateLayerPositions(OptionSet<UpdateLayerPositionsFlag>);
 
     enum UpdateLayerPositionsAfterScrollFlag {
         IsOverflowScroll                        = 1 << 0,
@@ -1018,7 +1011,7 @@ private:
         HasSeenAncestorWithOverflowClip         = 1 << 2,
         HasChangedAncestor                      = 1 << 3,
     };
-    void recursiveUpdateLayerPositionsAfterScroll(RenderGeometryMap*, OptionSet<UpdateLayerPositionsAfterScrollFlag> = { });
+    void recursiveUpdateLayerPositionsAfterScroll(OptionSet<UpdateLayerPositionsAfterScrollFlag> = { });
 
     RenderLayer* enclosingPaginationLayerInSubtree(const RenderLayer* rootLayer, PaginationInclusionMode) const;
 
@@ -1306,7 +1299,7 @@ private:
     RenderLayer* m_first { nullptr };
     RenderLayer* m_last { nullptr };
 
-    WeakPtr<RenderLayer> m_backingProviderLayer;
+    SingleThreadWeakPtr<RenderLayer> m_backingProviderLayer;
 
     // For layers that establish stacking contexts, m_posZOrderList holds a sorted list of all the
     // descendant layers within the stacking context that have z-indices of 0 or greater
@@ -1319,7 +1312,7 @@ private:
     std::unique_ptr<Vector<RenderLayer*>> m_normalFlowList;
 
     // Only valid if m_repaintRectsValid is set (std::optional<> not used to avoid padding).
-    RepaintRects m_repaintRects;
+    RenderObject::RepaintRects m_repaintRects;
 
     // Our current relative or absolute position offset.
     LayoutSize m_offsetForPosition;
@@ -1341,11 +1334,11 @@ private:
     RenderPtr<RenderReplica> m_reflection;
 
     // Pointer to the enclosing RenderLayer that caused us to be paginated. It is 0 if we are not paginated.
-    WeakPtr<RenderLayer> m_enclosingPaginationLayer;
+    SingleThreadWeakPtr<RenderLayer> m_enclosingPaginationLayer;
 
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
     // Pointer to the enclosing RenderSVGHiddenContainer or RenderSVGResourceContainer, if present.
-    WeakPtr<RenderSVGHiddenContainer> m_enclosingSVGHiddenOrResourceContainer;
+    SingleThreadWeakPtr<RenderSVGHiddenContainer> m_enclosingSVGHiddenOrResourceContainer;
 #endif
 
     IntRect m_blockSelectionGapsBounds;

@@ -997,6 +997,14 @@ void PageClientImpl::didChangeDragCaretRect(const IntRect& previousCaretRect, co
 }
 #endif
 
+void PageClientImpl::performSwitchHapticFeedback()
+{
+#if HAVE(UI_IMPACT_FEEDBACK_GENERATOR)
+    auto feedbackGenerator = adoptNS([[UIImpactFeedbackGenerator alloc] initWithStyle:UIImpactFeedbackStyleLight]);
+    [feedbackGenerator impactOccurred];
+#endif
+}
+
 #if USE(QUICK_LOOK)
 void PageClientImpl::requestPasswordForQuickLookDocument(const String& fileName, WTF::Function<void(const String&)>&& completionHandler)
 {
@@ -1084,9 +1092,9 @@ void PageClientImpl::showMediaControlsContextMenu(FloatRect&& targetFrame, Vecto
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 
 #if HAVE(UISCROLLVIEW_ASYNCHRONOUS_SCROLL_EVENT_HANDLING)
-void PageClientImpl::handleAsynchronousCancelableScrollEvent(UIScrollView *scrollView, UIScrollEvent *scrollEvent, void (^completion)(BOOL handled))
+void PageClientImpl::handleAsynchronousCancelableScrollEvent(WKBaseScrollView *scrollView, UIScrollEvent *scrollEvent, void (^completion)(BOOL handled))
 {
-    [webView() _scrollView:scrollView asynchronouslyHandleScrollEvent:scrollEvent completion:completion];
+    [webView() scrollView:scrollView handleScrollEvent:scrollEvent completion:completion];
 }
 #endif
 

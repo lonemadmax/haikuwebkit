@@ -53,10 +53,16 @@ class CoreIPCURL;
 
 using ObjectValue = std::variant<
     std::nullptr_t,
+#if USE(AVFOUNDATION)
+    CoreIPCAVOutputContext,
+#endif
     CoreIPCArray,
     CoreIPCCFType,
     CoreIPCColor,
 #if ENABLE(DATA_DETECTION)
+#if PLATFORM(MAC)
+    CoreIPCDDActionContext,
+#endif
     CoreIPCDDScannerResult,
 #endif
     CoreIPCData,
@@ -67,6 +73,7 @@ using ObjectValue = std::variant<
     CoreIPCLocale,
     CoreIPCNSValue,
     CoreIPCNumber,
+    CoreIPCPersonNameComponents,
     CoreIPCSecureCoding,
     CoreIPCString,
     CoreIPCURL

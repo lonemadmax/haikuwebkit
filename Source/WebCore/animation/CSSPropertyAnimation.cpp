@@ -4036,6 +4036,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         case CSSPropertyAnimationIterationCount:
         case CSSPropertyAnimationName:
         case CSSPropertyAnimationPlayState:
+        case CSSPropertyAnimationTimeline:
         case CSSPropertyAnimationTimingFunction:
         case CSSPropertyAppearance:
         case CSSPropertyBlockStepInsert:
@@ -4137,11 +4138,16 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         case CSSPropertyTextDecorationSkip:
         case CSSPropertyTextUnderlinePosition:
         case CSSPropertyTransition:
+        case CSSPropertyTransitionBehavior:
         case CSSPropertyTransitionDelay:
         case CSSPropertyTransitionDuration:
         case CSSPropertyTransitionProperty:
         case CSSPropertyTransitionTimingFunction:
         case CSSPropertyUnicodeBidi:
+        case CSSPropertyViewTimeline:
+        case CSSPropertyViewTimelineAxis:
+        case CSSPropertyViewTimelineInset: // FIXME: view-timeline-inset should be animabale (bug 265690)
+        case CSSPropertyViewTimelineName:
         case CSSPropertyWillChange:
 #if ENABLE(APPLE_PAY)
         case CSSPropertyApplePayButtonStyle:

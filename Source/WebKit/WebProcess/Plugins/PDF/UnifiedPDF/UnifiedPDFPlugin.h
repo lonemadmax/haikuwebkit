@@ -33,6 +33,8 @@
 #include <wtf/OptionSet.h>
 
 namespace WebKit {
+
+struct PDFContextMenu;
 class WebFrame;
 class WebMouseEvent;
 
@@ -66,6 +68,29 @@ private:
 
     CGFloat scaleFactor() const override;
 
+    void didBeginMagnificationGesture() override;
+    void didEndMagnificationGesture() override;
+    void setPageScaleFactor(double scale, std::optional<WebCore::IntPoint> origin) final;
+
+    /*
+        Unified PDF Plugin coordinate spaces, in depth order:
+
+        - "root view": same as the rest of WebKit.
+
+        - "plugin": the space of the plugin element (origin at the top left,
+            ignoring all internal transforms).
+
+        - "contents": the space of the contents layer, with scrolling subtracted
+            out and page scale multiplied in; the painting space.
+
+        - "document": the space that the PDF pages are laid down in, with
+            PDFDocumentLayout's width-fitting scale divided out; includes margins.
+
+        - "page": the space of each actual PDFPage, as used by PDFKit; origin at
+            the bottom left of the crop box; page rotation multiplied in.
+    */
+
+    WebCore::IntSize documentSize() const;
     WebCore::IntSize contentsSize() const override;
     unsigned firstPageHeight() const override;
 
@@ -89,6 +114,43 @@ private:
     bool handleEditingCommand(StringView commandName) override;
     bool isEditingCommandEnabled(StringView commandName) override;
 
+    enum class ContextMenuItemTag : uint8_t {
+        OpenWithPreview,
+        SinglePage,
+        SinglePageContinuous,
+        TwoPages,
+        TwoPagesContinuous
+    };
+
+#if PLATFORM(MAC)
+    PDFContextMenu createContextMenu(const WebCore::IntPoint& contextMenuPoint) const;
+    void performContextMenuAction(ContextMenuItemTag);
+
+    ContextMenuItemTag contextMenuItemTagFromDisplyMode(const PDFDocumentLayout::DisplayMode& displayMode) const
+    {
+        switch (displayMode) {
+        case PDFDocumentLayout::DisplayMode::SinglePage: return ContextMenuItemTag::SinglePage;
+        case PDFDocumentLayout::DisplayMode::Continuous: return ContextMenuItemTag::SinglePageContinuous;
+        case PDFDocumentLayout::DisplayMode::TwoUp: return ContextMenuItemTag::TwoPages;
+        case PDFDocumentLayout::DisplayMode::TwoUpContinuous: return ContextMenuItemTag::TwoPagesContinuous;
+        }
+    }
+    PDFDocumentLayout::DisplayMode displayModeFromContextMenuItemTag(const ContextMenuItemTag& tag)
+    {
+        ASSERT(tag == ContextMenuItemTag::SinglePage || tag == ContextMenuItemTag::SinglePageContinuous || tag == ContextMenuItemTag::TwoPages || tag == ContextMenuItemTag::TwoPagesContinuous);
+        switch (tag) {
+        case ContextMenuItemTag::SinglePage: return PDFDocumentLayout::DisplayMode::SinglePage;
+        case ContextMenuItemTag::SinglePageContinuous: return PDFDocumentLayout::DisplayMode::Continuous;
+        case ContextMenuItemTag::TwoPages: return PDFDocumentLayout::DisplayMode::TwoUp;
+        case ContextMenuItemTag::TwoPagesContinuous: return PDFDocumentLayout::DisplayMode::TwoUpContinuous;
+        default:
+            ASSERT_NOT_REACHED();
+            return PDFDocumentLayout::DisplayMode::Continuous;
+        }
+    }
+    static constexpr int invalidContextMenuItemTag { -1 };
+#endif
+
     String getSelectionString() const override;
     bool existingSelectionContainsPoint(const WebCore::FloatPoint&) const override;
     WebCore::FloatRect rectForSelectionInRootView(PDFSelection *) const override;
@@ -104,9 +166,10 @@ private:
     void paint(WebCore::GraphicsContext&, const WebCore::IntRect&) override;
 
     // GraphicsLayerClient
-    void notifyFlushRequired(const GraphicsLayer*) override;
+    void notifyFlushRequired(const WebCore::GraphicsLayer*) override;
     void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect&, OptionSet<WebCore::GraphicsLayerPaintBehavior>) override;
     float deviceScaleFactor() const override;
+    float pageScaleFactor() const override;
 
     void updateLayerHierarchy();
 
@@ -121,7 +184,7 @@ private:
     void invalidateScrollbarRect(WebCore::Scrollbar&, const WebCore::IntRect&) override;
     void invalidateScrollCornerRect(const WebCore::IntRect&) override;
     void updateScrollingExtents();
-    ScrollingCoordinator* scrollingCoordinator();
+    WebCore::ScrollingCoordinator* scrollingCoordinator();
 
     // HUD Actions.
 #if ENABLE(PDF_HUD)
@@ -131,9 +194,14 @@ private:
     void openWithPreview(CompletionHandler<void(const String&, FrameInfoData&&, const IPC::DataReference&, const String&)>&&) final;
 #endif
 
-    RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(const String& name, GraphicsLayer::Type);
+    RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(const String& name, WebCore::GraphicsLayer::Type);
 
+    WebCore::IntPoint convertFromPluginToDocument(const WebCore::IntPoint&) const;
+    std::optional<PDFDocumentLayout::PageIndex> nearestPageIndexForDocumentPoint(const WebCore::IntPoint&) const;
+    WebCore::IntPoint convertFromDocumentToPage(const WebCore::IntPoint&, PDFDocumentLayout::PageIndex) const;
     PDFElementTypes pdfElementTypesForPluginPoint(const WebCore::IntPoint&) const;
+
+    bool isTaggedPDF() const;
 
     PDFDocumentLayout m_documentLayout;
     RefPtr<WebCore::GraphicsLayer> m_rootLayer;
@@ -142,6 +210,9 @@ private:
     RefPtr<WebCore::GraphicsLayer> m_contentsLayer;
 
     WebCore::ScrollingNodeID m_scrollingNodeID { 0 };
+
+    float m_scaleFactor { 1 };
+    bool m_inMagnificationGesture { false };
 };
 
 } // namespace WebKit

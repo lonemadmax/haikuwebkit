@@ -154,6 +154,8 @@ enum class ModalContainerControlType : uint8_t;
 enum class ModalContainerDecision : uint8_t;
 enum class RouteSharingPolicy : uint8_t;
 
+enum class DidFilterLinkDecoration : bool { No, Yes };
+
 class ChromeClient {
 public:
     virtual void chromeDestroyed() = 0;
@@ -558,14 +560,17 @@ public:
     virtual void handlePDFServiceClick(const IntPoint&, HTMLAttachmentElement&) { }
 #endif
 
-    virtual URL applyLinkDecorationFiltering(const URL& url, LinkDecorationFilteringTrigger) const { return url; }
+    virtual std::pair<URL, DidFilterLinkDecoration> applyLinkDecorationFilteringWithResult(const URL& url, LinkDecorationFilteringTrigger) const { return { url, DidFilterLinkDecoration::No }; };
+    URL applyLinkDecorationFiltering(const URL& url, LinkDecorationFilteringTrigger trigger) const { return applyLinkDecorationFilteringWithResult(url, trigger).first; }
     virtual URL allowedQueryParametersForAdvancedPrivacyProtections(const URL& url) const { return url; }
 
     virtual bool shouldDispatchFakeMouseMoveEvents() const { return true; }
 
     virtual void handleAutoFillButtonClick(HTMLInputElement&) { }
 
-    virtual void inputElementDidResignStrongPasswordAppearance(HTMLInputElement&) { };
+    virtual void inputElementDidResignStrongPasswordAppearance(HTMLInputElement&) { }
+
+    virtual void performSwitchHapticFeedback() { }
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     virtual void addPlaybackTargetPickerClient(PlaybackTargetClientContextIdentifier) { }

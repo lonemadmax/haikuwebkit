@@ -1174,13 +1174,25 @@ TEST(SiteIsolation, NavigationWithIFrames)
 
     [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://domain1.com/1"]]];
     [navigationDelegate waitForDidFinishNavigation];
+    checkFrameTreesInProcesses(webView.get(), {
+        { "https://domain1.com"_s, { { RemoteFrame } } },
+        { RemoteFrame, { { "https://domain2.com"_s } } }
+    });
 
     [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://domain3.com/3"]]];
     [navigationDelegate waitForDidFinishNavigation];
+    checkFrameTreesInProcesses(webView.get(), {
+        { "https://domain3.com"_s, { { RemoteFrame, { { RemoteFrame } } } } },
+        { RemoteFrame, { { "https://domain4.com"_s, { { RemoteFrame } } } } },
+        { RemoteFrame, { { RemoteFrame, { { "https://domain5.com"_s } } } } }
+    });
 
     [webView goBack];
     [navigationDelegate waitForDidFinishNavigation];
-    // FIXME: Implement CachedFrame for RemoteFrames and verify the page is resumed correctly.
+    checkFrameTreesInProcesses(webView.get(), {
+        { "https://domain1.com"_s, { { RemoteFrame } } },
+        { RemoteFrame, { { "https://domain2.com"_s } } }
+    });
 }
 
 TEST(SiteIsolation, RemoveFrames)
@@ -1636,6 +1648,65 @@ TEST(SiteIsolation, FocusOpenedWindow)
         getUpdatedFrameInfo(opener.webView.get(), opened.webView.get());
     } while (![openedInfo _isFocused]);
     EXPECT_FALSE([openerInfo _isFocused]);
+}
+
+TEST(SiteIsolation, FindStringInFrame)
+{
+    HTTPServer server({
+        { "/mainframe"_s, { "<iframe src='https://domain2.com/subframe'></iframe>"_s } },
+        { "/subframe"_s, { "<p>Hello world</p>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://domain1.com/mainframe"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    auto findConfiguration = adoptNS([[WKFindConfiguration alloc] init]);
+
+    __block bool done = false;
+    [webView findString:@"Hello world" withConfiguration:findConfiguration.get() completionHandler:^(WKFindResult *result) {
+        EXPECT_TRUE(result.matchFound);
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+    done = false;
+
+    [webView findString:@"Missing string" withConfiguration:findConfiguration.get() completionHandler:^(WKFindResult *result) {
+        EXPECT_FALSE(result.matchFound);
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+    done = false;
+}
+
+TEST(SiteIsolation, FindStringInNestedFrame)
+{
+    HTTPServer server({
+        { "/mainframe"_s, { "<iframe src='https://domain2.com/subframe'></iframe>"_s } },
+        { "/subframe"_s, { "<iframe src='https://domain3.com/nested_subframe'></iframe>"_s } },
+        { "/nested_subframe"_s, { "<p>Hello world</p>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://domain1.com/mainframe"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    auto findConfiguration = adoptNS([[WKFindConfiguration alloc] init]);
+
+    __block bool done = false;
+    [webView findString:@"Hello world" withConfiguration:findConfiguration.get() completionHandler:^(WKFindResult *result) {
+        EXPECT_TRUE(result.matchFound);
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+    done = false;
+
+    [webView findString:@"Missing string" withConfiguration:findConfiguration.get() completionHandler:^(WKFindResult *result) {
+        EXPECT_FALSE(result.matchFound);
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+    done = false;
 }
 
 }

@@ -324,6 +324,7 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& win
         false, /* openedByDOMWithOpener */
         navigationAction.newFrameOpenerPolicy() == NewFrameOpenerPolicy::Allow, /* hasOpener */
         { }, /* requesterOrigin */
+        { }, /* requesterTopOrigin */
         std::nullopt, /* targetBackForwardItemIdentifier */
         std::nullopt, /* sourceBackForwardItemIdentifier */
         WebCore::LockHistory::No,
@@ -1562,6 +1563,11 @@ void WebChromeClient::inputElementDidResignStrongPasswordAppearance(HTMLInputEle
     page->send(Messages::WebPageProxy::DidResignInputElementStrongPasswordAppearance { UserData { WebProcess::singleton().transformObjectsToHandles(userData.get()).get() } });
 }
 
+void WebChromeClient::performSwitchHapticFeedback()
+{
+    protectedPage()->send(Messages::WebPageProxy::PerformSwitchHapticFeedback());
+}
+
 #if ENABLE(WIRELESS_PLAYBACK_TARGET) && !PLATFORM(IOS_FAMILY)
 
 void WebChromeClient::addPlaybackTargetPickerClient(PlaybackTargetClientContextIdentifier contextId)
@@ -1695,9 +1701,9 @@ void WebChromeClient::requestTextRecognition(Element& element, TextRecognitionOp
 
 #endif
 
-URL WebChromeClient::applyLinkDecorationFiltering(const URL& url, LinkDecorationFilteringTrigger trigger) const
+std::pair<URL, DidFilterLinkDecoration> WebChromeClient::applyLinkDecorationFilteringWithResult(const URL& url, LinkDecorationFilteringTrigger trigger) const
 {
-    return protectedPage()->applyLinkDecorationFiltering(url, trigger);
+    return protectedPage()->applyLinkDecorationFilteringWithResult(url, trigger);
 }
 
 URL WebChromeClient::allowedQueryParametersForAdvancedPrivacyProtections(const URL& url) const

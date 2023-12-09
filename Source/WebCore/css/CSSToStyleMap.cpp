@@ -39,12 +39,16 @@
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSPropertyParser.h"
 #include "CSSQuadValue.h"
+#include "CSSScrollValue.h"
 #include "CSSTimingFunctionValue.h"
 #include "CSSValueKeywords.h"
+#include "CSSViewValue.h"
 #include "CompositeOperation.h"
 #include "FillLayer.h"
+#include "ScrollTimeline.h"
 #include "StyleBuilderConverter.h"
 #include "StyleResolver.h"
+#include "ViewTimeline.h"
 
 namespace WebCore {
 
@@ -444,6 +448,31 @@ void CSSToStyleMap::mapAnimationProperty(Animation& animation, const CSSValue& v
     animation.setProperty({ Animation::TransitionMode::SingleProperty, primitiveValue->propertyID() });
 }
 
+void CSSToStyleMap::mapAnimationTimeline(Animation& animation, const CSSValue& value)
+{
+    if (treatAsInitialValue(value, CSSPropertyAnimationTimeline))
+        animation.setTimeline(Animation::initialTimeline());
+    else if (auto* viewValue = dynamicDowncast<CSSViewValue>(value))
+        animation.setTimeline(ViewTimeline::createFromCSSValue(*viewValue));
+    else if (auto* scrollValue = dynamicDowncast<CSSScrollValue>(value))
+        animation.setTimeline(ScrollTimeline::createFromCSSValue(*scrollValue));
+    else if (value.isCustomIdent())
+        animation.setTimeline(AtomString(value.customIdent()));
+    else {
+        switch (value.valueID()) {
+        case CSSValueNone:
+            animation.setTimeline(Animation::TimelineKeyword::None);
+            break;
+        case CSSValueAuto:
+            animation.setTimeline(Animation::TimelineKeyword::Auto);
+            break;
+        default:
+            ASSERT_NOT_REACHED();
+            break;
+        }
+    }
+}
+
 void CSSToStyleMap::mapAnimationTimingFunction(Animation& animation, const CSSValue& value)
 {
     if (treatAsInitialValue(value, CSSPropertyAnimationTimingFunction))
@@ -458,6 +487,14 @@ void CSSToStyleMap::mapAnimationCompositeOperation(Animation& animation, const C
         animation.setCompositeOperation(Animation::initialCompositeOperation());
     else if (auto compositeOperation = toCompositeOperation(value))
         animation.setCompositeOperation(*compositeOperation);
+}
+
+void CSSToStyleMap::mapAnimationAllowsDiscreteTransitions(Animation& layer, const CSSValue& value)
+{
+    if (treatAsInitialValue(value, CSSPropertyTransitionBehavior))
+        layer.setAllowsDiscreteTransitions(Animation::initialAllowsDiscreteTransitions());
+    else if (is<CSSPrimitiveValue>(value))
+        layer.setAllowsDiscreteTransitions(value.valueID() == CSSValueAllowDiscrete);
 }
 
 void CSSToStyleMap::mapNinePieceImage(const CSSValue* value, NinePieceImage& image)

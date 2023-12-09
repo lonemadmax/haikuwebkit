@@ -178,6 +178,7 @@ public:
     unsigned numberOfCharacters() const;
     int insertionPointLineNumber();
     JSRetainPtr<JSStringRef> selectedTextRange();
+    JSRetainPtr<JSStringRef> intersectionWithSelectionRange();
     JSRetainPtr<JSStringRef> textInputMarkedRange() const;
     bool isAtomicLiveRegion() const;
     bool isBusy() const;
@@ -420,8 +421,6 @@ public:
     bool hasTextEntryTrait();
     RefPtr<AccessibilityUIElement> fieldsetAncestorElement();
 
-    bool isIsolatedObject() const;
-    
     bool isInsertion() const;
     bool isDeletion() const;
     bool isFirstItemInSuggestion() const;

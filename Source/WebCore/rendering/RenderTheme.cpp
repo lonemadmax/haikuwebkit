@@ -363,6 +363,8 @@ void RenderTheme::adjustStyle(RenderStyle& style, const Element* element, const 
         return adjustSearchFieldResultsDecorationPartStyle(style, element);
     case StyleAppearance::SearchFieldResultsButton:
         return adjustSearchFieldResultsButtonStyle(style, element);
+    case StyleAppearance::Switch:
+        return adjustSwitchStyle(style, element);
     case StyleAppearance::ProgressBar:
         return adjustProgressBarStyle(style, element);
     case StyleAppearance::Meter:
@@ -600,7 +602,8 @@ static void updateSwitchThumbPartForRenderer(SwitchThumbPart& switchThumbPart, c
     auto& input = checkedDowncast<HTMLInputElement>(*renderer.node()->shadowHost());
     ASSERT(input.isSwitch());
 
-    switchThumbPart.setProgress(input.switchCheckedChangeAnimationProgress());
+    switchThumbPart.setIsOn(input.isSwitchVisuallyOn());
+    switchThumbPart.setProgress(input.switchAnimationVisuallyOnProgress());
 }
 
 static void updateSwitchTrackPartForRenderer(SwitchTrackPart& switchTrackPart, const RenderObject& renderer)
@@ -608,7 +611,8 @@ static void updateSwitchTrackPartForRenderer(SwitchTrackPart& switchTrackPart, c
     auto& input = checkedDowncast<HTMLInputElement>(*renderer.node()->shadowHost());
     ASSERT(input.isSwitch());
 
-    switchTrackPart.setProgress(input.switchCheckedChangeAnimationProgress());
+    switchTrackPart.setIsOn(input.isSwitchVisuallyOn());
+    switchTrackPart.setProgress(input.switchAnimationVisuallyOnProgress());
 }
 
 RefPtr<ControlPart> RenderTheme::createControlPart(const RenderObject& renderer) const
@@ -941,6 +945,12 @@ bool RenderTheme::paint(const RenderBox& box, ControlStates& controlStates, cons
         return paintSearchFieldResultsDecorationPart(box, paintInfo, integralSnappedRect);
     case StyleAppearance::SearchFieldResultsButton:
         return paintSearchFieldResultsButton(box, paintInfo, integralSnappedRect);
+    case StyleAppearance::Switch:
+        return true;
+    case StyleAppearance::SwitchThumb:
+        return paintSwitchThumb(box, paintInfo, devicePixelSnappedRect);
+    case StyleAppearance::SwitchTrack:
+        return paintSwitchTrack(box, paintInfo, devicePixelSnappedRect);
 #if ENABLE(SERVICE_CONTROLS)
     case StyleAppearance::ImageControlsButton:
         return paintImageControlsButton(box, paintInfo, integralSnappedRect);
@@ -1310,19 +1320,16 @@ bool RenderTheme::isWindowActive(const RenderObject& renderer) const
 
 bool RenderTheme::isChecked(const RenderObject& renderer) const
 {
-    if (!renderer.node())
-        return false;
-    if (RefPtr element = dynamicDowncast<HTMLInputElement>(*renderer.node()))
-        return element->shouldAppearChecked();
-    if (RefPtr host = dynamicDowncast<HTMLInputElement>(renderer.node()->shadowHost()))
-        return host->shouldAppearChecked();
-    return false;
+    RefPtr element = dynamicDowncast<HTMLInputElement>(renderer.node());
+    return element && element->matchesCheckedPseudoClass();
 }
 
 bool RenderTheme::isIndeterminate(const RenderObject& renderer) const
 {
+    // This does not currently support multiple elements and therefore radio buttons are excluded.
+    // FIXME: However, what about <progress>?
     RefPtr input = dynamicDowncast<HTMLInputElement>(renderer.node());
-    return input && input->shouldAppearIndeterminate();
+    return input && input->isCheckbox() && input->matchesIndeterminatePseudoClass();
 }
 
 bool RenderTheme::isEnabled(const RenderObject& renderer) const
@@ -1565,21 +1572,6 @@ void RenderTheme::paintSliderTicks(const RenderObject& renderer, const PaintInfo
 }
 
 #endif // ENABLE(DATALIST_ELEMENT)
-
-Seconds RenderTheme::animationRepeatIntervalForProgressBar(const RenderProgress&) const
-{
-    return 0_s;
-}
-
-Seconds RenderTheme::animationDurationForProgressBar(const RenderProgress&) const
-{
-    return 0_s;
-}
-
-IntRect RenderTheme::progressBarRectForBounds(const RenderProgress&, const IntRect& bounds) const
-{
-    return bounds;
-}
 
 bool RenderTheme::shouldHaveSpinButton(const HTMLInputElement& inputElement) const
 {

@@ -51,6 +51,7 @@ class Attribute;
 class AttributeIteratorAccessor;
 class CustomElementDefaultARIA;
 class CustomElementReactionQueue;
+class CustomStateSet;
 class DatasetDOMStringMap;
 class DOMRect;
 class DOMRectList;
@@ -527,7 +528,6 @@ public:
     virtual bool matchesDefaultPseudoClass() const;
     WEBCORE_EXPORT ExceptionOr<bool> matches(const String& selectors);
     WEBCORE_EXPORT ExceptionOr<Element*> closest(const String& selectors);
-    virtual bool shouldAppearIndeterminate() const;
 
     WEBCORE_EXPORT DOMTokenList& classList();
 
@@ -756,6 +756,9 @@ public:
 
     std::optional<OptionSet<ContentRelevancy>> contentRelevancy() const;
     void setContentRelevancy(OptionSet<ContentRelevancy>);
+
+    bool hasCustomState(const AtomString& state) const;
+    CustomStateSet& ensureCustomStateSet();
 
 protected:
     Element(const QualifiedName&, Document&, ConstructionType);

@@ -369,10 +369,10 @@ void FindController::getImageForFindMatch(uint32_t matchIndex)
         return;
 
     auto handle = selectionSnapshot->createHandle();
-    if (!handle)
+    if (!handle || !selectionSnapshot->parameters())
         return;
 
-    m_webPage->send(Messages::WebPageProxy::DidGetImageForFindMatch(selectionSnapshot->parameters(), WTFMove(*handle), matchIndex));
+    m_webPage->send(Messages::WebPageProxy::DidGetImageForFindMatch(*selectionSnapshot->parameters(), WTFMove(*handle), matchIndex));
 }
 
 void FindController::selectFindMatch(uint32_t matchIndex)
@@ -532,7 +532,7 @@ Vector<FloatRect> FindController::rectsForTextMatchesInRect(IntRect clipRect)
         if (!document)
             continue;
 
-        for (FloatRect rect : document->markers().renderedRectsForMarkers(DocumentMarker::TextMatch)) {
+        for (FloatRect rect : document->markers().renderedRectsForMarkers(DocumentMarker::Type::TextMatch)) {
             if (!localFrame->isMainFrame())
                 rect = mainFrameView->windowToContents(localFrame->view()->contentsToWindow(enclosingIntRect(rect)));
 

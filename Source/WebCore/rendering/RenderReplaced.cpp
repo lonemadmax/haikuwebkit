@@ -240,7 +240,7 @@ void RenderReplaced::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
     if (element() && element()->parentOrShadowHostElement()) {
         auto* parentContainer = element()->parentOrShadowHostElement();
         ASSERT(parentContainer);
-        if (draggedContentContainsReplacedElement(document().markers().markersFor(*parentContainer, DocumentMarker::DraggedContent), *element())) {
+        if (draggedContentContainsReplacedElement(document().markers().markersFor(*parentContainer, DocumentMarker::Type::DraggedContent), *element())) {
             savedGraphicsContext.save();
             paintInfo.context().setAlpha(0.25);
         }
@@ -817,7 +817,7 @@ bool RenderReplaced::isHighlighted(HighlightState state, const RenderHighlight& 
     return false;
 }
 
-LayoutRect RenderReplaced::localRectForRepaint() const
+auto RenderReplaced::localRectsForRepaint(RepaintOutlineBounds repaintOutlineBounds) const -> RepaintRects
 {
     if (isInsideEntirelyHiddenLayer())
         return { };
@@ -830,7 +830,11 @@ LayoutRect RenderReplaced::localRectForRepaint() const
     // repaint containers. https://bugs.webkit.org/show_bug.cgi?id=23308
     overflowRect.move(view().frameView().layoutContext().layoutDelta());
 
-    return overflowRect;
+    auto rects = RepaintRects { overflowRect };
+    if (repaintOutlineBounds == RepaintOutlineBounds::Yes)
+        rects.outlineBoundsRect = localOutlineBoundsRepaintRect();
+
+    return rects;
 }
 
 bool RenderReplaced::isContentLikelyVisibleInViewport()

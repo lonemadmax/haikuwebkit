@@ -57,7 +57,10 @@ public:
     Color selectionBackgroundColor() const;
     Color selectionForegroundColor() const;
     Color selectionEmphasisMarkColor() const;
-    std::unique_ptr<RenderStyle> selectionPseudoStyle() const;
+    const RenderStyle* selectionPseudoStyle() const;
+
+    const RenderStyle* spellingErrorPseudoStyle() const;
+    const RenderStyle* grammarErrorPseudoStyle() const;
 
     virtual String originalText() const;
 
@@ -212,6 +215,7 @@ private:
     void setSelectionState(HighlightState) final;
     LayoutRect selectionRectForRepaint(const RenderLayerModelObject* repaintContainer, bool clipToVisibleContent = true) final;
     LayoutRect clippedOverflowRect(const RenderLayerModelObject* repaintContainer, VisibleRectContext) const final;
+    RepaintRects rectsForRepaintingAfterLayout(const RenderLayerModelObject* repaintContainer, RepaintOutlineBounds) const final;
 
     void computePreferredLogicalWidths(float leadWidth, WeakHashSet<const Font>& fallbackFonts, GlyphOverflow&, bool forcedMinMaxWidthComputation = false);
 
@@ -315,10 +319,24 @@ inline Color RenderText::selectionEmphasisMarkColor() const
     return Color();
 }
 
-inline std::unique_ptr<RenderStyle> RenderText::selectionPseudoStyle() const
+inline const RenderStyle* RenderText::selectionPseudoStyle() const
 {
     if (auto* ancestor = firstNonAnonymousAncestor())
         return ancestor->selectionPseudoStyle();
+    return nullptr;
+}
+
+inline const RenderStyle* RenderText::spellingErrorPseudoStyle() const
+{
+    if (auto* ancestor = firstNonAnonymousAncestor())
+        return ancestor->spellingErrorPseudoStyle();
+    return nullptr;
+}
+
+inline const RenderStyle* RenderText::grammarErrorPseudoStyle() const
+{
+    if (auto* ancestor = firstNonAnonymousAncestor())
+        return ancestor->grammarErrorPseudoStyle();
     return nullptr;
 }
 

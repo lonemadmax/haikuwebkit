@@ -38,6 +38,7 @@
 #include "WebExtensionURLSchemeHandler.h"
 #include "WebProcessProxy.h"
 #include "WebUserContentControllerProxy.h"
+#include <WebCore/Timer.h>
 #include <wtf/Forward.h>
 #include <wtf/URLHash.h>
 #include <wtf/WeakHashSet.h>
@@ -123,6 +124,8 @@ public:
     void addItemsToContextMenu(WebPageProxy&, const ContextMenuContextData&, NSMenu *);
 #endif
 
+    void handleContentRuleListNotification(WebPageProxyIdentifier, URL&, WebCore::ContentRuleListResults&);
+
 #ifdef __OBJC__
     _WKWebExtensionController *wrapper() const { return (_WKWebExtensionController *)API::ObjectImpl<API::Object::Type::WebExtensionController>::wrapper(); }
     _WKWebExtensionControllerDelegatePrivate *delegate() const { return (_WKWebExtensionControllerDelegatePrivate *)wrapper().delegate; }
@@ -143,6 +146,8 @@ private:
     void didFinishLoadForFrame(WebPageProxyIdentifier, WebExtensionFrameIdentifier, WebExtensionFrameIdentifier parentFrameID, const URL&, WallTime);
     void didFailLoadForFrame(WebPageProxyIdentifier, WebExtensionFrameIdentifier, WebExtensionFrameIdentifier parentFrameID, const URL&, WallTime);
 
+    void purgeOldMatchedRules();
+
     Ref<WebExtensionControllerConfiguration> m_configuration;
     WebExtensionControllerIdentifier m_identifier;
 
@@ -155,6 +160,8 @@ private:
     UserContentControllerProxySet m_allPrivateUserContentControllers;
     WebExtensionURLSchemeHandlerMap m_registeredSchemeHandlers;
     bool m_freshlyCreated { true };
+
+    std::unique_ptr<WebCore::Timer> m_purgeOldMatchedRulesTimer;
 };
 
 template<typename T>

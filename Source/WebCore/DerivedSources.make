@@ -722,6 +722,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webauthn/AuthenticatorResponse.idl \
     $(WebCore)/Modules/webauthn/AuthenticatorTransport.idl \
     $(WebCore)/Modules/webauthn/PublicKeyCredential.idl \
+    $(WebCore)/Modules/webauthn/PublicKeyCredentialClientCapabilities.idl \
     $(WebCore)/Modules/webauthn/PublicKeyCredentialCreationOptions.idl \
     $(WebCore)/Modules/webauthn/PublicKeyCredentialDescriptor.idl \
     $(WebCore)/Modules/webauthn/PublicKeyCredentialRequestOptions.idl \
@@ -746,6 +747,13 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webcodecs/WebCodecsAlphaOption.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsAudioData.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsAudioDataOutputCallback.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsAudioDecoder.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsAudioDecoderConfig.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsAudioDecoderSupport.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsAudioEncoder.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsAudioEncoderConfig.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsAudioEncoderSupport.idl \
+    $(WebCore)/Modules/webcodecs/WebCodecsCodecState.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsEncodedAudioChunk.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsEncodedAudioChunkMetadata.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsEncodedAudioChunkOutputCallback.idl \
@@ -755,15 +763,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webcodecs/WebCodecsEncodedVideoChunkOutputCallback.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsEncodedVideoChunkType.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsErrorCallback.idl \
-    $(WebCore)/Modules/webcodecs/WebCodecsCodecState.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsSvcOutputMetadata.idl \
-    $(WebCore)/Modules/webcodecs/WebCodecsAudioData.idl \
-    $(WebCore)/Modules/webcodecs/WebCodecsAudioDecoder.idl \
-    $(WebCore)/Modules/webcodecs/WebCodecsAudioDecoderConfig.idl \
-    $(WebCore)/Modules/webcodecs/WebCodecsAudioDecoderSupport.idl \
-    $(WebCore)/Modules/webcodecs/WebCodecsAudioEncoder.idl \
-    $(WebCore)/Modules/webcodecs/WebCodecsAudioEncoderConfig.idl \
-    $(WebCore)/Modules/webcodecs/WebCodecsAudioEncoderSupport.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsVideoDecoder.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsVideoDecoderConfig.idl \
     $(WebCore)/Modules/webcodecs/WebCodecsVideoDecoderSupport.idl \
@@ -1027,6 +1027,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/ContentVisibilityAutoStateChangeEvent.idl \
     $(WebCore)/dom/CustomElementRegistry.idl \
     $(WebCore)/dom/CustomEvent.idl \
+    $(WebCore)/dom/CustomStateSet.idl \
     $(WebCore)/dom/DOMException.idl \
     $(WebCore)/dom/DOMImplementation.idl \
     $(WebCore)/dom/DOMPoint.idl \
@@ -1056,6 +1057,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/Document+Selection.idl \
     $(WebCore)/dom/Document+StorageAccess.idl \
     $(WebCore)/dom/Document+UndoMananger.idl \
+    $(WebCore)/dom/Document+ViewTransition.idl \
     $(WebCore)/dom/DocumentAndElementEventHandlers.idl \
     $(WebCore)/dom/DocumentFragment.idl \
     $(WebCore)/dom/DocumentOrShadowRoot.idl \
@@ -1092,6 +1094,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/IdleRequestOptions.idl \
     $(WebCore)/dom/InnerHTML.idl \
     $(WebCore)/dom/InputEvent.idl \
+    $(WebCore)/dom/InvokeEvent.idl \
     $(WebCore)/dom/KeyboardEvent.idl \
     $(WebCore)/dom/MessageChannel.idl \
     $(WebCore)/dom/MessageEvent.idl \
@@ -1144,6 +1147,8 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/UIEvent.idl \
     $(WebCore)/dom/UIEventInit.idl \
     $(WebCore)/dom/ValidityStateFlags.idl \
+    $(WebCore)/dom/ViewTransition.idl \
+    $(WebCore)/dom/ViewTransitionUpdateCallback.idl \
     $(WebCore)/dom/VisibilityState.idl \
     $(WebCore)/dom/WheelEvent.idl \
     $(WebCore)/dom/XMLDocument.idl \
@@ -1246,6 +1251,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/ImageBitmapOptions.idl \
     $(WebCore)/html/ImageData.idl \
     $(WebCore)/html/ImageDataSettings.idl \
+    $(WebCore)/html/InvokerElement.idl \
     $(WebCore)/html/MediaController.idl \
     $(WebCore)/html/MediaEncryptedEvent.idl \
     $(WebCore)/html/MediaError.idl \

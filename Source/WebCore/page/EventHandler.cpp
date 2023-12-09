@@ -1899,7 +1899,7 @@ HandleUserInputEventResult EventHandler::handleMousePressEvent(const PlatformMou
     auto localPoint = roundedIntPoint(mouseEvent.hitTestResult().localPoint());
     if (layer && layer->isPointInResizeControl(localPoint)) {
         layer->setInResizeMode(true);
-        m_resizeLayer = WeakPtr { layer };
+        m_resizeLayer = *layer;
         m_offsetFromResizeCorner = layer->offsetFromResizeCorner(localPoint);
         return true;
     }
@@ -4123,7 +4123,7 @@ void EventHandler::invalidateDataTransfer()
 static void removeDraggedContentDocumentMarkersFromAllFramesInPage(Page& page)
 {
     page.forEachDocument([] (Document& document) {
-        document.markers().removeMarkers(DocumentMarker::DraggedContent);
+        document.markers().removeMarkers(DocumentMarker::Type::DraggedContent);
     });
 
     if (auto* localMainFrame = dynamicDowncast<LocalFrame>(page.mainFrame())) {

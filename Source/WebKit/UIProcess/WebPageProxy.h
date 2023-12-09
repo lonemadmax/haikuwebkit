@@ -197,6 +197,7 @@ enum class WheelEventProcessingSteps : uint8_t;
 enum class WheelScrollGestureState : uint8_t;
 enum class WillContinueLoading : bool;
 enum class WillInternallyHandleFailure : bool;
+enum class WindowProxyProperty : uint8_t;
 enum class WritingDirection : uint8_t;
 
 struct AppHighlight;
@@ -294,7 +295,7 @@ using ScrollingNodeID = uint64_t;
 using SleepDisablerIdentifier = ObjectIdentifier<SleepDisablerIdentifierType>;
 using UserMediaRequestIdentifier = ObjectIdentifier<UserMediaRequestIdentifierType>;
 
-}
+} // namespace WebCore
 
 OBJC_CLASS AMSUIEngagementTask;
 OBJC_CLASS CALayer;
@@ -335,6 +336,7 @@ class GamepadData;
 class GeolocationPermissionRequestManagerProxy;
 class LayerTreeContext;
 class LinkDecorationFilteringDataObserver;
+class MediaCapability;
 class MediaKeySystemPermissionRequestManagerProxy;
 class MediaSessionCoordinatorProxyPrivate;
 class MediaUsageManager;
@@ -1111,7 +1113,7 @@ public:
     void accentColorDidChange();
 #endif
 
-#if PLATFORM(WPE)
+#if PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
     WPEView* wpeView() const;
 #endif
 
@@ -1733,6 +1735,7 @@ public:
     void setHeaderBannerHeight(int);
     void setFooterBannerHeight(int);
 
+    void didBeginMagnificationGesture();
     void didEndMagnificationGesture();
 #endif
 
@@ -2293,7 +2296,7 @@ public:
     OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtectionsPolicies() const { return m_advancedPrivacyProtectionsPolicies; }
 #endif
 
-#if PLATFORM(WPE) && USE(GBM)
+#if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)
     void preferredBufferFormatsDidChange();
 #endif
 
@@ -2301,6 +2304,11 @@ public:
 
 #if HAVE(ESIM_AUTOFILL_SYSTEM_SUPPORT)
     bool shouldAllowAutoFillForCellularIdentifiers() const;
+#endif
+
+#if ENABLE(PROCESS_CAPABILITIES)
+    const std::optional<MediaCapability>& mediaCapability() const;
+    void updateMediaCapability();
 #endif
 
 private:
@@ -2761,6 +2769,8 @@ private:
 
     void didResignInputElementStrongPasswordAppearance(const UserData&);
 
+    void performSwitchHapticFeedback();
+
     void handleMessage(IPC::Connection&, const String& messageName, const UserData& messageBody);
     void handleSynchronousMessage(IPC::Connection&, const String& messageName, const UserData& messageBody, CompletionHandler<void(UserData&&)>&&);
 
@@ -2807,6 +2817,10 @@ private:
     void didAttachToRunningProcess();
 
     void logFrameNavigation(const WebFrameProxy&, const URL& pageURL, const WebCore::ResourceRequest&, const URL& redirectURL, bool wasPotentiallyInitiatedByUser);
+
+#if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
+    void didAccessWindowProxyPropertyViaOpenerForFrame(WebCore::FrameIdentifier, const WebCore::SecurityOriginData&, WebCore::WindowProxyProperty);
+#endif
 
 #if ENABLE(SPEECH_SYNTHESIS)
     void resetSpeechSynthesizer();
@@ -2857,6 +2871,12 @@ private:
     bool useGPUProcessForDOMRenderingEnabled() const;
 
     void dispatchLoadEventToFrameOwnerElement(WebCore::FrameIdentifier);
+
+#if ENABLE(PROCESS_CAPABILITIES)
+    void setMediaCapability(std::optional<MediaCapability>&&);
+    bool shouldActivateMediaCapability() const;
+    bool shouldDeactivateMediaCapability() const;
+#endif
 
     template<typename F> decltype(auto) sendToWebPage(std::optional<WebCore::FrameIdentifier>, F&&);
     template<typename M, typename C> void sendToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&, C&&);

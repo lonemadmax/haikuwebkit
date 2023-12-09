@@ -419,6 +419,7 @@ Modules/webauthn/AuthenticatorAttestationResponse.cpp
 Modules/webauthn/AuthenticatorCoordinator.cpp
 Modules/webauthn/AuthenticatorResponse.cpp
 Modules/webauthn/PublicKeyCredential.cpp
+Modules/webauthn/PublicKeyCredentialClientCapabilities.cpp
 Modules/webauthn/WebAuthenticationUtils.cpp
 Modules/webauthn/apdu/ApduCommand.cpp
 Modules/webauthn/apdu/ApduResponse.cpp
@@ -876,6 +877,7 @@ css/CSSRegisteredCustomProperty.cpp
 css/CSSRule.cpp
 css/CSSRuleList.cpp
 css/CSSScopeRule.cpp
+css/CSSScrollValue.cpp
 css/CSSSegmentedFontFace.cpp
 css/CSSSelector.cpp
 css/CSSSelectorList.cpp
@@ -898,6 +900,7 @@ css/CSSValuePair.cpp
 css/CSSValuePool.cpp
 css/CSSVariableData.cpp
 css/CSSVariableReferenceValue.cpp
+css/CSSViewValue.cpp
 css/ComputedStyleExtractor.cpp
 css/ContainerQuery.cpp
 css/ContainerQueryParser.cpp
@@ -1052,6 +1055,7 @@ dom/CustomElementDefaultARIA.cpp
 dom/CustomElementReactionQueue.cpp
 dom/CustomElementRegistry.cpp
 dom/CustomEvent.cpp
+dom/CustomStateSet.cpp
 dom/DOMException.cpp
 dom/DOMImplementation.cpp
 dom/DOMPointReadOnly.cpp
@@ -1113,6 +1117,7 @@ dom/ImageOverlay.cpp
 dom/InlineClassicScript.cpp
 dom/InlineStyleSheetOwner.cpp
 dom/InputEvent.cpp
+dom/InvokeEvent.cpp
 dom/KeyboardEvent.cpp
 dom/LiveNodeList.cpp
 dom/LoadableClassicScript.cpp
@@ -1199,6 +1204,7 @@ dom/UIEventWithKeyState.cpp
 dom/UserActionElementSet.cpp
 dom/UserGestureIndicator.cpp
 dom/UserTypingGestureIndicator.cpp
+dom/ViewTransition.cpp
 dom/ViewportArguments.cpp
 dom/VisitedLinkState.cpp
 dom/WheelEvent.cpp
@@ -1906,6 +1912,7 @@ page/EventHandler.cpp
 page/EventSource.cpp
 page/FocusController.cpp
 page/Frame.cpp
+page/FrameView.cpp
 page/FrameDestructionObserver.cpp
 page/FrameSnapshotting.cpp
 page/FrameTree.cpp
@@ -3367,6 +3374,7 @@ JSCustomEffect.cpp
 JSCustomEffectCallback.cpp
 JSCustomElementRegistry.cpp
 JSCustomEvent.cpp
+JSCustomStateSet.cpp
 JSDOMApplicationCache.cpp
 JSDOMAudioSession.cpp
 JSDOMCSSCustomPropertyDescriptor.cpp
@@ -3796,6 +3804,7 @@ JSIntersectionObserver.cpp
 JSIntersectionObserverCallback.cpp
 JSIntersectionObserverEntry.cpp
 JSIterationCompositeOperation.cpp
+JSInvokeEvent.cpp
 JSJsonWebKey.cpp
 JSKeyboardEvent.cpp
 JSKeyframeAnimationOptions.cpp
@@ -4001,6 +4010,7 @@ JSProcessingInstruction.cpp
 JSProgressEvent.cpp
 JSPromiseRejectionEvent.cpp
 JSPublicKeyCredential.cpp
+JSPublicKeyCredentialClientCapabilities.cpp
 JSPublicKeyCredentialCreationOptions.cpp
 JSPublicKeyCredentialDescriptor.cpp
 JSPublicKeyCredentialRequestOptions.cpp
@@ -4403,6 +4413,8 @@ JSVideoTrackList.cpp
 JSVideoTransferCharacteristics.cpp
 JSViewTimeline.cpp
 JSViewTimelineOptions.cpp
+JSViewTransition.cpp
+JSViewTransitionUpdateCallback.cpp
 JSVisibilityState.cpp
 JSVisualViewport.cpp
 JSVoidCallback.cpp

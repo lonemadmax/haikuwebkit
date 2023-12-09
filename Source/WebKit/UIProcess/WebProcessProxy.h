@@ -113,6 +113,7 @@ class WebProcessPool;
 class WebUserContentControllerProxy;
 class WebsiteDataStore;
 struct BackForwardListItemState;
+struct CoreIPCAuditToken;
 struct GPUProcessConnectionParameters;
 struct UserMessage;
 struct WebNavigationDataStore;
@@ -557,8 +558,6 @@ private:
 
     void updateBackgroundResponsivenessTimer();
 
-    void updateBlobRegistryPartitioningState() const;
-
     void processDidTerminateOrFailedToLaunch(ProcessTerminationReason);
 
     // IPC::Connection::Client
@@ -599,7 +598,7 @@ private:
     void systemBeep();
     
 #if PLATFORM(MAC)
-    void isAXAuthenticated(audit_token_t, CompletionHandler<void(bool)>&&);
+    void isAXAuthenticated(CoreIPCAuditToken&&, CompletionHandler<void(bool)>&&);
 #endif
 
 #if PLATFORM(COCOA)

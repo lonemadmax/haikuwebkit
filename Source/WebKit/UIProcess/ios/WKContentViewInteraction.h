@@ -141,7 +141,6 @@ class WebPageProxy;
 @class UIPointerRegion;
 @class UITargetedPreview;
 @class _UILookupGestureRecognizer;
-@class _UITextCursorDragAnimator;
 
 #if HAVE(PEPPER_UI_CORE)
 @class PUICQuickboardViewController;
@@ -505,6 +504,7 @@ struct ImageAnalysisContextMenuActionData {
     BOOL _isPresentingEditMenu;
     BOOL _isHandlingActiveKeyEvent;
     BOOL _isHandlingActivePressesEvent;
+    BOOL _isDeferringKeyEventsToInputMethod;
 
     BOOL _focusRequiresStrongPasswordAssistance;
     BOOL _waitingForEditDragSnapshot;
@@ -536,9 +536,9 @@ struct ImageAnalysisContextMenuActionData {
     RetainPtr<_UITextDragCaretView> _editDropCaretView;
     BlockPtr<void()> _actionToPerformAfterReceivingEditDragSnapshot;
 #endif
-#if HAVE(UI_TEXT_CURSOR_DRAG_ANIMATOR)
+#if HAVE(UI_TEXT_CURSOR_DROP_POSITION_ANIMATOR)
     RetainPtr<UIView<UITextCursorView>> _editDropTextCursorView;
-    RetainPtr<_UITextCursorDragAnimator> _editDropCaretAnimator;
+    RetainPtr<UITextCursorDropPositionAnimator> _editDropCaretAnimator;
 #endif
 
 #if HAVE(PEPPER_UI_CORE)
@@ -820,6 +820,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 
 - (void)_didChangeLinkPreviewAvailability;
 - (void)setContinuousSpellCheckingEnabled:(BOOL)enabled;
+- (void)setGrammarCheckingEnabled:(BOOL)enabled;
 
 - (void)updateSoftwareKeyboardSuppressionStateFromWebView;
 

@@ -209,7 +209,13 @@ static const struct wl_surface_listener surfaceListener = {
         view->priv->wlOutputs.removeLast(output);
         wpe_view_wayland_update_scale(view);
         output->removeScaleObserver(view);
-    }
+    },
+#ifdef WL_SURFACE_PREFERRED_BUFFER_SCALE_SINCE_VERSION
+    // preferred_buffer_scale
+    [](void*, struct wl_surface*, int /* factor */)
+    {
+    },
+#endif
 };
 
 static const struct zwp_linux_dmabuf_feedback_v1_listener linuxDMABufFeedbackListener = {

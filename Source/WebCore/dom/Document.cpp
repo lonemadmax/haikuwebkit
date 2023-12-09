@@ -275,6 +275,8 @@
 #include "UserGestureIndicator.h"
 #include "ValidationMessage.h"
 #include "ValidationMessageClient.h"
+#include "ViewTransition.h"
+#include "ViewTransitionUpdateCallback.h"
 #include "ViolationReportType.h"
 #include "VisibilityChangeClient.h"
 #include "VisibilityState.h"
@@ -909,7 +911,7 @@ void Document::commonTeardown()
 
 void Document::parseMarkupUnsafe(const String& markup, OptionSet<ParserContentPolicy> parserContentPolicy)
 {
-    auto policy = OptionSet<ParserContentPolicy> { ParserContentPolicy::AllowScriptingContent, ParserContentPolicy::AllowPluginContent } | parserContentPolicy;
+    auto policy = OptionSet<ParserContentPolicy> { ParserContentPolicy::AllowScriptingContent } | parserContentPolicy;
     setParserContentPolicy(policy);
     bool usedFastPath = false;
     if (this->contentType() == "text/html"_s) {
@@ -2762,7 +2764,8 @@ void Document::attachToCachedFrame(CachedFrameBase& cachedFrame)
     RELEASE_ASSERT(cachedFrame.document() == this);
     ASSERT(cachedFrame.view());
     ASSERT(m_backForwardCacheState == Document::InBackForwardCache);
-    observeFrame(cachedFrame.view()->protectedFrame().ptr());
+    if (auto* localFrameView = dynamicDowncast<LocalFrameView>(cachedFrame.view()))
+        observeFrame(localFrameView->protectedFrame().ptr());
 }
 
 void Document::detachFromCachedFrame(CachedFrameBase& cachedFrame)
@@ -5503,7 +5506,7 @@ void Document::textInserted(Node& text, unsigned offset, unsigned length)
 
 #if ENABLE(PLATFORM_DRIVEN_TEXT_CHECKING)
     // Freshly inserted text is expected to not inherit PlatformTextChecking markers.
-    m_markers->removeMarkers(text, { offset, offset + length }, DocumentMarker::PlatformTextChecking);
+    m_markers->removeMarkers(text, { offset, offset + length }, DocumentMarker::Type::PlatformTextChecking);
 #endif
 }
 
@@ -9813,6 +9816,52 @@ void Document::updateContentRelevancyForScrollIfNeeded(const Element& scrollAnch
     if (!m_contentVisibilityDocumentState)
         return;
     return m_contentVisibilityDocumentState->updateContentRelevancyForScrollIfNeeded(scrollAnchor);
+}
+
+ViewTransition* Document::activeViewTransition() const
+{
+    return m_activeViewTransition.get();
+}
+
+void Document::setActiveViewTransition(RefPtr<ViewTransition>&& viewTransition)
+{
+    m_activeViewTransition = WTFMove(viewTransition);
+}
+
+bool Document::hasViewTransitionPseudoElementTree() const
+{
+    return m_hasViewTransitionPseudoElementTree;
+}
+
+void Document::setHasViewTransitionPseudoElementTree(bool value)
+{
+    m_hasViewTransitionPseudoElementTree = value;
+}
+
+Ref<ViewTransition> Document::startViewTransition(RefPtr<ViewTransitionUpdateCallback>&& updateCallback)
+{
+    Ref viewTransition = ViewTransition::create(*this, WTFMove(updateCallback));
+
+    if (RefPtr activeViewTransition = m_activeViewTransition)
+        activeViewTransition->skipViewTransition(Exception { ExceptionCode::AbortError, "Old view transition aborted by new view transition."_s });
+
+    setActiveViewTransition(WTFMove(viewTransition));
+    scheduleRenderingUpdate(RenderingUpdateStep::PerformPendingViewTransitions);
+    return *m_activeViewTransition;
+}
+
+void Document::performPendingViewTransitions()
+{
+    if (!m_activeViewTransition)
+        return;
+    Ref activeViewTransition = *m_activeViewTransition;
+    if (activeViewTransition->phase() == ViewTransitionPhase::PendingCapture)
+        activeViewTransition->setupViewTransition();
+    else if (activeViewTransition->phase() == ViewTransitionPhase::Animating)
+        activeViewTransition->handleTransitionFrame();
+
+    if (m_activeViewTransition)
+        scheduleRenderingUpdate(RenderingUpdateStep::PerformPendingViewTransitions);
 }
 
 String Document::mediaKeysStorageDirectory()

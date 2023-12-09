@@ -442,23 +442,6 @@ bool LocalFrameView::didFirstLayout() const
     return layoutContext().didFirstLayout();
 }
 
-void LocalFrameView::invalidateRect(const IntRect& rect)
-{
-    if (!parent()) {
-        if (auto* page = m_frame->page())
-            page->chrome().invalidateContentsAndRootView(rect);
-        return;
-    }
-
-    auto* renderer = m_frame->ownerRenderer();
-    if (!renderer)
-        return;
-
-    IntRect repaintRect = rect;
-    repaintRect.moveBy(roundedIntPoint(renderer->contentBoxLocation()));
-    renderer->repaintRectangle(repaintRect);
-}
-
 void LocalFrameView::setFrameRect(const IntRect& newRect)
 {
     Ref<LocalFrameView> protectedThis(*this);
@@ -560,9 +543,7 @@ void LocalFrameView::didDestroyRenderTree()
     ASSERT(!layoutContext().subtreeLayoutRoot());
     ASSERT(m_widgetsInRenderTree.isEmpty());
 
-    // If the render tree is destroyed below LocalFrameView::updateEmbeddedObjects(), there will still be a null sentinel in the set.
-    // Everything else should have removed itself as the tree was felled.
-    ASSERT(!m_embeddedObjectsToUpdate || m_embeddedObjectsToUpdate->isEmpty() || (m_embeddedObjectsToUpdate->size() == 1 && m_embeddedObjectsToUpdate->first() == nullptr));
+    ASSERT(!m_embeddedObjectsToUpdate || m_embeddedObjectsToUpdate->isEmpty());
 
     ASSERT(!m_viewportConstrainedObjects || m_viewportConstrainedObjects->isEmptyIgnoringNullReferences());
     ASSERT(!m_slowRepaintObjects || m_slowRepaintObjects->isEmptyIgnoringNullReferences());
@@ -1120,34 +1101,6 @@ LayoutPoint LocalFrameView::scrollPositionRespectingCustomFixedPosition() const
     return scrollPositionForFixedPosition();
 }
 
-int LocalFrameView::headerHeight() const
-{
-    if (!m_frame->isMainFrame())
-        return 0;
-    Page* page = m_frame->page();
-    return page ? page->headerHeight() : 0;
-}
-
-int LocalFrameView::footerHeight() const
-{
-    if (!m_frame->isMainFrame())
-        return 0;
-    Page* page = m_frame->page();
-    return page ? page->footerHeight() : 0;
-}
-
-float LocalFrameView::topContentInset(TopContentInsetType contentInsetTypeToReturn) const
-{
-    if (platformWidget() && contentInsetTypeToReturn == TopContentInsetType::WebCoreOrPlatformContentInset)
-        return platformTopContentInset();
-
-    if (!m_frame->isMainFrame())
-        return 0;
-    
-    Page* page = m_frame->page();
-    return page ? page->topContentInset() : 0;
-}
-    
 void LocalFrameView::topContentInsetDidChange(float newTopContentInset)
 {
     RenderView* renderView = this->renderView();
@@ -1319,7 +1272,7 @@ void LocalFrameView::adjustScrollbarsForLayout(bool isFirstLayout)
         setScrollbarModes(hMode, vMode);
 }
 
-void LocalFrameView::willDoLayout(WeakPtr<RenderElement> layoutRoot)
+void LocalFrameView::willDoLayout(SingleThreadWeakPtr<RenderElement> layoutRoot)
 {
     bool subtreeLayout = !is<RenderView>(*layoutRoot);
     if (subtreeLayout)
@@ -1349,7 +1302,7 @@ void LocalFrameView::willDoLayout(WeakPtr<RenderElement> layoutRoot)
     forceLayoutParentViewIfNeeded();
 }
 
-void LocalFrameView::didLayout(WeakPtr<RenderElement> layoutRoot)
+void LocalFrameView::didLayout(SingleThreadWeakPtr<RenderElement> layoutRoot)
 {
     ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
@@ -1409,13 +1362,13 @@ RenderBox* LocalFrameView::embeddedContentBox() const
 void LocalFrameView::addEmbeddedObjectToUpdate(RenderEmbeddedObject& embeddedObject)
 {
     if (!m_embeddedObjectsToUpdate)
-        m_embeddedObjectsToUpdate = makeUnique<ListHashSet<CheckedPtr<RenderEmbeddedObject>>>();
+        m_embeddedObjectsToUpdate = makeUnique<ListHashSet<SingleThreadWeakRef<RenderEmbeddedObject>>>();
 
     auto& element = embeddedObject.frameOwnerElement();
     if (is<HTMLPlugInImageElement>(element))
         downcast<HTMLPlugInImageElement>(element).setNeedsWidgetUpdate(true);
 
-    m_embeddedObjectsToUpdate->add(&embeddedObject);
+    m_embeddedObjectsToUpdate->add(embeddedObject);
 }
 
 void LocalFrameView::removeEmbeddedObjectToUpdate(RenderEmbeddedObject& embeddedObject)
@@ -1591,7 +1544,7 @@ void LocalFrameView::addSlowRepaintObject(RenderElement& renderer)
     bool hadSlowRepaintObjects = hasSlowRepaintObjects();
 
     if (!m_slowRepaintObjects)
-        m_slowRepaintObjects = makeUnique<WeakHashSet<RenderElement>>();
+        m_slowRepaintObjects = makeUnique<SingleThreadWeakHashSet<RenderElement>>();
 
     auto addResult = m_slowRepaintObjects->add(renderer);
     if (addResult.isNewEntry) {
@@ -1641,7 +1594,7 @@ bool LocalFrameView::hasViewportConstrainedObjects() const
 void LocalFrameView::addViewportConstrainedObject(RenderLayerModelObject& object)
 {
     if (!m_viewportConstrainedObjects)
-        m_viewportConstrainedObjects = makeUnique<WeakHashSet<RenderLayerModelObject>>();
+        m_viewportConstrainedObjects = makeUnique<SingleThreadWeakHashSet<RenderLayerModelObject>>();
 
     if (!m_viewportConstrainedObjects->contains(object)) {
         m_viewportConstrainedObjects->add(object);
@@ -3007,7 +2960,7 @@ bool LocalFrameView::shouldUpdateCompositingLayersAfterScrolling() const
     if (!page)
         return true;
 
-    if (page->mainFrame() != m_frame)
+    if (&page->mainFrame() != m_frame.ptr())
         return true;
 
     auto scrollingCoordinator = this->scrollingCoordinator();
@@ -3122,14 +3075,6 @@ void LocalFrameView::stopAsyncAnimatedScroll()
     if (auto scrollingCoordinator = this->scrollingCoordinator())
         return scrollingCoordinator->stopAnimatedScroll(*this);
 #endif
-}
-
-HostWindow* LocalFrameView::hostWindow() const
-{
-    auto* page = m_frame->page();
-    if (!page)
-        return nullptr;
-    return &page->chrome();
 }
 
 void LocalFrameView::addTrackedRepaintRect(const FloatRect& r)
@@ -3751,7 +3696,7 @@ void LocalFrameView::scrollToTextFragmentRange()
     TemporarySelectionChange selectionChange(document, { range }, { TemporarySelectionOption::RevealSelection, TemporarySelectionOption::RevealSelectionBounds, TemporarySelectionOption::UserTriggered, TemporarySelectionOption::ForceCenterScroll });
 }
 
-void LocalFrameView::updateEmbeddedObject(const WeakPtr<RenderEmbeddedObject>& embeddedObject)
+void LocalFrameView::updateEmbeddedObject(const SingleThreadWeakPtr<RenderEmbeddedObject>& embeddedObject)
 {
     // The to-be-updated renderer is passed in as WeakPtr for convenience, but it will be alive at this point.
     ASSERT(embeddedObject);
@@ -3785,24 +3730,15 @@ bool LocalFrameView::updateEmbeddedObjects()
 
     WidgetHierarchyUpdatesSuspensionScope suspendWidgetHierarchyUpdates;
 
-    // Insert a marker for where we should stop.
-    ASSERT(!m_embeddedObjectsToUpdate->contains(nullptr));
-    m_embeddedObjectsToUpdate->add(nullptr);
-
-    while (!m_embeddedObjectsToUpdate->isEmpty()) {
-        // The CheckedPtr value taken from the ListHashSet shouldn't be kept alive during the update since
-        // the underlying object can be destroyed, leaving the CheckedPtr dangling. Instead, construct a WeakPtr
-        // that can be passed to the updateEmbeddedObject() method.
-
-        WeakPtr<RenderEmbeddedObject> weakObject;
-        {
-            CheckedPtr embeddedObject = m_embeddedObjectsToUpdate->takeFirst();
-            if (!embeddedObject)
-                break;
-
-            weakObject = *embeddedObject;
-        }
-        updateEmbeddedObject(weakObject);
+    // Make sure we process at most numberOfObjectsToUpdate objects to avoid
+    // potential infinite loops if objects get added to m_embeddedObjectsToUpdate
+    // during the execution of this loop.
+    unsigned numberOfObjectsToUpdate = m_embeddedObjectsToUpdate->size();
+    for (unsigned i = 0; i < numberOfObjectsToUpdate; ++i) {
+        if (m_embeddedObjectsToUpdate->isEmpty())
+            break;
+        WeakPtr embeddedObject = m_embeddedObjectsToUpdate->takeFirst().get();
+        updateEmbeddedObject(embeddedObject);
     }
 
     return m_embeddedObjectsToUpdate->isEmpty();
@@ -4296,18 +4232,6 @@ IntRect LocalFrameView::windowClipRectForFrameOwner(const HTMLFrameOwnerElement*
     return intersection(clipRect, windowClipRect());
 }
 
-bool LocalFrameView::isActive() const
-{
-    Page* page = m_frame->page();
-    return page && page->focusController().isActive();
-}
-
-bool LocalFrameView::forceUpdateScrollbarsOnMainThreadForPerformanceTesting() const
-{
-    Page* page = m_frame->page();
-    return page && page->settings().scrollingPerformanceTestingEnabled();
-}
-
 void LocalFrameView::scrollTo(const ScrollPosition& newPosition)
 {
     IntPoint oldPosition = scrollPosition();
@@ -4362,20 +4286,6 @@ void LocalFrameView::invalidateScrollbarRect(Scrollbar& scrollbar, const IntRect
     invalidateRect(dirtyRect);
 }
 
-float LocalFrameView::visibleContentScaleFactor() const
-{
-    if (!m_frame->isMainFrame())
-        return 1;
-
-    Page* page = m_frame->page();
-    // FIXME: This !delegatesScaling() is confusing, and the opposite behavior to Frame::frameScaleFactor().
-    // This function should probably be renamed to delegatedPageScaleFactor().
-    if (!page || !page->delegatesScaling())
-        return 1;
-
-    return page->pageScaleFactor();
-}
-
 void LocalFrameView::setVisibleScrollerThumbRect(const IntRect& scrollerThumb)
 {
     if (!m_frame->isMainFrame())
@@ -4383,39 +4293,6 @@ void LocalFrameView::setVisibleScrollerThumbRect(const IntRect& scrollerThumb)
 
     if (Page* page = m_frame->page())
         page->chrome().client().notifyScrollerThumbIsVisibleInRect(scrollerThumb);
-}
-
-ScrollableArea* LocalFrameView::enclosingScrollableArea() const
-{
-    if (m_frame->isMainFrame())
-        return nullptr;
-
-    auto* ownerElement = m_frame->ownerElement();
-    if (!ownerElement)
-        return nullptr;
-
-    auto* ownerRenderer = ownerElement->renderer();
-    if (!ownerRenderer)
-        return nullptr;
-
-    auto* layer = ownerRenderer->enclosingLayer();
-    if (!layer)
-        return nullptr;
-
-    auto* enclosingScrollableLayer = layer->enclosingScrollableLayer(IncludeSelfOrNot::IncludeSelf, CrossFrameBoundaries::No);
-    if (!enclosingScrollableLayer)
-        return nullptr;
-
-    return enclosingScrollableLayer->scrollableArea();
-}
-
-IntRect LocalFrameView::scrollableAreaBoundingBox(bool*) const
-{
-    RenderWidget* ownerRenderer = m_frame->ownerRenderer();
-    if (!ownerRenderer)
-        return frameRect();
-
-    return ownerRenderer->absoluteContentQuad().enclosingBoundingBox();
 }
 
 bool LocalFrameView::isScrollable(Scrollability definitionOfScrollable)
@@ -4497,17 +4374,6 @@ bool LocalFrameView::shouldSuspendScrollAnimations() const
     return m_frame->loader().state() != FrameState::Complete;
 }
 
-void LocalFrameView::scrollbarStyleChanged(ScrollbarStyle newStyle, bool forceUpdate)
-{
-    if (!m_frame->isMainFrame())
-        return;
-
-    if (Page* page = m_frame->page())
-        page->chrome().client().recommendedScrollbarStyleDidChange(newStyle);
-
-    ScrollView::scrollbarStyleChanged(newStyle, forceUpdate);
-}
-
 void LocalFrameView::notifyAllFramesThatContentAreaWillPaint() const
 {
     notifyScrollableAreasThatContentAreaWillPaint();
@@ -4538,14 +4404,6 @@ void LocalFrameView::notifyScrollableAreasThatContentAreaWillPaint() const
         if (!is<ScrollView>(scrollableArea))
             scrollableArea->contentAreaWillPaint();
     }
-}
-
-bool LocalFrameView::scrollAnimatorEnabled() const
-{
-    if (auto* page = m_frame->page())
-        return page->settings().scrollAnimatorEnabled();
-
-    return false;
 }
 
 void LocalFrameView::updateScrollCorner()
@@ -4651,22 +4509,35 @@ Color LocalFrameView::documentBackgroundColor() const
 
     auto* htmlElement = backgroundDocument->documentElement();
     auto* bodyElement = backgroundDocument->bodyOrFrameset();
-#if ENABLE(FULLSCREEN_API)
-    auto* fullscreenElement = backgroundDocument->fullscreenManager().fullscreenElement();
-#else
-    Element* fullscreenElement = nullptr;
-#endif
 
     // Start with invalid colors.
     Color htmlBackgroundColor;
     Color bodyBackgroundColor;
-    Color fullscreenBackgroundColor;
     if (htmlElement && htmlElement->renderer())
         htmlBackgroundColor = htmlElement->renderer()->style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
     if (bodyElement && bodyElement->renderer())
         bodyBackgroundColor = bodyElement->renderer()->style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
-    if (fullscreenElement && fullscreenElement->renderer())
-        fullscreenBackgroundColor = fullscreenElement->renderer()->style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+
+#if ENABLE(FULLSCREEN_API)
+    Color fullscreenBackgroundColor = [&] () -> Color {
+        auto* fullscreenElement = backgroundDocument->fullscreenManager().fullscreenElement();
+        if (!fullscreenElement)
+            return { };
+
+        auto* fullscreenRenderer = fullscreenElement->renderer();
+        if (!fullscreenRenderer)
+            return { };
+
+        auto fullscreenElementColor = fullscreenRenderer->style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+
+        WeakPtr backdropRenderer = fullscreenRenderer->backdropRenderer();
+        if (!backdropRenderer)
+            return fullscreenElementColor;
+
+        // Do not blend the fullscreenElementColor atop the backdrop color. The backdrop should
+        // intentionally be visible underneath (and around) the fullscreen element.
+        return backdropRenderer->style().visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
+    }();
 
     // Replace or blend the fullscreen background color with the body background color, if present.
     if (fullscreenBackgroundColor.isValid()) {
@@ -4675,6 +4546,7 @@ Color LocalFrameView::documentBackgroundColor() const
         else
             bodyBackgroundColor = blendSourceOver(bodyBackgroundColor, fullscreenBackgroundColor);
     }
+#endif
 
     if (!bodyBackgroundColor.isValid()) {
         if (!htmlBackgroundColor.isValid())
@@ -5342,184 +5214,6 @@ void LocalFrameView::adjustPageHeightDeprecated(float *newBottom, float oldTop, 
     if (!*newBottom)
         *newBottom = oldBottom;
     renderView->setPrintRect(IntRect());
-}
-
-IntRect LocalFrameView::convertFromRendererToContainingView(const RenderElement* renderer, const IntRect& rendererRect) const
-{
-    IntRect rect = snappedIntRect(enclosingLayoutRect(renderer->localToAbsoluteQuad(FloatRect(rendererRect)).boundingBox()));
-
-    return contentsToView(rect);
-}
-
-IntRect LocalFrameView::convertFromContainingViewToRenderer(const RenderElement* renderer, const IntRect& viewRect) const
-{
-    IntRect rect = viewToContents(viewRect);
-
-    // FIXME: we don't have a way to map an absolute rect down to a local quad, so just
-    // move the rect for now.
-    rect.setLocation(roundedIntPoint(renderer->absoluteToLocal(rect.location(), UseTransforms)));
-    return rect;
-}
-
-FloatRect LocalFrameView::convertFromContainingViewToRenderer(const RenderElement* renderer, const FloatRect& viewRect) const
-{
-    FloatRect rect = viewToContents(viewRect);
-
-    return (renderer->absoluteToLocalQuad(rect)).boundingBox();
-}
-
-IntPoint LocalFrameView::convertFromRendererToContainingView(const RenderElement* renderer, const IntPoint& rendererPoint) const
-{
-    IntPoint point = roundedIntPoint(renderer->localToAbsolute(rendererPoint, UseTransforms));
-
-    return contentsToView(point);
-}
-
-FloatPoint LocalFrameView::convertFromRendererToContainingView(const RenderElement* renderer, const FloatPoint& rendererPoint) const
-{
-    return contentsToView(renderer->localToAbsolute(rendererPoint, UseTransforms));
-}
-
-IntPoint LocalFrameView::convertFromContainingViewToRenderer(const RenderElement* renderer, const IntPoint& viewPoint) const
-{
-    IntPoint point = viewPoint;
-
-    // Convert from LocalFrameView coords into page ("absolute") coordinates.
-    if (!delegatesScrollingToNativeView())
-        point = viewToContents(point);
-
-    return roundedIntPoint(renderer->absoluteToLocal(point, UseTransforms));
-}
-
-IntRect LocalFrameView::convertToContainingView(const IntRect& localRect) const
-{
-    if (const ScrollView* parentScrollView = parent()) {
-        if (is<LocalFrameView>(*parentScrollView)) {
-            const LocalFrameView& parentView = downcast<LocalFrameView>(*parentScrollView);
-            // Get our renderer in the parent view
-            RenderWidget* renderer = m_frame->ownerRenderer();
-            if (!renderer)
-                return localRect;
-                
-            auto rect = localRect;
-            rect.moveBy(roundedIntPoint(renderer->contentBoxLocation()));
-            return parentView.convertFromRendererToContainingView(renderer, rect);
-        }
-        
-        return Widget::convertToContainingView(localRect);
-    }
-    
-    return localRect;
-}
-
-IntRect LocalFrameView::convertFromContainingView(const IntRect& parentRect) const
-{
-    if (const ScrollView* parentScrollView = parent()) {
-        if (is<LocalFrameView>(*parentScrollView)) {
-            const LocalFrameView& parentView = downcast<LocalFrameView>(*parentScrollView);
-
-            // Get our renderer in the parent view
-            RenderWidget* renderer = m_frame->ownerRenderer();
-            if (!renderer)
-                return parentRect;
-
-            auto rect = parentView.convertFromContainingViewToRenderer(renderer, parentRect);
-            rect.moveBy(-roundedIntPoint(renderer->contentBoxLocation()));
-            return rect;
-        }
-        
-        return Widget::convertFromContainingView(parentRect);
-    }
-    
-    return parentRect;
-}
-
-FloatRect LocalFrameView::convertFromContainingView(const FloatRect& parentRect) const
-{
-    if (const ScrollView* parentScrollView = parent()) {
-        if (is<LocalFrameView>(*parentScrollView)) {
-            const LocalFrameView& parentView = downcast<LocalFrameView>(*parentScrollView);
-
-            // Get our renderer in the parent view
-            RenderWidget* renderer = m_frame->ownerRenderer();
-            if (!renderer)
-                return parentRect;
-
-            auto rect = parentView.convertFromContainingViewToRenderer(renderer, parentRect);
-            rect.moveBy(-renderer->contentBoxLocation());
-            return rect;
-        }
-
-        return Widget::convertFromContainingView(parentRect);
-    }
-
-    return parentRect;
-}
-
-IntPoint LocalFrameView::convertToContainingView(const IntPoint& localPoint) const
-{
-    if (const ScrollView* parentScrollView = parent()) {
-        if (is<LocalFrameView>(*parentScrollView)) {
-            const LocalFrameView& parentView = downcast<LocalFrameView>(*parentScrollView);
-
-            // Get our renderer in the parent view
-            RenderWidget* renderer = m_frame->ownerRenderer();
-            if (!renderer)
-                return localPoint;
-                
-            auto point = localPoint;
-            point.moveBy(roundedIntPoint(renderer->contentBoxLocation()));
-            return parentView.convertFromRendererToContainingView(renderer, point);
-        }
-        
-        return Widget::convertToContainingView(localPoint);
-    }
-    
-    return localPoint;
-}
-
-FloatPoint LocalFrameView::convertToContainingView(const FloatPoint& localPoint) const
-{
-    if (const ScrollView* parentScrollView = parent()) {
-        if (is<LocalFrameView>(*parentScrollView)) {
-            const LocalFrameView& parentView = downcast<LocalFrameView>(*parentScrollView);
-
-            // Get our renderer in the parent view
-            RenderWidget* renderer = m_frame->ownerRenderer();
-            if (!renderer)
-                return localPoint;
-
-            auto point = localPoint;
-            point.moveBy(renderer->contentBoxLocation());
-            return parentView.convertFromRendererToContainingView(renderer, point);
-        }
-
-        return Widget::convertToContainingView(localPoint);
-    }
-
-    return localPoint;
-}
-
-IntPoint LocalFrameView::convertFromContainingView(const IntPoint& parentPoint) const
-{
-    if (const ScrollView* parentScrollView = parent()) {
-        if (is<LocalFrameView>(*parentScrollView)) {
-            const LocalFrameView& parentView = downcast<LocalFrameView>(*parentScrollView);
-
-            // Get our renderer in the parent view
-            RenderWidget* renderer = m_frame->ownerRenderer();
-            if (!renderer)
-                return parentPoint;
-
-            auto point = parentView.convertFromContainingViewToRenderer(renderer, parentPoint);
-            point.moveBy(-roundedIntPoint(renderer->contentBoxLocation()));
-            return point;
-        }
-        
-        return Widget::convertFromContainingView(parentPoint);
-    }
-    
-    return parentPoint;
 }
 
 float LocalFrameView::documentToAbsoluteScaleFactor(std::optional<float> effectiveZoom) const

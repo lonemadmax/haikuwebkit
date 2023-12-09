@@ -1811,10 +1811,6 @@ webkit.org/b/259740 [ Ventura Release arm64 ] css3/color-filters/color-filter-ou
 
 webkit.org/b/260113 [ arm64 ] http/wpt/webauthn/ctap-hid-failure.https.html [ Pass Failure ]
 
-# rdar://102425691 ([ New Test ](256068@main): [ Ventura+ ] http/wpt/webcodecs/videoFrame-colorSpace.html is a consistent failure)
-[ Ventura+ ] http/wpt/webcodecs/videoFrame-colorSpace.html [ Pass Failure ]
-[ Sonoma+ ] http/wpt/webcodecs/encoder-task-failing.html [ Pass ]
-
 # These tests require compile-time flags in WebKit that are only enabled in iOS 17 and Sonoma. They were marked as Skip in
 # https://bugs.webkit.org/show_bug.cgi?id=248545 — re-enable them here.
 [ Sonoma+ ] fast/images/animations-resume-from-last-displayed-frame.html [ Pass ]
@@ -2011,3 +2007,20 @@ http/wpt/webcodecs/h264-encoder-default-config.https.any.html [ Failure ]
 http/wpt/webcodecs/h264-encoder-default-config.https.any.worker.html [ Failure ]
 
 webkit.org/b/265599 [ Sonoma+ Debug x86_64 ] imported/w3c/web-platform-tests/html/browsers/the-window-object/open-close/open-features-tokenization-noreferrer.html [ Pass Crash ]
+
+# WindowProxy property access delegate callbacks are only implemented on Mac and iOS WK2.
+http/wpt/opener/child-access-parent-via-windowproxy.html [ Pass ]
+http/wpt/opener/iframe-access-top-via-windowproxy.html [ Pass ]
+http/wpt/opener/parent-access-child-via-windowproxy.html [ Pass ]
+
+# rdar://119272478 (REGRESSION ( Sonoma?): [ Sonoma Release wk2 ] 3 tests in fast/attachment are a flaky failure with image diff)
+[ Sonoma+ Release ] fast/attachment/attachment-folder-icon.html [ Pass Failure ]
+[ Sonoma+ Release ] fast/attachment/attachment-type-attribute.html [ Pass Failure ]
+[ Sonoma+ Release ] fast/attachment/attachment-default-icon.html [ Pass Failure ]
+
+webkit.org/b/265954 [ Ventura+ Release x86_64 ] media/video-audio-session-mode.html [ Crash ]
+
+webkit.org/b/265957 [ Release ] fullscreen/full-screen-layer-dump.html [ Pass Failure ]
+
+# rdar://102425691 ([ New Test ](256068@main): [ Ventura+ ] http/wpt/webcodecs/videoFrame-colorSpace.html is a consistent failure)
+[ Ventura+ ] http/wpt/webcodecs/videoFrame-colorSpace.html [ Pass Failure ]

@@ -33,6 +33,7 @@
 #if ENABLE(MEDIA_SOURCE)
 
 #include "MediaPlayer.h"
+#include "PlatformTimeRanges.h"
 #include <wtf/Forward.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/Vector.h>
@@ -75,15 +76,16 @@ public:
     virtual void removeSourceBuffer(SourceBufferPrivate&);
     void sourceBufferPrivateDidChangeActiveState(SourceBufferPrivate&, bool active);
     virtual void notifyActiveSourceBuffersChanged() = 0;
-    virtual void durationChanged(const MediaTime&) = 0;
-    virtual void bufferedChanged(const PlatformTimeRanges&) { }
+    virtual void durationChanged(const MediaTime&); // Base class method must be called in overrides.
+    virtual void bufferedChanged(const PlatformTimeRanges&); // Base class method must be called in overrides.
 
     virtual void markEndOfStream(EndOfStreamStatus) { m_isEnded = true; }
     virtual void unmarkEndOfStream() { m_isEnded = false; }
     bool isEnded() const { return m_isEnded; }
 
-    virtual MediaPlayer::ReadyState readyState() const = 0;
-    virtual void setReadyState(MediaPlayer::ReadyState) = 0;
+    virtual MediaPlayer::ReadyState mediaPlayerReadyState() const = 0;
+    virtual void setMediaPlayerReadyState(MediaPlayer::ReadyState) = 0;
+
     virtual MediaTime currentMediaTime() const = 0;
 
     Ref<MediaTimePromise> waitForTarget(const SeekTarget&);
@@ -92,10 +94,10 @@ public:
     virtual void setTimeFudgeFactor(const MediaTime& fudgeFactor) { m_timeFudgeFactor = fudgeFactor; }
     MediaTime timeFudgeFactor() const { return m_timeFudgeFactor; }
 
-    MediaTime duration() const;
+    const MediaTime& duration() const;
     const PlatformTimeRanges& buffered() const;
 
-    bool hasFutureTime(const MediaTime& currentTime, const MediaTime& duration, const PlatformTimeRanges&) const;
+    bool hasFutureTime(const MediaTime& currentTime) const;
     bool hasAudio() const;
     bool hasVideo() const;
 
@@ -109,6 +111,8 @@ protected:
     bool m_isEnded { false };
 
 private:
+    MediaTime m_duration { MediaTime::invalidTime() };
+    PlatformTimeRanges m_buffered;
     MediaTime m_timeFudgeFactor;
     ThreadSafeWeakPtr<MediaSourcePrivateClient> m_client;
 };

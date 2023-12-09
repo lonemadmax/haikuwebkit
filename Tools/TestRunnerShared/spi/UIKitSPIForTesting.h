@@ -70,6 +70,11 @@
 #import <UIKit/UIKeyEventContext.h>
 #endif
 
+#if !__has_include(<UIKit/UIAsyncTextInput_ForWebKitOnly.h>)
+#define UITextDocumentContext UIWKDocumentContext
+#define UITextDocumentRequest UIWKDocumentRequest
+#endif
+
 IGNORE_WARNINGS_BEGIN("deprecated-implementations")
 #import <UIKit/UIWebBrowserView.h>
 #import <UIKit/UIWebScrollView.h>
@@ -85,6 +90,9 @@ IGNORE_WARNINGS_END
 #endif // PLATFORM(IOS) || PLATFORM(VISION)
 
 #else // USE(APPLE_INTERNAL_SDK)
+
+#define UITextDocumentContext UIWKDocumentContext
+#define UITextDocumentRequest UIWKDocumentRequest
 
 @interface NSTextAlternatives : NSObject
 - (id)initWithPrimaryString:(NSString *)primaryString alternativeStrings:(NSArray<NSString *> *)alternativeStrings;
@@ -253,9 +261,9 @@ typedef NS_ENUM(NSInteger, UIWKGestureType) {
 - (void)applyAutocorrection:(NSString *)correction toString:(NSString *)input shouldUnderline:(BOOL)shouldUnderline withCompletionHandler:(void (^)(UIWKAutocorrectionRects *rectsForCorrection))completionHandler;
 
 #if HAVE(UI_WK_DOCUMENT_CONTEXT)
-- (void)requestDocumentContext:(UIWKDocumentRequest *)request completionHandler:(void (^)(UIWKDocumentContext *))completionHandler;
+- (void)requestDocumentContext:(UITextDocumentRequest *)request completionHandler:(void (^)(UITextDocumentContext *))completionHandler;
 - (void)adjustSelectionWithDelta:(NSRange)deltaRange completionHandler:(void (^)(void))completionHandler;
-- (void)selectPositionAtPoint:(CGPoint)point withContextRequest:(UIWKDocumentRequest *)request completionHandler:(void (^)(UIWKDocumentContext *))completionHandler;
+- (void)selectPositionAtPoint:(CGPoint)point withContextRequest:(UITextDocumentRequest *)request completionHandler:(void (^)(UITextDocumentContext *))completionHandler;
 #endif
 
 @property (nonatomic, readonly) NSString *selectedText;
@@ -317,10 +325,6 @@ typedef NS_ENUM(NSUInteger, UIScrollPhase) {
 };
 
 @interface UIScrollEvent : UIEvent
-@end
-
-@interface NSObject (UIScrollViewDelegate_ForWebKitOnly)
-- (void)_scrollView:(UIScrollView *)scrollView asynchronouslyHandleScrollEvent:(UIScrollEvent *)scrollEvent completion:(void (^)(BOOL handled))completion;
 @end
 
 @interface UITextInteractionAssistant : NSObject <UIResponderStandardEditActions>
@@ -555,7 +559,15 @@ typedef NS_ENUM(NSUInteger, _UIClickInteractionEvent) {
 - (void)removeEmojiAlternatives;
 @end
 
+typedef NS_ENUM(NSInteger, NSTextBlockLayer) {
+    NSTextBlockPadding  = -1,
+    NSTextBlockBorder   =  0,
+    NSTextBlockMargin   =  1
+};
+
 @interface NSTextBlock : NSObject
+- (CGFloat)widthForLayer:(NSTextBlockLayer)layer edge:(CGRectEdge)edge;
+@property (nonatomic, copy) UIColor *backgroundColor;
 @end
 
 @interface NSTextTable : NSTextBlock

@@ -99,6 +99,12 @@ private:
 
     void adjustSliderThumbSize(RenderStyle&, const Element*) const override;
 
+    void adjustSwitchStyle(RenderStyle&, const Element*) const override;
+    bool paintSwitchThumb(const RenderObject&, const PaintInfo&, const FloatRect&) override;
+    bool paintSwitchTrack(const RenderObject&, const PaintInfo&, const FloatRect&) override;
+    Seconds switchAnimationVisuallyOnDuration() const final { return 300_ms; }
+    Seconds switchAnimationPressedDuration() const final { return 300_ms; }
+
     bool paintProgressBar(const RenderObject&, const PaintInfo&, const IntRect&) override;
 
 #if ENABLE(DATALIST_ELEMENT)
@@ -118,8 +124,6 @@ private:
     bool paintRadio(const RenderObject&, const PaintInfo&, const FloatRect&) override;
 
     void paintCheckboxRadioInnerShadow(const PaintInfo&, const FloatRoundedRect&, OptionSet<ControlStates::States>);
-
-    Seconds animationRepeatIntervalForProgressBar(const RenderProgress&) const final;
 
     bool supportsMeter(StyleAppearance) const final;
     bool paintMeter(const RenderObject&, const PaintInfo&, const IntRect&) final;

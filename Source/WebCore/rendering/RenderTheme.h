@@ -215,11 +215,9 @@ public:
 
     virtual ScrollbarWidth scrollbarWidthStyleForPart(StyleAppearance) { return ScrollbarWidth::Auto; }
 
-    // Returns the repeat interval of the animation for the progress bar.
-    virtual Seconds animationRepeatIntervalForProgressBar(const RenderProgress&) const;
-    // Returns the duration of the animation for the progress bar.
-    virtual Seconds animationDurationForProgressBar(const RenderProgress&) const;
-    virtual IntRect progressBarRectForBounds(const RenderProgress&, const IntRect&) const;
+    virtual Seconds animationRepeatIntervalForProgressBar(const RenderProgress&) const { return 0_s; }
+    virtual Seconds animationDurationForProgressBar() const { return 0_s; }
+    virtual IntRect progressBarRectForBounds(const RenderProgress&, const IntRect& bounds) const { return bounds; }
 
     virtual FloatSize meterSizeForBounds(const RenderMeter&, const FloatRect&) const;
     virtual bool supportsMeter(StyleAppearance) const { return false; }
@@ -265,7 +263,9 @@ public:
 #if USE(SYSTEM_PREVIEW)
     virtual void paintSystemPreviewBadge(Image&, const PaintInfo&, const FloatRect&);
 #endif
-    virtual Seconds switchCheckedChangeAnimationDuration() const { return 0_s; }
+    virtual Seconds switchAnimationVisuallyOnDuration() const { return 0_s; }
+    virtual Seconds switchAnimationPressedDuration() const { return 0_s; }
+    float switchPointerTrackingMagnitudeProportion() const { return 0.4f; }
 
 protected:
     virtual bool canPaint(const PaintInfo&, const Settings&, StyleAppearance) const { return true; }
@@ -383,6 +383,10 @@ protected:
 
     virtual void adjustSearchFieldResultsButtonStyle(RenderStyle&, const Element*) const { }
     virtual bool paintSearchFieldResultsButton(const RenderBox&, const PaintInfo&, const IntRect&) { return true; }
+
+    virtual void adjustSwitchStyle(RenderStyle&, const Element*) const { }
+    virtual bool paintSwitchThumb(const RenderObject&, const PaintInfo&, const FloatRect&) { return true; }
+    virtual bool paintSwitchTrack(const RenderObject&, const PaintInfo&, const FloatRect&) { return true; }
 
 public:
     void updateControlStatesForRenderer(const RenderBox&, ControlStates&) const;

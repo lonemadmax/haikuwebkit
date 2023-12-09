@@ -43,6 +43,7 @@
 #if USE(CG)
 #include "ImageBufferUtilitiesCG.h"
 #endif
+
 #if USE(CAIRO)
 #include "ImageBufferUtilitiesCairo.h"
 #endif
@@ -51,7 +52,11 @@
 #endif
 
 #if HAVE(IOSURFACE)
-#include "IOSurfaceImageBuffer.h"
+#include "ImageBufferIOSurfaceBackend.h"
+#endif
+
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+#include "DynamicContentScalingDisplayList.h"
 #endif
 
 namespace WebCore {
@@ -73,7 +78,7 @@ RefPtr<ImageBuffer> ImageBuffer::create(const FloatSize& size, RenderingPurpose 
         ImageBufferCreationContext creationContext;
         if (graphicsClient)
             creationContext.displayID = graphicsClient->displayID();
-        if (auto imageBuffer = IOSurfaceImageBuffer::create(size, resolutionScale, colorSpace, pixelFormat, purpose, creationContext))
+        if (auto imageBuffer = ImageBuffer::create<ImageBufferIOSurfaceBackend>(size, resolutionScale, colorSpace, pixelFormat, purpose, creationContext))
             return imageBuffer;
     }
 #endif
@@ -81,7 +86,7 @@ RefPtr<ImageBuffer> ImageBuffer::create(const FloatSize& size, RenderingPurpose 
     return create<ImageBufferPlatformBitmapBackend>(size, resolutionScale, colorSpace, pixelFormat, purpose, { });
 }
 
-ImageBuffer::ImageBuffer(Parameters parameters, const ImageBufferBackend::Info& backendInfo, std::unique_ptr<ImageBufferBackend>&& backend, RenderingResourceIdentifier renderingResourceIdentifier)
+ImageBuffer::ImageBuffer(Parameters parameters, const ImageBufferBackend::Info& backendInfo, const WebCore::ImageBufferCreationContext&, std::unique_ptr<ImageBufferBackend>&& backend, RenderingResourceIdentifier renderingResourceIdentifier)
     : m_parameters(parameters)
     , m_backendInfo(backendInfo)
     , m_backend(WTFMove(backend))
@@ -355,6 +360,13 @@ RefPtr<NativeImage> ImageBuffer::filteredNativeImage(Filter& filter, Function<vo
     return filteredNativeImage(filter);
 }
 
+#if HAVE(IOSURFACE)
+IOSurface* ImageBuffer::surface()
+{
+    return m_backend ? m_backend->surface() : nullptr;
+}
+#endif
+
 #if USE(CAIRO)
 RefPtr<cairo_surface_t> ImageBuffer::createCairoSurface()
 {
@@ -509,6 +521,13 @@ ImageBufferBackendSharing* ImageBuffer::toBackendSharing()
         return backend->toBackendSharing();
     return nullptr;
 }
+
+#if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
+std::optional<DynamicContentScalingDisplayList> ImageBuffer::dynamicContentScalingDisplayList()
+{
+    return std::nullopt;
+}
+#endif
 
 void ImageBuffer::transferToNewContext(const ImageBufferCreationContext& context)
 {

@@ -684,6 +684,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     animation/ScrollAxis.h
     animation/ScrollTimeline.h
     animation/ScrollTimelineOptions.h
+    animation/ViewTimeline.h
+    animation/ViewTimelineOptions.h
     animation/WebAnimationTypes.h
 
     bindings/IDLTypes.h
@@ -884,6 +886,13 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/query/GenericMediaQueryTypes.h
     css/query/MediaQuery.h
 
+    css/typedom/CSSKeywordValue.h
+    css/typedom/CSSNumericValue.h
+    css/typedom/CSSStyleValue.h
+
+    css/typedom/numeric/CSSNumericBaseType.h
+    css/typedom/numeric/CSSNumericType.h
+
     cssjit/CompiledSelector.h
 
     dom/AbortSignal.h
@@ -968,6 +977,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/GCReachableRef.h
     dom/ImageOverlay.h
     dom/InlineStyleSheetOwner.h
+    dom/InvokeEvent.h
     dom/KeyboardEvent.h
     dom/LiveNodeList.h
     dom/LiveNodeListInlines.h
@@ -1044,6 +1054,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/UserGestureIndicator.h
     dom/UserTypingGestureIndicator.h
     dom/ValidityStateFlags.h
+    dom/ViewTransition.h
+    dom/ViewTransitionUpdateCallback.h
     dom/ViewportArguments.h
     dom/VisibilityChangeClient.h
     dom/VisibilityState.h
@@ -1236,6 +1248,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/MediaDocument.h
     html/MediaElementSession.h
     html/MediaError.h
+    html/OffscreenCanvas.h
     html/PDFDocument.h
     html/PluginDocument.h
     html/StepRange.h
@@ -1919,6 +1932,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ImageBufferAllocator.h
     platform/graphics/ImageBufferBackend.h
     platform/graphics/ImageBufferBackendParameters.h
+    platform/graphics/ImageBufferPipe.h
     platform/graphics/ImageBufferPlatformBackend.h
     platform/graphics/ImageDecoder.h
     platform/graphics/ImageDecoderIdentifier.h
@@ -2020,6 +2034,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/VideoTrackPrivate.h
     platform/graphics/VideoTrackPrivateClient.h
     platform/graphics/WidthCache.h
+    platform/graphics/WidthIterator.h
     platform/graphics/WindRule.h
 
     platform/graphics/angle/ANGLEHeaders.h
@@ -2107,8 +2122,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/iso/ISOSchemeTypeBox.h
     platform/graphics/iso/ISOTrackEncryptionBox.h
     platform/graphics/iso/ISOVTTCue.h
-
-    platform/graphics/libwpe/PlatformDisplayLibWPE.h
 
     platform/graphics/opentype/OpenTypeMathData.h
     platform/graphics/opentype/OpenTypeVerticalData.h
@@ -2225,6 +2238,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/network/NetworkStateNotifier.h
     platform/network/NetworkStorageSession.h
     platform/network/NetworkingContext.h
+    platform/network/OrganizationStorageAccessPromptQuirk.h
     platform/network/ParsedContentRange.h
     platform/network/ParsedContentType.h
     platform/network/ParsedRequestRange.h

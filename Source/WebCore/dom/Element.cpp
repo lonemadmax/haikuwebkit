@@ -43,6 +43,7 @@
 #include "ContentVisibilityDocumentState.h"
 #include "CustomElementReactionQueue.h"
 #include "CustomElementRegistry.h"
+#include "CustomStateSet.h"
 #include "DOMRect.h"
 #include "DOMRectList.h"
 #include "DOMTokenList.h"
@@ -2051,7 +2052,8 @@ static inline AtomString makeIdForStyleResolution(const AtomString& value, bool 
 bool Element::isElementReflectionAttribute(const Settings& settings, const QualifiedName& name)
 {
     return (settings.ariaReflectionForElementReferencesEnabled() && name == HTMLNames::aria_activedescendantAttr)
-        || (settings.popoverAttributeEnabled() && name == HTMLNames::popovertargetAttr);
+        || (settings.popoverAttributeEnabled() && name == HTMLNames::popovertargetAttr)
+        || (settings.invokerAttributesEnabled() && name == HTMLNames::invoketargetAttr);
 }
 
 bool Element::isElementsArrayReflectionAttribute(const Settings& settings, const QualifiedName& name)
@@ -3752,7 +3754,7 @@ void Element::enqueueSecurityPolicyViolationEvent(SecurityPolicyViolationEventIn
 
 ExceptionOr<void> Element::replaceChildrenWithMarkup(const String& markup, OptionSet<ParserContentPolicy> parserContentPolicy)
 {
-    auto policy = OptionSet<ParserContentPolicy> { ParserContentPolicy::AllowScriptingContent, ParserContentPolicy::AllowPluginContent } | parserContentPolicy;
+    auto policy = OptionSet<ParserContentPolicy> { ParserContentPolicy::AllowScriptingContent } | parserContentPolicy;
 
     Ref container = [this]() -> Ref<ContainerNode> {
         if (auto* templateElement = dynamicDowncast<HTMLTemplateElement>(*this))
@@ -3813,7 +3815,7 @@ ExceptionOr<void> Element::setOuterHTML(const String& html)
     RefPtr previous = previousSibling();
     RefPtr next = nextSibling();
 
-    auto fragment = createFragmentForInnerOuterHTML(*parent, html, { ParserContentPolicy::AllowScriptingContent, ParserContentPolicy::AllowPluginContent });
+    auto fragment = createFragmentForInnerOuterHTML(*parent, html, { ParserContentPolicy::AllowScriptingContent });
     if (fragment.hasException())
         return fragment.releaseException();
 
@@ -4312,7 +4314,7 @@ bool Element::matchesReadWritePseudoClass() const
 
 bool Element::matchesIndeterminatePseudoClass() const
 {
-    return shouldAppearIndeterminate();
+    return false;
 }
 
 bool Element::matchesDefaultPseudoClass() const
@@ -4334,11 +4336,6 @@ ExceptionOr<Element*> Element::closest(const String& selector)
     if (query.hasException())
         return query.releaseException();
     return query.releaseReturnValue().closest(*this);
-}
-
-bool Element::shouldAppearIndeterminate() const
-{
-    return false;
 }
 
 bool Element::mayCauseRepaintInsideViewport(const IntRect* visibleRect) const
@@ -5270,7 +5267,7 @@ ExceptionOr<void> Element::insertAdjacentHTML(const String& where, const String&
     if (contextElement.hasException())
         return contextElement.releaseException();
     // Step 3.
-    auto fragment = createFragmentForInnerOuterHTML(contextElement.releaseReturnValue(), markup, { ParserContentPolicy::AllowScriptingContent, ParserContentPolicy::AllowPluginContent });
+    auto fragment = createFragmentForInnerOuterHTML(contextElement.releaseReturnValue(), markup, { ParserContentPolicy::AllowScriptingContent });
     if (fragment.hasException())
         return fragment.releaseException();
 
@@ -5533,6 +5530,27 @@ AtomString Element::makeTargetBlankIfHasDanglingMarkup(const AtomString& target)
     if ((target.contains('\n') || target.contains('\r') || target.contains('\t')) && target.contains('<'))
         return "_blank"_s;
     return target;
+}
+
+bool Element::hasCustomState(const AtomString& state) const
+{
+    if (!document().settings().customStateSetEnabled())
+        return false;
+
+    if (hasRareData()) {
+        RefPtr customStates = elementRareData()->customStateSet();
+        return customStates && customStates->has(state);
+    }
+
+    return false;
+}
+
+CustomStateSet& Element::ensureCustomStateSet()
+{
+    auto& rareData = const_cast<Element*>(this)->ensureElementRareData();
+    if (!rareData.customStateSet())
+        rareData.setCustomStateSet(CustomStateSet::create(*this));
+    return *rareData.customStateSet();
 }
 
 } // namespace WebCore

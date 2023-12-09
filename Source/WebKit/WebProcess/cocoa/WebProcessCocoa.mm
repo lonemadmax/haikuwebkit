@@ -28,6 +28,7 @@
 
 #import "AccessibilitySupportSPI.h"
 #import "ArgumentCodersCocoa.h"
+#import "CoreIPCAuditToken.h"
 #import "DefaultWebBrowserChecks.h"
 #import "LegacyCustomProtocolManager.h"
 #import "LogInitialization.h"
@@ -42,7 +43,6 @@
 #import "WKAPICast.h"
 #import "WKBrowsingContextHandleInternal.h"
 #import "WKFullKeyboardAccessWatcher.h"
-#import "WKTypeRefWrapper.h"
 #import "WKWebProcessPlugInBrowserContextControllerInternal.h"
 #import "WebFrame.h"
 #import "WebInspector.h"
@@ -572,7 +572,9 @@ void WebProcess::platformSetWebsiteDataStoreParameters(WebProcessDataStoreParame
 {
 #if ENABLE(SANDBOX_EXTENSIONS)
     SandboxExtension::consumePermanently(parameters.applicationCacheDirectoryExtensionHandle);
+#if !ENABLE(GPU_PROCESS)
     SandboxExtension::consumePermanently(parameters.mediaCacheDirectoryExtensionHandle);
+#endif
     SandboxExtension::consumePermanently(parameters.mediaKeyStorageDirectoryExtensionHandle);
     SandboxExtension::consumePermanently(parameters.javaScriptConfigurationDirectoryExtensionHandle);
 #if ENABLE(ARKIT_INLINE_PREVIEW)
@@ -1080,11 +1082,6 @@ RefPtr<ObjCObjectGraph> WebProcess::transformHandlesToObjects(ObjCObjectGraph& o
         {
             if (dynamic_objc_cast<WKBrowsingContextHandle>(object))
                 return true;
-
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            if (dynamic_objc_cast<WKTypeRefWrapper>(object))
-                return true;
-ALLOW_DEPRECATED_DECLARATIONS_END
             return false;
         }
 
@@ -1096,14 +1093,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
                 return [NSNull null];
             }
-
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object)) {
-                RefPtr impl = toImpl(wrapper.object);
-                return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(WebProcess::singleton().transformHandlesToObjects(impl.get()).get())]);
-            }
-
-ALLOW_DEPRECATED_DECLARATIONS_END
             return object;
         }
     };
@@ -1118,11 +1107,6 @@ RefPtr<ObjCObjectGraph> WebProcess::transformObjectsToHandles(ObjCObjectGraph& o
         {
             if (dynamic_objc_cast<WKWebProcessPlugInBrowserContextController>(object))
                 return true;
-
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            if (dynamic_objc_cast<WKTypeRefWrapper>(object))
-                return true;
-ALLOW_DEPRECATED_DECLARATIONS_END
             return false;
         }
 
@@ -1130,13 +1114,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         {
             if (auto* controller = dynamic_objc_cast<WKWebProcessPlugInBrowserContextController>(object))
                 return controller.handle;
-
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-            if (auto* wrapper = dynamic_objc_cast<WKTypeRefWrapper>(object)) {
-                RefPtr impl = toImpl(wrapper.object);
-                return adoptNS([[WKTypeRefWrapper alloc] initWithObject:toAPI(transformObjectsToHandles(impl.get()).get())]);
-            }
-ALLOW_DEPRECATED_DECLARATIONS_END
             return object;
         }
     };

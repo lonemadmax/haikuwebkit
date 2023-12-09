@@ -34,11 +34,12 @@
 
 namespace WebCore {
 
-bool MediaSourcePrivate::hasFutureTime(const MediaTime& currentTime, const MediaTime& duration, const PlatformTimeRanges& ranges) const
+bool MediaSourcePrivate::hasFutureTime(const MediaTime& currentTime) const
 {
-    if (currentTime > duration)
+    if (currentTime >= duration())
         return false;
 
+    auto& ranges = buffered();
     MediaTime nearest = ranges.nearest(currentTime);
     if (abs(nearest - currentTime) > timeFudgeFactor())
         return false;
@@ -48,7 +49,7 @@ bool MediaSourcePrivate::hasFutureTime(const MediaTime& currentTime, const Media
         return false;
 
     MediaTime localEnd = ranges.end(found);
-    if (localEnd == duration)
+    if (localEnd == duration())
         return true;
 
     return localEnd - currentTime > timeFudgeFactor();
@@ -66,18 +67,9 @@ RefPtr<MediaSourcePrivateClient> MediaSourcePrivate::client() const
     return m_client.get();
 }
 
-MediaTime MediaSourcePrivate::duration() const
+const MediaTime& MediaSourcePrivate::duration() const
 {
-    if (RefPtr client = this->client())
-        return client->duration();
-    return MediaTime::invalidTime();
-}
-
-const PlatformTimeRanges& MediaSourcePrivate::buffered() const
-{
-    if (RefPtr client = this->client())
-        return client->buffered();
-    return PlatformTimeRanges::emptyRanges();
+    return m_duration;
 }
 
 Ref<MediaTimePromise> MediaSourcePrivate::waitForTarget(const SeekTarget& target)
@@ -134,6 +126,23 @@ bool MediaSourcePrivate::hasVideo() const
     return std::any_of(m_activeSourceBuffers.begin(), m_activeSourceBuffers.end(), [] (SourceBufferPrivate* sourceBuffer) {
         return sourceBuffer->hasVideo();
     });
+}
+
+void MediaSourcePrivate::durationChanged(const MediaTime& duration)
+{
+    m_duration = duration;
+    for (auto& sourceBuffer : m_sourceBuffers)
+        sourceBuffer->setMediaSourceDuration(duration);
+}
+
+void MediaSourcePrivate::bufferedChanged(const PlatformTimeRanges& buffered)
+{
+    m_buffered = buffered;
+}
+
+const PlatformTimeRanges& MediaSourcePrivate::buffered() const
+{
+    return m_buffered;
 }
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)

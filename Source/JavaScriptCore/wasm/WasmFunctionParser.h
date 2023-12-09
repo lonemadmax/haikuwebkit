@@ -2366,39 +2366,41 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
             WASM_VALIDATOR_FAIL_IF(!isRefType(ref.type()), opName, " to type ", ref.type(), " expected a reference type");
 
             TypeIndex resultTypeIndex = static_cast<TypeIndex>(heapType);
-            switch (static_cast<TypeKind>(heapType)) {
-            case TypeKind::Funcref:
-            case TypeKind::Nullfuncref:
-                WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), funcrefType()), opName, " to type ", ref.type(), " expected a funcref");
-                break;
-            case TypeKind::Externref:
-            case TypeKind::Nullexternref:
-                WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), externrefType()), opName, " to type ", ref.type(), " expected an externref");
-                break;
-            case TypeKind::Eqref:
-            case TypeKind::Anyref:
-            case TypeKind::Nullref:
-            case TypeKind::I31ref:
-            case TypeKind::Arrayref:
-            case TypeKind::Structref:
-                WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), anyrefType()), "ref.cast to type ", ref.type(), " expected a subtype of anyref");
-                break;
-            default:
-                ASSERT(isTypeIndexHeapType(heapType));
+            if (typeIndexIsType(resultTypeIndex)) {
+                switch (static_cast<TypeKind>(heapType)) {
+                case TypeKind::Funcref:
+                case TypeKind::Nullfuncref:
+                    WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), funcrefType()), opName, " to type ", ref.type(), " expected a funcref");
+                    break;
+                case TypeKind::Externref:
+                case TypeKind::Nullexternref:
+                    WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), externrefType()), opName, " to type ", ref.type(), " expected an externref");
+                    break;
+                case TypeKind::Eqref:
+                case TypeKind::Anyref:
+                case TypeKind::Nullref:
+                case TypeKind::I31ref:
+                case TypeKind::Arrayref:
+                case TypeKind::Structref:
+                    WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), anyrefType()), "ref.cast to type ", ref.type(), " expected a subtype of anyref");
+                    break;
+                default:
+                    RELEASE_ASSERT_NOT_REACHED();
+                }
+            } else {
                 const TypeDefinition& signature = m_info.typeSignatures[heapType];
                 if (signature.expand().is<FunctionSignature>())
                     WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), funcrefType()), opName, " to type ", ref.type(), " expected a funcref");
                 else
-                    WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), anyrefType()), "ref.cast to type ", ref.type(), " expected a subtype of anyref");
+                    WASM_VALIDATOR_FAIL_IF(!isSubtype(ref.type(), anyrefType()), opName, " to type ", ref.type(), " expected a subtype of anyref");
                 resultTypeIndex = signature.index();
-                break;
             }
 
             ExpressionType result;
             bool allowNull = op == ExtGCOpType::RefCastNull || op == ExtGCOpType::RefTestNull;
             if (op == ExtGCOpType::RefCast || op == ExtGCOpType::RefCastNull) {
                 WASM_TRY_ADD_TO_CONTEXT(addRefCast(ref, allowNull, heapType, result));
-                m_expressionStack.constructAndAppend(Type { ref.type().kind, resultTypeIndex }, result);
+                m_expressionStack.constructAndAppend(Type { allowNull ? TypeKind::RefNull : TypeKind::Ref, resultTypeIndex }, result);
             } else {
                 WASM_TRY_ADD_TO_CONTEXT(addRefTest(ref, allowNull, heapType, result));
                 m_expressionStack.constructAndAppend(Types::I32, result);
@@ -2818,12 +2820,14 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         WASM_VALIDATOR_FAIL_IF(typeIndex >= m_info.typeCount(), "call_ref index ", typeIndex, " is out of bounds");
 
         WASM_PARSER_FAIL_IF(m_expressionStack.isEmpty(), "can't call_ref on empty expression stack");
-        WASM_VALIDATOR_FAIL_IF(!isRefWithTypeIndex(m_expressionStack.last().type()), "non-funcref call_ref value ", m_expressionStack.last().type().kind);
-        WASM_VALIDATOR_FAIL_IF(m_expressionStack.last().type().index != m_info.typeSignatures[typeIndex]->index(), "invalid type index for call_ref value");
 
-        const TypeIndex calleeTypeIndex = m_expressionStack.last().type().index;
-        const TypeDefinition& typeDefinition = TypeInformation::get(calleeTypeIndex);
+        const TypeDefinition& typeDefinition = m_info.typeSignatures[typeIndex];
+        const TypeIndex calleeTypeIndex = typeDefinition.index();
+        WASM_VALIDATOR_FAIL_IF(!typeDefinition.expand().is<FunctionSignature>(), "invalid type index (not a function signature) for call_ref, got ", typeIndex);
         const auto& calleeSignature = *typeDefinition.expand().as<FunctionSignature>();
+        Type calleeType = Type { TypeKind::RefNull, calleeTypeIndex };
+        WASM_VALIDATOR_FAIL_IF(!isSubtype(m_expressionStack.last().type(), calleeType), "invalid type for call_ref value, expected ", calleeType, " got ", m_expressionStack.last().type());
+
         size_t argumentCount = calleeSignature.argumentCount() + 1; // Add the callee's value.
         WASM_PARSER_FAIL_IF(argumentCount > m_expressionStack.size(), "call_ref expects ", argumentCount, " arguments, but the expression stack currently holds ", m_expressionStack.size(), " values");
 
@@ -2835,7 +2839,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
             size_t stackIndex = m_expressionStack.size() - i - 1;
             TypedExpression arg = m_expressionStack.at(stackIndex);
             if (i > 0)
-                WASM_VALIDATOR_FAIL_IF(arg.type() != calleeSignature.argumentType(argumentCount - i - 1), "argument type mismatch in call_indirect, got ", arg.type(), ", expected ", calleeSignature.argumentType(argumentCount - i - 1));
+                WASM_VALIDATOR_FAIL_IF(!isSubtype(arg.type(), calleeSignature.argumentType(argumentCount - i - 1)), "argument type mismatch in call_ref, got ", arg.type(), ", expected ", calleeSignature.argumentType(argumentCount - i - 1));
             args[args.size() - i - 1] = arg;
             m_context.didPopValueFromStack(arg, "CallRef"_s);
         }
@@ -3047,7 +3051,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         args.grow(exceptionSignature.argumentCount());
         for (unsigned i = 0; i < exceptionSignature.argumentCount(); ++i) {
             TypedExpression arg = m_expressionStack.at(m_expressionStack.size() - i - 1);
-            WASM_VALIDATOR_FAIL_IF(arg.type() != exceptionSignature.argumentType(exceptionSignature.argumentCount() - i - 1), "The exception being thrown expects the argument at index ", i, " to be ", exceptionSignature.argumentType(exceptionSignature.argumentCount() - i - 1), " but argument has type ", arg.type());
+            WASM_VALIDATOR_FAIL_IF(!isSubtype(arg.type(), exceptionSignature.argumentType(exceptionSignature.argumentCount() - i - 1)), "The exception being thrown expects the argument at index ", i, " to be ", exceptionSignature.argumentType(exceptionSignature.argumentCount() - i - 1), " but argument has type ", arg.type());
             args[args.size() - i - 1] = arg;
             m_context.didPopValueFromStack(arg, "Throw"_s);
         }

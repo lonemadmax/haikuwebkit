@@ -69,9 +69,13 @@ InlineLayoutUnit TextUtil::width(const InlineTextBox& inlineTextBox, const FontC
         ++to;
     auto width = 0.f;
     auto useSimplifiedContentMeasuring = inlineTextBox.canUseSimplifiedContentMeasuring();
-    if (useSimplifiedContentMeasuring)
-        width = fontCascade.widthForSimpleText(StringView(text).substring(from, to - from));
-    else {
+    if (useSimplifiedContentMeasuring) {
+        auto view = StringView(text).substring(from, to - from);
+        if (fontCascade.canTakeFixedPitchFastContentMeasuring())
+            width = fontCascade.widthForSimpleTextWithFixedPitch(view, inlineTextBox.style().collapseWhiteSpace());
+        else
+            width = fontCascade.widthForSimpleText(view);
+    } else {
         auto& style = inlineTextBox.style();
         auto directionalOverride = style.unicodeBidi() == UnicodeBidi::Override;
         auto run = WebCore::TextRun { StringView(text).substring(from, to - from), contentLogicalLeft, { }, ExpansionBehavior::defaultBehavior(), directionalOverride ? style.direction() : TextDirection::LTR, directionalOverride };
@@ -619,7 +623,7 @@ void TextUtil::computedExpansions(const Line::RunList& runs, WTF::Range<size_t> 
     expansionInfo.behaviorList.resizeToFit(rangeSize);
     auto lastExpansionIndexWithContent = std::optional<size_t> { };
 
-    // Line start behaves as if we had an expansion here (i.e. fist runs should not start with allowing left expansion).
+    // Line start behaves as if we had an expansion here (i.e. first runs should not start with allowing left expansion).
     auto runIsAfterExpansion = true;
     auto lastTextRunIndexForTrimming = [&]() -> std::optional<size_t> {
         if (!hangingTrailingWhitespaceLength)

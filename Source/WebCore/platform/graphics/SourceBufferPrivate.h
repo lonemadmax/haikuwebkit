@@ -94,9 +94,6 @@ public:
     virtual void resetParserState();
     virtual void removedFromMediaSource();
 
-    virtual MediaPlayer::ReadyState readyState() const = 0;
-    virtual void setReadyState(MediaPlayer::ReadyState) = 0;
-
     virtual bool canSwitchToType(const ContentType&) { return false; }
 
     WEBCORE_EXPORT virtual void setMediaSourceEnded(bool);
@@ -118,6 +115,7 @@ public:
     virtual void setTimestampOffset(const MediaTime& timestampOffset) { m_timestampOffset = timestampOffset; }
     virtual void setAppendWindowStart(const MediaTime& appendWindowStart) { m_appendWindowStart = appendWindowStart;}
     virtual void setAppendWindowEnd(const MediaTime& appendWindowEnd) { m_appendWindowEnd = appendWindowEnd; }
+
     using ComputeSeekPromise = MediaTimePromise;
     WEBCORE_EXPORT virtual Ref<ComputeSeekPromise> computeSeekTime(const SeekTarget&);
     WEBCORE_EXPORT virtual void seekToTime(const MediaTime&);
@@ -125,6 +123,8 @@ public:
 
     WEBCORE_EXPORT void setClient(SourceBufferPrivateClient&);
     WEBCORE_EXPORT void detach();
+
+    void setMediaSourceDuration(const MediaTime& duration) { m_mediaSourceDuration = duration; }
 
     const PlatformTimeRanges& buffered() const { return m_buffered; }
 
@@ -168,7 +168,7 @@ protected:
     WEBCORE_EXPORT Ref<MediaPromise> updateBufferedFromTrackBuffers(const Vector<PlatformTimeRanges>&);
 
     MediaTime currentMediaTime() const;
-    MediaTime duration() const;
+    MediaTime mediaSourceDuration() const;
 
     using InitializationSegment = SourceBufferPrivateClient::InitializationSegment;
     WEBCORE_EXPORT void didReceiveInitializationSegment(InitializationSegment&&);
@@ -252,6 +252,7 @@ private:
     MediaTime m_appendWindowStart { MediaTime::zeroTime() };
     MediaTime m_appendWindowEnd { MediaTime::positiveInfiniteTime() };
     MediaTime m_highestPresentationTimestamp;
+    MediaTime m_mediaSourceDuration { MediaTime::invalidTime() };
 
     MediaTime m_groupStartTimestamp { MediaTime::invalidTime() };
     MediaTime m_groupEndTimestamp { MediaTime::zeroTime() };

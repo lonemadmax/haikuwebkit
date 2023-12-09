@@ -33,24 +33,37 @@
 
 namespace WebCore {
 
+class CSSViewValue;
 class Element;
+
+struct ViewTimelineInsets {
+    std::optional<Length> start;
+    std::optional<Length> end;
+    bool operator==(const auto& other) const { return start == other.start && end == other.end; }
+};
 
 class ViewTimeline final : public ScrollTimeline {
 public:
     static Ref<ViewTimeline> create(ViewTimelineOptions&& = { });
+    static Ref<ViewTimeline> create(const AtomString&, ScrollAxis, ViewTimelineInsets&&);
+    static Ref<ViewTimeline> createFromCSSValue(const CSSViewValue&);
 
     Element* subject() const { return m_subject.get(); }
     const CSSNumericValue& startOffset() const { return m_startOffset.get(); }
     const CSSNumericValue& endOffset() const { return m_endOffset.get(); }
+    const ViewTimelineInsets& insets() const { return m_insets; }
 
 private:
     explicit ViewTimeline(ViewTimelineOptions&& = { });
+    explicit ViewTimeline(const AtomString&, ScrollAxis, ViewTimelineInsets&&);
 
+    Ref<CSSValue> toCSSValue() const final;
     bool isViewTimeline() const final { return true; }
 
     WeakPtr<Element, WeakPtrImplWithEventTargetData> m_subject;
     Ref<CSSNumericValue> m_startOffset;
     Ref<CSSNumericValue> m_endOffset;
+    ViewTimelineInsets m_insets;
 };
 
 } // namespace WebCore

@@ -495,12 +495,7 @@ Ref<WebPage> WebPage::create(PageIdentifier pageID, WebPageCreationParameters&& 
         injectedBundle->didCreatePage(page);
 
 #if HAVE(SANDBOX_STATE_FLAGS)
-    static bool hasSetLaunchVariable = false;
-    if (!hasSetLaunchVariable) {
-        auto auditToken = WebProcess::singleton().auditTokenForSelf();
-        sandbox_enable_state_flag("local:WebContentProcessLaunched", *auditToken);
-        hasSetLaunchVariable = true;
-    };
+    setHasLaunchedWebContentProcess();
 #endif
 
     return page;
@@ -1129,10 +1124,15 @@ void WebPage::mainFrameURLChangedInAnotherProcess(const URL& newURL)
 #if ENABLE(GPU_PROCESS)
 void WebPage::gpuProcessConnectionDidBecomeAvailable(GPUProcessConnection& gpuProcessConnection)
 {
+    UNUSED_PARAM(gpuProcessConnection);
+
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
     gpuProcessConnection.createVisibilityPropagationContextForPage(*this);
-#else
-    UNUSED_PARAM(gpuProcessConnection);
+#endif
+
+#if ENABLE(PROCESS_CAPABILITIES)
+    if (!mediaEnvironment().isEmpty())
+        gpuProcessConnection.setMediaEnvironment(identifier(), mediaEnvironment());
 #endif
 }
 
@@ -1307,6 +1307,10 @@ WebPage::~WebPage()
 
     for (auto& completionHandler : std::exchange(m_markLayersAsVolatileCompletionHandlers, { }))
         completionHandler(false);
+
+#if ENABLE(PROCESS_CAPABILITIES)
+    setMediaEnvironment({ });
+#endif
 }
 
 IPC::Connection* WebPage::messageSenderConnection() const
@@ -1857,6 +1861,7 @@ void WebPage::suspendForProcessSwap()
         send(Messages::WebPageProxy::DidFailToSuspendAfterProcessSwap());
     };
 
+    // FIXME: Make this work if the main frame is not a LocalFrame.
     RefPtr currentHistoryItem = m_mainFrame->coreLocalFrame()->loader().history().currentItem();
     if (!currentHistoryItem) {
         failedToSuspend();
@@ -1968,11 +1973,6 @@ void WebPage::loadRequest(LoadParameters&& loadParameters)
         if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(corePage()->mainFrame()))
             localMainFrame->loader().forceSandboxFlags(loadParameters.effectiveSandboxFlags);
     }
-
-#if ENABLE(WEB_AUTHN)
-    if (frame.get() == m_mainFrame.ptr())
-        m_page->authenticatorCoordinator().resetUserGestureRequirement();
-#endif
 
     if (frame->coreLocalFrame())
         frame->coreLocalFrame()->loader().load(WTFMove(frameLoadRequest));
@@ -2115,9 +2115,6 @@ void WebPage::reload(uint64_t navigationID, OptionSet<WebCore::ReloadOption> rel
     Ref mainFrame = m_mainFrame;
     m_sandboxExtensionTracker.beginReload(mainFrame.ptr(), WTFMove(sandboxExtensionHandle));
     if (m_page && mainFrame->coreLocalFrame()) {
-#if ENABLE(WEB_AUTHN)
-        m_page->authenticatorCoordinator().resetUserGestureRequirement();
-#endif
         mainFrame->coreLocalFrame()->loader().reload(reloadOptions);
     } else
         ASSERT_NOT_REACHED();
@@ -2324,7 +2321,7 @@ void WebPage::setTextZoomFactor(double zoomFactor)
 {
 #if ENABLE(PDF_PLUGIN)
     if (auto* pluginView = mainFramePlugIn()) {
-        pluginView->setPageScaleFactor(zoomFactor);
+        pluginView->setPageScaleFactor(zoomFactor, std::nullopt);
         return;
     }
 #endif
@@ -2352,7 +2349,7 @@ void WebPage::setPageZoomFactor(double zoomFactor)
 {
 #if ENABLE(PDF_PLUGIN)
     if (auto* pluginView = mainFramePlugIn()) {
-        pluginView->setPageScaleFactor(zoomFactor);
+        pluginView->setPageScaleFactor(zoomFactor, std::nullopt);
         return;
     }
 #endif
@@ -2428,7 +2425,8 @@ void WebPage::setPageAndTextZoomFactors(double pageZoomFactor, double textZoomFa
 {
 #if ENABLE(PDF_PLUGIN)
     if (auto* pluginView = mainFramePlugIn()) {
-        pluginView->setPageScaleFactor(pageZoomFactor);
+        // FIXME: Shouldn't this multiply the two scales, given we send both as "page scale" above?
+        pluginView->setPageScaleFactor(pageZoomFactor, std::nullopt);
         return;
     }
 #endif
@@ -2465,12 +2463,9 @@ void WebPage::scalePage(double scale, const IntPoint& origin)
     if (auto* pluginView = mainFramePlugIn()) {
         // Since the main-frame PDF plug-in handles the page scale factor, make sure to reset WebCore's page scale.
         // Otherwise, we can end up with an immutable but non-1 page scale applied by WebCore on top of whatever the plugin does.
-        if (m_page->pageScaleFactor() != 1) {
+        if (m_page->pageScaleFactor() != 1)
             m_page->setPageScaleFactor(1, origin);
-            for (auto& pluginView : m_pluginViews)
-                pluginView.pageScaleFactorDidChange();
-        }
-        pluginView->setPageScaleFactor(totalScale);
+        pluginView->setPageScaleFactor(totalScale, { origin });
         return;
     }
 #endif
@@ -2483,7 +2478,7 @@ void WebPage::scalePage(double scale, const IntPoint& origin)
 
 #if ENABLE(PDF_PLUGIN)
     for (auto& pluginView : m_pluginViews)
-        pluginView.pageScaleFactorDidChange();
+        pluginView.setPageScaleFactor(totalScale, { origin });
 #endif
 
 #if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
@@ -3025,10 +3020,10 @@ static ImageOptions snapshotImageOptions(LocalFrame& frame)
 RefPtr<WebImage> WebPage::snapshotAtSize(const IntRect& rect, const IntSize& bitmapSize, SnapshotOptions options, LocalFrame& frame, LocalFrameView& frameView)
 {
     auto snapshot = WebImage::create(bitmapSize, snapshotImageOptions(frame), snapshotColorSpace(options, *this), &m_page->chrome().client());
-    if (!snapshot)
+    if (!snapshot->context())
         return nullptr;
 
-    auto& graphicsContext = snapshot->context();
+    auto& graphicsContext = *snapshot->context();
     paintSnapshotAtSize(rect, bitmapSize, options, frame, frameView, graphicsContext);
 
     return snapshot;
@@ -3061,10 +3056,10 @@ RefPtr<WebImage> WebPage::snapshotNode(WebCore::Node& node, SnapshotOptions opti
     }
 
     auto snapshot = WebImage::create(snapshotSize, snapshotOptionsToImageOptions(options), snapshotColorSpace(options, *this), &m_page->chrome().client());
-    if (!snapshot)
+    if (!snapshot->context())
         return nullptr;
 
-    auto& graphicsContext = snapshot->context();
+    auto& graphicsContext = *snapshot->context();
 
     if (!(options & SnapshotOptionsExcludeDeviceScaleFactor)) {
         double deviceScaleFactor = corePage()->deviceScaleFactor();
@@ -5582,7 +5577,7 @@ void WebPage::unmarkAllMisspellings()
         if (!localFrame)
             continue;
         if (RefPtr document = localFrame->document())
-            document->markers().removeMarkers(DocumentMarker::Spelling);
+            document->markers().removeMarkers(DocumentMarker::Type::Spelling);
     }
 }
 
@@ -5593,7 +5588,7 @@ void WebPage::unmarkAllBadGrammar()
         if (!localFrame)
             continue;
         if (RefPtr document = localFrame->document())
-            document->markers().removeMarkers(DocumentMarker::Grammar);
+            document->markers().removeMarkers(DocumentMarker::Type::Grammar);
     }
 }
 
@@ -6189,12 +6184,12 @@ void WebPage::drawRectToImage(FrameIdentifier frameID, const PrintInfo& printInf
 #endif
         
         image = WebImage::create(imageSize, ImageOptionsLocal, DestinationColorSpace::SRGB(), &m_page->chrome().client());
-        if (!image) {
+        if (!image || !image->context()) {
             ASSERT_NOT_REACHED();
             return completionHandler({ });
         }
 
-        auto& graphicsContext = image->context();
+        auto& graphicsContext = *image->context();
         float printingScale = static_cast<float>(imageSize.width()) / rect.width();
         graphicsContext.scale(printingScale);
 
@@ -6953,11 +6948,7 @@ void WebPage::setAlwaysShowsHorizontalScroller(bool alwaysShowsHorizontalScrolle
 
     m_alwaysShowsHorizontalScroller = alwaysShowsHorizontalScroller;
 
-    RefPtr localMainFrame = dynamicDowncast<WebCore::LocalFrame>(corePage()->mainFrame());
-    if (!localMainFrame)
-        return;
-    
-    RefPtr view = localMainFrame->view();
+    RefPtr view = corePage()->mainFrame().virtualView();
     if (!alwaysShowsHorizontalScroller)
         view->setHorizontalScrollbarLock(false);
     view->setHorizontalScrollbarMode(alwaysShowsHorizontalScroller ? ScrollbarMode::AlwaysOn : m_mainFrameIsScrollable ? ScrollbarMode::Auto : ScrollbarMode::AlwaysOff, alwaysShowsHorizontalScroller || !m_mainFrameIsScrollable);
@@ -6970,11 +6961,7 @@ void WebPage::setAlwaysShowsVerticalScroller(bool alwaysShowsVerticalScroller)
 
     m_alwaysShowsVerticalScroller = alwaysShowsVerticalScroller;
 
-    RefPtr localMainFrame = dynamicDowncast<WebCore::LocalFrame>(corePage()->mainFrame());
-    if (!localMainFrame)
-        return;
-
-    RefPtr view = localMainFrame->view();
+    RefPtr view = corePage()->mainFrame().virtualView();
     if (!alwaysShowsVerticalScroller)
         view->setVerticalScrollbarLock(false);
     view->setVerticalScrollbarMode(alwaysShowsVerticalScroller ? ScrollbarMode::AlwaysOn : m_mainFrameIsScrollable ? ScrollbarMode::Auto : ScrollbarMode::AlwaysOff, alwaysShowsVerticalScroller || !m_mainFrameIsScrollable);
@@ -7088,12 +7075,8 @@ bool WebPage::canShowMIMEType(const String& mimeType, const Function<bool(const 
 
     if (!mimeType.isNull() && m_mimeTypesWithCustomContentProviders.contains(mimeType))
         return true;
-    
-    auto* localMainFrame = dynamicDowncast<WebCore::LocalFrame>(corePage()->mainFrame());
-    if (!localMainFrame)
-        return false;
 
-    if (localMainFrame->arePluginsEnabled() && pluginsSupport(mimeType, PluginData::AllPlugins))
+    if (corePage()->mainFrame().arePluginsEnabled() && pluginsSupport(mimeType, PluginData::AllPlugins))
         return true;
 
     // We can use application plugins even if plugins aren't enabled.

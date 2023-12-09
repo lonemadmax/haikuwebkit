@@ -73,16 +73,6 @@ void RemoteMediaSourceProxy::setPrivateAndOpen(Ref<MediaSourcePrivate>&& mediaSo
     m_private = WTFMove(mediaSourcePrivate);
 }
 
-MediaTime RemoteMediaSourceProxy::duration() const
-{
-    return m_duration;
-}
-
-const PlatformTimeRanges& RemoteMediaSourceProxy::buffered() const
-{
-    return m_buffered;
-}
-
 Ref<MediaTimePromise> RemoteMediaSourceProxy::waitForTarget(const SeekTarget& target)
 {
     if (!m_connectionToWebProcess)
@@ -101,11 +91,6 @@ Ref<MediaPromise> RemoteMediaSourceProxy::seekToTime(const MediaTime& time)
     return m_connectionToWebProcess->connection().sendWithPromisedReply(Messages::MediaSourcePrivateRemote::ProxySeekToTime(time), m_identifier)->whenSettled(RunLoop::current(), [](auto&& result) {
         return result ? MediaPromise::createAndSettle(WTFMove(*result)) : MediaPromise::createAndReject(PlatformMediaError::IPCError);
     });
-}
-
-void RemoteMediaSourceProxy::monitorSourceBuffers()
-{
-    notImplemented();
 }
 
 #if !RELEASE_LOG_DISABLED
@@ -141,19 +126,14 @@ void RemoteMediaSourceProxy::addSourceBuffer(const WebCore::ContentType& content
 
 void RemoteMediaSourceProxy::durationChanged(const MediaTime& duration)
 {
-    if (m_duration == duration)
-        return;
-
-    m_duration = duration;
     if (m_private)
         m_private->durationChanged(duration);
 }
 
 void RemoteMediaSourceProxy::bufferedChanged(WebCore::PlatformTimeRanges&& buffered)
 {
-    m_buffered = WTFMove(buffered);
     if (m_private)
-        m_private->bufferedChanged(m_buffered);
+        m_private->bufferedChanged(WTFMove(buffered));
 }
 
 void RemoteMediaSourceProxy::markEndOfStream(WebCore::MediaSourcePrivate::EndOfStreamStatus status )
@@ -169,10 +149,10 @@ void RemoteMediaSourceProxy::unmarkEndOfStream()
 }
 
 
-void RemoteMediaSourceProxy::setReadyState(WebCore::MediaPlayerEnums::ReadyState readyState)
+void RemoteMediaSourceProxy::setMediaPlayerReadyState(WebCore::MediaPlayerEnums::ReadyState readyState)
 {
     if (m_private)
-        m_private->setReadyState(readyState);
+        m_private->setMediaPlayerReadyState(readyState);
 }
 
 void RemoteMediaSourceProxy::setTimeFudgeFactor(const MediaTime& fudgeFactor)

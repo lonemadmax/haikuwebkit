@@ -135,10 +135,9 @@ bool ScrollAnchoringController::didFindPriorityCandidate(Document& document)
 {
     auto viablePriorityCandidateForElement = [this](Element* element) -> RefPtr<Element> {
         RefPtr candidateElement = anchorElementForPriorityCandidate(element);
-        if (!candidateElement)
+        if (!candidateElement || candidateElement == elementForScrollableArea(m_owningScrollableArea))
             return nullptr;
 
-        LOG_WITH_STREAM(ScrollAnchoring, stream << "ScrollAnchoringController::viablePriorityCandidateForElement()");
         RefPtr iterElement = candidateElement;
 
         while (iterElement && iterElement.get() != elementForScrollableArea(m_owningScrollableArea)) {
@@ -148,7 +147,12 @@ bool ScrollAnchoringController::didFindPriorityCandidate(Document& document)
             }
             iterElement = iterElement->parentElement();
         }
-        return candidateElement;
+        if (!iterElement)
+            return nullptr;
+        auto candidateResult = examineAnchorCandidate(*candidateElement);
+        if (candidateResult == CandidateExaminationResult::Select || candidateResult == CandidateExaminationResult::Descend)
+            return candidateElement;
+        return nullptr;
     };
 
     // TODO: need to check if focused element is text editable
@@ -156,6 +160,7 @@ bool ScrollAnchoringController::didFindPriorityCandidate(Document& document)
     if (RefPtr priorityCandidate = viablePriorityCandidateForElement(document.focusedElement())) {
         m_anchorElement = priorityCandidate;
         m_lastOffsetForAnchorElement = computeOffsetFromOwningScroller(*m_anchorElement->renderer());
+        LOG_WITH_STREAM(ScrollAnchoring, stream << "ScrollAnchoringController::viablePriorityCandidateForElement() for scroller: " << m_owningScrollableArea << " found priority candidate: " << *priorityCandidate);
         return true;
     }
     return false;
@@ -170,7 +175,7 @@ static bool absolutePositionedElementOutsideScroller(RenderElement& renderer, Sc
     return false;
 }
 
-CandidateExaminationResult ScrollAnchoringController::examineCandidate(Element& element)
+CandidateExaminationResult ScrollAnchoringController::examineAnchorCandidate(Element& element)
 {
     if (elementForScrollableArea(m_owningScrollableArea) && elementForScrollableArea(m_owningScrollableArea)->identifier() == element.identifier())
         return CandidateExaminationResult::Skip;
@@ -182,7 +187,7 @@ CandidateExaminationResult ScrollAnchoringController::examineCandidate(Element& 
         if (auto* box = element->renderBox()) {
             LayoutRect paddedLayerBounds(containingRect);
             paddedLayerBounds.contract(box->scrollPaddingForViewportRect(paddedLayerBounds));
-            LOG_WITH_STREAM(ScrollAnchoring, stream << "ScrollAnchoringController::examineCandidate() contracted rect: "<< IntRect(paddedLayerBounds));
+            LOG_WITH_STREAM(ScrollAnchoring, stream << "ScrollAnchoringController::examineAnchorCandidate() contracted rect: "<< IntRect(paddedLayerBounds));
             containingRect = IntRect(paddedLayerBounds);
         }
     }
@@ -241,7 +246,7 @@ Element* ScrollAnchoringController::findAnchorElementRecursive(Element* element)
     if (!element)
         return nullptr;
 
-    auto result = examineCandidate(*element);
+    auto result = examineAnchorCandidate(*element);
     LOG_WITH_STREAM(ScrollAnchoring, stream << "ScrollAnchoringController::findAnchorElementRecursive() element: "<< *element<<" examination result: " << result);
 
     switch (result) {
@@ -322,6 +327,13 @@ void ScrollAnchoringController::adjustScrollPositionForAnchoring()
 
     FloatSize adjustment = computeOffsetFromOwningScroller(*renderer) - m_lastOffsetForAnchorElement;
     if (!adjustment.isZero()) {
+#if PLATFORM(IOS_FAMILY)
+        if (m_owningScrollableArea.isUserScrollInProgress()) {
+            invalidateAnchorElement();
+            updateAnchorElement();
+            return;
+        }
+#endif
         auto newScrollPosition = m_owningScrollableArea.scrollPosition() + IntPoint(adjustment.width(), adjustment.height());
         LOG_WITH_STREAM(ScrollAnchoring, stream << "ScrollAnchoringController::updateScrollPosition() for frame: " << frameView() << " for scroller: " << m_owningScrollableArea << " adjusting from: " << m_owningScrollableArea.scrollPosition() << " to: " << newScrollPosition);
         auto options = ScrollPositionChangeOptions::createProgrammatic();

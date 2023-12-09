@@ -42,6 +42,7 @@ class AbortSignal;
 class AuthenticatorCoordinatorClient;
 class BasicCredential;
 class Document;
+class PublicKeyCredentialClientCapabilities;
 
 struct PublicKeyCredentialCreationOptions;
 struct PublicKeyCredentialRequestOptions;
@@ -67,7 +68,7 @@ public:
     void isUserVerifyingPlatformAuthenticatorAvailable(const Document&, DOMPromiseDeferred<IDLBoolean>&&) const;
     void isConditionalMediationAvailable(const Document&, DOMPromiseDeferred<IDLBoolean>&&) const;
 
-    WEBCORE_EXPORT void resetUserGestureRequirement();
+    void getClientCapabilities(const Document&, DOMPromiseDeferred<IDLInterface<PublicKeyCredentialClientCapabilities>>&&) const;
 
 private:
     AuthenticatorCoordinator() = default;

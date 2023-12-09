@@ -951,11 +951,6 @@ RefPtr<StyleRuleScope> CSSParserImpl::consumeScopeRule(CSSParserTokenRange prelu
     if (!m_context.cssScopeAtRuleEnabled)
         return nullptr;
 
-    // FIXME: implement mixing style nesting and scope nesting
-    // https://bugs.webkit.org/show_bug.cgi?id=265368
-    if (isStyleNestedContext())
-        return nullptr;
-
     auto preludeRangeCopy = prelude;
     CSSSelectorList scopeStart;
     CSSSelectorList scopeEnd;
@@ -1236,6 +1231,8 @@ RefPtr<StyleRuleBase> CSSParserImpl::consumeStyleRule(CSSParserTokenRange prelud
                 if (!selector->hasExplicitNestingParent() || selectorStartWithExplicitCombinator) {
                     auto nestingParentSelector = makeUnique<CSSParserSelector>();
                     nestingParentSelector->setMatch(CSSSelector::Match::NestingParent);
+                    // https://drafts.csswg.org/css-nesting/#nesting
+                    // Spec: nested rules with relative selectors include the specificity of their implied nesting selector.
                     selector->appendTagHistoryAsRelative(WTFMove(nestingParentSelector));
                 }
             // For a rule inside a scope rule, we had the implicit ":scope" if there is no explicit & or :scope already
@@ -1244,6 +1241,7 @@ RefPtr<StyleRuleBase> CSSParserImpl::consumeStyleRule(CSSParserTokenRange prelud
                     auto scopeSelector = makeUnique<CSSParserSelector>();
                     scopeSelector->setMatch(CSSSelector::Match::PseudoClass);
                     scopeSelector->setPseudoClassType(CSSSelector::PseudoClassType::Scope);
+                    scopeSelector->selector()->setImplicit();
                     selector->appendTagHistoryAsRelative(WTFMove(scopeSelector));
                 }
             }

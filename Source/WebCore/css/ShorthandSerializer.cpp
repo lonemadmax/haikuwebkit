@@ -406,6 +406,7 @@ String ShorthandSerializer::serialize()
     case CSSPropertyWhiteSpace:
         return serializeWhiteSpace();
     case CSSPropertyScrollTimeline:
+    case CSSPropertyViewTimeline:
         return serializeCoordinatingListPropertyGroup();
     default:
         ASSERT_NOT_REACHED();
@@ -639,6 +640,13 @@ String ShorthandSerializer::serializeLayered() const
 
         for (unsigned j = 0; j < length(); j++) {
             auto longhand = longhandProperty(j);
+
+            // We always want to force the serialization of the transition longhands,
+            // except for transition-behavior which should only serialize if non-default.
+            if (m_shorthand.id() == CSSPropertyTransition) {
+                if (longhand != CSSPropertyTransitionBehavior)
+                    layerValues.skip(j) = false;
+            }
 
             // A single box value sets both background-origin and background-clip.
             // A single geometry-box value sets both mask-origin and mask-clip.

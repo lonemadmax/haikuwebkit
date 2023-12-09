@@ -36,7 +36,9 @@
 #import "RemoteScrollingCoordinatorProxy.h"
 #import "UserMediaProcessManager.h"
 #import "ViewGestureController.h"
+#import "ViewSnapshotStore.h"
 #import "WKContentViewInteraction.h"
+#import "WKPreferencesInternal.h"
 #import "WebPageProxy.h"
 #import "WebProcessPool.h"
 #import "WebProcessProxy.h"
@@ -166,6 +168,15 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
     [_contentView setContinuousSpellCheckingEnabled:enabled];
 #else
     _impl->setContinuousSpellCheckingEnabled(enabled);
+#endif
+}
+
+- (void)_setGrammarCheckingEnabledForTesting:(BOOL)enabled
+{
+#if PLATFORM(IOS_FAMILY)
+    [_contentView setGrammarCheckingEnabled:enabled];
+#else
+    _impl->setGrammarCheckingEnabled(enabled);
 #endif
 }
 

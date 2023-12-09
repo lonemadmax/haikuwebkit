@@ -95,6 +95,16 @@ static NSURL *URLFromString(const WTF::String& urlString)
     return _hitTestResult->isSelected();
 }
 
+- (BOOL)isMediaDownloadable
+{
+    return _hitTestResult->isDownloadableMedia();
+}
+
+- (BOOL)isMediaFullscreen
+{
+    return _hitTestResult->mediaIsInFullscreen();
+}
+
 - (CGRect)elementBoundingBox
 {
     return _hitTestResult->elementBoundingBox();

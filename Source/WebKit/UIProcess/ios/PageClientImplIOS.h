@@ -283,6 +283,8 @@ private:
     void didChangeDragCaretRect(const WebCore::IntRect& previousCaretRect, const WebCore::IntRect& caretRect) override;
 #endif
 
+    void performSwitchHapticFeedback() final;
+
     void handleAutocorrectionContext(const WebAutocorrectionContext&) final;
 
     void setMouseEventPolicy(WebCore::MouseEventPolicy) final;
@@ -301,7 +303,7 @@ private:
     void showDictationAlternativeUI(const WebCore::FloatRect&, WebCore::DictationContext) final;
 
 #if HAVE(UISCROLLVIEW_ASYNCHRONOUS_SCROLL_EVENT_HANDLING)
-    void handleAsynchronousCancelableScrollEvent(UIScrollView *, UIScrollEvent *, void (^completion)(BOOL handled)) final;
+    void handleAsynchronousCancelableScrollEvent(WKBaseScrollView *, UIScrollEvent *, void (^completion)(BOOL handled)) final;
 #endif
 
     WebCore::Color contentViewBackgroundColor() final;

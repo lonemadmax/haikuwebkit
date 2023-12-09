@@ -33,9 +33,10 @@
 #import "ScrollingTreeFrameScrollingNodeRemoteIOS.h"
 #import "ScrollingTreeOverflowScrollingNodeIOS.h"
 #import "ScrollingTreePluginScrollingNodeIOS.h"
+#import "WKBaseScrollView.h"
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
-#import <UIKit/UIView.h>
+#import <WebCore/LocalFrameView.h>
 #import <WebCore/ScrollSnapOffsetsInfo.h>
 #import <WebCore/ScrollTypes.h>
 #import <WebCore/ScrollingStateFrameScrollingNode.h>
@@ -367,6 +368,18 @@ CGPoint RemoteScrollingCoordinatorProxyIOS::nearestActiveContentInsetAdjustedSna
 
     return activePoint;
 }
+
+#if ENABLE(THREADED_ANIMATION_RESOLUTION)
+void RemoteScrollingCoordinatorProxyIOS::animationsWereAddedToNode(RemoteLayerTreeNode& node)
+{
+    m_animatedNodeLayerIDs.add(node.layerID());
+}
+
+void RemoteScrollingCoordinatorProxyIOS::animationsWereRemovedFromNode(RemoteLayerTreeNode& node)
+{
+    m_animatedNodeLayerIDs.remove(node.layerID());
+}
+#endif
 
 } // namespace WebKit
 

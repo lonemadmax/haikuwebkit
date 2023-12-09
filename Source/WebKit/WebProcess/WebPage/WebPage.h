@@ -56,6 +56,7 @@
 #include "WebsitePoliciesData.h"
 #include <JavaScriptCore/InspectorFrontendChannel.h>
 #include <WebCore/AppHighlight.h>
+#include <WebCore/ChromeClient.h>
 #include <WebCore/DiagnosticLoggingClient.h>
 #include <WebCore/DictationContext.h>
 #include <WebCore/DictionaryPopupInfo.h>
@@ -753,6 +754,7 @@ public:
     void setUseFormSemanticContext(bool);
     void semanticContextDidChange(bool);
 
+    void didBeginMagnificationGesture();
     void didEndMagnificationGesture();
 #endif
 
@@ -1539,7 +1541,8 @@ public:
 
     void isPlayingMediaDidChange(WebCore::MediaProducerMediaStateFlags);
 
-    URL applyLinkDecorationFiltering(const URL&, WebCore::LinkDecorationFilteringTrigger);
+    std::pair<URL, WebCore::DidFilterLinkDecoration> applyLinkDecorationFilteringWithResult(const URL&, WebCore::LinkDecorationFilteringTrigger);
+    URL applyLinkDecorationFiltering(const URL& url, WebCore::LinkDecorationFilteringTrigger trigger) { return applyLinkDecorationFilteringWithResult(url, trigger).first; }
     URL allowedQueryParametersForAdvancedPrivacyProtections(const URL&);
 
 #if ENABLE(IMAGE_ANALYSIS)
@@ -1666,6 +1669,11 @@ public:
 
 #if (PLATFORM(GTK) || PLATFORM(WPE)) && USE(GBM)
     const Vector<DMABufRendererBufferFormat>& preferredBufferFormats() const { return m_preferredBufferFormats; }
+#endif
+
+#if ENABLE(PROCESS_CAPABILITIES)
+    const String& mediaEnvironment() const { return m_mediaEnvironment; }
+    void setMediaEnvironment(const String&);
 #endif
 
 private:
@@ -2128,7 +2136,7 @@ private:
     void sendMessageToWebProcessExtensionWithReply(UserMessage&&, CompletionHandler<void(UserMessage&&)>&&);
 #endif
 
-#if PLATFORM(WPE) && USE(GBM)
+#if PLATFORM(WPE) && USE(GBM) && ENABLE(WPE_PLATFORM)
     void preferredBufferFormatsDidChange(Vector<DMABufRendererBufferFormat>&&);
 #endif
 
@@ -2150,6 +2158,10 @@ private:
 
     void remotePostMessage(WebCore::FrameIdentifier source, const String& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData>&& targetOrigin, const WebCore::MessageWithMessagePorts&);
     void renderTreeAsText(WebCore::FrameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag>, CompletionHandler<void(String&&)>&&);
+
+#if HAVE(SANDBOX_STATE_FLAGS)
+    static void setHasLaunchedWebContentProcess();
+#endif
 
     WebCore::PageIdentifier m_identifier;
 
@@ -2656,6 +2668,10 @@ private:
     WeakHashSet<WebCore::HTMLImageElement, WebCore::WeakPtrImplWithEventTargetData> m_elementsToExcludeFromRemoveBackground;
 #endif
 
+#if ENABLE(PROCESS_CAPABILITIES)
+    String m_mediaEnvironment;
+#endif
+
     mutable RefPtr<Logger> m_logger;
 };
 
@@ -2670,7 +2686,7 @@ inline bool WebPage::shouldAvoidComputingPostLayoutDataForEditorState() const { 
 #endif
 
 #if !PLATFORM(COCOA)
-inline URL WebPage::applyLinkDecorationFiltering(const URL& url, WebCore::LinkDecorationFilteringTrigger) { return url; }
+inline std::pair<URL, WebCore::DidFilterLinkDecoration>  WebPage::applyLinkDecorationFilteringWithResult(const URL& url, WebCore::LinkDecorationFilteringTrigger) { return { url, WebCore::DidFilterLinkDecoration::No }; }
 inline URL WebPage::allowedQueryParametersForAdvancedPrivacyProtections(const URL& url) { return url; }
 #endif
 

@@ -63,6 +63,8 @@ LineBox LineBoxBuilder::build(size_t lineIndex)
     constructInlineLevelBoxes(lineBox);
     adjustIdeographicBaselineIfApplicable(lineBox);
     adjustInlineBoxHeightsForLineBoxContainIfApplicable(lineBox);
+    if (m_lineHasRubyContent)
+        RubyFormattingContext::applyAnnotationContributionToLayoutBounds(lineBox, formattingContext());
     computeLineBoxGeometry(lineBox);
     adjustOutsideListMarkersPosition(lineBox);
 
@@ -270,8 +272,6 @@ void LineBoxBuilder::setVerticalPropertiesForInlineLevelBox(const LineBox& lineB
         // With text-box-trim, the inline box top is not always where the content starts.
         auto fontMetricBasedAscent = primaryFontMetricsForInlineBox(inlineLevelBox, lineBox.baselineType()).ascent;
         inlineLevelBox.setInlineBoxContentOffsetForTextBoxTrim(fontMetricBasedAscent - ascentAndDescent.ascent);
-        if (inlineLevelBox.layoutBox().isRubyBase())
-            RubyFormattingContext { formattingContext() }.applyAnnotationContributionToLayoutBounds(inlineLevelBox);
         return;
     }
     if (inlineLevelBox.isLineBreakBox()) {
@@ -370,6 +370,7 @@ void LineBoxBuilder::constructInlineLevelBoxes(LineBox& lineBox)
             auto inlineBox = InlineLevelBox::createInlineBox(layoutBox, style, logicalLeft, logicalWidth, InlineLevelBox::LineSpanningInlineBox::Yes);
             setVerticalPropertiesForInlineLevelBox(lineBox, inlineBox);
             lineBox.addInlineLevelBox(WTFMove(inlineBox));
+            m_lineHasRubyContent = m_lineHasRubyContent || layoutBox.isRubyBase();
             continue;
         }
         if (run.isInlineBoxStart()) {
@@ -385,6 +386,7 @@ void LineBoxBuilder::constructInlineLevelBoxes(LineBox& lineBox)
             inlineBox.setIsFirstBox();
             setVerticalPropertiesForInlineLevelBox(lineBox, inlineBox);
             lineBox.addInlineLevelBox(WTFMove(inlineBox));
+            m_lineHasRubyContent = m_lineHasRubyContent || layoutBox.isRubyBase();
             continue;
         }
         if (run.isInlineBoxEnd()) {

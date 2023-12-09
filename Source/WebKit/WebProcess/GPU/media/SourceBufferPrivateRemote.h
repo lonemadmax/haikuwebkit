@@ -30,12 +30,10 @@
 #include "GPUProcessConnection.h"
 #include "MessageReceiver.h"
 #include "RemoteSourceBufferIdentifier.h"
-#include "TrackPrivateRemoteIdentifier.h"
 #include <WebCore/ContentType.h>
 #include <WebCore/MediaSample.h>
 #include <WebCore/SourceBufferPrivate.h>
 #include <WebCore/SourceBufferPrivateClient.h>
-#include <wtf/HashMap.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/MediaTime.h>
 #include <wtf/Ref.h>
@@ -80,8 +78,6 @@ private:
     void abort() final;
     void resetParserState() final;
     void removedFromMediaSource() final;
-    WebCore::MediaPlayer::ReadyState readyState() const final;
-    void setReadyState(WebCore::MediaPlayer::ReadyState) final;
     bool canSwitchToType(const WebCore::ContentType&) final;
     void setMediaSourceEnded(bool) final;
     void setMode(WebCore::SourceBufferAppendMode) final;
@@ -132,8 +128,6 @@ private:
     RemoteSourceBufferIdentifier m_remoteSourceBufferIdentifier;
     WeakPtr<MediaPlayerPrivateRemote> m_mediaPlayerPrivate;
 
-    StdUnorderedMap<TrackID, TrackPrivateRemoteIdentifier> m_trackIdentifierMap;
-    StdUnorderedMap<TrackID, TrackPrivateRemoteIdentifier> m_prevTrackIdentifierMap;
     Vector<WebCore::PlatformTimeRanges> m_trackBufferRanges;
 
     uint64_t m_totalTrackBufferSizeInBytes = { 0 };

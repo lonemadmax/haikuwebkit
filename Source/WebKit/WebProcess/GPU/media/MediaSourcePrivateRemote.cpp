@@ -111,6 +111,7 @@ MediaSourcePrivate::AddStatus MediaSourcePrivateRemote::addSourceBuffer(const Co
 
 void MediaSourcePrivateRemote::durationChanged(const MediaTime& duration)
 {
+    MediaSourcePrivate::durationChanged(duration);
     auto gpuProcessConnection = m_gpuProcessConnection.get();
     if (!isGPURunning())
         return;
@@ -120,6 +121,7 @@ void MediaSourcePrivateRemote::durationChanged(const MediaTime& duration)
 
 void MediaSourcePrivateRemote::bufferedChanged(const PlatformTimeRanges& buffered)
 {
+    MediaSourcePrivate::bufferedChanged(buffered);
     auto gpuProcessConnection = m_gpuProcessConnection.get();
     if (!isGPURunning())
         return;
@@ -142,18 +144,19 @@ void MediaSourcePrivateRemote::unmarkEndOfStream()
     MediaSourcePrivate::unmarkEndOfStream();
 }
 
-MediaPlayer::ReadyState MediaSourcePrivateRemote::readyState() const
+MediaPlayer::ReadyState MediaSourcePrivateRemote::mediaPlayerReadyState() const
 {
-    return m_mediaPlayerPrivate ? m_mediaPlayerPrivate->readyState() : MediaPlayer::ReadyState::HaveNothing;
+    return m_readyState;
 }
 
-void MediaSourcePrivateRemote::setReadyState(MediaPlayer::ReadyState readyState)
+void MediaSourcePrivateRemote::setMediaPlayerReadyState(MediaPlayer::ReadyState readyState)
 {
     auto gpuProcessConnection = m_gpuProcessConnection.get();
     if (!isGPURunning())
         return;
 
-    gpuProcessConnection->connection().send(Messages::RemoteMediaSourceProxy::SetReadyState(readyState), m_identifier);
+    m_readyState = readyState;
+    gpuProcessConnection->connection().send(Messages::RemoteMediaSourceProxy::SetMediaPlayerReadyState(readyState), m_identifier);
 }
 
 void MediaSourcePrivateRemote::setTimeFudgeFactor(const MediaTime& fudgeFactor)
@@ -185,6 +188,8 @@ void MediaSourcePrivateRemote::proxySeekToTime(const MediaTime& time, Completion
 void MediaSourcePrivateRemote::mediaSourcePrivateShuttingDown(CompletionHandler<void()>&& completionHandler)
 {
     m_shutdown = true;
+    m_readyState = MediaPlayer::ReadyState::HaveNothing;
+
     for (auto& sourceBuffer : m_sourceBuffers)
         sourceBuffer->disconnect();
     completionHandler();

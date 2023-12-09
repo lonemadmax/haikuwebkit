@@ -45,11 +45,14 @@
 #import "WebExtensionEventListenerType.h"
 #import "WebPageProxy.h"
 #import "WebProcessPool.h"
+#import <WebCore/ContentRuleListResults.h>
 #import <wtf/FileSystem.h>
 #import <wtf/HashMap.h>
 #import <wtf/HashSet.h>
 #import <wtf/NeverDestroyed.h>
 #import <wtf/text/WTFString.h>
+
+static constexpr Seconds purgeMatchedRulesInterval = 5_min;
 
 namespace WebKit {
 
@@ -292,6 +295,45 @@ void WebExtensionController::didFailLoadForFrame(WebPageProxyIdentifier pageID, 
 {
     for (auto& context : m_extensionContexts)
         context->didFailLoadForFrame(pageID, frameID, parentFrameID, frameURL, timestamp);
+}
+
+void WebExtensionController::handleContentRuleListNotification(WebPageProxyIdentifier pageID, URL& url, WebCore::ContentRuleListResults& results)
+{
+    bool savedMatchedRule = false;
+
+    for (const auto& result : results.results) {
+        auto contentRuleListIdentifier = result.first;
+        for (auto& context : m_extensionContexts) {
+            if (context->uniqueIdentifier() != contentRuleListIdentifier)
+                continue;
+
+            RefPtr tab = context->getTab(pageID);
+            if (!tab)
+                break;
+
+            savedMatchedRule |= context->handleContentRuleListNotificationForTab(*tab, url, result.second);
+
+            break;
+        }
+    }
+
+    if (!savedMatchedRule || m_purgeOldMatchedRulesTimer)
+        return;
+
+    m_purgeOldMatchedRulesTimer = makeUnique<WebCore::Timer>(*this, &WebExtensionController::purgeOldMatchedRules);
+    m_purgeOldMatchedRulesTimer->start(purgeMatchedRulesInterval, purgeMatchedRulesInterval);
+}
+
+void WebExtensionController::purgeOldMatchedRules()
+{
+    WallTime earliestDateToKeep = WallTime::now() - purgeMatchedRulesInterval;
+
+    bool stillHaveRules = false;
+    for (auto& extensionContext : m_extensionContexts)
+        stillHaveRules |= extensionContext->purgeMatchedRulesFromBefore(earliestDateToKeep);
+
+    if (!stillHaveRules)
+        m_purgeOldMatchedRulesTimer = nullptr;
 }
 
 } // namespace WebKit

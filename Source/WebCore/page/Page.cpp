@@ -1134,7 +1134,7 @@ uint32_t Page::replaceSelectionWithText(const String& replacementText)
 void Page::unmarkAllTextMatches()
 {
     forEachDocument([] (Document& document) {
-        document.markers().removeMarkers(DocumentMarker::TextMatch);
+        document.markers().removeMarkers(DocumentMarker::Type::TextMatch);
     });
 }
 
@@ -1858,6 +1858,10 @@ void Page::updateRendering()
 
     runProcessingStep(RenderingUpdateStep::UpdateContentRelevancy, [] (Document& document) {
         document.updateRelevancyOfContentVisibilityElements();
+    });
+
+    runProcessingStep(RenderingUpdateStep::PerformPendingViewTransitions, [] (Document& document) {
+        document.performPendingViewTransitions();
     });
 
     runProcessingStep(RenderingUpdateStep::IntersectionObservations, [] (Document& document) {
@@ -3814,7 +3818,7 @@ void Page::setFullscreenControlsHidden(bool hidden)
 Document* Page::outermostFullscreenDocument() const
 {
 #if ENABLE(FULLSCREEN_API)
-    CheckedPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
     if (!localMainFrame)
         return nullptr;
 
@@ -4296,6 +4300,7 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, RenderingUpdateStep step)
     case RenderingUpdateStep::Animations: ts << "Animations"; break;
     case RenderingUpdateStep::Fullscreen: ts << "Fullscreen"; break;
     case RenderingUpdateStep::AnimationFrameCallbacks: ts << "AnimationFrameCallbacks"; break;
+    case RenderingUpdateStep::PerformPendingViewTransitions: ts << "PerformPendingViewTransitions"; break;
     case RenderingUpdateStep::IntersectionObservations: ts << "IntersectionObservations"; break;
     case RenderingUpdateStep::UpdateContentRelevancy: ts << "UpdateContentRelevancy"; break;
     case RenderingUpdateStep::ResizeObservations: ts << "ResizeObservations"; break;

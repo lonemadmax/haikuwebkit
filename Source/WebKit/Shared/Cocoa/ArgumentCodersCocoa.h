@@ -29,10 +29,24 @@
 
 #if PLATFORM(COCOA)
 
+#import "WKKeyedCoder.h"
 #import <wtf/RetainPtr.h>
 
 #if ENABLE(DATA_DETECTION)
 OBJC_CLASS DDScannerResult;
+#if PLATFORM(MAC)
+#if HAVE(SECURE_ACTION_CONTEXT)
+OBJC_CLASS DDSecureActionContext;
+using WKDDActionContext = DDSecureActionContext;
+#else
+OBJC_CLASS DDActionContext;
+using WKDDActionContext = DDActionContext;
+#endif // #if HAVE(SECURE_ACTION_CONTEXT)
+#endif // #if PLATFORM(MAC)
+#endif // #if ENABLE(DATA_DETECTION)
+
+#if USE(AVFOUNDATION)
+OBJC_CLASS AVOutputContext;
 #endif
 
 namespace IPC {
@@ -59,9 +73,15 @@ public:
 };
 
 enum class NSType : uint8_t {
+#if USE(AVFOUNDATION)
+    AVOutputContext,
+#endif
     Array,
     Color,
 #if ENABLE(DATA_DETECTION)
+#if PLATFORM(MAC)
+    DDActionContext,
+#endif
     DDScannerResult,
 #endif
     Data,
@@ -71,6 +91,7 @@ enum class NSType : uint8_t {
     Font,
     Locale,
     Number,
+    PersonNameComponents,
     SecureCoding,
     String,
     URL,
@@ -83,6 +104,12 @@ bool isSerializableValue(id);
 
 #if ENABLE(DATA_DETECTION)
 template<> Class getClass<DDScannerResult>();
+#if PLATFORM(MAC)
+template<> Class getClass<WKDDActionContext>();
+#endif
+#endif
+#if USE(AVFOUNDATION)
+template<> Class getClass<AVOutputContext>();
 #endif
 
 void encodeObjectWithWrapper(Encoder&, id);

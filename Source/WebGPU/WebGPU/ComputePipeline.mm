@@ -39,8 +39,9 @@ static id<MTLComputePipelineState> createComputePipelineState(id<MTLDevice> devi
 {
     auto computePipelineDescriptor = [MTLComputePipelineDescriptor new];
     computePipelineDescriptor.computeFunction = function;
-    // FIXME: check this calculation for overflow
-    computePipelineDescriptor.maxTotalThreadsPerThreadgroup = size.width * size.height * size.depth;
+    // FIXME: https://bugs.webkit.org/show_bug.cgi?id=265910 - [WebGPU] Investigate the appropriate way to set MTLComputePipelineDescriptor.maxTotalThreadsPerThreadgroup
+    // -[MTLComputePipelineDescriptor setMaxTotalThreadsPerThreadgroup:] will release assert if maxTotalThreadsPerThreadgroup > USHRT_MAX
+    computePipelineDescriptor.maxTotalThreadsPerThreadgroup = std::min<NSUInteger>(size.width * size.height * size.depth, USHRT_MAX);
     for (size_t i = 0; i < pipelineLayout.numberOfBindGroupLayouts(); ++i)
         computePipelineDescriptor.buffers[i].mutability = MTLMutabilityImmutable; // Argument buffers are always immutable in WebGPU.
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=249345 don't unconditionally set this to YES
@@ -75,7 +76,8 @@ Ref<ComputePipeline> Device::createComputePipeline(const WGPUComputePipelineDesc
 
     PipelineLayout& pipelineLayout = WebGPU::fromAPI(descriptor.layout);
     auto label = fromAPI(descriptor.label);
-    auto libraryCreationResult = createLibrary(m_device, shaderModule, &pipelineLayout, fromAPI(descriptor.compute.entryPoint), label);
+    auto entryPoint = fromAPI(descriptor.compute.entryPoint);
+    auto libraryCreationResult = createLibrary(m_device, shaderModule, &pipelineLayout, entryPoint.length() ? entryPoint : shaderModule.defaultComputeEntryPoint(), label);
     if (!libraryCreationResult)
         return ComputePipeline::createInvalid(*this);
 
@@ -88,7 +90,7 @@ Ref<ComputePipeline> Device::createComputePipeline(const WGPUComputePipelineDesc
 
     auto [constantValues, wgslConstantValues] = createConstantValues(descriptor.compute.constantCount, descriptor.compute.constants, entryPointInformation);
     auto function = createFunction(library, entryPointInformation, constantValues, label);
-    if (!function)
+    if (!function || function.functionType != MTLFunctionTypeKernel)
         return ComputePipeline::createInvalid(*this);
 
     auto size = metalSize(computeInformation.workgroupSize, wgslConstantValues);

@@ -25,6 +25,8 @@
 
 #if USE(EXTENSIONKIT)
 
+@protocol UIInteraction;
+
 NS_ASSUME_NONNULL_BEGIN
 
 @interface _SEServiceConfiguration: NSObject
@@ -45,6 +47,9 @@ typedef void(^_SEServiceInteruptionHandler)();
 +(instancetype)assertionWithDomain:(NSString*)domain name:(NSString*)name;
 +(instancetype)assertionWithDomain:(NSString*)domain name:(NSString*)name environmentIdentifier:(NSString*)environmentIdentifier;
 +(instancetype)assertionWithDomain:(NSString*)domain name:(NSString*)name environmentIdentifier:(NSString*)environmentIdentifier willInvalidate:(void (^)())willInvalidateBlock didInvalidate:(void (^)())didInvalidateBlock;
++(instancetype)mediaWithWebsite:(NSString*)website;
+-(BOOL)setActive:(BOOL)active;
+@property (nonatomic, readonly) NSString *mediaEnvironment;
 @end
 
 NS_REFINED_FOR_SWIFT
@@ -60,10 +65,12 @@ NS_REFINED_FOR_SWIFT
 
 NS_REFINED_FOR_SWIFT
 @interface _SEContentProcess: _SEExtensionProcess
+-(id<UIInteraction>)createVisibilityPropagationInteraction;
 @end
 
 NS_REFINED_FOR_SWIFT
 @interface _SEGPUProcess: _SEExtensionProcess
+-(id<UIInteraction>)createVisibilityPropagationInteraction;
 @end
 
 NS_REFINED_FOR_SWIFT

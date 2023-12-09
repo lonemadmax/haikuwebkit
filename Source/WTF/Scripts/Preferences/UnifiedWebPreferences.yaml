@@ -1224,17 +1224,17 @@ CSSRhythmicSizingEnabled:
 
 CSSScopeAtRuleEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS Scoping (@scope)"
   humanReadableDescription: "Enable the CSS Scoping feature with @scope rule"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSScrollAnchoringEnabled:
   type: bool
@@ -1915,6 +1915,20 @@ CustomPasteboardDataEnabled:
       default: false
     WebKit:
       "PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WIN)": true
+      default: false
+
+CustomStateSetEnabled:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "CustomStateSet"
+  humanReadableDescription: "Support for CustomStateSet in custom elements"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
       default: false
 
 DNSPrefetchingEnabled:
@@ -2637,6 +2651,20 @@ FileSystemAccessEnabled:
       "PLATFORM(COCOA)" : true
       default: false
 
+FilterLinkDecorationByDefaultEnabled:
+  type: bool
+  status: testable
+  category: networking
+  humanReadableName: "Filter Link Decoration"
+  humanReadableDescription: "Enable Filtering Link Decoration"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 FixedFontFamily:
   type: String
   status: embedder
@@ -2892,17 +2920,17 @@ GoogleAntiFlickerOptimizationQuirkEnabled:
 
 GrammarAndSpellingPseudoElementsEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "::grammar-error and ::spelling-error pseudo-elements"
   humanReadableDescription: "Enable the ::grammar-error and ::spelling-error CSS pseudo-elements"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 GraphicsContextFiltersEnabled:
    type: bool
@@ -3199,11 +3227,12 @@ InlineFormattingContextIntegrationEnabled:
   category: css
   humanReadableName: "Next-generation inline layout (IFC)"
   humanReadableDescription: "Enable next-generation inline layout (IFC)"
-  webcoreBinding: DeprecatedGlobalSettings
   defaultValue:
     WebKitLegacy:
       default: true
     WebKit:
+      default: true
+    WebCore:
       default: true
 
 InlineMediaPlaybackRequiresPlaysInlineAttribute:
@@ -3461,6 +3490,20 @@ InvisibleAutoplayNotPermitted:
       default: false
     WebKit:
       "PLATFORM(IOS_FAMILY)": true
+      default: false
+    WebCore:
+      default: false
+
+InvokerAttributesEnabled:
+  type: bool
+  status: testable
+  category: html
+  humanReadableName: "HTML invoketarget & invokeaction attributes"
+  humanReadableDescription: "Enable HTML invoketarget & invokeaction attribute support"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
       default: false
     WebCore:
       default: false
@@ -4002,19 +4045,6 @@ ManageCaptureStatusBarInGPUProcessEnabled:
     WebCore:
       default: false
 
-ManageWebKitProcessesAsExtensions:
-  type: bool
-  status: internal
-  defaultsOverridable: true
-  humanReadableName: "Manage WebKit processes as extensions"
-  humanReadableDescription: "Manage WebKit processes as extensions"
-  condition: USE(EXTENSIONKIT)
-  webcoreBinding: none
-  exposed: [ WebKit ]
-  defaultValue:
-    WebKit:
-      default: false
-
 ManagedMediaSourceEnabled:
   type: bool
   status: stable
@@ -4152,6 +4182,20 @@ MediaCapabilitiesExtensionsEnabled:
       default: true
     WebCore:
       default: false
+
+MediaCapabilityGrantsEnabled:
+  type: bool
+  status: unstable
+  condition: ENABLE(PROCESS_CAPABILITIES)
+  humanReadableName: "Media Capability Grants"
+  humanReadableDescription: "Enable granting and revoking of media capabilities"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 MediaCaptionFormatTypesAllowedInLockdownMode:
   type: String
@@ -5757,19 +5801,6 @@ SerifFontFamily:
     WebCore:
       default: '""'
 
-ServerTimingEnabled:
-  type: bool
-  status: stable
-  category: networking
-  humanReadableName: "Server Timing"
-  humanReadableDescription: "Enable Server Timing API"
-  webcoreBinding: DeprecatedGlobalSettings
-  defaultValue:
-    WebKitLegacy:
-      default: true
-    WebKit:
-      default: true
-
 ServiceControlsEnabled:
   type: bool
   status: embedder
@@ -6366,16 +6397,19 @@ SuppressesIncrementalRendering:
 
 SwitchControlEnabled:
   type: bool
-  status: testable
+  status: stable
   category: html
   humanReadableName: "HTML switch control"
   humanReadableDescription: "Enable HTML switch control"
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(COCOA)": true
       default: false
     WebKit:
+      "PLATFORM(COCOA)": true
       default: false
     WebCore:
+      "PLATFORM(COCOA)": true
       default: false
 
 # FIXME: There is no custom binding implemented for WebKitLegacy.
@@ -7248,6 +7282,21 @@ WebAudioEnabled:
     WebCore:
       default: false
 
+
+WebAuthenticationASEnabled:
+  type: bool
+  status: embedder
+  humanReadableName: "Web Authentication AuthenticationServices"
+  humanReadableDescription: "Enable Modern Web Authentication support though AuthenticationServices"
+  condition: ENABLE(WEB_AUTHN_AS_MODERN)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 WebAuthenticationEnabled:
   type: bool
@@ -7427,7 +7476,8 @@ WebGLUsingMetal:
 
 WebGPUEnabled:
   type: bool
-  status: unstable
+  status: testable
+  category: dom
   humanReadableName: "WebGPU"
   humanReadableDescription: "Enable WebGPU"
   defaultValue:
@@ -7730,7 +7780,7 @@ WebRTCVP9Profile0CodecEnabled:
 
 WebRTCVP9Profile2CodecEnabled:
   type: bool
-  status: testable
+  status: stable
   category: media
   humanReadableName: "WebRTC VP9 profile 2 codec"
   humanReadableDescription: "Enable WebRTC VP9 profile 2 codec"
@@ -7739,8 +7789,10 @@ WebRTCVP9Profile2CodecEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "PLATFORM(COCOA)": true
       default: false
     WebCore:
+      "PLATFORM(COCOA)": true
       default: false
 
 WebSQLEnabled:

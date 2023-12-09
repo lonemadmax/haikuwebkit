@@ -99,7 +99,6 @@
 #include "RenderFlexibleBox.h"
 #include "RenderFragmentContainer.h"
 #include "RenderFragmentedFlow.h"
-#include "RenderGeometryMap.h"
 #include "RenderHTMLCanvas.h"
 #include "RenderImage.h"
 #include "RenderInline.h"
@@ -969,7 +968,7 @@ void RenderLayer::willUpdateLayerPositions()
 void RenderLayer::updateLayerPositionsAfterStyleChange()
 {
     willUpdateLayerPositions();
-    recursiveUpdateLayerPositions(nullptr, flagsForUpdateLayerPositions(*this));
+    recursiveUpdateLayerPositions(flagsForUpdateLayerPositions(*this));
 }
 
 void RenderLayer::updateLayerPositionsAfterLayout(bool isRelayoutingSubtree, bool didFullRepaint)
@@ -988,34 +987,22 @@ void RenderLayer::updateLayerPositionsAfterLayout(bool isRelayoutingSubtree, boo
     LOG(Compositing, "RenderLayer %p updateLayerPositionsAfterLayout", this);
     willUpdateLayerPositions();
 
-    RenderGeometryMap geometryMap(UseTransforms, renderer().settings().css3DTransformInteroperabilityEnabled());
-    if (!isRenderViewLayer())
-        geometryMap.pushMappingsToAncestor(parent(), nullptr);
-
-    recursiveUpdateLayerPositions(&geometryMap, updateLayerPositionFlags(isRelayoutingSubtree, didFullRepaint));
+    recursiveUpdateLayerPositions(updateLayerPositionFlags(isRelayoutingSubtree, didFullRepaint));
 }
 
-void RenderLayer::recursiveUpdateLayerPositions(RenderGeometryMap* geometryMap, OptionSet<UpdateLayerPositionsFlag> flags)
+void RenderLayer::recursiveUpdateLayerPositions(OptionSet<UpdateLayerPositionsFlag> flags)
 {
     updateLayerPosition(&flags);
     if (m_scrollableArea)
         m_scrollableArea->applyPostLayoutScrollPositionIfNeeded();
 
-    if (geometryMap)
-        geometryMap->pushMappingsToAncestor(this, parent());
-
     // Clear our cached clip rect information.
     clearClipRects();
 
     if (m_scrollableArea && m_scrollableArea->hasOverflowControls()) {
-        LayoutSize offsetFromRoot;
-        if (geometryMap)
-            offsetFromRoot = LayoutSize(toFloatSize(geometryMap->absolutePoint(FloatPoint())));
-        else {
-            // FIXME: It looks suspicious to call convertToLayerCoords here
-            // as canUseOffsetFromAncestor may be true for an ancestor layer.
-            offsetFromRoot = offsetFromAncestor(root());
-        }
+        // FIXME: It looks suspicious to call convertToLayerCoords here
+        // as canUseOffsetFromAncestor may be true for an ancestor layer.
+        auto offsetFromRoot = offsetFromAncestor(root());
         m_scrollableArea->positionOverflowControls(roundedIntSize(offsetFromRoot));
     }
 
@@ -1040,13 +1027,13 @@ void RenderLayer::recursiveUpdateLayerPositions(RenderGeometryMap* geometryMap, 
         CheckedPtr repaintContainer = renderer().containerForRepaint().renderer;
         
         auto oldRects = repaintRects();
-        computeRepaintRects(repaintContainer.get(), geometryMap);
+        computeRepaintRects(repaintContainer.get());
         auto newRects = repaintRects();
 
         if (checkForRepaint && shouldRepaintAfterLayout() && newRects) {
-            auto needsFullRepaint = m_repaintStatus == RepaintStatus::NeedsFullRepaint ? RenderElement::RequiresFullRepaint::Yes : RenderElement::RequiresFullRepaint::No;
+            auto needsFullRepaint = m_repaintStatus == RepaintStatus::NeedsFullRepaint ? RequiresFullRepaint::Yes : RequiresFullRepaint::No;
             auto resolvedOldRects = valueOrDefault(oldRects);
-            renderer().repaintAfterLayoutIfNeeded(repaintContainer.get(), needsFullRepaint, resolvedOldRects.clippedOverflowRect, resolvedOldRects.outlineBoundsRect, &newRects->clippedOverflowRect, &newRects->outlineBoundsRect);
+            renderer().repaintAfterLayoutIfNeeded(repaintContainer.get(), needsFullRepaint, resolvedOldRects, *newRects);
         }
     };
 
@@ -1088,7 +1075,7 @@ void RenderLayer::recursiveUpdateLayerPositions(RenderGeometryMap* geometryMap, 
         flags.add(SeenCompositedScrollingLayer);
 
     for (RenderLayer* child = firstChild(); child; child = child->nextSibling())
-        child->recursiveUpdateLayerPositions(geometryMap, flags);
+        child->recursiveUpdateLayerPositions(flags);
 
     if (m_scrollableArea)
         m_scrollableArea->updateMarqueePosition();
@@ -1114,9 +1101,6 @@ void RenderLayer::recursiveUpdateLayerPositions(RenderGeometryMap* geometryMap, 
 
     if (isComposited())
         backing()->updateAfterLayout(flags.contains(ContainingClippingLayerChangedSize), flags.contains(NeedsFullRepaintInBacking));
-
-    if (geometryMap)
-        geometryMap->popMappingsToAncestor(parent());
 }
 
 LayoutRect RenderLayer::repaintRectIncludingNonCompositingDescendants() const
@@ -1171,18 +1155,14 @@ std::optional<LayoutRect> RenderLayer::cachedClippedOverflowRect() const
     return m_repaintRects.clippedOverflowRect;
 }
 
-void RenderLayer::computeRepaintRects(const RenderLayerModelObject* repaintContainer, const RenderGeometryMap* geometryMap)
+void RenderLayer::computeRepaintRects(const RenderLayerModelObject* repaintContainer)
 {
     ASSERT(!m_visibleContentStatusDirty);
 
     if (!isSelfPaintingLayer())
         clearRepaintRects();
-    else {
-        setRepaintRects({
-            renderer().clippedOverflowRectForRepaint(repaintContainer),
-            renderer().outlineBoundsForRepaint(repaintContainer, geometryMap)
-        });
-    }
+    else
+        setRepaintRects(renderer().rectsForRepaintingAfterLayout(repaintContainer, RepaintOutlineBounds::Yes));
 }
 
 void RenderLayer::computeRepaintRectsIncludingDescendants()
@@ -1196,7 +1176,7 @@ void RenderLayer::computeRepaintRectsIncludingDescendants()
         layer->computeRepaintRectsIncludingDescendants();
 }
 
-void RenderLayer::setRepaintRects(const RepaintRects& rects)
+void RenderLayer::setRepaintRects(const RenderObject::RepaintRects& rects)
 {
     m_repaintRects = rects;
     m_repaintRectsValid = true;
@@ -1209,15 +1189,11 @@ void RenderLayer::clearRepaintRects()
 
 void RenderLayer::updateLayerPositionsAfterOverflowScroll()
 {
-    RenderGeometryMap geometryMap(UseTransforms, renderer().settings().css3DTransformInteroperabilityEnabled());
-    if (!isRenderViewLayer())
-        geometryMap.pushMappingsToAncestor(parent(), nullptr);
-
     willUpdateLayerPositions();
 
     // FIXME: why is it OK to not check the ancestors of this layer in order to
     // initialize the HasSeenViewportConstrainedAncestor and HasSeenAncestorWithOverflowClip flags?
-    recursiveUpdateLayerPositionsAfterScroll(&geometryMap, RenderLayer::IsOverflowScroll);
+    recursiveUpdateLayerPositionsAfterScroll(RenderLayer::IsOverflowScroll);
 }
 
 void RenderLayer::updateLayerPositionsAfterDocumentScroll()
@@ -1226,12 +1202,10 @@ void RenderLayer::updateLayerPositionsAfterDocumentScroll()
     LOG(Scrolling, "RenderLayer::updateLayerPositionsAfterDocumentScroll");
 
     willUpdateLayerPositions();
-
-    RenderGeometryMap geometryMap(UseTransforms, renderer().settings().css3DTransformInteroperabilityEnabled());
-    recursiveUpdateLayerPositionsAfterScroll(&geometryMap);
+    recursiveUpdateLayerPositionsAfterScroll();
 }
 
-void RenderLayer::recursiveUpdateLayerPositionsAfterScroll(RenderGeometryMap* geometryMap, OptionSet<UpdateLayerPositionsAfterScrollFlag> flags)
+void RenderLayer::recursiveUpdateLayerPositionsAfterScroll(OptionSet<UpdateLayerPositionsAfterScrollFlag> flags)
 {
     // FIXME: This shouldn't be needed, but there are some corner cases where
     // these flags are still dirty. Update so that the check below is valid.
@@ -1258,26 +1232,18 @@ void RenderLayer::recursiveUpdateLayerPositionsAfterScroll(RenderGeometryMap* ge
     
     bool shouldComputeRepaintRects = (flags.contains(HasSeenViewportConstrainedAncestor) || flags.containsAll({ IsOverflowScroll, HasSeenAncestorWithOverflowClip })) && isSelfPaintingLayer();
     bool isVisuallyEmpty = !isVisuallyNonEmpty();
-    bool shouldPushAndPopMappings = geometryMap && ((shouldComputeRepaintRects && !isVisuallyEmpty) || firstChild());
-    if (shouldPushAndPopMappings)
-        geometryMap->pushMappingsToAncestor(this, parent());
-
     if (shouldComputeRepaintRects) {
         // When scrolling, we don't compute repaint rects for visually non-empty layers.
         if (isVisuallyEmpty)
             clearRepaintRects();
-        else // FIXME: We could track the repaint container as we walk down the tree.
-            computeRepaintRects(renderer().containerForRepaint().renderer.get(), geometryMap);
-    } else if (!renderer().view().frameView().platformWidget()) {
-        // When ScrollView's m_paintsEntireContents flag flips due to layer backing changes, the repaint area transitions from
-        // visual to layout overflow. When this happens the cached repaint rects become invalid and they need to be recomputed (see webkit.org/b/188121).
-        // Check that our cached rects are correct.
-        ASSERT_IMPLIES(m_repaintRectsValid, m_repaintRects.clippedOverflowRect == renderer().clippedOverflowRectForRepaint(renderer().containerForRepaint().renderer.get()));
-        ASSERT_IMPLIES(m_repaintRectsValid, m_repaintRects.outlineBoundsRect == renderer().outlineBoundsForRepaint(renderer().containerForRepaint().renderer.get()));
+        else {
+            // FIXME: We could track the repaint container as we walk down the tree.
+            computeRepaintRects(renderer().containerForRepaint().renderer.get());
+        }
     }
-    
-    for (RenderLayer* child = firstChild(); child; child = child->nextSibling())
-        child->recursiveUpdateLayerPositionsAfterScroll(geometryMap, flags);
+
+    for (auto* child = firstChild(); child; child = child->nextSibling())
+        child->recursiveUpdateLayerPositionsAfterScroll(flags);
 
     // We don't update our reflection as scrolling is a translation which does not change the size()
     // of an object, thus RenderReplica will still repaint itself properly as the layer position was
@@ -1285,9 +1251,6 @@ void RenderLayer::recursiveUpdateLayerPositionsAfterScroll(RenderGeometryMap* ge
 
     if (m_scrollableArea)
         m_scrollableArea->updateMarqueePosition();
-
-    if (shouldPushAndPopMappings)
-        geometryMap->popMappingsToAncestor(parent());
 }
 
 #if ENABLE(CSS_COMPOSITING)
@@ -2404,7 +2367,7 @@ static RenderLayer* findCommonAncestor(const RenderLayer& firstLayer, const Rend
     if (&firstLayer == &secondLayer)
         return const_cast<RenderLayer*>(&firstLayer);
 
-    WeakHashSet<const RenderLayer> ancestorChain;
+    SingleThreadWeakHashSet<const RenderLayer> ancestorChain;
     for (auto* currLayer = &firstLayer; currLayer; currLayer = currLayer->parent())
         ancestorChain.add(*currLayer);
 

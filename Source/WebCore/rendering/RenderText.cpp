@@ -153,9 +153,9 @@ static HashMap<const RenderText*, String>& originalTextMap()
     return map;
 }
 
-static HashMap<const RenderText*, WeakPtr<RenderInline>>& inlineWrapperForDisplayContentsMap()
+static HashMap<const RenderText*, SingleThreadWeakPtr<RenderInline>>& inlineWrapperForDisplayContentsMap()
 {
-    static NeverDestroyed<HashMap<const RenderText*, WeakPtr<RenderInline>>> map;
+    static NeverDestroyed<HashMap<const RenderText*, SingleThreadWeakPtr<RenderInline>>> map;
     return map;
 }
 
@@ -1425,7 +1425,7 @@ Vector<std::pair<unsigned, unsigned>> RenderText::draggedContentRangesBetweenOff
     if (!textNode())
         return { };
 
-    auto markers = document().markers().markersFor(*textNode(), DocumentMarker::DraggedContent);
+    auto markers = document().markers().markersFor(*textNode(), DocumentMarker::Type::DraggedContent);
     if (markers.isEmpty())
         return { };
 
@@ -1869,6 +1869,11 @@ LayoutRect RenderText::clippedOverflowRect(const RenderLayerModelObject* repaint
         return repaintContainer->clippedOverflowRect(repaintContainer, context);
 
     return rendererToRepaint->clippedOverflowRect(repaintContainer, context);
+}
+
+auto RenderText::rectsForRepaintingAfterLayout(const RenderLayerModelObject* repaintContainer, RepaintOutlineBounds) const -> RepaintRects
+{
+    return { clippedOverflowRect(repaintContainer, visibleRectContextForRepaint()) };
 }
 
 LayoutRect RenderText::collectSelectionGeometriesForLineBoxes(const RenderLayerModelObject* repaintContainer, bool clipToVisibleContent, Vector<FloatQuad>* quads)

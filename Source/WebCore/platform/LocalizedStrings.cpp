@@ -517,6 +517,35 @@ String contextMenuItemTagTranslate(const String& selectedString)
 }
 #endif
 
+#if ENABLE(UNIFIED_PDF)
+String contextMenuItemPDFOpenWithPreview()
+{
+    return WEB_UI_STRING("Open with Preview", "Open with Preview context menu item");
+}
+#endif
+
+#if ENABLE(PDFJS) || ENABLE(UNIFIED_PDF)
+String contextMenuItemPDFSinglePage()
+{
+    return WEB_UI_STRING_WITH_MNEMONIC("Single Page", "_Single Page", "Single Page context menu item");
+}
+
+String contextMenuItemPDFSinglePageContinuous()
+{
+    return WEB_UI_STRING_WITH_MNEMONIC("Single Page Continuous", "_Single Page Continuous", "Single Page Continuous context menu item");
+}
+
+String contextMenuItemPDFTwoPages()
+{
+    return WEB_UI_STRING_WITH_MNEMONIC("Two Pages", "_Two Pages", "Two Pages context menu item");
+}
+
+String contextMenuItemPDFTwoPagesContinuous()
+{
+    return WEB_UI_STRING_WITH_MNEMONIC("Two Pages Continuous", "_Two Pages Continuous", "Two Pages Continuous context menu item");
+}
+#endif
+
 #if ENABLE(PDFJS)
 String contextMenuItemPDFAutoSize()
 {
@@ -536,26 +565,6 @@ String contextMenuItemPDFZoomOut()
 String contextMenuItemPDFActualSize()
 {
     return WEB_UI_STRING_WITH_MNEMONIC("Actual Size", "_Actual Size", "Actual Size context menu item");
-}
-
-String contextMenuItemPDFSinglePage()
-{
-    return WEB_UI_STRING_WITH_MNEMONIC("Single Page", "_Single Page", "Single Page context menu item");
-}
-
-String contextMenuItemPDFSinglePageContinuous()
-{
-    return WEB_UI_STRING_WITH_MNEMONIC("Single Page Continuous", "_Single Page Continuous", "Single Page Continuous context menu item");
-}
-
-String contextMenuItemPDFTwoPages()
-{
-    return WEB_UI_STRING_WITH_MNEMONIC("Two Pages", "_Two Pages", "Two Pages context menu item");
-}
-
-String contextMenuItemPDFTwoPagesContinuous()
-{
-    return WEB_UI_STRING_WITH_MNEMONIC("Two Pages Continuous", "_Two Pages Continuous", "Two Pages Continuous context menu item");
 }
 
 String contextMenuItemPDFNextPage()

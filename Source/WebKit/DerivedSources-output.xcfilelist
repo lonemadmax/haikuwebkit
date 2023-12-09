@@ -32,6 +32,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/GPUProcessProxyMessageReceiver.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/GPUProcessProxyMessages.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/GeneratedSerializers.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/GeneratedSerializers.mm
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/GeneratedWebKitSecureCoding.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/GeneratedWebKitSecureCoding.mm
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/HTTPHeaderNames.serialization.in
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/IPCConnectionTesterMessageReceiver.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/IPCConnectionTesterMessages.h
@@ -238,6 +240,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteImageBufferMessageReceiver.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteImageBufferMessages.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteImageBufferProxyMessageReceiver.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteImageBufferProxyMessages.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteImageBufferSetMessageReceiver.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteImageBufferSetMessages.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteImageDecoderAVFManagerMessageReceiver.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteImageDecoderAVFManagerMessages.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/RemoteImageDecoderAVFMessageReceiver.cpp
@@ -384,6 +388,7 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/VisitedLinkStoreMessageReceiver.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/VisitedLinkStoreMessages.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/VisitedLinkTableControllerMessageReceiver.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/VisitedLinkTableControllerMessages.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WKApplicationUtilities.swift
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebAuthenticatorCoordinatorMessageReceiver.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebAuthenticatorCoordinatorMessages.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebAuthenticatorCoordinatorProxyMessageReceiver.cpp

@@ -36,6 +36,7 @@
 #include "EventTarget.h"
 #include "ExceptionOr.h"
 #include "HTMLMediaElement.h"
+#include "MediaPlayer.h"
 #include "MediaPromiseTypes.h"
 #include "MediaSourcePrivateClient.h"
 #include "URLRegistry.h"
@@ -77,19 +78,18 @@ public:
     void openIfInEndedState();
     void openIfDeferredOpen();
     virtual bool isOpen() const;
+    virtual void monitorSourceBuffers();
     bool isClosed() const;
     bool isEnded() const;
     void sourceBufferDidChangeActiveState(SourceBuffer&, bool);
+    MediaTime duration() const;
+    const PlatformTimeRanges& buffered() const;
 
     enum class EndOfStreamError { Network, Decode };
     void streamEndedWithError(std::optional<EndOfStreamError>);
 
-    MediaTime duration() const final;
-    const PlatformTimeRanges& buffered() const final;
-
     bool attachToElement(HTMLMediaElement&);
     void detachFromElement(HTMLMediaElement&);
-    void monitorSourceBuffers() override;
     bool isSeeking() const { return !!m_pendingSeekTarget; }
     Ref<TimeRanges> seekable();
     ExceptionOr<void> setLiveSeekableRange(double start, double end);
@@ -112,8 +112,6 @@ public:
     static bool isTypeSupported(ScriptExecutionContext&, const String& type);
 
     ScriptExecutionContext* scriptExecutionContext() const final;
-
-    void sourceBufferBufferedChanged();
 
     using MediaSourcePrivateClient::ref;
     using MediaSourcePrivateClient::deref;
@@ -138,6 +136,12 @@ public:
 #endif
 
     void setAsSrcObject(bool);
+
+    // Called by SourceBuffer.
+    void sourceBufferBufferedChanged();
+    void sourceBufferReceivedFirstInitializationSegmentChanged();
+    void sourceBufferActiveTrackFlagChanged(bool);
+    void setMediaPlayerReadyState(MediaPlayer::ReadyState);
 
 protected:
     explicit MediaSource(ScriptExecutionContext&);
@@ -183,10 +187,8 @@ private:
 
     RefPtr<SourceBufferList> m_sourceBuffers;
     RefPtr<SourceBufferList> m_activeSourceBuffers;
-    PlatformTimeRanges m_buffered;
     PlatformTimeRanges m_liveSeekable;
     WeakPtr<HTMLMediaElement, WeakPtrImplWithEventTargetData> m_mediaElement;
-    MediaTime m_duration;
     std::optional<SeekTarget> m_pendingSeekTarget;
     std::optional<MediaTimePromise::Producer> m_seekTargetPromise;
     ReadyState m_readyState { ReadyState::Closed };

@@ -93,7 +93,7 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderObject);
+WTF_MAKE_COMPACT_ISO_ALLOCATED_IMPL(RenderObject);
 
 #if ASSERT_ENABLED
 
@@ -118,7 +118,7 @@ struct SameSizeAsRenderObject : public CachedImageClient, public CanMakeCheckedP
 #endif
     unsigned m_bitfields;
     CheckedRef<Node> node;
-    void* pointers[2];
+    SingleThreadWeakPtr<RenderObject> pointers[2];
     PackedPtr<RenderObject> m_next;
     uint8_t m_type;
     CheckedPtr<Layout::Box> layoutBox;
@@ -184,7 +184,7 @@ RenderTheme& RenderObject::theme() const
 
 bool RenderObject::isDescendantOf(const RenderObject* ancestor) const
 {
-    for (CheckedPtr renderer = this; renderer; renderer = renderer->m_parent) {
+    for (auto* renderer = this; renderer; renderer = renderer->m_parent.get()) {
         if (renderer == ancestor)
             return true;
     }
@@ -1086,19 +1086,32 @@ LayoutRect RenderObject::rectWithOutlineForRepaint(const RenderLayerModelObject*
     return r;
 }
 
-LayoutRect RenderObject::localRectForRepaint() const
+auto RenderObject::localRectsForRepaint(RepaintOutlineBounds) const -> RepaintRects
 {
     ASSERT_NOT_REACHED();
     return { };
 }
 
-LayoutRect RenderObject::clippedOverflowRect(const RenderLayerModelObject* repaintContainer, VisibleRectContext context) const
+auto RenderObject::rectsForRepaintingAfterLayout(const RenderLayerModelObject* repaintContainer, RepaintOutlineBounds repaintOutlineBounds) const -> RepaintRects
 {
-    auto repaintRect = localRectForRepaint();
-    if (repaintRect.isEmpty())
+    auto localRects = localRectsForRepaint(repaintOutlineBounds);
+    if (localRects.clippedOverflowRect.isEmpty())
         return { };
 
-    return computeRects({ repaintRect }, repaintContainer, context).clippedOverflowRect;
+    auto result = computeRects(localRects, repaintContainer, visibleRectContextForRepaint());
+    if (result.outlineBoundsRect)
+        result.outlineBoundsRect = LayoutRect(snapRectToDevicePixels(*result.outlineBoundsRect, document().deviceScaleFactor()));
+
+    return result;
+}
+
+LayoutRect RenderObject::clippedOverflowRect(const RenderLayerModelObject* repaintContainer, VisibleRectContext context) const
+{
+    auto repaintRects = localRectsForRepaint(RepaintOutlineBounds::No);
+    if (repaintRects.clippedOverflowRect.isEmpty())
+        return { };
+
+    return computeRects(repaintRects, repaintContainer, context).clippedOverflowRect;
 }
 
 auto RenderObject::computeRects(const RepaintRects& rects, const RenderLayerModelObject* repaintContainer, VisibleRectContext context) const -> RepaintRects
@@ -1330,6 +1343,9 @@ void RenderObject::outputRenderObject(TextStream& stream, bool mark, int depth) 
         stream << nameView.left(pos - 1);
     else
         stream << nameView;
+
+    if (style().styleType() != PseudoId::None)
+        stream << " (::" << style().styleType() << ")";
 
     if (is<RenderBox>(*this)) {
         auto& renderBox = downcast<RenderBox>(*this);

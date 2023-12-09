@@ -1518,6 +1518,26 @@
                 "url": "https://www.w3.org/TR/css3-animations/#animation-play-state-property"
             }
         },
+        "animation-timeline": {
+            "values": [
+                "auto",
+                "none"
+            ],
+            "animatable": true,
+            "codegen-properties": {
+                "converter": "AnimationTimeline",
+                "name-for-methods": "Timeline",
+                "settings-flag": "scrollDrivenAnimationsEnabled",
+                "parser-function": "consumeAnimationTimeline",
+                "parser-function-requires-context": true,
+                "parser-grammar-unused": "auto | none | <dashed-ident> | <scroll()> | <view()>",
+                "parser-grammar-unused-reason": "Needs support for function notation."
+            },
+            "specification": {
+                "category": "css-animations",
+                "url": "https://drafts.csswg.org/css-animations-2/#animation-timeline"
+            }
+        },
         "animation-timing-function": {
             "animatable": true,
             "codegen-properties": {
@@ -3131,7 +3151,7 @@
                 "converter": "PathOperation",
                 "parser-function": "consumePathOperation",
                 "parser-function-requires-context": true,
-                "parser-function-requires-additional-parameters": ["ConsumeRay::Exclude"],
+                "parser-function-requires-additional-parameters": ["RejectRay"],
                 "parser-grammar-unused": "<clip-source> | [ <basic-shape> || <geometry-box> ] | none",
                 "parser-grammar-unused-reason": "Needs support for '||' groups."
             },
@@ -4705,7 +4725,7 @@
                 "settings-flag": "cssMotionPathEnabled",
                 "parser-function": "consumePathOperation",
                 "parser-function-requires-context": true,
-                "parser-function-requires-additional-parameters": ["ConsumeRay::Include"],
+                "parser-function-requires-additional-parameters": ["RejectFillRule"],
                 "parser-grammar-unused": "none | <ray()> | <path()> | <url> | [ <basic-shape> && <coord-box>? ] | <coord-box>",
                 "parser-grammar-unused-reason": "Needs support for '||' groups, '&&' groups, optionals and function notation."
             },
@@ -5992,12 +6012,29 @@
                     "transition-property",
                     "transition-duration",
                     "transition-timing-function",
-                    "transition-delay"
+                    "transition-delay",
+                    "transition-behavior"
                 ]
             },
             "specification": {
                 "category": "css-transitions",
                 "url": "https://www.w3.org/TR/css3-transitions/#transition-shorthand-property"
+            }
+        },
+        "transition-behavior": {
+            "values": [
+                "normal",
+                "allow-discrete"
+            ],
+            "animatable": true,
+            "codegen-properties": {
+                "name-for-methods": "AllowsDiscreteTransitions",
+                "separator": ",",
+                "parser-grammar": "<transition-behavior-value>#"
+            },
+            "specification": {
+                "category": "css-transitions",
+                "url": "https://drafts.csswg.org/css-transitions-2/#transition-behavior-property"
             }
         },
         "transition-delay": {
@@ -9172,6 +9209,61 @@
                 "url": "https://www.w3.org/TR/css-shapes/#propdef-shape-image-threshold"
             }
         },
+        "view-timeline": {
+            "codegen-properties": {
+                "longhands": [
+                    "view-timeline-name",
+                    "view-timeline-axis",
+                    "view-timeline-inset"
+                ],
+                "settings-flag": "scrollDrivenAnimationsEnabled"
+            },
+            "specification": {
+                "category": "scroll-animations",
+                "url": "https://drafts.csswg.org/scroll-animations-1/#view-timeline-shorthand"
+            }
+        },
+        "view-timeline-axis": {
+            "codegen-properties": {
+                "converter": "ScrollTimelineAxis",
+                "name-for-methods": "ViewTimelineAxes",
+                "parser-exported": true,
+                "parser-grammar": "<axis>#",
+                "settings-flag": "scrollDrivenAnimationsEnabled"
+            },
+            "specification": {
+                "category": "scroll-animations",
+                "url": "https://drafts.csswg.org/scroll-animations-1/#view-timeline-axis"
+            }
+        },
+        "view-timeline-inset": {
+            "codegen-properties": {
+                "converter": "ViewTimelineInset",
+                "name-for-methods": "ViewTimelineInsets",
+                "parser-function": "consumeViewTimelineInset",
+                "parser-function-requires-context": true,
+                "parser-grammar-unused": "[ <single-view-timeline-inset>{1,2} ]#",
+                "parser-grammar-unused-reason": "Needs support for {1,2} combined with #.",
+                "settings-flag": "scrollDrivenAnimationsEnabled"
+            },
+            "specification": {
+                "category": "scroll-animations",
+                "url": "https://drafts.csswg.org/scroll-animations-1/#view-timeline-inset"
+            }
+        },
+        "view-timeline-name": {
+            "codegen-properties": {
+                "converter": "ScrollTimelineName",
+                "name-for-methods": "ViewTimelineNames",
+                "parser-exported": true,
+                "parser-grammar": "<single-scroll-timeline-name>#",
+                "settings-flag": "scrollDrivenAnimationsEnabled"
+            },
+            "specification": {
+                "category": "scroll-animations",
+                "url": "https://drafts.csswg.org/scroll-animations-1/#view-timeline-name"
+            }
+        },
         "view-transition-name": {
             "codegen-properties": {
                 "converter": "ViewTransitionName",
@@ -10588,6 +10680,14 @@
                 "url": "https://www.w3.org/TR/css-animations-1/#typedef-single-animation-play-state"
             }
         },
+        "<transition-behavior-value>": {
+            "grammar": "normal | allow-discrete",
+            "exported": true,
+            "specification": {
+                "category": "css-transitions",
+                "url": "https://drafts.csswg.org/css-transitions-2/#typedef-transition-behavior-value"
+            }
+        },
         "<page-size>": {
             "grammar": "A5 | A4 | A3 | B5 | B4 | letter | legal | ledger",
             "exported": true,
@@ -11022,12 +11122,28 @@
                 "url": "https://drafts.csswg.org/scroll-animations-1/#scroll-notation"
             }
         },
+        "<scroller>": {
+            "grammar": "root | nearest | self",
+            "exported": true,
+            "specification": {
+                "category": "scroll-animations",
+                "url": "https://drafts.csswg.org/scroll-animations-1/#scroll-notation"
+            }
+        },
         "<single-scroll-timeline-name>": {
             "grammar": "none | <dashed-ident>",
             "exported": true,
             "specification": {
                 "category": "scroll-animations",
                 "url": "https://drafts.csswg.org/scroll-animations-1/#scroll-timeline-name"
+            }
+        },
+        "<single-view-timeline-inset>": {
+            "grammar": "auto | <length-percentage>",
+            "exported": true,
+            "specification": {
+                "category": "scroll-animations",
+                "url": "https://drafts.csswg.org/scroll-animations-1/#propdef-view-timeline-inset"
             }
         }
     }

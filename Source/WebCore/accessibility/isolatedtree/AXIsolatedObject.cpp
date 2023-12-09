@@ -168,7 +168,6 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::IsKeyboardFocusable, object.isKeyboardFocusable());
     setProperty(AXPropertyName::BrailleRoleDescription, object.brailleRoleDescription().isolatedCopy());
     setProperty(AXPropertyName::BrailleLabel, object.brailleLabel().isolatedCopy());
-    setProperty(AXPropertyName::IsNonNativeTextControl, object.isNonNativeTextControl());
 
     RefPtr geometryManager = tree()->geometryManager();
     std::optional frame = geometryManager ? geometryManager->cachedRectForID(object.objectID()) : std::nullopt;
@@ -345,14 +344,19 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
 
     if (object.isTextControl()) {
         setProperty(AXPropertyName::SelectedTextRange, object.selectedTextRange());
-#if ENABLE(AX_THREAD_TEXT_APIS)
-    setProperty(AXPropertyName::TextRuns, object.textRuns());
-#endif
 
         auto range = object.textInputMarkedTextMarkerRange();
         if (auto characterRange = range.characterRange(); range && characterRange)
             setProperty(AXPropertyName::TextInputMarkedTextMarkerRange, std::pair<AXID, CharacterRange>(range.start().objectID(), *characterRange));
+
+        bool isNonNativeTextControl = object.isNonNativeTextControl();
+        setProperty(AXPropertyName::IsNonNativeTextControl, isNonNativeTextControl);
+        setProperty(AXPropertyName::CanBeMultilineTextField, canBeMultilineTextField(object, isNonNativeTextControl));
     }
+
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    setProperty(AXPropertyName::TextRuns, object.textRuns());
+#endif
 
     // These properties are only needed on the AXCoreObject interface due to their use in ATSPI,
     // so only cache them for ATSPI.
@@ -369,6 +373,19 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
 #endif
 
     initializePlatformProperties(axObject);
+}
+
+bool AXIsolatedObject::canBeMultilineTextField(AccessibilityObject& object, bool isNonNativeTextControl)
+{
+    if (isNonNativeTextControl)
+        return !object.hasAttribute(aria_multilineAttr) || object.ariaIsMultiline();
+
+    auto* renderer = object.renderer();
+    if (renderer && renderer->isRenderTextControl())
+        return renderer->isRenderTextControlMultiLine();
+
+    // If we're not sure, return true, it means we can't use this as an optimization to avoid computing the line index.
+    return true;
 }
 
 AccessibilityObject* AXIsolatedObject::associatedAXObject() const
@@ -1284,6 +1301,9 @@ bool AXIsolatedObject::isNativeTextControl() const
 
 int AXIsolatedObject::insertionPointLineNumber() const
 {
+    if (!boolAttributeValue(AXPropertyName::CanBeMultilineTextField))
+        return 0;
+
     return Accessibility::retrieveValueFromMainThread<int>([this] () -> int {
         if (auto* axObject = associatedAXObject())
             return axObject->insertionPointLineNumber();

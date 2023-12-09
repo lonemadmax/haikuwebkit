@@ -85,6 +85,13 @@ namespace WebKit {
 class PlatformClass;
 class CustomEncoded;
 class LayerProperties;
+#if USE(AVFOUNDATION)
+class CoreIPCAVOutputContext;
+#endif
+class CoreIPCNSSomeFoundationType;
+#if ENABLE(DATA_DETECTION)
+class CoreIPCDDScannerResult;
+#endif
 class RValueWithFunctionCalls;
 class Fabulous;
 }
@@ -259,6 +266,25 @@ template<> struct ArgumentCoder<RequestEncodedWithBodyRValue> {
     static void encode(Encoder&, RequestEncodedWithBodyRValue&&);
     static std::optional<RequestEncodedWithBodyRValue> decode(Decoder&);
 };
+
+#if USE(AVFOUNDATION)
+template<> struct ArgumentCoder<WebKit::CoreIPCAVOutputContext> {
+    static void encode(Encoder&, const WebKit::CoreIPCAVOutputContext&);
+    static std::optional<WebKit::CoreIPCAVOutputContext> decode(Decoder&);
+};
+#endif
+
+template<> struct ArgumentCoder<WebKit::CoreIPCNSSomeFoundationType> {
+    static void encode(Encoder&, const WebKit::CoreIPCNSSomeFoundationType&);
+    static std::optional<WebKit::CoreIPCNSSomeFoundationType> decode(Decoder&);
+};
+
+#if ENABLE(DATA_DETECTION)
+template<> struct ArgumentCoder<WebKit::CoreIPCDDScannerResult> {
+    static void encode(Encoder&, const WebKit::CoreIPCDDScannerResult&);
+    static std::optional<WebKit::CoreIPCDDScannerResult> decode(Decoder&);
+};
+#endif
 
 template<> struct ArgumentCoder<CFFooRef> {
     static void encode(Encoder&, CFFooRef);

@@ -841,7 +841,7 @@ bool AccessibilityNodeObject::isChecked() const
 
     // First test for native checkedness semantics
     if (is<HTMLInputElement>(*node))
-        return downcast<HTMLInputElement>(*node).shouldAppearChecked();
+        return downcast<HTMLInputElement>(*node).matchesCheckedPseudoClass();
 
     // Else, if this is an ARIA checkbox or radio, respect the aria-checked attribute
     bool validRole = false;
@@ -1006,11 +1006,6 @@ unsigned AccessibilityNodeObject::headingLevel() const
 
     if (node->hasTagName(h6Tag))
         return 6;
-
-    // The implicit value of aria-level is 2 for the heading role.
-    // https://www.w3.org/TR/wai-aria-1.1/#heading
-    if (ariaRoleAttribute() == AccessibilityRole::Heading)
-        return 2;
 
     return 0;
 }
@@ -1325,13 +1320,13 @@ Element* AccessibilityNodeObject::actionElement() const
 
 Element* AccessibilityNodeObject::mouseButtonListener(MouseButtonListenerResultFilter filter) const
 {
-    Node* node = this->node();
+    WeakPtr node = this->node();
     if (!node)
         return nullptr;
 
     // check if our parent is a mouse button listener
     // FIXME: Do the continuation search like anchorElement does
-    for (auto& element : lineageOfType<Element>(is<Element>(*node) ? downcast<Element>(*node) : *node->parentElement())) {
+    for (auto& element : lineageOfType<Element>(*node)) {
         // If we've reached the body and this is not a control element, do not expose press action for this element unless filter is IncludeBodyElement.
         // It can cause false positives, where every piece of text is labeled as accepting press actions.
         if (element.hasTagName(bodyTag) && isStaticText() && filter == ExcludeBodyElement)

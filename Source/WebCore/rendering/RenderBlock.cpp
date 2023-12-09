@@ -94,8 +94,8 @@ struct SameSizeAsRenderBlock : public RenderBox {
 
 static_assert(sizeof(RenderBlock) == sizeof(SameSizeAsRenderBlock), "RenderBlock should stay small");
 
-using TrackedDescendantsMap = WeakHashMap<const RenderBlock, std::unique_ptr<TrackedRendererListHashSet>>;
-using TrackedContainerMap = WeakHashMap<const RenderBox, WeakHashSet<const RenderBlock>>;
+using TrackedDescendantsMap = SingleThreadWeakHashMap<const RenderBlock, std::unique_ptr<TrackedRendererListHashSet>>;
+using TrackedContainerMap = SingleThreadWeakHashMap<const RenderBox, SingleThreadWeakHashSet<const RenderBlock>>;
 
 static TrackedDescendantsMap* percentHeightDescendantsMap;
 static TrackedContainerMap* percentHeightContainerMap;
@@ -121,7 +121,7 @@ static void insertIntoTrackedRendererMaps(const RenderBlock& container, RenderBo
         return;
     }
     
-    auto& containerSet = percentHeightContainerMap->add(descendant, WeakHashSet<const RenderBlock>()).iterator->value;
+    auto& containerSet = percentHeightContainerMap->add(descendant, SingleThreadWeakHashSet<const RenderBlock>()).iterator->value;
     ASSERT(!containerSet.contains(container));
     containerSet.add(container);
 }
@@ -229,7 +229,7 @@ public:
 
 private:
     using DescendantsMap = HashMap<CheckedPtr<const RenderBlock>, std::unique_ptr<TrackedRendererListHashSet>>;
-    using ContainerMap = WeakHashMap<const RenderBox, WeakPtr<const RenderBlock>>;
+    using ContainerMap = SingleThreadWeakHashMap<const RenderBox, SingleThreadWeakPtr<const RenderBlock>>;
     
     DescendantsMap m_descendantsMap;
     ContainerMap m_containerMap;
@@ -241,7 +241,7 @@ static PositionedDescendantsMap& positionedDescendantsMap()
     return mapForPositionedDescendants;
 }
 
-using ContinuationOutlineTableMap = HashMap<CheckedPtr<RenderBlock>, std::unique_ptr<ListHashSet<CheckedPtr<RenderInline>>>>;
+using ContinuationOutlineTableMap = HashMap<SingleThreadWeakRef<RenderBlock>, std::unique_ptr<ListHashSet<SingleThreadWeakRef<RenderInline>>>>;
 
 // Allocated only when some of these fields have non-default values
 
@@ -256,7 +256,7 @@ public:
     LayoutUnit m_pageLogicalOffset;
     LayoutUnit m_intrinsicBorderForFieldset;
     
-    std::optional<WeakPtr<RenderFragmentedFlow>> m_enclosingFragmentedFlow;
+    std::optional<SingleThreadWeakPtr<RenderFragmentedFlow>> m_enclosingFragmentedFlow;
 };
 
 typedef HashMap<const RenderBlock*, std::unique_ptr<RenderBlockRareData>> RenderBlockRareDataMap;
@@ -1360,11 +1360,11 @@ void RenderBlock::addContinuationWithOutline(RenderInline* flow)
     auto* table = continuationOutlineTable();
     auto* continuations = table->get(this);
     if (!continuations) {
-        continuations = new ListHashSet<CheckedPtr<RenderInline>>;
-        table->set(this, std::unique_ptr<ListHashSet<CheckedPtr<RenderInline>>>(continuations));
+        continuations = new ListHashSet<SingleThreadWeakRef<RenderInline>>;
+        table->set(*this, std::unique_ptr<ListHashSet<SingleThreadWeakRef<RenderInline>>>(continuations));
     }
     
-    continuations->add(flow);
+    continuations->add(*flow);
 }
 
 bool RenderBlock::paintsContinuationOutline(RenderInline* flow)
@@ -1388,11 +1388,11 @@ void RenderBlock::paintContinuationOutlines(PaintInfo& info, const LayoutPoint& 
     // Paint each continuation outline.
     for (auto& flow : *continuations) {
         // Need to add in the coordinates of the intervening blocks.
-        RenderBlock* block = flow.get()->containingBlock();
+        RenderBlock* block = flow->containingBlock();
         for ( ; block && block != this; block = block->containingBlock())
             accumulatedPaintOffset.moveBy(block->location());
         ASSERT(block);
-        flow.get()->paintOutline(info, accumulatedPaintOffset);
+        flow->paintOutline(info, accumulatedPaintOffset);
     }
 }
 

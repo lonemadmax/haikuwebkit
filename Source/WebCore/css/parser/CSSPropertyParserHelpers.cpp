@@ -73,6 +73,7 @@
 #include "CSSRectValue.h"
 #include "CSSReflectValue.h"
 #include "CSSResolvedColorMix.h"
+#include "CSSScrollValue.h"
 #include "CSSSubgridValue.h"
 #include "CSSTimingFunctionValue.h"
 #include "CSSTransformListValue.h"
@@ -82,6 +83,7 @@
 #include "CSSValuePool.h"
 #include "CSSVariableData.h"
 #include "CSSVariableParser.h"
+#include "CSSViewValue.h"
 #include "CalculationCategory.h"
 #include "ColorConversion.h"
 #include "ColorInterpolation.h"
@@ -6919,10 +6921,12 @@ static RefPtr<CSSPolygonValue> consumeBasicShapePolygon(CSSParserTokenRange& arg
     return CSSPolygonValue::create(WTFMove(points), rule);
 }
 
-static RefPtr<CSSPathValue> consumeBasicShapePath(CSSParserTokenRange& args)
+static RefPtr<CSSPathValue> consumeBasicShapePath(CSSParserTokenRange& args, OptionSet<PathParsingOption> options)
 {
     WindRule rule = WindRule::NonZero;
     if (identMatches<CSSValueEvenodd, CSSValueNonzero>(args.peek().id())) {
+        if (options.contains(RejectFillRule))
+            return nullptr;
         if (args.consumeIncludingWhitespace().id() == CSSValueEvenodd)
             rule = WindRule::EvenOdd;
         if (!consumeCommaIncludingWhitespace(args))
@@ -6933,7 +6937,7 @@ static RefPtr<CSSPathValue> consumeBasicShapePath(CSSParserTokenRange& args)
         return nullptr;
 
     SVGPathByteStream byteStream;
-    if (!buildSVGPathByteStreamFromString(args.consumeIncludingWhitespace().value(), byteStream, UnalteredParsing))
+    if (!buildSVGPathByteStreamFromString(args.consumeIncludingWhitespace().value(), byteStream, UnalteredParsing) || byteStream.isEmpty())
         return nullptr;
 
     return CSSPathValue::create(WTFMove(byteStream), rule);
@@ -7055,7 +7059,7 @@ static RefPtr<CSSInsetShapeValue> consumeBasicShapeInset(CSSParserTokenRange& ar
     return nullptr;
 }
 
-static RefPtr<CSSValue> consumeBasicShape(CSSParserTokenRange& range, const CSSParserContext& context)
+static RefPtr<CSSValue> consumeBasicShape(CSSParserTokenRange& range, const CSSParserContext& context, OptionSet<PathParsingOption> options)
 {
     auto rangeCopy = range;
 
@@ -7077,7 +7081,7 @@ static RefPtr<CSSValue> consumeBasicShape(CSSParserTokenRange& range, const CSSP
     else if (id == CSSValueXywh)
         result = consumeBasicShapeXywh(args, context);
     else if (id == CSSValuePath)
-        result = consumeBasicShapePath(args);
+        result = consumeBasicShapePath(args, options);
     if (!result || !args.atEnd())
         return nullptr;
 
@@ -7127,7 +7131,7 @@ static RefPtr<CSSRayValue> consumeRayShape(CSSParserTokenRange& range, const CSS
     );
 }
 
-static RefPtr<CSSValue> consumeBasicShapeRayOrBox(CSSParserTokenRange& range, const CSSParserContext& context, ConsumeRay consumeRay)
+static RefPtr<CSSValue> consumeBasicShapeRayOrBox(CSSParserTokenRange& range, const CSSParserContext& context, OptionSet<PathParsingOption> options)
 {
     CSSValueListBuilder list;
     RefPtr<CSSValue> shape;
@@ -7135,9 +7139,9 @@ static RefPtr<CSSValue> consumeBasicShapeRayOrBox(CSSParserTokenRange& range, co
 
     auto consumeShapeOrRay = [&](CSSParserTokenRange& subrange) -> RefPtr<CSSValue> {
         RefPtr<CSSValue> ray;
-        if (consumeRay == ConsumeRay::Include && (ray = consumeRayShape(subrange, context)))
+        if (!options.contains(RejectRay) && (ray = consumeRayShape(subrange, context)))
             return ray;
-        return consumeBasicShape(subrange, context);
+        return consumeBasicShape(subrange, context, options);
     };
 
     while (!range.atEnd()) {
@@ -7165,14 +7169,13 @@ static RefPtr<CSSValue> consumeBasicShapeRayOrBox(CSSParserTokenRange& range, co
     return CSSValueList::createSpaceSeparated(WTFMove(list));
 }
 
-// Consumes shapes accepted by clip-path and offset-path.
-RefPtr<CSSValue> consumePathOperation(CSSParserTokenRange& range, const CSSParserContext& context, ConsumeRay consumeRay)
+RefPtr<CSSValue> consumePathOperation(CSSParserTokenRange& range, const CSSParserContext& context, OptionSet<PathParsingOption> options)
 {
     if (range.peek().id() == CSSValueNone)
         return consumeIdent(range);
     if (auto url = consumeURL(range))
         return url;
-    return consumeBasicShapeRayOrBox(range, context, consumeRay);
+    return consumeBasicShapeRayOrBox(range, context, options);
 }
 
 RefPtr<CSSValue> consumeListStyleType(CSSParserTokenRange& range, const CSSParserContext& context)
@@ -7198,7 +7201,7 @@ RefPtr<CSSValue> consumeShapeOutside(CSSParserTokenRange& range, const CSSParser
     CSSValueListBuilder list;
     auto boxValue = CSSPropertyParsing::consumeShapeBox(range);
     bool hasShapeValue = false;
-    if (auto shapeValue = consumeBasicShape(range, context)) {
+    if (auto shapeValue = consumeBasicShape(range, context, { })) {
         if (shapeValue->isPath())
             return nullptr;
         list.append(shapeValue.releaseNonNull());
@@ -8692,6 +8695,107 @@ RefPtr<CSSValue> consumeTextAutospace(CSSParserTokenRange& range)
         return value;
     }
     return nullptr;
+}
+
+RefPtr<CSSValue> consumeAnimationTimeline(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    return consumeCommaSeparatedListWithSingleValueOptimization(range, [context](CSSParserTokenRange& range) -> RefPtr<CSSValue> {
+        return consumeSingleAnimationTimeline(range, context);
+    });
+}
+
+RefPtr<CSSValue> consumeSingleAnimationTimeline(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    // <single-animation-timeline> = auto | none | <dashed-ident> | <scroll()> | <view()>
+    auto id = range.peek().id();
+    if (id == CSSValueAuto || id == CSSValueNone)
+        return consumeIdent(range);
+    if (auto name = consumeDashedIdent(range))
+        return name;
+    if (auto scroll = consumeAnimationTimelineScroll(range))
+        return scroll;
+    return consumeAnimationTimelineView(range, context);
+}
+
+RefPtr<CSSValue> consumeAnimationTimelineScroll(CSSParserTokenRange& range)
+{
+    // https://drafts.csswg.org/scroll-animations-1/#scroll-notation
+    // <scroll()> = scroll( [ <scroller> || <axis> ]? )
+    // <scroller> = root | nearest | self
+    // <axis> = block | inline | x | y
+
+    if (range.peek().type() != FunctionToken || range.peek().functionId() != CSSValueScroll)
+        return nullptr;
+
+    auto args = consumeFunction(range);
+
+    if (!args.size())
+        return CSSScrollValue::create(nullptr, nullptr);
+
+    auto scroller = CSSPropertyParsing::consumeScroller(args);
+    auto axis = CSSPropertyParsing::consumeAxis(args);
+
+    // Try <scroller> again since the order of <scroller> and <axis> is not guaranteed.
+    if (!scroller)
+        scroller = CSSPropertyParsing::consumeScroller(args);
+
+    // If there are values left to consume, these are not valid <scroller> or <axis> and the function is invalid.
+    if (args.size())
+        return nullptr;
+
+    return CSSScrollValue::create(WTFMove(scroller), WTFMove(axis));
+}
+
+RefPtr<CSSValue> consumeAnimationTimelineView(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    // https://drafts.csswg.org/scroll-animations-1/#view-notation
+    // <view()> = view( [ <axis> || <'view-timeline-inset'> ]? )
+    // <axis> = block | inline | x | y
+    // <'view-timeline-inset'> = [ [ auto | <length-percentage> ]{1,2} ]#
+
+    if (range.peek().type() != FunctionToken || range.peek().functionId() != CSSValueView)
+        return nullptr;
+
+    auto args = consumeFunction(range);
+
+    if (!args.size())
+        return CSSViewValue::create();
+
+    auto axis = CSSPropertyParsing::consumeAxis(args);
+
+    auto startInset = CSSPropertyParsing::consumeSingleViewTimelineInset(args, context);
+    auto endInset = CSSPropertyParsing::consumeSingleViewTimelineInset(args, context);
+
+    // Try <axis> again since the order of <axis> and <'view-timeline-inset'> is not guaranteed.
+    if (!axis)
+        axis = CSSPropertyParsing::consumeAxis(args);
+
+    // If there are values left to consume, these are not valid <axis> or <'view-timeline-inset'> and the function is invalid.
+    if (args.size())
+        return nullptr;
+
+    return CSSViewValue::create(WTFMove(axis), WTFMove(startInset), WTFMove(endInset));
+}
+
+RefPtr<CSSValue> consumeViewTimelineInsetListItem(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    auto startInset = CSSPropertyParsing::consumeSingleViewTimelineInset(range, context);
+    if (!startInset)
+        return nullptr;
+
+    if (auto endInset = CSSPropertyParsing::consumeSingleViewTimelineInset(range, context)) {
+        if (endInset != startInset)
+            return CSSValuePair::createNoncoalescing(startInset.releaseNonNull(), endInset.releaseNonNull());
+    }
+
+    return startInset;
+}
+
+RefPtr<CSSValue> consumeViewTimelineInset(CSSParserTokenRange& range, const CSSParserContext& context)
+{
+    return consumeCommaSeparatedListWithoutSingleValueOptimization(range, [context](CSSParserTokenRange& range) {
+        return consumeViewTimelineInsetListItem(range, context);
+    });
 }
 
 } // namespace CSSPropertyParserHelpers

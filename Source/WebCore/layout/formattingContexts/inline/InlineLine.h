@@ -53,6 +53,7 @@ public:
 
     bool hasContent() const;
     bool hasContentOrListMarker() const;
+    bool hasRubyContent() const { return m_hasRubyContent; }
 
     InlineLayoutUnit contentLogicalWidth() const { return m_contentLogicalWidth; }
     InlineLayoutUnit contentLogicalRight() const { return lastRunLogicalRight() + m_clonedEndDecorationWidthForInlineBoxRuns; }
@@ -72,11 +73,11 @@ public:
     InlineLayoutUnit handleTrailingTrimmableContent(TrailingContentAction);
     void handleTrailingHangingContent(std::optional<IntrinsicWidthMode>, InlineLayoutUnit horizontalAvailableSpace, bool isLastFormattedLine);
     void handleOverflowingNonBreakingSpace(TrailingContentAction, InlineLayoutUnit overflowingWidth);
-    const Box* removeOverflowingOurOfFlowContent();
+    const Box* removeOverflowingOutOfFlowContent();
     void resetBidiLevelForTrailingWhitespace(UBiDiLevel rootBidiLevel);
     void applyRunExpansion(InlineLayoutUnit horizontalAvailableSpace);
     void applyExpansionOnRange(WTF::Range<size_t> runRange, const ExpansionInfo&, InlineLayoutUnit spaceToDistribute);
-    void moveRunsBy(size_t startRunIndex, InlineLayoutUnit offset);
+    void moveBy(WTF::Range<size_t> runRange, InlineLayoutUnit offset);
     void expandBy(size_t startRunIndex, InlineLayoutUnit logicalWidth);
 
     struct Run {
@@ -298,6 +299,7 @@ private:
     InlineLayoutUnit m_clonedEndDecorationWidthForInlineBoxRuns { 0 };
     bool m_hasNonDefaultBidiLevelRun { false };
     bool m_isFirstFormattedLine { false };
+    bool m_hasRubyContent { false };
     Vector<InlineLayoutUnit> m_inlineBoxLogicalLeftStack;
 };
 

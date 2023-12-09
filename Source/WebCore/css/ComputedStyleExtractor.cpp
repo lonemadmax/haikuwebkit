@@ -46,12 +46,14 @@
 #include "CSSRectValue.h"
 #include "CSSReflectValue.h"
 #include "CSSRegisteredCustomProperty.h"
+#include "CSSScrollValue.h"
 #include "CSSShadowValue.h"
 #include "CSSTimingFunctionValue.h"
 #include "CSSTransformListValue.h"
 #include "CSSValueList.h"
 #include "CSSValuePair.h"
 #include "CSSValuePool.h"
+#include "CSSViewValue.h"
 #include "ComposedTreeAncestorIterator.h"
 #include "ContentData.h"
 #include "CursorList.h"
@@ -82,6 +84,7 @@
 #include "Styleable.h"
 #include "TransformOperationData.h"
 #include "TranslateTransformOperation.h"
+#include "ViewTimeline.h"
 #include "WebAnimationUtilities.h"
 
 namespace WebCore {
@@ -1431,6 +1434,11 @@ static Ref<CSSValue> fontVariantEastAsianPropertyValue(FontVariantEastAsianVaria
     return CSSValueList::createSpaceSeparated(WTFMove(valueList));
 }
 
+static Ref<CSSPrimitiveValue> valueForTransitionBehavior(bool allowsDiscreteTransitions)
+{
+    return CSSPrimitiveValue::create(allowsDiscreteTransitions ? CSSValueAllowDiscrete : CSSValueNormal);
+}
+
 static Ref<CSSPrimitiveValue> valueForAnimationDuration(double duration)
 {
     return CSSPrimitiveValue::create(duration, CSSUnitType::CSS_S);
@@ -1509,6 +1517,19 @@ static Ref<CSSPrimitiveValue> valueForScopedName(const Style::ScopedName& scoped
     return CSSPrimitiveValue::create(scopedName.name);
 }
 
+static Ref<CSSValue> valueForAnimationTimeline(const Animation::Timeline& timeline)
+{
+    return WTF::switchOn(timeline,
+        [&] (Animation::TimelineKeyword keyword) -> Ref<CSSValue> {
+            return CSSPrimitiveValue::create(keyword == Animation::TimelineKeyword::None ? CSSValueNone : CSSValueAuto);
+        }, [&] (const AtomString& customIdent) -> Ref<CSSValue> {
+            return CSSPrimitiveValue::createCustomIdent(customIdent);
+        }, [&] (const Ref<ScrollTimeline>& scrollTimeline) -> Ref<CSSValue> {
+            return scrollTimeline->toCSSValue();
+        }
+    );
+}
+
 static Ref<CSSValue> valueForAnimationTimingFunction(const TimingFunction& timingFunction)
 {
     switch (timingFunction.type()) {
@@ -1554,9 +1575,18 @@ static Ref<CSSValue> valueForAnimationTimingFunction(const TimingFunction& timin
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-void ComputedStyleExtractor::addValueForAnimationPropertyToList(CSSValueListBuilder& list, CSSPropertyID property, const Animation* animation)
+enum IsShorthand : bool { No, Yes };
+static void addValueForAnimationPropertyToList(CSSValueListBuilder& list, CSSPropertyID property, const Animation* animation, IsShorthand isShorthand = IsShorthand::No)
 {
-    if (property == CSSPropertyAnimationDuration || property == CSSPropertyTransitionDuration) {
+    if (property == CSSPropertyTransitionBehavior) {
+        if (animation) {
+            if (animation->isAllowsDiscreteTransitionsFilled())
+                return;
+            if (isShorthand == IsShorthand::Yes && animation->allowsDiscreteTransitions() == Animation::initialAllowsDiscreteTransitions())
+                return;
+        }
+        list.append(valueForTransitionBehavior(animation ? animation->allowsDiscreteTransitions() : Animation::initialAllowsDiscreteTransitions()));
+    } else if (property == CSSPropertyAnimationDuration || property == CSSPropertyTransitionDuration) {
         if (!animation || !animation->isDurationFilled())
             list.append(valueForAnimationDuration(animation ? animation->duration() : Animation::initialDuration()));
     } else if (property == CSSPropertyAnimationDelay || property == CSSPropertyTransitionDelay) {
@@ -1579,6 +1609,9 @@ void ComputedStyleExtractor::addValueForAnimationPropertyToList(CSSValueListBuil
     else if (property == CSSPropertyAnimationComposition) {
         if (!animation || !animation->isCompositeOperationFilled())
             list.append(valueForAnimationComposition(animation ? animation->compositeOperation() : Animation::initialCompositeOperation()));
+    } else if (property == CSSPropertyAnimationTimeline) {
+        if (!animation || !animation->isTimelineFilled())
+            list.append(valueForAnimationTimeline(animation ? animation->timeline() : Animation::initialTimeline()));
     } else if (property == CSSPropertyTransitionProperty) {
         if (animation) {
             if (!animation->isPropertyFilled())
@@ -1600,9 +1633,9 @@ static Ref<CSSValueList> valueListForAnimationOrTransitionProperty(CSSPropertyID
     CSSValueListBuilder list;
     if (animationList) {
         for (auto& animation : *animationList)
-            ComputedStyleExtractor::addValueForAnimationPropertyToList(list, property, animation.ptr());
+            addValueForAnimationPropertyToList(list, property, animation.ptr());
     } else
-        ComputedStyleExtractor::addValueForAnimationPropertyToList(list, property, nullptr);
+        addValueForAnimationPropertyToList(list, property, nullptr);
     return CSSValueList::createCommaSeparated(WTFMove(list));
 }
 
@@ -1612,7 +1645,7 @@ static Ref<CSSValueList> animationShorthandValue(CSSPropertyID property, const A
     auto addAnimation = [&](Ref<Animation> animation) {
         CSSValueListBuilder childList;
         for (auto longhand : shorthandForProperty(property))
-            ComputedStyleExtractor::addValueForAnimationPropertyToList(childList, longhand, animation.ptr());
+            addValueForAnimationPropertyToList(childList, longhand, animation.ptr(), IsShorthand::Yes);
         parentList.append(CSSValueList::createSpaceSeparated(WTFMove(childList)));
     };
     if (animationList && !animationList->isEmpty()) {
@@ -2658,7 +2691,7 @@ bool ComputedStyleExtractor::updateStyleIfNeededForProperty(Element& element, CS
     return true;
 }
 
-static inline const RenderStyle* computeRenderStyleForProperty(Element& element, PseudoId pseudoElementSpecifier, CSSPropertyID propertyID, std::unique_ptr<RenderStyle>& ownedStyle, WeakPtr<RenderElement> renderer)
+static inline const RenderStyle* computeRenderStyleForProperty(Element& element, PseudoId pseudoElementSpecifier, CSSPropertyID propertyID, std::unique_ptr<RenderStyle>& ownedStyle, SingleThreadWeakPtr<RenderElement> renderer)
 {
     if (!renderer)
         renderer = element.renderer();
@@ -2874,6 +2907,65 @@ static Ref<CSSValue> scrollTimelineShorthandValue(const Vector<Ref<ScrollTimelin
             list.append(WTFMove(nameCSSValue));
         else
             list.append(CSSValuePair::createNoncoalescing(nameCSSValue, createConvertingToCSSValueID(axis)));
+    }
+    return CSSValueList::createCommaSeparated(WTFMove(list));
+}
+
+static Ref<CSSValue> valueForSingleViewTimelineInset(const ViewTimelineInsets& insets, const RenderStyle& style)
+{
+    ASSERT(insets.start);
+    if (insets.end && insets.start != insets.end)
+        return CSSValuePair::createNoncoalescing(CSSPrimitiveValue::create(*insets.start, style), CSSPrimitiveValue::create(*insets.end, style));
+    return CSSPrimitiveValue::create(*insets.start, style);
+}
+
+static Ref<CSSValue> valueForViewTimelineInset(const Vector<ViewTimelineInsets>& insets, const RenderStyle& style)
+{
+    if (insets.isEmpty())
+        return CSSPrimitiveValue::create(CSSValueAuto);
+
+    CSSValueListBuilder list;
+    for (auto& singleInsets : insets)
+        list.append(valueForSingleViewTimelineInset(singleInsets, style));
+    return CSSValueList::createCommaSeparated(WTFMove(list));
+}
+
+static Ref<CSSValue> viewTimelineShorthandValue(const Vector<Ref<ViewTimeline>>& timelines, const RenderStyle& style)
+{
+    if (timelines.isEmpty())
+        return CSSPrimitiveValue::create(CSSValueNone);
+
+    CSSValueListBuilder list;
+    for (auto& timeline : timelines) {
+        auto& name = timeline->name();
+        auto axis = timeline->axis();
+        auto& insets = timeline->insets();
+
+        auto hasDefaultAxis = axis == ScrollAxis::Block;
+        auto hasDefaultInsets = [insets]() {
+            if (!insets.start && !insets.end)
+                return true;
+            if (insets.start->isAuto())
+                return true;
+            return false;
+        }();
+
+        ASSERT(!name.isNull());
+        auto nameCSSValue = CSSPrimitiveValue::createCustomIdent(name);
+
+        if (hasDefaultAxis && hasDefaultInsets)
+            list.append(WTFMove(nameCSSValue));
+        else if (hasDefaultAxis)
+            list.append(CSSValuePair::createNoncoalescing(nameCSSValue, valueForSingleViewTimelineInset(insets, style)));
+        else if (hasDefaultInsets)
+            list.append(CSSValuePair::createNoncoalescing(nameCSSValue, createConvertingToCSSValueID(axis)));
+        else {
+            list.append(CSSValueList::createSpaceSeparated(
+                WTFMove(nameCSSValue),
+                createConvertingToCSSValueID(axis),
+                valueForSingleViewTimelineInset(insets, style)
+            ));
+        }
     }
     return CSSValueList::createCommaSeparated(WTFMove(list));
 }
@@ -3908,6 +4000,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     case CSSPropertyAnimationIterationCount:
     case CSSPropertyAnimationName:
     case CSSPropertyAnimationPlayState:
+    case CSSPropertyAnimationTimeline:
     case CSSPropertyAnimationTimingFunction:
         return valueListForAnimationOrTransitionProperty(propertyID, style.animations());
     case CSSPropertyAppearance:
@@ -4112,6 +4205,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         return computedScale(renderer, style);
     case CSSPropertyRotate:
         return computedRotate(renderer, style);
+    case CSSPropertyTransitionBehavior:
     case CSSPropertyTransitionDelay:
     case CSSPropertyTransitionDuration:
     case CSSPropertyTransitionTimingFunction:
@@ -4319,6 +4413,14 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         return valueForScrollTimelineName(style.scrollTimelineNames());
     case CSSPropertyScrollTimeline:
         return scrollTimelineShorthandValue(style.scrollTimelines());
+    case CSSPropertyViewTimelineAxis:
+        return valueForScrollTimelineAxis(style.viewTimelineAxes());
+    case CSSPropertyViewTimelineInset:
+        return valueForViewTimelineInset(style.viewTimelineInsets(), style);
+    case CSSPropertyViewTimelineName:
+        return valueForScrollTimelineName(style.viewTimelineNames());
+    case CSSPropertyViewTimeline:
+        return viewTimelineShorthandValue(style.viewTimelines(), style);
     case CSSPropertyScrollbarColor:
         if (!style.scrollbarColor())
             return CSSPrimitiveValue::create(CSSValueAuto);
