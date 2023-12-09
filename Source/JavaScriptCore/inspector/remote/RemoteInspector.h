@@ -32,7 +32,6 @@
 #include <utility>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
-#include <wtf/HashSet.h>
 #include <wtf/Lock.h>
 #include <wtf/ProcessID.h>
 #include <wtf/text/WTFString.h>

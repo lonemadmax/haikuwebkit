@@ -34,8 +34,6 @@
 #include <wtf/SentinelLinkedList.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
-#include "JSExportMacros.h"
-
 namespace JSC {
 
 namespace DFG {
@@ -223,7 +221,7 @@ public:
     {
         if (LIKELY(m_state != IsWatched))
             return;
-        this->fireAllSlow(vm, fireDetails);
+        fireAllSlow(vm, fireDetails);
     }
 
     void touch(VM& vm, const FireDetail& detail)

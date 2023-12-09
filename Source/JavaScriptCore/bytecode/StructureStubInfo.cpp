@@ -32,8 +32,6 @@
 #include "InlineCacheCompiler.h"
 #include "Repatch.h"
 
-#include "JSCellInlines.h"
-
 namespace JSC {
 
 #if ENABLE(JIT)
