@@ -228,6 +228,8 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
     void broadcastFrameRemovalToOtherProcesses() override {}
     void broadcastMainFrameURLChangeToOtherProcesses(const URL&) override {}
 
+    void loadStorageAccessQuirksIfNeeded() final override {}
+
 private:
     BWebPage* m_webPage;
     BWebFrame* m_webFrame;
