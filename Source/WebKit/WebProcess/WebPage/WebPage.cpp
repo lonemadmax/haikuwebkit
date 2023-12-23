@@ -1130,7 +1130,7 @@ void WebPage::gpuProcessConnectionDidBecomeAvailable(GPUProcessConnection& gpuPr
     gpuProcessConnection.createVisibilityPropagationContextForPage(*this);
 #endif
 
-#if ENABLE(PROCESS_CAPABILITIES)
+#if ENABLE(EXTENSION_CAPABILITIES)
     if (!mediaEnvironment().isEmpty())
         gpuProcessConnection.setMediaEnvironment(identifier(), mediaEnvironment());
 #endif
@@ -1308,7 +1308,7 @@ WebPage::~WebPage()
     for (auto& completionHandler : std::exchange(m_markLayersAsVolatileCompletionHandlers, { }))
         completionHandler(false);
 
-#if ENABLE(PROCESS_CAPABILITIES)
+#if ENABLE(EXTENSION_CAPABILITIES)
     setMediaEnvironment({ });
 #endif
 }
@@ -6901,6 +6901,22 @@ void WebPage::focusedElementDidChangeInputMode(WebCore::Element& element, WebCor
     send(Messages::WebPageProxy::FocusedElementDidChangeInputMode(mode));
 #else
     UNUSED_PARAM(mode);
+#endif
+}
+
+void WebPage::focusedSelectElementDidChangeOptions(const WebCore::HTMLSelectElement& element)
+{
+#if PLATFORM(IOS_FAMILY)
+    if (m_focusedElement != &element)
+        return;
+
+    auto information = focusedElementInformation();
+    if (!information)
+        return;
+
+    send(Messages::WebPageProxy::UpdateFocusedElementInformation(*information));
+#else
+    UNUSED_PARAM(element);
 #endif
 }
 

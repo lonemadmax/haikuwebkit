@@ -47,6 +47,7 @@
 #include "LocalDOMWindow.h"
 #include "NamedNodeMap.h"
 #include "NetworkStorageSession.h"
+#include "OrganizationStorageAccessPromptQuirk.h"
 #include "PlatformMouseEvent.h"
 #include "RegistrableDomain.h"
 #include "ResourceLoadObserver.h"
@@ -77,6 +78,13 @@ static inline OptionSet<AutoplayQuirk> allowedAutoplayQuirks(Document& document)
         return { };
 
     return loader->allowedAutoplayQuirks();
+}
+
+static HashMap<RegistrableDomain, String>& updatableStorageAccessUserAgentStringQuirks()
+{
+    // FIXME: Make this a member of Quirks.
+    static MainThreadNeverDestroyed<HashMap<RegistrableDomain, String>> map;
+    return map.get();
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -357,6 +365,27 @@ bool Quirks::shouldAvoidUsingIOS17UserAgentForFacebook() const
 #else
     return false;
 #endif
+}
+
+void Quirks::updateStorageAccessUserAgentStringQuirks(HashMap<RegistrableDomain, String>&& userAgentStringQuirks)
+{
+    auto& quirks = updatableStorageAccessUserAgentStringQuirks();
+    quirks.clear();
+    for (auto&& [domain, userAgent] : userAgentStringQuirks)
+        quirks.add(WTFMove(domain), WTFMove(userAgent));
+}
+
+String Quirks::storageAccessUserAgentStringQuirkForDomain(const URL& url)
+{
+    if (!needsQuirks())
+        return { };
+
+    const auto& quirks = updatableStorageAccessUserAgentStringQuirks();
+    RegistrableDomain domain { url };
+    auto iterator = quirks.find(domain);
+    if (iterator == quirks.end())
+        return { };
+    return iterator->value;
 }
 
 bool Quirks::shouldDisableElementFullscreenQuirk() const
@@ -1127,6 +1156,25 @@ Quirks::StorageAccessResult Quirks::requestStorageAccessAndHandleClick(Completio
         });
     });
     return Quirks::StorageAccessResult::ShouldCancelEvent;
+}
+
+void Quirks::triggerOptionalStorageAccessIframeQuirk(const URL& frameURL, CompletionHandler<void()>&& completionHandler) const
+{
+    if (m_document) {
+        if (m_document->frame() && !m_document->frame()->isMainFrame()) {
+            auto& mainFrame = m_document->frame()->mainFrame();
+            if (auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame); localMainFrame && localMainFrame->document()) {
+                localMainFrame->document()->quirks().triggerOptionalStorageAccessIframeQuirk(frameURL, WTFMove(completionHandler));
+                return;
+            }
+        }
+        if (subFrameDomainsForStorageAccessQuirk().contains(RegistrableDomain { frameURL })) {
+            return DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*m_document, RegistrableDomain { frameURL }, [completionHandler = WTFMove(completionHandler)](StorageAccessWasGranted) mutable {
+                completionHandler();
+            });
+        }
+    }
+    completionHandler();
 }
 
 // rdar://64549429

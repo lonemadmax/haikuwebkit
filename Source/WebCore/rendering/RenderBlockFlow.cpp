@@ -511,11 +511,15 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalH
     LayoutUnit repaintLogicalTop;
     LayoutUnit repaintLogicalBottom;
     LayoutUnit maxFloatLogicalBottom;
+    LayoutUnit pageRemaining;
+    bool isPaginated = view().frameView().layoutContext().layoutState()->isPaginated();
     const RenderStyle& styleToUse = style();
     do {
         LayoutStateMaintainer statePusher(*this, locationOffset(), isTransformed() || hasReflection() || styleToUse.isFlippedBlocksWritingMode(), pageLogicalHeight, pageLogicalHeightChanged);
 
         preparePaginationBeforeBlockLayout(relayoutChildren);
+        if (isPaginated)
+            pageRemaining = pageLogicalHeightForOffset(0_lu);
 
         // We use four values, maxTopPos, maxTopNeg, maxBottomPos, and maxBottomNeg, to track
         // our current maximal positive and negative margins. These values are used when we
@@ -566,6 +570,11 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalH
 
     updateLogicalHeight();
     LayoutUnit newHeight = logicalHeight();
+
+    LayoutUnit alignContentShift = 0_lu;
+    if ((!isPaginated || pageRemaining > newHeight) && (settings().alignContentOnBlocksEnabled()))
+        alignContentShift = shiftForAlignContent(oldHeight, repaintLogicalTop, repaintLogicalBottom);
+
     {
         // FIXME: This could be removed once relayoutForPagination() either stop recursing or we manage to
         // re-order them.
@@ -584,7 +593,7 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalH
         }
 
         bool heightChanged = (previousHeight != newHeight);
-        if (heightChanged)
+        if (heightChanged || alignContentShift != 0_lu)
             relayoutChildren = true;
         layoutPositionedObjects(relayoutChildren || isDocumentElementRenderer());
     }
@@ -643,6 +652,53 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalH
     }
 
     clearNeedsLayout();
+}
+
+inline LayoutUnit RenderBlockFlow::shiftForAlignContent(LayoutUnit intrinsicLogicalHeight, LayoutUnit& repaintLogicalTop, LayoutUnit& repaintLogicalBottom)
+{
+    auto& alignment = style().alignContent();
+
+    // Exit if no alignment necessary.
+    if (alignment.isNormal() || alignment.isStartward())
+        return 0_lu;
+
+    // Calculate alignment shift.
+    LayoutUnit computedLogicalHeight = logicalHeight();
+    LayoutUnit space = computedLogicalHeight - intrinsicLogicalHeight;
+    if (space <= 0 && (scrollsOverflow() || OverflowAlignment::Unsafe != alignment.overflow()))
+        return 0_lu; // Floored at zero; we're done
+    if (alignment.isCentered())
+        space = space / 2;
+
+    // Alright, now shift all our content.
+    if (!childrenInline()) {
+        for (CheckedPtr<RenderBox> child = firstChildBox(); child; child = child->nextSiblingBox()) {
+            setLogicalTopForChild(*child, logicalTopForChild(*child) + space);
+            if (child->isOutOfFlowPositioned()) {
+                if (child->style().hasStaticBlockPosition(isHorizontalWritingMode())) {
+                    ASSERT(child->layer());
+                    child->layer()->setStaticBlockPosition(child->layer()->staticBlockPosition() + space);
+                    child->setChildNeedsLayout(MarkOnlyThis);
+                }
+            }
+        }
+    } else if (legacyLineLayout()) {
+        if (isHorizontalWritingMode())
+            legacyLineLayout()->lineBoxes().shiftLinesBy(0, space);
+        else
+            legacyLineLayout()->lineBoxes().shiftLinesBy(-space, 0);
+    } else if (modernLineLayout())
+        modernLineLayout()->shiftLinesBy(space);
+    if (m_floatingObjects)
+        m_floatingObjects->shiftFloatsBy(space);
+
+    // Update repaint region.
+    if (space < 0_lu)
+        repaintLogicalTop += space;
+    else
+        repaintLogicalBottom += space;
+
+    return space;
 }
 
 static RenderBlockFlow* firstInlineFormattingContextRoot(const RenderBlockFlow& enclosingBlockContainer)
@@ -3901,8 +3957,6 @@ void RenderBlockFlow::invalidateLineLayoutPath()
             }
         }
         auto path = UndeterminedPath;
-        if (modernLineLayout() && modernLineLayout()->shouldSwitchToLegacyOnInvalidation())
-            path = ForcedLegacyPath;
         m_lineLayout = std::monostate();
         setLineLayoutPath(path);
         if (selfNeedsLayout() || normalChildNeedsLayout())
@@ -3915,18 +3969,26 @@ void RenderBlockFlow::invalidateLineLayoutPath()
     ASSERT_NOT_REACHED();
 }
 
+static bool hasSimpleStaticPositionForOutOfFlowChildren(const RenderBlockFlow& root)
+{
+    if (root.hasLineIfEmpty())
+        return false;
+    auto& rootStyle = root.style();
+    if (rootStyle.display() == DisplayType::TableCell && rootStyle.verticalAlign() != VerticalAlign::Baseline)
+        return false;
+    if (rootStyle.textAlign() != TextAlignMode::Start)
+        return false;
+    if (rootStyle.textIndent() != RenderStyle::zeroLength())
+        return false;
+    return true;
+}
+
 void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repaintLogicalTop, LayoutUnit& repaintLogicalBottom)
 {
     bool needsUpdateReplacedDimensions = false;
     auto& layoutState = *view().frameView().layoutContext().layoutState();
 
-    if (!modernLineLayout()) {
-        m_lineLayout = makeUnique<LayoutIntegration::LineLayout>(*this);
-        needsUpdateReplacedDimensions = true;
-    }
-
-    auto& layoutFormattingContextLineLayout = *this->modernLineLayout();
-    layoutFormattingContextLineLayout.updateInlineContentConstraints();
+    auto hasSimpleOutOfFlowContentOnly = hasSimpleStaticPositionForOutOfFlowChildren(*this);
 
     for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance()) {
         auto& renderer = *walker.current();
@@ -3939,6 +4001,8 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
 
         if (renderer.isOutOfFlowPositioned())
             renderer.containingBlock()->insertPositionedObject(downcast<RenderBox>(renderer));
+        else
+            hasSimpleOutOfFlowContentOnly = false;
 
         if (!renderer.needsLayout() && !renderer.preferredLogicalWidthsDirty() && !needsUpdateReplacedDimensions)
             continue;
@@ -3955,6 +4019,21 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
         }
     }
 
+    if (hasSimpleOutOfFlowContentOnly) {
+        // Shortcut the layout.
+        setStaticPositionsForSimpleOutOfFlowContent();
+        setLogicalHeight(borderAndPaddingBefore() + borderAndPaddingAfter() + scrollbarLogicalHeight());
+        return;
+    }
+
+    if (!modernLineLayout()) {
+        m_lineLayout = makeUnique<LayoutIntegration::LineLayout>(*this);
+        needsUpdateReplacedDimensions = true;
+    }
+
+    auto& layoutFormattingContextLineLayout = *this->modernLineLayout();
+
+    layoutFormattingContextLineLayout.updateInlineContentConstraints();
     layoutFormattingContextLineLayout.updateInlineContentDimensions();
 
     auto contentBoxTop = borderAndPaddingBefore();
@@ -4049,6 +4128,36 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
         layoutState.setLineClamp(*lineClamp);
     };
     updateLineClampStateAndLogicalHeightIfApplicable();
+}
+
+void RenderBlockFlow::setStaticPositionsForSimpleOutOfFlowContent()
+{
+    ASSERT(childrenInline());
+    ASSERT(hasSimpleStaticPositionForOutOfFlowChildren(*this));
+
+    // We have nothing but out-of-flow boxes so we don't need to run the actual line layout.
+    // Instead, we can just set the static positions to the point where all these boxes would end up.
+    // This is a common case when using transforms to animate positioned boxes.
+    auto staticPosition = LayoutPoint { borderAndPaddingStart(), borderAndPaddingBefore() };
+
+    for (auto walker = InlineWalker(*this); !walker.atEnd(); walker.advance()) {
+        auto& renderer = downcast<RenderBox>(*walker.current());
+        auto& layer = *renderer.layer();
+
+        ASSERT(renderer.isOutOfFlowPositioned());
+
+        auto previousStaticPosition = LayoutPoint { layer.staticInlinePosition(), layer.staticBlockPosition() };
+        auto delta = staticPosition - previousStaticPosition;
+        auto hasStaticInlinePositioning = renderer.style().hasStaticInlinePosition(isHorizontalWritingMode());
+
+        layer.setStaticInlinePosition(staticPosition.x());
+        layer.setStaticBlockPosition(staticPosition.y());
+
+        if (!delta.isZero() && hasStaticInlinePositioning) {
+            renderer.setChildNeedsLayout(MarkOnlyThis);
+            renderer.layoutIfNeeded();
+        }
+    }
 }
 
 #if ENABLE(TREE_DEBUGGING)
@@ -4522,6 +4631,18 @@ void RenderBlockFlow::computeInlinePreferredLogicalWidths(LayoutUnit& minLogical
     while (RenderObject* child = childIterator.next()) {
         bool autoWrap = child->isReplacedOrInlineBlock() ? child->parent()->style().autoWrap() :
             child->style().autoWrap();
+        if (child->style().display() == DisplayType::RubyAnnotation && child->style().rubyPosition() != RubyPosition::InterCharacter) {
+            // Interlinear annotation boxes don't participate in inline layout, but they opposed a minimum width on the associated ruby base.
+            ASSERT(!child->nextSibling());
+            auto annotationMinimumIntrinsicWidth = LayoutUnit { };
+            auto annotationMaximumIntrinsicWidth = LayoutUnit { };
+            computeChildPreferredLogicalWidths(*child, annotationMinimumIntrinsicWidth, annotationMaximumIntrinsicWidth);
+
+            // FIXME: Keep track of ruby base width.
+            inlineMin = std::max(inlineMin, annotationMinimumIntrinsicWidth.ceilToFloat());
+            inlineMax = std::max(inlineMax, annotationMaximumIntrinsicWidth.ceilToFloat());
+            continue;
+        }
         if (!child->isBR()) {
             // Step One: determine whether or not we need to terminate our current line.
             // Each discrete chunk can become the new min-width, if it is the widest chunk

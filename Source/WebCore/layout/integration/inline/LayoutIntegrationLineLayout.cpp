@@ -176,24 +176,6 @@ bool LineLayout::shouldInvalidateLineLayoutPathAfterTreeMutation(const RenderBlo
     return shouldInvalidateLineLayoutPathAfterChangeFor(parent, renderer, lineLayout, isRemoval ? TypeOfChangeForInvalidation::NodeRemoval : TypeOfChangeForInvalidation::NodeInsertion);
 }
 
-bool LineLayout::shouldSwitchToLegacyOnInvalidation() const
-{
-    constexpr size_t maximimumBoxTreeSizeForInvalidation = 128;
-    if (m_boxTree.boxCount() <= maximimumBoxTreeSizeForInvalidation)
-        return false;
-    auto isOutOfFlowPositionedContentOnly = [&] {
-        auto renderers = m_boxTree.renderers();
-        if (renderers.isEmpty())
-            return false;
-        for (size_t index = 0; index < renderers.size() - 1; ++index) {
-            if (!renderers[index]->isOutOfFlowPositioned())
-                return false;
-        }
-        return true;
-    };
-    return isOutOfFlowPositionedContentOnly();
-}
-
 void LineLayout::updateInlineContentDimensions()
 {
     m_boxGeometryUpdater.setGeometriesForLayout();
@@ -969,6 +951,34 @@ bool LineLayout::hitTest(const HitTestRequest& request, HitTestResult& result, c
     }
 
     return false;
+}
+
+void LineLayout::shiftLinesBy(LayoutUnit blockShift)
+{
+    if (!m_inlineContent)
+        return;
+    bool isHorizontalWritingMode = WebCore::isHorizontalWritingMode(flow().style().writingMode());
+
+    for (auto& line : m_inlineContent->displayContent().lines)
+        line.moveInBlockDirection(blockShift, isHorizontalWritingMode);
+
+    for (auto& box : m_inlineContent->displayContent().boxes) {
+        if (isHorizontalWritingMode)
+            box.moveVertically(blockShift);
+        else
+            box.moveHorizontally(blockShift);
+    }
+
+    for (auto& object : m_boxTree.renderers()) {
+        Layout::Box& layoutBox = *object->layoutBox();
+        if (layoutBox.isOutOfFlowPositioned() && layoutBox.style().hasStaticBlockPosition(isHorizontalWritingMode)) {
+            CheckedRef renderer = downcast<RenderBox>(m_boxTree.rendererForLayoutBox(layoutBox));
+            ASSERT(renderer->layer());
+            CheckedRef layer = *renderer->layer();
+            layer->setStaticBlockPosition(layer->staticBlockPosition() + blockShift);
+            renderer->setChildNeedsLayout(MarkOnlyThis);
+        }
+    }
 }
 
 void LineLayout::insertedIntoTree(const RenderElement& parent, RenderObject& child)

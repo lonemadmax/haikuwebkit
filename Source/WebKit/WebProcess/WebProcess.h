@@ -222,6 +222,8 @@ public:
     void setHasStylusDevice(bool);
 #endif
 
+    void updateStorageAccessUserAgentStringQuirks(HashMap<WebCore::RegistrableDomain, String>&&);
+
     WebFrame* webFrame(WebCore::FrameIdentifier) const;
     void addWebFrame(WebCore::FrameIdentifier, WebFrame*);
     void removeWebFrame(WebCore::FrameIdentifier, std::optional<WebPageProxyIdentifier>);
@@ -437,6 +439,8 @@ public:
     String mediaKeysStorageDirectory() const { return m_mediaKeysStorageDirectory; }
     FileSystem::Salt mediaKeysStorageSalt() const { return m_mediaKeysStorageSalt; }
 
+    bool haveStorageAccessQuirksForDomain(const WebCore::RegistrableDomain&);
+
 private:
     WebProcess();
     ~WebProcess();
@@ -569,6 +573,8 @@ private:
     void setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&&);
     void setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, SubResourceDomain>&&, CompletionHandler<void()>&&);
     void sendResourceLoadStatisticsDataImmediately(CompletionHandler<void()>&&);
+
+    void updateDomainsWithStorageAccessQuirks(HashSet<WebCore::RegistrableDomain>&&);
 
 #if HAVE(DISPLAY_LINK)
     void displayDidRefresh(uint32_t displayID, const WebCore::DisplayUpdate&);
@@ -824,6 +830,7 @@ private:
     FileSystem::Salt m_mediaKeysStorageSalt;
 
     HashMap<WebTransportSessionIdentifier, WeakPtr<WebTransportSession>> m_webTransportSessions;
+    HashSet<WebCore::RegistrableDomain> m_domainsWithStorageAccessQuirks;
 };
 
 } // namespace WebKit

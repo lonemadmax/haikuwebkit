@@ -636,7 +636,7 @@ public:
     PartialResult WARN_UNUSED_RETURN addStructNewDefault(uint32_t index, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addStructGet(ExtGCOpType structGetKind, ExpressionType structReference, const StructType&, uint32_t fieldIndex, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addStructSet(ExpressionType structReference, const StructType&, uint32_t fieldIndex, ExpressionType value);
-    PartialResult WARN_UNUSED_RETURN addRefTest(ExpressionType reference, bool allowNull, int32_t heapType, ExpressionType& result);
+    PartialResult WARN_UNUSED_RETURN addRefTest(ExpressionType reference, bool allowNull, int32_t heapType, bool shouldNegate, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addRefCast(ExpressionType reference, bool allowNull, int32_t heapType, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addAnyConvertExtern(ExpressionType reference, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN addExternConvertAny(ExpressionType reference, ExpressionType& result);
@@ -675,6 +675,7 @@ public:
     PartialResult WARN_UNUSED_RETURN addReturn(const ControlData&, const Stack& returnValues);
     PartialResult WARN_UNUSED_RETURN addBranch(ControlData&, ExpressionType condition, const Stack& returnValues);
     PartialResult WARN_UNUSED_RETURN addBranchNull(ControlType&, ExpressionType, const Stack&, bool, ExpressionType&);
+    PartialResult WARN_UNUSED_RETURN addBranchCast(ControlType&, ExpressionType, const Stack&, bool, int32_t, bool);
     PartialResult WARN_UNUSED_RETURN addSwitch(ExpressionType condition, const Vector<ControlData*>& targets, ControlData& defaultTargets, const Stack& expressionStack);
     PartialResult WARN_UNUSED_RETURN endBlock(ControlEntry&, Stack& expressionStack);
     PartialResult WARN_UNUSED_RETURN addEndToUnreachable(ControlEntry&, const Stack& = { });
@@ -783,7 +784,7 @@ private:
     ExpressionType WARN_UNUSED_RETURN pushArrayNew(uint32_t typeIndex, Value* initValue, ExpressionType size);
     using arraySegmentOperation = EncodedJSValue (&)(JSC::Wasm::Instance*, uint32_t, uint32_t, uint32_t, uint32_t);
     ExpressionType WARN_UNUSED_RETURN pushArrayNewFromSegment(arraySegmentOperation, uint32_t typeIndex, uint32_t segmentIndex, ExpressionType arraySize, ExpressionType offset, ExceptionType);
-    void emitRefTestOrCast(CastKind, ExpressionType, bool, int32_t, ExpressionType&);
+    void emitRefTestOrCast(CastKind, ExpressionType, bool, int32_t, bool, ExpressionType&);
     template <typename Generator>
     void emitCheckOrBranchForCast(CastKind, Value*, const Generator&, BasicBlock*);
     Value* emitLoadRTTFromFuncref(Value*);
@@ -1154,10 +1155,7 @@ B3IRGenerator::B3IRGenerator(const ModuleInformation& info, OptimizingJITCallee&
                 AllowMacroScratchRegisterUsage allowScratch(jit);
                 GPRReg contextInstance = params[0].gpr();
                 GPRReg fp = params[1].gpr();
-                CCallHelpers::JumpList overflow = jit.checkWasmStackOverflow(contextInstance, CCallHelpers::TrustedImm32(checkSize), fp);
-                jit.addLinkTask([overflow] (LinkBuffer& linkBuffer) {
-                    linkBuffer.link(overflow, CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwStackOverflowFromWasmThunkGenerator).code()));
-                });
+                jit.checkWasmStackOverflow(contextInstance, CCallHelpers::TrustedImm32(checkSize), fp).linkThunk(CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwStackOverflowFromWasmThunkGenerator).code()), &jit);
             }
         });
     }
@@ -1230,11 +1228,7 @@ void B3IRGenerator::reloadMemoryRegistersFromInstance(const MemoryInformation& m
 void B3IRGenerator::emitExceptionCheck(CCallHelpers& jit, ExceptionType type)
 {
     jit.move(CCallHelpers::TrustedImm32(static_cast<uint32_t>(type)), GPRInfo::argumentGPR1);
-    auto jumpToExceptionStub = jit.jump();
-
-    jit.addLinkTask([jumpToExceptionStub] (LinkBuffer& linkBuffer) {
-        linkBuffer.link(jumpToExceptionStub, CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwExceptionFromWasmThunkGenerator).code()));
-    });
+    jit.jumpThunk(CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwExceptionFromWasmThunkGenerator).code()));
 }
 
 Value* B3IRGenerator::constant(B3::Type type, uint64_t bits, std::optional<Origin> maybeOrigin)
@@ -3318,19 +3312,19 @@ auto B3IRGenerator::addStructSet(ExpressionType structReference, const StructTyp
     return { };
 }
 
-auto B3IRGenerator::addRefTest(ExpressionType reference, bool allowNull, int32_t heapType, ExpressionType& result) -> PartialResult
+auto B3IRGenerator::addRefTest(ExpressionType reference, bool allowNull, int32_t heapType, bool shouldNegate, ExpressionType& result) -> PartialResult
 {
-    emitRefTestOrCast(CastKind::Test, reference, allowNull, heapType, result);
+    emitRefTestOrCast(CastKind::Test, reference, allowNull, heapType, shouldNegate, result);
     return { };
 }
 
 auto B3IRGenerator::addRefCast(ExpressionType reference, bool allowNull, int32_t heapType, ExpressionType& result) -> PartialResult
 {
-    emitRefTestOrCast(CastKind::Cast, reference, allowNull, heapType, result);
+    emitRefTestOrCast(CastKind::Cast, reference, allowNull, heapType, false, result);
     return { };
 }
 
-void B3IRGenerator::emitRefTestOrCast(CastKind castKind, ExpressionType reference, bool allowNull, int32_t heapType, ExpressionType& result)
+void B3IRGenerator::emitRefTestOrCast(CastKind castKind, ExpressionType reference, bool allowNull, int32_t heapType, bool shouldNegate, ExpressionType& result)
 {
     if (castKind == CastKind::Cast)
         result = push(get(reference));
@@ -3484,12 +3478,12 @@ void B3IRGenerator::emitRefTestOrCast(CastKind castKind, ExpressionType referenc
         m_currentBlock->appendNewControlValue(m_proc, Jump, origin(), trueBlock);
         trueBlock->addPredecessor(m_currentBlock);
         m_currentBlock = trueBlock;
-        UpsilonValue* trueUpsilon = m_currentBlock->appendNew<UpsilonValue>(m_proc, origin(), constant(B3::Int32, 1));
+        UpsilonValue* trueUpsilon = m_currentBlock->appendNew<UpsilonValue>(m_proc, origin(), constant(B3::Int32, shouldNegate ? 0 : 1));
         m_currentBlock->appendNewControlValue(m_proc, Jump, origin(), continuation);
         continuation->addPredecessor(m_currentBlock);
 
         m_currentBlock = falseBlock;
-        UpsilonValue* falseUpsilon = m_currentBlock->appendNew<UpsilonValue>(m_proc, origin(), constant(B3::Int32, 0));
+        UpsilonValue* falseUpsilon = m_currentBlock->appendNew<UpsilonValue>(m_proc, origin(), constant(B3::Int32, shouldNegate ? 1 : 0));
         m_currentBlock->appendNewControlValue(m_proc, Jump, origin(), continuation);
         continuation->addPredecessor(m_currentBlock);
 
@@ -3880,15 +3874,10 @@ void B3IRGenerator::emitEntryTierUpCheck()
             unsigned numberOfStackBytesUsedForRegisterPreservation = ScratchRegisterAllocator::preserveRegistersToStackForCall(jit, registersToSpill, extraPaddingBytes);
 
             jit.move(MacroAssembler::TrustedImm32(m_functionIndex), GPRInfo::nonPreservedNonArgumentGPR0);
-            MacroAssembler::Call call = jit.nearCall();
+            jit.nearCallThunk(CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(triggerOMGEntryTierUpThunkGenerator(m_proc.usesSIMD())).code()));
 
             ScratchRegisterAllocator::restoreRegistersFromStackForCall(jit, registersToSpill, { }, numberOfStackBytesUsedForRegisterPreservation, extraPaddingBytes);
             jit.jump(tierUpResume);
-
-            bool isSIMD = m_proc.usesSIMD();
-            jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
-                MacroAssembler::repatchNearCall(linkBuffer.locationOfNearCall<NoPtrTag>(call), CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(triggerOMGEntryTierUpThunkGenerator(isSIMD)).code()));
-            });
         });
     });
 }
@@ -4434,6 +4423,18 @@ auto B3IRGenerator::addBranchNull(ControlData& data, ExpressionType reference, c
 
     if (!shouldNegate)
         result = push(get(reference));
+
+    return { };
+}
+
+auto B3IRGenerator::addBranchCast(ControlData& data, ExpressionType reference, const Stack& returnValues, bool allowNull, int32_t heapType, bool shouldNegate) -> PartialResult
+{
+    ExpressionType condition;
+    emitRefTestOrCast(CastKind::Test, reference, allowNull, heapType, shouldNegate, condition);
+    // We should pop the condition here to keep stack size consistent.
+    --m_stackSize;
+
+    WASM_FAIL_IF_HELPER_FAILS(addBranch(data, condition, returnValues));
 
     return { };
 }

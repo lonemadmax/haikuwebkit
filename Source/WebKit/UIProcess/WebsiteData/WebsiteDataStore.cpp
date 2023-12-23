@@ -1298,6 +1298,13 @@ void WebsiteDataStore::setStorageAccessPromptQuirkForTesting(String&& topFrameDo
     completionHandler();
 }
 
+void WebsiteDataStore::grantStorageAccessForTesting(String&& topFrameDomain, Vector<String>&& subFrameDomains, CompletionHandler<void()>&& completionHandler)
+{
+    protectedNetworkProcess()->sendWithAsyncReply(Messages::NetworkProcess::GrantStorageAccessForTesting(sessionID(), subFrameDomains.map([](const String& domain) {
+        return WebCore::RegistrableDomain::uncheckedCreateFromHost(domain);
+    }), WebCore::RegistrableDomain::uncheckedCreateFromHost((topFrameDomain))), WTFMove(completionHandler));
+}
+
 void WebsiteDataStore::setIsRunningResourceLoadStatisticsTest(bool value, CompletionHandler<void()>&& completionHandler)
 {
     useExplicitTrackingPreventionState();
@@ -1768,6 +1775,14 @@ void WebsiteDataStore::clearResourceLoadStatisticsInWebProcesses(CompletionHandl
             processPool->sendToAllProcessesForSession(Messages::WebProcess::ClearResourceLoadStatistics(), m_sessionID);
     }
     callback();
+}
+
+void WebsiteDataStore::setUserAgentStringQuirkForTesting(const String& domain, const String& userAgentString, CompletionHandler<void()>&& completionHandler)
+{
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+    StorageAccessUserAgentStringQuirkController::shared().setCachedQuirksForTesting({ { RegistrableDomain::uncheckedCreateFromHost(domain), userAgentString } });
+#endif
+    completionHandler();
 }
 
 bool WebsiteDataStore::isBlobRegistryPartitioningEnabled() const

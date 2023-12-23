@@ -673,6 +673,16 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
     _websiteDataStore->setStorageAccessPromptQuirkForTesting(topFrameDomain, makeVector<String>(subFrameDomains), makeBlockPtr(completionHandler));
 }
 
+- (void)_grantStorageAccessForTesting:(NSString *)topFrameDomain withSubFrameDomains:(NSArray<NSString *> *)subFrameDomains completionHandler:(void(^)(void))completionHandler
+{
+    if (!_websiteDataStore->isPersistent()) {
+        completionHandler();
+        return;
+    }
+
+    _websiteDataStore->grantStorageAccessForTesting(WTFMove(topFrameDomain), makeVector<String>(subFrameDomains), makeBlockPtr(completionHandler));
+}
+
 - (void)_setResourceLoadStatisticsTimeAdvanceForTesting:(NSTimeInterval)time completionHandler:(void(^)(void))completionHandler
 {
     _websiteDataStore->setResourceLoadStatisticsTimeAdvanceForTesting(Seconds(time), makeBlockPtr(completionHandler));
@@ -855,6 +865,13 @@ static Vector<WebKit::WebsiteDataRecord> toWebsiteDataRecords(NSArray *dataRecor
 - (BOOL)_networkProcessHasEntitlementForTesting:(NSString *)entitlement
 {
     return _websiteDataStore->networkProcessHasEntitlementForTesting(entitlement);
+}
+
+- (void)_setUserAgentStringQuirkForTesting:(NSString *)domain withUserAgent:(NSString *)userAgent completionHandler:(void (^)(void))completionHandler
+{
+    _websiteDataStore->setUserAgentStringQuirkForTesting(domain, userAgent, [completionHandler = makeBlockPtr(completionHandler)] {
+        completionHandler();
+    });
 }
 
 - (id <_WKWebsiteDataStoreDelegate>)_delegate

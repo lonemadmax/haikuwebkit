@@ -132,6 +132,7 @@
 
 #if PLATFORM(COCOA)
 #include "DefaultWebBrowserChecks.h"
+#include "WebPrivacyHelpers.h"
 #include <WebCore/GameControllerGamepadProvider.h>
 #include <WebCore/HIDGamepadProvider.h>
 #include <WebCore/MultiGamepadProvider.h>
@@ -147,9 +148,9 @@
 #include "IPCTesterMessages.h"
 #endif
 
-#if ENABLE(PROCESS_CAPABILITIES)
+#if ENABLE(EXTENSION_CAPABILITIES)
+#include "ExtensionCapabilityGrant.h"
 #include "MediaCapability.h"
-#include "ProcessCapabilityGrant.h"
 #endif
 
 #define WEBPROCESSPOOL_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - WebProcessPool::" fmt, this, ##__VA_ARGS__)
@@ -300,6 +301,29 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
         });
     }
 #endif
+
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+    m_storageAccessUserAgentStringQuirksDataUpdateObserver = StorageAccessUserAgentStringQuirkController::shared().observeUpdates([weakThis = WeakPtr { *this }] {
+        if (RefPtr protectedThis = weakThis.get()) {
+            if (StorageAccessUserAgentStringQuirkController::shared().cachedQuirks().isEmpty())
+                return;
+            // FIXME: Filter by process's site when site isolation is enabled
+            protectedThis->sendToAllProcesses(Messages::WebProcess::UpdateStorageAccessUserAgentStringQuirks(StorageAccessUserAgentStringQuirkController::shared().cachedQuirks()));
+        }
+    });
+
+    m_storageAccessPromptQuirksDataUpdateObserver = StorageAccessPromptQuirkController::shared().observeUpdates([weakThis = WeakPtr { *this }] {
+        if (RefPtr protectedThis = weakThis.get()) {
+            HashSet<WebCore::RegistrableDomain> domainSet;
+            for (auto&& entry : StorageAccessPromptQuirkController::shared().cachedQuirks()) {
+                for (auto&& domain : entry.domainPairings.keys())
+                    domainSet.add(domain);
+            }
+            protectedThis->sendToAllProcesses(Messages::WebProcess::UpdateDomainsWithStorageAccessQuirks(domainSet));
+        }
+    });
+#endif
+
 }
 
 WebProcessPool::~WebProcessPool()
@@ -1014,11 +1038,11 @@ void WebProcessPool::processDidFinishLaunching(WebProcessProxy& process)
 
     m_connectionClient.didCreateConnection(this, process.protectedWebConnection().get());
 
-#if ENABLE(PROCESS_CAPABILITIES)
+#if ENABLE(EXTENSION_CAPABILITIES)
     for (auto& page : process.pages()) {
         if (auto& mediaCapability = page->mediaCapability()) {
             WEBPROCESSPOOL_RELEASE_LOG(ProcessCapabilities, "processDidFinishLaunching: granting media capability (envID=%{public}s)", mediaCapability->environmentIdentifier().utf8().data());
-            processCapabilityGranter().grant(*mediaCapability);
+            extensionCapabilityGranter().grant(*mediaCapability);
         }
     }
 #endif
@@ -1057,8 +1081,8 @@ void WebProcessPool::disconnectProcess(WebProcessProxy& process)
 
     removeProcessFromOriginCacheSet(process);
 
-#if ENABLE(PROCESS_CAPABILITIES)
-    processCapabilityGranter().invalidateGrants(moveToVector(std::exchange(process.processCapabilityGrants(), { }).values()));
+#if ENABLE(EXTENSION_CAPABILITIES)
+    extensionCapabilityGranter().invalidateGrants(moveToVector(std::exchange(process.extensionCapabilityGrants(), { }).values()));
 #endif
 }
 

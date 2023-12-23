@@ -243,6 +243,7 @@ struct MediaUsageInfo;
 struct MessageWithMessagePorts;
 struct MockWebAuthenticationConfiguration;
 struct NotificationData;
+struct OrganizationStorageAccessPromptQuirk;
 struct PageIdentifierType;
 struct PermissionDescriptor;
 struct PlatformLayerIdentifierType;
@@ -1850,7 +1851,7 @@ public:
     void scheduleFullEditorStateUpdate();
     void dispatchDidUpdateEditorState();
 
-    void requestStorageAccessConfirm(const WebCore::RegistrableDomain& subFrameDomain, const WebCore::RegistrableDomain& topFrameDomain, WebCore::FrameIdentifier, CompletionHandler<void(bool)>&&);
+    void requestStorageAccessConfirm(const WebCore::RegistrableDomain& subFrameDomain, const WebCore::RegistrableDomain& topFrameDomain, WebCore::FrameIdentifier, std::optional<WebCore::OrganizationStorageAccessPromptQuirk>&&, CompletionHandler<void(bool)>&&);
     void didCommitCrossSiteLoadWithDataTransferFromPrevalentResource();
     void getLoadedSubresourceDomains(CompletionHandler<void(Vector<WebCore::RegistrableDomain>&&)>&&);
     void clearLoadedSubresourceDomains();
@@ -2306,7 +2307,7 @@ public:
     bool shouldAllowAutoFillForCellularIdentifiers() const;
 #endif
 
-#if ENABLE(PROCESS_CAPABILITIES)
+#if ENABLE(EXTENSION_CAPABILITIES)
     const std::optional<MediaCapability>& mediaCapability() const;
     void updateMediaCapability();
 #endif
@@ -2686,6 +2687,7 @@ private:
     void elementDidFocus(const FocusedElementInformation&, bool userIsInteracting, bool blurPreviousNode, OptionSet<WebCore::ActivityState> activityStateChanges, const UserData&);
     void elementDidBlur();
     void updateInputContextAfterBlurringAndRefocusingElement();
+    void updateFocusedElementInformation(const FocusedElementInformation&);
     void focusedElementDidChangeInputMode(WebCore::InputMode);
     void didReleaseAllTouchPoints();
 
@@ -2872,7 +2874,7 @@ private:
 
     void dispatchLoadEventToFrameOwnerElement(WebCore::FrameIdentifier);
 
-#if ENABLE(PROCESS_CAPABILITIES)
+#if ENABLE(EXTENSION_CAPABILITIES)
     void setMediaCapability(std::optional<MediaCapability>&&);
     bool shouldActivateMediaCapability() const;
     bool shouldDeactivateMediaCapability() const;

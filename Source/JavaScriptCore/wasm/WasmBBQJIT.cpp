@@ -1769,7 +1769,7 @@ public:
         toSlowPath.link(&m_jit);
         m_jit.prepareWasmCallOperation(GPRInfo::wasmContextInstancePointer);
         m_jit.setupArguments<decltype(operationWasmWriteBarrierSlowPath)>(cellGPR, vmGPR);
-        m_jit.callOperation(operationWasmWriteBarrierSlowPath);
+        m_jit.callOperation<OperationPtrTag>(operationWasmWriteBarrierSlowPath);
 
         // Continuation
         noFenceCheck.link(&m_jit);
@@ -4191,18 +4191,19 @@ public:
         return { };
     }
 
-    PartialResult WARN_UNUSED_RETURN addRefTest(ExpressionType reference, bool allowNull, int32_t heapType, ExpressionType& result)
+    PartialResult WARN_UNUSED_RETURN addRefTest(ExpressionType reference, bool allowNull, int32_t heapType, bool shouldNegate, ExpressionType& result)
     {
         Vector<Value, 8> arguments = {
             instanceValue(),
             reference,
             Value::fromI32(allowNull),
             Value::fromI32(heapType),
+            Value::fromI32(shouldNegate),
         };
         result = topValue(TypeKind::I32);
         emitCCall(operationWasmRefTest, arguments, result);
 
-        LOG_INSTRUCTION("RefTest", reference, allowNull, heapType, RESULT(result));
+        LOG_INSTRUCTION("RefTest", reference, allowNull, heapType, shouldNegate, RESULT(result));
 
         return { };
     }
@@ -4662,11 +4663,7 @@ public:
     void emitThrowException(ExceptionType type)
     {
         m_jit.move(CCallHelpers::TrustedImm32(static_cast<uint32_t>(type)), GPRInfo::argumentGPR1);
-        auto jumpToExceptionStub = m_jit.jump();
-
-        m_jit.addLinkTask([jumpToExceptionStub] (LinkBuffer& linkBuffer) {
-            linkBuffer.link(jumpToExceptionStub, CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwExceptionFromWasmThunkGenerator).code()));
-        });
+        m_jit.jumpThunk(CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwExceptionFromWasmThunkGenerator).code()));
     }
 
     void throwExceptionIf(ExceptionType type, Jump jump)
@@ -6702,13 +6699,8 @@ public:
         addLatePath([tierUp, tierUpResume, functionIndex](BBQJIT& generator, CCallHelpers& jit) {
             tierUp.link(&jit);
             jit.move(TrustedImm32(functionIndex), GPRInfo::nonPreservedNonArgumentGPR0);
-            MacroAssembler::Call call = jit.nearCall();
+            jit.nearCallThunk(CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(triggerOMGEntryTierUpThunkGenerator(generator.m_usesSIMD)).code()));
             jit.jump(tierUpResume);
-
-            bool usesSIMD = generator.m_usesSIMD;
-            jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
-                MacroAssembler::repatchNearCall(linkBuffer.locationOfNearCall<NoPtrTag>(call), CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(triggerOMGEntryTierUpThunkGenerator(usesSIMD)).code()));
-            });
         });
     }
 
@@ -6755,9 +6747,7 @@ public:
         MacroAssembler::JumpList overflow;
         overflow.append(m_jit.branchPtr(CCallHelpers::Above, wasmScratchGPR, GPRInfo::callFrameRegister));
         overflow.append(m_jit.branchPtr(CCallHelpers::Below, wasmScratchGPR, CCallHelpers::Address(GPRInfo::wasmContextInstancePointer, Instance::offsetOfSoftStackLimit())));
-        m_jit.addLinkTask([overflow] (LinkBuffer& linkBuffer) {
-            linkBuffer.link(overflow, CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwStackOverflowFromWasmThunkGenerator).code()));
-        });
+        overflow.linkThunk(CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwStackOverflowFromWasmThunkGenerator).code()), &m_jit);
 
         m_jit.move(wasmScratchGPR, MacroAssembler::stackPointerRegister);
 
@@ -6910,9 +6900,7 @@ public:
         MacroAssembler::JumpList overflow;
         overflow.append(m_jit.branchPtr(CCallHelpers::Above, MacroAssembler::stackPointerRegister, GPRInfo::callFrameRegister));
         overflow.append(m_jit.branchPtr(CCallHelpers::Below, MacroAssembler::stackPointerRegister, CCallHelpers::Address(GPRInfo::wasmContextInstancePointer, Instance::offsetOfSoftStackLimit())));
-        m_jit.addLinkTask([overflow] (LinkBuffer& linkBuffer) {
-            linkBuffer.link(overflow, CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwStackOverflowFromWasmThunkGenerator).code()));
-        });
+        overflow.linkThunk(CodeLocationLabel<JITThunkPtrTag>(Thunks::singleton().stub(throwStackOverflowFromWasmThunkGenerator).code()), &m_jit);
 
         // This operation shuffles around values on the stack, until everything is in the right place. Then,
         // it returns the address of the loop we're jumping to in wasmScratchGPR (so we don't interfere with
@@ -7505,7 +7493,7 @@ public:
             Location referenceLocation = loadIfNecessary(reference);
             ASSERT(referenceLocation.isGPR());
             // The branch will try to move to the scratch anyway so this is fine.
-            condition = Value::pinned(TypeKind::Ref, Location::fromGPR(wasmScratchGPR));
+            condition = Value::pinned(TypeKind::I32, Location::fromGPR(wasmScratchGPR));
             Location conditionLocation = locationOf(condition);
             ASSERT(JSValue::encode(jsNull()) >= 0 && JSValue::encode(jsNull()) <= INT32_MAX);
             m_jit.compare64(shouldNegate ? RelationalCondition::NotEqual : RelationalCondition::Equal, referenceLocation.asGPR(), TrustedImm32(static_cast<int32_t>(JSValue::encode(jsNull()))), conditionLocation.asGPR());
@@ -7517,6 +7505,41 @@ public:
 
         if (!shouldNegate)
             result = reference;
+
+        return { };
+    }
+
+    PartialResult WARN_UNUSED_RETURN addBranchCast(ControlData& data, ExpressionType reference, Stack& returnValues, bool allowNull, int32_t heapType, bool shouldNegate)
+    {
+        Value condition;
+        if (reference.isConst()) {
+            JSValue refValue = JSValue::decode(reference.asRef());
+            ASSERT(refValue.isNull() || refValue.isNumber());
+            if (refValue.isNull())
+                condition = Value::fromI32(static_cast<uint32_t>(shouldNegate ? !allowNull : allowNull));
+            else {
+                bool matches = isSubtype(Type { TypeKind::Ref, static_cast<TypeIndex>(TypeKind::I31ref) }, Type { TypeKind::Ref, static_cast<TypeIndex>(heapType) });
+                condition = Value::fromI32(shouldNegate ? !matches : matches);
+            }
+        } else {
+            // Use an indirection for the reference to avoid it getting consumed here.
+            Value tempReference = Value::pinned(TypeKind::Ref, Location::fromGPR(wasmScratchGPR));
+            emitMove(reference, locationOf(tempReference));
+
+            Vector<Value, 8> arguments = {
+                instanceValue(),
+                tempReference,
+                Value::fromI32(allowNull),
+                Value::fromI32(heapType),
+                Value::fromI32(shouldNegate),
+            };
+            condition = topValue(TypeKind::I32);
+            emitCCall(operationWasmRefTest, arguments, condition);
+        }
+
+        WASM_FAIL_IF_HELPER_FAILS(addBranch(data, condition, returnValues));
+
+        LOG_INSTRUCTION("BrOnCast/CastFail", reference);
 
         return { };
     }

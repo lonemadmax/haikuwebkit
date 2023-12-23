@@ -206,6 +206,7 @@ class GraphicsContext;
 class HTMLElement;
 class HTMLImageElement;
 class HTMLPlugInElement;
+class HTMLSelectElement;
 class HTMLVideoElement;
 class HandleUserInputEventResult;
 class IgnoreSelectionChangeForScope;
@@ -815,6 +816,7 @@ public:
     void elementDidRefocus(WebCore::Element&, const WebCore::FocusOptions&);
     void elementDidBlur(WebCore::Element&);
     void focusedElementDidChangeInputMode(WebCore::Element&, WebCore::InputMode);
+    void focusedSelectElementDidChangeOptions(const WebCore::HTMLSelectElement&);
     void resetFocusedElementForFrame(WebFrame*);
     void updateInputContextAfterBlurringAndRefocusingElementIfNeeded(WebCore::Element&);
 
@@ -1671,7 +1673,7 @@ public:
     const Vector<DMABufRendererBufferFormat>& preferredBufferFormats() const { return m_preferredBufferFormats; }
 #endif
 
-#if ENABLE(PROCESS_CAPABILITIES)
+#if ENABLE(EXTENSION_CAPABILITIES)
     const String& mediaEnvironment() const { return m_mediaEnvironment; }
     void setMediaEnvironment(const String&);
 #endif
@@ -2668,7 +2670,7 @@ private:
     WeakHashSet<WebCore::HTMLImageElement, WebCore::WeakPtrImplWithEventTargetData> m_elementsToExcludeFromRemoveBackground;
 #endif
 
-#if ENABLE(PROCESS_CAPABILITIES)
+#if ENABLE(EXTENSION_CAPABILITIES)
     String m_mediaEnvironment;
 #endif
 

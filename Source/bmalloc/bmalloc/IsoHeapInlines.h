@@ -112,12 +112,6 @@ void IsoHeapBase<Type>::deallocate(void* p)
     IsoTLS::deallocate(*this, p);
 }
 
-template<typename Type>
-constexpr IsoHeap(const char* name): IsoHeapBase<Type>(name) { }
-
-template<typename Type>
-constexpr CompactIsoHeap(const char* name): IsoHeapBase<Type>(name) { }
-
 #endif // !BUSE(LIBPAS)
 
 // This is most appropraite for template classes.
