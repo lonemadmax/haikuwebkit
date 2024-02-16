@@ -160,11 +160,7 @@
 
 #if ENABLE(MEDIA_SOURCE)
 #include "LocalDOMWindow.h"
-#if ENABLE(MANAGED_MEDIA_SOURCE)
 #include "ManagedMediaSource.h"
-#else
-#include "MediaSource.h"
-#endif
 #include "SourceBufferList.h"
 #endif
 
@@ -433,7 +429,7 @@ static bool defaultVolumeLocked()
 }
 
 HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& document, bool createdByParser)
-    : HTMLElement(tagName, document, CreateHTMLMediaElement)
+    : HTMLElement(tagName, document, TypeFlag::HasCustomStyleResolveCallbacks)
     , ActiveDOMObject(document)
     , m_progressEventTimer(*this, &HTMLMediaElement::progressEventTimerFired)
     , m_playbackProgressTimer(*this, &HTMLMediaElement::playbackProgressTimerFired)
@@ -3639,7 +3635,7 @@ void HTMLMediaElement::setSeeking(bool seeking)
 {
     if (m_seeking == seeking)
         return;
-    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassType::Seeking, seeking);
+    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClass::Seeking, seeking);
     m_seeking = seeking;
 }
 
@@ -3808,8 +3804,8 @@ void HTMLMediaElement::setPaused(bool paused)
     if (m_paused == paused)
         return;
     Style::PseudoClassChangeInvalidation styleInvalidation(*this, {
-        { CSSSelector::PseudoClassType::Paused, paused },
-        { CSSSelector::PseudoClassType::Playing, !paused },
+        { CSSSelector::PseudoClass::Paused, paused },
+        { CSSSelector::PseudoClass::Playing, !paused },
     });
     m_paused = paused;
     updateBufferingState();
@@ -4167,7 +4163,7 @@ bool HTMLMediaElement::hasMediaSource() const
 
 bool HTMLMediaElement::hasManagedMediaSource() const
 {
-#if ENABLE(MANAGED_MEDIA_SOURCE)
+#if ENABLE(MEDIA_SOURCE)
     return is<ManagedMediaSource>(m_mediaSource);
 #else
     return false;
@@ -4280,7 +4276,7 @@ void HTMLMediaElement::setMuted(bool muted)
             if (hasAudio() && muted)
                 userDidInterfereWithAutoplay();
         }
-        Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassType::Muted, muted);
+        Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClass::Muted, muted);
         m_muted = muted;
         m_explicitlyMuted = true;
 
@@ -4315,7 +4311,7 @@ void HTMLMediaElement::setVolumeLocked(bool locked)
     if (m_volumeLocked == locked)
         return;
 
-    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassType::VolumeLocked, locked);
+    Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClass::VolumeLocked, locked);
     m_volumeLocked = locked;
 }
 
@@ -4332,7 +4328,7 @@ void HTMLMediaElement::updateBufferingState()
     // matches the element.)
     bool buffering = !paused() && m_networkState == NETWORK_LOADING && m_readyState <= HAVE_CURRENT_DATA;
     if (m_buffering != buffering) {
-        Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassType::Buffering, buffering);
+        Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClass::Buffering, buffering);
         m_buffering = buffering;
     }
 }
@@ -4351,7 +4347,7 @@ void HTMLMediaElement::updateStalledState()
     // also matches the element.)
     bool stalled = !paused() && m_networkState == NETWORK_LOADING && m_readyState <= HAVE_CURRENT_DATA && m_sentStalledEvent;
     if (m_stalled != stalled) {
-        Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClassType::Stalled, stalled);
+        Style::PseudoClassChangeInvalidation styleInvalidation(*this, CSSSelector::PseudoClass::Stalled, stalled);
         m_stalled = stalled;
     }
 }
@@ -6790,6 +6786,10 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
     ALWAYS_LOG(LOGIDENTIFIER, ", m_videoFullscreenMode = ", m_videoFullscreenMode, ", mode = ", mode);
     ASSERT(mode != VideoFullscreenModeNone);
 
+    auto* page = document().page();
+    if (!page || page->mediaPlaybackIsSuspended())
+        return;
+
     auto* window = document().domWindow();
     if (!window)
         return;
@@ -8667,16 +8667,12 @@ MediaProducerMediaStateFlags HTMLMediaElement::mediaState() const
 
 #if ENABLE(MEDIA_SOURCE)
     bool streaming = false;
-#if ENABLE(MANAGED_MEDIA_SOURCE)
     RefPtr managedMediasource = dynamicDowncast<ManagedMediaSource>(m_mediaSource);
     streaming |= managedMediasource && managedMediasource->streamingAllowed() && managedMediasource->streaming();
     if (!managedMediasource) {
-#endif
-    // We can assume that if we have active source buffers, later networking activity (such as stream or XHR requests) will be media related.
-    streaming |= m_mediaSource && m_mediaSource->activeSourceBuffers() && m_mediaSource->activeSourceBuffers()->length();
-#if ENABLE(MANAGED_MEDIA_SOURCE)
+        // We can assume that if we have active source buffers, later networking activity (such as stream or XHR requests) will be media related.
+        streaming |= m_mediaSource && m_mediaSource->activeSourceBuffers() && m_mediaSource->activeSourceBuffers()->length();
     }
-#endif
     if (streaming)
         state.add(MediaProducerMediaState::HasStreamingActivity);
 #endif
@@ -8791,7 +8787,7 @@ void HTMLMediaElement::setBufferingPolicy(BufferingPolicy policy)
     m_bufferingPolicy = policy;
     if (m_player)
         m_player->setBufferingPolicy(policy);
-#if ENABLE(MANAGED_MEDIA_SOURCE)
+#if ENABLE(MEDIA_SOURCE)
     if (m_mediaSource && policy == BufferingPolicy::PurgeResources)
         m_mediaSource->memoryPressure();
 #endif
@@ -8802,7 +8798,7 @@ void HTMLMediaElement::purgeBufferedDataIfPossible()
     ALWAYS_LOG(LOGIDENTIFIER);
 
     bool isPausedOrMSE = [&] {
-#if ENABLE(MANAGED_MEDIA_SOURCE)
+#if ENABLE(MEDIA_SOURCE)
         if (m_mediaSource)
             return true;
 #endif

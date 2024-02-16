@@ -282,7 +282,7 @@ public:
 #endif // ENABLE(JIT)
 
     void unlinkIncomingCalls();
-    void linkIncomingCall(CallFrame* callerFrame, CallLinkInfoBase*);
+    void linkIncomingCall(JSCell* caller, CallFrame* callerFrame, CallLinkInfoBase*);
 
     const JSInstruction* outOfLineJumpTarget(const JSInstruction* pc);
     int outOfLineJumpOffset(JSInstructionStream::Offset offset)
@@ -319,7 +319,7 @@ public:
     // Exactly equivalent to codeBlock->ownerExecutable()->newReplacementCodeBlockFor(codeBlock->specializationKind())
     CodeBlock* newReplacement();
     
-    void setJITCode(Ref<JITCode>&& code)
+    void setJITCode(Ref<JSC::JITCode>&& code)
     {
         if (!code->isShared())
             heap()->reportExtraMemoryAllocated(this, code->size());
@@ -329,12 +329,12 @@ public:
         m_jitCode = WTFMove(code);
     }
 
-    RefPtr<JITCode> jitCode() { return m_jitCode; }
+    RefPtr<JSC::JITCode> jitCode() { return m_jitCode; }
     static ptrdiff_t jitCodeOffset() { return OBJECT_OFFSETOF(CodeBlock, m_jitCode); }
     JITType jitType() const
     {
-        JITCode* jitCode = m_jitCode.get();
-        JITType result = JITCode::jitTypeFor(jitCode);
+        auto* jitCode = m_jitCode.get();
+        JITType result = JSC::JITCode::jitTypeFor(jitCode);
         return result;
     }
 
@@ -440,7 +440,7 @@ public:
     // Having code origins implies that there has been some inlining.
     bool hasCodeOrigins()
     {
-        return JITCode::isOptimizingJIT(jitType());
+        return JSC::JITCode::isOptimizingJIT(jitType());
     }
         
     bool canGetCodeOrigin(CallSiteIndex index)
@@ -504,7 +504,7 @@ public:
     
     const BitVector& bitVector(size_t i) { return m_unlinkedCode->bitVector(i); }
 
-    Heap* heap() const { return &m_vm->heap; }
+    JSC::Heap* heap() const { return &m_vm->heap; }
     JSGlobalObject* globalObject() { return m_globalObject.get(); }
 
     static ptrdiff_t offsetOfGlobalObject() { return OBJECT_OFFSETOF(CodeBlock, m_globalObject); }
@@ -531,7 +531,7 @@ public:
     }
     BaselineJITData* baselineJITData()
     {
-        if (!JITCode::isOptimizingJIT(jitType()))
+        if (!JSC::JITCode::isOptimizingJIT(jitType()))
             return bitwise_cast<BaselineJITData*>(m_jitData);
         return nullptr;
     }
@@ -546,7 +546,7 @@ public:
 
     DFG::JITData* dfgJITData()
     {
-        if (JITCode::isOptimizingJIT(jitType()))
+        if (JSC::JITCode::isOptimizingJIT(jitType()))
             return bitwise_cast<DFG::JITData*>(m_jitData);
         return nullptr;
     }
@@ -880,7 +880,7 @@ private:
     
     CodeBlock* specialOSREntryBlockOrNull();
     
-    void noticeIncomingCall(CallFrame* callerFrame);
+    void noticeIncomingCall(JSCell* caller, CallFrame* callerFrame);
 
     void updateAllNonLazyValueProfilePredictionsAndCountLiveness(const ConcurrentJSLocker&, unsigned& numberOfLiveNonArgumentValueProfiles, unsigned& numberOfSamplesInProfiles);
 
@@ -956,7 +956,7 @@ private:
     uint16_t m_optimizationDelayCounter { 0 };
     uint16_t m_reoptimizationRetryCounter { 0 };
     StructureWatchpointMap m_llintGetByIdWatchpointMap;
-    RefPtr<JITCode> m_jitCode;
+    RefPtr<JSC::JITCode> m_jitCode;
 #if ENABLE(JIT)
 public:
     void* m_jitData { nullptr };

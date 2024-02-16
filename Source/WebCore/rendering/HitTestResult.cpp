@@ -671,6 +671,18 @@ URL HitTestResult::absoluteLinkURL() const
     return url;
 }
 
+bool HitTestResult::hasLocalDataForLinkURL() const
+{
+    auto linkURL = absoluteLinkURL();
+    if (linkURL.isEmpty())
+        return false;
+
+    if (RefPtr page = m_innerURLElement->document().page())
+        return page->hasLocalDataForURL(linkURL);
+
+    return false;
+}
+
 bool HitTestResult::isOverLink() const
 {
     return m_innerURLElement && m_innerURLElement->isLink();
@@ -791,21 +803,6 @@ Vector<String> HitTestResult::dictationAlternatives() const
         return Vector<String>();
 
     return frame->editor().dictationAlternativesForMarker(*marker);
-}
-
-Node* HitTestResult::targetNode() const
-{
-    Node* node = innerNode();
-    if (!node)
-        return nullptr;
-    if (node->isConnected())
-        return node;
-
-    Element* element = node->parentElement();
-    if (element && element->isConnected())
-        return element;
-
-    return node;
 }
 
 Element* HitTestResult::targetElement() const

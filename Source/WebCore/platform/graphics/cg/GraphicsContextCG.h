@@ -100,7 +100,6 @@ public:
     void setMiterLimit(float) final;
 
     void drawPattern(NativeImage&, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions = { }) final;
-    bool needsCachedNativeImageInvalidationWorkaround(RenderingMode) override;
 
     using GraphicsContext::scale;
     void scale(const FloatSize&) final;
@@ -145,7 +144,7 @@ protected:
 
 private:
     void convertToDestinationColorSpaceIfNeeded(RetainPtr<CGImageRef>&);
-    void drawNativeImageInternal(NativeImage&, const FloatSize& selfSize, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions = { }) final;
+    void drawNativeImageInternal(NativeImage&, const FloatRect& destRect, const FloatRect& srcRect, ImagePaintingOptions = { }) final;
 
     void clearCGShadow();
     // Returns the platform context for purposes of context state change, not draws.

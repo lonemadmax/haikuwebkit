@@ -106,7 +106,7 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(Node);
 
 using namespace HTMLNames;
 
-struct SameSizeAsNode : public EventTarget {
+struct SameSizeAsNode : EventTarget, CanMakeCheckedPtr {
 #if ASSERT_ENABLED
     bool deletionHasBegun;
     bool inRemovedLastRefFunction;
@@ -125,9 +125,9 @@ struct SameSizeAsNode : public EventTarget {
 static_assert(sizeof(Node) == sizeof(SameSizeAsNode), "Node should stay small");
 
 #if DUMP_NODE_STATISTICS
-static HashSet<CheckedPtr<Node>>& liveNodeSet()
+static WeakHashSet<Node>& liveNodeSet()
 {
-    static NeverDestroyed<HashSet<CheckedPtr<Node>>> liveNodes;
+    static NeverDestroyed<WeakHashSet<Node>> liveNodes;
     return liveNodes;
 }
 
@@ -221,8 +221,7 @@ void Node::dumpStatistics()
     HashMap<uint32_t, size_t> rareDataSingleUseTypeCounts;
     size_t mixedRareDataUseCount = 0;
 
-    for (auto& nodePtr : liveNodeSet()) {
-        auto& node = *nodePtr.get();
+    for (auto& node : liveNodeSet()) {
         if (node.hasRareData()) {
             ++nodesWithRareData;
             if (auto* element = dynamicDowncast<Element>(node)) {
@@ -238,7 +237,7 @@ void Node::dumpStatistics()
                 useTypeCount++;
             }
             if (useTypeCount == 1) {
-                auto result = rareDataSingleUseTypeCounts.add(static_cast<uint32_t>(*useTypes.begin()), 0);
+                auto result = rareDataSingleUseTypeCounts.add(enumToUnderlyingType(*useTypes.begin()), 0);
                 result.iterator->value++;
             } else
                 mixedRareDataUseCount++;
@@ -249,7 +248,7 @@ void Node::dumpStatistics()
                 ++elementNodes;
 
                 // Tag stats
-                Element& element = downcast<Element>(node);
+                Element& element = uncheckedDowncast<Element>(node);
                 HashMap<String, size_t>::AddResult result = perTagCount.add(element.tagName(), 1);
                 if (!result.isNewEntry)
                     result.iterator->value++;
@@ -304,7 +303,7 @@ void Node::dumpStatistics()
         }
     }
 
-    printf("Number of Nodes: %d\n\n", liveNodeSet().size());
+    printf("Number of Nodes: %d\n\n", liveNodeSet().computeSize());
     printf("Number of Nodes with RareData: %zu\n", nodesWithRareData);
     printf("  Mixed use: %zu\n", mixedRareDataUseCount);
     for (auto it : rareDataSingleUseTypeCounts)
@@ -374,7 +373,7 @@ void Node::trackForDebugging()
 #endif
 
 #if DUMP_NODE_STATISTICS
-    liveNodeSet().add(this);
+    liveNodeSet().add(*this);
 #endif
 }
 
@@ -391,11 +390,12 @@ inline void NodeRareData::operator delete(NodeRareData* nodeRareData, std::destr
         destroyAndFree(*nodeRareData);
 }
 
-Node::Node(Document& document, ConstructionType type)
+Node::Node(Document& document, NodeType type, OptionSet<TypeFlag> flags)
     : EventTarget(ConstructNode)
-    , m_nodeFlags(type)
+    , m_typeBitFields(constructBitFieldsFromNodeTypeAndFlags(type, flags))
     , m_treeScope((isDocumentNode() || isShadowRoot()) ? nullptr : &document)
 {
+    ASSERT(nodeType() == type);
     ASSERT(isMainThread());
 
     // Allow code to ref the Document while it is being constructed to make our life easier.
@@ -424,7 +424,7 @@ Node::~Node()
 #endif
 
 #if DUMP_NODE_STATISTICS
-    liveNodeSet().remove(this);
+    liveNodeSet().remove(*this);
 #endif
 
     ASSERT(!renderer());
@@ -710,7 +710,7 @@ void Node::normalize()
             continue;
         }
 
-        Ref text = downcast<Text>(*node);
+        Ref text = uncheckedDowncast<Text>(*node);
 
         // Remove empty text nodes.
         if (!text->length()) {
@@ -724,7 +724,7 @@ void Node::normalize()
         while (RefPtr nextSibling = node->nextSibling()) {
             if (nextSibling->nodeType() != TEXT_NODE)
                 break;
-            Ref nextText = downcast<Text>(nextSibling.releaseNonNull());
+            Ref nextText = uncheckedDowncast<Text>(nextSibling.releaseNonNull());
 
             // Remove empty text nodes.
             if (!nextText->length()) {
@@ -791,7 +791,7 @@ bool Node::isContentRichlyEditable() const
 
 void Node::inspect()
 {
-    if (CheckedPtr page = document().page())
+    if (RefPtr page = document().page())
         page->inspectorController().inspect(this);
 }
 
@@ -870,7 +870,7 @@ RenderBoxModelObject* Node::renderBoxModelObject() const
     return dynamicDowncast<RenderBoxModelObject>(renderer());
 }
     
-LayoutRect Node::renderRect(bool* isReplaced)
+LayoutRect Node::absoluteBoundingRect(bool* isReplaced)
 {
     RenderObject* hitRenderer = this->renderer();
     if (!hitRenderer) {
@@ -889,7 +889,7 @@ LayoutRect Node::renderRect(bool* isReplaced)
         renderer = renderer->parent();
     }
     *isReplaced = false;
-    return LayoutRect();    
+    return { };
 }
 
 void Node::refEventTarget()
@@ -967,7 +967,7 @@ void Node::invalidateStyle(Style::Validity validity, Style::InvalidationMode mod
         return;
 
     if (validity != Style::Validity::Valid)
-        setNodeFlag(NodeFlag::IsComputedStyleInvalidFlag);
+        setStateFlag(StateFlag::IsComputedStyleInvalidFlag);
 
     bool markAncestors = styleValidity() == Style::Validity::Valid || mode == Style::InvalidationMode::InsertedIntoAncestor;
 
@@ -1008,7 +1008,7 @@ inline bool Document::shouldInvalidateNodeListAndCollectionCaches() const
 
 inline bool Document::shouldInvalidateNodeListAndCollectionCachesForAttribute(const QualifiedName& attrName) const
 {
-    return shouldInvalidateNodeListCachesForAttr<static_cast<uint8_t>(NodeListInvalidationType::DoNotInvalidateOnAttributeChanges) + 1>(m_nodeListAndCollectionCounts, attrName);
+    return shouldInvalidateNodeListCachesForAttr<enumToUnderlyingType(NodeListInvalidationType::DoNotInvalidateOnAttributeChanges) + 1>(m_nodeListAndCollectionCounts, attrName);
 }
 
 template <typename InvalidationFunction>
@@ -1427,9 +1427,9 @@ void Node::queueTaskToDispatchEvent(TaskSource source, Ref<Event>&& event)
 Node::InsertedIntoAncestorResult Node::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
 {
     if (insertionType.connectedToDocument)
-        setNodeFlag(NodeFlag::IsConnected);
+        setEventTargetFlag(EventTargetFlag::IsConnected);
     if (parentOfInsertedTree.isInShadowTree())
-        setNodeFlag(NodeFlag::IsInShadowTree);
+        setEventTargetFlag(EventTargetFlag::IsInShadowTree);
 
     invalidateStyle(Style::Validity::SubtreeInvalid, Style::InvalidationMode::InsertedIntoAncestor);
 
@@ -1439,9 +1439,9 @@ Node::InsertedIntoAncestorResult Node::insertedIntoAncestor(InsertionType insert
 void Node::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
 {
     if (removalType.disconnectedFromDocument)
-        clearNodeFlag(NodeFlag::IsConnected);
+        clearEventTargetFlag(EventTargetFlag::IsConnected);
     if (isInShadowTree() && !treeScope().rootNode().isShadowRoot())
-        clearNodeFlag(NodeFlag::IsInShadowTree);
+        clearEventTargetFlag(EventTargetFlag::IsInShadowTree);
     if (removalType.disconnectedFromDocument) {
         if (auto* cache = oldParentOfRemovedTree.document().existingAXObjectCache())
             cache->remove(*this);
@@ -1491,8 +1491,8 @@ bool Node::isEqualNode(Node* other) const
     
     switch (nodeType) {
     case Node::DOCUMENT_TYPE_NODE: {
-        auto& thisDocType = downcast<DocumentType>(*this);
-        auto& otherDocType = downcast<DocumentType>(*other);
+        auto& thisDocType = uncheckedDowncast<DocumentType>(*this);
+        auto& otherDocType = uncheckedDowncast<DocumentType>(*other);
         if (thisDocType.name() != otherDocType.name())
             return false;
         if (thisDocType.publicId() != otherDocType.publicId())
@@ -1502,8 +1502,8 @@ bool Node::isEqualNode(Node* other) const
         break;
         }
     case Node::ELEMENT_NODE: {
-        auto& thisElement = downcast<Element>(*this);
-        auto& otherElement = downcast<Element>(*other);
+        auto& thisElement = uncheckedDowncast<Element>(*this);
+        auto& otherElement = uncheckedDowncast<Element>(*other);
         if (thisElement.tagQName() != otherElement.tagQName())
             return false;
         if (!thisElement.hasEquivalentAttributes(otherElement))
@@ -1511,8 +1511,8 @@ bool Node::isEqualNode(Node* other) const
         break;
         }
     case Node::PROCESSING_INSTRUCTION_NODE: {
-        auto& thisProcessingInstruction = downcast<ProcessingInstruction>(*this);
-        auto& otherProcessingInstruction = downcast<ProcessingInstruction>(*other);
+        auto& thisProcessingInstruction = uncheckedDowncast<ProcessingInstruction>(*this);
+        auto& otherProcessingInstruction = uncheckedDowncast<ProcessingInstruction>(*other);
         if (thisProcessingInstruction.target() != otherProcessingInstruction.target())
             return false;
         if (thisProcessingInstruction.data() != otherProcessingInstruction.data())
@@ -1522,15 +1522,15 @@ bool Node::isEqualNode(Node* other) const
     case Node::CDATA_SECTION_NODE:
     case Node::TEXT_NODE:
     case Node::COMMENT_NODE: {
-        auto& thisCharacterData = downcast<CharacterData>(*this);
-        auto& otherCharacterData = downcast<CharacterData>(*other);
+        auto& thisCharacterData = uncheckedDowncast<CharacterData>(*this);
+        auto& otherCharacterData = uncheckedDowncast<CharacterData>(*other);
         if (thisCharacterData.data() != otherCharacterData.data())
             return false;
         break;
         }
     case Node::ATTRIBUTE_NODE: {
-        auto& thisAttribute = downcast<Attr>(*this);
-        auto& otherAttribute = downcast<Attr>(*other);
+        auto& thisAttribute = uncheckedDowncast<Attr>(*this);
+        auto& otherAttribute = uncheckedDowncast<Attr>(*other);
         if (thisAttribute.qualifiedName() != otherAttribute.qualifiedName())
             return false;
         if (thisAttribute.value() != otherAttribute.value())
@@ -1569,7 +1569,7 @@ static const AtomString& locateDefaultNamespace(const Node& node, const AtomStri
         if (prefix == xmlnsAtom())
             return XMLNSNames::xmlnsNamespaceURI.get();
 
-        auto& element = downcast<Element>(node);
+        auto& element = uncheckedDowncast<Element>(node);
         auto& namespaceURI = element.namespaceURI();
         if (!namespaceURI.isNull() && element.prefix() == prefix)
             return namespaceURI;
@@ -1589,14 +1589,14 @@ static const AtomString& locateDefaultNamespace(const Node& node, const AtomStri
         return parent ? locateDefaultNamespace(*parent, prefix) : nullAtom();
     }
     case Node::DOCUMENT_NODE:
-        if (auto* documentElement = downcast<Document>(node).documentElement())
+        if (auto* documentElement = uncheckedDowncast<Document>(node).documentElement())
             return locateDefaultNamespace(*documentElement, prefix);
         return nullAtom();
     case Node::DOCUMENT_TYPE_NODE:
     case Node::DOCUMENT_FRAGMENT_NODE:
         return nullAtom();
     case Node::ATTRIBUTE_NODE:
-        if (auto* ownerElement = downcast<Attr>(node).ownerElement())
+        if (auto* ownerElement = uncheckedDowncast<Attr>(node).ownerElement())
             return locateDefaultNamespace(*ownerElement, prefix);
         return nullAtom();
     default:
@@ -1644,16 +1644,16 @@ const AtomString& Node::lookupPrefix(const AtomString& namespaceURI) const
     
     switch (nodeType()) {
     case ELEMENT_NODE:
-        return locateNamespacePrefix(downcast<Element>(*this), namespaceURI);
+        return locateNamespacePrefix(uncheckedDowncast<Element>(*this), namespaceURI);
     case DOCUMENT_NODE:
-        if (auto* documentElement = downcast<Document>(*this).documentElement())
+        if (auto* documentElement = uncheckedDowncast<Document>(*this).documentElement())
             return locateNamespacePrefix(*documentElement, namespaceURI);
         return nullAtom();
     case DOCUMENT_FRAGMENT_NODE:
     case DOCUMENT_TYPE_NODE:
         return nullAtom();
     case ATTRIBUTE_NODE:
-        if (auto* ownerElement = downcast<Attr>(*this).ownerElement())
+        if (auto* ownerElement = uncheckedDowncast<Attr>(*this).ownerElement())
             return locateNamespacePrefix(*ownerElement, namespaceURI);
         return nullAtom();
     default:
@@ -1670,17 +1670,17 @@ static void appendTextContent(const Node* node, bool convertBRsToNewlines, bool&
     case Node::CDATA_SECTION_NODE:
     case Node::COMMENT_NODE:
         isNullString = false;
-        content.append(downcast<CharacterData>(*node).data());
+        content.append(uncheckedDowncast<CharacterData>(*node).data());
         break;
 
     case Node::PROCESSING_INSTRUCTION_NODE:
         isNullString = false;
-        content.append(downcast<ProcessingInstruction>(*node).data());
+        content.append(uncheckedDowncast<ProcessingInstruction>(*node).data());
         break;
     
     case Node::ATTRIBUTE_NODE:
         isNullString = false;
-        content.append(downcast<Attr>(*node).value());
+        content.append(uncheckedDowncast<Attr>(*node).value());
         break;
 
     case Node::ELEMENT_NODE:
@@ -1725,7 +1725,7 @@ void Node::setTextContent(String&& text)
         return;
     case ELEMENT_NODE:
     case DOCUMENT_FRAGMENT_NODE:
-        downcast<ContainerNode>(*this).stringReplaceAll(WTFMove(text));
+        uncheckedDowncast<ContainerNode>(*this).stringReplaceAll(WTFMove(text));
         return;
     case DOCUMENT_NODE:
     case DOCUMENT_TYPE_NODE:
@@ -1960,7 +1960,7 @@ void Node::showNodePathForThis() const
         case ELEMENT_NODE: {
             fprintf(stderr, "/%s", node->nodeName().utf8().data());
 
-            const Element& element = downcast<Element>(*node);
+            const Element& element = uncheckedDowncast<Element>(*node);
             const AtomString& idattr = element.getIdAttribute();
             bool hasIdAttr = !idattr.isNull() && !idattr.isEmpty();
             if (node->previousSibling() || node->nextSibling()) {
@@ -2095,8 +2095,8 @@ Element* Node::enclosingLinkEventParentOrSelf()
         // For imagemaps, the enclosing link element is the associated area element not the image itself.
         // So we don't let images be the enclosing link element, even though isLink sometimes returns
         // true for them.
-        if (node->isLink() && !is<HTMLImageElement>(*node))
-            return downcast<Element>(node);
+        if (auto* element = dynamicDowncast<Element>(*node); element && element->isLink() && !is<HTMLImageElement>(*element))
+            return element;
     }
 
     return nullptr;
@@ -2151,7 +2151,7 @@ void Node::moveTreeToNewScope(Node& root, TreeScope& oldScope, TreeScope& newSco
             ASSERT(!node.isTreeScope());
             RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&node.treeScope() == &oldScope);
             if (newScopeIsUAShadowTree)
-                node.setNodeFlag(NodeFlag::HasBeenInUserAgentShadowTree);
+                node.setEventTargetFlag(EventTargetFlag::HasBeenInUserAgentShadowTree);
             node.setTreeScope(newScope);
             node.moveNodeToNewDocument(oldDocument, newDocument);
         }, [&](ShadowRoot& shadowRoot) {
@@ -2166,7 +2166,7 @@ void Node::moveTreeToNewScope(Node& root, TreeScope& oldScope, TreeScope& newSco
             ASSERT(!node.isTreeScope());
             RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&node.treeScope() == &oldScope);
             if (newScopeIsUAShadowTree)
-                node.setNodeFlag(NodeFlag::HasBeenInUserAgentShadowTree);
+                node.setEventTargetFlag(EventTargetFlag::HasBeenInUserAgentShadowTree);
             node.setTreeScope(newScope);
             if (UNLIKELY(!node.hasRareData()))
                 return;
@@ -2730,7 +2730,7 @@ TextDirection Node::effectiveTextDirection() const
 void Node::setEffectiveTextDirection(TextDirection direction)
 {
     auto bitfields = rareDataBitfields();
-    bitfields.effectiveTextDirection = static_cast<uint16_t>(direction);
+    bitfields.effectiveTextDirection = enumToUnderlyingType(direction);
     setRareDataBitfields(bitfields);
 }
 

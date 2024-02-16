@@ -40,7 +40,7 @@
 #include "HTMLDivElement.h"
 #include "Logging.h"
 #include "RenderElement.h"
-#include "ShadowPseudoIds.h"
+#include "UserAgentPartIds.h"
 #include "VTTCue.h"
 #include "VTTScanner.h"
 #include "WebVTTParser.h"
@@ -152,7 +152,8 @@ void VTTRegion::setRegionSettings(const String& inputString)
         // Step 1 - Split input on spaces.
         input.skipWhile<isASCIIWhitespace<UChar>>();
         VTTScanner::Run valueRun = input.collectUntil<isASCIIWhitespace<UChar>>();
-        VTTScanner setting(input.extractString(valueRun));
+        auto settingValue = input.extractString(valueRun);
+        VTTScanner setting(settingValue);
 
         // Step 2.2 - Let name be the leading substring of setting up to and excluding the first U+003A COLON character (:) in that string.
         RegionSetting name = scanSettingName(setting);
@@ -313,7 +314,7 @@ HTMLDivElement& VTTRegion::getDisplayTree()
 {
     if (!m_regionDisplayTree) {
         m_regionDisplayTree = HTMLDivElement::create(downcast<Document>(*scriptExecutionContext()));
-        m_regionDisplayTree->setPseudo(ShadowPseudoIds::webkitMediaTextTrackRegion());
+        m_regionDisplayTree->setPseudo(UserAgentPartIds::webkitMediaTextTrackRegion());
         m_recalculateStyles = true;
     }
 
@@ -336,7 +337,7 @@ void VTTRegion::prepareRegionDisplayTree()
     // gradually scrolled out as multiple cues are appended to the region.
     if (!m_cueContainer) {
         m_cueContainer = HTMLDivElement::create(downcast<Document>(*scriptExecutionContext()));
-        m_cueContainer->setPseudo(ShadowPseudoIds::webkitMediaTextTrackRegionContainer());
+        m_cueContainer->setPseudo(UserAgentPartIds::webkitMediaTextTrackRegionContainer());
         m_regionDisplayTree->appendChild(*m_cueContainer);
     }
 

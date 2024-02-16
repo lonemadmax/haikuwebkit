@@ -63,6 +63,7 @@
 #import <wtf/WTFSemaphore.h>
 #import <wtf/WeakPtr.h>
 #import <wtf/WorkQueue.h>
+#import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/text/CString.h>
 
 #pragma mark - Soft Linking
@@ -334,6 +335,16 @@ static bool sampleBufferRenderersSupportKeySession()
     });
 #endif
     return supports;
+}
+
+static inline bool supportsAttachContentKey()
+{
+    return processIsExtension();
+}
+
+static inline bool shouldAddContentKeyRecipients()
+{
+    return sampleBufferRenderersSupportKeySession() && !supportsAttachContentKey();
 }
 
 Ref<SourceBufferPrivateAVFObjC> SourceBufferPrivateAVFObjC::create(MediaSourcePrivateAVFObjC& parent, Ref<SourceBufferParser>&& parser)
@@ -725,7 +736,7 @@ void SourceBufferPrivateAVFObjC::destroyRenderers()
         [m_listener stopObservingRenderer:renderer.get()];
 
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
-        if (m_cdmInstance && sampleBufferRenderersSupportKeySession())
+        if (m_cdmInstance && shouldAddContentKeyRecipients())
             [m_cdmInstance->contentKeySession() removeContentKeyRecipient:renderer.get()];
 #endif
     }
@@ -829,7 +840,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
             }
 
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
-        if (m_cdmInstance && sampleBufferRenderersSupportKeySession())
+        if (m_cdmInstance && shouldAddContentKeyRecipients())
             [m_cdmInstance->contentKeySession() addContentKeyRecipient:renderer.get()];
 #endif
 
@@ -893,7 +904,7 @@ void SourceBufferPrivateAVFObjC::setCDMInstance(CDMInstance* instance)
 
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    if (sampleBufferRenderersSupportKeySession() && m_cdmInstance) {
+    if (m_cdmInstance && shouldAddContentKeyRecipients()) {
         if (m_displayLayer)
             [m_cdmInstance->contentKeySession() removeContentKeyRecipient:m_displayLayer.get()];
 
@@ -903,7 +914,7 @@ void SourceBufferPrivateAVFObjC::setCDMInstance(CDMInstance* instance)
 
     m_cdmInstance = fpsInstance;
 
-    if (sampleBufferRenderersSupportKeySession() && m_cdmInstance) {
+    if (m_cdmInstance && shouldAddContentKeyRecipients()) {
         if (m_displayLayer)
             [m_cdmInstance->contentKeySession() addContentKeyRecipient:m_displayLayer.get()];
 
@@ -1274,6 +1285,8 @@ void SourceBufferPrivateAVFObjC::enqueueSample(Ref<MediaSampleAVFObjC>&& sample,
             return;
         }
 
+        attachContentKeyToSampleIfNeeded(sample);
+
         if (auto it = m_audioRenderers.find(trackID); it != m_audioRenderers.end()) {
             RetainPtr renderer = it->second;
             [renderer enqueueSampleBuffer:platformSample.sample.cmSampleBuffer];
@@ -1285,6 +1298,7 @@ void SourceBufferPrivateAVFObjC::enqueueSample(Ref<MediaSampleAVFObjC>&& sample,
 
 void SourceBufferPrivateAVFObjC::enqueueSampleBuffer(MediaSampleAVFObjC& sample)
 {
+    attachContentKeyToSampleIfNeeded(sample);
     [m_displayLayer enqueueSampleBuffer:sample.platformSample().sample.cmSampleBuffer];
 
 #if HAVE(AVSAMPLEBUFFERDISPLAYLAYER_READYFORDISPLAY)
@@ -1313,6 +1327,14 @@ void SourceBufferPrivateAVFObjC::enqueueSampleBuffer(MediaSampleAVFObjC& sample)
             layerReadyForDisplayChanged(m_displayLayer.get(), true);
         });
     }];
+}
+
+void SourceBufferPrivateAVFObjC::attachContentKeyToSampleIfNeeded(const MediaSampleAVFObjC& sample)
+{
+    if (!m_cdmInstance || !sampleBufferRenderersSupportKeySession() || !supportsAttachContentKey())
+        return;
+
+    m_cdmInstance->attachContentKeyToSample(sample);
 }
 
 bool SourceBufferPrivateAVFObjC::isReadyForMoreSamples(TrackID trackID)
@@ -1455,7 +1477,7 @@ void SourceBufferPrivateAVFObjC::setVideoLayer(AVSampleBufferDisplayLayer* layer
         [m_listener stopObservingLayer:m_displayLayer.get()];
 
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
-        if (m_cdmInstance && sampleBufferRenderersSupportKeySession())
+        if (m_cdmInstance && shouldAddContentKeyRecipients())
             [m_cdmInstance->contentKeySession() removeContentKeyRecipient:m_displayLayer.get()];
 #endif
     }
@@ -1464,7 +1486,7 @@ void SourceBufferPrivateAVFObjC::setVideoLayer(AVSampleBufferDisplayLayer* layer
 
     if (m_displayLayer) {
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
-        if (m_cdmInstance && sampleBufferRenderersSupportKeySession())
+        if (m_cdmInstance && shouldAddContentKeyRecipients())
             [m_cdmInstance->contentKeySession() addContentKeyRecipient:m_displayLayer.get()];
 #endif
 

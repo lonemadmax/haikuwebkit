@@ -2298,7 +2298,20 @@ public:
             copy(ptr++, &insn, sizeof(int));
         }
     }
-    
+
+    template <CopyFunction copy>
+    ALWAYS_INLINE static void fillNearTailCall(void* from, void* to)
+    {
+        RELEASE_ASSERT(roundUpToMultipleOf<instructionSize>(from) == from);
+        intptr_t offset = (bitwise_cast<intptr_t>(to) - bitwise_cast<intptr_t>(from)) >> 2;
+        ASSERT(static_cast<int>(offset) == offset);
+        ASSERT(isInt<26>(offset));
+        constexpr bool isCall = false;
+        int insn = unconditionalBranchImmediate(isCall, static_cast<int>(offset));
+        copy(from, &insn, sizeof(int));
+        cacheFlush(from, sizeof(int));
+    }
+
     ALWAYS_INLINE void dmbISH()
     {
         insn(0xd5033bbf);
@@ -3512,7 +3525,7 @@ public:
 
 #if ENABLE(JUMP_ISLANDS)
         if (!isInt<26>(offset)) {
-            to = ExecutableAllocator::singleton().getJumpIslandTo(where, to);
+            to = ExecutableAllocator::singleton().getJumpIslandToUsingJITMemcpy(where, to);
             offset = (bitwise_cast<intptr_t>(to) - bitwise_cast<intptr_t>(where)) >> 2;
             RELEASE_ASSERT(isInt<26>(offset));
         }
@@ -3690,61 +3703,73 @@ public:
         return (jumpType == JumpNoCondition) || (jumpType == JumpCondition) || (jumpType == JumpCompareAndBranch) || (jumpType == JumpTestBit);
     }
 
-    static JumpLinkType computeJumpType(JumpType jumpType, const uint8_t* from, const uint8_t* to)
-    {
-        switch (jumpType) {
-        case JumpFixed:
-            return LinkInvalid;
-        case JumpNoConditionFixedSize:
-            return LinkJumpNoCondition;
-        case JumpConditionFixedSize:
-            return LinkJumpCondition;
-        case JumpCompareAndBranchFixedSize:
-            return LinkJumpCompareAndBranch;
-        case JumpTestBitFixedSize:
-            return LinkJumpTestBit;
-        case JumpNoCondition:
-            return LinkJumpNoCondition;
-        case JumpCondition: {
-            ASSERT(is4ByteAligned(from));
-            ASSERT(is4ByteAligned(to));
-            intptr_t relative = reinterpret_cast<intptr_t>(to) - (reinterpret_cast<intptr_t>(from));
-
-            if (isInt<21>(relative))
-                return LinkJumpConditionDirect;
-
-            return LinkJumpCondition;
-        }
-        case JumpCompareAndBranch:  {
-            ASSERT(is4ByteAligned(from));
-            ASSERT(is4ByteAligned(to));
-            intptr_t relative = reinterpret_cast<intptr_t>(to) - (reinterpret_cast<intptr_t>(from));
-
-            if (isInt<21>(relative))
-                return LinkJumpCompareAndBranchDirect;
-
-            return LinkJumpCompareAndBranch;
-        }
-        case JumpTestBit:   {
-            ASSERT(is4ByteAligned(from));
-            ASSERT(is4ByteAligned(to));
-            intptr_t relative = reinterpret_cast<intptr_t>(to) - (reinterpret_cast<intptr_t>(from));
-
-            if (isInt<14>(relative))
-                return LinkJumpTestBitDirect;
-
-            return LinkJumpTestBit;
-        }
-        default:
-            ASSERT_NOT_REACHED();
-        }
-
-        return LinkJumpNoCondition;
-    }
-
     static JumpLinkType computeJumpType(LinkRecord& record, const uint8_t* from, const uint8_t* to)
     {
-        JumpLinkType linkType = computeJumpType(record.type(), from, to);
+        auto computeJumpType = [&](const uint8_t* from, const uint8_t* to) -> JumpLinkType {
+            auto jumpType = record.type();
+            switch (jumpType) {
+            case JumpFixed:
+                return LinkInvalid;
+            case JumpNoConditionFixedSize:
+                return LinkJumpNoCondition;
+            case JumpConditionFixedSize:
+                return LinkJumpCondition;
+            case JumpCompareAndBranchFixedSize:
+                return LinkJumpCompareAndBranch;
+            case JumpTestBitFixedSize:
+                return LinkJumpTestBit;
+            case JumpNoCondition:
+                return LinkJumpNoCondition;
+            case JumpCondition: {
+                ASSERT(is4ByteAligned(from));
+                ASSERT(is4ByteAligned(to));
+                intptr_t relative = reinterpret_cast<intptr_t>(to) - (reinterpret_cast<intptr_t>(from));
+                if (record.isThunk()) {
+                    int32_t delta = jumpSizeDelta(jumpType, LinkJumpConditionDirect);
+                    relative += delta;
+                }
+
+                if (isInt<21>(relative))
+                    return LinkJumpConditionDirect;
+
+                return LinkJumpCondition;
+            }
+            case JumpCompareAndBranch:  {
+                ASSERT(is4ByteAligned(from));
+                ASSERT(is4ByteAligned(to));
+                intptr_t relative = reinterpret_cast<intptr_t>(to) - (reinterpret_cast<intptr_t>(from));
+                if (record.isThunk()) {
+                    int32_t delta = jumpSizeDelta(jumpType, LinkJumpCompareAndBranchDirect);
+                    relative += delta;
+                }
+
+                if (isInt<21>(relative))
+                    return LinkJumpCompareAndBranchDirect;
+
+                return LinkJumpCompareAndBranch;
+            }
+            case JumpTestBit:   {
+                ASSERT(is4ByteAligned(from));
+                ASSERT(is4ByteAligned(to));
+                intptr_t relative = reinterpret_cast<intptr_t>(to) - (reinterpret_cast<intptr_t>(from));
+                if (record.isThunk()) {
+                    int32_t delta = jumpSizeDelta(jumpType, LinkJumpTestBitDirect);
+                    relative += delta;
+                }
+
+                if (isInt<14>(relative))
+                    return LinkJumpTestBitDirect;
+
+                return LinkJumpTestBit;
+            }
+            default:
+                ASSERT_NOT_REACHED();
+            }
+
+            return LinkJumpNoCondition;
+        };
+
+        JumpLinkType linkType = computeJumpType(from, to);
         record.setLinkType(linkType);
         return linkType;
     }
@@ -3863,7 +3888,10 @@ protected:
 
 #if ENABLE(JUMP_ISLANDS)
         if (!isInt<26>(offset)) {
-            to = ExecutableAllocator::singleton().getJumpIslandTo(bitwise_cast<void*>(fromInstruction), to);
+            if constexpr (copy == performJITMemcpy)
+                to = ExecutableAllocator::singleton().getJumpIslandToUsingJITMemcpy(bitwise_cast<void*>(fromInstruction), to);
+            else
+                to = ExecutableAllocator::singleton().getJumpIslandToUsingMemcpy(bitwise_cast<void*>(fromInstruction), to);
             offset = (bitwise_cast<intptr_t>(to) - bitwise_cast<intptr_t>(fromInstruction)) >> 2;
             RELEASE_ASSERT(isInt<26>(offset));
         }

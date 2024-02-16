@@ -31,6 +31,7 @@
 #include "JSCBuiltins.h"
 #include <wtf/RobinHoodHashMap.h>
 #include <wtf/RobinHoodHashSet.h>
+#include <wtf/TZoneMalloc.h>
 
 namespace JSC {
 
@@ -64,7 +65,6 @@ namespace JSC {
     macro(ShadowRealm) \
     macro(RegExp) \
     macro(min) \
-    macro(trunc) \
     macro(create) \
     macro(defineProperty) \
     macro(defaultPromiseThen) \
@@ -117,6 +117,8 @@ namespace JSC {
     macro(nextMethod) \
     macro(asyncGeneratorQueueItemNext) \
     macro(this) \
+    macro(toIntegerOrInfinity) \
+    macro(toLength) \
     macro(importMapStatus) \
     macro(importInRealm) \
     macro(evalInRealm) \
@@ -225,7 +227,8 @@ extern JS_EXPORT_PRIVATE SymbolImpl::StaticSymbolImpl polyProtoPrivateName;
 }
 
 class BuiltinNames {
-    WTF_MAKE_NONCOPYABLE(BuiltinNames); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(BuiltinNames);
+    WTF_MAKE_TZONE_ALLOCATED(BuiltinNames);
     
 public:
     using PrivateNameSet = MemoryCompactLookupOnlyRobinHoodHashSet<String>;

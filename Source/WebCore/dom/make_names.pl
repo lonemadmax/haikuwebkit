@@ -1061,6 +1061,7 @@ sub printNodeNameHeaderFile
     print F "\n";
     print F "#include \"Namespace.h\"\n";
     print F "#include \"TagName.h\"\n";
+    print F "#include <wtf/EnumTraits.h>\n";
     print F "#include <wtf/Forward.h>\n";
     print F "\n";
     print F "namespace WebCore {\n";
@@ -1142,7 +1143,7 @@ sub printNodeNameHeaderFile
     print F "{\n";
     print F "    constexpr auto s_lastUniqueTagName = TagName::$lastUniqueTagEnumValue;\n";
     print F"\n";
-    print F "    if (LIKELY(static_cast<uint16_t>(elementName) <= static_cast<uint16_t>(s_lastUniqueTagName)))\n";
+    print F "    if (LIKELY(enumToUnderlyingType(elementName) <= enumToUnderlyingType(s_lastUniqueTagName)))\n";
     print F "        return static_cast<TagName>(elementName);\n";
     print F "\n";
     print F "    switch (elementName) {\n";
@@ -1167,10 +1168,10 @@ sub printNodeNameHeaderFile
         print F "        constexpr auto s_firstUnique${namespace}TagName = TagName::$firstUniqueTagEnumValueByNamespace{$namespace};\n";
         print F "        constexpr auto s_lastUnique${namespace}TagName = TagName::$lastUniqueTagEnumValueByNamespace{$namespace};\n";
         print F "\n";
-        print F "        if (UNLIKELY(static_cast<uint16_t>(tagName) < static_cast<uint16_t>(s_firstUnique${namespace}TagName)))\n";
+        print F "        if (UNLIKELY(tagName < s_firstUnique${namespace}TagName))\n";
         print F "            return ElementName::Unknown;\n";
         print F "\n";
-        print F "        if (LIKELY(static_cast<uint16_t>(tagName) <= static_cast<uint16_t>(s_lastUnique${namespace}TagName)))\n";
+        print F "        if (LIKELY(tagName <= s_lastUnique${namespace}TagName))\n";
         print F "            return static_cast<ElementName>(tagName);\n";
         print F "\n";
         my @tagKeysForNonUniqueTags = grep { elementCount($allElements{$_}{localName}) > 1 && $allElements{$_}{namespace} eq $namespace } sort byElementNameOrder keys %allElements;

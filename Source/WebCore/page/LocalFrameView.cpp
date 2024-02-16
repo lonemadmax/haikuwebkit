@@ -1509,7 +1509,7 @@ bool LocalFrameView::styleHidesScrollbarWithOrientation(ScrollbarOrientation ori
     StyleScrollbarState scrollbarState;
     scrollbarState.scrollbarPart = ScrollbarBGPart;
     scrollbarState.orientation = orientation;
-    auto scrollbarStyle = renderer->getUncachedPseudoStyle({ PseudoId::Scrollbar, scrollbarState }, &renderer->style());
+    auto scrollbarStyle = renderer->getUncachedPseudoStyle({ PseudoId::WebKitScrollbar, scrollbarState }, &renderer->style());
     return scrollbarStyle && scrollbarStyle->display() == DisplayType::None;
 }
 
@@ -4427,7 +4427,7 @@ void LocalFrameView::updateScrollCorner()
         Element* body = doc ? doc->bodyOrFrameset() : nullptr;
         if (body && body->renderer()) {
             renderer = body->renderer();
-            cornerStyle = renderer->getUncachedPseudoStyle({ PseudoId::ScrollbarCorner }, &renderer->style());
+            cornerStyle = renderer->getUncachedPseudoStyle({ PseudoId::WebKitScrollbarCorner }, &renderer->style());
         }
         
         if (!cornerStyle) {
@@ -4435,7 +4435,7 @@ void LocalFrameView::updateScrollCorner()
             Element* docElement = doc ? doc->documentElement() : nullptr;
             if (docElement && docElement->renderer()) {
                 renderer = docElement->renderer();
-                cornerStyle = renderer->getUncachedPseudoStyle({ PseudoId::ScrollbarCorner }, &renderer->style());
+                cornerStyle = renderer->getUncachedPseudoStyle({ PseudoId::WebKitScrollbarCorner }, &renderer->style());
             }
         }
         
@@ -4443,7 +4443,7 @@ void LocalFrameView::updateScrollCorner()
             // If we have an owning iframe/frame element, then it can set the custom scrollbar also.
             // FIXME: Seems wrong to do this for cross-origin frames.
             if (RenderWidget* renderer = m_frame->ownerRenderer())
-                cornerStyle = renderer->getUncachedPseudoStyle({ PseudoId::ScrollbarCorner }, &renderer->style());
+                cornerStyle = renderer->getUncachedPseudoStyle({ PseudoId::WebKitScrollbarCorner }, &renderer->style());
         }
     }
 
@@ -4665,6 +4665,10 @@ void LocalFrameView::setWasScrolledByUser(bool wasScrolledByUser)
     cancelScheduledScrolls();
     if (currentScrollType() == ScrollType::Programmatic)
         return;
+
+    if (wasScrolledByUser)
+        m_frame->document()->setGotoAnchorNeededAfterStylesheetsLoad(false);
+
     m_maintainScrollPositionAnchor = nullptr;
     if (m_wasScrolledByUser == wasScrolledByUser)
         return;
@@ -5748,19 +5752,19 @@ LayoutUnit LocalFrameView::mapFromCSSToLayoutUnits(int value) const
 
 void LocalFrameView::didAddWidgetToRenderTree(Widget& widget)
 {
-    ASSERT(!m_widgetsInRenderTree.contains(&widget));
-    m_widgetsInRenderTree.add(&widget);
+    ASSERT(!m_widgetsInRenderTree.contains(widget));
+    m_widgetsInRenderTree.add(widget);
 }
 
 void LocalFrameView::willRemoveWidgetFromRenderTree(Widget& widget)
 {
-    ASSERT(m_widgetsInRenderTree.contains(&widget));
-    m_widgetsInRenderTree.remove(&widget);
+    ASSERT(m_widgetsInRenderTree.contains(widget));
+    m_widgetsInRenderTree.remove(widget);
 }
 
-static Vector<RefPtr<Widget>> collectAndProtectWidgets(const HashSet<CheckedPtr<Widget>>& set)
+static Vector<Ref<Widget>> collectAndProtectWidgets(const HashSet<SingleThreadWeakRef<Widget>>& set)
 {
-    return WTF::map(set, [](auto& widget) -> RefPtr<Widget> {
+    return WTF::map(set, [](auto& widget) -> Ref<Widget> {
         return widget.get();
     });
 }
@@ -5772,7 +5776,7 @@ void LocalFrameView::updateWidgetPositions()
     // scripts in response to NPP_SetWindow, for example), so we need to keep the Widgets
     // alive during enumeration.
     for (auto& widget : collectAndProtectWidgets(m_widgetsInRenderTree)) {
-        if (auto* renderer = RenderWidget::find(*widget)) {
+        if (auto* renderer = RenderWidget::find(widget)) {
             auto ignoreWidgetState = renderer->updateWidgetPosition();
             UNUSED_PARAM(ignoreWidgetState);
         }

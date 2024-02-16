@@ -250,7 +250,9 @@ static std::pair<id<MTLRenderPipelineState>, id<MTLDepthStencilState>> createSim
 {
     MTLRenderPipelineDescriptor* mtlRenderPipelineDescriptor = [MTLRenderPipelineDescriptor new];
     MTLCompileOptions* options = [MTLCompileOptions new];
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     options.fastMathEnabled = YES;
+ALLOW_DEPRECATED_DECLARATIONS_END
 
     NSUInteger sampleCount = 0;
     MTLDepthStencilDescriptor *depthStencilDescriptor = nil;
@@ -1289,7 +1291,8 @@ bool CommandEncoder::validateFinish() const
     if (m_state != EncoderState::Open)
         return false;
 
-    // FIXME: "this.[[debug_group_stack]] must be empty."
+    if (m_debugGroupStackSize)
+        return false;
 
     // FIXME: "Every usage scope contained in this must satisfy the usage scope validation."
 

@@ -218,6 +218,8 @@ public:
 
     virtual void setWebViewEditable(bool) { }
 
+    virtual void setWebViewAllowsMagnification(bool) { }
+
     virtual void rawKeyDown(JSStringRef) { notImplemented(); }
     virtual void rawKeyUp(JSStringRef) { notImplemented(); }
 
@@ -309,6 +311,7 @@ public:
     virtual bool isShowingMenu() const { notImplemented(); return false; }
     virtual JSObjectRef rectForMenuAction(JSStringRef) const { notImplemented(); return nullptr; }
     virtual JSObjectRef menuRect() const { notImplemented(); return nullptr; }
+    virtual JSObjectRef contextMenuPreviewRect() const { notImplemented(); return nullptr; }
     virtual JSObjectRef contextMenuRect() const { notImplemented(); return nullptr; }
     virtual bool isShowingContextMenu() const { notImplemented(); return false; }
 

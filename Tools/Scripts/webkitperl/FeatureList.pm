@@ -103,7 +103,6 @@ my (
     $legacyCustomProtocolManagerSupport,
     $legacyEncryptedMediaSupport,
     $macGestureEventsSupport,
-    $managedMediaSourceSupport,
     $mathmlSupport,
     $mediaCaptureSupport,
     $mediaControlsScriptSupport,
@@ -160,7 +159,6 @@ my (
     $webAudioSupport,
     $webAuthNSupport,
     $webCodecsSupport,
-    $webCryptoSupport,
     $webRTCSupport,
     $webdriverKeyboardInteractionsSupport,
     $webdriverMouseInteractionsSupport,
@@ -314,9 +312,6 @@ my @features = (
 
     { option => "mac-gesture-events", desc => "Toggle Mac gesture events support",
       define => "ENABLE_MAC_GESTURE_EVENTS", value => \$macGestureEventsSupport },
-
-    { option => "managed-media-source", desc => "Toggle Managed Media Source support",
-      define => "ENABLE_MANAGED_MEDIA_SOURCE", value => \$managedMediaSourceSupport },
 
     { option => "mathml", desc => "Toggle MathML support",
       define => "ENABLE_MATHML", value => \$mathmlSupport },
@@ -479,9 +474,6 @@ my @features = (
 
     { option => "web-authn", desc => "Toggle Web AuthN support",
       define => "ENABLE_WEB_AUTHN", value => \$webAuthNSupport },
-
-    { option => "web-crypto", desc => "Toggle WebCrypto Subtle-Crypto support",
-      define => "ENABLE_WEB_CRYPTO", value => \$webCryptoSupport },
 
     { option => "web-codecs", desc => "Toggle WebCodecs support",
       define => "ENABLE_WEB_CODECS", value => \$webCodecsSupport },

@@ -33,6 +33,7 @@
 #include "WGSL.h"
 #include "WGSLEnums.h"
 
+#include <wtf/HashSet.h>
 #include <wtf/OptionSet.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
@@ -86,6 +87,29 @@ public:
 
     bool usesFrexp() const { return m_usesFrexp; }
     void setUsesFrexp() { m_usesFrexp = true; }
+
+    bool usesModf() const { return m_usesModf; }
+    void setUsesModf() { m_usesModf = true; }
+
+    bool usesAtomicCompareExchange() const { return m_usesAtomicCompareExchange; }
+    void setUsesAtomicCompareExchange() { m_usesAtomicCompareExchange = true; }
+    bool usesFragDepth() const { return m_usesFragDepth; }
+    void setUsesFragDepth() { m_usesFragDepth = true; }
+
+    bool usesDot() const { return m_usesDot; }
+    void setUsesDot() { m_usesDot = true; }
+
+    bool usesFirstLeadingBit() const { return m_usesFirstLeadingBit; }
+    void setUsesFirstLeadingBit() { m_usesFirstLeadingBit = true; }
+
+    bool usesFirstTrailingBit() const { return m_usesFirstTrailingBit; }
+    void setUsesFirstTrailingBit() { m_usesFirstTrailingBit = true; }
+
+    bool usesSign() const { return m_usesSign; }
+    void setUsesSign() { m_usesSign = true; }
+
+    bool usesSampleMask() const { return m_usesSampleMask; }
+    void setUsesSampleMask() { m_usesSampleMask = true; }
 
     template<typename T>
     std::enable_if_t<std::is_base_of_v<AST::Node, T>, void> replace(T* current, T&& replacement)
@@ -220,6 +244,15 @@ public:
 
     OptionSet<Extension>& enabledExtensions() { return m_enabledExtensions; }
     OptionSet<LanguageFeature> requiredFeatures() { return m_requiredFeatures; }
+    bool containsOverride(uint32_t idValue) const
+    {
+        return m_pipelineOverrideIds.contains(idValue);
+    }
+    void addOverride(uint32_t idValue)
+    {
+        m_pipelineOverrideIds.add(idValue);
+    }
+    bool hasFeature(const String& featureName) const { return m_configuration.supportedFeatures.contains(featureName); }
 
 private:
     String m_source;
@@ -231,6 +264,14 @@ private:
     bool m_usesDivision { false };
     bool m_usesModulo { false };
     bool m_usesFrexp { false };
+    bool m_usesModf { false };
+    bool m_usesAtomicCompareExchange { false };
+    bool m_usesFragDepth { false };
+    bool m_usesDot { false };
+    bool m_usesFirstLeadingBit { false };
+    bool m_usesFirstTrailingBit { false };
+    bool m_usesSign { false };
+    bool m_usesSampleMask { false };
     OptionSet<Extension> m_enabledExtensions;
     OptionSet<LanguageFeature> m_requiredFeatures;
     Configuration m_configuration;
@@ -239,6 +280,7 @@ private:
     TypeStore m_types;
     AST::Builder m_astBuilder;
     Vector<std::function<void()>> m_replacements;
+    HashSet<uint32_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_pipelineOverrideIds;
 };
 
 } // namespace WGSL

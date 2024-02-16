@@ -49,13 +49,13 @@ namespace Style {
 static bool shouldDirtyAllStyle(const Vector<Ref<StyleRuleBase>>& rules)
 {
     for (auto& rule : rules) {
-        if (is<StyleRuleMedia>(rule)) {
-            if (shouldDirtyAllStyle(downcast<StyleRuleMedia>(rule.get()).childRules()))
+        if (auto* styleRuleMedia = dynamicDowncast<StyleRuleMedia>(rule.get())) {
+            if (shouldDirtyAllStyle(styleRuleMedia->childRules()))
                 return true;
             continue;
         }
-        if (is<StyleRuleWithNesting>(rule)) {
-            if (shouldDirtyAllStyle(downcast<StyleRuleWithNesting>(rule.get()).nestedRules()))
+        if (auto* styleRuleWithNesting = dynamicDowncast<StyleRuleWithNesting>(rule.get())) {
+            if (shouldDirtyAllStyle(styleRuleWithNesting->nestedRules()))
                 return true;
             continue;
         }
@@ -79,7 +79,7 @@ static bool shouldDirtyAllStyle(const StyleSheetContents& sheet)
     return false;
 }
 
-static bool shouldDirtyAllStyle(const Vector<CheckedRef<StyleSheetContents>>& sheets)
+static bool shouldDirtyAllStyle(const Vector<Ref<StyleSheetContents>>& sheets)
 {
     for (auto& sheet : sheets) {
         if (shouldDirtyAllStyle(sheet))
@@ -88,7 +88,7 @@ static bool shouldDirtyAllStyle(const Vector<CheckedRef<StyleSheetContents>>& sh
     return false;
 }
 
-Invalidator::Invalidator(const Vector<CheckedRef<StyleSheetContents>>& sheets, const MQ::MediaQueryEvaluator& mediaQueryEvaluator)
+Invalidator::Invalidator(const Vector<Ref<StyleSheetContents>>& sheets, const MQ::MediaQueryEvaluator& mediaQueryEvaluator)
     : m_ownedRuleSet(RuleSet::create())
     , m_ruleSets({ m_ownedRuleSet })
     , m_dirtiesAllStyle(shouldDirtyAllStyle(sheets))
@@ -141,13 +141,14 @@ static void invalidateAssignedElements(HTMLSlotElement& slot)
     if (!assignedNodes)
         return;
     for (auto& node : *assignedNodes) {
-        if (!is<Element>(node.get()))
+        auto* element = dynamicDowncast<Element>(node.get());
+        if (!element)
             continue;
-        if (is<HTMLSlotElement>(*node) && node->containingShadowRoot()) {
-            invalidateAssignedElements(downcast<HTMLSlotElement>(*node));
+        if (auto* slotElement = dynamicDowncast<HTMLSlotElement>(*element); slotElement && node->containingShadowRoot()) {
+            invalidateAssignedElements(*slotElement);
             continue;
         }
-        downcast<Element>(*node).invalidateStyleInternal();
+        element->invalidateStyleInternal();
     }
 }
 
@@ -155,8 +156,10 @@ Invalidator::CheckDescendants Invalidator::invalidateIfNeeded(Element& element, 
 {
     invalidateInShadowTreeIfNeeded(element);
 
-    if (m_ruleInformation.hasSlottedPseudoElementRules && is<HTMLSlotElement>(element))
-        invalidateAssignedElements(downcast<HTMLSlotElement>(element));
+    if (m_ruleInformation.hasSlottedPseudoElementRules) {
+        if (auto* slotElement = dynamicDowncast<HTMLSlotElement>(element))
+            invalidateAssignedElements(*slotElement);
+    }
 
     switch (element.styleValidity()) {
     case Validity::Valid:
@@ -418,11 +421,11 @@ void Invalidator::invalidateShadowPseudoElements(ShadowRoot& shadowRoot)
         return;
 
     for (auto& descendant : descendantsOfType<Element>(shadowRoot)) {
-        auto& shadowPseudoId = descendant.shadowPseudoId();
-        if (!shadowPseudoId)
+        auto& partId = descendant.pseudo();
+        if (!partId)
             continue;
         for (auto& ruleSet : m_ruleSets) {
-            if (ruleSet->shadowPseudoElementRules(shadowPseudoId))
+            if (ruleSet->shadowPseudoElementRules(partId))
                 descendant.invalidateStyleInternal();
         }
     }

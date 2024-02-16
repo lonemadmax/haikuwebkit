@@ -77,10 +77,29 @@
 #include <wtf/BitVector.h>
 #include <wtf/Box.h>
 #include <wtf/MathExtras.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace JSC { namespace DFG {
 
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(SpeculativeJIT);
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(FPRTemporary);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(GPRTemporary);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(JSValueRegsFlushedCallResult);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(JSValueRegsTemporary);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeculateInt32Operand);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeculateStrictInt32Operand);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeculateInt52Operand);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeculateStrictInt52Operand);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeculateWhicheverInt52Operand);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeculateDoubleOperand);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeculateCellOperand);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeculateBooleanOperand);
+#if USE(BIGINT32)
+WTF_MAKE_TZONE_ALLOCATED_IMPL(SpeculateBigInt32Operand);
+#endif
+WTF_MAKE_TZONE_ALLOCATED_IMPL(JSValueOperand);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(StorageOperand);
 
 SpeculativeJIT::SpeculativeJIT(Graph& dfg)
     : Base(dfg)
@@ -6665,12 +6684,11 @@ void SpeculativeJIT::compileArithMul(Node* node)
         GPRReg op1GPR = op1.gpr();
         GPRReg op2GPR = op2.gpr();
         GPRReg resultGPR = result.gpr();
-        
-        move(op1GPR, resultGPR);
+
         speculationCheck(
             Int52Overflow, JSValueRegs(), nullptr,
-            branchMul64(Overflow, op2GPR, resultGPR));
-        
+            branchMul64(Overflow, op1GPR, op2GPR, resultGPR));
+
         if (shouldCheckNegativeZero(node->arithMode())) {
             Jump resultNonZero = branchTest64(
                 NonZero, resultGPR);
@@ -17369,6 +17387,114 @@ void SpeculativeJIT::compileNumberIsNaN(Node* node)
         if (mayBeInt32)
             isInt32.link(this);
         unblessedBooleanResult(scratch1GPR, node);
+        break;
+    }
+    default:
+        DFG_CRASH(m_graph, node, "Bad use kind");
+        break;
+    }
+}
+
+void SpeculativeJIT::compileToIntegerOrInfinity(Node* node)
+{
+    switch (node->child1().useKind()) {
+    case DoubleRepUse: {
+        SpeculateDoubleOperand argument(this, node->child1());
+
+        FPRReg argumentFPR = argument.fpr();
+
+        flushRegisters();
+        JSValueRegsFlushedCallResult result(this);
+        JSValueRegs resultRegs = result.regs();
+        callOperation(operationToIntegerOrInfinityDouble, resultRegs, argumentFPR);
+        jsValueResult(resultRegs, node);
+        break;
+    }
+    case UntypedUse: {
+        JSValueOperand argument(this, node->child1());
+        JSValueRegsTemporary result(this);
+
+        bool mayBeInt32 = m_interpreter.forNode(node->child1()).m_type & SpecInt32Only;
+
+        JSValueRegs argumentRegs = argument.jsValueRegs();
+        JSValueRegs resultRegs = result.regs();
+
+        flushRegisters();
+        Jump isInt32;
+        if (mayBeInt32) {
+            moveValueRegs(argumentRegs, resultRegs);
+            isInt32 = branchIfInt32(argumentRegs);
+        }
+        callOperation(operationToIntegerOrInfinityUntyped, resultRegs, LinkableConstant::globalObject(*this, node), argumentRegs);
+        exceptionCheck();
+        if (mayBeInt32)
+            isInt32.link(this);
+        jsValueResult(resultRegs, node);
+        break;
+    }
+    default:
+        DFG_CRASH(m_graph, node, "Bad use kind");
+        break;
+    }
+}
+
+void SpeculativeJIT::compileToLength(Node* node)
+{
+    switch (node->child1().useKind()) {
+    case Int32Use: {
+        SpeculateInt32Operand argument(this, node->child1());
+        GPRTemporary scratch1(this);
+
+        GPRReg argumentGPR = argument.gpr();
+        GPRReg scratch1GPR = scratch1.gpr();
+
+        move(TrustedImm32(0), scratch1GPR);
+        moveConditionally32(CCallHelpers::LessThan, argumentGPR, TrustedImm32(0), scratch1GPR, argumentGPR, scratch1GPR);
+        zeroExtend32ToWord(scratch1GPR, scratch1GPR);
+        strictInt32Result(scratch1GPR, node);
+        break;
+    }
+    case DoubleRepUse: {
+        SpeculateDoubleOperand argument(this, node->child1());
+
+        FPRReg argumentFPR = argument.fpr();
+
+        flushRegisters();
+        JSValueRegsFlushedCallResult result(this);
+        JSValueRegs resultRegs = result.regs();
+        callOperation(operationToLengthDouble, resultRegs, argumentFPR);
+        jsValueResult(resultRegs, node);
+        break;
+    }
+    case UntypedUse: {
+        JSValueOperand argument(this, node->child1());
+        JSValueRegsTemporary result(this);
+
+        bool mayBeInt32 = m_interpreter.forNode(node->child1()).m_type & SpecInt32Only;
+
+        JSValueRegs argumentRegs = argument.jsValueRegs();
+        JSValueRegs resultRegs = result.regs();
+
+        flushRegisters();
+        Jump isNotInt32;
+        Jump done;
+        if (mayBeInt32) {
+            isNotInt32 = branchIfNotInt32(argumentRegs);
+            move(TrustedImm32(0), resultRegs.payloadGPR());
+            moveConditionally32(CCallHelpers::LessThan, argumentRegs.payloadGPR(), TrustedImm32(0), resultRegs.payloadGPR(), argumentRegs.payloadGPR(), resultRegs.payloadGPR());
+            zeroExtend32ToWord(resultRegs.payloadGPR(), resultRegs.payloadGPR());
+            boxInt32(resultRegs.payloadGPR(), resultRegs);
+            done = jump();
+        }
+
+        if (mayBeInt32)
+            isNotInt32.link(this);
+        callOperation(operationToLengthUntyped, resultRegs, LinkableConstant::globalObject(*this, node), argumentRegs);
+        exceptionCheck();
+
+        if (mayBeInt32)
+            done.link(this);
+        jsValueResult(resultRegs, node);
         break;
     }
     default:

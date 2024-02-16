@@ -31,6 +31,10 @@
 #include "PageClientImpl.h"
 #include <WebCore/PlatformEvent.h>
 
+#if ENABLE(WPE_PLATFORM)
+#include <wpe/wpe-platform.h>
+#endif
+
 #if ENABLE(ACCESSIBILITY)
 #include <atk/atk.h>
 #endif

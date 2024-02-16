@@ -37,6 +37,7 @@
 #import "WebExtensionFrameIdentifier.h"
 #import "WebExtensionFrameParameters.h"
 #import "WebExtensionTab.h"
+#import "WebExtensionUtilities.h"
 #import "WebFrame.h"
 #import "_WKFrameTreeNode.h"
 #import <wtf/BlockPtr.h>
@@ -50,8 +51,7 @@ static WebExtensionFrameParameters frameParametersForFrame(_WKFrameTreeNode *fra
 
     return {
         // errorOccured
-        // FIXME: Correctly populate this based on whether or not an error occurred loading this frame
-        false,
+        (bool)frameInfo._errorOccurred,
 
         // url
         extensionContext->hasPermission(frameURL, tab) ? std::optional { frameURL } : std::nullopt,
@@ -85,43 +85,46 @@ std::optional<WebExtensionFrameParameters> WebExtensionContext::webNavigationFin
     return std::nullopt;
 }
 
-void WebExtensionContext::webNavigationGetFrame(WebExtensionTabIdentifier tabIdentifier, WebExtensionFrameIdentifier frameIdentifier, CompletionHandler<void(std::optional<WebExtensionFrameParameters>)>&& completionHandler)
+void WebExtensionContext::webNavigationGetFrame(WebExtensionTabIdentifier tabIdentifier, WebExtensionFrameIdentifier frameIdentifier, CompletionHandler<void(std::optional<WebExtensionFrameParameters>, std::optional<String> error)>&& completionHandler)
 {
     auto tab = getTab(tabIdentifier);
     if (!tab) {
-        completionHandler(std::nullopt);
+        completionHandler(std::nullopt, toErrorString(@"webNavigation.getFrame()", nil, @"tab not found"));
         return;
     }
 
     auto webView = tab->mainWebView();
     if (!webView) {
-        completionHandler(std::nullopt);
+        completionHandler(std::nullopt, toErrorString(@"webNavigation.getFrame()", nil, @"tab not found"));
         return;
     }
 
     [webView _frames:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), tab, frameIdentifier] (_WKFrameTreeNode *mainFrame) mutable {
-        completionHandler(webNavigationFindFrameIdentifierInFrameTree(mainFrame, nil, tab.get(), frameIdentifier));
+        if (auto frameParameters = webNavigationFindFrameIdentifierInFrameTree(mainFrame, nil, tab.get(), frameIdentifier))
+            completionHandler(frameParameters, std::nullopt);
+        else
+            completionHandler(std::nullopt, toErrorString(@"webNavigation.getFrame()", nil, @"frame not found"));
     }).get()];
 }
 
-void WebExtensionContext::webNavigationGetAllFrames(WebExtensionTabIdentifier tabIdentifier, CompletionHandler<void(std::optional<Vector<WebExtensionFrameParameters>>)>&& completionHandler)
+void WebExtensionContext::webNavigationGetAllFrames(WebExtensionTabIdentifier tabIdentifier, CompletionHandler<void(std::optional<Vector<WebExtensionFrameParameters>>, std::optional<String> error)>&& completionHandler)
 {
     auto tab = getTab(tabIdentifier);
     if (!tab) {
-        completionHandler(std::nullopt);
+        completionHandler(std::nullopt, toErrorString(@"webNavigation.getFrame()", nil, @"tab not found"));
         return;
     }
 
     auto webView = tab->mainWebView();
     if (!webView) {
-        completionHandler(std::nullopt);
+        completionHandler(std::nullopt, toErrorString(@"webNavigation.getFrame()", nil, @"tab not found"));
         return;
     }
 
     [webView _frames:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), tab] (_WKFrameTreeNode *mainFrame) mutable {
         Vector<WebExtensionFrameParameters> frameParameters;
         webNavigationTraverseFrameTreeForFrame(mainFrame, nil, tab.get(), frameParameters);
-        completionHandler(frameParameters);
+        completionHandler(frameParameters, std::nullopt);
     }).get()];
 }
 

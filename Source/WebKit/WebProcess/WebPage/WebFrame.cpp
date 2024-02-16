@@ -249,7 +249,8 @@ FrameInfoData WebFrame::info() const
         frameID(),
         parent ? std::optional<WebCore::FrameIdentifier> { parent->frameID() } : std::nullopt,
         getCurrentProcessID(),
-        isFocused()
+        isFocused(),
+        coreLocalFrame() ? coreLocalFrame()->loader().errorOccurredInLoading() : false
     };
 
     return info;
@@ -340,7 +341,7 @@ void WebFrame::didCommitLoadInAnotherProcess(std::optional<WebCore::LayerHosting
 
     RefPtr parent = coreFrame->tree().parent();
 
-    auto* localFrame = dynamicDowncast<WebCore::LocalFrame>(coreFrame.get());
+    RefPtr localFrame = dynamicDowncast<WebCore::LocalFrame>(coreFrame.get());
     if (!localFrame) {
         ASSERT_NOT_REACHED();
         return;
@@ -358,8 +359,6 @@ void WebFrame::didCommitLoadInAnotherProcess(std::optional<WebCore::LayerHosting
     auto* ownerRenderer = localFrame->ownerRenderer();
     localFrame->setView(nullptr);
 
-    if (localFrame->isRootFrame())
-        corePage->removeRootFrame(*localFrame);
     if (parent)
         parent->tree().removeChild(*coreFrame);
     if (ownerElement)
@@ -368,15 +367,17 @@ void WebFrame::didCommitLoadInAnotherProcess(std::optional<WebCore::LayerHosting
     auto newFrame = ownerElement
         ? WebCore::RemoteFrame::createSubframeWithContentsInAnotherProcess(*corePage, WTFMove(client), m_frameID, *ownerElement, layerHostingContextIdentifier)
         : parent ? WebCore::RemoteFrame::createSubframe(*corePage, WTFMove(client), m_frameID, *parent) : WebCore::RemoteFrame::createMainFrame(*corePage, WTFMove(client), m_frameID, localFrame->loader().opener());
-    if (!parent) {
+    if (!parent)
         corePage->setMainFrame(newFrame.copyRef());
-        newFrame->takeWindowProxyFrom(*localFrame);
-    }
+    newFrame->takeWindowProxyFrom(*localFrame);
     newFrame->tree().setSpecifiedName(localFrame->tree().specifiedName());
     if (ownerRenderer)
         ownerRenderer->setWidget(newFrame->view());
 
     m_coreFrame = newFrame.get();
+
+    if (corePage->focusController().focusedFrame() == localFrame.get())
+        corePage->focusController().setFocusedFrame(newFrame.ptr(), FocusController::BroadcastFocusedFrame::No);
 
     if (ownerElement)
         ownerElement->scheduleInvalidateStyleAndLayerComposition();
@@ -402,8 +403,6 @@ void WebFrame::removeFromTree()
         return;
     }
 
-    if (RefPtr localFrame = dynamicDowncast<LocalFrame>(*coreFrame); localFrame && localFrame->isRootFrame())
-        corePage->removeRootFrame(*localFrame);
     if (RefPtr parent = coreFrame->tree().parent())
         parent->tree().removeChild(*coreFrame);
     coreFrame->disconnectView();
@@ -436,20 +435,14 @@ void WebFrame::transitionToLocal(std::optional<WebCore::LayerHostingContextIdent
     remoteFrame->setView(nullptr);
     localFrame->init();
     localFrame->tree().setSpecifiedName(remoteFrame->tree().specifiedName());
-    if (localFrame->isMainFrame()) {
+    if (localFrame->isMainFrame())
         corePage->setMainFrame(localFrame);
-        localFrame->takeWindowProxyFrom(*remoteFrame);
-    }
+    localFrame->takeWindowProxyFrom(*remoteFrame);
 
+    if (corePage->focusController().focusedFrame() == remoteFrame.get())
+        corePage->focusController().setFocusedFrame(localFrame.ptr(), FocusController::BroadcastFocusedFrame::No);
     if (layerHostingContextIdentifier)
         setLayerHostingContextIdentifier(*layerHostingContextIdentifier);
-    if (localFrame->isRootFrame())
-        corePage->addRootFrame(localFrame.get());
-
-    if (auto* webPage = page(); webPage && m_coreFrame->isRootFrame()) {
-        if (auto* drawingArea = webPage->drawingArea())
-            drawingArea->addRootFrame(m_coreFrame->frameID());
-    }
 }
 
 void WebFrame::didFinishLoadInAnotherProcess()

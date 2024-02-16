@@ -63,8 +63,6 @@ public:
     }
 
     bool canUseShadowBlur() const final { return false; }
-
-    bool needsCachedNativeImageInvalidationWorkaround(WebCore::RenderingMode) override { return true; }
 };
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(DynamicContentScalingImageBufferBackend);
@@ -93,7 +91,8 @@ DynamicContentScalingImageBufferBackend::DynamicContentScalingImageBufferBackend
 
 std::optional<ImageBufferBackendHandle> DynamicContentScalingImageBufferBackend::createBackendHandle(SharedMemory::Protection) const
 {
-    ASSERT(m_context);
+    if (!m_context)
+        return std::nullopt;
 
     RetainPtr<NSDictionary> options;
     RetainPtr<NSMutableArray> ports;
@@ -165,23 +164,6 @@ String DynamicContentScalingImageBufferBackend::debugDescription() const
     TextStream stream;
     stream << "DynamicContentScalingImageBufferBackend " << this;
     return stream.release();
-}
-
-#pragma mark - DynamicContentScalingAcceleratedImageBufferBackend
-
-WTF_MAKE_ISO_ALLOCATED_IMPL(DynamicContentScalingAcceleratedImageBufferBackend);
-
-std::unique_ptr<DynamicContentScalingAcceleratedImageBufferBackend> DynamicContentScalingAcceleratedImageBufferBackend::create(const Parameters& parameters, const WebCore::ImageBufferCreationContext& creationContext)
-{
-    if (parameters.backendSize.isEmpty())
-        return nullptr;
-
-    return std::unique_ptr<DynamicContentScalingAcceleratedImageBufferBackend>(new DynamicContentScalingAcceleratedImageBufferBackend(parameters, creationContext, WebCore::RenderingMode::Accelerated));
-}
-
-DynamicContentScalingAcceleratedImageBufferBackend::DynamicContentScalingAcceleratedImageBufferBackend(const Parameters& parameters, const WebCore::ImageBufferCreationContext& creationContext, WebCore::RenderingMode renderingMode)
-    : DynamicContentScalingImageBufferBackend(parameters, creationContext, renderingMode)
-{
 }
 
 }

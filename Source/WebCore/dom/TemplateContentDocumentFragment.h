@@ -45,14 +45,14 @@ public:
 
 private:
     TemplateContentDocumentFragment(Document& document, const Element& host)
-        : DocumentFragment(document, CreateDocumentFragment)
+        : DocumentFragment(document)
         , m_host(host)
     {
     }
 
     bool isTemplateContent() const override { return true; }
 
-    CheckedPtr<const Element> m_host;
+    WeakPtr<const Element, WeakPtrImplWithEventTargetData> m_host;
 };
 
 } // namespace WebCore

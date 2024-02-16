@@ -57,6 +57,7 @@
 #import <WebKit/WKWebsiteDataStoreRef.h>
 #import <WebKit/_WKApplicationManifest.h>
 #import <WebKit/_WKWebsiteDataStoreConfiguration.h>
+#import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/MainThread.h>
 #import <wtf/RunLoop.h>
@@ -127,6 +128,23 @@ VKImageAnalysisRequestID swizzledProcessImageAnalysisRequest(id, SEL, VKCImageAn
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS)
+
+#if ENABLE(DATA_DETECTION)
+
+NSURL *swizzledAppStoreURL(NSURL *url, SEL)
+{
+    auto components = adoptNS([[NSURLComponents alloc] initWithURL:url resolvingAgainstBaseURL:NO]);
+    if (![[components scheme] isEqualToString:@"http"] && ![[components scheme] isEqualToString:@"https"])
+        return nil;
+
+    if (![[components host] isEqualToString:@"itunes.apple.com"])
+        return nil;
+
+    [components setScheme:@"itms-appss"];
+    return [components URL];
+}
+
+#endif // ENABLE(DATA_DETECTION)
 
 namespace WTR {
 
@@ -201,6 +219,10 @@ void TestController::cocoaPlatformInitialize(const Options& options)
         reinterpret_cast<IMP>(swizzledProcessImageAnalysisRequest)
     );
 #endif
+
+#if ENABLE(DATA_DETECTION)
+    m_appStoreURLSwizzler = makeUnique<InstanceMethodSwizzler>(NSURL.class, @selector(iTunesStoreURL), reinterpret_cast<IMP>(swizzledAppStoreURL));
+#endif
 }
 
 #if ENABLE(IMAGE_ANALYSIS)
@@ -273,6 +295,7 @@ void TestController::platformCreateWebView(WKPageConfigurationRef, const TestOpt
         [copiedConfiguration setLimitsNavigationsToAppBoundDomains:YES];
 
     [copiedConfiguration _setAppInitiatedOverrideValueForTesting:options.isAppInitiated() ? _WKAttributionOverrideTestingAppInitiated : _WKAttributionOverrideTestingUserInitiated];
+    [copiedConfiguration _setLongPressActionsEnabled:options.longPressActionsEnabled()];
 #endif
 
     if (options.enableAttachmentElement())
@@ -421,6 +444,10 @@ void TestController::cocoaResetStateToConsistentValues(const TestOptions& option
         platformView._viewScale = 1;
         platformView._minimumEffectiveDeviceWidth = 0;
         platformView._editable = NO;
+#if PLATFORM(MAC)
+        platformView.allowsMagnification = NO;
+        [platformView setMagnification:1 centeredAtPoint:CGPointZero];
+#endif
         [platformView _setContinuousSpellCheckingEnabledForTesting:options.shouldShowSpellCheckingDots()];
         [platformView _setGrammarCheckingEnabledForTesting:YES];
         [platformView resetInteractionCallbacks];

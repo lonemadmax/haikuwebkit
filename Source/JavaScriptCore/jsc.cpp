@@ -100,6 +100,7 @@
 #include <wtf/SafeStrerror.h>
 #include <wtf/Scope.h>
 #include <wtf/StringPrintStream.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 #include <wtf/WTFProcess.h>
 #include <wtf/WallTime.h>
@@ -261,7 +262,7 @@ private:
 };
 
 class Workers {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(Workers);
     WTF_MAKE_NONCOPYABLE(Workers);
 public:
     Workers();
@@ -284,6 +285,8 @@ private:
     SentinelLinkedList<Worker, BasicRawSentinelNode<Worker>> m_workers;
     Deque<String> m_reports;
 };
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Workers);
 
 
 static JSC_DECLARE_HOST_FUNCTION(functionAtob);
@@ -3983,7 +3986,7 @@ void CommandLine::parseArguments(int argc, char** argv)
             continue;
         }
         if (!strcmp(arg, "--disableOptionsFreezingForTesting")) {
-            Config::disableFreezingForTesting();
+            JSC::Config::disableFreezingForTesting();
             continue;
         }
 
@@ -4229,7 +4232,7 @@ extern const JITOperationAnnotation endOfJITOperationsInShell __asm("section$end
 int jscmain(int argc, char** argv)
 {
     // Need to override and enable restricted options before we start parsing options below.
-    Config::enableRestrictedOptions();
+    JSC::Config::enableRestrictedOptions();
 
     WTF::initializeMainThread();
 

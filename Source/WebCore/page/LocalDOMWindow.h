@@ -27,7 +27,7 @@
 #pragma once
 
 #include "Base64Utilities.h"
-#include "ContextDestructionObserver.h"
+#include "ContextDestructionObserverInlines.h"
 #include "DOMWindow.h"
 #include "ExceptionOr.h"
 #include "ImageBitmap.h"
@@ -179,6 +179,8 @@ public:
     WEBCORE_EXPORT bool hasTransientActivation() const;
     bool hasStickyActivation() const;
     WEBCORE_EXPORT bool consumeTransientActivation();
+    WEBCORE_EXPORT bool hasHistoryActionActivation() const;
+    WEBCORE_EXPORT bool consumeHistoryActionUserActivation();
 
     DOMSelection* getSelection();
 
@@ -409,7 +411,7 @@ public:
     bool mayReuseForNavigation() const { return m_mayReuseForNavigation; }
 
     Page* page() const;
-    CheckedPtr<Page> checkedPage() const;
+    RefPtr<Page> protectedPage() const;
 
     WEBCORE_EXPORT static void forEachWindowInterestedInStorageEvents(const Function<void(LocalDOMWindow&)>&);
 
@@ -495,6 +497,7 @@ private:
     // been activated, while negative infinity indicates that a user activation-gated API has consumed the last user activation of W. The initial
     // value is positive infinity.
     MonotonicTime m_lastActivationTimestamp { MonotonicTime::infinity() };
+    MonotonicTime m_lastHistoryActionActivationTimestamp { MonotonicTime::infinity() };
 
     bool m_wasWrappedWithoutInitializedSecurityOrigin { false };
     bool m_mayReuseForNavigation { true };

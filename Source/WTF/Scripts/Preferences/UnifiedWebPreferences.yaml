@@ -899,17 +899,17 @@ CSS3DTransformInteroperabilityEnabled:
 
 CSSBasedRubyEnabled:
   type: bool
-  status: unstable
+  status: stable
   category: css
   humanReadableName: "CSS based Ruby implementation in IFC"
   humanReadableDescription: "CSS based Ruby implementation in IFC"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSCascadeLayersEnabled:
   type: bool
@@ -1113,6 +1113,20 @@ CSSInputSecurityEnabled:
   category: css
   humanReadableName: "CSS Input Security"
   humanReadableDescription: "Enable input-security CSS property"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+CSSLightDarkEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS light-dark()"
+  humanReadableDescription: "Enable support for CSS light-dark() defined in CSS Color 5"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -1933,17 +1947,17 @@ CustomPasteboardDataEnabled:
 
 CustomStateSetEnabled:
   type: bool
-  status: testable
+  status: stable
   category: dom
-  humanReadableName: "CustomStateSet"
+  humanReadableName: "CustomStateSet and :state() pseudo class"
   humanReadableDescription: "Support for CustomStateSet in custom elements"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 DNSPrefetchingEnabled:
   type: bool
@@ -2204,6 +2218,20 @@ DefaultTextEncodingName:
       default: PAL::defaultTextEncodingNameForSystemLanguage()
     WebCore:
       default: '{ }'
+
+DeprecateAESCFBWebCryptoEnabled:
+  type: bool
+  status: stable
+  category: dom
+  humanReadableName: "Deprecate AES-CFB Web Crypto"
+  humanReadableDescription: "Enable Deprecation of AES-CFB from Web Crypto"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 DeprecateRSAESPKCSWebCryptoEnabled:
   type: bool
@@ -4065,7 +4093,7 @@ ManagedMediaSourceEnabled:
   category: media
   humanReadableName: "Managed Media Source API"
   humanReadableDescription: "Managed Media Source API"
-  condition: ENABLE(MANAGED_MEDIA_SOURCE)
+  condition: ENABLE(MEDIA_SOURCE)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -4077,7 +4105,7 @@ ManagedMediaSourceEnabled:
 ManagedMediaSourceHighThreshold:
   type: double
   status: embedder
-  condition: ENABLE(MANAGED_MEDIA_SOURCE)
+  condition: ENABLE(MEDIA_SOURCE)
   defaultValue:
     WebKit:
       default: 30
@@ -4087,7 +4115,7 @@ ManagedMediaSourceHighThreshold:
 ManagedMediaSourceLowThreshold:
   type: double
   status: embedder
-  condition: ENABLE(MANAGED_MEDIA_SOURCE)
+  condition: ENABLE(MEDIA_SOURCE)
   defaultValue:
     WebKit:
       default: 10
@@ -4100,7 +4128,7 @@ ManagedMediaSourceNeedsAirPlay:
   category: media
   humanReadableName: "Managed Media Source Requires AirPlay source"
   humanReadableDescription: "Managed Media Source Requires AirPlay source"
-  condition: ENABLE(MANAGED_MEDIA_SOURCE) && ENABLE(WIRELESS_PLAYBACK_TARGET)
+  condition: ENABLE(MEDIA_SOURCE) && ENABLE(WIRELESS_PLAYBACK_TARGET)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -5534,10 +5562,13 @@ SampleBufferContentKeySessionSupportEnabled:
   condition: HAVE(AVCONTENTKEYSPECIFIER)
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(IOS_FAMILY)": true
       default: false
     WebKit:
+      "PLATFORM(IOS_FAMILY)": true
       default: false
     WebCore:
+      "PLATFORM(IOS_FAMILY)": true
       default: false
 
 SampledPageTopColorMaxDifference:
@@ -8018,7 +8049,7 @@ WriteRichTextDataWhenCopyingOrDragging:
     WebKitLegacy:
       default: true
     WebKit:
-      "HAVE(PASTEBOARD_CONVERSION_FROM_HTML_TO_RTF)" : false
+      "PLATFORM(IOS_FAMILY)": WebKit::defaultWriteRichTextDataWhenCopyingOrDragging()
       default: true
     WebCore:
       default: true

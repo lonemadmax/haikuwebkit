@@ -83,6 +83,9 @@ public:
     static WGPUTextureFormat removeSRGBSuffix(WGPUTextureFormat);
     static std::optional<WGPUTextureFormat> resolveTextureFormat(WGPUTextureFormat, WGPUTextureAspect);
     static bool isCompressedFormat(WGPUTextureFormat);
+    static bool isRenderableFormat(WGPUTextureFormat, const Device&);
+    static uint32_t renderTargetPixelByteCost(WGPUTextureFormat);
+    static uint32_t renderTargetPixelByteAlignment(WGPUTextureFormat);
 
     WGPUExtent3D logicalMiplevelSpecificTextureExtent(uint32_t mipLevel);
     WGPUExtent3D physicalMiplevelSpecificTextureExtent(uint32_t mipLevel);
@@ -102,6 +105,10 @@ public:
 
     bool previouslyCleared(uint32_t mipLevel, uint32_t slice) const;
     void setPreviouslyCleared(uint32_t mipLevel, uint32_t slice);
+    bool isDestroyed() const;
+    static bool hasStorageBindingCapability(WGPUTextureFormat, const Device&, WGPUStorageTextureAccess = WGPUStorageTextureAccess_Undefined);
+    static bool supportsMultisampling(WGPUTextureFormat, const Device&);
+    static bool supportsBlending(WGPUTextureFormat, const Device&);
 
 private:
     Texture(id<MTLTexture>, const WGPUTextureDescriptor&, Vector<WGPUTextureFormat>&& viewFormats, Device&);

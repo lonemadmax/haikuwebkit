@@ -223,8 +223,6 @@ media/track/track-webvtt-snap-to-lines-inline-style.html [ Pass Crash ]
 # Perf tests are very flaky, because they run in parallel with other tests.
 perf
 
-webkit.org/b/113599 svg/animations/reinserting-svg-into-document.html [ Pass Failure ]
-
 webkit.org/b/184608 [ Debug ] animations/added-while-suspended.html [ Skip ]
 webkit.org/b/184608 [ Debug ] transitions/created-while-suspended.html [ Skip ]
 
@@ -402,7 +400,6 @@ fast/writing-mode/japanese-rl-selection.html [ Failure ]
 fast/writing-mode/japanese-rl-text.html [ Failure ]
 
 # <rdar://problem/11229810> SVG square caps on zero-length paths draw incorrectly on Mountain Lion
-svg/W3C-SVG-1.1-SE/painting-control-04-f.svg [ Failure ]
 svg/custom/zero-path-square-cap-rendering.svg [ Failure ]
 svg/stroke/zero-length-arc-linecaps-rendering.svg [ Failure ]
 svg/stroke/zero-length-path-linecap-rendering.svg [ Failure ]
@@ -496,8 +493,6 @@ webkit.org/b/114375 svg/batik/filters/feTile.svg [ Pass Failure ]
 
 webkit.org/b/99893 svg/animations/mozilla/animateMotion-mpath-targetChange-1.svg [ ImageOnlyFailure ]
 
-webkit.org/b/98718 svg/animations/animate-css-xml-attributeType.html [ Failure Pass ]
-
 # IETC flexbox failures
 webkit.org/b/85211 ietestcenter/css3/flexbox/flexbox-align-stretch-001.htm [ ImageOnlyFailure ]
 webkit.org/b/85212 ietestcenter/css3/flexbox/flexbox-layout-002.htm [ ImageOnlyFailure ]
@@ -566,8 +561,6 @@ webkit.org/b/112176 fast/css/sticky/sticky-both-sides.html [ ImageOnlyFailure Pa
 
 # WebKit1-only
 webkit.org/b/103857 fast/events/mouse-cursor-change.html [ Failure ]
-
-webkit.org/b/120387 svg/animations/svglengthlist-animation-3.html [ Pass Failure ]
 
 webkit.org/b/120923 animations/cross-fade-background-image.html [ ImageOnlyFailure ]
 
@@ -1681,8 +1674,6 @@ webkit.org/b/207858 fast/canvas/webgl/simulated-vertexAttrib0-invalid-indicies.h
 
 webkit.org/b/209619 compositing/clipping/border-radius-async-overflow-stacking.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/209908 svg/custom/animate-initial-pause-unpause.html [ Pass Timeout ]
-
 webkit.org/b/210046 [ Release ] storage/indexeddb/value-cursor-cycle.html [ Pass Failure ]
 
 webkit.org/b/207160 css2.1/20110323/replaced-intrinsic-ratio-001.htm [ Pass Failure ]
@@ -2190,6 +2181,9 @@ webkit.org/b/231463 fast/css/accent-color/range.html [ ImageOnlyFailure ]
 [ Monterey+ ] imported/w3c/web-platform-tests/webcodecs/videoFrame-createImageBitmap.any.worker.html [ Pass ]
 [ Monterey+ ] imported/w3c/web-platform-tests/webcodecs/videoFrame-drawImage.any.worker.html [ Pass ]
 
+# Encoder specific behavior that is not covered for Monterey.
+[ Monterey ] http/wpt/webcodecs/encoder-task-failing.html [ Failure ]
+
 webkit.org/b/229521 pointer-lock/lock-already-locked.html [ Pass Failure ]
 
 webkit.org/b/228176 [ BigSur Monterey ] fast/text/variable-system-font-2.html [ Pass ]
@@ -2539,17 +2533,7 @@ imported/w3c/web-platform-tests/media-source/mediasource-redundant-seek.html [ P
 imported/w3c/web-platform-tests/media-source/mediasource-remove-preserves-currentTime.html [ Pass Failure ]
 imported/w3c/web-platform-tests/media-source/mediasource-remove.html [ Pass Failure ]
 
-# webkit.org/b/263441 [ mac-wk1 ] Several WPTs using wheel actions are timing out after b243272
-# webkit.org/b/263476 [ mac-wk2 ] Some WPTs exercising wheel actions interface timing out on pre-Sonoma MacOS after b243272
-imported/w3c/web-platform-tests/css/css-overscroll-behavior/overscroll-behavior.html [ Skip ]
-imported/w3c/web-platform-tests/css/css-scroll-snap/input/snap-area-overflow-boundary.html [ Skip ]
-imported/w3c/web-platform-tests/css/css-transforms/scroll-preserve-3d.html [ Skip ]
-imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-mousewheel-event-listener-on-div.html [ Skip ]
-imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-wheel-event-listener-on-div.html [ Skip ]
-imported/w3c/web-platform-tests/dom/events/scrolling/iframe-chains.html [ Skip ]
-imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-event-for-user-scroll.html [ Skip ]
-imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss.html [ Skip ]
-imported/w3c/web-platform-tests/pointerevents/pointerevent_touch-action-mouse.html [ Skip ]
+webkit.org/b/266683 imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss.html [ Failure ]
 
 # Failing word-break: auto-phrase tests.
 webkit.org/b/257698 [ Sonoma+ ] imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase/word-break-auto-phrase-004.html [ ImageOnlyFailure ]
@@ -2593,11 +2577,14 @@ webkit.org/b/264607 [ Sonoma+ ] css1/box_properties/acid_test.html [ Pass Timeou
 inspector/layers/layers-compositing-reasons.html [ Pass Failure ]
 inspector/layers/layers-blending-compositing-reasons.html [ Pass Failure ]
 
-webkit.org/b/265685 [ Sonoma+ ] http/wpt/webcodecs/encoder-task-failing.html [ Failure ]
-
 # webkit.org/b/266168 Two wheel/mousewheel passive event listeners WPT test pass on macOS Sonoma and up
 [ Sonoma+ ] imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-mousewheel-event-listener-on-div.html [ Pass ]
 [ Sonoma+ ] imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-wheel-event-listener-on-div.html [ Pass ]
 
-# webkit.org/b/265834 ASSERTION FAILED with void WebCore::ViewTransition::ca llUpdateCallback() result of multiple tests constant crash
-[ Monterey Ventura Debug ] imported/w3c/web-platform-tests/css/css-view-transitions [ Skip ]
+webkit.org/b/266356 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-webrtc.https.html [ Pass Failure ]
+
+webkit.org/b/265957 fullscreen/full-screen-layer-dump.html [ Failure ]
+
+# SVG Animations Failures on WPT Import
+imported/w3c/web-platform-tests/svg/animations/reinserting-svg-into-document.html [ Failure ]
+imported/w3c/web-platform-tests/svg/animations/use-animate-display-none-symbol-2.html [ Pass Failure ]

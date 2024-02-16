@@ -99,9 +99,9 @@ private:
 };
 
 class ShareableBitmapHandle  {
-    WTF_MAKE_NONCOPYABLE(ShareableBitmapHandle);
 public:
     ShareableBitmapHandle(ShareableBitmapHandle&&) = default;
+    explicit ShareableBitmapHandle(const ShareableBitmapHandle&) = default;
     ShareableBitmapHandle(SharedMemory::Handle&&, const ShareableBitmapConfiguration&);
 
     ShareableBitmapHandle& operator=(ShareableBitmapHandle&&) = default;

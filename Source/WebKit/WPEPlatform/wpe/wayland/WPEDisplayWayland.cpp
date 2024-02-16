@@ -35,12 +35,16 @@
 #include "WPEWaylandSeat.h"
 #include "linux-dmabuf-unstable-v1-client-protocol.h"
 #include "xdg-shell-client-protocol.h"
-#include <epoxy/egl.h>
 #include <gio/gio.h>
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/WTFGType.h>
+
+// These includes need to be in this order because wayland-egl.h defines WL_EGL_PLATFORM
+// and egl.h checks that to decide whether it's Wayland platform.
+#include <wayland-egl.h>
+#include <epoxy/egl.h>
 
 /**
  * WPEDisplayWayland:
@@ -150,6 +154,9 @@ static void wpeDisplayWaylandDispose(GObject* object)
         priv->eventSource = nullptr;
     }
 
+    priv->wlSeat = nullptr;
+    priv->wlCursor = nullptr;
+    priv->wlOutputs.clear();
     g_clear_pointer(&priv->linuxDMABuf, zwp_linux_dmabuf_v1_destroy);
     g_clear_pointer(&priv->wlSHM, wl_shm_destroy);
     g_clear_pointer(&priv->xdgWMBase, xdg_wm_base_destroy);

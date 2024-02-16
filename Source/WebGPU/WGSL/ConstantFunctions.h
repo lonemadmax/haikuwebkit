@@ -717,9 +717,22 @@ CONSTANT_FUNCTION(BitwiseShiftRight)
 
 CONSTANT_CONSTRUCTOR(Bool, bool)
 CONSTANT_CONSTRUCTOR(I32, int32_t)
-CONSTANT_CONSTRUCTOR(U32, uint32_t)
 CONSTANT_CONSTRUCTOR(F32, float)
 CONSTANT_CONSTRUCTOR(F16, half)
+
+CONSTANT_FUNCTION(U32)
+{
+    if (arguments.size()) {
+        if (auto* abstractInt = std::get_if<int64_t>(&arguments[0])) {
+            auto result = convertInteger<uint32_t>(*abstractInt);
+            if (result)
+                return { *result };
+            return makeUnexpected(makeString("value ", String::number(*abstractInt), " cannot be represented as 'u32'"));
+        }
+    }
+
+    return { constantConstructor<uint32_t>(resultType, arguments) };
+}
 
 CONSTANT_FUNCTION(Vec2)
 {
@@ -1080,10 +1093,11 @@ CONSTANT_FUNCTION(Frexp)
     ASSERT(arguments.size() == 1);
 
     const auto& frexpValue = [&](auto value) -> std::tuple<ConstantValue, ConstantValue> {
-        using Exp = std::conditional_t<std::is_same_v<decltype(value), double>, int64_t, int>;
+        using T = decltype(value);
+        using Exp = std::conditional_t<std::is_same_v<T, double>, int64_t, int>;
         int exp;
         auto fract = std::frexp(value, &exp);
-        return { ConstantValue(fract), ConstantValue(static_cast<Exp>(exp)) };
+        return { ConstantValue(static_cast<T>(fract)), ConstantValue(static_cast<Exp>(exp)) };
     };
 
     const auto& frexpScalar = [&](auto value) {
@@ -1157,7 +1171,7 @@ CONSTANT_FUNCTION(Ldexp)
         if (auto* f32E1 = std::get_if<float>(&e1))
             return *f32E1 * std::pow(2.f, static_cast<float>(std::get<int32_t>(e2)));
         if (auto* f16E1 = std::get_if<half>(&e1))
-            return *f16E1 * std::pow(2.f, static_cast<half>(std::get<int32_t>(e2)));
+            return static_cast<half>(*f16E1 * std::pow(2.f, static_cast<float>(std::get<int32_t>(e2))));
         RELEASE_ASSERT_NOT_REACHED();
     }, arguments[0], arguments[1]);
 }
@@ -1166,14 +1180,50 @@ UNARY_OPERATION(Log, Float, WRAP_STD(log))
 UNARY_OPERATION(Log2, Float, WRAP_STD(log2))
 BINARY_OPERATION(Max, Number, WRAP_STD(max))
 BINARY_OPERATION(Min, Number, WRAP_STD(min))
-TERNARY_OPERATION(Mix, Number, [&](auto e1, auto e2, auto e3) { return  e1 * (1 - e3) + e2 * e3; })
+TERNARY_OPERATION(Mix, Number, [&]<typename T>(T e1, T e2, T e3) -> T { return  e1 * (1 - e3) + e2 * e3; })
 
 CONSTANT_FUNCTION(Modf)
 {
-    // FIXME: this needs the special return types __modf_result_*
     UNUSED_PARAM(resultType);
-    UNUSED_PARAM(arguments);
-    RELEASE_ASSERT_NOT_REACHED();
+    ASSERT(arguments.size() == 1);
+
+    const auto& modfValue = [&](auto value) -> std::tuple<ConstantValue, ConstantValue> {
+        using T = decltype(value);
+        using Whole = std::conditional_t<std::is_same_v<T, half>, float, T>;
+        Whole whole;
+        T fract = std::modf(value, &whole);
+        return { ConstantValue(fract), ConstantValue(static_cast<T>(whole)) };
+    };
+
+    const auto& modfScalar = [&](auto value) {
+        if (auto* f32 = std::get_if<float>(&value))
+            return modfValue(*f32);
+        if (auto* f16 = std::get_if<half>(&value))
+            return modfValue(*f16);
+        if (auto* abstractFloat = std::get_if<double>(&value))
+            return modfValue(*abstractFloat);
+        RELEASE_ASSERT_NOT_REACHED();
+    };
+
+    auto [fract, whole] = [&]() -> std::tuple<ConstantValue, ConstantValue> {
+        auto& arg = arguments[0];
+
+        if (!std::holds_alternative<ConstantVector>(arg))
+            return modfScalar(arg);
+
+        auto& argVector = std::get<ConstantVector>(arg);
+        auto size = argVector.elements.size();
+        ConstantVector fractVector(size);
+        ConstantVector wholeVector(size);
+        for (unsigned i = 0; i < size; ++i) {
+            auto [fract, whole] = modfScalar(argVector.elements[i]);
+            fractVector.elements[i] = fract;
+            wholeVector.elements[i] = whole;
+        }
+        return { fractVector, wholeVector };
+    }();
+
+    return { ConstantStruct({ { { "fract"_s, fract }, { "whole"_s, whole } } }) };
 }
 
 CONSTANT_FUNCTION(Normalize)
@@ -1187,13 +1237,13 @@ CONSTANT_FUNCTION(Normalize)
 
 BINARY_OPERATION(Pow, Float, WRAP_STD(pow))
 
-CONSTANT_FUNCTION(QuantizeToF16)
-{
-    // FIXME: add support for f16
+UNARY_OPERATION(QuantizeToF16, F32, [&](float arg) -> ConstantResult {
     UNUSED_PARAM(resultType);
-    UNUSED_PARAM(arguments);
-    RELEASE_ASSERT_NOT_REACHED();
-}
+    auto converted = convertFloat<half>(arg);
+    if (!converted)
+        return makeUnexpected(makeString("value ", String::number(arg), " cannot be represented as 'f16'"));
+    return { { static_cast<float>(*converted) } };
+});
 
 UNARY_OPERATION(Radians, Float, [&]<typename T>(T arg) -> T { return arg * std::numbers::pi / 180; })
 
@@ -1270,7 +1320,7 @@ UNARY_OPERATION(ReverseBits, Integer, [&]<typename T>(T e) -> T {
     return result;
 })
 
-UNARY_OPERATION(Round, Float, [&](auto v) {
+UNARY_OPERATION(Round, Float, [&]<typename T>(T v) -> T {
     auto rounded = std::round(v);
     if (rounded - v == 0.5 && fmod(rounded, 2))
         return rounded - 1;
@@ -1317,6 +1367,204 @@ CONSTANT_FUNCTION(Transpose)
 }
 
 UNARY_OPERATION(Trunc, Float, WRAP_STD(trunc))
+
+// Data Packing
+CONSTANT_FUNCTION(Pack4x8snorm)
+{
+    UNUSED_PARAM(resultType);
+    auto& vector = std::get<ConstantVector>(arguments[0]);
+    std::array<int8_t, 4> packed;
+    for (unsigned i = 0; i < 4; ++i) {
+        auto e = std::get<float>(vector.elements[i]);
+        packed[i] = static_cast<int8_t>(std::floor(0.5 + 127 * std::min(1.f, std::max(-1.f, e))));
+    }
+    return { { bitwise_cast<uint32_t>(packed) } };
+}
+
+CONSTANT_FUNCTION(Pack4x8unorm)
+{
+    UNUSED_PARAM(resultType);
+    auto& vector = std::get<ConstantVector>(arguments[0]);
+    std::array<uint8_t, 4> packed;
+    for (unsigned i = 0; i < 4; ++i) {
+        auto e = std::get<float>(vector.elements[i]);
+        packed[i] = static_cast<uint8_t>(std::floor(0.5 + 255 * std::min(1.f, std::max(0.f, e))));
+    }
+    return { { bitwise_cast<uint32_t>(packed) } };
+}
+
+CONSTANT_FUNCTION(Pack4xI8)
+{
+    UNUSED_PARAM(resultType);
+    auto& vector = std::get<ConstantVector>(arguments[0]);
+    std::array<uint8_t, 4> packed;
+    for (unsigned i = 0; i < 4; ++i) {
+        auto e = std::get<int32_t>(vector.elements[i]);
+        packed[i] = static_cast<uint8_t>(e);
+    }
+    return { { bitwise_cast<uint32_t>(packed) } };
+}
+
+CONSTANT_FUNCTION(Pack4xU8)
+{
+    UNUSED_PARAM(resultType);
+    auto& vector = std::get<ConstantVector>(arguments[0]);
+    std::array<uint8_t, 4> packed;
+    for (unsigned i = 0; i < 4; ++i) {
+        auto e = std::get<uint32_t>(vector.elements[i]);
+        packed[i] = static_cast<uint8_t>(e);
+    }
+    return { { bitwise_cast<uint32_t>(packed) } };
+}
+
+CONSTANT_FUNCTION(Pack4xI8Clamp)
+{
+    UNUSED_PARAM(resultType);
+    auto& vector = std::get<ConstantVector>(arguments[0]);
+    std::array<uint8_t, 4> packed;
+    for (unsigned i = 0; i < 4; ++i) {
+        auto e = std::get<int32_t>(vector.elements[i]);
+        packed[i] = static_cast<uint8_t>(std::min(127, std::max(-128, e)));
+    }
+    return { { bitwise_cast<uint32_t>(packed) } };
+}
+
+CONSTANT_FUNCTION(Pack4xU8Clamp)
+{
+    UNUSED_PARAM(resultType);
+    auto& vector = std::get<ConstantVector>(arguments[0]);
+    std::array<uint8_t, 4> packed;
+    for (unsigned i = 0; i < 4; ++i) {
+        auto e = std::get<uint32_t>(vector.elements[i]);
+        packed[i] = static_cast<uint8_t>(std::min(255u, e));
+    }
+    return { { bitwise_cast<uint32_t>(packed) } };
+}
+
+CONSTANT_FUNCTION(Pack2x16snorm)
+{
+    UNUSED_PARAM(resultType);
+    auto& vector = std::get<ConstantVector>(arguments[0]);
+    std::array<int16_t, 2> packed;
+    for (unsigned i = 0; i < 2; ++i) {
+        auto e = std::get<float>(vector.elements[i]);
+        packed[i] = static_cast<int16_t>(std::floor(0.5 + 32767 * std::min(1.f, std::max(-1.f, e))));
+    }
+    return { { bitwise_cast<uint32_t>(packed) } };
+}
+
+CONSTANT_FUNCTION(Pack2x16unorm)
+{
+    UNUSED_PARAM(resultType);
+    auto& vector = std::get<ConstantVector>(arguments[0]);
+    std::array<uint16_t, 2> packed;
+    for (unsigned i = 0; i < 2; ++i) {
+        auto e = std::get<float>(vector.elements[i]);
+        packed[i] = static_cast<uint16_t>(std::floor(0.5 + 65535 * std::min(1.f, std::max(0.f, e))));
+    }
+    return { { bitwise_cast<uint32_t>(packed) } };
+}
+
+CONSTANT_FUNCTION(Pack2x16float)
+{
+    UNUSED_PARAM(resultType);
+    auto& vector = std::get<ConstantVector>(arguments[0]);
+    std::array<half, 2> packed;
+    for (unsigned i = 0; i < 2; ++i) {
+        auto e = std::get<float>(vector.elements[i]);
+        auto converted = convertFloat<half>(e);
+        if (!converted)
+            return makeUnexpected(makeString("value ", String::number(e), " cannot be represented as 'f16'"));
+        packed[i] = *converted;
+    }
+    return { { bitwise_cast<uint32_t>(packed) } };
+}
+
+// Data Unpacking
+CONSTANT_FUNCTION(Unpack4x8snorm)
+{
+    UNUSED_PARAM(resultType);
+    auto argument = std::get<uint32_t>(arguments[0]);
+    auto packed = bitwise_cast<std::array<int8_t, 4>>(argument);
+    ConstantVector result(4);
+    for (unsigned i = 0; i < 4; ++i) {
+        auto e = static_cast<float>(packed[i]);
+        result.elements[i] = std::max(e / 127.f, -1.f);
+    }
+    return { result };
+}
+
+CONSTANT_FUNCTION(Unpack4x8unorm)
+{
+    UNUSED_PARAM(resultType);
+    auto argument = std::get<uint32_t>(arguments[0]);
+    auto packed = bitwise_cast<std::array<uint8_t, 4>>(argument);
+    ConstantVector result(4);
+    for (unsigned i = 0; i < 4; ++i) {
+        auto e = static_cast<float>(packed[i]);
+        result.elements[i] = e / 255.f;
+    }
+    return { result };
+}
+
+CONSTANT_FUNCTION(Unpack4xI8)
+{
+    UNUSED_PARAM(resultType);
+    auto argument = std::get<uint32_t>(arguments[0]);
+    auto packed = bitwise_cast<std::array<int8_t, 4>>(argument);
+    ConstantVector result(4);
+    for (unsigned i = 0; i < 4; ++i)
+        result.elements[i] = static_cast<int32_t>(packed[i]);
+    return { result };
+}
+
+CONSTANT_FUNCTION(Unpack4xU8)
+{
+    UNUSED_PARAM(resultType);
+    auto argument = std::get<uint32_t>(arguments[0]);
+    auto packed = bitwise_cast<std::array<uint8_t, 4>>(argument);
+    ConstantVector result(4);
+    for (unsigned i = 0; i < 4; ++i)
+        result.elements[i] = static_cast<uint32_t>(packed[i]);
+    return { result };
+}
+
+CONSTANT_FUNCTION(Unpack2x16snorm)
+{
+    UNUSED_PARAM(resultType);
+    auto argument = std::get<uint32_t>(arguments[0]);
+    auto packed = bitwise_cast<std::array<int16_t, 2>>(argument);
+    ConstantVector result(2);
+    for (unsigned i = 0; i < 2; ++i) {
+        auto e = static_cast<float>(packed[i]);
+        result.elements[i] = std::max(e / 32767.f, -1.f);
+    }
+    return { result };
+}
+
+CONSTANT_FUNCTION(Unpack2x16unorm)
+{
+    UNUSED_PARAM(resultType);
+    auto argument = std::get<uint32_t>(arguments[0]);
+    auto packed = bitwise_cast<std::array<int16_t, 2>>(argument);
+    ConstantVector result(2);
+    for (unsigned i = 0; i < 2; ++i) {
+        auto e = static_cast<float>(packed[i]);
+        result.elements[i] = e / 65535.f;
+    }
+    return { result };
+}
+
+CONSTANT_FUNCTION(Unpack2x16float)
+{
+    UNUSED_PARAM(resultType);
+    auto argument = std::get<uint32_t>(arguments[0]);
+    auto packed = bitwise_cast<std::array<half, 2>>(argument);
+    ConstantVector result(2);
+    for (unsigned i = 0; i < 2; ++i)
+        result.elements[i] = static_cast<float>(packed[i]);
+    return { result };
+}
 
 // Type checker helpers
 

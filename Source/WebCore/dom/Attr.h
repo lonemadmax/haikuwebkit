@@ -63,7 +63,6 @@ private:
     Attr(Document&, const QualifiedName&, const AtomString& value);
 
     String nodeName() const final { return name(); }
-    NodeType nodeType() const final { return ATTRIBUTE_NODE; }
 
     String nodeValue() const final { return value(); }
     void setNodeValue(const String&) final;
@@ -78,7 +77,7 @@ private:
 
     // Attr wraps either an element/name, or a name/value pair (when it's a standalone Node.)
     // Note that m_name is always set, but m_element/m_standaloneValue may be null.
-    CheckedPtr<Element> m_element;
+    WeakPtr<Element, WeakPtrImplWithEventTargetData> m_element;
     QualifiedName m_name;
     AtomString m_standaloneValue;
 

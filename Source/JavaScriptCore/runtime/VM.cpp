@@ -669,14 +669,20 @@ static ThunkGenerator thunkGeneratorForIntrinsic(Intrinsic intrinsic)
         return imulThunkGenerator;
     case RandomIntrinsic:
         return randomThunkGenerator;
+#if !OS(WINDOWS)
     case BoundFunctionCallIntrinsic:
         return boundFunctionCallGenerator;
     case RemoteFunctionCallIntrinsic:
         return remoteFunctionCallGenerator;
+#endif
     case NumberConstructorIntrinsic:
         return numberConstructorCallThunkGenerator;
     case StringConstructorIntrinsic:
         return stringConstructorCallThunkGenerator;
+    case ToIntegerOrInfinityIntrinsic:
+        return toIntegerOrInfinityThunkGenerator;
+    case ToLengthIntrinsic:
+        return toLengthThunkGenerator;
     default:
         return nullptr;
     }

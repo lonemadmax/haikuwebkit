@@ -38,6 +38,10 @@
 #include "ScrollbarsController.h"
 #include <algorithm>
 
+#if PLATFORM(MAC)
+#include "ScrollbarMac.h"
+#endif
+
 #if PLATFORM(GTK)
 // The position of the scrollbar thumb affects the appearance of the steppers, so
 // when the thumb moves, we have to invalidate them for painting.
@@ -48,7 +52,11 @@ namespace WebCore {
 
 Ref<Scrollbar> Scrollbar::createNativeScrollbar(ScrollableArea& scrollableArea, ScrollbarOrientation orientation, ScrollbarWidth width)
 {
+#if PLATFORM(MAC)
+    return adoptRef(*new ScrollbarMac(scrollableArea, orientation, width));
+#else
     return adoptRef(*new Scrollbar(scrollableArea, orientation, width));
+#endif
 }
 
 static bool s_shouldUseFixedPixelsPerLineStepForTesting;
@@ -299,8 +307,8 @@ void Scrollbar::moveThumb(int pos, bool draggingDocument)
         delta = std::max(-thumbPos, delta);
     
     if (delta) {
-        float newPosition = static_cast<float>(thumbPos + delta) * maximum() / (trackLen - thumbLen);
-        m_scrollableArea.scrollToOffsetWithoutAnimation(m_orientation, newPosition);
+        float newOffset = static_cast<float>(thumbPos + delta) * maximum() / (trackLen - thumbLen);
+        m_scrollableArea.scrollToOffsetWithoutAnimation(m_orientation, newOffset);
     }
 }
 

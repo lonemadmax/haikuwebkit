@@ -62,12 +62,12 @@ public:
     FrameTree& tree() const { return m_treeNode; }
     FrameIdentifier frameID() const { return m_frameID; }
     inline Page* page() const; // Defined in Page.h.
-    inline CheckedPtr<Page> checkedPage() const; // Defined in Page.h.
+    inline RefPtr<Page> protectedPage() const; // Defined in Page.h.
     WEBCORE_EXPORT std::optional<PageIdentifier> pageID() const;
     Settings& settings() const { return m_settings.get(); }
     Frame& mainFrame() const { return m_mainFrame.get(); }
     bool isMainFrame() const { return this == m_mainFrame.ptr(); }
-    WEBCORE_EXPORT bool isRootFrame() const;
+    virtual bool isRootFrame() const = 0;
 
     WEBCORE_EXPORT void detachFromPage();
 
@@ -104,7 +104,7 @@ protected:
 private:
     virtual DOMWindow* virtualWindow() const = 0;
 
-    WeakPtr<Page> m_page;
+    SingleThreadWeakPtr<Page> m_page;
     const FrameIdentifier m_frameID;
     mutable FrameTree m_treeNode;
     Ref<WindowProxy> m_windowProxy;

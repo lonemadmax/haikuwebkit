@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2015-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2015-2023 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -44,6 +44,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/Vector.h>
 
 namespace JSC {
@@ -529,7 +530,7 @@ struct FunctionData {
 };
 
 class I32InitExpr {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(I32InitExpr);
     enum Type : uint8_t {
         Global,
         Const,
@@ -601,44 +602,46 @@ struct Segment {
 struct Element {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
 
-    // nullFuncIndex represents the case when an element segment contains a null element.
-    constexpr static uint32_t nullFuncIndex = UINT32_MAX;
-
     enum class Kind : uint8_t {
         Active,
         Passive,
         Declared,
     };
 
-    Element(Element::Kind kind, TableElementType elementType, std::optional<uint32_t> tableIndex, std::optional<I32InitExpr> initExpr)
+    enum InitializationType : uint8_t {
+        FromGlobal,
+        FromRefFunc,
+        FromRefNull,
+        FromExtendedExpression,
+    };
+
+    Element(Element::Kind kind, Type elementType, std::optional<uint32_t> tableIndex, std::optional<I32InitExpr> initExpr)
         : kind(kind)
         , elementType(elementType)
         , tableIndexIfActive(WTFMove(tableIndex))
         , offsetIfActive(WTFMove(initExpr))
     { }
 
-    Element(Element::Kind kind, TableElementType elemType)
+    Element(Element::Kind kind, Type elemType)
         : Element(kind, elemType, std::nullopt, std::nullopt)
     { }
 
-    uint32_t length() const { return functionIndices.size(); }
+    uint32_t length() const { return initTypes.size(); }
 
     bool isActive() const { return kind == Kind::Active; }
     bool isPassive() const { return kind == Kind::Passive; }
 
-    static bool isNullFuncIndex(uint32_t idx) { return idx == nullFuncIndex; }
-
     Kind kind;
-    TableElementType elementType;
+    Type elementType;
     std::optional<uint32_t> tableIndexIfActive;
     std::optional<I32InitExpr> offsetIfActive;
 
-    // Index may be nullFuncIndex.
-    Vector<uint32_t> functionIndices;
+    Vector<InitializationType> initTypes;
+    Vector<uint64_t> initialBitsOrIndices;
 };
 
 class TableInformation {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(TableInformation);
 public:
     enum InitializationType : uint8_t {
         Default,

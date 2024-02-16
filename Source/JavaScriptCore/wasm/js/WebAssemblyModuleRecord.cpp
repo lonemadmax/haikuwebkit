@@ -220,7 +220,7 @@ void WebAssemblyModuleRecord::initializeImports(JSGlobalObject* globalObject, JS
                     function = wasmWrapperFunction->function();
                 }
                 Wasm::TypeIndex expectedTypeIndex = moduleInformation.importFunctionTypeIndices[import.kindIndex];
-                if (importedTypeIndex != expectedTypeIndex)
+                if (!Wasm::isSubtypeIndex(importedTypeIndex, expectedTypeIndex))
                     return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "imported function", "signature doesn't match the provided WebAssembly function's signature")));
             }
             // iii. Otherwise:
@@ -242,7 +242,7 @@ void WebAssemblyModuleRecord::initializeImports(JSGlobalObject* globalObject, JS
             if (global.mutability == Wasm::Immutable) {
                 if (value.inherits<JSWebAssemblyGlobal>()) {
                     JSWebAssemblyGlobal* globalValue = jsCast<JSWebAssemblyGlobal*>(value);
-                    if (!isSubtype(globalValue->global()->type(), global.type))
+                    if (!Wasm::isSubtype(globalValue->global()->type(), global.type))
                         return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "imported global", "must be a same type")));
                     if (globalValue->global()->mutability() != Wasm::Immutable)
                         return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "imported global", "must be a same mutability")));
@@ -264,7 +264,7 @@ void WebAssemblyModuleRecord::initializeImports(JSGlobalObject* globalObject, JS
                             if (!global.type.isNullable() && value.isNull())
                                 return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "imported global", "non-null externref cannot be null")));
                             m_instance->instance().setGlobal(import.kindIndex, value);
-                        } else if (Wasm::isFuncref(declaredGlobalType) || Wasm::isRefWithTypeIndex(declaredGlobalType)) {
+                        } else if (Wasm::isFuncref(declaredGlobalType) || (!Options::useWebAssemblyGC() && isRefWithTypeIndex(declaredGlobalType))) {
                             WebAssemblyFunction* wasmFunction = nullptr;
                             WebAssemblyWrapperFunction* wasmWrapperFunction = nullptr;
                             value = globalValue->global()->get(globalObject);
@@ -282,8 +282,12 @@ void WebAssemblyModuleRecord::initializeImports(JSGlobalObject* globalObject, JS
                             }
 
                             m_instance->instance().setGlobal(import.kindIndex, value);
-                        } else
-                            RELEASE_ASSERT_NOT_REACHED();
+                        } else {
+                            RELEASE_ASSERT(Options::useWebAssemblyGC());
+                            value = Wasm::internalizeExternref(globalValue->global()->get(globalObject));
+                            if (!Wasm::TypeInformation::castReference(value, declaredGlobalType.isNullable(), declaredGlobalType.index))
+                                return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "imported global", "Argument value did not match the reference type")));
+                        }
                     }
                 } else {
                     const auto globalType = moduleInformation.globals[import.kindIndex].type;
@@ -323,7 +327,7 @@ void WebAssemblyModuleRecord::initializeImports(JSGlobalObject* globalObject, JS
                             if (!globalType.isNullable() && value.isNull())
                                 return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "imported global", "must be a non-null value")));
                             m_instance->instance().setGlobal(import.kindIndex, value);
-                        } else if (Wasm::isFuncref(globalType) || Wasm::isRefWithTypeIndex(globalType)) {
+                        } else if (Wasm::isFuncref(globalType) || (!Options::useWebAssemblyGC() && Wasm::isRefWithTypeIndex(globalType))) {
                             WebAssemblyFunction* wasmFunction = nullptr;
                             WebAssemblyWrapperFunction* wasmWrapperFunction = nullptr;
                             if (!isWebAssemblyHostFunction(value, wasmFunction, wasmWrapperFunction) && (!globalType.isNullable() || !value.isNull())) {
@@ -339,15 +343,19 @@ void WebAssemblyModuleRecord::initializeImports(JSGlobalObject* globalObject, JS
                             }
 
                             m_instance->instance().setGlobal(import.kindIndex, value);
-                        } else
-                            RELEASE_ASSERT_NOT_REACHED();
+                        } else {
+                            RELEASE_ASSERT(Options::useWebAssemblyGC());
+                            value = Wasm::internalizeExternref(value);
+                            if (!Wasm::TypeInformation::castReference(value, global.type.isNullable(), global.type.index))
+                                return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "imported global", "Argument value did not match the reference type")));
+                        }
                     }
                 }
             } else {
                 if (!value.inherits<JSWebAssemblyGlobal>())
                     return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "imported global", "must be a WebAssembly.Global object since it is mutable")));
                 JSWebAssemblyGlobal* globalValue = jsCast<JSWebAssemblyGlobal*>(value);
-                if (globalValue->global()->type() != global.type)
+                if (!isSubtype(globalValue->global()->type(), global.type))
                     return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "imported global", "must be a same type")));
                 if (globalValue->global()->mutability() != global.mutability)
                     return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "imported global", "must be a same mutability")));
@@ -377,9 +385,9 @@ void WebAssemblyModuleRecord::initializeImports(JSGlobalObject* globalObject, JS
                     return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "Imported Table", "'maximum' is larger than the module's expected 'maximum'")));
             }
 
-            auto expectedType = moduleInformation.tables[import.kindIndex].type();
-            auto actualType = table->table()->type();
-            if (expectedType != actualType)
+            auto expectedType = moduleInformation.tables[import.kindIndex].wasmType();
+            auto actualType = table->table()->wasmType();
+            if (!Wasm::isSubtype(actualType, expectedType))
                 return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "Table import", "provided a 'type' that is wrong")));
 
             // ii. Append v to tables.
@@ -396,6 +404,7 @@ void WebAssemblyModuleRecord::initializeImports(JSGlobalObject* globalObject, JS
 
             Wasm::TypeIndex expectedTypeIndex = moduleInformation.importExceptionTypeIndices[import.kindIndex];
 
+            // FIXME: change this to subtyping if the final exception proposal specifies it.
             if (expectedTypeIndex != tag->tag().typeIndex())
                 return exception(createJSWebAssemblyLinkError(globalObject, vm, importFailMessage(import, "imported Tag", "signature doesn't match the imported WebAssembly Tag's signature")));
 
@@ -756,7 +765,7 @@ JSValue WebAssemblyModuleRecord::evaluateConstantExpression(JSGlobalObject* glob
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    auto evalResult = Wasm::evaluateExtendedConstExpr(constantExpression, m_instance->instance(), info, expectedType);
+    auto evalResult = Wasm::evaluateExtendedConstExpr(constantExpression, &m_instance->instance(), info, expectedType);
     if (UNLIKELY(!evalResult.has_value()))
         return JSValue(throwException(globalObject, scope, createJSWebAssemblyRuntimeError(globalObject, vm, makeString("couldn't evaluate constant expression: "_s, evalResult.error()))));
 
@@ -792,6 +801,9 @@ JSValue WebAssemblyModuleRecord::evaluate(JSGlobalObject* globalObject)
             // getting here.
             ASSERT(!!m_instance->table(*element.tableIndexIfActive));
 
+            // Evaluate the element segment offset, which may be an extended constant expression.
+            // We could also evaluate the vector of expressions here, but we have nowhere safe to
+            // store the resulting references so we defer that until table init.
             const auto& offset = *element.offsetIfActive;
             uint32_t elementIndex = 0;
             if (offset.isGlobalImport())
@@ -843,7 +855,7 @@ JSValue WebAssemblyModuleRecord::evaluate(JSGlobalObject* globalObject)
 
     // Validation of all element ranges comes before all Table and Memory initialization.
     forEachActiveElement([&](const Wasm::Element& element, uint32_t tableIndex, uint32_t elementIndex) {
-        int64_t lastWrittenIndex = static_cast<int64_t>(elementIndex) + static_cast<int64_t>(element.functionIndices.size()) - 1;
+        int64_t lastWrittenIndex = static_cast<int64_t>(elementIndex) + static_cast<int64_t>(element.initTypes.size()) - 1;
         if (UNLIKELY(lastWrittenIndex >= m_instance->table(tableIndex)->length())) {
             exception = JSValue(throwException(globalObject, scope, createJSWebAssemblyRuntimeError(globalObject, vm, "Element is trying to set an out of bounds table index"_s)));
             return IterationStatus::Done;

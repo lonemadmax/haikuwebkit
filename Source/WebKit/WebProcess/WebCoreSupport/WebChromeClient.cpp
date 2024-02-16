@@ -162,7 +162,7 @@ using namespace WebCore;
 using namespace HTMLNames;
 
 AXRelayProcessSuspendedNotification::AXRelayProcessSuspendedNotification(Ref<WebPage> page, AutomaticallySend automaticallySend)
-    : m_page(page)
+    : m_page(page.get())
     , m_automaticallySend(automaticallySend)
 {
     if (m_automaticallySend == AutomaticallySend::Yes)
@@ -318,13 +318,14 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& win
         modifiersForNavigationAction(navigationAction),
         mouseButton(navigationAction),
         syntheticClickType(navigationAction),
-        webProcess.userGestureTokenIdentifier(navigationAction.userGestureToken()),
+        webProcess.userGestureTokenIdentifier(navigationAction.requester()->pageID, navigationAction.userGestureToken()),
         navigationAction.userGestureToken() ? navigationAction.userGestureToken()->authorizationToken() : std::nullopt,
-        protectedPage()->canHandleRequest(navigationAction.resourceRequest()),
+        protectedPage()->canHandleRequest(navigationAction.originalRequest()),
         navigationAction.shouldOpenExternalURLsPolicy(),
         navigationAction.downloadAttribute(),
         mouseEventData ? mouseEventData->locationInRootViewCoordinates : FloatPoint { },
         { }, /* redirectResponse */
+        navigationAction.isRequestFromClientOrUserInput(),
         false, /* treatAsSameOriginNavigation */
         false, /* hasOpenedFrames */
         false, /* openedByDOMWithOpener */
@@ -347,7 +348,7 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& win
 
     auto webFrame = WebFrame::fromCoreFrame(frame);
 
-    auto sendResult = webProcess.parentProcessConnection()->sendSync(Messages::WebPageProxy::CreateNewPage(webFrame->info(), webFrame->page()->webPageProxyIdentifier(), navigationAction.resourceRequest(), windowFeatures, navigationActionData), page().identifier(), IPC::Timeout::infinity(), { IPC::SendSyncOption::MaintainOrderingWithAsyncMessages });
+    auto sendResult = webProcess.parentProcessConnection()->sendSync(Messages::WebPageProxy::CreateNewPage(webFrame->info(), webFrame->page()->webPageProxyIdentifier(), navigationAction.originalRequest(), windowFeatures, navigationActionData), page().identifier(), IPC::Timeout::infinity(), { IPC::SendSyncOption::MaintainOrderingWithAsyncMessages });
     if (!sendResult.succeeded())
         return nullptr;
 
@@ -507,6 +508,18 @@ void WebChromeClient::closeWindow()
         coreFrame->loader().stopForUserCancel();
 
     page->sendClose();
+}
+
+void WebChromeClient::rootFrameAdded(const WebCore::LocalFrame& frame)
+{
+    if (auto* drawingArea = page().drawingArea())
+        drawingArea->addRootFrame(frame.frameID());
+}
+
+void WebChromeClient::rootFrameRemoved(const WebCore::LocalFrame& frame)
+{
+    if (auto* drawingArea = page().drawingArea())
+        drawingArea->removeRootFrame(frame.frameID());
 }
 
 static bool shouldSuppressJavaScriptDialogs(LocalFrame& frame)
@@ -1455,8 +1468,6 @@ void WebChromeClient::handleAutoplayEvent(AutoplayEvent event, OptionSet<Autopla
     protectedPage()->send(Messages::WebPageProxy::HandleAutoplayEvent(event, flags));
 }
 
-#if ENABLE(WEB_CRYPTO)
-
 bool WebChromeClient::wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>& wrappedKey) const
 {
     auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::WrapCryptoKey(key), page().identifier());
@@ -1478,8 +1489,6 @@ bool WebChromeClient::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<
     std::tie(succeeded, key) = sendResult.takeReply();
     return succeeded;
 }
-
-#endif
 
 #if ENABLE(APP_HIGHLIGHTS)
 void WebChromeClient::storeAppHighlight(WebCore::AppHighlight&& highlight) const

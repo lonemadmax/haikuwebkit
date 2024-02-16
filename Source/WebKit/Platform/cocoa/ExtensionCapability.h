@@ -28,9 +28,8 @@
 #if ENABLE(EXTENSION_CAPABILITIES)
 
 #include <wtf/Forward.h>
-#include <wtf/text/WTFString.h>
 
-OBJC_CLASS _SECapabilities;
+OBJC_CLASS _SECapability;
 
 namespace WebKit {
 
@@ -38,7 +37,7 @@ class ExtensionCapability {
 public:
     virtual ~ExtensionCapability() = default;
     virtual String environmentIdentifier() const = 0;
-    virtual RetainPtr<_SECapabilities> platformCapability() const = 0;
+    virtual RetainPtr<_SECapability> platformCapability() const = 0;
 
 protected:
     ExtensionCapability() = default;

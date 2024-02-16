@@ -348,6 +348,7 @@ constructor :u32, {
     const: true,
 
     [T < ConcreteScalar].(T) => u32,
+    [].(abstract_int) => u32,
 }
 
 # 16.1.2.17.
@@ -638,19 +639,19 @@ function :frexp, {
     const: true,
 
     [].(f32) => __frexp_result_f32,
-    # [].(f16) => __frexp_result_f16,
+    [].(f16) => __frexp_result_f16,
     [].(abstract_float) => __frexp_result_abstract,
 
     [].(vec2[f32]) => __frexp_result_vec2_f32,
-    # [].(vec2[f16]) => __frexp_result_vec2_f16,
+    [].(vec2[f16]) => __frexp_result_vec2_f16,
     [].(vec2[abstract_float]) => __frexp_result_vec2_abstract,
 
     [].(vec3[f32]) => __frexp_result_vec3_f32,
-    # [].(vec3[f16]) => __frexp_result_vec3_f16,
+    [].(vec3[f16]) => __frexp_result_vec3_f16,
     [].(vec3[abstract_float]) => __frexp_result_vec3_abstract,
 
     [].(vec4[f32]) => __frexp_result_vec4_f32,
-    # [].(vec4[f16]) => __frexp_result_vec4_f16,
+    [].(vec4[f16]) => __frexp_result_vec4_f16,
     [].(vec4[abstract_float]) => __frexp_result_vec4_abstract,
 }
 
@@ -736,7 +737,21 @@ function :modf, {
     must_use: true,
     const: true,
 
-    # FIXME: this needs the special return types __modf_result_*
+    [].(f32) => __modf_result_f32,
+    [].(f16) => __modf_result_f16,
+    [].(abstract_float) => __modf_result_abstract,
+
+    [].(vec2[f32]) => __modf_result_vec2_f32,
+    [].(vec2[f16]) => __modf_result_vec2_f16,
+    [].(vec2[abstract_float]) => __modf_result_vec2_abstract,
+
+    [].(vec3[f32]) => __modf_result_vec3_f32,
+    [].(vec3[f16]) => __modf_result_vec3_f16,
+    [].(vec3[abstract_float]) => __modf_result_vec3_abstract,
+
+    [].(vec4[f32]) => __modf_result_vec4_f32,
+    [].(vec4[f16]) => __modf_result_vec4_f16,
+    [].(vec4[abstract_float]) => __modf_result_vec4_abstract,
 }
 
 # 16.5.43
@@ -1374,14 +1389,142 @@ function :atomicStore, {
     }
 end
 
-# FIXME: Implement atomicCompareExchangeWeak (which depends on the result struct that is not currently supported)
-# fn atomicCompareExchangeWeak(atomic_ptr: ptr<AS, atomic<T>, read_write>, cmp: T, v: T) -> __atomic_compare_exchange_result<T>
+function :atomicCompareExchangeWeak, {
+    [AS].(ptr[AS, atomic[i32], read_write], i32, i32) => __atomic_compare_exchange_result_i32,
+    [AS].(ptr[AS, atomic[u32], read_write], u32, u32) => __atomic_compare_exchange_result_u32,
+}
 
 # 16.9. Data Packing Built-in Functions (https://www.w3.org/TR/WGSL/#pack-builtin-functions)
-# FIXME: implement
+
+# 16.9.1
+function :pack4x8snorm, {
+    # @const @must_use fn pack4x8snorm(e: vec4<f32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec4[f32]) => u32,
+}
+
+# 16.9.2
+function :pack4x8unorm, {
+    # @const @must_use fn pack4x8unorm(e: vec4<f32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec4[f32]) => u32,
+}
+
+# 16.9.3
+function :pack4xI8, {
+    # @const @must_use fn pack4xI8(e: vec4<i32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec4[i32]) => u32,
+}
+
+# 16.9.4
+function :pack4xU8, {
+    # @const @must_use fn pack4xu8(e: vec4<i32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec4[u32]) => u32,
+}
+
+# 16.9.5
+function :pack4xI8Clamp, {
+    # @const @must_use fn pack4xI8Clamp(e: vec4<i32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec4[i32]) => u32,
+}
+
+# 16.9.6
+function :pack4xU8Clamp, {
+    # @const @must_use fn pack4xU8Clamp(e: vec4<i32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec4[u32]) => u32,
+}
+
+# 16.9.7
+function :pack2x16snorm, {
+    # @const @must_use fn pack2x16snorm(e: vec2<f32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec2[f32]) => u32,
+}
+
+# 16.9.8
+function :pack2x16unorm, {
+    # @const @must_use fn pack2x16unorm(e: vec2<f32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec2[f32]) => u32,
+}
+
+# 16.9.9
+function :pack2x16float, {
+    # @const @must_use fn pack2x16float(e: vec2<f32>) -> u32
+    const: true,
+    must_use: true,
+    [].(vec2[f32]) => u32,
+}
 
 # 16.10. Data Unpacking Built-in Functions (https://www.w3.org/TR/WGSL/#unpack-builtin-functions)
-# FIXME: implement
+
+# 16.10.1
+function :unpack4x8snorm, {
+    # @const @must_use fn unpack4x8snorm(e: u32) -> vec4<f32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec4[f32],
+}
+
+# 16.10.2
+function :unpack4x8unorm, {
+    # @const @must_use fn unpack4x8unorm(e: u32) -> vec4<f32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec4[f32],
+}
+
+# 16.10.3
+function :unpack4xI8, {
+    # @const @must_use fn unpack4xI8(e: u32) -> vec4<i32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec4[i32],
+}
+
+# 16.10.4
+function :unpack4xU8, {
+    # @const @must_use fn unpack4xU8(e: u32) -> vec4<u32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec4[u32],
+}
+
+# 16.10.5
+function :unpack2x16snorm, {
+    # @const @must_use fn unpack2x16snorm(e: u32) -> vec2<f32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec2[f32],
+}
+
+# 16.10.6
+function :unpack2x16unorm, {
+    # @const @must_use fn unpack2x16unorm(e: u32) -> vec2<f32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec2[f32],
+}
+
+# 16.10.7
+function :unpack2x16float, {
+    # @const @must_use fn unpack2x16float(e: u32) -> vec2<f32>
+    const: true,
+    must_use: true,
+    [].(u32) => vec2[f32],
+}
 
 # 16.11. Synchronization Built-in Functions (https://www.w3.org/TR/WGSL/#sync-builtin-functions)
 

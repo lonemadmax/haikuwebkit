@@ -62,6 +62,7 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(RenderTextControlInnerBlock);
 RenderTextControlSingleLine::RenderTextControlSingleLine(Type type, HTMLInputElement& element, RenderStyle&& style)
     : RenderTextControl(type, element, WTFMove(style))
 {
+    ASSERT(isRenderTextControlSingleLine());
 }
 
 RenderTextControlSingleLine::~RenderTextControlSingleLine() = default;
@@ -157,7 +158,7 @@ void RenderTextControlSingleLine::layout()
             if (!inputElement().hasAutoFillStrongPasswordButton())
                 return nullptr;
 
-            CheckedPtr autoFillButtonElement = inputElement().autoFillButtonElement();
+            RefPtr autoFillButtonElement = inputElement().autoFillButtonElement();
             if (!autoFillButtonElement)
                 return nullptr;
 

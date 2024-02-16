@@ -124,7 +124,7 @@ public:
     virtual WebCore::GraphicsLayerFactory* graphicsLayerFactory() { return nullptr; }
     virtual void setRootCompositingLayer(WebCore::Frame&, WebCore::GraphicsLayer*) = 0;
     virtual void addRootFrame(WebCore::FrameIdentifier) { }
-    // FIXME: Add a corresponding removeRootFrame. <rdar://116202445>
+    virtual void removeRootFrame(WebCore::FrameIdentifier) { }
 
     // Cause a rendering update to happen as soon as possible.
     virtual void triggerRenderingUpdate() = 0;
@@ -193,7 +193,7 @@ protected:
 
     const DrawingAreaType m_type;
     DrawingAreaIdentifier m_identifier;
-    CheckedRef<WebPage> m_webPage;
+    WeakRef<WebPage> m_webPage;
     WebCore::IntSize m_lastViewSizeForScaleToFit;
     WebCore::IntSize m_lastDocumentSizeForScaleToFit;
     bool m_isScalingViewToFitDocument { false };
@@ -226,7 +226,7 @@ private:
 
 #if PLATFORM(COCOA) || PLATFORM(GTK)
     virtual void adjustTransientZoom(double scale, WebCore::FloatPoint origin) { }
-    virtual void commitTransientZoom(double scale, WebCore::FloatPoint origin) { }
+    virtual void commitTransientZoom(double scale, WebCore::FloatPoint origin, CompletionHandler<void()>&&) { }
 #endif
 
     bool m_hasRemovedMessageReceiver { false };

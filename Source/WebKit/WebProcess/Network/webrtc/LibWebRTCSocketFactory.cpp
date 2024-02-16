@@ -129,7 +129,7 @@ void LibWebRTCSocketFactory::addSocket(LibWebRTCSocket& socket)
 {
     ASSERT(!WTF::isMainRunLoop());
     ASSERT(!m_sockets.contains(socket.identifier()));
-    m_sockets.add(socket.identifier(), &socket);
+    m_sockets.add(socket.identifier(), socket);
 }
 
 void LibWebRTCSocketFactory::removeSocket(LibWebRTCSocket& socket)
@@ -144,20 +144,19 @@ void LibWebRTCSocketFactory::forSocketInGroup(ScriptExecutionContextIdentifier c
     ASSERT(!WTF::isMainRunLoop());
     for (auto& socket : m_sockets.values()) {
         if (socket->contextIdentifier() == contextIdentifier)
-            callback(*socket);
+            callback(socket);
     }
 }
 
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-// FIXME: https://bugs.webkit.org/show_bug.cgi?id=265791
-rtc::AsyncResolverInterface* LibWebRTCSocketFactory::createAsyncResolver()
+std::unique_ptr<LibWebRTCResolver> LibWebRTCSocketFactory::createAsyncDnsResolver()
 {
     auto resolver = makeUnique<LibWebRTCResolver>();
-    auto* resolverPointer = resolver.get();
-    m_resolvers.set(resolverPointer->identifier(), WTFMove(resolver));
-    return resolverPointer;
+
+    ASSERT(!m_resolvers.contains(resolver->identifier()));
+    m_resolvers.add(resolver->identifier(), *resolver);
+
+    return resolver;
 }
-ALLOW_DEPRECATED_DECLARATIONS_END
 
 } // namespace WebKit
 

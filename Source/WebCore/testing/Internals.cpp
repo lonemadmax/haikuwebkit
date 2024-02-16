@@ -1423,12 +1423,12 @@ ExceptionOr<String> Internals::shadowRootType(const Node& root) const
     }
 }
 
-const AtomString& Internals::shadowPseudoId(Element& element)
+const AtomString& Internals::userAgentPartId(Element& element)
 {
-    return element.shadowPseudoId();
+    return element.pseudo();
 }
 
-void Internals::setShadowPseudoId(Element& element, const AtomString& id)
+void Internals::setUserAgentPartId(Element& element, const AtomString& id)
 {
     return element.setPseudo(id);
 }
@@ -5491,6 +5491,24 @@ double Internals::lastHandledUserGestureTimestamp()
         return 0;
 
     return document->lastHandledUserGestureTimestamp().secondsSinceEpoch().value();
+}
+
+bool Internals::hasHistoryActionActivation()
+{
+    if (auto* document = contextDocument()) {
+        if (auto* window = document->domWindow())
+            return window->hasHistoryActionActivation();
+    }
+    return false;
+}
+
+bool Internals::consumeHistoryActionUserActivation()
+{
+    if (auto* document = contextDocument()) {
+        if (auto* window = document->domWindow())
+            return window->consumeHistoryActionUserActivation();
+    }
+    return false;
 }
 
 RefPtr<GCObservation> Internals::observeGC(JSC::JSValue value)

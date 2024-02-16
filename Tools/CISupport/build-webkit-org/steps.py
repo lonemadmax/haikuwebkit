@@ -352,10 +352,9 @@ class CompileWebKit(shell.Compile, CustomFlagsMixin):
             # without invalidating local builds made by Xcode, and we set it
             # via xcconfigs until all building of Xcode-based webkit is done in
             # workspaces (rdar://88135402).
-            self.setCommand(self.command + ['WK_VALIDATE_DEPENDENCIES=YES'])
             if architecture:
-                self.setCommand(self.command + ['ARCHS=' + architecture])
-                self.setCommand(self.command + ['ONLY_ACTIVE_ARCH=NO'])
+                self.setCommand(self.command + ['--architecture', architecture])
+            self.setCommand(self.command + ['WK_VALIDATE_DEPENDENCIES=YES'])
             if buildOnly:
                 # For build-only bots, the expectation is that tests will be run on separate machines,
                 # so we need to package debug info as dSYMs. Only generating line tables makes
@@ -997,7 +996,7 @@ class RunLLINTCLoopTests(TestWithFailureCount):
     jsonFileName = "jsc_cloop.json"
     command = [
         "perl", "Tools/Scripts/run-javascriptcore-tests",
-        "--no-build",
+        "--no-build", "--cloop",
         "--no-jsc-stress", "--no-fail-fast",
         "--json-output={0}".format(jsonFileName),
         WithProperties("--%(configuration)s"),
@@ -1378,7 +1377,7 @@ class PrintConfiguration(steps.ShellSequence):
     logEnviron = False
     command_list_generic = [['hostname']]
     command_list_apple = [['df', '-hl'], ['date'], ['sw_vers'], ['system_profiler', 'SPSoftwareDataType', 'SPHardwareDataType'], ['/bin/sh', '-c', 'echo TimezoneVers: $(cat /usr/share/zoneinfo/+VERSION)'], ['xcodebuild', '-sdk', '-version']]
-    command_list_linux = [['df', '-hl'], ['date'], ['uname', '-a'], ['uptime']]
+    command_list_linux = [['df', '-hl', '--exclude-type=fuse.portal'], ['date'], ['uname', '-a'], ['uptime']]
     command_list_win = [['df', '-hl']]
 
     def __init__(self, **kwargs):
@@ -1408,6 +1407,8 @@ class PrintConfiguration(steps.ShellSequence):
             return 'Unknown'
 
         build_to_name_mapping = {
+            '14': 'Sonoma',
+            '13': 'Ventura',
             '12': 'Monterey',
             '11': 'Big Sur',
             '10.15': 'Catalina',

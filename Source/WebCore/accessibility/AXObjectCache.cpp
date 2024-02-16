@@ -233,6 +233,10 @@ void AXObjectCache::setEnhancedUserInterfaceAccessibility(bool flag)
 #endif
 }
 
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+static const Seconds updateTreeSnapshotTimerInterval { 100_ms };
+#endif
+
 AXObjectCache::AXObjectCache(Document& document)
     : m_document(document)
     , m_pageID(document.pageID())
@@ -245,6 +249,7 @@ AXObjectCache::AXObjectCache(Document& document)
     , m_buildIsolatedTreeTimer(*this, &AXObjectCache::buildIsolatedTree)
     , m_geometryManager(AXGeometryManager::create(*this))
     , m_selectedTextRangeTimer(*this, &AXObjectCache::selectedTextRangeTimerFired, platformSelectedTextRangeDebounceInterval())
+    , m_updateTreeSnapshotTimer(*this, &AXObjectCache::updateTreeSnapshotTimerFired)
 #endif
 {
     AXTRACE(makeString("AXObjectCache::AXObjectCache 0x"_s, hex(reinterpret_cast<uintptr_t>(this))));
@@ -281,6 +286,7 @@ AXObjectCache::~AXObjectCache()
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     m_selectedTextRangeTimer.stop();
+    m_updateTreeSnapshotTimer.stop();
 
     if (m_pageID) {
         if (auto tree = AXIsolatedTree::treeForPageID(*m_pageID))
@@ -815,7 +821,7 @@ AccessibilityObject* AXObjectCache::getOrCreate(Widget* widget)
     return newObj.get();
 }
 
-AccessibilityObject* AXObjectCache::getOrCreate(Node* node, IsRelationTarget isRelationTarget)
+AccessibilityObject* AXObjectCache::getOrCreate(Node* node, IsPartOfRelation isPartOfRelation)
 {
     if (!node)
         return nullptr;
@@ -853,7 +859,7 @@ AccessibilityObject* AXObjectCache::getOrCreate(Node* node, IsRelationTarget isR
 
     bool inCanvasSubtree = lineageOfType<HTMLCanvasElement>(*node->parentElement()).first();
     // If node is the target of a relationship or a descendant of one, create an AX object unconditionally.
-    if (isRelationTarget == IsRelationTarget::No && !isDescendantOfRelationTarget(*node)) {
+    if (isPartOfRelation == IsPartOfRelation::No && !isDescendantOfRelatedNode(*node)) {
         bool insideMeterElement = is<HTMLMeterElement>(*node->parentElement());
         auto* element = dynamicDowncast<Element>(node);
         bool hasDisplayContents = element && element->hasDisplayContents();
@@ -861,6 +867,10 @@ AccessibilityObject* AXObjectCache::getOrCreate(Node* node, IsRelationTarget isR
         if (!inCanvasSubtree && !insideMeterElement && !hasDisplayContents && !isPopover && !isNodeAriaVisible(node))
             return nullptr;
     }
+
+    // The object may have already been created during relations update
+    if (auto* object = get(node))
+        return object;
 
     // Fallback content is only focusable as long as the canvas is displayed and visible.
     // Update the style before Element::isFocusable() gets called.
@@ -4128,7 +4138,7 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<Accessibili
         auto updatedFields = updatedObjects.get(axObject->objectID());
         if (!updatedFields.node) {
             updatedObjects.set(axObject->objectID(), UpdatedFields { updatedFields.children, true });
-            tree->updateNode(*axObject);
+            tree->queueNodeUpdate(*axObject, NodeUpdateOptions::nodeUpdate());
         }
     };
 
@@ -4139,126 +4149,126 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<Accessibili
 
         switch (notification.second) {
         case AXAccessKeyChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::AccessKey);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::AccessKey });
             break;
         case AXAutofillTypeChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::ValueAutofillButtonType);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::ValueAutofillButtonType });
             break;
         case AXCellSlotsChanged:
             ASSERT(notification.first->isTable());
-            tree->updateNodeProperty(*notification.first, AXPropertyName::CellSlots);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::CellSlots });
             break;
         case AXCheckedStateChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::IsChecked);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::IsChecked });
             break;
         case AXCurrentStateChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::CurrentState);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::CurrentState });
             break;
         case AXColumnCountChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::AXColumnCount);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::AXColumnCount });
             break;
         case AXColumnIndexChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::AXColumnIndex);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::AXColumnIndex });
             break;
         case AXColumnSpanChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::ColumnIndexRange);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::ColumnIndexRange });
             break;
         case AXContentEditableAttributeChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::IsNonNativeTextControl);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::IsNonNativeTextControl });
             break;
         case AXDisabledStateChanged:
-            tree->updatePropertiesForSelfAndDescendants(*notification.first, { AXPropertyName::CanSetFocusAttribute, AXPropertyName::IsEnabled });
+            tree->updatePropertiesForSelfAndDescendants(*notification.first, { { AXPropertyName::CanSetFocusAttribute, AXPropertyName::IsEnabled } });
             break;
         case AXExpandedChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::IsExpanded);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::IsExpanded });
             break;
         case AXExtendedDescriptionChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::ExtendedDescription);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::ExtendedDescription });
             break;
         case AXFocusableStateChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::CanSetFocusAttribute);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::CanSetFocusAttribute });
             break;
         case AXLabelCreated:
             tree->labelCreated(*notification.first);
             break;
         case AXMaximumValueChanged:
-            tree->updateNodeProperties(*notification.first, { AXPropertyName::MaxValueForRange, AXPropertyName::ValueForRange });
+            tree->queueNodeUpdate(*notification.first, { { AXPropertyName::MaxValueForRange, AXPropertyName::ValueForRange } });
             break;
         case AXMenuListItemSelected: {
             RefPtr ancestor = Accessibility::findAncestor<AccessibilityObject>(*notification.first, false, [] (const auto& object) {
                 return object.isMenu() || object.isMenuBar();
             });
             if (ancestor) {
-                tree->updateNodeProperty(*ancestor, AXPropertyName::SelectedChildren);
-                tree->updateNodeProperty(*notification.first, AXPropertyName::IsSelected);
+                tree->queueNodeUpdate(*ancestor, { AXPropertyName::SelectedChildren });
+                tree->queueNodeUpdate(*notification.first, { AXPropertyName::IsSelected });
             }
             break;
         }
         case AXMinimumValueChanged:
-            tree->updateNodeProperties(*notification.first, { AXPropertyName::MinValueForRange, AXPropertyName::ValueForRange });
+            tree->queueNodeUpdate(*notification.first, { { AXPropertyName::MinValueForRange, AXPropertyName::ValueForRange } });
             break;
         case AXNameChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::NameAttribute);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::NameAttribute });
             break;
         case AXOrientationChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::Orientation);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::Orientation });
             break;
         case AXPositionInSetChanged:
-            tree->updateNodeProperties(*notification.first, { AXPropertyName::PosInSet, AXPropertyName::SupportsPosInSet });
+            tree->queueNodeUpdate(*notification.first, { { AXPropertyName::PosInSet, AXPropertyName::SupportsPosInSet } });
             break;
         case AXPopoverTargetChanged:
-            tree->updateNodeProperties(*notification.first, { AXPropertyName::SupportsExpanded, AXPropertyName::IsExpanded });
+            tree->queueNodeUpdate(*notification.first, { { AXPropertyName::SupportsExpanded, AXPropertyName::IsExpanded } });
             break;
         case AXSelectedTextChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::SelectedTextRange);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::SelectedTextRange });
             break;
         case AXSortDirectionChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::SortDirection);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::SortDirection });
             break;
         case AXIdAttributeChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::IdentifierAttribute);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::IdentifierAttribute });
             break;
         case AXReadOnlyStatusChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::CanSetValueAttribute);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::CanSetValueAttribute });
             break;
         case AXRequiredStatusChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::IsRequired);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::IsRequired });
             break;
         case AXRoleDescriptionChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::RoleDescription);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::RoleDescription });
             break;
         case AXRowIndexChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::AXRowIndex);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::AXRowIndex });
             break;
         case AXRowSpanChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::RowIndexRange);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::RowIndexRange });
             break;
         case AXCellScopeChanged:
-            tree->updateNodeProperties(*notification.first, { AXPropertyName::CellScope, AXPropertyName::IsColumnHeader, AXPropertyName::IsRowHeader });
+            tree->queueNodeUpdate(*notification.first, { { AXPropertyName::CellScope, AXPropertyName::IsColumnHeader, AXPropertyName::IsRowHeader } });
             break;
         //  FIXME: Contrary to the name "AXSelectedCellsChanged", this notification can be posted on a cell
         //  who has changed selected state, not just on table or grid who has changed its selected cells.
         case AXSelectedCellsChanged:
         case AXSelectedStateChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::IsSelected);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::IsSelected });
             break;
         case AXSetSizeChanged:
-            tree->updateNodeProperties(*notification.first, { AXPropertyName::SetSize, AXPropertyName::SupportsSetSize });
+            tree->queueNodeUpdate(*notification.first, { { AXPropertyName::SetSize, AXPropertyName::SupportsSetSize } });
             break;
         case AXTableHeadersChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::ColumnHeaders);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::ColumnHeaders });
             break;
         case AXTextCompositionChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::TextInputMarkedTextMarkerRange);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::TextInputMarkedTextMarkerRange });
             break;
         case AXURLChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::URL);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::URL });
             break;
         case AXKeyShortcutsChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::KeyShortcuts);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::KeyShortcuts });
             break;
         case AXVisibilityChanged:
-            tree->updateNodeProperty(*notification.first, AXPropertyName::IsVisible);
+            tree->queueNodeUpdate(*notification.first, { AXPropertyName::IsVisible });
             break;
         case AXActiveDescendantChanged:
         case AXRoleChanged:
@@ -4299,7 +4309,7 @@ void AXObjectCache::updateIsolatedTree(const Vector<std::pair<RefPtr<Accessibili
             auto updatedFields = updatedObjects.get(notification.first->objectID());
             if (!updatedFields.children) {
                 updatedObjects.set(notification.first->objectID(), UpdatedFields { true, updatedFields.node });
-                tree->updateChildren(*notification.first);
+                tree->queueNodeUpdate(*notification.first, NodeUpdateOptions::childrenUpdate());
             }
             break;
         }
@@ -4318,7 +4328,13 @@ void AXObjectCache::updateIsolatedTree(AccessibilityObject* axObject, AXProperty
 void AXObjectCache::updateIsolatedTree(AccessibilityObject& axObject, AXPropertyName property) const
 {
     if (RefPtr tree = AXIsolatedTree::treeForPageID(m_pageID))
-        tree->updateNodeProperty(axObject, property);
+        tree->queueNodeUpdate(axObject, { property });
+}
+
+void AXObjectCache::startUpdateTreeSnapshotTimer()
+{
+    if (!m_updateTreeSnapshotTimer.isActive())
+        m_updateTreeSnapshotTimer.startOneShot(updateTreeSnapshotTimerInterval);
 }
 
 void AXObjectCache::onPaint(const RenderObject& renderer, IntRect&& paintRect) const
@@ -4602,7 +4618,7 @@ void AXObjectCache::addRelation(Element* origin, Element* target, AXRelationType
         ASSERT_NOT_REACHED();
         return;
     }
-    addRelation(getOrCreate(origin), getOrCreate(target, IsRelationTarget::Yes), relationType);
+    addRelation(getOrCreate(origin, IsPartOfRelation::Yes), getOrCreate(target, IsPartOfRelation::Yes), relationType);
 }
 
 static bool canHaveRelations(Element& element)
@@ -4636,13 +4652,15 @@ void AXObjectCache::addRelation(AccessibilityObject* origin, AccessibilityObject
     if (relationCausesCycle(origin, target, relationType))
         return;
 
-    auto relationsIterator = m_relations.find(origin->objectID());
+    AXID originID = origin->objectID();
+    AXID targetID = target->objectID();
+    auto relationsIterator = m_relations.find(originID);
     if (relationsIterator == m_relations.end()) {
         // No relations for this object, add the first one.
-        m_relations.add(origin->objectID(), AXRelations { { static_cast<uint8_t>(relationType), { target->objectID() } } });
-    } else if (auto targetsIterator = relationsIterator->value.find(static_cast<uint8_t>(relationType)); targetsIterator == relationsIterator->value.end()) {
+        m_relations.add(originID, AXRelations { { enumToUnderlyingType(relationType), { targetID } } });
+    } else if (auto targetsIterator = relationsIterator->value.find(enumToUnderlyingType(relationType)); targetsIterator == relationsIterator->value.end()) {
         // No relation of this type for this object, add the first one.
-        relationsIterator->value.add(static_cast<uint8_t>(relationType), ListHashSet { target->objectID() });
+        relationsIterator->value.add(enumToUnderlyingType(relationType), ListHashSet { targetID });
     } else {
         // There are already relations of this type for the object. Add the new relation.
         if (relationType == AXRelationType::ActiveDescendant
@@ -4650,31 +4668,41 @@ void AXObjectCache::addRelation(AccessibilityObject* origin, AccessibilityObject
             // There should be only one active descendant and only one owner. Enforce that by removing any existing targets.
             targetsIterator->value.clear();
         }
-        targetsIterator->value.add(target->objectID());
+        targetsIterator->value.add(targetID);
     }
-    m_relationTargets.add(target->objectID());
+    m_relationTargets.add(targetID);
 
     if (relationType == AXRelationType::OwnerFor) {
         // First find and clear the old owner.
-        auto targetID = target->objectID();
         for (auto oldOwnerIterator = m_relations.begin(); oldOwnerIterator != m_relations.end(); ++oldOwnerIterator) {
-            if (oldOwnerIterator->key == origin->objectID())
+            if (oldOwnerIterator->key == originID)
                 continue;
-            
+
             removeRelationByID(oldOwnerIterator->key, targetID, AXRelationType::OwnerFor);
             if (auto* oldOwner = objectForID(oldOwnerIterator->key))
                 childrenChanged(oldOwner);
         }
-        
+
         childrenChanged(origin);
     } else if (relationType == AXRelationType::OwnedBy) {
         if (auto* parentObject = origin->parentObjectUnignored())
             childrenChanged(parentObject);
     }
 
-    if (addSymmetricRelation == AddSymmetricRelation::Yes) {
+    if (addSymmetricRelation == AddSymmetricRelation::Yes
+        && m_objects.contains(originID) && m_objects.contains(targetID)) {
+        // If the IDs are still in the m_objects map, the objects should be still alive.
         if (auto symmetric = symmetricRelation(relationType); symmetric != AXRelationType::None)
             addRelation(target, origin, symmetric, AddSymmetricRelation::No);
+
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+        if (auto tree = AXIsolatedTree::treeForPageID(m_pageID)) {
+            if (origin && origin->accessibilityIsIgnored())
+                tree->addUnconnectedNode(*origin);
+            if (target && target->accessibilityIsIgnored())
+                tree->addUnconnectedNode(*target);
+        }
+#endif
     }
 }
 
@@ -4688,7 +4716,7 @@ void AXObjectCache::removeRelations(Element& origin, AXRelationType relationType
     if (relationsIterator == m_relations.end())
         return;
 
-    auto targetIDs = relationsIterator->value.take(static_cast<uint8_t>(relationType));
+    auto targetIDs = relationsIterator->value.take(enumToUnderlyingType(relationType));
     auto symmetric = symmetricRelation(relationType);
     if (symmetric == AXRelationType::None)
         return;
@@ -4706,7 +4734,7 @@ void AXObjectCache::removeRelationByID(AXID originID, AXID targetID, AXRelationT
     if (relationsIterator == m_relations.end())
         return;
 
-    auto targetsIterator = relationsIterator->value.find(static_cast<uint8_t>(relationType));
+    auto targetsIterator = relationsIterator->value.find(enumToUnderlyingType(relationType));
     if (targetsIterator == relationsIterator->value.end())
         return;
     targetsIterator->value.remove(targetID);
@@ -4809,6 +4837,7 @@ void AXObjectCache::relationsNeedUpdate(bool needUpdate)
     if (m_relationsNeedUpdate) {
         if (auto tree = AXIsolatedTree::treeForPageID(m_pageID))
             tree->relationsNeedUpdate(true);
+        startUpdateTreeSnapshotTimer();
     }
 #endif
 }
@@ -4825,12 +4854,12 @@ const HashSet<AXID>& AXObjectCache::relationTargetIDs()
     return m_relationTargets;
 }
 
-bool AXObjectCache::isDescendantOfRelationTarget(Node& node)
+bool AXObjectCache::isDescendantOfRelatedNode(Node& node)
 {
     auto& targetIDs = relationTargetIDs();
     for (auto* parent = node.parentNode(); parent; parent = parent->parentNode()) {
         auto* object = get(parent);
-        if (object && targetIDs.contains(object->objectID()))
+        if (object && (m_relations.contains(object->objectID()) || targetIDs.contains(object->objectID())))
             return true;
     }
     return false;
@@ -4843,7 +4872,7 @@ std::optional<ListHashSet<AXID>> AXObjectCache::relatedObjectIDsFor(const AXCore
     if (relationsIterator == m_relations.end())
         return std::nullopt;
 
-    auto targetsIterator = relationsIterator->value.find(static_cast<uint8_t>(relationType));
+    auto targetsIterator = relationsIterator->value.find(enumToUnderlyingType(relationType));
     if (targetsIterator == relationsIterator->value.end())
         return std::nullopt;
     return targetsIterator->value;
@@ -4916,6 +4945,18 @@ void AXObjectCache::selectedTextRangeTimerFired()
     }
 
     m_lastDebouncedTextRangeObject = { };
+}
+
+void AXObjectCache::updateTreeSnapshotTimerFired()
+{
+    m_updateTreeSnapshotTimer.stop();
+    processQueuedIsolatedNodeUpdates();
+}
+
+void AXObjectCache::processQueuedIsolatedNodeUpdates()
+{
+    if (auto tree = AXIsolatedTree::treeForPageID(m_pageID))
+        tree->processQueuedNodeUpdates();
 }
 #endif
 

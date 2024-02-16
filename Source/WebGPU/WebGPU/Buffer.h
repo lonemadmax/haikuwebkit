@@ -85,13 +85,14 @@ public:
     State state() const { return m_state; }
 
     Device& device() const { return m_device; }
+    bool isDestroyed() const;
 
 private:
     Buffer(id<MTLBuffer>, uint64_t size, WGPUBufferUsageFlags, State initialState, MappingRange initialMappingRange, Device&);
     Buffer(Device&);
 
     bool validateGetMappedRange(size_t offset, size_t rangeSize) const;
-    bool validateMapAsync(WGPUMapModeFlags, size_t offset, size_t rangeSize) const;
+    NSString* errorValidatingMapAsync(WGPUMapModeFlags, size_t offset, size_t rangeSize) const;
     bool validateUnmap() const;
 
     id<MTLBuffer> m_buffer { nil };

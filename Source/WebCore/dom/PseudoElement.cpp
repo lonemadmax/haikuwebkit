@@ -49,10 +49,11 @@ const QualifiedName& pseudoElementTagName()
 }
 
 PseudoElement::PseudoElement(Element& host, PseudoId pseudoId)
-    : Element(pseudoElementTagName(), host.document(), CreatePseudoElement)
+    : Element(pseudoElementTagName(), host.document(), TypeFlag::HasCustomStyleResolveCallbacks)
     , m_hostElement(host)
     , m_pseudoId(pseudoId)
 {
+    setEventTargetFlag(EventTargetFlag::IsConnected);
     ASSERT(pseudoId == PseudoId::Before || pseudoId == PseudoId::After);
 }
 
@@ -65,14 +66,14 @@ Ref<PseudoElement> PseudoElement::create(Element& host, PseudoId pseudoId)
 {
     Ref pseudoElement = adoptRef(*new PseudoElement(host, pseudoId));
 
-    InspectorInstrumentation::pseudoElementCreated(host.document().checkedPage().get(), pseudoElement.get());
+    InspectorInstrumentation::pseudoElementCreated(host.document().protectedPage().get(), pseudoElement.get());
 
     return pseudoElement;
 }
 
 void PseudoElement::clearHostElement()
 {
-    InspectorInstrumentation::pseudoElementDestroyed(document().checkedPage().get(), *this);
+    InspectorInstrumentation::pseudoElementDestroyed(document().protectedPage().get(), *this);
 
     Styleable::fromElement(*this).elementWasRemoved();
 

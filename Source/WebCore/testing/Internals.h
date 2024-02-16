@@ -260,8 +260,8 @@ public:
     Node* ensureUserAgentShadowRoot(Element& host);
     Node* shadowRoot(Element& host);
     ExceptionOr<String> shadowRootType(const Node&) const;
-    const AtomString& shadowPseudoId(Element&);
-    void setShadowPseudoId(Element&, const AtomString&);
+    const AtomString& userAgentPartId(Element&);
+    void setUserAgentPartId(Element&, const AtomString&);
 
     // DOMTimers throttling testing.
     ExceptionOr<bool> isTimerThrottled(int timeoutId);
@@ -882,6 +882,10 @@ public:
     bool hasTransientActivation();
 
     bool consumeTransientActivation();
+
+    bool hasHistoryActionActivation();
+
+    bool consumeHistoryActionUserActivation();
 
     RefPtr<GCObservation> observeGC(JSC::JSValue);
 

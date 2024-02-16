@@ -95,12 +95,8 @@ void SVGAElement::attributeChanged(const QualifiedName& name, const AtomString& 
 void SVGAElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     if (SVGURIReference::isKnownAttribute(attrName)) {
-        bool wasLink = isLink();
+        InstanceInvalidationGuard guard(*this);
         setIsLink(!href().isNull() && !shouldProhibitLinks(this));
-        if (wasLink != isLink()) {
-            InstanceInvalidationGuard guard(*this);
-            invalidateStyleForSubtree();
-        }
         return;
     }
 
@@ -109,7 +105,8 @@ void SVGAElement::svgAttributeChanged(const QualifiedName& attrName)
 
 RenderPtr<RenderElement> SVGAElement::createElementRenderer(RenderStyle&& style, const RenderTreePosition&)
 {
-    if (is<SVGElement>(parentNode()) && downcast<SVGElement>(*parentNode()).isTextContent())
+    auto* svgParent = dynamicDowncast<SVGElement>(parentNode());
+    if (svgParent && svgParent->isTextContent())
         return createRenderer<RenderSVGInline>(RenderObject::Type::SVGInline, *this, WTFMove(style));
 
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
@@ -132,9 +129,8 @@ void SVGAElement::defaultEventHandler(Event& event)
             auto url = href().trim(isASCIIWhitespace);
 
             if (url[0] == '#') {
-                RefPtr targetElement = treeScope().getElementById(url.substringSharingImpl(1));
-                if (is<SVGSMILElement>(targetElement)) {
-                    downcast<SVGSMILElement>(*targetElement).beginByLinkActivation();
+                if (RefPtr targetElement = dynamicDowncast<SVGSMILElement>(treeScope().getElementById(url.substringSharingImpl(1)))) {
+                    targetElement->beginByLinkActivation();
                     event.setDefaultHandled();
                     return;
                 }

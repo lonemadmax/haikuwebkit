@@ -404,8 +404,14 @@ static inline bool isAtSoftWrapOpportunity(const InlineItem& previous, const Inl
         // [text-][text] : after [hyphen] position is a soft wrap opportunity.
         return endsWithSoftWrapOpportunity(currentInlineTextItem, nextInlineTextItem);
     }
-    if (previous.layoutBox().isListMarkerBox() || next.layoutBox().isListMarkerBox())
+    if (previous.layoutBox().isListMarkerBox()) {
+        auto& listMarkerBox = downcast<ElementBox>(previous.layoutBox());
+        return !listMarkerBox.isListMarkerInsideList() || !listMarkerBox.isListMarkerOutside();
+    }
+    if (next.layoutBox().isListMarkerBox()) {
+        // FIXME: SHould this ever be the case?
         return true;
+    }
     if (previous.isBox() || next.isBox()) {
         // [text][inline box start][inline box end][inline box] (text<span></span><img>) : there's a soft wrap opportunity between the [text] and [img].
         // The line breaking behavior of a replaced element or other atomic inline is equivalent to an ideographic character.
@@ -501,6 +507,61 @@ size_t InlineFormattingUtils::nextWrapOpportunity(size_t startIndex, const Inlin
         previousInlineItemIndex = index;
     }
     return layoutRange.endIndex();
+}
+
+std::pair<InlineLayoutUnit, InlineLayoutUnit> InlineFormattingUtils::textEmphasisForInlineBox(const Box& layoutBox, const ElementBox& rootBox)
+{
+    // Generic, non-inline box inline-level content (e.g. replaced elements) can't have text-emphasis annotations.
+    ASSERT(layoutBox.isInlineBox() || &layoutBox == &rootBox);
+
+    auto& style = layoutBox.style();
+    auto hasTextEmphasis =  style.textEmphasisMark() != TextEmphasisMark::None;
+    if (!hasTextEmphasis)
+        return { };
+    auto emphasisPosition = style.textEmphasisPosition();
+    // Normally we resolve visual -> logical values at pre-layout time, but emphaisis values are not part of the general box geometry.
+    auto hasAboveTextEmphasis = false;
+    auto hasUnderTextEmphasis = false;
+    if (style.isHorizontalWritingMode()) {
+        hasAboveTextEmphasis = emphasisPosition.contains(TextEmphasisPosition::Over);
+        hasUnderTextEmphasis = !hasAboveTextEmphasis && emphasisPosition.contains(TextEmphasisPosition::Under);
+    } else {
+        hasAboveTextEmphasis = emphasisPosition.contains(TextEmphasisPosition::Right) || emphasisPosition == TextEmphasisPosition::Over;
+        hasUnderTextEmphasis = !hasAboveTextEmphasis && (emphasisPosition.contains(TextEmphasisPosition::Left) || emphasisPosition == TextEmphasisPosition::Under);
+    }
+
+    if (!hasAboveTextEmphasis && !hasUnderTextEmphasis)
+        return { };
+
+    auto enclosingRubyBase = [&]() -> const ElementBox* {
+        if (&layoutBox == &rootBox)
+            return nullptr;
+        for (auto* ancestor = &layoutBox.parent(); ancestor != &rootBox; ancestor = &ancestor->parent()) {
+            if (ancestor->isRubyBase())
+                return ancestor;
+        }
+        return nullptr;
+    };
+    if (auto* rubyBase = enclosingRubyBase(); rubyBase && RubyFormattingContext::hasInterlinearAnnotation(*rubyBase)) {
+        auto annotationPosition = rubyBase->style().rubyPosition();
+        if ((hasAboveTextEmphasis && annotationPosition == RubyPosition::Before) || (hasUnderTextEmphasis && annotationPosition == RubyPosition::After)) {
+            // FIXME: Check if annotation box has content.
+            return { };
+        }
+    }
+    InlineLayoutUnit annotationSize = roundToInt(style.fontCascade().floatEmphasisMarkHeight(style.textEmphasisMarkString()));
+    return { hasAboveTextEmphasis ? annotationSize : 0.f, hasAboveTextEmphasis ? 0.f : annotationSize };
+}
+
+LineEndingEllipsisPolicy InlineFormattingUtils::lineEndingEllipsisPolicy(const RenderStyle& rootStyle, size_t numberOfLinesWithInlineContent, std::optional<size_t> numberOfVisibleLinesAllowed)
+{
+    if (numberOfVisibleLinesAllowed && *numberOfVisibleLinesAllowed == numberOfLinesWithInlineContent)
+        return LineEndingEllipsisPolicy::WhenContentOverflowsInBlockDirection;
+
+    // Truncation is in effect when the block container has overflow other than visible.
+    if (rootStyle.overflowX() != Overflow::Visible && rootStyle.textOverflow() == TextOverflow::Ellipsis)
+        return LineEndingEllipsisPolicy::WhenContentOverflowsInInlineDirection;
+    return LineEndingEllipsisPolicy::NoEllipsis;
 }
 
 const InlineLayoutState& InlineFormattingUtils::layoutState() const

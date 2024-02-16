@@ -30,7 +30,7 @@
 
 namespace WebCore {
 
-class TypingCommand final : public TextInsertionBaseCommand, public CanMakeCheckedPtr {
+class TypingCommand final : public TextInsertionBaseCommand {
 public:
     enum class Type : uint8_t {
         DeleteSelection,
@@ -98,7 +98,6 @@ private:
 
     TypingCommand(Ref<Document>&&, Type, const String& text, OptionSet<Option>, TextGranularity, TextCompositionType);
 
-    bool smartDelete() const { return m_smartDelete; }
     void setSmartDelete(bool smartDelete) { m_smartDelete = smartDelete; }
     bool isOpenForMoreTyping() const { return m_openForMoreTyping; }
     void closeTyping() { m_openForMoreTyping = false; }

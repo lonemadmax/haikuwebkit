@@ -247,6 +247,8 @@ enum class AXPropertyName : uint16_t {
     VisibleRows,
 };
 
+using AXPropertyNameSet = HashSet<AXPropertyName, IntHash<AXPropertyName>, WTF::StrongEnumHashTraits<AXPropertyName>>;
+
 // If this type is modified, the switchOn statment in AXIsolatedObject::setProperty must be updated as well.
 using AXPropertyValueVariant = std::variant<std::nullptr_t, AXID, String, bool, int, unsigned, double, float, uint64_t, AccessibilityButtonState, Color, URL, LayoutRect, FloatPoint, FloatRect, IntPoint, IntRect, std::pair<unsigned, unsigned>, Vector<AccessibilityText>, Vector<AXID>, Vector<std::pair<AXID, AXID>>, Vector<String>, Path, OptionSet<AXAncestorFlag>, InsideLink, Vector<Vector<AXID>>, CharacterRange, std::pair<AXID, CharacterRange>
 #if PLATFORM(COCOA)
@@ -261,6 +263,36 @@ using AXPropertyMap = HashMap<AXPropertyName, AXPropertyValueVariant, IntHash<AX
 struct AXPropertyChange {
     AXID axID; // ID of the object whose properties changed.
     AXPropertyMap properties; // Changed properties.
+};
+
+struct NodeUpdateOptions {
+    AXPropertyNameSet properties;
+    bool shouldUpdateNode { false };
+    bool shouldUpdateChildren { false };
+
+    NodeUpdateOptions(const AXPropertyNameSet& propertyNames, bool shouldUpdateNode, bool shouldUpdateChildren)
+        : properties(propertyNames)
+        , shouldUpdateNode(shouldUpdateNode)
+        , shouldUpdateChildren(shouldUpdateChildren)
+    { }
+
+    NodeUpdateOptions(const AXPropertyNameSet& propertyNames)
+        : properties(propertyNames)
+    { }
+
+    NodeUpdateOptions(AXPropertyName propertyName)
+        : properties({ propertyName })
+    { }
+
+    static NodeUpdateOptions nodeUpdate()
+    {
+        return { { }, true, false };
+    }
+
+    static NodeUpdateOptions childrenUpdate()
+    {
+        return { { }, false, true };
+    }
 };
 
 DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(AXIsolatedTree);
@@ -290,7 +322,7 @@ public:
     WEBCORE_EXPORT RefPtr<AXIsolatedObject> focusedNode();
 
     RefPtr<AXIsolatedObject> objectForID(const AXID) const;
-    template<typename U> Vector<RefPtr<AXCoreObject>> objectsForIDs(const U&);
+    template<typename U> Vector<RefPtr<AXCoreObject>> objectsForIDs(const U&) const;
 
     void generateSubtree(AccessibilityObject&);
     void labelCreated(AccessibilityObject&);
@@ -299,9 +331,9 @@ public:
     void updateChildren(AccessibilityObject&, ResolveNodeChanges = ResolveNodeChanges::Yes);
     void updateChildrenForObjects(const ListHashSet<RefPtr<AccessibilityObject>>&);
     void updateNodeProperty(AXCoreObject& object, AXPropertyName property) { updateNodeProperties(object, { property }); };
-    void updateNodeProperties(AXCoreObject&, const Vector<AXPropertyName>&);
+    void updateNodeProperties(AXCoreObject&, const AXPropertyNameSet&);
     void updateNodeAndDependentProperties(AccessibilityObject&);
-    void updatePropertiesForSelfAndDescendants(AccessibilityObject&, const Vector<AXPropertyName>&);
+    void updatePropertiesForSelfAndDescendants(AccessibilityObject&, const AXPropertyNameSet&);
     void updateFrame(AXID, IntRect&&);
     void overrideNodeProperties(AXID, AXPropertyMap&&);
 
@@ -323,6 +355,7 @@ public:
     // Relationships between objects.
     std::optional<ListHashSet<AXID>> relatedObjectIDsFor(const AXIsolatedObject&, AXRelationType);
     void relationsNeedUpdate(bool needUpdate) { m_relationsNeedUpdate = needUpdate; }
+    void updateRelations(const HashMap<AXID, AXRelations>&);
 
     // Called on AX thread from WebAccessibilityObjectWrapper methods.
     // During layout tests, it is called on the main thread.
@@ -336,6 +369,9 @@ public:
 
     AXTextMarkerRange selectedTextMarkerRange();
     void setSelectedTextMarkerRange(AXTextMarkerRange&&);
+
+    void queueNodeUpdate(AXCoreObject&, const NodeUpdateOptions&);
+    void processQueuedNodeUpdates();
 
 private:
     AXIsolatedTree(AXObjectCache&);
@@ -396,6 +432,10 @@ private:
     HashMap<AXID, ParentChildrenIDs> m_nodeMap;
 
     // Only accessed on the main thread.
+    // Stores all nodes that are added via addUnconnectedNode, which do not get stored in m_nodeMap.
+    HashSet<AXID> m_unconnectedNodes;
+
+    // Only accessed on the main thread.
     // The key is the ID of the object that will be resolved into an m_pendingAppends NodeChange.
     // The value is whether the wrapper should be attached on the main thread or the AX thread.
     HashMap<AXID, AttachWrapper> m_unresolvedPendingAppends;
@@ -428,14 +468,17 @@ private:
     std::atomic<double> m_loadingProgress { 0 };
 
     // Relationships between objects.
-    // Accessed only on the AX thread.
-    HashMap<AXID, AXRelations> m_relations;
-    // Set to true by the AXObjectCache on the main thread.
-    // Set to false on the AX thread by relatedObjectIDsFor.
-    std::atomic<bool> m_relationsNeedUpdate { true };
+    HashMap<AXID, AXRelations> m_relations WTF_GUARDED_BY_LOCK(m_changeLogLock);
+    // Set to true by the AXObjectCache and false by AXIsolatedTree.
+    bool m_relationsNeedUpdate { true };
 
     Lock m_changeLogLock;
     AXTextMarkerRange m_selectedTextMarkerRange WTF_GUARDED_BY_LOCK(m_changeLogLock);
+
+    // Queued node updates used for building a new tree snapshot.
+    ListHashSet<AXID> m_needsUpdateChildren;
+    ListHashSet<AXID> m_needsUpdateNode;
+    HashMap<AXID, AXPropertyNameSet> m_needsPropertyUpdates;
 };
 
 inline AXObjectCache* AXIsolatedTree::axObjectCache() const

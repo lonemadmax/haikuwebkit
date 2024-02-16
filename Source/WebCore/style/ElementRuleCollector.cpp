@@ -33,6 +33,7 @@
 #include "CSSRuleList.h"
 #include "CSSSelector.h"
 #include "CSSSelectorList.h"
+#include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
 #include "CascadeLevel.h"
 #include "ContainerQueryEvaluator.h"
@@ -47,8 +48,10 @@
 #include "ShadowRoot.h"
 #include "StyleProperties.h"
 #include "StyleResolver.h"
+#include "StyleRuleImport.h"
 #include "StyleScope.h"
 #include "StyleScopeRuleSets.h"
+#include "StyleSheetContents.h"
 #include "StyledElement.h"
 #include "UserAgentStyle.h"
 #include <wtf/SetForScope.h>
@@ -352,7 +355,7 @@ void ElementRuleCollector::matchPartPseudoElementRules(CascadeLevel level)
     if (!element().containingShadowRoot())
         return;
 
-    bool isUAShadowPseudoElement = element().containingShadowRoot()->mode() == ShadowRootMode::UserAgent && !element().shadowPseudoId().isNull();
+    bool isUAShadowPseudoElement = element().containingShadowRoot()->mode() == ShadowRootMode::UserAgent && !element().pseudo().isNull();
 
     auto& partMatchingElement = isUAShadowPseudoElement ? *element().shadowHost() : element();
     if (partMatchingElement.partNames().isEmpty() || !partMatchingElement.isInShadowTree())
@@ -399,9 +402,9 @@ void ElementRuleCollector::collectMatchingShadowPseudoElementRules(const MatchRe
     if (element().isWebVTTElement() || element().isWebVTTRubyElement() || element().isWebVTTRubyTextElement())
         collectMatchingRulesForList(&rules.cuePseudoRules(), matchRequest);
 #endif
-    auto& pseudoId = element().shadowPseudoId();
-    if (!pseudoId.isEmpty())
-        collectMatchingRulesForList(rules.shadowPseudoElementRules(pseudoId), matchRequest);
+    auto& partId = element().pseudo();
+    if (!partId.isEmpty())
+        collectMatchingRulesForList(rules.shadowPseudoElementRules(partId), matchRequest);
 }
 
 void ElementRuleCollector::matchUserRules()
@@ -437,7 +440,7 @@ void ElementRuleCollector::matchUARules(const RuleSet& rules)
     sortAndTransferMatchedRules(DeclarationOrigin::UserAgent);
 }
 
-inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned& specificity, ScopeOrdinal styleScopeOrdinal, const Element* scopingRoot)
+inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned& specificity, ScopeOrdinal styleScopeOrdinal, const ContainerNode* scopingRoot)
 {
     // We know a sufficiently simple single part selector matches simply because we found it from the rule hash when filtering the RuleSet.
     // This is limited to HTML only so we don't need to check the namespace (because of tag name match).
@@ -598,7 +601,7 @@ bool ElementRuleCollector::containerQueriesMatch(const RuleData& ruleData, const
     return true;
 }
 
-std::pair<bool, std::optional<Vector<ElementRuleCollector::ScopingRootWithDistance>>>  ElementRuleCollector::scopeRulesMatch(const RuleData& ruleData, const MatchRequest& matchRequest)
+std::pair<bool, std::optional<Vector<ElementRuleCollector::ScopingRootWithDistance>>> ElementRuleCollector::scopeRulesMatch(const RuleData& ruleData, const MatchRequest& matchRequest)
 {
     auto scopeRules = matchRequest.ruleSet.scopeRulesFor(ruleData);
 
@@ -610,14 +613,27 @@ std::pair<bool, std::optional<Vector<ElementRuleCollector::ScopingRootWithDistan
 
     Vector<ScopingRootWithDistance> scopingRoots;
     auto isWithinScope = [&](auto& rule) {
+        auto previousScopingRoots = WTFMove(scopingRoots);
+        // The last rule (=innermost @scope rule) determines the scoping roots
+        scopingRoots.clear();
+
         auto findScopingRoots = [&](const auto& selectorList) {
             unsigned distance = 0;
             const auto* ancestor = &element();
             while (ancestor) {
                 for (const auto* selector = selectorList.first(); selector; selector = CSSSelectorList::next(selector)) {
-                    auto match = checker.match(*selector, *ancestor, context);
-                    if (match) {
-                        scopingRoots.append({ ancestor, distance });
+                    auto appendIfMatch = [&] (const ContainerNode* previousScopingRoot = nullptr) {
+                        auto subContext = context;
+                        subContext.scope = previousScopingRoot;
+                        auto match = checker.match(*selector, *ancestor, subContext);
+                        if (match)
+                            scopingRoots.append({ ancestor, distance });
+                    };
+                    if (previousScopingRoots.isEmpty())
+                        appendIfMatch();
+                    else {
+                        for (const auto [previousScopingRoot, _] : previousScopingRoots)
+                            appendIfMatch(previousScopingRoot);
                     }
                 }
                 ancestor = ancestor->parentElement();
@@ -633,27 +649,30 @@ std::pair<bool, std::optional<Vector<ElementRuleCollector::ScopingRootWithDistan
         */
         auto isWithinScopingRootsAndScopeEnd = [&](const auto& selectorList) {
             auto match = [&] (const auto* scopingRoot, const auto* selector) {
+                auto subContext = context;
+                subContext.scope = scopingRoot;
                 const auto* ancestor = &element();
                 while (ancestor) {
-                    if (ancestor == scopingRoot) {
-                        // The end of the scope has to be a descendant of the start of the scope.
-                        return false;
-                    }
-                    auto match = checker.match(*selector, *ancestor, context);
+                    auto match = checker.match(*selector, *ancestor, subContext);
                     if (match)
                         return true;
+                    if (ancestor == scopingRoot) {
+                        // The end of the scope can't be an ancestor of the start of the scope.
+                        return false;
+                    }
                     ancestor = ancestor->parentElement();
                 }
                 return false;
             };
 
-            for (auto [scopingRoot, distance] : scopingRoots) {
+            Vector<ScopingRootWithDistance> scopingRootsWithinScope;
+            for (auto scopingRootWithDistance : scopingRoots) {
                 for (const auto* selector = selectorList.first(); selector; selector = CSSSelectorList::next(selector)) {
-                    if (!match(scopingRoot, selector))
-                        return true;
+                    if (!match(scopingRootWithDistance.scopingRoot, selector))
+                        scopingRootsWithinScope.append(scopingRootWithDistance);
                 }
             }
-            return false;
+            return scopingRootsWithinScope;
         };
 
         const auto& scopeStart = rule->scopeStart();
@@ -662,15 +681,48 @@ std::pair<bool, std::optional<Vector<ElementRuleCollector::ScopingRootWithDistan
             if (scopingRoots.isEmpty())
                 return false;
         } else {
-            // FIXME: the scoping root is the parent element of the owner node of the stylesheet where the @scope rule is defined. (If no such element exists, then the scoping root is the root of the containing node tree.
-            // We don't support those @scope rules without scope start yet
-            return false;
+            // The scoping root is the parent element of the owner node of the stylesheet where the @scope rule is defined. (If no such element exists, then the scoping root is the root of the containing node tree.
+            RefPtr styleSheetContents = rule->styleSheetContents().get();
+            if (!styleSheetContents)
+                return false;
+
+            styleSheetContents = styleSheetContents->rootStyleSheet();
+            ASSERT(styleSheetContents);
+            if (!styleSheetContents)
+                return false;
+
+            auto appendImplicitScopingRoot = [&](const auto* client) {
+                // Verify that the node is in the current document
+                if (client->ownerDocument() != &this->element().document())
+                    return;
+                // Find the implicit parent node
+                const auto* owner = client->ownerNode();
+                if (!owner)
+                    return;
+                const auto* implicitParentNode = owner->parentNode();
+                const auto* implicitParentContainerNode = dynamicDowncast<ContainerNode>(implicitParentNode);
+                const auto* ancestor = &element();
+                unsigned distance = 0;
+                while (ancestor) {
+                    if (ancestor == owner)
+                        break;
+                    ancestor = ancestor->parentElement();
+                    ++distance;
+                }
+                scopingRoots.append({ implicitParentContainerNode, distance });
+            };
+
+            // Each client might act as a scoping root.
+            for (const auto& client : styleSheetContents->clients())
+                appendImplicitScopingRoot(client);
         }
 
         const auto& scopeEnd = rule->scopeEnd();
         if (!scopeEnd.isEmpty()) {
-            if (!isWithinScopingRootsAndScopeEnd(scopeEnd))
+            auto scopingRootsWithinScope = isWithinScopingRootsAndScopeEnd(scopeEnd);
+            if (scopingRootsWithinScope.isEmpty())
                 return false;
+            scopingRoots = WTFMove(scopingRootsWithinScope);
         }
         // element is in the @scope donut
         return true;
@@ -678,8 +730,6 @@ std::pair<bool, std::optional<Vector<ElementRuleCollector::ScopingRootWithDistan
 
     // We need to respect each nested @scope to collect this rule
     for (auto& rule : scopeRules) {
-        // The last rule (=innermost @scope rule) determines the scoping roots
-        scopingRoots.clear();
         if (!isWithinScope(rule))
             return { false, { } };
     }
@@ -719,17 +769,16 @@ void ElementRuleCollector::matchAllRules(bool matchAuthorAndUserStyles, bool inc
     if (matchAuthorAndUserStyles)
         matchUserRules();
 
-    if (is<StyledElement>(element())) {
-        auto& styledElement = downcast<StyledElement>(element());
+    if (auto* styledElement = dynamicDowncast<StyledElement>(element())) {
         // https://html.spec.whatwg.org/#presentational-hints
-        addElementStyleProperties(styledElement.presentationalHintStyle(), RuleSet::cascadeLayerPriorityForPresentationalHints);
+        addElementStyleProperties(styledElement->presentationalHintStyle(), RuleSet::cascadeLayerPriorityForPresentationalHints);
 
         // Tables and table cells share an additional presentation style that must be applied
         // after all attributes, since their style depends on the values of multiple attributes.
-        addElementStyleProperties(styledElement.additionalPresentationalHintStyle(), RuleSet::cascadeLayerPriorityForPresentationalHints);
+        addElementStyleProperties(styledElement->additionalPresentationalHintStyle(), RuleSet::cascadeLayerPriorityForPresentationalHints);
 
-        if (is<HTMLElement>(styledElement)) {
-            auto result = downcast<HTMLElement>(styledElement).directionalityIfDirIsAuto();
+        if (auto* htmlElement = dynamicDowncast<HTMLElement>(*styledElement)) {
+            auto result = htmlElement->directionalityIfDirIsAuto();
             auto& properties = result.value_or(TextDirection::LTR) == TextDirection::LTR ? leftToRightDeclaration() : rightToLeftDeclaration();
             if (result)
                 addMatchedProperties({ properties }, DeclarationOrigin::Author);
@@ -754,16 +803,19 @@ void ElementRuleCollector::matchAllRules(bool matchAuthorAndUserStyles, bool inc
 
 void ElementRuleCollector::addElementInlineStyleProperties(bool includeSMILProperties)
 {
-    if (!is<StyledElement>(element()))
+    auto* styledElement = dynamicDowncast<StyledElement>(element());
+    if (!styledElement)
         return;
 
-    if (auto* inlineStyle = downcast<StyledElement>(element()).inlineStyle()) {
+    if (auto* inlineStyle = styledElement->inlineStyle()) {
         bool isInlineStyleCacheable = !inlineStyle->isMutable();
         addElementStyleProperties(inlineStyle, RuleSet::cascadeLayerPriorityForUnlayered, isInlineStyleCacheable, FromStyleAttribute::Yes);
     }
 
-    if (includeSMILProperties && is<SVGElement>(element()))
-        addElementStyleProperties(downcast<SVGElement>(element()).animatedSMILStyleProperties(), RuleSet::cascadeLayerPriorityForUnlayered, false /* isCacheable */);
+    if (includeSMILProperties) {
+        if (auto* svgElement = dynamicDowncast<SVGElement>(element()))
+            addElementStyleProperties(svgElement->animatedSMILStyleProperties(), RuleSet::cascadeLayerPriorityForUnlayered, false /* isCacheable */);
+    }
 }
 
 bool ElementRuleCollector::hasAnyMatchingRules(const RuleSet& ruleSet)

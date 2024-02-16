@@ -43,8 +43,8 @@ OBJC_CLASS WKRBSAssertionDelegate;
 #endif // USE(RUNNINGBOARD)
 
 #if USE(EXTENSIONKIT)
+OBJC_CLASS _SECapability;
 OBJC_CLASS _SEExtensionProcess;
-OBJC_CLASS _SECapabilities;
 OBJC_PROTOCOL(_SEGrant);
 #endif
 
@@ -113,7 +113,7 @@ private:
     Function<void()> m_prepareForInvalidationHandler;
     Function<void()> m_invalidationHandler;
 #if USE(EXTENSIONKIT)
-    RetainPtr<_SECapabilities> m_capabilities;
+    RetainPtr<_SECapability> m_capability;
     RetainPtr<_SEGrant> m_grant;
     RetainPtr<_SEExtensionProcess> m_process;
 #endif

@@ -39,10 +39,49 @@ Ref<PipelineLayout> Device::createPipelineLayout(const WGPUPipelineLayoutDescrip
 
     std::optional<Vector<Ref<BindGroupLayout>>> optionalBindGroupLayouts = std::nullopt;
     if (descriptor.bindGroupLayouts) {
+        auto& deviceLimits = limits();
+        if (descriptor.bindGroupLayoutCount > deviceLimits.maxBindGroups) {
+            generateAValidationError("Too many bind groups"_s);
+            return PipelineLayout::createInvalid(*this);
+        }
         Vector<Ref<BindGroupLayout>> bindGroupLayouts(descriptor.bindGroupLayoutCount, [&](size_t i) {
             auto* bindGroupLayout = descriptor.bindGroupLayouts[i];
             return Ref<BindGroupLayout> { WebGPU::fromAPI(bindGroupLayout) };
         });
+        ShaderStage stages[] = { ShaderStage::Vertex, ShaderStage::Fragment, ShaderStage::Compute };
+        for (ShaderStage shaderStage : stages) {
+            uint32_t uniformBufferCount = 0, storageBufferCount = 0, samplerCount = 0, textureCount = 0, storageTextureCount = 0;
+            for (auto& bindGroupLayout : bindGroupLayouts) {
+                if (this != &bindGroupLayout->device()) {
+                    generateAValidationError("Device mismatch"_s);
+                    return PipelineLayout::createInvalid(*this);
+                }
+                uniformBufferCount += bindGroupLayout->uniformBuffersPerStage(shaderStage);
+                storageBufferCount += bindGroupLayout->storageBuffersPerStage(shaderStage);
+                samplerCount += bindGroupLayout->samplersPerStage(shaderStage);
+                textureCount += bindGroupLayout->texturesPerStage(shaderStage);
+                storageTextureCount += bindGroupLayout->storageTexturesPerStage(shaderStage);
+                if (uniformBufferCount > deviceLimits.maxUniformBuffersPerShaderStage || storageBufferCount > deviceLimits.maxStorageBuffersPerShaderStage || samplerCount > deviceLimits.maxSamplersPerShaderStage || textureCount > deviceLimits.maxSampledTexturesPerShaderStage || storageTextureCount > deviceLimits.maxStorageTexturesPerShaderStage) {
+                    generateAValidationError("Resource usage limits exceeded"_s);
+                    return PipelineLayout::createInvalid(*this);
+                }
+            }
+        }
+
+        uint32_t dynamicUniformBuffers = 0, dynamicStorageBuffers = 0;
+        for (auto& bindGroupLayout : bindGroupLayouts) {
+            dynamicUniformBuffers += bindGroupLayout->dynamicUniformBuffers();
+            dynamicStorageBuffers += bindGroupLayout->dynamicStorageBuffers();
+        }
+        if (dynamicUniformBuffers > deviceLimits.maxDynamicUniformBuffersPerPipelineLayout) {
+            generateAValidationError("Too many dynamic uniform buffers"_s);
+            return PipelineLayout::createInvalid(*this);
+        }
+        if (dynamicStorageBuffers > deviceLimits.maxDynamicStorageBuffersPerPipelineLayout) {
+            generateAValidationError("Too many dynamic storage buffers"_s);
+            return PipelineLayout::createInvalid(*this);
+        }
+
         optionalBindGroupLayouts = WTFMove(bindGroupLayouts);
     }
 
@@ -170,7 +209,7 @@ const Vector<uint32_t>* PipelineLayout::offsetVectorForBindGroup(uint32_t bindGr
     auto& bindGroupLayouts = *m_bindGroupLayouts;
     if (auto it = stageOffsets.find(bindGroupIndex); it != stageOffsets.end()) {
         auto& container = it->value;
-        uint32_t dynamicOffsetIndex = 0, stageOffsetIndex = 0;
+        uint32_t stageOffsetIndex = 0;
         auto& bindGroupLayout = bindGroupLayouts[bindGroupIndex];
         for (auto& entryKvp : bindGroupLayout->entries()) {
             auto& entry = entryKvp.value;
@@ -179,12 +218,10 @@ const Vector<uint32_t>* PipelineLayout::offsetVectorForBindGroup(uint32_t bindGr
                 continue;
 
             if (entry.visibility & stage) {
-                ASSERT(container.size() > stageOffsetIndex && dynamicOffsets.size() > dynamicOffsetIndex);
-                container[stageOffsetIndex] = dynamicOffsets[dynamicOffsetIndex];
+                RELEASE_ASSERT(container.size() > stageOffsetIndex && dynamicOffsets.size() > entry.dynamicOffsetsIndex);
+                container[stageOffsetIndex] = dynamicOffsets[entry.dynamicOffsetsIndex];
                 ++stageOffsetIndex;
             }
-
-            ++dynamicOffsetIndex;
         }
 
         return &container;

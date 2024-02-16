@@ -95,7 +95,7 @@ bool SharedWorkerThreadProxy::hasInstances()
     return !allSharedWorkerThreadProxies().isEmpty();
 }
 
-SharedWorkerThreadProxy::SharedWorkerThreadProxy(UniqueRef<Page>&& page, SharedWorkerIdentifier sharedWorkerIdentifier, const ClientOrigin& clientOrigin, WorkerFetchResult&& workerFetchResult, WorkerOptions&& workerOptions, WorkerInitializationData&& initializationData, CacheStorageProvider& cacheStorageProvider)
+SharedWorkerThreadProxy::SharedWorkerThreadProxy(Ref<Page>&& page, SharedWorkerIdentifier sharedWorkerIdentifier, const ClientOrigin& clientOrigin, WorkerFetchResult&& workerFetchResult, WorkerOptions&& workerOptions, WorkerInitializationData&& initializationData, CacheStorageProvider& cacheStorageProvider)
     : m_page(WTFMove(page))
     , m_document(*dynamicDowncast<LocalFrame>(m_page->mainFrame())->document())
     , m_contextIdentifier(*initializationData.clientIdentifier)
@@ -120,6 +120,8 @@ SharedWorkerThreadProxy::~SharedWorkerThreadProxy()
 {
     ASSERT(allSharedWorkerThreadProxies().contains(m_contextIdentifier));
     allSharedWorkerThreadProxies().remove(m_contextIdentifier);
+
+    m_workerThread->clearProxies();
 }
 
 SharedWorkerIdentifier SharedWorkerThreadProxy::identifier() const

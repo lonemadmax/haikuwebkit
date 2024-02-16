@@ -115,12 +115,6 @@ const AtomString& HTMLSelectElement::formControlType() const
     return m_multiple ? selectMultiple : selectOne;
 }
 
-void HTMLSelectElement::deselectItems(HTMLOptionElement* excludeElement)
-{
-    deselectItemsWithoutValidation(excludeElement);
-    updateValidity();
-}
-
 void HTMLSelectElement::optionSelectedByUser(int optionIndex, bool fireOnChangeNow, bool allowMultipleSelection)
 {
     // User interaction such as mousedown events can cause list box select elements to send change events.
@@ -816,7 +810,7 @@ void HTMLSelectElement::setRecalcListItems()
         cache->childrenChanged(this);
 
     if (Ref document = this->document(); this == document->focusedElement()) {
-        if (CheckedPtr page = document->page())
+        if (RefPtr page = document->page())
             page->chrome().client().focusedSelectElementDidChangeOptions(*this);
     }
 }

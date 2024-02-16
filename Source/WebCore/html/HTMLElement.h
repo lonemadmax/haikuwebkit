@@ -166,7 +166,7 @@ public:
 #endif
 
 protected:
-    HTMLElement(const QualifiedName& tagName, Document&, ConstructionType);
+    HTMLElement(const QualifiedName& tagName, Document&, OptionSet<TypeFlag>);
 
     enum class AllowZeroValue : bool { No, Yes };
     void addHTMLLengthToStyle(MutableStyleProperties&, CSSPropertyID, StringView value, AllowZeroValue = AllowZeroValue::Yes);
@@ -196,6 +196,8 @@ protected:
     void updateTextDirectionalityAfterInputTypeChange();
     void updateEffectiveDirectionalityOfDirAuto();
 
+    virtual void effectiveSpellcheckAttributeChanged(bool);
+
     using EventHandlerNameMap = HashMap<AtomString, AtomString>;
     static const AtomString& eventNameForEventHandlerAttribute(const QualifiedName& attributeName, const EventHandlerNameMap&);
 
@@ -221,8 +223,8 @@ private:
     void addHTMLLengthToStyle(MutableStyleProperties&, CSSPropertyID, StringView value, AllowPercentage, UseCSSPXAsUnitType, IsMultiLength, AllowZeroValue = AllowZeroValue::Yes);
 };
 
-inline HTMLElement::HTMLElement(const QualifiedName& tagName, Document& document, ConstructionType type = CreateHTMLElement)
-    : StyledElement(tagName, document, type)
+inline HTMLElement::HTMLElement(const QualifiedName& tagName, Document& document, OptionSet<TypeFlag> type = { })
+    : StyledElement(tagName, document, type | TypeFlag::IsHTMLElement)
 {
     ASSERT(tagName.localName().impl());
 }

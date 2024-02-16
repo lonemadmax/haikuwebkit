@@ -248,6 +248,7 @@ use constant IOS_DEVELOPMENT_CERTIFICATE_NAME_PREFIX => "iPhone Developer: ";
 our @EXPORT_OK;
 
 my $architecture;
+my $didUserSpecifyArchitecture = 0;
 my %nativeArchitectureMap = ();
 my $asanIsEnabled;
 my $tsanIsEnabled;
@@ -543,6 +544,13 @@ sub determineArchitecture
     return if defined $architecture;
 
     determineBaseProductDir();
+
+    # The user explicitly specified the architecture, don't assume anything
+    if (checkForArgumentAndRemoveFromARGVGettingValue("--architecture", \$architecture)) {
+        $didUserSpecifyArchitecture = 1;
+        return;
+    }
+
     $architecture = nativeArchitecture([]);
     if (isAppleCocoaWebKit() && $architecture eq "arm64") {
         determineXcodeSDK();
@@ -1282,6 +1290,7 @@ sub XcodeOptions
     push @options, "WK_LTO_MODE=$ltoMode" if $ltoMode;
     push @options, @baseProductDirOption;
     push @options, "ARCHS=$architecture" if $architecture;
+    push @options, "ONLY_ACTIVE_ARCH=NO" if $didUserSpecifyArchitecture;
     push @options, "SDKROOT=$xcodeSDK" if $xcodeSDK;
     if (xcodeVersion() lt "15.0") {
         push @options, "TAPI_USE_SRCROOT=YES" if $ENV{UseSRCROOTSupportForTAPI};

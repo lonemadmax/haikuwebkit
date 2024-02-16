@@ -5582,9 +5582,10 @@ struct WebCore::GlobalWindowIdentifier {
 struct WebCore::InteractionRegion {
     WebCore::InteractionRegion::Type type;
     WebCore::ElementIdentifier elementIdentifier;
-    WebCore::IntRect rectInLayerCoordinates;
-    float borderRadius;
+    WebCore::FloatRect rectInLayerCoordinates;
+    float cornerRadius;
     OptionSet<WebCore::InteractionRegion::CornerMask> maskedCorners;
+    std::optional<WebCore::Path> clipPath;
 };
 
 [Nested, AdditionalEncoder=StreamConnectionEncoder] struct WebCore::Region::Span {
@@ -6283,6 +6284,7 @@ struct WebCore::RemoteUserInputEventData {
 
 struct WebCore::LinkDecorationFilteringData {
     WebCore::RegistrableDomain domain;
+    String path;
     String linkDecoration;
 };
 
@@ -6658,6 +6660,7 @@ header: <WebCore/WheelEventTestMonitor.h>
     ScrollingThreadSyncNeeded,
     ContentScrollInProgress,
     RequestedScrollPosition,
+    CommittingTransientZoom,
 };
 
 header: <WebCore/CrossOriginAccessControl.h>
@@ -7120,6 +7123,29 @@ struct WebCore::Length {
 [Nested] struct WebCore::Length::UndefinedData {
 };
 
+[AdditionalEncoder=StreamConnectionEncoder, RefCounted] class WebCore::FilterFunction subclasses {
+    WebCore::SVGFilter
+    WebCore::FEBlend
+    WebCore::FEColorMatrix
+    WebCore::FEComponentTransfer
+    WebCore::FEComposite
+    WebCore::FEConvolveMatrix
+    WebCore::FEDiffuseLighting
+    WebCore::FEDisplacementMap
+    WebCore::FEDropShadow
+    WebCore::FEFlood
+    WebCore::FEGaussianBlur
+    WebCore::FEImage
+    WebCore::FEMerge
+    WebCore::FEMorphology
+    WebCore::FEOffset
+    WebCore::FESpecularLighting
+    WebCore::FETile
+    WebCore::FETurbulence
+    WebCore::SourceAlpha
+    WebCore::SourceGraphic
+}
+
 struct WebCore::OrganizationStorageAccessPromptQuirk {
     String organizationName;
     HashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> domainPairings;
@@ -7131,3 +7157,74 @@ struct WebCore::OrganizationStorageAccessPromptQuirk {
     Vector<MachSendRight> takeSurfaces();
 }
 #endif
+
+enum class WebCore::PlatformCursorType : uint8_t {
+    Invalid,
+    Pointer,
+    Cross,
+    Hand,
+    IBeam,
+    Wait,
+    Help,
+    EastResize,
+    NorthResize,
+    NorthEastResize,
+    NorthWestResize,
+    SouthResize,
+    SouthEastResize,
+    SouthWestResize,
+    WestResize,
+    NorthSouthResize,
+    EastWestResize,
+    NorthEastSouthWestResize,
+    NorthWestSouthEastResize,
+    ColumnResize,
+    RowResize,
+    MiddlePanning,
+    EastPanning,
+    NorthPanning,
+    NorthEastPanning,
+    NorthWestPanning,
+    SouthPanning,
+    SouthEastPanning,
+    SouthWestPanning,
+    WestPanning,
+    Move,
+    VerticalText,
+    Cell,
+    ContextMenu,
+    Alias,
+    Progress,
+    NoDrop,
+    Copy,
+    None,
+    NotAllowed,
+    ZoomIn,
+    ZoomOut,
+    Grab,
+    Grabbing,
+    Custom,
+};
+
+header: <WebCore/ContextMenuItem.h>
+enum class WebCore::ContextMenuItemType : uint8_t {
+    Action,
+    CheckableAction,
+    Separator,
+    Submenu,
+};
+
+[Nested] enum class WebCore::PopupMenuStyle::Size : uint8_t {
+    Normal,
+    Small,
+    Mini,
+    Large,
+};
+
+header: <WebCore/PredefinedColorSpace.h>
+enum class WebCore::PredefinedColorSpace : uint8_t {
+    SRGB
+#if ENABLE(PREDEFINED_COLOR_SPACE_DISPLAY_P3)
+    , DisplayP3
+#endif
+};

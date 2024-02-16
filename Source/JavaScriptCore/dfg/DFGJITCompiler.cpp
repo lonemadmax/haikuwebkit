@@ -42,8 +42,11 @@
 #include "ProbeContext.h"
 #include "ThunkGenerators.h"
 #include "VM.h"
+#include <wtf/TZoneMallocInlines.h>
 
 namespace JSC { namespace DFG {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(JITCompiler);
 
 JITCompiler::JITCompiler(Graph& dfg)
     : CCallHelpers(dfg.m_codeBlock)
@@ -590,7 +593,7 @@ std::tuple<CompileTimeStructureStubInfo, StructureStubInfoIndex> JITCompiler::ad
 {
     if (m_graph.m_plan.isUnlinked()) {
         unsigned index = m_unlinkedStubInfos.size();
-        UnlinkedStructureStubInfo* stubInfo = &m_unlinkedStubInfos.alloc();
+        DFG::UnlinkedStructureStubInfo* stubInfo = &m_unlinkedStubInfos.alloc();
         return std::tuple { stubInfo, StructureStubInfoIndex { index } };
     }
     StructureStubInfo* stubInfo = jitCode()->common.m_stubInfos.add();

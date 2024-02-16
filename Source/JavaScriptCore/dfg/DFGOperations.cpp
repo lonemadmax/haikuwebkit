@@ -3380,6 +3380,37 @@ JSC_DEFINE_JIT_OPERATION(operationIsNaN, UCPUStrictInt32, (JSGlobalObject* globa
     return toUCPUStrictInt32(std::isnan(argument.toNumber(globalObject)));
 }
 
+JSC_DEFINE_JIT_OPERATION(operationToIntegerOrInfinityDouble, EncodedJSValue, (double d))
+{
+    return JSValue::encode(jsNumber(trunc(std::isnan(d) ? 0.0 : d + 0.0)));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationToIntegerOrInfinityUntyped, EncodedJSValue, (JSGlobalObject* globalObject, EncodedJSValue encodedValue))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    JSValue value = JSValue::decode(encodedValue);
+    return JSValue::encode(jsNumber(value.toIntegerOrInfinity(globalObject)));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationToLengthDouble, EncodedJSValue, (double argument))
+{
+    double d = trunc(std::isnan(argument) ? 0.0 : argument + 0.0);
+    if (d <= 0)
+        return JSValue::encode(jsNumber(0));
+    return JSValue::encode(jsNumber(std::min(d, maxSafeInteger())));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationToLengthUntyped, EncodedJSValue, (JSGlobalObject* globalObject, EncodedJSValue encodedValue))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    JSValue value = JSValue::decode(encodedValue);
+    return JSValue::encode(jsNumber(value.toLength(globalObject)));
+}
+
 static ALWAYS_INLINE UCPUStrictInt32 arrayIndexOfString(JSGlobalObject* globalObject, Butterfly* butterfly, JSString* searchElement, int32_t index)
 {
     VM& vm = globalObject->vm();
@@ -4316,7 +4347,7 @@ JSC_DEFINE_JIT_OPERATION(operationTriggerReoptimizationNow, void, (CodeBlock* co
     // Otherwise, the replacement must be optimized code. Use this as an opportunity
     // to check our logic.
     ASSERT(codeBlock->hasOptimizedReplacement());
-    ASSERT(JITCode::isOptimizingJIT(optimizedCodeBlock->jitType()));
+    ASSERT(JSC::JITCode::isOptimizingJIT(optimizedCodeBlock->jitType()));
     
     bool didTryToEnterIntoInlinedLoops = false;
     for (InlineCallFrame* inlineCallFrame = exit->m_codeOrigin.inlineCallFrame(); inlineCallFrame; inlineCallFrame = inlineCallFrame->directCaller.inlineCallFrame()) {

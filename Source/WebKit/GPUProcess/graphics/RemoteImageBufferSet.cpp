@@ -104,7 +104,7 @@ void RemoteImageBufferSet::flush()
 }
 
 // This is the GPU Process version of RemoteLayerBackingStore::prepareBuffers().
-void RemoteImageBufferSet::ensureBufferForDisplay(const ImageBufferSetPrepareBufferForDisplayInputData& inputData, ImageBufferSetPrepareBufferForDisplayOutputData& outputData)
+void RemoteImageBufferSet::ensureBufferForDisplay(ImageBufferSetPrepareBufferForDisplayInputData& inputData, ImageBufferSetPrepareBufferForDisplayOutputData& outputData)
 {
     assertIsCurrent(workQueue());
     auto bufferIdentifier = [](RefPtr<WebCore::ImageBuffer> buffer) -> std::optional<RenderingResourceIdentifier> {
@@ -123,8 +123,10 @@ void RemoteImageBufferSet::ensureBufferForDisplay(const ImageBufferSetPrepareBuf
     bool needsFullDisplay = false;
     if (m_frontBuffer) {
         auto previousState = m_frontBuffer->setNonVolatile();
-        if (previousState == SetNonVolatileResult::Empty)
+        if (previousState == SetNonVolatileResult::Empty) {
             needsFullDisplay = true;
+            inputData.dirtyRegion = IntRect { { }, expandedIntSize(m_logicalSize) };
+        }
     }
 
     if (!m_frontBuffer || !inputData.supportsPartialRepaint || isSmallLayerBacking(m_frontBuffer->parameters()))
@@ -151,9 +153,11 @@ void RemoteImageBufferSet::ensureBufferForDisplay(const ImageBufferSetPrepareBuf
         std::swap(m_frontBuffer, m_backBuffer);
     }
 
-    if (m_frontBuffer)
-        m_frontBuffer->setNonVolatile();
-    else {
+    if (m_frontBuffer) {
+        auto previousState = m_frontBuffer->setNonVolatile();
+        if (previousState == SetNonVolatileResult::Empty)
+            m_previouslyPaintedRect = std::nullopt;
+    } else {
         m_frontBuffer = m_backend->allocateImageBuffer(m_logicalSize, m_renderingMode, WebCore::RenderingPurpose::LayerBacking, m_resolutionScale, m_colorSpace, m_pixelFormat, RenderingResourceIdentifier::generate());
         m_frontBufferIsCleared = true;
     }
@@ -179,18 +183,22 @@ void RemoteImageBufferSet::prepareBufferForDisplay(const WebCore::Region& dirtyR
         return;
     }
 
-    IntRect layerBounds = IntRect { { }, expandedIntSize(m_logicalSize) };
-
-    if (m_previousFrontBuffer && m_frontBuffer != m_previousFrontBuffer && !dirtyRegion.contains(layerBounds)) {
-        Region copyRegion(m_previouslyPaintedRect ? *m_previouslyPaintedRect : layerBounds);
-        copyRegion.subtract(dirtyRegion);
-        IntRect copyRect = copyRegion.bounds();
-        if (!copyRect.isEmpty())
-            m_frontBuffer->context().drawImageBuffer(*m_previousFrontBuffer, copyRect, copyRect, { CompositeOperator::Copy });
-    }
+    FloatRect bufferBounds { { }, m_logicalSize };
 
     GraphicsContext& context = m_frontBuffer->context();
     context.resetClip();
+
+    FloatRect copyRect;
+    if (m_previousFrontBuffer && m_frontBuffer != m_previousFrontBuffer) {
+        IntRect enclosingCopyRect { m_previouslyPaintedRect ? *m_previouslyPaintedRect : enclosingIntRect(bufferBounds) };
+        if (!dirtyRegion.contains(enclosingCopyRect)) {
+            Region copyRegion(enclosingCopyRect);
+            copyRegion.subtract(dirtyRegion);
+            copyRect = intersection(copyRegion.bounds(), bufferBounds);
+            if (!copyRect.isEmpty())
+                m_frontBuffer->context().drawImageBuffer(*m_previousFrontBuffer, copyRect, copyRect, { CompositeOperator::Copy });
+        }
+    }
 
     auto dirtyRects = dirtyRegion.rects();
 #if PLATFORM(COCOA)
@@ -208,6 +216,11 @@ void RemoteImageBufferSet::prepareBufferForDisplay(const WebCore::Region& dirtyR
         scaledRect = enclosingIntRect(scaledRect);
         scaledRect.scale(1 / m_resolutionScale);
         paintingRects.append(scaledRect);
+
+        // If the copy-forward touched pixels that are about to be painted, then they
+        // won't be 'clear' any more.
+        if (copyRect.intersects(scaledRect))
+            m_frontBufferIsCleared = false;
     }
 
     if (paintingRects.size() == 1)
@@ -220,7 +233,7 @@ void RemoteImageBufferSet::prepareBufferForDisplay(const WebCore::Region& dirtyR
     }
 
     if (requiresClearedPixels && !m_frontBufferIsCleared)
-        context.clearRect(layerBounds);
+        context.clearRect(bufferBounds);
 
     m_previouslyPaintedRect = dirtyRegion.bounds();
     m_previousFrontBuffer = nullptr;
@@ -255,7 +268,9 @@ bool RemoteImageBufferSet::makeBuffersVolatile(OptionSet<BufferInSetType> reques
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
 void RemoteImageBufferSet::dynamicContentScalingDisplayList(CompletionHandler<void(std::optional<WebCore::DynamicContentScalingDisplayList>&&)>&& completionHandler)
 {
-    auto displayList = m_frontBuffer->dynamicContentScalingDisplayList();
+    std::optional<WebCore::DynamicContentScalingDisplayList> displayList;
+    if (m_frontBuffer)
+        displayList = m_frontBuffer->dynamicContentScalingDisplayList();
     completionHandler({ WTFMove(displayList) });
 }
 #endif

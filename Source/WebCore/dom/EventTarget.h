@@ -68,18 +68,18 @@ public:
 };
 
 // Do not make WeakPtrImplWithEventTargetData a derived class of DefaultWeakPtrImpl to catch the bug which uses incorrect impl class.
-class WeakPtrImplWithEventTargetData final : public WTF::WeakPtrImplBase<WeakPtrImplWithEventTargetData> {
+class WeakPtrImplWithEventTargetData final : public WTF::WeakPtrImplBaseSingleThread<WeakPtrImplWithEventTargetData> {
 public:
     EventTargetData& eventTargetData() { return m_eventTargetData; }
     const EventTargetData& eventTargetData() const { return m_eventTargetData; }
 
-    template<typename T> WeakPtrImplWithEventTargetData(T* ptr) : WTF::WeakPtrImplBase<WeakPtrImplWithEventTargetData>(ptr) { }
+    template<typename T> WeakPtrImplWithEventTargetData(T* ptr) : WTF::WeakPtrImplBaseSingleThread<WeakPtrImplWithEventTargetData>(ptr) { }
 
 private:
     EventTargetData m_eventTargetData;
 };
 
-class EventTarget : public ScriptWrappable, public CanMakeWeakPtrWithBitField<EventTarget, WeakPtrFactoryInitialization::Lazy, WeakPtrImplWithEventTargetData>, public CanMakeCheckedPtr {
+class EventTarget : public ScriptWrappable, public CanMakeWeakPtrWithBitField<EventTarget, WeakPtrFactoryInitialization::Lazy, WeakPtrImplWithEventTargetData> {
     WTF_MAKE_ISO_ALLOCATED(EventTarget);
 public:
     static Ref<EventTarget> create(ScriptExecutionContext&);
@@ -151,6 +151,9 @@ public:
     bool hasEventTargetData() const { return hasEventTargetFlag(EventTargetFlag::HasEventTargetData); }
     bool isNode() const { return hasEventTargetFlag(EventTargetFlag::IsNode); }
 
+    bool isInGCReacheableRefMap() const { return hasEventTargetFlag(EventTargetFlag::IsInGCReachableRefMap); }
+    void setIsInGCReacheableRefMap(bool flag) { setEventTargetFlag(EventTargetFlag::IsInGCReachableRefMap, flag); }
+
 protected:
     enum ConstructNodeTag { ConstructNode };
     EventTarget() = default;
@@ -161,14 +164,26 @@ protected:
 
     WEBCORE_EXPORT virtual ~EventTarget();
 
+    // Flags for ownership & relationship.
     enum class EventTargetFlag : uint16_t {
         HasEventTargetData = 1 << 0,
         IsNode = 1 << 1,
+        IsInGCReachableRefMap = 1 << 2,
+        // Node bits
+        IsConnected = 1 << 3,
+        IsInShadowTree = 1 << 4,
+        HasBeenInUserAgentShadowTree = 1 << 5,
         // Element bits
-        HasDuplicateAttribute = 1 << 2,
-        HasLangAttr = 1 << 3,
-        HasXMLLangAttr = 1 << 4,
-        EffectiveLangKnownToMatchDocumentElement = 1 << 5,
+        HasSyntheticAttrChildNodes = 1 << 6,
+        HasDuplicateAttribute = 1 << 7,
+        HasLangAttr = 1 << 8,
+        HasXMLLangAttr = 1 << 9,
+        HasFormAssociatedCustomElementInterface = 1 << 10,
+        HasShadowRootContainingSlots = 1 << 11,
+        IsInTopLayer = 1 << 12,
+        // SVGElement bits
+        HasPendingResources = 1 << 13,
+        // 2 Free bits
     };
 
     EventTargetData& ensureEventTargetData()
@@ -183,8 +198,9 @@ protected:
 
     virtual void eventListenersDidChange() { }
 
-    bool hasEventTargetFlag(EventTargetFlag flag) const { return weakPtrFactory().bitfield() & static_cast<uint16_t>(flag); }
-    void setEventTargetFlag(EventTargetFlag, bool);
+    bool hasEventTargetFlag(EventTargetFlag flag) const { return weakPtrFactory().bitfield() & enumToUnderlyingType(flag); }
+    void setEventTargetFlag(EventTargetFlag, bool = true);
+    void clearEventTargetFlag(EventTargetFlag flag) { setEventTargetFlag(flag, false); }
 
 private:
     virtual void refEventTarget() = 0;
@@ -221,12 +237,9 @@ void EventTarget::visitJSEventListeners(Visitor& visitor)
 
 inline void EventTarget::setEventTargetFlag(EventTargetFlag flag, bool value)
 {
-    uint16_t bitfield = weakPtrFactory().bitfield();
-    if (value)
-        bitfield |= static_cast<uint16_t>(flag);
-    else
-        bitfield &= ~static_cast<uint16_t>(flag);
-    weakPtrFactory().setBitfield(bitfield);
+    auto flags = OptionSet<EventTargetFlag>::fromRaw(weakPtrFactory().bitfield());
+    flags.set(flag, value);
+    weakPtrFactory().setBitfield(flags.toRaw());
 }
 
 } // namespace WebCore

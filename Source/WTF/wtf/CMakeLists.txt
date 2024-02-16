@@ -291,6 +291,8 @@ set(WTF_PUBLIC_HEADERS
     SystemFree.h
     SystemMalloc.h
     SystemTracing.h
+    TZoneMalloc.h
+    TZoneMallocInlines.h
     TaggedArrayStoragePtr.h
     ThreadAssertions.h
     ThreadGroup.h
@@ -451,7 +453,6 @@ set(WTF_SOURCES
     ApproximateTime.cpp
     Assertions.cpp
     AutomaticThread.cpp
-    Bag.cpp
     BitVector.cpp
     BloomFilter.cpp
     CPUTime.cpp

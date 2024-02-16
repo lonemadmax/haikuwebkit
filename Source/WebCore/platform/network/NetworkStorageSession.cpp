@@ -432,6 +432,8 @@ const HashMap<RegistrableDomain, HashSet<RegistrableDomain>>& NetworkStorageSess
             RegistrableDomain::uncheckedCreateFromRegistrableDomainString("sony.com"_s) });
         map.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("bbc.co.uk"_s), HashSet {
             RegistrableDomain::uncheckedCreateFromRegistrableDomainString("radioplayer.co.uk"_s) });
+        map.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("gizmodo.com"_s), HashSet {
+            RegistrableDomain::uncheckedCreateFromRegistrableDomainString("kinja.com"_s) });
         return map;
     }();
     return map.get();
@@ -453,6 +455,7 @@ bool NetworkStorageSession::loginDomainMatchesRequestingDomain(const TopFrameDom
 
 bool NetworkStorageSession::canRequestStorageAccessForLoginOrCompatibilityPurposesWithoutPriorUserInteraction(const SubResourceDomain& resourceDomain, const TopFrameDomain& topFrameDomain)
 {
+    ASSERT(RunLoop::isMain());
     return loginDomainMatchesRequestingDomain(topFrameDomain, resourceDomain);
 }
 
@@ -477,8 +480,6 @@ std::optional<RegistrableDomain> NetworkStorageSession::findAdditionalLoginDomai
 
 Vector<RegistrableDomain> NetworkStorageSession::storageAccessQuirkForTopFrameDomain(const TopFrameDomain& topDomain)
 {
-    if (!RunLoop::isMain())
-        return { };
     for (auto&& quirk : updatableStorageAccessPromptQuirks()) {
         auto& domainPairings = quirk.domainPairings;
         auto entry = domainPairings.find(topDomain);
@@ -491,8 +492,6 @@ Vector<RegistrableDomain> NetworkStorageSession::storageAccessQuirkForTopFrameDo
 
 std::optional<OrganizationStorageAccessPromptQuirk> NetworkStorageSession::storageAccessQuirkForDomainPair(const TopFrameDomain& topDomain, const SubResourceDomain& subDomain)
 {
-    if (!RunLoop::isMain())
-        return std::nullopt;
     for (auto&& quirk : updatableStorageAccessPromptQuirks()) {
         auto& domainPairings = quirk.domainPairings;
         auto entry = domainPairings.find(topDomain);

@@ -107,11 +107,11 @@ bool SVGImage::renderingTaintsOrigin() const
     for (auto& element : descendantsOfType<SVGElement>(*rootElement)) {
         if (is<SVGForeignObjectElement>(element))
             return true;
-        if (is<SVGImageElement>(element)) {
-            if (downcast<SVGImageElement>(element).renderingTaintsOrigin())
+        if (auto* svgImage = dynamicDowncast<SVGImageElement>(element)) {
+            if (svgImage->renderingTaintsOrigin())
                 return true;
-        } else if (is<SVGFEImageElement>(element)) {
-            if (downcast<SVGFEImageElement>(element).renderingTaintsOrigin())
+        } else if (auto* svgFEImage = dynamicDowncast<SVGFEImageElement>(element)) {
+            if (svgFEImage->renderingTaintsOrigin())
                 return true;
         }
     }
@@ -471,7 +471,7 @@ EncodedDataStatus SVGImage::dataChanged(bool allDataReceived)
         // This will become an issue when SVGImage will be able to load other
         // SVGImage objects, but we're safe now, because SVGImage can only be
         // loaded by a top-level document.
-        m_page = makeUnique<Page>(WTFMove(pageConfiguration));
+        m_page = Page::create(WTFMove(pageConfiguration));
 #if ENABLE(VIDEO)
         m_page->settings().setMediaEnabled(false);
 #endif

@@ -64,8 +64,6 @@ DrawingAreaCoordinatedGraphics::DrawingAreaCoordinatedGraphics(WebPage& webPage,
 #if USE(GLIB_EVENT_LOOP) && !PLATFORM(WPE)
     m_displayTimer.setPriority(RunLoopSourcePriority::NonAcceleratedDrawingTimer);
 #endif
-
-    updatePreferences(parameters.store);
 }
 
 DrawingAreaCoordinatedGraphics::~DrawingAreaCoordinatedGraphics() = default;
@@ -339,15 +337,6 @@ void DrawingAreaCoordinatedGraphics::triggerRenderingUpdate()
         scheduleDisplay();
 }
 
-#if HAVE(DISPLAY_LINK)
-void DrawingAreaCoordinatedGraphics::didCompleteRenderingUpdateDisplay()
-{
-    if (m_layerTreeHost)
-        m_layerTreeHost->didCompleteRenderingUpdateDisplay();
-    DrawingArea::didCompleteRenderingUpdateDisplay();
-}
-#endif
-
 RefPtr<DisplayRefreshMonitor> DrawingAreaCoordinatedGraphics::createDisplayRefreshMonitor(PlatformDisplayID displayID)
 {
 #if HAVE(DISPLAY_LINK)
@@ -456,7 +445,7 @@ void DrawingAreaCoordinatedGraphics::adjustTransientZoom(double scale, FloatPoin
     webPage->scalePage(scale / webPage->viewScaleFactor(), roundedIntPoint(-unscrolledOrigin));
 }
 
-void DrawingAreaCoordinatedGraphics::commitTransientZoom(double scale, FloatPoint origin)
+void DrawingAreaCoordinatedGraphics::commitTransientZoom(double scale, FloatPoint origin, CompletionHandler<void()>&& completionHandler)
 {
     if (m_layerTreeHost)
         m_layerTreeHost->commitTransientZoom(scale, origin);
@@ -468,6 +457,7 @@ void DrawingAreaCoordinatedGraphics::commitTransientZoom(double scale, FloatPoin
     webPage->scalePage(scale / webPage->viewScaleFactor(), roundedIntPoint(-unscrolledOrigin));
 
     m_transientZoom = false;
+    completionHandler();
 }
 #endif
 

@@ -264,9 +264,9 @@ auto TreeResolver::resolveElement(Element& element, const RenderStyle* existingS
         m_document.setTextColor(update.style->visitedDependentColor(CSSPropertyColor));
 
     // FIXME: These elements should not change renderer based on appearance property.
-    if (element.hasTagName(HTMLNames::meterTag)
-        || is<HTMLProgressElement>(element)
-        || (is<HTMLInputElement>(element) && downcast<HTMLInputElement>(element).isSearchField())) {
+    if (RefPtr input = dynamicDowncast<HTMLInputElement>(element); (input && input->isSearchField())
+        || element.hasTagName(HTMLNames::meterTag)
+        || is<HTMLProgressElement>(element)) {
         if (existingStyle && update.style->effectiveAppearance() != existingStyle->effectiveAppearance()) {
             update.change = Change::Renderer;
             descendantsToResolve = DescendantsToResolve::All;
@@ -277,7 +277,7 @@ auto TreeResolver::resolveElement(Element& element, const RenderStyle* existingS
         auto pseudoElementUpdate = resolvePseudoElement(element, pseudoId, update);
         auto pseudoElementChange = [&] {
             if (pseudoElementUpdate) {
-                if (pseudoId == PseudoId::Scrollbar)
+                if (pseudoId == PseudoId::WebKitScrollbar)
                     return pseudoElementUpdate->change;
                 return pseudoElementUpdate->change == Change::None ? Change::None : Change::NonInherited;
             }
@@ -299,7 +299,7 @@ auto TreeResolver::resolveElement(Element& element, const RenderStyle* existingS
         descendantsToResolve = DescendantsToResolve::All;
     if (resolveAndAddPseudoElementStyle(PseudoId::FirstLetter) != Change::None)
         descendantsToResolve = DescendantsToResolve::All;
-    if (resolveAndAddPseudoElementStyle(PseudoId::Scrollbar) != Change::None)
+    if (resolveAndAddPseudoElementStyle(PseudoId::WebKitScrollbar) != Change::None)
         descendantsToResolve = DescendantsToResolve::All;
 
     resolveAndAddPseudoElementStyle(PseudoId::Marker);
@@ -344,7 +344,7 @@ std::optional<ElementUpdate> TreeResolver::resolvePseudoElement(Element& element
         return { };
     if (pseudoId == PseudoId::FirstLetter && !scope().resolver->usesFirstLetterRules())
         return { };
-    if (pseudoId == PseudoId::Scrollbar && elementUpdate.style->overflowX() != Overflow::Scroll && elementUpdate.style->overflowY() != Overflow::Scroll)
+    if (pseudoId == PseudoId::WebKitScrollbar && elementUpdate.style->overflowX() != Overflow::Scroll && elementUpdate.style->overflowY() != Overflow::Scroll)
         return { };
     if (pseudoId == PseudoId::ViewTransition && (!element.document().hasViewTransitionPseudoElementTree() || &element != element.document().documentElement()))
         return { };
@@ -701,8 +701,7 @@ void TreeResolver::pushParent(Element& element, const RenderStyle& style, Change
     if (auto* shadowRoot = element.shadowRoot()) {
         pushScope(*shadowRoot);
         parent.didPushScope = true;
-    }
-    else if (is<HTMLSlotElement>(element) && downcast<HTMLSlotElement>(element).assignedNodes()) {
+    } else if (RefPtr slot = dynamicDowncast<HTMLSlotElement>(element); slot && slot->assignedNodes()) {
         pushEnclosingScope();
         parent.didPushScope = true;
     }
@@ -856,20 +855,18 @@ void TreeResolver::resolveComposedTree()
         ASSERT(node.containingShadowRoot() == scope().shadowRoot);
         ASSERT(node.parentElement() == parent.element || is<ShadowRoot>(node.parentNode()) || node.parentElement()->shadowRoot());
 
-        if (is<Text>(node)) {
-            auto& text = downcast<Text>(node);
-            
-            if ((text.hasInvalidRenderer() && parent.change != Change::Renderer) || parent.style.display() == DisplayType::Contents) {
+        if (RefPtr text = dynamicDowncast<Text>(node)) {
+            if ((text->hasInvalidRenderer() && parent.change != Change::Renderer) || parent.style.display() == DisplayType::Contents) {
                 TextUpdate textUpdate;
                 textUpdate.inheritedDisplayContentsStyle = createInheritedDisplayContentsStyleIfNeeded(parent.style, parentBoxStyle());
 
-                m_update->addText(text, parent.element, WTFMove(textUpdate));
+                m_update->addText(*text, parent.element, WTFMove(textUpdate));
             }
 
-            if (!text.data().containsOnly<isASCIIWhitespace>())
+            if (!text->data().containsOnly<isASCIIWhitespace>())
                 parent.resolvedFirstLineAndLetterChild = true;
 
-            text.setHasValidStyle();
+            text->setHasValidStyle();
             it.traverseNextSkippingChildren();
             continue;
         }

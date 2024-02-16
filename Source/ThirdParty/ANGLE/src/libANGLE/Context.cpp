@@ -892,6 +892,7 @@ egl::Error Context::onDestroy(const egl::Display *display)
 
     releaseShaderCompiler();
 
+    mState.ensureNoPendingLink(this);
     mState.reset(this);
 
     releaseSharedObjects();
@@ -3920,7 +3921,6 @@ void Context::initCaps()
         mSupportedExtensions.textureCompressionRgtcEXT                       = false;
         mSupportedExtensions.textureCompressionS3tcSrgbEXT                   = false;
         mSupportedExtensions.textureCompressionAstcSliced3dKHR               = false;
-        mSupportedExtensions.textureFilteringHintCHROMIUM                    = false;
 
         caps->compressedTextureFormats.clear();
     }

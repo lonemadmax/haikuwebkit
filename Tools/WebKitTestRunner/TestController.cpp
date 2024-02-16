@@ -1282,6 +1282,7 @@ bool TestController::resetStateToConsistentValues(const TestOptions& options, Re
 
     m_downloadTotalBytesWritten = { };
     m_downloadIndex = 0;
+    m_shouldDownloadContentDispositionAttachments = true;
     m_dumpPolicyDelegateCallbacks = false;
 
     return m_doneResetting;
@@ -2087,6 +2088,13 @@ void TestController::didReceiveSynchronousMessageFromInjectedBundle(WKStringRef 
 
         if (WKStringIsEqualToUTF8CString(subMessageName, "CancelTouchPoint")) {
             m_eventSenderProxy->cancelTouchPoint(uint64Value(dictionary, "Index"));
+            return completionHandler(nullptr);
+        }
+#endif
+
+#if PLATFORM(MAC)
+        if (WKStringIsEqualToUTF8CString(subMessageName, "SmartMagnify")) {
+            m_eventSenderProxy->smartMagnify();
             return completionHandler(nullptr);
         }
 #endif

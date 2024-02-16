@@ -25,12 +25,12 @@
 
 #pragma once
 
+#include "InlineCallFrame.h"
+
 #include <wtf/Bag.h>
 #include <wtf/RefCounted.h>
 
 namespace JSC {
-
-struct InlineCallFrame;
 
 class InlineCallFrameSet : public RefCounted<InlineCallFrameSet> {
 public:
@@ -40,7 +40,7 @@ public:
     bool isEmpty() const { return m_frames.isEmpty(); }
     
     InlineCallFrame* add();
-    
+
     using FrameBag = Bag<InlineCallFrame, RawPtrTraits<InlineCallFrame>, InlineCallFrameMalloc>;
     typedef FrameBag::iterator iterator;
     iterator begin() { return m_frames.begin(); }

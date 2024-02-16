@@ -51,14 +51,14 @@ static WorkQueue& granterQueue()
 }
 
 #if USE(EXTENSIONKIT)
-static RetainPtr<_SEGrant> grantCapability(_SECapabilities *capability, _SEExtensionProcess *process)
+static RetainPtr<_SEGrant> grantCapability(_SECapability *capability, _SEExtensionProcess *process)
 {
     ASSERT(capability);
     if (!capability || !process)
         return nil;
 
     NSError *error = nil;
-    _SEGrant *grant = [process grantCapabilities:capability error:&error];
+    _SEGrant *grant = [process grantCapability:capability error:&error];
     if (!grant)
         RELEASE_LOG_ERROR(ProcessCapabilities, "%{public}s (process=%{public}p) failed with error: %{public}@", __FUNCTION__, process, error);
 

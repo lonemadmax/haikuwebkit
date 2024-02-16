@@ -45,9 +45,9 @@
 #include "MouseEvent.h"
 #include "RenderAttachment.h"
 #include "RenderImage.h"
-#include "ShadowPseudoIds.h"
 #include "ShadowRoot.h"
 #include "TreeScopeInlines.h"
+#include "UserAgentPartIds.h"
 #include "UserAgentStyleSheets.h"
 #include <wtf/text/AtomString.h>
 
@@ -125,7 +125,7 @@ void createImageControls(HTMLElement& element)
     auto button = HTMLButtonElement::create(HTMLNames::buttonTag, element.document(), nullptr);
     button->setIdAttribute(imageControlsButtonIdentifier());
     controlLayer->appendChild(button);
-    controlLayer->setPseudo(ShadowPseudoIds::appleAttachmentControlsContainer());
+    controlLayer->setPseudo(UserAgentPartIds::appleAttachmentControlsContainer());
     
     if (CheckedPtr renderImage = dynamicDowncast<RenderImage>(element.renderer()))
         renderImage->setHasShadowControls(true);
@@ -151,7 +151,7 @@ bool handleEvent(HTMLElement& element, Event& event)
     if (!frame)
         return false;
 
-    CheckedPtr page = element.document().page();
+    RefPtr page = element.document().page();
     if (!page)
         return false;
     

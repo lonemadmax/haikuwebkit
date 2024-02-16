@@ -232,8 +232,8 @@ public:
     WebPageGroupProxy* webPageGroup(PageGroupIdentifier);
     WebPageGroupProxy* webPageGroup(const WebPageGroupData&);
 
-    uint64_t userGestureTokenIdentifier(RefPtr<WebCore::UserGestureToken>);
-    void userGestureTokenDestroyed(WebCore::UserGestureToken&);
+    uint64_t userGestureTokenIdentifier(std::optional<WebCore::PageIdentifier>, RefPtr<WebCore::UserGestureToken>);
+    void userGestureTokenDestroyed(WebCore::PageIdentifier, WebCore::UserGestureToken&);
     
     const TextCheckerState& textCheckerState() const { return m_textCheckerState; }
     void setTextCheckerState(const TextCheckerState&);
@@ -428,7 +428,7 @@ public:
     void addAllowedFirstPartyForCookies(WebCore::RegistrableDomain&&);
     bool allowsFirstPartyForCookies(const URL&);
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     void revokeLaunchServicesSandboxExtension();
 #endif
 
@@ -760,7 +760,8 @@ private:
 
     String m_uiProcessName;
     WebCore::RegistrableDomain m_registrableDomain;
-
+#endif
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     RefPtr<SandboxExtension> m_launchServicesExtension;
 #endif
 

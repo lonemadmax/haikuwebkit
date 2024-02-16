@@ -21,7 +21,6 @@
 #pragma once
 
 #include "ColorHash.h"
-#include "ControlStates.h"
 #include "GraphicsContext.h"
 #include "PaintInfo.h"
 #include "PopupMenuStyle.h"
@@ -78,14 +77,11 @@ public:
 
     void updateControlPartForRenderer(ControlPart&, const RenderObject&) const;
 
-    OptionSet<ControlStyle::State> extractControlStyleStatesForRenderer(const RenderObject&) const;
-    ControlStyle extractControlStyleForRenderer(const RenderBox&) const;
-
     // These methods are called to paint the widget as a background of the RenderObject. A widget's foreground, e.g., the
     // text of a button, is always rendered by the engine itself. The boolean return value indicates
     // whether the CSS border/background should also be painted.
     bool paint(const RenderBox&, ControlPart&, const PaintInfo&, const LayoutRect&);
-    bool paint(const RenderBox&, ControlStates&, const PaintInfo&, const LayoutRect&);
+    bool paint(const RenderBox&, const PaintInfo&, const LayoutRect&);
     
     bool paintBorderOnly(const RenderBox&, const PaintInfo&, const LayoutRect&);
     void paintDecorations(const RenderBox&, const PaintInfo&, const LayoutRect&);
@@ -143,7 +139,7 @@ public:
 
     // This method is called whenever a relevant state changes on a particular themed object, e.g., the mouse becomes pressed
     // or a control becomes disabled.
-    virtual bool stateChanged(const RenderObject&, ControlStates::States) const;
+    bool stateChanged(const RenderObject&, ControlStyle::State) const;
 
     // This method is called whenever the theme changes on the system in order to flush cached resources from the
     // old theme.
@@ -160,7 +156,8 @@ public:
 
     virtual bool supportsBoxShadow(const RenderStyle&) const { return false; }
 
-    virtual bool useFormSemanticContext() const { return false; }
+    bool useFormSemanticContext() const { return m_useFormSemanticContext; }
+    void setUseFormSemanticContext(bool value) { m_useFormSemanticContext = value; }
     virtual bool supportsLargeFormControls() const { return false; }
 
     virtual bool searchFieldShouldAppearAsTextField(const RenderStyle&) const { return false; }
@@ -211,7 +208,7 @@ public:
 
     virtual LengthBox popupInternalPaddingBox(const RenderStyle&) const { return { 0, 0, 0, 0 }; }
     virtual bool popupOptionSupportsTextIndent() const { return false; }
-    virtual PopupMenuStyle::PopupMenuSize popupMenuSize(const RenderStyle&, IntRect&) const { return PopupMenuStyle::PopupMenuSizeNormal; }
+    virtual PopupMenuStyle::Size popupMenuSize(const RenderStyle&, IntRect&) const { return PopupMenuStyle::Size::Normal; }
 
     virtual ScrollbarWidth scrollbarWidthStyleForPart(StyleAppearance) { return ScrollbarWidth::Auto; }
 
@@ -268,6 +265,9 @@ public:
     float switchPointerTrackingMagnitudeProportion() const { return 0.4f; }
 
 protected:
+    OptionSet<ControlStyle::State> extractControlStyleStatesForRenderer(const RenderObject&) const;
+    ControlStyle extractControlStyleForRenderer(const RenderObject&) const;
+
     virtual bool canPaint(const PaintInfo&, const Settings&, StyleAppearance) const { return true; }
 
     // The platform selection color.
@@ -294,7 +294,6 @@ protected:
     virtual bool supportsSelectionForegroundColors(OptionSet<StyleColorOptions>) const { return true; }
     virtual bool supportsListBoxSelectionForegroundColors(OptionSet<StyleColorOptions>) const { return true; }
 
-#if PLATFORM(IOS_FAMILY)
     // Methods for each appearance value.
     virtual void adjustCheckboxStyle(RenderStyle&, const Element*) const;
     virtual bool paintCheckbox(const RenderObject&, const PaintInfo&, const FloatRect&) { return true; }
@@ -302,18 +301,16 @@ protected:
     virtual void adjustRadioStyle(RenderStyle&, const Element*) const;
     virtual bool paintRadio(const RenderObject&, const PaintInfo&, const FloatRect&) { return true; }
 
-    virtual void adjustButtonStyle(RenderStyle&, const Element*) const { }
+    virtual void adjustButtonStyle(RenderStyle&, const Element*) const;
     virtual bool paintButton(const RenderObject&, const PaintInfo&, const IntRect&) { return true; }
 
 #if ENABLE(INPUT_TYPE_COLOR)
     virtual void adjustColorWellStyle(RenderStyle&, const Element*) const;
-    virtual bool paintColorWell(const RenderObject&, const PaintInfo&, const IntRect&);
-#endif
-#endif // PLATFORM(IOS_FAMILY)
-
-#if ENABLE(INPUT_TYPE_COLOR)
+    virtual bool paintColorWell(const RenderObject&, const PaintInfo&, const IntRect&) { return true; }
     virtual void paintColorWellDecorations(const RenderObject&, const PaintInfo&, const FloatRect&) { }
 #endif
+
+    virtual void adjustInnerSpinButtonStyle(RenderStyle&, const Element*) const;
 
     virtual void adjustTextFieldStyle(RenderStyle&, const Element*) const { }
     virtual bool paintTextField(const RenderObject&, const PaintInfo&, const FloatRect&) { return true; }
@@ -384,13 +381,16 @@ protected:
     virtual void adjustSearchFieldResultsButtonStyle(RenderStyle&, const Element*) const { }
     virtual bool paintSearchFieldResultsButton(const RenderBox&, const PaintInfo&, const IntRect&) { return true; }
 
-    virtual void adjustSwitchStyle(RenderStyle&, const Element*) const { }
+    virtual void adjustSwitchStyle(RenderStyle&, const Element*) const;
     virtual bool paintSwitchThumb(const RenderObject&, const PaintInfo&, const FloatRect&) { return true; }
     virtual bool paintSwitchTrack(const RenderObject&, const PaintInfo&, const FloatRect&) { return true; }
 
+private:
+    OptionSet<ControlStyle::State> extractControlStyleStatesForRendererInternal(const RenderObject&) const;
+
+    void adjustButtonOrCheckboxOrColorWellOrInnerSpinButtonOrRadioStyle(RenderStyle&, const Element*) const;
+
 public:
-    void updateControlStatesForRenderer(const RenderBox&, ControlStates&) const;
-    OptionSet<ControlStates::States> extractControlStatesForRenderer(const RenderObject&) const;
     bool isWindowActive(const RenderObject&) const;
     bool isChecked(const RenderObject&) const;
     bool isIndeterminate(const RenderObject&) const;
@@ -452,6 +452,8 @@ private:
     Color grammarMarkerColor(OptionSet<StyleColorOptions>) const;
 
     mutable HashMap<uint8_t, ColorCache, DefaultHash<uint8_t>, WTF::UnsignedWithZeroKeyHashTraits<uint8_t>> m_colorCacheMap;
+
+    bool m_useFormSemanticContext { false };
 };
 
 } // namespace WebCore

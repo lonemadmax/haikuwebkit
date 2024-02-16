@@ -76,6 +76,8 @@ public:
     void getAll(CookieStoreGetOptions&&, URL&&, Function<void(CookieStore&, ExceptionOr<Vector<Cookie>>&&)>&&);
     void set(CookieInit&& options, Cookie&&, Function<void(CookieStore&, std::optional<Exception>&&)>&&);
 
+    void detach() { m_cookieStore = nullptr; }
+
 private:
     explicit MainThreadBridge(CookieStore&);
 
@@ -106,7 +108,7 @@ void CookieStore::MainThreadBridge::ensureOnMainThread(Function<void(ScriptExecu
         return;
     }
 
-    downcast<WorkerGlobalScope>(*context).thread().workerLoaderProxy().postTaskToLoader(WTFMove(task));
+    downcast<WorkerGlobalScope>(*context).thread().workerLoaderProxy()->postTaskToLoader(WTFMove(task));
 }
 
 void CookieStore::MainThreadBridge::ensureOnContextThread(Function<void(CookieStore&)>&& task)
@@ -221,7 +223,10 @@ CookieStore::CookieStore(ScriptExecutionContext* context)
 {
 }
 
-CookieStore::~CookieStore() = default;
+CookieStore::~CookieStore()
+{
+    m_mainThreadBridge->detach();
+}
 
 void CookieStore::get(String&& name, Ref<DeferredPromise>&& promise)
 {

@@ -349,10 +349,6 @@
 #define ENABLE_MAC_GESTURE_EVENTS 0
 #endif
 
-#if !defined(ENABLE_MANAGED_MEDIA_SOURCE)
-#define ENABLE_MANAGED_MEDIA_SOURCE 0
-#endif
-
 #if !defined(ENABLE_MATHML)
 #define ENABLE_MATHML 1
 #endif
@@ -894,8 +890,10 @@
 #define ENABLE_CSS_SELECTOR_JIT 1
 #endif
 
+#if ENABLE(JIT)
 #if CPU(ARM_THUMB2) || CPU(ARM64)
 #define ENABLE_BRANCH_COMPACTION 1
+#endif
 #endif
 
 #if !defined(ENABLE_THREADING_LIBDISPATCH) && HAVE(DISPATCH_H)

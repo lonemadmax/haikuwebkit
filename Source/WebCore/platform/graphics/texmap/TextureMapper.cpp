@@ -362,7 +362,7 @@ static inline float gauss(float x, float radius)
 static int computeGaussianKernel(float radius, std::array<float, SimplifiedGaussianKernelMaxHalfSize>& kernel, std::array<float, SimplifiedGaussianKernelMaxHalfSize>& offset)
 {
     unsigned kernelHalfSize = blurRadiusToKernelHalfSize(radius);
-    ASSERT(kernelHalfSize <= GaussianKernelMaxHalfSize);
+    RELEASE_ASSERT(kernelHalfSize <= GaussianKernelMaxHalfSize);
 
     float fullKernel[GaussianKernelMaxHalfSize];
 
@@ -870,8 +870,9 @@ void TextureMapper::drawBlurred(const BitmapTexture& sourceTexture, const FloatR
     auto directionVector = direction == Direction::X ? FloatPoint(1, 0) : FloatPoint(0, 1);
     glUniform2f(program->blurDirectionLocation(), directionVector.x(), directionVector.y());
 
-    std::array<float, SimplifiedGaussianKernelMaxHalfSize> kernel;
-    std::array<float, SimplifiedGaussianKernelMaxHalfSize> offset;
+    // Zero-filled arrays for GLES<300
+    std::array<float, SimplifiedGaussianKernelMaxHalfSize> kernel = { };
+    std::array<float, SimplifiedGaussianKernelMaxHalfSize> offset = { };
     int simplifiedKernelHalfSize = computeGaussianKernel(radius, kernel, offset);
     glUniform1fv(program->gaussianKernelLocation(), SimplifiedGaussianKernelMaxHalfSize, kernel.data());
     glUniform1fv(program->gaussianKernelOffsetLocation(), SimplifiedGaussianKernelMaxHalfSize, offset.data());
@@ -999,7 +1000,7 @@ RefPtr<BitmapTexture> TextureMapper::applyDropShadowFilter(RefPtr<BitmapTexture>
                 std::max(textureSize.height() * scale, 1.f)
             );
             scale = float(targetSize.width()) / textureSize.width();
-            radius *= scale;
+            radius = std::min(GaussianBlurMaxRadius, radius * scale);
         }
     }
 

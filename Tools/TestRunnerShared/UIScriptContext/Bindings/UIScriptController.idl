@@ -268,6 +268,7 @@ interface UIScriptController {
     readonly attribute boolean isShowingMenu;
     readonly attribute object menuRect;
     readonly attribute object contextMenuRect;
+    readonly attribute object contextMenuPreviewRect;
     object rectForMenuAction(DOMString action);
     undefined chooseMenuAction(DOMString action, object callback);
     undefined dismissMenu();
@@ -383,6 +384,9 @@ interface UIScriptController {
     undefined setHardwareKeyboardAttached(boolean attached);
 
     undefined setWebViewEditable(boolean editable);
+
+    // Only affects macOS.
+    undefined setWebViewAllowsMagnification(boolean allowsMagnification);
 
     object attachmentInfo(DOMString attachmentIdentifier);
     undefined insertAttachmentForFilePath(DOMString filePath, DOMString contentType, object callback);

@@ -40,7 +40,7 @@ public:
     bool isObjectBoundingBoxValid() const { return m_objectBoundingBoxValid; }
 
 protected:
-    LegacyRenderSVGContainer(Type, SVGElement&, RenderStyle&&);
+    LegacyRenderSVGContainer(Type, SVGElement&, RenderStyle&&, OptionSet<SVGModelObjectFlag> = { });
 
     ASCIILiteral renderName() const override { return "RenderSVGContainer"_s; }
 
@@ -70,8 +70,6 @@ protected:
     void updateCachedBoundaries();
 
 private:
-    bool isLegacyRenderSVGContainer() const final { return true; }
-
     FloatRect m_objectBoundingBox;
     mutable Markable<FloatRect, FloatRect::MarkableTraits> m_strokeBoundingBox;
     FloatRect m_repaintBoundingBox;

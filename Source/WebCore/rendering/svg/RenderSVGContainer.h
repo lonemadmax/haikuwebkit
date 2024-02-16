@@ -48,8 +48,8 @@ public:
     FloatRect repaintRectInLocalCoordinates(RepaintRectCalculation = RepaintRectCalculation::Fast) const final { return SVGBoundingBoxComputation::computeRepaintBoundingBox(*this); }
 
 protected:
-    RenderSVGContainer(Type, Document&, RenderStyle&&);
-    RenderSVGContainer(Type, SVGElement&, RenderStyle&&);
+    RenderSVGContainer(Type, Document&, RenderStyle&&, OptionSet<SVGModelObjectFlag> = { });
+    RenderSVGContainer(Type, SVGElement&, RenderStyle&&, OptionSet<SVGModelObjectFlag> = { });
 
     ASCIILiteral renderName() const override { return "RenderSVGContainer"_s; }
     bool canHaveChildren() const final { return true; }
@@ -68,9 +68,6 @@ protected:
     FloatRect m_objectBoundingBox;
     FloatRect m_objectBoundingBoxWithoutTransformations;
     mutable Markable<FloatRect, FloatRect::MarkableTraits> m_strokeBoundingBox;
-
-private:
-    bool isRenderSVGContainer() const final { return true; }
 };
 
 } // namespace WebCore

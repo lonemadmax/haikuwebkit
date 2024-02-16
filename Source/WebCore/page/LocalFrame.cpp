@@ -147,12 +147,21 @@ static inline float parentTextZoomFactor(LocalFrame* frame)
     return parent->textZoomFactor();
 }
 
+static bool isRootFrame(const Frame& frame)
+{
+    if (auto* parent = frame.tree().parent())
+        return is<RemoteFrame>(parent);
+    ASSERT(&frame.mainFrame() == &frame);
+    return true;
+}
+
 LocalFrame::LocalFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& frameLoaderClient, FrameIdentifier identifier, HTMLFrameOwnerElement* ownerElement, Frame* parent)
     : Frame(page, identifier, FrameType::Local, ownerElement, parent)
     , m_loader(makeUniqueRef<FrameLoader>(*this, WTFMove(frameLoaderClient)))
     , m_script(makeUniqueRef<ScriptController>(*this))
     , m_pageZoomFactor(parentPageZoomFactor(this))
     , m_textZoomFactor(parentTextZoomFactor(this))
+    , m_isRootFrame(WebCore::isRootFrame(*this))
     , m_eventHandler(makeUniqueRef<EventHandler>(*this))
 {
     ProcessWarming::initializeNames();
@@ -169,8 +178,8 @@ LocalFrame::LocalFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& frameLoad
     if (LocalFrame* parent = dynamicDowncast<LocalFrame>(tree().parent()); parent && parent->activeDOMObjectsAndAnimationsSuspended())
         suspendActiveDOMObjectsAndAnimations();
 
-    if (CheckedPtr page = this->page(); page && isRootFrame())
-        page->removeRootFrame(*this);
+    if (isRootFrame())
+        page.addRootFrame(*this);
 }
 
 void LocalFrame::init()
@@ -218,14 +227,16 @@ LocalFrame::~LocalFrame()
     auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
     if (!isMainFrame() && localMainFrame)
         localMainFrame->selfOnlyDeref();
+
+    if (isRootFrame()) {
+        if (auto* page = this->page())
+            page->removeRootFrame(*this);
+    }
 }
 
 bool LocalFrame::isRootFrame() const
 {
-    if (auto* parent = tree().parent())
-        return is<RemoteFrame>(parent);
-    ASSERT(&mainFrame() == this);
-    return true;
+    return m_isRootFrame;
 }
 
 void LocalFrame::addDestructionObserver(FrameDestructionObserver& observer)
@@ -287,7 +298,7 @@ void LocalFrame::setDocument(RefPtr<Document>&& newDocument)
     m_documentIsBeingReplaced = true;
 
     if (isMainFrame()) {
-        if (CheckedPtr page = this->page())
+        if (RefPtr page = this->page())
             page->didChangeMainDocument();
         checkedLoader()->client().dispatchDidChangeMainDocument();
 
@@ -325,7 +336,7 @@ void LocalFrame::setDocument(RefPtr<Document>&& newDocument)
 #endif
 
     if (page() && m_doc && isMainFrame() && !loader().stateMachine().isDisplayingInitialEmptyDocument())
-        checkedPage()->mainFrameDidChangeToNonInitialEmptyDocument();
+        protectedPage()->mainFrameDidChangeToNonInitialEmptyDocument();
 
     InspectorInstrumentation::frameDocumentUpdated(*this);
 
@@ -406,7 +417,7 @@ void LocalFrame::orientationChanged()
 
 IntDegrees LocalFrame::orientation() const
 {
-    if (CheckedPtr page = this->page())
+    if (RefPtr page = this->page())
         return page->chrome().client().deviceOrientation();
     return 0;
 }
@@ -707,7 +718,7 @@ void LocalFrame::injectUserScripts(UserScriptInjectionTime injectionTime)
     if (loader().stateMachine().creatingInitialEmptyDocument() && !settings().shouldInjectUserScriptsInInitialEmptyDocument())
         return;
 
-    CheckedPtr page = this->page();
+    RefPtr page = this->page();
     bool pageWasNotified = page->hasBeenNotifiedToInjectUserScripts();
     page->protectedUserContentProvider()->forEachUserScript([this, protectedThis = Ref { *this }, injectionTime, pageWasNotified] (DOMWrapperWorld& world, const UserScript& script) {
         if (script.injectionTime() == injectionTime) {
@@ -816,7 +827,8 @@ void LocalFrame::willDetachPage()
 
     // FIXME: It's unclear as to why this is called more than once, but it is,
     // so page() could be NULL.
-    if (CheckedPtr page = this->page()) {
+    // Unable to ref the page as it may have started destruction.
+    if (WeakPtr page = this->page()) {
         CheckedRef focusController = page->focusController();
         if (focusController->focusedFrame() == this)
             focusController->setFocusedFrame(nullptr);
@@ -999,7 +1011,7 @@ void LocalFrame::setPageAndTextZoomFactors(float pageZoomFactor, float textZoomF
     if (m_pageZoomFactor == pageZoomFactor && m_textZoomFactor == textZoomFactor)
         return;
 
-    CheckedPtr page = this->page();
+    RefPtr page = this->page();
     if (!page)
         return;
 
@@ -1044,7 +1056,7 @@ void LocalFrame::setPageAndTextZoomFactors(float pageZoomFactor, float textZoomF
 
 float LocalFrame::frameScaleFactor() const
 {
-    CheckedPtr page = this->page();
+    RefPtr page = this->page();
 
     // Main frame is scaled with respect to he container but inner frames are not scaled with respect to the main frame.
     if (!page || !isMainFrame())
@@ -1128,7 +1140,7 @@ FloatSize LocalFrame::screenSize() const
     if (!loader || !loader->fingerprintingProtectionsEnabled())
         return defaultSize;
 
-    if (CheckedPtr page = this->page())
+    if (RefPtr page = this->page())
         return page->chrome().client().screenSizeForFingerprintingProtections(*this, defaultSize);
 
     return defaultSize;
@@ -1188,6 +1200,8 @@ TextStream& operator<<(TextStream& ts, const LocalFrame& frame)
 
 void LocalFrame::resetScript()
 {
+    ASSERT(windowProxy().frame() == this);
+    windowProxy().detachFromFrame();
     resetWindowProxy();
     m_script = makeUniqueRef<ScriptController>(*this);
 }
@@ -1232,7 +1246,7 @@ CheckedRef<const EventHandler> LocalFrame::checkedEventHandler() const
 
 void LocalFrame::documentURLDidChange(const URL& url)
 {
-    if (CheckedPtr page = this->page(); page && isMainFrame()) {
+    if (RefPtr page = this->page(); page && isMainFrame()) {
         page->setMainFrameURL(url);
         checkedLoader()->client().broadcastMainFrameURLChangeToOtherProcesses(url);
     }

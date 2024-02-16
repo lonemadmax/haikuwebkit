@@ -521,6 +521,16 @@ window.UIHelper = class UIHelper {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    static async initiateUserScroll()
+    {
+        if (this.isIOSFamily()) {
+            await UIHelper.scrollTo(0, 10);
+        }
+        else {
+            await UIHelper.statelessMouseWheelScrollAt(10, 10, 0, 10);
+        }
+    }
+
     static scrollTo(x, y, unconstrained)
     {
         if (!this.isWebKit2()) {
@@ -1255,6 +1265,22 @@ window.UIHelper = class UIHelper {
         return new Promise(resolve => testRunner.runUIScript(uiScript, resolve));
     }
 
+    static async smartMagnifyAt(x, y)
+    {
+        if (!this.isWebKit2() || !this.isMac()) {
+            console.log('Smart magnify testing is currently only supported on macOS');
+            return Promise.resolve();
+        }
+
+        await UIHelper.startMonitoringWheelEvents();
+
+        // If smartMagnify is not working, ensure you've called setWebViewAllowsMagnification(true).
+        eventSender.mouseMoveTo(x, y);
+        eventSender.smartMagnify();
+
+        await UIHelper.waitForScrollCompletion();
+    }
+
     static typeCharacter(characterString)
     {
         if (!this.isWebKit2() || !this.isIOSFamily()) {
@@ -1544,6 +1570,13 @@ window.UIHelper = class UIHelper {
         });
     }
 
+    static contextMenuPreviewRect()
+    {
+        return new Promise(resolve => {
+            testRunner.runUIScript("JSON.stringify(uiController.contextMenuPreviewRect)", result => resolve(JSON.parse(result)));
+        });
+    }
+
     static setHardwareKeyboardAttached(attached)
     {
         return new Promise(resolve => testRunner.runUIScript(`uiController.setHardwareKeyboardAttached(${attached ? "true" : "false"})`, resolve));
@@ -1552,6 +1585,11 @@ window.UIHelper = class UIHelper {
     static setWebViewEditable(editable)
     {
         return new Promise(resolve => testRunner.runUIScript(`uiController.setWebViewEditable(${editable ? "true" : "false"})`, resolve));
+    }
+
+    static setWebViewAllowsMagnification(allowsMagnification)
+    {
+        return new Promise(resolve => testRunner.runUIScript(`uiController.setWebViewAllowsMagnification(${allowsMagnification ? "true" : "false"})`, resolve));
     }
 
     static rectForMenuAction(action)
