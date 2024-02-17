@@ -33,14 +33,14 @@
 
 namespace WebCore {
 
-IntSize NativeImage::size() const
+IntSize PlatformImageNativeImageBackend::size() const
 {
-    return IntSize(m_platformImage.get()->Bounds().Size());
+    return IntSize(platformImage()->Bounds().Size());
 }
 
-bool NativeImage::hasAlpha() const
+bool PlatformImageNativeImageBackend::hasAlpha() const
 {
-    return m_platformImage.get()->ColorSpace() == B_RGBA32;
+    return platformImage()->ColorSpace() == B_RGBA32;
 }
 
 Color NativeImage::singlePixelSolidColor() const
@@ -48,18 +48,18 @@ Color NativeImage::singlePixelSolidColor() const
     if (size() != IntSize(1, 1))
         return Color();
 
-    return (asSRGBA(PackedColor::ARGB { *(uint32*)m_platformImage.get()->Bits()}));
+    return (asSRGBA(PackedColor::ARGB { *(uint32*)platformImage()->Bits()}));
 }
 
-DestinationColorSpace NativeImage::colorSpace() const
+DestinationColorSpace PlatformImageNativeImageBackend::colorSpace() const
 {
     notImplemented();
     return DestinationColorSpace::SRGB();
 }
 
-void NativeImage::draw(GraphicsContext& context, const FloatSize& imageSize, const FloatRect& destinationRect, const FloatRect& sourceRect, ImagePaintingOptions options)
+void NativeImage::draw(GraphicsContext& context, const FloatRect& destinationRect, const FloatRect& sourceRect, ImagePaintingOptions options)
 {
-    context.drawNativeImageInternal(*this, imageSize, destinationRect, sourceRect, options);
+    context.drawNativeImageInternal(*this, destinationRect, sourceRect, options);
 }
 
 void NativeImage::clearSubimages()

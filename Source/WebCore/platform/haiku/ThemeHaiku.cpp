@@ -28,7 +28,6 @@
 
 #include "Color.h"
 #include "ColorBlending.h"
-#include "ControlStates.h"
 #include "GraphicsContext.h"
 #include "LengthSize.h"
 
@@ -162,7 +161,7 @@ LengthSize ThemeHaiku::minimumControlSize(StyleAppearance, const FontCascade&, c
     return minSize;
 }
 
-void ThemeHaiku::paint(StyleAppearance appearance, ControlStates& states, GraphicsContext& context, const FloatRect& zoomedRect, float, ScrollView*, float, float, bool, bool useDarkAppearance, const Color& effectiveAccentColor)
+void ThemeHaiku::paint(StyleAppearance appearance, OptionSet<ControlStyle::State> states, GraphicsContext& context, const FloatRect& zoomedRect, bool useDarkAppearance, const Color& effectiveAccentColor)
 {
     switch (appearance) {
     case StyleAppearance::Checkbox:
@@ -185,55 +184,55 @@ void ThemeHaiku::paint(StyleAppearance appearance, ControlStates& states, Graphi
     }
 }
 
-void ThemeHaiku::paintCheckbox(ControlStates& states, GraphicsContext& graphicsContext, const FloatRect& zoomedRect, bool useDarkAppearance, const Color& effectiveAccentColor)
+void ThemeHaiku::paintCheckbox(OptionSet<ControlStyle::State> states, GraphicsContext& graphicsContext, const FloatRect& zoomedRect, bool useDarkAppearance, const Color& effectiveAccentColor)
 {
 	uint32 flags = 0;
-	if (!states.states().contains(ControlStates::States::Enabled))
+	if (!states.contains(ControlStyle::State::Enabled))
 		flags |= BControlLook::B_DISABLED;
-	if (states.states().contains(ControlStates::States::Focused))
+	if (states.contains(ControlStyle::State::Focused))
 		flags |= BControlLook::B_FOCUSED;
-	if (states.states().contains(ControlStates::States::Checked))
+	if (states.contains(ControlStyle::State::Checked))
 		flags |= BControlLook::B_ACTIVATED;
-	if (states.states().contains(ControlStates::States::Indeterminate))
+	if (states.contains(ControlStyle::State::Indeterminate))
 		flags |= BControlLook::B_PARTIALLY_ACTIVATED;
-	if (states.states().contains(ControlStates::States::Hovered))
+	if (states.contains(ControlStyle::State::Hovered))
 		flags |= BControlLook::B_HOVER;
 
 	BRect rect(zoomedRect);
 	be_control_look->DrawCheckBox(graphicsContext.platformContext(), rect, graphicsContext.platformContext()->Bounds(), colorForValue(B_CONTROL_BACKGROUND_COLOR, false), flags);
 }
 
-void ThemeHaiku::paintRadio(ControlStates& states, GraphicsContext& graphicsContext, const FloatRect& zoomedRect, bool useDarkAppearance, const Color& effectiveAccentColor)
+void ThemeHaiku::paintRadio(OptionSet<ControlStyle::State> states, GraphicsContext& graphicsContext, const FloatRect& zoomedRect, bool useDarkAppearance, const Color& effectiveAccentColor)
 {
 	uint32 flags = 0;
-	if (!states.states().contains(ControlStates::States::Enabled))
+	if (!states.contains(ControlStyle::State::Enabled))
 		flags |= BControlLook::B_DISABLED;
-	if (states.states().contains(ControlStates::States::Focused))
+	if (states.contains(ControlStyle::State::Focused))
 		flags |= BControlLook::B_FOCUSED;
-	if (states.states().contains(ControlStates::States::Checked))
+	if (states.contains(ControlStyle::State::Checked))
 		flags |= BControlLook::B_ACTIVATED;
-	if (states.states().contains(ControlStates::States::Indeterminate))
+	if (states.contains(ControlStyle::State::Indeterminate))
 		flags |= BControlLook::B_PARTIALLY_ACTIVATED;
-	if (states.states().contains(ControlStates::States::Hovered))
+	if (states.contains(ControlStyle::State::Hovered))
 		flags |= BControlLook::B_HOVER;
 
 	BRect rect(zoomedRect);
 	be_control_look->DrawRadioButton(graphicsContext.platformContext(), rect, graphicsContext.platformContext()->Bounds(), colorForValue(B_CONTROL_BACKGROUND_COLOR, false), flags);
 }
 
-void ThemeHaiku::paintButton(ControlStates& states, GraphicsContext& graphicsContext, const FloatRect& zoomedRect, bool useDarkAppearance)
+void ThemeHaiku::paintButton(OptionSet<ControlStyle::State> states, GraphicsContext& graphicsContext, const FloatRect& zoomedRect, bool useDarkAppearance)
 {
 	rgb_color base = colorForValue(B_CONTROL_BACKGROUND_COLOR, useDarkAppearance);
 	
 	
 	int32 flags = 0;
-	if (states.states().contains(ControlStates::States::Pressed))
+	if (states.contains(ControlStyle::State::Pressed))
 		flags |= BControlLook::B_ACTIVATED;
-	if (states.states().contains(ControlStates::States::Default))
+	if (states.contains(ControlStyle::State::Default))
 		flags |= BControlLook::B_DEFAULT_BUTTON;
-	if (!states.states().contains(ControlStates::States::Enabled))
+	if (!states.contains(ControlStyle::State::Enabled))
 		flags |= BControlLook::B_DISABLED;
-	if (states.states().contains(ControlStates::States::Focused))
+	if (states.contains(ControlStyle::State::Focused))
 		flags |= BControlLook::B_FOCUSED;
 	
 	
@@ -242,7 +241,7 @@ void ThemeHaiku::paintButton(ControlStates& states, GraphicsContext& graphicsCon
 	be_control_look->DrawButtonBackground(graphicsContext.platformContext(), rect, graphicsContext.platformContext()->Bounds(), base, flags);
 }
 
-void ThemeHaiku::paintSpinButton(ControlStates& states, GraphicsContext& graphicsContext, const FloatRect& zoomedRect, bool useDarkAppearance)
+void ThemeHaiku::paintSpinButton(OptionSet<ControlStyle::State> states, GraphicsContext& graphicsContext, const FloatRect& zoomedRect, bool useDarkAppearance)
 {
 	// There is no way to ask the controlLook to draw this.
 	// This is adapted from haiku/src/kits/interface/AbstractSpinner.cpp:340
@@ -250,19 +249,19 @@ void ThemeHaiku::paintSpinButton(ControlStates& states, GraphicsContext& graphic
 	
 	BRect rect(zoomedRect);
 
-	bool isEnabled = states.states().contains(ControlStates::States::Enabled);
+	bool isEnabled = states.contains(ControlStyle::State::Enabled);
 	float frameTint = isEnabled ? B_DARKEN_1_TINT : B_NO_TINT ;
 
 	float fgTint;
 	if (!isEnabled)
 		fgTint = B_DARKEN_1_TINT;
-	else if (states.states().contains(ControlStates::States::Pressed))
+	else if (states.contains(ControlStyle::State::Pressed))
 		fgTint = B_DARKEN_MAX_TINT;
 	else
 		fgTint = 1.777f;	// 216 --> 48.2 (48)
 
 	float bgTint;
-	if (isEnabled && (states.states().contains(ControlStates::States::Hovered)))
+	if (isEnabled && (states.contains(ControlStyle::State::Hovered)))
 		bgTint = B_DARKEN_1_TINT;
 	else
 		bgTint = B_NO_TINT;
@@ -279,12 +278,12 @@ void ThemeHaiku::paintSpinButton(ControlStates& states, GraphicsContext& graphic
 	uint32 borders = be_control_look->B_TOP_BORDER
 		| be_control_look->B_BOTTOM_BORDER;
 
-	if (states.states().contains(ControlStates::States::SpinUp))
+	if (states.contains(ControlStyle::State::SpinUp))
 		borders |= be_control_look->B_RIGHT_BORDER;
 	else
 		borders |= be_control_look->B_LEFT_BORDER;
 
-	uint32 flags = states.states().contains(ControlStates::States::Pressed) ? BControlLook::B_ACTIVATED : 0;
+	uint32 flags = states.contains(ControlStyle::State::Pressed) ? BControlLook::B_ACTIVATED : 0;
 	flags |= !isEnabled ? BControlLook::B_DISABLED : 0;
 
 	// draw the button
@@ -312,7 +311,7 @@ void ThemeHaiku::paintSpinButton(ControlStates& states, GraphicsContext& graphic
 	float halfHeight = floorf(rect.Height() / 2);
 	graphicsContext.platformContext()->StrokeLine(BPoint(rect.left, rect.top + halfHeight),
 		BPoint(rect.right, rect.top + halfHeight));
-	if (states.states().contains(ControlStates::States::SpinUp)) {
+	if (states.contains(ControlStyle::State::SpinUp)) {
 		float halfWidth = floorf(rect.Width() / 2);
 		graphicsContext.platformContext()->StrokeLine(BPoint(rect.left + halfWidth, rect.top + 1),
 			BPoint(rect.left + halfWidth, rect.bottom - 1));

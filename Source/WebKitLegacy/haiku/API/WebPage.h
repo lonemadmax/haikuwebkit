@@ -35,6 +35,8 @@
 #include <String.h>
 #include <UrlContext.h>
 
+#include <memory>
+
 class BNetworkCookieJar;
 class BRegion;
 class BView;
@@ -42,6 +44,14 @@ class BWebDownload;
 class BWebFrame;
 class BWebSettings;
 class BWebView;
+
+namespace WTF {
+	// In this header we do not want to include any of webkit headers (to not needs them as part of
+	// the public API). So all things must be only forward declared.
+
+	template<typename T, typename PtrTraits> class Ref;
+	template<typename T> struct RawPtrTraits;
+};
 
 namespace WebCore {
 class ChromeClientHaiku;
@@ -229,26 +239,26 @@ private:
     status_t dispatchMessage(BMessage& message, BMessage* reply = NULL) const;
 
 private:
-    		BMessenger			fListener;
-	static	BMessenger			sDownloadListener;
-			BWebView*			fWebView;
-			BWebFrame*			fMainFrame;
-			BWebSettings*		fSettings;
-            BPrivate::Network::BUrlContext*        fContext;
-			WebCore::Page*		fPage;
-            WebCore::DumpRenderTreeClient* fDumpRenderTree;
+    		BMessenger						fListener;
+	static	BMessenger						sDownloadListener;
+			BWebView*						fWebView;
+			BWebFrame*						fMainFrame;
+			BWebSettings*					fSettings;
+            BPrivate::Network::BUrlContext*	fContext;
+			std::unique_ptr<WTF::Ref<WebCore::Page, WTF::RawPtrTraits<WebCore::Page>>>	fPage;
+            WebCore::DumpRenderTreeClient*	fDumpRenderTree;
 
-			float				fLoadingProgress;
-			BString				fStatusMessage;
-			BString				fDisplayedStatusMessage;
+			float							fLoadingProgress;
+			BString							fStatusMessage;
+			BString							fDisplayedStatusMessage;
 
-		    bool				fPageVisible;
-		    bool				fPageDirty;
-		    bool				fLayoutingView;
+		    bool							fPageVisible;
+		    bool							fPageDirty;
+		    bool							fLayoutingView;
 
-			bool				fToolbarsVisible;
-			bool				fStatusbarVisible;
-			bool				fMenubarVisible;
+			bool							fToolbarsVisible;
+			bool							fStatusbarVisible;
+			bool							fMenubarVisible;
 };
 
 #endif // _WEB_PAGE_H

@@ -108,6 +108,9 @@ namespace WebCore {
         void invalidateRootView(const IntRect&) override;
         void invalidateContentsAndRootView(const IntRect&) override;
 
+        void rootFrameAdded(const WebCore::LocalFrame&) override {};
+        void rootFrameRemoved(const WebCore::LocalFrame&) override {};
+
         void invalidateContentsForSlowScroll(const IntRect&) override;
         void scroll(const IntSize& scrollDelta, const IntRect& rectToScroll, const IntRect& clipRect) override;
 

@@ -33,4 +33,4 @@ list(APPEND WTF_INCLUDE_DIRECTORIES
     /system/develop/headers/private/system
 )
 
-add_definitions(-D_BSD_SOURCE=1)
+add_definitions(-D_DEFAULT_SOURCE)

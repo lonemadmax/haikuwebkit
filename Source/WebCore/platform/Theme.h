@@ -61,7 +61,7 @@ public:
     // Whether or not whitespace: pre should be forced on always.
     virtual bool controlRequiresPreWhiteSpace(StyleAppearance) const { return false; }
 
-#if USE(THEME_ADWAITA)
+#if USE(THEME_ADWAITA) || USE(HAIKU)
     // FIXME: Merge this into RenderThemeAdwaita.
     virtual void paint(StyleAppearance, OptionSet<ControlStyle::State>, GraphicsContext&, const FloatRect&, bool, const Color&) { }
 #endif

@@ -23,6 +23,7 @@ INCLUDE_DIRECTORIES(
     /system/develop/headers/private/netservices/
 )
 
+add_definitions(-D_DEFAULT_SOURCE)
 ADD_EXECUTABLE(HaikuLauncher ${HaikuLauncher_SOURCES})
 TARGET_LINK_LIBRARIES(HaikuLauncher ${HaikuLauncher_LIBRARIES})
 SET_TARGET_PROPERTIES(HaikuLauncher PROPERTIES FOLDER "Tools")
