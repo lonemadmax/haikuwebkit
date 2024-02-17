@@ -213,16 +213,16 @@ bool CSSSelectorParser::supportsComplexSelector(CSSParserTokenRange range, const
     // @supports requires that all arguments parse.
     parser.m_disableForgivingParsing = true;
 
-    std::unique_ptr<MutableCSSSelector> parserSelector;
+    std::unique_ptr<MutableCSSSelector> mutableSelector;
     if (isNestedContext == CSSParserEnum::IsNestedContext::Yes)
-        parserSelector = parser.consumeNestedComplexSelector(range);
+        mutableSelector = parser.consumeNestedComplexSelector(range);
     else
-        parserSelector = parser.consumeComplexSelector(range);
+        mutableSelector = parser.consumeComplexSelector(range);
 
-    if (parser.m_failedParsing || !range.atEnd() || !parserSelector)
+    if (parser.m_failedParsing || !range.atEnd() || !mutableSelector)
         return false;
 
-    auto complexSelector = parserSelector->releaseSelector();
+    auto complexSelector = mutableSelector->releaseSelector();
     ASSERT(complexSelector);
 
     return !containsUnknownWebKitPseudoElements(*complexSelector);
@@ -287,7 +287,7 @@ static OptionSet<CompoundSelectorFlag> extractCompoundFlags(const MutableCSSSele
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=161747
     // The UASheetMode check is a work-around to allow this selector in mediaControls(New).css:
     // input[type="range" i]::-webkit-media-slider-container > div {
-    if (parserMode == UASheetMode && simpleSelector.pseudoElement() == CSSSelector::PseudoElement::UserAgentPart)
+    if (isUASheetBehavior(parserMode) && simpleSelector.pseudoElement() == CSSSelector::PseudoElement::UserAgentPart)
         return { };
 
     return CompoundSelectorFlag::HasPseudoElementForRightmostCompound;
@@ -431,6 +431,8 @@ static bool isUserActionPseudoClass(CSSSelector::PseudoClass pseudo)
 
 static bool isPseudoClassValidAfterPseudoElement(CSSSelector::PseudoClass pseudoClass, CSSSelector::PseudoElement compoundPseudoElement)
 {
+    // FIXME: https://drafts.csswg.org/selectors-4/#pseudo-element-states states all pseudo-elements
+    // can be followed by isUserActionPseudoClass().
     // Validity of these is determined by their content.
     if (isLogicalCombinationPseudoClass(pseudoClass))
         return true;
@@ -452,6 +454,7 @@ static bool isPseudoClassValidAfterPseudoElement(CSSSelector::PseudoClass pseudo
         return pseudoClass == CSSSelector::PseudoClass::WindowInactive;
     case CSSSelector::PseudoElement::UserAgentPart:
     case CSSSelector::PseudoElement::UserAgentPartLegacyAlias:
+    case CSSSelector::PseudoElement::WebKitUnknown:
         return isUserActionPseudoClass(pseudoClass);
     default:
         return false;
@@ -572,7 +575,7 @@ std::unique_ptr<MutableCSSSelector> CSSSelectorParser::consumeSimpleSelector(CSS
         // FIXME: https://bugs.webkit.org/show_bug.cgi?id=161747
         // The UASheetMode check is a work-around to allow this selector in mediaControls(New).css:
         // video::-webkit-media-text-track-region-container.scrolling
-        if (m_context.mode != UASheetMode && !isSimpleSelectorValidAfterPseudoElement(*selector, *m_precedingPseudoElement))
+        if (!isUASheetBehavior(m_context.mode) && !isSimpleSelectorValidAfterPseudoElement(*selector, *m_precedingPseudoElement))
             m_failedParsing = true;
     }
 
@@ -625,10 +628,8 @@ std::unique_ptr<MutableCSSSelector> CSSSelectorParser::consumeId(CSSParserTokenR
 
     auto selector = makeUnique<MutableCSSSelector>();
     selector->setMatch(CSSSelector::Match::Id);
-    
-    // FIXME-NEWPARSER: Avoid having to do this, but the old parser does and we need
-    // to be compatible for now.
-    CSSParserToken token = range.consume();
+
+    auto token = range.consume();
     selector->setValue(token.value().toAtomString(), m_context.mode == HTMLQuirksMode);
     return selector;
 }
@@ -643,10 +644,8 @@ std::unique_ptr<MutableCSSSelector> CSSSelectorParser::consumeClass(CSSParserTok
 
     auto selector = makeUnique<MutableCSSSelector>();
     selector->setMatch(CSSSelector::Match::Class);
-    
-    // FIXME-NEWPARSER: Avoid having to do this, but the old parser does and we need
-    // to be compatible for now.
-    CSSParserToken token = range.consume();
+
+    auto token = range.consume();
     selector->setValue(token.value().toAtomString(), m_context.mode == HTMLQuirksMode);
 
     return selector;
@@ -1158,7 +1157,7 @@ std::unique_ptr<MutableCSSSelector> CSSSelectorParser::splitCompoundAtImplicitSh
     bool isSlotted = splitAfter->tagHistory()->match() == CSSSelector::Match::PseudoElement && splitAfter->tagHistory()->pseudoElement() == CSSSelector::PseudoElement::Slotted;
 
     std::unique_ptr<MutableCSSSelector> secondCompound;
-    if (context.mode == UASheetMode || isPart) {
+    if (isUASheetBehavior(context.mode) || isPart) {
         // FIXME: https://bugs.webkit.org/show_bug.cgi?id=161747
         // We have to recur, since we have rules in media controls like video::a::b. This should not be allowed, and
         // we should remove this recursion once those rules are gone.
@@ -1180,17 +1179,9 @@ std::unique_ptr<MutableCSSSelector> CSSSelectorParser::splitCompoundAtImplicitSh
 bool CSSSelectorParser::containsUnknownWebKitPseudoElements(const CSSSelector& complexSelector)
 {
     for (auto current = &complexSelector; current; current = current->tagHistory()) {
-        if (current->match() == CSSSelector::Match::PseudoElement) {
-            // FIXME: Check against a different type for unknown "-webkit-" pseudo-elements. (webkit.org/b/266947)
-            if (current->pseudoElement() != CSSSelector::PseudoElement::UserAgentPart)
-                continue;
-
-            // FIXME: Stop attempting parsing once the unknown "-webkit" pseudo-elements are behind a different type. (webkit.org/b/266947)
-            if (!parsePseudoElementString(StringView(current->value())))
-                return true;
-        }
+        if (current->match() == CSSSelector::Match::PseudoElement && current->pseudoElement() == CSSSelector::PseudoElement::WebKitUnknown)
+            return true;
     }
-
     return false;
 }
 
@@ -1207,8 +1198,8 @@ CSSSelectorList CSSSelectorParser::resolveNestingParent(const CSSSelectorList& n
             // It's top-level, the nesting parent selector should be replaced by :scope
             const_cast<CSSSelector*>(selector)->replaceNestingParentByPseudoClassScope();
         }
-        auto parserSelector = makeUnique<MutableCSSSelector>(*selector);
-        result.append(WTFMove(parserSelector));
+        auto mutableSelector = makeUnique<MutableCSSSelector>(*selector);
+        result.append(WTFMove(mutableSelector));
         selector = copiedSelectorList.next(selector);
     }
 

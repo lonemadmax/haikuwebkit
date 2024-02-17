@@ -27,14 +27,42 @@
 
 #include "BufferIdentifierSet.h"
 #include "MarkSurfacesAsVolatileRequestIdentifier.h"
+#include "PrepareBackingStoreBuffersData.h"
 #include "RemoteDisplayListRecorderProxy.h"
 #include "RemoteImageBufferSetIdentifier.h"
+#include "RenderingUpdateID.h"
+#include "WorkQueueMessageReceiver.h"
+#include <wtf/Lock.h>
 
 #if ENABLE(GPU_PROCESS)
+
+namespace IPC {
+class Connection;
+class Decoder;
+class StreamClientConnection;
+}
 
 namespace WebKit {
 
 class RemoteImageBufferSetProxyFlushFence;
+struct BufferSetBackendHandle;
+
+// FIXME: We should have a generic 'ImageBufferSet' class that contains
+// the code that isn't specific to being remote, and this helper belongs
+// there.
+class ThreadSafeImageBufferSetFlusher {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(ThreadSafeImageBufferSetFlusher);
+public:
+    enum class FlushType {
+        BackendHandlesOnly,
+        BackendHandlesAndDrawing,
+    };
+
+    ThreadSafeImageBufferSetFlusher() = default;
+    virtual ~ThreadSafeImageBufferSetFlusher() = default;
+    virtual void flushAndCollectHandles(HashMap<RemoteImageBufferSetIdentifier, std::unique_ptr<BufferSetBackendHandle>>&) = 0;
+};
 
 // A RemoteImageBufferSet is a set of three ImageBuffers (front, back,
 // secondary back) owned by the GPU process, for the purpose of drawing
@@ -47,7 +75,7 @@ class RemoteImageBufferSetProxyFlushFence;
 // Usage is done through RemoteRenderingBackendProxy::prepareImageBufferSetsForDisplay,
 // so that a Vector of RemoteImageBufferSets can be used with a single
 // IPC call.
-class RemoteImageBufferSetProxy : public RefCounted<RemoteImageBufferSetProxy>, public CanMakeWeakPtr<RemoteImageBufferSetProxy> {
+class RemoteImageBufferSetProxy : public IPC::WorkQueueMessageReceiver {
 public:
     RemoteImageBufferSetProxy(RemoteRenderingBackendProxy&);
     ~RemoteImageBufferSetProxy();
@@ -60,12 +88,16 @@ public:
     void addRequestedVolatility(OptionSet<BufferInSetType> request);
     void setConfirmedVolatility(MarkSurfacesAsVolatileRequestIdentifier, OptionSet<BufferInSetType> types);
 
+#if PLATFORM(COCOA)
+    void didPrepareForDisplay(ImageBufferSetPrepareBufferForDisplayOutputData, RenderingUpdateID);
+#endif
+
     WebCore::GraphicsContext& context();
     bool hasContext() const { return !!m_displayListRecorder; }
 
     WebCore::RenderingResourceIdentifier displayListResourceIdentifier() const { return m_displayListIdentifier; }
 
-    std::unique_ptr<WebCore::ThreadSafeImageBufferFlusher> flushFrontBufferAsync();
+    std::unique_ptr<ThreadSafeImageBufferSetFlusher> flushFrontBufferAsync(ThreadSafeImageBufferSetFlusher::FlushType);
 
     void setConfiguration(WebCore::FloatSize, float, const WebCore::DestinationColorSpace&, WebCore::PixelFormat, WebCore::RenderingMode, WebCore::RenderingPurpose);
     void willPrepareForDisplay();
@@ -77,9 +109,15 @@ public:
 
     unsigned generation() const { return m_generation; }
 
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
+
+    void close();
+
 private:
     template<typename T> void send(T&& message);
     template<typename T> auto sendSync(T&& message);
+
+    void createFlushFence() WTF_REQUIRES_LOCK(m_lock);
 
     WeakPtr<RemoteRenderingBackendProxy> m_remoteRenderingBackendProxy;
     RemoteImageBufferSetIdentifier m_identifier;
@@ -90,7 +128,6 @@ private:
     MarkSurfacesAsVolatileRequestIdentifier m_minimumVolatilityRequest;
     OptionSet<BufferInSetType> m_requestedVolatility;
     OptionSet<BufferInSetType> m_confirmedVolatility;
-    RefPtr<RemoteImageBufferSetProxyFlushFence> m_pendingFlush;
 
     WebCore::FloatSize m_size;
     float m_scale { 1.0f };
@@ -100,6 +137,12 @@ private:
     WebCore::RenderingPurpose m_renderingPurpose { WebCore::RenderingPurpose::Unspecified };
     unsigned m_generation { 0 };
     bool m_remoteNeedsConfigurationUpdate { false };
+
+    Lock m_lock;
+    RefPtr<RemoteImageBufferSetProxyFlushFence> m_pendingFlush WTF_GUARDED_BY_LOCK(m_lock);
+    RefPtr<IPC::StreamClientConnection> m_streamConnection  WTF_GUARDED_BY_LOCK(m_lock);
+    bool m_prepareForDisplayIsPending WTF_GUARDED_BY_LOCK(m_lock) { false };
+    bool m_closed WTF_GUARDED_BY_LOCK(m_lock) { false };
 };
 
 inline TextStream& operator<<(TextStream& ts, RemoteImageBufferSetProxy& bufferSet)

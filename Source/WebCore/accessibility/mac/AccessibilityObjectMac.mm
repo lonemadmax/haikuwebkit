@@ -45,7 +45,7 @@
 #import "TextCheckingHelper.h"
 #import "TextDecorationPainter.h"
 
-#if ENABLE(ACCESSIBILITY) && PLATFORM(MAC)
+#if PLATFORM(MAC)
 
 #import "PlatformScreen.h"
 #import "WebAccessibilityObjectWrapperMac.h"
@@ -791,6 +791,7 @@ PlatformRoleMap createPlatformRoleMap()
         { AccessibilityRole::Meter, NSAccessibilityLevelIndicatorRole },
         { AccessibilityRole::Incrementor, NSAccessibilityIncrementorRole },
         { AccessibilityRole::ComboBox, NSAccessibilityComboBoxRole },
+        { AccessibilityRole::DateTime, NSAccessibilityTextFieldRole },
         { AccessibilityRole::Splitter, NSAccessibilitySplitterRole },
         { AccessibilityRole::Code, NSAccessibilityGroupRole },
         { AccessibilityRole::ColorWell, NSAccessibilityColorWellRole },
@@ -901,4 +902,4 @@ PlatformRoleMap createPlatformRoleMap()
 
 } // WebCore
 
-#endif // ENABLE(ACCESSIBILITY) && PLATFORM(MAC)
+#endif // PLATFORM(MAC)

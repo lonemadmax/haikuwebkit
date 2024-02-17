@@ -32,6 +32,7 @@
 #import "MessageSenderInlines.h"
 #import "test.h"
 #import <Foundation/NSValue.h>
+#import <Security/Security.h>
 #import <WebCore/FontCocoa.h>
 #import <limits.h>
 #import <pal/spi/cocoa/ContactsSPI.h>
@@ -87,12 +88,26 @@ struct CFHolderForTesting {
     }
 
     typedef std::variant<
+        RetainPtr<CFArrayRef>,
+        RetainPtr<CFBooleanRef>,
+        RetainPtr<CFCharacterSetRef>,
+        RetainPtr<CFDataRef>,
+        RetainPtr<CFDateRef>,
+        RetainPtr<CFDictionaryRef>,
+        // FIXME: Test CFNullRef. It can be serialized, but doesn't have a direct serializer.
+        RetainPtr<CFNumberRef>,
         RetainPtr<CFStringRef>,
         RetainPtr<CFURLRef>,
-        RetainPtr<CFDataRef>,
-        RetainPtr<CFBooleanRef>,
         RetainPtr<CGColorRef>,
-        RetainPtr<CFDictionaryRef>
+        RetainPtr<CGColorSpaceRef>,
+        RetainPtr<SecCertificateRef>,
+#if HAVE(SEC_KEYCHAIN)
+        RetainPtr<SecKeychainItemRef>,
+#endif
+#if HAVE(SEC_ACCESS_CONTROL)
+        RetainPtr<SecAccessControlRef>,
+#endif
+        RetainPtr<SecTrustRef>
     > ValueType;
 
     ValueType value;
@@ -115,6 +130,132 @@ std::optional<CFHolderForTesting> CFHolderForTesting::decode(IPC::Decoder& decod
     } };
 }
 
+static bool secTrustRefsEqual(SecTrustRef trust1, SecTrustRef trust2)
+{
+    // SecTrust doesn't compare equal after round-tripping through SecTrustSerialize/SecTrustDeserialize <rdar://122051396>
+    // Therefore, we compare all the attributes we can access to verify equality.
+    SecKeyRef pk1 = SecTrustCopyPublicKey(trust1);
+    SecKeyRef pk2 = SecTrustCopyPublicKey(trust2);
+    EXPECT_TRUE(pk1);
+    EXPECT_TRUE(pk2);
+    bool equal = CFEqual(pk1, pk2);
+    CFRelease(pk1);
+    CFRelease(pk2);
+    EXPECT_TRUE(equal);
+    if (!equal)
+        return false;
+
+    equal = (SecTrustGetCertificateCount(trust1) == SecTrustGetCertificateCount(trust2));
+    EXPECT_TRUE(equal);
+    if (!equal)
+        return false;
+
+    CFDataRef ex1 = SecTrustCopyExceptions(trust1);
+    CFDataRef ex2 = SecTrustCopyExceptions(trust2);
+    EXPECT_TRUE(ex1);
+    EXPECT_TRUE(ex2);
+    equal = CFEqual(ex1, ex2);
+    CFRelease(ex1);
+    CFRelease(ex2);
+    EXPECT_TRUE(equal);
+    if (!equal)
+        return false;
+
+    CFArrayRef array1, array2;
+    EXPECT_TRUE(SecTrustCopyPolicies(trust1, &array1) == errSecSuccess);
+    EXPECT_TRUE(SecTrustCopyPolicies(trust2, &array2) == errSecSuccess);
+    equal = CFEqual(array1, array2);
+    CFRelease(array1);
+    CFRelease(array2);
+    EXPECT_TRUE(equal);
+    if (!equal)
+        return false;
+
+    EXPECT_TRUE(SecTrustCopyPolicies(trust1, &array1) == errSecSuccess);
+    EXPECT_TRUE(SecTrustCopyPolicies(trust2, &array2) == errSecSuccess);
+    equal = CFEqual(array1, array2);
+    CFRelease(array1);
+    CFRelease(array2);
+    EXPECT_TRUE(equal);
+    if (!equal)
+        return false;
+
+    array1 = SecTrustCopyProperties(trust1);
+    array2 = SecTrustCopyProperties(trust2);
+    EXPECT_TRUE(array1);
+    EXPECT_TRUE(array2);
+    equal = CFEqual(array1, array2);
+    CFRelease(array1);
+    CFRelease(array2);
+    EXPECT_TRUE(equal);
+    if (!equal)
+        return false;
+
+    Boolean bool1, bool2;
+    EXPECT_TRUE(SecTrustGetNetworkFetchAllowed(trust1, &bool1) == errSecSuccess);
+    EXPECT_TRUE(SecTrustGetNetworkFetchAllowed(trust2, &bool2) == errSecSuccess);
+    equal = (bool1 == bool2);
+    EXPECT_TRUE(equal);
+    if (!equal)
+        return false;
+
+    SecTrustResultType result1, result2;
+    EXPECT_TRUE(SecTrustGetTrustResult(trust1, &result1) == errSecSuccess);
+    EXPECT_TRUE(SecTrustGetTrustResult(trust2, &result2) == errSecSuccess);
+    equal = (result1 == result2);
+    EXPECT_TRUE(equal);
+
+    return equal;
+}
+
+CFHolderForTesting cfHolder(CFTypeRef type)
+{
+    EXPECT_NOT_NULL(type); // FIXME: Test null somehow if possible.
+    CFTypeID typeID = CFGetTypeID(type);
+    if (typeID == CFArrayGetTypeID())
+        return { (CFArrayRef)type };
+    if (typeID == CFBooleanGetTypeID())
+        return { (CFBooleanRef)type };
+    if (typeID == CFCharacterSetGetTypeID())
+        return { (CFCharacterSetRef)type };
+    if (typeID == CFDataGetTypeID())
+        return { (CFDataRef)type };
+    if (typeID == CFDateGetTypeID())
+        return { (CFDateRef)type };
+    if (typeID == CFDictionaryGetTypeID())
+        return { (CFDictionaryRef)type };
+    if (typeID == CFNullGetTypeID())
+        return { }; // FIXME: Test CFNullRef.
+    if (typeID == CFNumberGetTypeID())
+        return { (CFNumberRef)type };
+    if (typeID == CFStringGetTypeID())
+        return { (CFStringRef)type };
+    if (typeID == CFURLGetTypeID())
+        return { (CFURLRef)type };
+    if (typeID == CGColorSpaceGetTypeID())
+        return { (CGColorSpaceRef)type };
+    if (typeID == CGColorGetTypeID())
+        return { (CGColorRef)type };
+    if (typeID == SecCertificateGetTypeID())
+        return { (SecCertificateRef)type };
+#if HAVE(SEC_KEYCHAIN)
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    if (typeID == SecKeychainItemGetTypeID())
+        return { (SecKeychainItemRef)type };
+    ALLOW_DEPRECATED_DECLARATIONS_END
+#endif
+#if HAVE(SEC_ACCESS_CONTROL)
+    if (typeID == SecAccessControlGetTypeID())
+        return { (SecAccessControlRef)type };
+#endif
+    if (typeID == SecTrustGetTypeID())
+        return { (SecTrustRef)type };
+    ASSERT_NOT_REACHED();
+    return { };
+}
+
+bool arraysEqual(CFArrayRef, CFArrayRef);
+
 inline bool operator==(const CFHolderForTesting& a, const CFHolderForTesting& b)
 {
     auto aObject = a.valueAsCFType();
@@ -128,7 +269,36 @@ inline bool operator==(const CFHolderForTesting& a, const CFHolderForTesting& b)
 
     // Sometimes the CF input and CF output fail the CFEqual call above (Such as CFDictionaries containing certain things)
     // In these cases, give the Obj-C equivalent equality check a chance.
-    return [(NSObject *)aObject isEqual: (NSObject *)bObject];
+    if ([(NSObject *)aObject isEqual: (NSObject *)bObject])
+        return true;
+
+    auto aTypeID = CFGetTypeID(aObject);
+    auto bTypeID = CFGetTypeID(bObject);
+    if (aTypeID == SecTrustGetTypeID() && bTypeID == SecTrustGetTypeID())
+        return secTrustRefsEqual((SecTrustRef)aObject, (SecTrustRef)bObject);
+
+    if (aTypeID == CFArrayGetTypeID() && bTypeID == CFArrayGetTypeID())
+        return arraysEqual((CFArrayRef)aObject, (CFArrayRef)bObject);
+
+    return false;
+}
+
+inline bool operator!=(const CFHolderForTesting& a, const CFHolderForTesting& b)
+{
+    return !(a == b);
+}
+
+bool arraysEqual(CFArrayRef a, CFArrayRef b)
+{
+    auto aCount = CFArrayGetCount(a);
+    auto bCount = CFArrayGetCount(b);
+    if (aCount != bCount)
+        return false;
+    for (CFIndex i = 0; i < aCount; i++) {
+        if (cfHolder(CFArrayGetValueAtIndex(a, i)) != cfHolder(CFArrayGetValueAtIndex(b, i)))
+            return false;
+    }
+    return true;
 }
 
 struct ObjCHolderForTesting {
@@ -169,6 +339,7 @@ struct ObjCHolderForTesting {
         RetainPtr<CNPhoneNumber>,
         RetainPtr<CNPostalAddress>,
         RetainPtr<PKContact>,
+        RetainPtr<PKPaymentMerchantSession>,
 #endif
         RetainPtr<NSValue>
     > ValueType;
@@ -412,6 +583,35 @@ static RetainPtr<NSPersonNameComponents> personNameComponentsForTesting()
     return components;
 }
 
+#if HAVE(SEC_KEYCHAIN)
+static SecKeychainRef getTempKeychain()
+{
+    SecKeychainRef keychainRef = NULL;
+    uuid_t uu;
+    char pass[PATH_MAX];
+
+    uuid_generate_random(uu);
+    uuid_unparse_upper(uu, pass);
+    UInt32 passLen = (UInt32)strlen(pass);
+    NSString* path = [NSString stringWithFormat:@"%@/%s", NSTemporaryDirectory(), pass];
+
+    [NSFileManager.defaultManager removeItemAtPath:path error:NULL];
+    EXPECT_TRUE(SecKeychainCreate(path.fileSystemRepresentation, passLen, pass, false, NULL, &keychainRef) == errSecSuccess);
+    EXPECT_NOT_NULL(keychainRef);
+    EXPECT_TRUE(SecKeychainUnlock(keychainRef, passLen, pass, TRUE) == errSecSuccess);
+
+    return keychainRef;
+}
+
+static void destroyTempKeychain(SecKeychainRef keychainRef)
+{
+    if (keychainRef) {
+        SecKeychainDelete(keychainRef);
+        CFRelease(keychainRef);
+    }
+}
+#endif // HAVE(SEC_KEYCHAIN)
+
 TEST(IPCSerialization, Basic)
 {
     auto runTestNS = [](ObjCHolderForTesting&& holderArg) {
@@ -427,17 +627,21 @@ TEST(IPCSerialization, Basic)
         EXPECT_TRUE(done);
     };
 
-    auto runTestCF = [](CFHolderForTesting&& holderArg) {
+    auto runTestCFWithExpectedResult = [](const CFHolderForTesting& holderArg, const CFHolderForTesting& expectedResult) {
         __block bool done = false;
-        __block CFHolderForTesting holder = WTFMove(holderArg);
+        __block CFHolderForTesting holder = expectedResult;
         auto sender = SerializationTestSender { };
-        sender.sendWithAsyncReplyWithoutUsingIPCConnection(CFPingBackMessage(holder), ^(CFHolderForTesting&& result) {
+        sender.sendWithAsyncReplyWithoutUsingIPCConnection(CFPingBackMessage(holderArg), ^(CFHolderForTesting&& result) {
             EXPECT_TRUE(holder == result);
             done = true;
         });
 
         // The completion handler should be called synchronously, so this should be true already.
         EXPECT_TRUE(done);
+    };
+
+    auto runTestCF = [&] (const CFHolderForTesting& holderArg) {
+        runTestCFWithExpectedResult(holderArg, holderArg);
     };
 
     // NSString/CFString
@@ -644,6 +848,61 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     //   - NSRect
     runValueTest([NSValue valueWithRange:NSMakeRange(1, 2)]);
     runValueTest([NSValue valueWithRect:NSMakeRect(1, 2, 79, 80)]);
+
+    // SecTrust -- evaluate the trust of the cert created above
+    SecTrustRef trustRef = NULL;
+    auto policy = adoptCF(SecPolicyCreateBasicX509());
+    EXPECT_TRUE(SecTrustCreateWithCertificates(cert.get(), policy.get(), &trustRef) == errSecSuccess);
+    EXPECT_TRUE(trustRef);
+    auto trust = adoptCF(trustRef);
+    runTestCF({ trust.get() });
+
+    EXPECT_TRUE(SecTrustEvaluateWithError(trust.get(), NULL) == errSecSuccess);
+    runTestCF({ trust.get() });
+
+    // SecKeychainItem
+#if HAVE(SEC_KEYCHAIN)
+    ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    // Store the certificate created above into the temp keychain
+    SecKeychainRef tempKeychain = getTempKeychain();
+    CFDataRef certData = NULL;
+    EXPECT_TRUE(SecItemExport(cert.get(), kSecFormatX509Cert, kSecItemPemArmour, nil, &certData) == errSecSuccess);
+    CFArrayRef items = NULL;
+    EXPECT_TRUE(SecKeychainItemImport(certData, CFSTR(".pem"), NULL, NULL, 0, NULL, tempKeychain, &items) == errSecSuccess);
+    EXPECT_NOT_NULL(items);
+    EXPECT_GT(CFArrayGetCount(items), 0);
+
+    SecKeychainItemRef keychainItemRef = (SecKeychainItemRef)CFArrayGetValueAtIndex(items, 0);
+    EXPECT_NOT_NULL(keychainItemRef);
+    runTestCF({ keychainItemRef });
+
+    CFRelease(items);
+    CFRelease(certData);
+
+    destroyTempKeychain(tempKeychain);
+    ALLOW_DEPRECATED_DECLARATIONS_END
+#endif // HAVE(SEC_KEYCHAIN)
+
+    NSArray *nestedArray = @[
+        @YES,
+        @(5.4),
+        NSData.data,
+        // FIXME: Test the remainder of the CFTypeRef types in an array.
+        @{ @"key": NSNull.null }
+    ];
+    runTestCFWithExpectedResult({ (__bridge CFArrayRef)@[
+        nestedArray,
+        (id)trust.get(),
+        NSUUID.UUID, // Removed when encoding because CFUUIDRef is not a recognized type in CFArrayRef or CFDictionaryRef
+        @{
+            @"should be removed before encoding" : NSUUID.UUID,
+            NSUUID.UUID : @"should also be removed before encoding"
+        }
+    ] }, { (__bridge CFArrayRef)@[
+        nestedArray,
+        (id)trust.get(),
+        @{ }
+    ] });
 }
 
 #if PLATFORM(MAC)
@@ -662,6 +921,31 @@ static RetainPtr<DDScannerResult> fakeDataDetectorResultForTesting()
 
     return [[PAL::getDDScannerResultClass() resultsFromCoreResults:results.get()] firstObject];
 }
+
+@interface PKPaymentMerchantSession ()
+- (instancetype)initWithMerchantIdentifier:(NSString *)merchantIdentifier
+                 merchantSessionIdentifier:(NSString *)merchantSessionIdentifier
+                                     nonce:(NSString *)nonce
+                            epochTimestamp:(NSUInteger)epochTimestamp
+                                 expiresAt:(NSUInteger)expiresAt
+                               displayName:(NSString *)displayName
+                         initiativeContext:(NSString *)initiativeContext
+                                initiative:(NSString *)initiative
+                      ampEnrollmentPinning:(nullable NSData *)ampEnrollmentPinning
+            operationalAnalyticsIdentifier:(nullable NSString *)operationalAnalyticsIdentifier
+                              signedFields:(NSArray<NSString *> *)signedFields
+                                 signature:(NSData *)signature;
+
+- (instancetype)initWithMerchantIdentifier:(NSString *)merchantIdentifier
+                 merchantSessionIdentifier:(NSString *)merchantSessionIdentifier
+                                     nonce:(NSString *)nonce
+                            epochTimestamp:(NSUInteger)epochTimestamp
+                                 expiresAt:(NSUInteger)expiresAt
+                                    domain:(NSString *)domainName
+                               displayName:(NSString *)displayName
+            operationalAnalyticsIdentifier:(nullable NSString *)operationalAnalyticsIdentifier
+                                 signature:(NSData *)signature;
+@end
 
 TEST(IPCSerialization, SecureCoding)
 {
@@ -698,6 +982,36 @@ TEST(IPCSerialization, SecureCoding)
     RetainPtr<AVOutputContext> outputContext = adoptNS([[PAL::getAVOutputContextClass() alloc] init]);
     runTestNS({ outputContext.get() });
 #endif // USE(AVFOUNDATION)
+
+    // PKPaymentMerchantSession
+    // This initializer doesn't exercise retryNonce or domain
+    RetainPtr<PKPaymentMerchantSession> session = adoptNS([[PAL::getPKPaymentMerchantSessionClass() alloc]
+        initWithMerchantIdentifier:@"WebKit Open Source Project"
+        merchantSessionIdentifier:@"WebKitMerchantSession"
+        nonce:@"WebKitNonce"
+        epochTimestamp:1000000000
+        expiresAt:2000000000
+        displayName:@"WebKit"
+        initiativeContext:@"WebKit IPC Testing"
+        initiative:@"WebKit Regression Test Suite"
+        ampEnrollmentPinning:nil
+        operationalAnalyticsIdentifier:@"WebKitOperations42"
+        signedFields:@[ @"FirstField", @"AndTheSecond" ]
+        signature:[NSData new]]);
+    runTestNS({ session.get() });
+
+    // This initializer adds in domain, but retryNonce is still unexercised
+    session = adoptNS([[PAL::getPKPaymentMerchantSessionClass() alloc]
+        initWithMerchantIdentifier:@"WebKit Open Source Project"
+        merchantSessionIdentifier:@"WebKitMerchantSession"
+        nonce:@"WebKitNonce"
+        epochTimestamp:1000000000
+        expiresAt:2000000000
+        domain:@"webkit.org"
+        displayName:@"WebKit"
+        operationalAnalyticsIdentifier:@"WebKitOperations42"
+        signature:[NSData new]]);
+    runTestNS({ session.get() });
 }
 
 #endif // PLATFORM(MAC)

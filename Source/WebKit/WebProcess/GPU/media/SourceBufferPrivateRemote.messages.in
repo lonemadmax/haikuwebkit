@@ -27,11 +27,10 @@
 
 messages -> SourceBufferPrivateRemote NotRefCounted {
     SourceBufferPrivateDidReceiveInitializationSegment(struct WebKit::InitializationSegmentInfo segmentConfiguration) -> (WebCore::MediaPromise::Result result)
-    TakeOwnershipOfMemory(WebKit::SharedMemory::Handle remoteData)
+    TakeOwnershipOfMemory(WebCore::SharedMemory::Handle remoteData)
     SourceBufferPrivateHighestPresentationTimestampChanged(MediaTime timestamp)
     SourceBufferPrivateBufferedChanged(Vector<WebCore::PlatformTimeRanges> trackBuffers, uint64_t extraMemory) -> ()
     SourceBufferPrivateDurationChanged(MediaTime duration) -> ()
-    SourceBufferPrivateDidParseSample(double sampleDuration)
     SourceBufferPrivateDidDropSample()
     SourceBufferPrivateDidReceiveRenderingError(int64_t errorCode)
 }

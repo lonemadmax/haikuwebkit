@@ -113,19 +113,6 @@ enum class AXAncestorFlag : uint8_t {
     // Bit 7 is free.
 };
 
-#if ENABLE(AX_THREAD_TEXT_APIS)
-struct AXTextRun {
-    // The line index of this run within the context of the containing RenderBlockFlow of the main-thread AX object.
-    size_t lineIndex;
-    String text;
-
-    AXTextRun(size_t lineIndex, String&& text)
-        : lineIndex(lineIndex)
-        , text(WTFMove(text))
-    { }
-};
-#endif
-
 enum class AccessibilityRole {
     Application = 1,
     ApplicationAlert,
@@ -149,6 +136,7 @@ enum class AccessibilityRole {
     Column,
     ColumnHeader,
     ComboBox,
+    DateTime,
     Definition,
     Deletion,
     DescriptionList,
@@ -316,6 +304,8 @@ ALWAYS_INLINE String accessibilityRoleToString(AccessibilityRole role)
         return "ColumnHeader"_s;
     case AccessibilityRole::ComboBox:
         return "ComboBox"_s;
+    case AccessibilityRole::DateTime:
+        return "DateTime"_s;
     case AccessibilityRole::Definition:
         return "Definition"_s;
     case AccessibilityRole::Deletion:
@@ -557,6 +547,7 @@ enum class AccessibilityDetachmentType { CacheDestroyed, ElementDestroyed, Eleme
 
 enum class AccessibilityConversionSpace { Screen, Page };
 
+// FIXME: This should be replaced by AXDirection (or vice versa).
 enum class AccessibilitySearchDirection {
     Next = 1,
     Previous,
@@ -590,6 +581,9 @@ enum class AccessibilitySearchKey {
     FontColorChange,
     Frame,
     Graphic,
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    HasTextRuns,
+#endif
     HeadingLevel1,
     HeadingLevel2,
     HeadingLevel3,
@@ -655,6 +649,8 @@ enum class AccessibilityButtonState {
     On,
     Mixed,
 };
+
+enum class AXDirection : bool { Next, Previous };
 
 enum class AccessibilitySortDirection {
     None,
@@ -767,7 +763,7 @@ enum class AXRelationType : uint8_t {
     FlowsTo,
     Headers,
     HeaderFor,
-    LabelledBy,
+    LabeledBy,
     LabelFor,
     OwnedBy,
     OwnerFor,
@@ -780,6 +776,8 @@ enum class SpinButtonType : bool {
     // The spin button has separate increment and decrement controls.
     Composite
 };
+
+enum class ForceLayout : bool { No, Yes };
 
 // Use this struct to store the isIgnored data that depends on the parents, so that in addChildren()
 // we avoid going up the parent chain for each element while traversing the tree with useful information already.
@@ -803,6 +801,7 @@ public:
 
     void setObjectID(AXID axID) { m_id = axID; }
     AXID objectID() const { return m_id; }
+    virtual AXID treeID() const = 0;
     virtual ProcessID processID() const = 0;
 
     // When the corresponding WebCore object that this accessible object
@@ -843,6 +842,7 @@ public:
     bool isProgressIndicator() const { return roleValue() == AccessibilityRole::ProgressIndicator || roleValue() == AccessibilityRole::Meter; }
     bool isSlider() const { return roleValue() == AccessibilityRole::Slider; }
     virtual bool isControl() const = 0;
+    virtual bool isRadioInput() const = 0;
     // lists support (l, ul, ol, dl)
     virtual bool isList() const = 0;
     virtual bool isFileUploadButton() const = 0;
@@ -917,6 +917,7 @@ public:
     bool isTabItem() const { return roleValue() == AccessibilityRole::Tab; }
     bool isRadioGroup() const { return roleValue() == AccessibilityRole::RadioGroup; }
     bool isComboBox() const { return roleValue() == AccessibilityRole::ComboBox; }
+    bool isDateTime() const { return roleValue() == AccessibilityRole::DateTime; }
     bool isTree() const { return roleValue() == AccessibilityRole::Tree; }
     bool isTreeGrid() const { return roleValue() == AccessibilityRole::TreeGrid; }
     bool isTreeItem() const { return roleValue() == AccessibilityRole::TreeItem; }
@@ -1030,11 +1031,16 @@ public:
     AccessibilityChildrenVector errorMessageForObjects() const { return relatedObjects(AXRelationType::ErrorMessageFor); }
     AccessibilityChildrenVector flowToObjects() const { return relatedObjects(AXRelationType::FlowsTo); }
     AccessibilityChildrenVector flowFromObjects() const { return relatedObjects(AXRelationType::FlowsFrom); }
-    AccessibilityChildrenVector labelledByObjects() const { return relatedObjects(AXRelationType::LabelledBy); }
+    AccessibilityChildrenVector labeledByObjects() const { return relatedObjects(AXRelationType::LabeledBy); }
     AccessibilityChildrenVector labelForObjects() const { return relatedObjects(AXRelationType::LabelFor); }
     AccessibilityChildrenVector ownedObjects() const { return relatedObjects(AXRelationType::OwnerFor); }
     AccessibilityChildrenVector owners() const { return relatedObjects(AXRelationType::OwnedBy); }
     virtual AccessibilityChildrenVector relatedObjects(AXRelationType) const = 0;
+
+    virtual AXCoreObject* internalLinkElement() const = 0;
+    void appendRadioButtonGroupMembers(AccessibilityChildrenVector& linkedUIElements) const;
+    void appendRadioButtonDescendants(AXCoreObject&, AccessibilityChildrenVector&) const;
+    virtual AccessibilityChildrenVector radioButtonGroup() const = 0;
 
     bool hasPopup() const;
     virtual String popupValue() const = 0;
@@ -1092,10 +1098,8 @@ public:
     virtual Vector<SimpleRange> findTextRanges(const AccessibilitySearchTextCriteria&) const = 0;
     virtual Vector<String> performTextOperation(const AccessibilityTextOperation&) = 0;
 
-    virtual AccessibilityChildrenVector linkedObjects() const = 0;
-    virtual AXCoreObject* titleUIElement() const = 0;
-    virtual AXCoreObject* correspondingLabelForControlElement() const = 0;
-    virtual AXCoreObject* correspondingControlForLabelElement() const = 0;
+    AccessibilityChildrenVector linkedObjects() const;
+    virtual AXCoreObject* titleUIElement() const;
     virtual AXCoreObject* scrollBar(AccessibilityOrientation) = 0;
 
     virtual bool inheritsPresentationalRole() const = 0;
@@ -1107,14 +1111,14 @@ public:
     virtual void accessibilityText(Vector<AccessibilityText>&) const = 0;
     // A programmatic way to set a name on an AccessibleObject.
     virtual void setAccessibleName(const AtomString&) = 0;
-#if ENABLE(AX_THREAD_TEXT_APIS)
-    virtual Vector<AXTextRun> textRuns() { return { }; }
-#endif
 
     virtual String title() const = 0;
     virtual String description() const = 0;
 
     virtual std::optional<String> textContent() const = 0;
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    virtual bool hasTextRuns() = 0;
+#endif
 
     // Methods for determining accessibility text.
     virtual String stringValue() const = 0;
@@ -1370,20 +1374,13 @@ public:
     virtual void mathPrescripts(AccessibilityMathMultiscriptPairs&) = 0;
     virtual void mathPostscripts(AccessibilityMathMultiscriptPairs&) = 0;
 
-#if ENABLE(ACCESSIBILITY)
     AccessibilityObjectWrapper* wrapper() const { return m_wrapper.get(); }
     void setWrapper(AccessibilityObjectWrapper* wrapper) { m_wrapper = wrapper; }
     void detachWrapper(AccessibilityDetachmentType);
-#else
-    AccessibilityObjectWrapper* wrapper() const { return nullptr; }
-    void setWrapper(AccessibilityObjectWrapper*) { }
-    void detachWrapper(AccessibilityDetachmentType) { }
-#endif
 
 #if PLATFORM(IOS_FAMILY)
     virtual int accessibilitySecureFieldLength() = 0;
     virtual bool hasTouchEventListener() const = 0;
-    virtual bool isInputTypePopupButton() const = 0;
 #endif
 
     // allows for an AccessibilityObject to update its render tree or perform
@@ -1508,13 +1505,11 @@ inline void AXCoreObject::detach(AccessibilityDetachmentType detachmentType)
         detachRemoteParts(detachmentType);
 }
 
-#if ENABLE(ACCESSIBILITY)
 inline void AXCoreObject::detachWrapper(AccessibilityDetachmentType detachmentType)
 {
     detachPlatformWrapper(detachmentType);
     m_wrapper = nullptr;
 }
-#endif
 
 inline Vector<AXID> AXCoreObject::childrenIDs(bool updateChildrenIfNecessary)
 {
@@ -1678,6 +1673,8 @@ template<typename T, typename U> inline T retrieveAutoreleasedValueFromMainThrea
     return value.autorelease();
 }
 #endif
+
+bool inRenderTreeOrStyleUpdate(const Document&);
 
 } // namespace Accessibility
 

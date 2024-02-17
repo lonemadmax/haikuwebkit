@@ -98,7 +98,7 @@ struct WindowFeatures;
 WEBCORE_EXPORT bool isBackForwardLoadType(FrameLoadType);
 WEBCORE_EXPORT bool isReload(FrameLoadType);
 
-using ContentPolicyDecisionFunction = Function<void(PolicyAction, PolicyCheckIdentifier)>;
+using ContentPolicyDecisionFunction = CompletionHandler<void(PolicyAction)>;
 
 class FrameLoader final : public CanMakeCheckedPtr {
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
@@ -117,6 +117,7 @@ public:
     PolicyChecker& policyChecker() const { return *m_policyChecker; }
 
     HistoryController& history() const { return *m_history; }
+    CheckedRef<HistoryController> checkedHistory() const;
     ResourceLoadNotifier& notifier() const { return m_notifier; }
 
     class SubframeLoader;
@@ -173,12 +174,16 @@ public:
     String outgoingOrigin() const;
 
     WEBCORE_EXPORT DocumentLoader* activeDocumentLoader() const;
+    RefPtr<DocumentLoader> protectedActiveDocumentLoader() const;
     DocumentLoader* documentLoader() const { return m_documentLoader.get(); }
     RefPtr<DocumentLoader> protectedDocumentLoader() const;
     DocumentLoader* policyDocumentLoader() const { return m_policyDocumentLoader.get(); }
     DocumentLoader* provisionalDocumentLoader() const { return m_provisionalDocumentLoader.get(); }
     RefPtr<DocumentLoader> protectedProvisionalDocumentLoader() const;
     FrameState state() const { return m_state; }
+
+    enum class CanIncludeCurrentDocumentLoader : bool { No, Yes };
+    WEBCORE_EXPORT RefPtr<DocumentLoader> loaderForWebsitePolicies(CanIncludeCurrentDocumentLoader = CanIncludeCurrentDocumentLoader::Yes) const;
 
     bool shouldReportResourceTimingToParentFrame() const { return m_shouldReportResourceTimingToParentFrame; };
     
@@ -231,7 +236,7 @@ public:
 
     void setDefersLoading(bool);
 
-    void checkContentPolicy(const ResourceResponse&, PolicyCheckIdentifier, ContentPolicyDecisionFunction&&);
+    void checkContentPolicy(const ResourceResponse&, ContentPolicyDecisionFunction&&);
 
     void didExplicitOpen();
 
@@ -306,6 +311,7 @@ public:
     PageDismissalType pageDismissalEventBeingDispatched() const { return m_pageDismissalEventBeingDispatched; }
 
     WEBCORE_EXPORT NetworkingContext* networkingContext() const;
+    WEBCORE_EXPORT RefPtr<NetworkingContext> protectedNetworkingContext() const;
 
     void loadProgressingStatusChanged();
 
@@ -448,6 +454,8 @@ private:
     // PolicyChecker specific.
     void clearProvisionalLoadForPolicyCheck();
     bool hasOpenedFrames() const;
+
+    void updateNavigationAPIEntries();
 
     WeakRef<LocalFrame> m_frame;
     UniqueRef<LocalFrameLoaderClient> m_client;

@@ -35,9 +35,6 @@
 #include "SVGContainerLayout.h"
 #include "SVGLengthContext.h"
 #include "SVGRenderStyle.h"
-#include "SVGRenderingContext.h"
-#include "SVGResources.h"
-#include "SVGResourcesCache.h"
 #include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
@@ -125,7 +122,7 @@ void RenderSVGResourceMasker::applyMask(PaintInfo& paintInfo, const RenderLayerM
     context.beginTransparencyLayer(1);
 
     auto& maskImageContext = maskImage->context();
-    layer()->paintSVGResourceLayer(maskImageContext, stateSaver, contentTransform);
+    layer()->paintSVGResourceLayer(maskImageContext, contentTransform);
 
 #if !USE(CG)
     maskImage->transformToColorSpace(drawColorSpace);
@@ -167,6 +164,8 @@ FloatRect RenderSVGResourceMasker::resourceBoundingBox(const RenderObject& objec
 
     auto maskBoundaries = SVGLengthContext::resolveRectangle<SVGMaskElement>(&maskElement, maskElement.maskUnits(), targetBoundingBox);
     maskRect.intersect(maskBoundaries);
+    if (maskRect.isEmpty())
+        return targetBoundingBox;
     return maskRect;
 }
 

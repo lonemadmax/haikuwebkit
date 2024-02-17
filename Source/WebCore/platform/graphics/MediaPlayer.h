@@ -642,6 +642,8 @@ public:
     unsigned long long fileSize() const;
 
     std::optional<VideoPlaybackQualityMetrics> videoPlaybackQualityMetrics();
+    using VideoPlaybackQualityMetricsPromise = NativePromise<VideoPlaybackQualityMetrics, PlatformMediaError>;
+    Ref<VideoPlaybackQualityMetricsPromise> asyncVideoPlaybackQualityMetrics();
 
     String sourceApplicationIdentifier() const;
     Vector<String> preferredAudioCharacteristics() const;
@@ -656,7 +658,7 @@ public:
     bool contentMIMETypeWasInferredFromExtension() const { return m_contentMIMETypeWasInferredFromExtension; }
 
     const Vector<ContentType>& mediaContentTypesRequiringHardwareSupport() const;
-    bool shouldCheckHardwareSupport() const;
+    void setShouldCheckHardwareSupport(bool);
 
     const std::optional<Vector<String>>& allowedMediaContainerTypes() const;
     const std::optional<Vector<String>>& allowedMediaCodecTypes() const;

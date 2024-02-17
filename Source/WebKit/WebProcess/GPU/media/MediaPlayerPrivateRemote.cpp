@@ -128,8 +128,6 @@ MediaPlayerPrivateRemote::MediaPlayerPrivateRemote(MediaPlayer* player, MediaPla
     , m_documentSecurityOrigin(player->documentSecurityOrigin())
 {
     ALWAYS_LOG(LOGIDENTIFIER);
-
-    acceleratedRenderingStateChanged();
 }
 
 MediaPlayerPrivateRemote::~MediaPlayerPrivateRemote()
@@ -147,6 +145,13 @@ MediaPlayerPrivateRemote::~MediaPlayerPrivateRemote()
 
     for (auto& request : std::exchange(m_layerHostingContextIDRequests, { }))
         request({ });
+
+    // Shutdown any stale MediaResources.
+    // This condition can happen if the MediaPlayer gets reloaded half-way.
+    ensureOnMainThread([resources = WTFMove(m_mediaResources)] {
+        for (auto&& resource : resources)
+            resource.value->shutdown();
+    });
 }
 
 void MediaPlayerPrivateRemote::prepareForPlayback(bool privateMode, MediaPlayer::Preload preload, bool preservesPitch, bool prepare)
@@ -345,10 +350,8 @@ void MediaPlayerPrivateRemote::readyStateChanged(RemoteMediaPlayerState&& state)
 {
     ALWAYS_LOG(LOGIDENTIFIER, state.readyState);
     updateCachedState(WTFMove(state));
-    if (auto player = m_player.get()) {
+    if (auto player = m_player.get())
         player->readyStateChanged();
-        checkAcceleratedRenderingState();
-    }
 }
 
 void MediaPlayerPrivateRemote::volumeChanged(double volume)
@@ -491,26 +494,17 @@ bool MediaPlayerPrivateRemote::supportsAcceleratedRendering() const
 void MediaPlayerPrivateRemote::acceleratedRenderingStateChanged()
 {
     if (auto player = m_player.get()) {
-        m_renderingCanBeAccelerated = player->renderingCanBeAccelerated();
-        connection().send(Messages::RemoteMediaPlayerProxy::AcceleratedRenderingStateChanged(m_renderingCanBeAccelerated), m_id);
-    }
-    renderingModeChanged();
-}
-
-void MediaPlayerPrivateRemote::checkAcceleratedRenderingState()
-{
-    if (auto player = m_player.get()) {
-        bool renderingCanBeAccelerated = player->renderingCanBeAccelerated();
-        if (m_renderingCanBeAccelerated != renderingCanBeAccelerated)
-            acceleratedRenderingStateChanged();
+        connection().send(Messages::RemoteMediaPlayerProxy::AcceleratedRenderingStateChanged(player->renderingCanBeAccelerated()), m_id);
     }
 }
 
 void MediaPlayerPrivateRemote::updateConfiguration(RemoteMediaPlayerConfiguration&& configuration)
 {
+    bool oldSupportsAcceleraterRendering = supportsAcceleratedRendering();
     m_configuration = WTFMove(configuration);
     // player->renderingCanBeAccelerated() result is dependent on m_configuration.supportsAcceleratedRendering value.
-    checkAcceleratedRenderingState();
+    if (RefPtr player = m_player.get(); player && oldSupportsAcceleraterRendering != supportsAcceleratedRendering())
+        player->renderingModeChanged();
 }
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -560,6 +554,11 @@ void MediaPlayerPrivateRemote::updateCachedState(RemoteMediaPlayerState&& state)
 
     if (state.bufferedRanges)
         m_cachedBufferedTimeRanges = *state.bufferedRanges;
+}
+
+void MediaPlayerPrivateRemote::updatePlaybackQualityMetrics(VideoPlaybackQualityMetrics&& metrics)
+{
+    m_cachedState.videoMetrics = WTFMove(metrics);
 }
 
 bool MediaPlayerPrivateRemote::shouldIgnoreIntrinsicSize()
@@ -886,7 +885,8 @@ void MediaPlayerPrivateRemote::setVideoFullscreenLayer(PlatformLayer* videoFulls
     m_videoLayerManager->setVideoFullscreenLayer(videoFullscreenLayer, WTFMove(completionHandler), nullptr);
 #endif
     // A Fullscreen layer has been set, this could update the value returned by player->renderingCanBeAccelerated().
-    checkAcceleratedRenderingState();
+    if (RefPtr player = m_player.get())
+        player->renderingModeChanged();
 }
 
 void MediaPlayerPrivateRemote::updateVideoFullscreenInlineImage()
@@ -1491,7 +1491,8 @@ void MediaPlayerPrivateRemote::sendH2Ping(const URL& url, CompletionHandler<void
 void MediaPlayerPrivateRemote::removeResource(RemoteMediaResourceIdentifier remoteMediaResourceIdentifier)
 {
     // The client(RemoteMediaResourceProxy) will be destroyed as well
-    m_mediaResources.remove(remoteMediaResourceIdentifier);
+    if (auto resource = m_mediaResources.take(remoteMediaResourceIdentifier))
+        resource->shutdown();
 }
 
 void MediaPlayerPrivateRemote::resourceNotSupported()
@@ -1576,6 +1577,11 @@ RefPtr<TextTrackPrivateRemote> MediaPlayerPrivateRemote::textTrackPrivateRemote(
     return nullptr;
 }
 #endif
+
+void MediaPlayerPrivateRemote::setShouldCheckHardwareSupport(bool value)
+{
+    connection().send(Messages::RemoteMediaPlayerProxy::SetShouldCheckHardwareSupport(value), m_id);
+}
 
 } // namespace WebKit
 

@@ -37,6 +37,9 @@
 (allow process-info-codesignature)
 #endif
 
+(deny file-read-metadata
+    (literal "/private/var/db/MobileIdentityData/Version.plist"))
+
 ;;;
 ;;; The following rules were originally contained in 'common.sb'. We are duplicating them here so we can
 ;;; remove unneeded sandbox extensions.
@@ -106,19 +109,6 @@
     (mobile-preferences-read
         "com.apple.mediaremote"
         "com.apple.mobileipod")
-)
-
-(define-once (media-capture-support)
-    ;; Media capture, microphone access
-    (with-filter (extension "com.apple.webkit.microphone")
-        (allow device-microphone))
-
-    ;; Media capture, camera access
-    (with-filter (extension "com.apple.webkit.camera")
-        (allow user-preference-read
-            (preference-domain "com.apple.coremedia"))
-        (allow file-read* (subpath "/Library/CoreMediaIO/Plug-Ins/DAL"))
-        (allow device-camera))
 )
 
 (define-once (accessibility-support)
@@ -535,8 +525,10 @@
 
 (with-filter (state-flag "EnableExperimentalSandbox")
     (allow mach-lookup (global-name "com.apple.system.notification_center")
-        (apply-message-filter (deny mach-message-send))))
-
+        (apply-message-filter
+            (deny mach-message-send)
+            (deny mach-message-send (with no-report) (message-number 1023))
+            (allow mach-message-send (with report) (with telemetry) (notifyd-message-numbers)))))
 
 (managed-configuration-read-public)
 
@@ -882,6 +874,12 @@
 (deny mach-lookup
     (global-name "com.apple.mobilegestalt.xpc"))
 
+(allow mach-lookup (with telemetry)
+    (require-all
+        (require-not (webcontent-process-launched))
+        (extension "com.apple.webkit.extension.mach")
+        (global-name "com.apple.mobilegestalt.xpc")))
+
 (deny mach-lookup (with no-report)
     (xpc-service-name "com.apple.audio.toolbox.reporting.service"))
 
@@ -932,8 +930,7 @@
 (define (mach-extension-list)
     (global-name
         "com.apple.iconservices"
-        "com.apple.mobileassetd.v2"
-        "com.apple.mobilegestalt.xpc"))
+        "com.apple.mobileassetd.v2"))
 
 (allow mach-lookup (with telemetry-backtrace)
     (require-all
@@ -982,8 +979,6 @@
         (extension "com.apple.webkit.extension.mach")
         (xpc-service-name-prefix "com.apple.AGXCompilerService")))
 #endif // HAVE(AGX_COMPILER_SERVICE)
-
-(media-capture-support)
 
 ;; These services have been identified as unused during living-on.
 ;; This list overrides some definitions above and in common.sb.
@@ -1218,10 +1213,7 @@
             F_OFD_SETLKWTIMEOUT))
             
 #if HAVE(SANDBOX_STATE_FLAGS)
-    (with-filter (require-not (state-flag "AppCacheDisabled"))
-        (allow system-fcntl (appcache-fcntl-commands)))
-    (with-filter (state-flag "AppCacheDisabled")
-        (deny system-fcntl (with telemetry-backtrace) (appcache-fcntl-commands)))
+    (deny system-fcntl (with telemetry-backtrace) (appcache-fcntl-commands))
 #else
     (allow system-fcntl (appcache-fcntl-commands))
 #endif

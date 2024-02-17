@@ -254,8 +254,12 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& fea
     WebView *newWebView;
 
 #if ENABLE(FULLSCREEN_API)
-    if (frame.document() && frame.document()->fullscreenManager().currentFullscreenElement())
-        frame.document()->fullscreenManager().cancelFullscreen();
+    if (RefPtr document = frame.document()) {
+        if (CheckedPtr fullscreenManager = document->fullscreenManagerIfExists()) {
+            if (fullscreenManager->currentFullscreenElement())
+                fullscreenManager->cancelFullscreen();
+        }
+    }
 #endif
     
     if ([delegate respondsToSelector:@selector(webView:createWebViewWithRequest:windowFeatures:)]) {
@@ -1049,8 +1053,9 @@ bool WebChromeClient::supportsFullScreenForElement(const Element& element, bool 
 #endif
 }
 
-void WebChromeClient::enterFullScreenForElement(Element& element)
+void WebChromeClient::enterFullScreenForElement(Element& element, HTMLMediaElementEnums::VideoFullscreenMode mode)
 {
+    UNUSED_PARAM(mode);
     SEL selector = @selector(webView:enterFullScreenForElement:listener:);
     if ([[m_webView UIDelegate] respondsToSelector:selector]) {
         auto listener = adoptNS([[WebKitFullScreenListener alloc] initWithElement:&element]);

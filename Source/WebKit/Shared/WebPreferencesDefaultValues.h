@@ -66,8 +66,6 @@ bool defaultAppleMailPaginationQuirkEnabled();
 bool allowsDeprecatedSynchronousXMLHttpRequestDuringUnload();
 #endif
 
-bool defaultOfflineWebApplicationCacheEnabled();
-
 #if ENABLE(MEDIA_STREAM)
 bool defaultCaptureAudioInGPUProcessEnabled();
 bool defaultCaptureAudioInUIProcessEnabled();
@@ -101,6 +99,7 @@ bool defaultGamepadVibrationActuatorEnabled();
 
 bool defaultRunningBoardThrottlingEnabled();
 bool defaultShouldDropNearSuspendedAssertionAfterDelay();
+bool defaultShouldTakeNearSuspendedAssertion();
 bool defaultShowModalDialogEnabled();
 bool defaultLiveRangeSelectionEnabled();
 

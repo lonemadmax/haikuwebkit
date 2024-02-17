@@ -51,6 +51,7 @@
 #include "VideoFrameMetadata.h"
 #include <JavaScriptCore/ArrayBuffer.h>
 #include <wtf/Lock.h>
+#include <wtf/NativePromise.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/text/CString.h>
 #include "InbandTextTrackPrivate.h"
@@ -650,6 +651,8 @@ void MediaPlayer::loadWithNextMediaEngine(const MediaPlayerFactory* current)
     }
 
     if (m_private) {
+        m_private->setShouldCheckHardwareSupport(client().mediaPlayerShouldCheckHardwareSupport());
+
 #if ENABLE(MEDIA_SOURCE)
         if (RefPtr mediaSource = m_mediaSource.get())
             m_private->load(m_url, m_contentMIMETypeWasInferredFromExtension ? ContentType() : m_contentType, *mediaSource);
@@ -1714,6 +1717,14 @@ std::optional<VideoPlaybackQualityMetrics> MediaPlayer::videoPlaybackQualityMetr
     return m_private->videoPlaybackQualityMetrics();
 }
 
+Ref<MediaPlayer::VideoPlaybackQualityMetricsPromise> MediaPlayer::asyncVideoPlaybackQualityMetrics()
+{
+    if (!m_private)
+        return VideoPlaybackQualityMetricsPromise::createAndReject(PlatformMediaError::Cancelled);
+
+    return m_private->asyncVideoPlaybackQualityMetrics();
+}
+
 String MediaPlayer::sourceApplicationIdentifier() const
 {
     return client().mediaPlayerSourceApplicationIdentifier();
@@ -1760,11 +1771,6 @@ bool MediaPlayer::shouldDisableSleep() const
 const Vector<ContentType>& MediaPlayer::mediaContentTypesRequiringHardwareSupport() const
 {
     return client().mediaContentTypesRequiringHardwareSupport();
-}
-
-bool MediaPlayer::shouldCheckHardwareSupport() const
-{
-    return client().mediaPlayerShouldCheckHardwareSupport();
 }
 
 const std::optional<Vector<String>>& MediaPlayer::allowedMediaContainerTypes() const
@@ -1920,6 +1926,11 @@ bool MediaPlayer::pauseAtHostTime(const MonotonicTime& hostTime)
     // media player does not support it.
     ASSERT(supportsPauseAtHostTime());
     return m_private->pauseAtHostTime(hostTime);
+}
+
+void MediaPlayer::setShouldCheckHardwareSupport(bool value)
+{
+    m_private->setShouldCheckHardwareSupport(value);
 }
 
 #if !RELEASE_LOG_DISABLED

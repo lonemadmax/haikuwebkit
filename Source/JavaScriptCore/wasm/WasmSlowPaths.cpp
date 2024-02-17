@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "WasmSlowPaths.h"
+#include "JSCJSValue.h"
 
 #if ENABLE(WEBASSEMBLY)
 
@@ -86,7 +87,6 @@ namespace JSC { namespace LLInt {
         : callFrame->r(virtualRegister))
 
 #if ENABLE(WEBASSEMBLY_BBQJIT)
-#if ENABLE(WEBASSEMBLY_OMGJIT)
 enum class RequiredWasmJIT { Any, OMG };
 
 extern "C" void wasm_log_crash(CallFrame*, Wasm::Instance* instance)
@@ -96,25 +96,30 @@ extern "C" void wasm_log_crash(CallFrame*, Wasm::Instance* instance)
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-inline bool shouldJIT(Wasm::LLIntCallee* callee, RequiredWasmJIT requiredJIT = RequiredWasmJIT::Any)
+static inline bool shouldJIT(Wasm::LLIntCallee* callee, RequiredWasmJIT requiredJIT = RequiredWasmJIT::Any)
 {
+#if ENABLE(WEBASSEMBLY_OMGJIT)
     if (requiredJIT == RequiredWasmJIT::OMG) {
         if (!Options::useOMGJIT() || !Wasm::OMGPlan::ensureGlobalOMGAllowlist().containsWasmFunction(callee->functionIndex()))
             return false;
-    } else {
+    }
+#endif
+    if (requiredJIT == RequiredWasmJIT::Any) {
         if (Options::wasmLLIntTiersUpToBBQ()
             && (!Options::useBBQJIT() || !Wasm::BBQPlan::ensureGlobalBBQAllowlist().containsWasmFunction(callee->functionIndex())))
             return false;
+#if ENABLE(WEBASSEMBLY_OMGJIT)
         if (!Options::wasmLLIntTiersUpToBBQ()
             && (!Options::useOMGJIT() || !Wasm::OMGPlan::ensureGlobalOMGAllowlist().containsWasmFunction(callee->functionIndex())))
             return false;
+#endif
     }
     if (!Options::wasmFunctionIndexRangeToCompile().isInRange(callee->functionIndex()))
         return false;
     return true;
 }
 
-inline bool jitCompileAndSetHeuristics(Wasm::LLIntCallee* callee, Wasm::Instance* instance)
+static inline bool jitCompileAndSetHeuristics(Wasm::LLIntCallee* callee, Wasm::Instance* instance)
 {
     ASSERT(!instance->module().moduleInformation().usesSIMD(callee->functionIndex()));
 
@@ -151,20 +156,24 @@ inline bool jitCompileAndSetHeuristics(Wasm::LLIntCallee* callee, Wasm::Instance
         RefPtr<Wasm::Plan> plan;
         if (Options::wasmLLIntTiersUpToBBQ() && Wasm::BBQPlan::ensureGlobalBBQAllowlist().containsWasmFunction(functionIndex))
             plan = adoptRef(*new Wasm::BBQPlan(instance->vm(), const_cast<Wasm::ModuleInformation&>(instance->module().moduleInformation()), functionIndex, callee->hasExceptionHandlers(), instance->calleeGroup(), Wasm::Plan::dontFinalize()));
+#if ENABLE(WEBASSEMBLY_OMGJIT)
         else // No need to check OMG allow list: if we didn't want to compile this function, shouldJIT should have returned false.
             plan = adoptRef(*new Wasm::OMGPlan(instance->vm(), Ref<Wasm::Module>(instance->module()), functionIndex, callee->hasExceptionHandlers(), instance->memory()->mode(), Wasm::Plan::dontFinalize()));
+#endif
 
-        Wasm::ensureWorklist().enqueue(*plan);
-        if (UNLIKELY(!Options::useConcurrentJIT()))
-            plan->waitForCompletion();
-        else
-            tierUpCounter.optimizeAfterWarmUp();
+        if (plan) {
+            Wasm::ensureWorklist().enqueue(*plan);
+            if (UNLIKELY(!Options::useConcurrentJIT()))
+                plan->waitForCompletion();
+            else
+                tierUpCounter.optimizeAfterWarmUp();
+        }
     }
 
     return !!callee->replacement(instance->memory()->mode());
 }
 
-inline bool jitCompileSIMDFunction(Wasm::LLIntCallee* callee, Wasm::Instance* instance)
+static inline bool jitCompileSIMDFunction(Wasm::LLIntCallee* callee, Wasm::Instance* instance)
 {
     Wasm::LLIntTierUpCounter& tierUpCounter = callee->tierUpCounter();
 
@@ -195,8 +204,10 @@ inline bool jitCompileSIMDFunction(Wasm::LLIntCallee* callee, Wasm::Instance* in
     RefPtr<Wasm::Plan> plan;
     if (Options::wasmLLIntTiersUpToBBQ())
         plan = adoptRef(*new Wasm::BBQPlan(instance->vm(), const_cast<Wasm::ModuleInformation&>(instance->module().moduleInformation()), functionIndex, callee->hasExceptionHandlers(), instance->calleeGroup(), Wasm::Plan::dontFinalize()));
+#if ENABLE(WEBASSEMBLY_OMGJIT)
     else
         plan = adoptRef(*new Wasm::OMGPlan(instance->vm(), Ref<Wasm::Module>(instance->module()), functionIndex, callee->hasExceptionHandlers(), instance->memory()->mode(), Wasm::Plan::dontFinalize()));
+#endif
 
     Wasm::ensureWorklist().enqueue(*plan);
     plan->waitForCompletion();
@@ -277,6 +288,7 @@ WASM_SLOW_PATH_DECL(loop_osr)
 
         WASM_RETURN_TWO(buffer, sharedLoopEntrypoint->taggedPtr());
     } else {
+#if ENABLE(WEBASSEMBLY_OMGJIT)
         const auto doOSREntry = [&](Wasm::OSREntryCallee* osrEntryCallee) {
             if (osrEntryCallee->loopIndex() != osrEntryData.loopIndex)
                 WASM_RETURN_TWO(nullptr, nullptr);
@@ -325,6 +337,8 @@ WASM_SLOW_PATH_DECL(loop_osr)
         if (auto* osrEntryCallee = callee->osrEntryCallee(instance->memory()->mode()))
             return doOSREntry(osrEntryCallee);
 
+#endif
+
         WASM_RETURN_TWO(nullptr, nullptr);
     }
 }
@@ -360,7 +374,6 @@ WASM_SLOW_PATH_DECL(simd_go_straight_to_bbq_osr)
     RELEASE_ASSERT(jitCompileSIMDFunction(callee, instance));
     WASM_RETURN_TWO(callee->replacement(instance->memory()->mode())->entrypoint().taggedPtr(), nullptr);
 }
-#endif
 #endif
 
 WASM_SLOW_PATH_DECL(trace)
@@ -422,6 +435,12 @@ WASM_SLOW_PATH_DECL(array_new)
     case Wasm::ArrayGetKind::NewDefault: {
         if (Wasm::isRefType(elementType))
             value = JSValue::encode(jsNull());
+        else if (elementType.unpacked().isV128()) {
+            EncodedJSValue result = Wasm::arrayNew(instance, instruction.m_typeIndex, size, vectorAllZeros());
+            if (JSValue::decode(result).isNull())
+                WASM_THROW(Wasm::ExceptionType::BadArrayNew);
+            WASM_RETURN(result);
+        }
         break;
     }
     case Wasm::ArrayGetKind::NewFixed: {
@@ -431,7 +450,11 @@ WASM_SLOW_PATH_DECL(array_new)
         WASM_RETURN(Wasm::arrayNewFixed(instance, instruction.m_typeIndex, size, reinterpret_cast<uint64_t*>(&callFrame->r(instruction.m_value))));
     }
     }
-    WASM_RETURN(Wasm::arrayNew(instance, instruction.m_typeIndex, size, value));
+    ASSERT(!elementType.unpacked().isV128());
+    EncodedJSValue result = Wasm::arrayNew(instance, instruction.m_typeIndex, size, value);
+    if (JSValue::decode(result).isNull())
+        WASM_THROW(Wasm::ExceptionType::BadArrayNew);
+    WASM_RETURN(result);
 }
 
 WASM_SLOW_PATH_DECL(array_get)
@@ -471,7 +494,7 @@ WASM_SLOW_PATH_DECL(array_set)
     if (JSValue::decode(arrayref).isNull())
         WASM_THROW(Wasm::ExceptionType::NullArraySet);
     uint32_t index = READ(instruction.m_index).unboxedUInt32();
-    EncodedJSValue value = READ(instruction.m_value).encodedJSValue();
+    uint64_t value = static_cast<uint64_t>(READ(instruction.m_value).unboxedInt64());
 
     JSValue arrayValue = JSValue::decode(arrayref);
     ASSERT(arrayValue.isObject());
@@ -480,6 +503,23 @@ WASM_SLOW_PATH_DECL(array_set)
         WASM_THROW(Wasm::ExceptionType::OutOfBoundsArraySet);
 
     Wasm::arraySet(instance, instruction.m_typeIndex, arrayref, index, value);
+    WASM_END_IMPL();
+}
+
+WASM_SLOW_PATH_DECL(array_fill)
+{
+    SlowPathFrameTracer tracer(instance->vm(), callFrame);
+
+    auto instruction = pc->as<WasmArrayFill>();
+    EncodedJSValue arrayref = READ(instruction.m_arrayref).encodedJSValue();
+    if (JSValue::decode(arrayref).isNull())
+        WASM_THROW(Wasm::ExceptionType::NullArrayFill);
+    uint32_t offset = READ(instruction.m_offset).unboxedUInt32();
+    EncodedJSValue value = READ(instruction.m_value).encodedJSValue();
+    uint32_t size = READ(instruction.m_size).unboxedUInt32();
+
+    if (!Wasm::arrayFill(arrayref, offset, value, size))
+        WASM_THROW(Wasm::ExceptionType::OutOfBoundsArrayFill);
     WASM_END_IMPL();
 }
 
@@ -525,7 +565,7 @@ WASM_SLOW_PATH_DECL(struct_set)
     auto structReference = READ(instruction.m_structReference).encodedJSValue();
     if (JSValue::decode(structReference).isNull())
         WASM_THROW(Wasm::ExceptionType::NullStructSet);
-    auto value = READ(instruction.m_value).encodedJSValue();
+    auto value = static_cast<uint64_t>(READ(instruction.m_value).unboxedInt64());
     Wasm::structSet(structReference, instruction.m_fieldIndex, value);
     WASM_END();
 }
@@ -589,11 +629,12 @@ WASM_SLOW_PATH_DECL(grow_memory)
     WASM_RETURN(Wasm::growMemory(instance, delta));
 }
 
-inline UGPRPair doWasmCall(Wasm::Instance* instance, unsigned functionIndex)
+static inline UGPRPair doWasmCall(Register* partiallyConstructedCalleeFrame, Wasm::Instance* instance, unsigned functionIndex)
 {
     uint32_t importFunctionCount = instance->module().moduleInformation().importFunctionCount();
 
     CodePtr<WasmEntryPtrTag> codePtr;
+    EncodedJSValue boxedCallee = CalleeBits::encodeNullCallee();
 
     if (functionIndex < importFunctionCount) {
         Wasm::Instance::ImportFunctionInfo* functionInfo = instance->importFunctionInfo(functionIndex);
@@ -601,20 +642,25 @@ inline UGPRPair doWasmCall(Wasm::Instance* instance, unsigned functionIndex)
     } else {
         // Target is a wasm function within the same instance
         codePtr = *instance->calleeGroup()->entrypointLoadLocationFromFunctionIndexSpace(functionIndex);
+        boxedCallee = CalleeBits::encodeNativeCallee(
+            instance->calleeGroup()->wasmCalleeFromFunctionIndexSpace(functionIndex));
     }
+
+    Register& calleeStackSlot = partiallyConstructedCalleeFrame[static_cast<int>(CallFrameSlot::callee)];
+    ASSERT(calleeStackSlot.unboxedInt64() == 0xBEEF);
+    calleeStackSlot = boxedCallee;
 
     WASM_CALL_RETURN(instance, codePtr.taggedPtr(), WasmEntryPtrTag);
 }
 
 WASM_SLOW_PATH_DECL(call)
 {
-    UNUSED_PARAM(callFrame);
-
     auto instruction = pc->as<WasmCall>();
-    return doWasmCall(instance, instruction.m_functionIndex);
+    Register* partiallyConstructedCalleeFrame = &callFrame->registers()[-safeCast<int>(instruction.m_stackOffset)];
+    return doWasmCall(partiallyConstructedCalleeFrame, instance, instruction.m_functionIndex);
 }
 
-inline UGPRPair doWasmCallIndirect(CallFrame* callFrame, Wasm::Instance* instance, unsigned functionIndex, unsigned tableIndex, unsigned typeIndex)
+static inline UGPRPair doWasmCallIndirect(Register* partiallyConstructedCalleeFrame, CallFrame* callFrame, Wasm::Instance* instance, unsigned functionIndex, unsigned tableIndex, unsigned typeIndex)
 {
     Wasm::FuncRefTable* table = instance->table(tableIndex)->asFuncrefTable();
 
@@ -631,6 +677,13 @@ inline UGPRPair doWasmCallIndirect(CallFrame* callFrame, Wasm::Instance* instanc
     if (callSignature.index() != function.m_function.typeIndex)
         WASM_THROW(Wasm::ExceptionType::BadSignature);
 
+    Register& calleeStackSlot = partiallyConstructedCalleeFrame[static_cast<int>(CallFrameSlot::callee)];
+    ASSERT(calleeStackSlot.unboxedInt64() == 0xBEEF);
+    if (function.m_function.boxedWasmCalleeLoadLocation)
+        calleeStackSlot = CalleeBits::encodeBoxedNativeCallee(reinterpret_cast<void*>(*function.m_function.boxedWasmCalleeLoadLocation));
+    else
+        calleeStackSlot = CalleeBits::encodeNullCallee();
+
     WASM_CALL_RETURN(function.m_instance, function.m_function.entrypointLoadLocation->taggedPtr(), WasmEntryPtrTag);
 }
 
@@ -638,10 +691,11 @@ WASM_SLOW_PATH_DECL(call_indirect)
 {
     auto instruction = pc->as<WasmCallIndirect>();
     unsigned functionIndex = READ(instruction.m_functionIndex).unboxedInt32();
-    return doWasmCallIndirect(callFrame, instance, functionIndex, instruction.m_tableIndex, instruction.m_typeIndex);
+    Register* partiallyConstructedCalleeFrame = &callFrame->registers()[-safeCast<int>(instruction.m_stackOffset)];
+    return doWasmCallIndirect(partiallyConstructedCalleeFrame, callFrame, instance, functionIndex, instruction.m_tableIndex, instruction.m_typeIndex);
 }
 
-inline UGPRPair doWasmCallRef(CallFrame* callFrame, Wasm::Instance* callerInstance, JSValue targetReference, unsigned typeIndex)
+static inline UGPRPair doWasmCallRef(Register* partiallyConstructedCalleeFrame, CallFrame* callFrame, Wasm::Instance* callerInstance, JSValue targetReference, unsigned typeIndex)
 {
     UNUSED_PARAM(callFrame);
     UNUSED_PARAM(callerInstance);
@@ -657,6 +711,13 @@ inline UGPRPair doWasmCallRef(CallFrame* callFrame, Wasm::Instance* callerInstan
     Wasm::WasmToWasmImportableFunction function = wasmFunction->importableFunction();
     Wasm::Instance* calleeInstance = &wasmFunction->instance()->instance();
 
+    Register& calleeStackSlot = partiallyConstructedCalleeFrame[static_cast<int>(CallFrameSlot::callee)];
+    ASSERT(calleeStackSlot.unboxedInt64() == 0xBEEF);
+    if (function.boxedWasmCalleeLoadLocation)
+        calleeStackSlot = CalleeBits::encodeBoxedNativeCallee(reinterpret_cast<void*>(*function.boxedWasmCalleeLoadLocation));
+    else
+        calleeStackSlot = CalleeBits::encodeNullCallee();
+
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=260820
     ASSERT(function.typeIndex == CALLEE()->signature(typeIndex).index());
     UNUSED_PARAM(typeIndex);
@@ -667,21 +728,23 @@ WASM_SLOW_PATH_DECL(call_ref)
 {
     auto instruction = pc->as<WasmCallRef>();
     JSValue reference = JSValue::decode(READ(instruction.m_functionReference).encodedJSValue());
-    return doWasmCallRef(callFrame, instance, reference, instruction.m_typeIndex);
+    Register* partiallyConstructedCalleeFrame = &callFrame->registers()[-safeCast<int>(instruction.m_stackOffset)];
+    return doWasmCallRef(partiallyConstructedCalleeFrame, callFrame, instance, reference, instruction.m_typeIndex);
 }
 
 WASM_SLOW_PATH_DECL(tail_call)
 {
-    UNUSED_PARAM(callFrame);
     auto instruction = pc->as<WasmTailCall>();
-    return doWasmCall(instance, instruction.m_functionIndex);
+    Register* partiallyConstructedCalleeFrame = &callFrame->registers()[-safeCast<int>(instruction.m_stackOffset)];
+    return doWasmCall(partiallyConstructedCalleeFrame, instance, instruction.m_functionIndex);
 }
 
 WASM_SLOW_PATH_DECL(tail_call_indirect)
 {
     auto instruction = pc->as<WasmTailCallIndirect>();
     unsigned functionIndex = READ(instruction.m_functionIndex).unboxedInt32();
-    return doWasmCallIndirect(callFrame, instance, functionIndex, instruction.m_tableIndex, instruction.m_signatureIndex);
+    Register* partiallyConstructedCalleeFrame = &callFrame->registers()[-safeCast<int>(instruction.m_stackOffset)];
+    return doWasmCallIndirect(partiallyConstructedCalleeFrame, callFrame, instance, functionIndex, instruction.m_tableIndex, instruction.m_signatureIndex);
 }
 
 static size_t jsrSize()
@@ -826,6 +889,52 @@ WASM_SLOW_PATH_DECL(call_builtin)
     case Wasm::LLIntBuiltin::AnyConvertExtern: {
         auto reference = takeGPR().encodedJSValue();
         gprStart[0] = Wasm::externInternalize(reference);
+        WASM_END();
+    }
+    case Wasm::LLIntBuiltin::ArrayCopy: {
+        takeGPR().unboxedUInt32();
+        EncodedJSValue dst = takeGPR().encodedJSValue();
+        uint32_t dstOffset = takeGPR().unboxedUInt32();
+        takeGPR().unboxedUInt32();
+        EncodedJSValue src = takeGPR().encodedJSValue();
+        uint32_t srcOffset = takeGPR().unboxedUInt32();
+        uint32_t size = takeGPR().unboxedUInt32();
+
+        if (JSValue::decode(dst).isNull() || JSValue::decode(src).isNull())
+            WASM_THROW(Wasm::ExceptionType::NullArrayCopy);
+
+        if (!Wasm::arrayCopy(instance, dst, dstOffset, src, srcOffset, size))
+            WASM_THROW(Wasm::ExceptionType::OutOfBoundsArrayCopy);
+        WASM_END();
+    }
+    case Wasm::LLIntBuiltin::ArrayInitElem: {
+        takeGPR().unboxedUInt32();
+        EncodedJSValue dst = takeGPR().encodedJSValue();
+        uint32_t dstOffset = takeGPR().unboxedUInt32();
+        uint32_t srcElementIndex = takeGPR().unboxedUInt32();
+        uint32_t srcOffset = takeGPR().unboxedUInt32();
+        uint32_t size = takeGPR().unboxedUInt32();
+
+        if (JSValue::decode(dst).isNull())
+            WASM_THROW(Wasm::ExceptionType::NullArrayInitElem);
+
+        if (!Wasm::arrayInitElem(instance, dst, dstOffset, srcElementIndex, srcOffset, size))
+            WASM_THROW(Wasm::ExceptionType::OutOfBoundsArrayInitElem);
+        WASM_END();
+    }
+    case Wasm::LLIntBuiltin::ArrayInitData: {
+        takeGPR().unboxedUInt32();
+        EncodedJSValue dst = takeGPR().encodedJSValue();
+        uint32_t dstOffset = takeGPR().unboxedUInt32();
+        uint32_t srcDataIndex = takeGPR().unboxedUInt32();
+        uint32_t srcOffset = takeGPR().unboxedUInt32();
+        uint32_t size = takeGPR().unboxedUInt32();
+
+        if (JSValue::decode(dst).isNull())
+            WASM_THROW(Wasm::ExceptionType::NullArrayInitData);
+
+        if (!Wasm::arrayInitData(instance, dst, dstOffset, srcDataIndex, srcOffset, size))
+            WASM_THROW(Wasm::ExceptionType::OutOfBoundsArrayInitData);
         WASM_END();
     }
     default:

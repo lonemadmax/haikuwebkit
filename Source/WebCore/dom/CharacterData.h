@@ -34,11 +34,13 @@ public:
 
     WEBCORE_EXPORT void setData(const String&);
     unsigned length() const { return m_data.length(); }
-    WEBCORE_EXPORT ExceptionOr<String> substringData(unsigned offset, unsigned count);
+    WEBCORE_EXPORT ExceptionOr<String> substringData(unsigned offset, unsigned count) const;
     WEBCORE_EXPORT void appendData(const String&);
     WEBCORE_EXPORT ExceptionOr<void> insertData(unsigned offset, const String&);
     WEBCORE_EXPORT ExceptionOr<void> deleteData(unsigned offset, unsigned count);
     WEBCORE_EXPORT ExceptionOr<void> replaceData(unsigned offset, unsigned count, const String&);
+
+    bool containsOnlyASCIIWhitespace() const;
 
     // Like appendData, but optimized for the parser (e.g., no mutation events).
     void parserAppendData(StringView);
@@ -48,17 +50,14 @@ protected:
         : Node(document, type, typeFlags | TypeFlag::IsCharacterData)
         , m_data(!text.isNull() ? WTFMove(text) : emptyString())
     {
-        ASSERT(isCharacterData());
+        ASSERT(isCharacterDataNode());
         ASSERT(!isContainerNode());
     }
 
     ~CharacterData();
 
-    void setDataWithoutUpdate(const String& data)
-    {
-        ASSERT(!data.isNull());
-        m_data = data;
-    }
+    void setDataWithoutUpdate(const String&);
+
     void dispatchModifiedEvent(const String& oldValue);
 
     enum class UpdateLiveRanges : bool { No, Yes };

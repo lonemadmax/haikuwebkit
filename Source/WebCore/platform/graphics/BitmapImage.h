@@ -34,25 +34,8 @@
 #include "ImageSource.h"
 #include "IntSize.h"
 
-#if USE(CG) || USE(APPKIT)
-#include <wtf/RetainPtr.h>
-#endif
-
-#if USE(APPKIT)
-OBJC_CLASS NSImage;
-#endif
-
-#if PLATFORM(WIN)
-typedef struct HBITMAP__ *HBITMAP;
-#endif
-
-#if PLATFORM(HAIKU)
-class BBitmap;
-#endif
-
 namespace WebCore {
 
-class Settings;
 class Timer;
 
 class BitmapImage final : public Image {
@@ -75,18 +58,14 @@ public:
     {
         return adoptRef(*new BitmapImage(observer));
     }
-#if PLATFORM(WIN)
-    WEBCORE_EXPORT static RefPtr<BitmapImage> create(HBITMAP);
-#endif
-    virtual ~BitmapImage();
 
-    void updateFromSettings(const Settings&);
+    virtual ~BitmapImage();
 
     EncodedDataStatus dataChanged(bool allDataReceived) override;
     unsigned decodedSize() const { return m_source->decodedSize(); }
 
     EncodedDataStatus encodedDataStatus() const { return m_source->encodedDataStatus(); }
-    size_t frameCount() const { return m_source->frameCount(); }
+    size_t frameCount() const final { return m_source->frameCount(); }
     size_t primaryFrameIndex() const { return m_source->primaryFrameIndex(); }
     RepetitionCount repetitionCount() const { return m_source->repetitionCount(); }
     String uti() const override { return m_source->uti(); }
@@ -111,9 +90,9 @@ public:
     Seconds frameDurationAtIndex(size_t index) const { return m_source->frameDurationAtIndex(index); }
     ImageOrientation frameOrientationAtIndex(size_t index) const { return m_source->frameOrientationAtIndex(index); }
 
-    size_t currentFrame() const { return m_currentFrame; }
-    bool currentFrameKnownToBeOpaque() const override { return !frameHasAlphaAtIndex(currentFrame()); }
-    ImageOrientation orientationForCurrentFrame() const { return frameOrientationAtIndex(currentFrame()); }
+    size_t currentFrameIndex() const { return m_currentFrame; }
+    bool currentFrameKnownToBeOpaque() const override { return !frameHasAlphaAtIndex(currentFrameIndex()); }
+    ImageOrientation orientationForCurrentFrame() const { return frameOrientationAtIndex(currentFrameIndex()); }
     bool canAnimate() const;
 
     bool shouldUseAsyncDecodingForTesting() const { return m_source->frameDecodingDurationForTesting() > 0_s; }
@@ -129,35 +108,9 @@ public:
 
     WEBCORE_EXPORT unsigned decodeCountForTesting() const;
 
-    // Accessors for native image formats.
-#if USE(APPKIT)
-    NSImage *nsImage() override;
-    WEBCORE_EXPORT RetainPtr<NSImage> snapshotNSImage() override;
-#endif
-
-#if PLATFORM(COCOA)
-    CFDataRef tiffRepresentation() override;
-#endif
-
-#if PLATFORM(WIN)
-    bool getHBITMAP(HBITMAP) override;
-    bool getHBITMAPOfSize(HBITMAP, const IntSize*) override;
-#endif
-
-#if PLATFORM(GTK)
-    GRefPtr<GdkPixbuf> gdkPixbuf() override;
-#if USE(GTK4)
-    GRefPtr<GdkTexture> gdkTexture() override;
-#endif
-#endif
-
     WEBCORE_EXPORT RefPtr<NativeImage> nativeImage(const DestinationColorSpace& = DestinationColorSpace::SRGB()) override;
     RefPtr<NativeImage> nativeImageForCurrentFrame() override;
     RefPtr<NativeImage> preTransformedNativeImageForCurrentFrame(bool respectOrientation) override;
-#if USE(CG)
-    RefPtr<NativeImage> nativeImageOfSize(const IntSize&) override;
-    Vector<Ref<NativeImage>> framesNativeImages();
-#endif
 
     void imageFrameAvailableAtIndex(size_t);
     void decode(Function<void()>&&);
@@ -166,8 +119,8 @@ private:
     WEBCORE_EXPORT BitmapImage(Ref<NativeImage>&&);
     WEBCORE_EXPORT BitmapImage(ImageObserver* = nullptr);
 
-    RefPtr<NativeImage> frameImageAtIndex(size_t index) { return m_source->frameImageAtIndex(index); }
-    RefPtr<NativeImage> frameImageAtIndexCacheIfNeeded(size_t, SubsamplingLevel = SubsamplingLevel::Default, const DecodingOptions& = { });
+    RefPtr<NativeImage> nativeImageAtIndex(size_t index) final { return m_source->frameImageAtIndex(index); }
+    RefPtr<NativeImage> nativeImageAtIndexCacheIfNeeded(size_t, SubsamplingLevel = SubsamplingLevel::Default, const DecodingOptions& = { }) final;
 
     // Called to invalidate cached data. When |destroyAll| is true, we wipe out
     // the entire frame buffer cache and tell the image source to destroy
@@ -186,16 +139,13 @@ private:
 
     ImageDrawResult draw(GraphicsContext&, const FloatRect& dstRect, const FloatRect& srcRect, ImagePaintingOptions = { }) override;
     void drawPattern(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions = { }) override;
-#if PLATFORM(WIN)
-    void drawFrameMatchingSourceSize(GraphicsContext&, const FloatRect& dstRect, const IntSize& srcSize, CompositeOperator) override;
-#endif
 
     // Animation.
     enum class StartAnimationStatus { CannotStart, IncompleteData, TimerActive, DecodingActive, Started };
     bool isAnimated() const override { return m_source->frameCount() > 1; }
     bool shouldAnimate() const;
-    void startAnimation() override { internalStartAnimation(); }
-    StartAnimationStatus internalStartAnimation();
+    void startAnimation() override { internalStartAnimation({ }); }
+    StartAnimationStatus internalStartAnimation(ImagePaintingOptions);
     void advanceAnimation();
     void internalAdvanceAnimation();
     bool isAnimating() const final;
@@ -205,21 +155,14 @@ private:
     // automatically pause once all observers no longer want to render the image anywhere.
     void stopAnimation() override;
     void resetAnimation() override;
-    
-    // Handle platform-specific data
-    void invalidatePlatformData();
 
 #if ASSERT_ENABLED
     bool notSolidColor() override;
 #endif
 
-#if PLATFORM(COCOA)
-    RetainPtr<CFDataRef> tiffRepresentation(const Vector<Ref<NativeImage>>&);
-#endif
-
     void clearTimer();
     void startTimer(Seconds delay);
-    SubsamplingLevel subsamplingLevelForScaleFactor(GraphicsContext&, const FloatSize& scaleFactor);
+    SubsamplingLevel subsamplingLevelForScaleFactor(GraphicsContext&, const FloatSize& scaleFactor, AllowImageSubsampling);
     bool canDestroyDecodedData();
     void setCurrentFrameDecodingStatusIfNecessary(DecodingStatus);
     bool isBitmapImage() const override { return true; }
@@ -242,15 +185,6 @@ private:
 
     bool m_animationFinished { false };
 
-    // The default value of m_allowSubsampling should be the same as default value of the ImageSubsamplingEnabled setting.
-#if PLATFORM(IOS_FAMILY)
-    bool m_allowSubsampling { true };
-#else
-    bool m_allowSubsampling { false };
-#endif
-    bool m_allowAnimatedImageAsyncDecoding { false };
-    bool m_showDebugBackground { false };
-
     bool m_clearDecoderAfterAsyncFrameRequestForTesting { false };
     bool m_asyncDecodingEnabledForTesting { false };
 
@@ -262,12 +196,6 @@ private:
 
     unsigned m_decodeCountForTesting { 0 };
 
-#if USE(APPKIT)
-    mutable RetainPtr<NSImage> m_nsImage; // A cached NSImage of all the frames. Only built lazily if someone actually queries for one.
-#endif
-#if USE(CG)
-    mutable RetainPtr<CFDataRef> m_tiffRep; // Cached TIFF rep for all the frames. Only built lazily if someone queries for one.
-#endif
     RefPtr<NativeImage> m_cachedImage;
 };
 

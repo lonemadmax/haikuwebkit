@@ -35,7 +35,6 @@
 #import "MenuUtilities.h"
 #import "PageClientImplMac.h"
 #import "ServicesController.h"
-#import "ShareableBitmap.h"
 #import "WKMenuItemIdentifiersPrivate.h"
 #import "WKSharingServicePickerDelegate.h"
 #import "WebContextMenuItem.h"
@@ -45,6 +44,7 @@
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/IntRect.h>
 #import <WebCore/LocalizedStrings.h>
+#import <WebCore/ShareableBitmap.h>
 #import <pal/spi/mac/NSMenuSPI.h>
 #import <pal/spi/mac/NSSharingServicePickerSPI.h>
 #import <pal/spi/mac/NSWindowSPI.h>
@@ -236,7 +236,7 @@ void WebContextMenuProxyMac::setupServicesMenu()
     RetainPtr<NSItemProvider> itemProvider;
     if (hasControlledImage) {
         if (attachment)
-            itemProvider = adoptNS([[NSItemProvider alloc] initWithItem:attachment->enclosingImageNSData() typeIdentifier:attachment->utiType()]);
+            itemProvider = adoptNS([[NSItemProvider alloc] initWithItem:attachment->associatedElementNSData() typeIdentifier:attachment->utiType()]);
         else {
             RefPtr<ShareableBitmap> image = m_context.controlledImage();
             if (!image)
@@ -256,7 +256,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
         items = @[ selection.get() ];
     } else if (isPDFAttachment) {
-        itemProvider = adoptNS([[NSItemProvider alloc] initWithItem:attachment->enclosingImageNSData() typeIdentifier:attachment->utiType()]);
+        itemProvider = adoptNS([[NSItemProvider alloc] initWithItem:attachment->associatedElementNSData() typeIdentifier:attachment->utiType()]);
         items = @[ itemProvider.get() ];
     } else {
         LOG_ERROR("No service controlled item represented in the context");
@@ -712,21 +712,26 @@ void WebContextMenuProxyMac::getContextMenuFromItems(const Vector<WebContextMenu
     std::optional<WebContextMenuItemData> lookUpImageItem;
 
 #if ENABLE(IMAGE_ANALYSIS)
-    filteredItems.removeAllMatching([&] (auto& item) {
+    for (auto& item : filteredItems) {
         switch (item.action()) {
-        case ContextMenuItemTagLookUpImage:
+        case ContextMenuItemTagLookUpImage: {
             ASSERT(!lookUpImageItem);
+            item.setEnabled(false);
             lookUpImageItem = { item };
-            return true;
-        case ContextMenuItemTagCopySubject:
+            break;
+        }
+
+        case ContextMenuItemTagCopySubject: {
             ASSERT(!copySubjectItem);
+            item.setEnabled(false);
             copySubjectItem = { item };
-            return true;
+            break;
+        }
+
         default:
             break;
         }
-        return false;
-    });
+    }
 #endif // ENABLE(IMAGE_ANALYSIS)
 
 #if HAVE(TRANSLATION_UI_SERVICES)
@@ -758,8 +763,11 @@ void WebContextMenuProxyMac::getContextMenuFromItems(const Vector<WebContextMenu
 #if ENABLE(IMAGE_ANALYSIS)
             if (lookUpImageItem) {
                 page->computeHasVisualSearchResults(imageURL, *imageBitmap, [protectedThis, lookUpImageItem = WTFMove(*lookUpImageItem)] (bool hasVisualSearchResults) mutable {
-                    if (hasVisualSearchResults)
-                        [protectedThis->m_menu addItem:createMenuActionItem(lookUpImageItem).get()];
+                    if (hasVisualSearchResults) {
+                        NSInteger index = [protectedThis->m_menu indexOfItemWithTag:lookUpImageItem.action()];
+                        if (index >= 0)
+                            [protectedThis->m_menu itemAtIndex:index].enabled = YES;
+                    }
                 });
             }
 #else
@@ -778,7 +786,10 @@ void WebContextMenuProxyMac::getContextMenuFromItems(const Vector<WebContextMenu
                             return;
 
                         protectedThis->m_copySubjectResult = result;
-                        [protectedThis->m_menu addItem:createMenuActionItem(copySubjectItem).get()];
+
+                        NSInteger index = [protectedThis->m_menu indexOfItemWithTag:copySubjectItem.action()];
+                        if (index >= 0)
+                            [protectedThis->m_menu itemAtIndex:index].enabled = YES;
                     });
                 }
             }

@@ -29,6 +29,8 @@
 #include "CSSFontSelector.h"
 #include "ComposedTreeAncestorIterator.h"
 #include "ComposedTreeIterator.h"
+#include "Document.h"
+#include "DocumentInlines.h"
 #include "HTMLBodyElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLMeterElement.h"
@@ -368,7 +370,7 @@ std::optional<ElementUpdate> TreeResolver::resolvePseudoElement(Element& element
             // ::first-line can inherit to ::before/::after
             if (auto firstLineContext = makeResolutionContextForInheritedFirstLine(elementUpdate, *elementUpdate.style)) {
                 auto firstLineStyle = scope().resolver->styleForPseudoElement(element, { pseudoId }, *firstLineContext);
-                firstLineStyle->style->setStyleType(PseudoId::FirstLine);
+                firstLineStyle->style->setPseudoElementType(PseudoId::FirstLine);
                 animatedUpdate.style->addCachedPseudoStyle(WTFMove(firstLineStyle->style));
             }
         }
@@ -433,7 +435,7 @@ std::optional<ResolvedStyle> TreeResolver::resolveAncestorFirstLinePseudoElement
             return { };
 
         auto elementStyle = scope().resolver->styleForElement(element, *resolutionContext);
-        elementStyle.style->setStyleType(PseudoId::FirstLine);
+        elementStyle.style->setPseudoElementType(PseudoId::FirstLine);
 
         return elementStyle;
     }
@@ -591,6 +593,14 @@ ElementUpdate TreeResolver::createAnimatedElementUpdate(ResolvedStyle&& resolved
     auto& document = element.document();
     auto* oldStyle = element.renderOrDisplayContentsStyle(styleable.pseudoId);
 
+    std::unique_ptr<RenderStyle> startingStyle;
+    if (!oldStyle && resolvedStyle.style->hasTransitions()) {
+        // https://drafts.csswg.org/css-transitions-2/#at-ruledef-starting-style
+        // "If an element does not have a before-change style for a given style change event, the starting style is used instead."
+        startingStyle = resolveStartingStyle(resolvedStyle, styleable, resolutionContext);
+        oldStyle = startingStyle.get();
+    }
+
     auto updateAnimations = [&] {
         if (document.backForwardCacheState() != Document::NotInBackForwardCache || document.printing())
             return;
@@ -665,6 +675,42 @@ ElementUpdate TreeResolver::createAnimatedElementUpdate(ResolvedStyle&& resolved
 
     bool shouldRecompositeLayer = animationImpact.contains(AnimationImpact::RequiresRecomposite) || element.styleResolutionShouldRecompositeLayer();
     return { WTFMove(newStyle), change, shouldRecompositeLayer };
+}
+
+std::unique_ptr<RenderStyle> TreeResolver::resolveStartingStyle(const ResolvedStyle& resolvedStyle, const Styleable& styleable, const ResolutionContext& resolutionContext) const
+{
+    if (!resolvedStyle.matchResult || !resolvedStyle.matchResult->hasStartingStyle)
+        return nullptr;
+
+    // We now resolve the starting style by applying all rules (including @starting-style ones) again.
+    // We could compute it along with the primary style and include it in MatchedPropertiesCache but it is not
+    // clear this would be benefitial as it is typically only used once.
+    auto startingStyle = RenderStyle::clonePtr(*resolvedStyle.style);
+
+    auto builderContext = BuilderContext {
+        m_document,
+        *resolutionContext.parentStyle,
+        resolutionContext.documentElementStyle,
+        &styleable.element
+    };
+
+    auto styleBuilder = Builder {
+        *startingStyle,
+        WTFMove(builderContext),
+        *resolvedStyle.matchResult,
+        CascadeLevel::Author,
+        PropertyCascade::startingStyleProperties()
+    };
+
+    styleBuilder.applyAllProperties();
+
+    if (startingStyle->display() == DisplayType::None)
+        return nullptr;
+
+    Adjuster adjuster(m_document, *resolutionContext.parentStyle, resolutionContext.parentBoxStyle, styleable.pseudoId == PseudoId::None ? &styleable.element : nullptr);
+    adjuster.adjust(*startingStyle, nullptr);
+
+    return startingStyle;
 }
 
 HashSet<AnimatableCSSProperty> TreeResolver::applyCascadeAfterAnimation(RenderStyle& animatedStyle, const HashSet<AnimatableCSSProperty>& animatedProperties, bool isTransition, const MatchResult& matchResult, const Element& element, const ResolutionContext& resolutionContext)
@@ -863,7 +909,7 @@ void TreeResolver::resolveComposedTree()
                 m_update->addText(*text, parent.element, WTFMove(textUpdate));
             }
 
-            if (!text->data().containsOnly<isASCIIWhitespace>())
+            if (!text->containsOnlyASCIIWhitespace())
                 parent.resolvedFirstLineAndLetterChild = true;
 
             text->setHasValidStyle();

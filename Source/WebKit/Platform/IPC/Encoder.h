@@ -58,7 +58,6 @@ public:
     bool isSyncMessage() const { return messageIsSync(messageName()); }
 
     void setShouldDispatchMessageWhenWaitingForSyncReply(ShouldDispatchWhenWaitingForSyncReply);
-    ShouldDispatchWhenWaitingForSyncReply shouldDispatchMessageWhenWaitingForSyncReply() const;
 
     bool isFullySynchronousModeForTesting() const;
     void setFullySynchronousModeForTesting();
@@ -80,6 +79,12 @@ public:
     Encoder& operator<<(T&& t)
     {
         ArgumentCoder<std::remove_cvref_t<T>, void>::encode(*this, std::forward<T>(t));
+        return *this;
+    }
+
+    Encoder& operator<<(Attachment&& attachment)
+    {
+        addAttachment(WTFMove(attachment));
         return *this;
     }
 

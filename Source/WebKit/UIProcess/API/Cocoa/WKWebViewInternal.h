@@ -40,10 +40,10 @@
 #if PLATFORM(IOS_FAMILY)
 #import "DynamicViewportSizeUpdate.h"
 #import "UIKitSPI.h"
+#import "WKBrowserEngineDefinitions.h"
 #import "WKContentView.h"
 #import "WKContentViewInteraction.h"
 #import "WKFullScreenWindowControllerIOS.h"
-#import "WKSEDefinitions.h"
 #import <WebCore/FloatRect.h>
 #import <WebCore/IntDegrees.h>
 #import <WebCore/LengthBox.h>
@@ -52,7 +52,7 @@
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-#define WK_WEB_VIEW_PROTOCOLS <WKSEScrollViewDelegate>
+#define WK_WEB_VIEW_PROTOCOLS <WKBEScrollViewDelegate>
 #endif
 
 #if PLATFORM(MAC)
@@ -127,6 +127,12 @@ struct LiveResizeParameters {
     CGPoint initialScrollPosition;
 };
 
+struct OverriddenLayoutParameters {
+    CGSize viewLayoutSize { CGSizeZero };
+    CGSize minimumUnobscuredSize { CGSizeZero };
+    CGSize maximumUnobscuredSize { CGSizeZero };
+};
+
 // This holds state that should be reset when the web process exits.
 struct PerWebProcessState {
     CGFloat viewportMetaTagWidth { WebCore::ViewportArguments::ValueAuto };
@@ -147,6 +153,8 @@ struct PerWebProcessState {
     std::optional<WebCore::FloatPoint> unobscuredCenterToRestore;
 
     WebCore::Color scrollViewBackgroundColor;
+
+    BOOL isAnimatingFullScreenExit { NO };
 
     BOOL invokingUIScrollViewDelegateCallback { NO };
 
@@ -239,9 +247,7 @@ struct PerWebProcessState {
     
     PerWebProcessState _perProcessState;
 
-    std::optional<CGSize> _viewLayoutSizeOverride;
-    std::optional<CGSize> _minimumUnobscuredSizeOverride;
-    std::optional<CGSize> _maximumUnobscuredSizeOverride;
+    std::optional<OverriddenLayoutParameters> _overriddenLayoutParameters;
     CGRect _inputViewBoundsInWindow;
 
     BOOL _fastClickingIsDisabled;

@@ -432,10 +432,13 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     // Animated image pausing testing.
     boolean hasPausedImageAnimations(Element element);
 
+    undefined markFrontBufferVolatile(Element element);
     boolean isFullyActive(Document document);
     // Must be called on an element whose enclosingLayer() is self-painting.
     boolean isPaintingFrequently(Element element);
     undefined incrementFrequentPaintCounter(Element element);
+    undefined purgeFrontBuffer(Element element);
+    undefined purgeBackBuffer(Element element);
 
     DOMString elementRenderTreeAsText(Element element);
     boolean isPreloaded(DOMString url);
@@ -465,8 +468,8 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     Node shadowRoot(Element host);
 
     DOMString shadowRootType(Node root);
-    DOMString userAgentPartId(Element element);
-    undefined setUserAgentPartId(Element element, [AtomString] DOMString id);
+    DOMString userAgentPart(Element element);
+    undefined setUserAgentPart(Element element, [AtomString] DOMString part);
     Node treeScopeRootNode(Node node);
     Node parentTreeScope(Node node);
 
@@ -615,6 +618,9 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     boolean hasAutocorrectedMarker(long from, long length);
     boolean hasDictationAlternativesMarker(long from, long length);
     boolean hasCorrectionIndicatorMarker(long from, long length);
+#if defined(ENABLE_UNIFIED_TEXT_REPLACEMENT) && ENABLE_UNIFIED_TEXT_REPLACEMENT
+    boolean hasUnifiedTextReplacementMarker(long from, long length);
+#endif
     undefined setContinuousSpellCheckingEnabled(boolean enabled);
     undefined setAutomaticQuoteSubstitutionEnabled(boolean enabled);
     undefined setAutomaticLinkDetectionEnabled(boolean enabled);
@@ -775,7 +781,6 @@ typedef (FetchRequest or FetchResponse) FetchObject;
 
     undefined setFullscreenInsets(FullscreenInsets insets);
     undefined setFullscreenAutoHideDuration(double duration);
-    undefined setFullscreenControlsHidden(boolean hidden);
 
     [Conditional=VIDEO] boolean isChangingPresentationMode(HTMLVideoElement element);
     [Conditional=VIDEO_PRESENTATION_MODE] undefined setMockVideoPresentationModeEnabled(boolean enabled);
@@ -959,6 +964,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     [Conditional=VIDEO] boolean elementIsBlockingDisplaySleep(HTMLMediaElement element);
     [Conditional=VIDEO] boolean isPlayerVisibleInViewport(HTMLMediaElement element);
     [Conditional=VIDEO] boolean isPlayerMuted(HTMLMediaElement element);
+    [Conditional=VIDEO] boolean isPlayerPaused(HTMLMediaElement element);
 
     MockPageOverlay installMockPageOverlay(PageOverlayType type);
     DOMString pageOverlayLayerTreeAsText(optional unsigned short flags = 0);
@@ -1124,6 +1130,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     Promise<boolean> hasServiceWorkerRegistration(DOMString scopeURL);
     Promise<undefined> terminateServiceWorker(ServiceWorker worker);
     Promise<undefined> whenServiceWorkerIsTerminated(ServiceWorker worker);
+    undefined terminateWebContentProcess();
 
 #if defined(ENABLE_APPLE_PAY) && ENABLE_APPLE_PAY
     [CallWith=CurrentDocument, Conditional=APPLE_PAY] readonly attribute MockPaymentCoordinator mockPaymentCoordinator;
@@ -1305,4 +1312,6 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     boolean readyToRetrieveComputedRoleOrLabel(Element element);
     DOMString getComputedLabel(Element element);
     DOMString getComputedRole(Element element);
+
+    readonly attribute boolean hasScopeBreakingHasSelectors;
 };

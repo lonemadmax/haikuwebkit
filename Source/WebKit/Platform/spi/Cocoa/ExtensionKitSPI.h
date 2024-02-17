@@ -27,6 +27,26 @@
 
 #if USE(EXTENSIONKIT)
 
+#import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
+
+#if __has_include(<BrowserEngineKit/BELayerHierarchy_Private.h>)
+#import <BrowserEngineKit/BELayerHierarchy_Private.h>
+#else
+#import <BrowserEngineKit/BELayerHierarchy.h>
+@class CAContext;
+
+NS_ASSUME_NONNULL_BEGIN
+
+@interface BELayerHierarchy ()
++ (nullable BELayerHierarchy *)layerHierarchyWithOptions:(NSDictionary *)options error:(NSError **)error NS_REFINED_FOR_SWIFT;
+- (instancetype)initWithContext:(CAContext *)context;
+@end
+
+NS_ASSUME_NONNULL_END
+
+#endif
+
 #if __has_include(<ServiceExtensions/ServiceExtensions_Private.h>)
 #import <ServiceExtensions/ServiceExtensions_Private.h>
 #else
@@ -102,6 +122,8 @@ NS_ASSUME_NONNULL_END
 
 #endif
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface _SECapability (SPI)
 - (BOOL)setActive:(BOOL)active;
 + (instancetype)mediaWithWebsite:(NSString *)website;
@@ -110,5 +132,7 @@ NS_ASSUME_NONNULL_END
 + (instancetype)assertionWithDomain:(NSString *)domain name:(NSString *)name environmentIdentifier:(NSString *)environmentIdentifier willInvalidate:(void (^)())willInvalidateBlock didInvalidate:(void (^)())didInvalidateBlock;
 @property (nonatomic, readonly) NSString *mediaEnvironment;
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif // USE(EXTENSIONKIT)

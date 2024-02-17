@@ -297,6 +297,10 @@ template<> Class getClass<PKContact>()
 {
     return PAL::getPKContactClass();
 }
+template<> Class getClass<PKPaymentMerchantSession>()
+{
+    return PAL::getPKPaymentMerchantSessionClass();
+}
 #endif
 
 NSType typeFromObject(id object)
@@ -317,12 +321,14 @@ NSType typeFromObject(id object)
         return NSType::CNPostalAddress;
     if (PAL::isPassKitCoreFrameworkAvailable() && [object isKindOfClass:PAL::getPKContactClass()])
         return NSType::PKContact;
+    if (PAL::isPassKitCoreFrameworkAvailable() && [object isKindOfClass:PAL::getPKPaymentMerchantSessionClass()])
+        return NSType::PKPaymentMerchantSession;
 #endif
     if ([object isKindOfClass:[WebCore::CocoaColor class]])
         return NSType::Color;
 #if ENABLE(DATA_DETECTION)
 #if PLATFORM(MAC)
-    if (PAL::isDataDetectorsCoreFrameworkAvailable() && [object isKindOfClass:PAL::getWKDDActionContextClass()])
+    if (PAL::isDataDetectorsFrameworkAvailable() && [object isKindOfClass:PAL::getWKDDActionContextClass()])
         return NSType::DDActionContext;
 #endif
     if (PAL::isDataDetectorsCoreFrameworkAvailable() && [object isKindOfClass:PAL::getDDScannerResultClass()])
@@ -453,7 +459,8 @@ static bool shouldEnableStrictMode(Decoder& decoder, const HashSet<Class>& allow
 
 #if HAVE(STRICT_DECODABLE_NSTEXTTABLE) \
     && HAVE(STRICT_DECODABLE_PKCONTACT) \
-    && HAVE(STRICT_DECODABLE_CNCONTACT)
+    && HAVE(STRICT_DECODABLE_CNCONTACT) \
+    && (HAVE(STRICT_DECODABLE_PKPAYMENTPASS) || !HAVE(PKPAYMENTPASS))
     // Shortcut the following unnecessary Class checks on newer OSes to fix rdar://111926152.
     return true;
 #else
@@ -512,10 +519,18 @@ static constexpr bool haveSecureActionContext = false;
 #else
     static constexpr bool haveStrictDecodableCNContact = false;
 #endif
+
+    // rdar://107553480 Don't reintroduce rdar://120005200
+#if HAVE(STRICT_DECODABLE_PKPAYMENTPASS)
+    static constexpr bool haveStrictDecodablePKPaymentPass = true;
+#else
+    static constexpr bool haveStrictDecodablePKPaymentPass = false;
+#endif
+
     if (PAL::isPassKitCoreFrameworkAvailable()
         && PAL::getPKPaymentMethodClass()
         && allowedClasses.contains(PAL::getPKPaymentMethodClass()))
-        return haveStrictDecodableCNContact;
+        return haveStrictDecodableCNContact && haveStrictDecodablePKPaymentPass;
 
     // Don't reintroduce rdar://108660074
 #if HAVE(STRICT_DECODABLE_PKCONTACT)
@@ -527,7 +542,7 @@ static constexpr bool haveSecureActionContext = false;
         && PAL::getPKContactClass()
         && allowedClasses.contains(PAL::getPKContactClass()))
         return haveStrictDecodablePKContact;
-#endif
+#endif // ENABLE(APPLE_PAY)
 
     // rdar://107553230 don't reintroduce rdar://108038436
 #if HAVE(STRICT_DECODABLE_NSTEXTTABLE)
@@ -623,6 +638,11 @@ template<> std::optional<RetainPtr<id>> decodeObjectDirectlyRequiringAllowedClas
 #pragma mark - CF
 
 template<> void encodeObjectDirectly<CFTypeRef>(Encoder& encoder, CFTypeRef cf)
+{
+    ArgumentCoder<CFTypeRef>::encode(encoder, cf);
+}
+
+template<> void encodeObjectDirectly<CFTypeRef>(StreamConnectionEncoder& encoder, CFTypeRef cf)
 {
     ArgumentCoder<CFTypeRef>::encode(encoder, cf);
 }

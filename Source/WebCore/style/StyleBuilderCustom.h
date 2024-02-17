@@ -820,9 +820,9 @@ inline void BuilderCustom::applyValueWebkitTextSizeAdjust(BuilderState& builderS
 {
     auto& primitiveValue = downcast<CSSPrimitiveValue>(value);
     if (primitiveValue.valueID() == CSSValueAuto)
-        builderState.style().setTextSizeAdjust(TextSizeAdjustment(AutoTextSizeAdjustment));
+        builderState.style().setTextSizeAdjust(TextSizeAdjustment::autoAdjust());
     else if (primitiveValue.valueID() == CSSValueNone)
-        builderState.style().setTextSizeAdjust(TextSizeAdjustment(NoTextSizeAdjustment));
+        builderState.style().setTextSizeAdjust(TextSizeAdjustment::none());
     else
         builderState.style().setTextSizeAdjust(TextSizeAdjustment(primitiveValue.floatValue()));
 
@@ -1439,7 +1439,7 @@ inline void BuilderCustom::applyValueContent(BuilderState& builderState, CSSValu
 
     auto processAttrContent = [&](const CSSPrimitiveValue& primitiveValue) -> AtomString {
         // FIXME: Can a namespace be specified for an attr(foo)?
-        if (builderState.style().styleType() == PseudoId::None)
+        if (builderState.style().pseudoElementType() == PseudoId::None)
             builderState.style().setHasAttrContent();
         else
             const_cast<RenderStyle&>(builderState.parentStyle()).setHasAttrContent();

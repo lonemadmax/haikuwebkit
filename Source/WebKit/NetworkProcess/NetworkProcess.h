@@ -60,6 +60,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/WeakPtr.h>
+#include <wtf/text/ASCIILiteral.h>
 
 #if USE(RUNNINGBOARD)
 #include "WebSQLiteDatabaseTracker.h"
@@ -294,6 +295,7 @@ public:
     void setPrivateClickMeasurementDebugMode(PAL::SessionID, bool);
 
     void setBlobRegistryTopOriginPartitioningEnabled(PAL::SessionID, bool) const;
+    void setShouldSendPrivateTokenIPCForTesting(PAL::SessionID, bool) const;
 
     void preconnectTo(PAL::SessionID, WebPageProxyIdentifier, WebCore::PageIdentifier, WebCore::ResourceRequest&&, WebCore::StoredCredentialsPolicy, std::optional<NavigatingToAppBoundDomain>);
 
@@ -521,7 +523,7 @@ private:
 #if USE(RUNNINGBOARD)
     void setIsHoldingLockedFiles(bool);
 #if USE(EXTENSIONKIT)
-    bool aqcuireLockedFileGrant();
+    bool acquireLockedFileGrant();
     void invalidateGrant();
     bool hasAcquiredGrant() const;
 #endif
@@ -537,7 +539,7 @@ private:
     mutable String m_uiProcessBundleIdentifier;
     DownloadManager m_downloadManager;
 
-    typedef HashMap<const char*, std::unique_ptr<NetworkProcessSupplement>, PtrHash<const char*>> NetworkProcessSupplementMap;
+    using NetworkProcessSupplementMap = HashMap<ASCIILiteral, std::unique_ptr<NetworkProcessSupplement>, ASCIILiteralPtrHash>;
     NetworkProcessSupplementMap m_supplements;
 
     HashSet<PAL::SessionID> m_sessionsControlledByAutomation;

@@ -56,6 +56,7 @@
 #import "WebPasteboardProxy.h"
 #import "WebPrivacyHelpers.h"
 #import "WebProcessMessages.h"
+#import "WebProcessPool.h"
 #import "WebProcessProxy.h"
 #import "WebScreenOrientationManagerProxy.h"
 #import "WebsiteDataStore.h"
@@ -72,6 +73,7 @@
 #import <WebCore/TextAlternativeWithRange.h>
 #import <WebCore/ValidationBubble.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <pal/spi/ios/BrowserEngineKitSPI.h>
 #import <pal/spi/mac/QuarantineSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/SoftLinking.h>
@@ -312,7 +314,7 @@ void WebPageProxy::platformCloneAttachment(Ref<API::Attachment>&& fromAttachment
     });
 }
 
-static RefPtr<WebKit::ShareableBitmap> convertPlatformImageToBitmap(CocoaImage *image, const WebCore::FloatSize& fittingSize)
+static RefPtr<WebCore::ShareableBitmap> convertPlatformImageToBitmap(CocoaImage *image, const WebCore::FloatSize& fittingSize)
 {
     FloatSize originalThumbnailSize([image size]);
     if (originalThumbnailSize.isEmpty())
@@ -321,7 +323,7 @@ static RefPtr<WebKit::ShareableBitmap> convertPlatformImageToBitmap(CocoaImage *
     auto resultRect = roundedIntRect(largestRectWithAspectRatioInsideRect(originalThumbnailSize.aspectRatio(), { { }, fittingSize }));
     resultRect.setLocation({ });
 
-    auto bitmap = WebKit::ShareableBitmap::create({ resultRect.size() });
+    auto bitmap = WebCore::ShareableBitmap::create({ resultRect.size() });
     if (!bitmap)
         return nullptr;
 
@@ -335,7 +337,7 @@ static RefPtr<WebKit::ShareableBitmap> convertPlatformImageToBitmap(CocoaImage *
     return bitmap;
 }
 
-RefPtr<WebKit::ShareableBitmap> WebPageProxy::iconForAttachment(const String& fileName, const String& contentType, const String& title, FloatSize& size)
+RefPtr<WebCore::ShareableBitmap> WebPageProxy::iconForAttachment(const String& fileName, const String& contentType, const String& title, FloatSize& size)
 {
 #if PLATFORM(IOS_FAMILY)
     auto imageAndSize = RenderThemeIOS::iconForAttachment(fileName, contentType, title);
@@ -417,7 +419,7 @@ void WebPageProxy::clearDictationAlternatives(Vector<DictationContext>&& alterna
 
 #if USE(DICTATION_ALTERNATIVES)
 
-NSTextAlternatives *WebPageProxy::platformDictationAlternatives(WebCore::DictationContext dictationContext)
+PlatformTextAlternatives *WebPageProxy::platformDictationAlternatives(WebCore::DictationContext dictationContext)
 {
     return pageClient().platformDictationAlternatives(dictationContext);
 }
@@ -913,6 +915,14 @@ bool WebPageProxy::isQuarantinedAndNotUserApproved(const String& fileURLString)
 }
 #endif
 
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+void WebPageProxy::insertMultiRepresentationHEIC(NSData *data)
+{
+    send(Messages::WebPage::InsertMultiRepresentationHEIC(IPC::DataReference(static_cast<const uint8_t*>([data bytes]), [data length])));
+
+}
+#endif
+
 void WebPageProxy::replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference& data)
 {
     send(Messages::WebPage::ReplaceSelectionWithPasteboardData(types, data));
@@ -997,10 +1007,9 @@ const std::optional<MediaCapability>& WebPageProxy::mediaCapability() const
 
 void WebPageProxy::setMediaCapability(std::optional<MediaCapability>&& capability)
 {
-    Ref processPool = protectedProcess()->protectedProcessPool();
-
-    if (auto& oldCapability = internals().mediaCapability) {
-        WEBPAGEPROXY_RELEASE_LOG(ProcessCapabilities, "setMediaCapability: revoking (envID=%{public}s) for registrable domain '%{sensitive}s'", oldCapability->environmentIdentifier().utf8().data(), oldCapability->registrableDomain().string().utf8().data());
+    if (auto oldCapability = std::exchange(internals().mediaCapability, std::nullopt)) {
+        WEBPAGEPROXY_RELEASE_LOG(ProcessCapabilities, "setMediaCapability: deactivating (envID=%{public}s) for registrable domain '%{sensitive}s'", oldCapability->environmentIdentifier().utf8().data(), oldCapability->registrableDomain().string().utf8().data());
+        Ref processPool { protectedProcess()->protectedProcessPool() };
         processPool->extensionCapabilityGranter().setMediaCapabilityActive(*oldCapability, false);
         processPool->extensionCapabilityGranter().revoke(*oldCapability);
     }
@@ -1008,15 +1017,10 @@ void WebPageProxy::setMediaCapability(std::optional<MediaCapability>&& capabilit
     internals().mediaCapability = WTFMove(capability);
 
     if (auto& newCapability = internals().mediaCapability) {
-        WEBPAGEPROXY_RELEASE_LOG(ProcessCapabilities, "setMediaCapability: granting (envID=%{public}s) for registrable domain '%{sensitive}s'", newCapability->environmentIdentifier().utf8().data(), newCapability->registrableDomain().string().utf8().data());
-        processPool->extensionCapabilityGranter().grant(*newCapability);
-    }
-
-    send(Messages::WebPage::SetMediaEnvironment([&]() -> String {
-        if (auto& capability = internals().mediaCapability)
-            return capability->environmentIdentifier();
-        return { };
-    }()));
+        WEBPAGEPROXY_RELEASE_LOG(ProcessCapabilities, "setMediaCapability: creating (envID=%{public}s) for registrable domain '%{sensitive}s'", newCapability->environmentIdentifier().utf8().data(), newCapability->registrableDomain().string().utf8().data());
+        send(Messages::WebPage::SetMediaEnvironment(newCapability->environmentIdentifier()));
+    } else
+        send(Messages::WebPage::SetMediaEnvironment({ }));
 }
 
 void WebPageProxy::updateMediaCapability()
@@ -1031,21 +1035,30 @@ void WebPageProxy::updateMediaCapability()
 
     URL currentURL { this->currentURL() };
 
-    if (m_isClosed || !currentURL.isValid())
+    if (!hasRunningProcess() || !currentURL.isValid()) {
         setMediaCapability(std::nullopt);
-    else if (!mediaCapability() || !mediaCapability()->registrableDomain().matches(currentURL))
+        return;
+    }
+
+    if (!mediaCapability() || !equalIgnoringFragmentIdentifier(mediaCapability()->url(), currentURL))
         setMediaCapability(MediaCapability { currentURL });
 
     auto& mediaCapability = internals().mediaCapability;
     if (!mediaCapability)
         return;
 
-    Ref processPool = protectedProcess()->protectedProcessPool();
+    if (shouldDeactivateMediaCapability()) {
+        setMediaCapability(std::nullopt);
+        return;
+    }
+
+    Ref processPool { protectedProcess()->protectedProcessPool() };
 
     if (shouldActivateMediaCapability())
         processPool->extensionCapabilityGranter().setMediaCapabilityActive(*mediaCapability, true);
-    else if (shouldDeactivateMediaCapability())
-        processPool->extensionCapabilityGranter().setMediaCapabilityActive(*mediaCapability, false);
+
+    if (mediaCapability->isActivatingOrActive())
+        processPool->extensionCapabilityGranter().grant(*mediaCapability);
 }
 
 bool WebPageProxy::shouldActivateMediaCapability() const
@@ -1064,6 +1077,9 @@ bool WebPageProxy::shouldActivateMediaCapability() const
 
 bool WebPageProxy::shouldDeactivateMediaCapability() const
 {
+    if (!mediaCapability() || !mediaCapability()->isActivatingOrActive())
+        return false;
+
     if (internals().mediaState & WebCore::MediaProducer::MediaCaptureMask)
         return false;
 
@@ -1074,6 +1090,19 @@ bool WebPageProxy::shouldDeactivateMediaCapability() const
 }
 
 #endif // ENABLE(EXTENSION_CAPABILITIES)
+
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+void WebPageProxy::didBeginTextReplacementSession(const WTF::UUID& uuid)
+{
+    send(Messages::WebPage::DidBeginTextReplacementSession(uuid));
+}
+
+void WebPageProxy::textReplacementSessionDidReceiveReplacements(const WTF::UUID& uuid, const Vector<WebTextReplacementData>& replacements, const WebUnifiedTextReplacementContextData& context, bool finished)
+{
+    send(Messages::WebPage::TextReplacementSessionDidReceiveReplacements(uuid, replacements, context, finished));
+}
+
+#endif
 
 } // namespace WebKit
 

@@ -34,6 +34,7 @@
 #include <wtf/Function.h>
 #include <wtf/Observer.h>
 #include <wtf/RobinHoodHashMap.h>
+#include <wtf/WorkQueue.h>
 
 OBJC_CLASS AVAssetImageGenerator;
 OBJC_CLASS AVAssetTrack;
@@ -330,6 +331,7 @@ private:
     void updateRotationSession();
 
     std::optional<VideoPlaybackQualityMetrics> videoPlaybackQualityMetrics() final;
+    Ref<VideoPlaybackQualityMetricsPromise> asyncVideoPlaybackQualityMetrics() final;
 
 #if !RELEASE_LOG_DISABLED
     const char* logClassName() const final { return "MediaPlayerPrivateAVFoundationObjC"; }
@@ -367,10 +369,12 @@ private:
     bool containsDisabledTracks() const;
     bool trackIsPlayable(AVAssetTrack*) const;
 
+    std::optional<VideoPlaybackQualityMetrics> videoPlaybackQualityMetrics(AVPlayerLayer*) const;
+
     RetainPtr<AVURLAsset> m_avAsset;
     RetainPtr<AVPlayer> m_avPlayer;
     RetainPtr<AVPlayerItem> m_avPlayerItem;
-    RetainPtr<AVPlayerLayer> m_videoLayer;
+    RetainPtr<AVPlayerLayer> m_videoLayer WTF_GUARDED_BY_CAPABILITY(mainThread);
     std::unique_ptr<VideoLayerManagerObjC> m_videoLayerManager;
     MediaPlayer::VideoGravity m_videoFullscreenGravity { MediaPlayer::VideoGravity::ResizeAspect };
     RetainPtr<WebCoreAVFMovieObserver> m_objcObserver;
@@ -490,6 +494,7 @@ private:
     ProcessIdentity m_resourceOwner;
     PlatformTimeRanges m_buffered;
     TrackID m_currentTextTrackID { 0 };
+    Ref<WorkQueue> m_targetQueue { WorkQueue::main() };
 };
 
 }

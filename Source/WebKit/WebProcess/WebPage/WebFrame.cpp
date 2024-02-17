@@ -45,7 +45,6 @@
 #include "WebChromeClient.h"
 #include "WebContextMenu.h"
 #include "WebCoreArgumentCoders.h"
-#include "WebDocumentLoader.h"
 #include "WebEventConversion.h"
 #include "WebEventFactory.h"
 #include "WebImage.h"
@@ -174,10 +173,20 @@ WebFrame::WebFrame(WebPage& page, WebCore::FrameIdentifier frameID)
     WebProcess::singleton().addWebFrame(m_frameID, this);
 }
 
-WebLocalFrameLoaderClient* WebFrame::frameLoaderClient() const
+WebLocalFrameLoaderClient* WebFrame::localFrameLoaderClient() const
 {
-    auto* localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get());
-    return localFrame ? static_cast<WebLocalFrameLoaderClient*>(&localFrame->loader().client()) : nullptr;
+    if (auto* localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get()))
+        return static_cast<WebLocalFrameLoaderClient*>(&localFrame->loader().client());
+    return nullptr;
+}
+
+WebFrameLoaderClient* WebFrame::frameLoaderClient() const
+{
+    if (auto* localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get()))
+        return static_cast<WebLocalFrameLoaderClient*>(&localFrame->loader().client());
+    if (auto* remoteFrame = dynamicDowncast<RemoteFrame>(m_coreFrame.get()))
+        return static_cast<WebRemoteFrameClient*>(&remoteFrame->client());
+    return nullptr;
 }
 
 WebFrame::~WebFrame()
@@ -223,6 +232,11 @@ RefPtr<WebFrame> WebFrame::fromCoreFrame(const Frame& frame)
 WebCore::LocalFrame* WebFrame::coreLocalFrame() const
 {
     return dynamicDowncast<LocalFrame>(m_coreFrame.get());
+}
+
+RefPtr<WebCore::LocalFrame> WebFrame::protectedCoreLocalFrame() const
+{
+    return coreLocalFrame();
 }
 
 WebCore::RemoteFrame* WebFrame::coreRemoteFrame() const
@@ -307,11 +321,10 @@ ScopeExit<Function<void()>> WebFrame::makeInvalidator()
     });
 }
 
-uint64_t WebFrame::setUpPolicyListener(WebCore::PolicyCheckIdentifier identifier, WebCore::FramePolicyFunction&& policyFunction, ForNavigationAction forNavigationAction)
+uint64_t WebFrame::setUpPolicyListener(WebCore::FramePolicyFunction&& policyFunction, ForNavigationAction forNavigationAction)
 {
     auto policyListenerID = generateListenerID();
     m_pendingPolicyChecks.add(policyListenerID, PolicyCheck {
-        identifier,
         forNavigationAction,
         WTFMove(policyFunction)
     });
@@ -347,7 +360,7 @@ void WebFrame::didCommitLoadInAnotherProcess(std::optional<WebCore::LayerHosting
         return;
     }
 
-    auto* frameLoaderClient = this->frameLoaderClient();
+    auto* frameLoaderClient = this->localFrameLoaderClient();
     if (!frameLoaderClient) {
         ASSERT_NOT_REACHED();
         return;
@@ -459,15 +472,18 @@ void WebFrame::invalidatePolicyListeners()
 
     auto pendingPolicyChecks = std::exchange(m_pendingPolicyChecks, { });
     for (auto& policyCheck : pendingPolicyChecks.values())
-        policyCheck.policyFunction(PolicyAction::Ignore, policyCheck.corePolicyIdentifier);
+        policyCheck.policyFunction(PolicyAction::Ignore);
 }
 
-void WebFrame::didReceivePolicyDecision(uint64_t listenerID, PolicyCheckIdentifier identifier, PolicyDecision&& policyDecision)
+void WebFrame::didReceivePolicyDecision(uint64_t listenerID, PolicyDecision&& policyDecision)
 {
+    if (m_page) {
 #if ENABLE(APP_BOUND_DOMAINS)
-    if (m_page)
         m_page->setIsNavigatingToAppBoundDomain(policyDecision.isNavigatingToAppBoundDomain, Ref { *this });
 #endif
+        if (auto& message = policyDecision.consoleMessage)
+            m_page->addConsoleMessage(m_frameID, message->messageSource, message->messageLevel, message->message);
+    }
 
     if (!m_coreFrame)
         return;
@@ -476,33 +492,31 @@ void WebFrame::didReceivePolicyDecision(uint64_t listenerID, PolicyCheckIdentifi
     if (!policyCheck.policyFunction)
         return;
 
-    ASSERT(identifier == policyCheck.corePolicyIdentifier);
-
     FramePolicyFunction function = WTFMove(policyCheck.policyFunction);
     bool forNavigationAction = policyCheck.forNavigationAction == ForNavigationAction::Yes;
 
-    if (forNavigationAction && frameLoaderClient() && policyDecision.websitePoliciesData) {
+    if (forNavigationAction && localFrameLoaderClient() && policyDecision.websitePoliciesData) {
         ASSERT(page());
         if (page())
             page()->setAllowsContentJavaScriptFromMostRecentNavigation(policyDecision.websitePoliciesData->allowsContentJavaScript);
-        frameLoaderClient()->applyToDocumentLoader(WTFMove(*policyDecision.websitePoliciesData));
+        localFrameLoaderClient()->applyToDocumentLoader(WTFMove(*policyDecision.websitePoliciesData));
     }
 
     m_policyDownloadID = policyDecision.downloadID;
     if (policyDecision.navigationID) {
         auto* localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get());
-        if (RefPtr documentLoader = localFrame ? static_cast<WebDocumentLoader*>(localFrame->loader().policyDocumentLoader()) : nullptr)
+        if (RefPtr documentLoader = localFrame ? localFrame->loader().policyDocumentLoader() : nullptr)
             documentLoader->setNavigationID(policyDecision.navigationID);
     }
 
     if (policyDecision.policyAction == PolicyAction::Use && policyDecision.sandboxExtensionHandle) {
         if (auto* page = this->page()) {
             Ref mainWebFrame = page->mainWebFrame();
-            page->sandboxExtensionTracker().beginLoad(mainWebFrame.ptr(), WTFMove(*(policyDecision.sandboxExtensionHandle)));
+            page->sandboxExtensionTracker().beginLoad(WTFMove(*(policyDecision.sandboxExtensionHandle)));
         }
     }
 
-    function(policyDecision.policyAction, identifier);
+    function(policyDecision.policyAction);
 }
 
 void WebFrame::startDownload(const WebCore::ResourceRequest& request, const String& suggestedName)
@@ -1091,12 +1105,6 @@ void WebFrame::setTextDirection(const String& direction)
         localFrame->editor().setBaseWritingDirection(WritingDirection::LeftToRight);
     else if (direction == "rtl"_s)
         localFrame->editor().setBaseWritingDirection(WritingDirection::RightToLeft);
-}
-
-void WebFrame::documentLoaderDetached(uint64_t navigationID, bool loadWillContinueInAnotherProcess)
-{
-    if (auto* page = this->page(); page && !loadWillContinueInAnotherProcess)
-        page->send(Messages::WebPageProxy::DidDestroyNavigation(navigationID));
 }
 
 #if PLATFORM(COCOA)

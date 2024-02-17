@@ -1,0 +1,7 @@
+
+FAIL same-document script assert_throws_js: function "_ => {
+    document.getElementById("to-be-modified").innerHTML = "'test'";
+  }" did not throw
+FAIL same-origin script assert_throws_js: function "() => setInnerHtml(toBeModified, "'test'")" did not throw
+FAIL cross-origin script assert_throws_js: function "() => setInnerHtml(toBeModified, "'test'")" did not throw
+

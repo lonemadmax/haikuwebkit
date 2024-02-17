@@ -947,7 +947,27 @@ public:
 
 private:
     FloatRect m_rect;
-    mutable Ref<Gradient> m_gradient; // FIXME: Make this not mutable
+    Ref<Gradient> m_gradient;
+};
+
+class FillRectWithGradientAndSpaceTransform {
+public:
+    static constexpr char name[] = "fill-rect-with-gradient-and-space-transform";
+
+    WEBCORE_EXPORT FillRectWithGradientAndSpaceTransform(const FloatRect&, Gradient&, const AffineTransform&);
+    WEBCORE_EXPORT FillRectWithGradientAndSpaceTransform(FloatRect&&, Ref<Gradient>&&, AffineTransform&&);
+
+    const FloatRect& rect() const { return m_rect; }
+    const Ref<Gradient>& gradient() const { return m_gradient; }
+    const AffineTransform& gradientSpaceTransform() const { return m_gradientSpaceTransform; }
+
+    WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
+
+private:
+    FloatRect m_rect;
+    Ref<Gradient> m_gradient;
+    AffineTransform m_gradientSpaceTransform;
 };
 
 class FillCompositedRect {
@@ -1063,6 +1083,25 @@ public:
 
 private:
     PathArc m_arc;
+};
+
+class FillClosedArc {
+public:
+    static constexpr char name[] = "fill-closed-arc";
+
+    FillClosedArc(const PathClosedArc& closedArc)
+        : m_closedArc(closedArc)
+    {
+    }
+
+    const PathClosedArc& closedArc() const { return m_closedArc; };
+    Path path() const { return Path({ PathSegment(m_closedArc) }); }
+
+    WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
+
+private:
+    PathClosedArc m_closedArc;
 };
 
 class FillQuadCurve {
@@ -1254,6 +1293,25 @@ public:
 
 private:
     PathArc m_arc;
+};
+
+class StrokeClosedArc {
+public:
+    static constexpr char name[] = "stroke-closed-arc";
+
+    StrokeClosedArc(const PathClosedArc& closedArc)
+        : m_closedArc(closedArc)
+    {
+    }
+
+    const PathClosedArc& closedArc() const { return m_closedArc; }
+    Path path() const { return Path({ PathSegment(m_closedArc) }); }
+
+    WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const;
+
+private:
+    PathClosedArc m_closedArc;
 };
 
 class StrokeQuadCurve {

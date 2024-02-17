@@ -42,6 +42,7 @@
 #include <wtf/CrossThreadTask.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
+#include <wtf/NativePromise.h>
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/URL.h>
 #include <wtf/WeakPtr.h>
@@ -94,12 +95,22 @@ namespace IDBClient {
 class IDBConnectionProxy;
 }
 
+enum class ScriptExecutionContextType : uint8_t {
+    Document,
+    WorkerOrWorkletGlobalScope,
+    EmptyScriptExecutionContext
+};
+
 class ScriptExecutionContext : public SecurityContext, public TimerAlignment {
 public:
-    explicit ScriptExecutionContext(ScriptExecutionContextIdentifier = { });
+    using Type = ScriptExecutionContextType;
+
+    explicit ScriptExecutionContext(Type, ScriptExecutionContextIdentifier = { });
     virtual ~ScriptExecutionContext();
 
-    virtual bool isDocument() const { return false; }
+    bool isDocument() const { return m_type == Type::Document; }
+    bool isWorkerOrWorkletGlobalScope() const { return m_type == Type::WorkerOrWorkletGlobalScope; }
+    bool isEmptyScriptExecutionContext() const { return m_type == Type::EmptyScriptExecutionContext; }
     virtual bool isWorkerGlobalScope() const { return false; }
     virtual bool isServiceWorkerGlobalScope() const { return false; }
     virtual bool isWorkletGlobalScope() const { return false; }
@@ -189,8 +200,10 @@ public:
     WEBCORE_EXPORT static void setCrossOriginMode(CrossOriginMode);
     static CrossOriginMode crossOriginMode();
 
-    void ref() { refScriptExecutionContext(); }
-    void deref() { derefScriptExecutionContext(); }
+    WEBCORE_EXPORT void ref();
+    WEBCORE_EXPORT void deref();
+    WEBCORE_EXPORT void refAllowingPartiallyDestroyed();
+    WEBCORE_EXPORT void derefAllowingPartiallyDestroyed();
 
     class Task {
         WTF_MAKE_FAST_ALLOCATED;
@@ -331,6 +344,26 @@ public:
     void addDeferredPromise(Ref<DeferredPromise>&&);
     RefPtr<DeferredPromise> takeDeferredPromise(DeferredPromise*);
 
+    template<typename Promise, typename Task>
+    void enqueueTaskWhenSettled(Ref<Promise>&& promise, TaskSource taskSource, Task&& task)
+    {
+        auto request = makeUnique<NativePromiseRequest>();
+        WeakPtr weakRequest { *request };
+        auto command = promise->whenSettled(nativePromiseDispatcher(), [weakThis = WeakPtr { *this }, taskSource, task = WTFMove(task), request = WTFMove(request)] (auto&& result) mutable {
+            request->complete();
+            RefPtr protectedThis = weakThis.get();
+            if (!protectedThis)
+                return;
+            protectedThis->eventLoop().queueTask(taskSource, [task = WTFMove(task), result = WTFMove(result)] () mutable {
+                task(WTFMove(result));
+            });
+        });
+        if (weakRequest) {
+            m_nativePromiseRequests.add(*weakRequest);
+            command->track(*weakRequest);
+        }
+    }
+
 protected:
     class AddConsoleMessageTask : public Task {
     public:
@@ -365,9 +398,6 @@ private:
 
     bool dispatchErrorEvent(const String& errorMessage, int lineNumber, int columnNumber, const String& sourceURL, JSC::Exception*, CachedScript*, bool);
 
-    virtual void refScriptExecutionContext() = 0;
-    virtual void derefScriptExecutionContext() = 0;
-
     void dispatchMessagePortEvents();
 
     enum class ShouldContinue : bool { No, Yes };
@@ -376,6 +406,7 @@ private:
     RejectedPromiseTracker* ensureRejectedPromiseTrackerSlow();
 
     void checkConsistency() const;
+    RefCountedSerialFunctionDispatcher& nativePromiseDispatcher();
 
     HashSet<MessagePort*> m_messagePorts;
     HashSet<ContextDestructionObserver*> m_destructionObservers;
@@ -412,12 +443,16 @@ private:
     StorageBlockingPolicy m_storageBlockingPolicy { StorageBlockingPolicy::AllowAll };
     ReasonForSuspension m_reasonForSuspendingActiveDOMObjects { static_cast<ReasonForSuspension>(-1) };
 
+    Type m_type;
     bool m_activeDOMObjectsAreSuspended { false };
     bool m_activeDOMObjectsAreStopped { false };
     bool m_inDispatchErrorEvent { false };
     mutable bool m_activeDOMObjectAdditionForbidden { false };
     bool m_willprocessMessageWithMessagePortsSoon { false };
     bool m_hasLoggedAuthenticatedEncryptionWarning { false };
+
+    RefPtr<RefCountedSerialFunctionDispatcher> m_nativePromiseDispatcher;
+    WeakHashSet<NativePromiseRequest> m_nativePromiseRequests;
 };
 
 WebCoreOpaqueRoot root(ScriptExecutionContext*);

@@ -31,6 +31,7 @@
 #include "AXGeometryManager.h"
 #include "AXIsolatedTree.h"
 #include "AXLogger.h"
+#include "AXTextRun.h"
 
 #if PLATFORM(MAC)
 #import <pal/spi/mac/HIServicesSPI.h>
@@ -144,7 +145,6 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::SupportsDragging, object.supportsDragging());
     setProperty(AXPropertyName::SupportsPressAction, object.supportsPressAction());
     setProperty(AXPropertyName::IsGrabbed, object.isGrabbed());
-    setObjectProperty(AXPropertyName::TitleUIElement, object.titleUIElement());
     setProperty(AXPropertyName::PlaceholderValue, object.placeholderValue().isolatedCopy());
     setProperty(AXPropertyName::ExpandedTextValue, object.expandedTextValue().isolatedCopy());
     setProperty(AXPropertyName::SupportsExpandedTextValue, object.supportsExpandedTextValue());
@@ -248,8 +248,12 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
         setObjectVectorProperty(AXPropertyName::ARIATreeRows, ariaTreeRows);
     }
 
-    if (object.isRadioButton())
+    if (object.isRadioButton()) {
         setProperty(AXPropertyName::NameAttribute, object.nameAttribute().isolatedCopy());
+        // FIXME: This property doesn't get updated when a page changes dynamically.
+        setObjectVectorProperty(AXPropertyName::RadioButtonGroup, object.radioButtonGroup());
+        setProperty(AXPropertyName::IsRadioInput, object.isRadioInput());
+    }
 
     if (object.canHaveSelectedChildren())
         setObjectVectorProperty(AXPropertyName::SelectedChildren, object.selectedChildren());
@@ -260,8 +264,6 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     // On macOS, we only advertise support for the visible children attribute for listboxes.
     if (object.isListBox())
         setObjectVectorProperty(AXPropertyName::VisibleChildren, object.visibleChildren());
-
-    setObjectVectorProperty(AXPropertyName::LinkedObjects, object.linkedObjects());
 
     if (object.isSpinButton()) {
         // FIXME: These properties get out of date every time AccessibilitySpinButton::{clearChildren, addChildren} is called. We should probably just not cache these properties.
@@ -372,6 +374,8 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::LocalizedActionVerb, object.localizedActionVerb().isolatedCopy());
 #endif
 
+    setObjectProperty(AXPropertyName::InternalLinkElement, object.internalLinkElement());
+
     initializePlatformProperties(axObject);
 }
 
@@ -464,6 +468,9 @@ void AXIsolatedObject::setProperty(AXPropertyName propertyName, AXPropertyValueV
         [](std::pair<AXID, CharacterRange>& typedValue) {
             return !typedValue.first.isValid() && !typedValue.second.location && !typedValue.second.length;
         },
+#if ENABLE(AX_THREAD_TEXT_APIS)
+        [](AXTextRuns& runs) { return !runs.size(); },
+#endif
         [](auto&) {
             ASSERT_NOT_REACHED();
             return false;
@@ -555,6 +562,21 @@ void AXIsolatedObject::setSelectedChildren(const AccessibilityChildrenVector& se
 
         object->setSelectedChildren(axObjectCache->objectsForIDs(selectedChildrenIDs));
     });
+}
+
+AXCoreObject* AXIsolatedObject::sibling(AXDirection direction) const
+{
+    RefPtr parent = parentObjectUnignored();
+    if (!parent)
+        return nullptr;
+    const auto& siblings = parent->children();
+    size_t indexOfThis = siblings.find(this);
+    if (indexOfThis == notFound)
+        return nullptr;
+
+    if (direction == AXDirection::Next)
+        return indexOfThis + 1 < siblings.size() ? siblings[indexOfThis + 1].get() : nullptr;
+    return indexOfThis > 0 ? siblings[indexOfThis - 1].get() : nullptr;
 }
 
 bool AXIsolatedObject::isDetachedFromParent()
@@ -971,6 +993,19 @@ int AXIsolatedObject::intAttributeValue(AXPropertyName propertyName) const
     );
 }
 
+#if ENABLE(AX_THREAD_TEXT_APIS)
+const AXTextRuns* AXIsolatedObject::textRuns() const
+{
+    auto entry = m_propertyMap.find(AXPropertyName::TextRuns);
+    if (entry == m_propertyMap.end())
+        return nullptr;
+    return WTF::switchOn(entry->value,
+        [] (const AXTextRuns& typedValue) -> const AXTextRuns* { return &typedValue; },
+        [] (auto&) -> const AXTextRuns* { return nullptr; }
+    );
+}
+#endif
+
 template<typename T>
 T AXIsolatedObject::getOrRetrievePropertyValue(AXPropertyName propertyName)
 {
@@ -984,15 +1019,6 @@ T AXIsolatedObject::getOrRetrievePropertyValue(AXPropertyName propertyName)
 
         AXPropertyValueVariant value;
         switch (propertyName) {
-        // FIXME: Once textUnderElement can be retrieved from the AX thread and/or is faster, cache this eagerly.
-        case AXPropertyName::AccessibilityText: {
-            Vector<AccessibilityText> texts;
-            axObject->accessibilityText(texts);
-            value = texts.map([] (const auto& text) -> AccessibilityText {
-                return { text.text.isolatedCopy(), text.textSource };
-            });
-            break;
-        }
         case AXPropertyName::InnerHTML:
             value = axObject->innerHTML().isolatedCopy();
             break;
@@ -1181,6 +1207,15 @@ FloatPoint AXIsolatedObject::screenRelativePosition() const
 {
     if (auto point = optionalAttributeValue<FloatPoint>(AXPropertyName::ScreenRelativePosition))
         return *point;
+
+    if (auto rootNode = tree()->rootNode()) {
+        if (auto rootPoint = rootNode->optionalAttributeValue<FloatPoint>(AXPropertyName::ScreenRelativePosition)) {
+            // Relative frames are top-left origin, but screen relative positions are bottom-left origin.
+            FloatRect rootRelativeFrame = rootNode->relativeFrame();
+            FloatRect relativeFrame = this->relativeFrame();
+            return { rootPoint->x() + relativeFrame.x(), rootPoint->y() + (rootRelativeFrame.maxY() - relativeFrame.maxY()) };
+        }
+    }
 
     return Accessibility::retrieveValueFromMainThread<FloatPoint>([&, this] () -> FloatPoint {
         if (auto* axObject = associatedAXObject())
@@ -1706,18 +1741,6 @@ bool AXIsolatedObject::isDescendantOfRole(AccessibilityRole) const
 {
     ASSERT_NOT_REACHED();
     return false;
-}
-
-AXCoreObject* AXIsolatedObject::correspondingLabelForControlElement() const
-{
-    ASSERT_NOT_REACHED();
-    return nullptr;
-}
-
-AXCoreObject* AXIsolatedObject::correspondingControlForLabelElement() const
-{
-    ASSERT_NOT_REACHED();
-    return nullptr;
 }
 
 bool AXIsolatedObject::inheritsPresentationalRole() const

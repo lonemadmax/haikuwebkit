@@ -27,6 +27,7 @@
 #include "RenderSVGTextPath.h"
 #include "SVGDocumentExtensions.h"
 #include "SVGElementInlines.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGNames.h"
 #include "SVGPathElement.h"
 #include <wtf/IsoMallocInlines.h>
@@ -165,6 +166,8 @@ void SVGTextPathElement::buildPendingResource()
 Node::InsertedIntoAncestorResult SVGTextPathElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
 {
     SVGTextContentElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
+    if (!insertionType.connectedToDocument)
+        return InsertedIntoAncestorResult::Done;
     return InsertedIntoAncestorResult::NeedsPostInsertionCallback;
 }
 

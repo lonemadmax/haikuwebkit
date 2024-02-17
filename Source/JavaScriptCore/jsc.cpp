@@ -120,6 +120,7 @@
 #if PLATFORM(COCOA)
 #include <crt_externs.h>
 #include <wtf/OSObjectPtr.h>
+#include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
 
 #if PLATFORM(GTK)
@@ -812,6 +813,10 @@ private:
             Identifier dollarVMIdentifier = Identifier::fromString(vm, "$vm"_s);
             rememberDontEnumProperty(filter, dollarVMIdentifier.impl(), 0 | PropertyAttribute::DontEnum);
         }
+
+#if PLATFORM(COCOA)
+        enableAllSDKAlignedBehaviors();
+#endif
     }
 
 public:
@@ -3816,7 +3821,9 @@ static NO_RETURN void printUsageStatement(bool help = false)
     fprintf(stderr, "  -e         Evaluate argument as script code\n");
     fprintf(stderr, "  -f         Specifies a source file (deprecated)\n");
     fprintf(stderr, "  -h|--help  Prints this help message\n");
+#if ENABLE(FUZZILLI)
     fprintf(stderr, "  --reprl    Enables REPRL mode (used by the Fuzzilli fuzzer)\n");
+#endif
     fprintf(stderr, "  -i         Enables interactive mode (default if no files are specified)\n");
     fprintf(stderr, "  -m         Execute as a module\n");
 #if OS(UNIX)

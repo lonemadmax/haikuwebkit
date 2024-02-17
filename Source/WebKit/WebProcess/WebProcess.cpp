@@ -436,7 +436,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
 
 #if PLATFORM(COCOA)
             // If this is a process we keep around for performance, kill it on memory pressure instead of trying to free up its memory.
-            if (!m_isSuspending && (m_processType == ProcessType::CachedWebContent || m_processType == ProcessType::PrewarmedWebContent || areAllPagesSuspended())) {
+            if (m_allowExitOnMemoryPressure && (m_processType == ProcessType::CachedWebContent || m_processType == ProcessType::PrewarmedWebContent || areAllPagesSuspended())) {
                 if (m_processType == ProcessType::CachedWebContent)
                     WEBPROCESS_RELEASE_LOG(Process, "initializeWebProcess: Cached WebProcess is exiting due to memory pressure");
                 else if (m_processType == ProcessType::PrewarmedWebContent)
@@ -448,8 +448,8 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters)
             }
 #endif
 
-            auto maintainBackForwardCache = m_isSuspending ? WebCore::MaintainBackForwardCache::Yes : WebCore::MaintainBackForwardCache::No;
-            auto maintainMemoryCache = m_isSuspending && m_hasSuspendedPageProxy ? WebCore::MaintainMemoryCache::Yes : WebCore::MaintainMemoryCache::No;
+            auto maintainBackForwardCache = m_allowExitOnMemoryPressure ? WebCore::MaintainBackForwardCache::No : WebCore::MaintainBackForwardCache::Yes;
+            auto maintainMemoryCache = (m_allowExitOnMemoryPressure || !m_hasSuspendedPageProxy) ? WebCore::MaintainMemoryCache::No : WebCore::MaintainMemoryCache::Yes;
             WebCore::releaseMemory(critical, synchronous, maintainBackForwardCache, maintainMemoryCache);
             for (auto& page : m_pageMap.values())
                 page->releaseMemory(critical);
@@ -674,7 +674,7 @@ void WebProcess::setHasSuspendedPageProxy(bool hasSuspendedPageProxy)
     m_hasSuspendedPageProxy = hasSuspendedPageProxy;
 }
 
-void WebProcess::setIsInProcessCache(bool isInProcessCache)
+void WebProcess::setIsInProcessCache(bool isInProcessCache, CompletionHandler<void()>&& completionHandler)
 {
 #if PLATFORM(COCOA)
     if (isInProcessCache) {
@@ -690,6 +690,7 @@ void WebProcess::setIsInProcessCache(bool isInProcessCache)
 #else
     UNUSED_PARAM(isInProcessCache);
 #endif
+    completionHandler();
 }
 
 void WebProcess::markIsNoLongerPrewarmed()
@@ -865,6 +866,10 @@ void WebProcess::createWebPage(PageIdentifier pageID, WebPageCreationParameters&
     } else
         result.iterator->value->reinitializeWebPage(WTFMove(parameters));
 
+    if (m_hasPendingAccessibilityUnsuspension) {
+        m_hasPendingAccessibilityUnsuspension = false;
+        accessibilityRelayProcessSuspended(false);
+    }
     ASSERT(result.iterator->value);
 }
 
@@ -1164,7 +1169,7 @@ static NetworkProcessConnectionInfo getNetworkProcessConnection(IPC::Connection&
     auto requestConnection = [&]() -> bool {
         auto sendResult = connection.sendSync(Messages::WebProcessProxy::GetNetworkProcessConnection(), 0);
         if (!sendResult.succeeded()) {
-            RELEASE_LOG_ERROR(Process, "getNetworkProcessConnection: Failed to send message or receive invalid message: error %" PUBLIC_LOG_STRING, IPC::errorAsString(sendResult.error));
+            RELEASE_LOG_ERROR(Process, "getNetworkProcessConnection: Failed to send message or receive invalid message: error %" PUBLIC_LOG_STRING, IPC::errorAsString(sendResult.error()));
             failedToGetNetworkProcessConnection();
         }
         std::tie(connectionInfo) = sendResult.takeReply();
@@ -1523,6 +1528,7 @@ void WebProcess::pageActivityStateDidChange(PageIdentifier, OptionSet<WebCore::A
 void WebProcess::releaseMemory(CompletionHandler<void()>&& completionHandler)
 {
     WEBPROCESS_RELEASE_LOG(ProcessSuspension, "releaseMemory: BEGIN");
+    SetForScope allowExitScope(m_allowExitOnMemoryPressure, false);
     MemoryPressureHandler::singleton().releaseMemory(Critical::Yes, Synchronous::Yes);
     for (auto& page : m_pageMap.values())
         page->releaseMemory(Critical::Yes);
@@ -1537,7 +1543,7 @@ void WebProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime estim
     double remainingRunTime = nowTime > estimatedSuspendTime ? (nowTime - estimatedSuspendTime).value() : 0.0;
 #endif
     WEBPROCESS_RELEASE_LOG(ProcessSuspension, "prepareToSuspend: isSuspensionImminent=%d, remainingRunTime=%fs", isSuspensionImminent, remainingRunTime);
-    SetForScope suspensionScope(m_isSuspending, true);
+    SetForScope allowExitScope(m_allowExitOnMemoryPressure, false);
     m_processIsSuspended = true;
 
     flushResourceLoadStatistics();
@@ -1584,8 +1590,13 @@ void WebProcess::prepareToSuspend(bool isSuspensionImminent, MonotonicTime estim
 
 void WebProcess::accessibilityRelayProcessSuspended(bool suspended)
 {
-    if (m_pageMap.isEmpty())
+    if (m_pageMap.isEmpty()) {
+        // Depending on timing, we can get a call to unsuspend the process at a moment when we don't have
+        // any webpages (but may gain them soon). Set this flag so we can unsuspend when we do get a webpage,
+        // as otherwise assistive technologies may think we are permanently suspended.
+        m_hasPendingAccessibilityUnsuspension = !suspended;
         return;
+    }
 
     // Take the first webpage. We only need to have the process on the other side relay this for the WebProcess.
     AXRelayProcessSuspendedNotification(*m_pageMap.begin()->value, AXRelayProcessSuspendedNotification::AutomaticallySend::No).sendProcessSuspendMessage(suspended);
@@ -2102,7 +2113,11 @@ void WebProcess::displayDidRefresh(uint32_t displayID, const DisplayUpdate& disp
 
 void WebProcess::setThirdPartyCookieBlockingMode(ThirdPartyCookieBlockingMode thirdPartyCookieBlockingMode, CompletionHandler<void()>&& completionHandler)
 {
-    m_thirdPartyCookieBlockingMode = thirdPartyCookieBlockingMode;
+    if (m_thirdPartyCookieBlockingMode != thirdPartyCookieBlockingMode) {
+        m_thirdPartyCookieBlockingMode = thirdPartyCookieBlockingMode;
+        if (m_thirdPartyCookieBlockingMode != ThirdPartyCookieBlockingMode::All)
+            updateCachedCookiesEnabled();
+    }
     completionHandler();
 }
 
@@ -2331,6 +2346,12 @@ void WebProcess::removeWebTransportSession(WebTransportSessionIdentifier identif
 {
     ASSERT(m_webTransportSessions.contains(identifier));
     m_webTransportSessions.remove(identifier);
+}
+
+void WebProcess::updateCachedCookiesEnabled()
+{
+    for (auto& document : Document::allDocuments())
+        document->updateCachedCookiesEnabled();
 }
 
 } // namespace WebKit

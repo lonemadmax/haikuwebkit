@@ -27,10 +27,12 @@
 #import "Editor.h"
 
 #import "ArchiveResource.h"
+#import "Blob.h"
 #import "CSSValueList.h"
 #import "CSSValuePool.h"
 #import "CachedResourceLoader.h"
 #import "ColorMac.h"
+#import "DOMURL.h"
 #import "DocumentFragment.h"
 #import "DocumentLoader.h"
 #import "Editing.h"
@@ -44,7 +46,10 @@
 #import "HTMLAttachmentElement.h"
 #import "HTMLConverter.h"
 #import "HTMLImageElement.h"
+#import "HTMLPictureElement.h"
+#import "HTMLSourceElement.h"
 #import "HTMLSpanElement.h"
+#import "ImageBufferUtilitiesCG.h"
 #import "ImageOverlay.h"
 #import "LegacyNSPasteboardTypes.h"
 #import "LegacyWebArchive.h"
@@ -56,6 +61,7 @@
 #import "PlatformStrategies.h"
 #import "RenderElement.h"
 #import "RenderStyle.h"
+#import "ReplaceSelectionCommand.h"
 #import "Settings.h"
 #import "SystemSoundManager.h"
 #import "Text.h"
@@ -384,5 +390,45 @@ void Editor::replaceNodeFromPasteboard(Node& node, const String& pasteboardName,
     client()->setInsertionPasteboard({ });
 #endif
 }
+
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+void Editor::insertMultiRepresentationHEIC(const std::span<const uint8_t>& data)
+{
+    auto document = protectedDocument();
+
+    String primaryType = "image/heic"_s;
+    auto primaryBuffer = FragmentedSharedBuffer::create(data.data(), data.size());
+
+    String fallbackType = "image/png"_s;
+    auto fallbackData = encodeData(data, fallbackType, std::nullopt);
+    auto fallbackBuffer = FragmentedSharedBuffer::create(WTFMove(fallbackData));
+
+    auto picture = HTMLPictureElement::create(HTMLNames::pictureTag, document);
+
+    auto source = HTMLSourceElement::create(document);
+    source->setAttributeWithoutSynchronization(HTMLNames::srcsetAttr, AtomString { DOMURL::createObjectURL(document, Blob::create(document.ptr(), primaryBuffer->copyData(), primaryType)) });
+    source->setAttributeWithoutSynchronization(HTMLNames::typeAttr, AtomString { primaryType });
+    picture->appendChild(WTFMove(source));
+
+    auto image = HTMLImageElement::create(document);
+    image->setSrc(AtomString { DOMURL::createObjectURL(document, Blob::create(document.ptr(), fallbackBuffer->copyData(), fallbackType)) });
+    picture->appendChild(WTFMove(image));
+
+    auto fragment = document->createDocumentFragment();
+    fragment->appendChild(WTFMove(picture));
+
+    ReplaceSelectionCommand::create(document.get(), WTFMove(fragment), ReplaceSelectionCommand::PreventNesting, EditAction::Insert)->apply();
+
+    auto primaryAttachment = HTMLAttachmentElement::create(HTMLNames::attachmentTag, document.get());
+    auto primaryIdentifier = primaryAttachment->ensureUniqueIdentifier();
+    registerAttachmentIdentifier(primaryIdentifier, primaryType, makeString(primaryIdentifier, ".heic"_s), WTFMove(primaryBuffer));
+    source->setAttachmentElement(WTFMove(primaryAttachment));
+
+    auto fallbackAttachment = HTMLAttachmentElement::create(HTMLNames::attachmentTag, document.get());
+    auto fallbackIdentifier = fallbackAttachment->ensureUniqueIdentifier();
+    registerAttachmentIdentifier(fallbackIdentifier, fallbackType, makeString(fallbackIdentifier, ".png"_s), WTFMove(fallbackBuffer));
+    image->setAttachmentElement(WTFMove(fallbackAttachment));
+}
+#endif
 
 }

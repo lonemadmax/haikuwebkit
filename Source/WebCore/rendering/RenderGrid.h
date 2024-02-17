@@ -128,6 +128,7 @@ public:
     LayoutUnit gridGap(GridTrackSizingDirection, std::optional<LayoutUnit> availableSize) const;
 
     LayoutUnit masonryContentSize() const;
+    Vector<LayoutRect> gridItemsLayoutRects();
 private:
     friend class GridTrackSizingAlgorithm;
     friend class GridMasonryLayout;
@@ -157,7 +158,7 @@ private:
     std::unique_ptr<OrderedTrackIndexSet> computeEmptyTracksForAutoRepeat(GridTrackSizingDirection) const;
 
     enum class ShouldUpdateGridAreaLogicalSize : bool { No, Yes };
-    void performGridItemsPreLayout(const GridTrackSizingAlgorithm&, const ShouldUpdateGridAreaLogicalSize) const;
+    void performPreLayoutForGridItems(const GridTrackSizingAlgorithm&, const ShouldUpdateGridAreaLogicalSize) const;
 
     void placeItemsOnGrid(std::optional<LayoutUnit> availableLogicalWidth);
     void populateExplicitGridAndOrderIterator();
@@ -212,6 +213,8 @@ private:
     LayoutUnit gridAreaBreadthForChildIncludingAlignmentOffsets(const RenderBox&, GridTrackSizingDirection) const;
 
     void paintChildren(PaintInfo& forSelf, const LayoutPoint& paintOffset, PaintInfo& forChild, bool usePrintRect) override;
+    LayoutOptionalOutsets allowedLayoutOverflow() const override;
+
     LayoutUnit availableAlignmentSpaceForChildBeforeStretching(LayoutUnit gridAreaBreadthForChild, const RenderBox&, GridTrackSizingDirection) const;
     StyleSelfAlignmentData justifySelfForChild(const RenderBox&, StretchingMode = StretchingMode::Any, const RenderStyle* = nullptr) const;
     StyleSelfAlignmentData alignSelfForChild(const RenderBox&, StretchingMode = StretchingMode::Any, const RenderStyle* = nullptr) const;
@@ -273,7 +276,7 @@ private:
 
     mutable GridMasonryLayout m_masonryLayout;
 
-    typedef HashMap<const RenderBox*, std::optional<size_t>> OutOfFlowPositionsMap;
+    using OutOfFlowPositionsMap = HashMap<SingleThreadWeakRef<const RenderBox>, std::optional<size_t>>;
     OutOfFlowPositionsMap m_outOfFlowItemColumn;
     OutOfFlowPositionsMap m_outOfFlowItemRow;
 

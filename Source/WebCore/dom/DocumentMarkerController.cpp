@@ -45,7 +45,7 @@ namespace WebCore {
 constexpr Seconds markerFadeAnimationDuration = 200_ms;
 constexpr double markerFadeAnimationFrameRate = 30;
 
-inline bool DocumentMarkerController::possiblyHasMarkers(OptionSet<DocumentMarker::Type> types)
+inline bool DocumentMarkerController::possiblyHasMarkers(OptionSet<DocumentMarker::Type> types) const
 {
     return m_possiblyExistingMarkerTypes.containsAny(types);
 }
@@ -451,7 +451,7 @@ WeakPtr<DocumentMarker> DocumentMarkerController::markerContainingPoint(const La
     return nullptr;
 }
 
-Vector<WeakPtr<RenderedDocumentMarker>> DocumentMarkerController::markersFor(Node& node, OptionSet<DocumentMarker::Type> types)
+Vector<WeakPtr<RenderedDocumentMarker>> DocumentMarkerController::markersFor(Node& node, OptionSet<DocumentMarker::Type> types) const
 {
     if (!possiblyHasMarkers(types))
         return { };
@@ -785,7 +785,7 @@ void DocumentMarkerController::showMarkers() const
     for (auto& nodeMarkers : m_markers) {
         fprintf(stderr, "%p", nodeMarkers.key.ptr());
         for (auto& marker : *nodeMarkers.value)
-            fprintf(stderr, " %hu:[%d:%d]", enumToUnderlyingType(marker.type()), marker.startOffset(), marker.endOffset());
+            fprintf(stderr, " %u:[%d:%d]", enumToUnderlyingType(marker.type()), marker.startOffset(), marker.endOffset());
         fputc('\n', stderr);
     }
 }

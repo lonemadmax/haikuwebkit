@@ -1,4 +1,4 @@
-# Copyright (C) 2006-2023 Apple Inc. All rights reserved.
+# Copyright (C) 2006-2024 Apple Inc. All rights reserved.
 # Copyright (C) 2006 Samuel Weinig <sam.weinig@gmail.com>
 # Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
 #
@@ -307,6 +307,10 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/credentialmanagement/CredentialMediationRequirement.idl \
     $(WebCore)/Modules/credentialmanagement/CredentialRequestOptions.idl \
     $(WebCore)/Modules/credentialmanagement/CredentialsContainer.idl \
+    $(WebCore)/Modules/credentialmanagement/DigitalCredential.idl \
+    $(WebCore)/Modules/credentialmanagement/DigitalCredentialRequestOptions.idl \
+    $(WebCore)/Modules/credentialmanagement/IdentityRequestProvider.idl \
+    $(WebCore)/Modules/credentialmanagement/IdentityCredentialProtocol.idl \
     $(WebCore)/Modules/credentialmanagement/Navigator+Credentials.idl \
     $(WebCore)/Modules/encryptedmedia/MediaKeyEncryptionScheme.idl \
     $(WebCore)/Modules/encryptedmedia/MediaKeyMessageEventInit.idl \
@@ -445,6 +449,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediastream/MediaStream.idl \
     $(WebCore)/Modules/mediastream/MediaStreamTrack.idl \
     $(WebCore)/Modules/mediastream/MediaStreamTrackEvent.idl \
+    $(WebCore)/Modules/mediastream/MediaStreamTrackProcessor.idl \
     $(WebCore)/Modules/mediastream/MediaTrackCapabilities.idl \
     $(WebCore)/Modules/mediastream/MediaTrackConstraints.idl \
     $(WebCore)/Modules/mediastream/MediaTrackSupportedConstraints.idl \
@@ -525,6 +530,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediastream/RTCStatsReport.idl \
     $(WebCore)/Modules/mediastream/RTCTrackEvent.idl \
     $(WebCore)/Modules/mediastream/RTCTransformEvent.idl \
+    $(WebCore)/Modules/mediastream/VideoTrackGenerator.idl \
     $(WebCore)/Modules/model-element/HTMLModelElement.idl \
     $(WebCore)/Modules/model-element/HTMLModelElementCamera.idl \
     $(WebCore)/Modules/notifications/Notification.idl \
@@ -722,7 +728,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webauthn/AuthenticatorResponse.idl \
     $(WebCore)/Modules/webauthn/AuthenticatorTransport.idl \
     $(WebCore)/Modules/webauthn/PublicKeyCredential.idl \
-    $(WebCore)/Modules/webauthn/PublicKeyCredentialClientCapabilities.idl \
     $(WebCore)/Modules/webauthn/PublicKeyCredentialCreationOptions.idl \
     $(WebCore)/Modules/webauthn/PublicKeyCredentialDescriptor.idl \
     $(WebCore)/Modules/webauthn/PublicKeyCredentialRequestOptions.idl \
@@ -936,6 +941,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/CSSRule.idl \
     $(WebCore)/css/CSSRuleList.idl \
     $(WebCore)/css/CSSScopeRule.idl \
+    $(WebCore)/css/CSSStartingStyleRule.idl \
     $(WebCore)/css/CSSStyleDeclaration.idl \
     $(WebCore)/css/CSSStyleRule.idl \
     $(WebCore)/css/CSSStyleSheet.idl \
@@ -1025,6 +1031,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/Comment.idl \
     $(WebCore)/dom/CompositionEvent.idl \
     $(WebCore)/dom/ContentVisibilityAutoStateChangeEvent.idl \
+    $(WebCore)/dom/CreateHTMLCallback.idl \
+    $(WebCore)/dom/CreateScriptCallback.idl \
+    $(WebCore)/dom/CreateScriptURLCallback.idl \
     $(WebCore)/dom/CustomElementRegistry.idl \
     $(WebCore)/dom/CustomEvent.idl \
     $(WebCore)/dom/CustomStateSet.idl \
@@ -1144,6 +1153,12 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/TextEvent.idl \
     $(WebCore)/dom/ToggleEvent.idl \
     $(WebCore)/dom/TreeWalker.idl \
+    $(WebCore)/dom/TrustedHTML.idl \
+    $(WebCore)/dom/TrustedScript.idl \
+    $(WebCore)/dom/TrustedScriptURL.idl \
+    $(WebCore)/dom/TrustedTypePolicy.idl \
+    $(WebCore)/dom/TrustedTypePolicyFactory.idl \
+    $(WebCore)/dom/TrustedTypePolicyOptions.idl \
     $(WebCore)/dom/UIEvent.idl \
     $(WebCore)/dom/UIEventInit.idl \
     $(WebCore)/dom/ValidityStateFlags.idl \
@@ -1151,6 +1166,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/ViewTransitionUpdateCallback.idl \
     $(WebCore)/dom/VisibilityState.idl \
     $(WebCore)/dom/WheelEvent.idl \
+    $(WebCore)/dom/WindowOrWorkerGlobalScope+TrustedTypes.idl \
     $(WebCore)/dom/XMLDocument.idl \
     $(WebCore)/fileapi/Blob.idl \
     $(WebCore)/fileapi/BlobCallback.idl \
@@ -1295,7 +1311,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/canvas/CanvasTextDrawingStyles.idl \
     $(WebCore)/html/canvas/CanvasTransform.idl \
     $(WebCore)/html/canvas/CanvasUserInterface.idl \
-    $(WebCore)/html/canvas/EXTBlendFuncExtended.idl \
     $(WebCore)/html/canvas/EXTBlendMinMax.idl \
     $(WebCore)/html/canvas/EXTClipControl.idl \
     $(WebCore)/html/canvas/EXTColorBufferFloat.idl \
@@ -1338,6 +1353,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/canvas/PredefinedColorSpace.idl \
     $(WebCore)/html/canvas/WebGL2RenderingContext.idl \
     $(WebCore)/html/canvas/WebGLActiveInfo.idl \
+    $(WebCore)/html/canvas/WebGLBlendFuncExtended.idl \
     $(WebCore)/html/canvas/WebGLBuffer.idl \
     $(WebCore)/html/canvas/WebGLClipCullDistance.idl \
     $(WebCore)/html/canvas/WebGLColorBufferFloat.idl \
@@ -1722,7 +1738,7 @@ ADDITIONAL_BINDING_IDLS = \
 
 vpath %.in $(WEBKITADDITIONS_HEADER_SEARCH_PATHS)
 
-ADDITIONAL_EVENT_NAMES =
+ADDITIONAL_EVENT_INTERFACES =
 ADDITIONAL_EVENT_TARGET_FACTORY =
 
 -include WebCoreDerivedSourcesAdditions.make
@@ -1786,6 +1802,8 @@ all : \
     ColorData.cpp \
     DOMJITAbstractHeapRepository.h \
     EventInterfaces.h \
+    EventNames.cpp \
+    EventNames.h \
     EventTargetInterfaces.h \
     HTMLElementFactory.cpp \
     HTMLElementFactory.h \
@@ -1824,6 +1842,8 @@ all : \
     MathMLElementTypeHelpers.h \
     MathMLNames.cpp \
     MathMLNames.h \
+    UserAgentParts.cpp \
+    UserAgentParts.h \
 #
 
 # --------
@@ -1866,16 +1886,22 @@ $(CSS_VALUE_KEYWORD_FILES_PATTERNS) : $(WEBCORE_CSS_VALUE_KEYWORDS) $(WebCore)/c
 
 # CSS pseudo class & element selector code and maps.
 
+WEBCORE_CSS_PSEUDO_SELECTORS := $(WebCore)/css/CSSPseudoSelectors.json
+
 CSS_PSEUDO_SELECTOR_FILES = \
     CSSSelectorEnums.h \
     CSSSelectorInlines.h \
     SelectorPseudoClassAndCompatibilityElementMap.cpp \
     SelectorPseudoElementMap.cpp \
+    UserAgentParts.cpp \
+    UserAgentParts.h \
+
 #
 CSS_PSEUDO_SELECTOR_FILES_PATTERNS = $(subst .,%,$(CSS_PSEUDO_SELECTOR_FILES))
 all : $(CSS_PSEUDO_SELECTOR_FILES)
-$(CSS_PSEUDO_SELECTOR_FILES_PATTERNS) : $(WebCore)/css/process-css-pseudo-selectors.py $(WebCore)/css/CSSPseudoSelectors.json $(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES)
-	$(PYTHON) "$(WebCore)/css/process-css-pseudo-selectors.py" $(WebCore)/css/CSSPseudoSelectors.json $(GPERF) "$(FEATURE_AND_PLATFORM_DEFINES)"
+$(CSS_PSEUDO_SELECTOR_FILES_PATTERNS) : $(WEBCORE_CSS_PSEUDO_SELECTORS) $(WebCore)/css/process-css-pseudo-selectors.py $(FEATURE_AND_PLATFORM_DEFINE_DEPENDENCIES)
+	$(PERL) -pe '' $(WEBCORE_CSS_PSEUDO_SELECTORS) > CSSPseudoSelectors.json
+	$(PYTHON) "$(WebCore)/css/process-css-pseudo-selectors.py" --gperf-executable $(GPERF) --defines "$(FEATURE_AND_PLATFORM_DEFINES)"
 
 # --------
 
@@ -2221,7 +2247,7 @@ $(XLINK_NAMES_FILES_PATTERNS) : $(WebCore)/dom/make_names.pl $(WebCore)/bindings
 
 # Register event constructors and targets
 
-EVENT_NAMES = $(WebCore)/dom/EventNames.in $(ADDITIONAL_EVENT_NAMES)
+EVENT_INTERFACES = $(WebCore)/dom/EventInterfaces.in $(ADDITIONAL_EVENT_INTERFACES)
 
 EVENT_FACTORY_FILES = \
     EventFactory.cpp \
@@ -2231,7 +2257,7 @@ EVENT_FACTORY_FILES = \
 EVENT_FACTORY_PATTERNS = $(subst .,%,$(EVENT_FACTORY_FILES))
 
 all : $(EVENT_FACTORY_FILES)
-$(EVENT_FACTORY_PATTERNS) : $(WebCore)/dom/make_event_factory.pl $(EVENT_NAMES)
+$(EVENT_FACTORY_PATTERNS) : $(WebCore)/dom/make_event_factory.pl $(EVENT_INTERFACES)
 	$(PERL) $< $(addprefix --input , $(filter-out $(WebCore)/dom/make_event_factory.pl, $^))
 
 EVENT_TARGET_FACTORY = $(WebCore)/dom/EventTargetFactory.in $(ADDITIONAL_EVENT_TARGET_FACTORY)
@@ -2246,6 +2272,22 @@ EVENT_TARGET_FACTORY_PATTERNS = $(subst .,%,$(EVENT_TARGET_FACTORY_FILES))
 all : $(EVENT_TARGET_FACTORY_FILES)
 $(EVENT_TARGET_FACTORY_PATTERNS) : $(WebCore)/dom/make_event_factory.pl $(EVENT_TARGET_FACTORY)
 	$(PERL) $< $(addprefix --input , $(filter-out $(WebCore)/dom/make_event_factory.pl, $^))
+
+# --------
+
+# Event names
+
+EVENT_NAME_JSON := $(WebCore)/dom/EventNames.json
+
+EVENT_NAME_FILES = \
+    EventNames.cpp \
+    EventNames.h \
+#
+EVENT_NAME_FILES_PATTERNS = $(subst .,%,$(EVENT_NAME_FILES))
+
+all : $(EVENT_NAME_FILES)
+$(EVENT_NAME_FILES_PATTERNS) : $(WebCore)/dom/make-event-names.py $(EVENT_NAME_JSON)
+	$(PYTHON) "$(WebCore)/dom/make-event-names.py" --event-names $(EVENT_NAME_JSON)
 
 # --------
 

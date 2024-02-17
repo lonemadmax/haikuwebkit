@@ -234,7 +234,7 @@ static RefPtr<CSSCalcValue> consumeCalcRawWithKnownTokenTypeFunction(CSSParserTo
     if (!CSSCalcValue::isCalcFunction(functionId))
         return nullptr;
 
-    auto calcValue = CSSCalcValue::create(functionId, consumeFunction(range), category, valueRange, symbolTable);
+    RefPtr calcValue = CSSCalcValue::create(functionId, consumeFunction(range), category, valueRange, symbolTable);
     if (calcValue && calcValue->category() == category)
         return calcValue;
 
@@ -269,7 +269,7 @@ struct IntegerTypeRawKnownTokenTypeFunctionConsumer {
         ASSERT(range.peek().type() == FunctionToken);
 
         auto rangeCopy = range;
-        if (auto value = consumeCalcRawWithKnownTokenTypeFunction(rangeCopy, CalculationCategory::Number, { }, ValueRange::All)) {
+        if (RefPtr value = consumeCalcRawWithKnownTokenTypeFunction(rangeCopy, CalculationCategory::Number, { }, ValueRange::All)) {
             range = rangeCopy;
             // https://drafts.csswg.org/css-values-4/#integers
             // Rounding to the nearest integer requires rounding in the direction of +∞ when the fractional portion is exactly 0.5.
@@ -337,7 +337,7 @@ struct NumberRawKnownTokenTypeFunctionConsumer {
         ASSERT(range.peek().type() == FunctionToken);
 
         auto rangeCopy = range;
-        if (auto value = consumeCalcRawWithKnownTokenTypeFunction(rangeCopy, CalculationCategory::Number, symbolTable, valueRange)) {
+        if (RefPtr value = consumeCalcRawWithKnownTokenTypeFunction(rangeCopy, CalculationCategory::Number, symbolTable, valueRange)) {
             if (auto validatedValue = validatedNumberRaw(value->doubleValue(), valueRange)) {
                 range = rangeCopy;
                 return validatedValue;
@@ -433,7 +433,7 @@ struct PercentRawKnownTokenTypeFunctionConsumer {
         ASSERT(range.peek().type() == FunctionToken);
 
         auto rangeCopy = range;
-        if (auto value = consumeCalcRawWithKnownTokenTypeFunction(rangeCopy, CalculationCategory::Percent, symbolTable, valueRange)) {
+        if (RefPtr value = consumeCalcRawWithKnownTokenTypeFunction(rangeCopy, CalculationCategory::Percent, symbolTable, valueRange)) {
             range = rangeCopy;
 
             // FIXME: Should this validate the calc value as is done for the NumberRaw variant?
@@ -526,7 +526,7 @@ struct LengthRawKnownTokenTypeFunctionConsumer {
         ASSERT(range.peek().type() == FunctionToken);
 
         auto rangeCopy = range;
-        if (auto value = consumeCalcRawWithKnownTokenTypeFunction(rangeCopy, CalculationCategory::Length, symbolTable, valueRange)) {
+        if (RefPtr value = consumeCalcRawWithKnownTokenTypeFunction(rangeCopy, CalculationCategory::Length, symbolTable, valueRange)) {
             range = rangeCopy;
 
             // FIXME: Should this validate the calc value as is done for the NumberRaw variant?
@@ -547,7 +547,7 @@ struct LengthRawKnownTokenTypeDimensionConsumer {
         auto unitType = token.unitType();
         switch (unitType) {
         case CSSUnitType::CSS_QUIRKY_EM:
-            if (parserMode != UASheetMode)
+            if (!isUASheetBehavior(parserMode))
                 return std::nullopt;
             FALLTHROUGH;
         case CSSUnitType::CSS_EM:
@@ -675,7 +675,7 @@ struct AngleRawKnownTokenTypeFunctionConsumer {
     static std::optional<AngleRaw> consume(CSSParserTokenRange& range, const CSSCalcSymbolTable& symbolTable, ValueRange valueRange, CSSParserMode, UnitlessQuirk, UnitlessZeroQuirk)
     {
         auto rangeCopy = range;
-        if (auto value = consumeCalcRawWithKnownTokenTypeFunction(rangeCopy, CalculationCategory::Angle, symbolTable, valueRange)) {
+        if (RefPtr value = consumeCalcRawWithKnownTokenTypeFunction(rangeCopy, CalculationCategory::Angle, symbolTable, valueRange)) {
             range = rangeCopy;
             return { { value->primitiveType(), value->doubleValue() } };
         }
@@ -857,7 +857,7 @@ struct ImageSetTypeCSSPrimitiveValueKnownTokenTypeFunctionConsumer {
 
         auto rangeCopy = range;
         auto typeArg = consumeFunction(rangeCopy);
-        auto result = consumeString(typeArg);
+        RefPtr result = consumeString(typeArg);
 
         if (!result || !typeArg.atEnd())
             return nullptr;
@@ -1611,7 +1611,7 @@ RefPtr<CSSPrimitiveValue> consumeNumberOrPercent(CSSParserTokenRange& range, Val
 
     switch (token.type()) {
     case FunctionToken:
-        if (auto value = NumberCSSPrimitiveValueWithCalcWithKnownTokenTypeFunctionConsumer::consume(range, { }, valueRange, CSSParserMode::HTMLStandardMode, UnitlessQuirk::Forbid, UnitlessZeroQuirk::Forbid))
+        if (RefPtr value = NumberCSSPrimitiveValueWithCalcWithKnownTokenTypeFunctionConsumer::consume(range, { }, valueRange, CSSParserMode::HTMLStandardMode, UnitlessQuirk::Forbid, UnitlessZeroQuirk::Forbid))
             return value;
         return PercentCSSPrimitiveValueWithCalcWithKnownTokenTypeFunctionConsumer::consume(range, { }, valueRange, CSSParserMode::HTMLStandardMode, UnitlessQuirk::Forbid, UnitlessZeroQuirk::Forbid);
 
@@ -3310,7 +3310,7 @@ Color consumeColorWorkerSafe(CSSParserTokenRange& range, const CSSParserContext&
         //        For now, we detect the system color, but then intentionally fail parsing.
         if (StyleColor::isSystemColorKeyword(keyword))
             return { };
-        if (!isValueAllowedInMode(keyword, context.mode))
+        if (!isColorKeywordAllowedInMode(keyword, context.mode))
             return { };
         result = StyleColor::colorFromKeyword(keyword, { });
         range.consumeIncludingWhitespace();
@@ -3331,7 +3331,7 @@ RefPtr<CSSPrimitiveValue> consumeColor(CSSParserTokenRange& range, const CSSPars
 {
     auto keyword = range.peek().id();
     if (StyleColor::isColorKeyword(keyword, allowedColorTypes)) {
-        if (!isValueAllowedInMode(keyword, context.mode))
+        if (!isColorKeywordAllowedInMode(keyword, context.mode))
             return nullptr;
         return consumeIdent(range);
     }
@@ -4811,7 +4811,7 @@ AtomString consumeCounterStyleNameInPrelude(CSSParserTokenRange& prelude, CSSPar
     // case-insensitive match for "decimal", "disc", "square", "circle", "disclosure-open" and "disclosure-closed". No <counter-style-name>, prelude or not, may be an ASCII
     // case-insensitive match for "none".
     auto id = nameToken.id();
-    if (identMatches<CSSValueNone>(id) || (mode != CSSParserMode::UASheetMode && identMatches<CSSValueDecimal, CSSValueDisc, CSSValueCircle, CSSValueSquare, CSSValueDisclosureOpen, CSSValueDisclosureClosed>(id)))
+    if (identMatches<CSSValueNone>(id) || (!isUASheetBehavior(mode) && identMatches<CSSValueDecimal, CSSValueDisc, CSSValueCircle, CSSValueSquare, CSSValueDisclosureOpen, CSSValueDisclosureClosed>(id)))
         return AtomString();
     auto name = nameToken.value();
     return isPredefinedCounterStyle(nameToken.id()) ? name.convertToASCIILowercaseAtom() : name.toAtomString();
@@ -5159,7 +5159,7 @@ RefPtr<CSSValue> consumeDisplay(CSSParserTokenRange& range, CSSParserMode mode)
 
     auto allowsValue = [&](CSSValueID value) {
         bool isRuby = value == CSSValueRubyBase || value == CSSValueRubyText || value == CSSValueBlockRuby || value == CSSValueRuby;
-        return !isRuby || mode == CSSParserMode::UASheetMode;
+        return !isRuby || isUASheetBehavior(mode);
     };
 
     if (singleKeyword) {
@@ -8443,6 +8443,15 @@ RefPtr<CSSValue> consumeOffsetRotate(CSSParserTokenRange& range, CSSParserMode m
 
     range = rangeCopy;
     return CSSOffsetRotateValue::create(WTFMove(modifier), WTFMove(angle));
+}
+
+RefPtr<CSSValue> consumeViewTransitionName(CSSParserTokenRange& range)
+{
+    if (auto noneValue = consumeIdent<CSSValueNone>(range))
+        return noneValue;
+    if (isAuto(range.peek().id()))
+        return nullptr;
+    return consumeCustomIdent(range);
 }
 
 // MARK: - @-rule descriptor consumers:

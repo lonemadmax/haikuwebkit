@@ -31,7 +31,9 @@ namespace WebCore {
 class BlendingKeyframes;
 class RenderLayer;
 class RenderSVGResourceClipper;
+class RenderSVGResourceMarker;
 class RenderSVGResourceMasker;
+class RenderSVGResourcePaintServer;
 class SVGGraphicsElement;
 
 class RenderLayerModelObject : public RenderElement {
@@ -94,10 +96,16 @@ public:
     virtual LayoutPoint currentSVGLayoutLocation() const { ASSERT_NOT_REACHED(); return { }; }
     virtual void setCurrentSVGLayoutLocation(const LayoutPoint&) { ASSERT_NOT_REACHED(); }
 
-    // TODO: [LBSE] Add more cases here, as soon as we add the corresponding resources.
+    RenderSVGResourcePaintServer* svgFillPaintServerResourceFromStyle(const RenderStyle&) const;
+    RenderSVGResourcePaintServer* svgStrokePaintServerResourceFromStyle(const RenderStyle&) const;
+
     RenderSVGResourceClipper* svgClipperResourceFromStyle() const;
     RenderSVGResourceMasker* svgMaskerResourceFromStyle() const;
-    void paintSVGClippingMask(PaintInfo&) const;
+    RenderSVGResourceMarker* svgMarkerStartResourceFromStyle() const;
+    RenderSVGResourceMarker* svgMarkerMidResourceFromStyle() const;
+    RenderSVGResourceMarker* svgMarkerEndResourceFromStyle() const;
+
+    void paintSVGClippingMask(PaintInfo&, const FloatRect& objectBoundingBox) const;
     void paintSVGMask(PaintInfo&, const LayoutPoint& adjustedPaintOffset) const;
 #endif
 
@@ -116,6 +124,11 @@ protected:
     void willBeRemovedFromTree(IsInternalMove) override;
 
     virtual void updateFromStyle() { }
+
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+private:
+    RenderSVGResourceMarker* svgMarkerResourceFromStyle(const String& markerResource) const;
+#endif
 
 private:
     std::unique_ptr<RenderLayer> m_layer;

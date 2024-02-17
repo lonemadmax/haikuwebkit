@@ -373,6 +373,15 @@ static inline void*& framePointerImpl(mcontext_t& machineContext)
 #error Unknown Architecture
 #endif
 
+#elif OS(QNX)
+#if CPU(X86_64)
+    return reinterpret_cast<void*&>((uintptr_t&) machineContext.cpu.rbp);
+#elif CPU(ARM64)
+    return reinterpret_cast<void*&>((uintptr_t&) machineContext.cpu.gpr[29]);
+#else
+#error Unknown Architecture
+#endif
+
 #else
 #error Need a way to get the frame pointer for another thread on this platform
 #endif
@@ -535,6 +544,15 @@ static inline void*& instructionPointerImpl(mcontext_t& machineContext)
     return reinterpret_cast<void*&>((uintptr_t&) machineContext.pc);
 #elif CPU(RISCV64)
     return reinterpret_cast<void*&>((uintptr_t&) machineContext.__gregs[REG_PC]);
+#else
+#error Unknown Architecture
+#endif
+
+#elif OS(QNX)
+#if CPU(X86_64)
+    return reinterpret_cast<void*&>((uintptr_t&) machineContext.cpu.rip);
+#elif CPU(ARM64)
+    return reinterpret_cast<void*&>((uintptr_t&) machineContext.cpu.elr);
 #else
 #error Unknown Architecture
 #endif
@@ -703,6 +721,15 @@ inline void*& argumentPointer<1>(mcontext_t& machineContext)
 #error Unknown Architecture
 #endif
 
+#elif OS(QNX)
+#if CPU(X86_64)
+    return reinterpret_cast<void*&>((uintptr_t&) machineContext.cpu.rsi);
+#elif CPU(ARM64)
+    return reinterpret_cast<void*&>((uintptr_t&) machineContext.cpu.gpr[1]);
+#else
+#error Unknown Architecture
+#endif
+
 #else
 #error Need a way to get the frame pointer for another thread on this platform
 #endif
@@ -842,6 +869,15 @@ inline void*& llintInstructionPointer(mcontext_t& machineContext)
     return reinterpret_cast<void*&>((uintptr_t&) machineContext.gregs[12]);
 #elif CPU(RISCV64)
     return reinterpret_cast<void*&>((uintptr_t&) machineContext.__gregs[14]);
+#else
+#error Unknown Architecture
+#endif
+
+#elif OS(QNX)
+#if CPU(X86_64)
+    return reinterpret_cast<void*&>((uintptr_t&) machineContext.cpu.r8);
+#elif CPU(ARM64)
+    return reinterpret_cast<void*&>((uintptr_t&) machineContext.cpu.gpr[4]);
 #else
 #error Unknown Architecture
 #endif

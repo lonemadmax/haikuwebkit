@@ -52,7 +52,7 @@ static void ensureVideoFrameDebugCategoryInitialized()
 
 RefPtr<VideoFrame> VideoFrame::createFromPixelBuffer(Ref<PixelBuffer>&& pixelBuffer, PlatformVideoColorSpace&& colorSpace)
 {
-    return RefPtr { VideoFrameGStreamer::createFromPixelBuffer(WTFMove(pixelBuffer), VideoFrameGStreamer::CanvasContentType::Canvas2D, VideoFrame::Rotation::None, MediaTime::invalidTime(), { }, 1, false, { }, WTFMove(colorSpace)) };
+    return VideoFrameGStreamer::createFromPixelBuffer(WTFMove(pixelBuffer), VideoFrameGStreamer::CanvasContentType::Canvas2D, VideoFrame::Rotation::None, MediaTime::invalidTime(), { }, 1, false, { }, WTFMove(colorSpace));
 }
 
 static RefPtr<ImageGStreamer> convertSampleToImage(const GRefPtr<GstSample>& sample)
@@ -233,15 +233,17 @@ Ref<VideoFrameGStreamer> VideoFrameGStreamer::createWrappedSample(const GRefPtr<
     auto presentationSize = getVideoResolutionFromCaps(caps);
     RELEASE_ASSERT(presentationSize);
     auto colorSpace = videoColorSpaceFromCaps(caps);
-    return adoptRef(*new VideoFrameGStreamer(sample, *presentationSize, presentationTime, videoRotation, WTFMove(colorSpace)));
+    MediaTime timeStamp = presentationTime;
+    if (presentationTime.isInvalid())
+        timeStamp = fromGstClockTime(GST_BUFFER_PTS(gst_sample_get_buffer(sample.get())));
+    return adoptRef(*new VideoFrameGStreamer(sample, *presentationSize, timeStamp, videoRotation, WTFMove(colorSpace)));
 }
 
-Ref<VideoFrameGStreamer> VideoFrameGStreamer::createFromPixelBuffer(Ref<PixelBuffer>&& pixelBuffer, CanvasContentType canvasContentType, Rotation videoRotation, const MediaTime& presentationTime, const IntSize& destinationSize, double frameRate, bool videoMirrored, std::optional<VideoFrameTimeMetadata>&& metadata, PlatformVideoColorSpace&& colorSpace)
+RefPtr<VideoFrameGStreamer> VideoFrameGStreamer::createFromPixelBuffer(Ref<PixelBuffer>&& pixelBuffer, CanvasContentType canvasContentType, Rotation videoRotation, const MediaTime& presentationTime, const IntSize& destinationSize, double frameRate, bool videoMirrored, std::optional<VideoFrameTimeMetadata>&& metadata, PlatformVideoColorSpace&& colorSpace)
 {
     ensureGStreamerInitialized();
 
     ensureVideoFrameDebugCategoryInitialized();
-    GST_TRACE("Creating VideoFrame from pixel buffer");
     auto size = pixelBuffer->size();
 
     auto sizeInBytes = pixelBuffer->sizeInBytes();
@@ -265,6 +267,8 @@ Ref<VideoFrameGStreamer> VideoFrameGStreamer::createFromPixelBuffer(Ref<PixelBuf
         break;
     }
     const char* formatName = gst_video_format_to_string(format);
+    GST_TRACE("Creating %s VideoFrame from pixel buffer", formatName);
+
     int frameRateNumerator, frameRateDenominator;
     gst_util_double_to_fraction(frameRate, &frameRateNumerator, &frameRateDenominator);
 
@@ -282,18 +286,23 @@ Ref<VideoFrameGStreamer> VideoFrameGStreamer::createFromPixelBuffer(Ref<PixelBuf
 
         width = destinationSize.width();
         height = destinationSize.height();
+        GST_TRACE("Resizing frame from %dx%d to %dx%d", size.width(), size.height(), width, height);
         auto outputCaps = adoptGRef(gst_caps_new_simple("video/x-raw", "format", G_TYPE_STRING, formatName, "width", G_TYPE_INT, width,
             "height", G_TYPE_INT, height, "framerate", GST_TYPE_FRACTION, frameRateNumerator, frameRateDenominator, nullptr));
 
         auto inputSample = adoptGRef(gst_sample_new(buffer.get(), caps.get(), nullptr, nullptr));
-        sample = adoptGRef(gst_video_convert_sample(inputSample.get(), outputCaps.get(), GST_CLOCK_TIME_NONE, nullptr));
-        if (sample) {
-            auto* outputBuffer = gst_sample_get_buffer(sample.get());
-            if (metadata)
-                webkitGstBufferSetVideoFrameTimeMetadata(outputBuffer, *metadata);
-
-            setBufferFields(outputBuffer, presentationTime, frameRate);
+        GUniqueOutPtr<GError> error;
+        sample = adoptGRef(gst_video_convert_sample(inputSample.get(), outputCaps.get(), GST_CLOCK_TIME_NONE, &error.outPtr()));
+        if (!sample) {
+            GST_ERROR("Video sample conversion failed: %s", error->message);
+            return nullptr;
         }
+
+        auto outputBuffer = gst_sample_get_buffer(sample.get());
+        if (metadata)
+            webkitGstBufferSetVideoFrameTimeMetadata(outputBuffer, *metadata);
+
+        setBufferFields(outputBuffer, presentationTime, frameRate);
     } else {
         if (metadata)
             buffer = webkitGstBufferSetVideoFrameTimeMetadata(buffer.get(), *metadata);
@@ -302,7 +311,7 @@ Ref<VideoFrameGStreamer> VideoFrameGStreamer::createFromPixelBuffer(Ref<PixelBuf
         sample = adoptGRef(gst_sample_new(buffer.get(), caps.get(), nullptr, nullptr));
     }
 
-    return adoptRef(*new VideoFrameGStreamer(WTFMove(sample), FloatSize(width, height), presentationTime, videoRotation, videoMirrored, WTFMove(metadata), WTFMove(colorSpace)));
+    return adoptRef(*new VideoFrameGStreamer(WTFMove(sample), FloatSize(width, height), presentationTime, videoRotation, videoMirrored, { }, WTFMove(colorSpace)));
 }
 
 VideoFrameGStreamer::VideoFrameGStreamer(GRefPtr<GstSample>&& sample, const FloatSize& presentationSize, const MediaTime& presentationTime, Rotation videoRotation, bool videoMirrored, std::optional<VideoFrameTimeMetadata>&& metadata, PlatformVideoColorSpace&& colorSpace)
@@ -506,6 +515,11 @@ RefPtr<VideoFrameGStreamer> VideoFrameGStreamer::resizeTo(const IntSize& destina
 RefPtr<ImageGStreamer> VideoFrameGStreamer::convertToImage()
 {
     return convertSampleToImage(m_sample);
+}
+
+Ref<VideoFrame> VideoFrameGStreamer::clone()
+{
+    return createWrappedSample(m_sample, presentationTime(), rotation());
 }
 
 #undef GST_CAT_DEFAULT

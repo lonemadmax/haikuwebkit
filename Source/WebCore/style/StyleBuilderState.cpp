@@ -44,6 +44,7 @@
 #include "CSSShadowValue.h"
 #include "ColorFromPrimitiveValue.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "ElementInlines.h"
 #include "FilterOperationsBuilder.h"
 #include "FontCache.h"
@@ -161,7 +162,7 @@ StyleColor BuilderState::colorFromPrimitiveValue(const CSSPrimitiveValue& value,
 
 void BuilderState::registerContentAttribute(const AtomString& attributeLocalName)
 {
-    if (style().styleType() == PseudoId::Before || style().styleType() == PseudoId::After)
+    if (style().pseudoElementType() == PseudoId::Before || style().pseudoElementType() == PseudoId::After)
         m_registeredContentAttributes.append(attributeLocalName);
 }
 

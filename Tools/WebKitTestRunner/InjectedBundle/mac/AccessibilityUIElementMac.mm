@@ -26,8 +26,6 @@
 #import "config.h"
 #import "AccessibilityCommonCocoa.h"
 
-#if ENABLE(ACCESSIBILITY)
-
 #import "AccessibilityNotificationHandler.h"
 #import "AccessibilityUIElement.h"
 #import "InjectedBundle.h"
@@ -385,20 +383,22 @@ JSValueRef AccessibilityUIElement::children() const
     return nullptr;
 }
 
-void AccessibilityUIElement::getChildren(Vector<RefPtr<AccessibilityUIElement> >& elementVector)
+Vector<RefPtr<AccessibilityUIElement>> AccessibilityUIElement::getChildren() const
 {
-    elementVector = makeVector<RefPtr<AccessibilityUIElement>>(attributeValue(NSAccessibilityChildrenAttribute).get());
+    return makeVector<RefPtr<AccessibilityUIElement>>(attributeValue(NSAccessibilityChildrenAttribute).get());
 }
 
-void AccessibilityUIElement::getChildrenWithRange(Vector<RefPtr<AccessibilityUIElement> >& elementVector, unsigned location, unsigned length)
+Vector<RefPtr<AccessibilityUIElement>> AccessibilityUIElement::getChildrenInRange(unsigned location, unsigned length) const
 {
     BEGIN_AX_OBJC_EXCEPTIONS
     RetainPtr<NSArray> children;
     s_controller->executeOnAXThreadAndWait([&children, location, length, this] {
         children = [m_element accessibilityArrayAttributeValues:NSAccessibilityChildrenAttribute index:location maxCount:length];
     });
-    elementVector = makeVector<RefPtr<AccessibilityUIElement>>(children.get());
+    return makeVector<RefPtr<AccessibilityUIElement>>(children.get());
     END_AX_OBJC_EXCEPTIONS
+
+    return { };
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::customContent() const
@@ -450,14 +450,6 @@ JSValueRef AccessibilityUIElement::columnHeaders() const
     END_AX_OBJC_EXCEPTIONS
 }
 
-int AccessibilityUIElement::childrenCount()
-{
-    Vector<RefPtr<AccessibilityUIElement> > children;
-    getChildren(children);
-    
-    return children.size();
-}
-
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::elementAtPoint(int x, int y)
 {
     RetainPtr<id> element;
@@ -481,16 +473,6 @@ unsigned AccessibilityUIElement::indexOfChild(AccessibilityUIElement* element)
     return index;
 }
 
-RefPtr<AccessibilityUIElement> AccessibilityUIElement::childAtIndex(unsigned index)
-{
-    Vector<RefPtr<AccessibilityUIElement>> children;
-    getChildrenWithRange(children, index, 1);
-
-    if (children.size() == 1)
-        return children[0];
-    return nullptr;
-}
-
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::elementForAttribute(NSString* attribute) const
 {
     auto element = attributeValue(attribute);
@@ -508,6 +490,26 @@ RefPtr<AccessibilityUIElement> AccessibilityUIElement::linkedUIElementAtIndex(un
     return elementForAttributeAtIndex(NSAccessibilityLinkedUIElementsAttribute, index);
 }
 
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::controllerElementAtIndex(unsigned index)
+{
+    return elementForAttributeAtIndex(@"AXControllers", index);
+}
+
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaControlsElementAtIndex(unsigned index)
+{
+    return elementForAttributeAtIndex(@"AXControllerFor", index);
+}
+
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaDescribedByElementAtIndex(unsigned index)
+{
+    return elementForAttributeAtIndex(@"AXDescribedBy", index);
+}
+
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::descriptionForElementAtIndex(unsigned index)
+{
+    return elementForAttributeAtIndex(@"AXDescriptionFor", index);
+}
+
 JSValueRef AccessibilityUIElement::detailsElements() const
 {
     BEGIN_AX_OBJC_EXCEPTIONS
@@ -515,8 +517,17 @@ JSValueRef AccessibilityUIElement::detailsElements() const
     if ([elements isKindOfClass:NSArray.class])
         return makeJSArray(makeVector<RefPtr<AccessibilityUIElement>>(elements.get()));
     END_AX_OBJC_EXCEPTIONS
-
     return { };
+}
+
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaDetailsElementAtIndex(unsigned index)
+{
+    return elementForAttributeAtIndex(@"AXDetailsElements", index);
+}
+
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::detailsForElementAtIndex(unsigned index)
+{
+    return elementForAttributeAtIndex(@"AXDetailsFor", index);
 }
 
 JSValueRef AccessibilityUIElement::errorMessageElements() const
@@ -526,13 +537,22 @@ JSValueRef AccessibilityUIElement::errorMessageElements() const
     if ([elements isKindOfClass:NSArray.class])
         return makeJSArray(makeVector<RefPtr<AccessibilityUIElement>>(elements.get()));
     END_AX_OBJC_EXCEPTIONS
-
     return { };
 }
 
-RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaOwnsElementAtIndex(unsigned index)
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaErrorMessageElementAtIndex(unsigned index)
 {
-    return elementForAttributeAtIndex(NSAccessibilityOwnsAttribute, index);
+    return elementForAttributeAtIndex(@"AXErrorMessageElements", index);
+}
+
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::errorMessageForElementAtIndex(unsigned index)
+{
+    return elementForAttributeAtIndex(@"AXErrorMessageFor", index);
+}
+
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::flowFromElementAtIndex(unsigned index)
+{
+    return elementForAttributeAtIndex(@"AXFlowFrom", index);
 }
 
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaFlowToElementAtIndex(unsigned index)
@@ -540,22 +560,24 @@ RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaFlowToElementAtIndex(
     return elementForAttributeAtIndex(NSAccessibilityLinkedUIElementsAttribute, index);
 }
 
-RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaControlsElementAtIndex(unsigned index)
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaLabelledByElementAtIndex(unsigned index)
 {
-    // Per spec, aria-controls is exposed via AXLinkedUIElements on the Mac.
-    // Note that a few other things are exposed via AXLinkedUIElements (aria-flowto), so this function
-    // may provide unexpected results for tests that use a combination of these attributes.
-    return linkedUIElementAtIndex(index);
+    return elementForAttributeAtIndex(@"AXLabelledBy", index);
 }
 
-RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaDetailsElementAtIndex(unsigned index)
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::labelForElementAtIndex(unsigned index)
 {
-    return elementForAttributeAtIndex(@"AXDetailsElements", index);
+    return elementForAttributeAtIndex(@"AXLabelFor", index);
 }
 
-RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaErrorMessageElementAtIndex(unsigned index)
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::ownerElementAtIndex(unsigned index)
 {
-    return elementForAttributeAtIndex(@"AXErrorMessageElements", index);
+    return elementForAttributeAtIndex(@"AXOwners", index);
+}
+
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::ariaOwnsElementAtIndex(unsigned index)
+{
+    return elementForAttributeAtIndex(NSAccessibilityOwnsAttribute, index);
 }
 
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::disclosedRowAtIndex(unsigned index)
@@ -614,9 +636,7 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfDocumentLinks()
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::attributesOfChildren()
 {
-    Vector<RefPtr<AccessibilityUIElement> > children;
-    getChildren(children);
-    return descriptionOfElements(children);
+    return descriptionOfElements(getChildren());
 }
 
 JSRetainPtr<JSStringRef> AccessibilityUIElement::allAttributes()
@@ -2593,5 +2613,3 @@ bool AccessibilityUIElement::isInNonNativeTextControl() const
 }
 
 } // namespace WTR
-
-#endif // ENABLE(ACCESSIBILITY)

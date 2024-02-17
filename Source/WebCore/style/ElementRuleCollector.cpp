@@ -186,19 +186,19 @@ void ElementRuleCollector::collectMatchingRules(CascadeLevel level)
         matchHostPseudoClassRules(level);
 
     if (element().isInShadowTree()) {
-        matchShadowPseudoElementRules(level);
+        matchUserAgentPartRules(level);
         matchPartPseudoElementRules(level);
     }
 }
 
 void ElementRuleCollector::collectMatchingRules(const MatchRequest& matchRequest)
 {
-    ASSERT_WITH_MESSAGE(!(m_mode == SelectorChecker::Mode::CollectingRulesIgnoringVirtualPseudoElements && m_pseudoElementRequest.pseudoId != PseudoId::None), "When in StyleInvalidation or SharingRules, SelectorChecker does not try to match the pseudo ID. While ElementRuleCollector supports matching a particular pseudoId in this case, this would indicate a error at the call site since matching a particular element should be unnecessary.");
+    ASSERT_WITH_MESSAGE(!(m_mode == SelectorChecker::Mode::CollectingRulesIgnoringVirtualPseudoElements && m_pseudoElementRequest.pseudoId() != PseudoId::None), "When in StyleInvalidation or SharingRules, SelectorChecker does not try to match the pseudo ID. While ElementRuleCollector supports matching a particular pseudoId in this case, this would indicate a error at the call site since matching a particular element should be unnecessary.");
 
     auto& element = this->element();
     auto* shadowRoot = element.containingShadowRoot();
     if (shadowRoot && shadowRoot->mode() == ShadowRootMode::UserAgent)
-        collectMatchingShadowPseudoElementRules(matchRequest);
+        collectMatchingUserAgentPartRules(matchRequest);
 
     bool isHTML = element.isHTMLElement() && element.document().isHTMLDocument();
 
@@ -271,7 +271,8 @@ void ElementRuleCollector::transferMatchedRules(DeclarationOrigin declarationOri
             matchedRule.ruleData->propertyAllowlist(),
             matchedRule.styleScopeOrdinal,
             FromStyleAttribute::No,
-            matchedRule.cascadeLayerPriority
+            matchedRule.cascadeLayerPriority,
+            matchedRule.ruleData->isStartingStyle()
         }, declarationOrigin);
     }
 }
@@ -295,20 +296,20 @@ bool ElementRuleCollector::matchesAnyAuthorRules()
     return !m_matchedRules.isEmpty();
 }
 
-void ElementRuleCollector::matchShadowPseudoElementRules(CascadeLevel level)
+void ElementRuleCollector::matchUserAgentPartRules(CascadeLevel level)
 {
     ASSERT(element().isInShadowTree());
     auto* shadowRoot = element().containingShadowRoot();
     if (!shadowRoot || shadowRoot->mode() != ShadowRootMode::UserAgent)
         return;
 
-    // Look up shadow pseudo elements also from the host scope style as they are web-exposed.
+    // Look up user agent parts also from the host scope style as they are web-exposed.
     auto* hostRules = Scope::forNode(*shadowRoot->host()).resolver().ruleSets().styleForCascadeLevel(level);
     if (!hostRules)
         return;
 
     MatchRequest hostRequest { *hostRules, ScopeOrdinal::ContainingHost };
-    collectMatchingShadowPseudoElementRules(hostRequest);
+    collectMatchingUserAgentPartRules(hostRequest);
 }
 
 void ElementRuleCollector::matchHostPseudoClassRules(CascadeLevel level)
@@ -355,9 +356,9 @@ void ElementRuleCollector::matchPartPseudoElementRules(CascadeLevel level)
     if (!element().containingShadowRoot())
         return;
 
-    bool isUAShadowPseudoElement = element().containingShadowRoot()->mode() == ShadowRootMode::UserAgent && !element().pseudo().isNull();
+    bool isUserAgentPart = element().containingShadowRoot()->mode() == ShadowRootMode::UserAgent && !element().userAgentPart().isNull();
 
-    auto& partMatchingElement = isUAShadowPseudoElement ? *element().shadowHost() : element();
+    auto& partMatchingElement = isUserAgentPart ? *element().shadowHost() : element();
     if (partMatchingElement.partNames().isEmpty() || !partMatchingElement.isInShadowTree())
         return;
 
@@ -392,9 +393,9 @@ void ElementRuleCollector::matchPartPseudoElementRulesForScope(const Element& pa
     }
 }
 
-void ElementRuleCollector::collectMatchingShadowPseudoElementRules(const MatchRequest& matchRequest)
+void ElementRuleCollector::collectMatchingUserAgentPartRules(const MatchRequest& matchRequest)
 {
-    ASSERT(element().containingShadowRoot()->mode() == ShadowRootMode::UserAgent);
+    ASSERT(element().isInUserAgentShadowTree());
 
     auto& rules = matchRequest.ruleSet;
 #if ENABLE(VIDEO)
@@ -402,9 +403,8 @@ void ElementRuleCollector::collectMatchingShadowPseudoElementRules(const MatchRe
     if (element().isWebVTTElement() || element().isWebVTTRubyElement() || element().isWebVTTRubyTextElement())
         collectMatchingRulesForList(&rules.cuePseudoRules(), matchRequest);
 #endif
-    auto& partId = element().pseudo();
-    if (!partId.isEmpty())
-        collectMatchingRulesForList(rules.shadowPseudoElementRules(partId), matchRequest);
+    if (auto& part = element().userAgentPart(); !part.isEmpty())
+        collectMatchingRulesForList(rules.userAgentPartRules(part), matchRequest);
 }
 
 void ElementRuleCollector::matchUserRules()
@@ -446,7 +446,7 @@ inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned
     // This is limited to HTML only so we don't need to check the namespace (because of tag name match).
     auto matchBasedOnRuleHash = ruleData.matchBasedOnRuleHash();
     if (matchBasedOnRuleHash != MatchBasedOnRuleHash::None && element().isHTMLElement()) {
-        ASSERT_WITH_MESSAGE(m_pseudoElementRequest.pseudoId == PseudoId::None, "If we match based on the rule hash while collecting for a particular pseudo element ID, we would add incorrect rules for that pseudo element ID. We should never end in ruleMatches() with a pseudo element if the ruleData cannot match any pseudo element.");
+        ASSERT_WITH_MESSAGE(m_pseudoElementRequest.pseudoId() == PseudoId::None, "If we match based on the rule hash while collecting for a particular pseudo element ID, we would add incorrect rules for that pseudo element ID. We should never end in ruleMatches() with a pseudo element if the ruleData cannot match any pseudo element.");
 
         switch (matchBasedOnRuleHash) {
         case MatchBasedOnRuleHash::None:
@@ -479,7 +479,7 @@ inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned
 
 #if !ASSERT_MSG_DISABLED
         unsigned ignoreSpecificity;
-        ASSERT_WITH_MESSAGE(!SelectorCompiler::ruleCollectorSimpleSelectorChecker(compiledSelector, &element(), &ignoreSpecificity) || m_pseudoElementRequest.pseudoId == PseudoId::None, "When matching pseudo elements, we should never compile a selector checker without context unless it cannot match anything.");
+        ASSERT_WITH_MESSAGE(!SelectorCompiler::ruleCollectorSimpleSelectorChecker(compiledSelector, &element(), &ignoreSpecificity) || m_pseudoElementRequest.pseudoId() == PseudoId::None, "When matching pseudo elements, we should never compile a selector checker without context unless it cannot match anything.");
 #endif
         bool selectorMatches = SelectorCompiler::ruleCollectorSimpleSelectorChecker(compiledSelector, &element(), &specificity);
 
@@ -491,9 +491,9 @@ inline bool ElementRuleCollector::ruleMatches(const RuleData& ruleData, unsigned
 #endif // ENABLE(CSS_SELECTOR_JIT)
 
     SelectorChecker::CheckingContext context(m_mode);
-    context.pseudoId = m_pseudoElementRequest.pseudoId;
-    context.scrollbarState = m_pseudoElementRequest.scrollbarState;
-    context.nameIdentifier = m_pseudoElementRequest.nameIdentifier;
+    context.pseudoId = m_pseudoElementRequest.pseudoId();
+    context.pseudoElementNameArgument = m_pseudoElementRequest.nameArgument();
+    context.scrollbarState = m_pseudoElementRequest.scrollbarState();
     context.styleScopeOrdinal = styleScopeOrdinal;
     context.selectorMatchingState = m_selectorMatchingState;
     context.scope = scopingRoot;
@@ -535,7 +535,7 @@ void ElementRuleCollector::collectMatchingRulesForList(const RuleSet::RuleDataVe
         if (UNLIKELY(!ruleData.isEnabled()))
             continue;
 
-        if (!ruleData.canMatchPseudoElement() && m_pseudoElementRequest.pseudoId != PseudoId::None)
+        if (!ruleData.canMatchPseudoElement() && m_pseudoElementRequest.pseudoId() != PseudoId::None)
             continue;
 
         if (m_selectorMatchingState && m_selectorMatchingState->selectorFilter.fastRejectSelector(ruleData.descendantSelectorIdentifierHashes()))
@@ -835,13 +835,15 @@ void ElementRuleCollector::addMatchedProperties(MatchedProperties&& matchedPrope
         // It might also be beneficial to overwrite the previous declaration (insteading of appending) if it affects the same exact properties.
         return;
     }
+    if (matchedProperties.isStartingStyle == IsStartingStyle::Yes)
+        m_result->hasStartingStyle = true;
     declarations.append(WTFMove(matchedProperties));
 }
 
 void ElementRuleCollector::addAuthorKeyframeRules(const StyleRuleKeyframe& keyframe)
 {
     ASSERT(m_result->authorDeclarations.isEmpty());
-    m_result->authorDeclarations.append({ keyframe.properties(), SelectorChecker::MatchAll, propertyAllowlistForPseudoId(m_pseudoElementRequest.pseudoId) });
+    m_result->authorDeclarations.append({ keyframe.properties(), SelectorChecker::MatchAll, propertyAllowlistForPseudoId(m_pseudoElementRequest.pseudoId()) });
 }
 
 }

@@ -30,10 +30,6 @@
 #include <wtf/ArgumentCoder.h>
 #include <wtf/RetainPtr.h>
 
-#if HAVE(SEC_KEYCHAIN)
-#include <Security/SecKeychainItem.h>
-#endif
-
 typedef struct CGColorSpace* CGColorSpaceRef;
 
 namespace IPC {
@@ -54,13 +50,6 @@ template<> struct ArgumentCoder<CFTypeRef> {
 };
 template<> struct ArgumentCoder<RetainPtr<CFTypeRef>> : CFRetainPtrArgumentCoder<CFTypeRef> {
     static std::optional<RetainPtr<CFTypeRef>> decode(Decoder&);
-};
-
-template<> struct ArgumentCoder<CFArrayRef> {
-    template<typename Encoder> static void encode(Encoder&, CFArrayRef);
-};
-template<> struct ArgumentCoder<RetainPtr<CFArrayRef>> : CFRetainPtrArgumentCoder<CFArrayRef> {
-    static std::optional<RetainPtr<CFArrayRef>> decode(Decoder&);
 };
 
 template<> struct ArgumentCoder<CFCharacterSetRef> {
@@ -84,22 +73,6 @@ template<> struct ArgumentCoder<RetainPtr<CGColorSpaceRef>> : CFRetainPtrArgumen
     static std::optional<RetainPtr<CGColorSpaceRef>> decode(Decoder&);
 };
 
-template<> struct ArgumentCoder<SecCertificateRef> {
-    template<typename Encoder> static void encode(Encoder&, SecCertificateRef);
-};
-template<> struct ArgumentCoder<RetainPtr<SecCertificateRef>> : CFRetainPtrArgumentCoder<SecCertificateRef> {
-    static std::optional<RetainPtr<SecCertificateRef>> decode(Decoder&);
-};
-
-#if HAVE(SEC_KEYCHAIN)
-template<> struct ArgumentCoder<SecKeychainItemRef> {
-    template<typename Encoder> static void encode(Encoder&, SecKeychainItemRef);
-};
-template<> struct ArgumentCoder<RetainPtr<SecKeychainItemRef>> : CFRetainPtrArgumentCoder<SecKeychainItemRef> {
-    static std::optional<RetainPtr<SecKeychainItemRef>> decode(Decoder&);
-};
-#endif
-
 #if HAVE(SEC_ACCESS_CONTROL)
 template<> struct ArgumentCoder<SecAccessControlRef> {
     template<typename Encoder> static void encode(Encoder&, SecAccessControlRef);
@@ -108,12 +81,5 @@ template<> struct ArgumentCoder<RetainPtr<SecAccessControlRef>> : CFRetainPtrArg
     static std::optional<RetainPtr<SecAccessControlRef>> decode(Decoder&);
 };
 #endif
-
-template<> struct ArgumentCoder<SecTrustRef> {
-    template<typename Encoder> static void encode(Encoder&, SecTrustRef);
-};
-template<> struct ArgumentCoder<RetainPtr<SecTrustRef>> : CFRetainPtrArgumentCoder<SecTrustRef> {
-    template<typename Decoder> static std::optional<RetainPtr<SecTrustRef>> decode(Decoder&);
-};
 
 } // namespace IPC

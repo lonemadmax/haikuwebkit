@@ -841,7 +841,7 @@
       "nicks" : [
          "annevk"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -1565,7 +1565,7 @@
       ],
       "github" : "charliewolfe",
       "name" : "Charlie Wolfe",
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -1987,6 +1987,18 @@
       "name" : "Darin Fisher",
       "nicks" : [
          "fishd"
+      ]
+   },
+   {
+      "emails" : [
+         "d_parkinson@apple.com"
+      ],
+      "expertise" : "Security",
+      "github" : "darryl-apple",
+      "name" : "Darryl Parkinson",
+      "nicks" : [
+         "darryl-apple",
+         "darryl.p"
       ]
    },
    {
@@ -3032,6 +3044,17 @@
    },
    {
       "emails" : [
+         "feaneron@igalia.com",
+         "gbsneto@gnome.org"
+      ],
+      "github" : "GeorgesStavracas",
+      "name" : "Georges Basile Stavracas Neto",
+      "nicks" : [
+         "feaneron"
+      ]
+   },
+   {
+      "emails" : [
          "g_squelart@apple.com",
          "squelart@apple.com"
       ],
@@ -3822,7 +3845,7 @@
       "nicks" : [
          "jeffm7"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -5088,7 +5111,6 @@
    },
    {
       "emails" : [
-         "luke@warlow.dev",
          "lwarlow@igalia.com"
       ],
       "github" : "lukewarlow",
@@ -5430,7 +5452,7 @@
       ],
       "github" : "mdubet",
       "name" : "Matthieu Dubet",
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -5733,6 +5755,14 @@
       "expertise" : "WebKit on macOS",
       "github" : "MoeBazziGIT",
       "name" : "Moe Bazzi"
+   },
+   {
+      "emails" : [
+         "mohsinq@apple.com"
+      ],
+      "github" : "mogey",
+      "name" : "Mohsin Qureshi",
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -6410,6 +6440,13 @@
       "nicks" : [
          "rhauck"
       ]
+   },
+   {
+      "emails" : [
+         "rding23@apple.com"
+      ],
+      "github" : "rding0207",
+      "name" : "Ren Ding"
    },
    {
       "emails" : [

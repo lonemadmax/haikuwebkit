@@ -84,12 +84,14 @@ private:
     void recordFillRect(const FloatRect&) final;
     void recordFillRectWithColor(const FloatRect&, const Color&) final;
     void recordFillRectWithGradient(const FloatRect&, Gradient&) final;
+    void recordFillRectWithGradientAndSpaceTransform(const FloatRect&, Gradient&, const AffineTransform&) final;
     void recordFillCompositedRect(const FloatRect&, const Color&, CompositeOperator, BlendMode) final;
     void recordFillRoundedRect(const FloatRoundedRect&, const Color&, BlendMode) final;
     void recordFillRectWithRoundedHole(const FloatRect&, const FloatRoundedRect&, const Color&) final;
 #if ENABLE(INLINE_PATH_DATA)
     void recordFillLine(const PathDataLine&) final;
     void recordFillArc(const PathArc&) final;
+    void recordFillClosedArc(const PathClosedArc&) final;
     void recordFillQuadCurve(const PathDataQuadCurve&) final;
     void recordFillBezierCurve(const PathDataBezierCurve&) final;
 #endif
@@ -105,6 +107,7 @@ private:
     void recordStrokeLine(const PathDataLine&) final;
     void recordStrokeLineWithColorAndThickness(const PathDataLine&, SetInlineStroke&&) final;
     void recordStrokeArc(const PathArc&) final;
+    void recordStrokeClosedArc(const PathClosedArc&) final;
     void recordStrokeQuadCurve(const PathDataQuadCurve&) final;
     void recordStrokeBezierCurve(const PathDataBezierCurve&) final;
 #endif

@@ -416,31 +416,29 @@ ALWAYS_INLINE bool matchesFullscreenPseudoClass(const Element& element)
     return false;
 }
 
-ALWAYS_INLINE bool matchesFullScreenAnimatingFullScreenTransitionPseudoClass(const Element& element)
+ALWAYS_INLINE bool matchesAnimatingFullscreenTransitionPseudoClass(const Element& element)
 {
-    if (&element != element.document().fullscreenManager().currentFullscreenElement())
+    CheckedPtr fullscreenManager = element.document().fullscreenManagerIfExists();
+    if (!fullscreenManager || &element != fullscreenManager->currentFullscreenElement())
         return false;
-    return element.document().fullscreenManager().isAnimatingFullscreen();
+    return fullscreenManager->isAnimatingFullscreen();
 }
 
-ALWAYS_INLINE bool matchesFullScreenAncestorPseudoClass(const Element& element)
-{
-    auto* currentFullscreenElement = element.document().fullscreenManager().currentFullscreenElement();
-    return currentFullscreenElement && currentFullscreenElement->isDescendantOrShadowDescendantOf(element);
-}
-
-ALWAYS_INLINE bool matchesFullScreenDocumentPseudoClass(const Element& element)
+ALWAYS_INLINE bool matchesFullscreenDocumentPseudoClass(const Element& element)
 {
     // While a Document is in the fullscreen state, the 'full-screen-document' pseudoclass applies
     // to all elements of that Document.
-    return element.document().fullscreenManager().fullscreenElement();
+    CheckedPtr fullscreenManager = element.document().fullscreenManagerIfExists();
+    return fullscreenManager && fullscreenManager->fullscreenElement();
 }
 
-ALWAYS_INLINE bool matchesFullScreenControlsHiddenPseudoClass(const Element& element)
+ALWAYS_INLINE bool matchesInWindowFullScreenPseudoClass(const Element& element)
 {
     if (&element != element.document().fullscreenManager().currentFullscreenElement())
         return false;
-    return element.document().fullscreenManager().areFullscreenControlsHidden();
+
+    auto* mediaElement = dynamicDowncast<HTMLMediaElement>(element);
+    return mediaElement && mediaElement->fullscreenMode() == HTMLMediaElementEnums::VideoFullscreenModeInWindow;
 }
 
 #endif

@@ -1,0 +1,16 @@
+shouldpass
+
+FAIL Trusted Type assignment is blocked. (document) assert_throws_js: function "_ => { doc.createElement("script").textContent = "2+2"; }" did not throw
+FAIL Trusted Type instances created in the main doc can be used. (document) assert_throws_js: function "_ => { doc.body.innerHTML = "world"; }" did not throw
+FAIL Trusted Type assignment is blocked. (createHTMLDocument) assert_throws_js: function "_ => { doc.createElement("script").textContent = "2+2"; }" did not throw
+FAIL Trusted Type instances created in the main doc can be used. (createHTMLDocument) assert_throws_js: function "_ => { doc.body.innerHTML = "world"; }" did not throw
+FAIL Trusted Type assignment is blocked. (DOMParser) assert_throws_js: function "_ => { doc.createElement("script").textContent = "2+2"; }" did not throw
+FAIL Trusted Type instances created in the main doc can be used. (DOMParser) assert_throws_js: function "_ => { doc.body.innerHTML = "world"; }" did not throw
+FAIL Trusted Type assignment is blocked. (XHR) assert_throws_js: function "_ => { doc.createElement("script").textContent = "2+2"; }" did not throw
+FAIL Trusted Type instances created in the main doc can be used. (XHR) assert_throws_js: function "_ => { doc.body.innerHTML = "world"; }" did not throw
+PASS Install default policy.
+FAIL Default policy applies. (document) assert_equals: expected "shouldpass [default]" but got "shouldpass"
+FAIL Default policy applies. (createHTMLDocument) assert_equals: expected "shouldpass [default]" but got "shouldpass"
+FAIL Default policy applies. (DOMParser) assert_equals: expected "shouldpass [default]" but got "shouldpass"
+FAIL Default policy applies. (XHR) assert_equals: expected "shouldpass [default]" but got "shouldpass"
+

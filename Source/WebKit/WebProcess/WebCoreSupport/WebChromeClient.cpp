@@ -313,6 +313,8 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& win
 
     auto& mouseEventData = navigationAction.mouseEventData();
 
+    RefPtr webFrame = WebFrame::fromCoreFrame(frame);
+
     NavigationActionData navigationActionData {
         navigationAction.type(),
         modifiersForNavigationAction(navigationAction),
@@ -344,11 +346,15 @@ Page* WebChromeClient::createWindow(LocalFrame& frame, const WindowFeatures& win
 #if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
         std::nullopt, /* webHitTestResultData */
 #endif
+        webFrame->info(), /* originatingFrameInfoData */
+        webFrame->page()->webPageProxyIdentifier(),
+        webFrame->info(), /* frameInfo */
+        0, /* navigationID */
+        navigationAction.originalRequest(), /* originalRequest */
+        navigationAction.originalRequest() /* request */
     };
 
-    auto webFrame = WebFrame::fromCoreFrame(frame);
-
-    auto sendResult = webProcess.parentProcessConnection()->sendSync(Messages::WebPageProxy::CreateNewPage(webFrame->info(), webFrame->page()->webPageProxyIdentifier(), navigationAction.originalRequest(), windowFeatures, navigationActionData), page().identifier(), IPC::Timeout::infinity(), { IPC::SendSyncOption::MaintainOrderingWithAsyncMessages });
+    auto sendResult = webProcess.parentProcessConnection()->sendSync(Messages::WebPageProxy::CreateNewPage(windowFeatures, navigationActionData), page().identifier(), IPC::Timeout::infinity(), { IPC::SendSyncOption::MaintainOrderingWithAsyncMessages });
     if (!sendResult.succeeded())
         return nullptr;
 
@@ -1012,7 +1018,7 @@ RefPtr<ImageBuffer> WebChromeClient::sinkIntoImageBuffer(std::unique_ptr<Seriali
 
 std::unique_ptr<WebCore::WorkerClient> WebChromeClient::createWorkerClient(SerialFunctionDispatcher& dispatcher)
 {
-    return makeUnique<WebWorkerClient>(protectedPage().ptr(), dispatcher);
+    return WebWorkerClient::create(protectedPage(), dispatcher).moveToUniquePtr();
 }
 
 #if ENABLE(WEBGL)
@@ -1034,7 +1040,7 @@ RefPtr<GraphicsContextGL> WebChromeClient::createGraphicsContextGL(const Graphic
 RefPtr<WebCore::WebGPU::GPU> WebChromeClient::createGPUForWebGPU() const
 {
 #if ENABLE(GPU_PROCESS)
-    return RemoteGPUProxy::create(WebProcess::singleton().ensureGPUProcessConnection(), WebGPU::DowncastConvertToBackingContext::create(), WebGPUIdentifier::generate(), protectedPage()->ensureRemoteRenderingBackendProxy().ensureBackendCreated());
+    return RemoteGPUProxy::create(WebProcess::singleton().ensureGPUProcessConnection().connection(), WebGPU::DowncastConvertToBackingContext::create(), WebGPUIdentifier::generate(), protectedPage()->ensureRemoteRenderingBackendProxy().ensureBackendCreated());
 #else
     return WebCore::WebGPU::create([](WebCore::WebGPU::WorkItem&& workItem) {
         callOnMainRunLoop(WTFMove(workItem));
@@ -1301,9 +1307,9 @@ bool WebChromeClient::supportsFullScreenForElement(const Element&, bool withKeyb
     return protectedPage()->fullScreenManager()->supportsFullScreen(withKeyboard);
 }
 
-void WebChromeClient::enterFullScreenForElement(Element& element)
+void WebChromeClient::enterFullScreenForElement(Element& element, HTMLMediaElementEnums::VideoFullscreenMode mode)
 {
-    protectedPage()->fullScreenManager()->enterFullScreenForElement(&element);
+    protectedPage()->fullScreenManager()->enterFullScreenForElement(&element, mode);
 }
 
 void WebChromeClient::exitFullScreenForElement(Element* element)
@@ -1692,6 +1698,23 @@ void WebChromeClient::setUserIsInteracting(bool userIsInteracting)
 void WebChromeClient::setMockWebAuthenticationConfiguration(const MockWebAuthenticationConfiguration& configuration)
 {
     protectedPage()->send(Messages::WebPageProxy::SetMockWebAuthenticationConfiguration(configuration));
+}
+#endif
+
+#if PLATFORM(PLAYSTATION)
+void WebChromeClient::postAccessibilityNotification(WebCore::AccessibilityObject&, WebCore::AXObjectCache::AXNotification)
+{
+    notImplemented();
+}
+
+void WebChromeClient::postAccessibilityNodeTextChangeNotification(WebCore::AccessibilityObject*, WebCore::AXTextChange, unsigned, const String&)
+{
+    notImplemented();
+}
+
+void WebChromeClient::postAccessibilityFrameLoadingEventNotification(WebCore::AccessibilityObject*, WebCore::AXObjectCache::AXLoadingEvent)
+{
+    notImplemented();
 }
 #endif
 

@@ -1683,10 +1683,7 @@
             F_OFD_SETLKWTIMEOUT))
 
 #if HAVE(SANDBOX_STATE_FLAGS)
-    (with-filter (require-not (state-flag "AppCacheDisabled"))
-        (allow system-fcntl (appcache-fcntl-commands)))
-    (with-filter (state-flag "AppCacheDisabled")
-        (deny system-fcntl (appcache-fcntl-commands)))
+    (deny system-fcntl (appcache-fcntl-commands))
 #else
     (allow system-fcntl (appcache-fcntl-commands))
 #endif
@@ -1725,6 +1722,8 @@
 
 (define (syscall-unix-in-use-after-launch)
     (syscall-number
+        SYS_ftruncate
+        SYS_fsync
         SYS___disable_threadsignal
         SYS___mac_syscall
         SYS_access
@@ -1852,11 +1851,17 @@
     SYS_umask
     SYS_work_interval_ctl))
 
+(define (syscall-appcache)
+    (syscall-number
+        SYS_guarded_open_np
+        SYS_guarded_close_np
+        SYS_guarded_pwrite_np
+        SYS_unlink))
+
 (define (syscall-unix-downlevels)
     (syscall-number
         SYS_flock
         SYS_fsetxattr ;; <rdar://problem/56332491>
-        SYS_ftruncate
         SYS_msync
         SYS_rename))
 
@@ -1866,7 +1871,6 @@
         SYS_change_fdguard_np
         SYS_chmod
         SYS_fchmod
-        SYS_fsync
         SYS_getpriority ;; rdar://81727094. Required for CoreAudio AudioOutputUnitStart call. Remove when GPU process is enabled by default.
         SYS_guarded_close_np
         SYS_guarded_open_np

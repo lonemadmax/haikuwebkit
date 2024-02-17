@@ -49,6 +49,7 @@
 #include <wtf/HashSet.h>
 #include <wtf/RefCounter.h>
 #include <wtf/WeakHashMap.h>
+#include <wtf/text/ASCIILiteral.h>
 #include <wtf/text/AtomString.h>
 #include <wtf/text/AtomStringHash.h>
 
@@ -440,6 +441,7 @@ public:
     FileSystem::Salt mediaKeysStorageSalt() const { return m_mediaKeysStorageSalt; }
 
     bool haveStorageAccessQuirksForDomain(const WebCore::RegistrableDomain&);
+    void updateCachedCookiesEnabled();
 
 private:
     WebProcess();
@@ -470,7 +472,7 @@ private:
     void platformTerminate();
 
     void setHasSuspendedPageProxy(bool);
-    void setIsInProcessCache(bool);
+    void setIsInProcessCache(bool, CompletionHandler<void()>&&);
     void markIsNoLongerPrewarmed();
 
     void registerURLSchemeAsEmptyDocument(const String&);
@@ -687,7 +689,7 @@ private:
 
     HashMap<WebCore::FrameIdentifier, WeakPtr<WebFrame>> m_frameMap;
 
-    typedef HashMap<const char*, std::unique_ptr<WebProcessSupplement>, PtrHash<const char*>> WebProcessSupplementMap;
+    using WebProcessSupplementMap = HashMap<ASCIILiteral, std::unique_ptr<WebProcessSupplement>, ASCIILiteralPtrHash>;
     WebProcessSupplementMap m_supplements;
 
     TextCheckerState m_textCheckerState;
@@ -781,7 +783,7 @@ private:
 #endif
 
     bool m_hasSuspendedPageProxy { false };
-    bool m_isSuspending { false };
+    bool m_allowExitOnMemoryPressure { true };
     bool m_isLockdownModeEnabled { false };
 
 #if ENABLE(MEDIA_STREAM) && ENABLE(SANDBOX_EXTENSIONS)
@@ -825,6 +827,7 @@ private:
     bool m_hadMainFrameMainResourcePrivateRelayed { false };
     bool m_imageAnimationEnabled { true };
     bool m_hasEverHadAnyWebPages { false };
+    bool m_hasPendingAccessibilityUnsuspension { false };
 
     HashSet<WebCore::RegistrableDomain> m_allowedFirstPartiesForCookies;
     String m_mediaKeysStorageDirectory;

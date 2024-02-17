@@ -23,10 +23,10 @@
 #include "ElementInlines.h"
 #include "LegacyRenderSVGResourceContainer.h"
 #include "RenderSVGGradientStopInlines.h"
+#include "RenderSVGResourceGradient.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGGradientElement.h"
 #include "SVGNames.h"
-#include "SVGResourcesCache.h"
 #include "SVGStopElement.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
@@ -57,9 +57,16 @@ void RenderSVGGradientStop::styleDidChange(StyleDifference diff, const RenderSty
     if (!gradient)
         return;
 
-    RenderElement* renderer = gradient->renderer();
+    auto* renderer = gradient->renderer();
     if (!renderer)
         return;
+
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+    if (auto* gradientRenderer = dynamicDowncast<RenderSVGResourceGradient>(renderer)) {
+        gradientRenderer->invalidateGradient();
+        return;
+    }
+#endif
 
     downcast<LegacyRenderSVGResourceContainer>(*renderer).removeAllClientsFromCache();
 }

@@ -46,18 +46,18 @@ class WebAnimation;
 
 enum class ParserContentPolicy : uint8_t;
 
-class ShadowRoot final : public DocumentFragment, public TreeScope {
+class ShadowRoot final : public CanMakeCheckedPtr, public DocumentFragment, public TreeScope {
     WTF_MAKE_ISO_ALLOCATED(ShadowRoot);
 public:
 
     enum class DelegatesFocus : bool { No, Yes };
-    enum class Cloneable : bool { No, Yes };
+    enum class Clonable : bool { No, Yes };
     enum class AvailableToElementInternals : bool { No, Yes };
 
     static Ref<ShadowRoot> create(Document& document, ShadowRootMode type, SlotAssignmentMode assignmentMode = SlotAssignmentMode::Named,
-        DelegatesFocus delegatesFocus = DelegatesFocus::No, Cloneable cloneable = Cloneable::No, AvailableToElementInternals availableToElementInternals = AvailableToElementInternals::No)
+        DelegatesFocus delegatesFocus = DelegatesFocus::No, Clonable clonable = Clonable::No, AvailableToElementInternals availableToElementInternals = AvailableToElementInternals::No)
     {
-        return adoptRef(*new ShadowRoot(document, type, assignmentMode, delegatesFocus, cloneable, availableToElementInternals));
+        return adoptRef(*new ShadowRoot(document, type, assignmentMode, delegatesFocus, clonable, availableToElementInternals));
     }
 
     static Ref<ShadowRoot> create(Document& document, std::unique_ptr<SlotAssignment>&& assignment)
@@ -68,13 +68,13 @@ public:
     virtual ~ShadowRoot();
 
     // Resolve ambiguity for CanMakeCheckedPtr.
-    void incrementPtrCount() const { static_cast<const DocumentFragment*>(this)->incrementPtrCount(); }
-    void decrementPtrCount() const { static_cast<const DocumentFragment*>(this)->decrementPtrCount(); }
+    using CanMakeCheckedPtr::incrementPtrCount;
+    using CanMakeCheckedPtr::decrementPtrCount;
 #if CHECKED_POINTER_DEBUG
-    void registerCheckedPtr(const void* pointer) const { static_cast<const DocumentFragment*>(this)->registerCheckedPtr(pointer); }
-    void copyCheckedPtr(const void* source, const void* destination) const { static_cast<const DocumentFragment*>(this)->copyCheckedPtr(source, destination); }
-    void moveCheckedPtr(const void* source, const void* destination) const { static_cast<const DocumentFragment*>(this)->moveCheckedPtr(source, destination); }
-    void unregisterCheckedPtr(const void* pointer) const { static_cast<const DocumentFragment*>(this)->unregisterCheckedPtr(pointer); }
+    using CanMakeCheckedPtr::registerCheckedPtr;
+    using CanMakeCheckedPtr::copyCheckedPtr;
+    using CanMakeCheckedPtr::moveCheckedPtr;
+    using CanMakeCheckedPtr::unregisterCheckedPtr;
 #endif // CHECKED_POINTER_DEBUG
 
     using TreeScope::getElementById;
@@ -88,7 +88,7 @@ public:
     bool containsFocusedElement() const { return m_containsFocusedElement; }
     void setContainsFocusedElement(bool flag) { m_containsFocusedElement = flag; }
 
-    bool isCloneable() const { return m_isCloneable; }
+    bool isClonable() const { return m_isClonable; }
 
     bool isAvailableToElementInternals() const { return m_availableToElementInternals; }
     void setIsAvailableToElementInternals(bool flag) { m_availableToElementInternals = flag; }
@@ -147,7 +147,7 @@ public:
     Vector<RefPtr<WebAnimation>> getAnimations();
 
 private:
-    ShadowRoot(Document&, ShadowRootMode, SlotAssignmentMode, DelegatesFocus, Cloneable, AvailableToElementInternals);
+    ShadowRoot(Document&, ShadowRootMode, SlotAssignmentMode, DelegatesFocus, Clonable, AvailableToElementInternals);
     ShadowRoot(Document&, std::unique_ptr<SlotAssignment>&&);
 
     bool childTypeAllowed(NodeType) const override;
@@ -161,7 +161,7 @@ private:
 
     bool m_hasBegunDeletingDetachedChildren : 1 { false };
     bool m_delegatesFocus : 1 { false };
-    bool m_isCloneable : 1 { false };
+    bool m_isClonable : 1 { false };
     bool m_containsFocusedElement : 1 { false };
     bool m_availableToElementInternals : 1 { false };
     bool m_isDeclarativeShadowRoot : 1 { false };

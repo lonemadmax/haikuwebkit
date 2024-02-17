@@ -569,13 +569,39 @@ FillRectWithGradient::FillRectWithGradient(FloatRect&& rect, Ref<Gradient>&& gra
 
 void FillRectWithGradient::apply(GraphicsContext& context) const
 {
-    context.fillRect(m_rect, m_gradient.get());
+    context.fillRect(m_rect, m_gradient);
 }
 
 void FillRectWithGradient::dump(TextStream& ts, OptionSet<AsTextFlag>) const
 {
     // FIXME: log gradient.
     ts.dumpProperty("rect", rect());
+}
+
+FillRectWithGradientAndSpaceTransform::FillRectWithGradientAndSpaceTransform(const FloatRect& rect, Gradient& gradient, const AffineTransform& gradientSpaceTransform)
+    : m_rect(rect)
+    , m_gradient(gradient)
+    , m_gradientSpaceTransform(gradientSpaceTransform)
+{
+}
+
+FillRectWithGradientAndSpaceTransform::FillRectWithGradientAndSpaceTransform(FloatRect&& rect, Ref<Gradient>&& gradient, AffineTransform&& gradientSpaceTransform)
+    : m_rect(WTFMove(rect))
+    , m_gradient(WTFMove(gradient))
+    , m_gradientSpaceTransform(WTFMove(gradientSpaceTransform))
+{
+}
+
+void FillRectWithGradientAndSpaceTransform::apply(GraphicsContext& context) const
+{
+    context.fillRect(m_rect, m_gradient, m_gradientSpaceTransform);
+}
+
+void FillRectWithGradientAndSpaceTransform::dump(TextStream& ts, OptionSet<AsTextFlag>) const
+{
+    // FIXME: log gradient.
+    ts.dumpProperty("rect", rect());
+    ts.dumpProperty("gradient-space-transform", gradientSpaceTransform());
 }
 
 void FillCompositedRect::apply(GraphicsContext& context) const
@@ -633,6 +659,16 @@ void FillArc::apply(GraphicsContext& context) const
 }
 
 void FillArc::dump(TextStream& ts, OptionSet<AsTextFlag>) const
+{
+    ts.dumpProperty("path", path());
+}
+
+void FillClosedArc::apply(GraphicsContext& context) const
+{
+    context.fillPath(path());
+}
+
+void FillClosedArc::dump(TextStream& ts, OptionSet<AsTextFlag>) const
 {
     ts.dumpProperty("path", path());
 }
@@ -774,6 +810,16 @@ void StrokeArc::apply(GraphicsContext& context) const
 }
 
 void StrokeArc::dump(TextStream& ts, OptionSet<AsTextFlag>) const
+{
+    ts.dumpProperty("path", path());
+}
+
+void StrokeClosedArc::apply(GraphicsContext& context) const
+{
+    context.strokePath(path());
+}
+
+void StrokeClosedArc::dump(TextStream& ts, OptionSet<AsTextFlag>) const
 {
     ts.dumpProperty("path", path());
 }

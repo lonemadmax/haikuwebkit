@@ -207,7 +207,6 @@ public:
         BundleDOMWindowExtension,
         BundleFrame,
         BundleHitTestResult,
-        BundleInspector,
         BundleNodeHandle,
         BundlePage,
         BundlePageBanner,
@@ -243,6 +242,8 @@ public:
 
     void ref() const;
     void deref() const;
+    void refAllowingPartiallyDestroyed() const { ref(); }
+    void derefAllowingPartiallyDestroyed() const { deref(); }
 #endif // DELEGATE_REF_COUNTING_TO_COCOA
 
     static void* wrap(API::Object*);

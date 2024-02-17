@@ -63,8 +63,7 @@ void GStreamerVideoCapturer::setSinkVideoFrameCallback(SinkVideoFrameCallback&& 
     m_sinkVideoFrameCallback.second = WTFMove(callback);
     m_sinkVideoFrameCallback.first = g_signal_connect_swapped(sink(), "new-sample", G_CALLBACK(+[](GStreamerVideoCapturer* capturer, GstElement* sink) -> GstFlowReturn {
         auto gstSample = adoptGRef(gst_app_sink_pull_sample(GST_APP_SINK(sink)));
-        auto presentationTime = fromGstClockTime(GST_BUFFER_PTS(gst_sample_get_buffer(gstSample.get())));
-        capturer->m_sinkVideoFrameCallback.second(VideoFrameGStreamer::create(WTFMove(gstSample), WebCore::FloatSize(), presentationTime));
+        capturer->m_sinkVideoFrameCallback.second(VideoFrameGStreamer::createWrappedSample(gstSample));
         return GST_FLOW_OK;
     }), this);
 }
@@ -123,15 +122,6 @@ GstElement* GStreamerVideoCapturer::createConverter()
     gst_element_add_pad(bin, gst_ghost_pad_new("src", srcPad.get()));
 
     return bin;
-}
-
-GstVideoInfo GStreamerVideoCapturer::getBestFormat()
-{
-    auto caps = adoptGRef(gst_caps_fixate(gst_device_get_caps(m_device->device())));
-    GstVideoInfo info;
-    gst_video_info_from_caps(&info, caps.get());
-
-    return info;
 }
 
 bool GStreamerVideoCapturer::setSize(int width, int height)

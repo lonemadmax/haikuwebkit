@@ -625,10 +625,12 @@ bool MediaElementSession::canShowControlsManager(PlaybackControlsPurpose purpose
 
 #if ENABLE(FULLSCREEN_API)
     // Elements which are not descendants of the current fullscreen element cannot be main content.
-    auto* fullscreenElement = m_element.document().fullscreenManager().currentFullscreenElement();
-    if (fullscreenElement && !m_element.isDescendantOf(*fullscreenElement)) {
-        INFO_LOG(LOGIDENTIFIER, "returning FALSE: outside of full screen");
-        return false;
+    if (CheckedPtr fullsreenManager = m_element.document().fullscreenManagerIfExists()) {
+        auto* fullscreenElement = fullsreenManager->currentFullscreenElement();
+        if (fullscreenElement && !m_element.isDescendantOf(*fullscreenElement)) {
+            INFO_LOG(LOGIDENTIFIER, "returning FALSE: outside of full screen");
+            return false;
+        }
     }
 #endif
 
@@ -1070,18 +1072,14 @@ static bool isElementLargeRelativeToMainFrame(const HTMLMediaElement& element)
     if (!documentFrame)
         return false;
 
-    auto* localFrame = dynamicDowncast<LocalFrame>(documentFrame->mainFrame());
-    if (!localFrame)
+    RefPtr mainFrameView = documentFrame->mainFrame().virtualView();
+    if (!mainFrameView)
         return false;
 
-    if (!localFrame->view())
-        return false;
+    auto maxVisibleClientWidth = std::min(renderer->clientWidth().toInt(), mainFrameView->visibleWidth());
+    auto maxVisibleClientHeight = std::min(renderer->clientHeight().toInt(), mainFrameView->visibleHeight());
 
-    auto& mainFrameView = *localFrame->view();
-    auto maxVisibleClientWidth = std::min(renderer->clientWidth().toInt(), mainFrameView.visibleWidth());
-    auto maxVisibleClientHeight = std::min(renderer->clientHeight().toInt(), mainFrameView.visibleHeight());
-
-    return maxVisibleClientWidth * maxVisibleClientHeight > minimumPercentageOfMainFrameAreaForMainContent * mainFrameView.visibleWidth() * mainFrameView.visibleHeight();
+    return maxVisibleClientWidth * maxVisibleClientHeight > minimumPercentageOfMainFrameAreaForMainContent * mainFrameView->visibleWidth() * mainFrameView->visibleHeight();
 }
 
 static bool isElementLargeEnoughForMainContent(const HTMLMediaElement& element, MediaSessionMainContentPurpose purpose)
@@ -1331,8 +1329,10 @@ void MediaElementSession::updateMediaUsageIfChanged()
 
     bool isOutsideOfFullscreen = false;
 #if ENABLE(FULLSCREEN_API)
-    if (auto* fullscreenElement = document.fullscreenManager().currentFullscreenElement())
-        isOutsideOfFullscreen = !m_element.isDescendantOf(*fullscreenElement);
+    if (CheckedPtr fullscreenManager = document.fullscreenManagerIfExists()) {
+        if (auto* fullscreenElement = document.fullscreenManager().currentFullscreenElement())
+            isOutsideOfFullscreen = m_element.isDescendantOf(*fullscreenElement);
+    }
 #endif
     bool isAudio = client().presentationType() == MediaType::Audio;
     bool isVideo = client().presentationType() == MediaType::Video;

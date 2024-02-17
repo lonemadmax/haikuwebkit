@@ -101,6 +101,7 @@ public:
     virtual ~PlatformCALayer();
 
     PlatformLayerIdentifier layerID() const { return m_layerID; }
+    virtual std::optional<WebCore::LayerHostingContextIdentifier> hostingContextIdentifier() const { return std::nullopt; }
 
     enum class Type : uint8_t {
         Cocoa,
@@ -243,9 +244,7 @@ public:
     virtual void setFilters(const FilterOperations&) = 0;
     virtual void copyFiltersFrom(const PlatformCALayer&) = 0;
 
-#if ENABLE(CSS_COMPOSITING)
     virtual void setBlendMode(BlendMode) = 0;
-#endif
 
     virtual void setName(const String&) = 0;
 
@@ -330,9 +329,15 @@ public:
     static void drawRepaintIndicator(GraphicsContext&, PlatformCALayer*, int repaintCount, Color customBackgroundColor = { });
     static CGRect frameForLayer(const PlatformLayer*);
 
+    virtual void markFrontBufferVolatileForTesting() { }
     void moveToLayerPool();
 
     virtual void dumpAdditionalProperties(TextStream&, OptionSet<PlatformLayerTreeAsTextFlags>);
+
+    virtual void purgeFrontBufferForTesting() { }
+    virtual void purgeBackBufferForTesting() { }
+
+    bool needsPlatformContext() const;
 
 protected:
     PlatformCALayer(LayerType, PlatformCALayerClient* owner);

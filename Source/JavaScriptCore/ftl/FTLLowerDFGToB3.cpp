@@ -76,6 +76,7 @@
 #include "JITMulGenerator.h"
 #include "JITRightShiftGenerator.h"
 #include "JITSubGenerator.h"
+#include "JITThunks.h"
 #include "JSArrayIterator.h"
 #include "JSAsyncFunction.h"
 #include "JSAsyncGenerator.h"
@@ -5484,7 +5485,8 @@ private:
             return patchpoint;
         }
 
-        speculate(UnexpectedResizableArrayBufferView, jsValueValue(base), m_node, m_out.testNonZero32(m_out.load8ZeroExt32(base, m_heaps.JSArrayBufferView_mode), m_out.constInt32(isResizableOrGrowableSharedMode)));
+        if (!m_graph.isNeverResizableOrGrowableSharedTypedArrayIncludingDataView(m_state.forNode(m_node->child1())))
+            speculate(UnexpectedResizableArrayBufferView, jsValueValue(base), m_node, m_out.testNonZero32(m_out.load8ZeroExt32(base, m_heaps.JSArrayBufferView_mode), m_out.constInt32(isResizableOrGrowableSharedMode)));
 #if USE(LARGE_TYPED_ARRAYS)
         return m_out.load64(base, m_heaps.JSArrayBufferView_byteOffset);
 #else
@@ -5643,7 +5645,7 @@ IGNORE_CLANG_WARNINGS_END
         setJSValue(m_out.loadPtr(moduleRecord, m_heaps.WebAssemblyModuleRecord_exportsObject));
     }
 
-    LValue typedArrayLength(LValue base, bool acceptResizable, std::optional<TypedArrayType> typedArrayType)
+    LValue typedArrayLength(LValue base, bool acceptResizable, std::optional<TypedArrayType> typedArrayType, Edge edge = Edge())
     {
         if (acceptResizable) {
 #if USE(LARGE_TYPED_ARRAYS)
@@ -5669,7 +5671,8 @@ IGNORE_CLANG_WARNINGS_END
             return patchpoint;
         }
 
-        speculate(UnexpectedResizableArrayBufferView, jsValueValue(base), m_node, m_out.testNonZero32(m_out.load8ZeroExt32(base, m_heaps.JSArrayBufferView_mode), m_out.constInt32(isResizableOrGrowableSharedMode)));
+        if (!edge || !m_graph.isNeverResizableOrGrowableSharedTypedArrayIncludingDataView(m_state.forNode(edge)))
+            speculate(UnexpectedResizableArrayBufferView, jsValueValue(base), m_node, m_out.testNonZero32(m_out.load8ZeroExt32(base, m_heaps.JSArrayBufferView_mode), m_out.constInt32(isResizableOrGrowableSharedMode)));
 #if USE(LARGE_TYPED_ARRAYS)
         return m_out.load64NonNegative(base, m_heaps.JSArrayBufferView_length);
 #else
@@ -5740,7 +5743,7 @@ IGNORE_CLANG_WARNINGS_END
         default: {
             DFG::ArrayMode arrayMode = m_node->arrayMode();
             if (arrayMode.isSomeTypedArrayView()) {
-                LValue length = typedArrayLength(lowCell(m_node->child1()), arrayMode.mayBeResizableOrGrowableSharedTypedArray(), arrayMode.type() == Array::AnyTypedArray ? std::nullopt : std::optional { arrayMode.typedArrayType() });
+                LValue length = typedArrayLength(lowCell(m_node->child1()), arrayMode.mayBeResizableOrGrowableSharedTypedArray(), arrayMode.type() == Array::AnyTypedArray ? std::nullopt : std::optional { arrayMode.typedArrayType() }, m_node->child1());
 #if USE(LARGE_TYPED_ARRAYS)
                 speculate(Overflow, noValue(), nullptr, m_out.above(length, m_out.constInt64(std::numeric_limits<int32_t>::max())));
                 setInt32(m_out.castToInt32(length));
@@ -5763,7 +5766,7 @@ IGNORE_CLANG_WARNINGS_BEGIN("missing-noreturn")
         // The preprocessor chokes on RELEASE_ASSERT(USE(LARGE_TYPED_ARRAYS)), this is equivalent.
         RELEASE_ASSERT(sizeof(size_t) == sizeof(uint64_t));
         DFG::ArrayMode arrayMode = m_node->arrayMode();
-        setStrictInt52(typedArrayLength(lowCell(m_node->child1()), arrayMode.mayBeResizableOrGrowableSharedTypedArray(), arrayMode.type() == Array::AnyTypedArray ? std::nullopt : std::optional { arrayMode.typedArrayType() }));
+        setStrictInt52(typedArrayLength(lowCell(m_node->child1()), arrayMode.mayBeResizableOrGrowableSharedTypedArray(), arrayMode.type() == Array::AnyTypedArray ? std::nullopt : std::optional { arrayMode.typedArrayType() }, m_node->child1()));
     }
 IGNORE_CLANG_WARNINGS_END
 
@@ -9254,20 +9257,6 @@ IGNORE_CLANG_WARNINGS_END
             m_out.int64Zero,
             m_heaps.typedArrayProperties);
 
-#if CPU(ARM64E)
-        {
-            PatchpointValue* authenticate = m_out.patchpoint(pointerType());
-            authenticate->appendSomeRegister(storage);
-            authenticate->append(size64Bits, B3::ValueRep(B3::ValueRep::SomeLateRegister));
-            authenticate->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
-                jit.move(params[1].gpr(), params[0].gpr());
-                jit.zeroExtend48ToWord(params[2].gpr(), params[2].gpr()); // See rdar://107561209, rdar://107724053.
-                jit.tagArrayPtr(params[2].gpr(), params[0].gpr());
-            });
-            storage = authenticate;
-        }
-#endif
-
         ValueFromBlock haveStorage = m_out.anchor(storage);
 
         LValue fastResultValue = nullptr;
@@ -11287,16 +11276,13 @@ IGNORE_CLANG_WARNINGS_END
                     CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
 
                 auto* callLinkInfo = state->addCallLinkInfo(nodeSemanticOrigin);
-                callLinkInfo->setUpCall(
-                    nodeOp == Construct ? CallLinkInfo::Construct : CallLinkInfo::Call, GPRInfo::regT0);
+                callLinkInfo->setUpCall(nodeOp == Construct ? CallLinkInfo::Construct : CallLinkInfo::Call);
 
-                auto slowPath = CallLinkInfo::emitFastPath(jit, callLinkInfo, GPRInfo::regT0, InvalidGPRReg);
+                auto [slowPath, dispatchLabel] = CallLinkInfo::emitFastPath(jit, callLinkInfo);
                 CCallHelpers::Jump done = jit.jump();
 
                 slowPath.link(&jit);
-                auto slowPathStart = jit.label();
-                jit.move(CCallHelpers::TrustedImmPtr(jit.codeBlock()->globalObjectFor(nodeSemanticOrigin)), GPRInfo::regT3);
-                callLinkInfo->emitSlowPath(*vm, jit);
+                CallLinkInfo::emitSlowPath(*vm, jit, callLinkInfo);
 
                 done.link(&jit);
 
@@ -11308,9 +11294,7 @@ IGNORE_CLANG_WARNINGS_END
 
                 jit.addLinkTask(
                     [=] (LinkBuffer& linkBuffer) {
-                        callLinkInfo->setCodeLocations(
-                            linkBuffer.locationOf<JSInternalPtrTag>(slowPathStart),
-                            linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
+                        callLinkInfo->setCodeLocations(linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
                     });
             });
 
@@ -11384,9 +11368,26 @@ IGNORE_CLANG_WARNINGS_END
             patchpoint->resultConstraints = { ValueRep::reg(GPRInfo::returnValueGPR) };
         }
         
+        Edge calleeEdge = m_graph.child(node, 0);
+        JSGlobalObject* calleeScope = nullptr;
+        if (JSValue calleeValue = m_state.forNode(calleeEdge).value()) {
+            if (auto* callee = jsDynamicCast<JSFunction*>(calleeValue)) {
+                m_graph.freeze(callee);
+                calleeScope = callee->globalObject();
+            }
+        }
+        TaggedNativeFunction nativeFunction;
+        if (executable->isHostFunction() && executable->intrinsic() == NoIntrinsic) {
+            if (isConstruct)
+                nativeFunction = jsCast<NativeExecutable*>(executable)->constructor();
+            else
+                nativeFunction = jsCast<NativeExecutable*>(executable)->function();
+        }
+
         CodeOrigin codeOrigin = codeOriginDescriptionOfCallSite();
         CodeOrigin semanticNodeOrigin = node->origin.semantic;
         State* state = &m_ftlState;
+        VM* vm = &this->vm();
         patchpoint->setGenerator(
             [=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
                 JIT_COMMENT(jit, "DirectCallOrConstruct");
@@ -11399,7 +11400,28 @@ IGNORE_CLANG_WARNINGS_END
                 
                 Box<CCallHelpers::JumpList> exceptions =
                     exceptionHandle->scheduleExitCreation(params)->jumps(jit);
-                
+
+                auto emitCallTarget = [&]() {
+                    jit.emitFunctionPrologue();
+                    jit.emitPutToCallFrameHeader(nullptr, CallFrameSlot::codeBlock);
+                    jit.storePtr(GPRInfo::callFrameRegister, &vm->topCallFrame);
+                    if (calleeScope)
+                        jit.move(CCallHelpers::TrustedImmPtr(calleeScope), GPRInfo::argumentGPR0);
+                    else {
+                        jit.emitGetFromCallFrameHeaderPtr(CallFrameSlot::callee, GPRInfo::argumentGPR2);
+                        jit.loadPtr(CCallHelpers::Address(GPRInfo::argumentGPR2, JSFunction::offsetOfScopeChain()), GPRInfo::argumentGPR0);
+                    }
+                    jit.move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR1);
+                    if (Options::useJITCage()) {
+                        jit.move(CCallHelpers::TrustedImmPtr(nativeFunction.taggedPtr()), GPRInfo::argumentGPR2);
+                        jit.CCallHelpers::callOperation<OperationPtrTag>(vmEntryHostFunction);
+                    } else
+                        jit.CCallHelpers::callOperation<HostFunctionPtrTag>(nativeFunction);
+                    jit.loadPtr(vm->addressOfException(), GPRInfo::regT2);
+                    jit.branchTestPtr(CCallHelpers::NonZero, GPRInfo::regT2).linkThunk(CodeLocationLabel(vm->getCTIStub(CommonJITThunkID::HandleException).retaggedCode<NoPtrTag>()), &jit);
+                    jit.emitFunctionEpilogue();
+                };
+
                 if (isTail) {
                     CallFrameShuffleData shuffleData;
                     shuffleData.numLocals = state->jitCode->common.frameRegisterCount;
@@ -11420,19 +11442,27 @@ IGNORE_CLANG_WARNINGS_END
                     shuffleData.numPassedArgs = numPassedArgs;
                     shuffleData.numParameters = jit.codeBlock()->numParameters();
                     shuffleData.setupCalleeSaveRegisters(state->jitCode->calleeSaveRegisters());
+
+                    if (nativeFunction && !vm->isDebuggerHookInjected()) {
+                        jit.store32(
+                            CCallHelpers::TrustedImm32(callSiteIndex.bits()),
+                            CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
+                        CallFrameShuffler(jit, shuffleData).prepareForTailCall();
+                        emitCallTarget();
+                        jit.ret();
+                        return;
+                    }
                     
-                    auto* callLinkInfo = state->addCallLinkInfo(semanticNodeOrigin);
-                    callLinkInfo->setUpCall(CallLinkInfo::DirectTailCall, InvalidGPRReg);
-                    callLinkInfo->setExecutableDuringCompilation(executable);
+                    auto* callLinkInfo = state->jitCode->common.m_directCallLinkInfos.add(semanticNodeOrigin, CallLinkInfo::UseDataIC::No, state->graph.m_codeBlock, executable);
+                    callLinkInfo->setCallType(CallLinkInfo::DirectTailCall);
                     if (numAllocatedArgs > numPassedArgs)
-                        callLinkInfo->setDirectCallMaxArgumentCountIncludingThis(numAllocatedArgs);
+                        callLinkInfo->setMaxArgumentCountIncludingThis(numAllocatedArgs);
 
                     CCallHelpers::Label mainPath = jit.label();
                     jit.store32(
                         CCallHelpers::TrustedImm32(callSiteIndex.bits()),
                         CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
                     callLinkInfo->emitDirectTailCallFastPath(jit, scopedLambda<void()>([&]{
-                        callLinkInfo->setFrameShuffleData(shuffleData);
                         CallFrameShuffler(jit, shuffleData).prepareForTailCall();
                     }));
                     
@@ -11446,20 +11476,33 @@ IGNORE_CLANG_WARNINGS_END
                     jit.jump().linkTo(mainPath, &jit);
 
                     jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
-                        callLinkInfo->setCodeLocations(
-                            linkBuffer.locationOf<JSInternalPtrTag>(slowPath),
-                            CodeLocationLabel<JSInternalPtrTag>());
+                        callLinkInfo->setCodeLocations(linkBuffer.locationOf<JSInternalPtrTag>(slowPath));
+                    });
+                    return;
+                }
+
+                if (nativeFunction && !vm->isDebuggerHookInjected()) {
+                    auto done = jit.jump();
+                    auto callTarget = jit.label();
+                    emitCallTarget();
+                    jit.ret();
+                    done.link(&jit);
+
+                    jit.store32(
+                        CCallHelpers::TrustedImm32(callSiteIndex.bits()),
+                        CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
+                    auto call = jit.nearCall();
+                    jit.addLinkTask([=](LinkBuffer& linkBuffer) {
+                        linkBuffer.link(call, linkBuffer.locationOf<NoPtrTag>(callTarget));
                     });
                     return;
                 }
                 
-                auto* callLinkInfo = state->addCallLinkInfo(semanticNodeOrigin);
-                callLinkInfo->setUpCall(
-                    isConstruct ? CallLinkInfo::DirectConstruct : CallLinkInfo::DirectCall, InvalidGPRReg);
+                auto* callLinkInfo = state->jitCode->common.m_directCallLinkInfos.add(semanticNodeOrigin, CallLinkInfo::UseDataIC::No, state->graph.m_codeBlock, executable);
+                callLinkInfo->setCallType(isConstruct ? CallLinkInfo::DirectConstruct : CallLinkInfo::DirectCall);
 
-                callLinkInfo->setExecutableDuringCompilation(executable);
                 if (numAllocatedArgs > numPassedArgs)
-                    callLinkInfo->setDirectCallMaxArgumentCountIncludingThis(numAllocatedArgs);
+                    callLinkInfo->setMaxArgumentCountIncludingThis(numAllocatedArgs);
 
                 CCallHelpers::Label mainPath = jit.label();
                 jit.store32(
@@ -11487,9 +11530,7 @@ IGNORE_CLANG_WARNINGS_END
                         
                         jit.addLinkTask(
                             [=] (LinkBuffer& linkBuffer) {
-                                callLinkInfo->setCodeLocations(
-                                    linkBuffer.locationOf<JSInternalPtrTag>(slowPath), 
-                                    CodeLocationLabel<JSInternalPtrTag>());
+                                callLinkInfo->setCodeLocations(linkBuffer.locationOf<JSInternalPtrTag>(slowPath));
                             });
                     });
             });
@@ -11583,30 +11624,23 @@ IGNORE_CLANG_WARNINGS_END
                 shuffleData.setupCalleeSaveRegisters(state->jitCode->calleeSaveRegisters());
 
                 auto* callLinkInfo = state->addCallLinkInfo(codeOrigin);
-                callLinkInfo->setUpCall(CallLinkInfo::TailCall, GPRInfo::regT0);
+                callLinkInfo->setUpCall(CallLinkInfo::TailCall);
 
-                auto slowPath = CallLinkInfo::emitTailCallFastPath(jit, callLinkInfo, GPRInfo::regT0, InvalidGPRReg, scopedLambda<void()>([&]{
-                    callLinkInfo->setFrameShuffleData(shuffleData);
-                    CallFrameShuffler(jit, shuffleData).prepareForTailCall();
+                auto [slowPath, dispatchLabel] = CallLinkInfo::emitTailCallFastPath(jit, callLinkInfo, scopedLambda<void()>([&] {
+                    CallFrameShuffler shuffler { jit, shuffleData };
+                    shuffler.setCalleeJSValueRegs(BaselineJITRegisters::Call::calleeJSR);
+                    shuffler.prepareForTailCall();
                 }));
 
                 slowPath.link(&jit);
-                auto slowPathStart = jit.label();
-                CallFrameShuffler slowPathShuffler(jit, shuffleData);
-                slowPathShuffler.setCalleeJSValueRegs(JSValueRegs(GPRInfo::regT0));
-                slowPathShuffler.prepareForSlowPath();
-
-                jit.move(CCallHelpers::TrustedImmPtr(jit.codeBlock()->globalObjectFor(semanticNodeOrigin)), GPRInfo::regT3);
-                callLinkInfo->emitSlowPath(*vm, jit);
+                CallLinkInfo::emitTailCallSlowPath(*vm, jit, callLinkInfo, dispatchLabel);
 
                 auto doneLocation = jit.label();
                 jit.abortWithReason(JITDidReturnFromTailCall);
 
                 jit.addLinkTask(
                     [=] (LinkBuffer& linkBuffer) {
-                        callLinkInfo->setCodeLocations(
-                            linkBuffer.locationOf<JSInternalPtrTag>(slowPathStart),
-                            linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
+                        callLinkInfo->setCodeLocations(linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
                     });
             });
     }
@@ -11920,31 +11954,33 @@ IGNORE_CLANG_WARNINGS_END
                 else
                     callType = CallLinkInfo::CallVarargs;
                 
-                callLinkInfo->setUpCall(callType, GPRInfo::regT0);
+                callLinkInfo->setUpCall(callType);
 
                 bool isTailCall = CallLinkInfo::callModeFor(callType) == CallMode::Tail;
 
                 ASSERT(!usedRegisters.contains(GPRInfo::regT2, IgnoreVectors)); // Used on the slow path.
 
                 CCallHelpers::JumpList slowPath;
+                CCallHelpers::Label dispatchLabel;
                 CCallHelpers::Jump done;
                 if (isTailCall) {
-                    slowPath = CallLinkInfo::emitTailCallFastPath(jit, callLinkInfo, GPRInfo::regT0, InvalidGPRReg, scopedLambda<void()>([&]{
+                    std::tie(slowPath, dispatchLabel) = CallLinkInfo::emitTailCallFastPath(jit, callLinkInfo, scopedLambda<void()>([&] {
                         jit.emitRestoreCalleeSavesFor(state->jitCode->calleeSaveRegisters());
-                        jit.prepareForTailCallSlow();
+                        RegisterSet preserved;
+                        preserved.add(GPRInfo::regT0, IgnoreVectors);
+                        jit.prepareForTailCallSlow(preserved);
                     }));
                 } else {
-                    slowPath = CallLinkInfo::emitFastPath(jit, callLinkInfo, GPRInfo::regT0, InvalidGPRReg);
+                    std::tie(slowPath, dispatchLabel) = CallLinkInfo::emitFastPath(jit, callLinkInfo);
                     done = jit.jump();
                 }
                 
                 slowPath.link(&jit);
-                auto slowPathStart = jit.label();
-
+                // calleeGPR is always regT0. So we do not need to change it here.
                 if (isTailCall)
-                    jit.emitRestoreCalleeSavesFor(state->jitCode->calleeSaveRegisters());
-                jit.move(CCallHelpers::TrustedImmPtr(jit.codeBlock()->globalObjectFor(semanticNodeOrigin)), GPRInfo::regT3);
-                callLinkInfo->emitSlowPath(*vm, jit);
+                    CallLinkInfo::emitTailCallSlowPath(*vm, jit, callLinkInfo, dispatchLabel);
+                else
+                    CallLinkInfo::emitSlowPath(*vm, jit, callLinkInfo);
                 
                 if (isTailCall)
                     jit.abortWithReason(JITDidReturnFromTailCall);
@@ -11959,9 +11995,7 @@ IGNORE_CLANG_WARNINGS_END
                 
                 jit.addLinkTask(
                     [=] (LinkBuffer& linkBuffer) {
-                        callLinkInfo->setCodeLocations(
-                            linkBuffer.locationOf<JSInternalPtrTag>(slowPathStart),
-                            linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
+                        callLinkInfo->setCodeLocations(linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
                     });
             });
 
@@ -12203,29 +12237,30 @@ IGNORE_CLANG_WARNINGS_END
                 else
                     callType = CallLinkInfo::CallVarargs;
                 
-                callLinkInfo->setUpCall(callType, GPRInfo::regT0);
+                callLinkInfo->setUpCall(callType);
                 
                 bool isTailCall = CallLinkInfo::callModeFor(callType) == CallMode::Tail;
                 
                 CCallHelpers::JumpList slowPath;
+                CCallHelpers::Label dispatchLabel;
                 CCallHelpers::Jump done;
                 if (isTailCall) {
-                    slowPath = CallLinkInfo::emitTailCallFastPath(jit, callLinkInfo, GPRInfo::regT0, InvalidGPRReg, scopedLambda<void()>([&]{
+                    std::tie(slowPath, dispatchLabel) = CallLinkInfo::emitTailCallFastPath(jit, callLinkInfo, scopedLambda<void()>([&] {
                         jit.emitRestoreCalleeSavesFor(state->jitCode->calleeSaveRegisters());
-                        jit.prepareForTailCallSlow();
+                        RegisterSet preserved;
+                        preserved.add(GPRInfo::regT0, IgnoreVectors);
+                        jit.prepareForTailCallSlow(preserved);
                     }));
                 } else {
-                    slowPath = CallLinkInfo::emitFastPath(jit, callLinkInfo, GPRInfo::regT0, InvalidGPRReg);
+                    std::tie(slowPath, dispatchLabel) = CallLinkInfo::emitFastPath(jit, callLinkInfo);
                     done = jit.jump();
                 }
                 
                 slowPath.link(&jit);
-                auto slowPathStart = jit.label();
-
                 if (isTailCall)
-                    jit.emitRestoreCalleeSavesFor(state->jitCode->calleeSaveRegisters());
-                jit.move(CCallHelpers::TrustedImmPtr(jit.codeBlock()->globalObjectFor(semanticNodeOrigin)), GPRInfo::regT3);
-                callLinkInfo->emitSlowPath(*vm, jit);
+                    CallLinkInfo::emitTailCallSlowPath(*vm, jit, callLinkInfo, dispatchLabel);
+                else
+                    CallLinkInfo::emitSlowPath(*vm, jit, callLinkInfo);
                 
                 if (isTailCall)
                     jit.abortWithReason(JITDidReturnFromTailCall);
@@ -12240,9 +12275,7 @@ IGNORE_CLANG_WARNINGS_END
                 
                 jit.addLinkTask(
                     [=] (LinkBuffer& linkBuffer) {
-                        callLinkInfo->setCodeLocations(
-                            linkBuffer.locationOf<JSInternalPtrTag>(slowPathStart),
-                            linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
+                        callLinkInfo->setCodeLocations(linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
                     });
             });
 
@@ -12304,7 +12337,6 @@ IGNORE_CLANG_WARNINGS_END
         VM& vm = this->vm();
         CodeOrigin semanticNodeOrigin = node->origin.semantic;
         auto ecmaMode = node->ecmaMode();
-        JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
         patchpoint->setGenerator(
             [=, &vm] (CCallHelpers& jit, const StackmapGenerationParams& params) {
                 AllowMacroScratchRegisterUsage allowScratch(jit);
@@ -12319,7 +12351,7 @@ IGNORE_CLANG_WARNINGS_END
                     CCallHelpers::tagFor(CallFrameSlot::argumentCountIncludingThis));
                 
                 auto* callLinkInfo = state->addCallLinkInfo(semanticNodeOrigin);
-                callLinkInfo->setUpCall(CallLinkInfo::Call, GPRInfo::regT0);
+                callLinkInfo->setUpCall(CallLinkInfo::Call);
                 
                 jit.addPtr(CCallHelpers::TrustedImm32(-static_cast<ptrdiff_t>(sizeof(CallerFrameAndPC))), CCallHelpers::stackPointerRegister, GPRInfo::regT1);
                 jit.storePtr(GPRInfo::callFrameRegister, CCallHelpers::Address(GPRInfo::regT1, CallFrame::callerFrameOffset()));
@@ -12340,7 +12372,7 @@ IGNORE_CLANG_WARNINGS_END
                 
                 jit.addPtr(CCallHelpers::TrustedImm32(requiredBytes), CCallHelpers::stackPointerRegister);
                 jit.load64(CCallHelpers::calleeFrameSlot(CallFrameSlot::callee), GPRInfo::regT0);
-                jit.emitVirtualCall(vm, globalObject, callLinkInfo);
+                jit.emitVirtualCall(vm, callLinkInfo);
                 
                 done.link(&jit);
                 jit.addPtr(
@@ -12536,9 +12568,11 @@ IGNORE_CLANG_WARNINGS_END
                             else
                                 jit.loadPtr(CCallHelpers::Address(GPRInfo::wasmContextInstancePointer, Wasm::Instance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer);
                         }
-                        jit.cageConditionallyAndUntag(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, scratchGPR, /* validateAuth */ true, /* mayBeNull */ false);
+                        jit.cageConditionally(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, scratchGPR);
                     }
                 }
+
+                jit.storeWasmCalleeCallee(wasmFunction->boxedWasmCalleeLoadLocation());
 
                 // FIXME: Currently we just do an indirect jump. But we should teach the Module
                 // how to repatch us:
@@ -17798,7 +17832,7 @@ IGNORE_CLANG_WARNINGS_END
 
         DataViewData data = m_node->dataViewData();
 
-        LValue length = typedArrayLength(dataView, data.isResizable, TypeDataView);
+        LValue length = typedArrayLength(dataView, data.isResizable, TypeDataView, m_node->child1());
 
 #if USE(LARGE_TYPED_ARRAYS)
         speculate(OutOfBounds, noValue(), nullptr, m_out.lessThan(index, m_out.constInt32(0)));
@@ -17945,7 +17979,7 @@ IGNORE_CLANG_WARNINGS_END
 
         DataViewData data = m_node->dataViewData();
 
-        LValue length = typedArrayLength(dataView, data.isResizable, TypeDataView);
+        LValue length = typedArrayLength(dataView, data.isResizable, TypeDataView, m_graph.varArgChild(m_node, 0));
 
 #if USE(LARGE_TYPED_ARRAYS)
         speculate(OutOfBounds, noValue(), nullptr, m_out.lessThan(index, m_out.constInt32(0)));
@@ -19435,66 +19469,17 @@ IGNORE_CLANG_WARNINGS_END
         }
     }
 
-    LValue untagArrayPtr(LValue ptr, LValue size)
-    {
-#if CPU(ARM64E)
-        PatchpointValue* authenticate = m_out.patchpoint(pointerType());
-        authenticate->appendSomeRegister(ptr);
-        authenticate->append(size, B3::ValueRep(B3::ValueRep::SomeLateRegister));
-        authenticate->numGPScratchRegisters = 1;
-        authenticate->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
-            jit.move(params[1].gpr(), params[0].gpr());
-            jit.untagArrayPtr(params[2].gpr(), params[0].gpr(), true, params.gpScratch(0));
-        });
-        return authenticate;
-#else
-        UNUSED_PARAM(size);
-        return ptr;
-#endif
-    }
-
-    LValue removeArrayPtrTag(LValue ptr)
-    {
-#if CPU(ARM64E)
-        PatchpointValue* authenticate = m_out.patchpoint(pointerType());
-        authenticate->appendSomeRegister(ptr);
-        authenticate->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
-            jit.move(params[1].gpr(), params[0].gpr());
-            jit.removeArrayPtrTag(params[0].gpr());
-        });
-        return authenticate;
-#endif
-        return ptr;
-    }
-
     LValue caged(Gigacage::Kind kind, LValue ptr, LValue base)
     {
-        auto doUntagArrayPtr = [&](LValue taggedPtr) {
-#if CPU(ARM64E)
-            if (kind == Gigacage::Primitive) {
-#if USE(LARGE_TYPED_ARRAYS)
-                LValue size = m_out.load64(base, m_heaps.JSArrayBufferView_length);
-#else
-                LValue size = m_out.load32(base, m_heaps.JSArrayBufferView_length);
-#endif
-                return untagArrayPtr(taggedPtr, size);
-            }
-            return ptr;
-#else
-            UNUSED_PARAM(taggedPtr);
-            return ptr;
-#endif
-        };
-
 #if GIGACAGE_ENABLED
         if (!Gigacage::isEnabled(kind))
-            return doUntagArrayPtr(ptr);
+            return ptr;
         
         if (kind == Gigacage::Primitive && !Gigacage::disablingPrimitiveGigacageIsForbidden()) {
             if (vm().primitiveGigacageEnabled().isStillValid())
                 m_graph.watchpoints().addLazily(vm().primitiveGigacageEnabled());
             else
-                return doUntagArrayPtr(ptr);
+                return ptr;
         }
         
         LValue basePtr = m_out.constIntPtr(Gigacage::basePtr(kind));
@@ -19502,25 +19487,6 @@ IGNORE_CLANG_WARNINGS_END
         
         LValue masked = m_out.bitAnd(ptr, mask);
         LValue result = m_out.add(masked, basePtr);
-#if CPU(ARM64E)
-        result = m_out.select(
-            m_out.equal(ptr, m_out.constIntPtr(JSArrayBufferView::nullVectorPtr())),
-            ptr, result);
-#endif
-
-#if CPU(ARM64E)
-        if (kind == Gigacage::Primitive) {
-            PatchpointValue* merge = m_out.patchpoint(pointerType());
-            merge->append(result, B3::ValueRep(B3::ValueRep::SomeLateRegister));
-            merge->appendSomeRegister(ptr);
-            merge->setGenerator([=] (CCallHelpers& jit, const StackmapGenerationParams& params) {
-                jit.move(params[2].gpr(), params[0].gpr());
-                jit.insertBitField64(params[1].gpr(), CCallHelpers::TrustedImm32(0), CCallHelpers::TrustedImm32(64 - MacroAssembler::maxNumberOfAllowedPACBits), params[0].gpr());
-            });
-
-            result = doUntagArrayPtr(merge);
-        }
-#endif // CPU(ARM64E)
 
         // Make sure that B3 doesn't try to do smart reassociation of these pointer bits.
         // FIXME: In an ideal world, B3 would not do harmful reassociations, and if it did, it would be able
@@ -19538,7 +19504,7 @@ IGNORE_CLANG_WARNINGS_END
 
         UNUSED_PARAM(kind);
         UNUSED_PARAM(base);
-        return doUntagArrayPtr(ptr);
+        return ptr;
     }
     
     void buildSwitch(SwitchData* data, LType type, LValue switchValue)
@@ -22281,7 +22247,6 @@ IGNORE_CLANG_WARNINGS_END
         LValue vector = m_out.loadPtr(base, m_heaps.JSArrayBufferView_vector);
         // FIXME: We could probably make this a mask.
         // https://bugs.webkit.org/show_bug.cgi?id=197701
-        vector = removeArrayPtrTag(vector);
         speculate(Uncountable, jsValueValue(vector), m_node, m_out.isZero64(vector));
         m_out.jump(continuation);
 

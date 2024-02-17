@@ -34,6 +34,7 @@
 #import "UIKitSPIForTesting.h"
 #import <WebKit/WKWebViewPrivateForTesting.h>
 #import <WebKit/_WKTextInputContext.h>
+#import <pal/spi/ios/BrowserEngineKitSPI.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/Vector.h>
 

@@ -319,9 +319,6 @@ void RenderSVGText::layout()
 
     LayoutRepainter repainter(*this, isLayerBasedSVGEngineEnabled() ? checkForRepaintDuringLayout() : SVGRenderSupport::checkForSVGRepaintDuringLayout(*this));
 
-    // FIXME: [LBSE] Upstream SVGLengthContext changes
-    // textElement().updateLengthContext();
-
     bool updateCachedBoundariesInParents = false;
     auto previousReferenceBoxRect = transformReferenceBoxRect();
 
@@ -415,6 +412,7 @@ void RenderSVGText::layout()
     if (isLayerBasedSVGEngineEnabled()) {
         updateLayerTransform();
         updateCachedBoundariesInParents = false; // No longer needed for LBSE.
+        layoutChanged = false; // No longer needed for LBSE.
     } else {
         if (m_needsTransformUpdate) {
             if (previousReferenceBoxRect != transformReferenceBoxRect())
@@ -522,7 +520,7 @@ void RenderSVGText::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
             return;
 
         if (paintInfo.phase == PaintPhase::ClippingMask) {
-            paintSVGClippingMask(paintInfo);
+            paintSVGClippingMask(paintInfo, objectBoundingBox());
             return;
         }
 
@@ -586,8 +584,14 @@ FloatRect RenderSVGText::strokeBoundingBox() const
 FloatRect RenderSVGText::repaintRectInLocalCoordinates(RepaintRectCalculation repaintRectCalculation) const
 {
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
-    if (document().settings().layerBasedSVGEngineEnabled())
-        return SVGBoundingBoxComputation::computeRepaintBoundingBox(*this);
+    if (document().settings().layerBasedSVGEngineEnabled()) {
+        auto repaintRect = SVGBoundingBoxComputation::computeRepaintBoundingBox(*this);
+
+        if (const auto* textShadow = style().textShadow())
+            textShadow->adjustRectForShadow(repaintRect);
+
+        return repaintRect;
+    }
 #endif
 
     FloatRect repaintRect = strokeBoundingBox();

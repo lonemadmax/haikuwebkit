@@ -29,7 +29,6 @@
 #if ENABLE(PDF_PLUGIN)
 
 #include "PDFPlugin.h"
-#include "ShareableBitmap.h"
 #include "UnifiedPDFPlugin.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
@@ -74,6 +73,7 @@
 #include <WebCore/SecurityOrigin.h>
 #include <WebCore/SecurityPolicy.h>
 #include <WebCore/Settings.h>
+#include <WebCore/ShareableBitmap.h>
 #include <WebCore/UserGestureIndicator.h>
 #include <pal/text/TextEncoding.h>
 #include <wtf/CompletionHandler.h>
@@ -238,6 +238,7 @@ PluginView::PluginView(HTMLPlugInElement& element, const URL& mainResourceURL, c
     , m_shouldUseManualLoader(shouldUseManualLoader)
     , m_pendingResourceRequestTimer(RunLoop::main(), this, &PluginView::pendingResourceRequestTimerFired)
 {
+    m_plugin->startLoading();
     m_webPage->addPluginView(*this);
 }
 
@@ -332,7 +333,6 @@ void PluginView::didEndMagnificationGesture()
 
 void PluginView::setPageScaleFactor(double scaleFactor, std::optional<IntPoint> origin)
 {
-    m_pageScaleFactor = scaleFactor;
     m_webPage->send(Messages::WebPageProxy::PluginScaleFactorDidChange(scaleFactor));
     m_webPage->send(Messages::WebPageProxy::PluginZoomFactorDidChange(scaleFactor));
 
@@ -344,7 +344,7 @@ void PluginView::setPageScaleFactor(double scaleFactor, std::optional<IntPoint> 
 
 double PluginView::pageScaleFactor() const
 {
-    return m_pageScaleFactor;
+    return m_plugin->scaleFactor();
 }
 
 void PluginView::webPageDestroyed()
@@ -406,7 +406,7 @@ void PluginView::initializePlugin()
         if (auto* frameView = frame->view())
             frameView->setNeedsLayoutAfterViewConfigurationChange();
         if (frame->isMainFrame() && m_plugin->isFullFramePlugin())
-            WebFrame::fromCoreFrame(*frame)->page()->send(Messages::WebPageProxy::MainFramePluginHandlesPageScaleGestureDidChange(true));
+            WebFrame::fromCoreFrame(*frame)->page()->send(Messages::WebPageProxy::MainFramePluginHandlesPageScaleGestureDidChange(true, m_plugin->minScaleFactor(), m_plugin->maxScaleFactor()));
     }
 }
 
@@ -626,7 +626,7 @@ void PluginView::handleEvent(Event& event)
             frame->eventHandler().setCapturingMouseEventsElement(nullptr);
 
         didHandleEvent = m_plugin->handleMouseEvent(static_cast<const WebMouseEvent&>(*currentEvent));
-    } else if (eventNames().isWheelEventType(event.type()) && currentEvent->type() == WebEventType::Wheel)
+    } else if ((event.type() == eventNames().wheelEvent || event.type() == eventNames().mousewheelEvent) && currentEvent->type() == WebEventType::Wheel)
         didHandleEvent = m_plugin->handleWheelEvent(static_cast<const WebWheelEvent&>(*currentEvent));
     else if (event.type() == eventNames().mouseoverEvent && currentEvent->type() == WebEventType::MouseMove)
         didHandleEvent = m_plugin->handleMouseEnterEvent(static_cast<const WebMouseEvent&>(*currentEvent));
@@ -642,12 +642,12 @@ void PluginView::handleEvent(Event& event)
         event.setDefaultHandled();
 }
 
-bool PluginView::handleEditingCommand(const String& commandName, const String&)
+bool PluginView::handleEditingCommand(const String& commandName, const String& argument)
 {
     if (!m_isInitialized)
         return false;
 
-    return m_plugin->handleEditingCommand(commandName);
+    return m_plugin->handleEditingCommand(commandName, argument);
 }
     
 bool PluginView::isEditingCommandEnabled(const String& commandName)

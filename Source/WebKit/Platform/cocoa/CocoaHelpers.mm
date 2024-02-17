@@ -28,10 +28,13 @@
 #endif
 
 #import "config.h"
-#import "APIData.h"
 #import "CocoaHelpers.h"
+
+#import "APIData.h"
+#import "JSWebExtensionWrapper.h"
 #import "Logging.h"
 #import "WKNSData.h"
+#import <JavaScriptCore/JavaScriptCore.h>
 #import <wtf/FileSystem.h>
 
 namespace WebKit {
@@ -267,8 +270,18 @@ id parseJSON(API::Data& json, JSONOptionSet options, NSError **error)
 
 NSString *encodeJSONString(id object, JSONOptionSet options, NSError **error)
 {
+#if JSC_OBJC_API_ENABLED
+    if (JSValue *value = dynamic_objc_cast<JSValue>(object)) {
+        if (!options.contains(JSONOptions::FragmentsAllowed) && !value._isDictionary)
+            return nil;
+
+        return value._toJSONString;
+    }
+#endif
+
     if (auto *data = encodeJSONData(object, options, error))
         return [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
+
     return nil;
 }
 
@@ -276,6 +289,15 @@ NSData *encodeJSONData(id object, JSONOptionSet options, NSError **error)
 {
     if (!object)
         return nil;
+
+#if JSC_OBJC_API_ENABLED
+    if (JSValue *value = dynamic_objc_cast<JSValue>(object)) {
+        if (!options.contains(JSONOptions::FragmentsAllowed) && !value._isDictionary)
+            return nil;
+
+        return [value._toJSONString dataUsingEncoding:NSUTF8StringEncoding];
+    }
+#endif
 
     ASSERT(isValidJSONObject(object, options));
 
@@ -303,6 +325,19 @@ NSDictionary *dictionaryWithLowercaseKeys(NSDictionary *dictionary)
     }
 
     return [newDictionary copy];
+}
+
+NSDictionary *dictionaryWithKeys(NSDictionary *dictionary, NSArray *keys)
+{
+    if (!dictionary.count || !keys.count)
+        return @{ };
+
+    auto *keysSet = [NSSet setWithArray:keys];
+
+    return filterObjects(dictionary, ^bool(id key, id) {
+        return dictionary[key] && [keysSet containsObject:key];
+    });
+
 }
 
 NSDictionary *mergeDictionaries(NSDictionary *dictionaryA, NSDictionary *dictionaryB)

@@ -36,6 +36,7 @@
 #include "CustomElementRegistry.h"
 #include "Document.h"
 #include "DocumentFragment.h"
+#include "DocumentInlines.h"
 #include "DocumentType.h"
 #include "EventLoop.h"
 #include "FrameDestructionObserverInlines.h"
@@ -836,8 +837,8 @@ void XMLDocumentParser::startElementNs(const xmlChar* xmlLocalName, const xmlCha
     if (!m_currentNode) // Synchronous DOM events may have removed the current node.
         return;
 
-    if (is<HTMLTemplateElement>(newElement))
-        pushCurrentNode(&downcast<HTMLTemplateElement>(newElement.get()).content());
+    if (RefPtr templateElement = dynamicDowncast<HTMLTemplateElement>(newElement))
+        pushCurrentNode(&templateElement->content());
     else
         pushCurrentNode(newElement.ptr());
 
@@ -866,29 +867,31 @@ void XMLDocumentParser::endElementNs()
         return;
 
     RefPtr<ContainerNode> node = m_currentNode;
-    node->finishParsingChildren();
+    auto* element = dynamicDowncast<Element>(*node);
 
-    if (!scriptingContentIsAllowed(parserContentPolicy()) && is<Element>(*node) && isScriptElement(downcast<Element>(*node))) {
+    if (element)
+        element->finishParsingChildren();
+
+    if (!scriptingContentIsAllowed(parserContentPolicy()) && element && isScriptElement(*element)) {
         popCurrentNode();
         node->remove();
         return;
     }
 
-    if (!node->isElementNode() || !m_view) {
+    if (!element || !m_view) {
         popCurrentNode();
         return;
     }
-
-    auto& element = downcast<Element>(*node);
 
     // The element's parent may have already been removed from document.
     // Parsing continues in this case, but scripts aren't executed.
-    if (!element.isConnected()) {
+    if (!element->isConnected()) {
         popCurrentNode();
         return;
     }
 
-    if (!isScriptElement(element)) {
+    RefPtr scriptElement = dynamicDowncastScriptElement(*element);
+    if (!scriptElement) {
         popCurrentNode();
         return;
     }
@@ -897,18 +900,14 @@ void XMLDocumentParser::endElementNs()
     ASSERT(!m_pendingScript);
     m_requestingScript = true;
 
-    auto& scriptElement = downcastScriptElement(element);
-    if (scriptElement.prepareScript(m_scriptStartPosition)) {
-        // FIXME: Script execution should be shared between
-        // the libxml2 and Qt XMLDocumentParser implementations.
-
-        if (scriptElement.readyToBeParserExecuted()) {
-            if (scriptElement.scriptType() == ScriptType::Classic)
-                scriptElement.executeClassicScript(ScriptSourceCode(scriptElement.scriptContent(), scriptElement.sourceTaintedOrigin(), URL(document()->url()), m_scriptStartPosition, JSC::SourceProviderSourceType::Program, InlineClassicScript::create(scriptElement)));
+    if (scriptElement->prepareScript(m_scriptStartPosition)) {
+        if (scriptElement->readyToBeParserExecuted()) {
+            if (scriptElement->scriptType() == ScriptType::Classic)
+                scriptElement->executeClassicScript(ScriptSourceCode(scriptElement->scriptContent(), scriptElement->sourceTaintedOrigin(), URL(document()->url()), m_scriptStartPosition, JSC::SourceProviderSourceType::Program, InlineClassicScript::create(*scriptElement)));
             else
-                scriptElement.registerImportMap(ScriptSourceCode(scriptElement.scriptContent(), scriptElement.sourceTaintedOrigin(), URL(document()->url()), m_scriptStartPosition, JSC::SourceProviderSourceType::ImportMap));
-        } else if (scriptElement.willBeParserExecuted() && scriptElement.loadableScript()) {
-            m_pendingScript = PendingScript::create(scriptElement, *scriptElement.loadableScript());
+                scriptElement->registerImportMap(ScriptSourceCode(scriptElement->scriptContent(), scriptElement->sourceTaintedOrigin(), URL(document()->url()), m_scriptStartPosition, JSC::SourceProviderSourceType::ImportMap));
+        } else if (scriptElement->willBeParserExecuted() && scriptElement->loadableScript()) {
+            m_pendingScript = PendingScript::create(*scriptElement, *scriptElement->loadableScript());
             m_pendingScript->setClient(*this);
 
             // m_pendingScript will be nullptr if script was already loaded and setClient() executed it.
@@ -981,7 +980,7 @@ void XMLDocumentParser::processingInstruction(const xmlChar* target, const xmlCh
 
     m_currentNode->parserAppendChild(pi);
 
-    pi->finishParsingChildren();
+    pi->setCreatedByParser(false);
 
     if (pi->isCSS())
         m_sawCSS = true;

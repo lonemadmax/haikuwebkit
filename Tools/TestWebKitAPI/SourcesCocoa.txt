@@ -92,6 +92,7 @@ Tests/WebKitCocoa/Copying.mm
 Tests/WebKitCocoa/CreateWebArchive.mm
 Tests/WebKitCocoa/CustomUserAgent.mm
 Tests/WebKitCocoa/DataDetection.mm
+Tests/WebKitCocoa/UnifiedTextReplacement.mm
 Tests/WebKitCocoa/DecidePolicyForNavigationAction.mm
 Tests/WebKitCocoa/DeviceManagementRestrictions.mm
 Tests/WebKitCocoa/DeviceOrientation.mm
@@ -300,9 +301,11 @@ Tests/WebKitCocoa/WKWebExtensionAPIMenus.mm
 Tests/WebKitCocoa/WKWebExtensionAPINamespace.mm
 Tests/WebKitCocoa/WKWebExtensionAPIPermissions.mm
 Tests/WebKitCocoa/WKWebExtensionAPIScripting.mm
+Tests/WebKitCocoa/WKWebExtensionAPIStorage.mm
 Tests/WebKitCocoa/WKWebExtensionAPIRuntime.mm
 Tests/WebKitCocoa/WKWebExtensionAPITabs.mm
 Tests/WebKitCocoa/WKWebExtensionAPIWebNavigation.mm
+Tests/WebKitCocoa/WKWebExtensionAPIWebRequest.mm
 Tests/WebKitCocoa/WKWebExtensionAPIWindows.mm
 Tests/WebKitCocoa/WKWebExtensionContext.mm
 Tests/WebKitCocoa/WKWebExtensionController.mm
@@ -337,6 +340,7 @@ Tests/WebKitCocoa/WKWebsiteDatastore.mm
 Tests/WebKitCocoa/WebContentProcessDidTerminate.mm
 Tests/WebKitCocoa/WebCryptoMasterKey.mm
 Tests/WebKitCocoa/WebLocks.mm
+Tests/WebKitCocoa/WebMultiRepresentationHEICAttachmentTests.mm
 Tests/WebKitCocoa/WebProcessKillIDBCleanup.mm
 Tests/WebKitCocoa/WebProcessTerminate.mm
 Tests/WebKitCocoa/WebPushDaemon.mm

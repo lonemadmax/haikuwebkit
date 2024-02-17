@@ -61,6 +61,12 @@ struct MainThreadAccessTraits;
 struct ObjectIdentifierMainThreadAccessTraits;
 struct ObjectIdentifierThreadSafeAccessTraits;
 
+namespace JSONImpl {
+class Array;
+class Object;
+template<typename> class ArrayOf;
+}
+
 #if ENABLE(MALLOC_HEAP_BREAKDOWN)
 struct VectorBufferMalloc;
 #else
@@ -87,7 +93,7 @@ template<typename T, size_t = alignof(T)> class PackedAlignedPtr;
 template<typename> struct RawPtrTraits;
 template<typename T, typename = RawPtrTraits<T>> class CheckedRef;
 template<typename T, typename = RawPtrTraits<T>> class CheckedPtr;
-template<typename T, typename = RawPtrTraits<T>> class Ref;
+template<typename T, typename = RawPtrTraits<T>, typename = DefaultRefDerefTraits<T>> class Ref;
 template<typename T, typename = RawPtrTraits<T>, typename = DefaultRefDerefTraits<T>> class RefPtr;
 template<typename> class RetainPtr;
 template<typename> class ScopedLambda;
@@ -126,7 +132,11 @@ template<typename ValueArg, typename = DefaultHash<ValueArg>, typename = HashTra
 template<typename ResolveValueT, typename RejectValueT, unsigned options = 0> class NativePromise;
 using GenericPromise = NativePromise<void, void>;
 using GenericNonExclusivePromise = NativePromise<void, void, 1>;
-template<typename T> class NativePromiseRequest;
+class NativePromiseRequest;
+}
+
+namespace JSON {
+using namespace WTF::JSONImpl;
 }
 
 namespace std {

@@ -239,6 +239,7 @@ bool canUseHandlerIC();
     v(Unsigned, defaultB3OptLevel, 2, Normal, nullptr) \
     v(Bool, b3AlwaysFailsBeforeCompile, false, Normal, nullptr) \
     v(Bool, b3AlwaysFailsBeforeLink, false, Normal, nullptr) \
+    v(Bool, validateSerializedValue, false, Normal, nullptr) /* tests CloneSerializer/Deserializer */ \
     v(Bool, ftlCrashes, false, Normal, nullptr) /* fool-proof way of checking that you ended up in the FTL. ;-) */\
     v(Bool, clobberAllRegsInFTLICSlowPath, ASSERT_ENABLED, Normal, nullptr) \
     v(Bool, enableJITDebugAssertions, ASSERT_ENABLED, Normal, nullptr) \
@@ -249,7 +250,7 @@ bool canUseHandlerIC();
     v(Unsigned, maxPolymorphicAccessInliningListSize, 8, Normal, nullptr) \
     v(Bool, usePolymorphicCallInlining, true, Normal, nullptr) \
     v(Bool, usePolymorphicCallInliningForNonStubStatus, false, Normal, nullptr) \
-    v(Unsigned, maxPolymorphicCallVariantListSize, 15, Normal, nullptr) \
+    v(Unsigned, maxPolymorphicCallVariantListSize, 8, Normal, nullptr) \
     v(Unsigned, maxPolymorphicCallVariantListSizeForTopTier, 5, Normal, nullptr) \
     v(Unsigned, maxPolymorphicCallVariantListSizeForWebAssemblyToJS, 5, Normal, nullptr) \
     v(Unsigned, maxPolymorphicCallVariantsForInlining, 5, Normal, nullptr) \
@@ -529,6 +530,7 @@ bool canUseHandlerIC();
     v(Bool, forcePolyProto, false, Normal, "If true, create_this will always create an object with a poly proto structure.") \
     v(Bool, forceMiniVMMode, false, Normal, "If true, it will force mini VM mode on.") \
     v(Bool, useTracePoints, false, Normal, nullptr) \
+    v(Bool, useCompilerSignpost, false, Normal, nullptr) \
     v(Bool, traceLLIntExecution, false, Configurable, nullptr) \
     v(Bool, traceLLIntSlowPath, false, Configurable, nullptr) \
     v(Bool, traceBaselineJITExecution, false, Normal, nullptr) \

@@ -74,8 +74,7 @@ list(APPEND WebCore_SOURCES
     platform/graphics/win/GraphicsContextCairoWin.cpp
     platform/graphics/win/GraphicsContextWin.cpp
     platform/graphics/win/IconWin.cpp
-    platform/graphics/win/ImageCairoWin.cpp
-    platform/graphics/win/ImageWin.cpp
+    platform/graphics/win/ImageAdapterWin.cpp
     platform/graphics/win/IntPointWin.cpp
     platform/graphics/win/IntRectWin.cpp
     platform/graphics/win/IntSizeWin.cpp
@@ -108,6 +107,7 @@ list(APPEND WebCore_SOURCES
     platform/win/PlatformMouseEventWin.cpp
     platform/win/PlatformScreenWin.cpp
     platform/win/SearchPopupMenuDB.cpp
+    platform/win/SharedMemoryWin.cpp
     platform/win/SystemInfo.cpp
     platform/win/UserAgentWin.cpp
     platform/win/WCDataObject.cpp

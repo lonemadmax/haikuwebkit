@@ -3,7 +3,7 @@
  * Copyright (C) 2004, 2005, 2006, 2007, 2008 Rob Buis <buis@kde.org>
  * Copyright (C) Research In Motion Limited 2009-2010. All rights reserved.
  * Copyright (C) 2011 Dirk Schulze <krit@webkit.org>
- * Copyright (C) 2021, 2022, 2023 Igalia S.L.
+ * Copyright (C) 2021, 2022, 2023, 2024 Igalia S.L.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,29 +30,18 @@
 #include "FrameView.h"
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
-#include "IntRect.h"
-#include "Logging.h"
 #include "ReferencedSVGResources.h"
-#include "RenderElementInlines.h"
-#include "RenderLayer.h"
 #include "RenderLayerInlines.h"
 #include "RenderSVGResourceClipperInlines.h"
 #include "RenderSVGText.h"
 #include "RenderStyle.h"
 #include "RenderView.h"
 #include "SVGClipPathElement.h"
-#include "SVGContainerLayout.h"
 #include "SVGElementTypeHelpers.h"
-#include "SVGNames.h"
-#include "SVGPathData.h"
 #include "SVGRenderStyle.h"
-#include "SVGRenderingContext.h"
-#include "SVGResources.h"
-#include "SVGResourcesCache.h"
 #include "SVGUseElement.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/SetForScope.h>
-#include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
@@ -65,11 +54,6 @@ RenderSVGResourceClipper::RenderSVGResourceClipper(SVGClipPathElement& element, 
 }
 
 RenderSVGResourceClipper::~RenderSVGResourceClipper() = default;
-
-SVGGraphicsElement* RenderSVGResourceClipper::shouldApplyPathClipping() const
-{
-    return clipPathElement().shouldApplyPathClipping();
-}
 
 enum class ClippingMode {
     NoClipping,
@@ -94,7 +78,14 @@ static Path& sharedClipAllPath()
     return clipAllPath.get();
 }
 
-void RenderSVGResourceClipper::applyPathClipping(GraphicsContext& context, const FloatRect& objectBoundingBox, SVGGraphicsElement& graphicsElement)
+SVGGraphicsElement* RenderSVGResourceClipper::shouldApplyPathClipping() const
+{
+    if (currentClippingMode() == ClippingMode::MaskClipping)
+        return nullptr;
+    return clipPathElement().shouldApplyPathClipping();
+}
+
+void RenderSVGResourceClipper::applyPathClipping(GraphicsContext& context, const RenderLayerModelObject& targetRenderer, const FloatRect& objectBoundingBox, SVGGraphicsElement& graphicsElement)
 {
     ASSERT(hasLayer());
     ASSERT(layer()->isSelfPaintingLayer());
@@ -111,6 +102,9 @@ void RenderSVGResourceClipper::applyPathClipping(GraphicsContext& context, const
     if (clipPathUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
         clipPathTransform.translate(objectBoundingBox.location());
         clipPathTransform.scale(objectBoundingBox.size());
+    } else if (!targetRenderer.isSVGLayerAwareRenderer()) {
+        clipPathTransform.translate(objectBoundingBox.x(), objectBoundingBox.y());
+        clipPathTransform.scale(targetRenderer.style().effectiveZoom());
     }
     if (layer()->isTransformed())
         clipPathTransform.multiply(layer()->transform()->toAffineTransform());
@@ -157,7 +151,7 @@ void RenderSVGResourceClipper::applyMaskClipping(PaintInfo& paintInfo, const Ren
         contentTransform.scale(objectBoundingBox.width(), objectBoundingBox.height());
     } else if (!targetRenderer.isSVGLayerAwareRenderer()) {
         contentTransform.translate(objectBoundingBox.x(), objectBoundingBox.y());
-        contentTransform.scale(style().effectiveZoom());
+        contentTransform.scale(targetRenderer.style().effectiveZoom());
     }
 
     // Figure out if we need to push a transparency layer to render our mask.
@@ -182,7 +176,7 @@ void RenderSVGResourceClipper::applyMaskClipping(PaintInfo& paintInfo, const Ren
         context.setCompositeOperation(CompositeOperator::SourceOver);
     }
 
-    layer()->paintSVGResourceLayer(context, stateSaver, contentTransform);
+    layer()->paintSVGResourceLayer(context, contentTransform);
 
     if (pushTransparencyLayer)
         context.endTransparencyLayer();

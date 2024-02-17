@@ -37,7 +37,9 @@
 #elif OS(OPENBSD)
 typedef ucontext_t mcontext_t;
 #elif OS(HAIKU)
-// ucontext is available, no specific include needed
+#include <signal.h>
+#elif OS(QNX)
+#include <ucontext.h>
 #else
 #include <sys/ucontext.h>
 #endif

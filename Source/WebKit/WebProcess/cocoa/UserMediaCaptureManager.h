@@ -28,12 +28,12 @@
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 
 #include "RemoteCaptureSampleManager.h"
-#include "SharedMemory.h"
 #include "WebProcessSupplement.h"
 #include <WebCore/DisplayCaptureManager.h>
 #include <WebCore/RealtimeMediaSource.h>
 #include <WebCore/RealtimeMediaSourceFactory.h>
 #include <WebCore/RealtimeMediaSourceIdentifier.h>
+#include <WebCore/SharedMemory.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
@@ -52,7 +52,7 @@ public:
     explicit UserMediaCaptureManager(WebProcess&);
     ~UserMediaCaptureManager();
 
-    static const char* supplementName();
+    static ASCIILiteral supplementName();
 
     void didReceiveMessageFromGPUProcess(IPC::Connection& connection, IPC::Decoder& decoder) { didReceiveMessage(connection, decoder); }
     void setupCaptureProcesses(bool shouldCaptureAudioInUIProcess, bool shouldCaptureAudioInGPUProcess, bool shouldCaptureVideoInUIProcess, bool shouldCaptureVideoInGPUProcess, bool shouldCaptureDisplayInUIProcess, bool shouldCaptureDisplayInGPUProcess, bool shouldUseGPUProcessRemoteFrames);

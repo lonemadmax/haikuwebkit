@@ -27,9 +27,11 @@
 #include "CSSSelector.h"
 
 #include "CSSMarkup.h"
+#include "CSSParserTokenRange.h"
 #include "CSSSelectorInlines.h"
 #include "CSSSelectorList.h"
 #include "CSSSelectorParserContext.h"
+#include "CSSTokenizer.h"
 #include "CommonAtomStrings.h"
 #include "HTMLNames.h"
 #include "MutableCSSSelector.h"
@@ -308,6 +310,7 @@ PseudoId CSSSelector::pseudoId(PseudoElement type)
     case PseudoElement::Part:
     case PseudoElement::UserAgentPart:
     case PseudoElement::UserAgentPartLegacyAlias:
+    case PseudoElement::WebKitUnknown:
         return PseudoId::None;
     }
 
@@ -315,40 +318,50 @@ PseudoId CSSSelector::pseudoId(PseudoElement type)
     return PseudoId::None;
 }
 
-std::optional<CSSSelector::PseudoElement> CSSSelector::parsePseudoElement(StringView name, const CSSSelectorParserContext& context)
+std::optional<CSSSelector::PseudoElement> CSSSelector::parsePseudoElementName(StringView name, const CSSSelectorParserContext& context)
 {
     if (name.isEmpty())
         return std::nullopt;
 
-    auto type = parsePseudoElementString(name);
+    auto type = findPseudoElementName(name);
     if (!type) {
-        // FIXME: Put all known UA parts in CSSPseudoSelectors.json and split out the unknown case (webkit.org/b/266947).
         if (name.startsWithIgnoringASCIICase("-webkit-"_s))
-            return PseudoElement::UserAgentPart;
+            return PseudoElement::WebKitUnknown;
         return type;
     }
 
     if (!CSSSelector::isPseudoElementEnabled(*type, name, context))
         return std::nullopt;
 
-    return type;
+    return *type;
 }
 
-std::optional<PseudoId> CSSSelector::parseStandalonePseudoElement(StringView input, const CSSSelectorParserContext& context)
+// FIXME: We should eventually deduplicate this with CSSSelectorParser::consumePseudo() somehow.
+std::optional<PseudoId> CSSSelector::parsePseudoElement(const String& input, const CSSSelectorParserContext& context)
 {
-    // FIXME: Tokenize input.
-    if (input.startsWith("::"_s)) {
-        auto pseudoElement = parsePseudoElement(input.substring(2), context);
-        if (!pseudoElement)
+    // FIXME: Add support for FunctionToken (webkit.org/b/264103).
+    auto tokenizer = CSSTokenizer { input };
+    auto range = tokenizer.tokenRange();
+    auto token = range.consume();
+    if (token.type() != ColonToken)
+        return std::nullopt;
+    token = range.consume();
+    if (token.type() == IdentToken) {
+        if (!range.atEnd())
             return std::nullopt;
-        return pseudoId(*pseudoElement);
-    }
-    if (input.startsWith(":"_s)) {
-        auto pseudoClassOrElement = parsePseudoClassAndCompatibilityElementString(input.substring(1));
+        auto pseudoClassOrElement = findPseudoClassAndCompatibilityElementName(token.value());
         if (!pseudoClassOrElement.compatibilityPseudoElement)
             return std::nullopt;
+        ASSERT(CSSSelector::isPseudoElementEnabled(*pseudoClassOrElement.compatibilityPseudoElement, token.value(), context));
         return pseudoId(*pseudoClassOrElement.compatibilityPseudoElement);
     }
+    if (token.type() != ColonToken)
+        return std::nullopt;
+    token = range.consume();
+    if (token.type() != IdentToken || !range.atEnd())
+        return std::nullopt;
+    if (auto pseudoElement = parsePseudoElementName(token.value(), context))
+        return pseudoId(*pseudoElement);
     return std::nullopt;
 }
 

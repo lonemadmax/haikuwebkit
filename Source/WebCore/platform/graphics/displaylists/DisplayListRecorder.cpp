@@ -474,6 +474,12 @@ void Recorder::fillRect(const FloatRect& rect)
     recordFillRect(rect);
 }
 
+void Recorder::fillRect(const FloatRect& rect, Gradient& gradient, const AffineTransform& gradientSpaceTransform)
+{
+    appendStateChangeItemIfNecessary();
+    recordFillRectWithGradientAndSpaceTransform(rect, gradient, gradientSpaceTransform);
+}
+
 void Recorder::fillRect(const FloatRect& rect, const Color& color)
 {
     appendStateChangeItemIfNecessary();
@@ -514,6 +520,8 @@ void Recorder::fillPath(const Path& path)
             recordFillLine(*line);
         else if (auto arc = path.singleArc())
             recordFillArc(*arc);
+        else if (auto closedArc = path.singleClosedArc())
+            recordFillClosedArc(*closedArc);
         else if (auto curve = path.singleQuadCurve())
             recordFillQuadCurve(*curve);
         else if (auto curve = path.singleBezierCurve())
@@ -561,6 +569,8 @@ void Recorder::strokePath(const Path& path)
             recordStrokeLine(*line);
         else if (auto arc = path.singleArc())
             recordStrokeArc(*arc);
+        else if (auto closedArc = path.singleClosedArc())
+            recordStrokeClosedArc(*closedArc);
         else if (auto curve = path.singleQuadCurve())
             recordStrokeQuadCurve(*curve);
         else if (auto curve = path.singleBezierCurve())

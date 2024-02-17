@@ -679,6 +679,12 @@ void NetworkProcessProxy::resourceLoadDidCompleteWithError(WebPageProxyIdentifie
     page->resourceLoadDidCompleteWithError(WTFMove(loadInfo), WTFMove(response), WTFMove(error));
 }
 
+void NetworkProcessProxy::didAllowPrivateTokenUsageByThirdPartyForTesting(PAL::SessionID sessionID, bool wasAllowed, URL&& resourceURL)
+{
+    if (auto* store = websiteDataStoreFromSessionID(sessionID))
+        store->didAllowPrivateTokenUsageByThirdPartyForTesting(wasAllowed, WTFMove(resourceURL));
+}
+
 void NetworkProcessProxy::dumpResourceLoadStatistics(PAL::SessionID sessionID, CompletionHandler<void(String)>&& completionHandler)
 {
     if (!canSendMessage()) {
@@ -1293,18 +1299,6 @@ void NetworkProcessProxy::setManagedDomainsForResourceLoadStatistics(PAL::Sessio
     sendWithAsyncReply(Messages::NetworkProcess::SetManagedDomainsForResourceLoadStatistics(sessionID, appBoundDomains), [completionHandler = WTFMove(completionHandler)]() mutable {
         completionHandler();
     });
-}
-#endif
-
-#if ENABLE(APPLE_PAY_REMOTE_UI_USES_SCENE)
-void NetworkProcessProxy::getWindowSceneIdentifierForPaymentPresentation(WebPageProxyIdentifier webPageProxyIdentifier, CompletionHandler<void(const String&)>&& completionHandler)
-{
-    auto page = WebProcessProxy::webPage(webPageProxyIdentifier);
-    if (!page) {
-        completionHandler(nullString());
-        return;
-    }
-    completionHandler(page->pageClient().sceneID());
 }
 #endif
 

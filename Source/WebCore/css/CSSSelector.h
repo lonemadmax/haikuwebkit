@@ -118,15 +118,15 @@ public:
     static PseudoId pseudoId(PseudoElement);
     static bool isPseudoClassEnabled(PseudoClass, const CSSSelectorParserContext&);
     static bool isPseudoElementEnabled(PseudoElement, StringView, const CSSSelectorParserContext&);
-    static std::optional<PseudoElement> parsePseudoElement(StringView, const CSSSelectorParserContext&);
-    static std::optional<PseudoId> parseStandalonePseudoElement(StringView, const CSSSelectorParserContext&);
+    static std::optional<PseudoId> parsePseudoElement(const String&, const CSSSelectorParserContext&);
+    static std::optional<PseudoElement> parsePseudoElementName(StringView, const CSSSelectorParserContext&);
     static bool pseudoClassRequiresArgument(PseudoClass);
     static bool pseudoElementRequiresArgument(PseudoElement);
     static bool pseudoClassMayHaveArgument(PseudoClass);
     static bool pseudoElementMayHaveArgument(PseudoElement);
 
     static const ASCIILiteral selectorTextForPseudoClass(PseudoClass);
-    static const ASCIILiteral nameForShadowPseudoElementLegacyAlias(StringView);
+    static const ASCIILiteral nameForUserAgentPartLegacyAlias(StringView);
 
     // Selectors are kept in an array by CSSSelectorList.
     // The next component of the selector is the next item in the array.
@@ -157,7 +157,6 @@ public:
     PagePseudoClass pagePseudoClass() const;
 
     bool matchesPseudoElement() const;
-    bool isUserAgentPartPseudoElement() const;
     bool isSiblingSelector() const;
     bool isAttributeSelector() const;
 
@@ -272,11 +271,6 @@ inline bool CSSSelector::matchesPseudoElement() const
     return match() == Match::PseudoElement;
 }
 
-inline bool CSSSelector::isUserAgentPartPseudoElement() const
-{
-    return pseudoElement() == PseudoElement::UserAgentPart || pseudoElement() == PseudoElement::UserAgentPartLegacyAlias;
-}
-
 static inline bool pseudoClassIsRelativeToSiblings(CSSSelector::PseudoClass type)
 {
     return type == CSSSelector::PseudoClass::Empty
@@ -332,7 +326,7 @@ inline bool CSSSelector::isAttributeSelector() const
 inline void CSSSelector::setValue(const AtomString& value, bool matchLowerCase)
 {
     ASSERT(match() != Match::Tag);
-    AtomString matchingValue = matchLowerCase ? value.convertToASCIILowercase() : value;
+    auto matchingValue = matchLowerCase ? value.convertToASCIILowercase() : value;
     if (!m_hasRareData && matchingValue != value)
         createRareData();
 

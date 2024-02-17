@@ -47,7 +47,7 @@
 #import <WebCore/GeometryUtilities.h>
 #import <WebCore/IntRect.h>
 #import <WebCore/LocalizedStrings.h>
-#import <WebCore/VideoFullscreenInterfaceAVKit.h>
+#import <WebCore/VideoPresentationInterfaceIOS.h>
 #import <WebCore/VideoPresentationModel.h>
 #import <WebCore/ViewportArguments.h>
 #import <objc/runtime.h>
@@ -162,9 +162,8 @@ struct WKWebViewState {
     BOOL _savedHaveSetUnobscuredSafeAreaInsets = NO;
     UIEdgeInsets _savedUnobscuredSafeAreaInsets = UIEdgeInsetsZero;
     BOOL _savedHasOverriddenLayoutParameters = NO;
-    std::optional<CGSize> _savedMinimumUnobscuredSizeOverride;
-    std::optional<CGSize> _savedMaximumUnobscuredSizeOverride;
-
+    CGSize _savedMinimumUnobscuredSizeOverride = CGSizeZero;
+    CGSize _savedMaximumUnobscuredSizeOverride = CGSizeZero;
 
     void applyTo(WKWebView* webView)
     {
@@ -197,8 +196,8 @@ struct WKWebViewState {
         else
             [webView _resetUnobscuredSafeAreaInsets];
 
-        if (_savedHasOverriddenLayoutParameters && _savedMinimumUnobscuredSizeOverride && _savedMaximumUnobscuredSizeOverride)
-            [webView _overrideLayoutParametersWithMinimumLayoutSize:*_savedMinimumUnobscuredSizeOverride minimumUnobscuredSizeOverride:*_savedMinimumUnobscuredSizeOverride maximumUnobscuredSizeOverride:*_savedMaximumUnobscuredSizeOverride];
+        if (_savedHasOverriddenLayoutParameters)
+            [webView _overrideLayoutParametersWithMinimumLayoutSize:_savedMinimumUnobscuredSizeOverride minimumUnobscuredSizeOverride:_savedMinimumUnobscuredSizeOverride maximumUnobscuredSizeOverride:_savedMaximumUnobscuredSizeOverride];
         else
             [webView _clearOverrideLayoutParameters];
 
@@ -954,6 +953,10 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         WebKit::replaceViewWithView(webView.get(), _webViewPlaceholder.get());
 
         [webView setAutoresizingMask:(UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight)];
+        // FIXME (267139): Changing the web view's frame should ideally only be done by the fullscreen view controller.
+        // However, this adjustment is currently necessary to ensure that the layout parameters exposed to the web
+        // during the "fullscreenchange" event reflect the fullscreen size.
+        [webView setFrame:[_window bounds]];
         [webView _setMinimumEffectiveDeviceWidth:0];
         [webView _setViewScale:1.f];
         WebKit::WKWebViewState().applyTo(webView.get());
@@ -1078,11 +1081,11 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
                     });
                     videoPresentationManager->addVideoInPictureInPictureDidChangeObserver(*_pipObserver);
                 }
-                if (auto* videoFullscreenInterface = videoPresentationManager ? videoPresentationManager->returningToStandbyInterface() : nullptr) {
+                if (auto* videoPresentationInterface = videoPresentationManager ? videoPresentationManager->returningToStandbyInterface() : nullptr) {
                     if (_returnToFullscreenFromPictureInPicture)
-                        videoFullscreenInterface->preparedToReturnToStandby();
-                    else if (videoFullscreenInterface->inPictureInPicture()) {
-                        if (auto model = videoFullscreenInterface->videoPresentationModel()) {
+                        videoPresentationInterface->preparedToReturnToStandby();
+                    else if (videoPresentationInterface->inPictureInPicture()) {
+                        if (auto model = videoPresentationInterface->videoPresentationModel()) {
                             _enterFullscreenNeedsExitPictureInPicture = YES;
                             model->requestFullscreenMode(WebCore::HTMLMediaElementEnums::VideoFullscreenModeNone);
                         }
@@ -1154,6 +1157,9 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         _exitRequested = YES;
         return;
     }
+
+    [self._webView _beginAnimatedFullScreenExit];
+
     _fullScreenState = WebKit::WaitingToExitFullScreen;
     _exitingFullScreen = YES;
 
@@ -1226,6 +1232,8 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
     [webView setNeedsLayout];
     [webView layoutIfNeeded];
 
+    [webView _endAnimatedFullScreenExit];
+
     [CATransaction commit];
 }
 
@@ -1246,8 +1254,8 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
         manager->didExitFullScreen();
     }
 
-    auto* videoFullscreenInterface = self._videoPresentationManager ? self._videoPresentationManager->controlsManagerInterface() : nullptr;
-    _shouldReturnToFullscreenFromPictureInPicture = videoFullscreenInterface && videoFullscreenInterface->inPictureInPicture();
+    auto* videoPresentationInterface = self._videoPresentationManager ? self._videoPresentationManager->controlsManagerInterface() : nullptr;
+    _shouldReturnToFullscreenFromPictureInPicture = videoPresentationInterface && videoPresentationInterface->inPictureInPicture();
 
     [_window setHidden:YES];
     _window = nil;
@@ -1330,12 +1338,12 @@ static constexpr NSString *kPrefersFullScreenDimmingKey = @"WebKitPrefersFullScr
 - (void)didExitPictureInPicture
 {
     if (!_enterFullscreenNeedsExitPictureInPicture && _shouldReturnToFullscreenFromPictureInPicture) {
-        auto* videoFullscreenInterface = self._videoPresentationManager ? self._videoPresentationManager->returningToStandbyInterface() : nullptr;
-        if (videoFullscreenInterface && videoFullscreenInterface->returningToStandby()) {
+        auto* videoPresentationInterface = self._videoPresentationManager ? self._videoPresentationManager->returningToStandbyInterface() : nullptr;
+        if (videoPresentationInterface && videoPresentationInterface->returningToStandby()) {
             OBJC_ALWAYS_LOG(OBJC_LOGIDENTIFIER, "returning to standby");
             if (!_exitingFullScreen) {
                 if (_fullScreenState == WebKit::InFullScreen)
-                    videoFullscreenInterface->preparedToReturnToStandby();
+                    videoPresentationInterface->preparedToReturnToStandby();
                 else
                     [self requestRestoreFullScreen];
             } else

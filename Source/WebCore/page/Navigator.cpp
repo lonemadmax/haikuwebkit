@@ -31,6 +31,7 @@
 #include "DOMPlugin.h"
 #include "DOMPluginArray.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "FeaturePolicy.h"
 #include "FrameLoader.h"
 #include "GPU.h"
@@ -392,8 +393,6 @@ Document* Navigator::document()
     return frame ? frame->document() : nullptr;
 }
 
-#if ENABLE(BADGING)
-
 void Navigator::setAppBadge(std::optional<unsigned long long> badge, Ref<DeferredPromise>&& promise)
 {
     auto* frame = this->frame();
@@ -445,8 +444,6 @@ void Navigator::clearClientBadge(Ref<DeferredPromise>&& promise)
 {
     setClientBadge(0, WTFMove(promise));
 }
-
-#endif // ENABLE(BADGING)
 
 #if ENABLE(DECLARATIVE_WEB_PUSH)
 PushManager& Navigator::pushManager()

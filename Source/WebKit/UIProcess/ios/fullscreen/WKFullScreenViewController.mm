@@ -39,7 +39,8 @@
 #import "WebPageProxy.h"
 #import "WebPreferences.h"
 #import <WebCore/LocalizedStrings.h>
-#import <WebCore/VideoFullscreenInterfaceAVKit.h>
+#import <WebCore/PlaybackSessionInterfaceAVKit.h>
+#import <WebCore/VideoPresentationInterfaceIOS.h>
 #import <pal/spi/cocoa/AVKitSPI.h>
 #import <wtf/RetainPtr.h>
 #import <wtf/WeakObjCPtr.h>
@@ -47,10 +48,6 @@
 #if PLATFORM(VISION)
 #import "MRUIKitSPI.h"
 #endif
-
-namespace WebCore {
-class PlaybackSessionInterfaceAVKit;
-}
 
 static const NSTimeInterval showHideAnimationDuration = 0.1;
 static const NSTimeInterval pipHideAnimationDuration = 0.2;
@@ -78,7 +75,7 @@ public:
             controller.pictureInPictureActive = active;
     }
 
-    void setInterface(WebCore::PlaybackSessionInterfaceAVKit* interface)
+    void setInterface(WebCore::PlaybackSessionInterfaceIOS* interface)
     {
         if (m_interface == interface)
             return;
@@ -92,7 +89,7 @@ public:
 
 private:
     WeakObjCPtr<WKFullScreenViewController> m_parent;
-    RefPtr<WebCore::PlaybackSessionInterfaceAVKit> m_interface;
+    RefPtr<WebCore::PlaybackSessionInterfaceIOS> m_interface;
 };
 
 #pragma mark - _WKInsetLabel
@@ -260,8 +257,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             [NSLayoutConstraint deactivateConstraints:@[_topConstraint.get()]];
         _topConstraint = [[_topGuide topAnchor] constraintEqualToAnchor:self.view.safeAreaLayoutGuide.topAnchor];
         [_topConstraint setActive:YES];
-        if (auto* manager = self._manager)
-            manager->setFullscreenControlsHidden(false);
     }];
 }
 
@@ -287,8 +282,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         [_stackView setAlpha:0];
         self.prefersStatusBarHidden = YES;
         self.prefersHomeIndicatorAutoHidden = YES;
-        if (auto* manager = self._manager)
-            manager->setFullscreenControlsHidden(true);
     } completion:^(BOOL finished) {
         if (!finished)
             return;
@@ -333,8 +326,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     ASSERT(_valid);
     auto page = [self._webView _page];
     auto* videoPresentationManager = page ? page->videoPresentationManager() : nullptr;
-    auto* videoFullscreenInterface = videoPresentationManager ? videoPresentationManager->controlsManagerInterface() : nullptr;
-    auto* playbackSessionInterface = videoFullscreenInterface ? &videoFullscreenInterface->playbackSessionInterface() : nullptr;
+    auto* videoPresentationInterface = videoPresentationManager ? videoPresentationManager->controlsManagerInterface() : nullptr;
+    auto* playbackSessionInterface = videoPresentationInterface ? &videoPresentationInterface->playbackSessionInterface() : nullptr;
 
     _playbackClient.setInterface(playbackSessionInterface);
 
@@ -391,6 +384,26 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 #endif // PLATFORM(VISION)
+
+- (UIEdgeInsets)additionalSafeAreaInsets
+{
+    // When the status bar hides, the resulting changes to safeAreaInsets cause
+    // fullscreen content to jump up and down in response.
+
+    // Do not add additional insets if the status bar is not hidden.
+    if (!self.view.window.windowScene.statusBarManager.statusBarHidden)
+        return UIEdgeInsetsZero;
+
+    // Additionally, hiding the status bar does not reduce safeAreaInsets when
+    // the status bar resides within a larger safe area inset (e.g., due to the
+    // camera area).
+    if (self.view.window.safeAreaInsets.top > 0)
+        return UIEdgeInsetsZero;
+
+    // Otherwise, provide what is effectively a constant safeAreaInset.top by adding
+    // an additional safeAreaInset at the top equal to the status bar height.
+    return UIEdgeInsetsMake(_nonZeroStatusBarHeight, 0, 0, 0);
+}
 
 - (void)setPrefersStatusBarHidden:(BOOL)value
 {
@@ -600,6 +613,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [self videoControlsManagerDidChange];
 
 #if ENABLE(FULLSCREEN_DISMISSAL_GESTURES)
+    [_bannerLabel setPreferredMaxLayoutWidth:self.view.bounds.size.width];
     [_banner setAlpha:0];
     [_banner setHidden:YES];
 #endif
@@ -638,6 +652,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [self _updateWebViewFullscreenInsets];
     _secheuristic.setSize(self.view.bounds.size);
     [self._webView setFrame:[_animatingView bounds]];
+#if ENABLE(FULLSCREEN_DISMISSAL_GESTURES)
+    [_bannerLabel setPreferredMaxLayoutWidth:self.view.bounds.size.width];
+#endif
 }
 
 - (void)viewWillTransitionToSize:(CGSize)size withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator
@@ -647,9 +664,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         [self._webView _setInterfaceOrientationOverride:UIApplication.sharedApplication.statusBarOrientation];
         ALLOW_DEPRECATED_DECLARATIONS_END
-    } completion:^(id <UIViewControllerTransitionCoordinatorContext>context) {
-        [self._webView _endAnimatedResize];
-    }];
+    } completion:nil];
 }
 
 #if !PLATFORM(VISION)

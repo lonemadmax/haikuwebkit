@@ -42,6 +42,8 @@ struct PDFContextMenu;
 class WebFrame;
 class WebMouseEvent;
 
+enum class WebEventModifier : uint8_t;
+
 class UnifiedPDFPlugin final : public PDFPluginBase, public WebCore::GraphicsLayerClient {
 public:
     static Ref<UnifiedPDFPlugin> create(WebCore::HTMLPlugInElement&);
@@ -59,6 +61,16 @@ public:
     };
     using PDFElementTypes = OptionSet<PDFElementType>;
 
+    CGRect pluginBoundsForAnnotation(RetainPtr<PDFAnnotation>&) const final;
+    void setActiveAnnotation(RetainPtr<PDFAnnotation>&&) final;
+    void startAnnotationTracking(RetainPtr<PDFAnnotation>&&);
+    void finishAnnotationTracking();
+    void handleMouseDraggedOffTrackedAnnotation();
+    void focusNextAnnotation() final;
+    void focusPreviousAnnotation() final;
+
+    void attemptToUnlockPDF(const String& password) final;
+
 private:
     explicit UnifiedPDFPlugin(WebCore::HTMLPlugInElement&);
     bool isUnifiedPDFPlugin() const override { return true; }
@@ -70,7 +82,10 @@ private:
 
     void installPDFDocument() override;
 
+    float scaleForActualSize() const;
+
     CGFloat scaleFactor() const override;
+    CGSize contentSizeRespectingZoom() const final;
 
     void didBeginMagnificationGesture() override;
     void didEndMagnificationGesture() override;
@@ -98,9 +113,6 @@ private:
     WebCore::IntSize contentsSize() const override;
     unsigned firstPageHeight() const override;
 
-    RetainPtr<PDFDocument> pdfDocumentForPrinting() const override;
-    WebCore::FloatSize pdfDocumentSizeForPrinting() const override;
-
     void scheduleRenderingUpdate();
 
     void updateLayout();
@@ -115,6 +127,8 @@ private:
 
     RefPtr<WebCore::FragmentedSharedBuffer> liveResourceData() const override;
 
+    NSData *liveData() const override;
+
     bool wantsWheelEvents() const override { return false; }
     bool handleMouseEvent(const WebMouseEvent&) override;
     bool handleWheelEvent(const WebWheelEvent&) override { return false; }
@@ -122,45 +136,45 @@ private:
     bool handleMouseLeaveEvent(const WebMouseEvent&) override;
     bool handleContextMenuEvent(const WebMouseEvent&) override;
     bool handleKeyboardEvent(const WebKeyboardEvent&) override;
-    bool handleEditingCommand(StringView commandName) override;
-    bool isEditingCommandEnabled(StringView commandName) override;
+
+    // Editing commands
+    bool handleEditingCommand(const String& commandName, const String& argument) override;
+    bool isEditingCommandEnabled(const String& commandName) override;
+    bool forwardEditingCommandToEditor(const String& commandName, const String& argument) const;
+    void selectAll();
 
     enum class ContextMenuItemTag : uint8_t {
         OpenWithPreview,
         SinglePage,
         SinglePageContinuous,
         TwoPages,
-        TwoPagesContinuous
+        TwoPagesContinuous,
+        ZoomIn,
+        ZoomOut,
+        ActualSize,
     };
 
 #if PLATFORM(MAC)
     PDFContextMenu createContextMenu(const WebCore::IntPoint& contextMenuPoint) const;
     void performContextMenuAction(ContextMenuItemTag);
 
-    ContextMenuItemTag contextMenuItemTagFromDisplyMode(const PDFDocumentLayout::DisplayMode& displayMode) const
-    {
-        switch (displayMode) {
-        case PDFDocumentLayout::DisplayMode::SinglePage: return ContextMenuItemTag::SinglePage;
-        case PDFDocumentLayout::DisplayMode::Continuous: return ContextMenuItemTag::SinglePageContinuous;
-        case PDFDocumentLayout::DisplayMode::TwoUp: return ContextMenuItemTag::TwoPages;
-        case PDFDocumentLayout::DisplayMode::TwoUpContinuous: return ContextMenuItemTag::TwoPagesContinuous;
-        }
-    }
-    PDFDocumentLayout::DisplayMode displayModeFromContextMenuItemTag(const ContextMenuItemTag& tag)
-    {
-        ASSERT(tag == ContextMenuItemTag::SinglePage || tag == ContextMenuItemTag::SinglePageContinuous || tag == ContextMenuItemTag::TwoPages || tag == ContextMenuItemTag::TwoPagesContinuous);
-        switch (tag) {
-        case ContextMenuItemTag::SinglePage: return PDFDocumentLayout::DisplayMode::SinglePage;
-        case ContextMenuItemTag::SinglePageContinuous: return PDFDocumentLayout::DisplayMode::Continuous;
-        case ContextMenuItemTag::TwoPages: return PDFDocumentLayout::DisplayMode::TwoUp;
-        case ContextMenuItemTag::TwoPagesContinuous: return PDFDocumentLayout::DisplayMode::TwoUpContinuous;
-        default:
-            ASSERT_NOT_REACHED();
-            return PDFDocumentLayout::DisplayMode::Continuous;
-        }
-    }
+    ContextMenuItemTag contextMenuItemTagFromDisplayMode(const PDFDocumentLayout::DisplayMode&) const;
+    PDFDocumentLayout::DisplayMode displayModeFromContextMenuItemTag(const ContextMenuItemTag&) const;
     static constexpr int invalidContextMenuItemTag { -1 };
 #endif
+
+    enum class SelectionGranularity : uint8_t {
+        Character,
+        Word,
+        Line,
+    };
+    enum class SelectionCommitReason : bool { SelectionIsNoLongerActive, ReceivedMouseUp };
+
+    SelectionGranularity selectionGranularityForMouseEvent(const WebMouseEvent&) const;
+    void beginTrackingSelection(PDFDocumentLayout::PageIndex, const WebCore::IntPoint& pagePoint, SelectionGranularity, OptionSet<WebEventModifier>);
+    void continueTrackingSelection(PDFDocumentLayout::PageIndex, const WebCore::IntPoint& pagePoint);
+    void setCurrentSelection(RetainPtr<PDFSelection>&&);
+    void commitCurrentSelection(SelectionCommitReason);
 
     String getSelectionString() const override;
     bool existingSelectionContainsPoint(const WebCore::FloatPoint&) const override;
@@ -180,7 +194,8 @@ private:
     void notifyFlushRequired(const WebCore::GraphicsLayer*) override;
     void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, const WebCore::FloatRect&, OptionSet<WebCore::GraphicsLayerPaintBehavior>) override;
     float deviceScaleFactor() const override;
-    float pageScaleFactor() const override;
+    float pageScaleFactor() const override { return scaleFactor(); }
+    bool layerNeedsPlatformContext(const WebCore::GraphicsLayer*) const override { return true; }
 
     void paintPDFContent(WebCore::GraphicsContext&, const WebCore::FloatRect& clipRect);
     void ensureLayers();
@@ -194,7 +209,7 @@ private:
     void createScrollbarsController() override;
 
     bool usesAsyncScrolling() const final { return true; }
-    WebCore::ScrollingNodeID scrollingNodeID() const final { return m_scrollingNodeID; }
+    WebCore::ScrollingNodeID scrollingNodeID() const final;
 
     void invalidateScrollbarRect(WebCore::Scrollbar&, const WebCore::IntRect&) override;
     void invalidateScrollCornerRect(const WebCore::IntRect&) override;
@@ -209,23 +224,29 @@ private:
     void positionOverflowControlsLayers();
 
     WebCore::ScrollingCoordinator* scrollingCoordinator();
+    void createScrollingNodeIfNecessary();
 
     // ScrollableArea
     bool requestScrollToPosition(const WebCore::ScrollPosition&, const WebCore::ScrollPositionChangeOptions& = WebCore::ScrollPositionChangeOptions::createProgrammatic()) override;
+    bool requestStartKeyboardScrollAnimation(const WebCore::KeyboardScroll& scrollData) override;
+    bool requestStopKeyboardScrollAnimation(bool immediate) override;
+
+    float sidePaddingWidth() const;
 
     // HUD Actions.
 #if ENABLE(PDF_HUD)
     void zoomIn() final;
     void zoomOut() final;
-    void save(CompletionHandler<void(const String&, const URL&, const IPC::DataReference&)>&&) final;
-    void openWithPreview(CompletionHandler<void(const String&, FrameInfoData&&, const IPC::DataReference&, const String&)>&&) final;
 #endif
 
     RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(const String& name, WebCore::GraphicsLayer::Type);
 
     WebCore::IntPoint convertFromPluginToDocument(const WebCore::IntPoint&) const;
-    std::optional<PDFDocumentLayout::PageIndex> nearestPageIndexForDocumentPoint(const WebCore::IntPoint&) const;
+    WebCore::IntPoint convertFromDocumentToPlugin(const WebCore::IntPoint&) const;
+    std::optional<PDFDocumentLayout::PageIndex> pageIndexForDocumentPoint(const WebCore::IntPoint&) const;
+    RetainPtr<PDFAnnotation> annotationForRootViewPoint(const WebCore::IntPoint&) const;
     WebCore::IntPoint convertFromDocumentToPage(const WebCore::IntPoint&, PDFDocumentLayout::PageIndex) const;
+    WebCore::IntPoint convertFromPageToDocument(const WebCore::IntPoint&, PDFDocumentLayout::PageIndex) const;
     PDFElementTypes pdfElementTypesForPluginPoint(const WebCore::IntPoint&) const;
 
     bool isTaggedPDF() const;
@@ -245,6 +266,21 @@ private:
 
     float m_scaleFactor { 1 };
     bool m_inMagnificationGesture { false };
+
+    RetainPtr<PDFAnnotation> m_trackedAnnotation;
+
+    struct SelectionTrackingData {
+        bool shouldExtendCurrentSelection { false };
+        bool shouldMakeMarqueeSelection { false };
+        bool isActive { false };
+        SelectionGranularity granularity { SelectionGranularity::Character };
+        PDFDocumentLayout::PageIndex startPageIndex;
+        WebCore::IntPoint startPagePoint;
+        RetainPtr<PDFSelection> selectionToExtendWith;
+        WebCore::IntRect marqueeSelectionRect;
+    };
+    SelectionTrackingData m_selectionTrackingData;
+    RetainPtr<PDFSelection> m_currentSelection;
 };
 
 } // namespace WebKit

@@ -1,0 +1,8 @@
+
+Harness Error (TIMEOUT), message = null
+
+TIMEOUT Count SecurityPolicyViolation events. Test timed out
+FAIL script.src default assert_throws_js: function "_ => element[c[1]] = "abc"" did not throw
+FAIL div.innerHTML default assert_throws_js: function "_ => element[c[1]] = "abc"" did not throw
+FAIL script.text default assert_throws_js: function "_ => element[c[1]] = "abc"" did not throw
+

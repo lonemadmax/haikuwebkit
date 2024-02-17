@@ -90,7 +90,7 @@ const TestFeatures& TestOptions::defaults()
             { "MediaPreloadingEnabled", true },
             { "MockScrollbarsEnabled", true },
             { "NeedsStorageAccessFromFileURLsQuirk", false },
-            { "OfflineWebApplicationCacheEnabled", true },
+            { "PeerConnectionVideoScalingAdaptationDisabled", true },
             { "PushAPIEnabled", true },
             { "ReferrerPolicyAttributeEnabled", true },
             { "RemotePlaybackEnabled", true },
@@ -208,6 +208,9 @@ const std::unordered_map<std::string, TestHeaderKeyType>& TestOptions::keyTypeMa
         { "additionalSupportedImageTypes", TestHeaderKeyType::StringTestRunner },
         { "jscOptions", TestHeaderKeyType::StringTestRunner },
         { "captionDisplayMode", TestHeaderKeyType::StringTestRunner },
+
+        { "insecureUpgradePort", TestHeaderKeyType::UInt16TestRunner },
+        { "secureUpgradePort", TestHeaderKeyType::UInt16TestRunner },
     };
 
     return map;
@@ -229,6 +232,11 @@ template<typename T> T featureValue(std::string key, T defaultValue, const std::
 bool TestOptions::boolTestRunnerFeatureValue(std::string key, bool defaultValue) const
 {
     return featureValue(key, defaultValue, m_features.boolTestRunnerFeatures);
+}
+
+uint16_t TestOptions::uint16TestRunnerFeatureValue(std::string key, uint16_t defaultValue) const
+{
+    return featureValue(key, defaultValue, m_features.uint16TestRunnerFeatures);
 }
 
 std::string TestOptions::stringTestRunnerFeatureValue(std::string key, std::string defaultValue) const

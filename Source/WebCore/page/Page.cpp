@@ -158,6 +158,7 @@
 #include "StyleScope.h"
 #include "SubframeLoader.h"
 #include "SubresourceLoader.h"
+#include "TextExtraction.h"
 #include "TextIterator.h"
 #include "TextRecognitionResult.h"
 #include "TextResourceDecoder.h"
@@ -363,6 +364,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_loadsSubresources(pageConfiguration.loadsSubresources)
     , m_shouldRelaxThirdPartyCookieBlocking(pageConfiguration.shouldRelaxThirdPartyCookieBlocking)
     , m_httpsUpgradeEnabled(pageConfiguration.httpsUpgradeEnabled)
+    , m_portsForUpgradingInsecureSchemeForTesting(WTFMove(pageConfiguration.portsForUpgradingInsecureSchemeForTesting))
     , m_storageProvider(WTFMove(pageConfiguration.storageProvider))
     , m_modelPlayerProvider(WTFMove(pageConfiguration.modelPlayerProvider))
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -755,6 +757,16 @@ const String& Page::groupName() const
     return m_group ? m_group->name() : nullAtom().string();
 }
 
+Ref<Settings> Page::protectedSettings() const
+{
+    return *m_settings;
+}
+
+Ref<BroadcastChannelRegistry> Page::protectedBroadcastChannelRegistry() const
+{
+    return m_broadcastChannelRegistry;
+}
+
 void Page::setBroadcastChannelRegistry(Ref<BroadcastChannelRegistry>&& broadcastChannelRegistry)
 {
     m_broadcastChannelRegistry = WTFMove(broadcastChannelRegistry);
@@ -775,6 +787,7 @@ void Page::updateStyleAfterChangeInEnvironment()
             styleResolver->invalidateMatchedDeclarationsCache();
         document.scheduleFullStyleRebuild();
         document.styleScope().didChangeStyleSheetEnvironment();
+        document.updateElementsAffectedByMediaQueries();
         document.scheduleRenderingUpdate(RenderingUpdateStep::MediaQueryEvaluation);
     });
 }
@@ -864,15 +877,16 @@ static Frame* incrementFrame(Frame* current, bool forward, CanWrap canWrap, DidW
         : current->tree().traversePrevious(canWrap, didWrap);
 }
 
-bool Page::findString(const String& target, FindOptions options, DidWrap* didWrap)
+std::optional<FrameIdentifier> Page::findString(const String& target, FindOptions options, DidWrap* didWrap)
 {
     if (target.isEmpty())
-        return false;
+        return std::nullopt;
 
     CanWrap canWrap = options.contains(WrapAround) ? CanWrap::Yes : CanWrap::No;
     CheckedRef focusController { *m_focusController };
-    RefPtr<Frame> frame = &focusController->focusedOrMainFrame();
-    RefPtr startFrame = dynamicDowncast<LocalFrame>(frame.get());
+    RefPtr frame = focusController->focusedFrame() ? focusController->focusedFrame() : m_mainFrame.ptr();
+    RefPtr startFrame = frame;
+    RefPtr focusedLocalFrame = dynamicDowncast<LocalFrame>(frame);
     do {
         RefPtr localFrame = dynamicDowncast<LocalFrame>(frame.get());
         if (!localFrame) {
@@ -880,25 +894,28 @@ bool Page::findString(const String& target, FindOptions options, DidWrap* didWra
             continue;
         }
         if (localFrame->editor().findString(target, (options - WrapAround) | StartInSelection)) {
-            if (localFrame != startFrame)
-                startFrame->selection().clear();
-            focusController->setFocusedFrame(localFrame.get());
-            return true;
+            if (!options.contains(DoNotSetSelection)) {
+                if (focusedLocalFrame && localFrame != focusedLocalFrame)
+                    focusedLocalFrame->selection().clear();
+                focusController->setFocusedFrame(localFrame.get());
+            }
+            return localFrame->frameID();
         }
         frame = incrementFrame(frame.get(), !options.contains(Backwards), canWrap, didWrap);
     } while (frame && frame != startFrame);
 
     // Search contents of startFrame, on the other side of the selection that we did earlier.
     // We cheat a bit and just research with wrap on
-    if (canWrap == CanWrap::Yes && !startFrame->selection().isNone()) {
+    if (canWrap == CanWrap::Yes && focusedLocalFrame && !focusedLocalFrame->selection().isNone()) {
         if (didWrap)
             *didWrap = DidWrap::Yes;
-        bool found = startFrame->editor().findString(target, options | WrapAround | StartInSelection);
-        focusController->setFocusedFrame(frame.get());
-        return found;
+        bool found = focusedLocalFrame->editor().findString(target, options | WrapAround | StartInSelection);
+        if (!options.contains(DoNotSetSelection))
+            focusController->setFocusedFrame(frame.get());
+        return found ? std::make_optional(focusedLocalFrame->frameID()) : std::nullopt;
     }
 
-    return false;
+    return std::nullopt;
 }
 
 #if ENABLE(IMAGE_ANALYSIS)
@@ -1135,7 +1152,8 @@ uint32_t Page::replaceSelectionWithText(const String& replacementText)
 void Page::unmarkAllTextMatches()
 {
     forEachDocument([] (Document& document) {
-        document.markers().removeMarkers(DocumentMarker::Type::TextMatch);
+        if (CheckedPtr markers = document.markersIfExists())
+            markers->removeMarkers(DocumentMarker::Type::TextMatch);
     });
 }
 
@@ -1183,9 +1201,9 @@ Vector<Ref<Element>> Page::editableElementsInRect(const FloatRect& searchRectInR
         return { };
 
     auto rootEditableElement = [](Node& node) -> Element* {
-        if (is<HTMLTextFormControlElement>(node)) {
-            if (downcast<HTMLTextFormControlElement>(node).isInnerTextElementEditable())
-                return &downcast<Element>(node);
+        if (RefPtr element = dynamicDowncast<HTMLTextFormControlElement>(node)) {
+            if (element->isInnerTextElementEditable())
+                return &uncheckedDowncast<Element>(node);
         } else if (is<Element>(node) && node.hasEditableStyle())
             return node.rootEditableElement();
         return nullptr;
@@ -2115,7 +2133,7 @@ void Page::prioritizeVisibleResources()
     if (!localMainFrame->document())
         return;
 
-    Vector<CachedResource*> toPrioritize;
+    Vector<CachedResourceHandle<CachedResource>> toPrioritize;
 
     forEachDocument([&] (Document& document) {
         toPrioritize.appendVector(document.cachedResourceLoader().visibleResourcesToPrioritize());
@@ -2128,7 +2146,7 @@ void Page::prioritizeVisibleResources()
             return LoadSchedulingMode::Prioritized;
         
         // Async script execution may generate more resource loads that benefit from prioritization.
-        if (document.scriptRunner().hasPendingScripts())
+        if (CheckedPtr scriptRunner = document.scriptRunnerIfExists(); scriptRunner && scriptRunner->hasPendingScripts())
             return LoadSchedulingMode::Prioritized;
         
         // We still haven't finished loading the visible resources.
@@ -2143,7 +2161,7 @@ void Page::prioritizeVisibleResources()
     if (toPrioritize.isEmpty())
         return;
 
-    auto resourceLoaders = toPrioritize.map([](auto* resource) {
+    auto resourceLoaders = toPrioritize.map([](auto& resource) {
         return resource->loader();
     });
 
@@ -2387,21 +2405,24 @@ void Page::userAgentChanged()
 void Page::invalidateStylesForAllLinks()
 {
     forEachDocument([] (Document& document) {
-        document.visitedLinkState().invalidateStyleForAllLinks();
+        if (auto* visitedLinkState = document.visitedLinkStateIfExists())
+            visitedLinkState->invalidateStyleForAllLinks();
     });
 }
 
 void Page::invalidateStylesForLink(SharedStringHash linkHash)
 {
     forEachDocument([&] (Document& document) {
-        document.visitedLinkState().invalidateStyleForLink(linkHash);
+        if (auto* visitedLinkState = document.visitedLinkStateIfExists())
+            visitedLinkState->invalidateStyleForLink(linkHash);
     });
 }
 
 void Page::invalidateInjectedStyleSheetCacheInAllFrames()
 {
     forEachDocument([] (Document& document) {
-        document.extensionStyleSheets().invalidateInjectedStyleSheetCache();
+        if (CheckedPtr extensionStyleSheets = document.extensionStyleSheetsIfExists())
+            extensionStyleSheets->invalidateInjectedStyleSheetCache();
     });
 }
 
@@ -3368,6 +3389,11 @@ void Page::mainFrameLoadStarted(const URL& destinationURL, FrameLoadType type)
     logNavigation(navigation);
 }
 
+Ref<CookieJar> Page::protectedCookieJar() const
+{
+    return m_cookieJar;
+}
+
 PluginInfoProvider& Page::pluginInfoProvider()
 {
     return m_pluginInfoProvider;
@@ -3682,8 +3708,10 @@ void Page::setUseSystemAppearance(bool value)
 
     forEachDocument([&] (Document& document) {
         // System apperance change may affect stylesheet parsing. We need to reparse.
-        document.extensionStyleSheets().clearPageUserSheet();
-        document.extensionStyleSheets().invalidateInjectedStyleSheetCache();
+        if (CheckedPtr extensionStyleSheets = document.extensionStyleSheetsIfExists()) {
+            extensionStyleSheets->clearPageUserSheet();
+            extensionStyleSheets->invalidateInjectedStyleSheetCache();
+        }
     });
 }
 
@@ -3769,17 +3797,6 @@ void Page::setFullscreenAutoHideDuration(Seconds duration)
     forEachDocument([&] (Document& document) {
         document.constantProperties().setFullscreenAutoHideDuration(duration);
     });
-}
-
-void Page::setFullscreenControlsHidden(bool hidden)
-{
-#if ENABLE(FULLSCREEN_API)
-    forEachDocument([&] (Document& document) {
-        document.fullscreenManager().setFullscreenControlsHidden(hidden);
-    });
-#else
-    UNUSED_PARAM(hidden);
-#endif
 }
 
 Document* Page::outermostFullscreenDocument() const
@@ -4615,5 +4632,15 @@ void Page::setSceneIdentifier(String&& sceneIdentifier)
     m_sceneIdentifier = WTFMove(sceneIdentifier);
 }
 #endif
+
+void Page::setPortsForUpgradingInsecureSchemeForTesting(uint16_t upgradeFromInsecurePort, uint16_t upgradeToSecurePort)
+{
+    m_portsForUpgradingInsecureSchemeForTesting = { upgradeFromInsecurePort, upgradeToSecurePort };
+}
+
+std::optional<std::pair<uint16_t, uint16_t>> Page::portsForUpgradingInsecureSchemeForTesting() const
+{
+    return m_portsForUpgradingInsecureSchemeForTesting;
+}
 
 } // namespace WebCore

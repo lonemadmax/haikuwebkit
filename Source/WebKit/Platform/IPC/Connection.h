@@ -28,6 +28,7 @@
 
 #pragma once
 
+#include "ConnectionHandle.h"
 #include "MessageReceiveQueueMap.h"
 #include "MessageReceiver.h"
 #include "ReceiverMatcher.h"
@@ -48,19 +49,10 @@
 #include <wtf/WorkQueue.h>
 #include <wtf/text/CString.h>
 
-#if USE(UNIX_DOMAIN_SOCKETS)
-#include <wtf/unix/UnixFileDescriptor.h>
-#endif
-
 #if OS(DARWIN)
 #include <mach/mach_port.h>
-#include <wtf/MachSendRight.h>
 #include <wtf/OSObjectPtr.h>
 #include <wtf/spi/darwin/XPCSPI.h>
-#endif
-
-#if OS(WINDOWS)
-#include <wtf/win/Win32Handle.h>
 #endif
 
 #if USE(GLIB)
@@ -155,41 +147,36 @@ struct AsyncReplyIDType;
 using AsyncReplyID = AtomicObjectIdentifier<AsyncReplyIDType>;
 
 template<typename T> struct ConnectionSendSyncResult {
-    std::unique_ptr<Decoder> decoder;
-    std::optional<typename T::ReplyArguments> replyArguments;
-    Error error { Error::NoError };
+    Expected<typename T::ReplyArguments, Error> value;
 
     ConnectionSendSyncResult(Error error)
-        : error(error)
+        : value(makeUnexpected(error))
     {
-        ASSERT(error != Error::NoError);
+        ASSERT(value.error() != Error::NoError);
     }
 
-    ConnectionSendSyncResult(std::unique_ptr<Decoder>&& decoder, std::optional<typename T::ReplyArguments>&& replyArguments)
-        : decoder(WTFMove(decoder)), replyArguments(WTFMove(replyArguments))
-    {
-        ASSERT(this->replyArguments.has_value());
-        error = !this->replyArguments ? Error::Unspecified : Error::NoError;
-    }
+    ConnectionSendSyncResult(typename T::ReplyArguments&& replyArguments)
+        : value(WTFMove(replyArguments)) { }
 
-    bool succeeded() const { return error == Error::NoError && replyArguments.has_value(); }
+    bool succeeded() const { return value.has_value(); }
+    Error error() const { return value.has_value() ? Error::NoError : value.error(); }
 
     typename T::ReplyArguments& reply()
     {
-        ASSERT(!!replyArguments);
-        return *replyArguments;
+        return value.value();
     }
 
     typename T::ReplyArguments takeReply()
     {
-        ASSERT(!!replyArguments);
-        return WTFMove(replyArguments).value();
+        return WTFMove(value.value());
     }
 
     template<typename... U>
     typename T::ReplyArguments takeReplyOr(U&&... defaultValues)
     {
-        return WTFMove(replyArguments).value_or(typename T::ReplyArguments { std::forward<U>(defaultValues)... });
+        if (!value.has_value())
+            return { std::forward<U>(defaultValues)... };
+        return takeReply();
     }
 };
 
@@ -216,48 +203,13 @@ public:
         virtual ~Client() { }
     };
 
-    struct Identifier;
-    struct Handle {
-        friend struct Identifier;
-        WTF_MAKE_NONCOPYABLE(Handle);
-        Handle() = default;
-        Handle(Handle&&) = default;
-        Handle& operator=(Handle&&) = default;
-
-#if USE(UNIX_DOMAIN_SOCKETS)
-        Handle(UnixFileDescriptor&& inHandle)
-            : handle(WTFMove(inHandle))
-        { }
-        explicit operator bool() const { return !!handle; }
-#elif OS(WINDOWS)
-        Handle(Win32Handle&& inHandle)
-            : handle(WTFMove(inHandle))
-        { }
-        explicit operator bool() const { return !!handle; }
-#elif OS(DARWIN)
-        Handle(MachSendRight&& sendRight)
-            : handle(WTFMove(sendRight))
-        { }
-        explicit operator bool() const { return MACH_PORT_VALID(handle.sendRight()); }
-#endif
-        void encode(Encoder&);
-        static std::optional<Handle> decode(Decoder&);
-
-    private:
-#if USE(UNIX_DOMAIN_SOCKETS)
-        UnixFileDescriptor handle;
-#elif OS(WINDOWS)
-        Win32Handle handle;
-#elif OS(DARWIN)
-        MachSendRight handle;
-#endif
-    };
+    using Handle = ConnectionHandle;
 
     struct Identifier {
         Identifier() = default;
 #if USE(UNIX_DOMAIN_SOCKETS)
         explicit Identifier(Handle&& handle)
-            : Identifier(handle.handle.release())
+            : Identifier(handle.release())
         {
         }
         explicit Identifier(int handle)
@@ -268,7 +220,7 @@ public:
         int handle { -1 };
 #elif OS(WINDOWS)
         explicit Identifier(Handle&& handle)
-            : Identifier(handle.handle.leak())
+            : Identifier(handle.leak())
         {
         }
         explicit Identifier(HANDLE handle)
@@ -279,7 +231,7 @@ public:
         HANDLE handle { 0 };
 #elif OS(DARWIN)
         explicit Identifier(Handle&& handle)
-            : Identifier(handle.handle.leakSendRight())
+            : Identifier(handle.leakSendRight())
         {
         }
         explicit Identifier(mach_port_t port)
@@ -318,24 +270,7 @@ public:
 
     enum UniqueIDType { };
     using UniqueID = AtomicObjectIdentifier<UniqueIDType>;
-
-    struct DecoderOrError {
-        std::unique_ptr<Decoder> decoder;
-        Error error { Error::NoError };
-
-        DecoderOrError(std::unique_ptr<Decoder>&& inDecoder)
-            : decoder(WTFMove(inDecoder))
-        { }
-
-        DecoderOrError(Error inError)
-            : decoder(nullptr)
-            , error(inError)
-        {
-            ASSERT(error != Error::NoError);
-        }
-        DecoderOrError(DecoderOrError&&);
-        ~DecoderOrError();
-    };
+    using DecoderOrError = Expected<UniqueRef<Decoder>, Error>;
 
     static RefPtr<Connection> connection(UniqueID);
     UniqueID uniqueID() const { return m_uniqueID; }
@@ -376,6 +311,8 @@ public:
     void removeMessageReceiver(ReceiverName, uint64_t destinationID = 0);
 
     bool open(Client&, SerialFunctionDispatcher& = RunLoop::current());
+    // Ensures that messages sent prior to the call are not affected by invalidate() or crash done after the call returns.
+    Error flushSentMessages(Timeout);
     void invalidate();
     void markCurrentlyDispatchedMessageAsInvalid();
 
@@ -465,11 +402,11 @@ public:
 
     void setIgnoreInvalidMessageForTesting() { m_ignoreInvalidMessageForTesting = true; }
     bool ignoreInvalidMessageForTesting() const { return m_ignoreInvalidMessageForTesting; }
-    void dispatchIncomingMessageForTesting(std::unique_ptr<Decoder>&&);
+    void dispatchIncomingMessageForTesting(UniqueRef<Decoder>&&);
     DecoderOrError waitForMessageForTesting(MessageName, uint64_t destinationID, Timeout, OptionSet<WaitForOption>);
 #endif
 
-    void dispatchMessageReceiverMessage(MessageReceiver&, std::unique_ptr<Decoder>&&);
+    void dispatchMessageReceiverMessage(MessageReceiver&, UniqueRef<Decoder>&&);
     // Can be called from any thread.
     void dispatchDidReceiveInvalidMessage(MessageName);
     void dispatchDidCloseAndInvalidate();
@@ -506,8 +443,8 @@ private:
     void enqueueMatchingMessagesToMessageReceiveQueue(MessageReceiveQueue&, const ReceiverMatcher&) WTF_REQUIRES_LOCK(m_incomingMessagesLock);
 
     // Called on the connection work queue.
-    void processIncomingMessage(std::unique_ptr<Decoder>);
-    void processIncomingSyncReply(std::unique_ptr<Decoder>);
+    void processIncomingMessage(UniqueRef<Decoder>);
+    void processIncomingSyncReply(UniqueRef<Decoder>);
 
     bool canSendOutgoingMessages() const;
     bool platformCanSendOutgoingMessages() const;
@@ -519,13 +456,13 @@ private:
     void dispatchSyncStateMessages();
     void dispatchOneIncomingMessage();
     void dispatchIncomingMessages();
-    void dispatchMessage(std::unique_ptr<Decoder>);
+    void dispatchMessage(UniqueRef<Decoder>);
     void dispatchMessage(Decoder&);
     void dispatchSyncMessage(Decoder&);
     void didFailToSendSyncMessage(Error);
 
     // Can be called on any thread.
-    void enqueueIncomingMessage(std::unique_ptr<Decoder>) WTF_REQUIRES_LOCK(m_incomingMessagesLock);
+    void enqueueIncomingMessage(UniqueRef<Decoder>) WTF_REQUIRES_LOCK(m_incomingMessagesLock);
     size_t incomingMessagesDispatchingBatchSize() const;
 
     Timeout timeoutRespectingIgnoreTimeoutsForTesting(Timeout) const;
@@ -577,12 +514,13 @@ private:
 
     // Incoming messages.
     mutable Lock m_incomingMessagesLock;
-    Deque<std::unique_ptr<Decoder>> m_incomingMessages WTF_GUARDED_BY_LOCK(m_incomingMessagesLock);
+    Deque<UniqueRef<Decoder>> m_incomingMessages WTF_GUARDED_BY_LOCK(m_incomingMessagesLock);
     MessageReceiveQueueMap m_receiveQueues WTF_GUARDED_BY_LOCK(m_incomingMessagesLock);
 
     // Outgoing messages.
     Lock m_outgoingMessagesLock;
     Deque<UniqueRef<Encoder>> m_outgoingMessages WTF_GUARDED_BY_LOCK(m_outgoingMessagesLock);
+    Condition m_outgoingMessagesEmptyCondition WTF_GUARDED_BY_LOCK(m_outgoingMessagesLock);
 
     Condition m_waitForMessageCondition;
     Lock m_waitForMessageLock;
@@ -741,31 +679,31 @@ template<typename T> Connection::SendSyncResult<T> Connection::sendSync(T&& mess
 
     // Now send the message and wait for a reply.
     auto replyDecoderOrError = sendSyncMessage(syncRequestID, WTFMove(encoder), timeout, sendSyncOptions);
-    if (!replyDecoderOrError.decoder) {
-        ASSERT(replyDecoderOrError.error != Error::NoError);
-        return { replyDecoderOrError.error };
+    if (!replyDecoderOrError.has_value()) {
+        ASSERT(replyDecoderOrError.error() != Error::NoError);
+        return { replyDecoderOrError.error() };
     }
 
     std::optional<typename T::ReplyArguments> replyArguments;
-    *replyDecoderOrError.decoder >> replyArguments;
+    *replyDecoderOrError.value() >> replyArguments;
     if (!replyArguments)
         return { Error::FailedToDecodeReplyArguments };
 
-    return { WTFMove(replyDecoderOrError.decoder), WTFMove(replyArguments) };
+    return { WTFMove(*replyArguments) };
 }
 
 template<typename T> Error Connection::waitForAndDispatchImmediately(uint64_t destinationID, Timeout timeout, OptionSet<WaitForOption> waitForOptions)
 {
     static_assert(T::canDispatchOutOfOrder, "Can only use waitForAndDispatchImmediately on messages declared with CanDispatchOutOfOrder");
     auto decoderOrError = waitForMessage(T::name(), destinationID, timeout, waitForOptions);
-    if (!decoderOrError.decoder)
-        return decoderOrError.error;
+    if (!decoderOrError.has_value())
+        return decoderOrError.error();
 
     if (!isValid())
         return Error::InvalidConnection;
 
-    ASSERT(decoderOrError.decoder->destinationID() == destinationID);
-    m_client->didReceiveMessage(*this, *decoderOrError.decoder);
+    ASSERT(decoderOrError.value()->destinationID() == destinationID);
+    m_client->didReceiveMessage(*this, decoderOrError.value());
     return Error::NoError;
 }
 
@@ -773,17 +711,17 @@ template<typename T> Error Connection::waitForAsyncReplyAndDispatchImmediately(A
 {
     static_assert(T::replyCanDispatchOutOfOrder, "Can only use waitForAsyncReplyAndDispatchImmediately on messages declared with ReplyCanDispatchOutOfOrder");
     auto decoderOrError = waitForMessage(T::asyncMessageReplyName(), replyID.toUInt64(), timeout, { });
-    if (!decoderOrError.decoder)
-        return decoderOrError.error;
+    if (!decoderOrError.has_value())
+        return decoderOrError.error();
 
-    ASSERT(decoderOrError.decoder->messageReceiverName() == ReceiverName::AsyncReply);
-    ASSERT(decoderOrError.decoder->destinationID() == replyID.toUInt64());
-    auto handler = takeAsyncReplyHandler(AtomicObjectIdentifier<AsyncReplyIDType>(decoderOrError.decoder->destinationID()));
+    ASSERT(decoderOrError.value()->messageReceiverName() == ReceiverName::AsyncReply);
+    ASSERT(decoderOrError.value()->destinationID() == replyID.toUInt64());
+    auto handler = takeAsyncReplyHandler(AtomicObjectIdentifier<AsyncReplyIDType>(decoderOrError.value()->destinationID()));
     if (!handler) {
         ASSERT_NOT_REACHED();
         return Error::FailedToFindReplyHandler;
     }
-    handler(decoderOrError.decoder.get());
+    handler(&decoderOrError.value().get());
     return Error::NoError;
 }
 

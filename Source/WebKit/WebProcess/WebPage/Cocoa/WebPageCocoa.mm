@@ -27,6 +27,7 @@
 #import "WebPage.h"
 
 #import "EditorState.h"
+#import "GPUProcessConnection.h"
 #import "InsertTextOptions.h"
 #import "LoadParameters.h"
 #import "MessageSenderInlines.h"
@@ -88,6 +89,10 @@
 
 #if USE(EXTENSIONKIT)
 #import "WKProcessExtension.h"
+#endif
+
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+#import "UnifiedTextReplacementController.h"
 #endif
 
 #define WEBPAGE_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [webPageID=%" PRIu64 "] WebPage::" fmt, this, m_identifier.toUInt64(), ##__VA_ARGS__)
@@ -425,7 +430,8 @@ WebPaymentCoordinator* WebPage::paymentCoordinator()
 
 void WebPage::getContentsAsAttributedString(CompletionHandler<void(const WebCore::AttributedString&)>&& completionHandler)
 {
-    completionHandler(is<LocalFrame>(m_page->mainFrame()) ? attributedString(makeRangeSelectingNodeContents(Ref { *downcast<LocalFrame>(m_page->mainFrame()).document() })) : AttributedString());
+    auto* localFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
+    completionHandler(localFrame ? attributedString(makeRangeSelectingNodeContents(Ref { *localFrame->document() })) : AttributedString());
 }
 
 void WebPage::setRemoteObjectRegistry(WebRemoteObjectRegistry* registry)
@@ -600,19 +606,16 @@ void WebPage::getPlatformEditorStateCommon(const LocalFrame& frame, EditorState&
 
 void WebPage::getPDFFirstPageSize(WebCore::FrameIdentifier frameID, CompletionHandler<void(WebCore::FloatSize)>&& completionHandler)
 {
-#if !ENABLE(LEGACY_PDFKIT_PLUGIN)
-    return completionHandler({ });
-#else
     RefPtr webFrame = WebProcess::singleton().webFrame(frameID);
     if (!webFrame)
         return completionHandler({ });
 
-    auto* pluginView = pluginViewForFrame(webFrame->coreLocalFrame());
-    if (!pluginView)
-        return completionHandler({ });
-    
-    completionHandler(FloatSize(pluginView->pdfDocumentSizeForPrinting()));
+#if ENABLE(PDF_PLUGIN)
+    if (auto* pluginView = pluginViewForFrame(webFrame->coreLocalFrame()))
+        return completionHandler(pluginView->pdfDocumentSizeForPrinting());
 #endif
+
+    completionHandler({ });
 }
 
 #if ENABLE(DATA_DETECTION)
@@ -735,6 +738,16 @@ void WebPage::readSelectionFromPasteboard(const String& pasteboardName, Completi
     completionHandler(true);
 }
 
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+void WebPage::insertMultiRepresentationHEIC(const IPC::DataReference& data)
+{
+    Ref frame = m_page->focusController().focusedOrMainFrame();
+    if (frame->selection().isNone())
+        return;
+    frame->editor().insertMultiRepresentationHEIC(data);
+}
+#endif
+
 std::pair<URL, DidFilterLinkDecoration> WebPage::applyLinkDecorationFilteringWithResult(const URL& url, LinkDecorationFilteringTrigger trigger)
 {
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
@@ -830,6 +843,24 @@ void WebPage::setMediaEnvironment(const String& mediaEnvironment)
     m_mediaEnvironment = mediaEnvironment;
     if (auto gpuProcessConnection = WebProcess::singleton().existingGPUProcessConnection())
         gpuProcessConnection->setMediaEnvironment(identifier(), mediaEnvironment);
+}
+#endif
+
+std::optional<SimpleRange> WebPage::rangeSelectionContext() const
+{
+    Ref frame = CheckedRef(m_page->focusController())->focusedOrMainFrame();
+    return frame->selection().rangeByExtendingCurrentSelection(TextGranularity::ParagraphGranularity);
+}
+
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+void WebPage::didBeginTextReplacementSession(const WTF::UUID& uuid)
+{
+    m_unifiedTextReplacementController->didBeginTextReplacementSession(uuid);
+}
+
+void WebPage::textReplacementSessionDidReceiveReplacements(const WTF::UUID& uuid, const Vector<WebTextReplacementData>& replacements, const WebUnifiedTextReplacementContextData& context, bool finished)
+{
+    m_unifiedTextReplacementController->textReplacementSessionDidReceiveReplacements(uuid, replacements, context, finished);
 }
 #endif
 

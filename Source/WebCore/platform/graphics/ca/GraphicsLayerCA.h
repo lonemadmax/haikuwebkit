@@ -119,9 +119,7 @@ public:
     WEBCORE_EXPORT void setBackdropFiltersRect(const FloatRoundedRect&) override;
     WEBCORE_EXPORT void setIsBackdropRoot(bool) override;
 
-#if ENABLE(CSS_COMPOSITING)
     WEBCORE_EXPORT void setBlendMode(BlendMode) override;
-#endif
 
     WEBCORE_EXPORT void setNeedsDisplay() override;
     WEBCORE_EXPORT void setNeedsDisplayInRect(const FloatRect&, ShouldClipToLayer = ClipToLayer) override;
@@ -206,9 +204,13 @@ public:
 
     WEBCORE_EXPORT RefPtr<GraphicsLayerAsyncContentsDisplayDelegate> createAsyncContentsDisplayDelegate(GraphicsLayerAsyncContentsDisplayDelegate*) override;
 
+    WEBCORE_EXPORT void markFrontBufferVolatileForTesting() override;
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     WEBCORE_EXPORT void setAcceleratedEffectsAndBaseValues(AcceleratedEffects&&, AcceleratedEffectValues&&) override;
 #endif
+
+    WEBCORE_EXPORT void purgeFrontBufferForTesting() override;
+    WEBCORE_EXPORT void purgeBackBufferForTesting() override;
 
 private:
     bool isGraphicsLayerCA() const override { return true; }
@@ -240,6 +242,7 @@ private:
     WEBCORE_EXPORT bool platformCALayerUseGiantTiles() const override;
     WEBCORE_EXPORT bool platformCALayerUseCSS3DTransformInteroperability() const override;
     WEBCORE_EXPORT void platformCALayerLogFilledVisibleFreshTile(unsigned) override;
+    WEBCORE_EXPORT bool platformCALayerNeedsPlatformContext(const PlatformCALayer*) const override;
     bool platformCALayerContainsBitmapOnly(const PlatformCALayer*) const override { return client().layerContainsBitmapOnly(this); }
     bool platformCALayerShouldPaintUsingCompositeCopy() const override { return shouldPaintUsingCompositeCopy(); }
 
@@ -480,9 +483,7 @@ private:
     void updateBackdropFiltersRect();
     void updateBackdropRoot();
 
-#if ENABLE(CSS_COMPOSITING)
     void updateBlendMode();
-#endif
 
     void updateVideoGravity();
     void updateShape();

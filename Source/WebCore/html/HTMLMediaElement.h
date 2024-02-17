@@ -526,7 +526,7 @@ public:
     void mediaLoadingFailed(MediaPlayer::NetworkState);
     void mediaLoadingFailedFatally(MediaPlayer::NetworkState);
 
-    RefPtr<VideoPlaybackQuality> getVideoPlaybackQuality();
+    RefPtr<VideoPlaybackQuality> getVideoPlaybackQuality() const;
 
     MediaPlayer::Preload preloadValue() const { return m_preload; }
     MediaElementSession* mediaSessionIfExists() const { return m_mediaSession.get(); }
@@ -591,6 +591,7 @@ public:
     WEBCORE_EXPORT void didBecomeFullscreenElement() final;
     WEBCORE_EXPORT void willExitFullscreen();
     WEBCORE_EXPORT void didStopBeingFullscreenElement() final;
+    void willBecomeFullscreenElement(VideoFullscreenMode = VideoFullscreenModeStandard);
 
     void scheduleEvent(Ref<Event>&&);
 
@@ -647,9 +648,25 @@ public:
     void setVideoLayerSizeFenced(const FloatSize&, WTF::MachSendRight&&);
     void updateMediaState();
 
+    enum class SourceType : uint8_t {
+        File,
+        HLS,
+        MediaSource,
+        ManagedMediaSource,
+        MediaStream,
+        LiveStream,
+        StoredStream,
+    };
+    std::optional<SourceType> sourceType() const;
+    String localizedSourceType() const;
+
+    LayoutRect contentBoxRect() const { return mediaPlayerContentBoxRect(); }
+
 protected:
     HTMLMediaElement(const QualifiedName&, Document&, bool createdByParser);
     virtual ~HTMLMediaElement();
+
+    void removeAllEventListeners() final;
 
     void attributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason) override;
     void finishParsingChildren() override;
@@ -685,6 +702,24 @@ protected:
 
     void mediaPlayerEngineUpdated() override;
     void visibilityStateChanged() final;
+    void mediaPlayerNetworkStateChanged() final;
+    void mediaPlayerReadyStateChanged() final;
+    void mediaPlayerTimeChanged() final;
+    void mediaPlayerVolumeChanged() final;
+    void mediaPlayerMuteChanged() final;
+    void mediaPlayerDurationChanged() final;
+    void mediaPlayerRateChanged() final;
+    void mediaPlayerPlaybackStateChanged() final;
+    void mediaPlayerResourceNotSupported() final;
+    void mediaPlayerRepaint() final;
+    void mediaPlayerSizeChanged() final;
+    void mediaPlayerRenderingModeChanged() final;
+    bool mediaPlayerAcceleratedCompositingEnabled() final;
+    void mediaPlayerWillInitializeMediaEngine() final;
+    void mediaPlayerDidInitializeMediaEngine() final;
+    void mediaPlayerReloadAndResumePlaybackIfNeeded() final;
+    void mediaPlayerQueueTaskOnEventLoop(Function<void()>&&) final;
+    void mediaPlayerCharacteristicChanged() final;
 
 private:
     friend class Internals;
@@ -703,8 +738,6 @@ private:
     bool isInteractiveContent() const override;
 
     void setFullscreenMode(VideoFullscreenMode);
-
-    void willBecomeFullscreenElement() override;
     void willStopBeingFullscreenElement() override;
 
     // ActiveDOMObject API.
@@ -723,28 +756,9 @@ private:
     WEBCORE_EXPORT double effectivePlaybackRate() const;
     double requestedPlaybackRate() const;
 
-    void mediaPlayerNetworkStateChanged() final;
-    void mediaPlayerReadyStateChanged() final;
-    void mediaPlayerTimeChanged() final;
-    void mediaPlayerVolumeChanged() final;
-    void mediaPlayerMuteChanged() final;
-    void mediaPlayerDurationChanged() final;
-    void mediaPlayerRateChanged() final;
-    void mediaPlayerPlaybackStateChanged() final;
-    void mediaPlayerResourceNotSupported() final;
-    void mediaPlayerRepaint() final;
-    void mediaPlayerSizeChanged() final;
-    void mediaPlayerRenderingModeChanged() final;
-    bool mediaPlayerAcceleratedCompositingEnabled() final;
-    void mediaPlayerWillInitializeMediaEngine() final;
-    void mediaPlayerDidInitializeMediaEngine() final;
-    void mediaPlayerReloadAndResumePlaybackIfNeeded() final;
-    void mediaPlayerQueueTaskOnEventLoop(Function<void()>&&) final;
-
     void scheduleMediaEngineWasUpdated();
     void mediaEngineWasUpdated();
 
-    void mediaPlayerCharacteristicChanged() final;
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RefPtr<ArrayBuffer> mediaPlayerCachedKeyForKeyId(const String& keyId) const final;

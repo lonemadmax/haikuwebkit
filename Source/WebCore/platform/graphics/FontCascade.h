@@ -30,6 +30,7 @@
 #include "FontCascadeDescription.h"
 #include "FontCascadeFonts.h"
 #include "Path.h"
+#include "RuntimeApplicationChecks.h"
 #include "TextSpacing.h"
 #include <optional>
 #include <wtf/CheckedRef.h>
@@ -266,16 +267,27 @@ public:
     static CodePath s_codePath;
 
     FontSelector* fontSelector() const;
+    static bool isInvisibleReplacementObjectCharacter(char32_t character)
+    {
+        if (character != objectReplacementCharacter)
+            return false;
+#if PLATFORM(COCOA)
+        // We make an exception for Books because some already available books when converted to EPUBS might contain object replacement character that should not be visible to the user.
+        return CocoaApplication::isIBooks();
+#else
+        return false;
+#endif
+    }
     static bool treatAsSpace(char32_t c) { return c == space || c == tabCharacter || c == newlineCharacter || c == noBreakSpace; }
     static bool isCharacterWhoseGlyphsShouldBeDeletedForTextRendering(char32_t character)
     {
         // https://drafts.csswg.org/css-text-3/#white-space-processing
         // "Unsupported Default_ignorable characters must be ignored for text rendering."
-        return isControlCharacter(character) || isDefaultIgnorableCodePoint(character);
+        return isControlCharacter(character) || isDefaultIgnorableCodePoint(character) || isInvisibleReplacementObjectCharacter(character);
     }
     // FIXME: Callers of treatAsZeroWidthSpace() and treatAsZeroWidthSpaceInComplexScript() should probably be calling isCharacterWhoseGlyphsShouldBeDeletedForTextRendering() instead.
     static bool treatAsZeroWidthSpace(char32_t c) { return treatAsZeroWidthSpaceInComplexScript(c) || c == zeroWidthNonJoiner || c == zeroWidthJoiner; }
-    static bool treatAsZeroWidthSpaceInComplexScript(char32_t c) { return c < space || (c >= deleteCharacter && c < noBreakSpace) || c == softHyphen || c == zeroWidthSpace || (c >= leftToRightMark && c <= rightToLeftMark) || (c >= leftToRightEmbed && c <= rightToLeftOverride) || c == zeroWidthNoBreakSpace; }
+    static bool treatAsZeroWidthSpaceInComplexScript(char32_t c) { return c < space || (c >= deleteCharacter && c < noBreakSpace) || c == softHyphen || c == zeroWidthSpace || (c >= leftToRightMark && c <= rightToLeftMark) || (c >= leftToRightEmbed && c <= rightToLeftOverride) || c == zeroWidthNoBreakSpace || isInvisibleReplacementObjectCharacter(c); }
     static bool canReceiveTextEmphasis(char32_t);
 
     static inline UChar normalizeSpaces(UChar character)
@@ -295,6 +307,7 @@ public:
 
     bool useBackslashAsYenSymbol() const { return m_useBackslashAsYenSymbol; }
     FontCascadeFonts* fonts() const { return m_fonts.get(); }
+    WEBCORE_EXPORT RefPtr<FontCascadeFonts> protectedFonts() const;
     bool isLoadingCustomFonts() const;
 
     static ResolvedEmojiPolicy resolveEmojiPolicy(FontVariantEmoji, char32_t);
@@ -344,30 +357,31 @@ private:
 inline const Font& FontCascade::primaryFont() const
 {
     ASSERT(m_fonts);
-    return m_fonts->primaryFont(m_fontDescription);
+    return protectedFonts()->primaryFont(m_fontDescription);
 }
 
 inline const FontRanges& FontCascade::fallbackRangesAt(unsigned index) const
 {
     ASSERT(m_fonts);
-    return m_fonts->realizeFallbackRangesAt(m_fontDescription, index);
+    return protectedFonts()->realizeFallbackRangesAt(m_fontDescription, index);
 }
 
 inline bool FontCascade::isFixedPitch() const
 {
     ASSERT(m_fonts);
-    return m_fonts->isFixedPitch(m_fontDescription);
+    return protectedFonts()->isFixedPitch(m_fontDescription);
 }
 
 inline bool FontCascade::canTakeFixedPitchFastContentMeasuring() const
 {
     ASSERT(m_fonts);
-    return m_fonts->canTakeFixedPitchFastContentMeasuring(m_fontDescription);
+    return protectedFonts()->canTakeFixedPitchFastContentMeasuring(m_fontDescription);
 }
 
 inline FontSelector* FontCascade::fontSelector() const
 {
-    return m_fonts ? m_fonts->fontSelector() : nullptr;
+    RefPtr fonts = m_fonts;
+    return fonts ? fonts->fontSelector() : nullptr;
 }
 
 inline float FontCascade::tabWidth(const Font& font, const TabSize& tabSize, float position, Font::SyntheticBoldInclusion syntheticBoldInclusion) const

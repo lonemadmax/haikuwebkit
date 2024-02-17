@@ -208,7 +208,7 @@ void PlatformCALayerRemote::recursiveBuildTransaction(RemoteLayerTreeContext& co
         // Once that setting is made unnecessary, remove this entire conditional as well.
         if (type() == PlatformCALayer::Type::RemoteCustom
             && !downcast<PlatformCALayerRemoteCustom>(*this).hasVideo()) {
-            RemoteLayerTreePropertyApplier::applyPropertiesToLayer(platformLayer(), nullptr, nullptr, m_properties, RemoteLayerBackingStoreProperties::LayerContentsType::CAMachPort);
+            RemoteLayerTreePropertyApplier::applyPropertiesToLayer(platformLayer(), nullptr, nullptr, m_properties, LayerContentsType::CAMachPort);
             didCommit();
             return;
         }
@@ -236,11 +236,24 @@ void PlatformCALayerRemote::didCommit()
 void PlatformCALayerRemote::ensureBackingStore()
 {
     ASSERT(owner());
-
     ASSERT(m_properties.backingStoreAttached);
 
-    if (!m_properties.backingStoreOrProperties.store && m_context)
-        m_properties.backingStoreOrProperties.store = m_context->backingStoreCollection().createRemoteLayerBackingStore(this);
+    bool needsNewBackingStore = [&] {
+        if (!m_context)
+            return false;
+
+        if (!m_properties.backingStoreOrProperties.store)
+            return true;
+
+        // A layer pulled out of a pool may have existing backing store which we mustn't reuse if it lives in the wrong process.
+        if (m_properties.backingStoreOrProperties.store->processModel() != RemoteLayerBackingStore::processModelForLayer(this))
+            return true;
+
+        return false;
+    }();
+
+    if (needsNewBackingStore)
+        m_properties.backingStoreOrProperties.store = RemoteLayerBackingStore::createForLayer(this);
 
     updateBackingStore();
 }
@@ -830,13 +843,11 @@ void PlatformCALayerRemote::copyFiltersFrom(const PlatformCALayer& sourceLayer)
     m_properties.notePropertiesChanged(LayerChange::FiltersChanged);
 }
 
-#if ENABLE(CSS_COMPOSITING)
 void PlatformCALayerRemote::setBlendMode(BlendMode blendMode)
 {
     m_properties.blendMode = blendMode;
     m_properties.notePropertiesChanged(LayerChange::BlendModeChanged);
 }
-#endif
 
 bool PlatformCALayerRemote::filtersCanBeComposited(const FilterOperations& filters)
 {
@@ -1091,4 +1102,23 @@ void PlatformCALayerRemote::setAcceleratedEffectsAndBaseValues(const Accelerated
 }
 #endif
 
+void PlatformCALayerRemote::purgeFrontBufferForTesting()
+{
+    if (m_properties.backingStoreOrProperties.store)
+        return m_properties.backingStoreOrProperties.store->purgeFrontBufferForTesting();
+}
+
+void PlatformCALayerRemote::purgeBackBufferForTesting()
+{
+    if (m_properties.backingStoreOrProperties.store)
+        return m_properties.backingStoreOrProperties.store->purgeBackBufferForTesting();
+}
+
+void PlatformCALayerRemote::markFrontBufferVolatileForTesting()
+{
+    if (m_properties.backingStoreOrProperties.store)
+        m_properties.backingStoreOrProperties.store->markFrontBufferVolatileForTesting();
+}
+
 } // namespace WebKit
+

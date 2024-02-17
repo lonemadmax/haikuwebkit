@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -137,6 +137,10 @@
 
 #if PLATFORM(COCOA)
 #include <WebCore/SystemBattery.h>
+#endif
+
+#if ENABLE(AV1) && PLATFORM(COCOA)
+#include <WebCore/AV1UtilitiesCocoa.h>
 #endif
 
 #if ENABLE(VP9) && PLATFORM(COCOA)
@@ -304,12 +308,14 @@ GPUConnectionToWebProcess::GPUConnectionToWebProcess(GPUProcess& gpuProcess, Web
         hasVP9HardwareDecoder = WebCore::vp9HardwareDecoderAvailable();
         gpuProcess.send(Messages::GPUProcessProxy::SetHasVP9HardwareDecoder(hasVP9HardwareDecoder));
     }
-    bool hasVP9ExtensionSupport;
-    if (parameters.hasVP9ExtensionSupport)
-        hasVP9ExtensionSupport = *parameters.hasVP9ExtensionSupport;
+#endif
+#if ENABLE(AV1)
+    bool hasAV1HardwareDecoder;
+    if (parameters.hasAV1HardwareDecoder)
+        hasAV1HardwareDecoder = *parameters.hasAV1HardwareDecoder;
     else {
-        hasVP9ExtensionSupport = WebCore::hasVP9ExtensionSupport();
-        gpuProcess.send(Messages::GPUProcessProxy::SetHasVP9ExtensionSupport(hasVP9ExtensionSupport));
+        hasAV1HardwareDecoder = WebCore::av1HardwareDecoderAvailable();
+        gpuProcess.send(Messages::GPUProcessProxy::SetHasAV1HardwareDecoder(hasAV1HardwareDecoder));
     }
 #endif
 
@@ -319,7 +325,9 @@ GPUConnectionToWebProcess::GPUConnectionToWebProcess(GPUProcess& gpuProcess, Web
 #endif
 #if ENABLE(VP9)
         hasVP9HardwareDecoder,
-        hasVP9ExtensionSupport
+#endif
+#if ENABLE(AV1)
+        hasAV1HardwareDecoder
 #endif
     };
     m_connection->send(Messages::GPUProcessConnection::DidInitialize(info), 0);
@@ -343,6 +351,8 @@ uint64_t GPUConnectionToWebProcess::gObjectCountForTesting = 0;
 
 void GPUConnectionToWebProcess::didClose(IPC::Connection& connection)
 {
+    assertIsMainThread();
+
 #if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)
     m_routingArbitrator->processDidTerminate();
 #endif
@@ -387,6 +397,10 @@ void GPUConnectionToWebProcess::didClose(IPC::Connection& connection)
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RemoteLegacyCDMFactoryProxy& legacyCdmFactoryProxy();
 #endif
+
+    if (m_remoteMediaResourceManager)
+        m_remoteMediaResourceManager->stopListeningForIPC();
+
     gpuProcess().connectionToWebProcessClosed(connection);
     gpuProcess().removeGPUConnectionToWebProcess(*this); // May destroy |this|.
 }
@@ -534,8 +548,12 @@ RemoteAudioDestinationManager& GPUConnectionToWebProcess::remoteAudioDestination
 #if ENABLE(VIDEO)
 RemoteMediaResourceManager& GPUConnectionToWebProcess::remoteMediaResourceManager()
 {
-    if (!m_remoteMediaResourceManager)
-        m_remoteMediaResourceManager = makeUnique<RemoteMediaResourceManager>();
+    assertIsMainThread();
+
+    if (!m_remoteMediaResourceManager) {
+        m_remoteMediaResourceManager = RemoteMediaResourceManager::create();
+        m_remoteMediaResourceManager->initializeConnection(&connection());
+    }
 
     return *m_remoteMediaResourceManager;
 }
@@ -1095,13 +1113,6 @@ void GPUConnectionToWebProcess::dispatchDisplayWasReconfigured()
 {
     for (auto& context : m_remoteGraphicsContextGLMap.values())
         context->displayWasReconfigured();
-}
-#endif
-
-#if ENABLE(VP9)
-void GPUConnectionToWebProcess::enableVP9Decoders(bool shouldEnableVP8Decoder, bool shouldEnableVP9Decoder, bool shouldEnableVP9SWDecoder)
-{
-    m_gpuProcess->enableVP9Decoders(shouldEnableVP8Decoder, shouldEnableVP9Decoder, shouldEnableVP9SWDecoder);
 }
 #endif
 

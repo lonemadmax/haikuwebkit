@@ -32,9 +32,6 @@ class HTMLCollection;
 class RadioNodeList;
 class RenderElement;
 
-const int initialNodeVectorSize = 11; // Covers 99.5%. See webkit.org/b/80706
-typedef Vector<Ref<Node>, initialNodeVectorSize> NodeVector;
-
 class ContainerNode : public Node {
     WTF_MAKE_ISO_ALLOCATED(ContainerNode);
 public:
@@ -69,6 +66,8 @@ public:
     // They don't send DOM mutation events or handle reparenting.
     // However, arbitrary code may be run by beforeload handlers.
     void parserAppendChild(Node&);
+    void parserAppendChildIntoIsolatedTree(Node&);
+    void parserNotifyChildrenChanged();
     void parserRemoveChild(Node&);
     void parserInsertBefore(Node& newChild, Node& refChild);
 
@@ -141,6 +140,8 @@ public:
     ExceptionOr<void> replaceChildren(FixedVector<NodeOrString>&&);
 
     ExceptionOr<void> ensurePreInsertionValidity(Node& newChild, Node* refChild);
+    ExceptionOr<void> ensurePreInsertionValidityForPhantomDocumentFragment(NodeVector& newChildren, Node* refChild = nullptr);
+    ExceptionOr<void> insertChildrenBeforeWithoutPreInsertionValidityCheck(NodeVector&&, Node* nextChild = nullptr);
 
 protected:
     explicit ContainerNode(Document&, NodeType, OptionSet<TypeFlag> = { });
@@ -163,6 +164,7 @@ private:
 
     void removeBetween(Node* previousChild, Node* nextChild, Node& oldChild);
     ExceptionOr<void> appendChildWithoutPreInsertionValidityCheck(Node&);
+
     void insertBeforeCommon(Node& nextChild, Node& oldChild);
     void appendChildCommon(Node&);
 
@@ -216,72 +218,6 @@ inline void collectChildNodes(Node& node, NodeVector& children)
     for (Node* child = node.firstChild(); child; child = child->nextSibling())
         children.append(*child);
 }
-
-class ChildNodesLazySnapshot {
-    WTF_MAKE_NONCOPYABLE(ChildNodesLazySnapshot);
-    WTF_MAKE_FAST_ALLOCATED;
-public:
-    explicit ChildNodesLazySnapshot(Node& parentNode)
-        : m_currentNode(parentNode.firstChild())
-        , m_currentIndex(0)
-        , m_hasSnapshot(false)
-    {
-        m_nextSnapshot = latestSnapshot;
-        latestSnapshot = this;
-    }
-
-    ALWAYS_INLINE ~ChildNodesLazySnapshot()
-    {
-        latestSnapshot = m_nextSnapshot;
-    }
-
-    // Returns 0 if there is no next Node.
-    RefPtr<Node> nextNode()
-    {
-        if (LIKELY(!hasSnapshot())) {
-            RefPtr<Node> node = WTFMove(m_currentNode);
-            if (node)
-                m_currentNode = node->nextSibling();
-            return node;
-        }
-        if (m_currentIndex >= m_snapshot.size())
-            return nullptr;
-        return m_snapshot[m_currentIndex++];
-    }
-
-    void takeSnapshot()
-    {
-        if (hasSnapshot())
-            return;
-        m_hasSnapshot = true;
-        Node* node = m_currentNode.get();
-        while (node) {
-            m_snapshot.append(node);
-            node = node->nextSibling();
-        }
-    }
-
-    ChildNodesLazySnapshot* nextSnapshot() { return m_nextSnapshot; }
-    bool hasSnapshot() { return m_hasSnapshot; }
-
-    static void takeChildNodesLazySnapshot()
-    {
-        ChildNodesLazySnapshot* snapshot = latestSnapshot;
-        while (snapshot && !snapshot->hasSnapshot()) {
-            snapshot->takeSnapshot();
-            snapshot = snapshot->nextSnapshot();
-        }
-    }
-
-private:
-    static ChildNodesLazySnapshot* latestSnapshot;
-
-    RefPtr<Node> m_currentNode;
-    unsigned m_currentIndex;
-    bool m_hasSnapshot;
-    Vector<RefPtr<Node>> m_snapshot; // Lazily instantiated.
-    ChildNodesLazySnapshot* m_nextSnapshot;
-};
 
 inline void Node::setParentNode(ContainerNode* parent)
 {

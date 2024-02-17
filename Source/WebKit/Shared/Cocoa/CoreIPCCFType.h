@@ -27,11 +27,13 @@
 
 #if PLATFORM(COCOA)
 
+#include "CoreIPCRetainPtr.h"
 #include <wtf/ArgumentCoder.h>
 
 namespace WebKit {
 
 class CoreIPCCFType {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     CoreIPCCFType(CFTypeRef cfType)
         : m_cfType(cfType)

@@ -32,6 +32,7 @@
 #include "ApplicationCacheHost.h"
 #include "ApplicationCacheResource.h"
 #include "Attribute.h"
+#include "AudioTrackConfiguration.h"
 #include "AudioTrackList.h"
 #include "AudioTrackPrivate.h"
 #include "Blob.h"
@@ -40,6 +41,7 @@
 #include "CSSValueKeywords.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "CodecUtilities.h"
 #include "CommonAtomStrings.h"
 #include "CommonVM.h"
 #include "ContentRuleListResults.h"
@@ -125,6 +127,7 @@
 #include "UserGestureIndicator.h"
 #include "VideoPlaybackQuality.h"
 #include "VideoTrack.h"
+#include "VideoTrackConfiguration.h"
 #include "VideoTrackList.h"
 #include "VideoTrackPrivate.h"
 #include "WebCoreJSClientData.h"
@@ -133,6 +136,7 @@
 #include <pal/SessionID.h>
 #include <wtf/Algorithms.h>
 #include <wtf/IsoMallocInlines.h>
+#include <wtf/JSONValues.h>
 #include <wtf/Language.h>
 #include <wtf/MathExtras.h>
 #include <wtf/MemoryPressureHandler.h>
@@ -150,7 +154,7 @@
 
 #if PLATFORM(IOS_FAMILY)
 #include "RuntimeApplicationChecks.h"
-#include "VideoFullscreenInterfaceAVKit.h"
+#include "VideoPresentationInterfaceIOS.h"
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -428,8 +432,13 @@ static bool defaultVolumeLocked()
 #endif
 }
 
+static bool isInWindowOrStandardFullscreen(HTMLMediaElementEnums::VideoFullscreenMode mode)
+{
+    return mode == HTMLMediaElementEnums::VideoFullscreenModeStandard || mode == HTMLMediaElementEnums::VideoFullscreenModeInWindow;
+}
+
 HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& document, bool createdByParser)
-    : HTMLElement(tagName, document, TypeFlag::HasCustomStyleResolveCallbacks)
+    : HTMLElement(tagName, document, { TypeFlag::HasCustomStyleResolveCallbacks, TypeFlag::HasDidMoveToNewDocument })
     , ActiveDOMObject(document)
     , m_progressEventTimer(*this, &HTMLMediaElement::progressEventTimerFired)
     , m_playbackProgressTimer(*this, &HTMLMediaElement::playbackProgressTimerFired)
@@ -773,6 +782,20 @@ bool HTMLMediaElement::isInteractiveContent() const
     return controls();
 }
 
+void HTMLMediaElement::removeAllEventListeners()
+{
+    Element::removeAllEventListeners();
+
+    if (m_audioTracks)
+        m_audioTracks->removeAllEventListeners();
+
+    if (m_textTracks)
+        m_textTracks->removeAllEventListeners();
+
+    if (m_videoTracks)
+        m_videoTracks->removeAllEventListeners();
+}
+
 void HTMLMediaElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)
 {
     switch (name.nodeName()) {
@@ -872,6 +895,8 @@ Node::InsertedIntoAncestorResult HTMLMediaElement::insertedIntoAncestor(Insertio
     if (insertionType.connectedToDocument)
         setInActiveDocument(true);
 
+    if (!insertionType.connectedToDocument)
+        return InsertedIntoAncestorResult::Done;
     return InsertedIntoAncestorResult::NeedsPostInsertionCallback;
 }
 
@@ -6461,8 +6486,8 @@ void HTMLMediaElement::mediaVolumeDidChange()
 bool HTMLMediaElement::elementIsHidden() const
 {
 #if ENABLE(FULLSCREEN_API)
-    auto& fullscreenManager = document().fullscreenManager();
-    if (isVideo() && fullscreenManager.isFullscreen() && fullscreenManager.currentFullscreenElement())
+    auto* fullscreenManager = document().fullscreenManagerIfExists();
+    if (isVideo() && fullscreenManager && fullscreenManager->isFullscreen() && fullscreenManager->currentFullscreenElement())
         return false;
 #endif
 
@@ -6756,7 +6781,8 @@ bool HTMLMediaElement::taintsOrigin(const SecurityOrigin& origin) const
 bool HTMLMediaElement::isFullscreen() const
 {
 #if ENABLE(FULLSCREEN_API)
-    if (document().fullscreenManager().isFullscreen() && document().fullscreenManager().currentFullscreenElement() == this)
+    CheckedPtr fullscreenManager = document().fullscreenManagerIfExists();
+    if (fullscreenManager && fullscreenManager->isFullscreen() && fullscreenManager->currentFullscreenElement() == this)
         return true;
 #endif
 
@@ -6766,7 +6792,8 @@ bool HTMLMediaElement::isFullscreen() const
 bool HTMLMediaElement::isStandardFullscreen() const
 {
 #if ENABLE(FULLSCREEN_API)
-    if (document().fullscreenManager().isFullscreen() && document().fullscreenManager().currentFullscreenElement() == this)
+    CheckedPtr fullscreenManager = document().fullscreenManagerIfExists();
+    if (fullscreenManager && fullscreenManager->isFullscreen() && fullscreenManager->currentFullscreenElement() == this)
         return true;
 #endif
 
@@ -6808,10 +6835,10 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
 #else
     constexpr bool videoUsesElementFullscreen = true;
 #endif
-    if (videoUsesElementFullscreen && document().settings().fullScreenEnabled() && mode == VideoFullscreenModeStandard) {
+    if (videoUsesElementFullscreen && document().settings().fullScreenEnabled() && isInWindowOrStandardFullscreen(mode)) {
         m_temporarilyAllowingInlinePlaybackAfterFullscreen = false;
         m_waitingToEnterFullscreen = true;
-        document().fullscreenManager().requestFullscreenForElement(*this, nullptr, FullscreenManager::ExemptIFrameAllowFullscreenRequirement);
+        document().fullscreenManager().requestFullscreenForElement(*this, nullptr, FullscreenManager::ExemptIFrameAllowFullscreenRequirement, mode);
         return;
     }
 #endif
@@ -6837,7 +6864,7 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
                 ALWAYS_LOG(logIdentifier, "Entering fullscreen mode ", mode, ", m_videoFullscreenStandby = ", m_videoFullscreenStandby);
 
                 m_temporarilyAllowingInlinePlaybackAfterFullscreen = false;
-                if (mode == VideoFullscreenModeStandard)
+                if (isInWindowOrStandardFullscreen(mode))
                     m_waitingToEnterFullscreen = true;
 
                 auto oldMode = m_videoFullscreenMode;
@@ -6848,9 +6875,9 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
                 if (m_videoFullscreenStandby)
                     return;
 
-                if (mode == VideoFullscreenModeStandard)
+                if (isInWindowOrStandardFullscreen(mode))
                     scheduleEvent(eventNames().webkitbeginfullscreenEvent);
-                else if (oldMode == VideoFullscreenModeStandard && !document().quirks().shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk())
+                else if (isInWindowOrStandardFullscreen(oldMode)  && !document().quirks().shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk())
                     scheduleEvent(eventNames().webkitendfullscreenEvent);
 
                 return;
@@ -6880,7 +6907,7 @@ void HTMLMediaElement::exitFullscreen()
             document().fullscreenManager().cancelFullscreen();
         }
 
-        if (m_videoFullscreenMode == VideoFullscreenModeStandard)
+        if (isInWindowOrStandardFullscreen(m_videoFullscreenMode))
             return;
     }
 #endif
@@ -6921,7 +6948,7 @@ void HTMLMediaElement::exitFullscreen()
 
         m_changingVideoFullscreenMode = true;
 
-        if (oldVideoFullscreenMode == VideoFullscreenModeStandard) {
+        if (isInWindowOrStandardFullscreen(oldVideoFullscreenMode)) {
             setFullscreenMode(VideoFullscreenModeNone);
             // The exit fullscreen request will be sent in dispatchEvent().
             scheduleEvent(eventNames().webkitendfullscreenEvent);
@@ -6974,14 +7001,14 @@ WEBCORE_EXPORT void HTMLMediaElement::setVideoFullscreenStandby(bool value)
         });
 }
 
-void HTMLMediaElement::willBecomeFullscreenElement()
+void HTMLMediaElement::willBecomeFullscreenElement(VideoFullscreenMode mode)
 {
 #if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
     HTMLMediaElementEnums::VideoFullscreenMode oldVideoFullscreenMode = m_videoFullscreenMode;
 #endif
 
-    if (m_videoFullscreenMode != VideoFullscreenModeStandard)
-        setFullscreenMode(VideoFullscreenModeStandard);
+    if (!isInWindowOrStandardFullscreen(m_videoFullscreenMode))
+        setFullscreenMode(mode);
 
 #if PLATFORM(MAC) && ENABLE(VIDEO_PRESENTATION_MODE)
     if (oldVideoFullscreenMode == VideoFullscreenModePictureInPicture) {
@@ -7003,7 +7030,7 @@ void HTMLMediaElement::didBecomeFullscreenElement()
 
 void HTMLMediaElement::willStopBeingFullscreenElement()
 {
-    if (fullscreenMode() == VideoFullscreenModeStandard)
+    if (isInWindowOrStandardFullscreen(fullscreenMode()))
         setFullscreenMode(VideoFullscreenModeNone);
 }
 
@@ -7158,7 +7185,7 @@ void HTMLMediaElement::configureTextTrackDisplay(TextTrackVisibilityCheckType ch
     if (m_processingPreferenceChange)
         return;
 
-    if (isSuspended())
+    if (isSuspended() || isContextStopped())
         return;
 
     bool haveVisibleTextTrack = false;
@@ -8024,21 +8051,21 @@ void HTMLMediaElement::updateRateChangeRestrictions()
         mediaSession().removeBehaviorRestriction(MediaElementSession::RequireUserGestureForAudioRateChange);
 }
 
-RefPtr<VideoPlaybackQuality> HTMLMediaElement::getVideoPlaybackQuality()
+RefPtr<VideoPlaybackQuality> HTMLMediaElement::getVideoPlaybackQuality() const
 {
     RefPtr domWindow = document().domWindow();
     double timestamp = domWindow ? domWindow->nowTimestamp().milliseconds() : 0;
 
-    auto metrics = m_player ? m_player->videoPlaybackQualityMetrics() : std::nullopt;
-    if (!metrics)
-        return VideoPlaybackQuality::create(timestamp, { });
-
+    VideoPlaybackQualityMetrics currentVideoPlaybackQuality;
 #if ENABLE(MEDIA_SOURCE)
-    metrics.value().totalVideoFrames += m_droppedVideoFrames;
-    metrics.value().droppedVideoFrames += m_droppedVideoFrames;
+    currentVideoPlaybackQuality.totalVideoFrames = m_droppedVideoFrames;
+    currentVideoPlaybackQuality.droppedVideoFrames = m_droppedVideoFrames;
 #endif
 
-    return VideoPlaybackQuality::create(timestamp, metrics.value());
+    if (auto metrics = m_player ? m_player->videoPlaybackQualityMetrics() : std::nullopt)
+        currentVideoPlaybackQuality += *metrics;
+
+    return VideoPlaybackQuality::create(timestamp, currentVideoPlaybackQuality);
 }
 
 DOMWrapperWorld& HTMLMediaElement::ensureIsolatedWorld()
@@ -9134,6 +9161,58 @@ void HTMLMediaElement::setShowingStats(bool shouldShowStats)
 bool HTMLMediaElement::shouldDisableHDR() const
 {
     return !screenSupportsHighDynamicRange(document().view());
+}
+
+auto HTMLMediaElement::sourceType() const -> std::optional<SourceType>
+{
+    if (hasMediaStreamSource())
+        return SourceType::MediaStream;
+
+#if ENABLE(MEDIA_SOURCE)
+    if (hasManagedMediaSource())
+        return SourceType::ManagedMediaSource;
+
+    if (hasMediaSource())
+        return SourceType::MediaSource;
+#endif
+
+    switch (movieLoadType()) {
+    case HTMLMediaElement::MovieLoadType::Unknown: return std::nullopt;
+    case HTMLMediaElement::MovieLoadType::Download: return SourceType::File;
+    case HTMLMediaElement::MovieLoadType::StoredStream: return SourceType::LiveStream;
+    case HTMLMediaElement::MovieLoadType::LiveStream: return SourceType::StoredStream;
+    case HTMLMediaElement::MovieLoadType::HttpLiveStream: return SourceType::HLS;
+    }
+
+    ASSERT_NOT_REACHED();
+    return std::nullopt;
+}
+
+String HTMLMediaElement::localizedSourceType() const
+{
+    auto sourceType = this->sourceType();
+    if (!sourceType)
+        return { };
+
+    switch (*sourceType) {
+    case HTMLMediaElement::SourceType::File:
+        return WEB_UI_STRING_KEY("File", "File (Media Element Source Type)", "Media Element Source Type");
+    case HTMLMediaElement::SourceType::HLS:
+        return WEB_UI_STRING_KEY("HLS", "HLS (Media Element Source Type)", "Media Element Source Type");
+    case HTMLMediaElement::SourceType::MediaSource:
+        return WEB_UI_STRING_KEY("Media Source", "MediaSource (Media Element Source Type)", "Media Element Source Type");
+    case HTMLMediaElement::SourceType::ManagedMediaSource:
+        return WEB_UI_STRING_KEY("Managed Media Source", "ManagedMediaSource (Media Element Source Type)", "Media Element Source Type");
+    case HTMLMediaElement::SourceType::MediaStream:
+        return WEB_UI_STRING_KEY("Media Stream", "MediaStream (Media Element Source Type)", "Media Element Source Type");
+    case HTMLMediaElement::SourceType::LiveStream:
+        return WEB_UI_STRING_KEY("Live Stream", "LiveStream (Media Element Source Type)", "Media Element Source Type");
+    case HTMLMediaElement::SourceType::StoredStream:
+        return WEB_UI_STRING_KEY("Stored Stream", "StoredStream (Media Element Source Type)", "Media Element Source Type");
+    }
+
+    ASSERT_NOT_REACHED();
+    return { };
 }
 
 } // namespace WebCore

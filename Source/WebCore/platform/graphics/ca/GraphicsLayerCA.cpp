@@ -880,7 +880,6 @@ void GraphicsLayerCA::setBackdropFiltersRect(const FloatRoundedRect& backdropFil
     noteLayerPropertyChanged(BackdropFiltersRectChanged);
 }
 
-#if ENABLE(CSS_COMPOSITING)
 void GraphicsLayerCA::setBlendMode(BlendMode blendMode)
 {
     if (GraphicsLayer::blendMode() == blendMode)
@@ -889,7 +888,6 @@ void GraphicsLayerCA::setBlendMode(BlendMode blendMode)
     GraphicsLayer::setBlendMode(blendMode);
     noteLayerPropertyChanged(BlendModeChanged);
 }
-#endif
 
 bool GraphicsLayerCA::backingStoreAttached() const
 {
@@ -1314,6 +1312,9 @@ void GraphicsLayerCA::setContentsToPlatformLayer(PlatformLayer* platformLayer, C
 
 void GraphicsLayerCA::setContentsToPlatformLayerHost(LayerHostingContextIdentifier identifier)
 {
+    if (m_contentsLayer && m_contentsLayer->hostingContextIdentifier() == identifier)
+        return;
+
     m_contentsLayer = createPlatformCALayerHost(identifier, this);
     m_contentsLayerPurpose = GraphicsLayer::ContentsLayerPurpose::Host;
     m_contentsDisplayDelegate = nullptr;
@@ -1976,6 +1977,11 @@ void GraphicsLayerCA::platformCALayerLayerDisplay(PlatformCALayer* layer)
     m_contentsDisplayDelegate->display(*layer);
 }
 
+bool GraphicsLayerCA::platformCALayerNeedsPlatformContext(const PlatformCALayer*) const
+{
+    return client().layerNeedsPlatformContext(this);
+}
+
 void GraphicsLayerCA::commitLayerChangesBeforeSublayers(CommitState& commitState, float pageScaleFactor, const FloatPoint& positionRelativeToBase, bool& layerChanged)
 {
     SetForScope committingChangesChange(m_isCommittingChanges, true);
@@ -2067,10 +2073,8 @@ void GraphicsLayerCA::commitLayerChangesBeforeSublayers(CommitState& commitState
     if (m_uncommittedChanges & BackdropFiltersRectChanged)
         updateBackdropFiltersRect();
 
-#if ENABLE(CSS_COMPOSITING)
     if (m_uncommittedChanges & BlendModeChanged)
         updateBlendMode();
-#endif
 
     if (m_uncommittedChanges & VideoGravityChanged)
         updateVideoGravity();
@@ -2564,7 +2568,6 @@ void GraphicsLayerCA::updateBackdropRoot()
     m_layer->setIsBackdropRoot(isBackdropRoot());
 }
 
-#if ENABLE(CSS_COMPOSITING)
 void GraphicsLayerCA::updateBlendMode()
 {
     primaryLayer()->setBlendMode(m_blendMode);
@@ -2577,7 +2580,6 @@ void GraphicsLayerCA::updateBlendMode()
         }
     }
 }
-#endif
 
 void GraphicsLayerCA::updateVideoGravity()
 {
@@ -5071,6 +5073,24 @@ void GraphicsLayerCA::setAcceleratedEffectsAndBaseValues(AcceleratedEffects&& ef
     noteLayerPropertyChanged(AnimationChanged | CoverageRectChanged);
 }
 #endif
+
+void GraphicsLayerCA::purgeFrontBufferForTesting()
+{
+    if (RefPtr layer = primaryLayer())
+        layer->purgeFrontBufferForTesting();
+}
+
+void GraphicsLayerCA::purgeBackBufferForTesting()
+{
+    if (RefPtr layer = primaryLayer())
+        layer->purgeBackBufferForTesting();
+}
+
+void GraphicsLayerCA::markFrontBufferVolatileForTesting()
+{
+    if (RefPtr layer = primaryLayer())
+        layer->markFrontBufferVolatileForTesting();
+}
 
 } // namespace WebCore
 

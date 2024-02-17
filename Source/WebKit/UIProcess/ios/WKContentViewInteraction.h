@@ -42,8 +42,8 @@
 #import "TextCheckingController.h"
 #import "TransactionID.h"
 #import "UIKitSPI.h"
+#import "WKBrowserEngineDefinitions.h"
 #import "WKMouseInteraction.h"
-#import "WKSEDefinitions.h"
 #import <WebKit/WKActionSheetAssistant.h>
 #import <WebKit/WKAirPlayRoutePicker.h>
 #import <WebKit/WKContactPicker.h>
@@ -66,6 +66,7 @@
 #import <WebCore/FloatQuad.h>
 #import <WebCore/MediaControlsContextMenuItem.h>
 #import <WebCore/PointerID.h>
+#import <pal/spi/ios/BrowserEngineKitSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/CompletionHandler.h>
 #import <wtf/Forward.h>
@@ -169,6 +170,17 @@ typedef std::pair<WebKit::InteractionInformationRequest, InteractionInformationC
 #define FOR_EACH_FIND_WKCONTENTVIEW_ACTION(M)
 #endif
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/UnifiedTextReplacementAdditions.h>
+#endif
+
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+#define FOR_EACH_UNIFIED_TEXT_REPLACEMENT_PRIVATE_WKCONTENTVIEW_ACTION(M) \
+    M(_swapCharacters)
+#else
+#define FOR_EACH_UNIFIED_TEXT_REPLACEMENT_PRIVATE_WKCONTENTVIEW_ACTION(M)
+#endif
+
 #define FOR_EACH_WKCONTENTVIEW_ACTION(M) \
     FOR_EACH_INSERT_TEXT_FROM_CAMERA_WKCONTENTVIEW_ACTION(M) \
     FOR_EACH_FIND_WKCONTENTVIEW_ACTION(M) \
@@ -176,6 +188,7 @@ typedef std::pair<WebKit::InteractionInformationRequest, InteractionInformationC
     M(_addShortcut) \
     M(define) \
     M(_define) \
+    M(lookup) \
     M(_lookup) \
     M(translate) \
     M(_translate) \
@@ -204,6 +217,7 @@ typedef std::pair<WebKit::InteractionInformationRequest, InteractionInformationC
     M(makeTextWritingDirectionRightToLeft)
 
 #define FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(M) \
+    FOR_EACH_UNIFIED_TEXT_REPLACEMENT_PRIVATE_WKCONTENTVIEW_ACTION(M) \
     M(_alignCenter) \
     M(_alignJustified) \
     M(_alignLeft) \
@@ -455,7 +469,7 @@ struct ImageAnalysisContextMenuActionData {
 
 #if ENABLE(DATALIST_ELEMENT)
     RetainPtr<UIView <WKFormControl>> _dataListTextSuggestionsInputView;
-    RetainPtr<NSArray<WKSETextSuggestion *>> _dataListTextSuggestions;
+    RetainPtr<NSArray<WKBETextSuggestion *>> _dataListTextSuggestions;
     WeakObjCPtr<WKDataListSuggestionsControl> _dataListSuggestionsControl;
 #endif
 
@@ -584,8 +598,8 @@ struct ImageAnalysisContextMenuActionData {
     WebCore::FloatRect _imageAnalysisInteractionBounds;
     std::optional<WebKit::RemoveBackgroundData> _removeBackgroundData;
 #endif
-#if HAVE(UI_ASYNC_TEXT_INTERACTION)
-    __weak id<WKSETextInputDelegate> _asyncSystemInputDelegate;
+#if USE(BROWSERENGINEKIT)
+    __weak id<BETextInputDelegate> _asyncInputDelegate;
 #endif
 }
 
@@ -608,13 +622,11 @@ struct ImageAnalysisContextMenuActionData {
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)
     , WKMouseInteractionDelegate
 #endif
-#if HAVE(UI_ASYNC_DRAG_INTERACTION)
-    , WKSEDragInteractionDelegate
+#if USE(BROWSERENGINEKIT)
+    , BEDragInteractionDelegate
+    , BETextInteractionDelegate
 #elif ENABLE(DRAG_SUPPORT)
     , UIDragInteractionDelegate
-#endif
-#if HAVE(UI_ASYNC_TEXT_INTERACTION_DELEGATE)
-    , WKSETextInteractionDelegate
 #endif
 >
 
@@ -644,7 +656,7 @@ struct ImageAnalysisContextMenuActionData {
 
 #if ENABLE(DATALIST_ELEMENT)
 @property (nonatomic, strong) UIView <WKFormControl> *dataListTextSuggestionsInputView;
-@property (nonatomic, strong) NSArray<WKSETextSuggestion *> *dataListTextSuggestions;
+@property (nonatomic, strong) NSArray<WKBETextSuggestion *> *dataListTextSuggestions;
 #endif
 
 - (void)setUpInteraction;
@@ -697,7 +709,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)_didNotHandleTapAsClick:(const WebCore::IntPoint&)point;
 - (void)_didHandleTapAsHover;
 - (void)_didCompleteSyntheticClick;
-- (void)_provideSuggestionsToInputDelegate:(NSArray<WKSETextSuggestion *> *)suggestions;
+- (void)_provideSuggestionsToInputDelegate:(NSArray<WKBETextSuggestion *> *)suggestions;
 
 - (void)_didGetTapHighlightForRequest:(WebKit::TapIdentifier)requestID color:(const WebCore::Color&)color quads:(const Vector<WebCore::FloatQuad>&)highlightedQuads topLeftRadius:(const WebCore::IntSize&)topLeftRadius topRightRadius:(const WebCore::IntSize&)topRightRadius bottomLeftRadius:(const WebCore::IntSize&)bottomLeftRadius bottomRightRadius:(const WebCore::IntSize&)bottomRightRadius nodeHasBuiltInClickHandling:(BOOL)nodeHasBuiltInClickHandling;
 
@@ -854,7 +866,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 
 #if ENABLE(IMAGE_ANALYSIS)
 - (void)_endImageAnalysisGestureDeferral:(WebKit::ShouldPreventGestures)shouldPreventGestures;
-- (void)requestTextRecognition:(NSURL *)imageURL imageData:(WebKit::ShareableBitmap::Handle&&)imageData sourceLanguageIdentifier:(NSString *)sourceLanguageIdentifier targetLanguageIdentifier:(NSString *)targetLanguageIdentifier completionHandler:(CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&)completion;
+- (void)requestTextRecognition:(NSURL *)imageURL imageData:(WebCore::ShareableBitmap::Handle&&)imageData sourceLanguageIdentifier:(NSString *)sourceLanguageIdentifier targetLanguageIdentifier:(NSString *)targetLanguageIdentifier completionHandler:(CompletionHandler<void(WebCore::TextRecognitionResult&&)>&&)completion;
 #endif
 
 #if HAVE(UIFINDINTERACTION)
@@ -866,11 +878,11 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)requestRectForFoundTextRange:(UITextRange *)range completionHandler:(void (^)(CGRect))completionHandler;
 #endif
 
-- (void)beginTextRecognitionForFullscreenVideo:(WebKit::ShareableBitmap::Handle&&)imageHandle playerViewController:(AVPlayerViewController *)playerViewController;
+- (void)beginTextRecognitionForFullscreenVideo:(WebCore::ShareableBitmap::Handle&&)imageHandle playerViewController:(AVPlayerViewController *)playerViewController;
 - (void)cancelTextRecognitionForFullscreenVideo:(AVPlayerViewController *)controller;
 @property (nonatomic, readonly) BOOL isTextRecognitionInFullscreenVideoEnabled;
 
-- (void)beginTextRecognitionForVideoInElementFullscreen:(WebKit::ShareableBitmap::Handle&&)bitmapHandle bounds:(WebCore::FloatRect)bounds;
+- (void)beginTextRecognitionForVideoInElementFullscreen:(WebCore::ShareableBitmap::Handle&&)bitmapHandle bounds:(WebCore::FloatRect)bounds;
 - (void)cancelTextRecognitionForVideoInElementFullscreen;
 
 - (BOOL)_tryToHandlePressesEvent:(UIPressesEvent *)event;

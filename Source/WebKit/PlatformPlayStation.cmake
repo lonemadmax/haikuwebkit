@@ -58,15 +58,12 @@ list(APPEND WebKit_SOURCES
 
     Platform/unix/LoggingUnix.cpp
     Platform/unix/ModuleUnix.cpp
-    Platform/unix/SharedMemoryUnix.cpp
 
     Shared/API/c/cairo/WKImageCairo.cpp
 
     Shared/API/c/curl/WKCertificateInfoCurl.cpp
 
     Shared/API/c/playstation/WKEventPlayStation.cpp
-
-    Shared/cairo/ShareableBitmapCairo.cpp
 
     Shared/curl/WebCoreArgumentCodersCurl.cpp
 

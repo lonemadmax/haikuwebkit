@@ -325,6 +325,78 @@ static MTLVertexFormat vertexFormat(WGPUVertexFormat vertexFormat)
     }
 }
 
+static size_t vertexFormatSize(WGPUVertexFormat vertexFormat)
+{
+    switch (vertexFormat) {
+    case WGPUVertexFormat_Uint8x2:
+        return 2;
+    case WGPUVertexFormat_Uint8x4:
+        return 4;
+    case WGPUVertexFormat_Sint8x2:
+        return 2;
+    case WGPUVertexFormat_Sint8x4:
+        return 4;
+    case WGPUVertexFormat_Unorm8x2:
+        return 2;
+    case WGPUVertexFormat_Unorm8x4:
+        return 4;
+    case WGPUVertexFormat_Snorm8x2:
+        return 2;
+    case WGPUVertexFormat_Snorm8x4:
+        return 4;
+    case WGPUVertexFormat_Uint16x2:
+        return 4;
+    case WGPUVertexFormat_Uint16x4:
+        return 8;
+    case WGPUVertexFormat_Sint16x2:
+        return 4;
+    case WGPUVertexFormat_Sint16x4:
+        return 8;
+    case WGPUVertexFormat_Unorm16x2:
+        return 4;
+    case WGPUVertexFormat_Unorm16x4:
+        return 8;
+    case WGPUVertexFormat_Snorm16x2:
+        return 4;
+    case WGPUVertexFormat_Snorm16x4:
+        return 8;
+    case WGPUVertexFormat_Float16x2:
+        return 4;
+    case WGPUVertexFormat_Float16x4:
+        return 8;
+    case WGPUVertexFormat_Float32:
+        return 4;
+    case WGPUVertexFormat_Float32x2:
+        return 8;
+    case WGPUVertexFormat_Float32x3:
+        return 12;
+    case WGPUVertexFormat_Float32x4:
+        return 16;
+    case WGPUVertexFormat_Uint32:
+        return 4;
+    case WGPUVertexFormat_Uint32x2:
+        return 8;
+    case WGPUVertexFormat_Uint32x3:
+        return 12;
+    case WGPUVertexFormat_Uint32x4:
+        return 16;
+    case WGPUVertexFormat_Sint32:
+        return 4;
+    case WGPUVertexFormat_Sint32x2:
+        return 8;
+    case WGPUVertexFormat_Sint32x3:
+        return 12;
+    case WGPUVertexFormat_Sint32x4:
+        return 16;
+    case WGPUVertexFormat_Unorm10_10_10_2:
+        return 4;
+    case WGPUVertexFormat_Force32:
+    case WGPUVertexFormat_Undefined:
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
+}
+
 static MTLVertexStepFunction stepFunction(WGPUVertexStepMode stepMode, auto arrayStride)
 {
     if (!arrayStride)
@@ -343,29 +415,226 @@ static MTLVertexStepFunction stepFunction(WGPUVertexStepMode stepMode, auto arra
     }
 }
 
-static MTLVertexDescriptor *createVertexDescriptor(WGPUVertexState vertexState)
+static const char* name(WGPUVertexFormat format)
+{
+    switch (format) {
+    case WGPUVertexFormat_Uint8x2:
+        return "UChar2";
+    case WGPUVertexFormat_Uint8x4:
+        return "UChar4";
+    case WGPUVertexFormat_Sint8x2:
+        return "Char2";
+    case WGPUVertexFormat_Sint8x4:
+        return "Char4";
+    case WGPUVertexFormat_Unorm8x2:
+        return "UChar2Normalized";
+    case WGPUVertexFormat_Unorm8x4:
+        return "UChar4Normalized";
+    case WGPUVertexFormat_Snorm8x2:
+        return "Char2Normalized";
+    case WGPUVertexFormat_Snorm8x4:
+        return "Char4Normalized";
+    case WGPUVertexFormat_Uint16x2:
+        return "UShort2";
+    case WGPUVertexFormat_Uint16x4:
+        return "UShort4";
+    case WGPUVertexFormat_Sint16x2:
+        return "Short2";
+    case WGPUVertexFormat_Sint16x4:
+        return "Short4";
+    case WGPUVertexFormat_Unorm16x2:
+        return "UShort2Normalized";
+    case WGPUVertexFormat_Unorm16x4:
+        return "UShort4Normalized";
+    case WGPUVertexFormat_Snorm16x2:
+        return "Short2Normalized";
+    case WGPUVertexFormat_Snorm16x4:
+        return "Short4Normalized";
+    case WGPUVertexFormat_Float16x2:
+        return "Half2";
+    case WGPUVertexFormat_Float16x4:
+        return "Half4";
+    case WGPUVertexFormat_Float32:
+        return "Float";
+    case WGPUVertexFormat_Float32x2:
+        return "Float2";
+    case WGPUVertexFormat_Float32x3:
+        return "Float3";
+    case WGPUVertexFormat_Float32x4:
+        return "Float4";
+    case WGPUVertexFormat_Uint32:
+        return "UInt";
+    case WGPUVertexFormat_Uint32x2:
+        return "UInt2";
+    case WGPUVertexFormat_Uint32x3:
+        return "UInt3";
+    case WGPUVertexFormat_Uint32x4:
+        return "UInt4";
+    case WGPUVertexFormat_Sint32:
+        return "Int";
+    case WGPUVertexFormat_Sint32x2:
+        return "Int2";
+    case WGPUVertexFormat_Sint32x3:
+        return "Int3";
+    case WGPUVertexFormat_Sint32x4:
+        return "Int4";
+    case WGPUVertexFormat_Unorm10_10_10_2:
+        return "UInt1010102Normalized";
+    case WGPUVertexFormat_Force32:
+    case WGPUVertexFormat_Undefined:
+        ASSERT_NOT_REACHED();
+        return "none";
+    }
+}
+
+enum class WGPUVertexFormatType {
+    Undefined,
+    SignedInt,
+    UnsignedInt,
+    Float
+};
+
+static constexpr WGPUVertexFormatType formatType(WGPUVertexFormat format)
+{
+    switch (format) {
+    case WGPUVertexFormat_Uint8x2:
+    case WGPUVertexFormat_Uint8x4:
+    case WGPUVertexFormat_Uint16x2:
+    case WGPUVertexFormat_Uint16x4:
+    case WGPUVertexFormat_Uint32:
+    case WGPUVertexFormat_Uint32x2:
+    case WGPUVertexFormat_Uint32x3:
+    case WGPUVertexFormat_Uint32x4:
+        return WGPUVertexFormatType::UnsignedInt;
+
+    case WGPUVertexFormat_Sint8x2:
+    case WGPUVertexFormat_Sint8x4:
+    case WGPUVertexFormat_Sint16x2:
+    case WGPUVertexFormat_Sint16x4:
+    case WGPUVertexFormat_Sint32:
+    case WGPUVertexFormat_Sint32x2:
+    case WGPUVertexFormat_Sint32x3:
+    case WGPUVertexFormat_Sint32x4:
+        return WGPUVertexFormatType::SignedInt;
+
+    case WGPUVertexFormat_Unorm8x2:
+    case WGPUVertexFormat_Unorm8x4:
+    case WGPUVertexFormat_Snorm8x2:
+    case WGPUVertexFormat_Snorm8x4:
+    case WGPUVertexFormat_Unorm16x2:
+    case WGPUVertexFormat_Unorm16x4:
+    case WGPUVertexFormat_Snorm16x2:
+    case WGPUVertexFormat_Snorm16x4:
+    case WGPUVertexFormat_Float16x2:
+    case WGPUVertexFormat_Float16x4:
+    case WGPUVertexFormat_Float32:
+    case WGPUVertexFormat_Float32x2:
+    case WGPUVertexFormat_Float32x3:
+    case WGPUVertexFormat_Float32x4:
+    case WGPUVertexFormat_Unorm10_10_10_2:
+        return WGPUVertexFormatType::Float;
+
+    case WGPUVertexFormat_Force32:
+        RELEASE_ASSERT_NOT_REACHED();
+    case WGPUVertexFormat_Undefined:
+        return WGPUVertexFormatType::Undefined;
+    }
+}
+
+static bool matchesFormat(const ShaderModule::VertexStageIn& stageIn, uint32_t shaderLocation, WGPUVertexFormat format)
+{
+    auto it = stageIn.find(shaderLocation);
+    if (it == stageIn.end())
+        return false;
+
+    return formatType(it->value) == formatType(format);
+}
+
+static MTLVertexDescriptor *createVertexDescriptor(WGPUVertexState vertexState, const WGPULimits& limits, const ShaderModule::VertexStageIn& stageIn, RenderPipeline::RequiredBufferIndicesContainer& requiredBufferIndices, NSString** error)
 {
     MTLVertexDescriptor *vertexDescriptor = [MTLVertexDescriptor new];
+    uint32_t totalAttributeCount = 0;
+    ASSERT(error);
 
+    ShaderModule::VertexStageIn shaderLocations;
     for (size_t bufferIndex = 0; bufferIndex < vertexState.bufferCount; ++bufferIndex) {
         auto& buffer = vertexState.buffers[bufferIndex];
         if (buffer.arrayStride == WGPU_COPY_STRIDE_UNDEFINED)
             continue;
 
+        if (buffer.arrayStride > limits.maxVertexBufferArrayStride || (buffer.arrayStride % 4)) {
+            *error = @"buffer.arrayStride > limits.maxVertexBufferArrayStride || (buffer.arrayStride % 4)";
+            return nil;
+        }
+
         if (!buffer.attributeCount)
             continue;
 
-        vertexDescriptor.layouts[bufferIndex].stride = std::max<NSUInteger>(sizeof(int), buffer.arrayStride);
+        totalAttributeCount += buffer.attributeCount;
+        auto stride = std::max<NSUInteger>(sizeof(int), buffer.arrayStride);
+        RELEASE_ASSERT(!requiredBufferIndices.contains(bufferIndex));
+        ASSERT(bufferIndex <= std::numeric_limits<uint32_t>::max() && stride <= std::numeric_limits<uint32_t>::max());
+
+        uint64_t lastStride = 0;
+        vertexDescriptor.layouts[bufferIndex].stride = stride;
         vertexDescriptor.layouts[bufferIndex].stepFunction = stepFunction(buffer.stepMode, buffer.arrayStride);
         if (vertexDescriptor.layouts[bufferIndex].stepFunction == MTLVertexStepFunctionConstant)
             vertexDescriptor.layouts[bufferIndex].stepRate = 0;
         for (size_t i = 0; i < buffer.attributeCount; ++i) {
             auto& attribute = buffer.attributes[i];
-            const auto& mtlAttribute = vertexDescriptor.attributes[attribute.shaderLocation];
+            auto formatSize = vertexFormatSize(attribute.format);
+            lastStride = std::max<uint64_t>(lastStride, attribute.offset + formatSize);
+            if (!buffer.arrayStride) {
+                if (attribute.offset + formatSize > limits.maxVertexBufferArrayStride) {
+                    *error = @"attribute.offset + formatSize > limits.maxVertexBufferArrayStride";
+                    return nil;
+                }
+            } else if (attribute.offset + formatSize > buffer.arrayStride) {
+                *error = @"attribute.offset + formatSize > buffer.arrayStride";
+                return nil;
+            }
+
+            if (attribute.offset % std::min<size_t>(4, formatSize)) {
+                *error = @"attribute.offset + formatSize > buffer.arrayStride";
+                return nil;
+            }
+
+            auto shaderLocation = attribute.shaderLocation;
+            if (shaderLocation >= limits.maxVertexAttributes || shaderLocations.contains(shaderLocation)) {
+                *error = @"shaderLocation >= limits.maxVertexAttributes || shaderLocations.contains(shaderLocation)";
+                return nil;
+            }
+
+            shaderLocations.add(shaderLocation, attribute.format);
+            const auto& mtlAttribute = vertexDescriptor.attributes[shaderLocation];
             mtlAttribute.format = vertexFormat(attribute.format);
             mtlAttribute.bufferIndex = bufferIndex;
             mtlAttribute.offset = attribute.offset;
         }
+
+        ASSERT(!requiredBufferIndices.contains(bufferIndex));
+        requiredBufferIndices.add(static_cast<uint32_t>(bufferIndex), RenderPipeline::BufferData {
+            .stride = buffer.arrayStride,
+            .lastStride = lastStride,
+            .stepMode = buffer.stepMode
+        });
+    }
+
+    for (auto& [shaderLocation, attributeFormat] : stageIn) {
+        auto formatSize = vertexFormatSize(attributeFormat);
+        if (!matchesFormat(shaderLocations, shaderLocation, attributeFormat)) {
+            auto it = stageIn.find(shaderLocation);
+            WGPUVertexFormat otherFormat = WGPUVertexFormat_Undefined;
+            if (it != stageIn.end())
+                otherFormat = it->value;
+            *error = [NSString stringWithFormat:@"!matchesFormat(attribute(%d), format(%s), size(%zu), otherFormat(%d)", shaderLocation, name(attributeFormat), formatSize, otherFormat];
+            return nil;
+        }
+    }
+
+    if (totalAttributeCount > limits.maxVertexAttributes) {
+        *error = @"totalAttributeCount > limits.maxVertexAttributes";
+        return nil;
     }
 
     return vertexDescriptor;
@@ -510,13 +779,20 @@ void Device::addPipelineLayouts(Vector<Vector<WGPUBindGroupLayoutEntry>>& pipeli
         return;
 
     auto &pipelineLayout = *optionalPipelineLayout;
-    size_t pipelineLayoutCount = pipelineLayout.bindGroupLayouts.size();
-    if (pipelineEntries.size() < pipelineLayoutCount)
-        pipelineEntries.grow(pipelineLayoutCount);
+    uint32_t maxGroupIndex = 0;
+    auto& deviceLimits = limits();
+    for (auto& bgl : pipelineLayout.bindGroupLayouts)
+        maxGroupIndex = std::max<uint32_t>(maxGroupIndex, bgl.group);
 
-    for (size_t pipelineLayoutIndex = 0; pipelineLayoutIndex < pipelineLayoutCount; ++pipelineLayoutIndex) {
-        auto& bindGroupLayout = pipelineLayout.bindGroupLayouts[pipelineLayoutIndex];
-        auto& entries = pipelineEntries[pipelineLayoutIndex];
+    size_t bindGroupLayoutCount = maxGroupIndex + 1;
+    if (bindGroupLayoutCount > deviceLimits.maxBindGroups)
+        return;
+
+    if (pipelineEntries.size() < bindGroupLayoutCount)
+        pipelineEntries.grow(bindGroupLayoutCount);
+
+    for (auto& bindGroupLayout : pipelineLayout.bindGroupLayouts) {
+        auto& entries = pipelineEntries[bindGroupLayout.group];
         HashMap<String, uint64_t> entryMap;
         for (auto& entry : bindGroupLayout.entries) {
             // FIXME: https://bugs.webkit.org/show_bug.cgi?id=265204 - use a set instead
@@ -859,6 +1135,114 @@ static bool textureFormatAllowedForRetunType(WGPUTextureFormat format, MTLDataTy
     }
 }
 
+static uint32_t componentsForDataType(MTLDataType dataType)
+{
+    switch (dataType) {
+    case MTLDataTypeBool:
+    case MTLDataTypeInt:
+    case MTLDataTypeUInt:
+    case MTLDataTypeHalf:
+    case MTLDataTypeFloat:
+        return 1;
+    case MTLDataTypeBool2:
+    case MTLDataTypeInt2:
+    case MTLDataTypeUInt2:
+    case MTLDataTypeHalf2:
+    case MTLDataTypeFloat2:
+        return 2;
+    case MTLDataTypeBool3:
+    case MTLDataTypeInt3:
+    case MTLDataTypeUInt3:
+    case MTLDataTypeHalf3:
+    case MTLDataTypeFloat3:
+        return 3;
+    case MTLDataTypeBool4:
+    case MTLDataTypeInt4:
+    case MTLDataTypeUInt4:
+    case MTLDataTypeHalf4:
+    case MTLDataTypeFloat4:
+        return 4;
+    default:
+        ASSERT_NOT_REACHED();
+        return 0;
+    }
+}
+
+static NSString* errorValidatingInterstageShaderInterfaces(WebGPU::Device &device, const WGPURenderPipelineDescriptor& descriptor, const ShaderModule::VertexOutputs* vertexOutputs, const WGSL::ShaderModule* fragmentShaderModule, const ShaderModule::FragmentInputs* fragmentInputs, const ShaderModule::FragmentOutputs* fragmentOutputs)
+{
+    if (!vertexOutputs)
+        return @"vertex shader has no outputs";
+
+    auto maxVertexShaderOutputComponents = device.limits().maxInterStageShaderComponents;
+    if (descriptor.primitive.topology == WGPUPrimitiveTopology_PointList) {
+        if (!maxVertexShaderOutputComponents)
+            return @"maxVertexShaderOutputComponents is zero";
+        --maxVertexShaderOutputComponents;
+    }
+
+    auto maxInterStageShaderVariables = device.limits().maxInterStageShaderVariables;
+    uint32_t vertexScalarComponents = 0;
+    for (auto& [location, structMember] : *vertexOutputs) {
+        if (location >= maxInterStageShaderVariables)
+            return @"location >= maxInterStageShaderVariables";
+
+        vertexScalarComponents += componentsForDataType(structMember.dataType);
+    }
+
+    if (vertexScalarComponents > maxVertexShaderOutputComponents)
+        return @"vertexScalarComponents > maxVertexShaderOutputComponents";
+
+    if (fragmentShaderModule) {
+        auto maxFragmentShaderInputComponents = device.limits().maxInterStageShaderComponents;
+        auto decrement = ^(uint32_t& unsignedValue) {
+            return unsignedValue-- ? true : false;
+        };
+        if (fragmentShaderModule->usesFrontFacing() && !decrement(maxFragmentShaderInputComponents))
+            return @"maxFragmentShaderInputComponents is less than zero due to front facing";
+        if (fragmentShaderModule->usesSampleIndex() && !decrement(maxFragmentShaderInputComponents))
+            return @"maxFragmentShaderInputComponents is less than zero due to sample index";
+        if (fragmentShaderModule->usesSampleMask() && !decrement(maxFragmentShaderInputComponents))
+            return @"maxFragmentShaderInputComponents is less than zero due to sample mask";
+
+        if (fragmentInputs) {
+            WGSL::AST::Interpolation defaultInterpolation {
+                .type = WGSL::InterpolationType::Perspective,
+                .sampling = WGSL::InterpolationSampling::Center
+            };
+            auto notEqual = ^(const WGSL::AST::Interpolation& interpolateA, const WGSL::AST::Interpolation& interpolateB) {
+                return interpolateA.type != interpolateB.type || interpolateA.sampling != interpolateB.sampling;
+            };
+            uint32_t fragmentScalarComponents = 0;
+            for (auto& [location, structMember] : *fragmentInputs) {
+                auto it = vertexOutputs->find(location);
+                if (it == vertexOutputs->end() || it->value.dataType != structMember.dataType)
+                    return @"data type between fragment inputs and vertex outputs do not match";
+
+                fragmentScalarComponents += componentsForDataType(structMember.dataType);
+                if (!structMember.interpolation && !it->value.interpolation)
+                    continue;
+                if (!structMember.interpolation && notEqual(*it->value.interpolation, defaultInterpolation))
+                    return @"interpolation attributes do not match";
+                if (!it->value.interpolation && notEqual(*structMember.interpolation, defaultInterpolation))
+                    return @"interpolation attributes do not match";
+                if (notEqual(structMember.interpolation.value_or(defaultInterpolation), it->value.interpolation.value_or(defaultInterpolation)))
+                    return @"interpolation attributes do not match";
+            }
+            if (fragmentScalarComponents > maxFragmentShaderInputComponents)
+                return @"fragmentScalarComponents > maxFragmentShaderInputComponents";
+        }
+
+        if (fragmentOutputs) {
+            for (auto& [location, _] : *fragmentOutputs) {
+                if (location >= maxInterStageShaderVariables)
+                    return @"location >= maxInterStageShaderVariables";
+            }
+        }
+    }
+
+    return nil;
+}
+
 Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescriptor& descriptor, bool isAsync)
 {
     if (!validateRenderPipeline(descriptor) || !isValid())
@@ -872,13 +1256,18 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
     const PipelineLayout* pipelineLayout = nullptr;
     Vector<Vector<WGPUBindGroupLayoutEntry>> bindGroupEntries;
     if (descriptor.layout) {
-        if (auto& layout = WebGPU::fromAPI(descriptor.layout); layout.isValid() && !layout.isAutoLayout()) {
+        auto& layout = WebGPU::fromAPI(descriptor.layout);
+        if (!layout.isValid())
+            return returnInvalidRenderPipeline(*this, isAsync, "Pipeline layout is not valid"_s);
+        if (&layout.device() != this)
+            return returnInvalidRenderPipeline(*this, isAsync, "Pipeline layout created from different device"_s);
+
+        if (!layout.isAutoLayout())
             pipelineLayout = &layout;
-            if (pipelineLayout && &pipelineLayout->device() != this)
-                return returnInvalidRenderPipeline(*this, isAsync, "Pipeline layout is not valid"_s);
-        }
     }
 
+    const ShaderModule::VertexStageIn* vertexStageIn = nullptr;
+    const ShaderModule::VertexOutputs* vertexOutputs = nullptr;
     std::optional<PipelineLayout> vertexPipelineLayout { std::nullopt };
     {
         if (descriptor.vertex.nextInChain)
@@ -890,8 +1279,8 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
         if (&vertexModule.device() != this)
             return returnInvalidRenderPipeline(*this, isAsync, "Vertex module was created with a different device"_s);
 
-        const auto& vertexFunctionName = fromAPI(descriptor.vertex.entryPoint);
-        auto libraryCreationResult = createLibrary(m_device, vertexModule, pipelineLayout, vertexFunctionName.length() ? vertexFunctionName : vertexModule.defaultVertexEntryPoint(), label);
+        const auto& vertexEntryPoint = descriptor.vertex.entryPoint ? fromAPI(descriptor.vertex.entryPoint) : vertexModule.defaultVertexEntryPoint();
+        auto libraryCreationResult = createLibrary(m_device, vertexModule, pipelineLayout, vertexEntryPoint, label);
         if (!libraryCreationResult)
             return returnInvalidRenderPipeline(*this, isAsync, "Vertex library failed creation"_s);
 
@@ -903,13 +1292,18 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
         if (!vertexFunction || vertexFunction.functionType != MTLFunctionTypeVertex || entryPointInformation.specializationConstants.size() != wgslConstantValues.size())
             return returnInvalidRenderPipeline(*this, isAsync, "Vertex function could not be created"_s);
         mtlRenderPipelineDescriptor.vertexFunction = vertexFunction;
+        vertexStageIn = vertexModule.stageInTypesForEntryPoint(vertexEntryPoint);
+        vertexOutputs = vertexModule.vertexReturnTypeForEntryPoint(vertexEntryPoint);
     }
 
     std::optional<PipelineLayout> fragmentPipelineLayout { std::nullopt };
     bool usesFragDepth = false;
     bool usesSampleMask = false;
     bool hasAtLeastOneColorTarget = false;
-
+    const WGSL::ShaderModule* fragmentShaderModule { nullptr };
+    const ShaderModule::FragmentOutputs* fragmentReturnTypes { nullptr };
+    const ShaderModule::FragmentInputs* fragmentInputs { nullptr };
+    uint32_t colorAttachmentCount = 0;
     if (descriptor.fragment) {
         const auto& fragmentDescriptor = *descriptor.fragment;
 
@@ -923,11 +1317,11 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
         if (&fragmentModule.device() != this)
             return returnInvalidRenderPipeline(*this, isAsync, "Fragment module was created with a different device"_s);
 
-        usesFragDepth = fragmentModule.ast()->usesFragDepth();
-        usesSampleMask = fragmentModule.ast()->usesSampleMask();
-        const auto& fragmentFunctionName = fromAPI(fragmentDescriptor.entryPoint);
-
-        auto fragmentEntryPoint = fragmentFunctionName.length() ? fragmentFunctionName : fragmentModule.defaultFragmentEntryPoint();
+        fragmentShaderModule = fragmentModule.ast();
+        RELEASE_ASSERT(fragmentShaderModule);
+        usesFragDepth = fragmentShaderModule->usesFragDepth();
+        usesSampleMask = fragmentShaderModule->usesSampleMask();
+        const auto& fragmentEntryPoint = fragmentDescriptor.entryPoint ? fromAPI(fragmentDescriptor.entryPoint) : fragmentModule.defaultFragmentEntryPoint();
         auto libraryCreationResult = createLibrary(m_device, fragmentModule, pipelineLayout, fragmentEntryPoint, label);
         if (!libraryCreationResult)
             return returnInvalidRenderPipeline(*this, isAsync, "Fragment library could not be created"_s);
@@ -943,15 +1337,17 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
         mtlRenderPipelineDescriptor.fragmentFunction = fragmentFunction;
 
         uint32_t bytesPerSample = 0;
-        const auto& returnTypes = fragmentModule.returnTypeForEntryPoint(fragmentEntryPoint);
-        for (uint32_t i = 0; i < fragmentDescriptor.targetCount; ++i) {
+        fragmentInputs = fragmentModule.fragmentInputsForEntryPoint(fragmentEntryPoint);
+        fragmentReturnTypes = fragmentModule.fragmentReturnTypeForEntryPoint(fragmentEntryPoint);
+        colorAttachmentCount = fragmentDescriptor.targetCount;
+        for (uint32_t i = 0; i < colorAttachmentCount; ++i) {
             const auto& targetDescriptor = fragmentDescriptor.targets[i];
             if (targetDescriptor.format == WGPUTextureFormat_Undefined)
                 continue;
 
             MTLDataType fragmentFunctionReturnType = MTLDataTypeNone;
-            if (returnTypes) {
-                if (auto it = returnTypes->find(i); it != returnTypes->end())
+            if (fragmentReturnTypes) {
+                if (auto it = fragmentReturnTypes->find(i); it != fragmentReturnTypes->end())
                     fragmentFunctionReturnType = it->value;
             }
             const auto& mtlColorAttachment = mtlRenderPipelineDescriptor.colorAttachments[i];
@@ -959,7 +1355,7 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
             if (Texture::isDepthOrStencilFormat(targetDescriptor.format) || !Texture::isRenderableFormat(targetDescriptor.format, *this))
                 return returnInvalidRenderPipeline(*this, isAsync, "Depth / stencil format passed to color format"_s);
 
-            bytesPerSample = roundUpToMultipleOf(Texture::renderTargetPixelByteAlignment(targetDescriptor.format), bytesPerSample);
+            bytesPerSample = roundUpToMultipleOfNonPowerOfTwo(Texture::renderTargetPixelByteAlignment(targetDescriptor.format), bytesPerSample);
             bytesPerSample += Texture::renderTargetPixelByteCost(targetDescriptor.format);
             mtlColorAttachment.pixelFormat = Texture::pixelFormat(targetDescriptor.format);
 
@@ -1051,13 +1447,29 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
         sampleMask = mask;
     }
 
-    if (descriptor.vertex.bufferCount)
-        mtlRenderPipelineDescriptor.vertexDescriptor = createVertexDescriptor(descriptor.vertex);
+    if (NSString* error = errorValidatingInterstageShaderInterfaces(*this, descriptor, vertexOutputs, fragmentShaderModule, fragmentInputs, fragmentReturnTypes))
+        return returnInvalidRenderPipeline(*this, isAsync, error);
+
+    RenderPipeline::RequiredBufferIndicesContainer requiredBufferIndices;
+    if (descriptor.vertex.bufferCount) {
+        auto& deviceLimits = limits();
+        if (!vertexStageIn)
+            return returnInvalidRenderPipeline(*this, isAsync, [NSString stringWithFormat:@"Vertex shader has no stageIn parameters but buffer count was %zu and attribute count was %zu", descriptor.vertex.bufferCount, descriptor.vertex.buffers[0].attributeCount]);
+        if (descriptor.vertex.bufferCount > deviceLimits.maxVertexBuffers)
+            return returnInvalidRenderPipeline(*this, isAsync, "vertexBuffer count exceeds limit"_s);
+        NSString *error = nil;
+        MTLVertexDescriptor *vertexDecriptor = createVertexDescriptor(descriptor.vertex, deviceLimits, *vertexStageIn, requiredBufferIndices, &error);
+        if (error)
+            return returnInvalidRenderPipeline(*this, isAsync, [NSString stringWithFormat:@"vertex descriptor creation failed %@", error]);
+
+        ASSERT(vertexDecriptor);
+        mtlRenderPipelineDescriptor.vertexDescriptor = vertexDecriptor;
+    }
 
     MTLDepthClipMode mtlDepthClipMode = MTLDepthClipModeClip;
     if (descriptor.primitive.nextInChain) {
         if (!hasFeature(WGPUFeatureName_DepthClipControl) || descriptor.primitive.nextInChain->sType != WGPUSType_PrimitiveDepthClipControl || descriptor.primitive.nextInChain->next)
-            return RenderPipeline::createInvalid(*this);
+            return returnInvalidRenderPipeline(*this, isAsync, "unclippedDepth used without enabling depth-clip-contro feature"_s);
 
         auto* depthClipControl = reinterpret_cast<const WGPUPrimitiveDepthClipControl*>(descriptor.primitive.nextInChain);
 
@@ -1070,7 +1482,13 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
     // These properties are to be used by the render command encoder, not the render pipeline.
     // Therefore, the render pipeline stores these, and when the render command encoder is assigned
     // a pipeline, the render command encoder can get these information out of the render pipeline.
-    auto mtlPrimitiveType = primitiveType(descriptor.primitive.topology);
+    auto primitiveTopology = descriptor.primitive.topology;
+    if (primitiveTopology != WGPUPrimitiveTopology_LineStrip && primitiveTopology != WGPUPrimitiveTopology_TriangleStrip) {
+        if (descriptor.primitive.stripIndexFormat != WGPUIndexFormat_Undefined)
+            return returnInvalidRenderPipeline(*this, isAsync, "If primitive.topology is not line-strip or triangle-strip, primitive.stripIndexFormat must be undefined."_s);
+    }
+
+    auto mtlPrimitiveType = primitiveType(primitiveTopology);
     auto mtlIndexType = indexType(descriptor.primitive.stripIndexFormat);
     auto mtlFrontFace = frontFace(descriptor.primitive.frontFace);
     auto mtlCullMode = cullMode(descriptor.primitive.cullMode);
@@ -1081,9 +1499,9 @@ Ref<RenderPipeline> Device::createRenderPipeline(const WGPURenderPipelineDescrip
         return RenderPipeline::createInvalid(*this);
 
     if (!pipelineLayout)
-        return RenderPipeline::create(renderPipelineState, mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, generatePipelineLayout(bindGroupEntries), depthBias, depthBiasSlopeScale, depthBiasClamp, sampleMask, *this);
+        return RenderPipeline::create(renderPipelineState, mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, generatePipelineLayout(bindGroupEntries), depthBias, depthBiasSlopeScale, depthBiasClamp, sampleMask, mtlRenderPipelineDescriptor, colorAttachmentCount, descriptor, WTFMove(requiredBufferIndices), *this);
 
-    return RenderPipeline::create(renderPipelineState, mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, const_cast<PipelineLayout&>(*pipelineLayout), depthBias, depthBiasSlopeScale, depthBiasClamp, sampleMask, *this);
+    return RenderPipeline::create(renderPipelineState, mtlPrimitiveType, mtlIndexType, mtlFrontFace, mtlCullMode, mtlDepthClipMode, depthStencilDescriptor, const_cast<PipelineLayout&>(*pipelineLayout), depthBias, depthBiasSlopeScale, depthBiasClamp, sampleMask, mtlRenderPipelineDescriptor, colorAttachmentCount, descriptor, WTFMove(requiredBufferIndices), *this);
 }
 
 void Device::createRenderPipelineAsync(const WGPURenderPipelineDescriptor& descriptor, CompletionHandler<void(WGPUCreatePipelineAsyncStatus, Ref<RenderPipeline>&&, String&& message)>&& callback)
@@ -1094,7 +1512,12 @@ void Device::createRenderPipelineAsync(const WGPURenderPipelineDescriptor& descr
     });
 }
 
-RenderPipeline::RenderPipeline(id<MTLRenderPipelineState> renderPipelineState, MTLPrimitiveType primitiveType, std::optional<MTLIndexType> indexType, MTLWinding frontFace, MTLCullMode cullMode, MTLDepthClipMode clipMode, MTLDepthStencilDescriptor *depthStencilDescriptor, Ref<PipelineLayout>&& pipelineLayout, float depthBias, float depthBiasSlopeScale, float depthBiasClamp, uint32_t sampleMask, Device& device)
+size_t RenderPipeline::vertexStageInBufferCount() const
+{
+    return m_descriptor.vertex.bufferCount;
+}
+
+RenderPipeline::RenderPipeline(id<MTLRenderPipelineState> renderPipelineState, MTLPrimitiveType primitiveType, std::optional<MTLIndexType> indexType, MTLWinding frontFace, MTLCullMode cullMode, MTLDepthClipMode clipMode, MTLDepthStencilDescriptor *depthStencilDescriptor, Ref<PipelineLayout>&& pipelineLayout, float depthBias, float depthBiasSlopeScale, float depthBiasClamp, uint32_t sampleMask, MTLRenderPipelineDescriptor* renderPipelineDescriptor, uint32_t colorAttachmentCount, const WGPURenderPipelineDescriptor& descriptor, RequiredBufferIndicesContainer&& requiredBufferIndices, Device& device)
     : m_renderPipelineState(renderPipelineState)
     , m_device(device)
     , m_primitiveType(primitiveType)
@@ -1106,10 +1529,33 @@ RenderPipeline::RenderPipeline(id<MTLRenderPipelineState> renderPipelineState, M
     , m_depthBiasSlopeScale(depthBiasSlopeScale)
     , m_depthBiasClamp(depthBiasClamp)
     , m_sampleMask(sampleMask)
+    , m_renderPipelineDescriptor(renderPipelineDescriptor)
+    , m_colorAttachmentCount(colorAttachmentCount)
     , m_depthStencilDescriptor(depthStencilDescriptor)
     , m_depthStencilState(depthStencilDescriptor ? [device.device() newDepthStencilStateWithDescriptor:depthStencilDescriptor] : nil)
+    , m_requiredBufferIndices(WTFMove(requiredBufferIndices))
     , m_pipelineLayout(WTFMove(pipelineLayout))
+    , m_descriptor(descriptor)
+    , m_descriptorDepthStencil(descriptor.depthStencil ? *descriptor.depthStencil : WGPUDepthStencilState())
+    , m_descriptorFragment(descriptor.fragment ? *descriptor.fragment : WGPUFragmentState())
+    , m_descriptorTargets(descriptor.fragment && descriptor.fragment->targetCount ? Vector<WGPUColorTargetState>(descriptor.fragment->targets, descriptor.fragment->targetCount) : Vector<WGPUColorTargetState>())
 {
+    if (descriptor.depthStencil)
+        m_descriptor.depthStencil = &m_descriptorDepthStencil;
+    if (m_descriptorTargets.size())
+        m_descriptorFragment.targets = &m_descriptorTargets[0];
+    if (descriptor.fragment)
+        m_descriptor.fragment = &m_descriptorFragment;
+
+    if (auto* depthStencil = descriptor.depthStencil; depthStencil && depthStencil->stencilWriteMask) {
+        const auto& stencilFront = depthStencil->stencilFront;
+        const auto& stencilBack = depthStencil->stencilBack;
+        const auto& cullMode = descriptor.primitive.cullMode;
+        if (cullMode != WGPUCullMode_Front && (stencilFront.passOp != WGPUStencilOperation_Keep || stencilFront.depthFailOp != WGPUStencilOperation_Keep || stencilFront.failOp != WGPUStencilOperation_Keep))
+            m_writesStencil = true;
+        else if (cullMode != WGPUCullMode_Back && (stencilBack.passOp != WGPUStencilOperation_Keep || stencilBack.depthFailOp != WGPUStencilOperation_Keep || stencilBack.failOp != WGPUStencilOperation_Keep))
+            m_writesStencil = true;
+    }
 }
 
 RenderPipeline::RenderPipeline(Device& device)
@@ -1147,12 +1593,22 @@ id<MTLDepthStencilState> RenderPipeline::depthStencilState() const
     return m_depthStencilState;
 }
 
+bool RenderPipeline::writesDepth() const
+{
+    return m_depthStencilDescriptor.depthWriteEnabled;
+}
+
+bool RenderPipeline::writesStencil() const
+{
+    return m_writesStencil;
+}
+
 bool RenderPipeline::validateDepthStencilState(bool depthReadOnly, bool stencilReadOnly) const
 {
-    if (depthReadOnly && m_depthStencilDescriptor.depthWriteEnabled)
+    if (depthReadOnly && writesDepth())
         return false;
 
-    if (stencilReadOnly && (m_depthStencilDescriptor.frontFaceStencil.writeMask || m_depthStencilDescriptor.backFaceStencil.writeMask))
+    if (stencilReadOnly && writesStencil())
         return false;
 
     return true;
@@ -1161,6 +1617,106 @@ bool RenderPipeline::validateDepthStencilState(bool depthReadOnly, bool stencilR
 PipelineLayout& RenderPipeline::pipelineLayout() const
 {
     return m_pipelineLayout;
+}
+
+bool RenderPipeline::colorDepthStencilTargetsMatch(const WGPURenderPassDescriptor& descriptor) const
+{
+    if (!m_descriptor.fragment) {
+        if (descriptor.colorAttachmentCount)
+            return false;
+    } else {
+        auto& fragment = *m_descriptor.fragment;
+        if (fragment.targetCount != descriptor.colorAttachmentCount)
+            return false;
+
+        for (size_t i = 0; i < fragment.targetCount; ++i) {
+            const auto& attachment = descriptor.colorAttachments[i];
+            if (!attachment.view) {
+                if (m_descriptorTargets[i].format == WGPUTextureFormat_Undefined)
+                    continue;
+                return false;
+            }
+            auto& texture = fromAPI(attachment.view);
+            if (m_descriptorTargets[i].format != texture.format())
+                return false;
+            if (texture.sampleCount() != m_descriptor.multisample.count)
+                return false;
+        }
+    }
+
+    if (!m_descriptor.depthStencil) {
+        if (!descriptor.depthStencilAttachment)
+            return true;
+
+        return false;
+    }
+
+    if (auto* depthStencil = descriptor.depthStencilAttachment) {
+        auto& texture = fromAPI(depthStencil->view);
+        if (!depthStencil->view)
+            return false;
+        if (texture.format() != m_descriptor.depthStencil->format)
+            return false;
+        if (texture.sampleCount() != m_descriptor.multisample.count)
+            return false;
+    } else if (m_descriptor.depthStencil->format != WGPUTextureFormat_Undefined)
+        return false;
+
+    return true;
+}
+
+bool RenderPipeline::validateRenderBundle(const WGPURenderBundleEncoderDescriptor& descriptor) const
+{
+    if (!validateDepthStencilState(descriptor.depthReadOnly, descriptor.stencilReadOnly))
+        return false;
+
+    if (descriptor.sampleCount != m_descriptor.multisample.count)
+        return false;
+
+    if (!m_descriptor.fragment) {
+        if (descriptor.colorFormatCount || descriptor.depthStencilFormat != WGPUTextureFormat_Undefined)
+            return false;
+
+        return true;
+    }
+
+    auto& fragment = *m_descriptor.fragment;
+    if (fragment.targetCount != descriptor.colorFormatCount) {
+        for (size_t i = 0; i < descriptor.colorFormatCount; ++i) {
+            auto colorFormat = descriptor.colorFormats[i];
+            if (colorFormat != WGPUTextureFormat_Undefined)
+                return false;
+        }
+    }
+
+    for (size_t i = 0; i < fragment.targetCount; ++i) {
+        auto colorFormat = descriptor.colorFormats[i];
+        if (m_descriptorTargets[i].format != colorFormat)
+            return false;
+    }
+
+    if (!m_descriptor.depthStencil) {
+        if (descriptor.depthStencilFormat == WGPUTextureFormat_Undefined)
+            return true;
+
+        return false;
+    }
+
+    if (descriptor.depthStencilFormat != m_descriptor.depthStencil->format)
+        return false;
+
+    return true;
+}
+
+WGPUPrimitiveTopology RenderPipeline::primitiveTopology() const
+{
+    return m_descriptor.primitive.topology;
+}
+
+MTLIndexType RenderPipeline::stripIndexFormat() const
+{
+    ASSERT(m_descriptor.primitive.stripIndexFormat == WGPUIndexFormat_Uint16 || m_descriptor.primitive.stripIndexFormat == WGPUIndexFormat_Uint32);
+    return m_descriptor.primitive.stripIndexFormat == WGPUIndexFormat_Uint16 ? MTLIndexTypeUInt16 : MTLIndexTypeUInt32;
 }
 
 } // namespace WebGPU

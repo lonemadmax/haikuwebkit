@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -247,9 +247,6 @@ bool isSpecialGPR(MacroAssembler::RegisterID id)
         return true;
 #if CPU(ARM64)
     if (id == ARM64Registers::x18)
-        return true;
-#elif CPU(MIPS)
-    if (id == MIPSRegisters::zero || id == MIPSRegisters::k0 || id == MIPSRegisters::k1)
         return true;
 #elif CPU(RISCV64)
     if (id == RISCV64Registers::zero || id == RISCV64Registers::ra || id == RISCV64Registers::gp || id == RISCV64Registers::tp)
@@ -4798,9 +4795,6 @@ void testProbePreservesGPRS()
                 CHECK_EQ(cpu.gpr(id), testWord(id));
             }
             for (auto id = CCallHelpers::firstFPRegister(); id <= CCallHelpers::lastFPRegister(); id = nextID(id)) {
-#if CPU(MIPS)
-                if (!(id & 1))
-#endif
                 CHECK_EQ(cpu.fpr<uint64_t>(id), testWord64(id));
             }
         });
@@ -4828,9 +4822,6 @@ void testProbePreservesGPRS()
                 CHECK_EQ(cpu.gpr(id), originalState.gpr(id));
             }
             for (auto id = CCallHelpers::firstFPRegister(); id <= CCallHelpers::lastFPRegister(); id = nextID(id))
-#if CPU(MIPS)
-                if (!(id & 1))
-#endif
                 CHECK_EQ(cpu.fpr<uint64_t>(id), originalState.fpr<uint64_t>(id));
         });
 
@@ -4846,7 +4837,7 @@ void testProbeModifiesStackPointer(WTF::Function<void*(Probe::Context&)> compute
     CPUState originalState;
     void* originalSP { nullptr };
     void* modifiedSP { nullptr };
-#if !(CPU(MIPS) || CPU(RISCV64))
+#if !CPU(RISCV64)
     uintptr_t modifiedFlags { 0 };
 #endif
     
@@ -4880,7 +4871,7 @@ void testProbeModifiesStackPointer(WTF::Function<void*(Probe::Context&)> compute
                 cpu.fpr(id) = bitwise_cast<double>(testWord64(id));
             }
 
-#if !(CPU(MIPS) || CPU(RISCV64))
+#if !(CPU(RISCV64))
             originalState.spr(flagsSPR) = cpu.spr(flagsSPR);
             modifiedFlags = originalState.spr(flagsSPR) ^ flagsMask;
             cpu.spr(flagsSPR) = modifiedFlags;
@@ -4905,11 +4896,8 @@ void testProbeModifiesStackPointer(WTF::Function<void*(Probe::Context&)> compute
                 CHECK_EQ(cpu.gpr(id), testWord(id));
             }
             for (auto id = CCallHelpers::firstFPRegister(); id <= CCallHelpers::lastFPRegister(); id = nextID(id))
-#if CPU(MIPS)
-                if (!(id & 1))
-#endif
                 CHECK_EQ(cpu.fpr<uint64_t>(id), testWord64(id));
-#if !(CPU(MIPS) || CPU(RISCV64))
+#if !CPU(RISCV64)
             CHECK_EQ(cpu.spr(flagsSPR) & flagsMask, modifiedFlags & flagsMask);
 #endif
             CHECK_EQ(cpu.sp(), modifiedSP);
@@ -4926,7 +4914,7 @@ void testProbeModifiesStackPointer(WTF::Function<void*(Probe::Context&)> compute
             }
             for (auto id = CCallHelpers::firstFPRegister(); id <= CCallHelpers::lastFPRegister(); id = nextID(id))
                 cpu.fpr(id) = originalState.fpr(id);
-#if !(CPU(MIPS) || CPU(RISCV64))
+#if !CPU(RISCV64)
             cpu.spr(flagsSPR) = originalState.spr(flagsSPR);
 #endif
             cpu.sp() = originalSP;
@@ -4942,11 +4930,8 @@ void testProbeModifiesStackPointer(WTF::Function<void*(Probe::Context&)> compute
                 CHECK_EQ(cpu.gpr(id), originalState.gpr(id));
             }
             for (auto id = CCallHelpers::firstFPRegister(); id <= CCallHelpers::lastFPRegister(); id = nextID(id))
-#if CPU(MIPS)
-                if (!(id & 1))
-#endif
                 CHECK_EQ(cpu.fpr<uint64_t>(id), originalState.fpr<uint64_t>(id));
-#if !(CPU(MIPS) || CPU(RISCV64))
+#if !CPU(RISCV64)
             CHECK_EQ(cpu.spr(flagsSPR) & flagsMask, originalState.spr(flagsSPR) & flagsMask);
 #endif
             CHECK_EQ(cpu.sp(), originalSP);
@@ -5027,7 +5012,7 @@ void testProbeModifiesStackValues()
     CPUState originalState;
     void* originalSP { nullptr };
     void* newSP { nullptr };
-#if !(CPU(MIPS) || CPU(RISCV64))
+#if !CPU(RISCV64)
     uintptr_t modifiedFlags { 0 };
 #endif
     size_t numberOfExtraEntriesToWrite { 10 }; // ARM64 requires that this be 2 word aligned.
@@ -5063,7 +5048,7 @@ void testProbeModifiesStackValues()
                 originalState.fpr(id) = cpu.fpr(id);
                 cpu.fpr(id) = bitwise_cast<double>(testWord64(id));
             }
-#if !(CPU(MIPS) || CPU(RISCV64))
+#if !CPU(RISCV64)
             originalState.spr(flagsSPR) = cpu.spr(flagsSPR);
             modifiedFlags = originalState.spr(flagsSPR) ^ flagsMask;
             cpu.spr(flagsSPR) = modifiedFlags;
@@ -5101,11 +5086,8 @@ void testProbeModifiesStackValues()
                 CHECK_EQ(cpu.gpr(id), testWord(id));
             }
             for (auto id = CCallHelpers::firstFPRegister(); id <= CCallHelpers::lastFPRegister(); id = nextID(id))
-#if CPU(MIPS)
-                if (!(id & 1))
-#endif
                 CHECK_EQ(cpu.fpr<uint64_t>(id), testWord64(id));
-#if !(CPU(MIPS) || CPU(RISCV64))
+#if !CPU(RISCV64)
             CHECK_EQ(cpu.spr(flagsSPR) & flagsMask, modifiedFlags & flagsMask);
 #endif
             CHECK_EQ(cpu.sp(), newSP);
@@ -5131,7 +5113,7 @@ void testProbeModifiesStackValues()
             }
             for (auto id = CCallHelpers::firstFPRegister(); id <= CCallHelpers::lastFPRegister(); id = nextID(id))
                 cpu.fpr(id) = originalState.fpr(id);
-#if !(CPU(MIPS) || CPU(RISCV64))
+#if !CPU(RISCV64)
             cpu.spr(flagsSPR) = originalState.spr(flagsSPR);
 #endif
             cpu.sp() = originalSP;
@@ -5906,57 +5888,6 @@ void testStoreImmediateBaseIndex()
 #endif
 }
 
-static void testCagePreservesPACFailureBit()
-{
-#if GIGACAGE_ENABLED
-    // Placate ASan builds and any environments that disables the Gigacage.
-    if (!Gigacage::shouldBeEnabled())
-        return;
-
-    RELEASE_ASSERT(!Gigacage::disablingPrimitiveGigacageIsForbidden());
-    auto cage = compile([] (CCallHelpers& jit) {
-        emitFunctionPrologue(jit);
-        constexpr GPRReg storageGPR = GPRInfo::argumentGPR0;
-        constexpr GPRReg lengthGPR = GPRInfo::argumentGPR1;
-        constexpr GPRReg scratchGPR = GPRInfo::argumentGPR2;
-        jit.cageConditionallyAndUntag(Gigacage::Primitive, storageGPR, lengthGPR, scratchGPR);
-        jit.move(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
-        emitFunctionEpilogue(jit);
-        jit.ret();
-    });
-
-    void* ptr = Gigacage::tryMalloc(Gigacage::Primitive, 1);
-    void* taggedPtr = tagArrayPtr(ptr, 1);
-    RELEASE_ASSERT(hasOneBitSet(Gigacage::maxSize(Gigacage::Primitive) << 2));
-    void* notCagedPtr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(ptr) + (Gigacage::maxSize(Gigacage::Primitive) << 2));
-    CHECK_NOT_EQ(Gigacage::caged(Gigacage::Primitive, notCagedPtr), notCagedPtr);
-    void* taggedNotCagedPtr = tagArrayPtr(notCagedPtr, 1);
-
-    if (!isARM64E())
-        CHECK_EQ(invoke<void*>(cage, taggedPtr, 2), ptr);
-
-    CHECK_EQ(invoke<void*>(cage, taggedPtr, 1), ptr);
-
-    auto cageWithoutAuthentication = compile([] (CCallHelpers& jit) {
-        emitFunctionPrologue(jit);
-        jit.cageWithoutUntagging(Gigacage::Primitive, GPRInfo::argumentGPR0);
-        jit.move(GPRInfo::argumentGPR0, GPRInfo::returnValueGPR);
-        emitFunctionEpilogue(jit);
-        jit.ret();
-    });
-
-    CHECK_EQ(invoke<void*>(cageWithoutAuthentication, taggedPtr), taggedPtr);
-    if (isARM64E()) {
-        CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), taggedNotCagedPtr);
-        CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), tagArrayPtr(notCagedPtr, 1));
-        CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), taggedPtr);
-        CHECK_NOT_EQ(invoke<void*>(cageWithoutAuthentication, taggedNotCagedPtr), tagArrayPtr(ptr, 1));
-    }
-
-    Gigacage::free(Gigacage::Primitive, ptr);
-#endif
-}
-
 static void testBranchIfType()
 {
     using JSC::JSType;
@@ -6322,8 +6253,6 @@ void run(const char* filter) WTF_IGNORES_THREAD_SAFETY_ANALYSIS
     RUN(testStoreImmediateAddress());
     RUN(testStoreBaseIndex());
     RUN(testStoreImmediateBaseIndex());
-
-    RUN(testCagePreservesPACFailureBit());
 
     RUN(testBranchIfType());
     RUN(testBranchIfNotType());

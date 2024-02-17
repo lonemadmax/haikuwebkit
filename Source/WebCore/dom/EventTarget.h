@@ -105,6 +105,8 @@ public:
     WEBCORE_EXPORT virtual void dispatchEvent(Event&);
     WEBCORE_EXPORT virtual void uncaughtExceptionInEventHandler();
 
+    static const AtomString& legacyTypeForEvent(const Event&);
+
     // Used for legacy "onevent" attributes.
     template<typename JSMaybeErrorEventListener>
     void setAttributeEventListener(const AtomString& eventType, JSC::JSValue listener, JSC::JSObject& jsEventTarget);
@@ -148,11 +150,29 @@ public:
         return nullptr;
     }
 
+    template<typename CallbackType>
+    void enumerateEventListenerTypes(CallbackType callback) const
+    {
+        if (auto* data = eventTargetData())
+            data->eventListenerMap.enumerateEventListenerTypes(callback);
+    }
+
+    template<typename CallbackType>
+    bool containsMatchingEventListener(CallbackType callback) const
+    {
+        if (auto* data = eventTargetData())
+            return data->eventListenerMap.containsMatchingEventListener(callback);
+        return false;
+    }
+
     bool hasEventTargetData() const { return hasEventTargetFlag(EventTargetFlag::HasEventTargetData); }
     bool isNode() const { return hasEventTargetFlag(EventTargetFlag::IsNode); }
 
     bool isInGCReacheableRefMap() const { return hasEventTargetFlag(EventTargetFlag::IsInGCReachableRefMap); }
     void setIsInGCReacheableRefMap(bool flag) { setEventTargetFlag(EventTargetFlag::IsInGCReachableRefMap, flag); }
+
+    bool hasValidQuerySelectorAllResults() const { return hasEventTargetFlag(EventTargetFlag::HasValidQuerySelectorAllResults); }
+    void setHasValidQuerySelectorAllResults(bool flag) { setEventTargetFlag(EventTargetFlag::HasValidQuerySelectorAllResults, flag); }
 
 protected:
     enum ConstructNodeTag { ConstructNode };
@@ -173,17 +193,18 @@ protected:
         IsConnected = 1 << 3,
         IsInShadowTree = 1 << 4,
         HasBeenInUserAgentShadowTree = 1 << 5,
+        HasValidQuerySelectorAllResults = 1 << 6,
         // Element bits
-        HasSyntheticAttrChildNodes = 1 << 6,
-        HasDuplicateAttribute = 1 << 7,
-        HasLangAttr = 1 << 8,
-        HasXMLLangAttr = 1 << 9,
-        HasFormAssociatedCustomElementInterface = 1 << 10,
-        HasShadowRootContainingSlots = 1 << 11,
-        IsInTopLayer = 1 << 12,
+        HasSyntheticAttrChildNodes = 1 << 7,
+        HasDuplicateAttribute = 1 << 8,
+        HasLangAttr = 1 << 9,
+        HasXMLLangAttr = 1 << 10,
+        HasFormAssociatedCustomElementInterface = 1 << 11,
+        HasShadowRootContainingSlots = 1 << 12,
+        IsInTopLayer = 1 << 13,
         // SVGElement bits
-        HasPendingResources = 1 << 13,
-        // 2 Free bits
+        HasPendingResources = 1 << 14,
+        // 1 Free bits
     };
 
     EventTargetData& ensureEventTargetData()
@@ -207,7 +228,6 @@ private:
     virtual void derefEventTarget() = 0;
 
     void innerInvokeEventListeners(Event&, EventListenerVector, EventInvokePhase);
-    void invalidateEventListenerRegions();
 };
 
 inline bool EventTarget::hasEventListeners() const

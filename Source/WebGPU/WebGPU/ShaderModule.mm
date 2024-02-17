@@ -110,7 +110,7 @@ static RefPtr<ShaderModule> earlyCompileShaderModule(Device& device, std::varian
     auto library = ShaderModule::createLibrary(device.device(), prepareResult.msl, WTFMove(label));
     if (!library)
         return nullptr;
-    return ShaderModule::create(WTFMove(checkResult), WTFMove(hints), WTFMove(prepareResult.entryPoints), library, nil, device);
+    return ShaderModule::create(WTFMove(checkResult), WTFMove(hints), WTFMove(prepareResult.entryPoints), library, nil, { }, device);
 }
 
 static const HashSet<String> buildFeatureSet(const Vector<WGPUFeatureName>& features)
@@ -162,7 +162,7 @@ static const HashSet<String> buildFeatureSet(const Vector<WGPUFeatureName>& feat
     return result;
 }
 
-static Ref<ShaderModule> handleShaderSuccessOrFailure(WebGPU::Device &object, std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck> &checkResult, const WGPUShaderModuleDescriptor &descriptor, std::optional<ShaderModuleParameters> &shaderModuleParameters, NSMutableSet<NSString *> * originalOverrideNames = nil)
+static Ref<ShaderModule> handleShaderSuccessOrFailure(WebGPU::Device &object, std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck> &checkResult, const WGPUShaderModuleDescriptor &descriptor, std::optional<ShaderModuleParameters> &shaderModuleParameters, NSMutableSet<NSString *> * originalOverrideNames, HashMap<String, String>&& originalFunctionNames)
 {
     if (std::holds_alternative<WGSL::SuccessfulCheck>(checkResult)) {
         if (shaderModuleParameters->hints && descriptor.hintCount) {
@@ -170,7 +170,8 @@ static Ref<ShaderModule> handleShaderSuccessOrFailure(WebGPU::Device &object, st
             // https://bugs.webkit.org/show_bug.cgi?id=254258
             UNUSED_PARAM(earlyCompileShaderModule);
         }
-        return ShaderModule::create(WTFMove(checkResult), { }, { }, nil, originalOverrideNames, object);
+
+        return ShaderModule::create(WTFMove(checkResult), { }, { }, nil, originalOverrideNames, WTFMove(originalFunctionNames), object);
     }
 
     auto& failedCheck = std::get<WGSL::FailedCheck>(checkResult);
@@ -194,6 +195,7 @@ Ref<ShaderModule> Device::createShaderModule(const WGPUShaderModuleDescriptor& d
     if (!shaderModuleParameters)
         return ShaderModule::createInvalid(*this);
 
+    HashMap<String, String> functionNames;
     auto supportedFeatures = buildFeatureSet(m_capabilities.features);
     auto checkResult = WGSL::staticCheck(fromAPI(shaderModuleParameters->wgsl.code), std::nullopt, WGSL::Configuration {
         .maxBuffersPlusVertexBuffersForVertexStage = maxBuffersPlusVertexBuffersForVertexStage(),
@@ -205,17 +207,43 @@ Ref<ShaderModule> Device::createShaderModule(const WGPUShaderModuleDescriptor& d
     // FIXME: Remove when https://bugs.webkit.org/show_bug.cgi?id=266774 is completed
     if (!std::holds_alternative<WGSL::SuccessfulCheck>(checkResult)) {
         NSString *nsWgsl = [NSString stringWithUTF8String:shaderModuleParameters->wgsl.code];
-        NSRange currentRange = NSMakeRange(0, nsWgsl.length);
         NSMutableSet<NSString *> *overrideNames = [NSMutableSet set];
+        NSRange currentRange = NSMakeRange(0, nsWgsl.length);
         for (;;) {
             NSRange newRange = [nsWgsl rangeOfString:@"override " options:NSLiteralSearch range:currentRange];
             if (newRange.location == NSNotFound)
                 break;
             NSRange endRange = [nsWgsl rangeOfString:@":" options:NSLiteralSearch range:NSMakeRange(newRange.location, nsWgsl.length - newRange.location)];
+            if (endRange.location == NSNotFound)
+                break;
             auto startIndex = newRange.location + newRange.length;
             NSString* overrideName = [nsWgsl substringWithRange:NSMakeRange(startIndex, endRange.location - startIndex)];
             [overrideNames addObject:overrideName];
             currentRange = NSMakeRange(endRange.location + 1, nsWgsl.length - endRange.location - 1);
+        }
+
+        NSString* stageNames[] = { @"@vertex ", @"@fragment ", @"@compute " };
+        for (NSString* moduleName : stageNames) {
+            currentRange = NSMakeRange(0, nsWgsl.length);
+            for (;;) {
+                NSRange newRange = [nsWgsl rangeOfString:moduleName options:NSLiteralSearch range:currentRange];
+                if (newRange.location == NSNotFound)
+                    break;
+
+                newRange = [nsWgsl rangeOfString:@" fn " options:NSLiteralSearch range:NSMakeRange(newRange.location, nsWgsl.length - newRange.location - 1)];
+                if (newRange.location == NSNotFound)
+                    break;
+
+                NSRange endRange = [nsWgsl rangeOfString:@"(" options:NSLiteralSearch range:NSMakeRange(newRange.location, nsWgsl.length - newRange.location)];
+                if (endRange.location == NSNotFound)
+                    break;
+                auto startIndex = newRange.location + newRange.length;
+                NSString* functionName = [nsWgsl substringWithRange:NSMakeRange(startIndex, endRange.location - startIndex)];
+                currentRange = NSMakeRange(endRange.location + 1, nsWgsl.length - endRange.location - 1);
+                NSString *transformedName = [functionName stringByApplyingTransform:NSStringTransformToLatin reverse:NO];
+                transformedName = [transformedName stringByFoldingWithOptions:NSDiacriticInsensitiveSearch locale:NSLocale.currentLocale];
+                functionNames.set(functionName, transformedName);
+            }
         }
 
         nsWgsl = [nsWgsl stringByApplyingTransform:NSStringTransformToLatin reverse:NO];
@@ -223,10 +251,10 @@ Ref<ShaderModule> Device::createShaderModule(const WGPUShaderModuleDescriptor& d
         auto checkResult = WGSL::staticCheck(nsWgsl, std::nullopt, { maxBuffersPlusVertexBuffersForVertexStage(), maxBuffersForFragmentStage(), maxBuffersForComputeStage() });
         dataLogLn(fromAPI(shaderModuleParameters->wgsl.code));
         dataLogLn(String(nsWgsl));
-        return handleShaderSuccessOrFailure(*this, checkResult, descriptor, shaderModuleParameters, overrideNames);
+        return handleShaderSuccessOrFailure(*this, checkResult, descriptor, shaderModuleParameters, overrideNames, WTFMove(functionNames));
     }
 
-    return handleShaderSuccessOrFailure(*this, checkResult, descriptor, shaderModuleParameters);
+    return handleShaderSuccessOrFailure(*this, checkResult, descriptor, shaderModuleParameters, nil, WTFMove(functionNames));
 }
 
 auto ShaderModule::convertCheckResult(std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult) -> CheckResult
@@ -249,6 +277,8 @@ static MTLDataType metalDataTypeFromPrimitive(const WGSL::Types::Primitive *prim
             return MTLDataTypeHalf;
         case WGSL::Types::Primitive::F32:
             return MTLDataTypeFloat;
+        case WGSL::Types::Primitive::Bool:
+            return MTLDataTypeBool;
         default:
             RELEASE_ASSERT_NOT_REACHED();
         }
@@ -262,6 +292,8 @@ static MTLDataType metalDataTypeFromPrimitive(const WGSL::Types::Primitive *prim
             return MTLDataTypeHalf2;
         case WGSL::Types::Primitive::F32:
             return MTLDataTypeFloat2;
+        case WGSL::Types::Primitive::Bool:
+            return MTLDataTypeBool2;
         default:
             RELEASE_ASSERT_NOT_REACHED();
         }
@@ -275,6 +307,8 @@ static MTLDataType metalDataTypeFromPrimitive(const WGSL::Types::Primitive *prim
             return MTLDataTypeHalf3;
         case WGSL::Types::Primitive::F32:
             return MTLDataTypeFloat3;
+        case WGSL::Types::Primitive::Bool:
+            return MTLDataTypeBool3;
         default:
             RELEASE_ASSERT_NOT_REACHED();
         }
@@ -288,6 +322,68 @@ static MTLDataType metalDataTypeFromPrimitive(const WGSL::Types::Primitive *prim
             return MTLDataTypeHalf4;
         case WGSL::Types::Primitive::F32:
             return MTLDataTypeFloat4;
+        case WGSL::Types::Primitive::Bool:
+            return MTLDataTypeBool4;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+        }
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
+    }
+}
+
+static WGPUVertexFormat vertexFormatTypeFromPrimitive(const WGSL::Types::Primitive *primitiveType, int vectorSize)
+{
+    switch (vectorSize) {
+    case 1:
+        switch (primitiveType->kind) {
+        case WGSL::Types::Primitive::I32:
+            return WGPUVertexFormat_Sint32;
+        case WGSL::Types::Primitive::U32:
+            return WGPUVertexFormat_Uint32;
+        case WGSL::Types::Primitive::F16:
+            return WGPUVertexFormat_Float32;
+        case WGSL::Types::Primitive::F32:
+            return WGPUVertexFormat_Float32;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+        }
+    case 2:
+        switch (primitiveType->kind) {
+        case WGSL::Types::Primitive::I32:
+            return WGPUVertexFormat_Sint32x2;
+        case WGSL::Types::Primitive::U32:
+            return WGPUVertexFormat_Uint32x2;
+        case WGSL::Types::Primitive::F16:
+            return WGPUVertexFormat_Float16x2;
+        case WGSL::Types::Primitive::F32:
+            return WGPUVertexFormat_Float32x2;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+        }
+    case 3:
+        switch (primitiveType->kind) {
+        case WGSL::Types::Primitive::I32:
+            return WGPUVertexFormat_Sint32x3;
+        case WGSL::Types::Primitive::U32:
+            return WGPUVertexFormat_Uint32x3;
+        case WGSL::Types::Primitive::F16:
+            return WGPUVertexFormat_Float16x4;
+        case WGSL::Types::Primitive::F32:
+            return WGPUVertexFormat_Float32x3;
+        default:
+            RELEASE_ASSERT_NOT_REACHED();
+        }
+    case 4:
+        switch (primitiveType->kind) {
+        case WGSL::Types::Primitive::I32:
+            return WGPUVertexFormat_Sint32x4;
+        case WGSL::Types::Primitive::U32:
+            return WGPUVertexFormat_Uint32x4;
+        case WGSL::Types::Primitive::F16:
+            return WGPUVertexFormat_Float16x4;
+        case WGSL::Types::Primitive::F32:
+            return WGPUVertexFormat_Float32x4;
         default:
             RELEASE_ASSERT_NOT_REACHED();
         }
@@ -310,7 +406,25 @@ static MTLDataType metalDataTypeForStructMember(const WGSL::Type* type)
     return metalDataTypeFromPrimitive(primitiveType, vectorSize);
 }
 
-static ShaderModule::FragmentOutputs parseReturnType(const WGSL::Type& type)
+static WGPUVertexFormat vertexFormatTypeForStructMember(const WGSL::Type* type)
+{
+    if (!type) {
+        RELEASE_ASSERT_NOT_REACHED();
+        return WGPUVertexFormat_Undefined;
+    }
+
+    auto* vectorType = std::get_if<WGSL::Types::Vector>(type);
+    auto* primitiveType = std::get_if<WGSL::Types::Primitive>(vectorType ? vectorType->element : type);
+    if (!primitiveType) {
+        RELEASE_ASSERT_NOT_REACHED();
+        return WGPUVertexFormat_Undefined;
+    }
+
+    auto vectorSize = vectorType ? vectorType->size : 1;
+    return vertexFormatTypeFromPrimitive(primitiveType, vectorSize);
+}
+
+static ShaderModule::FragmentOutputs parseFragmentReturnType(const WGSL::Type& type)
 {
     ShaderModule::FragmentOutputs fragmentOutputs;
     if (auto* returnPrimitive = std::get_if<WGSL::Types::Primitive>(&type)) {
@@ -336,13 +450,110 @@ static ShaderModule::FragmentOutputs parseReturnType(const WGSL::Type& type)
     return fragmentOutputs;
 }
 
-ShaderModule::ShaderModule(std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult, HashMap<String, Ref<PipelineLayout>>&& pipelineLayoutHints, HashMap<String, WGSL::Reflection::EntryPointInformation>&& entryPointInformation, id<MTLLibrary> library, NSMutableSet<NSString* >* originalOverrideNames, Device& device)
+static ShaderModule::VertexOutputs parseVertexReturnType(const WGSL::Type& type)
+{
+    ShaderModule::VertexOutputs vertexOutputs;
+    if (auto* returnPrimitive = std::get_if<WGSL::Types::Primitive>(&type)) {
+        vertexOutputs.add(0, ShaderModule::VertexOutputFragmentInput {
+            .dataType = metalDataTypeFromPrimitive(returnPrimitive),
+            .interpolation = std::nullopt
+        });
+        return vertexOutputs;
+    }
+    if (std::get_if<WGSL::Types::Vector>(&type)) {
+        vertexOutputs.add(0, ShaderModule::VertexOutputFragmentInput {
+            .dataType = metalDataTypeForStructMember(&type),
+            .interpolation = std::nullopt
+        });
+        return vertexOutputs;
+    }
+    auto* returnStruct = std::get_if<WGSL::Types::Struct>(&type);
+    if (!returnStruct)
+        return vertexOutputs;
+
+    for (auto& member : returnStruct->structure.members()) {
+        if (!member.location() || member.builtin())
+            continue;
+
+        auto location = *member.location();
+        vertexOutputs.add(location, ShaderModule::VertexOutputFragmentInput {
+            .dataType = metalDataTypeForStructMember(member.type().inferredType()),
+            .interpolation = member.interpolation()
+        });
+    }
+
+    return vertexOutputs;
+}
+
+static void populateStageInMap(const WGSL::Type& type, ShaderModule::VertexStageIn& vertexStageIn)
+{
+    auto* inputStruct = std::get_if<WGSL::Types::Struct>(&type);
+    if (!inputStruct)
+        return;
+
+    for (auto& member : inputStruct->structure.members()) {
+        if (!member.location())
+            continue;
+        auto location = *member.location();
+        auto dataType = vertexFormatTypeForStructMember(member.type().inferredType());
+        vertexStageIn.add(location, dataType);
+    }
+}
+
+static void populateFragmentInputs(const WGSL::Type& type, ShaderModule::FragmentInputs& fragmentInputs)
+{
+    auto* inputStruct = std::get_if<WGSL::Types::Struct>(&type);
+    if (!inputStruct)
+        return;
+
+    for (auto& member : inputStruct->structure.members()) {
+        if (!member.location())
+            continue;
+        auto location = *member.location();
+        auto dataType = metalDataTypeForStructMember(member.type().inferredType());
+        fragmentInputs.add(location, ShaderModule::VertexOutputFragmentInput {
+            .dataType = dataType,
+            .interpolation = member.interpolation()
+        });
+    }
+}
+
+static ShaderModule::VertexStageIn parseStageIn(const WGSL::AST::Function& function)
+{
+    ShaderModule::VertexStageIn result;
+    for (auto& parameter : function.parameters()) {
+        if (parameter.role() != WGSL::AST::ParameterRole::UserDefined)
+            continue;
+
+        if (auto* inferredType = parameter.typeName().inferredType())
+            populateStageInMap(*inferredType, result);
+    }
+
+    return result;
+}
+
+static ShaderModule::FragmentInputs parseFragmentInputs(const WGSL::AST::Function& function)
+{
+    ShaderModule::FragmentInputs result;
+    for (auto& parameter : function.parameters()) {
+        if (parameter.role() != WGSL::AST::ParameterRole::UserDefined)
+            continue;
+
+        if (auto* inferredType = parameter.typeName().inferredType())
+            populateFragmentInputs(*inferredType, result);
+    }
+
+    return result;
+}
+
+ShaderModule::ShaderModule(std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck>&& checkResult, HashMap<String, Ref<PipelineLayout>>&& pipelineLayoutHints, HashMap<String, WGSL::Reflection::EntryPointInformation>&& entryPointInformation, id<MTLLibrary> library, NSMutableSet<NSString* >* originalOverrideNames, HashMap<String, String>&& originalFunctionNames, Device& device)
     : m_checkResult(convertCheckResult(WTFMove(checkResult)))
     , m_pipelineLayoutHints(WTFMove(pipelineLayoutHints))
     , m_entryPointInformation(WTFMove(entryPointInformation))
     , m_library(library)
     , m_device(device)
     , m_originalOverrideNames(originalOverrideNames)
+    , m_originalFunctionNames(WTFMove(originalFunctionNames))
 {
     bool allowVertexDefault = true, allowFragmentDefault = true, allowComputeDefault = true;
     if (std::holds_alternative<WGSL::SuccessfulCheck>(m_checkResult)) {
@@ -355,6 +566,11 @@ ShaderModule::ShaderModule(std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck
                 continue;
             switch (*function.stage()) {
             case WGSL::ShaderStage::Vertex: {
+                m_stageInTypesForEntryPoint.add(function.name(), parseStageIn(function));
+                if (auto expression = function.maybeReturnType()) {
+                    if (auto* inferredType = expression->inferredType())
+                        m_vertexReturnTypeForEntryPoint.add(function.name(), parseVertexReturnType(*inferredType));
+                }
                 if (!allowVertexDefault || m_defaultVertexEntryPoint.length()) {
                     allowVertexDefault = false;
                     m_defaultVertexEntryPoint = emptyString();
@@ -363,9 +579,10 @@ ShaderModule::ShaderModule(std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck
                 m_defaultVertexEntryPoint = function.name();
             } break;
             case WGSL::ShaderStage::Fragment: {
+                m_fragmentInputsForEntryPoint.add(function.name(), parseFragmentInputs(function));
                 if (auto expression = function.maybeReturnType()) {
                     if (auto* inferredType = expression->inferredType())
-                        m_returnTypeForEntryPoint.add(function.name(), parseReturnType(*inferredType));
+                        m_fragmentReturnTypeForEntryPoint.add(function.name(), parseFragmentReturnType(*inferredType));
                 }
                 if (!allowFragmentDefault || m_defaultFragmentEntryPoint.length()) {
                     allowFragmentDefault = false;
@@ -390,9 +607,43 @@ ShaderModule::ShaderModule(std::variant<WGSL::SuccessfulCheck, WGSL::FailedCheck
     }
 }
 
-const ShaderModule::FragmentOutputs* ShaderModule::returnTypeForEntryPoint(const String& entryPoint) const
+const ShaderModule::FragmentInputs* ShaderModule::fragmentInputsForEntryPoint(const String& entryPoint) const
 {
-    if (auto it = m_returnTypeForEntryPoint.find(entryPoint); it != m_returnTypeForEntryPoint.end())
+    if (auto it = m_fragmentInputsForEntryPoint.find(entryPoint); it != m_fragmentInputsForEntryPoint.end())
+        return &it->value;
+
+    auto transformed = m_originalFunctionNames.find(entryPoint);
+    if (transformed == m_originalFunctionNames.end())
+        return nullptr;
+    if (auto it = m_fragmentInputsForEntryPoint.find(transformed->value); it != m_fragmentInputsForEntryPoint.end())
+        return &it->value;
+
+    return nullptr;
+}
+
+const ShaderModule::FragmentOutputs* ShaderModule::fragmentReturnTypeForEntryPoint(const String& entryPoint) const
+{
+    if (auto it = m_fragmentReturnTypeForEntryPoint.find(entryPoint); it != m_fragmentReturnTypeForEntryPoint.end())
+        return &it->value;
+
+    auto transformed = m_originalFunctionNames.find(entryPoint);
+    if (transformed == m_originalFunctionNames.end())
+        return nullptr;
+    if (auto it = m_fragmentReturnTypeForEntryPoint.find(transformed->value); it != m_fragmentReturnTypeForEntryPoint.end())
+        return &it->value;
+
+    return nullptr;
+}
+
+const ShaderModule::VertexOutputs* ShaderModule::vertexReturnTypeForEntryPoint(const String& entryPoint) const
+{
+    if (auto it = m_vertexReturnTypeForEntryPoint.find(entryPoint); it != m_vertexReturnTypeForEntryPoint.end())
+        return &it->value;
+
+    auto transformed = m_originalFunctionNames.find(entryPoint);
+    if (transformed == m_originalFunctionNames.end())
+        return nullptr;
+    if (auto it = m_vertexReturnTypeForEntryPoint.find(transformed->value); it != m_vertexReturnTypeForEntryPoint.end())
         return &it->value;
 
     return nullptr;
@@ -401,6 +652,20 @@ const ShaderModule::FragmentOutputs* ShaderModule::returnTypeForEntryPoint(const
 bool ShaderModule::hasOverride(const String& name) const
 {
     return [m_originalOverrideNames containsObject:name];
+}
+
+const ShaderModule::VertexStageIn* ShaderModule::stageInTypesForEntryPoint(const String& entryPoint) const
+{
+    if (auto it = m_stageInTypesForEntryPoint.find(entryPoint); it != m_stageInTypesForEntryPoint.end())
+        return &it->value;
+
+    auto transformed = m_originalFunctionNames.find(entryPoint);
+    if (transformed == m_originalFunctionNames.end())
+        return nullptr;
+    if (auto it = m_stageInTypesForEntryPoint.find(transformed->value); it != m_stageInTypesForEntryPoint.end())
+        return &it->value;
+
+    return nullptr;
 }
 
 ShaderModule::ShaderModule(Device& device, CheckResult&& checkResult)
@@ -723,9 +988,16 @@ const PipelineLayout* ShaderModule::pipelineLayoutHint(const String& name) const
 const WGSL::Reflection::EntryPointInformation* ShaderModule::entryPointInformation(const String& name) const
 {
     auto iterator = m_entryPointInformation.find(name);
-    if (iterator == m_entryPointInformation.end())
+    if (iterator != m_entryPointInformation.end())
+        return &iterator->value;
+
+    auto transformed = m_originalFunctionNames.find(name);
+    if (transformed == m_originalFunctionNames.end())
         return nullptr;
-    return &iterator->value;
+    if (auto it = m_entryPointInformation.find(transformed->value); it != m_entryPointInformation.end())
+        return &it->value;
+
+    return nullptr;
 }
 
 const String& ShaderModule::defaultVertexEntryPoint() const
@@ -741,6 +1013,18 @@ const String& ShaderModule::defaultFragmentEntryPoint() const
 const String& ShaderModule::defaultComputeEntryPoint() const
 {
     return m_defaultComputeEntryPoint;
+}
+
+const String& ShaderModule::transformedEntryPoint(const String& entryPoint) const
+{
+    if (!entryPoint.length())
+        return entryPoint;
+
+    auto transformed = m_originalFunctionNames.find(entryPoint);
+    if (transformed != m_originalFunctionNames.end())
+        return transformed->value;
+
+    return entryPoint;
 }
 
 } // namespace WebGPU

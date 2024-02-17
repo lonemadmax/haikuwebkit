@@ -1,0 +1,5 @@
+
+FAIL No name list given - policy creation throws assert_throws_js: function "_ => {
+      window.trustedTypes.createPolicy('SomeName', { createHTML: s => s } );
+    }" did not throw
+

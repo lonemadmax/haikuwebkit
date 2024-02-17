@@ -682,8 +682,9 @@ public:
     virtual bool requiresBlendingForAccumulativeIteration(const RenderStyle&, const RenderStyle&) const { return false; }
     virtual bool equals(const RenderStyle&, const RenderStyle&) const = 0;
     virtual bool canInterpolate(const RenderStyle&, const RenderStyle&, CompositeOperation) const { return true; }
+    virtual bool normalizesProgressForDiscreteInterpolation() const { return true; }
     virtual void blend(RenderStyle&, const RenderStyle&, const RenderStyle&, const CSSPropertyBlendingContext&) const = 0;
-    
+
 #if !LOG_DISABLED
     virtual void logBlend(const RenderStyle&, const RenderStyle&, const RenderStyle&, double) const = 0;
 #endif
@@ -1468,51 +1469,14 @@ private:
     {
         return property() == CSSPropertyFilter
             || property() == CSSPropertyBackdropFilter
-            || property() == CSSPropertyWebkitBackdropFilter
-            ;
+            || property() == CSSPropertyWebkitBackdropFilter;
     }
 
     bool requiresBlendingForAccumulativeIteration(const RenderStyle&, const RenderStyle&) const final { return true; }
 
     bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation compositeOperation) const final
     {
-        auto& fromFilterOperations = value(from);
-        auto& toFilterOperations = value(to);
-
-        // https://drafts.fxtf.org/filter-effects/#interpolation-of-filters
-
-        if (fromFilterOperations.hasReferenceFilter() || toFilterOperations.hasReferenceFilter())
-            return false;
-
-        // If one filter is none and the other is a <filter-value-list> without <url>
-        auto oneListIsEmpty = [&]() {
-            return fromFilterOperations.isEmpty() != toFilterOperations.isEmpty();
-        };
-
-        // If both filters have a <filter-value-list> of same length without <url> and for each <filter-function>
-        // for which there is a corresponding item in each list
-        // If both filters have a <filter-value-list> of different length without <url> and for each
-        // <filter-function> for which there is a corresponding item in each list
-        auto listsMatch = [&]() {
-            auto numItems = [&]() {
-                if (fromFilterOperations.size() == toFilterOperations.size())
-                    return fromFilterOperations.size();
-                return std::min(fromFilterOperations.size(), toFilterOperations.size());
-            }();
-
-            for (size_t i = 0; i < numItems; ++i) {
-                auto* fromOperation = fromFilterOperations.at(i);
-                auto* toOperation = toFilterOperations.at(i);
-                if (!!fromOperation != !!toOperation)
-                    return false;
-                if (fromOperation && toOperation && fromOperation->type() != toOperation->type())
-                    return false;
-            }
-
-            return true;
-        };
-
-        return compositeOperation != CompositeOperation::Replace || oneListIsEmpty() || listsMatch();
+        return value(from).canInterpolate(value(to), compositeOperation);
     }
 
     void blend(RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, const CSSPropertyBlendingContext& context) const final
@@ -3597,6 +3561,20 @@ private:
 };
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSPropertyAnimationWrapperMap);
 
+template <typename T>
+class NonNormalizedDiscretePropertyWrapper final : public PropertyWrapper<T> {
+    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(NonNormalizedDiscretePropertyWrapper);
+public:
+    NonNormalizedDiscretePropertyWrapper(CSSPropertyID property, T (RenderStyle::*getter)() const, void (RenderStyle::*setter)(T))
+        : PropertyWrapper<T>(property, getter, setter)
+    {
+    }
+
+private:
+    bool canInterpolate(const RenderStyle&, const RenderStyle&, CompositeOperation) const final { return false; }
+    bool normalizesProgressForDiscreteInterpolation() const final { return false; }
+};
+
 CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
 {
     // build the list of property wrappers to do the comparisons and blends
@@ -3699,7 +3677,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new LengthVariantPropertyWrapper<LengthSize>(CSSPropertyBorderTopRightRadius, &RenderStyle::borderTopRightRadius, &RenderStyle::setBorderTopRightRadius),
         new LengthVariantPropertyWrapper<LengthSize>(CSSPropertyBorderBottomLeftRadius, &RenderStyle::borderBottomLeftRadius, &RenderStyle::setBorderBottomLeftRadius),
         new LengthVariantPropertyWrapper<LengthSize>(CSSPropertyBorderBottomRightRadius, &RenderStyle::borderBottomRightRadius, &RenderStyle::setBorderBottomRightRadius),
-        new PropertyWrapper<Visibility>(CSSPropertyVisibility, &RenderStyle::visibility, &RenderStyle::setVisibility),
+        new NonNormalizedDiscretePropertyWrapper<Visibility>(CSSPropertyVisibility, &RenderStyle::visibility, &RenderStyle::setVisibility),
 
         new ClipWrapper,
 
@@ -3814,7 +3792,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscretePropertyWrapper<PrintColorAdjust>(CSSPropertyPrintColorAdjust, &RenderStyle::printColorAdjust, &RenderStyle::setPrintColorAdjust),
         new DiscretePropertyWrapper<ColumnFill>(CSSPropertyColumnFill, &RenderStyle::columnFill, &RenderStyle::setColumnFill),
         new DiscretePropertyWrapper<BorderStyle>(CSSPropertyColumnRuleStyle, &RenderStyle::columnRuleStyle, &RenderStyle::setColumnRuleStyle),
-        new PropertyWrapper<ContentVisibility>(CSSPropertyContentVisibility, &RenderStyle::contentVisibility, &RenderStyle::setContentVisibility),
+        new NonNormalizedDiscretePropertyWrapper<ContentVisibility>(CSSPropertyContentVisibility, &RenderStyle::contentVisibility, &RenderStyle::setContentVisibility),
         new DiscretePropertyWrapper<CursorType>(CSSPropertyCursor, &RenderStyle::cursor, &RenderStyle::setCursor),
         new DiscretePropertyWrapper<EmptyCell>(CSSPropertyEmptyCells, &RenderStyle::emptyCells, &RenderStyle::setEmptyCells),
         new DiscretePropertyWrapper<FlexDirection>(CSSPropertyFlexDirection, &RenderStyle::flexDirection, &RenderStyle::setFlexDirection),
@@ -3875,11 +3853,9 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscretePropertyWrapper<TextAutospace>(CSSPropertyTextAutospace, &RenderStyle::textAutospace, &RenderStyle::setTextAutospace),
 
         new DiscretePropertyWrapper<BoxDecorationBreak>(CSSPropertyWebkitBoxDecorationBreak, &RenderStyle::boxDecorationBreak, &RenderStyle::setBoxDecorationBreak),
-#if ENABLE(CSS_COMPOSITING)
         new DiscretePropertyWrapper<Isolation>(CSSPropertyIsolation, &RenderStyle::isolation, &RenderStyle::setIsolation),
         new DiscretePropertyWrapper<BlendMode>(CSSPropertyMixBlendMode, &RenderStyle::blendMode, &RenderStyle::setBlendMode),
         new DiscretePropertyWrapper<BlendMode>(CSSPropertyBackgroundBlendMode, &RenderStyle::backgroundBlendMode, &RenderStyle::setBackgroundBlendMode),
-#endif
 #if ENABLE(DARK_MODE_CSS)
         new DiscretePropertyWrapper<StyleColorScheme>(CSSPropertyColorScheme, &RenderStyle::colorScheme, &RenderStyle::setColorScheme),
 #endif
@@ -4239,7 +4215,7 @@ static void blendStandardProperty(const CSSPropertyBlendingClient& client, CSSPr
         // The property's values cannot be meaningfully combined, thus it is not additive and
         // interpolation swaps from Va to Vb at 50% (p=0.5).
         auto isDiscrete = !wrapper->canInterpolate(from, to, compositeOperation);
-        if (isDiscrete) {
+        if (isDiscrete && wrapper->normalizesProgressForDiscreteInterpolation()) {
             // If we want additive, we should specify progress at 0 actually and return from.
             progress = progress < 0.5 ? 0 : 1;
             compositeOperation = CompositeOperation::Replace;

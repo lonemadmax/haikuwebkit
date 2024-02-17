@@ -87,7 +87,6 @@ bool WebFrameProxy::canCreateFrame(FrameIdentifier frameID)
 WebFrameProxy::WebFrameProxy(WebPageProxy& page, WebProcessProxy& process, FrameIdentifier frameID)
     : m_page(page)
     , m_process(process)
-    , m_webPageID(page.webPageID())
     , m_frameID(frameID)
 {
     ASSERT(!allFrames().contains(frameID));
@@ -403,7 +402,6 @@ void WebFrameProxy::prepareForProvisionalNavigationInProcess(WebProcessProxy& pr
 
     if (process.coreProcessIdentifier() == m_process->coreProcessIdentifier()) {
         m_provisionalFrame = nullptr;
-        m_remotePageProxy = nullptr;
         return completionHandler();
     }
 
@@ -441,7 +439,11 @@ void WebFrameProxy::commitProvisionalFrame(FrameIdentifier frameID, FrameInfoDat
     if (m_provisionalFrame) {
         m_process->send(Messages::WebPage::DidCommitLoadInAnotherProcess(frameID, m_provisionalFrame->layerHostingContextIdentifier()), m_page->webPageID());
         m_process = m_provisionalFrame->process();
+        if (m_remotePageProxy)
+            m_remotePageProxy->removeFrame(*this);
         m_remotePageProxy = m_provisionalFrame->takeRemotePageProxy();
+        if (m_remotePageProxy)
+            m_remotePageProxy->addFrame(*this);
         m_provisionalFrame = nullptr;
     }
     m_page->didCommitLoadForFrame(frameID, WTFMove(frameInfo), WTFMove(request), navigationID, mimeType, frameHasCustomContentProvider, frameLoadType, certificateInfo, usedLegacyTLS, privateRelayed, containsPluginDocument, hasInsecureContent, mouseEventPolicy, userData);
@@ -523,6 +525,137 @@ bool WebFrameProxy::isFocused() const
         return false;
 
     return webPage->focusedFrame() == this;
+}
+
+void WebFrameProxy::remoteProcessDidTerminate()
+{
+    if (m_frameLoadState.state() == FrameLoadState::State::Finished)
+        return;
+    notifyParentOfLoadCompletion(m_process);
+}
+
+void WebFrameProxy::notifyParentOfLoadCompletion(WebProcessProxy& childFrameProcess)
+{
+    RefPtr parentFrame = this->parentFrame();
+    if (!parentFrame)
+        return;
+    auto webPageID = parentFrame->webPageIDInCurrentProcess();
+    if (!webPageID)
+        return;
+    Ref parentFrameProcess = parentFrame->process();
+    if (parentFrameProcess->coreProcessIdentifier() == childFrameProcess.coreProcessIdentifier())
+        return;
+    parentFrameProcess->send(Messages::WebPage::DidFinishLoadInAnotherProcess(frameID()), *webPageID);
+}
+
+std::optional<WebCore::PageIdentifier> WebFrameProxy::webPageIDInCurrentProcess()
+{
+    if (m_remotePageProxy)
+        return m_remotePageProxy->pageID();
+    if (m_page)
+        return m_page->webPageID();
+    return std::nullopt;
+}
+
+auto WebFrameProxy::traverseNext() const -> TraversalResult
+{
+    if (RefPtr child = firstChild())
+        return { child, DidWrap::No };
+
+    RefPtr sibling = nextSibling();
+    if (sibling)
+        return { sibling.get(), DidWrap::No };
+
+    RefPtr frame = this;
+    while (!sibling) {
+        frame = frame->parentFrame();
+        if (!frame)
+            return { };
+        sibling = frame->nextSibling();
+    }
+
+    if (frame)
+        return { sibling.get(), DidWrap::No };
+
+    return { };
+}
+
+auto WebFrameProxy::traverseNext(CanWrap canWrap) const -> TraversalResult
+{
+    if (RefPtr result = traverseNext().frame)
+        return { result, DidWrap::No };
+
+    if (canWrap == CanWrap::Yes) {
+        if (m_page)
+            return { m_page->mainFrame(), DidWrap::Yes };
+    }
+    return { };
+}
+
+auto WebFrameProxy::traversePrevious(CanWrap canWrap) -> TraversalResult
+{
+    if (RefPtr previousSibling = this->previousSibling())
+        return { previousSibling->deepLastChild(), DidWrap::No };
+    if (RefPtr parent = parentFrame())
+        return { parent, DidWrap::No };
+
+    if (canWrap == CanWrap::Yes)
+        return { deepLastChild(), DidWrap::Yes };
+    return { };
+}
+
+RefPtr<WebFrameProxy> WebFrameProxy::deepLastChild()
+{
+    RefPtr result = this;
+    for (RefPtr last = lastChild(); last; last = last->lastChild())
+        result = last;
+    return result.get();
+}
+
+RefPtr<WebFrameProxy> WebFrameProxy::firstChild() const
+{
+    if (m_childFrames.isEmpty())
+        return nullptr;
+    return m_childFrames.first().ptr();
+}
+
+RefPtr<WebFrameProxy> WebFrameProxy::lastChild() const
+{
+    if (m_childFrames.isEmpty())
+        return nullptr;
+    return m_childFrames.last().ptr();
+}
+
+RefPtr<WebFrameProxy> WebFrameProxy::nextSibling() const
+{
+    if (!m_parentFrame)
+        return nullptr;
+
+    if (m_parentFrame->m_childFrames.last().ptr() == this)
+        return nullptr;
+
+    auto it = m_parentFrame->m_childFrames.find(this);
+    if (it == m_childFrames.end()) {
+        ASSERT_NOT_REACHED();
+        return nullptr;
+    }
+    return (++it)->ptr();
+}
+
+RefPtr<WebFrameProxy> WebFrameProxy::previousSibling() const
+{
+    if (!m_parentFrame)
+        return nullptr;
+
+    if (m_parentFrame->m_childFrames.first().ptr() == this)
+        return nullptr;
+
+    auto it = m_parentFrame->m_childFrames.find(this);
+    if (it == m_childFrames.end()) {
+        ASSERT_NOT_REACHED();
+        return nullptr;
+    }
+    return (--it)->ptr();
 }
 
 } // namespace WebKit

@@ -30,6 +30,7 @@
 #import <WebCore/AlternativeTextUIController.h>
 #import <WebKit/WKWebViewConfigurationPrivate.h>
 #import <WebKit/WKWebViewPrivateForTesting.h>
+#import <pal/spi/ios/BrowserEngineKitSPI.h>
 #import <wtf/Vector.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/WTFString.h>
@@ -172,12 +173,12 @@ void PageClientImplCocoa::gpuProcessDidExit()
 }
 #endif
 
-WebCore::DictationContext PageClientImplCocoa::addDictationAlternatives(NSTextAlternatives *alternatives)
+WebCore::DictationContext PageClientImplCocoa::addDictationAlternatives(PlatformTextAlternatives *alternatives)
 {
     return m_alternativeTextUIController->addAlternatives(alternatives);
 }
 
-void PageClientImplCocoa::replaceDictationAlternatives(NSTextAlternatives *alternatives, WebCore::DictationContext context)
+void PageClientImplCocoa::replaceDictationAlternatives(PlatformTextAlternatives *alternatives, WebCore::DictationContext context)
 {
     m_alternativeTextUIController->replaceAlternatives(alternatives, context);
 }
@@ -192,7 +193,7 @@ Vector<String> PageClientImplCocoa::dictationAlternatives(WebCore::DictationCont
     return makeVector<String>(platformDictationAlternatives(dictationContext).alternativeStrings);
 }
 
-NSTextAlternatives *PageClientImplCocoa::platformDictationAlternatives(WebCore::DictationContext dictationContext)
+PlatformTextAlternatives *PageClientImplCocoa::platformDictationAlternatives(WebCore::DictationContext dictationContext)
 {
     return m_alternativeTextUIController->alternativesForContext(dictationContext);
 }

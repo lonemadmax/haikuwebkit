@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -38,22 +38,22 @@ namespace WebKit {
 
 using namespace WebCore;
 
-static HashMap<WebExtensionContextIdentifier, WeakPtr<WebExtensionContext>>& webExtensionContexts()
+static HashMap<WebExtensionContextIdentifier, WeakRef<WebExtensionContext>>& webExtensionContexts()
 {
-    static NeverDestroyed<HashMap<WebExtensionContextIdentifier, WeakPtr<WebExtensionContext>>> contexts;
+    static NeverDestroyed<HashMap<WebExtensionContextIdentifier, WeakRef<WebExtensionContext>>> contexts;
     return contexts;
 }
 
 WebExtensionContext* WebExtensionContext::get(WebExtensionContextIdentifier identifier)
 {
-    return webExtensionContexts().get(identifier).get();
+    return webExtensionContexts().get(identifier);
 }
 
 WebExtensionContext::WebExtensionContext()
     : m_identifier(WebExtensionContextIdentifier::generate())
 {
-    ASSERT(!webExtensionContexts().contains(m_identifier));
-    webExtensionContexts().add(m_identifier, this);
+    ASSERT(!get(m_identifier));
+    webExtensionContexts().add(m_identifier, *this);
 }
 
 WebExtensionContextParameters WebExtensionContext::parameters() const
@@ -66,10 +66,20 @@ WebExtensionContextParameters WebExtensionContext::parameters() const
         extension().serializeManifest(),
         extension().manifestVersion(),
         inTestingMode(),
+        isSessionStorageAllowedInContentScripts(),
         backgroundPageIdentifier(),
         popupPageIdentifiers(),
         tabPageIdentifiers()
     };
+}
+
+const WebExtensionContext::UserContentControllerProxySet& WebExtensionContext::userContentControllers() const
+{
+    ASSERT(isLoaded());
+
+    if (hasAccessInPrivateBrowsing())
+        return extensionController()->allUserContentControllers();
+    return extensionController()->allNonPrivateUserContentControllers();
 }
 
 bool WebExtensionContext::pageListensForEvent(const WebPageProxy& page, WebExtensionEventListenerType type, WebExtensionContentWorldType contentWorldType) const
@@ -89,18 +99,26 @@ bool WebExtensionContext::pageListensForEvent(const WebPageProxy& page, WebExten
 
 WebExtensionContext::WebProcessProxySet WebExtensionContext::processes(WebExtensionEventListenerType type, WebExtensionContentWorldType contentWorldType) const
 {
-    auto pagesEntry = m_eventListenerPages.find({ type, contentWorldType });
-    if (pagesEntry == m_eventListenerPages.end())
-        return { };
+    return processes(EventListenerTypeSet { type }, contentWorldType);
+}
 
+WebExtensionContext::WebProcessProxySet WebExtensionContext::processes(EventListenerTypeSet typeSet, WebExtensionContentWorldType contentWorldType) const
+{
     WebProcessProxySet result;
-    for (auto entry : pagesEntry->value) {
-        if (!hasAccessInPrivateBrowsing() && entry.key.sessionID().isEphemeral())
+
+    for (auto type : typeSet) {
+        auto pagesEntry = m_eventListenerPages.find({ type, contentWorldType });
+        if (pagesEntry == m_eventListenerPages.end())
             continue;
 
-        Ref process = entry.key.process();
-        if (process->canSendMessage())
-            result.add(WTFMove(process));
+        for (auto entry : pagesEntry->value) {
+            if (!hasAccessInPrivateBrowsing() && entry.key.sessionID().isEphemeral())
+                continue;
+
+            Ref process = entry.key.process();
+            if (process->canSendMessage())
+                result.add(WTFMove(process));
+        }
     }
 
     return result;

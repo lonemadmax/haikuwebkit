@@ -26,16 +26,16 @@
 #include "config.h"
 #include "GlobalSorting.h"
 
-#include "ASTFunction.h"
 #include "ASTIdentifierExpression.h"
+#include "ASTScopedVisitorInlines.h"
 #include "ASTVariableStatement.h"
-#include "ASTVisitor.h"
 #include "ContextProviderInlines.h"
 #include "WGSLShaderModule.h"
 #include <wtf/DataLog.h>
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/ListHashSet.h>
+#include <wtf/SetForScope.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WGSL {
@@ -167,16 +167,18 @@ private:
 
 struct Empty { };
 
-class GraphBuilder : public AST::Visitor, public ContextProvider<Empty> {
+class GraphBuilder : public AST::ScopedVisitor<Empty> {
+    static constexpr unsigned s_maxExpressionDepth = 512;
+
+    using Base = AST::ScopedVisitor<Empty>;
+    using Base::visit;
+
 public:
-    static void visit(Graph&, Graph::Node&);
+    static Result<void> visit(Graph&, Graph::Node&);
 
-    using AST::Visitor::visit;
-
-    void visit(AST::Function&) override;
+    void visit(AST::Parameter&) override;
     void visit(AST::VariableStatement&) override;
-    void visit(AST::CompoundStatement&) override;
-    void visit(AST::ForStatement&) override;
+    void visit(AST::Expression&) override;
     void visit(AST::IdentifierExpression&) override;
 
 private:
@@ -187,11 +189,14 @@ private:
 
     Graph& m_graph;
     Graph::Node& m_currentNode;
+    unsigned m_expressionDepth { 0 };
 };
 
-void GraphBuilder::visit(Graph& graph, Graph::Node& node)
+Result<void> GraphBuilder::visit(Graph& graph, Graph::Node& node)
 {
-    GraphBuilder(graph, node).visit(node.astNode());
+    GraphBuilder graphBuilder(graph, node);
+    graphBuilder.visit(node.astNode());
+    return graphBuilder.result();
 }
 
 GraphBuilder::GraphBuilder(Graph& graph, Graph::Node& node)
@@ -200,37 +205,27 @@ GraphBuilder::GraphBuilder(Graph& graph, Graph::Node& node)
 {
 }
 
-void GraphBuilder::visit(AST::Function& function)
+void GraphBuilder::visit(AST::Parameter& parameter)
 {
-    ContextScope functionScope(this);
-
-    for (auto& parameter : function.parameters()) {
-        AST::Visitor::visit(parameter.typeName());
-        introduceVariable(parameter.name());
-    }
-
-    AST::Visitor::visit(function.body());
-
-    if (function.maybeReturnType())
-        AST::Visitor::visit(*function.maybeReturnType());
+    introduceVariable(parameter.name());
+    Base::visit(parameter.typeName());
 }
 
 void GraphBuilder::visit(AST::VariableStatement& variable)
 {
     introduceVariable(variable.variable().name());
-    AST::Visitor::visit(variable);
+    Base::visit(variable);
 }
 
-void GraphBuilder::visit(AST::CompoundStatement& statement)
+void GraphBuilder::visit(AST::Expression& expression)
 {
-    ContextScope blockScope(this);
-    AST::Visitor::visit(statement);
-}
+    SetForScope expressionDepthScope(m_expressionDepth, m_expressionDepth + 1);
+    if (UNLIKELY(m_expressionDepth > s_maxExpressionDepth)) {
+        setError({ makeString("reached maximum expression depth of "_s, String::number(s_maxExpressionDepth)), expression.span() });
+        return;
+    }
 
-void GraphBuilder::visit(AST::ForStatement& statement)
-{
-    ContextScope forScope(this);
-    AST::Visitor::visit(statement);
+    Base::visit(expression);
 }
 
 void GraphBuilder::visit(AST::IdentifierExpression& identifier)
@@ -271,8 +266,11 @@ static std::optional<FailedCheck> reorder(AST::Declaration::List& list)
         graphNodeList.append(graphNode);
     }
 
-    for (auto* graphNode : graphNodeList)
-        GraphBuilder::visit(graph, *graphNode);
+    for (auto* graphNode : graphNodeList) {
+        auto result = GraphBuilder::visit(graph, *graphNode);
+        if (!result)
+            return FailedCheck { Vector<Error> { result.error() }, { } };
+    }
 
     list.clear();
     Deque<Graph::Node> queue;

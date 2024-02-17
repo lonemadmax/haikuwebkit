@@ -344,7 +344,6 @@ http/tests/security/popup-blocked-from-window-open.html
 http/tests/xmlhttprequest/cross-origin-no-authorization.html
 
 # HTTP tests that time out:
-http/tests/appcache/auth.html
 http/tests/cache/history-only-cached-subresource-loads-max-age-https.html
 http/tests/cache/subresource-expiration-1.html
 http/tests/cache/subresource-expiration-2.html
@@ -826,7 +825,6 @@ fast/loader/frame-location-change-not-added-to-history.html
 fast/loader/frame-src-change-added-to-history.html
 fast/loader/frame-src-change-not-added-to-history.html
 fast/loader/stateobjects/pushstate-clears-forward-history.html
-http/tests/appcache/404-manifest.html
 http/tests/cookies/double-quoted-value-with-semi-colon.html
 storage/domstorage/sessionstorage/window-open.html
 transitions/cubic-bezier-overflow-transform.html
@@ -966,7 +964,6 @@ imported/blink/fast/forms/label/label-contains-other-interactive-content.html [ 
 fast/dom/Window/post-message-user-action.html [ Skip ]
 fast/images/image-usemap-parsing.html [ Skip ]
 fast/shadow-dom/fullscreen-in-shadow-event-should-propagate.html [ Skip ]
-fast/shadow-dom/fullscreen-in-shadow-full-screen-ancestor.html [ Skip ]
 fast/shadow-dom/fullscreen-in-shadow-fullscreenElement.html [ Skip ]
 fast/shadow-dom/fullscreen-in-shadow-webkitCurrentFullScreenElement.html [ Skip ]
 fast/shadow-dom/fullscreen-in-slot-fullscreenElement.html [ Skip ]
@@ -983,17 +980,7 @@ http/tests/navigation/ping-attribute [ Skip ]
 webkit.org/b/153380 webarchive/loading/object.html [ Pass Crash ]
 webkit.org/b/153380 webarchive/loading/missing-data.html [ Pass Crash ]
 
-webkit.org/b/153503 http/tests/appcache/404-resource-with-slow-main-resource.py [ Pass Failure ]
-
 # Uses WK1 TestRunner.setUseDeferredFramLoading
-http/tests/appcache/load-from-appcache-defer-resume-crash.html [ Skip ]
-
-webkit.org/b/227891 http/tests/appcache/fail-on-update.html [ Pass Timeout DumpJSConsoleLogInStdErr ]
-
-webkit.org/b/225665 http/tests/appcache/fail-on-update-2.html [ DumpJSConsoleLogInStdErr Timeout Pass ]
-
-webkit.org/b/228588 http/tests/appcache/main-resource-redirect-with-sw.html [ Pass Timeout ]
-
 webkit.org/b/153050 http/tests/security/cross-frame-access-custom.html [ Pass Failure ]
 
 webkit.org/b/155201 storage/domstorage/events/basic-body-attribute.html [ Pass Failure ]
@@ -1677,8 +1664,6 @@ webkit.org/b/209544 svg/custom/object-sizing-explicit-width.xhtml [ Pass Failure
 
 webkit.org/b/209869 crypto/subtle/rsa-indexeddb-non-exportable-private.html [ Pass Timeout ]
 
-webkit.org/b/206750 http/tests/security/appcache-in-private-browsing.html [ Pass Timeout ]
-
 webkit.org/b/210201 [ Debug ] editing/editability/empty-document-delete.html [ Pass Crash ]
 
 webkit.org/b/210219 [ Debug ] http/tests/IndexedDB/collect-IDB-objects.https.html [ Pass Crash ]
@@ -1725,6 +1710,8 @@ webkit.org/b/251848 imported/w3c/web-platform-tests/css/css-images/image-set/ima
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-fonts/font-language-override-02.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-multicol/equal-gap-and-rule.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-multicol/fixed-size-child-with-overflow.html [ ImageOnlyFailure ]
+webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-pseudo/active-selection-041.html [ ImageOnlyFailure ]
+webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-pseudo/highlight-styling-003.tentative.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-pseudo/textpath-selection-011.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/shape-image-000.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/shape-image-004.html [ ImageOnlyFailure ]
@@ -2135,6 +2122,10 @@ http/tests/resourceLoadStatistics/capped-lifetime-for-cookie-set-in-js.html  [ S
 http/tests/resourceLoadStatistics/website-data-removal-for-site-navigated-to-with-link-decoration.html [ Skip ]
 http/tests/resourceLoadStatistics/website-data-removal-for-site-without-user-interaction.html [ Skip ]
 
+# Trusted Types aren't implemented yet
+webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting.html [ Skip ]
+webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-report-only.html [ Skip ]
+webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-no-unsafe-eval.html [ Skip ]
 
 # rdar://97297483 ([ iOS16 ] fast/events/ios/rotation/zz-no-rotation.html is a constant timeout =)
 fast/events/ios/rotation/zz-no-rotation.html [ Timeout ]
@@ -2321,8 +2312,6 @@ webkit.org/b/264063 platform/ios/mediastream/video-muted-in-background-tab.html 
 
 webkit.org/b/259524 media/audioSession/audioSessionState.html [ Pass Failure ]
 
-webkit.org/b/260225 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-GC.https.html [ Pass Failure ]
-
 webkit.org/b/260224 compositing/geometry/clipped-out-perspective.html [ ImageOnlyFailure ]
 webkit.org/b/260224 compositing/overlap-blending/opacity-and-infinity.html [ ImageOnlyFailure ]
 webkit.org/b/260224 imported/w3c/web-platform-tests/css/css-transforms/perspective-split-by-zero-w.html [ ImageOnlyFailure ]
@@ -2354,3 +2343,48 @@ imported/w3c/web-platform-tests/css/css-view-transitions/input-targets-root-whil
 http/wpt/opener/child-access-parent-via-windowproxy.html [ Pass ]
 http/wpt/opener/iframe-access-top-via-windowproxy.html [ Pass ]
 http/wpt/opener/parent-access-child-via-windowproxy.html [ Pass ]
+
+# webkit.org/b/267890 REGRESSION (273260@main): [ iOS17 ]ASSERTION FAILED: isStackingContext() result of 5 tests in fast/forms/switch to consistent timeout/crash
+[ Debug ] fast/forms/switch/click-animation-disabled.html [ Crash ]
+[ Debug ] fast/forms/switch/pointer-tracking-disabled.html [ Crash ]
+fast/forms/switch/pointer-tracking-there-and-back-again-rtl.html [ Timeout ]
+fast/forms/switch/pointer-tracking-there-and-back-again.html [ Timeout ]
+fast/forms/switch/pointer-tracking.html [ Timeout ]
+
+webkit.org/b/267796 [ Release ] imported/w3c/web-platform-tests/requestidlecallback/deadline-max-rAF-dynamic.html [ Pass Failure ]
+
+webkit.org/b/267934 [ Debug ] fast/dom/Orientation/no-orientation-change-event-when-unparenting-view.html [ Crash ]
+
+webkit.org/b/264296 fast/forms/ios/show-and-dismiss-date-input-in-landscape.html [ Pass Timeout Crash ]
+
+webkit.org/b/267974 fast/forms/ios/dismiss-date-picker-on-rotation.html [ Pass Timeout Crash ]
+
+webkit.org/b/268044 [ Debug ] ipc/shared-video-frame-size.html [ Crash ]
+
+webkit.org/b/263044 [ Debug ] imported/w3c/web-platform-tests/webrtc-stats/supported-stats.https.html [ Pass Failure ]
+
+webkit.org/b/268422 fast/events/ios/keyboard-should-not-trigger-resize.html [ Pass Failure ]
+
+webkit.org/b/268555 [ Debug ] http/wpt/webcodecs/h264-encoder-default-config.https.any.html [ Skip ]
+
+webkit.org/b/268557 [ Debug ] imported/w3c/web-platform-tests/html/dom/elements/global-attributes/the-anchor-attribute-003-crash.tentative.html [ Skip ]
+
+# webkit.org/b/268581 (18 webgl/1.0.3/conformance/textures/* tests are consistently/flakily timing out.)
+webgl/1.0.3/conformance/textures/copy-tex-image-and-sub-image-2d.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/gl-teximage.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-image-data-rgb565.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-image-data-rgba4444.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-image-data-rgba5551.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-image-data.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-image-rgb565.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-image-rgba4444.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-image-rgba5551.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-image.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-svg-image.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-video-rgb565.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-video-rgba4444.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-video-rgba5551.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-video.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/tex-image-with-format-and-type.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/texture-size-cube-maps.html [ Pass Timeout ]
+webgl/1.0.3/conformance/textures/texture-transparent-pixels-initialized.html [ Pass Timeout ]

@@ -84,6 +84,7 @@ extern "C" {
     M(NetworkScheduling) \
     M(NetworkSession) \
     M(Notifications) \
+    M(PDF) \
     M(PerformanceLogging) \
     M(Plugins) \
     M(Printing) \
@@ -114,6 +115,7 @@ extern "C" {
     M(TextInput) \
     M(TextInteraction) \
     M(Translation) \
+    M(UnifiedTextReplacement) \
     M(UIHitTesting) \
     M(ViewGestures) \
     M(ViewState) \

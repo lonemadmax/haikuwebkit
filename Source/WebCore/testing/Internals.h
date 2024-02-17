@@ -195,10 +195,13 @@ public:
 
     ExceptionOr<String> elementRenderTreeAsText(Element&);
     bool hasPausedImageAnimations(Element&);
+    void markFrontBufferVolatile(Element&);
 
     bool isFullyActive(Document&);
     bool isPaintingFrequently(Element&);
     void incrementFrequentPaintCounter(Element&);
+    void purgeFrontBuffer(Element&);
+    void purgeBackBuffer(Element&);
 
     String address(Node&);
     bool nodeNeedsStyleRecalc(Node&);
@@ -260,8 +263,8 @@ public:
     Node* ensureUserAgentShadowRoot(Element& host);
     Node* shadowRoot(Element& host);
     ExceptionOr<String> shadowRootType(const Node&) const;
-    const AtomString& userAgentPartId(Element&);
-    void setUserAgentPartId(Element&, const AtomString&);
+    const AtomString& userAgentPart(Element&);
+    void setUserAgentPart(Element&, const AtomString&);
 
     // DOMTimers throttling testing.
     ExceptionOr<bool> isTimerThrottled(int timeoutId);
@@ -424,6 +427,9 @@ public:
     bool hasAutocorrectedMarker(int from, int length);
     bool hasDictationAlternativesMarker(int from, int length);
     bool hasCorrectionIndicatorMarker(int from, int length);
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+    bool hasUnifiedTextReplacementMarker(int from, int length);
+#endif
     void setContinuousSpellCheckingEnabled(bool);
     void setAutomaticQuoteSubstitutionEnabled(bool);
     void setAutomaticLinkDetectionEnabled(bool);
@@ -607,7 +613,6 @@ public:
     };
     void setFullscreenInsets(FullscreenInsets);
     void setFullscreenAutoHideDuration(double);
-    void setFullscreenControlsHidden(bool);
 
 #if ENABLE(VIDEO)
     bool isChangingPresentationMode(HTMLVideoElement&) const;
@@ -799,6 +804,7 @@ public:
     bool elementIsBlockingDisplaySleep(const HTMLMediaElement&) const;
     bool isPlayerVisibleInViewport(const HTMLMediaElement&) const;
     bool isPlayerMuted(const HTMLMediaElement&) const;
+    bool isPlayerPaused(const HTMLMediaElement&) const;
     void beginAudioSessionInterruption();
     void endAudioSessionInterruption();
     void clearAudioSessionInterruptionFlag();
@@ -1016,6 +1022,7 @@ public:
     void hasServiceWorkerRegistration(const String& clientURL, HasRegistrationPromise&&);
     void terminateServiceWorker(ServiceWorker&, DOMPromiseDeferred<void>&&);
     void whenServiceWorkerIsTerminated(ServiceWorker&, DOMPromiseDeferred<void>&&);
+    NO_RETURN_DUE_TO_CRASH void terminateWebContentProcess();
 
 #if ENABLE(APPLE_PAY)
     MockPaymentCoordinator& mockPaymentCoordinator(Document&);
@@ -1421,6 +1428,8 @@ public:
     bool readyToRetrieveComputedRoleOrLabel(Element&) const;
     String getComputedLabel(Element&) const;
     String getComputedRole(Element&) const;
+
+    bool hasScopeBreakingHasSelectors() const;
 
 private:
     explicit Internals(Document&);

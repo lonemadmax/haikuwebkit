@@ -91,6 +91,7 @@ static RuleFlatteningStrategy flatteningStrategyForStyleRuleType(StyleRuleType s
     case StyleRuleType::Supports:
     case StyleRuleType::LayerBlock:
     case StyleRuleType::Container:
+    case StyleRuleType::StartingStyle:
         // These rules MUST be handled by the static `isValidRuleHeaderText`, `protocolGroupingTypeForStyleRuleType`,
         // and `asCSSRuleList` in order to provide functionality in Web Inspector. Additionally, they MUST have a CSSOM
         // representation created in `StyleRuleBase::createCSSOMWrapper`, otherwise we will end up with a mismatched
@@ -1697,7 +1698,7 @@ bool InspectorStyleSheet::ensureSourceData()
         context.mode = UASheetMode;
     
     StyleSheetHandler handler(m_parsedStyleSheet->text(), m_pageStyleSheet->ownerDocument(), ruleSourceDataResult.get());
-    CSSParser::parseSheetForInspector(context, newStyleSheet.ptr(), m_parsedStyleSheet->text(), handler);
+    CSSParser::parseSheetForInspector(context, newStyleSheet, m_parsedStyleSheet->text(), handler);
     m_parsedStyleSheet->setSourceData(WTFMove(ruleSourceDataResult));
     return m_parsedStyleSheet->hasSourceData();
 }

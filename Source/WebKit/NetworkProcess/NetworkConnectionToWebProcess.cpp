@@ -190,6 +190,8 @@ NetworkConnectionToWebProcess::~NetworkConnectionToWebProcess()
     if (auto* networkStorageSession = storageSession())
         networkStorageSession->stopListeningForCookieChangeNotifications(*this, m_hostsWithCookieListeners);
 #endif
+    if (auto* networkStorageSession = storageSession())
+        networkStorageSession->removeCookiesEnabledStateObserver(*this);
 
 #if USE(LIBWEBRTC)
     if (m_rtcProvider)
@@ -528,7 +530,7 @@ Vector<RefPtr<WebCore::BlobDataFileReference>> NetworkConnectionToWebProcess::re
     return files;
 }
 
-std::unique_ptr<ServiceWorkerFetchTask> NetworkConnectionToWebProcess::createFetchTask(NetworkResourceLoader& loader, const ResourceRequest& request)
+RefPtr<ServiceWorkerFetchTask> NetworkConnectionToWebProcess::createFetchTask(NetworkResourceLoader& loader, const ResourceRequest& request)
 {
     auto* swConnection = this->swConnection();
     if (!swConnection)
@@ -786,6 +788,25 @@ void NetworkConnectionToWebProcess::setCookiesFromDOM(const URL& firstParty, con
 #endif
 }
 
+void NetworkConnectionToWebProcess::cookiesEnabledSync(const URL& firstParty, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, CompletionHandler<void(bool)>&& completionHandler)
+{
+    cookiesEnabled(firstParty, url, frameID, pageID, shouldRelaxThirdPartyCookieBlocking, WTFMove(completionHandler));
+}
+
+void NetworkConnectionToWebProcess::cookiesEnabled(const URL& firstParty, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, CompletionHandler<void(bool)>&& completionHandler)
+{
+    NETWORK_PROCESS_MESSAGE_CHECK_COMPLETION(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty), completionHandler(false));
+
+    auto* networkStorageSession = storageSession();
+    if (!networkStorageSession) {
+        completionHandler(false);
+        return;
+    }
+
+    networkStorageSession->addCookiesEnabledStateObserver(*this);
+    completionHandler(networkStorageSession->cookiesEnabled(firstParty, url, frameID, pageID, shouldRelaxThirdPartyCookieBlocking));
+}
+
 void NetworkConnectionToWebProcess::cookieRequestHeaderFieldValue(const URL& firstParty, const SameSiteInfo& sameSiteInfo, const URL& url, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, IncludeSecureCookies includeSecureCookies, ApplyTrackingPrevention applyTrackingPrevention, ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking, CompletionHandler<void(String, bool)>&& completionHandler)
 {
     NETWORK_PROCESS_MESSAGE_CHECK_COMPLETION(m_networkProcess->allowsFirstPartyForCookies(m_webProcessIdentifier, firstParty), completionHandler({ }, false));
@@ -896,20 +917,25 @@ void NetworkConnectionToWebProcess::unsubscribeFromCookieChangeNotifications(con
 
 void NetworkConnectionToWebProcess::cookiesAdded(const String& host, const Vector<WebCore::Cookie>& cookies)
 {
-    connection().send(Messages::NetworkProcessConnection::CookiesAdded(host, cookies), 0);
+    protectedConnection()->send(Messages::NetworkProcessConnection::CookiesAdded(host, cookies), 0);
 }
 
 void NetworkConnectionToWebProcess::cookiesDeleted(const String& host, const Vector<WebCore::Cookie>& cookies)
 {
-    connection().send(Messages::NetworkProcessConnection::CookiesDeleted(host, cookies), 0);
+    protectedConnection()->send(Messages::NetworkProcessConnection::CookiesDeleted(host, cookies), 0);
 }
 
 void NetworkConnectionToWebProcess::allCookiesDeleted()
 {
-    connection().send(Messages::NetworkProcessConnection::AllCookiesDeleted(), 0);
+    protectedConnection()->send(Messages::NetworkProcessConnection::AllCookiesDeleted(), 0);
 }
 
 #endif
+
+void NetworkConnectionToWebProcess::cookieEnabledStateMayHaveChanged()
+{
+    protectedConnection()->send(Messages::NetworkProcessConnection::UpdateCachedCookiesEnabled(), 0);
+}
 
 void NetworkConnectionToWebProcess::registerInternalFileBlobURL(const URL& url, const String& path, const String& replacementPath, SandboxExtension::Handle&& extensionHandle, const String& contentType)
 {
@@ -1345,7 +1371,7 @@ void NetworkConnectionToWebProcess::entangleLocalPortInThisProcessToRemote(const
 
     RefPtr channel = networkProcess().messagePortChannelRegistry().existingChannelContainingPort(local);
     if (channel && channel->hasAnyMessagesPendingOrInFlight())
-        connection().send(Messages::NetworkProcessConnection::MessagesAvailableForPort(local), 0);
+        protectedConnection()->send(Messages::NetworkProcessConnection::MessagesAvailableForPort(local), 0);
 }
 
 void NetworkConnectionToWebProcess::messagePortDisentangled(const MessagePortIdentifier& port)
@@ -1391,15 +1417,15 @@ void NetworkConnectionToWebProcess::postMessageToRemote(MessageWithMessagePorts&
         ASSERT(channel);
         auto processIdentifier = channel->processForPort(port);
         if (processIdentifier) {
-            if (auto* connectionToWebProcess = networkProcess().webProcessConnection(*processIdentifier))
-                connectionToWebProcess->connection().send(Messages::NetworkProcessConnection::MessagesAvailableForPort(port), 0);
+            if (RefPtr connectionToWebProcess = networkProcess().webProcessConnection(*processIdentifier))
+                connectionToWebProcess->protectedConnection()->send(Messages::NetworkProcessConnection::MessagesAvailableForPort(port), 0);
         }
     }
 }
 
 void NetworkConnectionToWebProcess::broadcastConsoleMessage(JSC::MessageSource source, JSC::MessageLevel level, const String& message)
 {
-    connection().send(Messages::NetworkProcessConnection::BroadcastConsoleMessage(source, level, message), 0);
+    protectedConnection()->send(Messages::NetworkProcessConnection::BroadcastConsoleMessage(source, level, message), 0);
 }
 
 void NetworkConnectionToWebProcess::setCORSDisablingPatterns(WebCore::PageIdentifier pageIdentifier, Vector<String>&& patterns)
@@ -1481,7 +1507,7 @@ void NetworkConnectionToWebProcess::logOnBehalfOfWebContent(IPC::DataReference&&
 
 void NetworkConnectionToWebProcess::addAllowedFirstPartyForCookies(const RegistrableDomain& firstPartyForCookies)
 {
-    connection().send(Messages::NetworkProcessConnection::AddAllowedFirstPartyForCookies(firstPartyForCookies), 0);
+    protectedConnection()->send(Messages::NetworkProcessConnection::AddAllowedFirstPartyForCookies(firstPartyForCookies), 0);
 }
 
 void NetworkConnectionToWebProcess::useRedirectionForCurrentNavigation(WebCore::ResourceLoaderIdentifier identifier, WebCore::ResourceResponse&& response)

@@ -243,7 +243,7 @@ RetainPtr<NSArray> WebAuthenticatorCoordinatorProxy::requestsForAssertion(const 
         [requests addObject:request.leakRef()];
     }
 
-    if ([crossPlatformAllowedCredentials count] || ![platformAllowedCredentials count]) {
+    if (!m_isConditionalAssertion && ([crossPlatformAllowedCredentials count] || ![platformAllowedCredentials count])) {
         auto request = adoptNS([[allocASAuthorizationSecurityKeyPublicKeyCredentialProviderInstance() initWithRelyingPartyIdentifier:options.rpId] createCredentialAssertionRequestWithChallenge:toNSData(options.challenge).get()]);
 
         if (crossPlatformAllowedCredentials)
@@ -288,7 +288,7 @@ void WebAuthenticatorCoordinatorProxy::performRequest(WebAuthenticationRequestDa
         return;
     }
 #if HAVE(WEB_AUTHN_AS_MODERN)
-    m_isConditionalAssertion = *requestData.mediation == MediationRequirement::Conditional;
+    m_isConditionalAssertion = requestData.mediation == MediationRequirement::Conditional;
     auto controller = constructASController(WTFMove(requestData));
     if (!controller) {
         handler(WebCore::AuthenticatorResponseData { }, AuthenticatorAttachment::Platform, { ExceptionCode::NotAllowedError, @"" });
@@ -326,6 +326,9 @@ void WebAuthenticatorCoordinatorProxy::performRequest(WebAuthenticationRequestDa
                 response.signature = toArrayBuffer(credential.get().signature);
                 response.userHandle = toArrayBuffer(credential.get().userID);
             }
+            if (auto cancelHandler = WTFMove(m_cancelHandler))
+                cancelHandler();
+
             if (!m_paused) {
                 m_completionHandler(response, attachment, exceptionData);
                 m_delegate.clear();
@@ -846,56 +849,86 @@ void WebAuthenticatorCoordinatorProxy::performRequestLegacy(RetainPtr<ASCCredent
     }).get()];
 }
 
-static inline bool canCurrentProcessAccessPasskeysForRelyingParty(const WebCore::SecurityOriginData& data)
+static inline void getCanCurrentProcessAccessPasskeyForRelyingParty(const WebCore::SecurityOriginData& data, CompletionHandler<void(bool)>&& handler)
 {
-    if ([getASCWebKitSPISupportClass() respondsToSelector:@selector(canCurrentProcessAccessPasskeysForRelyingParty:)])
-        return [getASCWebKitSPISupportClass() canCurrentProcessAccessPasskeysForRelyingParty:data.securityOrigin()->domain()];
-    return false;
-}
-
-void WebAuthenticatorCoordinatorProxy::isConditionalMediationAvailable(const WebCore::SecurityOriginData& data, QueryCompletionHandler&& handler)
-{
-    if (canCurrentProcessAccessPasskeysForRelyingParty(data)) {
-        handler([getASCWebKitSPISupportClass() shouldUseAlternateCredentialStore]);
+    if ([getASCWebKitSPISupportClass() respondsToSelector:@selector(getCanCurrentProcessAccessPasskeysForRelyingParty:withCompletionHandler:)]) {
+        [getASCWebKitSPISupportClass() getCanCurrentProcessAccessPasskeysForRelyingParty:data.securityOrigin()->domain() withCompletionHandler:makeBlockPtr([handler = WTFMove(handler)](BOOL result) mutable {
+            ensureOnMainRunLoop([handler = WTFMove(handler), result]() mutable {
+                handler(result);
+            });
+        }).get()];
         return;
     }
     handler(false);
 }
 
-void WebAuthenticatorCoordinatorProxy::getClientCapabilities(const WebCore::SecurityOriginData& originData, CapbilitiesCompletionHandler&& handler)
+static inline void getArePasskeysDisallowedForRelyingParty(const WebCore::SecurityOriginData& data, CompletionHandler<void(bool)>&& handler)
+{
+    if ([getASCWebKitSPISupportClass() respondsToSelector:@selector(getArePasskeysDisallowedForRelyingParty:withCompletionHandler:)]) {
+        [getASCWebKitSPISupportClass() getArePasskeysDisallowedForRelyingParty:data.securityOrigin()->domain() withCompletionHandler:makeBlockPtr([handler = WTFMove(handler)](BOOL result) mutable {
+            ensureOnMainRunLoop([handler = WTFMove(handler), result]() mutable {
+                handler(result);
+            });
+        }).get()];
+        return;
+    }
+    handler(false);
+}
+
+void WebAuthenticatorCoordinatorProxy::isConditionalMediationAvailable(const WebCore::SecurityOriginData& data, QueryCompletionHandler&& handler)
+{
+    getCanCurrentProcessAccessPasskeyForRelyingParty(data, [handler = WTFMove(handler)](bool canAccessPasskeyData) mutable {
+        handler(canAccessPasskeyData && [getASCWebKitSPISupportClass() shouldUseAlternateCredentialStore]);
+    });
+}
+
+void WebAuthenticatorCoordinatorProxy::getClientCapabilities(const WebCore::SecurityOriginData& originData, CapabilitiesCompletionHandler&& handler)
 {
     if (![getASCWebKitSPISupportClass() respondsToSelector:@selector(getClientCapabilitiesForRelyingParty:withCompletionHandler:)]) {
-        HashMap<String, bool> resultMap;
-        handler(resultMap);
+        Vector<KeyValuePair<String, bool>> capabilities;
+        handler(WTFMove(capabilities));
         return;
     }
 
     [getASCWebKitSPISupportClass() getClientCapabilitiesForRelyingParty:originData.securityOrigin()->domain() withCompletionHandler:makeBlockPtr([handler = WTFMove(handler)](NSDictionary<NSString *, NSNumber *> *result) mutable {
-        HashMap<String, bool> resultMap;
+        Vector<KeyValuePair<String, bool>> capabilities;
         for (NSString *key in result)
-            resultMap.set(key, result[key].boolValue);
+            capabilities.append({ key, result[key].boolValue });
 
-        ensureOnMainRunLoop([handler = WTFMove(handler), resultMap = WTFMove(resultMap)] () mutable {
-            handler(resultMap);
+        ensureOnMainRunLoop([handler = WTFMove(handler), capabilities = WTFMove(capabilities)] () mutable {
+            handler(WTFMove(capabilities));
         });
     }).get()];
 }
 
 void WebAuthenticatorCoordinatorProxy::isUserVerifyingPlatformAuthenticatorAvailable(const SecurityOriginData& data, QueryCompletionHandler&& handler)
 {
-    if (canCurrentProcessAccessPasskeysForRelyingParty(data)) {
+    getCanCurrentProcessAccessPasskeyForRelyingParty(data, [handler = WTFMove(handler), data](bool canAccessPasskeyData) mutable {
+        if (!canAccessPasskeyData) {
+            handler(false);
+            return;
+        }
         if ([getASCWebKitSPISupportClass() shouldUseAlternateCredentialStore]) {
-            handler(![getASCWebKitSPISupportClass() respondsToSelector:@selector(arePasskeysDisallowedForRelyingParty:)] || ![getASCWebKitSPISupportClass() arePasskeysDisallowedForRelyingParty:data.securityOrigin()->domain()]);
+            getArePasskeysDisallowedForRelyingParty(data, [handler = WTFMove(handler)](bool passkeysDisallowed) mutable {
+                handler(!passkeysDisallowed);
+            });
             return;
         }
         handler(LocalService::isAvailable());
-        return;
-    }
-    handler(false);
+    });
 }
 
-void WebAuthenticatorCoordinatorProxy::cancel()
+void WebAuthenticatorCoordinatorProxy::cancel(CompletionHandler<void()>&& handler)
 {
+#if HAVE(WEB_AUTHN_AS_MODERN)
+    if (m_completionHandler || m_delegate) {
+#else
+    if (m_proxy) {
+#endif
+        m_cancelHandler = WTFMove(handler);
+    } else
+        handler();
+
     if (m_proxy) {
         [m_proxy cancelCurrentRequest];
         m_proxy.clear();

@@ -325,6 +325,8 @@ void RemoteMediaPlayerProxy::setPresentationSize(const WebCore::IntSize& size)
 
 RefPtr<PlatformMediaResource> RemoteMediaPlayerProxy::requestResource(ResourceRequest&& request, PlatformMediaResourceLoader::LoadOptions options)
 {
+    ASSERT(isMainRunLoop());
+
     ASSERT(m_manager && m_manager->gpuConnectionToWebProcess());
     if (!m_manager || !m_manager->gpuConnectionToWebProcess())
         return nullptr;
@@ -898,8 +900,7 @@ bool RemoteMediaPlayerProxy::mediaPlayerShouldDisableSleep() const
 
 bool RemoteMediaPlayerProxy::mediaPlayerShouldCheckHardwareSupport() const
 {
-    notImplemented();
-    return false;
+    return m_shouldCheckHardwareSupport;
 }
 
 void RemoteMediaPlayerProxy::startUpdateCachedStateMessageTimer()
@@ -1135,7 +1136,7 @@ void RemoteMediaPlayerProxy::setVideoPlaybackMetricsUpdateInterval(double interv
 
 void RemoteMediaPlayerProxy::maybeUpdateCachedVideoMetrics()
 {
-    if (m_cachedState.paused || !m_videoPlaybackMetricsUpdateInterval || MonotonicTime::now() < m_nextPlaybackQualityMetricsUpdateTime)
+    if (m_cachedState.paused || !m_videoPlaybackMetricsUpdateInterval || MonotonicTime::now() < m_nextPlaybackQualityMetricsUpdateTime || m_hasPlaybackMetricsUpdatePending)
         return;
 
     updateCachedVideoMetrics();
@@ -1145,7 +1146,19 @@ void RemoteMediaPlayerProxy::updateCachedVideoMetrics()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
     m_nextPlaybackQualityMetricsUpdateTime = MonotonicTime::now() + m_videoPlaybackMetricsUpdateInterval;
-    m_cachedState.videoMetrics = m_player->videoPlaybackQualityMetrics();
+    if (m_hasPlaybackMetricsUpdatePending)
+        return;
+    m_hasPlaybackMetricsUpdatePending = true;
+    m_player->asyncVideoPlaybackQualityMetrics()->whenSettled(RunLoop::current(), [weakThis = WeakPtr { *this }, this](auto&& result) {
+        if (!weakThis)
+            return;
+        if (result) {
+            m_cachedState.videoMetrics = *result;
+            m_webProcessConnection->send(Messages::MediaPlayerPrivateRemote::UpdatePlaybackQualityMetrics(WTFMove(*result)), m_id);
+        } else
+            m_cachedState.videoMetrics.reset();
+        m_hasPlaybackMetricsUpdatePending = false;
+    });
 }
 
 void RemoteMediaPlayerProxy::setPreferredDynamicRangeMode(DynamicRangeMode mode)
@@ -1209,6 +1222,12 @@ void RemoteMediaPlayerProxy::playerContentBoxRectChanged(const WebCore::LayoutRe
 
     if (m_player)
         m_player->playerContentBoxRectChanged(contentRect);
+}
+
+void RemoteMediaPlayerProxy::setShouldCheckHardwareSupport(bool value)
+{
+    m_player->setShouldCheckHardwareSupport(value);
+    m_shouldCheckHardwareSupport = value;
 }
 
 #if !RELEASE_LOG_DISABLED

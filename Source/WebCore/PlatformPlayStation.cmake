@@ -15,12 +15,11 @@ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
 )
 
 list(APPEND WebCore_SOURCES
-    accessibility/playstation/AXObjectCachePlaystation.cpp
-    accessibility/playstation/AccessibilityObjectPlaystation.cpp
+    accessibility/playstation/AXObjectCachePlayStation.cpp
+    accessibility/playstation/AccessibilityObjectPlayStation.cpp
 
     editing/libwpe/EditorLibWPE.cpp
 
-    page/playstation/ChromePlayStation.cpp
     page/playstation/ResourceUsageOverlayPlayStation.cpp
     page/playstation/ResourceUsageThreadPlayStation.cpp
 
@@ -67,8 +66,9 @@ list(APPEND WebCore_SOURCES
     platform/text/LocaleICU.cpp
 
     platform/unix/LoggingUnix.cpp
+    platform/unix/SharedMemoryUnix.cpp
 
-    rendering/RenderThemePlayStation.cpp
+    rendering/playstation/RenderThemePlayStation.cpp
 )
 
 list(APPEND WebCore_USER_AGENT_STYLE_SHEETS

@@ -176,6 +176,16 @@ void AXLogger::log(AccessibilityObjectInclusion inclusion)
     LOG(Accessibility, "%s", stream.release().utf8().data());
 }
 
+void AXLogger::log(AXRelationType relationType)
+{
+    if (!shouldLog())
+        return;
+
+    TextStream stream(TextStream::LineMode::SingleLine);
+    stream.dumpProperty("RelationType", relationType);
+    LOG(Accessibility, "%s", stream.release().utf8().data());
+}
+
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 void AXLogger::log(AXIsolatedTree& tree)
 {
@@ -284,6 +294,11 @@ TextStream& operator<<(TextStream& stream, AccessibilitySearchKey searchKey)
     case AccessibilitySearchKey::Graphic:
         stream << "Graphic";
         break;
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    case AccessibilitySearchKey::HasTextRuns:
+        stream << "HasTextRuns";
+        break;
+#endif
     case AccessibilitySearchKey::HeadingLevel1:
         stream << "HeadingLevel1";
         break;
@@ -506,8 +521,8 @@ TextStream& operator<<(TextStream& stream, AXRelationType relationType)
     case AXRelationType::HeaderFor:
         stream << "HeaderFor";
         break;
-    case AXRelationType::LabelledBy:
-        stream << "LabelledBy";
+    case AXRelationType::LabeledBy:
+        stream << "LabeledBy";
         break;
     case AXRelationType::LabelFor:
         stream << "LabelFor";
@@ -610,6 +625,9 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
     case AXObjectCache::AXNotification::AXKeyShortcutsChanged:
         stream << "AXKeyShortcutsChanged";
         break;
+    case AXObjectCache::AXNotification::AXLabelChanged:
+        stream << "AXLabelChanged";
+        break;
     case AXObjectCache::AXNotification::AXLanguageChanged:
         stream << "AXLanguageChanged";
         break;
@@ -696,9 +714,6 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
         break;
     case AXObjectCache::AXNotification::AXScrolledToAnchor:
         stream << "AXScrolledToAnchor";
-        break;
-    case AXObjectCache::AXNotification::AXLabelCreated:
-        stream << "AXLabelCreated";
         break;
     case AXObjectCache::AXNotification::AXLiveRegionCreated:
         stream << "AXLiveRegionCreated";
@@ -860,11 +875,12 @@ void streamAXCoreObject(TextStream& stream, const AXCoreObject& object, const Op
 
     if (options & AXStreamOptions::ParentID) {
         auto* parent = object.parentObjectUnignored();
-        stream.dumpProperty("parentObject", parent ? parent->objectID() : AXID());
+        stream.dumpProperty("parentID", parent ? parent->objectID() : AXID());
     }
 
-    if (options & AXStreamOptions::IdentifierAttribute)
-        stream.dumpProperty("identifierAttribute", object.identifierAttribute());
+    auto id = options & AXStreamOptions::IdentifierAttribute ? object.identifierAttribute() : emptyString();
+    if (!id.isEmpty())
+        stream.dumpProperty("identifier", WTFMove(id));
 
     if (options & AXStreamOptions::OuterHTML) {
         auto role = object.roleValue();

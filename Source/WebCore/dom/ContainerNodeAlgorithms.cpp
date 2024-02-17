@@ -69,27 +69,27 @@ static void notifyNodeInsertedIntoDocument(ContainerNode& parentOfInsertedTree, 
     }
 }
 
-static void notifyNodeInsertedIntoTree(ContainerNode& parentOfInsertedTree, Node& node, TreeScopeChange treeScopeChange, NodeVector& postInsertionNotificationTargets)
+static void notifyNodeInsertedIntoTree(ContainerNode& parentOfInsertedTree, Node& node, TreeScopeChange treeScopeChange)
 {
     ASSERT(!parentOfInsertedTree.isConnected());
     ASSERT(!node.isConnected());
 
-    if (node.insertedIntoAncestor(Node::InsertionType { /* connectedToDocument */ false, treeScopeChange == TreeScopeChange::Changed }, parentOfInsertedTree) == Node::InsertedIntoAncestorResult::NeedsPostInsertionCallback)
-        postInsertionNotificationTargets.append(node);
+    auto result = node.insertedIntoAncestor(Node::InsertionType { /* connectedToDocument */ false, treeScopeChange == TreeScopeChange::Changed }, parentOfInsertedTree);
+    ASSERT_UNUSED(result, result == Node::InsertedIntoAncestorResult::Done);
 
     auto* containerNode = dynamicDowncast<ContainerNode>(node);
     if (!containerNode)
         return;
 
     for (RefPtr child = containerNode->firstChild(); child; child = child->nextSibling())
-        notifyNodeInsertedIntoTree(parentOfInsertedTree, *child, treeScopeChange, postInsertionNotificationTargets);
+        notifyNodeInsertedIntoTree(parentOfInsertedTree, *child, treeScopeChange);
 
     auto* element = dynamicDowncast<Element>(*containerNode);
     if (!element)
         return;
 
     if (RefPtr root = element->shadowRoot())
-        notifyNodeInsertedIntoTree(parentOfInsertedTree, *root, TreeScopeChange::DidNotChange, postInsertionNotificationTargets);
+        notifyNodeInsertedIntoTree(parentOfInsertedTree, *root, TreeScopeChange::DidNotChange);
 }
 
 // We intentionally use an out-parameter for postInsertionNotificationTargets instead of returning the vector. This is because
@@ -108,7 +108,7 @@ void notifyChildNodeInserted(ContainerNode& parentOfInsertedTree, Node& node, No
     if (parentOfInsertedTree.isConnected())
         notifyNodeInsertedIntoDocument(parentOfInsertedTree, node, treeScopeChange, postInsertionNotificationTargets);
     else
-        notifyNodeInsertedIntoTree(parentOfInsertedTree, node, treeScopeChange, postInsertionNotificationTargets);
+        notifyNodeInsertedIntoTree(parentOfInsertedTree, node, treeScopeChange);
 }
 
 inline RemovedSubtreeObservability observabilityOfRemovedNode(Node& node)
@@ -191,7 +191,7 @@ void removeDetachedChildrenInContainer(ContainerNode& container)
 {
     RefPtr<Node> next;
     for (RefPtr node = container.firstChild(); node; node = WTFMove(next)) {
-        ASSERT(!node->m_deletionHasBegun);
+        ASSERT(!node->deletionHasBegun());
 
         next = node->nextSibling();
         node->setNextSibling(nullptr);
@@ -200,8 +200,7 @@ void removeDetachedChildrenInContainer(ContainerNode& container)
         if (next)
             next->setPreviousSibling(nullptr);
 
-        // Unable to ref the document here as it may have started destruction.
-        node->setTreeScopeRecursively(container.document());
+        node->setTreeScopeRecursively(RefAllowingPartiallyDestroyed<Document> { container.document() });
         if (node->isInTreeScope())
             notifyChildNodeRemoved(container, *node);
         ASSERT_WITH_SECURITY_IMPLICATION(!node->isInTreeScope());

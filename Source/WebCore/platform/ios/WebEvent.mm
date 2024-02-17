@@ -38,17 +38,19 @@
 #import "WAKAppKitStubs.h"
 #import "WebEventPrivate.h"
 #import "WindowsKeyboardCodes.h"
-#import <pal/ios/UIKitSoftLink.h>
 #import <pal/spi/cocoa/IOKitSPI.h>
+#import <pal/spi/ios/BrowserEngineKitSPI.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
 #import <pal/spi/ios/UIKitSPI.h>
+
+#import <pal/ios/UIKitSoftLink.h>
 
 using WebCore::windowsKeyCodeForKeyCode;
 using WebCore::windowsKeyCodeForCharCode;
 
 @implementation WebEvent {
-#if HAVE(UI_ASYNC_TEXT_INTERACTION)
-    RetainPtr<WebSEKeyEvent> _originalKeyEvent;
+#if USE(BROWSERENGINEKIT)
+    RetainPtr<BEKeyEntry> _originalKeyEntry;
 #endif
 }
 
@@ -494,16 +496,16 @@ static NSString *normalizedStringWithAppKitCompatibilityMapping(NSString *charac
 
 @end
 
-#if HAVE(UI_ASYNC_TEXT_INTERACTION)
+#if USE(BROWSERENGINEKIT)
 
-@implementation WebEvent (WebSEKeyEventSupport)
+@implementation WebEvent (BEKeyEntrySupport)
 
-static inline WebEventType webEventType(WebSEKeyEventType type)
+static inline WebEventType webEventType(BEKeyPressState type)
 {
     switch (type) {
-    case WebSEKeyEventKeyDown:
+    case BEKeyPressStateDown:
         return WebEventKeyDown;
-    case WebSEKeyEventKeyUp:
+    case BEKeyPressStateUp:
         return WebEventKeyUp;
     }
     ASSERT_NOT_REACHED();
@@ -526,9 +528,10 @@ static inline WebEventFlags webEventModifierFlags(UIKeyModifierFlags flags)
     return modifiers;
 }
 
-static inline bool isChangingKeyModifiers(WebSEKeyEvent *event)
+static inline bool isChangingKeyModifiers(BEKeyEntry *event)
 {
-    switch (event.keyCode) {
+    auto keyCode = event.key.keyCode;
+    switch (keyCode) {
     case VK_LWIN:
     case VK_APPS:
     case VK_CAPITAL:
@@ -544,37 +547,43 @@ static inline bool isChangingKeyModifiers(WebSEKeyEvent *event)
     }
 }
 
-- (instancetype)initWithKeyEvent:(WebSEKeyEvent *)event
+- (instancetype)initWithKeyEntry:(BEKeyEntry *)event
 {
     if (!(self = [super init]))
         return nil;
 
-    _type = webEventType(event.type);
+    _type = webEventType([&]() -> BEKeyPressState {
+        static bool supportsStateProperty = [event.class instancesRespondToSelector:@selector(state)];
+        if (supportsStateProperty)
+            return event.state;
+        return event.type;
+    }());
     _timestamp = static_cast<CFTimeInterval>(event.timestamp);
-    _modifierFlags = webEventModifierFlags(event.modifierFlags);
     _keyboardFlags = 0;
     if (isChangingKeyModifiers(event))
         _keyboardFlags |= WebEventKeyboardInputModifierFlagsChanged;
     if (event.keyRepeating)
         _keyboardFlags |= WebEventKeyboardInputRepeat;
 
-    _keyCode = static_cast<uint16_t>(event.keyCode);
-    _characters = [event.characters retain];
-    _charactersIgnoringModifiers = [event.charactersIgnoringModifiers retain];
+    auto keyInfo = event.key;
+    _modifierFlags = webEventModifierFlags(keyInfo.modifierFlags);
+    _keyCode = static_cast<uint16_t>(keyInfo.keyCode);
+    _characters = [keyInfo.characters retain];
+    _charactersIgnoringModifiers = [keyInfo.charactersIgnoringModifiers retain];
     _tabKey = NO; // FIXME: Populate this field appropriately.
     _keyRepeating = event.keyRepeating;
-    _originalKeyEvent = event;
+    _originalKeyEntry = event;
 
     return self;
 }
 
-- (WebSEKeyEvent *)originalKeyEvent
+- (BEKeyEntry *)originalKeyEntry
 {
-    return _originalKeyEvent.get();
+    return _originalKeyEntry.get();
 }
 
 @end
 
-#endif // HAVE(UI_ASYNC_TEXT_INTERACTION)
+#endif // USE(BROWSERENGINEKIT)
 
 #endif // PLATFORM(IOS_FAMILY)

@@ -29,6 +29,7 @@
 #include "RemoteLayerTreeNode.h"
 #include "RemoteLayerTreeTransaction.h"
 #include <WebCore/PlatformCALayer.h>
+#include <WebCore/ProcessIdentifier.h>
 #include <wtf/HashMap.h>
 #include <wtf/RetainPtr.h>
 
@@ -52,7 +53,7 @@ public:
     CALayer *layerForID(WebCore::PlatformLayerIdentifier) const;
     CALayer *rootLayer() const;
 
-    RemoteLayerTreeDrawingAreaProxy& drawingArea() const { return *m_drawingArea; }
+    RemoteLayerTreeDrawingAreaProxy& drawingArea() const;
 
     // Returns true if the root layer changed.
     bool updateLayerTree(const RemoteLayerTreeTransaction&, float indicatorScaleFactor  = 1);
@@ -87,14 +88,13 @@ public:
     bool replayDynamicContentScalingDisplayListsIntoBackingStore() const;
     bool css3DTransformInteroperabilityEnabled() const;
     bool threadedAnimationResolutionEnabled() const;
-#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-    const HashSet<WebCore::PlatformLayerIdentifier>& overlayRegionIDs() const { return m_overlayRegionIDs; }
-    void updateOverlayRegionIDs(const HashSet<WebCore::PlatformLayerIdentifier> &overlayRegionNodes) { m_overlayRegionIDs = overlayRegionNodes; }
-#endif
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     Seconds acceleratedTimelineTimeOrigin() const;
+    MonotonicTime animationCurrentTime() const;
 #endif
+
+    void remotePageProcessCrashed(WebCore::ProcessIdentifier);
 
 private:
     void createLayer(const RemoteLayerTreeTransaction::LayerCreationProperties&);
@@ -102,15 +102,16 @@ private:
 
     bool updateBannerLayers(const RemoteLayerTreeTransaction&);
 
-    void layerWillBeRemoved(WebCore::PlatformLayerIdentifier);
+    void layerWillBeRemoved(WebCore::ProcessIdentifier, WebCore::PlatformLayerIdentifier);
 
-    RemoteLayerBackingStoreProperties::LayerContentsType layerContentsType() const;
+    LayerContentsType layerContentsType() const;
 
-    RemoteLayerTreeDrawingAreaProxy* m_drawingArea { nullptr };
+    WeakPtr<RemoteLayerTreeDrawingAreaProxy> m_drawingArea;
     WeakPtr<RemoteLayerTreeNode> m_rootNode;
     HashMap<WebCore::PlatformLayerIdentifier, std::unique_ptr<RemoteLayerTreeNode>> m_nodes;
     HashMap<WebCore::LayerHostingContextIdentifier, WebCore::PlatformLayerIdentifier> m_hostingLayers;
     HashMap<WebCore::LayerHostingContextIdentifier, WebCore::PlatformLayerIdentifier> m_hostedLayers;
+    HashMap<WebCore::ProcessIdentifier, HashSet<WebCore::PlatformLayerIdentifier>> m_hostedLayersInProcess;
     HashMap<WebCore::PlatformLayerIdentifier, RetainPtr<WKAnimationDelegate>> m_animationDelegates;
 #if HAVE(AVKIT)
     HashMap<WebCore::PlatformLayerIdentifier, PlaybackSessionContextIdentifier> m_videoLayers;

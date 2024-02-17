@@ -113,12 +113,14 @@ protected:
     virtual void recordFillRect(const FloatRect&) = 0;
     virtual void recordFillRectWithColor(const FloatRect&, const Color&) = 0;
     virtual void recordFillRectWithGradient(const FloatRect&, Gradient&) = 0;
+    virtual void recordFillRectWithGradientAndSpaceTransform(const FloatRect&, Gradient&, const AffineTransform&) = 0;
     virtual void recordFillCompositedRect(const FloatRect&, const Color&, CompositeOperator, BlendMode) = 0;
     virtual void recordFillRoundedRect(const FloatRoundedRect&, const Color&, BlendMode) = 0;
     virtual void recordFillRectWithRoundedHole(const FloatRect&, const FloatRoundedRect&, const Color&) = 0;
 #if ENABLE(INLINE_PATH_DATA)
     virtual void recordFillLine(const PathDataLine&) = 0;
     virtual void recordFillArc(const PathArc&) = 0;
+    virtual void recordFillClosedArc(const PathClosedArc&) = 0;
     virtual void recordFillQuadCurve(const PathDataQuadCurve&) = 0;
     virtual void recordFillBezierCurve(const PathDataBezierCurve&) = 0;
 #endif
@@ -134,6 +136,7 @@ protected:
     virtual void recordStrokeLine(const PathDataLine&) = 0;
     virtual void recordStrokeLineWithColorAndThickness(const PathDataLine&, SetInlineStroke&&) = 0;
     virtual void recordStrokeArc(const PathArc&) = 0;
+    virtual void recordStrokeClosedArc(const PathClosedArc&) = 0;
     virtual void recordStrokeQuadCurve(const PathDataQuadCurve&) = 0;
     virtual void recordStrokeBezierCurve(const PathDataBezierCurve&) = 0;
 #endif
@@ -211,6 +214,7 @@ private:
     WEBCORE_EXPORT void fillRect(const FloatRect&) final;
     WEBCORE_EXPORT void fillRect(const FloatRect&, const Color&) final;
     WEBCORE_EXPORT void fillRect(const FloatRect&, Gradient&) final;
+    WEBCORE_EXPORT void fillRect(const FloatRect&, Gradient&, const AffineTransform&) final;
     WEBCORE_EXPORT void fillRect(const FloatRect&, const Color&, CompositeOperator, BlendMode) final;
     WEBCORE_EXPORT void fillRoundedRect(const FloatRoundedRect&, const Color&, BlendMode) final;
     WEBCORE_EXPORT void fillRectWithRoundedHole(const FloatRect&, const FloatRoundedRect& roundedHoleRect, const Color&) final;

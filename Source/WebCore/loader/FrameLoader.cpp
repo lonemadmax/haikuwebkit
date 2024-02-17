@@ -63,6 +63,7 @@
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
+#include "FeaturePolicy.h"
 #include "FloatRect.h"
 #include "FormState.h"
 #include "FormSubmission.h"
@@ -92,6 +93,7 @@
 #include "Logging.h"
 #include "MemoryCache.h"
 #include "MemoryRelease.h"
+#include "Navigation.h"
 #include "NavigationDisabler.h"
 #include "NavigationScheduler.h"
 #include "Node.h"
@@ -134,11 +136,12 @@
 #include <dom/ScriptDisallowedScope.h>
 #include <wtf/CheckedPtr.h>
 #include <wtf/CompletionHandler.h>
-#include <wtf/URL.h>
+#include <wtf/EnumTraits.h>
 #include <wtf/Ref.h>
 #include <wtf/SetForScope.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/SystemTracing.h>
+#include <wtf/URL.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 
@@ -415,7 +418,7 @@ void FrameLoader::initForSynthesizedDocument(const URL&)
     Ref frame = m_frame.get();
     Ref loader = m_client->createDocumentLoader(ResourceRequest(URL({ }, emptyString())), SubstituteData());
     loader->attachToFrame(frame);
-    loader->setResponse(ResourceResponse(URL(), "text/html"_s, 0, String()));
+    loader->setResponse(ResourceResponse(URL(), textHTMLContentTypeAtom(), 0, String()));
     loader->setCommitted(true);
     setDocumentLoader(WTFMove(loader));
 
@@ -469,16 +472,16 @@ void FrameLoader::setDefersLoading(bool defers)
     }
 }
 
-void FrameLoader::checkContentPolicy(const ResourceResponse& response, PolicyCheckIdentifier identifier, ContentPolicyDecisionFunction&& function)
+void FrameLoader::checkContentPolicy(const ResourceResponse& response, ContentPolicyDecisionFunction&& function)
 {
     if (!activeDocumentLoader()) {
         // Load was cancelled
-        function(PolicyAction::Ignore, identifier);
+        function(PolicyAction::Ignore);
         return;
     }
 
     // FIXME: Validate the policy check identifier.
-    client().dispatchDecidePolicyForResponse(response, activeDocumentLoader()->request(), identifier, activeDocumentLoader()->downloadAttribute(), WTFMove(function));
+    client().dispatchDecidePolicyForResponse(response, activeDocumentLoader()->request(), activeDocumentLoader()->downloadAttribute(), WTFMove(function));
 }
 
 bool FrameLoader::shouldUpgradeRequestforHTTPSOnly(const URL& originalURL, ResourceRequest& request) const
@@ -592,8 +595,7 @@ void FrameLoader::submitForm(Ref<FormSubmission>&& submission)
 
 void FrameLoader::stopLoading(UnloadEventPolicy unloadEventPolicy)
 {
-    // The frame may have started destruction, in which case we can't protect it.
-    RefPtr protectedFrame = m_frame->view() ? m_frame.ptr() : nullptr;
+    RefAllowingPartiallyDestroyed<LocalFrame> protectedFrame { m_frame.get() };
 
     if (RefPtr parser = m_frame->document() ? m_frame->document()->parser() : nullptr)
         parser->stopParsing();
@@ -818,6 +820,8 @@ void FrameLoader::didBeginDocument(bool dispatch)
 
     if (dispatch)
         dispatchDidClearWindowObjectsInAllWorlds();
+
+    updateNavigationAPIEntries();
 
     updateFirstPartyForCookies();
     document->initContentSecurityPolicy();
@@ -1115,7 +1119,8 @@ String FrameLoader::outgoingReferrer() const
     }
     if (!frame)
         return emptyString();
-    return is<LocalFrame>(*frame) ? downcast<LocalFrame>(*frame).loader().m_outgoingReferrer : emptyString();
+    auto* localFrame = dynamicDowncast<LocalFrame>(*frame);
+    return localFrame ? localFrame->loader().m_outgoingReferrer : emptyString();
 }
 
 String FrameLoader::outgoingOrigin() const
@@ -1139,8 +1144,7 @@ void FrameLoader::setOpener(RefPtr<Frame>&& opener)
 
     if (m_opener) {
         // When setOpener is called in ~FrameLoader, opener's m_frameLoader is already cleared.
-        // Cannot ref localOpener as it may have started destruction.
-        if (auto* localOpener = dynamicDowncast<LocalFrame>(m_opener.get())) {
+        if (RefPtrAllowingPartiallyDestroyed<LocalFrame> localOpener = dynamicDowncast<LocalFrame>(m_opener.get())) {
             auto& openerFrameLoader = m_opener == m_frame.ptr() ? *this : localOpener->loader();
             openerFrameLoader.m_openedFrames.remove(m_frame.get());
         }
@@ -1250,10 +1254,10 @@ void FrameLoader::loadInSameDocument(URL url, RefPtr<SerializedScriptValue> stat
     started();
 
     if (RefPtr ownerElement = m_frame->ownerElement()) {
-        CheckedPtr ownerRenderer = ownerElement->renderer();
+        CheckedPtr ownerRenderer = dynamicDowncast<RenderWidget>(ownerElement->renderer());
         RefPtr view = m_frame->view();
-        if (is<RenderWidget>(ownerRenderer.get()) && view)
-            downcast<RenderWidget>(*ownerRenderer).setWidget(WTFMove(view));
+        if (ownerRenderer && view)
+            ownerRenderer->setWidget(WTFMove(view));
     }
 
     // We need to scroll to the fragment whether or not a hash change occurred, since
@@ -1559,7 +1563,7 @@ SubstituteData FrameLoader::defaultSubstituteDataForURL(const URL& url)
     ASSERT(!srcdoc.isNull());
     CString encodedSrcdoc = srcdoc.string().utf8();
 
-    ResourceResponse response(URL(), "text/html"_s, encodedSrcdoc.length(), "UTF-8"_s);
+    ResourceResponse response(URL(), textHTMLContentTypeAtom(), encodedSrcdoc.length(), "UTF-8"_s);
     return SubstituteData(SharedBuffer::create(encodedSrcdoc.data(), encodedSrcdoc.length()), URL(), response, SubstituteData::SessionHistoryVisibility::Hidden);
 }
 
@@ -2040,6 +2044,11 @@ DocumentLoader* FrameLoader::activeDocumentLoader() const
     if (m_state == FrameState::Provisional)
         return m_provisionalDocumentLoader.get();
     return m_documentLoader.get();
+}
+
+RefPtr<DocumentLoader> FrameLoader::protectedActiveDocumentLoader() const
+{
+    return activeDocumentLoader();
 }
 
 bool FrameLoader::isLoading() const
@@ -2642,7 +2651,7 @@ void FrameLoader::dispatchDidFailProvisionalLoad(DocumentLoader& provisionalDocu
 
 void FrameLoader::handleLoadFailureRecovery(DocumentLoader& documentLoader, const ResourceError& error, bool isHTTPSFirstApplicable)
 {
-    FRAMELOADER_RELEASE_LOG(ResourceLoading, "handleLoadFailureRecovery: errorRecoveryMethod: %hhu, isHTTPSFirstApplicable: %d, isHTTPFallbackInProgress: %d", error.errorRecoveryMethod(), isHTTPSFirstApplicable, isHTTPFallbackInProgress());
+    FRAMELOADER_RELEASE_LOG(ResourceLoading, "handleLoadFailureRecovery: errorRecoveryMethod: %hhu, isHTTPSFirstApplicable: %d, isHTTPFallbackInProgress: %d", enumToUnderlyingType(error.errorRecoveryMethod()), isHTTPSFirstApplicable, isHTTPFallbackInProgress());
     if (error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::NoRecovery || !isHTTPSFirstApplicable || isHTTPFallbackInProgress()) {
         if (isHTTPFallbackInProgress())
             setHTTPFallbackInProgress(false);
@@ -3004,7 +3013,7 @@ String FrameLoader::userAgent(const URL& url) const
 
     InspectorInstrumentation::applyUserAgentOverride(protectedFrame(), userAgent);
 
-    if (userAgent.isEmpty())
+    if (userAgent.isEmpty() || m_client->hasCustomUserAgent())
         userAgent = m_client->userAgent(url);
     
     verifyUserAgent(userAgent);
@@ -3057,7 +3066,7 @@ void FrameLoader::detachFromParent()
     Ref frame = m_frame.get();
 
     closeURL();
-    history().saveScrollPositionAndViewStateToItem(history().currentItem());
+    history().saveScrollPositionAndViewStateToItem(history().protectedCurrentItem().get());
     detachChildren();
     if (frame->document()->backForwardCacheState() != Document::InBackForwardCache) {
         // stopAllLoaders() needs to be called after detachChildren() if the document is not in the back/forward cache,
@@ -3196,6 +3205,9 @@ void FrameLoader::updateRequestAndAddExtraFields(ResourceRequest& request, IsMai
 
     if (isMainResource)
         request.setHTTPHeaderField(HTTPHeaderName::Accept, CachedResourceRequest::acceptHeaderValueFromType(CachedResource::Type::MainResource));
+
+    if (RefPtr document = m_frame->document(); document && frame().settings().privateTokenUsageByThirdPartyEnabled() && !frame().loader().client().isRemoteWorkerFrameLoaderClient())
+        request.setIsPrivateTokenUsageByThirdPartyAllowed(isFeaturePolicyAllowedByDocumentAndAllOwners(FeaturePolicy::Type::PrivateToken, *document, LogFeaturePolicyFailure::No));
 
     // Only set fallback array if it's still empty (later attempts may be incorrect, see bug 117818).
     if (request.responseContentDispositionEncodingFallbackArray().isEmpty()) {
@@ -3989,13 +4001,11 @@ bool FrameLoader::shouldInterruptLoadForXFrameOptions(const String& content, con
     switch (disposition) {
     case XFrameOptionsDisposition::SameOrigin: {
         Ref origin = SecurityOrigin::create(url);
-        if (topFrame && !origin->isSameSchemeHostPort(topFrame->document()->securityOrigin()))
+        if (!topFrame || !origin->isSameSchemeHostPort(topFrame->document()->securityOrigin()))
             return true;
         for (auto* frame = m_frame->tree().parent(); frame; frame = frame->tree().parent()) {
             auto* localFrame = dynamicDowncast<LocalFrame>(frame);
-            if (!localFrame)
-                continue;
-            if (!origin->isSameSchemeHostPort(localFrame->document()->securityOrigin()))
+            if (!localFrame || !origin->isSameSchemeHostPort(localFrame->document()->securityOrigin()))
                 return true;
         }
         return false;
@@ -4066,7 +4076,7 @@ RefPtr<Frame> FrameLoader::findFrameForNavigation(const AtomString& name, Docume
         return nullptr;
 
     RefPtr frame = m_frame->tree().findBySpecifiedName(name, activeDocument->frame() ? *activeDocument->protectedFrame() : protectedFrame().get());
-    if (!activeDocument->canNavigate(dynamicDowncast<LocalFrame>(frame.get())))
+    if (!activeDocument->canNavigate(frame.get()))
         return nullptr;
 
     return frame;
@@ -4091,6 +4101,11 @@ void FrameLoader::loadSameDocumentItem(HistoryItem& item)
 
     // Restore user view state from the current history item here since we don't do a normal load.
     history().restoreScrollPositionAndViewState();
+}
+
+CheckedRef<HistoryController> FrameLoader::checkedHistory() const
+{
+    return *m_history;
 }
 
 // FIXME: This function should really be split into a couple pieces, some of
@@ -4348,8 +4363,6 @@ void FrameLoader::didChangeTitle(DocumentLoader* loader)
     m_client->didChangeTitle(loader);
 
     if (loader == m_documentLoader) {
-        // Must update the entries in the back-forward list too.
-        history().setCurrentItemTitle(loader->title());
         // This must go through the WebFrame because it has the right notion of the current b/f item.
         m_client->setTitle(loader->title(), loader->urlForHistory());
         m_client->setMainFrameDocumentReady(true); // update observers with new DOMDocument
@@ -4410,6 +4423,11 @@ void FrameLoader::tellClientAboutPastMemoryCacheLoads()
 NetworkingContext* FrameLoader::networkingContext() const
 {
     return m_networkingContext.get();
+}
+
+RefPtr<NetworkingContext> FrameLoader::protectedNetworkingContext() const
+{
+    return m_networkingContext;
 }
 
 void FrameLoader::loadProgressingStatusChanged()
@@ -4624,6 +4642,36 @@ RefPtr<DocumentLoader> FrameLoader::protectedDocumentLoader() const
 RefPtr<DocumentLoader> FrameLoader::protectedProvisionalDocumentLoader() const
 {
     return m_provisionalDocumentLoader;
+}
+
+RefPtr<DocumentLoader> FrameLoader::loaderForWebsitePolicies(CanIncludeCurrentDocumentLoader canIncludeCurrentDocumentLoader) const
+{
+    RefPtr loader = policyDocumentLoader();
+    if (!loader)
+        loader = provisionalDocumentLoader();
+    if (!loader && canIncludeCurrentDocumentLoader == CanIncludeCurrentDocumentLoader::Yes)
+        loader = documentLoader();
+    return loader;
+}
+
+void FrameLoader::updateNavigationAPIEntries()
+{
+    if (!m_frame->document() || !m_frame->document()->settings().navigationAPIEnabled())
+        return;
+    RefPtr domWindow = m_frame->document()->domWindow();
+    if (!domWindow)
+        return;
+    RefPtr page = m_frame->page();
+    if (!page)
+        return;
+    if (RefPtr currentItem = page->backForward().currentItem()) {
+        Vector<Ref<HistoryItem>> historyItems;
+        for (int index = -1 * static_cast<int>(page->backForward().backCount()); index <= static_cast<int>(page->backForward().forwardCount()); index++) {
+            if (RefPtr item = page->backForward().itemAtIndex(index))
+                historyItems.append(item.releaseNonNull());
+        }
+        domWindow->protectedNavigation()->initializeEntries(*currentItem, historyItems);
+    }
 }
 
 } // namespace WebCore

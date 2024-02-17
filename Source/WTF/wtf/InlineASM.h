@@ -43,7 +43,7 @@
 #define THUMB_FUNC_PARAM(name)
 #endif
 
-#if (OS(LINUX) || OS(FREEBSD) || OS(HAIKU)) && CPU(X86_64)
+#if (OS(LINUX) || OS(FREEBSD) || || OS(HAIKU) || OS(QNX)) && CPU(X86_64)
 #define GLOBAL_REFERENCE(name) #name "@plt"
 #elif CPU(X86) && COMPILER(MINGW)
 #define GLOBAL_REFERENCE(name) "@" #name "@4"
@@ -70,7 +70,8 @@
     || OS(FUCHSIA)             \
     || OS(OPENBSD)             \
     || OS(HPUX)                \
-    || OS(NETBSD)
+    || OS(NETBSD)              \
+    || OS(QNX)
     // ELF platform
 #define HIDE_SYMBOL(name) ".hidden " #name
 #else
@@ -89,6 +90,7 @@
     || OS(HURD)                \
     || OS(HAIKU)               \
     || OS(NETBSD)              \
+    || OS(QNX)                 \
     || COMPILER(MINGW)
     // GNU as-compatible syntax.
 #define LOCAL_LABEL_STRING(name) ".L" #name

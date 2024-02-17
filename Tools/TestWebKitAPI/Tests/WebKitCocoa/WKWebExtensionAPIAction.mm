@@ -151,13 +151,17 @@ TEST(WKWebExtensionAPIAction, PresentPopupForAction)
     manager.get().internalDelegate.presentPopupForAction = ^(_WKWebExtensionAction *action) {
         EXPECT_TRUE(action.presentsPopup);
         EXPECT_TRUE(action.isEnabled);
-        EXPECT_NULL(action.badgeText);
+        EXPECT_NS_EQUAL(action.badgeText, @"");
 
         EXPECT_NS_EQUAL(action.label, @"Test Action");
 
         auto *smallIcon = [action iconForSize:CGSizeMake(16, 16)];
         EXPECT_NOT_NULL(smallIcon);
+#if USE(APPKIT)
         EXPECT_TRUE(CGSizeEqualToSize(smallIcon.size, CGSizeMake(16, 16)));
+#else
+        EXPECT_TRUE(CGSizeEqualToSize(smallIcon.size, CGSizeMake(32, 32)));
+#endif
 
         auto *largeIcon = [action iconForSize:CGSizeMake(32, 32)];
         EXPECT_NOT_NULL(largeIcon);
@@ -171,6 +175,8 @@ TEST(WKWebExtensionAPIAction, PresentPopupForAction)
         EXPECT_NS_EQUAL(webViewURL.path, @"/popup.html");
 
         [action closePopupWebView];
+
+        [manager done];
     };
 
     [manager loadAndRun];
@@ -178,6 +184,8 @@ TEST(WKWebExtensionAPIAction, PresentPopupForAction)
     EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Test Popup Action");
 
     [manager.get().context performActionForTab:manager.get().defaultTab];
+
+    [manager run];
 }
 
 TEST(WKWebExtensionAPIAction, GetCurrentTabAndWindowFromPopupPage)
@@ -210,8 +218,6 @@ TEST(WKWebExtensionAPIAction, GetCurrentTabAndWindowFromPopupPage)
     manager.get().internalDelegate.presentPopupForAction = ^(_WKWebExtensionAction *action) {
         EXPECT_TRUE(action.presentsPopup);
         EXPECT_NOT_NULL(action.popupWebView);
-
-        [action closePopupWebView];
     };
 
     [manager loadAndRun];
@@ -219,6 +225,8 @@ TEST(WKWebExtensionAPIAction, GetCurrentTabAndWindowFromPopupPage)
     EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Test Popup Action");
 
     [manager.get().context performActionForTab:manager.get().defaultTab];
+
+    [manager run];
 }
 
 TEST(WKWebExtensionAPIAction, SetDefaultActionProperties)
@@ -263,12 +271,14 @@ TEST(WKWebExtensionAPIAction, SetDefaultActionProperties)
         EXPECT_FALSE(defaultAction.isEnabled);
         EXPECT_NS_EQUAL(defaultAction.label, @"Modified Title");
         EXPECT_NS_EQUAL(defaultAction.badgeText, @"42");
+        EXPECT_FALSE(defaultAction.hasUnreadBadgeText);
 
         EXPECT_NULL(action.associatedTab);
 
         EXPECT_FALSE(action.isEnabled);
         EXPECT_NS_EQUAL(action.label, @"Modified Title");
         EXPECT_NS_EQUAL(action.badgeText, @"42");
+        EXPECT_FALSE(action.hasUnreadBadgeText);
 
         auto *icon = [action iconForSize:CGSizeMake(48, 48)];
         EXPECT_NOT_NULL(icon);
@@ -342,6 +352,7 @@ TEST(WKWebExtensionAPIAction, TabSpecificActionProperties)
         EXPECT_TRUE(defaultAction.isEnabled);
         EXPECT_NS_EQUAL(defaultAction.label, @"Test Action");
         EXPECT_NS_EQUAL(defaultAction.badgeText, @"");
+        EXPECT_FALSE(defaultAction.hasUnreadBadgeText);
 
         auto *defaultIcon = [defaultAction iconForSize:CGSizeMake(32, 32)];
         EXPECT_NOT_NULL(defaultIcon);
@@ -350,6 +361,7 @@ TEST(WKWebExtensionAPIAction, TabSpecificActionProperties)
         EXPECT_FALSE(action.isEnabled);
         EXPECT_NS_EQUAL(action.label, @"Tab Title");
         EXPECT_NS_EQUAL(action.badgeText, @"42");
+        EXPECT_FALSE(action.hasUnreadBadgeText);
 
         auto *icon = [action iconForSize:CGSizeMake(48, 48)];
         EXPECT_NOT_NULL(icon);
@@ -371,6 +383,7 @@ TEST(WKWebExtensionAPIAction, TabSpecificActionProperties)
         EXPECT_EQ(secondTabAction.isEnabled, defaultAction.isEnabled);
         EXPECT_NS_EQUAL(secondTabAction.label, defaultAction.label);
         EXPECT_NS_EQUAL(secondTabAction.badgeText, defaultAction.badgeText);
+        EXPECT_FALSE(secondTabAction.hasUnreadBadgeText);
 
         icon = [secondTabAction iconForSize:CGSizeMake(32, 32)];
         EXPECT_NOT_NULL(icon);
@@ -385,6 +398,7 @@ TEST(WKWebExtensionAPIAction, TabSpecificActionProperties)
         EXPECT_EQ(secondWindowAction.isEnabled, defaultAction.isEnabled);
         EXPECT_NS_EQUAL(secondWindowAction.label, defaultAction.label);
         EXPECT_NS_EQUAL(secondWindowAction.badgeText, defaultAction.badgeText);
+        EXPECT_FALSE(secondWindowAction.hasUnreadBadgeText);
 
         icon = [secondWindowAction iconForSize:CGSizeMake(32, 32)];
         EXPECT_NOT_NULL(icon);
@@ -453,6 +467,7 @@ TEST(WKWebExtensionAPIAction, WindowSpecificActionProperties)
         EXPECT_TRUE(defaultAction.isEnabled);
         EXPECT_NS_EQUAL(defaultAction.label, @"Test Action");
         EXPECT_NS_EQUAL(defaultAction.badgeText, @"");
+        EXPECT_FALSE(defaultAction.hasUnreadBadgeText);
 
         auto *defaultIcon = [defaultAction iconForSize:CGSizeMake(32, 32)];
         EXPECT_NOT_NULL(defaultIcon);
@@ -461,6 +476,7 @@ TEST(WKWebExtensionAPIAction, WindowSpecificActionProperties)
         EXPECT_TRUE(action.isEnabled);
         EXPECT_NS_EQUAL(action.label, @"Window Title");
         EXPECT_NS_EQUAL(action.badgeText, @"W");
+        EXPECT_FALSE(action.hasUnreadBadgeText);
 
         auto *windowIcon = [action iconForSize:CGSizeMake(48, 48)];
         EXPECT_NOT_NULL(windowIcon);
@@ -476,6 +492,7 @@ TEST(WKWebExtensionAPIAction, WindowSpecificActionProperties)
         EXPECT_EQ(secondWindowAction.isEnabled, defaultAction.isEnabled);
         EXPECT_NS_EQUAL(secondWindowAction.label, defaultAction.label);
         EXPECT_NS_EQUAL(secondWindowAction.badgeText, defaultAction.badgeText);
+        EXPECT_FALSE(secondWindowAction.hasUnreadBadgeText);
 
         auto *secondWindowIcon = [secondWindowAction iconForSize:CGSizeMake(32, 32)];
         EXPECT_NOT_NULL(secondWindowIcon);
@@ -791,12 +808,14 @@ TEST(WKWebExtensionAPIAction, BrowserAction)
         EXPECT_FALSE(defaultAction.isEnabled);
         EXPECT_NS_EQUAL(defaultAction.label, @"Modified Title");
         EXPECT_NS_EQUAL(defaultAction.badgeText, @"42");
+        EXPECT_FALSE(defaultAction.hasUnreadBadgeText);
 
         EXPECT_NULL(action.associatedTab);
 
         EXPECT_FALSE(action.isEnabled);
         EXPECT_NS_EQUAL(action.label, @"Modified Title");
         EXPECT_NS_EQUAL(action.badgeText, @"42");
+        EXPECT_FALSE(action.hasUnreadBadgeText);
 
         auto *icon = [action iconForSize:CGSizeMake(48, 48)];
         EXPECT_NOT_NULL(icon);
@@ -875,12 +894,14 @@ TEST(WKWebExtensionAPIAction, PageAction)
         EXPECT_FALSE(defaultAction.isEnabled);
         EXPECT_NS_EQUAL(defaultAction.label, @"Modified Title");
         EXPECT_NS_EQUAL(defaultAction.badgeText, @"42");
+        EXPECT_FALSE(defaultAction.hasUnreadBadgeText);
 
         EXPECT_NULL(action.associatedTab);
 
         EXPECT_FALSE(action.isEnabled);
         EXPECT_NS_EQUAL(action.label, @"Modified Title");
         EXPECT_NS_EQUAL(action.badgeText, @"42");
+        EXPECT_FALSE(action.hasUnreadBadgeText);
 
         auto *icon = [action iconForSize:CGSizeMake(48, 48)];
         EXPECT_NOT_NULL(icon);
@@ -970,6 +991,44 @@ TEST(WKWebExtensionAPIAction, ClearTabSpecificActionPropertiesOnNavigation)
     [manager.get().defaultTab.mainWebView loadRequest:addressRequest];
 
     [manager run];
+}
+
+TEST(WKWebExtensionAPIAction, HasUnreadBadgeText)
+{
+    auto *backgroundScript = Util::constructScript(@[
+        @"await browser.action.setBadgeText({ text: 'New' })",
+
+        @"browser.test.yield('Check Unread Badge Text')"
+    ]);
+
+    auto manager = Util::loadAndRunExtension(actionPopupManifest, @{ @"background.js": backgroundScript });
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Check Unread Badge Text");
+
+    auto *defaultAction = [manager.get().context actionForTab:nil];
+    auto *tabAction = [manager.get().context actionForTab:manager.get().defaultTab];
+    EXPECT_TRUE(defaultAction.hasUnreadBadgeText);
+    EXPECT_TRUE(tabAction.hasUnreadBadgeText);
+
+    tabAction.hasUnreadBadgeText = NO;
+    EXPECT_FALSE(defaultAction.hasUnreadBadgeText);
+    EXPECT_FALSE(tabAction.hasUnreadBadgeText);
+
+    tabAction.hasUnreadBadgeText = YES;
+    EXPECT_FALSE(defaultAction.hasUnreadBadgeText);
+    EXPECT_TRUE(tabAction.hasUnreadBadgeText);
+
+    tabAction.hasUnreadBadgeText = NO;
+    EXPECT_FALSE(defaultAction.hasUnreadBadgeText);
+    EXPECT_FALSE(tabAction.hasUnreadBadgeText);
+
+    defaultAction.hasUnreadBadgeText = YES;
+    EXPECT_TRUE(defaultAction.hasUnreadBadgeText);
+    EXPECT_FALSE(tabAction.hasUnreadBadgeText);
+
+    defaultAction.hasUnreadBadgeText = NO;
+    EXPECT_FALSE(defaultAction.hasUnreadBadgeText);
+    EXPECT_FALSE(tabAction.hasUnreadBadgeText);
 }
 
 } // namespace TestWebKitAPI

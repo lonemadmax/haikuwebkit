@@ -422,8 +422,13 @@
 #define USE_CORE_TEXT_VARIATIONS_CLAMPING_WORKAROUND 1
 #endif
 
-#if PLATFORM(IOS) && !PLATFORM(IOS_FAMILY_SIMULATOR) && __has_include(<ServiceExtensionsCore/SEMemory_Private.h>)
+// FIXME: Once this is forwarded to 18+, we should remove the max check.
+#if PLATFORM(IOS) && !PLATFORM(IOS_FAMILY_SIMULATOR) \
+    && __IPHONE_OS_VERSION_MAX_ALLOWED >= 170400 \
+    && __IPHONE_OS_VERSION_MAX_ALLOWED < 180000
+#if CPU(ARM64E)
 #define USE_INLINE_JIT_PERMISSIONS_API 1
+#endif
 #endif
 
 #if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 140000) \
@@ -432,4 +437,8 @@
     || (PLATFORM(APPLETV) && __TV_OS_VERSION_MIN_REQUIRED >= 170000) \
     || PLATFORM(VISION)
 #define USE_SANDBOX_VERSION_3 1
+#endif
+
+#if !defined(USE_BROWSERENGINEKIT) && PLATFORM(IOS) && __has_include(<BrowserEngineKit/BETextInput.h>)
+#define USE_BROWSERENGINEKIT 1
 #endif

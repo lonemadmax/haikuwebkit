@@ -95,8 +95,7 @@ public:
 
     const OrderIterator& orderIterator() const { return m_orderIterator; }
 
-    bool isTopLayoutOverflowAllowed() const override;
-    bool isLeftLayoutOverflowAllowed() const override;
+    LayoutOptionalOutsets allowedLayoutOverflow() const override;
 
     virtual bool isFlexibleBoxImpl() const { return false; };
     
@@ -124,6 +123,8 @@ public:
     bool shouldApplyMinBlockSizeAutoForChild(const RenderBox&) const;
 
     bool isComputingFlexBaseSizes() const { return m_isComputingFlexBaseSizes; }
+
+    static std::optional<TextDirection> leftRightAxisDirectionFromStyle(const RenderStyle&);
 
 protected:
     void computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const override;
@@ -265,11 +266,11 @@ private:
 
     // This is used to cache the preferred size for orthogonal flow children so we
     // don't have to relayout to get it
-    HashMap<const RenderBox*, LayoutUnit> m_intrinsicSizeAlongMainAxis;
+    HashMap<SingleThreadWeakRef<const RenderBox>, LayoutUnit> m_intrinsicSizeAlongMainAxis;
     
     // This is used to cache the intrinsic size on the cross axis to avoid
     // relayouts when stretching.
-    HashMap<const RenderBox*, LayoutUnit> m_intrinsicContentLogicalHeights;
+    HashMap<SingleThreadWeakRef<const RenderBox>, LayoutUnit> m_intrinsicContentLogicalHeights;
 
     // This set is used to keep track of which children we laid out in this
     // current layout iteration. We need it because the ones in this set may

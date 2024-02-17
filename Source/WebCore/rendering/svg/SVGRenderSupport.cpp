@@ -253,11 +253,8 @@ bool SVGRenderSupport::transformToRootChanged(RenderElement* ancestor)
 
 void SVGRenderSupport::layoutDifferentRootIfNeeded(const RenderElement& renderer)
 {
-    if (auto* resources = SVGResourcesCache::cachedResourcesForRenderer(renderer)) {
-        auto* svgRoot = SVGRenderSupport::findTreeRootObject(renderer);
-        ASSERT(svgRoot);
-        resources->layoutDifferentRootIfNeeded(svgRoot);
-    }
+    if (auto* resources = SVGResourcesCache::cachedResourcesForRenderer(renderer))
+        resources->layoutDifferentRootIfNeeded(renderer);
 }
 
 void SVGRenderSupport::layoutChildren(RenderElement& start, bool selfNeedsLayout)
@@ -513,16 +510,9 @@ void SVGRenderSupport::applyStrokeStyleToContext(GraphicsContext& context, const
 
 void SVGRenderSupport::styleChanged(RenderElement& renderer, const RenderStyle* oldStyle)
 {
-#if ENABLE(CSS_COMPOSITING)
     if (renderer.element() && renderer.element()->isSVGElement() && (!oldStyle || renderer.style().hasBlendMode() != oldStyle->hasBlendMode()))
         SVGRenderSupport::updateMaskedAncestorShouldIsolateBlending(renderer);
-#else
-    UNUSED_PARAM(renderer);
-    UNUSED_PARAM(oldStyle);
-#endif
 }
-
-#if ENABLE(CSS_COMPOSITING)
 
 bool SVGRenderSupport::isolatesBlending(const RenderStyle& style)
 {
@@ -544,19 +534,21 @@ void SVGRenderSupport::updateMaskedAncestorShouldIsolateBlending(const RenderEle
     }
 }
 
-#endif
-
-SVGHitTestCycleDetectionScope::SVGHitTestCycleDetectionScope(const RenderElement& element)
+SVGHitTestCycleDetectionScope::SVGHitTestCycleDetectionScope(const RenderElement& element, bool condition)
 {
-    m_element = element;
-    auto result = visitedElements().add(*m_element);
-    ASSERT_UNUSED(result, result.isNewEntry);
+    if (condition) {
+        m_element = element;
+        auto result = visitedElements().add(*m_element);
+        ASSERT_UNUSED(result, result.isNewEntry);
+    }
 }
 
 SVGHitTestCycleDetectionScope::~SVGHitTestCycleDetectionScope()
 {
-    bool result = visitedElements().remove(*m_element);
-    ASSERT_UNUSED(result, result);
+    if (m_element) {
+        bool result = visitedElements().remove(*m_element);
+        ASSERT_UNUSED(result, result);
+    }
 }
 
 SingleThreadWeakHashSet<RenderElement>& SVGHitTestCycleDetectionScope::visitedElements()

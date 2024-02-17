@@ -161,17 +161,16 @@ public:
     inline LayoutUnit logicalLeftVisualOverflow() const;
     inline LayoutUnit logicalRightVisualOverflow() const;
 
+    // RenderBox's basic implementation accounts for the writing mode (only).
+    virtual LayoutOptionalOutsets allowedLayoutOverflow() const;
     void addLayoutOverflow(const LayoutRect&);
     void addVisualOverflow(const LayoutRect&);
     void clearOverflow();
-    
-    virtual inline bool isTopLayoutOverflowAllowed() const;
-    virtual inline bool isLeftLayoutOverflowAllowed() const;
-    
+
     void addVisualEffectOverflow();
     LayoutRect applyVisualEffectOverflow(const LayoutRect&) const;
-    void addOverflowFromChild(const RenderBox* child) { addOverflowFromChild(child, child->locationOffset()); }
-    void addOverflowFromChild(const RenderBox* child, const LayoutSize& delta);
+    void addOverflowFromChild(const RenderBox& child) { addOverflowFromChild(child, child.locationOffset()); }
+    void addOverflowFromChild(const RenderBox& child, const LayoutSize& delta);
 
     void applyTransform(TransformationMatrix&, const RenderStyle&, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption>) const override;
 
@@ -241,6 +240,9 @@ public:
         const RenderStyle* styleToUse = overrideStyle ? overrideStyle : &style();
         return m_marginBox.end(styleToUse->writingMode(), styleToUse->direction());
     }
+    LayoutUnit marginBlockStart(const WritingMode& writingMode) const { return m_marginBox.before(writingMode); }
+    LayoutUnit marginInlineStart(const WritingMode& writingMode) const { return m_marginBox.start(writingMode); }
+
     void setMarginBefore(LayoutUnit value, const RenderStyle* overrideStyle = nullptr) { m_marginBox.setBefore(value, (overrideStyle ? overrideStyle : &style())->writingMode()); }
     void setMarginAfter(LayoutUnit value, const RenderStyle* overrideStyle = nullptr) { m_marginBox.setAfter(value, (overrideStyle ? overrideStyle : &style())->writingMode()); }
     void setMarginStart(LayoutUnit value, const RenderStyle* overrideStyle = nullptr)
@@ -596,6 +598,7 @@ public:
     virtual bool hasRelativeDimensions() const;
     virtual bool hasRelativeLogicalHeight() const;
     virtual bool hasRelativeLogicalWidth() const;
+    void willBeRemovedFromTree(IsInternalMove) override;
 
     bool hasHorizontalLayoutOverflow() const
     {
@@ -640,7 +643,6 @@ public:
 
     bool isGridItem() const { return parent() && parent()->isRenderGrid() && !isExcludedFromNormalLayout(); }
     bool isFlexItem() const { return parent() && parent()->isRenderFlexibleBox() && !isExcludedFromNormalLayout(); }
-    inline bool isBlockLevelBox() const;
 
     virtual void adjustBorderBoxRectForPainting(LayoutRect&) { };
 
@@ -810,8 +812,8 @@ private:
 
 inline RenderBox* RenderBox::parentBox() const
 {
-    if (is<RenderBox>(parent()))
-        return downcast<RenderBox>(parent());
+    if (auto* box = dynamicDowncast<RenderBox>(parent()))
+        return box;
 
     ASSERT(!parent());
     return nullptr;
@@ -819,8 +821,8 @@ inline RenderBox* RenderBox::parentBox() const
 
 inline RenderBox* RenderBox::firstChildBox() const
 {
-    if (is<RenderBox>(firstChild()))
-        return downcast<RenderBox>(firstChild());
+    if (auto* box = dynamicDowncast<RenderBox>(firstChild()))
+        return box;
 
     ASSERT(!firstChild());
     return nullptr;
@@ -833,8 +835,8 @@ inline RenderBox* RenderBox::firstInFlowChildBox() const
 
 inline RenderBox* RenderBox::lastChildBox() const
 {
-    if (is<RenderBox>(lastChild()))
-        return downcast<RenderBox>(lastChild());
+    if (auto* box = dynamicDowncast<RenderBox>(lastChild()))
+        return box;
 
     ASSERT(!lastChild());
     return nullptr;
@@ -847,8 +849,8 @@ inline RenderBox* RenderBox::lastInFlowChildBox() const
 
 inline RenderBox* RenderBox::previousSiblingBox() const
 {
-    if (is<RenderBox>(previousSibling()))
-        return downcast<RenderBox>(previousSibling());
+    if (auto* box = dynamicDowncast<RenderBox>(previousSibling()))
+        return box;
 
     ASSERT(!previousSibling());
     return nullptr;
@@ -865,8 +867,8 @@ inline RenderBox* RenderBox::previousInFlowSiblingBox() const
 
 inline RenderBox* RenderBox::nextSiblingBox() const
 {
-    if (is<RenderBox>(nextSibling()))
-        return downcast<RenderBox>(nextSibling());
+    if (auto* box = dynamicDowncast<RenderBox>(nextSibling()))
+        return box;
 
     ASSERT(!nextSibling());
     return nullptr;

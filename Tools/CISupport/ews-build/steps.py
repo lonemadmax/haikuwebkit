@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2023 Apple Inc. All rights reserved.
+# Copyright (C) 2018-2024 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -35,7 +35,7 @@ from .layout_test_failures import LayoutTestFailures
 from .send_email import send_email_to_patch_author, send_email_to_bot_watchers, send_email_to_github_admin, FROM_EMAIL
 from .results_db import ResultsDatabase
 from .twisted_additions import TwistedAdditions
-from .utils import load_password
+from .utils import load_password, get_custom_suffix
 
 import json
 import mock
@@ -49,11 +49,11 @@ if sys.version_info < (3, 5):
     print('ERROR: Please use Python 3. This code is not compatible with Python 2.')
     sys.exit(1)
 
-custom_suffix = '-uat' if load_password('BUILDBOT_UAT') else ''
+custom_suffix = get_custom_suffix()
 BUG_SERVER_URL = 'https://bugs.webkit.org/'
 COMMITS_INFO_URL = 'https://commits.webkit.org/'
 S3URL = 'https://s3-us-west-2.amazonaws.com/'
-S3_RESULTS_URL = 'https://ews-build{}.s3-us-west-2.amazonaws.com/'.format(custom_suffix)
+S3_RESULTS_URL = f'https://ews-build{custom_suffix}.s3-us-west-2.amazonaws.com/'
 CURRENT_HOSTNAME = socket.gethostname().strip()
 EWS_BUILD_HOSTNAME = 'ews-build.webkit.org'
 EWS_URL = 'https://ews.webkit.org/'
@@ -3161,6 +3161,8 @@ class CompileWebKit(shell.Compile, AddToLogMixin):
             # workspaces (rdar://88135402).
             if architecture:
                 self.setCommand(self.command + ['--architecture', architecture])
+            if CompileJSC.name not in self.name:
+                self.setCommand(self.command + ['-hideShellScriptEnvironment'])
             self.setCommand(self.command + ['WK_VALIDATE_DEPENDENCIES=YES'])
             if buildOnly:
                 # For build-only bots, the expectation is that tests will be run on separate machines,
@@ -3637,7 +3639,7 @@ class AnalyzeJSCTestsResults(buildstep.BuildStep, AddToLogMixin):
             # If we've made it here, then jsc-tests and re-run-jsc-tests failed, which means
             # there should have been some test failures. Otherwise there is some unexpected issue.
             clean_tree_run_status = self.getProperty('clean_tree_run_status', FAILURE)
-            if clean_tree_run_status == SUCCESS:
+            if clean_tree_run_status in [SUCCESS, WARNINGS]:
                 return self.report_failure(set(), set())
             # TODO: email EWS admins
             return self.retry_build('Unexpected infrastructure issue, retrying build')
@@ -4016,6 +4018,16 @@ class RunWebKitTests(shell.Test, AddToLogMixin):
                 steps_to_add += [
                     KillOldProcesses(),
                     ReRunWebKitTests(),
+                ]
+            else:
+                steps_to_add += [
+                    UnApplyPatch(),
+                    RevertPullRequestChanges(),
+                    ValidateChange(verifyBugClosed=False, addURLs=False),
+                    CompileWebKitWithoutChange(retry_build_on_failure=True),
+                    ValidateChange(verifyBugClosed=False, addURLs=False),
+                    KillOldProcesses(),
+                    RunWebKitTestsWithoutChange(),
                 ]
             self.build.addStepsAfterCurrentStep(steps_to_add)
 
@@ -4464,7 +4476,7 @@ class AnalyzeLayoutTestsResults(buildstep.BuildStep, BugzillaMixin, GitHubMixin)
             # If we've made it here, then layout-tests and re-run-layout-tests failed, which means
             # there should have been some test failures. Otherwise there is some unexpected issue.
             clean_tree_run_status = self.getProperty('clean_tree_run_status', FAILURE)
-            if clean_tree_run_status == SUCCESS:
+            if clean_tree_run_status in [SUCCESS, WARNINGS]:
                 rc = yield self.report_failure(set())
                 return defer.returnValue(rc)
             self.send_email_for_infrastructure_issue('Both first and second layout-test runs with patch generated no list of results but exited with error, and the clean_tree without change retry also failed.')
@@ -4924,20 +4936,18 @@ class UploadBuiltProduct(transfer.FileUpload):
 class UploadFileToS3(shell.ShellCommandNewStyle, AddToLogMixin):
     name = 'upload-file-to-s3'
     descriptionDone = name
-    haltOnFailure = False
-    flunkOnFailure = False
+    haltOnFailure = True
+    flunkOnFailure = True
 
     def __init__(self, **kwargs):
-        super().__init__(timeout=30 * 60, logEnviron=False, **kwargs)
+        super().__init__(timeout=31 * 60, logEnviron=False, **kwargs)
 
     @defer.inlineCallbacks
     def run(self):
         s3url = self.build.s3url
-        steps_to_add = [UploadBuiltProduct(), TransferToS3()]
         if not s3url:
             rc = FAILURE
             yield self._addToLog('stdio', f'Failed to get s3url: {s3url}')
-            self.build.addStepsAfterCurrentStep(steps_to_add)
             return defer.returnValue(rc)
 
         self.env = dict(UPLOAD_URL=s3url)
@@ -4946,12 +4956,19 @@ class UploadFileToS3(shell.ShellCommandNewStyle, AddToLogMixin):
 
         self.command = ['python3', 'Tools/Scripts/upload-file-to-url', '--filename', workersrc]
         rc = yield super().run()
-        if rc in [FAILURE, EXCEPTION]:
-            self.build.addStepsAfterCurrentStep(steps_to_add)
         return defer.returnValue(rc)
 
     def doStepIf(self, step):
         return CURRENT_HOSTNAME == EWS_BUILD_HOSTNAME
+
+    def getResultSummary(self):
+        if self.results == FAILURE:
+            return {'step': 'Failed to upload archive to S3. Please inform an admin.'}
+        if self.results == SKIPPED:
+            return {'step': 'Skipped upload to S3'}
+        if self.results in [SUCCESS, WARNINGS]:
+            return {'step': 'Uploaded archive to S3'}
+        return super().getResultSummary()
 
 
 class GenerateS3URL(master.MasterShellCommandNewStyle):

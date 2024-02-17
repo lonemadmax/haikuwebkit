@@ -173,7 +173,6 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
     WebCore::LayoutSize baseLayoutViewportSize;
     std::optional<WebCore::FontAttributes> cachedFontAttributesAtSelectionStart;
     Vector<Function<void()>> callbackHandlersAfterProcessingPendingMouseEvents;
-    WebCore::ResourceRequest decidePolicyForResponseRequest;
     WebCore::FloatSize defaultUnobscuredSize;
     EditorState editorState;
     WebCore::IntSize fixedLayoutSize;
@@ -342,7 +341,7 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
     std::unique_ptr<PaymentAuthorizationPresenter> paymentCoordinatorAuthorizationPresenter(WebPaymentCoordinatorProxy&, PKPaymentRequest *) final;
 #endif
 #if ENABLE(APPLE_PAY) && PLATFORM(IOS_FAMILY) && ENABLE(APPLE_PAY_REMOTE_UI_USES_SCENE)
-    void getWindowSceneIdentifierForPaymentPresentation(WebPageProxyIdentifier, CompletionHandler<void(const String&)>&&) final;
+    void getWindowSceneAndBundleIdentifierForPaymentPresentation(WebPageProxyIdentifier, CompletionHandler<void(const String&, const String&)>&&) final;
 #endif
 #if ENABLE(APPLE_PAY) && PLATFORM(MAC)
     NSWindow *paymentCoordinatorPresentingWindow(const WebPaymentCoordinatorProxy&) final;

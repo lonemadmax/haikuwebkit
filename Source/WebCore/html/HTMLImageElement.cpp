@@ -77,7 +77,7 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLImageElement);
 using namespace HTMLNames;
 
 HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
-    : HTMLElement(tagName, document, TypeFlag::HasCustomStyleResolveCallbacks)
+    : HTMLElement(tagName, document, { TypeFlag::HasCustomStyleResolveCallbacks, TypeFlag::HasDidMoveToNewDocument })
     , FormAssociatedElement(form)
     , ActiveDOMObject(document)
     , m_imageLoader(makeUnique<HTMLImageLoader>(*this))
@@ -356,7 +356,10 @@ void HTMLImageElement::attributeChanged(const QualifiedName& name, const AtomStr
     case AttributeNames::srcAttr:
     case AttributeNames::srcsetAttr:
     case AttributeNames::sizesAttr:
-        selectImageSource(RelevantMutation::Yes);
+        if (oldValue != newValue)
+            selectImageSource(RelevantMutation::Yes);
+        else
+            m_imageLoader->updateFromElementIgnoringPreviousErrorToSameValue();
         break;
     case AttributeNames::usemapAttr:
         if (isInTreeScope() && !m_parsedUsemap.isNull())
@@ -866,40 +869,12 @@ void HTMLImageElement::setAllowsAnimation(std::optional<bool> allowsAnimation)
 
 #if ENABLE(ATTACHMENT_ELEMENT)
 
-void HTMLImageElement::didUpdateAttachmentIdentifier()
-{
-    m_pendingClonedAttachmentID = { };
-}
-
 void HTMLImageElement::setAttachmentElement(Ref<HTMLAttachmentElement>&& attachment)
 {
-    if (auto existingAttachment = attachmentElement())
-        existingAttachment->remove();
-
-    attachment->setInlineStyleProperty(CSSPropertyDisplay, CSSValueNone, true);
-    ensureUserAgentShadowRoot().appendChild(WTFMove(attachment));
+    AttachmentAssociatedElement::setAttachmentElement(WTFMove(attachment));
 #if ENABLE(SERVICE_CONTROLS)
     setImageMenuEnabled(true);
 #endif
-}
-
-RefPtr<HTMLAttachmentElement> HTMLImageElement::attachmentElement() const
-{
-    if (auto shadowRoot = userAgentShadowRoot())
-        return childrenOfType<HTMLAttachmentElement>(*shadowRoot).first();
-
-    return nullptr;
-}
-
-const String& HTMLImageElement::attachmentIdentifier() const
-{
-    if (!m_pendingClonedAttachmentID.isEmpty())
-        return m_pendingClonedAttachmentID;
-
-    if (auto attachment = attachmentElement())
-        return attachment->uniqueIdentifier();
-
-    return nullAtom();
 }
 
 #endif // ENABLE(ATTACHMENT_ELEMENT)
@@ -944,11 +919,9 @@ bool HTMLImageElement::isSystemPreviewImage() const
 
 void HTMLImageElement::copyNonAttributePropertiesFromElement(const Element& source)
 {
-    auto& sourceImage = static_cast<const HTMLImageElement&>(source);
 #if ENABLE(ATTACHMENT_ELEMENT)
-    m_pendingClonedAttachmentID = !sourceImage.m_pendingClonedAttachmentID.isEmpty() ? sourceImage.m_pendingClonedAttachmentID : sourceImage.attachmentIdentifier();
-#else
-    UNUSED_PARAM(sourceImage);
+    auto& sourceImage = checkedDowncast<HTMLImageElement>(source);
+    copyAttachmentAssociatedPropertiesFromElement(sourceImage);
 #endif
     Element::copyNonAttributePropertiesFromElement(source);
 }
@@ -1054,10 +1027,7 @@ Ref<Element> HTMLImageElement::cloneElementWithoutAttributesAndChildren(Document
 {
     auto clone = create(targetDocument);
 #if ENABLE(ATTACHMENT_ELEMENT)
-    if (auto attachment = attachmentElement()) {
-        auto attachmentClone = attachment->cloneElementWithoutChildren(targetDocument);
-        clone->setAttachmentElement(checkedDowncast<HTMLAttachmentElement>(attachmentClone.get()));
-    }
+    cloneAttachmentAssociatedElementWithoutAttributesAndChildren(clone, targetDocument);
 #endif
     return clone;
 }

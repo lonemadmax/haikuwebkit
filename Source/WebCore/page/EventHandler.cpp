@@ -64,6 +64,7 @@
 #include "HTMLIFrameElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "HTMLPlugInElement.h"
 #include "HTMLVideoElement.h"
 #include "HandleUserInputEventResult.h"
 #include "HitTestRequest.h"
@@ -91,6 +92,7 @@
 #include "PointerCaptureController.h"
 #include "PointerEventTypeNames.h"
 #include "PseudoClassChangeInvalidation.h"
+#include "Quirks.h"
 #include "Range.h"
 #include "RemoteFrame.h"
 #include "RemoteFrameView.h"
@@ -2329,7 +2331,6 @@ HandleUserInputEventResult EventHandler::handleMouseReleaseEvent(const PlatformM
     return swallowMouseUpEvent || swallowClickEvent || swallowMouseReleaseEvent;
 }
 
-#if ENABLE(MOUSE_FORCE_EVENTS)
 bool EventHandler::handleMouseForceEvent(const PlatformMouseEvent& event)
 {
     Ref frame = m_frame.get();
@@ -2363,12 +2364,6 @@ bool EventHandler::handleMouseForceEvent(const PlatformMouseEvent& event)
 
     return swallowedEvent;
 }
-#else
-bool EventHandler::handleMouseForceEvent(const PlatformMouseEvent& )
-{
-    return false;
-}
-#endif // #if ENABLE(MOUSE_FORCE_EVENTS)
 
 bool EventHandler::handlePasteGlobalSelection(const PlatformMouseEvent& platformMouseEvent)
 {
@@ -3121,7 +3116,7 @@ HandleUserInputEventResult EventHandler::handleWheelEventInternal(const Platform
     }
 #endif
 
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || PLATFORM(WIN)
     LOG_WITH_STREAM(Scrolling, stream << "EventHandler::handleWheelEvent " << event << " processing steps " << processingSteps);
     auto monitor = frame->page()->wheelEventTestMonitor();
     if (monitor)
@@ -3341,17 +3336,14 @@ std::optional<WheelScrollGestureState> EventHandler::updateWheelGestureState(con
 
 void EventHandler::clearLatchedState()
 {
-    // Unable to ref the page as it may have started destruction.
-    WeakPtr page = m_frame->page();
+    RefPtrAllowingPartiallyDestroyed<Page> page = m_frame->page();
     if (!page)
         return;
 
 #if ENABLE(WHEEL_EVENT_LATCHING)
     LOG_WITH_STREAM(ScrollLatching, stream << "EventHandler::clearLatchedState()");
-    if (auto* scrollLatchingController = page->scrollLatchingControllerIfExists()) {
-        // Unable to ref the frame as it may have started destruction.
-        scrollLatchingController->removeLatchingStateForFrame(m_frame);
-    }
+    if (auto* scrollLatchingController = page->scrollLatchingControllerIfExists())
+        scrollLatchingController->removeLatchingStateForFrame(RefAllowingPartiallyDestroyed<LocalFrame> { m_frame.get() });
 #endif
 }
 
@@ -3757,9 +3749,9 @@ bool EventHandler::internalKeyEvent(const PlatformKeyboardEvent& initialKeyEvent
     }
 
 #if ENABLE(FULLSCREEN_API)
-    if (frame->document()->fullscreenManager().isFullscreen()) {
+    if (CheckedPtr fullscreenManager = frame->document()->fullscreenManagerIfExists(); fullscreenManager && fullscreenManager->isFullscreen()) {
         if (initialKeyEvent.type() == PlatformEvent::Type::KeyDown && initialKeyEvent.windowsVirtualKeyCode() == VK_ESCAPE) {
-            frame->protectedDocument()->fullscreenManager().cancelFullscreen();
+            fullscreenManager->cancelFullscreen();
             return true;
         }
 
@@ -4483,7 +4475,7 @@ void EventHandler::defaultPageUpDownEventHandler(KeyboardEvent& event)
 #if PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(WIN)
     ASSERT(event.type() == eventNames().keydownEvent);
 
-    if (event.ctrlKey() || event.metaKey() || event.altKey() || event.altGraphKey() || event.shiftKey())
+    if (event.ctrlKey() || event.metaKey() || event.altKey() || event.shiftKey())
         return;
 
     ScrollLogicalDirection direction = event.keyIdentifier() == "PageUp"_s ? ScrollBlockDirectionBackward : ScrollBlockDirectionForward;
@@ -4499,7 +4491,7 @@ void EventHandler::defaultHomeEndEventHandler(KeyboardEvent& event)
 #if PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(WIN)
     ASSERT(event.type() == eventNames().keydownEvent);
 
-    if (event.ctrlKey() || event.metaKey() || event.altKey() || event.altGraphKey() || event.shiftKey())
+    if (event.ctrlKey() || event.metaKey() || event.altKey() || event.shiftKey())
         return;
 
     ScrollLogicalDirection direction = event.keyIdentifier() == "Home"_s ? ScrollBlockDirectionBackward : ScrollBlockDirectionForward;
@@ -4516,7 +4508,7 @@ void EventHandler::defaultSpaceEventHandler(KeyboardEvent& event)
 
     ASSERT(event.type() == eventNames().keypressEvent);
 
-    if (event.ctrlKey() || event.metaKey() || event.altKey() || event.altGraphKey())
+    if (event.ctrlKey() || event.metaKey() || event.altKey())
         return;
 
     ScrollLogicalDirection direction = event.shiftKey() ? ScrollBlockDirectionBackward : ScrollBlockDirectionForward;
@@ -4543,7 +4535,7 @@ void EventHandler::defaultBackspaceEventHandler(KeyboardEvent& event)
 {
     ASSERT(event.type() == eventNames().keydownEvent);
 
-    if (event.ctrlKey() || event.metaKey() || event.altKey() || event.altGraphKey())
+    if (event.ctrlKey() || event.metaKey() || event.altKey())
         return;
 
     if (!m_frame->editor().behavior().shouldNavigateBackOnBackspace())
@@ -4589,6 +4581,13 @@ bool EventHandler::startKeyboardScrollAnimationOnDocument(ScrollDirection direct
     if (!view)
         return false;
 
+    if (RefPtr pluginDocument = dynamicDowncast<PluginDocument>(m_frame->document())) {
+        if (RefPtr plugin = dynamicDowncast<RenderEmbeddedObject>(pluginDocument->pluginElement()->renderer())) {
+            if (startKeyboardScrollAnimationOnPlugin(direction, granularity, *plugin, isKeyRepeat))
+                return true;
+        }
+    }
+
     auto* animator = view->scrollAnimator().keyboardScrollingAnimator();
     return beginKeyboardScrollGesture(animator, direction, granularity, isKeyRepeat);
 }
@@ -4614,6 +4613,20 @@ bool EventHandler::startKeyboardScrollAnimationOnRenderBoxAndItsAncestors(Scroll
     return false;
 }
 
+bool EventHandler::startKeyboardScrollAnimationOnPlugin(ScrollDirection direction, ScrollGranularity granularity, RenderEmbeddedObject& plugin, bool isKeyRepeat)
+{
+    if (!plugin.usesAsyncScrolling())
+        return false;
+    ScrollingNodeID scroller = plugin.scrollingNodeID();
+    ScrollableArea* scrollableArea = m_frame->view()->scrollableAreaForScrollingNodeID(scroller);
+    if (!scrollableArea)
+        return false;
+    auto* animator = scrollableArea->scrollAnimator().keyboardScrollingAnimator();
+    if (!animator)
+        return false;
+    return beginKeyboardScrollGesture(animator, direction, granularity, isKeyRepeat);
+}
+
 bool EventHandler::startKeyboardScrollAnimationOnEnclosingScrollableContainer(ScrollDirection direction, ScrollGranularity granularity, Node* startingNode, bool isKeyRepeat)
 {
     RefPtr node = startingNode;
@@ -4628,6 +4641,11 @@ bool EventHandler::startKeyboardScrollAnimationOnEnclosingScrollableContainer(Sc
         auto renderer = node->renderer();
         if (!renderer)
             return false;
+
+        if (RefPtr plugin = dynamicDowncast<RenderEmbeddedObject>(renderer)) {
+            if (startKeyboardScrollAnimationOnPlugin(direction, granularity, *plugin, isKeyRepeat))
+                return true;
+        }
 
         RenderBox& renderBox = renderer->enclosingBox();
         if (!renderer->isRenderListBox() && startKeyboardScrollAnimationOnRenderBoxAndItsAncestors(direction, granularity, &renderBox, isKeyRepeat))
@@ -4734,7 +4752,7 @@ void EventHandler::defaultArrowEventHandler(FocusDirection focusDirection, Keybo
         return;
     }
 
-    if (event.ctrlKey() || event.metaKey() || event.altGraphKey() || event.shiftKey())
+    if (event.ctrlKey() || event.metaKey() || event.shiftKey())
         return;
 
     RefPtr page = m_frame->page();
@@ -4757,7 +4775,7 @@ void EventHandler::defaultTabEventHandler(KeyboardEvent& event)
     ASSERT(event.type() == eventNames().keydownEvent);
 
     // We should only advance focus on tabs if no special modifier keys are held down.
-    if (event.ctrlKey() || event.metaKey() || event.altGraphKey())
+    if (event.ctrlKey() || event.metaKey())
         return;
 
     RefPtr page = frame->page();
@@ -4985,9 +5003,10 @@ HandleUserInputEventResult EventHandler::handleTouchEvent(const PlatformTouchEve
             pointerTarget = result.targetElement();
         }
 
-        if (!is<Node>(touchTarget))
+        RefPtr touchTargetNode = dynamicDowncast<Node>(touchTarget);
+        if (!touchTargetNode)
             continue;
-        auto& document = downcast<Node>(*touchTarget).document();
+        auto& document = touchTargetNode->document();
         if (!document.hasTouchEventHandlers())
             continue;
         RefPtr targetFrame = document.frame();

@@ -40,6 +40,7 @@
 #include "LayerProperties.h"
 #include "PlatformClass.h"
 #include "RValueWithFunctionCalls.h"
+#include "RemoteVideoFrameIdentifier.h"
 #if ENABLE(TEST_FEATURE)
 #include "SecondMemberType.h"
 #endif
@@ -104,6 +105,12 @@ Vector<SerializedTypeInfo> allSerializedTypes()
                 "dataDetectorResults"_s
             },
         } },
+        { "Namespace::ClassWithMemberPrecondition"_s, {
+            {
+                "RetainPtr<PKPaymentMethod>"_s,
+                "m_pkPaymentMethod"_s
+            },
+        } },
         { "Namespace::ReturnRefClass"_s, {
             {
                 "double"_s,
@@ -156,11 +163,23 @@ Vector<SerializedTypeInfo> allSerializedTypes()
         } },
         { "WebCore::InheritsFrom"_s, {
             {
+                "int"_s,
+                "a"_s
+            },
+            {
                 "float"_s,
                 "b"_s
             },
         } },
         { "WebCore::InheritanceGrandchild"_s, {
+            {
+                "int"_s,
+                "a"_s
+            },
+            {
+                "float"_s,
+                "b"_s
+            },
             {
                 "double"_s,
                 "c"_s
@@ -420,6 +439,26 @@ Vector<SerializedTypeInfo> allSerializedTypes()
             {
                 "SandboxExtensionHandle"_s,
                 "callFunction()"_s
+            },
+        } },
+        { "WebKit::RemoteVideoFrameReference"_s, {
+            {
+                "WebKit::RemoteVideoFrameIdentifier"_s,
+                "identifier()"_s
+            },
+            {
+                "uint64_t"_s,
+                "version()"_s
+            },
+        } },
+        { "WebKit::RemoteVideoFrameWriteReference"_s, {
+            {
+                "IPC::ObjectIdentifierReference<WebKit::RemoteVideoFrameIdentifier>"_s,
+                "reference()"_s
+            },
+            {
+                "uint64_t"_s,
+                "pendingReads()"_s
             },
         } },
         { "WebCore::SharedStringHash"_s, {

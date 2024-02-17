@@ -85,10 +85,15 @@ class UniqueElementData;
 class ValidatedFormListedElement;
 class WebAnimation;
 
+#if ENABLE(ATTACHMENT_ELEMENT)
+class AttachmentAssociatedElement;
+#endif
+
 enum class AnimationImpact : uint8_t;
 enum class EventHandling : uint8_t;
 enum class EventProcessing : uint8_t;
 enum class FullscreenNavigationUI : uint8_t;
+enum class FullscreenKeyboardLock : uint8_t;
 enum class IsSyntheticClick : bool { No, Yes };
 enum class ParserContentPolicy : uint8_t;
 enum class ResolveURLs : uint8_t { No, NoExcludingURLsForPrivacy, Yes, YesExcludingURLsForPrivacy };
@@ -119,6 +124,7 @@ enum class ContentRelevancy : uint8_t {
 namespace Style {
 class Resolver;
 enum class Change : uint8_t;
+struct PseudoElementIdentifier;
 struct ResolutionContext;
 struct ResolvedStyle;
 }
@@ -212,10 +218,6 @@ public:
     void scrollBy(double x, double y);
     virtual void scrollTo(const ScrollToOptions&, ScrollClamping = ScrollClamping::Clamped, ScrollSnapPointSelectionMethod = ScrollSnapPointSelectionMethod::Closest, std::optional<FloatSize> originalScrollDelta = std::nullopt);
     void scrollTo(double x, double y);
-
-    // These are only used by WebKitLegacy DOM API.
-    WEBCORE_EXPORT void scrollByLines(int lines);
-    WEBCORE_EXPORT void scrollByPages(int pages);
 
     WEBCORE_EXPORT int offsetLeftForBindings();
     WEBCORE_EXPORT int offsetLeft();
@@ -327,6 +329,10 @@ public:
     virtual ValidatedFormListedElement* asValidatedFormListedElement();
     virtual bool attributeContainsJavaScriptURL(const Attribute&) const;
 
+#if ENABLE(ATTACHMENT_ELEMENT)
+    virtual AttachmentAssociatedElement* asAttachmentAssociatedElement();
+#endif
+
     // Remove attributes that might introduce scripting from the vector leaving the element unchanged.
     void stripScriptingAttributes(Vector<Attribute>&) const;
 
@@ -414,7 +420,8 @@ public:
     WEBCORE_EXPORT ExceptionOr<void> insertAdjacentHTML(const String& where, const String& html);
     WEBCORE_EXPORT ExceptionOr<void> insertAdjacentText(const String& where, String&& text);
 
-    const RenderStyle* computedStyle(PseudoId = PseudoId::None) override;
+    using Node::computedStyle;
+    const RenderStyle* computedStyle(const std::optional<Style::PseudoElementIdentifier>&) override;
     const RenderStyle* computedStyleForEditability();
 
     bool needsStyleInvalidation() const;
@@ -430,6 +437,7 @@ public:
     bool descendantsAffectedByBackwardPositionalRules() const { return hasStyleFlag(NodeStyleFlag::DescendantsAffectedByBackwardPositionalRules); }
     bool affectsNextSiblingElementStyle() const { return hasStyleFlag(NodeStyleFlag::AffectsNextSiblingElementStyle); }
     bool styleIsAffectedByPreviousSibling() const { return hasStyleFlag(NodeStyleFlag::StyleIsAffectedByPreviousSibling); }
+    bool affectedByHasWithPositionalPseudoClass() const { return hasStyleFlag(NodeStyleFlag::AffectedByHasWithPositionalPseudoClass); }
     unsigned childIndex() const { return hasRareData() ? rareDataChildIndex() : 0; }
 
     bool hasFlagsSetDuringStylingOfChildren() const;
@@ -444,6 +452,7 @@ public:
     void setDescendantsAffectedByBackwardPositionalRules() { setStyleFlag(NodeStyleFlag::DescendantsAffectedByBackwardPositionalRules); }
     void setAffectsNextSiblingElementStyle() { setStyleFlag(NodeStyleFlag::AffectsNextSiblingElementStyle); }
     void setStyleIsAffectedByPreviousSibling() { setStyleFlag(NodeStyleFlag::StyleIsAffectedByPreviousSibling); }
+    void setAffectedByHasWithPositionalPseudoClass() { setStyleFlag(NodeStyleFlag::AffectedByHasWithPositionalPseudoClass); }
     void setChildIndex(unsigned);
 
     const AtomString& effectiveLang() const;
@@ -492,22 +501,24 @@ public:
  
     virtual String title() const;
 
-    WEBCORE_EXPORT const AtomString& pseudo() const;
-    WEBCORE_EXPORT void setPseudo(const AtomString&);
+    WEBCORE_EXPORT const AtomString& userAgentPart() const;
+    WEBCORE_EXPORT void setUserAgentPart(const AtomString&);
 
     // Use Document::registerForDocumentActivationCallbacks() to subscribe to these
     virtual void prepareForDocumentSuspension() { }
     virtual void resumeFromDocumentSuspension() { }
 
-    virtual void willBecomeFullscreenElement();
+    void willBecomeFullscreenElement();
     virtual void ancestorWillEnterFullscreen() { }
     virtual void didBecomeFullscreenElement() { }
     virtual void willStopBeingFullscreenElement() { }
     virtual void didStopBeingFullscreenElement() { }
 
     bool isFinishedParsingChildren() const { return isParsingChildrenFinished(); }
-    void finishParsingChildren() override;
-    void beginParsingChildren() final;
+    // Overriding these functions to make parsing a special case should be avoided if possible
+    // as that could lead to elements responding differently to the parser vs. other kinds of DOM mutations.
+    void beginParsingChildren() { clearIsParsingChildrenFinished(); }
+    virtual void finishParsingChildren();
 
     PseudoElement& ensurePseudoElement(PseudoId);
     WEBCORE_EXPORT PseudoElement* beforePseudoElement() const;
@@ -709,8 +720,9 @@ public:
     void invalidateEventListenerRegions();
 
     bool hasDisplayContents() const;
-    void storeDisplayContentsStyle(std::unique_ptr<RenderStyle>);
-    void clearDisplayContentsStyle();
+    bool hasDisplayNone() const;
+    void storeDisplayContentsOrNoneStyle(std::unique_ptr<RenderStyle>);
+    void clearDisplayContentsOrNoneStyle();
 
     using ContainerNode::setAttributeEventListener;
     void setAttributeEventListener(const AtomString& eventType, const QualifiedName& attributeName, const AtomString& value);
@@ -763,7 +775,7 @@ protected:
     InsertedIntoAncestorResult insertedIntoAncestor(InsertionType, ContainerNode&) override;
     void removedFromAncestor(RemovalType, ContainerNode&) override;
     void childrenChanged(const ChildChange&) override;
-    void removeAllEventListeners() final;
+    void removeAllEventListeners() override;
     virtual void parserDidSetAttributes();
 
     void setTabIndexExplicitly(std::optional<int>);
@@ -782,8 +794,6 @@ protected:
 
     FormAssociatedCustomElement& formAssociatedCustomElementUnsafe() const;
     void ensureFormAssociatedCustomElement();
-
-    void updateLabel(TreeScope&, const AtomString& oldForAttributeValue, const AtomString& newForAttributeValue);
 
     static AtomString makeTargetBlankIfHasDanglingMarkup(const AtomString& target);
 
@@ -829,8 +839,6 @@ private:
 
     ExceptionOr<Node*> insertAdjacent(const String& where, Ref<Node>&& newChild);
 
-    void scrollByUnits(int units, ScrollGranularity);
-
     bool childTypeAllowed(NodeType) const final;
 
     void notifyAttributeChanged(const QualifiedName&, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason = AttributeModificationReason::Directly);
@@ -862,7 +870,7 @@ private:
 
     enum class ResolveComputedStyleMode : uint8_t { Normal, RenderedOnly, Editability };
     const RenderStyle* resolveComputedStyle(ResolveComputedStyleMode = ResolveComputedStyleMode::Normal);
-    const RenderStyle& resolvePseudoElementStyle(PseudoId);
+    const RenderStyle& resolvePseudoElementStyle(const Style::PseudoElementIdentifier&);
 
     unsigned rareDataChildIndex() const;
 

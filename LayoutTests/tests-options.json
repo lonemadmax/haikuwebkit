@@ -4373,6 +4373,9 @@
     "imported/w3c/web-platform-tests/html/syntax/parsing/html5lib_plain-text-unsafe.html": [
         "slow"
     ],
+    "imported/w3c/web-platform-tests/html/syntax/parsing/html5lib_quirks01.html": [
+        "slow"
+    ],
     "imported/w3c/web-platform-tests/html/syntax/parsing/html5lib_ruby.html": [
         "slow"
     ],
@@ -5586,6 +5589,12 @@
         "slow"
     ],
     "imported/w3c/web-platform-tests/svg/animations/svglengthlist-animation-3.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/trusted-types/TrustedTypePolicyFactory-metadata.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/uievents/mouse/mouseevent_move_button.html": [

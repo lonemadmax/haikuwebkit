@@ -1,0 +1,35 @@
+
+FAIL embed.src accepts only TrustedScriptURL assert_throws_js: function "_ => {
+    elem[attribute] = value;
+  }" did not throw
+FAIL object.codeBase accepts only TrustedScriptURL assert_throws_js: function "_ => {
+    elem[attribute] = value;
+  }" did not throw
+FAIL object.data accepts only TrustedScriptURL assert_throws_js: function "_ => {
+    elem[attribute] = value;
+  }" did not throw
+FAIL script.src accepts only TrustedScriptURL assert_throws_js: function "_ => {
+    elem[attribute] = value;
+  }" did not throw
+FAIL div.innerHTML accepts only TrustedHTML assert_throws_js: function "_ => {
+    elem[attribute] = value;
+  }" did not throw
+FAIL iframe.srcdoc accepts only TrustedHTML assert_throws_js: function "_ => {
+    elem[attribute] = value;
+  }" did not throw
+FAIL embed.src accepts string and null after default policy was created assert_equals: expected "http://this.is.a.successful.test/" but got "http://this.is.a.scripturl.test/"
+FAIL object.codeBase accepts string and null after default policy was created assert_equals: expected "http://this.is.a.successful.test/" but got "http://this.is.a.scripturl.test/"
+FAIL object.data accepts string and null after default policy was created assert_equals: expected "http://this.is.a.successful.test/" but got "http://this.is.a.scripturl.test/"
+FAIL script.src accepts string and null after default policy was created assert_equals: expected "http://this.is.a.successful.test/" but got "http://this.is.a.scripturl.test/"
+FAIL div.innerHTML accepts string and null after default policy was created assert_equals: expected "Quack, I want to be a duck!" but got "Hi, I want to be transformed!"
+FAIL iframe.srcdoc accepts string and null after default policy was created assert_equals: expected "Quack, I want to be a duck!" but got "Hi, I want to be transformed!"
+FAIL script.text accepts only TrustedScript assert_throws_js: function "_ => {
+    elem[attribute] = value;
+  }" did not throw
+FAIL script.innerText accepts only TrustedScript assert_throws_js: function "_ => {
+    elem[attribute] = value;
+  }" did not throw
+FAIL script.textContent accepts only TrustedScript assert_throws_js: function "_ => {
+    elem[attribute] = value;
+  }" did not throw
+

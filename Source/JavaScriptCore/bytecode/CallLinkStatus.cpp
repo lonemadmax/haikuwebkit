@@ -140,16 +140,12 @@ CallLinkStatus CallLinkStatus::computeFor(
 CallLinkStatus CallLinkStatus::computeFromCallLinkInfo(
     const ConcurrentJSLocker&, CallLinkInfo& callLinkInfo)
 {
-    // We cannot tell you anything about direct calls.
-    if (callLinkInfo.isDirect())
-        return CallLinkStatus();
-    
     if (callLinkInfo.clearedByGC() || callLinkInfo.clearedByVirtual())
         return takesSlowPath();
     
     // Note that despite requiring that the locker is held, this code is racy with respect
     // to the CallLinkInfo: it may get cleared while this code runs! This is because
-    // CallLinkInfoBase::unlink() may be called from a different CodeBlock than the one that owns
+    // CallLinkInfoBase::unlinkOrUpgrade() may be called from a different CodeBlock than the one that owns
     // the CallLinkInfo and currently we save space by not having CallLinkInfos know who owns
     // them. So, there is no way for either the caller of CallLinkInfo::unlock() or unlock()
     // itself to figure out which lock to lock.

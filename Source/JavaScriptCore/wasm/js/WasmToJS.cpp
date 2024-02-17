@@ -100,8 +100,8 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
     } else
         jit.storePairPtr(GPRInfo::wasmContextInstancePointer, scratchGPR, GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(CallFrameSlot::codeBlock * sizeof(Register)));
 
-    callLinkInfo = OptimizingCallLinkInfo(CodeOrigin(), CallLinkInfo::UseDataIC::No);
-    callLinkInfo.setUpCall(CallLinkInfo::Call, importJSCellGPRReg);
+    callLinkInfo = OptimizingCallLinkInfo(CodeOrigin(), CallLinkInfo::UseDataIC::No, nullptr);
+    callLinkInfo.setUpCall(CallLinkInfo::Call);
 
     // https://webassembly.github.io/spec/js-api/index.html#exported-function-exotic-objects
     // If parameters or results contain v128, throw a TypeError.
@@ -332,15 +332,19 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
 
     // FIXME Tail call if the wasm return type is void and no registers were spilled. https://bugs.webkit.org/show_bug.cgi?id=165488
 
-    auto slowPath = CallLinkInfo::emitFastPath(jit, &callLinkInfo, importJSCellGPRReg, InvalidGPRReg);
-
-    JIT::Jump done = jit.jump();
-    slowPath.link(&jit);
-    auto slowPathStart = jit.label();
     // Callee needs to be in regT0 here.
-    jit.loadPtr(CCallHelpers::Address(GPRInfo::wasmContextInstancePointer, Instance::offsetOfGlobalObject()), GPRInfo::regT3);
-    callLinkInfo.emitSlowPath(vm, jit);
-    done.link(&jit);
+    jit.move(importJSCellGPRReg, BaselineJITRegisters::Call::calleeGPR);
+#if USE(JSVALUE32_64)
+    jit.move(CCallHelpers::TrustedImm32(JSValue::CellTag), BaselineJITRegisters::Call::calleeJSR.tagGPR());
+#endif
+    auto [slowPath, dispatchLabel] = CallLinkInfo::emitFastPath(jit, &callLinkInfo);
+
+    if (!slowPath.empty()) {
+        JIT::Jump done = jit.jump();
+        slowPath.link(&jit);
+        CallLinkInfo::emitSlowPath(vm, jit, &callLinkInfo);
+        done.link(&jit);
+    }
     auto doneLocation = jit.label();
 
     if (signature.returnCount() == 1) {
@@ -500,9 +504,7 @@ Expected<MacroAssemblerCodeRef<WasmEntryPtrTag>, BindingFailure> wasmToJS(VM& vm
     if (UNLIKELY(patchBuffer.didFailToAllocate()))
         return makeUnexpected(BindingFailure::OutOfMemory);
 
-    callLinkInfo.setCodeLocations(
-        patchBuffer.locationOf<JSInternalPtrTag>(slowPathStart),
-        patchBuffer.locationOf<JSInternalPtrTag>(doneLocation));
+    callLinkInfo.setCodeLocations(patchBuffer.locationOf<JSInternalPtrTag>(doneLocation));
 
     return FINALIZE_WASM_CODE(patchBuffer, WasmEntryPtrTag, "WebAssembly->JavaScript import[%i] %s", importIndex, signature.toString().ascii().data());
 }

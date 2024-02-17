@@ -48,7 +48,7 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLDataListElement);
 
 inline HTMLDataListElement::HTMLDataListElement(const QualifiedName& tagName, Document& document)
-    : HTMLElement(tagName, document)
+    : HTMLElement(tagName, document, TypeFlag::HasDidMoveToNewDocument)
 {
     document.incrementDataListElementCount();
 }
@@ -77,8 +77,10 @@ Ref<HTMLCollection> HTMLDataListElement::options()
 
 void HTMLDataListElement::optionElementChildrenChanged()
 {
-    if (auto& id = getIdAttribute(); !id.isEmpty())
-        treeScope().idTargetObserverRegistry().notifyObservers(id);
+    if (auto& id = getIdAttribute(); !id.isEmpty()) {
+        if (CheckedPtr observerRegistry = treeScope().idTargetObserverRegistryIfExists())
+            observerRegistry->notifyObservers(id);
+    }
 }
 
 auto HTMLDataListElement::suggestions() const -> SuggestionRange

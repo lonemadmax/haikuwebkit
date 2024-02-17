@@ -509,7 +509,7 @@ static ExceptionOr<RefPtr<Node>> processContentsBetweenOffsets(Range::ActionType
         }
         break;
     case Node::PROCESSING_INSTRUCTION_NODE: {
-        auto& instruction = downcast<ProcessingInstruction>(*container);
+        auto& instruction = uncheckedDowncast<ProcessingInstruction>(*container);
         endOffset = std::min(endOffset, instruction.data().length());
         startOffset = std::min(startOffset, endOffset);
         if (action == Range::Extract || action == Range::Clone) {
@@ -602,7 +602,7 @@ ExceptionOr<RefPtr<Node>> processAncestorsAndTheirSiblings(Range::ActionType act
     for (auto& ancestor : ancestors) {
         if (action == Range::Extract || action == Range::Clone) {
             if (auto shadowRoot = dynamicDowncast<ShadowRoot>(ancestor.get())) {
-                if (!shadowRoot->isCloneable())
+                if (!shadowRoot->isClonable())
                     continue;
             }
             Ref clonedAncestor = ancestor->cloneNode(false); // Might have been removed already during mutation event.
@@ -877,8 +877,8 @@ ExceptionOr<void> Range::surroundContents(Node& newParent)
         return fragment.releaseException();
 
     // Step 4: If newParent has children, replace all with null within newParent.
-    if (newParent.hasChildNodes())
-        downcast<ContainerNode>(newParent).replaceAll(nullptr);
+    if (auto* containerNode = dynamicDowncast<ContainerNode>(newParent); containerNode && containerNode->hasChildNodes())
+        containerNode->replaceAll(nullptr);
 
     // Step 5: Insert newParent into context object.
     auto insertResult = insertNode(newParent);

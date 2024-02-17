@@ -168,7 +168,7 @@ void TextBoxPainter<TextBoxPath>::paintBackground()
 #endif
         if (shouldPaintCompositionBackground)
             return true;
-        if (m_document.markers().hasMarkers())
+        if (CheckedPtr markers = m_document.markersIfExists(); markers && markers->hasMarkers())
             return true;
         if (m_document.hasHighlight())
             return true;
@@ -291,7 +291,7 @@ void TextBoxPainter<TextBoxPath>::paintForegroundAndDecorations()
             return true;
         if (shouldPaintSelectionForeground)
             return true;
-        if (m_document.markers().hasMarkers())
+        if (CheckedPtr markers = m_document.markersIfExists(); markers && markers->hasMarkers())
             return true;
         if (m_document.hasHighlight())
             return true;
@@ -661,7 +661,10 @@ void TextBoxPainter<TextBoxPath>::paintBackgroundDecorations(TextDecorationPaint
             auto overlineOffset = [&] {
                 if (!computedTextDecorationType.contains(TextDecorationLine::Overline))
                     return 0.f;
-                return autoTextDecorationThickness - textDecorationThickness - (decoratingBox.textDecorationStyles.overline.decorationStyle == TextDecorationStyle::Wavy ? wavyOffsetFromDecoration() : 0.f);
+                auto baseOffset = overlineOffsetForTextBoxPainting(*decoratingBox.inlineBox, decoratingBox.style);
+                baseOffset += (autoTextDecorationThickness - textDecorationThickness);
+                auto wavyOffset = decoratingBox.textDecorationStyles.overline.decorationStyle == TextDecorationStyle::Wavy ? wavyOffsetFromDecoration() : 0.f;
+                return baseOffset - wavyOffset;
             };
 
             return TextDecorationPainter::BackgroundDecorationGeometry {

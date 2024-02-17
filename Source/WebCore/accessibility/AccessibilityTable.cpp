@@ -335,8 +335,8 @@ bool AccessibilityTable::isDataTable() const
             elementsToVisit.push(currentElement);
         }
 
-        // If the first row is comprised of all <th> tags, assume it is a data table.
-        if (firstRow && currentParent == firstRow && rowIsAllTableHeaderCells && cellCountForEachRow.get(currentParent.get()) >= 1)
+        // If the first row of a multi-row table is comprised of all <th> tags, assume it is a data table.
+        if (firstRow && currentParent == firstRow && rowIsAllTableHeaderCells && cellCountForEachRow.get(currentParent.get()) >= 1 && rowCount >= 2)
             return true;
     }
 
@@ -892,7 +892,7 @@ bool AccessibilityTable::computeAccessibilityIsIgnored() const
     return false;
 }
 
-void AccessibilityTable::titleElementText(Vector<AccessibilityText>& textOrder) const
+void AccessibilityTable::labelText(Vector<AccessibilityText>& textOrder) const
 {
     String title = this->title();
     if (!title.isEmpty())

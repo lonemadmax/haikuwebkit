@@ -114,7 +114,7 @@ private:
     unsigned m_offsetAfterLastTypedCharacter { 0 };
 };
 
-typedef HashMap<RenderText*, std::unique_ptr<SecureTextTimer>> SecureTextTimerMap;
+using SecureTextTimerMap = HashMap<SingleThreadWeakRef<RenderText>, std::unique_ptr<SecureTextTimer>>;
 
 static SecureTextTimerMap& secureTextTimers()
 {
@@ -147,15 +147,15 @@ void SecureTextTimer::fired()
     m_renderer.setText(m_renderer.text(), true /* forcing setting text as it may be masked later */);
 }
 
-static HashMap<const RenderText*, String>& originalTextMap()
+static HashMap<SingleThreadWeakRef<const RenderText>, String>& originalTextMap()
 {
-    static NeverDestroyed<HashMap<const RenderText*, String>> map;
+    static NeverDestroyed<HashMap<SingleThreadWeakRef<const RenderText>, String>> map;
     return map;
 }
 
-static HashMap<const RenderText*, SingleThreadWeakPtr<RenderInline>>& inlineWrapperForDisplayContentsMap()
+static HashMap<SingleThreadWeakRef<const RenderText>, SingleThreadWeakPtr<RenderInline>>& inlineWrapperForDisplayContentsMap()
 {
-    static NeverDestroyed<HashMap<const RenderText*, SingleThreadWeakPtr<RenderInline>>> map;
+    static NeverDestroyed<HashMap<SingleThreadWeakRef<const RenderText>, SingleThreadWeakPtr<RenderInline>>> map;
     return map;
 }
 
@@ -203,8 +203,8 @@ String capitalize(const String& string, UChar previousCharacter)
 
 static LayoutRect selectionRectForTextBox(const InlineIterator::TextBox& textBox, unsigned rangeStart, unsigned rangeEnd)
 {
-    if (is<SVGInlineTextBox>(textBox.legacyInlineBox()))
-        return downcast<SVGInlineTextBox>(*textBox.legacyInlineBox()).localSelectionRect(rangeStart, rangeEnd);
+    if (auto* svgInlineTextBox = dynamicDowncast<SVGInlineTextBox>(textBox.legacyInlineBox()))
+        return svgInlineTextBox->localSelectionRect(rangeStart, rangeEnd);
 
     bool isCaretCase = rangeStart == rangeEnd;
 
@@ -493,8 +493,8 @@ void RenderText::collectSelectionGeometries(Vector<SelectionGeometry>& rects, un
 
 static FloatRect boundariesForTextBox(const InlineIterator::TextBox& textBox)
 {
-    if (is<SVGInlineTextBox>(textBox.legacyInlineBox()))
-        return downcast<SVGInlineTextBox>(*textBox.legacyInlineBox()).calculateBoundaries();
+    if (auto* svgInlineTextBox = dynamicDowncast<SVGInlineTextBox>(textBox.legacyInlineBox()))
+        return svgInlineTextBox->calculateBoundaries();
 
     return textBox.visualRectIgnoringBlockDirection();
 }
@@ -855,10 +855,12 @@ VisiblePosition RenderText::positionForPoint(const LayoutPoint& point, const Ren
 
 static inline std::optional<float> combineTextWidth(const RenderText& renderer, const FontCascade& fontCascade, const RenderStyle& style)
 {
-    if (!style.hasTextCombine() || !is<RenderCombineText>(renderer))
+    if (!style.hasTextCombine())
         return { };
-    auto& combineTextRenderer = downcast<RenderCombineText>(renderer);
-    return combineTextRenderer.isCombined() ? std::make_optional(combineTextRenderer.combinedTextWidth(fontCascade)) : std::nullopt;
+    auto* combineTextRenderer = dynamicDowncast<RenderCombineText>(renderer);
+    if (!combineTextRenderer)
+        return { };
+    return combineTextRenderer->isCombined() ? std::make_optional(combineTextRenderer->combinedTextWidth(fontCascade)) : std::nullopt;
 }
 
 ALWAYS_INLINE float RenderText::widthFromCache(const FontCascade& fontCascade, unsigned start, unsigned length, float xPos, SingleThreadWeakHashSet<const Font>* fallbackFonts, GlyphOverflow* glyphOverflow, const RenderStyle& style) const
@@ -1424,7 +1426,11 @@ Vector<std::pair<unsigned, unsigned>> RenderText::draggedContentRangesBetweenOff
     if (!textNode())
         return { };
 
-    auto markers = document().markers().markersFor(*textNode(), DocumentMarker::Type::DraggedContent);
+    CheckedPtr markerController = document().markersIfExists();
+    if (!markerController)
+        return { };
+
+    auto markers = markerController->markersFor(*textNode(), DocumentMarker::Type::DraggedContent);
     if (markers.isEmpty())
         return { };
 
@@ -1463,20 +1469,25 @@ void RenderText::setSelectionState(HighlightState state)
 
 static inline bool isInlineFlowOrEmptyText(const RenderObject& renderer)
 {
-    return is<RenderInline>(renderer) || (is<RenderText>(renderer) && downcast<RenderText>(renderer).text().isEmpty());
+    if (is<RenderInline>(renderer))
+        return true;
+    auto* textRenderer = dynamicDowncast<RenderText>(renderer);
+    return textRenderer && textRenderer->text().isEmpty();
 }
 
 UChar RenderText::previousCharacter() const
 {
-    // find previous text renderer if one exists
     const RenderObject* previousText = this;
     while ((previousText = previousText->previousInPreOrder())) {
+        if (!previousText->isInFlow())
+            continue;
         if (!isInlineFlowOrEmptyText(*previousText))
             break;
     }
-    if (!is<RenderText>(previousText))
+    auto* renderText = dynamicDowncast<RenderText>(previousText);
+    if (!renderText)
         return ' ';
-    auto& previousString = downcast<RenderText>(*previousText).text();
+    auto& previousString = renderText->text();
     return previousString[previousString.length() - 1];
 }
 
@@ -1642,10 +1653,10 @@ void RenderText::setRenderedText(const String& newText)
     m_hasStrongDirectionalityContent = { };
 
     if (m_text != originalText) {
-        originalTextMap().set(this, originalText);
+        originalTextMap().set(*this, originalText);
         m_originalTextDiffersFromRendered = true;
     } else if (m_originalTextDiffersFromRendered) {
-        originalTextMap().remove(this);
+        originalTextMap().remove(*this);
         m_originalTextDiffersFromRendered = false;
     }
 }
@@ -2051,7 +2062,7 @@ void RenderText::momentarilyRevealLastTypedCharacter(unsigned offsetAfterLastTyp
 {
     if (style().textSecurity() == TextSecurity::None)
         return;
-    auto& secureTextTimer = secureTextTimers().add(this, nullptr).iterator->value;
+    auto& secureTextTimer = secureTextTimers().add(*this, nullptr).iterator->value;
     if (!secureTextTimer)
         secureTextTimer = makeUnique<SecureTextTimer>(*this);
     secureTextTimer->restart(offsetAfterLastTypedCharacter);
@@ -2084,11 +2095,11 @@ void RenderText::setInlineWrapperForDisplayContents(RenderInline* wrapper)
     if (!wrapper) {
         if (!m_hasInlineWrapperForDisplayContents)
             return;
-        inlineWrapperForDisplayContentsMap().remove(this);
+        inlineWrapperForDisplayContentsMap().remove(*this);
         m_hasInlineWrapperForDisplayContents = false;
         return;
     }
-    inlineWrapperForDisplayContentsMap().add(this, wrapper);
+    inlineWrapperForDisplayContentsMap().add(*this, wrapper);
     m_hasInlineWrapperForDisplayContents = true;
 }
 
@@ -2143,10 +2154,11 @@ std::optional<bool> RenderText::emphasisMarkExistsAndIsAbove(const RenderText& r
     if (!containingBlock || !containingBlock->isRenderRubyBase())
         return isAbove; // This text is not inside a ruby base, so it does not have ruby text over it.
 
-    if (!is<RenderRubyRun>(*containingBlock->parent()))
+    auto* rubyRun = dynamicDowncast<RenderRubyRun>(*containingBlock->parent());
+    if (!rubyRun)
         return isAbove; // Cannot get the ruby text.
 
-    RenderRubyText* rubyText = downcast<RenderRubyRun>(*containingBlock->parent()).rubyText();
+    auto* rubyText = rubyRun->rubyText();
 
     // The emphasis marks over are suppressed only if there is a ruby text box and it not empty.
     if (rubyText && rubyText->hasLines())

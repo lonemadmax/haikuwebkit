@@ -67,7 +67,7 @@ class WebPageProxy;
 struct FrameInfoData;
 struct WebAuthenticationRequestData;
 
-using CapbilitiesCompletionHandler = CompletionHandler<void(const HashMap<WTF::String, bool>&)>;
+using CapabilitiesCompletionHandler = CompletionHandler<void(Vector<KeyValuePair<String, bool>>&&)>;
 using RequestCompletionHandler = CompletionHandler<void(const WebCore::AuthenticatorResponseData&, WebCore::AuthenticatorAttachment, const WebCore::ExceptionData&)>;
 
 class WebAuthenticatorCoordinatorProxy : public IPC::MessageReceiver {
@@ -93,8 +93,8 @@ private:
     void getAssertion(WebCore::FrameIdentifier, FrameInfoData&&, Vector<uint8_t>&& hash, WebCore::PublicKeyCredentialRequestOptions&&, WebCore::MediationRequirement, std::optional<WebCore::SecurityOriginData>, RequestCompletionHandler&&);
     void isUserVerifyingPlatformAuthenticatorAvailable(const WebCore::SecurityOriginData&, QueryCompletionHandler&&);
     void isConditionalMediationAvailable(const WebCore::SecurityOriginData&, QueryCompletionHandler&&);
-    void getClientCapabilities(const WebCore::SecurityOriginData&, CapbilitiesCompletionHandler&&);
-    void cancel();
+    void getClientCapabilities(const WebCore::SecurityOriginData&, CapabilitiesCompletionHandler&&);
+    void cancel(CompletionHandler<void()>&&);
 
     void handleRequest(WebAuthenticationRequestData&&, RequestCompletionHandler&&);
 
@@ -124,6 +124,7 @@ private:
 
     RetainPtr<ASCAuthorizationRemotePresenter> m_presenter;
     RetainPtr<ASCAgentProxy> m_proxy;
+    CompletionHandler<void()> m_cancelHandler;
 #endif // HAVE(UNIFIED_ASC_AUTH_UI)
 };
 

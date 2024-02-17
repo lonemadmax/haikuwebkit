@@ -29,7 +29,6 @@
 #include "DrawingArea.h"
 #include "MessageSenderInlines.h"
 #include "PluginView.h"
-#include "ShareableBitmap.h"
 #include "WKPage.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebFrame.h"
@@ -54,6 +53,7 @@
 #include <WebCore/PluginDocument.h>
 #include <WebCore/Range.h>
 #include <WebCore/RenderObject.h>
+#include <WebCore/ShareableBitmap.h>
 #include <WebCore/SimpleRange.h>
 
 #if PLATFORM(COCOA)
@@ -138,6 +138,9 @@ static RefPtr<LocalFrame> frameWithSelection(Page* page)
 
 void FindController::updateFindUIAfterPageScroll(bool found, const String& string, OptionSet<FindOptions> options, unsigned maxMatchCount, DidWrap didWrap, FindUIOriginator originator)
 {
+    if (options.contains(FindOptions::DoNotSetSelection))
+        return;
+
     RefPtr selectedFrame = frameWithSelection(m_webPage->corePage());
 
 #if ENABLE(PDF_PLUGIN)
@@ -238,7 +241,7 @@ void FindController::updateFindUIAfterPageScroll(bool found, const String& strin
         hideFindIndicator();
 }
 
-void FindController::findString(const String& string, OptionSet<FindOptions> options, unsigned maxMatchCount, TriggerImageAnalysis canTriggerImageAnalysis, CompletionHandler<void(bool)>&& completionHandler)
+void FindController::findString(const String& string, OptionSet<FindOptions> options, unsigned maxMatchCount, TriggerImageAnalysis canTriggerImageAnalysis, CompletionHandler<void(std::optional<FrameIdentifier>, bool)>&& completionHandler)
 {
 #if ENABLE(PDF_PLUGIN)
     auto* pluginView = mainFramePlugIn();
@@ -274,15 +277,19 @@ void FindController::findString(const String& string, OptionSet<FindOptions> opt
     m_findMatches.clear();
 
     bool found;
+    std::optional<FrameIdentifier> idOfFrameContainingString;
     DidWrap didWrap = DidWrap::No;
 #if ENABLE(PDF_PLUGIN)
     if (pluginView)
         found = pluginView->findString(string, coreOptions, maxMatchCount);
     else
 #endif
-        found = m_webPage->corePage()->findString(string, coreOptions, &didWrap);
+    {
+        idOfFrameContainingString = m_webPage->corePage()->findString(string, coreOptions, &didWrap);
+        found = idOfFrameContainingString.has_value();
+    }
 
-    if (found) {
+    if (found && !options.contains(FindOptions::DoNotSetSelection)) {
         didFindString();
 
         if (!foundStringStartsAfterSelection) {
@@ -307,10 +314,10 @@ void FindController::findString(const String& string, OptionSet<FindOptions> opt
     });
 
     if (completionHandler)
-        completionHandler(found);
+        completionHandler(idOfFrameContainingString, didWrap == DidWrap::Yes);
 }
 
-void FindController::findStringMatches(const String& string, OptionSet<FindOptions> options, unsigned maxMatchCount)
+void FindController::findStringMatches(const String& string, OptionSet<FindOptions> options, unsigned maxMatchCount, CompletionHandler<void(Vector<Vector<WebCore::IntRect>>, int32_t)>&& completionHandler)
 {
     auto result = m_webPage->corePage()->findTextMatches(string, core(options), maxMatchCount);
     m_findMatches = WTFMove(result.ranges);
@@ -318,7 +325,7 @@ void FindController::findStringMatches(const String& string, OptionSet<FindOptio
     auto matchRects = m_findMatches.map([](auto& range) {
         return RenderObject::absoluteTextRects(range);
     });
-    m_webPage->send(Messages::WebPageProxy::DidFindStringMatches(string, matchRects, result.indexForSelection));
+    completionHandler(matchRects, result.indexForSelection);
 
     if (!options.contains(FindOptions::ShowOverlay) && !options.contains(FindOptions::ShowFindIndicator))
         return;

@@ -95,6 +95,7 @@
 #include "PageTransitionEvent.h"
 #include "Performance.h"
 #include "PerformanceNavigationTiming.h"
+#include "Quirks.h"
 #include "RemoteFrame.h"
 #include "RequestAnimationFrameCallback.h"
 #include "ResourceLoadInfo.h"
@@ -420,7 +421,16 @@ LocalDOMWindow::LocalDOMWindow(Document& document)
 
 void LocalDOMWindow::didSecureTransitionTo(Document& document)
 {
+    RefPtr oldDocument = downcast<Document>(scriptExecutionContext());
     observeContext(&document);
+
+    if (auto* eventTargetData = this->eventTargetData()) {
+        eventTargetData->eventListenerMap.enumerateEventListenerTypes([&](auto& eventType, unsigned count) {
+            if (oldDocument)
+                oldDocument->didRemoveEventListenersOfType(eventType, count);
+            document.didAddEventListenersOfType(eventType, count);
+        });
+    }
 
     // The Window is being transferred from one document to another so we need to reset data
     // members that store the window's document (rather than the window itself).
@@ -622,15 +632,16 @@ ExceptionOr<Ref<NodeList>> LocalDOMWindow::collectMatchingElementsInFlatTree(Nod
     if (queryOrException.hasException())
         return queryOrException.releaseException();
 
-    if (!is<ContainerNode>(scope))
+    RefPtr scopeContainer = dynamicDowncast<ContainerNode>(scope);
+    if (!scopeContainer)
         return Ref<NodeList> { StaticElementList::create() };
 
     SelectorQuery& query = queryOrException.releaseReturnValue();
 
     Vector<Ref<Element>> result;
-    for (auto& node : composedTreeDescendants(downcast<ContainerNode>(scope))) {
-        if (is<Element>(node) && query.matches(downcast<Element>(node)) && !node.isInUserAgentShadowTree())
-            result.append(downcast<Element>(node));
+    for (auto& node : composedTreeDescendants(*scopeContainer)) {
+        if (RefPtr element = dynamicDowncast<Element>(node); element && query.matches(*element) && !node.isInUserAgentShadowTree())
+            result.append(element.releaseNonNull());
     }
 
     return Ref<NodeList> { StaticElementList::create(WTFMove(result)) };
@@ -642,14 +653,15 @@ ExceptionOr<RefPtr<Element>> LocalDOMWindow::matchingElementInFlatTree(Node& sco
     if (queryOrException.hasException())
         return queryOrException.releaseException();
 
-    if (!is<ContainerNode>(scope))
+    RefPtr scopeContainer = dynamicDowncast<ContainerNode>(scope);
+    if (!scopeContainer)
         return RefPtr<Element> { nullptr };
 
     SelectorQuery& query = queryOrException.releaseReturnValue();
 
-    for (auto& node : composedTreeDescendants(downcast<ContainerNode>(scope))) {
-        if (is<Element>(node) && query.matches(downcast<Element>(node)) && !node.isInUserAgentShadowTree())
-            return &downcast<Element>(node);
+    for (auto& node : composedTreeDescendants(*scopeContainer)) {
+        if (RefPtr element = dynamicDowncast<Element>(node); element && query.matches(*element) && !node.isInUserAgentShadowTree())
+            return element;
     }
 
     return RefPtr<Element> { nullptr };
@@ -682,8 +694,13 @@ History& LocalDOMWindow::history()
 Navigation& LocalDOMWindow::navigation()
 {
     if (!m_navigation)
-        m_navigation = Navigation::create(scriptExecutionContext(), *this);
+        m_navigation = Navigation::create(protectedScriptExecutionContext().get(), *this);
     return *m_navigation;
+}
+
+Ref<Navigation> LocalDOMWindow::protectedNavigation()
+{
+    return navigation();
 }
 
 Crypto& LocalDOMWindow::crypto() const
@@ -734,20 +751,6 @@ BarProp& LocalDOMWindow::toolbar()
     if (!m_toolbar)
         m_toolbar = BarProp::create(*this, BarProp::Toolbar);
     return *m_toolbar;
-}
-
-PageConsoleClient* LocalDOMWindow::console() const
-{
-    // FIXME: This should not return nullptr when frameless.
-    if (!isCurrentlyDisplayedInFrame())
-        return nullptr;
-    auto* frame = this->frame();
-    return frame->page() ? &frame->page()->console() : nullptr;
-}
-
-CheckedPtr<PageConsoleClient> LocalDOMWindow::checkedConsole() const
-{
-    return console();
 }
 
 DOMApplicationCache& LocalDOMWindow::applicationCache()
@@ -1088,38 +1091,8 @@ void LocalDOMWindow::blur()
     page->chrome().unfocus();
 }
 
-void LocalDOMWindow::close(Document& document)
+void LocalDOMWindow::closePage()
 {
-    if (!document.canNavigate(protectedFrame().get()))
-        return;
-    close();
-}
-
-void LocalDOMWindow::close()
-{
-    RefPtr frame = this->frame();
-    if (!frame)
-        return;
-
-    RefPtr page = frame->page();
-    if (!page)
-        return;
-
-    if (!frame->isMainFrame())
-        return;
-
-    if (!(page->openedByDOM() || page->backForward().count() <= 1)) {
-        checkedConsole()->addMessage(MessageSource::JS, MessageLevel::Warning, "Can't close the window since it was not opened by JavaScript"_s);
-        return;
-    }
-
-    if (!frame->checkedLoader()->shouldClose())
-        return;
-
-    ResourceLoadObserver::shared().updateCentralStatisticsStore([] { });
-
-    page->setIsClosing();
-
     protectedDocument()->checkedEventLoop()->queueTask(TaskSource::DOMManipulation, [this, protectedThis = Ref { *this }] {
         // Calling closeWindow() may destroy the page.
         if (auto* page = this->page())
@@ -1458,16 +1431,6 @@ int LocalDOMWindow::scrollY() const
     return viewAfterLayout->mapFromLayoutToCSSUnits(viewAfterLayout->contentsScrollPosition().y());
 }
 
-bool LocalDOMWindow::closed() const
-{
-    RefPtr frame = this->frame();
-    if (!frame)
-        return true;
-
-    RefPtr page = frame->page();
-    return !page || page->isClosing();
-}
-
 unsigned LocalDOMWindow::length() const
 {
     if (!isCurrentlyDisplayedInFrame())
@@ -1499,49 +1462,10 @@ void LocalDOMWindow::setStatus(const String& string)
     m_status = string;
 }
 
-WindowProxy* LocalDOMWindow::opener() const
-{
-    // FIXME: <rdar://118263278> Move LocalDOMWindow::opener and RemoteDOMWindow::opener to DOMWindow.
-    RefPtr frame = this->frame();
-    if (!frame)
-        return nullptr;
-
-    RefPtr openerFrame = frame->loader().opener();
-    if (!openerFrame)
-        return nullptr;
-
-    return &openerFrame->windowProxy();
-}
-
 void LocalDOMWindow::disownOpener()
 {
     if (RefPtr frame = this->frame())
         frame->checkedLoader()->setOpener(nullptr);
-}
-
-WindowProxy* LocalDOMWindow::parent() const
-{
-    RefPtr frame = this->frame();
-    if (!frame)
-        return nullptr;
-
-    RefPtr parentFrame = frame->tree().parent();
-    if (parentFrame)
-        return &parentFrame->windowProxy();
-
-    return &frame->windowProxy();
-}
-
-WindowProxy* LocalDOMWindow::top() const
-{
-    RefPtr frame = this->frame();
-    if (!frame)
-        return nullptr;
-
-    if (!frame->page())
-        return nullptr;
-
-    return &frame->tree().top().windowProxy();
 }
 
 String LocalDOMWindow::origin() const
@@ -1681,11 +1605,15 @@ StyleMedia& LocalDOMWindow::styleMedia()
 
 Ref<CSSStyleDeclaration> LocalDOMWindow::getComputedStyle(Element& element, const String& pseudoElt) const
 {
-    std::optional<PseudoId> pseudoId = PseudoId::None;
+    if (!pseudoElt.startsWith(':'))
+        return CSSComputedStyleDeclaration::create(element, std::nullopt);
+
     // FIXME: This does not work for pseudo-elements that take arguments (webkit.org/b/264103).
-    if (pseudoElt.startsWith(":"_s))
-        pseudoId = CSSSelector::parseStandalonePseudoElement(pseudoElt, CSSSelectorParserContext { element.document() });
-    return CSSComputedStyleDeclaration::create(element, pseudoId);
+    auto pseudoId = CSSSelector::parsePseudoElement(pseudoElt, CSSSelectorParserContext { element.document() });
+    if (!pseudoId)
+        return CSSComputedStyleDeclaration::createEmpty(element);
+    // FIXME: CSSSelector::parsePseudoElement should never return PseudoId::None.
+    return CSSComputedStyleDeclaration::create(element, pseudoId == PseudoId::None ? std::nullopt : std::optional(Style::PseudoElementIdentifier { *pseudoId }));
 }
 
 RefPtr<CSSRuleList> LocalDOMWindow::getMatchedCSSRules(Element* element, const String& pseudoElement, bool authorOnly) const
@@ -1695,7 +1623,7 @@ RefPtr<CSSRuleList> LocalDOMWindow::getMatchedCSSRules(Element* element, const S
 
     // FIXME: This parser context won't get the right settings without a document.
     auto parserContext = document() ? CSSSelectorParserContext { *document() } : CSSSelectorParserContext { CSSParserContext { HTMLStandardMode } };
-    auto optionalPseudoId = CSSSelector::parseStandalonePseudoElement(pseudoElement, parserContext);
+    auto optionalPseudoId = CSSSelector::parsePseudoElement(pseudoElement, parserContext);
     if (!optionalPseudoId && !pseudoElement.isEmpty())
         return nullptr;
     auto pseudoId = optionalPseudoId ? *optionalPseudoId : PseudoId::None;
@@ -2051,42 +1979,54 @@ bool LocalDOMWindow::addEventListener(const AtomString& eventType, Ref<EventList
 
     RefPtr document = this->document();
     auto& eventNames = WebCore::eventNames();
+    auto typeInfo = eventNames.typeInfoForEvent(eventType);
     if (document) {
-        document->addListenerTypeIfNeeded(eventType);
-        if (eventNames.isWheelEventType(eventType))
+        document->didAddEventListenersOfType(eventType);
+        if (typeInfo.isInCategory(EventCategory::Wheel)) {
             document->didAddWheelEventHandler(*document);
-        else if (eventNames.isTouchRelatedEventType(eventType, *document))
+            document->invalidateEventListenerRegions();
+        } else if (isTouchRelatedEventType(typeInfo, *document))
             document->didAddTouchEventHandler(*document);
         else if (eventType == eventNames.storageEvent)
             didAddStorageEventListener(*this);
     }
 
-    if (eventType == eventNames.unloadEvent)
+    switch (typeInfo.type()) {
+    case EventType::unload:
         addUnloadEventListener(this);
-    else if (eventType == eventNames.beforeunloadEvent && allowsBeforeUnloadListeners(this))
-        addBeforeUnloadEventListener(this);
+        break;
+    case EventType::beforeunload:
+        if (allowsBeforeUnloadListeners(this))
+            addBeforeUnloadEventListener(this);
+        break;
 #if PLATFORM(IOS_FAMILY)
-    else if (eventType == eventNames.scrollEvent)
+    case EventType::scroll:
         incrementScrollEventListenersCount();
-#endif
-#if ENABLE(IOS_TOUCH_EVENTS)
-    else if (document && eventNames.isTouchRelatedEventType(eventType, *document))
-        ++m_touchAndGestureEventListenerCount;
-#endif
-#if ENABLE(IOS_GESTURE_EVENTS)
-    else if (eventNames.isGestureEventType(eventType))
-        ++m_touchAndGestureEventListenerCount;
-#endif
-#if ENABLE(GAMEPAD)
-    else if (eventNames.isGamepadEventType(eventType))
-        incrementGamepadEventListenerCount();
+        break;
 #endif
 #if ENABLE(DEVICE_ORIENTATION)
-    else if (eventType == eventNames.deviceorientationEvent)
+    case EventType::deviceorientation:
         startListeningForDeviceOrientationIfNecessary();
-    else if (eventType == eventNames.devicemotionEvent)
+        break;
+    case EventType::devicemotion:
         startListeningForDeviceMotionIfNecessary();
+        break;
 #endif
+    default:
+#if ENABLE(IOS_TOUCH_EVENTS)
+        if (isTouchRelatedEventType(typeInfo, *document))
+            ++m_touchAndGestureEventListenerCount;
+#endif
+#if ENABLE(IOS_GESTURE_EVENTS)
+        if (typeInfo.isInCategory(EventCategory::Gesture))
+            ++m_touchAndGestureEventListenerCount;
+#endif
+#if ENABLE(GAMEPAD)
+        if (typeInfo.isInCategory(EventCategory::Gamepad))
+            incrementGamepadEventListenerCount();
+#endif
+        break;
+    }
 
     return true;
 }
@@ -2295,43 +2235,56 @@ bool LocalDOMWindow::removeEventListener(const AtomString& eventType, EventListe
 
     RefPtr document = this->document();
     auto& eventNames = WebCore::eventNames();
+    auto typeInfo = eventNames.typeInfoForEvent(eventType);
     if (document) {
-        if (eventNames.isWheelEventType(eventType))
+        document->didRemoveEventListenersOfType(eventType);
+        if (typeInfo.isInCategory(EventCategory::Wheel)) {
             document->didRemoveWheelEventHandler(*document);
-        else if (eventNames.isTouchRelatedEventType(eventType, *document))
+            document->invalidateEventListenerRegions();
+        } else if (isTouchRelatedEventType(typeInfo, *document))
             document->didRemoveTouchEventHandler(*document);
     }
 
-    if (eventType == eventNames.unloadEvent)
+    switch (typeInfo.type()) {
+    case EventType::unload:
         removeUnloadEventListener(this);
-    else if (eventType == eventNames.beforeunloadEvent && allowsBeforeUnloadListeners(this))
-        removeBeforeUnloadEventListener(this);
+        break;
+    case EventType::beforeunload:
+        if (allowsBeforeUnloadListeners(this))
+            removeBeforeUnloadEventListener(this);
+        break;
 #if PLATFORM(IOS_FAMILY)
-    else if (eventType == eventNames.scrollEvent)
+    case EventType::scroll:
         decrementScrollEventListenersCount();
-#endif
-#if ENABLE(IOS_TOUCH_EVENTS)
-    else if (document && eventNames.isTouchRelatedEventType(eventType, *document)) {
-        ASSERT(m_touchAndGestureEventListenerCount > 0);
-        --m_touchAndGestureEventListenerCount;
-    }
-#endif
-#if ENABLE(IOS_GESTURE_EVENTS)
-    else if (eventNames.isGestureEventType(eventType)) {
-        ASSERT(m_touchAndGestureEventListenerCount > 0);
-        --m_touchAndGestureEventListenerCount;
-    }
-#endif
-#if ENABLE(GAMEPAD)
-    else if (eventNames.isGamepadEventType(eventType))
-        decrementGamepadEventListenerCount();
+        break;
 #endif
 #if ENABLE(DEVICE_ORIENTATION)
-    else if (eventType == eventNames.deviceorientationEvent)
+    case EventType::deviceorientation:
         stopListeningForDeviceOrientationIfNecessary();
-    else if (eventType == eventNames.devicemotionEvent)
+        break;
+    case EventType::devicemotion:
         stopListeningForDeviceMotionIfNecessary();
+        break;
 #endif
+    default:
+#if ENABLE(IOS_TOUCH_EVENTS)
+        if (document && isTouchRelatedEventType(typeInfo, *document)) {
+            ASSERT(m_touchAndGestureEventListenerCount > 0);
+            --m_touchAndGestureEventListenerCount;
+        }
+#endif
+#if ENABLE(IOS_GESTURE_EVENTS)
+        if (typeInfo.isInCategory(EventCategory::Gesture)) {
+            ASSERT(m_touchAndGestureEventListenerCount > 0);
+            --m_touchAndGestureEventListenerCount;
+        }
+#endif
+#if ENABLE(GAMEPAD)
+        if (typeInfo.isInCategory(EventCategory::Gamepad))
+            decrementGamepadEventListenerCount();
+#endif
+        break;
+    }
 
     return true;
 }

@@ -507,8 +507,8 @@ Protocol::ErrorStringOr<std::tuple<RefPtr<JSON::ArrayOf<Protocol::CSS::RuleMatch
                 auto entry = Protocol::CSS::InheritedStyleEntry::create()
                     .setMatchedCSSRules(buildArrayForMatchedRuleList(parentMatchedRules, styleResolver, ancestor, PseudoId::None))
                     .release();
-                if (is<StyledElement>(ancestor) && downcast<StyledElement>(ancestor).cssomStyle().length()) {
-                    auto& styleSheet = asInspectorStyleSheet(downcast<StyledElement>(ancestor));
+                if (RefPtr styledElement = dynamicDowncast<StyledElement>(ancestor); styledElement && styledElement->cssomStyle().length()) {
+                    auto& styleSheet = asInspectorStyleSheet(*styledElement);
                     entry->setInlineStyle(styleSheet.buildObjectForStyle(styleSheet.styleForId(InspectorCSSId(styleSheet.id(), 0))));
                 }
                 inherited->addItem(WTFMove(entry));
@@ -527,12 +527,12 @@ Protocol::ErrorStringOr<std::tuple<RefPtr<Protocol::CSS::CSSStyle> /* inlineStyl
     if (!element)
         return makeUnexpected(errorString);
 
-    if (!is<StyledElement>(element))
+    RefPtr styledElement = dynamicDowncast<StyledElement>(*element);
+    if (!styledElement)
         return { { nullptr, nullptr } };
 
-    auto& styledElement = downcast<StyledElement>(*element);
-    auto& styleSheet = asInspectorStyleSheet(styledElement);
-    return { { styleSheet.buildObjectForStyle(&styledElement.cssomStyle()), buildObjectForAttributesStyle(styledElement) } };
+    auto& styleSheet = asInspectorStyleSheet(*styledElement);
+    return { { styleSheet.buildObjectForStyle(&styledElement->cssomStyle()), buildObjectForAttributesStyle(*styledElement) } };
 }
 
 Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Protocol::CSS::CSSComputedStyleProperty>>> InspectorCSSAgent::getComputedStyleForNode(Protocol::DOM::NodeId nodeId)
@@ -546,7 +546,7 @@ Protocol::ErrorStringOr<Ref<JSON::ArrayOf<Protocol::CSS::CSSComputedStylePropert
     if (!element->isConnected())
         return makeUnexpected("Element for given nodeId was not connected to DOM tree."_s);
 
-    auto computedStyleInfo = CSSComputedStyleDeclaration::create(*element, true);
+    auto computedStyleInfo = CSSComputedStyleDeclaration::create(*element, CSSComputedStyleDeclaration::AllowVisited::Yes);
     auto inspectorStyle = InspectorStyle::create(InspectorCSSId(), WTFMove(computedStyleInfo), nullptr);
     return inspectorStyle->buildArrayForComputedStyle();
 }
@@ -1036,7 +1036,7 @@ OptionSet<InspectorCSSAgent::LayoutFlag> InspectorCSSAgent::layoutFlagsForNode(N
                 if (frameView->isScrollable())
                     layoutFlags.add(InspectorCSSAgent::LayoutFlag::Scrollable);
             }
-        } else if (is<RenderBox>(*renderer) && downcast<RenderBox>(*renderer).canBeScrolledAndHasScrollableArea())
+        } else if (CheckedPtr renderBox = dynamicDowncast<RenderBox>(*renderer); renderBox && renderBox->canBeScrolledAndHasScrollableArea())
             layoutFlags.add(InspectorCSSAgent::LayoutFlag::Scrollable);
     }
 
@@ -1254,7 +1254,8 @@ RefPtr<Protocol::CSS::CSSRule> InspectorCSSAgent::buildObjectForRule(const Style
 
     // StyleRules returned by Style::Resolver::styleRulesForElement lack parent pointers since that infomation is not cheaply available.
     // Since the inspector wants to walk the parent chain, we construct the full wrappers here.
-    styleResolver.inspectorCSSOMWrappers().collectDocumentWrappers(styleResolver.document().extensionStyleSheets());
+    if (auto* extensionStyleSheets = styleResolver.document().extensionStyleSheetsIfExists())
+        styleResolver.inspectorCSSOMWrappers().collectDocumentWrappers(*extensionStyleSheets);
     styleResolver.inspectorCSSOMWrappers().collectScopeWrappers(Style::Scope::forNode(element));
 
     // Possiblity of :host styles if this element has a shadow root.

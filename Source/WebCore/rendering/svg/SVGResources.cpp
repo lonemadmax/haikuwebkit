@@ -77,6 +77,7 @@ static const MemoryCompactLookupOnlyRobinHoodHashSet<AtomString>& clipperFilterM
         &SVGNames::polylineTag,
         &SVGNames::rectTag,
         &SVGNames::svgTag,
+        &SVGNames::switchTag,
         &SVGNames::textTag,
         &SVGNames::useTag,
 
@@ -98,7 +99,7 @@ static const MemoryCompactLookupOnlyRobinHoodHashSet<AtomString>& clipperFilterM
         &SVGNames::foreignObjectTag,
 
         // Elements that we ignore, as it doesn't make any sense.
-        // defs, pattern, switch (FIXME: Mail SVG WG about these)
+        // defs, pattern (FIXME: Mail SVG WG about these)
         // symbol (is converted to a svg element, when referenced by use, we can safely ignore it.)
     };
     static NeverDestroyed set = tagSet(tags);
@@ -307,22 +308,38 @@ std::unique_ptr<SVGResources> SVGResources::buildCachedResources(const RenderEle
     return foundResources;
 }
 
-void SVGResources::layoutDifferentRootIfNeeded(const LegacyRenderSVGRoot* svgRoot)
+void SVGResources::layoutDifferentRootIfNeeded(const RenderElement& resourcesClient)
 {
-    auto layoutDifferentRootIfNeeded = [&](RenderElement* container) {
+    const LegacyRenderSVGRoot* clientRoot = nullptr;
+
+    auto layoutDifferentRootIfNeeded = [&](LegacyRenderSVGResourceContainer* container) {
         if (!container)
             return;
+
         auto* root = SVGRenderSupport::findTreeRootObject(*container);
-        if (svgRoot == root || root->isInLayout())
+        if (root->isInLayout())
             return;
+
+        if (!clientRoot)
+            clientRoot = SVGRenderSupport::findTreeRootObject(resourcesClient);
+
+        if (clientRoot == root)
+            return;
+
         container->layoutIfNeeded();
     };
-    layoutDifferentRootIfNeeded(clipper());
-    layoutDifferentRootIfNeeded(masker());
-    layoutDifferentRootIfNeeded(filter());
-    layoutDifferentRootIfNeeded(markerStart());
-    layoutDifferentRootIfNeeded(markerMid());
-    layoutDifferentRootIfNeeded(markerEnd());
+
+    if (m_clipperFilterMaskerData) {
+        layoutDifferentRootIfNeeded(m_clipperFilterMaskerData->clipper.get());
+        layoutDifferentRootIfNeeded(m_clipperFilterMaskerData->masker.get());
+        layoutDifferentRootIfNeeded(m_clipperFilterMaskerData->filter.get());
+    }
+
+    if (m_markerData) {
+        layoutDifferentRootIfNeeded(m_markerData->markerStart.get());
+        layoutDifferentRootIfNeeded(m_markerData->markerMid.get());
+        layoutDifferentRootIfNeeded(m_markerData->markerEnd.get());
+    }
 }
 
 bool SVGResources::markerReverseStart() const

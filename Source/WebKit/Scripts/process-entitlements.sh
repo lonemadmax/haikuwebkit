@@ -175,15 +175,13 @@ function mac_process_network_entitlements()
 function webcontent_sandbox_entitlements()
 {
     plistbuddy Add :com.apple.private.security.mutable-state-flags array
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:0 string AppCacheDisabled
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:1 string EnableExperimentalSandbox
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:2 string BlockIOKitInWebContentSandbox
-    plistbuddy Add :com.apple.private.security.mutable-state-flags:3 string local:WebContentProcessLaunched
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:0 string EnableExperimentalSandbox
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:1 string BlockIOKitInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:2 string local:WebContentProcessLaunched
     plistbuddy Add :com.apple.private.security.enable-state-flags array
-    plistbuddy Add :com.apple.private.security.enable-state-flags:0 string AppCacheDisabled
-    plistbuddy Add :com.apple.private.security.enable-state-flags:1 string EnableExperimentalSandbox
-    plistbuddy Add :com.apple.private.security.enable-state-flags:2 string BlockIOKitInWebContentSandbox
-    plistbuddy Add :com.apple.private.security.enable-state-flags:3 string local:WebContentProcessLaunched
+    plistbuddy Add :com.apple.private.security.enable-state-flags:0 string EnableExperimentalSandbox
+    plistbuddy Add :com.apple.private.security.enable-state-flags:1 string BlockIOKitInWebContentSandbox
+    plistbuddy Add :com.apple.private.security.enable-state-flags:2 string local:WebContentProcessLaunched
 }
 
 function mac_process_webcontent_shared_entitlements()
@@ -361,7 +359,7 @@ function ios_family_process_webcontent_shared_entitlements()
     plistbuddy Add :com.apple.private.webinspector.proxy-application bool YES
     plistbuddy Add :com.apple.private.webkit.use-xpc-endpoint bool YES
     plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
-if [[ "${PRODUCT_NAME}" != WebContentExtension ]]; then
+if [[ "${PRODUCT_NAME}" != WebContentExtension && "${PRODUCT_NAME}" != WebContentCaptivePortalExtension ]]; then
     plistbuddy Add :com.apple.private.gpu-restricted bool YES
     plistbuddy Add :com.apple.private.pac.exception bool YES
     plistbuddy Add :com.apple.private.sandbox.profile string com.apple.WebKit.WebContent
@@ -495,9 +493,7 @@ plistbuddy Clear dict
 # Simulator entitlements should be added to Resources/ios/XPCService-ios-simulator.entitlements
 if [[ "${WK_PLATFORM_NAME}" =~ .*simulator ]]
 then
-    if [[ "${PRODUCT_NAME}" != adattributiond && "${PRODUCT_NAME}" != webpushd ]]; then
-        cp "${CODE_SIGN_ENTITLEMENTS}" "${WK_PROCESSED_XCENT_FILE}"
-    fi
+    exit 0
 elif [[ "${WK_PLATFORM_NAME}" == macosx ]]
 then
     [[ "${RC_XBS}" != YES ]] && plistbuddy Add :com.apple.security.get-task-allow bool YES
@@ -529,6 +525,7 @@ then
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent ]]; then ios_family_process_webcontent_entitlements
     elif [[ "${PRODUCT_NAME}" == WebContentExtension ]]; then ios_family_process_webcontent_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.WebContent.CaptivePortal ]]; then ios_family_process_webcontent_captiveportal_entitlements
+    elif [[ "${PRODUCT_NAME}" == WebContentCaptivePortalExtension ]]; then ios_family_process_webcontent_captiveportal_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.Networking ]]; then ios_family_process_network_entitlements
     elif [[ "${PRODUCT_NAME}" == NetworkingExtension ]]; then ios_family_process_network_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.GPU ]]; then ios_family_process_gpu_entitlements

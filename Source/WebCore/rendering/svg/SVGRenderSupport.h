@@ -84,11 +84,9 @@ public:
     static void clipContextToCSSClippingArea(GraphicsContext&, const RenderElement& renderer);
 
     static void styleChanged(RenderElement&, const RenderStyle*);
-    
-#if ENABLE(CSS_COMPOSITING)
+
     static bool isolatesBlending(const RenderStyle&);
     static void updateMaskedAncestorShouldIsolateBlending(const RenderElement&);
-#endif
 
     static LegacyRenderSVGRoot* findTreeRootObject(RenderElement&);
     static const LegacyRenderSVGRoot* findTreeRootObject(const RenderElement&);
@@ -102,7 +100,7 @@ private:
 class SVGHitTestCycleDetectionScope {
     WTF_MAKE_NONCOPYABLE(SVGHitTestCycleDetectionScope);
 public:
-    explicit SVGHitTestCycleDetectionScope(const RenderElement&);
+    explicit SVGHitTestCycleDetectionScope(const RenderElement&, bool condition = true);
     ~SVGHitTestCycleDetectionScope();
     static bool isEmpty();
     static bool isVisiting(const RenderElement&);

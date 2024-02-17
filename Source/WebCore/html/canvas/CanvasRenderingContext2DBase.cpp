@@ -1649,11 +1649,17 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(Document& document, Ca
                 return { };
             image = bitmapImage.copyRef();
         }
-        bitmapImage->updateFromSettings(document.settings());
+
         shouldPostProcess = false;
     }
 
-    ImagePaintingOptions options = { op, blendMode, orientation };
+    ImagePaintingOptions options = {
+        op,
+        blendMode,
+        orientation,
+        document.settings().imageSubsamplingEnabled() ? AllowImageSubsampling::Yes : AllowImageSubsampling::No,
+        document.settings().showDebugBorders() ? ShowDebugBackground::Yes : ShowDebugBackground::No
+    };
 
     bool repaintEntireCanvas = false;
     if (rectContainsCanvas(normalizedDstRect)) {
@@ -1711,7 +1717,7 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(CanvasBase& sourceCanv
 
     checkOrigin(&sourceCanvas);
 
-    sourceCanvas.makeRenderingResultsAvailable();
+    sourceCanvas.makeRenderingResultsAvailable(ShouldApplyPostProcessingToDirtyRect::No);
 
     bool repaintEntireCanvas = false;
     if (rectContainsCanvas(normalizedDstRect)) {
@@ -1735,7 +1741,8 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(CanvasBase& sourceCanv
     } else
         c->drawImageBuffer(*buffer, normalizedDstRect, normalizedSrcRect, { state().globalComposite, state().globalBlend });
 
-    didDraw(repaintEntireCanvas, normalizedDstRect, defaultDidDrawOptionsWithoutPostProcessing());
+    auto shouldUseDrawOptionsWithoutPostProcessing = sourceCanvas.renderingContext() && sourceCanvas.renderingContext()->is2d() && !sourceCanvas.havePendingCanvasNoiseInjection();
+    didDraw(repaintEntireCanvas, normalizedDstRect, shouldUseDrawOptionsWithoutPostProcessing ? defaultDidDrawOptionsWithoutPostProcessing() : defaultDidDrawOptions());
 
     return { };
 }

@@ -46,7 +46,7 @@
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Vector.h>
 
-#if ENABLE(WEBASSEMBLY_OMGJIT)
+#if ENABLE(WEBASSEMBLY_OMGJIT) || ENABLE(WEBASSEMBLY_BBQJIT)
 #include "B3Type.h"
 #endif
 
@@ -260,7 +260,7 @@ inline Width Type::width() const
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-#if ENABLE(WEBASSEMBLY_OMGJIT)
+#if ENABLE(WEBASSEMBLY_OMGJIT) || ENABLE(WEBASSEMBLY_BBQJIT)
 #define CREATE_CASE(name, id, b3type, ...) case TypeKind::name: return b3type;
 inline B3::Type toB3Type(Type type)
 {
@@ -284,6 +284,8 @@ constexpr size_t typeKindSizeInBytes(TypeKind kind)
     case TypeKind::F64: {
         return 8;
     }
+    case TypeKind::V128:
+        return 16;
 
     case TypeKind::Arrayref:
     case TypeKind::Structref:
@@ -293,7 +295,6 @@ constexpr size_t typeKindSizeInBytes(TypeKind kind)
     case TypeKind::RefNull: {
         return sizeof(WriteBarrierBase<Unknown>);
     }
-    case TypeKind::V128:
     case TypeKind::Array:
     case TypeKind::Func:
     case TypeKind::Struct:
@@ -422,8 +423,15 @@ public:
             case Wasm::TypeKind::I32:
             case Wasm::TypeKind::F32:
                 return sizeof(uint32_t);
-            default:
+            case Wasm::TypeKind::I64:
+            case Wasm::TypeKind::F64:
+            case Wasm::TypeKind::Ref:
+            case Wasm::TypeKind::RefNull:
                 return sizeof(uint64_t);
+            case Wasm::TypeKind::V128:
+                return sizeof(v128_t);
+            default:
+                RELEASE_ASSERT_NOT_REACHED();
             }
         }
         switch (as<PackedType>()) {
@@ -926,6 +934,9 @@ private:
     RefPtr<TypeDefinition> m_Ref_RefI32I32;
     RefPtr<TypeDefinition> m_Arrayref_I32I32I32I32;
     RefPtr<TypeDefinition> m_Anyref_Externref;
+    RefPtr<TypeDefinition> m_Void_I32AnyrefI32;
+    RefPtr<TypeDefinition> m_Void_I32AnyrefI32I32I32I32;
+    RefPtr<TypeDefinition> m_Void_I32AnyrefI32I32AnyrefI32I32;
     Lock m_lock;
 };
 

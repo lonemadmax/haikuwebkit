@@ -28,6 +28,7 @@
 
 #if ENABLE(VIDEO)
 
+#include "ContextDestructionObserverInlines.h"
 #include "ScriptExecutionContext.h"
 #include "VideoTrack.h"
 
@@ -97,6 +98,15 @@ int VideoTrackList::selectedIndex() const
             return i;
     }
     return -1;
+}
+
+VideoTrack* VideoTrackList::selectedItem() const
+{
+    auto selectedIndex = this->selectedIndex();
+    if (selectedIndex < 0)
+        return nullptr;
+
+    return item(selectedIndex);
 }
 
 EventTargetInterface VideoTrackList::eventTargetInterface() const

@@ -64,10 +64,6 @@
 #  When features are declared with "defaultsOverridable: true", platform user
 #  defaults may override a default value at runtime, using the preference
 #  name prefixed with "WebKitDebug".
-#
-# FIXME: Currently, default values are unchecked. We should audit and refactor
-# features so that their defaults agree with their status's definition, and use
-# the generator to enforce this in the future.
 
 AVFoundationEnabled:
   type: bool
@@ -184,6 +180,19 @@ AccessHandleEnabled:
       default: false
     WebCore:
       "PLATFORM(COCOA)" : true
+      default: false
+
+AccessibilityThreadTextApisEnabled:
+  type: bool
+  status: embedder
+  humanReadableName: "Off Main-Thread Accessibility Text APIs"
+  humanReadableDescription: "Serve accessibility text APIs off the main-thread"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
       default: false
 
 AggressiveTileRetentionEnabled:
@@ -475,7 +484,6 @@ AppBadgeEnabled:
   category: dom
   humanReadableName: "App Badge"
   humanReadableDescription: "Enable App Badge"
-  condition: ENABLE(BADGING)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -553,20 +561,6 @@ AriaReflectionForElementReferencesEnabled:
       default: true
     WebCore:
       default: true
-
-AriaTextRoleEnabled:
-  type: bool
-  status: preview
-  category: dom
-  humanReadableName: "Non-standard ARIA text role"
-  humanReadableDescription: "Enable support for non-standard ARIA text role"
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
 
 # FIXME: This is on by default in WebKit2 PLATFORM(COCOA). Perhaps we should consider turning it on for WebKitLegacy as well.
 AsyncClipboardAPIEnabled:
@@ -1123,17 +1117,17 @@ CSSInputSecurityEnabled:
 
 CSSLightDarkEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS light-dark()"
   humanReadableDescription: "Enable support for CSS light-dark() defined in CSS Color 5"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSMarginTrimEnabled:
   type: bool
@@ -1266,17 +1260,17 @@ CSSScopeAtRuleEnabled:
 
 CSSScrollAnchoringEnabled:
   type: bool
-  status: stable
+  status: testable
   category: css
   humanReadableName: "CSS Scroll Anchoring"
   humanReadableDescription: "Enable CSS Scroll Anchoring"
   defaultValue:
     WebKitLegacy:
-      default: true
+      default: false
     WebKit:
-      default: true
+      default: false
     WebCore:
-      default: true
+      default: false
 
 CSSScrollbarColorEnabled:
   type: bool
@@ -1319,6 +1313,20 @@ CSSScrollbarWidthEnabled:
       default: false
     WebCore:
       default: false
+
+CSSStartingStyleAtRuleEnabled:
+  type: bool
+  status: stable
+  category: css
+  humanReadableName: "CSS @starting-style rule"
+  humanReadableDescription: "Enable CSS @starting-style rule"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 CSSTextBoxTrimEnabled:
   type: bool
@@ -1648,7 +1656,6 @@ ClientBadgeEnabled:
   category: dom
   humanReadableName: "Client Badge"
   humanReadableDescription: "Enable Client Badge"
-  condition: ENABLE(BADGING)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -1913,6 +1920,20 @@ CrossOriginOpenerPolicyEnabled:
       default: false
     WebKit:
       default: true
+    WebCore:
+      default: false
+
+CryptoKitEnabled:
+  type: bool
+  status: internal
+  category: security
+  humanReadableName: "Enable CryptoKit for supported Algorithms."
+  humanReadableDescription: "Enable CryptoKit for supported Algorithms."
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
     WebCore:
       default: false
 
@@ -2339,6 +2360,20 @@ DiagnosticLoggingEnabled:
   type: bool
   status: embedder
   humanReadableName: "Diagnostic logging enabled"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+DigitalCredentialsEnabled:
+  type: bool
+  status: unstable
+  category: dom
+  humanReadableName: "Digital Credentials API"
+  humanReadableDescription: "Enable the experimental Digital Credentials API"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -2821,6 +2856,21 @@ FullScreenEnabled:
     WebCore:
       default: false
 
+FullScreenKeyboardLock:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "Fullscreen API based Keyboard Lock"
+  humanReadableDescription: "Fullscreen API based Keyboard Lock"
+  condition: ENABLE(FULLSCREEN_API)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 FullscreenRequirementForScreenOrientationLockingEnabled:
   type: bool
   status: embedder
@@ -3200,6 +3250,20 @@ ImperativeSlotAPIEnabled:
       default: true
     WebCore:
       default: true
+
+InWindowFullscreenEnabled:
+  type: bool
+  status: internal
+  category: media
+  humanReadableName: "In-Window Fullscreen"
+  humanReadableDescription: "Enable In-Window Fullscreen"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 InactiveMediaCaptureSteamRepromptIntervalInMinutes:
   type: double
@@ -4227,7 +4291,7 @@ MediaCapabilitiesExtensionsEnabled:
 
 MediaCapabilityGrantsEnabled:
   type: bool
-  status: unstable
+  status: embedder
   condition: ENABLE(EXTENSION_CAPABILITIES)
   humanReadableName: "Media Capability Grants"
   humanReadableDescription: "Enable granting and revoking of media capabilities"
@@ -4235,8 +4299,10 @@ MediaCapabilityGrantsEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "PLATFORM(IOS_FAMILY_SIMULATOR)": false
       default: true
     WebCore:
+      "PLATFORM(IOS_FAMILY_SIMULATOR)": false
       default: true
 
 MediaCaptionFormatTypesAllowedInLockdownMode:
@@ -4493,6 +4559,23 @@ MediaStreamEnabled:
       default: true
     WebCore:
       default: true
+
+MediaStreamTrackProcessingEnabled:
+  type: bool
+  status: stable
+  category: media
+  humanReadableName: "MediaStreamTrack Processing"
+  humanReadableDescription: "Enable MediaStreamTrack Processing"
+  condition: ENABLE(MEDIA_STREAM)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      "PLATFORM(COCOA)": true
+      default: false
+    WebCore:
+      "PLATFORM(COCOA)": true
+      default: false
 
 MediaUserGestureInheritsFromDocument:
   type: bool
@@ -4805,17 +4888,6 @@ NotificationsEnabled:
       "PLATFORM(IOS_FAMILY)": false
       default: true
 
-OfflineWebApplicationCacheEnabled:
-  type: bool
-  status: embedder
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: WebKit::defaultOfflineWebApplicationCacheEnabled()
-    WebCore:
-      default: false
-
 OffscreenCanvasEnabled:
   type: bool
   status: stable
@@ -5035,6 +5107,20 @@ PeerConnectionEnabled:
     WebCore:
       default: true
 
+PeerConnectionVideoScalingAdaptationDisabled:
+  type: bool
+  status: embedder
+  humanReadableName: "WebRTC Peer Connection Video Scaling Adaptation"
+  humanReadableDescription: "Disable RTCPeerConnection Video Scaling Adaptation"
+  condition: ENABLE(WEB_RTC)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 PerElementSpeakerSelectionEnabled:
   type: bool
@@ -5116,7 +5202,7 @@ PluginsEnabled:
   webcoreOnChange: pluginsEnabledChanged
   defaultValue:
     WebKitLegacy:
-      default: true
+      default: false
     WebKit:
       default: false
     WebCore:
@@ -5222,6 +5308,20 @@ PrivateClickMeasurementFraudPreventionEnabled:
     WebCore:
       "HAVE(RSA_BSSA)": true
       default: false
+
+PrivateTokenUsageByThirdPartyEnabled:
+  type: bool
+  status: stable
+  category: privacy
+  humanReadableName: "Private Token usage by third party"
+  humanReadableDescription: "Enable private token usage by third party"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 ProcessSwapOnCrossSiteNavigationEnabled:
   type: bool
@@ -6136,7 +6236,7 @@ ShouldTakeNearSuspendedAssertions:
     WebKitLegacy:
       default: true
     WebKit:
-      default: true
+      default: defaultShouldTakeNearSuspendedAssertion()
     WebCore:
       default: true
 
@@ -6680,6 +6780,20 @@ TreatsAnyTextCSSLinkAsStylesheet:
   defaultValue:
     WebKitLegacy:
       PLATFORM(MAC): WebKit::defaultTreatsAnyTextCSSLinkAsStylesheet()
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+TrustedTypesEnabled:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "Trusted Types"
+  humanReadableDescription: "Enable Trusted Types"
+  defaultValue:
+    WebKitLegacy:
       default: false
     WebKit:
       default: false
@@ -7341,13 +7455,12 @@ WebAudioEnabled:
     WebCore:
       default: false
 
-
 WebAuthenticationASEnabled:
   type: bool
   status: embedder
   humanReadableName: "Web Authentication AuthenticationServices"
   humanReadableDescription: "Enable Modern Web Authentication support though AuthenticationServices"
-  condition: ENABLE(WEB_AUTHN_AS_MODERN)
+  condition: HAVE(WEB_AUTHN_AS_MODERN)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -7709,17 +7822,19 @@ WebRTCH264SimulcastEnabled:
 
 WebRTCH265CodecEnabled:
   type: bool
-  status: developer
+  status: stable
   category: media
   condition: ENABLE(WEB_RTC)
-  humanReadableName: "WebRTC H265 codec"
-  humanReadableDescription: "Enable WebRTC H265 codec"
+  humanReadableName: "WebRTC HEVC codec"
+  humanReadableDescription: "Enable WebRTC HEVC codec"
   defaultValue:
     WebKitLegacy:
       default: false
     WebKit:
+      "PLATFORM(COCOA)": true
       default: false
     WebCore:
+      "PLATFORM(COCOA)": true
       default: false
 
 WebRTCMediaPipelineAdditionalLoggingEnabled:

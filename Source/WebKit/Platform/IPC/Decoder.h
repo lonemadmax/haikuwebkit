@@ -112,7 +112,7 @@ public:
     void markInvalid()
     {
         auto buffer = std::exchange(m_buffer, { });
-        if (m_bufferDeallocator)
+        if (m_bufferDeallocator && !buffer.empty())
             m_bufferDeallocator(WTFMove(buffer));
     }
 
@@ -213,6 +213,12 @@ private:
 
     uint64_t m_destinationID;
 };
+
+template<>
+inline std::optional<Attachment> Decoder::decode<Attachment>()
+{
+    return takeLastAttachment();
+}
 
 inline bool alignedBufferIsLargeEnoughToContain(size_t bufferSize, const size_t alignedBufferPosition, size_t bytesNeeded)
 {

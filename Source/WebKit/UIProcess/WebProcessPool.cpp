@@ -167,8 +167,6 @@ constexpr Seconds resetGPUProcessCrashCountDelay { 30_s };
 constexpr unsigned maximumGPUProcessRelaunchAttemptsBeforeKillingWebProcesses { 2 };
 #endif
 
-static constexpr Seconds audibleActivityClearDelay = 5_s;
-
 Ref<WebProcessPool> WebProcessPool::create(API::ProcessPoolConfiguration& configuration)
 {
     InitializeWebKit2();
@@ -236,6 +234,11 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
     , m_audibleActivityTimer(RunLoop::main(), this, &WebProcessPool::clearAudibleActivity)
     , m_webProcessWithMediaStreamingCounter([this](RefCounterEvent) { updateMediaStreamingActivity(); })
 {
+#if USE(EXTENSIONKIT)
+    bool manageProcessesAsExtensions = !CFPreferencesGetAppBooleanValue(CFSTR("disableProcessesAsExtensions"), kCFPreferencesCurrentApplication, nullptr);
+    AuxiliaryProcessProxy::setManageProcessesAsExtensions(manageProcessesAsExtensions);
+#endif
+
     static auto s_needsGlobalStaticInitialization = NeedsGlobalStaticInitialization::Yes;
     auto needsGlobalStaticInitialization = std::exchange(s_needsGlobalStaticInitialization, NeedsGlobalStaticInitialization::No);
     if (needsGlobalStaticInitialization == NeedsGlobalStaticInitialization::Yes) {
@@ -328,6 +331,15 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
 
 WebProcessPool::~WebProcessPool()
 {
+#if ENABLE(GPU_PROCESS)
+    // Some apps keep destroying and reconstructing new WebProcessPool objects whenever
+    // they create new web views (rdar://121128159). To avoid relaunching the GPUProcess
+    // unnecessarily in this case, we keep the GPUProcess running for a minute after the
+    // last WebProcessPool object gets destroyed.
+    if (m_gpuProcess && GPUProcessProxy::singletonIfCreated() == m_gpuProcess.get())
+        GPUProcessProxy::keepProcessAliveTemporarily();
+#endif
+
     checkedWebProcessCache()->clear();
 
     bool removed = processPools().removeFirst(*this);
@@ -689,11 +701,6 @@ Ref<WebProcessProxy> WebProcessPool::createNewWebProcess(WebsiteDataStore* websi
         websiteDataStore->setTrackingPreventionEnabled(m_tccPreferenceEnabled);
 #endif
 
-#if USE(EXTENSIONKIT)
-    bool manageProcessesAsExtensions = !CFPreferencesGetAppBooleanValue(CFSTR("disableProcessesAsExtensions"), kCFPreferencesCurrentApplication, nullptr);
-    AuxiliaryProcessProxy::setManageProcessesAsExtensions(manageProcessesAsExtensions);
-#endif
-
     auto processProxy = WebProcessProxy::create(*this, websiteDataStore, lockdownMode, isPrewarmed, crossOriginMode);
     initializeNewWebProcess(processProxy, websiteDataStore, isPrewarmed);
     m_processes.append(processProxy.copyRef());
@@ -1046,8 +1053,8 @@ void WebProcessPool::processDidFinishLaunching(WebProcessProxy& process)
 #if ENABLE(EXTENSION_CAPABILITIES)
     for (auto& page : process.pages()) {
         if (auto& mediaCapability = page->mediaCapability()) {
-            WEBPROCESSPOOL_RELEASE_LOG(ProcessCapabilities, "processDidFinishLaunching: granting media capability (envID=%{public}s)", mediaCapability->environmentIdentifier().utf8().data());
-            extensionCapabilityGranter().grant(*mediaCapability);
+            WEBPROCESSPOOL_RELEASE_LOG(ProcessCapabilities, "processDidFinishLaunching[envID=%{public}s]: updating media capability", mediaCapability->environmentIdentifier().utf8().data());
+            page->updateMediaCapability();
         }
     }
 #endif

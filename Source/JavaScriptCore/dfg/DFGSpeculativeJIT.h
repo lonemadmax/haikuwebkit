@@ -985,7 +985,7 @@ public:
 
     void prepareForExternalCall()
     {
-#if !defined(NDEBUG) && !CPU(ARM_THUMB2) && !CPU(MIPS)
+#if !defined(NDEBUG) && !CPU(ARM_THUMB2)
         // We're about to call out to a "native" helper function. The helper
         // function is expected to set topCallFrame itself with the CallFrame
         // that is passed to it.
@@ -1822,7 +1822,7 @@ public:
     template<bool strict>
     GPRReg fillSpeculateInt32Internal(Edge, DataFormat& returnFormat);
     
-    void cageTypedArrayStorage(GPRReg, GPRReg, bool validateAuth = true);
+    void cageTypedArrayStorage(GPRReg, GPRReg);
     
     void recordSetLocal(
         Operand bytecodeReg, VirtualRegister machineReg, DataFormat format)

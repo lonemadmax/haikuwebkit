@@ -108,10 +108,6 @@
 #define ENABLE_3D_TRANSFORMS 0
 #endif
 
-#if !defined(ENABLE_ACCESSIBILITY)
-#define ENABLE_ACCESSIBILITY 1
-#endif
-
 #if !defined(ENABLE_ACCESSIBILITY_ANIMATION_CONTROL)
 #define ENABLE_ACCESSIBILITY_ANIMATION_CONTROL 0
 #endif
@@ -152,10 +148,6 @@
 #define ENABLE_AUTOCAPITALIZE 0
 #endif
 
-#if !defined(ENABLE_BADGING)
-#define ENABLE_BADGING 1
-#endif
-
 #if !defined(ENABLE_CONTENT_CHANGE_OBSERVER)
 #define ENABLE_CONTENT_CHANGE_OBSERVER 0
 #endif
@@ -170,10 +162,6 @@
 
 #if !defined(ENABLE_CONTEXT_MENU_EVENT)
 #define ENABLE_CONTEXT_MENU_EVENT 1
-#endif
-
-#if !defined(ENABLE_CSS_COMPOSITING)
-#define ENABLE_CSS_COMPOSITING 0
 #endif
 
 #if !defined(ENABLE_CSS_TRANSFORM_STYLE_OPTIMIZED_3D)
@@ -204,10 +192,8 @@
 #define ENABLE_DATALIST_ELEMENT 0
 #endif
 
-#if ENABLE(INPUT_TYPE_DATE) || ENABLE(INPUT_TYPE_DATETIMELOCAL) || ENABLE(INPUT_TYPE_MONTH) || ENABLE(INPUT_TYPE_TIME) || ENABLE(INPUT_TYPE_WEEK)
 #if !defined(ENABLE_DATE_AND_TIME_INPUT_TYPES)
-#define ENABLE_DATE_AND_TIME_INPUT_TYPES 1
-#endif
+#define ENABLE_DATE_AND_TIME_INPUT_TYPES 0
 #endif
 
 #if !defined(ENABLE_DECLARATIVE_WEB_PUSH)
@@ -357,10 +343,6 @@
 #define ENABLE_MEDIA_CAPTURE 0
 #endif
 
-#if !defined(ENABLE_MEDIA_CONTROLS_SCRIPT)
-#define ENABLE_MEDIA_CONTROLS_SCRIPT 0
-#endif
-
 #if !defined(ENABLE_MEDIA_RECORDER)
 #define ENABLE_MEDIA_RECORDER 0
 #endif
@@ -395,10 +377,6 @@
 
 #if !defined(ENABLE_MOUSE_CURSOR_SCALE)
 #define ENABLE_MOUSE_CURSOR_SCALE 0
-#endif
-
-#if !defined(ENABLE_MOUSE_FORCE_EVENTS)
-#define ENABLE_MOUSE_FORCE_EVENTS 1
 #endif
 
 #if !defined(ENABLE_NOTIFICATION_EVENT)
@@ -631,16 +609,8 @@
 #endif
 
 #if USE(JSVALUE32_64)
-#if CPU(MIPS)
-#undef ENABLE_WEBASSEMBLY
-#define ENABLE_WEBASSEMBLY 0
-#undef ENABLE_WEBASSEMBLY_OMGJIT
-#define ENABLE_WEBASSEMBLY_OMGJIT 0
-#undef ENABLE_WEBASSEMBLY_BBQJIT
-#define ENABLE_WEBASSEMBLY_BBQJIT 0
-#endif
-#if ((CPU(ARM_THUMB2) && CPU(ARM_HARDFP)) || CPU(MIPS)) && OS(LINUX)
-/* On ARMv7 and MIPS on Linux the JIT is enabled unless explicitly disabled. */
+#if CPU(ARM_THUMB2) && CPU(ARM_HARDFP) && OS(LINUX)
+/* On ARMv7 Linux the JIT is enabled unless explicitly disabled. */
 #if !defined(ENABLE_JIT)
 #define ENABLE_JIT 1
 #endif
@@ -725,11 +695,7 @@
 #define ENABLE_DFG_DOES_GC_VALIDATION 0
 #endif
 
-/* Concurrent JS only works on 64-bit platforms because it requires that
-   values get stored to atomically. This is trivially true on 64-bit platforms,
-   but not true at all on 32-bit platforms where values are composed of two
-   separate sub-values. */
-#if ENABLE(JIT) && USE(JSVALUE64)
+#if ENABLE(JIT)
 #define ENABLE_CONCURRENT_JS 1
 #endif
 
@@ -760,11 +726,11 @@
 
 #if ENABLE(WEBASSEMBLY) && ENABLE(JIT) && CPU(ARM)
 #undef ENABLE_B3_JIT
-#define ENABLE_B3_JIT 0
+#define ENABLE_B3_JIT 1
 #undef ENABLE_WEBASSEMBLY_OMGJIT
 #define ENABLE_WEBASSEMBLY_OMGJIT 0
 #undef ENABLE_WEBASSEMBLY_BBQJIT
-#define ENABLE_WEBASSEMBLY_BBQJIT 0
+#define ENABLE_WEBASSEMBLY_BBQJIT 1
 #endif
 
 #if !defined(ENABLE_WEBASSEMBLY) && (ENABLE(B3_JIT) && PLATFORM(COCOA) && CPU(ADDRESS64))
@@ -806,6 +772,15 @@
 /* Determine if we need to enable Computed Goto Opcodes or not: */
 #if HAVE(COMPUTED_GOTO) || !ENABLE(C_LOOP)
 #define ENABLE_COMPUTED_GOTO_OPCODES 1
+#endif
+
+#if (PLATFORM(MAC) && __MAC_OS_X_VERSION_MAX_ALLOWED >= 150000) \
+    || (PLATFORM(MACCATALYST) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 180000) \
+    || (PLATFORM(IOS) && __IPHONE_OS_VERSION_MAX_ALLOWED >= 180000) \
+    || (PLATFORM(APPLETV) && __TV_OS_VERSION_MAX_ALLOWED >= 180000) \
+    || (PLATFORM(WATCHOS) && __WATCH_OS_VERSION_MAX_ALLOWED >= 110000)
+// Linkers from older SDKs causes wrong linking. ref: rdar://96556827
+#define ENABLE_OFFLINE_ASM_ALT_ENTRY 1
 #endif
 
 /* Regular Expression Tracing - Set to 1 to trace RegExp's in jsc.  Results dumped at exit */
@@ -956,10 +931,6 @@
 
 #if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS) && !ENABLE(OFFSCREEN_CANVAS)
 #error "ENABLE(OFFSCREEN_CANVAS_IN_WORKERS) requires ENABLE(OFFSCREEN_CANVAS)"
-#endif
-
-#if ENABLE(MEDIA_CONTROLS_SCRIPT) && !ENABLE(VIDEO)
-#error "ENABLE(MEDIA_CONTROLS_SCRIPT) requires ENABLE(VIDEO)"
 #endif
 
 #if ENABLE(MEDIA_RECORDER) && !ENABLE(MEDIA_STREAM)

@@ -27,6 +27,22 @@ fast/events/ios [ Pass ]
 fast/events/ios/ipad [ Skip ]
 fast/forms/ios [ Pass ]
 fast/forms/ios/ipad [ Skip ]
+fast/forms/switch [ Pass ]
+
+# These require painting code to pass
+fast/forms/switch/click-animation-disabled.html [ ImageOnlyFailure ]
+fast/forms/switch/click-animation-interrupted-document-removed.html [ ImageOnlyFailure ]
+fast/forms/switch/click-animation-interrupted-type-change.html [ ImageOnlyFailure ]
+fast/forms/switch/click-animation-interrupted.html [ ImageOnlyFailure ]
+fast/forms/switch/click-animation-preventdefault.html [ ImageOnlyFailure ]
+fast/forms/switch/click-animation-redundant-checked.html [ ImageOnlyFailure ]
+fast/forms/switch/click-animation-redundant-disabled.html [ ImageOnlyFailure ]
+fast/forms/switch/click-animation-twice-fast.html [ ImageOnlyFailure ]
+fast/forms/switch/click-animation-twice.html [ ImageOnlyFailure ]
+fast/forms/switch/click-animation.html [ ImageOnlyFailure ]
+fast/forms/switch/pointer-tracking-there-and-back-again-rtl.html [ ImageOnlyFailure ]
+fast/forms/switch/pointer-tracking-there-and-back-again.html [ ImageOnlyFailure ]
+fast/forms/switch/pointer-tracking.html [ ImageOnlyFailure ]
 
 # These tests fail or are flaky in non-internal iOS 14 simulator
 fast/forms/ios/inputmode-none-with-hardware-keyboard.html [ Pass Failure ]
@@ -243,6 +259,8 @@ platform/ios/ios/touch [ Skip ]
 media/modern-media-controls/css/pointer-events-none.html [ Skip ]
 
 platform/ipad/fast/forms [ Skip ]
+
+media/media-sources-selection.html [ ImageOnlyFailure ] # Sources selection on iOS will select a different source.
 
 # Codecs not supported
 media/media-can-play-ogg.html [ WontFix ]
@@ -866,6 +884,7 @@ imported/w3c/web-platform-tests/css/css-shadow-parts/invalidation-part-pseudo.ht
 
 # No test_driver.click() support for iOS testing
 webkit.org/b/264285 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-summary-element/interactive-content.html [ Skip ]
+webkit.org/b/266665 imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-button-event-dispatch.tentative.html [ Skip ]
 
 # Overscroll-behavior on iOS needs SkyEcho19E179/StarE21E168a: https://bugs.webkit.org/show_bug.cgi?id=235852
 fast/scrolling/sync-scroll-overscroll-behavior-element.html [ Skip ]
@@ -1159,6 +1178,7 @@ fast/css/resize-corner-tracking.html [ Skip ]
 fast/css/resize-orthogonal-containing-block.html [ Skip ]
 fast/css/resize-rtl.html [ Skip ]
 fast/css/resize-single-axis.html [ Skip ]
+fast/css/resize-textarea-align-content.html [ Skip ]
 fast/events/mouse-events-on-textarea-resize.html [ Skip ]
 
 # The file-wrapper part of <attachment> is not yet working on iOS
@@ -1242,9 +1262,6 @@ fast/backgrounds/gradient-background-on-subpixel-position.html [ ImageOnlyFailur
 
 # Difference of less 0.03% between images.
 svg/as-image/svg-image-with-data-uri-from-canvas.html [ ImageOnlyFailure ]
-
-# SVG
-webkit.org/b/137574 svg/dom/SVGAnimatedAngle.html [ Skip ] # Pass, Crash
 
 # HTTP tests that time out:
 http/tests/security/XFrameOptions/x-frame-options-deny-delete-frame-in-load-event.html
@@ -2203,6 +2220,7 @@ accessibility/heading-level.html [ Pass ]
 accessibility/html5-required-attribute.html [ Pass ]
 accessibility/iframe-with-role.html [ Pass ]
 accessibility/input-type-hidden-in-aria-hidden-false.html [ Pass ]
+accessibility/input-time-label-value.html [ Pass ]
 accessibility/invalid-inputs.html [ Pass ]
 accessibility/insert-text-into-password-field.html [ Pass ]
 accessibility/list-with-dynamically-changing-content.html [ Pass ]
@@ -2225,12 +2243,12 @@ accessibility/slider-with-lost-renderer.html [ Pass ]
 accessibility/slot-default-contents-accname.html [ Pass ]
 accessibility/spinbutton-increment-decrement.html [ Pass ]
 accessibility/display-contents/text-under-element.html [ Pass ]
-accessibility/text-aria-role-disabled.html [ Pass ]
 accessibility/text-updates-after-dynamic-change.html [ Pass ]
 accessibility/table-display-block.html [ Pass ]
 accessibility/table-display-flex.html [ Pass ]
 accessibility/table-display-grid.html [ Pass ]
 accessibility/table-display-inline-block.html [ Pass ]
+accessibility/tree-update-with-dirty-layout.html [ Pass ]
 accessibility/url-test.html [ Pass ]
 accessibility/video-element-url-attribute.html [ Pass ]
 accessibility/visible-character-range-basic.html [ Pass ]
@@ -2375,6 +2393,8 @@ webkit.org/b/76121 imported/blink/fast/events/event-trusted.html [ Skip ]
 
 webkit.org/b/184608 [ Debug ] animations/added-while-suspended.html [ Skip ]
 webkit.org/b/184608 [ Debug ] transitions/created-while-suspended.html [ Skip ]
+
+webkit.org/b/268580 [ Debug ] imported/w3c/web-platform-tests/html/dom/elements/global-attributes/the-anchor-attribute-003-crash.tentative.html [ Skip ]
 
 webkit.org/b/155095 fast/table/border-collapsing/table-rtl-row-mixed-direction.html [ ImageOnlyFailure Pass ]
 webkit.org/b/155095 fast/table/border-collapsing/table-ltr-rows-mixed-direction.html [ ImageOnlyFailure Pass ]
@@ -3288,10 +3308,6 @@ webkit.org/b/261703 fast/forms/datalist/datalist-show-picker.html [ Skip ]
 # <rdar://problem/59636115> REGRESSION: [ iOS & macOS ] two imported/w3c/web-platform-tests/WebCryptoAPI are failing
 imported/w3c/web-platform-tests/WebCryptoAPI/import_export/rsa_importKey.https.worker.html [ Failure ]
 
-# <rdar://problem/57029120> Reenable crypto/workers/subtle/rsa-postMessage-worker.html and crypto/subtle/aes-cbc-import-key-wrap-jwk-rsa-key-private.html for iOS
-crypto/workers/subtle/rsa-postMessage-worker.html [ Skip ]
-crypto/subtle/aes-cbc-import-key-wrap-jwk-rsa-key-private.html [ Skip ]
-
 # <rdar://problem/63448168> [ macOS iOS  Debug ] media/video-source-moved.html is a super flkay timeout
 media/video-source-moved.html [ Pass Timeout ]
 
@@ -3354,8 +3370,7 @@ http/tests/websocket/tests/hybi/workers/worker-reload.html [ Pass Crash ]
 http/tests/workers/service/service-worker-download-async-delegates.https.html [ Pass Crash ]
 
 # rdar://80396393 ([ iOS15 ] http/wpt/mediarecorder/mute-tracks.html is a flaky failure)
-# webkit.org/b/238774 [ iOS ] http/wpt/mediarecorder/mute-tracks.html is a flaky crash
-http/wpt/mediarecorder/mute-tracks.html [ Pass Failure Crash ]
+http/wpt/mediarecorder/mute-tracks.html [ Pass Failure ]
 
 # rdar://80396502 ([ iOS15 ] http/wpt/mediarecorder/pause-recording.html is a flaky crash)
 http/wpt/mediarecorder/pause-recording.html [ Pass Crash ]
@@ -3525,7 +3540,6 @@ webkit.org/b/229832 [ Release ] imported/w3c/web-platform-tests/beacon/beacon-re
 fast/canvas/canvas-blending-text.html [ Pass Failure ]
 
 # webkit.org/b/201982 These are flaky failures on iOS
-fast/images/exif-orientation-svg-feimage.html [ Pass Failure ]
 fast/images/image-orientation-dynamic-from-image.html [ Pass Failure ]
 fast/images/image-orientation-none.html [ Pass Failure ]
 
@@ -4458,7 +4472,7 @@ fast/images/pagewide-play-pause-animateTransform-svg-animation.html [ Pass ]
 fast/images/pagewide-play-pause-offscreen-animations.html [ Pass ]
 
 # Re-enabling tests fixed by DocumentManager in iOS16+ rdar://102159271
-fast/forms/ios/file-upload-panel-capture.html [ Pass ]
+fast/forms/ios/file-upload-panel-capture.html [ Pass Crash ] # remove crash after this is resolved: webkit.org/b/268568
 fast/forms/ios/file-upload-panel.html [ Pass ]
 fast/forms/ios/show-file-upload-context-menu-above-keyboard.html [ Pass ]
 fast/forms/ios/file-upload-panel-accept.html [ Pass ]
@@ -4576,6 +4590,7 @@ webkit.org/b/257904 http/tests/site-isolation/double-iframe.html [ Skip ]
 webkit.org/b/257904 http/tests/site-isolation/draw-after-navigation.html [ Skip ]
 webkit.org/b/257904 http/tests/site-isolation/selection-focus.html [ Skip ]
 webkit.org/b/257904 http/tests/site-isolation/basic-iframe-render-output.html [ Failure Timeout Pass ]
+webkit.org/b/257904 http/tests/site-isolation/iframe-process-termination.html [ Skip ]
 
 # This test can't be enabled on iOS until EventSenderProxyIOS::keyDown() is implemented.
 http/tests/site-isolation/key-events.html [ Skip ]
@@ -4600,16 +4615,6 @@ imported/w3c/web-platform-tests/css/css-transforms/transform-table-009.html [ Im
 imported/w3c/web-platform-tests/css/css-transforms/transform-table-010.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-transforms/transform-table-011.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-transforms/transform3d-preserve3d-011.html [ ImageOnlyFailure ]
-
-# webkit.org/b/262663 (REGRESSION(iOS17/Sonoma): 8 WebCryptoAPI tests are constantly crashing.)
-imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/failures_X25519.https.any.html [ Crash ]
-imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/failures_X25519.https.any.worker.html [ Crash ]
-imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/successes_X25519.https.any.html [ Crash ]
-imported/w3c/web-platform-tests/WebCryptoAPI/generateKey/successes_X25519.https.any.worker.html [ Crash ]
-imported/w3c/web-platform-tests/WebCryptoAPI/import_export/okp_importKey.https.any.html [ Crash ]
-imported/w3c/web-platform-tests/WebCryptoAPI/import_export/okp_importKey.https.any.worker.html [ Crash ]
-imported/w3c/web-platform-tests/WebCryptoAPI/import_export/okp_importKey_failures_X25519.https.any.html [ Crash ]
-imported/w3c/web-platform-tests/WebCryptoAPI/import_export/okp_importKey_failures_X25519.https.any.worker.html  [ Crash ]
 
 webkit.org/b/263136 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-011.html [ ImageOnlyFailure ]
 
@@ -4664,6 +4669,7 @@ webkit.org/b/257698 imported/w3c/web-platform-tests/css/css-text/word-break/auto
 imported/w3c/web-platform-tests/css/css-ruby/ruby-text-combine-upright-002a.html [ ImageOnlyFailure ] 
 imported/w3c/web-platform-tests/css/css-ruby/ruby-text-combine-upright-002b.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-ruby/line-break-around-ruby-001.html [ Failure ]
+fast/ruby/annotation-with-line-gap.html [ ImageOnlyFailure ]
 
 webkit.org/b/264001 [ Debug ] imported/w3c/web-platform-tests/requestidlecallback/callback-multiple-calls.html [ Pass Failure ]
 
@@ -4686,6 +4692,8 @@ imported/w3c/web-platform-tests/css/selectors/invalidation/user-valid-user-inval
 imported/w3c/web-platform-tests/css/selectors/user-invalid.html [ Failure ]
 imported/w3c/web-platform-tests/css/selectors/valid-invalid-form-fieldset.html [ Failure ]
 
-webkit.org/b/266665 imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-button-event-dispatch.tentative.html [ Failure ]
-
 webkit.org/b/266669 imported/w3c/web-platform-tests/webrtc-extensions/RTCRtpSynchronizationSource-captureTimestamp.html [ Pass Failure ]
+
+webkit.org/b/266996 imported/w3c/web-platform-tests/css/css-writing-modes/mongolian-orientation-002.html [ ImageOnlyFailure ]
+
+webkit.org/b/263317 media/media-controller-play-then-pause.html [ Failure ]

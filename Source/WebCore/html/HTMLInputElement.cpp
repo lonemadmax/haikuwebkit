@@ -78,6 +78,7 @@
 #include "StyleGradientImage.h"
 #include "TextControlInnerElements.h"
 #include "TextInputType.h"
+#include "TreeScopeInlines.h"
 #include "TypedElementDescendantIteratorInlines.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/Language.h>
@@ -546,6 +547,10 @@ void HTMLInputElement::updateType(const AtomString& typeAttributeValue)
     bool previouslySelectable = m_inputType->supportsSelectionAPI();
 
     m_inputType = WTFMove(newType);
+    if (!didStoreValue && willStoreValue)
+        m_valueIfDirty = sanitizeValue(attributeWithoutSynchronization(valueAttr));
+    else
+        updateValueIfNeeded();
     m_inputType->createShadowSubtreeIfNeeded();
 
     // https://html.spec.whatwg.org/multipage/dom.html#auto-directionality
@@ -558,11 +563,6 @@ void HTMLInputElement::updateType(const AtomString& typeAttributeValue)
     }
 
     updateWillValidateAndValidity();
-
-    if (!didStoreValue && willStoreValue)
-        m_valueIfDirty = sanitizeValue(attributeWithoutSynchronization(valueAttr));
-    else
-        updateValueIfNeeded();
 
     setFormControlValueMatchesRenderer(false);
     m_inputType->updateInnerTextValue();
@@ -1699,7 +1699,7 @@ void HTMLInputElement::didChangeForm()
 
 Node::InsertedIntoAncestorResult HTMLInputElement::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
 {
-    HTMLTextFormControlElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
+    auto result = HTMLTextFormControlElement::insertedIntoAncestor(insertionType, parentOfInsertedTree);
 #if ENABLE(DATALIST_ELEMENT)
     resetListAttributeTargetObserver();
 #endif
@@ -1709,6 +1709,8 @@ Node::InsertedIntoAncestorResult HTMLInputElement::insertedIntoAncestor(Insertio
         document().addElementWithPendingUserAgentShadowTreeUpdate(*this);
         m_hasPendingUserAgentShadowTreeUpdate = true;
     }
+    if (!insertionType.connectedToDocument)
+        return result;
     return InsertedIntoAncestorResult::NeedsPostInsertionCallback;
 }
 

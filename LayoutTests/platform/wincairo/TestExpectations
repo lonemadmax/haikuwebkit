@@ -356,15 +356,18 @@ fast/url/tab-and-newline-stripping.html [ Failure ]
 webkit.org/b/58845 fast/dom/title-directionality-removeChild.html [ Skip ]
 webkit.org/b/58845 fast/dom/title-directionality.html [ Skip ]
 
-# Need async scrolling
-webkit.org/b/219842 fast/events/wheel/first-wheel-event-cancelable.html [ Skip ]
-webkit.org/b/219842 fast/events/wheel/platform-wheelevent-in-scrolling-div.html [ Skip ]
-webkit.org/b/219842 fast/events/wheel/wheel-event-in-passive-region-non-cancelable.html [ Skip ]
-webkit.org/b/219842 fast/events/wheel/wheel-event-listeners-on-body-made-passive.html [ Skip ]
-webkit.org/b/219842 fast/events/wheel/wheel-event-listeners-on-document-made-passive.html [ Skip ]
-webkit.org/b/219842 fast/events/wheel/wheel-event-listeners-on-window-left-active.html [ Skip ]
-webkit.org/b/219842 fast/events/wheel/wheel-event-listeners-on-window-made-passive.html [ Skip ]
-webkit.org/b/219842 fast/events/wheel/wheel-events-become-non-cancelable.html [ Skip ]
+# Skip because this platform does not support a paging mouse wheel event
+fast/events/wheel/platform-wheelevent-in-scrolling-div.html [ Skip ]
+fast/events/wheel/platform-wheelevent-paging-x-in-non-scrolling-div.html [ Skip ]
+fast/events/wheel/platform-wheelevent-paging-x-in-non-scrolling-page.html [ Skip ]
+fast/events/wheel/platform-wheelevent-paging-x-in-scrolling-div.html [ Skip ]
+fast/events/wheel/platform-wheelevent-paging-x-in-scrolling-page.html [ Skip ]
+fast/events/wheel/platform-wheelevent-paging-xy-in-scrolling-div.html [ Skip ]
+fast/events/wheel/platform-wheelevent-paging-xy-in-scrolling-page.html [ Skip ]
+fast/events/wheel/platform-wheelevent-paging-y-in-non-scrolling-div.html [ Skip ]
+fast/events/wheel/platform-wheelevent-paging-y-in-non-scrolling-page.html [ Skip ]
+fast/events/wheel/platform-wheelevent-paging-y-in-scrolling-div.html [ Skip ]
+fast/events/wheel/platform-wheelevent-paging-y-in-scrolling-page.html [ Skip ]
 
 # Needs WebGL video texture support
 fast/canvas/canvas-createPattern-video-loading.html [ Skip ]
@@ -396,6 +399,7 @@ fast/canvas/offscreen-giant.html [ Skip ]
 fast/canvas/offscreen-scaling.html [ Skip ]
 fast/canvas/offscreen-toggle-display.html [ Skip ]
 webgl/offscreen-webgl-errors-to-console.html [ Skip ]
+webgl/webgl-worker.html [ Skip ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # These areas are not implemented well on WinCairo
@@ -464,6 +468,8 @@ streams/readable-stream-byob-request.html [ Skip ]
 streams/readable-stream-byob-request-worker.html [ Skip ]
 
 # image diffs off by 0.0x%
+compositing/repaint/needs-no-display-volatile-repaint.html [ ImageOnlyFailure ]
+compositing/repaint/needs-no-display-volatile.html [ ImageOnlyFailure ]
 css3/unicode-bidi-isolate-aharon.html [ ImageOnlyFailure ]
 fast/css/cascade/box-shadow-and-webkit-box-shadow-cascade-order.html [ ImageOnlyFailure ]
 fast/css/counters/counter-list-item.html [ ImageOnlyFailure ]
@@ -477,6 +483,7 @@ fast/css-generated-content/quote-first-letter.html [ ImageOnlyFailure Pass ]
 fast/css-generated-content/quotes-lang-case-insensitive.html [ ImageOnlyFailure Pass ]
 fast/css-generated-content/quotes-lang.html [ ImageOnlyFailure Pass ]
 fast/custom-elements/defined-update-style.html [ ImageOnlyFailure ]
+fast/dom/ParentNode-append-fragments.html [ ImageOnlyFailure ]
 ietestcenter/css3/multicolumn/column-width-applies-to-001.htm [ ImageOnlyFailure ]
 ietestcenter/css3/multicolumn/column-width-applies-to-002.htm [ ImageOnlyFailure ]
 ietestcenter/css3/multicolumn/column-width-applies-to-003.htm [ ImageOnlyFailure ]
@@ -662,7 +669,6 @@ js/throw-large-string-oom.html [ Skip ] # Pass Timeout
 # http
 #//////////////////////////////////////////////////////////////////////////////////////////
 
-http/tests/appcache [ Skip ]
 http/tests/blink/sendbeacon [ Skip ]
 
 http/tests/cache/cancel-multiple-post-xhrs.html [ Failure ]
@@ -954,7 +960,6 @@ http/tests/local/link-stylesheet-load-order-preload.html [ Failure ]
 http/tests/local/link-stylesheet-load-order.html [ Failure ]
 http/tests/misc/will-send-request-returns-null-on-redirect.html [ Failure ]
 http/tests/misc/window-dot-stop.html [ Failure ]
-http/tests/ssl/upgrade-origin-usage.html [ Failure ]
 http/tests/workers/service/openwindow-from-notification-click.html [ Failure ]
 http/tests/workers/service/service-worker-cache-api.https.html [ Failure ]
 http/tests/workers/service/service-worker-download-body.https.html [ Failure ]
@@ -1095,8 +1100,6 @@ css-typedom [ Skip ]
 # Dark mode not supported on Windows
 css-dark-mode [ Pass ]
 css-dark-mode/older-systems [ Skip ]
-
-webkit.org/b/142260 fast/css/has-attachment.html [ Skip ]
 
 ################################################################################
 ##############################   End CSS Issues   ##############################
@@ -1628,6 +1631,7 @@ http/wpt/geometry [ Skip ]
 http/wpt/loading/redirect-headers.html [ Skip ] # Failure
 
 http/wpt/mediarecorder [ Skip ]
+http/wpt/mediastream [ Skip ]
 http/wpt/notifications [ Skip ]
 http/wpt/offscreen-canvas [ Skip ]
 http/wpt/prefetch [ Skip ]
@@ -1773,8 +1777,10 @@ imported/w3c/web-platform-tests/mathml [ Skip ]
 imported/w3c/web-platform-tests/media [ Skip ]
 imported/w3c/web-platform-tests/media-capabilities [ Skip ]
 imported/w3c/web-platform-tests/mediacapture-fromelement [ Skip ]
+imported/w3c/web-platform-tests/mediacapture-insertable-streams [ Skip ]
 imported/w3c/web-platform-tests/mediacapture-record [ Skip ]
 imported/w3c/web-platform-tests/mediasession [ Skip ]
+imported/w3c/web-platform-tests/merchant-validation [ Skip ]
 imported/w3c/web-platform-tests/mimesniff [ Skip ]
 imported/w3c/web-platform-tests/mixed-content [ Skip ]
 imported/w3c/web-platform-tests/mst-content-hint [ Skip ]
@@ -1804,33 +1810,7 @@ imported/w3c/web-platform-tests/secure-contexts [ Skip ]
 imported/w3c/web-platform-tests/selection [ Skip ]
 imported/w3c/web-platform-tests/server-timing [ Skip ]
 imported/w3c/web-platform-tests/service-workers/cache-storage [ Skip ]
-
-imported/w3c/web-platform-tests/service-workers/service-worker/credentials.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/fetch-canvas-tainting-image-cache.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/fetch-canvas-tainting-image.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/fetch-cors-xhr.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/fetch-event-within-sw.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/fetch-frame-resource.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/fetch-request-redirect.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/fetch-request-resources.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/fetch-response-taint.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/fetch-waits-for-activate.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/navigation-preload/broken-chunked-encoding.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/navigation-redirect-resolution.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/navigation-redirect.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/navigation-redirect.https.html?client [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/navigation-timing.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/next-hop-protocol.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/opaque-script.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/redirected-response.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/resource-timing-fetch-variants.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/resource-timing.sub.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/respond-with-body-accessed-response.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/update-after-navigation-fetch-event.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/update-after-navigation-redirect.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/update-recovery.https.html [ Skip ] # Failure
-imported/w3c/web-platform-tests/service-workers/service-worker/windowclient-navigate.https.html [ Skip ] # Failure
-
+imported/w3c/web-platform-tests/service-workers/service-worker [ Skip ]
 imported/w3c/web-platform-tests/shadow-dom [ Skip ]
 imported/w3c/web-platform-tests/speech-api [ Skip ]
 imported/w3c/web-platform-tests/storage [ Skip ]
@@ -1976,18 +1956,8 @@ fast/events/shadow-event-path-2.html [ Failure ]
 fast/events/shadow-event-path.html [ Failure ]
 fast/events/special-key-events-in-input-text.html [ Failure ]
 fast/events/wheel/continuous-platform-wheelevent-in-scrolling-div.html [ Failure ]
-fast/events/wheel/platform-wheelevent-paging-x-in-non-scrolling-div.html [ Failure ]
-fast/events/wheel/platform-wheelevent-paging-x-in-non-scrolling-page.html [ Failure ]
-fast/events/wheel/platform-wheelevent-paging-x-in-scrolling-div.html [ Failure ]
-fast/events/wheel/platform-wheelevent-paging-x-in-scrolling-page.html [ Failure ]
-fast/events/wheel/platform-wheelevent-paging-xy-in-scrolling-div.html [ Failure ]
-fast/events/wheel/platform-wheelevent-paging-xy-in-scrolling-page.html [ Failure ]
-fast/events/wheel/platform-wheelevent-paging-y-in-non-scrolling-div.html [ Failure ]
-fast/events/wheel/platform-wheelevent-paging-y-in-non-scrolling-page.html [ Failure ]
-fast/events/wheel/platform-wheelevent-paging-y-in-scrolling-div.html [ Failure ]
-fast/events/wheel/platform-wheelevent-paging-y-in-scrolling-page.html [ Failure ]
-fast/events/wheel/redispatched-wheel-event.html [ Skip ] # Timeout
-fast/events/wheel/wheel-event-destroys-overflow.html [ Skip ] # Timeout
+fast/events/wheel/wheel-event-in-passive-region-non-cancelable.html [ Failure ]
+fast/events/wheel/wheel-events-become-non-cancelable.html [ Failure ]
 fast/events/wheel/wheelevent-basic.html [ Failure ]
 fast/events/wheel/wheelevent-in-horizontal-scrollbar-in-rtl.html [ Failure ]
 fast/events/wheel/wheelevent-in-vertical-scrollbar-in-rtl.html [ Failure ]
@@ -2752,3 +2722,25 @@ fonts/font-cache-memory-pressure-crash.html [ Failure ]
 
 # SFrameTransform isn't supported yet
 streams/writable-stream-create-within-multiple-workers-crash.html [ Skip ]
+
+# Timeout only on Buildbot
+http/tests/misc/embed-image-load-outlives-gc-without-crashing.html [ Pass Timeout ]
+
+fast/dom/no-scroll-when-command-click-fragment-URL.html [ Failure ]
+
+webkit.org/b/259464 fast/events/wheel/redispatched-wheel-event.html [ Failure Pass ]
+
+# Trusted Types aren't implemented yet
+webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting.html [ Skip ]
+webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-report-only.html [ Skip ]
+webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-no-unsafe-eval.html [ Skip ]
+
+# testRunner.dontForceRepaint
+compositing/repaint/copy-forward-dirty-region-purged-backbuffer.html [ Skip ]
+compositing/repaint/copy-forward-dirty-region-purged.html [ Skip ]
+compositing/repaint/copy-forward-dirty-region.html [ Skip ]
+
+css1/units/rounding.html [ Failure ]
+
+# Failing with non-English keyboard
+webkit.org/b/267251 imported/w3c/web-platform-tests/css/selectors/invalidation/user-valid-user-invalid.html [ Failure Pass ]

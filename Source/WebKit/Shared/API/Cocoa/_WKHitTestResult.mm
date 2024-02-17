@@ -65,6 +65,11 @@ static NSURL *URLFromString(const WTF::String& urlString)
     return URLFromString(_hitTestResult->absoluteLinkURL());
 }
 
+- (BOOL)hasLocalDataForLinkURL
+{
+    return _hitTestResult->hasLocalDataForLinkURL();
+}
+
 - (NSString *)linkLocalDataMIMEType
 {
     return _hitTestResult->linkLocalDataMIMEType();
@@ -88,6 +93,16 @@ static NSURL *URLFromString(const WTF::String& urlString)
 - (NSString *)lookupText
 {
     return _hitTestResult->lookupText();
+}
+
+- (NSString *)linkSuggestedFilename
+{
+    return _hitTestResult->linkSuggestedFilename();
+}
+
+- (NSString *)imageSuggestedFilename
+{
+    return _hitTestResult->imageSuggestedFilename();
 }
 
 - (NSString *)imageMIMEType

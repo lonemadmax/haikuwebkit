@@ -112,6 +112,12 @@ void StreamClientConnection::open(Connection::Client& receiver, SerialFunctionDi
     m_connection->open(*m_dedicatedConnectionClient, dispatcher);
 }
 
+Error StreamClientConnection::flushSentMessages(Timeout timeout)
+{
+    wakeUpServer(WakeUpServer::Yes);
+    return m_connection->flushSentMessages(WTFMove(timeout));
+}
+
 void StreamClientConnection::invalidate()
 {
     m_connection->invalidate();
@@ -142,6 +148,16 @@ StreamClientConnectionBuffer& StreamClientConnection::bufferForTesting()
 Connection& StreamClientConnection::connectionForTesting()
 {
     return m_connection.get();
+}
+
+void StreamClientConnection::addWorkQueueMessageReceiver(ReceiverName name, WorkQueue& workQueue, WorkQueueMessageReceiver& receiver, uint64_t destinationID)
+{
+    m_connection->addWorkQueueMessageReceiver(name, workQueue, receiver, destinationID);
+}
+
+void StreamClientConnection::removeWorkQueueMessageReceiver(ReceiverName name, uint64_t destinationID)
+{
+    m_connection->removeWorkQueueMessageReceiver(name, destinationID);
 }
 
 }

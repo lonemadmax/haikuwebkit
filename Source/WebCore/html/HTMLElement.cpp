@@ -37,7 +37,9 @@
 #include "CommonAtomStrings.h"
 #include "CustomElementReactionQueue.h"
 #include "DOMTokenList.h"
+#include "Document.h"
 #include "DocumentFragment.h"
+#include "DocumentInlines.h"
 #include "Editor.h"
 #include "ElementAncestorIteratorInlines.h"
 #include "ElementChildIteratorInlines.h"
@@ -79,6 +81,7 @@
 #include "NodeTraversal.h"
 #include "PopoverData.h"
 #include "PseudoClassChangeInvalidation.h"
+#include "Quirks.h"
 #include "RenderElement.h"
 #include "ScriptController.h"
 #include "ScriptDisallowedScope.h"
@@ -1450,10 +1453,8 @@ ExceptionOr<void> HTMLElement::showPopover(const HTMLFormControlElement* invoker
 
     queuePopoverToggleEventTask(PopoverVisibilityState::Hidden, PopoverVisibilityState::Showing);
 
-#if ENABLE(ACCESSIBILITY)
     if (CheckedPtr cache = document->existingAXObjectCache())
         cache->onPopoverToggle(*this);
-#endif
 
     return { };
 }
@@ -1473,8 +1474,7 @@ ExceptionOr<void> HTMLElement::hidePopoverInternal(FocusPreviousElement focusPre
         fireEvents = FireEvents::No;
 
     if (popoverState() == PopoverState::Auto) {
-        // Unable to protect the document as it may have started destruction.
-        document().hideAllPopoversUntil(this, focusPreviousElement, fireEvents);
+        RefAllowingPartiallyDestroyed<Document> { document() }->hideAllPopoversUntil(this, focusPreviousElement, fireEvents);
 
         check = checkPopoverValidity(*this, PopoverVisibilityState::Showing);
         if (check.hasException())
@@ -1513,10 +1513,8 @@ ExceptionOr<void> HTMLElement::hidePopoverInternal(FocusPreviousElement focusPre
         popoverData()->setPreviouslyFocusedElement(nullptr);
     }
 
-#if ENABLE(ACCESSIBILITY)
     if (CheckedPtr cache = document().existingAXObjectCache())
         cache->onPopoverToggle(*this);
-#endif
 
     return { };
 }

@@ -28,7 +28,6 @@
 
 #import "ArgumentCodersCF.h"
 #import "ArgumentCodersCocoa.h"
-#import "SharedMemory.h"
 #import <CoreText/CoreText.h>
 #import <WebCore/AttributedString.h>
 #import <WebCore/DataDetectorElementInfo.h>
@@ -37,6 +36,7 @@
 #import <WebCore/FontAttributes.h>
 #import <WebCore/FontCustomPlatformData.h>
 #import <WebCore/ResourceRequest.h>
+#import <WebCore/SharedMemory.h>
 #import <WebCore/TextRecognitionResult.h>
 #import <pal/spi/cf/CoreTextSPI.h>
 
@@ -78,365 +78,6 @@
 
 namespace IPC {
 
-#if ENABLE(APPLE_PAY)
-
-template<> Class getClass<PKPayment>()
-{
-    return PAL::getPKPaymentClass();
-}
-
-template<> Class getClass<PKPaymentMerchantSession>()
-{
-    return PAL::getPKPaymentMerchantSessionClass();
-}
-
-template<> Class getClass<PKPaymentMethod>()
-{
-    return PAL::getPKPaymentMethodClass();
-}
-
-void ArgumentCoder<WebCore::Payment>::encode(Encoder& encoder, const WebCore::Payment& payment)
-{
-    encoder << payment.pkPayment();
-}
-
-std::optional<WebCore::Payment> ArgumentCoder<WebCore::Payment>::decode(Decoder& decoder)
-{
-    auto payment = decoder.decodeWithAllowedClasses<PKPayment>();
-    if (!payment)
-        return std::nullopt;
-
-    return WebCore::Payment { WTFMove(*payment) };
-}
-
-void ArgumentCoder<WebCore::PaymentContact>::encode(Encoder& encoder, const WebCore::PaymentContact& paymentContact)
-{
-    encoder << paymentContact.pkContact();
-}
-
-std::optional<WebCore::PaymentContact> ArgumentCoder<WebCore::PaymentContact>::decode(Decoder& decoder)
-{
-    auto contact = decoder.decodeWithAllowedClasses<PKContact>();
-    if (!contact)
-        return std::nullopt;
-
-    return WebCore::PaymentContact { WTFMove(*contact) };
-}
-
-void ArgumentCoder<WebCore::PaymentMerchantSession>::encode(Encoder& encoder, const WebCore::PaymentMerchantSession& paymentMerchantSession)
-{
-    encoder << paymentMerchantSession.pkPaymentMerchantSession();
-}
-
-std::optional<WebCore::PaymentMerchantSession> ArgumentCoder<WebCore::PaymentMerchantSession>::decode(Decoder& decoder)
-{
-    auto paymentMerchantSession = decoder.decodeWithAllowedClasses<PKPaymentMerchantSession>();
-    if (!paymentMerchantSession)
-        return std::nullopt;
-
-    return WebCore::PaymentMerchantSession { WTFMove(*paymentMerchantSession) };
-}
-
-void ArgumentCoder<WebCore::PaymentMethod>::encode(Encoder& encoder, const WebCore::PaymentMethod& paymentMethod)
-{
-    encoder << paymentMethod.pkPaymentMethod();
-}
-
-std::optional<WebCore::PaymentMethod> ArgumentCoder<WebCore::PaymentMethod>::decode(Decoder& decoder)
-{
-    auto paymentMethod = decoder.decodeWithAllowedClasses<PKPaymentMethod>();
-    if (!paymentMethod)
-        return std::nullopt;
-
-    return WebCore::PaymentMethod { WTFMove(*paymentMethod) };
-}
-
-void ArgumentCoder<WebCore::ApplePaySessionPaymentRequest>::encode(Encoder& encoder, const WebCore::ApplePaySessionPaymentRequest& request)
-{
-    encoder << request.countryCode();
-    encoder << request.currencyCode();
-    encoder << request.requiredBillingContactFields();
-    encoder << request.billingContact();
-    encoder << request.requiredShippingContactFields();
-    encoder << request.shippingContact();
-    encoder << request.merchantCapabilities();
-    encoder << request.supportedNetworks();
-    encoder << request.shippingType();
-    encoder << request.shippingMethods();
-    encoder << request.lineItems();
-    encoder << request.total();
-    encoder << request.applicationData();
-    encoder << request.supportedCountries();
-    encoder << request.requester();
-#if ENABLE(APPLE_PAY_INSTALLMENTS)
-    encoder << request.installmentConfiguration();
-#endif
-#if ENABLE(APPLE_PAY_COUPON_CODE)
-    encoder << request.supportsCouponCode();
-    encoder << request.couponCode();
-#endif
-#if ENABLE(APPLE_PAY_SHIPPING_CONTACT_EDITING_MODE)
-    encoder << request.shippingContactEditingMode();
-#endif
-#if ENABLE(APPLE_PAY_RECURRING_PAYMENTS)
-    encoder << request.recurringPaymentRequest();
-#endif
-#if ENABLE(APPLE_PAY_AUTOMATIC_RELOAD_PAYMENTS)
-    encoder << request.automaticReloadPaymentRequest();
-#endif
-#if ENABLE(APPLE_PAY_MULTI_MERCHANT_PAYMENTS)
-    encoder << request.multiTokenContexts();
-#endif
-#if ENABLE(APPLE_PAY_DEFERRED_PAYMENTS)
-    encoder << request.deferredPaymentRequest();
-#endif
-#if ENABLE(APPLE_PAY_LATER_AVAILABILITY)
-    encoder << request.applePayLaterAvailability();
-#endif
-}
-
-bool ArgumentCoder<WebCore::ApplePaySessionPaymentRequest>::decode(Decoder& decoder, WebCore::ApplePaySessionPaymentRequest& request)
-{
-    String countryCode;
-    if (!decoder.decode(countryCode))
-        return false;
-    request.setCountryCode(countryCode);
-
-    String currencyCode;
-    if (!decoder.decode(currencyCode))
-        return false;
-    request.setCurrencyCode(currencyCode);
-
-    WebCore::ApplePaySessionPaymentRequest::ContactFields requiredBillingContactFields;
-    if (!decoder.decode((requiredBillingContactFields)))
-        return false;
-    request.setRequiredBillingContactFields(requiredBillingContactFields);
-
-    std::optional<WebCore::PaymentContact> billingContact;
-    decoder >> billingContact;
-    if (!billingContact)
-        return false;
-    request.setBillingContact(*billingContact);
-
-    WebCore::ApplePaySessionPaymentRequest::ContactFields requiredShippingContactFields;
-    if (!decoder.decode((requiredShippingContactFields)))
-        return false;
-    request.setRequiredShippingContactFields(requiredShippingContactFields);
-
-    std::optional<WebCore::PaymentContact> shippingContact;
-    decoder >> shippingContact;
-    if (!shippingContact)
-        return false;
-    request.setShippingContact(*shippingContact);
-
-    WebCore::ApplePaySessionPaymentRequest::MerchantCapabilities merchantCapabilities;
-    if (!decoder.decode(merchantCapabilities))
-        return false;
-    request.setMerchantCapabilities(merchantCapabilities);
-
-    Vector<String> supportedNetworks;
-    if (!decoder.decode(supportedNetworks))
-        return false;
-    request.setSupportedNetworks(supportedNetworks);
-
-    WebCore::ApplePaySessionPaymentRequest::ShippingType shippingType;
-    if (!decoder.decode(shippingType))
-        return false;
-    request.setShippingType(shippingType);
-
-    Vector<WebCore::ApplePayShippingMethod> shippingMethods;
-    if (!decoder.decode(shippingMethods))
-        return false;
-    request.setShippingMethods(shippingMethods);
-
-    Vector<WebCore::ApplePayLineItem> lineItems;
-    if (!decoder.decode(lineItems))
-        return false;
-    request.setLineItems(lineItems);
-
-    std::optional<WebCore::ApplePayLineItem> total;
-    decoder >> total;
-    if (!total)
-        return false;
-    request.setTotal(*total);
-
-    String applicationData;
-    if (!decoder.decode(applicationData))
-        return false;
-    request.setApplicationData(applicationData);
-
-    Vector<String> supportedCountries;
-    if (!decoder.decode(supportedCountries))
-        return false;
-    request.setSupportedCountries(WTFMove(supportedCountries));
-
-    WebCore::ApplePaySessionPaymentRequest::Requester requester;
-    if (!decoder.decode(requester))
-        return false;
-    request.setRequester(requester);
-    
-#if ENABLE(APPLE_PAY_INSTALLMENTS)
-    std::optional<WebCore::PaymentInstallmentConfiguration> installmentConfiguration;
-    decoder >> installmentConfiguration;
-    if (!installmentConfiguration)
-        return false;
-
-    request.setInstallmentConfiguration(WTFMove(*installmentConfiguration));
-#endif
-
-#if ENABLE(APPLE_PAY_COUPON_CODE)
-    std::optional<std::optional<bool>> supportsCouponCode;
-    decoder >> supportsCouponCode;
-    if (!supportsCouponCode)
-        return false;
-    request.setSupportsCouponCode(WTFMove(*supportsCouponCode));
-
-    std::optional<String> couponCode;
-    decoder >> couponCode;
-    if (!couponCode)
-        return false;
-    request.setCouponCode(WTFMove(*couponCode));
-#endif
-
-#if ENABLE(APPLE_PAY_SHIPPING_CONTACT_EDITING_MODE)
-    std::optional<std::optional<WebCore::ApplePayShippingContactEditingMode>> shippingContactEditingMode;
-    decoder >> shippingContactEditingMode;
-    if (!shippingContactEditingMode)
-        return false;
-    request.setShippingContactEditingMode(WTFMove(*shippingContactEditingMode));
-#endif
-
-#if ENABLE(APPLE_PAY_RECURRING_PAYMENTS)
-    std::optional<std::optional<WebCore::ApplePayRecurringPaymentRequest>> recurringPaymentRequest;
-    decoder >> recurringPaymentRequest;
-    if (!recurringPaymentRequest)
-        return false;
-    request.setRecurringPaymentRequest(WTFMove(*recurringPaymentRequest));
-#endif
-
-#if ENABLE(APPLE_PAY_AUTOMATIC_RELOAD_PAYMENTS)
-    std::optional<std::optional<WebCore::ApplePayAutomaticReloadPaymentRequest>> automaticReloadPaymentRequest;
-    decoder >> automaticReloadPaymentRequest;
-    if (!automaticReloadPaymentRequest)
-        return false;
-    request.setAutomaticReloadPaymentRequest(WTFMove(*automaticReloadPaymentRequest));
-#endif
-
-#if ENABLE(APPLE_PAY_MULTI_MERCHANT_PAYMENTS)
-    std::optional<std::optional<Vector<WebCore::ApplePayPaymentTokenContext>>> multiTokenContexts;
-    decoder >> multiTokenContexts;
-    if (!multiTokenContexts)
-        return false;
-    request.setMultiTokenContexts(WTFMove(*multiTokenContexts));
-#endif
-
-#if ENABLE(APPLE_PAY_DEFERRED_PAYMENTS)
-    std::optional<std::optional<WebCore::ApplePayDeferredPaymentRequest>> deferredPaymentRequest;
-    decoder >> deferredPaymentRequest;
-    if (!deferredPaymentRequest)
-        return false;
-    request.setDeferredPaymentRequest(WTFMove(*deferredPaymentRequest));
-#endif
-
-#if ENABLE(APPLE_PAY_LATER_AVAILABILITY)
-    std::optional<std::optional<WebCore::ApplePayLaterAvailability>> applePayLaterAvailability;
-    decoder >> applePayLaterAvailability;
-    if (!applePayLaterAvailability)
-        return false;
-    request.setApplePayLaterAvailability(WTFMove(*applePayLaterAvailability));
-#endif
-
-    return true;
-}
-
-void ArgumentCoder<WebCore::ApplePaySessionPaymentRequest::ContactFields>::encode(Encoder& encoder, const WebCore::ApplePaySessionPaymentRequest::ContactFields& contactFields)
-{
-    encoder << contactFields.postalAddress;
-    encoder << contactFields.phone;
-    encoder << contactFields.email;
-    encoder << contactFields.name;
-    encoder << contactFields.phoneticName;
-}
-
-bool ArgumentCoder<WebCore::ApplePaySessionPaymentRequest::ContactFields>::decode(Decoder& decoder, WebCore::ApplePaySessionPaymentRequest::ContactFields& contactFields)
-{
-    if (!decoder.decode(contactFields.postalAddress))
-        return false;
-    if (!decoder.decode(contactFields.phone))
-        return false;
-    if (!decoder.decode(contactFields.email))
-        return false;
-    if (!decoder.decode(contactFields.name))
-        return false;
-    if (!decoder.decode(contactFields.phoneticName))
-        return false;
-
-    return true;
-}
-
-void ArgumentCoder<WebCore::ApplePaySessionPaymentRequest::MerchantCapabilities>::encode(Encoder& encoder, const WebCore::ApplePaySessionPaymentRequest::MerchantCapabilities& merchantCapabilities)
-{
-    encoder << merchantCapabilities.supports3DS;
-    encoder << merchantCapabilities.supportsEMV;
-    encoder << merchantCapabilities.supportsCredit;
-    encoder << merchantCapabilities.supportsDebit;
-}
-
-bool ArgumentCoder<WebCore::ApplePaySessionPaymentRequest::MerchantCapabilities>::decode(Decoder& decoder, WebCore::ApplePaySessionPaymentRequest::MerchantCapabilities& merchantCapabilities)
-{
-    if (!decoder.decode(merchantCapabilities.supports3DS))
-        return false;
-    if (!decoder.decode(merchantCapabilities.supportsEMV))
-        return false;
-    if (!decoder.decode(merchantCapabilities.supportsCredit))
-        return false;
-    if (!decoder.decode(merchantCapabilities.supportsDebit))
-        return false;
-
-    return true;
-}
-
-void ArgumentCoder<RefPtr<WebCore::ApplePayError>>::encode(Encoder& encoder, const RefPtr<WebCore::ApplePayError>& error)
-{
-    encoder << !!error;
-    if (error)
-        encoder << *error;
-}
-
-std::optional<RefPtr<WebCore::ApplePayError>> ArgumentCoder<RefPtr<WebCore::ApplePayError>>::decode(Decoder& decoder)
-{
-    std::optional<bool> isValid;
-    decoder >> isValid;
-    if (!isValid)
-        return std::nullopt;
-
-    if (!*isValid)
-        return { nullptr };
-
-    std::optional<Ref<WebCore::ApplePayError>> error;
-    decoder >> error;
-    if (!error)
-        return std::nullopt;
-
-    return error;
-}
-
-void ArgumentCoder<WebCore::PaymentSessionError>::encode(Encoder& encoder, const WebCore::PaymentSessionError& error)
-{
-    encoder << error.platformError();
-}
-
-std::optional<WebCore::PaymentSessionError> ArgumentCoder<WebCore::PaymentSessionError>::decode(Decoder& decoder)
-{
-    auto platformError = decoder.decode<RetainPtr<NSError>>();
-    if (!platformError)
-        return std::nullopt;
-
-    return { WTFMove(*platformError) };
-}
-
-#endif // ENABLE(APPLEPAY)
-
 void ArgumentCoder<WebCore::Font>::encodePlatformData(Encoder& encoder, const WebCore::Font& font)
 {
     const auto& platformData = font.platformData();
@@ -455,10 +96,10 @@ void ArgumentCoder<WebCore::Font>::encodePlatformData(Encoder& encoder, const We
     const auto& creationData = platformData.creationData();
     encoder << static_cast<bool>(creationData);
     if (creationData) {
-        std::optional<WebKit::SharedMemory::Handle> handle;
+        std::optional<WebCore::SharedMemory::Handle> handle;
         {
-            auto sharedMemoryBuffer = WebKit::SharedMemory::copyBuffer(creationData->fontFaceData);
-            handle = sharedMemoryBuffer->createHandle(WebKit::SharedMemory::Protection::ReadOnly);
+            auto sharedMemoryBuffer = WebCore::SharedMemory::copyBuffer(creationData->fontFaceData);
+            handle = sharedMemoryBuffer->createHandle(WebCore::SharedMemory::Protection::ReadOnly);
         }
         encoder << creationData->fontFaceData->size();
         encoder << WTFMove(handle);
@@ -521,14 +162,14 @@ std::optional<WebCore::FontPlatformData> ArgumentCoder<WebCore::Font>::decodePla
         if (!bufferSize)
             return std::nullopt;
 
-        auto handle = decoder.decode<std::optional<WebKit::SharedMemory::Handle>>();
+        auto handle = decoder.decode<std::optional<WebCore::SharedMemory::Handle>>();
         if (UNLIKELY(!decoder.isValid()))
             return std::nullopt;
 
         if (!*handle)
             return std::nullopt;
 
-        auto sharedMemoryBuffer = WebKit::SharedMemory::map(WTFMove(**handle), WebKit::SharedMemory::Protection::ReadOnly);
+        auto sharedMemoryBuffer = WebCore::SharedMemory::map(WTFMove(**handle), WebCore::SharedMemory::Protection::ReadOnly);
         if (!sharedMemoryBuffer)
             return std::nullopt;
 
@@ -574,44 +215,6 @@ std::optional<WebCore::FontPlatformData> ArgumentCoder<WebCore::Font>::decodePla
         return std::nullopt;
 
     return WebCore::FontPlatformData(ctFont.get(), *size, *syntheticBold, *syntheticOblique, *orientation, *widthVariant, *textRenderingMode);
-}
-
-void ArgumentCoder<WebCore::FontPlatformData::Attributes>::encodePlatformData(Encoder& encoder, const WebCore::FontPlatformData::Attributes& data)
-{
-    encoder << data.m_attributes;
-    encoder << data.m_options;
-    encoder << data.m_url;
-    encoder << data.m_psName;
-}
-
-bool ArgumentCoder<WebCore::FontPlatformData::Attributes>::decodePlatformData(Decoder& decoder, WebCore::FontPlatformData::Attributes& data)
-{
-    std::optional<RetainPtr<CFDictionaryRef>> attributes;
-    decoder >> attributes;
-    if (!attributes)
-        return false;
-
-    std::optional<CTFontDescriptorOptions> options;
-    decoder >> options;
-    if (!options)
-        return false;
-
-
-    std::optional<RetainPtr<CFStringRef>> url;
-    decoder >> url;
-    if (!url)
-        return false;
-
-    std::optional<RetainPtr<CFStringRef>> psName;
-    decoder >> psName;
-    if (!psName)
-        return false;
-
-    data.m_attributes = attributes.value();
-    data.m_options = options.value();
-    data.m_url = url.value();
-    data.m_psName = psName.value();
-    return true;
 }
 
 #if ENABLE(DATA_DETECTION)
@@ -685,24 +288,6 @@ bool ArgumentCoder<WebCore::MediaPlaybackTargetContext>::decodePlatformData(Deco
 }
 #endif
 
-#if ENABLE(IMAGE_ANALYSIS) && ENABLE(DATA_DETECTION)
-
-void ArgumentCoder<WebCore::TextRecognitionDataDetector>::encodePlatformData(Encoder& encoder, const WebCore::TextRecognitionDataDetector& info)
-{
-    encoder << info.result.get();
-}
-
-bool ArgumentCoder<WebCore::TextRecognitionDataDetector>::decodePlatformData(Decoder& decoder, WebCore::TextRecognitionDataDetector& result)
-{
-    auto scannerResult = decoder.decodeWithAllowedClasses<DDScannerResult>();
-    if (!scannerResult)
-        return false;
-
-    result.result = WTFMove(*scannerResult);
-    return true;
-}
-
-#endif // ENABLE(IMAGE_ANALYSIS) && ENABLE(DATA_DETECTION)
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 

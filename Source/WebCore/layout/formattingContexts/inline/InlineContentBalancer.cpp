@@ -110,8 +110,17 @@ InlineContentBalancer::InlineContentBalancer(InlineFormattingContext& inlineForm
 
 void InlineContentBalancer::initialize()
 {
+    auto lineClamp = m_inlineFormattingContext.layoutState().parentBlockLayoutState().lineClamp();
+    auto numberOfVisibleLinesAllowed = lineClamp ? std::make_optional(lineClamp->allowedLineCount()) : std::nullopt;
+
     if (!m_inlineFormattingContext.layoutState().placedFloats().isEmpty()) {
         m_cannotBalanceContent = true;
+        return;
+    }
+
+    // if we have a single line content, we don't have anything to be balanced.
+    if (numberOfVisibleLinesAllowed == 1) {
+        m_hasSingleLineVisibleContent = true;
         return;
     }
 
@@ -153,7 +162,11 @@ void InlineContentBalancer::initialize()
         auto textIndent = m_inlineFormattingContext.formattingUtils().computedTextIndent(InlineFormattingUtils::IsIntrinsicWidthMode::No, previousLineEndsWithLineBreak, m_maximumLineWidth);
         m_originalLineWidths.append(textIndent + lineSlidingWidth.width());
 
-        layoutRange.start = InlineFormattingUtils::leadingInlineItemPositionForNextLine(lineLayoutResult.inlineItemRange.end, previousLineEnd, layoutRange.end);
+        // If next line count would match (or exceed) the number of visible lines due to line-clamp, we can bail out early.
+        if (numberOfVisibleLinesAllowed && (lineIndex + 1 >= numberOfVisibleLinesAllowed))
+            break;
+
+        layoutRange.start = InlineFormattingUtils::leadingInlineItemPositionForNextLine(lineLayoutResult.inlineItemRange.end, previousLineEnd, !lineLayoutResult.floatContent.hasIntrusiveFloat.isEmpty(), layoutRange.end);
         previousLineEnd = layoutRange.start;
         previousLine = PreviousLine { lineIndex, lineLayoutResult.contentGeometry.trailingOverflowingContentWidth, !lineLayoutResult.inlineContent.isEmpty() && lineLayoutResult.inlineContent.last().isLineBreak(), !lineLayoutResult.inlineContent.isEmpty(), lineLayoutResult.directionality.inlineBaseDirection, WTFMove(lineLayoutResult.floatContent.suspendedFloats) };
         lineIndex++;
@@ -164,7 +177,7 @@ void InlineContentBalancer::initialize()
 
 std::optional<Vector<LayoutUnit>> InlineContentBalancer::computeBalanceConstraints()
 {
-    if (m_cannotBalanceContent)
+    if (m_cannotBalanceContent || m_hasSingleLineVisibleContent)
         return std::nullopt;
 
     // If forced line breaks exist, then we can balance each forced-break-delimited

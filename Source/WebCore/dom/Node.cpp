@@ -66,6 +66,7 @@
 #include "PointerEvent.h"
 #include "ProcessingInstruction.h"
 #include "ProgressEvent.h"
+#include "Quirks.h"
 #include "RenderBlock.h"
 #include "RenderBox.h"
 #include "RenderTextControl.h"
@@ -106,9 +107,9 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(Node);
 
 using namespace HTMLNames;
 
-struct SameSizeAsNode : EventTarget, CanMakeCheckedPtr {
+struct SameSizeAsNode : EventTarget {
 #if ASSERT_ENABLED
-    bool deletionHasBegun;
+    uint32_t m_isAllocatedMemory;
     bool inRemovedLastRefFunction;
     bool adoptionIsRequired;
 #endif
@@ -148,8 +149,8 @@ static const char* stringForRareDataUseType(NodeRareData::UseType useType)
         return "ScrollingPosition";
     case NodeRareData::UseType::ComputedStyle:
         return "ComputedStyle";
-    case NodeRareData::UseType::DisplayContentsStyle:
-        return "DisplayContentsStyle";
+    case NodeRareData::UseType::DisplayContentsOrNoneStyle:
+        return "DisplayContentsOrNoneStyle";
     case NodeRareData::UseType::EffectiveLang:
         return "EffectiveLang";
     case NodeRareData::UseType::Dataset:
@@ -412,8 +413,8 @@ Node::Node(Document& document, NodeType type, OptionSet<TypeFlag> flags)
 Node::~Node()
 {
     ASSERT(isMainThread());
-    ASSERT(m_refCountAndParentBit == s_refCountIncrement);
-    ASSERT(m_deletionHasBegun);
+    ASSERT(deletionHasBegun());
+    ASSERT(!deletionHasEnded());
     ASSERT(!m_adoptionIsRequired);
 
     InspectorInstrumentation::willDestroyDOMNode(*this);
@@ -449,6 +450,10 @@ Node::~Node()
         ASSERT_WITH_SECURITY_IMPLICATION(!document->touchEventHandlersContain(*this));
         ASSERT_WITH_SECURITY_IMPLICATION(!document->touchEventTargetsContain(*this));
     }
+#endif
+
+#if ASSERT_ENABLED
+    m_isAllocatedMemory = IsAllocatedMemory::Scribble;
 #endif
 }
 
@@ -589,6 +594,7 @@ static RefPtr<Node> firstFollowingSiblingNotInNodeSet(Node& context, const HashS
     return nullptr;
 }
 
+// https://dom.spec.whatwg.org/#converting-nodes-into-a-node
 ExceptionOr<RefPtr<Node>> Node::convertNodesOrStringsIntoNode(FixedVector<NodeOrString>&& nodeOrStringVector)
 {
     if (nodeOrStringVector.isEmpty())
@@ -614,6 +620,42 @@ ExceptionOr<RefPtr<Node>> Node::convertNodesOrStringsIntoNode(FixedVector<NodeOr
     return RefPtr<Node> { WTFMove(nodeToReturn) };
 }
 
+// https://dom.spec.whatwg.org/#converting-nodes-into-a-node except this returns a NodeVector
+ExceptionOr<NodeVector> Node::convertNodesOrStringsIntoNodeVector(FixedVector<NodeOrString>&& nodeOrStringVector)
+{
+    if (nodeOrStringVector.isEmpty())
+        return NodeVector { };
+
+    Ref document = this->document();
+    NodeVector nodeVector;
+    nodeVector.reserveInitialCapacity(nodeOrStringVector.size());
+    for (auto& variant : nodeOrStringVector) {
+        if (std::holds_alternative<String>(variant)) {
+            nodeVector.append(Text::create(document, WTFMove(std::get<String>(variant))));
+            continue;
+        }
+        ASSERT(std::holds_alternative<RefPtr<Node>>(variant));
+        RefPtr node = WTFMove(std::get<RefPtr<Node>>(variant));
+        ASSERT(node);
+        if (auto* fragment = dynamicDowncast<DocumentFragment>(node.get()); UNLIKELY(fragment)) {
+            for (auto* child = fragment->firstChild(); child; child = child->nextSibling())
+                nodeVector.append(*child);
+        } else
+            nodeVector.append(node.releaseNonNull());
+    }
+
+    if (nodeVector.size() == 1)
+        return nodeVector; // step 3, if nodes contains one node, then set node to nodes[0].
+
+    for (auto& node : nodeVector) {
+        auto result = node->remove();
+        if (result.hasException())
+            return result.releaseException();
+    }
+
+    return nodeVector;
+}
+
 ExceptionOr<void> Node::before(FixedVector<NodeOrString>&& nodeOrStringVector)
 {
     RefPtr parent = parentNode();
@@ -623,19 +665,16 @@ ExceptionOr<void> Node::before(FixedVector<NodeOrString>&& nodeOrStringVector)
     auto nodeSet = nodeSetPreTransformedFromNodeOrStringVector(nodeOrStringVector);
     RefPtr viablePreviousSibling = firstPrecedingSiblingNotInNodeSet(*this, nodeSet);
 
-    auto result = convertNodesOrStringsIntoNode(WTFMove(nodeOrStringVector));
+    auto result = convertNodesOrStringsIntoNodeVector(WTFMove(nodeOrStringVector));
     if (result.hasException())
         return result.releaseException();
-    RefPtr node = result.releaseReturnValue();
-    if (!node)
-        return { };
 
-    if (viablePreviousSibling)
-        viablePreviousSibling = viablePreviousSibling->nextSibling();
-    else
-        viablePreviousSibling = parent->firstChild();
+    auto newChildren = result.releaseReturnValue();
+    if (auto checkResult = parent->ensurePreInsertionValidityForPhantomDocumentFragment(newChildren); checkResult.hasException())
+        return checkResult;
 
-    return parent->insertBefore(*node, WTFMove(viablePreviousSibling));
+    RefPtr viableNextSibling = viablePreviousSibling ? viablePreviousSibling->nextSibling() : parent->firstChild();
+    return parent->insertChildrenBeforeWithoutPreInsertionValidityCheck(WTFMove(newChildren), viableNextSibling.get());
 }
 
 ExceptionOr<void> Node::after(FixedVector<NodeOrString>&& nodeOrStringVector)
@@ -647,14 +686,15 @@ ExceptionOr<void> Node::after(FixedVector<NodeOrString>&& nodeOrStringVector)
     auto nodeSet = nodeSetPreTransformedFromNodeOrStringVector(nodeOrStringVector);
     RefPtr viableNextSibling = firstFollowingSiblingNotInNodeSet(*this, nodeSet);
 
-    auto result = convertNodesOrStringsIntoNode(WTFMove(nodeOrStringVector));
+    auto result = convertNodesOrStringsIntoNodeVector(WTFMove(nodeOrStringVector));
     if (result.hasException())
         return result.releaseException();
-    RefPtr node = result.releaseReturnValue();
-    if (!node)
-        return { };
 
-    return parent->insertBefore(*node, WTFMove(viableNextSibling));
+    auto newChildren = result.releaseReturnValue();
+    if (auto checkResult = parent->ensurePreInsertionValidityForPhantomDocumentFragment(newChildren); checkResult.hasException())
+        return checkResult;
+
+    return parent->insertChildrenBeforeWithoutPreInsertionValidityCheck(WTFMove(newChildren), viableNextSibling.get());
 }
 
 ExceptionOr<void> Node::replaceWith(FixedVector<NodeOrString>&& nodeOrStringVector)
@@ -918,7 +958,7 @@ void Node::adjustStyleValidity(Style::Validity validity, Style::InvalidationMode
         break;
     case Style::InvalidationMode::RebuildRenderer:
     case Style::InvalidationMode::InsertedIntoAncestor:
-        setStyleFlag(NodeStyleFlag::HasInvalidRenderer);
+        setStateFlag(StateFlag::HasInvalidRenderer);
         break;
     };
 }
@@ -1027,6 +1067,8 @@ void Node::invalidateNodeListAndCollectionCachesInAncestors()
         if (auto* lists = rareData()->nodeLists())
             lists->clearChildNodeListCache();
     }
+
+    document().invalidateQuerySelectorAllResults(*this);
 
     if (!document().shouldInvalidateNodeListAndCollectionCaches())
         return;
@@ -1190,10 +1232,15 @@ Node* Node::pseudoAwareLastChild() const
     return lastChild();
 }
 
-const RenderStyle* Node::computedStyle(PseudoId pseudoElementSpecifier)
+const RenderStyle* Node::computedStyle()
+{
+    return computedStyle(std::nullopt);
+}
+
+const RenderStyle* Node::computedStyle(const std::optional<Style::PseudoElementIdentifier>& pseudoElementIdentifier)
 {
     RefPtr composedParent = parentElementInComposedTree();
-    return composedParent ? composedParent->computedStyle(pseudoElementSpecifier) : nullptr;
+    return composedParent ? composedParent->computedStyle(pseudoElementIdentifier) : nullptr;
 }
 
 // FIXME: Shouldn't these functions be in the editing code?  Code that asks questions about HTML in the core DOM class
@@ -2037,8 +2084,8 @@ static void showSubTreeAcrossFrame(const Node* node, const Node* markedNode, con
     fputs(indent.utf8().data(), stderr);
     node->showNode();
     if (!node->isShadowRoot()) {
-        if (node->isFrameOwnerElement())
-            showSubTreeAcrossFrame(static_cast<const HTMLFrameOwnerElement*>(node)->contentDocument(), markedNode, indent + "\t");
+        if (auto* frameOwner = dynamicDowncast<HTMLFrameOwnerElement>(node))
+            showSubTreeAcrossFrame(frameOwner->protectedContentDocument().get(), markedNode, indent + "\t");
         if (RefPtr shadowRoot = node->shadowRoot())
             showSubTreeAcrossFrame(shadowRoot.get(), markedNode, indent + "\t");
     }
@@ -2108,33 +2155,65 @@ EventTargetInterface Node::eventTargetInterface() const
 }
 
 template <typename MoveNodeFunction, typename MoveShadowRootFunction>
-static void traverseSubtreeToUpdateTreeScope(Node& root, MoveNodeFunction moveNode, MoveShadowRootFunction moveShadowRoot)
+static unsigned traverseSubtreeToUpdateTreeScope(Node& root, MoveNodeFunction moveNode, MoveShadowRootFunction moveShadowRoot)
 {
+    unsigned count = 0;
     for (Node* node = &root; node; node = NodeTraversal::next(*node, &root)) {
         moveNode(*node);
+        ++count;
 
         auto* element = dynamicDowncast<Element>(*node);
         if (!element)
             continue;
 
         if (element->hasSyntheticAttrChildNodes()) {
-            for (auto& attr : element->attrNodeList())
+            for (auto& attr : element->attrNodeList()) {
                 moveNode(*attr);
+                ++count;
+            }
         }
 
         if (auto* shadow = element->shadowRoot())
-            moveShadowRoot(*shadow);
+            count += moveShadowRoot(*shadow);
     }
+    return count;
 }
 
-inline void Node::moveShadowTreeToNewDocument(ShadowRoot& shadowRoot, Document& oldDocument, Document& newDocument)
+static ALWAYS_INLINE bool isDocumentEligibleForFastAdoption(Document& oldDocument, Document& newDocument)
 {
-    traverseSubtreeToUpdateTreeScope(shadowRoot, [&oldDocument, &newDocument](Node& node) {
-        node.moveNodeToNewDocument(oldDocument, newDocument);
+    return !oldDocument.hasNodeIterators()
+        && !oldDocument.hasRanges()
+        && !oldDocument.hasNodeWithEventListeners()
+        && !oldDocument.hasMutationObservers()
+        && !oldDocument.textManipulationControllerIfExists()
+        && !oldDocument.shouldInvalidateNodeListAndCollectionCaches()
+        && !oldDocument.numberOfIntersectionObservers()
+        && (!AXObjectCache::accessibilityEnabled() || !oldDocument.existingAXObjectCache())
+        && oldDocument.inQuirksMode() == newDocument.inQuirksMode();
+}
+
+inline unsigned Node::moveShadowTreeToNewDocumentFastCase(ShadowRoot& shadowRoot, Document& oldDocument, Document& newDocument)
+{
+    ASSERT(isDocumentEligibleForFastAdoption(oldDocument, newDocument));
+    return traverseSubtreeToUpdateTreeScope(shadowRoot, [&](Node& node) {
+        node.moveNodeToNewDocumentFastCase(oldDocument, newDocument);
     }, [&oldDocument, &newDocument](ShadowRoot& innerShadowRoot) {
         RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&innerShadowRoot.document() == &oldDocument);
         innerShadowRoot.moveShadowRootToNewDocument(oldDocument, newDocument);
-        moveShadowTreeToNewDocument(innerShadowRoot, oldDocument, newDocument);
+        return moveShadowTreeToNewDocumentFastCase(innerShadowRoot, oldDocument, newDocument);
+    });
+}
+
+inline void Node::moveShadowTreeToNewDocumentSlowCase(ShadowRoot& shadowRoot, Document& oldDocument, Document& newDocument)
+{
+    ASSERT(!isDocumentEligibleForFastAdoption(oldDocument, newDocument));
+    traverseSubtreeToUpdateTreeScope(shadowRoot, [&](Node& node) {
+        node.moveNodeToNewDocumentSlowCase(oldDocument, newDocument);
+    }, [&oldDocument, &newDocument](ShadowRoot& innerShadowRoot) {
+        RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&innerShadowRoot.document() == &oldDocument);
+        innerShadowRoot.moveShadowRootToNewDocument(oldDocument, newDocument);
+        moveShadowTreeToNewDocumentSlowCase(innerShadowRoot, oldDocument, newDocument);
+        return 0; // Unused.
     });
 }
 
@@ -2147,18 +2226,36 @@ void Node::moveTreeToNewScope(Node& root, TreeScope& oldScope, TreeScope& newSco
     bool newScopeIsUAShadowTree = newScope.rootNode().hasBeenInUserAgentShadowTree();
     if (&oldDocument != &newDocument) {
         oldDocument.incrementReferencingNodeCount();
-        traverseSubtreeToUpdateTreeScope(root, [&](Node& node) {
-            ASSERT(!node.isTreeScope());
-            RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&node.treeScope() == &oldScope);
-            if (newScopeIsUAShadowTree)
-                node.setEventTargetFlag(EventTargetFlag::HasBeenInUserAgentShadowTree);
-            node.setTreeScope(newScope);
-            node.moveNodeToNewDocument(oldDocument, newDocument);
-        }, [&](ShadowRoot& shadowRoot) {
-            ASSERT_WITH_SECURITY_IMPLICATION(&shadowRoot.document() == &oldDocument);
-            shadowRoot.moveShadowRootToNewParentScope(newScope, newDocument);
-            moveShadowTreeToNewDocument(shadowRoot, oldDocument, newDocument);
-        });
+        bool isFastCase = isDocumentEligibleForFastAdoption(oldDocument, newDocument) && !newScopeIsUAShadowTree;
+        if (isFastCase) {
+            unsigned nodeCount = traverseSubtreeToUpdateTreeScope(root, [&](Node& node) {
+                ASSERT(!node.isTreeScope());
+                RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&node.treeScope() == &oldScope);
+                node.setTreeScope(newScope);
+                node.moveNodeToNewDocumentFastCase(oldDocument, newDocument);
+            }, [&](ShadowRoot& shadowRoot) {
+                ASSERT_WITH_SECURITY_IMPLICATION(&shadowRoot.document() == &oldDocument);
+                shadowRoot.moveShadowRootToNewParentScope(newScope, newDocument);
+                return moveShadowTreeToNewDocumentFastCase(shadowRoot, oldDocument, newDocument);
+            });
+//            UNUSED_PARAM(nodeCount);
+            newDocument.incrementReferencingNodeCount(nodeCount);
+            oldDocument.decrementReferencingNodeCount(nodeCount);
+        } else {
+            traverseSubtreeToUpdateTreeScope(root, [&](Node& node) {
+                ASSERT(!node.isTreeScope());
+                RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&node.treeScope() == &oldScope);
+                if (newScopeIsUAShadowTree)
+                    node.setEventTargetFlag(EventTargetFlag::HasBeenInUserAgentShadowTree);
+                node.setTreeScope(newScope);
+                node.moveNodeToNewDocumentSlowCase(oldDocument, newDocument);
+            }, [&](ShadowRoot& shadowRoot) {
+                ASSERT_WITH_SECURITY_IMPLICATION(&shadowRoot.document() == &oldDocument);
+                shadowRoot.moveShadowRootToNewParentScope(newScope, newDocument);
+                moveShadowTreeToNewDocumentSlowCase(shadowRoot, oldDocument, newDocument);
+                return 0; // Unused
+            });
+        }
         RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&oldScope.documentScope() == &oldDocument && &newScope.documentScope() == &newDocument);
         oldDocument.decrementReferencingNodeCount();
     } else {
@@ -2174,11 +2271,33 @@ void Node::moveTreeToNewScope(Node& root, TreeScope& oldScope, TreeScope& newSco
                 nodeLists->adoptTreeScope();
         }, [&newScope](ShadowRoot& shadowRoot) {
             shadowRoot.setParentTreeScope(newScope);
+            return 0; // Unused.
         });
     }
 }
 
-void Node::moveNodeToNewDocument(Document& oldDocument, Document& newDocument)
+void Node::moveNodeToNewDocumentFastCase(Document& oldDocument, Document& newDocument)
+{
+    ASSERT(!oldDocument.shouldInvalidateNodeListAndCollectionCaches());
+    ASSERT(!oldDocument.hasNodeIterators());
+    ASSERT(!oldDocument.hasRanges());
+    ASSERT(!AXObjectCache::accessibilityEnabled() || !oldDocument.existingAXObjectCache());
+    ASSERT(!oldDocument.textManipulationControllerIfExists());
+    ASSERT(!oldDocument.hasNodeWithEventListeners());
+    ASSERT(!hasEventListeners());
+    ASSERT(!mutationObserverRegistry());
+    ASSERT(!transientMutationObserverRegistry());
+    ASSERT(!oldDocument.numberOfIntersectionObservers());
+
+    if (!hasTypeFlag(TypeFlag::HasDidMoveToNewDocument) && !hasEventTargetFlag(EventTargetFlag::HasLangAttr) && !hasEventTargetFlag(EventTargetFlag::HasXMLLangAttr)
+        && !isDefinedCustomElement())
+        return;
+
+    if (auto* element = dynamicDowncast<Element>(*this))
+        element->didMoveToNewDocument(oldDocument, newDocument);
+}
+
+void Node::moveNodeToNewDocumentSlowCase(Document& oldDocument, Document& newDocument)
 {
     newDocument.incrementReferencingNodeCount();
     oldDocument.decrementReferencingNodeCount();
@@ -2213,31 +2332,39 @@ void Node::moveNodeToNewDocument(Document& oldDocument, Document& newDocument)
     if (UNLIKELY(textManipulationController))
         textManipulationController->removeNode(*this);
 
-    if (auto* eventTargetData = this->eventTargetData()) {
-        auto& eventNames = WebCore::eventNames();
-        if (!eventTargetData->eventListenerMap.isEmpty()) {
-            for (auto& type : eventTargetData->eventListenerMap.eventTypes())
-                newDocument.addListenerTypeIfNeeded(type);
-        }
+    if (hasEventTargetData()) {
+        unsigned numWheelEventHandlers = 0;
+        unsigned numTouchEventListeners = 0;
+#if ENABLE(TOUCH_EVENTS) && ENABLE(IOS_GESTURE_EVENTS)
+        unsigned numGestureEventListeners = 0;
+#endif
 
-        unsigned numWheelEventHandlers = eventListeners(eventNames.mousewheelEvent).size() + eventListeners(eventNames.wheelEvent).size();
+        auto touchEventCategory = EventCategory::TouchRelated;
+#if ENABLE(TOUCH_EVENTS)
+        if (newDocument.quirks().shouldDispatchSimulatedMouseEvents(this))
+            touchEventCategory = EventCategory::ExtendedTouchRelated;
+#endif
+
+        auto& eventNames = WebCore::eventNames();
+        enumerateEventListenerTypes([&](auto& eventType, unsigned count) {
+            oldDocument.didRemoveEventListenersOfType(eventType, count);
+            newDocument.didAddEventListenersOfType(eventType, count);
+
+            auto typeInfo = eventNames.typeInfoForEvent(eventType);
+            if (typeInfo.isInCategory(EventCategory::Wheel))
+                numWheelEventHandlers += count;
+            else if (typeInfo.isInCategory(touchEventCategory))
+                numTouchEventListeners += count;
+#if ENABLE(TOUCH_EVENTS) && ENABLE(IOS_GESTURE_EVENTS)
+            else if (typeInfo.isInCategory(EventCategory::Gesture))
+                numGestureEventListeners += count;
+#endif
+        });
+
         for (unsigned i = 0; i < numWheelEventHandlers; ++i) {
             oldDocument.didRemoveWheelEventHandler(*this);
             newDocument.didAddWheelEventHandler(*this);
         }
-
-        unsigned numTouchEventListeners = 0;
-#if ENABLE(TOUCH_EVENTS)
-        if (newDocument.quirks().shouldDispatchSimulatedMouseEvents(this)) {
-            for (auto& name : eventNames.extendedTouchRelatedEventNames())
-                numTouchEventListeners += eventListeners(name).size();
-        } else {
-#endif
-            for (auto& name : eventNames.touchRelatedEventNames())
-                numTouchEventListeners += eventListeners(name).size();
-#if ENABLE(TOUCH_EVENTS)
-        }
-#endif
 
         for (unsigned i = 0; i < numTouchEventListeners; ++i) {
             oldDocument.didRemoveTouchEventHandler(*this);
@@ -2249,10 +2376,6 @@ void Node::moveNodeToNewDocument(Document& oldDocument, Document& newDocument)
         }
 
 #if ENABLE(TOUCH_EVENTS) && ENABLE(IOS_GESTURE_EVENTS)
-        unsigned numGestureEventListeners = 0;
-        for (auto& name : eventNames.gestureEventNames())
-            numGestureEventListeners += eventListeners(name).size();
-
         for (unsigned i = 0; i < numGestureEventListeners; ++i) {
             oldDocument.removeTouchEventHandler(*this);
             newDocument.addTouchEventHandler(*this);
@@ -2274,36 +2397,50 @@ void Node::moveNodeToNewDocument(Document& oldDocument, Document& newDocument)
         element->didMoveToNewDocument(oldDocument, newDocument);
 }
 
+bool isTouchRelatedEventType(const EventTypeInfo& eventType, const EventTarget& target)
+{
+#if ENABLE(TOUCH_EVENTS)
+    if (auto* node = dynamicDowncast<Node>(target); eventType.isInCategory(EventCategory::ExtendedTouchRelated)
+        && node && node->document().quirks().shouldDispatchSimulatedMouseEvents(&target))
+        return true;
+#endif
+    UNUSED_PARAM(target);
+    return eventType.isInCategory(EventCategory::TouchRelated);
+}
+
 static inline bool tryAddEventListener(Node* targetNode, const AtomString& eventType, Ref<EventListener>&& listener, const AddEventListenerOptions& options)
 {
     if (!targetNode->EventTarget::addEventListener(eventType, listener.copyRef(), options))
         return false;
 
-    targetNode->document().addListenerTypeIfNeeded(eventType);
+    Ref document = targetNode->document();
+    document->didAddEventListenersOfType(eventType);
 
     auto& eventNames = WebCore::eventNames();
-    if (eventNames.isWheelEventType(eventType))
-        targetNode->document().didAddWheelEventHandler(*targetNode);
-    else if (eventNames.isTouchRelatedEventType(eventType, *targetNode))
-        targetNode->document().didAddTouchEventHandler(*targetNode);
-    else if (eventNames.isMouseClickRelatedEventType(eventType))
-        targetNode->document().didAddOrRemoveMouseEventHandler(*targetNode);
+    auto typeInfo = eventNames.typeInfoForEvent(eventType);
+    if (typeInfo.isInCategory(EventCategory::Wheel)) {
+        document->didAddWheelEventHandler(*targetNode);
+        document->invalidateEventListenerRegions();
+    } else if (isTouchRelatedEventType(typeInfo, *targetNode))
+        document->didAddTouchEventHandler(*targetNode);
+    else if (typeInfo.isInCategory(EventCategory::MouseClickRelated))
+        document->didAddOrRemoveMouseEventHandler(*targetNode);
 
 #if PLATFORM(IOS_FAMILY)
-    if (targetNode == &targetNode->document() && eventType == eventNames.scrollEvent) {
-        if (auto* window = targetNode->document().domWindow())
+    if (targetNode == document.ptr() && typeInfo.type() == EventType::scroll) {
+        if (auto* window = document->domWindow())
             window->incrementScrollEventListenersCount();
     }
 
 #if ENABLE(TOUCH_EVENTS)
-    if (eventNames.isTouchRelatedEventType(eventType, *targetNode))
-        targetNode->document().addTouchEventListener(*targetNode);
+    if (isTouchRelatedEventType(typeInfo, *targetNode))
+        document->addTouchEventListener(*targetNode);
 #endif
 #endif // PLATFORM(IOS_FAMILY)
 
 #if ENABLE(IOS_GESTURE_EVENTS) && ENABLE(TOUCH_EVENTS)
-    if (eventNames.isGestureEventType(eventType))
-        targetNode->document().addTouchEventHandler(*targetNode);
+    if (typeInfo.isInCategory(EventCategory::Gesture))
+        document->addTouchEventHandler(*targetNode);
 #endif
 
     return true;
@@ -2314,36 +2451,38 @@ bool Node::addEventListener(const AtomString& eventType, Ref<EventListener>&& li
     return tryAddEventListener(this, eventType, WTFMove(listener), options);
 }
 
-static inline bool tryRemoveEventListener(Node* targetNode, const AtomString& eventType, EventListener& listener, const EventListenerOptions& options)
+static inline bool didRemoveEventListenerOfType(Node& targetNode, const AtomString& eventType)
 {
-    if (!targetNode->EventTarget::removeEventListener(eventType, listener, options))
-        return false;
+    Ref document = targetNode.document();
+    document->didRemoveEventListenersOfType(eventType);
 
     // FIXME: Notify Document that the listener has vanished. We need to keep track of a number of
     // listeners for each type, not just a bool - see https://bugs.webkit.org/show_bug.cgi?id=33861
     auto& eventNames = WebCore::eventNames();
-    if (eventNames.isWheelEventType(eventType))
-        targetNode->document().didRemoveWheelEventHandler(*targetNode);
-    else if (eventNames.isTouchRelatedEventType(eventType, *targetNode))
-        targetNode->document().didRemoveTouchEventHandler(*targetNode);
-    else if (eventNames.isMouseClickRelatedEventType(eventType))
-        targetNode->document().didAddOrRemoveMouseEventHandler(*targetNode);
+    auto typeInfo = eventNames.typeInfoForEvent(eventType);
+    if (typeInfo.isInCategory(EventCategory::Wheel)) {
+        document->didRemoveWheelEventHandler(targetNode);
+        document->invalidateEventListenerRegions();
+    } else if (isTouchRelatedEventType(typeInfo, targetNode))
+        document->didRemoveTouchEventHandler(targetNode);
+    else if (typeInfo.isInCategory(EventCategory::MouseClickRelated))
+        document->didAddOrRemoveMouseEventHandler(targetNode);
 
 #if PLATFORM(IOS_FAMILY)
-    if (targetNode == &targetNode->document() && eventType == eventNames.scrollEvent) {
-        if (auto* window = targetNode->document().domWindow())
+    if (&targetNode == document.ptr() && typeInfo.type() == EventType::scroll) {
+        if (auto* window = document->domWindow())
             window->decrementScrollEventListenersCount();
     }
 
 #if ENABLE(TOUCH_EVENTS)
-    if (eventNames.isTouchRelatedEventType(eventType, *targetNode))
-        targetNode->document().removeTouchEventListener(*targetNode);
+    if (isTouchRelatedEventType(typeInfo, targetNode))
+        document->removeTouchEventListener(targetNode);
 #endif
 #endif // PLATFORM(IOS_FAMILY)
 
 #if ENABLE(IOS_GESTURE_EVENTS) && ENABLE(TOUCH_EVENTS)
-    if (eventNames.isGestureEventType(eventType))
-        targetNode->document().removeTouchEventHandler(*targetNode);
+    if (typeInfo.isInCategory(EventCategory::Gesture))
+        document->removeTouchEventHandler(targetNode);
 #endif
 
     return true;
@@ -2351,7 +2490,19 @@ static inline bool tryRemoveEventListener(Node* targetNode, const AtomString& ev
 
 bool Node::removeEventListener(const AtomString& eventType, EventListener& listener, const EventListenerOptions& options)
 {
-    return tryRemoveEventListener(this, eventType, listener, options);
+    if (!EventTarget::removeEventListener(eventType, listener, options))
+        return false;
+    didRemoveEventListenerOfType(*this, eventType);
+    return true;
+}
+
+void Node::removeAllEventListeners()
+{
+    EventTarget::removeAllEventListeners();
+    enumerateEventListenerTypes([&](const AtomString& type, unsigned count) {
+        for (unsigned i = 0; i < count; ++i)
+            didRemoveEventListenerOfType(*this, type);
+    });
 }
 
 Vector<std::unique_ptr<MutationObserverRegistration>>* Node::mutationObserverRegistry()
@@ -2516,28 +2667,36 @@ void Node::defaultEventHandler(Event& event)
         return;
     auto& eventType = event.type();
     auto& eventNames = WebCore::eventNames();
-    if (eventType == eventNames.keydownEvent || eventType == eventNames.keypressEvent || eventType == eventNames.keyupEvent) {
+    auto typeInfo = eventNames.typeInfoForEvent(eventType);
+    switch (typeInfo.type()) {
+    case EventType::keydown:
+    case EventType::keypress:
+    case EventType::keyup:
         if (RefPtr keyboardEvent = dynamicDowncast<KeyboardEvent>(event)) {
             if (RefPtr frame = document().frame())
                 frame->eventHandler().defaultKeyboardEventHandler(*keyboardEvent);
         }
-    } else if (eventType == eventNames.clickEvent) {
+        break;
+    case EventType::click:
         dispatchDOMActivateEvent(event);
+        break;
 #if ENABLE(CONTEXT_MENUS)
-    } else if (eventType == eventNames.contextmenuEvent) {
+    case EventType::contextmenu:
         if (RefPtr frame = document().frame()) {
             if (auto* page = frame->page())
                 page->contextMenuController().handleContextMenuEvent(event);
         }
+        break;
 #endif
-    } else if (eventType == eventNames.textInputEvent) {
+    case EventType::textInput:
         if (RefPtr textEvent = dynamicDowncast<TextEvent>(event)) {
             if (RefPtr frame = document().frame())
                 frame->eventHandler().defaultTextInputEventHandler(*textEvent);
         }
+        break;
 #if ENABLE(PAN_SCROLLING)
-    } else if (auto* mouseEvent = dynamicDowncast<MouseEvent>(event); mouseEvent && eventType == eventNames.mousedownEvent) {
-        if (mouseEvent->button() == MouseButton::Middle) {
+    case EventType::mousedown:
+        if (auto* mouseEvent = dynamicDowncast<MouseEvent>(event); mouseEvent && mouseEvent->button() == MouseButton::Middle) {
             if (enclosingLinkEventParentOrSelf())
                 return;
 
@@ -2550,45 +2709,54 @@ void Node::defaultEventHandler(Event& event)
                 }
             }
         }
+        break;
 #endif
-    } else if (auto* wheelEvent = dynamicDowncast<WheelEvent>(event); wheelEvent && eventNames.isWheelEventType(eventType)) {
-        // If we don't have a renderer, send the wheel event to the first node we find with a renderer.
-        // This is needed for <option> and <optgroup> elements so that <select>s get a wheel scroll.
-        Node* startNode = this;
-        while (startNode && !startNode->renderer())
-            startNode = startNode->parentOrShadowHostNode();
+    case EventType::mousewheel:
+    case EventType::wheel:
+        ASSERT(typeInfo.isInCategory(EventCategory::Wheel));
+        if (auto* wheelEvent = dynamicDowncast<WheelEvent>(event); wheelEvent) {
+            // If we don't have a renderer, send the wheel event to the first node we find with a renderer.
+            // This is needed for <option> and <optgroup> elements so that <select>s get a wheel scroll.
+            Node* startNode = this;
+            while (startNode && !startNode->renderer())
+                startNode = startNode->parentOrShadowHostNode();
         
-        if (startNode && startNode->renderer()) {
-            if (RefPtr frame = document().frame())
-                frame->eventHandler().defaultWheelEventHandler(RefPtr { startNode }.get(), *wheelEvent);
+            if (startNode && startNode->renderer()) {
+                if (RefPtr frame = document().frame())
+                    frame->eventHandler().defaultWheelEventHandler(RefPtr { startNode }.get(), *wheelEvent);
+            }
         }
+        break;
+    default:
 #if ENABLE(TOUCH_EVENTS) && PLATFORM(IOS_FAMILY)
-    } else if (auto* touchEvent = dynamicDowncast<TouchEvent>(event); touchEvent && eventNames.isTouchRelatedEventType(eventType, *this)) {
-        // Capture the target node's visibility state before dispatching touchStart.
-        if (auto* element = dynamicDowncast<Element>(*this); element && eventType == eventNames.touchstartEvent) {
+        if (auto* touchEvent = dynamicDowncast<TouchEvent>(event); touchEvent && isTouchRelatedEventType(typeInfo, *this)) {
+            // Capture the target node's visibility state before dispatching touchStart.
+            if (auto* element = dynamicDowncast<Element>(*this); element && typeInfo.type() == EventType::touchstart) {
 #if ENABLE(CONTENT_CHANGE_OBSERVER)
-            auto& contentChangeObserver = document().contentChangeObserver();
-            if (ContentChangeObserver::isVisuallyHidden(*this))
-                contentChangeObserver.setHiddenTouchTarget(*element);
-            else
-                contentChangeObserver.resetHiddenTouchTarget();
+                auto& contentChangeObserver = document().contentChangeObserver();
+                if (ContentChangeObserver::isVisuallyHidden(*this))
+                    contentChangeObserver.setHiddenTouchTarget(*element);
+                else
+                    contentChangeObserver.resetHiddenTouchTarget();
 #endif
-        }
+            }
 
-        RenderObject* renderer = this->renderer();
-        for (; renderer; renderer = renderer->parent()) {
-            auto* renderBox = dynamicDowncast<RenderBox>(*renderer);
-            if (renderBox && renderBox->canBeScrolledAndHasScrollableArea())
-                break;
-        }
+            RenderObject* renderer = this->renderer();
+            for (; renderer; renderer = renderer->parent()) {
+                auto* renderBox = dynamicDowncast<RenderBox>(*renderer);
+                if (renderBox && renderBox->canBeScrolledAndHasScrollableArea())
+                    break;
+            }
 
-        if (renderer && renderer->node()) {
-            if (RefPtr frame = document().frame()) {
-                RefPtr rendererNode = renderer->node();
-                frame->eventHandler().defaultTouchEventHandler(*rendererNode, *touchEvent);
+            if (renderer && renderer->node()) {
+                if (RefPtr frame = document().frame()) {
+                    RefPtr rendererNode = renderer->node();
+                    frame->eventHandler().defaultTouchEventHandler(*rendererNode, *touchEvent);
+                }
             }
         }
 #endif
+        break;
     }
 }
 
@@ -2604,7 +2772,7 @@ bool Node::willRespondToMouseMoveEvents() const
 #endif
     auto& eventNames = WebCore::eventNames();
     return eventTypes().containsIf([&](const auto& type) {
-        return eventNames.isMouseMoveRelatedEventType(type);
+        return eventNames.typeInfoForEvent(type).isInCategory(EventCategory::MouseMoveRelated);
     });
 }
 
@@ -2612,7 +2780,7 @@ bool Node::willRespondToTouchEvents() const
 {
     auto& eventNames = WebCore::eventNames();
     return eventTypes().containsIf([&](const auto& type) {
-        return eventNames.isTouchRelatedEventType(type, *this);
+        return eventNames.typeInfoForEvent(type).isInCategory(EventCategory::TouchRelated);
     });
 }
 
@@ -2648,7 +2816,7 @@ bool Node::willRespondToMouseClickEventsWithEditability(Editability editability)
 
     auto& eventNames = WebCore::eventNames();
     return eventTypes().containsIf([&](const auto& type) {
-        return eventNames.isMouseClickRelatedEventType(type);
+        return eventNames.typeInfoForEvent(type).isInCategory(EventCategory::MouseClickRelated);
     });
 }
 
@@ -2672,9 +2840,7 @@ void Node::removedLastRef()
     if (auto* svgElement = dynamicDowncast<SVGElement>(*this))
         svgElement->detachAllProperties();
 
-#if ASSERT_ENABLED
-    m_deletionHasBegun = true;
-#endif
+    setStateFlag(StateFlag::HasStartedDeletion);
     delete this;
 }
 

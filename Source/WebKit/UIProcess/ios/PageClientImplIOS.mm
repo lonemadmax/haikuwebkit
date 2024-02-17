@@ -51,6 +51,7 @@
 #import "WKGeolocationProviderIOS.h"
 #import "WKPasswordView.h"
 #import "WKProcessPoolInternal.h"
+#import "WKVisibilityPropagationView.h"
 #import "WKWebViewConfigurationInternal.h"
 #import "WKWebViewContentProviderRegistry.h"
 #import "WKWebViewIOS.h"
@@ -229,6 +230,13 @@ void PageClientImpl::didCreateContextInGPUProcessForVisibilityPropagation(LayerH
     [contentView() _gpuProcessDidCreateContextForVisibilityPropagation];
 }
 #endif // ENABLE(GPU_PROCESS)
+
+#if USE(EXTENSIONKIT)
+UIView *PageClientImpl::createVisibilityPropagationView()
+{
+    return [contentView() _createVisibilityPropagationView];
+}
+#endif
 #endif // HAVE(VISIBILITY_PROPAGATION_VIEW)
 
 #if ENABLE(GPU_PROCESS)
@@ -1097,9 +1105,9 @@ void PageClientImpl::showMediaControlsContextMenu(FloatRect&& targetFrame, Vecto
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
 
 #if HAVE(UISCROLLVIEW_ASYNCHRONOUS_SCROLL_EVENT_HANDLING)
-void PageClientImpl::handleAsynchronousCancelableScrollEvent(WKBaseScrollView *scrollView, UIScrollEvent *scrollEvent, void (^completion)(BOOL handled))
+void PageClientImpl::handleAsynchronousCancelableScrollEvent(WKBaseScrollView *scrollView, WKBEScrollViewScrollUpdate *update, void (^completion)(BOOL handled))
 {
-    [webView() scrollView:scrollView handleScrollEvent:scrollEvent completion:completion];
+    [webView() scrollView:scrollView handleScrollUpdate:update completion:completion];
 }
 #endif
 

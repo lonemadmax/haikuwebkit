@@ -1,11 +1,58 @@
 {
-    "pseudo-classes": {
-        "-internal-html-document": {},
-        "-webkit-animating-full-screen-transition": {
-            "comment": "For UA stylesheet use.",
-            "condition": "ENABLE(FULLSCREEN_API)",
-            "status": "non-standard"
+    "documentation": {
+        "description": "This file is used to generate code for pseudo-classes and pseudo-elements.",
+        "fields": {
+            "aliases": "Legacy name aliases for the pseudo. They will serialize to their modern counterpart.",
+            "argument": [
+                "Specifies if the pseudo takes an argument, and whether that argument is required or optional.",
+                "The 'optional' value is for pseudos like `:host` which support both `:host` and `:host(argument)`.",
+                "The 'required' value is for pseudos which don't support the argument-free syntax like: `::highlight(name)`.",
+                "Omit this field if the pseudo never takes an argument."
+            ],
+            "comment": "Add a description of how the pseudo is used. Especially useful for non-standard or internal ones.",
+            "conditional": "Compile-time `#if ENABLE()` conditional for the feature.",
+            "settings-flag": "Settings flag queried from CSSSelectorParserContext. Note that the flag needs to be manually added there.",
+            "status": "Specifies the standardization state of the pseudo.",
+            "supports-single-colon-for-compatibility": [
+                "For pseudo-elements only. Whether the pseudo-element supports the single colon form (e.g. `:after` instead of `::after`).",
+                "You should not have to add more of these. They exist only for compatibility with CSS 2.1."
+            ],
+            "user-agent-part": [
+                "For pseudo-elements only. Whether the pseudo-element represents an element in an user agent shadow tree.",
+                "They internally map to `PseudoElement::UserAgentPart` or `PseudoElement::UserAgentPartLegacyAlias` for aliases.",
+                "Also creates an entry in UserAgentParts."
+            ],
+            "user-agent-part-string": [
+                "For pseudo-elements only. When the pseudo-element needs to be in UserAgentParts despite not being a `PseudoElement::UserAgentPart`.",
+                "Mutually exclusive with the user-agent-part field."
+            ]
         },
+        "notes": [
+            "Pseudos that start with `-apple-` require a 'settings-flag' field that points to a setting that is not exposed to web content.",
+            "Pseudos that start with `-internal-` will automatically be restricted to user agent stylesheets.",
+            "Please do not add new `-webkit-` pseudos. They exist mainly for historical and compatibility purposes. There is a mechanism to ensure no new ones are added."
+        ]
+    },
+    "pseudo-classes": {
+        "-apple-has-attachment": {
+            "aliases": [
+                "has-attachment"
+            ],
+            "comment": "For use in Apple internal apps.",
+            "conditional": "ENABLE(ATTACHMENT_ELEMENT)",
+            "settings-flag": "DeprecatedGlobalSettings::attachmentElementEnabled"
+        },
+        "-internal-animating-fullscreen-transition": {
+            "conditional": "ENABLE(FULLSCREEN_API)"
+        },
+        "-internal-fullscreen-document": {
+            "conditional": "ENABLE(FULLSCREEN_API)"
+        },
+        "-internal-html-document": {},
+        "-internal-in-window-full-screen": {
+            "conditional": "ENABLE(FULLSCREEN_API)"
+        },
+        "-internal-media-document": {},
         "-webkit-any": {
             "argument": "required",
             "comment": "Alias of :is() with different specificity rules.",
@@ -24,29 +71,7 @@
             "status": "non-standard"
         },
         "-webkit-drag": {
-            "aliases": [
-                "-khtml-drag"
-            ],
             "comment": "Currently has no standard equivalent.",
-            "status": "non-standard"
-        },
-        "-webkit-full-page-media": {
-            "comment": "For UA stylesheet use.",
-            "status": "non-standard"
-        },
-        "-webkit-full-screen-ancestor": {
-            "comment": "For compatibility.",
-            "condition": "ENABLE(FULLSCREEN_API)",
-            "status": "non-standard"
-        },
-        "-webkit-full-screen-document": {
-            "comment": "For UA stylesheet use.",
-            "condition": "ENABLE(FULLSCREEN_API)",
-            "status": "non-standard"
-        },
-        "-webkit-full-screen-controls-hidden": {
-            "comment": "For compatibility.",
-            "condition": "ENABLE(FULLSCREEN_API)",
             "status": "non-standard"
         },
         "active": {},
@@ -61,7 +86,7 @@
             ]
         },
         "buffering": {
-            "condition": "ENABLE(VIDEO)"
+            "conditional": "ENABLE(VIDEO)"
         },
         "checked": {},
         "corner-present": {
@@ -99,18 +124,14 @@
             "aliases": [
                 "-webkit-full-screen"
             ],
-            "condition": "ENABLE(FULLSCREEN_API)"
+            "conditional": "ENABLE(FULLSCREEN_API)"
         },
         "future": {
-            "condition": "ENABLE(VIDEO)"
+            "conditional": "ENABLE(VIDEO)"
         },
         "has": {
             "argument": "required",
             "settings-flag": "hasPseudoClassEnabled"
-        },
-        "has-attachment": {
-            "condition": "ENABLE(ATTACHMENT_ELEMENT)",
-            "settings-flag": "DeprecatedGlobalSettings::attachmentElementEnabled"
         },
         "horizontal": {
             "comment": "For scrollbar styling.",
@@ -141,7 +162,7 @@
         "link": {},
         "modal": {},
         "muted": {
-            "condition": "ENABLE(VIDEO)"
+            "conditional": "ENABLE(VIDEO)"
         },
         "no-button": {
             "comment": "For scrollbar styling.",
@@ -167,17 +188,17 @@
         "optional": {},
         "out-of-range": {},
         "past": {
-            "condition": "ENABLE(VIDEO)"
+            "conditional": "ENABLE(VIDEO)"
         },
         "paused": {
-            "condition": "ENABLE(VIDEO)"
+            "conditional": "ENABLE(VIDEO)"
         },
         "picture-in-picture": {
-            "condition": "ENABLE(PICTURE_IN_PICTURE_API)"
+            "conditional": "ENABLE(PICTURE_IN_PICTURE_API)"
         },
         "placeholder-shown": {},
         "playing": {
-            "condition": "ENABLE(VIDEO)"
+            "conditional": "ENABLE(VIDEO)"
         },
         "popover-open": {
             "settings-flag": "popoverAttributeEnabled"
@@ -188,10 +209,10 @@
         "root": {},
         "scope": {},
         "seeking": {
-            "condition": "ENABLE(VIDEO)"
+            "conditional": "ENABLE(VIDEO)"
         },
         "stalled": {
-            "condition": "ENABLE(VIDEO)"
+            "conditional": "ENABLE(VIDEO)"
         },
         "state": {
             "argument": "required",
@@ -215,7 +236,7 @@
         },
         "visited": {},
         "volume-locked": {
-            "condition": "ENABLE(VIDEO)"
+            "conditional": "ENABLE(VIDEO)"
         },
         "where": {
             "argument": "required"
@@ -228,8 +249,163 @@
     "pseudo-elements": {
         "-apple-attachment-controls-container": {
             "comment": "For use in Apple internal apps.",
-            "condition": "ENABLE(SERVICE_CONTROLS)",
+            "conditional": "ENABLE(SERVICE_CONTROLS)",
             "settings-flag": "imageControlsEnabled",
+            "user-agent-part": true
+        },
+        "-internal-loading-auto-fill-button": {
+            "user-agent-part": true
+        },
+        "-webkit-caps-lock-indicator": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-color-swatch": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-color-swatch-wrapper": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-contacts-auto-fill-button": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-credentials-auto-fill-button": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-credit-card-auto-fill-button": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-date-and-time-value": {
+            "conditional": "ENABLE(DATE_AND_TIME_INPUT_TYPES)",
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-datetime-edit": {
+            "conditional": "ENABLE(DATE_AND_TIME_INPUT_TYPES)",
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-datetime-edit-day-field": {
+            "conditional": "ENABLE(DATE_AND_TIME_INPUT_TYPES)",
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-datetime-edit-fields-wrapper": {
+            "conditional": "ENABLE(DATE_AND_TIME_INPUT_TYPES)",
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-datetime-edit-hour-field": {
+            "conditional": "ENABLE(DATE_AND_TIME_INPUT_TYPES)",
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-datetime-edit-meridiem-field": {
+            "conditional": "ENABLE(DATE_AND_TIME_INPUT_TYPES)",
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-datetime-edit-millisecond-field": {
+            "conditional": "ENABLE(DATE_AND_TIME_INPUT_TYPES)",
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-datetime-edit-minute-field": {
+            "conditional": "ENABLE(DATE_AND_TIME_INPUT_TYPES)",
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-datetime-edit-month-field": {
+            "conditional": "ENABLE(DATE_AND_TIME_INPUT_TYPES)",
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-datetime-edit-second-field": {
+            "conditional": "ENABLE(DATE_AND_TIME_INPUT_TYPES)",
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-datetime-edit-text": {
+            "conditional": "ENABLE(DATE_AND_TIME_INPUT_TYPES)",
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-datetime-edit-year-field": {
+            "conditional": "ENABLE(DATE_AND_TIME_INPUT_TYPES)",
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-details-marker": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-generic-cue-root": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-inner-spin-button": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-list-button": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-media-text-track-container": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-media-text-track-display": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-media-text-track-display-backdrop": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-media-text-track-region": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-media-text-track-region-container": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-meter-bar": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-meter-even-less-good-value": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-meter-inner-element": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-meter-optimum-value": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-meter-suboptimum-value": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-progress-bar": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-progress-inner-element": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-progress-value": {
+            "status": "non-standard",
             "user-agent-part": true
         },
         "-webkit-resizer": {
@@ -260,6 +436,74 @@
             "comment": "For scrollbar styling.",
             "status": "non-standard"
         },
+        "-webkit-search-cancel-button": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-search-decoration": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-search-results-button": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-search-results-decoration": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-slider-container": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-slider-runnable-track": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-slider-thumb": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-strong-password-auto-fill-button": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-textfield-decoration-container": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-validation-bubble": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-validation-bubble-arrow": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-validation-bubble-arrow-clipper": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-validation-bubble-body": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-validation-bubble-heading": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-validation-bubble-icon": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-validation-bubble-message": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
+        "-webkit-validation-bubble-text-block": {
+            "status": "non-standard",
+            "user-agent-part": true
+        },
         "after": {
             "supports-single-colon-for-compatibility": true
         },
@@ -269,7 +513,8 @@
         },
         "cue": {
             "argument": "optional",
-            "condition": "ENABLE(VIDEO)"
+            "conditional": "ENABLE(VIDEO)",
+            "user-agent-part-string": true
         },
         "file-selector-button": {
             "aliases": [
@@ -326,11 +571,11 @@
             "argument": "required",
             "settings-flag": "viewTransitionsEnabled"
         },
-        "view-transition-old": {
+        "view-transition-new": {
             "argument": "required",
             "settings-flag": "viewTransitionsEnabled"
         },
-        "view-transition-new": {
+        "view-transition-old": {
             "argument": "required",
             "settings-flag": "viewTransitionsEnabled"
         }

@@ -105,6 +105,11 @@ FrameView* RemoteFrame::virtualView() const
     return m_view.get();
 }
 
+FrameLoaderClient& RemoteFrame::loaderClient()
+{
+    return m_client.get();
+}
+
 void RemoteFrame::setView(RefPtr<RemoteFrameView>&& view)
 {
     m_view = WTFMove(view);
@@ -113,6 +118,7 @@ void RemoteFrame::setView(RefPtr<RemoteFrameView>&& view)
 void RemoteFrame::frameDetached()
 {
     m_client->frameDetached();
+    m_window->frameDetached();
 }
 
 String RemoteFrame::renderTreeAsText(size_t baseIndent, OptionSet<RenderAsTextFlag> behavior)

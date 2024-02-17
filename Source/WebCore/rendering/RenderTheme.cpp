@@ -74,7 +74,7 @@
 #include "Theme.h"
 #include "ToggleButtonPart.h"
 #include "TypedElementDescendantIteratorInlines.h"
-#include "UserAgentPartIds.h"
+#include "UserAgentParts.h"
 #include <wtf/FileSystem.h>
 #include <wtf/Language.h>
 #include <wtf/NeverDestroyed.h>
@@ -261,6 +261,9 @@ void RenderTheme::adjustStyle(RenderStyle& style, const Element* element, const 
         return adjustSearchFieldResultsButtonStyle(style, element);
     case StyleAppearance::Switch:
         return adjustSwitchStyle(style, element);
+    case StyleAppearance::SwitchThumb:
+    case StyleAppearance::SwitchTrack:
+        return adjustSwitchThumbOrSwitchTrackStyle(style);
     case StyleAppearance::ProgressBar:
         return adjustProgressBarStyle(style, element);
     case StyleAppearance::Meter:
@@ -362,43 +365,43 @@ StyleAppearance RenderTheme::autoAppearanceForElement(RenderStyle& style, const 
 #endif
 
     if (element->isInUserAgentShadowTree()) {
-        auto& part = element->pseudo();
+        auto& part = element->userAgentPart();
 
 #if ENABLE(DATALIST_ELEMENT)
-        if (part == UserAgentPartIds::webkitListButton())
+        if (part == UserAgentParts::webkitListButton())
             return StyleAppearance::ListButton;
 #endif
 
-        if (part == UserAgentPartIds::webkitCapsLockIndicator())
+        if (part == UserAgentParts::webkitCapsLockIndicator())
             return StyleAppearance::CapsLockIndicator;
 
-        if (part == UserAgentPartIds::webkitSearchCancelButton())
+        if (part == UserAgentParts::webkitSearchCancelButton())
             return StyleAppearance::SearchFieldCancelButton;
 
         if (RefPtr button = dynamicDowncast<SearchFieldResultsButtonElement>(element)) {
             if (!button->canAdjustStyleForAppearance())
                 return StyleAppearance::None;
 
-            if (part == UserAgentPartIds::webkitSearchDecoration())
+            if (part == UserAgentParts::webkitSearchDecoration())
                 return StyleAppearance::SearchFieldDecoration;
 
-            if (part == UserAgentPartIds::webkitSearchResultsDecoration())
+            if (part == UserAgentParts::webkitSearchResultsDecoration())
                 return StyleAppearance::SearchFieldResultsDecoration;
 
-            if (part == UserAgentPartIds::webkitSearchResultsButton())
+            if (part == UserAgentParts::webkitSearchResultsButton())
                 return StyleAppearance::SearchFieldResultsButton;
         }
 
-        if (part == UserAgentPartIds::webkitSliderThumb())
+        if (part == UserAgentParts::webkitSliderThumb())
             return StyleAppearance::SliderThumbHorizontal;
 
-        if (part == UserAgentPartIds::webkitInnerSpinButton())
+        if (part == UserAgentParts::webkitInnerSpinButton())
             return StyleAppearance::InnerSpinButton;
 
-        if (part == UserAgentPartIds::thumb())
+        if (part == UserAgentParts::thumb())
             return StyleAppearance::SwitchThumb;
 
-        if (part == UserAgentPartIds::track())
+        if (part == UserAgentParts::track())
             return StyleAppearance::SwitchTrack;
     }
 
@@ -451,7 +454,6 @@ static void updateProgressBarPartForRenderer(ProgressBarPart& progressBarPart, c
 
 static void updateSliderTrackPartForRenderer(SliderTrackPart& sliderTrackPart, const RenderObject& renderer)
 {
-    ASSERT(is<HTMLInputElement>(renderer.node()));
     auto& input = downcast<HTMLInputElement>(*renderer.node());
     ASSERT(input.isRangeControl());
 
@@ -617,13 +619,11 @@ RefPtr<ControlPart> RenderTheme::createControlPart(const RenderObject& renderer)
 void RenderTheme::updateControlPartForRenderer(ControlPart& part, const RenderObject& renderer) const
 {
     if (auto* meterPart = dynamicDowncast<MeterPart>(part)) {
-        ASSERT(is<RenderMeter>(renderer));
         updateMeterPartForRenderer(*meterPart, downcast<RenderMeter>(renderer));
         return;
     }
 
     if (auto* progressBarPart = dynamicDowncast<ProgressBarPart>(part)) {
-        ASSERT(is<RenderProgress>(renderer));
         updateProgressBarPartForRenderer(*progressBarPart, downcast<RenderProgress>(renderer));
         return;
     }
@@ -1504,6 +1504,21 @@ void RenderTheme::adjustSliderThumbStyle(RenderStyle& style, const Element* elem
     adjustSliderThumbSize(style, element);
 }
 
+void RenderTheme::adjustSwitchStyleDisplay(RenderStyle& style) const
+{
+    // RenderTheme::adjustStyle() normalizes a bunch of display types to InlineBlock and Block.
+    switch (style.display()) {
+    case DisplayType::InlineBlock:
+        style.setEffectiveDisplay(DisplayType::InlineGrid);
+        break;
+    case DisplayType::Block:
+        style.setEffectiveDisplay(DisplayType::Grid);
+        break;
+    default:
+        break;
+    }
+}
+
 void RenderTheme::adjustSwitchStyle(RenderStyle& style, const Element*) const
 {
     // FIXME: This probably has the same flaw as
@@ -1512,6 +1527,17 @@ void RenderTheme::adjustSwitchStyle(RenderStyle& style, const Element*) const
     auto controlSize = Theme::singleton().controlSize(StyleAppearance::Switch, style.fontCascade(), { style.logicalWidth(), style.logicalHeight() }, style.effectiveZoom());
     style.setLogicalWidth(WTFMove(controlSize.width));
     style.setLogicalHeight(WTFMove(controlSize.height));
+
+    adjustSwitchStyleDisplay(style);
+}
+
+void RenderTheme::adjustSwitchThumbOrSwitchTrackStyle(RenderStyle& style) const
+{
+    GridPosition position;
+    position.setExplicitPosition(1, nullString());
+
+    style.setGridItemRowStart(position);
+    style.setGridItemColumnStart(position);
 }
 
 void RenderTheme::purgeCaches()

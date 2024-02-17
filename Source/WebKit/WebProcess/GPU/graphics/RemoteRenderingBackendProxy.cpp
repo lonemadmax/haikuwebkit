@@ -37,6 +37,7 @@
 #include "RemoteImageBufferProxy.h"
 #include "RemoteImageBufferProxyMessages.h"
 #include "RemoteImageBufferSetProxy.h"
+#include "RemoteImageBufferSetProxyMessages.h"
 #include "RemoteRenderingBackendMessages.h"
 #include "RemoteRenderingBackendProxyMessages.h"
 #include "SwapBuffersDisplayRequirement.h"
@@ -58,7 +59,7 @@ using namespace WebCore;
 
 std::unique_ptr<RemoteRenderingBackendProxy> RemoteRenderingBackendProxy::create(WebPage& webPage)
 {
-    return std::unique_ptr<RemoteRenderingBackendProxy>(new RemoteRenderingBackendProxy({ RenderingBackendIdentifier::generate(), webPage.webPageProxyIdentifier(), webPage.identifier() }, RunLoop::main()));
+    return create({ RenderingBackendIdentifier::generate(), webPage.webPageProxyIdentifier(), webPage.identifier() }, RunLoop::main());
 }
 
 std::unique_ptr<RemoteRenderingBackendProxy> RemoteRenderingBackendProxy::create(const RemoteRenderingBackendCreationParameters& parameters, SerialFunctionDispatcher& dispatcher)
@@ -69,6 +70,7 @@ std::unique_ptr<RemoteRenderingBackendProxy> RemoteRenderingBackendProxy::create
 RemoteRenderingBackendProxy::RemoteRenderingBackendProxy(const RemoteRenderingBackendCreationParameters& parameters, SerialFunctionDispatcher& dispatcher)
     : m_parameters(parameters)
     , m_dispatcher(dispatcher)
+    , m_queue(WorkQueue::create("RemoteRenderingBackendProxy", WorkQueue::QOS::UserInteractive))
 {
 }
 
@@ -123,7 +125,7 @@ auto RemoteRenderingBackendProxy::sendSync(T&& message, ObjectIdentifierGeneric<
     auto result = streamConnection().sendSync(std::forward<T>(message), destination, defaultTimeout);
     if (UNLIKELY(!result.succeeded())) {
         RELEASE_LOG(RemoteLayerBuffers, "[pageProxyID=%" PRIu64 ", webPageID=%" PRIu64 ", renderingBackend=%" PRIu64 "] RemoteRenderingBackendProxy::sendSync - failed, name:%" PUBLIC_LOG_STRING ", error:%" PUBLIC_LOG_STRING,
-            m_parameters.pageProxyID.toUInt64(), m_parameters.pageID.toUInt64(), m_parameters.identifier.toUInt64(), IPC::description(T::name()), IPC::errorAsString(result.error));
+            m_parameters.pageProxyID.toUInt64(), m_parameters.pageID.toUInt64(), m_parameters.identifier.toUInt64(), IPC::description(T::name()), IPC::errorAsString(result.error()));
     }
     return result;
 }
@@ -358,12 +360,10 @@ void RemoteRenderingBackendProxy::releaseAllImageResources()
 }
 
 #if PLATFORM(COCOA)
-void RemoteRenderingBackendProxy::prepareImageBufferSetsForDisplay(Vector<LayerPrepareBuffersData>&& prepareBuffersInput, CompletionHandler<void(Vector<SwapBuffersResult>&&)> callback)
+Vector<SwapBuffersDisplayRequirement> RemoteRenderingBackendProxy::prepareImageBufferSetsForDisplay(Vector<LayerPrepareBuffersData>&& prepareBuffersInput)
 {
-    if (prepareBuffersInput.isEmpty()) {
-        callback(Vector<SwapBuffersResult>());
-        return;
-    }
+    if (prepareBuffersInput.isEmpty())
+        return Vector<SwapBuffersDisplayRequirement>();
 
     bool needsSync = false;
 
@@ -389,27 +389,26 @@ void RemoteRenderingBackendProxy::prepareImageBufferSetsForDisplay(Vector<LayerP
 
     LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteRenderingBackendProxy::prepareImageBufferSetsForDisplay - input buffers  " << inputData);
 
-    m_prepareReply = streamConnection().sendWithAsyncReply(Messages::RemoteRenderingBackend::PrepareImageBufferSetsForDisplay(inputData), [prepareBuffersInput = WTFMove(prepareBuffersInput), callback = WTFMove(callback)](Vector<ImageBufferSetPrepareBufferForDisplayOutputData>&& outputData) mutable {
-        Vector<SwapBuffersResult> result;
-        for (auto& data : outputData)
-            result.append(SwapBuffersResult { WTFMove(data.backendHandle), data.displayRequirement, data.bufferCacheIdentifiers });
-        callback(WTFMove(result));
-    }, renderingBackendIdentifier(), defaultTimeout);
-
-    if (needsSync)
-        ensurePrepareCompleted();
-}
-
-void RemoteRenderingBackendProxy::ensurePrepareCompleted()
-{
-    if (m_prepareReply) {
-        streamConnection().waitForAsyncReplyAndDispatchImmediately<Messages::RemoteRenderingBackend::PrepareImageBufferSetsForDisplay>(m_prepareReply, defaultTimeout);
-        m_prepareReply = { };
+    Vector<SwapBuffersDisplayRequirement> result;
+    if (needsSync) {
+        auto sendResult = streamConnection().sendSync(Messages::RemoteRenderingBackend::PrepareImageBufferSetsForDisplaySync(inputData, m_renderingUpdateID), renderingBackendIdentifier(), defaultTimeout);
+        if (!sendResult.succeeded()) {
+            result.grow(inputData.size());
+            for (auto& displayRequirement : result)
+                displayRequirement = SwapBuffersDisplayRequirement::NeedsFullDisplay;
+        } else
+            std::tie(result) = sendResult.takeReply();
+    } else {
+        streamConnection().send(Messages::RemoteRenderingBackend::PrepareImageBufferSetsForDisplay(inputData, m_renderingUpdateID), renderingBackendIdentifier(), defaultTimeout);
+        result.grow(inputData.size());
+        for (auto& displayRequirement : result)
+            displayRequirement = SwapBuffersDisplayRequirement::NeedsNormalDisplay;
     }
+    return result;
 }
 #endif
 
-void RemoteRenderingBackendProxy::markSurfacesVolatile(Vector<std::pair<Ref<RemoteImageBufferSetProxy>, OptionSet<BufferInSetType>>>&& bufferSets, CompletionHandler<void(bool)>&& completionHandler)
+void RemoteRenderingBackendProxy::markSurfacesVolatile(Vector<std::pair<Ref<RemoteImageBufferSetProxy>, OptionSet<BufferInSetType>>>&& bufferSets, CompletionHandler<void(bool)>&& completionHandler, bool forcePurge)
 {
     Vector<std::pair<RemoteImageBufferSetIdentifier, OptionSet<BufferInSetType>>> identifiers;
     for (auto& pair : bufferSets) {
@@ -419,7 +418,7 @@ void RemoteRenderingBackendProxy::markSurfacesVolatile(Vector<std::pair<Ref<Remo
     m_currentVolatilityRequest = MarkSurfacesAsVolatileRequestIdentifier::generate();
     m_markAsVolatileRequests.add(m_currentVolatilityRequest, WTFMove(completionHandler));
 
-    send(Messages::RemoteRenderingBackend::MarkSurfacesVolatile(m_currentVolatilityRequest, identifiers));
+    send(Messages::RemoteRenderingBackend::MarkSurfacesVolatile(m_currentVolatilityRequest, identifiers, forcePurge));
 }
 
 void RemoteRenderingBackendProxy::didMarkLayersAsVolatile(MarkSurfacesAsVolatileRequestIdentifier requestIdentifier, Vector<std::pair<RemoteImageBufferSetIdentifier, OptionSet<BufferInSetType>>> markedBufferSets, bool didMarkAllLayersAsVolatile)

@@ -308,6 +308,8 @@ public:
     virtual bool ended() const { return false; }
 
     virtual std::optional<VideoPlaybackQualityMetrics> videoPlaybackQualityMetrics() { return std::nullopt; }
+    using VideoPlaybackQualityMetricsPromise = MediaPlayer::VideoPlaybackQualityMetricsPromise;
+    WEBCORE_EXPORT virtual Ref<VideoPlaybackQualityMetricsPromise> asyncVideoPlaybackQualityMetrics();
 
     virtual void notifyTrackModeChanged() { }
 
@@ -351,8 +353,12 @@ public:
 
     virtual void isLoopingChanged() { }
 
+    virtual void setShouldCheckHardwareSupport(bool value) { m_shouldCheckHardwareSupport = value; }
+    bool shouldCheckHardwareSupport() const { return m_shouldCheckHardwareSupport; }
+
 protected:
     mutable PlatformTimeRanges m_seekable;
+    bool m_shouldCheckHardwareSupport { false };
 };
 
 }

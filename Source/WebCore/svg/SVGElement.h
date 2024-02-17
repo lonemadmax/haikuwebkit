@@ -58,7 +58,7 @@ public:
 
     String title() const override;
     virtual bool supportsMarkers() const { return false; }
-    bool hasRelativeLengths() const { return !m_elementsWithRelativeLengths.isEmptyIgnoringNullReferences(); }
+    bool hasRelativeLengths() const { return m_selfHasRelativeLengths || !m_childElementsWithRelativeLengths.isEmptyIgnoringNullReferences(); }
     virtual bool needsPendingResourceHandling() const { return true; }
     bool instanceUpdatesBlocked() const;
     void setInstanceUpdatesBlocked(bool);
@@ -154,8 +154,9 @@ public:
     RefPtr<SVGAttributeAnimator> createAnimator(const QualifiedName&, AnimationMode, CalcMode, bool isAccumulated, bool isAdditive);
     void animatorWillBeDeleted(const QualifiedName&);
 
-    const RenderStyle* computedStyle(PseudoId = PseudoId::None) final;
-    
+    using Node::computedStyle;
+    const RenderStyle* computedStyle(const std::optional<Style::PseudoElementIdentifier>&) final;
+
     ColorInterpolation colorInterpolation() const;
 
     // These are needed for the RenderTree, animation and DOM.
@@ -189,8 +190,8 @@ protected:
     void removedFromAncestor(RemovalType, ContainerNode&) override;
     void childrenChanged(const ChildChange&) override;
     virtual bool selfHasRelativeLengths() const { return false; }
-    void updateRelativeLengthsInformation() { updateRelativeLengthsInformation(selfHasRelativeLengths(), *this); }
-    void updateRelativeLengthsInformation(bool hasRelativeLengths, SVGElement&);
+    void updateRelativeLengthsInformation();
+    void updateRelativeLengthsInformationForChild(bool hasRelativeLengths, SVGElement&);
 
     void willRecalcStyle(Style::Change) override;
 
@@ -208,7 +209,10 @@ private:
 
     std::unique_ptr<SVGElementRareData> m_svgRareData;
 
-    WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData> m_elementsWithRelativeLengths;
+    WeakHashSet<SVGElement, WeakPtrImplWithEventTargetData> m_childElementsWithRelativeLengths;
+    bool m_hasRegisteredWithParentForRelativeLengths { false };
+    bool m_selfHasRelativeLengths { false };
+    bool m_hasInitializedRelativeLengthsState { false };
 
     std::unique_ptr<SVGPropertyAnimatorFactory> m_propertyAnimatorFactory;
 

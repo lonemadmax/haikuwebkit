@@ -204,6 +204,7 @@
 #import <WebCore/PathUtilities.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/PlatformScreen.h>
+#import <WebCore/PlatformTextAlternatives.h>
 #import <WebCore/ProgressTracker.h>
 #import <WebCore/Range.h>
 #import <WebCore/RemoteFrameClient.h>
@@ -251,6 +252,7 @@
 #import <pal/spi/cocoa/NSURLDownloadSPI.h>
 #import <pal/spi/cocoa/NSURLFileTypeMappingsSPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <pal/spi/ios/BrowserEngineKitSPI.h>
 #import <pal/spi/mac/NSResponderSPI.h>
 #import <pal/spi/mac/NSSpellCheckerSPI.h>
 #import <pal/spi/mac/NSViewSPI.h>
@@ -3298,14 +3300,16 @@ IGNORE_WARNINGS_END
     [NSApp setWindowsNeedUpdate:YES];
 
 #if ENABLE(FULLSCREEN_API)
-    auto* document = core([frame DOMDocument]);
-    if (auto* element = document ? document->fullscreenManager().currentFullscreenElement() : 0) {
-        SEL selector = @selector(webView:closeFullScreenWithListener:);
-        if ([_private->UIDelegate respondsToSelector:selector]) {
-            auto listener = adoptNS([[WebKitFullScreenListener alloc] initWithElement:element]);
-            CallUIDelegate(self, selector, listener.get());
-        } else if (_private->newFullscreenController && [_private->newFullscreenController isFullScreen]) {
-            [_private->newFullscreenController close];
+    if (RefPtr document = core([frame DOMDocument]); document) {
+        if (CheckedPtr fullscreenManager = document->fullscreenManagerIfExists()) {
+            if (RefPtr element = fullscreenManager->currentFullscreenElement()) {
+                SEL selector = @selector(webView:closeFullScreenWithListener:);
+                if ([_private->UIDelegate respondsToSelector:selector]) {
+                    auto listener = adoptNS([[WebKitFullScreenListener alloc] initWithElement:element.get()]);
+                    CallUIDelegate(self, selector, listener.get());
+                } else if (_private->newFullscreenController && [_private->newFullscreenController isFullScreen])
+                    [_private->newFullscreenController close];
+            }
         }
     }
 #endif
@@ -4667,6 +4671,15 @@ IGNORE_WARNINGS_END
     WebCore::ResourceRequest::setHTTPPipeliningEnabled(enabled);
 }
 
+- (void)_setPortsForUpgradingInsecureSchemeForTesting:(uint16_t)insecureUpgradePort withSecurePort:(uint16_t)secureUpgradePort
+{
+    auto* page = core(self);
+    if (!page)
+        return;
+
+    page->setPortsForUpgradingInsecureSchemeForTesting(insecureUpgradePort, secureUpgradePort);
+}
+
 - (void)_didScrollDocumentInFrameView:(WebFrameView *)frameView
 {
     [self hideFormValidationMessage];
@@ -5467,10 +5480,6 @@ static bool needsWebViewInitThreadWorkaround()
 }
 
 #if !PLATFORM(IOS_FAMILY)
-// FIXME: Use AppKit constants for these when they are available.
-static NSString * const windowDidChangeBackingPropertiesNotification = @"NSWindowDidChangeBackingPropertiesNotification";
-static NSString * const backingPropertyOldScaleFactorKey = @"NSBackingPropertyOldScaleFactorKey";
-
 - (void)addWindowObserversForWindow:(NSWindow *)window
 {
     if (window) {
@@ -5485,7 +5494,7 @@ static NSString * const backingPropertyOldScaleFactorKey = @"NSBackingPropertyOl
         [defaultNotificationCenter addObserver:self selector:@selector(_windowWillOrderOffScreen:)
             name:NSWindowWillOrderOffScreenNotification object:window];
         [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeBackingProperties:)
-            name:windowDidChangeBackingPropertiesNotification object:window];
+            name:NSWindowDidChangeBackingPropertiesNotification object:window];
         [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeScreen:)
             name:NSWindowDidChangeScreenNotification object:window];
         [defaultNotificationCenter addObserver:self selector:@selector(_windowVisibilityChanged:)
@@ -5513,7 +5522,7 @@ static NSString * const backingPropertyOldScaleFactorKey = @"NSBackingPropertyOl
         [defaultNotificationCenter removeObserver:self
             name:NSWindowWillOrderOffScreenNotification object:window];
         [defaultNotificationCenter removeObserver:self
-            name:windowDidChangeBackingPropertiesNotification object:window];
+            name:NSWindowDidChangeBackingPropertiesNotification object:window];
         [defaultNotificationCenter removeObserver:self
             name:NSWindowDidChangeScreenNotification object:window];
         [defaultNotificationCenter removeObserver:self
@@ -5669,7 +5678,7 @@ static NSString * const backingPropertyOldScaleFactorKey = @"NSBackingPropertyOl
 
 - (void)_windowDidChangeBackingProperties:(NSNotification *)notification
 {
-    CGFloat oldBackingScaleFactor = [[notification.userInfo objectForKey:backingPropertyOldScaleFactorKey] doubleValue];
+    CGFloat oldBackingScaleFactor = [[notification.userInfo objectForKey:NSBackingPropertyOldScaleFactorKey] doubleValue];
     CGFloat newBackingScaleFactor = [self _deviceScaleFactor];
     if (oldBackingScaleFactor == newBackingScaleFactor)
         return;

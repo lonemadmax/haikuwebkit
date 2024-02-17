@@ -86,12 +86,67 @@ class FontDescription;
 struct FontCustomPlatformData;
 struct FontSizeAdjust;
 
+struct FontPlatformDataAttributes {
+    FontPlatformDataAttributes(float size, FontOrientation orientation, FontWidthVariant widthVariant, TextRenderingMode textRenderingMode, bool syntheticBold, bool syntheticOblique)
+        : m_size(size)
+        , m_orientation(orientation)
+        , m_widthVariant(widthVariant)
+        , m_textRenderingMode(textRenderingMode)
+        , m_syntheticBold(syntheticBold)
+        , m_syntheticOblique(syntheticOblique)
+        { }
+
+#if USE(CORE_TEXT)
+    FontPlatformDataAttributes(float size, FontOrientation orientation, FontWidthVariant widthVariant, TextRenderingMode textRenderingMode, bool syntheticBold, bool syntheticOblique, RetainPtr<CFDictionaryRef> attributes, CTFontDescriptorOptions options, RetainPtr<CFStringRef> url, RetainPtr<CFStringRef> psName)
+        : m_size(size)
+        , m_orientation(orientation)
+        , m_widthVariant(widthVariant)
+        , m_textRenderingMode(textRenderingMode)
+        , m_syntheticBold(syntheticBold)
+        , m_syntheticOblique(syntheticOblique)
+        , m_attributes(attributes)
+        , m_options(options)
+        , m_url(url)
+        , m_psName(psName)
+        { }
+#endif
+
+#if USE(WIN)
+    FontPlatformDataAttributes(float size, FontOrientation orientation, FontWidthVariant widthVariant, TextRenderingMode textRenderingMode, bool syntheticBold, bool syntheticOblique, LOGFONT font)
+        : m_size(size)
+        , m_orientation(orientation)
+        , m_widthVariant(widthVariant)
+        , m_textRenderingMode(textRenderingMode)
+        , m_syntheticBold(syntheticBold)
+        , m_syntheticOblique(syntheticOblique)
+        , m_font(font)
+        { }
+#endif
+
+    float m_size { 0 };
+
+    FontOrientation m_orientation { FontOrientation::Horizontal };
+    FontWidthVariant m_widthVariant { FontWidthVariant::RegularWidth };
+    TextRenderingMode m_textRenderingMode { TextRenderingMode::AutoTextRendering };
+
+    bool m_syntheticBold { false };
+    bool m_syntheticOblique { false };
+
+#if PLATFORM(WIN)
+    LOGFONT m_font;
+#elif USE(CORE_TEXT)
+    RetainPtr<CFDictionaryRef> m_attributes;
+    CTFontDescriptorOptions m_options;
+    RetainPtr<CFStringRef> m_url;
+    RetainPtr<CFStringRef> m_psName;
+#endif
+};
+
 // This class is conceptually immutable. Once created, no instances should ever change (in an observable way).
 class FontPlatformData {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     struct CreationData;
-
     struct FontVariationAxis {
         FontVariationAxis(const String& name, const String& tag, float defaultValue, float minimumValue, float maximumValue)
             : m_name(name)
@@ -147,35 +202,7 @@ public:
     const BFont* font() const { return m_font.get(); }
 #endif
 
-    class Attributes {
-    public:
-        Attributes(float size, FontOrientation orientation, FontWidthVariant widthVariant, TextRenderingMode textRenderingMode, bool syntheticBold, bool syntheticOblique)
-            : m_size(size)
-            , m_orientation(orientation)
-            , m_widthVariant(widthVariant)
-            , m_textRenderingMode(textRenderingMode)
-            , m_syntheticBold(syntheticBold)
-            , m_syntheticOblique(syntheticOblique)
-        { }
-
-        float m_size { 0 };
-
-        FontOrientation m_orientation { FontOrientation::Horizontal };
-        FontWidthVariant m_widthVariant { FontWidthVariant::RegularWidth };
-        TextRenderingMode m_textRenderingMode { TextRenderingMode::AutoTextRendering };
-
-        bool m_syntheticBold { false };
-        bool m_syntheticOblique { false };
-
-#if PLATFORM(WIN)
-        LOGFONT m_font;
-#elif USE(CORE_TEXT)
-        RetainPtr<CFDictionaryRef> m_attributes;
-        CTFontDescriptorOptions m_options;
-        RetainPtr<CFStringRef> m_url;
-        RetainPtr<CFStringRef> m_psName;
-#endif
-    };
+    using Attributes = FontPlatformDataAttributes;
 
     WEBCORE_EXPORT static FontPlatformData create(const Attributes&, const FontCustomPlatformData*);
 
@@ -195,6 +222,8 @@ public:
 
 #if USE(CORE_TEXT)
     WEBCORE_EXPORT CTFontRef registeredFont() const; // Returns nullptr iff the font is not registered, such as web fonts (otherwise returns font()).
+    static RetainPtr<CFTypeRef> objectForEqualityCheck(CTFontRef);
+    RetainPtr<CFTypeRef> objectForEqualityCheck() const;
     bool hasCustomTracking() const { return isSystemFont(); }
 
     CTFontRef font() const { return m_font.get(); }

@@ -31,10 +31,12 @@
 #include "WebPageProxyMessages.h"
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameTree.h>
+#include <WebCore/HitTestResult.h>
 #include <WebCore/PolicyChecker.h>
 #include <WebCore/RemoteFrame.h>
 
 namespace WebKit {
+using namespace WebCore;
 
 WebRemoteFrameClient::WebRemoteFrameClient(Ref<WebFrame>&& frame, ScopeExit<Function<void()>>&& frameInvalidator)
     : WebFrameLoaderClient(WTFMove(frame))
@@ -59,32 +61,30 @@ void WebRemoteFrameClient::frameDetached()
     m_frame->invalidate();
 }
 
-void WebRemoteFrameClient::sizeDidChange(WebCore::IntSize size)
+void WebRemoteFrameClient::sizeDidChange(IntSize size)
 {
     m_frame->updateRemoteFrameSize(size);
 }
 
-void WebRemoteFrameClient::postMessageToRemote(WebCore::FrameIdentifier source, const String& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData> targetOrigin, const WebCore::MessageWithMessagePorts& message)
+void WebRemoteFrameClient::postMessageToRemote(FrameIdentifier source, const String& sourceOrigin, FrameIdentifier target, std::optional<SecurityOriginData> targetOrigin, const MessageWithMessagePorts& message)
 {
     if (auto* page = m_frame->page())
         page->send(Messages::WebPageProxy::PostMessageToRemote(source, sourceOrigin, target, targetOrigin, message));
 }
 
-void WebRemoteFrameClient::changeLocation(WebCore::FrameLoadRequest&& request)
+void WebRemoteFrameClient::changeLocation(FrameLoadRequest&& request)
 {
     // FIXME: FrameLoadRequest and NavigationAction can probably be refactored to share more. <rdar://116202911>
-    WebCore::NavigationAction action(request.requester(), request.resourceRequest(), request.initiatedByMainFrame(), request.isRequestFromClientOrUserInput());
+    NavigationAction action(request.requester(), request.resourceRequest(), request.initiatedByMainFrame(), request.isRequestFromClientOrUserInput());
     // FIXME: action.request and request are probably duplicate information. <rdar://116203126>
-    // FIXME: PolicyCheckIdentifier should probably be pushed to another layer. <rdar://116203008>
     // FIXME: Get more parameters correct and add tests for each one. <rdar://116203354>
-    dispatchDecidePolicyForNavigationAction(action, action.originalRequest(), WebCore::ResourceResponse(), nullptr, WebCore::PolicyDecisionMode::Asynchronous, WebCore::PolicyCheckIdentifier::generate(), [protectedFrame = Ref { m_frame }, request = WTFMove(request)] (WebCore::PolicyAction policyAction, WebCore::PolicyCheckIdentifier responseIdentifier) mutable {
-        // FIXME: Check responseIdentifier. <rdar://116203008>
+    dispatchDecidePolicyForNavigationAction(action, action.originalRequest(), ResourceResponse(), nullptr, { }, { }, { }, { }, { }, PolicyDecisionMode::Asynchronous, [protectedFrame = Ref { m_frame }, request = WTFMove(request)] (PolicyAction policyAction) mutable {
         // WebPage::loadRequest will make this load happen if needed.
         // FIXME: What if PolicyAction::Ignore is sent. Is everything in the right state? We probably need to make sure the load event still happens on the parent frame. <rdar://116203453>
     });
 }
 
-String WebRemoteFrameClient::renderTreeAsText(size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag> behavior)
+String WebRemoteFrameClient::renderTreeAsText(size_t baseIndent, OptionSet<RenderAsTextFlag> behavior)
 {
     RefPtr page = m_frame->page();
     if (!page)
@@ -101,17 +101,28 @@ void WebRemoteFrameClient::broadcastFrameRemovalToOtherProcesses()
     WebFrameLoaderClient::broadcastFrameRemovalToOtherProcesses();
 }
 
-void WebRemoteFrameClient::close()
+void WebRemoteFrameClient::closePage()
 {
-    // FIXME: <rdar://117381050> Consider if this needs the same logic as WebChromeClient::closeWindow, or refactor to share code.
     if (auto* page = m_frame->page())
-        page->send(Messages::WebPageProxy::CloseRemoteFrame(m_frame->frameID()));
+        page->sendClose();
 }
 
 void WebRemoteFrameClient::focus()
 {
     if (auto* page = m_frame->page())
         page->send(Messages::WebPageProxy::FocusRemoteFrame(m_frame->frameID()));
+}
+
+void WebRemoteFrameClient::unfocus()
+{
+    if (auto* page = m_frame->page())
+        page->send(Messages::WebPageProxy::SetFocus(false));
+}
+
+void WebRemoteFrameClient::dispatchDecidePolicyForNavigationAction(const NavigationAction& navigationAction, const ResourceRequest& request, const ResourceResponse& redirectResponse,
+    FormState* formState, const String& clientRedirectSourceForHistory, uint64_t navigationID, std::optional<HitTestResult>&& hitTestResult, bool hasOpener, SandboxFlags sandboxFlags, PolicyDecisionMode policyDecisionMode, FramePolicyFunction&& function)
+{
+    WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(navigationAction, request, redirectResponse, formState, clientRedirectSourceForHistory, navigationID, WTFMove(hitTestResult), hasOpener, sandboxFlags, policyDecisionMode, WTFMove(function));
 }
 
 }

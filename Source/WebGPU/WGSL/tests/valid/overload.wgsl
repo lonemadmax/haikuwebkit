@@ -788,7 +788,8 @@ fn testBitwise()
 }
 
 // 8.13. Address-Of Expression (https://www.w3.org/TR/WGSL/#address-of-expr)
-
+// RUN: %metal-compile testAddressOf
+@compute @workgroup_size(1)
 fn testAddressOf()
 {
     var x = 1;
@@ -840,15 +841,47 @@ fn testZeroValueBuiltInFunctions()
 // 16.1.2. Value Constructor Built-in Functions
 
 // 16.1.2.1.
+// RUN: %metal-compile testArray
+@compute @workgroup_size(1)
 fn testArray()
 {
-    _ = array<f32, 1>(0);
-    _ = array<S, 2>(S(0), S(1));
+    let b = false;
+    let i = 0i;
+    let u = 0u;
+    let f = 0f;
+    let h = 0h;
+
+    { const x: array<bool, 1> = array<bool, 1>(false); }
+    { const x: array<f32, 1> = array<f32, 1>(0); }
+    { const x: array<f16, 1> = array<f16, 1>(0); }
+    { const x: array<i32, 1> = array<i32, 1>(0); }
+    { const x: array<u32, 1> = array<u32, 1>(0); }
+    { const x : array<S, 2> = array<S, 2>(S(0), S(1)); }
+
+    { let x : array<bool, 1> = array<bool, 1>(b); }
+    { let x : array<f32, 1> = array<f32, 1>(f); }
+    { let x : array<f16, 1> = array<f16, 1>(h); }
+    { let x : array<i32, 1> = array<i32, 1>(i); }
+    { let x : array<u32, 1> = array<u32, 1>(u); }
+    { let x : array<S, 2> = array<S, 2>(S(i), S(i)); }
+    { _ = array<S, 2>(S(i), S(i)); }
+
+
+    var x1 = 0;
+    let x2 = array(x1, 0, 0i, x1);
 }
 
 // 16.1.2.2.
+// RUN: %metal-compile testBool
+@compute @workgroup_size(1)
 fn testBool()
 {
+    let b = false;
+    let i = 0i;
+    let u = 0u;
+    let f = 0f;
+    let h = 0h;
+
     _ = bool(true);
     _ = bool(0);
     _ = bool(0i);
@@ -856,11 +889,24 @@ fn testBool()
     _ = bool(0.0);
     _ = bool(0f);
     _ = bool(0h);
+    _ = bool(b);
+    _ = bool(i);
+    _ = bool(u);
+    _ = bool(f);
+    _ = bool(h);
 }
 
 // 16.1.2.3.
+// RUN: %metal-compile testF16
+@compute @workgroup_size(1)
 fn testF16()
 {
+    let b = false;
+    let i = 0i;
+    let u = 0u;
+    let f = 0f;
+    let h = 0h;
+
     _ = f16(true);
     _ = f16(0);
     _ = f16(0i);
@@ -868,11 +914,24 @@ fn testF16()
     _ = f16(0.0);
     _ = f16(0f);
     _ = f16(0h);
+    _ = f16(b);
+    _ = f16(i);
+    _ = f16(u);
+    _ = f16(f);
+    _ = f16(h);
 }
 
 // 16.1.2.4.
+// RUN: %metal-compile testF32
+@compute @workgroup_size(1)
 fn testF32()
 {
+    let b = false;
+    let i = 0i;
+    let u = 0u;
+    let f = 0f;
+    let h = 0h;
+
     _ = f32(true);
     _ = f32(0);
     _ = f32(0i);
@@ -880,11 +939,24 @@ fn testF32()
     _ = f32(0.0);
     _ = f32(0f);
     _ = f32(0h);
+    _ = f32(b);
+    _ = f32(i);
+    _ = f32(u);
+    _ = f32(f);
+    _ = f32(h);
 }
 
 // 16.1.2.5.
+// RUN: %metal-compile testI32
+@compute @workgroup_size(1)
 fn testI32()
 {
+    let b = false;
+    let i = 0i;
+    let u = 0u;
+    let f = 0f;
+    let h = 0h;
+
     _ = i32(true);
     _ = i32(0);
     _ = i32(0i);
@@ -893,100 +965,353 @@ fn testI32()
     _ = i32(0f);
     _ = i32(0h);
     _ = i32(4294967295u);
+    _ = i32(b);
+    _ = i32(i);
+    _ = i32(u);
+    _ = i32(f);
+    _ = i32(h);
 }
 
 // 16.1.2.6 - 14: matCxR
+// RUN: %metal-compile testMatrix
+@compute @workgroup_size(1)
 fn testMatrix()
 {
-  {
-    _ = mat2x2<f32>(mat2x2(0.0, 0.0, 0.0, 0.0));
-    _ = mat2x2<f32>(mat2x2<f16>(0.0, 0.0, 0.0, 0.0));
-    _ = mat2x2(mat2x2(0.0, 0.0, 0.0, 0.0));
-    _ = mat2x2(0.0, 0.0, 0.0, 0.0);
-    _ = mat2x2(vec2(0.0, 0.0), vec2(0.0, 0.0));
-  }
+    let f = 0f;
+    let h = 0h;
+    {
+        _ = mat2x2(0.0, 0.0, 0.0, 0.0);
+        _ = mat2x2(0.0f, 0.0, 0.0, 0.0);
+        _ = mat2x2(0.0h, 0.0, 0.0, 0.0);
+        _ = mat2x2(f, 0.0, 0.0, 0.0);
+        _ = mat2x2(h, 0.0, 0.0, 0.0);
 
-  {
-    _ = mat2x3<f32>(mat2x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat2x3<f32>(mat2x3<f16>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat2x3(mat2x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat2x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-    _ = mat2x3(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0));
-  }
+        _ = mat2x2<f32>(mat2x2(0.0, 0.0, 0.0, 0.0));
+        _ = mat2x2<f32>(mat2x2(0.0f, 0.0, 0.0, 0.0));
+        _ = mat2x2<f32>(mat2x2(0.0h, 0.0, 0.0, 0.0));
+        _ = mat2x2<f32>(mat2x2(f, 0.0, 0.0, 0.0));
+        _ = mat2x2<f32>(mat2x2(h, 0.0, 0.0, 0.0));
 
-  {
-    _ = mat2x4<f32>(mat2x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat2x4<f32>(mat2x4<f16>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat2x4(mat2x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat2x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-    _ = mat2x4(vec4(0.0, 0.0, 0.0, 0.0), vec4(0.0, 0.0, 0.0, 0.0));
-  }
+        _ = mat2x2<f16>(mat2x2(0.0, 0.0, 0.0, 0.0));
+        _ = mat2x2<f16>(mat2x2(0.0f, 0.0, 0.0, 0.0));
+        _ = mat2x2<f16>(mat2x2(0.0h, 0.0, 0.0, 0.0));
+        _ = mat2x2<f16>(mat2x2(f, 0.0, 0.0, 0.0));
+        _ = mat2x2<f16>(mat2x2(h, 0.0, 0.0, 0.0));
 
-  {
-    _ = mat3x2<f32>(mat3x2(0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat3x2<f32>(mat3x2<f16>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat3x2(mat3x2(0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat3x2(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-    _ = mat3x2(vec2(0.0, 0.0), vec2(0.0, 0.0), vec2(0.0, 0.0));
-  }
 
-  {
-    _ = mat3x3<f32>(mat3x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat3x3<f32>(mat3x3<f16>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat3x3(mat3x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat3x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-    _ = mat3x3(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0));
-  }
+        _ = mat2x2(mat2x2(0.0, 0.0, 0.0, 0.0));
+        _ = mat2x2(mat2x2(0.0f, 0.0, 0.0, 0.0));
+        _ = mat2x2(mat2x2(0.0h, 0.0, 0.0, 0.0));
+        _ = mat2x2(mat2x2(f, 0.0, 0.0, 0.0));
+        _ = mat2x2(mat2x2(h, 0.0, 0.0, 0.0));
 
-  {
-    _ = mat3x4<f32>(mat3x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat3x4<f32>(mat3x4<f16>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat3x4(mat3x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat3x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-    _ = mat3x4(vec4(0.0, 0.0, 0.0, 0.0), vec4(0.0, 0.0, 0.0, 0.0), vec4(0.0, 0.0, 0.0, 0.0));
-  }
+        _ = mat2x2(vec2(0.0, 0.0), vec2(0.0, 0.0));
+        _ = mat2x2(vec2(0.0f, 0.0), vec2(0.0, 0.0));
+        _ = mat2x2(vec2(0.0h, 0.0), vec2(0.0, 0.0));
+        _ = mat2x2(vec2(f, 0.0), vec2(0.0, 0.0));
+        _ = mat2x2(vec2(h, 0.0), vec2(0.0, 0.0));
+    }
 
-  {
-    _ = mat4x2<f32>(mat4x2(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat4x2<f32>(mat4x2<f16>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat4x2(mat4x2(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat4x2(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-    _ = mat4x2(vec2(0.0, 0.0), vec2(0.0, 0.0), vec2(0.0, 0.0), vec2(0.0, 0.0));
-  }
+    {
+        _ = mat2x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        _ = mat2x3(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0);
+        _ = mat2x3(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0);
+        _ = mat2x3(f, 0.0, 0.0, 0.0, 0.0, 0.0);
+        _ = mat2x3(h, 0.0, 0.0, 0.0, 0.0, 0.0);
 
-  {
-    _ = mat4x3<f32>(mat4x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat4x3<f32>(mat4x3<f16>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat4x3(mat4x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat4x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
-    _ = mat4x3(vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0), vec3(0.0, 0.0, 0.0));
-  }
+        _ = mat2x3<f32>(mat2x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x3<f32>(mat2x3(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x3<f32>(mat2x3(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x3<f32>(mat2x3(f, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x3<f32>(mat2x3(h, 0.0, 0.0, 0.0, 0.0, 0.0));
 
-  {
-    _ = mat4x4<f32>(mat4x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat4x4<f32>(mat4x4<f16>(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat4x4(mat4x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat4x4(mat4x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
-    _ = mat4x4(vec4(0.0, 0.0, 0.0, 0.0), vec4(0.0, 0.0, 0.0, 0.0), vec4(0.0, 0.0, 0.0, 0.0), vec4(0.0, 0.0, 0.0, 0.0));
-  }
+        _ = mat2x3<f16>(mat2x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x3<f16>(mat2x3(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x3<f16>(mat2x3(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x3<f16>(mat2x3(f, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x3<f16>(mat2x3(h, 0.0, 0.0, 0.0, 0.0, 0.0));
+
+
+        _ = mat2x3(mat2x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x3(mat2x3(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x3(mat2x3(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x3(mat2x3(f, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x3(mat2x3(h, 0.0, 0.0, 0.0, 0.0, 0.0));
+
+        _ = mat2x3(vec3(0.0), vec3(0.0));
+        _ = mat2x3(vec3(0.0f), vec3(0.0));
+        _ = mat2x3(vec3(0.0h), vec3(0.0));
+        _ = mat2x3(vec3(f), vec3(0.0));
+        _ = mat2x3(vec3(h), vec3(0.0));
+    }
+
+    {
+        _ = mat2x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        _ = mat2x4(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        _ = mat2x4(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        _ = mat2x4(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+        _ = mat2x4(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+        _ = mat2x4<f32>(mat2x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x4<f32>(mat2x4(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x4<f32>(mat2x4(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x4<f32>(mat2x4(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x4<f32>(mat2x4(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+
+        _ = mat2x4<f16>(mat2x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x4<f16>(mat2x4(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x4<f16>(mat2x4(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x4<f16>(mat2x4(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x4<f16>(mat2x4(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+
+
+        _ = mat2x4(mat2x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x4(mat2x4(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x4(mat2x4(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x4(mat2x4(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+        _ = mat2x4(mat2x4(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0));
+
+        _ = mat2x4(vec4(0.0), vec4(0.0));
+        _ = mat2x4(vec4(0.0f), vec4(0.0));
+        _ = mat2x4(vec4(0.0h), vec4(0.0));
+        _ = mat2x4(vec4(f), vec4(0.0));
+        _ = mat2x4(vec4(h), vec4(0.0));
+    }
+
+    {
+        _ = mat3x2(0.0, 0.0, 0.0, 0.0, 0, 0);
+        _ = mat3x2(0.0f, 0.0, 0.0, 0.0, 0, 0);
+        _ = mat3x2(0.0h, 0.0, 0.0, 0.0, 0, 0);
+        _ = mat3x2(f, 0.0, 0.0, 0.0, 0, 0);
+        _ = mat3x2(h, 0.0, 0.0, 0.0, 0, 0);
+
+        _ = mat3x2<f32>(mat3x2(0.0, 0.0, 0.0, 0.0, 0, 0));
+        _ = mat3x2<f32>(mat3x2(0.0f, 0.0, 0.0, 0.0, 0, 0));
+        _ = mat3x2<f32>(mat3x2(0.0h, 0.0, 0.0, 0.0, 0, 0));
+        _ = mat3x2<f32>(mat3x2(f, 0.0, 0.0, 0.0, 0, 0));
+        _ = mat3x2<f32>(mat3x2(h, 0.0, 0.0, 0.0, 0, 0));
+
+        _ = mat3x2<f16>(mat3x2(0.0, 0.0, 0.0, 0.0, 0, 0));
+        _ = mat3x2<f16>(mat3x2(0.0f, 0.0, 0.0, 0.0, 0, 0));
+        _ = mat3x2<f16>(mat3x2(0.0h, 0.0, 0.0, 0.0, 0, 0));
+        _ = mat3x2<f16>(mat3x2(f, 0.0, 0.0, 0.0, 0, 0));
+        _ = mat3x2<f16>(mat3x2(h, 0.0, 0.0, 0.0, 0, 0));
+
+
+        _ = mat3x2(mat3x2(0.0, 0.0, 0.0, 0.0, 0, 0));
+        _ = mat3x2(mat3x2(0.0f, 0.0, 0.0, 0.0, 0, 0));
+        _ = mat3x2(mat3x2(0.0h, 0.0, 0.0, 0.0, 0, 0));
+        _ = mat3x2(mat3x2(f, 0.0, 0.0, 0.0, 0, 0));
+        _ = mat3x2(mat3x2(h, 0.0, 0.0, 0.0, 0, 0));
+
+        _ = mat3x2(vec2(0.0, 0.0), vec2(0.0, 0.0), vec2(0));
+        _ = mat3x2(vec2(0.0f, 0.0), vec2(0.0, 0.0), vec2(0));
+        _ = mat3x2(vec2(0.0h, 0.0), vec2(0.0, 0.0), vec2(0));
+        _ = mat3x2(vec2(f, 0.0), vec2(0.0, 0.0), vec2(0));
+        _ = mat3x2(vec2(h, 0.0), vec2(0.0, 0.0), vec2(0));
+    }
+
+    {
+        _ = mat3x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0);
+        _ = mat3x3(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0);
+        _ = mat3x3(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0);
+        _ = mat3x3(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0);
+        _ = mat3x3(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0);
+
+        _ = mat3x3<f32>(mat3x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+        _ = mat3x3<f32>(mat3x3(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+        _ = mat3x3<f32>(mat3x3(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+        _ = mat3x3<f32>(mat3x3(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+        _ = mat3x3<f32>(mat3x3(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+
+        _ = mat3x3<f16>(mat3x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+        _ = mat3x3<f16>(mat3x3(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+        _ = mat3x3<f16>(mat3x3(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+        _ = mat3x3<f16>(mat3x3(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+        _ = mat3x3<f16>(mat3x3(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+
+
+        _ = mat3x3(mat3x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+        _ = mat3x3(mat3x3(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+        _ = mat3x3(mat3x3(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+        _ = mat3x3(mat3x3(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+        _ = mat3x3(mat3x3(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0));
+
+        _ = mat3x3(vec3(0.0), vec3(0.0), vec3(0));
+        _ = mat3x3(vec3(0.0f), vec3(0.0), vec3(0));
+        _ = mat3x3(vec3(0.0h), vec3(0.0), vec3(0));
+        _ = mat3x3(vec3(f), vec3(0.0), vec3(0));
+        _ = mat3x3(vec3(h), vec3(0.0), vec3(0));
+    }
+
+    {
+        _ = mat3x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0);
+        _ = mat3x4(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0);
+        _ = mat3x4(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0);
+        _ = mat3x4(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0);
+        _ = mat3x4(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0);
+
+        _ = mat3x4<f32>(mat3x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat3x4<f32>(mat3x4(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat3x4<f32>(mat3x4(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat3x4<f32>(mat3x4(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat3x4<f32>(mat3x4(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+
+        _ = mat3x4<f16>(mat3x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat3x4<f16>(mat3x4(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat3x4<f16>(mat3x4(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat3x4<f16>(mat3x4(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat3x4<f16>(mat3x4(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+
+
+        _ = mat3x4(mat3x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat3x4(mat3x4(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat3x4(mat3x4(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat3x4(mat3x4(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat3x4(mat3x4(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+
+        _ = mat3x4(vec4(0.0), vec4(0.0), vec4(0));
+        _ = mat3x4(vec4(0.0f), vec4(0.0), vec4(0));
+        _ = mat3x4(vec4(0.0h), vec4(0.0), vec4(0));
+        _ = mat3x4(vec4(f), vec4(0.0), vec4(0));
+        _ = mat3x4(vec4(h), vec4(0.0), vec4(0));
+    }
+
+    {
+        _ = mat4x2(0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0);
+        _ = mat4x2(0.0f, 0.0, 0.0, 0.0, 0, 0, 0, 0);
+        _ = mat4x2(0.0h, 0.0, 0.0, 0.0, 0, 0, 0, 0);
+        _ = mat4x2(f, 0.0, 0.0, 0.0, 0, 0, 0, 0);
+        _ = mat4x2(h, 0.0, 0.0, 0.0, 0, 0, 0, 0);
+
+        _ = mat4x2<f32>(mat4x2(0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat4x2<f32>(mat4x2(0.0f, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat4x2<f32>(mat4x2(0.0h, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat4x2<f32>(mat4x2(f, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat4x2<f32>(mat4x2(h, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+
+        _ = mat4x2<f16>(mat4x2(0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat4x2<f16>(mat4x2(0.0f, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat4x2<f16>(mat4x2(0.0h, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat4x2<f16>(mat4x2(f, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat4x2<f16>(mat4x2(h, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+
+
+        _ = mat4x2(mat4x2(0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat4x2(mat4x2(0.0f, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat4x2(mat4x2(0.0h, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat4x2(mat4x2(f, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+        _ = mat4x2(mat4x2(h, 0.0, 0.0, 0.0, 0, 0, 0, 0));
+
+        _ = mat4x2(vec2(0.0, 0.0), vec2(0.0, 0.0), vec2(0), vec2(0));
+        _ = mat4x2(vec2(0.0f, 0.0), vec2(0.0, 0.0), vec2(0), vec2(0));
+        _ = mat4x2(vec2(0.0h, 0.0), vec2(0.0, 0.0), vec2(0), vec2(0));
+        _ = mat4x2(vec2(f, 0.0), vec2(0.0, 0.0), vec2(0), vec2(0));
+        _ = mat4x2(vec2(h, 0.0), vec2(0.0, 0.0), vec2(0), vec2(0));
+    }
+
+    {
+        _ = mat4x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0);
+        _ = mat4x3(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0);
+        _ = mat4x3(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0);
+        _ = mat4x3(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0);
+        _ = mat4x3(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0);
+
+        _ = mat4x3<f32>(mat4x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x3<f32>(mat4x3(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x3<f32>(mat4x3(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x3<f32>(mat4x3(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x3<f32>(mat4x3(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+
+        _ = mat4x3<f16>(mat4x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x3<f16>(mat4x3(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x3<f16>(mat4x3(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x3<f16>(mat4x3(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x3<f16>(mat4x3(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+
+
+        _ = mat4x3(mat4x3(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x3(mat4x3(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x3(mat4x3(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x3(mat4x3(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x3(mat4x3(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0));
+
+        _ = mat4x3(vec3(0.0), vec3(0.0), vec3(0), vec3(0));
+        _ = mat4x3(vec3(0.0f), vec3(0.0), vec3(0), vec3(0));
+        _ = mat4x3(vec3(0.0h), vec3(0.0), vec3(0), vec3(0));
+        _ = mat4x3(vec3(f), vec3(0.0), vec3(0), vec3(0));
+        _ = mat4x3(vec3(h), vec3(0.0), vec3(0), vec3(0));
+    }
+
+    {
+        _ = mat4x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0);
+        _ = mat4x4(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0);
+        _ = mat4x4(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0);
+        _ = mat4x4(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0);
+        _ = mat4x4(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0);
+
+        _ = mat4x4<f32>(mat4x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x4<f32>(mat4x4(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x4<f32>(mat4x4(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x4<f32>(mat4x4(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x4<f32>(mat4x4(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+
+        _ = mat4x4<f16>(mat4x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x4<f16>(mat4x4(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x4<f16>(mat4x4(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x4<f16>(mat4x4(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x4<f16>(mat4x4(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+
+
+        _ = mat4x4(mat4x4(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x4(mat4x4(0.0f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x4(mat4x4(0.0h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x4(mat4x4(f, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+        _ = mat4x4(mat4x4(h, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0, 0, 0, 0, 0, 0, 0, 0));
+
+        _ = mat4x4(vec4(0.0), vec4(0.0), vec4(0), vec4(0));
+        _ = mat4x4(vec4(0.0f), vec4(0.0), vec4(0), vec4(0));
+        _ = mat4x4(vec4(0.0h), vec4(0.0), vec4(0), vec4(0));
+        _ = mat4x4(vec4(f), vec4(0.0), vec4(0), vec4(0));
+        _ = mat4x4(vec4(h), vec4(0.0), vec4(0), vec4(0));
+    }
 }
 
 // 16.1.2.15.
+// RUN: %metal-compile testStructures
+@compute @workgroup_size(1)
 fn testStructures()
 {
+    let i = 42;
     _ = S(42);
     _ = S(42i);
+    _ = S(i);
 }
 
 // 16.1.2.16.
+// RUN: %metal-compile testU32
+@compute @workgroup_size(1)
 fn testU32()
 {
+    let b = false;
+    let i = 0i;
+    let u = 0u;
+    let f = 0f;
+    let h = 0h;
+
     _ = u32(true);
     _ = u32(0);
     _ = u32(0i);
     _ = u32(0u);
     _ = u32(0.0);
     _ = u32(0f);
+    _ = u32(0h);
+    _ = u32(4294967295);
+    _ = u32(b);
+    _ = u32(i);
+    _ = u32(u);
+    _ = u32(f);
+    _ = u32(h);
 }
 
 // 16.1.2.17.
@@ -1032,101 +1357,209 @@ fn testBitcast()
     let u = 0u;
     let i = 0i;
     let f = 0f;
+    let h = 0h;
 
-    // [T < Concrete32BitNumber, S < Concrete32BitNumber].(S) => T
+    { const x =bitcast<vec2<i32>>(vec2(.659341217228384203)); }
+
+    // @const @must_use fn bitcast<T>(e : T) -> T
+    { const x: u32 = bitcast<u32>(5u); }
+    { const x: i32 = bitcast<i32>(5i); }
+    { const x: f32 = bitcast<f32>(5f); }
+    { const x: f16 = bitcast<f16>(5h); }
     { let x: u32 = bitcast<u32>(u); }
+    { let x: i32 = bitcast<i32>(i); }
+    { let x: f32 = bitcast<f32>(f); }
+    { let x: f16 = bitcast<f16>(h); }
+
+    // @const @must_use fn bitcast<T>(e : S) -> T
+    { const x: u32 = bitcast<u32>(5i); }
+    { const x: u32 = bitcast<u32>(5f); }
     { let x: u32 = bitcast<u32>(i); }
     { let x: u32 = bitcast<u32>(f); }
 
+    { const x: i32 = bitcast<i32>(5u); }
+    { const x: i32 = bitcast<i32>(5f); }
     { let x: i32 = bitcast<i32>(u); }
-    { let x: i32 = bitcast<i32>(i); }
     { let x: i32 = bitcast<i32>(f); }
 
+    { const x: f32 = bitcast<f32>(5u); }
+    { const x: f32 = bitcast<f32>(5i); }
     { let x: f32 = bitcast<f32>(u); }
     { let x: f32 = bitcast<f32>(i); }
-    { let x: f32 = bitcast<f32>(f); }
 
-    // [T < Concrete32BitNumber, S < Concrete32BitNumber, N].(vec[N][S]) => vec[N][T]
+    // @const @must_use fn bitcast<vecN<T>>(e : vecN<S>) -> T
+
     // vec2
+    { const x: vec2<u32> = bitcast<vec2<u32>>(vec2(5u)); }
+    { const x: vec2<u32> = bitcast<vec2<u32>>(vec2(5i)); }
+    { const x: vec2<u32> = bitcast<vec2<u32>>(vec2(5f)); }
     { let x: vec2<u32> = bitcast<vec2<u32>>(vec2(u)); }
     { let x: vec2<u32> = bitcast<vec2<u32>>(vec2(i)); }
     { let x: vec2<u32> = bitcast<vec2<u32>>(vec2(f)); }
 
+    { const x: vec2<i32> = bitcast<vec2<i32>>(vec2(5u)); }
+    { const x: vec2<i32> = bitcast<vec2<i32>>(vec2(5i)); }
+    { const x: vec2<i32> = bitcast<vec2<i32>>(vec2(5f)); }
     { let x: vec2<i32> = bitcast<vec2<i32>>(vec2(u)); }
     { let x: vec2<i32> = bitcast<vec2<i32>>(vec2(i)); }
     { let x: vec2<i32> = bitcast<vec2<i32>>(vec2(f)); }
 
+    { const x: vec2<f32> = bitcast<vec2<f32>>(vec2(5u)); }
+    { const x: vec2<f32> = bitcast<vec2<f32>>(vec2(5i)); }
+    { const x: vec2<f32> = bitcast<vec2<f32>>(vec2(5f)); }
     { let x: vec2<f32> = bitcast<vec2<f32>>(vec2(u)); }
     { let x: vec2<f32> = bitcast<vec2<f32>>(vec2(i)); }
     { let x: vec2<f32> = bitcast<vec2<f32>>(vec2(f)); }
 
     // vec3
+    { const x: vec3<u32> = bitcast<vec3<u32>>(vec3(5u)); }
+    { const x: vec3<u32> = bitcast<vec3<u32>>(vec3(5i)); }
+    { const x: vec3<u32> = bitcast<vec3<u32>>(vec3(5f)); }
     { let x: vec3<u32> = bitcast<vec3<u32>>(vec3(u)); }
     { let x: vec3<u32> = bitcast<vec3<u32>>(vec3(i)); }
     { let x: vec3<u32> = bitcast<vec3<u32>>(vec3(f)); }
 
+    { const x: vec3<i32> = bitcast<vec3<i32>>(vec3(5u)); }
+    { const x: vec3<i32> = bitcast<vec3<i32>>(vec3(5i)); }
+    { const x: vec3<i32> = bitcast<vec3<i32>>(vec3(5f)); }
     { let x: vec3<i32> = bitcast<vec3<i32>>(vec3(u)); }
     { let x: vec3<i32> = bitcast<vec3<i32>>(vec3(i)); }
     { let x: vec3<i32> = bitcast<vec3<i32>>(vec3(f)); }
 
+    { const x: vec3<f32> = bitcast<vec3<f32>>(vec3(5u)); }
+    { const x: vec3<f32> = bitcast<vec3<f32>>(vec3(5i)); }
+    { const x: vec3<f32> = bitcast<vec3<f32>>(vec3(5f)); }
     { let x: vec3<f32> = bitcast<vec3<f32>>(vec3(u)); }
     { let x: vec3<f32> = bitcast<vec3<f32>>(vec3(i)); }
     { let x: vec3<f32> = bitcast<vec3<f32>>(vec3(f)); }
 
     // vec4
+    { const x: vec4<u32> = bitcast<vec4<u32>>(vec4(5u)); }
+    { const x: vec4<u32> = bitcast<vec4<u32>>(vec4(5i)); }
+    { const x: vec4<u32> = bitcast<vec4<u32>>(vec4(5f)); }
     { let x: vec4<u32> = bitcast<vec4<u32>>(vec4(u)); }
     { let x: vec4<u32> = bitcast<vec4<u32>>(vec4(i)); }
     { let x: vec4<u32> = bitcast<vec4<u32>>(vec4(f)); }
 
+    { const x: vec4<i32> = bitcast<vec4<i32>>(vec4(5u)); }
+    { const x: vec4<i32> = bitcast<vec4<i32>>(vec4(5i)); }
+    { const x: vec4<i32> = bitcast<vec4<i32>>(vec4(5f)); }
     { let x: vec4<i32> = bitcast<vec4<i32>>(vec4(u)); }
     { let x: vec4<i32> = bitcast<vec4<i32>>(vec4(i)); }
     { let x: vec4<i32> = bitcast<vec4<i32>>(vec4(f)); }
 
+    { const x: vec4<f32> = bitcast<vec4<f32>>(vec4(5u)); }
+    { const x: vec4<f32> = bitcast<vec4<f32>>(vec4(5i)); }
+    { const x: vec4<f32> = bitcast<vec4<f32>>(vec4(5f)); }
     { let x: vec4<f32> = bitcast<vec4<f32>>(vec4(u)); }
     { let x: vec4<f32> = bitcast<vec4<f32>>(vec4(i)); }
     { let x: vec4<f32> = bitcast<vec4<f32>>(vec4(f)); }
 
-    // FIXME: add f16 overloads
+    // @const @must_use fn bitcast<u32>(e : AbstractInt) -> T
+    { const x: u32 = bitcast<u32>(4294967295); }
+
+    // @const @must_use fn bitcast<vecN<u32>>(e : vecN<AbstractInt>) -> T
+    { const x: vec2<u32> = bitcast<vec2<u32>>(vec2(4294967295)); }
+    { const x: vec3<u32> = bitcast<vec3<u32>>(vec3(4294967295)); }
+    { const x: vec4<u32> = bitcast<vec4<u32>>(vec4(4294967295)); }
+
+    // @const @must_use fn bitcast<T>(e : vec2<f16>) -> T
+    { const x: u32 = bitcast<u32>(vec2(5h)); }
+    { let x: u32 = bitcast<u32>(vec2(h)); }
+    { const x: i32 = bitcast<i32>(vec2(5h)); }
+    { let x: i32 = bitcast<i32>(vec2(h)); }
+    { const x: f32 = bitcast<f32>(vec2(5h)); }
+    { let x: f32 = bitcast<f32>(vec2(h)); }
+
+    // @const @must_use fn bitcast<vec2<T>>(e : vec4<f16>) -> vec2<T>
+    { const x: vec2<u32> = bitcast<vec2<u32>>(vec4(5h)); }
+    { let x: vec2<u32> = bitcast<vec2<u32>>(vec4(h)); }
+    { const x: vec2<i32> = bitcast<vec2<i32>>(vec4(5h)); }
+    { let x: vec2<i32> = bitcast<vec2<i32>>(vec4(h)); }
+    { const x: vec2<f32> = bitcast<vec2<f32>>(vec4(5h)); }
+    { let x: vec2<f32> = bitcast<vec2<f32>>(vec4(h)); }
+
+    // @const @must_use fn bitcast<vec2<f16>>(e : T) -> vec2<f16>
+    { const x: vec2<f16> = bitcast<vec2<f16>>(5u); }
+    { const x: vec2<f16> = bitcast<vec2<f16>>(5i); }
+    { const x: vec2<f16> = bitcast<vec2<f16>>(5f); }
+    { let x: vec2<f16> = bitcast<vec2<f16>>(u); }
+    { let x: vec2<f16> = bitcast<vec2<f16>>(i); }
+    { let x: vec2<f16> = bitcast<vec2<f16>>(f); }
+
+    // @const @must_use fn bitcast<vec4<f16>>(e : vec2<T>) -> vec4<f16>
+    { const x: vec4<f16> = bitcast<vec4<f16>>(vec2(5u)); }
+    { const x: vec4<f16> = bitcast<vec4<f16>>(vec2(5i)); }
+    { const x: vec4<f16> = bitcast<vec4<f16>>(vec2(5f)); }
+    { let x: vec4<f16> = bitcast<vec4<f16>>(vec2(u)); }
+    { let x: vec4<f16> = bitcast<vec4<f16>>(vec2(i)); }
+    { let x: vec4<f16> = bitcast<vec4<f16>>(vec2(f)); }
 }
 
 // 16.3. Logical Built-in Functions (https://www.w3.org/TR/WGSL/#logical-builtin-functions)
 
 // 16.3.1
+// RUN: %metal-compile testAll
+@compute @workgroup_size(1)
 fn testAll()
 {
+    let b = false;
+
     // [N].(Vector[Bool, N]) => Bool,
     _ = all(vec2(false, true));
     _ = all(vec3(true, true, true));
     _ = all(vec4(false, false, false, false));
+    _ = all(vec2(b));
+    _ = all(vec3(b));
+    _ = all(vec4(b));
 
     // [N].(Bool) => Bool,
     _ = all(true);
     _ = all(false);
+    _ = all(b);
 }
 
 // 16.3.2
+// RUN: %metal-compile testAny
+@compute @workgroup_size(1)
 fn testAny()
 {
+    let b = false;
+
     // [N].(Vector[Bool, N]) => Bool,
     _ = any(vec2(false, true));
     _ = any(vec3(true, true, true));
     _ = any(vec4(false, false, false, false));
+    _ = any(vec2(b));
+    _ = any(vec3(b));
+    _ = any(vec4(b));
 
     // [N].(Bool) => Bool,
     _ = any(true);
     _ = any(false);
+    _ = any(b);
 }
 
 // 16.3.3
+// RUN: %metal-compile testSelect
+@compute @workgroup_size(1)
 fn testSelect()
 {
+    let b = false;
     // [T < Scalar].(T, T, Bool) => T,
     {
         _ = select(13, 42,   false);
         _ = select(13, 42i,  false);
         _ = select(13, 42u,  true);
         _ = select(13, 42f,  true);
+        _ = select(13, 42h,  true);
         _ = select(13, 42.0, true);
+        _ = select(13, 42,   b);
+        _ = select(13, 42i,  b);
+        _ = select(13, 42u,  b);
+        _ = select(13, 42f,  b);
+        _ = select(13, 42h,  b);
+        _ = select(13, 42.0, b);
     }
 
     // [T < Scalar, N].(Vector[T, N], Vector[T, N], Bool) => Vector[T, N],
@@ -1135,21 +1568,42 @@ fn testSelect()
         _ = select(vec2(13), vec2(42i),  false);
         _ = select(vec2(13), vec2(42u),  true);
         _ = select(vec2(13), vec2(42f),  true);
+        _ = select(vec2(13), vec2(42h),  true);
         _ = select(vec2(13), vec2(42.0), true);
+        _ = select(vec2(13), vec2(42),   b);
+        _ = select(vec2(13), vec2(42i),  b);
+        _ = select(vec2(13), vec2(42u),  b);
+        _ = select(vec2(13), vec2(42f),  b);
+        _ = select(vec2(13), vec2(42h),  b);
+        _ = select(vec2(13), vec2(42.0), b);
     }
     {
         _ = select(vec3(13), vec3(42),   false);
         _ = select(vec3(13), vec3(42i),  false);
         _ = select(vec3(13), vec3(42u),  true);
         _ = select(vec3(13), vec3(42f),  true);
+        _ = select(vec3(13), vec3(42h),  true);
         _ = select(vec3(13), vec3(42.0), true);
+        _ = select(vec3(13), vec3(42),   b);
+        _ = select(vec3(13), vec3(42i),  b);
+        _ = select(vec3(13), vec3(42u),  b);
+        _ = select(vec3(13), vec3(42f),  b);
+        _ = select(vec3(13), vec3(42h),  b);
+        _ = select(vec3(13), vec3(42.0), b);
     }
     {
         _ = select(vec4(13), vec4(42),   false);
         _ = select(vec4(13), vec4(42i),  false);
         _ = select(vec4(13), vec4(42u),  true);
         _ = select(vec4(13), vec4(42f),  true);
+        _ = select(vec4(13), vec4(42h),  true);
         _ = select(vec4(13), vec4(42.0), true);
+        _ = select(vec4(13), vec4(42),   b);
+        _ = select(vec4(13), vec4(42i),  b);
+        _ = select(vec4(13), vec4(42u),  b);
+        _ = select(vec4(13), vec4(42f),  b);
+        _ = select(vec4(13), vec4(42h),  b);
+        _ = select(vec4(13), vec4(42.0), b);
     }
 
     // [T < Scalar, N].(Vector[T, N], Vector[T, N], Vector[Bool, N]) => Vector[T, N],
@@ -1158,30 +1612,53 @@ fn testSelect()
         _ = select(vec2(13), vec2(42i),  vec2(false));
         _ = select(vec2(13), vec2(42u),  vec2(true));
         _ = select(vec2(13), vec2(42f),  vec2(true));
+        _ = select(vec2(13), vec2(42h),  vec2(true));
         _ = select(vec2(13), vec2(42.0), vec2(true));
+        _ = select(vec2(13), vec2(42),   vec2(b));
+        _ = select(vec2(13), vec2(42i),  vec2(b));
+        _ = select(vec2(13), vec2(42u),  vec2(b));
+        _ = select(vec2(13), vec2(42f),  vec2(b));
+        _ = select(vec2(13), vec2(42h),  vec2(b));
+        _ = select(vec2(13), vec2(42.0), vec2(b));
     }
     {
         _ = select(vec3(13), vec3(42),   vec3(false));
         _ = select(vec3(13), vec3(42i),  vec3(false));
         _ = select(vec3(13), vec3(42u),  vec3(true));
         _ = select(vec3(13), vec3(42f),  vec3(true));
+        _ = select(vec3(13), vec3(42h),  vec3(true));
         _ = select(vec3(13), vec3(42.0), vec3(true));
+        _ = select(vec3(13), vec3(42),   vec3(b));
+        _ = select(vec3(13), vec3(42i),  vec3(b));
+        _ = select(vec3(13), vec3(42u),  vec3(b));
+        _ = select(vec3(13), vec3(42f),  vec3(b));
+        _ = select(vec3(13), vec3(42h),  vec3(b));
+        _ = select(vec3(13), vec3(42.0), vec3(b));
     }
     {
         _ = select(vec4(13), vec4(42),   vec4(false));
         _ = select(vec4(13), vec4(42i),  vec4(false));
         _ = select(vec4(13), vec4(42u),  vec4(true));
         _ = select(vec4(13), vec4(42f),  vec4(true));
+        _ = select(vec4(13), vec4(42h),  vec4(true));
         _ = select(vec4(13), vec4(42.0), vec4(true));
+        _ = select(vec4(13), vec4(42),   vec4(b));
+        _ = select(vec4(13), vec4(42i),  vec4(b));
+        _ = select(vec4(13), vec4(42u),  vec4(b));
+        _ = select(vec4(13), vec4(42f),  vec4(b));
+        _ = select(vec4(13), vec4(42h),  vec4(b));
+        _ = select(vec4(13), vec4(42.0), vec4(b));
     }
 }
 
 // 16.4. Array Built-in Functions
 
-var<storage, read> a1: array<i32>;
-var<storage, read_write> a2: array<i32>;
+@group(4) @binding(0) var<storage, read> a1: array<i32>;
+@group(4) @binding(1) var<storage, read_write> a2: array<i32>;
 
 // 16.4.1.
+// RUN: %metal-compile testArrayLength
+@compute @workgroup_size(1)
 fn testArrayLength()
 {
     // [T].(Ptr[Storage, Array[T], Read]) => U32,
@@ -1829,6 +2306,26 @@ fn testDot()
         _ = dot(vec4(f), vec4(f));
         _ = dot(vec4(h), vec4(h));
     }
+}
+
+// 16.5.21
+// RUN: %metal-compile testDot4U8Packed
+@compute @workgroup_size(1)
+fn testDot4U8Packed()
+{
+    let u = 0u;
+    { const x: u32 = dot4U8Packed(0u, 0u); }
+    { let x: u32 = dot4U8Packed(u, u); }
+}
+
+// 16.5.22
+// RUN: %metal-compile testDot4I8Packed
+@compute @workgroup_size(1)
+fn testDot4I8Packed()
+{
+    let u = 0u;
+    { const x: i32 = dot4I8Packed(0u, 0u); }
+    { let x: i32 = dot4I8Packed(u, u); }
 }
 
 // 16.5.21 & 16.5.22
@@ -4167,7 +4664,7 @@ fn testTextureSampleGrad()
 }
 
 // 16.7.13
-// RUN: %metal-compile testTexureSampleLevel
+// RUN: %metal-compile testTextureSampleLevel
 @compute @workgroup_size(1)
 fn testTextureSampleLevel()
 {
@@ -4299,7 +4796,7 @@ fn testAtomicReadWriteModify()
 }
 
 // 16.9. Data Packing Built-in Functions (https://www.w3.org/TR/WGSL/#pack-builtin-functions)
-// RUN: %metal-compile testDataPackingFunction
+// RUN: %metal-compile testDataPackingFunctions
 @compute @workgroup_size(1)
 fn testDataPackingFunctions()
 {

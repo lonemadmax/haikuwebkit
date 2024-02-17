@@ -443,6 +443,11 @@ void RemoteDisplayListRecorder::fillRectWithGradient(DisplayList::FillRectWithGr
     handleItem(WTFMove(item));
 }
 
+void RemoteDisplayListRecorder::fillRectWithGradientAndSpaceTransform(DisplayList::FillRectWithGradientAndSpaceTransform&& item)
+{
+    handleItem(WTFMove(item));
+}
+
 void RemoteDisplayListRecorder::fillCompositedRect(const FloatRect& rect, const Color& color, CompositeOperator op, BlendMode blendMode)
 {
     handleItem(DisplayList::FillCompositedRect(rect, color, op, blendMode));
@@ -468,6 +473,11 @@ void RemoteDisplayListRecorder::fillLine(const PathDataLine& line)
 void RemoteDisplayListRecorder::fillArc(const PathArc& arc)
 {
     handleItem(DisplayList::FillArc(arc));
+}
+
+void RemoteDisplayListRecorder::fillClosedArc(const PathClosedArc& closedArc)
+{
+    handleItem(DisplayList::FillClosedArc(closedArc));
 }
 
 void RemoteDisplayListRecorder::fillQuadCurve(const PathDataQuadCurve& curve)
@@ -555,6 +565,11 @@ void RemoteDisplayListRecorder::strokeLineWithColorAndThickness(const PathDataLi
 void RemoteDisplayListRecorder::strokeArc(const PathArc& arc)
 {
     handleItem(DisplayList::StrokeArc(arc));
+}
+
+void RemoteDisplayListRecorder::strokeClosedArc(const PathClosedArc& closedArc)
+{
+    handleItem(DisplayList::StrokeClosedArc(closedArc));
 }
 
 void RemoteDisplayListRecorder::strokeQuadCurve(const PathDataQuadCurve& curve)

@@ -14,6 +14,7 @@ set(WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/GPUProcess/graphics/WebGPU"
     "${WEBKIT_DIR}/GPUProcess/media"
     "${WEBKIT_DIR}/GPUProcess/webrtc"
+    "${WEBKIT_DIR}/ModelProcess"
     "${WEBKIT_DIR}/NetworkProcess"
     "${WEBKIT_DIR}/NetworkProcess/Classifier"
     "${WEBKIT_DIR}/NetworkProcess/Cookies"
@@ -62,6 +63,7 @@ set(WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/UIProcess/Inspector/Agents"
     "${WEBKIT_DIR}/UIProcess/Launcher"
     "${WEBKIT_DIR}/UIProcess/Media"
+    "${WEBKIT_DIR}/UIProcess/Model"
     "${WEBKIT_DIR}/UIProcess/Network"
     "${WEBKIT_DIR}/UIProcess/Network/CustomProtocols"
     "${WEBKIT_DIR}/UIProcess/Notifications"
@@ -277,6 +279,7 @@ set(WebKit_MESSAGES_IN_FILES
 
     WebProcess/GPU/graphics/RemoteGraphicsContextGLProxy
     WebProcess/GPU/graphics/RemoteImageBufferProxy
+    WebProcess/GPU/graphics/RemoteImageBufferSetProxy
     WebProcess/GPU/graphics/RemoteRenderingBackendProxy
 
     WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy
@@ -364,6 +367,8 @@ set(WebKit_SERIALIZATION_IN_FILES
     GPUProcess/media/TrackPrivateRemoteConfiguration.serialization.in
     GPUProcess/media/VideoTrackPrivateRemoteConfiguration.serialization.in
 
+    ModelProcess/ModelProcessCreationParameters.serialization.in
+
     NetworkProcess/NetworkProcessCreationParameters.serialization.in
     NetworkProcess/NetworkResourceLoadParameters.serialization.in
     NetworkProcess/NetworkSessionCreationParameters.serialization.in
@@ -376,13 +381,14 @@ set(WebKit_SERIALIZATION_IN_FILES
 
     NetworkProcess/storage/FileSystemStorageError.serialization.in
 
+    Platform/IPC/ConnectionHandle.serialization.in
     Platform/IPC/FormDataReference.serialization.in
+    Platform/IPC/IPCEvent.serialization.in
     Platform/IPC/IPCSemaphore.serialization.in
+    Platform/IPC/ObjectIdentifierReference.serialization.in
     Platform/IPC/SharedBufferReference.serialization.in
     Platform/IPC/SharedFileHandle.serialization.in
     Platform/IPC/StreamServerConnection.serialization.in
-
-    Platform/SharedMemory.serialization.in
 
     Shared/AccessibilityPreferences.serialization.in
     Shared/AuxiliaryProcessCreationParameters.serialization.in
@@ -415,12 +421,15 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/LocalFrameCreationParameters.serialization.in
     Shared/MediaPlaybackState.serialization.in
     Shared/Model.serialization.in
+    Shared/ModelProcessConnectionParameters.serialization.in
+    Shared/MonotonicObjectIdentifier.serialization.in
     Shared/NavigationActionData.serialization.in
     Shared/NetworkProcessConnectionParameters.serialization.in
     Shared/Pasteboard.serialization.in
     Shared/PlatformPopupMenuData.serialization.in
     Shared/PolicyDecision.serialization.in
     Shared/PrintInfo.serialization.in
+    Shared/ProcessQualified.serialization.in
     Shared/RTCNetwork.serialization.in
     Shared/RTCPacketOptions.serialization.in
     Shared/RemoteWorkerInitializationData.serialization.in
@@ -431,8 +440,6 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/SandboxExtension.serialization.in
     Shared/ScrollingAccelerationCurve.serialization.in
     Shared/SessionState.serialization.in
-    Shared/ShareableBitmap.serialization.in
-    Shared/ShareableResource.serialization.in
     Shared/SyntheticEditingCommandType.serialization.in
     Shared/TextFlags.serialization.in
     Shared/TextRecognitionResult.serialization.in
@@ -586,7 +593,11 @@ set(WebKit_SERIALIZATION_IN_FILES
 
     WebProcess/MediaStream/MediaDeviceSandboxExtensions.serialization.in
 
+    WebProcess/Model/ModelProcessConnectionInfo.serialization.in
+
     WebProcess/Network/NetworkProcessConnectionInfo.serialization.in
+
+    WebProcess/UserContent/InjectUserScriptImmediately.serialization.in
 
     WebProcess/WebCoreSupport/WebSpeechSynthesisVoice.serialization.in
 )
@@ -631,13 +642,7 @@ set(PluginProcess_LIBRARIES WebKit)
 # these include directories, libraries or definitions need to be
 # added before the ANGLE directories.
 if (USE_LIBEPOXY)
-    list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
-        ${LIBEPOXY_INCLUDE_DIRS}
-    )
-    list(APPEND WebKit_PRIVATE_LIBRARIES
-        ${LIBEPOXY_LIBRARIES}
-    )
-    add_definitions(${LIBEPOXY_DEFINITIONS})
+    list(APPEND WebKit_PRIVATE_LIBRARIES Epoxy::Epoxy)
 elseif (USE_ANGLE_EGL)
     # Prepend to make sure the ANGLE headers are found before system headers
     list(PREPEND WebKit_PRIVATE_LIBRARIES
@@ -665,18 +670,6 @@ endif ()
 
 if (ATOMICS_REQUIRE_LIBATOMIC)
     list(APPEND WebKit_PRIVATE_LIBRARIES atomic)
-endif ()
-
-if (UNIX)
-    check_function_exists(shm_open SHM_OPEN_EXISTS)
-    if (NOT SHM_OPEN_EXISTS)
-        set(CMAKE_REQUIRED_LIBRARIES rt)
-        check_function_exists(shm_open SHM_OPEN_REQUIRES_LIBRT)
-        if (SHM_OPEN_REQUIRES_LIBRT)
-            list(APPEND WebKit_PRIVATE_LIBRARIES rt)
-        endif ()
-        unset(CMAKE_REQUIRED_LIBRARIES)
-    endif ()
 endif ()
 
 macro(ADD_WEBKIT_PREFIX_HEADER _target)
@@ -715,6 +708,8 @@ if (ENABLE_PLUGIN_PROCESS)
     WEBKIT_EXECUTABLE_DECLARE(PluginProcess)
     list(APPEND WebKit_INTERFACE_DEPENDENCIES PluginProcess)
 endif ()
+
+set(WebKit_GENERATED_SERIALIZERS_SUFFIX cpp)
 
 WEBKIT_FRAMEWORK_DECLARE(WebKit)
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
@@ -788,21 +783,21 @@ endforeach ()
 
 list(APPEND WebKit_DERIVED_SOURCES
     ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializers.h
-    ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializers.cpp
-    ${WebKit_DERIVED_SOURCES_DIR}/SerializedTypeInfo.cpp
-    ${WebKit_DERIVED_SOURCES_DIR}/WebKitPlatformGeneratedSerializers.cpp
+    ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializers.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    ${WebKit_DERIVED_SOURCES_DIR}/SerializedTypeInfo.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+    ${WebKit_DERIVED_SOURCES_DIR}/WebKitPlatformGeneratedSerializers.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
 )
 
 add_custom_command(
     OUTPUT
         ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializers.h
-        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializers.cpp
-        ${WebKit_DERIVED_SOURCES_DIR}/SerializedTypeInfo.cpp
-        ${WebKit_DERIVED_SOURCES_DIR}/WebKitPlatformGeneratedSerializers.cpp
+        ${WebKit_DERIVED_SOURCES_DIR}/GeneratedSerializers.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+        ${WebKit_DERIVED_SOURCES_DIR}/SerializedTypeInfo.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
+        ${WebKit_DERIVED_SOURCES_DIR}/WebKitPlatformGeneratedSerializers.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
     MAIN_DEPENDENCY ${WEBKIT_DIR}/Scripts/generate-serializers.py
     DEPENDS
         ${WebKit_SERIALIZATION_DEPENDENCIES}
-    COMMAND ${PYTHON_EXECUTABLE} ${WEBKIT_DIR}/Scripts/generate-serializers.py cpp DIRECTORY ${WEBKIT_DIR} ${WebKit_SERIALIZATION_IN_FILES} DIRECTORY ${WebCore_DERIVED_SOURCES_DIR} ${WebCore_GENERATED_SERIALIZATION_IN_FILES} DIRECTORY ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}/WebCore ${WebCore_SERIALIZATION_IN_FILES}
+    COMMAND ${PYTHON_EXECUTABLE} ${WEBKIT_DIR}/Scripts/generate-serializers.py ${WebKit_GENERATED_SERIALIZERS_SUFFIX} DIRECTORY ${WEBKIT_DIR} ${WebKit_SERIALIZATION_IN_FILES} DIRECTORY ${WebCore_DERIVED_SOURCES_DIR} ${WebCore_GENERATED_SERIALIZATION_IN_FILES} DIRECTORY ${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}/WebCore ${WebCore_SERIALIZATION_IN_FILES}
     WORKING_DIRECTORY ${WebKit_DERIVED_SOURCES_DIR}
     VERBATIM
 )

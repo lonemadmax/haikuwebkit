@@ -172,9 +172,7 @@ public:
     static bool filtersCanBeComposited(const WebCore::FilterOperations&);
     void copyFiltersFrom(const WebCore::PlatformCALayer&) override;
 
-#if ENABLE(CSS_COMPOSITING)
     void setBlendMode(WebCore::BlendMode) override;
-#endif
 
     void setName(const String&) override;
 
@@ -249,9 +247,13 @@ public:
     void clearContext() { m_context = nullptr; }
     RemoteLayerTreeContext* context() const { return m_context; }
     
+    void markFrontBufferVolatileForTesting() override;
     virtual void populateCreationProperties(RemoteLayerTreeTransaction::LayerCreationProperties&, const RemoteLayerTreeContext&, WebCore::PlatformCALayer::LayerType);
 
     bool containsBitmapOnly() const;
+
+    void purgeFrontBufferForTesting() override;
+    void purgeBackBufferForTesting() override;
 
 protected:
     PlatformCALayerRemote(WebCore::PlatformCALayer::LayerType, WebCore::PlatformCALayerClient* owner, RemoteLayerTreeContext&);
