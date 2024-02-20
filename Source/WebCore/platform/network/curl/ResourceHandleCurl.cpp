@@ -543,15 +543,14 @@ void ResourceHandle::handleDataURL()
     if (mediaType.isEmpty())
         mediaType = "text/plain"_s;
 
-    auto mimeType = extractMIMETypeFromMediaType(mediaType);
-    auto charset = extractCharsetFromMediaType(mediaType);
+    WTF::StringView charset = extractCharsetFromMediaType(mediaType);
 
     if (charset.isEmpty())
         charset = "US-ASCII"_s;
 
     ResourceResponse response;
-    response.setMimeType(AtomString { mimeType });
-    response.setTextEncodingName(charset.toAtomString());
+    response.setMimeType(extractMIMETypeFromMediaType(mediaType));
+    response.setTextEncodingName(charset.toString());
     response.setURL(d->m_firstRequest.url());
 
     if (base64) {

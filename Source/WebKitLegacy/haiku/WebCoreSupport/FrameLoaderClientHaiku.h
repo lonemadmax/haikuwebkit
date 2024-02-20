@@ -118,14 +118,13 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
     void dispatchShow() override;
 
     void dispatchDecidePolicyForResponse(const ResourceResponse&,
-		const ResourceRequest&, PolicyCheckIdentifier,
-		const String& downloadAttribute, FramePolicyFunction&&) override;
+		const ResourceRequest&, const String& downloadAttribute, FramePolicyFunction&&) override;
     void dispatchDecidePolicyForNewWindowAction(const NavigationAction&,
         const ResourceRequest&, FormState*, const String& formName,
-		PolicyCheckIdentifier, FramePolicyFunction&&) override;
+		std::optional<WebCore::HitTestResult>&&, FramePolicyFunction&&) override;
     void dispatchDecidePolicyForNavigationAction(const NavigationAction&,
         const ResourceRequest&, const WebCore::ResourceResponse&, FormState*,
-		PolicyDecisionMode, PolicyCheckIdentifier, FramePolicyFunction&&) override;
+		const String& clientRedirectSourceForHistory, uint64_t navigationID, std::optional<HitTestResult>&&, bool hasOpener, SandboxFlags, PolicyDecisionMode, FramePolicyFunction&&) override;
     void cancelPolicyCheck() override;
 
     void dispatchUnableToImplementPolicy(const ResourceError&) override;
@@ -162,7 +161,7 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
 
     void didDisplayInsecureContent() override;
 
-    void didRunInsecureContent(SecurityOrigin&, const URL&) override;
+    void didRunInsecureContent(SecurityOrigin&) override;
 
     ResourceError cancelledError(const ResourceRequest&) const override;
     ResourceError blockedError(const ResourceRequest&) const override;
@@ -198,7 +197,7 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
     void setTitle(const StringWithDirection&, const URL&) override;
 
     RefPtr<LocalFrame> createFrame(const AtomString& name, HTMLFrameOwnerElement&) override;
-    RefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<AtomString>&,
+    RefPtr<Widget> createPlugin(HTMLPlugInElement&, const URL&, const Vector<AtomString>&,
         const Vector<AtomString>&, const String&, bool) override;
     void redirectDataToPlugin(Widget& pluginWidget) override;
 

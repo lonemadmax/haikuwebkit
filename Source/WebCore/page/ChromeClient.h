@@ -499,7 +499,7 @@ public:
     virtual void AXFinishFrameLoad() = 0;
 #endif
 
-#if PLATFORM(PLAYSTATION)
+#if PLATFORM(PLAYSTATION) || PLATFORM(HAIKU)
     virtual void postAccessibilityNotification(AccessibilityObject&, AXObjectCache::AXNotification) = 0;
     virtual void postAccessibilityNodeTextChangeNotification(AccessibilityObject*, AXTextChange, unsigned, const String&) = 0;
     virtual void postAccessibilityFrameLoadingEventNotification(AccessibilityObject*, AXObjectCache::AXLoadingEvent) = 0;

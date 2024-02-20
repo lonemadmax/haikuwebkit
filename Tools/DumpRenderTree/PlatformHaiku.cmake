@@ -1,4 +1,6 @@
 list(APPEND DumpRenderTree_SOURCES
+    haiku/AccessibilityControllerHaiku.cpp
+	haiku/AccessibilityUIElementHaiku.cpp
     haiku/DumpRenderTree.cpp
     haiku/EditingCallbacks.cpp
     haiku/EventSender.cpp

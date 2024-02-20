@@ -25,6 +25,8 @@
  */
 
 #include "config.h"
+
+#include "Document.h"
 #include "DragController.h"
 
 #include "DragData.h"

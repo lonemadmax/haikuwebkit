@@ -55,6 +55,7 @@ public:
     void strokePath(const Path&) override;
     void fillRect(const FloatRect&) override;
     void fillRect(const FloatRect&, const Color&) override;
+    void fillRect(const WebCore::FloatRect&, WebCore::Gradient&, const WebCore::AffineTransform&) override;
     void fillRoundedRectImpl(const FloatRoundedRect&, const Color&) override;
     void clearRect(const FloatRect&) override;
     void strokeRect(const FloatRect&, float lineWidth) override;

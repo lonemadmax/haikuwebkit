@@ -229,6 +229,12 @@ void GraphicsContextHaiku::fillRect(const FloatRect& rect)
     m_view->FillRect(rect, B_SOLID_LOW);
 }
 
+void GraphicsContextHaiku::fillRect(const WebCore::FloatRect& r, WebCore::Gradient& g, const WebCore::AffineTransform&)
+{
+    // TODO handle the transform
+    m_view->FillRect(r, g.getHaikuGradient());
+}
+
 void GraphicsContextHaiku::fillRoundedRectImpl(const FloatRoundedRect& roundRect, const Color& color)
 {
     HGTRACE(("fillRoundedRectImpl: (--todo print values)\n"));

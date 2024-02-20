@@ -160,6 +160,10 @@ namespace WebCore {
         void loadIconForFiles(const Vector<String>&, FileIconLoader&) override;
         RefPtr<Icon> createIconForFiles(const Vector<String>& filenames) override;
 
+        void postAccessibilityNotification(AccessibilityObject&, AXObjectCache::AXNotification) override {};
+        void postAccessibilityNodeTextChangeNotification(AccessibilityObject*, AXTextChange, unsigned, const String&) override {};
+        void postAccessibilityFrameLoadingEventNotification(AccessibilityObject*, AXObjectCache::AXLoadingEvent) override {};
+
         bool selectItemWritingDirectionIsNatural() override;
         bool selectItemAlignmentFollowsMenuWritingDirection() override;
         RefPtr<PopupMenu> createPopupMenu(PopupMenuClient&) const override;

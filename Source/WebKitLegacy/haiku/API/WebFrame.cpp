@@ -313,7 +313,7 @@ BString BWebFrame::ExternalRepresentation() const
 bool BWebFrame::FindString(const BString& string, WebCore::FindOptions options)
 {
     if (fData->page)
-        return fData->page->findString(String::fromUTF8(string.String()), options);
+        return !!fData->page->findString(String::fromUTF8(string.String()), options);
     return false;
 }
 

@@ -48,6 +48,7 @@
 #include "WebCore/FrameLoader.h"
 #include "WebCore/FrameTree.h"
 #include "WebCore/FrameView.h"
+#include "WebCore/HitTestResult.h"
 #include "WebCore/HTMLFormElement.h"
 #include "WebCore/HTMLFrameOwnerElement.h"
 #include "WebCore/HTTPParsers.h"
@@ -295,7 +296,7 @@ void FrameLoaderClientHaiku::dispatchDidReceiveResponse(DocumentLoader* loader,
     message.AddInt32("status", coreResponse.httpStatusCode());
     message.AddInt64("identifier", identifier.toUInt64());
     message.AddString("url", coreResponse.url().string());
-    message.AddString("mimeType", coreResponse.mimeType().string().utf8().data());
+    message.AddString("mimeType", coreResponse.mimeType().utf8().data());
     dispatchMessage(message);
 }
 
@@ -525,27 +526,26 @@ void FrameLoaderClientHaiku::dispatchShow()
 
 void FrameLoaderClientHaiku::dispatchDecidePolicyForResponse(
 	const WebCore::ResourceResponse& response,
-	const WebCore::ResourceRequest& request, PolicyCheckIdentifier identifier,
-	const WTF::String&, FramePolicyFunction&& function)
+	const WebCore::ResourceRequest& request, const WTF::String&, FramePolicyFunction&& function)
 {
     if (request.isNull()) {
-        function(PolicyAction::Ignore, identifier);
+        function(PolicyAction::Ignore);
         return;
     }
     // we need to call directly here
     if (!response.isAttachment() && canShowMIMEType(response.mimeType())) {
-        function(PolicyAction::Use, identifier);
+        function(PolicyAction::Use);
     } else if (!request.url().protocolIsFile() && response.mimeType() != ASCIILiteral::fromLiteralUnsafe("application/x-shockwave-flash")) {
-        function(PolicyAction::Download, identifier);
+        function(PolicyAction::Download);
     } else {
-        function(PolicyAction::Ignore, identifier);
+        function(PolicyAction::Ignore);
     }
 }
 
 void FrameLoaderClientHaiku::dispatchDecidePolicyForNewWindowAction(
 	const NavigationAction& action, const ResourceRequest& request,
 	FormState* /*formState*/, const String& /*targetName*/,
-	PolicyCheckIdentifier identifier,
+	std::optional<HitTestResult>&&,
 	FramePolicyFunction&& function)
 {
     ASSERT(function);
@@ -553,13 +553,13 @@ void FrameLoaderClientHaiku::dispatchDecidePolicyForNewWindowAction(
         return;
 
     if (request.isNull()) {
-        function(PolicyAction::Ignore, identifier);
+        function(PolicyAction::Ignore);
         return;
     }
 
     if (!m_messenger.IsValid() || !isTertiaryMouseButton(action)) {
         dispatchNavigationRequested(request);
-        function(PolicyAction::Use, identifier);
+        function(PolicyAction::Use);
         return;
     }
 
@@ -587,19 +587,18 @@ void FrameLoaderClientHaiku::dispatchDecidePolicyForNewWindowAction(
         m_webFrame->Frame()->loader().activeDocumentLoader()->setLastCheckedRequest(WTFMove(emptyRequest));
     }
 
-    function(PolicyAction::Ignore, identifier);
+    function(PolicyAction::Ignore);
 }
 
 void FrameLoaderClientHaiku::dispatchDecidePolicyForNavigationAction(
 	const NavigationAction& action, const ResourceRequest& request,
 	const WebCore::ResourceResponse& response, FormState* formState,
-	PolicyDecisionMode, PolicyCheckIdentifier identifier,
-	FramePolicyFunction&& function)
+	const String&, uint64_t identifier, std::optional<HitTestResult>&& hit, bool, SandboxFlags, PolicyDecisionMode, FramePolicyFunction&& function)
 {
     // Potentially we want to open a new window, when the user clicked with the
     // tertiary mouse button. That's why we can reuse the other method.
     dispatchDecidePolicyForNewWindowAction(action, request, formState, String(),
-		identifier, std::move(function));
+		std::move(hit), std::move(function));
 }
 
 void FrameLoaderClientHaiku::cancelPolicyCheck()
@@ -699,7 +698,7 @@ void FrameLoaderClientHaiku::didDisplayInsecureContent()
 {
 }
 
-void FrameLoaderClientHaiku::didRunInsecureContent(WebCore::SecurityOrigin&, const WTF::URL&)
+void FrameLoaderClientHaiku::didRunInsecureContent(WebCore::SecurityOrigin&)
 {
     notImplemented();
 }
@@ -968,7 +967,7 @@ ObjectContentType FrameLoaderClientHaiku::objectContentType(const URL& url, cons
     return ObjectContentType::None;
 }
 
-RefPtr<Widget> FrameLoaderClientHaiku::createPlugin(const IntSize&, HTMLPlugInElement&, const URL&, const Vector<AtomString>&,
+RefPtr<Widget> FrameLoaderClientHaiku::createPlugin(HTMLPlugInElement&, const URL&, const Vector<AtomString>&,
                                                         const Vector<AtomString>&, const String&, bool /*loadManually*/)
 {
     CALLED();

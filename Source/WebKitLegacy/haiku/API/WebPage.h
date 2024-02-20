@@ -49,8 +49,9 @@ namespace WTF {
 	// In this header we do not want to include any of webkit headers (to not needs them as part of
 	// the public API). So all things must be only forward declared.
 
-	template<typename T, typename PtrTraits> class Ref;
+	template<typename T, typename PtrTraits, typename> class Ref;
 	template<typename T> struct RawPtrTraits;
+	template<typename T> struct DefaultRefDerefTraits;
 };
 
 namespace WebCore {
@@ -245,7 +246,7 @@ private:
 			BWebFrame*						fMainFrame;
 			BWebSettings*					fSettings;
             BPrivate::Network::BUrlContext*	fContext;
-			std::unique_ptr<WTF::Ref<WebCore::Page, WTF::RawPtrTraits<WebCore::Page>>>	fPage;
+			std::unique_ptr<WTF::Ref<WebCore::Page, WTF::RawPtrTraits<WebCore::Page>, WTF::DefaultRefDerefTraits<WebCore::Page>>>	fPage;
             WebCore::DumpRenderTreeClient*	fDumpRenderTree;
 
 			float							fLoadingProgress;

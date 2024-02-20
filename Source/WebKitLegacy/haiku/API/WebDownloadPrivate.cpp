@@ -91,7 +91,7 @@ void WebDownloadPrivate::didReceiveResponseAsync(ResourceHandle*, ResourceRespon
         if (response.mimeType().length()) {
         	// Do some checks, as no mime type yet is always better
         	// than set an invalid one
-        	BString mimeType = response.mimeType().string().utf8().data();
+        	BString mimeType = response.mimeType().utf8().data();
         	BMimeType type(mimeType);
         	BMimeType superType;
         	if (type.IsValid() && type.GetSupertype(&superType) == B_OK

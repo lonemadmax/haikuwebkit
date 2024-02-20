@@ -34,6 +34,7 @@
 #include <WebCore/FontCascade.h>
 #include <WebCore/FontSelector.h>
 #include <WebCore/GraphicsContext.h>
+#include <WebCore/ImageAdapter.h>
 #include <WebCore/Page.h>
 #include <WebCore/TextRun.h>
 #include <wtf/StdLibExtras.h>
@@ -99,12 +100,12 @@ HUDButton::HUDButton(HUDButtonType type, const IntPoint& position)
     }
 
     if (buttonResource) {
-        m_buttonImage = Image::loadPlatformResource(buttonResource);
+        m_buttonImage = ImageAdapter::loadPlatformResource(buttonResource);
         m_rect.setWidth(m_buttonImage->width());
         m_rect.setHeight(m_buttonImage->height());
     }
     if (buttonResourceAlt)
-        m_buttonImageAlt = Image::loadPlatformResource(buttonResourceAlt);
+        m_buttonImageAlt = ImageAdapter::loadPlatformResource(buttonResourceAlt);
 }
 
 void HUDButton::draw(GraphicsContext& context)
