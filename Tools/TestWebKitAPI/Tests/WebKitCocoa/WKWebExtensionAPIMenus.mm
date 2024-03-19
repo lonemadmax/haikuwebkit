@@ -177,6 +177,10 @@ TEST(WKWebExtensionAPIMenus, MenuCreateWithVariousIds)
 
 TEST(WKWebExtensionAPIMenus, ActionMenus)
 {
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
     auto *backgroundScript = Util::constructScript(@[
         @"browser.menus.create({",
         @"  id: 'top-level-1',",
@@ -193,7 +197,8 @@ TEST(WKWebExtensionAPIMenus, ActionMenus)
         @"browser.menus.create({",
         @"  id: 'top-level-3',",
         @"  title: 'Top Level 3',",
-        @"  contexts: [ 'action', 'page' ]",
+        @"  contexts: [ 'action', 'page' ],",
+        @"  documentUrlPatterns: ['*://localhost/*']",
         @"})",
 
         @"browser.menus.create({",
@@ -221,7 +226,13 @@ TEST(WKWebExtensionAPIMenus, ActionMenus)
 
     auto manager = Util::loadAndRunExtension(menusManifest, @{ @"background.js": backgroundScript });
 
+    // Reset activeTab, WKWebExtensionAPIMenus.ActionMenusWithActiveTab tests that.
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusUnknown forPermission:_WKWebExtensionPermissionActiveTab];
+
     EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Menus Created");
+
+    [manager.get().defaultTab.mainWebView loadRequest:server.requestWithLocalhost()];
+    [manager runForTimeInterval:1];
 
     auto *action = [manager.get().context actionForTab:manager.get().defaultTab];
     auto *menuItems = action.menuItems;
@@ -289,8 +300,6 @@ TEST(WKWebExtensionAPIMenus, ActionMenusWithActiveTab)
 
     EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Menus Created");
 
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionActiveTab];
-
     EXPECT_FALSE([manager.get().context hasActiveUserGestureInTab:manager.get().defaultTab]);
 
     TestWebKitAPI::HTTPServer server({
@@ -298,7 +307,7 @@ TEST(WKWebExtensionAPIMenus, ActionMenusWithActiveTab)
     }, TestWebKitAPI::HTTPServer::Protocol::Http);
 
     [manager.get().defaultTab.mainWebView loadRequest:server.requestWithLocalhost()];
-    [manager runForTimeInterval:2];
+    [manager runForTimeInterval:1];
 
     auto *action = [manager.get().context actionForTab:manager.get().defaultTab];
     auto *menuItems = action.menuItems;
@@ -505,6 +514,10 @@ TEST(WKWebExtensionAPIMenus, ActionSubmenusUpdate)
 
 TEST(WKWebExtensionAPIMenus, TabMenus)
 {
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
     auto *backgroundScript = Util::constructScript(@[
         @"browser.menus.create({",
         @"  id: 'tab-item-1',",
@@ -515,7 +528,8 @@ TEST(WKWebExtensionAPIMenus, TabMenus)
         @"browser.menus.create({",
         @"  id: 'tab-item-2',",
         @"  title: 'Tab Item 2',",
-        @"  contexts: [ 'tab' ]",
+        @"  contexts: [ 'tab' ],",
+        @"  documentUrlPatterns: ['*://localhost/*']",
         @"})",
 
         @"browser.menus.create({",
@@ -540,6 +554,9 @@ TEST(WKWebExtensionAPIMenus, TabMenus)
     auto manager = Util::loadAndRunExtension(menusManifest, @{ @"background.js": backgroundScript });
 
     EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Menus Created");
+
+    [manager.get().defaultTab.mainWebView loadRequest:server.requestWithLocalhost()];
+    [manager runForTimeInterval:1];
 
     auto *menuItems = [manager.get().context menuItemsForTab:manager.get().defaultTab];
     EXPECT_EQ(menuItems.count, 1lu);
@@ -1186,8 +1203,6 @@ TEST(WKWebExtensionAPIMenus, MacActiveTabContextMenuItems)
         { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } },
     }, TestWebKitAPI::HTTPServer::Protocol::Http);
 
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionActiveTab];
-
     EXPECT_FALSE([manager.get().context hasActiveUserGestureInTab:manager.get().defaultTab]);
 
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
@@ -1325,7 +1340,7 @@ TEST(WKWebExtensionAPIMenus, MacSelectionContextMenuItems)
 
         @"  browser.test.assertEq(info.menuItemId, 'selection-menu-item')",
         @"  browser.test.assertEq(info.parentMenuItemId, undefined)",
-        @"  browser.test.assertEq(info.selectionText, 'Example ')",
+        @"  browser.test.assertEq(info.selectionText, 'Example')",
         @"  browser.test.assertEq(typeof info.pageUrl, 'string')",
         @"  browser.test.assertTrue(info.pageUrl.startsWith('http://localhost:'))",
         @"  browser.test.assertEq(info.frameId, 0)",

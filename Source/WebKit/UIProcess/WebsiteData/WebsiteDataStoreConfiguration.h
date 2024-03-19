@@ -146,6 +146,9 @@ public:
     bool resourceLoadStatisticsDebugModeEnabled() const { return m_trackingPreventionDebugModeEnabled; }
     void setResourceLoadStatisticsDebugModeEnabled(bool enabled) { m_trackingPreventionDebugModeEnabled = enabled; }
 
+    std::optional<bool> defaultTrackingPreventionEnabledOverride() const { return m_defaultTrackingPreventionEnabledOverride; }
+    void setDefaultTrackingPreventionEnabledOverride(std::optional<bool> enabled) { m_defaultTrackingPreventionEnabledOverride = enabled; }
+
     unsigned testSpeedMultiplier() const { return m_testSpeedMultiplier; }
     void setTestSpeedMultiplier(unsigned multiplier) { m_testSpeedMultiplier = multiplier; }
 
@@ -244,6 +247,9 @@ public:
     void setWebPushMachServiceName(String&& name) { m_webPushMachServiceName = WTFMove(name); }
     const String& webPushMachServiceName() const { return m_webPushMachServiceName; }
 
+    void setMemoryFootprintNotificationThresholds(Vector<size_t>&& thresholds) { m_memoryFootprintNotificationThresholds = WTFMove(thresholds); }
+    const Vector<size_t>& memoryFootprintNotificationThresholds() { return m_memoryFootprintNotificationThresholds; }
+
 private:
     WebsiteDataStoreConfiguration(const String& baseCacheDirectory, const String& baseDataDirectory);
     static Ref<WebsiteDataStoreConfiguration> create(IsPersistent isPersistent, ShouldInitializePaths shouldInitializePaths) { return adoptRef(*new WebsiteDataStoreConfiguration(isPersistent, shouldInitializePaths)); }
@@ -322,6 +328,8 @@ private:
 #if PLATFORM(COCOA)
     RetainPtr<CFDictionaryRef> m_proxyConfiguration;
 #endif
+    Vector<size_t> m_memoryFootprintNotificationThresholds;
+    std::optional<bool> m_defaultTrackingPreventionEnabledOverride;
 };
 
 }

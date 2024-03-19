@@ -64,7 +64,7 @@ public:
     bool isAppInitiated() const { return boolTestRunnerFeatureValue("isAppInitiated"); }
     bool advancedPrivacyProtectionsEnabled() const { return boolTestRunnerFeatureValue("advancedPrivacyProtectionsEnabled"); }
     bool runSingly() const { return boolTestRunnerFeatureValue("runSingly"); }
-    bool runInCrossOriginIFrame() const { return boolTestRunnerFeatureValue("runInCrossOriginIFrame"); }
+    bool runInCrossOriginFrame() const { return boolTestRunnerFeatureValue("runInCrossOriginFrame"); }
     bool shouldHandleRunOpenPanel() const { return boolTestRunnerFeatureValue("shouldHandleRunOpenPanel"); }
     bool shouldPresentPopovers() const { return boolTestRunnerFeatureValue("shouldPresentPopovers"); }
     bool shouldShowSpellCheckingDots() const { return boolTestRunnerFeatureValue("spellCheckingDots"); }
@@ -83,6 +83,7 @@ public:
     bool showsScrollIndicators() const { return boolTestRunnerFeatureValue("showsScrollIndicators"); }
     bool longPressActionsEnabled() const { return boolTestRunnerFeatureValue("longPressActionsEnabled"); }
     bool enhancedWindowingEnabled() const { return boolTestRunnerFeatureValue("enhancedWindowingEnabled"); }
+    bool textExtractionEnabled() const { return boolTestRunnerFeatureValue("textExtractionEnabled"); }
     double contentInsetTop() const { return doubleTestRunnerFeatureValue("contentInset.top"); }
     double obscuredInsetTop() const { return doubleTestRunnerFeatureValue("obscuredInset.top"); }
     double horizontalSystemMinimumLayoutMargin() const { return doubleTestRunnerFeatureValue("horizontalSystemMinimumLayoutMargin"); }

@@ -39,16 +39,19 @@
 
 #if USE(CAIRO)
 #include "RefPtrCairo.h"
+#elif USE(SKIA)
+#include <hb.h>
+#include <skia/core/SkFont.h>
+#endif
+
+#if ENABLE(MATHML) && USE(HARFBUZZ)
+#include "HbUniquePtr.h"
 #endif
 
 #if USE(FREETYPE)
 #include "FcUniquePtr.h"
 #include "RefPtrFontconfig.h"
 #include <memory>
-
-#if ENABLE(MATHML) && USE(HARFBUZZ)
-#include "HbUniquePtr.h"
-#endif
 #endif
 
 #if PLATFORM(HAIKU)
@@ -85,6 +88,9 @@ namespace WebCore {
 class FontDescription;
 struct FontCustomPlatformData;
 struct FontSizeAdjust;
+#if USE(SKIA)
+class SkiaHarfBuzzFont;
+#endif
 
 struct FontPlatformDataAttributes {
     FontPlatformDataAttributes(float size, FontOrientation orientation, FontWidthVariant widthVariant, TextRenderingMode textRenderingMode, bool syntheticBold, bool syntheticOblique)
@@ -139,8 +145,25 @@ struct FontPlatformDataAttributes {
     CTFontDescriptorOptions m_options;
     RetainPtr<CFStringRef> m_url;
     RetainPtr<CFStringRef> m_psName;
+#elif USE(SKIA)
+    Vector<hb_feature_t> m_features;
 #endif
 };
+
+#if USE(CORE_TEXT)
+struct FontPlatformSerializedCreationData {
+    Vector<uint8_t> fontFaceData;
+    RetainPtr<CFDictionaryRef> attributes;
+    String itemInCollection;
+};
+
+struct FontPlatformSerializedData {
+    CTFontDescriptorOptions options { 0 }; // <rdar://121670125>
+    RetainPtr<CFStringRef> referenceURL;
+    RetainPtr<CFStringRef> postScriptName;
+    RetainPtr<CFDictionaryRef> attributes;
+};
+#endif
 
 // This class is conceptually immutable. Once created, no instances should ever change (in an observable way).
 class FontPlatformData {
@@ -194,8 +217,10 @@ public:
     FontPlatformData(GDIObject<HFONT>, cairo_font_face_t*, float size, bool bold, bool italic, const FontCustomPlatformData* = nullptr);
 #endif
 
-#if USE(FREETYPE)
+#if USE(FREETYPE) && USE(CAIRO)
     FontPlatformData(cairo_font_face_t*, RefPtr<FcPattern>&&, float size, bool fixedWidth, bool syntheticBold, bool syntheticOblique, FontOrientation, const FontCustomPlatformData* = nullptr);
+#elif USE(SKIA)
+    FontPlatformData(sk_sp<SkTypeface>&&, float size, bool syntheticBold, bool syntheticOblique, FontOrientation, FontWidthVariant, TextRenderingMode, Vector<hb_feature_t>&&, const FontCustomPlatformData* = nullptr);
 #endif
 
 #if PLATFORM(HAIKU)
@@ -221,6 +246,12 @@ public:
 #endif
 
 #if USE(CORE_TEXT)
+    using PlatformDataVariant = std::variant<FontPlatformSerializedData, FontPlatformSerializedCreationData>;
+    WEBCORE_EXPORT static std::optional<FontPlatformData> tryMakeFontPlatformData(float size, WebCore::FontOrientation&&, WebCore::FontWidthVariant&&, WebCore::TextRenderingMode&&, bool syntheticBold, bool syntheticOblique, FontPlatformData::PlatformDataVariant&& platformSerializationData);
+    WEBCORE_EXPORT FontPlatformData(float size, WebCore::FontOrientation&&, WebCore::FontWidthVariant&&, WebCore::TextRenderingMode&&, bool syntheticBold, bool syntheticOblique, RetainPtr<CTFontRef>&&, RefPtr<FontCustomPlatformData>&&);
+
+    WEBCORE_EXPORT PlatformDataVariant platformSerializationData() const;
+
     WEBCORE_EXPORT CTFontRef registeredFont() const; // Returns nullptr iff the font is not registered, such as web fonts (otherwise returns font()).
     static RetainPtr<CFTypeRef> objectForEqualityCheck(CTFontRef);
     RetainPtr<CFTypeRef> objectForEqualityCheck() const;
@@ -251,12 +282,17 @@ public:
 
 #if USE(CAIRO)
     cairo_scaled_font_t* scaledFont() const { return m_scaledFont.get(); }
+#elif USE(SKIA)
+    const SkFont& skFont() const { return m_font; }
+    SkiaHarfBuzzFont* skiaHarfBuzzFont() const { return m_hbFont.get(); }
+    hb_font_t* hbFont() const;
+    const Vector<hb_feature_t>& features() const { return m_features; }
 #endif
 
-#if USE(FREETYPE)
 #if ENABLE(MATHML) && USE(HARFBUZZ)
     HbUniquePtr<hb_font_t> createOpenTypeMathHarfBuzzFont() const;
 #endif
+#if USE(FREETYPE)
     bool hasCompatibleCharmap() const;
     FcPattern* fcPattern() const;
     bool isFixedWidth() const { return m_fixedWidth; }
@@ -325,7 +361,7 @@ private:
     void platformDataInit(HFONT, float size, WCHAR* faceName);
 #endif
 
-#if USE(FREETYPE)
+#if USE(FREETYPE) && USE(CAIRO)
     void buildScaledFont(cairo_font_face_t*);
 #endif
 #if PLATFORM(HAIKU)
@@ -348,6 +384,10 @@ private:
 
 #if USE(CAIRO)
     RefPtr<cairo_scaled_font_t> m_scaledFont;
+#elif USE(SKIA)
+    SkFont m_font;
+    RefPtr<SkiaHarfBuzzFont> m_hbFont;
+    Vector<hb_feature_t> m_features;
 #endif
 
 #if USE(FREETYPE)

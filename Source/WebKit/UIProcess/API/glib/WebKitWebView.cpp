@@ -26,7 +26,6 @@
 #include "APIData.h"
 #include "APINavigation.h"
 #include "APISerializedScriptValue.h"
-#include "DataReference.h"
 #include "ImageOptions.h"
 #include "NotificationService.h"
 #include "PageLoadState.h"
@@ -73,7 +72,6 @@
 #include <JavaScriptCore/JSRetainPtr.h>
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/JSDOMExceptionHandling.h>
-#include <WebCore/RefPtrCairo.h>
 #include <WebCore/RunJavaScriptParameters.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/URLSoup.h>
@@ -2237,19 +2235,16 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
      * @web_view: the #WebKitWebView on which the signal is emitted
      * @event: the #WebKitInsecureContentEvent
      *
-     * This signal is emitted when insecure content has been detected
-     * in a page loaded through a secure connection. This typically
-     * means that a external resource from an unstrusted source has
-     * been run or displayed, resulting in a mix of HTTPS and
-     * non-HTTPS content.
+     * Prior to 2.46, this signal was emitted when insecure content was
+     * loaded in a secure content. Since 2.46, this signal is generally
+     * no longer emitted.
      *
-     * You can check the @event parameter to know exactly which kind
-     * of event has been detected (see #WebKitInsecureContentEvent).
+     * Deprecated: 2.46
      */
     signals[INSECURE_CONTENT_DETECTED] =
         g_signal_new("insecure-content-detected",
             G_TYPE_FROM_CLASS(webViewClass),
-            G_SIGNAL_RUN_LAST,
+            static_cast<GSignalFlags>(G_SIGNAL_RUN_LAST | G_SIGNAL_DEPRECATED),
             G_STRUCT_OFFSET(WebKitWebViewClass, insecure_content_detected),
             0, 0,
             g_cclosure_marshal_VOID__ENUM,
@@ -5008,6 +5003,7 @@ void webkit_web_view_get_snapshot(WebKitWebView* webView, WebKitSnapshotRegion r
 
     GRefPtr<GTask> task = adoptGRef(g_task_new(webView, cancellable, callback, userData));
     getPage(webView).takeSnapshot({ }, { }, snapshotOptions, [task = WTFMove(task)](std::optional<ShareableBitmap::Handle>&& handle) {
+#if USE(CAIRO)
         if (handle) {
             if (auto bitmap = ShareableBitmap::create(WTFMove(*handle), SharedMemory::Protection::ReadOnly)) {
                 if (auto surface = bitmap->createCairoSurface()) {
@@ -5016,6 +5012,10 @@ void webkit_web_view_get_snapshot(WebKitWebView* webView, WebKitSnapshotRegion r
                 }
             }
         }
+#elif USE(SKIA)
+        notImplemented();
+        UNUSED_PARAM(handle);
+#endif
         g_task_return_new_error(task.get(), WEBKIT_SNAPSHOT_ERROR, WEBKIT_SNAPSHOT_ERROR_FAILED_TO_CREATE, _("There was an error creating the snapshot"));
     });
 }
@@ -5041,9 +5041,13 @@ cairo_surface_t* webkit_web_view_get_snapshot_finish(WebKitWebView* webView, GAs
 
 #if USE(GTK4)
     auto image = adoptRef(static_cast<cairo_surface_t*>(g_task_propagate_pointer(G_TASK(result), error)));
+#if USE(CAIRO)
     auto texture = image ? cairoSurfaceToGdkTexture(image.get()) : nullptr;
     if (texture)
         return texture.leakRef();
+#elif USE(SKIA)
+    notImplemented();
+#endif
     if (error && !*error)
         g_set_error_literal(error, WEBKIT_SNAPSHOT_ERROR, WEBKIT_SNAPSHOT_ERROR_FAILED_TO_CREATE, _("There was an error creating the snapshot"));
     return nullptr;

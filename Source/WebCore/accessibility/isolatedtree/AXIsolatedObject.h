@@ -28,6 +28,7 @@
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 
 #include "AXCoreObject.h"
+#include "AXIsolatedTree.h"
 #include "AXObjectCache.h"
 #include "IntPoint.h"
 #include "LayoutRect.h"
@@ -58,6 +59,8 @@ public:
     ProcessID processID() const final { return tree()->processID(); }
     String dbg() const final;
 
+    AccessibilityRole roleValue() const final { return static_cast<AccessibilityRole>(intAttributeValue(AXPropertyName::RoleValue)); }
+
     void attachPlatformWrapper(AccessibilityObjectWrapper*);
     bool isDetached() const final;
     bool isTable() const final { return boolAttributeValue(AXPropertyName::IsTable); }
@@ -65,6 +68,7 @@ public:
 
     const AccessibilityChildrenVector& children(bool updateChildrenIfNeeded = true) final;
     AXCoreObject* sibling(AXDirection) const;
+    AXCoreObject* siblingOrParent(AXDirection) const;
     AXIsolatedObject* parentObject() const final { return parentObjectUnignored(); }
     AXIsolatedObject* parentObjectUnignored() const final;
     AXIsolatedObject* editableAncestor() final { return Accessibility::editableAncestor(*this); };
@@ -77,6 +81,7 @@ public:
         const auto* runs = textRuns();
         return runs && runs->size();
     }
+    bool shouldEmitNewlinesBeforeAndAfterNode() const final { return boolAttributeValue(AXPropertyName::ShouldEmitNewlinesBeforeAndAfterNode); }
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
 
 private:
@@ -214,12 +219,18 @@ private:
     bool isFileUploadButton() const final { return boolAttributeValue(AXPropertyName::IsFileUploadButton); }
     bool isMeter() const final { return boolAttributeValue(AXPropertyName::IsMeter); };
     FloatPoint screenRelativePosition() const final;
+    IntPoint remoteFrameOffset() const final;
     FloatRect relativeFrame() const final;
+    bool hasCachedRelativeFrame() const { return optionalAttributeValue<IntRect>(AXPropertyName::RelativeFrame).has_value(); }
 #if PLATFORM(MAC)
     FloatRect primaryScreenRect() const final;
 #endif
     IntSize size() const final { return snappedIntRect(LayoutRect(relativeFrame())).size(); }
     FloatRect relativeFrameFromChildren() const;
+    WallTime dateTimeValue() const final { return propertyValue<WallTime>(AXPropertyName::DateTimeValue); }
+#if PLATFORM(MAC)
+    unsigned dateTimeComponents() const final { return propertyValue<unsigned>(AXPropertyName::DateTimeComponents); }
+#endif
     bool supportsDatetimeAttribute() const final { return boolAttributeValue(AXPropertyName::SupportsDatetimeAttribute); }
     String datetimeAttributeValue() const final { return stringAttributeValue(AXPropertyName::DatetimeAttributeValue); }
     bool canSetValueAttribute() const final { return boolAttributeValue(AXPropertyName::CanSetValueAttribute); }
@@ -261,13 +272,12 @@ private:
     AXIsolatedObject* accessibilityHitTest(const IntPoint&) const final;
     AXIsolatedObject* focusedUIElement() const final;
     AXCoreObject* internalLinkElement() const final { return objectAttributeValue(AXPropertyName::InternalLinkElement); }
-    AccessibilityChildrenVector radioButtonGroup() const { return tree()->objectsForIDs(vectorAttributeValue<AXID>(AXPropertyName::RadioButtonGroup)); }
+    AccessibilityChildrenVector radioButtonGroup() const final { return tree()->objectsForIDs(vectorAttributeValue<AXID>(AXPropertyName::RadioButtonGroup)); }
     AXIsolatedObject* scrollBar(AccessibilityOrientation) final;
     const String placeholderValue() const final { return stringAttributeValue(AXPropertyName::PlaceholderValue); }
     String expandedTextValue() const final { return stringAttributeValue(AXPropertyName::ExpandedTextValue); }
     bool supportsExpandedTextValue() const final { return boolAttributeValue(AXPropertyName::SupportsExpandedTextValue); }
     SRGBA<uint8_t> colorValue() const final;
-    AccessibilityRole roleValue() const final { return static_cast<AccessibilityRole>(intAttributeValue(AXPropertyName::RoleValue)); }
     String rolePlatformString() const final { return stringAttributeValue(AXPropertyName::RolePlatformString); }
     String roleDescription() const final { return stringAttributeValue(AXPropertyName::RoleDescription); }
     String subrolePlatformString() const final { return stringAttributeValue(AXPropertyName::SubrolePlatformString); }
@@ -454,7 +464,7 @@ private:
     bool isAccessibilityARIAGridInstance() const final { return false; }
     bool isAccessibilityARIAGridRowInstance() const final { return false; }
     bool isAccessibilityARIAGridCellInstance() const final { return false; }
-
+    bool isAXRemoteFrame() const final { return false; }
     bool isNativeTextControl() const final;
     bool isListBoxOption() const final;
     bool isMockObject() const final;
@@ -464,6 +474,7 @@ private:
     bool isOnScreen() const final;
     bool isOffScreen() const final;
     bool isPressed() const final;
+    bool isNonLayerSVGObject() const { return boolAttributeValue(AXPropertyName::IsNonLayerSVGObject); }
     // FIXME: isVisible should be accurate for all objects, not just widgets, on COCOA.
     bool isVisible() const final { return boolAttributeValue(AXPropertyName::IsVisible); }
     bool isSelectedOptionActive() const final;
@@ -491,6 +502,7 @@ private:
     bool inheritsPresentationalRole() const final;
     void setAccessibleName(const AtomString&) final;
 
+    String titleAttributeValue() const final;
     String title() const final { return stringAttributeValue(AXPropertyName::Title); }
     String description() const final { return stringAttributeValue(AXPropertyName::Description); }
 
@@ -534,7 +546,9 @@ private:
     String nameAttribute() const final { return stringAttributeValue(AXPropertyName::NameAttribute); }
 #if PLATFORM(COCOA)
     bool hasApplePDFAnnotationAttribute() const final { return boolAttributeValue(AXPropertyName::HasApplePDFAnnotationAttribute); }
+    RetainPtr<id> remoteFramePlatformElement() const final;
 #endif
+    bool hasRemoteFrameChild() const final { return boolAttributeValue(AXPropertyName::HasRemoteFrameChild); }
 
 #if PLATFORM(COCOA) && ENABLE(MODEL_ELEMENT)
     Vector<RetainPtr<id>> modelElementChildren() final;

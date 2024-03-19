@@ -43,6 +43,7 @@
 #include "SVGResources.h"
 #include "SVGResourcesCache.h"
 #include "SVGUseElement.h"
+#include "SVGVisitedRendererTracking.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
@@ -207,10 +208,10 @@ bool LegacyRenderSVGResourceClipper::applyClippingToContext(GraphicsContext& con
             if (!clipper->applyClippingToContext(maskContext, *this, objectBoundingBox, clippedContentBounds))
                 return false;
 
-            succeeded = drawContentIntoMaskImage(*clipperData.imageBuffer, objectBoundingBox, effectiveZoom);
+            succeeded = drawContentIntoMaskImage(Ref { *clipperData.imageBuffer }, objectBoundingBox, effectiveZoom);
             // The context restore applies the clipping on non-CG platforms.
         } else
-            succeeded = drawContentIntoMaskImage(*clipperData.imageBuffer, objectBoundingBox, effectiveZoom);
+            succeeded = drawContentIntoMaskImage(Ref { *clipperData.imageBuffer }, objectBoundingBox, effectiveZoom);
 
         if (!succeeded)
             clipperData = { };
@@ -246,7 +247,7 @@ bool LegacyRenderSVGResourceClipper::drawContentIntoMaskImage(ImageBuffer& maskI
     view().frameView().setPaintBehavior(oldBehavior | PaintBehavior::RenderingSVGClipOrMask);
 
     // Draw all clipPath children into a global mask.
-    for (auto& child : childrenOfType<SVGElement>(clipPathElement())) {
+    for (auto& child : childrenOfType<SVGElement>(protectedClipPathElement())) {
         auto renderer = child.renderer();
         if (!renderer)
             continue;
@@ -303,11 +304,17 @@ void LegacyRenderSVGResourceClipper::calculateClipContentRepaintRect(RepaintRect
 
 bool LegacyRenderSVGResourceClipper::hitTestClipContent(const FloatRect& objectBoundingBox, const FloatPoint& nodeAtPoint)
 {
+    static NeverDestroyed<SVGVisitedRendererTracking::VisitedSet> s_visitedSet;
+
+    SVGVisitedRendererTracking recursionTracking(s_visitedSet);
+    if (recursionTracking.isVisiting(*this))
+        return false;
+
+    SVGVisitedRendererTracking::Scope recursionScope(recursionTracking, *this);
+
     FloatPoint point = nodeAtPoint;
     if (!SVGRenderSupport::pointInClippingArea(*this, point))
         return false;
-
-    SVGHitTestCycleDetectionScope hitTestScope(*this);
 
     if (clipPathElement().clipPathUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX) {
         AffineTransform transform;

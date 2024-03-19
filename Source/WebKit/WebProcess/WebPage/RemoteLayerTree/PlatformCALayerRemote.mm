@@ -71,6 +71,11 @@ Ref<PlatformCALayerRemote> PlatformCALayerRemote::create(PlatformLayer *platform
     return PlatformCALayerRemoteCustom::create(platformLayer, owner, context);
 }
 
+Ref<PlatformCALayerRemote> PlatformCALayerRemote::create(LayerHostingContextID contextID, WebCore::PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
+{
+    return PlatformCALayerRemoteCustom::create(contextID, owner, context);
+}
+
 #if ENABLE(MODEL_ELEMENT)
 Ref<PlatformCALayerRemote> PlatformCALayerRemote::create(Ref<WebCore::Model> model, WebCore::PlatformCALayerClient* owner, RemoteLayerTreeContext& context)
 {
@@ -996,7 +1001,7 @@ void PlatformCALayerRemote::setEventRegion(const EventRegion& eventRegion)
 #if ENABLE(SCROLLING_THREAD)
 ScrollingNodeID PlatformCALayerRemote::scrollingNodeID() const
 {
-    return m_properties.scrollingNodeID;
+    return m_properties.scrollingNodeID.value_or(ScrollingNodeID { });
 }
 
 void PlatformCALayerRemote::setScrollingNodeID(ScrollingNodeID nodeID)
@@ -1093,7 +1098,7 @@ void PlatformCALayerRemote::clearAcceleratedEffectsAndBaseValues()
     m_properties.notePropertiesChanged(LayerChange::AnimationsChanged);
 }
 
-void PlatformCALayerRemote::setAcceleratedEffectsAndBaseValues(const AcceleratedEffects& effects, AcceleratedEffectValues& baseValues)
+void PlatformCALayerRemote::setAcceleratedEffectsAndBaseValues(const AcceleratedEffects& effects, const AcceleratedEffectValues& baseValues)
 {
     m_properties.animationChanges.effects = effects;
     m_properties.animationChanges.baseValues = baseValues;

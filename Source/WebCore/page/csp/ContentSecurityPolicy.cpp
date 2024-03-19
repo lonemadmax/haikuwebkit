@@ -754,6 +754,61 @@ bool ContentSecurityPolicy::allowBaseURI(const URL& url, bool overrideContentSec
     return allPoliciesAllow(WTFMove(handleViolatedDirective), &ContentSecurityPolicyDirectiveList::violatedDirectiveForBaseURI, url);
 }
 
+AllowTrustedTypePolicy ContentSecurityPolicy::allowTrustedTypesPolicy(const String& value, bool isDuplicate) const
+{
+    String sourceURL;
+    TextPosition sourcePosition(OrdinalNumber::beforeFirst(), OrdinalNumber());
+    AllowTrustedTypePolicy details = AllowTrustedTypePolicy::Allowed;
+    auto handleViolatedDirective = [&] (const ContentSecurityPolicyDirective& violatedDirective) {
+        String name = violatedDirective.nameForReporting();
+
+        String consoleMessage = makeString(violatedDirective.directiveList().isReportOnly() ? "[Report Only] " : "",
+            "Refused to create a TrustedTypePolicy named '", value, "' because it violates the following Content Security Policy directive: \"", violatedDirective.text(), "\"");
+        reportViolation(violatedDirective, "trusted-types-policy"_s, consoleMessage, sourceURL, StringView(value), sourcePosition);
+    };
+    auto isAllowed = allPoliciesAllow(WTFMove(handleViolatedDirective), &ContentSecurityPolicyDirectiveList::violatedDirectiveForTrustedTypesPolicy, value, isDuplicate, details);
+
+    if (value == "default"_s && isDuplicate)
+        return AllowTrustedTypePolicy::DisallowedDuplicateName;
+
+    return isAllowed
+        ? AllowTrustedTypePolicy::Allowed
+        : details;
+}
+
+// https://w3c.github.io/trusted-types/dist/spec/#does-sink-require-trusted-types
+bool ContentSecurityPolicy::requireTrustedTypesForSinkGroup(const String& sinkGroup) const
+{
+    bool required = false;
+    for (auto& policy : m_policies) {
+        if (policy->requiresTrustedTypesForScript() && sinkGroup == "script"_s) {
+            required = true;
+            break;
+        }
+    }
+    return required;
+}
+
+// https://w3c.github.io/trusted-types/dist/spec/#should-block-sink-type-mismatch
+bool ContentSecurityPolicy::allowMissingTrustedTypesForSinkGroup(const String& stringContext, const String& sink, const String& sinkGroup, const String& source) const
+{
+    return allOf(m_policies, [&](auto& policy) {
+        bool isAllowed = true;
+        if (policy->requiresTrustedTypesForScript() && sinkGroup == "script"_s) {
+            if (!policy->isReportOnly())
+                isAllowed = false;
+
+            String consoleMessage = makeString(policy->isReportOnly() ? "[Report Only] " : "",
+                "This requires a "_s, stringContext, " value else it violates the following Content Security Policy directive: \"require-trusted-types-for 'script'\""_s);
+
+            TextPosition sourcePosition(OrdinalNumber::beforeFirst(), OrdinalNumber());
+            String sample = makeString(sink, '|', source);
+            reportViolation("require-trusted-types-for"_s, *policy, "trusted-types-sink"_s, consoleMessage, nullString(), sample, sourcePosition, nullptr);
+        }
+        return isAllowed;
+    });
+}
+
 static bool shouldReportProtocolOnly(const URL& url)
 {
     // FIXME: https://w3c.github.io/webappsec-csp/#strip-url-for-use-in-reports suggests this should
@@ -781,7 +836,7 @@ String ContentSecurityPolicy::createURLForReporting(const URL& url, const String
     //     content-security-policy/reporting-api/report-to-directive-allowed-in-meta.https.sub.html
     //     content-security-policy/reporting-api/reporting-api-sends-reports-on-violation.https.sub.html
     if (securityOrigin->canRequest(url, originAccessPatternsForWebProcessOrEmpty()) || directiveIsSafe)
-        return usesReportingAPI ? url.strippedForUseAsReferrerWithExplicitPort() : url.strippedForUseAsReferrer();
+        return (usesReportingAPI ? url.strippedForUseAsReferrerWithExplicitPort() : url.strippedForUseAsReferrer()).string;
 
     return SecurityOrigin::create(url)->toString();
 }
@@ -816,14 +871,14 @@ void ContentSecurityPolicy::reportViolation(const String& effectiveViolatedDirec
     bool usesReportTo = !violatedDirectiveList.reportToTokens().isEmpty();
 
     String blockedURI;
-    if (blockedURLString == "eval"_s || blockedURLString == "inline"_s)
+    if (blockedURLString == "eval"_s || blockedURLString == "inline"_s || blockedURLString == "trusted-types-policy"_s || blockedURLString == "trusted-types-sink"_s)
         blockedURI = blockedURLString;
     else {
         // If there is a redirect then we use the pre-redirect URL: https://www.w3.org/TR/CSP3/#security-violation-reports.
         blockedURI = createURLForReporting(preRedirectURL.isNull() ? URL { blockedURLString } : preRedirectURL, effectiveViolatedDirective, usesReportTo);
     }
 
-    info.documentURI = m_documentURL ? m_documentURL.value().strippedForUseAsReferrer() : blockedURI;
+    info.documentURI = m_documentURL ? m_documentURL.value().strippedForUseAsReferrer().string : blockedURI;
     info.lineNumber = sourcePosition.m_line.oneBasedInt();
     info.columnNumber = sourcePosition.m_column.oneBasedInt();
     info.sample = violatedDirectiveList.shouldReportSample(effectiveViolatedDirective) ? sourceContent.left(40).toString() : emptyString();
@@ -833,7 +888,7 @@ void ContentSecurityPolicy::reportViolation(const String& effectiveViolatedDirec
         if (!document || !document->frame())
             return;
 
-        info.documentURI = shouldReportProtocolOnly(document->url()) ? document->url().protocol().toString() : document->url().strippedForUseAsReferrer();
+        info.documentURI = shouldReportProtocolOnly(document->url()) ? document->url().protocol().toString() : document->url().strippedForUseAsReferrer().string;
 
         auto stack = createScriptCallStack(JSExecState::currentState(), 2);
         auto* callFrame = stack->firstNonNativeCallFrame();
@@ -907,7 +962,7 @@ void ContentSecurityPolicy::reportViolation(const String& effectiveViolatedDirec
     if (!m_reportingClient)
         return;
 
-    auto reportURL = m_documentURL ? m_documentURL.value().strippedForUseAsReferrer() : blockedURI;
+    auto reportURL = m_documentURL ? m_documentURL.value().strippedForUseAsReferrer().string : blockedURI;
 
     auto reportFormData = reportBody->createReportFormDataForViolation(usesReportTo, violatedDirectiveList.isReportOnly());
     m_reportingClient->sendReportToEndpoints(m_protectedURL, endpointURIs, endpointTokens, WTFMove(reportFormData), ViolationReportType::ContentSecurityPolicy);
@@ -1040,23 +1095,25 @@ void ContentSecurityPolicy::reportBlockedScriptExecutionToInspector(const String
         InspectorInstrumentation::scriptExecutionBlockedByCSP(m_scriptExecutionContext.get(), directiveText);
 }
 
-void ContentSecurityPolicy::upgradeInsecureRequestIfNeeded(ResourceRequest& request, InsecureRequestType requestType) const
+void ContentSecurityPolicy::upgradeInsecureRequestIfNeeded(ResourceRequest& request, InsecureRequestType requestType, AlwaysUpgradeRequest alwaysUpgradeRequest) const
 {
     URL url = request.url();
-    upgradeInsecureRequestIfNeeded(url, requestType);
+    upgradeInsecureRequestIfNeeded(url, requestType, alwaysUpgradeRequest);
     request.setURL(url);
 }
 
-void ContentSecurityPolicy::upgradeInsecureRequestIfNeeded(URL& url, InsecureRequestType requestType) const
+void ContentSecurityPolicy::upgradeInsecureRequestIfNeeded(URL& url, InsecureRequestType requestType, AlwaysUpgradeRequest alwaysUpgradeRequest) const
 {
     if (!url.protocolIs("http"_s) && !url.protocolIs("ws"_s))
         return;
 
     bool upgradeRequest = m_insecureNavigationRequestsToUpgrade.contains(SecurityOriginData::fromURL(url));
+    bool isUpgradeMixedContentEnabled = m_scriptExecutionContext ? m_scriptExecutionContext->settingsValues().upgradeMixedContentEnabled : false;
+
     if (requestType == InsecureRequestType::Load || requestType == InsecureRequestType::FormSubmission)
         upgradeRequest |= m_upgradeInsecureRequests;
 
-    if (!upgradeRequest)
+    if (!upgradeRequest && (alwaysUpgradeRequest == AlwaysUpgradeRequest::No || !isUpgradeMixedContentEnabled))
         return;
 
     if (url.protocolIs("http"_s))

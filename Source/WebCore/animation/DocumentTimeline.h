@@ -66,6 +66,7 @@ public:
     void detachFromDocument();
 
     void enqueueAnimationEvent(AnimationEventBase&);
+    bool hasPendingAnimationEventForAnimation(const WebAnimation&) const;
     
     enum class ShouldUpdateAnimationsAndSendEvents : bool { No, Yes };
     ShouldUpdateAnimationsAndSendEvents documentWillUpdateAnimationsAndSendEvents();

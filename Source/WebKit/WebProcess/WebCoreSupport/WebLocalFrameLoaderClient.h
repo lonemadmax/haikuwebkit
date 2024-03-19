@@ -48,7 +48,7 @@ public:
 
     void setUseIconLoadingClient(bool useIconLoadingClient) { m_useIconLoadingClient = useIconLoadingClient; }
 
-    void applyToDocumentLoader(WebsitePoliciesData&&);
+    void applyWebsitePolicies(WebsitePoliciesData&&) final;
 
     std::optional<WebPageProxyIdentifier> webPageProxyID() const;
 
@@ -240,6 +240,7 @@ private:
 
 #if PLATFORM(COCOA)
     RemoteAXObjectRef accessibilityRemoteObject() final;
+    WebCore::IntPoint accessibilityRemoteFrameOffset() final;
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     void setAXIsolatedTreeRoot(WebCore::AXCoreObject*) final;
 #endif

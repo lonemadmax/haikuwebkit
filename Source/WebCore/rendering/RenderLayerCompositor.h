@@ -244,6 +244,8 @@ public:
 
     void layerStyleChanged(StyleDifference, RenderLayer&, const RenderStyle* oldStyle);
 
+    void establishesTopLayerWillChangeForLayer(RenderLayer&);
+
     // Get the nearest ancestor layer that has overflow or clip, but is not a stacking context
     RenderLayer* enclosingNonStackingClippingLayer(const RenderLayer&) const;
 
@@ -302,6 +304,7 @@ public:
     static RenderLayerCompositor* frameContentsCompositor(RenderWidget&);
     // Returns true the widget contents layer was parented.
     bool attachWidgetContentLayers(RenderWidget&);
+    void collectViewTransitionNewContentLayers(RenderLayer&, Vector<Ref<GraphicsLayer>>&);
 
     // Update the geometry of the layers used for clipping and scrolling in frames.
     void frameViewDidChangeLocation(const IntPoint& contentsOffset);
@@ -435,6 +438,8 @@ private:
     void updateBackingSharingBeforeDescendantTraversal(BackingSharingState&, unsigned depth, const LayerOverlapMap&, RenderLayer&, OverlapExtent&, bool willBeComposited, RenderLayer* stackingContextAncestor);
     void updateBackingSharingAfterDescendantTraversal(BackingSharingState&, unsigned depth, const LayerOverlapMap&, RenderLayer&, OverlapExtent&, const RenderLayer* preDescendantProviderStartLayer, RenderLayer* stackingContextAncestor);
 
+    void clearBackingProviderSequencesInStackingContextOfLayer(RenderLayer&);
+
     void updateCompositingLayersTimerFired();
 
     void computeCompositingRequirements(RenderLayer* ancestorLayer, RenderLayer&, LayerOverlapMap&, CompositingState&, BackingSharingState&, bool& descendantHas3DTransform);
@@ -491,6 +496,7 @@ private:
     bool requiresCompositingForAnimation(RenderLayerModelObject&) const;
     bool requiresCompositingForTransform(RenderLayerModelObject&) const;
     bool requiresCompositingForBackfaceVisibility(RenderLayerModelObject&) const;
+    bool requiresCompositingForViewTransition(RenderLayerModelObject&) const;
     bool requiresCompositingForVideo(RenderLayerModelObject&) const;
     bool requiresCompositingForCanvas(RenderLayerModelObject&) const;
     bool requiresCompositingForFilters(RenderLayerModelObject&) const;

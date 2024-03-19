@@ -67,7 +67,7 @@ AccessibilityOrientation AccessibilitySlider::orientation() const
     if (!style)
         return AccessibilityOrientation::Horizontal;
 
-    auto styleAppearance = style->effectiveAppearance();
+    auto styleAppearance = style->usedAppearance();
     switch (styleAppearance) {
     case StyleAppearance::SliderThumbHorizontal:
     case StyleAppearance::SliderHorizontal:
@@ -175,10 +175,10 @@ LayoutRect AccessibilitySliderThumb::elementRect() const
     if (!m_parent)
         return LayoutRect();
     
-    RenderObject* sliderRenderer = m_parent->renderer();
-    if (!sliderRenderer || !sliderRenderer->isRenderSlider())
+    auto* sliderRenderer = dynamicDowncast<RenderSlider>(m_parent->renderer());
+    if (!sliderRenderer)
         return LayoutRect();
-    if (auto* thumbRenderer = downcast<RenderSlider>(*sliderRenderer).element().sliderThumbElement()->renderer())
+    if (auto* thumbRenderer = sliderRenderer->element().sliderThumbElement()->renderer())
         return thumbRenderer->absoluteBoundingBoxRect();
     return LayoutRect();
 }

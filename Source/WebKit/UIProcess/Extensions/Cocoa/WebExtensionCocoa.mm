@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2022-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -97,6 +97,8 @@ static NSString * const backgroundPageTypeModuleValue = @"module";
 
 static NSString * const generatedBackgroundPageFilename = @"_generated_background_page.html";
 
+static NSString * const devtoolsPageManifestKey = @"devtools_page";
+
 static NSString * const contentScriptsManifestKey = @"content_scripts";
 static NSString * const contentScriptsMatchesManifestKey = @"matches";
 static NSString * const contentScriptsExcludeMatchesManifestKey = @"exclude_matches";
@@ -139,6 +141,10 @@ static NSString * const declarativeNetRequestRulesManifestKey = @"rule_resources
 static NSString * const declarativeNetRequestRulesetIDManifestKey = @"id";
 static NSString * const declarativeNetRequestRuleEnabledManifestKey = @"enabled";
 static NSString * const declarativeNetRequestRulePathManifestKey = @"path";
+
+static NSString * const externallyConnectableManifestKey = @"externally_connectable";
+static NSString * const externallyConnectableMatchesManifestKey = @"matches";
+static NSString * const externallyConnectableIDsManifestKey = @"ids";
 
 static const size_t maximumNumberOfShortcutCommands = 4;
 
@@ -419,6 +425,9 @@ void WebExtension::populateWebAccessibleResourcesIfNeeded()
 NSURL *WebExtension::resourceFileURLForPath(NSString *path)
 {
     ASSERT(path);
+
+    if ([path hasPrefix:@"/"])
+        path = [path substringFromIndex:1];
 
     if (!path.length || !m_resourceBaseURL)
         return nil;
@@ -765,7 +774,7 @@ void WebExtension::recordError(NSError *error, SuppressNotification suppressNoti
     if (!m_errors)
         m_errors = [NSMutableArray array];
 
-    RELEASE_LOG_ERROR(Extensions, "Error recorded: %{private}@", error);
+    RELEASE_LOG_ERROR(Extensions, "Error recorded: %{public}@", privacyPreservingDescription(error));
 
     [m_errors addObject:error];
 
@@ -791,6 +800,7 @@ NSArray *WebExtension::errors()
     populateWebAccessibleResourcesIfNeeded();
     populateCommandsIfNeeded();
     populateDeclarativeNetRequestPropertiesIfNeeded();
+    populateExternallyConnectableIfNeeded();
 
     return [m_errors copy] ?: @[ ];
 }
@@ -839,6 +849,63 @@ NSString *WebExtension::version()
 {
     populateDisplayStringsIfNeeded();
     return m_version.get();
+}
+
+void WebExtension::populateExternallyConnectableIfNeeded()
+{
+    if (!manifestParsedSuccessfully())
+        return;
+
+    if (m_parsedExternallyConnectable)
+        return;
+
+    m_parsedExternallyConnectable = true;
+
+    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/externally_connectable
+
+    auto *externallyConnectableDictionary = objectForKey<NSDictionary>(m_manifest, externallyConnectableManifestKey, false);
+
+    if (!externallyConnectableDictionary)
+        return;
+
+    if (!externallyConnectableDictionary.count) {
+        recordError(createError(Error::InvalidExternallyConnectable));
+        return;
+    }
+
+    bool shouldReportError = false;
+    MatchPatternSet matchPatterns;
+
+    auto *matchPatternStrings = objectForKey<NSArray>(externallyConnectableDictionary, externallyConnectableMatchesManifestKey, true, NSString.class);
+    for (NSString *matchPatternString in matchPatternStrings) {
+        if (!matchPatternString.length)
+            continue;
+
+        if (auto matchPattern = WebExtensionMatchPattern::getOrCreate(matchPatternString)) {
+            if (matchPattern->matchesAllURLs() || !matchPattern->isSupported()) {
+                shouldReportError = true;
+                continue;
+            }
+
+            // URL patterns must contain at least a second-level domain. Top level domains and wildcards are not standalone patterns.
+            if (matchPattern->hostIsPublicSuffix()) {
+                shouldReportError = true;
+                continue;
+            }
+
+            matchPatterns.add(matchPattern.releaseNonNull());
+        }
+    }
+
+    m_externallyConnectableMatchPatterns = matchPatterns;
+
+    auto *extensionIDs = objectForKey<NSArray>(externallyConnectableDictionary, externallyConnectableIDsManifestKey, true, NSString.class);
+    extensionIDs = filterObjects(extensionIDs, ^bool(id key, NSString *extensionID) {
+        return !!extensionID.length;
+    });
+
+    if (shouldReportError || (matchPatterns.isEmpty() && !extensionIDs.count))
+        recordError(createError(Error::InvalidExternallyConnectable));
 }
 
 void WebExtension::populateDisplayStringsIfNeeded()
@@ -1301,6 +1368,32 @@ void WebExtension::populateBackgroundPropertiesIfNeeded()
 #endif
 }
 
+bool WebExtension::hasInspectorBackgroundPage()
+{
+    return !!inspectorBackgroundPagePath();
+}
+
+NSString *WebExtension::inspectorBackgroundPagePath()
+{
+    populateInspectorPropertiesIfNeeded();
+    return m_inspectorBackgroundPagePath.get();
+}
+
+void WebExtension::populateInspectorPropertiesIfNeeded()
+{
+    if (!manifestParsedSuccessfully())
+        return;
+
+    if (m_parsedManifestInspectorProperties)
+        return;
+
+    m_parsedManifestInspectorProperties = true;
+
+    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/devtools_page
+
+    m_inspectorBackgroundPagePath = objectForKey<NSString>(m_manifest, devtoolsPageManifestKey);
+}
+
 bool WebExtension::hasOptionsPage()
 {
     populatePagePropertiesIfNeeded();
@@ -1525,8 +1618,11 @@ void WebExtension::populateCommandsIfNeeded()
             continue;
         }
 
-        if (isActionCommand && !description.length)
+        if (isActionCommand && !description.length) {
             description = displayActionLabel();
+            if (!description.length)
+                description = displayShortName();
+        }
 
         commandData.description = description;
 
@@ -1906,17 +2002,25 @@ const WebExtension::MatchPatternSet& WebExtension::optionalPermissionMatchPatter
     return m_optionalPermissionMatchPatterns;
 }
 
+const WebExtension::MatchPatternSet& WebExtension::externallyConnectableMatchPatterns()
+{
+    populateExternallyConnectableIfNeeded();
+    return m_externallyConnectableMatchPatterns;
+}
+
 WebExtension::MatchPatternSet WebExtension::allRequestedMatchPatterns()
 {
     populatePermissionsPropertiesIfNeeded();
     populateContentScriptPropertiesIfNeeded();
+    populateExternallyConnectableIfNeeded();
 
     WebExtension::MatchPatternSet result;
 
     for (auto& matchPattern : m_permissionMatchPatterns)
         result.add(matchPattern);
 
-    // FIXME: <https://webkit.org/b/246491> Add externally connectable match patterns.
+    for (auto& matchPattern : m_externallyConnectableMatchPatterns)
+        result.add(matchPattern);
 
     for (auto& injectedContent : m_staticInjectedContents) {
         for (auto& matchPattern : injectedContent.includeMatchPatterns)

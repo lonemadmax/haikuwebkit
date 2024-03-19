@@ -72,6 +72,7 @@ enum Token
     kConfigVulkan,
     kConfigSwiftShader,
     kConfigMetal,
+    kConfigWgpu,
     // Android devices
     kConfigNexus5X,
     kConfigPixel2,
@@ -83,6 +84,7 @@ enum Token
     kConfigGalaxyA23,
     kConfigGalaxyA34,
     kConfigGalaxyA54,
+    kConfigGalaxyS22,
     kConfigGalaxyS23,
     kConfigGalaxyQualcomm,
     kConfigFindX6,
@@ -189,6 +191,7 @@ constexpr TokenInfo kTokenData[kNumberOfTokens] = {
     {"vulkan", GPUTestConfig::kConditionVulkan},
     {"swiftshader", GPUTestConfig::kConditionSwiftShader},
     {"metal", GPUTestConfig::kConditionMetal},
+    {"wgpu", GPUTestConfig::kConditionWgpu},
     {"nexus5x", GPUTestConfig::kConditionNexus5X},
     {"pixel2orxl", GPUTestConfig::kConditionPixel2OrXL},
     {"pixel4orxl", GPUTestConfig::kConditionPixel4OrXL},
@@ -199,6 +202,7 @@ constexpr TokenInfo kTokenData[kNumberOfTokens] = {
     {"galaxya23", GPUTestConfig::kConditionGalaxyA23},
     {"galaxya34", GPUTestConfig::kConditionGalaxyA34},
     {"galaxya54", GPUTestConfig::kConditionGalaxyA54},
+    {"galaxys22", GPUTestConfig::kConditionGalaxyS22},
     {"galaxys23", GPUTestConfig::kConditionGalaxyS23},
     {"galaxyqualcomm", GPUTestConfig::kConditionGalaxyQualcomm},
     {"findx6", GPUTestConfig::kConditionFindX6},
@@ -518,6 +522,7 @@ bool GPUTestExpectationsParser::parseLine(const GPUTestConfig *config,
             case kConfigVulkan:
             case kConfigSwiftShader:
             case kConfigMetal:
+            case kConfigWgpu:
             case kConfigNexus5X:
             case kConfigPixel2:
             case kConfigPixel4:
@@ -528,6 +533,7 @@ bool GPUTestExpectationsParser::parseLine(const GPUTestConfig *config,
             case kConfigGalaxyA23:
             case kConfigGalaxyA34:
             case kConfigGalaxyA54:
+            case kConfigGalaxyS22:
             case kConfigGalaxyS23:
             case kConfigGalaxyQualcomm:
             case kConfigFindX6:

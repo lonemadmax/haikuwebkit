@@ -161,17 +161,9 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/StringHash.h>
 
-#if PLATFORM(COCOA)
-#include "ArgumentCodersCF.h"
-#endif
-
 #if PLATFORM(IOS_FAMILY)
 #include <WebCore/SelectionGeometry.h>
 #endif // PLATFORM(IOS_FAMILY)
-
-#if ENABLE(WIRELESS_PLAYBACK_TARGET)
-#include <WebCore/MediaPlaybackTargetContext.h>
-#endif
 
 #if ENABLE(MEDIA_STREAM)
 #include <WebCore/CaptureDevice.h>
@@ -196,44 +188,7 @@ namespace IPC {
 using namespace WebCore;
 using namespace WebKit;
 
-void ArgumentCoder<Credential>::encode(Encoder& encoder, const Credential& credential)
-{
-    if (credential.encodingRequiresPlatformData()) {
-        encoder << true;
-        encodePlatformData(encoder, credential);
-        return;
-    }
-
-    encoder << false;
-    encoder << credential.user() << credential.password();
-    encoder << credential.persistence();
-}
-
-bool ArgumentCoder<Credential>::decode(Decoder& decoder, Credential& credential)
-{
-    bool hasPlatformData;
-    if (!decoder.decode(hasPlatformData))
-        return false;
-
-    if (hasPlatformData)
-        return decodePlatformData(decoder, credential);
-
-    String user;
-    if (!decoder.decode(user))
-        return false;
-
-    String password;
-    if (!decoder.decode(password))
-        return false;
-
-    CredentialPersistence persistence;
-    if (!decoder.decode(persistence))
-        return false;
-    
-    credential = Credential(user, password, persistence);
-    return true;
-}
-
+#if !USE(CORE_TEXT)
 void ArgumentCoder<WebCore::Font>::encode(Encoder& encoder, const WebCore::Font& font)
 {
     encoder << font.attributes();
@@ -297,7 +252,7 @@ std::optional<Ref<FontCustomPlatformData>> ArgumentCoder<FontCustomPlatformData>
     if (!itemInCollection)
         return std::nullopt;
 
-    auto fontCustomPlatformData = createFontCustomPlatformData(fontFaceData, *itemInCollection);
+    auto fontCustomPlatformData = FontCustomPlatformData::create(fontFaceData, *itemInCollection);
     if (!fontCustomPlatformData)
         return std::nullopt;
 
@@ -310,8 +265,6 @@ std::optional<Ref<FontCustomPlatformData>> ArgumentCoder<FontCustomPlatformData>
 
     return fontCustomPlatformData.releaseNonNull();
 }
-
-#if !USE(CORE_TEXT)
 
 void ArgumentCoder<WebCore::FontPlatformData::Attributes>::encode(Encoder& encoder, const WebCore::FontPlatformData::Attributes& data)
 {
@@ -364,152 +317,6 @@ std::optional<FontPlatformData::Attributes> ArgumentCoder<FontPlatformData::Attr
 
     return result;
 }
-
 #endif
-
-#if ENABLE(WIRELESS_PLAYBACK_TARGET)
-void ArgumentCoder<MediaPlaybackTargetContext>::encode(Encoder& encoder, const MediaPlaybackTargetContext& target)
-{
-    bool hasPlatformData = target.encodingRequiresPlatformData();
-    encoder << hasPlatformData;
-
-    MediaPlaybackTargetContext::Type contextType = target.type();
-    encoder << contextType;
-
-    if (target.encodingRequiresPlatformData()) {
-        encodePlatformData(encoder, target);
-        return;
-    }
-
-    ASSERT(contextType == MediaPlaybackTargetContext::Type::Mock);
-    encoder << target.deviceName();
-    encoder << target.mockState();
-}
-
-bool ArgumentCoder<MediaPlaybackTargetContext>::decode(Decoder& decoder, MediaPlaybackTargetContext& target)
-{
-    bool hasPlatformData;
-    if (!decoder.decode(hasPlatformData))
-        return false;
-
-    MediaPlaybackTargetContext::Type contextType;
-    if (!decoder.decode(contextType))
-        return false;
-
-    if (hasPlatformData)
-        return decodePlatformData(decoder, contextType, target);
-
-    ASSERT(contextType == MediaPlaybackTargetContext::Type::Mock);
-    String deviceName;
-    if (!decoder.decode(deviceName))
-        return false;
-
-    MediaPlaybackTargetContext::MockState mockState;
-    if (!decoder.decode(mockState))
-        return false;
-
-    target = MediaPlaybackTargetContext(deviceName, mockState);
-
-    return true;
-}
-#endif
-
-#if ENABLE(VIDEO)
-void ArgumentCoder<WebCore::SerializedPlatformDataCueValue>::encode(Encoder& encoder, const SerializedPlatformDataCueValue& value)
-{
-    bool hasPlatformData = value.encodingRequiresPlatformData();
-    encoder << hasPlatformData;
-
-    encoder << value.platformType();
-    if (hasPlatformData)
-        encodePlatformData(encoder, value);
-}
-
-std::optional<SerializedPlatformDataCueValue> ArgumentCoder<WebCore::SerializedPlatformDataCueValue>::decode(IPC::Decoder& decoder)
-{
-    bool hasPlatformData;
-    if (!decoder.decode(hasPlatformData))
-        return std::nullopt;
-
-    WebCore::SerializedPlatformDataCueValue::PlatformType type;
-    if (!decoder.decode(type))
-        return std::nullopt;
-
-    if (hasPlatformData)
-        return decodePlatformData(decoder, type);
-
-    return { SerializedPlatformDataCueValue() };
-
-}
-#endif
-
-constexpr bool useUnixDomainSockets()
-{
-#if USE(UNIX_DOMAIN_SOCKETS)
-    return true;
-#else
-    return false;
-#endif
-}
-
-static constexpr size_t minimumPageSize = 4096;
-
-void ArgumentCoder<WebCore::FragmentedSharedBuffer>::encode(Encoder& encoder, const WebCore::FragmentedSharedBuffer& buffer)
-{
-    size_t bufferSize = buffer.size();
-    encoder << bufferSize;
-    if (!bufferSize)
-        return;
-
-    if (useUnixDomainSockets() || bufferSize < minimumPageSize) {
-        encoder.reserve(encoder.bufferSize() + bufferSize);
-        // Do not use shared memory for FragmentedSharedBuffer encoding in Unix, because it's easy to reach the
-        // maximum number of file descriptors open per process when sending large data in small chunks
-        // over the IPC. ConnectionUnix.cpp already uses shared memory to send any IPC message that is
-        // too large. See https://bugs.webkit.org/show_bug.cgi?id=208571.
-        for (const auto& element : buffer)
-            encoder.encodeSpan(std::span(element.segment->data(), element.segment->size()));
-    } else {
-        std::optional<SharedMemory::Handle> handle;
-        {
-            auto sharedMemoryBuffer = SharedMemory::copyBuffer(buffer);
-            handle = sharedMemoryBuffer->createHandle(SharedMemory::Protection::ReadOnly);
-        }
-        encoder << WTFMove(handle);
-    }
-}
-
-std::optional<Ref<WebCore::FragmentedSharedBuffer>> ArgumentCoder<WebCore::FragmentedSharedBuffer>::decode(Decoder& decoder)
-{
-    size_t bufferSize = 0;
-    if (!decoder.decode(bufferSize))
-        return std::nullopt;
-
-    if (!bufferSize)
-        return SharedBuffer::create();
-
-    if (useUnixDomainSockets() || bufferSize < minimumPageSize) {
-        auto data = decoder.decodeSpan<uint8_t>(bufferSize);
-        if (!data.data())
-            return std::nullopt;
-        return SharedBuffer::create(data);
-    }
-
-    auto handle = decoder.decode<std::optional<SharedMemory::Handle>>();
-    if (UNLIKELY(!decoder.isValid()))
-        return std::nullopt;
-
-    if (!*handle)
-        return std::nullopt;
-
-    auto sharedMemoryBuffer = SharedMemory::map(WTFMove(**handle), SharedMemory::Protection::ReadOnly);
-    if (!sharedMemoryBuffer)
-        return std::nullopt;
-
-    if (sharedMemoryBuffer->size() < bufferSize)
-        return std::nullopt;
-
-    return SharedBuffer::create(static_cast<unsigned char*>(sharedMemoryBuffer->data()), bufferSize);
-}
 
 } // namespace IPC

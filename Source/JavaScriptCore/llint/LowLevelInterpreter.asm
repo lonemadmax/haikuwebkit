@@ -1739,16 +1739,16 @@ global _vmEntryHostFunction
 _vmEntryHostFunction:
     jmp a2, HostFunctionPtrTag
 
-# unsigned vmEntryToCSSJIT(uintptr_t, uintptr_t, uintptr_t, const void* codePtr);
 if ARM64E
-emit ".globl _vmEntryToCSSJIT"
-emit "_vmEntryToCSSJIT:"
-    functionPrologue()
-    jmp t3, CSSSelectorPtrTag
-    emit ".globl _vmEntryToCSSJITAfter"
-    emit "_vmEntryToCSSJITAfter:"
-    functionEpilogue()
-    ret
+    # unsigned vmEntryToCSSJIT(uintptr_t, uintptr_t, uintptr_t, const void* codePtr);
+    globalexport _vmEntryToCSSJIT
+    _vmEntryToCSSJIT:
+        functionPrologue()
+        jmp t3, CSSSelectorPtrTag
+    globalexport _vmEntryToCSSJITAfter
+    _vmEntryToCSSJITAfter:
+        functionEpilogue()
+        ret
 end
 
 if not (C_LOOP or C_LOOP_WIN)
@@ -1821,8 +1821,8 @@ end
 if ARM64E
     if JIT_CAGE
         # void* jitCagePtr(void* pointer, uintptr_t tag)
-        emit ".globl _jitCagePtr"
-        emit "_jitCagePtr:"
+        globalexport _jitCagePtr
+        _jitCagePtr:
             tagReturnAddress sp
             leap _g_config, t2
             jmp JSCConfigGateMapOffset + (constexpr Gate::jitCagePtr) * PtrSize[t2], NativeToJITGatePtrTag
@@ -2090,11 +2090,7 @@ macro slowPathOp(opcodeName)
     end)
 end
 
-slowPathOp(create_cloned_arguments)
-slowPathOp(create_direct_arguments)
-slowPathOp(create_lexical_environment)
 slowPathOp(create_rest)
-slowPathOp(create_scoped_arguments)
 slowPathOp(create_this)
 slowPathOp(create_promise)
 slowPathOp(create_generator)
@@ -2140,6 +2136,10 @@ llintSlowPathOp(has_private_brand)
 llintSlowPathOp(del_by_id)
 llintSlowPathOp(del_by_val)
 llintSlowPathOp(instanceof)
+llintSlowPathOp(create_lexical_environment)
+llintSlowPathOp(create_direct_arguments)
+llintSlowPathOp(create_scoped_arguments)
+llintSlowPathOp(create_cloned_arguments)
 llintSlowPathOp(new_array)
 llintSlowPathOp(new_array_with_size)
 llintSlowPathOp(new_async_func)

@@ -139,15 +139,16 @@ Ref<WebCore::WebGPU::ExternalTexture> RemoteDeviceProxy::importExternalTexture(c
 #if PLATFORM(COCOA) && ENABLE(VIDEO)
     if (!convertedDescriptor->mediaIdentifier) {
         auto videoFrame = std::get_if<RefPtr<WebCore::VideoFrame>>(&descriptor.videoBacking);
-        RELEASE_ASSERT(videoFrame);
-        convertedDescriptor->sharedFrame = m_sharedVideoFrameWriter.write(*videoFrame->get(), [&](auto& semaphore) {
-            auto sendResult = send(Messages::RemoteDevice::SetSharedVideoFrameSemaphore { semaphore });
-            UNUSED_VARIABLE(sendResult);
-        }, [&](WebCore::SharedMemory::Handle&& handle) {
-            auto sendResult = send(Messages::RemoteDevice::SetSharedVideoFrameMemory { WTFMove(handle) });
-            UNUSED_VARIABLE(sendResult);
-        });
-        ASSERT(convertedDescriptor->sharedFrame);
+        if (videoFrame && videoFrame->get()) {
+            convertedDescriptor->sharedFrame = m_sharedVideoFrameWriter.write(*videoFrame->get(), [&](auto& semaphore) {
+                auto sendResult = send(Messages::RemoteDevice::SetSharedVideoFrameSemaphore { semaphore });
+                UNUSED_VARIABLE(sendResult);
+            }, [&](WebCore::SharedMemory::Handle&& handle) {
+                auto sendResult = send(Messages::RemoteDevice::SetSharedVideoFrameMemory { WTFMove(handle) });
+                UNUSED_VARIABLE(sendResult);
+            });
+            ASSERT(convertedDescriptor->sharedFrame);
+        }
     }
 
     auto sendResult = send(Messages::RemoteDevice::ImportExternalTextureFromVideoFrame(WTFMove(*convertedDescriptor), identifier));
@@ -365,18 +366,40 @@ void RemoteDeviceProxy::pushErrorScope(WebCore::WebGPU::ErrorFilter errorFilter)
     UNUSED_VARIABLE(sendResult);
 }
 
-void RemoteDeviceProxy::popErrorScope(CompletionHandler<void(std::optional<WebCore::WebGPU::Error>&&)>&& callback)
+void RemoteDeviceProxy::popErrorScope(CompletionHandler<void(bool, std::optional<WebCore::WebGPU::Error>&&)>&& callback)
 {
-    auto sendResult = sendWithAsyncReply(Messages::RemoteDevice::PopErrorScope(), [callback = WTFMove(callback)](auto error) mutable {
+    auto sendResult = sendWithAsyncReply(Messages::RemoteDevice::PopErrorScope(), [callback = WTFMove(callback)](bool success, auto error) mutable {
         if (!error) {
-            callback(std::nullopt);
+            callback(success, std::nullopt);
             return;
         }
 
         WTF::switchOn(WTFMove(*error), [&] (OutOfMemoryError&& outOfMemoryError) {
-            callback({ WebCore::WebGPU::OutOfMemoryError::create() });
+            callback(success, { WebCore::WebGPU::OutOfMemoryError::create() });
         }, [&] (ValidationError&& validationError) {
-            callback({ WebCore::WebGPU::ValidationError::create(WTFMove(validationError.message)) });
+            callback(success, { WebCore::WebGPU::ValidationError::create(WTFMove(validationError.message)) });
+        }, [&] (InternalError&& internalError) {
+            callback(success, { WebCore::WebGPU::InternalError::create(WTFMove(internalError.message)) });
+        });
+    });
+
+    UNUSED_PARAM(sendResult);
+}
+
+void RemoteDeviceProxy::resolveUncapturedErrorEvent(CompletionHandler<void(bool, std::optional<WebCore::WebGPU::Error>&&)>&& callback)
+{
+    auto sendResult = sendWithAsyncReply(Messages::RemoteDevice::ResolveUncapturedErrorEvent(), [callback = WTFMove(callback)](bool success, auto error) mutable {
+        if (!error) {
+            callback(success, std::nullopt);
+            return;
+        }
+
+        WTF::switchOn(WTFMove(*error), [&] (OutOfMemoryError&& outOfMemoryError) {
+            callback(success, { WebCore::WebGPU::OutOfMemoryError::create() });
+        }, [&] (ValidationError&& validationError) {
+            callback(success, { WebCore::WebGPU::ValidationError::create(WTFMove(validationError.message)) });
+        }, [&] (InternalError&& internalError) {
+            callback(success, { WebCore::WebGPU::InternalError::create(WTFMove(internalError.message)) });
         });
     });
 

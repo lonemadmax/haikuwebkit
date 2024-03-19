@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "ArrayReference.h"
 #include "ArrayReferenceTuple.h"
 #include "Decoder.h"
 #include "Encoder.h"
@@ -73,7 +72,7 @@ template<typename T> struct SimpleArgumentCoder {
 
 template<typename T, size_t Extent> struct ArgumentCoder<std::span<T, Extent>> {
     template<typename Encoder>
-    static void encode(Encoder& encoder, const std::span<T, Extent>& span)
+    static void encode(Encoder& encoder, std::span<T, Extent> span)
     {
         static_assert(Extent, "Can't encode a fixed size of 0");
 
@@ -628,7 +627,7 @@ template<typename KeyArg, typename HashArg, typename KeyTraitsArg> struct Argume
     {
         unsigned hashCountedSetSize;
         if (!decoder.decode(hashCountedSetSize))
-            return false;
+            return std::nullopt;
 
         HashCountedSetType tempHashCountedSet;
         for (unsigned i = 0; i < hashCountedSetSize; ++i) {
@@ -794,6 +793,7 @@ template<> struct ArgumentCoder<StringView> {
 };
 
 template<> struct ArgumentCoder<std::nullptr_t> {
+    template<typename Encoder>
     static void encode(Encoder&, const std::nullptr_t&) { }
     static std::optional<std::nullptr_t> decode(Decoder&) { return nullptr; }
 };

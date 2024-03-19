@@ -843,13 +843,13 @@ static Node::Editability computeEditabilityFromComputedStyle(const RenderStyle& 
 
     // Elements with user-select: all style are considered atomic
     // therefore non editable.
-    if (treatment == Node::UserSelectAllTreatment::NotEditable && style.effectiveUserSelect() == UserSelect::All)
+    if (treatment == Node::UserSelectAllTreatment::NotEditable && style.usedUserSelect() == UserSelect::All)
         return Node::Editability::ReadOnly;
 
     if (pageIsEditable == PageIsEditable::Yes)
         return Node::Editability::CanEditRichly;
 
-    switch (style.effectiveUserModify()) {
+    switch (style.usedUserModify()) {
     case UserModify::ReadOnly:
         return Node::Editability::ReadOnly;
     case UserModify::ReadWrite:
@@ -1255,7 +1255,7 @@ bool Node::canStartSelection() const
 
         // We allow selections to begin within an element that has -webkit-user-select: none set,
         // but if the element is draggable then dragging should take priority over selection.
-        if (style.userDrag() == UserDrag::Element && style.effectiveUserSelect() == UserSelect::None)
+        if (style.userDrag() == UserDrag::Element && style.usedUserSelect() == UserSelect::None)
             return false;
     }
     return parentOrShadowHostNode() ? parentOrShadowHostNode()->canStartSelection() : true;
@@ -1271,6 +1271,16 @@ Element* Node::shadowHost() const
 ShadowRoot* Node::containingShadowRoot() const
 {
     return dynamicDowncast<ShadowRoot>(treeScope().rootNode());
+}
+
+RefPtr<ShadowRoot> Node::protectedContainingShadowRoot() const
+{
+    return containingShadowRoot();
+}
+
+CheckedPtr<RenderObject> Node::checkedRenderer() const
+{
+    return renderer();
 }
 
 #if ASSERT_ENABLED
@@ -1434,11 +1444,7 @@ Element* Node::parentOrShadowHostElement() const
 
 Node& Node::traverseToRootNode() const
 {
-    Node* node = const_cast<Node*>(this);
-    Node* highest = node;
-    for (; node; node = node->parentNode())
-        highest = node;
-    return *highest;
+    return traverseToRootNodeInternal(*this);
 }
 
 // https://dom.spec.whatwg.org/#concept-shadow-including-root
@@ -2149,9 +2155,9 @@ Element* Node::enclosingLinkEventParentOrSelf()
     return nullptr;
 }
 
-EventTargetInterface Node::eventTargetInterface() const
+enum EventTargetInterfaceType Node::eventTargetInterface() const
 {
-    return NodeEventTargetInterfaceType;
+    return EventTargetInterfaceType::Node;
 }
 
 template <typename MoveNodeFunction, typename MoveShadowRootFunction>

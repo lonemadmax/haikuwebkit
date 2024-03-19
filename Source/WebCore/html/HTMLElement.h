@@ -84,6 +84,9 @@ public:
     WEBCORE_EXPORT bool spellcheck() const;
     WEBCORE_EXPORT void setSpellcheck(bool);
 
+    WEBCORE_EXPORT bool writingsuggestions() const;
+    WEBCORE_EXPORT void setWritingsuggestions(bool);
+
     WEBCORE_EXPORT bool translate() const;
     WEBCORE_EXPORT void setTranslate(bool);
 
@@ -158,8 +161,6 @@ public:
     const AtomString& popover() const;
     void setPopover(const AtomString& value) { setAttributeWithoutSynchronization(HTMLNames::popoverAttr, value); };
     void popoverAttributeChanged(const AtomString& value);
-
-    virtual void handleInvokeInternal(const AtomString&) { }
 
 #if PLATFORM(IOS_FAMILY)
     static SelectionRenderingBehavior selectionRenderingBehavior(const Node*);

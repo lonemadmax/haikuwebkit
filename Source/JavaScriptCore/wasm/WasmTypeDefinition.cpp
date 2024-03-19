@@ -293,7 +293,7 @@ static unsigned computeSubtypeHash(SupertypeCount supertypeCount, const TypeInde
     if (supertypeCount > 0)
         accumulator = WTF::pairIntHash(accumulator, WTF::IntHash<TypeIndex>::hash(superTypes[0]));
     accumulator = WTF::pairIntHash(accumulator, WTF::IntHash<TypeIndex>::hash(underlyingType));
-    accumulator = WTF::pairIntHash(accumulator, WTF::IntHash<TypeIndex>::hash(isFinal));
+    accumulator = WTF::pairIntHash(accumulator, WTF::IntHash<bool>::hash(isFinal));
     return accumulator;
 }
 
@@ -542,6 +542,15 @@ bool TypeDefinition::hasRecursiveReference() const
     }
 
     return TypeInformation::get(as<Subtype>()->underlyingType()).hasRecursiveReference();
+}
+
+bool TypeDefinition::isFinalType() const
+{
+    const auto& unrolled = unroll();
+    if (unrolled.is<Subtype>())
+        return unrolled.as<Subtype>()->isFinal();
+
+    return true;
 }
 
 RefPtr<RTT> RTT::tryCreateRTT(RTTKind kind, DisplayCount displaySize)
@@ -837,6 +846,9 @@ struct SubtypeParameterTypes {
         if (subtype->underlyingType() != params.underlyingType)
             return false;
 
+        if (subtype->isFinal() != params.isFinal)
+            return false;
+
         return true;
     }
 
@@ -1094,7 +1106,7 @@ bool TypeInformation::castReference(JSValue refValue, bool allowNull, TypeIndex 
             if (!funcRef)
                 return false;
             auto funcRTT = funcRef->rtt();
-            if (funcRTT.get() == signatureRTT.get())
+            if (funcRTT == signatureRTT.get())
                 return true;
             return funcRTT->isSubRTT(*signatureRTT);
         }

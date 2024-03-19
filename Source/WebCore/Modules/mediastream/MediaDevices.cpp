@@ -188,8 +188,8 @@ static bool hasInvalidGetDisplayMediaConstraint(const MediaConstraints& constrai
         return true;
 
     bool invalid = false;
-    constraints.mandatoryConstraints.filter([&invalid] (const MediaConstraint& constraint) mutable {
-        switch (constraint.constraintType()) {
+    constraints.mandatoryConstraints.filter([&invalid] (auto constraintType, const MediaConstraint& constraint) mutable {
+        switch (constraintType) {
         case MediaConstraintType::Width:
         case MediaConstraintType::Height: {
             auto& intConstraint = downcast<IntConstraint>(constraint);
@@ -253,7 +253,7 @@ void MediaDevices::getDisplayMedia(DisplayMediaStreamConstraints&& constraints, 
 
     bool isUserGesturePriviledged = computeUserGesturePriviledge(GestureAllowedRequest::Display);
     if (!isUserGesturePriviledged) {
-        promise.reject(Exception { ExceptionCode::InvalidAccessError, "getDisplayMedia must be called from a user gesture handler."_s });
+        promise.reject(Exception { ExceptionCode::InvalidStateError, "getDisplayMedia must be called from a user gesture handler."_s });
         return;
     }
 

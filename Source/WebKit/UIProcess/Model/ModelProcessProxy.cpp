@@ -54,16 +54,31 @@
 namespace WebKit {
 using namespace WebCore;
 
-Ref<ModelProcessProxy> ModelProcessProxy::create(WebProcessProxy& webProcessProxy)
+static WeakPtr<ModelProcessProxy>& singleton()
 {
-    ASSERT(RunLoop::isMain());
-    return adoptRef(*new ModelProcessProxy(webProcessProxy));
+    static NeverDestroyed<WeakPtr<ModelProcessProxy>> singleton;
+    return singleton;
 }
 
-ModelProcessProxy::ModelProcessProxy(WebProcessProxy& webProcessProxy)
-    : AuxiliaryProcessProxy()
-    , m_webProcessProxy(webProcessProxy)
-    , m_throttler(*this, webProcessProxy.processPool().shouldTakeUIBackgroundAssertion())
+Ref<ModelProcessProxy> ModelProcessProxy::getOrCreate()
+{
+    ASSERT(RunLoop::isMain());
+    if (auto& existingModelProcess = singleton()) {
+        ASSERT(existingModelProcess->state() != State::Terminated);
+        return *existingModelProcess;
+    }
+    Ref modelProcess = adoptRef(*new ModelProcessProxy);
+    singleton() = modelProcess;
+    return modelProcess;
+}
+
+ModelProcessProxy* ModelProcessProxy::singletonIfCreated()
+{
+    return singleton().get();
+}
+
+ModelProcessProxy::ModelProcessProxy()
+    : AuxiliaryProcessProxy(WebProcessPool::anyProcessPoolNeedsUIBackgroundAssertion() ? ShouldTakeUIBackgroundAssertion::Yes : ShouldTakeUIBackgroundAssertion::No)
 {
     connect();
 
@@ -74,7 +89,7 @@ ModelProcessProxy::ModelProcessProxy(WebProcessProxy& webProcessProxy)
     // Initialize the model process.
     send(Messages::ModelProcess::InitializeModelProcess(WTFMove(parameters)), 0);
 
-    updateProcessAssertion(webProcessProxy.currentProcessAssertionType());
+    updateProcessAssertion();
 }
 
 ModelProcessProxy::~ModelProcessProxy() = default;
@@ -129,8 +144,11 @@ void ModelProcessProxy::modelProcessExited(ProcessTerminationReason reason)
         break;
     }
 
-    if (m_webProcessProxy)
-        m_webProcessProxy->modelProcessExited(processID(), reason);
+    if (singleton() == this)
+        singleton() = nullptr;
+
+    for (auto& processPool : WebProcessPool::allProcessPools())
+        processPool->modelProcessExited(processID(), reason);
 }
 
 void ModelProcessProxy::processIsReadyToExit()
@@ -200,10 +218,6 @@ void ModelProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Conne
         return;
     }
 
-#if USE(RUNNINGBOARD)
-    m_throttler.didConnectToProcess(*this);
-#endif
-
 #if PLATFORM(COCOA)
     if (auto networkProcess = NetworkProcessProxy::defaultNetworkProcess())
         networkProcess->sendXPCEndpointToProcess(*this);
@@ -211,36 +225,35 @@ void ModelProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Conne
 
     beginResponsivenessChecks();
 
-    if (m_webProcessProxy)
-        m_webProcessProxy->modelProcessDidFinishLaunching(processID());
+    for (auto& processPool : WebProcessPool::allProcessPools())
+        processPool->modelProcessDidFinishLaunching(processID());
 }
 
-void ModelProcessProxy::updateProcessAssertion(ProcessAssertionType type)
+void ModelProcessProxy::updateProcessAssertion()
 {
-    switch (type) {
-    case ProcessAssertionType::NearSuspended:
-        // Use std::exchange() instead of a simple nullptr assignment to avoid re-entering this
-        // function during the destructor of the ProcessThrottler activity, before setting
-        // m_activityFromWebProcess.
-        std::exchange(m_activityFromWebProcess, nullptr);
-        break;
+    bool hasAnyForegroundWebProcesses = false;
+    bool hasAnyBackgroundWebProcesses = false;
 
-    case ProcessAssertionType::Background:
-        if (!ProcessThrottler::isValidBackgroundActivity(m_activityFromWebProcess))
-            m_activityFromWebProcess = throttler().backgroundActivity("Model for background view(s)"_s);
-        break;
-
-    case ProcessAssertionType::Foreground:
-        if (!ProcessThrottler::isValidForegroundActivity(m_activityFromWebProcess))
-            m_activityFromWebProcess = throttler().foregroundActivity("Model for foreground view(s)"_s);
-        break;
-
-    case ProcessAssertionType::MediaPlayback:
-    case ProcessAssertionType::UnboundedNetworking:
-    case ProcessAssertionType::FinishTaskInterruptable:
-    case ProcessAssertionType::BoostedJetsam:
-        ASSERT_NOT_REACHED();
+    for (auto& processPool : WebProcessPool::allProcessPools()) {
+        hasAnyForegroundWebProcesses |= processPool->hasForegroundWebProcesses();
+        hasAnyBackgroundWebProcesses |= processPool->hasBackgroundWebProcesses();
     }
+
+    if (hasAnyForegroundWebProcesses) {
+        if (!ProcessThrottler::isValidForegroundActivity(m_activityFromWebProcesses))
+            m_activityFromWebProcesses = throttler().foregroundActivity("Model for foreground view(s)"_s);
+        return;
+    }
+    if (hasAnyBackgroundWebProcesses) {
+        if (!ProcessThrottler::isValidBackgroundActivity(m_activityFromWebProcesses))
+            m_activityFromWebProcesses = throttler().backgroundActivity("Model for background view(s)"_s);
+        return;
+    }
+
+    // Use std::exchange() instead of a simple nullptr assignment to avoid re-entering this
+    // function during the destructor of the ProcessThrottler activity, before setting
+    // m_activityFromWebProcesses.
+    std::exchange(m_activityFromWebProcesses, nullptr);
 }
 
 void ModelProcessProxy::sendPrepareToSuspend(IsSuspensionImminent isSuspensionImminent, double remainingRunTime, CompletionHandler<void()>&& completionHandler)

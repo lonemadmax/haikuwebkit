@@ -356,36 +356,19 @@ svg/as-background-image/background-image-preserveaspectRatio-support.html [ Imag
 svg/as-image/img-preserveAspectRatio-support-1.html                       [ ImageOnlyFailure ]
 
 # Pattern problems
-imported/w3c/web-platform-tests/svg/import/pservers-grad-06-b-manual.svg    [ ImageOnlyFailure ]
 svg/W3C-SVG-1.1/pservers-grad-06-b.svg                                      [ Failure ]
-svg/custom/js-late-pattern-and-object-creation.svg                          [ Failure ]
 svg/custom/js-late-pattern-creation.svg                                     [ Failure ]
 svg/custom/nested-pattern-boundingBoxModeContent.svg                        [ Failure ]
-svg/custom/non-scaling-stroke.svg                                           [ ImageOnlyFailure ]
 svg/custom/pattern-content-inheritance-cycle.svg                            [ ImageOnlyFailure ]
-svg/custom/pattern-deep-referencing.svg                                     [ Failure ]
-svg/custom/pattern-incorrect-tiling.svg                                     [ Failure ]
-svg/custom/pattern-referencing-preserve-aspect-ratio.svg                    [ Failure ]
-svg/custom/pattern-rotate.svg                                               [ Failure ]
-svg/custom/pattern-scaled-pattern-space.svg                                 [ Failure ]
-svg/custom/pattern-scaling.svg                                              [ Failure ]
-svg/custom/pattern-skew-transformed.svg                                     [ Failure ]
-svg/custom/pattern-userSpaceOnUse-userToBaseTransform.xhtml                 [ ImageOnlyFailure ]
-svg/custom/pattern-with-transformation.svg                                  [ Failure ]
 svg/custom/stroked-pattern.svg                                              [ Failure ]
-svg/custom/transformed-pattern-clamp-svg-root.svg                           [ Failure ]
 svg/transforms/text-with-pattern-inside-transformed-html.xhtml              [ Failure ]
 svg/transforms/text-with-pattern-with-svg-transform.svg                     [ Failure ]
 
 # Clipping problems
 css3/masking/reference-clip-path-change-repaint.html                                              [ Failure ]
 imported/w3c/web-platform-tests/svg/import/masking-path-07-b-manual.svg                           [ ImageOnlyFailure ]
-svg/W3C-SVG-1.1/masking-path-04-b.svg                                                             [ ImageOnlyFailure ]
-svg/batik/text/textEffect2.svg                                                                    [ ImageOnlyFailure ]
 svg/batik/text/textProperties.svg                                                                 [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-precision-001.svg [ ImageOnlyFailure ]
-svg/clip-path/clip-path-use-referencing-clipped-text.html                                         [ ImageOnlyFailure ]
-svg/repaint/image-with-clip-path.svg                                                              [ ImageOnlyFailure ]
 
 # Masking problems
 svg/masking/mask-negative-scale.svg                       [ ImageOnlyFailure ]
@@ -399,7 +382,6 @@ imported/w3c/web-platform-tests/svg/pservers/reftests/meshgradient-basic-004.svg
 imported/w3c/web-platform-tests/svg/pservers/reftests/meshgradient-basic-005.svg   [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/pservers/reftests/meshgradient-bicubic-001.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/pservers/reftests/meshgradient-complex-001.svg [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/svg/pservers/reftests/meshgradient-basic-001.svg   [ ImageOnlyFailure ]
 
 # Marker problems
 imported/w3c/web-platform-tests/svg/import/imp-path-01-f-manual.svg  [ ImageOnlyFailure ]
@@ -420,8 +402,6 @@ svg/transforms/svgsvgelement-transform.svg [ ImageOnlyFailure ]
 
 # Outline / focus-ring support
 svg/custom/focus-ring.svg         [ Failure ]
-svg/custom/rgba-color-outline.svg [ ImageOnlyFailure ]
-svg/text/text-outline-rgba.html   [ ImageOnlyFailure ]
 
 # Text rendering visually different
 imported/w3c/web-platform-tests/svg/import/fonts-desc-01-t-manual.svg                           [ ImageOnlyFailure ]
@@ -467,9 +447,6 @@ svg/custom/viewBox-empty.html [ ImageOnlyFailure ]
 
 # SVG <image> (buffered-rendering) issues
 svg/repaint/buffered-rendering-static-image.html [ ImageOnlyFailure ]
-
-# New test which was only fixed within the legacy engine. Needs tweaks in RenderSVGTransformableContainer.
-webkit.org/b/256702 svg/custom/use-nested-symbol-viewport.html [ ImageOnlyFailure ]
 
 # SVG text repainting issue (spurious repaint rect in wrong coordinate system in addition to correct one).
 svg/repaint/text-repainting-after-modifying-container-transform-repaint-rects.html [ Failure ]
@@ -549,7 +526,6 @@ svg/custom/circle-move-invalidation-small-viewBox.svg         [ Pass ]
 svg/custom/use-on-symbol-inside-pattern.svg                   [ Pass ]
 svg/repaint/text-repainting-after-modifying-transform.html    [ Pass ]
 svg/resource-invalidation/mask-resource-invalidation.html     [ Pass ]
-svg/transforms/animated-path-inside-transformed-html.xhtml    [ Pass ]
 svg/transforms/layout-tiny-elements-in-scaled-group.svg       [ Pass ]
 svg/transforms/rotation-origin-in-small-units.svg             [ Pass ]
 svg/transforms/rotation-tiny-element-in-group.svg             [ Pass ]

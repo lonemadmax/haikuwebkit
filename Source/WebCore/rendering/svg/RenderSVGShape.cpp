@@ -45,6 +45,7 @@
 #include "SVGPaintServerHandling.h"
 #include "SVGPathData.h"
 #include "SVGURIReference.h"
+#include "SVGVisitedRendererTracking.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
@@ -139,7 +140,7 @@ void RenderSVGShape::layout()
 {
     StackStats::LayoutCheckPoint layoutCheckPoint;
 
-    LayoutRepainter repainter(*this, checkForRepaintDuringLayout(), RepaintOutlineBounds::No);
+    LayoutRepainter repainter(*this, checkForRepaintDuringLayout());
     if (m_needsShapeUpdate) {
         updateShapeFromElement();
 
@@ -176,7 +177,7 @@ bool RenderSVGShape::setupNonScalingStrokeContext(AffineTransform& strokeTransfo
 
 AffineTransform RenderSVGShape::nonScalingStrokeTransform() const
 {
-    return graphicsElement().getScreenCTM(SVGLocatable::DisallowStyleUpdate);
+    return protectedGraphicsElement()->getScreenCTM(SVGLocatable::DisallowStyleUpdate);
 }
 
 void RenderSVGShape::fillShape(const RenderStyle& style, GraphicsContext& context)
@@ -243,8 +244,7 @@ void RenderSVGShape::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
         return;
 
     if (paintInfo.phase == PaintPhase::Outline || paintInfo.phase == PaintPhase::SelfOutline) {
-        // FIXME: [LBSE] Upstream outline painting
-        // paintSVGOutline(paintInfo, adjustedPaintOffset);
+        paintSVGOutline(paintInfo, adjustedPaintOffset);
         return;
     }
 
@@ -288,16 +288,21 @@ bool RenderSVGShape::nodeAtPoint(const HitTestRequest& request, HitTestResult& r
     if (hitTestAction != HitTestForeground)
         return false;
 
-    auto adjustedLocation = accumulatedOffset + currentSVGLayoutLocation();
+    static NeverDestroyed<SVGVisitedRendererTracking::VisitedSet> s_visitedSet;
 
+    SVGVisitedRendererTracking recursionTracking(s_visitedSet);
+    if (recursionTracking.isVisiting(*this))
+        return false;
+
+    SVGVisitedRendererTracking::Scope recursionScope(recursionTracking, *this);
+
+    auto adjustedLocation = accumulatedOffset + currentSVGLayoutLocation();
     auto localPoint = locationInContainer.point();
     auto coordinateSystemOriginTranslation = nominalSVGLayoutLocation() - adjustedLocation;
     localPoint.move(coordinateSystemOriginTranslation);
 
-    if (!SVGRenderSupport::pointInClippingArea(*this, localPoint))
+    if (!pointInSVGClippingArea(localPoint))
         return false;
-
-    SVGHitTestCycleDetectionScope hitTestScope(*this);
 
     PointerEventsHitRules hitRules(PointerEventsHitRules::HitTestingTargetType::SVGPath, request, style().effectivePointerEvents());
     bool isVisible = (style().visibility() == Visibility::Visible);
@@ -309,7 +314,7 @@ bool RenderSVGShape::nodeAtPoint(const HitTestRequest& request, HitTestResult& r
 
         if (hitRules.canHitStroke && (svgStyle.hasStroke() || !hitRules.requireStroke) && strokeContains(localPoint, hitRules.requireStroke)) {
             updateHitTestResult(result, locationInContainer.point() - toLayoutSize(adjustedLocation));
-            if (result.addNodeToListBasedTestResult(nodeForHitTest(), request, locationInContainer, strokeBoundingBox()) == HitTestProgress::Stop)
+            if (result.addNodeToListBasedTestResult(protectedNodeForHitTest().get(), request, locationInContainer, strokeBoundingBox()) == HitTestProgress::Stop)
                 return true;
             return false;
         }
@@ -317,7 +322,7 @@ bool RenderSVGShape::nodeAtPoint(const HitTestRequest& request, HitTestResult& r
         if ((hitRules.canHitFill && (svgStyle.hasFill() || !hitRules.requireFill) && fillContains(localPoint, hitRules.requireFill, fillRule))
             || (hitRules.canHitBoundingBox && m_fillBoundingBox.contains(localPoint))) {
             updateHitTestResult(result, locationInContainer.point() - toLayoutSize(adjustedLocation));
-            if (result.addNodeToListBasedTestResult(nodeForHitTest(), request, locationInContainer, m_fillBoundingBox) == HitTestProgress::Stop)
+            if (result.addNodeToListBasedTestResult(protectedNodeForHitTest().get(), request, locationInContainer, m_fillBoundingBox) == HitTestProgress::Stop)
                 return true;
             return false;
         }
@@ -386,7 +391,8 @@ FloatRect RenderSVGShape::calculateApproximateStrokeBoundingBox() const
 
 float RenderSVGShape::strokeWidth() const
 {
-    SVGLengthContext lengthContext(&graphicsElement());
+    Ref graphicsElement = this->graphicsElement();
+    SVGLengthContext lengthContext(graphicsElement.ptr());
     return lengthContext.valueForLength(style().strokeWidth());
 }
 
@@ -399,7 +405,7 @@ Path& RenderSVGShape::ensurePath()
 
 std::unique_ptr<Path> RenderSVGShape::createPath() const
 {
-    return makeUnique<Path>(pathFromGraphicsElement(graphicsElement()));
+    return makeUnique<Path>(pathFromGraphicsElement(protectedGraphicsElement()));
 }
 
 void RenderSVGShape::styleWillChange(StyleDifference diff, const RenderStyle& newStyle)
@@ -415,12 +421,12 @@ void RenderSVGShape::styleWillChange(StyleDifference diff, const RenderStyle& ne
 
 bool RenderSVGShape::needsHasSVGTransformFlags() const
 {
-    return graphicsElement().hasTransformRelatedAttributes();
+    return protectedGraphicsElement()->hasTransformRelatedAttributes();
 }
 
 void RenderSVGShape::applyTransform(TransformationMatrix& transform, const RenderStyle& style, const FloatRect& boundingBox, OptionSet<RenderStyle::TransformOperationOption> options) const
 {
-    applySVGTransform(transform, graphicsElement(), style, boundingBox, std::nullopt, std::nullopt, options);
+    applySVGTransform(transform, protectedGraphicsElement(), style, boundingBox, std::nullopt, std::nullopt, options);
 }
 
 }

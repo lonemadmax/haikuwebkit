@@ -159,10 +159,6 @@ public:
     static void applyValueStrokeWidth(BuilderState&, CSSValue&);
     static void applyValueStrokeColor(BuilderState&, CSSValue&);
 
-    static void applyInitialCustomProperty(BuilderState&, const CSSRegisteredCustomProperty*, const AtomString& name);
-    static void applyInheritCustomProperty(BuilderState&, const CSSRegisteredCustomProperty*, const AtomString& name);
-    static void applyValueCustomProperty(BuilderState&, const CSSRegisteredCustomProperty*, const CSSCustomPropertyValue&);
-
 private:
     static void resetEffectiveZoom(BuilderState&);
 
@@ -1401,7 +1397,7 @@ inline void BuilderCustom::applyInheritStroke(BuilderState& builderState)
 inline void BuilderCustom::applyValueStroke(BuilderState& builderState, CSSValue& value)
 {
     auto& svgStyle = builderState.style().accessSVGStyle();
-    const auto* localValue = value.isPrimitiveValue() ? &downcast<CSSPrimitiveValue>(value) : nullptr;
+    const auto* localValue = dynamicDowncast<CSSPrimitiveValue>(value);
     String url;
     if (auto* list = dynamicDowncast<CSSValueList>(value)) {
         url = downcast<CSSPrimitiveValue>(list->item(0))->stringValue();
@@ -1979,36 +1975,6 @@ inline void BuilderCustom::applyInheritColor(BuilderState& builderState)
 
     builderState.style().setDisallowsFastPathInheritance();
     builderState.style().setHasExplicitlySetColor(builderState.isAuthorOrigin());
-}
-
-inline void BuilderCustom::applyInitialCustomProperty(BuilderState& builderState, const CSSRegisteredCustomProperty* registered, const AtomString& name)
-{
-    if (registered && registered->initialValue) {
-        applyValueCustomProperty(builderState, registered, *registered->initialValue);
-        return;
-    }
-
-    auto invalid = CSSCustomPropertyValue::createWithID(name, CSSValueInvalid);
-    applyValueCustomProperty(builderState, registered, invalid.get());
-}
-
-inline void BuilderCustom::applyInheritCustomProperty(BuilderState& builderState, const CSSRegisteredCustomProperty* registered, const AtomString& name)
-{
-    auto* parentValue = builderState.parentStyle().inheritedCustomProperties().get(name);
-    if (parentValue && !(registered && !registered->inherits))
-        applyValueCustomProperty(builderState, registered, const_cast<CSSCustomPropertyValue&>(*parentValue));
-    else if (auto* nonInheritedParentValue = builderState.parentStyle().nonInheritedCustomProperties().get(name))
-        applyValueCustomProperty(builderState, registered, const_cast<CSSCustomPropertyValue&>(*nonInheritedParentValue));
-    else
-        applyInitialCustomProperty(builderState, registered, name);
-}
-
-inline void BuilderCustom::applyValueCustomProperty(BuilderState& builderState, const CSSRegisteredCustomProperty* registered, const CSSCustomPropertyValue& value)
-{
-    ASSERT(value.isResolved());
-
-    bool isInherited = !registered || registered->inherits;
-    builderState.style().setCustomPropertyValue(value, isInherited);
 }
 
 inline void BuilderCustom::applyInitialContainIntrinsicWidth(BuilderState& builderState)

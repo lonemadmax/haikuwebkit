@@ -58,6 +58,9 @@ SOFT_LINK_FRAMEWORK(UIKit)
 SOFT_LINK_CLASS(UIKit, UIWindow)
 
 #if USE(BROWSERENGINEKIT)
+// FIXME: Replace this with linker flags in TestWebKitAPI.xcconfig once BrowserEngineKit
+// is available everywhere we require it.
+asm(".linker_option \"-framework\", \"BrowserEngineKit\"");
 // FIXME: This workaround can be removed once the fix for rdar://120390585 lands in the SDK.
 SOFT_LINK_CLASS(UIKit, UIKeyEvent)
 #endif
@@ -343,6 +346,22 @@ static NSString *overrideBundleIdentifier(id, SEL)
     [self.textInputContentView applyAutocorrection:correction toString:input shouldUnderline:shouldUnderline withCompletionHandler:[completion = makeBlockPtr(completion)](UIWKAutocorrectionRects *) {
         completion();
     }];
+}
+
+- (void)insertText:(NSString *)primaryString alternatives:(NSArray<NSString *> *)alternativeStrings
+{
+    if (!alternativeStrings.count) {
+        [self.textInputContentView insertText:primaryString];
+        return;
+    }
+
+#if USE(BROWSERENGINEKIT)
+    auto nsAlternatives = adoptNS([[NSTextAlternatives alloc] initWithPrimaryString:primaryString alternativeStrings:alternativeStrings]);
+    auto alternatives = adoptNS([[BETextAlternatives alloc] _initWithNSTextAlternatives:nsAlternatives.get()]);
+    [self.asyncTextInput insertTextAlternatives:alternatives.get()];
+#else
+    [self.textInputContentView insertText:primaryString alternatives:alternativeStrings style:UITextAlternativeStyleNone];
+#endif
 }
 
 #if USE(BROWSERENGINEKIT)

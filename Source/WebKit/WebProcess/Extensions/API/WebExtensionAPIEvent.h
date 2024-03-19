@@ -50,8 +50,8 @@ public:
 
     const ListenerVector& listeners() const { return m_listeners; }
 
-    void addListener(WebPage*, RefPtr<WebExtensionCallbackHandler>);
-    void removeListener(WebPage*, RefPtr<WebExtensionCallbackHandler>);
+    void addListener(WebPage&, RefPtr<WebExtensionCallbackHandler>);
+    void removeListener(WebPage&, RefPtr<WebExtensionCallbackHandler>);
     bool hasListener(RefPtr<WebExtensionCallbackHandler>);
 
     void removeAllListeners();
@@ -62,8 +62,8 @@ public:
     }
 
 private:
-    explicit WebExtensionAPIEvent(ForMainWorld forMainWorld, WebExtensionAPIRuntimeBase& runtime, WebExtensionContextProxy& context, WebExtensionEventListenerType type)
-        : WebExtensionAPIObject(forMainWorld, runtime, context)
+    explicit WebExtensionAPIEvent(const WebExtensionAPIObject& parentObject, WebExtensionEventListenerType type)
+        : WebExtensionAPIObject(parentObject)
         , m_type(type)
     {
     }

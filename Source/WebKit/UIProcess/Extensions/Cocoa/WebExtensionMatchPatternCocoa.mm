@@ -32,8 +32,10 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
+#import "WebProcessMessages.h"
 #import "WebProcessPool.h"
 #import "_WKWebExtensionMatchPatternInternal.h"
+#import <WebCore/PublicSuffix.h>
 #import <wtf/HashMap.h>
 #import <wtf/HashSet.h>
 #import <wtf/NeverDestroyed.h>
@@ -66,6 +68,16 @@ WebExtensionMatchPattern::URLSchemeSet& WebExtensionMatchPattern::supportedSchem
     return schemes;
 }
 
+bool WebExtensionMatchPattern::patternsMatchURL(const MatchPatternSet& matchPatterns, URL& url)
+{
+    for (auto& matchPattern : matchPatterns) {
+        if (matchPattern->matchesURL(url))
+            return true;
+    }
+
+    return false;
+}
+
 static HashMap<String, RefPtr<WebExtensionMatchPattern>>& patternCache()
 {
     static MainThreadNeverDestroyed<HashMap<String, RefPtr<WebExtensionMatchPattern>>> cache;
@@ -80,6 +92,9 @@ void WebExtensionMatchPattern::registerCustomURLScheme(String urlScheme)
     extensionSchemes().addVoid(canonicalScheme.value());
     validSchemes().addVoid(canonicalScheme.value());
     supportedSchemes().addVoid(canonicalScheme.value());
+
+    for (auto& pool : WebProcessPool::allProcessPools())
+        pool->sendToAllProcesses(Messages::WebProcess::RegisterURLSchemeAsWebExtension(urlScheme));
 }
 
 RefPtr<WebExtensionMatchPattern> WebExtensionMatchPattern::getOrCreate(const String& pattern)
@@ -114,7 +129,7 @@ Ref<WebExtensionMatchPattern> WebExtensionMatchPattern::allHostsAndSchemesMatchP
     return getOrCreate(allHostsAndSchemesPattern).releaseNonNull();
 }
 
-bool WebExtensionMatchPattern::patternsMatchAllHosts(HashSet<Ref<WebExtensionMatchPattern>>& patterns)
+bool WebExtensionMatchPattern::patternsMatchAllHosts(const MatchPatternSet& patterns)
 {
     for (auto& pattern : patterns) {
         if (pattern->matchesAllHosts())
@@ -272,6 +287,15 @@ String WebExtensionMatchPattern::path() const
     if (!isValid() || matchesAllURLs())
         return nullString();
     return pattern().path();
+}
+
+bool WebExtensionMatchPattern::hostIsPublicSuffix() const
+{
+    auto host = pattern().host();
+    if (host.startsWith("*."_s))
+        host = host.substring(2);
+
+    return isPublicSuffix(host);
 }
 
 String WebExtensionMatchPattern::stringWithScheme(const String& differentScheme) const

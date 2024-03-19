@@ -33,6 +33,8 @@
 #include "IDBGetRecordData.h"
 #include "IDBIterateCursorData.h"
 #include "IDBKeyRangeData.h"
+#include "IDBOpenRequestData.h"
+#include "IDBRequestData.h"
 #include "IDBResultData.h"
 #include "IDBSerialization.h"
 #include "IDBServer.h"
@@ -169,7 +171,7 @@ UniqueIDBDatabaseManager* UniqueIDBDatabase::manager()
     return m_manager.get();
 }
 
-void UniqueIDBDatabase::openDatabaseConnection(IDBConnectionToClient& connection, const IDBRequestData& requestData)
+void UniqueIDBDatabase::openDatabaseConnection(IDBConnectionToClient& connection, const IDBOpenRequestData& requestData)
 {
     LOG(IndexedDB, "UniqueIDBDatabase::openDatabaseConnection");
     ASSERT(!isMainThread());
@@ -415,7 +417,7 @@ bool UniqueIDBDatabase::allConnectionsAreClosedOrClosing() const
     return true;
 }
 
-void UniqueIDBDatabase::handleDelete(IDBConnectionToClient& connection, const IDBRequestData& requestData)
+void UniqueIDBDatabase::handleDelete(IDBConnectionToClient& connection, const IDBOpenRequestData& requestData)
 {
     LOG(IndexedDB, "UniqueIDBDatabase::handleDelete");
 
@@ -471,7 +473,7 @@ void UniqueIDBDatabase::maybeNotifyConnectionsOfVersionChange()
     // 3.3.7 "versionchange" transaction steps
     // Fire a versionchange event at each connection in m_openDatabaseConnections that is open.
     // The event must not be fired on connections which has the closePending flag set.
-    HashSet<uint64_t> connectionIdentifiers;
+    HashSet<IDBDatabaseConnectionIdentifier> connectionIdentifiers;
     for (const auto& connection : m_openDatabaseConnections) {
         if (connection->closePending())
             continue;
@@ -486,9 +488,9 @@ void UniqueIDBDatabase::maybeNotifyConnectionsOfVersionChange()
         m_currentOpenDBRequest->maybeNotifyRequestBlocked(m_databaseInfo->version());
 }
 
-void UniqueIDBDatabase::notifyCurrentRequestConnectionClosedOrFiredVersionChangeEvent(uint64_t connectionIdentifier)
+void UniqueIDBDatabase::notifyCurrentRequestConnectionClosedOrFiredVersionChangeEvent(IDBDatabaseConnectionIdentifier connectionIdentifier)
 {
-    LOG(IndexedDB, "UniqueIDBDatabase::notifyCurrentRequestConnectionClosedOrFiredVersionChangeEvent - %" PRIu64, connectionIdentifier);
+    LOG(IndexedDB, "UniqueIDBDatabase::notifyCurrentRequestConnectionClosedOrFiredVersionChangeEvent - %" PRIu64, connectionIdentifier.toUInt64());
 
     if (!m_currentOpenDBRequest)
         return;
@@ -967,10 +969,11 @@ void UniqueIDBDatabase::getRecord(const IDBRequestData& requestData, const IDBGe
     IDBGetResult result;
     IDBError error;
 
+    auto transactionIdentifier = requestData.transactionIdentifier();
     if (uint64_t indexIdentifier = requestData.indexIdentifier())
-        error = m_backingStore->getIndexRecord(requestData.transactionIdentifier(), requestData.objectStoreIdentifier(), indexIdentifier, requestData.indexRecordType(), getRecordData.keyRangeData, result);
+        error = m_backingStore->getIndexRecord(transactionIdentifier, requestData.objectStoreIdentifier(), indexIdentifier, requestData.indexRecordType(), getRecordData.keyRangeData, result);
     else
-        error = m_backingStore->getRecord(requestData.transactionIdentifier(), requestData.objectStoreIdentifier(), getRecordData.keyRangeData, getRecordData.type, result);
+        error = m_backingStore->getRecord(transactionIdentifier, requestData.objectStoreIdentifier(), getRecordData.keyRangeData, getRecordData.type, result);
 
     callback(error, result);
 }
@@ -1109,9 +1112,8 @@ void UniqueIDBDatabase::iterateCursor(const IDBRequestData& requestData, const I
         return callback(IDBError { ExceptionCode::InvalidStateError, "Backing store is closed"_s }, IDBGetResult { });
 
     IDBGetResult result;
-    auto transactionIdentifier = requestData.transactionIdentifier();
     auto cursorIdentifier = requestData.cursorIdentifier();
-    auto error = m_backingStore->iterateCursor(transactionIdentifier, cursorIdentifier, data, result);
+    auto error = m_backingStore->iterateCursor(requestData.transactionIdentifier(), cursorIdentifier, data, result);
 
     callback(error, result);
 }
@@ -1228,7 +1230,7 @@ void UniqueIDBDatabase::didFinishHandlingVersionChange(UniqueIDBDatabaseConnecti
 void UniqueIDBDatabase::connectionClosedFromClient(UniqueIDBDatabaseConnection& connection)
 {
     ASSERT(!isMainThread());
-    LOG(IndexedDB, "UniqueIDBDatabase::connectionClosedFromClient - %s (%" PRIu64 ")", connection.openRequestIdentifier().loggingString().utf8().data(), connection.identifier());
+    LOG(IndexedDB, "UniqueIDBDatabase::connectionClosedFromClient - %s (%" PRIu64 ")", connection.openRequestIdentifier().loggingString().utf8().data(), connection.identifier().toUInt64());
 
     Ref<UniqueIDBDatabaseConnection> protectedConnection(connection);
     m_openDatabaseConnections.remove(&connection);
@@ -1263,7 +1265,7 @@ void UniqueIDBDatabase::connectionClosedFromClient(UniqueIDBDatabaseConnection& 
 void UniqueIDBDatabase::connectionClosedFromServer(UniqueIDBDatabaseConnection& connection)
 {
     ASSERT(!isMainThread());
-    LOG(IndexedDB, "UniqueIDBDatabase::connectionClosedFromServer - %s (%" PRIu64 ")", connection.openRequestIdentifier().loggingString().utf8().data(), connection.identifier());
+    LOG(IndexedDB, "UniqueIDBDatabase::connectionClosedFromServer - %s (%" PRIu64 ")", connection.openRequestIdentifier().loggingString().utf8().data(), connection.identifier().toUInt64());
 
     connection.connectionToClient().didCloseFromServer(connection, IDBError::userDeleteError());
 

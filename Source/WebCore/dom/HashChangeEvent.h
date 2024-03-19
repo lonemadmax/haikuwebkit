@@ -62,22 +62,21 @@ public:
     const String& oldURL() const { return m_oldURL; }
     const String& newURL() const { return m_newURL; }
 
-    EventInterface eventInterface() const override { return HashChangeEventInterfaceType; }
-
 private:
     HashChangeEvent()
+        : Event(EventInterfaceType::HashChangeEvent)
     {
     }
 
     HashChangeEvent(const String& oldURL, const String& newURL)
-        : Event(eventNames().hashchangeEvent, CanBubble::No, IsCancelable::No)
+        : Event(EventInterfaceType::HashChangeEvent, eventNames().hashchangeEvent, CanBubble::No, IsCancelable::No)
         , m_oldURL(oldURL)
         , m_newURL(newURL)
     {
     }
 
     HashChangeEvent(const AtomString& type, const Init& initializer, IsTrusted isTrusted)
-        : Event(type, initializer, isTrusted)
+        : Event(EventInterfaceType::HashChangeEvent, type, initializer, isTrusted)
         , m_oldURL(initializer.oldURL)
         , m_newURL(initializer.newURL)
     {

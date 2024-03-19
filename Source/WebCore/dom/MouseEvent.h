@@ -58,7 +58,7 @@ public:
         int screenX, int screenY, int clientX, int clientY, OptionSet<Modifier>, MouseButton, unsigned short buttons,
         SyntheticClickType, EventTarget* relatedTarget);
 
-    static Ref<MouseEvent> createForBindings() { return adoptRef(*new MouseEvent); }
+    static Ref<MouseEvent> createForBindings();
 
     static Ref<MouseEvent> create(const AtomString& eventType, const MouseEventInit&);
 
@@ -71,10 +71,6 @@ public:
     WEBCORE_EXPORT void initMouseEvent(const AtomString& type, bool canBubble, bool cancelable, RefPtr<WindowProxy>&&,
         int detail, int screenX, int screenY, int clientX, int clientY, bool ctrlKey, bool altKey, bool shiftKey, bool metaKey,
         int16_t button, EventTarget* relatedTarget);
-
-    void initMouseEventQuirk(JSC::JSGlobalObject&, ScriptExecutionContext&, const AtomString& type, bool canBubble, bool cancelable, RefPtr<WindowProxy>&&,
-        int detail, int screenX, int screenY, int clientX, int clientY, bool ctrlKey, bool altKey, bool shiftKey, bool metaKey,
-        int16_t button, JSC::JSValue relatedTarget);
 
     MouseButton button() const;
     int16_t buttonAsShort() const { return m_button; }
@@ -93,21 +89,20 @@ public:
     unsigned which() const final;
 
 protected:
-    MouseEvent(const AtomString& type, CanBubble, IsCancelable, IsComposed, MonotonicTime timestamp, RefPtr<WindowProxy>&&, int detail,
+    MouseEvent(enum EventInterfaceType, const AtomString& type, CanBubble, IsCancelable, IsComposed, MonotonicTime timestamp, RefPtr<WindowProxy>&&, int detail,
         const IntPoint& screenLocation, const IntPoint& windowLocation, double movementX, double movementY, OptionSet<Modifier>, MouseButton, unsigned short buttons,
         EventTarget* relatedTarget, double force, SyntheticClickType, IsSimulated, IsTrusted);
 
-    MouseEvent(const AtomString& type, CanBubble, IsCancelable, IsComposed, RefPtr<WindowProxy>&&, int detail,
+    MouseEvent(enum EventInterfaceType, const AtomString& type, CanBubble, IsCancelable, IsComposed, RefPtr<WindowProxy>&&, int detail,
         const IntPoint& screenLocation, const IntPoint& clientLocation, double movementX, double movementY, OptionSet<Modifier>, MouseButton, unsigned short buttons,
         SyntheticClickType, EventTarget* relatedTarget);
 
-    MouseEvent(const AtomString& type, const MouseEventInit&);
+    MouseEvent(enum EventInterfaceType, const AtomString& type, const MouseEventInit&);
 
-    MouseEvent();
+    MouseEvent(enum EventInterfaceType);
 
 private:
     bool isMouseEvent() const final;
-    EventInterface eventInterface() const override;
 
     void setRelatedTarget(RefPtr<EventTarget>&& relatedTarget) final { m_relatedTarget = WTFMove(relatedTarget); }
 

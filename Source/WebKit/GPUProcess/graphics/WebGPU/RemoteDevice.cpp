@@ -131,7 +131,7 @@ void RemoteDevice::createBuffer(const WebGPU::BufferDescriptor& descriptor, WebG
         return;
 
     auto buffer = m_backing->createBuffer(*convertedDescriptor);
-    auto remoteBuffer = RemoteBuffer::create(buffer, m_objectHeap, m_streamConnection.copyRef(), identifier);
+    auto remoteBuffer = RemoteBuffer::create(buffer, m_objectHeap, m_streamConnection.copyRef(), descriptor.mappedAtCreation, identifier);
     m_objectHeap.addObject(identifier, remoteBuffer);
 }
 
@@ -180,15 +180,12 @@ void RemoteDevice::importExternalTextureFromVideoFrame(const WebGPU::ExternalTex
     if (sharedVideoFrame) {
         if (auto videoFrame = m_sharedVideoFrameReader.read(WTFMove(*sharedVideoFrame)))
             pixelBuffer = videoFrame->pixelBuffer();
-    } else {
+    } else if (descriptor.mediaIdentifier) {
         m_gpuConnectionToWebProcess.performWithMediaPlayerOnMainThread(*descriptor.mediaIdentifier, [&] (auto& player) mutable {
             auto videoFrame = player.videoFrameForCurrentTime();
             pixelBuffer = videoFrame ? videoFrame->pixelBuffer() : nullptr;
         });
     }
-
-    if (!pixelBuffer)
-        return;
 
     auto convertedDescriptor = m_objectHeap.convertFromBacking(descriptor, pixelBuffer);
     ASSERT(convertedDescriptor);
@@ -323,7 +320,7 @@ void RemoteDevice::createCommandEncoder(const std::optional<WebGPU::CommandEncod
         if (!convertedDescriptor)
             return;
     }
-    auto commandEncoder = m_backing->createCommandEncoder(*convertedDescriptor);
+    auto commandEncoder = m_backing->createCommandEncoder(convertedDescriptor);
     auto remoteCommandEncoder = RemoteCommandEncoder::create(commandEncoder, m_objectHeap, m_streamConnection.copyRef(), identifier);
     m_objectHeap.addObject(identifier, remoteCommandEncoder);
 }
@@ -357,18 +354,38 @@ void RemoteDevice::pushErrorScope(WebCore::WebGPU::ErrorFilter errorFilter)
     m_backing->pushErrorScope(errorFilter);
 }
 
-void RemoteDevice::popErrorScope(CompletionHandler<void(std::optional<WebGPU::Error>&&)>&& callback)
+void RemoteDevice::popErrorScope(CompletionHandler<void(bool, std::optional<WebGPU::Error>&&)>&& callback)
 {
-    m_backing->popErrorScope([callback = WTFMove(callback)] (std::optional<WebCore::WebGPU::Error>&& error) mutable {
+    m_backing->popErrorScope([callback = WTFMove(callback)] (bool success, std::optional<WebCore::WebGPU::Error>&& error) mutable {
         if (!error) {
-            callback(std::nullopt);
+            callback(success, std::nullopt);
             return;
         }
 
         WTF::switchOn(*error, [&] (Ref<WebCore::WebGPU::OutOfMemoryError> outOfMemoryError) {
-            callback({ WebGPU::OutOfMemoryError { } });
+            callback(success, { WebGPU::OutOfMemoryError { } });
         }, [&] (Ref<WebCore::WebGPU::ValidationError> validationError) {
-            callback({ WebGPU::ValidationError { validationError->message() } });
+            callback(success, { WebGPU::ValidationError { validationError->message() } });
+        }, [&] (Ref<WebCore::WebGPU::InternalError> internalError) {
+            callback(success, { WebGPU::InternalError { internalError->message() } });
+        });
+    });
+}
+
+void RemoteDevice::resolveUncapturedErrorEvent(CompletionHandler<void(bool, std::optional<WebGPU::Error>&&)>&& callback)
+{
+    m_backing->resolveUncapturedErrorEvent([callback = WTFMove(callback)] (bool hasUncapturedError, std::optional<WebCore::WebGPU::Error>&& error) mutable {
+        if (!error) {
+            callback(hasUncapturedError, std::nullopt);
+            return;
+        }
+
+        WTF::switchOn(*error, [&] (Ref<WebCore::WebGPU::OutOfMemoryError> outOfMemoryError) {
+            callback(hasUncapturedError, { WebGPU::OutOfMemoryError { } });
+        }, [&] (Ref<WebCore::WebGPU::ValidationError> validationError) {
+            callback(hasUncapturedError, { WebGPU::ValidationError { validationError->message() } });
+        }, [&] (Ref<WebCore::WebGPU::InternalError> internalError) {
+            callback(hasUncapturedError, { WebGPU::InternalError { internalError->message() } });
         });
     });
 }

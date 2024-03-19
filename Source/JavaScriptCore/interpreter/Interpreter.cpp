@@ -39,13 +39,14 @@
 #include "CatchScope.h"
 #include "CheckpointOSRExitSideState.h"
 #include "CodeBlock.h"
-#include "DirectArguments.h"
 #include "Debugger.h"
+#include "DirectArguments.h"
 #include "DirectEvalCodeCache.h"
 #include "EvalCodeBlock.h"
 #include "ExecutableBaseInlines.h"
 #include "FrameTracers.h"
 #include "GlobalObjectMethodTable.h"
+#include "InlineCallFrame.h"
 #include "InterpreterInlines.h"
 #include "JITCode.h"
 #include "JSArrayInlines.h"
@@ -130,7 +131,7 @@ JSValue eval(CallFrame* callFrame, JSValue thisValue, JSScope* callerScopeChain,
     if (!globalObject->evalEnabled()) {
         globalObject->globalObjectMethodTable()->reportViolationForUnsafeEval(globalObject, programString);
         throwException(globalObject, scope, createEvalError(globalObject, globalObject->evalDisabledErrorMessage()));
-        return jsUndefined();
+        return { };
     }
     String programSource = programString->value(globalObject);
     RETURN_IF_EXCEPTION(scope, JSValue());
@@ -179,7 +180,7 @@ JSValue eval(CallFrame* callFrame, JSValue thisValue, JSScope* callerScopeChain,
         eval = DirectEvalExecutable::create(globalObject, makeSource(programSource, callerBaselineCodeBlock->source().provider()->sourceOrigin(), sourceTaintedOrigin), derivedContextType, callerUnlinkedCodeBlock->needsClassFieldInitializer(), callerUnlinkedCodeBlock->privateBrandRequirement(), isArrowFunctionContext, callerBaselineCodeBlock->ownerExecutable()->isInsideOrdinaryFunction(), evalContextType, &variablesUnderTDZ, &privateNameEnvironment, ecmaMode);
         EXCEPTION_ASSERT(!!scope.exception() == !eval);
         if (!eval)
-            return jsUndefined();
+            return { };
 
         // Skip the eval cache if tainted since another eval call could have a different taintedness.
         if (sourceTaintedOrigin == SourceTaintedOrigin::Untainted)

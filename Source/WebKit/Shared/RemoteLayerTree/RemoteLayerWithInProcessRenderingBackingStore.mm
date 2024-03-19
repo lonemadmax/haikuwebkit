@@ -72,11 +72,8 @@ void RemoteLayerWithInProcessRenderingBackingStore::clearBackingStore()
 
 static std::optional<ImageBufferBackendHandle> handleFromBuffer(ImageBuffer& buffer)
 {
-    auto* sharing = buffer.toBackendSharing();
-    if (is<ImageBufferBackendHandleSharing>(sharing))
-        return downcast<ImageBufferBackendHandleSharing>(*sharing).takeBackendHandle(SharedMemory::Protection::ReadOnly);
-
-    return std::nullopt;
+    auto* sharing = dynamicDowncast<ImageBufferBackendHandleSharing>(buffer.toBackendSharing());
+    return sharing ? sharing->takeBackendHandle(SharedMemory::Protection::ReadOnly) : std::nullopt;
 }
 
 std::optional<ImageBufferBackendHandle> RemoteLayerWithInProcessRenderingBackingStore::frontBufferHandle() const
@@ -93,6 +90,13 @@ std::optional<ImageBufferBackendHandle> RemoteLayerWithInProcessRenderingBacking
         return frontBuffer->dynamicContentScalingDisplayList();
     return std::nullopt;
 }
+
+DynamicContentScalingResourceCache RemoteLayerWithInProcessRenderingBackingStore::ensureDynamicContentScalingResourceCache()
+{
+    if (!m_dynamicContentScalingResourceCache)
+        m_dynamicContentScalingResourceCache = DynamicContentScalingResourceCache::create();
+    return m_dynamicContentScalingResourceCache;
+}
 #endif
 
 void RemoteLayerWithInProcessRenderingBackingStore::createContextAndPaintContents()
@@ -103,6 +107,7 @@ void RemoteLayerWithInProcessRenderingBackingStore::createContextAndPaintContent
     }
 
     GraphicsContext& context = m_frontBuffer.imageBuffer->context();
+    GraphicsContextStateSaver outerSaver(context);
 
     // We never need to copy forward when using display list drawing, since we don't do partial repaint.
     // FIXME: Copy forward logic is duplicated in RemoteImageBufferSet, find a good place to share.
@@ -253,15 +258,17 @@ static RefPtr<ImageBuffer> allocateBufferInternal(RemoteLayerBackingStore::Type 
     }
 }
 
-RefPtr<WebCore::ImageBuffer> RemoteLayerWithInProcessRenderingBackingStore::allocateBuffer() const
+RefPtr<WebCore::ImageBuffer> RemoteLayerWithInProcessRenderingBackingStore::allocateBuffer()
 {
     auto purpose = m_layer->containsBitmapOnly() ? WebCore::RenderingPurpose::BitmapOnlyLayerBacking : WebCore::RenderingPurpose::LayerBacking;
     ImageBufferCreationContext creationContext;
     creationContext.surfacePool = &WebCore::IOSurfacePool::sharedPool();
 
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
-    if (m_parameters.includeDisplayList == IncludeDisplayList::Yes)
+    if (m_parameters.includeDisplayList == IncludeDisplayList::Yes) {
+        creationContext.dynamicContentScalingResourceCache = ensureDynamicContentScalingResourceCache();
         return allocateBufferInternal<DynamicContentScalingBifurcatedImageBuffer>(type(), size(), purpose, scale(), colorSpace(), pixelFormat(), creationContext);
+    }
 #endif
 
     return allocateBufferInternal<ImageBuffer>(type(), size(), purpose, scale(), colorSpace(), pixelFormat(), creationContext);
@@ -285,8 +292,6 @@ void RemoteLayerWithInProcessRenderingBackingStore::prepareToDisplay()
         ASSERT_NOT_REACHED();
         return;
     }
-
-    ASSERT(needsDisplay());
 
     LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " prepareToDisplay()");
 

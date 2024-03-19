@@ -716,6 +716,11 @@ void Options::notifyOptionsChanged()
     Options::useBBQTierUpChecks() = false;
 #endif
 #endif
+
+#if !CPU(ARM64)
+    Options::useRandomizingExecutableIslandAllocation() = false;
+#endif
+
     Options::useDataICInFTL() = false; // Currently, it is not completed. Disable forcefully.
     Options::forceUnlinkedDFG() = false; // Currently, IC is rapidly changing. We disable this until we get the final form of Data IC.
 
@@ -899,6 +904,11 @@ void Options::notifyOptionsChanged()
 
 #if CPU(ADDRESS32)
     Options::useWebAssemblyFastMemory() = false;
+#endif
+
+#if ENABLE(UNIFIED_AND_FREEZABLE_CONFIG_RECORD)
+    uint8_t* reservedConfigBytes = reinterpret_cast_ptr<uint8_t*>(WebConfig::g_config + WebConfig::reservedSlotsForExecutableAllocator);
+    reservedConfigBytes[WebConfig::ReservedByteForAllocationProfiling] = Options::useAllocationProfiling() ? 1 : 0;
 #endif
 
     // Do range checks where needed and make corrections to the options:
@@ -1366,6 +1376,12 @@ SUPPRESS_ASAN bool canUseJITCage()
 {
     if (JSC_FORCE_USE_JIT_CAGE)
         return true;
+#if PLATFORM(MAC)
+    if (Options::allowJITCageExperiments()) {
+        RELEASE_ASSERT(JSC_JIT_CAGE_VERSION());
+        return true;
+    }
+#endif // PLATFORM(MAC)
     return JSC_JIT_CAGE_VERSION() && WTF::processHasEntitlement("com.apple.private.verified-jit"_s);
 }
 #else

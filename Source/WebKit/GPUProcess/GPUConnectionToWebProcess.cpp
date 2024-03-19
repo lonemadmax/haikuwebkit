@@ -28,7 +28,6 @@
 
 #if ENABLE(GPU_PROCESS)
 
-#include "DataReference.h"
 #include "GPUConnectionToWebProcessMessages.h"
 #include "GPUProcess.h"
 #include "GPUProcessConnectionInfo.h"
@@ -225,9 +224,12 @@ private:
 #endif
 
 #if ENABLE(EXTENSION_CAPABILITIES)
-    void setCurrentMediaEnvironment(WebCore::PageIdentifier pageIdentifier) final
+    bool setCurrentMediaEnvironment(WebCore::PageIdentifier pageIdentifier) final
     {
-        WebCore::RealtimeMediaSourceCenter::singleton().setCurrentMediaEnvironment(m_process.mediaEnvironment(pageIdentifier));
+        auto mediaEnvironment = m_process.mediaEnvironment(pageIdentifier);
+        bool result = !mediaEnvironment.isEmpty();
+        WebCore::RealtimeMediaSourceCenter::singleton().setCurrentMediaEnvironment(WTFMove(mediaEnvironment));
+        return result;
     }
 #endif
 

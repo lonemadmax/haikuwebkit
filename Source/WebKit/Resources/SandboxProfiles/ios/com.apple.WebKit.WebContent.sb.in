@@ -517,18 +517,14 @@
 (allow ipc-posix-shm-read*
     (ipc-posix-name "apple.shm.notification_center"))
 
-(with-filter (webcontent-process-launched)
-    (apply-message-filter
-        (deny mach-message-send)
-        (deny mach-message-send (with no-report) (message-number 1023))
-        (allow mach-message-send (with telemetry-backtrace) (notifyd-message-numbers))))
-
+#if ENABLE(NOTIFY_BLOCKING)
 (with-filter (state-flag "EnableExperimentalSandbox")
     (allow mach-lookup (global-name "com.apple.system.notification_center")
         (apply-message-filter
             (deny mach-message-send)
             (deny mach-message-send (with no-report) (message-number 1023))
-            (allow mach-message-send (with report) (with telemetry) (notifyd-message-numbers)))))
+            (deny mach-message-send (with telemetry-backtrace) (notifyd-message-numbers)))))
+#endif
 
 (managed-configuration-read-public)
 
@@ -925,11 +921,12 @@
 (with-filter (system-attribute apple-internal)
     (allow mach-lookup
         (global-name "com.apple.diagnosticd")
+        ;; This is only added temporarily. See rdar://123786910.
+        (global-name "com.apple.analyticsd")
         (global-name "com.apple.osanalytics.osanalyticshelper")))
 
 (define (mach-extension-list)
     (global-name
-        "com.apple.iconservices"
         "com.apple.mobileassetd.v2"))
 
 (allow mach-lookup (with telemetry-backtrace)
@@ -1149,10 +1146,21 @@
 (allow syscall-unix (syscall-unix-only-in-use-during-launch))
 #endif
 
-(with-filter (require-not (state-flag "EnableExperimentalSandbox"))
+
+#if ENABLE(QUICKLOOK_SANDBOX_RESTRICTIONS)
+(with-filter (require-not (state-flag "BlockQuickLookSandboxResources"))
+    (allow syscall-unix
+        (syscall-unix-rarely-in-use)
+        (syscall-unix-rarely-in-use-blocked-in-lockdown-mode)))
+(with-filter (state-flag "BlockQuickLookSandboxResources")
     (allow syscall-unix (with report) (with telemetry-backtrace)
         (syscall-unix-rarely-in-use)
         (syscall-unix-rarely-in-use-blocked-in-lockdown-mode)))
+#else
+(allow syscall-unix
+    (syscall-unix-rarely-in-use)
+    (syscall-unix-rarely-in-use-blocked-in-lockdown-mode))
+#endif
 
 (deny syscall-unix (with no-report) (syscall-number
     SYS_connect
@@ -1206,17 +1214,6 @@
         (fcntl-command
             F_GETLK
             F_OFD_SETLK))
-
-    (define (appcache-fcntl-commands)
-        (fcntl-command
-            F_OFD_GETLK
-            F_OFD_SETLKWTIMEOUT))
-            
-#if HAVE(SANDBOX_STATE_FLAGS)
-    (deny system-fcntl (with telemetry-backtrace) (appcache-fcntl-commands))
-#else
-    (allow system-fcntl (appcache-fcntl-commands))
-#endif
 
     (allow system-fcntl
         (fcntl-command F_GETPROTECTIONCLASS)
@@ -1469,8 +1466,13 @@
 #endif
 #endif
 
+#if ENABLE(BLOCK_SET_EXCEPTION_PORTS)
+        (with-filter (require-not (webcontent-process-launched))
+            (allow mach-message-send (kernel-mig-routine thread_set_exception_ports)))
+#else
         (with-filter (require-not (lockdown-mode))
             (allow mach-message-send (kernel-mig-routine thread_set_exception_ports)))
+#endif
 
         (with-filter (lockdown-mode)
             (deny mach-message-send (with telemetry) (with message "Lockdown mode")
@@ -1486,6 +1488,35 @@
 (deny darwin-notification-post (with no-report))
 (allow darwin-notification-post
     (notification-name
+#if ENABLE(NOTIFY_BLOCKING)
+        "com.apple.WebKit.LibraryPathDiagnostics"
+        "com.apple.WebKit.deleteAllCode"
+        "com.apple.WebKit.dumpGCHeap"
+        "com.apple.WebKit.dumpUntrackedMallocs"
+        "com.apple.WebKit.fullGC"
+        "com.apple.WebKit.logMemStats"
+        "com.apple.WebKit.logPageState"
+        "com.apple.WebKit.showAllDocuments"
+        "com.apple.WebKit.showBackForwardCache"
+        "com.apple.WebKit.showGraphicsLayerTree"
+        "com.apple.WebKit.showLayerTree"
+        "com.apple.WebKit.showLayoutTree"
+        "com.apple.WebKit.showMemoryCache"
+        "com.apple.WebKit.showPaintOrderTree"
+        "com.apple.WebKit.showRenderTree"
+        "com.apple.language.changed"
+        "com.apple.mediaaccessibility.captionAppearanceSettingsChanged"
+        "com.apple.powerlog.state_changed"
+        "com.apple.system.lowpowermode"
+        "com.apple.system.timezone"
+        "com.apple.zoomwindow"
+        "org.WebKit.lowMemory"
+        "org.WebKit.lowMemory.begin"
+        "org.WebKit.lowMemory.end"
+        "org.WebKit.memoryWarning"
+        "org.WebKit.memoryWarning.begin"
+        "org.WebKit.memoryWarning.end"
+#endif
         "_AXNotification_AXSClassicInvertColorsPreference"
         "com.apple.WebContentFilter.remoteUI.WebContentAnalysisUI-com.apple.uikit.viewService.connectionRequest"
         "com.apple.accessibility.AirPodsSpatialAudioLockToDeviceChanged"

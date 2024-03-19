@@ -76,6 +76,7 @@
 #import <WebCore/HistoryController.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/IOSurface.h>
+#import <WebCore/Image.h>
 #import <WebCore/ImageDecoderCG.h>
 #import <WebCore/LocalFrameView.h>
 #import <WebCore/LocalizedDeviceModel.h>
@@ -161,8 +162,11 @@
 #import <WebCore/DisplayConfigurationMonitor.h>
 #import <WebCore/ScrollbarThemeMac.h>
 #import <pal/spi/cf/CoreTextSPI.h>
-#import <pal/spi/mac/HIServicesSPI.h>
 #import <pal/spi/mac/NSScrollerImpSPI.h>
+#endif
+
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+#import <pal/spi/mac/HIServicesSPI.h>
 #endif
 
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
@@ -196,7 +200,7 @@ SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, UIKit, _UIApplicationCatalystRequ
 #define WEBPROCESS_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [sessionID=%" PRIu64 "] WebProcess::" fmt, this, RELEASE_LOG_SESSION_ID, ##__VA_ARGS__)
 #define WEBPROCESS_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [sessionID=%" PRIu64 "] WebProcess::" fmt, this, RELEASE_LOG_SESSION_ID, ##__VA_ARGS__)
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
 SOFT_LINK_FRAMEWORK_IN_UMBRELLA(ApplicationServices, HIServices)
 SOFT_LINK_FUNCTION_MAY_FAIL_FOR_SOURCE(WebKit, HIServices, _AXSetAuditTokenIsAuthenticatedCallback, void, (AXAuditTokenIsAuthenticatedCallback callback), (callback))
 #endif
@@ -211,6 +215,16 @@ static const double serviceWorkerCPULimit { 0.5 }; // 50% average CPU usage over
 
 void WebProcess::platformSetCacheModel(CacheModel)
 {
+}
+
+void WebProcess::bindAccessibilityFrameWithData(WebCore::FrameIdentifier frameID, std::span<const uint8_t> data)
+{
+    if (!m_accessibilityRemoteFrameTokenCache)
+        m_accessibilityRemoteFrameTokenCache = adoptNS([[NSMutableDictionary alloc] init]);
+
+    auto frameInt = frameID.object().toUInt64();
+    NSData *nsData = [NSData dataWithBytes:data.data() length:data.size()];
+    [m_accessibilityRemoteFrameTokenCache setObject:nsData forKey:@(frameInt)];
 }
 
 id WebProcess::accessibilityFocusedUIElement()
@@ -268,7 +282,7 @@ static void preventAppKitFromContactingLaunchServices(NSApplication*, SEL)
 #endif
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
 static Boolean isAXAuthenticatedCallback(audit_token_t auditToken)
 {
     bool authenticated = false;
@@ -550,7 +564,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     WebCore::CaptionUserPreferencesMediaAF::setCaptionPreferencesDelegate(makeUnique<WebCaptionPreferencesDelegate>());
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     if (canLoad_HIServices__AXSetAuditTokenIsAuthenticatedCallback())
         softLink_HIServices__AXSetAuditTokenIsAuthenticatedCallback(isAXAuthenticatedCallback);
 #endif
@@ -576,7 +590,6 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 void WebProcess::platformSetWebsiteDataStoreParameters(WebProcessDataStoreParameters&& parameters)
 {
 #if ENABLE(SANDBOX_EXTENSIONS)
-    SandboxExtension::consumePermanently(parameters.applicationCacheDirectoryExtensionHandle);
 #if !ENABLE(GPU_PROCESS)
     SandboxExtension::consumePermanently(parameters.mediaCacheDirectoryExtensionHandle);
 #endif
@@ -691,13 +704,14 @@ static NSString *webProcessLoaderAccessibilityBundlePath()
     return [path stringByAppendingPathComponent:@"System/Library/AccessibilityBundles/WebProcessLoader.axbundle"];
 }
 
-#if !PLATFORM(MACCATALYST)
 static NSString *webProcessAccessibilityBundlePath()
 {
     NSString *path = (__bridge NSString *)GSSystemRootDirectory();
+#if PLATFORM(MACCATALYST)
+    path = [path stringByAppendingPathComponent:@"System/iOSSupport"];
+#endif
     return [path stringByAppendingPathComponent:@"System/Library/AccessibilityBundles/WebProcess.axbundle"];
 }
-#endif // !PLATFORM(MACCATALYST)
 #endif
 
 static void registerWithAccessibility()
@@ -712,7 +726,6 @@ static void registerWithAccessibility()
     if (![[NSBundle bundleWithPath:bundlePath] loadAndReturnError:&error])
         LOG_ERROR("Failed to load accessibility bundle at %@: %@", bundlePath, error);
 
-#if !PLATFORM(MACCATALYST)
     // This code will eagerly start the in-process AX server.
     // This enables us to revoke the Mach bootstrap sandbox extension.
     NSString *webProcessAXBundlePath = webProcessAccessibilityBundlePath();
@@ -722,7 +735,6 @@ static void registerWithAccessibility()
         [[bundle principalClass] safeValueForKey:@"accessibilityInitializeBundle"];
     else
         LOG_ERROR("Failed to load accessibility bundle at %@: %@", webProcessAXBundlePath, error);
-#endif // !PLATFORM(MACCATALYST)
 #endif
 }
 
@@ -791,6 +803,16 @@ static void prewarmLogs()
     }
 }
 
+static Ref<WorkQueue> logQueue()
+{
+    static LazyNeverDestroyed<Ref<WorkQueue>> queue;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, [&] {
+        queue.construct(WorkQueue::create("Log Queue", WorkQueue::QOS::Background));
+    });
+    return queue.get();
+}
+
 static void registerLogHook()
 {
     if (os_trace_get_mode() != OS_TRACE_MODE_DISABLE && os_trace_get_mode() != OS_TRACE_MODE_OFF)
@@ -824,9 +846,7 @@ static void registerLogHook()
         Vector<uint8_t> buffer(msg->buffer, msg->buffer_sz);
         Vector<uint8_t> privdata(msg->privdata, msg->privdata_sz);
 
-        static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("Log Queue", WorkQueue::QOS::Background));
-
-        queue.get()->dispatchWithQOS([logFormat = WTFMove(logFormat), logChannel = WTFMove(logChannel), logCategory = WTFMove(logCategory), type = type, buffer = WTFMove(buffer), privdata = WTFMove(privdata), qos] {
+        logQueue()->dispatchWithQOS([logFormat = WTFMove(logFormat), logChannel = WTFMove(logChannel), logCategory = WTFMove(logCategory), type = type, buffer = WTFMove(buffer), privdata = WTFMove(privdata), qos] {
             os_log_message_s msg;
             memset(&msg, 0, sizeof(msg));
 
@@ -839,7 +859,7 @@ static void registerLogHook()
             char* messageString = os_log_copy_message_string(&msg);
             if (!messageString)
                 return;
-            IPC::DataReference logString(reinterpret_cast<uint8_t*>(messageString), strlen(messageString) + 1);
+            std::span logString(reinterpret_cast<uint8_t*>(messageString), strlen(messageString) + 1);
 
             auto connectionID = WebProcess::singleton().networkProcessConnectionID();
             if (connectionID)
@@ -1245,9 +1265,11 @@ void WebProcess::accessibilityPreferencesDidChange(const AccessibilityPreference
     FontCache::invalidateAllFontCaches();
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
     m_imageAnimationEnabled = preferences.imageAnimationEnabled;
-    for (auto& page : m_pageMap.values())
-        page->updateImageAnimationEnabled();
 #endif
+#if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+    m_prefersNonBlinkingCursor = preferences.prefersNonBlinkingCursor;
+#endif
+    updatePageAccessibilitySettings();
 }
 
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
@@ -1262,6 +1284,25 @@ void WebProcess::setMediaAccessibilityPreferences(WebCore::CaptionUserPreference
     }
 }
 #endif
+
+void WebProcess::updatePageAccessibilitySettings()
+{
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+    Image::setSystemAllowsAnimationControls(!imageAnimationEnabled());
+#endif
+
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL) || ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+    for (auto& page : m_pageMap.values()) {
+#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+        page->updateImageAnimationEnabled();
+#endif
+
+#if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+        page->updatePrefersNonBlinkingCursor();
+#endif
+    }
+#endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL) || ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+}
 
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
 void WebProcess::colorPreferencesDidChange()
@@ -1506,9 +1547,16 @@ void WebProcess::revokeLaunchServicesSandboxExtension()
 }
 #endif
 
-#if ENABLE(NOTIFYD_BLOCKING_IN_WEBCONTENT)
-void WebProcess::postNotification(const String& message)
+#if ENABLE(NOTIFY_BLOCKING)
+void WebProcess::postNotification(const String& message, std::optional<uint64_t> state)
 {
+    if (state) {
+        int token = 0;
+        if (notify_register_check(message.ascii().data(), &token) == NOTIFY_STATUS_OK) {
+            notify_set_state(token, *state);
+            notify_cancel(token);
+        }
+    }
     notify_post(message.ascii().data());
 }
 

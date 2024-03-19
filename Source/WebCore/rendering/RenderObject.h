@@ -169,6 +169,7 @@ public:
         VTTCue,
         Video,
         View,
+        ViewTransitionCapture,
 #if ENABLE(MATHML)
         MathMLBlock,
         MathMLFenced,
@@ -254,6 +255,7 @@ public:
         IsImage = 1 << 0,
         IsMedia = 1 << 1,
         IsWidget = 1 << 2,
+        IsViewTransitionCapture = 1 << 3,
     };
 
     enum class SVGModelObjectFlag : uint8_t {
@@ -474,6 +476,7 @@ public:
     bool isRenderSearchField() const { return type() == Type::SearchField; }
     bool isRenderTextControlInnerBlock() const { return type() == Type::TextControlInnerBlock; }
     bool isRenderVideo() const { return type() == Type::Video; }
+    bool isRenderViewTransitionCapture() const { return isRenderReplaced() && m_typeSpecificFlags.replacedFlags().contains(ReplacedFlag::IsViewTransitionCapture); }
     bool isRenderWidget() const { return isRenderReplaced() && m_typeSpecificFlags.replacedFlags().contains(ReplacedFlag::IsWidget); }
     bool isRenderHTMLCanvas() const { return type() == Type::HTMLCanvas; }
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -509,6 +512,8 @@ public:
     bool everHadLayout() const { return m_stateBitfields.hasFlag(StateFlag::EverHadLayout); }
 
     static ScrollAnchoringController* searchParentChainForScrollAnchoringController(const RenderObject&);
+
+    bool everHadSkippedContentLayout() const { return m_stateBitfields.hasFlag(StateFlag::EverHadSkippedContentLayout); }
 
     bool childrenInline() const { return m_stateBitfields.hasFlag(StateFlag::ChildrenInline); }
     virtual void setChildrenInline(bool b) { m_stateBitfields.setFlag(StateFlag::ChildrenInline, b); }
@@ -660,8 +665,8 @@ public:
 
     bool isRenderText() const { return m_typeFlags.contains(TypeFlag::IsText); }
     bool isRenderLineBreak() const { return type() == Type::LineBreak; }
-    bool isBR() const { return isRenderLineBreak() && !isWBR(); }
-    bool isWBR() const { return isRenderLineBreak() && m_typeSpecificFlags.lineBreakFlags().contains(LineBreakFlag::IsWBR); }
+    bool isBR() const { return isRenderLineBreak() && !hasWBRLineBreakFlag(); }
+    bool isWBR() const { return isRenderLineBreak() && hasWBRLineBreakFlag(); }
     bool isLineBreakOpportunity() const { return isRenderLineBreak() && isWBR(); }
     bool isRenderTextOrLineBreak() const { return isRenderText() || isRenderLineBreak(); }
     bool isRenderBox() const { return m_typeFlags.contains(TypeFlag::IsBox); }
@@ -757,7 +762,8 @@ public:
 
     void markContainingBlocksForLayout(ScheduleRelayout = ScheduleRelayout::Yes, RenderElement* newRoot = nullptr);
     void setNeedsLayout(MarkingBehavior = MarkContainingBlockChain);
-    void clearNeedsLayout();
+    enum class EverHadSkippedContentLayout { Yes, No };
+    void clearNeedsLayout(EverHadSkippedContentLayout = EverHadSkippedContentLayout::Yes);
     void setPreferredLogicalWidthsDirty(bool, MarkingBehavior = MarkContainingBlockChain);
     void invalidateContainerPreferredLogicalWidths();
     
@@ -798,6 +804,7 @@ public:
 
     bool hitTest(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestFilter = HitTestAll);
     virtual Node* nodeForHitTest() const;
+    RefPtr<Node> protectedNodeForHitTest() const;
     virtual void updateHitTestResult(HitTestResult&, const LayoutPoint&);
 
     virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction);
@@ -1152,6 +1159,7 @@ protected:
     bool isSetNeedsLayoutForbidden() const;
 
     void issueRepaint(std::optional<LayoutRect> partialRepaintRect = std::nullopt, ClipRepaintToLayer = ClipRepaintToLayer::No, ForceRepaint = ForceRepaint::No, std::optional<LayoutBoxExtent> additionalRepaintOutsets = std::nullopt) const;
+    bool hasWBRLineBreakFlag() const { return m_typeSpecificFlags.lineBreakFlags().contains(LineBreakFlag::IsWBR); }
 
 private:
     virtual RepaintRects localRectsForRepaint(RepaintOutlineBounds) const;
@@ -1173,6 +1181,8 @@ private:
     void propagateRepaintToParentWithOutlineAutoIfNeeded(const RenderLayerModelObject& repaintContainer, const LayoutRect& repaintRect) const;
 
     void setEverHadLayout() { m_stateBitfields.setFlag(StateFlag::EverHadLayout); }
+
+    void setEverHadSkippedContentLayout(bool b) { m_stateBitfields.setFlag(StateFlag::EverHadSkippedContentLayout, b); }
 
     bool hasRareData() const { return m_stateBitfields.hasFlag(StateFlag::HasRareData); }
 
@@ -1207,6 +1217,7 @@ private:
         ChildrenInline = 1 << 17,
         PaintContainmentApplies = 1 << 18,
         HasSVGTransform = 1 << 19,
+        EverHadSkippedContentLayout = 1 << 20,
     };
 
     class StateBitfields {
@@ -1218,12 +1229,12 @@ private:
         };
 
     private:
-        uint32_t m_flags : 20 { 0 };
+        uint32_t m_flags : 21 { 0 };
         uint32_t m_positionedState : 2 { IsStaticallyPositioned }; // PositionedState
         uint32_t m_selectionState : 3 { enumToUnderlyingType(HighlightState::None) }; // HighlightState
         uint32_t m_fragmentedFlowState : 1 { enumToUnderlyingType(FragmentedFlowState::NotInsideFlow) }; // FragmentedFlowState
         uint32_t m_boxDecorationState : 2 { enumToUnderlyingType(BoxDecorationState::None) }; // BoxDecorationState
-        // 4 bits free
+        // 3 bits free
 
     public:
         OptionSet<StateFlag> flags() const { return OptionSet<StateFlag>::fromRaw(m_flags); }

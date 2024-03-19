@@ -29,7 +29,6 @@
 #import "AppStoreDaemonSPI.h"
 #import "AuthenticationChallengeDisposition.h"
 #import "AuthenticationManager.h"
-#import "DataReference.h"
 #import "DefaultWebBrowserChecks.h"
 #import "Download.h"
 #import "LegacyCustomProtocolManager.h"
@@ -924,7 +923,7 @@ static NSDictionary<NSString *, id> *extractResolutionReport(NSError *error)
             }
         }
 
-        auto resumeDataReference = resumeData ? IPC::DataReference { static_cast<const uint8_t*>(resumeData.bytes), resumeData.length } : IPC::DataReference { };
+        auto resumeDataReference = resumeData ? std::span { static_cast<const uint8_t*>(resumeData.bytes), resumeData.length } : std::span<const uint8_t> { };
         download->didFail(error, resumeDataReference);
     }
 }
@@ -1366,25 +1365,6 @@ void SessionWrapper::initialize(NSURLSessionConfiguration *configuration, Networ
     session = [NSURLSession sessionWithConfiguration:configuration delegate:delegate.get() delegateQueue:[NSOperationQueue mainQueue]];
 }
 
-static void activateSessionCleanup(NetworkSessionCocoa& session, const NetworkSessionCreationParameters& parameters)
-{
-#if PLATFORM(MAC) || PLATFORM(IOS) || PLATFORM(VISION)
-    // Don't override an explicitly set value.
-    if (parameters.resourceLoadStatisticsParameters.isTrackingPreventionStateExplicitlySet)
-        return;
-
-#if !PLATFORM(IOS_FAMILY_SIMULATOR)
-    bool trackingPreventionEnabled = doesParentProcessHaveTrackingPreventionEnabled(session.networkProcess(), parameters.appHasRequestedCrossWebsiteTrackingPermission);
-    bool passedEnabledState = session.isTrackingPreventionEnabled();
-
-    // We do not need to log a discrepancy between states for WebKitTestRunner or TestWebKitAPI.
-    if (trackingPreventionEnabled != passedEnabledState && !isRunningTest(WebCore::applicationBundleIdentifier()))
-        WTFLogAlways("Passed ITP enabled state (%d) does not match TCC setting (%d)\n", passedEnabledState, trackingPreventionEnabled);
-    session.setTrackingPreventionEnabled(passedEnabledState);
-#endif
-#endif
-}
-
 NetworkSessionCocoa::NetworkSessionCocoa(NetworkProcess& networkProcess, const NetworkSessionCreationParameters& parameters)
     : NetworkSession(networkProcess, parameters)
     , m_defaultSessionSet(SessionSet::create())
@@ -1516,7 +1496,10 @@ NetworkSessionCocoa::NetworkSessionCocoa(NetworkProcess& networkProcess, const N
         m_resourceLoadStatistics->setManagedDomains(HashSet<WebCore::RegistrableDomain> { parameters.resourceLoadStatisticsParameters.managedDomains }, [] { });
 #endif
 
-    activateSessionCleanup(*this, parameters);
+#if HAVE(NW_PROXY_CONFIG)
+    if (parameters.proxyConfigData)
+        setProxyConfigData(WTFMove(*parameters.proxyConfigData));
+#endif
 }
 
 NetworkSessionCocoa::~NetworkSessionCocoa() = default;
@@ -1992,7 +1975,7 @@ private:
     {
         if (!m_connection)
             return;
-        buffer.forEachSegment([&] (auto& segment) {
+        buffer.forEachSegment([&](auto segment) {
             m_connection->send(Messages::NetworkProcessProxy::DataTaskDidReceiveData(m_identifier, segment), 0);
         });
     }
@@ -2183,7 +2166,7 @@ void NetworkSessionCocoa::clearProxyConfigData()
         clearProxies(context);
 }
 
-void NetworkSessionCocoa::setProxyConfigData(Vector<std::pair<Vector<uint8_t>, WTF::UUID>>&& proxyConfigurations)
+void NetworkSessionCocoa::setProxyConfigData(const Vector<std::pair<Vector<uint8_t>, WTF::UUID>>& proxyConfigurations)
 {
     auto* clearProxies = nw_context_clear_proxiesPtr();
     auto* addProxy = nw_context_add_proxyPtr();

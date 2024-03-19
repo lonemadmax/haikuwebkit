@@ -40,6 +40,8 @@
 #include "HTMLInputElement.h"
 #include "HTMLLabelElement.h"
 #include "HitTestResult.h"
+#include "LegacyRenderSVGShape.h"
+#include "LegacyRenderSVGShapeInlines.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "Page.h"
@@ -47,8 +49,11 @@
 #include "PseudoClassChangeInvalidation.h"
 #include "RenderAncestorIterator.h"
 #include "RenderBoxInlines.h"
+#include "RenderImage.h"
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
+#include "RenderVideo.h"
+#include "SVGSVGElement.h"
 #include "SimpleRange.h"
 #include "SliderThumbElement.h"
 #include "StyleResolver.h"
@@ -210,7 +215,10 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
     if (!matchedElement)
         return std::nullopt;
 
-    bool isLabelable = is<HTMLElement>(matchedElement) && downcast<HTMLElement>(matchedElement)->isLabelable();
+    bool isLabelable = [&] {
+        auto* htmlElement = dynamicDowncast<HTMLElement>(matchedElement);
+        return htmlElement && htmlElement->isLabelable();
+    }();
     for (Node* node = matchedElement; node; node = node->parentInComposedTree()) {
         auto* element = dynamicDowncast<Element>(node);
         if (!element)
@@ -244,13 +252,15 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
 
     auto elementIdentifier = matchedElement->identifier();
 
-    if (!hasPointer && is<HTMLLabelElement>(matchedElement)) {
-        // Could be a `<label for="...">` or a label with a descendant.
-        // In cases where both elements get a region we want to group them by the same `elementIdentifier`.
-        auto associatedElement = downcast<HTMLLabelElement>(matchedElement)->control();
-        if (associatedElement && !associatedElement->isDisabledFormControl()) {
-            hasPointer = true;
-            elementIdentifier = associatedElement->identifier();
+    if (!hasPointer) {
+        if (auto* labelElement = dynamicDowncast<HTMLLabelElement>(matchedElement)) {
+            // Could be a `<label for="...">` or a label with a descendant.
+            // In cases where both elements get a region we want to group them by the same `elementIdentifier`.
+            auto associatedElement = labelElement->control();
+            if (associatedElement && !associatedElement->isDisabledFormControl()) {
+                hasPointer = true;
+                elementIdentifier = associatedElement->identifier();
+            }
         }
     }
 
@@ -258,7 +268,10 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
     if (!hasPointer) {
         // The hover check can be expensive (it may end up doing selector matching), so we only run it on some elements.
         bool hasVisibleBoxDecorations = renderer.hasVisibleBoxDecorations();
-        bool nonScrollable = !is<RenderBox>(renderer) || (!downcast<RenderBox>(renderer).hasScrollableOverflowX() && !downcast<RenderBox>(renderer).hasScrollableOverflowY());
+        bool nonScrollable = [&] {
+            auto* box = dynamicDowncast<RenderBox>(renderer);
+            return !box || (!box->hasScrollableOverflowX() && !box->hasScrollableOverflowY());
+        }();
         if (hasVisibleBoxDecorations && nonScrollable)
             detectedHoverRules = elementMatchesHoverRules(*matchedElement);
     }
@@ -276,9 +289,43 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
     }
 
     bool isInlineNonBlock = renderer.isInline() && !renderer.isReplacedOrInlineBlock();
+    bool isPhoto = false;
+
+    float minimumPhotoArea = 200 / scale * 200 / scale;
+    if (bounds.area() > minimumPhotoArea) {
+        if (auto* renderImage = dynamicDowncast<RenderImage>(regionRenderer)) {
+            isPhoto = [&]() -> bool {
+                if (is<RenderVideo>(renderImage))
+                    return true;
+
+                if (!renderImage->cachedImage() || renderImage->cachedImage()->errorOccurred())
+                    return false;
+
+                auto* image = renderImage->cachedImage()->image();
+                if (!image || !image->isBitmapImage())
+                    return false;
+
+                if (image->nativeImage() && image->nativeImage()->hasAlpha())
+                    return false;
+
+                return true;
+            }();
+        } else if (regionRenderer.style().hasBackgroundImage()) {
+            auto* image = regionRenderer.style().backgroundLayers().image()->cachedImage()->image();
+            isPhoto = [&]() -> bool {
+                if (!image || !image->isBitmapImage())
+                    return false;
+
+                if (image->nativeImage() && image->nativeImage()->hasAlpha())
+                    return false;
+
+                return true;
+            }();
+        }
+    }
 
     // The parent will get its own InteractionRegion.
-    if (!isOriginalMatch && !isInlineNonBlock && !renderer.style().isDisplayTableOrTablePart())
+    if (!isOriginalMatch && !isPhoto && !isInlineNonBlock && !renderer.style().isDisplayTableOrTablePart())
         return std::nullopt;
 
     auto rect = bounds;
@@ -286,7 +333,32 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
     OptionSet<InteractionRegion::CornerMask> maskedCorners { };
     std::optional<Path> clipPath = std::nullopt;
 
-    if (const auto& renderBox = dynamicDowncast<RenderBox>(regionRenderer)) {
+    if (const auto& renderShape = dynamicDowncast<LegacyRenderSVGShape>(regionRenderer)) {
+        auto& svgElement = renderShape->graphicsElement();
+        auto path = svgElement.toClipPath();
+
+        auto shapeBoundingBox = svgElement.getBBox(SVGLocatable::DisallowStyleUpdate);
+        path.translate(FloatSize(-shapeBoundingBox.x(), -shapeBoundingBox.y()));
+
+        auto* svgSVGElement = svgElement.ownerSVGElement();
+        if (svgSVGElement) {
+            FloatSize size = svgSVGElement->currentViewportSizeExcludingZoom();
+            auto viewBoxTransform = svgSVGElement->viewBoxToViewTransform(size.width(), size.height());
+            shapeBoundingBox = viewBoxTransform.mapRect(shapeBoundingBox);
+            path.transform(AffineTransform::makeScale(FloatSize(viewBoxTransform.xScale(), viewBoxTransform.yScale())));
+
+            // Position to respect clipping. `rect` is already clipped but the Path is complete.
+            auto clipDeltaX = rect.width() - shapeBoundingBox.width();
+            auto clipDeltaY = rect.height() - shapeBoundingBox.height();
+            if (shapeBoundingBox.x() >= 0)
+                clipDeltaX = 0;
+            if (shapeBoundingBox.y() >= 0)
+                clipDeltaY = 0;
+            path.translate(FloatSize(clipDeltaX, clipDeltaY));
+        }
+
+        clipPath = path;
+    } else if (const auto& renderBox = dynamicDowncast<RenderBox>(regionRenderer)) {
         auto roundedRect = renderBox->borderRoundedRect();
         auto borderRadii = roundedRect.radii();
         auto minRadius = borderRadii.minimumRadius();
@@ -322,7 +394,9 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
     }
 
     auto& style = regionRenderer.style();
-    bool canTweakShape = !style.hasBackground()
+    bool canTweakShape = !isPhoto
+        && !clipPath
+        && !style.hasBackground()
         && !style.hasOutline()
         && !style.boxShadow()
         && !style.hasExplicitlySetBorderRadius()
@@ -343,6 +417,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
         rect,
         cornerRadius,
         maskedCorners,
+        isPhoto ? InteractionRegion::ContentHint::Photo : InteractionRegion::ContentHint::Default,
         clipPath
     } };
 }
@@ -353,6 +428,8 @@ TextStream& operator<<(TextStream& ts, const InteractionRegion& interactionRegio
         ? "interaction"
         : (interactionRegion.type == InteractionRegion::Type::Occlusion ? "occlusion" : "guard");
     ts.dumpProperty(regionName, interactionRegion.rectInLayerCoordinates);
+    if (interactionRegion.contentHint != InteractionRegion::ContentHint::Default)
+        ts.dumpProperty("content hint", "photo");
     auto radius = interactionRegion.cornerRadius;
     if (radius > 0) {
         if (interactionRegion.maskedCorners.isEmpty())

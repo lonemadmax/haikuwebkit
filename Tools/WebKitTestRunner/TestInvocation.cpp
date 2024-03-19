@@ -175,7 +175,7 @@ void TestInvocation::invoke()
     if (m_error)
         goto end;
 
-    if (m_options.runInCrossOriginIFrame()) {
+    if (m_options.runInCrossOriginFrame()) {
         WKRetainPtr<WKURLRef> baseURL = adoptWK(WKURLCreateWithUTF8CString("http://www.webkit.org"));
         WKRetainPtr<WKStringRef> htmlString = toWK(makeString("<iframe src=\"", m_urlString.utf8().data(), "\" style=\"position:absolute; top:0; left:0; width:100%; height:100%; border:0\">"));
         WKPageLoadHTMLString(TestController::singleton().mainWebView()->page(), htmlString.get(), baseURL.get());
@@ -350,6 +350,9 @@ void TestInvocation::didReceiveMessageFromInjectedBundle(WKStringRef messageName
         done();
         return;
     }
+
+    if (WKStringIsEqualToUTF8CString(messageName, "NotifyDone"))
+        return postPageMessage("NotifyDone");
 
     if (WKStringIsEqualToUTF8CString(messageName, "TextOutput") || WKStringIsEqualToUTF8CString(messageName, "FinalTextOutput")) {
         m_textOutput.append(toWTFString(stringValue(messageBody)));
@@ -1307,7 +1310,8 @@ WKRetainPtr<WKTypeRef> TestInvocation::didReceiveSynchronousMessageFromInjectedB
         auto messageBodyDictionary = dictionaryValue(messageBody);
         auto fromHost = stringValue(messageBodyDictionary, "FromHost");
         auto toHost = stringValue(messageBodyDictionary, "ToHost");
-        TestController::singleton().setStatisticsCrossSiteLoadWithLinkDecoration(fromHost, toHost);
+        auto wasFiltered = booleanValue(messageBodyDictionary, "WasFiltered");
+        TestController::singleton().setStatisticsCrossSiteLoadWithLinkDecoration(fromHost, toHost, wasFiltered);
         return nullptr;
     }
 
@@ -1596,6 +1600,11 @@ WKRetainPtr<WKTypeRef> TestInvocation::didReceiveSynchronousMessageFromInjectedB
 
     if (WKStringIsEqualToUTF8CString(messageName, "SetIsMediaKeySystemPermissionGranted")) {
         TestController::singleton().setIsMediaKeySystemPermissionGranted(booleanValue(messageBody));
+        return nullptr;
+    }
+
+    if (WKStringIsEqualToUTF8CString(messageName, "SetRequestStorageAccessThrowsExceptionUntilReload")) {
+        TestController::singleton().setRequestStorageAccessThrowsExceptionUntilReload(booleanValue(messageBody));
         return nullptr;
     }
 

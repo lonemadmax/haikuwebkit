@@ -29,6 +29,7 @@
 #include "config.h"
 #include "AXLogger.h"
 
+#include "AXTextRun.h"
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 #include "AXIsolatedObject.h"
 #endif
@@ -294,11 +295,6 @@ TextStream& operator<<(TextStream& stream, AccessibilitySearchKey searchKey)
     case AccessibilitySearchKey::Graphic:
         stream << "Graphic";
         break;
-#if ENABLE(AX_THREAD_TEXT_APIS)
-    case AccessibilitySearchKey::HasTextRuns:
-        stream << "HasTextRuns";
-        break;
-#endif
     case AccessibilitySearchKey::HeadingLevel1:
         stream << "HeadingLevel1";
         break;
@@ -413,6 +409,12 @@ TextStream& operator<<(TextStream& stream, const AccessibilitySearchCriteria& cr
     stream.dumpProperty("visibleOnly", criteria.visibleOnly);
     stream.dumpProperty("immediateDescendantsOnly", criteria.immediateDescendantsOnly);
 
+    return stream;
+}
+
+TextStream& operator<<(TextStream& stream, AccessibilityText text)
+{
+    stream << text.textSource << ": " << text.text;
     return stream;
 }
 
@@ -555,6 +557,18 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
         break;
     case AXObjectCache::AXNotification::AXAutofillTypeChanged:
         stream << "AXAutofillTypeChanged";
+        break;
+    case AXObjectCache::AXNotification::AXARIAColumnIndexChanged:
+        stream << "AXARIAColumnIndexChanged";
+        break;
+    case AXObjectCache::AXNotification::AXARIARowIndexChanged:
+        stream << "AXARIARowIndexChanged";
+        break;
+    case AXObjectCache::AXNotification::AXBrailleLabelChanged:
+        stream << "AXBrailleLabelChanged";
+        break;
+    case AXObjectCache::AXNotification::AXBrailleRoleDescriptionChanged:
+        stream << "AXBrailleRoleDescriptionChanged";
         break;
     case AXObjectCache::AXNotification::AXCellSlotsChanged:
         stream << "AXCellSlotsChanged";
@@ -778,6 +792,14 @@ TextStream& operator<<(TextStream& stream, AXObjectCache::AXNotification notific
     case AXObjectCache::AXNotification::AXTextCompositionChanged:
         stream << "AXTextCompositionChanged";
         break;
+    case AXObjectCache::AXNotification::AXTextUnderElementChanged:
+        stream << "AXTextUnderElementChanged";
+        break;
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    case AXObjectCache::AXNotification::AXTextRunsChanged:
+        stream << "AXTextRunsChanged";
+        break;
+#endif
     case AXObjectCache::AXNotification::AXTextSecurityChanged:
         stream << "AXTextSecurityChanged";
         break;
@@ -865,6 +887,20 @@ TextStream& operator<<(TextStream& stream, AXObjectCache& axObjectCache)
     return stream;
 }
 
+#if ENABLE(AX_THREAD_TEXT_APIS)
+static void streamTextRuns(TextStream& stream, const AXTextRuns& runs)
+{
+    StringBuilder result;
+    for (size_t i = 0; i < runs.size(); i++) {
+        result.append(makeString(runs[i].lineIndex, ":|", runs[i].text, "|(len: ", runs[i].text.length(), ")"));
+        if (i != runs.size() - 1)
+            result.append(", ");
+    }
+
+    stream.dumpProperty("textRuns", result);
+}
+#endif // ENABLE(AX_THREAD_TEXT_APIS)
+
 void streamAXCoreObject(TextStream& stream, const AXCoreObject& object, const OptionSet<AXStreamOptions>& options)
 {
     if (options & AXStreamOptions::ObjectID)
@@ -872,6 +908,9 @@ void streamAXCoreObject(TextStream& stream, const AXCoreObject& object, const Op
 
     if (options & AXStreamOptions::Role)
         stream.dumpProperty("role", object.roleValue());
+
+    if (auto* axObject = dynamicDowncast<AccessibilityObject>(object); axObject && axObject->renderer())
+        stream.dumpProperty("renderName", axObject->renderer()->renderName());
 
     if (options & AXStreamOptions::ParentID) {
         auto* parent = object.parentObjectUnignored();
@@ -894,6 +933,18 @@ void streamAXCoreObject(TextStream& stream, const AXCoreObject& object, const Op
         if (objectWithInterestingHTML)
             stream.dumpProperty("outerHTML", objectWithInterestingHTML->outerHTML().left(150));
     }
+
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    if (options & AXStreamOptions::TextRuns) {
+        if (auto* isolatedObject = dynamicDowncast<AXIsolatedObject>(&object)) {
+            if (auto* runs = isolatedObject->textRuns(); runs && runs->size())
+                streamTextRuns(stream, *runs);
+        } else if (auto* liveObject = dynamicDowncast<AccessibilityObject>(&object)) {
+            if (auto runs = const_cast<AccessibilityObject*>(liveObject)->textRuns(); runs.size())
+                streamTextRuns(stream, runs);
+        }
+    }
+#endif // ENABLE(AX_THREAD_TEXT_APIS)
 
     if (options & AXStreamOptions::DisplayContents) {
         if (auto* axObject = dynamicDowncast<AccessibilityObject>(&object); axObject && axObject->hasDisplayContents())

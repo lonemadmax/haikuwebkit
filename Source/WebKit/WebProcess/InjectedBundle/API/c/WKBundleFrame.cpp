@@ -57,6 +57,11 @@ bool WKBundleFrameIsMainFrame(WKBundleFrameRef frameRef)
     return WebKit::toImpl(frameRef)->isMainFrame();
 }
 
+bool WKBundleFrameIsRemote(WKBundleFrameRef frameRef)
+{
+    return WebKit::toImpl(frameRef)->coreFrame()->frameType() == WebCore::Frame::FrameType::Remote;
+}
+
 WKBundleFrameRef WKBundleFrameGetParentFrame(WKBundleFrameRef frameRef)
 {
     return toAPI(WebKit::toImpl(frameRef)->parentFrame().get());
@@ -288,7 +293,7 @@ void WKBundleFrameFocus(WKBundleFrameRef frameRef)
     if (!coreFrame)
         return;
 
-    CheckedRef(coreFrame->page()->focusController())->setFocusedFrame(coreFrame.get());
+    coreFrame->page()->checkedFocusController()->setFocusedFrame(coreFrame.get());
 }
 
 void _WKBundleFrameGenerateTestReport(WKBundleFrameRef frameRef, WKStringRef message, WKStringRef group)

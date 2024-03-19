@@ -28,7 +28,6 @@
 #if USE(CF)
 
 #include <wtf/RetainPtr.h>
-#include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
 
 namespace WebKit {
@@ -38,12 +37,13 @@ class CoreIPCCFType;
 class CoreIPCCFArray {
 public:
     CoreIPCCFArray(CFArrayRef);
-    CoreIPCCFArray(Vector<UniqueRef<CoreIPCCFType>>&& array)
-        : m_array(WTFMove(array)) { }
+    CoreIPCCFArray(Vector<CoreIPCCFType>&&);
+    CoreIPCCFArray(CoreIPCCFArray&&);
+    ~CoreIPCCFArray();
     RetainPtr<CFArrayRef> createCFArray() const;
-    const Vector<UniqueRef<CoreIPCCFType>>& array() const { return m_array; }
+    const Vector<CoreIPCCFType>& array() const { return m_array; }
 private:
-    Vector<UniqueRef<CoreIPCCFType>> m_array;
+    Vector<CoreIPCCFType> m_array;
 };
 
 } // namespace WebKit

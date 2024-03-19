@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WebSocketTaskCurl.h"
 
+#include "NetworkProcess.h"
 #include "NetworkSessionCurl.h"
 #include "NetworkSocketChannel.h"
 #include <WebCore/AuthenticationChallenge.h>
@@ -47,7 +48,11 @@ WebSocketTask::WebSocketTask(NetworkSocketChannel& channel, WebPageProxyIdentifi
     if (clientOrigin.topOrigin == clientOrigin.clientOrigin)
         m_topOrigin = clientOrigin.topOrigin;
 
-    m_streamID = m_scheduler.createStream(request.url(), *this);
+    auto localhostAlias = WebCore::CurlStream::LocalhostAlias::Disable;
+    if (networkSession() && networkSession()->networkProcess().localhostAliasesForTesting().contains<StringViewHashTranslator>(m_request.url().host()))
+        localhostAlias = WebCore::CurlStream::LocalhostAlias::Enable;
+
+    m_streamID = m_scheduler.createStream(request.url(), *this, WebCore::CurlStream::ServerTrustEvaluation::Enable, localhostAlias);
     m_channel.didSendHandshakeRequest(WebCore::ResourceRequest(m_request));
 }
 
@@ -56,7 +61,7 @@ WebSocketTask::~WebSocketTask()
     destructStream();
 }
 
-void WebSocketTask::sendString(const IPC::DataReference& utf8, CompletionHandler<void()>&& callback)
+void WebSocketTask::sendString(std::span<const uint8_t> utf8, CompletionHandler<void()>&& callback)
 {
     if (m_state == State::Opened) {
         if (!sendFrame(WebCore::WebSocketFrame::OpCodeText, utf8.data(), utf8.size()))
@@ -65,7 +70,7 @@ void WebSocketTask::sendString(const IPC::DataReference& utf8, CompletionHandler
     callback();
 }
 
-void WebSocketTask::sendData(const IPC::DataReference& data, CompletionHandler<void()>&& callback)
+void WebSocketTask::sendData(std::span<const uint8_t> data, CompletionHandler<void()>&& callback)
 {
     if (m_state == State::Opened) {
         if (!sendFrame(WebCore::WebSocketFrame::OpCodeBinary, data.data(), data.size()))
@@ -116,10 +121,12 @@ void WebSocketTask::didOpen(WebCore::CurlStreamID)
     CString cookieHeader;
 
     if (m_request.allowCookies()) {
-        auto includeSecureCookies = m_request.url().protocolIs("wss"_s) ? WebCore::IncludeSecureCookies::Yes : WebCore::IncludeSecureCookies::No;
-        auto cookieHeaderField = m_channel.session()->networkStorageSession()->cookieRequestHeaderFieldValue(m_request.firstPartyForCookies(), WebCore::SameSiteInfo::create(m_request), m_request.url(), std::nullopt, std::nullopt, includeSecureCookies, WebCore::ApplyTrackingPrevention::Yes, WebCore::ShouldRelaxThirdPartyCookieBlocking::No).first;
-        if (!cookieHeaderField.isEmpty())
-            cookieHeader = makeString("Cookie: "_s, cookieHeaderField, "\r\n"_s).utf8();
+        if (auto* storageSession = networkSession() ? networkSession()->networkStorageSession() : nullptr) {
+            auto includeSecureCookies = m_request.url().protocolIs("wss"_s) ? WebCore::IncludeSecureCookies::Yes : WebCore::IncludeSecureCookies::No;
+            auto cookieHeaderField = storageSession->cookieRequestHeaderFieldValue(m_request.firstPartyForCookies(), WebCore::SameSiteInfo::create(m_request), m_request.url(), std::nullopt, std::nullopt, includeSecureCookies, WebCore::ApplyTrackingPrevention::Yes, WebCore::ShouldRelaxThirdPartyCookieBlocking::No).first;
+            if (!cookieHeaderField.isEmpty())
+                cookieHeader = makeString("Cookie: "_s, cookieHeaderField, "\r\n"_s).utf8();
+        }
     }
 
     auto originalMessage = m_handshake->clientHandshakeMessage();
@@ -245,9 +252,13 @@ void WebSocketTask::didFail(WebCore::CurlStreamID, CURLcode errorCode, WebCore::
 void WebSocketTask::tryServerTrustEvaluation(WebCore::AuthenticationChallenge&& challenge, String&& errorReason)
 {
     networkSession()->didReceiveChallenge(*this, WTFMove(challenge), [this, errorReason = WTFMove(errorReason)](WebKit::AuthenticationChallengeDisposition disposition, const WebCore::Credential& credential) mutable {
-        if (disposition == AuthenticationChallengeDisposition::UseCredential && !credential.isEmpty())
-            m_streamID = m_scheduler.createStream(m_request.url(), *this, WebCore::CurlStream::ServerTrustEvaluation::Disable);
-        else
+        if (disposition == AuthenticationChallengeDisposition::UseCredential && !credential.isEmpty()) {
+            auto localhostAlias = WebCore::CurlStream::LocalhostAlias::Disable;
+            if (networkSession() && networkSession()->networkProcess().localhostAliasesForTesting().contains<StringViewHashTranslator>(m_request.url().host()))
+                localhostAlias = WebCore::CurlStream::LocalhostAlias::Enable;
+
+            m_streamID = m_scheduler.createStream(m_request.url(), *this, WebCore::CurlStream::ServerTrustEvaluation::Disable, localhostAlias);
+        } else
             didFail(WTFMove(errorReason));
     });
 }
@@ -291,8 +302,10 @@ Expected<bool, String> WebSocketTask::validateOpeningHandshake()
     }
 
     auto serverSetCookie = m_handshake->serverSetCookie();
-    if (!serverSetCookie.isEmpty())
-        m_channel.session()->networkStorageSession()->setCookiesFromHTTPResponse(m_request.firstPartyForCookies(), m_request.url(), serverSetCookie);
+    if (!serverSetCookie.isEmpty()) {
+        if (auto* storageSession = networkSession() ? networkSession()->networkStorageSession() : nullptr)
+            storageSession->setCookiesFromHTTPResponse(m_request.firstPartyForCookies(), m_request.url(), serverSetCookie);
+    }
 
     m_state = State::Opened;
     m_didCompleteOpeningHandshake = true;

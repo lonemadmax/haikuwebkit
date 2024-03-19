@@ -41,7 +41,7 @@ class WebExtensionAPIStorage : public WebExtensionAPIObject, public JSWebExtensi
 
 public:
 #if PLATFORM(COCOA)
-    bool isPropertyAllowed(ASCIILiteral propertyName, WebPage*);
+    bool isPropertyAllowed(const ASCIILiteral& propertyName, WebPage&);
 
     WebExtensionAPIStorageArea& local();
     WebExtensionAPIStorageArea& session();
@@ -52,7 +52,7 @@ public:
 private:
     friend class WebExtensionContextProxy;
 
-    WebExtensionAPIStorageArea& storageAreaForType(WebExtensionStorageType);
+    WebExtensionAPIStorageArea& storageAreaForType(WebExtensionDataType);
 
     RefPtr<WebExtensionAPIStorageArea> m_local;
     RefPtr<WebExtensionAPIStorageArea> m_session;

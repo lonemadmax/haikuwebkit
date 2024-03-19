@@ -84,31 +84,7 @@ find_package(PNG 1.6.34 REQUIRED)
 find_package(SQLite3 3.23.1 REQUIRED)
 find_package(ZLIB 1.2.11 REQUIRED)
 find_package(LibPSL 0.20.2 REQUIRED)
-
-# Optional packages
-find_package(AVIF 0.9.0)
-SET_AND_EXPOSE_TO_BUILD(USE_AVIF ${AVIF_FOUND})
-
-find_package(LCMS2)
-if (LCMS2_FOUND)
-    SET_AND_EXPOSE_TO_BUILD(USE_LCMS ON)
-endif ()
-
-find_package(OpenJPEG 2.3.1)
-if (OpenJPEG_FOUND)
-    SET_AND_EXPOSE_TO_BUILD(USE_OPENJPEG ON)
-endif ()
-
-find_package(WOFF2 1.0.2 COMPONENTS dec)
-if (WOFF2_FOUND)
-    find_package(Brotli REQUIRED COMPONENTS dec)
-    SET_AND_EXPOSE_TO_BUILD(USE_WOFF2 ON)
-endif ()
-
-find_package(WebP COMPONENTS demux)
-if (WebP_FOUND)
-    SET_AND_EXPOSE_TO_BUILD(USE_WEBP ON)
-endif ()
+find_package(WebP REQUIRED COMPONENTS demux)
 
 WEBKIT_OPTION_BEGIN()
 
@@ -151,8 +127,12 @@ WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_SMOOTH_SCROLLING PRIVATE OFF)
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBGL PRIVATE OFF)
 
 if (${WTF_CPU_X86})
+    WEBKIT_OPTION_DEFAULT_PORT_VALUE(USE_LCMS PRIVATE OFF)
     WEBKIT_OPTION_DEFAULT_PORT_VALUE(USE_JPEGXL PRIVATE OFF)
 endif ()
+
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(USE_AVIF PRIVATE OFF)
+WEBKIT_OPTION_DEFAULT_PORT_VALUE(USE_WOFF2 PRIVATE ON)
 
 # FIXME: Port bmalloc to Windows. https://bugs.webkit.org/show_bug.cgi?id=143310
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(USE_SYSTEM_MALLOC PRIVATE ON)
@@ -178,6 +158,10 @@ WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_WEBDRIVER PRIVATE ${ENABLE_EXPERIMENTAL_
 
 # No support planned
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_FTPDIR PRIVATE OFF)
+
+# WebDriver options
+SET_AND_EXPOSE_TO_BUILD(ENABLE_WEBDRIVER_KEYBOARD_INTERACTIONS ON)
+SET_AND_EXPOSE_TO_BUILD(ENABLE_WEBDRIVER_MOUSE_INTERACTIONS ON)
 
 WEBKIT_OPTION_END()
 
@@ -210,8 +194,33 @@ if (ENABLE_XSLT)
     find_package(LibXslt 1.1.32 REQUIRED)
 endif ()
 
+if (USE_AVIF)
+    find_package(AVIF 0.9.0)
+    if (NOT AVIF_FOUND)
+        message(FATAL_ERROR "libavif 0.9.0 is required for USE_AVIF.")
+    endif ()
+endif ()
+
+if (USE_LCMS)
+    find_package(LCMS2)
+    if (NOT LCMS2_FOUND)
+        message(FATAL_ERROR "libcms2 is required for USE_LCMS.")
+    endif ()
+endif ()
+
 if (USE_JPEGXL)
-    find_package(JPEGXL REQUIRED)
+    find_package(JPEGXL 0.7.0)
+    if (NOT JPEGXL_FOUND)
+        message(FATAL_ERROR "libjxl is required for USE_JPEGXL")
+    endif ()
+endif ()
+
+if (USE_WOFF2)
+    find_package(WOFF2 1.0.2 COMPONENTS dec)
+    if (NOT WOFF2_FOUND)
+        message(FATAL_ERROR "libwoff2dec is required for USE_WOFF2")
+    endif ()
+    find_package(Brotli REQUIRED COMPONENTS dec)
 endif ()
 
 set(bmalloc_LIBRARY_TYPE OBJECT)

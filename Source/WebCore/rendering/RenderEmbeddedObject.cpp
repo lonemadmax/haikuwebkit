@@ -123,8 +123,24 @@ ScrollingNodeID RenderEmbeddedObject::scrollingNodeID() const
 {
     auto* pluginViewBase = dynamicDowncast<PluginViewBase>(widget());
     if (!pluginViewBase)
-        return false;
+        return { };
     return pluginViewBase->scrollingNodeID();
+}
+
+void RenderEmbeddedObject::willAttachScrollingNode()
+{
+    auto* pluginViewBase = dynamicDowncast<PluginViewBase>(widget());
+    if (!pluginViewBase)
+        return;
+    pluginViewBase->willAttachScrollingNode();
+}
+
+void RenderEmbeddedObject::didAttachScrollingNode()
+{
+    auto* pluginViewBase = dynamicDowncast<PluginViewBase>(widget());
+    if (!pluginViewBase)
+        return;
+    pluginViewBase->didAttachScrollingNode();
 }
 
 #if !PLATFORM(IOS_FAMILY)
@@ -270,7 +286,7 @@ void RenderEmbeddedObject::paintReplaced(PaintInfo& paintInfo, const LayoutPoint
 
     const FontMetrics& fontMetrics = font.metricsOfPrimaryFont();
     float labelX = roundf(replacementTextRect.location().x() + replacementTextRoundedRectLeftTextMargin);
-    float labelY = roundf(replacementTextRect.location().y() + (replacementTextRect.size().height() - fontMetrics.height()) / 2 + fontMetrics.ascent() + replacementTextRoundedRectTopTextMargin);
+    float labelY = roundf(replacementTextRect.location().y() + (replacementTextRect.size().height() - fontMetrics.intHeight()) / 2 + fontMetrics.intAscent() + replacementTextRoundedRectTopTextMargin);
     context.setFillColor(replacementTextColor);
     context.drawBidiText(font, run, FloatPoint(labelX, labelY));
 

@@ -30,6 +30,7 @@
 #include "APIViewClient.h"
 #include "AcceleratedBackingStoreDMABuf.h"
 #include "DrawingAreaProxy.h"
+#include "DrawingAreaProxyCoordinatedGraphics.h"
 #include "EditingRange.h"
 #include "EditorState.h"
 #include "NativeWebKeyboardEvent.h"
@@ -44,12 +45,22 @@
 #if ENABLE(GAMEPAD)
 #include <WebCore/GamepadProviderLibWPE.h>
 #endif
-#include <WebCore/RefPtrCairo.h>
-#include <cairo.h>
 #include <wpe/wpe.h>
 #include <wtf/NeverDestroyed.h>
 
+#if USE(CAIRO)
+#include <WebCore/RefPtrCairo.h>
+#include <cairo.h>
+#endif
+
+#if USE(SKIA)
+IGNORE_CLANG_WARNINGS_BEGIN("cast-align")
+#include <skia/core/SkPixmap.h>
+IGNORE_CLANG_WARNINGS_END
+#endif
+
 #if ENABLE(WPE_PLATFORM)
+#include "ScreenManager.h"
 #include <wpe/wpe-platform.h>
 #endif
 
@@ -72,7 +83,7 @@ View::View(struct wpe_view_backend* backend, WPEDisplay* display, const API::Pag
 #if ENABLE(TOUCH_EVENTS)
     , m_touchGestureController(makeUnique<TouchGestureController>())
 #endif
-    , m_pageClient(makeUnique<PageClientImpl>(*this))
+    , m_pageClient(makeUniqueWithoutRefCountedCheck<PageClientImpl>(*this))
     , m_size { 800, 600 }
     , m_viewStateFlags { WebCore::ActivityState::WindowIsActive, WebCore::ActivityState::IsFocused, WebCore::ActivityState::IsVisible, WebCore::ActivityState::IsInWindow }
     , m_backend(backend)
@@ -108,6 +119,13 @@ View::View(struct wpe_view_backend* backend, WPEDisplay* display, const API::Pag
         m_wpeView = adoptGRef(wpe_view_new(display));
         m_size.setWidth(wpe_view_get_width(m_wpeView.get()));
         m_size.setHeight(wpe_view_get_height(m_wpeView.get()));
+
+        if (auto* monitor = wpe_view_get_monitor(m_wpeView.get()))
+            m_displayID = wpe_monitor_get_id(monitor);
+        else
+            m_displayID = ScreenManager::singleton().primaryDisplayID();
+        m_pageProxy->windowScreenDidChange(m_displayID);
+
         g_signal_connect(m_wpeView.get(), "resized", G_CALLBACK(+[](WPEView* view, gpointer userData) {
             auto& webView = *reinterpret_cast<View*>(userData);
             webView.setSize(WebCore::IntSize(wpe_view_get_width(view), wpe_view_get_height(view)));
@@ -116,6 +134,10 @@ View::View(struct wpe_view_backend* backend, WPEDisplay* display, const API::Pag
         g_signal_connect(m_wpeView.get(), "notify::scale", G_CALLBACK(+[](WPEView* view, GParamSpec*, gpointer userData) {
             auto& webView = *reinterpret_cast<View*>(userData);
             webView.page().setIntrinsicDeviceScaleFactor(wpe_view_get_scale(view));
+        }), this);
+        g_signal_connect(m_wpeView.get(), "notify::monitor", G_CALLBACK(+[](WPEView*, GParamSpec*, gpointer userData) {
+            auto& webView = *reinterpret_cast<View*>(userData);
+            webView.updateDisplayID();
         }), this);
         g_signal_connect_after(m_wpeView.get(), "event", G_CALLBACK(+[](WPEView* view, WPEEvent* event, gpointer userData) -> gboolean {
             auto& webView = *reinterpret_cast<View*>(userData);
@@ -765,6 +787,20 @@ void View::updateAcceleratedSurface(uint64_t surfaceID)
         m_backingStore->updateSurfaceID(surfaceID);
 }
 
+void View::updateDisplayID()
+{
+    auto* monitor = wpe_view_get_monitor(m_wpeView.get());
+    if (!monitor)
+        return;
+
+    auto displayID = wpe_monitor_get_id(monitor);
+    if (displayID == m_displayID)
+        return;
+
+    m_displayID = displayID;
+    m_pageProxy->windowScreenDidChange(m_displayID);
+}
+
 #if ENABLE(TOUCH_EVENTS)
 Vector<WebKit::WebPlatformTouchPoint> View::touchPointsForEvent(WPEEvent* event)
 {
@@ -903,6 +939,7 @@ void View::setCursor(const WebCore::Cursor& cursor)
         return;
     }
 
+#if USE(CAIRO)
     ASSERT(cursor.type() == WebCore::Cursor::Type::Custom);
     auto image = cursor.image();
     auto nativeImage = image->nativeImageForCurrentFrame();
@@ -920,9 +957,48 @@ void View::setCursor(const WebCore::Cursor& cursor)
 
     WebCore::IntPoint hotspot = WebCore::determineHotSpot(image.get(), cursor.hotSpot());
     wpe_view_set_cursor_from_bytes(m_wpeView.get(), bytes.get(), width, height, stride, hotspot.x(), hotspot.y());
+#elif USE(SKIA)
+    auto nativeImage = cursor.image()->nativeImageForCurrentFrame();
+    if (!nativeImage)
+        return;
+
+    SkPixmap pixmap;
+    auto platformImage = nativeImage->platformImage();
+    ASSERT(platformImage->peekPixels(&pixmap));
+
+    platformImage->ref();
+    GRefPtr<GBytes> bytes = adoptGRef(g_bytes_new_with_free_func(pixmap.addr(), pixmap.computeByteSize(), [](gpointer data) {
+        static_cast<SkImage*>(data)->unref();
+    }, platformImage.get()));
+
+    WebCore::IntPoint hotspot = WebCore::determineHotSpot(cursor.image().get(), cursor.hotSpot());
+    wpe_view_set_cursor_from_bytes(m_wpeView.get(), bytes.get(), pixmap.width(), pixmap.height(), pixmap.rowBytes(), hotspot.x(), hotspot.y());
+#endif
 #else
     UNUSED_PARAM(cursor);
 #endif
+}
+
+void View::callAfterNextPresentationUpdate(CompletionHandler<void()>&& callback)
+{
+#if ENABLE(WPE_PLATFORM)
+    if (m_wpeView) {
+        RELEASE_ASSERT(!m_nextPresentationUpdateCallback);
+        m_nextPresentationUpdateCallback = WTFMove(callback);
+        if (!m_bufferRenderedID) {
+            m_bufferRenderedID = g_signal_connect_after(m_wpeView.get(), "buffer-rendered", G_CALLBACK(+[](WPEView* view, WPEBuffer*, gpointer userData) {
+                auto& webView = *reinterpret_cast<View*>(userData);
+                if (webView.m_nextPresentationUpdateCallback)
+                    webView.m_nextPresentationUpdateCallback();
+            }), this);
+        }
+
+        return;
+    }
+#endif
+
+    RELEASE_ASSERT(m_pageProxy->drawingArea());
+    downcast<DrawingAreaProxyCoordinatedGraphics>(*m_pageProxy->drawingArea()).dispatchAfterEnsuringDrawing(WTFMove(callback));
 }
 
 } // namespace WKWPE

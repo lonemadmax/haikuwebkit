@@ -39,6 +39,9 @@ typedef cairo_t* PlatformPathPtr;
 #elif USE(HAIKU)
 class BShape;
 typedef BShape* PlatformPathPtr;
+#elif USE(SKIA)
+class SkPath;
+typedef SkPath* PlatformPathPtr;
 #endif
 
 namespace WebCore {
@@ -52,6 +55,9 @@ using PlatformPathImpl = PathCairo;
 #elif USE(HAIKU)
 class PathHaiku;
 using PlatformPathImpl = PathHaiku;
+#elif USE(SKIA)
+class PathSkia;
+using PlatformPathImpl = PathSkia;
 #endif
 
 } // namespace WebCore

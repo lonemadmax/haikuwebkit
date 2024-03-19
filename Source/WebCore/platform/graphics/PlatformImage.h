@@ -32,6 +32,8 @@ typedef struct CGImage* CGImageRef;
 #include "RefPtrCairo.h"
 #elif USE(HAIKU)
 #include <Bitmap.h>
+#elif USE(SKIA)
+#include <skia/core/SkImage.h>
 #endif
 
 namespace WebCore {
@@ -69,6 +71,8 @@ class BitmapRef: public BBitmap, public RefCounted<BitmapRef>
 };
 
 using PlatformImagePtr = RefPtr<BitmapRef>;
+#elif USE(SKIA)
+using PlatformImagePtr = sk_sp<SkImage>;
 #endif
 
 }

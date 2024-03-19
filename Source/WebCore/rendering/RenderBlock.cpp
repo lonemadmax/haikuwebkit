@@ -956,9 +956,8 @@ LayoutUnit RenderBlock::marginIntrinsicLogicalWidthForChild(RenderBox& child) co
 
 void RenderBlock::layoutPositionedObject(RenderBox& r, bool relayoutChildren, bool fixedPositionObjectsOnly)
 {
-    if (isSkippedContentRootForLayout()) {
-        r.clearNeedsLayoutForDescendants();
-        r.clearNeedsLayout();
+    if (isSkippedContentRoot()) {
+        r.clearNeedsLayoutForSkippedContent();
         return;
     }
 
@@ -2047,7 +2046,7 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
         && visibleToHitTesting(request) && isPointInOverflowControl(result, locationInContainer.point(), adjustedLocation)) {
         updateHitTestResult(result, locationInContainer.point() - localOffset);
         // FIXME: isPointInOverflowControl() doesn't handle rect-based tests yet.
-        if (result.addNodeToListBasedTestResult(nodeForHitTest(), request, locationInContainer) == HitTestProgress::Stop)
+        if (result.addNodeToListBasedTestResult(protectedNodeForHitTest().get(), request, locationInContainer) == HitTestProgress::Stop)
            return true;
     }
 
@@ -2071,7 +2070,7 @@ bool RenderBlock::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
         LayoutRect boundsRect(adjustedLocation, size());
         if (visibleToHitTesting(request) && locationInContainer.intersects(boundsRect)) {
             updateHitTestResult(result, flipForWritingMode(locationInContainer.point() - localOffset));
-            if (result.addNodeToListBasedTestResult(nodeForHitTest(), request, locationInContainer, boundsRect) == HitTestProgress::Stop)
+            if (result.addNodeToListBasedTestResult(protectedNodeForHitTest().get(), request, locationInContainer, boundsRect) == HitTestProgress::Stop)
                 return true;
         }
     }
@@ -2305,7 +2304,10 @@ void RenderBlock::computeBlockPreferredLogicalWidths(LayoutUnit& minLogicalWidth
         }
 
         const RenderStyle& childStyle = child->style();
-        if (child->isFloating() || (is<RenderBox>(*child) && downcast<RenderBox>(*child).avoidsFloats())) {
+        // Either the box itself of its content avoids floats.
+        auto* childBox = dynamicDowncast<RenderBox>(*child);
+        auto childAvoidsFloats = childBox ? childBox->avoidsFloats() || (childBox->isAnonymousBlock() && childBox->childrenInline()) : false;
+        if (child->isFloating() || childAvoidsFloats) {
             LayoutUnit floatTotalWidth = floatLeftWidth + floatRightWidth;
             auto childUsedClear = RenderStyle::usedClear(*child);
             if (childUsedClear == UsedClear::Left || childUsedClear == UsedClear::Both) {
@@ -2345,7 +2347,7 @@ void RenderBlock::computeBlockPreferredLogicalWidths(LayoutUnit& minLogicalWidth
         w = childMaxPreferredLogicalWidth + margin;
 
         if (!child->isFloating()) {
-            if (auto* box = dynamicDowncast<RenderBox>(*child); box && box->avoidsFloats()) {
+            if (childAvoidsFloats) {
                 // Determine a left and right max value based off whether or not the floats can fit in the
                 // margins of the object.  For negative margins, we will attempt to overlap the float if the negative margin
                 // is smaller than the float width.
@@ -2440,7 +2442,7 @@ LayoutUnit RenderBlock::lineHeight(bool firstLine, LineDirectionMode direction, 
         return RenderBox::lineHeight(firstLine, direction, linePositionMode);
 
     auto& lineStyle = firstLine ? firstLineStyle() : style();
-    return lineStyle.computedLineHeight();
+    return LayoutUnit::fromFloatCeil(lineStyle.computedLineHeight());
 }
 
 LayoutUnit RenderBlock::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
@@ -2454,7 +2456,7 @@ LayoutUnit RenderBlock::baselinePosition(FontBaseline baselineType, bool firstLi
         // FIXME: Might be better to have a custom CSS property instead, so that if the theme
         // is turned off, checkboxes/radios will still have decent baselines.
         // FIXME: Need to patch form controls to deal with vertical lines.
-        if (style().hasEffectiveAppearance() && !theme().isControlContainer(style().effectiveAppearance()))
+        if (style().hasEffectiveAppearance() && !theme().isControlContainer(style().usedAppearance()))
             return theme().baselinePosition(*this);
             
         // CSS2.1 states that the baseline of an inline block is the baseline of the last line box in
@@ -2498,7 +2500,7 @@ LayoutUnit RenderBlock::baselinePosition(FontBaseline baselineType, bool firstLi
 
     const RenderStyle& style = firstLine ? firstLineStyle() : this->style();
     const FontMetrics& fontMetrics = style.metricsOfPrimaryFont();
-    return LayoutUnit { fontMetrics.ascent(baselineType) + (lineHeight(firstLine, direction, linePositionMode) - fontMetrics.height()) / 2 }.toInt();
+    return LayoutUnit { fontMetrics.intAscent(baselineType) + (lineHeight(firstLine, direction, linePositionMode) - fontMetrics.intHeight()) / 2 }.toInt();
 }
 
 LayoutUnit RenderBlock::minLineHeightForReplacedRenderer(bool isFirstLine, LayoutUnit replacedHeight) const
@@ -2562,8 +2564,8 @@ std::optional<LayoutUnit> RenderBlock::inlineBlockBaseline(LineDirectionMode lin
 
     if (!haveNormalFlowChild && hasLineIfEmpty()) {
         auto& fontMetrics = firstLineStyle().metricsOfPrimaryFont();
-        return LayoutUnit { LayoutUnit(fontMetrics.ascent()
-            + (lineHeight(true, lineDirection, PositionOfInteriorLineBoxes) - fontMetrics.height()) / 2
+        return LayoutUnit { LayoutUnit(fontMetrics.intAscent()
+            + (lineHeight(true, lineDirection, PositionOfInteriorLineBoxes) - fontMetrics.intHeight()) / 2
             + (lineDirection == HorizontalLine ? borderTop() + paddingTop() : borderRight() + paddingRight())).toInt() };
     }
 
@@ -2798,10 +2800,10 @@ void RenderBlock::updateHitTestResult(HitTestResult& result, const LayoutPoint& 
     if (result.innerNode())
         return;
 
-    if (Node* n = nodeForHitTest()) {
-        result.setInnerNode(n);
+    if (RefPtr node = nodeForHitTest()) {
+        result.setInnerNode(node.get());
         if (!result.innerNonSharedNode())
-            result.setInnerNonSharedNode(n);
+            result.setInnerNonSharedNode(node.get());
         result.setLocalPoint(point);
     }
 }

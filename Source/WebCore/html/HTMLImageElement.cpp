@@ -70,6 +70,10 @@
 #include "ImageControlsMac.h"
 #endif
 
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/MultiRepresentationHEICAdditions.h>
+#endif
+
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLImageElement);
@@ -127,7 +131,7 @@ void HTMLImageElement::setFormInternal(RefPtr<HTMLFormElement>&& newForm)
 
 void HTMLImageElement::formOwnerRemovedFromTree(const Node& formRoot)
 {
-    Node& rootNode = traverseToRootNode(); // Do not rely on rootNode() because our IsInTreeScope can be outdated.
+    auto& rootNode = traverseToRootNode(); // Do not rely on rootNode() because our IsInTreeScope can be outdated.
     if (&rootNode != &formRoot)
         setForm(nullptr);
 }
@@ -226,11 +230,20 @@ const AtomString& HTMLImageElement::imageSourceURL() const
     return m_bestFitImageURL.isEmpty() ? attributeWithoutSynchronization(srcAttr) : m_bestFitImageURL;
 }
 
+const AtomString& HTMLImageElement::currentSrc()
+{
+    if (m_currentSrc.isNull()) {
+        if (!m_currentURL.isEmpty())
+            m_currentSrc = AtomString(m_currentURL.string());
+    }
+    return m_currentSrc;
+}
+
 void HTMLImageElement::setBestFitURLAndDPRFromImageCandidate(const ImageCandidate& candidate)
 {
     m_bestFitImageURL = candidate.string.toAtomString();
     m_currentURL = document().completeURL(imageSourceURL());
-    m_currentSrc = AtomString(m_currentURL.string());
+    m_currentSrc = { };
     if (candidate.density >= 0)
         m_imageDevicePixelRatio = 1 / candidate.density;
     if (CheckedPtr renderImage = dynamicDowncast<RenderImage>(renderer()))
@@ -326,11 +339,21 @@ void HTMLImageElement::selectImageSource(RelevantMutation relevantMutation)
     ImageCandidate candidate = bestFitSourceFromPictureElement();
     if (candidate.isEmpty()) {
         setSourceElement(nullptr);
-        // If we don't have a <picture> or didn't find a source, then we use our own attributes.
-        SizesAttributeParser sizesParser(attributeWithoutSynchronization(sizesAttr).string(), document());
-        m_dynamicMediaQueryResults.appendVector(sizesParser.dynamicMediaQueryResults());
-        auto sourceSize = sizesParser.length();
-        candidate = bestFitSourceForImageAttributes(document().deviceScaleFactor(), attributeWithoutSynchronization(srcAttr), attributeWithoutSynchronization(srcsetAttr), sourceSize);
+        auto srcAttribute = attributeWithoutSynchronization(srcAttr);
+        auto srcsetAttribute = attributeWithoutSynchronization(srcsetAttr);
+        // This is extremely common case. We should not invoke SizesAttributeParser at all.
+        if (srcsetAttribute.isNull()) {
+            if (srcAttribute.isNull())
+                candidate = { };
+            else
+                candidate = ImageCandidate(StringViewWithUnderlyingString(srcAttribute, srcAttribute), DescriptorParsingResult(), ImageCandidate::SrcOrigin);
+        } else {
+            // If we don't have a <picture> or didn't find a source, then we use our own attributes.
+            SizesAttributeParser sizesParser(attributeWithoutSynchronization(sizesAttr).string(), document());
+            m_dynamicMediaQueryResults.appendVector(sizesParser.dynamicMediaQueryResults());
+            auto sourceSize = sizesParser.length();
+            candidate = bestFitSourceForImageAttributes(document().deviceScaleFactor(), srcAttribute, srcsetAttribute, sourceSize);
+        }
     }
     setBestFitURLAndDPRFromImageCandidate(candidate);
     m_imageLoader->updateFromElementIgnoringPreviousError(relevantMutation);
@@ -468,7 +491,7 @@ void HTMLImageElement::didAttachRenderers()
     RenderImageResource& renderImageResource = renderImage->imageResource();
     if (renderImageResource.cachedImage())
         return;
-    renderImageResource.setCachedImage(m_imageLoader->image());
+    renderImageResource.setCachedImage(m_imageLoader->protectedImage());
 
     // If we have no image at all because we have no src attribute, set
     // image height and width for the alt text instead.
@@ -872,9 +895,14 @@ void HTMLImageElement::setAllowsAnimation(std::optional<bool> allowsAnimation)
 void HTMLImageElement::setAttachmentElement(Ref<HTMLAttachmentElement>&& attachment)
 {
     AttachmentAssociatedElement::setAttachmentElement(WTFMove(attachment));
+
 #if ENABLE(SERVICE_CONTROLS)
-    setImageMenuEnabled(true);
+    bool shouldEnableImageMenu = true;
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+    shouldEnableImageMenu = !isMultiRepresentationHEIC();
 #endif
+    setImageMenuEnabled(shouldEnableImageMenu);
+#endif // ENABLE(SERVICE_CONTROLS)
 }
 
 #endif // ENABLE(ATTACHMENT_ELEMENT)
@@ -914,6 +942,17 @@ bool HTMLImageElement::isSystemPreviewImage() const
     if (auto* pictureElement = dynamicDowncast<HTMLPictureElement>(parent))
         return pictureElement->isSystemPreviewImage();
     return false;
+}
+#endif
+
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+bool HTMLImageElement::isMultiRepresentationHEIC() const
+{
+    if (!m_sourceElement)
+        return false;
+
+    auto& typeAttribute = m_sourceElement->attributeWithoutSynchronization(typeAttr);
+    return typeAttribute == MULTI_REPRESENTATION_HEIC_MIME_TYPE_STRING;
 }
 #endif
 

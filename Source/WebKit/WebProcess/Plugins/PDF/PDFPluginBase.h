@@ -27,10 +27,10 @@
 
 #if ENABLE(PDF_PLUGIN)
 
-#include "DataReference.h"
 #include "FrameInfoData.h"
 #include "PDFPluginIdentifier.h"
 #include "PDFScriptEvaluator.h"
+#include "WebMouseEvent.h"
 #include <WebCore/AffineTransform.h>
 #include <WebCore/FindOptions.h>
 #include <WebCore/FloatRect.h>
@@ -38,6 +38,8 @@
 #include <WebCore/PluginViewBase.h>
 #include <WebCore/ScrollTypes.h>
 #include <WebCore/ScrollableArea.h>
+#include <WebCore/TextIndicator.h>
+#include <wtf/Identified.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/TypeTraits.h>
@@ -47,6 +49,9 @@ OBJC_CLASS NSDictionary;
 OBJC_CLASS PDFAnnotation;
 OBJC_CLASS PDFDocument;
 OBJC_CLASS PDFSelection;
+#if PLATFORM(MAC)
+OBJC_CLASS WKAccessibilityPDFDocumentObject;
+#endif
 
 namespace WebCore {
 class FragmentedSharedBuffer;
@@ -70,9 +75,10 @@ class WebFrame;
 class WebKeyboardEvent;
 class WebMouseEvent;
 class WebWheelEvent;
+struct LookupTextResult;
 struct WebHitTestResultData;
 
-class PDFPluginBase : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<PDFPluginBase>, public WebCore::ScrollableArea, public PDFScriptEvaluator::Client {
+class PDFPluginBase : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<PDFPluginBase>, public WebCore::ScrollableArea, public PDFScriptEvaluator::Client, public Identified<PDFPluginIdentifier> {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(PDFPluginBase);
     friend class PDFIncrementalLoader;
@@ -91,8 +97,6 @@ public:
     virtual bool isUnifiedPDFPlugin() const { return false; }
     virtual bool isLegacyPDFPlugin() const { return false; }
 
-    PDFPluginIdentifier identifier() const { return m_identifier; }
-
     virtual WebCore::PluginLayerHostingStrategy layerHostingStrategy() const = 0;
     virtual PlatformLayer* platformLayer() const { return nullptr; }
     virtual WebCore::GraphicsLayer* graphicsLayer() const { return nullptr; }
@@ -108,17 +112,17 @@ public:
     virtual void paint(WebCore::GraphicsContext&, const WebCore::IntRect&) { }
 
     virtual CGFloat scaleFactor() const = 0;
-    virtual CGSize contentSizeRespectingZoom() const = 0;
+    virtual float contentScaleFactor() const = 0;
 
     virtual CGFloat minScaleFactor() const { return 0.25; }
     virtual CGFloat maxScaleFactor() const { return 5; }
 
     bool isLocked() const;
 
-    RetainPtr<PDFDocument> pdfDocumentForPrinting() const { return m_pdfDocument; }
+    RetainPtr<PDFDocument> pdfDocument() const { return m_pdfDocument; }
     WebCore::FloatSize pdfDocumentSizeForPrinting() const;
 
-    virtual void geometryDidChange(const WebCore::IntSize& pluginSize, const WebCore::AffineTransform& pluginToRootViewTransform);
+    virtual bool geometryDidChange(const WebCore::IntSize& pluginSize, const WebCore::AffineTransform& pluginToRootViewTransform);
     virtual void visibilityDidChange(bool);
     virtual void deviceScaleFactorChanged(float) { }
 
@@ -141,19 +145,24 @@ public:
     virtual bool handleEditingCommand(const String& commandName, const String& argument) = 0;
     virtual bool isEditingCommandEnabled(const String& commandName) = 0;
 
-    virtual String getSelectionString() const = 0;
+    virtual String selectionString() const = 0;
     virtual bool existingSelectionContainsPoint(const WebCore::FloatPoint&) const = 0;
     virtual WebCore::FloatRect rectForSelectionInRootView(PDFSelection *) const = 0;
 
     virtual unsigned countFindMatches(const String& target, WebCore::FindOptions, unsigned maxMatchCount) = 0;
     virtual bool findString(const String& target, WebCore::FindOptions, unsigned maxMatchCount) = 0;
+    virtual Vector<WebCore::FloatRect> rectsForTextMatchesInRect(const WebCore::IntRect&) const { return { }; }
+    virtual bool drawsFindOverlay() const = 0;
+    virtual RefPtr<WebCore::TextIndicator> textIndicatorForSelection(OptionSet<WebCore::TextIndicatorOption>, WebCore::TextIndicatorPresentationTransition) { return { }; }
 
     virtual bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&) = 0;
-    virtual std::tuple<String, PDFSelection *, NSDictionary *> lookupTextAtLocation(const WebCore::FloatPoint&, WebHitTestResultData&) const = 0;
+    void performWebSearch(const String& query);
+
+    virtual LookupTextResult lookupTextAtLocation(const WebCore::FloatPoint&, WebHitTestResultData&) = 0;
 
     virtual id accessibilityHitTest(const WebCore::IntPoint&) const = 0;
     virtual id accessibilityObject() const = 0;
-    virtual id accessibilityAssociatedPluginParentForElement(WebCore::Element*) const = 0;
+    id accessibilityAssociatedPluginParentForElement(WebCore::Element*) const;
 
     bool isBeingDestroyed() const { return m_isBeingDestroyed; }
 
@@ -171,30 +180,42 @@ public:
     WebCore::IntRect convertFromPluginToRootView(const WebCore::IntRect&) const;
     WebCore::IntRect boundsOnScreen() const;
 
+    bool showContextMenuAtPoint(const WebCore::IntPoint&);
+    WebCore::AXObjectCache* axObjectCache() const;
+
     WebCore::ScrollPosition scrollPositionForTesting() const { return scrollPosition(); }
     WebCore::Scrollbar* horizontalScrollbar() const override { return m_horizontalScrollbar.get(); }
     WebCore::Scrollbar* verticalScrollbar() const override { return m_verticalScrollbar.get(); }
+    void setScrollOffset(const WebCore::ScrollOffset&) final;
 
+    virtual void willAttachScrollingNode() { }
+    virtual void didAttachScrollingNode() { }
     virtual void didChangeSettings() { }
 
     // HUD Actions.
 #if ENABLE(PDF_HUD)
     virtual void zoomIn() = 0;
     virtual void zoomOut() = 0;
-    void save(CompletionHandler<void(const String&, const URL&, const IPC::DataReference&)>&&);
-    void openWithPreview(CompletionHandler<void(const String&, FrameInfoData&&, const IPC::DataReference&, const String&)>&&);
+    void save(CompletionHandler<void(const String&, const URL&, std::span<const uint8_t>)>&&);
+    void openWithPreview(CompletionHandler<void(const String&, FrameInfoData&&, std::span<const uint8_t>, const String&)>&&);
 #endif
 
     void notifyCursorChanged(WebCore::PlatformCursorType);
 
     WebCore::ScrollPosition scrollPosition() const final;
 
+#if PLATFORM(MAC)
+    PDFPluginAnnotation* activeAnnotation() const { return m_activeAnnotation.get(); }
+    RefPtr<PDFPluginAnnotation> protectedActiveAnnotation() const;
+#endif
     virtual void setActiveAnnotation(RetainPtr<PDFAnnotation>&&) = 0;
     void didMutatePDFDocument() { m_pdfDocumentWasMutated = true; }
 
     virtual CGRect pluginBoundsForAnnotation(RetainPtr<PDFAnnotation>&) const = 0;
     virtual void focusNextAnnotation() = 0;
     virtual void focusPreviousAnnotation() = 0;
+
+    void navigateToURL(const URL&);
 
     virtual void attemptToUnlockPDF(const String& password) = 0;
 
@@ -207,6 +228,14 @@ public:
 #endif
 
     void notifySelectionChanged();
+
+    virtual void windowActivityDidChange() { }
+
+    virtual void didSameDocumentNavigationForFrame(WebFrame&) { }
+
+#if PLATFORM(MAC)
+    void writeItemsToPasteboard(NSString *pasteboardName, NSArray *items, NSArray *types) const;
+#endif
 
 private:
     bool documentFinishedLoading() const { return m_documentFinishedLoading; }
@@ -254,13 +283,12 @@ protected:
     bool isScrollableOrRubberbandable() final { return true; }
     bool hasScrollableOrRubberbandableAncestor() final { return true; }
     WebCore::IntRect scrollableAreaBoundingBox(bool* = nullptr) const final;
-    void setScrollOffset(const WebCore::ScrollOffset&) final;
     bool isActive() const final;
     bool isScrollCornerVisible() const final { return false; }
     WebCore::ScrollPosition minimumScrollPosition() const final;
     WebCore::ScrollPosition maximumScrollPosition() const final;
     WebCore::IntSize visibleSize() const final { return m_size; }
-    WebCore::IntPoint lastKnownMousePositionInView() const override { return m_lastMousePositionInPluginCoordinates; }
+    WebCore::IntPoint lastKnownMousePositionInView() const override;
 
     float deviceScaleFactor() const override;
     bool shouldSuspendScrollAnimations() const final { return false; } // If we return true, ScrollAnimatorMac will keep cycling a timer forever, waiting for a good time to animate.
@@ -287,9 +315,11 @@ protected:
     virtual void destroyScrollbar(WebCore::ScrollbarOrientation);
 
 #if ENABLE(PDF_HUD)
-    void updatePDFHUDLocation();
+    void updateHUDLocation();
     WebCore::IntRect frameForHUDInRootViewCoordinates() const;
     bool hudEnabled() const;
+    bool shouldShowHUD() const;
+    void updateHUDVisibility();
 #endif
 
 #if !LOG_DISABLED
@@ -300,8 +330,6 @@ protected:
     WeakPtr<WebFrame> m_frame;
     WeakPtr<WebCore::HTMLPlugInElement, WebCore::WeakPtrImplWithEventTargetData> m_element;
 
-    PDFPluginIdentifier m_identifier;
-
     // m_data grows as we receive data in the primary request (PDFPluginBase::streamDidReceiveData())
     // but also as byte range requests are received via m_incrementalLoader, so it may have "holes"
     // before the main resource is fully loaded.
@@ -309,14 +337,19 @@ protected:
     uint64_t m_streamedBytes { 0 };
 
     RetainPtr<PDFDocument> m_pdfDocument;
+#if PLATFORM(MAC)
+    RetainPtr<WKAccessibilityPDFDocumentObject> m_accessibilityDocumentObject;
+#endif
 
     String m_suggestedFilename;
+
+    String m_lastFindString;
 
     WebCore::IntSize m_size;
     WebCore::AffineTransform m_rootViewToPluginTransform;
 
     WebCore::IntSize m_scrollOffset;
-    WebCore::IntPoint m_lastMousePositionInPluginCoordinates;
+    std::optional<WebMouseEvent> m_lastMouseEvent;
 
     RefPtr<WebCore::Scrollbar> m_horizontalScrollbar;
     RefPtr<WebCore::Scrollbar> m_verticalScrollbar;
@@ -342,31 +375,60 @@ protected:
     // will break rubber-banding.
     static constexpr auto annotationStyle =
     "#annotationContainer {"
-    "    overflow: hidden; "
-    "    position: absolute; "
-    "    pointer-events: none; "
-    "    top: 0; "
-    "    left: 0; "
-    "    right: 0; "
-    "    bottom: 0; "
-    "    display: -webkit-box; "
-    "    -webkit-box-align: center; "
-    "    -webkit-box-pack: center; "
-    "} "
-    ".annotation { "
-    "    position: absolute; "
-    "    pointer-events: auto; "
-    "} "
+    "    overflow: hidden;"
+    "    position: absolute;"
+    "    pointer-events: none;"
+    "    top: 0;"
+    "    left: 0;"
+    "    right: 0;"
+    "    bottom: 0;"
+    "    display: flex;"
+    "    flex-direction: column;"
+    "    justify-content: center;"
+    "    align-items: center;"
+    "}"
+    ""
+    ".annotation {"
+    "    position: absolute;"
+    "    pointer-events: auto;"
+    "}"
+    ""
     "textarea.annotation { "
-    "    resize: none; "
-    "} "
-    "input.annotation[type='password'] { "
-    "    position: static; "
-    "    width: 238px; "
-    "    height: 20px; "
-    "    margin-top: 110px; "
-    "    font-size: 15px; "
-    "} "_s;
+    "    resize: none;"
+    "}"
+    ""
+    "input.annotation[type='password'] {"
+    "    position: static;"
+    "    width: 238px;"
+    "    margin-top: 110px;"
+    "    font-size: 15px;"
+    "}"
+    ""
+    ".lock-icon {"
+    "    width: 64px;"
+    "    height: 64px;"
+    "    margin-bottom: 12px;"
+    "}"
+    ""
+    ".password-form {"
+    "    position: static;"
+    "    display: block;"
+    "    text-align: center;"
+    "    font-family: system-ui;"
+    "    font-size: 15px;"
+    "}"
+    ""
+    ".password-form p {"
+    "    margin: 4pt;"
+    "}"
+    ""
+    ".password-form .subtitle {"
+    "    font-size: 12px;"
+    "}"
+    ""
+    ".password-form + input.annotation[type='password'] {"
+    "    margin-top: 16px;"
+    "}"_s;
 };
 
 } // namespace WebKit

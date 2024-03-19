@@ -39,6 +39,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/filesystemaccess"
     "${WEBCORE_DIR}/Modules/geolocation"
     "${WEBCORE_DIR}/Modules/highlight"
+    "${WEBCORE_DIR}/Modules/identity"
     "${WEBCORE_DIR}/Modules/indexeddb"
     "${WEBCORE_DIR}/Modules/indexeddb/client"
     "${WEBCORE_DIR}/Modules/indexeddb/server"
@@ -228,6 +229,7 @@ set(WebCore_IDL_INCLUDES
     Modules/filesystemaccess
     Modules/geolocation
     Modules/highlight
+    Modules/identity
     Modules/indexeddb
     Modules/mediacapabilities
     Modules/mediarecorder
@@ -315,10 +317,6 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/credentialmanagement/CredentialMediationRequirement.idl
     Modules/credentialmanagement/CredentialRequestOptions.idl
     Modules/credentialmanagement/CredentialsContainer.idl
-    Modules/credentialmanagement/DigitalCredential.idl
-    Modules/credentialmanagement/DigitalCredentialRequestOptions.idl
-    Modules/credentialmanagement/IdentityCredentialProtocol.idl
-    Modules/credentialmanagement/IdentityRequestProvider.idl
     Modules/credentialmanagement/Navigator+Credentials.idl
 
     Modules/encryptedmedia/MediaKeyEncryptionScheme.idl
@@ -377,6 +375,12 @@ set(WebCore_NON_SVG_IDL_FILES
 
     Modules/highlight/Highlight.idl
     Modules/highlight/HighlightRegistry.idl
+
+    Modules/identity/DigitalCredential.idl
+    Modules/identity/DigitalCredentialRequestOptions.idl
+    Modules/identity/IdentityCredentialProtocol.idl
+    Modules/identity/IdentityRequestProvider.idl
+    Modules/identity/Navigator+Identity.idl
 
     Modules/indexeddb/IDBCursor.idl
     Modules/indexeddb/IDBCursorDirection.idl
@@ -440,6 +444,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediasource/ManagedMediaSource.idl
     Modules/mediasource/ManagedSourceBuffer.idl
     Modules/mediasource/MediaSource.idl
+    Modules/mediasource/MediaSourceHandle.idl
     Modules/mediasource/SourceBuffer.idl
     Modules/mediasource/SourceBufferList.idl
     Modules/mediasource/TextTrack+MediaSource.idl
@@ -1343,6 +1348,7 @@ set(WebCore_NON_SVG_IDL_FILES
     inspector/InspectorAuditDOMObject.idl
     inspector/InspectorAuditResourcesObject.idl
     inspector/InspectorFrontendHost.idl
+    inspector/RTCLogsCallback.idl
 
     loader/COEPInheritenceViolationReportBody.idl
     loader/CORPViolationReportBody.idl
@@ -1870,6 +1876,7 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/WebGPU/GPUVertexState.idl
     Modules/WebGPU/GPUVertexStepMode.idl
     Modules/WebGPU/NavigatorGPU.idl
+    Modules/WebGPU/WGSLLanguageFeatures.idl
 )
 
 set(WebCore_IDL_FILES
@@ -2231,7 +2238,7 @@ if (USE_LCMS)
 endif ()
 
 if (USE_WOFF2)
-  list(APPEND WebCore_LIBRARIES WOFF2::dec)
+    list(APPEND WebCore_LIBRARIES WOFF2::dec)
 endif ()
 
 if (USE_XDGMIME)

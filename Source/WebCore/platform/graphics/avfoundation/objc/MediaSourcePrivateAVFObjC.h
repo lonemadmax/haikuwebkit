@@ -40,6 +40,7 @@ OBJC_CLASS AVSampleBufferDisplayLayer;
 OBJC_CLASS AVStreamDataParser;
 OBJC_CLASS NSError;
 OBJC_CLASS NSObject;
+OBJC_PROTOCOL(WebSampleBufferVideoRendering);
 typedef struct opaqueCMSampleBuffer *CMSampleBufferRef;
 
 namespace WebCore {
@@ -64,7 +65,7 @@ public:
 
     constexpr MediaPlatformType platformType() const final { return MediaPlatformType::AVFObjC; }
 
-    MediaPlayerPrivateMediaSourceAVFObjC* player() const { return m_player.get(); }
+    RefPtr<MediaPlayerPrivateInterface> player() const final;
 
     AddStatus addSourceBuffer(const ContentType&, bool webMParserEnabled, RefPtr<SourceBufferPrivate>&) final;
     void durationChanged(const MediaTime&) final;
@@ -75,13 +76,12 @@ public:
 
     bool hasSelectedVideo() const;
 
-    MediaTime currentMediaTime() const final;
     void willSeek();
 
     FloatSize naturalSize() const;
 
     void hasSelectedVideoChanged(SourceBufferPrivateAVFObjC&);
-    void setVideoLayer(AVSampleBufferDisplayLayer*);
+    void setVideoRenderer(WebSampleBufferVideoRendering *);
     void setDecompressionSession(WebCoreDecompressionSession*);
 
     void flushActiveSourceBuffersIfNeeded();
@@ -111,6 +111,7 @@ public:
 
 private:
     MediaSourcePrivateAVFObjC(MediaPlayerPrivateMediaSourceAVFObjC&, MediaSourcePrivateClient&);
+    MediaPlayerPrivateMediaSourceAVFObjC* platformPlayer() const { return m_player.get(); }
 
     void notifyActiveSourceBuffersChanged() final;
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)

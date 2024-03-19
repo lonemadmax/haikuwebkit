@@ -41,6 +41,7 @@
 #include "SecurityOriginData.h"
 #include "Timer.h"
 #include "VideoPlaybackQualityMetrics.h"
+#include "VideoReceiverEndpoint.h"
 #include <JavaScriptCore/Forward.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Function.h>
@@ -420,19 +421,20 @@ public:
     void queueTaskOnEventLoop(Function<void()>&&);
 
     bool paused() const;
+    void willSeekToTarget(const MediaTime&);
     void seekToTime(const MediaTime&);
     void seekWhenPossible(const MediaTime&);
     void seekToTarget(const SeekTarget&);
     bool seeking() const;
     void seeked(const MediaTime&);
 
-    static double invalidTime() { return -1.0;}
+    static double invalidTime() { return -1.0; }
     MediaTime duration() const;
     MediaTime currentTime() const;
 
     using CurrentTimeDidChangeCallback = std::function<void(const MediaTime&)>;
     bool setCurrentTimeDidChangeCallback(CurrentTimeDidChangeCallback&&);
-    bool currentTimeMayProgress() const;
+    bool timeIsProgressing() const;
 
     MediaTime startTime() const;
     MediaTime initialTime() const;
@@ -574,6 +576,7 @@ public:
     unsigned videoDecodedByteCount() const;
 
     void setPrivateBrowsingMode(bool);
+    bool inPrivateBrowsingMode() const { return m_inPrivateBrowsingMode; }
 
 #if ENABLE(WEB_AUDIO)
     AudioSourceProvider* audioSourceProvider();
@@ -678,7 +681,7 @@ public:
     AVPlayer *objCAVFoundationAVPlayer() const;
 #endif
 
-    bool performTaskAtMediaTime(Function<void()>&&, const MediaTime&);
+    bool performTaskAtTime(Function<void()>&&, const MediaTime&);
 
     bool shouldIgnoreIntrinsicSize();
 
@@ -731,6 +734,11 @@ public:
 
     void setResourceOwner(const ProcessIdentity&);
 
+    void setVideoReceiverEndpoint(const VideoReceiverEndpoint&);
+
+    const String& spatialTrackingLabel() const;
+    void setSpatialTrackingLabel(String&&);
+
 private:
     MediaPlayer(MediaPlayerClient&);
     MediaPlayer(MediaPlayerClient&, MediaPlayerEnums::MediaEngineIdentifier);
@@ -760,7 +768,7 @@ private:
     bool m_visibleInViewport { false };
     bool m_muted { false };
     bool m_preservesPitch { true };
-    bool m_privateBrowsing { false };
+    bool m_inPrivateBrowsingMode { false };
     bool m_shouldPrepareToRender { false };
     bool m_contentMIMETypeWasInferredFromExtension { false };
     bool m_initializingMediaEngine { false };

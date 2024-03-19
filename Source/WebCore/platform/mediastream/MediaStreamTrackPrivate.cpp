@@ -118,7 +118,7 @@ public:
     {
         auto callbacks = std::exchange(m_applyConstraintsCallbacks, { });
         for (auto& callback : callbacks.values())
-            callback(RealtimeMediaSource::ApplyConstraintsError { "applyConstraint cancelled"_s, ""_s }, { }, { });
+            callback(RealtimeMediaSource::ApplyConstraintsError { MediaConstraintType::Unknown, "applyConstraint cancelled"_s }, { }, { });
     }
 
     using ApplyConstraintsHandler = CompletionHandler<void(std::optional<RealtimeMediaSource::ApplyConstraintsError>&&, RealtimeMediaSourceSettings&&, RealtimeMediaSourceCapabilities&&)>;
@@ -535,6 +535,7 @@ void MediaStreamTrackPrivate::applyConstraints(const MediaConstraints& constrain
     m_sourceObserver->applyConstraints(constraints, WTFMove(callback));
 }
 
+#if ENABLE(WEB_AUDIO)
 RefPtr<WebAudioSourceProvider> MediaStreamTrackPrivate::createAudioSourceProvider()
 {
     ASSERT(isMainThread());
@@ -548,6 +549,7 @@ RefPtr<WebAudioSourceProvider> MediaStreamTrackPrivate::createAudioSourceProvide
     return nullptr;
 #endif
 }
+#endif
 
 void MediaStreamTrackPrivate::sourceStarted()
 {

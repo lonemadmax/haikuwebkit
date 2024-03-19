@@ -699,7 +699,7 @@ void ReplaceSelectionCommand::removeRedundantStylesAndKeepStyleSpanInline(Insert
             setNodeAttribute(*element, styleAttr, newInlineStyle->style()->asTextAtom());
 
         // FIXME: Tolerate differences in id, class, and style attributes.
-        if (element->parentNode() && isNonTableCellHTMLBlockElement(element.get()) && areIdenticalElements(*element, *element->parentNode())
+        if (element->parentNode() && isNonTableCellHTMLBlockElement(element.get()) && elementIfEquivalent(*element, *element->parentNode())
             && VisiblePosition(firstPositionInNode(element->parentNode())) == VisiblePosition(firstPositionInNode(element.get()))
             && VisiblePosition(lastPositionInNode(element->parentNode())) == VisiblePosition(lastPositionInNode(element.get()))) {
             insertedNodes.willRemoveNodePreservingChildren(element.get());
@@ -1138,8 +1138,8 @@ void ReplaceSelectionCommand::doApply()
         return;
     
     // We can skip matching the style if the selection is plain text.
-    if ((selection.start().deprecatedNode()->renderer() && selection.start().deprecatedNode()->renderer()->style().effectiveUserModify() == UserModify::ReadWritePlaintextOnly)
-        && (selection.end().deprecatedNode()->renderer() && selection.end().deprecatedNode()->renderer()->style().effectiveUserModify() == UserModify::ReadWritePlaintextOnly))
+    if ((selection.start().deprecatedNode()->renderer() && selection.start().deprecatedNode()->renderer()->style().usedUserModify() == UserModify::ReadWritePlaintextOnly)
+        && (selection.end().deprecatedNode()->renderer() && selection.end().deprecatedNode()->renderer()->style().usedUserModify() == UserModify::ReadWritePlaintextOnly))
         m_matchStyle = false;
     
     if (m_matchStyle) {

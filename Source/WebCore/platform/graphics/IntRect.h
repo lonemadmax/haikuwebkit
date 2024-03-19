@@ -52,7 +52,7 @@ typedef struct tagRECT RECT;
 class BRect;
 #endif
 
-#if USE(CAIRO)
+#if USE(CAIRO) || PLATFORM(GTK)
 typedef struct _cairo_rectangle_int cairo_rectangle_int_t;
 #endif
 
@@ -203,7 +203,7 @@ public:
     operator BRect() const;
 #endif
 
-#if USE(CAIRO)
+#if USE(CAIRO) || PLATFORM(GTK)
     IntRect(const cairo_rectangle_int_t&);
     operator cairo_rectangle_int_t() const;
 #endif

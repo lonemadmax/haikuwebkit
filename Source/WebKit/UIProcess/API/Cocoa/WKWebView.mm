@@ -82,6 +82,8 @@
 #import "WKSecurityOriginInternal.h"
 #import "WKSharedAPICast.h"
 #import "WKSnapshotConfigurationPrivate.h"
+#import "WKTextExtractionItem.h"
+#import "WKTextExtractionUtilities.h"
 #import "WKUIDelegate.h"
 #import "WKUIDelegatePrivate.h"
 #import "WKUserContentControllerInternal.h"
@@ -131,7 +133,9 @@
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/ColorSerialization.h>
 #import <WebCore/ContentExtensionsBackend.h>
+#import <WebCore/DOMException.h>
 #import <WebCore/ElementContext.h>
+#import <WebCore/ExceptionCode.h>
 #import <WebCore/JSDOMBinding.h>
 #import <WebCore/JSDOMExceptionHandling.h>
 #import <WebCore/LegacySchemeRegistry.h>
@@ -1238,7 +1242,13 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
     WebCore::IntSize bitmapSize(snapshotWidth, imageHeight);
     bitmapSize.scale(deviceScale, deviceScale);
 
-    WebKit::SnapshotOptions snapshotOptions = WebKit::SnapshotOptionsInViewCoordinates;
+    WebKit::SnapshotOptions snapshotOptions;
+    if (snapshotConfiguration._usesContentsRect) {
+        snapshotOptions = WebKit::SnapshotOptionsFullContentRect;
+        // Let WebPage decide the image size.
+        bitmapSize = WebCore::IntSize { };
+    } else
+        snapshotOptions = WebKit::SnapshotOptionsInViewCoordinates;
     if (!snapshotConfiguration._includesSelectionHighlighting)
         snapshotOptions |= WebKit::SnapshotOptionsExcludeSelectionHighlighting;
     if (snapshotConfiguration._usesTransparentBackground)
@@ -1248,7 +1258,7 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
     // This code doesn't consider snapshotConfiguration.afterScreenUpdates since the software snapshot always
     // contains recent updates. If we ever have a UI-side snapshot mechanism on macOS, we will need to factor
     // in snapshotConfiguration.afterScreenUpdates at that time.
-    _page->takeSnapshot(WebCore::enclosingIntRect(rectInViewCoordinates), bitmapSize, snapshotOptions, [handler, snapshotWidth, imageHeight](std::optional<WebCore::ShareableBitmap::Handle>&& imageHandle) {
+    _page->takeSnapshot(WebCore::enclosingIntRect(rectInViewCoordinates), bitmapSize, snapshotOptions, [handler, snapshotWidth, imageHeight, usesContentRect = snapshotOptions & WebKit::SnapshotOptionsFullContentRect](std::optional<WebCore::ShareableBitmap::Handle>&& imageHandle) {
         if (!imageHandle) {
             tracePoint(TakeSnapshotEnd, snapshotFailedTraceValue);
             handler(nil, createNSError(WKErrorUnknown).get());
@@ -1256,7 +1266,9 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
         }
         auto bitmap = WebCore::ShareableBitmap::create(WTFMove(*imageHandle), WebCore::SharedMemory::Protection::ReadOnly);
         RetainPtr<CGImageRef> cgImage = bitmap ? bitmap->makeCGImage() : nullptr;
-        auto image = adoptNS([[NSImage alloc] initWithCGImage:cgImage.get() size:NSMakeSize(snapshotWidth, imageHeight)]);
+        auto width = usesContentRect ? (CGFloat)CGImageGetWidth(cgImage.get()) : snapshotWidth;
+        auto height = usesContentRect ? (CGFloat)CGImageGetHeight(cgImage.get()) : imageHeight;
+        auto image = adoptNS([[NSImage alloc] initWithCGImage:cgImage.get() size:NSMakeSize(width, height)]);
         tracePoint(TakeSnapshotEnd, true);
         handler(image.get(), nil);
     });
@@ -2460,11 +2472,16 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
 #endif
 }
 
-- (void)_dataTaskWithRequest:(NSURLRequest *)request completionHandler:(void(^)(_WKDataTask *))completionHandler
+- (void)_dataTaskWithRequest:(NSURLRequest *)request runAtForegroundPriority:(BOOL)runAtForegroundPriority completionHandler:(void(^)(_WKDataTask *))completionHandler
 {
-    _page->dataTaskWithRequest(request, std::nullopt, [completionHandler = makeBlockPtr(completionHandler)] (Ref<API::DataTask>&& task) {
+    _page->dataTaskWithRequest(request, std::nullopt, !!runAtForegroundPriority, [completionHandler = makeBlockPtr(completionHandler)] (Ref<API::DataTask>&& task) {
         completionHandler(wrapper(task));
     });
+}
+
+- (void)_dataTaskWithRequest:(NSURLRequest *)request completionHandler:(void(^)(_WKDataTask *))completionHandler
+{
+    [self _dataTaskWithRequest:request runAtForegroundPriority:NO completionHandler:completionHandler];
 }
 
 - (void)_takeFindStringFromSelection:(id)sender
@@ -2539,10 +2556,28 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
 #endif
 }
 
+- (BOOL)_canToggleInWindow
+{
+#if HAVE(TOUCH_BAR)
+    return _impl->canTogglePictureInPicture();
+#else
+    return NO;
+#endif
+}
+
 - (BOOL)_isPictureInPictureActive
 {
 #if HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
     return _impl->isPictureInPictureActive();
+#else
+    return NO;
+#endif
+}
+
+- (BOOL)_isInWindowActive
+{
+#if HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
+    return _impl->isInWindowFullscreenActive();
 #else
     return NO;
 #endif
@@ -2553,6 +2588,24 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
     THROW_IF_SUSPENDED;
 #if HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
     _impl->togglePictureInPicture();
+#endif
+}
+
+- (void)_nowPlayingMediaTitleAndArtist:(void (^)(NSString *, NSString *))completionHandler
+{
+    THROW_IF_SUSPENDED;
+#if HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
+    _impl->nowPlayingMediaTitleAndArtist(completionHandler);
+#else
+    completionHandler(nil, nil);
+#endif
+}
+
+- (void)_toggleInWindow
+{
+    THROW_IF_SUSPENDED;
+#if HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
+    _impl->toggleInWindowFullscreen();
 #endif
 }
 
@@ -2616,6 +2669,11 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
     return NO;
 }
 #endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+
+- (void)_setStatisticsCrossSiteLoadWithLinkDecorationForTesting:(NSString *)fromHost withToHost:(NSString *)toHost withWasFiltered:(BOOL)wasFiltered withCompletionHandler:(void(^)(void))completionHandler
+{
+    _page->setCrossSiteLoadWithLinkDecorationForTesting(URL { fromHost }, URL { toHost }, wasFiltered, makeBlockPtr(completionHandler));
+}
 
 - (_WKMediaMutedState)_mediaMutedState
 {
@@ -2703,6 +2761,19 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 #if ENABLE(APP_HIGHLIGHTS)
     _page->createAppHighlightInSelectedRange(newGroup ? WebCore::CreateNewGroupForHighlight::Yes : WebCore::CreateNewGroupForHighlight::No, originatedInApp ? WebCore::HighlightRequestOriginatedInApp::Yes : WebCore::HighlightRequestOriginatedInApp::No);
 #endif
+}
+
+- (void)_requestRenderedTextForElementSelector:(NSString *)selector completionHandler:(void(^)(NSString *, NSError *))completion
+{
+    _page->requestRenderedTextForElementSelector(selector, [completion = makeBlockPtr(completion)](Expected<String, WebCore::ExceptionCode>&& result) {
+        if (result)
+            return completion(result.value(), nil);
+
+        RetainPtr exceptionName = WebCore::DOMException::name(result.error()).createNSString();
+        return completion(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{
+            NSLocalizedDescriptionKey: exceptionName.get() ?: @""
+        }]);
+    });
 }
 
 - (NSURL *)_unreachableURL
@@ -2924,6 +2995,15 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
     return _page->gpuProcessID();
 }
 
+- (pid_t)_modelProcessIdentifier
+{
+    if (![self _isValid])
+        return 0;
+
+    return _page->modelProcessID();
+}
+
+
 - (BOOL)_webProcessIsResponsive
 {
     return _page->process().isResponsive();
@@ -3008,9 +3088,10 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 - (void)_restoreFromSessionStateData:(NSData *)sessionStateData
 {
     THROW_IF_SUSPENDED;
+
     // FIXME: This should not use the legacy session state decoder.
     WebKit::SessionState sessionState;
-    if (!WebKit::decodeLegacySessionState(static_cast<const uint8_t*>(sessionStateData.bytes), sessionStateData.length, sessionState))
+    if (!WebKit::decodeLegacySessionState(std::span { static_cast<const uint8_t*>(sessionStateData.bytes), sessionStateData.length }, sessionState))
         return;
 
     _page->restoreFromSessionState(WTFMove(sessionState), true);
@@ -3964,8 +4045,8 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
 - (void)_setFullscreenDelegate:(id<_WKFullscreenDelegate>)delegate
 {
 #if ENABLE(FULLSCREEN_API)
-    if (is<WebKit::FullscreenClient>(_page->fullscreenClient()))
-        downcast<WebKit::FullscreenClient>(_page->fullscreenClient()).setDelegate(delegate);
+    if (auto* client = dynamicDowncast<WebKit::FullscreenClient>(_page->fullscreenClient()))
+        client->setDelegate(delegate);
 #endif
 }
 
@@ -3973,8 +4054,8 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
 - (id<_WKFullscreenDelegate>)_fullscreenDelegate
 {
 #if ENABLE(FULLSCREEN_API)
-    if (is<WebKit::FullscreenClient>(_page->fullscreenClient()))
-        return downcast<WebKit::FullscreenClient>(_page->fullscreenClient()).delegate().autorelease();
+    if (auto* client = dynamicDowncast<WebKit::FullscreenClient>(_page->fullscreenClient()))
+        return client->delegate().autorelease();
 #endif
     return nil;
 }
@@ -4156,6 +4237,11 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
     WebKit::WebProcessProxy::permissionChanged(*name, origin->_securityOrigin->securityOrigin());
 }
 
+- (NSURL *)_requiredWebExtensionBaseURL
+{
+    return [_configuration _requiredWebExtensionBaseURL];
+}
+
 @end
 
 @implementation WKWebView (WKDeprecated)
@@ -4177,6 +4263,38 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
 - (void)_setFormDelegate:(id <_WKInputDelegate>)formDelegate
 {
     self._inputDelegate = formDelegate;
+}
+
+@end
+
+@implementation WKWebView (WKTextExtraction)
+
+- (void)_requestTextExtractionForSwift:(WKTextExtractionRequest *)context
+{
+    [self _requestTextExtraction:context.rectInWebView completionHandler:makeBlockPtr([context = retainPtr(context)](WKTextExtractionItem *result) {
+        [context fulfill:result];
+    }).get()];
+}
+
+- (void)_requestTextExtraction:(CGRect)rectInWebView completionHandler:(void(^)(WKTextExtractionItem *))completionHandler
+{
+    if (!self._isValid || !_page->preferences().textExtractionEnabled())
+        return completionHandler(nil);
+
+    auto rectInRootView = [&]() -> std::optional<WebCore::FloatRect> {
+        if (CGRectIsNull(rectInWebView))
+            return std::nullopt;
+
+#if PLATFORM(IOS_FAMILY)
+        return WebCore::FloatRect { [self convertRect:rectInWebView toView:_contentView.get()] };
+#else
+        return WebCore::FloatRect { rectInWebView };
+#endif
+    }();
+
+    _page->requestTextExtraction(WTFMove(rectInRootView), [completionHandler = makeBlockPtr(completionHandler)](auto&& item) {
+        completionHandler(WebKit::createItem(item).get());
+    });
 }
 
 @end

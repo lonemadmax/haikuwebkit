@@ -72,7 +72,7 @@ static bool urlRequiresChromeBrowser(const String& domain, const String& baseDom
         return true;
 
     // https://webcompat.com/issues/123672
-    if (baseDomain == "apple.com"_s)
+    if (domain == "www.apple.com"_s)
         return true;
 
     return false;
@@ -134,6 +134,12 @@ static bool urlRequiresMacintoshPlatform(const String& domain, const String& bas
     // Andalusian Health Service discriminates against WebKitGTK's standard user
     // agent with an unsupported browser warning.
     if (domain == "www.sspa.juntadeandalucia.es"_s)
+        return true;
+
+    // Atlassian Confluence discrimates against WebKitGTK's standard user agent
+    // by completely blocking access to the application. It runs on different
+    // subdomains for each Atlassian customer so the quirk must apply broadly.
+    if (baseDomain == "atlassian.net"_s)
         return true;
 
     return false;

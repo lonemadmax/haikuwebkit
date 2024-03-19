@@ -89,7 +89,7 @@ static inline SVGResourcesCache& resourcesCacheFromRenderer(const RenderElement&
         RELEASE_ASSERT_NOT_REACHED();
 #endif
 
-    return renderer.document().accessSVGExtensions().resourcesCache();
+    return renderer.document().svgExtensions().resourcesCache();
 }
 
 SVGResources* SVGResourcesCache::cachedResourcesForRenderer(const RenderElement& renderer)
@@ -179,13 +179,13 @@ void SVGResourcesCache::clientStyleChanged(RenderElement& renderer, StyleDiffere
         if (oldStyle->appleColorFilter() != newStyle.appleColorFilter())
             return true;
 
-        auto& oldSVGStyle = oldStyle->svgStyle();
-        auto& newSVGStyle = newStyle.svgStyle();
+        Ref oldSVGStyle = oldStyle->svgStyle();
+        Ref newSVGStyle = newStyle.svgStyle();
 
-        if (oldSVGStyle.fillPaintUri() != newSVGStyle.fillPaintUri())
+        if (oldSVGStyle->fillPaintUri() != newSVGStyle->fillPaintUri())
             return true;
 
-        if (oldSVGStyle.strokePaintUri() != newSVGStyle.strokePaintUri())
+        if (oldSVGStyle->strokePaintUri() != newSVGStyle->strokePaintUri())
             return true;
 
         return false;
@@ -270,8 +270,8 @@ void SVGResourcesCache::resourceDestroyed(LegacyRenderSVGResourceContainer& reso
     for (auto& it : cache.m_cache) {
         if (it.value->resourceDestroyed(resource)) {
             // Mark users of destroyed resources as pending resolution based on the id of the old resource.
-            auto& clientElement = *it.key->element();
-            clientElement.treeScopeForSVGReferences().addPendingSVGResource(resource.element().getIdAttribute(), checkedDowncast<SVGElement>(clientElement));
+            Ref clientElement = *it.key->element();
+            clientElement->treeScopeForSVGReferences().addPendingSVGResource(resource.element().getIdAttribute(), checkedDowncast<SVGElement>(clientElement.get()));
         }
     }
 }

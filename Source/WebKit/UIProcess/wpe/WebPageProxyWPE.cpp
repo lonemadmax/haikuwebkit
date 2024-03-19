@@ -36,8 +36,11 @@
 #include <wpe/wpe-platform.h>
 #endif
 
-#if USE(GBM) && ENABLE(WPE_PLATFORM)
+#if USE(GBM)
 #include "DMABufRendererBufferFormat.h"
+#endif
+
+#if USE(GBM) && ENABLE(WPE_PLATFORM)
 #include "MessageSenderInlines.h"
 #include "WebPageMessages.h"
 #endif
@@ -169,6 +172,20 @@ OptionSet<WebCore::PlatformEvent::Modifier> WebPageProxy::currentStateOfModifier
     return modifiers;
 #else
     return { };
+#endif
+}
+
+void WebPageProxy::callAfterNextPresentationUpdate(CompletionHandler<void()>&& callback)
+{
+    if (!hasRunningProcess() || !m_drawingArea) {
+        callback();
+        return;
+    }
+
+#if USE(COORDINATED_GRAPHICS)
+    static_cast<PageClientImpl&>(pageClient()).callAfterNextPresentationUpdate(WTFMove(callback));
+#else
+    callback();
 #endif
 }
 

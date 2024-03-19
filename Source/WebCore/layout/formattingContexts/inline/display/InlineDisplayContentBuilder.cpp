@@ -206,8 +206,8 @@ void InlineDisplayContentBuilder::appendTextDisplayBox(const Line::Run& lineRun,
             auto enclosingAscentAndDescent = TextUtil::enclosingGlyphBoundsForText(StringView(content).substring(text->start, text->length), style);
             // FIXME: Take fallback fonts into account.
             auto& fontMetrics = style.metricsOfPrimaryFont();
-            auto topOverflow = std::max(0.f, ceilf(-enclosingAscentAndDescent.ascent) - fontMetrics.ascent());
-            auto bottomOverflow = std::max(0.f, ceilf(enclosingAscentAndDescent.descent) - fontMetrics.descent());
+            auto topOverflow = std::max(0.f, ceilf(-enclosingAscentAndDescent.ascent) - fontMetrics.intAscent());
+            auto bottomOverflow = std::max(0.f, ceilf(enclosingAscentAndDescent.descent) - fontMetrics.intDescent());
             inkOverflow.inflate(topOverflow, { }, bottomOverflow, { });
         };
         addGlyphOverflow();
@@ -775,16 +775,18 @@ void InlineDisplayContentBuilder::processBidiContent(const LineLayoutResult& lin
                     // FIXME: Maybe we should not tag ruby bases with annotation boxes only contentful?
                     if (!lineBox.inlineLevelBoxFor(lineRun).hasContent())
                         return true;
-                    if (!layoutBox.isRubyBase() || !is<ElementBox>(layoutBox))
+                    if (!layoutBox.isRubyBase())
                         return false;
-                    auto& rubyBaseLayoutBox = downcast<ElementBox>(layoutBox);
+                    auto* rubyBaseLayoutBox = dynamicDowncast<ElementBox>(layoutBox);
+                    if (!rubyBaseLayoutBox)
+                        return false;
                     // Let's create empty inline boxes for ruby bases with annotation only.
-                    if (!rubyBaseLayoutBox.firstChild() || (rubyBaseLayoutBox.firstChild() == rubyBaseLayoutBox.lastChild() && rubyBaseLayoutBox.firstChild()->isRubyAnnotationBox()))
+                    if (!rubyBaseLayoutBox->firstChild() || (rubyBaseLayoutBox->firstChild() == rubyBaseLayoutBox->lastChild() && rubyBaseLayoutBox->firstChild()->isRubyAnnotationBox()))
                         return true;
                     // Let's check if we actually don't have a contentful run inside this ruby base.
                     for (size_t nextLogicalRunIndex = logicalIndex + 1; nextLogicalRunIndex < inlineContent.size(); ++nextLogicalRunIndex) {
                         auto& lineRun = inlineContent[nextLogicalRunIndex];
-                        if (lineRun.isInlineBoxEnd() && &lineRun.layoutBox() == &rubyBaseLayoutBox)
+                        if (lineRun.isInlineBoxEnd() && &lineRun.layoutBox() == rubyBaseLayoutBox)
                             break;
                         if (lineRun.isContentful())
                             return false;
@@ -1188,27 +1190,34 @@ void InlineDisplayContentBuilder::applyRubyOverhang(InlineDisplay::Boxes& displa
                     formattingContext.geometryForBox(*layoutBox.associatedRubyAnnotationBox()).moveHorizontally(LayoutUnit { -shiftValue });
             }
         };
-        if (beforeOverhang)
-            moveBoxRangeToVisualLeft(rubyBaseStart, displayBoxes.size() - 1, beforeOverhang);
+        auto hasJustifiedAdjacentAfterContent = [&] {
+            if (startEndPair.end() == displayBoxes.size())
+                return false;
+            auto& afterRubyBaseDisplayBox = displayBoxes[startEndPair.end()];
+            if (afterRubyBaseDisplayBox.layoutBox().isRubyBase()) {
+                // Adjacent content is also a ruby base.
+                return false;
+            }
+            return !!afterRubyBaseDisplayBox.expansion().horizontalExpansion;
+        }();
+
+        if (beforeOverhang) {
+            // When "before" adjacent content slightly pulls the rest of the content on the line leftward, justify content should stay intact.
+            moveBoxRangeToVisualLeft(rubyBaseStart, hasJustifiedAdjacentAfterContent ? startEndPair.end() : displayBoxes.size() - 1, beforeOverhang);
+        }
         if (afterOverhang) {
-            auto hasJustifiedAdjacentAfterContent = [&] {
-                if (startEndPair.end() == displayBoxes.size())
-                    return false;
-                auto& afterRubyBaseDisplayBox = displayBoxes[startEndPair.end()];
-                if (afterRubyBaseDisplayBox.layoutBox().isRubyBase()) {
-                    // Adjacent content is also a ruby base.
-                    return false;
-                }
-                return !!afterRubyBaseDisplayBox.expansion().horizontalExpansion;
-            };
-            if (hasJustifiedAdjacentAfterContent()) {
+            // Normally we shift all the "after" boxes to the left here as one monolithic content
+            // but in case of justified alignment we can only move the adjacent run under the annotation
+            // and expand the justified space to keep the rest of the runs stationary.
+            if (hasJustifiedAdjacentAfterContent) {
                 auto& afterRubyBaseDisplayBox = displayBoxes[startEndPair.end()];
                 auto expansion = afterRubyBaseDisplayBox.expansion();
                 auto inflateValue = afterOverhang + beforeOverhang;
                 afterRubyBaseDisplayBox.setExpansion({ expansion.behavior, expansion.horizontalExpansion + inflateValue });
-                afterRubyBaseDisplayBox.expandHorizontally(inflateValue);
-            }
-            moveBoxRangeToVisualLeft(startEndPair.end(), displayBoxes.size() - 1, afterOverhang);
+                isHorizontalWritingMode ? afterRubyBaseDisplayBox.expandHorizontally(inflateValue) : afterRubyBaseDisplayBox.expandVertically(inflateValue);
+                moveBoxRangeToVisualLeft(startEndPair.end(), startEndPair.end(), afterOverhang);
+            } else
+                moveBoxRangeToVisualLeft(startEndPair.end(), displayBoxes.size() - 1, afterOverhang);
         }
     }
 }

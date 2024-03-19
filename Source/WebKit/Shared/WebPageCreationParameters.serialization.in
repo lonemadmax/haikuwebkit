@@ -46,6 +46,9 @@ headers: "ArgumentCoders.h"
 
     std::optional<WebCore::FloatRect> viewExposedRect;
 
+    std::optional<uint32_t> displayID;
+    std::optional<unsigned> nominalFramesPerSecond;
+
     bool alwaysShowsHorizontalScroller;
     bool alwaysShowsVerticalScroller;
 
@@ -61,7 +64,7 @@ headers: "ArgumentCoders.h"
     bool itemStatesWereRestoredByAPIRequest;
     Vector<WebKit::BackForwardListItemState> itemStates;
 
-    uint64_t visitedLinkTableID;
+    WebKit::VisitedLinkTableIdentifier visitedLinkTableID;
     bool canRunBeforeUnloadConfirmPanel;
     bool canRunModal;
 
@@ -134,6 +137,9 @@ headers: "ArgumentCoders.h"
     Vector<String> additionalSupportedImageTypes;
     Vector<WebKit::SandboxExtension::Handle> gpuIOKitExtensionHandles;
     Vector<WebKit::SandboxExtension::Handle> gpuMachExtensionHandles;
+#endif
+#if PLATFORM(MAC)
+    WebKit::SandboxExtension::Handle renderServerMachExtensionHandle;
 #endif
 #if HAVE(STATIC_FONT_REGISTRY)
     Vector<WebKit::SandboxExtension::Handle> fontMachExtensionHandles;
@@ -235,7 +241,7 @@ headers: "ArgumentCoders.h"
 
     WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension;
 
-    std::optional<WebKit::WebPageCreationParameters::SubframeProcessPageParameters> subframeProcessPageParameters;
+    std::optional<WebKit::SubframeProcessPageParameters> subframeProcessPageParameters;
     std::optional<WebCore::FrameIdentifier> openerFrameIdentifier;
     std::optional<WebCore::FrameIdentifier> mainFrameIdentifier;
 
@@ -253,7 +259,8 @@ headers: "ArgumentCoders.h"
 #endif
 }
 
-[Nested] struct WebKit::WebPageCreationParameters::SubframeProcessPageParameters {
+[Nested] struct WebKit::SubframeProcessPageParameters {
     URL initialMainDocumentURL;
     WebKit::FrameTreeCreationParameters frameTreeParameters;
+    std::optional<WebKit::WebsitePoliciesData> websitePoliciesData;
 }

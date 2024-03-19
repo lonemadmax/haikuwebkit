@@ -207,6 +207,10 @@
 
 #if USE(BROWSERENGINEKIT)
 
+// FIXME: Replace this with linker flags in WebKit.xcconfig once BrowserEngineKit
+// is available everywhere we require it.
+asm(".linker_option \"-framework\", \"BrowserEngineKit\"");
+
 @interface WKUITextSelectionRect : UITextSelectionRect
 + (instancetype)selectionRectWithCGRect:(CGRect)rect;
 @end
@@ -4259,15 +4263,28 @@ WEBCORE_COMMAND_FOR_WEBVIEW(pasteAndMatchStyle);
         return result;
 
     auto typingAttributes = _page->editorState().postLayoutData->typingAttributes;
-    
-    UIFont *font = _autocorrectionData.font.get();
+
+    RetainPtr font = _autocorrectionData.font.get();
     double zoomScale = self._contentZoomScale;
     if (std::abs(zoomScale - 1) > FLT_EPSILON)
-        font = [font fontWithSize:font.pointSize * zoomScale];
+        font = [font fontWithSize:[font pointSize] * zoomScale];
 
-    if (font)
-        [result setObject:font forKey:NSFontAttributeName];
-    
+    if (font) {
+        auto originalTraits = [font fontDescriptor].symbolicTraits;
+        auto newTraits = originalTraits;
+        if (typingAttributes.contains(WebKit::TypingAttribute::Bold))
+            newTraits |= UIFontDescriptorTraitBold;
+
+        if (typingAttributes.contains(WebKit::TypingAttribute::Italics))
+            newTraits |= UIFontDescriptorTraitItalic;
+
+        if (originalTraits != newTraits) {
+            RetainPtr descriptor = [[font fontDescriptor] ?: adoptNS([UIFontDescriptor new]) fontDescriptorWithSymbolicTraits:newTraits];
+            font = [UIFont fontWithDescriptor:descriptor.get() size:[font pointSize]];
+        }
+        [result setObject:font.get() forKey:NSFontAttributeName];
+    }
+
     if (typingAttributes.contains(WebKit::TypingAttribute::Underline))
         [result setObject:@(NSUnderlineStyleSingle) forKey:NSUnderlineStyleAttributeName];
 
@@ -4370,15 +4387,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _page->insertionPointColorDidChange();
 }
 
-#if ENABLE(APP_HIGHLIGHTS)
-
-- (BOOL)shouldAllowAppHighlightCreation
+- (BOOL)shouldAllowHighlightLinkCreation
 {
     auto editorState = _page->editorState();
     return editorState.selectionIsRange && !editorState.isContentEditable && !editorState.selectionIsRangeInsideImageOverlay;
 }
-
-#endif // ENABLE(APP_HIGHLIGHTS)
 
 - (BOOL)canPerformAction:(SEL)action withSender:(id)sender
 {
@@ -4438,7 +4451,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
     if (action == @selector(_swapCharacters:))
-        return editorState.selectionIsRange && editorState.isContentRichlyEditable && [super canPerformAction:action withSender:sender];
+        return editorState.isContentRichlyEditable && [super canPerformAction:action withSender:sender];
 #endif
 
     if (action == @selector(paste:) || action == @selector(_pasteAsQuotation:) || action == @selector(_pasteAndMatchStyle:) || action == @selector(pasteAndMatchStyle:)) {
@@ -6915,7 +6928,7 @@ static UITextAutocapitalizationType toUITextAutocapitalize(WebCore::Autocapitali
         privateTraits.shortcutConversionType = _focusedElementInformation.elementType == WebKit::InputType::Password ? UITextShortcutConversionTypeNo : UITextShortcutConversionTypeDefault;
 
 #if HAVE(INLINE_PREDICTIONS)
-    traits.inlinePredictionType = (self.webView.configuration.allowsInlinePredictions || _page->preferences().inlinePredictionsInAllEditableElementsEnabled()) ? UITextInlinePredictionTypeDefault : UITextInlinePredictionTypeNo;
+    traits.inlinePredictionType = (self.webView.configuration.allowsInlinePredictions || _page->preferences().inlinePredictionsInAllEditableElementsEnabled() || _focusedElementInformation.isWritingSuggestionsEnabled) ? UITextInlinePredictionTypeDefault : UITextInlinePredictionTypeNo;
 #endif
 
     [self _updateTextInputTraitsForInteractionTintColor];
@@ -9010,6 +9023,14 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
         && [uiDelegate _webView:webView.get() fileUploadPanelContentIsManagedWithInitiatingFrame:wrapper(API::FrameInfo::create(WTFMove(_frameInfoForFileUploadPanel), _page.get())).get()];
 }
 
+#if HAVE(PHOTOS_UI)
+- (BOOL)fileUploadPanelPhotoPickerPrefersOriginalImageFormat:(WKFileUploadPanel *)fileUploadPanel
+{
+    ASSERT(_fileUploadPanel.get() == fileUploadPanel);
+    return _page->preferences().photoPickerPrefersOriginalImageFormat();
+}
+#endif
+
 - (void)_showShareSheet:(const WebCore::ShareDataWithParsedURL&)data inRect:(std::optional<WebCore::FloatRect>)rect completionHandler:(CompletionHandler<void(bool)>&&)completionHandler
 {
 #if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
@@ -9553,11 +9574,11 @@ static WebCore::DataOwnerType coreDataOwnerType(_UIDataOwner platformType)
     [_contextMenuHintContainerView setFrame:frame];
 }
 
-- (void)_updateTargetedPreviewScrollViewUsingContainerScrollingNodeID:(WebCore::ScrollingNodeID)scrollingNodeID
+- (void)_updateTargetedPreviewScrollViewUsingContainerScrollingNodeID:(std::optional<WebCore::ScrollingNodeID>)scrollingNodeID
 {
     if (scrollingNodeID) {
         if (auto* scrollingCoordinator = downcast<WebKit::RemoteScrollingCoordinatorProxyIOS>(_page->scrollingCoordinatorProxy())) {
-            if (UIScrollView *scrollViewForScrollingNode = scrollingCoordinator->scrollViewForScrollingNodeID(scrollingNodeID))
+            if (UIScrollView *scrollViewForScrollingNode = scrollingCoordinator->scrollViewForScrollingNodeID(*scrollingNodeID))
                 _scrollViewForTargetedPreview = scrollViewForScrollingNode;
         }
     }
@@ -11180,6 +11201,9 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
     if (auto menu = self.appHighlightMenu)
         [builder insertChildMenu:menu atEndOfMenuForIdentifier:UIMenuRoot];
 #endif
+
+    if (auto menu = self.scrollToTextFragmentGenerationMenu)
+        [builder insertSiblingMenu:menu afterMenuForIdentifier:UIMenuStandardEdit];
 }
 
 - (UIMenu *)menuWithInlineAction:(NSString *)title image:(UIImage *)image identifier:(NSString *)identifier handler:(Function<void(WKContentView *)>&&)handler
@@ -11195,7 +11219,7 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 
 - (UIMenu *)appHighlightMenu
 {
-    if (!_page->preferences().appHighlightsEnabled() || !_page->editorState().selectionIsRange || !self.shouldAllowAppHighlightCreation)
+    if (!_page->preferences().appHighlightsEnabled() || !_page->editorState().selectionIsRange || !self.shouldAllowHighlightLinkCreation)
         return nil;
 
     bool isVisible = _page->appHighlightsVisibility();
@@ -11206,6 +11230,16 @@ static Vector<WebCore::IntSize> sizesOfPlaceholderElementsToInsertWhenDroppingIt
 }
 
 #endif // ENABLE(APP_HIGHLIGHTS)
+
+- (UIMenu *)scrollToTextFragmentGenerationMenu
+{
+    if (!_page->preferences().scrollToTextFragmentGenerationEnabled() || !_page->editorState().selectionIsRange || !self.shouldAllowHighlightLinkCreation)
+        return nil;
+
+    return [self menuWithInlineAction:WebCore::contextMenuItemTagCopyLinkToHighlight() image:nil identifier:@"WKActionScrollToTextFragmentGeneration" handler:[](WKContentView *view) mutable {
+        view->_page->copyLinkToHighlight();
+    }];
+}
 
 - (void)setContinuousSpellCheckingEnabled:(BOOL)enabled
 {
@@ -12308,29 +12342,20 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
     bool updated = false;
     [self.contextMenuInteraction updateVisibleMenuWithBlock:makeBlockPtr([&](UIMenu *menu) -> UIMenu * {
         updated = true;
-        __block auto indexOfPlaceholder = NSNotFound;
-        __block BOOL foundCopyItem = NO;
+        __block BOOL foundRevealImageItem = NO;
+        __block BOOL foundShowTextItem = NO;
         auto revealImageIdentifier = elementActionTypeToUIActionIdentifier(_WKElementActionTypeRevealImage);
-        auto copyIdentifier = elementActionTypeToUIActionIdentifier(_WKElementActionTypeCopy);
+        auto showTextIdentifier = elementActionTypeToUIActionIdentifier(_WKElementActionTypeImageExtraction);
         [menu.children enumerateObjectsUsingBlock:^(UIMenuElement *child, NSUInteger index, BOOL* stop) {
             auto *action = dynamic_objc_cast<UIAction>(child);
-            if ([action.identifier isEqualToString:revealImageIdentifier] && (action.attributes & UIMenuElementAttributesHidden))
-                indexOfPlaceholder = index;
-            else if ([action.identifier isEqualToString:copyIdentifier])
-                foundCopyItem = YES;
+            if ([action.identifier isEqualToString:revealImageIdentifier])
+                foundRevealImageItem = YES;
+            else if ([action.identifier isEqualToString:showTextIdentifier])
+                foundShowTextItem = YES;
         }];
 
-        if (indexOfPlaceholder == NSNotFound)
-            return menu;
-
         auto adjustedChildren = adoptNS(menu.children.mutableCopy);
-        auto replacements = adoptNS([NSMutableArray<UIMenuElement *> new]);
-
-        auto *elementInfo = [_WKActivatedElementInfo activatedElementInfoWithInteractionInformationAtPosition:_positionInformation userInfo:nil];
-        auto addAction = [&](_WKElementActionType action) {
-            auto *elementAction = [_WKElementAction _elementActionWithType:action info:elementInfo assistant:_actionSheetAssistant.get()];
-            [replacements addObject:[elementAction uiActionForElementInfo:elementInfo]];
-        };
+        auto newItems = adoptNS([NSMutableArray<UIMenuElement *> new]);
 
         for (UIMenuElement *child in adjustedChildren.get()) {
             UIAction *action = dynamic_objc_cast<UIAction>(child);
@@ -12338,7 +12363,7 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
                 continue;
 
             if ([action.identifier isEqual:elementActionTypeToUIActionIdentifier(_WKElementActionTypeCopyCroppedImage)]) {
-                if (foundCopyItem && self.copySubjectResultForImageContextMenu)
+                if (self.copySubjectResultForImageContextMenu)
                     action.attributes &= ~UIMenuElementAttributesDisabled;
 
                 continue;
@@ -12352,14 +12377,24 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
             }
         }
 
-        if (self.hasSelectableTextForImageContextMenu)
-            addAction(_WKElementActionTypeImageExtraction);
+        if (!foundShowTextItem && self.hasSelectableTextForImageContextMenu) {
+            // Dynamically insert the "Show Text" menu item, if it wasn't already inserted.
+            // FIXME: This should probably be inserted unconditionally, and enabled if needed
+            // like Look Up or Copy Subject.
+            auto *elementInfo = [_WKActivatedElementInfo activatedElementInfoWithInteractionInformationAtPosition:_positionInformation userInfo:nil];
+            auto *elementAction = [_WKElementAction _elementActionWithType:_WKElementActionTypeImageExtraction info:elementInfo assistant:_actionSheetAssistant.get()];
+            [newItems addObject:[elementAction uiActionForElementInfo:elementInfo]];
+        }
 
-        if (UIMenu *subMenu = self.machineReadableCodeSubMenuForImageContextMenu)
-            [replacements addObject:subMenu];
+        if (foundRevealImageItem) {
+            // Only dynamically insert machine-readable code items if the client didn't explicitly
+            // remove the Look Up ("reveal image") item.
+            if (UIMenu *subMenu = self.machineReadableCodeSubMenuForImageContextMenu)
+                [newItems addObject:subMenu];
+        }
 
-        RELEASE_LOG(ImageAnalysis, "Dynamically inserting %zu context menu action(s)", [replacements count]);
-        [adjustedChildren replaceObjectsInRange:NSMakeRange(indexOfPlaceholder, 1) withObjectsFromArray:replacements.get()];
+        RELEASE_LOG(ImageAnalysis, "Dynamically inserting %zu context menu action(s)", [newItems count]);
+        [adjustedChildren addObjectsFromArray:newItems.get()];
         return [menu menuByReplacingChildren:adjustedChildren.get()];
     }).get()];
 

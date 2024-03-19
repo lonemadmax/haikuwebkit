@@ -1019,6 +1019,13 @@ bool TParseContext::checkConstructorArguments(const TSourceLoc &line,
                       "constructor");
                 return false;
             }
+            if (argTyped->getBasicType() == EbtInterfaceBlock)
+            {
+                error(line,
+                      "an interface block cannot be used as a constructor argument for this type",
+                      "constructor");
+                return false;
+            }
             if (argTyped->getType().isArray())
             {
                 error(line, "constructing from a non-dereferenced array", "constructor");
@@ -1406,9 +1413,6 @@ bool TParseContext::declareVariable(const TSourceLoc &line,
 
     (*variable) = new TVariable(&symbolTable, identifier, type, symbolType);
 
-    ASSERT(type->getLayoutQualifier().index == -1 ||
-           (isExtensionEnabled(TExtension::EXT_blend_func_extended) &&
-            mShaderType == GL_FRAGMENT_SHADER && mShaderVersion >= 300));
     if (type->getQualifier() == EvqFragmentOut)
     {
         if (type->getLayoutQualifier().index != -1 && type->getLayoutQualifier().location == -1)
@@ -2896,7 +2900,7 @@ TIntermNode *TParseContext::addLoop(TLoopType type,
                (typedCond->getBasicType() == EbtBool && !typedCond->isArray() &&
                 !typedCond->isVector()));
 
-        node = new TIntermLoop(type, init, typedCond, expr, EnsureBlock(body));
+        node = new TIntermLoop(type, init, typedCond, expr, EnsureLoopBodyBlock(body));
         node->setLine(line);
         return node;
     }
@@ -2919,7 +2923,7 @@ TIntermNode *TParseContext::addLoop(TLoopType type,
 
     TIntermBinary *conditionInit = new TIntermBinary(EOpAssign, declarator->getLeft()->deepCopy(),
                                                      declarator->getRight()->deepCopy());
-    TIntermLoop *loop = new TIntermLoop(type, init, conditionInit, expr, EnsureBlock(body));
+    TIntermLoop *loop = new TIntermLoop(type, init, conditionInit, expr, EnsureLoopBodyBlock(body));
     block->appendStatement(loop);
     loop->setLine(line);
     block->setLine(line);
@@ -3617,7 +3621,10 @@ TIntermGlobalQualifierDeclaration *TParseContext::parseGlobalQualifierDeclaratio
                                     typeQualifier.line);
     checkMemoryQualifierIsNotSpecified(typeQualifier.memoryQualifier, typeQualifier.line);
 
-    symbolTable.addInvariantVarying(*variable);
+    if (typeQualifier.invariant)
+    {
+        symbolTable.addInvariantVarying(*variable);
+    }
 
     TIntermSymbol *intermSymbol = new TIntermSymbol(variable);
     intermSymbol->setLine(identifierLoc);
@@ -4701,6 +4708,11 @@ bool TParseContext::checkUnsizedArrayConstructorArgumentDimensionality(
     {
         const TIntermTyped *element = arg->getAsTyped();
         ASSERT(element);
+        if (element->getType().isUnsizedArray())
+        {
+            error(line, "constructing from an unsized array", "constructor");
+            return false;
+        }
         size_t dimensionalityFromElement = element->getType().getNumArraySizes() + 1u;
         if (dimensionalityFromElement > type.getNumArraySizes())
         {

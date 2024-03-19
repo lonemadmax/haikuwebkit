@@ -32,10 +32,13 @@ struct WebKit::WebExtensionContextParameters {
     Ref<API::Data> manifestJSON;
 
     double manifestVersion;
-    bool testingMode;
     bool isSessionStorageAllowedInContentScripts;
 
     std::optional<WebCore::PageIdentifier> backgroundPageIdentifier;
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    Vector<WebKit::WebExtensionContext::PageIdentifierTuple> inspectorPageIdentifiers;
+    Vector<WebKit::WebExtensionContext::PageIdentifierTuple> inspectorBackgroundPageIdentifiers;
+#endif
     Vector<WebKit::WebExtensionContext::PageIdentifierTuple> popupPageIdentifiers;
     Vector<WebKit::WebExtensionContext::PageIdentifierTuple> tabPageIdentifiers;
 }

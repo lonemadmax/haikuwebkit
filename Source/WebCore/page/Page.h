@@ -232,7 +232,7 @@ enum class RenderingUpdateStep : uint32_t {
 #endif
     FlushAutofocusCandidates        = 1 << 16,
     VideoFrameCallbacks             = 1 << 17,
-    PrepareCanvasesForDisplay       = 1 << 18,
+    PrepareCanvasesForDisplayOrFlush = 1 << 18,
     CaretAnimation                  = 1 << 19,
     FocusFixup                      = 1 << 20,
     UpdateValidationMessagePositions= 1 << 21,
@@ -266,7 +266,7 @@ constexpr OptionSet<RenderingUpdateStep> updateRenderingSteps = {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     RenderingUpdateStep::AccessibilityRegionUpdate,
 #endif
-    RenderingUpdateStep::PrepareCanvasesForDisplay,
+    RenderingUpdateStep::PrepareCanvasesForDisplayOrFlush,
     RenderingUpdateStep::CaretAnimation,
     RenderingUpdateStep::UpdateContentRelevancy,
     RenderingUpdateStep::PerformPendingViewTransitions,
@@ -316,6 +316,7 @@ public:
     void clearPluginData();
 
     OpportunisticTaskScheduler& opportunisticTaskScheduler() const { return m_opportunisticTaskScheduler.get(); }
+    Ref<OpportunisticTaskScheduler> protectedOpportunisticTaskScheduler() const;
 
     WEBCORE_EXPORT void setCanStartMedia(bool);
     bool canStartMedia() const { return m_canStartMedia; }
@@ -324,6 +325,7 @@ public:
 
     Frame& mainFrame() { return m_mainFrame.get(); }
     const Frame& mainFrame() const { return m_mainFrame.get(); }
+    WEBCORE_EXPORT Ref<Frame> protectedMainFrame() const;
     WEBCORE_EXPORT void setMainFrame(Ref<Frame>&&);
     const URL& mainFrameURL() const { return m_mainFrameURL; }
     WEBCORE_EXPORT void setMainFrameURL(const URL&);
@@ -339,7 +341,7 @@ public:
     WEBCORE_EXPORT void setGroupName(const String&);
     WEBCORE_EXPORT const String& groupName() const;
 
-    PageGroup& group();
+    WEBCORE_EXPORT PageGroup& group();
 
     BroadcastChannelRegistry& broadcastChannelRegistry() { return m_broadcastChannelRegistry; }
     WEBCORE_EXPORT Ref<BroadcastChannelRegistry> protectedBroadcastChannelRegistry() const;
@@ -372,6 +374,7 @@ public:
     const DragController& dragController() const { return m_dragController.get(); }
 #endif
     FocusController& focusController() const { return *m_focusController; }
+    WEBCORE_EXPORT CheckedRef<FocusController> checkedFocusController() const;
 #if ENABLE(CONTEXT_MENUS)
     ContextMenuController& contextMenuController() { return m_contextMenuController.get(); }
     const ContextMenuController& contextMenuController() const { return m_contextMenuController.get(); }
@@ -418,6 +421,7 @@ public:
     void progressEstimateChanged(LocalFrame&) const;
     void progressFinished(LocalFrame&) const;
     BackForwardController& backForward() { return m_backForwardController.get(); }
+    CheckedRef<BackForwardController> checkedBackForward();
 
     Seconds domTimerAlignmentInterval() const { return m_domTimerAlignmentInterval; }
 
@@ -429,6 +433,8 @@ public:
     WEBCORE_EXPORT uint32_t replaceSelectionWithText(const String& replacementText);
 
     WEBCORE_EXPORT void revealCurrentSelection();
+
+    WEBCORE_EXPORT const URL fragmentDirectiveURLForSelectedText();
 
     WEBCORE_EXPORT std::optional<SimpleRange> rangeOfString(const String&, const std::optional<SimpleRange>& searchRange, FindOptions);
 
@@ -654,7 +660,7 @@ public:
     OptionSet<ActivityState> activityState() const { return m_activityState; }
 
     bool isWindowActive() const;
-    bool isVisibleAndActive() const;
+    WEBCORE_EXPORT bool isVisibleAndActive() const;
     WEBCORE_EXPORT void setIsVisible(bool);
     WEBCORE_EXPORT void setIsPrerender();
     bool isVisible() const { return m_activityState.contains(ActivityState::IsVisible); }
@@ -703,12 +709,15 @@ public:
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
     void updatePlayStateForAllAnimations();
     WEBCORE_EXPORT void setImageAnimationEnabled(bool);
-    WEBCORE_EXPORT void setSystemAllowsAnimationControls(bool isAllowed);
     void addIndividuallyPlayingAnimationElement(HTMLImageElement&);
     void removeIndividuallyPlayingAnimationElement(HTMLImageElement&);
 #endif
     bool imageAnimationEnabled() const { return m_imageAnimationEnabled; }
-    bool systemAllowsAnimationControls() const { return m_systemAllowsAnimationControls; }
+
+#if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+    WEBCORE_EXPORT void setPrefersNonBlinkingCursor(bool);
+    bool prefersNonBlinkingCursor() const { return m_prefersNonBlinkingCursor; };
+#endif
 
     void userStyleSheetLocationChanged();
     const String& userStyleSheet() const;
@@ -834,7 +843,7 @@ public:
     void setLastSpatialNavigationCandidateCount(unsigned count) { m_lastSpatialNavigationCandidatesCount = count; }
     unsigned lastSpatialNavigationCandidateCount() const { return m_lastSpatialNavigationCandidatesCount; }
 
-    ApplicationCacheStorage& applicationCacheStorage() { return m_applicationCacheStorage; }
+    ApplicationCacheStorage* applicationCacheStorage() { return m_applicationCacheStorage.get(); }
     DatabaseProvider& databaseProvider() { return m_databaseProvider; }
     CacheStorageProvider& cacheStorageProvider() { return m_cacheStorageProvider; }
     SocketProvider& socketProvider() { return m_socketProvider; }
@@ -843,8 +852,10 @@ public:
     Ref<CookieJar> protectedCookieJar() const;
 
     StorageNamespaceProvider& storageNamespaceProvider() { return m_storageNamespaceProvider.get(); }
+    Ref<StorageNamespaceProvider> protectedStorageNamespaceProvider() const;
 
     PluginInfoProvider& pluginInfoProvider();
+    Ref<PluginInfoProvider> protectedPluginInfoProvider() const;
 
     WEBCORE_EXPORT UserContentProvider& userContentProvider();
     WEBCORE_EXPORT Ref<UserContentProvider> protectedUserContentProvider();
@@ -853,6 +864,7 @@ public:
     ScreenOrientationManager* screenOrientationManager() const;
 
     VisitedLinkStore& visitedLinkStore();
+    Ref<VisitedLinkStore> protectedVisitedLinkStore();
     WEBCORE_EXPORT void setVisitedLinkStore(Ref<VisitedLinkStore>&&);
 
     std::optional<uint64_t> noiseInjectionHashSaltForDomain(const RegistrableDomain&);
@@ -871,6 +883,7 @@ public:
     void playbackControlsMediaEngineChanged();
 #endif
     WEBCORE_EXPORT void setMuted(MediaProducerMutedStateFlags);
+    WEBCORE_EXPORT bool shouldBlockLayerTreeFreezingForVideo();
 
     WEBCORE_EXPORT void stopMediaCapture(MediaProducerMediaCaptureKind);
 
@@ -1041,8 +1054,8 @@ public:
 #endif
     WEBCORE_EXPORT std::optional<AXTreeData> accessibilityTreeData() const;
 #if USE(ATSPI)
-    AccessibilityRootAtspi* accessibilityRootObject() const { return m_accessibilityRootObject; }
-    void setAccessibilityRootObject(AccessibilityRootAtspi* rootObject) { m_accessibilityRootObject = rootObject; }
+    AccessibilityRootAtspi* accessibilityRootObject() const;
+    void setAccessibilityRootObject(AccessibilityRootAtspi*);
 #endif
 
     void timelineControllerMaximumAnimationFrameRateDidChange(DocumentTimelinesController&);
@@ -1080,6 +1093,13 @@ public:
     std::optional<std::pair<uint16_t, uint16_t>> portsForUpgradingInsecureSchemeForTesting() const;
     WEBCORE_EXPORT void setPortsForUpgradingInsecureSchemeForTesting(uint16_t upgradeFromInsecurePort, uint16_t upgradeToSecurePort);
 
+#if PLATFORM(IOS_FAMILY) && ENABLE(WEBXR)
+    WEBCORE_EXPORT bool hasActiveImmersiveSession() const;
+#endif
+
+    void setIsInSwipeAnimation(bool inSwipeAnimation) { m_inSwipeAnimation = inSwipeAnimation; }
+    bool isInSwipeAnimation() const { return m_inSwipeAnimation; }
+
 private:
     explicit Page(PageConfiguration&&);
 
@@ -1104,7 +1124,7 @@ private:
 
     unsigned findMatchesForText(const String&, FindOptions, unsigned maxMatchCount, ShouldHighlightMatches, ShouldMarkMatches);
 
-    std::optional<std::pair<MediaCanStartListener&, Document&>> takeAnyMediaCanStartListener();
+    std::optional<std::pair<WeakRef<MediaCanStartListener>, WeakRef<Document, WeakPtrImplWithEventTargetData>>> takeAnyMediaCanStartListener();
 
 #if ENABLE(VIDEO)
     void playbackControlsManagerUpdateTimerFired();
@@ -1237,15 +1257,17 @@ private:
     String m_captionUserPreferencesStyleSheet;
 
     std::unique_ptr<PageGroup> m_singlePageGroup;
-    PageGroup* m_group { nullptr };
+    WeakPtr<PageGroup> m_group;
 
-    JSC::Debugger* m_debugger { nullptr };
+    JSC::Debugger* m_debugger { nullptr }; // FIXME: Use a smart pointer.
 
     bool m_canStartMedia { true };
     bool m_imageAnimationEnabled { true };
-    bool m_systemAllowsAnimationControls { false };
     // Elements containing animations that are individually playing (potentially overriding the page-wide m_imageAnimationEnabled state).
     WeakHashSet<HTMLImageElement, WeakPtrImplWithEventTargetData> m_individuallyPlayingAnimationElements;
+#if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+    bool m_prefersNonBlinkingCursor { false };
+#endif
 
     TimerThrottlingState m_timerThrottlingState { TimerThrottlingState::Disabled };
     MonotonicTime m_timerThrottlingStateLastChangedTime;
@@ -1292,7 +1314,7 @@ private:
 
     Ref<SocketProvider> m_socketProvider;
     Ref<CookieJar> m_cookieJar;
-    Ref<ApplicationCacheStorage> m_applicationCacheStorage;
+    RefPtr<ApplicationCacheStorage> m_applicationCacheStorage;
     Ref<CacheStorageProvider> m_cacheStorageProvider;
     Ref<DatabaseProvider> m_databaseProvider;
     Ref<PluginInfoProvider> m_pluginInfoProvider;
@@ -1339,6 +1361,8 @@ private:
 #if ENABLE(EDITABLE_REGION)
     bool m_isEditableRegionEnabled { false };
 #endif
+
+    bool m_inSwipeAnimation { false };
 
     Vector<OptionSet<RenderingUpdateStep>, 2> m_renderingUpdateRemainingSteps;
     OptionSet<RenderingUpdateStep> m_unfulfilledRequestedSteps;
@@ -1442,7 +1466,7 @@ private:
 #endif
 
 #if USE(ATSPI)
-    AccessibilityRootAtspi* m_accessibilityRootObject { nullptr };
+    WeakPtr<AccessibilityRootAtspi> m_accessibilityRootObject;
 #endif
 
     ContentSecurityPolicyModeForExtension m_contentSecurityPolicyModeForExtension { ContentSecurityPolicyModeForExtension::None };
@@ -1460,13 +1484,6 @@ private:
     bool m_appUsesCustomAccentColor { false };
 #endif
 };
-
-inline PageGroup& Page::group()
-{
-    if (!m_group)
-        initGroup();
-    return *m_group;
-}
 
 inline Page* Frame::page() const
 {

@@ -145,23 +145,10 @@ OffscreenCanvas::OffscreenCanvas(ScriptExecutionContext& scriptExecutionContext,
 OffscreenCanvas::~OffscreenCanvas()
 {
     notifyObserversCanvasDestroyed();
+    removeCanvasNeedingPreparationForDisplayOrFlush();
 
     m_context = nullptr; // Ensure this goes away before the ImageBuffer.
     setImageBuffer(nullptr);
-}
-
-unsigned OffscreenCanvas::width() const
-{
-    if (m_detached)
-        return 0;
-    return CanvasBase::width();
-}
-
-unsigned OffscreenCanvas::height() const
-{
-    if (m_detached)
-        return 0;
-    return CanvasBase::height();
 }
 
 void OffscreenCanvas::setWidth(unsigned newWidth)
@@ -242,6 +229,7 @@ ExceptionOr<std::optional<OffscreenRenderingContext>> OffscreenCanvas::getContex
             auto settings = convert<IDLDictionary<ImageBitmapRenderingContextSettings>>(state, arguments.isEmpty() ? JSC::jsUndefined() : (arguments[0].isObject() ? arguments[0].get() : JSC::jsNull()));
             RETURN_IF_EXCEPTION(scope, Exception { ExceptionCode::ExistingExceptionError });
             m_context = ImageBitmapRenderingContext::create(*this, WTFMove(settings));
+            downcast<ImageBitmapRenderingContext>(m_context.get())->transferFromImageBitmap(nullptr);
         }
         if (RefPtr context = dynamicDowncast<ImageBitmapRenderingContext>(m_context.get()))
             return { { WTFMove(context) } };
@@ -381,11 +369,15 @@ void OffscreenCanvas::convertToBlob(ImageEncodeOptions&& options, Ref<DeferredPr
         promise->reject(ExceptionCode::SecurityError);
         return;
     }
+    if (m_detached) {
+        promise->reject(ExceptionCode::InvalidStateError);
+        return;
+    }
     if (size().isEmpty()) {
         promise->reject(ExceptionCode::IndexSizeError);
         return;
     }
-    if (m_detached || !buffer()) {
+    if (!buffer()) {
         promise->reject(ExceptionCode::InvalidStateError);
         return;
     }
@@ -407,10 +399,9 @@ void OffscreenCanvas::convertToBlob(ImageEncodeOptions&& options, Ref<DeferredPr
 
 void OffscreenCanvas::didDraw(const std::optional<FloatRect>& rect, ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
 {
-    CanvasBase::didDraw(rect, shouldApplyPostProcessingToDirtyRect);
     clearCopiedImage();
     scheduleCommitToPlaceholderCanvas();
-    notifyObserversCanvasChanged(rect);
+    CanvasBase::didDraw(rect, shouldApplyPostProcessingToDirtyRect);
 }
 
 Image* OffscreenCanvas::copiedImage() const
@@ -450,10 +441,14 @@ std::unique_ptr<DetachedOffscreenCanvas> OffscreenCanvas::detach()
     if (!canDetach())
         return nullptr;
 
+    removeCanvasNeedingPreparationForDisplayOrFlush();
+
     m_detached = true;
 
     auto detached = makeUnique<DetachedOffscreenCanvas>(takeImageBuffer(), size(), originClean());
     detached->m_placeholderCanvas = std::exchange(m_placeholderData->canvas, nullptr);
+
+    setSize(IntSize(0, 0));
 
     return detached;
 }
@@ -562,7 +557,6 @@ void OffscreenCanvas::reset()
     notifyObserversCanvasResized();
     scheduleCommitToPlaceholderCanvas();
 }
-
 
 void OffscreenCanvas::queueTaskKeepingObjectAlive(TaskSource source, Function<void()>&& task)
 {

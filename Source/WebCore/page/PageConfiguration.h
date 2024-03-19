@@ -63,6 +63,7 @@ class DatabaseProvider;
 class DiagnosticLoggingClient;
 class DragClient;
 class EditorClient;
+class Frame;
 class HistoryItemClient;
 class InspectorClient;
 class LocalFrameLoaderClient;
@@ -102,6 +103,7 @@ public:
         UniqueRef<ProgressTrackerClient>&&,
         std::variant<UniqueRef<LocalFrameLoaderClient>, UniqueRef<RemoteFrameClient>>&&,
         FrameIdentifier mainFrameIdentifier,
+        RefPtr<Frame>&& mainFrameOpener,
         UniqueRef<SpeechRecognitionProvider>&&,
         UniqueRef<MediaRecorderProvider>&&,
         Ref<BroadcastChannelRegistry>&&,
@@ -153,6 +155,7 @@ public:
     std::variant<UniqueRef<LocalFrameLoaderClient>, UniqueRef<RemoteFrameClient>> clientForMainFrame;
 
     FrameIdentifier mainFrameIdentifier;
+    RefPtr<Frame> mainFrameOpener;
     std::unique_ptr<DiagnosticLoggingClient> diagnosticLoggingClient;
     std::unique_ptr<PerformanceLoggingClient> performanceLoggingClient;
 #if ENABLE(SPEECH_SYNTHESIS)

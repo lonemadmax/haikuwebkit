@@ -546,10 +546,8 @@ static bool removingNodeRemovesPosition(Node& node, const Position& position)
     if (position.anchorNode() == &node)
         return true;
 
-    if (!is<Element>(node))
-        return false;
-
-    return downcast<Element>(node).containsIncludingShadowDOM(position.anchorNode());
+    RefPtr element = dynamicDowncast<Element>(node);
+    return element && element->containsIncludingShadowDOM(position.anchorNode());
 }
 
 void DragCaretController::nodeWillBeRemoved(Node& node)
@@ -1941,7 +1939,9 @@ void CaretBase::paintCaret(const Node& node, GraphicsContext& context, const Lay
         return;
 
     Color caretColor = Color::black;
-    RefPtr element = is<Element>(node) ? downcast<Element>(&node) : node.parentElement();
+    RefPtr element = dynamicDowncast<Element>(node);
+    if (!element)
+        element = node.parentElement();
     if (element && element->renderer())
         caretColor = CaretBase::computeCaretColor(element->renderer()->style(), &node);
 
@@ -1972,6 +1972,13 @@ void FrameSelection::caretAnimationDidUpdate(CaretAnimator&)
 {
     invalidateCaretRect();
 }
+
+#if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+void FrameSelection::setPrefersNonBlinkingCursor(bool enabled)
+{
+    caretAnimator().setPrefersNonBlinkingCursor(enabled);
+}
+#endif
 
 #if PLATFORM(MAC)
 void FrameSelection::caretAnimatorInvalidated(CaretAnimatorType caretType)
@@ -2072,7 +2079,7 @@ void FrameSelection::selectFrameElementInParentIfFullySelected()
     // Focus on the parent frame, and then select from before this element to after.
     VisibleSelection newSelection(beforeOwnerElement, afterOwnerElement);
     if (parent->selection().shouldChangeSelection(newSelection) && page) {
-        CheckedRef(page->focusController())->setFocusedFrame(parent.get());
+        page->checkedFocusController()->setFocusedFrame(parent.get());
         // Previous focus can trigger DOM events, ensure the selection did not become orphan.
         if (newSelection.isOrphan())
             parent->selection().clear();
@@ -2084,10 +2091,9 @@ void FrameSelection::selectFrameElementInParentIfFullySelected()
 void FrameSelection::selectAll()
 {
     RefPtr focusedElement = m_document->focusedElement();
-    if (is<HTMLSelectElement>(focusedElement)) {
-        HTMLSelectElement& selectElement = downcast<HTMLSelectElement>(*focusedElement);
-        if (selectElement.canSelectAll()) {
-            selectElement.selectAll();
+    if (RefPtr selectElement = dynamicDowncast<HTMLSelectElement>(focusedElement)) {
+        if (selectElement->canSelectAll()) {
+            selectElement->selectAll();
             return;
         }
     }
@@ -2379,7 +2385,7 @@ void FrameSelection::setFocusedElementIfNeeded(OptionSet<SetSelectionOption> opt
                 FocusOptions focusOptions;
                 if (options & SetSelectionOption::ForBindings)
                     focusOptions.trigger = FocusTrigger::Bindings;
-                CheckedRef(m_document->page()->focusController())->setFocusedElement(target.get(), *m_document->frame(), focusOptions);
+                m_document->page()->checkedFocusController()->setFocusedElement(target.get(), *m_document->frame(), focusOptions);
                 return;
             }
             target = target->parentOrShadowHostElement();
@@ -2388,7 +2394,7 @@ void FrameSelection::setFocusedElementIfNeeded(OptionSet<SetSelectionOption> opt
     }
 
     if (caretBrowsing)
-        CheckedRef(m_document->page()->focusController())->setFocusedElement(nullptr, *m_document->frame());
+        m_document->page()->checkedFocusController()->setFocusedElement(nullptr, *m_document->frame());
 }
 
 void DragCaretController::paintDragCaret(LocalFrame* frame, GraphicsContext& p, const LayoutPoint& paintOffset) const
@@ -2479,12 +2485,12 @@ static RefPtr<HTMLFormElement> scanForForm(Element* start)
     if (!start)
         return nullptr;
     for (Ref element : descendantsOfType<HTMLElement>(start->document())) {
-        if (is<HTMLFormElement>(element))
-            return downcast<HTMLFormElement>(WTFMove(element));
+        if (RefPtr form = dynamicDowncast<HTMLFormElement>(element))
+            return form;
         if (element->isFormListedElement())
             return element->asFormListedElement()->form();
-        if (is<HTMLFrameElementBase>(element)) {
-            if (RefPtr contentDocument = downcast<HTMLFrameElementBase>(element.get()).contentDocument()) {
+        if (RefPtr frameElement = dynamicDowncast<HTMLFrameElementBase>(element)) {
+            if (RefPtr contentDocument = frameElement->contentDocument()) {
                 if (RefPtr frameResult = scanForForm(contentDocument->documentElement()))
                     return frameResult;
             }

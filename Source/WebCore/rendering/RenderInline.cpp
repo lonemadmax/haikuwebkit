@@ -506,8 +506,11 @@ LayoutUnit RenderInline::innerPaddingBoxHeight() const
 
 IntRect RenderInline::linesBoundingBox() const
 {
-    if (auto* layout = LayoutIntegration::LineLayout::containing(*this))
+    if (auto* layout = LayoutIntegration::LineLayout::containing(*this)) {
+        if (!layout->contains(*this))
+            return { };
         return enclosingIntRect(layout->enclosingBorderBoxRectFor(*this));
+    }
 
     IntRect result;
     
@@ -837,7 +840,7 @@ void RenderInline::updateHitTestResult(HitTestResult& result, const LayoutPoint&
         return;
 
     LayoutPoint localPoint(point);
-    if (auto* node = nodeForHitTest()) {
+    if (RefPtr node = nodeForHitTest()) {
         if (isContinuation()) {
             // We're in the continuation of a split inline. Adjust our local point to be in the coordinate space
             // of the principal renderer's containing block. This will end up being the innerNonSharedNode.
@@ -845,9 +848,9 @@ void RenderInline::updateHitTestResult(HitTestResult& result, const LayoutPoint&
             localPoint.moveBy(containingBlock()->location() - firstBlock->locationOffset());
         }
 
-        result.setInnerNode(node);
+        result.setInnerNode(node.get());
         if (!result.innerNonSharedNode())
-            result.setInnerNonSharedNode(node);
+            result.setInnerNonSharedNode(node.get());
         result.setLocalPoint(localPoint);
     }
 }
@@ -883,14 +886,14 @@ LegacyInlineFlowBox* RenderInline::createAndAppendInlineFlowBox()
 LayoutUnit RenderInline::lineHeight(bool firstLine, LineDirectionMode /*direction*/, LinePositionMode /*linePositionMode*/) const
 {
     auto& lineStyle = firstLine ? firstLineStyle() : style();
-    return lineStyle.computedLineHeight();
+    return LayoutUnit::fromFloatCeil(lineStyle.computedLineHeight());
 }
 
 LayoutUnit RenderInline::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
 {
-    const RenderStyle& style = firstLine ? firstLineStyle() : this->style();
-    const FontMetrics& fontMetrics = style.metricsOfPrimaryFont();
-    return LayoutUnit { (fontMetrics.ascent(baselineType) + (lineHeight(firstLine, direction, linePositionMode) - fontMetrics.height()) / 2).toInt() };
+    auto& style = firstLine ? firstLineStyle() : this->style();
+    auto& fontMetrics = style.metricsOfPrimaryFont();
+    return LayoutUnit { fontMetrics.ascent(baselineType) + (lineHeight(firstLine, direction, linePositionMode) - fontMetrics.height()) / 2 };
 }
 
 LayoutSize RenderInline::offsetForInFlowPositionedInline(const RenderBox* child) const
@@ -1054,7 +1057,7 @@ inline bool RenderInline::willChangeCreatesStackingContext() const
 
 bool RenderInline::requiresLayer() const
 {
-    return isInFlowPositioned() || createsGroup() || hasClipPath() || shouldApplyPaintContainment() || willChangeCreatesStackingContext() || hasRunningAcceleratedAnimations();
+    return isInFlowPositioned() || createsGroup() || hasClipPath() || shouldApplyPaintContainment() || willChangeCreatesStackingContext() || hasRunningAcceleratedAnimations() || hasViewTransitionName();
 }
 
 } // namespace WebCore

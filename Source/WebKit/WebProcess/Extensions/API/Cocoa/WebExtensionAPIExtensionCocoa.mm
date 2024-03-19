@@ -86,7 +86,7 @@ bool WebExtensionAPIExtension::parseViewFilters(NSDictionary *filter, std::optio
     return true;
 }
 
-bool WebExtensionAPIExtension::isPropertyAllowed(ASCIILiteral name, WebPage*)
+bool WebExtensionAPIExtension::isPropertyAllowed(const ASCIILiteral& name, WebPage&)
 {
     // This method was removed in manifest version 3.
     if (name == "getURL"_s)
@@ -109,7 +109,7 @@ JSValue *WebExtensionAPIExtension::getBackgroundPage(JSContextRef context)
 
     auto backgroundPage = extensionContext().backgroundPage();
     if (!backgroundPage)
-        return nil;
+        return toJSValue(context, JSValueMakeNull(context));
 
     return toWindowObject(context, *backgroundPage);
 }
@@ -154,11 +154,11 @@ NSArray *WebExtensionAPIExtension::getViews(JSContextRef context, NSDictionary *
     return [result copy];
 }
 
-bool WebExtensionAPIExtension::isInIncognitoContext(WebPage* page)
+bool WebExtensionAPIExtension::isInIncognitoContext(WebPage& page)
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/extension/inIncognitoContext
 
-    return page->usesEphemeralSession();
+    return page.usesEphemeralSession();
 }
 
 void WebExtensionAPIExtension::isAllowedFileSchemeAccess(Ref<WebExtensionCallbackHandler>&& callback)

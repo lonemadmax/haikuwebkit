@@ -45,6 +45,7 @@ messages -> WebProcessProxy LegacyReceiver {
 
     DidExceedActiveMemoryLimit()
     DidExceedInactiveMemoryLimit()
+    DidExceedMemoryFootprintThreshold(size_t footprint)
     DidExceedCPULimit()
 
     StopResponsivenessTimer()
@@ -79,7 +80,7 @@ messages -> WebProcessProxy LegacyReceiver {
 
     SystemBeep()
     
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     IsAXAuthenticated(struct WebKit::CoreIPCAuditToken auditToken) -> (bool authenticated) Synchronous
 #endif
 

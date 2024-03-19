@@ -93,6 +93,7 @@ GPUProcess/webrtc/RemoteSampleBufferDisplayLayerManager.cpp
 
 ModelProcess/ModelProcess.cpp
 ModelProcess/ModelConnectionToWebProcess.cpp
+ModelProcess/ModelProcessModelPlayerManagerProxy.cpp
 
 NetworkProcess/BackgroundFetchLoad.cpp
 NetworkProcess/DatabaseUtilities.cpp
@@ -270,6 +271,7 @@ Shared/API/APIDictionary.cpp
 Shared/API/APIError.cpp
 Shared/API/APIObject.cpp
 Shared/API/APIURLRequest.cpp
+Shared/API/RegisterTZoneTypes.cpp
 
 Shared/API/c/WKArray.cpp
 Shared/API/c/WKCertificateInfo.cpp
@@ -382,6 +384,7 @@ UIProcess/DisplayLinkProcessProxyClient.cpp
 UIProcess/DrawingAreaProxy.cpp
 UIProcess/FindStringCallbackAggregator.cpp
 UIProcess/FrameLoadState.cpp
+UIProcess/FrameProcess.cpp
 UIProcess/GeolocationPermissionRequestManagerProxy.cpp
 UIProcess/GeolocationPermissionRequestProxy.cpp
 UIProcess/LegacyGlobalSettings.cpp
@@ -549,6 +552,7 @@ UIProcess/Extensions/WebExtensionAlarm.cpp
 UIProcess/Extensions/WebExtensionContext.cpp
 UIProcess/Extensions/WebExtensionController.cpp
 UIProcess/Extensions/WebExtensionControllerConfiguration.cpp
+UIProcess/Extensions/WebExtensionDataRecord.cpp
 
 UIProcess/Gamepad/UIGamepad.cpp
 UIProcess/Gamepad/UIGamepadProvider.cpp
@@ -683,8 +687,9 @@ WebProcess/MediaStream/MediaDeviceSandboxExtensions.cpp
 WebProcess/MediaStream/UserMediaPermissionRequestManager.cpp
 
 WebProcess/Model/WebModelPlayerProvider.cpp
-
 WebProcess/Model/ModelProcessConnection.cpp
+WebProcess/Model/ModelProcessModelPlayer.cpp
+WebProcess/Model/ModelProcessModelPlayerManager.cpp
 
 WebProcess/GPU/GPUProcessConnection.cpp
 WebProcess/GPU/ShapeDetection/RemoteBarcodeDetectorProxy.cpp
@@ -844,7 +849,6 @@ WebProcess/WebPage/FindController.cpp
 WebProcess/WebPage/IPCTestingAPI.cpp
 WebProcess/WebPage/MomentumEventDispatcher.cpp
 WebProcess/WebPage/PageBanner.cpp
-WebProcess/WebPage/UnifiedTextReplacementController.cpp
 WebProcess/WebPage/VisitedLinkTableController.cpp
 WebProcess/WebPage/WebBackForwardListProxy.cpp
 WebProcess/WebPage/WebContextMenu.cpp
@@ -874,6 +878,8 @@ IPCStreamTesterMessageReceiver.cpp
 IPCStreamTesterProxyMessageReceiver.cpp
 IPCTesterMessageReceiver.cpp
 IPCTesterReceiverMessageReceiver.cpp
+ModelProcessModelPlayerManagerProxyMessageReceiver.cpp
+ModelProcessModelPlayerMessageReceiver.cpp
 NetworkBroadcastChannelRegistryMessageReceiver.cpp
 NetworkTransportSessionMessageReceiver.cpp
 RTCDataChannelRemoteManagerMessageReceiver.cpp

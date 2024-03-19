@@ -32,11 +32,13 @@
 #include "SessionState.h"
 #include "UserContentControllerParameters.h"
 #include "ViewWindowCoordinates.h"
+#include "VisitedLinkTableIdentifier.h"
 #include "WebCoreArgumentCoders.h"
 #include "WebPageGroupData.h"
 #include "WebPageProxyIdentifier.h"
 #include "WebPreferencesStore.h"
 #include "WebURLSchemeHandlerIdentifier.h"
+#include "WebsitePoliciesData.h"
 #include <WebCore/ActivityState.h>
 #include <WebCore/Color.h>
 #include <WebCore/ContentSecurityPolicy.h>
@@ -81,6 +83,12 @@ class Encoder;
 
 namespace WebKit {
 
+struct SubframeProcessPageParameters {
+    URL initialMainDocumentURL;
+    FrameTreeCreationParameters frameTreeParameters;
+    std::optional<WebsitePoliciesData> websitePoliciesData;
+};
+
 struct WebPageCreationParameters {
     WebCore::IntSize viewSize;
 
@@ -105,6 +113,9 @@ struct WebPageCreationParameters {
 
     std::optional<WebCore::FloatRect> viewExposedRect;
 
+    std::optional<uint32_t> displayID;
+    std::optional<unsigned> nominalFramesPerSecond;
+
     bool alwaysShowsHorizontalScroller;
     bool alwaysShowsVerticalScroller;
 
@@ -120,7 +131,7 @@ struct WebPageCreationParameters {
     bool itemStatesWereRestoredByAPIRequest { false };
     Vector<BackForwardListItemState> itemStates;
 
-    uint64_t visitedLinkTableID;
+    VisitedLinkTableIdentifier visitedLinkTableID;
     bool canRunBeforeUnloadConfirmPanel;
     bool canRunModal;
 
@@ -195,6 +206,9 @@ struct WebPageCreationParameters {
     Vector<String> additionalSupportedImageTypes;
     Vector<SandboxExtension::Handle> gpuIOKitExtensionHandles;
     Vector<SandboxExtension::Handle> gpuMachExtensionHandles;
+#endif
+#if PLATFORM(MAC)
+    SandboxExtension::Handle renderServerMachExtensionHandle;
 #endif
 #if HAVE(STATIC_FONT_REGISTRY)
     Vector<SandboxExtension::Handle> fontMachExtensionHandles;
@@ -297,10 +311,6 @@ struct WebPageCreationParameters {
 
     WebCore::ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension { WebCore::ContentSecurityPolicyModeForExtension::None };
 
-    struct SubframeProcessPageParameters {
-        URL initialMainDocumentURL;
-        FrameTreeCreationParameters frameTreeParameters;
-    };
     std::optional<SubframeProcessPageParameters> subframeProcessPageParameters;
     std::optional<WebCore::FrameIdentifier> openerFrameIdentifier;
     std::optional<WebCore::FrameIdentifier> mainFrameIdentifier;

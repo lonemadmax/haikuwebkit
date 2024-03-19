@@ -42,6 +42,11 @@ namespace WGSL {
 
 constexpr bool shouldLogGlobalSorting = false;
 
+inline String nameForDeclaration(AST::Declaration& declaration)
+{
+    return is<AST::ConstAssert>(declaration) ? "const_assert"_s : declaration.name().id();
+}
+
 class Graph {
 public:
     class Edge;
@@ -131,12 +136,14 @@ public:
     FixedVector<Node>& nodes() { return m_nodes; }
     Node* addNode(unsigned index, AST::Declaration& astNode)
     {
-        if (m_nodeMap.find(astNode.name()) != m_nodeMap.end())
+        bool isConstAssert = is<AST::ConstAssert>(astNode);
+        if (!isConstAssert && m_nodeMap.find(astNode.name()) != m_nodeMap.end())
             return nullptr;
 
         m_nodes[index] = Node(index, astNode);
         auto* node = &m_nodes[index];
-        m_nodeMap.add(astNode.name(), node);
+        if (!isConstAssert)
+            m_nodeMap.add(astNode.name(), node);
         return node;
     }
     Node* getNode(const AST::Identifier& identifier)
@@ -150,7 +157,8 @@ public:
     EdgeSet& edges() { return m_edges; }
     void addEdge(Node& source, Node& target)
     {
-        dataLogLnIf(shouldLogGlobalSorting, "addEdge: source: ", source.astNode().name(), ", target: ", target.astNode().name());
+        if constexpr (shouldLogGlobalSorting)
+            dataLogLn("addEdge: source: ", nameForDeclaration(source.astNode()), ", target: ", target.astNode().name());
         auto result = m_edges.add(Edge(source, target));
         Edge& edge = *result.iterator;
         source.outgoingEdges().add(edge);
@@ -208,7 +216,7 @@ GraphBuilder::GraphBuilder(Graph& graph, Graph::Node& node)
 void GraphBuilder::visit(AST::Parameter& parameter)
 {
     introduceVariable(parameter.name());
-    Base::visit(parameter.typeName());
+    Base::visit(parameter);
 }
 
 void GraphBuilder::visit(AST::VariableStatement& variable)
@@ -277,7 +285,8 @@ static std::optional<FailedCheck> reorder(AST::Declaration::List& list)
 
     std::function<void(Graph::Node&, unsigned)> processNode;
     processNode = [&](Graph::Node& node, unsigned currentIndex) {
-        dataLogLnIf(shouldLogGlobalSorting, "Process: ", node.astNode().name());
+        if constexpr (shouldLogGlobalSorting)
+            dataLogLn("Process: ", nameForDeclaration(node.astNode()));
         list.append(node.astNode());
         for (auto edge : node.incomingEdges()) {
             auto& source = edge.source();
@@ -309,7 +318,8 @@ static std::optional<FailedCheck> reorder(AST::Declaration::List& list)
     auto* node = cycleNode;
     HashSet<Graph::Node*> visited;
     while (true) {
-        dataLogLnIf(shouldLogGlobalSorting, "cycle node: ", node->astNode().name());
+        if constexpr (shouldLogGlobalSorting)
+            dataLogLn("cycle node: ", nameForDeclaration(node->astNode()));
         ASSERT(!node->outgoingEdges().isEmpty());
         visited.add(node);
         node = &node->outgoingEdges().first().target();

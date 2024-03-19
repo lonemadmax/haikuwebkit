@@ -64,8 +64,6 @@ Platform/glib/ModuleGlib.cpp
 
 Platform/unix/LoggingUnix.cpp
 
-Shared/API/c/cairo/WKImageCairo.cpp
-
 Shared/API/glib/WebKitContextMenu.cpp @no-unify
 Shared/API/glib/WebKitContextMenuActions.cpp @no-unify
 Shared/API/glib/WebKitContextMenuItem.cpp @no-unify
@@ -98,6 +96,8 @@ Shared/linux/WebMemorySamplerLinux.cpp
 
 Shared/soup/WebCoreArgumentCodersSoup.cpp
 Shared/soup/WebErrorsSoup.cpp
+
+Shared/skia/WebCoreArgumentCodersSkia.cpp
 
 Shared/unix/AuxiliaryProcessMain.cpp
 
@@ -214,8 +214,6 @@ UIProcess/API/wpe/WebKitWebViewWPE2.cpp @no-unify
 UIProcess/API/wpe/WebKitWebViewWPE.cpp @no-unify
 UIProcess/API/wpe/WPEWebView.cpp @no-unify
 
-UIProcess/Automation/cairo/WebAutomationSessionCairo.cpp
-
 UIProcess/Automation/libwpe/WebAutomationSessionLibWPE.cpp
 
 UIProcess/CoordinatedGraphics/DrawingAreaProxyCoordinatedGraphics.cpp
@@ -228,6 +226,7 @@ UIProcess/glib/DisplayLinkGLib.cpp
 UIProcess/glib/DisplayVBlankMonitor.cpp
 UIProcess/glib/DisplayVBlankMonitorDRM.cpp
 UIProcess/glib/DisplayVBlankMonitorTimer.cpp
+UIProcess/glib/ScreenManager.cpp
 UIProcess/glib/WebPageProxyGLib.cpp
 UIProcess/glib/WebProcessPoolGLib.cpp
 UIProcess/glib/WebProcessProxyGLib.cpp
@@ -257,6 +256,7 @@ UIProcess/linux/MemoryPressureMonitor.cpp
 UIProcess/soup/WebProcessPoolSoup.cpp
 
 UIProcess/wpe/AcceleratedBackingStoreDMABuf.cpp
+UIProcess/wpe/ScreenManagerWPE.cpp
 UIProcess/wpe/WebPageProxyWPE.cpp
 
 WebProcess/GPU/graphics/gbm/RemoteGraphicsContextGLProxyGBM.cpp

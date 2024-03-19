@@ -37,6 +37,7 @@
 #include "DocumentInlines.h"
 #include "FontCustomPlatformData.h"
 #include "FontFaceSet.h"
+#include "GCController.h"
 #include "IDBConnectionProxy.h"
 #include "ImageBitmapOptions.h"
 #include "InspectorInstrumentation.h"
@@ -384,12 +385,10 @@ ExceptionOr<void> WorkerGlobalScope::importScripts(const FixedVector<String>& ur
 
     FetchOptions::Cache cachePolicy = FetchOptions::Cache::Default;
 
-    bool isServiceWorkerGlobalScope = is<ServiceWorkerGlobalScope>(*this);
-    if (isServiceWorkerGlobalScope) {
+    if (auto* serviceWorkerGlobalScope = dynamicDowncast<ServiceWorkerGlobalScope>(*this)) {
         // FIXME: We need to add support for the 'imported scripts updated' flag as per:
         // https://w3c.github.io/ServiceWorker/#importscripts
-        auto& serviceWorkerGlobalScope = downcast<ServiceWorkerGlobalScope>(*this);
-        auto& registration = serviceWorkerGlobalScope.registration();
+        auto& registration = serviceWorkerGlobalScope->registration();
         if (registration.updateViaCache() == ServiceWorkerUpdateViaCache::None || registration.needsUpdate())
             cachePolicy = FetchOptions::Cache::NoCache;
     }
@@ -517,6 +516,11 @@ Performance& WorkerGlobalScope::performance() const
     return *m_performance;
 }
 
+Ref<Performance> WorkerGlobalScope::protectedPerformance() const
+{
+    return *m_performance;
+}
+
 WorkerCacheStorageConnection& WorkerGlobalScope::cacheStorageConnection()
 {
     if (!m_cacheStorageConnection)
@@ -575,7 +579,6 @@ std::unique_ptr<FontLoadRequest> WorkerGlobalScope::fontLoadRequest(const String
 
 void WorkerGlobalScope::beginLoadingFontSoon(FontLoadRequest& request)
 {
-    ASSERT(is<WorkerFontLoadRequest>(request));
     downcast<WorkerFontLoadRequest>(request).load(*this);
 }
 
@@ -624,6 +627,16 @@ void WorkerGlobalScope::releaseMemoryInWorkers(Synchronous synchronous)
     for (auto& globalScopeIdentifier : allWorkerGlobalScopeIdentifiers()) {
         postTaskTo(globalScopeIdentifier, [synchronous](auto& context) {
             downcast<WorkerGlobalScope>(context).releaseMemory(synchronous);
+        });
+    }
+}
+
+void WorkerGlobalScope::dumpGCHeapForWorkers()
+{
+    Locker locker { allWorkerGlobalScopeIdentifiersLock };
+    for (auto& globalScopeIdentifier : allWorkerGlobalScopeIdentifiers()) {
+        postTaskTo(globalScopeIdentifier, [](auto& context) {
+            GCController::dumpHeapForVM(downcast<WorkerGlobalScope>(context).vm());
         });
     }
 }

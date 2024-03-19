@@ -17,6 +17,7 @@ contact-picker/contacts-select.html [ Pass ]
 css3/scroll-snap/ios [ Pass ]
 fast/attachment/cocoa [ Pass ]
 fast/device-orientation [ Pass ]
+fast/text-extraction [ Pass ]
 http/tests/app-privacy-report/ [ Pass ]
 http/tests/device-orientation [ Pass ]
 fast/history/ios [ Pass ]
@@ -60,6 +61,10 @@ media/modern-media-controls/overflow-support [ Pass ]
 http/tests/media/modern-media-controls/overflow-support [ Pass ]
 media/modern-media-controls/tracks-support [ Pass ]
 
+media/media-source/media-managedmse-airplay.html [ Pass ]
+media/media-source/media-managedmse-idl.html [ Pass ]
+webkit.org/b/269897 media/media-source/media-managedmse-poster.html [ Skip ]
+
 webkit.org/b/231187 media/modern-media-controls/overflow-support/button-state.html [ Skip ]
 webkit.org/b/231187 media/modern-media-controls/overflow-support/playback-speed.html [ Skip ]
 webkit.org/b/231187 media/modern-media-controls/overflow-support/chapters.html [ Skip ]
@@ -83,6 +88,7 @@ accessibility/ios-simulator/image-overlay-elements.html [ Pass ]
 http/tests/ssl/applepay [ Pass ]
 webkit.org/b/212975 http/tests/ssl/applepay/PaymentRequest.https.html [ Pass Timeout ]
 
+http/tests/paymentrequest/ApplePayModifier-disbursementPaymentRequest.https.html [ Skip ]
 http/tests/paymentrequest [ Pass ]
 imported/w3c/web-platform-tests/payment-request [ Pass ]
 webkit.org/b/175611 imported/w3c/web-platform-tests/payment-request/allowpaymentrequest/allowpaymentrequest-attribute-cross-origin-bc-containers.https.html [ Skip ]
@@ -829,7 +835,6 @@ http/tests/cookies/double-quoted-value-with-semi-colon.html
 storage/domstorage/sessionstorage/window-open.html
 transitions/cubic-bezier-overflow-transform.html
 transitions/default-timing-function.html
-transitions/extra-transition.html
 transitions/interrupt-transform-transition.html
 
 # Crashes when running all tests, but not by itself.
@@ -2119,7 +2124,6 @@ media/video-orientation-canvas.html [ Failure ]
 
 # Changed JS cookie behavior in iOS16
 http/tests/resourceLoadStatistics/capped-lifetime-for-cookie-set-in-js.html  [ Skip ]
-http/tests/resourceLoadStatistics/website-data-removal-for-site-navigated-to-with-link-decoration.html [ Skip ]
 http/tests/resourceLoadStatistics/website-data-removal-for-site-without-user-interaction.html [ Skip ]
 
 # Trusted Types aren't implemented yet
@@ -2127,8 +2131,7 @@ webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-report-only.html [ Skip ]
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-no-unsafe-eval.html [ Skip ]
 
-# rdar://97297483 ([ iOS16 ] fast/events/ios/rotation/zz-no-rotation.html is a constant timeout =)
-fast/events/ios/rotation/zz-no-rotation.html [ Timeout ]
+fast/events/ios/rotation/zz-no-rotation.html [ Pass Crash ]
 
 webkit.org/b/210849 compositing/overflow/rtl-scrollbar-layer-positioning.html [ Pass Timeout ]
 
@@ -2339,14 +2342,14 @@ webkit.org/b/260640 [ Release arm64 ] editing/execCommand/apply-inline-style-to-
 # This test relies on mouse input.
 imported/w3c/web-platform-tests/css/css-view-transitions/input-targets-root-while-render-blocked.html [ Skip ]
 
+imported/w3c/web-platform-tests/css/css-view-transitions/window-resize-aborts-transition-before-ready.html [ ImageOnlyFailure ]
+
 # WindowProxy property access delegate callbacks are only implemented on Mac and iOS WK2.
 http/wpt/opener/child-access-parent-via-windowproxy.html [ Pass ]
 http/wpt/opener/iframe-access-top-via-windowproxy.html [ Pass ]
 http/wpt/opener/parent-access-child-via-windowproxy.html [ Pass ]
 
-# webkit.org/b/267890 REGRESSION (273260@main): [ iOS17 ]ASSERTION FAILED: isStackingContext() result of 5 tests in fast/forms/switch to consistent timeout/crash
-[ Debug ] fast/forms/switch/click-animation-disabled.html [ Crash ]
-[ Debug ] fast/forms/switch/pointer-tracking-disabled.html [ Crash ]
+# webkit.org/b/267890 REGRESSION (273260@main): [ iOS17 ] 3 tests in fast/forms/switch regularly timeout
 fast/forms/switch/pointer-tracking-there-and-back-again-rtl.html [ Timeout ]
 fast/forms/switch/pointer-tracking-there-and-back-again.html [ Timeout ]
 fast/forms/switch/pointer-tracking.html [ Timeout ]
@@ -2364,8 +2367,6 @@ webkit.org/b/268044 [ Debug ] ipc/shared-video-frame-size.html [ Crash ]
 webkit.org/b/263044 [ Debug ] imported/w3c/web-platform-tests/webrtc-stats/supported-stats.https.html [ Pass Failure ]
 
 webkit.org/b/268422 fast/events/ios/keyboard-should-not-trigger-resize.html [ Pass Failure ]
-
-webkit.org/b/268555 [ Debug ] http/wpt/webcodecs/h264-encoder-default-config.https.any.html [ Skip ]
 
 webkit.org/b/268557 [ Debug ] imported/w3c/web-platform-tests/html/dom/elements/global-attributes/the-anchor-attribute-003-crash.tentative.html [ Skip ]
 
@@ -2388,3 +2389,21 @@ webgl/1.0.3/conformance/textures/tex-image-and-sub-image-2d-with-video.html [ Pa
 webgl/1.0.3/conformance/textures/tex-image-with-format-and-type.html [ Pass Timeout ]
 webgl/1.0.3/conformance/textures/texture-size-cube-maps.html [ Pass Timeout ]
 webgl/1.0.3/conformance/textures/texture-transparent-pixels-initialized.html [ Pass Timeout ]
+
+webkit.org/b/269033 fast/events/ios/select-all-with-existing-selection.html [ Pass Failure ]
+
+webkit.org/b/269086 [ Release ] imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-allowed-for-all.https.sub.html [ Pass Failure ]
+
+webkit.org/b/269116 imported/w3c/web-platform-tests/css/css-flexbox/negative-overflow-002.html [ Failure ]
+
+webkit.org/b/269321 webgl/1.0.3/conformance/uniforms/out-of-bounds-uniform-array-access.html [ Timeout ]
+
+webkit.org/b/269760 mathml/presentation/scripts-underover.html [ Failure ]
+
+webkit.org/b/270315 svg/custom/svg-fonts-in-html.html [ Failure ]
+
+webkit.org/b/270477 [ Debug ] accessibility/text-marker/text-marker-range-stale-node-crash.html [ Skip ]
+
+# webkit.org/b/268557 REGRESSION (274621@main-274598@main?): [ iOS Debug ]media/video-autoplay.html and media/video-element-other-namespace-crash.html are constant crashes 
+[ Debug ] media/video-autoplay.html [ Skip ]
+[ Debug ] media/video-element-other-namespace-crash.html  [ Skip ]

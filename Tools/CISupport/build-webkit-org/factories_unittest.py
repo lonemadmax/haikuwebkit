@@ -1293,6 +1293,17 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'API-tests',
             'webdriver-test'
         ],
+        'GTK-Linux-64-bit-Release-Debian-11-Build': [
+            'configure-build',
+            'configuration',
+            'clean-and-update-working-directory',
+            'checkout-specific-revision',
+            'show-identifier',
+            'kill-old-processes',
+            'delete-WebKitBuild-directory',
+            'delete-stale-build-files',
+            'compile-webkit'
+        ],
         'GTK-Linux-64-bit-Release-Debian-Stable-Build': [
             'configure-build',
             'configuration',
@@ -1856,6 +1867,18 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'download-built-product',
             'extract-built-product',
             'benchmark-test'
+        ],
+        'WPE-Linux-64-bit-Release-Skia-Build': [
+            'configure-build',
+            'configuration',
+            'clean-and-update-working-directory',
+            'checkout-specific-revision',
+            'show-identifier',
+            'kill-old-processes',
+            'delete-WebKitBuild-directory',
+            'delete-stale-build-files',
+            'jhbuild',
+            'compile-webkit'
         ],
     }
 

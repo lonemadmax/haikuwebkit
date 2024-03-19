@@ -30,7 +30,6 @@
 
 #import "APIData.h"
 #import "ApplicationStateTracker.h"
-#import "DataReference.h"
 #import "DrawingAreaProxy.h"
 #import "EndowmentStateTracker.h"
 #import "FrameInfoData.h"
@@ -231,6 +230,13 @@ void PageClientImpl::didCreateContextInGPUProcessForVisibilityPropagation(LayerH
 }
 #endif // ENABLE(GPU_PROCESS)
 
+#if ENABLE(MODEL_PROCESS)
+void PageClientImpl::didCreateContextInModelProcessForVisibilityPropagation(LayerHostingContextID)
+{
+    [m_contentView _modelProcessDidCreateContextForVisibilityPropagation];
+}
+#endif // ENABLE(MODEL_PROCESS)
+
 #if USE(EXTENSIONKIT)
 UIView *PageClientImpl::createVisibilityPropagationView()
 {
@@ -244,6 +250,14 @@ void PageClientImpl::gpuProcessDidExit()
 {
     [contentView() _gpuProcessDidExit];
     PageClientImplCocoa::gpuProcessDidExit();
+}
+#endif
+
+#if ENABLE(MODEL_PROCESS)
+void PageClientImpl::modelProcessDidExit()
+{
+    [m_contentView _modelProcessDidExit];
+    PageClientImplCocoa::modelProcessDidExit();
 }
 #endif
 
@@ -375,7 +389,7 @@ void PageClientImpl::executeUndoRedo(UndoOrRedo undoOrRedo)
     return (undoOrRedo == UndoOrRedo::Undo) ? [[contentView() undoManager] undo] : [[contentView() undoManager] redo];
 }
 
-void PageClientImpl::accessibilityWebProcessTokenReceived(const IPC::DataReference& data)
+void PageClientImpl::accessibilityWebProcessTokenReceived(std::span<const uint8_t> data, WebCore::FrameIdentifier, pid_t)
 {
     NSData *remoteToken = [NSData dataWithBytes:data.data() length:data.size()];
     [contentView() _setAccessibilityWebProcessToken:remoteToken];
@@ -814,7 +828,7 @@ void PageClientImpl::beganExitFullScreen(const IntRect& initialFrame, const IntR
 
 #endif // ENABLE(FULLSCREEN_API)
 
-void PageClientImpl::didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, const IPC::DataReference& dataReference)
+void PageClientImpl::didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, std::span<const uint8_t> dataReference)
 {
     RetainPtr<NSData> data = adoptNS([[NSData alloc] initWithBytes:dataReference.data() length:dataReference.size()]);
     [webView() _didFinishLoadingDataForCustomContentProviderWithSuggestedFilename:suggestedFilename data:data.get()];

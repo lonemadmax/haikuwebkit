@@ -46,7 +46,7 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(StyleOriginatedAnimation);
 StyleOriginatedAnimation::StyleOriginatedAnimation(const Styleable& styleable, const Animation& backingAnimation)
     : WebAnimation(styleable.element.document())
     , m_owningElement(styleable.element)
-    , m_owningPseudoId(styleable.pseudoId)
+    , m_owningPseudoElementIdentifier(styleable.pseudoElementIdentifier)
     , m_backingAnimation(const_cast<Animation&>(backingAnimation))
 {
 }
@@ -58,7 +58,7 @@ StyleOriginatedAnimation::~StyleOriginatedAnimation()
 const std::optional<const Styleable> StyleOriginatedAnimation::owningElement() const
 {
     if (m_owningElement)
-        return Styleable(*m_owningElement, m_owningPseudoId);
+        return Styleable(*m_owningElement, m_owningPseudoElementIdentifier);
     return std::nullopt;
 }
 
@@ -116,9 +116,10 @@ void StyleOriginatedAnimation::initialize(const RenderStyle* oldStyle, const Ren
 
     ASSERT(m_owningElement);
 
-    setEffect(KeyframeEffect::create(*m_owningElement, m_owningPseudoId));
+    Ref effect = KeyframeEffect::create(Ref { *m_owningElement }, m_owningPseudoElementIdentifier);
+    setEffect(effect.copyRef());
     setTimeline(&m_owningElement->document().timeline());
-    downcast<KeyframeEffect>(effect())->computeStyleOriginatedAnimationBlendingKeyframes(oldStyle, newStyle, resolutionContext);
+    effect->computeStyleOriginatedAnimationBlendingKeyframes(oldStyle, newStyle, resolutionContext);
     syncPropertiesWithBackingAnimation();
     if (backingAnimation().playState() == AnimationPlayState::Playing)
         play();
@@ -393,7 +394,7 @@ void StyleOriginatedAnimation::enqueueDOMEvent(const AtomString& eventType, Seco
     }();
 
     auto time = secondsToWebAnimationsAPITime(elapsedTime) / 1000;
-    auto event = createEvent(eventType, scheduledTimelineTime, time, m_owningPseudoId);
+    auto event = createEvent(eventType, scheduledTimelineTime, time, m_owningPseudoElementIdentifier);
     event->setTarget(RefPtr { m_owningElement.get() });
     enqueueAnimationEvent(WTFMove(event));
 }

@@ -197,6 +197,10 @@ set(WebKit_MESSAGES_IN_FILES
     GPUProcess/webrtc/RemoteSampleBufferDisplayLayer
     GPUProcess/webrtc/RemoteSampleBufferDisplayLayerManager
 
+    ModelProcess/ModelConnectionToWebProcess
+    ModelProcess/ModelProcess
+    ModelProcess/ModelProcessModelPlayerManagerProxy
+
     NetworkProcess/Cookies/WebCookieManager
 
     NetworkProcess/NetworkBroadcastChannelRegistry
@@ -258,6 +262,8 @@ set(WebKit_MESSAGES_IN_FILES
 
     UIProcess/GPU/GPUProcessProxy
 
+    UIProcess/Model/ModelProcessProxy
+
     UIProcess/Inspector/RemoteWebInspectorUIProxy
     UIProcess/Inspector/WebInspectorUIProxy
 
@@ -286,14 +292,14 @@ set(WebKit_MESSAGES_IN_FILES
 
     WebProcess/GPU/media/RemoteAudioHardwareListener
     WebProcess/GPU/media/MediaPlayerPrivateRemote
-    WebProcess/GPU/media/MediaSourcePrivateRemote
+    WebProcess/GPU/media/MediaSourcePrivateRemoteMessageReceiver
     WebProcess/GPU/media/RemoteAudioSession
     WebProcess/GPU/media/RemoteAudioSourceProviderManager
     WebProcess/GPU/media/RemoteCDMInstance
     WebProcess/GPU/media/RemoteCDMInstanceSession
     WebProcess/GPU/media/RemoteLegacyCDMSession
     WebProcess/GPU/media/RemoteRemoteCommandListener
-    WebProcess/GPU/media/SourceBufferPrivateRemote
+    WebProcess/GPU/media/SourceBufferPrivateRemoteMessageReceiver
 
     WebProcess/GPU/webrtc/LibWebRTCCodecs
     WebProcess/GPU/webrtc/RemoteVideoFrameObjectHeapProxyProcessor
@@ -307,6 +313,9 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/Inspector/WebInspectorUI
 
     WebProcess/MediaSession/RemoteMediaSessionCoordinator
+
+    WebProcess/Model/ModelProcessConnection
+    WebProcess/Model/ModelProcessModelPlayer
 
     WebProcess/Network/webrtc/LibWebRTCNetwork
     WebProcess/Network/webrtc/RTCDataChannelRemoteManager
@@ -411,6 +420,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/FrameInfoData.serialization.in
     Shared/FrameTreeCreationParameters.serialization.in
     Shared/FrameTreeNodeData.serialization.in
+    Shared/FullScreenMediaDetails.serialization.in
     Shared/GPUProcessConnectionParameters.serialization.in
     Shared/GPUProcessPreferencesForWebProcess.serialization.in
     Shared/GoToBackForwardItemParameters.serialization.in
@@ -425,6 +435,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/MonotonicObjectIdentifier.serialization.in
     Shared/NavigationActionData.serialization.in
     Shared/NetworkProcessConnectionParameters.serialization.in
+    Shared/NetworkProcessPreferencesForWebProcess.serialization.in
     Shared/Pasteboard.serialization.in
     Shared/PlatformPopupMenuData.serialization.in
     Shared/PolicyDecision.serialization.in
@@ -532,6 +543,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/WebGPU/WebGPUImageCopyTexture.serialization.in
     Shared/WebGPU/WebGPUImageCopyTextureTagged.serialization.in
     Shared/WebGPU/WebGPUImageDataLayout.serialization.in
+    Shared/WebGPU/WebGPUInternalError.serialization.in
     Shared/WebGPU/WebGPUMultisampleState.serialization.in
     Shared/WebGPU/WebGPUObjectDescriptorBase.serialization.in
     Shared/WebGPU/WebGPUOrigin2D.serialization.in
@@ -576,12 +588,15 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/XR/PlatformXR.serialization.in
     Shared/XR/XRSystem.serialization.in
 
+    UIProcess/Extensions/WebExtension.serialization.in
+
     WebProcess/GPU/GPUProcessConnectionInfo.serialization.in
 
     WebProcess/GPU/graphics/BufferIdentifierSet.serialization.in
     WebProcess/GPU/graphics/PrepareBackingStoreBuffersData.serialization.in
 
     WebProcess/GPU/media/MediaOverridesForTesting.serialization.in
+    WebProcess/GPU/media/MediaTimeUpdateData.serialization.in
     WebProcess/GPU/media/RemoteAudioSessionConfiguration.serialization.in
     WebProcess/GPU/media/RemoteCDMConfiguration.serialization.in
     WebProcess/GPU/media/RemoteCDMInstanceConfiguration.serialization.in

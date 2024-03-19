@@ -130,11 +130,15 @@ bool AccessibilityUIElement::isOnScreen() const { return true; }
 JSValueRef AccessibilityUIElement::mathRootRadicand() const { return { }; }
 unsigned AccessibilityUIElement::numberOfCharacters() const { return 0; }
 JSValueRef AccessibilityUIElement::columns() { return { }; }
+JSRetainPtr<JSStringRef> AccessibilityUIElement::dateValue() { return nullptr; }
 #endif // !PLATFORM(MAC))
 
 #if !PLATFORM(COCOA)
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::focusedElement() const { return nullptr; }
 JSRetainPtr<JSStringRef> AccessibilityUIElement::customContent() const { return nullptr; }
+
+JSRetainPtr<JSStringRef> AccessibilityUIElement::brailleLabel() const { return nullptr; }
+JSRetainPtr<JSStringRef> AccessibilityUIElement::brailleRoleDescription() const { return nullptr; }
 
 bool AccessibilityUIElement::hasDocumentRoleAncestor() const { return false; }
 bool AccessibilityUIElement::hasWebApplicationAncestor() const { return false; }

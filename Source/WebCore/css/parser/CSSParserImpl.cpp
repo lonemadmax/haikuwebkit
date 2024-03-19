@@ -131,7 +131,12 @@ CSSParser::ParseResult CSSParserImpl::parseValue(MutableStyleProperties& declara
 CSSParser::ParseResult CSSParserImpl::parseCustomPropertyValue(MutableStyleProperties& declaration, const AtomString& propertyName, const String& string, bool important, const CSSParserContext& context)
 {
     CSSParserImpl parser(context, string);
-    parser.consumeCustomPropertyValue(parser.tokenizer()->tokenRange(), propertyName, important);
+
+    auto range = parser.tokenizer()->tokenRange();
+    range.consumeWhitespace();
+    range.trimTrailingWhitespace();
+    parser.consumeCustomPropertyValue(range, propertyName, important);
+
     if (parser.topContext().m_parsedProperties.isEmpty())
         return CSSParser::ParseResult::Error;
     return declaration.addParsedProperties(parser.topContext().m_parsedProperties) ? CSSParser::ParseResult::Changed : CSSParser::ParseResult::Unchanged;
@@ -1180,7 +1185,7 @@ RefPtr<StyleRuleContainer> CSSParserImpl::consumeContainerRule(CSSParserTokenRan
 
     auto originalPreludeRange = prelude;
 
-    auto query = ContainerQueryParser::consumeContainerQuery(prelude, m_context);
+    auto query = CQ::ContainerQueryParser::consumeContainerQuery(prelude, m_context);
     if (!query)
         return nullptr;
 
@@ -1464,10 +1469,23 @@ void CSSParserImpl::consumeStyleBlock(CSSParserTokenRange range, StyleRuleType r
     consumeBlockContent(range, ruleType, OnlyDeclarations::No, isParsingStyleDeclarationsInRuleList);
 }
 
-static void removeTrailingWhitespace(const CSSParserTokenRange& range, const CSSParserToken*& position)
+bool CSSParserImpl::consumeTrailingImportantAndWhitespace(CSSParserTokenRange& range)
 {
-    while (position != range.begin() && position[-1].type() == WhitespaceToken)
-        --position;
+    range.trimTrailingWhitespace();
+    if (range.size() < 2)
+        return false;
+
+    auto removeImportantRange = range;
+    if (auto& last = removeImportantRange.consumeLast(); last.type() != IdentToken || !equalLettersIgnoringASCIICase(last.value(), "important"_s))
+        return false;
+
+    removeImportantRange.trimTrailingWhitespace();
+    if (auto& last = removeImportantRange.consumeLast(); last.type() != DelimiterToken || last.delimiter() != '!')
+        return false;
+
+    removeImportantRange.trimTrailingWhitespace();
+    range = removeImportantRange;
+    return true;
 }
 
 // https://drafts.csswg.org/css-syntax/#consume-declaration
@@ -1483,23 +1501,7 @@ bool CSSParserImpl::consumeDeclaration(CSSParserTokenRange range, StyleRuleType 
 
     range.consumeWhitespace();
 
-    auto declarationValueEnd = range.end();
-    bool important = false;
-    if (!range.atEnd()) {
-        auto end = range.end();
-        removeTrailingWhitespace(range, end);
-        declarationValueEnd = end;
-        if (end[-1].type() == IdentToken && equalLettersIgnoringASCIICase(end[-1].value(), "important"_s)) {
-            --end;
-            removeTrailingWhitespace(range, end);
-            if (end[-1].type() == DelimiterToken && end[-1].delimiter() == '!') {
-                important = true;
-                --end;
-                removeTrailingWhitespace(range, end);
-                declarationValueEnd = end;
-            }
-        }
-    }
+    bool important = consumeTrailingImportantAndWhitespace(range);
 
     const size_t oldPropertiesCount = topContext().m_parsedProperties.size();
     auto didParseNewProperties = [&] {
@@ -1511,14 +1513,14 @@ bool CSSParserImpl::consumeDeclaration(CSSParserTokenRange range, StyleRuleType 
 
     if (propertyID == CSSPropertyInvalid && CSSVariableParser::isValidVariableName(token)) {
         AtomString variableName = token.value().toAtomString();
-        consumeCustomPropertyValue(range.makeSubRange(&range.peek(), declarationValueEnd), variableName, important);
+        consumeCustomPropertyValue(range, variableName, important);
     }
 
     if (important && (ruleType == StyleRuleType::FontFace || ruleType == StyleRuleType::Keyframe || ruleType == StyleRuleType::CounterStyle || ruleType == StyleRuleType::FontPaletteValues))
         return didParseNewProperties();
 
     if (propertyID != CSSPropertyInvalid)
-        consumeDeclarationValue(range.makeSubRange(&range.peek(), declarationValueEnd), propertyID, important, ruleType);
+        consumeDeclarationValue(range, propertyID, important, ruleType);
 
     if (m_observerWrapper && (ruleType == StyleRuleType::Style || ruleType == StyleRuleType::Keyframe)) {
         m_observerWrapper->observer().observeProperty(

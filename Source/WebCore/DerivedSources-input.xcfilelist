@@ -190,6 +190,7 @@ $(PROJECT_DIR)/Modules/WebGPU/GPUVertexFormat.idl
 $(PROJECT_DIR)/Modules/WebGPU/GPUVertexState.idl
 $(PROJECT_DIR)/Modules/WebGPU/GPUVertexStepMode.idl
 $(PROJECT_DIR)/Modules/WebGPU/NavigatorGPU.idl
+$(PROJECT_DIR)/Modules/WebGPU/WGSLLanguageFeatures.idl
 $(PROJECT_DIR)/Modules/WebGPU/WebExposedAPI/GPU.idl
 $(PROJECT_DIR)/Modules/WebGPU/WebExposedAPI/GPUAdapter.idl
 $(PROJECT_DIR)/Modules/WebGPU/WebExposedAPI/GPUAdapterInfo.idl
@@ -334,6 +335,7 @@ $(PROJECT_DIR)/Modules/WebGPU/WebExposedAPI/GPUVertexFormat.idl
 $(PROJECT_DIR)/Modules/WebGPU/WebExposedAPI/GPUVertexState.idl
 $(PROJECT_DIR)/Modules/WebGPU/WebExposedAPI/GPUVertexStepMode.idl
 $(PROJECT_DIR)/Modules/WebGPU/WebExposedAPI/NavigatorGPU.idl
+$(PROJECT_DIR)/Modules/WebGPU/WebExposedAPI/WGSLLanguageFeatures.idl
 $(PROJECT_DIR)/Modules/airplay/WebKitPlaybackTargetAvailabilityEvent.idl
 $(PROJECT_DIR)/Modules/applepay-ams-ui/ApplePayAMSUIRequest.idl
 $(PROJECT_DIR)/Modules/applepay/ApplePayAutomaticReloadPaymentRequest.idl
@@ -345,6 +347,7 @@ $(PROJECT_DIR)/Modules/applepay/ApplePayCouponCodeUpdate.idl
 $(PROJECT_DIR)/Modules/applepay/ApplePayDateComponents.idl
 $(PROJECT_DIR)/Modules/applepay/ApplePayDateComponentsRange.idl
 $(PROJECT_DIR)/Modules/applepay/ApplePayDeferredPaymentRequest.idl
+$(PROJECT_DIR)/Modules/applepay/ApplePayDisbursementPaymentRequest.idl
 $(PROJECT_DIR)/Modules/applepay/ApplePayDetailsUpdateBase.idl
 $(PROJECT_DIR)/Modules/applepay/ApplePayError.idl
 $(PROJECT_DIR)/Modules/applepay/ApplePayErrorCode.idl
@@ -433,10 +436,6 @@ $(PROJECT_DIR)/Modules/credentialmanagement/CredentialCreationOptions.idl
 $(PROJECT_DIR)/Modules/credentialmanagement/CredentialMediationRequirement.idl
 $(PROJECT_DIR)/Modules/credentialmanagement/CredentialRequestOptions.idl
 $(PROJECT_DIR)/Modules/credentialmanagement/CredentialsContainer.idl
-$(PROJECT_DIR)/Modules/credentialmanagement/DigitalCredential.idl
-$(PROJECT_DIR)/Modules/credentialmanagement/DigitalCredentialRequestOptions.idl
-$(PROJECT_DIR)/Modules/credentialmanagement/IdentityCredentialProtocol.idl
-$(PROJECT_DIR)/Modules/credentialmanagement/IdentityRequestProvider.idl
 $(PROJECT_DIR)/Modules/credentialmanagement/Navigator+Credentials.idl
 $(PROJECT_DIR)/Modules/encryptedmedia/MediaKeyEncryptionScheme.idl
 $(PROJECT_DIR)/Modules/encryptedmedia/MediaKeyMessageEvent.idl
@@ -504,6 +503,11 @@ $(PROJECT_DIR)/Modules/geolocation/PositionErrorCallback.idl
 $(PROJECT_DIR)/Modules/geolocation/PositionOptions.idl
 $(PROJECT_DIR)/Modules/highlight/Highlight.idl
 $(PROJECT_DIR)/Modules/highlight/HighlightRegistry.idl
+$(PROJECT_DIR)/Modules/identity/DigitalCredential.idl
+$(PROJECT_DIR)/Modules/identity/DigitalCredentialRequestOptions.idl
+$(PROJECT_DIR)/Modules/identity/IdentityCredentialProtocol.idl
+$(PROJECT_DIR)/Modules/identity/IdentityRequestProvider.idl
+$(PROJECT_DIR)/Modules/identity/Navigator+Identity.idl
 $(PROJECT_DIR)/Modules/indexeddb/IDBCursor.idl
 $(PROJECT_DIR)/Modules/indexeddb/IDBCursorDirection.idl
 $(PROJECT_DIR)/Modules/indexeddb/IDBCursorWithValue.idl
@@ -561,6 +565,7 @@ $(PROJECT_DIR)/Modules/mediasource/DOMURL+MediaSource.idl
 $(PROJECT_DIR)/Modules/mediasource/ManagedMediaSource.idl
 $(PROJECT_DIR)/Modules/mediasource/ManagedSourceBuffer.idl
 $(PROJECT_DIR)/Modules/mediasource/MediaSource.idl
+$(PROJECT_DIR)/Modules/mediasource/MediaSourceHandle.idl
 $(PROJECT_DIR)/Modules/mediasource/SourceBuffer.idl
 $(PROJECT_DIR)/Modules/mediasource/SourceBufferList.idl
 $(PROJECT_DIR)/Modules/mediasource/TextTrack+MediaSource.idl
@@ -1740,6 +1745,7 @@ $(PROJECT_DIR)/inspector/InspectorAuditAccessibilityObject.idl
 $(PROJECT_DIR)/inspector/InspectorAuditDOMObject.idl
 $(PROJECT_DIR)/inspector/InspectorAuditResourcesObject.idl
 $(PROJECT_DIR)/inspector/InspectorFrontendHost.idl
+$(PROJECT_DIR)/inspector/RTCLogsCallback.idl
 $(PROJECT_DIR)/loader/COEPInheritenceViolationReportBody.idl
 $(PROJECT_DIR)/loader/CORPViolationReportBody.idl
 $(PROJECT_DIR)/loader/appcache/DOMApplicationCache.idl

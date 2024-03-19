@@ -31,4 +31,6 @@
 #include "PathCairo.h"
 #elif USE(HAIKU)
 #include "PathHaiku.h"
+#elif USE(SKIA)
+#include "PathSkia.h"
 #endif

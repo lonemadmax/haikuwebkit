@@ -41,6 +41,7 @@
 #import <WebKit/WKContextConfigurationRef.h>
 #import <WebKit/WKContextPrivate.h>
 #import <WebKit/WKImageCG.h>
+#import <WebKit/WKPreferencesPrivate.h>
 #import <WebKit/WKPreferencesRefPrivate.h>
 #import <WebKit/WKProcessPoolPrivate.h>
 #import <WebKit/WKStringCF.h>
@@ -346,6 +347,7 @@ UniqueRef<PlatformWebView> TestController::platformCreateOtherPage(PlatformWebVi
         [newConfiguration _setRelatedWebView:static_cast<WKWebView*>(parentView->platformView())];
     if ([newConfiguration _relatedWebView])
         [newConfiguration setWebsiteDataStore:[newConfiguration _relatedWebView].configuration.websiteDataStore];
+    [newConfiguration _setPortsForUpgradingInsecureSchemeForTesting:@[@(options.insecureUpgradePort()), @(options.secureUpgradePort())]];
     auto view = makeUniqueRef<PlatformWebView>(newConfiguration.get(), options);
     finishCreatingPlatformWebView(view.ptr(), options);
     return view;
@@ -453,7 +455,10 @@ void TestController::cocoaResetStateToConsistentValues(const TestOptions& option
         [platformView _setGrammarCheckingEnabledForTesting:YES];
         [platformView resetInteractionCallbacks];
         [platformView _resetNavigationGestureStateForTesting];
-        [platformView.configuration.preferences setTextInteractionEnabled:options.textInteractionEnabled()];
+
+        auto configuration = platformView.configuration;
+        configuration.preferences.textInteractionEnabled = options.textInteractionEnabled();
+        configuration.preferences._textExtractionEnabled = options.textExtractionEnabled();
     }
 
     [LayoutTestSpellChecker uninstallAndReset];
@@ -461,6 +466,13 @@ void TestController::cocoaResetStateToConsistentValues(const TestOptions& option
     WebCoreTestSupport::setAdditionalSupportedImageTypesForTesting(String::fromLatin1(options.additionalSupportedImageTypes().c_str()));
 
     [globalWebsiteDataStoreDelegateClient() clearReportedWindowProxyAccessDomains];
+}
+
+void TestController::platformSetStatisticsCrossSiteLoadWithLinkDecoration(WKStringRef fromHost, WKStringRef toHost, bool wasFiltered, void* context, SetStatisticsCrossSiteLoadWithLinkDecorationCallBack callback)
+{
+    [m_mainWebView->platformView() _setStatisticsCrossSiteLoadWithLinkDecorationForTesting:toWTFString(fromHost) withToHost:toWTFString(toHost) withWasFiltered:wasFiltered withCompletionHandler:^{
+        callback(context);
+    }];
 }
 
 void TestController::platformWillRunTest(const TestInvocation& testInvocation)

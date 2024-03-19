@@ -160,6 +160,7 @@ public:
     JSRetainPtr<JSStringRef> description();
     JSRetainPtr<JSStringRef> language();
     JSRetainPtr<JSStringRef> stringValue();
+    JSRetainPtr<JSStringRef> dateValue();
     JSRetainPtr<JSStringRef> accessibilityValue() const;
     JSRetainPtr<JSStringRef> helpText() const;
     JSRetainPtr<JSStringRef> orientation() const;
@@ -170,6 +171,8 @@ public:
     double width();
     double height();
     JSRetainPtr<JSStringRef> lineRectsAndText() const;
+    JSRetainPtr<JSStringRef> brailleLabel() const;
+    JSRetainPtr<JSStringRef> brailleRoleDescription() const;
 
     double intValue() const;
     double minValue();

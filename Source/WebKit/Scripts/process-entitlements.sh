@@ -178,10 +178,12 @@ function webcontent_sandbox_entitlements()
     plistbuddy Add :com.apple.private.security.mutable-state-flags:0 string EnableExperimentalSandbox
     plistbuddy Add :com.apple.private.security.mutable-state-flags:1 string BlockIOKitInWebContentSandbox
     plistbuddy Add :com.apple.private.security.mutable-state-flags:2 string local:WebContentProcessLaunched
+    plistbuddy Add :com.apple.private.security.mutable-state-flags:3 string BlockQuickLookSandboxResources
     plistbuddy Add :com.apple.private.security.enable-state-flags array
     plistbuddy Add :com.apple.private.security.enable-state-flags:0 string EnableExperimentalSandbox
     plistbuddy Add :com.apple.private.security.enable-state-flags:1 string BlockIOKitInWebContentSandbox
     plistbuddy Add :com.apple.private.security.enable-state-flags:2 string local:WebContentProcessLaunched
+    plistbuddy Add :com.apple.private.security.enable-state-flags:3 string BlockQuickLookSandboxResources
 }
 
 function mac_process_webcontent_shared_entitlements()
@@ -364,6 +366,7 @@ if [[ "${PRODUCT_NAME}" != WebContentExtension && "${PRODUCT_NAME}" != WebConten
     plistbuddy Add :com.apple.private.pac.exception bool YES
     plistbuddy Add :com.apple.private.sandbox.profile string com.apple.WebKit.WebContent
 fi
+    plistbuddy add :com.apple.coreaudio.LoadDecodersInProcess bool YES
     plistbuddy add :com.apple.coreaudio.allow-vorbis-decode bool YES
     webcontent_sandbox_entitlements
 }
@@ -438,6 +441,19 @@ fi
     plistbuddy Add :com.apple.private.attribution.explicitly-assumed-identities:0:type string wildcard
 
     plistbuddy add :com.apple.coreaudio.allow-vorbis-decode bool YES
+}
+
+function ios_family_process_model_entitlements()
+{
+    plistbuddy Add :com.apple.QuartzCore.secure-mode bool YES
+    plistbuddy Add :com.apple.QuartzCore.webkit-end-points bool YES
+    plistbuddy add :com.apple.QuartzCore.webkit-limited-types bool YES
+    plistbuddy Add :com.apple.private.memorystatus bool YES
+    plistbuddy Add :com.apple.runningboard.assertions.webkit bool YES
+    plistbuddy Add :com.apple.private.pac.exception bool YES
+    plistbuddy Add :com.apple.private.sandbox.profile string com.apple.WebKit.Model
+    plistbuddy Add :com.apple.surfboard.application-service-client bool YES
+    plistbuddy Add :com.apple.surfboard.shared-simulation-connection-request bool YES
 }
 
 function ios_family_process_adattributiond_entitlements()
@@ -529,6 +545,7 @@ then
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.Networking ]]; then ios_family_process_network_entitlements
     elif [[ "${PRODUCT_NAME}" == NetworkingExtension ]]; then ios_family_process_network_entitlements
     elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.GPU ]]; then ios_family_process_gpu_entitlements
+    elif [[ "${PRODUCT_NAME}" == com.apple.WebKit.Model ]]; then ios_family_process_model_entitlements
     elif [[ "${PRODUCT_NAME}" == GPUExtension ]]; then ios_family_process_gpu_entitlements
     elif [[ "${PRODUCT_NAME}" == adattributiond ]]; then
         ios_family_process_adattributiond_entitlements

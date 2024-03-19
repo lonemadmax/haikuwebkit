@@ -284,7 +284,7 @@ static ALWAYS_INLINE MacroAssemblerCodeRef<JITThunkPtrTag> jitWriteThunkGenerato
     // to appear in the console or anywhere in memory, via the PrintStream buffer.
     // The second is we can't guarantee that the code is readable when using the
     // asyncDisassembly option as our caller will set our pages execute only.
-    return linkBuffer.finalizeCodeWithoutDisassembly<JITThunkPtrTag>();
+    return linkBuffer.finalizeCodeWithoutDisassembly<JITThunkPtrTag>(nullptr);
 }
 #else // not USE(EXECUTE_ONLY_JIT_WRITE_FUNCTION)
 static void genericWriteToJITRegion(off_t offset, const void* data, size_t dataSize)
@@ -436,6 +436,7 @@ static ALWAYS_INLINE JITReservation initializeJITPageReservation()
         g_jscConfig.endExecutableMemory = reservationEnd;
 
 #if !USE(SYSTEM_MALLOC) && ENABLE(UNIFIED_AND_FREEZABLE_CONFIG_RECORD)
+        static_assert(WebConfig::reservedSlotsForExecutableAllocator >= 2);
         WebConfig::g_config[0] = bitwise_cast<uintptr_t>(reservation.base);
         WebConfig::g_config[1] = bitwise_cast<uintptr_t>(reservationEnd);
 #endif
@@ -688,7 +689,7 @@ public:
 #endif // ENABLE(LIBPAS_JIT_HEAP)
 
 #if ENABLE(JUMP_ISLANDS)
-    void handleWillBeReleased(const LockHolder& locker, ExecutableMemoryHandle& handle)
+    void handleWillBeReleased(const Locker<Lock>& locker, ExecutableMemoryHandle& handle)
     {
         if (m_islandsForJumpSourceLocation.isEmpty())
             return;
@@ -740,7 +741,7 @@ private:
         return result;
     }
 
-    void freeJumpIslands(const LockHolder&, Islands* islands)
+    void freeJumpIslands(const Locker<Lock>&, Islands* islands)
     {
         for (CodeLocationLabel<ExecutableMemoryPtrTag> jumpIsland : islands->jumpIslands) {
             uintptr_t untaggedJumpIsland = bitwise_cast<uintptr_t>(jumpIsland.dataLocation());
@@ -751,14 +752,14 @@ private:
         islands->jumpIslands.clear();
     }
 
-    void freeIslands(const LockHolder& locker, Islands* islands)
+    void freeIslands(const Locker<Lock>& locker, Islands* islands)
     {
         freeJumpIslands(locker, islands);
         m_islandsForJumpSourceLocation.remove(islands);
         delete islands;
     }
 
-    void* islandForJumpLocation(const LockHolder& locker, uintptr_t jumpLocation, uintptr_t target, bool concurrently, bool useMemcpy)
+    void* islandForJumpLocation(const Locker<Lock>& locker, uintptr_t jumpLocation, uintptr_t target, bool concurrently, bool useMemcpy)
     {
         Islands* islands = m_islandsForJumpSourceLocation.findExact(bitwise_cast<void*>(jumpLocation));
         if (islands) {
@@ -920,7 +921,7 @@ private:
         }
 
 #if !ENABLE(LIBPAS_JIT_HEAP)
-        void release(const LockHolder& locker, MetaAllocatorHandle& handle) final
+        void release(const Locker<Lock>& locker, MetaAllocatorHandle& handle) final
         {
             AssemblyCommentRegistry::singleton().unregisterCodeRange(handle.start().untaggedPtr(), handle.end().untaggedPtr());
             m_fixedAllocator.handleWillBeReleased(locker, handle);

@@ -544,6 +544,7 @@ void HTMLConstructionSite::insertHTMLTemplateElement(AtomHTMLToken&& token)
 {
     if (document().settings().declarativeShadowRootsEnabled() && m_parserContentPolicy.contains(ParserContentPolicy::AllowDeclarativeShadowRoots)) {
         std::optional<ShadowRootMode> mode;
+        bool clonable = false;
         bool delegatesFocus = false;
         for (auto& attribute : token.attributes()) {
             if (attribute.name() == HTMLNames::shadowrootmodeAttr) {
@@ -553,9 +554,11 @@ void HTMLConstructionSite::insertHTMLTemplateElement(AtomHTMLToken&& token)
                     mode = ShadowRootMode::Open;
             } else if (attribute.name() == HTMLNames::shadowrootdelegatesfocusAttr)
                 delegatesFocus = true;
+            else if (attribute.name() == HTMLNames::shadowrootclonableAttr)
+                clonable = true;
         }
         if (mode && is<Element>(currentNode())) {
-            auto exceptionOrShadowRoot = currentElement().attachDeclarativeShadow(*mode, delegatesFocus);
+            auto exceptionOrShadowRoot = currentElement().attachDeclarativeShadow(*mode, delegatesFocus, clonable);
             if (!exceptionOrShadowRoot.hasException()) {
                 Ref shadowRoot = exceptionOrShadowRoot.releaseReturnValue();
                 auto element = createHTMLElement(token);
@@ -795,9 +798,9 @@ RefPtr<HTMLElement> HTMLConstructionSite::createHTMLElementOrFindCustomElementIn
     // have to pass the current form element.  We should rework form association
     // to occur after construction to allow better code sharing here.
     // http://www.whatwg.org/specs/web-apps/current-work/multipage/tree-construction.html#create-an-element-for-the-token
-    Document& ownerDocument = ownerDocumentForCurrentNode();
-    bool insideTemplateElement = !ownerDocument.frame();
-    auto element = HTMLElementFactory::createKnownElement(token.tagName(), ownerDocument, insideTemplateElement ? nullptr : form(), true);
+    Ref ownerDocument = ownerDocumentForCurrentNode();
+    bool insideTemplateElement = !ownerDocument->frame();
+    RefPtr element = HTMLElementFactory::createKnownElement(token.tagName(), ownerDocument, insideTemplateElement ? nullptr : form(), true);
     if (UNLIKELY(!element)) {
         if (auto* elementInterface = findCustomElementInterface(ownerDocument, token.name())) {
             if (!m_isParsingFragment) {

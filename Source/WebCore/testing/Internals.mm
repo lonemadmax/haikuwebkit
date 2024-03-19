@@ -137,7 +137,7 @@ ExceptionOr<RefPtr<Range>> Internals::rangeForDictionaryLookupAtLocation(int x, 
     if (!range)
         return nullptr;
 
-    return RefPtr<Range> { createLiveRange(std::get<SimpleRange>(*range)) };
+    return RefPtr<Range> { createLiveRange(*range) };
 }
 
 void Internals::setUsesOverlayScrollbars(bool enabled)
@@ -161,7 +161,7 @@ void Internals::setUsesOverlayScrollbars(bool enabled)
 #if ENABLE(VIDEO)
 double Internals::privatePlayerVolume(const HTMLMediaElement& element)
 {
-    auto corePlayer = element.player();
+    RefPtr corePlayer = element.player();
     if (!corePlayer)
         return 0;
     auto player = corePlayer->objCAVFoundationAVPlayer();
@@ -172,7 +172,7 @@ double Internals::privatePlayerVolume(const HTMLMediaElement& element)
 
 bool Internals::privatePlayerMuted(const HTMLMediaElement& element)
 {
-    auto corePlayer = element.player();
+    RefPtr corePlayer = element.player();
     if (!corePlayer)
         return false;
     auto player = corePlayer->objCAVFoundationAVPlayer();

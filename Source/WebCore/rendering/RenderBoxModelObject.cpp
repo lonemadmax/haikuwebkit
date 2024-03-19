@@ -941,7 +941,7 @@ void RenderBoxModelObject::mapAbsoluteToLocalPoint(OptionSet<MapCoordinatesMode>
 bool RenderBoxModelObject::hasRunningAcceleratedAnimations() const
 {
     if (auto styleable = Styleable::fromRenderer(*this))
-        return styleable->runningAnimationsAreAllAccelerated();
+        return styleable->hasRunningAcceleratedAnimations();
     return false;
 }
 
@@ -970,7 +970,7 @@ void RenderBoxModelObject::applyTransform(TransformationMatrix&, const RenderSty
 
 bool RenderBoxModelObject::requiresLayer() const
 {
-    return isDocumentElementRenderer() || isPositioned() || createsGroup() || hasTransformRelatedProperty() || hasHiddenBackface() || hasReflection();
+    return isDocumentElementRenderer() || isPositioned() || createsGroup() || hasTransformRelatedProperty() || hasHiddenBackface() || hasReflection() || hasViewTransitionName() || isViewTransitionPseudo();
 }
 
 } // namespace WebCore

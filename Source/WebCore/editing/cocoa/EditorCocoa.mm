@@ -72,6 +72,10 @@
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/cocoa/NSURLExtras.h>
 
+#if USE(APPLE_INTERNAL_SDK)
+#include <WebKitAdditions/MultiRepresentationHEICAdditions.h>
+#endif
+
 namespace WebCore {
 
 static RefPtr<SharedBuffer> archivedDataForAttributedString(NSAttributedString *attributedString)
@@ -238,7 +242,7 @@ void Editor::replaceSelectionWithAttributedString(NSAttributedString *attributed
         return;
 
     if (document->selection().selection().isContentRichlyEditable()) {
-        if (auto fragment = createFragmentAndAddResources(*document->frame(), attributedString)) {
+        if (auto fragment = createFragment(*document->frame(), attributedString, AddResources::Yes)) {
             if (shouldInsertFragment(*fragment, selectedRange(), EditorInsertAction::Pasted))
                 pasteAsFragment(fragment.releaseNonNull(), false, false, mailBlockquoteHandling);
         }
@@ -333,17 +337,19 @@ void Editor::readSelectionFromPasteboard(const String& pasteboardName)
 static void maybeCopyNodeAttributesToFragment(const Node& node, DocumentFragment& fragment)
 {
     // This is only supported for single-Node fragments.
-    RefPtr firstChild = fragment.firstChild();
-    if (!firstChild || firstChild != fragment.lastChild())
+    if (!fragment.hasOneChild())
         return;
 
     // And only supported for HTML elements.
-    if (!node.isHTMLElement() || !firstChild->isHTMLElement())
+    RefPtr oldElement = dynamicDowncast<HTMLElement>(node);
+    if (!oldElement)
+        return;
+
+    RefPtr newElement = dynamicDowncast<HTMLElement>(*fragment.firstChild());
+    if (!newElement)
         return;
 
     // And only if the source Element and destination Element have the same HTML tag name.
-    Ref oldElement = downcast<HTMLElement>(node);
-    Ref newElement = downcast<HTMLElement>(*firstChild);
     if (oldElement->localName() != newElement->localName())
         return;
 
@@ -396,7 +402,7 @@ void Editor::insertMultiRepresentationHEIC(const std::span<const uint8_t>& data)
 {
     auto document = protectedDocument();
 
-    String primaryType = "image/heic"_s;
+    String primaryType = MULTI_REPRESENTATION_HEIC_MIME_TYPE_STRING;
     auto primaryBuffer = FragmentedSharedBuffer::create(data.data(), data.size());
 
     String fallbackType = "image/png"_s;
@@ -421,7 +427,7 @@ void Editor::insertMultiRepresentationHEIC(const std::span<const uint8_t>& data)
 
     auto primaryAttachment = HTMLAttachmentElement::create(HTMLNames::attachmentTag, document.get());
     auto primaryIdentifier = primaryAttachment->ensureUniqueIdentifier();
-    registerAttachmentIdentifier(primaryIdentifier, primaryType, makeString(primaryIdentifier, ".heic"_s), WTFMove(primaryBuffer));
+    registerAttachmentIdentifier(primaryIdentifier, "image/heic"_s, makeString(primaryIdentifier, ".heic"_s), WTFMove(primaryBuffer));
     source->setAttachmentElement(WTFMove(primaryAttachment));
 
     auto fallbackAttachment = HTMLAttachmentElement::create(HTMLNames::attachmentTag, document.get());

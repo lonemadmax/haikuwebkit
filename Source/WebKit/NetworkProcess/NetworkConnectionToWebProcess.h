@@ -29,6 +29,7 @@
 #include "DownloadID.h"
 #include "NetworkActivityTracker.h"
 #include "NetworkMDNSRegister.h"
+#include "NetworkProcessPreferencesForWebProcess.h"
 #include "NetworkRTCProvider.h"
 #include "NetworkResourceLoadIdentifier.h"
 #include "NetworkResourceLoadMap.h"
@@ -142,6 +143,8 @@ public:
     IPC::Connection& connection() { return m_connection.get(); }
     NetworkProcess& networkProcess() { return m_networkProcess.get(); }
 
+    bool isWebTransportEnabled() const { return m_preferencesForWebProcess.isWebTransportEnabled; }
+
     void didCleanupResourceLoader(NetworkResourceLoader&);
     void transferKeptAliveLoad(NetworkResourceLoader&);
     void setOnLineState(bool);
@@ -221,7 +224,7 @@ public:
     void installMockContentFilter(WebCore::MockContentFilterSettings&&);
 #endif
 #if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
-    void logOnBehalfOfWebContent(IPC::DataReference&& logChannel, IPC::DataReference&& logCategory, IPC::DataReference&& logString, uint8_t logType, int32_t pid);
+    void logOnBehalfOfWebContent(std::span<const uint8_t> logChannel, std::span<const uint8_t> logCategory, std::span<const uint8_t> logString, uint8_t logType, int32_t pid);
 #endif
 
     void addAllowedFirstPartyForCookies(const RegistrableDomain&);
@@ -232,6 +235,7 @@ public:
 #endif
 
     WebSWServerToContextConnection* swContextConnection() { return m_swContextConnection.get(); }
+    void clearFrameLoadRecordsForStorageAccess(WebCore::FrameIdentifier);
 
 private:
     NetworkConnectionToWebProcess(NetworkProcess&, WebCore::ProcessIdentifier, PAL::SessionID, NetworkProcessConnectionParameters&&, IPC::Connection::Identifier);
@@ -476,6 +480,7 @@ private:
     using BlobURLKey = std::pair<URL, std::optional<WebCore::SecurityOriginData>>;
     HashSet<BlobURLKey> m_blobURLs;
     HashCountedSet<BlobURLKey> m_blobURLHandles;
+    NetworkProcessPreferencesForWebProcess m_preferencesForWebProcess;
 #if ENABLE(IPC_TESTING_API)
     IPCTester m_ipcTester;
 #endif

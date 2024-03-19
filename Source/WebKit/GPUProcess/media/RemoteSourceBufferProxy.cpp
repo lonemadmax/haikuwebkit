@@ -33,7 +33,7 @@
 #include "RemoteMediaPlayerProxy.h"
 #include "RemoteSourceBufferProxyMessages.h"
 #include "SharedBufferReference.h"
-#include "SourceBufferPrivateRemoteMessages.h"
+#include "SourceBufferPrivateRemoteMessageReceiverMessages.h"
 #include <WebCore/AudioTrackPrivate.h>
 #include <WebCore/ContentType.h>
 #include <WebCore/MediaDescription.h>
@@ -63,7 +63,6 @@ RemoteSourceBufferProxy::RemoteSourceBufferProxy(GPUConnectionToWebProcess& conn
 
 RemoteSourceBufferProxy::~RemoteSourceBufferProxy()
 {
-    m_sourceBufferPrivate->detach();
     disconnect();
 }
 
@@ -78,6 +77,8 @@ void RemoteSourceBufferProxy::disconnect()
 
 Ref<MediaPromise> RemoteSourceBufferProxy::sourceBufferPrivateDidReceiveInitializationSegment(InitializationSegment&& segment)
 {
+    ASSERT(isMainRunLoop());
+
     if (!m_remoteMediaPlayerProxy)
         return MediaPromise::createAndReject(PlatformMediaError::ClientDisconnected);
 
@@ -105,11 +106,15 @@ Ref<MediaPromise> RemoteSourceBufferProxy::sourceBufferPrivateDidReceiveInitiali
         return InitializationSegmentInfo::TrackInformation { MediaDescriptionInfo(*textTrackInfo.description), id };
     });
 
-    if (!m_connectionToWebProcess)
-        return MediaPromise::createAndReject(PlatformMediaError::IPCError);
+    // We need to wait for the CP's MediaPlayerRemote to have created all the tracks
+    return m_remoteMediaPlayerProxy->commitAllTransactions()->whenSettled(RunLoop::current(), [weakThis = ThreadSafeWeakPtr { *this }, this, segmentInfo = WTFMove(segmentInfo)](auto&& result) mutable -> Ref<MediaPromise> {
+        RefPtr protectedThis = weakThis.get();
+        if (!protectedThis  || !result || !m_connectionToWebProcess)
+            return MediaPromise::createAndReject(PlatformMediaError::IPCError);
 
-    return m_connectionToWebProcess->connection().sendWithPromisedReply(Messages::SourceBufferPrivateRemote::SourceBufferPrivateDidReceiveInitializationSegment(segmentInfo), m_identifier)->whenSettled(RunLoop::current(), [](auto&& result) {
-        return MediaPromise::createAndSettle(!result ? makeUnexpected(PlatformMediaError::IPCError) : WTFMove(*result));
+        return m_connectionToWebProcess->connection().sendWithPromisedReply(Messages::SourceBufferPrivateRemoteMessageReceiver::SourceBufferPrivateDidReceiveInitializationSegment(WTFMove(segmentInfo)), m_identifier)->whenSettled(RunLoop::current(), [](auto&& result) {
+            return MediaPromise::createAndSettle(!result ? makeUnexpected(PlatformMediaError::IPCError) : WTFMove(*result));
+        });
     });
 }
 
@@ -118,7 +123,7 @@ void RemoteSourceBufferProxy::sourceBufferPrivateHighestPresentationTimestampCha
     if (!m_connectionToWebProcess)
         return;
 
-    m_connectionToWebProcess->connection().send(Messages::SourceBufferPrivateRemote::SourceBufferPrivateHighestPresentationTimestampChanged(timestamp), m_identifier);
+    m_connectionToWebProcess->connection().send(Messages::SourceBufferPrivateRemoteMessageReceiver::SourceBufferPrivateHighestPresentationTimestampChanged(timestamp), m_identifier);
 }
 
 Ref<MediaPromise> RemoteSourceBufferProxy::sourceBufferPrivateDurationChanged(const MediaTime& duration)
@@ -126,17 +131,17 @@ Ref<MediaPromise> RemoteSourceBufferProxy::sourceBufferPrivateDurationChanged(co
     if (!m_connectionToWebProcess)
         return MediaPromise::createAndReject(PlatformMediaError::IPCError);
 
-    return m_connectionToWebProcess->connection().sendWithPromisedReply(Messages::SourceBufferPrivateRemote::SourceBufferPrivateDurationChanged(duration), m_identifier)->whenSettled(RunLoop::current(), [](auto&& result) {
+    return m_connectionToWebProcess->connection().sendWithPromisedReply(Messages::SourceBufferPrivateRemoteMessageReceiver::SourceBufferPrivateDurationChanged(duration), m_identifier)->whenSettled(RunLoop::current(), [](auto&& result) {
         return result ? MediaPromise::createAndResolve() : MediaPromise::createAndReject(PlatformMediaError::IPCError);
     });
 }
 
-Ref<MediaPromise> RemoteSourceBufferProxy::sourceBufferPrivateBufferedChanged(const Vector<WebCore::PlatformTimeRanges>& trackRanges, uint64_t totalMemorySize)
+Ref<MediaPromise> RemoteSourceBufferProxy::sourceBufferPrivateBufferedChanged(const Vector<WebCore::PlatformTimeRanges>& trackRanges)
 {
     if (!m_connectionToWebProcess)
         return MediaPromise::createAndResolve();
 
-    return m_connectionToWebProcess->connection().sendWithPromisedReply(Messages::SourceBufferPrivateRemote::SourceBufferPrivateBufferedChanged(trackRanges, totalMemorySize), m_identifier)->whenSettled(RunLoop::current(), [](auto&& result) {
+    return m_connectionToWebProcess->connection().sendWithPromisedReply(Messages::SourceBufferPrivateRemoteMessageReceiver::SourceBufferPrivateBufferedChanged(trackRanges), m_identifier)->whenSettled(RunLoop::current(), [](auto&& result) {
         return result ? MediaPromise::createAndResolve() : MediaPromise::createAndReject(PlatformMediaError::IPCError);
     });
 }
@@ -146,7 +151,7 @@ void RemoteSourceBufferProxy::sourceBufferPrivateDidDropSample()
     if (!m_connectionToWebProcess)
         return;
 
-    m_connectionToWebProcess->connection().send(Messages::SourceBufferPrivateRemote::SourceBufferPrivateDidDropSample(), m_identifier);
+    m_connectionToWebProcess->connection().send(Messages::SourceBufferPrivateRemoteMessageReceiver::SourceBufferPrivateDidDropSample(), m_identifier);
 }
 
 void RemoteSourceBufferProxy::sourceBufferPrivateDidReceiveRenderingError(int64_t errorCode)
@@ -154,7 +159,15 @@ void RemoteSourceBufferProxy::sourceBufferPrivateDidReceiveRenderingError(int64_
     if (!m_connectionToWebProcess)
         return;
 
-    m_connectionToWebProcess->connection().send(Messages::SourceBufferPrivateRemote::SourceBufferPrivateDidReceiveRenderingError(errorCode), m_identifier);
+    m_connectionToWebProcess->connection().send(Messages::SourceBufferPrivateRemoteMessageReceiver::SourceBufferPrivateDidReceiveRenderingError(errorCode), m_identifier);
+}
+
+void RemoteSourceBufferProxy::sourceBufferPrivateEvictionDataChanged(const WebCore::SourceBufferEvictionData& evictionData)
+{
+    if (!m_connectionToWebProcess)
+        return;
+
+    m_connectionToWebProcess->connection().send(Messages::SourceBufferPrivateRemoteMessageReceiver::SourceBufferPrivateEvictionDataChanged(evictionData), m_identifier);
 }
 
 void RemoteSourceBufferProxy::append(IPC::SharedBufferReference&& buffer, CompletionHandler<void(MediaPromise::Result, const MediaTime&)>&& completionHandler)
@@ -165,7 +178,7 @@ void RemoteSourceBufferProxy::append(IPC::SharedBufferReference&& buffer, Comple
 
     auto handle = sharedMemory->createHandle(SharedMemory::Protection::ReadOnly);
     if (handle && m_connectionToWebProcess)
-        m_connectionToWebProcess->connection().send(Messages::SourceBufferPrivateRemote::TakeOwnershipOfMemory(WTFMove(*handle)), m_identifier);
+        m_connectionToWebProcess->connection().send(Messages::SourceBufferPrivateRemoteMessageReceiver::TakeOwnershipOfMemory(WTFMove(*handle)), m_identifier);
 
     m_sourceBufferPrivate->append(sharedMemory->createSharedBuffer(buffer.size()))->whenSettled(RunLoop::current(), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](auto&& result) mutable {
         completionHandler(WTFMove(result), m_sourceBufferPrivate->timestampOffset());
@@ -217,10 +230,15 @@ void RemoteSourceBufferProxy::removeCodedFrames(const MediaTime& start, const Me
     m_sourceBufferPrivate->removeCodedFrames(start, end, currentTime)->whenSettled(RunLoop::current(), WTFMove(completionHandler));
 }
 
-void RemoteSourceBufferProxy::evictCodedFrames(uint64_t newDataSize, uint64_t maximumBufferSize, const MediaTime& currentTime, CompletionHandler<void(Vector<WebCore::PlatformTimeRanges>&&, uint64_t)>&& completionHandler)
+void RemoteSourceBufferProxy::evictCodedFrames(uint64_t newDataSize, const MediaTime& currentTime, CompletionHandler<void(Vector<WebCore::PlatformTimeRanges>&&, WebCore::SourceBufferEvictionData&&)>&& completionHandler)
 {
-    m_sourceBufferPrivate->evictCodedFrames(newDataSize, maximumBufferSize, currentTime);
-    completionHandler(m_sourceBufferPrivate->trackBuffersRanges(), m_sourceBufferPrivate->totalTrackBufferSizeInBytes());
+    m_sourceBufferPrivate->evictCodedFrames(newDataSize, currentTime);
+    completionHandler(m_sourceBufferPrivate->trackBuffersRanges(), m_sourceBufferPrivate->evictionData());
+}
+
+void RemoteSourceBufferProxy::asyncEvictCodedFrames(uint64_t newDataSize, const MediaTime& currentTime)
+{
+    m_sourceBufferPrivate->asyncEvictCodedFrames(newDataSize, currentTime);
 }
 
 void RemoteSourceBufferProxy::addTrackBuffer(TrackID trackId)
@@ -284,6 +302,11 @@ void RemoteSourceBufferProxy::setAppendWindowEnd(const MediaTime& appendWindowEn
     m_sourceBufferPrivate->setAppendWindowEnd(appendWindowEnd);
 }
 
+void RemoteSourceBufferProxy::setMaximumBufferSize(size_t size, CompletionHandler<void()>&& completionHandler)
+{
+    m_sourceBufferPrivate->setMaximumBufferSize(size)->whenSettled(RunLoop::current(), WTFMove(completionHandler));
+}
+
 void RemoteSourceBufferProxy::computeSeekTime(const SeekTarget& target, CompletionHandler<void(SourceBufferPrivate::ComputeSeekPromise::Result&&)>&& completionHandler)
 {
     m_sourceBufferPrivate->computeSeekTime(target)->whenSettled(RunLoop::current(), WTFMove(completionHandler));
@@ -310,9 +333,9 @@ void RemoteSourceBufferProxy::enqueuedSamplesForTrackID(TrackID trackId, Complet
     m_sourceBufferPrivate->enqueuedSamplesForTrackID(trackId)->whenSettled(RunLoop::current(), WTFMove(completionHandler));
 }
 
-void RemoteSourceBufferProxy::memoryPressure(uint64_t maximumBufferSize, const MediaTime& currentTime)
+void RemoteSourceBufferProxy::memoryPressure(const MediaTime& currentTime)
 {
-    m_sourceBufferPrivate->memoryPressure(maximumBufferSize, currentTime);
+    m_sourceBufferPrivate->memoryPressure(currentTime);
 }
 
 void RemoteSourceBufferProxy::minimumUpcomingPresentationTimeForTrackID(TrackID trackID, CompletionHandler<void(MediaTime)>&& completionHandler)
@@ -323,6 +346,16 @@ void RemoteSourceBufferProxy::minimumUpcomingPresentationTimeForTrackID(TrackID 
 void RemoteSourceBufferProxy::setMaximumQueueDepthForTrackID(TrackID trackID, uint64_t depth)
 {
     m_sourceBufferPrivate->setMaximumQueueDepthForTrackID(trackID, depth);
+}
+
+void RemoteSourceBufferProxy::shutdown()
+{
+    if (!m_connectionToWebProcess)
+        return;
+
+    m_connectionToWebProcess->connection().sendWithAsyncReply(Messages::SourceBufferPrivateRemoteMessageReceiver::SourceBufferPrivateShuttingDown(), [this, protectedThis = Ref { *this }, protectedConnection = Ref { *m_connectionToWebProcess }] {
+        disconnect();
+    }, m_identifier);
 }
 
 } // namespace WebKit

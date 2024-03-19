@@ -99,6 +99,7 @@ public:
     Vector<FloatRect> collectInlineBoxRects(const RenderInline&) const;
 
     std::optional<LayoutUnit> clampedContentLogicalHeight() const;
+    bool contains(const RenderElement& renderer) const;
 
     bool isPaginated() const;
     LayoutUnit contentBoxLogicalHeight() const;
@@ -138,7 +139,7 @@ public:
 private:
     void preparePlacedFloats();
     FloatRect constructContent(const Layout::InlineLayoutState&, Layout::InlineLayoutResult&&);
-    Vector<LineAdjustment> adjustContent(const Layout::BlockLayoutState&);
+    Vector<LineAdjustment> adjustContentForPagination(const Layout::BlockLayoutState&, bool isPartialLayout);
     void updateRenderTreePositions(const Vector<LineAdjustment>&);
 
     InlineContent& ensureInlineContent();

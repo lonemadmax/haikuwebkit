@@ -31,8 +31,10 @@
 #include "BackgroundFetchChange.h"
 #include <WebCore/NotificationData.h>
 #include <wtf/CompletionHandler.h>
+#include <wtf/Seconds.h>
 
 namespace WebCore {
+enum class WasPrivateRelayed : bool;
 enum class WindowProxyProperty : uint8_t;
 struct NotificationData;
 class RegistrableDomain;
@@ -113,6 +115,10 @@ public:
     }
 
     virtual void didAllowPrivateTokenUsageByThirdPartyForTesting(bool, URL&&)
+    {
+    }
+
+    virtual void didExceedMemoryFootprintThreshold(size_t, const String&, unsigned, Seconds, bool inForeground, WebCore::WasPrivateRelayed)
     {
     }
 };

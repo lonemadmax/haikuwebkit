@@ -544,7 +544,9 @@ FloatRect AccessibilityObject::convertFrameToSpace(const FloatRect& frameRect, A
     
 FloatRect AccessibilityObject::relativeFrame() const
 {
-    return convertFrameToSpace(elementRect(), AccessibilityConversionSpace::Page);
+    auto rect = elementRect();
+    rect.moveBy(remoteFrameOffset());
+    return convertFrameToSpace(rect, AccessibilityConversionSpace::Page);
 }
 
 AccessibilityObject* AccessibilityObject::nextSiblingUnignored(int limit) const
@@ -1922,6 +1924,47 @@ bool AccessibilityObject::hasContentEditableAttributeSet() const
     return contentEditableAttributeIsEnabled(element());
 }
 
+bool AccessibilityObject::dependsOnTextUnderElement() const
+{
+    switch (roleValue()) {
+    case AccessibilityRole::PopUpButton:
+        // Native popup buttons should not use their descendant's text as a title. That value is retrieved through stringValue().
+        if (hasTagName(selectTag))
+            break;
+        FALLTHROUGH;
+    case AccessibilityRole::Summary:
+        // The text node for a <summary> element should be included in its visible text, unless a title attribute is present.
+        if (!hasAttribute(titleAttr))
+            return true;
+        break;
+    case AccessibilityRole::Button:
+    case AccessibilityRole::ToggleButton:
+    case AccessibilityRole::Checkbox:
+    case AccessibilityRole::ListBoxOption:
+#if !PLATFORM(COCOA)
+    // MacOS does not expect native <li> elements to expose label information, it only expects leaf node elements to do that.
+    case AccessibilityRole::ListItem:
+#endif
+    case AccessibilityRole::MenuButton:
+    case AccessibilityRole::MenuItem:
+    case AccessibilityRole::MenuItemCheckbox:
+    case AccessibilityRole::MenuItemRadio:
+    case AccessibilityRole::RadioButton:
+    case AccessibilityRole::Switch:
+    case AccessibilityRole::Tab:
+        return true;
+    default:
+        break;
+    }
+
+    // If it's focusable but it's not content editable or a known control type, then it will appear to
+    // the user as a single atomic object, so we should use its text as the default title.
+    if (isHeading() || isLink())
+        return true;
+
+    return isOutput();
+}
+
 bool AccessibilityObject::supportsReadOnly() const
 {
     AccessibilityRole role = roleValue();
@@ -2086,13 +2129,22 @@ const AccessibilityScrollView* AccessibilityObject::ancestorAccessibilityScrollV
 #if PLATFORM(COCOA)
 RemoteAXObjectRef AccessibilityObject::remoteParentObject() const
 {
-    if (auto* document = this->document()) {
-        if (auto* frame = document->frame())
-            return frame->loader().client().accessibilityRemoteObject();
-    }
-    return nullptr;
+    auto* document = this->document();
+    auto* frame = document ? document->frame() : nullptr;
+    return frame ? frame->loader().client().accessibilityRemoteObject() : nullptr;
 }
 #endif
+
+IntPoint AccessibilityObject::remoteFrameOffset() const
+{
+#if PLATFORM(COCOA)
+    auto* document = this->document();
+    auto* frame = document ? document->frame() : nullptr;
+    return frame ? frame->loader().client().accessibilityRemoteFrameOffset() : IntPoint();
+#else
+    return IntPoint();
+#endif
+}
 
 Document* AccessibilityObject::document() const
 {
@@ -2102,7 +2154,12 @@ Document* AccessibilityObject::document() const
 
     return frameView->frame().document();
 }
-    
+
+RefPtr<Document> AccessibilityObject::protectedDocument() const
+{
+    return document();
+}
+
 Page* AccessibilityObject::page() const
 {
     Document* document = this->document();
@@ -2651,6 +2708,7 @@ static void initializeRoleMap()
         { "doc-subtitle"_s, AccessibilityRole::Heading },
         { "doc-tip"_s, AccessibilityRole::DocumentNote },
         { "doc-toc"_s, AccessibilityRole::LandmarkNavigation },
+        { "emphasis"_s, AccessibilityRole::Emphasis },
         { "figure"_s, AccessibilityRole::Figure },
         { "generic"_s, AccessibilityRole::Generic },
         // The mappings for 'graphics-*' roles are defined in this spec: https://w3c.github.io/graphics-aam/
@@ -2711,6 +2769,7 @@ static void initializeRoleMap()
         { "subscript"_s, AccessibilityRole::Subscript },
         { "suggestion"_s, AccessibilityRole::Suggestion },
         { "superscript"_s, AccessibilityRole::Superscript },
+        { "strong"_s, AccessibilityRole::Strong },
         { "switch"_s, AccessibilityRole::Switch },
         { "tab"_s, AccessibilityRole::Tab },
         { "tablist"_s, AccessibilityRole::TabList },
@@ -2809,7 +2868,7 @@ void AccessibilityObject::updateRole()
     m_role = determineAccessibilityRole();
     if (previousRole != m_role) {
         if (auto* cache = axObjectCache())
-            cache->handleRoleChanged(this);
+            cache->handleRoleChanged(*this);
     }
 }
 
@@ -4471,10 +4530,6 @@ static bool isAccessibilityObjectSearchMatchAtIndex(RefPtr<AXCoreObject> axObjec
         return axObject->isWebArea();
     case AccessibilitySearchKey::Graphic:
         return axObject->isImage();
-#if ENABLE(AX_THREAD_TEXT_APIS)
-    case AccessibilitySearchKey::HasTextRuns:
-        return axObject->hasTextRuns();
-#endif
     case AccessibilitySearchKey::HeadingLevel1:
         return axObject->headingLevel() == 1;
     case AccessibilitySearchKey::HeadingLevel2:

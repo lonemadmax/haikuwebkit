@@ -247,20 +247,37 @@ NSString *RemoteLayerTreeNode::appendLayerDescription(NSString *description, CAL
     return [description stringByAppendingString:layerDescription];
 }
 
+void RemoteLayerTreeNode::addToHostingNode(RemoteLayerTreeNode& hostingNode)
+{
+#if PLATFORM(IOS_FAMILY)
+    [hostingNode.uiView() addSubview:uiView()];
+#else
+    [hostingNode.layer() addSublayer:layer()];
+#endif
+}
+
+void RemoteLayerTreeNode::removeFromHostingNode()
+{
+#if PLATFORM(IOS_FAMILY)
+    [uiView() removeFromSuperview];
+#else
+    [layer() removeFromSuperlayer];
+#endif
+}
+
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
 void RemoteLayerTreeNode::setAcceleratedEffectsAndBaseValues(const WebCore::AcceleratedEffects& effects, const WebCore::AcceleratedEffectValues& baseValues, RemoteLayerTreeHost& host)
 {
     ASSERT(isUIThread());
 
-    if (m_effectStack) {
+    if (m_effectStack)
         m_effectStack->clear(layer());
-        host.animationsWereRemovedFromNode(*this);
-    }
+    host.animationsWereRemovedFromNode(*this);
 
     if (effects.isEmpty())
         return;
 
-    m_effectStack = RemoteAcceleratedEffectStack::create(host.acceleratedTimelineTimeOrigin());
+    m_effectStack = RemoteAcceleratedEffectStack::create(layer().bounds, host.acceleratedTimelineTimeOrigin());
 
     auto clonedEffects = effects;
     auto clonedBaseValues = baseValues.clone();

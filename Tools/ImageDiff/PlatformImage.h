@@ -30,6 +30,8 @@
 typedef struct _cairo_surface cairo_surface_t;
 #elif defined(USE_HAIKU)
 class BBitmap;
+#elif defined(USE_SKIA) && USE_SKIA
+#include <skia/core/SkImage.h>
 #else
 typedef struct CGImage *CGImageRef;
 #endif
@@ -45,7 +47,9 @@ public:
 #if defined(USE_CAIRO) && USE_CAIRO
     PlatformImage(cairo_surface_t*);
 #elif defined(USE_HAIKU)
-	PlatformImage(BBitmap*);
+    PlatformImage(BBitmap*);
+#elif defined(USE_SKIA) && USE_SKIA
+    explicit PlatformImage(sk_sp<SkImage>&&);
 #else
     PlatformImage(CGImageRef, double scaleFactor = 1);
 #endif
@@ -75,7 +79,9 @@ private:
 #if defined(USE_CAIRO) && USE_CAIRO
     cairo_surface_t* m_image;
 #elif defined(USE_HAIKU)
-	BBitmap* m_image;
+    BBitmap* m_image;
+#elif defined(USE_SKIA) && USE_SKIA
+    sk_sp<SkImage> m_image;
 #else
     CGImageRef m_image;
     mutable void* m_buffer { nullptr };

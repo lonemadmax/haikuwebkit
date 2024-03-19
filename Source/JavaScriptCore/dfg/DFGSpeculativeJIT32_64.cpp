@@ -781,9 +781,9 @@ void SpeculativeJIT::emitCall(Node* node)
             for (unsigned i = numPassedArgs; i < numAllocatedArgs; ++i)
                 shuffleData.args[i] = ValueRecovery::constant(jsUndefined());
 
-            shuffleData.registers[callLinkInfoGPR] = ValueRecovery::inGPR(callLinkInfoGPR, DataFormatJS);
+            shuffleData.registers[callLinkInfoGPR] = ValueRecovery::inGPR(callLinkInfoGPR, DataFormatInt32);
             if (callTargetGPR != InvalidGPRReg)
-                shuffleData.registers[callTargetGPR] = ValueRecovery::inGPR(callTargetGPR, DataFormatJS);
+                shuffleData.registers[callTargetGPR] = ValueRecovery::inGPR(callTargetGPR, DataFormatInt32);
             shuffleData.setupCalleeSaveRegisters(&RegisterAtOffsetList::dfgCalleeSaveRegisters());
         } else {
             store32(TrustedImm32(numPassedArgs), calleeFramePayloadSlot(CallFrameSlot::argumentCountIncludingThis));
@@ -932,10 +932,9 @@ void SpeculativeJIT::emitCall(Node* node)
         if (isTail) {
             RELEASE_ASSERT(node->op() == DirectTailCall);
 
-            Label mainPath = label();
-
             emitStoreCallSiteIndex(callSite);
 
+            Label mainPath = label();
             auto slowCases = callLinkInfo->emitDirectTailCallFastPath(*this, scopedLambda<void()>([&] {
                 CallFrameShuffler shuffler { *this, shuffleData };
                 shuffler.prepareForTailCall();
@@ -958,8 +957,9 @@ void SpeculativeJIT::emitCall(Node* node)
             return;
         }
 
-        Label mainPath = label();
         emitStoreCallSiteIndex(callSite);
+
+        Label mainPath = label();
         auto slowCases = callLinkInfo->emitDirectFastPath(*this);
         Label slowPath = label();
         if (!callLinkInfo->isDataIC() || !slowCases.empty()) {
@@ -4383,6 +4383,8 @@ void SpeculativeJIT::compile(Node* node)
     case GetByValWithThisMegamorphic:
     case PutByIdMegamorphic:
     case PutByValMegamorphic:
+    case InByIdMegamorphic:
+    case InByValMegamorphic:
         DFG_CRASH(m_graph, node, "unexpected node in DFG backend");
         break;
     }

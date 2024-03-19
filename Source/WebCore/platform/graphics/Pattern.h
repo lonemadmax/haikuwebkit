@@ -42,6 +42,9 @@ typedef cairo_pattern_t* PlatformPatternPtr;
 #elif PLATFORM(HAIKU)
 #include <interface/GraphicsDefs.h>
 typedef pattern* PlatformPatternPtr;
+#elif USE(SKIA)
+#include <skia/core/SkShader.h>
+typedef sk_sp<SkShader> PlatformPatternPtr;
 #endif
 
 namespace WebCore {

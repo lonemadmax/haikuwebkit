@@ -340,6 +340,12 @@ Ref<PlatformCALayer> GraphicsLayerCA::createPlatformCALayer(PlatformLayer* platf
     return PlatformCALayerCocoa::create(platformLayer, owner);
 }
 
+Ref<PlatformCALayer> GraphicsLayerCA::createPlatformCALayer(LayerHostingContextIdentifier, PlatformCALayerClient* owner)
+{
+    ASSERT_NOT_REACHED_WITH_MESSAGE("GraphicsLayerCARemote::createPlatformCALayer should always be called instead of this, but this symbol is needed to compile WebKitLegacy.");
+    return GraphicsLayerCA::createPlatformCALayer(PlatformCALayer::LayerType::LayerTypeLayer, owner);
+}
+
 #if ENABLE(MODEL_ELEMENT)
 Ref<PlatformCALayer> GraphicsLayerCA::createPlatformCALayer(Ref<WebCore::Model>, PlatformCALayerClient* owner)
 {
@@ -1036,15 +1042,15 @@ bool GraphicsLayerCA::animationIsRunning(const String& animationName) const
 
 static bool timingFunctionIsCubicTimingFunctionWithYValueOutOfRange(const TimingFunction* timingFunction)
 {
-    if (!is<CubicBezierTimingFunction>(timingFunction))
+    auto* cubicBezierTimingFunction = dynamicDowncast<CubicBezierTimingFunction>(timingFunction);
+    if (!cubicBezierTimingFunction)
         return false;
 
     auto yValueIsOutOfRange = [](double y) -> bool {
         return y < 0 || y > 1;
     };
 
-    auto& cubicBezierTimingFunction = downcast<CubicBezierTimingFunction>(*timingFunction);
-    return yValueIsOutOfRange(cubicBezierTimingFunction.y1()) || yValueIsOutOfRange(cubicBezierTimingFunction.y2());
+    return yValueIsOutOfRange(cubicBezierTimingFunction->y1()) || yValueIsOutOfRange(cubicBezierTimingFunction->y2());
 }
 
 static bool keyframeValueListHasSingleIntervalWithLinearOrEquivalentTimingFunction(const KeyframeValueList& valueList)
@@ -1056,12 +1062,13 @@ static bool keyframeValueListHasSingleIntervalWithLinearOrEquivalentTimingFuncti
     if (!timingFunction)
         return true;
 
-    if (is<LinearTimingFunction>(timingFunction)) {
+    if (is<LinearTimingFunction>(*timingFunction)) {
         ASSERT(LinearTimingFunction::identity() == *timingFunction);
         return true;
     }
 
-    return is<CubicBezierTimingFunction>(timingFunction) && downcast<CubicBezierTimingFunction>(*timingFunction).isLinear();
+    auto* cubicBezierTimingFunction = dynamicDowncast<CubicBezierTimingFunction>(*timingFunction);
+    return cubicBezierTimingFunction && cubicBezierTimingFunction->isLinear();
 }
 
 static bool animationCanBeAccelerated(const KeyframeValueList& valueList, const Animation* anim)
@@ -1317,6 +1324,18 @@ void GraphicsLayerCA::setContentsToPlatformLayerHost(LayerHostingContextIdentifi
 
     m_contentsLayer = createPlatformCALayerHost(identifier, this);
     m_contentsLayerPurpose = GraphicsLayer::ContentsLayerPurpose::Host;
+    m_contentsDisplayDelegate = nullptr;
+    noteSublayersChanged();
+    noteLayerPropertyChanged(ContentsPlatformLayerChanged);
+}
+
+void GraphicsLayerCA::setContentsToRemotePlatformContext(LayerHostingContextIdentifier identifier, ContentsLayerPurpose purpose)
+{
+    if (m_contentsLayer && m_contentsLayer->hostingContextIdentifier() == identifier)
+        return;
+
+    m_contentsLayer = createPlatformCALayer(identifier, this);
+    m_contentsLayerPurpose = purpose;
     m_contentsDisplayDelegate = nullptr;
     noteSublayersChanged();
     noteLayerPropertyChanged(ContentsPlatformLayerChanged);
@@ -4231,6 +4250,8 @@ const char* GraphicsLayerCA::purposeNameForInnerLayer(PlatformCALayer& layer) co
             return "contents layer (plugin)";
         case ContentsLayerPurpose::Model:
             return "contents layer (model)";
+        case ContentsLayerPurpose::HostedModel:
+            return "contents layer (hosted model)";
         case ContentsLayerPurpose::Host:
             return "contents layer (host)";
         }
@@ -5041,7 +5062,13 @@ RefPtr<GraphicsLayerAsyncContentsDisplayDelegate> GraphicsLayerCA::createAsyncCo
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
 void GraphicsLayerCA::setAcceleratedEffectsAndBaseValues(AcceleratedEffects&& effects, AcceleratedEffectValues&& baseValues)
 {
+    auto hadEffectStack = !!acceleratedEffectStack();
+
     GraphicsLayer::setAcceleratedEffectsAndBaseValues(WTFMove(effects), WTFMove(baseValues));
+
+    // Nothing to do if we didn't have an accelerated stack and we still don't.
+    if (!hadEffectStack && !acceleratedEffectStack())
+        return;
 
     auto* layer = primaryLayer();
     ASSERT(layer);

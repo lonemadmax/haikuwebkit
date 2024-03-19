@@ -361,8 +361,10 @@ static inline ContentVisibility blendFunc(ContentVisibility from, ContentVisibil
 
 static inline Visibility blendFunc(Visibility from, Visibility to, const CSSPropertyBlendingContext& context)
 {
-    if (from != Visibility::Visible && to != Visibility::Visible)
-        return context.progress < 0.5 ? from : to;
+    if (context.isDiscrete) {
+        ASSERT(!context.progress || context.progress == 1.0);
+        return context.progress ? to : from;
+    }
 
     // Any non-zero result means we consider the object to be visible. Only at 0 do we consider the object to be
     // invisible. The invisible value we use (Visibility::Hidden vs. Visibility::Collapse) depends on the specified from/to values.
@@ -3469,6 +3471,25 @@ private:
 };
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(QuotesWrapper);
 
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(VisibilityWrapper);
+class VisibilityWrapper final : public PropertyWrapper<Visibility> {
+    WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(VisibilityWrapper);
+public:
+    VisibilityWrapper()
+        : PropertyWrapper(CSSPropertyVisibility, &RenderStyle::visibility, &RenderStyle::setVisibility)
+    {
+    }
+
+private:
+    bool canInterpolate(const RenderStyle& from, const RenderStyle& to, CompositeOperation) const final
+    {
+        // https://drafts.csswg.org/web-animations-1/#animating-visibility
+        // If neither value is visible, then discrete animation is used.
+        return value(from) == Visibility::Visible || value(to) == Visibility::Visible;
+    }
+};
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(VisibilityWrapper);
+
 template <typename T>
 class DiscreteSVGPropertyWrapper final : public AnimationPropertyWrapperBase {
     WTF_MAKE_FAST_ALLOCATED;
@@ -3561,6 +3582,7 @@ private:
 };
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(CSSPropertyAnimationWrapperMap);
 
+DECLARE_ALLOCATOR_WITH_HEAP_IDENTIFIER(NonNormalizedDiscretePropertyWrapper);
 template <typename T>
 class NonNormalizedDiscretePropertyWrapper final : public PropertyWrapper<T> {
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(NonNormalizedDiscretePropertyWrapper);
@@ -3574,6 +3596,7 @@ private:
     bool canInterpolate(const RenderStyle&, const RenderStyle&, CompositeOperation) const final { return false; }
     bool normalizesProgressForDiscreteInterpolation() const final { return false; }
 };
+DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(NonNormalizedDiscretePropertyWrapper);
 
 CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
 {
@@ -3677,7 +3700,7 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new LengthVariantPropertyWrapper<LengthSize>(CSSPropertyBorderTopRightRadius, &RenderStyle::borderTopRightRadius, &RenderStyle::setBorderTopRightRadius),
         new LengthVariantPropertyWrapper<LengthSize>(CSSPropertyBorderBottomLeftRadius, &RenderStyle::borderBottomLeftRadius, &RenderStyle::setBorderBottomLeftRadius),
         new LengthVariantPropertyWrapper<LengthSize>(CSSPropertyBorderBottomRightRadius, &RenderStyle::borderBottomRightRadius, &RenderStyle::setBorderBottomRightRadius),
-        new NonNormalizedDiscretePropertyWrapper<Visibility>(CSSPropertyVisibility, &RenderStyle::visibility, &RenderStyle::setVisibility),
+        new VisibilityWrapper,
 
         new ClipWrapper,
 
@@ -3906,7 +3929,8 @@ CSSPropertyAnimationWrapperMap::CSSPropertyAnimationWrapperMap()
         new DiscreteSVGPropertyWrapper<const String&>(CSSPropertyMarkerStart, &SVGRenderStyle::markerStartResource, &SVGRenderStyle::setMarkerStartResource),
         new DiscretePropertyWrapper<const ScrollbarGutter>(CSSPropertyScrollbarGutter, &RenderStyle::scrollbarGutter, &RenderStyle::setScrollbarGutter),
         new DiscretePropertyWrapper<ScrollbarWidth>(CSSPropertyScrollbarWidth, &RenderStyle::scrollbarWidth, &RenderStyle::setScrollbarWidth),
-        new DiscretePropertyWrapper<std::optional<Style::ScopedName>>(CSSPropertyViewTransitionName, &RenderStyle::viewTransitionName, &RenderStyle::setViewTransitionName)
+        new DiscretePropertyWrapper<std::optional<Style::ScopedName>>(CSSPropertyViewTransitionName, &RenderStyle::viewTransitionName, &RenderStyle::setViewTransitionName),
+        new DiscretePropertyWrapper<FieldSizing>(CSSPropertyFieldSizing, &RenderStyle::fieldSizing, &RenderStyle::setFieldSizing)
     };
     const unsigned animatableLonghandPropertiesCount = std::size(animatableLonghandPropertyWrappers);
 
@@ -4211,16 +4235,11 @@ static void blendStandardProperty(const CSSPropertyBlendingClient& client, CSSPr
 
     AnimationPropertyWrapperBase* wrapper = CSSPropertyAnimationWrapperMap::singleton().wrapperForProperty(property);
     if (wrapper) {
-        // https://drafts.csswg.org/web-animations-1/#discrete
-        // The property's values cannot be meaningfully combined, thus it is not additive and
-        // interpolation swaps from Va to Vb at 50% (p=0.5).
         auto isDiscrete = !wrapper->canInterpolate(from, to, compositeOperation);
-        if (isDiscrete && wrapper->normalizesProgressForDiscreteInterpolation()) {
-            // If we want additive, we should specify progress at 0 actually and return from.
-            progress = progress < 0.5 ? 0 : 1;
-            compositeOperation = CompositeOperation::Replace;
-        }
-        wrapper->blend(destination, from, to, { progress, isDiscrete, compositeOperation, client, property, iterationCompositeOperation, currentIteration });
+        CSSPropertyBlendingContext context { progress, isDiscrete, compositeOperation, client, property, iterationCompositeOperation, currentIteration };
+        if (wrapper->normalizesProgressForDiscreteInterpolation())
+            context.normalizeProgress();
+        wrapper->blend(destination, from, to, context);
 #if !LOG_DISABLED
         wrapper->logBlend(from, to, destination, progress);
 #endif

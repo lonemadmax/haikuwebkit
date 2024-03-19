@@ -87,12 +87,16 @@ std::unique_ptr<DynamicContentScalingImageBufferBackend> DynamicContentScalingIm
 
 DynamicContentScalingImageBufferBackend::DynamicContentScalingImageBufferBackend(const Parameters& parameters, const WebCore::ImageBufferCreationContext& creationContext, WebCore::RenderingMode renderingMode)
     : ImageBufferCGBackend { parameters }
-    , m_resourceCache(bridge_id_cast(adoptCF(RECGCommandsCacheCreate(nullptr))))
+    , m_resourceCache(creationContext.dynamicContentScalingResourceCache)
     , m_renderingMode(renderingMode)
 {
+    // FIXME: We should make callers always specify a cache and have an assertion here instead
+    // of making a temporary one. RemoteLayerWithRemoteRenderingBackingStore currently does not.
+    if (!m_resourceCache)
+        m_resourceCache = bridge_id_cast(adoptCF(RECGCommandsCacheCreate(nullptr)));
 }
 
-std::optional<ImageBufferBackendHandle> DynamicContentScalingImageBufferBackend::createBackendHandle(SharedMemory::Protection) const
+std::optional<ImageBufferBackendHandle> DynamicContentScalingImageBufferBackend::createBackendHandle(WebCore::SharedMemory::Protection) const
 {
     if (!m_context)
         return std::nullopt;

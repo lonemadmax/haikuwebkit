@@ -292,7 +292,7 @@ void PageClientImpl::updateAcceleratedCompositingMode(const LayerTreeContext& co
 #endif
 }
 
-void PageClientImpl::didFinishLoadingDataForCustomContentProvider(const String&, const IPC::DataReference&)
+void PageClientImpl::didFinishLoadingDataForCustomContentProvider(const String&, std::span<const uint8_t>)
 {
 }
 
@@ -463,6 +463,11 @@ void PageClientImpl::selectionDidChange()
 WebKitWebResourceLoadManager* PageClientImpl::webResourceLoadManager()
 {
     return m_view.webResourceLoadManager();
+}
+
+void PageClientImpl::callAfterNextPresentationUpdate(CompletionHandler<void()>&& callback)
+{
+    m_view.callAfterNextPresentationUpdate(WTFMove(callback));
 }
 
 } // namespace WebKit

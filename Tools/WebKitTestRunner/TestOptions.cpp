@@ -81,6 +81,7 @@ const TestFeatures& TestOptions::defaults()
             { "BroadcastChannelOriginPartitioningEnabled", false },
             { "BuiltInNotificationsEnabled", false },
             { "CSSOMViewScrollingAPIEnabled", true },
+            { "CSSUnprefixedBackdropFilterEnabled", true },
             { "CaptureAudioInGPUProcessEnabled", captureAudioInGPUProcessEnabledValue },
             { "CaptureAudioInUIProcessEnabled", false },
             { "CaptureVideoInGPUProcessEnabled", captureVideoInGPUProcessEnabledValue },
@@ -119,7 +120,6 @@ const TestFeatures& TestOptions::defaults()
             { "PageVisibilityBasedProcessSuppressionEnabled", false },
             { "PeerConnectionVideoScalingAdaptationDisabled", true },
             { "PDFJSViewerEnabled", false },
-            { "PluginsEnabled", true },
             { "PushAPIEnabled", true },
             { "RequiresUserGestureForAudioPlayback", false },
             { "RequiresUserGestureForMediaPlayback", false },
@@ -130,6 +130,7 @@ const TestFeatures& TestOptions::defaults()
             { "TabsToLinks", false },
             { "TextAutosizingEnabled", false },
             { "TextAutosizingUsesIdempotentMode", false },
+            { "UnifiedPDFEnabled", false },
             { "UsesBackForwardCache", false },
             { "WebAuthenticationEnabled", true },
 #if ENABLE(WEBGL) && PLATFORM(COCOA)
@@ -175,7 +176,7 @@ const TestFeatures& TestOptions::defaults()
             { "isAppInitiated", true },
             { "advancedPrivacyProtectionsEnabled", false },
             { "runSingly", false },
-            { "runInCrossOriginIFrame", false },
+            { "runInCrossOriginFrame", false },
             { "shouldHandleRunOpenPanel", true },
             { "shouldPresentPopovers", true },
             { "shouldShowTouches", false },
@@ -194,6 +195,7 @@ const TestFeatures& TestOptions::defaults()
             { "showsScrollIndicators", true },
             { "longPressActionsEnabled", true },
             { "enhancedWindowingEnabled", false },
+            { "textExtractionEnabled", false },
         };
         features.doubleTestRunnerFeatures = {
             { "contentInset.top", 0 },
@@ -246,7 +248,7 @@ const std::unordered_map<std::string, TestHeaderKeyType>& TestOptions::keyTypeMa
         { "isAppInitiated", TestHeaderKeyType::BoolTestRunner },
         { "advancedPrivacyProtectionsEnabled", TestHeaderKeyType::BoolTestRunner },
         { "runSingly", TestHeaderKeyType::BoolTestRunner },
-        { "runInCrossOriginIFrame", TestHeaderKeyType::BoolTestRunner },
+        { "runInCrossOriginFrame", TestHeaderKeyType::BoolTestRunner },
         { "shouldHandleRunOpenPanel", TestHeaderKeyType::BoolTestRunner },
         { "shouldPresentPopovers", TestHeaderKeyType::BoolTestRunner },
         { "shouldShowTouches", TestHeaderKeyType::BoolTestRunner },
@@ -264,6 +266,7 @@ const std::unordered_map<std::string, TestHeaderKeyType>& TestOptions::keyTypeMa
         { "showsScrollIndicators", TestHeaderKeyType::BoolTestRunner },
         { "longPressActionsEnabled", TestHeaderKeyType::BoolTestRunner },
         { "enhancedWindowingEnabled", TestHeaderKeyType::BoolTestRunner },
+        { "textExtractionEnabled", TestHeaderKeyType::BoolTestRunner },
     
         { "contentInset.top", TestHeaderKeyType::DoubleTestRunner },
         { "obscuredInset.top", TestHeaderKeyType::DoubleTestRunner },

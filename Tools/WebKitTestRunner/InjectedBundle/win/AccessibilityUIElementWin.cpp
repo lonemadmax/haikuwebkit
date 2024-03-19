@@ -1083,4 +1083,4 @@ bool AccessibilityUIElement::isInNonNativeTextControl() const
     return false;
 }
 
-} // namespace  WTF
+} // namespace WTR

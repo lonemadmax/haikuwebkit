@@ -95,6 +95,7 @@
 #include "StyleResolver.h"
 #include "Styleable.h"
 #include "TextAutoSizing.h"
+#include "ViewTransition.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/MathExtras.h>
 #include <wtf/StackStats.h>
@@ -257,13 +258,13 @@ const RenderStyle& RenderElement::firstLineStyle() const
     // FIXME: It would be better to just set anonymous block first-line styles correctly.
     if (isAnonymousBlock()) {
         if (!previousInFlowSibling()) {
-            if (auto* firstLineStyle = parent()->style().getCachedPseudoStyle(PseudoId::FirstLine))
+            if (auto* firstLineStyle = parent()->style().getCachedPseudoStyle({ PseudoId::FirstLine }))
                 return *firstLineStyle;
         }
         return style();
     }
 
-    if (auto* firstLineStyle = style().getCachedPseudoStyle(PseudoId::FirstLine))
+    if (auto* firstLineStyle = style().getCachedPseudoStyle({ PseudoId::FirstLine }))
         return *firstLineStyle;
 
     return style();
@@ -889,8 +890,8 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
             if (m_style.eventListenerRegionTypes() != newStyle.eventListenerRegionTypes())
                 return true;
 #if ENABLE(EDITABLE_REGION)
-            bool wasEditable = m_style.effectiveUserModify() != UserModify::ReadOnly;
-            bool isEditable = newStyle.effectiveUserModify() != UserModify::ReadOnly;
+            bool wasEditable = m_style.usedUserModify() != UserModify::ReadOnly;
+            bool isEditable = newStyle.usedUserModify() != UserModify::ReadOnly;
             if (wasEditable != isEditable)
                 return page().shouldBuildEditableRegion();
 #endif
@@ -991,7 +992,7 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
     registerImages(&style(), oldStyle);
 
     // Are there other pseudo-elements that need the resources to be registered?
-    registerImages(style().getCachedPseudoStyle(PseudoId::FirstLine), oldStyle ? oldStyle->getCachedPseudoStyle(PseudoId::FirstLine) : nullptr);
+    registerImages(style().getCachedPseudoStyle({ PseudoId::FirstLine }), oldStyle ? oldStyle->getCachedPseudoStyle({ PseudoId::FirstLine }) : nullptr);
 
     SVGRenderSupport::styleChanged(*this, oldStyle);
 
@@ -1146,7 +1147,7 @@ void RenderElement::willBeDestroyed()
         if (style().hasOutline())
             checkedView()->decrementRendersWithOutline();
 
-        if (auto* firstLineStyle = style().getCachedPseudoStyle(PseudoId::FirstLine))
+        if (auto* firstLineStyle = style().getCachedPseudoStyle({ PseudoId::FirstLine }))
             unregisterImages(*firstLineStyle);
     }
 
@@ -1646,16 +1647,16 @@ bool RenderElement::repaintForPausedImageAnimationsIfNeeded(const IntRect& visib
     return true;
 }
 
-const RenderStyle* RenderElement::getCachedPseudoStyle(PseudoId pseudo, const RenderStyle* parentStyle) const
+const RenderStyle* RenderElement::getCachedPseudoStyle(const Style::PseudoElementIdentifier& pseudoElementIdentifier, const RenderStyle* parentStyle) const
 {
-    if (pseudo < PseudoId::FirstInternalPseudoId && !style().hasPseudoStyle(pseudo))
+    if (pseudoElementIdentifier.pseudoId < PseudoId::FirstInternalPseudoId && !style().hasPseudoStyle(pseudoElementIdentifier.pseudoId))
         return nullptr;
 
-    RenderStyle* cachedStyle = style().getCachedPseudoStyle(pseudo);
+    auto* cachedStyle = style().getCachedPseudoStyle(pseudoElementIdentifier);
     if (cachedStyle)
         return cachedStyle;
 
-    std::unique_ptr<RenderStyle> result = getUncachedPseudoStyle({ pseudo }, parentStyle);
+    std::unique_ptr<RenderStyle> result = getUncachedPseudoStyle(pseudoElementIdentifier, parentStyle);
     if (result)
         return const_cast<RenderStyle&>(m_style).addCachedPseudoStyle(WTFMove(result));
     return nullptr;
@@ -1708,7 +1709,7 @@ const RenderStyle* RenderElement::textSegmentPseudoStyle(PseudoId pseudoId) cons
     if (isAnonymous())
         return nullptr;
 
-    if (auto* pseudoStyle = getCachedPseudoStyle(pseudoId)) {
+    if (auto* pseudoStyle = getCachedPseudoStyle({ pseudoId })) {
         // We intentionally return the pseudo style here if it exists before ascending to the
         // shadow host element. This allows us to apply pseudo styles in user agent shadow
         // roots, instead of always deferring to the shadow host's selection pseudo style.
@@ -1716,7 +1717,7 @@ const RenderStyle* RenderElement::textSegmentPseudoStyle(PseudoId pseudoId) cons
     }
 
     if (auto* renderer = rendererForPseudoStyleAcrossShadowBoundary())
-        return renderer->getCachedPseudoStyle(pseudoId);
+        return renderer->getCachedPseudoStyle({ pseudoId });
 
     return nullptr;
 }
@@ -1725,7 +1726,7 @@ Color RenderElement::selectionColor(CSSPropertyID colorProperty) const
 {
     // If the element is unselectable, or we are only painting the selection,
     // don't override the foreground color with the selection foreground color.
-    if (style().effectiveUserSelect() == UserSelect::None
+    if (style().usedUserSelect() == UserSelect::None
         || (view().frameView().paintBehavior().containsAny({ PaintBehavior::SelectionOnly, PaintBehavior::SelectionAndBackgroundsOnly })))
         return Color();
 
@@ -1771,7 +1772,7 @@ Color RenderElement::selectionEmphasisMarkColor() const
 
 Color RenderElement::selectionBackgroundColor() const
 {
-    if (style().effectiveUserSelect() == UserSelect::None)
+    if (style().usedUserSelect() == UserSelect::None)
         return Color();
 
     if (frame().selection().shouldShowBlockCursor() && frame().selection().isCaret())
@@ -2063,6 +2064,24 @@ bool RenderElement::hasSelfPaintingLayer() const
     return layerModelObject.hasSelfPaintingLayer();
 }
 
+bool RenderElement::capturedInViewTransition() const
+{
+    if (!hasViewTransitionName())
+        return false;
+
+    return !!document().activeViewTransition();
+}
+
+bool RenderElement::hasViewTransitionName() const
+{
+    return !!style().viewTransitionName();
+}
+
+bool RenderElement::isViewTransitionPseudo() const
+{
+    return style().pseudoElementType() == PseudoId::ViewTransitionNew || style().pseudoElementType() == PseudoId::ViewTransitionOld;
+}
+
 bool RenderElement::checkForRepaintDuringLayout() const
 {
     return everHadLayout() && !hasSelfPaintingLayer() && !document().view()->layoutContext().needsFullRepaint();
@@ -2192,7 +2211,7 @@ void RenderElement::repaintRendererOrClientsOfReferencedSVGResources() const
 {
     auto* enclosingResourceContainer = lineageOfType<RenderSVGResourceContainer>(*this).first();
     if (!enclosingResourceContainer) {
-        repaint();
+        repaintOldAndNewPositionsForSVGRenderer();
         return;
     }
 
@@ -2207,6 +2226,37 @@ void RenderElement::repaintClientsOfReferencedSVGResources() const
 
     if (auto* enclosingResourceContainer = lineageOfType<RenderSVGResourceContainer>(*this).first())
         enclosingResourceContainer->repaintAllClients();
+}
+
+void RenderElement::repaintOldAndNewPositionsForSVGRenderer() const
+{
+    auto useUpdateLayerPositionsLogic = [&]() -> std::optional<CheckedPtr<RenderLayer>> {
+        if (!document().settings().layerBasedSVGEngineEnabled())
+            return std::nullopt;
+
+        // Don't attempt to update anything during layout - the post-layout phase will invoke RenderLayer::updateLayerPosition(), if necessary.
+        if (document().view()->layoutContext().isInLayout())
+            return std::nullopt;
+
+        // If no layers are available, always use the renderer based repaint() logic.
+        if (!hasLayer())
+            return std::nullopt;
+
+        // Use the cheaper update mechanism for all SVG renderers -- in proper subtrees, that do not need layout themselves.
+        if (!isSVGLayerAwareRenderer() || needsLayout())
+            return std::nullopt;
+
+        return std::make_optional(downcast<RenderLayerModelObject>(*this).checkedLayer());
+    };
+
+    // LBSE: Instead of repainting the current boundaries, utilize RenderLayer::updateLayerPositionsAfterStyleChange() to repaint
+    // the old and the new repaint boundaries, if they differ -- instead of just the new boundaries.
+    if (auto layer = useUpdateLayerPositionsLogic()) {
+        (*layer.value()).updateLayerPositionsAfterStyleChange();
+        return;
+    }
+
+    repaint();
 }
 #endif
 
@@ -2414,11 +2464,6 @@ FloatRect RenderElement::referenceBoxRect(CSSBoxType boxType) const
 
 bool RenderElement::isSkippedContentRoot() const
 {
-    return WebCore::isSkippedContentRoot(style(), element());
-}
-
-bool RenderElement::isSkippedContentRootForLayout() const
-{
     return WebCore::isSkippedContentRoot(style(), element()) && !view().frameView().layoutContext().needsSkippedContentLayout();
 }
 
@@ -2439,10 +2484,11 @@ bool RenderElement::hasEligibleContainmentForSizeQuery() const
     return false;
 }
 
-void RenderElement::clearNeedsLayoutForDescendants()
+void RenderElement::clearNeedsLayoutForSkippedContent()
 {
     for (CheckedRef descendant : descendantsOfType<RenderObject>(*this))
-        descendant->clearNeedsLayout();
+        descendant->clearNeedsLayout(EverHadSkippedContentLayout::No);
+    clearNeedsLayout(EverHadSkippedContentLayout::No);
 }
 
 void RenderElement::layoutIfNeeded()
@@ -2450,8 +2496,7 @@ void RenderElement::layoutIfNeeded()
     if (!needsLayout())
         return;
     if (isSkippedContentForLayout()) {
-        clearNeedsLayoutForDescendants();
-        clearNeedsLayout();
+        clearNeedsLayoutForSkippedContent();
         return;
     }
     layout();

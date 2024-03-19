@@ -71,7 +71,7 @@ void MemoryPressureHandler::triggerMemoryPressureEvent(bool isCritical)
     if (ReliefLogger::loggingEnabled())
         LOG(MemoryPressure, "Got memory pressure notification (%s)", isCritical ? "critical" : "non-critical");
 
-    setMemoryPressureStatus(MemoryPressureStatus::SystemCritical);
+    setMemoryPressureStatus(SystemMemoryPressureStatus::Critical);
 
     ensureOnMainThread([this, isCritical] {
         respondToMemoryPressure(isCritical ? Critical::Yes : Critical::No);
@@ -80,7 +80,7 @@ void MemoryPressureHandler::triggerMemoryPressureEvent(bool isCritical)
     if (ReliefLogger::loggingEnabled() && isUnderMemoryPressure())
         LOG(MemoryPressure, "System is no longer under memory pressure.");
 
-    setMemoryPressureStatus(MemoryPressureStatus::Normal);
+    setMemoryPressureStatus(SystemMemoryPressureStatus::Normal);
 }
 
 void MemoryPressureHandler::install()

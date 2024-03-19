@@ -60,6 +60,7 @@
 #include "WasmThunks.h"
 #include "WasmTypeDefinition.h"
 #include <bit>
+#include <cmath>
 #include <wtf/Assertions.h>
 #include <wtf/Compiler.h>
 #include <wtf/HashFunctions.h>
@@ -1416,14 +1417,14 @@ void BBQJIT::pushArrayNewFromSegment(arraySegmentOperation operation, uint32_t t
 
 PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayNewData(uint32_t typeIndex, uint32_t dataIndex, ExpressionType arraySize, ExpressionType offset, ExpressionType& result)
 {
-    pushArrayNewFromSegment(operationWasmArrayNewData, typeIndex, dataIndex, arraySize, offset, ExceptionType::OutOfBoundsDataSegmentAccess, result);
+    pushArrayNewFromSegment(operationWasmArrayNewData, typeIndex, dataIndex, arraySize, offset, ExceptionType::BadArrayNewInitData, result);
     LOG_INSTRUCTION("ArrayNewData", typeIndex, dataIndex, arraySize, offset, RESULT(result));
     return { };
 }
 
 PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayNewElem(uint32_t typeIndex, uint32_t elemSegmentIndex, ExpressionType arraySize, ExpressionType offset, ExpressionType& result)
 {
-    pushArrayNewFromSegment(operationWasmArrayNewElem, typeIndex, elemSegmentIndex, arraySize, offset, ExceptionType::OutOfBoundsElementSegmentAccess, result);
+    pushArrayNewFromSegment(operationWasmArrayNewElem, typeIndex, elemSegmentIndex, arraySize, offset, ExceptionType::BadArrayNewInitElem, result);
     LOG_INSTRUCTION("ArrayNewElem", typeIndex, elemSegmentIndex, arraySize, offset, RESULT(result));
     return { };
 }
@@ -1717,8 +1718,10 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF32Sub(Value lhs, Value rhs, Value& 
         ),
         BLOCK(
             if (rhs.isConst()) {
-                // Add a negative if rhs is a constant.
-                emitMoveConst(Value::fromF32(-rhs.asF32()), Location::fromFPR(wasmScratchFPR));
+                // If rhs is a constant, it will be expressed as a positive
+                // value and so needs to be negated unless it is NaN
+                auto floatVal = std::isnan(rhs.asF32()) ? rhs.asF32() : -rhs.asF32();
+                emitMoveConst(Value::fromF32(floatVal), Location::fromFPR(wasmScratchFPR));
                 m_jit.addFloat(lhsLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
             } else {
                 emitMoveConst(lhs, Location::fromFPR(wasmScratchFPR));
@@ -1738,8 +1741,10 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addF64Sub(Value lhs, Value rhs, Value& 
         ),
         BLOCK(
             if (rhs.isConst()) {
-                // Add a negative if rhs is a constant.
-                emitMoveConst(Value::fromF64(-rhs.asF64()), Location::fromFPR(wasmScratchFPR));
+                // If rhs is a constant, it will be expressed as a positive
+                // value and so needs to be negated unless it is NaN
+                auto floatVal = std::isnan(rhs.asF64()) ? rhs.asF64() : -rhs.asF64();
+                emitMoveConst(Value::fromF64(floatVal), Location::fromFPR(wasmScratchFPR));
                 m_jit.addDouble(lhsLocation.asFPR(), wasmScratchFPR, resultLocation.asFPR());
             } else {
                 emitMoveConst(lhs, Location::fromFPR(wasmScratchFPR));
@@ -3800,6 +3805,11 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::endTopLevel(BlockSignature, const Stack
         }
     }
 
+    for (const auto& [jump, returnLabel, typeIndex, rttReg] : m_rttSlowPathJumps) {
+        jump.link(&jit);
+        emitSlowPathRTTCheck(returnLabel, typeIndex, rttReg);
+    }
+
     m_compilation->osrEntryScratchBufferSize = m_osrEntryScratchBufferSize;
     return { };
 }
@@ -4035,6 +4045,44 @@ void BBQJIT::emitIndirectCall(const char* opcode, const Value& calleeIndex, GPRR
     LOG_INSTRUCTION(opcode, calleeIndex, arguments, "=> ", results);
 }
 
+void BBQJIT::addRTTSlowPathJump(TypeIndex signature, GPRReg calleeRTT)
+{
+    auto jump = m_jit.jump();
+    auto returnLabel = m_jit.label();
+    m_rttSlowPathJumps.append({ jump, returnLabel, signature, calleeRTT });
+}
+
+void BBQJIT::emitSlowPathRTTCheck(MacroAssembler::Label returnLabel, TypeIndex typeIndex, GPRReg calleeRTT)
+{
+    ASSERT(Options::useWebAssemblyGC());
+
+    auto signatureRTT = TypeInformation::getCanonicalRTT(typeIndex);
+    GPRReg rttSize = wasmScratchGPR;
+    m_jit.loadPtr(Address(calleeRTT, FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfRTT()), calleeRTT);
+    m_jit.load32(Address(calleeRTT, RTT::offsetOfDisplaySize()), rttSize);
+
+    auto notGreaterThanZero = m_jit.branch32(CCallHelpers::BelowOrEqual, rttSize, TrustedImm32(0));
+
+    // Check the parent pointer in the RTT display against the signature pointer we have.
+    bool parentRTTHasEntries = signatureRTT->displaySize() > 0;
+    GPRReg index = rttSize;
+    auto scale = static_cast<CCallHelpers::Scale>(std::bit_width(sizeof(uintptr_t) - 1));
+    auto rttBaseIndex = CCallHelpers::BaseIndex(calleeRTT, index, scale, RTT::offsetOfPayload());
+    MacroAssembler::Jump displaySmallerThanParent;
+    if (parentRTTHasEntries)
+        displaySmallerThanParent = m_jit.branch32(CCallHelpers::BelowOrEqual, rttSize, TrustedImm32(signatureRTT->displaySize()));
+    m_jit.sub32(TrustedImm32(1 + (parentRTTHasEntries ? signatureRTT->displaySize() : 0)), index);
+    m_jit.loadPtr(rttBaseIndex, calleeRTT);
+    auto rttEqual = m_jit.branchPtr(CCallHelpers::Equal, calleeRTT, TrustedImmPtr(signatureRTT.get()));
+    rttEqual.linkTo(returnLabel, &m_jit);
+
+    notGreaterThanZero.link(&m_jit);
+    if (displaySmallerThanParent.isSet())
+        displaySmallerThanParent.link(&m_jit);
+
+    emitThrowException(ExceptionType::BadSignature);
+}
+
 PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned tableIndex, const TypeDefinition& originalSignature, Vector<Value>& args, ResultList& results, CallType callType)
 {
     Value calleeIndex = args.takeLast();
@@ -4047,6 +4095,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned tableIndex, co
     GPRReg calleeInstance;
     GPRReg calleeCode;
     GPRReg jsCalleeAnchor;
+    GPRReg calleeRTT;
 
     {
         ScratchScope<1, 0> calleeCodeScratch(*this, RegisterSetBuilder::argumentGPRS());
@@ -4054,7 +4103,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned tableIndex, co
         calleeCodeScratch.unbindPreserved();
 
         {
-            ScratchScope<2, 0> scratches(*this);
+            ScratchScope<3, 0> scratches(*this);
 
             if (calleeIndex.isConst())
                 emitMoveConst(calleeIndex, calleeIndexLocation = Location::fromGPR(scratches.gpr(1)));
@@ -4090,6 +4139,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned tableIndex, co
             // are def'd below, so we can reuse the registers and save some pressure.
             calleeInstance = scratches.gpr(0);
             jsCalleeAnchor = scratches.gpr(1);
+            calleeRTT = scratches.gpr(2);
 
             static_assert(sizeof(TypeIndex) == sizeof(void*));
             GPRReg calleeSignatureIndex = wasmScratchGPR;
@@ -4139,10 +4189,23 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned tableIndex, co
             m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfValue()), jsCalleeAnchor);
 #endif
             ASSERT(static_cast<ptrdiff_t>(WasmToWasmImportableFunction::offsetOfSignatureIndex() + sizeof(void*)) == WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation());
+
+            // Save the table entry in calleeRTT if needed for the subtype check.
+            bool needsSubtypeCheck = Options::useWebAssemblyGC() && !originalSignature.isFinalType();
+            if (needsSubtypeCheck)
+                m_jit.move(calleeSignatureIndex, calleeRTT);
+
             m_jit.loadPairPtr(calleeSignatureIndex, TrustedImm32(FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfSignatureIndex()), calleeSignatureIndex, calleeCode);
 
             throwExceptionIf(ExceptionType::NullTableEntry, m_jit.branchTestPtr(ResultCondition::Zero, calleeSignatureIndex, calleeSignatureIndex));
-            throwExceptionIf(ExceptionType::BadSignature, m_jit.branchPtr(RelationalCondition::NotEqual, calleeSignatureIndex, TrustedImmPtr(TypeInformation::get(originalSignature))));
+            auto indexEqual = m_jit.branchPtr(CCallHelpers::Equal, calleeSignatureIndex, TrustedImmPtr(TypeInformation::get(originalSignature)));
+
+            if (needsSubtypeCheck)
+                addRTTSlowPathJump(originalSignature.index(), calleeRTT);
+            else
+                emitThrowException(ExceptionType::BadSignature);
+
+            indexEqual.link(&m_jit);
         }
     }
     emitIndirectCall("CallIndirect", calleeIndex, calleeInstance, calleeCode, jsCalleeAnchor, signature, args, results, callType);

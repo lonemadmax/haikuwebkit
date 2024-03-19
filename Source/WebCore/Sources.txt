@@ -84,6 +84,7 @@ Modules/WebGPU/GPUTexture.cpp
 Modules/WebGPU/GPUTextureView.cpp
 Modules/WebGPU/GPUUncapturedErrorEvent.cpp
 Modules/WebGPU/GPUValidationError.cpp
+Modules/WebGPU/WGSLLanguageFeatures.cpp
 Modules/airplay/WebKitPlaybackTargetAvailabilityEvent.cpp
 Modules/applicationmanifest/ApplicationManifestParser.cpp
 Modules/async-clipboard/Clipboard.cpp
@@ -112,7 +113,6 @@ Modules/cookie-store/CookieStore.cpp
 Modules/cookie-store/CookieStoreManager.cpp
 Modules/credentialmanagement/BasicCredential.cpp
 Modules/credentialmanagement/CredentialsContainer.cpp
-Modules/credentialmanagement/DigitalCredential.cpp
 Modules/credentialmanagement/NavigatorCredentials.cpp
 Modules/entriesapi/DOMFileSystem.cpp
 Modules/entriesapi/ErrorCallback.cpp
@@ -146,6 +146,8 @@ Modules/highlight/AppHighlightRangeData.cpp
 Modules/highlight/AppHighlightStorage.cpp
 Modules/highlight/HighlightRegistry.cpp
 Modules/highlight/Highlight.cpp
+Modules/identity/DigitalCredential.cpp
+Modules/identity/NavigatorIdentity.cpp
 Modules/indexeddb/IDBCursor.cpp
 Modules/indexeddb/IDBCursorWithValue.cpp
 Modules/indexeddb/IDBDatabase.cpp
@@ -198,6 +200,7 @@ Modules/indexeddb/shared/IDBGetRecordData.cpp
 Modules/indexeddb/shared/IDBIndexInfo.cpp
 Modules/indexeddb/shared/IDBIterateCursorData.cpp
 Modules/indexeddb/shared/IDBObjectStoreInfo.cpp
+Modules/indexeddb/shared/IDBOpenRequestData.cpp
 Modules/indexeddb/shared/IDBRequestData.cpp
 Modules/indexeddb/shared/IDBResourceIdentifier.cpp
 Modules/indexeddb/shared/IDBResultData.cpp
@@ -221,6 +224,9 @@ Modules/mediasource/DOMURLMediaSource.cpp
 Modules/mediasource/ManagedMediaSource.cpp
 Modules/mediasource/ManagedSourceBuffer.cpp
 Modules/mediasource/MediaSource.cpp
+Modules/mediasource/MediaSourceHandle.cpp
+Modules/mediasource/MediaSourceInterfaceMainThread.cpp
+Modules/mediasource/MediaSourceInterfaceWorker.cpp
 Modules/mediasource/MediaSourceRegistry.cpp
 Modules/mediasource/SampleMap.cpp
 Modules/mediasource/SourceBuffer.cpp
@@ -524,6 +530,7 @@ accessibility/AXGeometryManager.cpp
 accessibility/AXImage.cpp
 accessibility/AXLogger.cpp
 accessibility/AXObjectCache.cpp
+accessibility/AXRemoteFrame.cpp
 accessibility/AXTextMarker.cpp
 accessibility/AXTextRun.cpp
 accessibility/AccessibilityARIAGrid.cpp
@@ -908,8 +915,6 @@ css/CSSVariableData.cpp
 css/CSSVariableReferenceValue.cpp
 css/CSSViewValue.cpp
 css/ComputedStyleExtractor.cpp
-css/ContainerQuery.cpp
-css/ContainerQueryParser.cpp
 css/DOMCSSNamespace.cpp
 css/DOMCSSPaintWorklet.cpp
 css/DOMCSSRegisterCustomProperty.cpp
@@ -979,7 +984,9 @@ css/parser/MediaQueryBlockWatcher.cpp
 css/parser/MutableCSSSelector.cpp
 css/parser/SizesAttributeParser.cpp
 css/parser/SizesCalcParser.cpp
+css/query/ContainerQuery.cpp
 css/query/ContainerQueryFeatures.cpp
+css/query/ContainerQueryParser.cpp
 css/query/GenericMediaQueryEvaluator.cpp
 css/query/GenericMediaQueryParser.cpp
 css/query/GenericMediaQuerySerialization.cpp
@@ -1110,6 +1117,7 @@ dom/EventTargetConcrete.cpp
 dom/ExtensionStyleSheets.cpp
 dom/FocusEvent.cpp
 dom/FormDataEvent.cpp
+dom/FragmentDirectiveGenerator.cpp
 dom/FragmentDirectiveRangeFinder.cpp
 dom/FragmentDirectiveParser.cpp
 dom/FullscreenManager.cpp
@@ -1208,6 +1216,7 @@ dom/TreeWalker.cpp
 dom/TrustedHTML.cpp
 dom/TrustedScript.cpp
 dom/TrustedScriptURL.cpp
+dom/TrustedType.cpp
 dom/TrustedTypePolicy.cpp
 dom/TrustedTypePolicyFactory.cpp
 dom/UIEvent.cpp
@@ -1729,9 +1738,8 @@ layout/formattingContexts/block/PrecomputedBlockMarginCollapse.cpp
 layout/formattingContexts/block/tablewrapper/TableWrapperBlockFormattingContext.cpp
 layout/formattingContexts/block/tablewrapper/TableWrapperBlockFormattingQuirks.cpp
 layout/formattingContexts/flex/FlexFormattingContext.cpp
-layout/formattingContexts/flex/FlexFormattingGeometry.cpp
 layout/formattingContexts/flex/FlexLayout.cpp
-layout/formattingContexts/flex/FlexFormattingState.cpp
+layout/formattingContexts/flex/FlexFormattingUtils.cpp
 layout/floats/FloatAvoider.cpp
 layout/floats/FloatingContext.cpp
 layout/floats/PlacedFloats.cpp
@@ -1861,7 +1869,7 @@ loader/archive/ArchiveResource.cpp
 loader/archive/ArchiveResourceCollection.cpp
 loader/archive/mhtml/MHTMLArchive.cpp
 loader/archive/mhtml/MHTMLParser.cpp
-loader/cache/AllowedFonts.cpp
+loader/cache/TrustedFonts.cpp
 loader/cache/CachedApplicationManifest.cpp
 loader/cache/CachedCSSStyleSheet.cpp
 loader/cache/CachedFont.cpp
@@ -2205,6 +2213,7 @@ platform/audio/ReverbAccumulationBuffer.cpp
 platform/audio/ReverbConvolver.cpp
 platform/audio/ReverbConvolverStage.cpp
 platform/audio/ReverbInputBuffer.cpp
+platform/audio/SharedAudioDestination.cpp
 platform/audio/SincResampler.cpp
 platform/audio/StereoPanner.cpp
 platform/audio/UpSampler.cpp
@@ -2460,6 +2469,7 @@ platform/mediastream/AudioMediaStreamTrackRenderer.cpp
 platform/mediastream/AudioTrackPrivateMediaStream.cpp
 platform/mediastream/CaptureDeviceManager.cpp
 platform/mediastream/MediaConstraints.cpp
+platform/mediastream/MediaConstraintType.cpp
 platform/mediastream/MediaEndpointConfiguration.cpp
 platform/mediastream/MediaStreamPrivate.cpp
 platform/mediastream/MediaStreamTrackDataHolder.cpp
@@ -2689,6 +2699,7 @@ rendering/RenderTreeMutationDisallowedScope.cpp
 rendering/RenderVTTCue.cpp
 rendering/RenderVideo.cpp
 rendering/RenderView.cpp
+rendering/RenderViewTransitionCapture.cpp
 rendering/RenderWidget.cpp
 rendering/StyledMarkedText.cpp
 rendering/TableLayout.cpp
@@ -2983,6 +2994,7 @@ svg/SVGGraphicsElement.cpp
 svg/SVGHKernElement.cpp
 svg/SVGImageElement.cpp
 svg/SVGImageLoader.cpp
+svg/SVGLength.cpp
 svg/SVGLengthContext.cpp
 svg/SVGLengthList.cpp
 svg/SVGLengthValue.cpp
@@ -3906,6 +3918,7 @@ JSMediaSessionReadyState.cpp
 JSMediaSession.cpp
 JSMediaSettingsRange.cpp
 JSMediaSource.cpp
+JSMediaSourceHandle.cpp
 JSMediaStream.cpp
 JSMediaStreamAudioDestinationNode.cpp
 JSMediaStreamAudioSourceNode.cpp
@@ -3955,6 +3968,7 @@ JSNotificationOptions.cpp
 JSNotificationPermission.cpp
 JSNotificationPermissionCallback.cpp
 JSNVShaderNoperspectiveInterpolation.cpp
+JSWGSLLanguageFeatures.cpp
 JSOESDrawBuffersIndexed.cpp
 JSOESElementIndexUint.cpp
 JSOESFBORenderMipmap.cpp
@@ -4070,6 +4084,7 @@ JSPushSubscriptionOptions.cpp
 JSPushSubscriptionOptionsInit.cpp
 JSRedEyeReduction.cpp
 JSRTCAnswerOptions.cpp
+JSRTCLogsCallback.cpp
 JSRTCCertificate.cpp
 JSRTCConfiguration.cpp
 JSRTCDTMFSender.cpp

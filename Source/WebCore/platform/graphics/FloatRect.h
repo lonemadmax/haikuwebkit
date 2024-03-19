@@ -49,6 +49,10 @@ class BRect;
 typedef struct _cairo_rectangle cairo_rectangle_t;
 #endif
 
+#if USE(SKIA)
+struct SkRect;
+#endif
+
 #if PLATFORM(WIN)
 typedef struct tagRECT RECT;
 #endif
@@ -229,6 +233,11 @@ public:
 #if PLATFORM(HAIKU)
     FloatRect(const BRect&);
     operator BRect() const;
+#endif
+
+#if USE(SKIA)
+    FloatRect(const SkRect&);
+    operator SkRect() const;
 #endif
 
 #if USE(CAIRO)

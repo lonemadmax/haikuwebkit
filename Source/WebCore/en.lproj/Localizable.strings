@@ -394,6 +394,9 @@
 /* Title for Copy Link button */
 "Copy Link (ActionSheet)" = "Copy Link";
 
+/* Copy link to highlight context menu item */
+"Copy Link to Highlight" = "Copy Link to Highlight";
+
 /* Title for Copy Subject */
 "Copy Subject" = "Copy Subject";
 
@@ -741,6 +744,9 @@
 
 /* WKWebExtensionErrorInvalidManifestEntry description for web_accessible_resources */
 "Invalid `web_accessible_resources` manifest entry." = "Invalid `web_accessible_resources` manifest entry.";
+
+/* Message when a PDF fails to unlock with the given password */
+"Invalid Password" = "Invalid Password";
 
 /* Validation message for input form controls with a value not matching type */
 "Invalid value" = "Invalid value";
@@ -1163,7 +1169,7 @@
 "Previous Page" = "Previous Page";
 
 /* Title for the webarea while the accessibility tree is being built. */
-"Processing page" = "Processing page";
+"Processing page %@" = "Processing page %@";
 
 /* Codec Strings */
 "Professional Profile (AV1 Codec Profile)" = "Professional Profile, ";
@@ -1212,9 +1218,6 @@
 
 /* Title of the Search button for zoomed form controls. */
 "Search" = "Search";
-
-/* Search in Spotlight context menu item */
-"Search in Spotlight" = "Search in Spotlight";
 
 /* Search the Web context menu item */
 "Search the Web" = "Search the Web";
@@ -1452,6 +1455,9 @@
 
 /* WKErrorMalformedCredential description */
 "This credential is malformed" = "This credential is malformed";
+
+/* Title when a PDF needs a password to be unlocked */
+"This document is password protected." = "This document is password protected.";
 
 /* text that appears at the start of nearly-obsolete web pages in the form of a 'searchable index' */
 "This is a searchable index. Enter search keywords: " = "This is a searchable index. Enter search keywords: ";
@@ -1876,6 +1882,9 @@
 /* accessibility label for play button */
 "play" = "play";
 
+/* Subtitle when a PDF needs a password to be unlocked */
+"Please enter the password below." = "Please enter the password below.";
+
 /* Verb stating the action that will occur when a button is pressed, as used by accessibility */
 "press" = "press";
 
@@ -2001,6 +2010,13 @@
 
 /* accessibility label for a date field year input. */
 "year" = "year";
+
+/* Accessibility labels for time fields. */
+"hour" = "hour";
+"minutes" = "minutes";
+"seconds" = "seconds";
+"milliseconds" = "milliseconds";
+"meridiem" = "meridiem";
 
 /* Message for requesting access to the device motion and orientation */
 "“%@” Would Like to Access Motion and Orientation" = "“%@” Would Like to Access Motion and Orientation";

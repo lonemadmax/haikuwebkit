@@ -146,6 +146,7 @@
 #include "TransformOperationData.h"
 #include "TransformationMatrix.h"
 #include "TranslateTransformOperation.h"
+#include "ViewTransition.h"
 #include "WheelEventTestMonitor.h"
 #include <stdio.h>
 #include <wtf/HexNumber.h>
@@ -574,6 +575,8 @@ static bool canCreateStackingContext(const RenderLayer& layer)
         || renderer.hasBackdropFilter()
         || renderer.hasBlendMode()
         || renderer.isTransparent()
+        || renderer.hasViewTransitionName()
+        || renderer.isViewTransitionPseudo()
         || renderer.isPositioned() // Note that this only creates stacking context in conjunction with explicit z-index.
         || renderer.hasReflection()
         || renderer.style().hasIsolation()
@@ -599,7 +602,7 @@ bool RenderLayer::shouldBeNormalFlowOnly() const
 
 bool RenderLayer::shouldBeCSSStackingContext() const
 {
-    return !renderer().style().hasAutoUsedZIndex() || renderer().shouldApplyLayoutOrPaintContainment() || isRenderViewLayer();
+    return !renderer().style().hasAutoUsedZIndex() || renderer().shouldApplyLayoutOrPaintContainment() || renderer().hasViewTransitionName() || renderer().isViewTransitionPseudo() || isRenderViewLayer();
 }
 
 bool RenderLayer::computeCanBeBackdropRoot() const
@@ -613,6 +616,7 @@ bool RenderLayer::computeCanBeBackdropRoot() const
         || renderer().hasFilter()
         || renderer().hasBlendMode()
         || renderer().hasMask()
+        || renderer().hasViewTransitionName()
         || renderer().isDocumentElementRenderer()
         || (renderer().style().willChange() && renderer().style().willChange()->canBeBackdropRoot());
 }
@@ -1334,6 +1338,17 @@ void RenderLayer::updateTransform()
         dirty3DTransformedDescendantStatus();
         // Having a 3D transform affects whether enclosing perspective and preserve-3d layers composite, so trigger an update.
         setNeedsPostLayoutCompositingUpdateOnAncestors();
+    }
+}
+
+void RenderLayer::forceStackingContextIfNeeded()
+{
+    if (setIsCSSStackingContext(true)) {
+        setIsNormalFlowOnly(false);
+        if (parent()) {
+            if (!hasNotIsolatedBlendingDescendantsStatusDirty() && hasNotIsolatedBlendingDescendants())
+                parent()->dirtyAncestorChainHasBlendingDescendants();
+        }
     }
 }
 
@@ -2840,7 +2855,12 @@ void RenderLayer::paintSVGResourceLayer(GraphicsContext& context, const AffineTr
 
     auto localPaintDirtyRect = LayoutRect::infiniteRect();
 
-    auto* rootPaintingLayer = enclosingSVGRootLayer();
+    auto* rootPaintingLayer = [&] () {
+        auto* curr = parent();
+        while (curr && !(curr->renderer().isAnonymous() && is<RenderSVGViewportContainer>(curr->renderer())))
+            curr = curr->parent();
+        return curr;
+    }();
     ASSERT(rootPaintingLayer);
 
     LayerPaintingInfo paintingInfo(rootPaintingLayer, localPaintDirtyRect, PaintBehavior::Normal, LayoutSize());
@@ -2850,11 +2870,7 @@ void RenderLayer::paintSVGResourceLayer(GraphicsContext& context, const AffineTr
     if (!renderer().hasNonVisibleOverflow())
         flags.add(PaintLayerFlag::PaintingOverflowContents);
 
-    {
-        // FIXME: Rename SVGHitTestCycleDetectionScope -> SVGResourceCycleDetectionScope
-        SVGHitTestCycleDetectionScope paintingScope(renderer());
-        paintLayer(context, paintingInfo, flags);
-    }
+    paintLayer(context, paintingInfo, flags);
 
     m_isPaintingSVGResourceLayer = wasPaintingSVGResourceLayer;
 #else
@@ -3088,7 +3104,7 @@ void RenderLayer::setupClipPath(GraphicsContext& context, GraphicsContextStateSa
     if (RefPtr referenceClipPathOperation = dynamicDowncast<ReferencePathOperation>(style.clipPath())) {
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
         if (auto* svgClipper = renderer().svgClipperResourceFromStyle()) {
-            auto* graphicsElement = svgClipper->shouldApplyPathClipping();
+            RefPtr graphicsElement = svgClipper->shouldApplyPathClipping();
             if (!graphicsElement) {
                 paintFlags.add(PaintLayerFlag::PaintingSVGClippingMask);
                 return;
@@ -3370,7 +3386,7 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
             if (!localPaintingInfo.clipToDirtyRect && renderer().hasNonVisibleOverflow()) {
                 // We can turn clipping back by requesting full repaint for the overflow area.
                 localPaintingInfo.clipToDirtyRect = true;
-                paintDirtyRect = clipRectRelativeToAncestor(localPaintingInfo.rootLayer, offsetFromRoot, LayoutRect::infiniteRect());
+                paintDirtyRect = clipRectRelativeToAncestor(localPaintingInfo.rootLayer, offsetFromRoot, LayoutRect::infiniteRect(), !!(localPaintFlags & PaintLayerFlag::TemporaryClipRects));
             }
 
             auto clipRectOptions = isPaintingOverflowContents ? clipRectOptionsForPaintingOverflowControls : clipRectDefaultOptions;
@@ -3515,8 +3531,11 @@ void RenderLayer::paintList(LayerList layerIterator, GraphicsContext& context, c
     LayerListMutationDetector mutationChecker(*this);
 #endif
 
-    for (auto* childLayer : layerIterator)
+    for (auto* childLayer : layerIterator) {
+        if (paintFlags.contains(PaintLayerFlag::PaintingSkipDescendantViewTransition) && childLayer->renderer().capturedInViewTransition())
+            continue;
         childLayer->paintLayer(context, paintingInfo, paintFlags);
+    }
 }
 
 RenderLayer* RenderLayer::enclosingPaginationLayerInSubtree(const RenderLayer* rootLayer, PaginationInclusionMode mode) const
@@ -4019,6 +4038,8 @@ bool RenderLayer::establishesTopLayer() const
 
 void RenderLayer::establishesTopLayerWillChange()
 {
+    compositor().establishesTopLayerWillChangeForLayer(*this);
+
     if (auto* parentLayer = parent())
         parentLayer->removeChild(*this);
 }
@@ -4040,14 +4061,6 @@ RenderLayer* RenderLayer::enclosingFragmentedFlowAncestor() const
             return nullptr;
         }
     }
-    return curr;
-}
-
-RenderLayer* RenderLayer::enclosingSVGRootLayer() const
-{
-    auto* curr = parent();
-    while (curr && !curr->renderer().isRenderSVGRoot())
-        curr = curr->parent();
     return curr;
 }
 
@@ -4817,12 +4830,12 @@ LayoutRect RenderLayer::childrenClipRect() const
     return intersection(absoluteClippingRect, renderer().view().unscaledDocumentRect());
 }
 
-LayoutRect RenderLayer::clipRectRelativeToAncestor(RenderLayer* ancestor, LayoutSize offsetFromAncestor, const LayoutRect& constrainingRect) const
+LayoutRect RenderLayer::clipRectRelativeToAncestor(RenderLayer* ancestor, LayoutSize offsetFromAncestor, const LayoutRect& constrainingRect, bool temporaryClipRects) const
 {
     LayoutRect layerBounds;
     ClipRect backgroundRect;
     ClipRect foregroundRect;
-    auto clipRectType = !m_enclosingPaginationLayer || m_enclosingPaginationLayer == ancestor ? PaintingClipRects : TemporaryClipRects;
+    auto clipRectType = (!m_enclosingPaginationLayer || m_enclosingPaginationLayer == ancestor) && !temporaryClipRects ? PaintingClipRects : TemporaryClipRects;
     ClipRectsContext clipRectsContext(ancestor, clipRectType);
     calculateRects(clipRectsContext, constrainingRect, layerBounds, backgroundRect, foregroundRect, offsetFromAncestor);
     return backgroundRect.rect();
@@ -5299,7 +5312,7 @@ void RenderLayer::repaintIncludingDescendants()
 
 bool RenderLayer::canUseOffsetFromAncestor(const RenderLayer& ancestor) const
 {
-    for (auto* layer = this; layer != &ancestor; layer = layer->parent()) {
+    for (auto* layer = this; layer && layer != &ancestor; layer = layer->parent()) {
         if (!layer->canUseOffsetFromAncestor())
             return false;
     }
@@ -5405,7 +5418,7 @@ static void determineNonLayerDescendantsPaintedContent(const RenderElement& rend
             if (!renderText->hasRenderedText())
                 continue;
 
-            if (renderer.style().effectiveUserSelect() != UserSelect::None)
+            if (renderer.style().usedUserSelect() != UserSelect::None)
                 request.setHasPaintedContent();
 
             if (!renderText->text().containsOnly<isASCIIWhitespace>())
@@ -5975,7 +5988,7 @@ void showLayerTree(const WebCore::RenderObject* renderer)
 static void outputPaintOrderTreeLegend(TextStream& stream)
 {
     stream.nextLine();
-    stream << "(S)tacking Context/(F)orced SC/O(P)portunistic SC, (N)ormal flow only, (O)verflow clip, (A)lpha (opacity or mask), has (B)lend mode, (I)solates blending, (T)ransform-ish, (F)ilter, Fi(X)ed position, Behaves as fi(x)ed, (C)omposited, (P)rovides backing/uses (p)rovided backing/paints to (a)ncestor, (c)omposited descendant, (s)scrolling ancestor, (t)transformed ancestor\n"
+    stream << "(T)op layer, (S)tacking Context/(F)orced SC/O(P)portunistic SC, (N)ormal flow only, (O)verflow clip, (A)lpha (opacity or mask), has (B)lend mode, (I)solates blending, (T)ransform-ish, (F)ilter, Fi(X)ed position, Behaves as fi(x)ed, (C)omposited, (P)rovides backing/uses (p)rovided backing/paints to (a)ncestor, (c)omposited descendant, (s)scrolling ancestor, (t)transformed ancestor\n"
         "Dirty (z)-lists, Dirty (n)ormal flow lists\n"
         "Traversal needs: requirements (t)raversal on descendants, (b)acking or hierarchy traversal on descendants, (r)equirements traversal on all descendants, requirements traversal on all (s)ubsequent layers, (h)ierarchy traversal on all descendants, update of paint (o)rder children\n"
         "Update needs:    post-(l)ayout requirements, (g)eometry, (k)ids geometry, (c)onfig, layer conne(x)ion, (s)crolling tree\n"
@@ -5992,6 +6005,7 @@ static void outputIdent(TextStream& stream, unsigned depth)
 
 static void outputPaintOrderTreeRecursive(TextStream& stream, const WebCore::RenderLayer& layer, const char* prefix, unsigned depth = 0)
 {
+    stream << (layer.establishesTopLayer() ? "T" : "-");
     stream << (layer.isCSSStackingContext() ? "S" : (layer.isForcedStackingContext() ? "F" : (layer.isOpportunisticStackingContext() ? "P" : "-")));
     stream << (layer.isNormalFlowOnly() ? "N" : "-");
     stream << (layer.renderer().hasNonVisibleOverflow() ? "O" : "-");

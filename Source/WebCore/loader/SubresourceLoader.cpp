@@ -711,7 +711,7 @@ Expected<void, String> SubresourceLoader::checkRedirectionCrossOriginAccessContr
         updateRequestForAccessControl(newRequest, *protectedOrigin(), options().storedCredentialsPolicy);
     }
 
-    updateRequestReferrer(newRequest, referrerPolicy(), previousRequest.httpReferrer(), OriginAccessPatternsForWebProcess::singleton());
+    updateRequestReferrer(newRequest, referrerPolicy(), URL { previousRequest.httpReferrer() }, OriginAccessPatternsForWebProcess::singleton());
 
     FrameLoader::addHTTPOriginIfNeeded(newRequest, m_origin ? protectedOrigin()->toString() : String());
 
@@ -895,7 +895,7 @@ void SubresourceLoader::notifyDone(LoadCompletionType type)
     if (reachedTerminalState())
         return;
     if (RefPtr documentLoader = this->documentLoader())
-        documentLoader->removeSubresourceLoader(type, this);
+        documentLoader->removeSubresourceLoader(type, *this);
     else
         SUBRESOURCELOADER_RELEASE_LOG_ERROR("notifyDone: document loader is null. Could not call removeSubresourceLoader()");
 }

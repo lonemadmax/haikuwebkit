@@ -31,7 +31,6 @@
 #include "ArgumentCoders.h"
 #include "Attachment.h"
 #include "AuxiliaryProcessMessages.h"
-#include "DataReference.h"
 #include "GPUConnectionToWebProcess.h"
 #include "GPUProcessConnectionParameters.h"
 #include "GPUProcessCreationParameters.h"
@@ -94,15 +93,20 @@ namespace WebKit {
 // work in the GPUProcess.
 constexpr Seconds minimumLifetimeBeforeIdleExit { 5_s };
 
-GPUProcess::GPUProcess(AuxiliaryProcessInitializationParameters&& parameters)
+GPUProcess::GPUProcess()
     : m_idleExitTimer(*this, &GPUProcess::tryExitIfUnused)
 {
-    initialize(WTFMove(parameters));
     RELEASE_LOG(Process, "%p - GPUProcess::GPUProcess:", this);
 }
 
 GPUProcess::~GPUProcess()
 {
+}
+
+GPUProcess& GPUProcess::singleton()
+{
+    static NeverDestroyed<GPUProcess> gpuProcess;
+    return gpuProcess.get();
 }
 
 void GPUProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
@@ -508,6 +512,12 @@ void GPUProcess::promptForGetDisplayMedia(WebCore::DisplayCapturePromptType type
 {
     WebCore::ScreenCaptureKitSharingSessionManager::singleton().promptForGetDisplayMedia(type, WTFMove(completionHandler));
 }
+
+void GPUProcess::cancelGetDisplayMediaPrompt()
+{
+    WebCore::ScreenCaptureKitSharingSessionManager::singleton().cancelGetDisplayMediaPrompt();
+}
+
 #endif // HAVE(SCREEN_CAPTURE_KIT)
 
 #if PLATFORM(MAC)

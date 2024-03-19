@@ -38,7 +38,7 @@ enum class FindOptions : uint16_t;
 class FindStringCallbackAggregator : public RefCounted<FindStringCallbackAggregator> {
 public:
     static Ref<FindStringCallbackAggregator> create(WebPageProxy&, const String&, OptionSet<FindOptions>, unsigned maxMatchCount, CompletionHandler<void(bool)>&&);
-    void foundString(std::optional<WebCore::FrameIdentifier>, bool didWrap);
+    void foundString(std::optional<WebCore::FrameIdentifier>, uint32_t matchCount, bool didWrap);
     ~FindStringCallbackAggregator();
 
 private:
@@ -51,6 +51,7 @@ private:
     String m_string;
     OptionSet<FindOptions> m_options;
     unsigned m_maxMatchCount;
+    uint32_t m_matchCount { 0 };
     CompletionHandler<void(bool)> m_completionHandler;
     HashMap<WebCore::FrameIdentifier, bool> m_matches;
 };

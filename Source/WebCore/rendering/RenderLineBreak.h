@@ -53,6 +53,10 @@ public:
     void collectSelectionGeometries(Vector<SelectionGeometry>&, unsigned startOffset = 0, unsigned endOffset = std::numeric_limits<unsigned>::max()) final;
 #endif
 
+    bool isBR() const { return !hasWBRLineBreakFlag(); }
+    bool isWBR() const { return hasWBRLineBreakFlag(); }
+    bool isLineBreakOpportunity() const { return isWBR(); }
+
 private:
     void node() const = delete;
 
@@ -84,8 +88,8 @@ private:
     void updateFromStyle() final;
     bool requiresLayer() const final { return false; }
 
-    LegacyInlineElementBox* m_inlineBoxWrapper;
-    mutable int m_cachedLineHeight;
+    LegacyInlineElementBox* m_inlineBoxWrapper { nullptr };
+    mutable std::optional<LayoutUnit> m_cachedLineHeight { };
 };
 
 } // namespace WebCore

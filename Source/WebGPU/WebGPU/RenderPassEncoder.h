@@ -34,6 +34,7 @@
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
 #import <wtf/Vector.h>
+#import <wtf/WeakPtr.h>
 
 @class TextureAndClearColor;
 
@@ -95,25 +96,30 @@ public:
     bool colorDepthStencilTargetsMatch(const RenderPipeline&) const;
     id<MTLRenderCommandEncoder> renderCommandEncoder() const;
     void makeInvalid(NSString* = nil);
-    void addResourceToActiveResources(id<MTLResource>, OptionSet<BindGroupEntryUsage>, uint32_t baseMipLevel = 0, uint32_t baseArrayLayer = 0, WGPUTextureAspect = WGPUTextureAspect_All);
     CommandEncoder& parentEncoder();
     void setCommandEncoder(const BindGroupEntryUsageData::Resource&);
+    void addResourceToActiveResources(const BindGroupEntryUsageData::Resource&, id<MTLResource>, OptionSet<BindGroupEntryUsage>);
+    static double quantizedDepthValue(double, WGPUTextureFormat);
 
 private:
     RenderPassEncoder(id<MTLRenderCommandEncoder>, const WGPURenderPassDescriptor&, NSUInteger, bool depthReadOnly, bool stencilReadOnly, CommandEncoder&, id<MTLBuffer>, uint64_t maxDrawCount, Device&);
     RenderPassEncoder(CommandEncoder&, Device&, NSString*);
 
     bool validatePopDebugGroup() const;
-    bool executePreDrawCommands(id<MTLBuffer> = nil);
+    bool executePreDrawCommands(const Buffer* = nullptr);
     bool runIndexBufferValidation(uint32_t firstInstance, uint32_t instanceCount);
     void runVertexBufferValidation(uint32_t vertexCount, uint32_t instanceCount, uint32_t firstVertex, uint32_t firstInstance);
-    void addResourceToActiveResources(const TextureView&, BindGroupEntryUsage);
+    void addResourceToActiveResources(const TextureView&, OptionSet<BindGroupEntryUsage>);
+    void addResourceToActiveResources(const TextureView&, OptionSet<BindGroupEntryUsage>, WGPUTextureAspect);
+    void addResourceToActiveResources(const void*, id<MTLResource>, OptionSet<BindGroupEntryUsage>, uint32_t baseMipLevel = 0, uint32_t baseArrayLayer = 0, WGPUTextureAspect = WGPUTextureAspect_DepthOnly);
+
     NSString* errorValidatingAndBindingBuffers();
     NSString* errorValidatingDrawIndexed() const;
     uint32_t maxVertexBufferIndex() const;
     uint32_t maxBindGroupIndex() const;
     bool issuedDrawCall() const;
     void incrementDrawCount(uint32_t = 1);
+    bool occlusionQueryIsDestroyed() const;
 
     id<MTLRenderCommandEncoder> m_renderCommandEncoder { nil };
 
@@ -142,8 +148,8 @@ private:
     Ref<CommandEncoder> m_parentEncoder;
     HashMap<uint32_t, Vector<uint32_t>, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_bindGroupDynamicOffsets;
     using EntryUsage = OptionSet<BindGroupEntryUsage>;
-    using EntryMap = HashMap<uint64_t, EntryUsage>;
-    HashMap<void*, EntryMap> m_usagesForResource;
+    using EntryMap = HashMap<uint64_t, EntryUsage, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>>;
+    HashMap<const void*, EntryMap> m_usagesForResource;
     float m_minDepth { 0.f };
     float m_maxDepth { 1.f };
     HashSet<uint64_t, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> m_queryBufferIndicesToClear;
@@ -169,6 +175,10 @@ private:
     uint64_t m_drawCount { 0 };
     const uint64_t m_maxDrawCount { 0 };
     uint32_t m_stencilClearValue { 0 };
+    float m_viewportX { 0 };
+    float m_viewportY { 0 };
+    float m_viewportWidth { 0 };
+    float m_viewportHeight { 0 };
     bool m_clearDepthAttachment { false };
     bool m_clearStencilAttachment { false };
     bool m_occlusionQueryActive { false };

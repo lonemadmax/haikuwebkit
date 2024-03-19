@@ -39,6 +39,7 @@
 #include "JSWebAssemblyRuntimeError.h"
 #include "LLIntThunks.h"
 #include "LinkBuffer.h"
+#include "NativeExecutable.h"
 #include "ProtoCallFrameInlines.h"
 #include "SlotVisitorInlines.h"
 #include "StructureInlines.h"
@@ -436,7 +437,7 @@ CodePtr<JSEntryPtrTag> WebAssemblyFunction::jsCallEntrypointSlow()
     if (UNLIKELY(linkBuffer.didFailToAllocate()))
         return nullptr;
 
-    auto compilation = makeUnique<Compilation>(FINALIZE_WASM_CODE(linkBuffer, JITCompilationPtrTag, "JS->Wasm IC"), nullptr);
+    auto compilation = makeUnique<Compilation>(FINALIZE_WASM_CODE(linkBuffer, JITCompilationPtrTag, nullptr, "JS->Wasm IC"), nullptr);
     jsToWasmICCallee->setEntrypoint({ WTFMove(compilation), WTFMove(registersToSpill) });
 
     // Successfully compiled and linked the IC.
@@ -463,7 +464,7 @@ Structure* WebAssemblyFunction::createStructure(VM& vm, JSGlobalObject* globalOb
 }
 
 WebAssemblyFunction::WebAssemblyFunction(VM& vm, NativeExecutable* executable, JSGlobalObject* globalObject, Structure* structure, JSWebAssemblyInstance* instance, Wasm::Callee& jsEntrypoint, Wasm::Callee* wasmCallee, Wasm::WasmToWasmImportableFunction::LoadLocation wasmToWasmEntrypointLoadLocation, Wasm::TypeIndex typeIndex, RefPtr<const Wasm::RTT> rtt)
-    : Base { vm, executable, globalObject, structure, instance, Wasm::WasmToWasmImportableFunction { typeIndex, wasmToWasmEntrypointLoadLocation, &m_boxedWasmCallee }, rtt }
+    : Base { vm, executable, globalObject, structure, instance, Wasm::WasmToWasmImportableFunction { typeIndex, wasmToWasmEntrypointLoadLocation, &m_boxedWasmCallee, rtt.get() } }
     , m_jsEntrypoint { jsEntrypoint.entrypoint() }
     , m_boxedWasmCallee(reinterpret_cast<uint64_t>(CalleeBits::boxNativeCalleeIfExists(wasmCallee)))
 { }

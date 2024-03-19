@@ -49,7 +49,7 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(ShadowRoot);
 
-struct SameSizeAsShadowRoot : public DocumentFragment, public CanMakeCheckedPtr, public TreeScope {
+struct SameSizeAsShadowRoot : public DocumentFragment, public TreeScope {
     uint8_t flagsAndModes[3];
     WeakPtr<Element, WeakPtrImplWithEventTargetData> host;
     void* styleSheetList;
@@ -409,7 +409,7 @@ Vector<Ref<ShadowRoot>> assignedShadowRootsIfSlotted(const Node& node)
 }
 
 #if ENABLE(PICTURE_IN_PICTURE_API)
-HTMLVideoElement* ShadowRoot::pictureInPictureElement() const
+Element* ShadowRoot::pictureInPictureElement() const
 {
     notImplemented();
     return nullptr;

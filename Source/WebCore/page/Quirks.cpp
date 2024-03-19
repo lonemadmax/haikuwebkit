@@ -26,7 +26,6 @@
 #include "config.h"
 #include "Quirks.h"
 
-#include "AllowedFonts.h"
 #include "Attr.h"
 #include "DOMTokenList.h"
 #include "DeprecatedGlobalSettings.h"
@@ -60,6 +59,7 @@
 #include "ScriptSourceCode.h"
 #include "Settings.h"
 #include "SpaceSplitString.h"
+#include "TrustedFonts.h"
 #include "UserAgent.h"
 #include "UserContentTypes.h"
 #include "UserScript.h"
@@ -70,6 +70,10 @@
 #include <JavaScriptCore/SourceCode.h>
 #include <JavaScriptCore/SourceProvider.h>
 #include <JavaScriptCore/StackVisitor.h>
+
+#if PLATFORM(IOS_FAMILY)
+#include <pal/system/ios/UserInterfaceIdiom.h>
+#endif
 
 #if PLATFORM(COCOA)
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
@@ -162,10 +166,11 @@ bool Quirks::needsAutoplayPlayPauseEvents() const
     if (!needsQuirks())
         return false;
 
-    if (allowedAutoplayQuirks(*m_document).contains(AutoplayQuirk::SynthesizedPauseEvents))
+    Ref document = *m_document;
+    if (allowedAutoplayQuirks(document).contains(AutoplayQuirk::SynthesizedPauseEvents))
         return true;
 
-    return allowedAutoplayQuirks(m_document->topDocument()).contains(AutoplayQuirk::SynthesizedPauseEvents);
+    return allowedAutoplayQuirks(document->topDocument()).contains(AutoplayQuirk::SynthesizedPauseEvents);
 }
 
 // netflix.com https://bugs.webkit.org/show_bug.cgi?id=173030
@@ -185,8 +190,9 @@ bool Quirks::needsSeekingSupportDisabled() const
 bool Quirks::needsPerDocumentAutoplayBehavior() const
 {
 #if PLATFORM(MAC)
-    ASSERT(m_document == &m_document->topDocument());
-    return needsQuirks() && allowedAutoplayQuirks(*m_document).contains(AutoplayQuirk::PerDocumentAutoplayBehavior);
+    Ref document = *m_document;
+    ASSERT(document.ptr() == &document->topDocument());
+    return needsQuirks() && allowedAutoplayQuirks(document).contains(AutoplayQuirk::PerDocumentAutoplayBehavior);
 #else
     if (!needsQuirks())
         return false;
@@ -374,20 +380,6 @@ bool Quirks::shouldAvoidUsingIOS13ForGmail() const
 #endif
 }
 
-bool Quirks::shouldAvoidUsingIOS17UserAgentForFacebook() const
-{
-#if PLATFORM(IOS_FAMILY)
-    if (!needsQuirks())
-        return false;
-
-    if (!m_shouldAvoidUsingIOS17UserAgentForFacebook)
-        m_shouldAvoidUsingIOS17UserAgentForFacebook = isDomain("facebook.com"_s);
-    return m_shouldAvoidUsingIOS17UserAgentForFacebook.value();
-#else
-    return false;
-#endif
-}
-
 void Quirks::updateStorageAccessUserAgentStringQuirks(HashMap<RegistrableDomain, String>&& userAgentStringQuirks)
 {
     auto& quirks = updatableStorageAccessUserAgentStringQuirks();
@@ -409,6 +401,11 @@ String Quirks::storageAccessUserAgentStringQuirkForDomain(const URL& url)
     return iterator->value;
 }
 
+bool Quirks::isYoutubeEmbedDomain() const
+{
+    return isEmbedDomain("youtube.com"_s) || isEmbedDomain("youtube-nocookie.com"_s);
+}
+
 bool Quirks::shouldDisableElementFullscreenQuirk() const
 {
 #if PLATFORM(IOS_FAMILY)
@@ -423,10 +420,14 @@ bool Quirks::shouldDisableElementFullscreenQuirk() const
     // Twitter.com video embeds have controls that are too tiny and
     // show page behind fullscreen.
     // (Ref: rdar://121473410)
+    // YouTube.com does not provide AirPlay controls in fullscreen
+    // (Ref: rdar://121471373)
     if (!m_shouldDisableElementFullscreen) {
         m_shouldDisableElementFullscreen = isDomain("vimeo.com"_s)
             || isDomain("instagram.com"_s)
-            || isEmbedDomain("twitter.com"_s);
+            || (PAL::currentUserInterfaceIdiomIsSmallScreen() && isDomain("digitaltrends.com"_s))
+            || isEmbedDomain("twitter.com"_s)
+            || (PAL::currentUserInterfaceIdiomIsSmallScreen() && (isDomain("youtube.com"_s) || isYoutubeEmbedDomain()));
     }
 
     return m_shouldDisableElementFullscreen.value();
@@ -636,7 +637,7 @@ bool Quirks::shouldSynthesizeTouchEvents() const
         return false;
 
     if (!m_shouldSynthesizeTouchEventsQuirk)
-        m_shouldSynthesizeTouchEventsQuirk = isYahooMail(*m_document);
+        m_shouldSynthesizeTouchEventsQuirk = isYahooMail(*protectedDocument());
     return m_shouldSynthesizeTouchEventsQuirk.value();
 }
 #endif
@@ -941,7 +942,8 @@ bool Quirks::shouldBypassBackForwardCache() const
     if (!needsQuirks())
         return false;
 
-    auto topURL = m_document->topDocument().url();
+    RefPtr document = m_document.get();
+    auto topURL = document->topDocument().url();
     auto host = topURL.host();
     RegistrableDomain registrableDomain { topURL };
 
@@ -950,17 +952,17 @@ bool Quirks::shouldBypassBackForwardCache() const
     // because it changes the opacity of its body to 0 when navigating away and fails to restore the original opacity
     // when coming back from the back/forward cache (e.g. in 'pageshow' event handler). See <rdar://problem/56996057>.
     if (topURL.protocolIs("https"_s) && host == "vimeo.com"_s) {
-        if (auto* documentLoader = m_document->frame() ? m_document->frame()->loader().documentLoader() : nullptr)
+        if (auto* documentLoader = document->frame() ? document->frame()->loader().documentLoader() : nullptr)
             return documentLoader->response().cacheControlContainsNoStore();
     }
 
     // Login issue on bankofamerica.com (rdar://104938789).
     if (registrableDomain == "bankofamerica.com"_s) {
-        if (auto* window = m_document->domWindow()) {
+        if (RefPtr window = document->domWindow()) {
             if (window->hasEventListeners(eventNames().unloadEvent)) {
                 static MainThreadNeverDestroyed<const AtomString> signInId("signIn"_s);
                 static MainThreadNeverDestroyed<const AtomString> loadingClass("loading"_s);
-                RefPtr signinButton = m_document->getElementById(signInId.get());
+                RefPtr signinButton = document->getElementById(signInId.get());
                 return signinButton && signinButton->classNames().contains(loadingClass.get());
             }
         }
@@ -972,7 +974,7 @@ bool Quirks::shouldBypassBackForwardCache() const
     // to remove it when coming back from the back/forward cache (e.g. in 'pageshow' event handler). See <rdar://problem/57670064>.
     // Note that this does not check for docs.google.com host because of hosted G Suite apps.
     static MainThreadNeverDestroyed<const AtomString> googleDocsOverlayDivClass("docs-homescreen-freeze-el-full"_s);
-    auto* firstChildInBody = m_document->body() ? m_document->body()->firstChild() : nullptr;
+    auto* firstChildInBody = document->body() ? document->body()->firstChild() : nullptr;
     if (RefPtr div = dynamicDowncast<HTMLDivElement>(firstChildInBody)) {
         if (div->hasClass() && div->classNames().contains(googleDocsOverlayDivClass))
             return true;
@@ -1096,7 +1098,7 @@ bool Quirks::shouldAvoidPastingImagesAsWebContent() const
 
 #if PLATFORM(IOS_FAMILY)
     if (!m_shouldAvoidPastingImagesAsWebContent)
-        m_shouldAvoidPastingImagesAsWebContent = isYahooMail(*m_document);
+        m_shouldAvoidPastingImagesAsWebContent = isYahooMail(*protectedDocument());
     return *m_shouldAvoidPastingImagesAsWebContent;
 #else
     return false;
@@ -1143,17 +1145,14 @@ static bool elementHasClassInClosestAncestors(const Element& element, const Atom
     if (element.hasClass() && element.classNames().contains(className))
         return true;
 
-    unsigned currentDistance = 1;
+    unsigned currentDistance = 0;
     RefPtr ancestor = dynamicDowncast<Element>(element.parentNode());
-    while (currentDistance <= distance) {
+    while (ancestor && currentDistance < distance) {
+        ++currentDistance;
         if (ancestor->hasClass() && ancestor->classNames().contains(className))
             return true;
 
         ancestor = dynamicDowncast<Element>(ancestor->parentNode());
-        if (!ancestor)
-            return false;
-
-        ++currentDistance;
     }
     return false;
 }
@@ -1196,7 +1195,8 @@ bool Quirks::hasStorageAccessForAllLoginDomains(const HashSet<RegistrableDomain>
 
 Quirks::StorageAccessResult Quirks::requestStorageAccessAndHandleClick(CompletionHandler<void(ShouldDispatchClick)>&& completionHandler) const
 {
-    auto firstPartyDomain = RegistrableDomain(m_document->topDocument().url());
+    RefPtr document = m_document.get();
+    auto firstPartyDomain = RegistrableDomain(document->topDocument().url());
     auto domainsInNeedOfStorageAccess = NetworkStorageSession::subResourceDomainsInNeedOfStorageAccessForFirstParty(firstPartyDomain);
     if (!domainsInNeedOfStorageAccess || domainsInNeedOfStorageAccess.value().isEmpty()) {
         completionHandler(ShouldDispatchClick::No);
@@ -1210,13 +1210,13 @@ Quirks::StorageAccessResult Quirks::requestStorageAccessAndHandleClick(Completio
 
     auto domainInNeedOfStorageAccess = RegistrableDomain(*domainsInNeedOfStorageAccess.value().begin().get());
 
-    if (!m_document) {
+    if (!document) {
         completionHandler(ShouldDispatchClick::No);
         return Quirks::StorageAccessResult::ShouldNotCancelEvent;
     }
 
-    m_document->addConsoleMessage(MessageSource::Other, MessageLevel::Info, makeString("requestStorageAccess is invoked on behalf of domain \"", domainInNeedOfStorageAccess.string(), "\""));
-    DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*m_document, WTFMove(domainInNeedOfStorageAccess), [firstPartyDomain, domainInNeedOfStorageAccess, completionHandler = WTFMove(completionHandler)](StorageAccessWasGranted storageAccessGranted) mutable {
+    document->addConsoleMessage(MessageSource::Other, MessageLevel::Info, makeString("requestStorageAccess is invoked on behalf of domain \"", domainInNeedOfStorageAccess.string(), "\""));
+    DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*document, WTFMove(domainInNeedOfStorageAccess), [firstPartyDomain, domainInNeedOfStorageAccess, completionHandler = WTFMove(completionHandler)](StorageAccessWasGranted storageAccessGranted) mutable {
         if (storageAccessGranted == StorageAccessWasGranted::No) {
             completionHandler(ShouldDispatchClick::Yes);
             return;
@@ -1229,18 +1229,23 @@ Quirks::StorageAccessResult Quirks::requestStorageAccessAndHandleClick(Completio
     return Quirks::StorageAccessResult::ShouldCancelEvent;
 }
 
+RefPtr<Document> Quirks::protectedDocument() const
+{
+    return m_document.get();
+}
+
 void Quirks::triggerOptionalStorageAccessIframeQuirk(const URL& frameURL, CompletionHandler<void()>&& completionHandler) const
 {
-    if (m_document) {
-        if (m_document->frame() && !m_document->frame()->isMainFrame()) {
-            auto& mainFrame = m_document->frame()->mainFrame();
+    if (RefPtr document = m_document.get()) {
+        if (document->frame() && !m_document->frame()->isMainFrame()) {
+            auto& mainFrame = document->frame()->mainFrame();
             if (auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame); localMainFrame && localMainFrame->document()) {
                 localMainFrame->document()->quirks().triggerOptionalStorageAccessIframeQuirk(frameURL, WTFMove(completionHandler));
                 return;
             }
         }
         if (subFrameDomainsForStorageAccessQuirk().contains(RegistrableDomain { frameURL })) {
-            return DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*m_document, RegistrableDomain { frameURL }, [completionHandler = WTFMove(completionHandler)](StorageAccessWasGranted) mutable {
+            return DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*document, RegistrableDomain { frameURL }, [completionHandler = WTFMove(completionHandler)](StorageAccessWasGranted) mutable {
                 completionHandler();
             });
         }
@@ -1283,15 +1288,16 @@ Quirks::StorageAccessResult Quirks::triggerOptionalStorageAccessQuirk(Element& e
     static NeverDestroyed<UserScript> kinjaLoginUserScript { "function triggerLoginForm() { let elements = document.getElementsByClassName('js_header-userbutton'); if (elements && elements[0]) { elements[0].click(); clearInterval(interval); } } let interval = setInterval(triggerLoginForm, 200);"_s, URL(aboutBlankURL()), Vector<String>(), Vector<String>(), UserScriptInjectionTime::DocumentEnd, UserContentInjectedFrames::InjectInTopFrameOnly, WaitForNotificationBeforeInjecting::Yes };
 
     if (eventType == eventNames().clickEvent) {
-        if (!m_document)
+        RefPtr document = m_document.get();
+        if (!document)
             return Quirks::StorageAccessResult::ShouldNotCancelEvent;
 
         // Embedded YouTube case.
-        if (element.hasClass() && domain == youTubeDomain && !m_document->isTopDocument() && ResourceLoadObserver::shared().hasHadUserInteraction(youTubeDomain)) {
+        if (element.hasClass() && domain == youTubeDomain && !document->isTopDocument() && ResourceLoadObserver::shared().hasHadUserInteraction(youTubeDomain)) {
             auto& classNames = element.classNames();
             if (classNames.contains("ytp-watch-later-icon"_s) || classNames.contains("ytp-watch-later-icon"_s)) {
                 if (ResourceLoadObserver::shared().hasHadUserInteraction(youTubeDomain)) {
-                    DocumentStorageAccess::requestStorageAccessForDocumentQuirk(*m_document, [](StorageAccessWasGranted) { });
+                    DocumentStorageAccess::requestStorageAccessForDocumentQuirk(*document, [](StorageAccessWasGranted) { });
                     return Quirks::StorageAccessResult::ShouldNotCancelEvent;
                 }
             }
@@ -1301,11 +1307,11 @@ Quirks::StorageAccessResult Quirks::triggerOptionalStorageAccessQuirk(Element& e
         // Kinja login case.
         if (kinjaQuirks.get().contains(domain) && isKinjaLoginAvatarElement(element)) {
             if (ResourceLoadObserver::shared().hasHadUserInteraction(kinjaDomain)) {
-                DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*m_document, kinjaDomain.get().isolatedCopy(), [](StorageAccessWasGranted) { });
+                DocumentStorageAccess::requestStorageAccessForNonDocumentQuirk(*document, kinjaDomain.get().isolatedCopy(), [](StorageAccessWasGranted) { });
                 return Quirks::StorageAccessResult::ShouldNotCancelEvent;
             }
 
-            auto* domWindow = m_document->domWindow();
+            RefPtr domWindow = document->domWindow();
             if (!domWindow)
                 return Quirks::StorageAccessResult::ShouldNotCancelEvent;
 
@@ -1315,7 +1321,7 @@ Quirks::StorageAccessResult Quirks::triggerOptionalStorageAccessQuirk(Element& e
             auto proxy = proxyOrException.releaseReturnValue();
 
             auto* abstractFrame = proxy->frame();
-            if (auto* frame = dynamicDowncast<LocalFrame>(abstractFrame)) {
+            if (RefPtr frame = dynamicDowncast<LocalFrame>(abstractFrame)) {
                 auto world = ScriptController::createWorld("kinjaComQuirkWorld"_s, ScriptController::WorldType::User);
                 frame->addUserScriptAwaitingNotification(world.get(), kinjaLoginUserScript);
                 return Quirks::StorageAccessResult::ShouldCancelEvent;
@@ -1323,7 +1329,7 @@ Quirks::StorageAccessResult Quirks::triggerOptionalStorageAccessQuirk(Element& e
         }
 
         // If the click is synthetic, the user has already gone through the storage access flow and we should not request again.
-        if (isStorageAccessQuirkDomainAndElement(m_document->url(), element) && isSyntheticClick == IsSyntheticClick::No) {
+        if (isStorageAccessQuirkDomainAndElement(document->url(), element) && isSyntheticClick == IsSyntheticClick::No) {
             return requestStorageAccessAndHandleClick([element = WeakPtr { element }, platformEvent, eventType, detail, relatedTarget] (ShouldDispatchClick shouldDispatchClick) mutable {
                 RefPtr protectedElement { element.get() };
                 if (!protectedElement)
@@ -1486,28 +1492,16 @@ bool Quirks::allowLayeredFullscreenVideos() const
 }
 #endif
 
-// mail.google.com rdar://97351877
 bool Quirks::shouldEnableApplicationCacheQuirk() const
 {
-#if PLATFORM(IOS_FAMILY)
-    if (!needsQuirks())
-        return false;
-
-    if (!m_shouldEnableApplicationCacheQuirk) {
-        auto domain = m_document->securityOrigin().domain().convertToASCIILowercase();
-        m_shouldEnableApplicationCacheQuirk = domain.endsWith("mail.google.com"_s);
-    }
-
-    return m_shouldEnableApplicationCacheQuirk.value();
-#else
+    // FIXME: Remove this when deleting ApplicationCache APIs.
     return false;
-#endif
 }
 
 // play.hbomax.com https://bugs.webkit.org/show_bug.cgi?id=244737
 bool Quirks::shouldEnableFontLoadingAPIQuirk() const
 {
-    if (!needsQuirks() || m_document->settings().downloadableBinaryFontAllowedTypes() == DownloadableBinaryFontAllowedTypes::Any)
+    if (!needsQuirks() || m_document->settings().downloadableBinaryFontTrustedTypes() == DownloadableBinaryFontTrustedTypes::Any)
         return false;
 
     if (!m_shouldEnableFontLoadingAPIQuirk)
@@ -1707,8 +1701,9 @@ bool Quirks::needsDisableDOMPasteAccessQuirk() const
         if (!globalObject)
             return false;
 
-        JSC::JSLockHolder lock(globalObject->vm());
-        auto tableauPrepProperty = JSC::Identifier::fromString(globalObject->vm(), "tableauPrep"_s);
+        Ref vm = globalObject->vm();
+        JSC::JSLockHolder lock(vm);
+        auto tableauPrepProperty = JSC::Identifier::fromString(vm, "tableauPrep"_s);
         return globalObject->hasProperty(globalObject, tableauPrepProperty);
     }();
     return *m_needsDisableDOMPasteAccessQuirk;
@@ -1725,6 +1720,148 @@ bool Quirks::shouldDisableNavigatorStandaloneQuirk() const
         return true;
 #endif
     return false;
+}
+
+// booking.com https://webkit.org/b/269875
+// FIXME: booking.com https://webkit.org/b/269876 when outreach has been successful.
+bool Quirks::shouldSendLongerAcceptHeaderQuirk(const URL& url, LocalFrame* frame)
+{
+    if (frame && !frame->settings().needsSiteSpecificQuirks())
+        return false;
+
+    auto host = url.host();
+    if (host == "booking.com"_s || host.endsWith(".booking.com"_s))
+        return true;
+
+    return false;
+}
+
+// This section is dedicated to UA override for iPad. iPads (but iPad Mini) are sending a desktop user agent
+// to websites. In some cases, the website breaks in some ways, not expecting a touch interface for the website.
+// Controls not active or too small, form factor, etc. In this case it is better to send the iPad Mini UA.
+// FIXME: find the reference radars and/or bugs.webkit.org issues on why these were added in the first place.
+// FIXME: There is no check currently on needsQuirks(), this needs to be fixed so it makes it easier
+// to deactivate them for testing.
+bool Quirks::needsIpadMiniUserAgent(StringView host)
+{
+
+    if (equalLettersIgnoringASCIICase(host, "tv.kakao.com"_s) || host.endsWithIgnoringASCIICase(".tv.kakao.com"_s))
+        return true;
+
+    if (equalLettersIgnoringASCIICase(host, "tving.com"_s) || host.endsWithIgnoringASCIICase(".tving.com"_s))
+        return true;
+
+    if (equalLettersIgnoringASCIICase(host, "live.iqiyi.com"_s) || host.endsWithIgnoringASCIICase(".live.iqiyi.com"_s))
+        return true;
+
+    if (equalLettersIgnoringASCIICase(host, "jsfiddle.net"_s) || host.endsWithIgnoringASCIICase(".jsfiddle.net"_s))
+        return true;
+
+    if (equalLettersIgnoringASCIICase(host, "video.sina.com.cn"_s) || host.endsWithIgnoringASCIICase(".video.sina.com.cn"_s))
+        return true;
+
+    if (equalLettersIgnoringASCIICase(host, "huya.com"_s) || host.endsWithIgnoringASCIICase(".huya.com"_s))
+        return true;
+
+    if (equalLettersIgnoringASCIICase(host, "video.tudou.com"_s) || host.endsWithIgnoringASCIICase(".video.tudou.com"_s))
+        return true;
+
+    if (equalLettersIgnoringASCIICase(host, "cctv.com"_s) || host.endsWithIgnoringASCIICase(".cctv.com"_s))
+        return true;
+
+    if (equalLettersIgnoringASCIICase(host, "v.china.com.cn"_s))
+        return true;
+
+    if (equalLettersIgnoringASCIICase(host, "trello.com"_s) || host.endsWithIgnoringASCIICase(".trello.com"_s))
+        return true;
+
+    if (equalLettersIgnoringASCIICase(host, "ted.com"_s) || host.endsWithIgnoringASCIICase(".ted.com"_s))
+        return true;
+
+    if (host.containsIgnoringASCIICase("hsbc."_s)) {
+        if (equalLettersIgnoringASCIICase(host, "hsbc.com.au"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.au"_s))
+            return true;
+        if (equalLettersIgnoringASCIICase(host, "hsbc.com.eg"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.eg"_s))
+            return true;
+        if (equalLettersIgnoringASCIICase(host, "hsbc.lk"_s) || host.endsWithIgnoringASCIICase(".hsbc.lk"_s))
+            return true;
+        if (equalLettersIgnoringASCIICase(host, "hsbc.co.uk"_s) || host.endsWithIgnoringASCIICase(".hsbc.co.uk"_s))
+            return true;
+        if (equalLettersIgnoringASCIICase(host, "hsbc.com.hk"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.hk"_s))
+            return true;
+        if (equalLettersIgnoringASCIICase(host, "hsbc.com.mx"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.mx"_s))
+            return true;
+        if (equalLettersIgnoringASCIICase(host, "hsbc.ca"_s) || host.endsWithIgnoringASCIICase(".hsbc.ca"_s))
+            return true;
+        if (equalLettersIgnoringASCIICase(host, "hsbc.com.ar"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.ar"_s))
+            return true;
+        if (equalLettersIgnoringASCIICase(host, "hsbc.com.ph"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.ph"_s))
+            return true;
+        if (equalLettersIgnoringASCIICase(host, "hsbc.com"_s) || host.endsWithIgnoringASCIICase(".hsbc.com"_s))
+            return true;
+        if (equalLettersIgnoringASCIICase(host, "hsbc.com.cn"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.cn"_s))
+            return true;
+    }
+
+    if (equalLettersIgnoringASCIICase(host, "nhl.com"_s) || host.endsWithIgnoringASCIICase(".nhl.com"_s))
+        return true;
+
+    // FIXME: Remove this quirk when <rdar://problem/59480381> is complete.
+    if (equalLettersIgnoringASCIICase(host, "fidelity.com"_s) || host.endsWithIgnoringASCIICase(".fidelity.com"_s))
+        return true;
+
+    // FIXME: Remove this quirk when <rdar://problem/61733101> is complete.
+    if (equalLettersIgnoringASCIICase(host, "roblox.com"_s) || host.endsWithIgnoringASCIICase(".roblox.com"_s))
+        return true;
+
+    // FIXME: Remove this quirk when <rdar://122481999> is complete
+    if (equalLettersIgnoringASCIICase(host, "spotify.com"_s) || host.endsWithIgnoringASCIICase(".spotify.com"_s) || host.endsWithIgnoringASCIICase(".spotifycdn.com"_s))
+        return true;
+    return false;
+}
+
+
+bool Quirks::shouldIgnorePlaysInlineRequirementQuirk() const
+{
+#if PLATFORM(IOS_FAMILY)
+    if (!needsQuirks())
+        return false;
+
+    if (m_shouldIgnorePlaysInlineRequirementQuirk)
+        return *m_shouldIgnorePlaysInlineRequirementQuirk;
+
+    m_shouldIgnorePlaysInlineRequirementQuirk = isDomain("premierleague.com"_s);
+
+    return *m_shouldIgnorePlaysInlineRequirementQuirk;
+#else
+    return false;
+#endif
+}
+
+bool Quirks::shouldUseEphemeralPartitionedStorageForDOMCookies(const URL& url) const
+{
+    if (!needsQuirks())
+        return false;
+
+    auto firstPartyDomain = RegistrableDomain(m_document->firstPartyForCookies()).string();
+    auto domain = RegistrableDomain(url).string();
+
+    // rdar://113830141
+    if (firstPartyDomain == "cagreatamerica.com"_s && domain == "queue-it.net"_s)
+        return true;
+
+    return false;
+}
+
+// This quirk has intentionally limited exposure to increase the odds of being able to remove it
+// again within a reasonable timeframe as the impacted apps are being updated. <rdar://122548304>
+bool Quirks::needsGetElementsByNameQuirk() const
+{
+#if PLATFORM(IOS)
+    return needsQuirks() && !PAL::currentUserInterfaceIdiomIsSmallScreen() && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoGetElementsByNameQuirk);
+#else
+    return false;
+#endif
 }
 
 }

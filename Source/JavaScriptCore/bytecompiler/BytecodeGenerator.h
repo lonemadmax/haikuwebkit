@@ -582,9 +582,15 @@ namespace JSC {
         }
 
         void emitExpressionInfo(const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd)
-        {            
+        {
+            ASSERT(divot && divotStart && divotEnd);
             ASSERT(divot.offset >= divotStart.offset);
             ASSERT(divotEnd.offset >= divot.offset);
+
+            // Don't emit expression info if the data could cause us to crash later.
+            // In this case we'll just use the wrong info for an error message, not crash.
+            if (!divot || !divotStart || !divotEnd)
+                return;
 
             if (m_isBuiltinFunction)
                 return;
@@ -847,8 +853,7 @@ namespace JSC {
         RegisterID* emitGetTemplateObject(RegisterID* dst, TaggedTemplateNode*);
         RegisterID* emitGetGlobalPrivate(RegisterID* dst, const Identifier& property);
 
-        enum class ReturnFrom { Normal, Finally };
-        RegisterID* emitReturn(RegisterID* src, ReturnFrom = ReturnFrom::Normal);
+        RegisterID* emitReturn(RegisterID* src);
         RegisterID* emitEnd(RegisterID* src);
 
         RegisterID* emitConstruct(RegisterID* dst, RegisterID* func, RegisterID* lazyThis, ExpectedFunction, CallArguments&, const JSTextPosition& divot, const JSTextPosition& divotStart, const JSTextPosition& divotEnd);
@@ -941,6 +946,8 @@ namespace JSC {
 
         void pushClassHeadLexicalScope(VariableEnvironment&);
         void popClassHeadLexicalScope(VariableEnvironment&);
+
+        std::optional<Variable> tryResolveVariable(ExpressionNode*);
 
     private:
         static constexpr int CurrentLexicalScopeIndex = -2;

@@ -47,7 +47,6 @@
 #include "WebServiceWorkerProvider.h"
 #include "WebURLSchemeHandlerProxy.h"
 #include "WebURLSchemeTaskProxy.h"
-#include <WebCore/ApplicationCacheHost.h>
 #include <WebCore/CachedResource.h>
 #include <WebCore/ContentSecurityPolicy.h>
 #include <WebCore/DataURLDecoder.h>
@@ -186,8 +185,8 @@ void WebLoaderStrategy::scheduleLoad(ResourceLoader& resourceLoader, CachedResou
     WebResourceLoader::TrackingParameters trackingParameters;
     if (auto* webFrameLoaderClient = toWebLocalFrameLoaderClient(frameLoaderClient))
         trackingParameters.webPageProxyID = valueOrDefault(webFrameLoaderClient->webPageProxyID());
-    else if (is<RemoteWorkerFrameLoaderClient>(frameLoaderClient))
-        trackingParameters.webPageProxyID = downcast<RemoteWorkerFrameLoaderClient>(frameLoaderClient).webPageProxyID();
+    else if (auto* workerFrameLoaderClient = dynamicDowncast<RemoteWorkerFrameLoaderClient>(frameLoaderClient))
+        trackingParameters.webPageProxyID = workerFrameLoaderClient->webPageProxyID();
     trackingParameters.pageID = valueOrDefault(frameLoader->frame().pageID());
     trackingParameters.frameID = frameLoader->frameID();
     trackingParameters.resourceID = identifier;
@@ -202,13 +201,6 @@ void WebLoaderStrategy::scheduleLoad(ResourceLoader& resourceLoader, CachedResou
         return;
     }
 #endif
-
-    if (resourceLoader.documentLoader()->applicationCacheHost().maybeLoadResource(resourceLoader, resourceLoader.request(), resourceLoader.request().url())) {
-        LOG(NetworkScheduling, "(WebProcess) WebLoaderStrategy::scheduleLoad, url '%s' will be loaded from application cache.", resourceLoader.url().string().utf8().data());
-        WEBLOADERSTRATEGY_RELEASE_LOG("scheduleLoad: URL will be loaded from application cache");
-        m_webResourceLoaders.set(identifier, WebResourceLoader::create(resourceLoader, trackingParameters));
-        return;
-    }
 
     if (resourceLoader.request().url().protocolIsData()) {
         LOG(NetworkScheduling, "(WebProcess) WebLoaderStrategy::scheduleLoad, url '%s' will be loaded as data.", resourceLoader.url().string().utf8().data());
@@ -422,6 +414,8 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
     loadParameters.httpHeadersToKeep = resourceLoader.options().httpHeadersToKeep;
     if (resourceLoader.options().navigationPreloadIdentifier)
         loadParameters.navigationPreloadIdentifier = resourceLoader.options().navigationPreloadIdentifier;
+    if (frame && !frame->isMainFrame())
+        loadParameters.shouldRecordFrameLoadForStorageAccess = frame->settings().requestStorageAccessThrowsExceptionUntilReload();
 
     auto* document = frame ? frame->document() : nullptr;
     if (resourceLoader.options().cspResponseHeaders)
@@ -455,11 +449,10 @@ void WebLoaderStrategy::scheduleLoadFromNetworkProcess(ResourceLoader& resourceL
 
     // FIXME: All loaders should provide their origin if navigation mode is cors/no-cors/same-origin.
     // As a temporary approach, we use the document origin if available or the HTTP Origin header otherwise.
-    if (is<SubresourceLoader>(resourceLoader)) {
-        auto& loader = downcast<SubresourceLoader>(resourceLoader);
-        loadParameters.sourceOrigin = loader.origin();
+    if (auto* loader = dynamicDowncast<SubresourceLoader>(resourceLoader)) {
+        loadParameters.sourceOrigin = loader->origin();
 
-        if (auto* headers = loader.originalHeaders())
+        if (auto* headers = loader->originalHeaders())
             loadParameters.originalRequestHeaders = *headers;
     }
 

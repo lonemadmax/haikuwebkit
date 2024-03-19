@@ -214,6 +214,9 @@ class Tracker(GenericTracker):
             )
             if response.status_code // 100 == 4 and self._logins_left:
                 self._logins_left -= 1
+                if response.json().get('code') == 101:
+                    sys.stderr.write("{}\n".format(response.json().get('message')))
+                    return None
             response = response.json().get('bugs', []) if response.status_code == 200 else None
             if response:
                 response = response[0]
@@ -646,6 +649,11 @@ class Tracker(GenericTracker):
                     self.radar_importer.name,
                     issue.references[0] if issue.references else '?',
                 ))
+                response = webkitcorepy.Terminal.choose(
+                    'Double-check you have the correct bug. Would you like to continue?', options=('Yes', 'No'), default='Yes',
+                )
+                if response == 'No':
+                    raise ValueError('Radar is tracking a different bug')
 
         did_modify_cc = False
         if user_to_cc or keyword_to_add:

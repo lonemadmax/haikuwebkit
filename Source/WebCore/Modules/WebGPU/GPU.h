@@ -42,6 +42,7 @@ class GPUPresentationContext;
 struct GPUPresentationContextDescriptor;
 class GraphicsContext;
 class NativeImage;
+class WGSLLanguageFeatures;
 
 class GPU : public RefCounted<GPU> {
 public:
@@ -54,7 +55,8 @@ public:
     using RequestAdapterPromise = DOMPromiseDeferred<IDLNullable<IDLInterface<GPUAdapter>>>;
     void requestAdapter(const std::optional<GPURequestAdapterOptions>&, RequestAdapterPromise&&);
 
-    GPUTextureFormat getPreferredCanvasFormat();
+    GPUTextureFormat getPreferredCanvasFormat() const;
+    Ref<WGSLLanguageFeatures> wgslLanguageFeatures() const;
 
     Ref<GPUPresentationContext> createPresentationContext(const GPUPresentationContextDescriptor&);
 
@@ -68,6 +70,7 @@ private:
     struct PendingRequestAdapterArguments;
     Deque<PendingRequestAdapterArguments> m_pendingRequestAdapterArguments;
     Ref<WebGPU::GPU> m_backing;
+    Ref<WGSLLanguageFeatures> m_wgslLanguageFeatures;
 };
 
 }

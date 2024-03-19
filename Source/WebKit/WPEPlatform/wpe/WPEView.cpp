@@ -82,6 +82,7 @@ enum {
     PROP_WIDTH,
     PROP_HEIGHT,
     PROP_SCALE,
+    PROP_MONITOR,
 
     N_PROPERTIES
 };
@@ -140,6 +141,9 @@ static void wpeViewGetProperty(GObject* object, guint propId, GValue* value, GPa
         break;
     case PROP_SCALE:
         g_value_set_double(value, wpe_view_get_scale(view));
+        break;
+    case PROP_MONITOR:
+        g_value_set_object(value, wpe_view_get_monitor(view));
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propId, paramSpec);
@@ -224,6 +228,18 @@ static void wpe_view_class_init(WPEViewClass* viewClass)
             nullptr, nullptr,
             1., G_MAXDOUBLE, 1.,
             WEBKIT_PARAM_READWRITE);
+
+    /**
+     * WPEView:monitor:
+     *
+     * The current #WPEMonitor of the view.
+     */
+    sObjProperties[PROP_MONITOR] =
+        g_param_spec_object(
+            "monitor",
+            nullptr, nullptr,
+            WPE_TYPE_MONITOR,
+            WEBKIT_PARAM_READABLE);
 
     g_object_class_install_properties(objectClass, N_PROPERTIES, sObjProperties);
 
@@ -572,6 +588,22 @@ void wpe_view_set_state(WPEView* view, WPEViewState state)
 }
 
 /**
+ * wpe_view_get_monitor:
+ * @view: a #WPEView
+ *
+ * Get current #WPEMonitor of @view
+ *
+ * Returns: (transfer none) (nullable): a #WPEMonitor, or %NULL
+ */
+WPEMonitor* wpe_view_get_monitor(WPEView* view)
+{
+    g_return_val_if_fail(WPE_IS_VIEW(view), nullptr);
+
+    auto* viewClass = WPE_VIEW_GET_CLASS(view);
+    return viewClass->get_monitor ? viewClass->get_monitor(view) : nullptr;
+}
+
+/**
  * wpe_view_fullscreen:
  * @view: a #WPEView
  *
@@ -605,6 +637,44 @@ gboolean wpe_view_unfullscreen(WPEView* view)
 
     auto* viewClass = WPE_VIEW_GET_CLASS(view);
     return viewClass->set_fullscreen ? viewClass->set_fullscreen(view, FALSE) : FALSE;
+}
+
+/**
+ * wpe_view_maximize:
+ * @view: a #WPEView
+ *
+ * Request that the @view is maximized. If the view is already maximized this function
+ * does nothing.
+ *
+ * To track the state see #WPEView::state-changed
+ *
+ * Returns: %TRUE if maximize is supported, otherwise %FALSE
+ */
+gboolean wpe_view_maximize(WPEView* view)
+{
+    g_return_val_if_fail(WPE_IS_VIEW(view), FALSE);
+
+    auto* viewClass = WPE_VIEW_GET_CLASS(view);
+    return viewClass->set_maximized ? viewClass->set_maximized(view, TRUE) : FALSE;
+}
+
+/**
+ * wpe_view_unmaximize:
+ * @view: a #WPEView
+ *
+ * Request that the @view is unmaximized. If the view is not maximized this function
+ * does nothing.
+ *
+ * To track the state see #WPEView::state-changed
+ *
+ * Returns: %TRUE if maximize is supported, otherwise %FALSE
+ */
+gboolean wpe_view_unmaximize(WPEView* view)
+{
+    g_return_val_if_fail(WPE_IS_VIEW(view), FALSE);
+
+    auto* viewClass = WPE_VIEW_GET_CLASS(view);
+    return viewClass->set_maximized ? viewClass->set_maximized(view, FALSE) : FALSE;
 }
 
 /**
@@ -764,4 +834,24 @@ GList* wpe_view_get_preferred_dma_buf_formats(WPEView* view)
         return viewClass->get_preferred_dma_buf_formats(view);
 
     return wpe_display_get_preferred_dma_buf_formats(view->priv->display.get());
+}
+
+/**
+ * wpe_view_set_opaque_rectangles:
+ * @view: a #WPEView
+ * @rects: (nullable) (array length=n_rects): opaque rectangles in view-local coordinates
+ * @n_rects: the total number of elements in @rects
+ *
+ * Set the rectangles of @view that contain opaque content.
+ * This is an optimization hint that is automatically set by WebKit when the
+ * web view background color is opaque.
+ */
+void wpe_view_set_opaque_rectangles(WPEView* view, WPERectangle* rects, guint rectsCount)
+{
+    g_return_if_fail(WPE_IS_VIEW(view));
+    g_return_if_fail(!rects || rectsCount > 0);
+
+    auto* viewClass = WPE_VIEW_GET_CLASS(view);
+    if (viewClass->set_opaque_rectangles)
+        viewClass->set_opaque_rectangles(view, rects, rectsCount);
 }

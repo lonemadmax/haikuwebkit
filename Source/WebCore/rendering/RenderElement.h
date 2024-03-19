@@ -79,7 +79,7 @@ public:
     // The pseudo element style can be cached or uncached. Use the uncached method if the pseudo element
     // has the concept of changing state (like ::-webkit-scrollbar-thumb:hover), or if it takes additional
     // parameters (like ::highlight(name)).
-    const RenderStyle* getCachedPseudoStyle(PseudoId, const RenderStyle* parentStyle = nullptr) const;
+    const RenderStyle* getCachedPseudoStyle(const Style::PseudoElementIdentifier&, const RenderStyle* parentStyle = nullptr) const;
     std::unique_ptr<RenderStyle> getUncachedPseudoStyle(const Style::PseudoElementRequest&, const RenderStyle* parentStyle = nullptr, const RenderStyle* ownStyle = nullptr) const;
 
     // This is null for anonymous renderers.
@@ -168,6 +168,7 @@ public:
 #if ENABLE(LAYER_BASED_SVG_ENGINE)
     void repaintClientsOfReferencedSVGResources() const;
     void repaintRendererOrClientsOfReferencedSVGResources() const;
+    void repaintOldAndNewPositionsForSVGRenderer() const;
 #endif
 
     bool borderImageIsLoadedAndCanBeRendered() const;
@@ -191,6 +192,9 @@ public:
     inline bool hasClipOrNonVisibleOverflow() const;
     inline bool hasClipPath() const;
     inline bool hasHiddenBackface() const;
+    bool capturedInViewTransition() const;
+    bool hasViewTransitionName() const;
+    bool isViewTransitionPseudo() const;
     bool hasOutlineAnnotation() const;
     inline bool hasOutline() const;
     bool hasSelfPaintingLayer() const;
@@ -289,9 +293,8 @@ public:
     bool createsNewFormattingContext() const;
 
     bool isSkippedContentRoot() const;
-    bool isSkippedContentRootForLayout() const;
 
-    void clearNeedsLayoutForDescendants();
+    void clearNeedsLayoutForSkippedContent();
 
 protected:
     RenderElement(Type, Element&, RenderStyle&&, OptionSet<TypeFlag>, TypeSpecificFlags);

@@ -143,6 +143,11 @@ ExceptionOr<void> BaseDateAndTimeInputType::setValueAsDate(WallTime value) const
     return { };
 }
 
+WallTime BaseDateAndTimeInputType::accessibilityValueAsDate() const
+{
+    return WallTime::fromRawSeconds(Seconds::fromMilliseconds(valueAsDouble()).value());
+}
+
 double BaseDateAndTimeInputType::valueAsDouble() const
 {
     ASSERT(element());
@@ -330,17 +335,19 @@ void BaseDateAndTimeInputType::createShadowSubtree()
     ASSERT(needsShadowSubtree());
     ASSERT(element());
 
-    auto& element = *this->element();
-    auto& document = element.document();
+    Ref element = *this->element();
+    Ref document = element->document();
 
-    ScriptDisallowedScope::EventAllowedScope eventAllowedScope { *element.userAgentShadowRoot() };
+    Ref shadowRoot = *element->userAgentShadowRoot();
+    ScriptDisallowedScope::EventAllowedScope eventAllowedScope { shadowRoot };
 
-    if (document.settings().dateTimeInputsEditableComponentsEnabled()) {
-        m_dateTimeEditElement = DateTimeEditElement::create(document, *this);
-        element.userAgentShadowRoot()->appendChild(ContainerNode::ChildChange::Source::Parser, *m_dateTimeEditElement);
+    if (document->settings().dateTimeInputsEditableComponentsEnabled()) {
+        Ref dateTimeEditElement = DateTimeEditElement::create(document, *this);
+        m_dateTimeEditElement = dateTimeEditElement.copyRef();
+        shadowRoot->appendChild(ContainerNode::ChildChange::Source::Parser, dateTimeEditElement);
     } else {
-        auto valueContainer = HTMLDivElement::create(document);
-        element.userAgentShadowRoot()->appendChild(ContainerNode::ChildChange::Source::Parser, valueContainer);
+        Ref valueContainer = HTMLDivElement::create(document);
+        shadowRoot->appendChild(ContainerNode::ChildChange::Source::Parser, valueContainer);
         valueContainer->setUserAgentPart(UserAgentParts::webkitDateAndTimeValue());
     }
     updateInnerTextValue();
@@ -477,7 +484,7 @@ void BaseDateAndTimeInputType::handleFocusEvent(Node* oldFocusedNode, FocusDirec
         // so that this element no longer has focus. In this case, one of the children should
         // not be focused as the element is losing focus entirely.
         if (auto* page = element()->document().page())
-            CheckedRef(page->focusController())->advanceFocus(direction, 0);
+            page->checkedFocusController()->advanceFocus(direction, 0);
 
     } else {
         // If the element received focus in any other direction, transfer focus to the first focusable child.
@@ -511,8 +518,8 @@ void BaseDateAndTimeInputType::didChangeValueFromControl()
     if (!valueChanged)
         return;
 
-    Ref<HTMLInputElement> input(*element());
-    if (input->userAgentShadowRoot()->containsFocusedElement())
+    Ref input = *element();
+    if (input->protectedUserAgentShadowRoot()->containsFocusedElement())
         input->dispatchFormControlInputEvent();
     else
         input->dispatchFormControlChangeEvent();

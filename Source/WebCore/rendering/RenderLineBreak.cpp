@@ -47,12 +47,8 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(RenderLineBreak);
 
-static const int invalidLineHeight = -1;
-
 RenderLineBreak::RenderLineBreak(HTMLElement& element, RenderStyle&& style)
     : RenderBoxModelObject(Type::LineBreak, element, WTFMove(style), { }, is<HTMLWBRElement>(element) ? OptionSet<LineBreakFlag> { LineBreakFlag::IsWBR } : OptionSet<LineBreakFlag> { })
-    , m_inlineBoxWrapper(nullptr)
-    , m_cachedLineHeight(invalidLineHeight)
 {
     ASSERT(isRenderLineBreak());
 }
@@ -65,22 +61,21 @@ RenderLineBreak::~RenderLineBreak()
 LayoutUnit RenderLineBreak::lineHeight(bool firstLine, LineDirectionMode /*direction*/, LinePositionMode /*linePositionMode*/) const
 {
     if (firstLine) {
-        const RenderStyle& firstLineStyle = this->firstLineStyle();
+        auto& firstLineStyle = this->firstLineStyle();
         if (&firstLineStyle != &style())
-            return firstLineStyle.computedLineHeight();
+            return LayoutUnit::fromFloatCeil(firstLineStyle.computedLineHeight());
     }
 
-    if (m_cachedLineHeight == invalidLineHeight)
-        m_cachedLineHeight = style().computedLineHeight();
-    
-    return m_cachedLineHeight;
+    if (!m_cachedLineHeight)
+        m_cachedLineHeight = LayoutUnit::fromFloatCeil(style().computedLineHeight());
+    return *m_cachedLineHeight;
 }
 
 LayoutUnit RenderLineBreak::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
 {
-    const RenderStyle& style = firstLine ? firstLineStyle() : this->style();
-    const FontMetrics& fontMetrics = style.metricsOfPrimaryFont();
-    return LayoutUnit { (fontMetrics.ascent(baselineType) + (lineHeight(firstLine, direction, linePositionMode) - fontMetrics.height()) / 2).toInt() };
+    auto& style = firstLine ? firstLineStyle() : this->style();
+    auto& fontMetrics = style.metricsOfPrimaryFont();
+    return LayoutUnit { (fontMetrics.ascent(baselineType) + (lineHeight(firstLine, direction, linePositionMode) - fontMetrics.height()) / 2) };
 }
 
 std::unique_ptr<LegacyInlineElementBox> RenderLineBreak::createInlineBox()
@@ -174,7 +169,7 @@ void RenderLineBreak::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) co
 
 void RenderLineBreak::updateFromStyle()
 {
-    m_cachedLineHeight = invalidLineHeight;
+    m_cachedLineHeight = { };
     RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(isInline());
 }
 

@@ -199,7 +199,7 @@ ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::create(ScriptExecutio
     },
 #if ENABLE(VIDEO)
     [&] (RefPtr<HTMLVideoElement>& video) -> ExceptionOr<Ref<WebCodecsVideoFrame>> {
-        RefPtr<VideoFrame> videoFrame = video->player() ? video->player()->videoFrameForCurrentTime() : nullptr;
+        RefPtr videoFrame = video->player() ? video->player()->videoFrameForCurrentTime() : nullptr;
         if (!videoFrame)
             return Exception { ExceptionCode::InvalidStateError,  "Video element has no video frame"_s };
         return initializeFrameFromOtherFrame(context, videoFrame.releaseNonNull(), WTFMove(init), VideoFrame::ShouldCloneWithDifferentTimestamp::No);
@@ -503,7 +503,7 @@ void WebCodecsVideoFrame::copyTo(BufferSource&& source, CopyToOptions&& options,
         return;
     }
 
-    std::span<uint8_t> buffer { static_cast<uint8_t*>(source.mutableData()), source.length() };
+    std::span buffer { static_cast<uint8_t*>(source.mutableData()), source.length() };
     m_data.internalFrame->copyTo(buffer, *m_data.format, WTFMove(combinedLayout.computedLayouts), [source = WTFMove(source), promise = WTFMove(promise)](auto planeLayouts) mutable {
         if (!planeLayouts) {
             promise.reject(Exception { ExceptionCode::TypeError,  "Unable to copy data"_s });

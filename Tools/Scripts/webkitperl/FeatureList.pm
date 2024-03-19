@@ -59,6 +59,7 @@ my (
     $attachmentElementSupport,
     $autocapitalizeSupport,
     $avfCaptionsSupport,
+    $avifSupport,
     $bubblewrapSandboxSupport,
     $cachePartitioningSupport,
     $cloopSupport,
@@ -97,6 +98,7 @@ my (
     $iosGestureEventsSupport,
     $iosTouchEventsSupport,
     $jitSupport,
+    $jpegXLSupport,
     $layerBasedSVGEngineSupport,
     $llvmProfileGenerationSupport,
     $legacyCustomProtocolManagerSupport,
@@ -110,6 +112,7 @@ my (
     $memorySamplerSupport,
     $meterElementSupport,
     $mhtmlSupport,
+    $lcmsSupport,
     $mouseCursorScaleSupport,
     $navigatorStandaloneSupport,
     $networkCacheSpeculativeRevalidationSupport,
@@ -134,6 +137,7 @@ my (
     $serverPreconnectSupport,
     $serviceControlsSupport,
     $shareableResourceSupport,
+    $skiaSupport,
     $smoothScrollingSupport,
     $speechSynthesisSupport,
     $spellcheckSupport,
@@ -166,6 +170,7 @@ my (
     $webglSupport,
     $webXRSupport,
     $wirelessPlaybackTargetSupport,
+    $woff2Support,
     $xsltSupport,
 );
 
@@ -479,14 +484,29 @@ my @features = (
     { option => "xslt", desc => "Toggle XSLT support",
       define => "ENABLE_XSLT", value => \$xsltSupport },
 
+    { option => "avif", desc => "Toggle support for AVIF images",
+      define => "USE_AVIF", value => \$avifSupport },
+
     { option => "gstreamer-gl", desc => "Toggle GStreamer GL support",
       define => "USE_GSTREAMER_GL", value => \$gstreamerGLSupport },
 
     { option => "iso-malloc", desc => "Toggle IsoMalloc support",
       define => "USE_ISO_MALLOC", value => \$isoMallocSupport },
 
+    { option => "jpegxl", desc => "Toggle support for JPEG XL images",
+      define => "USE_JPEGXL", value => \$jpegXLSupport },
+
+    { option => "lcms", desc => "Toggle support for image color management using libcms2",
+      define => "USE_LCMS", value => \$lcmsSupport },
+
+    { option => "skia", desc => "Toggle Skia instead of Cairo for rasterization",
+      define => "USE_SKIA", value => \$skiaSupport },
+
     { option => "system-malloc", desc => "Toggle system allocator instead of bmalloc",
       define => "USE_SYSTEM_MALLOC", value => \$systemMallocSupport },
+
+    { option => "woff2", desc => "Toggle support for WOFF2 Web Fonts through libwoff2",
+      define => "USE_WOFF2", value => \$woff2Support },
 );
 
 sub getFeatureOptionList()

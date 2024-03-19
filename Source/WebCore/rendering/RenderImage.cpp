@@ -74,6 +74,10 @@
 #include "SelectionGeometry.h"
 #endif
 
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+#include "MultiRepresentationHEICMetrics.h"
+#endif
+
 #if USE(CG)
 #include "PDFDocumentImage.h"
 #include "Settings.h"
@@ -148,7 +152,10 @@ using namespace HTMLNames;
 RenderImage::RenderImage(Type type, Element& element, RenderStyle&& style, OptionSet<ReplacedFlag> flags, StyleImage* styleImage, const float imageDevicePixelRatio)
     : RenderReplaced(type, element, WTFMove(style), IntSize(), flags | ReplacedFlag::IsImage)
     , m_imageResource(styleImage ? makeUnique<RenderImageResourceStyleImage>(*styleImage) : makeUnique<RenderImageResource>())
-    , m_hasImageOverlay(is<HTMLElement>(element) && ImageOverlay::hasOverlay(downcast<HTMLElement>(element)))
+    , m_hasImageOverlay([&] {
+        auto* htmlElement = dynamicDowncast<HTMLElement>(element);
+        return htmlElement && ImageOverlay::hasOverlay(*htmlElement);
+    }())
     , m_imageDevicePixelRatio(imageDevicePixelRatio)
 {
     updateAltText();
@@ -222,7 +229,7 @@ ImageSizeChangeType RenderImage::setImageSizeForAltText(CachedImage* newImage /*
     // we have an alt and the user meant it (its not a text we invented)
     if (!m_altText.isEmpty()) {
         const FontCascade& font = style().fontCascade();
-        IntSize paddedTextSize(paddingWidth + std::min(ceilf(font.width(RenderBlock::constructTextRun(m_altText, style()))), maxAltTextWidth), paddingHeight + std::min(font.metricsOfPrimaryFont().height(), maxAltTextHeight));
+        IntSize paddedTextSize(paddingWidth + std::min(ceilf(font.width(RenderBlock::constructTextRun(m_altText, style()))), maxAltTextWidth), paddingHeight + std::min(font.metricsOfPrimaryFont().intHeight(), maxAltTextHeight));
         imageSize = imageSize.expandedTo(paddedTextSize);
     }
 
@@ -248,8 +255,16 @@ void RenderImage::styleDidChange(StyleDifference diff, const RenderStyle* oldSty
             repaintOrMarkForLayout(ImageSizeChangeForAltText);
         m_needsToSetSizeForAltText = false;
     }
-    if (diff == StyleDifference::Layout && oldStyle && oldStyle->imageOrientation() != style().imageOrientation())
-        return repaintOrMarkForLayout(ImageSizeChangeNone);
+
+    if (oldStyle && diff == StyleDifference::Layout) {
+        if (oldStyle->imageOrientation() != style().imageOrientation())
+            return repaintOrMarkForLayout(ImageSizeChangeNone);
+
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+        if (isMultiRepresentationHEIC() && oldStyle->fontCascade() != style().fontCascade())
+            return repaintOrMarkForLayout(ImageSizeChangeNone);
+#endif
+    }
 }
 
 bool RenderImage::shouldCollapseToEmpty() const
@@ -282,6 +297,18 @@ LayoutUnit RenderImage::computeReplacedLogicalHeight(std::optional<LayoutUnit> e
     if (shouldCollapseToEmpty())
         return { };
     return RenderReplaced::computeReplacedLogicalHeight(estimatedUsedWidth);
+}
+
+LayoutUnit RenderImage::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
+{
+    LayoutUnit offset;
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+    if (isMultiRepresentationHEIC()) {
+        auto metrics = style().fontCascade().primaryFont().metricsForMultiRepresentationHEIC();
+        offset = LayoutUnit::fromFloatRound(metrics.descent);
+    }
+#endif
+    return RenderBox::baselinePosition(baselineType, firstLine, direction, linePositionMode) - offset;
 }
 
 void RenderImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
@@ -443,6 +470,17 @@ bool RenderImage::hasAnimatedImage() const
     return false;
 }
 
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+bool RenderImage::isMultiRepresentationHEIC() const
+{
+    RefPtr imageElement = dynamicDowncast<HTMLImageElement>(element());
+    if (!imageElement)
+        return false;
+
+    return imageElement->isMultiRepresentationHEIC();
+}
+#endif
+
 void RenderImage::paintIncompleteImageOutline(PaintInfo& paintInfo, LayoutPoint paintOffset, LayoutUnit borderWidth) const
 {
     auto contentSize = this->contentSize();
@@ -550,14 +588,14 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOf
                     if (availableLogicalWidth < textWidth)
                         return false;
                     auto availableLogicalHeight = isHorizontal ? (errorPictureDrawn ? imageOffset.height() : usableSize.height()) : usableSize.width();
-                    return availableLogicalHeight >= fontMetrics.height();
+                    return availableLogicalHeight >= fontMetrics.intHeight();
                 };
                 if (hasRoomForAltText()) {
                     context.setFillColor(style.visitedDependentColorWithColorFilter(CSSPropertyColor));
                     if (isHorizontal) {
                         auto altTextLocation = [&]() -> LayoutPoint {
                             auto contentHorizontalOffset = LayoutUnit { leftBorder + leftPadding + (paddingWidth / 2) - missingImageBorderWidth };
-                            auto contentVerticalOffset = LayoutUnit { topBorder + topPadding + fontMetrics.ascent() + (paddingHeight / 2) - missingImageBorderWidth };
+                            auto contentVerticalOffset = LayoutUnit { topBorder + topPadding + fontMetrics.intAscent() + (paddingHeight / 2) - missingImageBorderWidth };
                             if (!style.isLeftToRightDirection())
                                 contentHorizontalOffset += contentSize.width() - textWidth;
                             return paintOffset + LayoutPoint { contentHorizontalOffset, contentVerticalOffset };
@@ -565,7 +603,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOf
                         context.drawBidiText(fontCascade, textRun, altTextLocation());
                     } else {
                         // FIXME: TextBoxPainter has this logic already, maybe we should transition to some painter class.
-                        auto contentLogicalHeight = fontMetrics.height();
+                        auto contentLogicalHeight = fontMetrics.intHeight();
                         auto adjustedPaintOffset = LayoutPoint { paintOffset.x(), paintOffset.y() - contentLogicalHeight };
 
                         auto visualLeft = size().width() / 2 - contentLogicalHeight / 2;
@@ -576,7 +614,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOf
 
                         auto rotationRect = LayoutRect { visualLeft, adjustedPaintOffset.y(), textWidth, contentLogicalHeight };
                         context.concatCTM(rotation(rotationRect, RotationDirection::Clockwise));
-                        auto textOrigin = LayoutPoint { visualLeft, adjustedPaintOffset.y() + fontCascade.metricsOfPrimaryFont().ascent() };
+                        auto textOrigin = LayoutPoint { visualLeft, adjustedPaintOffset.y() + fontCascade.metricsOfPrimaryFont().intAscent() };
                         context.drawBidiText(fontCascade, textRun, textOrigin);
                         context.concatCTM(rotation(rotationRect, RotationDirection::Counterclockwise));
                     }
@@ -710,7 +748,15 @@ ImageDrawResult RenderImage::paintIntoRect(PaintInfo& paintInfo, const FloatRect
         settings().showDebugBorders() ? ShowDebugBackground::Yes : ShowDebugBackground::No
     };
 
-    auto drawResult = paintInfo.context().drawImage(*img, rect, options);
+    auto drawResult = ImageDrawResult::DidNothing;
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+    if (isMultiRepresentationHEIC())
+        drawResult = paintInfo.context().drawMultiRepresentationHEIC(*img, style().fontCascade().primaryFont(), rect, options);
+#endif
+
+    if (drawResult == ImageDrawResult::DidNothing)
+        drawResult = paintInfo.context().drawImage(*img, rect, options);
+
     if (drawResult == ImageDrawResult::DidRequestDecoding)
         imageResource().cachedImage()->addClientWaitingForAsyncDecoding(*this);
 
@@ -903,6 +949,11 @@ RenderBox* RenderImage::embeddedContentBox() const
             return image->embeddedContentBox();
     }
     return nullptr;
+}
+
+CheckedRef<RenderImageResource> RenderImage::checkedImageResource() const
+{
+    return *m_imageResource;
 }
 
 } // namespace WebCore

@@ -869,6 +869,26 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::description()
     return nullptr;
 }
 
+JSRetainPtr<JSStringRef> AccessibilityUIElement::brailleLabel() const
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    auto description = descriptionOfValue(attributeValue(@"AXBrailleLabel").get());
+    return concatenateAttributeAndValue(@"AXBrailleLabel", description.get());
+    END_AX_OBJC_EXCEPTIONS
+
+    return nullptr;
+}
+
+JSRetainPtr<JSStringRef> AccessibilityUIElement::brailleRoleDescription() const
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    auto description = descriptionOfValue(attributeValue(@"AXBrailleRoleDescription").get());
+    return concatenateAttributeAndValue(@"AXBrailleRoleDescription", description.get());
+    END_AX_OBJC_EXCEPTIONS
+
+    return nullptr;
+}
+
 JSRetainPtr<JSStringRef> AccessibilityUIElement::liveRegionStatus() const
 {
     return stringAttributeValue(@"AXARIALive");
@@ -892,10 +912,31 @@ JSRetainPtr<JSStringRef> AccessibilityUIElement::orientation() const
 JSRetainPtr<JSStringRef> AccessibilityUIElement::stringValue()
 {
     BEGIN_AX_OBJC_EXCEPTIONS
-    auto value = attributeValue(NSAccessibilityValueAttribute);
-    auto description = descriptionOfValue(value.get());
-    if (description)
+    RetainPtr<id> value;
+    auto role = attributeValue(NSAccessibilityRoleAttribute);
+    if ([role isEqualToString:@"AXDateTimeArea"])
+        value = attributeValue(@"AXStringValue");
+    else
+        value = attributeValue(NSAccessibilityValueAttribute);
+
+    if (auto description = descriptionOfValue(value.get()))
         return concatenateAttributeAndValue(@"AXValue", description.get());
+    END_AX_OBJC_EXCEPTIONS
+
+    return nullptr;
+}
+
+JSRetainPtr<JSStringRef> AccessibilityUIElement::dateValue()
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    auto value = attributeValue(NSAccessibilityValueAttribute);
+    if (![value isKindOfClass:[NSDate class]])
+        return nullptr;
+
+    NSInteger offset = [[NSTimeZone localTimeZone] secondsFromGMTForDate:[NSDate date]];
+    value = [NSDate dateWithTimeInterval:offset sinceDate:value.get()];
+    if (auto description = descriptionOfValue(value.get()))
+        return concatenateAttributeAndValue(@"AXDateValue", description.get());
     END_AX_OBJC_EXCEPTIONS
 
     return nullptr;
@@ -2075,7 +2116,7 @@ RefPtr<AccessibilityTextMarkerRange> AccessibilityUIElement::textMarkerRangeForU
 RefPtr<AccessibilityTextMarkerRange> AccessibilityUIElement::textMarkerRangeForRange(unsigned location, unsigned length)
 {
     BEGIN_AX_OBJC_EXCEPTIONS
-    return AccessibilityTextMarkerRange::create(attributeValueForParameter(@"AXTextMarkerRangeForNSRange",
+    return AccessibilityTextMarkerRange::create(attributeValueForParameter(@"_AXTextMarkerRangeForNSRange",
         [NSValue valueWithRange:NSMakeRange(location, length)]).get());
     END_AX_OBJC_EXCEPTIONS
 
@@ -2122,7 +2163,7 @@ RefPtr<AccessibilityTextMarker> AccessibilityUIElement::startTextMarkerForTextMa
         return nullptr;
 
     BEGIN_AX_OBJC_EXCEPTIONS
-    auto textMarker = attributeValueForParameter(@"AXStartTextMarkerForTextMarkerRange", range->platformTextMarkerRange());
+    auto textMarker = attributeValueForParameter(@"_AXStartTextMarkerForTextMarkerRange", range->platformTextMarkerRange());
     return AccessibilityTextMarker::create(textMarker.get());
     END_AX_OBJC_EXCEPTIONS
 
@@ -2135,7 +2176,7 @@ RefPtr<AccessibilityTextMarker> AccessibilityUIElement::endTextMarkerForTextMark
         return nullptr;
 
     BEGIN_AX_OBJC_EXCEPTIONS
-    auto textMarker = attributeValueForParameter(@"AXEndTextMarkerForTextMarkerRange", range->platformTextMarkerRange());
+    auto textMarker = attributeValueForParameter(@"_AXEndTextMarkerForTextMarkerRange", range->platformTextMarkerRange());
     return AccessibilityTextMarker::create(textMarker.get());
     END_AX_OBJC_EXCEPTIONS
 

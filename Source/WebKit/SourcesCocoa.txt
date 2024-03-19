@@ -77,12 +77,18 @@ GPUProcess/media/ios/RemoteMediaSessionHelperProxy.cpp
 GPUProcess/webrtc/LibWebRTCCodecsProxy.mm @no-unify
 GPUProcess/webrtc/RemoteAudioMediaStreamTrackRendererInternalUnitManager.cpp
 
+ModelProcess/EntryPoint/Cocoa/XPCService/ModelServiceEntryPoint.mm
+ModelProcess/cocoa/ModelProcessCocoa.mm
+ModelProcess/ios/ModelProcessIOS.mm
+ModelProcess/cocoa/ModelProcessModelPlayerProxy.mm
+
 Platform/classifier/cocoa/ResourceLoadStatisticsClassifierCocoa.cpp
 Platform/classifier/ResourceLoadStatisticsClassifier.cpp
 
 Platform/cocoa/AssertionCapability.mm @no-unify
 Platform/cocoa/ExtensionCapabilityGrant.mm
-Platform/cocoa/MediaCapability.mm @no-unify
+Platform/cocoa/MediaCapability.mm
+Platform/cocoa/MediaPlaybackTargetContextSerialized.mm
 Platform/cocoa/PaymentAuthorizationPresenter.mm
 Platform/cocoa/PaymentAuthorizationViewController.mm
 Platform/cocoa/WKPaymentAuthorizationDelegate.mm
@@ -90,6 +96,9 @@ Platform/cocoa/WebKitAdditions.mm @no-unify
 Platform/cocoa/WebPrivacyHelpers.mm
 
 Platform/ios/PaymentAuthorizationController.mm
+Platform/ios/PlaybackSessionInterfaceLMK.mm @no-unify
+Platform/ios/VideoPresentationInterfaceLMK.mm
+Platform/ios/VideoReceiverEndpointMessage.mm
 
 Platform/mac/MenuUtilities.mm
 Platform/mac/StringUtilities.mm
@@ -124,6 +133,7 @@ Shared/ApplePay/ApplePayPaymentSetupFeatures.mm
 Shared/ApplePay/WebPaymentCoordinatorProxy.cpp
 Shared/ApplePay/cocoa/AutomaticReloadPaymentRequestCocoa.mm
 Shared/ApplePay/cocoa/DeferredPaymentRequestCocoa.mm
+Shared/ApplePay/cocoa/DisbursementPaymentRequestCocoa.mm
 Shared/ApplePay/cocoa/PaymentSetupConfigurationCocoa.mm
 Shared/ApplePay/cocoa/PaymentTokenContextCocoa.mm
 Shared/ApplePay/cocoa/RecurringPaymentRequestCocoa.mm
@@ -180,6 +190,7 @@ Shared/Cocoa/WebPreferencesDefaultValuesCocoa.mm
 
 Shared/Daemon/DaemonUtilities.mm
 
+Shared/EntryPointUtilities/Cocoa/XPCService/XPCEndpointMessages.mm
 Shared/EntryPointUtilities/Cocoa/XPCService/XPCServiceEntryPoint.mm
 Shared/EntryPointUtilities/Cocoa/XPCService/XPCServiceMain.mm
 
@@ -203,7 +214,6 @@ Shared/mac/PasteboardTypes.mm
 Shared/mac/PrintInfoMac.mm
 Shared/mac/ScrollingAccelerationCurveMac.mm
 Shared/mac/SecItemRequestData.cpp
-Shared/mac/WebCoreArgumentCodersMac.mm
 Shared/mac/WebEventFactory.mm
 Shared/mac/WebGestureEvent.cpp
 Shared/mac/WebMemorySampler.mac.mm
@@ -409,6 +419,7 @@ UIProcess/Cocoa/UserMediaCaptureManagerProxy.cpp
 UIProcess/Cocoa/UserMediaPermissionRequestManagerProxy.mm
 UIProcess/Cocoa/VideoPresentationManagerProxy.mm
 UIProcess/Cocoa/WebGeolocationManagerProxyCocoa.cpp
+UIProcess/Cocoa/WebKitSwiftSoftLink.mm @no-unify
 UIProcess/Cocoa/WebPageProxyCocoa.mm
 UIProcess/Cocoa/WebPasteboardProxyCocoa.mm
 UIProcess/Cocoa/WebPreferencesCocoa.mm
@@ -420,6 +431,7 @@ UIProcess/Cocoa/WKContactPicker.mm
 UIProcess/Cocoa/WKEditCommand.mm
 UIProcess/Cocoa/WKFullKeyboardAccessWatcher.mm
 UIProcess/Cocoa/WKReloadFrameErrorRecoveryAttempter.mm
+UIProcess/Cocoa/WKTextExtractionUtilities.mm
 UIProcess/Cocoa/WKWebViewContentProviderRegistry.mm
 UIProcess/Cocoa/XPCConnectionTerminationWatchdog.mm
 
@@ -683,10 +695,14 @@ WebProcess/Plugins/PDF/PDFPluginBase.mm
 WebProcess/Plugins/PDF/PDFPluginAnnotation.mm
 WebProcess/Plugins/PDF/PDFPluginChoiceAnnotation.mm
 WebProcess/Plugins/PDF/PDFPluginPasswordField.mm
+WebProcess/Plugins/PDF/PDFPluginPasswordForm.mm
 WebProcess/Plugins/PDF/PDFPluginTextAnnotation.mm
 WebProcess/Plugins/PDF/PDFScriptEvaluator.mm
-WebProcess/Plugins/PDF/UnifiedPDF/UnifiedPDFPlugin.mm
+WebProcess/Plugins/PDF/WKAccessibilityPDFDocumentObject.mm
+WebProcess/Plugins/PDF/UnifiedPDF/AsyncPDFRenderer.mm
 WebProcess/Plugins/PDF/UnifiedPDF/PDFDocumentLayout.mm
+WebProcess/Plugins/PDF/UnifiedPDF/PDFPageCoverage.mm
+WebProcess/Plugins/PDF/UnifiedPDF/UnifiedPDFPlugin.mm
 
 WebProcess/WebCoreSupport/WebCaptionPreferencesDelegate.cpp
 WebProcess/WebCoreSupport/WebValidationMessageClient.cpp
@@ -711,8 +727,10 @@ WebProcess/WebPage/WKAccessibilityWebPageObjectIOS.mm
 WebProcess/WebPage/Cocoa/DrawingAreaCocoa.mm
 WebProcess/WebPage/Cocoa/TextCheckingControllerProxy.mm
 WebProcess/WebPage/Cocoa/WebCookieCacheCocoa.mm
+WebProcess/WebPage/Cocoa/WebCookieJarCocoa.mm
 WebProcess/WebPage/Cocoa/WebPageCocoa.mm
 WebProcess/WebPage/Cocoa/WebRemoteObjectRegistry.cpp
+WebProcess/WebPage/Cocoa/UnifiedTextReplacementController.mm
 
 WebProcess/WebPage/ios/FindControllerIOS.mm
 WebProcess/WebPage/ios/WebPageIOS.mm
@@ -748,6 +766,7 @@ ModelConnectionToWebProcessMessageReceiver.cpp
 ModelProcessConnectionMessageReceiver.cpp
 ModelProcessProxyMessageReceiver.cpp
 ModelProcessMessageReceiver.cpp
+ModelProcessModelPlayerProxyMessageReceiver.cpp
 RemoteAudioDestinationManagerMessageReceiver.cpp
 RemoteAudioHardwareListenerMessageReceiver.cpp
 RemoteAudioSessionMessageReceiver.cpp

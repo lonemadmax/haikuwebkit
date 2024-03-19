@@ -4197,6 +4197,7 @@ def check_identifier_name_in_declaration(filename, line_number, line, file_state
                 and not modified_identifier.startswith('Evas_')
                 and not modified_identifier.startswith('Ewk_')
                 and not modified_identifier.startswith('cti_')
+                and not modified_identifier.startswith('hb_')
                 and not modified_identifier.find('::_q_') >= 0
                 and not modified_identifier == "const_iterator"
                 and not modified_identifier == "vm_throw"
@@ -4205,6 +4206,7 @@ def check_identifier_name_in_declaration(filename, line_number, line, file_state
                 and not modified_identifier == "WTF_GUARDED_BY_LOCK"
                 and not modified_identifier == "WTF_GUARDED_BY_CAPABILITY"
                 and not modified_identifier.startswith("_AX")
+                and not modified_identifier.startswith("_WK")
                 and not modified_identifier.find('chrono_literals') >= 0):
                 error(line_number, 'readability/naming/underscores', 4, identifier + " is incorrectly named. Don't use underscores in your identifier names.")
 

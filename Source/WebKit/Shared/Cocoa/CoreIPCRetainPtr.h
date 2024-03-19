@@ -25,6 +25,8 @@
 
 #pragma once
 
+#include <wtf/RetainPtr.h>
+
 namespace IPC {
 
 template<typename T>

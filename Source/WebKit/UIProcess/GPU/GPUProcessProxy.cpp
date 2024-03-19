@@ -142,13 +142,9 @@ GPUProcessProxy* GPUProcessProxy::singletonIfCreated()
 }
 
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS)
-static String gpuProcessCachesDirectory(bool isExtension)
+static String gpuProcessCachesDirectory()
 {
-    ASCIILiteral cacheDirectory;
-    if (isExtension)
-        cacheDirectory = "/Library/Caches/com.apple.WebKit.GPUExtension/"_s;
-    else
-        cacheDirectory = "/Library/Caches/com.apple.WebKit.GPU/"_s;
+    constexpr ASCIILiteral cacheDirectory = "/Library/Caches/com.apple.WebKit.GPU/"_s;
 
     String path = WebsiteDataStore::cacheDirectoryInContainerOrHomeDirectory(cacheDirectory);
 
@@ -159,8 +155,7 @@ static String gpuProcessCachesDirectory(bool isExtension)
 #endif
 
 GPUProcessProxy::GPUProcessProxy()
-    : AuxiliaryProcessProxy()
-    , m_throttler(*this, WebProcessPool::anyProcessPoolNeedsUIBackgroundAssertion())
+    : AuxiliaryProcessProxy(WebProcessPool::anyProcessPoolNeedsUIBackgroundAssertion() ? ShouldTakeUIBackgroundAssertion::Yes : ShouldTakeUIBackgroundAssertion::No)
 #if ENABLE(MEDIA_STREAM)
     , m_useMockCaptureDevices(MockRealtimeMediaSourceCenter::mockRealtimeMediaSourceCenterEnabled())
 #endif
@@ -186,15 +181,11 @@ GPUProcessProxy::GPUProcessProxy()
     parameters.parentPID = getCurrentProcessID();
 
 #if USE(SANDBOX_EXTENSIONS_FOR_CACHE_AND_TEMP_DIRECTORY_ACCESS)
-    bool isExtension = false;
-#if USE(EXTENSIONKIT)
-    isExtension = !!extensionProcess();
-#endif
-    auto containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(gpuProcessCachesDirectory(isExtension));
+    parameters.containerCachesDirectory = resolveAndCreateReadWriteDirectoryForSandboxExtension(gpuProcessCachesDirectory());
     auto containerTemporaryDirectory = WebsiteDataStore::defaultResolvedContainerTemporaryDirectory();
 
-    if (!containerCachesDirectory.isEmpty()) {
-        if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(containerCachesDirectory, SandboxExtension::Type::ReadWrite))
+    if (!parameters.containerCachesDirectory.isEmpty()) {
+        if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(parameters.containerCachesDirectory, SandboxExtension::Type::ReadWrite))
             parameters.containerCachesDirectoryExtensionHandle = WTFMove(*handle);
     }
 
@@ -460,6 +451,11 @@ void GPUProcessProxy::promptForGetDisplayMedia(WebCore::DisplayCapturePromptType
 {
     sendWithAsyncReply(Messages::GPUProcess::PromptForGetDisplayMedia { type }, WTFMove(completionHandler));
 }
+
+void GPUProcessProxy::cancelGetDisplayMediaPrompt()
+{
+    send(Messages::GPUProcess::CancelGetDisplayMediaPrompt { }, 0);
+}
 #endif
 
 void GPUProcessProxy::getLaunchOptions(ProcessLauncher::LaunchOptions& launchOptions)
@@ -592,10 +588,6 @@ void GPUProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
         return;
     }
     
-#if USE(RUNNINGBOARD)
-    m_throttler.didConnectToProcess(*this);
-#endif
-
 #if PLATFORM(COCOA)
     if (auto networkProcess = NetworkProcessProxy::defaultNetworkProcess())
         networkProcess->sendXPCEndpointToProcess(*this);

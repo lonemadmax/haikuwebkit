@@ -94,9 +94,10 @@ public:
     virtual Frame* opener() = 0;
     virtual FrameLoaderClient& loaderClient() = 0;
 
-    WEBCORE_EXPORT RenderWidget* ownerRenderer() const; // Renderer for the element that contains this frame.
+    virtual String customUserAgent() const = 0;
+    virtual String customUserAgentAsSiteSpecificQuirks() const = 0;
 
-    WEBCORE_EXPORT bool arePluginsEnabled();
+    WEBCORE_EXPORT RenderWidget* ownerRenderer() const; // Renderer for the element that contains this frame.
 
 protected:
     Frame(Page&, FrameIdentifier, FrameType, HTMLFrameOwnerElement*, Frame* parent);

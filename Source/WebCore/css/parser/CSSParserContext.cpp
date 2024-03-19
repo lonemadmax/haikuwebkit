@@ -72,6 +72,11 @@ CSSParserContext::CSSParserContext(CSSParserMode mode, const URL& baseURL)
     StaticCSSValuePool::init();
 }
 
+CSSParserContext::CSSParserContext(const Document& document)
+{
+    *this = document.cssParserContext();
+}
+
 CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBaseURL, const String& charset)
     : baseURL { sheetBaseURL.isNull() ? document.baseURL() : sheetBaseURL }
     , charset { charset }
@@ -102,6 +107,7 @@ CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBas
 #endif
     , cssScopeAtRuleEnabled { document.settings().cssScopeAtRuleEnabled() }
     , cssStartingStyleAtRuleEnabled { document.settings().cssStartingStyleAtRuleEnabled() }
+    , cssStyleQueriesEnabled { document.settings().cssStyleQueriesEnabled() }
     , cssTextUnderlinePositionLeftRightEnabled { document.settings().cssTextUnderlinePositionLeftRightEnabled() }
     , cssWordBreakAutoPhraseEnabled { document.settings().cssWordBreakAutoPhraseEnabled() }
     , popoverAttributeEnabled { document.settings().popoverAttributeEnabled() }
@@ -178,6 +184,20 @@ ResolvedURL CSSParserContext::completeURL(const String& string) const
         return { };
 
     return result;
+}
+
+bool mayDependOnBaseURL(const ResolvedURL& resolved)
+{
+    if (resolved.specifiedURLString.isEmpty())
+        return false;
+
+    if (CSSValue::isCSSLocalURL(resolved.specifiedURLString))
+        return false;
+
+    if (protocolIs(resolved.specifiedURLString, "data"_s))
+        return false;
+
+    return true;
 }
 
 }

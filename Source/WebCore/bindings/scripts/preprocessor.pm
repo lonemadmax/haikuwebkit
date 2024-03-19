@@ -48,7 +48,7 @@ sub applyPreprocessor
     if (!$preprocessor) {
         if ($Config::Config{"osname"} eq "MSWin32") {
             $preprocessor = $ENV{CC} || "cl";
-            push(@args, qw(/EP));
+            push(@args, qw(/nologo /EP /TP));
         } elsif (($Config::Config{'osname'}) =~ /haiku/i) {
             $preprocessor = "/bin/env gcc";
         } else {

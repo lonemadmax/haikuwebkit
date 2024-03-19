@@ -126,7 +126,6 @@ constexpr uint32_t kInvalidMemoryHeapIndex = UINT32_MAX;
 
 namespace vk
 {
-
 // Used for memory allocation tracking.
 enum class MemoryAllocationType;
 
@@ -168,6 +167,10 @@ static constexpr PackedAttachmentIndex kAttachmentIndexZero    = PackedAttachmen
 template <typename VulkanStruct1, typename VulkanStruct2>
 void AddToPNextChain(VulkanStruct1 *chainStart, VulkanStruct2 *ptr)
 {
+    // Catch bugs where this function is called with `&pointer` instead of `pointer`.
+    static_assert(!std::is_pointer<VulkanStruct1>::value);
+    static_assert(!std::is_pointer<VulkanStruct2>::value);
+
     ASSERT(ptr->pNext == nullptr);
 
     VkBaseOutStructure *localPtr = reinterpret_cast<VkBaseOutStructure *>(chainStart);
@@ -179,6 +182,9 @@ void AddToPNextChain(VulkanStruct1 *chainStart, VulkanStruct2 *ptr)
 template <typename VulkanStruct1, typename VulkanStruct2>
 void AppendToPNextChain(VulkanStruct1 *chainStart, VulkanStruct2 *ptr)
 {
+    static_assert(!std::is_pointer<VulkanStruct1>::value);
+    static_assert(!std::is_pointer<VulkanStruct2>::value);
+
     if (!ptr)
     {
         return;
@@ -269,7 +275,8 @@ class [[nodiscard]] ScopedQueueSerialIndex final : angle::NonCopyable
     QueueSerialIndexAllocator *mIndexAllocator;
 };
 
-// Abstracts error handling. Implemented by both ContextVk for GL and DisplayVk for EGL errors.
+// Abstracts error handling. Implemented by ContextVk for GL, DisplayVk for EGL, worker threads,
+// CLContextVk etc.
 class Context : angle::NonCopyable
 {
   public:
@@ -290,6 +297,16 @@ class Context : angle::NonCopyable
   protected:
     RendererVk *const mRenderer;
     angle::VulkanPerfCounters mPerfCounters;
+};
+
+// Abstract global operations that are handled differently between EGL and OpenCL.
+class GlobalOps : angle::NonCopyable
+{
+  public:
+    virtual ~GlobalOps() = default;
+
+    virtual void putBlob(const angle::BlobCacheKey &key, const angle::MemoryBuffer &value) = 0;
+    virtual bool getBlob(const angle::BlobCacheKey &key, angle::BlobCacheValue *valueOut)  = 0;
 };
 
 class RenderPassDesc;
@@ -1096,6 +1113,9 @@ void InitExtendedDynamicStateEXTFunctions(VkDevice device);
 // VK_EXT_extended_dynamic_state2
 void InitExtendedDynamicState2EXTFunctions(VkDevice device);
 
+// VK_EXT_vertex_input_dynamic_state
+void InitVertexInputDynamicStateEXTFunctions(VkDevice device);
+
 // VK_KHR_fragment_shading_rate
 void InitFragmentShadingRateKHRInstanceFunction(VkInstance instance);
 void InitFragmentShadingRateKHRDeviceFunction(VkDevice device);
@@ -1281,6 +1301,22 @@ enum class RenderPassClosureReason
 
     InvalidEnum,
     EnumCount = InvalidEnum,
+};
+
+// The scope of synchronization for a sync object.  Synchronization is done between the signal
+// entity (src) and the entities waiting on the signal (dst)
+//
+// - For GL fence sync objects, src is the current context and dst is host / the rest of share
+// group.
+// - For EGL fence sync objects, src is the current context and dst is host / all other contexts.
+// - For EGL global fence sync objects (which is an ANGLE extension), src is all contexts who have
+//   previously made a submission to the queue used by the current context and dst is host / all
+//   other contexts.
+enum class SyncFenceScope
+{
+    CurrentContextToShareGroup,
+    CurrentContextToAllContexts,
+    AllContextsToAllContexts,
 };
 
 }  // namespace rx

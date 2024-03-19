@@ -141,6 +141,7 @@ public:
 
     Crypto& crypto();
     Performance& performance() const;
+    Ref<Performance> protectedPerformance() const;
     ReportingScope& reportingScope() const { return m_reportingScope.get(); }
 
     void prepareForDestruction() override;
@@ -162,6 +163,7 @@ public:
 
     void releaseMemory(Synchronous);
     static void releaseMemoryInWorkers(Synchronous);
+    static void dumpGCHeapForWorkers();
 
     void setMainScriptSourceProvider(ScriptBufferSourceProvider&);
     void addImportedScriptSourceProvider(const URL&, ScriptBufferSourceProvider&);

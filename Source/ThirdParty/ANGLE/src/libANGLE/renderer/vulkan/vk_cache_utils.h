@@ -428,6 +428,11 @@ struct PackedInputAssemblyState final
         // for.  Used by GraphicsPipelineDesc::hash() to exclude |vertexStrides| from the hash
         uint32_t useVertexInputBindingStrideDynamicState : 1;
 
+        // Whether dynamic state for vertex input state from VK_EXT_vertex_input_dynamic_state can
+        // be used by GraphicsPipelineDesc::hash() to exclude |PackedVertexInputAttributes| from the
+        // hash
+        uint32_t useVertexInputDynamicState : 1;
+
         // Whether the pipeline is robust (vertex input copy)
         uint32_t isRobustContext : 1;
         // Whether the pipeline needs access to protected content (vertex input copy)
@@ -436,7 +441,7 @@ struct PackedInputAssemblyState final
         // Which attributes are actually active in the program and should affect the pipeline.
         uint32_t programActiveAttributeLocations : gl::MAX_VERTEX_ATTRIBS;
 
-        uint32_t padding : 24 - gl::MAX_VERTEX_ATTRIBS;
+        uint32_t padding : 23 - gl::MAX_VERTEX_ATTRIBS;
     } bits;
 };
 
@@ -683,7 +688,7 @@ struct GraphicsPipelineFragmentOutputVulkanStructs
 
 ANGLE_ENABLE_STRUCT_PADDING_WARNINGS
 
-using GraphicsPipelineDynamicStateList = angle::FixedVector<VkDynamicState, 22>;
+using GraphicsPipelineDynamicStateList = angle::FixedVector<VkDynamicState, 23>;
 
 enum class PipelineRobustness
 {
@@ -899,6 +904,12 @@ class GraphicsPipelineDesc final
         mShaders.shaders.bits.nonZeroStencilWriteMaskWorkaround                 = false;
     }
 
+    static VkFormat getPipelineVertexInputStateFormat(Context *context,
+                                                      angle::FormatID formatID,
+                                                      bool compressed,
+                                                      const gl::ComponentType programAttribType,
+                                                      uint32_t attribIndex);
+
     // Helpers to dump the state
     const PipelineVertexInputState &getVertexInputStateForLog() const { return mVertexInput; }
     const PipelineShadersState &getShadersStateForLog() const { return mShaders; }
@@ -1055,6 +1066,12 @@ static_assert(sizeof(PipelineLayoutDesc) == sizeof(DescriptorSetArray<Descriptor
                                                 sizeof(PackedPushConstantRange) + sizeof(uint32_t),
               "Unexpected Size");
 
+enum class YcbcrLinearFilterSupport
+{
+    Unsupported,
+    Supported,
+};
+
 class YcbcrConversionDesc final
 {
   public:
@@ -1076,7 +1093,8 @@ class YcbcrConversionDesc final
                 VkChromaLocation yChromaOffset,
                 VkFilter chromaFilter,
                 VkComponentMapping components,
-                angle::FormatID intendedFormatID);
+                angle::FormatID intendedFormatID,
+                YcbcrLinearFilterSupport linearFilterSupported);
     VkFilter getChromaFilter() const { return static_cast<VkFilter>(mChromaFilter); }
     bool updateChromaFilter(RendererVk *rendererVk, VkFilter filter);
     void updateConversionModel(VkSamplerYcbcrModelConversion conversionModel);
@@ -1111,7 +1129,9 @@ class YcbcrConversionDesc final
     uint32_t mBSwizzle : 3;
     // 3 bit to identify A component swizzle
     uint32_t mASwizzle : 3;
-    uint32_t mPadding : 12;
+    // 1 bit for whether linear filtering is supported (independent of whether currently enabled)
+    uint32_t mLinearFilterSupported : 1;
+    uint32_t mPadding : 11;
     uint32_t mReserved;
 };
 
@@ -1751,8 +1771,8 @@ class DescriptorSetDescBuilder final
                                CommandBufferT *commandBufferHelper,
                                const ShaderInterfaceVariableInfoMap &variableInfoMap,
                                const gl::BufferVector &buffers,
-                               const std::vector<gl::InterfaceBlock> &blocks,
-                               uint32_t blockIndex,
+                               const gl::InterfaceBlock &block,
+                               uint32_t bufferIndex,
                                VkDescriptorType descriptorType,
                                VkDeviceSize maxBoundBufferRange,
                                const BufferHelper &emptyBuffer,
@@ -1760,6 +1780,7 @@ class DescriptorSetDescBuilder final
     template <typename CommandBufferT>
     void updateShaderBuffers(ContextVk *contextVk,
                              CommandBufferT *commandBufferHelper,
+                             const gl::ProgramExecutable &executable,
                              const ShaderInterfaceVariableInfoMap &variableInfoMap,
                              const gl::BufferVector &buffers,
                              const std::vector<gl::InterfaceBlock> &blocks,
@@ -1770,6 +1791,7 @@ class DescriptorSetDescBuilder final
     template <typename CommandBufferT>
     void updateAtomicCounters(ContextVk *contextVk,
                               CommandBufferT *commandBufferHelper,
+                              const gl::ProgramExecutable &executable,
                               const ShaderInterfaceVariableInfoMap &variableInfoMap,
                               const gl::BufferVector &buffers,
                               const std::vector<gl::AtomicCounterBuffer> &atomicCounterBuffers,
@@ -2635,6 +2657,38 @@ class DescriptorSetCache final : angle::NonCopyable
 
 // There is 1 default uniform binding used per stage.
 constexpr uint32_t kReservedPerStageDefaultUniformBindingCount = 1;
+
+class UpdateDescriptorSetsBuilder final : angle::NonCopyable
+{
+  public:
+    UpdateDescriptorSetsBuilder();
+    ~UpdateDescriptorSetsBuilder();
+
+    VkDescriptorBufferInfo *allocDescriptorBufferInfos(size_t count);
+    VkDescriptorImageInfo *allocDescriptorImageInfos(size_t count);
+    VkWriteDescriptorSet *allocWriteDescriptorSets(size_t count);
+    VkBufferView *allocBufferViews(size_t count);
+
+    VkDescriptorBufferInfo &allocDescriptorBufferInfo() { return *allocDescriptorBufferInfos(1); }
+    VkDescriptorImageInfo &allocDescriptorImageInfo() { return *allocDescriptorImageInfos(1); }
+    VkWriteDescriptorSet &allocWriteDescriptorSet() { return *allocWriteDescriptorSets(1); }
+    VkBufferView &allocBufferView() { return *allocBufferViews(1); }
+
+    // Returns the number of written descriptor sets.
+    uint32_t flushDescriptorSetUpdates(VkDevice device);
+
+  private:
+    template <typename T, const T *VkWriteDescriptorSet::*pInfo>
+    T *allocDescriptorInfos(std::vector<T> *descriptorVector, size_t count);
+    template <typename T, const T *VkWriteDescriptorSet::*pInfo>
+    void growDescriptorCapacity(std::vector<T> *descriptorVector, size_t newSize);
+
+    std::vector<VkDescriptorBufferInfo> mDescriptorBufferInfos;
+    std::vector<VkDescriptorImageInfo> mDescriptorImageInfos;
+    std::vector<VkWriteDescriptorSet> mWriteDescriptorSets;
+    std::vector<VkBufferView> mBufferViews;
+};
+
 }  // namespace rx
 
 #endif  // LIBANGLE_RENDERER_VULKAN_VK_CACHE_UTILS_H_

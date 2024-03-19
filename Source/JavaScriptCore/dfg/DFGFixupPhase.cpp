@@ -2272,12 +2272,14 @@ private:
             fixEdge<CellUse>(node->child2());
             break;
 
-        case InById: {
+        case InById:
+        case InByIdMegamorphic: {
             fixEdge<CellUse>(node->child1());
             break;
         }
 
-        case InByVal: {
+        case InByVal:
+        case InByValMegamorphic: {
             if ((node->child1()->shouldSpeculateObject()
                 || (node->child1()->shouldSpeculateObjectOrOther() && !m_graph.hasExitSite(node->origin.semantic, BadType)))
                 && node->child2()->shouldSpeculateInt32()) {
@@ -2285,6 +2287,10 @@ private:
                 break;
             }
 
+            if (node->op() == InByValMegamorphic) {
+                node->setArrayMode(node->arrayMode().withType(Array::Generic));
+                fixEdge<StringUse>(node->child2());
+            }
             fixEdge<CellUse>(node->child1());
             break;
         }
@@ -3581,6 +3587,12 @@ private:
             node->convertToIdentity();
             return;
         }
+
+        if (node->child1()->shouldSpeculateStringOrOther()) {
+            fixEdge<StringOrOtherUse>(node->child1());
+            node->convertToIdentity();
+            return;
+        }
         
         if (node->child1()->shouldSpeculateStringObject()
             && m_graph.canOptimizeStringObjectAccess(node->origin.semantic)) {
@@ -3795,6 +3807,12 @@ private:
             return;
         }
 
+        if (node->child1()->shouldSpeculateStringOrOther()) {
+            fixEdge<StringOrOtherUse>(node->child1());
+            node->clearFlags(NodeMustGenerate);
+            return;
+        }
+
         // ToString(Symbol) throws an error. So if the child1 can include Symbols,
         // we need to care about it in the clobberize. In the following case,
         // since NotCellUse edge filter is used and this edge filters Symbols,
@@ -3811,6 +3829,14 @@ private:
         if (node->child1()->shouldSpeculateString()) {
             fixEdge<StringUse>(node->child1());
             node->convertToIdentity();
+            return;
+        }
+
+        if (node->child1()->shouldSpeculateStringOrOther()) {
+            fixEdge<StringOrOtherUse>(node->child1());
+            node->convertToToString();
+            // It does not need to look up a toString property for the StringObject case. So we can clear NodeMustGenerate.
+            node->clearFlags(NodeMustGenerate);
             return;
         }
 
@@ -3967,6 +3993,14 @@ private:
         m_insertionSet.insertNode(
             m_indexInBlock, SpecNone, Check, node->origin,
             Edge(searchRegExp, RegExpObjectUse));
+
+        // Check that searchRegExp.lastIndex is a number
+        Node* lastIndexProperty = m_insertionSet.insertNode(
+            m_indexInBlock, SpecNone, GetRegExpObjectLastIndex, node->origin,
+            Edge(searchRegExp, RegExpObjectUse));
+        m_insertionSet.insertNode(
+            m_indexInBlock, SpecNone, Check, node->origin,
+            Edge(lastIndexProperty, NumberUse));
 
         auto emitPrimordialCheckFor = [&] (JSValue primordialProperty, UniquedStringImpl* propertyUID) {
             m_graph.identifiers().ensure(propertyUID);

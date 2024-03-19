@@ -117,6 +117,9 @@ static void sendReplyToSynchronousRequest(NetworkResourceLoader::SynchronousLoad
     ASSERT(data.delayedReply);
     ASSERT(!data.response.isNull() || !data.error.isNull());
 
+    if (!data.delayedReply)
+        return;
+
     Vector<uint8_t> responseBuffer;
     if (buffer && buffer->size())
         responseBuffer.append(buffer->makeContiguous()->data(), buffer->size());
@@ -781,7 +784,7 @@ void NetworkResourceLoader::processClearSiteDataHeader(const WebCore::ResourceRe
     if (clearSiteDataValues.contains(ClearSiteDataValue::Cookies))
         typesToRemove.add(WebsiteDataType::Cookies);
     if (clearSiteDataValues.contains(ClearSiteDataValue::Storage)) {
-        typesToRemove.add({ WebsiteDataType::LocalStorage, WebsiteDataType::SessionStorage, WebsiteDataType::IndexedDBDatabases, WebsiteDataType::DOMCache, WebsiteDataType::OfflineWebApplicationCache, WebsiteDataType::FileSystem, WebsiteDataType::WebSQLDatabases });
+        typesToRemove.add({ WebsiteDataType::LocalStorage, WebsiteDataType::SessionStorage, WebsiteDataType::IndexedDBDatabases, WebsiteDataType::DOMCache, WebsiteDataType::FileSystem, WebsiteDataType::WebSQLDatabases });
         typesToRemove.add(WebsiteDataType::ServiceWorkerRegistrations);
     }
 

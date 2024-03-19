@@ -70,6 +70,8 @@ using CocoaMenuItem = UIMenuElement;
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
+WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(_WKWebExtensionContext, WebExtensionContext, _webExtensionContext);
+
 + (instancetype)contextForExtension:(_WKWebExtension *)extension
 {
     NSParameterAssert([extension isKindOfClass:_WKWebExtension.class]);
@@ -87,13 +89,6 @@ using CocoaMenuItem = UIMenuElement;
     API::Object::constructInWrapper<WebKit::WebExtensionContext>(self, extension._webExtension);
 
     return self;
-}
-
-- (void)dealloc
-{
-    ASSERT(isMainRunLoop());
-
-    _webExtensionContext->~WebExtensionContext();
 }
 
 - (_WKWebExtension *)webExtension
@@ -515,6 +510,11 @@ static inline WebKit::WebExtensionContext::PermissionState toImpl(_WKWebExtensio
     return _webExtensionContext->hasInjectedContentForURL(url);
 }
 
+- (BOOL)hasContentModificationRules
+{
+    return _webExtensionContext->hasContentModificationRules();
+}
+
 - (_WKWebExtensionAction *)actionForTab:(id<_WKWebExtensionTab>)tab
 {
     if (tab)
@@ -603,7 +603,7 @@ static inline NSArray *toAPI(const WebKit::WebExtensionContext::WindowVector& wi
 
     NSMutableArray *result = [[NSMutableArray alloc] initWithCapacity:windows.size()];
 
-    for (auto& window : windows) {
+    for (Ref window : windows) {
         if (auto delegate = window->delegate())
             [result addObject:delegate];
     }
@@ -621,14 +621,14 @@ static inline NSArray *toAPI(const WebKit::WebExtensionContext::WindowVector& wi
     return toAPI(_webExtensionContext->focusedWindow(WebKit::WebExtensionContext::IgnoreExtensionAccess::Yes));
 }
 
-static inline NSSet *toAPI(const WebKit::WebExtensionContext::TabMapValueIterator& tabs)
+static inline NSSet *toAPI(const WebKit::WebExtensionContext::TabVector& tabs)
 {
     if (tabs.isEmpty())
         return [NSSet set];
 
     NSMutableSet *result = [[NSMutableSet alloc] initWithCapacity:tabs.size()];
 
-    for (auto& tab : tabs) {
+    for (Ref tab : tabs) {
         if (auto delegate = tab->delegate())
             [result addObject:delegate];
     }
@@ -734,7 +734,7 @@ static inline WebKit::WebExtensionContext::TabSet toImpl(NSSet<id<_WKWebExtensio
     if (oldWindow)
         NSParameterAssert([oldWindow conformsToProtocol:@protocol(_WKWebExtensionWindow)]);
 
-    _webExtensionContext->didMoveTab(toImpl(movedTab, *_webExtensionContext), index, oldWindow ? toImpl(oldWindow, *_webExtensionContext).ptr() : nullptr);
+    _webExtensionContext->didMoveTab(toImpl(movedTab, *_webExtensionContext), index != NSNotFound ? index : notFound, oldWindow ? toImpl(oldWindow, *_webExtensionContext).ptr() : nullptr);
 }
 
 - (void)didReplaceTab:(id<_WKWebExtensionTab>)oldTab withTab:(id<_WKWebExtensionTab>)newTab
@@ -790,16 +790,6 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(_WKWe
     NSParameterAssert([changedTab conformsToProtocol:@protocol(_WKWebExtensionTab)]);
 
     _webExtensionContext->didChangeTabProperties(toImpl(changedTab, *_webExtensionContext), toImpl(properties));
-}
-
-- (BOOL)_inTestingMode
-{
-    return _webExtensionContext->inTestingMode();
-}
-
-- (void)_setTestingMode:(BOOL)testingMode
-{
-    _webExtensionContext->setTestingMode(testingMode);
 }
 
 - (WKWebView *)_backgroundWebView
@@ -1051,6 +1041,11 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(_WKWe
     return NO;
 }
 
+- (BOOL)hasContentModificationRules
+{
+    return NO;
+}
+
 - (_WKWebExtensionAction *)actionForTab:(id<_WKWebExtensionTab>)tab NS_SWIFT_NAME(action(for:))
 {
     return nil;
@@ -1155,15 +1150,6 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(_WKWe
 }
 
 - (void)didChangeTabProperties:(_WKWebExtensionTabChangedProperties)properties forTab:(id<_WKWebExtensionTab>)changedTab
-{
-}
-
-- (BOOL)_inTestingMode
-{
-    return NO;
-}
-
-- (void)_setTestingMode:(BOOL)testingMode
 {
 }
 

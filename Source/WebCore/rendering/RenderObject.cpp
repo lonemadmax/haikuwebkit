@@ -553,10 +553,11 @@ static inline bool objectIsRelayoutBoundary(const RenderElement* object)
     return true;
 }
 
-void RenderObject::clearNeedsLayout()
+void RenderObject::clearNeedsLayout(EverHadSkippedContentLayout everHadSkippedContentLayout)
 {
     m_stateBitfields.clearFlag(StateFlag::NeedsLayout);
     setEverHadLayout();
+    setEverHadSkippedContentLayout(everHadSkippedContentLayout == EverHadSkippedContentLayout::Yes);
     setPosChildNeedsLayoutBit(false);
     setNeedsSimplifiedNormalFlowLayoutBit(false);
     setNormalChildNeedsLayoutBit(false);
@@ -1891,6 +1892,11 @@ Node* RenderObject::nodeForHitTest() const
     return node;
 }
 
+RefPtr<Node> RenderObject::protectedNodeForHitTest() const
+{
+    return nodeForHitTest();
+}
+
 void RenderObject::updateHitTestResult(HitTestResult& result, const LayoutPoint& point)
 {
     if (result.innerNode())
@@ -2208,9 +2214,11 @@ Vector<FloatQuad> RenderObject::absoluteTextQuads(const SimpleRange& range, Opti
     Vector<FloatQuad> quads;
     for (Ref node : intersectingNodes(range)) {
         CheckedPtr renderer = node->renderer();
-        if (renderer && renderer->isBR())
-            downcast<RenderLineBreak>(*renderer).absoluteQuads(quads);
-        else if (CheckedPtr renderText = dynamicDowncast<RenderText>(renderer.get())) {
+        if (!renderer)
+            continue;
+        if (auto* lineBreakRenderer = dynamicDowncast<RenderLineBreak>(*renderer); lineBreakRenderer && lineBreakRenderer->isBR())
+            lineBreakRenderer->absoluteQuads(quads);
+        else if (auto* renderText = dynamicDowncast<RenderText>(*renderer)) {
             auto offsetRange = characterDataOffsetRange(range, downcast<CharacterData>(node.get()));
             quads.appendVector(renderText->absoluteQuadsForRange(offsetRange.start, offsetRange.end, behavior));
         }
@@ -2249,8 +2257,8 @@ Vector<IntRect> RenderObject::absoluteTextRects(const SimpleRange& range, Option
     Vector<LayoutRect> rects;
     for (Ref node : intersectingNodes(range)) {
         CheckedPtr renderer = node->renderer();
-        if (renderer && renderer->isBR())
-            downcast<RenderLineBreak>(*renderer).boundingRects(rects, flooredLayoutPoint(renderer->localToAbsolute()));
+        if (auto* lineBreakRenderer = dynamicDowncast<RenderLineBreak>(renderer.get()); lineBreakRenderer && lineBreakRenderer->isBR())
+            lineBreakRenderer->boundingRects(rects, flooredLayoutPoint(renderer->localToAbsolute()));
         else if (auto* textNode = dynamicDowncast<Text>(node.get())) {
             for (auto& rect : absoluteRectsForRangeInText(range, *textNode, behavior))
                 rects.append(LayoutRect { rect });
@@ -2446,7 +2454,7 @@ auto RenderObject::collectSelectionGeometriesInternal(const SimpleRange& range) 
     for (Ref node : intersectingNodesWithDeprecatedZeroOffsetStartQuirk(range)) {
         CheckedPtr renderer = node->renderer();
         // Only ask leaf render objects for their line box rects.
-        if (renderer && !renderer->firstChildSlow() && renderer->style().effectiveUserSelect() != UserSelect::None) {
+        if (renderer && !renderer->firstChildSlow() && renderer->style().usedUserSelect() != UserSelect::None) {
             bool isStartNode = renderer->node() == range.start.container.ptr();
             bool isEndNode = renderer->node() == range.end.container.ptr();
             if (hasFlippedWritingMode != renderer->style().isFlippedBlocksWritingMode())

@@ -65,7 +65,7 @@
 #    elif defined(ANGLE_PLATFORM_LINUX) || defined(__HAIKU__)
 #        include "libANGLE/renderer/gl/egl/DisplayEGL.h"
 #        if defined(ANGLE_USE_X11)
-#            include "libANGLE/renderer/gl/glx/DisplayGLX.h"
+#            include "libANGLE/renderer/gl/glx/DisplayGLX_api.h"
 #        endif
 #    elif defined(ANGLE_PLATFORM_ANDROID)
 #        include "libANGLE/renderer/gl/egl/android/DisplayAndroid.h"
@@ -77,6 +77,10 @@
 #if defined(ANGLE_ENABLE_NULL)
 #    include "libANGLE/renderer/null/DisplayNULL.h"
 #endif  // defined(ANGLE_ENABLE_NULL)
+
+#if defined(ANGLE_ENABLE_WGPU)
+#    include "libANGLE/renderer/wgpu/DisplayWgpu_api.h"
+#endif
 
 #if defined(ANGLE_ENABLE_VULKAN)
 #    include "libANGLE/renderer/vulkan/DisplayVk_api.h"
@@ -286,6 +290,13 @@ EGLAttrib GetDisplayTypeFromEnvironment()
     }
 #endif
 
+#if defined(ANGLE_ENABLE_WGPU)
+    if (angleDefaultEnv == "webgpu")
+    {
+        return EGL_PLATFORM_ANGLE_TYPE_WEBGPU_ANGLE;
+    }
+#endif
+
 #if defined(ANGLE_ENABLE_OPENGL)
     if (angleDefaultEnv == "gl")
     {
@@ -426,7 +437,7 @@ rx::DisplayImpl *CreateDisplayFromAttribs(EGLAttrib displayType,
 #        if defined(ANGLE_USE_X11)
             if (platformType == EGL_PLATFORM_X11_EXT)
             {
-                impl = new rx::DisplayGLX(state);
+                impl = rx::CreateGLXDisplay(state);
                 break;
             }
 #        endif
@@ -474,7 +485,7 @@ rx::DisplayImpl *CreateDisplayFromAttribs(EGLAttrib displayType,
 #        if defined(ANGLE_USE_X11)
                 if (platformType == EGL_PLATFORM_X11_EXT)
                 {
-                    impl = new rx::DisplayGLX(state);
+                    impl = rx::CreateGLXDisplay(state);
                     break;
                 }
 #        endif
@@ -600,6 +611,13 @@ rx::DisplayImpl *CreateDisplayFromAttribs(EGLAttrib displayType,
             // Metal isn't available.
             break;
 
+        case EGL_PLATFORM_ANGLE_TYPE_WEBGPU_ANGLE:
+#if defined(ANGLE_ENABLE_WGPU)
+            impl = rx::CreateWgpuDisplay(state);
+#endif  // defined(ANGLE_ENABLE_WGPU)
+        // WebGPU isn't available.
+            break;
+
         case EGL_PLATFORM_ANGLE_TYPE_NULL_ANGLE:
 #if defined(ANGLE_ENABLE_NULL)
             impl = new rx::DisplayNULL(state);
@@ -688,7 +706,7 @@ static constexpr uint32_t kScratchBufferLifetime = 64u;
 
 // DisplayState
 DisplayState::DisplayState(EGLNativeDisplayType nativeDisplayId)
-    : label(nullptr), featuresAllDisabled(false), displayId(nativeDisplayId)
+    : label(nullptr), displayId(nativeDisplayId)
 {}
 
 DisplayState::~DisplayState() {}
@@ -1014,9 +1032,9 @@ void Display::setupDisplayPlatform(rx::DisplayImpl *impl)
         reinterpret_cast<const char **>(mAttributeMap.get(EGL_FEATURE_OVERRIDES_ENABLED_ANGLE, 0));
     const char **featuresForceDisabled =
         reinterpret_cast<const char **>(mAttributeMap.get(EGL_FEATURE_OVERRIDES_DISABLED_ANGLE, 0));
-    mState.featureOverridesEnabled  = EGLStringArrayToStringVector(featuresForceEnabled);
-    mState.featureOverridesDisabled = EGLStringArrayToStringVector(featuresForceDisabled);
-    mState.featuresAllDisabled =
+    mState.featureOverrides.enabled  = EGLStringArrayToStringVector(featuresForceEnabled);
+    mState.featureOverrides.disabled = EGLStringArrayToStringVector(featuresForceDisabled);
+    mState.featureOverrides.allDisabled =
         static_cast<bool>(mAttributeMap.get(EGL_FEATURE_ALL_DISABLED_ANGLE, 0));
     mImplementation->addObserver(&mGPUSwitchedBinding);
 }
@@ -1079,8 +1097,8 @@ Error Display::initialize()
     }
 
     mFrontendFeatures.reset();
-    rx::ApplyFeatureOverrides(&mFrontendFeatures, mState);
-    if (!mState.featuresAllDisabled)
+    rx::ApplyFeatureOverrides(&mFrontendFeatures, mState.featureOverrides);
+    if (!mState.featureOverrides.allDisabled)
     {
         initializeFrontendFeatures();
     }
@@ -2108,6 +2126,10 @@ static ClientExtensions GenerateClientExtensions()
     extensions.platformANGLENULL = true;
 #endif
 
+#if defined(ANGLE_ENABLE_WGPU)
+    extensions.platformANGLEWebgpu = true;
+#endif
+
 #if defined(ANGLE_ENABLE_D3D11)
     extensions.deviceCreation          = true;
     extensions.deviceCreationD3D11     = true;
@@ -2319,8 +2341,8 @@ void Display::initClientAPIString()
 void Display::initializeFrontendFeatures()
 {
     // Enable on all Impls
-    ANGLE_FEATURE_CONDITION((&mFrontendFeatures), loseContextOnOutOfMemory, true);
-    ANGLE_FEATURE_CONDITION((&mFrontendFeatures), allowCompressedFormats, true);
+    ANGLE_FEATURE_CONDITION(&mFrontendFeatures, loseContextOnOutOfMemory, true);
+    ANGLE_FEATURE_CONDITION(&mFrontendFeatures, allowCompressedFormats, true);
 
     // Togglable until work on the extension is complete - anglebug.com/7279.
     ANGLE_FEATURE_CONDITION(&mFrontendFeatures, emulatePixelLocalStorage, true);

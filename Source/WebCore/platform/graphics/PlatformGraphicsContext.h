@@ -44,6 +44,9 @@ using PlatformGraphicsContext = WebCore::GraphicsContextCairo;
 #elif USE(HAIKU)
 #include <View.h>
 using PlatformGraphicsContext = BView;
+#elif USE(SKIA)
+class SkCanvas;
+using PlatformGraphicsContext = SkCanvas;
 #else
 using PlatformGraphicsContext = void;
 #endif

@@ -160,7 +160,12 @@ public:
 
     uint32_t getStackHeightInValues() const
     {
-        uint32_t result = m_expressionStack.size();
+        return m_expressionStack.size() + getControlEntryStackHeightInValues();
+    }
+
+    uint32_t getControlEntryStackHeightInValues() const
+    {
+        uint32_t result = 0;
         for (const ControlEntry& entry : m_controlStack)
             result += entry.enclosedExpressionStack.size();
         return result;
@@ -1543,17 +1548,18 @@ auto FunctionParser<Context>::parseStructFieldManipulation(StructFieldManipulati
 
     TypedExpression structRef;
     WASM_TRY_POP_EXPRESSION_STACK_INTO(structRef, "struct reference");
-    WASM_VALIDATOR_FAIL_IF(!isRefWithTypeIndex(structRef.type()), operation, " invalid index: ", structRef.type());
-    const TypeIndex structTypeIndex = structRef.type().index;
-    const TypeDefinition& structTypeDefinition = TypeInformation::get(structTypeIndex).expand();
-    WASM_VALIDATOR_FAIL_IF(!structTypeDefinition.is<StructType>(), operation, " type index points into a non struct type");
-    const auto& structType = *structTypeDefinition.as<StructType>();
-    WASM_VALIDATOR_FAIL_IF(!isSubtype(structRef.type(), Type { TypeKind::RefNull, m_info.typeSignatures[typeIndexAndFieldIndex.structTypeIndex]->index() }), operation, " structref to type ", structRef.type().kind, " expected structref");
+    const auto& structSignature = m_info.typeSignatures[typeIndexAndFieldIndex.structTypeIndex];
+    Type structRefType = Type { TypeKind::RefNull, structSignature->index() };
+    WASM_VALIDATOR_FAIL_IF(!isSubtype(structRef.type(), structRefType), operation, " structref to type ", structRef.type(), " expected ", structRefType);
+
+    const auto& expandedSignature = structSignature->expand();
+    WASM_VALIDATOR_FAIL_IF(!expandedSignature.template is<StructType>(), operation, " type index points into a non struct type");
+    const auto& structType = expandedSignature.template as<StructType>();
 
     result.structReference = structRef;
     result.indices.fieldIndex = typeIndexAndFieldIndex.fieldIndex;
     result.indices.structTypeIndex = typeIndexAndFieldIndex.structTypeIndex;
-    result.field = structType.field(result.indices.fieldIndex);
+    result.field = structType->field(result.indices.fieldIndex);
     return { };
 }
 

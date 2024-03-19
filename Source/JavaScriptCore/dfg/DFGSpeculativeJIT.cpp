@@ -172,22 +172,22 @@ void SpeculativeJIT::compile()
     createOSREntries();
     setEndOfCode();
 
-    auto linkBuffer = makeUnique<LinkBuffer>(*this, m_codeBlock, LinkBuffer::Profile::DFG, JITCompilationCanFail);
-    if (linkBuffer->didFailToAllocate()) {
+    LinkBuffer linkBuffer(*this, m_codeBlock, LinkBuffer::Profile::DFG, JITCompilationCanFail);
+    if (linkBuffer.didFailToAllocate()) {
         m_graph.m_plan.setFinalizer(makeUnique<FailedFinalizer>(m_graph.m_plan));
         return;
     }
 
-    link(*linkBuffer);
-    linkOSREntries(*linkBuffer);
+    link(linkBuffer);
+    linkOSREntries(linkBuffer);
 
-    disassemble(*linkBuffer);
+    disassemble(linkBuffer);
 
-    auto codeRef = FINALIZE_DFG_CODE(*linkBuffer, JSEntryPtrTag, "DFG JIT code for %s", toCString(CodeBlockWithJITType(m_codeBlock, JITType::DFGJIT)).data());
+    auto codeRef = FINALIZE_DFG_CODE(linkBuffer, JSEntryPtrTag, "DFG JIT code for %s", toCString(CodeBlockWithJITType(m_codeBlock, JITType::DFGJIT)).data());
     m_jitCode->initializeCodeRefForDFG(codeRef, codeRef.code());
     m_jitCode->variableEventStream = finalizeEventStream();
 
-    auto finalizer = makeUnique<JITFinalizer>(m_graph.m_plan, m_jitCode.releaseNonNull(), WTFMove(linkBuffer));
+    auto finalizer = makeUnique<JITFinalizer>(m_graph.m_plan, m_jitCode.releaseNonNull());
     m_graph.m_plan.setFinalizer(WTFMove(finalizer));
 }
 
@@ -271,24 +271,24 @@ void SpeculativeJIT::compileFunction()
     setEndOfCode();
 
     // === Link ===
-    auto linkBuffer = makeUnique<LinkBuffer>(*this, m_codeBlock, LinkBuffer::Profile::DFG, JITCompilationCanFail);
-    if (linkBuffer->didFailToAllocate()) {
+    LinkBuffer linkBuffer(*this, m_codeBlock, LinkBuffer::Profile::DFG, JITCompilationCanFail);
+    if (linkBuffer.didFailToAllocate()) {
         m_graph.m_plan.setFinalizer(makeUnique<FailedFinalizer>(m_graph.m_plan));
         return;
     }
-    link(*linkBuffer);
-    linkOSREntries(*linkBuffer);
+    link(linkBuffer);
+    linkOSREntries(linkBuffer);
 
-    disassemble(*linkBuffer);
+    disassemble(linkBuffer);
 
-    CodePtr<JSEntryPtrTag> withArityCheck = linkBuffer->locationOf<JSEntryPtrTag>(arityCheck);
+    CodePtr<JSEntryPtrTag> withArityCheck = linkBuffer.locationOf<JSEntryPtrTag>(arityCheck);
 
     m_jitCode->initializeCodeRefForDFG(
-        FINALIZE_DFG_CODE(*linkBuffer, JSEntryPtrTag, "DFG JIT code for %s", toCString(CodeBlockWithJITType(m_codeBlock, JITType::DFGJIT)).data()),
+        FINALIZE_DFG_CODE(linkBuffer, JSEntryPtrTag, "DFG JIT code for %s", toCString(CodeBlockWithJITType(m_codeBlock, JITType::DFGJIT)).data()),
         withArityCheck);
     m_jitCode->variableEventStream = finalizeEventStream();
 
-    auto finalizer = makeUnique<JITFinalizer>(m_graph.m_plan, m_jitCode.releaseNonNull(), WTFMove(linkBuffer), withArityCheck);
+    auto finalizer = makeUnique<JITFinalizer>(m_graph.m_plan, m_jitCode.releaseNonNull(), withArityCheck);
     m_graph.m_plan.setFinalizer(WTFMove(finalizer));
 }
 
@@ -664,7 +664,7 @@ void SpeculativeJIT::runSlowPathGenerators(PCToCodeOriginMapBuilder& pcToCodeOri
         slowPathGenerator->generate(this);
 
         if (UNLIKELY(sizeMarker))
-            vm().jitSizeStatistics->markEnd(WTFMove(*sizeMarker), *this);
+            vm().jitSizeStatistics->markEnd(WTFMove(*sizeMarker), *this, m_graph.m_plan);
     }
     for (auto& slowPathLambda : m_slowPathLambdas) {
         Node* currentNode = slowPathLambda.currentNode;
@@ -676,7 +676,7 @@ void SpeculativeJIT::runSlowPathGenerators(PCToCodeOriginMapBuilder& pcToCodeOri
         slowPathLambda.generator();
         m_outOfLineStreamIndex = std::nullopt;
         if (UNLIKELY(sizeMarker))
-            vm().jitSizeStatistics->markEnd(WTFMove(*sizeMarker), *this);
+            vm().jitSizeStatistics->markEnd(WTFMove(*sizeMarker), *this, m_graph.m_plan);
     }
 }
 
@@ -2601,7 +2601,7 @@ void SpeculativeJIT::compileCurrentBlock()
         compile(m_currentNode);
 
         if (UNLIKELY(sizeMarker))
-            vm().jitSizeStatistics->markEnd(WTFMove(*sizeMarker), *this);
+            vm().jitSizeStatistics->markEnd(WTFMove(*sizeMarker), *this, m_graph.m_plan);
 
         if (belongsInMinifiedGraph(m_currentNode->op()))
             m_minifiedGraph->append(MinifiedNode::fromNode(m_currentNode));
@@ -3012,7 +3012,7 @@ void SpeculativeJIT::compilePutByVal(Node* node)
         auto [ stubInfo, stubInfoConstant ] = addStructureStubInfo();
         JITPutByValGenerator gen(
             codeBlock(), stubInfo, JITType::DFGJIT, codeOrigin, callSite, isDirect ? (ecmaMode.isStrict() ? AccessType::PutByValDirectStrict : AccessType::PutByValDirectSloppy) : (ecmaMode.isStrict() ? AccessType::PutByValStrict : AccessType::PutByValSloppy), usedRegisters,
-            baseRegs, propertyRegs, valueRegs, InvalidGPRReg, stubInfoGPR, ecmaMode);
+            baseRegs, propertyRegs, valueRegs, InvalidGPRReg, stubInfoGPR);
 
         std::visit([&](auto* stubInfo) {
             if (m_state.forNode(child2).isType(SpecString))
@@ -4654,7 +4654,7 @@ void SpeculativeJIT::compilePutPrivateName(Node* node)
     auto [ stubInfo, stubInfoConstant ] = addStructureStubInfo();
     JITPutByValGenerator gen(
         codeBlock(), stubInfo, JITType::DFGJIT, codeOrigin, callSite, node->privateFieldPutKind().isDefine() ? AccessType::DefinePrivateNameByVal : AccessType::SetPrivateNameByVal, usedRegisters,
-        JSValueRegs::payloadOnly(baseGPR), JSValueRegs::payloadOnly(propertyGPR), valueRegs, InvalidGPRReg, stubInfoGPR, ECMAMode::sloppy());
+        JSValueRegs::payloadOnly(baseGPR), JSValueRegs::payloadOnly(propertyGPR), valueRegs, InvalidGPRReg, stubInfoGPR);
 
     std::visit([&](auto* stubInfo) {
         stubInfo->propertyIsSymbol = true;
@@ -4706,7 +4706,7 @@ void SpeculativeJIT::compilePutPrivateNameById(Node* node)
 
     // We emit property check during DFG generation, so we don't need
     // to check it here.
-    cachedPutById(node, node->origin.semantic, baseGPR, valueRegs, stubInfoGPR, scratchGPR, scratch2GPR, node->cacheableIdentifier(), node->privateFieldPutKind().isDefine() ? AccessType::DefinePrivateNameById : AccessType::SetPrivateNameById, ECMAMode::strict());
+    cachedPutById(node, node->origin.semantic, baseGPR, valueRegs, stubInfoGPR, scratchGPR, scratch2GPR, node->cacheableIdentifier(), node->privateFieldPutKind().isDefine() ? AccessType::DefinePrivateNameById : AccessType::SetPrivateNameById);
 
     noResult(node);
 }
@@ -11622,6 +11622,39 @@ void SpeculativeJIT::compileToStringOrCallStringConstructorOrStringValueOf(Node*
         return;
     }
 
+    case StringOrOtherUse: {
+        JSValueOperand arg(this, node->child1(), ManualOperandSpeculation);
+        GPRTemporary result(this);
+
+        JSValueRegs argRegs = arg.jsValueRegs();
+        GPRReg resultGPR = result.gpr();
+
+        Edge& edge = node->child1();
+        JumpList doneCases;
+
+        auto notCell = branchIfNotCell(argRegs);
+        GPRReg cell = argRegs.payloadGPR();
+        DFG_TYPE_CHECK(argRegs, edge, (~SpecCellCheck) | SpecString, branchIfNotString(cell));
+        move(cell, resultGPR);
+        doneCases.append(jump());
+
+        notCell.link(this);
+        auto isUndefined = branchIfUndefined(argRegs);
+        auto isNull = branchIfNull(argRegs);
+        DFG_TYPE_CHECK(argRegs, edge, SpecCellCheck | SpecOther, jump());
+
+        isUndefined.link(this);
+        loadLinkableConstant(LinkableConstant(*this, vm().smallStrings.undefinedString()), resultGPR);
+        doneCases.append(jump());
+
+        isNull.link(this);
+        loadLinkableConstant(LinkableConstant(*this, vm().smallStrings.nullString()), resultGPR);
+
+        doneCases.link(this);
+        cellResult(resultGPR, node);
+        return;
+    }
+
     case KnownPrimitiveUse:
     case UntypedUse: {
         JSValueOperand op1(this, node->child1(), ManualOperandSpeculation);
@@ -14114,7 +14147,7 @@ void SpeculativeJIT::compileLazyJSConstant(Node* node)
 {
     JSValueRegsTemporary result(this);
     JSValueRegs resultRegs = result.regs();
-    node->lazyJSValue().emit(*this, resultRegs);
+    node->lazyJSValue().emit(*this, resultRegs, m_graph.m_plan);
     jsValueResult(resultRegs, node);
 }
 
@@ -14823,7 +14856,7 @@ void SpeculativeJIT::compilePutByIdFlush(Node* node)
     GPRReg scratchGPR = scratch.gpr();
     flushRegisters();
 
-    cachedPutById(node, node->origin.semantic, baseGPR, valueRegs, stubInfoGPR, scratchGPR, scratch2GPR, node->cacheableIdentifier(), node->ecmaMode().isStrict() ? AccessType::PutByIdStrict : AccessType::PutByIdSloppy, node->ecmaMode(), Jump(), DontSpill);
+    cachedPutById(node, node->origin.semantic, baseGPR, valueRegs, stubInfoGPR, scratchGPR, scratch2GPR, node->cacheableIdentifier(), node->ecmaMode().isStrict() ? AccessType::PutByIdStrict : AccessType::PutByIdSloppy, Jump(), DontSpill);
 
     noResult(node);
 }
@@ -14848,7 +14881,7 @@ void SpeculativeJIT::compilePutById(Node* node)
     JSValueRegs valueRegs = value.jsValueRegs();
     GPRReg scratchGPR = scratch.gpr();
 
-    cachedPutById(node, node->origin.semantic, baseGPR, valueRegs, stubInfoGPR, scratchGPR, scratch2GPR, node->cacheableIdentifier(), node->ecmaMode().isStrict() ? AccessType::PutByIdStrict : AccessType::PutByIdSloppy, node->ecmaMode());
+    cachedPutById(node, node->origin.semantic, baseGPR, valueRegs, stubInfoGPR, scratchGPR, scratch2GPR, node->cacheableIdentifier(), node->ecmaMode().isStrict() ? AccessType::PutByIdStrict : AccessType::PutByIdSloppy);
 
     noResult(node);
 }
@@ -14873,7 +14906,7 @@ void SpeculativeJIT::compilePutByIdDirect(Node* node)
     JSValueRegs valueRegs = value.jsValueRegs();
     GPRReg scratchGPR = scratch.gpr();
 
-    cachedPutById(node, node->origin.semantic, baseGPR, valueRegs, stubInfoGPR, scratchGPR, scratch2GPR, node->cacheableIdentifier(), node->ecmaMode().isStrict() ? AccessType::PutByIdDirectStrict : AccessType::PutByIdDirectSloppy, node->ecmaMode());
+    cachedPutById(node, node->origin.semantic, baseGPR, valueRegs, stubInfoGPR, scratchGPR, scratch2GPR, node->cacheableIdentifier(), node->ecmaMode().isStrict() ? AccessType::PutByIdDirectStrict : AccessType::PutByIdDirectSloppy);
 
     noResult(node);
 }
@@ -16676,7 +16709,7 @@ void SpeculativeJIT::compileProfileType(Node* node)
     noResult(node);
 }
 
-void SpeculativeJIT::cachedPutById(Node* node, CodeOrigin codeOrigin, GPRReg baseGPR, JSValueRegs valueRegs, GPRReg stubInfoGPR, GPRReg scratchGPR, GPRReg scratch2GPR, CacheableIdentifier identifier, AccessType accessType, ECMAMode ecmaMode, Jump slowPathTarget, SpillRegistersMode spillMode)
+void SpeculativeJIT::cachedPutById(Node* node, CodeOrigin codeOrigin, GPRReg baseGPR, JSValueRegs valueRegs, GPRReg stubInfoGPR, GPRReg scratchGPR, GPRReg scratch2GPR, CacheableIdentifier identifier, AccessType accessType, Jump slowPathTarget, SpillRegistersMode spillMode)
 {
     RegisterSetBuilder usedRegisters = this->usedRegisters();
     if (spillMode == DontSpill) {
@@ -16695,7 +16728,7 @@ void SpeculativeJIT::cachedPutById(Node* node, CodeOrigin codeOrigin, GPRReg bas
     JITPutByIdGenerator gen(
         codeBlock(), stubInfo, JITType::DFGJIT, codeOrigin, callSite, usedRegisters, identifier,
         JSValueRegs::payloadOnly(baseGPR), valueRegs, stubInfoGPR,
-        scratchGPR, ecmaMode, accessType);
+        scratchGPR, accessType);
 
     JumpList slowCases;
     if (slowPathTarget.isSet())

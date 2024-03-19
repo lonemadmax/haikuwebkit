@@ -177,6 +177,7 @@ fast/canvas/canvas-drawImage-hdr-video.html [ Skip ] # Timeout
 fast/events/media-focus-in-standalone-media-document.html [ Skip ]
 http/tests/canvas/webgl/origin-clean-conformance.html [ Skip ] # Timeout
 http/tests/navigation/page-cache-video.html [ Skip ] # Timeout
+http/tests/security/mixedContent/insecure-audio-video-in-main-frame-UpgradeMixedContent.html [ Skip ]
 imported/w3c/web-platform-tests/css/selectors/invalidation/media-pseudo-classes-in-has.html [ Skip ]
 imported/w3c/web-platform-tests/css/selectors/media [ Skip ]
 media/audio-data-url.html [ Skip ]
@@ -238,8 +239,12 @@ fast/events/drag-dataTransferItemList-file-handling.html [ Skip ]
 # Drag and drop isn't supported yet, and GDI resource leaks <webkit.org/b/264999>
 editing/selection/drag-text-delay.html [ Skip ]
 editing/selection/drag-to-contenteditable-iframe.html [ Skip ]
+fast/css/user-drag-none.html [ Skip ]
 fast/events/before-input-events-prevent-drag-and-drop.html [ Skip ]
+fast/events/bogus-dropEffect-effectAllowed.html [ Skip ]
 fast/events/clear-drag-state.html [ Skip ]
+fast/events/content-changed-during-drop.html [ Skip ]
+fast/events/crash-on-mutate-during-drop.html [ Skip ]
 fast/events/drag-and-drop-autoscroll-inner-frame.html [ Skip ]
 fast/events/drag-and-drop-autoscroll.html [ Skip ]
 fast/events/drag-and-drop-dataTransfer-types-nocrash.html [ Skip ]
@@ -266,9 +271,13 @@ fast/events/drop-with-file-paths.html [ Skip ]
 fast/events/dropzone-001.html [ Skip ]
 fast/events/dropzone-002.html [ Skip ]
 fast/events/dropzone-003.html [ Skip ]
+fast/events/dropzone-004.html [ Skip ]
+fast/events/dropzone-005.html [ Skip ]
 fast/events/input-events-drag-and-drop.html [ Skip ]
+fast/events/input-events-insert-by-drop.html [ Skip ]
 fast/events/ondragenter.html [ Skip ]
 fast/events/ondrop-text-html.html [ Skip ]
+fast/events/only-valid-drop-targets-receive-file-drop.html [ Skip ]
 fast/events/remove-target-with-shadow-in-drag.html [ Skip ]
 fast/events/selectstart-by-drag.html [ Skip ]
 fast/events/setDragImage-in-document-element-crash.html [ Skip ]
@@ -719,6 +728,9 @@ webkit.org/b/219225 http/tests/inspector/dom/disconnect-dom-tree-after-main-fram
 # fullscreen isn't supported yet
 http/tests/inspector/dom/didFireEvent.html [ Skip ]
 
+# Libwebrtc log test
+http/tests/inspector/gatherWebInspectorRTCLogs.html [ Skip ]
+
 http/tests/inspector/network/eventsource-type.html [ Failure ]
 http/tests/inspector/network/fetch-response-body.html [ Failure ]
 http/tests/inspector/network/har/har-page-aggressive-gc.html [ Failure ]
@@ -774,6 +786,9 @@ http/tests/navigation/postredirect-basic.html [ Skip ] # Missing
 http/tests/navigation/postredirect-goback1.html [ Skip ] # Missing
 http/tests/navigation/page-cache-mediastream.html [ Skip ] # Timeout
 
+webkit.org/b/269223 http/tests/navigation/ping-attribute/area-cross-origin-from-https-UpgradeMixedContent.html [ Pass Failure ]
+webkit.org/b/269223 http/tests/navigation/ping-attribute/area-cross-origin-from-https.html [ Pass Failure ]
+
 http/tests/notifications [ Skip ]
 http/tests/paymentrequest [ Skip ]
 http/tests/pointer-lock [ Skip ]
@@ -807,7 +822,10 @@ http/tests/resourceLoadStatistics/omit-document-referrer-third-party-iframe-ephe
 http/tests/resourceLoadStatistics/omit-referrer-for-navigation-ephemeral.html [ Failure ]
 http/tests/resourceLoadStatistics/switch-session-on-navigation-to-prevalent-with-interaction.py [ Failure ]
 
-http/tests/resourceLoadStatistics/website-data-removal-for-site-navigated-to-with-link-decoration.html [ Failure ]
+http/tests/resourceLoadStatistics/website-data-removal-for-site-navigated-to-with-filtered-link-decoration-after-long-deletion.html [ Failure ]
+http/tests/resourceLoadStatistics/website-data-removal-for-site-navigated-to-with-unfiltered-link-decoration-after-short-deletion.html [ Failure ]
+http/tests/resourceLoadStatistics/website-data-removal-for-site-navigated-to-without-link-decoration.html [ Failure ]
+
 http/tests/resourceLoadStatistics/website-data-removal-for-site-without-user-interaction.html [ Failure ]
 
 http/tests/security/XFrameOptions/x-frame-options-deny.html [ Skip ] # Failure
@@ -879,6 +897,7 @@ http/tests/subresource-integrity [ Skip ]
 http/tests/webarchive [ Skip ]
 http/tests/webcodecs [ Skip ]
 http/tests/webgpu [ Skip ]
+fast/webgpu [ Skip ]
 http/tests/webrtc [ Skip ]
 http/tests/webshare [ Skip ]
 
@@ -1177,6 +1196,8 @@ editing/selection/regional-indicators.html [ Skip ]
 ###### Command enabling
 webkit.org/b/101539 editing/execCommand/switch-list-type-with-orphaned-li.html [ Failure ]
 
+webkit.org/b/239345 editing/execCommand/insert-ordered-list-and-delete.html [ Failure Pass ]
+
 ###### Inserting
 # Windows does not implement setAutomaticLinkDetectionEnabled
 editing/inserting/typing-space-to-trigger-smart-link.html [ Failure ]
@@ -1324,7 +1345,6 @@ fast/forms/baseline-of-number-inputs.html [ Skip ]
 fast/forms/basic-buttons.html [ Skip ]
 fast/forms/basic-inputs.html [ Skip ]
 fast/forms/basic-selects.html [ Skip ]
-fast/forms/basic-textareas-quirks-simple-lines.html [ Skip ]
 fast/forms/basic-textareas-quirks.html [ Skip ]
 fast/forms/basic-textareas.html [ Skip ]
 fast/forms/blankbuttons.html [ Skip ]
@@ -1418,7 +1438,6 @@ fast/forms/input-type-text-min-width.html [ Skip ]
 fast/forms/input-user-input-sanitization.html [ Skip ]
 fast/forms/input-value.html [ Skip ]
 fast/forms/input-width.html [ Skip ]
-fast/forms/linebox-overflow-in-textarea-padding-simple-lines.html [ Skip ]
 fast/forms/linebox-overflow-in-textarea-padding.html [ Skip ]
 fast/forms/listbox-bidi-align.html [ Skip ]
 fast/forms/listbox-deselect-scroll.html [ Skip ]
@@ -1426,6 +1445,7 @@ fast/forms/listbox-hit-test-zoomed.html [ Skip ]
 fast/forms/listbox-onchange.html [ Skip ]
 fast/forms/listbox-padding-clip-selected.html [ Skip ]
 fast/forms/listbox-scrollbar-incremental-load.html [ Skip ]
+fast/forms/listbox-scrollbar-dark-mode.html [ Skip ]
 fast/forms/listbox-selection.html [ Skip ]
 fast/forms/listbox-visible-size.html [ Skip ]
 fast/forms/listbox-width-change.html [ Skip ]
@@ -1627,6 +1647,7 @@ http/wpt/crypto [ Skip ]
 http/wpt/css/css-highlight-api [ Skip ]
 http/wpt/entries-api [ Skip ]
 http/wpt/geometry [ Skip ]
+http/wpt/identity [ Skip ]
 
 http/wpt/loading/redirect-headers.html [ Skip ] # Failure
 
@@ -1719,6 +1740,7 @@ imported/w3c/web-platform-tests/css/css-typed-om [ Skip ]
 imported/w3c/web-platform-tests/css/css-ui [ Skip ]
 imported/w3c/web-platform-tests/css/css-values [ Skip ]
 imported/w3c/web-platform-tests/css/css-variables [ Skip ]
+imported/w3c/web-platform-tests/css/css-view-transitions [ Skip ]
 imported/w3c/web-platform-tests/css/css-will-change [ Skip ]
 imported/w3c/web-platform-tests/css/css-writing-modes [ Skip ]
 imported/w3c/web-platform-tests/css/filter-effects [ Skip ]
@@ -1937,14 +1959,11 @@ fast/events/clientXY-in-zoom-and-scroll.html [ Failure ]
 fast/events/context-activated-by-key-event.html [ Failure ]
 fast/events/dblclick-event-getModifierState.html [ Failure ]
 fast/events/domactivate-sets-underlying-click-event-as-handled.html [ Skip ] # File Upload Test
-fast/events/dropzone-004.html [ Failure ]
-fast/events/dropzone-005.html [ Failure ]
 fast/events/fire-mousedown-while-pressing-mouse-button.html [ Failure ]
 fast/events/frame-tab-focus.html [ Failure ]
 fast/events/ime-composition-events-001.html [ Failure ]
 fast/events/ime-compositionend-on-selection-change.html [ Failure ]
 fast/events/input-event-insert-replacement.html [ Skip ] # UIScript
-fast/events/input-events-insert-by-drop.html [ Failure ]
 fast/events/key-events-in-input-button.html [ Failure ]
 fast/events/keyboardevent-code.html [ Failure ]
 fast/events/keydown-numpad-keys.html [ Failure ]
@@ -2420,7 +2439,6 @@ css3/filters/backdrop/resource-use-remove-some-layers.html [ Failure ]
 css3/filters/composited-during-animation-layertree.html [ Failure ]
 css3/filters/backdrop/backdrop-filter-with-border-radius-and-reflection-add.html [ ImageOnlyFailure ]
 css3/filters/backdrop/backdrop-filter-with-border-radius-and-reflection.html [ ImageOnlyFailure ]
-css3/filters/reference-filter-color-space.html [ ImageOnlyFailure ]
 
 fast/transforms/rotated-transform-affects-scrolling-1.html [ Failure ]
 fast/transforms/rotated-transform-affects-scrolling-2.html [ Failure ]
@@ -2472,9 +2490,6 @@ fast/dom/Window/window-focus-self.html [ Failure ]
 fast/dom/Window/window-resize-and-move-arguments.html [ Failure ]
 fast/dom/Window/window-resize.html [ Failure ]
 fast/events/5056619.html [ Failure ]
-fast/events/bogus-dropEffect-effectAllowed.html [ Failure ]
-fast/events/content-changed-during-drop.html [ Failure ]
-fast/events/crash-on-mutate-during-drop.html [ Failure ]
 fast/events/keydown-leftright-keys.html [ Failure ]
 fast/events/mouse-cursor-change.html [ Failure ]
 fast/events/mouse-cursor-image-set.html [ Failure ]
@@ -2502,7 +2517,6 @@ fast/css-generated-content/initial-letter-pagination-sunken-rl.html [ Skip ] # I
 fast/css-generated-content/initial-letter-pagination-sunken.html [ ImageOnlyFailure ]
 fast/css/sticky/sticky-top-zoomed.html [ ImageOnlyFailure ]
 fast/text/international/bdo-bidi-width.html [ ImageOnlyFailure ]
-fast/text/simple-line-wordspacing.html [ ImageOnlyFailure ]
 fast/text/user-installed-canvas.html [ ImageOnlyFailure ]
 
 fast/css/accent-color/checkbox.html [ Pass ]
@@ -2510,12 +2524,6 @@ fast/css/accent-color/progress.html [ Pass ]
 fast/css/accent-color/radio.html [ Pass ]
 fast/css/accent-color/range.html [ Pass ]
 fast/css/accent-color/text.html [ Pass ]
-
-webkit.org/b/239550 fast/text/simple-line-hyphens-with-text-align.html [ Pass ]
-webkit.org/b/239550 fast/text/simple-line-layout-hyphen-limit-after.html [ Pass ]
-webkit.org/b/239550 fast/text/simple-line-layout-hyphen-limit-before.html [ Pass ]
-
-fast/events/only-valid-drop-targets-receive-file-drop.html [ Skip ] # Timeout
 
 fast/events/wheel/wheel-event-destroys-frame.html [ Skip ] # Timeout
 fast/text/install-font-style-recalc.html [ Skip ] # Timeout
@@ -2545,7 +2553,6 @@ fast/text/backslash-to-yen-sign.html [ Pass Failure ]
 
 fast/text/all-small-caps-whitespace.html [ ImageOnlyFailure ]
 fast/text/isolate-ignore.html [ ImageOnlyFailure ]
-fast/text/multiple-renderers-with-hypen-on-boundary.html [ ImageOnlyFailure ]
 fast/text/whitespace/inline-whitespace-wrapping-8.html [ ImageOnlyFailure ]
 
 # Depends on the system fonts
@@ -2644,7 +2651,6 @@ fast/text/font-face-fall-off-end.html [ ImageOnlyFailure ]
 fast/text/ipa-tone-letters.html [ Failure ]
 fast/text/newline-width.html [ ImageOnlyFailure ]
 fast/text/otsvg-spacing.html [ ImageOnlyFailure ]
-fast/text/simple-line-layout-fallback-space-glyph.html [ ImageOnlyFailure ]
 fast/text/simple-line-layout-line-box-contain-glyphs.html [ ImageOnlyFailure ]
 fast/text/tab-stops-with-offset-from-parent.html [ ImageOnlyFailure ]
 fast/text/word-break-keep-all-with-zero-width-space.html [ ImageOnlyFailure ]
@@ -2683,13 +2689,6 @@ webkit.org/b/226299 http/tests/performance/performance-resource-timing-resourcet
 webkit.org/b/222563 http/tests/loading/basic-auth-load-URL-with-consecutive-slashes.html [ Pass Failure ]
 
 webkit.org/b/265213 fast/dom/Range/detach-range-during-deletecontents.html [ Skip ] # Timeout
-
-imported/w3c/web-platform-tests/css/css-view-transitions/view-transition-name-is-backdrop-filter-root.html [ Pass ]
-
-imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-right-of-viewport-partially-onscreen-new.html [ Pass ]
-imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-right-of-viewport-partially-onscreen-old.html [ Pass ]
-imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-below-viewport-partially-onscreen-new.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-below-viewport-partially-onscreen-old.html [ ImageOnlyFailure ]
 
 webkit.org/b/266204 [ Debug ] imported/w3c/web-platform-tests/scroll-animations/css/animation-inactive-outside-range-test.html [ Skip ] # Crash
 webkit.org/b/266204 [ Debug ] imported/w3c/web-platform-tests/scroll-animations/css/animation-fill-outside-range-test.html [ Skip ] # Crash
@@ -2735,12 +2734,26 @@ webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-report-only.html [ Skip ]
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-no-unsafe-eval.html [ Skip ]
 
+webkit.org/b/269011 imported/w3c/web-platform-tests/trusted-types/worker-constructor.https.html [ Skip ] # Makes a subsequent test flaky crash
+
 # testRunner.dontForceRepaint
 compositing/repaint/copy-forward-dirty-region-purged-backbuffer.html [ Skip ]
 compositing/repaint/copy-forward-dirty-region-purged.html [ Skip ]
 compositing/repaint/copy-forward-dirty-region.html [ Skip ]
 
-css1/units/rounding.html [ Failure ]
-
 # Failing with non-English keyboard
 webkit.org/b/267251 imported/w3c/web-platform-tests/css/selectors/invalidation/user-valid-user-invalid.html [ Failure Pass ]
+
+webkit.org/b/124566 fast/dom/SelectorAPI/resig-SelectorsAPI-test.xhtml [ Skip ] # Timeout
+
+imported/w3c/web-platform-tests/scroll-animations/css/view-timeline-inset-animation.html [ Pass Failure ]
+imported/w3c/web-platform-tests/scroll-animations/css/view-timeline-lookup.html [ Pass Failure ]
+
+fast/text/simple-line-hyphens-with-text-align.html [ ImageOnlyFailure ]
+fast/text/simple-line-layout-hyphen-limit-after.html [ ImageOnlyFailure ]
+fast/text/simple-line-layout-hyphen-limit-before.html [ ImageOnlyFailure ]
+fast/text/simple-line-layout-hyphen-limit-lines.html [ ImageOnlyFailure ]
+
+# Failure only on Buildbot
+fast/text/justify-ideograph-leading-expansion.html [ Pass Failure ]
+fast/text/tatechuyoko.html [ Pass Failure ]

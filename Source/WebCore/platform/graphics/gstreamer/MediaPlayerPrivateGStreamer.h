@@ -48,6 +48,7 @@
 #include <wtf/OptionSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RunLoop.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/AtomStringHash.h>
 
@@ -110,8 +111,7 @@ void registerWebKitGStreamerElements();
 // Use eager initialization for the WeakPtrFactory since we construct WeakPtrs on another thread.
 class MediaPlayerPrivateGStreamer
     : public MediaPlayerPrivateInterface
-    , public CanMakeWeakPtr<MediaPlayerPrivateGStreamer, WeakPtrFactoryInitialization::Eager>
-    , public RefCounted<MediaPlayerPrivateGStreamer>
+    , public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaPlayerPrivateGStreamer, WTF::DestructionThread::Main>
 #if !RELEASE_LOG_DISABLED
     , private LoggerHelper
 #endif
@@ -128,8 +128,8 @@ public:
     MediaPlayerPrivateGStreamer(MediaPlayer*);
     virtual ~MediaPlayerPrivateGStreamer();
 
-    void ref() final { RefCounted::ref(); }
-    void deref() final { RefCounted::deref(); }
+    void ref() final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::ref(); }
+    void deref() final { ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr::deref(); }
 
     static void registerMediaEngine(MediaEngineRegistrar);
     static bool supportsKeySystem(const String& keySystem, const String& mimeType);
@@ -164,18 +164,11 @@ public:
     void setPageIsVisible(bool visible, String&&) final { m_visible = visible; }
     void setVisibleInViewport(bool isVisible) final;
     void setPresentationSize(const IntSize&) final;
-    // Prefer MediaTime based methods over float based.
-    float duration() const final { return durationMediaTime().toFloat(); }
-    double durationDouble() const final { return durationMediaTime().toDouble(); }
-    MediaTime durationMediaTime() const override;
-    float currentTime() const final { return currentMediaTime().toFloat(); }
-    double currentTimeDouble() const final { return currentMediaTime().toDouble(); }
-    MediaTime currentMediaTime() const override;
+    MediaTime duration() const override;
+    MediaTime currentTime() const override;
     const PlatformTimeRanges& buffered() const override;
-    float maxTimeSeekable() const final { return maxMediaTimeSeekable().toFloat(); }
-    MediaTime maxMediaTimeSeekable() const override;
-    double minTimeSeekable() const final { return minMediaTimeSeekable().toFloat(); }
-    MediaTime minMediaTimeSeekable() const final { return MediaTime::zeroTime(); }
+    MediaTime maxTimeSeekable() const override;
+    MediaTime minTimeSeekable() const final { return MediaTime::zeroTime(); }
     bool didLoadingProgress() const final;
     unsigned long long totalBytes() const final;
     std::optional<bool> isCrossOrigin(const SecurityOrigin&) const final;
@@ -192,7 +185,7 @@ public:
     unsigned decodedFrameCount() const final;
     unsigned droppedFrameCount() const final;
     void acceleratedRenderingStateChanged() final;
-    bool performTaskAtMediaTime(Function<void()>&&, const MediaTime&) override;
+    bool performTaskAtTime(Function<void()>&&, const MediaTime&) override;
     void isLoopingChanged() final;
 
 #if USE(TEXTURE_MAPPER)

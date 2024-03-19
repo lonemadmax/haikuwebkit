@@ -36,6 +36,7 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/HashSet.h>
 #include <wtf/Ref.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
 #if HAVE(IOSURFACE)
@@ -76,7 +77,7 @@ class Surface;
 class Texture;
 struct TextureDescriptor;
 
-class Device : public RefCounted<Device> {
+class Device : public RefCounted<Device>, public CanMakeWeakPtr<Device> {
 public:
     virtual ~Device() = default;
 
@@ -118,7 +119,8 @@ public:
     virtual Ref<QuerySet> createQuerySet(const QuerySetDescriptor&) = 0;
 
     virtual void pushErrorScope(ErrorFilter) = 0;
-    virtual void popErrorScope(CompletionHandler<void(std::optional<Error>&&)>&&) = 0;
+    virtual void popErrorScope(CompletionHandler<void(bool, std::optional<Error>&&)>&&) = 0;
+    virtual void resolveUncapturedErrorEvent(CompletionHandler<void(bool, std::optional<Error>&&)>&&) = 0;
     virtual void resolveDeviceLostPromise(CompletionHandler<void(WebCore::WebGPU::DeviceLostReason)>&&) = 0;
     class DeviceLostClient {
         virtual ~DeviceLostClient() = default;

@@ -152,6 +152,7 @@ static std::optional<Vector<Ref<AuthenticatorAssertionResponse>>> getExistingCre
         (id)kSecClass: (id)kSecClassKey,
         (id)kSecAttrKeyClass: (id)kSecAttrKeyClassPrivate,
         (id)kSecAttrSynchronizable: (id)kSecAttrSynchronizableAny,
+        (id)kSecAttrAccessGroup: @(LocalAuthenticatorAccessGroup),
         (id)kSecAttrLabel: rpId,
         (id)kSecReturnAttributes: @YES,
         (id)kSecMatchLimit: (id)kSecMatchLimitAll,
@@ -754,7 +755,7 @@ void LocalAuthenticator::continueGetAssertionAfterUserVerification(Ref<WebCore::
     };
 
     NSDictionary *updateParams = @{
-        (id)kSecAttrLabel: requestOptions.rpId,
+        (id)kSecAttrApplicationLabel: nsCredentialId.get(),
     };
     auto status = SecItemUpdate((__bridge CFDictionaryRef)query, (__bridge CFDictionaryRef)updateParams);
     if (status)

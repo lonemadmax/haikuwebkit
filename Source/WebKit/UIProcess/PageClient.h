@@ -25,7 +25,6 @@
 
 #pragma once
 
-#include "DataReference.h"
 #include "IdentifierTypes.h"
 #include "LayerTreeContext.h"
 #include "PDFPluginIdentifier.h"
@@ -43,6 +42,7 @@
 #include <WebCore/DragActions.h>
 #include <WebCore/EditorClient.h>
 #include <WebCore/FocusDirection.h>
+#include <WebCore/FrameIdentifier.h>
 #include <WebCore/InputMode.h>
 #include <WebCore/MediaControlsContextMenuItem.h>
 #include <WebCore/ScrollTypes.h>
@@ -216,6 +216,9 @@ class PageClient : public CanMakeWeakPtr<PageClient> {
 public:
     virtual ~PageClient() { }
 
+    void ref() { refView(); }
+    void deref() { derefView(); }
+
     // Create a new drawing area proxy for the given page.
     virtual std::unique_ptr<DrawingAreaProxy> createDrawingAreaProxy(WebProcessProxy&) = 0;
 
@@ -316,7 +319,7 @@ public:
     virtual void executeUndoRedo(UndoOrRedo) = 0;
     virtual void wheelEventWasNotHandledByWebCore(const NativeWebWheelEvent&) = 0;
 #if PLATFORM(COCOA)
-    virtual void accessibilityWebProcessTokenReceived(const IPC::DataReference&) = 0;
+    virtual void accessibilityWebProcessTokenReceived(std::span<const uint8_t>, WebCore::FrameIdentifier, pid_t) = 0;
     virtual bool executeSavedCommandBySelector(const String& selector) = 0;
     virtual void updateSecureInputState() = 0;
     virtual void resetSecureInputState() = 0;
@@ -372,6 +375,9 @@ public:
 #if ENABLE(GPU_PROCESS)
     virtual void didCreateContextInGPUProcessForVisibilityPropagation(LayerHostingContextID) { }
 #endif
+#if ENABLE(MODEL_PROCESS)
+    virtual void didCreateContextInModelProcessForVisibilityPropagation(LayerHostingContextID) { }
+#endif
 #if USE(EXTENSIONKIT)
     virtual UIView *createVisibilityPropagationView() { return nullptr; }
 #endif
@@ -380,6 +386,11 @@ public:
 #if ENABLE(GPU_PROCESS)
     virtual void gpuProcessDidFinishLaunching() { }
     virtual void gpuProcessDidExit() { }
+#endif
+
+#if ENABLE(MODEL_PROCESS)
+    virtual void modelProcessDidFinishLaunching() { }
+    virtual void modelProcessDidExit() { }
 #endif
 
     virtual void doneWithKeyEvent(const NativeWebKeyboardEvent&, bool wasEventHandled) = 0;
@@ -554,7 +565,7 @@ public:
 #endif
 
     // Custom representations.
-    virtual void didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, const IPC::DataReference&) = 0;
+    virtual void didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, std::span<const uint8_t>) = 0;
 
     virtual void navigationGestureDidBegin() = 0;
     virtual void navigationGestureWillEnd(bool willNavigate, WebBackForwardListItem&) = 0;
@@ -683,6 +694,10 @@ public:
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
     virtual bool canHandleContextMenuTranslation() const = 0;
     virtual void handleContextMenuTranslation(const WebCore::TranslationContextMenuInfo&) = 0;
+#endif
+
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT) && ENABLE(CONTEXT_MENUS)
+    virtual void handleContextMenuSwapCharacters(WebCore::IntRect selectionBoundsInRootView) = 0;
 #endif
 
 #if ENABLE(DATA_DETECTION)

@@ -37,6 +37,7 @@
 #import "WebExtensionAPINamespace.h"
 #import "WebExtensionContextMessages.h"
 #import "WebExtensionContextProxyMessages.h"
+#import "WebExtensionControllerProxy.h"
 #import "WebProcess.h"
 #import "_WKWebExtensionLocalization.h"
 #import <wtf/HashMap.h>
@@ -70,15 +71,15 @@ WebExtensionContextProxy::~WebExtensionContextProxy()
     WebProcess::singleton().removeMessageReceiver(*this);
 }
 
-Ref<WebExtensionContextProxy> WebExtensionContextProxy::getOrCreate(const WebExtensionContextParameters& parameters, WebPage* newPage)
+Ref<WebExtensionContextProxy> WebExtensionContextProxy::getOrCreate(const WebExtensionContextParameters& parameters, WebExtensionControllerProxy& extensionControllerProxy, WebPage* newPage)
 {
     auto updateProperties = [&](WebExtensionContextProxy& context) {
+        context.m_extensionControllerProxy = extensionControllerProxy;
         context.m_baseURL = parameters.baseURL;
         context.m_uniqueIdentifier = parameters.uniqueIdentifier;
         context.m_localization = parseLocalization(parameters.localizationJSON.get(), parameters.baseURL);
         context.m_manifest = parseJSON(parameters.manifestJSON.get());
         context.m_manifestVersion = parameters.manifestVersion;
-        context.m_testingMode = parameters.testingMode;
         context.m_isSessionStorageAllowedInContentScripts = parameters.isSessionStorageAllowedInContentScripts;
 
         if (parameters.backgroundPageIdentifier) {
@@ -88,27 +89,32 @@ Ref<WebExtensionContextProxy> WebExtensionContextProxy::getOrCreate(const WebExt
                 context.setBackgroundPage(*page);
         }
 
-        for (auto& identifierTuple : parameters.popupPageIdentifiers) {
-            auto& pageIdentifier = std::get<WebCore::PageIdentifier>(identifierTuple);
-            auto& tabIdentifier = std::get<std::optional<WebExtensionTabIdentifier>>(identifierTuple);
-            auto& windowIdentifier = std::get<std::optional<WebExtensionWindowIdentifier>>(identifierTuple);
+        auto processPageIdentifiers = [&context, &newPage](auto& identifiers, auto addPage) {
+            for (auto& identifierTuple : identifiers) {
+                auto& pageIdentifier = std::get<WebCore::PageIdentifier>(identifierTuple);
+                auto& tabIdentifier = std::get<std::optional<WebExtensionTabIdentifier>>(identifierTuple);
+                auto& windowIdentifier = std::get<std::optional<WebExtensionWindowIdentifier>>(identifierTuple);
 
-            if (newPage && pageIdentifier == newPage->identifier())
-                context.addPopupPage(*newPage, tabIdentifier, windowIdentifier);
-            else if (RefPtr page = WebProcess::singleton().webPage(pageIdentifier))
-                context.addPopupPage(*page, tabIdentifier, windowIdentifier);
-        }
+                if (newPage && pageIdentifier == newPage->identifier())
+                    addPage(context, *newPage, tabIdentifier, windowIdentifier);
+                else if (RefPtr<WebPage> page = WebProcess::singleton().webPage(pageIdentifier))
+                    addPage(context, *page, tabIdentifier, windowIdentifier);
+            }
+        };
 
-        for (auto& identifierTuple : parameters.tabPageIdentifiers) {
-            auto& pageIdentifier = std::get<WebCore::PageIdentifier>(identifierTuple);
-            auto& tabIdentifier = std::get<std::optional<WebExtensionTabIdentifier>>(identifierTuple);
-            auto& windowIdentifier = std::get<std::optional<WebExtensionWindowIdentifier>>(identifierTuple);
+#if ENABLE(INSPECTOR_EXTENSIONS)
+        processPageIdentifiers(parameters.inspectorBackgroundPageIdentifiers, [](auto& context, auto& page, auto& tabIdentifier, auto& windowIdentifier) {
+            context.addInspectorBackgroundPage(page, tabIdentifier, windowIdentifier);
+        });
+#endif
 
-            if (newPage && pageIdentifier == newPage->identifier())
-                context.addTabPage(*newPage, tabIdentifier, windowIdentifier);
-            else if (RefPtr page = WebProcess::singleton().webPage(pageIdentifier))
-                context.addTabPage(*page, tabIdentifier, windowIdentifier);
-        }
+        processPageIdentifiers(parameters.popupPageIdentifiers, [](auto& context, auto& page, auto& tabIdentifier, auto& windowIdentifier) {
+            context.addPopupPage(page, tabIdentifier, windowIdentifier);
+        });
+
+        processPageIdentifiers(parameters.tabPageIdentifiers, [](auto& context, auto& page, auto& tabIdentifier, auto& windowIdentifier) {
+            context.addTabPage(page, tabIdentifier, windowIdentifier);
+        });
     };
 
     if (RefPtr context = get(parameters.identifier)) {
@@ -126,10 +132,14 @@ _WKWebExtensionLocalization *WebExtensionContextProxy::parseLocalization(API::Da
     return [[_WKWebExtensionLocalization alloc] initWithLocalizedDictionary:parseJSON(json) uniqueIdentifier:baseURL.host().toString()];
 }
 
-WebCore::DOMWrapperWorld& WebExtensionContextProxy::toDOMWorld(WebExtensionContentWorldType contentWorldType)
+WebCore::DOMWrapperWorld& WebExtensionContextProxy::toDOMWrapperWorld(WebExtensionContentWorldType contentWorldType)
 {
     switch (contentWorldType) {
     case WebExtensionContentWorldType::Main:
+    case WebExtensionContentWorldType::WebPage:
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    case WebExtensionContentWorldType::Inspector:
+#endif
         return mainWorld();
     case WebExtensionContentWorldType::ContentScript:
         return contentScriptWorld();

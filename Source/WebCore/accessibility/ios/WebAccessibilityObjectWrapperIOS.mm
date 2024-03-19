@@ -747,62 +747,54 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
     if (![self _prepareAccessibilityCall])
         return NO;
 
-    if (self.axBackingObject->roleValue() != AccessibilityRole::Video || !is<AccessibilityMediaObject>(self.axBackingObject))
+    if (self.axBackingObject->roleValue() != AccessibilityRole::Video)
         return NO;
 
     // Convey the video object as interactive if auto-play is not enabled.
-    return !downcast<AccessibilityMediaObject>(*self.axBackingObject).isAutoplayEnabled();
+    auto* mediaObject = dynamicDowncast<AccessibilityMediaObject>(self.axBackingObject);
+    return mediaObject && !mediaObject->isAutoplayEnabled();
 }
 
 - (NSString *)interactiveVideoDescription
 {
-    if (!is<AccessibilityMediaObject>(self.axBackingObject))
-        return nil;
-    return downcast<AccessibilityMediaObject>(self.axBackingObject)->interactiveVideoDuration();
+    auto* mediaObject = dynamicDowncast<AccessibilityMediaObject>(self.axBackingObject);
+    return mediaObject ? mediaObject->interactiveVideoDuration() : nullString();
 }
 
 - (BOOL)accessibilityIsMediaPlaying
 {
     if (![self _prepareAccessibilityCall])
         return NO;
-    
-    if (!is<AccessibilityMediaObject>(self.axBackingObject))
-        return NO;
-    
-    return downcast<AccessibilityMediaObject>(self.axBackingObject)->isPlaying();
+
+    auto* mediaObject = dynamicDowncast<AccessibilityMediaObject>(self.axBackingObject);
+    return mediaObject && mediaObject->isPlaying();
 }
 
 - (BOOL)accessibilityIsMediaMuted
 {
     if (![self _prepareAccessibilityCall])
         return NO;
-    
-    if (!is<AccessibilityMediaObject>(self.axBackingObject))
-        return NO;
-    
-    return downcast<AccessibilityMediaObject>(self.axBackingObject)->isMuted();
+
+    auto* mediaObject = dynamicDowncast<AccessibilityMediaObject>(self.axBackingObject);
+    return mediaObject && mediaObject->isMuted();
 }
 
 - (void)accessibilityToggleMuteForMedia
 {
     if (![self _prepareAccessibilityCall])
         return;
-    
-    if (!is<AccessibilityMediaObject>(self.axBackingObject))
-        return;
 
-    downcast<AccessibilityMediaObject>(self.axBackingObject)->toggleMute();
+    if (auto* mediaObject = dynamicDowncast<AccessibilityMediaObject>(self.axBackingObject))
+        mediaObject->toggleMute();
 }
 
 - (void)accessibilityVideoEnterFullscreen
 {
     if (![self _prepareAccessibilityCall])
         return;
-    
-    if (!is<AccessibilityMediaObject>(self.axBackingObject))
-        return;
-    
-    downcast<AccessibilityMediaObject>(self.axBackingObject)->enterFullscreen();
+
+    if (auto* mediaObject = dynamicDowncast<AccessibilityMediaObject>(self.axBackingObject))
+        mediaObject->enterFullscreen();
 }
 
 - (uint64_t)_accessibilityTextEntryTraits
@@ -1033,6 +1025,7 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
     case AccessibilityRole::Document:
     case AccessibilityRole::DocumentArticle:
     case AccessibilityRole::DocumentNote:
+    case AccessibilityRole::Emphasis:
     case AccessibilityRole::Feed:
     case AccessibilityRole::Figure:
     case AccessibilityRole::Footer:
@@ -1081,6 +1074,7 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
     case AccessibilityRole::ScrollBar:
     case AccessibilityRole::SpinButtonPart:
     case AccessibilityRole::Splitter:
+    case AccessibilityRole::Strong:
     case AccessibilityRole::Subscript:
     case AccessibilityRole::Suggestion:
     case AccessibilityRole::Superscript:
@@ -1112,6 +1106,7 @@ static AccessibilityObjectWrapper *ancestorWithRole(const AXCoreObject& descenda
     case AccessibilityRole::Ignored:
     case AccessibilityRole::LineBreak:
     case AccessibilityRole::Presentational:
+    case AccessibilityRole::RemoteFrame:
     case AccessibilityRole::Unknown:
         return false;
     }
@@ -1571,7 +1566,7 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
         return [NSString stringWithFormat:@"%.2f", backingObject->valueForRange()];
     }
 
-    if (is<AccessibilityAttachment>(backingObject.get()) && downcast<AccessibilityAttachment>(backingObject.get()).hasProgress())
+    if (auto* attachment = dynamicDowncast<AccessibilityAttachment>(backingObject.get()); attachment && attachment->hasProgress())
         return [NSString stringWithFormat:@"%.2f", backingObject->valueForRange()];
 
     return nil;
@@ -1701,7 +1696,8 @@ static void appendStringToResult(NSMutableString *result, NSString *string)
     if (![self _prepareAccessibilityCall])
         return;
 
-    self.axBackingObject->axObjectCache()->relayNotification({ notificationName }, notificationData);
+    if (auto* cache = self.axBackingObject->axObjectCache())
+        cache->relayNotification({ notificationName }, notificationData);
 }
 
 - (CGRect)_accessibilityRelativeFrame
@@ -2007,14 +2003,15 @@ static NSArray *accessibleElementsForObjects(const AXCoreObject::AccessibilityCh
 {
     if (![self _prepareAccessibilityCall])
         return NO;
+    RefPtr<AccessibilityObject> backingObject = self.axBackingObject;
 
-    if (self.axBackingObject->press())
+    if (backingObject->press())
         return true;
 
     // On iOS, only the static text within a <summary> is exposed, not the <summary> itself.
     // So if this activation was for <summary> text, we should toggle the expanded state of the containing <details>.
-    if (self.axBackingObject->isStaticText())
-        return self.axBackingObject->toggleDetailsAncestor();
+    if (backingObject->isStaticText())
+        return backingObject->toggleDetailsAncestor();
 
     return false;
 }
@@ -2752,6 +2749,9 @@ static RenderObject* rendererForView(WAKView* view)
 
 - (BOOL)accessibilityIsInNonNativeTextControl
 {
+    if (![self _prepareAccessibilityCall])
+        return NO;
+
     return !!Accessibility::findAncestor(*self.axBackingObject, true, [] (const auto& object) {
         return object.isNonNativeTextControl();
     });

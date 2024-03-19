@@ -155,7 +155,7 @@ static bool isRootFrame(const Frame& frame)
     return true;
 }
 
-LocalFrame::LocalFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& frameLoaderClient, FrameIdentifier identifier, HTMLFrameOwnerElement* ownerElement, Frame* parent)
+LocalFrame::LocalFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& frameLoaderClient, FrameIdentifier identifier, HTMLFrameOwnerElement* ownerElement, Frame* parent, Frame* opener)
     : Frame(page, identifier, FrameType::Local, ownerElement, parent)
     , m_loader(makeUniqueRef<FrameLoader>(*this, WTFMove(frameLoaderClient)))
     , m_script(makeUniqueRef<ScriptController>(*this))
@@ -180,6 +180,8 @@ LocalFrame::LocalFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& frameLoad
 
     if (isRootFrame())
         page.addRootFrame(*this);
+
+    setOpener(opener);
 }
 
 void LocalFrame::init()
@@ -187,19 +189,19 @@ void LocalFrame::init()
     checkedLoader()->init();
 }
 
-Ref<LocalFrame> LocalFrame::createMainFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& client, FrameIdentifier identifier)
+Ref<LocalFrame> LocalFrame::createMainFrame(Page& page, UniqueRef<LocalFrameLoaderClient>&& client, FrameIdentifier identifier, Frame* opener)
 {
-    return adoptRef(*new LocalFrame(page, WTFMove(client), identifier, nullptr, nullptr));
+    return adoptRef(*new LocalFrame(page, WTFMove(client), identifier, nullptr, nullptr, opener));
 }
 
 Ref<LocalFrame> LocalFrame::createSubframe(Page& page, UniqueRef<LocalFrameLoaderClient>&& client, FrameIdentifier identifier, HTMLFrameOwnerElement& ownerElement)
 {
-    return adoptRef(*new LocalFrame(page, WTFMove(client), identifier, &ownerElement, ownerElement.document().frame()));
+    return adoptRef(*new LocalFrame(page, WTFMove(client), identifier, &ownerElement, ownerElement.document().frame(), nullptr));
 }
 
 Ref<LocalFrame> LocalFrame::createSubframeHostedInAnotherProcess(Page& page, UniqueRef<LocalFrameLoaderClient>&& client, FrameIdentifier identifier, Frame& parent)
 {
-    return adoptRef(*new LocalFrame(page, WTFMove(client), identifier, nullptr, &parent));
+    return adoptRef(*new LocalFrame(page, WTFMove(client), identifier, nullptr, &parent, nullptr));
 }
 
 LocalFrame::~LocalFrame()
@@ -897,7 +899,7 @@ std::optional<SimpleRange> LocalFrame::rangeForPoint(const IntPoint& framePoint)
     auto position = visiblePositionForPoint(framePoint);
 
     auto containerText = position.deepEquivalent().containerText();
-    if (!containerText || !containerText->renderer() || containerText->renderer()->style().effectiveUserSelect() == UserSelect::None)
+    if (!containerText || !containerText->renderer() || containerText->renderer()->style().usedUserSelect() == UserSelect::None)
         return std::nullopt;
 
     if (auto previousCharacterRange = makeSimpleRange(position.previous(), position)) {
@@ -1138,7 +1140,7 @@ FloatSize LocalFrame::screenSize() const
     if (!m_overrideScreenSize.isEmpty())
         return m_overrideScreenSize;
 
-    auto defaultSize = screenRect(view()).size();
+    auto defaultSize = screenRect(protectedView().get()).size();
     RefPtr document = this->document();
     if (!document)
         return defaultSize;
@@ -1288,6 +1290,22 @@ CheckedRef<FrameSelection> LocalFrame::checkedSelection() const
     return document()->selection();
 }
 
+void LocalFrame::storageAccessExceptionReceivedForDomain(const RegistrableDomain& domain)
+{
+    m_storageAccessExceptionDomains.add(domain);
+}
+
+bool LocalFrame::requestSkipUserActivationCheckForStorageAccess(const RegistrableDomain& domain)
+{
+    auto iter = m_storageAccessExceptionDomains.find(domain);
+    if (iter == m_storageAccessExceptionDomains.end())
+        return false;
+
+    // We only allow the domain to skip check once.
+    m_storageAccessExceptionDomains.remove(iter);
+    return true;
+}
+
 #if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
 
 void LocalFrame::didAccessWindowProxyPropertyViaOpener(WindowProxyProperty property)
@@ -1308,6 +1326,20 @@ void LocalFrame::didAccessWindowProxyPropertyViaOpener(WindowProxyProperty prope
 }
 
 #endif
+
+String LocalFrame::customUserAgent() const
+{
+    if (RefPtr documentLoader = loader().activeDocumentLoader())
+        return documentLoader->customUserAgent();
+    return { };
+}
+
+String LocalFrame::customUserAgentAsSiteSpecificQuirks() const
+{
+    if (RefPtr documentLoader = loader().activeDocumentLoader())
+        return documentLoader->customUserAgentAsSiteSpecificQuirks();
+    return { };
+}
 
 } // namespace WebCore
 

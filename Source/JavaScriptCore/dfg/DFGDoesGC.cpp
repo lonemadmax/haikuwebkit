@@ -313,7 +313,9 @@ bool doesGC(Graph& graph, Node* node)
     case HasIndexedProperty:
     case HasOwnProperty:
     case InById:
+    case InByIdMegamorphic:
     case InByVal:
+    case InByValMegamorphic:
     case HasPrivateName:
     case HasPrivateBrand:
     case InstanceOf:
@@ -477,6 +479,7 @@ bool doesGC(Graph& graph, Node* node)
         switch (node->child1().useKind()) {
         case StringObjectUse:
         case StringOrStringObjectUse:
+        case StringOrOtherUse:
             return false;
         default:
             break;

@@ -26,7 +26,6 @@
 #include "config.h"
 #include "WebCoreArgumentCoders.h"
 
-#include "DataReference.h"
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/CurlProxySettings.h>
 #include <WebCore/DictionaryPopupInfo.h>
@@ -39,17 +38,6 @@
 namespace IPC {
 
 using namespace WebCore;
-
-void ArgumentCoder<Credential>::encodePlatformData(Encoder&, const Credential&)
-{
-    ASSERT_NOT_REACHED();
-}
-
-bool ArgumentCoder<Credential>::decodePlatformData(Decoder&, Credential&)
-{
-    ASSERT_NOT_REACHED();
-    return false;
-}
 
 void ArgumentCoder<CurlProxySettings>::encode(Encoder& encoder, const CurlProxySettings& settings)
 {
@@ -80,18 +68,5 @@ std::optional<CurlProxySettings> ArgumentCoder<CurlProxySettings>::decode(Decode
 
     return CurlProxySettings { WTFMove(url), WTFMove(ignoreHosts) };
 }
-
-#if ENABLE(VIDEO)
-void ArgumentCoder<SerializedPlatformDataCueValue>::encodePlatformData(Encoder& encoder, const SerializedPlatformDataCueValue& value)
-{
-    ASSERT_NOT_REACHED();
-}
-
-std::optional<SerializedPlatformDataCueValue>  ArgumentCoder<SerializedPlatformDataCueValue>::decodePlatformData(Decoder& decoder, WebCore::SerializedPlatformDataCueValue::PlatformType platformType)
-{
-    ASSERT_NOT_REACHED();
-    return std::nullopt;
-}
-#endif
 
 }

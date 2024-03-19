@@ -372,6 +372,11 @@ inline bool IsGalaxyA54()
     return IsAndroidDevice("SM-A546E");
 }
 
+inline bool IsGalaxyS22()
+{
+    return IsAndroidDevice("SM-S901B");
+}
+
 inline bool IsGalaxyS23()
 {
     return IsAndroidDevice("SM-S911U1");
@@ -452,6 +457,11 @@ inline bool IsMetal(const GPUTestConfig::API &api)
     return (api == GPUTestConfig::kAPIMetal);
 }
 
+inline bool IsWgpu(const GPUTestConfig::API &api)
+{
+    return (api == GPUTestConfig::kAPIWgpu);
+}
+
 }  // anonymous namespace
 
 // Load all conditions in the constructor since this data will not change during a test set.
@@ -497,6 +507,7 @@ GPUTestConfig::GPUTestConfig(bool isSwiftShader)
     mConditions[kConditionGLES]      = true;
     mConditions[kConditionVulkan]    = true;
     mConditions[kConditionMetal]     = true;
+    mConditions[kConditionWgpu]      = true;
 
     // Devices are irrelevant if we are running on SW
     mConditions[kConditionNexus5X]          = !isSwiftShader && IsNexus5X();
@@ -509,6 +520,7 @@ GPUTestConfig::GPUTestConfig(bool isSwiftShader)
     mConditions[kConditionGalaxyA23]        = !isSwiftShader && (IsGalaxyA23());
     mConditions[kConditionGalaxyA34]        = !isSwiftShader && (IsGalaxyA34());
     mConditions[kConditionGalaxyA54]        = !isSwiftShader && (IsGalaxyA54());
+    mConditions[kConditionGalaxyS22]        = !isSwiftShader && (IsGalaxyS22());
     mConditions[kConditionGalaxyS23]        = !isSwiftShader && (IsGalaxyS23());
     mConditions[kConditionGalaxyQualcomm]   = !isSwiftShader && (IsGalaxyQualcomm());
     mConditions[kConditionFindX6]           = !isSwiftShader && (IsFindX6());
@@ -536,6 +548,7 @@ GPUTestConfig::GPUTestConfig(const API &api, uint32_t preRotation)
     mConditions[kConditionGLES]      = IsGLES(api);
     mConditions[kConditionVulkan]    = IsVulkan(api);
     mConditions[kConditionMetal]     = IsMetal(api);
+    mConditions[kConditionWgpu]      = IsWgpu(api);
 
     switch (preRotation)
     {

@@ -36,6 +36,7 @@
 #include "RenderView.h"
 #include "SVGContainerLayout.h"
 #include "SVGLayerTransformUpdater.h"
+#include "SVGVisitedRendererTracking.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/SetForScope.h>
 #include <wtf/StackStats.h>
@@ -61,7 +62,7 @@ void RenderSVGContainer::layout()
     StackStats::LayoutCheckPoint layoutCheckPoint;
     ASSERT(needsLayout());
 
-    LayoutRepainter repainter(*this, checkForRepaintDuringLayout() && !isRenderSVGResourceMarker(), RepaintOutlineBounds::No);
+    LayoutRepainter repainter(*this, checkForRepaintDuringLayout() && !isRenderSVGResourceMarker());
 
     // Update layer transform before laying out children (SVG needs access to the transform matrices during layout for on-screen text font-size calculations).
     // Eventually re-update if the transform reference box, relevant for transform-origin, has changed during layout.
@@ -136,8 +137,7 @@ void RenderSVGContainer::paint(PaintInfo& paintInfo, const LayoutPoint& paintOff
         return;
 
     if (paintInfo.phase == PaintPhase::Outline || paintInfo.phase == PaintPhase::SelfOutline) {
-        // FIXME: [LBSE] Upstream outline painting
-        // paintSVGOutline(paintInfo, adjustedPaintOffset);
+        paintSVGOutline(paintInfo, adjustedPaintOffset);
         return;
     }
 
@@ -153,22 +153,30 @@ bool RenderSVGContainer::nodeAtPoint(const HitTestRequest& request, HitTestResul
     if (!locationInContainer.intersects(visualOverflowRect))
         return false;
 
+    static NeverDestroyed<SVGVisitedRendererTracking::VisitedSet> s_visitedSet;
+
+    SVGVisitedRendererTracking recursionTracking(s_visitedSet);
+    if (recursionTracking.isVisiting(*this))
+        return false;
+
+    SVGVisitedRendererTracking::Scope recursionScope(recursionTracking, *this);
+
     auto localPoint = locationInContainer.point();
     auto coordinateSystemOriginTranslation = nominalSVGLayoutLocation() - adjustedLocation;
     localPoint.move(coordinateSystemOriginTranslation);
 
-    if (!SVGRenderSupport::pointInClippingArea(*this, localPoint))
+    if (!pointInSVGClippingArea(localPoint))
         return false;
 
     // Give RenderSVGViewportContainer a chance to apply its viewport clip.
     if (!pointIsInsideViewportClip(localPoint))
         return false;
 
-    SVGHitTestCycleDetectionScope hitTestScope(*this);
+
     for (auto* child = lastChild(); child; child = child->previousSibling()) {
         if (!child->hasLayer() && child->nodeAtPoint(request, result, locationInContainer, adjustedLocation, hitTestAction)) {
             updateHitTestResult(result, locationInContainer.point() - toLayoutSize(adjustedLocation));
-            if (result.addNodeToListBasedTestResult(child->node(), request, locationInContainer, visualOverflowRect) == HitTestProgress::Stop)
+            if (result.addNodeToListBasedTestResult(child->protectedNode().get(), request, locationInContainer, visualOverflowRect) == HitTestProgress::Stop)
                 return true;
         }
     }
@@ -176,7 +184,7 @@ bool RenderSVGContainer::nodeAtPoint(const HitTestRequest& request, HitTestResul
     // Accessibility wants to return SVG containers, if appropriate.
     if (request.type() & HitTestRequest::Type::AccessibilityHitTest && m_objectBoundingBox.contains(localPoint)) {
         updateHitTestResult(result, locationInContainer.point() - toLayoutSize(adjustedLocation));
-        if (result.addNodeToListBasedTestResult(nodeForHitTest(), request, locationInContainer, visualOverflowRect) == HitTestProgress::Stop)
+        if (result.addNodeToListBasedTestResult(protectedNodeForHitTest().get(), request, locationInContainer, visualOverflowRect) == HitTestProgress::Stop)
             return true;
     }
 

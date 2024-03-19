@@ -36,7 +36,7 @@
 #import "PlaybackSessionModelMediaElement.h"
 #import "RenderVideo.h"
 #import "TimeRanges.h"
-#import "VideoPresentationInterfaceIOS.h"
+#import "VideoPresentationInterfaceAVKit.h"
 #import "VideoPresentationModelVideoElement.h"
 #import "WebCoreThreadRun.h"
 #import <QuartzCore/CoreAnimation.h>
@@ -161,11 +161,14 @@ private:
     ExternalPlaybackTargetType externalPlaybackTargetType() const override;
     String externalPlaybackLocalizedDeviceName() const override;
     bool wirelessVideoPlaybackDisabled() const override;
+    void toggleFullscreen() override { }
     void togglePictureInPicture() override { }
+    void toggleInWindowFullscreen() override { }
     void toggleMuted() override;
     void setMuted(bool) final;
     void setVolume(double) final;
     void setPlayingOnSecondScreen(bool) final;
+    void setVideoReceiverEndpoint(const VideoReceiverEndpoint&) final { }
 
     // PlaybackSessionModelClient
     void durationChanged(double) override;
@@ -1008,7 +1011,7 @@ void VideoFullscreenControllerContext::setUpFullscreen(HTMLVideoElement& videoEl
         ASSERT(isUIThread());
         WebThreadLock();
         Ref<PlaybackSessionInterfaceIOS> sessionInterface = PlaybackSessionInterfaceAVKit::create(*this);
-        m_interface = VideoPresentationInterfaceIOS::create(sessionInterface.get());
+        m_interface = VideoPresentationInterfaceAVKit::create(sessionInterface.get());
         m_interface->setVideoPresentationModel(this);
 
         m_videoFullscreenView = adoptNS([PAL::allocUIViewInstance() init]);

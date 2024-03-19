@@ -47,7 +47,8 @@ CompositorIntegrationImpl::~CompositorIntegrationImpl() = default;
 
 void CompositorIntegrationImpl::prepareForDisplay(CompletionHandler<void()>&& completionHandler)
 {
-    m_presentationContext->present();
+    if (auto* presentationContext = m_presentationContext.get())
+        presentationContext->present();
 
     m_onSubmittedWorkScheduledCallback(WTFMove(completionHandler));
 }
@@ -57,14 +58,21 @@ Vector<MachSendRight> CompositorIntegrationImpl::recreateRenderBuffers(int width
 {
     m_renderBuffers.clear();
 
-    static_cast<PresentationContext*>(m_presentationContext.get())->unconfigure();
-    m_presentationContext->setSize(width, height);
+    if (auto* presentationContext = m_presentationContext.get()) {
+        static_cast<PresentationContext*>(presentationContext)->unconfigure();
+        presentationContext->setSize(width, height);
+    }
 
-    m_renderBuffers.append(WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), WebCore::DestinationColorSpace::SRGB()));
-    m_renderBuffers.append(WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), WebCore::DestinationColorSpace::SRGB()));
+    constexpr int max2DTextureSize = 16384;
+    width = std::max(1, std::min(max2DTextureSize, width));
+    height = std::max(1, std::min(max2DTextureSize, height));
+    if (auto buffer = WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), WebCore::DestinationColorSpace::SRGB()))
+        m_renderBuffers.append(makeUniqueRefFromNonNullUniquePtr(WTFMove(buffer)));
+    if (auto buffer = WebCore::IOSurface::create(nullptr, WebCore::IntSize(width, height), WebCore::DestinationColorSpace::SRGB()))
+        m_renderBuffers.append(makeUniqueRefFromNonNullUniquePtr(WTFMove(buffer)));
 
     {
-        auto renderBuffers = adoptCF(CFArrayCreateMutable(kCFAllocatorDefault, 2, &kCFTypeArrayCallBacks));
+        auto renderBuffers = adoptCF(CFArrayCreateMutable(kCFAllocatorDefault, m_renderBuffers.size(), &kCFTypeArrayCallBacks));
         for (auto& ioSurface : m_renderBuffers)
             CFArrayAppendValue(renderBuffers.get(), ioSurface->surface());
         m_renderBuffersWereRecreatedCallback(static_cast<CFArrayRef>(renderBuffers));

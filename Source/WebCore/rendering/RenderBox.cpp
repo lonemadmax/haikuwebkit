@@ -1619,7 +1619,7 @@ bool RenderBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result
             return false;
 
         updateHitTestResult(result, locationInContainer.point() - toLayoutSize(adjustedLocation));
-        if (result.addNodeToListBasedTestResult(nodeForHitTest(), request, locationInContainer, boundsRect) == HitTestProgress::Stop)
+        if (result.addNodeToListBasedTestResult(protectedNodeForHitTest().get(), request, locationInContainer, boundsRect) == HitTestProgress::Stop)
             return true;
     }
 
@@ -1666,7 +1666,7 @@ BackgroundBleedAvoidance RenderBox::determineBackgroundBleedAvoidance(GraphicsCo
 ControlPart* RenderBox::ensureControlPart()
 {
     auto& rareData = ensureRareData();
-    auto type = style().effectiveAppearance();
+    auto type = style().usedAppearance();
 
     // Some form-controls may change because of zooming without recreating
     // a new renderer (e.g Menulist <-> MenulistButton).
@@ -2055,7 +2055,7 @@ void RenderBox::imageChanged(WrappedImagePtr image, const IntRect*)
 
     repaintForBackgroundAndMask(style());
 
-    if (auto* firstLineStyle = style().getCachedPseudoStyle(PseudoId::FirstLine))
+    if (auto* firstLineStyle = style().getCachedPseudoStyle({ PseudoId::FirstLine }))
         repaintForBackgroundAndMask(*firstLineStyle);
 
     if (!isComposited())
@@ -3859,6 +3859,8 @@ LayoutUnit RenderBox::constrainBlockMarginInAvailableSpaceOrTrim(const RenderBox
 
 LayoutUnit RenderBox::containingBlockLogicalWidthForPositioned(const RenderBoxModelObject& containingBlock, RenderFragmentContainer* fragment, bool checkForPerpendicularWritingMode) const
 {
+    ASSERT(containingBlock.canContainAbsolutelyPositionedObjects() || containingBlock.canContainFixedPositionObjects());
+
     if (checkForPerpendicularWritingMode && containingBlock.isHorizontalWritingMode() != isHorizontalWritingMode())
         return containingBlockLogicalHeightForPositioned(containingBlock, false);
 
@@ -3900,13 +3902,17 @@ LayoutUnit RenderBox::containingBlockLogicalWidthForPositioned(const RenderBoxMo
         return (boxInfo) ? std::max<LayoutUnit>(0, cb->clientLogicalWidth() - (cb->logicalWidth() - boxInfo->logicalWidth())) : cb->clientLogicalWidth();
     }
 
-    ASSERT(containingBlock.isInFlowPositioned());
+    if (auto* inlineBox = dynamicDowncast<RenderInline>(containingBlock))
+        return inlineBox->innerPaddingBoxWidth();
 
-    return downcast<RenderInline>(containingBlock).innerPaddingBoxWidth();
+    ASSERT_NOT_REACHED();
+    return { };
 }
 
 LayoutUnit RenderBox::containingBlockLogicalHeightForPositioned(const RenderBoxModelObject& containingBlock, bool checkForPerpendicularWritingMode) const
 {
+    ASSERT(containingBlock.canContainAbsolutelyPositionedObjects() || containingBlock.canContainFixedPositionObjects());
+
     if (checkForPerpendicularWritingMode && containingBlock.isHorizontalWritingMode() != isHorizontalWritingMode())
         return containingBlockLogicalWidthForPositioned(containingBlock, nullptr, false);
 
@@ -3915,16 +3921,16 @@ LayoutUnit RenderBox::containingBlockLogicalHeightForPositioned(const RenderBoxM
             return height.value();
     }
 
-    if (containingBlock.isRenderBox()) {
+    if (auto* box = dynamicDowncast<RenderBox>(containingBlock)) {
         bool isFixedPosition = isFixedPositioned();
 
         if (isFixedPosition) {
-            if (auto* renderView = dynamicDowncast<RenderView>(containingBlock))
+            if (auto* renderView = dynamicDowncast<RenderView>(*box))
                 return renderView->clientLogicalHeightForFixedPosition();
         }
 
-        auto* containingBlockAsRenderBlock = dynamicDowncast<RenderBlock>(containingBlock);
-        const RenderBlock& cb = containingBlockAsRenderBlock ? *containingBlockAsRenderBlock : *containingBlock.containingBlock();
+        auto* containingBlockAsRenderBlock = dynamicDowncast<RenderBlock>(*box);
+        const RenderBlock& cb = containingBlockAsRenderBlock ? *containingBlockAsRenderBlock : *box->containingBlock();
         LayoutUnit result = cb.clientLogicalHeight();
         RenderFragmentedFlow* fragmentedFlow = enclosingFragmentedFlow();
         if (fragmentedFlow && fragmentedFlow->isHorizontalWritingMode() == containingBlock.isHorizontalWritingMode()) {
@@ -3933,9 +3939,12 @@ LayoutUnit RenderBox::containingBlockLogicalHeightForPositioned(const RenderBoxM
         }
         return result;
     }
-        
-    ASSERT(containingBlock.isInFlowPositioned());
-    return downcast<RenderInline>(containingBlock).innerPaddingBoxHeight();
+
+    if (auto* inlineBox = dynamicDowncast<RenderInline>(containingBlock))
+        return inlineBox->innerPaddingBoxHeight();
+
+    ASSERT_NOT_REACHED();
+    return { };
 }
 
 static void computeInlineStaticDistance(Length& logicalLeft, Length& logicalRight, const RenderBox* child, const RenderBoxModelObject& containerBlock, LayoutUnit containerLogicalWidth, RenderFragmentContainer* fragment)
@@ -5797,7 +5806,7 @@ std::optional<LayoutUnit> RenderBox::explicitIntrinsicInnerWidth() const
     if (style().containIntrinsicWidthType() == ContainIntrinsicSizeType::None)
         return std::nullopt;
 
-    if (element() && style().containIntrinsicWidthHasAuto() && isSkippedContentRoot()) {
+    if (element() && style().containIntrinsicWidthHasAuto() && WebCore::isSkippedContentRoot(style(), element())) {
         if (auto width = isHorizontalWritingMode() ? element()->lastRememberedLogicalWidth() : element()->lastRememberedLogicalHeight())
             return width;
     }
@@ -5816,7 +5825,7 @@ std::optional<LayoutUnit> RenderBox::explicitIntrinsicInnerHeight() const
     if (style().containIntrinsicHeightType() == ContainIntrinsicSizeType::None)
         return std::nullopt;
 
-    if (element() && style().containIntrinsicHeightHasAuto() && isSkippedContentRoot()) {
+    if (element() && style().containIntrinsicHeightHasAuto() && WebCore::isSkippedContentRoot(style(), element())) {
         if (auto height = isHorizontalWritingMode() ? element()->lastRememberedLogicalHeight() : element()->lastRememberedLogicalWidth())
             return height;
     }
@@ -5833,8 +5842,7 @@ std::optional<LayoutUnit> RenderBox::explicitIntrinsicInnerHeight() const
 // position:static elements that are not flex-items get their z-index coerced to auto.
 bool RenderBox::requiresLayer() const
 {
-    return isDocumentElementRenderer() || isPositioned() || createsGroup() || hasNonVisibleOverflow()
-        || hasTransformRelatedProperty() || hasHiddenBackface() || hasReflection() || style().specifiesColumns()
+    return RenderBoxModelObject::requiresLayer() || hasNonVisibleOverflow() || style().specifiesColumns()
         || style().containsLayout() || !style().hasAutoUsedZIndex() || hasRunningAcceleratedAnimations();
 }
 

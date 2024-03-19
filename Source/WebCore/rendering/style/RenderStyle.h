@@ -139,6 +139,7 @@ enum class CursorVisibility : bool;
 enum class DisplayType : uint8_t;
 enum class EmptyCell : bool;
 enum class EventListenerRegionType : uint8_t;
+enum class FieldSizing : bool;
 enum class FillAttachment : uint8_t;
 enum class FillBox : uint8_t;
 enum class FillSizeType : uint8_t;
@@ -274,6 +275,7 @@ using LayoutBoxExtent = RectEdges<LayoutUnit>;
 
 namespace Style {
 class CustomPropertyRegistry;
+struct PseudoElementIdentifier;
 struct ScopedName;
 }
 
@@ -347,7 +349,7 @@ public:
     const AtomString& pseudoElementNameArgument() const;
     void setPseudoElementNameArgument(const AtomString&);
 
-    RenderStyle* getCachedPseudoStyle(PseudoId) const;
+    RenderStyle* getCachedPseudoStyle(const Style::PseudoElementIdentifier&) const;
     RenderStyle* addCachedPseudoStyle(std::unique_ptr<RenderStyle>);
 
     const PseudoStyleCache* cachedPseudoStyles() const { return m_cachedPseudoStyles.get(); }
@@ -355,6 +357,7 @@ public:
     inline const StyleCustomPropertyData& inheritedCustomProperties() const;
     inline const StyleCustomPropertyData& nonInheritedCustomProperties() const;
     const CSSCustomPropertyValue* customPropertyValue(const AtomString&) const;
+    bool customPropertyValueEqual(const RenderStyle&, const AtomString&) const;
 
     void deduplicateCustomProperties(const RenderStyle&);
     void setCustomPropertyValue(Ref<const CSSCustomPropertyValue>&&, bool isInherited);
@@ -528,6 +531,8 @@ public:
     static UsedClear usedClear(const RenderObject&);
     TableLayoutType tableLayout() const { return static_cast<TableLayoutType>(m_nonInheritedFlags.tableLayout); }
 
+    FieldSizing fieldSizing() const;
+
     WEBCORE_EXPORT const FontCascade& fontCascade() const;
     WEBCORE_EXPORT const FontMetrics& metricsOfPrimaryFont() const;
     WEBCORE_EXPORT const FontCascadeDescription& fontDescription() const;
@@ -582,8 +587,8 @@ public:
 
     const Length& specifiedLineHeight() const;
     WEBCORE_EXPORT const Length& lineHeight() const;
-    WEBCORE_EXPORT int computedLineHeight() const;
-    int computeLineHeight(const Length&) const;
+    WEBCORE_EXPORT float computedLineHeight() const;
+    float computeLineHeight(const Length&) const;
 
     WhiteSpace whiteSpace() const;
     inline bool autoWrap() const;
@@ -694,7 +699,7 @@ public:
     inline float opacity() const;
     inline bool hasOpacity() const;
     inline StyleAppearance appearance() const;
-    inline StyleAppearance effectiveAppearance() const;
+    inline StyleAppearance usedAppearance() const;
     inline AspectRatioType aspectRatioType() const;
     inline double aspectRatioWidth() const;
     inline double aspectRatioHeight() const;
@@ -821,10 +826,10 @@ public:
     inline int marqueeLoopCount() const;
     inline MarqueeBehavior marqueeBehavior() const;
     inline MarqueeDirection marqueeDirection() const;
-    inline UserModify effectiveUserModify() const;
+    inline UserModify usedUserModify() const;
     inline UserModify userModify() const;
     inline UserDrag userDrag() const;
-    WEBCORE_EXPORT UserSelect effectiveUserSelect() const;
+    WEBCORE_EXPORT UserSelect usedUserSelect() const;
     inline UserSelect userSelect() const;
     inline TextOverflow textOverflow() const;
     inline WordBreak wordBreak() const;
@@ -1216,6 +1221,8 @@ public:
     void setClear(Clear v) { m_nonInheritedFlags.clear = static_cast<unsigned>(v); }
     void setTableLayout(TableLayoutType v) { m_nonInheritedFlags.tableLayout = static_cast<unsigned>(v); }
 
+    void setFieldSizing(FieldSizing);
+
     WEBCORE_EXPORT bool setFontDescription(FontCascadeDescription&&);
 
     // Only used for blending font sizes when animating, for MathML anonymous blocks, and for text autosizing.
@@ -1381,7 +1388,7 @@ public:
     inline void setHasAutoAccentColor();
     inline void setOpacity(float);
     inline void setAppearance(StyleAppearance);
-    inline void setEffectiveAppearance(StyleAppearance);
+    inline void setUsedAppearance(StyleAppearance);
     inline void setBoxAlign(BoxAlignment);
     void setBoxDirection(BoxDirection d) { m_inheritedFlags.boxDirection = static_cast<unsigned>(d); }
     inline void setBoxFlex(float);
@@ -1991,6 +1998,8 @@ public:
 
     static constexpr TouchAction initialTouchActions();
 
+    static FieldSizing initialFieldSizing();
+
     static inline Length initialScrollMargin();
     static inline Length initialScrollPadding();
 
@@ -2130,7 +2139,7 @@ public:
     inline const StyleColor& floodColor() const;
     inline const StyleColor& lightingColor() const;
 
-    Color effectiveAccentColor() const;
+    Color usedAccentColor() const;
     inline const StyleColor& accentColor() const;
     inline bool hasAutoAccentColor() const;
 

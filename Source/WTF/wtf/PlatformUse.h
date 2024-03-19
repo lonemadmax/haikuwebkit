@@ -70,7 +70,7 @@
 #define USE_GLIB 1
 #endif
 
-#if PLATFORM(GTK) || PLATFORM(WPE)
+#if ((PLATFORM(GTK) || PLATFORM(WPE)) && !USE(SKIA))
 #define USE_FREETYPE 1
 #endif
 
@@ -80,10 +80,6 @@
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
 #define USE_SOUP 1
-#endif
-
-#if PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(HAIKU)
-#define USE_WEBP 1
 #endif
 
 #if PLATFORM(HAIKU)
@@ -333,12 +329,25 @@
 #endif
 
 #if !defined(USE_TZONE_MALLOC)
-#if CPU(ARM64)
+#if CPU(ARM64) && OS(DARWIN)
 // Only MacroAssemblerARM64 is known to build.
 // Building with TZONE_MALLOC currently disabled for all platforms.
 #define USE_TZONE_MALLOC 0
 #else
 #define USE_TZONE_MALLOC 0
+#endif
+#endif
+
+#if OS(DARWIN) && USE(APPLE_INTERNAL_SDK) && USE(TZONE_MALLOC)
+#define USE_DARWIN_TZONE_SEED 1
+#endif
+
+#if !defined(USE_WK_TZONE_MALLOC)
+#if USE(TZONE_MALLOC)
+// Separately control the use of TZone allocation in WebKit
+#define USE_WK_TZONE_MALLOC 1
+#else
+#define USE_WK_TZONE_MALLOC 0
 #endif
 #endif
 
@@ -441,4 +450,8 @@
 
 #if !defined(USE_BROWSERENGINEKIT) && PLATFORM(IOS) && __has_include(<BrowserEngineKit/BETextInput.h>)
 #define USE_BROWSERENGINEKIT 1
+#endif
+
+#if !defined(USE_LEGACY_EXTENSIONKIT_SPI) && PLATFORM(IOS_SIMULATOR) && __IPHONE_OS_VERSION_MAX_ALLOWED <= 170400
+#define USE_LEGACY_EXTENSIONKIT_SPI 1
 #endif

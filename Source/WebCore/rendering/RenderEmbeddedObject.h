@@ -63,6 +63,8 @@ public:
 
     bool usesAsyncScrolling() const;
     ScrollingNodeID scrollingNodeID() const;
+    void willAttachScrollingNode();
+    void didAttachScrollingNode();
 
 private:
     void paintReplaced(PaintInfo&, const LayoutPoint&) final;

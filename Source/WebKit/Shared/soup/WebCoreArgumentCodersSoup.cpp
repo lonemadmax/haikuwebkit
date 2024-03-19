@@ -29,7 +29,6 @@
 #include "WebCoreArgumentCoders.h"
 
 #include "ArgumentCodersGLib.h"
-#include "DataReference.h"
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/Credential.h>
 #include <WebCore/DictionaryPopupInfo.h>
@@ -98,40 +97,5 @@ bool ArgumentCoder<SoupNetworkProxySettings>::decode(Decoder& decoder, SoupNetwo
 
     return !settings.isEmpty();
 }
-
-void ArgumentCoder<Credential>::encodePlatformData(Encoder& encoder, const Credential& credential)
-{
-    GRefPtr<GTlsCertificate> certificate = credential.certificate();
-    encoder << certificate;
-    encoder << credential.persistence();
-}
-
-bool ArgumentCoder<Credential>::decodePlatformData(Decoder& decoder, Credential& credential)
-{
-    std::optional<GRefPtr<GTlsCertificate>> certificate;
-    decoder >> certificate;
-    if (!certificate)
-        return false;
-
-    CredentialPersistence persistence;
-    if (!decoder.decode(persistence))
-        return false;
-
-    credential = Credential(certificate->get(), persistence);
-    return true;
-}
-
-#if ENABLE(VIDEO)
-void ArgumentCoder<SerializedPlatformDataCueValue>::encodePlatformData(Encoder& encoder, const SerializedPlatformDataCueValue& value)
-{
-    ASSERT_NOT_REACHED();
-}
-
-std::optional<SerializedPlatformDataCueValue>  ArgumentCoder<SerializedPlatformDataCueValue>::decodePlatformData(Decoder& decoder, SerializedPlatformDataCueValue::PlatformType platformType)
-{
-    ASSERT_NOT_REACHED();
-    return std::nullopt;
-}
-#endif
 
 }

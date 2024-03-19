@@ -131,8 +131,15 @@ Ref<RenderBundleEncoder> Device::createRenderBundleEncoder(const WGPURenderBundl
     uint32_t bytesPerSample = 0;
     const auto maxColorAttachmentBytesPerSample = limits().maxColorAttachmentBytesPerSample;
 
+    if (descriptor.colorFormatCount > limits().maxColorAttachments) {
+        NSString* error = [NSString stringWithFormat:@"descriptor.colorFormatCount(%zu) > limits().maxColorAttachments(%u)", descriptor.colorFormatCount, limits().maxColorAttachments];
+        generateAValidationError(error);
+        return RenderBundleEncoder::createInvalid(*this, error);
+    }
     for (size_t i = 0, colorFormatCount = descriptor.colorFormatCount; i < colorFormatCount; ++i) {
         auto textureFormat = descriptor.colorFormats[i];
+        if (textureFormat == WGPUTextureFormat_Undefined)
+            continue;
         if (!Texture::isColorRenderableFormat(textureFormat, *this)) {
             NSString* error = [NSString stringWithFormat:@"createRenderBundleEncoder - colorAttachment[%zu] with format %d is not renderable", i, textureFormat];
             generateAValidationError(error);
@@ -216,7 +223,7 @@ void RenderBundleEncoder::addResource(RenderBundle::ResourcesContainer* resource
         if (resource.renderStages && mtlResource)
             [m_renderPassEncoder->renderCommandEncoder() useResource:mtlResource usage:resource.usage stages:resource.renderStages];
         ASSERT(resource.entryUsage.hasExactlyOneBitSet());
-        m_renderPassEncoder->addResourceToActiveResources(mtlResource, *resource.entryUsage.toSingleValue());
+        m_renderPassEncoder->addResourceToActiveResources(resource.resource, mtlResource, resource.entryUsage);
         m_renderPassEncoder->setCommandEncoder(resource.resource);
         return;
     }
@@ -226,14 +233,13 @@ void RenderBundleEncoder::addResource(RenderBundle::ResourcesContainer* resource
         existingResource.renderStages |= resource.renderStages;
         existingResource.entryUsage |= resource.entryUsage;
         existingResource.binding = resource.binding;
-        // !! assert resource is the same
     } else
         [resources setObject:resource forKey:mtlResource];
 }
 
 void RenderBundleEncoder::addResource(RenderBundle::ResourcesContainer* container, id<MTLResource> mtlResource, MTLRenderStages stage)
 {
-    WeakPtr<const Buffer> placeholderBuffer = nullptr;
+    RefPtr<const Buffer> placeholderBuffer;
     addResource(container, mtlResource, stage, placeholderBuffer);
 }
 
@@ -553,7 +559,7 @@ void RenderBundleEncoder::drawIndexedIndirect(const Buffer& indirectBuffer, uint
             return;
 
         ASSERT(m_indexBufferOffset == contents->indexStart);
-        addResource(m_resources, indirectBuffer.buffer(), MTLRenderStageVertex, indirectBuffer);
+        addResource(m_resources, indirectBuffer.buffer(), MTLRenderStageVertex, &indirectBuffer);
         [icbCommand drawIndexedPrimitives:m_primitiveType indexCount:contents->indexCount indexType:m_indexType indexBuffer:indexBuffer indexBufferOffset:m_indexBufferOffset instanceCount:contents->instanceCount baseVertex:contents->baseVertex baseInstance:contents->baseInstance];
     } else {
         if (!isValidToUseWith(indirectBuffer, *this)) {
@@ -566,7 +572,7 @@ void RenderBundleEncoder::drawIndexedIndirect(const Buffer& indirectBuffer, uint
             return;
         }
 
-        if (indirectBuffer.size() < indirectOffset + sizeof(MTLDrawIndexedPrimitivesIndirectArguments)) {
+        if (indirectBuffer.initialSize() < indirectOffset + sizeof(MTLDrawIndexedPrimitivesIndirectArguments)) {
             makeInvalid(@"drawIndexedIndirect: validation failed");
             return;
         }
@@ -601,7 +607,7 @@ void RenderBundleEncoder::drawIndirect(const Buffer& indirectBuffer, uint64_t in
         if (!contents || !contents->instanceCount || !contents->vertexCount)
             return;
 
-        addResource(m_resources, indirectBuffer.buffer(), MTLRenderStageVertex, indirectBuffer);
+        addResource(m_resources, indirectBuffer.buffer(), MTLRenderStageVertex, &indirectBuffer);
         [icbCommand drawPrimitives:m_primitiveType vertexStart:contents->vertexStart vertexCount:contents->vertexCount instanceCount:contents->instanceCount baseInstance:contents->baseInstance];
     } else {
         m_icbDescriptor.commandTypes |= MTLIndirectCommandTypeDraw;
@@ -616,7 +622,7 @@ void RenderBundleEncoder::drawIndirect(const Buffer& indirectBuffer, uint64_t in
             return;
         }
 
-        if (indirectBuffer.size() < indirectOffset + sizeof(MTLDrawPrimitivesIndirectArguments)) {
+        if (indirectBuffer.initialSize() < indirectOffset + sizeof(MTLDrawPrimitivesIndirectArguments)) {
             makeInvalid(@"drawIndirect: validation failed");
             return;
         }
@@ -695,8 +701,10 @@ bool RenderBundleEncoder::validToEncodeCommand() const
 
 Ref<RenderBundle> RenderBundleEncoder::finish(const WGPURenderBundleDescriptor& descriptor)
 {
-    if (!m_icbDescriptor || m_debugGroupStackSize)
+    if (!m_icbDescriptor || m_debugGroupStackSize) {
+        m_device->generateAValidationError(m_lastErrorString);
         return RenderBundle::createInvalid(m_device, m_lastErrorString);
+    }
 
     m_requiresCommandReplay = m_requiresCommandReplay ?: (m_requiresMetalWorkaround || !m_currentCommandIndex);
 
@@ -711,7 +719,11 @@ Ref<RenderBundle> RenderBundleEncoder::finish(const WGPURenderBundleDescriptor& 
         m_icbDescriptor.maxFragmentBufferBindCount = 0;
 
         RELEASE_ASSERT(m_icbArray || m_lastErrorString);
-        return m_icbArray ? RenderBundle::create(m_icbArray, nullptr, m_descriptor, m_currentCommandIndex, m_device) : RenderBundle::createInvalid(m_device, m_lastErrorString);
+        if (m_icbArray)
+            return RenderBundle::create(m_icbArray, nullptr, m_descriptor, m_currentCommandIndex, m_device);
+
+        m_device->generateAValidationError(m_lastErrorString);
+        return RenderBundle::createInvalid(m_device, m_lastErrorString);
     };
 
     auto renderBundle = createRenderBundle();
@@ -878,7 +890,7 @@ void RenderBundleEncoder::setIndexBuffer(const Buffer& buffer, WGPUIndexFormat f
             return;
         }
 
-        if (offset + size > buffer.size()) {
+        if (offset + size > buffer.initialSize()) {
             makeInvalid(@"setIndexBuffer: offset + size > buffer.size()");
             return;
         }
@@ -895,7 +907,7 @@ void RenderBundleEncoder::setIndexBuffer(const Buffer& buffer, WGPUIndexFormat f
         return;
     }
 
-    addResource(m_resources, indexBuffer, MTLRenderStageVertex, buffer);
+    addResource(m_resources, indexBuffer, MTLRenderStageVertex, &buffer);
 }
 
 bool RenderBundleEncoder::icbNeedsToBeSplit(const RenderPipeline& a, const RenderPipeline& b)
@@ -1026,7 +1038,7 @@ void RenderBundleEncoder::setVertexBuffer(uint32_t slot, const Buffer* optionalB
 
         auto& buffer = *optionalBuffer;
         m_utilizedBufferIndices.add(slot, size);
-        addResource(m_resources, buffer.buffer(), MTLRenderStageVertex, buffer);
+        addResource(m_resources, buffer.buffer(), MTLRenderStageVertex, &buffer);
         m_vertexBuffers[slot] = { .buffer = buffer.buffer(), .offset = offset, .dynamicOffsetCount = 0, .dynamicOffsets = nullptr, .size = size };
         if (m_renderPassEncoder)
             buffer.setCommandEncoder(m_renderPassEncoder->parentEncoder());
@@ -1045,7 +1057,7 @@ void RenderBundleEncoder::setVertexBuffer(uint32_t slot, const Buffer* optionalB
                 makeInvalid(@"setVertexBuffer: validation failed");
                 return;
             }
-            if (offset + size > buffer.size()) {
+            if (offset + size > buffer.initialSize()) {
                 makeInvalid(@"offset + size > buffer.size()");
                 return;
             }

@@ -60,10 +60,6 @@
 #include <WebCore/CurlProxySettings.h>
 #endif
 
-#if ENABLE(WIRELESS_PLAYBACK_TARGET)
-#include <WebCore/MediaPlaybackTargetContext.h>
-#endif
-
 #if PLATFORM(IOS_FAMILY)
 #include <WebCore/InspectorOverlay.h>
 #endif
@@ -85,19 +81,12 @@
 #include <WebCore/MockContentFilterSettings.h>
 #endif
 
-#if PLATFORM(COCOA)
-#include "ArgumentCodersCF.h"
-#endif
-
-OBJC_CLASS VKCImageAnalysis;
-
 #if USE(AVFOUNDATION)
 typedef struct __CVBuffer* CVPixelBufferRef;
 #endif
 
 namespace WebCore {
 
-class AppKitControlSystemImage;
 class BlobPart;
 class Credential;
 class Cursor;
@@ -132,21 +121,13 @@ struct Record;
 
 namespace IPC {
 
-template<> struct ArgumentCoder<WebCore::Credential> {
-    static void encode(Encoder&, const WebCore::Credential&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::Credential&);
-    static void encodePlatformData(Encoder&, const WebCore::Credential&);
-    static WARN_UNUSED_RETURN bool decodePlatformData(Decoder&, WebCore::Credential&);
-};
-
+#if !USE(CORE_TEXT)
 template<> struct ArgumentCoder<WebCore::Font> {
     static void encode(Encoder&, const WebCore::Font&);
     static std::optional<Ref<WebCore::Font>> decode(Decoder&);
     static void encodePlatformData(Encoder&, const WebCore::Font&);
     static std::optional<WebCore::FontPlatformData> decodePlatformData(Decoder&);
 };
-
-#if !USE(CORE_TEXT)
 
 template<> struct ArgumentCoder<WebCore::FontPlatformData::Attributes> {
     static void encode(Encoder&, const WebCore::FontPlatformData::Attributes&);
@@ -155,21 +136,10 @@ template<> struct ArgumentCoder<WebCore::FontPlatformData::Attributes> {
     static WARN_UNUSED_RETURN bool decodePlatformData(Decoder&, WebCore::FontPlatformData::Attributes&);
 };
 
-#endif
-
 template<> struct ArgumentCoder<WebCore::FontCustomPlatformData> {
     static void encode(Encoder&, const WebCore::FontCustomPlatformData&);
     static std::optional<Ref<WebCore::FontCustomPlatformData>> decode(Decoder&);
 };
-
-#if USE(APPKIT)
-
-template<> struct ArgumentCoder<WebCore::AppKitControlSystemImage> {
-    template<typename Encoder>
-    static void encode(Encoder&, const WebCore::AppKitControlSystemImage&);
-    static std::optional<Ref<WebCore::AppKitControlSystemImage>> decode(Decoder&);
-};
-
 #endif
 
 #if USE(SOUP)
@@ -186,58 +156,7 @@ template<> struct ArgumentCoder<WebCore::CurlProxySettings> {
 };
 #endif
 
-#if ENABLE(WIRELESS_PLAYBACK_TARGET)
-template<> struct ArgumentCoder<WebCore::MediaPlaybackTargetContext> {
-    static void encode(Encoder&, const WebCore::MediaPlaybackTargetContext&);
-    static WARN_UNUSED_RETURN bool decode(Decoder&, WebCore::MediaPlaybackTargetContext&);
-    static void encodePlatformData(Encoder&, const WebCore::MediaPlaybackTargetContext&);
-    static WARN_UNUSED_RETURN bool decodePlatformData(Decoder&, WebCore::MediaPlaybackTargetContext::Type, WebCore::MediaPlaybackTargetContext&);
-};
-#endif
-
-#if ENABLE(VIDEO)
-template<> struct ArgumentCoder<WebCore::SerializedPlatformDataCueValue> {
-    static void encode(Encoder&, const WebCore::SerializedPlatformDataCueValue&);
-    static std::optional<WebCore::SerializedPlatformDataCueValue> decode(Decoder&);
-    static void encodePlatformData(Encoder&, const WebCore::SerializedPlatformDataCueValue&);
-    static std::optional<WebCore::SerializedPlatformDataCueValue> decodePlatformData(Decoder&, WebCore::SerializedPlatformDataCueValue::PlatformType);
-};
-#endif
-
-template<> struct ArgumentCoder<WebCore::FragmentedSharedBuffer> {
-    static void encode(Encoder&, const WebCore::FragmentedSharedBuffer&);
-    static std::optional<Ref<WebCore::FragmentedSharedBuffer>> decode(Decoder&);
-};
-
-#if ENABLE(DATA_DETECTION)
-
-template<> struct ArgumentCoder<WebCore::DataDetectorElementInfo> {
-    static void encode(Encoder&, const WebCore::DataDetectorElementInfo&);
-    static std::optional<WebCore::DataDetectorElementInfo> decode(Decoder&);
-};
-
-#endif
-
-#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-
-template<> struct ArgumentCoder<RetainPtr<VKCImageAnalysis>> {
-    static void encode(Encoder&, const RetainPtr<VKCImageAnalysis>&);
-    static WARN_UNUSED_RETURN std::optional<RetainPtr<VKCImageAnalysis>> decode(Decoder&);
-};
-
-#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
-
-#if USE(AVFOUNDATION)
-
-template<> struct ArgumentCoder<RetainPtr<CVPixelBufferRef>> {
-    static void encode(Encoder&, const RetainPtr<CVPixelBufferRef>&);
-    static std::optional<RetainPtr<CVPixelBufferRef>> decode(Decoder&);
-};
-
-#endif
-
 } // namespace IPC
-
 namespace WTF {
 
 #if USE(CURL)

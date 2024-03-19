@@ -217,6 +217,8 @@ public:
     // itself, if it is a stacking container.
     RenderLayer* enclosingStackingContext() { return isStackingContext() ? this : stackingContext(); }
 
+    void forceStackingContextIfNeeded();
+
     RenderLayer* paintOrderParent() const;
 
     std::optional<LayoutRect> cachedClippedOverflowRect() const;
@@ -606,7 +608,7 @@ public:
 
     inline int zIndex() const;
 
-    enum class PaintLayerFlag : uint16_t {
+    enum class PaintLayerFlag : uint32_t {
         HaveTransparency                      = 1 << 0,
         AppliedTransform                      = 1 << 1,
         TemporaryClipRects                    = 1 << 2,
@@ -623,6 +625,7 @@ public:
         PaintingChildClippingMaskPhase        = 1 << 13,
         PaintingSVGClippingMask               = 1 << 14,
         CollectingEventRegion                 = 1 << 15,
+        PaintingSkipDescendantViewTransition  = 1 << 16,
     };
     static constexpr OptionSet<PaintLayerFlag> paintLayerPaintingCompositingAllPhasesFlags() { return { PaintLayerFlag::PaintingCompositingBackgroundPhase, PaintLayerFlag::PaintingCompositingForegroundPhase }; }
 
@@ -837,8 +840,6 @@ public:
     void establishesTopLayerWillChange();
     void establishesTopLayerDidChange();
 
-    RenderLayer* enclosingSVGRootLayer() const;
-
     bool isBitmapOnly() const;
 
     enum ViewportConstrainedNotCompositedReason {
@@ -968,7 +969,7 @@ private:
     void setRepaintRects(const RenderObject::RepaintRects&);
     void clearRepaintRects();
 
-    LayoutRect clipRectRelativeToAncestor(RenderLayer* ancestor, LayoutSize offsetFromAncestor, const LayoutRect& constrainingRect) const;
+    LayoutRect clipRectRelativeToAncestor(RenderLayer* ancestor, LayoutSize offsetFromAncestor, const LayoutRect& constrainingRect, bool temporaryClipRects = false) const;
 
     void clipToRect(GraphicsContext&, GraphicsContextStateSaver&, RegionContextStateSaver&, const LayerPaintingInfo&, OptionSet<PaintBehavior>, const ClipRect&, BorderRadiusClippingRule = IncludeSelfForBorderRadius);
 

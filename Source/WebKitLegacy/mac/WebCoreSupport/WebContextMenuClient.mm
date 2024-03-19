@@ -89,11 +89,6 @@ void WebContextMenuClient::downloadURL(const URL& url)
     [m_webView _downloadURL:url];
 }
 
-void WebContextMenuClient::searchWithSpotlight()
-{
-    [m_webView _searchWithSpotlightFromMenu:nil];
-}
-
 void WebContextMenuClient::searchWithGoogle(const LocalFrame*)
 {
     [m_webView _searchWithGoogleFromMenu:nil];
@@ -147,6 +142,14 @@ bool WebContextMenuClient::clientFloatRectForNode(Node& node, FloatRect& rect) c
 void WebContextMenuClient::handleTranslation(const TranslationContextMenuInfo& info)
 {
     [m_webView _handleContextMenuTranslation:info];
+}
+
+#endif
+
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+
+void WebContextMenuClient::handleSwapCharacters(IntRect selectionBoundsInRootView)
+{
 }
 
 #endif

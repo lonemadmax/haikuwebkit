@@ -29,7 +29,6 @@
 #if ENABLE(LEGACY_PDFKIT_PLUGIN)
 
 #import "ArgumentCoders.h"
-#import "DataReference.h"
 #import "FrameInfoData.h"
 #import "Logging.h"
 #import "MessageSenderInlines.h"
@@ -51,7 +50,6 @@
 #import "WebMouseEvent.h"
 #import "WebPage.h"
 #import "WebPageProxyMessages.h"
-#import "WebPasteboardProxyMessages.h"
 #import "WebProcess.h"
 #import "WebWheelEvent.h"
 #import <Quartz/Quartz.h>
@@ -435,12 +433,11 @@ static WebCore::Cursor::Type toWebCoreCursorType(PDFLayerControllerCursorType cu
 
 - (void)performWebSearch:(NSString *)string
 {
-    _pdfPlugin->performWebSearch(string);
+    _pdfPlugin->performWebSearch({ string });
 }
 
 - (void)performSpotlightSearch:(NSString *)string
 {
-    _pdfPlugin->performSpotlightSearch(string);
 }
 
 - (void)openWithNativeApplication
@@ -453,7 +450,8 @@ static WebCore::Cursor::Type toWebCoreCursorType(PDFLayerControllerCursorType cu
 
 - (void)pdfLayerController:(PDFLayerController *)pdfLayerController clickedLinkWithURL:(NSURL *)url
 {
-    _pdfPlugin->clickedLink(url);
+    URL coreURL = url;
+    _pdfPlugin->navigateToURL(coreURL);
 }
 
 - (void)pdfLayerController:(PDFLayerController *)pdfLayerController didChangeActiveAnnotation:(PDFAnnotation *)annotation
@@ -645,7 +643,8 @@ void PDFPlugin::installPDFDocument()
 
     notifyScrollPositionChanged(IntPoint([m_pdfLayerController scrollPosition]));
 
-    updatePDFHUDLocation();
+    updateHUDVisibility();
+    updateHUDLocation();
     updateScrollbars();
 
     tryRunScriptsInPDFDocument();
@@ -674,7 +673,8 @@ void PDFPlugin::attemptToUnlockPDF(const String& password)
     if (!isLocked()) {
         m_passwordField = nullptr;
 
-        updatePDFHUDLocation();
+        updateHUDVisibility();
+        updateHUDLocation();
         updateScrollbars();
     }
 }
@@ -798,13 +798,10 @@ PlatformLayer* PDFPlugin::platformLayer() const
     return m_containerLayer.get();
 }
 
-void PDFPlugin::geometryDidChange(const IntSize& pluginSize, const AffineTransform& pluginToRootViewTransform)
+bool PDFPlugin::geometryDidChange(const IntSize& pluginSize, const AffineTransform& pluginToRootViewTransform)
 {
-    if (size() == pluginSize)
-        return;
-
-    LOG_WITH_STREAM(PDF, stream << "PDFPlugin::geometryDidChange - size " << pluginSize << " pluginToRootViewTransform " << pluginToRootViewTransform);
-    PDFPluginBase::geometryDidChange(pluginSize, pluginToRootViewTransform);
+    if (!PDFPluginBase::geometryDidChange(pluginSize, pluginToRootViewTransform))
+        return false;
 
     [m_pdfLayerController setFrameSize:pluginSize];
 
@@ -813,7 +810,7 @@ void PDFPlugin::geometryDidChange(const IntSize& pluginSize, const AffineTransfo
     CATransform3D transform = CATransform3DMakeScale(1, -1, 1);
     transform = CATransform3DTranslate(transform, 0, -pluginSize.height(), 0);
     
-    updatePDFHUDLocation();
+    updateHUDLocation();
     updateScrollbars();
 
     if (m_activeAnnotation)
@@ -821,6 +818,8 @@ void PDFPlugin::geometryDidChange(const IntSize& pluginSize, const AffineTransfo
 
     [m_contentLayer setSublayerTransform:transform];
     [CATransaction commit];
+
+    return true;
 }
 
 IntPoint PDFPlugin::convertFromPluginToPDFView(const IntPoint& point) const
@@ -936,9 +935,7 @@ static bool getEventTypeFromWebEvent(const WebEvent& event, NSEventType& eventTy
     
 NSEvent *PDFPlugin::nsEventForWebMouseEvent(const WebMouseEvent& event)
 {
-    m_lastMousePositionInPluginCoordinates = convertFromRootViewToPlugin(event.position());
-
-    IntPoint positionInPDFViewCoordinates(convertFromPluginToPDFView(m_lastMousePositionInPluginCoordinates));
+    IntPoint positionInPDFViewCoordinates(convertFromPluginToPDFView(lastKnownMousePositionInView()));
 
     NSEventType eventType;
 
@@ -952,10 +949,10 @@ NSEvent *PDFPlugin::nsEventForWebMouseEvent(const WebMouseEvent& event)
 
 bool PDFPlugin::handleMouseEvent(const WebMouseEvent& event)
 {
+    m_lastMouseEvent = event;
+
     PlatformMouseEvent platformEvent = platform(event);
     IntPoint mousePosition = convertFromRootViewToPlugin(event.position());
-
-    m_lastMouseEvent = event;
 
     RefPtr<Scrollbar> targetScrollbar;
     RefPtr<Scrollbar> targetScrollbarForLastMousePosition;
@@ -964,7 +961,7 @@ bool PDFPlugin::handleMouseEvent(const WebMouseEvent& event)
         IntRect verticalScrollbarFrame(m_verticalScrollbarLayer.get().frame);
         if (verticalScrollbarFrame.contains(mousePosition))
             targetScrollbar = verticalScrollbar();
-        if (verticalScrollbarFrame.contains(m_lastMousePositionInPluginCoordinates))
+        if (verticalScrollbarFrame.contains(lastKnownMousePositionInView()))
             targetScrollbarForLastMousePosition = verticalScrollbar();
     }
 
@@ -972,7 +969,7 @@ bool PDFPlugin::handleMouseEvent(const WebMouseEvent& event)
         IntRect horizontalScrollbarFrame(m_horizontalScrollbarLayer.get().frame);
         if (horizontalScrollbarFrame.contains(mousePosition))
             targetScrollbar = horizontalScrollbar();
-        if (horizontalScrollbarFrame.contains(m_lastMousePositionInPluginCoordinates))
+        if (horizontalScrollbarFrame.contains(lastKnownMousePositionInView()))
             targetScrollbarForLastMousePosition = horizontalScrollbar();
     }
 
@@ -1094,7 +1091,7 @@ bool PDFPlugin::handleContextMenuEvent(const WebMouseEvent& event)
     IntPoint point = frameView->contentsToScreen(IntRect(frameView->windowToContents(event.position()), IntSize())).location();
 
     NSUserInterfaceLayoutDirection uiLayoutDirection = webPage->userInterfaceLayoutDirection() == UserInterfaceLayoutDirection::LTR ? NSUserInterfaceLayoutDirectionLeftToRight : NSUserInterfaceLayoutDirectionRightToLeft;
-    NSMenu *nsMenu = [m_pdfLayerController menuForEvent:nsEventForWebMouseEvent(event) withUserInterfaceLayoutDirection:uiLayoutDirection];
+    RetainPtr nsMenu = [m_pdfLayerController menuForEvent:nsEventForWebMouseEvent(event) withUserInterfaceLayoutDirection:uiLayoutDirection];
 
     if (!nsMenu)
         return false;
@@ -1117,11 +1114,12 @@ bool PDFPlugin::handleContextMenuEvent(const WebMouseEvent& event)
     }
     PDFContextMenu contextMenu { point, WTFMove(items), WTFMove(openInPreviewTag) };
 
-    auto sendResult = webPage->sendSync(Messages::WebPageProxy::ShowPDFContextMenu(contextMenu, m_identifier));
-    auto [selectedIndex] = sendResult.takeReplyOr(-1);
-
-    if (selectedIndex && *selectedIndex >= 0 && *selectedIndex < itemCount)
-        [nsMenu performActionForItemAtIndex:*selectedIndex];
+    webPage->sendWithAsyncReply(Messages::WebPageProxy::ShowPDFContextMenu { contextMenu, identifier() }, [itemCount, nsMenu = WTFMove(nsMenu), weakThis = WeakPtr { *this }](std::optional<int32_t>&& selectedIndex) {
+        if (RefPtr protectedThis = weakThis.get()) {
+            if (selectedIndex && selectedIndex.value() >= 0 && selectedIndex.value() < itemCount)
+                [nsMenu performActionForItemAtIndex:*selectedIndex];
+        }
+    });
 
     return true;
 }
@@ -1193,23 +1191,6 @@ void PDFPlugin::invalidateScrollCornerRect(const IntRect& rect)
     [m_scrollCornerLayer setNeedsDisplay];
 }
 
-void PDFPlugin::clickedLink(NSURL *url)
-{
-    URL coreURL = url;
-    if (coreURL.protocolIsJavaScript())
-        return;
-
-    auto* frame = m_frame ? m_frame->coreLocalFrame() : nullptr;
-    if (!frame)
-        return;
-
-    RefPtr<Event> coreEvent;
-    if (m_lastMouseEvent)
-        coreEvent = MouseEvent::create(eventNames().clickEvent, &frame->windowProxy(), platform(*m_lastMouseEvent), 0, 0);
-
-    frame->loader().changeLocation(coreURL, emptyAtom(), coreEvent.get(), ReferrerPolicy::NoReferrer, ShouldOpenExternalURLsPolicy::ShouldAllow);
-}
-
 void PDFPlugin::setActiveAnnotation(RetainPtr<PDFAnnotation>&& annotation)
 {
     if (!supportsForms())
@@ -1238,13 +1219,13 @@ void PDFPlugin::notifyContentScaleFactorChanged(CGFloat scaleFactor)
     if (handlesPageScaleFactor())
         m_view->setPageScaleFactor(scaleFactor, std::nullopt);
 
-    updatePDFHUDLocation();
+    updateHUDLocation();
     updateScrollbars();
 }
 
 void PDFPlugin::notifyDisplayModeChanged(int)
 {
-    updatePDFHUDLocation();
+    updateHUDLocation();
     updateScrollbars();
 }
 
@@ -1266,34 +1247,6 @@ void PDFPlugin::zoomIn()
 void PDFPlugin::zoomOut()
 {
     [m_pdfLayerController zoomOut:nil];
-}
-
-void PDFPlugin::writeItemsToPasteboard(NSString *pasteboardName, NSArray *items, NSArray *types)
-{
-    auto pasteboardTypes = makeVector<String>(types);
-    auto pageIdentifier = m_frame && m_frame->coreLocalFrame() ? m_frame->coreLocalFrame()->pageID() : std::nullopt;
-
-    auto& webProcess = WebProcess::singleton();
-    webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardTypes(pasteboardName, pasteboardTypes, pageIdentifier), 0);
-
-    for (NSUInteger i = 0, count = items.count; i < count; ++i) {
-        NSString *type = [types objectAtIndex:i];
-        NSData *data = [items objectAtIndex:i];
-
-        // We don't expect the data for any items to be empty, but aren't completely sure.
-        // Avoid crashing in the SharedMemory constructor in release builds if we're wrong.
-        ASSERT(data.length);
-        if (!data.length)
-            continue;
-
-        if ([type isEqualToString:legacyStringPasteboardType()] || [type isEqualToString:NSPasteboardTypeString]) {
-            auto plainTextString = adoptNS([[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding]);
-            webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardStringForType(pasteboardName, type, plainTextString.get(), pageIdentifier), 0);
-        } else {
-            auto buffer = SharedBuffer::create(data);
-            webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardBufferForType(pasteboardName, type, WTFMove(buffer), pageIdentifier), 0);
-        }
-    }
 }
 
 void PDFPlugin::showDefinitionForAttributedString(NSAttributedString *string, CGPoint point)
@@ -1386,16 +1339,18 @@ bool PDFPlugin::findString(const String& target, WebCore::FindOptions options, u
     // FIXME: How can always returning true without searching if passed a max of 0 be right?
     // Even if it is right, why not put that special case inside countFindMatches instead of here?
     bool foundMatch = !maxMatchCount || countFindMatches(target, options, maxMatchCount);
+    if (options.contains(WebCore::DoNotSetSelection))
+        return foundMatch && !target.isEmpty();
 
     if (target.isEmpty()) {
         auto searchSelection = [m_pdfLayerController searchSelection];
         [m_pdfLayerController findString:target caseSensitive:caseSensitive highlightMatches:YES];
         [m_pdfLayerController setSearchSelection:searchSelection];
-        m_lastFoundString = emptyString();
+        m_lastFindString = emptyString();
         return false;
     }
 
-    if (m_lastFoundString == target) {
+    if (m_lastFindString == target) {
         auto selection = nextMatchForString(target, searchForward, caseSensitive, wrapSearch, [m_pdfLayerController searchSelection], NO);
         if (!selection)
             return false;
@@ -1403,7 +1358,7 @@ bool PDFPlugin::findString(const String& target, WebCore::FindOptions options, u
         [m_pdfLayerController gotoSelection:selection];
     } else {
         [m_pdfLayerController findString:target caseSensitive:caseSensitive highlightMatches:YES];
-        m_lastFoundString = target;
+        m_lastFindString = target;
     }
 
     return foundMatch;
@@ -1437,7 +1392,7 @@ void PDFPlugin::focusPreviousAnnotation()
     [m_pdfLayerController activateNextAnnotation:true];
 }
 
-String PDFPlugin::getSelectionString() const
+String PDFPlugin::selectionString() const
 {
     return [[m_pdfLayerController currentSelection] string];
 }
@@ -1486,16 +1441,16 @@ static NSPoint pointInLayoutSpaceForPointInWindowSpace(PDFLayerController* pdfLa
     return NSPointFromCGPoint(newPoint);
 }
 
-std::tuple<String, PDFSelection *, NSDictionary *> PDFPlugin::lookupTextAtLocation(const WebCore::FloatPoint& locationInViewCoordinates, WebHitTestResultData& data) const
+LookupTextResult PDFPlugin::lookupTextAtLocation(const WebCore::FloatPoint& locationInViewCoordinates, WebHitTestResultData& data)
 {
     auto selection = [m_pdfLayerController currentSelection];
     if (existingSelectionContainsPoint(locationInViewCoordinates))
-        return { selection.string, selection, nil };
+        return { selection.string, selection };
 
     IntPoint pointInPDFView = convertFromPluginToPDFView(convertFromRootViewToPlugin(roundedIntPoint(locationInViewCoordinates)));
     selection = [m_pdfLayerController getSelectionForWordAtPoint:pointInPDFView];
     if (!selection)
-        return { emptyString(), nil, nil };
+        return { emptyString(), nil };
 
     NSPoint pointInLayoutSpace = pointInLayoutSpaceForPointInWindowSpace(m_pdfLayerController.get(), pointInPDFView);
     PDFPage *currentPage = [[m_pdfLayerController layout] pageNearestPoint:pointInLayoutSpace currentPage:[m_pdfLayerController currentPage]];
@@ -1518,15 +1473,15 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
         data.absoluteLinkURL = url.absoluteString;
         data.linkLabel = selection.string;
-        return { selection.string, selection, nil };
+        return { selection.string, selection };
     }
 
-    auto [lookupText, options] = DictionaryLookup::stringForPDFSelection(selection);
+    NSString *lookupText = DictionaryLookup::stringForPDFSelection(selection);
     if (!lookupText.length)
-        return { emptyString(), selection, nil };
+        return { emptyString(), selection };
 
     [m_pdfLayerController setCurrentSelection:selection];
-    return { lookupText, selection, options };
+    return { lookupText, selection };
 }
 
 static NSRect rectInViewSpaceForRectInLayoutSpace(PDFLayerController* pdfLayerController, NSRect layoutSpaceRect)
@@ -1584,18 +1539,9 @@ CGFloat PDFPlugin::scaleFactor() const
     return [m_pdfLayerController contentScaleFactor];
 }
 
-void PDFPlugin::performWebSearch(NSString *string)
+float PDFPlugin::contentScaleFactor() const
 {
-    if (!m_frame || !m_frame->page())
-        return;
-    m_frame->page()->send(Messages::WebPageProxy::SearchTheWeb(string));
-}
-
-void PDFPlugin::performSpotlightSearch(NSString *string)
-{
-    if (!m_frame || !m_frame->page())
-        return;
-    m_frame->page()->send(Messages::WebPageProxy::SearchWithSpotlight(string));
+    return scaleFactor();
 }
 
 bool PDFPlugin::handleWheelEvent(const WebWheelEvent& event)
@@ -1650,17 +1596,6 @@ NSData *PDFPlugin::liveData() const
         return [m_pdfDocument dataRepresentation];
 
     return originalData();
-}
-
-id PDFPlugin::accessibilityAssociatedPluginParentForElement(WebCore::Element* element) const
-{
-    if (!m_activeAnnotation)
-        return nil;
-
-    if (m_activeAnnotation->element() != element)
-        return nil;
-
-    return [m_activeAnnotation->annotation() accessibilityNode];
 }
 
 id PDFPlugin::accessibilityHitTest(const WebCore::IntPoint& point) const

@@ -909,10 +909,11 @@ window.UIHelper = class UIHelper {
             return Promise.resolve();
 
         if (internals.isUsingUISideCompositing() && (!scroller || scroller.nodeName != "SELECT")) {
+            var scrollingNodeID = internalFunctions.scrollingNodeIDForNode(scroller);
             return new Promise(resolve => {
                 testRunner.runUIScript(`(function() {
                     uiController.doAfterNextStablePresentationUpdate(function() {
-                        uiController.uiScriptComplete(uiController.scrollbarStateForScrollingNodeID(${internalFunctions.scrollingNodeIDForNode(scroller)}, ${isVertical}));
+                        uiController.uiScriptComplete(uiController.scrollbarStateForScrollingNodeID(${scrollingNodeID[0]}, ${scrollingNodeID[1]}, ${isVertical}));
                     });
                 })()`, state => {
                     resolve(state);
@@ -2138,6 +2139,30 @@ window.UIHelper = class UIHelper {
     static getSelectedTextInChromeInputField()
     {
         return new Promise(resolve => testRunner.getSelectedTextInChromeInputField(resolve));
+    }
+
+    static requestTextExtraction()
+    {
+        if (!this.isWebKit2())
+            return Promise.resolve();
+
+        return new Promise(resolve => {
+            testRunner.runUIScript(`(() => {
+                uiController.requestTextExtraction(result => uiController.uiScriptComplete(result));
+            })()`, resolve);
+        });
+    }
+
+    static requestRenderedTextForSelector(selector)
+    {
+        if (!this.isWebKit2())
+            return Promise.resolve();
+
+        return new Promise(resolve => {
+            testRunner.runUIScript(`(() => {
+                uiController.requestRenderedTextForSelector("${selector}", result => uiController.uiScriptComplete(result));
+            })()`, resolve);
+        });
     }
 }
 

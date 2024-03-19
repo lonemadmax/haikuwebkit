@@ -3778,10 +3778,14 @@ void TestController::setStatisticsTopFrameUniqueRedirectFrom(WKStringRef host, W
     WKWebsiteDataStoreSetStatisticsTopFrameUniqueRedirectFrom(websiteDataStore(), host, hostRedirectedFrom);
 }
 
-void TestController::setStatisticsCrossSiteLoadWithLinkDecoration(WKStringRef fromHost, WKStringRef toHost)
+void TestController::setStatisticsCrossSiteLoadWithLinkDecoration(WKStringRef fromHost, WKStringRef toHost, bool wasFiltered)
 {
     ResourceStatisticsCallbackContext context(*this);
-    WKWebsiteDataStoreSetStatisticsCrossSiteLoadWithLinkDecoration(websiteDataStore(), fromHost, toHost, &context, resourceStatisticsVoidResultCallback);
+#if PLATFORM(COCOA)
+    platformSetStatisticsCrossSiteLoadWithLinkDecoration(fromHost, toHost, wasFiltered, &context, &resourceStatisticsVoidResultCallback);
+#else
+    WKWebsiteDataStoreSetStatisticsCrossSiteLoadWithLinkDecoration(websiteDataStore(), fromHost, toHost, wasFiltered, &context, resourceStatisticsVoidResultCallback);
+#endif
     runUntil(context.done, noTimeout);
 }
 
@@ -4306,6 +4310,13 @@ void TestController::setShouldAllowDeviceOrientationAndMotionAccess(bool value)
 {
     m_shouldAllowDeviceOrientationAndMotionAccess = value;
     WKWebsiteDataStoreClearAllDeviceOrientationPermissions(websiteDataStore());
+}
+
+void TestController::setRequestStorageAccessThrowsExceptionUntilReload(bool enabled)
+{
+    auto configuration = adoptWK(WKPageCopyPageConfiguration(m_mainWebView->page()));
+    auto preferences = WKPageConfigurationGetPreferences(configuration.get());
+    WKPreferencesSetBoolValueForKeyForTesting(preferences, enabled, toWK("RequestStorageAccessThrowsExceptionUntilReload").get());
 }
 
 } // namespace WTR

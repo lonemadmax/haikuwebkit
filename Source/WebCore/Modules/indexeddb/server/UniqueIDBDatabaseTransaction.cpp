@@ -27,6 +27,7 @@
 #include "UniqueIDBDatabaseTransaction.h"
 
 #include "IDBIterateCursorData.h"
+#include "IDBRequestData.h"
 #include "IDBResultData.h"
 #include "Logging.h"
 #include "UniqueIDBDatabase.h"

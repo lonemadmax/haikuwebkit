@@ -235,7 +235,8 @@ static void getImageBytesFromImageBuffer(ImageBuffer* imageBuffer, const auto& d
         return callback(nullptr, 0, 0);
 
     auto pixelBuffer = imageBuffer->getPixelBuffer({ AlphaPremultiplication::Unpremultiplied, toPixelFormat(destination.texture->format()), DestinationColorSpace::SRGB() }, { { }, size });
-    ASSERT(pixelBuffer);
+    if (!pixelBuffer)
+        return callback(nullptr, 0, 0);
 
     callback(pixelBuffer->bytes(), pixelBuffer->sizeInBytes(), size.height());
 }
@@ -247,6 +248,9 @@ static void getImageBytesFromVideoFrame(const RefPtr<VideoFrame>& videoFrame, Im
         return callback(nullptr, 0, 0);
 
     auto pixelBuffer = videoFrame->pixelBuffer();
+    if (!pixelBuffer)
+        return callback(nullptr, 0, 0);
+
     auto rows = CVPixelBufferGetHeight(pixelBuffer);
     auto sizeInBytes = rows * CVPixelBufferGetBytesPerRow(pixelBuffer);
 
@@ -269,43 +273,55 @@ static void imageBytesForSource(const auto& source, const auto& destination, Ima
         callback(pixelBuffer->data().data(), sizeInBytes, rows);
     }, [&](const RefPtr<HTMLImageElement> imageElement) -> ResultType {
 #if PLATFORM(COCOA)
-        if (auto* cachedImage = imageElement->cachedImage()) {
-            if (auto* image = cachedImage->image(); image && image->isBitmapImage()) {
-                if (auto nativeImage = static_cast<BitmapImage*>(image)->nativeImage(); nativeImage.get()) {
-                    if (auto platformImage = nativeImage->platformImage()) {
-                        auto pixelDataCfData = adoptCF(CGDataProviderCopyData(CGImageGetDataProvider(platformImage.get())));
-                        if (!pixelDataCfData)
-                            return callback(nullptr, 0, 0);
+        if (!imageElement)
+            return callback(nullptr, 0, 0);
+        auto* cachedImage = imageElement->cachedImage();
+        if (!cachedImage)
+            return callback(nullptr, 0, 0);
+        RefPtr image = cachedImage->image();
+        if (!image || !image->isBitmapImage())
+            return callback(nullptr, 0, 0);
+        RefPtr nativeImage = static_cast<BitmapImage*>(image.get())->nativeImage();
+        if (!nativeImage)
+            return callback(nullptr, 0, 0);
+        RetainPtr platformImage = nativeImage->platformImage();
+        if (!platformImage)
+            return callback(nullptr, 0, 0);
+        RetainPtr pixelDataCfData = adoptCF(CGDataProviderCopyData(CGImageGetDataProvider(platformImage.get())));
+        if (!pixelDataCfData)
+            return callback(nullptr, 0, 0);
 
-                        auto width = CGImageGetWidth(platformImage.get());
-                        auto height = CGImageGetHeight(platformImage.get());
-                        auto sizeInBytes = height * CGImageGetBytesPerRow(platformImage.get());
-                        auto bytePointer = reinterpret_cast<const uint8_t*>(CFDataGetBytePtr(pixelDataCfData.get()));
-                        auto requiredSize = width * height * 4;
-                        if (sizeInBytes == requiredSize)
-                            return callback(bytePointer, sizeInBytes, height);
+        auto width = CGImageGetWidth(platformImage.get());
+        auto height = CGImageGetHeight(platformImage.get());
+        if (!width || !height)
+            return callback(nullptr, 0, 0);
 
-                        auto bytesPerRow = CGImageGetBytesPerRow(platformImage.get());
-                        Vector<uint8_t> tempBuffer(requiredSize, 255);
-                        auto bytesPerPixel = sizeInBytes / (width * height);
-                        for (size_t y = 0; y < height; ++y) {
-                            for (size_t x = 0; x < width; ++x) {
-                                for (size_t c = 0; c < bytesPerPixel; ++c)
-                                    tempBuffer[y * (width * 4) + x * 4 + c] = bytePointer[y * bytesPerRow + x * bytesPerPixel + c];
-                            }
-                        }
-                        callback(&tempBuffer[0], tempBuffer.size(), height);
-                    }
+        auto sizeInBytes = height * CGImageGetBytesPerRow(platformImage.get());
+        auto bytePointer = reinterpret_cast<const uint8_t*>(CFDataGetBytePtr(pixelDataCfData.get()));
+        auto requiredSize = width * height * 4;
+        if (sizeInBytes == requiredSize)
+            return callback(bytePointer, sizeInBytes, height);
+
+        auto bytesPerRow = CGImageGetBytesPerRow(platformImage.get());
+        Vector<uint8_t> tempBuffer(requiredSize, 255);
+        auto bytesPerPixel = sizeInBytes / (width * height);
+        auto bytesToCopy = std::min<size_t>(4, bytesPerPixel);
+        for (size_t y = 0; y < height; ++y) {
+            for (size_t x = 0; x < width; ++x) {
+                for (size_t c = 0; c < bytesToCopy; ++c) {
+                    // FIXME: These pixel values are probably incorrect after only copying 4 if bytesPerPixel is not 4.
+                    tempBuffer[y * (width * 4) + x * 4 + c] = bytePointer[y * bytesPerRow + x * bytesPerPixel + c];
                 }
             }
         }
+        callback(&tempBuffer[0], tempBuffer.size(), height);
 #else
         UNUSED_PARAM(imageElement);
-#endif
         return callback(nullptr, 0, 0);
+#endif
     }, [&](const RefPtr<HTMLVideoElement> videoElement) -> ResultType {
 #if PLATFORM(COCOA)
-        if (auto player = videoElement->player(); player->isVideoPlayer())
+        if (RefPtr player = videoElement->player(); player->isVideoPlayer())
             return getImageBytesFromVideoFrame(player->videoFrameForCurrentTime(), WTFMove(callback));
 #endif
         UNUSED_PARAM(videoElement);
@@ -525,7 +541,7 @@ static void* copyToDestinationFormat(const uint8_t* rgbaBytes, GPUTextureFormat 
 
     case GPUTextureFormat::Rg8unorm: {
         uint8_t* data = (uint8_t*)malloc(sizeInBytes / 2);
-        for (size_t i = 0, i0 = 0; i < sizeInBytes; i += 2, ++i0) {
+        for (size_t i = 0, i0 = 0; i < sizeInBytes; i += 4, i0 += 2) {
             data[i0] = rgbaBytes[i];
             data[i0 + 1] = rgbaBytes[i + 1];
         }
@@ -574,7 +590,7 @@ static void* copyToDestinationFormat(const uint8_t* rgbaBytes, GPUTextureFormat 
             data[i0 + 1] = rgbaBytes[i + 1];
         }
 
-        sizeInBytes = sizeInBytes * sizeof(float);
+        sizeInBytes = (sizeInBytes / 2) * sizeof(float);
         return data;
     }
 

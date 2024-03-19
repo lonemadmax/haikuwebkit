@@ -14,6 +14,7 @@
 
 #include "common/PackedEnums.h"
 #include "common/vulkan/vk_headers.h"
+#include "image_util/loadimage.h"
 #include "libANGLE/renderer/ContextImpl.h"
 #include "libANGLE/renderer/renderer_utils.h"
 #include "libANGLE/renderer/vulkan/DisplayVk.h"
@@ -72,7 +73,7 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     ContextVk(const gl::State &state, gl::ErrorSet *errorSet, RendererVk *renderer);
     ~ContextVk() override;
 
-    angle::Result initialize() override;
+    angle::Result initialize(const angle::ImageLoadContext &imageLoadContext) override;
 
     void onDestroy(const gl::Context *context) override;
 
@@ -663,7 +664,7 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
 
     // Either issue a submission or defer it when a sync object is initialized.  If deferred, a
     // submission will have to be incurred during client wait.
-    angle::Result onSyncObjectInit(vk::SyncHelper *syncHelper, bool isEGLSyncObject);
+    angle::Result onSyncObjectInit(vk::SyncHelper *syncHelper, SyncFenceScope scope);
     // Called when a sync object is waited on while its submission was deffered in onSyncObjectInit.
     // It's a no-op if this context doesn't have a pending submission.  Note that due to
     // mHasDeferredFlush being set, flushing the render pass leads to a submission automatically.
@@ -781,7 +782,7 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
 
     vk::ComputePipelineFlags getComputePipelineFlags() const;
 
-    angle::ImageLoadContext getImageLoadContext() const;
+    const angle::ImageLoadContext &getImageLoadContext() const { return mImageLoadContext; }
 
     bool hasUnsubmittedUse(const vk::ResourceUse &use) const;
     bool hasUnsubmittedUse(const vk::Resource &resource) const
@@ -801,6 +802,12 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
     {
         return getFeatures().mutableMipmapTextureUpload.enabled && !hasDisplayTextureShareGroup() &&
                mShareGroupVk->getContexts().size() == 1;
+    }
+
+    bool isPipelineCacheGraphDumpEnabled() const { return mDumpPipelineCacheGraph; }
+    const char *getPipelineCacheGraphDumpPath() const
+    {
+        return mPipelineCacheGraphDumpPath.c_str();
     }
 
     vk::RenderPassUsageFlags getDepthStencilAttachmentFlags() const
@@ -1393,6 +1400,8 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
 
     angle::Result ensureInterfacePipelineCache();
 
+    angle::ImageLoadContext mImageLoadContext;
+
     std::array<GraphicsDirtyBitHandler, DIRTY_BIT_MAX> mGraphicsDirtyBitHandlers;
     std::array<ComputeDirtyBitHandler, DIRTY_BIT_MAX> mComputeDirtyBitHandlers;
 
@@ -1679,6 +1688,8 @@ class ContextVk : public ContextImpl, public vk::Context, public MultisampleText
 
     // A graph built from pipeline descs and their transitions.
     std::ostringstream mPipelineCacheGraph;
+    bool mDumpPipelineCacheGraph;
+    std::string mPipelineCacheGraphDumpPath;
 
     RangedSerialFactory mOutsideRenderPassSerialFactory;
 };
@@ -1719,13 +1730,16 @@ ANGLE_INLINE angle::Result ContextVk::onVertexAttributeChange(size_t attribIndex
 {
     const GLuint staticStride = mRenderer->useVertexInputBindingStrideDynamicState() ? 0 : stride;
 
-    invalidateCurrentGraphicsPipeline();
+    if (!getFeatures().supportsVertexInputDynamicState.enabled)
+    {
+        invalidateCurrentGraphicsPipeline();
 
-    // Set divisor to 1 for attribs with emulated divisor
-    mGraphicsPipelineDesc->updateVertexInput(
-        this, &mGraphicsPipelineTransition, static_cast<uint32_t>(attribIndex), staticStride,
-        divisor > mRenderer->getMaxVertexAttribDivisor() ? 1 : divisor, format, compressed,
-        relativeOffset);
+        // Set divisor to 1 for attribs with emulated divisor
+        mGraphicsPipelineDesc->updateVertexInput(
+            this, &mGraphicsPipelineTransition, static_cast<uint32_t>(attribIndex), staticStride,
+            divisor > mRenderer->getMaxVertexAttribDivisor() ? 1 : divisor, format, compressed,
+            relativeOffset);
+    }
     return onVertexBufferChange(vertexBuffer);
 }
 

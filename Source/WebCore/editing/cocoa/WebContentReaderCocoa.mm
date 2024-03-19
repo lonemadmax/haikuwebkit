@@ -48,6 +48,7 @@
 #import "HTMLIFrameElement.h"
 #import "HTMLImageElement.h"
 #import "HTMLObjectElement.h"
+#import "HTMLSourceElement.h"
 #import "LegacyWebArchive.h"
 #import "LocalFrame.h"
 #import "LocalFrameLoaderClient.h"
@@ -352,6 +353,24 @@ static void replaceRichContentWithAttachments(LocalFrame& frame, DocumentFragmen
         attachmentInsertionInfo.append({ WTFMove(name), resource->value->mimeType(), resource->value->data().makeContiguous(), object });
     }
 
+    for (auto& source : descendantsOfType<HTMLSourceElement>(fragment)) {
+        auto resourceURLString = source.attributeWithoutSynchronization(HTMLNames::srcsetAttr);
+        if (resourceURLString.isEmpty()) {
+            elementsToRemove.append(source);
+            continue;
+        }
+
+        auto resource = urlToResourceMap.find(resourceURLString);
+        if (resource == urlToResourceMap.end())
+            continue;
+
+        String name = URL({ }, resourceURLString).lastPathComponent().toString();
+        if (name.isEmpty())
+            name = "media"_s;
+
+        attachmentInsertionInfo.append({ WTFMove(name), resource->value->mimeType(), resource->value->data().makeContiguous(), source });
+    }
+
     for (auto& info : attachmentInsertionInfo) {
         auto originalElement = WTFMove(info.originalElement);
         RefPtr parent { originalElement->parentNode() };
@@ -360,11 +379,14 @@ static void replaceRichContentWithAttachments(LocalFrame& frame, DocumentFragmen
 
         auto attachment = HTMLAttachmentElement::create(HTMLNames::attachmentTag, fragment.document());
         if (supportsClientSideAttachmentData(frame)) {
-            if (is<HTMLImageElement>(originalElement) && contentTypeIsSuitableForInlineImageRepresentation(info.contentType)) {
-                auto& image = downcast<HTMLImageElement>(originalElement.get());
+            if (RefPtr image = dynamicDowncast<HTMLImageElement>(originalElement); image && contentTypeIsSuitableForInlineImageRepresentation(info.contentType)) {
                 RefPtr document = frame.document();
-                image.setAttributeWithoutSynchronization(HTMLNames::srcAttr, AtomString { DOMURL::createObjectURL(*document, Blob::create(document.get(), info.data->copyData(), info.contentType)) });
-                image.setAttachmentElement(attachment.copyRef());
+                image->setAttributeWithoutSynchronization(HTMLNames::srcAttr, AtomString { DOMURL::createObjectURL(*document, Blob::create(document.get(), info.data->copyData(), info.contentType)) });
+                image->setAttachmentElement(attachment.copyRef());
+            } else if (RefPtr source = dynamicDowncast<HTMLSourceElement>(originalElement); source && contentTypeIsSuitableForInlineImageRepresentation(info.contentType)) {
+                RefPtr document = frame.document();
+                source->setAttributeWithoutSynchronization(HTMLNames::srcsetAttr, AtomString { DOMURL::createObjectURL(*document, Blob::create(document.get(), info.data->copyData(), info.contentType)) });
+                source->setAttachmentElement(attachment.copyRef());
             } else {
                 attachment->updateAttributes(info.data->size(), AtomString { info.contentType }, AtomString { info.fileName });
                 parent->replaceChild(attachment, WTFMove(originalElement));
@@ -385,7 +407,7 @@ static void replaceRichContentWithAttachments(LocalFrame& frame, DocumentFragmen
 #endif
 }
 
-RefPtr<DocumentFragment> createFragmentAndAddResources(LocalFrame& frame, NSAttributedString *string)
+RefPtr<DocumentFragment> createFragment(LocalFrame& frame, NSAttributedString *string, AddResources addResources)
 {
     if (!frame.page() || !frame.document())
         return nullptr;
@@ -398,6 +420,9 @@ RefPtr<DocumentFragment> createFragmentAndAddResources(LocalFrame& frame, NSAttr
     auto fragmentAndResources = createFragment(frame, string);
     if (!fragmentAndResources.fragment)
         return nullptr;
+
+    if (addResources == AddResources::No)
+        return fragmentAndResources.fragment;
 
     if (!DeprecatedGlobalSettings::customPasteboardDataEnabled()) {
         if (DocumentLoader* loader = frame.loader().documentLoader()) {
@@ -624,7 +649,7 @@ bool WebContentReader::readRTFD(SharedBuffer& buffer)
         return false;
 
     auto string = adoptNS([[NSAttributedString alloc] initWithRTFD:buffer.createNSData().get() documentAttributes:nullptr]);
-    auto fragment = createFragmentAndAddResources(frame, string.get());
+    auto fragment = createFragment(frame, string.get(), AddResources::Yes);
     if (!fragment)
         return false;
     addFragment(fragment.releaseNonNull());
@@ -638,7 +663,7 @@ bool WebContentMarkupReader::readRTFD(SharedBuffer& buffer)
     if (!frame->document())
         return false;
     auto string = adoptNS([[NSAttributedString alloc] initWithRTFD:buffer.createNSData().get() documentAttributes:nullptr]);
-    auto fragment = createFragmentAndAddResources(frame, string.get());
+    auto fragment = createFragment(frame, string.get(), AddResources::Yes);
     if (!fragment)
         return false;
 
@@ -653,7 +678,7 @@ bool WebContentReader::readRTF(SharedBuffer& buffer)
         return false;
 
     auto string = adoptNS([[NSAttributedString alloc] initWithRTF:buffer.createNSData().get() documentAttributes:nullptr]);
-    auto fragment = createFragmentAndAddResources(frame, string.get());
+    auto fragment = createFragment(frame, string.get(), AddResources::Yes);
     if (!fragment)
         return false;
     addFragment(fragment.releaseNonNull());
@@ -667,7 +692,7 @@ bool WebContentMarkupReader::readRTF(SharedBuffer& buffer)
     if (!frame->document())
         return false;
     auto string = adoptNS([[NSAttributedString alloc] initWithRTF:buffer.createNSData().get() documentAttributes:nullptr]);
-    auto fragment = createFragmentAndAddResources(frame, string.get());
+    auto fragment = createFragment(frame, string.get(), AddResources::Yes);
     if (!fragment)
         return false;
     m_markup = serializeFragment(*fragment, SerializedNodes::SubtreeIncludingNode);

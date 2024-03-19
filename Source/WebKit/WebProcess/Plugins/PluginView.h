@@ -31,6 +31,7 @@
 #include <WebCore/PluginViewBase.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/SharedBuffer.h>
+#include <WebCore/TextIndicator.h>
 #include <WebCore/Timer.h>
 #include <memory>
 #include <wtf/RunLoop.h>
@@ -49,9 +50,15 @@ class ShareableBitmap;
 namespace WebKit {
 
 class PDFPluginBase;
+class WebFrame;
 class WebPage;
 
 struct WebHitTestResultData;
+
+struct LookupTextResult {
+    String text;
+    RetainPtr<PDFSelection> correspondingSelection;
+};
 
 class PluginView final : public WebCore::PluginViewBase {
 public:
@@ -76,12 +83,14 @@ public:
     void layerHostingStrategyDidChange() final;
 
     WebCore::HTMLPlugInElement& pluginElement() const { return m_pluginElement; }
+    Ref<WebCore::HTMLPlugInElement> protectedPluginElement() const;
     const URL& mainResourceURL() const { return m_mainResourceURL; }
 
     void didBeginMagnificationGesture();
     void didEndMagnificationGesture();
     void setPageScaleFactor(double, std::optional<WebCore::IntPoint> origin);
     double pageScaleFactor() const;
+    void pluginScaleFactorDidChange();
 
     void topContentInsetDidChange();
 
@@ -92,14 +101,16 @@ public:
     
     unsigned countFindMatches(const String& target, WebCore::FindOptions, unsigned maxMatchCount);
     bool findString(const String& target, WebCore::FindOptions, unsigned maxMatchCount);
+    Vector<WebCore::FloatRect> rectsForTextMatchesInRect(const WebCore::IntRect&) const;
+    bool drawsFindOverlay() const;
+    RefPtr<WebCore::TextIndicator> textIndicatorForSelection(OptionSet<WebCore::TextIndicatorOption>, WebCore::TextIndicatorPresentationTransition);
 
-    String getSelectionString() const;
+    String selectionString() const;
 
     RefPtr<WebCore::FragmentedSharedBuffer> liveResourceData() const;
     bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
-    bool existingSelectionContainsPoint(const WebCore::FloatPoint&) const;
 
-    std::tuple<String, PDFSelection *, NSDictionary *> lookupTextAtLocation(const WebCore::FloatPoint&, WebHitTestResultData&) const;
+    LookupTextResult lookupTextAtLocation(const WebCore::FloatPoint&, WebHitTestResultData&) const;
     WebCore::FloatRect rectForSelectionInRootView(PDFSelection *) const;
     CGFloat contentScaleFactor() const;
     
@@ -108,6 +119,10 @@ public:
     void invalidateRect(const WebCore::IntRect&) final;
 
     void didChangeSettings();
+
+    void windowActivityDidChange();
+
+    void didSameDocumentNavigationForFrame(WebFrame&);
 
 private:
     PluginView(WebCore::HTMLPlugInElement&, const URL&, const String& contentType, bool shouldUseManualLoader, WebPage&);
@@ -150,6 +165,8 @@ private:
 
     bool usesAsyncScrolling() const final;
     WebCore::ScrollingNodeID scrollingNodeID() const final;
+    void willAttachScrollingNode() final;
+    void didAttachScrollingNode() final;
 
     // WebCore::Widget
     void setFrameRect(const WebCore::IntRect&) final;
@@ -163,6 +180,8 @@ private:
     void setParentVisible(bool) final;
     bool transformsAffectFrameRect() final;
     void clipRectChanged() final;
+
+    RefPtr<WebPage> protectedWebPage() const;
 
     Ref<WebCore::HTMLPlugInElement> m_pluginElement;
     Ref<PDFPluginBase> m_plugin;

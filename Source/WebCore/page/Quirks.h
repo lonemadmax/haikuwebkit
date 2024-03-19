@@ -39,13 +39,14 @@ class EventTypeInfo;
 class HTMLElement;
 class HTMLVideoElement;
 class LayoutUnit;
+class LocalFrame;
 class PlatformMouseEvent;
 class RegistrableDomain;
 class SecurityOriginData;
 class WeakPtrImplWithEventTargetData;
 
 enum class IsSyntheticClick : bool;
-enum class StorageAccessWasGranted : bool;
+enum class StorageAccessWasGranted : uint8_t;
 
 class Quirks {
     WTF_MAKE_NONCOPYABLE(Quirks); WTF_MAKE_FAST_ALLOCATED;
@@ -83,6 +84,7 @@ public:
     bool shouldExposeShowModalDialog() const;
     bool shouldNavigatorPluginsBeEmpty() const;
     bool shouldDisableNavigatorStandaloneQuirk() const;
+    static bool shouldSendLongerAcceptHeaderQuirk(const URL&, LocalFrame*);
 
     WEBCORE_EXPORT bool shouldDispatchSyntheticMouseEventsWhenModifyingSelection() const;
     WEBCORE_EXPORT bool shouldSuppressAutocorrectionAndAutocapitalizationInHiddenEditableAreas() const;
@@ -99,10 +101,10 @@ public:
     WEBCORE_EXPORT bool needsYouTubeMouseOutQuirk() const;
 
     WEBCORE_EXPORT bool shouldAvoidUsingIOS13ForGmail() const;
-    WEBCORE_EXPORT bool shouldAvoidUsingIOS17UserAgentForFacebook() const;
 
     WEBCORE_EXPORT static void updateStorageAccessUserAgentStringQuirks(HashMap<RegistrableDomain, String>&&);
     WEBCORE_EXPORT String storageAccessUserAgentStringQuirkForDomain(const URL&);
+    WEBCORE_EXPORT static bool needsIpadMiniUserAgent(StringView host);
 
     bool needsGMailOverflowScrollQuirk() const;
     bool needsYouTubeOverflowScrollQuirk() const;
@@ -184,16 +186,23 @@ public:
     bool needsDisableDOMPasteAccessQuirk() const;
 
     bool shouldDisableElementFullscreenQuirk() const;
+    bool shouldIgnorePlaysInlineRequirementQuirk() const;
+    WEBCORE_EXPORT bool shouldUseEphemeralPartitionedStorageForDOMCookies(const URL&) const;
+
+    bool needsGetElementsByNameQuirk() const;
 
 private:
     bool needsQuirks() const;
     bool isDomain(const String&) const;
     bool isEmbedDomain(const String&) const;
+    bool isYoutubeEmbedDomain() const;
 
 #if ENABLE(TOUCH_EVENTS)
     bool isAmazon() const;
     bool isGoogleMaps() const;
 #endif
+
+    RefPtr<Document> protectedDocument() const;
 
     WeakPtr<Document, WeakPtrImplWithEventTargetData> m_document;
 
@@ -251,8 +260,8 @@ private:
     mutable std::optional<bool> m_shouldStarBeFeaturePolicyDefaultValueQuirk;
     mutable std::optional<bool> m_shouldDisableDataURLPaddingValidation;
     mutable std::optional<bool> m_needsDisableDOMPasteAccessQuirk;
-    mutable std::optional<bool> m_shouldAvoidUsingIOS17UserAgentForFacebook;
     mutable std::optional<bool> m_shouldDisableElementFullscreen;
+    mutable std::optional<bool> m_shouldIgnorePlaysInlineRequirementQuirk;
 
     Vector<RegistrableDomain> m_subFrameDomainsForStorageAccessQuirk;
 };

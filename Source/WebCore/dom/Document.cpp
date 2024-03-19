@@ -175,6 +175,7 @@
 #include "NoiseInjectionPolicy.h"
 #include "NotificationController.h"
 #include "OpportunisticTaskScheduler.h"
+#include "OrientationNotifier.h"
 #include "OverflowEvent.h"
 #include "PageConsoleClient.h"
 #include "PageGroup.h"
@@ -271,6 +272,7 @@
 #include "TouchAction.h"
 #include "TransformSource.h"
 #include "TreeWalker.h"
+#include "TrustedType.h"
 #include "TypedElementDescendantIteratorInlines.h"
 #include "UndoManager.h"
 #include "UserGestureIndicator.h"
@@ -608,7 +610,6 @@ Document::Document(LocalFrame* frame, const Settings& settings, const URL& url, 
     , m_applyPendingXSLTransformsTimer(*this, &Document::applyPendingXSLTransformsTimerFired)
 #endif
     , m_xmlVersion("1.0"_s)
-    , m_constantPropertyMap(makeUnique<ConstantPropertyMap>(*this))
     , m_intersectionObserversInitialUpdateTimer(*this, &Document::intersectionObserversInitialUpdateTimerFired)
     , m_loadEventDelayTimer(*this, &Document::loadEventDelayTimerFired)
 #if PLATFORM(IOS_FAMILY) && ENABLE(DEVICE_ORIENTATION)
@@ -623,7 +624,6 @@ Document::Document(LocalFrame* frame, const Settings& settings, const URL& url, 
     , m_didAssociateFormControlsTimer(*this, &Document::didAssociateFormControlsTimerFired)
     , m_cookieCacheExpiryTimer(*this, &Document::invalidateDOMCookieCache)
     , m_socketProvider(page() ? &page()->socketProvider() : nullptr)
-    , m_orientationNotifier(currentOrientation(frame))
     , m_selection(makeUniqueRef<FrameSelection>(this))
     , m_documentClasses(documentClasses)
     , m_latestFocusTrigger { FocusTrigger::Other }
@@ -657,13 +657,17 @@ Document::Document(LocalFrame* frame, const Settings& settings, const URL& url, 
     ASSERT(!m_markers);
     ASSERT(!m_scriptRunner);
     ASSERT(!m_moduleLoader);
+#if ENABLE(FULLSCREEN_API)
     ASSERT(!m_fullscreenManager);
+#endif
     ASSERT(!m_fontSelector);
     ASSERT(!m_fontLoader);
     ASSERT(!m_undoManager);
     ASSERT(!m_editor);
     ASSERT(!m_reportingScope);
+    ASSERT(!hasEmptySecurityOriginPolicyAndContentSecurityPolicy() || !hasInitializedSecurityOriginPolicyOrContentSecurityPolicy());
     m_constructionDidFinish = true;
+
 }
 
 void Document::createNewIdentifier()
@@ -864,8 +868,8 @@ void Document::commonTeardown()
         fullscreenManager->emptyEventQueue();
 #endif
 
-    if (svgExtensions())
-        accessSVGExtensions().pauseAnimations();
+    if (CheckedPtr svgExtensions = svgExtensionsIfExists())
+        svgExtensions->pauseAnimations();
 
     clearScriptedAnimationController();
 
@@ -1028,6 +1032,16 @@ const Editor& Document::editor() const
     return *m_editor;
 }
 
+CheckedRef<Editor> Document::checkedEditor()
+{
+    return editor();
+}
+
+CheckedRef<const Editor> Document::checkedEditor() const
+{
+    return editor();
+}
+
 Editor& Document::ensureEditor()
 {
     ASSERT(m_constructionDidFinish);
@@ -1046,20 +1060,22 @@ ReportingScope& Document::ensureReportingScope()
 
 void Document::setMarkupUnsafe(const String& markup, OptionSet<ParserContentPolicy> parserContentPolicy)
 {
+    ASSERT(!hasChildNodes());
     auto policy = OptionSet<ParserContentPolicy> { ParserContentPolicy::AllowScriptingContent } | parserContentPolicy;
     setParserContentPolicy(policy);
     if (this->contentType() == textHTMLContentTypeAtom()) {
+        auto html = HTMLHtmlElement::create(*this);
+        appendChild(html);
         auto body = HTMLBodyElement::create(*this);
+        html->appendChild(body);
         body->beginParsingChildren();
         if (LIKELY(tryFastParsingHTMLFragment(StringView { markup }.substring(markup.find(isNotASCIIWhitespace<UChar>)), *this, body, body, policy))) {
             body->finishParsingChildren();
-            auto html = HTMLHtmlElement::create(*this);
             auto head = HTMLHeadElement::create(*this);
-            html->appendChild(head);
-            html->appendChild(body);
-            appendChild(html);
+            html->insertBefore(head, body.ptr());
             return;
         }
+        html->remove();
     }
     open();
     protectedParser()->appendSynchronously(markup.impl());
@@ -1225,6 +1241,8 @@ void Document::setCompatibilityMode(DocumentCompatibilityMode mode)
 
     if (CheckedPtr view = renderView())
         view->updateQuirksMode();
+
+    invalidateCachedCSSParserContext();
 }
 
 String Document::compatMode() const
@@ -2715,7 +2733,7 @@ auto Document::updateLayout(OptionSet<LayoutOptions> layoutOptions, const Elemen
 
         if (frameView && renderView()) {
             if (context && layoutOptions.contains(LayoutOptions::ContentVisibilityForceLayout)) {
-                if (context->renderer() && context->renderer()->style().hasSkippedContent())
+                if (context->renderer() && context->renderer()->style().hasSkippedContent() && !context->renderer()->everHadSkippedContentLayout())
                     context->renderer()->setNeedsLayout();
                 else
                     context = nullptr;
@@ -3761,8 +3779,8 @@ void Document::implicitClose()
             HTMLStyleElement::dispatchPendingLoadEvents(currentPage.get());
         }
 
-        if (svgExtensions())
-            accessSVGExtensions().dispatchLoadEventToOutermostSVGElements();
+        if (CheckedPtr svgExtensions = svgExtensionsIfExists())
+            svgExtensions->dispatchLoadEventToOutermostSVGElements();
     }
 
     dispatchWindowLoadEvent();
@@ -3821,8 +3839,8 @@ void Document::implicitClose()
     }
 #endif
 
-    if (svgExtensions())
-        accessSVGExtensions().startAnimations();
+    if (CheckedPtr svgExtensions = svgExtensionsIfExists())
+        svgExtensions->startAnimations();
 }
 
 void Document::setParsing(bool b)
@@ -4132,6 +4150,8 @@ void Document::updateBaseURL()
 
     if (!m_baseURL.isValid())
         m_baseURL = URL();
+
+    invalidateCachedCSSParserContext();
 }
 
 void Document::setBaseURLOverride(const URL& url)
@@ -4250,6 +4270,18 @@ RefPtr<RTCDataChannelRemoteHandlerConnection> Document::createRTCDataChannelRemo
 void Document::setRTCNetworkManager(Ref<RTCNetworkManager>&& rtcNetworkManager)
 {
     m_rtcNetworkManager = WTFMove(rtcNetworkManager);
+}
+
+void Document::startGatheringRTCLogs(RTCController::LogCallback&& callback)
+{
+    if (RefPtr page = this->page())
+        page->rtcController().startGatheringLogs(*this, WTFMove(callback));
+}
+
+void Document::stopGatheringRTCLogs()
+{
+    if (RefPtr page = this->page())
+        page->rtcController().stopGatheringLogs();
 }
 #endif
 
@@ -4991,12 +5023,26 @@ void Document::updateViewportUnitsOnResize()
 
 void Document::setNeedsDOMWindowResizeEvent()
 {
+#if ENABLE(FULLSCREEN_API)
+    if (CheckedPtr fullscreenManager = fullscreenManagerIfExists(); fullscreenManager && fullscreenManager->isAnimatingFullscreen()) {
+        fullscreenManager->addPendingScheduledResize(FullscreenManager::ResizeType::DOMWindow);
+        return;
+    }
+#endif
+
     m_needsDOMWindowResizeEvent = true;
     scheduleRenderingUpdate(RenderingUpdateStep::Resize);
 }
 
 void Document::setNeedsVisualViewportResize()
 {
+#if ENABLE(FULLSCREEN_API)
+    if (CheckedPtr fullscreenManager = fullscreenManagerIfExists(); fullscreenManager && fullscreenManager->isAnimatingFullscreen()) {
+        fullscreenManager->addPendingScheduledResize(FullscreenManager::ResizeType::VisualViewport);
+        return;
+    }
+#endif
+
     m_needsVisualViewportResizeEvent = true;
     scheduleRenderingUpdate(RenderingUpdateStep::Resize);
 }
@@ -6850,13 +6896,27 @@ static Editor::Command command(Document* document, const String& commandName, bo
         userInterface ? EditorCommandSource::DOMWithUserInterface : EditorCommandSource::DOM);
 }
 
-ExceptionOr<bool> Document::execCommand(const String& commandName, bool userInterface, const String& value)
+ExceptionOr<bool> Document::execCommand(const String& commandName, bool userInterface, const std::variant<String, RefPtr<TrustedHTML>>& value)
 {
     if (UNLIKELY(!isHTMLDocument() && !isXHTMLDocument()))
         return Exception { ExceptionCode::InvalidStateError, "execCommand is only supported on HTML documents."_s };
 
+    auto stringValueHolder = WTF::switchOn(value,
+        [&commandName, this](const String& str) -> ExceptionOr<String> {
+            if (commandName != "insertHTML"_s)
+                return String(str);
+            return trustedTypeCompliantString(TrustedType::TrustedHTML, *scriptExecutionContext(), str, "Document execCommand"_s);
+        },
+        [](const RefPtr<TrustedHTML>& trustedHtml) -> ExceptionOr<String> {
+            return trustedHtml->toString();
+        }
+    );
+
+    if (stringValueHolder.hasException())
+        return stringValueHolder.releaseException();
+
     EventQueueScope eventQueueScope;
-    return command(this, commandName, userInterface).execute(value);
+    return command(this, commandName, userInterface).execute(stringValueHolder.releaseReturnValue());
 }
 
 ExceptionOr<bool> Document::queryCommandEnabled(const String& commandName)
@@ -7050,11 +7110,16 @@ ExceptionOr<Ref<Attr>> Document::createAttributeNS(const AtomString& namespaceUR
     return Attr::create(*this, parsedName, emptyAtom());
 }
 
-SVGDocumentExtensions& Document::accessSVGExtensions()
+SVGDocumentExtensions& Document::svgExtensions()
 {
     if (!m_svgExtensions)
         m_svgExtensions = makeUnique<SVGDocumentExtensions>(*this);
     return *m_svgExtensions;
+}
+
+CheckedRef<SVGDocumentExtensions> Document::checkedSVGExtensions()
+{
+    return svgExtensions();
 }
 
 bool Document::hasSVGRootNode() const
@@ -7274,9 +7339,8 @@ void Document::initSecurityContext()
     if (!m_frame) {
         // No source for a security context.
         // This can occur via document.implementation.createDocument().
-        setCookieURL(URL({ }, emptyString()));
-        setSecurityOriginPolicy(SecurityOriginPolicy::create(SecurityOrigin::createOpaque()));
-        setContentSecurityPolicy(makeUnique<ContentSecurityPolicy>(URL { emptyString() }, *this));
+        ASSERT(m_cookieURL.isNull());
+        setEmptySecurityOriginPolicyAndContentSecurityPolicy();
         return;
     }
 
@@ -7856,7 +7920,9 @@ void Document::enqueueHashchangeEvent(const String& oldURL, const String& newURL
 
 void Document::dispatchPopstateEvent(RefPtr<SerializedScriptValue>&& stateObject)
 {
-    dispatchWindowEvent(PopStateEvent::create(WTFMove(stateObject), m_domWindow ? &m_domWindow->history() : nullptr));
+    auto event = PopStateEvent::create(WTFMove(stateObject), m_domWindow ? &m_domWindow->history() : nullptr);
+    event->setHasUAVisualTransition(page() && page()->isInSwipeAnimation());
+    dispatchWindowEvent(event);
 }
 
 void Document::addMediaCanStartListener(MediaCanStartListener& listener)
@@ -9204,11 +9270,28 @@ void Document::didRemoveInDocumentShadowRoot(ShadowRoot& shadowRoot)
     m_inDocumentShadowRoots.remove(shadowRoot);
 }
 
+ConstantPropertyMap& Document::constantProperties() const
+{
+    if (!m_constantPropertyMap) {
+        auto& thisDocument = const_cast<Document&>(*this);
+        thisDocument.m_constantPropertyMap = makeUnique<ConstantPropertyMap>(thisDocument);
+    }
+    return *m_constantPropertyMap;
+}
+
 void Document::orientationChanged(IntDegrees orientation)
 {
     LOG(Events, "Document %p orientationChanged - orientation %d", this, orientation);
     dispatchWindowEvent(Event::create(eventNames().orientationchangeEvent, Event::CanBubble::No, Event::IsCancelable::No));
-    m_orientationNotifier.orientationChanged(orientation);
+    if (CheckedPtr notifier = m_orientationNotifier.get())
+        notifier->orientationChanged(orientation);
+}
+
+OrientationNotifier& Document::orientationNotifier()
+{
+    if (!m_orientationNotifier)
+        m_orientationNotifier = makeUnique<OrientationNotifier>(currentOrientation(frame()));
+    return *m_orientationNotifier;
 }
 
 #if ENABLE(MEDIA_STREAM)
@@ -9883,6 +9966,18 @@ CSSCounterStyleRegistry& Document::counterStyleRegistry()
     return styleScope().counterStyleRegistry();
 }
 
+CSSParserContext Document::cssParserContext() const
+{
+    if (!m_cachedCSSParserContext)
+        m_cachedCSSParserContext = makeUnique<CSSParserContext>(*this, URL { }, emptyString());
+    return *m_cachedCSSParserContext;
+}
+
+void Document::invalidateCachedCSSParserContext()
+{
+    m_cachedCSSParserContext = { };
+}
+
 const FixedVector<CSSPropertyID>& Document::exposedComputedCSSPropertyIDs()
 {
     if (!m_exposedComputedCSSPropertyIDs.has_value()) {
@@ -10095,38 +10190,44 @@ const CrossOriginOpenerPolicy& Document::crossOriginOpenerPolicy() const
     return SecurityContext::crossOriginOpenerPolicy();
 }
 
-void Document::prepareCanvasesForDisplayIfNeeded()
+void Document::prepareCanvasesForDisplayOrFlushIfNeeded()
 {
-    // Some canvas contexts need to do work when rendering has finished but
-    // before their content is composited.
+    auto contexts = copyToVectorOf<WeakPtr<CanvasRenderingContext>>(m_canvasContextsToPrepare);
+    m_canvasContextsToPrepare.clear();
+    for (auto& weakContext : contexts) {
+        auto* context = weakContext.get();
+        if (!context)
+            continue;
 
-    // FIXME: Calling prepareForDisplay should not call back into a method
-    // that would mutate our m_canvasesNeedingDisplayPreparation list. It
-    // would be nice if this could be enforced to remove the copyToVector.
+        context->setIsInPreparationForDisplayOrFlush(false);
 
-    auto canvases = copyToVectorOf<Ref<HTMLCanvasElement>>(m_canvasesNeedingDisplayPreparation);
-    m_canvasesNeedingDisplayPreparation.clear();
-    for (auto& canvas : canvases)
-        canvas->prepareForDisplay();
-}
+        // Some canvas contexts hold memory that should be periodically freed.
+        if (context->hasDeferredOperations())
+            context->flushDeferredOperations();
 
-void Document::clearCanvasPreparation(HTMLCanvasElement& canvas)
-{
-    m_canvasesNeedingDisplayPreparation.remove(canvas);
-}
-
-void Document::canvasChanged(CanvasBase& canvasBase, const std::optional<FloatRect>& changedRect)
-{
-    auto* canvas = dynamicDowncast<HTMLCanvasElement>(canvasBase);
-    if (canvas && canvas->needsPreparationForDisplay()) {
-        m_canvasesNeedingDisplayPreparation.add(*canvas);
-        // Schedule a rendering update to force handling of prepareForDisplay
-        // for any queued canvases. This is especially important for any canvas
-        // that is not in the DOM, as those don't have a rect to invalidate to
-        // trigger an update. <http://bugs.webkit.org/show_bug.cgi?id=240380>.
-        if (!changedRect)
-            scheduleRenderingUpdate(RenderingUpdateStep::PrepareCanvasesForDisplay);
+        // Some canvases need to do work when rendering has finished but before their content is composited.
+        if (auto* htmlCanvas = dynamicDowncast<HTMLCanvasElement>(context->canvasBase())) {
+            if (htmlCanvas->needsPreparationForDisplay())
+                htmlCanvas->prepareForDisplay();
+        }
     }
+}
+
+void Document::addCanvasNeedingPreparationForDisplayOrFlush(CanvasRenderingContext& context)
+{
+    if (context.hasDeferredOperations() || context.needsPreparationForDisplay()) {
+        bool shouldSchedule = m_canvasContextsToPrepare.isEmptyIgnoringNullReferences();
+        m_canvasContextsToPrepare.add(context);
+        context.setIsInPreparationForDisplayOrFlush(true);
+        if (shouldSchedule)
+            scheduleRenderingUpdate(RenderingUpdateStep::PrepareCanvasesForDisplayOrFlush);
+    }
+}
+
+void Document::removeCanvasNeedingPreparationForDisplayOrFlush(CanvasRenderingContext& context)
+{
+    m_canvasContextsToPrepare.remove(context);
+    context.setIsInPreparationForDisplayOrFlush(false);
 }
 
 void Document::updateSleepDisablerIfNeeded()
@@ -10137,12 +10238,6 @@ void Document::updateSleepDisablerIfNeeded()
         return;
     }
     m_sleepDisabler = nullptr;
-}
-
-void Document::canvasDestroyed(CanvasBase& canvasBase)
-{
-    if (auto* canvasElement = dynamicDowncast<HTMLCanvasElement>(canvasBase))
-        m_canvasesNeedingDisplayPreparation.remove(*canvasElement);
 }
 
 JSC::VM& Document::vm()
@@ -10411,6 +10506,18 @@ CheckedRef<const Style::Scope> Document::checkedStyleScope() const
 RefPtr<LocalFrameView> Document::protectedView() const
 {
     return view();
+}
+
+CheckedPtr<RenderView> Document::checkedRenderView() const
+{
+    return m_renderView.get();
+}
+
+Ref<CSSFontSelector> Document::protectedFontSelector() const
+{
+    if (!m_fontSelector)
+        return const_cast<Document&>(*this).ensureFontSelector();
+    return *m_fontSelector;
 }
 
 } // namespace WebCore

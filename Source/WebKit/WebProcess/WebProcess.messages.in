@@ -42,6 +42,10 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
     RegisterURLSchemeAsCachePartitioned(String scheme)
     RegisterURLSchemeAsCanDisplayOnlyIfCanRequest(String scheme)
 
+#if ENABLE(WK_WEB_EXTENSIONS)
+    RegisterURLSchemeAsWebExtension(String scheme)
+#endif
+
     SetDefaultRequestTimeoutInterval(double timeoutInterval)
     SetAlwaysUsesComplexTextCodePath(bool alwaysUseComplexText)
     SetDisableFontSubpixelAntialiasingForTesting(bool disable)
@@ -65,12 +69,13 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
     SetTextCheckerState(struct WebKit::TextCheckerState textCheckerState)
 
     SetEnhancedAccessibility(bool flag)
+    BindAccessibilityFrameWithData(WebCore::FrameIdentifier frameID, std::span<const uint8_t> data);
 
     GarbageCollectJavaScriptObjects()
     SetJavaScriptGarbageCollectorTimerEnabled(bool enable)
 
-    SetInjectedBundleParameter(String parameter, IPC::DataReference value);
-    SetInjectedBundleParameters(IPC::DataReference parameters);
+    SetInjectedBundleParameter(String parameter, std::span<const uint8_t> value);
+    SetInjectedBundleParameters(std::span<const uint8_t> parameters);
     HandleInjectedBundleMessage(String messageName, WebKit::UserData messageBody);
 
     FetchWebsiteData(OptionSet<WebKit::WebsiteDataType> websiteDataTypes) -> (struct WebKit::WebsiteData websiteData)
@@ -80,7 +85,7 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
     ReloadExecutionContextsForOrigin(struct WebCore::ClientOrigin origin, std::optional<WebCore::FrameIdentifier> triggeringFrame) -> ()
     DeleteAllCookies() -> ()
 
-    SetHiddenPageDOMTimerThrottlingIncreaseLimit(int milliseconds)
+    SetHiddenPageDOMTimerThrottlingIncreaseLimit(Seconds seconds)
 
     SetMemoryCacheDisabled(bool disabled);
 
@@ -109,7 +114,7 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
     MarkIsNoLongerPrewarmed()
     GetActivePagesOriginsForTesting() -> (Vector<String> activeOrigins)
 
-#if PLATFORM(COCOA) || PLATFORM(GTK)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || PLATFORM(WPE)
     SetScreenProperties(struct WebCore::ScreenProperties screenProperties)
 #endif
 #if PLATFORM(MAC)
@@ -181,7 +186,7 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
     PowerSourceDidChange(bool hasAC)
 #endif
 
-#if PLATFORM(GTK) && !USE(GTK4)
+#if PLATFORM(GTK) && !USE(GTK4) && USE(CAIRO)
     SetUseSystemAppearanceForScrollbars(bool useSystemAppearanceForScrollbars)
 #endif
 
@@ -219,8 +224,8 @@ messages -> WebProcess LegacyReceiver NotRefCounted {
 
     AddAllowedFirstPartyForCookies(WebCore::RegistrableDomain firstPartyDomain)
 
-#if ENABLE(NOTIFYD_BLOCKING_IN_WEBCONTENT)
-    PostNotification(String message)
+#if ENABLE(NOTIFY_BLOCKING)
+    PostNotification(String message, std::optional<uint64_t> state)
     PostObserverNotification(String message)
 #endif
 }

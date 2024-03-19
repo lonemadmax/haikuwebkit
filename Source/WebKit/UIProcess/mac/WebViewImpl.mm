@@ -78,6 +78,7 @@
 #import "WebPageProxy.h"
 #import "WebProcessPool.h"
 #import "WebProcessProxy.h"
+#import "WebTextReplacementData.h"
 #import "_WKDragActionsInternal.h"
 #import "_WKRemoteObjectRegistryInternal.h"
 #import "_WKThumbnailViewInternal.h"
@@ -103,6 +104,7 @@
 #import <WebCore/LegacyNSPasteboardTypes.h>
 #import <WebCore/LoaderNSURLExtras.h>
 #import <WebCore/LocalizedStrings.h>
+#import <WebCore/NowPlayingInfo.h>
 #import <WebCore/Pasteboard.h>
 #import <WebCore/PlatformEventFactoryMac.h>
 #import <WebCore/PlatformPlaybackSessionInterface.h>
@@ -153,6 +155,10 @@
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
 #include "MediaSessionCoordinatorProxyPrivate.h"
+#endif
+
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WebViewImplAdditionsBefore.mm>
 #endif
 
 #import <pal/cocoa/RevealSoftLink.h>
@@ -1151,9 +1157,9 @@ static bool isInRecoveryOS()
 
 WebViewImpl::WebViewImpl(NSView <WebViewImplDelegate> *view, WKWebView *outerWebView, WebProcessPool& processPool, Ref<API::PageConfiguration>&& configuration)
     : m_view(view)
-    , m_pageClient(makeUnique<PageClientImpl>(view, outerWebView))
+    , m_pageClient(makeUniqueWithoutRefCountedCheck<PageClientImpl>(view, outerWebView))
     , m_page(processPool.createWebPage(*m_pageClient, WTFMove(configuration)))
-    , m_needsViewFrameInWindowCoordinates(m_page->preferences().pluginsEnabled())
+    , m_needsViewFrameInWindowCoordinates(false)
     , m_intrinsicContentSize(CGSizeMake(NSViewNoIntrinsicMetric, NSViewNoIntrinsicMetric))
     , m_layoutStrategy([WKViewLayoutStrategy layoutStrategyWithPage:m_page.get() view:view viewImpl:*this mode:kWKLayoutModeViewSize])
     , m_undoTarget(adoptNS([[WKEditorUndoTarget alloc] init]))
@@ -2724,6 +2730,14 @@ void WebViewImpl::selectionDidChange()
         updateCursorAccessoryPlacement();
 #endif
 
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+    // FIXME: (rdar://123767495) Remove the `isEditable() && m_page->editorState().selectionIsRange` restriction when possible.
+    if (m_page->editorState().hasPostLayoutData() && isEditable() && m_page->editorState().selectionIsRange) {
+        auto selectionRect = m_page->editorState().postLayoutData->selectionBoundingRect;
+        scheduleShowSwapCharactersViewForSelectionRectOfView(selectionRect, m_view.getAutoreleased());
+    }
+#endif
+
     NSWindow *window = [m_view window];
     if (window.firstResponder == m_view.get().get()) {
         NSInspectorBar *inspectorBar = window.inspectorBar;
@@ -3204,8 +3218,6 @@ void WebViewImpl::requestCandidatesForSelectionIfNeeded()
 std::optional<EditorState::PostLayoutData> WebViewImpl::postLayoutDataForContentEditable()
 {
     const EditorState& editorState = m_page->editorState();
-    if (!editorState.isContentEditable)
-        return std::nullopt;
 
     // FIXME: It's pretty lame that we have to depend on the most recent EditorState having post layout data,
     // and that we just bail if it is missing.
@@ -3292,7 +3304,7 @@ void WebViewImpl::handleAcceptedCandidate(NSTextCheckingResult *acceptedCandidat
 
 void WebViewImpl::preferencesDidChange()
 {
-    BOOL needsViewFrameInWindowCoordinates = m_page->preferences().pluginsEnabled();
+    BOOL needsViewFrameInWindowCoordinates = false;
 
     if (!!needsViewFrameInWindowCoordinates == !!m_needsViewFrameInWindowCoordinates)
         return;
@@ -3475,10 +3487,12 @@ void WebViewImpl::setIgnoresMouseDraggedEvents(bool ignoresMouseDraggedEvents)
     m_ignoresMouseDraggedEvents = ignoresMouseDraggedEvents;
 }
 
-void WebViewImpl::setAccessibilityWebProcessToken(NSData *data)
+void WebViewImpl::setAccessibilityWebProcessToken(NSData *data, WebCore::FrameIdentifier frameID, pid_t pid)
 {
-    m_remoteAccessibilityChild = data.length ? adoptNS([[NSAccessibilityRemoteUIElement alloc] initWithRemoteToken:data]) : nil;
-    updateRemoteAccessibilityRegistration(true);
+    if (pid == m_page->process().processID()) {
+        m_remoteAccessibilityChild = data.length ? adoptNS([[NSAccessibilityRemoteUIElement alloc] initWithRemoteToken:data]) : nil;
+        updateRemoteAccessibilityRegistration(true);
+    }
 }
 
 void WebViewImpl::updateRemoteAccessibilityRegistration(bool registerProcess)
@@ -3507,8 +3521,8 @@ void WebViewImpl::accessibilityRegisterUIProcessTokens()
     // Initialize remote accessibility when the window connection has been established.
     NSData *remoteElementToken = [NSAccessibilityRemoteUIElement remoteTokenForLocalUIElement:m_view.getAutoreleased()];
     NSData *remoteWindowToken = [NSAccessibilityRemoteUIElement remoteTokenForLocalUIElement:[m_view window]];
-    IPC::DataReference elementToken = IPC::DataReference(reinterpret_cast<const uint8_t*>([remoteElementToken bytes]), [remoteElementToken length]);
-    IPC::DataReference windowToken = IPC::DataReference(reinterpret_cast<const uint8_t*>([remoteWindowToken bytes]), [remoteWindowToken length]);
+    std::span elementToken(reinterpret_cast<const uint8_t*>([remoteElementToken bytes]), [remoteElementToken length]);
+    std::span windowToken(reinterpret_cast<const uint8_t*>([remoteWindowToken bytes]), [remoteWindowToken length]);
     m_page->registerUIProcessAccessibilityTokens(elementToken, windowToken);
 }
 
@@ -5189,6 +5203,14 @@ void WebViewImpl::setMarkedText(id string, NSRange selectedRange, NSRange replac
 #if HAVE(INLINE_PREDICTIONS)
 bool WebViewImpl::allowsInlinePredictions() const
 {
+    const EditorState& editorState = m_page->editorState();
+
+    if (editorState.hasPostLayoutData() && editorState.postLayoutData->canEnableWritingSuggestions)
+        return NSSpellChecker.isAutomaticInlineCompletionEnabled;
+
+    if (!editorState.isContentEditable)
+        return false;
+
     if (!inlinePredictionsEnabled() && !m_page->preferences().inlinePredictionsInAllEditableElementsEnabled())
         return false;
 
@@ -5297,7 +5319,7 @@ void WebViewImpl::showInlinePredictionsForCandidates(NSArray<NSTextCheckingResul
 
 NSRange WebViewImpl::selectedRange()
 {
-    ASSERT_NOT_REACHED();
+    // FIXME: (rdar://123703512) Re-add the `ASSERT_NOT_REACHED` assertion when possible.
     return NSMakeRange(NSNotFound, 0);
 }
 
@@ -6013,6 +6035,20 @@ void WebViewImpl::togglePictureInPicture()
     [m_playbackControlsManager togglePictureInPicture];
 }
 
+bool WebViewImpl::isInWindowFullscreenActive() const
+{
+    if (auto* interface = m_page->playbackSessionManager()->controlsManagerInterface())
+        return interface->isInWindowFullscreenActive();
+
+    return false;
+}
+
+void WebViewImpl::toggleInWindowFullscreen()
+{
+    if (auto* interface = m_page->playbackSessionManager()->controlsManagerInterface())
+        return interface->toggleInWindowFullscreen();
+}
+
 void WebViewImpl::updateMediaPlaybackControlsManager()
 {
     if (!m_page->hasActiveVideoForControlsManager())
@@ -6031,6 +6067,22 @@ void WebViewImpl::updateMediaPlaybackControlsManager()
 }
 
 #endif // ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
+
+void WebViewImpl::nowPlayingMediaTitleAndArtist(void(^completionHandler)(NSString *, NSString *))
+{
+#if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
+    if (!m_page->hasActiveVideoForControlsManager()) {
+        completionHandler(nil, nil);
+        return;
+    }
+
+    m_page->requestActiveNowPlayingSessionInfo([completionHandler = makeBlockPtr(completionHandler)] (bool registeredAsNowPlayingApplication, WebCore::NowPlayingInfo&& nowPlayingInfo) {
+        completionHandler(nowPlayingInfo.title, nowPlayingInfo.artist);
+    });
+#else
+    completionHandler(nil, nil);
+#endif
+}
 
 void WebViewImpl::updateMediaTouchBar()
 {
@@ -6242,6 +6294,14 @@ void WebViewImpl::handleContextMenuTranslation(const WebCore::TranslationContext
 
 #endif // HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
 
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT) && ENABLE(CONTEXT_MENUS)
+void WebViewImpl::handleContextMenuSwapCharacters(IntRect selectionBoundsInRootView)
+{
+    auto view = m_view.get();
+    showSwapCharactersViewRelativeToRectOfView(selectionBoundsInRootView, view.get());
+}
+#endif
+
 bool WebViewImpl::acceptsPreviewPanelControl(QLPreviewPanel *)
 {
 #if ENABLE(IMAGE_ANALYSIS)
@@ -6449,6 +6509,53 @@ void WebViewImpl::uninstallImageAnalysisOverlayView()
 }
 
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+void WebViewImpl::willBeginTextReplacementSession(const WTF::UUID& uuid, CompletionHandler<void(const Vector<WebUnifiedTextReplacementContextData>&)>&& completionHandler)
+{
+    protectedPage()->willBeginTextReplacementSession(uuid, WTFMove(completionHandler));
+}
+
+void WebViewImpl::didBeginTextReplacementSession(const WTF::UUID& uuid, const Vector<WebUnifiedTextReplacementContextData>& contexts)
+{
+    protectedPage()->didBeginTextReplacementSession(uuid, contexts);
+}
+
+void WebViewImpl::textReplacementSessionDidReceiveReplacements(const WTF::UUID& uuid, const Vector<WebTextReplacementData>& replacements, const WebUnifiedTextReplacementContextData& context, bool finished)
+{
+    protectedPage()->textReplacementSessionDidReceiveReplacements(uuid, replacements, context, finished);
+}
+
+void WebViewImpl::textReplacementSessionDidUpdateStateForReplacement(const WTF::UUID& uuid, WebTextReplacementData::State state, const WebTextReplacementData& replacement, const WebUnifiedTextReplacementContextData& context)
+{
+    protectedPage()->textReplacementSessionDidUpdateStateForReplacement(uuid, state, replacement, context);
+}
+
+void WebViewImpl::didEndTextReplacementSession(const WTF::UUID& uuid, bool accepted)
+{
+    protectedPage()->didEndTextReplacementSession(uuid, accepted);
+}
+
+void WebViewImpl::textReplacementSessionDidReceiveTextWithReplacementRange(const WTF::UUID& uuid, const WebCore::AttributedString& attributedText, const WebCore::CharacterRange& range, const WebUnifiedTextReplacementContextData& context)
+{
+    protectedPage()->textReplacementSessionDidReceiveTextWithReplacementRange(uuid, attributedText, range, context);
+}
+
+void WebViewImpl::textReplacementSessionDidReceiveEditAction(const WTF::UUID& uuid, WebKit::WebTextReplacementData::EditAction action)
+{
+    protectedPage()->textReplacementSessionDidReceiveEditAction(uuid, action);
+}
+
+#endif
+
+Ref<WebPageProxy> WebViewImpl::protectedPage() const
+{
+    return m_page.get();
+}
+
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WebViewImplAdditionsAfter.mm>
+#endif
 
 } // namespace WebKit
 

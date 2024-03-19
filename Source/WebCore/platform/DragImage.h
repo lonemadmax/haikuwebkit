@@ -43,6 +43,8 @@ OBJC_CLASS NSImage;
 typedef struct HBITMAP__* HBITMAP;
 #elif USE(CAIRO)
 #include "RefPtrCairo.h"
+#elif USE(SKIA)
+#include <skia/core/SkImage.h>
 #elif PLATFORM(HAIKU)
 class BBitmap;
 #endif
@@ -63,8 +65,12 @@ typedef RetainPtr<NSImage> DragImageRef;
 typedef HBITMAP DragImageRef;
 #elif USE(CAIRO)
 typedef RefPtr<cairo_surface_t> DragImageRef;
+#elif USE(SKIA)
+typedef sk_sp<SkImage> DragImageRef;
 #elif PLATFORM(HAIKU)
 typedef BBitmap* DragImageRef;
+#else
+typedef void* DragImageRef;
 #endif
 
 #if PLATFORM(COCOA)

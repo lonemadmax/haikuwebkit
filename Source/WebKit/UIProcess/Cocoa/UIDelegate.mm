@@ -203,6 +203,7 @@ void UIDelegate::setDelegate(id <WKUIDelegate> delegate)
 
 #if ENABLE(WEB_AUTHN)
     m_delegateMethods.webViewRunWebAuthenticationPanelInitiatedByFrameCompletionHandler = [delegate respondsToSelector:@selector(_webView:runWebAuthenticationPanel:initiatedByFrame:completionHandler:)];
+    m_delegateMethods.webViewRequestWebAuthenticationConditionalMediationRegistrationForUserCompletionHandler = [delegate respondsToSelector:@selector(_webView:requestWebAuthenticationConditionalMediationRegistrationForUser:completionHandler:)];
 #endif
     
     m_delegateMethods.webViewDidEnableInspectorBrowserDomain = [delegate respondsToSelector:@selector(_webViewDidEnableInspectorBrowserDomain:)];
@@ -1392,33 +1393,6 @@ void UIDelegate::UIClient::mediaCaptureStateDidChange(WebCore::MediaProducerMedi
     [(id <WKUIDelegatePrivate>)delegate _webView:webView.get().get() mediaCaptureStateDidChange:toWKMediaCaptureStateDeprecated(state)];
 }
 
-void UIDelegate::UIClient::reachedApplicationCacheOriginQuota(WebPageProxy*, const WebCore::SecurityOrigin& securityOrigin, uint64_t currentQuota, uint64_t totalBytesNeeded, Function<void (unsigned long long)>&& completionHandler)
-{
-    if (!m_uiDelegate)
-        return completionHandler(currentQuota);
-
-    if (!m_uiDelegate->m_delegateMethods.webViewDecideWebApplicationCacheQuotaForSecurityOriginCurrentQuotaTotalBytesNeeded) {
-        completionHandler(currentQuota);
-        return;
-    }
-
-    auto delegate = m_uiDelegate->m_delegate.get();
-    if (!delegate) {
-        completionHandler(currentQuota);
-        return;
-    }
-
-    auto checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(_webView:decideWebApplicationCacheQuotaForSecurityOrigin:currentQuota:totalBytesNeeded:decisionHandler:));
-    auto apiOrigin = API::SecurityOrigin::create(securityOrigin);
-    
-    [(id <WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() decideWebApplicationCacheQuotaForSecurityOrigin:wrapper(apiOrigin.get()) currentQuota:currentQuota totalBytesNeeded:totalBytesNeeded decisionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker)](unsigned long long newQuota) {
-        if (checker->completionHandlerHasBeenCalled())
-            return;
-        checker->didCallCompletionHandler();
-        completionHandler(newQuota);
-    }).get()];
-}
-
 void UIDelegate::UIClient::printFrame(WebPageProxy&, WebFrameProxy& webFrameProxy, const WebCore::FloatSize& pdfFirstPageSize, CompletionHandler<void()>&& completionHandler)
 {
     if (!m_uiDelegate)
@@ -1751,6 +1725,27 @@ void UIDelegate::UIClient::runWebAuthenticationPanel(WebPageProxy& page, API::We
             return;
         checker->didCallCompletionHandler();
         completionHandler(webAuthenticationPanelResult(result));
+    }).get()];
+}
+
+void UIDelegate::UIClient::requestWebAuthenticationConditonalMediationRegistration(WTF::String&& username, CompletionHandler<void(bool)>&& completionHandler)
+{
+    if (!m_uiDelegate)
+        return completionHandler(false);
+
+    if (!m_uiDelegate->m_delegateMethods.webViewRequestWebAuthenticationConditionalMediationRegistrationForUserCompletionHandler)
+        return completionHandler(false);
+
+    auto delegate = m_uiDelegate->m_delegate.get();
+    if (!delegate)
+        return completionHandler(false);
+
+    auto checker = CompletionHandlerCallChecker::create(delegate.get(), @selector(_webView:requestWebAuthenticationConditionalMediationRegistrationForUser:completionHandler:));
+    [(id<WKUIDelegatePrivate>)delegate _webView:m_uiDelegate->m_webView.get().get() requestWebAuthenticationConditionalMediationRegistrationForUser:username completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler), checker = WTFMove(checker)] (BOOL result) mutable {
+        if (checker->completionHandlerHasBeenCalled())
+            return;
+        checker->didCallCompletionHandler();
+        completionHandler(result);
     }).get()];
 }
 #endif // ENABLE(WEB_AUTHN)

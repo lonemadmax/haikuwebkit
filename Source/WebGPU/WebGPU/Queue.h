@@ -42,6 +42,7 @@ namespace WebGPU {
 class Buffer;
 class CommandBuffer;
 class Device;
+class Texture;
 
 // https://gpuweb.github.io/gpuweb/#gpuqueue
 // A device owns its default queue, not the other way around.
@@ -69,7 +70,7 @@ public:
     void onSubmittedWorkScheduled(CompletionHandler<void()>&&);
 
     bool isValid() const { return m_commandQueue; }
-    void makeInvalid() { m_commandQueue = nil; }
+    void makeInvalid();
 
     const Device& device() const;
     void waitUntilIdle();
@@ -94,6 +95,7 @@ private:
 
     // This can be called on a background thread.
     void scheduleWork(Instance::WorkItem&&);
+    NSString* errorValidatingWriteTexture(const WGPUImageCopyTexture&, const WGPUTextureDataLayout&, const WGPUExtent3D&, size_t, const Texture&) const;
 
     id<MTLCommandQueue> m_commandQueue { nil };
     id<MTLCommandBuffer> m_commandBuffer { nil };

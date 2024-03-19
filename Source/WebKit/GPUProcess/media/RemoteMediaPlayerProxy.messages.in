@@ -71,7 +71,7 @@ messages -> RemoteMediaPlayerProxy {
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
     SetWirelessVideoPlaybackDisabled(bool disabled)
-    SetWirelessPlaybackTarget(WebCore::MediaPlaybackTargetContext target)
+    SetWirelessPlaybackTarget(WebKit::MediaPlaybackTargetContextSerialized target)
     SetShouldPlayToPlaybackTarget(bool shouldPlay)
 #endif
 
@@ -105,7 +105,7 @@ messages -> RemoteMediaPlayerProxy {
     VideoTrackSetSelected(WebCore::TrackID trackId, bool selected)
     TextTrackSetMode(WebCore::TrackID trackId, enum:uint8_t WebCore::InbandTextTrackPrivate::Mode mode)
 
-    PerformTaskAtMediaTime(MediaTime mediaTime, MonotonicTime messageTime) -> (std::optional<MediaTime> mediaTime, std::optional<MonotonicTime> monotonicTime)
+    PerformTaskAtTime(MediaTime mediaTime) -> (std::optional<MediaTime> mediaTime)
     IsCrossOrigin(WebCore::SecurityOriginData origin) -> (std::optional<bool> crossOrigin) Synchronous
 
     SetVideoPlaybackMetricsUpdateInterval(double interval)
@@ -144,6 +144,8 @@ messages -> RemoteMediaPlayerProxy {
     RequestHostingContextID() -> (uint32_t contextID)
 
     SetShouldCheckHardwareSupport(bool value)
+
+    SetSpatialTrackingLabel(String spatialTrackingLabel);
 }
 
 #endif

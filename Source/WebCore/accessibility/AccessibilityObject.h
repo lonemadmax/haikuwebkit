@@ -102,6 +102,7 @@ public:
     virtual bool isAccessibilityNodeObject() const { return false; }
     bool isAccessibilityRenderObject() const override { return false; }
     virtual bool isAccessibilityScrollbar() const { return false; }
+    bool isAXRemoteFrame() const override { return false; }
     virtual bool isAccessibilityScrollViewInstance() const { return false; }
     virtual bool isAccessibilitySVGRoot() const { return false; }
     bool isAccessibilityTableInstance() const override { return false; }
@@ -240,6 +241,10 @@ public:
     bool hasHighlighting() const override;
     AXTextMarkerRange textInputMarkedTextMarkerRange() const final;
 
+    WallTime dateTimeValue() const override { return { }; }
+#if PLATFORM(MAC)
+    unsigned dateTimeComponents() const override;
+#endif
     bool supportsDatetimeAttribute() const override;
     String datetimeAttributeValue() const override;
 
@@ -382,12 +387,14 @@ public:
     // Methods for determining accessibility text.
     bool isARIAStaticText() const { return ariaRoleAttribute() == AccessibilityRole::StaticText; }
     String stringValue() const override { return { }; }
+    bool dependsOnTextUnderElement() const;
     String textUnderElement(AccessibilityTextUnderElementMode = AccessibilityTextUnderElementMode()) const override { return { }; }
     String text() const override { return { }; }
     unsigned textLength() const final;
 #if ENABLE(AX_THREAD_TEXT_APIS)
     virtual AXTextRuns textRuns() { return { }; }
     bool hasTextRuns() final { return textRuns().size(); }
+    bool shouldEmitNewlinesBeforeAndAfterNode() const override { return false; }
 #endif
 #if PLATFORM(COCOA)
     // Returns an array of strings and AXObject wrappers corresponding to the
@@ -461,12 +468,17 @@ public:
     Widget* widgetForAttachmentView() const override { return nullptr; }
     bool isPlugin() const override { return false; }
 
+    IntPoint remoteFrameOffset() const override;
 #if PLATFORM(COCOA)
     RemoteAXObjectRef remoteParentObject() const override;
     FloatRect convertRectToPlatformSpace(const FloatRect&, AccessibilityConversionSpace) const override;
+    RetainPtr<id> remoteFramePlatformElement() const override { return nil; }
 #endif
+    bool hasRemoteFrameChild() const override { return false; }
+
     Page* page() const override;
     Document* document() const override;
+    RefPtr<Document> protectedDocument() const;
     LocalFrameView* documentFrameView() const override;
     LocalFrame* frame() const;
     LocalFrame* mainFrame() const;
@@ -769,6 +781,9 @@ public:
     InlineTextPrediction& lastPresentedTextPredictionComplete() { return m_lastPresentedTextPredictionComplete; }
     void setLastPresentedTextPrediction(Node&, CompositionState, const String&, size_t, bool);
 #endif // PLATFORM(IOS_FAMILY)
+
+    virtual FloatRect frameRect() const { return { }; }
+    virtual bool isNonLayerSVGObject() const { return false; }
 
 protected:
     AccessibilityObject() = default;

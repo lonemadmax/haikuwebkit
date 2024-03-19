@@ -64,7 +64,9 @@ public:
     virtual void willDetachRenderer() { }
 
     virtual bool usesAsyncScrolling() const { return false; }
-    virtual ScrollingNodeID scrollingNodeID() const { return 0; }
+    virtual ScrollingNodeID scrollingNodeID() const { return { }; }
+    virtual void willAttachScrollingNode() { }
+    virtual void didAttachScrollingNode() { }
 
 #if PLATFORM(COCOA)
     virtual id accessibilityAssociatedPluginParentForElement(Element*) const { return nullptr; }

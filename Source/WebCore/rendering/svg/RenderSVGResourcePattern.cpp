@@ -29,6 +29,7 @@
 #include "SVGElementTypeHelpers.h"
 #include "SVGFitToViewBox.h"
 #include "SVGRenderStyle.h"
+#include "SVGVisitedRendererTracking.h"
 #include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
@@ -49,9 +50,9 @@ void RenderSVGResourcePattern::collectPatternAttributesIfNeeded()
 
     auto attributes = PatternAttributes { };
 
-    SVGPatternElement* current = &patternElement();
+    RefPtr current = &patternElement();
 
-    patternElement().synchronizeAllAttributes();
+    current->synchronizeAllAttributes();
 
     while (current) {
         if (!current->renderer())
@@ -97,7 +98,7 @@ RefPtr<Pattern> RenderSVGResourcePattern::buildPattern(GraphicsContext& context,
     // Compute all necessary transformations to build the tile image & the pattern.
     FloatRect tileBoundaries;
     AffineTransform tileImageTransform;
-    if (!buildTileImageTransform(renderer, *m_attributes, patternElement(), tileBoundaries, tileImageTransform))
+    if (!buildTileImageTransform(renderer, *m_attributes, protectedPatternElement(), tileBoundaries, tileImageTransform))
         return nullptr;
 
     // Ignore 2D rotation, as it doesn't affect the size of the tile.
@@ -187,8 +188,13 @@ RefPtr<ImageBuffer> RenderSVGResourcePattern::createTileImage(const PatternAttri
     ASSERT(patternRenderer);
     ASSERT(patternRenderer->hasLayer());
 
-    if (SVGHitTestCycleDetectionScope::isVisiting(*patternRenderer))
+    static NeverDestroyed<SVGVisitedRendererTracking::VisitedSet> s_visitedSet;
+
+    SVGVisitedRendererTracking recursionTracking(s_visitedSet);
+    if (recursionTracking.isVisiting(*patternRenderer))
         return nullptr;
+
+    SVGVisitedRendererTracking::Scope recursionScope(recursionTracking, *patternRenderer);
 
     // FIXME: consider color space handling/'color-interpolation'.
     auto clampedAbsoluteTileBoundaries = ImageBuffer::clampedRect(absoluteTileBoundaries);
@@ -197,7 +203,6 @@ RefPtr<ImageBuffer> RenderSVGResourcePattern::createTileImage(const PatternAttri
         return nullptr;
 
     auto& tileImageContext = tileImage->context();
-
     GraphicsContextStateSaver stateSaver(tileImageContext);
 
     FloatSize unclampedSize = roundedIntSize(tileBoundaries.size());

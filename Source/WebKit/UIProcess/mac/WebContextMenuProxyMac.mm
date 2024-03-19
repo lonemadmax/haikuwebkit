@@ -385,7 +385,7 @@ void WebContextMenuProxyMac::removeBackgroundFromControlledImage()
     if (!data)
         return;
 
-    page()->replaceImageForRemoveBackground(*elementContext, { String(type.get()) }, IPC::DataReference(static_cast<const uint8_t*>([data bytes]), [data length]));
+    page()->replaceImageForRemoveBackground(*elementContext, { String(type.get()) }, std::span(static_cast<const uint8_t*>([data bytes]), [data length]));
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 }
 
@@ -581,6 +581,9 @@ static NSString *menuItemIdentifier(const WebCore::ContextMenuAction action)
     case ContextMenuItemTagAddHighlightToNewQuickNote:
         return _WKMenuItemIdentifierAddHighlightToNewQuickNote;
 
+    case ContextMenuItemTagCopyLinkToHighlight:
+        return _WKMenuItemIdentifierCopyLinkToHighlight;
+
     case ContextMenuItemTagOpenFrameInNewWindow:
         return _WKMenuItemIdentifierOpenFrameInNewWindow;
 
@@ -622,6 +625,9 @@ static NSString *menuItemIdentifier(const WebCore::ContextMenuAction action)
 
     case ContextMenuItemTagTranslate:
         return _WKMenuItemIdentifierTranslate;
+
+    case ContextMenuItemTagSwapCharacters:
+        return _WKMenuItemIdentifierSwapCharacters;
 
     case ContextMenuItemTagCopySubject:
         return _WKMenuItemIdentifierCopySubject;

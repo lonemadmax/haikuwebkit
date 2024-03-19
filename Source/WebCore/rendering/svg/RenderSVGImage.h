@@ -40,9 +40,11 @@ public:
     virtual ~RenderSVGImage();
 
     SVGImageElement& imageElement() const;
+    Ref<SVGImageElement> protectedImageElement() const;
 
     RenderImageResource& imageResource() { return *m_imageResource; }
     const RenderImageResource& imageResource() const { return *m_imageResource; }
+    CheckedRef<RenderImageResource> checkedImageResource() const;
 
     bool updateImageViewport();
 

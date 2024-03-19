@@ -167,7 +167,7 @@ public:
     virtual JSRetainPtr<JSStringRef> uiViewTreeAsText() const { notImplemented(); return nullptr; }
     virtual JSRetainPtr<JSStringRef> caLayerTreeAsText() const { notImplemented(); return nullptr; }
     
-    virtual JSRetainPtr<JSStringRef> scrollbarStateForScrollingNodeID(unsigned long long, bool) const { notImplemented(); return nullptr; }
+    virtual JSRetainPtr<JSStringRef> scrollbarStateForScrollingNodeID(unsigned long long, unsigned long long, bool) const { notImplemented(); return nullptr; }
 
     // Touches
 
@@ -405,6 +405,10 @@ public:
 
     virtual uint64_t currentImageAnalysisRequestID() const { return 0; }
     virtual void installFakeMachineReadableCodeResultsForImageAnalysis() { }
+
+    // Text Extraction
+    virtual void requestTextExtraction(JSValueRef) { notImplemented(); }
+    virtual void requestRenderedTextForSelector(JSStringRef, JSValueRef) { notImplemented(); }
 
 protected:
     explicit UIScriptController(UIScriptContext&);

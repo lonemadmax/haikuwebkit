@@ -275,7 +275,7 @@ WheelEventHandlingResult RemoteLayerTreeEventDispatcher::internalHandleWheelEven
     return scrollingTree->handleWheelEvent(filteredEvent, processingSteps);
 }
 
-void RemoteLayerTreeEventDispatcher::wheelEventHandlingCompleted(const PlatformWheelEvent& wheelEvent, ScrollingNodeID scrollingNodeID, std::optional<WheelScrollGestureState> gestureState, bool wasHandled)
+void RemoteLayerTreeEventDispatcher::wheelEventHandlingCompleted(const PlatformWheelEvent& wheelEvent, std::optional<ScrollingNodeID> scrollingNodeID, std::optional<WheelScrollGestureState> gestureState, bool wasHandled)
 {
     ASSERT(isMainRunLoop());
 
@@ -598,7 +598,8 @@ void RemoteLayerTreeEventDispatcher::animationsWereRemovedFromNode(RemoteLayerTr
 {
     ASSERT(isMainRunLoop());
     assertIsHeld(m_effectStacksLock);
-    m_effectStacks.remove(node.layerID());
+    if (auto effectStack = m_effectStacks.take(node.layerID()))
+        effectStack->clear(node.layer());
 }
 
 void RemoteLayerTreeEventDispatcher::updateAnimations()

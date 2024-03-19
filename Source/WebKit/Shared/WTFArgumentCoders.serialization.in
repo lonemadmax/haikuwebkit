@@ -109,6 +109,7 @@ template: enum class WebKit::ShapeDetectionIdentifierType
 template: enum class WebKit::StorageAreaImplIdentifierType
 template: enum class WebKit::StorageAreaMapIdentifierType
 template: enum class WebKit::StorageNamespaceIdentifierType
+template: enum class WebKit::VisitedLinkTableIdentifierType
 template: enum class WebKit::WCLayerTreeHostIdentifierType
 template: enum class WebKit::WebExtensionControllerIdentifierType
 template: enum class WebKit::XRDeviceIdentifierType
@@ -122,6 +123,7 @@ template: struct WebCore::HTMLMediaElementIdentifierType
 template: struct WebCore::MediaKeySystemRequestIdentifierType
 template: struct WebCore::MediaPlayerIdentifierType
 template: struct WebCore::MediaSessionIdentifierType
+template: struct WebCore::ModelPlayerIdentifierType
 template: struct WebCore::PageIdentifierType
 template: struct WebCore::PlatformLayerIdentifierType
 template: struct WebCore::PlaybackTargetClientContextIdentifierType
@@ -141,6 +143,7 @@ template: struct WebKit::PDFPluginIdentifierType
 template: struct WebKit::PageGroupIdentifierType
 template: struct WebKit::RemoteAudioDestinationIdentifierType
 template: struct WebKit::RemoteImageBufferSetIdentifierType
+template: struct WebCore::ScrollingNodeIDType
 template: struct WebKit::TapIdentifierType
 template: struct WebKit::TextCheckerRequestType
 template: struct WebKit::UserContentControllerIdentifierType
@@ -178,6 +181,7 @@ template: enum class WebCore::RenderingResourceIdentifierType
 template: enum class WebCore::ServiceWorkerIdentifierType
 template: enum class WebCore::ServiceWorkerJobIdentifierType
 template: enum class WebCore::ServiceWorkerRegistrationIdentifierType
+template: enum class WebCore::IDBDatabaseConnectionIdentifierType
 template: enum class WebCore::WebLockIdentifierType
 template: enum class WebCore::WebSocketIdentifierType
 template: enum class WebCore::WorkerFileSystemStorageConnectionCallbackIdentifierType

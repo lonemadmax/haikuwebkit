@@ -60,6 +60,8 @@
 #import "WebPage.h"
 #import "WebPageProxy.h"
 #import "WebPreferences.h"
+#import "WebTextReplacementData.h"
+#import "WebUnifiedTextReplacementContextData.h"
 #import "_WKActivatedElementInfoInternal.h"
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/GraphicsContextCG.h>
@@ -90,6 +92,10 @@
 
 #if HAVE(UI_EVENT_ATTRIBUTION)
 #import <UIKit/UIEventAttribution.h>
+#endif
+
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WKWebViewIOSAdditionsBefore.mm>
 #endif
 
 #define FORWARD_ACTION_TO_WKCONTENTVIEW(_action) \
@@ -956,9 +962,19 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
     CGSize newContentSize = roundScrollViewContentSize(*_page, [_contentView frame].size);
     [_scrollView _setContentSizePreservingContentOffsetDuringRubberband:newContentSize];
 
-    [_scrollView setMinimumZoomScale:layerTreeTransaction.minimumScaleFactor()];
-    [_scrollView setMaximumZoomScale:layerTreeTransaction.maximumScaleFactor()];
-    [_scrollView _setZoomEnabledInternal:layerTreeTransaction.allowsUserScaling()];
+    CGFloat minimumScaleFactor = layerTreeTransaction.minimumScaleFactor();
+    CGFloat maximumScaleFactor = layerTreeTransaction.maximumScaleFactor();
+    BOOL allowsUserScaling = layerTreeTransaction.allowsUserScaling();
+
+    if (_overriddenZoomScaleParameters) {
+        minimumScaleFactor = _overriddenZoomScaleParameters->minimumZoomScale;
+        maximumScaleFactor = _overriddenZoomScaleParameters->maximumZoomScale;
+        allowsUserScaling = _overriddenZoomScaleParameters->allowUserScaling;
+    }
+
+    [_scrollView setMinimumZoomScale:minimumScaleFactor];
+    [_scrollView setMaximumZoomScale:maximumScaleFactor];
+    [_scrollView _setZoomEnabledInternal:allowsUserScaling];
 
     auto horizontalOverscrollBehavior = _page->scrollingCoordinatorProxy()->mainFrameHorizontalOverscrollBehavior();
     auto verticalOverscrollBehavior = _page->scrollingCoordinatorProxy()->mainFrameVerticalOverscrollBehavior();
@@ -1123,10 +1139,16 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
 }
 
 #if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
-static void addOverlayEventRegions(WebCore::PlatformLayerIdentifier layerID, const WebKit::LayerPropertiesMap& changedLayerPropertiesMap, HashSet<WebCore::PlatformLayerIdentifier>& overlayRegionsIDs)
+static void addOverlayEventRegions(WebCore::PlatformLayerIdentifier layerID, const WebKit::LayerPropertiesMap& changedLayerPropertiesMap, HashSet<WebCore::PlatformLayerIdentifier>& overlayRegionsIDs, const WebKit::RemoteLayerTreeHost& host)
 {
     const auto& it = changedLayerPropertiesMap.find(layerID);
     if (it == changedLayerPropertiesMap.end())
+        return;
+
+    const auto* node = host.nodeForID(layerID);
+    if (!node)
+        return;
+    if ([node->uiView() isKindOfClass:[WKBaseScrollView class]])
         return;
 
     const auto& layerProperties = *it->value;
@@ -1137,7 +1159,29 @@ static void addOverlayEventRegions(WebCore::PlatformLayerIdentifier layerID, con
     }
 
     for (auto childLayerID : layerProperties.children)
-        addOverlayEventRegions(childLayerID, changedLayerPropertiesMap, overlayRegionsIDs);
+        addOverlayEventRegions(childLayerID, changedLayerPropertiesMap, overlayRegionsIDs, host);
+}
+
+static CGRect snapRectToScrollViewEdges(CGRect rect, CGRect viewport)
+{
+    constexpr float edgeSnapThreshold = 4.0;
+
+    auto leftDelta = CGRectGetMinX(rect) - CGRectGetMinX(viewport);
+    auto rightDelta = CGRectGetMaxX(viewport) - CGRectGetMaxX(rect);
+    auto topDelta = CGRectGetMinY(rect) - CGRectGetMinY(viewport);
+    auto bottomDelta = CGRectGetMaxY(viewport) - CGRectGetMaxY(rect);
+
+    if (std::abs(leftDelta) <= edgeSnapThreshold && std::abs(rightDelta) > edgeSnapThreshold)
+        rect.origin.x -= leftDelta;
+    if (std::abs(rightDelta) <= edgeSnapThreshold && std::abs(leftDelta) > edgeSnapThreshold)
+        rect.origin.x += rightDelta;
+
+    if (std::abs(topDelta) <= edgeSnapThreshold && std::abs(bottomDelta) > edgeSnapThreshold)
+        rect.origin.y -= topDelta;
+    if (std::abs(bottomDelta) <= edgeSnapThreshold && std::abs(topDelta) > edgeSnapThreshold)
+        rect.origin.y += bottomDelta;
+
+    return CGRectIntersection(rect, viewport);
 }
 
 static void configureScrollViewWithOverlayRegionsIDs(WKBaseScrollView* scrollView, const WebKit::RemoteLayerTreeHost& host, const HashSet<WebCore::PlatformLayerIdentifier>& overlayRegionsIDs)
@@ -1148,31 +1192,68 @@ static void configureScrollViewWithOverlayRegionsIDs(WKBaseScrollView* scrollVie
         const auto* node = host.nodeForID(layerID);
         if (!node)
             continue;
-        const auto* uiView = node->uiView();
-        if (!uiView)
+        const auto* overlayView = node->uiView();
+        if (!overlayView)
             continue;
 
-        WKBaseScrollView* enclosingScrollView = nil;
-        for (UIView *view = [uiView superview]; view; view = [view superview]) {
-            if ([view isKindOfClass:[WKBaseScrollView class]]) {
-                enclosingScrollView = (WKBaseScrollView *)view;
+        WKBaseScrollView *enclosingScrollView = nil;
+        HashSet<UIView *> overlayAncestorsChain;
+        for (UIView *overlayAncestor = (UIView *)overlayView; overlayAncestor; overlayAncestor = [overlayAncestor superview]) {
+            overlayAncestorsChain.add(overlayAncestor);
+            if ([overlayAncestor isKindOfClass:[WKBaseScrollView class]]) {
+                enclosingScrollView = (WKBaseScrollView *)overlayAncestor;
                 break;
             }
         }
+
         if (!enclosingScrollView)
             continue;
 
-        if (enclosingScrollView != scrollView)
+        if (enclosingScrollView != scrollView) {
+            // Overlays on parent scrollViews should still be taken into account if they draw above the selected scrollView.
+            bool shouldKeepOverlay = false;
+            UIView * previousScrollViewAncestor = nil;
+            for (UIView *scrollViewAncestor = [scrollView superview]; scrollViewAncestor; scrollViewAncestor = [scrollViewAncestor superview]) {
+                // Found a common parent, check if the overlay is drawn avove the selected scrollView.
+                if (overlayAncestorsChain.contains(scrollViewAncestor)) {
+                    NSUInteger configuredScrollViewZIndex = [scrollViewAncestor.subviews indexOfObject:previousScrollViewAncestor];
+                    NSUInteger overlayAncestorZIndex = 0;
+                    for (UIView *subview in scrollViewAncestor.subviews) {
+                        if (overlayAncestorsChain.contains(subview))
+                            break;
+                        overlayAncestorZIndex++;
+                    }
+                    if (overlayAncestorZIndex < configuredScrollViewZIndex)
+                        break;
+                }
+
+                if (scrollViewAncestor == enclosingScrollView) {
+                    shouldKeepOverlay = true;
+                    break;
+                }
+
+                previousScrollViewAncestor = scrollViewAncestor;
+            }
+
+            if (!shouldKeepOverlay)
+                continue;
+        }
+
+        // Overlay regions are positioned relative to the viewport of the scrollview,
+        // not the frame (external) nor the bounds (origin moves while scrolling).
+        CGRect rect = [overlayView.superview convertRect:overlayView.frame toView:scrollView.superview];
+        CGRect offsetRect = CGRectOffset(rect, -scrollView.frame.origin.x, -scrollView.frame.origin.y);
+        CGRect viewport = CGRectOffset(scrollView.frame, -scrollView.frame.origin.x, -scrollView.frame.origin.y);
+        CGRect snappedRect = snapRectToScrollViewEdges(offsetRect, viewport);
+
+        if (CGRectIsEmpty(snappedRect))
             continue;
 
-        CGRect rect = [uiView convertRect:node->eventRegion().region().bounds() toView:[scrollView superview]];
-        // Filtering out solid background color layers.
-        if (!CGSizeEqualToSize(scrollView.contentSize, rect.size))
-            overlayRegionRects.add(WebCore::enclosingIntRect(rect));
+        overlayRegionRects.add(WebCore::enclosingIntRect(snappedRect));
     }
 
-    [scrollView _updateOverlayRegionRects:overlayRegionRects];
     [scrollView _updateOverlayRegionsBehavior:true];
+    [scrollView _updateOverlayRegionRects:overlayRegionRects];
 }
 
 - (bool)_scrollViewCanHaveOverlayRegions:(WKBaseScrollView*)scrollView
@@ -1231,7 +1312,7 @@ static void configureScrollViewWithOverlayRegionsIDs(WKBaseScrollView* scrollVie
     const auto& fixedIDs = scrollingCoordinatorProxy->fixedScrollingNodeLayerIDs();
 
     for (auto layerID : fixedIDs)
-        addOverlayEventRegions(layerID, changedLayerPropertiesMap, overlayRegionsIDs);
+        addOverlayEventRegions(layerID, changedLayerPropertiesMap, overlayRegionsIDs, layerTreeHost);
 
     configureScrollViewWithOverlayRegionsIDs(overlayRegionScrollView, layerTreeHost, overlayRegionsIDs);
 
@@ -1820,7 +1901,12 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
 
 - (BOOL)_isWindowResizingEnabled
 {
+#if PLATFORM(VISION)
+    // This is technically incorrect, but matches longstanding behavior, and avoids layout regressions on visionOS.
+    return NO;
+#else
     return self.window.windowScene._enhancedWindowingEnabled;
+#endif
 }
 
 #endif // HAVE(UIKIT_RESIZABLE_WINDOWS)
@@ -3551,6 +3637,18 @@ static bool isLockdownModeWarningNeeded()
     return axesToPrevent;
 }
 
+- (void)_overrideZoomScaleParametersWithMinimumZoomScale:(CGFloat)minimumZoomScale maximumZoomScale:(CGFloat)maximumZoomScale allowUserScaling:(BOOL)allowUserScaling
+{
+    _overriddenZoomScaleParameters = { minimumZoomScale, maximumZoomScale, allowUserScaling };
+    [_scrollView setMinimumZoomScale:minimumZoomScale];
+    [_scrollView setMaximumZoomScale:maximumZoomScale];
+    [_scrollView _setZoomEnabledInternal:allowUserScaling];
+}
+
+- (void)_clearOverrideZoomScaleParameters
+{
+    _overriddenZoomScaleParameters = std::nullopt;
+}
 @end
 
 @implementation WKWebView (WKPrivateIOS)
@@ -3627,7 +3725,6 @@ static bool isLockdownModeWarningNeeded()
 // Deprecated SPI.
 - (CGSize)_minimumLayoutSizeOverride
 {
-    ASSERT(_overriddenLayoutParameters);
     if (!_overriddenLayoutParameters)
         return CGSizeZero;
 
@@ -3636,7 +3733,6 @@ static bool isLockdownModeWarningNeeded()
 
 - (CGSize)_minimumUnobscuredSizeOverride
 {
-    ASSERT(_overriddenLayoutParameters);
     if (!_overriddenLayoutParameters)
         return CGSizeZero;
 
@@ -3646,7 +3742,6 @@ static bool isLockdownModeWarningNeeded()
 // Deprecated SPI
 - (CGSize)_maximumUnobscuredSizeOverride
 {
-    ASSERT(_overriddenLayoutParameters);
     if (!_overriddenLayoutParameters)
         return CGSizeZero;
 
@@ -4527,6 +4622,10 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
 
     return nil;
 }
+
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WKWebViewIOSAdditionsAfter.mm>
+#endif
 
 @end // WKWebView (WKPrivateIOS)
 

@@ -101,12 +101,14 @@
 #include <WebCore/FetchIdentifier.h>
 #include <WebCore/FileSystemHandleIdentifier.h>
 #include <WebCore/FileSystemSyncAccessHandleIdentifier.h>
+#include <WebCore/IDBDatabaseConnectionIdentifier.h>
 #include <WebCore/ImageDecoderIdentifier.h>
 #include <WebCore/LayerHostingContextIdentifier.h>
 #include <WebCore/LibWebRTCSocketIdentifier.h>
 #include <WebCore/MediaKeySystemRequestIdentifier.h>
 #include <WebCore/MediaPlayerIdentifier.h>
 #include <WebCore/MediaSessionIdentifier.h>
+#include <WebCore/ModelPlayerIdentifier.h>
 #include <WebCore/PageIdentifier.h>
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 #include <WebCore/PlaybackTargetClientContextIdentifier.h>
@@ -455,6 +457,7 @@ Vector<ASCIILiteral> serializedIdentifiers()
     static_assert(sizeof(uint64_t) == sizeof(WebCore::MediaKeySystemRequestIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::MediaPlayerIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::MediaSessionIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::ModelPlayerIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::OpaqueOriginIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::PageIdentifier));
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -477,6 +480,7 @@ Vector<ASCIILiteral> serializedIdentifiers()
     static_assert(sizeof(uint64_t) == sizeof(WebCore::TextCheckingRequestIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::TextManipulationItemIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::TextManipulationTokenIdentifier));
+    static_assert(sizeof(uint64_t) == sizeof(WebCore::IDBDatabaseConnectionIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::UserMediaRequestIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebCore::WebSocketIdentifier));
     static_assert(sizeof(uint64_t) == sizeof(WebKit::AudioMediaStreamTrackRendererInternalUnitIdentifier));
@@ -562,6 +566,7 @@ Vector<ASCIILiteral> serializedIdentifiers()
         "WebCore::MediaKeySystemRequestIdentifier"_s,
         "WebCore::MediaPlayerIdentifier"_s,
         "WebCore::MediaSessionIdentifier"_s,
+        "WebCore::ModelPlayerIdentifier"_s,
         "WebCore::OpaqueOriginIdentifier"_s,
         "WebCore::PageIdentifier"_s,
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -584,6 +589,7 @@ Vector<ASCIILiteral> serializedIdentifiers()
         "WebCore::TextCheckingRequestIdentifier"_s,
         "WebCore::TextManipulationItemIdentifier"_s,
         "WebCore::TextManipulationTokenIdentifier"_s,
+        "WebCore::IDBDatabaseConnectionIdentifier"_s,
         "WebCore::UserMediaRequestIdentifier"_s,
         "WebCore::WebSocketIdentifier"_s,
         "WebKit::AudioMediaStreamTrackRendererInternalUnitIdentifier"_s,

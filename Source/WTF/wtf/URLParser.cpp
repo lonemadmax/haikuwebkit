@@ -329,6 +329,7 @@ template<typename CharacterType> ALWAYS_INLINE static bool isInUserInfoEncodeSet
 template<typename CharacterType> ALWAYS_INLINE static bool isPercentOrNonASCII(CharacterType character) { return !isASCII(character) || character == '%'; }
 template<typename CharacterType> ALWAYS_INLINE static bool isSlashQuestionOrHash(CharacterType character) { return character <= '\\' && characterClassTable[character] & SlashQuestionOrHash; }
 template<typename CharacterType> ALWAYS_INLINE static bool isValidSchemeCharacter(CharacterType character) { return character <= 'z' && characterClassTable[character] & ValidScheme; }
+template<typename CharacterType> ALWAYS_INLINE static bool isSpecialCharacterForFragmentDirective(CharacterType character) { return character == ',' || character == '-'; }
 
 template<typename CharacterType>
 ALWAYS_INLINE bool URLParser::isForbiddenHostCodePoint(CharacterType character)
@@ -356,6 +357,11 @@ ALWAYS_INLINE static bool shouldPercentEncodeQueryByte(uint8_t byte, const bool&
 bool URLParser::isInUserInfoEncodeSet(UChar c)
 {
     return WTF::isInUserInfoEncodeSet(c);
+}
+
+bool URLParser::isSpecialCharacterForFragmentDirective(UChar c)
+{
+    return WTF::isSpecialCharacterForFragmentDirective(c);
 }
 
 template<typename CharacterType, URLParser::ReportSyntaxViolation reportSyntaxViolation>
@@ -1480,7 +1486,8 @@ void URLParser::parse(const CharacterType* input, const unsigned length, const U
         case State::Host:
             do {
                 LOG_STATE("Host");
-                if (*c == '/' || *c == '?' || *c == '#') {
+                bool isSlash = *c == '/' || (m_urlIsSpecial && *c == '\\');
+                if (isSlash || *c == '?' || *c == '#') {
                     if (parseHostAndPort(CodePointIterator<CharacterType>(authorityOrHostBegin, c)) == HostParsingResult::InvalidHost) {
                         failure();
                         return;

@@ -29,6 +29,7 @@
 #include "CachedResourceClient.h"
 #include "CachedResourceClientWalker.h"
 #include "CachedResourceLoader.h"
+#include "Font.h"
 #include "FrameLoader.h"
 #include "FrameLoaderTypes.h"
 #include "LocalFrame.h"
@@ -37,6 +38,7 @@
 #include "MIMETypeRegistry.h"
 #include "MemoryCache.h"
 #include "RenderElement.h"
+#include "RenderImage.h"
 #include "SVGElementTypeHelpers.h"
 #include "SVGImage.h"
 #include "SecurityOrigin.h"
@@ -52,6 +54,10 @@
 
 #if USE(CG)
 #include "PDFDocumentImage.h"
+#endif
+
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+#include "MultiRepresentationHEICMetrics.h"
 #endif
 
 namespace WebCore {
@@ -282,11 +288,6 @@ Image* CachedImage::imageForRenderer(const RenderObject* renderer)
     return m_image.get();
 }
 
-bool CachedImage::hasSVGImage() const
-{
-    return image() && image()->isSVGImage();
-}
-
 void CachedImage::setContainerContextForClient(const CachedImageClient& client, const LayoutSize& containerSize, float containerZoom, const URL& imageURL)
 {
     if (containerSize.isEmpty())
@@ -311,6 +312,13 @@ FloatSize CachedImage::imageSizeForRenderer(const RenderElement* renderer, SizeT
     RefPtr image = m_image;
     if (!image)
         return { };
+
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+    if (CheckedPtr renderImage = dynamicDowncast<RenderImage>(renderer); renderImage && renderImage->isMultiRepresentationHEIC()) {
+        auto metrics = renderImage->style().fontCascade().primaryFont().metricsForMultiRepresentationHEIC();
+        return metrics.size();
+    }
+#endif
 
     if (image->drawsSVGImage() && sizeType == UsedSize)
         return m_svgImageCache->imageSizeForRenderer(renderer);
@@ -463,6 +471,11 @@ void CachedImage::CachedImageObserver::scheduleRenderingUpdate(const Image& imag
 
 bool CachedImage::CachedImageObserver::allowsAnimation(const Image& image) const
 {
+    // *::allowsAnimation can only return false when systemAllowsAnimationControls == true,
+    // so this prevents unnecessary work by exiting early.
+    if (!Image::systemAllowsAnimationControls())
+        return true;
+
     for (CachedResourceHandle cachedImage : m_cachedImages) {
         if (cachedImage->allowsAnimation(image))
             return true;
@@ -727,6 +740,9 @@ bool CachedImage::allowsAnimation(const Image& image) const
 {
     if (&image != m_image)
         return false;
+
+    if (!Image::systemAllowsAnimationControls())
+        return true;
 
     CachedResourceClientWalker<CachedImageClient> walker(*this);
     while (auto* client = walker.next()) {

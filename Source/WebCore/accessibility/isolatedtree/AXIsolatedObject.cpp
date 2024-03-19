@@ -168,6 +168,7 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::IsKeyboardFocusable, object.isKeyboardFocusable());
     setProperty(AXPropertyName::BrailleRoleDescription, object.brailleRoleDescription().isolatedCopy());
     setProperty(AXPropertyName::BrailleLabel, object.brailleLabel().isolatedCopy());
+    setProperty(AXPropertyName::IsNonLayerSVGObject, object.isNonLayerSVGObject());
 
     RefPtr geometryManager = tree()->geometryManager();
     std::optional frame = geometryManager ? geometryManager->cachedRectForID(object.objectID()) : std::nullopt;
@@ -183,7 +184,8 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     } else if (object.isMenuListPopup()) {
         // AccessibilityMenuListPopup's elementRect is hardcoded to return an empty rect, so preserve that behavior.
         setProperty(AXPropertyName::RelativeFrame, IntRect());
-    }
+    } else
+        setProperty(AXPropertyName::InitialFrameRect, object.frameRect());
 
     if (object.supportsCheckedState()) {
         setProperty(AXPropertyName::SupportsCheckedState, true);
@@ -264,6 +266,13 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     // On macOS, we only advertise support for the visible children attribute for listboxes.
     if (object.isListBox())
         setObjectVectorProperty(AXPropertyName::VisibleChildren, object.visibleChildren());
+
+    if (object.isDateTime()) {
+        setProperty(AXPropertyName::DateTimeValue, object.dateTimeValue().isolatedCopy());
+#if PLATFORM(MAC)
+        setProperty(AXPropertyName::DateTimeComponents, object.dateTimeComponents());
+#endif
+    }
 
     if (object.isSpinButton()) {
         // FIXME: These properties get out of date every time AccessibilitySpinButton::{clearChildren, addChildren} is called. We should probably just not cache these properties.
@@ -358,6 +367,7 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
 
 #if ENABLE(AX_THREAD_TEXT_APIS)
     setProperty(AXPropertyName::TextRuns, object.textRuns());
+    setProperty(AXPropertyName::ShouldEmitNewlinesBeforeAndAfterNode, object.shouldEmitNewlinesBeforeAndAfterNode());
 #endif
 
     // These properties are only needed on the AXCoreObject interface due to their use in ATSPI,
@@ -375,6 +385,10 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
 #endif
 
     setObjectProperty(AXPropertyName::InternalLinkElement, object.internalLinkElement());
+    setProperty(AXPropertyName::HasRemoteFrameChild, object.hasRemoteFrameChild());
+    // Don't duplicate the remoteFrameOffset for every object. Just store in the WebArea.
+    if (object.isWebArea())
+        setProperty(AXPropertyName::RemoteFrameOffset, object.remoteFrameOffset());
 
     initializePlatformProperties(axObject);
 }
@@ -461,6 +475,7 @@ void AXIsolatedObject::setProperty(AXPropertyName propertyName, AXPropertyValueV
         [](OptionSet<AXAncestorFlag>& typedValue) { return typedValue.isEmpty(); },
 #if PLATFORM(COCOA)
         [](RetainPtr<NSAttributedString>& typedValue) { return !typedValue; },
+        [](RetainPtr<id>& typedValue) { return !typedValue; },
 #endif
         [](InsideLink& typedValue) { return typedValue == InsideLink(); },
         [](Vector<Vector<AXID>>& typedValue) { return typedValue.isEmpty(); },
@@ -471,6 +486,7 @@ void AXIsolatedObject::setProperty(AXPropertyName propertyName, AXPropertyValueV
 #if ENABLE(AX_THREAD_TEXT_APIS)
         [](AXTextRuns& runs) { return !runs.size(); },
 #endif
+        [] (WallTime& time) { return !time; },
         [](auto&) {
             ASSERT_NOT_REACHED();
             return false;
@@ -577,6 +593,12 @@ AXCoreObject* AXIsolatedObject::sibling(AXDirection direction) const
     if (direction == AXDirection::Next)
         return indexOfThis + 1 < siblings.size() ? siblings[indexOfThis + 1].get() : nullptr;
     return indexOfThis > 0 ? siblings[indexOfThis - 1].get() : nullptr;
+}
+
+AXCoreObject* AXIsolatedObject::siblingOrParent(AXDirection direction) const
+{
+    auto* sibling = this->sibling(direction);
+    return sibling ? sibling : parentObjectUnignored();
 }
 
 bool AXIsolatedObject::isDetachedFromParent()
@@ -1203,6 +1225,21 @@ LayoutRect AXIsolatedObject::elementRect() const
     });
 }
 
+IntPoint AXIsolatedObject::remoteFrameOffset() const
+{
+    auto* webArea = Accessibility::findAncestor<AXIsolatedObject>(*this, true, [] (const auto& object) {
+        return object.isWebArea();
+    });
+
+    if (!webArea)
+        return { };
+
+    if (auto point = webArea->optionalAttributeValue<IntPoint>(AXPropertyName::RemoteFrameOffset))
+        return *point;
+
+    return { };
+}
+
 FloatPoint AXIsolatedObject::screenRelativePosition() const
 {
     if (auto point = optionalAttributeValue<FloatPoint>(AXPropertyName::ScreenRelativePosition))
@@ -1226,28 +1263,48 @@ FloatPoint AXIsolatedObject::screenRelativePosition() const
 
 FloatRect AXIsolatedObject::relativeFrame() const
 {
+    FloatRect relativeFrame;
+
     if (auto cachedRelativeFrame = optionalAttributeValue<IntRect>(AXPropertyName::RelativeFrame)) {
         // We should not have cached a relative frame for elements that get their geometry from their children.
         ASSERT(!m_getsGeometryFromChildren);
-        return *cachedRelativeFrame;
-    }
-
-    if (m_getsGeometryFromChildren) {
+        relativeFrame = *cachedRelativeFrame;
+    } else if (m_getsGeometryFromChildren) {
         auto frame = enclosingIntRect(relativeFrameFromChildren());
         if (!frame.isEmpty())
-            return frame;
+            relativeFrame = frame;
         // Either we had no children, or our children had empty frames. The right thing to do would be to return
         // a rect at the position of the nearest render tree ancestor with some made-up size (AccessibilityNodeObject::boundingBoxRect does this).
         // However, we don't have access to the render tree in this context (only the AX isolated tree, which is too sparse for this purpose), so
         // until we cache the necessary information let's go to the main-thread.
     } else if (roleValue() == AccessibilityRole::Column || roleValue() == AccessibilityRole::TableHeaderContainer)
-        return exposedTableAncestor() ? relativeFrameFromChildren() : FloatRect();
+        relativeFrame = exposedTableAncestor() ? relativeFrameFromChildren() : FloatRect();
 
-    return Accessibility::retrieveValueFromMainThread<FloatRect>([this] () -> FloatRect {
-        if (auto* axObject = associatedAXObject())
-            return axObject->relativeFrame();
-        return { };
-    });
+    // Mock objects and SVG objects need use the main thread since they do not have render nodes and are not painted with layers, respectively.
+    // FIXME: Remove isNonLayerSVGObject when LBSE is enabled & SVG frames are cached.
+    if (!AXObjectCache::shouldServeInitialCachedFrame() || isNonLayerSVGObject()) {
+        return Accessibility::retrieveValueFromMainThread<FloatRect>([this] () -> FloatRect {
+            if (auto* axObject = associatedAXObject())
+                return axObject->relativeFrame();
+            return { };
+        });
+    }
+
+    // Having an empty relative frame at this point means a frame hasn't been cached yet.
+    if (relativeFrame.isEmpty()) {
+        // InitialFrameRect stores the correct size, but not position, of the element before it is painted.
+        // We find the position of the nearest painted ancestor to use as the position until the object's frame
+        // is cached during painting.
+        auto* ancestor = Accessibility::findAncestor<AXIsolatedObject>(*this, false, [] (const auto& object) {
+            return object.hasCachedRelativeFrame();
+        });
+        relativeFrame = rectAttributeValue<FloatRect>(AXPropertyName::InitialFrameRect);
+        if (ancestor && relativeFrame.location() == FloatPoint())
+            relativeFrame.setLocation(ancestor->relativeFrame().location());
+    }
+
+    relativeFrame.moveBy({ remoteFrameOffset() });
+    return relativeFrame;
 }
 
 FloatRect AXIsolatedObject::relativeFrameFromChildren() const
@@ -1361,6 +1418,11 @@ String AXIsolatedObject::identifierAttribute() const
 
 CharacterRange AXIsolatedObject::doAXRangeForLine(unsigned lineIndex) const
 {
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    if (AXObjectCache::useAXThreadTextApis())
+        return AXTextMarker { treeID(), objectID(), 0 }.rangeForLine(lineIndex);
+#endif
+
     return Accessibility::retrieveValueFromMainThread<CharacterRange>([&lineIndex, this] () -> CharacterRange {
         if (auto* object = associatedAXObject())
             return object->doAXRangeForLine(lineIndex);
@@ -1425,6 +1487,11 @@ IntRect AXIsolatedObject::doAXBoundsForRangeUsingCharacterOffset(const Character
 
 unsigned AXIsolatedObject::doAXLineForIndex(unsigned index)
 {
+#if ENABLE(AX_THREAD_TEXT_APIS)
+    if (AXObjectCache::useAXThreadTextApis())
+        return AXTextMarker { treeID(), objectID(), 0 }.lineNumberForIndex(index);
+#endif
+
     return Accessibility::retrieveValueFromMainThread<unsigned>([&index, this] () -> unsigned {
         if (auto* object = associatedAXObject())
             return object->doAXLineForIndex(index);
@@ -1752,6 +1819,15 @@ bool AXIsolatedObject::inheritsPresentationalRole() const
 void AXIsolatedObject::setAccessibleName(const AtomString&)
 {
     ASSERT_NOT_REACHED();
+}
+
+String AXIsolatedObject::titleAttributeValue() const
+{
+    AXTRACE("AXIsolatedObject::titleAttributeValue"_s);
+
+    if (m_propertyMap.contains(AXPropertyName::TitleAttributeValue))
+        return propertyValue<String>(AXPropertyName::TitleAttributeValue);
+    return AXCoreObject::titleAttributeValue();
 }
 
 String AXIsolatedObject::stringValue() const

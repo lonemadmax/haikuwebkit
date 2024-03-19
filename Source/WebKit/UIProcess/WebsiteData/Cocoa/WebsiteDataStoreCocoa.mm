@@ -593,7 +593,7 @@ void WebsiteDataStore::initializeAppBoundDomains(ForceReinitialization forceRein
             return;
         
         NSArray<NSString *> *appBoundData = [[NSBundle mainBundle] objectForInfoDictionaryKey:@"WKAppBoundDomains"];
-        keyExists = appBoundData ? true : false;
+        keyExists = !!appBoundData;
         
         RunLoop::main().dispatch([forceReinitialization, appBoundData = retainPtr(appBoundData)] {
             if (hasInitializedAppBoundDomains && forceReinitialization != ForceReinitialization::Yes)
@@ -758,7 +758,7 @@ void WebsiteDataStore::initializeManagedDomains(ForceReinitialization forceReini
         else
             crossSiteTrackingPreventionRelaxedDomains = @[];
 #endif
-        managedKeyExists = crossSiteTrackingPreventionRelaxedDomains ? true : false;
+        managedKeyExists = !!crossSiteTrackingPreventionRelaxedDomains;
     
         RunLoop::main().dispatch([forceReinitialization, crossSiteTrackingPreventionRelaxedDomains = retainPtr(crossSiteTrackingPreventionRelaxedDomains)] {
             if (hasInitializedManagedDomains && forceReinitialization != ForceReinitialization::Yes)
@@ -855,16 +855,7 @@ std::optional<double> WebsiteDataStore::defaultTotalQuotaRatio()
 
 UnifiedOriginStorageLevel WebsiteDataStore::defaultUnifiedOriginStorageLevel()
 {
-    auto defaultUnifiedOriginStorageLevelValue = UnifiedOriginStorageLevel::Standard;
-    NSString* unifiedOriginStorageLevelKey = @"WebKitDebugUnifiedOriginStorageLevel";
-    if ([[NSUserDefaults standardUserDefaults] objectForKey:unifiedOriginStorageLevelKey] == nil)
-        return defaultUnifiedOriginStorageLevelValue;
-
-    auto level = convertToUnifiedOriginStorageLevel([[NSUserDefaults standardUserDefaults] integerForKey:unifiedOriginStorageLevelKey]);
-    if (!level)
-        return defaultUnifiedOriginStorageLevelValue;
-
-    return *level;
+    return UnifiedOriginStorageLevel::Standard;
 }
 
 #if PLATFORM(IOS_FAMILY)

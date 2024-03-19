@@ -418,16 +418,25 @@ list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
 
 list(APPEND WebKit_LIBRARIES
     ATK::Bridge
-    Cairo::Cairo
-    Freetype::Freetype
-    HarfBuzz::HarfBuzz
-    HarfBuzz::ICU
     WPE::libwpe
     ${ATK_LIBRARIES}
     ${GLIB_LIBRARIES}
     ${GLIB_GMODULE_LIBRARIES}
     ${LIBSOUP_LIBRARIES}
 )
+
+if (USE_CAIRO)
+    list(APPEND WebKit_LIBRARIES
+        Cairo::Cairo
+        Freetype::Freetype
+    )
+
+    list(APPEND WebKit_SOURCES
+        Shared/API/c/cairo/WKImageCairo.cpp
+
+        UIProcess/Automation/cairo/WebAutomationSessionCairo.cpp
+    )
+endif ()
 
 if (ENABLE_BUBBLEWRAP_SANDBOX)
     list(APPEND WebKit_LIBRARIES Libseccomp::Libseccomp)
@@ -543,10 +552,10 @@ if (ENABLE_WPE_QT_API)
     set(qtwpe_LIBRARIES
         Epoxy::Epoxy
         Qt5::Core Qt5::Quick
+        WPE::FDO
         WebKit
         ${GLIB_GOBJECT_LIBRARIES}
         ${GLIB_LIBRARIES}
-        ${WPEBACKEND_FDO_LIBRARIES}
     )
 
     set(qtwpe_INCLUDE_DIRECTORIES
@@ -558,7 +567,6 @@ if (ENABLE_WPE_QT_API)
         ${Qt5Gui_PRIVATE_INCLUDE_DIRS}
         ${LIBSOUP_INCLUDE_DIRS}
         ${WPE_INCLUDE_DIRS}
-        ${WPEBACKEND_FDO_INCLUDE_DIRS}
     )
 
     list(APPEND WPE_QT_API_INSTALLED_HEADERS

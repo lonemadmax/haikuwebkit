@@ -112,6 +112,8 @@ public:
 #endif
 
     RenderVideo* renderer() const;
+    void acceleratedRenderingStateChanged();
+    bool supportsAcceleratedRendering() const;
 
     bool shouldServiceRequestVideoFrameCallbacks() const { return !m_videoFrameRequests.isEmpty(); }
     void serviceRequestVideoFrameCallbacks(ReducedResolutionSeconds);
@@ -142,7 +144,11 @@ private:
 
     PlatformMediaSession::MediaType presentationType() const final { return PlatformMediaSession::MediaType::Video; }
 
+    bool mediaPlayerRenderingCanBeAccelerated() final { return m_renderingCanBeAccelerated; }
+    void mediaPlayerRenderingModeChanged() final;
     void mediaPlayerEngineUpdated() final;
+
+    void computeAcceleratedRenderingStateAndUpdateMediaPlayer() final;
 
     std::unique_ptr<HTMLImageLoader> m_imageLoader;
 
@@ -150,13 +156,15 @@ private:
 
     FloatSize m_lastReportedNaturalSize { };
 
+    bool m_renderingCanBeAccelerated { false };
+
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     bool m_enteringPictureInPicture { false };
     bool m_exitingPictureInPicture { false };
 #endif
 
 #if ENABLE(PICTURE_IN_PICTURE_API)
-    PictureInPictureObserver* m_pictureInPictureObserver { nullptr };
+    WeakPtr<PictureInPictureObserver> m_pictureInPictureObserver;
 #endif
 
     struct VideoFrameRequest {

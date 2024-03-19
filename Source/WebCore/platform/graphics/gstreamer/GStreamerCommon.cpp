@@ -43,9 +43,12 @@
 #include <wtf/HashMap.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/PrintStream.h>
+#include <wtf/RecursiveLockAdapter.h>
 #include <wtf/Scope.h>
+#include <wtf/glib/GThreadSafeWeakPtr.h>
 #include <wtf/glib/GUniquePtr.h>
 #include <wtf/glib/RunLoopSourcePriority.h>
+#include <wtf/glib/WTFGType.h>
 #include <wtf/text/StringHash.h>
 
 #if USE(GSTREAMER_MPEGTS)
@@ -74,6 +77,7 @@
 #endif
 
 #if ENABLE(VIDEO)
+#include "ImageDecoderGStreamer.h"
 #include "VideoEncoderPrivateGStreamer.h"
 #include "WebKitWebSourceGStreamer.h"
 #endif
@@ -311,6 +315,19 @@ bool ensureGStreamerInitialized()
             gst_mpegts_initialize();
 #endif
 
+#if PLATFORM(BCM_NEXUS)
+        {
+            auto registry = gst_registry_get();
+            GRefPtr<GstPluginFeature> brcmaudfilter = adoptGRef(gst_registry_lookup_feature(registry, "brcmaudfilter"));
+            GRefPtr<GstPluginFeature> mpegaudioparse = adoptGRef(gst_registry_lookup_feature(registry, "mpegaudioparse"));
+
+            if (brcmaudfilter && mpegaudioparse) {
+                GST_INFO("overriding mpegaudioparse rank with brcmaudfilter rank + 1");
+                gst_plugin_feature_set_rank(mpegaudioparse.get(), gst_plugin_feature_get_rank(brcmaudfilter.get()) + 1);
+            }
+        }
+#endif
+
         registerAppsinkWithWorkaroundsIfNeeded();
 #endif
     });
@@ -446,7 +463,9 @@ void registerWebKitGStreamerVideoEncoder()
         GStreamerRegistryScanner::singleton().refresh();
 }
 
-static Lock s_activePipelinesMapLock;
+// We use a recursive lock because the removal of a pipeline can trigger the removal of another one,
+// from the same thread, specially when using chained element harnesses.
+static RecursiveLock s_activePipelinesMapLock;
 static HashMap<String, GRefPtr<GstElement>>& activePipelinesMap()
 {
     static NeverDestroyed<HashMap<String, GRefPtr<GstElement>>> activePipelines;
@@ -482,7 +501,20 @@ void deinitializeGStreamer()
     teardownGStreamerRegistryScanner();
 #if ENABLE(VIDEO)
     teardownVideoEncoderSingleton();
+    teardownGStreamerImageDecoders();
 #endif
+
+    bool isLeaksTracerActive = false;
+    auto activeTracers = gst_tracing_get_active_tracers();
+    while (activeTracers) {
+        auto tracer = adoptGRef(GST_TRACER_CAST(activeTracers->data));
+        if (!isLeaksTracerActive && !g_strcmp0(G_OBJECT_TYPE_NAME(G_OBJECT(tracer.get())), "GstLeaksTracer"))
+            isLeaksTracerActive = true;
+        activeTracers = g_list_delete_link(activeTracers, activeTracers);
+    }
+
+    if (!isLeaksTracerActive)
+        return;
 
     // Make sure there is no active pipeline left. Those might trigger deadlocks during gst_deinit().
     {
@@ -529,41 +561,45 @@ static GQuark customMessageHandlerQuark()
 
 void disconnectSimpleBusMessageCallback(GstElement* pipeline)
 {
-    if (!g_object_get_qdata(G_OBJECT(pipeline), customMessageHandlerQuark()))
+    auto handler = GPOINTER_TO_UINT(g_object_get_qdata(G_OBJECT(pipeline), customMessageHandlerQuark()));
+    if (!handler)
         return;
 
     auto bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(pipeline)));
-    g_signal_handlers_disconnect_by_data(bus.get(), pipeline);
+    g_signal_handler_disconnect(bus.get(), handler);
     gst_bus_remove_signal_watch(bus.get());
+    g_object_set_qdata(G_OBJECT(pipeline), customMessageHandlerQuark(), nullptr);
 }
 
-struct CustomMessageHandlerHolder {
-    explicit CustomMessageHandlerHolder(Function<void(GstMessage*)>&& handler)
-    {
-        this->handler = WTFMove(handler);
-    }
+struct MessageBusData {
+    GThreadSafeWeakPtr<GstElement> pipeline;
     Function<void(GstMessage*)> handler;
 };
+WEBKIT_DEFINE_ASYNC_DATA_STRUCT(MessageBusData)
 
 void connectSimpleBusMessageCallback(GstElement* pipeline, Function<void(GstMessage*)>&& customHandler)
 {
     auto bus = adoptGRef(gst_pipeline_get_bus(GST_PIPELINE(pipeline)));
     gst_bus_add_signal_watch_full(bus.get(), RunLoopSourcePriority::RunLoopDispatcher);
 
-    g_object_set_qdata_full(G_OBJECT(pipeline), customMessageHandlerQuark(), new CustomMessageHandlerHolder(WTFMove(customHandler)), [](gpointer data) {
-        delete reinterpret_cast<CustomMessageHandlerHolder*>(data);
-    });
+    auto data = createMessageBusData();
+    data->pipeline.reset(pipeline);
+    data->handler = WTFMove(customHandler);
+    auto handler = g_signal_connect_data(bus.get(), "message", G_CALLBACK(+[](GstBus*, GstMessage* message, gpointer userData) {
+        auto data = reinterpret_cast<MessageBusData*>(userData);
+        auto pipeline = data->pipeline.get();
+        if (!pipeline)
+            return;
 
-    g_signal_connect(bus.get(), "message", G_CALLBACK(+[](GstBus*, GstMessage* message, GstElement* pipeline) {
         switch (GST_MESSAGE_TYPE(message)) {
         case GST_MESSAGE_ERROR: {
-            GST_ERROR_OBJECT(pipeline, "Got message: %" GST_PTR_FORMAT, message);
-            auto dotFileName = makeString(GST_OBJECT_NAME(pipeline), "_error");
-            GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN_CAST(pipeline), GST_DEBUG_GRAPH_SHOW_ALL, dotFileName.utf8().data());
+            GST_ERROR_OBJECT(pipeline.get(), "Got message: %" GST_PTR_FORMAT, message);
+            auto dotFileName = makeString(GST_OBJECT_NAME(pipeline.get()), "_error"_s);
+            GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN_CAST(pipeline.get()), GST_DEBUG_GRAPH_SHOW_ALL, dotFileName.utf8().data());
             break;
         }
         case GST_MESSAGE_STATE_CHANGED: {
-            if (GST_MESSAGE_SRC(message) != GST_OBJECT_CAST(pipeline))
+            if (GST_MESSAGE_SRC(message) != GST_OBJECT_CAST(pipeline.get()))
                 break;
 
             GstState oldState;
@@ -571,26 +607,25 @@ void connectSimpleBusMessageCallback(GstElement* pipeline, Function<void(GstMess
             GstState pending;
             gst_message_parse_state_changed(message, &oldState, &newState, &pending);
 
-            GST_INFO_OBJECT(pipeline, "State changed (old: %s, new: %s, pending: %s)", gst_element_state_get_name(oldState),
+            GST_INFO_OBJECT(pipeline.get(), "State changed (old: %s, new: %s, pending: %s)", gst_element_state_get_name(oldState),
                 gst_element_state_get_name(newState), gst_element_state_get_name(pending));
 
-            auto dotFileName = makeString(GST_OBJECT_NAME(pipeline), '_', gst_element_state_get_name(oldState), '_', gst_element_state_get_name(newState));
-            GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN_CAST(pipeline), GST_DEBUG_GRAPH_SHOW_ALL, dotFileName.utf8().data());
+            auto dotFileName = makeString(GST_OBJECT_NAME(pipeline.get()), '_', gst_element_state_get_name(oldState), '_', gst_element_state_get_name(newState));
+            GST_DEBUG_BIN_TO_DOT_FILE_WITH_TS(GST_BIN_CAST(pipeline.get()), GST_DEBUG_GRAPH_SHOW_ALL, dotFileName.utf8().data());
             break;
         }
         case GST_MESSAGE_LATENCY:
-            gst_bin_recalculate_latency(GST_BIN_CAST(pipeline));
+            gst_bin_recalculate_latency(GST_BIN_CAST(pipeline.get()));
             break;
         default:
             break;
         }
 
-        auto* holder = reinterpret_cast<CustomMessageHandlerHolder*>(g_object_get_qdata(G_OBJECT(pipeline), customMessageHandlerQuark()));
-        if (!holder)
-            return;
-
-        holder->handler(message);
-    }), pipeline);
+        data->handler(message);
+    }), data, reinterpret_cast<GClosureNotify>(+[](gpointer data, GClosure*) {
+        destroyMessageBusData(reinterpret_cast<MessageBusData*>(data));
+    }), static_cast<GConnectFlags>(0));
+    g_object_set_qdata(G_OBJECT(pipeline), customMessageHandlerQuark(), GUINT_TO_POINTER(handler));
 }
 
 template<>

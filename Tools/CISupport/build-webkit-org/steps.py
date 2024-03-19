@@ -37,16 +37,28 @@ if sys.version_info < (3, 5):
     print('ERROR: Please use Python 3. This code is not compatible with Python 2.')
     sys.exit(1)
 
-BUILD_WEBKIT_HOSTNAME = 'build.webkit.org'
-COMMITS_INFO_URL = 'https://commits.webkit.org/'
 CURRENT_HOSTNAME = socket.gethostname().strip()
+
+custom_suffix = ''
+if 'dev' in CURRENT_HOSTNAME:
+    custom_suffix = '-dev'
+if 'uat' in CURRENT_HOSTNAME:
+    custom_suffix = '-uat'
+
+BUILD_WEBKIT_HOSTNAMES = ['build.webkit.org', 'build']
+COMMITS_INFO_URL = 'https://commits.webkit.org/'
 RESULTS_WEBKIT_URL = 'https://results.webkit.org'
 RESULTS_SERVER_API_KEY = 'RESULTS_SERVER_API_KEY'
 S3URL = 'https://s3-us-west-2.amazonaws.com/'
+S3_BUCKET = f'archives.webkit{custom_suffix}.org'
 WithProperties = properties.WithProperties
 Interpolate = properties.Interpolate
 THRESHOLD_FOR_EXCESSIVE_LOGS = 1000000
 MSG_FOR_EXCESSIVE_LOGS = f'Stopped due to excessive logging, limit: {THRESHOLD_FOR_EXCESSIVE_LOGS}'
+
+DNS_NAME = CURRENT_HOSTNAME
+if DNS_NAME in BUILD_WEBKIT_HOSTNAMES:
+    DNS_NAME = 'build.webkit.org'
 
 
 class CustomFlagsMixin(object):
@@ -65,7 +77,7 @@ class CustomFlagsMixin(object):
             platform = platform + '-simulator'
         elif platform in ['ios', 'tvos', 'watchos']:
             platform = platform + '-device'
-        self.setCommand(self.command + ['--' + platform])
+        self.command += ['--' + platform]
 
     def appendCustomTestingFlags(self, platform, device_model):
         if platform not in ('gtk', 'wincairo', 'ios', 'jsc-only', 'wpe'):
@@ -559,9 +571,11 @@ class UploadMinifiedBuiltProduct(UploadBuiltProduct):
 
 
 class DownloadBuiltProduct(shell.ShellCommandNewStyle):
-    command = ["python3", "Tools/CISupport/download-built-product",
+    command = [
+        "python3", "Tools/CISupport/download-built-product",
         WithProperties("--platform=%(platform)s"), WithProperties("--%(configuration)s"),
-        WithProperties(S3URL + "archives.webkit.org/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(archive_revision)s.zip")]
+        WithProperties(S3URL + S3_BUCKET + "/%(fullPlatform)s-%(architecture)s-%(configuration)s/%(archive_revision)s.zip"),
+    ]
     name = "download-built-product"
     description = ["downloading built product"]
     descriptionDone = ["downloaded built product"]
@@ -571,7 +585,7 @@ class DownloadBuiltProduct(shell.ShellCommandNewStyle):
     @defer.inlineCallbacks
     def run(self):
         # Only try to download from S3 on the official deployment <https://webkit.org/b/230006>
-        if CURRENT_HOSTNAME != BUILD_WEBKIT_HOSTNAME:
+        if CURRENT_HOSTNAME not in BUILD_WEBKIT_HOSTNAMES:
             self.build.addStepsAfterCurrentStep([DownloadBuiltProductFromMaster()])
             defer.returnValue(SKIPPED)
 
@@ -618,7 +632,7 @@ class RunJavaScriptCoreTests(TestWithFailureCount, CustomFlagsMixin):
         "--builder-name", WithProperties("%(buildername)s"),
         "--build-number", WithProperties("%(buildnumber)s"),
         "--buildbot-worker", WithProperties("%(workername)s"),
-        "--buildbot-master", CURRENT_HOSTNAME,
+        "--buildbot-master", DNS_NAME,
         "--report", RESULTS_WEBKIT_URL,
     ]
     commandExtra = ['--treat-failing-as-flaky=0.7,10,20']
@@ -649,10 +663,10 @@ class RunJavaScriptCoreTests(TestWithFailureCount, CustomFlagsMixin):
         # Linux bots have currently problems with JSC tests that try to use large amounts of memory.
         # Check: https://bugs.webkit.org/show_bug.cgi?id=175140
         if platform in ('gtk', 'wpe', 'jsc-only'):
-            self.setCommand(self.command + ['--memory-limited', '--verbose'])
+            self.command += ['--memory-limited', '--verbose']
         # WinCairo uses the Windows command prompt, not Cygwin.
         elif platform == 'wincairo':
-            self.setCommand(self.command + ['--test-writer=ruby'])
+            self.command += ['--test-writer=ruby']
 
         self.appendCustomBuildFlags(platform, self.getProperty('fullPlatform'))
         return super().run()
@@ -713,7 +727,7 @@ class RunWebKitTests(shell.TestNewStyle, CustomFlagsMixin):
                "--builder-name", WithProperties("%(buildername)s"),
                "--build-number", WithProperties("%(buildnumber)s"),
                "--buildbot-worker", WithProperties("%(workername)s"),
-               "--buildbot-master", CURRENT_HOSTNAME,
+               "--buildbot-master", DNS_NAME,
                "--report", RESULTS_WEBKIT_URL,
                "--exit-after-n-crashes-or-timeouts", "50",
                "--exit-after-n-failures", "500",
@@ -849,7 +863,7 @@ class RunAPITests(TestWithFailureCount, CustomFlagsMixin):
         f"--json-output={jsonFileName}",
         WithProperties("--%(configuration)s"),
         "--verbose",
-        "--buildbot-master", CURRENT_HOSTNAME,
+        "--buildbot-master", DNS_NAME,
         "--builder-name", WithProperties("%(buildername)s"),
         "--build-number", WithProperties("%(buildnumber)s"),
         "--buildbot-worker", WithProperties("%(workername)s"),
@@ -937,7 +951,7 @@ class RunWebKitPyTests(RunPythonTests):
         "python3",
         "Tools/Scripts/test-webkitpy",
         "--verbose",
-        "--buildbot-master", CURRENT_HOSTNAME,
+        "--buildbot-master", DNS_NAME,
         "--builder-name", WithProperties("%(buildername)s"),
         "--build-number", WithProperties("%(buildnumber)s"),
         "--buildbot-worker", WithProperties("%(workername)s"),
@@ -1005,7 +1019,7 @@ class RunLLINTCLoopTests(TestWithFailureCount):
         "--builder-name", WithProperties("%(buildername)s"),
         "--build-number", WithProperties("%(buildnumber)s"),
         "--buildbot-worker", WithProperties("%(workername)s"),
-        "--buildbot-master", CURRENT_HOSTNAME,
+        "--buildbot-master", DNS_NAME,
         "--report", RESULTS_WEBKIT_URL,
     ]
     failedTestsFormatString = "%d regression%s found."
@@ -1046,7 +1060,7 @@ class Run32bitJSCTests(TestWithFailureCount):
         "--builder-name", WithProperties("%(buildername)s"),
         "--build-number", WithProperties("%(buildnumber)s"),
         "--buildbot-worker", WithProperties("%(workername)s"),
-        "--buildbot-master", CURRENT_HOSTNAME,
+        "--buildbot-master", DNS_NAME,
         "--report", RESULTS_WEBKIT_URL,
     ]
     failedTestsFormatString = "%d regression%s found."
@@ -1101,7 +1115,7 @@ class RunGLibAPITests(shell.TestNewStyle):
         self.log_observer = logobserver.BufferLogObserver()
         self.addLogObserver('stdio', self.log_observer)
 
-        rc = yield super().run(self)
+        rc = yield super().run()
 
         logText = self.log_observer.getStdout()
 
@@ -1135,16 +1149,10 @@ class RunGLibAPITests(shell.TestNewStyle):
         if messages:
             self.statusLine = ["API tests: %s" % ", ".join(messages)]
 
-        defer.returnValue(rc)
-
-    def evaluateCommand(self, cmd):
         if self.totalFailedTests > 0:
-            return FAILURE
-
-        if cmd.rc != 0:
-            return FAILURE
-
-        return SUCCESS
+            defer.returnValue(FAILURE)
+        else:
+            defer.returnValue(SUCCESS if rc == 0 else FAILURE)
 
     def getText(self, cmd, results):
         return self.getText2(cmd, results)
@@ -1164,7 +1172,7 @@ class RunWPEAPITests(RunGLibAPITests):
     command = ["python3", "Tools/Scripts/run-wpe-tests", WithProperties("--%(configuration)s")]
 
 
-class RunWebDriverTests(shell.Test):
+class RunWebDriverTests(shell.Test, CustomFlagsMixin):
     name = "webdriver-test"
     description = ["webdriver-tests running"]
     descriptionDone = ["webdriver-tests"]
@@ -1178,7 +1186,7 @@ class RunWebDriverTests(shell.Test):
         if additionalArguments:
             self.command += additionalArguments
 
-        appendCustomBuildFlags(self, self.getProperty('platform'), self.getProperty('fullPlatform'))
+        self.appendCustomBuildFlags(self.getProperty('platform'), self.getProperty('fullPlatform'))
 
         self.log_observer = logobserver.BufferLogObserver()
         self.addLogObserver('stdio', self.log_observer)
@@ -1196,19 +1204,14 @@ class RunWebDriverTests(shell.Test):
         if foundItems:
             self.newPassesCount = int(foundItems[0])
 
-        defer.returnValue(rc)
-
-    def evaluateCommand(self, cmd):
-        if self.failuresCount:
-            return FAILURE
-
-        if self.newPassesCount:
-            return WARNINGS
-
-        if cmd.rc != 0:
-            return FAILURE
-
-        return SUCCESS
+        if rc != 0:
+            defer.returnValue(FAILURE)
+        elif self.failuresCount:
+            defer.returnValue(FAILURE)
+        elif self.newPassesCount:
+            defer.returnValue(WARNINGS)
+        else:
+            defer.returnValue(SUCCESS)
 
     def getText(self, cmd, results):
         return self.getText2(cmd, results)
@@ -1237,7 +1240,7 @@ class RunWebKit1LeakTests(RunWebKit1Tests):
     warnOnWarnings = True
 
     def start(self):
-        self.setCommand(self.command + ["--leaks", "--result-report-flavor", "Leaks"])
+        self.command += ["--leaks", "--result-report-flavor", "Leaks"]
         return RunWebKit1Tests.start(self)
 
 
@@ -1357,7 +1360,7 @@ class TransferToS3(master.MasterShellCommandNewStyle):
         defer.returnValue(rc)
 
     def doStepIf(self, step):
-        return CURRENT_HOSTNAME == BUILD_WEBKIT_HOSTNAME
+        return CURRENT_HOSTNAME in BUILD_WEBKIT_HOSTNAMES
 
 
 class ExtractTestResults(master.MasterShellCommandNewStyle):

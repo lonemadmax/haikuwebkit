@@ -28,10 +28,12 @@
 #if ENABLE(WK_WEB_EXTENSIONS)
 
 #include "CocoaImage.h"
+#include "WebExtensionError.h"
 #include "WebExtensionEventListenerType.h"
 #include "WebExtensionTabIdentifier.h"
 #include "WebPageProxyIdentifier.h"
 #include <wtf/Forward.h>
+#include <wtf/Identified.h>
 #include <wtf/WeakObjCPtr.h>
 
 OBJC_CLASS NSArray;
@@ -53,7 +55,7 @@ enum class WebExtensionTabImageFormat : uint8_t {
     JPEG,
 };
 
-class WebExtensionTab : public RefCounted<WebExtensionTab>, public CanMakeWeakPtr<WebExtensionTab> {
+class WebExtensionTab : public RefCounted<WebExtensionTab>, public CanMakeWeakPtr<WebExtensionTab>, public Identified<WebExtensionTabIdentifier> {
     WTF_MAKE_NONCOPYABLE(WebExtensionTab);
     WTF_MAKE_FAST_ALLOCATED;
 
@@ -98,10 +100,8 @@ public:
     enum class AssumeWindowMatches : bool { No, Yes };
     enum class MainWebViewOnly : bool { No, Yes };
 
-    using Error = std::optional<String>;
     using WebProcessProxySet = HashSet<Ref<WebProcessProxy>>;
 
-    WebExtensionTabIdentifier identifier() const { return m_identifier; }
     WebExtensionTabParameters parameters() const;
     WebExtensionTabParameters changedParameters(OptionSet<ChangedProperties> = { }) const;
 
@@ -128,29 +128,33 @@ public:
     size_t index() const;
 
     RefPtr<WebExtensionTab> parentTab() const;
-    void setParentTab(RefPtr<WebExtensionTab>, CompletionHandler<void(Error)>&&);
+    void setParentTab(RefPtr<WebExtensionTab>, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
 
     WKWebView *mainWebView() const;
     NSArray *webViews() const;
 
     String title() const;
 
+    bool isOpen() const;
+    void didOpen() { ASSERT(!m_isOpen); m_isOpen = true; }
+    void didClose() { ASSERT(m_isOpen); m_isOpen = false; }
+
     bool isActive() const;
     bool isSelected() const;
     bool isPrivate() const;
 
-    void pin(CompletionHandler<void(Error)>&&);
-    void unpin(CompletionHandler<void(Error)>&&);
+    void pin(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void unpin(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
 
     bool isPinned() const;
 
-    void toggleReaderMode(CompletionHandler<void(Error)>&&);
+    void toggleReaderMode(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
 
     bool isReaderModeAvailable() const;
     bool isShowingReaderMode() const;
 
-    void mute(CompletionHandler<void(Error)>&&);
-    void unmute(CompletionHandler<void(Error)>&&);
+    void mute(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void unmute(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
 
     bool isAudible() const;
     bool isMuted() const;
@@ -158,31 +162,31 @@ public:
     CGSize size() const;
 
     double zoomFactor() const;
-    void setZoomFactor(double, CompletionHandler<void(Error)>&&);
+    void setZoomFactor(double, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
 
     URL url() const;
     URL pendingURL() const;
 
     bool isLoadingComplete() const;
 
-    void detectWebpageLocale(CompletionHandler<void(NSLocale *, Error)>&&);
-    void captureVisibleWebpage(CompletionHandler<void(CocoaImage *, Error)>&&);
+    void detectWebpageLocale(CompletionHandler<void(Expected<NSLocale *, WebExtensionError>&&)>&&);
+    void captureVisibleWebpage(CompletionHandler<void(Expected<CocoaImage *, WebExtensionError>&&)>&&);
 
-    void loadURL(URL, CompletionHandler<void(Error)>&&);
+    void loadURL(URL, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
 
-    void reload(CompletionHandler<void(Error)>&&);
-    void reloadFromOrigin(CompletionHandler<void(Error)>&&);
+    void reload(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void reloadFromOrigin(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
 
-    void goBack(CompletionHandler<void(Error)>&&);
-    void goForward(CompletionHandler<void(Error)>&&);
+    void goBack(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void goForward(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
 
-    void activate(CompletionHandler<void(Error)>&&);
-    void select(CompletionHandler<void(Error)>&&);
-    void deselect(CompletionHandler<void(Error)>&&);
+    void activate(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void select(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void deselect(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
 
-    void duplicate(const WebExtensionTabParameters&, CompletionHandler<void(RefPtr<WebExtensionTab>, Error)>&&);
+    void duplicate(const WebExtensionTabParameters&, CompletionHandler<void(Expected<RefPtr<WebExtensionTab>, WebExtensionError>&&)>&&);
 
-    void close(CompletionHandler<void(Error)>&&);
+    void close(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
 
     bool shouldGrantTabPermissionsOnUserGesture() const;
 
@@ -195,12 +199,12 @@ public:
 #endif
 
 private:
-    WebExtensionTabIdentifier m_identifier;
     WeakPtr<WebExtensionContext> m_extensionContext;
     WeakObjCPtr<_WKWebExtensionTab> m_delegate;
     RefPtr<WebExtensionMatchPattern> m_temporaryPermissionMatchPattern;
     OptionSet<ChangedProperties> m_changedProperties;
     bool m_activeUserGesture : 1 { false };
+    bool m_isOpen : 1 { false };
     mutable bool m_private : 1 { false };
     mutable bool m_cachedPrivate : 1 { false };
     bool m_respondsToWindow : 1 { false };
@@ -242,24 +246,5 @@ private:
 };
 
 } // namespace WebKit
-
-namespace WTF {
-
-template<> struct EnumTraits<WebKit::WebExtensionTab::ChangedProperties> {
-    using values = EnumValues<
-        WebKit::WebExtensionTab::ChangedProperties,
-        WebKit::WebExtensionTab::ChangedProperties::Audible,
-        WebKit::WebExtensionTab::ChangedProperties::Loading,
-        WebKit::WebExtensionTab::ChangedProperties::Muted,
-        WebKit::WebExtensionTab::ChangedProperties::Pinned,
-        WebKit::WebExtensionTab::ChangedProperties::ReaderMode,
-        WebKit::WebExtensionTab::ChangedProperties::Size,
-        WebKit::WebExtensionTab::ChangedProperties::Title,
-        WebKit::WebExtensionTab::ChangedProperties::URL,
-        WebKit::WebExtensionTab::ChangedProperties::ZoomFactor
-    >;
-};
-
-} // namespace WTF
 
 #endif // ENABLE(WK_WEB_EXTENSIONS)

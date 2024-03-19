@@ -41,6 +41,7 @@
 #include <wtf/ProcessID.h>
 #include <wtf/RefCounted.h>
 #include <wtf/ThreadSafeWeakPtr.h>
+#include <wtf/WallTime.h>
 
 #if PLATFORM(WIN)
 #include "AccessibilityObjectWrapperWin.h"
@@ -148,6 +149,7 @@ enum class AccessibilityRole {
     DocumentArticle,
     DocumentMath,
     DocumentNote,
+    Emphasis,
     Feed,
     Figure,
     Footer,
@@ -205,6 +207,7 @@ enum class AccessibilityRole {
     ProgressIndicator,
     RadioButton,
     RadioGroup,
+    RemoteFrame,
     RowHeader,
     Row,
     RowGroup,
@@ -222,6 +225,7 @@ enum class AccessibilityRole {
     SpinButtonPart,
     Splitter,
     StaticText,
+    Strong,
     Subscript,
     Suggestion,
     Summary,
@@ -328,6 +332,8 @@ ALWAYS_INLINE String accessibilityRoleToString(AccessibilityRole role)
         return "DocumentMath"_s;
     case AccessibilityRole::DocumentNote:
         return "DocumentNote"_s;
+    case AccessibilityRole::Emphasis:
+        return "Emphasis"_s;
     case AccessibilityRole::Feed:
         return "Feed"_s;
     case AccessibilityRole::Figure:
@@ -442,6 +448,8 @@ ALWAYS_INLINE String accessibilityRoleToString(AccessibilityRole role)
         return "RadioButton"_s;
     case AccessibilityRole::RadioGroup:
         return "RadioGroup"_s;
+    case AccessibilityRole::RemoteFrame:
+        return "RemoteFrame"_s;
     case AccessibilityRole::RowHeader:
         return "RowHeader"_s;
     case AccessibilityRole::Row:
@@ -476,6 +484,8 @@ ALWAYS_INLINE String accessibilityRoleToString(AccessibilityRole role)
         return "Splitter"_s;
     case AccessibilityRole::StaticText:
         return "StaticText"_s;
+    case AccessibilityRole::Strong:
+        return "Strong"_s;
     case AccessibilityRole::Subscript:
         return "Subscript"_s;
     case AccessibilityRole::Suggestion:
@@ -581,9 +591,6 @@ enum class AccessibilitySearchKey {
     FontColorChange,
     Frame,
     Graphic,
-#if ENABLE(AX_THREAD_TEXT_APIS)
-    HasTextRuns,
-#endif
     HeadingLevel1,
     HeadingLevel2,
     HeadingLevel3,
@@ -818,6 +825,7 @@ public:
     virtual bool isAccessibilityARIAGridRowInstance() const = 0;
     virtual bool isAccessibilityARIAGridCellInstance() const = 0;
     virtual bool isAXIsolatedObjectInstance() const = 0;
+    virtual bool isAXRemoteFrame() const = 0;
 
     bool isHeading() const { return roleValue() == AccessibilityRole::Heading; }
     virtual bool isLink() const = 0;
@@ -922,6 +930,12 @@ public:
     bool isTreeGrid() const { return roleValue() == AccessibilityRole::TreeGrid; }
     bool isTreeItem() const { return roleValue() == AccessibilityRole::TreeItem; }
     bool isScrollbar() const { return roleValue() == AccessibilityRole::ScrollBar; }
+    bool isRemoteFrame() const { return roleValue() == AccessibilityRole::RemoteFrame; }
+#if PLATFORM(COCOA)
+    virtual RetainPtr<id> remoteFramePlatformElement() const = 0;
+#endif
+    virtual bool hasRemoteFrameChild() const = 0;
+
     bool isButton() const;
     virtual bool isMeter() const = 0;
 
@@ -982,6 +996,10 @@ public:
     virtual bool hasHighlighting() const = 0;
     virtual AXTextMarkerRange textInputMarkedTextMarkerRange() const = 0;
 
+    virtual WallTime dateTimeValue() const = 0;
+#if PLATFORM(MAC)
+    virtual unsigned dateTimeComponents() const = 0;
+#endif
     virtual bool supportsDatetimeAttribute() const = 0;
     virtual String datetimeAttributeValue() const = 0;
 
@@ -1104,7 +1122,7 @@ public:
 
     virtual bool inheritsPresentationalRole() const = 0;
 
-    using AXValue = std::variant<bool, unsigned, float, String, AccessibilityButtonState, AXCoreObject*>;
+    using AXValue = std::variant<bool, unsigned, float, String, WallTime, AccessibilityButtonState, AXCoreObject*>;
     AXValue value();
 
     // Accessibility Text
@@ -1118,6 +1136,7 @@ public:
     virtual std::optional<String> textContent() const = 0;
 #if ENABLE(AX_THREAD_TEXT_APIS)
     virtual bool hasTextRuns() = 0;
+    virtual bool shouldEmitNewlinesBeforeAndAfterNode() const = 0;
 #endif
 
     // Methods for determining accessibility text.
@@ -1161,6 +1180,8 @@ public:
     // Viewport-relative means that when the page scrolls, the portion of the page in the viewport changes, and thus
     // any viewport-relative rects do too (since they are either closer to or farther from the viewport origin after the scroll).
     virtual FloatPoint screenRelativePosition() const = 0;
+    // This is the amount that the RemoteFrame is offset from its containing parent.
+    virtual IntPoint remoteFrameOffset() const = 0;
 
     virtual FloatRect convertFrameToSpace(const FloatRect&, AccessibilityConversionSpace) const = 0;
 #if PLATFORM(COCOA)
@@ -1397,7 +1418,7 @@ public:
     String helpTextAttributeValue() const;
     // This should be the visible text that's actually on the screen if possible.
     // If there's alternative text, that can override the title.
-    String titleAttributeValue() const;
+    virtual String titleAttributeValue() const;
     bool shouldComputeTitleAttributeValue() const;
 
     virtual bool hasApplePDFAnnotationAttribute() const = 0;
@@ -1608,10 +1629,8 @@ template<typename T, typename F>
 T* findChild(T& object, F&& matches)
 {
     for (auto child : object.children()) {
-        if (matches(child)) {
-            RELEASE_ASSERT(is<T>(child.get()));
-            return downcast<T>(child.get());
-        }
+        if (matches(child))
+            return checkedDowncast<T>(child.get());
     }
     return nullptr;
 }
@@ -1704,6 +1723,7 @@ WTF::TextStream& operator<<(WTF::TextStream&, AccessibilitySearchKey);
 WTF::TextStream& operator<<(WTF::TextStream&, const AccessibilitySearchCriteria&);
 WTF::TextStream& operator<<(WTF::TextStream&, AccessibilityObjectInclusion);
 WTF::TextStream& operator<<(WTF::TextStream&, const AXCoreObject&);
+WTF::TextStream& operator<<(WTF::TextStream&, AccessibilityText);
 WTF::TextStream& operator<<(WTF::TextStream&, AccessibilityTextSource);
 WTF::TextStream& operator<<(WTF::TextStream&, AXRelationType);
 

@@ -88,6 +88,10 @@
 #import <wtf/spi/darwin/dyldSPI.h>
 #import <wtf/text/TextStream.h>
 
+#if ENABLE(NOTIFY_BLOCKING) || PLATFORM(MAC)
+#include <notify.h>
+#endif
+
 #import <pal/spi/cocoa/AccessibilitySupportSoftLink.h>
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -98,7 +102,6 @@
 #if PLATFORM(MAC)
 #import "WebInspectorPreferenceObserver.h"
 #import <QuartzCore/CARemoteLayerServer.h>
-#import <notify.h>
 #import <notify_keys.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/mac/NSApplicationSPI.h>
@@ -248,6 +251,9 @@ static AccessibilityPreferences accessibilityPreferences()
     if (auto* functionPointer = _AXSReduceMotionAutoplayAnimatedImagesEnabledPtr())
         preferences.imageAnimationEnabled = functionPointer();
 #endif
+#if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+    preferences.prefersNonBlinkingCursor = _AXSPrefersNonBlinkingCursorIndicator();
+#endif
     return preferences;
 }
 
@@ -265,11 +271,26 @@ void WebProcessPool::setMediaAccessibilityPreferences(WebProcessProxy& process)
 }
 #endif
 
+static const char* description(ProcessThrottleState state)
+{
+    switch (state) {
+    case ProcessThrottleState::Foreground: return "foreground";
+    case ProcessThrottleState::Background: return "background";
+    case ProcessThrottleState::Suspended: return "suspended";
+    }
+    return nullptr;
+}
+
 static void logProcessPoolState(const WebProcessPool& pool)
 {
     for (Ref process : pool.processes()) {
         WTF::TextStream stream;
         stream << process;
+
+        if (auto taskInfo = process->taskInfo()) {
+            stream << ", state: " << description(taskInfo->state);
+            stream << ", phys_footprint_mb: " << (taskInfo->physicalFootprint / 1048576.0) << " MB";
+        }
 
         String domain = process->optionalRegistrableDomain() ? process->optionalRegistrableDomain()->string() : "unknown"_s;
         RELEASE_LOG(Process, "WebProcessProxy %p - %" PUBLIC_LOG_STRING ", domain: %" PRIVATE_LOG_STRING, process.ptr(), stream.release().utf8().data(), domain.utf8().data());
@@ -667,7 +688,7 @@ void WebProcessPool::registerNotificationObservers()
 {
     m_weakObserver = adoptNS([[WKProcessPoolWeakObserver alloc] initWithWeakPtr:*this]);
 
-#if ENABLE(NOTIFYD_BLOCKING_IN_WEBCONTENT)
+#if ENABLE(NOTIFY_BLOCKING)
     const Vector<ASCIILiteral> notificationMessages = {
         "com.apple.WebKit.LibraryPathDiagnostics"_s,
         "com.apple.WebKit.deleteAllCode"_s,
@@ -685,7 +706,11 @@ void WebProcessPool::registerNotificationObservers()
         "com.apple.WebKit.showPaintOrderTree"_s,
         "com.apple.WebKit.showRenderTree"_s,
         "com.apple.language.changed"_s,
+        "com.apple.mediaaccessibility.captionAppearanceSettingsChanged"_s,
+        "com.apple.powerlog.state_changed"_s,
         "com.apple.system.lowpowermode"_s,
+        "com.apple.system.timezone"_s,
+        "com.apple.zoomwindow"_s,
         "org.WebKit.lowMemory"_s,
         "org.WebKit.lowMemory.begin"_s,
         "org.WebKit.lowMemory.end"_s,
@@ -693,13 +718,18 @@ void WebProcessPool::registerNotificationObservers()
         "org.WebKit.memoryWarning.begin"_s,
         "org.WebKit.memoryWarning.end"_s,
     };
-    m_notifyTokens = WTF::compactMap(notificationMessages, [this](const ASCIILiteral& message) -> std::optional<int> {
+    m_notifyTokens = WTF::compactMap(notificationMessages, [weakThis = WeakPtr { *this }](const ASCIILiteral& message) -> std::optional<int> {
         int notifyToken = 0;
-        auto status = notify_register_dispatch(message, &notifyToken, dispatch_get_main_queue(), ^(int token) {
-            if (!m_processes.isEmpty()) {
+        auto status = notify_register_dispatch(message, &notifyToken, dispatch_get_main_queue(), [weakThis, message](int token) {
+            RefPtr protectedThis = weakThis.get();
+            if (!protectedThis)
+                return;
+            if (!protectedThis->m_processes.isEmpty()) {
                 String messageString(message);
-                for (auto& process : m_processes)
-                    process->send(Messages::WebProcess::PostNotification(messageString), 0);
+                uint64_t state = 0;
+                auto status = notify_get_state(token, &state);
+                for (auto& process : protectedThis->m_processes)
+                    process->send(Messages::WebProcess::PostNotification(messageString, (status == NOTIFY_STATUS_OK) ? std::optional<uint64_t>(state) : std::nullopt), 0);
             }
         });
         if (status)
@@ -710,11 +740,14 @@ void WebProcessPool::registerNotificationObservers()
     const Vector<NSString*> nsNotificationMessages = {
         NSProcessInfoPowerStateDidChangeNotification
     };
-    m_notificationObservers = WTF::compactMap(nsNotificationMessages, [this](NSString* message) -> RetainPtr<NSObject>  {
-        RetainPtr<NSObject> observer = [[NSNotificationCenter defaultCenter] addObserverForName:message object:nil queue:[NSOperationQueue currentQueue] usingBlock:^(NSNotification *notification) {
-            if (!m_processes.isEmpty()) {
+    m_notificationObservers = WTF::compactMap(nsNotificationMessages, [weakThis = WeakPtr { *this }](NSString* message) -> RetainPtr<NSObject>  {
+        RetainPtr observer = [[NSNotificationCenter defaultCenter] addObserverForName:message object:nil queue:[NSOperationQueue currentQueue] usingBlock:[weakThis, message](NSNotification *notification) {
+            RefPtr protectedThis = weakThis.get();
+            if (!protectedThis)
+                return;
+            if (!protectedThis->m_processes.isEmpty()) {
                 String messageString(message);
-                for (auto& process : m_processes)
+                for (auto& process : protectedThis->m_processes)
                     process->send(Messages::WebProcess::PostObserverNotification(message), 0);
             }
         }];
@@ -851,6 +884,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (canLoadkAXSReduceMotionAutoplayAnimatedImagesChangedNotification())
         addCFNotificationObserver(accessibilityPreferencesChangedCallback, getkAXSReduceMotionAutoplayAnimatedImagesChangedNotification());
 #endif
+#if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
+    addCFNotificationObserver(accessibilityPreferencesChangedCallback, kAXSPrefersNonBlinkingCursorIndicatorDidChangeNotification);
+#endif
 #if HAVE(MEDIA_ACCESSIBILITY_FRAMEWORK)
     addCFNotificationObserver(mediaAccessibilityPreferencesChangedCallback, kMAXCaptionAppearanceSettingsChangedNotification);
 #endif
@@ -861,7 +897,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 void WebProcessPool::unregisterNotificationObservers()
 {
-#if ENABLE(NOTIFYD_BLOCKING_IN_WEBCONTENT)
+#if ENABLE(NOTIFY_BLOCKING)
     for (auto token : m_notifyTokens)
         notify_cancel(token);
     for (auto observer : m_notificationObservers)

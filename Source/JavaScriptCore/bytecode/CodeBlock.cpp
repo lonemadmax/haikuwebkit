@@ -196,6 +196,11 @@ void CodeBlock::dump(PrintStream& out) const
     dumpAssumingJITType(out, jitType());
 }
 
+void CodeBlock::dumpSimpleName(PrintStream& out) const
+{
+    out.print(inferredName(), "#", hashAsStringIfPossible());
+}
+
 void CodeBlock::dumpSource()
 {
     dumpSource(WTF::dataFile());
@@ -2269,7 +2274,7 @@ void CodeBlock::jettison(Profiler::JettisonReason reason, ReoptimizationMode mod
         return;
 
     // This accomplishes (2).
-    ownerExecutable()->installCode(vm, alternative(), codeType(), specializationKind());
+    ownerExecutable()->installCode(vm, alternative(), codeType(), specializationKind(), reason);
 
 #if ENABLE(DFG_JIT)
     if (DFG::shouldDumpDisassembly())

@@ -82,6 +82,9 @@ private:
 #if ENABLE(GPU_PROCESS)
     void didCreateContextInGPUProcessForVisibilityPropagation(LayerHostingContextID) override;
 #endif // ENABLE(GPU_PROCESS)
+#if ENABLE(MODEL_PROCESS)
+    void didCreateContextInModelProcessForVisibilityPropagation(LayerHostingContextID) override;
+#endif // ENABLE(MODEL_PROCESS)
 #if USE(EXTENSIONKIT)
     UIView *createVisibilityPropagationView() override;
 #endif
@@ -89,6 +92,9 @@ private:
 
 #if ENABLE(GPU_PROCESS)
     void gpuProcessDidExit() override;
+#endif
+#if ENABLE(MODEL_PROCESS)
+    void modelProcessDidExit() override;
 #endif
     void preferencesDidChange() override;
     void toolTipChanged(const String&, const String&) override;
@@ -104,7 +110,7 @@ private:
     void clearAllEditCommands() override;
     bool canUndoRedo(UndoOrRedo) override;
     void executeUndoRedo(UndoOrRedo) override;
-    void accessibilityWebProcessTokenReceived(const IPC::DataReference&) override;
+    void accessibilityWebProcessTokenReceived(std::span<const uint8_t>, WebCore::FrameIdentifier, pid_t) override;
     bool executeSavedCommandBySelector(const String& selector) override;
     void updateSecureInputState() override;
     void resetSecureInputState() override;
@@ -241,7 +247,7 @@ private:
     void unlockFullscreenOrientation() override;
 #endif
 
-    void didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, const IPC::DataReference&) override;
+    void didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, std::span<const uint8_t>) override;
 
     Vector<String> mimeTypesWithCustomContentProviders() override;
 

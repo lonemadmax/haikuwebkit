@@ -181,7 +181,7 @@ LegacyInlineBox* LegacyLineLayout::createInlineBoxForRenderer(RenderObject* rend
         auto inlineBox = lineBreak->createInlineBox().release();
         // We only treat a box as text for a <br> if we are on a line by ourself or in strict mode
         // (Note the use of strict mode. In "almost strict" mode, we don't treat the box for <br> as text.)
-        inlineBox->setBehavesLikeText(isOnlyRun || renderer->document().inNoQuirksMode() || renderer->isLineBreakOpportunity());
+        inlineBox->setBehavesLikeText(isOnlyRun || renderer->document().inNoQuirksMode() || lineBreak->isWBR());
         return inlineBox;
     }
 
@@ -464,11 +464,13 @@ static inline void setLogicalWidthForTextRun(LegacyRootInlineBox* lineBox, BidiR
         // If we don't stick out of the root line's font box, then don't bother computing our glyph overflow. This optimization
         // will keep us from computing glyph bounds in nearly all cases.
         bool includeRootLine = lineBox->includesRootLineBoxFontOrLeading();
+        int ascent = font.metricsOfPrimaryFont().intAscent();
+        int descent = font.metricsOfPrimaryFont().intDescent();
         int baselineShift = lineBox->verticalPositionForBox(run->box(), verticalPositionCache);
-        int rootDescent = includeRootLine ? font.metricsOfPrimaryFont().descent() : 0;
-        int rootAscent = includeRootLine ? font.metricsOfPrimaryFont().ascent() : 0;
-        int boxAscent = font.metricsOfPrimaryFont().ascent() - baselineShift;
-        int boxDescent = font.metricsOfPrimaryFont().descent() + baselineShift;
+        int rootDescent = includeRootLine ? descent : 0;
+        int rootAscent = includeRootLine ? ascent : 0;
+        int boxAscent = ascent - baselineShift;
+        int boxDescent = descent + baselineShift;
         if (boxAscent > rootDescent ||  boxDescent > rootAscent)
             glyphOverflow.computeBounds = true; 
     }

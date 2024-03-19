@@ -179,6 +179,12 @@ WebLocalFrameLoaderClient* WebFrame::localFrameLoaderClient() const
         return static_cast<WebLocalFrameLoaderClient*>(&localFrame->loader().client());
     return nullptr;
 }
+WebRemoteFrameClient* WebFrame::remoteFrameClient() const
+{
+    if (auto* remoteFrame = dynamicDowncast<RemoteFrame>(m_coreFrame.get()))
+        return static_cast<WebRemoteFrameClient*>(&remoteFrame->client());
+    return nullptr;
+}
 
 WebFrameLoaderClient* WebFrame::frameLoaderClient() const
 {
@@ -443,7 +449,7 @@ void WebFrame::transitionToLocal(std::optional<WebCore::LayerHostingContextIdent
     auto invalidator = static_cast<WebRemoteFrameClient&>(remoteFrame->client()).takeFrameInvalidator();
 
     auto client = makeUniqueRef<WebLocalFrameLoaderClient>(*this, WTFMove(invalidator));
-    auto localFrame = parent ? LocalFrame::createSubframeHostedInAnotherProcess(*corePage, WTFMove(client), m_frameID, *parent) : LocalFrame::createMainFrame(*corePage, WTFMove(client), m_frameID);
+    auto localFrame = parent ? LocalFrame::createSubframeHostedInAnotherProcess(*corePage, WTFMove(client), m_frameID, *parent) : LocalFrame::createMainFrame(*corePage, WTFMove(client), m_frameID, remoteFrame->opener());
     m_coreFrame = localFrame.ptr();
     remoteFrame->setView(nullptr);
     localFrame->init();
@@ -499,7 +505,7 @@ void WebFrame::didReceivePolicyDecision(uint64_t listenerID, PolicyDecision&& po
         ASSERT(page());
         if (page())
             page()->setAllowsContentJavaScriptFromMostRecentNavigation(policyDecision.websitePoliciesData->allowsContentJavaScript);
-        localFrameLoaderClient()->applyToDocumentLoader(WTFMove(*policyDecision.websitePoliciesData));
+        localFrameLoaderClient()->applyWebsitePolicies(WTFMove(*policyDecision.websitePoliciesData));
     }
 
     m_policyDownloadID = policyDecision.downloadID;
@@ -713,15 +719,15 @@ String WebFrame::innerText() const
 
 RefPtr<WebFrame> WebFrame::parentFrame() const
 {
-    RefPtr localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get());
-    if (!localFrame || !localFrame->ownerElement())
-        return nullptr;
-
-    RefPtr frame = localFrame->ownerElement()->document().frame();
+    RefPtr frame = m_coreFrame.get();
     if (!frame)
         return nullptr;
 
-    return WebFrame::fromCoreFrame(*frame);
+    RefPtr parentFrame = frame->tree().parent();
+    if (!parentFrame)
+        return nullptr;
+
+    return WebFrame::fromCoreFrame(*parentFrame);
 }
 
 Ref<API::Array> WebFrame::childFrames()
@@ -1257,7 +1263,7 @@ WebCore::HandleUserInputEventResult WebFrame::handleMouseEvent(const WebMouseEve
 
         auto mousePressEventResult = coreLocalFrame->eventHandler().handleMousePressEvent(platformMouseEvent);
 #if ENABLE(CONTEXT_MENU_EVENT)
-        if (isContextClick(platformMouseEvent))
+        if (isContextClick(platformMouseEvent) && !mousePressEventResult.remoteUserInputEventData())
             mousePressEventResult.setHandled(handleContextMenuEvent(platformMouseEvent));
 #endif
         return mousePressEventResult;

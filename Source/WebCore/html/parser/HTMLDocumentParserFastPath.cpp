@@ -230,7 +230,7 @@ public:
     HTMLFastPathResult parseResult() const { return m_parseResult; }
 
 private:
-    CheckedRef<Document> m_document;
+    Document& m_document; // FIXME: Use a smart pointer.
     WeakRef<ContainerNode, WeakPtrImplWithEventTargetData> m_destinationParent;
 
     StringParsingBuffer<CharacterType> m_parsingBuffer;
@@ -585,8 +585,6 @@ private:
             // fails. For example, an image's onload event.
             return nullQName();
         }
-        if (attributeName.size() == 2 && compareCharacters(attributeName.data(), 'i', 's'))
-            return nullQName();
         return HTMLNameCache::makeAttributeQualifiedName(attributeName);
     }
 
@@ -687,8 +685,12 @@ private:
             if (parsingFailed())
                 return;
 
-            if (!text.isNull())
-                parent.parserAppendChildIntoIsolatedTree(Text::create(m_document.get(), WTFMove(text)));
+            if (!text.isNull()) {
+                if (!parent.isConnected())
+                    parent.parserAppendChildIntoIsolatedTree(Text::create(m_document, WTFMove(text)));
+                else
+                    parent.parserAppendChild(Text::create(m_document, WTFMove(text)));
+            }
 
             if (m_parsingBuffer.atEnd())
                 return;
@@ -829,9 +831,9 @@ private:
     template<typename Tag> Ref<typename Tag::HTMLElementClass> parseElementAfterTagName(ContainerNode& parent)
     {
         if constexpr (Tag::isVoid)
-            return parseVoidElement(Tag::create(m_document.get()), parent);
+            return parseVoidElement(Tag::create(m_document), parent);
         else
-            return parseContainerElement<Tag>(Tag::create(m_document.get()), parent);
+            return parseContainerElement<Tag>(Tag::create(m_document), parent);
     }
 
     template<typename Tag> Ref<typename Tag::HTMLElementClass> parseContainerElement(Ref<typename Tag::HTMLElementClass>&& element, ContainerNode& parent)
@@ -839,7 +841,10 @@ private:
         parseAttributes(element);
         if (parsingFailed())
             return WTFMove(element);
-        parent.parserAppendChildIntoIsolatedTree(element);
+        if (!parent.isConnected())
+            parent.parserAppendChildIntoIsolatedTree(element);
+        else
+            parent.parserAppendChild(element);
         element->beginParsingChildren();
         parseChildren<Tag>(element);
         if (parsingFailed() || m_parsingBuffer.atEnd())
@@ -867,8 +872,11 @@ private:
     {
         parseAttributes(element);
         if (parsingFailed())
-            return element;
-        parent.parserAppendChildIntoIsolatedTree(element);
+            return WTFMove(element);
+        if (!parent.isConnected())
+            parent.parserAppendChildIntoIsolatedTree(element);
+        else
+            parent.parserAppendChild(element);
         element->beginParsingChildren();
         element->finishParsingChildren();
         return WTFMove(element);
@@ -891,7 +899,7 @@ static bool canUseFastPath(Element& contextElement, OptionSet<ParserContentPolic
 }
 
 template<typename CharacterType>
-static bool tryFastParsingHTMLFragmentImpl(const std::span<const CharacterType>& source, Document& document, ContainerNode& destinationParent, Element& contextElement)
+static bool tryFastParsingHTMLFragmentImpl(std::span<const CharacterType> source, Document& document, ContainerNode& destinationParent, Element& contextElement)
 {
     HTMLFastPathParser parser { source, document, destinationParent };
     return parser.parse(contextElement);

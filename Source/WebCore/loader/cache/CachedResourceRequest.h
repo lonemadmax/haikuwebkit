@@ -26,6 +26,7 @@
 #pragma once
 
 #include "CachedResource.h"
+#include "ContentSecurityPolicy.h"
 #include "Element.h"
 #include "ResourceLoadPriority.h"
 #include "ResourceLoaderOptions.h"
@@ -84,8 +85,8 @@ public:
     void updateReferrerPolicy(ReferrerPolicy);
     void updateReferrerAndOriginHeaders(FrameLoader&);
     void updateUserAgentHeader(FrameLoader&);
-    void upgradeInsecureRequestIfNeeded(Document&);
-    void setAcceptHeaderIfNone(CachedResource::Type);
+    void upgradeInsecureRequestIfNeeded(Document&, ContentSecurityPolicy::AlwaysUpgradeRequest = ContentSecurityPolicy::AlwaysUpgradeRequest::No);
+    void setAcceptHeaderIfNone(CachedResource::Type, LocalFrame*);
     void updateAccordingCacheMode();
     void updateAcceptEncodingHeader();
     void updateCacheModeIfNeeded(CachePolicy);
@@ -112,7 +113,7 @@ public:
     void clearFragmentIdentifier() { m_fragmentIdentifier = { }; }
 
     static String splitFragmentIdentifierFromRequestURL(ResourceRequest&);
-    static String acceptHeaderValueFromType(CachedResource::Type);
+    static String acceptHeaderValueFromType(CachedResource::Type, ResourceRequest&, LocalFrame*);
 
     void setClientIdentifierIfNeeded(ScriptExecutionContextIdentifier);
     void setSelectedServiceWorkerRegistrationIdentifierIfNeeded(ServiceWorkerRegistrationIdentifier);
@@ -131,6 +132,6 @@ private:
     bool m_ignoreForRequestCount { false };
 };
 
-void upgradeInsecureResourceRequestIfNeeded(ResourceRequest&, Document&);
+void upgradeInsecureResourceRequestIfNeeded(ResourceRequest&, Document&, ContentSecurityPolicy::AlwaysUpgradeRequest = ContentSecurityPolicy::AlwaysUpgradeRequest::No);
 
 } // namespace WebCore

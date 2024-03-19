@@ -1629,6 +1629,8 @@ namespace JSC {
         void setNext(CommaNode* next) { m_next = next; }
         CommaNode* next() { return m_next; }
 
+        ExpressionNode* expr() const { return m_expr; }
+
     private:
         bool isCommaNode() const final { return true; }
         RegisterID* emitBytecode(BytecodeGenerator&, RegisterID* = nullptr) final;
@@ -2473,7 +2475,6 @@ namespace JSC {
         virtual bool isBindingNode() const { return false; }
         virtual bool isAssignmentElementNode() const { return false; }
         virtual bool isRestParameter() const { return false; }
-        virtual RegisterID* emitDirectBinding(BytecodeGenerator&, RegisterID*, ExpressionNode*) { return nullptr; }
 
         virtual RegisterID* writableDirectBindingIfPossible(BytecodeGenerator&) const { return nullptr; }
         virtual void finishDirectBindingAssignment(BytecodeGenerator&) const { }
@@ -2505,7 +2506,6 @@ namespace JSC {
         };
         void collectBoundIdentifiers(Vector<Identifier>&) const final;
         void bindValue(BytecodeGenerator&, RegisterID*) const final;
-        RegisterID* emitDirectBinding(BytecodeGenerator&, RegisterID* dst, ExpressionNode*) final;
         void toString(StringBuilder&) const final;
 
         Vector<Entry> m_targetPatterns;

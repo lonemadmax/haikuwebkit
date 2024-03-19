@@ -35,6 +35,8 @@
 #include <WebCore/ImageBufferCairoBackend.h>
 #elif USE(HAIKU)
 #include <WebCore/ImageBufferHaikuSurfaceBackend.h>
+#elif USE(SKIA)
+#include <WebCore/ImageBufferSkiaBackend.h>
 #endif
 
 namespace WebCore {
@@ -50,6 +52,8 @@ using ImageBufferShareableBitmapBackendBase = WebCore::ImageBufferCGBackend;
 using ImageBufferShareableBitmapBackendBase = WebCore::ImageBufferCairoBackend;
 #elif USE(HAIKU)
 using ImageBufferShareableBitmapBackendBase = WebCore::ImageBufferHaikuSurfaceBackend;
+#elif USE(SKIA)
+using ImageBufferShareableBitmapBackendBase = WebCore::ImageBufferSkiaBackend;
 #endif
 
 class ImageBufferShareableBitmapBackend final : public ImageBufferShareableBitmapBackendBase, public ImageBufferBackendHandleSharing {

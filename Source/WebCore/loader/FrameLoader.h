@@ -171,6 +171,7 @@ public:
     ReferrerPolicy effectiveReferrerPolicy() const;
     String referrer() const;
     WEBCORE_EXPORT String outgoingReferrer() const;
+    WEBCORE_EXPORT URL outgoingReferrerURL();
     String outgoingOrigin() const;
 
     WEBCORE_EXPORT DocumentLoader* activeDocumentLoader() const;
@@ -336,6 +337,7 @@ public:
     bool isReloadingFromOrigin() const { return m_loadType == FrameLoadType::ReloadFromOrigin; }
 
     // Used in webarchive loading tests.
+    // FIXME: Clean up uses of setAlwaysAllowLocalWebarchive. The AlwaysAllowLocalWebarchive preference replaces it.
     void setAlwaysAllowLocalWebarchive(bool alwaysAllowLocalWebarchive) { m_alwaysAllowLocalWebarchive = alwaysAllowLocalWebarchive; }
     bool alwaysAllowLocalWebarchive() const { return m_alwaysAllowLocalWebarchive; }
 
@@ -359,6 +361,8 @@ private:
         MayAttemptCacheOnlyLoadForFormSubmissionItem,
         MayNotAttemptCacheOnlyLoadForFormSubmissionItem
     };
+
+    RefPtr<LocalFrame> nonSrcdocFrame() const;
 
     std::optional<PageIdentifier> pageID() const;
     void executeJavaScriptURL(const URL&, const NavigationAction&);
@@ -490,6 +494,7 @@ private:
     bool m_provisionalLoadHappeningInAnotherProcess { false };
 
     String m_outgoingReferrer;
+    URL m_outgoingReferrerURL;
 
     bool m_isExecutingJavaScriptFormAction { false };
 

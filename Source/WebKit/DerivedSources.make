@@ -205,7 +205,7 @@ MESSAGE_RECEIVERS = \
 	WebProcess/GPU/webrtc/LibWebRTCCodecs \
 	WebProcess/GPU/webrtc/SampleBufferDisplayLayer \
 	WebProcess/GPU/media/MediaPlayerPrivateRemote \
-	WebProcess/GPU/media/MediaSourcePrivateRemote \
+	WebProcess/GPU/media/MediaSourcePrivateRemoteMessageReceiver \
 	WebProcess/GPU/media/RemoteAudioHardwareListener \
 	WebProcess/GPU/media/RemoteAudioSession \
 	WebProcess/GPU/media/RemoteAudioSourceProviderManager \
@@ -214,7 +214,7 @@ MESSAGE_RECEIVERS = \
 	WebProcess/GPU/media/RemoteImageDecoderAVFManager \
 	WebProcess/GPU/media/RemoteLegacyCDMSession \
 	WebProcess/GPU/media/RemoteRemoteCommandListener \
-	WebProcess/GPU/media/SourceBufferPrivateRemote \
+	WebProcess/GPU/media/SourceBufferPrivateRemoteMessageReceiver \
 	WebProcess/GPU/media/ios/RemoteMediaSessionHelper \
 	WebProcess/GPU/webrtc/RemoteVideoFrameObjectHeapProxyProcessor \
 	WebProcess/WebStorage/StorageAreaMap \
@@ -226,6 +226,7 @@ MESSAGE_RECEIVERS = \
 	WebProcess/Inspector/RemoteWebInspectorUI \
 	WebProcess/MediaSession/RemoteMediaSessionCoordinator \
 	WebProcess/Model/ModelProcessConnection \
+	WebProcess/Model/ModelProcessModelPlayer \
 	WebProcess/Network/WebSocketChannel \
 	WebProcess/Network/NetworkProcessConnection \
 	WebProcess/Network/WebResourceLoader \
@@ -326,6 +327,8 @@ MESSAGE_RECEIVERS = \
 	GPUProcess/media/RemoteSourceBufferProxy \
 	ModelProcess/ModelConnectionToWebProcess \
 	ModelProcess/ModelProcess \
+	ModelProcess/ModelProcessModelPlayerManagerProxy \
+	ModelProcess/cocoa/ModelProcessModelPlayerProxy \
 	webpushd/PushClientConnection \
 #
 
@@ -404,6 +407,7 @@ SANDBOX_PROFILES_IOS = \
 	com.apple.WebKit.adattributiond.sb \
 	com.apple.WebKit.webpushd.sb \
 	com.apple.WebKit.GPU.sb \
+	com.apple.WebKit.Model.sb \
 	com.apple.WebKit.Networking.sb \
 	com.apple.WebKit.WebContent.sb
 
@@ -515,6 +519,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Platform/IPC/SharedBufferReference.serialization.in \
 	Platform/IPC/SharedFileHandle.serialization.in \
 	Platform/IPC/StreamServerConnection.serialization.in \
+	Platform/cocoa/MediaPlaybackTargetContextSerialized.serialization.in \
 	Shared/AuxiliaryProcessCreationParameters.serialization.in \
 	Shared/API/APIArray.serialization.in \
 	Shared/API/APIData.serialization.in \
@@ -550,17 +555,25 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/Cocoa/CoreIPCDDScannerResult.serialization.in \
 	Shared/Cocoa/CoreIPCData.serialization.in \
 	Shared/Cocoa/CoreIPCDate.serialization.in \
+	Shared/Cocoa/CoreIPCDateComponents.serialization.in \
 	Shared/Cocoa/CoreIPCDictionary.serialization.in \
 	Shared/Cocoa/CoreIPCError.serialization.in \
+	Shared/Cocoa/CoreIPCCVPixelBufferRef.serialization.in \
 	Shared/Cocoa/CoreIPCFont.serialization.in \
 	Shared/Cocoa/CoreIPCLocale.serialization.in \
 	Shared/Cocoa/CoreIPCNSCFObject.serialization.in \
+	Shared/Cocoa/CoreIPCNSShadow.serialization.in \
+	Shared/Cocoa/CoreIPCNSURLCredential.serialization.in \
+	Shared/Cocoa/CoreIPCNSURLProtectionSpace.serialization.in \
 	Shared/Cocoa/CoreIPCNSValue.serialization.in \
+	Shared/Cocoa/CoreIPCNull.serialization.in \
 	Shared/Cocoa/CoreIPCPassKit.serialization.in \
 	Shared/Cocoa/CoreIPCPersonNameComponents.serialization.in \
+	Shared/Cocoa/CoreIPCPresentationIntent.serialization.in \
 	Shared/Cocoa/CoreIPCSecureCoding.serialization.in \
 	Shared/Cocoa/CoreIPCString.serialization.in \
 	Shared/Cocoa/CoreIPCURL.serialization.in \
+	Shared/Cocoa/CoreIPCCFCharacterSet.serialization.in \
 	Shared/Cocoa/DataDetectionResult.serialization.in \
 	Shared/Cocoa/InsertTextOptions.serialization.in \
 	Shared/Cocoa/RevealItem.serialization.in \
@@ -598,6 +611,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/FrameInfoData.serialization.in \
 	Shared/FrameTreeCreationParameters.serialization.in \
 	Shared/FrameTreeNodeData.serialization.in \
+	Shared/FullScreenMediaDetails.serialization.in \
 	Shared/Gamepad/GamepadData.serialization.in \
 	Shared/GPUProcessConnectionParameters.serialization.in \
 	Shared/GPUProcessPreferencesForWebProcess.serialization.in \
@@ -619,6 +633,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/MonotonicObjectIdentifier.serialization.in \
 	Shared/NavigationActionData.serialization.in \
 	Shared/NetworkProcessConnectionParameters.serialization.in \
+	Shared/NetworkProcessPreferencesForWebProcess.serialization.in \
 	Shared/Pasteboard.serialization.in \
 	Shared/PlatformPopupMenuData.serialization.in \
 	Shared/PolicyDecision.serialization.in \
@@ -683,7 +698,10 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/cf/CFTypes.serialization.in \
 	Shared/cf/CoreIPCBoolean.serialization.in \
 	Shared/cf/CoreIPCCFArray.serialization.in \
+	Shared/cf/CoreIPCCFDictionary.serialization.in \
+	Shared/cf/CoreIPCCGColorSpace.serialization.in \
 	Shared/cf/CoreIPCNumber.serialization.in \
+	Shared/cf/CoreIPCSecAccessControl.serialization.in \
 	Shared/cf/CoreIPCSecCertificate.serialization.in \
 	Shared/cf/CoreIPCSecKeychainItem.serialization.in \
 	Shared/cf/CoreIPCSecTrust.serialization.in \
@@ -717,6 +735,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/WebGPU/WebGPUImageCopyTexture.serialization.in \
 	Shared/WebGPU/WebGPUImageCopyTextureTagged.serialization.in \
 	Shared/WebGPU/WebGPUImageDataLayout.serialization.in \
+	Shared/WebGPU/WebGPUInternalError.serialization.in \
 	Shared/WebGPU/WebGPUMultisampleState.serialization.in \
 	Shared/WebGPU/WebGPUOrigin2D.serialization.in \
 	Shared/WebGPU/WebGPUOutOfMemoryError.serialization.in \
@@ -764,10 +783,12 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/XR/PlatformXR.serialization.in \
 	Shared/XR/XRSystem.serialization.in \
 	Shared/WebUserContentControllerDataTypes.serialization.in \
+	UIProcess/Extensions/WebExtension.serialization.in \
 	WebProcess/GPU/GPUProcessConnectionInfo.serialization.in \
 	WebProcess/GPU/graphics/BufferIdentifierSet.serialization.in \
 	WebProcess/GPU/graphics/PrepareBackingStoreBuffersData.serialization.in \
 	WebProcess/GPU/media/MediaOverridesForTesting.serialization.in \
+	WebProcess/GPU/media/MediaTimeUpdateData.serialization.in \
 	WebProcess/GPU/media/RemoteCDMConfiguration.serialization.in \
 	WebProcess/GPU/media/RemoteCDMInstanceConfiguration.serialization.in \
 	WebProcess/GPU/media/RemoteAudioSessionConfiguration.serialization.in \
@@ -790,10 +811,8 @@ WEBCORE_SERIALIZATION_DESCRIPTION_FILES = \
 	InbandTextTrackPrivate.serialization.in \
 	IndexedDB.serialization.in \
 	LayoutMilestones.serialization.in \
-	MediaPlaybackTargetContext.serialization.in \
 	MediaProducer.serialization.in \
 	MDNSRegisterError.serialization.in \
-	PlatformCALayer.serialization.in \
 	PlatformEvent.serialization.in \
 	PlatformMediaSession.serialization.in \
 	PlatformScreen.serialization.in \
@@ -830,6 +849,11 @@ EXTENSION_INTERFACES = \
     WebExtensionAPICommands \
     WebExtensionAPICookies \
     WebExtensionAPIDeclarativeNetRequest \
+    WebExtensionAPIDevTools \
+    WebExtensionAPIDevToolsExtensionPanel \
+    WebExtensionAPIDevToolsInspectedWindow \
+    WebExtensionAPIDevToolsNetwork \
+    WebExtensionAPIDevToolsPanels \
     WebExtensionAPIEvent \
     WebExtensionAPIExtension \
     WebExtensionAPILocalization \
@@ -846,6 +870,8 @@ EXTENSION_INTERFACES = \
     WebExtensionAPITest \
     WebExtensionAPIWebNavigation \
     WebExtensionAPIWebNavigationEvent \
+    WebExtensionAPIWebPageNamespace \
+    WebExtensionAPIWebPageRuntime \
     WebExtensionAPIWebRequest \
     WebExtensionAPIWebRequestEvent \
     WebExtensionAPIWindows \
@@ -868,6 +894,7 @@ all : module.private.modulemap
 
 ifeq ($(USE_INTERNAL_SDK),YES)
 WEBKIT_ADDITIONS_SWIFT_FILES = \
+	WKWebView+TextExtraction.swift \
 #
 
 $(WEBKIT_ADDITIONS_SWIFT_FILES): %.swift : %.swift.in

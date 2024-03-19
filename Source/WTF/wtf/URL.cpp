@@ -820,6 +820,11 @@ String encodeWithURLEscapeSequences(const String& input)
     return percentEncodeCharacters(input, URLParser::isInUserInfoEncodeSet);
 }
 
+String percentEncodeFragmentDirectiveSpecialCharacters(const String& input)
+{
+    return percentEncodeCharacters(input, URLParser::isSpecialCharacterForFragmentDirective);
+}
+
 static bool protocolIsInternal(StringView string, ASCIILiteral protocolLiteral)
 {
     assertProtocolIsGood(protocolLiteral);
@@ -865,26 +870,23 @@ void URL::dump(PrintStream& out) const
     out.print(m_string);
 }
 
-String URL::strippedForUseAsReferrer() const
+URL::StripResult URL::strippedForUseAsReferrer() const
 {
     if (!m_isValid)
-        return m_string;
+        return { m_string, false };
 
     unsigned end = credentialsEnd();
 
     if (m_userStart == end && m_queryEnd == m_string.length())
-        return m_string;
+        return { m_string, false };
 
-    return makeString(
-        StringView(m_string).left(m_userStart),
-        StringView(m_string).substring(end, m_queryEnd - end)
-    );
+    return { makeString(StringView(m_string).left(m_userStart), StringView(m_string).substring(end, m_queryEnd - end)), true };
 }
 
-String URL::strippedForUseAsReferrerWithExplicitPort() const
+URL::StripResult URL::strippedForUseAsReferrerWithExplicitPort() const
 {
     if (!m_isValid)
-        return m_string;
+        return { m_string, false };
 
     // Custom ports will appear in the URL string:
     if (m_portLength)
@@ -897,9 +899,9 @@ String URL::strippedForUseAsReferrerWithExplicitPort() const
     unsigned end = credentialsEnd();
 
     if (m_userStart == end && m_queryEnd == m_string.length())
-        return makeString(StringView(m_string).left(m_hostEnd), ':', static_cast<unsigned>(*port), StringView(m_string).substring(pathStart()));
+        return { makeString(StringView(m_string).left(m_hostEnd), ':', static_cast<unsigned>(*port), StringView(m_string).substring(pathStart())), true };
 
-    return makeString(StringView(m_string).left(m_hostEnd), ':', static_cast<unsigned>(*port), StringView(m_string).substring(end, m_queryEnd - end));
+    return { makeString(StringView(m_string).left(m_hostEnd), ':', static_cast<unsigned>(*port), StringView(m_string).substring(end, m_queryEnd - end)), true };
 }
 
 String URL::strippedForUseAsReport() const

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2006-2024 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  *
  * Redistribution and use in source and binary forms, with or without
@@ -305,10 +305,10 @@ VisibleSelection Editor::selectionForCommand(Event* event)
         return selection;
     // If the target is a text control, and the current selection is outside of its shadow tree,
     // then use the saved selection for that text control.
-    if (RefPtr target = event->target(); is<HTMLTextFormControlElement>(target) && downcast<Element>(*target).isTextField()) {
+    if (RefPtr target = dynamicDowncast<HTMLTextFormControlElement>(event->target()); target && target->isTextField()) {
         auto start = selection.start();
-        if (start.isNull() || target != enclosingTextFormControl(start)) {
-            if (auto range = downcast<HTMLTextFormControlElement>(*target).selection())
+        if (start.isNull() || event->target() != enclosingTextFormControl(start)) {
+            if (auto range = target->selection())
                 return { *range, Affinity::Downstream, selection.isDirectional() };
         }
     }
@@ -704,9 +704,8 @@ bool Editor::shouldInsertFragment(DocumentFragment& fragment, const std::optiona
     if (!client())
         return false;
     
-    RefPtr child { fragment.firstChild() };
-    if (is<CharacterData>(child) && fragment.lastChild() == child)
-        return client()->shouldInsertText(downcast<CharacterData>(*child).data(), replacingDOMRange, givenAction);
+    if (RefPtr child = dynamicDowncast<CharacterData>(fragment.firstChild()); child && fragment.lastChild() == fragment.firstChild())
+        return client()->shouldInsertText(child->data(), replacingDOMRange, givenAction);
 
     return client()->shouldInsertNode(fragment, replacingDOMRange, givenAction);
 }
@@ -2044,19 +2043,17 @@ void Editor::setBaseWritingDirection(WritingDirection direction)
         return;
 #endif
 
-    RefPtr focusedElement { document->focusedElement() };
-    if (focusedElement && focusedElement->isTextField()) {
+    if (RefPtr focusedElement = dynamicDowncast<HTMLTextFormControlElement>(document->focusedElement()); focusedElement && focusedElement->isTextField()) {
         if (direction == WritingDirection::Natural)
             return;
 
-        auto& focusedFormElement = downcast<HTMLTextFormControlElement>(*focusedElement);
         auto directionValue = direction == WritingDirection::LeftToRight ? "ltr"_s : "rtl"_s;
         auto writingDirectionInputTypeName = inputTypeNameForEditingAction(EditAction::SetBlockWritingDirection);
-        if (!dispatchBeforeInputEvent(focusedFormElement, writingDirectionInputTypeName, IsInputMethodComposing::No, directionValue))
+        if (!dispatchBeforeInputEvent(*focusedElement, writingDirectionInputTypeName, IsInputMethodComposing::No, directionValue))
             return;
 
-        focusedFormElement.setAttributeWithoutSynchronization(dirAttr, directionValue);
-        dispatchInputEvent(focusedFormElement, writingDirectionInputTypeName, IsInputMethodComposing::No, directionValue);
+        focusedElement->setAttributeWithoutSynchronization(dirAttr, directionValue);
+        dispatchInputEvent(*focusedElement, writingDirectionInputTypeName, IsInputMethodComposing::No, directionValue);
         document->updateStyleIfNeeded();
         return;
     }
@@ -2751,10 +2748,11 @@ void Editor::markMisspellingsAfterTypingToWord(const VisiblePosition& wordStart,
                 break;
 
             RefPtr container = previousPosition.deepEquivalent().downstream().containerNode();
-            if (RefPtr containerElement = is<Element>(container) ? downcast<Element>(container.get()) : container->parentElement()) {
-                if (!containerElement->isSpellCheckingEnabled())
-                    break;
-            }
+            RefPtr containerElement = dynamicDowncast<Element>(container);
+            if (!containerElement)
+                containerElement = container->parentElement();
+            if (containerElement && !containerElement->isSpellCheckingEnabled())
+                break;
 
             spellCheckingStart = previousPosition;
         }
@@ -2852,7 +2850,9 @@ bool Editor::isSpellCheckingEnabledFor(Node* node) const
 {
     if (!node)
         return false;
-    RefPtr element = is<Element>(*node) ? downcast<Element>(node) : node->parentElement();
+    RefPtr element = dynamicDowncast<Element>(*node);
+    if (!element)
+        element = node->parentElement();
     if (!element)
         return false;
     if (element->isInUserAgentShadowTree()) {
@@ -3285,13 +3285,16 @@ void Editor::updateMarkersForWordsAffectedByEditing(bool doNotRemoveIfSelectionA
 
     OptionSet<DocumentMarker::Type> markerTypesToRemove {
         DocumentMarker::Type::CorrectionIndicator,
-        DocumentMarker::Type::DictationAlternatives,
         DocumentMarker::Type::SpellCheckingExemption,
         DocumentMarker::Type::Spelling,
 #if !PLATFORM(IOS_FAMILY)
         DocumentMarker::Type::Grammar,
 #endif
     };
+
+    if (CheckedPtr client = this->client(); client && client->shouldRemoveDictationAlternativesAfterEditing())
+        markerTypesToRemove.add(DocumentMarker::Type::DictationAlternatives);
+
     adjustMarkerTypesToRemoveForWordsAffectedByEditing(markerTypesToRemove);
 
     removeMarkers(wordRange, markerTypesToRemove, RemovePartiallyOverlappingMarker::Yes);
@@ -4068,8 +4071,8 @@ static RefPtr<Node> findFirstMarkable(Node* startingNode)
             if (node->renderer()->isRenderTextOrLineBreak())
                 return node;
         }
-        if (is<HTMLTextFormControlElement>(*node) && downcast<Element>(*node).isTextField())
-            node = downcast<HTMLTextFormControlElement>(*node).visiblePositionForIndex(1).deepEquivalent().deprecatedNode();
+        if (RefPtr element = dynamicDowncast<HTMLTextFormControlElement>(*node); element && element->isTextField())
+            node = element->visiblePositionForIndex(1).deepEquivalent().deprecatedNode();
         else if (node->firstChild())
             node = node->firstChild();
         else
@@ -4089,8 +4092,8 @@ bool Editor::selectionStartHasMarkerFor(DocumentMarker::Type markerType, int fro
     if (!markers)
         return false;
 
-    unsigned int startOffset = static_cast<unsigned int>(from);
-    unsigned int endOffset = static_cast<unsigned int>(from + length);
+    unsigned startOffset = static_cast<unsigned>(from);
+    unsigned endOffset = static_cast<unsigned>(from + length);
     for (auto& marker : markers->markersFor(*node)) {
         if (marker->startOffset() <= startOffset && endOffset <= marker->endOffset() && marker->type() == markerType)
             return true;
@@ -4103,8 +4106,8 @@ OptionSet<TextCheckingType> Editor::resolveTextCheckingTypeMask(const Node& root
 {
 #if USE(AUTOMATIC_TEXT_REPLACEMENT) && !PLATFORM(IOS_FAMILY)
     bool onlyAllowsTextReplacement = false;
-    if (RefPtr host = rootEditableElement.shadowHost())
-        onlyAllowsTextReplacement = is<HTMLInputElement>(host) && downcast<HTMLInputElement>(*host).isSpellcheckDisabledExceptTextReplacement();
+    if (RefPtr host = dynamicDowncast<HTMLInputElement>(rootEditableElement.shadowHost()))
+        onlyAllowsTextReplacement = host->isSpellcheckDisabledExceptTextReplacement();
     if (onlyAllowsTextReplacement)
         textCheckingOptions = textCheckingOptions & TextCheckingType::Replacement;
 #else
@@ -4229,11 +4232,11 @@ static Vector<TextList> editableTextListsAtPositionInDescendingOrder(const Posit
     textLists.reserveInitialCapacity(enclosingLists.size());
     for (auto iterator = enclosingLists.rbegin(); iterator != enclosingLists.rend(); ++iterator) {
         auto& list = iterator->get();
-        bool ordered = is<HTMLOListElement>(list);
+        auto* orderedList = dynamicDowncast<HTMLOListElement>(list);
         if (!list.renderer())
             continue;
         auto style = list.renderer()->style().listStyleType();
-        textLists.append({ style, ordered ? downcast<HTMLOListElement>(list).start() : 1, ordered });
+        textLists.append({ style, orderedList ? orderedList->start() : 1, !!orderedList });
     }
 
     return textLists;
@@ -4319,12 +4322,10 @@ FontAttributes Editor::fontAttributesAtSelectionStart()
 
     RefPtr typingStyle { document().selection().typingStyle() };
     if (typingStyle && typingStyle->style()) {
-        auto value = typingStyle->style()->getPropertyCSSValue(CSSPropertyWebkitTextDecorationsInEffect);
-        if (value && value->isValueList()) {
-            auto& valueList = downcast<CSSValueList>(*value);
-            if (valueList.hasValue(CSSValueLineThrough))
+        if (RefPtr value = dynamicDowncast<CSSValueList>(typingStyle->style()->getPropertyCSSValue(CSSPropertyWebkitTextDecorationsInEffect))) {
+            if (value->hasValue(CSSValueLineThrough))
                 attributes.hasStrikeThrough = true;
-            if (valueList.hasValue(CSSValueUnderline))
+            if (value->hasValue(CSSValueUnderline))
                 attributes.hasUnderline = true;
         }
     } else {
@@ -4347,10 +4348,10 @@ PromisedAttachmentInfo Editor::promisedAttachmentInfo(Element& element)
         return { };
 
     RefPtr<HTMLAttachmentElement> attachment;
-    if (is<HTMLAttachmentElement>(element))
-        attachment = &downcast<HTMLAttachmentElement>(element);
-    else if (is<HTMLImageElement>(element))
-        attachment = downcast<HTMLImageElement>(element).attachmentElement();
+    if (auto* possibleAttachment = dynamicDowncast<HTMLAttachmentElement>(element))
+        attachment = possibleAttachment;
+    else if (auto* image = dynamicDowncast<HTMLImageElement>(element))
+        attachment = image->attachmentElement();
 
     if (!attachment)
         return { };

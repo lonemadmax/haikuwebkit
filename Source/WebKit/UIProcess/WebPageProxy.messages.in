@@ -54,7 +54,7 @@ messages -> WebPageProxy {
     AccessibilityScreenToRootView(WebCore::IntPoint screenPoint) -> (WebCore::IntPoint windowPoint) Synchronous
     RootViewToAccessibilityScreen(WebCore::IntRect rect) -> (WebCore::IntRect screenFrame) Synchronous
 #if PLATFORM(IOS_FAMILY)
-    RelayAccessibilityNotification(String notificationName, IPC::DataReference notificationData)
+    RelayAccessibilityNotification(String notificationName, std::span<const uint8_t> notificationData)
 #endif
 
 #if PLATFORM(COCOA) || PLATFORM(GTK)
@@ -101,7 +101,7 @@ messages -> WebPageProxy {
 #endif
 
     # Policy messages
-    DecidePolicyForResponse(struct WebKit::FrameInfoData frameInfo, uint64_t navigationID, WebCore::ResourceResponse response, WebCore::ResourceRequest request, bool canShowMIMEType, String downloadAttribute) -> (struct WebKit::PolicyDecision PolicyDecision)
+    DecidePolicyForResponse(struct WebKit::FrameInfoData frameInfo, uint64_t navigationID, WebCore::ResourceResponse response, WebCore::ResourceRequest request, bool canShowMIMEType, String downloadAttribute, bool isShowingInitialAboutBlank, enum:uint8_t WebCore::CrossOriginOpenerPolicyValue activeDocumentCOOPValue) -> (struct WebKit::PolicyDecision PolicyDecision)
     DecidePolicyForNavigationActionAsync(struct WebKit::NavigationActionData data) -> (struct WebKit::PolicyDecision PolicyDecision)
     DecidePolicyForNavigationActionSync(struct WebKit::NavigationActionData data) -> (struct WebKit::PolicyDecision PolicyDecision) Synchronous
     DecidePolicyForNewWindowAction(struct WebKit::NavigationActionData navigationActionData, String frameName) -> (struct WebKit::PolicyDecision PolicyDecision)
@@ -159,7 +159,7 @@ messages -> WebPageProxy {
     DidUpdateHistoryTitle(String title, String url, WebCore::FrameIdentifier frameID)
 
     # Custom representations
-    DidFinishLoadingDataForCustomContentProvider(String suggestedFilename, IPC::DataReference data)
+    DidFinishLoadingDataForCustomContentProvider(String suggestedFilename, std::span<const uint8_t> data)
 
     # Forms messages
     WillSubmitForm(WebCore::FrameIdentifier frameID, WebCore::FrameIdentifier sourceFrameID, Vector<std::pair<String, String>> textFieldValues, WebKit::UserData userData) -> ()
@@ -232,6 +232,10 @@ messages -> WebPageProxy {
     HandleContextMenuTranslation(struct WebCore::TranslationContextMenuInfo info)
 #endif
 
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT) && ENABLE(CONTEXT_MENUS)
+    HandleContextMenuSwapCharacters(WebCore::IntRect selectionBoundsInRootView)
+#endif
+
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
     ShowMediaControlsContextMenu(WebCore::FloatRect targetFrame, Vector<WebCore::MediaControlsContextMenuItem> items) -> (WebCore::MediaControlsContextMenuItem::ID selectedItemID)
 #endif // ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
@@ -244,11 +248,8 @@ messages -> WebPageProxy {
     RequestDOMPasteAccess(enum:uint8_t WebCore::DOMPasteAccessCategory pasteAccessCategory, WebCore::IntRect elementRect, String originIdentifier) -> (enum:uint8_t WebCore::DOMPasteAccessResponse response) Synchronous
 
     # Find messages
-    DidCountStringMatches(String string, uint32_t matchCount)
-    SetTextIndicator(struct WebCore::TextIndicatorData indicator, uint64_t lifetime)
+    SetTextIndicatorFromFrame(WebCore::FrameIdentifier frameID, struct WebCore::TextIndicatorData indicator, uint64_t lifetime)
     ClearTextIndicator()
-    DidFindString(String string, Vector<WebCore::IntRect> matchRect, uint32_t matchCount, int32_t matchIndex, bool didWrapAround)
-    DidFailToFindString(String string)
     DidGetImageForFindMatch(struct WebCore::ImageBufferParameters parameters, WebCore::ShareableBitmap::Handle contentImageHandle, uint32_t matchIndex)
 
     # PopupMenu messages
@@ -257,15 +258,13 @@ messages -> WebPageProxy {
 
 #if ENABLE(CONTEXT_MENUS)
     ShowContextMenu(WebKit::ContextMenuContextData contextMenuContextData, WebKit::UserData userData)
+    ShowContextMenuFromFrame(WebCore::FrameIdentifier frameID, WebKit::ContextMenuContextData contextMenuContextData, WebKit::UserData userData)
 #endif
 
     DidFinishServiceWorkerPageRegistration(bool success)
 
     # Database messages
     ExceededDatabaseQuota(WebCore::FrameIdentifier frameID, String originIdentifier, String databaseName, String databaseDisplayName, uint64_t currentQuota, uint64_t currentOriginUsage, uint64_t currentDatabaseUsage, uint64_t expectedUsage) -> (uint64_t newQuota) Synchronous
-
-    # Application cache messages
-    ReachedApplicationCacheOriginQuota(String originIdentifier, uint64_t currentQuota, uint64_t totalBytesNeeded) -> (uint64_t newQuota) Synchronous
 
     # Geolocation messages
     RequestGeolocationPermissionForFrame(WebKit::GeolocationIdentifier geolocationID, struct WebKit::FrameInfoData frameInfo)
@@ -323,7 +322,7 @@ messages -> WebPageProxy {
     ExecuteSavedCommandBySelector(String selector) -> (bool handled) Synchronous
 
     # Remote accessibility messages
-    RegisterWebProcessAccessibilityToken(IPC::DataReference data)
+    RegisterWebProcessAccessibilityToken(std::span<const uint8_t> data, WebCore::FrameIdentifier frameID)
 
     # Speech messages
     GetIsSpeaking() -> (bool isSpeaking) Synchronous
@@ -332,9 +331,6 @@ messages -> WebPageProxy {
 
     MakeFirstResponder()
     AssistiveTechnologyMakeFirstResponder()
-
-    # Spotlight
-    SearchWithSpotlight(String string)
 
     SearchTheWeb(String string)
 #endif
@@ -385,8 +381,8 @@ messages -> WebPageProxy {
     UpdateInputContextAfterBlurringAndRefocusingElement()
     UpdateFocusedElementInformation(struct WebKit::FocusedElementInformation information)
     FocusedElementDidChangeInputMode(enum:uint8_t WebCore::InputMode mode)
-    ScrollingNodeScrollWillStartScroll(uint64_t nodeID)
-    ScrollingNodeScrollDidEndScroll(uint64_t nodeID)
+    ScrollingNodeScrollWillStartScroll(std::optional<WebCore::ScrollingNodeID> nodeID)
+    ScrollingNodeScrollDidEndScroll(std::optional<WebCore::ScrollingNodeID> nodeID)
     ShowInspectorHighlight(struct WebCore::InspectorOverlay::Highlight highlight)
     HideInspectorHighlight()
 
@@ -531,7 +527,7 @@ messages -> WebPageProxy {
 #endif
 
 #if ENABLE(PDF_PLUGIN) && PLATFORM(MAC)
-    ShowPDFContextMenu(struct WebKit::PDFContextMenu contextMenu, WebKit::PDFPluginIdentifier identifier) -> (std::optional<int32_t> selectedItem) Synchronous
+    ShowPDFContextMenu(struct WebKit::PDFContextMenu contextMenu, WebKit::PDFPluginIdentifier identifier) -> (std::optional<int32_t> selectedItem)
 #endif
 
 #if ENABLE(PDF_HUD)
@@ -629,4 +625,6 @@ messages -> WebPageProxy {
     FocusRemoteFrame(WebCore::FrameIdentifier frameID)
     PostMessageToRemote(WebCore::FrameIdentifier source, String sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData> targetOrigin, struct WebCore::MessageWithMessagePorts message)
     RenderTreeAsText(WebCore::FrameIdentifier identifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag> behavior) -> (String renderTreeDump) Synchronous
+    BindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier frameID, std::span<const uint8_t> dataToken) -> (std::span<const uint8_t> token, int processIdentifier) Synchronous
+    UpdateRemoteFrameAccessibilityOffset(WebCore::FrameIdentifier frameID, WebCore::IntPoint offset)
 }

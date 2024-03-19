@@ -76,11 +76,13 @@ public:
     const ContentSecurityPolicyDirective* violatedDirectiveForScript(const URL&, bool didReceiveRedirectResponse, const Vector<ResourceCryptographicDigest>&, const String&) const;
     const ContentSecurityPolicyDirective* violatedDirectiveForStyle(const URL&, bool didReceiveRedirectResponse, const String&) const;
     const ContentSecurityPolicyDirective* violatedDirectiveForWorker(const URL&, bool didReceiveRedirectResponse);
+    const ContentSecurityPolicyDirective* violatedDirectiveForTrustedTypesPolicy(const String&, bool isDuplicate, AllowTrustedTypePolicy&) const;
 
     const ContentSecurityPolicyDirective* defaultSrc() const { return m_defaultSrc.get(); }
 
     bool hasBlockAllMixedContentDirective() const { return m_hasBlockAllMixedContentDirective; }
     bool hasFrameAncestorsDirective() const { return !!m_frameAncestors; }
+    bool requiresTrustedTypesForScript() const { return m_requireTrustedTypesForScript; }
 
     const String& evalDisabledErrorMessage() const { return m_evalDisabledErrorMessage; }
     const String& webAssemblyDisabledErrorMessage() const { return m_webAssemblyDisabledErrorMessage; }

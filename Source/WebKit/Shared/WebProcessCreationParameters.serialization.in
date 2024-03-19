@@ -44,6 +44,10 @@
     Vector<String> urlSchemesRegisteredAsCachePartitioned;
     Vector<String> urlSchemesRegisteredAsCanDisplayOnlyIfCanRequest;
 
+#if ENABLE(WK_WEB_EXTENSIONS)
+    Vector<String> urlSchemesRegisteredAsWebExtensions;
+#endif
+
     Vector<String> fontAllowList;
     Vector<String> overrideLanguages;
 #if USE(GSTREAMER)
@@ -118,7 +122,7 @@
     Vector<String> mediaMIMETypes;
 #endif
 
-#if PLATFORM(COCOA) || PLATFORM(GTK)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || (PLATFORM(WPE) && ENABLE(WPE_PLATFORM))
     WebCore::ScreenProperties screenProperties;
 #endif
 
@@ -222,4 +226,7 @@
 
     HashMap<WebCore::RegistrableDomain, String> storageAccessUserAgentStringQuirksData;
     HashSet<WebCore::RegistrableDomain> storageAccessPromptQuirksDomains;
+
+    Seconds memoryFootprintPollIntervalForTesting;
+    Vector<size_t> memoryFootprintNotificationThresholds;
 };

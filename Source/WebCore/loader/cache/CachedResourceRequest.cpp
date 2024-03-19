@@ -40,6 +40,7 @@
 #include "MIMETypeRegistry.h"
 #include "MemoryCache.h"
 #include "OriginAccessPatterns.h"
+#include "Quirks.h"
 #include "SecurityPolicy.h"
 #include "ServiceWorkerRegistrationData.h"
 #include <wtf/NeverDestroyed.h>
@@ -100,12 +101,12 @@ void CachedResourceRequest::updateForAccessControl(Document& document)
     updateRequestForAccessControl(m_resourceRequest, *m_origin, m_options.storedCredentialsPolicy);
 }
 
-void upgradeInsecureResourceRequestIfNeeded(ResourceRequest& request, Document& document)
+void upgradeInsecureResourceRequestIfNeeded(ResourceRequest& request, Document& document, ContentSecurityPolicy::AlwaysUpgradeRequest alwaysUpgradeRequest)
 {
     URL url = request.url();
 
     ASSERT(document.contentSecurityPolicy());
-    document.checkedContentSecurityPolicy()->upgradeInsecureRequestIfNeeded(url, ContentSecurityPolicy::InsecureRequestType::Load);
+    document.checkedContentSecurityPolicy()->upgradeInsecureRequestIfNeeded(url, ContentSecurityPolicy::InsecureRequestType::Load, alwaysUpgradeRequest);
 
     if (url == request.url())
         return;
@@ -113,9 +114,9 @@ void upgradeInsecureResourceRequestIfNeeded(ResourceRequest& request, Document& 
     request.setURL(url);
 }
 
-void CachedResourceRequest::upgradeInsecureRequestIfNeeded(Document& document)
+void CachedResourceRequest::upgradeInsecureRequestIfNeeded(Document& document, ContentSecurityPolicy::AlwaysUpgradeRequest alwaysUpgradeRequest)
 {
-    upgradeInsecureResourceRequestIfNeeded(m_resourceRequest, document);
+    upgradeInsecureResourceRequestIfNeeded(m_resourceRequest, document, alwaysUpgradeRequest);
 }
 
 void CachedResourceRequest::setDomainForCachePartition(Document& document)
@@ -146,9 +147,7 @@ static String acceptHeaderValueForImageResource()
 {
     static MainThreadNeverDestroyed<String> staticPrefix = [] {
         StringBuilder builder;
-#if HAVE(WEBP) || USE(WEBP)
         builder.append("image/webp,"_s);
-#endif
 #if HAVE(AVIF) || USE(AVIF)
         builder.append("image/avif,"_s);
 #endif
@@ -168,10 +167,14 @@ static String acceptHeaderValueForImageResource()
     return builder.toString();
 }
 
-String CachedResourceRequest::acceptHeaderValueFromType(CachedResource::Type type)
+String CachedResourceRequest::acceptHeaderValueFromType(CachedResource::Type type, ResourceRequest& request, LocalFrame* frame)
 {
+    auto url = request.url();
+
     switch (type) {
     case CachedResource::Type::MainResource:
+        if (Quirks::shouldSendLongerAcceptHeaderQuirk(url, frame))
+            return "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"_s;
         return "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"_s;
     case CachedResource::Type::ImageResource:
         return acceptHeaderValueForImageResource();
@@ -189,10 +192,10 @@ String CachedResourceRequest::acceptHeaderValueFromType(CachedResource::Type typ
     }
 }
 
-void CachedResourceRequest::setAcceptHeaderIfNone(CachedResource::Type type)
+void CachedResourceRequest::setAcceptHeaderIfNone(CachedResource::Type type, LocalFrame* frame)
 {
     if (!m_resourceRequest.hasHTTPHeader(HTTPHeaderName::Accept))
-        m_resourceRequest.setHTTPHeaderField(HTTPHeaderName::Accept, acceptHeaderValueFromType(type));
+        m_resourceRequest.setHTTPHeaderField(HTTPHeaderName::Accept, acceptHeaderValueFromType(type, m_resourceRequest, frame));
 }
 
 void CachedResourceRequest::disableCachingIfNeeded()
@@ -279,16 +282,18 @@ void CachedResourceRequest::updateReferrerPolicy(ReferrerPolicy defaultPolicy)
 void CachedResourceRequest::updateReferrerAndOriginHeaders(FrameLoader& frameLoader)
 {
     // Implementing step 9 to 11 of https://fetch.spec.whatwg.org/#http-network-or-cache-fetch as of 16 March 2018
-    String outgoingReferrer = frameLoader.outgoingReferrer();
+    URL outgoingReferrerURL;
     if (m_resourceRequest.hasHTTPReferrer())
-        outgoingReferrer = m_resourceRequest.httpReferrer();
-    updateRequestReferrer(m_resourceRequest, m_options.referrerPolicy, outgoingReferrer, OriginAccessPatternsForWebProcess::singleton());
+        outgoingReferrerURL = URL { m_resourceRequest.httpReferrer() };
+    else
+        outgoingReferrerURL = frameLoader.outgoingReferrerURL();
+    updateRequestReferrer(m_resourceRequest, m_options.referrerPolicy, outgoingReferrerURL, OriginAccessPatternsForWebProcess::singleton());
 
     if (!m_resourceRequest.httpOrigin().isEmpty())
         return;
 
     auto* document = frameLoader.frame().document();
-    auto actualOrigin = (document && m_options.destination == FetchOptionsDestination::EmptyString && m_initiatorType == cachedResourceRequestInitiatorTypes().fetch) ? Ref { document->securityOrigin() } : SecurityOrigin::createFromString(outgoingReferrer);
+    auto actualOrigin = (document && m_options.destination == FetchOptionsDestination::EmptyString && m_initiatorType == cachedResourceRequestInitiatorTypes().fetch) ? Ref { document->securityOrigin() } : SecurityOrigin::create(outgoingReferrerURL);
     String outgoingOrigin;
     if (m_options.mode == FetchOptions::Mode::Cors)
         outgoingOrigin = actualOrigin->toString();
