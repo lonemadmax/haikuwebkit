@@ -39,9 +39,11 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(const FontDescription&
     return FontPlatformData(m_font, description);
 }
 
-RefPtr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer& buffer, const String& itemInCollection)
+RefPtr<FontCustomPlatformData> FontCustomPlatformData::create(SharedBuffer& buffer, const String& itemInCollection)
 {
 	void* sharedData;
+	// TODO is it possible to create a SharedBuffer so that it is allocated in a clonable area already?
+	// It would save a copy here.
 	area_id area = create_area("web font", &sharedData, B_ANY_ADDRESS, buffer.size(), B_NO_LOCK, B_WRITE_AREA | B_READ_AREA | B_CLONEABLE_AREA);
 
 
@@ -57,6 +59,11 @@ RefPtr<FontCustomPlatformData> createFontCustomPlatformData(SharedBuffer& buffer
 
     FontPlatformData::CreationData creationData = { buffer, itemInCollection };
 	return adoptRef(new FontCustomPlatformData(area, font, WTFMove(creationData)));
+}
+
+RefPtr<FontCustomPlatformData> FontCustomPlatformData::createMemorySafe(SharedBuffer&, const String&)
+{
+    return nullptr;
 }
 
 bool FontCustomPlatformData::supportsFormat(const String& format)

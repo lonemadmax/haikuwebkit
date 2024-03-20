@@ -300,6 +300,7 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         makeUniqueRef<ProgressTrackerClientHaiku>(this),
         UniqueRef<LocalFrameLoaderClient>(makeUniqueRef<FrameLoaderClientHaiku>(this)),
         WebCore::FrameIdentifier::generate(),
+        nullptr,
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
         makeUniqueRef<MediaRecorderProviderHaiku>(),
         WebBroadcastChannelRegistry::getOrCreate(false),
@@ -510,7 +511,7 @@ status_t BWebPage::GetContentsAsMHTML(BDataIO& output)
 {
     ssize_t size = 0;
 
-    WTF::Function<void(const std::span<const uint8_t>&)> write = [&size, &output](const std::span<const uint8_t>& span) {
+    WTF::Function<void(std::span<const uint8_t>)> write = [&size, &output](const std::span<const uint8_t>& span) {
         if (size < 0)
             return;
         ssize_t tmpSize;
@@ -1259,8 +1260,8 @@ void BWebPage::handleMouseEvent(const BMessage* message)
         if (event.button() == MouseButton::Right) {
             fPage->get().contextMenuController().clearContextMenu();
 
-            WebCore::LocalFrame& focusedFrame = fPage->get().focusController().focusedOrMainFrame();
-            if (!focusedFrame.eventHandler().sendContextMenuEvent(event)) {
+            WebCore::LocalFrame* focusedFrame = fPage->get().focusController().focusedOrMainFrame();
+            if (!focusedFrame->eventHandler().sendContextMenuEvent(event)) {
                 // event is swallowed.
                 return;
             }
@@ -1321,7 +1322,7 @@ void BWebPage::handleMouseEvent(const BMessage* message)
 void BWebPage::handleMouseWheelChanged(BMessage* message)
 {
     WebCore::LocalFrame* frame = fMainFrame->Frame();
-    if (!frame->view() || !frame->document())
+    if (!frame || !frame->view() || !frame->document())
         return;
 
     BPoint position = message->FindPoint("be:view_where");
@@ -1345,13 +1346,13 @@ void BWebPage::handleMouseWheelChanged(BMessage* message)
 
 void BWebPage::handleKeyEvent(BMessage* message)
 {
-    WebCore::LocalFrame& frame = fPage->get().focusController().focusedOrMainFrame();
-    if (!frame.view() || !frame.document())
+    WebCore::LocalFrame* frame = fPage->get().focusController().focusedOrMainFrame();
+    if (!frame || !frame->view() || !frame->document())
         return;
 
     PlatformKeyboardEvent event(message);
 	// Try to let WebCore handle this event
-	if (!frame.eventHandler().keyEvent(event) && message->what == B_KEY_DOWN) {
+	if (!frame->eventHandler().keyEvent(event) && message->what == B_KEY_DOWN) {
 		// Handle keyboard scrolling (probably should be extracted to a method.)
 		ScrollDirection direction;
 		ScrollGranularity granularity;
@@ -1392,7 +1393,7 @@ void BWebPage::handleKeyEvent(BMessage* message)
 			default:
 				return;
 		}
-		frame.eventHandler().scrollRecursively(direction, granularity);
+		frame->eventHandler().scrollRecursively(direction, granularity);
 	}
 }
 
@@ -1469,8 +1470,8 @@ void BWebPage::handleSendEditingCapabilities(BMessage*)
     bool canCopy = false;
     bool canPaste = false;
 
-    WebCore::LocalFrame& frame = fPage->get().focusController().focusedOrMainFrame();
-    WebCore::Editor& editor = frame.editor();
+    WebCore::LocalFrame* frame = fPage->get().focusController().focusedOrMainFrame();
+    WebCore::Editor& editor = frame->editor();
 
     canCut = editor.canCut() || editor.canDHTMLCut();
     canCopy = editor.canCopy() || editor.canDHTMLCopy();

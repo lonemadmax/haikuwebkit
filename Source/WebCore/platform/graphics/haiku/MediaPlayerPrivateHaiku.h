@@ -76,8 +76,8 @@ public:
 
         void setPageIsVisible(bool, WTF::String&&) override;
 
-        float duration() const override;
-        float currentTime() const override;
+        WTF::MediaTime duration() const override;
+        WTF::MediaTime currentTime() const override;
 
         void seekToTarget(const SeekTarget&) final;
         bool seeking() const override;
@@ -88,7 +88,7 @@ public:
         MediaPlayer::NetworkState networkState() const override;
         MediaPlayer::ReadyState readyState() const override;
 
-        float maxTimeSeekable() const override { return currentTime(); }
+        WTF::MediaTime maxTimeSeekable() const override { return currentTime(); }
 
         PlatformTimeRanges& buffered() const override;
         bool didLoadingProgress() const override;

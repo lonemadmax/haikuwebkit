@@ -95,7 +95,7 @@ void DumpRenderTreeClient::clearUserScripts(const BWebView* view)
 void DumpRenderTreeClient::executeCoreCommandByName(const BWebView* view,
         const BString name, const BString value)
 {
-    view->WebPage()->page()->focusController().focusedOrMainFrame().editor().command(String::fromUTF8(name.String())).execute(String::fromUTF8(value.String()));
+    view->WebPage()->page()->focusController().focusedOrMainFrame()->editor().command(String::fromUTF8(name.String())).execute(String::fromUTF8(value.String()));
 }
 
 

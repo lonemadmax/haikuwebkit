@@ -41,9 +41,6 @@ private:
 public:
     friend NeverDestroyed<RenderThemeHaiku>;
 
-    // A method asking if the theme's controls actually care about redrawing when hovered.
-    virtual bool supportsHover(const RenderStyle&) const override { return true; }
-
 #if ENABLE(VIDEO)
     String mediaControlsStyleSheet() override;
     Vector<String, 2> mediaControlsScripts() override;

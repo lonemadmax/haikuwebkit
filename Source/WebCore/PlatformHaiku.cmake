@@ -100,6 +100,7 @@ list(APPEND WebCore_SOURCES
 
   platform/image-decoders/haiku/ImageDecoderHaiku.cpp
 
+  platform/graphics/PlatformDisplay.cpp
   platform/graphics/WOFFFileFormat.cpp
   platform/graphics/displaylists/DisplayListDrawGlyphsRecorderHaiku.cpp
 

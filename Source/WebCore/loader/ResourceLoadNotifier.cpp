@@ -74,7 +74,7 @@ void ResourceLoadNotifier::didCancelAuthenticationChallenge(ResourceLoader* load
 
 bool ResourceLoadNotifier::didReceiveInvalidCertificate(ResourceLoader* loader, const CertificateInfo& certificate, const char* message)
 {
-    return m_frame.loader().client().dispatchDidReceiveInvalidCertificate(loader->documentLoader(), certificate, message);
+    return protectedFrame()->checkedLoader()->client().dispatchDidReceiveInvalidCertificate(loader->documentLoader(), certificate, message);
 }
 
 void ResourceLoadNotifier::willSendRequest(ResourceLoader* loader, ResourceRequest& clientRequest, const ResourceResponse& redirectResponse)

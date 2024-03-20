@@ -192,7 +192,7 @@ private:
                 return;
 
             {
-                LockHolder locker(m_notificationQueueLock);
+                Locker locker(m_notificationQueueLock);
                 m_notificationQueue.append(WTFMove(notification));
             }
 
@@ -204,7 +204,7 @@ private:
         {
             setActive(false);
             m_timer.stop();
-            LockHolder locker(m_notificationQueueLock);
+            Locker locker(m_notificationQueueLock);
             m_notificationQueue.clear();
         }
 
@@ -213,7 +213,7 @@ private:
         {
             Deque<Function<void()>> notificationQueue;
             {
-                LockHolder locker(m_notificationQueueLock);
+                Locker locker(m_notificationQueueLock);
                 notificationQueue = WTFMove(m_notificationQueue);
             }
 

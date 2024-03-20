@@ -245,17 +245,17 @@ void MediaPlayerPrivate::setPageIsVisible(bool, WTF::String&&)
     notImplemented();
 }
 
-float MediaPlayerPrivate::duration() const
+WTF::MediaTime MediaPlayerPrivate::duration() const
 {
     // TODO handle the case where there is a video, but no audio track.
     if (!m_audioTrack)
-        return 0;
-    return m_audioTrack->Duration() / 1000000.f;
+        return WTF::MediaTime();
+    return WTF::MediaTime::createWithDouble(m_audioTrack->Duration() / 1000000.f);
 }
 
-float MediaPlayerPrivate::currentTime() const
+WTF::MediaTime MediaPlayerPrivate::currentTime() const
 {
-    return m_currentTime;
+    return WTF::MediaTime::createWithDouble(m_currentTime);
 }
 
 void MediaPlayerPrivate::seekToTarget(const SeekTarget& time)

@@ -431,7 +431,7 @@ BWebFrame* BWebFrame::AddChild(BWebPage* page, BString name,
                 *ownerElement);
     } else {
         data->frame = WebCore::LocalFrame::createMainFrame(*fData->page,
-                makeUniqueRef<FrameLoaderClientHaiku>(page), WebCore::FrameIdentifier::generate());
+                makeUniqueRef<FrameLoaderClientHaiku>(page), WebCore::FrameIdentifier::generate(), nullptr);
     }
     FrameLoaderClientHaiku& client = static_cast<FrameLoaderClientHaiku&>(data->frame->loader().client());
     client.setFrame(frame);

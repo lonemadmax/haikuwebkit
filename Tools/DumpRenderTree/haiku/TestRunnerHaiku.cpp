@@ -347,11 +347,6 @@ void TestRunner::clearPersistentUserStyleSheet()
     notImplemented();
 }
 
-void TestRunner::clearAllApplicationCaches()
-{
-    notImplemented();
-}
-
 void TestRunner::clearApplicationCacheForOrigin(OpaqueJSString* url)
 {
     notImplemented();
@@ -396,11 +391,6 @@ void TestRunner::goBack()
 }
 
 void TestRunner::setDefersLoading(bool defers)
-{
-    notImplemented();
-}
-
-void TestRunner::setAppCacheMaximumSize(unsigned long long size)
 {
     notImplemented();
 }
