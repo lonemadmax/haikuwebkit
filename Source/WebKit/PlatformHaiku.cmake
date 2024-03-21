@@ -19,7 +19,6 @@ list(APPEND WebKit_SOURCES
     Shared/WebCoreArgumentCoders.cpp
     Shared/haiku/AuxiliaryProcessMainHaiku.cpp
     Shared/haiku/ProcessExecutablePathHaiku.cpp
-    Shared/haiku/ShareableBitmapHaiku.cpp
     Shared/haiku/WebCoreArgumentCodersHaiku.cpp
     Shared/haiku/WebMemorySamplerHaiku.cpp
 
