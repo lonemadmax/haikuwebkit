@@ -28,7 +28,6 @@ list(APPEND WebKit_SOURCES
     UIProcess/Launcher/haiku/ProcessLauncherHaiku.cpp
     UIProcess/LegacySessionStateCodingNone.cpp
     UIProcess/WebsiteData/haiku/WebsiteDataStoreHaiku.cpp
-    UIProcess/haiku/BackingStoreHaiku.cpp
     UIProcess/haiku/TextCheckerHaiku.cpp
     UIProcess/haiku/WebInspectorProxyHaiku.cpp
     UIProcess/haiku/WebPageProxyHaiku.cpp
