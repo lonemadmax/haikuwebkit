@@ -14,6 +14,8 @@ CALCULATE_LIBRARY_VERSIONS_FROM_LIBTOOL_TRIPLE(JAVASCRIPTCORE 25 4 7)
 # Force libstdc++ to export std::isinf and friends. This should be fixed on
 # Haiku side ultimately.
 add_definitions(-D_GLIBCXX_USE_C99_MATH)
+# Enable asprintf for logging
+add_definitions(-D_GNU_SOURCE)
 
 # Uncomment to enable logs even in release mode
 # add_definitions(-DLOG_DISABLED=0 -DERROR_DISABLED=0 -DFATAL_DISABLED=0)
@@ -253,3 +255,18 @@ if (USE_CURL)
     find_package(CURL 7.77.0 REQUIRED)
     find_package(LibPSL 0.20.2 REQUIRED)
 endif ()
+
+# Default to hidden visibility
+#set(CMAKE_CXX_VISIBILITY_PRESET hidden)
+#set(CMAKE_VISIBILITY_INLINES_HIDDEN ON)
+
+# Always link libgnu (memmem, ...)
+find_library(GNU_LIBRARY gnu)
+
+set(CMAKE_C_STANDARD_LIBRARIES
+	"${CMAKE_C_STANDARD_LIBRARIES} ${GNU_LIBRARY}"
+)
+set(CMAKE_CXX_STANDARD_LIBRARIES
+	"${CMAKE_CXX_STANDARD_LIBRARIES} ${GNU_LIBRARY}"
+)
+
