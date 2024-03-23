@@ -143,7 +143,7 @@ struct EventSignalPair {
     Signal signal;
 };
 
-#if !PLATFORM(COCOA)
+#if !PLATFORM(COCOA) && !PLATFORM(HAIKU)
 inline std::optional<EventSignalPair> createEventSignalPair()
 {
     Semaphore event;
