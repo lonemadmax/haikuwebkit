@@ -79,8 +79,12 @@ protected:
 
     Color systemColor(CSSValueID, OptionSet<StyleColorOptions>) const override;
 
+    bool paintCheckbox(const RenderObject&, const PaintInfo&, const FloatRect&) override;
+    bool paintRadio(const RenderObject&, const PaintInfo&, const FloatRect&) override;
+    bool paintButton(const RenderObject&, const PaintInfo&, const IntRect&) override;
+
 private:
-	unsigned flagsForObject(const RenderObject&) const;
+    uint32 flagsForObject(const RenderObject&) const;
     rgb_color colorForControl(const RenderObject&) const;
     rgb_color colorForValue(color_which, bool useDarkAppearance) const;
 

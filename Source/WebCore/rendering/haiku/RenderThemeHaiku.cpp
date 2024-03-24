@@ -245,9 +245,6 @@ void RenderThemeHaiku::adjustMenuListButtonStyle(RenderStyle& style, const Eleme
 
 void RenderThemeHaiku::paintMenuListButtonDecorations(const RenderBox& object, const PaintInfo& info, const FloatRect& floatRect)
 {
-    if (info.context().paintingDisabled())
-        return;
-
     if (!be_control_look)
         return;
 
@@ -255,12 +252,59 @@ void RenderThemeHaiku::paintMenuListButtonDecorations(const RenderBox& object, c
         // TODO get the color from PaintInfo?
     BRect rect = floatRect;
     BView* view = info.context().platformContext();
-    unsigned flags = flagsForObject(*object.firstChild()) & ~BControlLook::B_CLICKED;
-    
+    uint32 flags = flagsForObject(*object.firstChild()) & ~BControlLook::B_CLICKED;
+
     view->PushState();
     be_control_look->DrawMenuFieldFrame(view, rect, view->Bounds(), base, base, flags);
     be_control_look->DrawMenuFieldBackground(view, rect, view->Bounds(), base, true, flags);
     view->PopState();
+}
+
+bool RenderThemeHaiku::paintCheckbox(const RenderObject& object, const PaintInfo& info, const FloatRect& zoomedRect)
+{
+    if (!be_control_look)
+        return false;
+
+    rgb_color base = colorForValue(B_CONTROL_BACKGROUND_COLOR, object.useDarkAppearance());
+        // TODO get the color from PaintInfo?
+    BRect rect(zoomedRect);
+    BView* view = info.context().platformContext();
+    uint32 flags = flagsForObject(object) & ~BControlLook::B_CLICKED;
+
+    be_control_look->DrawCheckBox(view, rect, view->Bounds(), base, flags);
+    return true;
+}
+
+bool RenderThemeHaiku::paintRadio(const RenderObject& object, const PaintInfo& info, const FloatRect& zoomedRect)
+{
+    if (!be_control_look)
+        return false;
+
+    rgb_color base = colorForValue(B_CONTROL_BACKGROUND_COLOR, object.useDarkAppearance());
+        // TODO get the color from PaintInfo?
+    BRect rect(zoomedRect);
+    BView* view = info.context().platformContext();
+    uint32 flags = flagsForObject(object) & ~BControlLook::B_CLICKED;
+
+    be_control_look->DrawRadioButton(view, rect, view->Bounds(), base, flags);
+    return true;
+}
+
+bool RenderThemeHaiku::paintButton(const RenderObject& object, const PaintInfo& info, const IntRect& zoomedRect)
+{
+    if (!be_control_look)
+        return false;
+
+    rgb_color base = colorForValue(B_CONTROL_BACKGROUND_COLOR, object.useDarkAppearance());
+        // TODO get the color from PaintInfo?
+    BRect rect(zoomedRect);
+    BView* view = info.context().platformContext();
+    uint32 flags = flagsForObject(object);
+
+    be_control_look->DrawButtonFrame(view, rect, view->Bounds(), base, view->ViewColor(), flags);
+    be_control_look->DrawButtonBackground(view, rect, view->Bounds(), base, flags);
+
+    return true;
 }
 
 bool RenderThemeHaiku::paintMenuList(const RenderObject&, const PaintInfo&, const FloatRect&)
@@ -269,20 +313,20 @@ bool RenderThemeHaiku::paintMenuList(const RenderObject&, const PaintInfo&, cons
     return true;
 }
 
-unsigned RenderThemeHaiku::flagsForObject(const RenderObject& object) const
+uint32 RenderThemeHaiku::flagsForObject(const RenderObject& object) const
 {
-    unsigned flags = BControlLook::B_BLEND_FRAME;
+    uint32 flags = BControlLook::B_BLEND_FRAME;
     if (!isEnabled(object))
-    	flags |= BControlLook::B_DISABLED;
+        flags |= BControlLook::B_DISABLED;
     if (isFocused(object))
-    	flags |= BControlLook::B_FOCUSED;
+        flags |= BControlLook::B_FOCUSED;
     if (isPressed(object))
-    	flags |= BControlLook::B_CLICKED;
+        flags |= BControlLook::B_CLICKED;
     if (isChecked(object))
-    	flags |= BControlLook::B_ACTIVATED;
+        flags |= BControlLook::B_ACTIVATED;
     if (isHovered(object))
         flags |= BControlLook::B_HOVER;
-	return flags;
+    return flags;
 }
 
 

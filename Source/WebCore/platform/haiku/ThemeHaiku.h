@@ -47,12 +47,6 @@ public:
 private:
     LengthSize controlSize(StyleAppearance, const FontCascade&, const LengthSize&, float) const final;
     LengthSize minimumControlSize(StyleAppearance, const FontCascade&, const LengthSize&, float) const final;
-    void paint(StyleAppearance, OptionSet<ControlStyle::State>, GraphicsContext&, const FloatRect&, bool, const Color&) final;
-
-    void paintCheckbox(OptionSet<ControlStyle::State>, GraphicsContext&, const FloatRect&, bool, const Color&);
-    void paintRadio(OptionSet<ControlStyle::State>, GraphicsContext&, const FloatRect&, bool, const Color&);
-    void paintButton(OptionSet<ControlStyle::State>, GraphicsContext&, const FloatRect&, bool);
-    void paintSpinButton(OptionSet<ControlStyle::State>, GraphicsContext&, const FloatRect&, bool);
 
     static rgb_color colorForValue(color_which colorConstant, bool useDarkAppearance);
 
