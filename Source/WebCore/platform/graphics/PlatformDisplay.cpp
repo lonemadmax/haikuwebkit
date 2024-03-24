@@ -42,6 +42,10 @@
 #include "PlatformDisplayWin.h"
 #endif
 
+#if PLATFORM(HAIKU)
+#include "PlatformDisplayHaiku.h"
+#endif
+
 #if USE(WPE_RENDERER)
 #include "PlatformDisplayLibWPE.h"
 #endif
@@ -175,6 +179,8 @@ std::unique_ptr<PlatformDisplay> PlatformDisplay::createPlatformDisplay()
     return PlatformDisplayLibWPE::create();
 #elif PLATFORM(WIN)
     return PlatformDisplayWin::create();
+#elif PLATFORM(HAIKU)
+    return PlatformDisplayHaiku::create();
 #endif
 
     RELEASE_ASSERT_NOT_REACHED();
