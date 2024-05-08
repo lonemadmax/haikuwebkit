@@ -65,7 +65,6 @@
 #include "RenderMultiColumnFlow.h"
 #include "RenderMultiColumnSet.h"
 #include "RenderMultiColumnSpannerPlaceholder.h"
-#include "RenderRuby.h"
 #include "RenderSVGBlock.h"
 #include "RenderSVGInline.h"
 #include "RenderSVGModelObject.h"
@@ -112,6 +111,8 @@ RenderObject::SetLayoutNeededForbiddenScope::~SetLayoutNeededForbiddenScope()
 #endif
 
 struct SameSizeAsRenderObject : public CachedImageClient, public CanMakeCheckedPtr {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+
     virtual ~SameSizeAsRenderObject() = default; // Allocate vtable pointer.
 #if ASSERT_ENABLED
     unsigned m_debugBitfields : 2;
@@ -538,10 +539,8 @@ static inline bool objectIsRelayoutBoundary(const RenderElement* object)
     if (!object->hasNonVisibleOverflow())
         return false;
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (object->document().settings().layerBasedSVGEngineEnabled() && object->isSVGLayerAwareRenderer())
         return false;
-#endif
 
     if (object->style().width().isIntrinsicOrAuto() || object->style().height().isIntrinsicOrAuto() || object->style().height().isPercentOrCalculated())
         return false;
@@ -1371,11 +1370,9 @@ void RenderObject::outputRenderObject(TextStream& stream, bool mark, int depth) 
         if (renderBox->isInFlowPositioned())
             boxRect.move(renderBox->offsetForInFlowPosition());
         stream << " " << boxRect;
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
     } else if (auto* renderSVGModelObject = dynamicDowncast<RenderSVGModelObject>(*this)) {
         ASSERT(!renderSVGModelObject->isInFlowPositioned());
         stream << " " << renderSVGModelObject->frameRectEquivalent();
-#endif
     } else if (auto* renderInline = dynamicDowncast<RenderInline>(*this); renderInline && isInFlowPositioned()) {
         FloatSize inlineOffset = renderInline->offsetForInFlowPosition();
         stream << "  (" << inlineOffset.width() << ", " << inlineOffset.height() << ")";
@@ -1417,14 +1414,12 @@ void RenderObject::outputRenderObject(TextStream& stream, bool mark, int depth) 
         }
     }
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (auto* renderSVGModelObject = dynamicDowncast<RenderSVGModelObject>(*this)) {
         if (renderSVGModelObject->hasVisualOverflow()) {
             auto visualOverflow = renderSVGModelObject->visualOverflowRectEquivalent();
             stream << " (visual overflow " << visualOverflow.x() << "," << visualOverflow.y() << " " << visualOverflow.width() << "x" << visualOverflow.height() << ")";
         }
     }
-#endif
 
     if (auto* multicolSet = dynamicDowncast<RenderMultiColumnSet>(*this))
         stream << " (column count " << multicolSet->computedColumnCount() << ", size " << multicolSet->computedColumnWidth() << "x" << multicolSet->computedColumnHeight() << ", gap " << multicolSet->columnGap() << ")";
@@ -1464,7 +1459,7 @@ void RenderObject::outputRenderSubTreeAndMark(TextStream& stream, const RenderOb
 
 FloatPoint RenderObject::localToAbsolute(const FloatPoint& localPoint, OptionSet<MapCoordinatesMode> mode, bool* wasFixed) const
 {
-    TransformState transformState(settings().css3DTransformInteroperabilityEnabled(), TransformState::ApplyTransformDirection, localPoint);
+    TransformState transformState(TransformState::ApplyTransformDirection, localPoint);
     mapLocalToContainer(nullptr, transformState, mode | ApplyContainerFlip, wasFixed);
     transformState.flatten();
     
@@ -1473,7 +1468,7 @@ FloatPoint RenderObject::localToAbsolute(const FloatPoint& localPoint, OptionSet
 
 FloatPoint RenderObject::absoluteToLocal(const FloatPoint& containerPoint, OptionSet<MapCoordinatesMode> mode) const
 {
-    TransformState transformState(settings().css3DTransformInteroperabilityEnabled(), TransformState::UnapplyInverseTransformDirection, containerPoint);
+    TransformState transformState(TransformState::UnapplyInverseTransformDirection, containerPoint);
     mapAbsoluteToLocalPoint(mode, transformState);
     transformState.flatten();
     
@@ -1482,7 +1477,7 @@ FloatPoint RenderObject::absoluteToLocal(const FloatPoint& containerPoint, Optio
 
 FloatQuad RenderObject::absoluteToLocalQuad(const FloatQuad& quad, OptionSet<MapCoordinatesMode> mode) const
 {
-    TransformState transformState(settings().css3DTransformInteroperabilityEnabled(), TransformState::UnapplyInverseTransformDirection, quad.boundingBox().center(), quad);
+    TransformState transformState(TransformState::UnapplyInverseTransformDirection, quad.boundingBox().center(), quad);
     mapAbsoluteToLocalPoint(mode, transformState);
     transformState.flatten();
     return transformState.lastPlanarQuad();
@@ -1540,33 +1535,23 @@ void RenderObject::mapAbsoluteToLocalPoint(OptionSet<MapCoordinatesMode> mode, T
 
 bool RenderObject::shouldUseTransformFromContainer(const RenderObject* containerObject) const
 {
-#if ENABLE(3D_TRANSFORMS)
     if (isTransformed())
         return true;
-    if (containerObject && containerObject->style().hasPerspective()) {
-        if (settings().css3DTransformInteroperabilityEnabled())
-            return containerObject == parent();
-        return true;
-    }
+    if (containerObject && containerObject->style().hasPerspective())
+        return containerObject == parent();
     return false;
-#else
-    UNUSED_PARAM(containerObject);
-    return isTransformed();
-#endif
 }
 
-void RenderObject::getTransformFromContainer(const RenderObject* containerObject, const LayoutSize& offsetInContainer, TransformationMatrix& transform) const
+// FIXME: Now that it's no longer passed a container maybe this should be renamed?
+void RenderObject::getTransformFromContainer(const LayoutSize& offsetInContainer, TransformationMatrix& transform) const
 {
     transform.makeIdentity();
     transform.translate(offsetInContainer.width(), offsetInContainer.height());
     CheckedPtr<RenderLayer> layer;
     if (hasLayer() && (layer = downcast<RenderLayerModelObject>(*this).layer()) && layer->transform())
         transform.multiply(layer->currentTransform());
-    
-#if ENABLE(3D_TRANSFORMS)
-    CheckedPtr perspectiveObject = containerObject;
-    if (settings().css3DTransformInteroperabilityEnabled())
-        perspectiveObject = parent();
+
+    CheckedPtr perspectiveObject = parent();
 
     if (perspectiveObject && perspectiveObject->hasLayer() && perspectiveObject->style().hasPerspective()) {
         // Perpsective on the container affects us, so we have to factor it in here.
@@ -1580,17 +1565,14 @@ void RenderObject::getTransformFromContainer(const RenderObject* containerObject
         transform = perspectiveMatrix * transform;
         transform.translateRight3d(perspectiveOrigin.x(), perspectiveOrigin.y(), 0);
     }
-#else
-    UNUSED_PARAM(containerObject);
-#endif
 }
 
 void RenderObject::pushOntoTransformState(TransformState& transformState, OptionSet<MapCoordinatesMode> mode, const RenderLayerModelObject* repaintContainer, const RenderElement* container, const LayoutSize& offsetInContainer, bool containerSkipped) const
 {
-    bool preserve3D = mode.contains(UseTransforms) && participatesInPreserve3D(container);
+    bool preserve3D = mode.contains(UseTransforms) && participatesInPreserve3D();
     if (mode.contains(UseTransforms) && shouldUseTransformFromContainer(container)) {
         TransformationMatrix matrix;
-        getTransformFromContainer(container, offsetInContainer, matrix);
+        getTransformFromContainer(offsetInContainer, matrix);
         transformState.applyTransform(matrix, preserve3D ? TransformState::AccumulateTransform : TransformState::FlattenTransform);
     } else
         transformState.move(offsetInContainer.width(), offsetInContainer.height(), preserve3D ? TransformState::AccumulateTransform : TransformState::FlattenTransform);
@@ -1616,10 +1598,10 @@ void RenderObject::pushOntoGeometryMap(RenderGeometryMap& geometryMap, const Ren
     bool offsetDependsOnPoint = false;
     LayoutSize containerOffset = offsetFromContainer(*container, LayoutPoint(), &offsetDependsOnPoint);
 
-    bool preserve3D = participatesInPreserve3D(container);
+    bool preserve3D = participatesInPreserve3D();
     if (shouldUseTransformFromContainer(container) && (geometryMap.mapCoordinatesFlags() & UseTransforms)) {
         TransformationMatrix t;
-        getTransformFromContainer(container, containerOffset, t);
+        getTransformFromContainer(containerOffset, t);
         t.translateRight(adjustmentForSkippedAncestor.width(), adjustmentForSkippedAncestor.height());
 
         geometryMap.push(this, t, preserve3D, offsetDependsOnPoint, isFixedPos, isTransformed());
@@ -1633,7 +1615,7 @@ FloatQuad RenderObject::localToContainerQuad(const FloatQuad& localQuad, const R
 {
     // Track the point at the center of the quad's bounding box. As mapLocalToContainer() calls offsetFromContainer(),
     // it will use that point as the reference point to decide which column's transform to apply in multiple-column blocks.
-    TransformState transformState(settings().css3DTransformInteroperabilityEnabled(), TransformState::ApplyTransformDirection, localQuad.boundingBox().center(), localQuad);
+    TransformState transformState(TransformState::ApplyTransformDirection, localQuad.boundingBox().center(), localQuad);
     mapLocalToContainer(container, transformState, mode | ApplyContainerFlip, wasFixed);
     transformState.flatten();
     
@@ -1642,7 +1624,7 @@ FloatQuad RenderObject::localToContainerQuad(const FloatQuad& localQuad, const R
 
 FloatPoint RenderObject::localToContainerPoint(const FloatPoint& localPoint, const RenderLayerModelObject* container, OptionSet<MapCoordinatesMode> mode, bool* wasFixed) const
 {
-    TransformState transformState(settings().css3DTransformInteroperabilityEnabled(), TransformState::ApplyTransformDirection, localPoint);
+    TransformState transformState(TransformState::ApplyTransformDirection, localPoint);
     mapLocalToContainer(container, transformState, mode | ApplyContainerFlip, wasFixed);
     transformState.flatten();
 
@@ -1683,11 +1665,9 @@ LayoutSize RenderObject::offsetFromAncestorContainer(const RenderElement& contai
     return offset;
 }
 
-bool RenderObject::participatesInPreserve3D(const RenderElement* container) const
+bool RenderObject::participatesInPreserve3D() const
 {
-    if (settings().css3DTransformInteroperabilityEnabled())
-        return hasLayer() && downcast<RenderLayerModelObject>(*this).layer()->participatesInPreserve3D();
-    return container->style().preserves3D() || style().preserves3D();
+    return hasLayer() && downcast<RenderLayerModelObject>(*this).layer()->participatesInPreserve3D();
 }
 
 HostWindow* RenderObject::hostWindow() const
@@ -1795,15 +1775,17 @@ static void invalidateLineLayoutAfterTreeMutationIfNeeded(RenderObject& renderer
     CheckedPtr container = LayoutIntegration::LineLayout::blockContainer(renderer);
     if (!container)
         return;
-    auto shouldInvalidateLineLayoutPath = true;
-    if (auto* modernLineLayout = container->modernLineLayout()) {
-        shouldInvalidateLineLayoutPath = LayoutIntegration::LineLayout::shouldInvalidateLineLayoutPathAfterTreeMutation(*container, renderer, *modernLineLayout, isRemoval == IsRemoval::Yes);
-        if (!shouldInvalidateLineLayoutPath) {
-            isRemoval == IsRemoval::Yes ? modernLineLayout->removedFromTree(*renderer.parent(), renderer) : modernLineLayout->insertedIntoTree(*renderer.parent(), renderer);
-            shouldInvalidateLineLayoutPath = !modernLineLayout->isDamaged();
-        }
-    }
-    if (shouldInvalidateLineLayoutPath)
+    auto shouldInvalidateLineLayoutPath = [&] {
+        auto* modernLineLayout = container->modernLineLayout();
+        if (!modernLineLayout)
+            return true;
+        if (LayoutIntegration::LineLayout::shouldInvalidateLineLayoutPathAfterTreeMutation(*container, renderer, *modernLineLayout, isRemoval == IsRemoval::Yes))
+            return true;
+        if (isRemoval == IsRemoval::Yes)
+            return !modernLineLayout->removedFromTree(*renderer.parent(), renderer);
+        return !modernLineLayout->insertedIntoTree(*renderer.parent(), renderer);
+    };
+    if (shouldInvalidateLineLayoutPath())
         container->invalidateLineLayoutPath();
 }
 
@@ -1820,7 +1802,7 @@ void RenderObject::willBeRemovedFromTree(IsInternalMove)
     invalidateLineLayoutAfterTreeMutationIfNeeded(*this, IsRemoval::Yes);
     // FIXME: We should ASSERT(isRooted()) but we have some out-of-order removals which would need to be fixed first.
     // Update cached boundaries in SVG renderers, if a child is removed.
-    checkedParent()->setNeedsBoundariesUpdate();
+    checkedParent()->invalidateCachedBoundaries();
 }
 
 void RenderObject::destroy()
@@ -1841,13 +1823,13 @@ void RenderObject::destroy()
     delete this;
 }
 
-Position RenderObject::positionForPoint(const LayoutPoint& point)
+Position RenderObject::positionForPoint(const LayoutPoint& point, HitTestSource source)
 {
     // FIXME: This should just create a Position object instead (webkit.org/b/168566). 
-    return positionForPoint(point, nullptr).deepEquivalent();
+    return positionForPoint(point, source, nullptr).deepEquivalent();
 }
 
-VisiblePosition RenderObject::positionForPoint(const LayoutPoint&, const RenderFragmentContainer*)
+VisiblePosition RenderObject::positionForPoint(const LayoutPoint&, HitTestSource, const RenderFragmentContainer*)
 {
     return createVisiblePosition(caretMinOffset(), Affinity::Downstream);
 }
@@ -1977,14 +1959,14 @@ RenderBoxModelObject* RenderObject::offsetParent() const
     //     * Our own extension: if there is a difference in the effective zoom
 
     bool skipTables = isPositioned();
-    float currZoom = style().effectiveZoom();
+    float currZoom = style().usedZoom();
     CheckedPtr current = parent();
     while (current && (!current->element() || (!current->canContainAbsolutelyPositionedObjects() && !current->isBody()))) {
         RefPtr element = current->element();
         if (!skipTables && element && (is<HTMLTableElement>(*element) || is<HTMLTableCellElement>(*element)))
             break;
  
-        float newZoom = current->style().effectiveZoom();
+        float newZoom = current->style().usedZoom();
         if (currZoom != newZoom)
             break;
         currZoom = newZoom;
@@ -2102,8 +2084,16 @@ Node* RenderObject::generatingPseudoHostElement() const
 
 void RenderObject::setNeedsBoundariesUpdate()
 {
-    if (CheckedPtr renderer = parent())
-        renderer->setNeedsBoundariesUpdate();
+}
+
+void RenderObject::invalidateCachedBoundaries()
+{
+    for (CheckedPtr renderer = this; renderer && renderer->isSVGRenderer(); renderer = renderer->parent()) {
+        if (renderer->usesBoundaryCaching()) {
+            renderer->setNeedsBoundariesUpdate();
+            break;
+        }
+    }
 }
 
 FloatRect RenderObject::objectBoundingBox() const
@@ -2511,8 +2501,7 @@ auto RenderObject::collectSelectionGeometriesInternal(const SimpleRange& range) 
         int currentRectTop = geometries[i].logicalTop();
         int currentRectBottom = currentRectTop + geometries[i].logicalHeight();
 
-        // We don't want to count the ruby text as a separate line.
-        if (intervalsSufficientlyOverlap(currentRectTop, currentRectBottom, lineTop, lineBottom) || (i && geometries[i].isRubyText())) {
+        if (intervalsSufficientlyOverlap(currentRectTop, currentRectBottom, lineTop, lineBottom)) {
             // Grow the current line bounds.
             lineTop = std::min(lineTop, currentRectTop);
             lineBottom = std::max(lineBottom, currentRectBottom);
@@ -2552,8 +2541,6 @@ auto RenderObject::collectSelectionGeometriesInternal(const SimpleRange& range) 
     adjustLineHeightOfSelectionGeometries(geometries, numberOfGeometries, lineNumber, lineTop, lineBottom - lineTop);
 
     // When using SelectionRenderingBehavior::CoalesceBoundingRects, sort the rectangles and make sure there are no gaps.
-    // The rectangles could be unsorted when there is ruby text and we could have gaps on the line when adjacent elements
-    // on the line have a different orientation.
     //
     // Note that for selection geometries with SelectionRenderingBehavior::UseIndividualQuads, we avoid sorting in order to
     // preserve the fact that the resulting geometries correspond to the order in which the quads are discovered during DOM

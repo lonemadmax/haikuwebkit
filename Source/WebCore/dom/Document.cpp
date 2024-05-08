@@ -56,6 +56,7 @@
 #include "ContentVisibilityDocumentState.h"
 #include "ContentfulPaintChecker.h"
 #include "CookieJar.h"
+#include "CryptoClient.h"
 #include "CustomEffect.h"
 #include "CustomElementReactionQueue.h"
 #include "CustomElementRegistry.h"
@@ -198,7 +199,7 @@
 #include "Position.h"
 #include "ProcessingInstruction.h"
 #include "PseudoClassChangeInvalidation.h"
-#include "PublicSuffix.h"
+#include "PublicSuffixStore.h"
 #include "Quirks.h"
 #include "RTCNetworkManager.h"
 #include "Range.h"
@@ -2049,23 +2050,25 @@ AtomString Document::encoding() const
     return encoding.isNull() ? nullAtom() : AtomString { encoding };
 }
 
-RefPtr<Range> Document::caretRangeFromPoint(int x, int y)
+RefPtr<Range> Document::caretRangeFromPoint(int x, int y, HitTestSource source)
 {
-    auto boundary = caretPositionFromPoint(LayoutPoint(x, y));
+    auto boundary = caretPositionFromPoint(LayoutPoint(x, y), source);
     if (!boundary)
         return nullptr;
     return createLiveRange({ *boundary, *boundary });
 }
 
-std::optional<BoundaryPoint> Document::caretPositionFromPoint(const LayoutPoint& clientPoint)
+std::optional<BoundaryPoint> Document::caretPositionFromPoint(const LayoutPoint& clientPoint, HitTestSource source)
 {
     if (!hasLivingRenderTree())
         return std::nullopt;
 
     LayoutPoint localPoint;
-    RefPtr node = nodeFromPoint(clientPoint, &localPoint);
+    RefPtr node = nodeFromPoint(clientPoint, &localPoint, source);
     if (!node)
         return std::nullopt;
+
+    updateLayoutIgnorePendingStylesheets();
 
     CheckedPtr renderer = node->renderer();
     if (!renderer)
@@ -2074,7 +2077,7 @@ std::optional<BoundaryPoint> Document::caretPositionFromPoint(const LayoutPoint&
     if (renderer->isSkippedContentRoot())
         return { { *node, 0 } };
 
-    auto rangeCompliantPosition = renderer->positionForPoint(localPoint).parentAnchoredEquivalent();
+    auto rangeCompliantPosition = renderer->positionForPoint(localPoint, source).parentAnchoredEquivalent();
     if (rangeCompliantPosition.isNull())
         return std::nullopt;
 
@@ -2917,7 +2920,7 @@ bool Document::isPageBoxVisible(int pageIndex)
 {
     updateStyleIfNeeded();
     std::unique_ptr<RenderStyle> pageStyle(styleScope().resolver().styleForPage(pageIndex));
-    return pageStyle->visibility() != Visibility::Hidden; // display property doesn't apply to @page.
+    return pageStyle->usedVisibility() != Visibility::Hidden; // display property doesn't apply to @page.
 }
 
 void Document::pageSizeAndMarginsInPixels(int pageIndex, IntSize& pageSize, int& marginTop, int& marginRight, int& marginBottom, int& marginLeft)
@@ -4029,7 +4032,7 @@ void Document::setURL(const URL& url)
     if (newURL == m_url)
         return;
 
-    m_fragmentDirective = newURL.consumefragmentDirective();
+    m_fragmentDirective = newURL.consumeFragmentDirective();
 
     if (SecurityOrigin::shouldIgnoreHost(newURL))
         newURL.setHostAndPort({ });
@@ -4061,10 +4064,10 @@ const URL& Document::urlForBindings() const
         if (preNavigationURL.isEmpty() || RegistrableDomain { preNavigationURL }.matches(securityOrigin().data()))
             return false;
 
-#if ENABLE(PUBLIC_SUFFIX_LIST)
         auto areSameSiteIgnoringPublicSuffix = [](StringView domain, StringView otherDomain) {
-            auto domainString = topPrivatelyControlledDomain(domain.toStringWithoutCopying());
-            auto otherDomainString = topPrivatelyControlledDomain(otherDomain.toStringWithoutCopying());
+            auto& publicSuffixStore = PublicSuffixStore::singleton();
+            auto domainString = publicSuffixStore.topPrivatelyControlledDomain(domain.toStringWithoutCopying());
+            auto otherDomainString = publicSuffixStore.topPrivatelyControlledDomain(otherDomain.toStringWithoutCopying());
             auto substringToSeparator = [](const String& string) -> String {
                 auto indexOfFirstSeparator = string.find('.');
                 if (indexOfFirstSeparator == notFound)
@@ -4078,7 +4081,6 @@ const URL& Document::urlForBindings() const
         auto currentHost = securityOrigin().data().host();
         if (areSameSiteIgnoringPublicSuffix(preNavigationURL.host(), currentHost))
             return false;
-#endif // ENABLE(PUBLIC_SUFFIX_LIST)
 
         if (!m_hasLoadedThirdPartyScript)
             return false;
@@ -4087,10 +4089,8 @@ const URL& Document::urlForBindings() const
             if (RegistrableDomain { sourceURL }.matches(securityOrigin().data()))
                 return false;
 
-#if ENABLE(PUBLIC_SUFFIX_LIST)
             if (areSameSiteIgnoringPublicSuffix(sourceURL.host(), currentHost))
                 return false;
-#endif // ENABLE(PUBLIC_SUFFIX_LIST)
         }
 
         return true;
@@ -6070,7 +6070,7 @@ void Document::enqueueOverflowEvent(Ref<Event>&& event)
     // FIXME: This event is totally unspecified.
     RefPtr target = event->target();
     RELEASE_ASSERT(target);
-    eventLoop().queueTask(TaskSource::DOMManipulation, [protectedTarget = GCReachableRef<Node>(checkedDowncast<Node>(*target)), event = WTFMove(event)] {
+    eventLoop().queueTask(TaskSource::DOMManipulation, [protectedTarget = GCReachableRef<Node>(downcast<Node>(*target)), event = WTFMove(event)] {
         protectedTarget->dispatchEvent(event);
     });
 }
@@ -7765,6 +7765,11 @@ WindowEventLoop& Document::windowEventLoop()
     return *m_eventLoop;
 }
 
+Ref<WindowEventLoop> Document::protectedWindowEventLoop()
+{
+    return windowEventLoop();
+}
+
 void Document::suspendScheduledTasks(ReasonForSuspension reason)
 {
     if (m_scheduledTasksAreSuspended) {
@@ -8070,8 +8075,6 @@ int Document::requestIdleCallback(Ref<IdleRequestCallback>&& callback, Seconds t
 {
     if (!m_idleCallbackController)
         m_idleCallbackController = makeUnique<IdleCallbackController>(*this);
-    if (RefPtr page = this->page())
-        page->opportunisticTaskScheduler().willQueueIdleCallback();
     return m_idleCallbackController->queueIdleCallback(WTFMove(callback), timeout);
 }
 
@@ -8414,7 +8417,7 @@ void Document::convertAbsoluteToClientQuads(Vector<FloatQuad>& quads, const Rend
     if (!frameView)
         return;
 
-    float inverseFrameScale = frameView->absoluteToDocumentScaleFactor(style.effectiveZoom());
+    float inverseFrameScale = frameView->absoluteToDocumentScaleFactor(style.usedZoom());
     auto documentToClientOffset = frameView->documentToClientOffset();
 
     for (auto& quad : quads) {
@@ -8431,7 +8434,7 @@ void Document::convertAbsoluteToClientRects(Vector<FloatRect>& rects, const Rend
     if (!frameView)
         return;
 
-    float inverseFrameScale = frameView->absoluteToDocumentScaleFactor(style.effectiveZoom());
+    float inverseFrameScale = frameView->absoluteToDocumentScaleFactor(style.usedZoom());
     auto documentToClientOffset = frameView->documentToClientOffset();
 
     for (auto& rect : rects) {
@@ -8448,7 +8451,7 @@ void Document::convertAbsoluteToClientRect(FloatRect& rect, const RenderStyle& s
     if (!frameView)
         return;
 
-    rect = frameView->absoluteToDocumentRect(rect, style.effectiveZoom());
+    rect = frameView->absoluteToDocumentRect(rect, style.usedZoom());
     rect = frameView->documentToClientRect(rect);
 }
 
@@ -8845,16 +8848,20 @@ void Document::ensurePlugInsInjectedScript(DOMWrapperWorld& world)
     m_hasInjectedPlugInsScript = true;
 }
 
-bool Document::wrapCryptoKey(const Vector<uint8_t>& key, Vector<uint8_t>& wrappedKey)
+std::optional<Vector<uint8_t>> Document::wrapCryptoKey(const Vector<uint8_t>& key)
 {
     RefPtr page = this->page();
-    return page && page->chrome().client().wrapCryptoKey(key, wrappedKey);
+    if (!page)
+        return std::nullopt;
+    return page->cryptoClient().wrapCryptoKey(key);
 }
 
-bool Document::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey, Vector<uint8_t>& key)
+std::optional<Vector<uint8_t>>Document::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey)
 {
     RefPtr page = this->page();
-    return page && page->chrome().client().unwrapCryptoKey(wrappedKey, key);
+    if (!page)
+        return std::nullopt;
+    return page->cryptoClient().unwrapCryptoKey(wrappedKey);
 }
 
 Element* Document::activeElement()
@@ -8904,7 +8911,8 @@ void Document::removePlaybackTargetPickerClient(MediaPlaybackTargetClient& clien
     m_idToClientMap.remove(clientId);
     m_clientToIDMap.remove(it);
 
-    if (RefPtr page = this->page())
+    // Unable to ref the page as it may have started destruction.
+    if (WeakPtr page = this->page())
         page->removePlaybackTargetPickerClient(clientId);
 }
 
@@ -9751,7 +9759,9 @@ void Document::handlePopoverLightDismiss(const PointerEvent& event, Node& target
 
                     if (!invokerPopover) {
                         if (RefPtr button = dynamicDowncast<HTMLFormControlElement>(*htmlElement)) {
-                            if (RefPtr popover = button->popoverTargetElement(); popover && isShowingAutoPopover(*popover))
+                            if (RefPtr popover = dynamicDowncast<HTMLElement>(button->invokeTargetElement()); popover && isShowingAutoPopover(*popover))
+                                invokerPopover = WTFMove(popover);
+                            else if (RefPtr popover = button->popoverTargetElement(); popover && isShowingAutoPopover(*popover))
                                 invokerPopover = WTFMove(popover);
                         }
                     }

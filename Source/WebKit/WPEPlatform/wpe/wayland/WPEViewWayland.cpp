@@ -197,10 +197,10 @@ const struct xdg_surface_listener xdgSurfaceListener = {
         if (width.has_value() && height.has_value()) {
             if (!useSavedSize)
                 wpeViewWaylandSaveSize(view);
-            wpe_view_resize(view, width.value(), height.value());
+            wpe_view_resized(view, width.value(), height.value());
         }
 
-        wpe_view_set_state(view, priv->pendingState.state);
+        wpe_view_state_changed(view, priv->pendingState.state);
         priv->pendingState = { };
         xdg_surface_ack_configure(surface, serial);
     },
@@ -265,7 +265,7 @@ static void wpeViewWaylandUpdateScale(WPEViewWayland* view)
     if (wl_surface_get_version(view->priv->wlSurface) >= WL_SURFACE_SET_BUFFER_SCALE_SINCE_VERSION)
         wl_surface_set_buffer_scale(view->priv->wlSurface, scale);
 
-    wpe_view_set_scale(WPE_VIEW(view), scale);
+    wpe_view_scale_changed(WPE_VIEW(view), scale);
 }
 
 static const struct wl_surface_listener surfaceListener = {
@@ -414,7 +414,7 @@ static void wpeViewWaylandConstructed(GObject* object)
         auto scale = wpe_monitor_get_scale(priv->currentMonitor.get());
         if (wl_surface_get_version(priv->wlSurface) >= WL_SURFACE_SET_BUFFER_SCALE_SINCE_VERSION)
             wl_surface_set_buffer_scale(priv->wlSurface, scale);
-        wpe_view_set_scale(view, scale);
+        wpe_view_scale_changed(view, scale);
     }
 
     // The web view default background color is opaque white, so set the whole view region as opaque initially.
@@ -436,10 +436,19 @@ static void wpeViewWaylandDispose(GObject* object)
     G_OBJECT_CLASS(wpe_view_wayland_parent_class)->dispose(object);
 }
 
-static struct wl_buffer* createWaylandBufferFromEGLImage(WPEBuffer* buffer, GError** error)
+static const struct wl_buffer_listener bufferListener = {
+    // release
+    [](void* userData, struct wl_buffer*)
+    {
+        auto* buffer = WPE_BUFFER(userData);
+        wpe_view_buffer_released(wpe_buffer_get_view(buffer), buffer);
+    }
+};
+
+static struct wl_buffer* createWaylandBufferFromEGLImage(WPEView* view, WPEBuffer* buffer, GError** error)
 {
     GUniqueOutPtr<GError> bufferError;
-    auto* eglDisplay = wpe_display_get_egl_display(wpe_buffer_get_display(buffer), &bufferError.outPtr());
+    auto* eglDisplay = wpe_display_get_egl_display(wpe_view_get_display(view), &bufferError.outPtr());
     if (!eglDisplay) {
         g_set_error(error, WPE_VIEW_ERROR, WPE_VIEW_ERROR_RENDER_FAILED, "Failed to render buffer: can't create Wayland buffer because failed to get EGL display: %s", bufferError->message);
         return nullptr;
@@ -468,13 +477,13 @@ static struct wl_buffer* createWaylandBufferFromEGLImage(WPEBuffer* buffer, GErr
     return nullptr;
 }
 
-static struct wl_buffer* createWaylandBufferFromDMABuf(WPEBuffer* buffer, GError** error)
+static struct wl_buffer* createWaylandBufferFromDMABuf(WPEView* view, WPEBuffer* buffer, GError** error)
 {
     if (auto* wlBuffer = static_cast<struct wl_buffer*>(wpe_buffer_get_user_data(buffer)))
         return wlBuffer;
 
     struct wl_buffer* wlBuffer = nullptr;
-    if (auto* dmabuf = wpeDisplayWaylandGetLinuxDMABuf(WPE_DISPLAY_WAYLAND(wpe_buffer_get_display(buffer)))) {
+    if (auto* dmabuf = wpeDisplayWaylandGetLinuxDMABuf(WPE_DISPLAY_WAYLAND(wpe_view_get_display(view)))) {
         auto* bufferDMABuf = WPE_BUFFER_DMA_BUF(buffer);
         auto modifier = wpe_buffer_dma_buf_get_modifier(bufferDMABuf);
         auto* params = zwp_linux_dmabuf_v1_create_params(dmabuf);
@@ -492,10 +501,12 @@ static struct wl_buffer* createWaylandBufferFromDMABuf(WPEBuffer* buffer, GError
             return nullptr;
         }
     } else {
-        wlBuffer = createWaylandBufferFromEGLImage(buffer, error);
+        wlBuffer = createWaylandBufferFromEGLImage(view, buffer, error);
         if (!wlBuffer)
             return nullptr;
     }
+
+    wl_buffer_add_listener(wlBuffer, &bufferListener, buffer);
 
     wpe_buffer_set_user_data(buffer, wlBuffer, reinterpret_cast<GDestroyNotify>(wl_buffer_destroy));
     return wlBuffer;
@@ -533,7 +544,7 @@ static SharedMemoryBuffer* sharedMemoryBufferCreate(WPEDisplayWayland* display, 
     return sharedMemoryBuffer;
 }
 
-static struct wl_buffer* createWaylandBufferSHM(WPEBuffer* buffer, GError** error)
+static struct wl_buffer* createWaylandBufferSHM(WPEView* view, WPEBuffer* buffer, GError** error)
 {
     if (auto* sharedMemoryBuffer = static_cast<SharedMemoryBuffer*>(wpe_buffer_get_user_data(buffer))) {
         GBytes* bytes = wpe_buffer_shm_get_data(WPE_BUFFER_SHM(buffer));
@@ -547,7 +558,7 @@ static struct wl_buffer* createWaylandBufferSHM(WPEBuffer* buffer, GError** erro
         return nullptr;
     }
 
-    auto* display = WPE_DISPLAY_WAYLAND(wpe_buffer_get_display(buffer));
+    auto* display = WPE_DISPLAY_WAYLAND(wpe_view_get_display(view));
     auto* sharedMemoryBuffer = sharedMemoryBufferCreate(display, wpe_buffer_shm_get_data(bufferSHM),
         wpe_buffer_get_width(buffer), wpe_buffer_get_height(buffer), wpe_buffer_shm_get_stride(bufferSHM));
     if (!sharedMemoryBuffer) {
@@ -555,17 +566,19 @@ static struct wl_buffer* createWaylandBufferSHM(WPEBuffer* buffer, GError** erro
         return nullptr;
     }
 
+    wl_buffer_add_listener(sharedMemoryBuffer->wlBuffer, &bufferListener, buffer);
+
     wpe_buffer_set_user_data(buffer, sharedMemoryBuffer, reinterpret_cast<GDestroyNotify>(sharedMemoryBufferDestroy));
     return sharedMemoryBuffer->wlBuffer;
 }
 
-static struct wl_buffer* createWaylandBuffer(WPEBuffer* buffer, GError** error)
+static struct wl_buffer* createWaylandBuffer(WPEView* view, WPEBuffer* buffer, GError** error)
 {
     struct wl_buffer* wlBuffer = nullptr;
     if (WPE_IS_BUFFER_DMA_BUF(buffer))
-        wlBuffer = createWaylandBufferFromDMABuf(buffer, error);
+        wlBuffer = createWaylandBufferFromDMABuf(view, buffer, error);
     else if (WPE_IS_BUFFER_SHM(buffer))
-        wlBuffer = createWaylandBufferSHM(buffer, error);
+        wlBuffer = createWaylandBufferSHM(view, buffer, error);
     else
         RELEASE_ASSERT_NOT_REACHED();
 
@@ -588,7 +601,7 @@ const struct wl_callback_listener frameListener = {
 
 static gboolean wpeViewWaylandRenderBuffer(WPEView* view, WPEBuffer* buffer, GError** error)
 {
-    auto* wlBuffer = createWaylandBuffer(buffer, error);
+    auto* wlBuffer = createWaylandBuffer(view, buffer, error);
     if (!wlBuffer)
         return FALSE;
 
@@ -630,6 +643,16 @@ static WPEMonitor* wpeViewWaylandGetMonitor(WPEView* view)
 {
     auto* priv = WPE_VIEW_WAYLAND(view)->priv;
     return priv->currentMonitor.get();
+}
+
+static gboolean wpeViewWaylandResize(WPEView* view, int width, int height)
+{
+    auto* priv = WPE_VIEW_WAYLAND(view)->priv;
+    if (!priv->xdgToplevel)
+        return FALSE;
+
+    wpe_view_resized(view, width, height);
+    return TRUE;
 }
 
 static gboolean wpeViewWaylandSetFullscreen(WPEView* view, gboolean fullscreen)
@@ -741,6 +764,7 @@ static void wpe_view_wayland_class_init(WPEViewWaylandClass* viewWaylandClass)
     WPEViewClass* viewClass = WPE_VIEW_CLASS(viewWaylandClass);
     viewClass->render_buffer = wpeViewWaylandRenderBuffer;
     viewClass->get_monitor = wpeViewWaylandGetMonitor;
+    viewClass->resize = wpeViewWaylandResize;
     viewClass->set_fullscreen = wpeViewWaylandSetFullscreen;
     viewClass->set_maximized = wpeViewWaylandSetMaximized;
     viewClass->get_preferred_dma_buf_formats = wpeViewWaylandGetPreferredDMABufFormats;

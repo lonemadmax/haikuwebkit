@@ -606,10 +606,6 @@ void EmptyFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const Navig
 {
 }
 
-void EmptyFrameLoaderClient::broadcastFrameRemovalToOtherProcesses()
-{
-}
-
 void EmptyFrameLoaderClient::broadcastMainFrameURLChangeToOtherProcesses(const URL&)
 {
 }
@@ -1238,7 +1234,8 @@ PageConfiguration pageConfigurationWithEmptyClients(std::optional<PageIdentifier
 #if ENABLE(APPLE_PAY)
         makeUniqueRef<EmptyPaymentCoordinatorClient>(),
 #endif
-        makeUniqueRef<EmptyChromeClient>()
+        makeUniqueRef<EmptyChromeClient>(),
+        makeUniqueRef<EmptyCryptoClient>()
     };
 
 #if ENABLE(DRAG_SUPPORT)

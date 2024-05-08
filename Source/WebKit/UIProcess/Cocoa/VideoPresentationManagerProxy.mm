@@ -311,7 +311,7 @@ UIViewController *VideoPresentationModelContext::presentingViewController()
         return nullptr;
 
     if (auto* page = m_manager->m_page.get())
-        return page->uiClient().presentingViewController();
+        return page->protectedPageClient()->presentingViewController();
     return nullptr;
 }
 
@@ -755,6 +755,9 @@ RetainPtr<WKLayerHostView> VideoPresentationManagerProxy::createLayerHostViewWit
     RetainPtr<WKLayerHostView> view = static_cast<WKLayerHostView*>(model->layerHostView());
     if (!view) {
         view = adoptNS([[WKLayerHostView alloc] init]);
+#if PLATFORM(IOS_FAMILY)
+        [view setUserInteractionEnabled:NO];
+#endif
 #if PLATFORM(MAC)
         [view setWantsLayer:YES];
 #endif
@@ -822,6 +825,7 @@ RetainPtr<WKVideoView> VideoPresentationManagerProxy::createViewWithID(PlaybackS
         [playerLayer setVideoSublayer:[view layer]];
 
         [playerView addSubview:view.get()];
+        [playerView setUserInteractionEnabled:NO];
 
         // The videoView may already be reparented in fullscreen, so only parent the view
         // if it has no existing parent:
@@ -1336,5 +1340,7 @@ WTFLogChannel& VideoPresentationManagerProxy::logChannel() const
 #endif
 
 } // namespace WebKit
+
+#undef MESSAGE_CHECK
 
 #endif // ENABLE(VIDEO_PRESENTATION_MODE)

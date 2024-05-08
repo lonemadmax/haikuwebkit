@@ -42,6 +42,7 @@
 #include <WebCore/JSDOMPromiseDeferred.h>
 #include <WebCore/LocalFrame.h>
 #include <WebCore/LocalFrameView.h>
+#include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/Quirks.h>
 #include <WebCore/RenderImage.h>
 #include <WebCore/RenderLayerBacking.h>
@@ -243,20 +244,23 @@ void WebFullScreenManager::enterFullScreenForElement(WebCore::Element* element, 
             return sharedMemoryBuffer->createHandle(SharedMemory::Protection::ReadOnly);
         };
 
-        auto getImageMIMEType = [&]() -> String {
-            if (auto* cachedImage = renderImage->cachedImage()) {
-                if (auto* image = cachedImage->image())
-                    return image->mimeType();
-            }
-            return emptyString();
-        };
+        auto mimeType = emptyString();
+        if (auto* cachedImage = renderImage->cachedImage()) {
+            if (auto* image = cachedImage->image())
+                mimeType = image->mimeType();
 
-        mediaDetails = {
-            FullScreenMediaDetails::Type::Image,
-            { },
-            getImageMIMEType(),
-            getImageResourceHandle()
-        };
+            if (!MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
+                mimeType = MIMETypeRegistry::mimeTypeForPath(cachedImage->url().string());
+        }
+
+        if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType)) {
+            mediaDetails = {
+                FullScreenMediaDetails::Type::Image,
+                { },
+                mimeType,
+                getImageResourceHandle()
+            };
+        }
     }
 #endif
 
@@ -266,10 +270,18 @@ void WebFullScreenManager::enterFullScreenForElement(WebCore::Element* element, 
     updateMainVideoElement();
 
 #if PLATFORM(VISION)
-    if (m_mainVideoElement && is<HTMLVideoElement>(element)) {
+    if (m_mainVideoElement) {
+        bool fullscreenElementIsVideoElement = is<HTMLVideoElement>(element);
+
+        auto mainVideoElementSize = [&]() -> FloatSize {
+            if (!fullscreenElementIsVideoElement && element->document().quirks().shouldDisableFullscreenVideoAspectRatioAdaptiveSizing())
+                return { };
+            return FloatSize(m_mainVideoElement->videoWidth(), m_mainVideoElement->videoHeight());
+        }();
+
         mediaDetails = {
-            FullScreenMediaDetails::Type::Video,
-            FloatSize(m_mainVideoElement->videoWidth(), m_mainVideoElement->videoHeight())
+            fullscreenElementIsVideoElement ? FullScreenMediaDetails::Type::Video : FullScreenMediaDetails::Type::ElementWithVideo,
+            mainVideoElementSize
         };
     }
 #endif
@@ -310,6 +322,8 @@ void WebFullScreenManager::willEnterFullScreen(WebCore::HTMLMediaElementEnums::V
         return;
 
     ALWAYS_LOG(LOGIDENTIFIER, "<", m_element->tagName(), " id=\"", m_element->getIdAttribute(), "\">");
+
+    m_page->isInFullscreenChanged(WebPage::IsInFullscreenMode::Yes);
 
     if (!m_element->document().fullscreenManager().willEnterFullscreen(*m_element, mode)) {
         close();
@@ -422,6 +436,8 @@ static Vector<Ref<Element>> collectFullscreenElementsFromElement(Element* elemen
 
 void WebFullScreenManager::didExitFullScreen()
 {
+    m_page->isInFullscreenChanged(WebPage::IsInFullscreenMode::No);
+
     if (!m_element)
         return;
 

@@ -328,8 +328,17 @@ void HTMLConstructionSite::mergeAttributesFromTokenIntoElement(AtomHTMLToken&& t
     if (!scriptingContentIsAllowed(m_parserContentPolicy))
         element.stripScriptingAttributes(token.attributes());
 
-    for (auto& tokenAttribute : token.attributes())
-        element.setAttributeWithoutOverwriting(tokenAttribute.name(), tokenAttribute.value());
+    for (auto& tokenAttribute : token.attributes()) {
+        auto& attributeName = tokenAttribute.name();
+        if (UNLIKELY(attributeName == nonceAttr)) {
+            if (element.hasAttributeWithoutSynchronization(nonceAttr) || !element.nonce().isEmpty())
+                continue;
+            // Make sure the nonce attribute remains hidden.
+            element.setAttribute(attributeName, tokenAttribute.value());
+            element.hideNonce();
+        } else
+            element.setAttributeWithoutOverwriting(attributeName, tokenAttribute.value());
+    }
 }
 
 void HTMLConstructionSite::insertHTMLHtmlStartTagInBody(AtomHTMLToken&& token)
@@ -542,7 +551,7 @@ void HTMLConstructionSite::insertHTMLElement(AtomHTMLToken&& token)
 
 void HTMLConstructionSite::insertHTMLTemplateElement(AtomHTMLToken&& token)
 {
-    if (document().settings().declarativeShadowRootsEnabled() && m_parserContentPolicy.contains(ParserContentPolicy::AllowDeclarativeShadowRoots)) {
+    if (m_parserContentPolicy.contains(ParserContentPolicy::AllowDeclarativeShadowRoots)) {
         std::optional<ShadowRootMode> mode;
         bool clonable = false;
         bool delegatesFocus = false;
@@ -562,7 +571,7 @@ void HTMLConstructionSite::insertHTMLTemplateElement(AtomHTMLToken&& token)
             if (!exceptionOrShadowRoot.hasException()) {
                 Ref shadowRoot = exceptionOrShadowRoot.releaseReturnValue();
                 auto element = createHTMLElement(token);
-                checkedDowncast<HTMLTemplateElement>(element.get()).setDeclarativeShadowRoot(shadowRoot);
+                downcast<HTMLTemplateElement>(element.get()).setDeclarativeShadowRoot(shadowRoot);
                 m_openElements.push(HTMLStackItem(WTFMove(element), WTFMove(token)));
                 return;
             }
@@ -647,7 +656,7 @@ static NEVER_INLINE unsigned findBreakIndexSlow(const String& string, unsigned c
     // see <https://bugs.webkit.org/show_bug.cgi?id=29092>.
     // We need at least two characters look-ahead to account for UTF-16 surrogates.
     unsigned breakSearchLength = std::min(proposedBreakIndex - currentPosition + 2, stringLength - currentPosition);
-    NonSharedCharacterBreakIterator it(StringView(string.characters16(), stringLength).substring(currentPosition, breakSearchLength));
+    NonSharedCharacterBreakIterator it(StringView(string).substring(currentPosition, breakSearchLength));
 
     unsigned stringLengthLimit = proposedBreakIndex - currentPosition;
     if (ubrk_isBoundary(it, stringLengthLimit))

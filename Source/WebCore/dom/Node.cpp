@@ -103,7 +103,7 @@
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(Node);
+WTF_MAKE_COMPACT_ISO_ALLOCATED_IMPL(Node);
 
 using namespace HTMLNames;
 
@@ -117,7 +117,7 @@ struct SameSizeAsNode : EventTarget {
     uint32_t nodeFlags;
     void* parentNode;
     void* treeScope;
-    void* previous;
+    uint8_t previous[8];
     void* next;
     uint8_t rendererWithStyleFlags[8];
     uint8_t rareDataWithBitfields[8];
@@ -430,7 +430,7 @@ Node::~Node()
 
     ASSERT(!renderer());
     ASSERT(!parentNode());
-    ASSERT(!m_previous);
+    ASSERT(!m_previous.pointer());
     ASSERT(!m_next);
 
     {
@@ -1479,6 +1479,7 @@ void Node::queueTaskToDispatchEvent(TaskSource source, Ref<Event>&& event)
 
 Node::InsertedIntoAncestorResult Node::insertedIntoAncestor(InsertionType insertionType, ContainerNode& parentOfInsertedTree)
 {
+    ASSERT(!containsSelectionEndPoint());
     if (insertionType.connectedToDocument)
         setEventTargetFlag(EventTargetFlag::IsConnected);
     if (parentOfInsertedTree.isInShadowTree())
@@ -1491,6 +1492,7 @@ Node::InsertedIntoAncestorResult Node::insertedIntoAncestor(InsertionType insert
 
 void Node::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
 {
+    ASSERT(!containsSelectionEndPoint());
     if (removalType.disconnectedFromDocument)
         clearEventTargetFlag(EventTargetFlag::IsConnected);
     if (isInShadowTree() && !treeScope().rootNode().isShadowRoot())
@@ -1791,7 +1793,7 @@ void Node::setTextContent(String&& text)
 static SHA1::Digest hashPointer(const void* pointer)
 {
     SHA1 sha1;
-    sha1.addBytes(reinterpret_cast<const uint8_t*>(&pointer), sizeof(pointer));
+    sha1.addBytes(std::span { reinterpret_cast<const uint8_t*>(&pointer), sizeof(pointer) });
     SHA1::Digest digest;
     sha1.computeHash(digest);
     return digest;

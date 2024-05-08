@@ -1275,7 +1275,6 @@ $(PROJECT_DIR)/css/process-css-properties.py
 $(PROJECT_DIR)/css/process-css-pseudo-selectors.py
 $(PROJECT_DIR)/css/process-css-values.py
 $(PROJECT_DIR)/css/quirks.css
-$(PROJECT_DIR)/css/ruby.css
 $(PROJECT_DIR)/css/svg.css
 $(PROJECT_DIR)/css/typedom/CSSKeywordValue.idl
 $(PROJECT_DIR)/css/typedom/CSSNumericValue.idl
@@ -1436,6 +1435,7 @@ $(PROJECT_DIR)/dom/OverflowEvent.idl
 $(PROJECT_DIR)/dom/PageTransitionEvent.idl
 $(PROJECT_DIR)/dom/ParentNode.idl
 $(PROJECT_DIR)/dom/PointerEvent.idl
+$(PROJECT_DIR)/dom/PointerLockOptions.idl
 $(PROJECT_DIR)/dom/PopStateEvent.idl
 $(PROJECT_DIR)/dom/ProcessingInstruction.idl
 $(PROJECT_DIR)/dom/ProgressEvent.idl
@@ -1868,7 +1868,6 @@ $(PROJECT_DIR)/storage/StorageEvent.idl
 $(PROJECT_DIR)/svg/Document+SVG.idl
 $(PROJECT_DIR)/svg/SVGAElement.idl
 $(PROJECT_DIR)/svg/SVGAngle.idl
-$(PROJECT_DIR)/svg/SVGAnimateColorElement.idl
 $(PROJECT_DIR)/svg/SVGAnimateElement.idl
 $(PROJECT_DIR)/svg/SVGAnimateMotionElement.idl
 $(PROJECT_DIR)/svg/SVGAnimateTransformElement.idl

@@ -55,35 +55,34 @@
 
 namespace WebCore {
 
-GraphicsContextSkia::GraphicsContextSkia(sk_sp<SkSurface>&& surface, RenderingMode renderingMode, RenderingPurpose renderingPurpose)
-    : m_surface(WTFMove(surface))
+GraphicsContextSkia::GraphicsContextSkia(SkCanvas& canvas, RenderingMode renderingMode, RenderingPurpose renderingPurpose, CompletionHandler<void()>&& destroyNotify)
+    : m_canvas(canvas)
     , m_renderingMode(renderingMode)
     , m_renderingPurpose(renderingPurpose)
+    , m_destroyNotify(WTFMove(destroyNotify))
 {
-    RELEASE_ASSERT(m_surface->getCanvas());
 }
 
-GraphicsContextSkia::~GraphicsContextSkia() = default;
-
-SkCanvas& GraphicsContextSkia::canvas() const
+GraphicsContextSkia::~GraphicsContextSkia()
 {
-    return *m_surface->getCanvas();
+    if (m_destroyNotify)
+        m_destroyNotify();
 }
 
 bool GraphicsContextSkia::hasPlatformContext() const
 {
-    return !!m_surface->getCanvas();
+    return true;
 }
 
 AffineTransform GraphicsContextSkia::getCTM(IncludeDeviceScale includeScale) const
 {
     UNUSED_PARAM(includeScale);
-    return canvas().getTotalMatrix();
+    return m_canvas.getTotalMatrix();
 }
 
 SkCanvas* GraphicsContextSkia::platformContext() const
 {
-    return m_surface->getCanvas();
+    return &m_canvas;
 }
 
 bool GraphicsContextSkia::makeGLContextCurrentIfNeeded() const
@@ -98,7 +97,7 @@ void GraphicsContextSkia::save(GraphicsContextState::Purpose purpose)
 {
     GraphicsContext::save(purpose);
     m_skiaStateStack.append(m_skiaState);
-    canvas().save();
+    m_canvas.save();
 }
 
 void GraphicsContextSkia::restore(GraphicsContextState::Purpose purpose)
@@ -114,7 +113,7 @@ void GraphicsContextSkia::restore(GraphicsContextState::Purpose purpose)
             m_skiaStateStack.clear();
     }
 
-    canvas().restore();
+    m_canvas.restore();
 }
 
 // Draws a filled rectangle with a stroked border.
@@ -124,7 +123,9 @@ void GraphicsContextSkia::drawRect(const FloatRect& rect, float borderThickness)
     if (!makeGLContextCurrentIfNeeded())
         return;
 
-    canvas().drawRect(rect, createFillPaint());
+    SkPaint paint = createFillPaint();
+    setupFillSource(paint);
+    m_canvas.drawRect(rect, paint);
     if (strokeStyle() == StrokeStyle::NoStroke)
         return;
 
@@ -139,7 +140,8 @@ void GraphicsContextSkia::drawRect(const FloatRect& rect, float borderThickness)
     region.setRects(rects, 4);
     SkPaint strokePaint = createStrokePaint();
     strokePaint.setImageFilter(createDropShadowFilterIfNeeded(ShadowStyle::Outset));
-    canvas().drawRegion(region, strokePaint);
+    setupStrokeSource(strokePaint);
+    m_canvas.drawRegion(region, strokePaint);
 }
 
 static SkBlendMode toSkiaBlendMode(CompositeOperator operation, BlendMode blendMode)
@@ -257,12 +259,12 @@ void GraphicsContextSkia::drawNativeImageInternal(NativeImage& nativeImage, cons
 
     auto normalizedDestRect = normalizeRect(destRect);
     if (options.orientation() != ImageOrientation::Orientation::None) {
-        canvas().save();
+        m_canvas.save();
 
         // ImageOrientation expects the origin to be at (0, 0).
-        canvas().translate(normalizedDestRect.x(), normalizedDestRect.y());
+        m_canvas.translate(normalizedDestRect.x(), normalizedDestRect.y());
         normalizedDestRect.setLocation(FloatPoint());
-        canvas().concat(options.orientation().transformFromDefault(normalizedDestRect.size()));
+        m_canvas.concat(options.orientation().transformFromDefault(normalizedDestRect.size()));
 
         if (options.orientation().usesWidthAsHeight()) {
             // The destination rectangle will have its width and height already reversed for the orientation of
@@ -274,10 +276,10 @@ void GraphicsContextSkia::drawNativeImageInternal(NativeImage& nativeImage, cons
     SkPaint paint = createFillPaint();
     paint.setBlendMode(toSkiaBlendMode(options.compositeOperator(), options.blendMode()));
     paint.setImageFilter(createDropShadowFilterIfNeeded(ShadowStyle::Outset));
-    canvas().drawImageRect(image, normalizedSrcRect, normalizedDestRect, toSkSamplingOptions(m_state.imageInterpolationQuality()), &paint, { });
+    m_canvas.drawImageRect(image, normalizedSrcRect, normalizedDestRect, toSkSamplingOptions(m_state.imageInterpolationQuality()), &paint, { });
 
     if (options.orientation() != ImageOrientation::Orientation::None)
-        canvas().restore();
+        m_canvas.restore();
 }
 
 // This is only used to draw borders, so we should not draw shadows.
@@ -289,7 +291,42 @@ void GraphicsContextSkia::drawLine(const FloatPoint& point1, const FloatPoint& p
     if (!makeGLContextCurrentIfNeeded())
         return;
 
-    canvas().drawLine(SkFloatToScalar(point1.x()), SkFloatToScalar(point1.y()), SkFloatToScalar(point2.x()), SkFloatToScalar(point2.y()), createFillPaint());
+    SkPaint paint = createStrokePaint();
+    paint.setColor(SkColor(strokeColor().colorWithAlphaMultipliedBy(alpha())));
+
+    const bool isVertical = (point1.x() + strokeThickness() == point2.x());
+    float strokeWidth = isVertical ? point2.y() - point1.y() : point2.x() - point1.x();
+    if (!strokeThickness() || !strokeWidth)
+        return;
+
+    float cornerWidth = 0;
+
+    if (strokeStyle() == StrokeStyle::DottedStroke || strokeStyle() == StrokeStyle::DashedStroke) {
+        // Figure out end points to ensure we always paint corners.
+        cornerWidth = dashedLineCornerWidthForStrokeWidth(strokeWidth);
+        if (isVertical) {
+            fillRect(FloatRect(point1.x(), point1.y(), strokeThickness(), cornerWidth), strokeColor());
+            fillRect(FloatRect(point1.x(), point2.y() - cornerWidth, strokeThickness(), cornerWidth), strokeColor());
+        } else {
+            fillRect(FloatRect(point1.x(), point1.y(), cornerWidth, strokeThickness()), strokeColor());
+            fillRect(FloatRect(point2.x() - cornerWidth, point1.y(), cornerWidth, strokeThickness()), strokeColor());
+        }
+        strokeWidth -= 2 * cornerWidth;
+        const float patternWidth = dashedLinePatternWidthForStrokeWidth(strokeWidth);
+        // Check if corner drawing sufficiently covers the line.
+        if (strokeWidth <= patternWidth + 1)
+            return;
+
+        const SkScalar dashIntervals[] = { SkFloatToScalar(patternWidth), SkFloatToScalar(patternWidth) };
+        const float patternOffset = dashedLinePatternOffsetForPatternAndStrokeWidth(patternWidth, strokeWidth);
+        paint.setPathEffect(SkDashPathEffect::Make(dashIntervals, 2, patternOffset));
+    }
+
+    const auto centeredPoints = centerLineAndCutOffCorners(isVertical, cornerWidth, point1, point2);
+    const auto& centeredPoint1 = centeredPoints[0];
+    const auto& centeredPoint2 = centeredPoints[1];
+
+    m_canvas.drawLine(SkFloatToScalar(centeredPoint1.x()), SkFloatToScalar(centeredPoint1.y()), SkFloatToScalar(centeredPoint2.x()), SkFloatToScalar(centeredPoint2.y()), paint);
 }
 
 // This method is only used to draw the little circles used in lists.
@@ -298,7 +335,9 @@ void GraphicsContextSkia::drawEllipse(const FloatRect& boundaries)
     if (!makeGLContextCurrentIfNeeded())
         return;
 
-    canvas().drawOval(boundaries, createFillPaint());
+    SkPaint paint = createFillPaint();
+    setupFillSource(paint);
+    m_canvas.drawOval(boundaries, paint);
 }
 
 static inline SkPathFillType toSkiaFillType(const WindRule& windRule)
@@ -323,17 +362,18 @@ void GraphicsContextSkia::fillPath(const Path& path)
 
     SkPaint paint = createFillPaint();
     paint.setImageFilter(createDropShadowFilterIfNeeded(ShadowStyle::Outset));
+    setupFillSource(paint);
 
     auto fillRule = toSkiaFillType(state().fillRule());
     auto& skiaPath= *path.platformPath();
     if (skiaPath.getFillType() == fillRule) {
-        canvas().drawPath(skiaPath, paint);
+        m_canvas.drawPath(skiaPath, paint);
         return;
     }
 
     auto skiaPathCopy = skiaPath;
     skiaPathCopy.setFillType(fillRule);
-    canvas().drawPath(skiaPathCopy, paint);
+    m_canvas.drawPath(skiaPathCopy, paint);
 }
 
 void GraphicsContextSkia::strokePath(const Path& path)
@@ -346,7 +386,8 @@ void GraphicsContextSkia::strokePath(const Path& path)
 
     SkPaint strokePaint = createStrokePaint();
     strokePaint.setImageFilter(createDropShadowFilterIfNeeded(ShadowStyle::Outset));
-    canvas().drawPath(*path.platformPath(), strokePaint);
+    setupStrokeSource(strokePaint);
+    m_canvas.drawPath(*path.platformPath(), strokePaint);
 }
 
 sk_sp<SkImageFilter> GraphicsContextSkia::createDropShadowFilterIfNeeded(ShadowStyle shadowStyle) const
@@ -401,52 +442,47 @@ sk_sp<SkImageFilter> GraphicsContextSkia::createDropShadowFilterIfNeeded(ShadowS
     return nullptr;
 }
 
-SkPaint GraphicsContextSkia::createFillPaint(std::optional<Color> fillColor) const
+SkPaint GraphicsContextSkia::createFillPaint() const
 {
-    const auto& state = this->state();
-
     SkPaint paint;
-    paint.setAntiAlias(true);
+    paint.setAntiAlias(shouldAntialias());
     paint.setStyle(SkPaint::kFill_Style);
-    paint.setBlendMode(toSkiaBlendMode(state.compositeMode().operation, state.compositeMode().blendMode));
-
-    if (auto fillPattern = state.fillBrush().pattern())
-        paint.setShader(fillPattern->createPlatformPattern({ }));
-    else if (auto fillGradient = state.fillBrush().gradient())
-        paint.setShader(fillGradient->shader(state.alpha(), state.fillBrush().gradientSpaceTransform()));
-    else
-        paint.setColor(SkColor(fillColor.value_or(state.fillBrush().color()).colorWithAlphaMultipliedBy(state.alpha())));
+    paint.setBlendMode(toSkiaBlendMode(compositeMode().operation, blendMode()));
 
     return paint;
 }
 
-SkPaint GraphicsContextSkia::createStrokeStylePaint() const
+void GraphicsContextSkia::setupFillSource(SkPaint& paint) const
+{
+    if (auto fillPattern = fillBrush().pattern())
+        paint.setShader(fillPattern->createPlatformPattern({ }, toSkSamplingOptions(imageInterpolationQuality())));
+    else if (auto fillGradient = fillBrush().gradient())
+        paint.setShader(fillGradient->shader(alpha(), fillBrush().gradientSpaceTransform()));
+    else
+        paint.setColor(SkColor(fillColor().colorWithAlphaMultipliedBy(alpha())));
+}
+
+SkPaint GraphicsContextSkia::createStrokePaint() const
 {
     SkPaint paint;
+    paint.setAntiAlias(shouldAntialias());
     paint.setStyle(SkPaint::kStroke_Style);
     paint.setStrokeCap(m_skiaState.m_stroke.cap);
     paint.setStrokeJoin(m_skiaState.m_stroke.join);
     paint.setStrokeMiter(m_skiaState.m_stroke.miter);
-    paint.setStrokeWidth(SkFloatToScalar(state().strokeThickness()));
+    paint.setStrokeWidth(SkFloatToScalar(strokeThickness()));
     paint.setPathEffect(m_skiaState.m_stroke.dash);
     return paint;
 }
 
-SkPaint GraphicsContextSkia::createStrokePaint(std::optional<Color> strokeColor) const
+void GraphicsContextSkia::setupStrokeSource(SkPaint& paint) const
 {
-    const auto& state = this->state();
-
-    SkPaint paint = createStrokeStylePaint();
-    paint.setAntiAlias(true);
-
-    if (auto strokePattern = state.strokeBrush().pattern())
-        paint.setShader(strokePattern->createPlatformPattern({ }));
-    else if (auto strokeGradient = state.strokeBrush().gradient())
-        paint.setShader(strokeGradient->shader(state.alpha(), state.strokeBrush().gradientSpaceTransform()));
+    if (auto strokePattern = strokeBrush().pattern())
+        paint.setShader(strokePattern->createPlatformPattern({ }, toSkSamplingOptions(imageInterpolationQuality())));
+    else if (auto strokeGradient = strokeBrush().gradient())
+        paint.setShader(strokeGradient->shader(alpha(), strokeBrush().gradientSpaceTransform()));
     else
-        paint.setColor(SkColor(strokeColor.value_or(state.strokeBrush().color()).colorWithAlphaMultipliedBy(state.alpha())));
-
-    return paint;
+        paint.setColor(SkColor(strokeBrush().color().colorWithAlphaMultipliedBy(alpha())));
 }
 
 void GraphicsContextSkia::fillRect(const FloatRect& boundaries)
@@ -456,7 +492,8 @@ void GraphicsContextSkia::fillRect(const FloatRect& boundaries)
 
     SkPaint paint = createFillPaint();
     paint.setImageFilter(createDropShadowFilterIfNeeded(ShadowStyle::Outset));
-    canvas().drawRect(boundaries, paint);
+    setupFillSource(paint);
+    m_canvas.drawRect(boundaries, paint);
 }
 
 void GraphicsContextSkia::fillRect(const FloatRect& boundaries, const Color& fillColor)
@@ -464,14 +501,21 @@ void GraphicsContextSkia::fillRect(const FloatRect& boundaries, const Color& fil
     if (!makeGLContextCurrentIfNeeded())
         return;
 
-    SkPaint paint = createFillPaint(fillColor);
+    SkPaint paint = createFillPaint();
+    paint.setColor(SkColor(fillColor));
     paint.setImageFilter(createDropShadowFilterIfNeeded(ShadowStyle::Outset));
-    canvas().drawRect(boundaries, paint);
+    m_canvas.drawRect(boundaries, paint);
 }
 
-void GraphicsContextSkia::fillRect(const FloatRect&, Gradient&, const AffineTransform&)
+void GraphicsContextSkia::fillRect(const FloatRect& boundaries, Gradient& gradient, const AffineTransform& gradientSpaceTransform)
 {
-    notImplemented();
+    if (!makeGLContextCurrentIfNeeded())
+        return;
+
+    SkPaint paint = createFillPaint();
+    paint.setShader(gradient.shader(alpha(), gradientSpaceTransform));
+    paint.setImageFilter(createDropShadowFilterIfNeeded(ShadowStyle::Outset));
+    m_canvas.drawRect(boundaries, paint);
 }
 
 void GraphicsContextSkia::resetClip()
@@ -481,7 +525,7 @@ void GraphicsContextSkia::resetClip()
 
 void GraphicsContextSkia::clip(const FloatRect& rect)
 {
-    canvas().clipRect(rect, SkClipOp::kIntersect, false);
+    m_canvas.clipRect(rect, SkClipOp::kIntersect, false);
 }
 
 void GraphicsContextSkia::clipPath(const Path& path, WindRule clipRule)
@@ -492,23 +536,24 @@ void GraphicsContextSkia::clipPath(const Path& path, WindRule clipRule)
     auto fillRule = toSkiaFillType(clipRule);
     auto& skiaPath = *path.platformPath();
     if (skiaPath.getFillType() == fillRule) {
-        canvas().clipPath(skiaPath, true);
+        m_canvas.clipPath(skiaPath, true);
         return;
     }
 
     auto skiaPathCopy = skiaPath;
     skiaPathCopy.setFillType(fillRule);
-    canvas().clipPath(skiaPathCopy, true);
+    m_canvas.clipPath(skiaPathCopy, true);
 }
 
 IntRect GraphicsContextSkia::clipBounds() const
 {
-    return enclosingIntRect(canvas().getLocalClipBounds());
+    return enclosingIntRect(m_canvas.getLocalClipBounds());
 }
 
-void GraphicsContextSkia::clipToImageBuffer(ImageBuffer&, const FloatRect& /*destRect*/)
+void GraphicsContextSkia::clipToImageBuffer(ImageBuffer& buffer, const FloatRect& destRect)
 {
-    notImplemented();
+    if (auto nativeImage = nativeImageForDrawing(buffer))
+        m_canvas.clipShader(nativeImage->platformImage()->makeShader(SkTileMode::kDecal, SkTileMode::kDecal, { }, SkMatrix::Translate(SkFloatToScalar(destRect.x()), SkFloatToScalar(destRect.y()))));
 }
 
 void GraphicsContextSkia::drawFocusRing(const Path& path, float, const Color& color)
@@ -583,14 +628,81 @@ void GraphicsContextSkia::drawLinesForText(const FloatPoint& point, float thickn
         fillRect(dash, localStrokeColor);
 }
 
-void GraphicsContextSkia::drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle)
+// Creates a path comprising of two triangle waves separated by some empty space in Y axis.
+// The empty space can be filled using SkPaint::kFill_Style thus forming an elegant triangle wave.
+// Such triangle wave can be used e.g. as an error underline for text.
+static SkPath createErrorUnderlinePath(const FloatRect& boundaries)
 {
-    notImplemented();
+    const double y = boundaries.y();
+    double width = boundaries.width();
+    const double height = boundaries.height();
+    static const double heightSquares = 2.5;
+
+    const double square = height / heightSquares;
+    const double halfSquare = 0.5 * square;
+
+    const double unitWidth = (heightSquares - 1.0) * square;
+    const int widthUnits = static_cast<int>((width + 0.5 * unitWidth) / unitWidth);
+
+    double x = boundaries.x() + 0.5 * (width - widthUnits * unitWidth);
+    width = widthUnits * unitWidth;
+
+    const double bottom = y + height;
+    const double top = y;
+
+    SkPath path;
+
+    // Bottom triangle wave, left to right.
+    path.moveTo(SkDoubleToScalar(x - halfSquare), SkDoubleToScalar(top + halfSquare));
+
+    int i = 0;
+    for (i = 0; i < widthUnits; i += 2) {
+        const double middle = x + (i + 1) * unitWidth;
+        const double right = x + (i + 2) * unitWidth;
+
+        path.lineTo(SkDoubleToScalar(middle), SkDoubleToScalar(bottom));
+
+        if (i + 2 == widthUnits)
+            path.lineTo(SkDoubleToScalar(right + halfSquare), SkDoubleToScalar(top + halfSquare));
+        else if (i + 1 != widthUnits)
+            path.lineTo(SkDoubleToScalar(right), SkDoubleToScalar(top + square));
+    }
+
+    // Top triangle wave, right to left.
+    for (i -= 2; i >= 0; i -= 2) {
+        const double left = x + i * unitWidth;
+        const double middle = x + (i + 1) * unitWidth;
+        const double right = x + (i + 2) * unitWidth;
+
+        if (i + 1 == widthUnits)
+            path.lineTo(SkDoubleToScalar(middle + halfSquare), SkDoubleToScalar(bottom - halfSquare));
+        else {
+            if (i + 2 == widthUnits)
+                path.lineTo(SkDoubleToScalar(right), SkDoubleToScalar(top));
+
+            path.lineTo(SkDoubleToScalar(middle), SkDoubleToScalar(bottom - halfSquare));
+        }
+
+        path.lineTo(SkDoubleToScalar(left), SkDoubleToScalar(top));
+    }
+
+    return path;
+}
+
+void GraphicsContextSkia::drawDotsForDocumentMarker(const FloatRect& boundaries, DocumentMarkerLineStyle style)
+{
+    if (style.mode != DocumentMarkerLineStyleMode::Spelling
+        && style.mode != DocumentMarkerLineStyleMode::Grammar)
+        return;
+
+    SkPaint paint = createFillPaint();
+    paint.setColor(SkColor(style.color));
+    m_canvas.drawPath(createErrorUnderlinePath(boundaries), paint);
 }
 
 void GraphicsContextSkia::translate(float x, float y)
 {
-    canvas().translate(SkFloatToScalar(x), SkFloatToScalar(y));
+    m_canvas.translate(SkFloatToScalar(x), SkFloatToScalar(y));
 }
 
 void GraphicsContextSkia::didUpdateState(GraphicsContextState& state)
@@ -601,12 +713,12 @@ void GraphicsContextSkia::didUpdateState(GraphicsContextState& state)
 
 void GraphicsContextSkia::concatCTM(const AffineTransform& ctm)
 {
-    canvas().concat(ctm);
+    m_canvas.concat(ctm);
 }
 
 void GraphicsContextSkia::setCTM(const AffineTransform& ctm)
 {
-    canvas().setMatrix(ctm);
+    m_canvas.setMatrix(ctm);
 }
 
 void GraphicsContextSkia::beginTransparencyLayer(float opacity)
@@ -618,7 +730,7 @@ void GraphicsContextSkia::beginTransparencyLayer(float opacity)
     SkPaint paint;
     paint.setAlphaf(opacity);
     paint.setBlendMode(toSkiaBlendMode(m_state.compositeMode().operation, m_state.compositeMode().blendMode));
-    canvas().saveLayer(nullptr, &paint);
+    m_canvas.saveLayer(nullptr, &paint);
 }
 
 void GraphicsContextSkia::endTransparencyLayer()
@@ -627,7 +739,7 @@ void GraphicsContextSkia::endTransparencyLayer()
         return;
 
     GraphicsContext::endTransparencyLayer();
-    canvas().restore();
+    m_canvas.restore();
 }
 
 void GraphicsContextSkia::clearRect(const FloatRect& rect)
@@ -637,7 +749,7 @@ void GraphicsContextSkia::clearRect(const FloatRect& rect)
 
     auto paint = createFillPaint();
     paint.setBlendMode(SkBlendMode::kClear);
-    canvas().drawRect(rect, paint);
+    m_canvas.drawRect(rect, paint);
 }
 
 void GraphicsContextSkia::strokeRect(const FloatRect& boundaries, float lineWidth)
@@ -648,7 +760,8 @@ void GraphicsContextSkia::strokeRect(const FloatRect& boundaries, float lineWidt
     auto strokePaint = createStrokePaint();
     strokePaint.setStrokeWidth(SkFloatToScalar(lineWidth));
     strokePaint.setImageFilter(createDropShadowFilterIfNeeded(ShadowStyle::Outset));
-    canvas().drawRect(boundaries, strokePaint);
+    setupStrokeSource(strokePaint);
+    m_canvas.drawRect(boundaries, strokePaint);
 }
 
 void GraphicsContextSkia::setLineCap(LineCap lineCap)
@@ -706,23 +819,23 @@ void GraphicsContextSkia::clipOut(const Path& path)
 {
     auto& skiaPath = *path.platformPath();
     skiaPath.toggleInverseFillType();
-    canvas().clipPath(skiaPath, true);
+    m_canvas.clipPath(skiaPath, true);
     skiaPath.toggleInverseFillType();
 }
 
 void GraphicsContextSkia::rotate(float radians)
 {
-    canvas().rotate(SkFloatToScalar(rad2deg(radians)));
+    m_canvas.rotate(SkFloatToScalar(rad2deg(radians)));
 }
 
 void GraphicsContextSkia::scale(const FloatSize& scale)
 {
-    canvas().scale(SkFloatToScalar(scale.width()), SkFloatToScalar(scale.height()));
+    m_canvas.scale(SkFloatToScalar(scale.width()), SkFloatToScalar(scale.height()));
 }
 
 void GraphicsContextSkia::clipOut(const FloatRect& rect)
 {
-    canvas().clipRect(rect, SkClipOp::kDifference, false);
+    m_canvas.clipRect(rect, SkClipOp::kDifference, false);
 }
 
 void GraphicsContextSkia::fillRoundedRectImpl(const FloatRoundedRect& rect, const Color& color)
@@ -730,9 +843,10 @@ void GraphicsContextSkia::fillRoundedRectImpl(const FloatRoundedRect& rect, cons
     if (!makeGLContextCurrentIfNeeded())
         return;
 
-    SkPaint paint = createFillPaint(color);
+    SkPaint paint = createFillPaint();
+    paint.setColor(SkColor(color));
     paint.setImageFilter(createDropShadowFilterIfNeeded(ShadowStyle::Outset));
-    canvas().drawRRect(rect, paint);
+    m_canvas.drawRRect(rect, paint);
 }
 
 void GraphicsContextSkia::fillRectWithRoundedHole(const FloatRect& outerRect, const FloatRoundedRect& innerRRect, const Color& color)
@@ -743,9 +857,10 @@ void GraphicsContextSkia::fillRectWithRoundedHole(const FloatRect& outerRect, co
     if (!makeGLContextCurrentIfNeeded())
         return;
 
-    SkPaint paint = createFillPaint(color);
+    SkPaint paint = createFillPaint();
+    paint.setColor(SkColor(color));
     paint.setImageFilter(createDropShadowFilterIfNeeded(ShadowStyle::Inset));
-    canvas().drawDRRect(SkRRect::MakeRect(outerRect), innerRRect, paint);
+    m_canvas.drawDRRect(SkRRect::MakeRect(outerRect), innerRRect, paint);
 }
 
 void GraphicsContextSkia::drawPattern(NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImagePaintingOptions options)
@@ -760,12 +875,6 @@ void GraphicsContextSkia::drawPattern(NativeImage& nativeImage, const FloatRect&
     if (!makeGLContextCurrentIfNeeded())
         return;
 
-    auto tileMode = [](float dstPoint, float dstMax, float tilePoint, float tileMax) -> SkTileMode {
-        return dstPoint >= tilePoint && dstMax <= tileMax ? SkTileMode::kClamp : SkTileMode::kRepeat;
-    };
-    auto tileModeX = tileMode(destRect.x(), destRect.maxX(), tileRect.x(), tileRect.maxX());
-    auto tileModeY = tileMode(destRect.y(), destRect.maxY(), tileRect.y(), tileRect.maxY());
-
     FloatRect rect(tileRect);
     rect.moveBy(phase);
     SkMatrix phaseMatrix;
@@ -773,6 +882,12 @@ void GraphicsContextSkia::drawPattern(NativeImage& nativeImage, const FloatRect&
     SkMatrix shaderMatrix = SkMatrix::Concat(phaseMatrix, patternTransform);
     auto samplingOptions = toSkSamplingOptions(m_state.imageInterpolationQuality());
     bool needsClip = tileRect.size() != nativeImage.size();
+
+    auto tileMode = [](float dstPoint, float dstMax, float tilePoint, float tileMax) -> SkTileMode {
+        return dstPoint >= tilePoint && dstMax <= tileMax ? SkTileMode::kClamp : SkTileMode::kRepeat;
+    };
+    auto tileModeX = tileMode(destRect.x(), destRect.maxX(), rect.x(), rect.maxX());
+    auto tileModeY = tileMode(destRect.y(), destRect.maxY(), rect.y(), rect.maxY());
 
     SkPaint paint = createFillPaint();
     paint.setBlendMode(toSkiaBlendMode(options.compositeOperator(), options.blendMode()));
@@ -791,7 +906,7 @@ void GraphicsContextSkia::drawPattern(NativeImage& nativeImage, const FloatRect&
         paint.setShader(picture->makeShader(tileModeX, tileModeY, samplingOptions.filter, &shaderMatrix, nullptr));
     }
 
-    canvas().drawRect(destRect, paint);
+    m_canvas.drawRect(destRect, paint);
 }
 
 RenderingMode GraphicsContextSkia::renderingMode() const

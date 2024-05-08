@@ -40,14 +40,20 @@ namespace WebKit {
 
 bool WebExtensionAPINamespace::isPropertyAllowed(const ASCIILiteral& name, WebPage& page)
 {
+    if (UNLIKELY(extensionContext().isUnsupportedAPI(propertyPath(), name)))
+        return false;
+
     if (name == "action"_s)
-        return extensionContext().supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext().manifest(), @"action");
+        return extensionContext().supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext().manifest(), @"action", false);
 
     if (name == "commands"_s)
         return objectForKey<NSDictionary>(extensionContext().manifest(), @"commands");
 
+    if (name == "declarativeNetRequest"_s)
+        return extensionContext().hasPermission(name) || extensionContext().hasPermission("declarativeNetRequestWithHostAccess"_s);
+
     if (name == "browserAction"_s)
-        return !extensionContext().supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext().manifest(), @"browser_action");
+        return !extensionContext().supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext().manifest(), @"browser_action", false);
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
     if (name == "devtools"_s)
@@ -62,18 +68,22 @@ bool WebExtensionAPINamespace::isPropertyAllowed(const ASCIILiteral& name, WebPa
         // Notifications are currently only available in test mode as an empty stub.
         if (!extensionContext().inTestingMode())
             return false;
-        // Fall through to the permissions check below.
+        goto finish;
     }
 
     if (name == "pageAction"_s)
-        return !extensionContext().supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext().manifest(), @"page_action");
+        return !extensionContext().supportsManifestVersion(3) && objectForKey<NSDictionary>(extensionContext().manifest(), @"page_action", false);
+
+    if (name == "storage"_s)
+        return extensionContext().hasPermission(name) || extensionContext().hasPermission("unlimitedStorage"_s);
 
     if (name == "test"_s)
         return extensionContext().inTestingMode();
 
-    // FIXME: https://webkit.org/b/259914 This should be a hasPermission: call to extensionContext() and updated with actually granted permissions from the UI process.
-    auto *permissions = objectForKey<NSArray>(extensionContext().manifest(), @"permissions", true, NSString.class);
-    return [permissions containsObject:name.createNSString().get()];
+finish:
+    // The rest of the property names marked dynamic in WebExtensionAPINamespace.idl match permission names.
+    // Check for the permission to determine if the property is allowed to be accessed.
+    return extensionContext().hasPermission(name);
 }
 
 WebExtensionAPIAction& WebExtensionAPINamespace::action()
@@ -192,8 +202,10 @@ WebExtensionAPIRuntime& WebExtensionAPINamespace::runtime() const
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime
 
-    if (!m_runtime)
+    if (!m_runtime) {
         m_runtime = WebExtensionAPIRuntime::create(contentWorldType(), extensionContext());
+        m_runtime->setPropertyPath("runtime"_s, this);
+    }
 
     return *m_runtime;
 }

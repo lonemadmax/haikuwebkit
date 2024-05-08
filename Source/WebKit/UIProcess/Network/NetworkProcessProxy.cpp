@@ -212,6 +212,10 @@ void NetworkProcessProxy::sendCreationParametersToNewProcess()
     parameters.isParentProcessFullWebBrowserOrRunningTest = isFullWebBrowserOrRunningTest();
 #endif
 
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+    parameters.storageAccessPromptQuirksData = StorageAccessPromptQuirkController::shared().cachedQuirks();
+#endif
+
     WebProcessPool::platformInitializeNetworkProcess(parameters);
     sendWithAsyncReply(Messages::NetworkProcess::InitializeNetworkProcess(WTFMove(parameters)), [weakThis = WeakPtr { *this }] {
         if (weakThis)
@@ -1367,12 +1371,12 @@ void NetworkProcessProxy::setDomainsWithUserInteraction(HashSet<WebCore::Registr
         processPool->setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain> { domains });
 }
 
-void NetworkProcessProxy::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, SubResourceDomain>&& domains, CompletionHandler<void()>&& completionHandler)
+void NetworkProcessProxy::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Vector<SubResourceDomain>>&& domains, CompletionHandler<void()>&& completionHandler)
 {    
     auto callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
     
     for (auto& processPool : WebProcessPool::allProcessPools())
-        processPool->setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, SubResourceDomain> { domains }, [callbackAggregator] { });
+        processPool->setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Vector<SubResourceDomain>> { domains }, [callbackAggregator] { });
 }
 
 void NetworkProcessProxy::setPrivateClickMeasurementDebugMode(PAL::SessionID sessionID, bool debugMode)

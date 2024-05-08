@@ -87,7 +87,6 @@ StyleSheetContents* UserAgentStyle::plugInsStyleSheet;
 StyleSheetContents* UserAgentStyle::horizontalFormControlsStyleSheet;
 StyleSheetContents* UserAgentStyle::htmlSwitchControlStyleSheet;
 StyleSheetContents* UserAgentStyle::counterStylesStyleSheet;
-StyleSheetContents* UserAgentStyle::rubyStyleSheet;
 StyleSheetContents* UserAgentStyle::viewTransitionsStyleSheet;
 #if ENABLE(FULLSCREEN_API)
 StyleSheetContents* UserAgentStyle::fullscreenStyleSheet;
@@ -254,7 +253,7 @@ void UserAgentStyle::ensureDefaultStyleSheetsForElement(const Element& element)
     }
 #endif // ENABLE(MATHML)
 
-    bool popoverAttributeEnabled = element.document().settings().popoverAttributeEnabled() && !element.document().quirks().shouldDisablePopoverAttributeQuirk();
+    bool popoverAttributeEnabled = element.document().settings().popoverAttributeEnabled();
     if (!popoverStyleSheet && popoverAttributeEnabled && element.hasAttributeWithoutSynchronization(popoverAttr)) {
         popoverStyleSheet = parseUASheet(StringImpl::createWithoutCopying(popoverUserAgentStyleSheet, sizeof(popoverUserAgentStyleSheet)));
         addToDefaultStyle(*popoverStyleSheet);
@@ -263,11 +262,6 @@ void UserAgentStyle::ensureDefaultStyleSheetsForElement(const Element& element)
     if (!counterStylesStyleSheet) {
         counterStylesStyleSheet = parseUASheet(StringImpl::createWithoutCopying(counterStylesUserAgentStyleSheet, sizeof(counterStylesUserAgentStyleSheet)));
         addToCounterStyleRegistry(*counterStylesStyleSheet);
-    }
-
-    if (!rubyStyleSheet && element.document().settings().cssBasedRubyEnabled()) {
-        rubyStyleSheet = parseUASheet(StringImpl::createWithoutCopying(rubyUserAgentStyleSheet, sizeof(rubyUserAgentStyleSheet)));
-        addToDefaultStyle(*rubyStyleSheet);
     }
 
 #if ENABLE(FULLSCREEN_API)

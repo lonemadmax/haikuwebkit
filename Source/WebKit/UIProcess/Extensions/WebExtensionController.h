@@ -49,6 +49,7 @@
 OBJC_CLASS NSError;
 OBJC_CLASS NSMenu;
 OBJC_CLASS _WKWebExtensionStorageSQLiteStore;
+OBJC_CLASS _WKWebExtensionControllerHelper;
 OBJC_PROTOCOL(_WKWebExtensionControllerDelegatePrivate);
 
 #ifdef __OBJC__
@@ -174,6 +175,8 @@ private:
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 
+    void initializePlatform();
+
     void addProcessPool(WebProcessPool&);
     void removeProcessPool(WebProcessPool&);
 
@@ -187,7 +190,7 @@ private:
     String storageDirectory(WebExtensionContext&) const;
 
     String stateFilePath(const String& uniqueIdentifier) const;
-    _WKWebExtensionStorageSQLiteStore* sqliteStore(const String& storageDirectory, WebExtensionDataType, std::optional<RefPtr<WebExtensionContext>>);
+    _WKWebExtensionStorageSQLiteStore* sqliteStore(const String& storageDirectory, WebExtensionDataType, RefPtr<WebExtensionContext>);
 
     void didStartProvisionalLoadForFrame(WebPageProxyIdentifier, WebExtensionFrameIdentifier, WebExtensionFrameIdentifier parentFrameID, const URL&, WallTime);
     void didCommitLoadForFrame(WebPageProxyIdentifier, WebExtensionFrameIdentifier, WebExtensionFrameIdentifier parentFrameID, const URL&, WallTime);
@@ -226,6 +229,7 @@ private:
 
     Ref<WebExtensionControllerConfiguration> m_configuration;
 
+    RetainPtr<_WKWebExtensionControllerHelper> m_webExtensionControllerHelper;
     WebExtensionContextSet m_extensionContexts;
     WebExtensionContextBaseURLMap m_extensionContextBaseURLMap;
     WebPageProxySet m_pages;

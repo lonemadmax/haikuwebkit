@@ -32,6 +32,8 @@
 #include <wtf/FastMalloc.h>
 
 #if USE(SKIA)
+#include "FontRenderOptions.h"
+#include "GLFence.h"
 #include "PlatformDisplay.h"
 #include <skia/core/SkCanvas.h>
 #include <skia/core/SkImage.h>
@@ -90,7 +92,8 @@ UnacceleratedBuffer::UnacceleratedBuffer(const WebCore::IntSize& size, Flags fla
 #if USE(SKIA)
     auto imageInfo = SkImageInfo::MakeN32Premul(size.width(), size.height());
     // FIXME: ref buffer and unref on release proc?
-    m_surface = SkSurfaces::WrapPixels(imageInfo, m_data.get(), imageInfo.minRowBytes64(), nullptr);
+    SkSurfaceProps properties = { 0, WebCore::FontRenderOptions::singleton().subpixelOrder() };
+    m_surface = SkSurfaces::WrapPixels(imageInfo, m_data.get(), imageInfo.minRowBytes64(), &properties);
 #endif
 }
 
@@ -138,11 +141,7 @@ AcceleratedBuffer::AcceleratedBuffer(sk_sp<SkSurface>&& surface, Flags flags)
     m_surface = WTFMove(surface);
 }
 
-AcceleratedBuffer::~AcceleratedBuffer()
-{
-    if (m_sync)
-        glDeleteSync(m_sync);
-}
+AcceleratedBuffer::~AcceleratedBuffer() = default;
 
 WebCore::IntSize AcceleratedBuffer::size() const
 {
@@ -151,11 +150,6 @@ WebCore::IntSize AcceleratedBuffer::size() const
 
 void AcceleratedBuffer::beginPainting()
 {
-    if (m_sync) {
-        glDeleteSync(m_sync);
-        m_sync = nullptr;
-    }
-
     m_surface->getCanvas()->save();
     m_surface->getCanvas()->clear(SkColors::kTransparent);
 }
@@ -165,9 +159,9 @@ void AcceleratedBuffer::completePainting()
     m_surface->getCanvas()->restore();
 
     auto* grContext = WebCore::PlatformDisplay::sharedDisplayForCompositing().skiaGrContext();
-    // FIXME: check if glFence is available and if not pass GrSyncCpu::kYes.
-    grContext->flushAndSubmit(m_surface.get(), GrSyncCpu::kNo);
-    m_sync = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+    grContext->flush(m_surface.get());
+    m_fence = WebCore::GLFence::create();
+    grContext->submit(m_fence ? GrSyncCpu::kNo : GrSyncCpu::kYes);
 
     auto texture = SkSurfaces::GetBackendTexture(m_surface.get(), SkSurface::BackendHandleAccess::kFlushRead);
     ASSERT(texture.isValid());
@@ -180,8 +174,11 @@ void AcceleratedBuffer::completePainting()
 
 void AcceleratedBuffer::waitUntilPaintingComplete()
 {
-    if (m_sync)
-        glClientWaitSync(m_sync, 0, GL_TIMEOUT_IGNORED);
+    if (!m_fence)
+        return;
+
+    m_fence->wait(WebCore::GLFence::FlushCommands::No);
+    m_fence = nullptr;
 }
 #endif
 

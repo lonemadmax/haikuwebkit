@@ -233,9 +233,6 @@ http/wpt/mediastream/mediastreamtrackprocessor-videoframe-timestamp.html [ Pass 
 webkit.org/b/226521 [ Release ] imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/source-media-outside-doc.html [ Pass Failure ]
 webkit.org/b/226521 [ Debug ] imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/source-media-outside-doc.html [ Pass ]
 
-# Nicosia
-webkit.org/b/213228 fast/viewport/viewport-1.html [ Crash Timeout Pass ]
-
 # We don't yet support EXIF-based resolution
 webkit.org/b/217821 imported/w3c/web-platform-tests/density-size-correction/ [ Skip ]
 
@@ -250,7 +247,6 @@ webkit.org/b/258543 scrollingcoordinator/scrolling-tree/absolute-in-nested-overf
 webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-composite-04-f-manual.svg [ Failure ]
 webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-composite-05-f-manual.svg [ Failure ]
 webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-conv-03-f-manual.svg [ Failure ]
-webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-displace-01-f-manual.svg [ Failure ]
 webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-image-01-b-manual.svg [ Failure ]
 webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-image-02-b-manual.svg [ Failure ]
 webkit.org/b/236430 imported/w3c/web-platform-tests/svg/import/filters-image-03-f-manual.svg [ Failure ]
@@ -339,10 +335,6 @@ imported/w3c/web-platform-tests/infrastructure/server/wpt-server-http.sub.html [
 imported/w3c/web-platform-tests/mimesniff/media/media-sniff.window.html [ Failure ]
 imported/w3c/web-platform-tests/navigation-timing/nav2_test_redirect_chain_xserver_partial_opt_in.html [ Failure ]
 imported/w3c/web-platform-tests/navigation-timing/test_timing_xserver_redirect.html [ Failure ]
-imported/w3c/web-platform-tests/pointerlock/idlharness.window.html [ Failure ]
-imported/w3c/web-platform-tests/pointerlock/pointerlock_remove_target.html [ Failure ]
-imported/w3c/web-platform-tests/pointerlock/pointerlock_remove_target_on_mouseup.html [ Failure ]
-imported/w3c/web-platform-tests/pointerlock/pointerlock_shadow.html [ Failure ]
 imported/w3c/web-platform-tests/screen-orientation/hidden_document.html [ Failure ]
 imported/w3c/web-platform-tests/service-workers/service-worker/navigation-redirect.https.html?client [ Failure ]
 imported/w3c/web-platform-tests/service-workers/service-worker/navigation-redirect.https.html [ Skip ]
@@ -547,6 +539,7 @@ webkit.org/b/204001 pointer-lock/ [ Skip ]
 webkit.org/b/204001 fast/shadow-dom/pointerlockelement-in-shadow-tree.html [ Skip ]
 webkit.org/b/204001 fast/shadow-dom/pointerlockelement-in-slot.html [ Skip ]
 webkit.org/b/204001 imported/w3c/web-platform-tests/pointerevents/pointerlock/pointerevent_coordinates_when_locked.html [ Skip ]
+webkit.org/b/204001 imported/w3c/web-platform-tests/pointerlock/ [ Skip ]
 
 Bug(WPE) fast/images/embed-image.html [ Skip ]
 Bug(WPE) fast/images/object-image.html [ Skip ]
@@ -1659,3 +1652,10 @@ compositing/visible-rect/scrolled.html [ Failure ]
 compositing/video/video-border-radius-clipping.html [ ImageOnlyFailure ]
 
 imported/w3c/web-platform-tests/css/css-view-transitions/window-resize-aborts-transition-before-ready.html [ ImageOnlyFailure ]
+
+# Tests timing out after 275888@main.
+fast/block/float/floats-wrap-inside-inline-006.html [ Timeout ]
+fast/block/float/previous-sibling-abspos-002.html [ Timeout ]
+fast/text/ruby-justify-tatechuyoko.html [ Timeout ]
+fast/text/text-emphasis.html [ Timeout ]
+fast/text/whitespace/pre-wrap-015.html [ Timeout ]

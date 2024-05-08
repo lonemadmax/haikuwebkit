@@ -154,7 +154,7 @@ bool RenderSVGInlineText::characterStartsNewTextChunk(int position) const
     return it->value.x != SVGTextLayoutAttributes::emptyValue() || it->value.y != SVGTextLayoutAttributes::emptyValue();
 }
 
-VisiblePosition RenderSVGInlineText::positionForPoint(const LayoutPoint& point, const RenderFragmentContainer*)
+VisiblePosition RenderSVGInlineText::positionForPoint(const LayoutPoint& point, HitTestSource, const RenderFragmentContainer*)
 {
     if (!firstTextBox() || text().isEmpty())
         return createVisiblePosition(0, Affinity::Downstream);
@@ -211,12 +211,10 @@ void RenderSVGInlineText::updateScaledFont()
 
 float RenderSVGInlineText::computeScalingFactorForRenderer(const RenderObject& renderer)
 {
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (renderer.document().settings().layerBasedSVGEngineEnabled()) {
         if (const auto* layerRenderer = lineageOfType<RenderLayerModelObject>(renderer).first())
             return SVGLayerTransformComputation(*layerRenderer).calculateScreenFontSizeScalingFactor();
     }
-#endif
     return SVGRenderingContext::calculateScreenFontSizeScalingFactor(renderer);
 }
 

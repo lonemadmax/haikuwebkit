@@ -73,7 +73,7 @@ bool AccessibilityTableCell::computeAccessibilityIsIgnored() const
     // Ignore anonymous table cells as long as they're not in a table (ie. when display:table is used).
     auto* renderTableCell = dynamicDowncast<RenderTableCell>(renderer());
     auto* renderTable = renderTableCell ? renderTableCell->table() : nullptr;
-    bool inTable = renderTable && renderTable->element() && (renderTable->element()->hasTagName(tableTag) || nodeHasGridRole(renderTable->element()));
+    bool inTable = renderTable && renderTable->element() && (renderTable->element()->hasTagName(tableTag) || nodeHasTableRole(renderTable->element()));
     if (!element() && !inTable)
         return true;
 
@@ -82,8 +82,9 @@ bool AccessibilityTableCell::computeAccessibilityIsIgnored() const
 
 AccessibilityTable* AccessibilityTableCell::parentTable() const
 {
+    CheckedPtr cache = axObjectCache();
     // If the document no longer exists, we might not have an axObjectCache.
-    if (!axObjectCache())
+    if (!cache)
         return nullptr;
     
     // Do not use getOrCreate. parentTable() can be called while the render tree is being modified 
@@ -91,18 +92,19 @@ AccessibilityTable* AccessibilityTableCell::parentTable() const
     // By using only get() implies that the AXTable must be created before AXTableCells. This should
     // always be the case when AT clients access a table.
     // https://bugs.webkit.org/show_bug.cgi?id=42652
-    AccessibilityObject* tableFromRenderTree = nullptr;
+    RefPtr<AccessibilityObject> tableFromRenderTree;
     if (auto* renderTableCell = dynamicDowncast<RenderTableCell>(renderer()))
-        tableFromRenderTree = axObjectCache()->get(renderTableCell->table());
-    else if (node()) {
-        return downcast<AccessibilityTable>(Accessibility::findAncestor<AccessibilityObject>(*this, false, [] (const auto& ancestor) {
-            return is<AccessibilityTable>(ancestor);
-        }));
+        tableFromRenderTree = cache->get(renderTableCell->table());
+
+    if (!tableFromRenderTree) {
+        if (node()) {
+            return downcast<AccessibilityTable>(Accessibility::findAncestor<AccessibilityObject>(*this, false, [] (const auto& ancestor) {
+                return is<AccessibilityTable>(ancestor);
+            }));
+        }
+        return nullptr;
     }
 
-    if (!tableFromRenderTree)
-        return nullptr;
-    
     // The RenderTableCell's table() object might be anonymous sometimes. We should handle it gracefully
     // by finding the right table.
     if (!tableFromRenderTree->node()) {
@@ -119,7 +121,7 @@ AccessibilityTable* AccessibilityTableCell::parentTable() const
         return nullptr;
     }
     
-    return dynamicDowncast<AccessibilityTable>(tableFromRenderTree);
+    return dynamicDowncast<AccessibilityTable>(tableFromRenderTree.get());
 }
     
 bool AccessibilityTableCell::isExposedTableCell() const
@@ -140,14 +142,18 @@ AccessibilityRole AccessibilityTableCell::determineAccessibilityRole()
     if (defaultRole == AccessibilityRole::ColumnHeader || defaultRole == AccessibilityRole::RowHeader || defaultRole == AccessibilityRole::Cell || defaultRole == AccessibilityRole::GridCell)
         return defaultRole;
 
-    if (!isExposedTableCell())
+    // This matches the logic of `isExposedTableCell()`, but allows us to keep the pointer to the parentTable
+    // for use at the bottom of this method.
+    auto* parentTable = this->parentTable();
+    if (!parentTable || !parentTable->isExposable())
         return defaultRole;
+
     if (isColumnHeader())
         return AccessibilityRole::ColumnHeader;
     if (isRowHeader())
         return AccessibilityRole::RowHeader;
 
-    return AccessibilityRole::Cell;
+    return parentTable->hasGridAriaRole() ? AccessibilityRole::GridCell : AccessibilityRole::Cell;
 }
     
 bool AccessibilityTableCell::isTableHeaderCell() const

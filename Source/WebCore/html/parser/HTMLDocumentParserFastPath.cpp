@@ -492,7 +492,7 @@ private:
         unsigned length = m_parsingBuffer.position() - start;
         if (UNLIKELY(length >= Text::defaultLengthLimit))
             return didFail(HTMLFastPathResult::FailedBigText, String());
-        return length ? String(start, length) : String();
+        return length ? String({ start, length }) : String();
     }
 
     // Slow-path of `scanText()`, which supports escape sequences by copying to a
@@ -543,7 +543,7 @@ private:
             if (m_parsingBuffer.atEnd() || !isCharAfterTagNameOrAttribute(*m_parsingBuffer))
                 return didFail(HTMLFastPathResult::FailedParsingTagName, ElementName::Unknown);
             skipWhile<isASCIIWhitespace>(m_parsingBuffer);
-            return findHTMLElementName(std::span { m_charBuffer.data(), m_charBuffer.size() });
+            return findHTMLElementName(m_charBuffer.span());
         }
         auto tagName = findHTMLElementName(std::span { start, static_cast<size_t>(m_parsingBuffer.position() - start) });
         skipWhile<isASCIIWhitespace>(m_parsingBuffer);

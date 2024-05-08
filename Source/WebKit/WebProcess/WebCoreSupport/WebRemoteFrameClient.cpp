@@ -89,9 +89,9 @@ String WebRemoteFrameClient::renderTreeAsText(size_t baseIndent, OptionSet<Rende
     RefPtr page = m_frame->page();
     if (!page)
         return "Test Error - Missing page"_s;
-    auto sendResult = page->sendSync(Messages::WebPageProxy::RenderTreeAsText(m_frame->frameID(), baseIndent, behavior));
+    auto sendResult = page->sendSync(Messages::WebPageProxy::RenderTreeAsTextForTesting(m_frame->frameID(), baseIndent, behavior));
     if (!sendResult.succeeded())
-        return "Test Error - sending WebPageProxy::RenderTreeAsText failed"_s;
+        return "Test Error - sending WebPageProxy::RenderTreeAsTextForTesting failed"_s;
     auto [result] = sendResult.takeReply();
     return result;
 }
@@ -113,7 +113,7 @@ void WebRemoteFrameClient::updateRemoteFrameAccessibilityOffset(WebCore::FrameId
         page->send(Messages::WebPageProxy::UpdateRemoteFrameAccessibilityOffset(frameID, offset));
 }
 
-void WebRemoteFrameClient::bindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier frameID, const std::span<const uint8_t> dataToken, CompletionHandler<void(std::span<const uint8_t>, int)>&& completionHandler)
+void WebRemoteFrameClient::bindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier frameID, std::span<const uint8_t> dataToken, CompletionHandler<void(std::span<const uint8_t>, int)>&& completionHandler)
 {
     RefPtr page = m_frame->page();
     if (!page) {
@@ -132,11 +132,6 @@ void WebRemoteFrameClient::bindRemoteAccessibilityFrames(int processIdentifier, 
     page->accessibilityManageRemoteElementStatus(true, processIdentifierResult);
 #endif
     completionHandler(resultToken, processIdentifierResult);
-}
-
-void WebRemoteFrameClient::broadcastFrameRemovalToOtherProcesses()
-{
-    WebFrameLoaderClient::broadcastFrameRemovalToOtherProcesses();
 }
 
 void WebRemoteFrameClient::closePage()

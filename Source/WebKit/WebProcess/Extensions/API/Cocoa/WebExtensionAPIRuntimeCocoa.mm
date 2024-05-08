@@ -153,11 +153,11 @@ bool WebExtensionAPIRuntime::parseConnectOptions(NSDictionary *options, std::opt
 
 bool WebExtensionAPIRuntime::isPropertyAllowed(const ASCIILiteral& name, WebPage&)
 {
-    if (name == "connectNative"_s || name == "sendNativeMessage"_s) {
-        // FIXME: https://webkit.org/b/259914 This should be a hasPermission: call to extensionContext() and updated with actually granted permissions from the UI process.
-        auto *permissions = objectForKey<NSArray>(extensionContext().manifest(), @"permissions", true, NSString.class);
-        return [permissions containsObject:@"nativeMessaging"];
-    }
+    if (UNLIKELY(extensionContext().isUnsupportedAPI(propertyPath(), name)))
+        return false;
+
+    if (name == "connectNative"_s || name == "sendNativeMessage"_s)
+        return extensionContext().hasPermission("nativeMessaging"_s);
 
     ASSERT_NOT_REACHED();
     return false;
@@ -558,23 +558,24 @@ NSDictionary *toWebAPI(const WebExtensionMessageSenderParameters& parameters)
 
 void WebExtensionContextProxy::internalDispatchRuntimeMessageEvent(WebExtensionContentWorldType contentWorldType, const String& messageJSON, std::optional<WebExtensionFrameIdentifier> frameIdentifier, const WebExtensionMessageSenderParameters& senderParameters, CompletionHandler<void(String&& replyJSON)>&& completionHandler)
 {
+    if (!hasDOMWrapperWorld(contentWorldType)) {
+        // A null reply to the completionHandler means no listeners replied.
+        completionHandler({ });
+        return;
+    }
+
     id message = parseJSON(messageJSON, JSONOptions::FragmentsAllowed);
     auto *senderInfo = toWebAPI(senderParameters);
     auto sourceContentWorldType = senderParameters.contentWorldType;
 
-    auto callbackAggregator = ReplyCallbackAggregator::create([completionHandler = WTFMove(completionHandler)](id replyMessage, IsDefaultReply defaultReply) mutable {
+    auto callbackAggregator = ReplyCallbackAggregator::create([completionHandler = WTFMove(completionHandler)](JSValue *replyMessage, IsDefaultReply defaultReply) mutable {
         if (defaultReply == IsDefaultReply::Yes) {
             // A null reply to the completionHandler means no listeners replied.
             completionHandler({ });
             return;
         }
 
-        NSString *replyMessageJSON;
-        if (JSValue *value = dynamic_objc_cast<JSValue>(replyMessage))
-            replyMessageJSON = value._toJSONString;
-        else
-            replyMessageJSON = encodeJSONString(replyMessage, JSONOptions::FragmentsAllowed);
-
+        auto *replyMessageJSON = encodeJSONString(replyMessage, JSONOptions::FragmentsAllowed);
         if (replyMessageJSON.length > webExtensionMaxMessageLength)
             replyMessageJSON = @"";
 
@@ -611,7 +612,7 @@ void WebExtensionContextProxy::internalDispatchRuntimeMessageEvent(WebExtensionC
             // Using BlockPtr for this call does not work, since JSValue needs a compiled block
             // with a signature to translate the JS function arguments. Having the block capture
             // callbackAggregatorWrapper ensures that callbackAggregator remains in scope.
-            id returnValue = listener->call(message, senderInfo, ^(id replyMessage) {
+            id returnValue = listener->call(message, senderInfo, ^(JSValue *replyMessage) {
                 callbackAggregatorWrapper.get().aggregator(replyMessage, IsDefaultReply::No);
             });
 
@@ -626,7 +627,7 @@ void WebExtensionContextProxy::internalDispatchRuntimeMessageEvent(WebExtensionC
 
             anyListenerHandledMessage = true;
 
-            [value _awaitThenableResolutionWithCompletionHandler:^(id replyMessage, id error) {
+            [value _awaitThenableResolutionWithCompletionHandler:^(JSValue *replyMessage, id error) {
                 if (error)
                     return;
 
@@ -663,6 +664,11 @@ void WebExtensionContextProxy::dispatchRuntimeMessageEvent(WebExtensionContentWo
 
 void WebExtensionContextProxy::internalDispatchRuntimeConnectEvent(WebExtensionContentWorldType contentWorldType, WebExtensionPortChannelIdentifier channelIdentifier, const String& name, std::optional<WebExtensionFrameIdentifier> frameIdentifier, const WebExtensionMessageSenderParameters& senderParameters, CompletionHandler<void(HashCountedSet<WebPageProxyIdentifier>&&)>&& completionHandler)
 {
+    if (!hasDOMWrapperWorld(contentWorldType)) {
+        completionHandler({ });
+        return;
+    }
+
     HashCountedSet<WebPageProxyIdentifier> firedEventCounts;
     auto sourceContentWorldType = senderParameters.contentWorldType;
 

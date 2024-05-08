@@ -74,7 +74,7 @@ private:
     {
     }
 
-    void appendBytes(DocumentWriter&, const uint8_t*, size_t) final;
+    void appendBytes(DocumentWriter&, std::span<const uint8_t>) final;
     void createDocumentStructure();
 
     WeakPtr<HTMLMediaElement> m_mediaElement;
@@ -129,7 +129,7 @@ void MediaDocumentParser::createDocumentStructure()
     frame->checkedLoader()->setOutgoingReferrer(document->completeURL(m_outgoingReferrer));
 }
 
-void MediaDocumentParser::appendBytes(DocumentWriter&, const uint8_t*, size_t)
+void MediaDocumentParser::appendBytes(DocumentWriter&, std::span<const uint8_t>)
 {
     if (m_mediaElement)
         return;
@@ -147,9 +147,7 @@ MediaDocument::MediaDocument(LocalFrame* frame, const Settings& settings, const 
         m_outgoingReferrer = frame->loader().outgoingReferrer();
 }
 
-MediaDocument::~MediaDocument()
-{
-}
+MediaDocument::~MediaDocument() = default;
 
 Ref<DocumentParser> MediaDocument::createParser()
 {

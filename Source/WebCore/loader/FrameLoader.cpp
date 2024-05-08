@@ -63,7 +63,6 @@
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
-#include "FeaturePolicy.h"
 #include "FloatRect.h"
 #include "FormState.h"
 #include "FormSubmission.h"
@@ -95,6 +94,7 @@
 #include "MemoryRelease.h"
 #include "Navigation.h"
 #include "NavigationDisabler.h"
+#include "NavigationNavigationType.h"
 #include "NavigationScheduler.h"
 #include "Node.h"
 #include "OriginAccessPatterns.h"
@@ -102,6 +102,7 @@
 #include "PageTransitionEvent.h"
 #include "Performance.h"
 #include "PerformanceLogging.h"
+#include "PermissionsPolicy.h"
 #include "PlatformStrategies.h"
 #include "PluginData.h"
 #include "PluginDocument.h"
@@ -1232,6 +1233,31 @@ void FrameLoader::setFirstPartyForCookies(const URL& url)
     }
 }
 
+static NavigationNavigationType determineNavigationType(FrameLoadType frameLoadType, bool isNewNavigation)
+{
+    if (isNewNavigation)
+        return NavigationNavigationType::Push;
+
+    switch (frameLoadType) {
+    case FrameLoadType::Standard:
+        return NavigationNavigationType::Push;
+    case FrameLoadType::Back:
+    case FrameLoadType::Forward:
+    case FrameLoadType::IndexedBackForward:
+        return NavigationNavigationType::Traverse;
+    case FrameLoadType::Reload:
+    case FrameLoadType::ReloadFromOrigin:
+    case FrameLoadType::ReloadExpiredOnly:
+    case FrameLoadType::Same:
+        return NavigationNavigationType::Reload;
+    case FrameLoadType::RedirectWithLockedBackForwardList:
+    case FrameLoadType::Replace:
+        return NavigationNavigationType::Replace;
+    };
+    RELEASE_ASSERT_NOT_REACHED();
+    return NavigationNavigationType::Push;
+}
+
 // This does the same kind of work that didOpenURL does, except it relies on the fact
 // that a higher level already checked that the URLs match and the scrolling is the right thing to do.
 void FrameLoader::loadInSameDocument(URL url, RefPtr<SerializedScriptValue> stateObject, const SecurityOrigin* requesterOrigin, bool isNewNavigation)
@@ -1272,6 +1298,24 @@ void FrameLoader::loadInSameDocument(URL url, RefPtr<SerializedScriptValue> stat
     bool hashChange = equalIgnoringFragmentIdentifier(url, oldURL) && !equalRespectingNullity(url.fragmentIdentifier(), oldURL.fragmentIdentifier());
 
     checkedHistory()->updateForSameDocumentNavigation();
+
+    if (document->settings().navigationAPIEnabled() && !url.isAboutBlank()) {
+        if (RefPtr domWindow = document->domWindow()) {
+            auto navigationType = determineNavigationType(policyChecker().loadType(), isNewNavigation);
+
+            // FIXME: This is likely not the ideal location for the navigate event and should happen earlier.
+            if (navigationType != NavigationNavigationType::Traverse)
+                domWindow->protectedNavigation()->dispatchPushReplaceReloadNavigateEvent(url, navigationType, equalIgnoringFragmentIdentifier(url, oldURL));
+
+            if (RefPtr currentItem = checkedHistory()->currentItem()) {
+                // FIXME: Properly handle result of navigate event.
+                if (navigationType == NavigationNavigationType::Traverse)
+                    domWindow->protectedNavigation()->dispatchTraversalNavigateEvent(*currentItem);
+
+                domWindow->protectedNavigation()->updateForNavigation(*currentItem, navigationType);
+            }
+        }
+    }
 
     // If we were in the autoscroll/panScroll mode we want to stop it before following the link to the anchor
     if (hashChange)
@@ -1595,7 +1639,7 @@ SubstituteData FrameLoader::defaultSubstituteDataForURL(const URL& url)
     CString encodedSrcdoc = srcdoc.string().utf8();
 
     ResourceResponse response(URL(), textHTMLContentTypeAtom(), encodedSrcdoc.length(), "UTF-8"_s);
-    return SubstituteData(SharedBuffer::create(encodedSrcdoc.data(), encodedSrcdoc.length()), URL(), response, SubstituteData::SessionHistoryVisibility::Hidden);
+    return SubstituteData(SharedBuffer::create(encodedSrcdoc.span()), URL(), response, SubstituteData::SessionHistoryVisibility::Hidden);
 }
 
 void FrameLoader::load(FrameLoadRequest&& request)
@@ -2800,7 +2844,6 @@ void FrameLoader::checkLoadCompleteForThisFrame()
             if (m_frame->isMainFrame()) {
                 tracePoint(MainResourceLoadDidEnd, PAGE_ID);
                 page->didFinishLoad();
-                m_client->loadStorageAccessQuirksIfNeeded();
             }
         }
 
@@ -2889,7 +2932,7 @@ void FrameLoader::setOriginalURLForDownloadRequest(ResourceRequest& request)
         request.setFirstPartyForCookies(URL());
     else
         request.setFirstPartyForCookies(originalURL);
-    addSameSiteInfoToRequestIfNeeded(request, initiator.get());
+    addSameSiteInfoToRequestIfNeeded(request, initiator.get(), protectedFrame()->protectedPage().get());
 }
 
 void FrameLoader::didReachLayoutMilestone(OptionSet<LayoutMilestone> milestones)
@@ -3203,7 +3246,7 @@ void FrameLoader::updateRequestAndAddExtraFields(ResourceRequest& request, IsMai
                 ASSERT(ownerFrame || m_frame->isMainFrame());
             }
         }
-        addSameSiteInfoToRequestIfNeeded(request, initiator);
+        addSameSiteInfoToRequestIfNeeded(request, initiator, protectedFrame()->protectedPage().get());
     }
 
     // In case of service worker navigation load, we inherit isTopSite from the FetchEvent request directly.
@@ -3241,10 +3284,10 @@ void FrameLoader::updateRequestAndAddExtraFields(ResourceRequest& request, IsMai
     applyUserAgentIfNeeded(request);
 
     if (isMainResource)
-        request.setHTTPHeaderField(HTTPHeaderName::Accept, CachedResourceRequest::acceptHeaderValueFromType(CachedResource::Type::MainResource, request, protectedFrame().ptr()));
+        request.setHTTPHeaderField(HTTPHeaderName::Accept, CachedResourceRequest::acceptHeaderValueFromType(CachedResource::Type::MainResource));
 
     if (RefPtr document = m_frame->document(); document && frame().settings().privateTokenUsageByThirdPartyEnabled() && !frame().loader().client().isRemoteWorkerFrameLoaderClient())
-        request.setIsPrivateTokenUsageByThirdPartyAllowed(isFeaturePolicyAllowedByDocumentAndAllOwners(FeaturePolicy::Type::PrivateToken, *document, LogFeaturePolicyFailure::No));
+        request.setIsPrivateTokenUsageByThirdPartyAllowed(isPermissionsPolicyAllowedByDocumentAndAllOwners(PermissionsPolicy::Type::PrivateToken, *document, LogPermissionsPolicyFailure::No));
 
     // Only set fallback array if it's still empty (later attempts may be incorrect, see bug 117818).
     if (request.responseContentDispositionEncodingFallbackArray().isEmpty()) {
@@ -3313,7 +3356,7 @@ void FrameLoader::addHTTPOriginIfNeeded(ResourceRequest& request, const String& 
 // Implements the "'Same-site' and 'cross-site' Requests" algorithm from <https://tools.ietf.org/html/draft-ietf-httpbis-cookie-same-site-00#section-2.1>.
 // The algorithm is ammended to treat URLs that inherit their security origin from their owner (e.g. about:blank)
 // as same-site. This matches the behavior of Chrome and Firefox.
-void FrameLoader::addSameSiteInfoToRequestIfNeeded(ResourceRequest& request, const Document* initiator)
+void FrameLoader::addSameSiteInfoToRequestIfNeeded(ResourceRequest& request, const Document* initiator, const Page* page)
 {
     if (!request.isSameSiteUnspecified())
         return;
@@ -3322,6 +3365,10 @@ void FrameLoader::addSameSiteInfoToRequestIfNeeded(ResourceRequest& request, con
         return;
     }
     if (SecurityPolicy::shouldInheritSecurityOriginFromOwner(request.url())) {
+        request.setIsSameSite(true);
+        return;
+    }
+    if (page && page->shouldAssumeSameSiteForRequestTo(request.url())) {
         request.setIsSameSite(true);
         return;
     }

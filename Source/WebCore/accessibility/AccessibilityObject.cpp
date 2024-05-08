@@ -85,7 +85,6 @@
 #include "RenderView.h"
 #include "RenderWidget.h"
 #include "RenderedPosition.h"
-#include "RuntimeApplicationChecks.h"
 #include "Settings.h"
 #include "TextCheckerClient.h"
 #include "TextCheckingHelper.h"
@@ -117,11 +116,6 @@ AXID AccessibilityObject::treeID() const
 {
     auto* cache = axObjectCache();
     return cache ? cache->treeID() : AXID();
-}
-
-inline ProcessID AccessibilityObject::processID() const
-{
-    return presentingApplicationPID();
 }
 
 String AccessibilityObject::dbg() const
@@ -742,9 +736,9 @@ std::optional<SimpleRange> AccessibilityObject::rangeOfStringClosestToRangeInDir
         return std::nullopt;
     
     bool isBackwardSearch = searchDirection == AccessibilitySearchDirection::Previous;
-    FindOptions findOptions { AtWordStarts, AtWordEnds, CaseInsensitive, StartInSelection };
+    FindOptions findOptions { FindOption::AtWordStarts, FindOption::AtWordEnds, FindOption::CaseInsensitive, FindOption::StartInSelection };
     if (isBackwardSearch)
-        findOptions.add(FindOptionFlag::Backwards);
+        findOptions.add(FindOption::Backwards);
     
     std::optional<SimpleRange> closestStringRange;
     for (auto& searchString : searchStrings) {
@@ -1280,7 +1274,7 @@ IntRect AccessibilityObject::boundingBoxForQuads(RenderObject* obj, const Vector
     for (const auto& quad : quads) {
         FloatRect r = quad.enclosingBoundingBox();
         if (!r.isEmpty()) {
-            if (obj->style().hasEffectiveAppearance())
+            if (obj->style().hasUsedAppearance())
                 obj->theme().inflateRectForControlRenderer(*obj, r);
             result.unite(r);
         }
@@ -1458,7 +1452,7 @@ VisiblePosition AccessibilityObject::visiblePositionForPoint(const IntPoint& poi
 #endif
     }
     
-    return innerNode->renderer()->positionForPoint(pointResult, nullptr);
+    return innerNode->renderer()->positionForPoint(pointResult, HitTestSource::User, nullptr);
 }
 
 VisiblePositionRange AccessibilityObject::visiblePositionRangeForUnorderedPositions(const VisiblePosition& visiblePos1, const VisiblePosition& visiblePos2) const
@@ -1781,7 +1775,7 @@ String AccessibilityObject::stringForRange(const SimpleRange& range) const
             // because a RenderListMarker does not have a Node equivalent and thus does not appear
             // when iterating text.
             // Don't add list marker text for new line character.
-            if (it.text().length() != 1 || !deprecatedIsSpaceOrNewline(it.text()[0]))
+            if (it.text().length() != 1 || !isUnicodeWhitespace(it.text()[0]))
                 builder.append(listMarkerTextForNodeAndPosition(it.node(), makeDeprecatedLegacyPosition(it.range().start)));
             it.appendTextToStringBuilder(builder);
         } else {
@@ -1933,10 +1927,6 @@ bool AccessibilityObject::dependsOnTextUnderElement() const
             break;
         FALLTHROUGH;
     case AccessibilityRole::Summary:
-        // The text node for a <summary> element should be included in its visible text, unless a title attribute is present.
-        if (!hasAttribute(titleAttr))
-            return true;
-        break;
     case AccessibilityRole::Button:
     case AccessibilityRole::ToggleButton:
     case AccessibilityRole::Checkbox:
@@ -2795,9 +2785,15 @@ static void initializeRoleMap()
     }
 
     // Create specific synonyms for the computedRole which is used in WPT tests and the accessibility inspector.
-    gAriaReverseRoleMap->set(enumToUnderlyingType(AccessibilityRole::Image), "image"_s);
-    gAriaReverseRoleMap->set(enumToUnderlyingType(AccessibilityRole::TextArea), "textbox"_s);
     gAriaReverseRoleMap->set(enumToUnderlyingType(AccessibilityRole::DateTime), "textbox"_s);
+    gAriaReverseRoleMap->set(enumToUnderlyingType(AccessibilityRole::TextArea), "textbox"_s);
+
+    gAriaReverseRoleMap->set(enumToUnderlyingType(AccessibilityRole::DescriptionListDetail), "definition"_s);
+    gAriaReverseRoleMap->set(enumToUnderlyingType(AccessibilityRole::DescriptionListTerm), "term"_s);
+    gAriaReverseRoleMap->set(enumToUnderlyingType(AccessibilityRole::Details), "group"_s);
+    gAriaReverseRoleMap->set(enumToUnderlyingType(AccessibilityRole::Image), "image"_s);
+    gAriaReverseRoleMap->set(enumToUnderlyingType(AccessibilityRole::ListBoxOption), "option"_s);
+    gAriaReverseRoleMap->set(enumToUnderlyingType(AccessibilityRole::MenuListOption), "option"_s);
     gAriaReverseRoleMap->set(enumToUnderlyingType(AccessibilityRole::Presentational), "none"_s);
 }
 
@@ -3009,7 +3005,7 @@ bool AccessibilityObject::supportsPressAction() const
         // Limit the amount of children we take. Some objects can have tens of thousands of children, so we don't want to unconditionally append `children()` to the candidate pool.
         const auto& children = candidate->children();
         if (size_t maxChildrenToTake = std::min(static_cast<size_t>(halfSearchLimit), candidatesLeftUntilLimit))
-            candidates.append(children.span().subspan(0, std::min(children.size(), maxChildrenToTake)));
+            candidates.append(children.subspan(0, std::min(children.size(), maxChildrenToTake)));
 
         // `candidates` should never be allowed to grow past `searchLimit`.
         ASSERT(searchLimit >= candidates.size());
@@ -4010,7 +4006,7 @@ bool AccessibilityObject::isAXHidden() const
 bool AccessibilityObject::isDOMHidden() const
 {
     if (auto* style = this->style())
-        return style->display() == DisplayType::None || style->visibility() != Visibility::Visible;
+        return style->display() == DisplayType::None || style->usedVisibility() != Visibility::Visible;
     return true;
 }
 
@@ -4037,7 +4033,7 @@ AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
     if (auto* style = this->style()) {
         if (style->effectiveInert())
             return AccessibilityObjectInclusion::IgnoreObject;
-        if (style->visibility() != Visibility::Visible) {
+        if (style->usedVisibility() != Visibility::Visible) {
             // aria-hidden is meant to override visibility as the determinant in AX hierarchy inclusion.
             if (equalLettersIgnoringASCIICase(getAttribute(aria_hiddenAttr), "false"_s))
                 return AccessibilityObjectInclusion::DefaultBehavior;
@@ -4120,19 +4116,17 @@ Vector<Ref<Element>> AccessibilityObject::elementsFromAttribute(const QualifiedN
     if (!element)
         return { };
 
-    if (document()->settings().ariaReflectionForElementReferencesEnabled()) {
-        if (Element::isElementReflectionAttribute(document()->settings(), attribute)) {
-            if (RefPtr reflectedElement = element->getElementAttribute(attribute)) {
-                Vector<Ref<Element>> elements;
-                elements.append(reflectedElement.releaseNonNull());
-                return elements;
-            }
-        } else if (Element::isElementsArrayReflectionAttribute(document()->settings(), attribute)) {
-            if (auto reflectedElements = element->getElementsArrayAttribute(attribute)) {
-                return WTF::map(reflectedElements.value(), [](RefPtr<Element> element) -> Ref<Element> {
-                    return *element;
-                });
-            }
+    if (Element::isElementReflectionAttribute(document()->settings(), attribute)) {
+        if (RefPtr reflectedElement = element->getElementAttribute(attribute)) {
+            Vector<Ref<Element>> elements;
+            elements.append(reflectedElement.releaseNonNull());
+            return elements;
+        }
+    } else if (Element::isElementsArrayReflectionAttribute(attribute)) {
+        if (auto reflectedElements = element->getElementsArrayAttribute(attribute)) {
+            return WTF::map(reflectedElements.value(), [](RefPtr<Element> element) -> Ref<Element> {
+                return *element;
+            });
         }
     }
 
@@ -4301,6 +4295,10 @@ AXCoreObject::AccessibilityChildrenVector AccessibilityObject::selectedChildren(
 
     AccessibilityChildrenVector result;
     switch (roleValue()) {
+    case AccessibilityRole::ComboBox:
+        if (auto* descendant = activeDescendant())
+            result = { descendant };
+        break;
     case AccessibilityRole::ListBox:
         // native list boxes would be AccessibilityListBoxes, so only check for aria list boxes
         result = ariaListboxSelectedChildren();
@@ -4628,9 +4626,9 @@ static bool isAccessibilityTextSearchMatch(RefPtr<AXCoreObject> axObject, const 
     if (criteria.searchText.isEmpty())
         return true;
 
-    return containsPlainText(axObject->title(), criteria.searchText, CaseInsensitive)
-        || containsPlainText(axObject->description(), criteria.searchText, CaseInsensitive)
-        || containsPlainText(axObject->stringValue(), criteria.searchText, CaseInsensitive);
+    return containsPlainText(axObject->title(), criteria.searchText, FindOption::CaseInsensitive)
+        || containsPlainText(axObject->description(), criteria.searchText, FindOption::CaseInsensitive)
+        || containsPlainText(axObject->stringValue(), criteria.searchText, FindOption::CaseInsensitive);
 }
 
 static bool objectMatchesSearchCriteriaWithResultLimit(RefPtr<AXCoreObject> object, const AccessibilitySearchCriteria& criteria, AXCoreObject::AccessibilityChildrenVector& results)

@@ -100,7 +100,7 @@ public:
     int insertionPointLineNumber() const override;
     String stringValue() const override;
     String helpText() const override;
-    String textUnderElement(AccessibilityTextUnderElementMode = AccessibilityTextUnderElementMode()) const override;
+    String textUnderElement(TextUnderElementMode = TextUnderElementMode()) const override;
     String selectedText() const override;
 #if ENABLE(AX_THREAD_TEXT_APIS)
     AXTextRuns textRuns() final;
@@ -165,8 +165,8 @@ private:
     bool nodeIsTextControl(const Node*) const;
     Path elementPath() const override;
     
-    AccessibilityObject* accessibilityImageMapHitTest(HTMLAreaElement*, const IntPoint&) const;
-    AccessibilityObject* accessibilityParentForImageMap(HTMLMapElement*) const;
+    AccessibilityObject* accessibilityImageMapHitTest(HTMLAreaElement&, const IntPoint&) const;
+    AccessibilityObject* associatedAXImage(HTMLMapElement&) const;
     AccessibilityObject* elementAccessibilityHitTest(const IntPoint&) const override;
 
     bool renderObjectIsObservable(RenderObject&) const;
@@ -201,7 +201,7 @@ private:
 
     bool inheritsPresentationalRole() const override;
 
-    bool shouldGetTextFromNode(AccessibilityTextUnderElementMode) const;
+    bool shouldGetTextFromNode(TextUnderElementMode) const;
 
 #if ENABLE(APPLE_PAY)
     bool isApplePayButton() const;

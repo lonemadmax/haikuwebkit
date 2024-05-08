@@ -153,13 +153,14 @@ private:
         // ImageObserver API
         URL sourceUrl() const override { return !m_cachedImages.isEmptyIgnoringNullReferences() ? (*m_cachedImages.begin()).url() : URL(); }
         String mimeType() const override { return !m_cachedImages.isEmptyIgnoringNullReferences() ? (*m_cachedImages.begin()).mimeType() : emptyString(); }
+        unsigned numberOfClients() const override { return !m_cachedImages.isEmptyIgnoringNullReferences() ? (*m_cachedImages.begin()).numberOfClients() : 0; }
         long long expectedContentLength() const override { return !m_cachedImages.isEmptyIgnoringNullReferences() ? (*m_cachedImages.begin()).expectedContentLength() : 0; }
 
         void encodedDataStatusChanged(const Image&, EncodedDataStatus) final;
         void decodedSizeChanged(const Image&, long long delta) final;
         void didDraw(const Image&) final;
 
-        bool canDestroyDecodedData(const Image&) final;
+        bool canDestroyDecodedData(const Image&) const final;
         void imageFrameAvailable(const Image&, ImageAnimatingState, const IntRect* changeRect = nullptr, DecodingStatus = DecodingStatus::Invalid) final;
         void changedInRect(const Image&, const IntRect*) final;
         void scheduleRenderingUpdate(const Image&) final;
@@ -173,7 +174,7 @@ private:
     void encodedDataStatusChanged(const Image&, EncodedDataStatus);
     void decodedSizeChanged(const Image&, long long delta);
     void didDraw(const Image&);
-    bool canDestroyDecodedData(const Image&);
+    bool canDestroyDecodedData(const Image&) const;
     void imageFrameAvailable(const Image&, ImageAnimatingState, const IntRect* changeRect = nullptr, DecodingStatus = DecodingStatus::Invalid);
     void changedInRect(const Image&, const IntRect*);
     void scheduleRenderingUpdate(const Image&);

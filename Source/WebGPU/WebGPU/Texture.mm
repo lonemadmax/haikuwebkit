@@ -2141,6 +2141,18 @@ MTLPixelFormat Texture::pixelFormat(WGPUTextureFormat textureFormat)
     }
 }
 
+NSUInteger Texture::bytesPerRow(WGPUTextureFormat format, uint32_t textureWidth)
+{
+    NSUInteger blockSize = Texture::texelBlockSize(format);
+    NSUInteger blockWidth = Texture::texelBlockWidth(format);
+    if (blockWidth > 1 && (blockSize * textureWidth) % blockWidth) {
+        ASSERT_NOT_REACHED("Compressed texture has unexpected texture width");
+        return 0;
+    }
+
+    return (blockSize * textureWidth) / blockWidth;
+}
+
 uint32_t Texture::texelBlockSize(WGPUTextureFormat format) // Bytes
 {
     // For depth-stencil textures, the input value to this function
@@ -2547,7 +2559,7 @@ Ref<Texture> Device::createTexture(const WGPUTextureDescriptor& descriptor)
 
     // https://gpuweb.github.io/gpuweb/#dom-gpudevice-createtexture
 
-    Vector viewFormats = { descriptor.viewFormats, descriptor.viewFormatCount };
+    Vector viewFormats(std::span { descriptor.viewFormats, descriptor.viewFormatCount });
 
     if (NSString *error = errorValidatingTextureCreation(descriptor, viewFormats)) {
         generateAValidationError(error);
@@ -2620,6 +2632,7 @@ Ref<Texture> Device::createTexture(const WGPUTextureDescriptor& descriptor)
         return Texture::createInvalid(*this);
     }
 
+    setOwnerWithIdentity(texture);
     texture.label = fromAPI(descriptor.label);
 
     return Texture::create(texture, descriptor, WTFMove(viewFormats), *this);

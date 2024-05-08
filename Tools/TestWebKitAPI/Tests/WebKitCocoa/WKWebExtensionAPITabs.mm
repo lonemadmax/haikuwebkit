@@ -46,6 +46,8 @@ static auto *tabsManifest = @{
         @"type": @"module",
         @"persistent": @NO,
     },
+
+    @"permissions": @[ @"tabs" ],
 };
 
 static auto *tabsManifestV2 = @{
@@ -713,6 +715,75 @@ TEST(WKWebExtensionAPITabs, QueryWithPrivateAccess)
     [manager loadAndRun];
 }
 
+TEST(WKWebExtensionAPITabs, QueryWithAccessPrompt)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"const allWindows = await browser.windows.getAll({ populate: true })",
+        @"const windowIdOne = allWindows?.[0]?.id",
+
+        @"const tabIdOne = allWindows?.[0]?.tabs?.[0]?.id",
+        @"const tabIdTwo = allWindows?.[0]?.tabs?.[1]?.id",
+
+        @"browser.test.assertTrue(allWindows?.[0]?.tabs?.[0]?.url.startsWith('http://localhost'), 'First tab URL should be localhost')",
+        @"browser.test.assertEq(allWindows?.[0]?.tabs?.[1]?.url, '', 'Second tab URL should be empty')",
+
+        @"const tabsInWindowOne = await browser.tabs.query({ windowId: windowIdOne })",
+
+        @"browser.test.assertTrue(tabsInWindowOne.length >= 2, 'There should be at least 2 tabs in window one')",
+        @"browser.test.assertTrue(tabsInWindowOne[0].url.startsWith('http://localhost'), 'First tab URL should be localhost')",
+        @"browser.test.assertEq(tabsInWindowOne[1].url, '', 'Second tab URL should be empty')",
+
+        @"browser.test.notifyPass()"
+    ]);
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:tabsManifest resources:@{ @"background.js": backgroundScript }]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionTabs];
+
+    __block bool firstPermissionRequest = true;
+    auto *localhostURL = server.requestWithLocalhost().URL;
+    auto *loopbackURL = server.request().URL;
+
+    manager.get().internalDelegate.promptForPermissionToAccessURLs = ^(id<_WKWebExtensionTab>, NSSet<NSURL *> *requestedURLs, void (^completionHandler)(NSSet<NSURL *> *allowedURLs, NSDate *)) {
+        if (firstPermissionRequest) {
+            EXPECT_TRUE([requestedURLs containsObject:localhostURL]);
+            EXPECT_TRUE([requestedURLs containsObject:loopbackURL]);
+
+            // Only approve localhost for the first request.
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completionHandler([NSSet setWithObject:localhostURL], nil);
+            });
+
+            firstPermissionRequest = false;
+        } else {
+            // The second request should only have loopbackURL, as localhostURL was granted previously.
+            EXPECT_FALSE([requestedURLs containsObject:localhostURL]);
+            EXPECT_TRUE([requestedURLs containsObject:loopbackURL]);
+
+            // Approve nothing for the second request.
+            dispatch_async(dispatch_get_main_queue(), ^{
+                completionHandler(NSSet.set, nil);
+            });
+        }
+    };
+
+    auto *windowOne = manager.get().defaultWindow;
+    [windowOne openNewTab];
+
+    [windowOne.tabs.firstObject.mainWebView loadRequest:server.requestWithLocalhost()];
+    [windowOne.tabs.lastObject.mainWebView loadRequest:server.request()];
+
+    EXPECT_EQ(manager.get().windows.count, 1lu);
+    EXPECT_EQ(windowOne.tabs.count, 2lu);
+
+    [manager loadAndRun];
+}
+
 TEST(WKWebExtensionAPITabs, Zoom)
 {
     auto *backgroundScript = Util::constructScript(@[
@@ -768,6 +839,10 @@ TEST(WKWebExtensionAPITabs, ToggleReaderMode)
 
 TEST(WKWebExtensionAPITabs, DetectLanguage)
 {
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
     auto *backgroundScript = Util::constructScript(@[
         @"const allWindows = await browser.windows.getAll({ populate: true })",
         @"const tabId = allWindows[0].tabs[0].id",
@@ -781,6 +856,10 @@ TEST(WKWebExtensionAPITabs, DetectLanguage)
 
     auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:tabsManifest resources:@{ @"background.js": backgroundScript }]);
     auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    auto *urlRequest = server.requestWithLocalhost();
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+    [manager.get().defaultTab.mainWebView loadRequest:urlRequest];
 
     __block bool detectWebpageLocaleCalled = false;
 
@@ -2118,7 +2197,7 @@ TEST(WKWebExtensionAPITabs, ActiveTab)
         @"browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {",
         @"  browser.test.assertEq(tabId, currentTab.id, 'Only the tab we expect should be changing')",
 
-        @"  if ('url' in changeInfo) {",
+        @"  if ('url' in changeInfo && 'title' in changeInfo) {",
         @"    ++updateCount",
 
         @"    if (updateCount === 1) {",
@@ -2218,7 +2297,7 @@ TEST(WKWebExtensionAPITabs, UserGestureWithoutActiveTab)
         @"browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {",
         @"  browser.test.assertEq(tabId, currentTab.id, 'Only the tab we expect should be changing')",
 
-        @"  if ('url' in changeInfo) {",
+        @"  if ('url' in changeInfo && 'title' in changeInfo) {",
         @"    browser.test.assertEq(changeInfo.url, '', 'URL should be empty before user gesture')",
         @"    browser.test.assertEq(changeInfo.title, '', 'Title should be empty before user gesture')",
         @"    browser.test.yield('Perform User Gesture')",
@@ -2259,6 +2338,122 @@ TEST(WKWebExtensionAPITabs, UserGestureWithoutActiveTab)
     EXPECT_FALSE([manager.get().context hasAccessToURL:addressRequest.URL]);
     EXPECT_FALSE([manager.get().context hasAccessToURL:localhostRequest.URL inTab:manager.get().defaultTab]);
     EXPECT_FALSE([manager.get().context hasAccessToURL:addressRequest.URL inTab:manager.get().defaultTab]);
+}
+
+TEST(WKWebExtensionAPITabs, ActiveTabWithDeniedPermissions)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, "<head><title>Test Title</title></head>"_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"const [currentTab] = await browser.tabs.query({ active: true, currentWindow: true })",
+
+        @"browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {",
+        @"  browser.test.assertEq(tabId, currentTab.id, 'Only the tab we expect should be changing')",
+
+        @"  if ('url' in changeInfo && 'title' in changeInfo) {",
+        @"    browser.test.assertEq(changeInfo.url, '', 'URL should be empty before user gesture')",
+        @"    browser.test.assertEq(changeInfo.title, '', 'Title should be empty before user gesture')",
+        @"    browser.test.yield('Perform User Gesture')",
+        @"  }",
+        @"})",
+
+        @"browser.test.yield('Load Localhost')"
+    ]);
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:activeTabManifest resources:@{ @"background.js": backgroundScript }]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    auto *localhostRequest = server.requestWithLocalhost();
+
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusDeniedExplicitly forURL:localhostRequest.URL];
+
+    EXPECT_TRUE([manager.get().context hasPermission:_WKWebExtensionPermissionActiveTab]);
+    EXPECT_FALSE([manager.get().context hasPermission:_WKWebExtensionPermissionTabs]);
+    EXPECT_FALSE([manager.get().context hasAccessToURL:localhostRequest.URL]);
+    EXPECT_FALSE([manager.get().context hasAccessToURL:localhostRequest.URL inTab:manager.get().defaultTab]);
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Load Localhost");
+
+    [manager.get().defaultTab.mainWebView loadRequest:localhostRequest];
+
+    [manager run];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Perform User Gesture");
+
+    [manager.get().context userGesturePerformedInTab:manager.get().defaultTab];
+
+    EXPECT_TRUE([manager.get().context hasPermission:_WKWebExtensionPermissionActiveTab]);
+    EXPECT_FALSE([manager.get().context hasPermission:_WKWebExtensionPermissionTabs]);
+    EXPECT_FALSE([manager.get().context hasPermission:_WKWebExtensionPermissionTabs inTab:manager.get().defaultTab]);
+    EXPECT_FALSE([manager.get().context hasAccessToURL:localhostRequest.URL]);
+    EXPECT_FALSE([manager.get().context hasAccessToURL:localhostRequest.URL inTab:manager.get().defaultTab]);
+}
+
+TEST(WKWebExtensionAPITabs, ActiveTabRemovedWithDeniedPermissions)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, "<head><title>Test Title</title></head>"_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"const [currentTab] = await browser.tabs.query({ active: true, currentWindow: true })",
+
+        @"browser.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {",
+        @"  browser.test.assertEq(tabId, currentTab.id, 'Only the tab we expect should be changing')",
+
+        @"  if ('url' in changeInfo && 'title' in changeInfo) {",
+        @"    browser.test.assertEq(changeInfo.url, '', 'URL should be empty before user gesture')",
+        @"    browser.test.assertEq(changeInfo.title, '', 'Title should be empty before user gesture')",
+        @"    browser.test.yield('Perform User Gesture')",
+        @"  }",
+        @"})",
+
+        @"browser.test.yield('Load Localhost')"
+    ]);
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:activeTabManifest resources:@{ @"background.js": backgroundScript }]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    auto *localhostRequest = server.requestWithLocalhost();
+
+    EXPECT_TRUE([manager.get().context hasPermission:_WKWebExtensionPermissionActiveTab]);
+    EXPECT_FALSE([manager.get().context hasPermission:_WKWebExtensionPermissionTabs]);
+    EXPECT_FALSE([manager.get().context hasAccessToURL:localhostRequest.URL]);
+    EXPECT_FALSE([manager.get().context hasAccessToURL:localhostRequest.URL inTab:manager.get().defaultTab]);
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Load Localhost");
+
+    [manager.get().defaultTab.mainWebView loadRequest:localhostRequest];
+
+    [manager run];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Perform User Gesture");
+
+    EXPECT_TRUE([manager.get().context hasPermission:_WKWebExtensionPermissionActiveTab]);
+    EXPECT_FALSE([manager.get().context hasPermission:_WKWebExtensionPermissionTabs inTab:manager.get().defaultTab]);
+    EXPECT_FALSE([manager.get().context hasAccessToURL:localhostRequest.URL inTab:manager.get().defaultTab]);
+    EXPECT_FALSE([manager.get().context hasAccessToURL:localhostRequest.URL]);
+
+    [manager.get().context userGesturePerformedInTab:manager.get().defaultTab];
+
+    EXPECT_TRUE([manager.get().context hasPermission:_WKWebExtensionPermissionActiveTab]);
+    EXPECT_TRUE([manager.get().context hasPermission:_WKWebExtensionPermissionTabs inTab:manager.get().defaultTab]);
+    EXPECT_TRUE([manager.get().context hasAccessToURL:localhostRequest.URL inTab:manager.get().defaultTab]);
+    EXPECT_FALSE([manager.get().context hasAccessToURL:localhostRequest.URL]);
+
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusDeniedExplicitly forURL:localhostRequest.URL];
+
+    EXPECT_TRUE([manager.get().context hasPermission:_WKWebExtensionPermissionActiveTab]);
+    EXPECT_FALSE([manager.get().context hasPermission:_WKWebExtensionPermissionTabs]);
+    EXPECT_FALSE([manager.get().context hasPermission:_WKWebExtensionPermissionTabs inTab:manager.get().defaultTab]);
+    EXPECT_FALSE([manager.get().context hasAccessToURL:localhostRequest.URL]);
+    EXPECT_FALSE([manager.get().context hasAccessToURL:localhostRequest.URL inTab:manager.get().defaultTab]);
 }
 
 } // namespace TestWebKitAPI

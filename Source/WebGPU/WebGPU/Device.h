@@ -125,12 +125,16 @@ public:
     uint32_t maxBuffersForFragmentStage() const;
     uint32_t maxBuffersForComputeStage() const;
     uint32_t vertexBufferIndexForBindGroup(uint32_t groupIndex) const;
+    id<MTLBuffer> newBufferWithBytes(const void*, size_t, MTLResourceOptions) const;
+    id<MTLBuffer> newBufferWithBytesNoCopy(void*, size_t, MTLResourceOptions) const;
+    id<MTLTexture> newTextureWithDescriptor(MTLTextureDescriptor *, IOSurfaceRef = nullptr, NSUInteger plane = 0) const;
 
     static bool isStencilOnlyFormat(MTLPixelFormat);
     bool shouldStopCaptureAfterSubmit();
     id<MTLBuffer> placeholderBuffer() const;
     id<MTLTexture> placeholderTexture() const;
     bool isDestroyed() const;
+    NSString *errorValidatingTextureCreation(const WGPUTextureDescriptor&, const Vector<WGPUTextureFormat>& viewFormats);
 
 private:
     Device(id<MTLDevice>, id<MTLCommandQueue> defaultQueue, HardwareCapabilities&&, Adapter&);
@@ -140,7 +144,6 @@ private:
     ErrorScope* currentErrorScope(WGPUErrorFilter);
     std::optional<WGPUErrorType> validatePopErrorScope() const;
     id<MTLBuffer> safeCreateBuffer(NSUInteger length, MTLStorageMode, MTLCPUCacheMode = MTLCPUCacheModeDefaultCache, MTLHazardTrackingMode = MTLHazardTrackingModeDefault) const;
-    NSString *errorValidatingTextureCreation(const WGPUTextureDescriptor&, const Vector<WGPUTextureFormat>& viewFormats);
     bool validateCreateIOSurfaceBackedTexture(const WGPUTextureDescriptor&, const Vector<WGPUTextureFormat>& viewFormats, IOSurfaceRef backing);
 
     bool validateRenderPipeline(const WGPURenderPipelineDescriptor&);
@@ -158,6 +161,7 @@ private:
         simd::float4x3 colorSpaceConversionMatrix;
     };
     ExternalTextureData createExternalTextureFromPixelBuffer(CVPixelBufferRef, WGPUColorSpace) const;
+    void setOwnerWithIdentity(id<MTLResource>) const;
 
     struct Error {
         WGPUErrorType type;

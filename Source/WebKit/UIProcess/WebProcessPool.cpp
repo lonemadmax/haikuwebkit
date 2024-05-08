@@ -94,6 +94,7 @@
 #include <WebCore/GamepadProvider.h>
 #include <WebCore/MockRealtimeMediaSourceCenter.h>
 #include <WebCore/NetworkStorageSession.h>
+#include <WebCore/PlatformMediaSessionManager.h>
 #include <WebCore/PlatformScreen.h>
 #include <WebCore/ProcessIdentifier.h>
 #include <WebCore/ProcessWarming.h>
@@ -313,24 +314,30 @@ WebProcessPool::WebProcessPool(API::ProcessPoolConfiguration& configuration)
 
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
     m_storageAccessUserAgentStringQuirksDataUpdateObserver = StorageAccessUserAgentStringQuirkController::shared().observeUpdates([weakThis = WeakPtr { *this }] {
-        if (RefPtr protectedThis = weakThis.get()) {
-            if (StorageAccessUserAgentStringQuirkController::shared().cachedQuirks().isEmpty())
-                return;
-            // FIXME: Filter by process's site when site isolation is enabled
+        // FIXME: Filter by process's site when site isolation is enabled
+        if (RefPtr protectedThis = weakThis.get())
             protectedThis->sendToAllProcesses(Messages::WebProcess::UpdateStorageAccessUserAgentStringQuirks(StorageAccessUserAgentStringQuirkController::shared().cachedQuirks()));
-        }
     });
 
     m_storageAccessPromptQuirksDataUpdateObserver = StorageAccessPromptQuirkController::shared().observeUpdates([weakThis = WeakPtr { *this }] {
         if (RefPtr protectedThis = weakThis.get()) {
             HashSet<WebCore::RegistrableDomain> domainSet;
             for (auto&& entry : StorageAccessPromptQuirkController::shared().cachedQuirks()) {
-                for (auto&& domain : entry.domainPairings.keys())
+                if (!entry.triggerPages.isEmpty()) {
+                    for (auto&& page : entry.triggerPages)
+                        domainSet.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString(page.string()));
+                    continue;
+                }
+                for (auto&& domain : entry.quirkDomains.keys())
                     domainSet.add(domain);
             }
             protectedThis->sendToAllProcesses(Messages::WebProcess::UpdateDomainsWithStorageAccessQuirks(domainSet));
         }
     });
+    if (StorageAccessPromptQuirkController::shared().cachedQuirks().isEmpty())
+        StorageAccessPromptQuirkController::shared().initialize();
+    if (StorageAccessUserAgentStringQuirkController::shared().cachedQuirks().isEmpty())
+        StorageAccessUserAgentStringQuirkController::shared().initialize();
 #endif
 
 }
@@ -631,6 +638,7 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
         static NeverDestroyed<Ref<WebProcessPool>> remoteWorkerProcessPool(WebProcessPool::create(API::ProcessPoolConfiguration::create().get()));
 
     RefPtr requestingProcess = requestingProcessIdentifier ? WebProcessProxy::processForIdentifier(*requestingProcessIdentifier) : nullptr;
+    auto lockdownMode = requestingProcess ? requestingProcess->lockdownMode() : (lockdownModeEnabledBySystem() ? WebProcessProxy::LockdownMode::Enabled : WebProcessProxy::LockdownMode::Disabled);
     Ref processPool = requestingProcess ? requestingProcess->processPool() : processPools()[0].get();
 
     RefPtr<WebProcessProxy> remoteWorkerProcessProxy;
@@ -665,6 +673,8 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
                 continue;
             if (!process->isMatchingRegistrableDomain(registrableDomain))
                 continue;
+            if (process->lockdownMode() != lockdownMode)
+                continue;
 
             useProcessForRemoteWorkers(process);
 
@@ -688,7 +698,7 @@ void WebProcessPool::establishRemoteWorkerContextConnectionToNetworkProcess(Remo
     ASSERT(preferencesStore);
 
     if (!remoteWorkerProcessProxy) {
-        Ref newProcessProxy = WebProcessProxy::createForRemoteWorkers(workerType, processPool, RegistrableDomain  { registrableDomain }, *websiteDataStore);
+        Ref newProcessProxy = WebProcessProxy::createForRemoteWorkers(workerType, processPool, RegistrableDomain  { registrableDomain }, *websiteDataStore, lockdownMode);
         remoteWorkerProcessProxy = newProcessProxy.copyRef();
 
         WEBPROCESSPOOL_RELEASE_LOG_STATIC(ServiceWorker, "establishRemoteWorkerContextConnectionToNetworkProcess creating a new service worker process (process=%p, workerType=%" PUBLIC_LOG_STRING ", PID=%d)", remoteWorkerProcessProxy.get(), workerType == RemoteWorkerType::ServiceWorker ? "service" : "shared", remoteWorkerProcessProxy->processID());
@@ -818,9 +828,8 @@ void WebProcessPool::registerHighDynamicRangeChangeCallback()
 
 WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebProcessProxy& process, WebsiteDataStore& websiteDataStore)
 {
-    websiteDataStore.resolveDirectoriesIfNecessary();
-
-    String mediaCacheDirectory = websiteDataStore.resolvedMediaCacheDirectory();
+    auto& resolvedDirectories = websiteDataStore.resolvedDirectories();
+    String mediaCacheDirectory = resolvedDirectories.mediaCacheDirectory;
 #if !ENABLE(GPU_PROCESS)
     SandboxExtension::Handle mediaCacheDirectoryExtensionHandle;
     if (!mediaCacheDirectory.isEmpty()) {
@@ -829,7 +838,7 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
     }
 #endif
 
-    String mediaKeyStorageDirectory = websiteDataStore.resolvedMediaKeysDirectory();
+    String mediaKeyStorageDirectory = resolvedDirectories.mediaKeysStorageDirectory;
     SandboxExtension::Handle mediaKeyStorageDirectoryExtensionHandle;
     if (!mediaKeyStorageDirectory.isEmpty()) {
         if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(mediaKeyStorageDirectory, SandboxExtension::Type::ReadWrite))
@@ -841,7 +850,7 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
     if (!m_javaScriptConfigurationDirectory.isEmpty())
         javaScriptConfigurationDirectory = resolvePathForSandboxExtension(m_javaScriptConfigurationDirectory);
     else if (javaScriptConfigurationFileEnabled())
-        javaScriptConfigurationDirectory = websiteDataStore.resolvedJavaScriptConfigurationDirectory();
+        javaScriptConfigurationDirectory = resolvedDirectories.javaScriptConfigurationDirectory;
 
     SandboxExtension::Handle javaScriptConfigurationDirectoryExtensionHandle;
     if (!javaScriptConfigurationDirectory.isEmpty()) {
@@ -850,7 +859,7 @@ WebProcessDataStoreParameters WebProcessPool::webProcessDataStoreParameters(WebP
     }
 
 #if ENABLE(ARKIT_INLINE_PREVIEW)
-    auto modelElementCacheDirectory = websiteDataStore.resolvedModelElementCacheDirectory();
+    auto modelElementCacheDirectory = resolvedDirectories.modelElementCacheDirectory;
     SandboxExtension::Handle modelElementCacheDirectoryExtensionHandle;
     if (!modelElementCacheDirectory.isEmpty()) {
         if (auto handle = SandboxExtension::createHandleWithoutResolvingPath(modelElementCacheDirectory, SandboxExtension::Type::ReadWrite))
@@ -1214,43 +1223,35 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
 {
     if (!pageConfiguration->pageGroup())
         pageConfiguration->setPageGroup(m_defaultPageGroup.copyRef());
-    if (!pageConfiguration->preferences())
-        pageConfiguration->setPreferences(pageConfiguration->pageGroup()->protectedPreferences());
-    if (!pageConfiguration->userContentController())
-        pageConfiguration->setUserContentController(pageConfiguration->pageGroup()->protectedUserContentController());
-    if (!pageConfiguration->visitedLinkStore())
-        pageConfiguration->setVisitedLinkStore(m_visitedLinkStore.copyRef());
-
-    if (!pageConfiguration->websiteDataStore()) {
-        // We try to avoid creating the default data store as long as possible.
-        // But if there is an attempt to create a web page without any specified data store, then we have to create it.
-        pageConfiguration->setWebsiteDataStore(WebKit::WebsiteDataStore::defaultDataStore());
-    }
 
     RefPtr<WebProcessProxy> process;
     auto lockdownMode = pageConfiguration->lockdownModeEnabled() ? WebProcessProxy::LockdownMode::Enabled : WebProcessProxy::LockdownMode::Disabled;
     RefPtr relatedPage = pageConfiguration->relatedPage();
-    if (relatedPage && !relatedPage->isClosed() && relatedPage->hasSameGPUAndNetworkProcessPreferencesAs(pageConfiguration)) {
+
+    if (pageConfiguration->openerProcess()) {
+        ASSERT(pageConfiguration->preferences().siteIsolationEnabled());
+        process = pageConfiguration->openerProcess();
+    } else if (relatedPage && !relatedPage->isClosed() && relatedPage->hasSameGPUAndNetworkProcessPreferencesAs(pageConfiguration)) {
         // Sharing processes, e.g. when creating the page via window.open().
         process = &relatedPage->ensureRunningProcess();
         // We do not support several WebsiteDataStores sharing a single process.
-        ASSERT(process->isDummyProcessProxy() || pageConfiguration->websiteDataStore() == process->websiteDataStore());
-        ASSERT(&pageConfiguration->relatedPage()->websiteDataStore() == pageConfiguration->websiteDataStore());
+        ASSERT(process->isDummyProcessProxy() || &pageConfiguration->websiteDataStore() == process->websiteDataStore());
+        ASSERT(&pageConfiguration->relatedPage()->websiteDataStore() == &pageConfiguration->websiteDataStore());
     } else if (pageConfiguration->delaysWebProcessLaunchUntilFirstLoad()) {
         WEBPROCESSPOOL_RELEASE_LOG(Process, "createWebPage: delaying WebProcess launch until first load");
         // In the common case, we delay process launch until something is actually loaded in the page.
-        process = dummyProcessProxy(pageConfiguration->websiteDataStore()->sessionID());
+        process = dummyProcessProxy(pageConfiguration->websiteDataStore().sessionID());
         if (!process) {
-            process = WebProcessProxy::create(*this, pageConfiguration->protectedWebsiteDataStore().get(), lockdownMode, WebProcessProxy::IsPrewarmed::No, CrossOriginMode::Shared, WebProcessProxy::ShouldLaunchProcess::No);
-            m_dummyProcessProxies.add(pageConfiguration->websiteDataStore()->sessionID(), *process);
+            process = WebProcessProxy::create(*this, pageConfiguration->protectedWebsiteDataStore().ptr(), lockdownMode, WebProcessProxy::IsPrewarmed::No, CrossOriginMode::Shared, WebProcessProxy::ShouldLaunchProcess::No);
+            m_dummyProcessProxies.add(pageConfiguration->websiteDataStore().sessionID(), *process);
             m_processes.append(*process);
         }
     } else {
         WEBPROCESSPOOL_RELEASE_LOG(Process, "createWebPage: Not delaying WebProcess launch");
-        process = processForRegistrableDomain(*pageConfiguration->protectedWebsiteDataStore(), { }, lockdownMode, pageConfiguration);
+        process = processForRegistrableDomain(pageConfiguration->protectedWebsiteDataStore(), { }, lockdownMode, pageConfiguration);
     }
 
-    RefPtr userContentController = pageConfiguration->userContentController();
+    Ref userContentController = pageConfiguration->userContentController();
     
     ASSERT(process);
     
@@ -1263,8 +1264,7 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
         for (Ref workerProcess : remoteWorkerProcesses())
             workerProcess->updateRemoteWorkerPreferencesStore(*m_remoteWorkerPreferences);
     }
-    if (userContentController)
-        m_userContentControllerForRemoteWorkers = userContentController;
+    m_userContentControllerForRemoteWorkers = userContentController.ptr();
 
     bool enableProcessSwapOnCrossSiteNavigation = page->preferences().processSwapOnCrossSiteNavigationEnabled();
 #if PLATFORM(IOS_FAMILY)
@@ -2259,7 +2259,7 @@ void WebProcessPool::setDomainsWithUserInteraction(HashSet<WebCore::RegistrableD
     m_domainsWithUserInteraction = WTFMove(domains);
 }
 
-void WebProcessPool::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, SubResourceDomain>&& domains, CompletionHandler<void()>&& completionHandler)
+void WebProcessPool::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Vector<SubResourceDomain>>&& domains, CompletionHandler<void()>&& completionHandler)
 {    
     Ref callbackAggregator = CallbackAggregator::create(WTFMove(completionHandler));
 
@@ -2267,7 +2267,7 @@ void WebProcessPool::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain
         process->sendWithAsyncReply(Messages::WebProcess::SetDomainsWithCrossPageStorageAccess(domains), [callbackAggregator] { });
 
     for (auto& topDomain : domains.keys())
-        m_domainsWithCrossPageStorageAccessQuirk.add(topDomain, domains.get(topDomain));
+        m_domainsWithCrossPageStorageAccessQuirk.set(topDomain, domains.get(topDomain));
 }
 
 void WebProcessPool::seedResourceLoadStatisticsForTesting(const RegistrableDomain& firstPartyDomain, const RegistrableDomain& thirdPartyDomain, bool shouldScheduleNotification, CompletionHandler<void()>&& completionHandler)
@@ -2306,6 +2306,11 @@ void WebProcessPool::clearAudibleActivity()
 
 void WebProcessPool::updateAudibleMediaAssertions()
 {
+#if ENABLE(EXTENSION_CAPABILITIES)
+    if (PlatformMediaSessionManager::mediaCapabilityGrantsEnabled())
+        return;
+#endif
+
     if (!m_webProcessWithAudibleMediaCounter.value()) {
         WEBPROCESSPOOL_RELEASE_LOG(ProcessSuspension, "updateAudibleMediaAssertions: Starting timer to clear audible activity in %g seconds because we are no longer playing audio", audibleActivityClearDelay.seconds());
         // We clear the audible activity on a timer for 2 reasons:
@@ -2407,6 +2412,37 @@ size_t WebProcessPool::serviceWorkerProxiesCount() const
             ++count;
     });
     return count;
+}
+
+void WebProcessPool::isJITDisabledInAllRemoteWorkerProcesses(CompletionHandler<void(bool)>&& completionHandler) const
+{
+    class JITDisabledCallbackAggregator : public RefCounted<JITDisabledCallbackAggregator> {
+    public:
+        static auto create(CompletionHandler<void(bool)>&& callback) { return adoptRef(*new JITDisabledCallbackAggregator(WTFMove(callback))); }
+
+        ~JITDisabledCallbackAggregator()
+        {
+            if (m_callback)
+                m_callback(m_isJITDisabled);
+        }
+
+        void setJITEnabled(bool isJITEnabled) { m_isJITDisabled &= !isJITEnabled; }
+
+    private:
+        explicit JITDisabledCallbackAggregator(CompletionHandler<void(bool)>&& callback)
+            : m_callback(WTFMove(callback))
+        { }
+
+        CompletionHandler<void(bool)> m_callback;
+        bool m_isJITDisabled { true };
+    };
+
+    Ref callbackAggregator = JITDisabledCallbackAggregator::create(WTFMove(completionHandler));
+    remoteWorkerProcesses().forEach([&](auto& process) {
+        process.sendWithAsyncReply(Messages::WebProcess::IsJITEnabled(), [callbackAggregator](bool isJITEnabled) {
+            callbackAggregator->setJITEnabled(isJITEnabled);
+        }, 0);
+    });
 }
 
 bool WebProcessPool::hasServiceWorkerForegroundActivityForTesting() const

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2005-2024 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,6 +26,7 @@
 #include "PopupMenuStyle.h"
 #include "ScrollTypes.h"
 #include "StyleColor.h"
+#include "SwitchTrigger.h"
 #include "ThemeTypes.h"
 #include <wtf/HashMap.h>
 
@@ -256,6 +257,7 @@ public:
     virtual Seconds switchAnimationVisuallyOnDuration() const { return 0_s; }
     virtual Seconds switchAnimationPressedDuration() const { return 0_s; }
     float switchPointerTrackingMagnitudeProportion() const { return 0.4f; }
+    virtual bool hasSwitchHapticFeedback(SwitchTrigger) const { return false; }
 
 protected:
     OptionSet<ControlStyle::State> extractControlStyleStatesForRenderer(const RenderObject&) const;
@@ -325,9 +327,6 @@ protected:
 
     virtual void adjustMeterStyle(RenderStyle&, const Element*) const;
     virtual bool paintMeter(const RenderObject&, const PaintInfo&, const IntRect&) { return true; }
-
-    virtual void adjustCapsLockIndicatorStyle(RenderStyle&, const Element*) const { }
-    virtual bool paintCapsLockIndicator(const RenderObject&, const PaintInfo&, const IntRect&) { return false; }
 
 #if ENABLE(APPLE_PAY)
     virtual void adjustApplePayButtonStyle(RenderStyle&, const Element*) const { }

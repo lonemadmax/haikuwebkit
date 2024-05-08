@@ -51,7 +51,7 @@ namespace {
 template<typename S, int I, typename T>
 Vector<S> vectorCopyCast(const T& arrayReference)
 {
-    return { reinterpret_cast<const S*>(arrayReference.template data<I>()), arrayReference.size() };
+    return Vector(std::span { reinterpret_cast<const S*>(arrayReference.template data<I>()), arrayReference.size() });
 }
 }
 
@@ -165,10 +165,10 @@ void RemoteGraphicsContextGL::forceContextLost()
     send(Messages::RemoteGraphicsContextGLProxy::WasLost());
 }
 
-void RemoteGraphicsContextGL::createAndBindEGLImage(GCGLenum target, WebCore::GraphicsContextGL::EGLImageSource source, GCGLint layer, CompletionHandler<void(uint64_t handle)>&& completionHandler)
+void RemoteGraphicsContextGL::createAndBindEGLImage(GCGLenum target, GCGLenum internalFormat, WebCore::GraphicsContextGL::EGLImageSource source, GCGLint layer, CompletionHandler<void(uint64_t handle)>&& completionHandler)
 {
     assertIsCurrent(workQueue());
-    auto handle = m_context->createAndBindEGLImage(target, WTFMove(source), layer);
+    auto handle = m_context->createAndBindEGLImage(target, internalFormat, WTFMove(source), layer);
     completionHandler(static_cast<uint64_t>(reinterpret_cast<intptr_t>(handle)));
 }
 

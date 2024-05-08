@@ -342,6 +342,10 @@ ExceptionOr<void> ViewTransition::captureOldState()
             if (auto name = effectiveViewTransitionName(element); !name.isNull()) {
                 if (auto check = checkDuplicateViewTransitionName(name, usedTransitionNames); check.hasException())
                     return check.releaseException();
+
+                // FIXME: Skip fragmented content.
+
+                element.setCapturedInViewTransition(true);
                 captureElements.append(element);
             }
             return { };
@@ -362,9 +366,13 @@ ExceptionOr<void> ViewTransition::captureOldState()
 
         auto transitionName = element->computedStyle()->viewTransitionName();
         m_namedElements.add(transitionName->name, capture);
+    }
 
+    for (auto& element : captureElements) {
+        element->setCapturedInViewTransition(false);
         element->invalidateStyleAndLayerComposition();
     }
+
     return { };
 }
 
@@ -492,8 +500,17 @@ void ViewTransition::activateViewTransition()
         return;
     }
 
+    for (auto& [name, capturedElement] : m_namedElements.map()) {
+        if (RefPtr newElement = capturedElement->newElement.get())
+            newElement->setCapturedInViewTransition(true);
+    }
+
     setupTransitionPseudoElements();
-    updatePseudoElementStyles();
+    checkFailure = updatePseudoElementStyles();
+    if (checkFailure.hasException()) {
+        skipViewTransition(checkFailure.releaseException());
+        return;
+    }
 
     m_phase = ViewTransitionPhase::Animating;
     m_ready.second->resolve();
@@ -563,6 +580,11 @@ void ViewTransition::clearViewTransition()
         }
     }
 
+    for (auto& [name, capturedElement] : m_namedElements.map()) {
+        if (RefPtr newElement = capturedElement->newElement.get())
+            newElement->setCapturedInViewTransition(false);
+    }
+
     protectedDocument()->setHasViewTransitionPseudoElementTree(false);
     protectedDocument()->setActiveViewTransition(nullptr);
     protectedDocument()->styleScope().clearViewTransitionStyles();
@@ -599,7 +621,7 @@ Ref<MutableStyleProperties> ViewTransition::copyElementBaseProperties(Element& e
             break;
         LayoutSize containerOffset = renderer->offsetFromContainer(*container, LayoutPoint());
         TransformationMatrix localTransform;
-        renderer->getTransformFromContainer(container, containerOffset, localTransform);
+        renderer->getTransformFromContainer(containerOffset, localTransform);
         transform = localTransform * transform;
         renderer = container;
     }
@@ -618,15 +640,19 @@ Ref<MutableStyleProperties> ViewTransition::copyElementBaseProperties(Element& e
 }
 
 // https://drafts.csswg.org/css-view-transitions-1/#update-pseudo-element-styles
-void ViewTransition::updatePseudoElementStyles()
+ExceptionOr<void> ViewTransition::updatePseudoElementStyles()
 {
     auto& resolver = protectedDocument()->styleScope().resolver();
 
     for (auto& [name, capturedElement] : m_namedElements.map()) {
         RefPtr<MutableStyleProperties> properties;
-        if (capturedElement->newElement) {
-            CheckedPtr renderBox = dynamicDowncast<RenderBox>(capturedElement->newElement->renderer());
-            properties = copyElementBaseProperties(*capturedElement->newElement, renderBox ? renderBox->size() : LayoutSize { });
+        if (RefPtr newElement = capturedElement->newElement.get()) {
+            // FIXME: Also check fragmented content here.
+            CheckVisibilityOptions visibilityOptions { .contentVisibilityAuto = true };
+            if (!newElement->checkVisibility(visibilityOptions))
+                return Exception { ExceptionCode::InvalidStateError, "One of the transitioned elements has become hidden."_s };
+            CheckedPtr renderBox = dynamicDowncast<RenderBox>(newElement->renderer());
+            properties = copyElementBaseProperties(*newElement, renderBox ? renderBox->size() : LayoutSize { });
         } else
             properties = capturedElement->oldProperties;
 
@@ -641,6 +667,7 @@ void ViewTransition::updatePseudoElementStyles()
     }
 
     protectedDocument()->styleScope().didChangeStyleSheetContents();
+    return { };
 }
 
 }

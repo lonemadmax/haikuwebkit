@@ -199,6 +199,12 @@ TEST(WKWebExtension, ActionParsing)
     EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
     EXPECT_NS_EQUAL(testExtension.displayActionLabel, @"Button Title");
     EXPECT_NOT_NULL([testExtension actionIconForSize:NSMakeSize(16, 16)]);
+
+    testManifestDictionary = @{ @"manifest_version": @3, @"name": @"Test", @"description": @"Test", @"version": @"1.0", @"action": @{ } };
+    testExtension = [[_WKWebExtension alloc] _initWithManifestDictionary:testManifestDictionary];
+    EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
+    EXPECT_NULL(testExtension.displayActionLabel);
+    EXPECT_NULL([testExtension actionIconForSize:NSMakeSize(16, 16)]);
 }
 
 TEST(WKWebExtension, ContentScriptsParsing)
@@ -218,6 +224,12 @@ TEST(WKWebExtension, ContentScriptsParsing)
     EXPECT_TRUE(testExtension.hasInjectedContent);
 
     testManifestDictionary[@"content_scripts"] = @[ @{ @"js": @[ @"test.js", @1, @"" ], @"css": @[ @NO, @"test.css", @"" ], @"matches": @[ @"*://*.example.com/" ] } ];
+    testExtension = [[_WKWebExtension alloc] _initWithManifestDictionary:testManifestDictionary];
+
+    EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
+    EXPECT_TRUE(testExtension.hasInjectedContent);
+
+    testManifestDictionary[@"content_scripts"] = @[ @{ @"js": @[ @"test.js" ], @"matches": @[ @"*://*.example.com/" ], @"world": @"MAIN" } ];
     testExtension = [[_WKWebExtension alloc] _initWithManifestDictionary:testManifestDictionary];
 
     EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
@@ -247,6 +259,13 @@ TEST(WKWebExtension, ContentScriptsParsing)
     EXPECT_FALSE(testExtension.hasInjectedContent);
 
     testManifestDictionary[@"content_scripts"] = @[ @{ @"js": @[ @"test.js" ], @"matches": @[ @"*://*.example.com/" ], @"run_at": @"invalid" } ];
+    testExtension = [[_WKWebExtension alloc] _initWithManifestDictionary:testManifestDictionary];
+
+    EXPECT_NE(testExtension.errors.count, 0ul);
+    EXPECT_NOT_NULL(matchingError(testExtension.errors, _WKWebExtensionErrorInvalidManifestEntry));
+    EXPECT_TRUE(testExtension.hasInjectedContent);
+
+    testManifestDictionary[@"content_scripts"] = @[ @{ @"js": @[ @"test.js" ], @"matches": @[ @"*://*.example.com/" ], @"world": @"INVALID" } ];
     testExtension = [[_WKWebExtension alloc] _initWithManifestDictionary:testManifestDictionary];
 
     EXPECT_NE(testExtension.errors.count, 0ul);
@@ -459,6 +478,7 @@ TEST(WKWebExtension, BackgroundParsing)
 #else
     EXPECT_TRUE(testExtension.backgroundContentIsPersistent);
 #endif
+    EXPECT_FALSE(testExtension._backgroundContentIsServiceWorker);
     EXPECT_FALSE(testExtension._backgroundContentUsesModules);
     EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
 
@@ -467,6 +487,8 @@ TEST(WKWebExtension, BackgroundParsing)
 
     EXPECT_TRUE(testExtension.hasBackgroundContent);
     EXPECT_FALSE(testExtension.backgroundContentIsPersistent);
+    EXPECT_FALSE(testExtension._backgroundContentIsServiceWorker);
+    EXPECT_FALSE(testExtension._backgroundContentUsesModules);
     EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
 
 #if TARGET_OS_IPHONE
@@ -483,6 +505,8 @@ TEST(WKWebExtension, BackgroundParsing)
 #else
     EXPECT_TRUE(testExtension.backgroundContentIsPersistent);
 #endif
+    EXPECT_FALSE(testExtension._backgroundContentIsServiceWorker);
+    EXPECT_FALSE(testExtension._backgroundContentUsesModules);
     EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
 
     testManifestDictionary[@"background"] = @{ @"service_worker": @"test.js" };
@@ -490,6 +514,35 @@ TEST(WKWebExtension, BackgroundParsing)
 
     EXPECT_TRUE(testExtension.hasBackgroundContent);
     EXPECT_FALSE(testExtension.backgroundContentIsPersistent);
+    EXPECT_TRUE(testExtension._backgroundContentIsServiceWorker);
+    EXPECT_FALSE(testExtension._backgroundContentUsesModules);
+    EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
+
+    testManifestDictionary[@"background"] = @{ @"scripts": @[ @"test-1.js", @"test-2.js" ], @"service_worker": @"test.js", @"persistent": @NO };
+    testExtension = [[_WKWebExtension alloc] _initWithManifestDictionary:testManifestDictionary];
+
+    EXPECT_TRUE(testExtension.hasBackgroundContent);
+    EXPECT_FALSE(testExtension.backgroundContentIsPersistent);
+    EXPECT_FALSE(testExtension._backgroundContentIsServiceWorker);
+    EXPECT_FALSE(testExtension._backgroundContentUsesModules);
+    EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
+
+    testManifestDictionary[@"background"] = @{ @"page": @"test.html", @"service_worker": @"test.js", @"persistent": @NO };
+    testExtension = [[_WKWebExtension alloc] _initWithManifestDictionary:testManifestDictionary];
+
+    EXPECT_TRUE(testExtension.hasBackgroundContent);
+    EXPECT_FALSE(testExtension.backgroundContentIsPersistent);
+    EXPECT_FALSE(testExtension._backgroundContentIsServiceWorker);
+    EXPECT_FALSE(testExtension._backgroundContentUsesModules);
+    EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
+
+    testManifestDictionary[@"background"] = @{ @"scripts": @[ @"test-1.js", @"test-2.js" ], @"page": @"test.html", @"service_worker": @"test.js", @"persistent": @NO };
+    testExtension = [[_WKWebExtension alloc] _initWithManifestDictionary:testManifestDictionary];
+
+    EXPECT_TRUE(testExtension.hasBackgroundContent);
+    EXPECT_FALSE(testExtension.backgroundContentIsPersistent);
+    EXPECT_FALSE(testExtension._backgroundContentIsServiceWorker);
+    EXPECT_FALSE(testExtension._backgroundContentUsesModules);
     EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
 
     testManifestDictionary[@"background"] = @{ @"service_worker": @"test.js", @"persistent": @NO };
@@ -497,6 +550,26 @@ TEST(WKWebExtension, BackgroundParsing)
 
     EXPECT_TRUE(testExtension.hasBackgroundContent);
     EXPECT_FALSE(testExtension.backgroundContentIsPersistent);
+    EXPECT_TRUE(testExtension._backgroundContentIsServiceWorker);
+    EXPECT_FALSE(testExtension._backgroundContentUsesModules);
+    EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
+
+    testManifestDictionary[@"background"] = @{ @"service_worker": @"test.js", @"type": @"module", @"persistent": @NO };
+    testExtension = [[_WKWebExtension alloc] _initWithManifestDictionary:testManifestDictionary];
+
+    EXPECT_TRUE(testExtension.hasBackgroundContent);
+    EXPECT_FALSE(testExtension.backgroundContentIsPersistent);
+    EXPECT_TRUE(testExtension._backgroundContentIsServiceWorker);
+    EXPECT_TRUE(testExtension._backgroundContentUsesModules);
+    EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
+
+    testManifestDictionary[@"background"] = @{ @"scripts": @[ @"test.js", @"test2.js" ], @"type": @"module", @"persistent": @NO };
+    testExtension = [[_WKWebExtension alloc] _initWithManifestDictionary:testManifestDictionary];
+
+    EXPECT_TRUE(testExtension.hasBackgroundContent);
+    EXPECT_FALSE(testExtension.backgroundContentIsPersistent);
+    EXPECT_FALSE(testExtension._backgroundContentIsServiceWorker);
+    EXPECT_TRUE(testExtension._backgroundContentUsesModules);
     EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
 
     // Invalid cases
@@ -604,20 +677,6 @@ TEST(WKWebExtension, BackgroundParsing)
     EXPECT_NE(testExtension.errors.count, 0ul);
     EXPECT_NOT_NULL(matchingError(testExtension.errors, _WKWebExtensionErrorInvalidManifestEntry));
     EXPECT_NULL(matchingError(testExtension.errors, _WKWebExtensionErrorInvalidBackgroundPersistence));
-
-    testManifestDictionary[@"background"] = @{ @"service_worker": @"test.js", @"type": @"module", @"persistent": @NO };
-    testExtension = [[_WKWebExtension alloc] _initWithManifestDictionary:testManifestDictionary];
-
-    EXPECT_TRUE(testExtension.hasBackgroundContent);
-    EXPECT_TRUE(testExtension._backgroundContentUsesModules);
-    EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
-
-    testManifestDictionary[@"background"] = @{ @"scripts": @[ @"test.js", @"test2.js" ], @"type": @"module", @"persistent": @NO };
-    testExtension = [[_WKWebExtension alloc] _initWithManifestDictionary:testManifestDictionary];
-
-    EXPECT_TRUE(testExtension.hasBackgroundContent);
-    EXPECT_TRUE(testExtension._backgroundContentUsesModules);
-    EXPECT_NS_EQUAL(testExtension.errors, @[ ]);
 }
 
 TEST(WKWebExtension, OptionsPageParsing)

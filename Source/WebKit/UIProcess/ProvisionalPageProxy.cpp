@@ -31,6 +31,7 @@
 #include "BrowsingContextGroup.h"
 #include "DrawingAreaProxy.h"
 #include "FormDataReference.h"
+#include "FrameProcess.h"
 #include "GoToBackForwardItemParameters.h"
 #include "HandleMessage.h"
 #include "LoadedWebArchive.h"
@@ -284,11 +285,6 @@ void ProvisionalPageProxy::goToBackForwardItem(API::Navigation& navigation, WebB
     std::optional<WebsitePoliciesData> websitePoliciesData;
     if (websitePolicies)
         websitePoliciesData = websitePolicies->data();
-    
-    std::optional<String> topPrivatelyControlledDomain;
-#if ENABLE(PUBLIC_SUFFIX_LIST)
-    topPrivatelyControlledDomain = WebCore::topPrivatelyControlledDomain(URL(item.url()).host().toString());
-#endif
 
     send(Messages::WebPage::UpdateBackForwardListForReattach(WTFMove(itemStates)));
 
@@ -296,7 +292,8 @@ void ProvisionalPageProxy::goToBackForwardItem(API::Navigation& navigation, WebB
     URL itemURL { item.url() };
     m_page->maybeInitializeSandboxExtensionHandle(process(), itemURL, item.resourceDirectoryURL(), sandboxExtensionHandle);
 
-    GoToBackForwardItemParameters parameters { navigation.navigationID(), item.itemID(), *navigation.backForwardFrameLoadType(), shouldTreatAsContinuingLoad, WTFMove(websitePoliciesData), m_page->lastNavigationWasAppInitiated(), existingNetworkResourceLoadIdentifierToResume, topPrivatelyControlledDomain, WTFMove(sandboxExtensionHandle) };
+    auto publicSuffix = WebCore::PublicSuffixStore::singleton().publicSuffix(URL(item.url()));
+    GoToBackForwardItemParameters parameters { navigation.navigationID(), item.itemID(), *navigation.backForwardFrameLoadType(), shouldTreatAsContinuingLoad, WTFMove(websitePoliciesData), m_page->lastNavigationWasAppInitiated(), existingNetworkResourceLoadIdentifierToResume, WTFMove(publicSuffix), WTFMove(sandboxExtensionHandle) };
     if (!process().isLaunching() || !itemURL.protocolIsFile())
         send(Messages::WebPage::GoToBackForwardItem(WTFMove(parameters)));
     else

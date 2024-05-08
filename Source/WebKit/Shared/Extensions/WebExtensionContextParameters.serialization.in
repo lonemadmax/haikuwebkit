@@ -27,6 +27,9 @@ struct WebKit::WebExtensionContextParameters {
 
     URL baseURL;
     String uniqueIdentifier;
+    HashSet<String> unsupportedAPIs;
+
+    HashMap<String, WallTime> grantedPermissions;
 
     Ref<API::Data> localizationJSON;
     Ref<API::Data> manifestJSON;
@@ -42,5 +45,8 @@ struct WebKit::WebExtensionContextParameters {
     Vector<WebKit::WebExtensionContext::PageIdentifierTuple> popupPageIdentifiers;
     Vector<WebKit::WebExtensionContext::PageIdentifierTuple> tabPageIdentifiers;
 }
+
+using WebKit::WebExtensionError = String;
+using WebKit::WebExtensionContext::PageIdentifierTuple = std::tuple<WebCore::PageIdentifier, std::optional<WebKit::WebExtensionTabIdentifier>, std::optional<WebKit::WebExtensionWindowIdentifier>>;
 
 #endif

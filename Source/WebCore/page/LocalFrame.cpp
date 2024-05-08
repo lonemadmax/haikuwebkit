@@ -364,11 +364,6 @@ void LocalFrame::changeLocation(FrameLoadRequest&& request)
     checkedLoader()->changeLocation(WTFMove(request));
 }
 
-void LocalFrame::broadcastFrameRemovalToOtherProcesses()
-{
-    checkedLoader()->client().broadcastFrameRemovalToOtherProcesses();
-}
-
 void LocalFrame::didFinishLoadInAnotherProcess()
 {
     checkedLoader()->provisionalLoadFailedInAnotherProcess();
@@ -458,7 +453,7 @@ String LocalFrame::searchForLabelsAboveCell(const JSC::Yarr::RegularExpression& 
         // search within the above cell we found for a match
         size_t lengthSearched = 0;
         for (RefPtr textNode = TextNodeTraversal::firstWithin(*aboveCell); textNode; textNode = TextNodeTraversal::next(*textNode, aboveCell.get())) {
-            if (!textNode->renderer() || textNode->renderer()->style().visibility() != Visibility::Visible)
+            if (!textNode->renderer() || textNode->renderer()->style().usedVisibility() != Visibility::Visible)
                 continue;
             // For each text chunk, run the regexp
             String nodeString = textNode->data();
@@ -518,7 +513,7 @@ String LocalFrame::searchForLabelsBeforeElement(const Vector<String>& labels, El
                 return result;
             }
             searchedCellAbove = true;
-        } else if (n->isTextNode() && n->renderer() && n->renderer()->style().visibility() == Visibility::Visible) {
+        } else if (n->isTextNode() && n->renderer() && n->renderer()->style().usedVisibility() == Visibility::Visible) {
             // For each text chunk, run the regexp
             String nodeString = n->nodeValue();
             // add 100 for slop, to make it more likely that we'll search whole nodes
@@ -873,7 +868,7 @@ VisiblePosition LocalFrame::visiblePositionForPoint(const IntPoint& framePoint) 
     CheckedPtr renderer = node->renderer();
     if (!renderer)
         return VisiblePosition();
-    VisiblePosition visiblePos = renderer->positionForPoint(result.localPoint(), nullptr);
+    VisiblePosition visiblePos = renderer->positionForPoint(result.localPoint(), HitTestSource::User, nullptr);
     if (visiblePos.isNull())
         visiblePos = firstPositionInOrBeforeNode(node.get());
     return visiblePos;

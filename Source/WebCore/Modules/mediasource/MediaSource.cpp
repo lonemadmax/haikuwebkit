@@ -54,6 +54,8 @@
 #endif
 #include "MediaSourcePrivate.h"
 #include "MediaSourceRegistry.h"
+#include "MediaStrategy.h"
+#include "PlatformStrategies.h"
 #include "Quirks.h"
 #include "ScriptExecutionContext.h"
 #include "Settings.h"
@@ -495,7 +497,7 @@ bool MediaSource::hasFutureTime()
     if (isClosed())
         return false;
 
-    return m_private->hasFutureTime(currentTime());
+    return m_private->hasFutureTime(currentTime(), m_private->timeIsProgressing() ? MediaTime::zeroTime() : MediaSourcePrivate::futureDataThreshold());
 }
 
 bool MediaSource::isBuffered(const PlatformTimeRanges& ranges) const
@@ -1179,6 +1181,7 @@ void MediaSource::detachFromElement()
 
     m_private = nullptr;
     m_mediaElement = nullptr;
+    m_isAttached = false;
 
     if (m_seekTargetPromise) {
         m_seekTargetPromise->reject(PlatformMediaError::Cancelled);
@@ -1193,12 +1196,14 @@ void MediaSource::sourceBufferDidChangeActiveState(SourceBuffer&, bool)
 
 bool MediaSource::attachToElement(WeakPtr<HTMLMediaElement>&& element)
 {
-    if (m_mediaElement || !scriptExecutionContext())
+    if (m_isAttached || !scriptExecutionContext())
         return false;
 
     ASSERT(isClosed());
 
     m_mediaElement = WTFMove(element);
+    m_isAttached = true;
+
     return true;
 }
 
@@ -1250,8 +1255,9 @@ void MediaSource::stop()
 {
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    if (m_mediaElement)
-        m_mediaElement->detachMediaSource();
+    ensureWeakOnHTMLMediaElementContext([](auto& mediaElement) {
+        mediaElement.detachMediaSource();
+    });
     m_seekTargetPromise.reset();
     m_private = nullptr;
 }
@@ -1575,7 +1581,7 @@ bool MediaSource::enabledForContext(ScriptExecutionContext& context)
     UNUSED_PARAM(context);
 #if ENABLE(MEDIA_SOURCE_IN_WORKERS)
     if (context.isWorkerGlobalScope())
-        return context.settingsValues().mediaSourceInWorkerEnabled;
+        return context.settingsValues().mediaSourceInWorkerEnabled && platformStrategies()->mediaStrategy().hasThreadSafeMediaSourceSupport();
 #endif
 
     ASSERT(context.isDocument());
@@ -1597,7 +1603,7 @@ Ref<MediaSourceHandle> MediaSource::handle()
 
 bool MediaSource::canConstructInDedicatedWorker(ScriptExecutionContext& context)
 {
-    return context.settingsValues().mediaSourceInWorkerEnabled;
+    return context.settingsValues().mediaSourceInWorkerEnabled && platformStrategies()->mediaStrategy().hasThreadSafeMediaSourceSupport();
 }
 
 #endif

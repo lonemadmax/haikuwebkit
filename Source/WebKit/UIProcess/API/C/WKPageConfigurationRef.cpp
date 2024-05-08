@@ -27,6 +27,7 @@
 #include "WKPageConfigurationRef.h"
 
 #include "APIPageConfiguration.h"
+#include "BrowsingContextGroup.h"
 #include "WKAPICast.h"
 #include "WebPageGroup.h"
 #include "WebPageProxy.h"

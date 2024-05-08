@@ -81,6 +81,7 @@ private:
 #endif
 
     void visibilityDidChange(bool) override;
+    bool backgroundColorDidChange() override;
 
     AcceleratedSurfaceDMABuf(WebPage&, Client&);
 
@@ -161,7 +162,14 @@ private:
         explicit SwapChain(uint64_t);
         ~SwapChain() = default;
 
-        enum class Type { Invalid, EGLImage, SharedMemory, Texture };
+        enum class Type {
+            Invalid,
+#if USE(GBM)
+            EGLImage,
+#endif
+            SharedMemory,
+            Texture
+        };
 
         Type type() const { return m_type; }
         void resize(const WebCore::IntSize&);
@@ -173,7 +181,7 @@ private:
         unsigned size() const { return m_freeTargets.size() + m_lockedTargets.size(); }
 
 #if USE(GBM)
-        void setupBufferFormat(const Vector<DMABufRendererBufferFormat>&);
+        void setupBufferFormat(const Vector<DMABufRendererBufferFormat>&, bool);
 #endif
 
     private:

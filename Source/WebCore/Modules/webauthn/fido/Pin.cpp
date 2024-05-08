@@ -172,8 +172,8 @@ std::optional<KeyAgreementResponse> KeyAgreementResponse::parseFromCOSE(const CB
 cbor::CBORValue::MapValue encodeCOSEPublicKey(const Vector<uint8_t>& rawPublicKey)
 {
     ASSERT(rawPublicKey.size() == 65);
-    Vector<uint8_t> x { rawPublicKey.data() + 1, ES256FieldElementLength };
-    Vector<uint8_t> y { rawPublicKey.data() + 1 + ES256FieldElementLength, ES256FieldElementLength };
+    auto x = rawPublicKey.subvector(1, ES256FieldElementLength);
+    auto y = rawPublicKey.subvector(1 + ES256FieldElementLength, ES256FieldElementLength);
 
     cbor::CBORValue::MapValue publicKeyMap;
     publicKeyMap[cbor::CBORValue(COSE::kty)] = cbor::CBORValue(COSE::EC2);
@@ -248,7 +248,7 @@ std::optional<TokenRequest> TokenRequest::tryCreate(const CString& pin, const Cr
         return std::nullopt;
 
     auto crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
-    crypto->addBytes(sharedKeyResult->data(), sharedKeyResult->size());
+    crypto->addBytes(sharedKeyResult->span());
     auto sharedKeyHash = crypto->computeHash();
 
     auto sharedKey = CryptoKeyAES::importRaw(CryptoAlgorithmIdentifier::AES_CBC, WTFMove(sharedKeyHash), true, CryptoKeyUsageEncrypt | CryptoKeyUsageDecrypt);
@@ -261,7 +261,7 @@ std::optional<TokenRequest> TokenRequest::tryCreate(const CString& pin, const Cr
 
     // The following calculates a SHA-256 digest of the PIN, and shrink to the left 16 bytes.
     crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
-    crypto->addBytes(pin.data(), pin.length());
+    crypto->addBytes(pin.span());
     auto pinHash = crypto->computeHash();
     pinHash.shrink(16);
 
@@ -313,7 +313,7 @@ std::optional<SetPinRequest> SetPinRequest::tryCreate(const String& inputPin, co
         return std::nullopt;
 
     auto crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
-    crypto->addBytes(sharedKeyResult->data(), sharedKeyResult->size());
+    crypto->addBytes(sharedKeyResult->span());
     auto sharedKeyHash = crypto->computeHash();
 
     auto sharedKey = CryptoKeyAES::importRaw(CryptoAlgorithmIdentifier::AES_CBC, Vector { sharedKeyHash }, true, CryptoKeyUsageEncrypt | CryptoKeyUsageDecrypt);
@@ -327,7 +327,7 @@ std::optional<SetPinRequest> SetPinRequest::tryCreate(const String& inputPin, co
     const size_t minPaddedPinLength = 64;
     Vector<uint8_t> paddedPin;
     paddedPin.reserveInitialCapacity(minPaddedPinLength);
-    paddedPin.append(inputPin.utf8().bytes());
+    paddedPin.append(inputPin.utf8().span());
     for (int i = paddedPin.size(); i < 64; i++)
         paddedPin.append('\0');
 

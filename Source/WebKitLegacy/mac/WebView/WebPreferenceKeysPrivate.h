@@ -166,7 +166,6 @@
 #define WebKitLinkPreloadEnabledPreferenceKey @"WebKitLinkPreloadEnabled"
 #define WebKitMediaPreloadingEnabledPreferenceKey @"WebKitMediaPreloadingEnabled"
 #define WebKitMediaUserGestureInheritsFromDocument @"WebKitMediaUserGestureInheritsFromDocument"
-#define WebKitConstantPropertiesEnabledPreferenceKey @"WebKitConstantPropertiesEnabled"
 #define WebKitColorFilterEnabledPreferenceKey @"WebKitColorFilterEnabled"
 #define WebKitPunchOutWhiteBackgroundsInDarkModePreferenceKey @"WebKitPunchOutWhiteBackgroundsInDarkMode"
 #define WebKitLayoutFormattingContextIntegrationEnabledPreferenceKey @"WebKitLayoutFormattingContextIntegrationEnabled"
@@ -239,8 +238,6 @@
 #define WebKitCSSOMViewSmoothScrollingEnabledPreferenceKey @"WebKitCSSOMViewSmoothScrollingEnabled"
 #define WebKitWebAnimationsCompositeOperationsEnabledPreferenceKey @"WebKitWebAnimationsCompositeOperationsEnabled"
 #define WebKitWebAnimationsMutableTimelinesEnabledPreferenceKey @"WebKitWebAnimationsMutableTimelinesEnabled"
-#define WebKitMaskWebGLStringsEnabledPreferenceKey @"WebKitMaskWebGLStringsEnabled"
-#define WebKitCSSCustomPropertiesAndValuesEnabledPreferenceKey @"WebKitCSSCustomPropertiesAndValuesEnabled"
 #define WebKitPrivateClickMeasurementEnabledPreferenceKey @"WebKitPrivateClickMeasurementEnabled"
 #define WebKitGenericCueAPIEnabledKey @"WebKitGenericCueAPIEnabled"
 #define WebKitCoreMathMLEnabledPreferenceKey @"WebKitCoreMathMLEnabled"
@@ -254,6 +251,9 @@
 
 // The preference keys below this point are deprecated and have no effect. They should
 // be removed when it is considered safe to do so.
+#define WebKitConstantPropertiesEnabledPreferenceKey @"WebKitConstantPropertiesEnabled"
+#define WebKitMaskWebGLStringsEnabledPreferenceKey @"WebKitMaskWebGLStringsEnabled"
+#define WebKitCSSCustomPropertiesAndValuesEnabledPreferenceKey @"WebKitCSSCustomPropertiesAndValuesEnabled"
 #define WebKitAllowCrossOriginSubresourcesToAskForCredentialsKey @"WebKitAllowCrossOriginSubresourcesToAskForCredentials"
 #define WebKitAspectRatioOfImgFromWidthAndHeightEnabledPreferenceKey @"WebKitAspectRatioOfImgFromWidthAndHeightEnabled"
 #define WebKitResizeObserverEnabledPreferenceKey @"WebKitResizeObserverEnabled"

@@ -243,32 +243,35 @@ void WebExtensionContext::declarativeNetRequestGetMatchedRules(std::optional<Web
     }
 
     if (!hasPermission(_WKWebExtensionPermissionDeclarativeNetRequestFeedback)) {
-        ASSERT(hasPermission(_WKWebExtensionPermissionActiveTab));
-
-        if (!hasPermission(_WKWebExtensionPermissionTabs, tab.get())) {
-            completionHandler(toWebExtensionError(apiName, nil, @"The 'activeTab' permission has not been granted by the user for the specified tab."));
+        if (!tab->extensionHasTemporaryPermission()) {
+            completionHandler(toWebExtensionError(apiName, nil, @"the 'activeTab' permission has not been granted by the user for the tab"));
             return;
         }
     }
 
     WallTime minTime = minTimeStamp ? minTimeStamp.value() : WallTime::nan();
 
-    DeclarativeNetRequestMatchedRuleVector filteredMatchedRules;
-    for (auto matchedRule : matchedRules()) {
-        // FIXME: https://bugs.webkit.org/show_bug.cgi?id=262714 - we should be requesting permission if we don't have access to this URL.
-        if (!hasPermission(matchedRule.url))
-            continue;
+    DeclarativeNetRequestMatchedRuleVector filteredRules;
 
+    URLVector allURLs;
+    for (auto& matchedRule : matchedRules()) {
         if (tabIdentifier && matchedRule.tabIdentifier != tabIdentifier)
             continue;
 
         if (minTime != WallTime::nan() && matchedRule.timeStamp <= minTime)
             continue;
 
-        filteredMatchedRules.append(matchedRule);
+        filteredRules.append(matchedRule);
+        allURLs.append(matchedRule.url);
     }
 
-    completionHandler(WTFMove(filteredMatchedRules));
+    requestPermissionToAccessURLs(allURLs, nullptr, [this, protectedThis = Ref { *this }, filteredRules = WTFMove(filteredRules), completionHandler = WTFMove(completionHandler)](auto&& requestedURLs, auto&& allowedURLs, auto expirationDate) mutable {
+        auto result = WTF::compactMap(filteredRules, [&](auto& matchedRule) -> std::optional<WebExtensionMatchedRuleParameters> {
+            return hasPermission(matchedRule.url) ? std::optional(matchedRule) : std::nullopt;
+        });
+
+        completionHandler(WTFMove(result));
+    });
 }
 
 _WKWebExtensionDeclarativeNetRequestSQLiteStore *WebExtensionContext::declarativeNetRequestDynamicRulesStore()

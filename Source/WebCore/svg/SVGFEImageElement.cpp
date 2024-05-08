@@ -175,11 +175,10 @@ void SVGFEImageElement::notifyFinished(CachedResource&, const NetworkLoadMetrics
     if (!parentRenderer)
         return;
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
     // FIXME: [LBSE] Implement filters.
     if (document().settings().layerBasedSVGEngineEnabled())
         return;
-#endif
+
     LegacyRenderSVGResource::markForLayoutAndParentResourceInvalidation(*parentRenderer);
 }
 
@@ -222,7 +221,7 @@ RefPtr<FilterEffect> SVGFEImageElement::createFilterEffect(const FilterEffectVec
         if (!image || image->isNull())
             return nullptr;
 
-        RefPtr nativeImage = image->preTransformedNativeImageForCurrentFrame();
+        RefPtr nativeImage = image->currentPreTransformedNativeImage();
         if (!nativeImage)
             return nullptr;
 

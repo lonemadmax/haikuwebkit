@@ -122,7 +122,7 @@ static void configureLayerAsGuard(CALayer *, NSString *) { }
 
 static NSString *interactionRegionGroupNameForRegion(const WebCore::PlatformLayerIdentifier& layerID, const WebCore::InteractionRegion& interactionRegion)
 {
-    return makeString("WKInteractionRegion-"_s, layerID.toString(), interactionRegion.elementIdentifier.toUInt64());
+    return makeString("WKInteractionRegion-"_s, interactionRegion.elementIdentifier.toUInt64());
 }
 
 static void configureRemoteEffect(CALayer *layer, WebCore::InteractionRegion::Type type, NSString *groupName)
@@ -210,7 +210,9 @@ static CACornerMask convertToCACornerMask(OptionSet<InteractionRegion::CornerMas
 
 void updateLayersForInteractionRegions(RemoteLayerTreeNode& node)
 {
-    if (node.eventRegion().interactionRegions().isEmpty()) {
+    ASSERT(node.uiView());
+
+    if (node.eventRegion().interactionRegions().isEmpty() || !node.uiView()) {
         node.removeInteractionRegionsContainer();
         return;
     }
@@ -289,9 +291,9 @@ void updateLayersForInteractionRegions(RemoteLayerTreeNode& node)
             [regionLayer setCornerRadius:region.cornerRadius];
             if (region.cornerRadius)
                 [regionLayer setCornerCurve:kCACornerCurveCircular];
-
+#if PLATFORM(VISION)
             reconfigureLayerContentHint(regionLayer.get(), region.contentHint);
-
+#endif
             constexpr CACornerMask allCorners = kCALayerMinXMinYCorner | kCALayerMaxXMinYCorner | kCALayerMinXMaxYCorner | kCALayerMaxXMaxYCorner;
             if (region.maskedCorners.isEmpty())
                 [regionLayer setMaskedCorners:allCorners];
@@ -314,7 +316,10 @@ void updateLayersForInteractionRegions(RemoteLayerTreeNode& node)
         if (applyBackgroundColorForDebugging)
             applyBackgroundColorForDebuggingToLayer(regionLayer.get(), region);
 
-        if ([container.sublayers objectAtIndex:insertionPoint] != regionLayer) {
+        // Since we insert new layers as we go, insertionPoint is always <= container.sublayers.count.
+        ASSERT(insertionPoint <= container.sublayers.count);
+        bool shouldAppendLayer = insertionPoint == container.sublayers.count;
+        if (shouldAppendLayer || [container.sublayers objectAtIndex:insertionPoint] != regionLayer) {
             [regionLayer removeFromSuperlayer];
             [container insertSublayer:regionLayer.get() atIndex:insertionPoint];
         }

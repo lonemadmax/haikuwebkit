@@ -448,9 +448,9 @@ def _print_expectations(port, options, args, logging_stream):
         return exit_code
     except Exception as error:
         _log.error('Error printing expectations: {}'.format(error))
+        return -1
     finally:
         printer.cleanup()
-        return -1
 
 
 def _set_up_derived_options(port, options):
@@ -478,7 +478,7 @@ def _set_up_derived_options(port, options):
         options.additional_platform_directory.insert(0, port.host.filesystem.join(host.scm().checkout_root, 'LayoutTests/platform/mac-gpup'))
 
     if port.port_name == "mac" and options.site_isolation:
-        options.self_compare_with_header = 'SiteIsolationEnabled=true runInCrossOriginFrame=true'
+        options.additional_header = 'runInCrossOriginFrame=true'
         host = Host()
         host.initialize_scm()
         options.additional_expectations.insert(0, port.host.filesystem.join(host.scm().checkout_root, 'LayoutTests/platform/mac-site-isolation/TestExpectations'))

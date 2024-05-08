@@ -66,11 +66,11 @@ AccessibilityRole AccessibilityMathMLElement::determineAccessibilityRole()
     return AccessibilityRole::MathElement;
 }
 
-String AccessibilityMathMLElement::textUnderElement(AccessibilityTextUnderElementMode mode) const
+String AccessibilityMathMLElement::textUnderElement(TextUnderElementMode mode) const
 {
     if (m_isAnonymousOperator) {
         UChar operatorChar = downcast<RenderMathMLOperator>(*m_renderer).textContent();
-        return operatorChar ? String(&operatorChar, 1) : String();
+        return operatorChar ? String(span(operatorChar)) : String();
     }
 
     return AccessibilityRenderObject::textUnderElement(mode);

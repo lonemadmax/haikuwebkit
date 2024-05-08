@@ -379,7 +379,7 @@ bool WebExtensionAPIAction::isValidDimensionKey(NSString *dimension)
     return true;
 }
 
-void WebExtensionAPIAction::setIcon(JSContextRef, NSDictionary *details, Ref<WebExtensionCallbackHandler>&& callback, NSString **outExceptionString)
+void WebExtensionAPIAction::setIcon(WebFrame& frame, NSDictionary *details, Ref<WebExtensionCallbackHandler>&& callback, NSString **outExceptionString)
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/action/setIcon
 
@@ -454,6 +454,14 @@ void WebExtensionAPIAction::setIcon(JSContextRef, NSDictionary *details, Ref<Web
 
         iconDictionary = paths;
     }
+
+    // Resolve paths as relative against the frame's URL, unless it is a data URL.
+    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/action/setIcon#path
+    iconDictionary = mapObjects(iconDictionary, ^(id key, NSString *path) {
+        if (![path hasPrefix:@"data:"])
+            path = URL { frame.url(), path }.path().toString();
+        return path;
+    });
 
     auto *iconDictionaryJSON = encodeJSONString(iconDictionary);
 
@@ -549,10 +557,13 @@ WebExtensionAPIEvent& WebExtensionAPIAction::onClicked()
 
 void WebExtensionContextProxy::dispatchActionClickedEvent(const std::optional<WebExtensionTabParameters>& tabParameters)
 {
+    // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/action/onClicked
+
     auto *tab = tabParameters ? toWebAPI(tabParameters.value()) : nil;
 
-    enumerateNamespaceObjects([&](auto& namespaceObject) {
-        // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/action/onClicked
+    enumerateFramesAndNamespaceObjects([&](auto& frame, auto& namespaceObject) {
+        RefPtr coreFrame = frame.protectedCoreLocalFrame();
+        WebCore::UserGestureIndicator gestureIndicator(WebCore::IsProcessingUserGesture::Yes, coreFrame ? coreFrame->document() : nullptr);
         namespaceObject.action().onClicked().invokeListenersWithArgument(tab);
     });
 }

@@ -74,7 +74,6 @@ class PluginView;
 class WebFrame;
 class WebKeyboardEvent;
 class WebWheelEvent;
-struct LookupTextResult;
 struct WebHitTestResultData;
 
 class PDFPlugin final : public PDFPluginBase {
@@ -117,8 +116,8 @@ public:
     WebCore::IntPoint convertFromRootViewToPDFView(const WebCore::IntPoint&) const;
     WebCore::FloatRect convertFromPDFViewToScreen(const WebCore::FloatRect&) const;
 
-    CGFloat scaleFactor() const override;
-    float contentScaleFactor() const final;
+    double scaleFactor() const override;
+    double contentScaleFactor() const final;
     CGSize contentSizeRespectingZoom() const;
 
 private:
@@ -174,7 +173,7 @@ private:
     bool drawsFindOverlay() const final { return true; }
 
     bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&) override;
-    LookupTextResult lookupTextAtLocation(const WebCore::FloatPoint&, WebHitTestResultData&) override;
+    std::pair<String, RetainPtr<PDFSelection>> textForImmediateActionHitTestAtPoint(const WebCore::FloatPoint&, WebHitTestResultData&) override;
 
     bool shouldCreateTransientPaintingSnapshot() const override { return true; }
     RefPtr<WebCore::ShareableBitmap> snapshot() override;

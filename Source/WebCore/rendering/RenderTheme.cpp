@@ -213,7 +213,7 @@ void RenderTheme::adjustStyle(RenderStyle& style, const Element* element, const 
         && !style.borderAndBackgroundEqual(RenderStyle::defaultStyle()))
         style.setUsedAppearance(StyleAppearance::None);
 
-    if (!style.hasEffectiveAppearance())
+    if (!style.hasUsedAppearance())
         return;
 
     if (!supportsBoxShadow(style))
@@ -272,8 +272,6 @@ void RenderTheme::adjustStyle(RenderStyle& style, const Element* element, const 
     case StyleAppearance::ImageControlsButton:
         return adjustImageControlsButtonStyle(style, element);
 #endif
-    case StyleAppearance::CapsLockIndicator:
-        return adjustCapsLockIndicatorStyle(style, element);
 #if ENABLE(APPLE_PAY)
     case StyleAppearance::ApplePayButton:
         return adjustApplePayButtonStyle(style, element);
@@ -371,9 +369,6 @@ StyleAppearance RenderTheme::autoAppearanceForElement(RenderStyle& style, const 
         if (part == UserAgentParts::webkitListButton())
             return StyleAppearance::ListButton;
 #endif
-
-        if (part == UserAgentParts::webkitCapsLockIndicator())
-            return StyleAppearance::CapsLockIndicator;
 
         if (part == UserAgentParts::webkitSearchCancelButton())
             return StyleAppearance::SearchFieldCancelButton;
@@ -497,7 +492,7 @@ static void updateSliderTrackPartForRenderer(SliderTrackPart& sliderTrackPart, c
 
 static void updateSwitchThumbPartForRenderer(SwitchThumbPart& switchThumbPart, const RenderObject& renderer)
 {
-    auto& input = checkedDowncast<HTMLInputElement>(*renderer.node()->shadowHost());
+    auto& input = downcast<HTMLInputElement>(*renderer.node()->shadowHost());
     ASSERT(input.isSwitch());
 
     switchThumbPart.setIsOn(input.isSwitchVisuallyOn());
@@ -506,7 +501,7 @@ static void updateSwitchThumbPartForRenderer(SwitchThumbPart& switchThumbPart, c
 
 static void updateSwitchTrackPartForRenderer(SwitchTrackPart& switchTrackPart, const RenderObject& renderer)
 {
-    auto& input = checkedDowncast<HTMLInputElement>(*renderer.node()->shadowHost());
+    auto& input = downcast<HTMLInputElement>(*renderer.node()->shadowHost());
     ASSERT(input.isSwitch());
 
     switchTrackPart.setIsOn(input.isSwitchVisuallyOn());
@@ -567,9 +562,6 @@ RefPtr<ControlPart> RenderTheme::createControlPart(const RenderObject& renderer)
 
     case StyleAppearance::TextField:
         return TextFieldPart::create();
-
-    case StyleAppearance::CapsLockIndicator:
-        break;
 
 #if ENABLE(INPUT_TYPE_COLOR)
     case StyleAppearance::ColorWell:
@@ -734,7 +726,7 @@ ControlStyle RenderTheme::extractControlStyleForRenderer(const RenderObject& ren
     return {
         extractControlStyleStatesForRendererInternal(*renderer),
         renderer->style().computedFontSize(),
-        renderer->style().effectiveZoom(),
+        renderer->style().usedZoom(),
         renderer->style().usedAccentColor(),
         renderer->style().visitedDependentColorWithColorFilter(CSSPropertyColor),
         renderer->style().borderWidth()
@@ -857,8 +849,6 @@ bool RenderTheme::paint(const RenderBox& box, const PaintInfo& paintInfo, const 
     case StyleAppearance::ImageControlsButton:
         return paintImageControlsButton(box, paintInfo, integralSnappedRect);
 #endif
-    case StyleAppearance::CapsLockIndicator:
-        return paintCapsLockIndicator(box, paintInfo, integralSnappedRect);
 #if ENABLE(DATALIST_ELEMENT)
     case StyleAppearance::ListButton:
         return paintListButton(box, paintInfo, devicePixelSnappedRect);
@@ -1135,7 +1125,7 @@ bool RenderTheme::isControlStyled(const RenderStyle& style, const RenderStyle& u
 
 bool RenderTheme::supportsFocusRing(const RenderStyle& style) const
 {
-    return style.hasEffectiveAppearance()
+    return style.hasUsedAppearance()
         && style.usedAppearance() != StyleAppearance::TextField
         && style.usedAppearance() != StyleAppearance::TextArea
         && style.usedAppearance() != StyleAppearance::MenulistButton
@@ -1255,7 +1245,7 @@ void RenderTheme::adjustButtonOrCheckboxOrColorWellOrInnerSpinButtonOrRadioStyle
     auto appearance = style.usedAppearance();
 
     LengthBox borderBox(style.borderTopWidth(), style.borderRightWidth(), style.borderBottomWidth(), style.borderLeftWidth());
-    borderBox = Theme::singleton().controlBorder(appearance, style.fontCascade(), borderBox, style.effectiveZoom());
+    borderBox = Theme::singleton().controlBorder(appearance, style.fontCascade(), borderBox, style.usedZoom());
 
     auto supportsVerticalWritingMode = [](StyleAppearance appearance) {
         return appearance == StyleAppearance::Button
@@ -1298,7 +1288,7 @@ void RenderTheme::adjustButtonOrCheckboxOrColorWellOrInnerSpinButtonOrRadioStyle
     }
 
     // Padding
-    LengthBox paddingBox = Theme::singleton().controlPadding(appearance, style.fontCascade(), style.paddingBox(), style.effectiveZoom());
+    LengthBox paddingBox = Theme::singleton().controlPadding(appearance, style.fontCascade(), style.paddingBox(), style.usedZoom());
     if (paddingBox != style.paddingBox())
         style.setPaddingBox(WTFMove(paddingBox));
 
@@ -1311,21 +1301,21 @@ void RenderTheme::adjustButtonOrCheckboxOrColorWellOrInnerSpinButtonOrRadioStyle
     // Width / Height
     // The width and height here are affected by the zoom.
     // FIXME: Check is flawed, since it doesn't take min-width/max-width into account.
-    LengthSize controlSize = Theme::singleton().controlSize(appearance, style.fontCascade(), { style.width(), style.height() }, style.effectiveZoom());
+    LengthSize controlSize = Theme::singleton().controlSize(appearance, style.fontCascade(), { style.width(), style.height() }, style.usedZoom());
     if (controlSize.width != style.width())
         style.setWidth(WTFMove(controlSize.width));
     if (controlSize.height != style.height())
         style.setHeight(WTFMove(controlSize.height));
 
     // Min-Width / Min-Height
-    LengthSize minControlSize = Theme::singleton().minimumControlSize(appearance, style.fontCascade(), { style.minWidth(), style.minHeight() }, { style.width(), style.height() }, style.effectiveZoom());
+    LengthSize minControlSize = Theme::singleton().minimumControlSize(appearance, style.fontCascade(), { style.minWidth(), style.minHeight() }, { style.width(), style.height() }, style.usedZoom());
     if (minControlSize.width.value() > style.minWidth().value())
         style.setMinWidth(WTFMove(minControlSize.width));
     if (minControlSize.height.value() > style.minHeight().value())
         style.setMinHeight(WTFMove(minControlSize.height));
 
     // Font
-    if (auto themeFont = Theme::singleton().controlFont(appearance, style.fontCascade(), style.effectiveZoom())) {
+    if (auto themeFont = Theme::singleton().controlFont(appearance, style.fontCascade(), style.usedZoom())) {
         // If overriding the specified font with the theme font, also override the line height with the standard line height.
         style.setLineHeight(RenderStyle::initialLineHeight());
         if (style.setFontDescription(WTFMove(themeFont.value())))
@@ -1435,7 +1425,7 @@ void RenderTheme::paintSliderTicks(const RenderObject& renderer, const PaintInfo
     }
 
     IntSize tickSize = sliderTickSize();
-    float zoomFactor = renderer.style().effectiveZoom();
+    float zoomFactor = renderer.style().usedZoom();
     FloatRect tickRect;
     int tickRegionSideMargin = 0;
     int tickRegionWidth = 0;
@@ -1512,7 +1502,7 @@ void RenderTheme::adjustSwitchStyle(RenderStyle& style, const Element*) const
     // FIXME: This probably has the same flaw as
     // RenderTheme::adjustButtonOrCheckboxOrColorWellOrInnerSpinButtonOrRadioStyle() by not taking
     // min-width/min-height into account.
-    auto controlSize = Theme::singleton().controlSize(StyleAppearance::Switch, style.fontCascade(), { style.logicalWidth(), style.logicalHeight() }, style.effectiveZoom());
+    auto controlSize = Theme::singleton().controlSize(StyleAppearance::Switch, style.fontCascade(), { style.logicalWidth(), style.logicalHeight() }, style.usedZoom());
     style.setLogicalWidth(WTFMove(controlSize.width));
     style.setLogicalHeight(WTFMove(controlSize.height));
 

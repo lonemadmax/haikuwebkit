@@ -48,7 +48,7 @@ messages -> WebPage LegacyReceiver {
 
     ExecuteEditCommandWithCallback(String name, String argument) -> ()
     KeyEvent(WebCore::FrameIdentifier frameID, WebKit::WebKeyboardEvent event) -> (std::optional<WebKit::WebEventType> eventType, bool handled)
-    MouseEvent(WebCore::FrameIdentifier frameID, WebKit::WebMouseEvent event, std::optional<Vector<WebKit::SandboxExtension::Handle>> sandboxExtensions) -> (std::optional<WebKit::WebEventType> eventType, bool handled, struct std::optional<WebCore::RemoteUserInputEventData> remoteUserInputEventData)
+    MouseEvent(WebCore::FrameIdentifier frameID, WebKit::WebMouseEvent event, std::optional<Vector<WebKit::SandboxExtensionHandle>> sandboxExtensions) -> (std::optional<WebKit::WebEventType> eventType, bool handled, struct std::optional<WebCore::RemoteUserInputEventData> remoteUserInputEventData)
 
 #if ENABLE(NOTIFICATIONS)
     ClearNotificationPermissionState()
@@ -142,7 +142,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     ClearServiceWorkerEntitlementOverride() -> ()
 #endif
 
-    RequestImageBitmap(struct WebCore::ElementContext elementContext) -> (std::optional<WebCore::ShareableBitmap::Handle> image, String sourceMIMEType)
+    RequestImageBitmap(struct WebCore::ElementContext elementContext) -> (std::optional<WebCore::ShareableBitmapHandle> image, String sourceMIMEType)
 
     SetControlledByAutomation(bool controlled)
 
@@ -206,7 +206,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     NavigateToPDFLinkWithSimulatedClick(String url, WebCore::IntPoint documentPoint, WebCore::IntPoint screenPoint)
     GetPDFFirstPageSize(WebCore::FrameIdentifier frameID) -> (WebCore::FloatSize size)
 
-    Reload(uint64_t navigationID, OptionSet<WebCore::ReloadOption> reloadOptions, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
+    Reload(uint64_t navigationID, OptionSet<WebCore::ReloadOption> reloadOptions, WebKit::SandboxExtensionHandle sandboxExtensionHandle)
     StopLoading()
     StopLoadingDueToProcessSwap()
 
@@ -353,8 +353,6 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     RequestRectForFoundTextRange(struct WebKit::WebFoundTextRange range) -> (WebCore::FloatRect rect)
     AddLayerForFindOverlay() -> (WebCore::PlatformLayerIdentifier findLayerID)
     RemoveLayerForFindOverlay() -> ()
-    
-    AddMIMETypeWithCustomContentProvider(String mimeType)
 
     # Drag and drop.
 #if PLATFORM(GTK) && ENABLE(DRAG_SUPPORT)
@@ -362,7 +360,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 #endif
 #if !PLATFORM(GTK) && ENABLE(DRAG_SUPPORT)
     PerformDragControllerAction(std::optional<WebCore::FrameIdentifier> frameID, enum:uint8_t WebKit::DragControllerAction action, WebCore::DragData dragData) -> (std::optional<WebCore::DragOperation> dragOperation, enum:uint8_t WebCore::DragHandlingMethod dragHandlingMethod, bool mouseIsOverFileInput, unsigned numberOfItemsToBeAccepted, WebCore::IntRect insertionRect, WebCore::IntRect editableElementRect, struct std::optional<WebCore::RemoteUserInputEventData> remoteUserInputEventData)
-    PerformDragOperation(WebCore::DragData dragData, WebKit::SandboxExtension::Handle sandboxExtensionHandle, Vector<WebKit::SandboxExtension::Handle> sandboxExtensionsForUpload) -> (bool handled)
+    PerformDragOperation(WebCore::DragData dragData, WebKit::SandboxExtensionHandle sandboxExtensionHandle, Vector<WebKit::SandboxExtensionHandle> sandboxExtensionsForUpload) -> (bool handled)
 #endif
 #if ENABLE(DRAG_SUPPORT)
     DidStartDrag()
@@ -398,7 +396,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     DidChooseFilesForOpenPanel(Vector<String> fileURLs, Vector<String> replacementURLs)
     DidCancelForOpenPanel()
 #if ENABLE(SANDBOX_EXTENSIONS)
-    ExtendSandboxForFilesFromOpenPanel(Vector<WebKit::SandboxExtension::Handle> sandboxExtensions)
+    ExtendSandboxForFilesFromOpenPanel(Vector<WebKit::SandboxExtensionHandle> sandboxExtensions)
 #endif
 
     # Spelling and grammar.
@@ -422,7 +420,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
 #if ENABLE(MEDIA_STREAM)
     # MediaSteam
-    UserMediaAccessWasGranted(WebCore::UserMediaRequestIdentifier userMediaID, WebCore::CaptureDevice audioDevice, WebCore::CaptureDevice videoDevice, struct WebCore::MediaDeviceHashSalts mediaDeviceIdentifierHashSalts, Vector<WebKit::SandboxExtension::Handle> sandboxExtensionHandles) -> ()
+    UserMediaAccessWasGranted(WebCore::UserMediaRequestIdentifier userMediaID, WebCore::CaptureDevice audioDevice, WebCore::CaptureDevice videoDevice, struct WebCore::MediaDeviceHashSalts mediaDeviceIdentifierHashSalts, Vector<WebKit::SandboxExtensionHandle> sandboxExtensionHandles) -> ()
     UserMediaAccessWasDenied(WebCore::UserMediaRequestIdentifier userMediaID, uint64_t reason, String messsage, enum:uint8_t WebCore::MediaConstraintType invalidConstraint)
     CaptureDevicesChanged()
 #if USE(GSTREAMER)
@@ -454,14 +452,14 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     ComputePagesForPrinting(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo) -> (Vector<WebCore::IntRect> pageRects, double totalScaleFactorForPrinting, WebCore::RectEdges<float> computedPageMargin)
     ComputePagesForPrintingDuringDOMPrintOperation(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo) -> (Vector<WebCore::IntRect> pageRects, double totalScaleFactorForPrinting, WebCore::RectEdges<float> computedPageMargin) AllowedWhenWaitingForSyncReplyDuringUnboundedIPC
 #if PLATFORM(COCOA)
-    DrawRectToImage(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, WebCore::IntRect rect, WebCore::IntSize imageSize) -> (std::optional<WebCore::ShareableBitmap::Handle> image) ReplyCanDispatchOutOfOrder
-    DrawRectToImageDuringDOMPrintOperation(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, WebCore::IntRect rect, WebCore::IntSize imageSize) -> (std::optional<WebCore::ShareableBitmap::Handle> image) AllowedWhenWaitingForSyncReplyDuringUnboundedIPC
+    DrawRectToImage(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, WebCore::IntRect rect, WebCore::IntSize imageSize) -> (std::optional<WebCore::ShareableBitmapHandle> image) ReplyCanDispatchOutOfOrder
+    DrawRectToImageDuringDOMPrintOperation(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, WebCore::IntRect rect, WebCore::IntSize imageSize) -> (std::optional<WebCore::ShareableBitmapHandle> image) AllowedWhenWaitingForSyncReplyDuringUnboundedIPC
     DrawPagesToPDF(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, uint32_t first, uint32_t count) -> (RefPtr<WebCore::SharedBuffer> data)
     DrawPagesToPDFDuringDOMPrintOperation(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, uint32_t first, uint32_t count) -> (RefPtr<WebCore::SharedBuffer> data) AllowedWhenWaitingForSyncReplyDuringUnboundedIPC
 #if PLATFORM(IOS_FAMILY)
     ComputePagesForPrintingiOS(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo) -> (size_t pageCount) Synchronous
     DrawToPDFiOS(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo, size_t pageCount) -> (RefPtr<WebCore::SharedBuffer> data) ReplyCanDispatchOutOfOrder
-    DrawToImage(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo) -> (std::optional<WebCore::ShareableBitmap::Handle> data) ReplyCanDispatchOutOfOrder
+    DrawToImage(WebCore::FrameIdentifier frameID, struct WebKit::PrintInfo printInfo) -> (std::optional<WebCore::ShareableBitmapHandle> data) ReplyCanDispatchOutOfOrder
 #endif
     DrawToPDF(WebCore::FrameIdentifier frameID, std::optional<WebCore::FloatRect> rect, bool allowTransparentBackground) -> (RefPtr<WebCore::SharedBuffer> data)
 #endif
@@ -560,7 +558,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
     GetSamplingProfilerOutput() -> (String string)
     
-    TakeSnapshot(WebCore::IntRect snapshotRect, WebCore::IntSize bitmapSize, uint32_t options) -> (std::optional<WebCore::ShareableBitmap::Handle> image)
+    TakeSnapshot(WebCore::IntRect snapshotRect, WebCore::IntSize bitmapSize, uint32_t options) -> (std::optional<WebCore::ShareableBitmapHandle> image)
 #if PLATFORM(MAC)
     PerformImmediateActionHitTestAtLocation(WebCore::FloatPoint location)
     ImmediateActionDidUpdate()
@@ -638,8 +636,8 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 #if ENABLE(ATTACHMENT_ELEMENT)
     InsertAttachment(String identifier, std::optional<uint64_t> fileSize, String fileName, String contentType) -> ()
     UpdateAttachmentAttributes(String identifier, std::optional<uint64_t> fileSize, String contentType, String fileName, IPC::SharedBufferReference associatedElementData) -> ()
-    UpdateAttachmentThumbnail(String identifier, std::optional<WebCore::ShareableBitmap::Handle> qlThumbnailHandle)
-    UpdateAttachmentIcon(String identifier, std::optional<WebCore::ShareableBitmap::Handle> icon, WebCore::FloatSize size)
+    UpdateAttachmentThumbnail(String identifier, std::optional<WebCore::ShareableBitmapHandle> qlThumbnailHandle)
+    UpdateAttachmentIcon(String identifier, std::optional<WebCore::ShareableBitmapHandle> icon, WebCore::FloatSize size)
 #endif
 
 #if ENABLE(APPLICATION_MANIFEST)
@@ -759,23 +757,25 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     FrameWasFocusedInAnotherProcess(WebCore::FrameIdentifier frameID)
 
     RemotePostMessage(WebCore::FrameIdentifier source, String sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData> targetOrigin, struct WebCore::MessageWithMessagePorts message)
-    RenderTreeAsText(WebCore::FrameIdentifier frameID, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag> behavior) -> (String renderTreeDump) Synchronous
+    RenderTreeAsTextForTesting(WebCore::FrameIdentifier frameID, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag> behavior) -> (String renderTreeDump) Synchronous
+    FrameTextForTesting(WebCore::FrameIdentifier frameID) -> (String text) Synchronous
+
+    RequestTargetedElement(struct WebCore::TargetedElementRequest request) -> (Vector<WebCore::TargetedElementInfo> elements)
 
     RequestTextExtraction(std::optional<WebCore::FloatRect> collectionRectInRootView) -> (struct WebCore::TextExtraction::Item item)
-    RequestRenderedTextForElementSelector(String selector) -> (Expected<String, WebCore::ExceptionCode> result)
 
 #if ENABLE(EXTENSION_CAPABILITIES)
     SetMediaEnvironment(String mediaEnvironment)
 #endif
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    WillBeginTextReplacementSession(WTF::UUID uuid) -> (Vector<WebKit::WebUnifiedTextReplacementContextData> contexts)
+    WillBeginTextReplacementSession(WTF::UUID uuid, enum:uint8_t WebKit::WebUnifiedTextReplacementType type) -> (Vector<WebKit::WebUnifiedTextReplacementContextData> contexts)
 
     DidBeginTextReplacementSession(WTF::UUID uuid, Vector<WebKit::WebUnifiedTextReplacementContextData> contexts)
 
     TextReplacementSessionDidReceiveReplacements(WTF::UUID uuid, Vector<WebKit::WebTextReplacementData> replacements, struct WebKit::WebUnifiedTextReplacementContextData context, bool finished)
 
-    TextReplacementSessionDidUpdateStateForReplacement(WTF::UUID uuid, enum:uint8_t WebKit::WebTextReplacementData::State state, struct WebKit::WebTextReplacementData replacement, struct WebKit::WebUnifiedTextReplacementContextData context)
+    TextReplacementSessionDidUpdateStateForReplacement(WTF::UUID uuid, enum:uint8_t WebKit::WebTextReplacementDataState state, struct WebKit::WebTextReplacementData replacement, struct WebKit::WebUnifiedTextReplacementContextData context)
 
     DidEndTextReplacementSession(WTF::UUID uuid, bool accepted)
 
@@ -783,6 +783,10 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
     TextReplacementSessionDidReceiveEditAction(WTF::UUID uuid, enum:uint8_t WebKit::WebTextReplacementData::EditAction action);
 #endif
+
+    ResetVisibilityAdjustmentsForTargetedElements(Vector<std::pair<WebCore::ElementIdentifier, WebCore::ScriptExecutionContextIdentifier>> identifiers) -> (bool success)
+    AdjustVisibilityForTargetedElements(Vector<std::pair<WebCore::ElementIdentifier, WebCore::ScriptExecutionContextIdentifier>> identifiers) -> (bool success)
+    NumberOfVisibilityAdjustmentRects() -> (uint64_t count)
 
     RemoteViewRectToRootView(WebCore::FrameIdentifier frameID, WebCore::FloatRect rect) -> (WebCore::FloatRect rect)
     RemoteViewPointToRootView(WebCore::FrameIdentifier frameID, WebCore::FloatPoint point) -> (WebCore::FloatPoint point)

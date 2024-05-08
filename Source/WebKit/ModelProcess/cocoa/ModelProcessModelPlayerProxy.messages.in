@@ -26,9 +26,11 @@
 messages -> ModelProcessModelPlayerProxy {
     CreateLayer()
     
-    # ModelPlayer
+    # WebCore::ModelPlayer
     LoadModel(Ref<WebCore::Model> url, WebCore::LayoutSize layoutSize)
     SizeDidChange(WebCore::LayoutSize layoutSize)
+    SetBackgroundColor(WebCore::Color color)
+    SetEntityTransform(WebCore::TransformationMatrix transform)
 }
 
 #endif

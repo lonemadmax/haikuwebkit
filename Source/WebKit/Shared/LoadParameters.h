@@ -51,10 +51,7 @@ using SandboxFlags = int;
 namespace WebKit {
 
 struct LoadParameters {
-#if ENABLE(PUBLIC_SUFFIX_LIST)
-    String topPrivatelyControlledDomain;
-    String host;
-#endif
+    String publicSuffix;
 
     uint64_t navigationID { 0 };
     std::optional<WebCore::FrameIdentifier> frameIdentifier;

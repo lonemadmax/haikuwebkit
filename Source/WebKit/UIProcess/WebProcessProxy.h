@@ -158,7 +158,7 @@ public:
     enum class LockdownMode : bool { Disabled, Enabled };
 
     static Ref<WebProcessProxy> create(WebProcessPool&, WebsiteDataStore*, LockdownMode, IsPrewarmed, WebCore::CrossOriginMode = WebCore::CrossOriginMode::Shared, ShouldLaunchProcess = ShouldLaunchProcess::Yes);
-    static Ref<WebProcessProxy> createForRemoteWorkers(RemoteWorkerType, WebProcessPool&, WebCore::RegistrableDomain&&, WebsiteDataStore&);
+    static Ref<WebProcessProxy> createForRemoteWorkers(RemoteWorkerType, WebProcessPool&, WebCore::RegistrableDomain&&, WebsiteDataStore&, LockdownMode);
 
     ~WebProcessProxy();
 
@@ -475,6 +475,8 @@ public:
     void setCaptionLanguage(const String&);
 #endif
     void getNotifications(const URL&, const String&, CompletionHandler<void(Vector<WebCore::NotificationData>&&)>&&);
+    void wrapCryptoKey(const Vector<uint8_t>&, CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&&);
+    void unwrapCryptoKey(const Vector<uint8_t>&, CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&&);
 
     void setAppBadge(std::optional<WebPageProxyIdentifier>, const WebCore::SecurityOriginData&, std::optional<uint64_t> badge);
     void setClientBadge(WebPageProxyIdentifier, const WebCore::SecurityOriginData&, std::optional<uint64_t> badge);
@@ -535,6 +537,7 @@ protected:
     void validateFreezerStatus();
 
 private:
+    std::optional<Vector<uint8_t>> getWebCryptoMasterKey();
     using WebProcessProxyMap = HashMap<WebCore::ProcessIdentifier, CheckedRef<WebProcessProxy>>;
     static WebProcessProxyMap& allProcessMap();
     static Vector<Ref<WebProcessProxy>> allProcesses();
@@ -551,7 +554,7 @@ private:
 
     // IPC message handlers.
     void updateBackForwardItem(const BackForwardListItemState&);
-    void didDestroyFrame(WebCore::FrameIdentifier, WebPageProxyIdentifier);
+    void didDestroyFrame(IPC::Connection&, WebCore::FrameIdentifier, WebPageProxyIdentifier);
     void didDestroyUserGestureToken(WebCore::PageIdentifier, uint64_t);
 
     bool canBeAddedToWebProcessCache() const;

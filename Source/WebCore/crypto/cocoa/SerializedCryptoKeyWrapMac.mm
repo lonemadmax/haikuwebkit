@@ -211,6 +211,8 @@ bool deleteDefaultWebCryptoMasterKey()
 
 bool wrapSerializedCryptoKey(const Vector<uint8_t>& masterKey, const Vector<uint8_t>& key, Vector<uint8_t>& result)
 {
+    if (masterKey.isEmpty())
+        return false;
     Vector<uint8_t> kek(16);
     auto rc = CCRandomGenerateBytes(kek.data(), kek.size());
     RELEASE_ASSERT(rc == kCCSuccess);
@@ -253,12 +255,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!serialization)
         return false;
 
-    result = vectorFromNSData(serialization);
+    result = makeVector(serialization);
     return true;
 }
 
 bool unwrapSerializedCryptoKey(const Vector<uint8_t>& masterKey, const Vector<uint8_t>& wrappedKey, Vector<uint8_t>& key)
 {
+    if (masterKey.isEmpty())
+        return false;
     NSDictionary* dictionary = [NSPropertyListSerialization propertyListWithData:[NSData dataWithBytesNoCopy:(void*)wrappedKey.data() length:wrappedKey.size() freeWhenDone:NO] options:0 format:nullptr error:nullptr];
     if (!dictionary)
         return false;
@@ -272,17 +276,17 @@ bool unwrapSerializedCryptoKey(const Vector<uint8_t>& masterKey, const Vector<ui
     id wrappedKEKObject = [dictionary objectForKey:wrappedKEKKey];
     if (![wrappedKEKObject isKindOfClass:[NSData class]])
         return false;
-    Vector<uint8_t> wrappedKEK = vectorFromNSData(wrappedKEKObject);
+    auto wrappedKEK = span(wrappedKEKObject);
 
     id encryptedKeyObject = [dictionary objectForKey:encryptedKeyKey];
     if (![encryptedKeyObject isKindOfClass:[NSData class]])
         return false;
-    Vector<uint8_t> encryptedKey = vectorFromNSData(encryptedKeyObject);
+    auto encryptedKey = span(encryptedKeyObject);
 
     id tagObject = [dictionary objectForKey:tagKey];
     if (![tagObject isKindOfClass:[NSData class]])
         return false;
-    Vector<uint8_t> tag = vectorFromNSData(tagObject);
+    auto tag = span(tagObject);
     if (tag.size() != 16)
         return false;
 

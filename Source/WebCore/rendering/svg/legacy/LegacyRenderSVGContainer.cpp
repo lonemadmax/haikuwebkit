@@ -43,7 +43,7 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(LegacyRenderSVGContainer);
 
 LegacyRenderSVGContainer::LegacyRenderSVGContainer(Type type, SVGElement& element, RenderStyle&& style, OptionSet<SVGModelObjectFlag> svgFlags)
-    : LegacyRenderSVGModelObject(type, element, WTFMove(style), svgFlags | SVGModelObjectFlag::IsContainer)
+    : LegacyRenderSVGModelObject(type, element, WTFMove(style), svgFlags | SVGModelObjectFlag::IsContainer | SVGModelObjectFlag::UsesBoundaryCaching)
 {
 }
 
@@ -83,8 +83,8 @@ void LegacyRenderSVGContainer::layout()
         // New bounds can affect transforms, so recompute them here if needed.
         calculateLocalTransform();
 
-        // If our bounds changed, notify the parents.
-        LegacyRenderSVGModelObject::setNeedsBoundariesUpdate();
+        if (CheckedPtr parent = this->parent())
+            parent->invalidateCachedBoundaries();
     }
 
     repainter.repaintAfterLayout();
@@ -145,7 +145,7 @@ void LegacyRenderSVGContainer::paint(PaintInfo& paintInfo, const LayoutPoint&)
     // outline rect into parent coords before drawing.
     // FIXME: This means our focus ring won't share our rotation like it should.
     // We should instead disable our clip during PaintPhase::Outline
-    if (paintInfo.phase == PaintPhase::SelfOutline && style().outlineWidth() && style().visibility() == Visibility::Visible) {
+    if (paintInfo.phase == PaintPhase::SelfOutline && style().outlineWidth() && style().usedVisibility() == Visibility::Visible) {
         IntRect paintRectInParent = enclosingIntRect(localToParentTransform().mapRect(repaintRect));
         paintOutline(paintInfo, paintRectInParent);
     }

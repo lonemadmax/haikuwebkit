@@ -40,7 +40,7 @@
 #include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/NetworkStorageSession.h>
 #include <WebCore/OriginAccessPatterns.h>
-#include <WebCore/PublicSuffix.h>
+#include <WebCore/PublicSuffixStore.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
 #include <WebCore/SoupNetworkSession.h>
@@ -1574,14 +1574,9 @@ bool NetworkDataTaskSoup::shouldAllowHSTSPolicySetting() const
 {
     // Follow Apple's HSTS abuse mitigation 1:
     //  "Limit HSTS State to the Hostname, or the Top Level Domain + 1"
-#if ENABLE(PUBLIC_SUFFIX_LIST)
     return isTopLevelNavigation()
         || m_currentRequest.url().host() == m_currentRequest.firstPartyForCookies().host()
-        || isPublicSuffix(m_currentRequest.url().host());
-#else
-    return isTopLevelNavigation()
-        || m_currentRequest.url().host() == m_currentRequest.firstPartyForCookies().host();
-#endif
+        || PublicSuffixStore::singleton().isPublicSuffix(m_currentRequest.url().host());
 }
 
 bool NetworkDataTaskSoup::shouldAllowHSTSProtocolUpgrade() const

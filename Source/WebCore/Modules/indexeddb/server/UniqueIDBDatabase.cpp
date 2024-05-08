@@ -579,7 +579,7 @@ void UniqueIDBDatabase::addOpenDatabaseConnection(Ref<UniqueIDBDatabaseConnectio
     m_openDatabaseConnections.add(adoptRef(connection.leakRef()));
 }
 
-void UniqueIDBDatabase::createObjectStore(UniqueIDBDatabaseTransaction& transaction, const IDBObjectStoreInfo& info, ErrorCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::createObjectStore(UniqueIDBDatabaseTransaction& transaction, const IDBObjectStoreInfo& info, ErrorCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::createObjectStore");
@@ -612,7 +612,7 @@ void UniqueIDBDatabase::createObjectStore(UniqueIDBDatabaseTransaction& transact
     callback(error);
 }
 
-void UniqueIDBDatabase::deleteObjectStore(UniqueIDBDatabaseTransaction& transaction, const String& objectStoreName, ErrorCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::deleteObjectStore(UniqueIDBDatabaseTransaction& transaction, const String& objectStoreName, ErrorCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::deleteObjectStore");
@@ -647,7 +647,7 @@ void UniqueIDBDatabase::deleteObjectStore(UniqueIDBDatabaseTransaction& transact
     callback(error);
 }
 
-void UniqueIDBDatabase::renameObjectStore(UniqueIDBDatabaseTransaction& transaction, uint64_t objectStoreIdentifier, const String& newName, ErrorCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::renameObjectStore(UniqueIDBDatabaseTransaction& transaction, uint64_t objectStoreIdentifier, const String& newName, ErrorCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::renameObjectStore");
@@ -687,7 +687,7 @@ void UniqueIDBDatabase::renameObjectStore(UniqueIDBDatabaseTransaction& transact
     callback(error);
 }
 
-void UniqueIDBDatabase::clearObjectStore(UniqueIDBDatabaseTransaction& transaction, uint64_t objectStoreIdentifier, ErrorCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::clearObjectStore(UniqueIDBDatabaseTransaction& transaction, uint64_t objectStoreIdentifier, ErrorCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::clearObjectStore");
@@ -713,7 +713,7 @@ void UniqueIDBDatabase::clearObjectStore(UniqueIDBDatabaseTransaction& transacti
     callback(error);
 }
 
-void UniqueIDBDatabase::createIndex(UniqueIDBDatabaseTransaction& transaction, const IDBIndexInfo& info, ErrorCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::createIndex(UniqueIDBDatabaseTransaction& transaction, const IDBIndexInfo& info, ErrorCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::createIndex");
@@ -752,7 +752,7 @@ void UniqueIDBDatabase::createIndex(UniqueIDBDatabaseTransaction& transaction, c
     callback(error);
 }
 
-void UniqueIDBDatabase::deleteIndex(UniqueIDBDatabaseTransaction& transaction, uint64_t objectStoreIdentifier, const String& indexName, ErrorCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::deleteIndex(UniqueIDBDatabaseTransaction& transaction, uint64_t objectStoreIdentifier, const String& indexName, ErrorCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::deleteIndex");
@@ -794,7 +794,7 @@ void UniqueIDBDatabase::deleteIndex(UniqueIDBDatabaseTransaction& transaction, u
     callback(error);
 }
 
-void UniqueIDBDatabase::renameIndex(UniqueIDBDatabaseTransaction& transaction, uint64_t objectStoreIdentifier, uint64_t indexIdentifier, const String& newName, ErrorCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::renameIndex(UniqueIDBDatabaseTransaction& transaction, uint64_t objectStoreIdentifier, uint64_t indexIdentifier, const String& newName, ErrorCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::renameIndex");
@@ -840,7 +840,7 @@ void UniqueIDBDatabase::renameIndex(UniqueIDBDatabaseTransaction& transaction, u
     callback(error);
 }
 
-void UniqueIDBDatabase::putOrAdd(const IDBRequestData& requestData, const IDBKeyData& keyData, const IDBValue& value, IndexedDB::ObjectStoreOverwriteMode overwriteMode, KeyDataCallback callback)
+void UniqueIDBDatabase::putOrAdd(const IDBRequestData& requestData, const IDBKeyData& keyData, const IDBValue& value, IndexedDB::ObjectStoreOverwriteMode overwriteMode, KeyDataCallback&& callback)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::putOrAdd");
@@ -909,7 +909,7 @@ void UniqueIDBDatabase::putOrAdd(const IDBRequestData& requestData, const IDBKey
     });
 }
 
-void UniqueIDBDatabase::putOrAddAfterSpaceCheck(const IDBRequestData& requestData, const IDBKeyData& keyData, const IDBValue& value, IndexedDB::ObjectStoreOverwriteMode overwriteMode, KeyDataCallback callback, bool isKeyGenerated, const IndexIDToIndexKeyMap& indexKeys, const IDBObjectStoreInfo& objectStoreInfo, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::putOrAddAfterSpaceCheck(const IDBRequestData& requestData, const IDBKeyData& keyData, const IDBValue& value, IndexedDB::ObjectStoreOverwriteMode overwriteMode, KeyDataCallback&& callback, bool isKeyGenerated, const IndexIDToIndexKeyMap& indexKeys, const IDBObjectStoreInfo& objectStoreInfo, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     ASSERT(m_databaseInfo);
@@ -944,7 +944,7 @@ void UniqueIDBDatabase::putOrAddAfterSpaceCheck(const IDBRequestData& requestDat
     callback(error, keyData);
 }
 
-void UniqueIDBDatabase::getRecord(const IDBRequestData& requestData, const IDBGetRecordData& getRecordData, GetResultCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::getRecord(const IDBRequestData& requestData, const IDBGetRecordData& getRecordData, GetResultCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::getRecord");
@@ -978,7 +978,7 @@ void UniqueIDBDatabase::getRecord(const IDBRequestData& requestData, const IDBGe
     callback(error, result);
 }
 
-void UniqueIDBDatabase::getAllRecords(const IDBRequestData& requestData, const IDBGetAllRecordsData& getAllRecordsData, GetAllResultsCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::getAllRecords(const IDBRequestData& requestData, const IDBGetAllRecordsData& getAllRecordsData, GetAllResultsCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::getAllRecords");
@@ -1006,7 +1006,7 @@ void UniqueIDBDatabase::getAllRecords(const IDBRequestData& requestData, const I
     callback(error, result);
 }
 
-void UniqueIDBDatabase::getCount(const IDBRequestData& requestData, const IDBKeyRangeData& range, CountCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::getCount(const IDBRequestData& requestData, const IDBKeyRangeData& range, CountCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::getCount");
@@ -1034,7 +1034,7 @@ void UniqueIDBDatabase::getCount(const IDBRequestData& requestData, const IDBKey
     callback(error, count);
 }
 
-void UniqueIDBDatabase::deleteRecord(const IDBRequestData& requestData, const IDBKeyRangeData& keyRangeData, ErrorCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::deleteRecord(const IDBRequestData& requestData, const IDBKeyRangeData& keyRangeData, ErrorCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::deleteRecord");
@@ -1061,7 +1061,7 @@ void UniqueIDBDatabase::deleteRecord(const IDBRequestData& requestData, const ID
     callback(error);
 }
 
-void UniqueIDBDatabase::openCursor(const IDBRequestData& requestData, const IDBCursorInfo& info, GetResultCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::openCursor(const IDBRequestData& requestData, const IDBCursorInfo& info, GetResultCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::openCursor");
@@ -1089,7 +1089,7 @@ void UniqueIDBDatabase::openCursor(const IDBRequestData& requestData, const IDBC
     callback(error, result);
 }
 
-void UniqueIDBDatabase::iterateCursor(const IDBRequestData& requestData, const IDBIterateCursorData& data, GetResultCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::iterateCursor(const IDBRequestData& requestData, const IDBIterateCursorData& data, GetResultCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::iterateCursor");
@@ -1118,7 +1118,7 @@ void UniqueIDBDatabase::iterateCursor(const IDBRequestData& requestData, const I
     callback(error, result);
 }
 
-void UniqueIDBDatabase::commitTransaction(UniqueIDBDatabaseTransaction& transaction, ErrorCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::commitTransaction(UniqueIDBDatabaseTransaction& transaction, uint64_t handledRequestResultsCount, ErrorCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::commitTransaction - %s", transaction.info().identifier().loggingString().utf8().data());
@@ -1127,17 +1127,27 @@ void UniqueIDBDatabase::commitTransaction(UniqueIDBDatabaseTransaction& transact
         if (!m_manager)
             return callback(IDBError { ExceptionCode::InvalidStateError });
 
-        m_manager->requestSpace(m_identifier.origin(), 0, [this, weakThis = WeakPtr { *this }, weakTransaction = WeakPtr { transaction }, callback = WTFMove(callback)](bool granted) mutable {
+        m_manager->requestSpace(m_identifier.origin(), 0, [this, handledRequestResultsCount, weakThis = WeakPtr { *this }, weakTransaction = WeakPtr { transaction }, callback = WTFMove(callback)](bool granted) mutable {
             if (!weakThis || !weakTransaction)
                 return callback(IDBError { ExceptionCode::InvalidStateError, "Database or transaction is closed"_s });
 
-            commitTransaction(*weakTransaction, WTFMove(callback), granted ? SpaceCheckResult::Pass : SpaceCheckResult::Fail);
+            commitTransaction(*weakTransaction, handledRequestResultsCount, WTFMove(callback), granted ? SpaceCheckResult::Pass : SpaceCheckResult::Fail);
         });
         return;
     }
 
     ASSERT(spaceCheckResult == SpaceCheckResult::Pass);
     ASSERT(transaction.database() == this);
+
+    if (transaction.shouldAbortDueToUnhandledRequestError(handledRequestResultsCount)) {
+        abortTransaction(transaction, [callback = WTFMove(callback)](auto error) {
+            if (!error.isNull())
+                return callback(error);
+
+            callback(IDBError { ExceptionCode::UnknownError, "Transaction is aborted due to unhandled failed request"_s });
+        }, spaceCheckResult);
+        return;
+    }
 
     if (!m_backingStore)
         return callback(IDBError { ExceptionCode::InvalidStateError, "Backing store is closed"_s });
@@ -1157,7 +1167,7 @@ void UniqueIDBDatabase::commitTransaction(UniqueIDBDatabaseTransaction& transact
     transactionCompleted(WTFMove(takenTransaction));
 }
 
-void UniqueIDBDatabase::abortTransaction(UniqueIDBDatabaseTransaction& transaction, ErrorCallback callback, SpaceCheckResult spaceCheckResult)
+void UniqueIDBDatabase::abortTransaction(UniqueIDBDatabaseTransaction& transaction, ErrorCallback&& callback, SpaceCheckResult spaceCheckResult)
 {
     ASSERT(!isMainThread());
     LOG(IndexedDB, "UniqueIDBDatabase::abortTransaction - %s", transaction.info().identifier().loggingString().utf8().data());

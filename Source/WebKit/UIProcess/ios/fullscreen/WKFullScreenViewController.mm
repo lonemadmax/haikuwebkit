@@ -148,6 +148,7 @@ private:
     BOOL _isShowingMenu;
 #if PLATFORM(VISION)
     RetainPtr<WKExtrinsicButton> _moreActionsButton;
+    RetainPtr<WKExtrinsicButton> _enterVideoFullscreenButton;
     BOOL _shouldHideCustomControls;
     BOOL _isInteractingWithSystemChrome;
 #endif
@@ -404,6 +405,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 #endif // PLATFORM(VISION)
 
++ (NSSet<NSString *> *)keyPathsForValuesAffectingAdditionalSafeAreaInsets
+{
+    return [NSSet setWithObjects:@"prefersStatusBarHidden", @"view.window.windowScene.statusBarManager.statusBarHidden", @"view.window.safeAreaInsets", nil];
+}
+
 - (UIEdgeInsets)additionalSafeAreaInsets
 {
     // When the status bar hides, the resulting changes to safeAreaInsets cause
@@ -411,6 +417,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     // Do not add additional insets if the status bar is not hidden.
     if (!self.view.window.windowScene.statusBarManager.statusBarHidden)
+        return UIEdgeInsetsZero;
+
+    // If the status bar is hidden while would would prefer it not be,
+    // we should not reserve space as it likely won't re-appear.
+    if (!self.prefersStatusBarHidden)
         return UIEdgeInsetsZero;
 
     // Additionally, hiding the status bar does not reduce safeAreaInsets when
@@ -555,12 +566,22 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         [_moreActionsButton setMenu:self._webView.fullScreenWindowSceneDimmingAction];
         [_moreActionsButton setShowsMenuAsPrimaryAction:YES];
         [_moreActionsButton setImage:[[UIImage systemImageNamed:@"ellipsis"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
+
+        _enterVideoFullscreenButton = [self _createButtonWithExtrinsicContentSize:buttonSize];
+        [_enterVideoFullscreenButton setConfiguration:cancelButtonConfiguration];
+        [_enterVideoFullscreenButton setImage:[[UIImage systemImageNamed:@"video"] imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
+        [_enterVideoFullscreenButton sizeToFit];
+        [_enterVideoFullscreenButton addTarget:self action:@selector(_enterVideoFullscreenAction:) forControlEvents:UIControlEventTouchUpInside];
 #endif
 
         _stackView = adoptNS([[UIStackView alloc] init]);
         [_stackView addArrangedSubview:_cancelButton.get()];
         [_stackView addArrangedSubview:_pipButton.get()];
 #if PLATFORM(VISION)
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+        if (self._webView._page->preferences().linearMediaPlayerEnabled())
+            [_stackView addArrangedSubview:_enterVideoFullscreenButton.get()];
+#endif
         [_stackView addArrangedSubview:_moreActionsButton.get()];
 #endif
         [_stackView setSpacing:24.0];
@@ -767,6 +788,28 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return;
 
     playbackSessionModel->togglePictureInPicture();
+}
+
+- (void)_enterVideoFullscreenAction:(id)sender
+{
+    ASSERT(_valid);
+    RefPtr page = [self._webView _page].get();
+    if (!page)
+        return;
+
+    RefPtr playbackSessionManager = page->playbackSessionManager();
+    if (!playbackSessionManager)
+        return;
+
+    RefPtr playbackSessionInterface = playbackSessionManager->controlsManagerInterface();
+    if (!playbackSessionInterface)
+        return;
+
+    auto playbackSessionModel = playbackSessionInterface->playbackSessionModel();
+    if (!playbackSessionModel)
+        return;
+
+    playbackSessionModel->enterFullscreen();
 }
 
 - (void)_touchDetected:(id)sender

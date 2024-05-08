@@ -125,7 +125,7 @@ public:
     CredentialStorage& credentialStorage() { return m_credentialStorage; }
 
 #ifdef __OBJC__
-    WEBCORE_EXPORT NSHTTPCookieStorage *nsCookieStorage() const;
+    WEBCORE_EXPORT RetainPtr<NSHTTPCookieStorage> nsCookieStorage() const;
 #endif
 
 #if PLATFORM(COCOA)
@@ -226,7 +226,7 @@ public:
     WEBCORE_EXPORT void setPrevalentDomainsToBlockAndDeleteCookiesFor(const Vector<RegistrableDomain>&);
     WEBCORE_EXPORT void setPrevalentDomainsToBlockButKeepCookiesFor(const Vector<RegistrableDomain>&);
     WEBCORE_EXPORT void setDomainsWithUserInteractionAsFirstParty(const Vector<RegistrableDomain>&);
-    WEBCORE_EXPORT void setDomainsWithCrossPageStorageAccess(const HashMap<TopFrameDomain, SubResourceDomain>&);
+    WEBCORE_EXPORT void setDomainsWithCrossPageStorageAccess(const HashMap<TopFrameDomain, Vector<SubResourceDomain>>&);
     WEBCORE_EXPORT void grantCrossPageStorageAccess(const TopFrameDomain&, const SubResourceDomain&);
     WEBCORE_EXPORT void setAgeCapForClientSideCookies(std::optional<Seconds>);
     WEBCORE_EXPORT bool hasStorageAccess(const RegistrableDomain& resourceDomain, const RegistrableDomain& firstPartyDomain, std::optional<FrameIdentifier>, PageIdentifier) const;
@@ -248,7 +248,7 @@ public:
     WEBCORE_EXPORT static std::optional<HashSet<RegistrableDomain>> subResourceDomainsInNeedOfStorageAccessForFirstParty(const RegistrableDomain&);
     WEBCORE_EXPORT static bool loginDomainMatchesRequestingDomain(const TopFrameDomain&, const SubResourceDomain&);
     WEBCORE_EXPORT static std::optional<RegistrableDomain> findAdditionalLoginDomain(const TopFrameDomain&, const SubResourceDomain&);
-    WEBCORE_EXPORT static Vector<RegistrableDomain> storageAccessQuirkForTopFrameDomain(const TopFrameDomain&);
+    WEBCORE_EXPORT static Vector<RegistrableDomain> storageAccessQuirkForTopFrameDomain(const URL& topFrameURL);
     WEBCORE_EXPORT static std::optional<OrganizationStorageAccessPromptQuirk> storageAccessQuirkForDomainPair(const TopFrameDomain&, const SubResourceDomain&);
 
 #if ENABLE(APP_BOUND_DOMAINS)

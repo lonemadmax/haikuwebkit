@@ -49,6 +49,7 @@
 #import "WebBackForwardCache.h"
 #import "WebMemoryPressureHandler.h"
 #import "WebPageGroup.h"
+#import "WebPageProxy.h"
 #import "WebPreferencesKeys.h"
 #import "WebPrivacyHelpers.h"
 #import "WebProcessCache.h"
@@ -79,6 +80,7 @@
 #import <wtf/FileSystem.h>
 #import <wtf/ProcessPrivilege.h>
 #import <wtf/SoftLinking.h>
+#import <wtf/StdLibExtras.h>
 #import <wtf/cf/TypeCastsCF.h>
 #import <wtf/cocoa/Entitlements.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
@@ -271,29 +273,28 @@ void WebProcessPool::setMediaAccessibilityPreferences(WebProcessProxy& process)
 }
 #endif
 
-static const char* description(ProcessThrottleState state)
-{
-    switch (state) {
-    case ProcessThrottleState::Foreground: return "foreground";
-    case ProcessThrottleState::Background: return "background";
-    case ProcessThrottleState::Suspended: return "suspended";
-    }
-    return nullptr;
-}
-
 static void logProcessPoolState(const WebProcessPool& pool)
 {
     for (Ref process : pool.processes()) {
-        WTF::TextStream stream;
-        stream << process;
+        WTF::TextStream processDescription;
+        processDescription << process;
 
-        if (auto taskInfo = process->taskInfo()) {
-            stream << ", state: " << description(taskInfo->state);
-            stream << ", phys_footprint_mb: " << (taskInfo->physicalFootprint / 1048576.0) << " MB";
+        RegistrableDomain domain = valueOrDefault(process->optionalRegistrableDomain());
+        String domainString = domain.isEmpty() ? "unknown"_s : domain.string();
+
+        WTF::TextStream pageURLs;
+        auto pages = process->pages();
+        if (pages.isEmpty())
+            pageURLs << "none";
+        else {
+            bool isFirst = true;
+            for (auto& page : pages) {
+                pageURLs << (isFirst ? "" : ", ") << page->currentURL();
+                isFirst = false;
+            }
         }
 
-        String domain = process->optionalRegistrableDomain() ? process->optionalRegistrableDomain()->string() : "unknown"_s;
-        RELEASE_LOG(Process, "WebProcessProxy %p - %" PUBLIC_LOG_STRING ", domain: %" PRIVATE_LOG_STRING, process.ptr(), stream.release().utf8().data(), domain.utf8().data());
+        RELEASE_LOG(Process, "WebProcessProxy %p - %" PUBLIC_LOG_STRING ", domain: %" PRIVATE_LOG_STRING ", pageURLs: %" SENSITIVE_LOG_STRING, process.ptr(), processDescription.release().utf8().data(), domainString.utf8().data(), pageURLs.release().utf8().data());
     }
 }
 
@@ -517,7 +518,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     parameters.storageAccessUserAgentStringQuirksData = StorageAccessUserAgentStringQuirkController::shared().cachedQuirks();
 
     for (auto&& entry : StorageAccessPromptQuirkController::shared().cachedQuirks()) {
-        for (auto&& domain : entry.domainPairings.keys())
+        if (!entry.triggerPages.isEmpty()) {
+            for (auto&& page : entry.triggerPages)
+                parameters.storageAccessPromptQuirksDomains.add(RegistrableDomain { page });
+            continue;
+        }
+        for (auto&& domain : entry.quirkDomains.keys())
             parameters.storageAccessPromptQuirksDomains.add(domain);
     }
 #endif
@@ -720,19 +726,19 @@ void WebProcessPool::registerNotificationObservers()
     };
     m_notifyTokens = WTF::compactMap(notificationMessages, [weakThis = WeakPtr { *this }](const ASCIILiteral& message) -> std::optional<int> {
         int notifyToken = 0;
-        auto status = notify_register_dispatch(message, &notifyToken, dispatch_get_main_queue(), [weakThis, message](int token) {
-            RefPtr protectedThis = weakThis.get();
-            if (!protectedThis)
-                return;
-            if (!protectedThis->m_processes.isEmpty()) {
+        auto queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+        auto registerStatus = notify_register_dispatch(message, &notifyToken, queue, [weakThis, message](int token) {
+            uint64_t state = 0;
+            auto status = notify_get_state(token, &state);
+            callOnMainRunLoop([weakThis, message, state, status] {
+                RefPtr protectedThis = weakThis.get();
+                if (!protectedThis)
+                    return;
                 String messageString(message);
-                uint64_t state = 0;
-                auto status = notify_get_state(token, &state);
-                for (auto& process : protectedThis->m_processes)
-                    process->send(Messages::WebProcess::PostNotification(messageString, (status == NOTIFY_STATUS_OK) ? std::optional<uint64_t>(state) : std::nullopt), 0);
-            }
+                protectedThis->sendToAllProcesses(Messages::WebProcess::PostNotification(messageString, (status == NOTIFY_STATUS_OK) ? std::optional<uint64_t>(state) : std::nullopt));
+            });
         });
-        if (status)
+        if (registerStatus)
             return std::nullopt;
         return notifyToken;
     });

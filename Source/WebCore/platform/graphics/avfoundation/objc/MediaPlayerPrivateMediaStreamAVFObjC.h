@@ -114,7 +114,7 @@ private:
     void prepareToPlay() override;
     PlatformLayer* platformLayer() const override;
     
-    bool supportsPictureInPicture() const override;
+    bool supportsPictureInPicture() const final { return true; }
     bool supportsFullscreen() const override { return true; }
 
     void play() override;
@@ -305,6 +305,7 @@ private:
     bool m_waitingForFirstImage { false };
     bool m_isActiveVideoTrackEnabled { true };
     bool m_hasEnqueuedBlackFrame { false };
+    bool m_isMediaLayerRehosting { true };
 
     uint64_t m_sampleCount { 0 };
     uint64_t m_lastVideoFrameMetadataSampleCount { 0 };

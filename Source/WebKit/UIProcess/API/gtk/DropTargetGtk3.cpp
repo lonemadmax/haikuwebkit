@@ -181,7 +181,7 @@ void DropTarget::dataReceived(IntPoint&& position, GtkSelectionData* data, unsig
         if (length > 0) {
             // If data starts with UTF-16 BOM assume it's UTF-16, otherwise assume UTF-8.
             if (length >= 2 && reinterpret_cast<const UChar*>(markupData)[0] == 0xFEFF)
-                m_selectionData->setMarkup(String(reinterpret_cast<const UChar*>(markupData) + 1, (length / 2) - 1));
+                m_selectionData->setMarkup(String({ reinterpret_cast<const UChar*>(markupData) + 1, static_cast<size_t>((length / 2) - 1) }));
             else
                 m_selectionData->setMarkup(String::fromUTF8(markupData, length));
         }
@@ -212,7 +212,7 @@ void DropTarget::dataReceived(IntPoint&& position, GtkSelectionData* data, unsig
         int length;
         const auto* customData = gtk_selection_data_get_data_with_length(data, &length);
         if (length > 0)
-            m_selectionData->setCustomData(SharedBuffer::create(customData, static_cast<size_t>(length)));
+            m_selectionData->setCustomData(SharedBuffer::create(std::span { customData, static_cast<size_t>(length) }));
         break;
     }
     }

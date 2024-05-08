@@ -727,25 +727,23 @@ public:
         }
     }
 
-    template<typename U = T>
-    Vector(const U* data, size_t dataSize)
-        : Base(dataSize, dataSize)
-    {
-        asanSetInitialBufferSizeTo(dataSize);
-
-        if (begin())
-            VectorCopier<std::is_trivial<T>::value, U>::uninitializedCopy(data, data + dataSize, begin());
-    }
-
     // Include this non-template conversion from std::span to guide implicit conversion from arrays.
     Vector(std::span<const T> span)
-        : Vector(span.data(), span.size())
+        : Base(span.size(), span.size())
     {
+        asanSetInitialBufferSizeTo(span.size());
+
+        if (begin())
+            VectorCopier<std::is_trivial<T>::value, T>::uninitializedCopy(span.data(), span.data() + span.size(), begin());
     }
 
     template<typename U, size_t Extent> Vector(std::span<U, Extent> span)
-        : Vector(span.data(), span.size())
+        : Base(span.size(), span.size())
     {
+        asanSetInitialBufferSizeTo(span.size());
+
+        if (begin())
+            VectorCopier<std::is_trivial<T>::value, U>::uninitializedCopy(span.data(), span.data() + span.size(), begin());
     }
 
     Vector(std::initializer_list<T> initializerList)
@@ -802,6 +800,17 @@ public:
     size_t capacity() const { return Base::capacity(); }
     bool isEmpty() const { return !size(); }
     std::span<const T> span() const { return { data(), size() }; }
+    std::span<T> mutableSpan() { return { data(), size() }; }
+
+    Vector<T> subvector(size_t offset, size_t length = std::dynamic_extent) const
+    {
+        return { span().subspan(offset, length) };
+    }
+
+    std::span<const T> subspan(size_t offset, size_t length = std::dynamic_extent) const
+    {
+        return span().subspan(offset, length);
+    }
 
     T& at(size_t i)
     {
@@ -878,10 +887,11 @@ public:
     template<typename... Args> ALWAYS_INLINE void constructAndAppend(Args&&... args) { constructAndAppend<FailureAction::Crash>(std::forward<Args>(args)...); }
     template<typename... Args> ALWAYS_INLINE bool tryConstructAndAppend(Args&&... args) { return constructAndAppend<FailureAction::Report>(std::forward<Args>(args)...); }
 
-    template<typename U> ALWAYS_INLINE void append(const U* u, size_t size) { append<FailureAction::Crash>(u, size); }
-    template<typename U> ALWAYS_INLINE bool tryAppend(const U* u, size_t size) { return append<FailureAction::Report>(u, size); }
-    template<typename U, size_t Extent> ALWAYS_INLINE void append(std::span<U, Extent> span) { append(span.data(), span.size()); }
-    template<typename U> ALWAYS_INLINE void appendList(std::initializer_list<U> initializerList) { append(std::data(initializerList), initializerList.size()); }
+    template<typename U, size_t Extent> ALWAYS_INLINE bool tryAppend(std::span<const U, Extent> span) { return append<FailureAction::Report>(span); }
+    template<typename U, size_t Extent> ALWAYS_INLINE bool tryAppend(std::span<U, Extent> span) { return append<FailureAction::Report>(std::span<const U> { span.data(), span.size() }); }
+    template<typename U, size_t Extent> ALWAYS_INLINE void append(std::span<const U, Extent> span) { append<FailureAction::Crash>(span); }
+    template<typename U, size_t Extent> ALWAYS_INLINE void append(std::span<U, Extent> span) { append<FailureAction::Crash>(std::span<const U> { span.data(), span.size() }); }
+    template<typename U> ALWAYS_INLINE void appendList(std::initializer_list<U> initializerList) { append<FailureAction::Crash>(std::span { std::data(initializerList), initializerList.size() }); }
     template<typename U, size_t otherCapacity, typename OtherOverflowHandler, size_t otherMinCapacity, typename OtherMalloc> void appendVector(const Vector<U, otherCapacity, OtherOverflowHandler, otherMinCapacity, OtherMalloc>&);
     template<typename U, size_t otherCapacity, typename OtherOverflowHandler, size_t otherMinCapacity, typename OtherMalloc> void appendVector(Vector<U, otherCapacity, OtherOverflowHandler, otherMinCapacity, OtherMalloc>&&);
 
@@ -967,7 +977,7 @@ private:
     template<FailureAction, typename... Args> bool constructAndAppendSlowCase(Args&&...);
 
     template<FailureAction, typename U> bool append(U&&);
-    template<FailureAction, typename U> bool append(const U*, size_t);
+    template<FailureAction, typename U, size_t Extent> bool append(std::span<const U, Extent>);
 
     template<typename MapFunction, typename DestinationVectorType, typename SourceType, typename Enable> friend struct Mapper;
     template<typename MapFunction, typename DestinationVectorType, typename SourceType, typename Enable> friend struct CompactMapper;
@@ -1446,18 +1456,20 @@ void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::shrinkCapa
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<FailureAction action, typename U>
-ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::append(const U* data, size_t dataSize)
+template<FailureAction action, typename U, size_t Extent>
+ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::append(std::span<const U, Extent> data)
 {
     static_assert(action == FailureAction::Crash || action == FailureAction::Report);
+    auto dataSize = data.size();
     if (!dataSize)
         return true;
 
+    auto* dataPtr = data.data();
     size_t newSize = m_size + dataSize;
     if (newSize > capacity()) {
-        data = expandCapacity<action>(newSize, data);
+        dataPtr = expandCapacity<action>(newSize, dataPtr);
         if constexpr (action == FailureAction::Report) {
-            if (UNLIKELY(!data))
+            if (UNLIKELY(!dataPtr))
                 return false;
         }
         ASSERT(begin());
@@ -1470,7 +1482,7 @@ ALWAYS_INLINE bool Vector<T, inlineCapacity, OverflowHandler, minCapacity, Mallo
     }
     asanBufferSizeWillChangeTo(newSize);
     T* dest = end();
-    VectorCopier<std::is_trivial<T>::value, U>::uninitializedCopy(data, std::addressof(data[dataSize]), dest);
+    VectorCopier<std::is_trivial<T>::value, U>::uninitializedCopy(dataPtr, std::addressof(dataPtr[dataSize]), dest);
     m_size = newSize;
     return true;
 }
@@ -1581,7 +1593,7 @@ template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t min
 template<typename U, size_t otherCapacity, typename OtherOverflowHandler, size_t otherMinCapacity, typename OtherMalloc>
 inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::appendVector(const Vector<U, otherCapacity, OtherOverflowHandler, otherMinCapacity, OtherMalloc>& val)
 {
-    append(val.begin(), val.size());
+    append(val.span());
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
@@ -2097,7 +2109,8 @@ inline Vector<typename CopyOrMoveToVectorResult<Collection>::Type> moveToVector(
     return moveToVectorOf<typename CopyOrMoveToVectorResult<Collection>::Type>(collection);
 }
 
-template<typename U> Vector(const U*, size_t) -> Vector<U>;
+template<typename T> Vector(const T*, size_t) -> Vector<T>;
+template<typename T, size_t Extent> Vector(std::span<const T, Extent>) -> Vector<T>;
 
 } // namespace WTF
 

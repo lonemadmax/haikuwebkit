@@ -1021,6 +1021,12 @@ void NetworkConnectionToWebProcess::unregisterBlobURLHandle(const URL& url, cons
     session->blobRegistry().unregisterBlobURLHandle(url, topOrigin);
 }
 
+void NetworkConnectionToWebProcess::blobType(const URL& url, CompletionHandler<void(String)>&& completionHandler)
+{
+    auto* session = networkSession();
+    completionHandler(session ? session->blobRegistry().blobType(url) : emptyString());
+}
+
 void NetworkConnectionToWebProcess::blobSize(const URL& url, CompletionHandler<void(uint64_t)>&& completionHandler)
 {
     auto* session = networkSession();
@@ -1127,9 +1133,9 @@ void NetworkConnectionToWebProcess::requestStorageAccess(RegistrableDomain&& sub
     completionHandler({ WebCore::StorageAccessWasGranted::Yes, WebCore::StorageAccessPromptWasShown::No, scope, topFrameDomain, subFrameDomain });
 }
 
-void NetworkConnectionToWebProcess::storageAccessQuirkForTopFrameDomain(WebCore::RegistrableDomain&& topFrameDomain, CompletionHandler<void(Vector<RegistrableDomain>)>&& completionHandler)
+void NetworkConnectionToWebProcess::storageAccessQuirkForTopFrameDomain(URL&& topFrameURL, CompletionHandler<void(Vector<RegistrableDomain>)>&& completionHandler)
 {
-    completionHandler(NetworkStorageSession::storageAccessQuirkForTopFrameDomain(topFrameDomain));
+    completionHandler(NetworkStorageSession::storageAccessQuirkForTopFrameDomain(topFrameURL));
 }
 
 void NetworkConnectionToWebProcess::requestStorageAccessUnderOpener(WebCore::RegistrableDomain&& domainInNeedOfStorageAccess, PageIdentifier openerPageID, WebCore::RegistrableDomain&& openerDomain)

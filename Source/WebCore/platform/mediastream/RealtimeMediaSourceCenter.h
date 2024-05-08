@@ -37,7 +37,6 @@
 #include "ExceptionOr.h"
 #include "MediaStreamRequest.h"
 #include "RealtimeMediaSource.h"
-#include "RealtimeMediaSourceSupportedConstraints.h"
 #include <wtf/Function.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RunLoop.h>
@@ -53,7 +52,6 @@ namespace WebCore {
 class CaptureDevice;
 class CaptureDeviceManager;
 class RealtimeMediaSourceSettings;
-class RealtimeMediaSourceSupportedConstraints;
 class TrackSourceInfo;
 
 struct MediaConstraints;
@@ -82,8 +80,6 @@ public:
     WEBCORE_EXPORT void getMediaStreamDevices(CompletionHandler<void(Vector<CaptureDevice>&&)>&&);
     WEBCORE_EXPORT std::optional<RealtimeMediaSourceCapabilities> getCapabilities(const CaptureDevice&);
 
-    const RealtimeMediaSourceSupportedConstraints& supportedConstraints() { return m_supportedConstraints; }
-
     WEBCORE_EXPORT AudioCaptureFactory& audioCaptureFactory();
     WEBCORE_EXPORT void setAudioCaptureFactory(AudioCaptureFactory&);
     WEBCORE_EXPORT void unsetAudioCaptureFactory(AudioCaptureFactory&);
@@ -109,6 +105,7 @@ public:
 #if ENABLE(APP_PRIVACY_REPORT)
     void setIdentity(OSObjectPtr<tcc_identity_t>&& identity) { m_identity = WTFMove(identity); }
     OSObjectPtr<tcc_identity_t> identity() const { return m_identity; }
+    bool hasIdentity() const { return !!m_identity; }
 #endif
 
 #if ENABLE(EXTENSION_CAPABILITIES)
@@ -133,8 +130,6 @@ private:
     void getUserMediaDevices(const MediaStreamRequest&, MediaDeviceHashSalts&&, Vector<DeviceInfo>& audioDevices, Vector<DeviceInfo>& videoDevices, MediaConstraintType&);
     void validateRequestConstraintsAfterEnumeration(ValidConstraintsHandler&&, InvalidConstraintsHandler&&, const MediaStreamRequest&, MediaDeviceHashSalts&&);
     void enumerateDevices(bool shouldEnumerateCamera, bool shouldEnumerateDisplay, bool shouldEnumerateMicrophone, bool shouldEnumerateSpeakers, CompletionHandler<void()>&&);
-
-    RealtimeMediaSourceSupportedConstraints m_supportedConstraints;
 
     RunLoop::Timer m_debounceTimer;
     void triggerDevicesChangedObservers();

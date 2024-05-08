@@ -140,7 +140,7 @@ bool canUseHandlerIC();
     v(Bool, dumpRegExpDisassembly, false, Normal, "dumps disassembly of RegExp upon compilation") \
     v(Bool, dumpWasmDisassembly, false, Normal, "dumps disassembly of all Wasm code upon compilation") \
     v(OptionString, dumpWasmSourceFileName, nullptr, Normal, "log every wasm module validation, and dump source bytes to <filename>.0.wasm, <filename>.1.wasm, etc...") \
-    v(OptionString, wasmB3FunctionsToDump, nullptr, Normal, "file with newline separated list of function indices to dump IR/disassembly for, if no such file exists, the function index itself") \
+    v(OptionString, wasmOMGFunctionsToDump, nullptr, Normal, "file with newline separated list of function indices to dump IR/disassembly for, if no such file exists, the function index itself") \
     v(Bool, dumpBBQDisassembly, false, Normal, "dumps disassembly of BBQ Wasm code upon compilation") \
     v(Bool, dumpOMGDisassembly, false, Normal, "dumps disassembly of OMG Wasm code upon compilation") \
     v(Bool, logJITCodeForPerf, false, Configurable, nullptr) \
@@ -554,7 +554,6 @@ bool canUseHandlerIC();
     v(Unsigned, seedForLICMFuzzer, 424242, Normal, nullptr) \
     v(Double, allowHoistingLICMProbability, 0.5, Normal, nullptr) \
     v(Bool, exposeCustomSettersOnGlobalObjectForTesting, false, Normal, nullptr) \
-    v(Bool, allowJITCageExperiments, false, Normal, nullptr) \
     v(Bool, useJITCage, canUseJITCage(), Normal, nullptr) \
     v(Bool, useAllocationProfiling, false, Normal, "Allows toggling of bmalloc/libPAS allocation profiling features at JSC launch.") \
     v(Bool, dumpBaselineJITSizeStatistics, false, Normal, nullptr) \

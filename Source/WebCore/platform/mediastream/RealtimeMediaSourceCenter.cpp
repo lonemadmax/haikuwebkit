@@ -59,19 +59,6 @@ RealtimeMediaSourceCenter& RealtimeMediaSourceCenter::singleton()
 RealtimeMediaSourceCenter::RealtimeMediaSourceCenter()
     : m_debounceTimer(RunLoop::main(), this, &RealtimeMediaSourceCenter::triggerDevicesChangedObservers)
 {
-    m_supportedConstraints.setSupportsEchoCancellation(true);
-    m_supportedConstraints.setSupportsWidth(true);
-    m_supportedConstraints.setSupportsHeight(true);
-    m_supportedConstraints.setSupportsAspectRatio(true);
-    m_supportedConstraints.setSupportsFrameRate(true);
-    m_supportedConstraints.setSupportsFacingMode(true);
-    m_supportedConstraints.setSupportsVolume(true);
-    m_supportedConstraints.setSupportsDeviceId(true);
-    m_supportedConstraints.setSupportsDisplaySurface(true);
-
-    m_supportedConstraints.setSupportsWhiteBalanceMode(true);
-    m_supportedConstraints.setSupportsZoom(true);
-    m_supportedConstraints.setSupportsTorch(true);
 }
 
 RealtimeMediaSourceCenter::~RealtimeMediaSourceCenter() = default;
@@ -169,13 +156,12 @@ static void addStringToSHA1(SHA1& sha1, const String& string)
 
     if (string.is8Bit() && string.containsOnlyASCII()) {
         const uint8_t nullByte = 0;
-        sha1.addBytes(string.characters8(), string.length());
-        sha1.addBytes(&nullByte, 1);
+        sha1.addBytes(string.span8());
+        sha1.addBytes(std::span { &nullByte, 1 });
         return;
     }
 
-    auto utf8 = string.utf8();
-    sha1.addBytes(utf8.dataAsUInt8Ptr(), utf8.length() + 1); // Include terminating null byte.
+    sha1.addBytes(string.utf8().spanIncludingNullTerminator());
 }
 
 String RealtimeMediaSourceCenter::hashStringWithSalt(const String& id, const String& hashSalt)

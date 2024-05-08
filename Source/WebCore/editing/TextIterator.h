@@ -73,7 +73,7 @@ private:
 
 class TextIteratorCopyableText {
 public:
-    StringView text() const { return m_singleCharacter ? StringView(&m_singleCharacter, 1) : StringView(m_string).substring(m_offset, m_length); }
+    StringView text() const { return m_singleCharacter ? StringView(span(m_singleCharacter)) : StringView(m_string).substring(m_offset, m_length); }
     void appendToStringBuilder(StringBuilder&) const;
 
     void reset();
@@ -302,7 +302,7 @@ private:
 constexpr TextIteratorBehaviors findIteratorOptions(FindOptions options = { })
 {
     TextIteratorBehaviors iteratorOptions { TextIteratorBehavior::EntersTextControls, TextIteratorBehavior::ClipsToFrameAncestors, TextIteratorBehavior::EntersImageOverlays };
-    if (!options.contains(DoNotTraverseFlatTree))
+    if (!options.contains(FindOption::DoNotTraverseFlatTree))
         iteratorOptions.add(TextIteratorBehavior::TraversesFlatTree);
     return iteratorOptions;
 }

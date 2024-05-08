@@ -768,6 +768,53 @@ TEST(WKWebExtensionAPIRuntime, SendMessageWithTabFrameAndAsyncReply)
     [manager run];
 }
 
+TEST(WKWebExtensionAPIRuntime, SendMessageWithNaNValue)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto *urlRequest = server.requestWithLocalhost();
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.runtime.onMessage.addListener((message, sender, sendResponse) => {",
+        @"  browser.test.assertEq(message?.value, null, 'The message value should be null')",
+
+        @"  sendResponse({ value: NaN })",
+        @"})",
+
+        @"browser.test.yield('Load Tab')"
+    ]);
+
+    auto *contentScript = Util::constructScript(@[
+        @"(async () => {",
+        @"  const response = await browser.runtime.sendMessage({ value: NaN })",
+
+        @"  browser.test.assertEq(response?.value, null, 'Should get a null response from the background script')",
+
+        @"  browser.test.notifyPass()",
+        @"})()"
+    ]);
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"content.js": contentScript
+    };
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:runtimeContentScriptManifest resources:resources]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Load Tab");
+
+    [manager.get().defaultTab.mainWebView loadRequest:server.requestWithLocalhost()];
+
+    [manager run];
+}
+
 TEST(WKWebExtensionAPIRuntime, ConnectFromContentScript)
 {
     TestWebKitAPI::HTTPServer server({
@@ -1073,6 +1120,31 @@ TEST(WKWebExtensionAPIRuntime, SendNativeMessage)
     [manager loadAndRun];
 }
 
+TEST(WKWebExtensionAPIRuntime, SendNativeMessageWithInvalidReply)
+{
+    auto *backgroundScript = Util::constructScript(@[
+        @"await browser.test.assertRejects(browser.runtime.sendNativeMessage('test', 'Hello'), /reply message was not JSON-serializable/i)",
+
+        @"browser.test.notifyPass()",
+    ]);
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:runtimeManifest resources:@{ @"background.js": backgroundScript }]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionNativeMessaging];
+
+    manager.get().internalDelegate.sendMessage = ^(id message, NSString *applicationIdentifier, void (^replyHandler)(id replyMessage, NSError *error)) {
+        EXPECT_NS_EQUAL(applicationIdentifier, @"test");
+        EXPECT_NS_EQUAL(message, @"Hello");
+
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.1 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            replyHandler(@{ @"bad": NSUUID.UUID }, nil);
+        });
+    };
+
+    [manager loadAndRun];
+}
+
 TEST(WKWebExtensionAPIRuntime, ConnectNative)
 {
     auto *backgroundScript = Util::constructScript(@[
@@ -1121,6 +1193,40 @@ TEST(WKWebExtensionAPIRuntime, ConnectNative)
             }];
 
             [messagePort disconnectWithError:nil];
+        };
+    };
+
+    [manager loadAndRun];
+}
+
+TEST(WKWebExtensionAPIRuntime, ConnectNativeWithInvalidMessage)
+{
+    auto *backgroundScript = Util::constructScript(@[
+        @"const port = browser.runtime?.connectNative('test')",
+        @"port?.postMessage('Hello')"
+    ]);
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:runtimeManifest resources:@{ @"background.js": backgroundScript }]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:_WKWebExtensionPermissionNativeMessaging];
+
+    manager.get().internalDelegate.connectUsingMessagePort = ^(_WKWebExtensionMessagePort *messagePort) {
+        EXPECT_NS_EQUAL(messagePort.applicationIdentifier, @"test");
+
+        messagePort.messageHandler = ^(id _Nullable message, NSError * _Nullable error) {
+            EXPECT_NULL(error);
+            EXPECT_NS_EQUAL(message, @"Hello");
+
+            [messagePort sendMessage:@{ @"bad": NSUUID.UUID } completionHandler:^(BOOL success, NSError *error) {
+                EXPECT_FALSE(success);
+                EXPECT_NOT_NULL(error);
+                EXPECT_EQ(error.code, _WKWebExtensionMessagePortErrorMessageInvalid);
+            }];
+
+            [messagePort disconnectWithError:nil];
+
+            [manager done];
         };
     };
 

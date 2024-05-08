@@ -1221,7 +1221,7 @@ void GraphicsLayerCA::setContentsToSolidColor(const Color& color)
 void GraphicsLayerCA::setContentsToImage(Image* image)
 {
     if (image) {
-        auto newImage = image->nativeImageForCurrentFrame();
+        auto newImage = image->currentNativeImage();
         if (!newImage)
             return;
 
@@ -1455,7 +1455,7 @@ FloatPoint GraphicsLayerCA::computePositionRelativeToBase(float& pageScale) cons
 
 void GraphicsLayerCA::flushCompositingState(const FloatRect& visibleRect)
 {
-    TransformState state(client().useCSS3DTransformInteroperability(), TransformState::UnapplyInverseTransformDirection, FloatQuad(visibleRect));
+    TransformState state(TransformState::UnapplyInverseTransformDirection, FloatQuad(visibleRect));
     state.setSecondaryQuad(FloatQuad { visibleRect });
 
     CommitState commitState;
@@ -1539,7 +1539,7 @@ bool GraphicsLayerCA::recursiveVisibleRectChangeRequiresFlush(const CommitState&
 
 bool GraphicsLayerCA::visibleRectChangeRequiresFlush(const FloatRect& clipRect) const
 {
-    TransformState state(client().useCSS3DTransformInteroperability(), TransformState::UnapplyInverseTransformDirection, FloatQuad(clipRect));
+    TransformState state(TransformState::UnapplyInverseTransformDirection, FloatQuad(clipRect));
     CommitState commitState;
     return recursiveVisibleRectChangeRequiresFlush(commitState, state);
 }
@@ -1974,9 +1974,9 @@ bool GraphicsLayerCA::platformCALayerUseGiantTiles() const
     return client().useGiantTiles();
 }
 
-bool GraphicsLayerCA::platformCALayerUseCSS3DTransformInteroperability() const
+bool GraphicsLayerCA::platformCALayerCSSUnprefixedBackdropFilterEnabled() const
 {
-    return client().useCSS3DTransformInteroperability();
+    return client().cssUnprefixedBackdropFilterEnabled();
 }
 
 void GraphicsLayerCA::platformCALayerLogFilledVisibleFreshTile(unsigned blankPixelCount)
@@ -4116,6 +4116,9 @@ void GraphicsLayerCA::updateContentsScale(float pageScaleFactor)
         float zoomedOutScale = client().zoomedOutPageScaleFactor() * deviceScaleFactor();
         tiledBacking()->setZoomedOutContentsScale(zoomedOutScale);
     }
+
+    if (auto customScale = client().customContentsScale(this))
+        contentsScale = *customScale;
 
     if (contentsScale == m_layer->contentsScale())
         return;

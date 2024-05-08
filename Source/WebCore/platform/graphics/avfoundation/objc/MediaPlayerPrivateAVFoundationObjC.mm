@@ -1154,7 +1154,7 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
     }
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
-    [m_avPlayer _setSTSLabel:m_spatialTrackingLabel];
+    [m_avPlayer _setSTSLabel:nsStringNilIfNull(m_spatialTrackingLabel)];
 #endif
 
     if (m_avPlayerItem)
@@ -1936,21 +1936,32 @@ MediaPlayerPrivateAVFoundation::AssetStatus MediaPlayerPrivateAVFoundationObjC::
         return MediaPlayerAVAssetStatusDoesNotExist;
 
     if (!m_cachedAssetIsLoaded) {
-        for (NSString *keyName in assetMetadataKeyNames()) {
-            NSError *error = nil;
-            AVKeyValueStatus keyStatus = [m_avAsset statusOfValueForKey:keyName error:&error];
+        NSError *error = nil;
+        auto status = [&] {
+            for (NSString *keyName in assetMetadataKeyNames()) {
+                AVKeyValueStatus keyStatus = [m_avAsset statusOfValueForKey:keyName error:&error];
 
-            if (error)
-                ERROR_LOG(LOGIDENTIFIER, "failed for ", keyName, ", error = ", error);
+                if (error)
+                    ERROR_LOG(LOGIDENTIFIER, "failed for ", keyName, ", error = ", error);
 
-            if (keyStatus < AVKeyValueStatusLoaded)
-                return MediaPlayerAVAssetStatusLoading; // At least one key is not loaded yet.
+                if (keyStatus < AVKeyValueStatusLoaded)
+                    return MediaPlayerAVAssetStatusLoading; // At least one key is not loaded yet.
 
-            if (keyStatus == AVKeyValueStatusFailed)
-                return MediaPlayerAVAssetStatusFailed; // At least one key could not be loaded.
+                if (keyStatus == AVKeyValueStatusFailed)
+                    return MediaPlayerAVAssetStatusFailed; // At least one key could not be loaded.
 
-            if (keyStatus == AVKeyValueStatusCancelled)
-                return MediaPlayerAVAssetStatusCancelled; // Loading of at least one key was cancelled.
+                if (keyStatus == AVKeyValueStatusCancelled)
+                    return MediaPlayerAVAssetStatusCancelled; // Loading of at least one key was cancelled.
+            }
+            return MediaPlayerAVAssetStatusLoaded;
+        }();
+        if (status != MediaPlayerAVAssetStatusLoaded) {
+            if (status != MediaPlayerAVAssetStatusFailed)
+                return status;
+            if (([error.domain isEqualToString:@"AVFoundationErrorDomain"] && error.code == AVErrorServerIncorrectlyConfigured)
+                || [error.domain isEqualToString:@"NSURLErrorDomain"])
+                return MediaPlayerAVAssetStatusNetworkError;
+            return status;
         }
         m_cachedAssetIsLoaded = true;
     }
@@ -2150,7 +2161,7 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
         auto keyURIArray = Uint16Array::create(initDataBuffer.copyRef(), 4, keyURI.length());
         keyURIArray->setRange(reinterpret_cast<const UniChar*>(StringView(keyURI).upconvertedCharacters().get()), keyURI.length() / sizeof(unsigned char), 0);
 
-        auto initData = SharedBuffer::create(Vector<uint8_t> { static_cast<uint8_t*>(initDataBuffer->data()), byteLength });
+        Ref initData = SharedBuffer::create(initDataBuffer->toVector());
         player->keyNeeded(initData);
 #if ENABLE(ENCRYPTED_MEDIA)
         if (!m_shouldContinueAfterKeyNeeded)
@@ -3116,8 +3127,11 @@ void MediaPlayerPrivateAVFoundationObjC::processMediaSelectionOptions()
 
     // We enabled automatic media selection because we want alternate audio tracks to be enabled/disabled automatically,
     // but set the selected legible track to nil so text tracks will not be automatically configured.
-    if (!m_textTracks.size())
+    if (!m_textTracks.size()) {
+BEGIN_BLOCK_OBJC_EXCEPTIONS
         [m_avPlayerItem selectMediaOption:nil inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
+END_BLOCK_OBJC_EXCEPTIONS
+    }
 
     Vector<RefPtr<InbandTextTrackPrivateAVF>> removedTextTracks = m_textTracks;
     NSArray *legibleOptions = [PAL::getAVMediaSelectionGroupClass() playableMediaSelectionOptionsFromArray:[legibleGroup options]];
@@ -3210,18 +3224,27 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             [m_avPlayer setClosedCaptionDisplayEnabled:YES];
 ALLOW_DEPRECATED_DECLARATIONS_END
 #if ENABLE(AVF_CAPTIONS)
-        else if (track->textTrackCategory() == InbandTextTrackPrivateAVF::OutOfBand)
+        else if (track->textTrackCategory() == InbandTextTrackPrivateAVF::OutOfBand) {
+BEGIN_BLOCK_OBJC_EXCEPTIONS
             [m_avPlayerItem selectMediaOption:static_cast<OutOfBandTextTrackPrivateAVF*>(track)->mediaSelectionOption() inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
+END_BLOCK_OBJC_EXCEPTIONS
 #endif
-        else
+        } else {
+BEGIN_BLOCK_OBJC_EXCEPTIONS
             [m_avPlayerItem selectMediaOption:static_cast<InbandTextTrackPrivateAVFObjC*>(track)->mediaSelectionOption() inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
-    } else {
-        [m_avPlayerItem selectMediaOption:0 inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
-ALLOW_DEPRECATED_DECLARATIONS_BEGIN
-        [m_avPlayer setClosedCaptionDisplayEnabled:NO];
-ALLOW_DEPRECATED_DECLARATIONS_END
+END_BLOCK_OBJC_EXCEPTIONS
+        }
+
+        return;
     }
 
+BEGIN_BLOCK_OBJC_EXCEPTIONS
+    [m_avPlayerItem selectMediaOption:0 inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
+END_BLOCK_OBJC_EXCEPTIONS
+
+ALLOW_DEPRECATED_DECLARATIONS_BEGIN
+    [m_avPlayer setClosedCaptionDisplayEnabled:NO];
+ALLOW_DEPRECATED_DECLARATIONS_END
 }
 
 String MediaPlayerPrivateAVFoundationObjC::languageOfPrimaryAudioTrack() const
@@ -4011,9 +4034,9 @@ void MediaPlayerPrivateAVFoundationObjC::setSpatialTrackingLabel(String&& spatia
 {
     if (m_spatialTrackingLabel == spatialTrackingLabel)
         return;
-    m_spatialTrackingLabel = spatialTrackingLabel;
+    m_spatialTrackingLabel = WTFMove(spatialTrackingLabel);
     if (m_avPlayer)
-        [m_avPlayer _setSTSLabel:spatialTrackingLabel];
+        [m_avPlayer _setSTSLabel:nsStringNilIfNull(m_spatialTrackingLabel)];
 }
 #endif
 

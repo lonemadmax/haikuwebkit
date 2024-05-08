@@ -417,6 +417,16 @@ enum AV1ConfigurationRange {
     unsigned long attributes;
 };
 
+[
+    ExportMacro=WEBCORE_TESTSUPPORT_EXPORT,
+    JSGenerateToJSObject,
+] dictionary PDFAnnotationRect {
+    double x;
+    double y;
+    double width;
+    double height; 
+};
+
 typedef (FetchRequest or FetchResponse) FetchObject;
 
 [
@@ -657,6 +667,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     unsigned long imagePendingDecodePromisesCountForTesting(HTMLImageElement element);
     undefined setClearDecoderAfterAsyncFrameRequestForTesting(HTMLImageElement element, boolean enabled);
     unsigned long imageDecodeCount(HTMLImageElement element);
+    DOMString imageLastDecodingOptions(HTMLImageElement element);
     unsigned long imageCachedSubimageCreateCount(HTMLImageElement element);
     unsigned long remoteImagesCountForTesting();
     undefined setAsyncDecodingEnabledForTesting(HTMLImageElement element, boolean enabled);
@@ -741,6 +752,8 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     undefined endSimulatedMemoryPressure();
 
     unsigned long numberOfIDBTransactions();
+
+    unsigned long scrollableAreaWidth(Node node);
 
     unsigned long numberOfLiveNodes();
     unsigned long numberOfLiveDocuments();
@@ -887,6 +900,8 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     [Conditional=VIDEO] boolean isMediaElementHidden(HTMLMediaElement media);
     [Conditional=VIDEO] undefined setOverridePreferredDynamicRangeMode(HTMLMediaElement media, DOMString mode);
     [Conditional=VIDEO] double elementEffectivePlaybackRate(HTMLMediaElement media);
+
+    [Conditional=VIDEO] undefined enableGStreamerHolePunching(HTMLVideoElement element);
 
     undefined setIsPlayingToBluetoothOverride(optional boolean? isPlaying = null);
 
@@ -1185,6 +1200,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     undefined setCaptureExtraNetworkLoadMetricsEnabled(boolean value);
 
     undefined reloadWithoutContentExtensions();
+    undefined disableContentExtensionsChecks();
 
     undefined setUseSystemAppearance(boolean value);
 
@@ -1326,4 +1342,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     DOMString getComputedRole(Element element);
 
     readonly attribute boolean hasScopeBreakingHasSelectors;
+
+    sequence<PDFAnnotationRect> pdfAnnotationRectsForTesting(Element element);
+    undefined registerPDFTest(VoidCallback callback, Element element);
 };

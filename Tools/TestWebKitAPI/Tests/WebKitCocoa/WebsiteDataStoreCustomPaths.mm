@@ -51,6 +51,7 @@
 #import <wtf/Deque.h>
 #import <wtf/FileSystem.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/StringToIntegerConversion.h>
 #import <wtf/text/WTFString.h>
 
@@ -690,7 +691,7 @@ TEST(WebKit, DISABLED_AlternativeService)
 static void respondToRangeRequests(const TestWebKitAPI::Connection& connection, const RetainPtr<NSData>& data)
 {
     connection.receiveHTTPRequest([=] (Vector<char>&& bytes) {
-        StringView request(reinterpret_cast<const LChar*>(bytes.data()), bytes.size());
+        StringView request(bytes.span());
         auto rangeBytes = "Range: bytes="_s;
         auto begin = request.find(StringView(rangeBytes), 0);
         ASSERT(begin != notFound);
@@ -709,8 +710,8 @@ static void respondToRangeRequests(const TestWebKitAPI::Connection& connection, 
             rangeBegin, rangeEnd, static_cast<uint64_t>(data.get().length), rangeEnd - rangeBegin];
         NSData *responseHeader = [responseHeaderString dataUsingEncoding:NSUTF8StringEncoding];
         NSData *responseBody = [data subdataWithRange:NSMakeRange(rangeBegin, rangeEnd - rangeBegin)];
-        Vector<uint8_t> response { static_cast<const uint8_t*>(responseHeader.bytes), responseHeader.length };
-        response.append(static_cast<const uint8_t*>(responseBody.bytes), responseBody.length);
+        auto response = makeVector(responseHeader);
+        response.append(span(responseBody));
         connection.send(WTFMove(response), [=] {
             respondToRangeRequests(connection, data);
         });

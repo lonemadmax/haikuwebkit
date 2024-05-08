@@ -155,8 +155,8 @@ crypto/cocoa/CommonCryptoDERUtilities.cpp
 crypto/cocoa/CryptoAlgorithmAESCBCMac.cpp
 crypto/cocoa/CryptoAlgorithmAESCFBMac.cpp
 crypto/cocoa/CryptoAlgorithmAESCTRMac.cpp
-crypto/cocoa/CryptoAlgorithmAESGCMMac.mm
-crypto/cocoa/CryptoAlgorithmAESKWMac.mm
+crypto/cocoa/CryptoAlgorithmAESGCMMac.cpp
+crypto/cocoa/CryptoAlgorithmAESKWMac.cpp
 crypto/cocoa/CryptoAlgorithmECDHMac.cpp
 crypto/cocoa/CryptoAlgorithmECDSAMac.cpp
 crypto/cocoa/CryptoAlgorithmEd25519Cocoa.cpp
@@ -307,7 +307,7 @@ platform/cocoa/PlatformPasteboardCocoa.mm
 platform/cocoa/PlatformSpeechSynthesizerCocoa.mm @no-unify
 platform/cocoa/PlaybackSessionModelMediaElement.mm
 platform/cocoa/PowerSourceNotifier.mm
-platform/cocoa/PublicSuffixCocoa.mm
+platform/cocoa/PublicSuffixStoreCocoa.mm
 platform/cocoa/RemoteCommandListenerCocoa.mm
 platform/cocoa/RuntimeApplicationChecksCocoa.mm
 platform/cocoa/SearchPopupMenuCocoa.mm
@@ -449,6 +449,7 @@ platform/graphics/cocoa/SourceBufferParserWebM.cpp
 platform/graphics/cocoa/SystemFontDatabaseCocoa.mm
 platform/graphics/cocoa/SystemFontDatabaseCoreText.cpp
 platform/graphics/cocoa/TextTrackRepresentationCocoa.mm
+platform/graphics/cocoa/TransformationMatrixCocoa.cpp
 platform/graphics/cocoa/UnrealizedCoreTextFont.cpp
 platform/graphics/cocoa/VP9UtilitiesCocoa.mm @no-unify
 platform/graphics/cocoa/WebActionDisablingCALayerDelegate.mm

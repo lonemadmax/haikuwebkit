@@ -1129,6 +1129,7 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/PageTransitionEvent.idl
     dom/ParentNode.idl
     dom/PointerEvent.idl
+    dom/PointerLockOptions.idl
     dom/PopStateEvent.idl
     dom/ProcessingInstruction.idl
     dom/ProgressEvent.idl
@@ -1518,7 +1519,6 @@ set(WebCore_SVG_IDL_FILES
     svg/Document+SVG.idl
     svg/SVGAElement.idl
     svg/SVGAngle.idl
-    svg/SVGAnimateColorElement.idl
     svg/SVGAnimateElement.idl
     svg/SVGAnimateMotionElement.idl
     svg/SVGAnimateTransformElement.idl
@@ -1906,7 +1906,6 @@ set(WebCore_USER_AGENT_STYLE_SHEETS
     ${WEBCORE_DIR}/css/plugIns.css
     ${WEBCORE_DIR}/css/popover.css
     ${WEBCORE_DIR}/css/quirks.css
-    ${WEBCORE_DIR}/css/ruby.css
     ${WEBCORE_DIR}/css/svg.css
     ${WEBCORE_DIR}/css/viewTransitions.css
     ${WEBCORE_DIR}/html/shadow/attachmentElementShadow.css

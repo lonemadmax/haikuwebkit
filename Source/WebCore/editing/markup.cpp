@@ -62,6 +62,7 @@
 #include "HTMLHtmlElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLNames.h"
+#include "HTMLPictureElement.h"
 #include "HTMLStyleElement.h"
 #include "HTMLTableElement.h"
 #include "HTMLTextAreaElement.h"
@@ -989,13 +990,16 @@ static RefPtr<Node> highestAncestorToWrapMarkup(const Position& start, const Pos
     if (RefPtr enclosingAnchor = enclosingElementWithTag(firstPositionInNode(specialCommonAncestor ? specialCommonAncestor.get() : &commonAncestor), aTag))
         specialCommonAncestor = WTFMove(enclosingAnchor);
 
+    if (RefPtr enclosingPicture = enclosingElementWithTag(firstPositionInNode(specialCommonAncestor ? specialCommonAncestor.get() : &commonAncestor), pictureTag))
+        specialCommonAncestor = WTFMove(enclosingPicture);
+
     return specialCommonAncestor;
 }
 
 static String serializePreservingVisualAppearanceInternal(const Position& start, const Position& end, Vector<Ref<Node>>* nodes, ResolveURLs resolveURLs, SerializeComposedTree serializeComposedTree, IgnoreUserSelectNone ignoreUserSelectNone,
     AnnotateForInterchange annotate, ConvertBlocksToInlines convertBlocksToInlines, StandardFontFamilySerializationMode standardFontFamilySerializationMode, MSOListMode msoListMode, PreserveBaseElement preserveBaseElement)
 {
-    static NeverDestroyed<const String> interchangeNewlineString(MAKE_STATIC_STRING_IMPL("<br class=\"" AppleInterchangeNewline "\">"));
+    static NeverDestroyed<const String> interchangeNewlineString { makeString("<br class=\"", AppleInterchangeNewline, "\">") };
 
     if (!(start < end))
         return emptyString();
@@ -1021,19 +1025,23 @@ static String serializePreservingVisualAppearanceInternal(const Position& start,
 
     StyledMarkupAccumulator accumulator(start, end, nodes, resolveURLs, serializeComposedTree, ignoreUserSelectNone, annotate, standardFontFamilySerializationMode, msoListMode, needsPositionStyleConversion, specialCommonAncestor.get());
 
-    Position startAdjustedForInterchangeNewline = start;
+    Position adjustedStart = start;
+
+    if (RefPtr pictureElement = dynamicDowncast<HTMLPictureElement>(specialCommonAncestor))
+        adjustedStart = firstPositionInNode(pictureElement.get());
+
     if (annotate == AnnotateForInterchange::Yes && needInterchangeNewlineAfter(visibleStart)) {
         if (visibleStart == visibleEnd.previous())
             return interchangeNewlineString;
 
         accumulator.append(interchangeNewlineString.get());
-        startAdjustedForInterchangeNewline = visibleStart.next().deepEquivalent();
+        adjustedStart = visibleStart.next().deepEquivalent();
 
-        if (!(startAdjustedForInterchangeNewline < end))
+        if (!(adjustedStart < end))
             return interchangeNewlineString;
     }
 
-    RefPtr lastClosed = accumulator.serializeNodes(startAdjustedForInterchangeNewline, end);
+    RefPtr lastClosed = accumulator.serializeNodes(adjustedStart, end);
 
     if (specialCommonAncestor && lastClosed) {
         // Also include all of the ancestors of lastClosed up to this special ancestor.
@@ -1285,7 +1293,7 @@ Ref<DocumentFragment> createFragmentFromText(const SimpleRange& context, const S
 
     auto createHTMLBRElement = [document]() {
         auto element = HTMLBRElement::create(document);
-        element->setAttributeWithoutSynchronization(classAttr, AppleInterchangeNewline ""_s);
+        element->setAttributeWithoutSynchronization(classAttr, AppleInterchangeNewline);
         return element;
     };
 

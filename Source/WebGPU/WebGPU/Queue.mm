@@ -43,7 +43,6 @@ Queue::Queue(id<MTLCommandQueue> commandQueue, Device& device)
     : m_commandQueue(commandQueue)
     , m_device(device)
 {
-    m_pendingCommandBuffers = [NSMutableSet set];
     m_createdNotCommittedBuffers = [NSMutableOrderedSet orderedSet];
     m_openCommandEncoders = [NSMapTable strongToStrongObjectsMapTable];
 }
@@ -215,19 +214,17 @@ void Queue::commitMTLCommandBuffer(id<MTLCommandBuffer> commandBuffer)
                 callback();
         }, CompletionHandlerCallThread::AnyThread));
     }];
-    [commandBuffer addCompletedHandler:[protectedThis = Ref { *this }](id<MTLCommandBuffer> commandBuffer) {
+    [commandBuffer addCompletedHandler:[protectedThis = Ref { *this }](id<MTLCommandBuffer>) {
         auto device = protectedThis->m_device.get();
         if (!device || !device->device())
             return;
-        protectedThis->scheduleWork(CompletionHandler<void(void)>([commandBuffer, protectedThis = protectedThis.copyRef()]() {
+        protectedThis->scheduleWork(CompletionHandler<void(void)>([protectedThis = protectedThis.copyRef()]() {
             ++(protectedThis->m_completedCommandBufferCount);
-            [protectedThis->m_pendingCommandBuffers removeObject:commandBuffer];
             for (auto& callback : protectedThis->m_onSubmittedWorkDoneCallbacks.take(protectedThis->m_completedCommandBufferCount))
                 callback(WGPUQueueWorkDoneStatus_Success);
         }, CompletionHandlerCallThread::AnyThread));
     }];
 
-    [m_pendingCommandBuffers addObject:commandBuffer];
     [commandBuffer commit];
     [m_openCommandEncoders removeObjectForKey:commandBuffer];
     [m_createdNotCommittedBuffers removeObject:commandBuffer];
@@ -292,13 +289,6 @@ bool Queue::validateWriteBuffer(const Buffer& buffer, uint64_t bufferOffset, siz
     return true;
 }
 
-void Queue::waitUntilIdle()
-{
-    finalizeBlitCommandEncoder();
-    for (id<MTLCommandBuffer> commandBuffer in m_pendingCommandBuffers)
-        [commandBuffer waitUntilCompleted];
-}
-
 void Queue::writeBuffer(const Buffer& buffer, uint64_t bufferOffset, void* data, size_t size)
 {
     auto device = m_device.get();
@@ -355,7 +345,7 @@ void Queue::writeBuffer(id<MTLBuffer> buffer, uint64_t bufferOffset, void* data,
     // FIXME(PERFORMANCE): Suballocate, so the common case doesn't need to hit the kernel.
     // FIXME(PERFORMANCE): Should this temporary buffer really be shared?
     bool noCopy = size >= largeBufferSize;
-    id<MTLBuffer> temporaryBuffer = noCopy ? [device->device() newBufferWithBytesNoCopy:data length:static_cast<NSUInteger>(size) options:MTLResourceStorageModeShared deallocator:nil] : [device->device() newBufferWithBytes:data length:static_cast<NSUInteger>(size) options:MTLResourceStorageModeShared];
+    id<MTLBuffer> temporaryBuffer = noCopy ? device->newBufferWithBytesNoCopy(data, static_cast<NSUInteger>(size), MTLResourceStorageModeShared) : device->newBufferWithBytes(data, static_cast<NSUInteger>(size), MTLResourceStorageModeShared);
     if (!temporaryBuffer) {
         ASSERT_NOT_REACHED();
         return;
@@ -487,10 +477,8 @@ void Queue::writeTexture(const WGPUImageCopyTexture& destination, void* data, si
         bytesPerRow = std::min<uint32_t>(bytesPerRow, blockSize * device->limits().maxTextureDimension1D);
         break;
     case WGPUTextureDimension_2D:
-        bytesPerRow = std::min<uint32_t>(bytesPerRow, blockSize * device->limits().maxTextureDimension2D);
-        break;
     case WGPUTextureDimension_3D:
-        bytesPerRow = std::min<uint32_t>(bytesPerRow, blockSize * device->limits().maxTextureDimension3D);
+        bytesPerRow = std::min<uint32_t>(bytesPerRow, blockSize * device->limits().maxTextureDimension2D);
         break;
     case WGPUTextureDimension_Force32:
         break;
@@ -548,17 +536,28 @@ void Queue::writeTexture(const WGPUImageCopyTexture& destination, void* data, si
                 .rowsPerImage = newSize.height
             };
 
+            uint32_t blockWidth = Texture::texelBlockWidth(textureFormat);
+            auto widthInBlocks = blockWidth ? (widthForMetal / blockWidth) : 0;
+            auto bytesInLastRow = checkedProduct<uint64_t>(blockSize, widthInBlocks);
+            if (bytesInLastRow.hasOverflowed())
+                return;
+
             for (uint32_t z = 0, endZ = std::max<uint32_t>(1, depthForMetal); z < endZ; ++z) {
                 WGPUImageCopyTexture newDestination = destination;
                 newDestination.origin.z = destination.origin.z + z;
-                for (uint32_t y = 0, endY = std::max<uint32_t>(1, heightForMetal); y < endY; y += newSize.height) {
+                for (uint32_t y = 0, endY = textureDimension == WGPUTextureDimension_1D ? std::max<uint32_t>(1, heightForMetal) : heightForMetal; y < endY; y += newSize.height) {
                     newDestination.origin.y = destination.origin.y + y;
                     if (newDestination.origin.y + newSize.height > logicalSize.height)
                         newSize.height = static_cast<uint32_t>(newDestination.origin.y + newSize.height - logicalSize.height);
 
                     for (uint32_t x = 0; x < widthForMetal; x += maxRowBytes) {
                         newDestination.origin.x = destination.origin.x + x;
-                        writeTexture(newDestination, static_cast<uint8_t*>(data) + x + y * bytesPerRow + z * bytesPerImage, bytesPerRow * newSize.height, newDataLayout, newSize);
+                        auto offset = x + y * bytesPerRow + z * bytesPerImage;
+                        auto size = (y + 1 == endY) ? bytesInLastRow.value() : (bytesPerRow * newSize.height);
+                        if (offset + size > dataSize)
+                            return;
+
+                        writeTexture(newDestination, static_cast<uint8_t*>(data) + offset, size, newDataLayout, newSize);
                     }
                 }
             }
@@ -693,7 +692,7 @@ void Queue::writeTexture(const WGPUImageCopyTexture& destination, void* data, si
     // FIXME(PERFORMANCE): Should this temporary buffer really be shared?
     NSUInteger newBufferSize = dataByteSize - dataLayout.offset;
     bool noCopy = newBufferSize >= largeBufferSize;
-    id<MTLBuffer> temporaryBuffer = noCopy ? [device->device() newBufferWithBytesNoCopy:static_cast<char*>(data) + dataLayout.offset length:newBufferSize options:MTLResourceStorageModeShared deallocator:nil] : [device->device() newBufferWithBytes:static_cast<char*>(data) + dataLayout.offset length:newBufferSize options:MTLResourceStorageModeShared];
+    id<MTLBuffer> temporaryBuffer = noCopy ? device->newBufferWithBytesNoCopy(static_cast<char*>(data) + dataLayout.offset, static_cast<NSUInteger>(newBufferSize), MTLResourceStorageModeShared) : device->newBufferWithBytes(static_cast<const char*>(data) + dataLayout.offset, static_cast<NSUInteger>(newBufferSize), MTLResourceStorageModeShared);
     if (!temporaryBuffer)
         return;
 

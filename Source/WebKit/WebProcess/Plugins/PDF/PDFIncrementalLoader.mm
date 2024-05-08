@@ -36,6 +36,7 @@
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <wtf/CallbackAggregator.h>
 #import <wtf/Identified.h>
+#import <wtf/ObjectIdentifier.h>
 #import <wtf/Range.h>
 #import <wtf/RangeSet.h>
 
@@ -49,7 +50,7 @@ using namespace WebCore;
 // We'll assume any size over 4GB is PDFKit noticing non-linearized data.
 static const uint32_t nonLinearizedPDFSentinel = std::numeric_limits<uint32_t>::max();
 
-class ByteRangeRequest : public LegacyIdentified<ByteRangeRequest> {
+class ByteRangeRequest : public Identified<ByteRangeRequestIdentifier> {
     WTF_MAKE_FAST_ALLOCATED;
 public:
     ByteRangeRequest() = default;
@@ -63,9 +64,9 @@ public:
     NetscapePlugInStreamLoader* streamLoader() { return m_streamLoader; }
     void setStreamLoader(NetscapePlugInStreamLoader* loader) { m_streamLoader = loader; }
     void clearStreamLoader();
-    void addData(const uint8_t* data, size_t count) { m_accumulatedData.append(data, count); }
+    void addData(std::span<const uint8_t> data) { m_accumulatedData.append(data); }
 
-    void completeWithBytes(const uint8_t*, size_t, PDFIncrementalLoader&);
+    void completeWithBytes(std::span<const uint8_t>, PDFIncrementalLoader&);
     void completeWithAccumulatedData(PDFIncrementalLoader&);
     bool completeIfPossible(PDFIncrementalLoader&);
     void completeUnconditionally(PDFIncrementalLoader&);
@@ -92,26 +93,26 @@ void ByteRangeRequest::clearStreamLoader()
     m_accumulatedData.clear();
 }
 
-void ByteRangeRequest::completeWithBytes(const uint8_t* data, size_t count, PDFIncrementalLoader& loader)
+void ByteRangeRequest::completeWithBytes(std::span<const uint8_t> data, PDFIncrementalLoader& loader)
 {
     ASSERT(isMainRunLoop());
 
-    m_completionHandler(data, count);
-    loader.requestDidCompleteWithBytes(*this, count);
+    m_completionHandler(data);
+    loader.requestDidCompleteWithBytes(*this, data.size());
 }
 
 void ByteRangeRequest::completeWithAccumulatedData(PDFIncrementalLoader& loader)
 {
     ASSERT(isMainRunLoop());
 
-    auto completionSize = m_accumulatedData.size();
-    if (completionSize > m_count) {
+    auto data = m_accumulatedData.span();
+    if (data.size() > m_count) {
         RELEASE_LOG_ERROR(IncrementalPDF, "PDF byte range request got more bytes back from the server than requested. This is likely due to a misconfigured server. Capping result at the requested number of bytes.");
-        completionSize = m_count;
+        data = data.first(m_count);
     }
 
-    m_completionHandler(m_accumulatedData.data(), completionSize);
-    loader.requestDidCompleteWithAccumulatedData(*this, completionSize);
+    m_completionHandler(data);
+    loader.requestDidCompleteWithAccumulatedData(*this, data.size());
 }
 
 bool ByteRangeRequest::completeIfPossible(PDFIncrementalLoader& loader)
@@ -127,17 +128,17 @@ void ByteRangeRequest::completeUnconditionally(PDFIncrementalLoader& loader)
 
     auto availableBytes = loader.availableDataSize();
     if (m_position >= availableBytes) {
-        completeWithBytes(nullptr, 0, loader);
+        completeWithBytes({ }, loader);
         return;
     }
 
     auto availableRequestBytes = std::min<uint64_t>(m_count, availableBytes - m_position);
 
-    const uint8_t* dataPtr = loader.dataPtrForRange(m_position, availableRequestBytes);
-    if (!dataPtr)
+    auto data = loader.dataPtrForRange(m_position, availableRequestBytes, CheckValidRanges::No);
+    if (!data.data())
         return;
 
-    completeWithBytes(dataPtr, availableRequestBytes, loader);
+    completeWithBytes(data, loader);
 }
 
 #pragma mark -
@@ -223,7 +224,7 @@ void PDFPluginStreamLoaderClient::didReceiveData(NetscapePlugInStreamLoader* str
     if (!request)
         return;
 
-    request->addData(data.data(), data.size());
+    request->addData(data.span());
 }
 
 void PDFPluginStreamLoaderClient::didFail(NetscapePlugInStreamLoader* streamLoader, const ResourceError&)
@@ -266,7 +267,6 @@ struct PDFIncrementalLoader::RequestData {
 
     HashMap<ByteRangeRequestIdentifier, ByteRangeRequest> outstandingByteRangeRequests;
     HashMap<RefPtr<WebCore::NetscapePlugInStreamLoader>, ByteRangeRequestIdentifier> streamLoaderMap;
-    RangeSet<WTF::Range<uint64_t>> completedRanges;
 };
 
 #pragma mark -
@@ -328,17 +328,6 @@ bool PDFIncrementalLoader::documentFinishedLoading() const
     return plugin->documentFinishedLoading();
 }
 
-void PDFIncrementalLoader::ensureDataBufferLength(uint64_t targetLength)
-{
-    ASSERT(isMainRunLoop());
-
-    RefPtr plugin = m_plugin.get();
-    if (!plugin)
-        return;
-
-    plugin->ensureDataBufferLength(targetLength);
-}
-
 void PDFIncrementalLoader::appendAccumulatedDataToDataBuffer(ByteRangeRequest& request)
 {
     ASSERT(isMainRunLoop());
@@ -359,16 +348,13 @@ uint64_t PDFIncrementalLoader::availableDataSize() const
     return plugin->streamedBytes();
 }
 
-const uint8_t* PDFIncrementalLoader::dataPtrForRange(uint64_t position, size_t count) const
+std::span<const uint8_t> PDFIncrementalLoader::dataPtrForRange(uint64_t position, size_t count, CheckValidRanges checkValidRanges) const
 {
     RefPtr plugin = m_plugin.get();
     if (!plugin)
-        return nullptr;
+        return { };
 
-    if (!plugin->haveDataForRange(position, count))
-        return nullptr;
-
-    return plugin->dataPtrForRange(position, count);
+    return plugin->dataPtrForRange(position, count, checkValidRanges);
 }
 
 void PDFIncrementalLoader::incrementalPDFStreamDidFinishLoading()
@@ -395,10 +381,6 @@ void PDFIncrementalLoader::incrementalPDFStreamDidReceiveData(const SharedBuffer
     RefPtr plugin = m_plugin.get();
     if (!plugin)
         return;
-
-    // Keep our ranges-lookup-table compact by continuously updating its first range
-    // as the entire document streams in from the network.
-    m_requestData->completedRanges.add({ 0, plugin->streamedBytes() - 1 });
 
     HashSet<ByteRangeRequestIdentifier> handledRequests;
     for (auto& request : m_requestData->outstandingByteRangeRequests.values()) {
@@ -548,28 +530,11 @@ bool PDFIncrementalLoader::requestCompleteIfPossible(ByteRangeRequest& request)
     if (!plugin)
         return false;
 
-    auto haveReceivedDataForRange = [&](const ByteRangeRequest& request) {
-        if (!plugin->haveDataForRange(request.position(), request.count()))
-            return false;
-
-        if (plugin->haveStreamedDataForRange(request.position(), request.count()))
-            return true;
-
-        if (m_requestData->completedRanges.contains({ request.position(), request.position() + request.count() - 1 })) {
-#if !LOG_DISABLED
-            incrementalLoaderLog(makeString("Completing request %llu with a previously completed range", request.identifier()));
-#endif
-            return true;
-        }
-
-        return false;
-    };
-
-    if (!haveReceivedDataForRange(request))
+    auto data = plugin->dataPtrForRange(request.position(), request.count(), CheckValidRanges::Yes);
+    if (!data.data())
         return false;
 
-    const uint8_t* dataPtr = plugin->dataPtrForRange(request.position(), request.count());
-    request.completeWithBytes(dataPtr, request.count(), *this);
+    request.completeWithBytes(data, *this);
     return true;
 }
 
@@ -594,13 +559,7 @@ void PDFIncrementalLoader::requestDidCompleteWithAccumulatedData(ByteRangeReques
     incrementalLoaderLog(makeString("Completing range request ", request.identifier(), " (", request.count(), " bytes at ", request.position(), ") with ", request.accumulatedData().size(), " bytes from the network"));
 #endif
 
-    // Fold this data into the main data buffer so that if something in its range is requested again (which happens quite often)
-    // we do not need to hit the network layer again.
-    ensureDataBufferLength(request.position() + request.accumulatedData().size());
-    if (request.accumulatedData().size()) {
-        appendAccumulatedDataToDataBuffer(request);
-        m_requestData->completedRanges.add({ request.position(), request.position() + request.accumulatedData().size() - 1 });
-    }
+    appendAccumulatedDataToDataBuffer(request);
 
     if (auto* streamLoader = request.streamLoader())
         forgetStreamLoader(*streamLoader);
@@ -656,6 +615,15 @@ size_t PDFIncrementalLoader::dataProviderGetBytesAtPosition(void* buffer, off_t 
         return 0;
     }
 
+    if (auto data = plugin->dataPtrForRange(position, count, CheckValidRanges::Yes); data.data()) {
+        memcpy(buffer, data.data(), data.size());
+#if !LOG_DISABLED
+        decrementThreadsWaitingOnCallback();
+        incrementalLoaderLog(makeString("Satisfied range request for ", data.size(), " bytes at position ", position, " synchronously"));
+#endif
+        return data.size();
+    }
+
     RefPtr dataSemaphore = createDataSemaphore();
     if (!dataSemaphore)
         return 0;
@@ -665,12 +633,12 @@ size_t PDFIncrementalLoader::dataProviderGetBytesAtPosition(void* buffer, off_t 
     RunLoop::main().dispatch([protectedLoader = Ref { *this }, dataSemaphore, position, count, buffer, &bytesProvided] {
         if (dataSemaphore->wasSignaled())
             return;
-        protectedLoader->getResourceBytesAtPosition(count, position, [count, buffer, dataSemaphore, &bytesProvided](const uint8_t* bytes, size_t bytesCount) {
+        protectedLoader->getResourceBytesAtPosition(count, position, [count, buffer, dataSemaphore, &bytesProvided](std::span<const uint8_t> bytes) {
             if (dataSemaphore->wasSignaled())
                 return;
-            RELEASE_ASSERT(bytesCount <= count);
-            memcpy(buffer, bytes, bytesCount);
-            bytesProvided = bytesCount;
+            RELEASE_ASSERT(bytes.size() <= count);
+            memcpy(buffer, bytes.data(), bytes.size());
+            bytesProvided = bytes.size();
             dataSemaphore->signal();
         });
     });
@@ -719,6 +687,14 @@ void PDFIncrementalLoader::dataProviderGetByteRanges(CFMutableArrayRef buffers, 
     incrementalLoaderLog(stream.release());
 #endif
 
+    if (plugin->getByteRanges(buffers, ranges, count)) {
+#if !LOG_DISABLED
+        decrementThreadsWaitingOnCallback();
+        incrementalLoaderLog(makeString("Satisfied ", count, " get byte ranges synchronously"));
+#endif
+        return;
+    }
+
     RefPtr dataSemaphore = createDataSemaphore();
     if (!dataSemaphore)
         return;
@@ -733,10 +709,10 @@ void PDFIncrementalLoader::dataProviderGetByteRanges(CFMutableArrayRef buffers, 
             dataSemaphore->signal();
         });
         for (size_t i = 0; i < count; ++i) {
-            protectedLoader->getResourceBytesAtPosition(ranges[i].length, ranges[i].location, [i, &dataResults, dataSemaphore, callbackAggregator](const uint8_t* bytes, size_t bytesCount) {
+            protectedLoader->getResourceBytesAtPosition(ranges[i].length, ranges[i].location, [i, &dataResults, dataSemaphore, callbackAggregator](std::span<const uint8_t> bytes) {
                 if (dataSemaphore->wasSignaled())
                     return;
-                dataResults[i] = adoptCF(CFDataCreate(kCFAllocatorDefault, bytes, bytesCount));
+                dataResults[i] = adoptCF(CFDataCreate(kCFAllocatorDefault, bytes.data(), bytes.size()));
             });
         }
     });

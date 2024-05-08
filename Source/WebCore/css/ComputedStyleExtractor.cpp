@@ -738,7 +738,7 @@ static LayoutRect sizingBox(RenderObject& renderer)
 
 Ref<CSSFunctionValue> ComputedStyleExtractor::matrixTransformValue(const TransformationMatrix& transform, const RenderStyle& style)
 {
-    auto zoom = style.effectiveZoom();
+    auto zoom = style.usedZoom();
     if (transform.isAffine()) {
         double values[] = { transform.a(), transform.b(), transform.c(), transform.d(), transform.e() / zoom, transform.f() / zoom };
         CSSValueListBuilder arguments;
@@ -2234,7 +2234,7 @@ static Ref<CSSValue> contentToCSSValue(const RenderStyle& style)
         }
     }
     if (list.isEmpty())
-        list.append(CSSPrimitiveValue::create(style.hasEffectiveContentNone() ? CSSValueNone : CSSValueNormal));
+        list.append(CSSPrimitiveValue::create(style.hasUsedContentNone() ? CSSValueNone : CSSValueNormal));
     else if (auto& altText = style.contentAltText(); !altText.isNull())
         return CSSValuePair::createSlashSeparated(CSSValueList::createSpaceSeparated(WTFMove(list)), CSSPrimitiveValue::create(altText));
     return CSSValueList::createSpaceSeparated(WTFMove(list));

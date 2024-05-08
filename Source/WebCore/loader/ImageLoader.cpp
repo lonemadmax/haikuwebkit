@@ -218,9 +218,17 @@ void ImageLoader::updateFromElement(RelevantMutation relevantMutation)
         if (m_image && attr == m_pendingURL)
             imageURL = m_image->url();
         else {
-            if (RefPtr imageElement = dynamicDowncast<HTMLImageElement>(element()))
+            if (imageElement) {
+                // It is possible that attributes are bulk-set via Element::parserSetAttributes. In that case, it is possible that attribute vectors are already configured,
+                // but corresponding attributeChanged is not called yet. This causes inconsistency in HTMLImageElement. Eventually, we will get the consistent state, but
+                // if "src" attributeChanged is not called yet, imageURL can be null and it does not work well for ResourceRequest.
+                // In this case, we should behave same as attr.isNull().
                 imageURL = imageElement->currentURL();
-            else
+                if (imageURL.isNull()) {
+                    didUpdateCachedImage(relevantMutation, WTFMove(newImage));
+                    return;
+                }
+            } else
                 imageURL = document->completeURL(attr);
             m_pendingURL = attr;
         }
@@ -458,10 +466,8 @@ RenderImageResource* ImageLoader::renderImageResource()
     if (auto* svgImage = dynamicDowncast<LegacyRenderSVGImage>(*renderer))
         return &svgImage->imageResource();
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (auto* svgImage = dynamicDowncast<RenderSVGImage>(*renderer))
         return &svgImage->imageResource();
-#endif
 
 #if ENABLE(VIDEO)
     if (auto* renderVideo = dynamicDowncast<RenderVideo>(*renderer))
@@ -551,8 +557,13 @@ void ImageLoader::decode()
         resolveDecodePromises();
         return;
     }
-    bitmapImage->decode([promises = WTFMove(m_decodingPromises)]() mutable {
-        resolvePromises(promises);
+
+    bitmapImage->decode([promises = WTFMove(m_decodingPromises)](DecodingStatus decodingStatus) mutable {
+        ASSERT(decodingStatus != DecodingStatus::Decoding);
+        if (decodingStatus == DecodingStatus::Invalid)
+            rejectPromises(promises, "Decoding error."_s);
+        else
+            resolvePromises(promises);
     });
 }
 

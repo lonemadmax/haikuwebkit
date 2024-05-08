@@ -1141,6 +1141,10 @@ void WebPageProxy::dispatchDidUpdateEditorState()
 void WebPageProxy::showValidationMessage(const IntRect& anchorClientRect, const String& message)
 {
     m_validationBubble = protectedPageClient()->createValidationBubble(message, { m_preferences->minimumFontSize() });
+
+    // FIXME: When in element fullscreen, UIClient::presentingViewController() may not return the
+    // WKFullScreenViewController even though that is the presenting view controller of the WKWebView.
+    // We should call PageClientImpl::presentingViewController() instead.
     m_validationBubble->setAnchorRect(anchorClientRect, uiClient().presentingViewController());
 
     // If we are currently doing a scrolling / zoom animation, then we'll delay showing the validation
@@ -1302,6 +1306,9 @@ std::unique_ptr<PaymentAuthorizationPresenter> WebPageProxy::Internals::paymentC
 
 UIViewController *WebPageProxy::Internals::paymentCoordinatorPresentingViewController(const WebPaymentCoordinatorProxy&)
 {
+    // FIXME: When in element fullscreen, UIClient::presentingViewController() may not return the
+    // WKFullScreenViewController even though that is the presenting view controller of the WKWebView.
+    // We should call PageClientImpl::presentingViewController() instead.
     return page.uiClient().presentingViewController();
 }
 
@@ -1347,8 +1354,7 @@ static RecommendDesktopClassBrowsingForRequest desktopClassBrowsingRecommendedFo
     // FIXME: This should be additionally gated on site-specific quirks being enabled.
     // See also: <rdar://problem/50035167>.
     // The list of domain names is currently available in Source/WebCore/page/Quirks.cpp
-    auto host = request.url().host();
-    if (Quirks::needsIpadMiniUserAgent(host))
+    if (Quirks::needsIpadMiniUserAgent(request.url()))
         return RecommendDesktopClassBrowsingForRequest::No;
 
     return RecommendDesktopClassBrowsingForRequest::Auto;
@@ -1407,10 +1413,8 @@ String WebPageProxy::predictedUserAgentForRequest(const WebCore::ResourceRequest
 {
     if (!customUserAgent().isEmpty())
         return customUserAgent();
-    if (!m_configuration->defaultWebsitePolicies())
-        return userAgent();
 
-    const API::WebsitePolicies& policies = *m_configuration->defaultWebsitePolicies();
+    const API::WebsitePolicies& policies = m_configuration->defaultWebsitePolicies();
     if (!policies.customUserAgent().isEmpty())
         return policies.customUserAgent();
 

@@ -121,6 +121,13 @@ public:
     unsigned requestVideoFrameCallback(Ref<VideoFrameRequestCallback>&&);
     void cancelVideoFrameCallback(unsigned);
 
+    WEBCORE_EXPORT void setVideoFullscreenStandby(bool);
+
+#if USE(GSTREAMER)
+    void enableGStreamerHolePunching() { m_enableGStreamerHolePunching = true; }
+    bool isGStreamerHolePunchingEnabled() const final { return m_enableGStreamerHolePunching; }
+#endif
+
 private:
     HTMLVideoElement(const QualifiedName&, Document&, bool createdByParser);
 
@@ -182,6 +189,10 @@ private:
     Vector<UniqueRef<VideoFrameRequest>> m_videoFrameRequests;
     Vector<UniqueRef<VideoFrameRequest>> m_servicedVideoFrameRequests;
     unsigned m_nextVideoFrameRequestIndex { 0 };
+
+#if USE(GSTREAMER)
+    bool m_enableGStreamerHolePunching { false };
+#endif
 };
 
 } // namespace WebCore

@@ -33,6 +33,7 @@
 #import "Buffer.h"
 #import "CommandEncoder.h"
 #import "ComputePipeline.h"
+#import "MetalSPI.h"
 #import "PipelineLayout.h"
 #import "PresentationContext.h"
 #import "QuerySet.h"
@@ -237,6 +238,28 @@ void Device::loseTheDevice(WGPUDeviceLostReason reason)
     m_isLost = true;
 }
 
+static void setOwnerWithIdentity(id<MTLResourceSPI> resource, auto webProcessID)
+{
+    if (!resource)
+        return;
+
+    if (![resource respondsToSelector:@selector(setOwnerWithIdentity:)])
+        return;
+
+    [resource setOwnerWithIdentity:webProcessID];
+}
+
+void Device::setOwnerWithIdentity(id<MTLResource> resource) const
+{
+    if (auto optionalWebProcessID = instance().webProcessID()) {
+        auto webProcessID = optionalWebProcessID->sendRight();
+        if (!webProcessID)
+            return;
+
+        WebGPU::setOwnerWithIdentity((id<MTLResourceSPI>)resource, webProcessID);
+    }
+}
+
 void Device::destroy()
 {
     m_destroyed = true;
@@ -323,8 +346,10 @@ void Device::generateAnOutOfMemoryError(String&& message)
         return;
     }
 
-    if (m_uncapturedErrorCallback)
+    if (m_uncapturedErrorCallback) {
         m_uncapturedErrorCallback(WGPUErrorType_OutOfMemory, WTFMove(message));
+        m_uncapturedErrorCallback = nullptr;
+    }
 }
 
 void Device::generateAnInternalError(String&& message)
@@ -339,8 +364,10 @@ void Device::generateAnInternalError(String&& message)
         return;
     }
 
-    if (m_uncapturedErrorCallback)
+    if (m_uncapturedErrorCallback) {
         m_uncapturedErrorCallback(WGPUErrorType_Internal, WTFMove(message));
+        m_uncapturedErrorCallback = nullptr;
+    }
 }
 
 uint32_t Device::maxBuffersPlusVertexBuffersForVertexStage() const
@@ -363,6 +390,27 @@ uint32_t Device::vertexBufferIndexForBindGroup(uint32_t groupIndex) const
 {
     ASSERT(maxBuffersPlusVertexBuffersForVertexStage() > 0);
     return WGSL::vertexBufferIndexForBindGroup(groupIndex, maxBuffersPlusVertexBuffersForVertexStage() - 1);
+}
+
+id<MTLBuffer> Device::newBufferWithBytes(const void* pointer, size_t length, MTLResourceOptions options) const
+{
+    id<MTLBuffer> buffer = [m_device newBufferWithBytes:pointer length:length options:options];
+    setOwnerWithIdentity(buffer);
+    return buffer;
+}
+
+id<MTLBuffer> Device::newBufferWithBytesNoCopy(void* pointer, size_t length, MTLResourceOptions options) const
+{
+    id<MTLBuffer> buffer = [m_device newBufferWithBytesNoCopy:pointer length:length options:options deallocator:nil];
+    setOwnerWithIdentity(buffer);
+    return buffer;
+}
+
+id<MTLTexture> Device::newTextureWithDescriptor(MTLTextureDescriptor *textureDescriptor, IOSurfaceRef ioSurface, NSUInteger plane) const
+{
+    id<MTLTexture> texture = ioSurface ? [m_device newTextureWithDescriptor:textureDescriptor iosurface:ioSurface plane:plane] : [m_device newTextureWithDescriptor:textureDescriptor];
+    setOwnerWithIdentity(texture);
+    return texture;
 }
 
 void Device::captureFrameIfNeeded() const

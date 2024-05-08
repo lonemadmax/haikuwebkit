@@ -168,7 +168,7 @@ RefPtr<Uint8Array> CDMSessionAVContentKeySession::generateKeyRequest(const Strin
     if (m_cdmVersion == 2)
         m_identifier = initData;
     else
-        m_initData = SharedBuffer::create(initData->data(), initData->length());
+        m_initData = SharedBuffer::create(initData->span());
 
     ASSERT(!m_certificate);
     String certificateString("certificate"_s);
@@ -210,7 +210,7 @@ void CDMSessionAVContentKeySession::releaseKeys()
             if (m_sessionId == String(playbackSessionIdValue)) {
                 ALWAYS_LOG(LOGIDENTIFIER, "found session, sending expiration message");
                 m_expiredSession = expiredSessionData;
-                m_client->sendMessage(Uint8Array::create(static_cast<const uint8_t*>([m_expiredSession bytes]), [m_expiredSession length]).ptr(), emptyString());
+                m_client->sendMessage(Uint8Array::create(span(m_expiredSession.get())).ptr(), emptyString());
                 break;
             }
         }
@@ -334,7 +334,7 @@ bool CDMSessionAVContentKeySession::update(Uint8Array* key, RefPtr<Uint8Array>& 
         }
 
         ALWAYS_LOG(LOGIDENTIFIER, "generated key request");
-        nextMessage = Uint8Array::tryCreate(static_cast<const uint8_t*>([requestData bytes]), [requestData length]);
+        nextMessage = Uint8Array::tryCreate(span(requestData.get()));
         return false;
     }
 
@@ -423,7 +423,7 @@ RefPtr<Uint8Array> CDMSessionAVContentKeySession::generateKeyReleaseMessage(unsi
     errorCode = 0;
     systemCode = 0;
     m_expiredSession = [expiredSessions firstObject];
-    return Uint8Array::tryCreate(static_cast<const uint8_t*>([m_expiredSession bytes]), [m_expiredSession length]);
+    return Uint8Array::tryCreate(span(m_expiredSession.get()));
 }
 
 bool CDMSessionAVContentKeySession::hasContentKeyRequest() const

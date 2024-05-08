@@ -102,6 +102,7 @@ class CacheStorageProvider;
 class Chrome;
 class ContextMenuController;
 class CookieJar;
+class CryptoClient;
 class DOMRectList;
 class DatabaseProvider;
 class DeviceOrientationUpdateProvider;
@@ -109,6 +110,7 @@ class DiagnosticLoggingClient;
 class DragCaretController;
 class DragController;
 class EditorClient;
+class ElementTargetingController;
 class Element;
 class FocusController;
 class FormData;
@@ -240,6 +242,7 @@ enum class RenderingUpdateStep : uint32_t {
     AccessibilityRegionUpdate       = 1 << 22,
 #endif
     RestoreScrollPositionAndViewState = 1 << 23,
+    AdjustVisibility                  = 1 << 24,
 };
 
 enum class LinkDecorationFilteringTrigger : uint8_t {
@@ -270,6 +273,7 @@ constexpr OptionSet<RenderingUpdateStep> updateRenderingSteps = {
     RenderingUpdateStep::CaretAnimation,
     RenderingUpdateStep::UpdateContentRelevancy,
     RenderingUpdateStep::PerformPendingViewTransitions,
+    RenderingUpdateStep::AdjustVisibility,
 };
 
 constexpr auto allRenderingUpdateSteps = updateRenderingSteps | OptionSet<RenderingUpdateStep> {
@@ -367,6 +371,8 @@ public:
 
     Chrome& chrome() { return m_chrome.get(); }
     const Chrome& chrome() const { return m_chrome.get(); }
+    CryptoClient& cryptoClient() { return m_cryptoClient.get(); }
+    const CryptoClient& cryptoClient() const { return m_cryptoClient.get(); }
     DragCaretController& dragCaretController() { return m_dragCaretController.get(); }
     const DragCaretController& dragCaretController() const { return m_dragCaretController.get(); }
 #if ENABLE(DRAG_SUPPORT)
@@ -389,6 +395,8 @@ public:
     WEBCORE_EXPORT void disableICECandidateFiltering();
     WEBCORE_EXPORT void enableICECandidateFiltering();
     bool shouldEnableICECandidateFilteringByDefault() const { return m_shouldEnableICECandidateFilteringByDefault; }
+
+    WEBCORE_EXPORT CheckedRef<ElementTargetingController> checkedElementTargetingController();
 
     void didChangeMainDocument();
     void mainFrameDidChangeToNonInitialEmptyDocument();
@@ -1011,6 +1019,7 @@ public:
     void forEachWindowEventLoop(const Function<void(WindowEventLoop&)>&);
 
     bool shouldDisableCorsForRequestTo(const URL&) const;
+    bool shouldAssumeSameSiteForRequestTo(const URL& url) const { return shouldDisableCorsForRequestTo(url); }
     const HashSet<String>& maskedURLSchemes() const { return m_maskedURLSchemes; }
 
     WEBCORE_EXPORT void injectUserStyleSheet(UserStyleSheet&);
@@ -1172,9 +1181,11 @@ private:
 #if ENABLE(POINTER_LOCK)
     UniqueRef<PointerLockController> m_pointerLockController;
 #endif
+    UniqueRef<ElementTargetingController> m_elementTargetingController;
     RefPtr<ScrollingCoordinator> m_scrollingCoordinator;
 
     const RefPtr<Settings> m_settings;
+    UniqueRef<CryptoClient> m_cryptoClient;
     UniqueRef<ProgressTracker> m_progress;
 
     UniqueRef<BackForwardController> m_backForwardController;

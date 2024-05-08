@@ -96,8 +96,6 @@ public:
 
     String accessKeyLabel() const;
 
-    bool rendererIsEverNeeded() final;
-
     WEBCORE_EXPORT const AtomString& dir() const;
     WEBCORE_EXPORT void setDir(const AtomString&);
 
@@ -161,6 +159,8 @@ public:
     const AtomString& popover() const;
     void setPopover(const AtomString& value) { setAttributeWithoutSynchronization(HTMLNames::popoverAttr, value); };
     void popoverAttributeChanged(const AtomString& value);
+
+    bool handleInvokeInternal(const HTMLFormControlElement& invoker, const AtomString& action) final;
 
 #if PLATFORM(IOS_FAMILY)
     static SelectionRenderingBehavior selectionRenderingBehavior(const Node*);

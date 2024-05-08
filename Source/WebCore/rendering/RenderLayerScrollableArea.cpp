@@ -501,7 +501,7 @@ bool RenderLayerScrollableArea::scrollsOverflow() const
 bool RenderLayerScrollableArea::canUseCompositedScrolling() const
 {
     auto& renderer = m_layer.renderer();
-    bool isVisible = renderer.style().visibility() == Visibility::Visible;
+    bool isVisible = renderer.style().usedVisibility() == Visibility::Visible;
     if (renderer.settings().asyncOverflowScrollingEnabled())
         return isVisible && scrollsOverflow() && !m_layer.isInsideSVGForeignObject();
 
@@ -649,6 +649,7 @@ IntSize RenderLayerScrollableArea::reachableTotalContentsSize() const
 
 void RenderLayerScrollableArea::availableContentSizeChanged(AvailableSizeChangeReason reason)
 {
+    ALWAYS_LOG_WITH_STREAM(stream << " RenderLayerScrollableArea::availableContentSizeChanged " << scrollingNodeID());
     ScrollableArea::availableContentSizeChanged(reason);
 
     auto& renderer = m_layer.renderer();
@@ -657,6 +658,7 @@ void RenderLayerScrollableArea::availableContentSizeChanged(AvailableSizeChangeR
             renderBlock->setShouldForceRelayoutChildren(true);
         renderer.setNeedsLayout();
     }
+    ALWAYS_LOG_WITH_STREAM(stream << " RenderLayerScrollableArea::availableContentSizeChanged " << m_layer.renderer().needsLayout());
 }
 
 bool RenderLayerScrollableArea::shouldSuspendScrollAnimations() const
@@ -1024,14 +1026,14 @@ OverscrollBehavior RenderLayerScrollableArea::verticalOverscrollBehavior() const
 Color RenderLayerScrollableArea::scrollbarThumbColorStyle() const
 {
     if (auto* renderer = m_layer.renderBox())
-        return renderer->style().effectiveScrollbarThumbColor();
+        return renderer->style().usedScrollbarThumbColor();
     return { };
 }
 
 Color RenderLayerScrollableArea::scrollbarTrackColorStyle() const
 {
     if (auto* renderer = m_layer.renderBox())
-        return renderer->style().effectiveScrollbarTrackColor();
+        return renderer->style().usedScrollbarTrackColor();
     return { };
 }
 

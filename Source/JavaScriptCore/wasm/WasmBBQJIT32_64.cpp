@@ -45,7 +45,6 @@
 #include "JSWebAssemblyStruct.h"
 #include "MacroAssembler.h"
 #include "RegisterSet.h"
-#include "WasmB3IRGenerator.h"
 #include "WasmBBQDisassembler.h"
 #include "WasmCallingConvention.h"
 #include "WasmCompilationMode.h"
@@ -56,6 +55,7 @@
 #include "WasmMemoryInformation.h"
 #include "WasmModule.h"
 #include "WasmModuleInformation.h"
+#include "WasmOMGIRGenerator.h"
 #include "WasmOperations.h"
 #include "WasmOps.h"
 #include "WasmThunks.h"
@@ -2021,7 +2021,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addStructGet(ExtGCOpType structGetKind,
         return { };
     }
 
-    Location structLocation = allocate(structValue);
+    Location structLocation = loadIfNecessary(structValue);
     emitThrowOnNullReference(ExceptionType::NullStructGet, structLocation);
 
     m_jit.loadPtr(MacroAssembler::Address(structLocation.asGPRlo(), JSWebAssemblyStruct::offsetOfPayload()), wasmScratchGPR);

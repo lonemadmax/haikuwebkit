@@ -97,6 +97,8 @@ struct AccessibilityText;
 struct CharacterRange;
 struct ScrollRectToVisibleOptions;
 
+enum class DateComponentsType : uint8_t;
+
 enum class AXIDType { };
 using AXID = ObjectIdentifier<AXIDType>;
 
@@ -725,21 +727,22 @@ enum class AccessibilityOrientation {
     Undefined,
 };
 
-struct AccessibilityTextUnderElementMode {
-    enum ChildrenInclusion {
-        TextUnderElementModeSkipIgnoredChildren,
-        TextUnderElementModeIncludeAllChildren,
-        TextUnderElementModeIncludeNameFromContentsChildren, // This corresponds to ARIA concept: nameFrom
+struct TextUnderElementMode {
+    enum class Children : uint8_t {
+        SkipIgnoredChildren,
+        IncludeAllChildren,
+        IncludeNameFromContentsChildren, // This corresponds to ARIA concept: nameFrom
     };
 
-    ChildrenInclusion childrenInclusion;
+    Children childrenInclusion;
     bool includeFocusableContent;
+    bool considerHiddenState { true };
     Node* ignoredChildNode;
 
-    AccessibilityTextUnderElementMode(ChildrenInclusion c = TextUnderElementModeSkipIgnoredChildren, bool i = false, Node* ignored = nullptr)
-        : childrenInclusion(c)
-        , includeFocusableContent(i)
-        , ignoredChildNode(ignored)
+    TextUnderElementMode(Children childrenInclusion = Children::SkipIgnoredChildren, bool includeFocusable = false, Node* ignoredChild = nullptr)
+        : childrenInclusion(childrenInclusion)
+        , includeFocusableContent(includeFocusable)
+        , ignoredChildNode(ignoredChild)
     { }
 };
 
@@ -821,7 +824,6 @@ public:
     virtual bool isAccessibilityObject() const = 0;
     virtual bool isAccessibilityRenderObject() const = 0;
     virtual bool isAccessibilityTableInstance() const = 0;
-    virtual bool isAccessibilityARIAGridInstance() const = 0;
     virtual bool isAccessibilityARIAGridRowInstance() const = 0;
     virtual bool isAccessibilityARIAGridCellInstance() const = 0;
     virtual bool isAXIsolatedObjectInstance() const = 0;
@@ -997,9 +999,7 @@ public:
     virtual AXTextMarkerRange textInputMarkedTextMarkerRange() const = 0;
 
     virtual WallTime dateTimeValue() const = 0;
-#if PLATFORM(MAC)
-    virtual unsigned dateTimeComponents() const = 0;
-#endif
+    virtual DateComponentsType dateTimeComponentsType() const = 0;
     virtual bool supportsDatetimeAttribute() const = 0;
     virtual String datetimeAttributeValue() const = 0;
 
@@ -1141,7 +1141,7 @@ public:
 
     // Methods for determining accessibility text.
     virtual String stringValue() const = 0;
-    virtual String textUnderElement(AccessibilityTextUnderElementMode = AccessibilityTextUnderElementMode()) const = 0;
+    virtual String textUnderElement(TextUnderElementMode = TextUnderElementMode()) const = 0;
     virtual String text() const = 0;
     virtual unsigned textLength() const = 0;
 #if PLATFORM(COCOA)
@@ -1400,7 +1400,7 @@ public:
     void detachWrapper(AccessibilityDetachmentType);
 
 #if PLATFORM(IOS_FAMILY)
-    virtual int accessibilitySecureFieldLength() = 0;
+    virtual unsigned accessibilitySecureFieldLength() = 0;
     virtual bool hasTouchEventListener() const = 0;
 #endif
 
@@ -1599,9 +1599,9 @@ template<typename T>
 T* findRelatedObjectInAncestry(const T& object, AXRelationType relationType, const T& descendant)
 {
     auto relatedObjects = object.relatedObjects(relationType);
-    for (const auto& object : relatedObjects) {
-        auto* ancestor = findAncestor(descendant, false, [&object] (const auto& ancestor) {
-            return object.get() == &ancestor;
+    for (const auto& relatedObject : relatedObjects) {
+        auto* ancestor = findAncestor(descendant, false, [&relatedObject] (const auto& ancestor) {
+            return relatedObject.get() == &ancestor;
         });
         if (ancestor)
             return ancestor;
@@ -1630,7 +1630,7 @@ T* findChild(T& object, F&& matches)
 {
     for (auto child : object.children()) {
         if (matches(child))
-            return checkedDowncast<T>(child.get());
+            return downcast<T>(child.get());
     }
     return nullptr;
 }
@@ -1726,5 +1726,6 @@ WTF::TextStream& operator<<(WTF::TextStream&, const AXCoreObject&);
 WTF::TextStream& operator<<(WTF::TextStream&, AccessibilityText);
 WTF::TextStream& operator<<(WTF::TextStream&, AccessibilityTextSource);
 WTF::TextStream& operator<<(WTF::TextStream&, AXRelationType);
+WTF::TextStream& operator<<(WTF::TextStream&, const TextUnderElementMode&);
 
 } // namespace WebCore

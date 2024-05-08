@@ -270,8 +270,10 @@ media/mediacapabilities/mediacapabilities-types.html [ Pass ]
 media/video-controller-currentTime-rate.html [ Pass ]
 webaudio/codec-tests/aac/vbr-128kbps-44khz.html [ Pass ]
 webaudio/codec-tests/mp3/128kbps-44khz.html [ Pass ]
+
 media/now-playing-webaudio.html [ Failure ]
 media/webaudio-background-playback.html [ Failure ]
+fast/mediastream/now-playing-and-mediastream.html [ Failure ]
 
 # uiController.simulateRotationLikeSafari() is not implemented on glib ports.
 fast/screen-orientation/orientation-in-resize-event.html [ Skip ]
@@ -473,6 +475,11 @@ imported/w3c/web-platform-tests/quirks/line-height-in-list-item.tentative.html [
 # AXObjectCache::announce not implemented.
 accessibility/announcement-notification.html [ Skip ]
 
+accessibility/shadow-dom-hit-test.html [ Skip ]
+
+# AccessibilityUIElement::isAttributeSupported needs to be updated to handle AXSelectedRows.
+accessibility/aria-table-selection-support.html [ Skip ]
+
 # Timing out since added in https://bugs.webkit.org/show_bug.cgi?id=263715
 accessibility/focus-inside-modal.html [ Skip ]
 # Timing out since added in https://bugs.webkit.org/show_bug.cgi?id=249283.
@@ -550,6 +557,8 @@ accessibility/display-contents/tree-and-treeitems.html [ Skip ]
 
 webkit.org/b/212805 accessibility/svg-text.html [ Failure ]
 
+accessibility/combobox/mac [ Skip ]
+
 # AX support for datetime input elements needs to be completed in glib platforms.
 accessibility/datetime [ Skip ]
 
@@ -575,7 +584,7 @@ webkit.org/b/141072 accessibility/frame-disconnect-textmarker-cache-crash.html [
 
 webkit.org/b/163383 accessibility/meter-element.html [ Failure ]
 
-webkit.org/b/182107 accessibility/aria-combobox-control-owns-elements.html [ Timeout ]
+webkit.org/b/182107 accessibility/combobox/aria-combobox-control-owns-elements.html [ Timeout ]
 
 webkit.org/b/98363 [ Release ] accessibility/canvas-fallback-content-2.html [ Failure ]
 webkit.org/b/98372 accessibility/onclick-handlers.html [ Failure ]
@@ -632,7 +641,7 @@ webkit.org/b/232256 accessibility/auto-fill-crash.html [ Timeout ]
 http/tests/accessibility/focus-text-field-in-iframe.html [ Skip ]
 
 # Times out due to missing AccessibilityUIElement::linkedUIElementAtIndex() implementation.
-accessibility/combobox-linked-listbox-destroyed.html [ Skip ]
+accessibility/combobox/combobox-linked-listbox-destroyed.html [ Skip ]
 
 # Fails due to missing AccessibilityUIElement::indexInTable() implementation.
 accessibility/table-insert-second-thead.html [ Skip ]
@@ -745,7 +754,6 @@ webkit.org/b/260973 imported/w3c/web-platform-tests/css/css-fonts/font-variant-e
 
 # fast/gradients are Skip in the top level Expectation. When fixing, change this to
 # Pass instead of removing this line.
-webkit.org/b/234606 fast/gradients/conic-gradient-alpha-unpremultiplied.html [ ImageOnlyFailure ]
 webkit.org/b/234606 fast/gradients/conic-gradient-alpha.html [ ImageOnlyFailure ]
 webkit.org/b/234606 fast/gradients/alpha-premultiplied-representable-by-unpremultiplied.html [ ImageOnlyFailure ]
 webkit.org/b/234606 fast/gradients/alpha-premultiplied.html [ ImageOnlyFailure ]
@@ -1050,13 +1058,6 @@ webkit.org/b/177294 fast/text/fitzpatrick-combination.html [ ImageOnlyFailure ]
 # GStreamer-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
 
-# https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/3365
-webkit.org/b/270700 http/tests/navigation/page-cache-video.html [ Crash ]
-webkit.org/b/270700 imported/w3c/web-platform-tests/custom-elements/reactions/customized-builtins/HTMLMediaElement.html [ Crash ]
-webkit.org/b/270700 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-summary-element/interactive-content.html [ Crash ]
-webkit.org/b/270700 imported/w3c/web-platform-tests/media-source/mediasource-changetype-play-without-codecs-parameter.html [ Crash ]
-webkit.org/b/270700 imported/w3c/web-platform-tests/media-source/mediasource-changetype-play.html [ Crash ]
-
 webkit.org/b/254520 media/video-ended-event-negative-playback.html [ Failure Timeout Pass ]
 webkit.org/b/254519 media/media-continues-playing-after-replace-source.html [ Failure Pass ]
 webkit.org/b/254518 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/autoplay-allowed-by-feature-policy.https.sub.html [ Crash Failure Timeout Pass ]
@@ -1079,6 +1080,7 @@ webkit.org/b/213699 http/wpt/mediarecorder/MediaRecorder-AV-audio-video-dataavai
 webkit.org/b/218317 media/media-source/media-source-trackid-change.html [ Failure ]
 webkit.org/b/238201 media/media-source/media-mp4-hevc-bframes.html [ Failure ]
 webkit.org/b/270622 media/media-source/media-managedmse-noresumeafterpause.html [ Timeout ]
+webkit.org/b/271631 media/media-source/media-managedmse-stall-endofstream.html [ Failure ]
 
 # GStreamer (< 1.24) doesn't set the track's id to the container's value.
 webkit.org/b/265919 media/track/media-audio-track.html [ Failure ]
@@ -1088,8 +1090,9 @@ webkit.org/b/265919 media/track/media-source-audio-track.html [ Failure ]
 media/media-source/media-managedmse-memorypressure.html [ Timeout ]
 media/media-source/media-managedmse-memorypressure-inactive.html [ Timeout ]
 media/media-source/media-managedmse-eviction.html [ Timeout ]
-# No AirPlay on glib platforms.
-media/media-source/media-managedmse-airplay.html [ Skip ]
+
+# No MSE in a worker on glib platforms for now (requires GPU process).
+media/media-source/worker/media-managedmse-worker.html [ Timeout ]
 
 webkit.org/b/211995 fast/images/animated-image-mp4.html [ Failure Timeout ]
 
@@ -1103,7 +1106,8 @@ webkit.org/b/234352 media/track/track-webvtt-snap-to-lines-inline-style.html [ I
 webkit.org/b/234352 media/track/track-webvtt-snap-to-lines-left-right.html [ ImageOnlyFailure Pass ]
 webkit.org/b/234352 media/video-with-alpha.html [ ImageOnlyFailure Pass ]
 
-# Race conditions from missing this patch: https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3471
+# Race conditions from missing this patch:
+# https://gitlab.freedesktop.org/gstreamer/gstreamer/-/merge_requests/3471 (still flaky with GStreamer 1.24)
 webkit.org/b/254514 media/media-source/media-source-current-time.html [ Failure Pass ]
 webkit.org/b/254514 media/media-source/media-source-seek-unbuffered.html [ Failure Pass Timeout ]
 
@@ -1127,8 +1131,7 @@ webkit.org/b/167108 imported/w3c/web-platform-tests/media-source/mediasource-dur
 webkit.org/b/167108 imported/w3c/web-platform-tests/media-source/mediasource-endofstream.html [ Failure ]
 webkit.org/b/210486 imported/w3c/web-platform-tests/media-source/mediasource-correct-frames-after-reappend.html [ Failure ]
 
-# Crashing due to https://bugs.webkit.org/show_bug.cgi?id=270700
-# webkit.org/b/226804 imported/w3c/web-platform-tests/media-source/mediasource-changetype-play.html [ Failure ]
+webkit.org/b/226804 imported/w3c/web-platform-tests/media-source/mediasource-changetype-play.html [ Failure ]
 
 webkit.org/b/167108 imported/w3c/web-platform-tests/media-source/mediasource-trackdefaultlist.html [ Failure ]
 webkit.org/b/210341 media/media-source/media-mp4-h264-sequence-mode.html [ Failure ]
@@ -1233,10 +1236,9 @@ imported/w3c/web-platform-tests/webcodecs/audio-encoder-config.https.any.worker.
 imported/w3c/web-platform-tests/webcodecs/audio-encoder.https.any.html [ Pass DumpJSConsoleLogInStdErr ]
 http/wpt/webcodecs/encoder-task-failing.html [ Pass ]
 
-# This test is flaky crashing with the current GStreamer version of the SDK (1.22), raising a
-# critical warning in GStreamer, but the issue is not happening with GStreamer 1.23. So this test is
-# expected to pass again once we update to GStreamer 1.24.
-fast/mediastream/play-newly-added-audio-track.html [ Pass Crash ]
+# H.264 high-4:2:2 encoding is supported in the GStreamer ports, so this test (checking that profile
+# is not supported) is expected to fail.
+http/wpt/webcodecs/H264-422.html [ Failure ]
 
 fast/mediacapturefromelement/CanvasCaptureMediaStream-capture-out-of-DOM-canvas-webgl.html [ Pass Failure ]
 
@@ -1263,6 +1265,8 @@ webkit.org/b/265205 imported/w3c/web-platform-tests/media-source/mediasource-rem
 webkit.org/b/265206 media/encrypted-media/encrypted-media-append-encrypted-unencrypted.html [ Pass Crash ]
 
 media/now-playing-status-for-video-conference-web-page.html [ Pass Timeout ]
+
+webkit.org/b/271050 http/tests/navigation/page-cache-video.html [ Pass Crash ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of GStreamer-related bugs
@@ -1471,8 +1475,6 @@ webkit.org/b/212202 css3/scroll-snap/scroll-snap-wheel-event.html [ Skip ]
 
 css3/scroll-snap/scroll-snap-discrete-wheel-event-in-mainframe.html [ Skip ]
 css3/scroll-snap/scroll-snap-discrete-wheel-events-with-layout.html [ Skip ]
-
-fast/visual-viewport/client-coordinates-relative-to-layout-viewport.html [ Failure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Scrolling-related bugs
@@ -1912,8 +1914,7 @@ webrtc/video-maxBitrate-vp8.html [ Failure ]
 # Times out waiting for DTLS transport setup. Some bug related with data-channel, pending investigation.
 webkit.org/b/265860 imported/w3c/web-platform-tests/webrtc-stats/supported-stats.https.html [ Skip ]
 
-# Pass Slow Failure with GStreamer 1.23. Skip (too many bugs) with GStreamer 1.22.
-webkit.org/b/262989 imported/w3c/web-platform-tests/webrtc-stats/hardware-capability-stats.https.html [ Skip ]
+webkit.org/b/262989 imported/w3c/web-platform-tests/webrtc-stats/hardware-capability-stats.https.html [ Failure ]
 
 # This ends up calling WKPageTriggerMockMicrophoneConfigurationChange which is specific to GPUProcess.
 fast/mediastream/mediastreamtrack-configurationchange.html [ Skip ]
@@ -1939,6 +1940,7 @@ webrtc/video-rotation-black.html [ Crash Failure Pass Timeout ]
 fast/mediastream/microphone-interruption-and-audio-session.html [ Skip ]
 
 webkit.org/b/261329 webrtc/video-clone-track.html [ Failure ]
+webrtc/clone-audio-track.html [ Pass Failure ]
 
 webkit.org/b/256758 fast/mediastream/captureStream/canvas3d.html [ Failure ]
 
@@ -1994,12 +1996,10 @@ imported/w3c/web-platform-tests/webrtc-extensions/RTCRtpTransceiver-headerExtens
 # GStreamerRtpReceiverBackend::getSynchronizationSources() unimplemented and also hitting srtpenc errors.
 webkit.org/b/235885 webrtc/video-addTransceiver.html [ Skip ]
 
-# GstWebRTC (< 1.24) doesn't support transceiver direction changes.
-webrtc/receiver-track-should-stay-live-even-if-receiver-is-inactive.html [ Failure ]
-webkit.org/b/193641 webkit.org/b/235885 webrtc/video-setDirection.html [ Skip ]
-webkit.org/b/235885 webrtc/direction-change.html [ Skip ]
-# This test calls pc.removeTrack() which implies a transceiver direction change.
-webkit.org/b/235885 webrtc/remove-track.html [ Skip ] # Timeout
+# Transceiver direction change support is incomplete.
+webkit.org/b/193641 webkit.org/b/235885 webrtc/video-setDirection.html [ Timeout ]
+webkit.org/b/235885 webrtc/direction-change.html [ Failure ]
+webkit.org/b/235885 webrtc/remove-track.html [ Failure ]
 
 # Specific to LibWebRTC:
 webkit.org/b/235885 webrtc/disable-encryption.html [ Skip ]
@@ -2085,6 +2085,15 @@ imported/w3c/web-platform-tests/webrtc/ [ Skip ]
 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-canTrickleIceCandidates.html [ Pass ]
 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-setLocalDescription-parameterless.https.html [ Pass ]
 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-addIceCandidate-timing.https.html [ Pass ]
+imported/w3c/web-platform-tests/webrtc/protocol/RTCPeerConnection-payloadTypes.html [ Pass ]
+imported/w3c/web-platform-tests/webrtc/protocol/dtls-certificates.html [ Pass ]
+imported/w3c/web-platform-tests/webrtc/protocol/handover.html [ Pass ]
+imported/w3c/web-platform-tests/webrtc/protocol/jsep-initial-offer.https.html [ Pass ]
+imported/w3c/web-platform-tests/webrtc/protocol/sctp-format.html [ Pass ]
+imported/w3c/web-platform-tests/webrtc/protocol/sdes-dont-dont-dont.html [ Pass ]
+imported/w3c/web-platform-tests/webrtc/protocol/split.https.html [ Pass ]
+imported/w3c/web-platform-tests/webrtc/protocol/unknown-mediatypes.html [ Pass ]
+imported/w3c/web-platform-tests/webrtc/protocol/rtx-codecs.https.html [ Pass ]
 
 # Missing support for ICE restarts
 webkit.org/b/235885 webrtc/peerconnection-page-cache-long.html [ Skip ]
@@ -2295,6 +2304,7 @@ webkit.org/b/158923 media/airplay-allows-buffering.html [ Skip ]
 webkit.org/b/158923 media/modern-media-controls/placard-support/placard-support-airplay-fullscreen-no-controls.html [ Skip ]
 webkit.org/b/158923 media/modern-media-controls/placard-support/placard-support-airplay-fullscreen.html [ Skip ]
 webkit.org/b/206528 imported/w3c/web-platform-tests/remote-playback [ Skip ]
+media/media-source/media-managedmse-airplay.html [ Skip ]
 
 # LEGACY_ENCRYPTED_MEDIA is deprecated
 fast/events/webkit-media-key-events-constructor.html [ Skip ]
@@ -2719,6 +2729,7 @@ webanimations/frame-rate/document-timeline-maximum-frame-rate.html [ Skip ]
 webanimations/transform-animation-with-delay-yields-accelerated-animation.html [ Skip ]
 webanimations/partly-accelerated-transition-by-removing-property.html [ Skip ]
 webanimations/accelerated-animations-and-composite.html [ Skip ]
+webanimations/accelerated-animations-and-implicit-keyframes.html [ Skip ]
 
 # OT-SVG is not implemented on GTK/WPE
 fast/text/otsvg-canvas.html [ ImageOnlyFailure ]
@@ -3048,7 +3059,6 @@ webkit.org/b/258150 fast/inline/partial-inline-layout-text-append-only-simple.ht
 webkit.org/b/258152 fast/lists/overlapping-nested-list-markers.html [ ImageOnlyFailure ]
 webkit.org/b/168551 http/tests/misc/slow-loading-animated-image.html [ ImageOnlyFailure ]
 webkit.org/b/168719 fast/css/paint-order-shadow.html [ ImageOnlyFailure ]
-webkit.org/b/169909 fast/block/lineboxcontain/block-with-ideographs.xhtml [ Failure ]
 webkit.org/b/169909 fast/css-generated-content/initial-letter-pagination-sunken.html [ ImageOnlyFailure ]
 webkit.org/b/169909 fast/css-generated-content/initial-letter-pagination-sunken-rl.html [ ImageOnlyFailure ]
 webkit.org/b/169910 fast/multicol/simple-line-layout-line-index-after-strut.html [ ImageOnlyFailure ]
@@ -3373,8 +3383,6 @@ media/video-remote-control-playpause.html [ Skip ]
 # Failure Pass Crash Timeout
 webkit.org/b/207062 webkit.org/b/244776 imported/w3c/web-platform-tests/media-source/mediasource-replay.html [ Skip ]
 
-webkit.org/b/229738 fast/text/whitespace/tab-character-basics.html [ Failure ]
-
 webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/background-clip-content-box-002.html [ ImageOnlyFailure ]
 webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/border-image-repeat-space-8.html [ ImageOnlyFailure Pass ]
 webkit.org/b/255101 imported/w3c/web-platform-tests/css/css-backgrounds/border-image-repeat-space-9.html [ ImageOnlyFailure Pass ]
@@ -3395,7 +3403,6 @@ webkit.org/b/232386 css3/filters/filters-on-svg-root.html [ ImageOnlyFailure ]
 webkit.org/b/232386 editing/deleting/delete-block-contents-004.html [ Failure ]
 webkit.org/b/232386 editing/deleting/move-nodes-001.html [ Failure ]
 webkit.org/b/232386 editing/selection/doubleclick-japanese-text.html [ Failure ]
-webkit.org/b/232386 fast/backgrounds/background-inherit-color-bug.html [ Failure ]
 webkit.org/b/232386 fast/block/float/031.html [ Failure ]
 webkit.org/b/232386 fast/block/float/033.html [ Failure ]
 webkit.org/b/232386 fast/block/float/clear-element-too-wide-for-containing-block.html [ Failure ]
@@ -3441,12 +3448,7 @@ webkit.org/b/232386 fast/forms/select-reset-multiple-selections-4-single-selecti
 webkit.org/b/232386 fast/frames/frame-name-reset.html [ Failure ]
 webkit.org/b/232386 fast/frames/invalid-frameset-compute-edge.html [ ImageOnlyFailure ]
 webkit.org/b/232386 fast/html/crash-style-first-letter.html [ Failure ]
-webkit.org/b/232386 fast/inline/inline-box-background-long-image.html [ Failure ]
-webkit.org/b/232386 fast/inline/inline-box-background-repeat-x.html [ Failure ]
-webkit.org/b/232386 fast/inline/inline-box-background-repeat-y.html [ Failure ]
-webkit.org/b/232386 fast/inline/inline-box-background.html [ Failure ]
 webkit.org/b/232386 fast/inline/line-break-loose-with-inline-box-boundary.html [ ImageOnlyFailure ]
-webkit.org/b/232386 fast/inline/vertical-align-text-bottom.html [ Failure ]
 webkit.org/b/232386 fast/multicol/float-adjacent-to-overflow-block.html [ ImageOnlyFailure ]
 webkit.org/b/232386 fast/overflow/dynamic-hidden.html [ Failure ]
 webkit.org/b/232386 fast/parser/changing-attrbutes-crash.html [ Failure ]
@@ -3489,15 +3491,11 @@ webkit.org/b/232386 svg/custom/use-animation-in-fill.html [ Failure ]
 webkit.org/b/232386 svg/custom/use-multiple-on-nested-disallowed-font.html [ Failure ]
 webkit.org/b/232386 svg/custom/xlink-prefix-in-attributes.html [ Failure ]
 webkit.org/b/232386 svg/filters/reparent-animated-filter-target.html [ Failure ]
-webkit.org/b/232386 svg/text/append-text-node-to-tspan.html [ Failure ]
-webkit.org/b/232386 svg/text/modify-text-node-in-tspan.html [ Failure ]
-webkit.org/b/232386 svg/text/remove-tspan-from-text.html [ Failure ]
 webkit.org/b/232386 svg/text/scaling-font-with-geometric-precision.html [ Failure ]
 webkit.org/b/232386 svg/text/text-rect-precision.html [ Failure ]
 webkit.org/b/232386 svg/text/text-viewbox-rescale.html [ Failure ]
 webkit.org/b/232386 tables/hittesting/filltable-outline.html [ Failure ]
 webkit.org/b/232386 tables/hittesting/filltable-stress.html [ Failure ]
-webkit.org/b/232386 tables/mozilla/bugs/bug157890.html [ Failure ]
 webkit.org/b/232386 tables/mozilla/bugs/bug222846.html [ Failure ]
 webkit.org/b/232386 tables/mozilla_expected_failures/bugs/bug104898.html [ Failure ]
 webkit.org/b/232386 fast/dom/gc-11.html [ Timeout ]
@@ -3869,7 +3867,6 @@ webkit.org/b/169918 compositing/visibility/visibility-image-layers-dynamic.html 
 webkit.org/b/186667 compositing/repaint/iframes/composited-iframe-with-fixed-background-doc-repaint.html [ Failure Pass ]
 # Probably categorized under the wrong bug.
 webkit.org/b/212202 compositing/fixed-with-main-thread-scrolling.html [ Timeout ]
-webkit.org/b/213228 fast/viewport/scroll-delegates-switch-on-page-with-no-composition-mode-asserts.html [ Pass Crash ]
 compositing/canvas/hidpi-canvas-backing-store-invalidation-2.html [ Failure ]
 compositing/canvas/hidpi-canvas-backing-store-invalidation.html [ Failure ]
 compositing/canvas/hidpi-canvas-backing-store.html [ Failure ]

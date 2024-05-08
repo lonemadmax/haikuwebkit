@@ -245,13 +245,13 @@ void RemoteRenderingBackendProxy::moveToImageBuffer(WebCore::RenderingResourceId
 bool RemoteRenderingBackendProxy::getPixelBufferForImageBuffer(RenderingResourceIdentifier imageBuffer, const PixelBufferFormat& destinationFormat, const IntRect& srcRect, std::span<uint8_t> result)
 {
     if (auto handle = updateSharedMemoryForGetPixelBuffer(result.size())) {
-        auto sendResult = sendSync(Messages::RemoteImageBuffer::GetPixelBufferWithNewMemory(WTFMove(*handle), destinationFormat, srcRect), imageBuffer);
+        auto sendResult = sendSync(Messages::RemoteImageBuffer::GetPixelBufferWithNewMemory(WTFMove(*handle), destinationFormat, srcRect.location(), srcRect.size()), imageBuffer);
         if (!sendResult.succeeded())
             return false;
     } else {
         if (!m_getPixelBufferSharedMemory)
             return false;
-        auto sendResult = sendSync(Messages::RemoteImageBuffer::GetPixelBuffer(destinationFormat, srcRect), imageBuffer);
+        auto sendResult = sendSync(Messages::RemoteImageBuffer::GetPixelBuffer(destinationFormat, srcRect.location(), srcRect.size()), imageBuffer);
         if (!sendResult.succeeded())
             return false;
     }
@@ -261,7 +261,7 @@ bool RemoteRenderingBackendProxy::getPixelBufferForImageBuffer(RenderingResource
 
 void RemoteRenderingBackendProxy::putPixelBufferForImageBuffer(RenderingResourceIdentifier imageBuffer, const PixelBuffer& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat)
 {
-    send(Messages::RemoteImageBuffer::PutPixelBuffer(Ref { const_cast<PixelBuffer&>(pixelBuffer) }, srcRect, destPoint, destFormat), imageBuffer);
+    send(Messages::RemoteImageBuffer::PutPixelBuffer(Ref { const_cast<PixelBuffer&>(pixelBuffer) }, srcRect.location(), srcRect.size(), destPoint, destFormat), imageBuffer);
 }
 
 std::optional<SharedMemory::Handle> RemoteRenderingBackendProxy::updateSharedMemoryForGetPixelBuffer(size_t dataSize)
@@ -312,7 +312,7 @@ void RemoteRenderingBackendProxy::cacheNativeImage(ShareableBitmap::Handle&& han
     send(Messages::RemoteRenderingBackend::CacheNativeImage(WTFMove(handle), renderingResourceIdentifier));
 }
 
-void RemoteRenderingBackendProxy::cacheFont(const WebCore::Font::Attributes& fontAttributes, const WebCore::FontPlatformData::Attributes& platformData, std::optional<WebCore::RenderingResourceIdentifier> ident)
+void RemoteRenderingBackendProxy::cacheFont(const WebCore::Font::Attributes& fontAttributes, const WebCore::FontPlatformDataAttributes& platformData, std::optional<WebCore::RenderingResourceIdentifier> ident)
 {
     send(Messages::RemoteRenderingBackend::CacheFont(fontAttributes, platformData, ident));
 }
@@ -391,7 +391,7 @@ Vector<SwapBuffersDisplayRequirement> RemoteRenderingBackendProxy::prepareImageB
 
     Vector<SwapBuffersDisplayRequirement> result;
     if (needsSync) {
-        auto sendResult = streamConnection().sendSync(Messages::RemoteRenderingBackend::PrepareImageBufferSetsForDisplaySync(inputData, m_renderingUpdateID), renderingBackendIdentifier(), defaultTimeout);
+        auto sendResult = streamConnection().sendSync(Messages::RemoteRenderingBackend::PrepareImageBufferSetsForDisplaySync(inputData), renderingBackendIdentifier(), defaultTimeout);
         if (!sendResult.succeeded()) {
             result.grow(inputData.size());
             for (auto& displayRequirement : result)
@@ -399,7 +399,7 @@ Vector<SwapBuffersDisplayRequirement> RemoteRenderingBackendProxy::prepareImageB
         } else
             std::tie(result) = sendResult.takeReply();
     } else {
-        streamConnection().send(Messages::RemoteRenderingBackend::PrepareImageBufferSetsForDisplay(inputData, m_renderingUpdateID), renderingBackendIdentifier(), defaultTimeout);
+        streamConnection().send(Messages::RemoteRenderingBackend::PrepareImageBufferSetsForDisplay(inputData), renderingBackendIdentifier(), defaultTimeout);
         result.grow(inputData.size());
         for (auto& displayRequirement : result)
             displayRequirement = SwapBuffersDisplayRequirement::NeedsNormalDisplay;

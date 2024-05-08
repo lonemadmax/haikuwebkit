@@ -63,7 +63,7 @@ class VideoPresentationInterfaceIOS
     , public VideoFullscreenCaptions
     , public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<VideoPresentationInterfaceIOS, WTF::DestructionThread::MainRunLoop> {
 public:
-    WEBCORE_EXPORT virtual ~VideoPresentationInterfaceIOS();
+    WEBCORE_EXPORT ~VideoPresentationInterfaceIOS();
     WEBCORE_EXPORT void setVideoPresentationModel(VideoPresentationModel*);
     PlaybackSessionInterfaceIOS& playbackSessionInterface() const { return m_playbackSessionInterface.get(); }
     PlaybackSessionModel* playbackSessionModel() const { return m_playbackSessionInterface->playbackSessionModel(); }
@@ -143,10 +143,8 @@ public:
     WEBCORE_EXPORT void setMode(HTMLMediaElementEnums::VideoFullscreenMode, bool shouldNotifyModel);
     void clearMode(HTMLMediaElementEnums::VideoFullscreenMode, bool shouldNotifyModel);
     bool hasMode(HTMLMediaElementEnums::VideoFullscreenMode mode) const { return m_currentMode.hasMode(mode); }
-#if PLATFORM(WATCHOS) || PLATFORM(APPLETV)
     WEBCORE_EXPORT UIViewController *presentingViewController();
     UIViewController *fullscreenViewController() const { return m_viewController.get(); }
-#endif
     WEBCORE_EXPORT virtual bool pictureInPictureWasStartedWhenEnteringBackground() const = 0;
 
     WEBCORE_EXPORT std::optional<MediaPlayerIdentifier> playerIdentifier() const;
@@ -213,8 +211,8 @@ protected:
     WEBCORE_EXPORT void exitFullscreenHandler(BOOL success, NSError *, NextActions = NextActions());
     void doEnterFullscreen();
     void doExitFullscreen();
-    virtual void presentFullscreen(bool animated, CompletionHandler<void(BOOL, NSError *)>&&) = 0;
-    virtual void dismissFullscreen(bool animated, CompletionHandler<void(BOOL, NSError *)>&&) = 0;
+    virtual void presentFullscreen(bool animated, Function<void(BOOL, NSError *)>&&) = 0;
+    virtual void dismissFullscreen(bool animated, Function<void(BOOL, NSError *)>&&) = 0;
     virtual void tryToStartPictureInPicture() = 0;
     virtual void stopPictureInPicture() = 0;
     virtual void setShowsPlaybackControls(bool) = 0;

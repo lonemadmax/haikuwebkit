@@ -86,8 +86,9 @@ public:
     CALayer *layerWithIDForTesting(WebCore::PlatformLayerIdentifier) const;
 
     bool replayDynamicContentScalingDisplayListsIntoBackingStore() const;
-    bool css3DTransformInteroperabilityEnabled() const;
     bool threadedAnimationResolutionEnabled() const;
+
+    bool cssUnprefixedBackdropFilterEnabled() const;
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
     Seconds acceleratedTimelineTimeOrigin() const;

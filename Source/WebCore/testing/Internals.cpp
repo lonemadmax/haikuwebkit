@@ -1106,7 +1106,7 @@ float Internals::imageFrameDurationAtIndex(HTMLImageElement& element, unsigned i
 void Internals::setImageFrameDecodingDuration(HTMLImageElement& element, float duration)
 {
     if (auto* bitmapImage = bitmapImageFromImageElement(element))
-        bitmapImage->setFrameDecodingDurationForTesting(Seconds { duration });
+        bitmapImage->setMinimumDecodingDurationForTesting(Seconds { duration });
 }
 
 void Internals::resetImageAnimation(HTMLImageElement& element)
@@ -1173,6 +1173,27 @@ unsigned Internals::imageDecodeCount(HTMLImageElement& element)
 {
     auto* bitmapImage = bitmapImageFromImageElement(element);
     return bitmapImage ? bitmapImage->decodeCountForTesting() : 0;
+}
+
+AtomString Internals::imageLastDecodingOptions(HTMLImageElement& element)
+{
+    auto* bitmapImage = bitmapImageFromImageElement(element);
+    if (!bitmapImage)
+        return { };
+
+    auto options = bitmapImage->currentFrameDecodingOptions();
+    StringBuilder builder;
+    builder.append("{ decodingMode : ");
+    builder.append(options.decodingMode() == DecodingMode::Asynchronous ? "Asynchronous" : "Synchronous");
+    if (auto sizeForDrawing = options.sizeForDrawing()) {
+        builder.append(", sizeForDrawing : { ");
+        builder.append(sizeForDrawing->width());
+        builder.append(", ");
+        builder.append(sizeForDrawing->height());
+        builder.append(" }");
+    }
+    builder.append(" }");
+    return builder.toAtomString();
 }
 
 unsigned Internals::imageCachedSubimageCreateCount(HTMLImageElement& element)
@@ -2908,17 +2929,17 @@ static ExceptionOr<FindOptions> parseFindOptions(const Vector<String>& optionLis
 {
     const struct {
         ASCIILiteral name;
-        FindOptionFlag value;
+        FindOption value;
     } flagList[] = {
-        { "CaseInsensitive"_s, CaseInsensitive },
-        { "AtWordStarts"_s, AtWordStarts },
-        { "TreatMedialCapitalAsWordStart"_s, TreatMedialCapitalAsWordStart },
-        { "Backwards"_s, Backwards },
-        { "WrapAround"_s, WrapAround },
-        { "StartInSelection"_s, StartInSelection },
-        { "DoNotRevealSelection"_s, DoNotRevealSelection },
-        { "AtWordEnds"_s, AtWordEnds },
-        { "DoNotTraverseFlatTree"_s, DoNotTraverseFlatTree },
+        { "CaseInsensitive"_s, FindOption::CaseInsensitive },
+        { "AtWordStarts"_s, FindOption::AtWordStarts },
+        { "TreatMedialCapitalAsWordStart"_s, FindOption::TreatMedialCapitalAsWordStart },
+        { "Backwards"_s, FindOption::Backwards },
+        { "WrapAround"_s, FindOption::WrapAround },
+        { "StartInSelection"_s, FindOption::StartInSelection },
+        { "DoNotRevealSelection"_s, FindOption::DoNotRevealSelection },
+        { "AtWordEnds"_s, FindOption::AtWordEnds },
+        { "DoNotTraverseFlatTree"_s, FindOption::DoNotTraverseFlatTree },
     };
     FindOptions result;
     for (auto& option : optionList) {
@@ -3222,6 +3243,15 @@ ExceptionOr<Vector<uint64_t>> Internals::scrollingNodeIDForNode(Node* node)
     auto* scrollableArea = areaOrException.releaseReturnValue();
     Vector<uint64_t> returnNodeID = { scrollableArea->scrollingNodeID().object().toUInt64(), scrollableArea->scrollingNodeID().processIdentifier().toUInt64() };
     return returnNodeID;
+}
+
+ExceptionOr<unsigned> Internals::scrollableAreaWidth(Node& node)
+{
+    auto areaOrException = scrollableAreaForNode(&node);
+    if (areaOrException.hasException())
+        return areaOrException.releaseException();
+    auto* scrollableArea = areaOrException.releaseReturnValue();
+    return scrollableArea->contentsSize().width();
 }
 
 static OptionSet<PlatformLayerTreeAsTextFlags> toPlatformLayerTreeFlags(unsigned short flags)
@@ -4184,8 +4214,7 @@ Ref<ArrayBuffer> Internals::serializeObject(const RefPtr<SerializedScriptValue>&
 
 Ref<SerializedScriptValue> Internals::deserializeBuffer(ArrayBuffer& buffer) const
 {
-    Vector<uint8_t> bytes { static_cast<const uint8_t*>(buffer.data()), buffer.byteLength() };
-    return SerializedScriptValue::createFromWireBytes(WTFMove(bytes));
+    return SerializedScriptValue::createFromWireBytes(buffer.toVector());
 }
 
 bool Internals::isFromCurrentWorld(JSC::JSValue value) const
@@ -4402,6 +4431,15 @@ ExceptionOr<void> Internals::setOverridePreferredDynamicRangeMode(HTMLMediaEleme
 
     element.setOverridePreferredDynamicRangeMode(mode);
     return { };
+}
+
+void Internals::enableGStreamerHolePunching(HTMLVideoElement& element)
+{
+#if USE(GSTREAMER)
+    element.enableGStreamerHolePunching();
+#else
+    UNUSED_PARAM(element);
+#endif
 }
 
 #endif
@@ -6440,6 +6478,14 @@ void Internals::reloadWithoutContentExtensions()
         frame->loader().reload(ReloadOption::DisableContentBlockers);
 }
 
+void Internals::disableContentExtensionsChecks()
+{
+    RefPtr frame = this->frame();
+    RefPtr loader = frame ? frame->loader().documentLoader() : nullptr;
+    if (loader)
+        loader->setContentExtensionEnablement({ ContentExtensionDefaultEnablement::Disabled, { } });
+}
+
 void Internals::setUseSystemAppearance(bool value)
 {
     if (!contextDocument() || !contextDocument()->page())
@@ -7133,17 +7179,17 @@ String Internals::treeOrderBoundaryPoints(Node& containerA, unsigned offsetA, No
 
 bool Internals::rangeContainsNode(const AbstractRange& range, Node& node, TreeType type)
 {
-    return containsForTesting(convertType(type), makeSimpleRange(range), node);
+    return contains(convertType(type), makeSimpleRange(range), node);
 }
 
 bool Internals::rangeContainsBoundaryPoint(const AbstractRange& range, Node& container, unsigned offset, TreeType type)
 {
-    return containsForTesting(convertType(type), makeSimpleRange(range), { container, offset });
+    return contains(convertType(type), makeSimpleRange(range), { container, offset });
 }
 
 bool Internals::rangeContainsRange(const AbstractRange& outerRange, const AbstractRange& innerRange, TreeType type)
 {
-    return containsForTesting(convertType(type), makeSimpleRange(outerRange), makeSimpleRange(innerRange));
+    return contains(convertType(type), makeSimpleRange(outerRange), makeSimpleRange(innerRange));
 }
 
 bool Internals::rangeIntersectsNode(const AbstractRange& range, Node& node, TreeType type)
@@ -7218,12 +7264,7 @@ void Internals::retainTextIteratorForDocumentContent()
 
 RefPtr<PushSubscription> Internals::createPushSubscription(const String& endpoint, std::optional<EpochTimeStamp> expirationTime, const ArrayBuffer& serverVAPIDPublicKey, const ArrayBuffer& clientECDHPublicKey, const ArrayBuffer& auth)
 {
-    auto myEndpoint = endpoint;
-    Vector<uint8_t> myServerVAPIDPublicKey { static_cast<const uint8_t*>(serverVAPIDPublicKey.data()), serverVAPIDPublicKey.byteLength() };
-    Vector<uint8_t> myClientECDHPublicKey { static_cast<const uint8_t*>(clientECDHPublicKey.data()), clientECDHPublicKey.byteLength() };
-    Vector<uint8_t> myAuth { static_cast<const uint8_t*>(auth.data()), auth.byteLength() };
-
-    return PushSubscription::create(PushSubscriptionData { { }, WTFMove(myEndpoint), expirationTime, WTFMove(myServerVAPIDPublicKey), WTFMove(myClientECDHPublicKey), WTFMove(myAuth) });
+    return PushSubscription::create(PushSubscriptionData { { }, { endpoint }, expirationTime, serverVAPIDPublicKey.toVector(), clientECDHPublicKey.toVector(), auth.toVector() });
 }
 
 #if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
@@ -7352,6 +7393,28 @@ void Internals::setHistoryTotalStateObjectPayloadLimitOverride(uint32_t limit)
     if (!window)
         return;
     window->history().setTotalStateObjectPayloadLimitOverride(limit);
+}
+
+Vector<Internals::PDFAnnotationRect> Internals::pdfAnnotationRectsForTesting(Element& element) const
+{
+    Vector<PDFAnnotationRect> annotationRects;
+    if (RefPtr pluginElement = dynamicDowncast<HTMLPlugInElement>(element)) {
+        if (RefPtr pluginViewBase = pluginElement ? pluginElement->pluginWidget() : nullptr) {
+            for (auto& annotationRect : pluginViewBase->pdfAnnotationRectsForTesting())
+                annotationRects.append({ annotationRect.x(), annotationRect.y(), annotationRect.width(), annotationRect.height() });
+        }
+    }
+    return annotationRects;
+}
+
+void Internals::registerPDFTest(Ref<VoidCallback>&& callback, Element& element)
+{
+    RefPtr pluginElement = dynamicDowncast<HTMLPlugInElement>(element);
+    if (!pluginElement)
+        return;
+
+    if (RefPtr pluginViewBase = pluginElement->pluginWidget())
+        pluginViewBase->registerPDFTestCallback(WTFMove(callback));
 }
 
 } // namespace WebCore

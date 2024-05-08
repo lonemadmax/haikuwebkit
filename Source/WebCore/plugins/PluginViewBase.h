@@ -36,7 +36,9 @@ namespace WebCore {
 
 class Element;
 class GraphicsLayer;
+class ScrollableArea;
 class Scrollbar;
+class VoidCallback;
 
 enum class PluginLayerHostingStrategy : uint8_t {
     None,
@@ -63,6 +65,7 @@ public:
     virtual bool shouldAllowNavigationFromDrags() const { return false; }
     virtual void willDetachRenderer() { }
 
+    virtual ScrollableArea* scrollableArea() const { return nullptr; }
     virtual bool usesAsyncScrolling() const { return false; }
     virtual ScrollingNodeID scrollingNodeID() const { return { }; }
     virtual void willAttachScrollingNode() { }
@@ -72,11 +75,16 @@ public:
     virtual id accessibilityAssociatedPluginParentForElement(Element*) const { return nullptr; }
 #endif
     
+    virtual Vector<FloatRect> pdfAnnotationRectsForTesting() const { return { }; }
+
 protected:
     explicit PluginViewBase(PlatformWidget widget = 0) : Widget(widget) { }
 
 private:
     bool isPluginViewBase() const final { return true; }
+
+    friend class Internals;
+    virtual void registerPDFTestCallback(RefPtr<VoidCallback>&&) { };
 };
 
 } // namespace WebCore

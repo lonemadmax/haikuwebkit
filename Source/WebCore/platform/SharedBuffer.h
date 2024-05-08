@@ -79,6 +79,7 @@ class DataSegment : public ThreadSafeRefCounted<DataSegment> {
 public:
     WEBCORE_EXPORT const uint8_t* data() const;
     WEBCORE_EXPORT size_t size() const;
+    std::span<const uint8_t> span() const { return std::span { data(), size() }; }
 
     WEBCORE_EXPORT static Ref<DataSegment> create(Vector<uint8_t>&&);
 
@@ -162,8 +163,7 @@ public:
     using IPCData = std::variant<std::optional<WebCore::SharedMemoryHandle>, Vector<std::span<const uint8_t>>>;
 
     WEBCORE_EXPORT static Ref<FragmentedSharedBuffer> create();
-    WEBCORE_EXPORT static Ref<FragmentedSharedBuffer> create(const uint8_t*, size_t);
-    static Ref<FragmentedSharedBuffer> create(const char* data, size_t size) { return create(reinterpret_cast<const uint8_t*>(data), size); }
+    WEBCORE_EXPORT static Ref<FragmentedSharedBuffer> create(std::span<const uint8_t>);
     WEBCORE_EXPORT static Ref<FragmentedSharedBuffer> create(FileSystem::MappedFileData&&);
     WEBCORE_EXPORT static Ref<FragmentedSharedBuffer> create(Ref<SharedBuffer>&&);
     WEBCORE_EXPORT static Ref<FragmentedSharedBuffer> create(Vector<uint8_t>&&);
@@ -188,7 +188,7 @@ public:
 #endif
 
 #if USE(SKIA)
-    WEBCORE_EXPORT static Ref<FragmentedSharedBuffer> create(SkData*);
+    WEBCORE_EXPORT static Ref<FragmentedSharedBuffer> create(sk_sp<SkData>&&);
 #endif
     WEBCORE_EXPORT Vector<uint8_t> copyData() const;
     WEBCORE_EXPORT Vector<uint8_t> read(size_t offset, size_t length) const;
@@ -242,8 +242,7 @@ protected:
     bool m_contiguous { false };
 
     WEBCORE_EXPORT FragmentedSharedBuffer();
-    explicit FragmentedSharedBuffer(const uint8_t* data, size_t size) { append(data, size); }
-    explicit FragmentedSharedBuffer(const char* data, size_t size) { append(data, size); }
+    explicit FragmentedSharedBuffer(std::span<const uint8_t> data) { append(data); }
     explicit FragmentedSharedBuffer(Vector<uint8_t>&& data) { append(WTFMove(data)); }
     WEBCORE_EXPORT explicit FragmentedSharedBuffer(FileSystem::MappedFileData&&);
     WEBCORE_EXPORT explicit FragmentedSharedBuffer(DataSegment::Provider&&);
@@ -258,16 +257,14 @@ protected:
     WEBCORE_EXPORT explicit FragmentedSharedBuffer(GstMappedOwnedBuffer&);
 #endif
 #if USE(SKIA)
-    WEBCORE_EXPORT explicit FragmentedSharedBuffer(SkData*);
+    WEBCORE_EXPORT explicit FragmentedSharedBuffer(sk_sp<SkData>&&);
 #endif
     size_t m_size { 0 };
 
 private:
     friend class SharedBufferBuilder;
     WEBCORE_EXPORT void append(const FragmentedSharedBuffer&);
-    WEBCORE_EXPORT void append(const uint8_t*, size_t);
-    void append(std::span<const uint8_t> value) { append(value.data(), value.size()); }
-    void append(const char* data, size_t length) { append(reinterpret_cast<const uint8_t*>(data), length); }
+    WEBCORE_EXPORT void append(std::span<const uint8_t>);
     WEBCORE_EXPORT void append(Vector<uint8_t>&&);
 #if USE(FOUNDATION)
     WEBCORE_EXPORT void append(NSData *);
@@ -312,7 +309,7 @@ public:
     WEBCORE_EXPORT const uint8_t* data() const;
     WEBCORE_EXPORT const uint8_t& operator[](size_t) const;
     const char* dataAsCharPtr() const { return reinterpret_cast<const char*>(data()); }
-    std::span<const uint8_t> dataAsSpanForContiguousData() const { RELEASE_ASSERT(isContiguous()); return std::span(data(), size()); }
+    std::span<const uint8_t> span() const { return std::span(data(), size()); }
     WTF::Persistence::Decoder decoder() const;
 
     enum class MayUseFileMapping : bool { No, Yes };
@@ -415,6 +412,7 @@ public:
     size_t size() const { return m_size; }
     const uint8_t* data() const { return m_segment->data() + m_positionWithinSegment; }
     const char* dataAsCharPtr() const { return reinterpret_cast<const char*>(data()); }
+    std::span<const uint8_t> span() const { return { data(), size() }; }
 
     WEBCORE_EXPORT Ref<SharedBuffer> createSharedBuffer() const;
 #if USE(FOUNDATION)

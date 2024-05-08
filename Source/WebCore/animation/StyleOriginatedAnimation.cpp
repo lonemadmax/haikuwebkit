@@ -51,9 +51,7 @@ StyleOriginatedAnimation::StyleOriginatedAnimation(const Styleable& styleable, c
 {
 }
 
-StyleOriginatedAnimation::~StyleOriginatedAnimation()
-{
-}
+StyleOriginatedAnimation::~StyleOriginatedAnimation() = default;
 
 const std::optional<const Styleable> StyleOriginatedAnimation::owningElement() const
 {
@@ -203,7 +201,7 @@ void StyleOriginatedAnimation::setTimeline(RefPtr<AnimationTimeline>&& newTimeli
     WebAnimation::setTimeline(WTFMove(newTimeline));
 }
 
-void StyleOriginatedAnimation::cancel()
+void StyleOriginatedAnimation::cancel(WebAnimation::Silently silently)
 {
     auto cancelationTime = 0_s;
 
@@ -215,14 +213,14 @@ void StyleOriginatedAnimation::cancel()
         }
     }
 
-    WebAnimation::cancel();
+    WebAnimation::cancel(silently);
 
     invalidateDOMEvents(shouldFireEvents, cancelationTime);
 }
 
-void StyleOriginatedAnimation::cancelFromStyle()
+void StyleOriginatedAnimation::cancelFromStyle(WebAnimation::Silently silently)
 {
-    cancel();
+    cancel(silently);
     disassociateFromOwningElement();
 }
 

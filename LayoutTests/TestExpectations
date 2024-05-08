@@ -36,6 +36,7 @@ fast/css/ios [ Skip ]
 fast/css/mac [ Skip ]
 fast/css/watchos [ Skip ]
 fast/dom/Orientation/no-orientation-change-event-when-unparenting-view.html [ Skip ]
+fast/element-targeting [ Skip ]
 fast/forms/date/date-editable-components [ Skip ]
 fast/forms/datetimelocal/datetimelocal-editable-components [ Skip ]
 fast/forms/month/month-editable-components [ Skip ]
@@ -105,6 +106,7 @@ remote-layer-tree [ Skip ]
 inspector/page/setScreenSizeOverride.html [ Skip ]
 interaction-region [ Skip ]
 overlay-region [ Skip ]
+pdf/unifiedpdf [ Skip ]
 ipc/restrictedendpoints/mac [ Skip ]
 
 # Requires async overflow scrolling
@@ -378,6 +380,8 @@ imported/w3c/web-platform-tests/referrer-policy/generic/unsupported-csp-referrer
 imported/w3c/web-platform-tests/selection/collapse-30.html [ Skip ]
 imported/w3c/web-platform-tests/selection/dir-manual.html [ Skip ]
 imported/w3c/web-platform-tests/editing/crashtests/inserthorizontalrule-in-textarea-in-editor-and-undo-on-error-events.html [ Skip ]
+imported/w3c/web-platform-tests/selection/anonymous/details-ancestor.html [ Pass Failure ]
+imported/w3c/web-platform-tests/selection/caret/move-around-contenteditable-false.html [ Pass Failure ]
 
 # This test hits a debug assertion in WebKit
 webkit.org/b/266465 imported/w3c/web-platform-tests/editing/run/delete.html?6001-7000 [ Skip ]
@@ -2073,6 +2077,7 @@ webkit.org/b/139639 [ Debug ] cssom/non-subpixel-scroll-top-left-values.html [ S
 
 [ Debug ] fast/workers/worker-cloneport.html [ Slow ]
 [ Debug ] fast/webgpu/present-without-compute-pipeline.html [ Slow ]
+[ Debug ] fast/webgpu/multidimensional-texture-bounds.html [ Slow ]
 
 # Imported W3C HTML/DOM ref tests that are failing.
 imported/w3c/web-platform-tests/html/dom/elements/global-attributes/dir_auto-textarea-script-N-between-Rs.html [ ImageOnlyFailure ]
@@ -2516,7 +2521,6 @@ webkit.org/b/153160 http/tests/security/contentSecurityPolicy/plugin-in-iframe-w
 webkit.org/b/153161 http/tests/security/contentSecurityPolicy/register-bypassing-scheme-partial.html [ Failure ]
 webkit.org/b/153162 http/tests/security/contentSecurityPolicy/report-multiple-violations-01.py [ Failure ]
 webkit.org/b/153162 http/tests/security/contentSecurityPolicy/report-multiple-violations-02.py [ Failure ]
-webkit.org/b/154203 http/tests/security/contentSecurityPolicy/1.1/frame-ancestors/frame-ancestors-overrides-xfo.html
 webkit.org/b/154522 http/tests/security/contentSecurityPolicy/1.1/securitypolicyviolation-base-uri-deny.html
 webkit.org/b/158480 http/tests/websocket/tests/hybi/upgrade-simple-ws.html [ Skip ]
 
@@ -4690,6 +4694,9 @@ webkit.org/b/245347 imported/w3c/web-platform-tests/css/css-color/oklch-009.html
 webkit.org/b/245347 imported/w3c/web-platform-tests/css/css-color/oklch-010.html [ ImageOnlyFailure ]
 
 # currentColor support in relative color syntax.
+# webkit.org/b/271775(REGRESSION:(276695@main) imported/w3c/web-platform-t ests/css/css-color/parsing/ color* (layout-tests) are constant text failures (271775))
+webkit.org/b/245970 imported/w3c/web-platform-tests/css/css-color/parsing/color-valid-relative-color.html [ Failure Crash ]
+webkit.org/b/245970 imported/w3c/web-platform-tests/css/css-color/parsing/color-computed-relative-color.html [ Failure Crash ]
 webkit.org/b/245970 imported/w3c/web-platform-tests/css/css-color/relative-currentcolor-a98rgb-01.html [ ImageOnlyFailure ]
 webkit.org/b/245970 imported/w3c/web-platform-tests/css/css-color/relative-currentcolor-displayp3-01.html [ ImageOnlyFailure ]
 webkit.org/b/245970 imported/w3c/web-platform-tests/css/css-color/relative-currentcolor-hsl-01.html [ ImageOnlyFailure ]
@@ -5359,8 +5366,9 @@ webkit.org/b/239959 ipc/stream-sync-crash-no-timeout.html [ Skip ]
 # The test invokes random messages, potentially produces random results.
 ipc/start-message-testing.html [ Skip ]
 
-# Test is slow
+# Fixing timeouts is tracked by https://bugs.webkit.org/show_bug.cgi?id=267714 (rdar://120486467)
 ipc/invalid-fullscreen-enum.html [ Pass Timeout ]
+ipc/invalid-message-to-addTrackBuffer.html [ Pass Timeout ]
 
 # Test is crashing in Debug builds since import.
 webkit.org/b/234977 [ Debug ] imported/w3c/web-platform-tests/dom/events/focus-event-document-move.html [ Skip ]
@@ -6738,8 +6746,6 @@ imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-event-fired-to-do
 imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-event-not-fired-on-no-scroll.html [ Skip ]
 imported/w3c/web-platform-tests/dom/events/scrolling/input-text-scroll-event-when-using-arrow-keys.html [ Skip ]
 
-webkit.org/b/263413 media/media-source/media-source-first-sample-pts-non-zero-canplay-without-renderer.html [ Timeout ]
-
 # webkit.org/b/263870 [scroll-animations] some WPT tests are timing out
 imported/w3c/web-platform-tests/scroll-animations/css/deferred-timeline-composited.html [ Skip ]
 imported/w3c/web-platform-tests/scroll-animations/css/scroll-timeline-update-reversed-animation.html [ Skip ]
@@ -6847,28 +6853,53 @@ imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-e
 webkit.org/b/258384 imported/w3c/web-platform-tests/navigation-api [ Skip ]
 imported/w3c/web-platform-tests/navigation-api/updateCurrentEntry-method/ [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/currententrychange-event/ [ Pass ]
-imported/w3c/web-platform-tests/navigation-api/currententrychange-event/navigation-back-forward-same-doc.html [ Skip ]
 imported/w3c/web-platform-tests/navigation-api/currententrychange-event/history-back-same-doc.html [ Skip ]
+imported/w3c/web-platform-tests/navigation-api/currententrychange-event/navigation-back-forward-same-doc.html [ Skip ]
+imported/w3c/web-platform-tests/navigation-api/currententrychange-event/navigation-navigate-preventDefault.html [ Skip ]
+imported/w3c/web-platform-tests/navigation-api/currententrychange-event/navigation-navigate-replace-same-doc.html [ Skip ]
 imported/w3c/web-platform-tests/navigation-api/commit-behavior/after-transition-uncancelable.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-destination-getState-back-forward.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-history-back-noop.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-navigation-back-same-document-in-iframe.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/currententrychange-event/navigation-navigate-same-doc.html [ Skip ]
 imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-to-javascript.html [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigate-event/navigatesuccess-cross-document.html [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigate-event/replaceState-in-unload-then-remove-iframe.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigate-event/same-url-replace-cross-document.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigate-event/same-url-replace-same-document.html [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigate-event/cross-window/click-crossdocument-crossorigin.html [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigate-event/cross-window/location-crossdocument-crossorigin.html [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigate-event/cross-window/open-crossdocument-crossorigin.html [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigate-event/cross-window/submit-crossdocument-crossorigin.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/entries-across-origins.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/entries-after-blank-navigation-from-cross-origin.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigate-event/intercept-canceled-event.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigate-event/intercept-after-dispatch.html [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/entries-array-equality.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/entries-in-new-srcdoc-iframe.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/key-id-location-reload-intercept.html [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/opaque-origin.html [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/opaque-origin-data-url.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/sameDocument-after-navigate.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/key-id-location-replace-cross-origin.html [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigation-methods/navigate-from-initial-about-blank-gc.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-methods/navigate-relative-url.html [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigation-methods/return-value/back-forward-out-of-bounds.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-methods/return-value/navigate-push-initial-about-blank.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-methods/return-value/traverseTo-invalid-key.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-methods/return-value/navigate-rejection-order-invalidurl-unserializablestate.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-methods/return-value/navigate-push-javascript-url.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-methods/return-value/back-forward-opaque-origin.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-methods/return-value/back-forward-initial-about-blank.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-methods/return-value/navigate-invalid-url.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-methods/reload-base-url.html [ Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-methods/sandboxing-navigate-sibling.html [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/ordering-and-transition/transition-cross-document.html [ Skip ]
 imported/w3c/web-platform-tests/navigation-api/scroll-behavior/scroll-on-synthetic-event.html [ Pass ]
-imported/w3c/web-platform-tests/navigation-api/scroll-behavior/scroll-without-intercept.html [ Pass ]
 imported/w3c/web-platform-tests/navigation-api/updateCurrentEntry-method/same-document-away-and-back-location-api.html [ Skip ]
 imported/w3c/web-platform-tests/navigation-api/updateCurrentEntry-method/cross-document-away-and-back.html [ Skip ]
 imported/w3c/web-platform-tests/navigation-api/updateCurrentEntry-method/cross-document-location-api.html [ Skip ]
-imported/w3c/web-platform-tests/navigation-api/updateCurrentEntry-method/location-reload.html [ Skip ]
+imported/w3c/web-platform-tests/navigation-api/updateCurrentEntry-method/location-reload.html [ Pass ]
 
 # -- View Transitions -- #
 # Reftest failures:
@@ -6903,7 +6934,6 @@ imported/w3c/web-platform-tests/css/css-view-transitions/new-content-scaling.htm
 imported/w3c/web-platform-tests/css/css-view-transitions/new-content-with-object-view-box.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/object-view-box-new-image.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/object-view-box-old-image.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-view-transitions/old-content-captures-different-size.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/old-content-intrinsic-aspect-ratio.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/old-content-with-overflow-zoomed.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/root-captured-as-different-tag.html [ ImageOnlyFailure ]
@@ -6922,7 +6952,6 @@ imported/w3c/web-platform-tests/css/css-view-transitions/content-visibility-auto
 imported/w3c/web-platform-tests/css/css-view-transitions/content-with-transform-new-image.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/dialog-in-top-layer-during-transition-old.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/element-with-overflow.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-view-transitions/exit-transition-with-anonymous-layout-object.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/far-away-capture.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/fractional-box-with-overflow-children-new.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-below-and-on-top-of-viewport-partially-onscreen-new.html [ ImageOnlyFailure ]
@@ -7384,6 +7413,8 @@ http/wpt/opener/parent-access-child-via-windowproxy.html [ Skip ]
 
 webkit.org/b/266477 compositing/layer-creation/scale-rotation-transition-overlap.html [ Failure Timeout ]
 
+webkit.org/b/271428 fast/text/bidi-text-and-partial-layout-crash.html [ Skip ]
+
 # At the time of writing this test consumes all available IOSurfaces. If the next test is image-buffer-backend-variants.html, that will fail.
 fast/canvas/2d.context.many.small.html [ Slow Skip ]
 
@@ -7411,3 +7442,6 @@ imported/w3c/web-platform-tests/svg/painting/reftests/markers-orient-002.svg [ I
 imported/w3c/web-platform-tests/svg/painting/reftests/paint-context-001.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/painting/reftests/paint-context-002.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/text/reftests/transform-dynamic-change.html [ Failure ]
+
+# re-import css/css-align WPT failure
+webkit.org/b/271692 imported/w3c/web-platform-tests/css/css-align/blocks/align-content-block-break-overflow-020.html [ ImageOnlyFailure ]

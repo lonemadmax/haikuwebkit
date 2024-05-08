@@ -58,6 +58,7 @@
 #include "StyleScope.h"
 #include "StyleSheetContentsCache.h"
 #include "StyledElement.h"
+#include "TextBreakingPositionCache.h"
 #include "TextPainter.h"
 #include "WorkerGlobalScope.h"
 #include "WorkerThread.h"
@@ -83,8 +84,10 @@ static void releaseNoncriticalMemory(MaintainMemoryCache maintainMemoryCache)
     SelectorQueryCache::singleton().clear();
 
     for (auto& document : Document::allDocuments()) {
-        if (CheckedPtr renderView = document->renderView())
+        if (CheckedPtr renderView = document->renderView()) {
             LayoutIntegration::LineLayout::releaseCaches(*renderView);
+            Layout::TextBreakingPositionCache::singleton().clear();
+        }
     }
 
     if (maintainMemoryCache == MaintainMemoryCache::No)
@@ -250,7 +253,9 @@ void logMemoryStatistics(LogMemoryStatisticsReason reason)
 #endif
 
 #if !PLATFORM(COCOA)
+#if !USE(SKIA)
 void platformReleaseMemory(Critical) { }
+#endif
 void platformReleaseGraphicsMemory(Critical) { }
 void jettisonExpensiveObjectsOnTopLevelNavigation() { }
 void registerMemoryReleaseNotifyCallbacks() { }

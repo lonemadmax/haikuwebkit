@@ -50,6 +50,7 @@
 #include <WebCore/ProcessIdentity.h>
 #include <WebCore/RenderingResourceIdentifier.h>
 #include <wtf/HashMap.h>
+#include <wtf/WeakPtr.h>
 
 namespace WTF {
 enum class Critical : bool;
@@ -88,7 +89,7 @@ namespace ShapeDetection {
 class ObjectHeap;
 }
 
-class RemoteRenderingBackend : private IPC::MessageSender, public IPC::StreamMessageReceiver {
+class RemoteRenderingBackend : private IPC::MessageSender, public IPC::StreamMessageReceiver, public CanMakeWeakPtr<RemoteRenderingBackend> {
 public:
     static Ref<RemoteRenderingBackend> create(GPUConnectionToWebProcess&, RemoteRenderingBackendCreationParameters&&, Ref<IPC::StreamServerConnection>&&);
     virtual ~RemoteRenderingBackend();
@@ -147,7 +148,7 @@ private:
     void cacheDecomposedGlyphs(Ref<WebCore::DecomposedGlyphs>&&);
     void cacheGradient(Ref<WebCore::Gradient>&&);
     void cacheFilter(Ref<WebCore::Filter>&&);
-    void cacheFont(const WebCore::Font::Attributes&, WebCore::FontPlatformData::Attributes, std::optional<WebCore::RenderingResourceIdentifier>);
+    void cacheFont(const WebCore::Font::Attributes&, WebCore::FontPlatformDataAttributes, std::optional<WebCore::RenderingResourceIdentifier>);
     void cacheFontCustomPlatformData(Ref<WebCore::FontCustomPlatformData>&&);
     void releaseAllDrawingResources();
     void releaseAllImageResources();
@@ -162,8 +163,8 @@ private:
 #endif
 
 #if PLATFORM(COCOA)
-    void prepareImageBufferSetsForDisplay(Vector<ImageBufferSetPrepareBufferForDisplayInputData> swapBuffersInput, RenderingUpdateID);
-    void prepareImageBufferSetsForDisplaySync(Vector<ImageBufferSetPrepareBufferForDisplayInputData> swapBuffersInput, RenderingUpdateID, CompletionHandler<void(Vector<SwapBuffersDisplayRequirement>&&)>&&);
+    void prepareImageBufferSetsForDisplay(Vector<ImageBufferSetPrepareBufferForDisplayInputData> swapBuffersInput);
+    void prepareImageBufferSetsForDisplaySync(Vector<ImageBufferSetPrepareBufferForDisplayInputData> swapBuffersInput, CompletionHandler<void(Vector<SwapBuffersDisplayRequirement>&&)>&&);
 
 #endif
 

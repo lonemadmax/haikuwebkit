@@ -216,7 +216,8 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
     WebCore::IntRect visibleScrollerThumbRect;
     WebCore::PageIdentifier webPageID;
     WindowKind windowKind { WindowKind::Unparented };
-    PageAllowedToRunInTheBackgroundCounter::Token pageAllowedToRunInTheBackgroundToken;
+    std::unique_ptr<ProcessThrottlerActivity> pageAllowedToRunInTheBackgroundActivityDueToTitleChanges;
+    std::unique_ptr<ProcessThrottlerActivity> pageAllowedToRunInTheBackgroundActivityDueToNotifications;
 
     WebPageProxyMessageReceiverRegistration messageReceiverRegistration;
 
@@ -331,6 +332,7 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
     const String& paymentCoordinatorSourceApplicationSecondaryIdentifier(const WebPaymentCoordinatorProxy&) final;
     void paymentCoordinatorAddMessageReceiver(WebPaymentCoordinatorProxy&, IPC::ReceiverName, IPC::MessageReceiver&) final;
     void paymentCoordinatorRemoveMessageReceiver(WebPaymentCoordinatorProxy&, IPC::ReceiverName) final;
+    void getPaymentCoordinatorEmbeddingUserAgent(WebPageProxyIdentifier, CompletionHandler<void(const String&)>&&) final;
 #endif
 #if ENABLE(APPLE_PAY) && PLATFORM(IOS_FAMILY)
     UIViewController *paymentCoordinatorPresentingViewController(const WebPaymentCoordinatorProxy&) final;

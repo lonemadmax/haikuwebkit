@@ -32,7 +32,6 @@
 #include "SandboxExtension.h"
 #include "WebPageProxyIdentifier.h"
 #include <WebCore/IntDegrees.h>
-#include <WebCore/LibWebRTCEnumTraits.h>
 #include <WebCore/MediaPlayerIdentifier.h>
 #include <WebCore/ShareableBitmap.h>
 #include <WebCore/Timer.h>
@@ -119,6 +118,10 @@ public:
     const String& applicationVisibleName() const { return m_applicationVisibleName; }
 
     void webProcessConnectionCountForTesting(CompletionHandler<void(uint64_t)>&&);
+
+#if USE(EXTENSIONKIT)
+    void resolveBookmarkDataForCacheDirectory(const std::span<const uint8_t>& bookmarkData);
+#endif
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
     void processIsStartingToCaptureAudio(GPUConnectionToWebProcess&);

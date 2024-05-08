@@ -155,13 +155,13 @@ class Revert(Command):
             for line in commit.message.splitlines():
                 if not commit_title:
                     commit_title = line
-            bug_urls = [i.link for i in commit.issues]
+            bug_urls = ['    {}'.format(i.link) for i in commit.issues]
 
-            reverted_changeset += '\n{}\n'.format(commit_title)
+            reverted_changeset += '\n    {}\n'.format(commit_title)
             reverted_changeset += '\n'.join(bug_urls)
             if commit.identifier and commit.branch:
                 commit_identifiers.append('{}@{}'.format(commit.identifier, commit.branch))
-                reverted_changeset += '\nhttps://commits.webkit.org/{}@{}\n'.format(commit.identifier, commit.branch)
+                reverted_changeset += '\n    https://commits.webkit.org/{}@{}\n'.format(commit.identifier, commit.branch)
             else:
                 sys.stderr.write('Could not find "{}"'.format(', '.join(args.commit_id)) + '\n')
                 return None, None
@@ -236,12 +236,14 @@ class Revert(Command):
         for r_link in CommitProgram.bug_urls(issue):
             r_issue = Tracker.from_string(r_link)
             for c_issue in commit_issues.get(r_issue.tracker.NAME, []):
-                try:
-                    c_issue.open(why="Reopened {}.\n{}, tracking revert in {}.".format(r_issue.tracker.NAME, revert_reason, r_issue.link))
-                except radar.Tracker.radarclient().exceptions.UnsuccessfulResponseException as e:
-                    sys.stderr.write('Failed to re-open {}\n'.format(c_issue.link))
-                    sys.stderr.write('{}\n'.format(str(e)))
-                    c_issue.add_comment('{}, tracking revert in {}.'.format(revert_reason, r_issue.link))
+                # FIXME: Reopen radars after rdar://124165667
+                if not isinstance(c_issue.tracker, radar.Tracker):
+                    try:
+                        c_issue.open(why="Reopened {}.\n{}, tracking revert in {}.".format(r_issue.tracker.NAME, revert_reason, r_issue.link))
+                    except radar.Tracker.radarclient().exceptions.UnsuccessfulResponseException as e:
+                        sys.stderr.write('Failed to re-open {}\n'.format(c_issue.link))
+                        sys.stderr.write('{}\n'.format(str(e)))
+                        c_issue.add_comment('{}, tracking revert in {}.'.format(revert_reason, r_issue.link))
 
                 # Revert tracking bug blocks commit bugs, revert tracking radar caused by commit radars
                 if isinstance(c_issue.tracker, bugzilla.Tracker):

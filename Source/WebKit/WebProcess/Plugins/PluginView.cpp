@@ -631,12 +631,12 @@ bool PluginView::drawsFindOverlay() const
     return protectedPlugin()->drawsFindOverlay();
 }
 
-RefPtr<TextIndicator> PluginView::textIndicatorForSelection(OptionSet<WebCore::TextIndicatorOption> options, WebCore::TextIndicatorPresentationTransition transition)
+RefPtr<TextIndicator> PluginView::textIndicatorForCurrentSelection(OptionSet<WebCore::TextIndicatorOption> options, WebCore::TextIndicatorPresentationTransition transition)
 {
     if (!m_isInitialized)
         return { };
 
-    return protectedPlugin()->textIndicatorForSelection(options, transition);
+    return protectedPlugin()->textIndicatorForCurrentSelection(options, transition);
 }
 
 String PluginView::selectionString() const
@@ -714,6 +714,14 @@ void PluginView::willDetachRenderer()
     protectedPlugin()->willDetachRenderer();
 }
 
+ScrollableArea* PluginView::scrollableArea() const
+{
+    if (!m_isInitialized)
+        return nullptr;
+
+    return m_plugin.ptr();
+}
+
 bool PluginView::usesAsyncScrolling() const
 {
     if (!m_isInitialized)
@@ -721,7 +729,6 @@ bool PluginView::usesAsyncScrolling() const
 
     return protectedPlugin()->usesAsyncScrolling();
 }
-
 
 ScrollingNodeID PluginView::scrollingNodeID() const
 {
@@ -987,19 +994,14 @@ id PluginView::accessibilityHitTest(const WebCore::IntPoint& point) const
     return protectedPlugin()->accessibilityHitTest(point);
 }
 
-LookupTextResult PluginView::lookupTextAtLocation(const WebCore::FloatPoint& point, WebHitTestResultData& data) const
+bool PluginView::performImmediateActionHitTestAtLocation(const WebCore::FloatPoint& point, WebHitTestResultData& data) const
 {
-    return protectedPlugin()->lookupTextAtLocation(point, data);
+    return protectedPlugin()->performImmediateActionHitTestAtLocation(point, data);
 }
 
 WebCore::FloatRect PluginView::rectForSelectionInRootView(PDFSelection *selection) const
 {
     return protectedPlugin()->rectForSelectionInRootView(selection);
-}
-
-CGFloat PluginView::contentScaleFactor() const
-{
-    return protectedPlugin()->contentScaleFactor();
 }
 
 bool PluginView::isUsingUISideCompositing() const
@@ -1023,6 +1025,16 @@ void PluginView::didSameDocumentNavigationForFrame(WebFrame& frame)
         return;
 
     return protectedPlugin()->didSameDocumentNavigationForFrame(frame);
+}
+
+Vector<WebCore::FloatRect> PluginView::pdfAnnotationRectsForTesting() const
+{
+    return protectedPlugin()->annotationRectsForTesting();
+}
+
+void PluginView::registerPDFTestCallback(RefPtr<VoidCallback>&& callback)
+{
+    protectedPlugin()->registerPDFTest(WTFMove(callback));
 }
 
 } // namespace WebKit

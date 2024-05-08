@@ -54,11 +54,37 @@ template<> struct VirtualTableAndRefCountOverhead<true, false> {
 };
 template<> struct VirtualTableAndRefCountOverhead<false, false> { };
 
-#if COMPILER(GCC)
 IGNORE_WARNINGS_BEGIN("invalid-offsetof")
-#endif
 
 namespace IPC {
+
+#if USE(PASSKIT)
+template<> void encodeObjectDirectly<PKPaymentMethod>(IPC::Encoder& encoder, PKPaymentMethod *instance)
+{
+    encoder << (instance ? std::optional(WebKit::CoreIPCPKPaymentMethod(instance)) : std::nullopt);
+}
+
+template<> std::optional<RetainPtr<id>> decodeObjectDirectlyRequiringAllowedClasses<PKPaymentMethod>(IPC::Decoder& decoder)
+{
+    auto result = decoder.decode<std::optional<WebKit::CoreIPCPKPaymentMethod>>();
+    if (!result)
+        return std::nullopt;
+    return *result ? (*result)->toID() : nullptr;
+}
+#endif // USE(PASSKIT)
+
+template<> void encodeObjectDirectly<NSNull>(IPC::Encoder& encoder, NSNull *instance)
+{
+    encoder << (instance ? std::optional(WebKit::CoreIPCNull(instance)) : std::nullopt);
+}
+
+template<> std::optional<RetainPtr<id>> decodeObjectDirectlyRequiringAllowedClasses<NSNull>(IPC::Decoder& decoder)
+{
+    auto result = decoder.decode<std::optional<WebKit::CoreIPCNull>>();
+    if (!result)
+        return std::nullopt;
+    return *result ? (*result)->toID() : nullptr;
+}
 
 void ArgumentCoder<WebKit::PlatformClass>::encode(Encoder& encoder, const WebKit::PlatformClass& instance)
 {
@@ -314,12 +340,31 @@ std::optional<WebKit::CoreIPCDDScannerResult> ArgumentCoder<WebKit::CoreIPCDDSca
 
 #endif
 
+#if USE(CFSTRING)
+void ArgumentCoder<CFStringRef>::encode(Encoder& encoder, CFStringRef instance)
+{
+    encoder << WTF::String { instance };
+}
+
+void ArgumentCoder<CFStringRef>::encode(StreamConnectionEncoder& encoder, CFStringRef instance)
+{
+    encoder << WTF::String { instance };
+}
+
+std::optional<RetainPtr<CFStringRef>> ArgumentCoder<RetainPtr<CFStringRef>>::decode(Decoder& decoder)
+{
+    auto result = decoder.decode<WTF::String>();
+    if (UNLIKELY(!decoder.isValid()))
+        return std::nullopt;
+    return result->createCFString();
+}
+
+#endif
+
 } // namespace IPC
 
 namespace WTF {
 
 } // namespace WTF
 
-#if COMPILER(GCC)
 IGNORE_WARNINGS_END
-#endif

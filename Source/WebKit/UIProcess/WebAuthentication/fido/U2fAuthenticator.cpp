@@ -29,11 +29,13 @@
 #if ENABLE(WEB_AUTHN)
 
 #include "CtapDriver.h"
+#include "Logging.h"
 #include <WebCore/ApduResponse.h>
 #include <WebCore/AuthenticatorAttachment.h>
 #include <WebCore/ExceptionData.h>
 #include <WebCore/U2fCommandConstructor.h>
 #include <WebCore/U2fResponseConverter.h>
+#include <wtf/text/Base64.h>
 #include <wtf/text/StringConcatenateNumbers.h>
 
 #define U2F_RELEASE_LOG(fmt, ...) RELEASE_LOG(WebAuthn, "%p [transport=%s] - U2fAuthenticator::" fmt, this, transportForDebugging().utf8().data(), ##__VA_ARGS__)
@@ -83,8 +85,11 @@ void U2fAuthenticator::checkExcludeList(size_t index)
 void U2fAuthenticator::issueRegisterCommand()
 {
     auto u2fCmd = convertToU2fRegisterCommand(requestData().hash, std::get<PublicKeyCredentialCreationOptions>(requestData().options));
+    if (!u2fCmd) {
+        U2F_RELEASE_LOG("issueRegisterCommand: request not convertible to U2F.");
+        return;
+    }
     U2F_RELEASE_LOG("issueRegisterCommand: Sending %s", base64EncodeToString(*u2fCmd).utf8().data());
-    ASSERT(u2fCmd);
     issueNewCommand(WTFMove(*u2fCmd), CommandType::RegisterCommand);
 }
 
@@ -108,8 +113,11 @@ void U2fAuthenticator::issueSignCommand(size_t index)
         return;
     }
     auto u2fCmd = convertToU2fSignCommand(requestData().hash, requestOptions, requestOptions.allowCredentials[index].id, m_isAppId);
+    if (!u2fCmd) {
+        U2F_RELEASE_LOG("issueSignCommand: request not convertible to U2F.");
+        return;
+    }
     U2F_RELEASE_LOG("issueSignCommand: index: %lu Sending %s", index, base64EncodeToString(*u2fCmd).utf8().data());
-    ASSERT(u2fCmd);
     issueNewCommand(WTFMove(*u2fCmd), CommandType::SignCommand);
 }
 

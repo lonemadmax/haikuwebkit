@@ -145,6 +145,7 @@ void FindController::updateFindUIAfterPageScroll(bool found, const String& strin
 #endif
 
     bool shouldShowOverlay = false;
+    bool shouldSetSelection = !options.contains(FindOptions::DoNotSetSelection);
     unsigned matchCount = 0;
     Vector<IntRect> matchRects;
     if (!found) {
@@ -153,7 +154,7 @@ void FindController::updateFindUIAfterPageScroll(bool found, const String& strin
 #endif
             m_webPage->corePage()->unmarkAllTextMatches();
 
-        if (selectedFrame && !options.contains(FindOptions::DoNotSetSelection))
+        if (selectedFrame && shouldSetSelection)
             selectedFrame->selection().clear();
 
         hideFindIndicator();
@@ -225,6 +226,11 @@ void FindController::updateFindUIAfterPageScroll(bool found, const String& strin
         if (!m_findPageOverlay) {
             auto findPageOverlay = PageOverlay::create(*this, PageOverlay::OverlayType::Document);
             m_findPageOverlay = findPageOverlay.ptr();
+#if ENABLE(PDF_PLUGIN)
+            // FIXME: Remove this once UnifiedPDFPlugin makes the overlay scroll along with the contents.
+            if (pluginView && !pluginView->drawsFindOverlay())
+                m_findPageOverlay->setNeedsSynchronousScrolling(true);
+#endif
             m_webPage->corePage()->pageOverlayController().installPageOverlay(WTFMove(findPageOverlay), PageOverlay::FadeMode::Fade);
         }
         m_findPageOverlay->setNeedsDisplay();
@@ -235,7 +241,7 @@ void FindController::updateFindUIAfterPageScroll(bool found, const String& strin
 #if ENABLE(PDF_PLUGIN)
     canShowFindIndicator |= pluginView && !pluginView->drawsFindOverlay();
 #endif
-    if (!wantsFindIndicator || !canShowFindIndicator || !updateFindIndicator(shouldShowOverlay))
+    if (shouldSetSelection && (!wantsFindIndicator || !canShowFindIndicator || !updateFindIndicator(shouldShowOverlay)))
         hideFindIndicator();
 
     completionHandler(idOfFrameContainingString, WTFMove(matchRects), matchCount, m_foundStringMatchIndex, didWrap == DidWrap::Yes);
@@ -267,7 +273,7 @@ void FindController::findString(const String& string, OptionSet<FindOptions> opt
     //
     // To share logic between platforms, prevent Editor from revealing the selection
     // and reveal the selection in FindController::didFindString.
-    coreOptions.add(DoNotRevealSelection);
+    coreOptions.add(FindOption::DoNotRevealSelection);
 
     willFindString();
 
@@ -441,7 +447,7 @@ bool FindController::updateFindIndicator(bool isShowingOverlay, bool shouldAnima
     auto [frame, indicator] = [&]() -> std::tuple<RefPtr<Frame>, RefPtr<TextIndicator>> {
 #if ENABLE(PDF_PLUGIN)
         if (RefPtr pluginView = mainFramePlugIn())
-            return { m_webPage->mainFrame(), pluginView->textIndicatorForSelection(textIndicatorOptions, presentationTransition) };
+            return { m_webPage->mainFrame(), pluginView->textIndicatorForCurrentSelection(textIndicatorOptions, presentationTransition) };
 #endif
         if (RefPtr selectedFrame = frameWithSelection(m_webPage->corePage())) {
             if (auto selectedRange = selectedFrame->selection().selection().range(); selectedRange && ImageOverlay::isInsideOverlay(*selectedRange))

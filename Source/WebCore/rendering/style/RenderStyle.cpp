@@ -845,8 +845,8 @@ static bool rareDataChangeRequiresLayout(const StyleRareNonInheritedData& first,
     if (first.inputSecurity != second.inputSecurity)
         return true;
 
-    if (first.effectiveContainment().contains(Containment::Size) != second.effectiveContainment().contains(Containment::Size)
-        || first.effectiveContainment().contains(Containment::InlineSize) != second.effectiveContainment().contains(Containment::InlineSize))
+    if (first.usedContain().contains(Containment::Size) != second.usedContain().contains(Containment::Size)
+        || first.usedContain().contains(Containment::InlineSize) != second.usedContain().contains(Containment::InlineSize))
         return true;
 
     // content-visibiliy:hidden turns on contain:size which requires relayout.
@@ -882,7 +882,7 @@ static bool rareInheritedDataChangeRequiresLayout(const StyleRareInheritedData& 
         || first.textAlignLast != second.textAlignLast
         || first.textJustify != second.textJustify
         || first.textIndentLine != second.textIndentLine
-        || first.effectiveZoom != second.effectiveZoom
+        || first.usedZoom != second.usedZoom
         || first.textZoom != second.textZoom
 #if ENABLE(TEXT_AUTOSIZING)
         || first.textSizeAdjust != second.textSizeAdjust
@@ -909,7 +909,7 @@ static bool rareInheritedDataChangeRequiresLayout(const StyleRareInheritedData& 
         || first.lineSnap != second.lineSnap
         || first.lineAlign != second.lineAlign
         || first.hangingPunctuation != second.hangingPunctuation
-        || first.effectiveContentVisibility != second.effectiveContentVisibility
+        || first.usedContentVisibility != second.usedContentVisibility
 #if ENABLE(OVERFLOW_SCROLLING_TOUCH)
         || first.useTouchOverflowScrolling != second.useTouchOverflowScrolling
 #endif
@@ -1070,7 +1070,7 @@ bool RenderStyle::changeRequiresLayout(const RenderStyle& other, OptionSet<Style
         || m_nonInheritedFlags.overflowY != other.m_nonInheritedFlags.overflowY)
         return true;
 
-    if ((visibility() == Visibility::Collapse) != (other.visibility() == Visibility::Collapse))
+    if ((usedVisibility() == Visibility::Collapse) != (other.usedVisibility() == Visibility::Collapse))
         return true;
 
     bool hasFirstLineStyle = hasPseudoStyle(PseudoId::FirstLine);
@@ -1175,7 +1175,7 @@ bool RenderStyle::changeRequiresLayerRepaint(const RenderStyle& other, OptionSet
 
 static bool requiresPainting(const RenderStyle& style)
 {
-    if (style.visibility() == Visibility::Hidden)
+    if (style.usedVisibility() == Visibility::Hidden)
         return false;
     if (!style.opacity())
         return false;
@@ -1542,6 +1542,8 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyClear);
         if (first.position != second.position)
             changingProperties.m_properties.set(CSSPropertyPosition);
+        if (first.effectiveDisplay != second.effectiveDisplay)
+            changingProperties.m_properties.set(CSSPropertyDisplay);
         if (first.floating != second.floating)
             changingProperties.m_properties.set(CSSPropertyFloat);
         if (first.tableLayout != second.tableLayout)
@@ -1550,7 +1552,6 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyTextDecorationLine);
 
         // Non animated styles are followings.
-        // effectiveDisplay
         // originalDisplay
         // unicodeBidi
         // usesViewportUnits
@@ -2080,14 +2081,14 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
         // textSizeAdjust
         // userSelect
         // isInSubtreeWithBlendMode
-        // effectiveTouchActions
+        // usedTouchActions
         // eventListenerRegionTypes
         // effectiveInert
-        // effectiveContentVisibility
+        // usedContentVisibility
         // strokeColor
         // visitedLinkStrokeColor
         // hasSetStrokeColor
-        // effectiveZoom
+        // usedZoom
         // textBoxEdge
         // textSecurity
         // userModify
@@ -3030,7 +3031,7 @@ Color RenderStyle::colorResolvingCurrentColor(CSSPropertyID colorProperty, bool 
         if (colorProperty == CSSPropertyTextDecorationColor) {
             if (hasPositiveStrokeWidth()) {
                 // Prefer stroke color if possible but not if it's fully transparent.
-                auto strokeColor = colorResolvingCurrentColor(effectiveStrokeColorProperty(), visitedLink);
+                auto strokeColor = colorResolvingCurrentColor(usedStrokeColorProperty(), visitedLink);
                 if (strokeColor.isVisible())
                     return strokeColor;
             }
@@ -3106,7 +3107,7 @@ Color RenderStyle::usedAccentColor() const
     return colorResolvingCurrentColor(accentColor());
 }
 
-Color RenderStyle::effectiveScrollbarThumbColor() const
+Color RenderStyle::usedScrollbarThumbColor() const
 {
     if (!scrollbarColor().has_value())
         return { };
@@ -3117,7 +3118,7 @@ Color RenderStyle::effectiveScrollbarThumbColor() const
     return colorResolvingCurrentColor(scrollbarColor().value().thumbColor);
 }
 
-Color RenderStyle::effectiveScrollbarTrackColor() const
+Color RenderStyle::usedScrollbarTrackColor() const
 {
     if (!scrollbarColor().has_value())
         return { };
@@ -3776,7 +3777,7 @@ bool RenderStyle::hasPositiveStrokeWidth() const
 
 Color RenderStyle::computedStrokeColor() const
 {
-    return visitedDependentColor(effectiveStrokeColorProperty());
+    return visitedDependentColor(usedStrokeColorProperty());
 }
 
 UsedClear RenderStyle::usedClear(const RenderObject& renderer)

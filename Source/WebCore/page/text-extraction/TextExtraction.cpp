@@ -255,7 +255,7 @@ static inline std::variant<SkipExtraction, ItemData, URL, Editable> extractItemD
     if (!renderer || renderer->style().opacity() < minOpacityToConsiderVisible)
         return { SkipExtraction::SelfAndSubtree };
 
-    if (renderer->style().visibility() == Visibility::Hidden)
+    if (renderer->style().usedVisibility() == Visibility::Hidden)
         return { SkipExtraction::Self };
 
     if (RefPtr textNode = dynamicDowncast<Text>(node)) {
@@ -502,8 +502,19 @@ static void extractRenderedText(Vector<StringsAndBlockOffset>& stringsAndOffsets
     }
 
     auto frameView = renderer->view().protectedFrameView();
+    auto appendReplacedRenderer = [&](RenderObject& renderer) {
+        ASSERT(renderer.isRenderReplaced());
+        auto bounds = frameView->contentsToRootView(renderer.absoluteBoundingBoxRect());
+        appendStrings({ makeString('{', bounds.width(), ',', bounds.height(), '}') }, bounds);
+    };
+
+    if (renderer->isRenderReplaced()) {
+        appendReplacedRenderer(*renderer);
+        return;
+    }
+
     for (auto& descendant : descendantsOfType<RenderObject>(*renderer)) {
-        if (descendant.style().visibility() == Visibility::Hidden)
+        if (descendant.style().usedVisibility() == Visibility::Hidden)
             continue;
 
         if (descendant.style().opacity() < minOpacityToConsiderVisible)
@@ -529,34 +540,21 @@ static void extractRenderedText(Vector<StringsAndBlockOffset>& stringsAndOffsets
         }
 
         if (descendant.isRenderReplaced()) {
-            auto bounds = frameView->contentsToRootView(descendant.absoluteBoundingBoxRect());
-            appendStrings({ makeString('{', bounds.width(), ',', bounds.height(), '}') }, bounds);
+            appendReplacedRenderer(descendant);
             continue;
         }
     }
 }
 
-Expected<String, ExceptionCode> extractRenderedText(LocalFrame& frame, String&& selector)
+String extractRenderedText(Element& element)
 {
-    RefPtr document = frame.document();
-    if (!document)
-        return makeUnexpected(ExceptionCode::NotAllowedError);
-
-    auto result = document->querySelector(WTFMove(selector));
-    if (result.hasException())
-        return makeUnexpected(result.releaseException().code());
-
-    RefPtr element = result.releaseReturnValue();
-    if (!element)
-        return makeUnexpected(ExceptionCode::NotFoundError);
-
-    if (!element->renderer())
+    if (!element.renderer())
         return emptyString();
 
-    auto direction = element->renderer()->style().blockFlowDirection();
+    auto direction = element.renderer()->style().blockFlowDirection();
 
     Vector<StringsAndBlockOffset> stringsAndOffsets;
-    extractRenderedText(stringsAndOffsets, *element, direction);
+    extractRenderedText(stringsAndOffsets, element, direction);
 
     bool ascendingOrder = [&] {
         switch (direction) {

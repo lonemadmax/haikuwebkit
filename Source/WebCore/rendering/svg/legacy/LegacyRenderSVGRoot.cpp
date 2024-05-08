@@ -59,7 +59,7 @@ const int defaultWidth = 300;
 const int defaultHeight = 150;
 
 LegacyRenderSVGRoot::LegacyRenderSVGRoot(SVGSVGElement& element, RenderStyle&& style)
-    : RenderReplaced(Type::LegacySVGRoot, element, WTFMove(style))
+    : RenderReplaced(Type::LegacySVGRoot, element, WTFMove(style), ReplacedFlag::UsesBoundaryCaching)
     , m_isLayoutSizeChanged(false)
     , m_needsBoundariesOrTransformUpdate(true)
     , m_hasBoxDecorations(false)
@@ -340,7 +340,7 @@ void LegacyRenderSVGRoot::willBeRemovedFromTree(IsInternalMove isInternalMove)
 void LegacyRenderSVGRoot::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
 {
     if (diff == StyleDifference::Layout)
-        setNeedsBoundariesUpdate();
+        invalidateCachedBoundaries();
 
     // Box decorations may have appeared/disappeared - recompute status.
     if (diff == StyleDifference::Repaint)
@@ -354,7 +354,7 @@ void LegacyRenderSVGRoot::styleDidChange(StyleDifference diff, const RenderStyle
 // relative to our borderBox origin. This method gives us exactly that.
 void LegacyRenderSVGRoot::buildLocalToBorderBoxTransform()
 {
-    float scale = style().effectiveZoom();
+    float scale = style().usedZoom();
     FloatPoint translate = svgSVGElement().currentTranslateValue();
     LayoutSize borderAndPadding(borderLeft() + paddingLeft(), borderTop() + paddingTop());
     m_localToBorderBoxTransform = svgSVGElement().viewBoxToViewTransform(contentWidth() / scale, contentHeight() / scale);

@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2004-2023 Apple Inc. All rights reserved.
+ *  Copyright (C) 2004-2024 Apple Inc. All rights reserved.
  *  Copyright (C) 2006 Bjoern Graf (bjoern.graf@gmail.com)
  *
  *  This library is free software; you can redistribute it and/or
@@ -294,6 +294,8 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(Workers);
 
 static JSC_DECLARE_HOST_FUNCTION(functionAtob);
 static JSC_DECLARE_HOST_FUNCTION(functionBtoa);
+
+static JSC_DECLARE_HOST_FUNCTION(functionDisassembleBase64);
 
 static JSC_DECLARE_HOST_FUNCTION(functionCreateGlobalObject);
 static JSC_DECLARE_HOST_FUNCTION(functionCreateHeapBigInt);
@@ -621,6 +623,7 @@ private:
 
         addFunction(vm, "atob"_s, functionAtob, 1);
         addFunction(vm, "btoa"_s, functionBtoa, 1);
+        addFunction(vm, "disassembleBase64"_s, functionDisassembleBase64, 1);
         addFunction(vm, "debug"_s, functionDebug, 1);
         addFunction(vm, "describe"_s, functionDescribe, 1);
         addFunction(vm, "describeArray"_s, functionDescribeArray, 1);
@@ -1608,6 +1611,34 @@ JSC_DEFINE_HOST_FUNCTION(functionBtoa, (JSGlobalObject* globalObject, CallFrame*
     return JSValue::encode(jsString(vm, encodedString));
 }
 
+JSC_DEFINE_HOST_FUNCTION(functionDisassembleBase64, (JSGlobalObject* globalObject, CallFrame* callFrame))
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    if (!callFrame->argumentCount())
+        return JSValue::encode(throwException(globalObject, scope, createError(globalObject, "Missing input for disassembleBase64."_s)));
+
+    String encodedString = callFrame->argument(0).toWTFString(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
+
+    if (encodedString.isNull())
+        return JSValue::encode(jsEmptyString(vm));
+
+    std::optional<Vector<uint8_t>> decodedVector = base64Decode(encodedString, Base64DecodeMode::DefaultValidatePaddingAndIgnoreWhitespace);
+    if (!decodedVector)
+        return JSValue::encode(throwException(globalObject, scope, createError(globalObject, "Invalid character in base64 string argument."_s)));
+
+    auto code = CodePtr<DisassemblyPtrTag>::fromUntaggedPtr(decodedVector->data());
+    StringPrintStream out;
+    // prefix with "\n" so the first line has the same whitespace as the rest when displayed from jsc.
+    out.print("\n");
+    if (tryToDisassemble(code, decodedVector->sizeInBytes(), "", out))
+        return JSValue::encode(jsString(vm, out.toString()));
+
+    return JSValue::encode(throwException(globalObject, scope, createError(globalObject, "Couldn't disassemble."_s)));
+}
+
 JSC_DEFINE_HOST_FUNCTION(functionDebug, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     VM& vm = globalObject->vm();
@@ -2458,7 +2489,7 @@ JSC_DEFINE_HOST_FUNCTION(functionDollarAgentStart, (JSGlobalObject* globalObject
         return true;
     };
 
-    if (isGigacageMemoryExhausted(Gigacage::JSValue) || isGigacageMemoryExhausted(Gigacage::Primitive))
+    if (isGigacageMemoryExhausted(Gigacage::Primitive))
         return JSValue::encode(throwOutOfMemoryError(globalObject, scope, "Gigacage is exhausted"_s));
 
     String workerPath = "worker"_s;
@@ -3016,9 +3047,9 @@ JSC_DEFINE_HOST_FUNCTION(functionCreateNonRopeNonAtomString, (JSGlobalObject* gl
 
     if (source.impl()->isAtom()) {
         if (source.is8Bit())
-            source = StringImpl::create(source.characters8(), source.length());
+            source = StringImpl::create(source.span8());
         else
-            source = StringImpl::create(source.characters16(), source.length());
+            source = StringImpl::create(source.span16());
     }
 
     RELEASE_ASSERT(!source.impl()->isAtom());
@@ -3371,13 +3402,22 @@ static void startTimeoutTimer(Seconds duration)
     });
 }
 
+// The purpose of crashDueToJSCShellTimeout is solely to make it easier to distinquish
+// jsc shell test timeouts (i.e. crashDueToJSCShellTimeout is present in crash stack
+// traces) from other crashes.
+NO_RETURN_DUE_TO_CRASH NEVER_INLINE void crashDueToJSCShellTimeout();
+void crashDueToJSCShellTimeout()
+{
+    CRASH();
+}
+
 static void timeoutCheckCallback(VM& vm)
 {
     RELEASE_ASSERT(&vm == s_vm);
     auto cpuTime = CPUTime::forCurrentThread();
     if (cpuTime >= s_maxAllowedCPUTime) {
         dataLog("Timed out after ", s_timeoutDuration, " seconds!\n");
-        CRASH();
+        crashDueToJSCShellTimeout();
     }
     auto remainingTime = s_maxAllowedCPUTime - cpuTime;
     startTimeoutTimer(remainingTime);
@@ -3465,7 +3505,9 @@ int main(int argc, char** argv WTF_TZONE_EXTRA_MAIN_ARGS)
 
 #if OS(UNIX)
     if (getenv("JS_SHELL_WAIT_FOR_SIGUSR2_TO_EXIT")) {
-        initializeSignalHandling();
+        uint32_t key = 0;
+        int mask = 0;
+        initializeSignalHandling(key, mask);
         addSignalHandler(Signal::Usr, SignalHandler([&] (Signal, SigInfo&, PlatformRegisters&) {
             dataLogLn("Signal handler hit, we can exit now.");
             waitToExit.signal();
@@ -3666,7 +3708,7 @@ static void runWithOptions(GlobalObject* globalObject, CommandLine& options, boo
         case Script::CodeSource::File: {
             fileName = String::fromLatin1(scripts[i].argument);
             if (scripts[i].strictMode == Script::StrictMode::Strict)
-                scriptBuffer.append("\"use strict\";\n", strlen("\"use strict\";\n"));
+                scriptBuffer.append("\"use strict\";\n"_span);
 
             if (isModule) {
                 // If necessary, prepend "./" so the module loader doesn't think this is a bare-name specifier.
@@ -3939,11 +3981,24 @@ void CommandLine::parseArguments(int argc, char** argv)
         }
         if (!strcmp(arg, "-s")) {
 #if OS(UNIX)
-            initializeSignalHandling();
+            uint32_t key = 0;
+            int mask = 0;
+#if HAVE(MACH_EXCEPTIONS)
+            mask |= toMachMask(Signal::IllegalInstruction);
+            mask |= toMachMask(Signal::AccessFault);
+            mask |= toMachMask(Signal::FloatingPoint);
+            mask |= toMachMask(Signal::Breakpoint);
+#if !OS(DARWIN)
+            mask |= toMachMask(Signal::Abort);
+#endif // !OS(DARWIN)
+#endif // HAVE(MACH_EXCEPTIONS)
+
+            initializeSignalHandling(key, mask);
 
             SignalAction (*exit)(Signal, SigInfo&, PlatformRegisters&) = [] (Signal, SigInfo&, PlatformRegisters&) {
                 dataLogLn("Signal handler hit. Exiting with status 0");
-                terminateProcess(EXIT_SUCCESS);
+                // Deliberate exit with a SIGKILL code greater than 130.
+                terminateProcess(137);
                 return SignalAction::ForceDefault;
             };
 
@@ -3962,6 +4017,7 @@ void CommandLine::parseArguments(int argc, char** argv)
             addSignalHandler(Signal::Abort, SignalHandler(exit));
             activateSignalHandlersFor(Signal::Abort);
 #endif
+            finalizeSignalHandlers();
 #endif
             continue;
         }
@@ -4168,6 +4224,14 @@ int runJSC(const CommandLine& options, bool isWorker, const Func& func)
             if (!vm.m_perBytecodeProfiler->save(options.m_profilerOutput.utf8().data()))
                 fprintf(stderr, "could not save profiler output.\n");
         }
+
+
+#if ENABLE(REGEXP_TRACING)
+        {
+            JSLockHolder locker(vm);
+            vm.dumpRegExpTrace();
+        }
+#endif
 
 #if ENABLE(JIT)
         {

@@ -30,16 +30,13 @@
 #include "GraphicsContext.h"
 #include <skia/core/SkCanvas.h>
 #include <skia/effects/SkDashPathEffect.h>
-
-IGNORE_CLANG_WARNINGS_BEGIN("cast-align")
-#include <skia/core/SkSurface.h>
-IGNORE_CLANG_WARNINGS_END
+#include <wtf/CompletionHandler.h>
 
 namespace WebCore {
 
 class WEBCORE_EXPORT GraphicsContextSkia final : public GraphicsContext {
 public:
-    GraphicsContextSkia(sk_sp<SkSurface>&&, RenderingMode, RenderingPurpose);
+    GraphicsContextSkia(SkCanvas&, RenderingMode, RenderingPurpose, CompletionHandler<void()>&& = nullptr);
     virtual ~GraphicsContextSkia();
 
     bool hasPlatformContext() const final;
@@ -102,14 +99,14 @@ public:
     enum class ShadowStyle : uint8_t { Outset, Inset };
     sk_sp<SkImageFilter> createDropShadowFilterIfNeeded(ShadowStyle) const;
 
-    SkPaint createFillPaint(std::optional<Color> fillColor = std::nullopt) const;
-    SkPaint createStrokeStylePaint() const;
-    SkPaint createStrokePaint(std::optional<Color> strokeColor = std::nullopt) const;
+    SkPaint createFillPaint() const;
+    SkPaint createStrokePaint() const;
 
 private:
-    SkCanvas& canvas() const;
-
     bool makeGLContextCurrentIfNeeded() const;
+
+    void setupFillSource(SkPaint&) const;
+    void setupStrokeSource(SkPaint&) const;
 
     class SkiaState {
     public:
@@ -123,9 +120,10 @@ private:
         } m_stroke;
     };
 
-    sk_sp<SkSurface> m_surface;
+    SkCanvas& m_canvas;
     RenderingMode m_renderingMode { RenderingMode::Accelerated };
     RenderingPurpose m_renderingPurpose { RenderingPurpose::Unspecified };
+    CompletionHandler<void()> m_destroyNotify;
     SkiaState m_skiaState;
     Vector<SkiaState, 1> m_skiaStateStack;
 };

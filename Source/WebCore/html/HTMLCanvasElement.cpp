@@ -250,7 +250,7 @@ ExceptionOr<std::optional<RenderingContext>> HTMLCanvasElement::getContext(JSC::
                 return std::optional<RenderingContext> { std::nullopt };
             if (auto* context = dynamicDowncast<WebGLRenderingContext>(*m_context))
                 return std::optional<RenderingContext> { RefPtr { context } };
-            return std::optional<RenderingContext> { RefPtr { &checkedDowncast<WebGL2RenderingContext>(*m_context) } };
+            return std::optional<RenderingContext> { RefPtr { &downcast<WebGL2RenderingContext>(*m_context) } };
         }
 #endif
 
@@ -349,7 +349,7 @@ CanvasRenderingContext2D* HTMLCanvasElement::createContext2d(const String& type,
 
     m_context = CanvasRenderingContext2D::create(*this, WTFMove(settings), document().inQuirksMode());
 
-#if USE(IOSURFACE_CANVAS_BACKING_STORE)
+#if USE(IOSURFACE_CANVAS_BACKING_STORE) || USE(SKIA)
     // Need to make sure a RenderLayer and compositing layer get created for the Canvas.
     invalidateStyleAndLayerComposition();
 #endif
@@ -433,18 +433,20 @@ WebGLRenderingContextBase* HTMLCanvasElement::createContextWebGL(WebGLVersion ty
 
     // TODO(WEBXR): ensure the context is created in a compatible graphics
     // adapter when there is an active immersive device.
-    m_context = WebGLRenderingContextBase::create(*this, attrs, type);
-    if (m_context) {
+    auto context = WebGLRenderingContextBase::create(*this, attrs, type);
+    WeakPtr weakContext = context.get();
+    m_context = WTFMove(context);
+    if (weakContext) {
         // Need to make sure a RenderLayer and compositing layer get created for the Canvas.
         invalidateStyleAndLayerComposition();
-        if (renderBox())
-            renderBox()->contentChanged(CanvasChanged);
+        if (CheckedPtr box = renderBox())
+            box->contentChanged(CanvasChanged);
 #if ENABLE(WEBXR)
-        ASSERT(!attrs.xrCompatible || downcast<WebGLRenderingContextBase>(m_context.get())->isXRCompatible());
+        ASSERT(!attrs.xrCompatible || weakContext->isXRCompatible());
 #endif
     }
 
-    return downcast<WebGLRenderingContextBase>(m_context.get());
+    return weakContext.get();
 }
 
 WebGLRenderingContextBase* HTMLCanvasElement::getContextWebGL(WebGLVersion type, WebGLContextAttributes&& attrs)
@@ -453,16 +455,17 @@ WebGLRenderingContextBase* HTMLCanvasElement::getContextWebGL(WebGLVersion type,
         return nullptr;
 
     if (m_context) {
-        if (!m_context->isWebGL())
+        auto* glContext = dynamicDowncast<WebGLRenderingContextBase>(*m_context);
+        if (!glContext)
             return nullptr;
 
-        if ((type == WebGLVersion::WebGL1) != m_context->isWebGL1())
+        if ((type == WebGLVersion::WebGL1) != glContext->isWebGL1())
             return nullptr;
+
+        return glContext;
     }
 
-    if (!m_context)
-        return createContextWebGL(type, WTFMove(attrs));
-    return &downcast<WebGLRenderingContextBase>(*m_context);
+    return createContextWebGL(type, WTFMove(attrs));
 }
 
 #endif // ENABLE(WEBGL)
@@ -477,15 +480,17 @@ ImageBitmapRenderingContext* HTMLCanvasElement::createContextBitmapRenderer(cons
     ASSERT_UNUSED(type, HTMLCanvasElement::isBitmapRendererType(type));
     ASSERT(!m_context);
 
-    m_context = ImageBitmapRenderingContext::create(*this, WTFMove(settings));
-    downcast<ImageBitmapRenderingContext>(m_context.get())->transferFromImageBitmap(nullptr);
+    auto context = ImageBitmapRenderingContext::create(*this, WTFMove(settings));
+    WeakPtr weakContext = *context;
+    m_context = WTFMove(context);
+    weakContext->transferFromImageBitmap(nullptr);
 
-#if USE(IOSURFACE_CANVAS_BACKING_STORE)
+#if USE(IOSURFACE_CANVAS_BACKING_STORE) || USE(SKIA)
     // Need to make sure a RenderLayer and compositing layer get created for the Canvas.
     invalidateStyleAndLayerComposition();
 #endif
 
-    return static_cast<ImageBitmapRenderingContext*>(m_context.get());
+    return weakContext.get();
 }
 
 ImageBitmapRenderingContext* HTMLCanvasElement::getContextBitmapRenderer(const String& type, ImageBitmapRenderingContextSettings&& settings)
@@ -590,8 +595,10 @@ void HTMLCanvasElement::reset()
 
     setSurfaceSize(newSize);
 
-    if (isGPUBased() && oldSize != size())
-        downcast<GPUBasedCanvasRenderingContext>(*m_context).reshape(width(), height());
+    if (m_context && oldSize != size()) {
+        if (auto* context = dynamicDowncast<GPUBasedCanvasRenderingContext>(*m_context))
+            context->reshape(width(), height());
+    }
 
     if (CheckedPtr canvasRenderer = dynamicDowncast<RenderHTMLCanvas>(renderer())) {
         if (oldSize != size()) {
@@ -609,7 +616,7 @@ void HTMLCanvasElement::reset()
 bool HTMLCanvasElement::paintsIntoCanvasBuffer() const
 {
     ASSERT(m_context);
-#if USE(IOSURFACE_CANVAS_BACKING_STORE)
+#if USE(IOSURFACE_CANVAS_BACKING_STORE) || USE(SKIA)
     if (m_context->is2d() || m_context->isBitmapRenderer())
         return true;
 #endif
@@ -868,7 +875,7 @@ void HTMLCanvasElement::createImageBuffer() const
     m_didClearImageBuffer = true;
     setImageBuffer(allocateImageBuffer());
 
-#if USE(IOSURFACE_CANVAS_BACKING_STORE)
+#if USE(IOSURFACE_CANVAS_BACKING_STORE) || USE(SKIA)
     if (m_context && m_context->is2d()) {
         // Recalculate compositing requirements if acceleration state changed.
         const_cast<HTMLCanvasElement*>(this)->invalidateStyleAndLayerComposition();
@@ -956,6 +963,7 @@ void HTMLCanvasElement::eventListenersDidChange()
 
 void HTMLCanvasElement::didMoveToNewDocument(Document& oldDocument, Document& newDocument)
 {
+    ActiveDOMObject::didMoveToNewDocument(newDocument);
     auto* context = renderingContext();
     if (context) {
         oldDocument.removeCanvasNeedingPreparationForDisplayOrFlush(*context);

@@ -40,7 +40,7 @@
 #import "WebExtensionUtilities.h"
 #import "_WKWebExtensionInternal.h"
 #import "_WKWebExtensionLocalization.h"
-#import "_WKWebExtensionPermission.h"
+#import "_WKWebExtensionPermissionPrivate.h"
 #import <CoreFoundation/CFBundle.h>
 #import <UniformTypeIdentifiers/UTCoreTypes.h>
 #import <UniformTypeIdentifiers/UTType.h>
@@ -112,6 +112,9 @@ static NSString * const contentScriptsDocumentEndManifestKey = @"document_end";
 static NSString * const contentScriptsAllFramesManifestKey = @"all_frames";
 static NSString * const contentScriptsJSManifestKey = @"js";
 static NSString * const contentScriptsCSSManifestKey = @"css";
+static NSString * const contentScriptsWorldManifestKey = @"world";
+static NSString * const contentScriptsIsolatedManifestKey = @"ISOLATED";
+static NSString * const contentScriptsMainManifestKey = @"MAIN";
 
 static NSString * const permissionsManifestKey = @"permissions";
 static NSString * const optionalPermissionsManifestKey = @"optional_permissions";
@@ -1026,17 +1029,17 @@ NSString *WebExtension::actionPopupPath()
 
 bool WebExtension::hasAction()
 {
-    return supportsManifestVersion(3) && objectForKey<NSDictionary>(m_manifest, actionManifestKey);
+    return supportsManifestVersion(3) && objectForKey<NSDictionary>(m_manifest, actionManifestKey, false);
 }
 
 bool WebExtension::hasBrowserAction()
 {
-    return !supportsManifestVersion(3) && objectForKey<NSDictionary>(m_manifest, browserActionManifestKey);
+    return !supportsManifestVersion(3) && objectForKey<NSDictionary>(m_manifest, browserActionManifestKey, false);
 }
 
 bool WebExtension::hasPageAction()
 {
-    return !supportsManifestVersion(3) && objectForKey<NSDictionary>(m_manifest, pageActionManifestKey);
+    return !supportsManifestVersion(3) && objectForKey<NSDictionary>(m_manifest, pageActionManifestKey, false);
 }
 
 void WebExtension::populateActionPropertiesIfNeeded()
@@ -1054,11 +1057,11 @@ void WebExtension::populateActionPropertiesIfNeeded()
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/manifest.json/page_action
 
     if (supportsManifestVersion(3))
-        m_actionDictionary = objectForKey<NSDictionary>(m_manifest, actionManifestKey);
+        m_actionDictionary = objectForKey<NSDictionary>(m_manifest, actionManifestKey, false);
     else {
-        m_actionDictionary = objectForKey<NSDictionary>(m_manifest, browserActionManifestKey);
+        m_actionDictionary = objectForKey<NSDictionary>(m_manifest, browserActionManifestKey, false);
         if (!m_actionDictionary)
-            m_actionDictionary = objectForKey<NSDictionary>(m_manifest, pageActionManifestKey);
+            m_actionDictionary = objectForKey<NSDictionary>(m_manifest, pageActionManifestKey, false);
     }
 
     if (!m_actionDictionary)
@@ -1333,13 +1336,13 @@ void WebExtension::populateBackgroundPropertiesIfNeeded()
         return !!scriptPath.length;
     });
 
-    // Scripts takes precedence over page.
-    if (m_backgroundScriptPaths.get().count)
-        m_backgroundPagePath = nil;
+    // Page takes precedence over service worker.
+    if (m_backgroundPagePath)
+        m_backgroundServiceWorkerPath = nil;
 
-    // Service Worker takes precedence over page and scripts.
-    if (m_backgroundServiceWorkerPath) {
-        m_backgroundScriptPaths = nil;
+    // Scripts takes precedence over page and service worker.
+    if (m_backgroundScriptPaths.get().count) {
+        m_backgroundServiceWorkerPath = nil;
         m_backgroundPagePath = nil;
     }
 
@@ -1950,13 +1953,22 @@ void WebExtension::populateContentScriptPropertiesIfNeeded()
         else
             recordError(createError(Error::InvalidContentScripts, WEB_UI_STRING("Manifest `content_scripts` entry has unknown `run_at` value.", "WKWebExtensionErrorInvalidContentScripts description for unknown 'run_at' value")));
 
+        WebExtensionContentWorldType contentWorldType = WebExtensionContentWorldType::ContentScript;
+        NSString *worldString = objectForKey<NSString>(dictionary, contentScriptsWorldManifestKey);
+        if (!worldString || [worldString isEqualToString:contentScriptsIsolatedManifestKey])
+            contentWorldType = WebExtensionContentWorldType::ContentScript;
+        else if ([worldString isEqualToString:contentScriptsMainManifestKey])
+            contentWorldType = WebExtensionContentWorldType::Main;
+        else
+            recordError(createError(Error::InvalidContentScripts, WEB_UI_STRING("Manifest `content_scripts` entry has unknown `world` value.", "WKWebExtensionErrorInvalidContentScripts description for unknown 'world' value")));
+
         InjectedContentData injectedContentData;
         injectedContentData.includeMatchPatterns = WTFMove(includeMatchPatterns);
         injectedContentData.excludeMatchPatterns = WTFMove(excludeMatchPatterns);
         injectedContentData.injectionTime = injectionTime;
         injectedContentData.matchesAboutBlank = matchesAboutBlank;
         injectedContentData.injectsIntoAllFrames = injectsIntoAllFrames;
-        injectedContentData.forMainWorld = false;
+        injectedContentData.contentWorldType = contentWorldType;
         injectedContentData.scriptPaths = scriptPaths;
         injectedContentData.styleSheetPaths = styleSheetPaths;
         injectedContentData.includeGlobPatternStrings = includeGlobPatternStrings;
@@ -1973,7 +1985,7 @@ const WebExtension::PermissionsSet& WebExtension::supportedPermissions()
 {
     static MainThreadNeverDestroyed<PermissionsSet> permissions = std::initializer_list<String> { _WKWebExtensionPermissionActiveTab, _WKWebExtensionPermissionAlarms, _WKWebExtensionPermissionClipboardWrite,
         _WKWebExtensionPermissionContextMenus, _WKWebExtensionPermissionCookies, _WKWebExtensionPermissionDeclarativeNetRequest, _WKWebExtensionPermissionDeclarativeNetRequestFeedback,
-        _WKWebExtensionPermissionDeclarativeNetRequestWithHostAccess, _WKWebExtensionPermissionMenus, _WKWebExtensionPermissionNativeMessaging, _WKWebExtensionPermissionScripting,
+        _WKWebExtensionPermissionDeclarativeNetRequestWithHostAccess, _WKWebExtensionPermissionMenus, _WKWebExtensionPermissionNativeMessaging, _WKWebExtensionPermissionNotifications, _WKWebExtensionPermissionScripting,
         _WKWebExtensionPermissionStorage, _WKWebExtensionPermissionTabs, _WKWebExtensionPermissionUnlimitedStorage, _WKWebExtensionPermissionWebNavigation, _WKWebExtensionPermissionWebRequest };
     return permissions;
 }
@@ -2099,26 +2111,6 @@ void WebExtension::populatePermissionsPropertiesIfNeeded()
             }
         }
     }
-}
-
-NSSet<_WKWebExtensionPermission> *toAPI(const WebExtension::PermissionsSet& permissions)
-{
-    NSMutableSet<_WKWebExtensionPermission> *result = [NSMutableSet setWithCapacity:permissions.size()];
-
-    for (auto& permission : permissions)
-        [result addObject:(NSString *)permission];
-
-    return [result copy];
-}
-
-NSSet<_WKWebExtensionMatchPattern *> *toAPI(const WebExtension::MatchPatternSet& patterns)
-{
-    NSMutableSet<_WKWebExtensionMatchPattern *> *result = [NSMutableSet setWithCapacity:patterns.size()];
-
-    for (auto& matchPattern : patterns)
-        [result addObject:matchPattern->wrapper()];
-
-    return [result copy];
 }
 
 } // namespace WebKit

@@ -55,7 +55,8 @@ struct _WPEViewDRMPrivate {
     drmModeModeInfo mode;
     Seconds refreshDuration;
     std::optional<uint32_t> modeBlob;
-    GRefPtr<WPEBuffer> buffer;
+    GRefPtr<WPEBuffer> pendingBuffer;
+    GRefPtr<WPEBuffer> committedBuffer;
     drmEventContext eventContext;
     GRefPtr<GSource> eventSource;
     OptionSet<UpdateFlags> updateFlags;
@@ -77,9 +78,9 @@ static void wpeViewDRMConstructed(GObject* object)
     auto* mode = wpeMonitorDRMGetMode(WPE_MONITOR_DRM(monitor));
     double scale = wpe_monitor_get_scale(monitor);
     auto* wpeView = WPE_VIEW(view);
-    wpe_view_resize(wpeView, mode->hdisplay / scale, mode->vdisplay / scale);
-    wpe_view_set_scale(wpeView, scale);
-    wpe_view_set_state(wpeView, WPE_VIEW_STATE_FULLSCREEN);
+    wpe_view_resized(wpeView, mode->hdisplay / scale, mode->vdisplay / scale);
+    wpe_view_scale_changed(wpeView, scale);
+    wpe_view_state_changed(wpeView, WPE_VIEW_STATE_FULLSCREEN);
 
     priv->refreshDuration = Seconds(1 / (wpe_monitor_get_refresh_rate(monitor) / 1000.));
 
@@ -126,9 +127,9 @@ static void wpeViewDRMDispose(GObject* object)
     G_OBJECT_CLASS(wpe_view_drm_parent_class)->dispose(object);
 }
 
-static WPE::DRM::Buffer* drmBufferCreateDMABuf(WPEBuffer* buffer, bool modifiersSupported, GError** error)
+static WPE::DRM::Buffer* drmBufferCreateDMABuf(WPEView* view, WPEBuffer* buffer, bool modifiersSupported, GError** error)
 {
-    auto* device = wpe_display_drm_get_device(WPE_DISPLAY_DRM(wpe_buffer_get_display(buffer)));
+    auto* device = wpe_display_drm_get_device(WPE_DISPLAY_DRM(wpe_view_get_display(view)));
     auto* dmaBuffer = WPE_BUFFER_DMA_BUF(buffer);
     struct gbm_bo* bo;
     if (modifiersSupported) {
@@ -185,11 +186,11 @@ static WPE::DRM::Buffer* drmBufferCreateDMABuf(WPEBuffer* buffer, bool modifiers
     return drmBufferPtr;
 }
 
-static WPE::DRM::Buffer* drmBufferCreate(WPEBuffer* buffer, bool modifiersSupported, GError** error)
+static WPE::DRM::Buffer* drmBufferCreate(WPEView* view, WPEBuffer* buffer, bool modifiersSupported, GError** error)
 {
     // FIXME: check bounds.
     if (WPE_IS_BUFFER_DMA_BUF(buffer))
-        return drmBufferCreateDMABuf(buffer, modifiersSupported, error);
+        return drmBufferCreateDMABuf(view, buffer, modifiersSupported, error);
 
     // FIXME: implement.
     g_set_error_literal(error, WPE_VIEW_ERROR, WPE_VIEW_ERROR_RENDER_FAILED, "Failed to render buffer: unsupported buffer");
@@ -377,7 +378,8 @@ static std::pair<uint32_t, uint64_t> wpeBufferFormat(WPEBuffer* buffer)
 static gboolean wpeViewDRMRequestUpdate(WPEViewDRM* view, GError** error)
 {
     auto* priv = view->priv;
-    auto* drmBuffer = priv->buffer ? static_cast<WPE::DRM::Buffer*>(wpe_buffer_get_user_data(WPE_BUFFER(priv->buffer.get()))) : nullptr;
+    auto* buffer = priv->pendingBuffer ? priv->pendingBuffer.get() : priv->committedBuffer.get();
+    auto* drmBuffer = buffer ? static_cast<WPE::DRM::Buffer*>(wpe_buffer_get_user_data(buffer)) : nullptr;
     if (wpe_display_drm_supports_atomic(WPE_DISPLAY_DRM(wpe_view_get_display(WPE_VIEW(view)))))
         return wpeViewDRMCommitAtomic(WPE_VIEW_DRM(view), drmBuffer, error);
 
@@ -396,12 +398,12 @@ static gboolean wpeViewDRMRenderBuffer(WPEView* view, WPEBuffer* buffer, GError*
             return FALSE;
         }
 
-        drmBuffer = drmBufferCreate(buffer, wpe_display_drm_supports_modifiers(display), error);
+        drmBuffer = drmBufferCreate(view, buffer, wpe_display_drm_supports_modifiers(display), error);
         if (!drmBuffer)
             return FALSE;
     }
     auto* priv = WPE_VIEW_DRM(view)->priv;
-    priv->buffer = buffer;
+    priv->pendingBuffer = buffer;
 
     if (priv->updateFlags.contains(UpdateFlags::CursorUpdateRequested)) {
         priv->updateFlags.add(UpdateFlags::BufferUpdatePending);
@@ -473,8 +475,12 @@ static void wpeViewDRMDidPageFlip(WPEViewDRM* view)
 {
     auto* priv = view->priv;
     auto updateFlags = std::exchange(priv->updateFlags, OptionSet<UpdateFlags> { });
-    if (updateFlags.contains(UpdateFlags::BufferUpdateRequested))
-        wpe_view_buffer_rendered(WPE_VIEW(view), priv->buffer.get());
+    if (updateFlags.contains(UpdateFlags::BufferUpdateRequested)) {
+        if (priv->committedBuffer)
+            wpe_view_buffer_released(WPE_VIEW(view), priv->committedBuffer.get());
+        priv->committedBuffer = WTFMove(priv->pendingBuffer);
+        wpe_view_buffer_rendered(WPE_VIEW(view), priv->committedBuffer.get());
+    }
 
     if (updateFlags.contains(UpdateFlags::BufferUpdatePending)) {
         if (wpeViewDRMRequestUpdate(view, nullptr))

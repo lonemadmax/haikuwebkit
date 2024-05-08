@@ -180,7 +180,7 @@ static ALWAYS_INLINE void putDirectWithReify(VM& vm, JSGlobalObject* globalObjec
     auto scope = DECLARE_THROW_SCOPE(vm);
     bool isJSFunction = baseObject->inherits<JSFunction>();
     if (isJSFunction) {
-        jsCast<JSFunction*>(baseObject)->reifyLazyPropertyIfNeeded(vm, globalObject, propertyName);
+        jsCast<JSFunction*>(baseObject)->reifyLazyPropertyIfNeeded<>(vm, globalObject, propertyName);
         RETURN_IF_EXCEPTION(scope, void());
     }
 
@@ -204,7 +204,7 @@ static ALWAYS_INLINE void putDirectAccessorWithReify(VM& vm, JSGlobalObject* glo
     auto scope = DECLARE_THROW_SCOPE(vm);
     bool isJSFunction = baseObject->inherits<JSFunction>();
     if (isJSFunction) {
-        jsCast<JSFunction*>(baseObject)->reifyLazyPropertyIfNeeded(vm, globalObject, propertyName);
+        jsCast<JSFunction*>(baseObject)->reifyLazyPropertyIfNeeded<>(vm, globalObject, propertyName);
         RETURN_IF_EXCEPTION(scope, void());
     }
 
@@ -289,6 +289,7 @@ JSC_DECLARE_COMMON_SLOW_PATH(slow_path_is_constructor);
 JSC_DECLARE_COMMON_SLOW_PATH(slow_path_strcat);
 JSC_DECLARE_COMMON_SLOW_PATH(slow_path_to_primitive);
 JSC_DECLARE_COMMON_SLOW_PATH(slow_path_to_property_key);
+JSC_DECLARE_COMMON_SLOW_PATH(slow_path_to_property_key_or_number);
 JSC_DECLARE_COMMON_SLOW_PATH(slow_path_get_property_enumerator);
 JSC_DECLARE_COMMON_SLOW_PATH(slow_path_enumerator_next);
 JSC_DECLARE_COMMON_SLOW_PATH(slow_path_enumerator_get_by_val);

@@ -48,6 +48,7 @@
 #import "WebBroadcastChannelRegistry.h"
 #import "WebCache.h"
 #import "WebChromeClient.h"
+#import "WebCryptoClient.h"
 #import "WebDOMOperationsPrivate.h"
 #import "WebDataSourceInternal.h"
 #import "WebDatabaseManagerPrivate.h"
@@ -728,17 +729,17 @@ WebCore::FindOptions coreOptions(WebFindOptions options)
 {
     WebCore::FindOptions findOptions;
     if (options & WebFindOptionsCaseInsensitive)
-        findOptions.add(WebCore::CaseInsensitive);
+        findOptions.add(WebCore::FindOption::CaseInsensitive);
     if (options & WebFindOptionsAtWordStarts)
-        findOptions.add(WebCore::AtWordStarts);
+        findOptions.add(WebCore::FindOption::AtWordStarts);
     if (options & WebFindOptionsTreatMedialCapitalAsWordStart)
-        findOptions.add(WebCore::TreatMedialCapitalAsWordStart);
+        findOptions.add(WebCore::FindOption::TreatMedialCapitalAsWordStart);
     if (options & WebFindOptionsBackwards)
-        findOptions.add(WebCore::Backwards);
+        findOptions.add(WebCore::FindOption::Backwards);
     if (options & WebFindOptionsWrapAround)
-        findOptions.add(WebCore::WrapAround);
+        findOptions.add(WebCore::FindOption::WrapAround);
     if (options & WebFindOptionsStartInSelection)
-        findOptions.add(WebCore::StartInSelection);
+        findOptions.add(WebCore::FindOption::StartInSelection);
     return findOptions;
 }
 
@@ -1525,10 +1526,11 @@ static WebCore::ApplicationCacheStorage& webApplicationCacheStorage()
         makeUniqueRef<WebPaymentCoordinatorClient>(),
 #endif
 #if !PLATFORM(IOS_FAMILY)
-        makeUniqueRef<WebChromeClient>(self)
+        makeUniqueRef<WebChromeClient>(self),
 #else
-        makeUniqueRef<WebChromeClientIOS>(self)
+        makeUniqueRef<WebChromeClientIOS>(self),
 #endif
+        makeUniqueRef<WebCryptoClient>(self)
     );
 #if !PLATFORM(IOS_FAMILY)
     pageConfiguration.validationMessageClient = makeUnique<WebValidationMessageClient>(self);
@@ -1784,7 +1786,8 @@ static WebCore::ApplicationCacheStorage& webApplicationCacheStorage()
 #if ENABLE(APPLE_PAY)
         makeUniqueRef<WebPaymentCoordinatorClient>(),
 #endif
-        makeUniqueRef<WebChromeClientIOS>(self)
+        makeUniqueRef<WebChromeClientIOS>(self),
+        makeUniqueRef<WebCryptoClient>(self)
     );
 #if ENABLE(DRAG_SUPPORT)
     pageConfiguration.dragClient = makeUnique<WebDragClient>(self);
@@ -3249,7 +3252,7 @@ IGNORE_WARNINGS_END
 + (NSString *)_decodeData:(NSData *)data
 {
     WebCore::HTMLNames::init(); // this method is used for importing bookmarks at startup, so HTMLNames are likely to be uninitialized yet
-    return WebCore::TextResourceDecoder::create("text/html"_s)->decodeAndFlush(static_cast<const char*>([data bytes]), [data length]); // bookmark files are HTML
+    return WebCore::TextResourceDecoder::create("text/html"_s)->decodeAndFlush(span(data)); // bookmark files are HTML
 }
 
 - (void)_pushPerformingProgrammaticFocus

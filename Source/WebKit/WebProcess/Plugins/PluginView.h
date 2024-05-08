@@ -45,6 +45,7 @@ class HTMLPlugInElement;
 class LocalFrame;
 class RenderEmbeddedObject;
 class ShareableBitmap;
+class VoidCallback;
 }
 
 namespace WebKit {
@@ -52,13 +53,7 @@ namespace WebKit {
 class PDFPluginBase;
 class WebFrame;
 class WebPage;
-
 struct WebHitTestResultData;
-
-struct LookupTextResult {
-    String text;
-    RetainPtr<PDFSelection> correspondingSelection;
-};
 
 class PluginView final : public WebCore::PluginViewBase {
 public:
@@ -103,16 +98,16 @@ public:
     bool findString(const String& target, WebCore::FindOptions, unsigned maxMatchCount);
     Vector<WebCore::FloatRect> rectsForTextMatchesInRect(const WebCore::IntRect&) const;
     bool drawsFindOverlay() const;
-    RefPtr<WebCore::TextIndicator> textIndicatorForSelection(OptionSet<WebCore::TextIndicatorOption>, WebCore::TextIndicatorPresentationTransition);
+    RefPtr<WebCore::TextIndicator> textIndicatorForCurrentSelection(OptionSet<WebCore::TextIndicatorOption>, WebCore::TextIndicatorPresentationTransition);
 
     String selectionString() const;
 
     RefPtr<WebCore::FragmentedSharedBuffer> liveResourceData() const;
-    bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
 
-    LookupTextResult lookupTextAtLocation(const WebCore::FloatPoint&, WebHitTestResultData&) const;
+    bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
+    bool performImmediateActionHitTestAtLocation(const WebCore::FloatPoint&, WebHitTestResultData&) const;
+
     WebCore::FloatRect rectForSelectionInRootView(PDFSelection *) const;
-    CGFloat contentScaleFactor() const;
     
     bool isUsingUISideCompositing() const;
 
@@ -163,6 +158,7 @@ private:
     bool shouldAllowNavigationFromDrags() const final;
     void willDetachRenderer() final;
 
+    WebCore::ScrollableArea* scrollableArea() const final;
     bool usesAsyncScrolling() const final;
     WebCore::ScrollingNodeID scrollingNodeID() const final;
     void willAttachScrollingNode() final;
@@ -208,6 +204,9 @@ private:
 
     // This snapshot is used to avoid side effects should the plugin run JS during painting.
     RefPtr<WebCore::ShareableBitmap> m_transientPaintingSnapshot;
+
+    Vector<WebCore::FloatRect> pdfAnnotationRectsForTesting() const override;
+    void registerPDFTestCallback(RefPtr<WebCore::VoidCallback> &&) final;
 };
 
 } // namespace WebKit

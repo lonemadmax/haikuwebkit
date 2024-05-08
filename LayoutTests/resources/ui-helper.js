@@ -2141,26 +2141,46 @@ window.UIHelper = class UIHelper {
         return new Promise(resolve => testRunner.getSelectedTextInChromeInputField(resolve));
     }
 
-    static requestTextExtraction()
+    static requestTextExtraction(options)
     {
         if (!this.isWebKit2())
             return Promise.resolve();
 
         return new Promise(resolve => {
             testRunner.runUIScript(`(() => {
-                uiController.requestTextExtraction(result => uiController.uiScriptComplete(result));
+                uiController.requestTextExtraction(
+                    result => uiController.uiScriptComplete(result),
+                    ${JSON.stringify(options)}
+                );
             })()`, resolve);
         });
     }
 
-    static requestRenderedTextForSelector(selector)
+    static requestRenderedTextForFrontmostTarget(x, y)
     {
         if (!this.isWebKit2())
             return Promise.resolve();
 
         return new Promise(resolve => {
             testRunner.runUIScript(`(() => {
-                uiController.requestRenderedTextForSelector("${selector}", result => uiController.uiScriptComplete(result));
+                uiController.requestRenderedTextForFrontmostTarget(${x}, ${y}, result => uiController.uiScriptComplete(result));
+            })()`, resolve);
+        });
+    }
+
+    static adjustVisibilityForFrontmostTarget(x, y) {
+        if (!this.isWebKit2())
+            return Promise.resolve();
+
+        if (x instanceof HTMLElement) {
+            const point = this.midPointOfRect(x.getBoundingClientRect());
+            x = point.x;
+            y = point.y;
+        }
+
+        return new Promise(resolve => {
+            testRunner.runUIScript(`(() => {
+                uiController.adjustVisibilityForFrontmostTarget(${x}, ${y}, result => uiController.uiScriptComplete(result));
             })()`, resolve);
         });
     }

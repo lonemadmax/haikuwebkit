@@ -29,13 +29,13 @@
 #include "config.h"
 #include "RenderSVGPath.h"
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
 #include "Gradient.h"
 #include "ReferencedSVGResources.h"
 #include "RenderLayer.h"
 #include "RenderSVGResourceMarkerInlines.h"
 #include "RenderSVGShapeInlines.h"
 #include "RenderStyleInlines.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGMarkerElement.h"
 #include "SVGPathElement.h"
 #include "SVGSubpathData.h"
@@ -293,5 +293,3 @@ bool RenderSVGPath::isRenderingDisabled() const
 }
 
 }
-
-#endif // ENABLE(LAYER_BASED_SVG_ENGINE)

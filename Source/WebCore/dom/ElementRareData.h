@@ -41,6 +41,7 @@
 #include "SpaceSplitString.h"
 #include "StylePropertyMap.h"
 #include "StylePropertyMapReadOnly.h"
+#include "VisibilityAdjustment.h"
 #include <wtf/Markable.h>
 
 namespace WebCore {
@@ -153,6 +154,9 @@ public:
     CustomStateSet* customStateSet() { return m_customStateSet.get(); }
     void setCustomStateSet(Ref<CustomStateSet>&& customStateSet) { m_customStateSet = WTFMove(customStateSet); }
 
+    OptionSet<VisibilityAdjustment> visibilityAdjustment() const { return m_visibilityAdjustment; }
+    void setVisibilityAdjustment(OptionSet<VisibilityAdjustment> adjustment) { m_visibilityAdjustment = adjustment; }
+
 #if DUMP_NODE_STATISTICS
     OptionSet<UseType> useTypes() const
     {
@@ -255,6 +259,8 @@ private:
     std::unique_ptr<PopoverData> m_popoverData;
 
     RefPtr<CustomStateSet> m_customStateSet;
+
+    OptionSet<VisibilityAdjustment> m_visibilityAdjustment;
 };
 
 inline ElementRareData::ElementRareData()

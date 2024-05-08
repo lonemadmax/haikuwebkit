@@ -101,7 +101,7 @@ static HashMap<RegistrableDomain, String>& updatableStorageAccessUserAgentString
 static inline bool isYahooMail(Document& document)
 {
     auto host = document.topDocument().url().host();
-    return host.startsWith("mail."_s) && topPrivatelyControlledDomain(host.toString()).startsWith("yahoo."_s);
+    return host.startsWith("mail."_s) && PublicSuffixStore::singleton().topPrivatelyControlledDomain(host.toString()).startsWith("yahoo."_s);
 }
 #endif
 
@@ -137,15 +137,6 @@ bool Quirks::isEmbedDomain(const String& domainString) const
     if (m_document->isTopDocument())
         return false;
     return RegistrableDomain(m_document->url()).string() == domainString;
-}
-
-// vote.gov https://bugs.webkit.org/show_bug.cgi?id=267779
-bool Quirks::needsAnchorElementsToBeMouseFocusable() const
-{
-    if (!needsQuirks())
-        return false;
-
-    return isDomain("vote.gov"_s);
 }
 
 // ceac.state.gov https://bugs.webkit.org/show_bug.cgi?id=193478
@@ -263,7 +254,7 @@ bool Quirks::shouldHideSearchFieldResultsButton() const
     if (!needsQuirks())
         return false;
 
-    if (topPrivatelyControlledDomain(m_document->topDocument().url().host().toString()).startsWith("google."_s))
+    if (PublicSuffixStore::singleton().topPrivatelyControlledDomain(m_document->topDocument().url().host().toString()).startsWith("google."_s))
         return true;
 #endif
     return false;
@@ -426,6 +417,7 @@ bool Quirks::shouldDisableElementFullscreenQuirk() const
         m_shouldDisableElementFullscreen = isDomain("vimeo.com"_s)
             || isDomain("instagram.com"_s)
             || (PAL::currentUserInterfaceIdiomIsSmallScreen() && isDomain("digitaltrends.com"_s))
+            || (PAL::currentUserInterfaceIdiomIsSmallScreen() && isDomain("as.com"_s))
             || isEmbedDomain("twitter.com"_s)
             || (PAL::currentUserInterfaceIdiomIsSmallScreen() && (isDomain("youtube.com"_s) || isYoutubeEmbedDomain()));
     }
@@ -436,16 +428,30 @@ bool Quirks::shouldDisableElementFullscreenQuirk() const
 #endif
 }
 
+// rdar://123642870
+bool Quirks::shouldDisableWritingSuggestionsByDefaultQuirk() const
+{
+    if (!needsQuirks())
+        return false;
+
+    return isDomain("reddit.com"_s)
+        || isDomain("discord.com"_s)
+        || isDomain("twitch.tv"_s)
+        || isDomain("godbolt.org"_s)
+        || m_document->url().host().endsWith("officeapps.live.com"_s)
+        || m_document->url().host().endsWith("onedrive.live.com"_s);
+}
+
 #if ENABLE(TOUCH_EVENTS)
 bool Quirks::isAmazon() const
 {
-    return topPrivatelyControlledDomain(m_document->topDocument().url().host().toString()).startsWith("amazon."_s);
+    return PublicSuffixStore::singleton().topPrivatelyControlledDomain(m_document->topDocument().url().host().toString()).startsWith("amazon."_s);
 }
 
 bool Quirks::isGoogleMaps() const
 {
     auto& url = m_document->topDocument().url();
-    return topPrivatelyControlledDomain(url.host().toString()).startsWith("google."_s) && startsWithLettersIgnoringASCIICase(url.path(), "/maps/"_s);
+    return PublicSuffixStore::singleton().topPrivatelyControlledDomain(url.host().toString()).startsWith("google."_s) && startsWithLettersIgnoringASCIICase(url.path(), "/maps/"_s);
 }
 
 // rdar://49124313
@@ -473,7 +479,7 @@ bool Quirks::shouldDispatchSimulatedMouseEvents(const EventTarget* target) const
             return ShouldDispatchSimulatedMouseEvents::Yes;
 
         auto& url = m_document->topDocument().url();
-        auto host = url.host().convertToASCIILowercase();
+        auto host = url.host();
 
         if (isDomain("wix.com"_s)) {
             // Disable simulated mouse dispatching for template selection.
@@ -1072,7 +1078,7 @@ bool Quirks::needsCanPlayAfterSeekedQuirk() const
     if (m_needsCanPlayAfterSeekedQuirk)
         return *m_needsCanPlayAfterSeekedQuirk;
 
-    auto domain = m_document->securityOrigin().domain().convertToASCIILowercase();
+    auto domain = m_document->securityOrigin().domain();
 
     m_needsCanPlayAfterSeekedQuirk = domain == "hulu.com"_s || domain.endsWith(".hulu.com"_s);
 
@@ -1222,7 +1228,7 @@ Quirks::StorageAccessResult Quirks::requestStorageAccessAndHandleClick(Completio
             return;
         }
 
-        ResourceLoadObserver::shared().setDomainsWithCrossPageStorageAccess({{ firstPartyDomain, domainInNeedOfStorageAccess }}, [completionHandler = WTFMove(completionHandler)] () mutable {
+        ResourceLoadObserver::shared().setDomainsWithCrossPageStorageAccess({ { firstPartyDomain, Vector<RegistrableDomain> { domainInNeedOfStorageAccess } } }, [completionHandler = WTFMove(completionHandler)] () mutable {
             completionHandler(ShouldDispatchClick::Yes);
         });
     });
@@ -1492,6 +1498,17 @@ bool Quirks::allowLayeredFullscreenVideos() const
 }
 #endif
 
+#if PLATFORM(VISION)
+// twitter.com: rdar://124180748
+bool Quirks::shouldDisableFullscreenVideoAspectRatioAdaptiveSizing() const
+{
+    if (!needsQuirks())
+        return false;
+
+    return isDomain("twitter.com"_s);
+}
+#endif
+
 bool Quirks::shouldEnableApplicationCacheQuirk() const
 {
     // FIXME: Remove this when deleting ApplicationCache APIs.
@@ -1592,16 +1609,6 @@ bool Quirks::shouldDisablePushStateFilePathRestrictions() const
 #endif
 }
 
-// apple-console.lrn.com (rdar://106779034)
-bool Quirks::shouldDisablePopoverAttributeQuirk() const
-{
-    if (!needsQuirks())
-        return false;
-
-    auto host = m_document->topDocument().url().host();
-    return host == "apple-console.lrn.com"_s;
-}
-
 // ungap/@custom-elements polyfill (rdar://problem/111008826).
 bool Quirks::needsConfigurableIndexedPropertiesQuirk() const
 {
@@ -1663,16 +1670,16 @@ bool Quirks::needsResettingTransitionCancelsRunningTransitionQuirk() const
 #endif
 }
 
-bool Quirks::shouldStarBeFeaturePolicyDefaultValue() const
+bool Quirks::shouldStarBePermissionsPolicyDefaultValue() const
 {
     if (!needsQuirks())
         return false;
 
-    if (!m_shouldStarBeFeaturePolicyDefaultValueQuirk) {
-        auto domain = m_document->securityOrigin().domain().convertToASCIILowercase();
-        m_shouldStarBeFeaturePolicyDefaultValueQuirk = domain == "jsfiddle.net"_s;
+    if (!m_shouldStarBePermissionsPolicyDefaultValueQuirk) {
+        auto domain = m_document->securityOrigin().domain();
+        m_shouldStarBePermissionsPolicyDefaultValueQuirk = domain == "jsfiddle.net"_s;
     }
-    return *m_shouldStarBeFeaturePolicyDefaultValueQuirk;
+    return *m_shouldStarBePermissionsPolicyDefaultValueQuirk;
 }
 
 // Microsoft office online generates data URLs with incorrect padding on Safari only (rdar://114573089).
@@ -1722,101 +1729,89 @@ bool Quirks::shouldDisableNavigatorStandaloneQuirk() const
     return false;
 }
 
-// booking.com https://webkit.org/b/269875
-// FIXME: booking.com https://webkit.org/b/269876 when outreach has been successful.
-bool Quirks::shouldSendLongerAcceptHeaderQuirk(const URL& url, LocalFrame* frame)
-{
-    if (frame && !frame->settings().needsSiteSpecificQuirks())
-        return false;
-
-    auto host = url.host();
-    if (host == "booking.com"_s || host.endsWith(".booking.com"_s))
-        return true;
-
-    return false;
-}
-
 // This section is dedicated to UA override for iPad. iPads (but iPad Mini) are sending a desktop user agent
 // to websites. In some cases, the website breaks in some ways, not expecting a touch interface for the website.
 // Controls not active or too small, form factor, etc. In this case it is better to send the iPad Mini UA.
 // FIXME: find the reference radars and/or bugs.webkit.org issues on why these were added in the first place.
 // FIXME: There is no check currently on needsQuirks(), this needs to be fixed so it makes it easier
 // to deactivate them for testing.
-bool Quirks::needsIpadMiniUserAgent(StringView host)
+bool Quirks::needsIpadMiniUserAgent(const URL& url)
 {
+    auto host = url.host();
 
-    if (equalLettersIgnoringASCIICase(host, "tv.kakao.com"_s) || host.endsWithIgnoringASCIICase(".tv.kakao.com"_s))
+    if (host == "tv.kakao.com"_s || host.endsWith(".tv.kakao.com"_s))
         return true;
 
-    if (equalLettersIgnoringASCIICase(host, "tving.com"_s) || host.endsWithIgnoringASCIICase(".tving.com"_s))
+    if (host == "tving.com"_s || host.endsWith(".tving.com"_s))
         return true;
 
-    if (equalLettersIgnoringASCIICase(host, "live.iqiyi.com"_s) || host.endsWithIgnoringASCIICase(".live.iqiyi.com"_s))
+    if (host == "live.iqiyi.com"_s || host.endsWith(".live.iqiyi.com"_s))
         return true;
 
-    if (equalLettersIgnoringASCIICase(host, "jsfiddle.net"_s) || host.endsWithIgnoringASCIICase(".jsfiddle.net"_s))
+    if (host == "jsfiddle.net"_s || host.endsWith(".jsfiddle.net"_s))
         return true;
 
-    if (equalLettersIgnoringASCIICase(host, "video.sina.com.cn"_s) || host.endsWithIgnoringASCIICase(".video.sina.com.cn"_s))
+    if (host == "video.sina.com.cn"_s || host.endsWith(".video.sina.com.cn"_s))
         return true;
 
-    if (equalLettersIgnoringASCIICase(host, "huya.com"_s) || host.endsWithIgnoringASCIICase(".huya.com"_s))
+    if (host == "huya.com"_s || host.endsWith(".huya.com"_s))
         return true;
 
-    if (equalLettersIgnoringASCIICase(host, "video.tudou.com"_s) || host.endsWithIgnoringASCIICase(".video.tudou.com"_s))
+    if (host == "video.tudou.com"_s || host.endsWith(".video.tudou.com"_s))
         return true;
 
-    if (equalLettersIgnoringASCIICase(host, "cctv.com"_s) || host.endsWithIgnoringASCIICase(".cctv.com"_s))
+    if (host == "cctv.com"_s || host.endsWith(".cctv.com"_s))
         return true;
 
-    if (equalLettersIgnoringASCIICase(host, "v.china.com.cn"_s))
+    if (host == "v.china.com.cn"_s)
         return true;
 
-    if (equalLettersIgnoringASCIICase(host, "trello.com"_s) || host.endsWithIgnoringASCIICase(".trello.com"_s))
+    if (host == "trello.com"_s || host.endsWith(".trello.com"_s))
         return true;
 
-    if (equalLettersIgnoringASCIICase(host, "ted.com"_s) || host.endsWithIgnoringASCIICase(".ted.com"_s))
+    if (host == "ted.com"_s || host.endsWith(".ted.com"_s))
         return true;
 
-    if (host.containsIgnoringASCIICase("hsbc."_s)) {
-        if (equalLettersIgnoringASCIICase(host, "hsbc.com.au"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.au"_s))
+    if (host.contains("hsbc."_s)) {
+        if (host == "hsbc.com.au"_s || host.endsWith(".hsbc.com.au"_s))
             return true;
-        if (equalLettersIgnoringASCIICase(host, "hsbc.com.eg"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.eg"_s))
+        if (host == "hsbc.com.eg"_s || host.endsWith(".hsbc.com.eg"_s))
             return true;
-        if (equalLettersIgnoringASCIICase(host, "hsbc.lk"_s) || host.endsWithIgnoringASCIICase(".hsbc.lk"_s))
+        if (host == "hsbc.lk"_s || host.endsWith(".hsbc.lk"_s))
             return true;
-        if (equalLettersIgnoringASCIICase(host, "hsbc.co.uk"_s) || host.endsWithIgnoringASCIICase(".hsbc.co.uk"_s))
+        if (host == "hsbc.co.uk"_s || host.endsWith(".hsbc.co.uk"_s))
             return true;
-        if (equalLettersIgnoringASCIICase(host, "hsbc.com.hk"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.hk"_s))
+        if (host == "hsbc.com.hk"_s || host.endsWith(".hsbc.com.hk"_s))
             return true;
-        if (equalLettersIgnoringASCIICase(host, "hsbc.com.mx"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.mx"_s))
+        if (host == "hsbc.com.mx"_s || host.endsWith(".hsbc.com.mx"_s))
             return true;
-        if (equalLettersIgnoringASCIICase(host, "hsbc.ca"_s) || host.endsWithIgnoringASCIICase(".hsbc.ca"_s))
+        if (host == "hsbc.ca"_s || host.endsWith(".hsbc.ca"_s))
             return true;
-        if (equalLettersIgnoringASCIICase(host, "hsbc.com.ar"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.ar"_s))
+        if (host == "hsbc.com.ar"_s || host.endsWith(".hsbc.com.ar"_s))
             return true;
-        if (equalLettersIgnoringASCIICase(host, "hsbc.com.ph"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.ph"_s))
+        if (host == "hsbc.com.ph"_s || host.endsWith(".hsbc.com.ph"_s))
             return true;
-        if (equalLettersIgnoringASCIICase(host, "hsbc.com"_s) || host.endsWithIgnoringASCIICase(".hsbc.com"_s))
+        if (host == "hsbc.com"_s || host.endsWith(".hsbc.com"_s))
             return true;
-        if (equalLettersIgnoringASCIICase(host, "hsbc.com.cn"_s) || host.endsWithIgnoringASCIICase(".hsbc.com.cn"_s))
+        if (host == "hsbc.com.cn"_s || host.endsWith(".hsbc.com.cn"_s))
             return true;
     }
 
-    if (equalLettersIgnoringASCIICase(host, "nhl.com"_s) || host.endsWithIgnoringASCIICase(".nhl.com"_s))
+    if (host == "nhl.com"_s || host.endsWith(".nhl.com"_s))
         return true;
 
     // FIXME: Remove this quirk when <rdar://problem/59480381> is complete.
-    if (equalLettersIgnoringASCIICase(host, "fidelity.com"_s) || host.endsWithIgnoringASCIICase(".fidelity.com"_s))
+    if (host == "fidelity.com"_s || host.endsWith(".fidelity.com"_s))
         return true;
 
     // FIXME: Remove this quirk when <rdar://problem/61733101> is complete.
-    if (equalLettersIgnoringASCIICase(host, "roblox.com"_s) || host.endsWithIgnoringASCIICase(".roblox.com"_s))
+    if (host == "roblox.com"_s || host.endsWith(".roblox.com"_s))
         return true;
 
     // FIXME: Remove this quirk when <rdar://122481999> is complete
-    if (equalLettersIgnoringASCIICase(host, "spotify.com"_s) || host.endsWithIgnoringASCIICase(".spotify.com"_s) || host.endsWithIgnoringASCIICase(".spotifycdn.com"_s))
+    if (host == "spotify.com"_s || host.endsWith(".spotify.com"_s) || host.endsWith(".spotifycdn.com"_s))
         return true;
+
     return false;
 }
 

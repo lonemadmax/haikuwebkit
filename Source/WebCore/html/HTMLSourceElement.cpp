@@ -54,7 +54,7 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(HTMLSourceElement);
 using namespace HTMLNames;
 
 inline HTMLSourceElement::HTMLSourceElement(const QualifiedName& tagName, Document& document)
-    : HTMLElement(tagName, document)
+    : HTMLElement(tagName, document, TypeFlag::HasDidMoveToNewDocument)
     , ActiveDOMObject(document)
 {
     LOG(Media, "HTMLSourceElement::HTMLSourceElement - %p", this);
@@ -121,6 +121,12 @@ void HTMLSourceElement::removedFromAncestor(RemovalType removalType, ContainerNo
             m_shouldCallSourcesChanged = false;
         }
     }
+}
+
+void HTMLSourceElement::didMoveToNewDocument(Document& oldDocument, Document& newDocument)
+{
+    HTMLElement::didMoveToNewDocument(oldDocument, newDocument);
+    ActiveDOMObject::didMoveToNewDocument(newDocument);
 }
 
 void HTMLSourceElement::scheduleErrorEvent()
@@ -237,7 +243,7 @@ Ref<Element> HTMLSourceElement::cloneElementWithoutAttributesAndChildren(Documen
 void HTMLSourceElement::copyNonAttributePropertiesFromElement(const Element& source)
 {
 #if ENABLE(ATTACHMENT_ELEMENT)
-    auto& sourceElement = checkedDowncast<HTMLSourceElement>(source);
+    auto& sourceElement = downcast<HTMLSourceElement>(source);
     copyAttachmentAssociatedPropertiesFromElement(sourceElement);
 #endif
     Element::copyNonAttributePropertiesFromElement(source);

@@ -394,7 +394,7 @@ public:
     void addServiceWorkerRegistration(WebCore::ServiceWorkerRegistrationIdentifier);
     bool removeServiceWorkerRegistration(WebCore::ServiceWorkerRegistrationIdentifier);
 
-    void grantAccessToAssetServices(Vector<WebKit::SandboxExtension::Handle>&& assetServicesHandles);
+    void grantAccessToAssetServices(Vector<WebKit::SandboxExtensionHandle>&& assetServicesHandles);
     void revokeAccessToAssetServices();
     void switchFromStaticFontRegistryToUserFontRegistry(Vector<SandboxExtension::Handle>&& fontMachExtensionHandles);
 
@@ -594,7 +594,7 @@ private:
 
     void setThirdPartyCookieBlockingMode(WebCore::ThirdPartyCookieBlockingMode, CompletionHandler<void()>&&);
     void setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain>&&);
-    void setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, SubResourceDomain>&&, CompletionHandler<void()>&&);
+    void setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Vector<SubResourceDomain>>&&, CompletionHandler<void()>&&);
     void sendResourceLoadStatisticsDataImmediately(CompletionHandler<void()>&&);
 
     void updateDomainsWithStorageAccessQuirks(HashSet<WebCore::RegistrableDomain>&&);

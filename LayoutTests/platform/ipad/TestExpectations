@@ -119,8 +119,6 @@ media/mediacapabilities/mediacapabilities-allowed-codecs.html [ Pass ]
 media/mediacapabilities/mediacapabilities-allowed-containers.html [ Pass ]
 
 # webkit.org/b/269393 ([ iOS wk2 ] 3 iOS orientation(layout-tests) are constant text failures)
-compositing/backing/page-scale-overlap-in-iframe.html [ Failure ]
-fast/events/ios/rotation/zz-no-rotation.html [ Pass Crash ]
 fast/screen-orientation/natural-orientation.html [ Pass ]
 
 # webkit.org/b/269417 ([ iOS ] 5x imported/w3c/web-platform-tests are constant text failures)
@@ -128,3 +126,5 @@ imported/w3c/web-platform-tests/css/css-cascade/all-prop-initial-xml.html [ Fail
 imported/w3c/web-platform-tests/html/user-activation/consumption-sameorigin.html  [ Failure ]
 imported/w3c/web-platform-tests/html/user-activation/propagation-crossorigin.sub.html [ Failure ]
 imported/w3c/web-platform-tests/html/user-activation/propagation-sameorigin.html  [ Failure ]
+
+webkit.org/b/271712 fast/forms/datalist/datalist-textinput-dynamically-add-options-on-keydown.html [ Timeout ]

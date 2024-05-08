@@ -36,9 +36,9 @@
 #include "AXLogger.h"
 #include "AXRemoteFrame.h"
 #include "AXTextMarker.h"
-#include "AccessibilityARIAGrid.h"
 #include "AccessibilityARIAGridCell.h"
 #include "AccessibilityARIAGridRow.h"
+#include "AccessibilityARIATable.h"
 #include "AccessibilityAttachment.h"
 #include "AccessibilityImageMapLink.h"
 #include "AccessibilityLabel.h"
@@ -92,6 +92,7 @@
 #include "HTMLTableRowElement.h"
 #include "HTMLTableSectionElement.h"
 #include "HTMLTextFormControlElement.h"
+#include "HitTestSource.h"
 #include "InlineRunAndOffset.h"
 #include "LocalFrame.h"
 #include "MathMLElement.h"
@@ -208,9 +209,15 @@ bool AXObjectCache::gAccessibilityEnabled = false;
 bool AXObjectCache::gAccessibilityEnhancedUserInterfaceEnabled = false;
 bool AXObjectCache::gForceDeferredSpellChecking = false;
 #if ENABLE(AX_THREAD_TEXT_APIS)
-bool AXObjectCache::gAccessibilityThreadTextApisEnabled = false;
+std::atomic<bool> AXObjectCache::gAccessibilityThreadTextApisEnabled = false;
 #endif
-bool AXObjectCache::gForceInitialFrameCaching = false;
+std::atomic<bool> AXObjectCache::gForceInitialFrameCaching = false;
+
+bool AXObjectCache::accessibilityEnabled()
+{
+    ASSERT(isMainThread());
+    return gAccessibilityEnabled;
+}
 
 void AXObjectCache::enableAccessibility()
 {
@@ -220,16 +227,31 @@ void AXObjectCache::enableAccessibility()
 
 void AXObjectCache::disableAccessibility()
 {
+    ASSERT(isMainThread());
     gAccessibilityEnabled = false;
+}
+
+bool AXObjectCache::forceDeferredSpellChecking()
+{
+    ASSERT(isMainThread());
+    return gForceDeferredSpellChecking;
 }
 
 void AXObjectCache::setForceDeferredSpellChecking(bool shouldForce)
 {
+    ASSERT(isMainThread());
     gForceDeferredSpellChecking = shouldForce;
+}
+
+bool AXObjectCache::accessibilityEnhancedUserInterfaceEnabled()
+{
+    ASSERT(isMainThread());
+    return gAccessibilityEnhancedUserInterfaceEnabled;
 }
 
 void AXObjectCache::setEnhancedUserInterfaceAccessibility(bool flag)
 {
+    ASSERT(isMainThread());
     gAccessibilityEnhancedUserInterfaceEnabled = flag;
 #if PLATFORM(MAC)
     if (flag)
@@ -245,7 +267,7 @@ void AXObjectCache::setForceInitialFrameCaching(bool shouldForce)
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 bool AXObjectCache::shouldServeInitialCachedFrame()
 {
-    return !isTestClient() || forceInitialFrameCaching();
+    return !clientIsInTestMode() || forceInitialFrameCaching();
 }
 
 static const Seconds updateTreeSnapshotTimerInterval { 100_ms };
@@ -446,7 +468,7 @@ bool AXObjectCache::isNodeVisible(Node* node) const
         return false;
 
     auto* renderLayer = renderer->enclosingLayer();
-    if (style.visibility() != Visibility::Visible && renderLayer && !renderLayer->hasVisibleContent())
+    if (style.usedVisibility() != Visibility::Visible && renderLayer && !renderLayer->hasVisibleContent())
         return false;
 
     // Check whether this object or any of its ancestors has opacity 0.
@@ -615,7 +637,7 @@ bool nodeHasRole(Node* node, StringView role)
     return SpaceSplitString::spaceSplitStringContainsValue(roleValue, role, SpaceSplitString::ShouldFoldCase::Yes);
 }
 
-bool nodeHasGridRole(Node* node)
+bool nodeHasTableRole(Node* node)
 {
     return nodeHasRole(node, "grid"_s) || nodeHasRole(node, "table"_s) || nodeHasRole(node, "treegrid"_s);
 }
@@ -685,9 +707,9 @@ static bool isAccessibilityTableCell(Node* node)
     return is<HTMLTableCellElement>(node);
 }
 
-static bool isAccessibilityARIAGrid(Node* node)
+static bool isAccessibilityARIATable(Node* node)
 {
-    return nodeHasGridRole(node);
+    return nodeHasTableRole(node);
 }
 
 static bool isAccessibilityARIAGridRow(Node* node)
@@ -708,9 +730,8 @@ Ref<AccessibilityObject> AXObjectCache::createObjectFromRenderer(RenderObject* r
     if (isAccessibilityList(node))
         return AccessibilityList::create(renderer);
 
-    // aria tables
-    if (isAccessibilityARIAGrid(node))
-        return AccessibilityARIAGrid::create(renderer);
+    if (isAccessibilityARIATable(node))
+        return AccessibilityARIATable::create(renderer);
     if (isAccessibilityARIAGridRow(node))
         return AccessibilityARIAGridRow::create(renderer);
     if (isAccessibilityARIAGridCell(node))
@@ -792,8 +813,8 @@ static Ref<AccessibilityObject> createFromNode(Node& node)
         return AccessibilityTree::create(node);
     if (isAccessibilityTreeItem(&node))
         return AccessibilityTreeItem::create(node);
-    if (isAccessibilityARIAGrid(&node))
-        return AccessibilityARIAGrid::create(node);
+    if (isAccessibilityARIATable(&node))
+        return AccessibilityARIATable::create(node);
     if (isAccessibilityARIAGridRow(&node))
         return AccessibilityARIAGridRow::create(node);
     if (isAccessibilityARIAGridCell(&node))
@@ -988,7 +1009,7 @@ RefPtr<AXIsolatedTree> AXObjectCache::getOrCreateIsolatedTree()
     // especially for large documents, for real clients we build a temporary "empty" isolated tree consisting only of the ScrollView and the WebArea objects.
     // Then we schedule building the entire isolated tree on a Timer.
     // For test clients, LayoutTests or XCTests, build the whole isolated tree.
-    if (LIKELY(!isTestClient())) {
+    if (LIKELY(!clientIsInTestMode())) {
         tree = AXIsolatedTree::createEmpty(*this);
         if (!m_buildIsolatedTreeTimer.isActive())
             m_buildIsolatedTreeTimer.startOneShot(0_s);
@@ -1225,7 +1246,7 @@ void AXObjectCache::handleTextChanged(AccessibilityObject* object)
             // Any objects this ancestor labeled now also need new AccessibilityText.
             auto labeledObjects = ancestor->labelForObjects();
             for (const auto& labeledObject : labeledObjects)
-                postNotification(checkedDowncast<AccessibilityObject>(labeledObject.get()), nullptr, AXTextChanged);
+                postNotification(downcast<AccessibilityObject>(labeledObject.get()), nullptr, AXTextChanged);
         }
     }
 
@@ -1714,12 +1735,30 @@ void AXObjectCache::onPageActivityStateChange(OptionSet<ActivityState> newState)
 #endif
 }
 
-void AXObjectCache::onFocusChange(Node* oldNode, Node* newNode)
+static bool shouldDeferFocusChange(Element* element)
 {
-    if (nodeAndRendererAreValid(newNode) && rendererNeedsDeferredUpdate(*newNode->renderer())) {
+    if (!element)
+        return false;
+
+    auto* renderer = element->renderer();
+    if (renderer && rendererNeedsDeferredUpdate(*renderer))
+        return true;
+
+    // We also want to defer handling focus changes for nodes that haven't yet attached their renderer.
+    if (const auto* style = element->existingComputedStyle())
+        return !renderer && element->rendererIsNeeded(*style);
+    // No existing style, so we can't easily determine whether this element will need a renderer.
+    // Resolving style is expensive and we don't want to do it now, so make this decision assuming
+    // a renderer just hasn't been attached yet, indicated by it being nullptr.
+    return !renderer;
+}
+
+void AXObjectCache::onFocusChange(Element* oldElement, Element* newElement)
+{
+    if (shouldDeferFocusChange(newElement)) {
         if (m_deferredFocusedNodeChange) {
             // If we got a focus change notification but haven't committed a previously deferred focus change:
-            if (m_deferredFocusedNodeChange->first == newNode) {
+            if (m_deferredFocusedNodeChange->first == newElement) {
                 // Cancel the focus change entirely if the new focused node will be the same as the old one (i.e. there is no effective focus change).
                 m_deferredFocusedNodeChange = std::nullopt;
                 return;
@@ -1729,14 +1768,16 @@ void AXObjectCache::onFocusChange(Node* oldNode, Node* newNode)
             // meaning it could be unignored solely because it was DOM focused.
             recomputeIsIgnored(m_deferredFocusedNodeChange->second.get());
             // And now we can update the new deferred focus node to be |newNode|.
-            m_deferredFocusedNodeChange->second = newNode;
+            m_deferredFocusedNodeChange->second = newElement;
         } else
-            m_deferredFocusedNodeChange = { oldNode, newNode };
+            m_deferredFocusedNodeChange = { oldElement, newElement };
 
-        if (!newNode->renderer()->needsLayout() && !m_performCacheUpdateTimer.isActive())
+        // Don't start the timer if a layout is pending, as the layout will trigger a cache update.
+        bool needsLayout = newElement->renderer() && newElement->renderer()->needsLayout();
+        if (!needsLayout && !m_performCacheUpdateTimer.isActive())
             m_performCacheUpdateTimer.startOneShot(0_s);
     } else
-        handleFocusedUIElementChanged(oldNode, newNode);
+        handleFocusedUIElementChanged(oldElement, newElement);
 }
 
 void AXObjectCache::onPopoverToggle(const HTMLElement& popover)
@@ -2368,7 +2409,7 @@ void AXObjectCache::handleActiveDescendantChange(Element& element, const AtomStr
     }
 
     // Handle active-descendant changes when the target allows for it, or the controlled object allows for it.
-    RefPtr<AccessibilityObject> target { nullptr };
+    RefPtr<AccessibilityObject> target;
     if (object->shouldFocusActiveDescendant()) {
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
         setIsolatedTreeFocusedObject(activeDescendant.get());
@@ -2399,6 +2440,14 @@ void AXObjectCache::handleActiveDescendantChange(Element& element, const AtomStr
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
         if (target != object)
             updateIsolatedTree(target.get(), AXNotification::AXActiveDescendantChanged);
+        else if (target->isComboBox() && activeDescendant->isListItem()) {
+            // The combobox does not own or control the list to which activeDescendant belongs.
+            // We still need to update the selected children of that list.
+            RefPtr list = Accessibility::findAncestor(*activeDescendant, false, [] (const auto& ancestor) {
+                return ancestor.isList() || ancestor.isListBox();
+            });
+            updateIsolatedTree(list.get(), AXNotification::AXSelectedChildrenChanged);
+        }
 #endif
 
         postPlatformNotification(target.get(), AXNotification::AXActiveDescendantChanged);
@@ -3860,7 +3909,7 @@ CharacterOffset AXObjectCache::characterOffsetForPoint(const IntPoint& point, AX
 
 CharacterOffset AXObjectCache::characterOffsetForPoint(const IntPoint& point)
 {
-    auto range = makeSimpleRange(m_document->caretPositionFromPoint(point));
+    auto range = makeSimpleRange(m_document->caretPositionFromPoint(point, HitTestSource::User));
     if (!range)
         return { };
     return startOrEndCharacterOffsetForRange(*range, true);
@@ -5037,19 +5086,16 @@ bool AXObjectCache::addRelation(Element& origin, const QualifiedName& attribute)
 
     bool addedRelation = false;
     auto relationType = attributeToRelationType(attribute);
-    if (m_document->settings().ariaReflectionForElementReferencesEnabled()) {
-        Ref settings = m_document->settings();
-        if (Element::isElementReflectionAttribute(settings, attribute)) {
-            if (auto reflectedElement = origin.getElementAttribute(attribute))
-                return addRelation(&origin, reflectedElement.get(), relationType);
-        } else if (Element::isElementsArrayReflectionAttribute(settings, attribute)) {
-            if (auto reflectedElements = origin.getElementsArrayAttribute(attribute)) {
-                for (auto reflectedElement : reflectedElements.value()) {
-                    if (addRelation(&origin, reflectedElement.get(), relationType))
-                        addedRelation = true;
-                }
-                return addedRelation;
+    if (Element::isElementReflectionAttribute(Ref { m_document->settings() }, attribute)) {
+        if (auto reflectedElement = origin.getElementAttribute(attribute))
+            return addRelation(&origin, reflectedElement.get(), relationType);
+    } else if (Element::isElementsArrayReflectionAttribute(attribute)) {
+        if (auto reflectedElements = origin.getElementsArrayAttribute(attribute)) {
+            for (auto reflectedElement : reflectedElements.value()) {
+                if (addRelation(&origin, reflectedElement.get(), relationType))
+                    addedRelation = true;
             }
+            return addedRelation;
         }
     }
 

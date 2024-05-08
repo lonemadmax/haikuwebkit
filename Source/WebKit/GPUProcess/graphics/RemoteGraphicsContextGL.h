@@ -40,6 +40,7 @@
 #include <WebCore/ProcessIdentity.h>
 #include <WebCore/RenderingResourceIdentifier.h>
 #include <wtf/ThreadAssertions.h>
+#include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/WeakPtr.h>
 
 #if PLATFORM(COCOA)
@@ -108,7 +109,7 @@ protected:
 
     // Messages to be received.
     void ensureExtensionEnabled(String&&);
-    void createAndBindEGLImage(GCGLenum, WebCore::GraphicsContextGL::EGLImageSource, GCGLint, CompletionHandler<void(uint64_t)>&&);
+    void createAndBindEGLImage(GCGLenum, GCGLenum, WebCore::GraphicsContextGL::EGLImageSource, GCGLint, CompletionHandler<void(uint64_t)>&&);
     void reshape(int32_t width, int32_t height);
 #if PLATFORM(COCOA)
     virtual void prepareForDisplay(IPC::Semaphore&&, CompletionHandler<void(WTF::MachSendRight&&)>&&) = 0;
@@ -125,7 +126,7 @@ protected:
     void surfaceBufferToVideoFrame(WebCore::GraphicsContextGL::SurfaceBuffer, CompletionHandler<void(std::optional<WebKit::RemoteVideoFrameProxy::Properties>&&)>&&);
 #endif
 #if ENABLE(VIDEO) && PLATFORM(COCOA)
-    void copyTextureFromVideoFrame(SharedVideoFrame&&, uint32_t texture, uint32_t target, int32_t level, uint32_t internalFormat, uint32_t format, uint32_t type, bool premultiplyAlpha, bool flipY, CompletionHandler<void(bool)>&&);
+    void copyTextureFromVideoFrame(SharedVideoFrame&&, PlatformGLObject texture, uint32_t target, int32_t level, uint32_t internalFormat, uint32_t format, uint32_t type, bool premultiplyAlpha, bool flipY, CompletionHandler<void(bool)>&&);
     void setSharedVideoFrameSemaphore(IPC::Semaphore&&);
     void setSharedVideoFrameMemory(WebCore::SharedMemory::Handle&&);
 #endif
@@ -148,7 +149,7 @@ private:
     void paintNativeImageToImageBuffer(WebCore::NativeImage&, WebCore::RenderingResourceIdentifier);
 
 protected:
-    WeakPtr<GPUConnectionToWebProcess> m_gpuConnectionToWebProcess;
+    ThreadSafeWeakPtr<GPUConnectionToWebProcess> m_gpuConnectionToWebProcess;
     Ref<IPC::StreamConnectionWorkQueue> m_workQueue;
     RefPtr<IPC::StreamServerConnection> m_streamConnection;
 #if PLATFORM(COCOA)
@@ -170,6 +171,7 @@ protected:
     ScopedWebGLRenderingResourcesRequest m_renderingResourcesRequest;
     WebCore::ProcessIdentifier m_webProcessIdentifier;
     const WebCore::ProcessIdentity m_resourceOwner;
+    HashMap<uint32_t, PlatformGLObject, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_objectNames;
 };
 
 

@@ -1,26 +1,33 @@
 /*
  * Copyright (C) 2024 Igalia S.L.
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public License
- * along with this library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "SkiaAcceleratedBufferPool.h"
 
 #if USE(COORDINATED_GRAPHICS) && USE(SKIA)
+#include "FontRenderOptions.h"
 #include "GLContext.h"
 #include "PlatformDisplay.h"
 #include <skia/gpu/GrBackendSurface.h>
@@ -48,27 +55,35 @@ SkiaAcceleratedBufferPool::~SkiaAcceleratedBufferPool()
     m_buffers.clear();
 }
 
-Ref<Nicosia::Buffer> SkiaAcceleratedBufferPool::acquireBuffer(const IntSize& size, bool supportsAlpha)
+RefPtr<Nicosia::Buffer> SkiaAcceleratedBufferPool::acquireBuffer(const IntSize& size, bool supportsAlpha)
 {
     Entry* selectedEntry = std::find_if(m_buffers.begin(), m_buffers.end(), [&](Entry& entry) {
         return entry.m_buffer->refCount() == 1 && entry.m_buffer->size() == size && entry.m_buffer->supportsAlpha() == supportsAlpha;
     });
 
     if (selectedEntry == m_buffers.end()) {
-        m_buffers.append(Entry(createAcceleratedBuffer(size, supportsAlpha)));
+        auto buffer = createAcceleratedBuffer(size, supportsAlpha);
+        if (!buffer)
+            return nullptr;
+
+        m_buffers.append(Entry(Ref { *buffer }));
         selectedEntry = &m_buffers.last();
     }
 
     scheduleReleaseUnusedBuffers();
     selectedEntry->markIsInUse();
-    return selectedEntry->m_buffer.copyRef();
+    return selectedEntry->m_buffer.ptr();
 }
 
-Ref<Nicosia::Buffer> SkiaAcceleratedBufferPool::createAcceleratedBuffer(const IntSize& size, bool supportsAlpha)
+RefPtr<Nicosia::Buffer> SkiaAcceleratedBufferPool::createAcceleratedBuffer(const IntSize& size, bool supportsAlpha)
 {
     auto* grContext = PlatformDisplay::sharedDisplayForCompositing().skiaGrContext();
+    RELEASE_ASSERT(grContext);
     auto imageInfo = SkImageInfo::MakeN32Premul(size.width(), size.height());
-    auto surface = SkSurfaces::RenderTarget(grContext, skgpu::Budgeted::kNo, imageInfo, 0, kTopLeft_GrSurfaceOrigin, nullptr);
+    SkSurfaceProps properties = { 0, FontRenderOptions::singleton().subpixelOrder() };
+    auto surface = SkSurfaces::RenderTarget(grContext, skgpu::Budgeted::kNo, imageInfo, 0, kTopLeft_GrSurfaceOrigin, &properties);
+    if (!surface)
+        return nullptr;
     return Nicosia::AcceleratedBuffer::create(WTFMove(surface), supportsAlpha ? Nicosia::Buffer::SupportsAlpha : Nicosia::Buffer::NoFlags);
 }
 

@@ -27,6 +27,7 @@
 
 #if ENABLE(MEDIA_SOURCE) && USE(AVFOUNDATION)
 
+#include "ProcessIdentity.h"
 #include "MediaSourcePrivate.h"
 #include "MediaSourcePrivateClient.h"
 #include <wtf/Deque.h>
@@ -109,7 +110,11 @@ public:
     void failedToCreateRenderer(RendererType);
     bool needsVideoLayer() const;
 
+    void setResourceOwner(const ProcessIdentity& resourceOwner) { m_resourceOwner = resourceOwner; }
+
 private:
+    friend class SourceBufferPrivateAVFObjC;
+
     MediaSourcePrivateAVFObjC(MediaPlayerPrivateMediaSourceAVFObjC&, MediaSourcePrivateClient&);
     MediaPlayerPrivateMediaSourceAVFObjC* platformPlayer() const { return m_player.get(); }
 
@@ -121,7 +126,8 @@ private:
 
     void setSourceBufferWithSelectedVideo(SourceBufferPrivateAVFObjC*);
 
-    friend class SourceBufferPrivateAVFObjC;
+    void bufferedChanged(const PlatformTimeRanges&) final;
+    void trackBufferedChanged(SourceBufferPrivate&, Vector<PlatformTimeRanges>&&) final;
 
     WeakPtr<MediaPlayerPrivateMediaSourceAVFObjC> m_player;
     Deque<SourceBufferPrivateAVFObjC*> m_sourceBuffersNeedingSessions;
@@ -134,6 +140,9 @@ private:
     const void* m_logIdentifier;
     uint64_t m_nextSourceBufferID { 0 };
 #endif
+
+    HashMap<SourceBufferPrivate*, Vector<PlatformTimeRanges>> m_bufferedRanges;
+    ProcessIdentity m_resourceOwner;
 };
 
 } // namespace WebCore

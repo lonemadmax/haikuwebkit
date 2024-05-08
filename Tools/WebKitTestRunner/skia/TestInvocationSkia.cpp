@@ -30,6 +30,8 @@
 #include "PixelDumpSupport.h"
 #include "PlatformWebView.h"
 #include "TestController.h"
+#include <WebKit/WKImageSkia.h>
+#include <skia/core/SkCanvas.h>
 #include <skia/core/SkStream.h>
 IGNORE_CLANG_WARNINGS_BEGIN("cast-align")
 #include <skia/encode/SkPngEncoder.h>
@@ -48,7 +50,7 @@ static std::string computeSHA1HashStringForPixmap(const SkPixmap& pixmap)
     SHA1 sha1;
     const auto* bitmapData = pixmap.addr8();
     for (size_t row = 0; row < pixelsHight; ++row) {
-        sha1.addBytes(bitmapData, 4 * pixelsWidth);
+        sha1.addBytes(std::span { bitmapData, 4 * pixelsWidth });
         bitmapData += bytesPerRow;
     }
     auto hexString = sha1.computeHexDigest();
@@ -66,23 +68,38 @@ static void dumpPixmap(const SkPixmap& pixmap, const std::string& checksum)
     printPNG(data->bytes(), data->size(), checksum.c_str());
 }
 
-void TestInvocation::dumpPixelsAndCompareWithExpected(SnapshotResultType snapshotType, WKArrayRef, WKImageRef)
+void TestInvocation::dumpPixelsAndCompareWithExpected(SnapshotResultType snapshotType, WKArrayRef repaintRects, WKImageRef webImage)
 {
     sk_sp<SkImage> image;
     switch (snapshotType) {
     case SnapshotResultType::WebContents:
-        // FIXME: implement.
+        image.reset(WKImageCreateSkImage(webImage));
         break;
     case SnapshotResultType::WebView:
         image.reset(TestController::singleton().mainWebView()->windowSnapshotImage());
         break;
     }
 
-    // FIXME: support repaint rects.
-
     SkPixmap pixmap;
     if (!image->peekPixels(&pixmap))
         return;
+
+    if (repaintRects) {
+        auto canvas = SkCanvas::MakeRasterDirect(image->imageInfo(), pixmap.writable_addr(), image->imageInfo().minRowBytes());
+        canvas->saveLayer(SkRect::MakeWH(image->width(), image->height()), nullptr);
+        canvas->drawColor(SkColor4f { 0, 0, 0, 0.66 });
+
+        SkPaint paint;
+        paint.setColor(SkColor4f { 0, 0, 0, 0 });
+        paint.setBlendMode(SkBlendMode::kSrc);
+
+        size_t count = WKArrayGetSize(repaintRects);
+        for (size_t i = 0; i < count; ++i) {
+            WKRect rect = WKRectGetValue(static_cast<WKRectRef>(WKArrayGetItemAtIndex(repaintRects, i)));
+            canvas->drawRect(SkRect::MakeXYWH(static_cast<float>(rect.origin.x), static_cast<float>(rect.origin.y), static_cast<float>(rect.size.width), static_cast<float>(rect.size.height)), paint);
+        }
+        canvas->restore();
+    }
 
     auto snapshotHash = computeSHA1HashStringForPixmap(pixmap);
     if (!compareActualHashToExpectedAndDumpResults(snapshotHash))

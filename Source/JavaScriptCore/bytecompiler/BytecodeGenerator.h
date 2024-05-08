@@ -752,6 +752,7 @@ namespace JSC {
         RegisterID* emitToNumeric(RegisterID* dst, RegisterID* src);
         RegisterID* emitToString(RegisterID* dst, RegisterID* src);
         RegisterID* emitToObject(RegisterID* dst, RegisterID* src, const Identifier& message);
+        RegisterID* emitToThis(RegisterID* srcDst);
         RegisterID* emitInc(RegisterID* srcDst);
         RegisterID* emitDec(RegisterID* srcDst);
 
@@ -860,6 +861,7 @@ namespace JSC {
         RegisterID* emitStrcat(RegisterID* dst, RegisterID* src, int count);
         void emitToPrimitive(RegisterID* dst, RegisterID* src);
         RegisterID* emitToPropertyKey(RegisterID* dst, RegisterID* src);
+        RegisterID* emitToPropertyKeyOrNumber(RegisterID* dst, RegisterID* src);
 
         ResolveType resolveType();
         RegisterID* emitResolveConstantLocal(RegisterID* dst, const Variable&);
@@ -1079,7 +1081,7 @@ namespace JSC {
         bool isNewTargetUsedInInnerArrowFunction();
         bool isArgumentsUsedInInnerArrowFunction();
 
-        void emitToThis();
+        void emitToThis() { emitToThis(&m_thisRegister); }
 
         RegisterID* emitMove(RegisterID* dst, RegisterID* src);
 

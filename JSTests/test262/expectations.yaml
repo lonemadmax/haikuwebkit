@@ -1,12 +1,6 @@
 ---
 test/annexB/language/function-code/block-decl-func-skip-arguments.js:
   default: 'Test262Error: Expected SameValue(«function arguments() {}», «[object Arguments]») to be true'
-test/built-ins/Array/fromAsync/this-constructor-operations.js:
-  default: 'Test262:AsyncTestFailure:Test262Error: Test262Error: Expected [construct MyArray, defineProperty A[0], defineProperty A[1], set A.length] and [construct MyArray, construct MyArray, defineProperty A[0], defineProperty A[1], set A.length] to have the same contents. order of operations for array-like argument'
-  strict mode: 'Test262:AsyncTestFailure:Test262Error: Test262Error: Expected [construct MyArray, defineProperty A[0], defineProperty A[1], set A.length] and [construct MyArray, construct MyArray, defineProperty A[0], defineProperty A[1], set A.length] to have the same contents. order of operations for array-like argument'
-test/built-ins/Array/fromAsync/this-constructor.js:
-  default: 'Test262:AsyncTestFailure:Test262Error: Test262Error: constructor is called once Expected SameValue(«2», «1») to be true'
-  strict mode: 'Test262:AsyncTestFailure:Test262Error: Test262Error: constructor is called once Expected SameValue(«2», «1») to be true'
 test/built-ins/Function/internals/Construct/derived-return-val-realm.js:
   default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
   strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
@@ -58,9 +52,6 @@ test/built-ins/Proxy/construct/return-not-object-throws-undefined-realm.js:
 test/built-ins/Proxy/construct/trap-is-not-callable-realm.js:
   default: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
   strict mode: 'Test262Error: Expected a TypeError but got a different error constructor with the same name'
-test/built-ins/RegExp/prototype/Symbol.match/builtin-infer-unicode.js:
-  default: 'Test262Error: Expected SameValue(«�», «null») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«�», «null») to be true'
 test/built-ins/RegExp/prototype/Symbol.match/flags-tostring-error.js:
   default: 'Test262Error: Expected a CustomError but got a Test262Error'
   strict mode: 'Test262Error: Expected a CustomError but got a Test262Error'
@@ -79,15 +70,6 @@ test/built-ins/RegExp/prototype/Symbol.replace/get-flags-err.js:
 test/built-ins/RegExp/prototype/Symbol.replace/get-unicode-error.js:
   default: 'Test262Error: Expected a Test262Error to be thrown but no exception was thrown at all'
   strict mode: 'Test262Error: Expected a Test262Error to be thrown but no exception was thrown at all'
-test/built-ins/RegExp/prototype/Symbol.search/u-lastindex-advance.js:
-  default: 'Test262Error: Expected SameValue(«1», «-1») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«1», «-1») to be true'
-test/built-ins/RegExp/prototype/Symbol.split/u-lastindex-adv-thru-failure.js:
-  default: 'Test262Error: Expected SameValue(«2», «1») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«2», «1») to be true'
-test/built-ins/RegExp/prototype/exec/u-lastindex-adv.js:
-  default: 'Test262Error: Expected SameValue(«�», «null») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«�», «null») to be true'
 test/built-ins/RegExp/quantifier-integer-limit.js:
   default: 'SyntaxError: Invalid regular expression: number too large in {} quantifier'
   strict mode: 'SyntaxError: Invalid regular expression: number too large in {} quantifier'
@@ -766,9 +748,6 @@ test/built-ins/Temporal/PlainTime/prototype/with/order-of-operations.js:
 test/built-ins/Temporal/getOwnPropertyNames.js:
   default: 'Test262Error: ZonedDateTime'
   strict mode: 'Test262Error: ZonedDateTime'
-test/harness/asyncHelpers-asyncTest-without-async-flag.js:
-  default: "Test262Error: Without 'async' flag, $DONE should not be defined"
-  strict mode: "Test262Error: Without 'async' flag, $DONE should not be defined"
 test/harness/temporalHelpers-sample-time-zones.js:
   default: "TypeError: realTz.getOffsetNanosecondsFor is not a function. (In 'realTz.getOffsetNanosecondsFor(shiftInstant)', 'realTz.getOffsetNanosecondsFor' is undefined)"
   strict mode: "TypeError: realTz.getOffsetNanosecondsFor is not a function. (In 'realTz.getOffsetNanosecondsFor(shiftInstant)', 'realTz.getOffsetNanosecondsFor' is undefined)"
@@ -959,39 +938,6 @@ test/language/expressions/class/elements/nested-direct-eval-err-contains-argumen
 test/language/expressions/class/elements/nested-private-direct-eval-err-contains-arguments.js:
   default: 'Test262Error: Expected a SyntaxError but got a ReferenceError'
   strict mode: 'Test262Error: Expected a SyntaxError but got a ReferenceError'
-test/language/expressions/compound-assignment/S11.13.2_A7.10_T4.js:
-  default: 'Test262Error: Expected true but got false'
-  strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/compound-assignment/S11.13.2_A7.11_T4.js:
-  default: 'Test262Error: Expected true but got false'
-  strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/compound-assignment/S11.13.2_A7.1_T4.js:
-  default: 'Test262Error: Expected true but got false'
-  strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/compound-assignment/S11.13.2_A7.2_T4.js:
-  default: 'Test262Error: Expected true but got false'
-  strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/compound-assignment/S11.13.2_A7.3_T4.js:
-  default: 'Test262Error: Expected true but got false'
-  strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/compound-assignment/S11.13.2_A7.4_T4.js:
-  default: 'Test262Error: Expected true but got false'
-  strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/compound-assignment/S11.13.2_A7.5_T4.js:
-  default: 'Test262Error: Expected true but got false'
-  strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/compound-assignment/S11.13.2_A7.6_T4.js:
-  default: 'Test262Error: Expected true but got false'
-  strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/compound-assignment/S11.13.2_A7.7_T4.js:
-  default: 'Test262Error: Expected true but got false'
-  strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/compound-assignment/S11.13.2_A7.8_T4.js:
-  default: 'Test262Error: Expected true but got false'
-  strict mode: 'Test262Error: Expected true but got false'
-test/language/expressions/compound-assignment/S11.13.2_A7.9_T4.js:
-  default: 'Test262Error: Expected true but got false'
-  strict mode: 'Test262Error: Expected true but got false'
 test/language/expressions/dynamic-import/for-await-resolution-and-error-agen-yield.js:
   default: 'Test262:AsyncTestFailure:Test262Error: Test262Error: f Expected SameValue(«null», «foo») to be true'
   strict mode: 'Test262:AsyncTestFailure:Test262Error: Test262Error: f Expected SameValue(«null», «foo») to be true'
@@ -1056,9 +1002,6 @@ test/language/import/import-assertions/json-value-string.js:
   module: "SyntaxError: Unexpected identifier 'assert'. Expected a ';' following a targeted import declaration."
 test/language/import/import-assertions/json-via-namespace.js:
   module: "SyntaxError: Unexpected identifier 'assert'. Expected a ';' following a targeted import declaration."
-test/language/literals/regexp/u-astral-char-class-invert.js:
-  default: 'Test262Error: Expected SameValue(«�», «null») to be true'
-  strict mode: 'Test262Error: Expected SameValue(«�», «null») to be true'
 test/language/module-code/import-assertions/eval-gtbndng-indirect-faux-assertion.js:
   raw: "SyntaxError: Unexpected token '*'. import call expects one or two arguments."
 test/language/module-code/import-assertions/import-assertion-empty.js:

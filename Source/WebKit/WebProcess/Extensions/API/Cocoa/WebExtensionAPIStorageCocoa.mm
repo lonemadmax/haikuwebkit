@@ -42,6 +42,9 @@ namespace WebKit {
 
 bool WebExtensionAPIStorage::isPropertyAllowed(const ASCIILiteral& propertyName, WebPage&)
 {
+    if (UNLIKELY(extensionContext().isUnsupportedAPI(propertyPath(), propertyName)))
+        return false;
+
     if (propertyName == "session"_s)
         return extensionContext().isSessionStorageAllowedInContentScripts() || isForMainWorld();
 
@@ -106,6 +109,9 @@ WebExtensionAPIEvent& WebExtensionAPIStorage::onChanged()
 
 void WebExtensionContextProxy::dispatchStorageChangedEvent(const String& onChangedJSON, WebExtensionDataType dataType, WebExtensionContentWorldType contentWorldType)
 {
+    if (!hasDOMWrapperWorld(contentWorldType))
+        return;
+
     NSDictionary *onChangedData = parseJSON(onChangedJSON);
 
     enumerateFramesAndNamespaceObjects([&](WebFrame&, auto& namespaceObject) {

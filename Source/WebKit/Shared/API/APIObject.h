@@ -72,6 +72,7 @@ public:
         SessionState,
         SerializedScriptValue,
         String,
+        TargetedElementInfo,
         URL,
         URLRequest,
         URLResponse,
@@ -301,7 +302,7 @@ inline API::Object* Object::unwrap(void* object)
 }
 #endif
 
-} // namespace Object
+} // namespace API
 
 #undef DELEGATE_REF_COUNTING_TO_COCOA
 

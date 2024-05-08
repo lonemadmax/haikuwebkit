@@ -287,6 +287,7 @@ private:
     void updateDataDetectorsForSelection();
 
     bool setSelectionWithoutUpdatingAppearance(const VisibleSelection&, OptionSet<SetSelectionOption>, CursorAlignOnScroll, TextGranularity);
+    void setNodeFlags(VisibleSelection&, bool value);
 
     void respondToNodeModification(Node&, bool anchorRemoved, bool focusRemoved, bool baseRemoved, bool extentRemoved, bool startRemoved, bool endRemoved);
     TextDirection directionOfEnclosingBlock();
@@ -366,6 +367,7 @@ private:
     bool m_shouldShowBlockCursor : 1;
     bool m_pendingSelectionUpdate : 1;
     bool m_alwaysAlignCursorOnScrollWhenRevealingSelection : 1;
+    bool m_hasScheduledSelectionChangeEventOnDocument : 1 { false };
 
 #if PLATFORM(IOS_FAMILY)
     bool m_updateAppearanceEnabled : 1;

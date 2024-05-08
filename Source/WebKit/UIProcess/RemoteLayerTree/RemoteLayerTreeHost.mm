@@ -102,14 +102,14 @@ bool RemoteLayerTreeHost::replayDynamicContentScalingDisplayListsIntoBackingStor
 #endif
 }
 
-bool RemoteLayerTreeHost::css3DTransformInteroperabilityEnabled() const
-{
-    return m_drawingArea->page().preferences().css3DTransformInteroperabilityEnabled();
-}
-
 bool RemoteLayerTreeHost::threadedAnimationResolutionEnabled() const
 {
     return m_drawingArea->page().preferences().threadedAnimationResolutionEnabled();
+}
+
+bool RemoteLayerTreeHost::cssUnprefixedBackdropFilterEnabled() const
+{
+    return m_drawingArea->page().preferences().cssUnprefixedBackdropFilterEnabled();
 }
 
 #if PLATFORM(MAC)
@@ -368,7 +368,7 @@ void RemoteLayerTreeHost::createLayer(const RemoteLayerTreeTransaction::LayerCre
 
     auto node = makeNode(properties);
 
-    if (css3DTransformInteroperabilityEnabled() && [node->layer() respondsToSelector:@selector(setUsesWebKitBehavior:)]) {
+    if ([node->layer() respondsToSelector:@selector(setUsesWebKitBehavior:)]) {
         [node->layer() setUsesWebKitBehavior:YES];
         if ([node->layer() isKindOfClass:[CATransformLayer class]])
             [node->layer() setSortsSublayers:YES];

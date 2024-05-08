@@ -41,12 +41,18 @@ header: "WebTextReplacementData.h"
 [CustomHeader] struct WebKit::WebTextReplacementData {
     WTF::UUID uuid;
     WebCore::CharacterRange originalRange;
-    WTF::String replacement;
-    WTF::String description;
-    WebKit::WebTextReplacementData::State state;
+    String replacement;
+    String description;
+    WebKit::WebTextReplacementDataState state;
 
     WebCore::AttributedString originalString;
 };
+
+header: "WebUnifiedTextReplacementContextData.h"
+[CustomHeader] enum class WebKit::WebUnifiedTextReplacementType : uint8_t {
+    PlainText,
+    RichText,
+}
 
 struct WebKit::WebUnifiedTextReplacementContextData {
     WTF::UUID uuid;

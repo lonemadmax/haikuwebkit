@@ -423,7 +423,7 @@ void HTMLElement::attributeChanged(const QualifiedName& name, const AtomString& 
         }
         return;
     case AttributeNames::popoverAttr:
-        if (document().settings().popoverAttributeEnabled() && !document().quirks().shouldDisablePopoverAttributeQuirk())
+        if (document().settings().popoverAttributeEnabled())
             popoverAttributeChanged(newValue);
         return;
     case AttributeNames::spellcheckAttr: {
@@ -819,11 +819,6 @@ bool HTMLElement::translate() const
 void HTMLElement::setTranslate(bool enable)
 {
     setAttributeWithoutSynchronization(translateAttr, enable ? "yes"_s : "no"_s);
-}
-
-bool HTMLElement::rendererIsEverNeeded()
-{
-    return StyledElement::rendererIsEverNeeded();
 }
 
 FormAssociatedElement* HTMLElement::asFormAssociatedElement()
@@ -1576,6 +1571,36 @@ void HTMLElement::popoverAttributeChanged(const AtomString& value)
         clearPopoverData();
     else
         ensurePopoverData().setPopoverState(newPopoverState);
+}
+
+constexpr ASCIILiteral togglePopoverLiteral = "togglepopover"_s;
+constexpr ASCIILiteral showPopoverLiteral = "showpopover"_s;
+constexpr ASCIILiteral hidePopoverLiteral = "hidepopover"_s;
+
+bool HTMLElement::handleInvokeInternal(const HTMLFormControlElement& invoker, const AtomString& action)
+{
+    if (popoverState() == PopoverState::None)
+        return false;
+
+    if (isPopoverShowing()) {
+        bool shouldHide = action.isEmpty()
+            || equalLettersIgnoringASCIICase(action, togglePopoverLiteral)
+            || equalLettersIgnoringASCIICase(action, hidePopoverLiteral);
+        if (shouldHide) {
+            hidePopover();
+            return true;
+        }
+    } else {
+        bool shouldShow = action.isEmpty()
+            || equalLettersIgnoringASCIICase(action, togglePopoverLiteral)
+            || equalLettersIgnoringASCIICase(action, showPopoverLiteral);
+        if (shouldShow) {
+            showPopover(&invoker);
+            return true;
+        }
+    }
+
+    return false;
 }
 
 const AtomString& HTMLElement::popover() const

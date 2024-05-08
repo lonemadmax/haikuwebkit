@@ -35,6 +35,7 @@
 #import "WebProcessPool.h"
 #import "WebProcessProxy.h"
 #import "XPCEndpoint.h"
+#import <WebCore/RuntimeApplicationChecks.h>
 #import <wtf/EnumTraits.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -148,6 +149,17 @@ void NetworkProcessProxy::getWindowSceneAndBundleIdentifierForPaymentPresentatio
         bundleIdentifier = [webViewUIDelegate _hostSceneBundleIdentifierForWebView:webView.get()];
 
     completionHandler(sceneIdentifier, bundleIdentifier);
+}
+#endif
+
+#if ENABLE(APPLE_PAY_REMOTE_UI)
+void NetworkProcessProxy::getPaymentCoordinatorEmbeddingUserAgent(WebPageProxyIdentifier webPageProxyIdentifier, CompletionHandler<void(const String&)>&& completionHandler)
+{
+    RefPtr page = WebProcessProxy::webPage(webPageProxyIdentifier);
+    if (!page)
+        return completionHandler(WebPageProxy::standardUserAgent());
+
+    completionHandler(page->userAgent());
 }
 #endif
 

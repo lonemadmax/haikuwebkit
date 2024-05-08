@@ -55,6 +55,7 @@ class FontSelectionValue;
 class GapLength;
 class GridPosition;
 class GridTrackSize;
+class HitTestRequest;
 class IntPoint;
 class IntSize;
 class LayoutRect;
@@ -147,6 +148,7 @@ enum class FlexDirection : uint8_t;
 enum class FlexWrap : uint8_t;
 enum class Float : uint8_t;
 enum class FontOrientation : bool;
+enum class GridTrackSizingDirection : uint8_t;
 enum class HangingPunctuation : uint8_t;
 enum class Hyphens : uint8_t;
 enum class ImageRendering : uint8_t;
@@ -386,7 +388,7 @@ public:
     inline bool hasAnyLocalBackground() const;
 
     inline bool hasAppearance() const;
-    inline bool hasEffectiveAppearance() const;
+    inline bool hasUsedAppearance() const;
 
     inline bool hasBackground() const;
     
@@ -407,6 +409,9 @@ public:
     inline bool hasPseudoStyle(PseudoId) const;
     inline void setHasPseudoStyles(PseudoIdSet);
     bool hasUniquePseudoStyle() const;
+
+    inline bool hasDisplayAffectedByAnimations() const;
+    inline void setHasDisplayAffectedByAnimations();
 
     // attribute getter methods
 
@@ -515,6 +520,8 @@ public:
     inline OverscrollBehavior overscrollBehaviorY() const;
     
     Visibility visibility() const { return static_cast<Visibility>(m_inheritedFlags.visibility); }
+    inline Visibility usedVisibility() const;
+
     VerticalAlign verticalAlign() const;
     const Length& verticalAlignLength() const;
 
@@ -577,7 +584,7 @@ public:
     TextAutospace textAutospace() const;
 
     inline float zoom() const;
-    inline float effectiveZoom() const;
+    inline float usedZoom() const;
     
     inline TextZoom textZoom() const;
 
@@ -709,7 +716,7 @@ public:
     inline BoxSizing boxSizingForAspectRatio() const;
     inline bool hasAspectRatio() const;
     inline OptionSet<Containment> contain() const;
-    inline OptionSet<Containment> effectiveContainment() const;
+    inline OptionSet<Containment> usedContain() const;
     inline bool containsLayout() const;
     inline bool containsSize() const;
     inline bool containsInlineSize() const;
@@ -722,10 +729,10 @@ public:
 
     inline ContentVisibility contentVisibility() const;
 
-    // effectiveContentVisibility will return ContentVisibility::Hidden in a content-visibility: hidden subtree (overriding
+    // usedContentVisibility will return ContentVisibility::Hidden in a content-visibility: hidden subtree (overriding
     // content-visibility: auto at all times), ContentVisibility::Auto in a content-visibility: auto subtree (when the
     // content is not user relevant and thus skipped), and ContentVisibility::Visible otherwise.
-    inline ContentVisibility effectiveContentVisibility() const;
+    inline ContentVisibility usedContentVisibility() const;
     // Returns true for skipped content roots and skipped content itself.
     inline bool hasSkippedContent() const;
 
@@ -770,6 +777,7 @@ public:
 
     inline const Vector<GridTrackSize>& gridColumnTrackSizes() const;
     inline const Vector<GridTrackSize>& gridRowTrackSizes() const;
+    inline const Vector<GridTrackSize>& gridTrackSizes(GridTrackSizingDirection) const;
     inline const GridTrackList& gridColumnList() const;
     inline const GridTrackList& gridRowList() const;
     inline const Vector<GridTrackSize>& gridAutoRepeatColumns() const;
@@ -941,7 +949,7 @@ public:
     inline LineAlign lineAlign() const;
 
     PointerEvents pointerEvents() const { return static_cast<PointerEvents>(m_inheritedFlags.pointerEvents); }
-    inline PointerEvents effectivePointerEvents() const;
+    inline PointerEvents usedPointerEvents() const;
 
     inline const Vector<Ref<ScrollTimeline>>& scrollTimelines() const;
     inline const Vector<ScrollAxis>& scrollTimelineAxes() const;
@@ -994,7 +1002,7 @@ public:
 
     inline OptionSet<TouchAction> touchActions() const;
     // 'touch-action' behavior depends on values in ancestors. We use an additional inherited property to implement that.
-    inline OptionSet<TouchAction> effectiveTouchActions() const;
+    inline OptionSet<TouchAction> usedTouchActions() const;
     inline OptionSet<EventListenerRegionType> eventListenerRegionTypes() const;
 
     inline bool effectiveInert() const;
@@ -1016,8 +1024,8 @@ public:
     const ScrollSnapAlign& scrollSnapAlign() const;
     ScrollSnapStop scrollSnapStop() const;
 
-    Color effectiveScrollbarThumbColor() const;
-    Color effectiveScrollbarTrackColor() const;
+    Color usedScrollbarThumbColor() const;
+    Color usedScrollbarTrackColor() const;
     inline std::optional<ScrollbarColor> scrollbarColor() const;
     inline const StyleColor& scrollbarThumbColor() const;
     inline const StyleColor& scrollbarTrackColor() const;
@@ -1076,6 +1084,9 @@ public:
 
     inline void setBlendMode(BlendMode);
     inline bool isInSubtreeWithBlendMode() const;
+
+    inline void setIsInVisibilityAdjustmentSubtree();
+    inline bool isInVisibilityAdjustmentSubtree() const;
 
     inline void setIsolation(Isolation);
 
@@ -1253,8 +1264,7 @@ public:
     inline void setHasExplicitlySetDirection();
     void setLineHeight(Length&&);
     bool setZoom(float);
-    void setZoomWithoutReturnValue(float f) { setZoom(f); }
-    inline bool setEffectiveZoom(float);
+    inline bool setUsedZoom(float);
     inline void setTextZoom(TextZoom);
 
     void setTextIndentLine(TextIndentLine);
@@ -1322,7 +1332,7 @@ public:
 
     inline void setContentVisibility(ContentVisibility);
 
-    inline void setEffectiveContentVisibility(ContentVisibility);
+    inline void setUsedContentVisibility(ContentVisibility);
 
     inline void setListStyleType(ListStyleType);
     void setListStyleImage(RefPtr<StyleImage>&&);
@@ -1544,7 +1554,7 @@ public:
     inline void setInitialLetter(const IntSize&);
     
     inline void setTouchActions(OptionSet<TouchAction>);
-    inline void setEffectiveTouchActions(OptionSet<TouchAction>);
+    inline void setUsedTouchActions(OptionSet<TouchAction>);
     inline void setEventListenerRegionTypes(OptionSet<EventListenerRegionType>);
 
     inline void setEffectiveInert(bool);
@@ -1632,7 +1642,7 @@ public:
     inline bool hasExplicitlySetStrokeColor() const;
     static inline StyleColor initialStrokeColor();
     Color computedStrokeColor() const;
-    inline CSSPropertyID effectiveStrokeColorProperty() const;
+    inline CSSPropertyID usedStrokeColorProperty() const;
 
     inline float strokeMiterLimit() const;
     inline void setStrokeMiterLimit(float);
@@ -1706,7 +1716,7 @@ public:
     inline PathOperation* clipPath() const;
     static PathOperation* initialClipPath() { return nullptr; }
 
-    inline bool hasEffectiveContentNone() const;
+    inline bool hasUsedContentNone() const;
     inline bool hasContent() const;
     inline const ContentData* contentData() const;
     void setContent(std::unique_ptr<ContentData>, bool add);
@@ -2319,5 +2329,7 @@ inline bool generatesBox(const RenderStyle&);
 inline bool isNonVisibleOverflow(Overflow);
 
 inline bool isSkippedContentRoot(const RenderStyle&, const Element*);
+
+inline bool isVisibleToHitTesting(const RenderStyle&, const HitTestRequest&);
 
 } // namespace WebCore

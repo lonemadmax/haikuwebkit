@@ -50,9 +50,7 @@ enum ProcessSuppressionDisabledCounterType { };
 using ProcessSuppressionDisabledCounter = RefCounter<ProcessSuppressionDisabledCounterType>;
 using ProcessSuppressionDisabledToken = ProcessSuppressionDisabledCounter::Token;
 
-enum PageAllowedToRunInTheBackgroundCounterType { };
-using PageAllowedToRunInTheBackgroundCounter = RefCounter<PageAllowedToRunInTheBackgroundCounterType>;
-
+enum class IsQuietActivity : bool { No, Yes };
 enum class IsSuspensionImminent : bool { No, Yes };
 enum class ProcessThrottleState : uint8_t { Suspended, Background, Foreground };
 enum class ProcessThrottlerActivityType : bool { Background, Foreground };
@@ -61,28 +59,30 @@ class ProcessThrottlerActivity : public CanMakeWeakPtr<ProcessThrottlerActivity>
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(ProcessThrottlerActivity);
 public:
-    ProcessThrottlerActivity(ProcessThrottler&, ASCIILiteral name, ProcessThrottlerActivityType);
+    ProcessThrottlerActivity(ProcessThrottler&, ASCIILiteral name, ProcessThrottlerActivityType, IsQuietActivity);
 
     ~ProcessThrottlerActivity()
     {
         ASSERT(isMainRunLoop());
         if (isValid())
-            invalidate();
+            invalidate(ForceEnableActivityLogging::No);
     }
 
     bool isValid() const { return !!m_throttler; }
     ASCIILiteral name() const { return m_name; }
-    bool isQuietActivity() const { return m_name.isNull(); }
+    bool isQuietActivity() const { return m_isQuietActivity == IsQuietActivity::Yes; }
     bool isForeground() const { return m_type != ProcessThrottlerActivityType::Background; }
 
 private:
     friend class ProcessThrottler;
 
-    void invalidate();
+    enum class ForceEnableActivityLogging : bool { No, Yes };
+    void invalidate(ForceEnableActivityLogging);
 
     WeakPtr<ProcessThrottler> m_throttler;
     ASCIILiteral m_name;
     ProcessThrottlerActivityType m_type;
+    IsQuietActivity m_isQuietActivity;
 };
 
 class ProcessThrottlerTimedActivity {
@@ -120,14 +120,10 @@ public:
 
     using BackgroundActivity = Activity;
     UniqueRef<Activity> backgroundActivity(ASCIILiteral name);
+    UniqueRef<Activity> quietBackgroundActivity(ASCIILiteral name);
 
     static bool isValidBackgroundActivity(const ActivityVariant&);
     static bool isValidForegroundActivity(const ActivityVariant&);
-
-    // If any page holds one of these tokens, we will never release the "suspended" assertion which
-    // means that the page will not be suspended when in the background, except if the application
-    // also gets backgrounded.
-    PageAllowedToRunInTheBackgroundCounter::Token pageAllowedToRunInTheBackgroundToken();
 
     using TimedActivity = ProcessThrottlerTimedActivity;
 
@@ -168,7 +164,6 @@ private:
     void assertionWasInvalidated();
 
     void clearPendingRequestToSuspend();
-    void numberOfPagesAllowedToRunInTheBackgroundChanged();
     void clearAssertion();
 
     class ProcessAssertionCache;
@@ -186,7 +181,6 @@ private:
     WeakHashSet<Activity> m_backgroundActivities;
     std::optional<uint64_t> m_pendingRequestToSuspendID;
     ProcessThrottleState m_state { ProcessThrottleState::Suspended };
-    PageAllowedToRunInTheBackgroundCounter m_pageAllowedToRunInTheBackgroundCounter;
     bool m_shouldDropNearSuspendedAssertionAfterDelay { false };
     const bool m_shouldTakeUIBackgroundAssertion { false };
     bool m_shouldTakeNearSuspendedAssertion { true };
@@ -196,12 +190,17 @@ private:
 
 inline auto ProcessThrottler::foregroundActivity(ASCIILiteral name) -> UniqueRef<Activity>
 {
-    return makeUniqueRef<Activity>(*this, name, ProcessThrottlerActivityType::Foreground);
+    return makeUniqueRef<Activity>(*this, name, ProcessThrottlerActivityType::Foreground, IsQuietActivity::No);
 }
 
 inline auto ProcessThrottler::backgroundActivity(ASCIILiteral name) -> UniqueRef<Activity>
 {
-    return makeUniqueRef<Activity>(*this, name, ProcessThrottlerActivityType::Background);
+    return makeUniqueRef<Activity>(*this, name, ProcessThrottlerActivityType::Background, IsQuietActivity::No);
+}
+
+inline auto ProcessThrottler::quietBackgroundActivity(ASCIILiteral name) -> UniqueRef<Activity>
+{
+    return makeUniqueRef<Activity>(*this, name, ProcessThrottlerActivityType::Background, IsQuietActivity::Yes);
 }
 
 WTF::TextStream& operator<<(WTF::TextStream&, const ProcessThrottler&);

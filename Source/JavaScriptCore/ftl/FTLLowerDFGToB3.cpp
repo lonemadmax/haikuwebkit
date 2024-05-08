@@ -113,14 +113,6 @@
 #include <wtf/GenericHashKey.h>
 #include <wtf/RecursableLambda.h>
 
-#undef RELEASE_ASSERT
-#define RELEASE_ASSERT(assertion) do { \
-    if (!(assertion)) { \
-        WTFReportAssertionFailure(__FILE__, __LINE__, WTF_PRETTY_FUNCTION, #assertion); \
-        CRASH(); \
-    } \
-} while (0)
-
 namespace JSC { namespace FTL {
 
 using namespace B3;
@@ -1290,6 +1282,9 @@ private:
             break;
         case ToPropertyKey:
             compileToPropertyKey();
+            break;
+        case ToPropertyKeyOrNumber:
+            compileToPropertyKeyOrNumber();
             break;
         case MakeRope:
             compileMakeRope();
@@ -8009,7 +8004,7 @@ IGNORE_CLANG_WARNINGS_END
                 byteSize = m_out.constIntPtr(sizeof(IndexingHeader) + outOfLineCapacity * sizeof(JSValue) + argumentsLength.known * sizeof(JSValue));
             else
                 byteSize = m_out.add(m_out.constIntPtr(sizeof(IndexingHeader) + outOfLineCapacity * sizeof(JSValue)), m_out.shl(m_out.zeroExtPtr(length), m_out.constInt32(3)));
-            LValue allocator = allocatorForSize(vm().jsValueGigacageAuxiliarySpace(), byteSize, slowCase);
+            LValue allocator = allocatorForSize(vm().auxiliarySpace(), byteSize, slowCase);
             LValue storage = allocateHeapCell(allocator, slowCase);
             for (unsigned i = 0; i < outOfLineCapacity; ++i)
                 m_out.store64(m_out.int64Zero, m_out.address(m_heaps.properties.atAnyNumber(), storage, i * sizeof(JSValue)));
@@ -9712,25 +9707,53 @@ IGNORE_CLANG_WARNINGS_END
         LBasicBlock slowPathCase = m_out.newBlock();
         LBasicBlock continuation = m_out.newBlock();
 
-        Vector<ValueFromBlock, 3> results;
-        m_out.branch(
-            isCell(value, provenType(m_node->child1())), unsure(isCellCase), unsure(slowPathCase));
+        ValueFromBlock fastResult = m_out.anchor(value);
+        m_out.branch(isCell(value, provenType(m_node->child1())), unsure(isCellCase), unsure(slowPathCase));
 
         LBasicBlock lastNext = m_out.appendTo(isCellCase, notStringCase);
-        results.append(m_out.anchor(value));
         m_out.branch(isString(value, provenType(m_node->child1())), unsure(continuation), unsure(notStringCase));
 
         m_out.appendTo(notStringCase, slowPathCase);
-        results.append(m_out.anchor(value));
         m_out.branch(isSymbol(value, provenType(m_node->child1())), unsure(continuation), unsure(slowPathCase));
 
         m_out.appendTo(slowPathCase, continuation);
-        results.append(m_out.anchor(vmCall(
-            Int64, operationToPropertyKey, weakPointer(globalObject), value)));
+        ValueFromBlock slowResult = m_out.anchor(vmCall(Int64, operationToPropertyKey, weakPointer(globalObject), value));
         m_out.jump(continuation);
 
         m_out.appendTo(continuation, lastNext);
-        setJSValue(m_out.phi(Int64, results));
+        setJSValue(m_out.phi(Int64, fastResult, slowResult));
+    }
+
+    void compileToPropertyKeyOrNumber()
+    {
+        ASSERT(m_node->child1().useKind() == UntypedUse);
+        JSGlobalObject* globalObject = m_graph.globalObjectFor(m_origin.semantic);
+        LValue value = lowJSValue(m_node->child1());
+
+        LBasicBlock notNumberCase = m_out.newBlock();
+        LBasicBlock isCellCase = m_out.newBlock();
+        LBasicBlock notStringCase = m_out.newBlock();
+        LBasicBlock slowPathCase = m_out.newBlock();
+        LBasicBlock continuation = m_out.newBlock();
+
+        ValueFromBlock fastResult = m_out.anchor(value);
+        m_out.branch(isNumber(value, provenType(m_node->child1())), unsure(continuation), unsure(notNumberCase));
+
+        LBasicBlock lastNext = m_out.appendTo(notNumberCase, isCellCase);
+        m_out.branch(isCell(value, provenType(m_node->child1())), unsure(isCellCase), unsure(slowPathCase));
+
+        m_out.appendTo(isCellCase, notStringCase);
+        m_out.branch(isString(value, provenType(m_node->child1())), unsure(continuation), unsure(notStringCase));
+
+        m_out.appendTo(notStringCase, slowPathCase);
+        m_out.branch(isSymbol(value, provenType(m_node->child1())), unsure(continuation), unsure(slowPathCase));
+
+        m_out.appendTo(slowPathCase, continuation);
+        ValueFromBlock slowResult = m_out.anchor(vmCall(Int64, operationToPropertyKeyOrNumber, weakPointer(globalObject), value));
+        m_out.jump(continuation);
+
+        m_out.appendTo(continuation, lastNext);
+        setJSValue(m_out.phi(Int64, fastResult, slowResult));
     }
     
     void compileMakeRope()
@@ -11353,7 +11376,7 @@ IGNORE_CLANG_WARNINGS_END
 
                 jit.addLinkTask(
                     [=] (LinkBuffer& linkBuffer) {
-                        callLinkInfo->setCodeLocations(linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
+                        callLinkInfo->setDoneLocation(linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
                     });
             });
 
@@ -11535,7 +11558,7 @@ IGNORE_CLANG_WARNINGS_END
                     jit.jump().linkTo(mainPath, &jit);
 
                     jit.addLinkTask([=] (LinkBuffer& linkBuffer) {
-                        callLinkInfo->setCodeLocations(linkBuffer.locationOf<JSInternalPtrTag>(slowPath));
+                        callLinkInfo->setSlowPathStart(linkBuffer.locationOf<JSInternalPtrTag>(slowPath));
                     });
                     return;
                 }
@@ -11589,7 +11612,7 @@ IGNORE_CLANG_WARNINGS_END
                         
                         jit.addLinkTask(
                             [=] (LinkBuffer& linkBuffer) {
-                                callLinkInfo->setCodeLocations(linkBuffer.locationOf<JSInternalPtrTag>(slowPath));
+                                callLinkInfo->setSlowPathStart(linkBuffer.locationOf<JSInternalPtrTag>(slowPath));
                             });
                     });
             });
@@ -11699,7 +11722,7 @@ IGNORE_CLANG_WARNINGS_END
 
                 jit.addLinkTask(
                     [=] (LinkBuffer& linkBuffer) {
-                        callLinkInfo->setCodeLocations(linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
+                        callLinkInfo->setDoneLocation(linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
                     });
             });
     }
@@ -12054,7 +12077,7 @@ IGNORE_CLANG_WARNINGS_END
                 
                 jit.addLinkTask(
                     [=] (LinkBuffer& linkBuffer) {
-                        callLinkInfo->setCodeLocations(linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
+                        callLinkInfo->setDoneLocation(linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
                     });
             });
 
@@ -12334,7 +12357,7 @@ IGNORE_CLANG_WARNINGS_END
                 
                 jit.addLinkTask(
                     [=] (LinkBuffer& linkBuffer) {
-                        callLinkInfo->setCodeLocations(linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
+                        callLinkInfo->setDoneLocation(linkBuffer.locationOf<JSInternalPtrTag>(doneLocation));
                     });
             });
 
@@ -15892,7 +15915,7 @@ IGNORE_CLANG_WARNINGS_END
                 ValueFromBlock noButterfly = m_out.anchor(m_out.intPtrZero);
                 
                 LValue startOfStorage = allocateHeapCell(
-                    allocatorForSize(vm().jsValueGigacageAuxiliarySpace(), butterflySize, slowPath),
+                    allocatorForSize(vm().auxiliarySpace(), butterflySize, slowPath),
                     slowPath);
 
                 LValue fastButterflyValue = m_out.add(
@@ -17128,7 +17151,7 @@ IGNORE_CLANG_WARNINGS_END
         LBasicBlock lastNext = m_out.insertNewBlocksBefore(slowPath);
 
         size_t sizeInBytes = sizeInValues * sizeof(JSValue);
-        Allocator allocator = vm().jsValueGigacageAuxiliarySpace().allocatorFor(sizeInBytes, AllocatorForMode::AllocatorIfExists);
+        Allocator allocator = vm().auxiliarySpace().allocatorFor(sizeInBytes, AllocatorForMode::AllocatorIfExists);
         LValue startOfStorage = allocateHeapCell(
             m_out.constIntPtr(allocator.localAllocator()), slowPath);
         ValueFromBlock fastButterfly = m_out.anchor(
@@ -19217,7 +19240,7 @@ IGNORE_CLANG_WARNINGS_END
         LValue butterflySize = m_out.add(
             payloadSize, m_out.constIntPtr(sizeof(IndexingHeader)));
 
-        LValue allocator = allocatorForSize(vm().jsValueGigacageAuxiliarySpace(), butterflySize, failCase);
+        LValue allocator = allocatorForSize(vm().auxiliarySpace(), butterflySize, failCase);
         LValue startOfStorage = allocateHeapCell(allocator, failCase);
 
         LValue butterfly = m_out.add(startOfStorage, m_out.constIntPtr(sizeof(IndexingHeader)));

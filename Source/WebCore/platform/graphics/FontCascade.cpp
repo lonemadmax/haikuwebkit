@@ -318,36 +318,27 @@ float FontCascade::width(const TextRun& run, SingleThreadWeakHashSet<const Font>
 
     float result;
     if (codePathToUse == CodePath::Complex)
-        result = floatWidthForComplexText(run, fallbackFonts, glyphOverflow);
+        result = widthForTextUsingComplexTextController(run, fallbackFonts, glyphOverflow);
     else
-        result = floatWidthForSimpleText(run, fallbackFonts, glyphOverflow);
+        result = widthForTextUsingWidthIterator(run, fallbackFonts, glyphOverflow);
 
     if (cacheEntry && fallbackFonts->isEmptyIgnoringNullReferences())
         *cacheEntry = result;
     return result;
 }
-
-template<typename CharacterType>
-static void addGlyphsFromText(GlyphBuffer& glyphBuffer, const Font& font, const CharacterType* characters, unsigned length)
+NEVER_INLINE float FontCascade::widthForSimpleTextSlow(StringView text, TextDirection textDirection, float* cacheEntry) const
 {
-    for (unsigned i = 0; i < length; ++i) {
-        auto glyph = font.glyphForCharacter(characters[i]);
-        glyphBuffer.add(glyph, font, font.widthForGlyph(glyph), i);
-    }
-}
-
-float FontCascade::widthForSimpleText(StringView text, TextDirection textDirection) const
-{
-    if (text.isNull() || text.isEmpty())
-        return 0;
-    ASSERT(codePath(TextRun(text)) != CodePath::Complex);
-    float* cacheEntry = protectedFonts()->widthCache().add(text, std::numeric_limits<float>::quiet_NaN());
-    if (cacheEntry && !std::isnan(*cacheEntry))
-        return *cacheEntry;
-
     GlyphBuffer glyphBuffer;
     Ref font = primaryFont();
     ASSERT(!font->syntheticBoldOffset()); // This function should only be called when RenderText::computeCanUseSimplifiedTextMeasuring() returns true, and that function requires no synthetic bold.
+
+    auto addGlyphsFromText = [&](GlyphBuffer& glyphBuffer, const Font& font, const auto* characters, unsigned length) {
+        for (unsigned i = 0; i < length; ++i) {
+            auto glyph = font.glyphForCharacter(characters[i]);
+            glyphBuffer.add(glyph, font, font.widthForGlyph(glyph), i);
+        }
+    };
+
     if (text.is8Bit())
         addGlyphsFromText(glyphBuffer, font, text.characters8(), text.length());
     else
@@ -429,6 +420,37 @@ GlyphData FontCascade::glyphDataForCharacter(char32_t c, bool mirror, FontVarian
     auto emojiPolicy = resolveEmojiPolicy(m_fontDescription.variantEmoji(), c);
 
     return protectedFonts()->glyphDataForCharacter(c, m_fontDescription, variant, emojiPolicy);
+}
+
+
+bool FontCascade::canUseSimplifiedTextMeasuring(char32_t character, FontVariant fontVariant, bool whitespaceIsCollapsed, const Font& primaryFont) const
+{
+    if (character == tabCharacter && !whitespaceIsCollapsed)
+        return false;
+
+    // We cache whitespaceIsCollapsed = true result. false case is handled above.
+    whitespaceIsCollapsed = true;
+    bool isCacheable = fontVariant == AutoVariant && isLatin1(character);
+    size_t baseIndex = static_cast<size_t>(character) * bitsPerCharacterInCanUseSimplifiedTextMeasuringForAutoVariantCache;
+    if (isCacheable) {
+        static_assert(0 < bitsPerCharacterInCanUseSimplifiedTextMeasuringForAutoVariantCache);
+        static_assert(1 < bitsPerCharacterInCanUseSimplifiedTextMeasuringForAutoVariantCache);
+        if (m_canUseSimplifiedTextMeasuringForAutoVariantCache.get(baseIndex))
+            return m_canUseSimplifiedTextMeasuringForAutoVariantCache.get(baseIndex + 1);
+    }
+
+    bool result = WidthIterator::characterCanUseSimplifiedTextMeasuring(character, whitespaceIsCollapsed);
+    if (result) {
+        constexpr bool mirror = false;
+        auto glyphData = glyphDataForCharacter(character, mirror, fontVariant);
+        result = glyphData.isValid() && glyphData.font == &primaryFont;
+    }
+
+    if (isCacheable) {
+        m_canUseSimplifiedTextMeasuringForAutoVariantCache.set(baseIndex, true);
+        m_canUseSimplifiedTextMeasuringForAutoVariantCache.set(baseIndex + 1, result);
+    }
+    return result;
 }
 
 // For font families where any of the fonts don't have a valid entry in the OS/2 table
@@ -1519,7 +1541,7 @@ void FontCascade::drawEmphasisMarks(GraphicsContext& context, const GlyphBuffer&
     drawGlyphBuffer(context, markBuffer, startPoint, CustomFontNotReadyAction::DoNotPaintIfFontNotReady);
 }
 
-float FontCascade::floatWidthForSimpleText(const TextRun& run, SingleThreadWeakHashSet<const Font>* fallbackFonts, GlyphOverflow* glyphOverflow) const
+float FontCascade::widthForTextUsingWidthIterator(const TextRun& run, SingleThreadWeakHashSet<const Font>* fallbackFonts, GlyphOverflow* glyphOverflow) const
 {
     WidthIterator it(*this, run, fallbackFonts, glyphOverflow);
     GlyphBuffer glyphBuffer;
@@ -1536,7 +1558,7 @@ float FontCascade::floatWidthForSimpleText(const TextRun& run, SingleThreadWeakH
     return it.runWidthSoFar();
 }
 
-float FontCascade::floatWidthForComplexText(const TextRun& run, SingleThreadWeakHashSet<const Font>* fallbackFonts, GlyphOverflow* glyphOverflow) const
+float FontCascade::widthForTextUsingComplexTextController(const TextRun& run, SingleThreadWeakHashSet<const Font>* fallbackFonts, GlyphOverflow* glyphOverflow) const
 {
     ComplexTextController controller(*this, run, true, fallbackFonts);
     if (glyphOverflow) {
@@ -1592,7 +1614,7 @@ int FontCascade::offsetForPositionForSimpleText(const TextRun& run, float x, boo
     GlyphBuffer localGlyphBuffer;
     unsigned offset;
     if (run.rtl()) {
-        delta -= floatWidthForSimpleText(run);
+        delta -= widthForTextUsingWidthIterator(run);
         while (1) {
             offset = it.currentCharacterIndex();
             float w;

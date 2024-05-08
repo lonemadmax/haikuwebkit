@@ -31,6 +31,7 @@
 #include <wtf/HexNumber.h>
 #include <wtf/Logging.h>
 #include <wtf/Scope.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -566,7 +567,7 @@ std::optional<Vector<uint8_t>> readEntireFile(const String& path)
     return contents;
 }
 
-int overwriteEntireFile(const String& path, std::span<uint8_t> span)
+int overwriteEntireFile(const String& path, std::span<const uint8_t> span)
 {
     auto fileHandle = FileSystem::openFile(path, FileSystem::FileOpenMode::Truncate);
     auto closeFile = makeScopeExit([&] {
@@ -913,7 +914,7 @@ String createTemporaryDirectory()
 
     std::string newTempDirTemplate = tempDir + "XXXXXXXX";
 
-    Vector<char> newTempDir(newTempDirTemplate.c_str(), newTempDirTemplate.size());
+    Vector<char> newTempDir(std::span<const char> { newTempDirTemplate });
     if (!mkdtemp(newTempDir.data()))
         return String();
 

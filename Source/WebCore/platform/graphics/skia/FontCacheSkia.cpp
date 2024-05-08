@@ -1,40 +1,52 @@
 /*
  * Copyright (C) 2024 Igalia S.L.
  *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Library General Public
- * License as published by the Free Software Foundation; either
- * version 2 of the License, or (at your option) any later version.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * Library General Public License for more details.
- *
- * You should have received a copy of the GNU Library General Public License
- * along with this library; see the file COPYING.LIB.  If not, write to
- * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- * Boston, MA 02110-1301, USA.
- *
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "FontCache.h"
 
-#include "CharacterProperties.h"
 #include "Font.h"
 #include "FontDescription.h"
 #include "StyleFontSizeFunctions.h"
 #include <skia/ports/SkFontMgr_fontconfig.h>
 #include <wtf/Assertions.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/CharacterProperties.h>
 #include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
 void FontCache::platformInit()
 {
-    m_fontManager = SkFontMgr_New_FontConfig(nullptr);
+}
+
+SkFontMgr& FontCache::fontManager() const
+{
+    if (!m_fontManager)
+        m_fontManager = SkFontMgr_New_FontConfig(FcConfigReference(nullptr));
+    RELEASE_ASSERT(m_fontManager);
+    return *m_fontManager.get();
 }
 
 RefPtr<Font> FontCache::systemFallbackForCharacterCluster(const FontDescription& description, const Font&, IsForPlatformFont, PreferColoredFont, StringView stringView)
@@ -56,19 +68,20 @@ RefPtr<Font> FontCache::systemFallbackForCharacterCluster(const FontDescription&
 
     // FIXME: handle synthetic properties.
     auto features = computeFeatures(description, { });
-    auto typeface = m_fontManager->matchFamilyStyleCharacter(nullptr, { }, bcp47.data(), bcp47.size(), baseCharacter);
+    auto typeface = fontManager().matchFamilyStyleCharacter(nullptr, { }, bcp47.data(), bcp47.size(), baseCharacter);
     FontPlatformData alternateFontData(WTFMove(typeface), description.computedSize(), false /* syntheticBold */, false /* syntheticOblique */, description.orientation(), description.widthVariant(), description.textRenderingMode(), WTFMove(features));
     return fontForPlatformData(alternateFontData);
 }
 
 Vector<String> FontCache::systemFontFamilies()
 {
-    int count = m_fontManager->countFamilies();
+    auto& manager = fontManager();
+    int count = manager.countFamilies();
     Vector<String> fontFamilies;
     fontFamilies.reserveInitialCapacity(count);
     for (int i = 0; i < count; ++i) {
         SkString familyName;
-        m_fontManager->getFamilyName(i, &familyName);
+        manager.getFamilyName(i, &familyName);
         fontFamilies.append(String::fromUTF8(familyName.data()));
     }
     return fontFamilies;
@@ -274,20 +287,47 @@ Vector<hb_feature_t> FontCache::computeFeatures(const FontDescription& fontDescr
     return features;
 }
 
+static SkFontStyle skiaFontStyle(const FontDescription& fontDescription)
+{
+    int skWeight = SkFontStyle::kNormal_Weight;
+    auto weight = fontDescription.weight();
+    if (weight > FontSelectionValue(SkFontStyle::kInvisible_Weight) && weight <= FontSelectionValue(SkFontStyle::kExtraBlack_Weight))
+        skWeight = static_cast<int>(weight);
+
+    int skWidth = SkFontStyle::kNormal_Width;
+    auto stretch = fontDescription.stretch();
+    if (stretch <= ultraCondensedStretchValue())
+        skWidth = SkFontStyle::kUltraCondensed_Width;
+    else if (stretch <= extraCondensedStretchValue())
+        skWidth = SkFontStyle::kExtraCondensed_Width;
+    else if (stretch <= condensedStretchValue())
+        skWidth = SkFontStyle::kCondensed_Width;
+    else if (stretch <= semiCondensedStretchValue())
+        skWidth = SkFontStyle::kSemiCondensed_Width;
+    else if (stretch >= semiExpandedStretchValue())
+        skWidth = SkFontStyle::kSemiExpanded_Width;
+    else if (stretch >= expandedStretchValue())
+        skWidth = SkFontStyle::kExpanded_Width;
+    if (stretch >= extraExpandedStretchValue())
+        skWidth = SkFontStyle::kExtraExpanded_Width;
+    if (stretch >= ultraExpandedStretchValue())
+        skWidth = SkFontStyle::kUltraExpanded_Width;
+
+    SkFontStyle::Slant skSlant = SkFontStyle::kUpright_Slant;
+    if (auto italic = fontDescription.italic()) {
+        if (italic.value() > normalItalicValue() && italic.value() <= italicThreshold())
+            skSlant = SkFontStyle::kItalic_Slant;
+        else if (italic.value() > italicThreshold())
+            skSlant = SkFontStyle::kOblique_Slant;
+    }
+
+    return SkFontStyle(skWeight, skWidth, skSlant);
+}
+
 std::unique_ptr<FontPlatformData> FontCache::createFontPlatformData(const FontDescription& fontDescription, const AtomString& family, const FontCreationContext& fontCreationContext)
 {
-    auto width = SkFontStyle::kNormal_Width;
-
-    auto weight = SkFontStyle::kNormal_Weight;
-    if (isFontWeightBold(fontDescription.weight()))
-        weight = SkFontStyle::kBold_Weight;
-
-    auto slant = SkFontStyle::kUpright_Slant;
-    if (fontDescription.italic())
-        slant = SkFontStyle::kItalic_Slant;
-
     auto familyName = getFamilyNameStringFromFamily(family);
-    auto typeface = m_fontManager->matchFamilyStyle(familyName.utf8().data(), SkFontStyle { weight, width, slant });
+    auto typeface = fontManager().matchFamilyStyle(familyName.utf8().data(), skiaFontStyle(fontDescription));
     if (!typeface)
         return nullptr;
 

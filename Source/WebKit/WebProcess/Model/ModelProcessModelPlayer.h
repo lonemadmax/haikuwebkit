@@ -48,9 +48,6 @@ public:
 
     std::optional<WebCore::LayerHostingContextIdentifier> layerHostingContextIdentifier() { return m_layerHostingContextIdentifier; };
 
-    // Messages
-    void didLoad();
-
 private:
     explicit ModelProcessModelPlayer(WebCore::ModelPlayerIdentifier, WebPage&, WebCore::ModelPlayerClient&);
 
@@ -62,6 +59,8 @@ private:
 
     // Messages
     void didCreateLayer(WebCore::LayerHostingContextIdentifier);
+    void didFinishLoading();
+    void didUpdateEntityTransform(const WebCore::TransformationMatrix&);
 
     // WebCore::ModelPlayer overrides.
     void load(WebCore::Model&, WebCore::LayoutSize) final;
@@ -70,6 +69,9 @@ private:
     void handleMouseDown(const WebCore::LayoutPoint&, MonotonicTime) final;
     void handleMouseMove(const WebCore::LayoutPoint&, MonotonicTime) final;
     void handleMouseUp(const WebCore::LayoutPoint&, MonotonicTime) final;
+    void setBackgroundColor(WebCore::Color) final;
+    void setEntityTransform(WebCore::TransformationMatrix) final;
+    bool supportsTransform(WebCore::TransformationMatrix) final;
     void enterFullscreen() final;
     void getCamera(CompletionHandler<void(std::optional<WebCore::HTMLModelElementCamera>&&)>&&) final;
     void setCamera(WebCore::HTMLModelElementCamera, CompletionHandler<void(bool success)>&&) final;

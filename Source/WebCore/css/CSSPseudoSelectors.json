@@ -116,9 +116,7 @@
         "first-child": {},
         "first-of-type": {},
         "focus": {},
-        "focus-visible": {
-            "settings-flag": "focusVisibleEnabled"
-        },
+        "focus-visible": {},
         "focus-within": {},
         "fullscreen": {
             "aliases": [
@@ -130,8 +128,7 @@
             "conditional": "ENABLE(VIDEO)"
         },
         "has": {
-            "argument": "required",
-            "settings-flag": "hasPseudoClassEnabled"
+            "argument": "required"
         },
         "horizontal": {
             "comment": "For scrollbar styling.",

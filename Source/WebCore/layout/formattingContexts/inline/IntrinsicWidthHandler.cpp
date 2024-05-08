@@ -90,7 +90,7 @@ IntrinsicWidthHandler::IntrinsicWidthHandler(InlineFormattingContext& inlineForm
 {
     auto initializeRangeAndTextOnlyBuilderEligibility = [&] {
         m_inlineItemRange = { 0, inlineItems.content().size() };
-        m_mayUseSimplifiedTextOnlyInlineLayoutInRange = TextOnlySimpleLineBuilder::isEligibleForSimplifiedInlineLayoutByStyle(root());
+        m_mayUseSimplifiedTextOnlyInlineLayoutInRange = TextOnlySimpleLineBuilder::isEligibleForSimplifiedInlineLayoutByStyle(root().style());
         if (!m_mayUseSimplifiedTextOnlyInlineLayoutInRange)
             return;
 
@@ -130,7 +130,7 @@ InlineLayoutUnit IntrinsicWidthHandler::minimumContentSize()
     if (isContentEligibleForNonLineBuilderMinimumWidth(root(), m_mayUseSimplifiedTextOnlyInlineLayoutInRange))
         minimumContentSize = simplifiedMinimumWidth(root());
     else if (m_mayUseSimplifiedTextOnlyInlineLayoutInRange) {
-        auto simplifiedLineBuilder = TextOnlySimpleLineBuilder { formattingContext(), { }, inlineItemList() };
+        auto simplifiedLineBuilder = TextOnlySimpleLineBuilder { formattingContext(), formattingContext().root(), { }, inlineItemList() };
         minimumContentSize = computedIntrinsicWidthForConstraint(IntrinsicWidthMode::Minimum, simplifiedLineBuilder, MayCacheLayoutResult::No);
     } else {
         auto lineBuilder = LineBuilder { formattingContext(), { }, inlineItemList() };
@@ -151,11 +151,11 @@ InlineLayoutUnit IntrinsicWidthHandler::maximumContentSize()
         if (m_maximumContentWidthBetweenLineBreaks && mayUseContentWidthBetweenLineBreaksAsMaximumSize(root(), inlineItemList())) {
             maximumContentSize = *m_maximumContentWidthBetweenLineBreaks;
 #ifndef NDEBUG
-            auto simplifiedLineBuilder = TextOnlySimpleLineBuilder { formattingContext(), { }, inlineItemList() };
+            auto simplifiedLineBuilder = TextOnlySimpleLineBuilder { formattingContext(), formattingContext().root(), { }, inlineItemList() };
             ASSERT(std::abs(maximumContentSize - computedIntrinsicWidthForConstraint(IntrinsicWidthMode::Maximum, simplifiedLineBuilder, MayCacheLayoutResult::No)) < 1);
 #endif
         } else {
-            auto simplifiedLineBuilder = TextOnlySimpleLineBuilder { formattingContext(), { }, inlineItemList() };
+            auto simplifiedLineBuilder = TextOnlySimpleLineBuilder { formattingContext(), formattingContext().root(), { }, inlineItemList() };
             maximumContentSize = computedIntrinsicWidthForConstraint(IntrinsicWidthMode::Maximum, simplifiedLineBuilder, mayCacheLayoutResult);
         }
     } else {
@@ -237,13 +237,19 @@ InlineLayoutUnit IntrinsicWidthHandler::simplifiedMinimumWidth(const ElementBox&
 
     for (auto* child = root.firstChild(); child; child = child->nextInFlowSibling()) {
         if (auto* inlineTextBox = dynamicDowncast<InlineTextBox>(*child)) {
+            ASSERT(inlineTextBox->style().whiteSpaceCollapse() != WhiteSpaceCollapse::Preserve);
             auto& fontCascade = inlineTextBox->style().fontCascade();
             auto contentLength = inlineTextBox->content().length();
             size_t index = 0;
+            auto isTreatedAsSpaceCharacter = [&](auto character) {
+                return character == space || character == newlineCharacter || character == tabCharacter;
+            };
             while (index < contentLength) {
                 auto characterLength = TextUtil::firstUserPerceivedCharacterLength(*inlineTextBox, index, contentLength - index);
                 ASSERT(characterLength);
-                maximumWidth = std::max(maximumWidth, TextUtil::width(*inlineTextBox, fontCascade, index, index + characterLength, { }, TextUtil::UseTrailingWhitespaceMeasuringOptimization::No));
+                auto isCollapsedWhitespace = characterLength == 1 && isTreatedAsSpaceCharacter(inlineTextBox->content()[index]);
+                if (!isCollapsedWhitespace)
+                    maximumWidth = std::max(maximumWidth, TextUtil::width(*inlineTextBox, fontCascade, index, index + characterLength, { }, TextUtil::UseTrailingWhitespaceMeasuringOptimization::No));
                 index += characterLength;
             }
             continue;

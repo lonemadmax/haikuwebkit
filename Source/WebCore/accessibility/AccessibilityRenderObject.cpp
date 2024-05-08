@@ -663,7 +663,7 @@ String AccessibilityRenderObject::helpText() const
     return { };
 }
 
-String AccessibilityRenderObject::textUnderElement(AccessibilityTextUnderElementMode mode) const
+String AccessibilityRenderObject::textUnderElement(TextUnderElementMode mode) const
 {
     if (!m_renderer)
         return AccessibilityNodeObject::textUnderElement(mode);
@@ -680,7 +680,7 @@ String AccessibilityRenderObject::textUnderElement(AccessibilityTextUnderElement
 
     // We use a text iterator for text objects AND for those cases where we are
     // explicitly asking for the full text under a given element.
-    if (is<RenderText>(*m_renderer) || mode.childrenInclusion == AccessibilityTextUnderElementMode::TextUnderElementModeIncludeAllChildren) {
+    if (is<RenderText>(*m_renderer) || mode.childrenInclusion == TextUnderElementMode::Children::IncludeAllChildren) {
         // If possible, use a text iterator to get the text, so that whitespace
         // is handled consistently.
         Document* nodeDocument = nullptr;
@@ -717,20 +717,18 @@ String AccessibilityRenderObject::textUnderElement(AccessibilityTextUnderElement
         if (WeakPtr renderText = dynamicDowncast<RenderText>(*m_renderer)) {
             if (WeakPtr renderTextFragment = dynamicDowncast<RenderTextFragment>(*renderText)) {
                 // The alt attribute may be set on a text fragment through CSS, which should be honored.
-                const auto& altText = renderTextFragment->altText();
-                if (!altText.isEmpty())
+                if (auto& altText = renderTextFragment->altText(); !altText.isNull())
                     return altText;
-                return renderTextFragment ? renderTextFragment->contentString() : String();
+                return renderTextFragment->contentString();
             }
-
-            return renderText ? renderText->text() : String();
+            return renderText->text();
         }
     }
 
     return AccessibilityNodeObject::textUnderElement(mode);
 }
 
-bool AccessibilityRenderObject::shouldGetTextFromNode(AccessibilityTextUnderElementMode mode) const
+bool AccessibilityRenderObject::shouldGetTextFromNode(TextUnderElementMode mode) const
 {
     if (!m_renderer)
         return true;
@@ -739,7 +737,7 @@ bool AccessibilityRenderObject::shouldGetTextFromNode(AccessibilityTextUnderElem
     // the child nodes to define positions. CSS tables and their anonymous descendants lack
     // children with nodes.
     if (m_renderer->isAnonymous() && m_renderer->isTablePart())
-        return mode.childrenInclusion == AccessibilityTextUnderElementMode::TextUnderElementModeIncludeAllChildren;
+        return mode.childrenInclusion == TextUnderElementMode::Children::IncludeAllChildren;
 
     // AccessibilityRenderObject::textUnderElement() calls rangeOfContents() to create the text
     // range. rangeOfContents() does not include CSS-generated content.
@@ -957,7 +955,6 @@ Path AccessibilityRenderObject::elementPath() const
         return path;
     }
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (auto* renderSVGShape = dynamicDowncast<RenderSVGShape>(*m_renderer); renderSVGShape && renderSVGShape->hasPath()) {
         Path path = renderSVGShape->path();
 
@@ -972,7 +969,6 @@ Path AccessibilityRenderObject::elementPath() const
         }
         return path;
     }
-#endif
 
     return { };
 }
@@ -1361,10 +1357,6 @@ bool AccessibilityRenderObject::computeAccessibilityIsIgnored() const
     
     if (isStyleFormatGroup())
         return false;
-    
-    // Make sure that ruby containers are not ignored.
-    if (m_renderer->isRenderRubyRun() || m_renderer->isRenderRubyAsBlock() || m_renderer->isRenderRubyAsInline())
-        return false;
 
     switch (m_renderer->style().display()) {
     case DisplayType::Ruby:
@@ -1649,20 +1641,10 @@ Widget* AccessibilityRenderObject::widget() const
     return renderWidget ? renderWidget->widget() : nullptr;
 }
 
-AccessibilityObject* AccessibilityRenderObject::accessibilityParentForImageMap(HTMLMapElement* map) const
+AccessibilityObject* AccessibilityRenderObject::associatedAXImage(HTMLMapElement& map) const
 {
-    // find an image that is using this map
-    if (!map)
-        return nullptr;
-
-    RefPtr imageElement = map->imageElement();
-    if (!imageElement)
-        return nullptr;
-    
-    if (CheckedPtr cache = axObjectCache())
-        return cache->getOrCreate(imageElement.get());
-    
-    return nullptr;
+    CheckedPtr cache = axObjectCache();
+    return cache ? cache->getOrCreate(map.imageElement().get()) : nullptr;
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityRenderObject::documentLinks()
@@ -1695,7 +1677,7 @@ AXCoreObject::AccessibilityChildrenVector AccessibilityRenderObject::documentLin
                     auto& areaObject = uncheckedDowncast<AccessibilityImageMapLink>(*axObjectCache()->create(AccessibilityRole::ImageMapLink));
                     areaObject.setHTMLAreaElement(uncheckedDowncast<HTMLAreaElement>(current));
                     areaObject.setHTMLMapElement(parentMap);
-                    areaObject.setParent(accessibilityParentForImageMap(parentMap));
+                    areaObject.setParent(associatedAXImage(*parentMap));
                     result.append(&areaObject);
                 }
             }
@@ -1995,20 +1977,14 @@ IntRect AccessibilityRenderObject::doAXBoundsForRangeUsingCharacterOffset(const 
     return boundsForRange(*range);
 }
 
-AccessibilityObject* AccessibilityRenderObject::accessibilityImageMapHitTest(HTMLAreaElement* area, const IntPoint& point) const
+AccessibilityObject* AccessibilityRenderObject::accessibilityImageMapHitTest(HTMLAreaElement& area, const IntPoint& point) const
 {
-    if (!area)
+    auto* mapAncestor = ancestorsOfType<HTMLMapElement>(area).first();
+    auto* associatedImage = mapAncestor ? associatedAXImage(*mapAncestor) : nullptr;
+    if (!associatedImage)
         return nullptr;
 
-    auto* mapParent = ancestorsOfType<HTMLMapElement>(*area).first();
-    if (!mapParent)
-        return nullptr;
-
-    auto* parent = accessibilityParentForImageMap(mapParent);
-    if (!parent)
-        return nullptr;
-
-    for (const auto& child : parent->children()) {
+    for (const auto& child : associatedImage->children()) {
         if (child->elementRect().contains(point))
             return dynamicDowncast<AccessibilityObject>(child.get());
     }
@@ -2034,46 +2010,33 @@ AccessibilityObject* AccessibilityRenderObject::elementAccessibilityHitTest(cons
     return AccessibilityObject::elementAccessibilityHitTest(point);
 }
     
-static bool shouldUseShadowHostForHitTesting(Node* shadowHost)
-{
-    // We need to allow automation of mouse events on video tags.
-    return shadowHost && !shadowHost->hasTagName(videoTag);
-}
-
 AccessibilityObject* AccessibilityRenderObject::accessibilityHitTest(const IntPoint& point) const
 {
     if (!m_renderer || !m_renderer->hasLayer())
         return nullptr;
 
     m_renderer->document().updateLayout();
-
+    // Layout may have destroyed this renderer or layer, so re-check their presence.
     if (!m_renderer || !m_renderer->hasLayer())
         return nullptr;
 
-    auto* layer = uncheckedDowncast<RenderBox>(*m_renderer).layer();
-
     constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::AccessibilityHitTest };
     HitTestResult hitTestResult { point };
-    layer->hitTest(hitType, hitTestResult);
-    Node* node = hitTestResult.innerNode();
+
+    dynamicDowncast<RenderLayerModelObject>(*m_renderer)->layer()->hitTest(hitType, hitTestResult);
+    RefPtr node = hitTestResult.innerNode();
     if (!node)
         return nullptr;
-    Node* shadowAncestorNode = node->shadowHost();
-    if (shouldUseShadowHostForHitTesting(shadowAncestorNode))
-        node = shadowAncestorNode;
-    ASSERT(node);
 
-    if (auto* textarea = dynamicDowncast<HTMLAreaElement>(*node))
-        return accessibilityImageMapHitTest(textarea, point);
-    
-    if (RefPtr option = dynamicDowncast<HTMLOptionElement>(*node))
+    if (auto* area = dynamicDowncast<HTMLAreaElement>(*node))
+        return accessibilityImageMapHitTest(*area, point);
+
+    if (auto* option = dynamicDowncast<HTMLOptionElement>(*node))
         node = option->ownerSelectElement();
-    
+
     auto* renderer = node->renderer();
-    if (!renderer)
-        return nullptr;
-    
-    auto* result = renderer->document().axObjectCache()->getOrCreate(renderer);
+    auto* cache = renderer ? renderer->document().axObjectCache() : nullptr;
+    RefPtr result = cache ? cache->getOrCreate(renderer) : nullptr;
     if (!result)
         return nullptr;
 
@@ -2089,8 +2052,7 @@ AccessibilityObject* AccessibilityRenderObject::accessibilityHitTest(const IntPo
 
         result = result->parentObjectUnignored();
     }
-
-    return result;
+    return result.get();
 }
 
 bool AccessibilityRenderObject::renderObjectIsObservable(RenderObject& renderer) const
@@ -2207,17 +2169,6 @@ AccessibilityRole AccessibilityRenderObject::determineAccessibilityRole()
         return AccessibilityRole::SVGRoot;
     
     // Check for Ruby elements
-    if (m_renderer->isRenderRubyText())
-        return AccessibilityRole::RubyText;
-    if (m_renderer->isRenderRubyBase())
-        return AccessibilityRole::RubyBase;
-    if (m_renderer->isRenderRubyRun())
-        return AccessibilityRole::RubyRun;
-    if (m_renderer->isRenderRubyAsBlock())
-        return AccessibilityRole::RubyBlock;
-    if (m_renderer->isRenderRubyAsInline())
-        return AccessibilityRole::RubyInline;
-
     switch (m_renderer->style().display()) {
     case DisplayType::Ruby:
         return AccessibilityRole::RubyInline;

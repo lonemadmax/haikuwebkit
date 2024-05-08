@@ -38,6 +38,8 @@
 #include <WebCore/WebGPUErrorFilter.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Ref.h>
+#include <wtf/ThreadSafeWeakPtr.h>
+#include <wtf/WeakRef.h>
 #include <wtf/text/WTFString.h>
 
 #if ENABLE(VIDEO)
@@ -147,7 +149,7 @@ private:
     void setSharedVideoFrameMemory(WebCore::SharedMemoryHandle&&);
 
     Ref<WebCore::WebGPU::Device> m_backing;
-    WebGPU::ObjectHeap& m_objectHeap;
+    WeakRef<WebGPU::ObjectHeap> m_objectHeap;
     Ref<IPC::StreamServerConnection> m_streamConnection;
     WebGPUIdentifier m_identifier;
     Ref<RemoteQueue> m_queue;
@@ -157,7 +159,7 @@ private:
     SharedVideoFrameReader m_sharedVideoFrameReader;
 #endif
 #endif
-    GPUConnectionToWebProcess& m_gpuConnectionToWebProcess;
+    ThreadSafeWeakPtr<GPUConnectionToWebProcess> m_gpuConnectionToWebProcess;
 };
 
 } // namespace WebKit

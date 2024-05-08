@@ -20,7 +20,6 @@
 
 #pragma once
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
 #include "RenderSVGContainer.h"
 
 namespace WebCore {
@@ -36,8 +35,6 @@ public:
 
 protected:
     void layout() override;
-
-    void styleDidChange(StyleDifference, const RenderStyle* oldStyle) override;
 
 private:
     ASCIILiteral renderName() const override { return "RenderSVGHiddenContainer"_s; }
@@ -61,5 +58,3 @@ protected:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderSVGHiddenContainer, isRenderSVGHiddenContainer())
-
-#endif // ENABLE(LAYER_BASED_SVG_ENGINE)

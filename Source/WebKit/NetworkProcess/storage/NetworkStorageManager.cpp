@@ -82,8 +82,8 @@ static String encode(const String& string, FileSystem::Salt salt)
 {
     auto crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
     auto utf8String = string.utf8();
-    crypto->addBytes(utf8String.data(), utf8String.length());
-    crypto->addBytes(salt.data(), salt.size());
+    crypto->addBytes(utf8String.span());
+    crypto->addBytes(salt);
     auto hash = crypto->computeHash();
     return base64URLEncodeToString(hash.data(), hash.size());
 }
@@ -1485,10 +1485,10 @@ void NetworkStorageManager::abortTransaction(const WebCore::IDBResourceIdentifie
         transaction->abort();
 }
 
-void NetworkStorageManager::commitTransaction(const WebCore::IDBResourceIdentifier& transactionIdentifier, uint64_t pendingRequestCount)
+void NetworkStorageManager::commitTransaction(const WebCore::IDBResourceIdentifier& transactionIdentifier, uint64_t handledRequestResultsCount)
 {
     if (auto transaction = m_idbStorageRegistry->transaction(transactionIdentifier))
-        transaction->commit(pendingRequestCount);
+        transaction->commit(handledRequestResultsCount);
 }
 
 void NetworkStorageManager::didFinishHandlingVersionChangeTransaction(WebCore::IDBDatabaseConnectionIdentifier databaseConnectionIdentifier, const WebCore::IDBResourceIdentifier& transactionIdentifier)

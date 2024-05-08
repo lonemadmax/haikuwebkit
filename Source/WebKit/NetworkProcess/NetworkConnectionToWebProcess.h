@@ -288,6 +288,7 @@ private:
     void registerBlobURL(const URL&, const URL& srcURL, WebCore::PolicyContainer&&, const std::optional<WebCore::SecurityOriginData>& topOrigin);
     void registerInternalBlobURLOptionallyFileBacked(const URL&, const URL& srcURL, const String& fileBackedPath, const String& contentType);
     void registerInternalBlobURLForSlice(const URL&, const URL& srcURL, int64_t start, int64_t end, const String& contentType);
+    void blobType(const URL&, CompletionHandler<void(String)>&&);
     void blobSize(const URL&, CompletionHandler<void(uint64_t)>&&);
     void unregisterBlobURL(const URL&, const std::optional<WebCore::SecurityOriginData>& topOrigin);
     void writeBlobsToTemporaryFilesForIndexedDB(const Vector<String>& blobURLs, CompletionHandler<void(Vector<String>&&)>&&);
@@ -348,7 +349,7 @@ private:
     void resourceLoadStatisticsUpdated(Vector<WebCore::ResourceLoadStatistics>&&, CompletionHandler<void()>&&);
     void hasStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, WebCore::FrameIdentifier, WebCore::PageIdentifier, CompletionHandler<void(bool)>&&);
     void requestStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, WebCore::FrameIdentifier, WebCore::PageIdentifier, WebPageProxyIdentifier, WebCore::StorageAccessScope, CompletionHandler<void(WebCore::RequestStorageAccessResult)>&&);
-    void storageAccessQuirkForTopFrameDomain(WebCore::RegistrableDomain&&, CompletionHandler<void(Vector<RegistrableDomain>)>&&);
+    void storageAccessQuirkForTopFrameDomain(URL&& topFrameURL, CompletionHandler<void(Vector<RegistrableDomain>)>&&);
     void requestStorageAccessUnderOpener(WebCore::RegistrableDomain&& domainInNeedOfStorageAccess, WebCore::PageIdentifier openerPageID, WebCore::RegistrableDomain&& openerDomain);
 
     void addOriginAccessAllowListEntry(const String& sourceOrigin, const String& destinationProtocol, const String& destinationHost, bool allowDestinationSubdomains);
@@ -431,6 +432,7 @@ private:
     std::unique_ptr<PaymentAuthorizationPresenter> paymentCoordinatorAuthorizationPresenter(WebPaymentCoordinatorProxy&, PKPaymentRequest *) final;
     void paymentCoordinatorAddMessageReceiver(WebPaymentCoordinatorProxy&, IPC::ReceiverName, IPC::MessageReceiver&) final;
     void paymentCoordinatorRemoveMessageReceiver(WebPaymentCoordinatorProxy&, IPC::ReceiverName) final;
+    void getPaymentCoordinatorEmbeddingUserAgent(WebPageProxyIdentifier, CompletionHandler<void(const String&)>&&) final;
 #endif
     Ref<IPC::Connection> protectedConnection() { return m_connection; }
 

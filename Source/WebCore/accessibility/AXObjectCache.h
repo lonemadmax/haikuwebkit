@@ -139,6 +139,110 @@ protected:
     VisiblePositionIndexRange m_replacedRange;
 };
 
+#define WEBCORE_AXNOTIFICATION_KEYS_DEFAULT(macro) \
+    macro(AccessKeyChanged) \
+    macro(ActiveDescendantChanged) \
+    macro(AnnouncementRequested) \
+    macro(AutocorrectionOccured) \
+    macro(AutofillTypeChanged) \
+    macro(ARIAColumnIndexChanged) \
+    macro(ARIARowIndexChanged) \
+    macro(BrailleLabelChanged) \
+    macro(BrailleRoleDescriptionChanged) \
+    macro(CellSlotsChanged) \
+    macro(CheckedStateChanged) \
+    macro(ChildrenChanged) \
+    macro(ColumnCountChanged) \
+    macro(ColumnIndexChanged) \
+    macro(ColumnSpanChanged) \
+    macro(ContentEditableAttributeChanged) \
+    macro(ControlledObjectsChanged) \
+    macro(CurrentStateChanged) \
+    macro(DescribedByChanged) \
+    macro(DisabledStateChanged) \
+    macro(DropEffectChanged) \
+    macro(ExtendedDescriptionChanged) \
+    macro(FlowToChanged) \
+    macro(FocusableStateChanged) \
+    macro(FocusedUIElementChanged) \
+    macro(FrameLoadComplete) \
+    macro(GrabbedStateChanged) \
+    macro(HasPopupChanged) \
+    macro(IdAttributeChanged) \
+    macro(ImageOverlayChanged) \
+    macro(IsAtomicChanged) \
+    macro(KeyShortcutsChanged) \
+    macro(LabelChanged) \
+    macro(LanguageChanged) \
+    macro(LayoutComplete) \
+    macro(LevelChanged) \
+    macro(LoadComplete) \
+    macro(NameChanged) \
+    macro(NewDocumentLoadComplete) \
+    macro(PageScrolled) \
+    macro(PlaceholderChanged) \
+    macro(PopoverTargetChanged) \
+    macro(PositionInSetChanged) \
+    macro(RoleChanged) \
+    macro(RoleDescriptionChanged) \
+    macro(RowIndexChanged) \
+    macro(RowSpanChanged) \
+    macro(CellScopeChanged) \
+    macro(SelectedChildrenChanged) \
+    macro(SelectedCellsChanged) \
+    macro(SelectedStateChanged) \
+    macro(SelectedTextChanged) \
+    macro(SetSizeChanged) \
+    macro(TableHeadersChanged) \
+    macro(TextCompositionBegan) \
+    macro(TextCompositionEnded) \
+    macro(URLChanged) \
+    macro(ValueChanged) \
+    macro(VisibilityChanged) \
+    macro(ScrolledToAnchor) \
+    macro(LiveRegionCreated) \
+    macro(LiveRegionChanged) \
+    macro(LiveRegionRelevantChanged) \
+    macro(LiveRegionStatusChanged) \
+    macro(MaximumValueChanged) \
+    macro(MenuListItemSelected) \
+    macro(MenuListValueChanged) \
+    macro(MenuClosed) \
+    macro(MenuOpened) \
+    macro(MinimumValueChanged) \
+    macro(MultiSelectableStateChanged) \
+    macro(OrientationChanged) \
+    macro(RowCountChanged) \
+    macro(RowCollapsed) \
+    macro(RowExpanded) \
+    macro(ExpandedChanged) \
+    macro(InvalidStatusChanged) \
+    macro(PressDidSucceed) \
+    macro(PressDidFail) \
+    macro(PressedStateChanged) \
+    macro(ReadOnlyStatusChanged) \
+    macro(RequiredStatusChanged) \
+    macro(SortDirectionChanged) \
+    macro(TextChanged) \
+    macro(TextCompositionChanged) \
+    macro(TextUnderElementChanged) \
+    macro(TextSecurityChanged) \
+    macro(ElementBusyChanged) \
+    macro(DraggingStarted) \
+    macro(DraggingEnded) \
+    macro(DraggingEnteredDropZone) \
+    macro(DraggingDropped) \
+    macro(DraggingExitedDropZone) \
+
+#if ENABLE(AX_THREAD_TEXT_APIS)
+#define WEBCORE_AXNOTIFICATION_KEYS(macro) \
+    WEBCORE_AXNOTIFICATION_KEYS_DEFAULT(macro) \
+    macro(TextRunsChanged)
+#else
+#define WEBCORE_AXNOTIFICATION_KEYS(macro) \
+    WEBCORE_AXNOTIFICATION_KEYS_DEFAULT(macro)
+#endif
+
 #if !PLATFORM(COCOA)
 enum AXTextChange { AXTextInserted, AXTextDeleted, AXTextAttributesChanged };
 #endif
@@ -197,7 +301,7 @@ public:
     void childrenChanged(Node*, Node* newChild = nullptr);
     void childrenChanged(RenderObject*, RenderObject* newChild = nullptr);
     void childrenChanged(AccessibilityObject*);
-    void onFocusChange(Node* oldFocusedNode, Node* newFocusedNode);
+    void onFocusChange(Element* oldElement, Element* newElement);
     void onPopoverToggle(const HTMLElement&);
     void onScrollbarFrameRectChange(const Scrollbar&);
     void onSelectedChanged(Node*);
@@ -266,7 +370,7 @@ public:
 
     WEBCORE_EXPORT static void enableAccessibility();
     WEBCORE_EXPORT static void disableAccessibility();
-    static bool forceDeferredSpellChecking() { return gForceDeferredSpellChecking; }
+    static bool forceDeferredSpellChecking();
     WEBCORE_EXPORT static void setForceDeferredSpellChecking(bool);
 #if PLATFORM(MAC)
     static bool shouldSpellCheck();
@@ -279,9 +383,8 @@ public:
     // Enhanced user interface accessibility can be toggled by the assistive technology.
     WEBCORE_EXPORT static void setEnhancedUserInterfaceAccessibility(bool flag);
 
-    // Note: these may be called from a non-main thread concurrently as other readers.
-    static bool accessibilityEnabled() { return gAccessibilityEnabled; }
-    static bool accessibilityEnhancedUserInterfaceEnabled() { return gAccessibilityEnhancedUserInterfaceEnabled; }
+    WEBCORE_EXPORT static bool accessibilityEnabled();
+    WEBCORE_EXPORT static bool accessibilityEnhancedUserInterfaceEnabled();
 #if ENABLE(AX_THREAD_TEXT_APIS)
     static bool useAXThreadTextApis() { return gAccessibilityThreadTextApisEnabled && !isMainThread(); }
 #endif
@@ -355,102 +458,9 @@ public:
     CharacterOffset characterOffsetForIndex(int, const AXCoreObject*);
 
     enum AXNotification {
-        AXAccessKeyChanged,
-        AXActiveDescendantChanged,
-        AXAnnouncementRequested,
-        AXAutocorrectionOccured,
-        AXAutofillTypeChanged,
-        AXARIAColumnIndexChanged,
-        AXARIARowIndexChanged,
-        AXBrailleLabelChanged,
-        AXBrailleRoleDescriptionChanged,
-        AXCellSlotsChanged,
-        AXCheckedStateChanged,
-        AXChildrenChanged,
-        AXColumnCountChanged,
-        AXColumnIndexChanged,
-        AXColumnSpanChanged,
-        AXContentEditableAttributeChanged,
-        AXControlledObjectsChanged,
-        AXCurrentStateChanged,
-        AXDescribedByChanged,
-        AXDisabledStateChanged,
-        AXDropEffectChanged,
-        AXExtendedDescriptionChanged,
-        AXFlowToChanged,
-        AXFocusableStateChanged,
-        AXFocusedUIElementChanged,
-        AXFrameLoadComplete,
-        AXGrabbedStateChanged,
-        AXHasPopupChanged,
-        AXIdAttributeChanged,
-        AXImageOverlayChanged,
-        AXIsAtomicChanged,
-        AXKeyShortcutsChanged,
-        AXLabelChanged,
-        AXLanguageChanged,
-        AXLayoutComplete,
-        AXLevelChanged,
-        AXLoadComplete,
-        AXNameChanged,
-        AXNewDocumentLoadComplete,
-        AXPageScrolled,
-        AXPlaceholderChanged,
-        AXPopoverTargetChanged,
-        AXPositionInSetChanged,
-        AXRoleChanged,
-        AXRoleDescriptionChanged,
-        AXRowIndexChanged,
-        AXRowSpanChanged,
-        AXCellScopeChanged,
-        AXSelectedChildrenChanged,
-        AXSelectedCellsChanged,
-        AXSelectedStateChanged,
-        AXSelectedTextChanged,
-        AXSetSizeChanged,
-        AXTableHeadersChanged,
-        AXTextCompositionBegan,
-        AXTextCompositionEnded,
-        AXURLChanged,
-        AXValueChanged,
-        AXVisibilityChanged,
-        AXScrolledToAnchor,
-        AXLiveRegionCreated,
-        AXLiveRegionChanged,
-        AXLiveRegionRelevantChanged,
-        AXLiveRegionStatusChanged,
-        AXMaximumValueChanged,
-        AXMenuListItemSelected,
-        AXMenuListValueChanged,
-        AXMenuClosed,
-        AXMenuOpened,
-        AXMinimumValueChanged,
-        AXMultiSelectableStateChanged,
-        AXOrientationChanged,
-        AXRowCountChanged,
-        AXRowCollapsed,
-        AXRowExpanded,
-        AXExpandedChanged,
-        AXInvalidStatusChanged,
-        AXPressDidSucceed,
-        AXPressDidFail,
-        AXPressedStateChanged,
-        AXReadOnlyStatusChanged,
-        AXRequiredStatusChanged,
-        AXSortDirectionChanged,
-        AXTextChanged,
-        AXTextCompositionChanged,
-        AXTextUnderElementChanged,
-#if ENABLE(AX_THREAD_TEXT_APIS)
-        AXTextRunsChanged,
-#endif
-        AXTextSecurityChanged,
-        AXElementBusyChanged,
-        AXDraggingStarted,
-        AXDraggingEnded,
-        AXDraggingEnteredDropZone,
-        AXDraggingDropped,
-        AXDraggingExitedDropZone
+#define WEBCORE_DEFINE_AXNOTIFICATION_ENUM(name) AX##name,
+    WEBCORE_AXNOTIFICATION_KEYS(WEBCORE_DEFINE_AXNOTIFICATION_ENUM)
+#undef WEBCORE_DEFINE_AXNOTIFICATION_ENUM
     };
 
     void postNotification(RenderObject*, AXNotification, PostTarget = PostTarget::Element);
@@ -526,6 +536,10 @@ public:
     void relayNotification(const String&, RetainPtr<NSData>);
 #endif
 
+#if PLATFORM(MAC)
+    static bool clientIsInTestMode();
+#endif
+
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     void scheduleObjectRegionsUpdate(bool scheduleImmediately = false) { m_geometryManager->scheduleObjectRegionsUpdate(scheduleImmediately); }
     void willUpdateObjectRegions() { m_geometryManager->willUpdateObjectRegions(); }
@@ -533,7 +547,6 @@ public:
     WEBCORE_EXPORT static void initializeAXThreadIfNeeded();
 private:
     static bool clientSupportsIsolatedTree();
-    static bool isTestClient();
     AXCoreObject* isolatedTreeRootObject();
     // Propagates the root of the isolated tree back into the Core and WebKit.
     void setIsolatedTreeRoot(AXCoreObject*);
@@ -689,6 +702,10 @@ private:
     const HashSet<AXID>& relationTargetIDs();
     bool isDescendantOfRelatedNode(Node&);
 
+#if PLATFORM(MAC)
+    AXTextStateChangeIntent inferDirectionFromIntent(AccessibilityObject&, const AXTextStateChangeIntent&, const VisibleSelection&);
+#endif
+
     // Object creation.
     Ref<AccessibilityObject> createObjectFromRenderer(RenderObject*);
 
@@ -706,13 +723,16 @@ private:
 
     std::unique_ptr<AXComputedObjectAttributeCache> m_computedObjectAttributeCache;
 
-    WEBCORE_EXPORT static bool gAccessibilityEnabled;
-    WEBCORE_EXPORT static bool gAccessibilityEnhancedUserInterfaceEnabled;
+    static bool gAccessibilityEnabled;
+    static bool gAccessibilityEnhancedUserInterfaceEnabled;
     static bool gForceDeferredSpellChecking;
-    static bool gForceInitialFrameCaching;
+
+    // FIXME: since the following only affects the behavior of isolated objects, we should move it into AXIsolatedTree in order to keep this class main thread only.
+    static std::atomic<bool> gForceInitialFrameCaching;
 
 #if ENABLE(AX_THREAD_TEXT_APIS)
-    static bool gAccessibilityThreadTextApisEnabled;
+    // Accessed on and off the main thread.
+    static std::atomic<bool> gAccessibilityThreadTextApisEnabled;
 #endif
 
     HashSet<AXID> m_idsInUse;
@@ -778,6 +798,11 @@ private:
 #if USE(ATSPI)
     ListHashSet<RefPtr<AXCoreObject>> m_deferredParentChangedList;
 #endif
+
+#if PLATFORM(MAC)
+    AXID m_lastTextFieldAXID;
+    VisibleSelection m_lastSelection;
+#endif
 };
 
 template<typename U>
@@ -804,8 +829,8 @@ private:
 };
 
 bool nodeHasRole(Node*, StringView role);
-bool nodeHasGridRole(Node*);
 bool nodeHasCellRole(Node*);
+bool nodeHasTableRole(Node*);
 // This will let you know if aria-hidden was explicitly set to false.
 bool isNodeAriaVisible(Node*);
 

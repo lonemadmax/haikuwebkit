@@ -68,10 +68,9 @@ void VideoPresentationInterfaceLMK::setupPlayerViewController()
         return;
 
     linearMediaPlayer().allowFullScreenFromInline = YES;
+    linearMediaPlayer().captionLayer = captionsLayer();
     linearMediaPlayer().contentType = WKSLinearMediaContentTypePlanar;
     linearMediaPlayer().presentationMode = WKSLinearMediaPresentationModeInline;
-    linearMediaPlayer().captionLayer = captionsLayer();
-    linearMediaPlayer().videoLayer = [m_playerLayerView playerLayer];
 
     m_playerViewController = [linearMediaPlayer() makeViewController];
 }
@@ -81,14 +80,14 @@ void VideoPresentationInterfaceLMK::invalidatePlayerViewController()
     m_playerViewController = nil;
 }
 
-void VideoPresentationInterfaceLMK::presentFullscreen(bool animated, CompletionHandler<void(BOOL, NSError *)>&& completionHandler)
+void VideoPresentationInterfaceLMK::presentFullscreen(bool animated, Function<void(BOOL, NSError *)>&& completionHandler)
 {
     linearMediaPlayer().presentationMode = WKSLinearMediaPresentationModeFullscreenFromInline;
     // FIXME: Wait until -linearMediaPlayer:didEnterFullscreenWithError: is called before calling completionHandler
     completionHandler(YES, nil);
 }
 
-void VideoPresentationInterfaceLMK::dismissFullscreen(bool animated, CompletionHandler<void(BOOL, NSError *)>&& completionHandler)
+void VideoPresentationInterfaceLMK::dismissFullscreen(bool animated, Function<void(BOOL, NSError *)>&& completionHandler)
 {
     linearMediaPlayer().presentationMode = WKSLinearMediaPresentationModeInline;
     // FIXME: Wait until -linearMediaPlayer:didExitFullscreenWithError: is called before calling completionHandler
@@ -108,6 +107,16 @@ void VideoPresentationInterfaceLMK::setContentDimensions(const FloatSize& conten
 void VideoPresentationInterfaceLMK::setShowsPlaybackControls(bool showsPlaybackControls)
 {
     linearMediaPlayer().showsPlaybackControls = showsPlaybackControls;
+}
+
+void VideoPresentationInterfaceLMK::setupCaptionsLayer(CALayer *, const FloatSize& initialSize)
+{
+    [CATransaction begin];
+    [CATransaction setDisableActions:YES];
+    [captionsLayer() removeFromSuperlayer];
+    [captionsLayer() setAnchorPoint:CGPointZero];
+    [captionsLayer() setBounds:CGRectMake(0, 0, initialSize.width(), initialSize.height())];
+    [CATransaction commit];
 }
 
 } // namespace WebKit

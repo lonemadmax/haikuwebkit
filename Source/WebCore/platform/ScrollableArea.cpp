@@ -50,10 +50,13 @@
 namespace WebCore {
 
 struct SameSizeAsScrollableArea : public CanMakeWeakPtr<SameSizeAsScrollableArea>, public CanMakeCheckedPtr {
+    WTF_MAKE_STRUCT_FAST_ALLOCATED;
+
     ~SameSizeAsScrollableArea() { }
     SameSizeAsScrollableArea() { }
     void* pointer[3];
     IntPoint origin;
+    Markable<ScrollingNodeID> testID;
     bool bytes[9];
 };
 
@@ -996,6 +999,16 @@ bool ScrollableArea::shouldBlockScrollPropagation(const FloatSize& biasedDelta) 
         && ((horizontalOverscrollBehaviorPreventsPropagation() && verticalOverscrollBehaviorPreventsPropagation())
         || (horizontalOverscrollBehaviorPreventsPropagation() && !biasedDelta.height()) || (verticalOverscrollBehaviorPreventsPropagation()
         && !biasedDelta.width())));
+}
+
+ScrollingNodeID ScrollableArea::scrollingNodeIDForTesting()
+{
+    if (m_scrollingNodeIDForTesting)
+        return *m_scrollingNodeIDForTesting;
+    auto testingNodeID = scrollingNodeID();
+    if (!testingNodeID)
+        m_scrollingNodeIDForTesting = testingNodeID = ScrollingNodeID::generate();
+    return testingNodeID;
 }
 
 } // namespace WebCore

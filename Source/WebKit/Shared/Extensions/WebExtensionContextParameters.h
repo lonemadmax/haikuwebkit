@@ -41,6 +41,9 @@ struct WebExtensionContextParameters {
 
     URL baseURL;
     String uniqueIdentifier;
+    HashSet<String> unsupportedAPIs;
+
+    HashMap<String, WallTime> grantedPermissions;
 
     Ref<API::Data> localizationJSON;
     Ref<API::Data> manifestJSON;

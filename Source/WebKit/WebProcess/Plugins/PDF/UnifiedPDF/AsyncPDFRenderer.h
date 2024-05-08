@@ -98,13 +98,15 @@ public:
 
     void setupWithLayer(WebCore::GraphicsLayer&);
     void teardown();
+
     bool paintTilesForPage(WebCore::GraphicsContext&, float documentScale, const WebCore::FloatRect& clipRect, const WebCore::FloatRect& pageBoundsInPaintingCoordinates, PDFDocumentLayout::PageIndex);
+    void paintPagePreview(WebCore::GraphicsContext&, const WebCore::FloatRect& clipRect, const WebCore::FloatRect& pageBoundsInPaintingCoordinates, PDFDocumentLayout::PageIndex);
 
     // Throws away existing tiles. Can result in flashing.
     void invalidateTilesForPaintingRect(float pageScaleFactor, const WebCore::FloatRect& paintingRect);
 
     // Updates existing tiles. Can result in temporarily stale content.
-    void updateTilesForPaintingRect(float pageScaleFactor, const WebCore::FloatRect& paintingRect);
+    void pdfContentChangedInRect(float pageScaleFactor, const WebCore::FloatRect& paintingRect);
 
     void generatePreviewImageForPage(PDFDocumentLayout::PageIndex, float scale);
     RefPtr<WebCore::ImageBuffer> previewImageForPage(PDFDocumentLayout::PageIndex) const;

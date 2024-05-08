@@ -261,7 +261,7 @@ void ContentSecurityPolicy::didReceiveHeader(const String& header, ContentSecuri
 
             // header1,header2 OR header1
             //        ^                  ^
-            m_policies.append(ContentSecurityPolicyDirectiveList::create(*this, String(begin, buffer.position() - begin), type, policyFrom));
+            m_policies.append(ContentSecurityPolicyDirectiveList::create(*this, String({ begin, buffer.position() }), type, policyFrom));
 
             // Skip the comma, and begin the next header from the current position.
             ASSERT(buffer.atEnd() || *buffer == ',');
@@ -395,7 +395,7 @@ static Vector<ContentSecurityPolicyHash> generateHashesForContent(const StringVi
     CString utf8Content = content.utf8(StrictConversionReplacingUnpairedSurrogatesWithFFFD);
     Vector<ContentSecurityPolicyHash> hashes;
     for (auto algorithm : algorithms) {
-        auto hash = cryptographicDigestForBytes(algorithm, utf8Content.data(), utf8Content.length());
+        auto hash = cryptographicDigestForBytes(algorithm, utf8Content.span());
         hashes.append(hash);
     }
 

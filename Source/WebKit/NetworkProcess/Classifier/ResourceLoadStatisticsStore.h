@@ -255,7 +255,7 @@ private:
     Vector<RegistrableDomain> domainsToBlockAndDeleteCookiesFor() const;
     Vector<RegistrableDomain> domainsToBlockButKeepCookiesFor() const;
     Vector<RegistrableDomain> domainsWithUserInteractionAsFirstParty() const;
-    HashMap<TopFrameDomain, SubResourceDomain> domainsWithStorageAccess() const;
+    HashMap<TopFrameDomain, Vector<SubResourceDomain>> domainsWithStorageAccess() const;
 
     struct DomainData {
         unsigned domainID;
@@ -298,7 +298,8 @@ private:
     void markAsPrevalentIfHasRedirectedToPrevalent();
     
     enum class AddedRecord : bool { No, Yes };
-    std::pair<AddedRecord, std::optional<unsigned>> ensureResourceStatisticsForRegistrableDomain(const RegistrableDomain&) WARN_UNUSED_RETURN;
+    // reason is used for logging purpose.
+    std::pair<AddedRecord, std::optional<unsigned>> ensureResourceStatisticsForRegistrableDomain(const RegistrableDomain&, ASCIILiteral reason) WARN_UNUSED_RETURN;
     bool shouldRemoveAllWebsiteDataFor(const DomainData&, bool shouldCheckForGrandfathering);
     bool shouldRemoveAllButCookiesFor(const DomainData&, bool shouldCheckForGrandfathering);
     bool shouldEnforceSameSiteStrictFor(DomainData&, bool shouldCheckForGrandfathering);

@@ -201,7 +201,7 @@ void RenderBoxModelObject::willBeDestroyed()
 
 bool RenderBoxModelObject::hasVisibleBoxDecorationStyle() const
 {
-    return hasBackground() || style().hasVisibleBorderDecoration() || style().hasEffectiveAppearance() || style().boxShadow();
+    return hasBackground() || style().hasVisibleBorderDecoration() || style().hasUsedAppearance() || style().boxShadow();
 }
 
 void RenderBoxModelObject::updateFromStyle()
@@ -305,6 +305,12 @@ bool RenderBoxModelObject::hasAutoHeightOrContainingBlockWithAutoHeight() const
 
 DecodingMode RenderBoxModelObject::decodingModeForImageDraw(const Image& image, const PaintInfo& paintInfo) const
 {
+    // Some document types force synchronous decoding.
+#if PLATFORM(IOS_FAMILY)
+    if (IOSApplication::isIBooksStorytime())
+        return DecodingMode::Synchronous;
+#endif
+
     if (document().isImageDocument())
         return DecodingMode::Synchronous;
 
@@ -312,10 +318,6 @@ DecodingMode RenderBoxModelObject::decodingModeForImageDraw(const Image& image, 
     if (paintInfo.paintBehavior.contains(PaintBehavior::Snapshotting))
         return DecodingMode::Synchronous;
 
-#if PLATFORM(IOS_FAMILY)
-    if (IOSApplication::isIBooksStorytime())
-        return DecodingMode::Synchronous;
-#endif
 
     auto* bitmapImage = dynamicDowncast<BitmapImage>(image);
     if (!bitmapImage)
@@ -327,8 +329,10 @@ DecodingMode RenderBoxModelObject::decodingModeForImageDraw(const Image& image, 
 
         // First tile paint.
         if (paintInfo.paintBehavior.contains(PaintBehavior::DefaultAsynchronousImageDecode)) {
-            // And the images has not been painted in this element yet.
-            if (element() && !element()->hasEverPaintedImages())
+            // No image has been painted in this element yet and it should not flicker with previous painting.
+            auto observer = bitmapImage->imageObserver();
+            bool mayOverlapOtherClients = observer && observer->numberOfClients() > 1 && bitmapImage->currentFrameDecodingOptions().decodingMode() == DecodingMode::Asynchronous;
+            if (element() && !element()->hasEverPaintedImages() && !mayOverlapOtherClients)
                 return DecodingMode::Asynchronous;
         }
 
@@ -344,7 +348,6 @@ DecodingMode RenderBoxModelObject::decodingModeForImageDraw(const Image& image, 
         // <img decoding="async"> forces asynchronous decoding but make sure this
         // will not cause flickering.
         if (imgElement->decodingMode() == DecodingMode::Asynchronous) {
-            // isAsyncDecodingEnabledForTesting() forces async image decoding regardless whether it is in the viewport or not.
             if (bitmapImage->isAsyncDecodingEnabledForTesting())
                 return DecodingMode::Asynchronous;
 
@@ -358,19 +361,18 @@ DecodingMode RenderBoxModelObject::decodingModeForImageDraw(const Image& image, 
         return DecodingMode::Asynchronous;
 
     // Animated image case.
-    if (bitmapImage->canAnimate()) {
-        if (!(bitmapImage->shouldUseAsyncDecodingForAnimatedImages() && settings().animatedImageAsyncDecodingEnabled()))
+    if (bitmapImage->isAnimated()) {
+        if (!(bitmapImage->isLargeForDecoding() && settings().animatedImageAsyncDecodingEnabled()))
             return DecodingMode::Synchronous;
 
-        // First frame should be decoded according to its state in the viewport.
-        if (bitmapImage->currentFrameIndex())
+        if (bitmapImage->hasEverAnimated())
             return DecodingMode::Asynchronous;
 
         return defaultDecodingMode();
     }
 
     // Large image case.
-    if (!(bitmapImage->canUseAsyncDecodingForLargeImages() && settings().largeImageAsyncDecodingEnabled()))
+    if (!(bitmapImage->isLargeForDecoding() && settings().largeImageAsyncDecodingEnabled()))
         return DecodingMode::Synchronous;
 
     // Choose a decodingMode such that the image does not flicker.
@@ -742,7 +744,7 @@ static inline LayoutSize resolveAgainstIntrinsicRatio(const LayoutSize& size, co
     return LayoutSize(size.width(), solutionHeight);
 }
 
-LayoutSize RenderBoxModelObject::calculateImageIntrinsicDimensions(StyleImage* image, const LayoutSize& positioningAreaSize, ScaleByEffectiveZoomOrNot shouldScaleOrNot) const
+LayoutSize RenderBoxModelObject::calculateImageIntrinsicDimensions(StyleImage* image, const LayoutSize& positioningAreaSize, ScaleByUsedZoom scaleByUsedZoom) const
 {
     // A generated image without a fixed size, will always return the container size as intrinsic size.
     if (!image->imageHasNaturalDimensions())
@@ -759,8 +761,8 @@ LayoutSize RenderBoxModelObject::calculateImageIntrinsicDimensions(StyleImage* i
     LayoutSize resolvedSize(intrinsicWidth.value(), intrinsicHeight.value());
     LayoutSize minimumSize(resolvedSize.width() > 0 ? 1 : 0, resolvedSize.height() > 0 ? 1 : 0);
 
-    if (shouldScaleOrNot == ScaleByEffectiveZoom)
-        resolvedSize.scale(style().effectiveZoom());
+    if (scaleByUsedZoom == ScaleByUsedZoom::Yes)
+        resolvedSize.scale(style().usedZoom());
     resolvedSize.clampToMinimumSize(minimumSize);
 
     if (!resolvedSize.isEmpty())

@@ -81,6 +81,7 @@ OBJC_CLASS NSTextAlternatives;
 OBJC_CLASS UIGestureRecognizer;
 OBJC_CLASS UIScrollView;
 OBJC_CLASS UIView;
+OBJC_CLASS UIViewController;
 OBJC_CLASS WKBaseScrollView;
 OBJC_CLASS WKBEScrollViewScrollUpdate;
 OBJC_CLASS _WKRemoteObjectRegistry;
@@ -150,6 +151,7 @@ namespace WebKit {
 
 enum class UndoOrRedo : bool;
 enum class TapHandlingResult : uint8_t;
+enum class WebTextReplacementDataState : uint8_t;
 
 class ContextMenuContextData;
 class DrawingAreaProxy;
@@ -353,6 +355,7 @@ public:
     virtual WebCore::FloatRect convertToDeviceSpace(const WebCore::FloatRect&) = 0;
     virtual WebCore::FloatRect convertToUserSpace(const WebCore::FloatRect&) = 0;
     virtual WebCore::IntPoint screenToRootView(const WebCore::IntPoint&) = 0;
+    virtual WebCore::FloatRect rootViewToWebView(const WebCore::FloatRect& rect) const { return rect; }
     virtual WebCore::IntRect rootViewToScreen(const WebCore::IntRect&) = 0;
     virtual WebCore::IntPoint accessibilityScreenToRootView(const WebCore::IntPoint&) = 0;
     virtual WebCore::IntRect rootViewToAccessibilityScreen(const WebCore::IntRect&) = 0;
@@ -697,7 +700,14 @@ public:
 #endif
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT) && ENABLE(CONTEXT_MENUS)
+    virtual bool canHandleSwapCharacters() const = 0;
     virtual void handleContextMenuSwapCharacters(WebCore::IntRect selectionBoundsInRootView) = 0;
+#endif
+
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+    virtual void textReplacementSessionShowInformationForReplacementWithUUIDRelativeToRect(const WTF::UUID& sessionUUID, const WTF::UUID& replacementUUID, WebCore::IntRect selectionBoundsInRootView) = 0;
+
+    virtual void textReplacementSessionUpdateStateForReplacementWithUUID(const WTF::UUID& sessionUUID, WebTextReplacementDataState, const WTF::UUID& replacementUUID) = 0;
 #endif
 
 #if ENABLE(DATA_DETECTION)
@@ -715,6 +725,10 @@ public:
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     virtual WebKitWebResourceLoadManager* webResourceLoadManager() = 0;
+#endif
+
+#if PLATFORM(IOS_FAMILY)
+    virtual UIViewController *presentingViewController() const = 0;
 #endif
 };
 

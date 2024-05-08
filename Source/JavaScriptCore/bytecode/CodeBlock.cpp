@@ -592,7 +592,12 @@ bool CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
                     ConcurrentJSLocker locker(symbolTable->m_lock);
                     auto iter = symbolTable->find(locker, ident.impl());
                     ASSERT(iter != symbolTable->end(locker));
-                    iter->value.prepareToWatch();
+                    if (bytecode.m_getPutInfo.initializationMode() == InitializationMode::ScopedArgumentInitialization) {
+                        ASSERT(bytecode.m_value.isArgument());
+                        unsigned argumentIndex = bytecode.m_value.toArgument() - 1;
+                        symbolTable->prepareToWatchScopedArgument(iter->value, argumentIndex);
+                    } else
+                        iter->value.prepareToWatch();
                     metadata.m_watchpointSet = iter->value.watchpointSet();
                 } else
                     metadata.m_watchpointSet = nullptr;
@@ -766,11 +771,6 @@ void CodeBlock::setupWithUnlinkedBaselineCode(Ref<BaselineJITCode> jitCode)
         ConcurrentJSLocker locker(m_lock);
         ASSERT(!m_jitData);
         auto baselineJITData = BaselineJITData::create(jitCode->m_unlinkedStubInfos.size(), jitCode->m_constantPool.size(), this);
-        for (auto& unlinkedCallLinkInfo : jitCode->m_unlinkedCalls) {
-            CallLinkInfo* callLinkInfo = getCallLinkInfoForBytecodeIndex(locker, unlinkedCallLinkInfo.bytecodeIndex);
-            ASSERT(callLinkInfo);
-            static_cast<BaselineCallLinkInfo*>(callLinkInfo)->setCodeLocations(unlinkedCallLinkInfo.doneLocation);
-        }
 
         for (unsigned index = 0; index < jitCode->m_unlinkedStubInfos.size(); ++index) {
             BaselineUnlinkedStructureStubInfo& unlinkedStubInfo = jitCode->m_unlinkedStubInfos[index];

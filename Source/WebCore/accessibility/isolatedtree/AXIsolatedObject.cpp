@@ -32,6 +32,7 @@
 #include "AXIsolatedTree.h"
 #include "AXLogger.h"
 #include "AXTextRun.h"
+#include "DateComponents.h"
 
 #if PLATFORM(MAC)
 #import <pal/spi/mac/HIServicesSPI.h>
@@ -269,9 +270,7 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
 
     if (object.isDateTime()) {
         setProperty(AXPropertyName::DateTimeValue, object.dateTimeValue().isolatedCopy());
-#if PLATFORM(MAC)
-        setProperty(AXPropertyName::DateTimeComponents, object.dateTimeComponents());
-#endif
+        setProperty(AXPropertyName::DateTimeComponentsType, object.dateTimeComponentsType());
     }
 
     if (object.isSpinButton()) {
@@ -487,6 +486,7 @@ void AXIsolatedObject::setProperty(AXPropertyName propertyName, AXPropertyValueV
         [](AXTextRuns& runs) { return !runs.size(); },
 #endif
         [] (WallTime& time) { return !time; },
+        [] (DateComponentsType& typedValue) { return typedValue == DateComponentsType::Invalid; },
         [](auto&) {
             ASSERT_NOT_REACHED();
             return false;
@@ -500,6 +500,8 @@ void AXIsolatedObject::setProperty(AXPropertyName propertyName, AXPropertyValueV
 
 void AXIsolatedObject::detachRemoteParts(AccessibilityDetachmentType)
 {
+    ASSERT(!isMainThread());
+
     for (const auto& childID : m_childrenIDs) {
         if (RefPtr child = tree()->objectForID(childID))
             child->detachFromParent();
@@ -1070,7 +1072,8 @@ void AXIsolatedObject::fillChildrenVectorForProperty(AXPropertyName propertyName
 
 void AXIsolatedObject::updateBackingStore()
 {
-    // This method can be called on either the main or the AX threads.
+    ASSERT(!isMainThread());
+
     if (RefPtr tree = this->tree())
         tree->applyPendingChanges();
     // AXIsolatedTree::applyPendingChanges can cause this object and / or the AXIsolatedTree to be destroyed.
@@ -1196,7 +1199,7 @@ void AXIsolatedObject::findMatchingObjects(AccessibilitySearchCriteria* criteria
     Accessibility::findMatchingObjects(*criteria, results);
 }
 
-String AXIsolatedObject::textUnderElement(AccessibilityTextUnderElementMode) const
+String AXIsolatedObject::textUnderElement(TextUnderElementMode) const
 {
     ASSERT_NOT_REACHED();
     return { };

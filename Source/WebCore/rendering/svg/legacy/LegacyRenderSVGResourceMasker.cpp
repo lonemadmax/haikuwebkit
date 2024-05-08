@@ -80,14 +80,12 @@ bool LegacyRenderSVGResourceMasker::applyResource(RenderElement& renderer, const
         auto maskColorSpace = DestinationColorSpace::SRGB();
         auto drawColorSpace = DestinationColorSpace::SRGB();
 
-#if ENABLE(DESTINATION_COLOR_SPACE_LINEAR_SRGB)
         if (style().svgStyle().colorInterpolation() == ColorInterpolation::LinearRGB) {
 #if USE(CG)
             maskColorSpace = DestinationColorSpace::LinearSRGB();
 #endif
             drawColorSpace = DestinationColorSpace::LinearSRGB();
         }
-#endif
         // FIXME (149470): This image buffer should not be unconditionally unaccelerated. Making it match the context breaks alpha masking, though.
         maskerData->maskImage = context->createScaledImageBuffer(repaintRect, scale, maskColorSpace, RenderingMode::Unaccelerated);
         if (!maskerData->maskImage)
@@ -144,7 +142,7 @@ bool LegacyRenderSVGResourceMasker::drawContentIntoContext(GraphicsContext& cont
         if (renderer->needsLayout())
             return false;
         const RenderStyle& style = renderer->style();
-        if (style.display() == DisplayType::None || style.visibility() != Visibility::Visible)
+        if (style.display() == DisplayType::None || style.usedVisibility() != Visibility::Visible)
             continue;
         SVGRenderingContext::renderSubtreeToContext(context, *renderer, maskContentTransformation);
     }
@@ -175,7 +173,7 @@ void LegacyRenderSVGResourceMasker::calculateMaskContentRepaintRect(RepaintRectC
         if (!childNode->isSVGElement() || !renderer)
             continue;
         const RenderStyle& style = renderer->style();
-        if (style.display() == DisplayType::None || style.visibility() != Visibility::Visible)
+        if (style.display() == DisplayType::None || style.usedVisibility() != Visibility::Visible)
              continue;
         m_maskContentBoundaries[repaintRectCalculation].unite(renderer->localToParentTransform().mapRect(renderer->repaintRectInLocalCoordinates(repaintRectCalculation)));
     }

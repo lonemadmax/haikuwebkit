@@ -377,7 +377,7 @@ void BackgroundFetch::Record::didReceiveResponseBodyChunk(const SharedBuffer& da
         m_fetch->storeResponseBodyChunk(m_index, data);
 
     if (!m_responseBodyCallbacks.isEmpty()) {
-        RefPtr buffer = SharedBuffer::create(data.data(), data.size());
+        RefPtr buffer = SharedBuffer::create(data.span());
         for (auto& callback : m_responseBodyCallbacks)
             callback(buffer.copyRef());
     }
@@ -483,7 +483,7 @@ void BackgroundFetch::doStore(CompletionHandler<void(BackgroundFetchStore::Store
         encoder << record->isCompleted();
     }
 
-    m_store->storeFetch(m_registrationKey, m_identifier, m_options.downloadTotal, m_uploadTotal, responseBodyIndexToClear, { encoder.buffer(), encoder.bufferSize() }, WTFMove(callback));
+    m_store->storeFetch(m_registrationKey, m_identifier, m_options.downloadTotal, m_uploadTotal, responseBodyIndexToClear, { encoder.span() }, WTFMove(callback));
 }
 
 std::unique_ptr<BackgroundFetch> BackgroundFetch::createFromStore(std::span<const uint8_t> data, SWServer& server, Ref<BackgroundFetchStore>&& store, NotificationCallback&& notificationCallback)

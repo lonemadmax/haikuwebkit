@@ -174,9 +174,6 @@ public:
 protected:
     explicit MediaSource(ScriptExecutionContext&);
 
-    bool hasBufferedTime(const MediaTime&);
-    bool hasCurrentTime();
-    bool hasFutureTime();
     bool isBuffered(const PlatformTimeRanges&) const;
 
     void scheduleEvent(const AtomString& eventName);
@@ -219,6 +216,10 @@ private:
     void regenerateActiveSourceBuffers();
     void updateBufferedIfNeeded(bool forced = false);
 
+    bool hasBufferedTime(const MediaTime&);
+    bool hasCurrentTime();
+    bool hasFutureTime();
+
     void completeSeek();
 
     static URLRegistry* s_registry;
@@ -229,6 +230,7 @@ private:
     std::optional<MediaTimePromise::AutoRejectProducer> m_seekTargetPromise;
     bool m_openDeferred { false };
     bool m_sourceopenPending { false };
+    bool m_isAttached { false };
 #if ENABLE(MEDIA_SOURCE_IN_WORKERS)
     RefPtr<MediaSourceHandle> m_handle;
 #endif

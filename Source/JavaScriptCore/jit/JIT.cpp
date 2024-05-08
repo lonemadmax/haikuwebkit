@@ -49,6 +49,7 @@
 #include "StackAlignment.h"
 #include "ThunkGenerators.h"
 #include "TypeProfilerLog.h"
+#include <wtf/BubbleSort.h>
 #include <wtf/GraphNodeWorklist.h>
 #include <wtf/SimpleStats.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -429,6 +430,7 @@ void JIT::privateCompileMainPass()
         DEFINE_OP(op_put_getter_by_val)
         DEFINE_OP(op_put_setter_by_val)
         DEFINE_OP(op_to_property_key)
+        DEFINE_OP(op_to_property_key_or_number)
 
         DEFINE_OP(op_get_internal_field)
         DEFINE_OP(op_put_internal_field)
@@ -618,6 +620,7 @@ void JIT::privateCompileSlowCases()
         DEFINE_SLOWCASE_SLOW_OP(get_prototype_of)
         DEFINE_SLOWCASE_SLOW_OP(check_tdz)
         DEFINE_SLOWCASE_SLOW_OP(to_property_key)
+        DEFINE_SLOWCASE_SLOW_OP(to_property_key_or_number)
         DEFINE_SLOWCASE_SLOW_OP(typeof_is_function)
         default:
             RELEASE_ASSERT_NOT_REACHED();
@@ -991,8 +994,14 @@ RefPtr<BaselineJITCode> JIT::link(LinkBuffer& patchBuffer)
     auto jitCode = adoptRef(*new BaselineJITCode(result, withArityCheck));
 
     jitCode->m_unlinkedCalls = FixedVector<BaselineUnlinkedCallLinkInfo>(m_unlinkedCalls.size());
-    if (jitCode->m_unlinkedCalls.size())
+    if (jitCode->m_unlinkedCalls.size()) {
         std::move(m_unlinkedCalls.begin(), m_unlinkedCalls.end(), jitCode->m_unlinkedCalls.begin());
+        // It is almost always already sorted.
+        WTF::bubbleSort(jitCode->m_unlinkedCalls.begin(), jitCode->m_unlinkedCalls.end(),
+            [](const auto& lhs, const auto& rhs) {
+                return lhs.bytecodeIndex < rhs.bytecodeIndex;
+            });
+    }
     jitCode->m_unlinkedStubInfos = FixedVector<BaselineUnlinkedStructureStubInfo>(m_unlinkedStubInfos.size());
     if (jitCode->m_unlinkedStubInfos.size())
         std::move(m_unlinkedStubInfos.begin(), m_unlinkedStubInfos.end(), jitCode->m_unlinkedStubInfos.begin());

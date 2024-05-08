@@ -327,6 +327,7 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidDeminiaturize:) name:NSWindowDidDeminiaturizeNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidMove:) name:NSWindowDidMoveNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidResize:) name:NSWindowDidResizeNotification object:window];
+    [defaultNotificationCenter addObserver:self selector:@selector(_windowWillBeginSheet:) name:NSWindowWillBeginSheetNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeBackingProperties:) name:NSWindowDidChangeBackingPropertiesNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeScreen:) name:NSWindowDidChangeScreenNotification object:window];
     [defaultNotificationCenter addObserver:self selector:@selector(_windowDidChangeLayerHosting:) name:_NSWindowDidChangeContentsHostedInLayerSurfaceNotification object:window];
@@ -361,6 +362,7 @@ static void* keyValueObservingContext = &keyValueObservingContext;
     [defaultNotificationCenter removeObserver:self name:NSWindowDidDeminiaturizeNotification object:window];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidMoveNotification object:window];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidResizeNotification object:window];
+    [defaultNotificationCenter removeObserver:self name:NSWindowWillBeginSheetNotification object:window];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidChangeBackingPropertiesNotification object:window];
     [defaultNotificationCenter removeObserver:self name:NSWindowDidChangeScreenNotification object:window];
     [defaultNotificationCenter removeObserver:self name:_NSWindowDidChangeContentsHostedInLayerSurfaceNotification object:window];
@@ -435,6 +437,11 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 - (void)_windowDidResize:(NSNotification *)notification
 {
     _impl->windowDidResize();
+}
+
+- (void)_windowWillBeginSheet:(NSNotification *)notification
+{
+    _impl->windowWillBeginSheet();
 }
 
 - (void)_windowDidChangeBackingProperties:(NSNotification *)notification
@@ -2038,6 +2045,13 @@ void WebViewImpl::windowDidResize()
     updateWindowAndViewFrames();
 }
 
+void WebViewImpl::windowWillBeginSheet()
+{
+#if ENABLE(POINTER_LOCK)
+    m_page->requestPointerUnlock();
+#endif
+}
+
 void WebViewImpl::windowDidChangeBackingProperties(CGFloat oldBackingScaleFactor)
 {
     CGFloat newBackingScaleFactor = intrinsicDeviceScaleFactor();
@@ -2630,7 +2644,7 @@ static String commandNameForSelector(SEL selector)
     size_t selectorNameLength = strlen(selectorName);
     if (selectorNameLength < 2 || selectorName[selectorNameLength - 1] != ':')
         return String();
-    return String(selectorName, selectorNameLength - 1);
+    return String({ selectorName, selectorNameLength - 1 });
 }
 
 bool WebViewImpl::executeSavedCommandBySelector(SEL selector)
@@ -3521,9 +3535,7 @@ void WebViewImpl::accessibilityRegisterUIProcessTokens()
     // Initialize remote accessibility when the window connection has been established.
     NSData *remoteElementToken = [NSAccessibilityRemoteUIElement remoteTokenForLocalUIElement:m_view.getAutoreleased()];
     NSData *remoteWindowToken = [NSAccessibilityRemoteUIElement remoteTokenForLocalUIElement:[m_view window]];
-    std::span elementToken(reinterpret_cast<const uint8_t*>([remoteElementToken bytes]), [remoteElementToken length]);
-    std::span windowToken(reinterpret_cast<const uint8_t*>([remoteWindowToken bytes]), [remoteWindowToken length]);
-    m_page->registerUIProcessAccessibilityTokens(elementToken, windowToken);
+    m_page->registerUIProcessAccessibilityTokens(span(remoteElementToken), span(remoteWindowToken));
 }
 
 id WebViewImpl::accessibilityFocusedUIElement()
@@ -5635,11 +5647,13 @@ void WebViewImpl::mouseDown(NSEvent *event)
     if (m_ignoresNonWheelEvents)
         return;
 
-    for (auto& hud : _pdfHUDViews.values())
-        [hud mouseDown:event];
-
     setLastMouseDownEvent(event);
     setIgnoresMouseDraggedEvents(false);
+
+    for (auto& hud : _pdfHUDViews.values()) {
+        if ([hud handleMouseDown:event])
+            return;
+    }
 
     mouseDownInternal(event);
 }
@@ -5649,10 +5663,13 @@ void WebViewImpl::mouseUp(NSEvent *event)
     if (m_ignoresNonWheelEvents)
         return;
 
-    for (auto& hud : _pdfHUDViews.values())
-        [hud mouseUp:event];
-
     setLastMouseDownEvent(nil);
+
+    for (auto& hud : _pdfHUDViews.values()) {
+        if ([hud handleMouseUp:event])
+            return;
+    }
+
     mouseUpInternal(event);
 }
 
@@ -6295,8 +6312,19 @@ void WebViewImpl::handleContextMenuTranslation(const WebCore::TranslationContext
 #endif // HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT) && ENABLE(CONTEXT_MENUS)
+
+bool WebViewImpl::canHandleSwapCharacters() const
+{
+    return webViewCanHandleSwapCharacters();
+}
+
 void WebViewImpl::handleContextMenuSwapCharacters(IntRect selectionBoundsInRootView)
 {
+    if (!canHandleSwapCharacters()) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
     auto view = m_view.get();
     showSwapCharactersViewRelativeToRectOfView(selectionBoundsInRootView, view.get());
 }
@@ -6511,9 +6539,9 @@ void WebViewImpl::uninstallImageAnalysisOverlayView()
 #endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-void WebViewImpl::willBeginTextReplacementSession(const WTF::UUID& uuid, CompletionHandler<void(const Vector<WebUnifiedTextReplacementContextData>&)>&& completionHandler)
+void WebViewImpl::willBeginTextReplacementSession(const WTF::UUID& uuid, WebUnifiedTextReplacementType type, CompletionHandler<void(const Vector<WebUnifiedTextReplacementContextData>&)>&& completionHandler)
 {
-    protectedPage()->willBeginTextReplacementSession(uuid, WTFMove(completionHandler));
+    protectedPage()->willBeginTextReplacementSession(uuid, type, WTFMove(completionHandler));
 }
 
 void WebViewImpl::didBeginTextReplacementSession(const WTF::UUID& uuid, const Vector<WebUnifiedTextReplacementContextData>& contexts)

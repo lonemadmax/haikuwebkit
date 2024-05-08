@@ -39,7 +39,11 @@
 #include <WebCore/ScrollTypes.h>
 #include <WebCore/ScrollableArea.h>
 #include <WebCore/TextIndicator.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/Identified.h>
+#include <wtf/Lock.h>
+#include <wtf/Range.h>
+#include <wtf/RangeSet.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/TypeTraits.h>
@@ -64,6 +68,7 @@ class Scrollbar;
 class ShareableBitmap;
 class SharedBuffer;
 enum class PlatformCursorType : uint8_t;
+struct DictionaryPopupInfo;
 }
 
 namespace WebKit {
@@ -75,13 +80,19 @@ class WebFrame;
 class WebKeyboardEvent;
 class WebMouseEvent;
 class WebWheelEvent;
-struct LookupTextResult;
 struct WebHitTestResultData;
+
+enum class ByteRangeRequestIdentifierType;
+using ByteRangeRequestIdentifier = ObjectIdentifier<ByteRangeRequestIdentifierType>;
+
+enum class CheckValidRanges : bool { No, Yes };
 
 class PDFPluginBase : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<PDFPluginBase>, public WebCore::ScrollableArea, public PDFScriptEvaluator::Client, public Identified<PDFPluginIdentifier> {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(PDFPluginBase);
     friend class PDFIncrementalLoader;
+    friend class PDFPluginChoiceAnnotation;
+    friend class PDFPluginTextAnnotation;
 public:
     static WebCore::PluginInfo pluginInfo();
 
@@ -111,8 +122,8 @@ public:
     virtual RefPtr<WebCore::ShareableBitmap> snapshot() { return nullptr; }
     virtual void paint(WebCore::GraphicsContext&, const WebCore::IntRect&) { }
 
-    virtual CGFloat scaleFactor() const = 0;
-    virtual float contentScaleFactor() const = 0;
+    virtual double scaleFactor() const = 0;
+    virtual void setPageScaleFactor(double, std::optional<WebCore::IntPoint> origin) = 0;
 
     virtual CGFloat minScaleFactor() const { return 0.25; }
     virtual CGFloat maxScaleFactor() const { return 5; }
@@ -129,7 +140,6 @@ public:
     bool handlesPageScaleFactor() const;
     virtual void didBeginMagnificationGesture() { }
     virtual void didEndMagnificationGesture() { }
-    virtual void setPageScaleFactor(double, std::optional<WebCore::IntPoint> origin) = 0;
 
     void updateControlTints(WebCore::GraphicsContext&);
 
@@ -153,12 +163,14 @@ public:
     virtual bool findString(const String& target, WebCore::FindOptions, unsigned maxMatchCount) = 0;
     virtual Vector<WebCore::FloatRect> rectsForTextMatchesInRect(const WebCore::IntRect&) const { return { }; }
     virtual bool drawsFindOverlay() const = 0;
-    virtual RefPtr<WebCore::TextIndicator> textIndicatorForSelection(OptionSet<WebCore::TextIndicatorOption>, WebCore::TextIndicatorPresentationTransition) { return { }; }
+    virtual RefPtr<WebCore::TextIndicator> textIndicatorForCurrentSelection(OptionSet<WebCore::TextIndicatorOption>, WebCore::TextIndicatorPresentationTransition) { return { }; }
+    virtual WebCore::DictionaryPopupInfo dictionaryPopupInfoForSelection(PDFSelection *, WebCore::TextIndicatorPresentationTransition);
 
     virtual bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&) = 0;
     void performWebSearch(const String& query);
 
-    virtual LookupTextResult lookupTextAtLocation(const WebCore::FloatPoint&, WebHitTestResultData&) = 0;
+    bool performImmediateActionHitTestAtLocation(const WebCore::FloatPoint&, WebHitTestResultData&);
+    virtual std::pair<String, RetainPtr<PDFSelection>> textForImmediateActionHitTestAtPoint(const WebCore::FloatPoint&, WebHitTestResultData&) = 0;
 
     virtual id accessibilityHitTest(const WebCore::IntPoint&) const = 0;
     virtual id accessibilityObject() const = 0;
@@ -179,6 +191,8 @@ public:
     WebCore::IntPoint convertFromPluginToRootView(const WebCore::IntPoint&) const;
     WebCore::IntRect convertFromPluginToRootView(const WebCore::IntRect&) const;
     WebCore::IntRect boundsOnScreen() const;
+
+    WebCore::IntPoint mousePositionInView(const WebMouseEvent&) const;
 
     bool showContextMenuAtPoint(const WebCore::IntPoint&);
     WebCore::AXObjectCache* axObjectCache() const;
@@ -215,6 +229,9 @@ public:
     virtual void focusNextAnnotation() = 0;
     virtual void focusPreviousAnnotation() = 0;
 
+    virtual Vector<WebCore::FloatRect> annotationRectsForTesting() const { return { }; };
+    void registerPDFTest(RefPtr<WebCore::VoidCallback>&&);
+
     void navigateToURL(const URL&);
 
     virtual void attemptToUnlockPDF(const String& password) = 0;
@@ -222,7 +239,7 @@ public:
 #if HAVE(INCREMENTAL_PDF_APIS)
     bool incrementalPDFLoadingEnabled() const { return m_incrementalPDFLoadingEnabled; }
     void receivedNonLinearizedPDFSentinel();
-    void startByteRangeRequest(WebCore::NetscapePlugInStreamLoaderClient&, uint64_t requestIdentifier, uint64_t position, size_t count);
+    void startByteRangeRequest(WebCore::NetscapePlugInStreamLoaderClient&, ByteRangeRequestIdentifier, uint64_t position, size_t count);
     void adoptBackgroundThreadDocument(RetainPtr<PDFDocument>&&);
     void maybeClearHighLatencyDataProviderFlag();
 #endif
@@ -237,21 +254,26 @@ public:
     void writeItemsToPasteboard(NSString *pasteboardName, NSArray *items, NSArray *types) const;
 #endif
 
+    uint64_t streamedBytes() const;
+
+protected:
+    virtual double contentScaleFactor() const = 0;
+
 private:
     bool documentFinishedLoading() const { return m_documentFinishedLoading; }
-    uint64_t streamedBytes() const { return m_streamedBytes; }
-    void ensureDataBufferLength(uint64_t);
+    void ensureDataBufferLength(uint64_t) WTF_REQUIRES_LOCK(m_streamedDataLock);
 
-    bool haveStreamedDataForRange(uint64_t offset, size_t count) const;
+    bool haveStreamedDataForRange(uint64_t offset, size_t count) const WTF_REQUIRES_LOCK(m_streamedDataLock);
     // This just checks whether the CFData is large enough; it doesn't know if we filled this range with data.
-    bool haveDataForRange(uint64_t offset, size_t count) const;
 
     void insertRangeRequestData(uint64_t offset, const Vector<uint8_t>&);
 
     // Returns the number of bytes copied.
     size_t copyDataAtPosition(void* buffer, uint64_t sourcePosition, size_t count) const;
     // FIXME: It would be nice to avoid having both the "copy into a buffer" and "return a pointer" ways of getting data.
-    const uint8_t* dataPtrForRange(uint64_t sourcePosition, size_t count) const;
+    std::span<const uint8_t> dataPtrForRange(uint64_t sourcePosition, size_t count, CheckValidRanges) const;
+    // Returns true only if we can satisfy all of the requests.
+    bool getByteRanges(CFMutableArrayRef, const CFRange*, size_t count) const;
 
 protected:
     explicit PDFPluginBase(WebCore::HTMLPlugInElement&);
@@ -280,6 +302,7 @@ protected:
     // ScrollableArea functions.
     WebCore::IntRect scrollCornerRect() const final;
     WebCore::ScrollableArea* enclosingScrollableArea() const final;
+    bool scrollAnimatorEnabled() const final { return true; }
     bool isScrollableOrRubberbandable() final { return true; }
     bool hasScrollableOrRubberbandableAncestor() final { return true; }
     WebCore::IntRect scrollableAreaBoundingBox(bool* = nullptr) const final;
@@ -333,8 +356,10 @@ protected:
     // m_data grows as we receive data in the primary request (PDFPluginBase::streamDidReceiveData())
     // but also as byte range requests are received via m_incrementalLoader, so it may have "holes"
     // before the main resource is fully loaded.
-    RetainPtr<CFMutableDataRef> m_data;
-    uint64_t m_streamedBytes { 0 };
+    mutable Lock m_streamedDataLock;
+    RetainPtr<CFMutableDataRef> m_data WTF_GUARDED_BY_LOCK(m_streamedDataLock);
+    uint64_t m_streamedBytes WTF_GUARDED_BY_LOCK(m_streamedDataLock) { 0 };
+    RangeSet<WTF::Range<uint64_t>> m_validRanges WTF_GUARDED_BY_LOCK(m_streamedDataLock);
 
     RetainPtr<PDFDocument> m_pdfDocument;
 #if PLATFORM(MAC)
@@ -368,6 +393,13 @@ protected:
 #if HAVE(INCREMENTAL_PDF_APIS)
     RefPtr<PDFIncrementalLoader> m_incrementalLoader;
     std::atomic<bool> m_incrementalPDFLoadingEnabled { false };
+#endif
+
+    RefPtr<WebCore::VoidCallback> m_pdfTestCallback;
+
+#if ENABLE(PDF_HUD)
+    CompletionHandler<void(const String&, const URL&, std::span<const uint8_t>)> m_pendingSaveCompletionHandler;
+    CompletionHandler<void(const String&, FrameInfoData&&, std::span<const uint8_t>, const String&)> m_pendingOpenCompletionHandler;
 #endif
 
     // Set overflow: hidden on the annotation container so <input> elements scrolled out of view don't show

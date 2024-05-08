@@ -302,34 +302,59 @@ void StorageAccessPromptQuirkController::setCachedQuirks(Vector<WebCore::Organiz
 {
     m_cachedQuirks = WTFMove(quirks);
     m_cachedQuirks.shrinkToFit();
+    RELEASE_LOG(ResourceLoadStatistics, "StorageAccessPromptQuirkController::setCachedQuirks: Loaded %lu storage access prompt(s) quirks from WebPrivacy.", m_cachedQuirks.size());
 }
 
 void StorageAccessPromptQuirkController::setCachedQuirksForTesting(Vector<WebCore::OrganizationStorageAccessPromptQuirk>&& quirks)
 {
+    m_wasInitialized = true;
     setCachedQuirks(WTFMove(quirks));
     m_observers.forEach([](auto& observer) {
         observer.invokeCallback();
     });
 }
 
-static HashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> domainPairingsDictToMap(NSDictionary<NSString *, NSArray<NSString *> *> *domainPairings)
+static HashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> quirkDomainsDictToMap(NSDictionary<NSString *, NSArray<NSString *> *> *quirkDomains)
 {
     HashMap<WebCore::RegistrableDomain, Vector<WebCore::RegistrableDomain>> map;
-    auto* topDomains = domainPairings.allKeys;
+    auto* topDomains = quirkDomains.allKeys;
     for (NSString *topDomain : topDomains) {
         Vector<WebCore::RegistrableDomain> subFrameDomains;
-        for (NSString *subFrameDomain : [domainPairings objectForKey:topDomain])
+        for (NSString *subFrameDomain : [quirkDomains objectForKey:topDomain])
             subFrameDomains.append(WebCore::RegistrableDomain::fromRawString(subFrameDomain));
         map.add(WebCore::RegistrableDomain::fromRawString(String { topDomain }), WTFMove(subFrameDomains));
     }
     return map;
 }
 
+void StorageAccessPromptQuirkController::initialize()
+{
+    if (m_wasInitialized)
+        return;
+
+    updateQuirks([this] {
+        m_observers.forEach([](auto& observer) {
+            observer.invokeCallback();
+        });
+    });
+    m_wasInitialized = true;
+}
+
+static Vector<URL> quirkPagesArrayToVector(NSArray<NSString *> *triggerPages)
+{
+    Vector<URL> triggers;
+    for (NSString *page : triggerPages) {
+        if (![page isEqualToString:@"*"])
+            triggers.append(URL { page });
+    }
+    return triggers;
+}
+
 void StorageAccessPromptQuirkController::updateQuirks(CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
     if (!WebKit::canUseWebPrivacyFramework() || ![PAL::getWPResourcesClass() instancesRespondToSelector:@selector(requestStorageAccessPromptQuirksData:completionHandler:)]) {
-        completionHandler();
+        RunLoop::main().dispatch(WTFMove(completionHandler));
         return;
     }
 
@@ -347,8 +372,13 @@ void StorageAccessPromptQuirkController::updateQuirks(CompletionHandler<void()>&
             RELEASE_LOG_ERROR(ResourceLoadStatistics, "Failed to request storage access quirks from WebPrivacy.");
         else {
             auto quirks = [data quirks];
-            for (WPStorageAccessPromptQuirk *quirk : quirks)
-                result.append(WebCore::OrganizationStorageAccessPromptQuirk { quirk.name, domainPairingsDictToMap(quirk.domainPairings) });
+            auto hasQuirkDomainsAndTriggerPages = [PAL::getWPStorageAccessPromptQuirkClass() instancesRespondToSelector:@selector(quirkDomains)] && [PAL::getWPStorageAccessPromptQuirkClass() instancesRespondToSelector:@selector(triggerPages)];
+            for (WPStorageAccessPromptQuirk *quirk : quirks) {
+                if (hasQuirkDomainsAndTriggerPages)
+                    result.append(WebCore::OrganizationStorageAccessPromptQuirk { quirk.name, quirkDomainsDictToMap(quirk.quirkDomains), quirkPagesArrayToVector(quirk.triggerPages) });
+                else
+                    result.append(WebCore::OrganizationStorageAccessPromptQuirk { quirk.name, quirkDomainsDictToMap(quirk.domainPairings), { } });
+            }
             setCachedQuirks(WTFMove(result));
         }
 
@@ -392,13 +422,27 @@ void StorageAccessUserAgentStringQuirkController::setCachedQuirksForTesting(Hash
     m_observers.forEach([](auto& observer) {
         observer.invokeCallback();
     });
+    m_wasInitialized = true;
+}
+
+void StorageAccessUserAgentStringQuirkController::initialize()
+{
+    if (m_wasInitialized)
+        return;
+
+    updateQuirks([this] {
+        m_observers.forEach([](auto& observer) {
+            observer.invokeCallback();
+        });
+    });
+    m_wasInitialized = true;
 }
 
 void StorageAccessUserAgentStringQuirkController::updateQuirks(CompletionHandler<void()>&& completionHandler)
 {
     ASSERT(RunLoop::isMain());
     if (!WebKit::canUseWebPrivacyFramework() || ![PAL::getWPResourcesClass() instancesRespondToSelector:@selector(requestStorageAccessUserAgentStringQuirksData:completionHandler:)]) {
-        completionHandler();
+        RunLoop::main().dispatch(WTFMove(completionHandler));
         return;
     }
 

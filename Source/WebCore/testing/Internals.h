@@ -243,6 +243,7 @@ public:
     unsigned imagePendingDecodePromisesCountForTesting(HTMLImageElement&);
     void setClearDecoderAfterAsyncFrameRequestForTesting(HTMLImageElement&, bool enabled);
     unsigned imageDecodeCount(HTMLImageElement&);
+    AtomString imageLastDecodingOptions(HTMLImageElement&);
     unsigned imageCachedSubimageCreateCount(HTMLImageElement&);
     unsigned remoteImagesCountForTesting() const;
     void setAsyncDecodingEnabledForTesting(HTMLImageElement&, bool enabled);
@@ -409,6 +410,7 @@ public:
 
     ExceptionOr<unsigned> wheelEventHandlerCount();
     ExceptionOr<unsigned> touchEventHandlerCount();
+    ExceptionOr<unsigned> scrollableAreaWidth(Node&);
 
     ExceptionOr<Ref<DOMRectList>> touchEventRectsForEvent(const String&);
     ExceptionOr<Ref<DOMRectList>> passiveTouchEventListenerRects();
@@ -759,6 +761,8 @@ public:
     double elementEffectivePlaybackRate(const HTMLMediaElement&);
 
     ExceptionOr<void> setOverridePreferredDynamicRangeMode(HTMLMediaElement&, const String&);
+
+    void enableGStreamerHolePunching(HTMLVideoElement&);
 #endif
 
     ExceptionOr<void> setIsPlayingToBluetoothOverride(std::optional<bool>);
@@ -1178,6 +1182,7 @@ public:
     String ongoingLoadsDescriptions() const;
 
     void reloadWithoutContentExtensions();
+    void disableContentExtensionsChecks();
 
     void setUseSystemAppearance(bool);
 
@@ -1440,6 +1445,17 @@ public:
     String getComputedRole(Element&) const;
 
     bool hasScopeBreakingHasSelectors() const;
+
+
+    struct PDFAnnotationRect {
+        float x;
+        float y;
+        float width;
+        float height;
+    };
+
+    Vector<PDFAnnotationRect> pdfAnnotationRectsForTesting(Element& pluginElement) const;
+    void registerPDFTest(Ref<VoidCallback>&&, Element&);
 
 private:
     explicit Internals(Document&);

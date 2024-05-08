@@ -96,7 +96,7 @@ TEST(WKWebExtensionAPIPermissions, Errors)
     Util::loadAndRunExtension(manifest, @{ @"background.js": backgroundScript });
 }
 
-TEST(WKWebExtensionAPIPermissions, PermissionsTest)
+TEST(WKWebExtensionAPIPermissions, Basics)
 {
     auto *manifest = @{
         @"manifest_version": @3,
@@ -150,7 +150,7 @@ TEST(WKWebExtensionAPIPermissions, PermissionsTest)
     [manager loadAndRun];
 }
 
-TEST(WKWebExtensionAPIPermissions, AcceptPermissionsRequestTest)
+TEST(WKWebExtensionAPIPermissions, AcceptPermissionsRequest)
 {
     auto *manifest = @{
         @"manifest_version": @3,
@@ -161,9 +161,11 @@ TEST(WKWebExtensionAPIPermissions, AcceptPermissionsRequestTest)
     };
 
     auto *backgroundScript = Util::constructScript(@[
-        // Finish
-        @"browser.test.yield()",
-        @"browser.test.notifyPass()"
+        @"window.runTest = async () => {",
+        @"  await browser.test.assertTrue(await browser.permissions.request({'permissions': ['declarativeNetRequest'], 'origins': ['*://*.apple.com/*']}))",
+        @"}",
+
+        @"browser.test.yield('Ready')",
     ]);
 
     auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:manifest resources:@{ @"background.js": backgroundScript }]);
@@ -178,28 +180,34 @@ TEST(WKWebExtensionAPIPermissions, AcceptPermissionsRequestTest)
     __block bool requestComplete = false;
 
     // Implement the delegate methods that're called when a call to permissions.request() is made.
-    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *)) {
+    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *, NSDate *)) {
         EXPECT_EQ(requestedPermissions.count, permissions.count);
         EXPECT_TRUE([requestedPermissions isEqualToSet:permissions]);
-        callback(requestedPermissions);
+        callback(requestedPermissions, nil);
     };
 
-    requestDelegate.get().promptForPermissionMatchPatterns = ^(id<_WKWebExtensionTab> tab, NSSet<_WKWebExtensionMatchPattern *> *requestedMatchPatterns, void (^callback)(NSSet<_WKWebExtensionMatchPattern *> *)) {
+    requestDelegate.get().promptForPermissionMatchPatterns = ^(id<_WKWebExtensionTab> tab, NSSet<_WKWebExtensionMatchPattern *> *requestedMatchPatterns, void (^callback)(NSSet<_WKWebExtensionMatchPattern *> *, NSDate *)) {
         EXPECT_EQ(requestedMatchPatterns.count, matchPatterns.count);
         EXPECT_TRUE([requestedMatchPatterns isEqualToSet:matchPatterns]);
-        callback(requestedMatchPatterns);
-        requestComplete = true;
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            callback(requestedMatchPatterns, nil);
+            requestComplete = true;
+        });
     };
 
     manager.get().controllerDelegate = requestDelegate.get();
+
     [manager loadAndRun];
 
-    runScriptWithUserGesture("await browser.test.assertTrue(await browser.permissions.request({'permissions': ['declarativeNetRequest'], 'origins': ['*://*.apple.com/*']}))"_s, manager.get().context._backgroundWebView);
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Ready");
+
+    runScriptWithUserGesture("runTest()"_s, manager.get().context._backgroundWebView);
 
     TestWebKitAPI::Util::run(&requestComplete);
 }
 
-TEST(WKWebExtensionAPIPermissions, DenyPermissionsRequestTest)
+TEST(WKWebExtensionAPIPermissions, DenyPermissionsRequest)
 {
     auto *manifest = @{
         @"manifest_version": @3,
@@ -209,9 +217,11 @@ TEST(WKWebExtensionAPIPermissions, DenyPermissionsRequestTest)
     };
 
     auto *backgroundScript = Util::constructScript(@[
-        // Finish
-        @"browser.test.yield()",
-        @"browser.test.notifyPass()"
+        @"window.runTest = async () => {",
+        @"  await browser.test.assertFalse(await browser.permissions.request({'permissions': ['declarativeNetRequest'], 'origins': ['*://*.apple.com/*']}))",
+        @"}",
+
+        @"browser.test.yield('Ready')",
     ]);
 
     auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:manifest resources:@{ @"background.js": backgroundScript }]);
@@ -224,25 +234,27 @@ TEST(WKWebExtensionAPIPermissions, DenyPermissionsRequestTest)
     __block bool requestComplete = false;
 
     // Implement the delegate methods, but don't grant the permissions.
-    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *)) {
-        requestComplete = true;
-        callback(nil);
+    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *, NSDate *)) {
+        callback(NSSet.set, NSDate.distantPast);
     };
 
-    requestDelegate.get().promptForPermissionMatchPatterns = ^(id<_WKWebExtensionTab> tab, NSSet<_WKWebExtensionMatchPattern *> *requestedMatchPatterns, void (^callback)(NSSet<_WKWebExtensionMatchPattern *> *)) {
-        ASSERT_NOT_REACHED();
-        callback(nil);
+    requestDelegate.get().promptForPermissionMatchPatterns = ^(id<_WKWebExtensionTab> tab, NSSet<_WKWebExtensionMatchPattern *> *requestedMatchPatterns, void (^callback)(NSSet<_WKWebExtensionMatchPattern *> *, NSDate *)) {
+        requestComplete = true;
+        callback(NSSet.set, NSDate.distantFuture);
     };
 
     manager.get().controllerDelegate = requestDelegate.get();
+
     [manager loadAndRun];
 
-    runScriptWithUserGesture("await browser.test.assertFalse(await browser.permissions.request({'permissions': ['declarativeNetRequest'], 'origins': ['*://*.apple.com/*']}))"_s, manager.get().context._backgroundWebView);
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Ready");
+
+    runScriptWithUserGesture("runTest()"_s, manager.get().context._backgroundWebView);
 
     TestWebKitAPI::Util::run(&requestComplete);
 }
 
-TEST(WKWebExtensionAPIPermissions, AcceptPermissionsDenyMatchPatternsRequestTest)
+TEST(WKWebExtensionAPIPermissions, AcceptPermissionsDenyMatchPatternsRequest)
 {
     auto *manifest = @{
         @"manifest_version": @3,
@@ -252,9 +264,11 @@ TEST(WKWebExtensionAPIPermissions, AcceptPermissionsDenyMatchPatternsRequestTest
     };
 
     auto *backgroundScript = Util::constructScript(@[
-        // Finish
-        @"browser.test.yield()",
-        @"browser.test.notifyPass()"
+        @"window.runTest = async () => {",
+        @"  await browser.test.assertFalse(await browser.permissions.request({'permissions': ['declarativeNetRequest'], 'origins': ['*://*.apple.com/*']}))",
+        @"}",
+
+        @"browser.test.yield('Ready')",
     ]);
 
     auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:manifest resources:@{ @"background.js": backgroundScript }]);
@@ -267,25 +281,28 @@ TEST(WKWebExtensionAPIPermissions, AcceptPermissionsDenyMatchPatternsRequestTest
     __block bool requestComplete = false;
 
     // Grant the requested permissions.
-    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *)) {
-        callback(requestedPermissions);
+    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *, NSDate *)) {
+        callback(requestedPermissions, nil);
     };
 
     // Deny the requested match patterns.
-    requestDelegate.get().promptForPermissionMatchPatterns = ^(id<_WKWebExtensionTab> tab, NSSet<_WKWebExtensionMatchPattern *> *requestedMatchPatterns, void (^callback)(NSSet<_WKWebExtensionMatchPattern *> *)) {
+    requestDelegate.get().promptForPermissionMatchPatterns = ^(id<_WKWebExtensionTab> tab, NSSet<_WKWebExtensionMatchPattern *> *requestedMatchPatterns, void (^callback)(NSSet<_WKWebExtensionMatchPattern *> *, NSDate *)) {
         requestComplete = true;
-        callback(nil);
+        callback(NSSet.set, nil);
     };
 
     manager.get().controllerDelegate = requestDelegate.get();
+
     [manager loadAndRun];
 
-    runScriptWithUserGesture("await browser.test.assertFalse(await browser.permissions.request({'permissions': ['declarativeNetRequest'], 'origins': ['*://*.apple.com/*']}))"_s, manager.get().context._backgroundWebView);
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Ready");
+
+    runScriptWithUserGesture("runTest()"_s, manager.get().context._backgroundWebView);
 
     TestWebKitAPI::Util::run(&requestComplete);
 }
 
-TEST(WKWebExtensionAPIPermissions, RequestPermissionsOnlyTest)
+TEST(WKWebExtensionAPIPermissions, RequestPermissionsOnly)
 {
     auto *manifest = @{
         @"manifest_version": @3,
@@ -295,9 +312,11 @@ TEST(WKWebExtensionAPIPermissions, RequestPermissionsOnlyTest)
     };
 
     auto *backgroundScript = Util::constructScript(@[
-        // Finish
-        @"browser.test.yield()",
-        @"browser.test.notifyPass()"
+        @"window.runTest = async () => {",
+        @"  await browser.test.assertTrue(await browser.permissions.request({'permissions': ['declarativeNetRequest']}))",
+        @"}",
+
+        @"browser.test.yield('Ready')",
     ]);
 
     auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:manifest resources:@{ @"background.js": backgroundScript }]);
@@ -310,25 +329,30 @@ TEST(WKWebExtensionAPIPermissions, RequestPermissionsOnlyTest)
     __block bool requestComplete = false;
 
     // Grant the requested permissions.
-    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *)) {
-        callback(requestedPermissions);
+    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *, NSDate *)) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            requestComplete = true;
+            callback(requestedPermissions, nil);
+        });
     };
 
-    // Grant the requested match patterns.
-    requestDelegate.get().promptForPermissionMatchPatterns = ^(id<_WKWebExtensionTab> tab, NSSet<_WKWebExtensionMatchPattern *> *requestedMatchPatterns, void (^callback)(NSSet<_WKWebExtensionMatchPattern *> *)) {
-        requestComplete = true;
-        callback(requestedMatchPatterns);
+    // Match patterns method should not be called.
+    requestDelegate.get().promptForPermissionMatchPatterns = ^(id<_WKWebExtensionTab> tab, NSSet<_WKWebExtensionMatchPattern *> *requestedMatchPatterns, void (^callback)(NSSet<_WKWebExtensionMatchPattern *> *, NSDate *)) {
+        ASSERT_NOT_REACHED();
     };
 
     manager.get().controllerDelegate = requestDelegate.get();
+
     [manager loadAndRun];
 
-    runScriptWithUserGesture("await browser.test.assertTrue(await browser.permissions.request({'permissions': ['declarativeNetRequest']}))"_s, manager.get().context._backgroundWebView);
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Ready");
+
+    runScriptWithUserGesture("runTest()"_s, manager.get().context._backgroundWebView);
 
     TestWebKitAPI::Util::run(&requestComplete);
 }
 
-TEST(WKWebExtensionAPIPermissions, RequestMatchPatternsOnlyTest)
+TEST(WKWebExtensionAPIPermissions, RequestMatchPatternsOnly)
 {
     auto *manifest = @{
         @"manifest_version": @3,
@@ -338,9 +362,61 @@ TEST(WKWebExtensionAPIPermissions, RequestMatchPatternsOnlyTest)
     };
 
     auto *backgroundScript = Util::constructScript(@[
-        // Finish
-        @"browser.test.yield()",
-        @"browser.test.notifyPass()"
+        @"window.runTest = async () => {",
+        @"  await browser.test.assertTrue(await browser.permissions.request({'origins': ['*://*.apple.com/*']}))",
+        @"}",
+
+        @"browser.test.yield('Ready')",
+    ]);
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:manifest resources:@{ @"background.js": backgroundScript }]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    configuration.get()._webExtensionController = manager.get().controller;
+
+    auto requestDelegate = adoptNS([[TestWebExtensionsDelegate alloc] init]);
+    __block bool requestComplete = false;
+
+    // Permissions method should not be called.
+    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *, NSDate *)) {
+        ASSERT_NOT_REACHED();
+    };
+
+    // Grant the requested match patterns.
+    requestDelegate.get().promptForPermissionMatchPatterns = ^(id<_WKWebExtensionTab> tab, NSSet<_WKWebExtensionMatchPattern *> *requestedMatchPatterns, void (^callback)(NSSet<_WKWebExtensionMatchPattern *> *, NSDate *)) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            requestComplete = true;
+            callback(requestedMatchPatterns, [NSDate dateWithTimeIntervalSinceNow:10]);
+        });
+    };
+
+    manager.get().controllerDelegate = requestDelegate.get();
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Ready");
+
+    runScriptWithUserGesture("runTest()"_s, manager.get().context._backgroundWebView);
+
+    TestWebKitAPI::Util::run(&requestComplete);
+}
+
+TEST(WKWebExtensionAPIPermissions, GrantOnlySomePermissions)
+{
+    auto *manifest = @{
+        @"manifest_version": @3,
+        @"optional_permissions": @[ @"declarativeNetRequest", @"alarms" ],
+        @"background": @{ @"scripts": @[ @"background.js" ], @"type": @"module", @"persistent": @NO },
+        @"optional_host_permissions": @[ @"*://*.apple.com/*" ]
+    };
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"window.runTest = async () => {",
+        @"  await browser.test.assertFalse(await browser.permissions.request({'permissions': ['alarms', 'declarativeNetRequest']}))",
+        @"}",
+
+        @"browser.test.yield('Ready')",
     ]);
 
     auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:manifest resources:@{ @"background.js": backgroundScript }]);
@@ -353,20 +429,73 @@ TEST(WKWebExtensionAPIPermissions, RequestMatchPatternsOnlyTest)
     __block bool requestComplete = false;
 
     // Grant the requested permissions.
-    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *)) {
-        callback(requestedPermissions);
+    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *, NSDate *)) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            requestComplete = true;
+            callback(requestedPermissions, nil);
+        });
     };
 
-    // Grant the requested match patterns.
-    requestDelegate.get().promptForPermissionMatchPatterns = ^(id<_WKWebExtensionTab> tab, NSSet<_WKWebExtensionMatchPattern *> *requestedMatchPatterns, void (^callback)(NSSet<_WKWebExtensionMatchPattern *> *)) {
-        requestComplete = true;
-        callback(requestedMatchPatterns);
+    // Match patterns method should not be called.
+    requestDelegate.get().promptForPermissionMatchPatterns = ^(id<_WKWebExtensionTab> tab, NSSet<_WKWebExtensionMatchPattern *> *requestedMatchPatterns, void (^callback)(NSSet<_WKWebExtensionMatchPattern *> *, NSDate *)) {
+        ASSERT_NOT_REACHED();
     };
 
     manager.get().controllerDelegate = requestDelegate.get();
+
     [manager loadAndRun];
 
-    runScriptWithUserGesture("await browser.test.assertTrue(await browser.permissions.request({'origins': ['*://*.apple.com/*']}))"_s, manager.get().context._backgroundWebView);
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Ready");
+
+    runScriptWithUserGesture("runTest()"_s, manager.get().context._backgroundWebView);
+
+    TestWebKitAPI::Util::run(&requestComplete);
+}
+
+TEST(WKWebExtensionAPIPermissions, GrantOnlySomeMatchPatterns)
+{
+    auto *manifest = @{
+        @"manifest_version": @3,
+        @"optional_permissions": @[ @"declarativeNetRequest" ],
+        @"background": @{ @"scripts": @[ @"background.js" ], @"type": @"module", @"persistent": @NO },
+        @"optional_host_permissions": @[ @"*://*.apple.com/*", @"*://*.example.com/*" ]
+    };
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"window.runTest = async () => {",
+        @"  await browser.test.assertFalse(await browser.permissions.request({'origins': ['*://*.apple.com/*', '*://*.example.com/*']}))",
+        @"}",
+
+        @"browser.test.yield('Ready')",
+    ]);
+
+    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:manifest resources:@{ @"background.js": backgroundScript }]);
+    auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
+
+    auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
+    configuration.get()._webExtensionController = manager.get().controller;
+
+    auto requestDelegate = adoptNS([[TestWebExtensionsDelegate alloc] init]);
+    __block bool requestComplete = false;
+
+    // Permissions method should not be called.
+    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *, NSDate *)) {
+        ASSERT_NOT_REACHED();
+    };
+
+    // Grant only one of the requested match patterns.
+    requestDelegate.get().promptForPermissionMatchPatterns = ^(id<_WKWebExtensionTab> tab, NSSet<_WKWebExtensionMatchPattern *> *requestedMatchPatterns, void (^callback)(NSSet<_WKWebExtensionMatchPattern *> *, NSDate *)) {
+        requestComplete = true;
+        callback([NSSet setWithObject:requestedMatchPatterns.anyObject], NSDate.distantFuture);
+    };
+
+    manager.get().controllerDelegate = requestDelegate.get();
+
+    [manager loadAndRun];
+
+    EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Ready");
+
+    runScriptWithUserGesture("runTest()"_s, manager.get().context._backgroundWebView);
 
     TestWebKitAPI::Util::run(&requestComplete);
 }
@@ -549,11 +678,11 @@ TEST(WKWebExtensionAPIPermissions, ClipboardWriteWithRequest)
 
     auto requestDelegate = adoptNS([[TestWebExtensionsDelegate alloc] init]);
 
-    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *grantedPermissions)) {
+    requestDelegate.get().promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *, NSDate *)) {
         EXPECT_EQ(requestedPermissions.count, 1ul);
         EXPECT_TRUE([requestedPermissions containsObject:_WKWebExtensionPermissionClipboardWrite]);
 
-        callback(requestedPermissions);
+        callback(requestedPermissions, nil);
     };
 
     manager.get().controllerDelegate = requestDelegate.get();

@@ -23,7 +23,6 @@
 #include "config.h"
 #include "RenderSVGResourceMarker.h"
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
 #include "Element.h"
 #include "ElementIterator.h"
 #include "FloatPoint.h"
@@ -34,6 +33,7 @@
 #include "RenderLayerInlines.h"
 #include "RenderSVGModelObjectInlines.h"
 #include "RenderSVGResourceMarkerInlines.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGGraphicsElement.h"
 #include "SVGLengthContext.h"
 #include "SVGRenderStyle.h"
@@ -165,5 +165,3 @@ FloatRect RenderSVGResourceMarker::computeMarkerBoundingBox(const SVGBoundingBox
 }
 
 }
-
-#endif // ENABLE(LAYER_BASED_SVG_ENGINE)

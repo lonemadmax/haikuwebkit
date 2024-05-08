@@ -132,7 +132,6 @@ inline RenderElement::RenderElement(Type type, ContainerNode& elementOrDocument,
     , m_renderBlockHasMarginBeforeQuirk(false)
     , m_renderBlockHasMarginAfterQuirk(false)
     , m_renderBlockShouldForceRelayoutChildren(false)
-    , m_renderBlockFlowHasMarkupTruncation(false)
     , m_renderBlockFlowLineLayoutPath(RenderBlockFlow::UndeterminedPath)
     , m_isRegisteredForVisibleInViewportCallback(false)
     , m_visibleInViewportState(static_cast<unsigned>(VisibleInViewportState::Unknown))
@@ -407,7 +406,7 @@ void RenderElement::updateShapeImage(const ShapeValue* oldShapeValue, const Shap
 
 bool RenderElement::repaintBeforeStyleChange(StyleDifference diff, const RenderStyle& oldStyle, const RenderStyle& newStyle)
 {
-    if (oldStyle.visibility() == Visibility::Hidden) {
+    if (oldStyle.usedVisibility() == Visibility::Hidden) {
         // Repaint on hidden renderer is a no-op.
         return false;
     }
@@ -456,18 +455,18 @@ bool RenderElement::repaintBeforeStyleChange(StyleDifference diff, const RenderS
                 return RequiredRepaint::RendererOnly;
         }
 
-        if (diff > StyleDifference::RepaintLayer && oldStyle.visibility() != newStyle.visibility()) {
+        if (diff > StyleDifference::RepaintLayer && oldStyle.usedVisibility() != newStyle.usedVisibility()) {
             if (CheckedPtr enclosingLayer = this->enclosingLayer()) {
-                bool rendererWillBeHidden = newStyle.visibility() != Visibility::Visible;
-                if (rendererWillBeHidden && enclosingLayer->hasVisibleContent() && (this == &enclosingLayer->renderer() || enclosingLayer->renderer().style().visibility() != Visibility::Visible))
+                bool rendererWillBeHidden = newStyle.usedVisibility() != Visibility::Visible;
+                if (rendererWillBeHidden && enclosingLayer->hasVisibleContent() && (this == &enclosingLayer->renderer() || enclosingLayer->renderer().style().usedVisibility() != Visibility::Visible))
                     return RequiredRepaint::RendererOnly;
             }
         }
 
-        if (diff > StyleDifference::RepaintLayer && oldStyle.effectiveContentVisibility() != newStyle.effectiveContentVisibility() && isOutOfFlowPositioned()) {
+        if (diff > StyleDifference::RepaintLayer && oldStyle.usedContentVisibility() != newStyle.usedContentVisibility() && isOutOfFlowPositioned()) {
             if (CheckedPtr enclosingLayer = this->enclosingLayer()) {
                 bool rendererWillBeHidden = isSkippedContent();
-                if (rendererWillBeHidden && enclosingLayer->hasVisibleContent() && (this == &enclosingLayer->renderer() || enclosingLayer->renderer().style().visibility() != Visibility::Visible))
+                if (rendererWillBeHidden && enclosingLayer->hasVisibleContent() && (this == &enclosingLayer->renderer() || enclosingLayer->renderer().style().usedVisibility() != Visibility::Visible))
                     return RequiredRepaint::RendererOnly;
             }
         }
@@ -759,7 +758,6 @@ RenderLayer* RenderElement::layerNextSibling(RenderLayer& parentLayer) const
 
 bool RenderElement::layerCreationAllowedForSubtree() const
 {
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
     // In LBSE layers are always created regardless of there position in the render tree.
     // Consider the SVG document fragment: "<defs><mask><rect transform="scale(2)".../>"
     // To paint the <rect> into the mask image, the rect needs to be transformed -
@@ -772,7 +770,6 @@ bool RenderElement::layerCreationAllowedForSubtree() const
     // elements (such as LegacyRenderSVGResourceClipper, RenderSVGResourceMasker, etc.)
     if (document().settings().layerBasedSVGEngineEnabled())
         return true;
-#endif
 
     RenderElement* parentRenderer = parent();
     while (parentRenderer) {
@@ -852,7 +849,7 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
     if (oldStyle) {
         // If our z-index changes value or our visibility changes,
         // we need to dirty our stacking context's z-order list.
-        bool visibilityChanged = m_style.visibility() != newStyle.visibility()
+        bool visibilityChanged = m_style.usedVisibility() != newStyle.usedVisibility()
             || m_style.usedZIndex() != newStyle.usedZIndex()
             || m_style.hasAutoUsedZIndex() != newStyle.hasAutoUsedZIndex();
 
@@ -866,8 +863,8 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         }
 
         // Keep layer hierarchy visibility bits up to date if visibility or skipped content state changes.
-        bool wasVisible = m_style.visibility() == Visibility::Visible && !m_style.hasSkippedContent();
-        bool willBeVisible = newStyle.visibility() == Visibility::Visible && !newStyle.hasSkippedContent();
+        bool wasVisible = m_style.usedVisibility() == Visibility::Visible && !m_style.hasSkippedContent();
+        bool willBeVisible = newStyle.usedVisibility() == Visibility::Visible && !newStyle.hasSkippedContent();
         if (wasVisible != willBeVisible) {
             if (CheckedPtr layer = enclosingLayer()) {
                 if (willBeVisible) {
@@ -875,16 +872,16 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
                         layer->dirtyVisibleContentStatus();
                     else
                         layer->setHasVisibleContent();
-                } else if (layer->hasVisibleContent() && (this == &layer->renderer() || layer->renderer().style().visibility() != Visibility::Visible))
+                } else if (layer->hasVisibleContent() && (this == &layer->renderer() || layer->renderer().style().usedVisibility() != Visibility::Visible))
                     layer->dirtyVisibleContentStatus();
             }
         }
 
         auto needsInvalidateEventRegion = [&] {
-            if (m_style.effectivePointerEvents() != newStyle.effectivePointerEvents())
+            if (m_style.usedPointerEvents() != newStyle.usedPointerEvents())
                 return true;
 #if ENABLE(TOUCH_ACTION_REGIONS)
-            if (m_style.effectiveTouchActions() != newStyle.effectiveTouchActions())
+            if (m_style.usedTouchActions() != newStyle.usedTouchActions())
                 return true;
 #endif
             if (m_style.eventListenerRegionTypes() != newStyle.eventListenerRegionTypes())
@@ -998,10 +995,8 @@ void RenderElement::styleDidChange(StyleDifference diff, const RenderStyle* oldS
 
     if (diff >= StyleDifference::Repaint) {
         updateReferencedSVGResources();
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
         if (oldStyle && diff <= StyleDifference::RepaintLayer)
             repaintClientsOfReferencedSVGResources();
-#endif
     }
 
     if (!m_parent)
@@ -1063,7 +1058,7 @@ void RenderElement::insertedIntoTree(IsInternalMove isInternalMove)
 
     // If |this| is visible but this object was not, tell the layer it has some visible content
     // that needs to be drawn and layer visibility optimization can't be used
-    if (parent()->style().visibility() != Visibility::Visible && style().visibility() == Visibility::Visible && !hasLayer()) {
+    if (parent()->style().usedVisibility() != Visibility::Visible && style().usedVisibility() == Visibility::Visible && !hasLayer()) {
         if (CheckedPtr parentLayer = layerParent())
             parentLayer->dirtyVisibleContentStatus();
     }
@@ -1074,7 +1069,7 @@ void RenderElement::insertedIntoTree(IsInternalMove isInternalMove)
 void RenderElement::willBeRemovedFromTree(IsInternalMove isInternalMove)
 {
     // If we remove a visible child from an invisible parent, we don't know the layer visibility any more.
-    if (parent()->style().visibility() != Visibility::Visible && style().visibility() == Visibility::Visible && !hasLayer()) {
+    if (parent()->style().usedVisibility() != Visibility::Visible && style().usedVisibility() == Visibility::Visible && !hasLayer()) {
         // FIXME: should get parent layer. Necessary?
         if (CheckedPtr enclosingLayer = parent()->enclosingLayer())
             enclosingLayer->dirtyVisibleContentStatus();
@@ -1238,7 +1233,7 @@ static bool mustRepaintFillLayers(const RenderElement& renderer, const FillLayer
 
     // Make sure we have a valid image.
     RefPtr image = layer.image();
-    if (!image || !image->canRender(&renderer, renderer.style().effectiveZoom()))
+    if (!image || !image->canRender(&renderer, renderer.style().usedZoom()))
         return false;
 
     if (!layer.xPosition().isZero() || !layer.yPosition().isZero())
@@ -1477,7 +1472,7 @@ bool RenderElement::borderImageIsLoadedAndCanBeRendered() const
     ASSERT(style().hasBorder());
 
     RefPtr borderImage = style().borderImage().image();
-    return borderImage && borderImage->canRender(this, style().effectiveZoom()) && borderImage->isLoaded(this);
+    return borderImage && borderImage->canRender(this, style().usedZoom()) && borderImage->isLoaded(this);
 }
 
 bool RenderElement::mayCauseRepaintInsideViewport(const IntRect* optionalViewportRect) const
@@ -1503,7 +1498,7 @@ bool RenderElement::isVisibleIgnoringGeometry() const
 {
     if (document().activeDOMObjectsAreSuspended())
         return false;
-    if (style().visibility() != Visibility::Visible)
+    if (style().usedVisibility() != Visibility::Visible)
         return false;
     if (view().frameView().isOffscreen())
         return false;
@@ -1530,11 +1525,9 @@ bool RenderElement::isVisibleInDocumentRect(const IntRect& documentRect) const
 
 bool RenderElement::isInsideEntirelyHiddenLayer() const
 {
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (isSVGLayerAwareRenderer() && document().settings().layerBasedSVGEngineEnabled() && enclosingLayer()->enclosingSVGHiddenOrResourceContainer())
         return true;
-#endif
-    return style().visibility() != Visibility::Visible && !enclosingLayer()->hasVisibleContent();
+    return style().usedVisibility() != Visibility::Visible && !enclosingLayer()->hasVisibleContent();
 }
 
 void RenderElement::registerForVisibleInViewportCallback()
@@ -2069,7 +2062,7 @@ bool RenderElement::capturedInViewTransition() const
     if (!hasViewTransitionName())
         return false;
 
-    return !!document().activeViewTransition();
+    return element() && element()->capturedInViewTransition();
 }
 
 bool RenderElement::hasViewTransitionName() const
@@ -2206,7 +2199,6 @@ void RenderElement::updateReferencedSVGResources()
         clearReferencedSVGResources();
 }
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
 void RenderElement::repaintRendererOrClientsOfReferencedSVGResources() const
 {
     auto* enclosingResourceContainer = lineageOfType<RenderSVGResourceContainer>(*this).first();
@@ -2258,7 +2250,6 @@ void RenderElement::repaintOldAndNewPositionsForSVGRenderer() const
 
     repaint();
 }
-#endif
 
 #if ENABLE(TEXT_AUTOSIZING)
 static RenderObject::BlockContentHeightType includeNonFixedHeight(const RenderObject& renderer)
@@ -2420,23 +2411,19 @@ FloatRect RenderElement::referenceBoxRect(CSSBoxType boxType) const
         // and at the same time alter the CTM in RenderLayer::paintLayerByApplyingTransform() by
         // including a translation to the enclosing transformed ancestor ('offsetFromAncestor').
         // Avoid that, and move by -nominalSVGLayoutLocation().
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
         if (isSVGLayerAwareRenderer() && !isRenderSVGRoot() && document().settings().layerBasedSVGEngineEnabled())
             referenceBox.moveBy(-downcast<RenderLayerModelObject>(*this).nominalSVGLayoutLocation());
-#endif
         return referenceBox;
     };
 
     auto determineSVGViewport = [&]() {
         RefPtr viewportElement = downcast<SVGElement>(element());
 
-#if ENABLE(LAYER_BASED_SVG_ENGINE)
         // RenderSVGViewportContainer is the only possible anonymous renderer in the SVG tree.
         if (!viewportElement && document().settings().layerBasedSVGEngineEnabled()) {
             ASSERT(isAnonymous());
             viewportElement = &downcast<RenderSVGViewportContainer>(*this).svgSVGElement();
         }
-#endif
 
         // FIXME: [LBSE] Upstream: Cache the immutable SVGLengthContext per SVGElement, to avoid the repeated RenderSVGRoot size queries in determineViewport().
         ASSERT(viewportElement);

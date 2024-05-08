@@ -6403,8 +6403,7 @@
                 "longhands": [
                     "contain-intrinsic-width",
                     "contain-intrinsic-height"
-                ],
-                "settings-flag": "cssContainIntrinsicSizeEnabled"
+                ]
             },
             "specification": {
                 "category": "css-sizing",
@@ -6414,7 +6413,6 @@
         "contain-intrinsic-height": {
             "codegen-properties": {
                 "custom": "All",
-                "settings-flag": "cssContainIntrinsicSizeEnabled",
                 "logical-property-group": {
                     "name": "contain-intrinsic-size",
                     "resolver": "vertical"
@@ -6432,7 +6430,6 @@
         "contain-intrinsic-width": {
             "codegen-properties": {
                 "custom": "All",
-                "settings-flag": "cssContainIntrinsicSizeEnabled",
                 "logical-property-group": {
                     "name": "contain-intrinsic-size",
                     "resolver": "horizontal"
@@ -6450,7 +6447,6 @@
         "contain-intrinsic-block-size": {
             "codegen-properties": {
                 "skip-builder": true,
-                "settings-flag": "cssContainIntrinsicSizeEnabled",
                 "logical-property-group": {
                     "name": "contain-intrinsic-size",
                     "resolver": "block"
@@ -6468,7 +6464,6 @@
         "contain-intrinsic-inline-size": {
             "codegen-properties": {
                 "skip-builder": true,
-                "settings-flag": "cssContainIntrinsicSizeEnabled",
                 "logical-property-group": {
                     "name": "contain-intrinsic-size",
                     "resolver": "inline"
@@ -6487,7 +6482,6 @@
             "codegen-properties": {
                 "converter": "Contain",
                 "initial": "initialContainment",
-                "settings-flag": "cssContainmentEnabled",
                 "parser-function": "consumeContain",
                 "parser-grammar-unused": "none | strict | content | [ size || layout || paint ]",
                 "parser-grammar-unused-reason": "Needs support for '||' groups.",
@@ -6512,7 +6506,6 @@
         },
         "container-name": {
             "codegen-properties": {
-                "settings-flag": "cssContainerQueriesEnabled",
                 "converter": "ContainerName",
                 "name-for-methods": "ContainerNames",
                 "parser-function": "consumeContainerName",
@@ -6531,7 +6524,6 @@
                 "inline-size"
             ],
             "codegen-properties": {
-                "settings-flag": "cssContainerQueriesEnabled",
                 "parser-grammar": "<<values>>"
             },
             "specification": {
@@ -9872,7 +9864,6 @@
         "@property": {
             "syntax": {
                 "codegen-properties": {
-                    "settings-flag": "cssCustomPropertiesAndValuesEnabled",
                     "parser-grammar": "<string>"
                 },
                 "specification": {
@@ -9882,7 +9873,6 @@
             },
             "inherits": {
                 "codegen-properties": {
-                    "settings-flag": "cssCustomPropertiesAndValuesEnabled",
                     "parser-grammar": "true | false"
                 },
                 "specification": {
@@ -9892,7 +9882,6 @@
             },
             "initial-value": {
                 "codegen-properties": {
-                    "settings-flag": "cssCustomPropertiesAndValuesEnabled",
                     "parser-grammar": "<declaration-value>"
                 },
                 "specification": {

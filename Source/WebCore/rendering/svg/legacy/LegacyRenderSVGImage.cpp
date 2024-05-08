@@ -49,7 +49,7 @@ namespace WebCore {
 WTF_MAKE_ISO_ALLOCATED_IMPL(LegacyRenderSVGImage);
 
 LegacyRenderSVGImage::LegacyRenderSVGImage(SVGImageElement& element, RenderStyle&& style)
-    : LegacyRenderSVGModelObject(Type::LegacySVGImage, element, WTFMove(style))
+    : LegacyRenderSVGModelObject(Type::LegacySVGImage, element, WTFMove(style), SVGModelObjectFlag::UsesBoundaryCaching)
     , m_needsBoundariesUpdate(true)
     , m_needsTransformUpdate(true)
     , m_imageResource(makeUnique<RenderImageResource>())
@@ -80,7 +80,7 @@ FloatRect LegacyRenderSVGImage::calculateObjectBoundingBox() const
 {
     LayoutSize intrinsicSize;
     if (CachedImage* cachedImage = imageResource().cachedImage())
-        intrinsicSize = cachedImage->imageSizeForRenderer(nullptr, style().effectiveZoom());
+        intrinsicSize = cachedImage->imageSizeForRenderer(nullptr, style().usedZoom());
 
     Ref imageElement = this->imageElement();
     SVGLengthContext lengthContext(imageElement.ptr());
@@ -120,8 +120,8 @@ bool LegacyRenderSVGImage::updateImageViewport()
     // See: http://www.w3.org/TR/SVG/single-page.html, 7.8 The ‘preserveAspectRatio’ attribute.
     if (imageElement().preserveAspectRatio().align() == SVGPreserveAspectRatioValue::SVG_PRESERVEASPECTRATIO_NONE) {
         if (CachedImage* cachedImage = imageResource().cachedImage()) {
-            LayoutSize intrinsicSize = cachedImage->imageSizeForRenderer(nullptr, style().effectiveZoom());
-            if (intrinsicSize != imageResource().imageSize(style().effectiveZoom())) {
+            LayoutSize intrinsicSize = cachedImage->imageSizeForRenderer(nullptr, style().usedZoom());
+            if (intrinsicSize != imageResource().imageSize(style().usedZoom())) {
                 imageResource().setContainerContext(roundedIntSize(intrinsicSize), imageSourceURL);
                 updatedViewport = true;
             }
@@ -163,8 +163,10 @@ void LegacyRenderSVGImage::layout()
         SVGResourcesCache::clientLayoutChanged(*this);
 
     // If our bounds changed, notify the parents.
-    if (transformOrBoundariesUpdate)
-        LegacyRenderSVGModelObject::setNeedsBoundariesUpdate();
+    if (transformOrBoundariesUpdate) {
+        if (CheckedPtr parent = this->parent())
+            parent->invalidateCachedBoundaries();
+    }
 
     repainter.repaintAfterLayout();
     clearNeedsLayout();
@@ -173,7 +175,7 @@ void LegacyRenderSVGImage::layout()
 void LegacyRenderSVGImage::paint(PaintInfo& paintInfo, const LayoutPoint&)
 {
     if (paintInfo.context().paintingDisabled() || paintInfo.phase != PaintPhase::Foreground
-        || style().visibility() == Visibility::Hidden || !imageResource().cachedImage())
+        || style().usedVisibility() == Visibility::Hidden || !imageResource().cachedImage())
         return;
 
     FloatRect boundingBox = repaintRectInLocalCoordinates();
@@ -224,9 +226,8 @@ bool LegacyRenderSVGImage::nodeAtFloatPoint(const HitTestRequest& request, HitTe
     if (hitTestAction != HitTestForeground)
         return false;
 
-    PointerEventsHitRules hitRules(PointerEventsHitRules::HitTestingTargetType::SVGImage, request, style().effectivePointerEvents());
-    bool isVisible = (style().visibility() == Visibility::Visible);
-    if (isVisible || !hitRules.requireVisible) {
+    PointerEventsHitRules hitRules(PointerEventsHitRules::HitTestingTargetType::SVGImage, request, style().usedPointerEvents());
+    if (isVisibleToHitTesting(style(), request) || !hitRules.requireVisible) {
         static NeverDestroyed<SVGVisitedRendererTracking::VisitedSet> s_visitedSet;
 
         SVGVisitedRendererTracking recursionTracking(s_visitedSet);

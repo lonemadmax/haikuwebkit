@@ -114,9 +114,12 @@ Vector<WKBaseScrollView*> RemoteScrollingCoordinatorProxyIOS::overlayRegionScrol
 {
     Vector<WKBaseScrollView*> candidates;
     for (auto scrollingNodeID : m_scrollingNodesByLayerID.values()) {
-        auto* scrollView = scrollViewForScrollingNodeID(scrollingNodeID);
-        if (scrollView)
-            candidates.append((WKBaseScrollView *)scrollView);
+        auto* treeNode = scrollingTree()->nodeForID(scrollingNodeID);
+        if (auto* scrollingNode = dynamicDowncast<ScrollingTreeScrollingNode>(treeNode)) {
+            auto* scrollView = scrollViewForScrollingNodeID(scrollingNodeID);
+            if (scrollView && scrollingNode->snapOffsetsInfo().isEmpty())
+                candidates.append((WKBaseScrollView *)scrollView);
+        }
     }
     return candidates;
 }
@@ -426,7 +429,7 @@ void RemoteScrollingCoordinatorProxyIOS::updateAnimations()
     for (auto animatedNodeLayerID : animatedNodeLayerIDs) {
         auto* animatedNode = layerTreeHost.nodeForID(animatedNodeLayerID);
         auto* effectStack = animatedNode->effectStack();
-        effectStack->applyEffectsFromMainThread(animatedNode->layer(), now);
+        effectStack->applyEffectsFromMainThread(animatedNode->layer(), now, layerTreeHost.cssUnprefixedBackdropFilterEnabled());
 
         // We can clear the effect stack if it's empty, but the previous
         // call to applyEffects() is important so that the base values

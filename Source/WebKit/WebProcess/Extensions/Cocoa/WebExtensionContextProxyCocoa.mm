@@ -77,6 +77,8 @@ Ref<WebExtensionContextProxy> WebExtensionContextProxy::getOrCreate(const WebExt
         context.m_extensionControllerProxy = extensionControllerProxy;
         context.m_baseURL = parameters.baseURL;
         context.m_uniqueIdentifier = parameters.uniqueIdentifier;
+        context.m_unsupportedAPIs = parameters.unsupportedAPIs;
+        context.m_grantedPermissions = parameters.grantedPermissions;
         context.m_localization = parseLocalization(parameters.localizationJSON.get(), parameters.baseURL);
         context.m_manifest = parseJSON(parameters.manifestJSON.get());
         context.m_manifestVersion = parameters.manifestVersion;
@@ -127,12 +129,48 @@ Ref<WebExtensionContextProxy> WebExtensionContextProxy::getOrCreate(const WebExt
     return result;
 }
 
+bool WebExtensionContextProxy::isUnsupportedAPI(const String& propertyPath, const ASCIILiteral& propertyName) const
+{
+    auto fullPropertyPath = !propertyPath.isEmpty() ? makeString(propertyPath, '.', propertyName) : propertyName;
+    return m_unsupportedAPIs.contains(fullPropertyPath);
+}
+
+bool WebExtensionContextProxy::hasPermission(const String& permission) const
+{
+    WallTime currentTime = WallTime::now();
+
+    // If the next expiration date hasn't passed yet, there is nothing to remove.
+    if (m_nextGrantedPermissionsExpirationDate != WallTime::nan() && m_nextGrantedPermissionsExpirationDate > currentTime)
+        goto finish;
+
+    m_nextGrantedPermissionsExpirationDate = WallTime::infinity();
+
+    m_grantedPermissions.removeIf([&](auto& entry) {
+        if (entry.value <= currentTime)
+            return true;
+
+        if (entry.value < m_nextGrantedPermissionsExpirationDate)
+            m_nextGrantedPermissionsExpirationDate = entry.value;
+
+        return false;
+    });
+
+finish:
+    return m_grantedPermissions.contains(permission);
+}
+
+void WebExtensionContextProxy::updateGrantedPermissions(PermissionsMap&& permissions)
+{
+    m_grantedPermissions = WTFMove(permissions);
+    m_nextGrantedPermissionsExpirationDate = WallTime::nan();
+}
+
 _WKWebExtensionLocalization *WebExtensionContextProxy::parseLocalization(API::Data& json, const URL& baseURL)
 {
     return [[_WKWebExtensionLocalization alloc] initWithLocalizedDictionary:parseJSON(json) uniqueIdentifier:baseURL.host().toString()];
 }
 
-WebCore::DOMWrapperWorld& WebExtensionContextProxy::toDOMWrapperWorld(WebExtensionContentWorldType contentWorldType)
+WebCore::DOMWrapperWorld& WebExtensionContextProxy::toDOMWrapperWorld(WebExtensionContentWorldType contentWorldType) const
 {
     switch (contentWorldType) {
     case WebExtensionContentWorldType::Main:

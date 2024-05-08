@@ -400,6 +400,7 @@ set(WTF_PUBLIC_HEADERS
     text/AtomStringTable.h
     text/Base64.h
     text/CString.h
+    text/CharacterProperties.h
     text/CodePointIterator.h
     text/ConversionMode.h
     text/EscapedFormsForJSON.h
@@ -488,7 +489,6 @@ set(WTF_SOURCES
     HexNumber.cpp
     Int128.cpp
     JSONValues.cpp
-    JSValueMalloc.cpp
     Language.cpp
     LikelyDenseUnsignedIntegerSet.cpp
     Lock.cpp

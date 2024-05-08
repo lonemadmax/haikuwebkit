@@ -64,6 +64,7 @@
 #import "WKBackForwardListItemInternal.h"
 #import "WKBrowsingContextHandleInternal.h"
 #import "WKContentWorldInternal.h"
+#import "WKDataDetectorTypesInternal.h"
 #import "WKDownloadInternal.h"
 #import "WKErrorInternal.h"
 #import "WKFindConfiguration.h"
@@ -120,6 +121,8 @@
 #import "_WKInspectorInternal.h"
 #import "_WKRemoteObjectRegistryInternal.h"
 #import "_WKSessionStateInternal.h"
+#import "_WKTargetedElementInfoInternal.h"
+#import "_WKTargetedElementRequest.h"
 #import "_WKTextInputContextInternal.h"
 #import "_WKTextManipulationConfiguration.h"
 #import "_WKTextManipulationDelegate.h"
@@ -164,6 +167,7 @@
 #import <wtf/SystemTracing.h>
 #import <wtf/UUID.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
+#import <wtf/cocoa/SpanCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/spi/darwin/dyldSPI.h>
 #import <wtf/text/StringToIntegerConversion.h>
@@ -171,10 +175,6 @@
 
 #if ENABLE(APPLICATION_MANIFEST)
 #import "_WKApplicationManifestInternal.h"
-#endif
-
-#if ENABLE(DATA_DETECTION)
-#import "WKDataDetectorTypesInternal.h"
 #endif
 
 #if ENABLE(WK_WEB_EXTENSIONS)
@@ -223,6 +223,10 @@ SOFT_LINK_OPTIONAL(libAccessibility, _AXSReduceMotionAutoplayAnimatedImagesEnabl
 
 #define THROW_IF_SUSPENDED if (UNLIKELY(_page && _page->isSuspended())) \
     [NSException raise:NSInternalInconsistencyException format:@"The WKWebView is suspended"]
+
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WKWebViewAdditionsBefore.mm>
+#endif
 
 RetainPtr<NSError> nsErrorFromExceptionDetails(const WebCore::ExceptionDetails& details)
 {
@@ -321,29 +325,6 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 
 #endif // PLATFORM(MAC)
 
-static void validate(WKWebViewConfiguration *configuration)
-{
-    if (!configuration.processPool)
-        [NSException raise:NSInvalidArgumentException format:@"configuration.processPool is nil"];
-    
-    if (!configuration.preferences)
-        [NSException raise:NSInvalidArgumentException format:@"configuration.preferences is nil"];
-    
-    if (!configuration.userContentController)
-        [NSException raise:NSInvalidArgumentException format:@"configuration.userContentController is nil"];
-    
-    if (!configuration.websiteDataStore)
-        [NSException raise:NSInvalidArgumentException format:@"configuration.websiteDataStore is nil"];
-    
-    if (!configuration._visitedLinkStore)
-        [NSException raise:NSInvalidArgumentException format:@"configuration._visitedLinkStore is nil"];
-    
-#if PLATFORM(IOS_FAMILY)
-    if (!configuration._contentProviderRegistry)
-        [NSException raise:NSInvalidArgumentException format:@"configuration._contentProviderRegistry is nil"];
-#endif
-}
-
 #if PLATFORM(IOS_FAMILY)
 static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef, void* observer, CFStringRef, const void*, CFDictionaryRef)
 {
@@ -361,8 +342,6 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     if (!configuration)
         [NSException raise:NSInvalidArgumentException format:@"Configuration cannot be nil"];
 
-    if (!configuration.websiteDataStore)
-        [NSException raise:NSInvalidArgumentException format:@"Configuration websiteDataStore cannot be nil"];
     _configuration = adoptNS([configuration copy]);
 
     if (WKWebView *relatedWebView = [_configuration _relatedWebView]) {
@@ -376,14 +355,10 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
         [_configuration setProcessPool:relatedWebViewProcessPool];
     }
 
-    validate(_configuration.get());
-
     WebKit::WebProcessPool& processPool = *[_configuration processPool]->_processPool;
 
-    auto pageConfiguration = [configuration copyPageConfiguration];
-
-    pageConfiguration->setProcessPool(&processPool);
-    
+    // FIXME: This copy is probably not necessary.
+    Ref pageConfiguration = _configuration->_pageConfiguration->copy();
     [self _setupPageConfiguration:pageConfiguration];
 
     _usePlatformFindUI = YES;
@@ -406,7 +381,6 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
 
     _contentView = adoptNS([[WKContentView alloc] initWithFrame:self.bounds processPool:processPool configuration:pageConfiguration.copyRef() webView:self]);
     _page = [_contentView page];
-    [[_configuration _contentProviderRegistry] addPage:*_page];
 
     [self _setupScrollAndContentViews];
     if (!self.opaque || !pageConfiguration->drawsBackground())
@@ -467,6 +441,10 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     _timeOfLastVisibleContentRectUpdate = timeNow;
     _timeOfFirstVisibleContentRectUpdateWithPendingCommit = timeNow;
 #endif
+
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+    _unifiedTextReplacementSessions = [NSMapTable strongToWeakObjectsMapTable];
+#endif
 }
 
 - (void)_setupPageConfiguration:(Ref<API::PageConfiguration>&)pageConfiguration
@@ -496,112 +474,110 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
 
     pageConfiguration->setAdditionalSupportedImageTypes(makeVector<String>([_configuration _additionalSupportedImageTypes]));
 
-    pageConfiguration->preferences()->setSuppressesIncrementalRendering(!![_configuration suppressesIncrementalRendering]);
-
-    pageConfiguration->preferences()->setShouldRespectImageOrientation(!![_configuration _respectsImageOrientation]);
+    pageConfiguration->preferences().setSuppressesIncrementalRendering(!![_configuration suppressesIncrementalRendering]);
 #if !PLATFORM(MAC)
     // FIXME: rdar://99156546. Remove this and WKWebViewConfiguration._printsBackgrounds once all iOS clients adopt the new API.
     if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::DefaultsToExcludingBackgroundsWhenPrinting))
-        pageConfiguration->preferences()->setShouldPrintBackgrounds(!![_configuration _printsBackgrounds]);
+        pageConfiguration->preferences().setShouldPrintBackgrounds(!![_configuration _printsBackgrounds]);
 #endif
-    pageConfiguration->preferences()->setIncrementalRenderingSuppressionTimeout([_configuration _incrementalRenderingSuppressionTimeout]);
-    pageConfiguration->preferences()->setJavaScriptMarkupEnabled(!![_configuration _allowsJavaScriptMarkup]);
-    pageConfiguration->preferences()->setShouldConvertPositionStyleOnCopy(!![_configuration _convertsPositionStyleOnCopy]);
-    pageConfiguration->preferences()->setHTTPEquivEnabled(!![_configuration _allowsMetaRefresh]);
-    pageConfiguration->preferences()->setAllowUniversalAccessFromFileURLs(!![_configuration _allowUniversalAccessFromFileURLs]);
-    pageConfiguration->preferences()->setAllowTopNavigationToDataURLs(!![_configuration _allowTopNavigationToDataURLs]);
+    pageConfiguration->preferences().setIncrementalRenderingSuppressionTimeout([_configuration _incrementalRenderingSuppressionTimeout]);
+    pageConfiguration->preferences().setJavaScriptMarkupEnabled(!![_configuration _allowsJavaScriptMarkup]);
+    pageConfiguration->preferences().setShouldConvertPositionStyleOnCopy(!![_configuration _convertsPositionStyleOnCopy]);
+    pageConfiguration->preferences().setHTTPEquivEnabled(!![_configuration _allowsMetaRefresh]);
+    pageConfiguration->preferences().setAllowUniversalAccessFromFileURLs(!![_configuration _allowUniversalAccessFromFileURLs]);
+    pageConfiguration->preferences().setAllowTopNavigationToDataURLs(!![_configuration _allowTopNavigationToDataURLs]);
     pageConfiguration->setWaitsForPaintAfterViewDidMoveToWindow([_configuration _waitsForPaintAfterViewDidMoveToWindow]);
     pageConfiguration->setDrawsBackground([_configuration _drawsBackground]);
     pageConfiguration->setControlledByAutomation([_configuration _isControlledByAutomation]);
-    pageConfiguration->preferences()->setIncompleteImageBorderEnabled(!![_configuration _incompleteImageBorderEnabled]);
-    pageConfiguration->preferences()->setShouldDeferAsynchronousScriptsUntilAfterDocumentLoadOrFirstPaint(!![_configuration _shouldDeferAsynchronousScriptsUntilAfterDocumentLoad]);
-    pageConfiguration->preferences()->setShouldRestrictBaseURLSchemes(shouldRestrictBaseURLSchemes());
+    pageConfiguration->preferences().setIncompleteImageBorderEnabled(!![_configuration _incompleteImageBorderEnabled]);
+    pageConfiguration->preferences().setShouldDeferAsynchronousScriptsUntilAfterDocumentLoadOrFirstPaint(!![_configuration _shouldDeferAsynchronousScriptsUntilAfterDocumentLoad]);
+    pageConfiguration->preferences().setShouldRestrictBaseURLSchemes(shouldRestrictBaseURLSchemes());
 
 #if PLATFORM(MAC)
-    pageConfiguration->preferences()->setShowsURLsInToolTipsEnabled(!![_configuration _showsURLsInToolTips]);
-    pageConfiguration->preferences()->setServiceControlsEnabled(!![_configuration _serviceControlsEnabled]);
-    pageConfiguration->preferences()->setImageControlsEnabled(!![_configuration _imageControlsEnabled]);
-    pageConfiguration->preferences()->setContextMenuQRCodeDetectionEnabled(!![_configuration _contextMenuQRCodeDetectionEnabled]);
+    pageConfiguration->preferences().setShowsURLsInToolTipsEnabled(!![_configuration _showsURLsInToolTips]);
+    pageConfiguration->preferences().setServiceControlsEnabled(!![_configuration _serviceControlsEnabled]);
+    pageConfiguration->preferences().setImageControlsEnabled(!![_configuration _imageControlsEnabled]);
+    pageConfiguration->preferences().setContextMenuQRCodeDetectionEnabled(!![_configuration _contextMenuQRCodeDetectionEnabled]);
 
-    pageConfiguration->preferences()->setUserInterfaceDirectionPolicy(convertUserInterfaceDirectionPolicy([_configuration userInterfaceDirectionPolicy]));
+    pageConfiguration->preferences().setUserInterfaceDirectionPolicy(convertUserInterfaceDirectionPolicy([_configuration userInterfaceDirectionPolicy]));
     // We are in the View's initialization routine, so our client hasn't had time to set our user interface direction.
     // Therefore, according to the docs[1], "this property contains the value reported by the app's userInterfaceLayoutDirection property."
     // [1] http://developer.apple.com/library/mac/documentation/Cocoa/Reference/ApplicationKit/Classes/NSView_Class/index.html#//apple_ref/doc/uid/20000014-SW222
-    pageConfiguration->preferences()->setSystemLayoutDirection(convertSystemLayoutDirection(self.userInterfaceLayoutDirection));
+    pageConfiguration->preferences().setSystemLayoutDirection(convertSystemLayoutDirection(self.userInterfaceLayoutDirection));
 #endif
 
 #if PLATFORM(IOS_FAMILY)
-    pageConfiguration->preferences()->setAllowsInlineMediaPlayback(!![_configuration allowsInlineMediaPlayback]);
-    pageConfiguration->preferences()->setAllowsInlineMediaPlaybackAfterFullscreen(!![_configuration _allowsInlineMediaPlaybackAfterFullscreen]);
-    pageConfiguration->preferences()->setInlineMediaPlaybackRequiresPlaysInlineAttribute(!![_configuration _inlineMediaPlaybackRequiresPlaysInlineAttribute]);
-    pageConfiguration->preferences()->setAllowsPictureInPictureMediaPlayback(!![_configuration allowsPictureInPictureMediaPlayback] && shouldAllowPictureInPictureMediaPlayback());
-    pageConfiguration->preferences()->setUserInterfaceDirectionPolicy(static_cast<uint32_t>(WebCore::UserInterfaceDirectionPolicy::Content));
-    pageConfiguration->preferences()->setSystemLayoutDirection(static_cast<uint32_t>(WebCore::TextDirection::LTR));
-    pageConfiguration->preferences()->setAllowSettingAnyXHRHeaderFromFileURLs(shouldAllowSettingAnyXHRHeaderFromFileURLs());
-    pageConfiguration->preferences()->setShouldDecidePolicyBeforeLoadingQuickLookPreview(!![_configuration _shouldDecidePolicyBeforeLoadingQuickLookPreview]);
+    pageConfiguration->preferences().setAllowsInlineMediaPlayback(!![_configuration allowsInlineMediaPlayback]);
+    pageConfiguration->preferences().setAllowsInlineMediaPlaybackAfterFullscreen(!![_configuration _allowsInlineMediaPlaybackAfterFullscreen]);
+    pageConfiguration->preferences().setInlineMediaPlaybackRequiresPlaysInlineAttribute(!![_configuration _inlineMediaPlaybackRequiresPlaysInlineAttribute]);
+    pageConfiguration->preferences().setAllowsPictureInPictureMediaPlayback(!![_configuration allowsPictureInPictureMediaPlayback] && shouldAllowPictureInPictureMediaPlayback());
+    pageConfiguration->preferences().setUserInterfaceDirectionPolicy(static_cast<uint32_t>(WebCore::UserInterfaceDirectionPolicy::Content));
+    pageConfiguration->preferences().setSystemLayoutDirection(static_cast<uint32_t>(WebCore::TextDirection::LTR));
+    pageConfiguration->preferences().setAllowSettingAnyXHRHeaderFromFileURLs(shouldAllowSettingAnyXHRHeaderFromFileURLs());
+    pageConfiguration->preferences().setShouldDecidePolicyBeforeLoadingQuickLookPreview(!![_configuration _shouldDecidePolicyBeforeLoadingQuickLookPreview]);
 #if ENABLE(DEVICE_ORIENTATION)
-    pageConfiguration->preferences()->setDeviceOrientationPermissionAPIEnabled(linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SupportsDeviceOrientationAndMotionPermissionAPI));
+    pageConfiguration->preferences().setDeviceOrientationPermissionAPIEnabled(linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SupportsDeviceOrientationAndMotionPermissionAPI));
 #endif
 #if USE(SYSTEM_PREVIEW)
-    pageConfiguration->preferences()->setSystemPreviewEnabled(!![_configuration _systemPreviewEnabled]);
+    pageConfiguration->preferences().setSystemPreviewEnabled(!![_configuration _systemPreviewEnabled]);
 #endif
 #endif // PLATFORM(IOS_FAMILY)
 
     WKAudiovisualMediaTypes mediaTypesRequiringUserGesture = [_configuration mediaTypesRequiringUserActionForPlayback];
-    pageConfiguration->preferences()->setRequiresUserGestureForVideoPlayback((mediaTypesRequiringUserGesture & WKAudiovisualMediaTypeVideo) == WKAudiovisualMediaTypeVideo);
-    pageConfiguration->preferences()->setRequiresUserGestureForAudioPlayback(((mediaTypesRequiringUserGesture & WKAudiovisualMediaTypeAudio) == WKAudiovisualMediaTypeAudio));
-    pageConfiguration->preferences()->setRequiresUserGestureToLoadVideo(shouldRequireUserGestureToLoadVideo());
-    pageConfiguration->preferences()->setMainContentUserGestureOverrideEnabled(!![_configuration _mainContentUserGestureOverrideEnabled]);
-    pageConfiguration->preferences()->setInvisibleAutoplayNotPermitted(!![_configuration _invisibleAutoplayNotPermitted]);
-    pageConfiguration->preferences()->setMediaDataLoadsAutomatically(!![_configuration _mediaDataLoadsAutomatically]);
-    pageConfiguration->preferences()->setAttachmentElementEnabled(!![_configuration _attachmentElementEnabled]);
-    pageConfiguration->preferences()->setAttachmentWideLayoutEnabled(!![_configuration _attachmentWideLayoutEnabled]);
+    pageConfiguration->preferences().setRequiresUserGestureForVideoPlayback((mediaTypesRequiringUserGesture & WKAudiovisualMediaTypeVideo) == WKAudiovisualMediaTypeVideo);
+    pageConfiguration->preferences().setRequiresUserGestureForAudioPlayback(((mediaTypesRequiringUserGesture & WKAudiovisualMediaTypeAudio) == WKAudiovisualMediaTypeAudio));
+    pageConfiguration->preferences().setRequiresUserGestureToLoadVideo(shouldRequireUserGestureToLoadVideo());
+    pageConfiguration->preferences().setMainContentUserGestureOverrideEnabled(!![_configuration _mainContentUserGestureOverrideEnabled]);
+    pageConfiguration->preferences().setInvisibleAutoplayNotPermitted(!![_configuration _invisibleAutoplayNotPermitted]);
+    pageConfiguration->preferences().setMediaDataLoadsAutomatically(!![_configuration _mediaDataLoadsAutomatically]);
+    pageConfiguration->preferences().setAttachmentElementEnabled(!![_configuration _attachmentElementEnabled]);
+    pageConfiguration->preferences().setAttachmentWideLayoutEnabled(!![_configuration _attachmentWideLayoutEnabled]);
 
 #if ENABLE(DATA_DETECTION) && PLATFORM(IOS_FAMILY)
-    pageConfiguration->preferences()->setDataDetectorTypes(fromWKDataDetectorTypes([_configuration dataDetectorTypes]).toRaw());
+    pageConfiguration->preferences().setDataDetectorTypes(fromWKDataDetectorTypes([_configuration dataDetectorTypes]).toRaw());
 #endif
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
-    pageConfiguration->preferences()->setAllowsAirPlayForMediaPlayback(!![_configuration allowsAirPlayForMediaPlayback]);
+    pageConfiguration->preferences().setAllowsAirPlayForMediaPlayback(!![_configuration allowsAirPlayForMediaPlayback]);
 #endif
 
 #if ENABLE(APPLE_PAY)
-    pageConfiguration->preferences()->setApplePayEnabled(!![_configuration _applePayEnabled]);
+    pageConfiguration->preferences().setApplePayEnabled(!![_configuration _applePayEnabled]);
 #endif
 
-    pageConfiguration->preferences()->setNeedsStorageAccessFromFileURLsQuirk(!![_configuration _needsStorageAccessFromFileURLsQuirk]);
-    pageConfiguration->preferences()->setMediaContentTypesRequiringHardwareSupport(String([_configuration _mediaContentTypesRequiringHardwareSupport]));
-    pageConfiguration->preferences()->setAllowMediaContentTypesRequiringHardwareSupportAsFallback(!![_configuration _allowMediaContentTypesRequiringHardwareSupportAsFallback]);
-    if (!pageConfiguration->preferences()->mediaDevicesEnabled())
-        pageConfiguration->preferences()->setMediaDevicesEnabled(!![_configuration _mediaCaptureEnabled]);
+    pageConfiguration->preferences().setNeedsStorageAccessFromFileURLsQuirk(!![_configuration _needsStorageAccessFromFileURLsQuirk]);
+    pageConfiguration->preferences().setMediaContentTypesRequiringHardwareSupport(String([_configuration _mediaContentTypesRequiringHardwareSupport]));
+    pageConfiguration->preferences().setAllowMediaContentTypesRequiringHardwareSupportAsFallback(!![_configuration _allowMediaContentTypesRequiringHardwareSupportAsFallback]);
+    if (!pageConfiguration->preferences().mediaDevicesEnabled())
+        pageConfiguration->preferences().setMediaDevicesEnabled(!![_configuration _mediaCaptureEnabled]);
 
-    pageConfiguration->preferences()->setColorFilterEnabled(!![_configuration _colorFilterEnabled]);
+    pageConfiguration->preferences().setColorFilterEnabled(!![_configuration _colorFilterEnabled]);
 
-    pageConfiguration->preferences()->setUndoManagerAPIEnabled(!![_configuration _undoManagerAPIEnabled]);
+    pageConfiguration->preferences().setUndoManagerAPIEnabled(!![_configuration _undoManagerAPIEnabled]);
     
 #if ENABLE(APP_HIGHLIGHTS)
-    pageConfiguration->preferences()->setAppHighlightsEnabled(!![_configuration _appHighlightsEnabled]);
+    pageConfiguration->preferences().setAppHighlightsEnabled(!![_configuration _appHighlightsEnabled]);
 #endif
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
-    pageConfiguration->preferences()->setLegacyEncryptedMediaAPIEnabled(!![_configuration _legacyEncryptedMediaAPIEnabled]);
+    pageConfiguration->preferences().setLegacyEncryptedMediaAPIEnabled(!![_configuration _legacyEncryptedMediaAPIEnabled]);
 #endif
 
 #if PLATFORM(IOS_FAMILY)
     bool hasServiceWorkerEntitlement = (WTF::processHasEntitlement("com.apple.developer.WebKit.ServiceWorkers"_s) || WTF::processHasEntitlement("com.apple.developer.web-browser"_s)) && ![_configuration preferences]._serviceWorkerEntitlementDisabledForTesting;
     if (!hasServiceWorkerEntitlement && ![_configuration limitsNavigationsToAppBoundDomains])
-        pageConfiguration->preferences()->setServiceWorkersEnabled(false);
-    pageConfiguration->preferences()->setServiceWorkerEntitlementDisabledForTesting(!![_configuration preferences]._serviceWorkerEntitlementDisabledForTesting);
+        pageConfiguration->preferences().setServiceWorkersEnabled(false);
+    pageConfiguration->preferences().setServiceWorkerEntitlementDisabledForTesting(!![_configuration preferences]._serviceWorkerEntitlementDisabledForTesting);
 #endif
 
-    pageConfiguration->preferences()->setSampledPageTopColorMaxDifference([_configuration _sampledPageTopColorMaxDifference]);
-    pageConfiguration->preferences()->setSampledPageTopColorMinHeight([_configuration _sampledPageTopColorMinHeight]);
+    pageConfiguration->preferences().setSampledPageTopColorMaxDifference([_configuration _sampledPageTopColorMaxDifference]);
+    pageConfiguration->preferences().setSampledPageTopColorMinHeight([_configuration _sampledPageTopColorMinHeight]);
 
     if (!linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::SiteSpecificQuirksAreEnabledByDefault))
-        pageConfiguration->preferences()->setNeedsSiteSpecificQuirks(false);
+        pageConfiguration->preferences().setNeedsSiteSpecificQuirks(false);
 
 #if PLATFORM(IOS_FAMILY)
-    pageConfiguration->preferences()->setAlternateFormControlDesignEnabled(WebKit::defaultAlternateFormControlDesignEnabled());
-    pageConfiguration->preferences()->setVideoFullscreenRequiresElementFullscreen(WebKit::defaultVideoFullscreenRequiresElementFullscreen());
+    pageConfiguration->preferences().setAlternateFormControlDesignEnabled(WebKit::defaultAlternateFormControlDesignEnabled());
+    pageConfiguration->preferences().setVideoFullscreenRequiresElementFullscreen(WebKit::defaultVideoFullscreenRequiresElementFullscreen());
 #endif
 }
 
@@ -680,7 +656,6 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
 
 #if PLATFORM(IOS_FAMILY)
     [_remoteObjectRegistry _invalidate];
-    [[_configuration _contentProviderRegistry] removePage:*_page];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     [_scrollView setInternalDelegate:nil];
 
@@ -808,7 +783,7 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     if (_page->isServiceWorkerPage())
         [NSException raise:NSInternalInconsistencyException format:@"The WKWebView was used to load a service worker"];
 
-    return wrapper(_page->loadData({ static_cast<const uint8_t*>(data.bytes), data.length }, MIMEType, characterEncodingName, baseURL.absoluteString)).autorelease();
+    return wrapper(_page->loadData(span(data), MIMEType, characterEncodingName, baseURL.absoluteString)).autorelease();
 }
 
 - (void)startDownloadUsingRequest:(NSURLRequest *)request completionHandler:(void(^)(WKDownload *))completionHandler
@@ -1910,7 +1885,7 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 - (WKNavigation *)loadSimulatedRequest:(NSURLRequest *)request response:(NSURLResponse *)response responseData:(NSData *)data
 {
     THROW_IF_SUSPENDED;
-    return wrapper(_page->loadSimulatedRequest(request, response, { static_cast<const uint8_t*>(data.bytes), data.length })).autorelease();
+    return wrapper(_page->loadSimulatedRequest(request, response, span(data))).autorelease();
 }
 
 // FIXME(223658): Remove this once adopters have moved to the final API.
@@ -2020,6 +1995,10 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     _minimumViewportInset = minimumViewportInset;
     _maximumViewportInset = maximumViewportInset;
 }
+
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/WKWebViewAdditionsAfter.mm>
+#endif
 
 @end
 
@@ -2763,16 +2742,20 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 #endif
 }
 
-- (void)_requestRenderedTextForElementSelector:(NSString *)selector completionHandler:(void(^)(NSString *, NSError *))completion
+- (void)_requestTargetedElementInfo:(_WKTargetedElementRequest *)request completionHandler:(void(^)(NSArray<_WKTargetedElementInfo *> *))completion
 {
-    _page->requestRenderedTextForElementSelector(selector, [completion = makeBlockPtr(completion)](Expected<String, WebCore::ExceptionCode>&& result) {
-        if (result)
-            return completion(result.value(), nil);
-
-        RetainPtr exceptionName = WebCore::DOMException::name(result.error()).createNSString();
-        return completion(nil, [NSError errorWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:@{
-            NSLocalizedDescriptionKey: exceptionName.get() ?: @""
-        }]);
+    WebCore::TargetedElementRequest coreRequest {
+#if PLATFORM(IOS_FAMILY)
+        [self convertPoint:request.point toView:_contentView.get()],
+#else
+        request.point,
+#endif
+        static_cast<bool>(request.canIncludeNearbyElements)
+    };
+    _page->requestTargetedElement(WTFMove(coreRequest), [completion = makeBlockPtr(completion)](auto& elements) {
+        completion(createNSArray(elements, [](auto& element) {
+            return wrapper(element);
+        }).get());
     });
 }
 
@@ -2798,7 +2781,7 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 - (WKNavigation *)_loadData:(NSData *)data MIMEType:(NSString *)MIMEType characterEncodingName:(NSString *)characterEncodingName baseURL:(NSURL *)baseURL userData:(id)userData
 {
     THROW_IF_SUSPENDED;
-    return wrapper(_page->loadData({ static_cast<const uint8_t*>(data.bytes), data.length }, MIMEType, characterEncodingName, baseURL.absoluteString, WebKit::ObjCObjectGraph::create(userData).ptr())).autorelease();
+    return wrapper(_page->loadData(span(data), MIMEType, characterEncodingName, baseURL.absoluteString, WebKit::ObjCObjectGraph::create(userData).ptr())).autorelease();
 }
 
 - (WKNavigation *)_loadRequest:(NSURLRequest *)request shouldOpenExternalURLs:(BOOL)shouldOpenExternalURLs
@@ -3091,7 +3074,7 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 
     // FIXME: This should not use the legacy session state decoder.
     WebKit::SessionState sessionState;
-    if (!WebKit::decodeLegacySessionState(std::span { static_cast<const uint8_t*>(sessionStateData.bytes), sessionStateData.length }, sessionState))
+    if (!WebKit::decodeLegacySessionState(span(sessionStateData), sessionState))
         return;
 
     _page->restoreFromSessionState(WTFMove(sessionState), true);
@@ -4242,6 +4225,36 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
     return [_configuration _requiredWebExtensionBaseURL];
 }
 
+static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKTargetedElementInfo *> *wkElements)
+{
+    Vector<Ref<API::TargetedElementInfo>> elements;
+    elements.reserveInitialCapacity(wkElements.count);
+    for (_WKTargetedElementInfo *element in wkElements)
+        elements.append(*element->_info);
+    return elements;
+}
+
+- (void)_resetVisibilityAdjustmentsForTargetedElements:(NSArray<_WKTargetedElementInfo *> *)elements completionHandler:(void(^)(BOOL success))completion
+{
+    _page->resetVisibilityAdjustmentsForTargetedElements(elementsFromWKElements(elements), [completion = makeBlockPtr(completion)](bool success) {
+        completion(static_cast<BOOL>(success));
+    });
+}
+
+- (void)_adjustVisibilityForTargetedElements:(NSArray<_WKTargetedElementInfo *> *)elements completionHandler:(void(^)(BOOL success))completion
+{
+    _page->adjustVisibilityForTargetedElements(elementsFromWKElements(elements), [completion = makeBlockPtr(completion)](bool success) {
+        completion(static_cast<BOOL>(success));
+    });
+}
+
+- (void)_numberOfVisibilityAdjustmentRectsWithCompletionHandler:(void(^)(NSUInteger))completion
+{
+    _page->numberOfVisibilityAdjustmentRects([completion = makeBlockPtr(completion)](uint64_t count) {
+        completion(static_cast<NSUInteger>(count));
+    });
+}
+
 @end
 
 @implementation WKWebView (WKDeprecated)
@@ -4292,8 +4305,14 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
 #endif
     }();
 
-    _page->requestTextExtraction(WTFMove(rectInRootView), [completionHandler = makeBlockPtr(completionHandler)](auto&& item) {
-        completionHandler(WebKit::createItem(item).get());
+    _page->requestTextExtraction(WTFMove(rectInRootView), [completionHandler = makeBlockPtr(completionHandler), weakSelf = WeakObjCPtr<WKWebView>(self)](auto&& item) {
+        completionHandler(WebKit::createItem(item, [strongSelf = weakSelf.get()](auto& rectInRootView) -> WebCore::FloatRect {
+#if PLATFORM(IOS_FAMILY)
+            if (RetainPtr contentView = strongSelf ? strongSelf->_contentView : nil)
+                return { [strongSelf convertRect:rectInRootView fromView:contentView.get()] };
+#endif
+            return rectInRootView;
+        }).get());
     });
 }
 

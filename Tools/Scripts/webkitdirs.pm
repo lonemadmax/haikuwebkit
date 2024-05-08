@@ -1267,7 +1267,7 @@ sub argumentsForXcode()
     return @args;
 }
 
-sub determineConfiguredXcodeWorkspace()
+sub determineConfiguredXcodeWorkspaceOrDefault()
 {
     return if defined $configuredXcodeWorkspace;
     determineBaseProductDir();
@@ -1276,12 +1276,23 @@ sub determineConfiguredXcodeWorkspace()
         $configuredXcodeWorkspace = <WORKSPACE>;
         close WORKSPACE;
         chomp $configuredXcodeWorkspace;
+        return;
     }
+
+    # No configured workspace, time to find the default one.
+    # If we're using an internal SDK use the internal workspace.
+    if (xcodeSDK() =~ /\.internal$/) {
+        $configuredXcodeWorkspace = Cwd::realpath(sourceDir() . "/../Internal/Safari.xcworkspace");
+        die "using internal SDK but unable to find adjacent Internal directory: $configuredXcodeWorkspace. SDK: $xcodeSDK" unless -e $configuredXcodeWorkspace;
+        return;
+    }
+
+    $configuredXcodeWorkspace = sourceDir() . "/WebKit.xcworkspace";
 }
 
 sub configuredXcodeWorkspace()
 {
-    determineConfiguredXcodeWorkspace();
+    determineConfiguredXcodeWorkspaceOrDefault();
     return $configuredXcodeWorkspace;
 }
 
@@ -1306,15 +1317,14 @@ sub XcodeOptions
     determineLTOMode();
     if (isAppleCocoaWebKit()) {
       determineXcodeSDK();
-      determineConfiguredXcodeWorkspace();
+      determineConfiguredXcodeWorkspaceOrDefault();
     }
 
     my @options;
     push @options, "-UseSanitizedBuildSystemEnvironment=YES";
     push @options, "-ShowBuildOperationDuration=YES";
     if (!checkForArgumentAndRemoveFromARGV("--no-use-workspace")) {
-        my $workspace = $configuredXcodeWorkspace // sourceDir() . "/WebKit.xcworkspace";
-        push @options, ("-workspace", $workspace) if $workspace;
+        push @options, ("-workspace", $configuredXcodeWorkspace) if $configuredXcodeWorkspace;
     }
     push @options, ("-configuration", $configuration);
     push @options, ("-destination", $destination) if $destination;
@@ -1369,7 +1379,7 @@ sub XcodeOptionStringNoConfig
 
 sub XcodeCoverageSupportOptions()
 {
-    return ("-xcconfig", sourceDir() . "/Tools/coverage/coverage.xcconfig");
+    return ("CLANG_COVERAGE_MAPPING=YES");
 }
 
 sub XcodeExportCompileCommandsOptions()
@@ -3342,6 +3352,18 @@ sub runMacWebKitApp($;$)
     return system { $appPath } $appPath, argumentsForRunAndDebugMacWebKitApp();
 }
 
+sub runUnixWebKitApp($)
+{
+    my ($appPath) = @_;
+    my $productDir = productDir();
+    print "Starting @{[basename($appPath)]} with built WebKit in $productDir.\n";
+
+    local %ENV = %ENV;
+    setupUnixWebKitEnvironment($productDir);
+
+    return system { $appPath } $appPath, @ARGV;
+}
+
 sub execMacWebKitAppForDebugging($)
 {
     my ($appPath) = @_;
@@ -3374,7 +3396,7 @@ sub execUnixAppForDebugging($)
     my @cmdline = wrapperPrefixIfNeeded();
     push @cmdline, $debuggerPath, "--args", $appPath;
 
-    print "Starting @{[basename($appPath)]} under gdb with build WebKit in $productDir.\n";
+    print "Starting @{[basename($appPath)]} under gdb with built WebKit in $productDir.\n";
     exec @cmdline, @ARGV or die;
 }
 
@@ -3425,6 +3447,8 @@ sub runWebKitTestRunner
 {
     if (isAppleMacWebKit()) {
         return runMacWebKitApp(File::Spec->catfile(productDir(), "WebKitTestRunner"));
+    } elsif (isGtk() or isWPE()) {
+        return runUnixWebKitApp(File::Spec->catfile(productDir(), "bin", "WebKitTestRunner"));
     }
 
     return 1;

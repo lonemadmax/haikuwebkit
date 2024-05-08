@@ -67,27 +67,29 @@ public:
     using WeakPageSet = WeakHashSet<WebPage>;
     using TabWindowIdentifierPair = std::pair<std::optional<WebExtensionTabIdentifier>, std::optional<WebExtensionWindowIdentifier>>;
     using WeakPageTabWindowMap = WeakHashMap<WebPage, TabWindowIdentifierPair>;
+    using PermissionsMap = WebExtensionContext::PermissionsMap;
 
-    WebExtensionContextIdentifier identifier() { return m_identifier; }
+    WebExtensionContextIdentifier identifier() const { return m_identifier; }
     WebExtensionControllerProxy* extensionControllerProxy() const;
 
     bool operator==(const WebExtensionContextProxy& other) const { return (this == &other); }
 
-    const URL& baseURL() { return m_baseURL; }
+    const URL& baseURL() const { return m_baseURL; }
     const String& uniqueIdentifier() const { return m_uniqueIdentifier; }
 
-    NSDictionary *manifest() { return m_manifest.get(); }
+    NSDictionary *manifest() const { return m_manifest.get(); }
 
-    double manifestVersion() { return m_manifestVersion; }
-    bool supportsManifestVersion(double version) { return manifestVersion() >= version; }
+    double manifestVersion() const { return m_manifestVersion; }
+    bool supportsManifestVersion(double version) const { return manifestVersion() >= version; }
 
-    _WKWebExtensionLocalization *localization() { return m_localization.get(); }
+    _WKWebExtensionLocalization *localization() const { return m_localization.get(); }
 
-    bool isSessionStorageAllowedInContentScripts() { return m_isSessionStorageAllowedInContentScripts; }
+    bool isSessionStorageAllowedInContentScripts() const { return m_isSessionStorageAllowedInContentScripts; }
 
     bool inTestingMode() const;
 
-    WebCore::DOMWrapperWorld& toDOMWrapperWorld(WebExtensionContentWorldType);
+    bool hasDOMWrapperWorld(WebExtensionContentWorldType contentWorldType) const { return contentWorldType != WebExtensionContentWorldType::ContentScript || hasContentScriptWorld(); }
+    WebCore::DOMWrapperWorld& toDOMWrapperWorld(WebExtensionContentWorldType) const;
 
     static WebCore::DOMWrapperWorld& mainWorld() { return WebCore::mainThreadNormalWorld(); }
 
@@ -101,6 +103,10 @@ public:
 
     RefPtr<WebPage> backgroundPage() const;
     void setBackgroundPage(WebPage&);
+
+    bool isUnsupportedAPI(const String& propertyPath, const ASCIILiteral& propertyName) const;
+
+    bool hasPermission(const String& permission) const;
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
     void addInspectorPage(WebPage&, std::optional<WebExtensionTabIdentifier>, std::optional<WebExtensionWindowIdentifier>);
@@ -119,14 +125,9 @@ public:
 
     void enumerateNamespaceObjects(const Function<void(WebExtensionAPINamespace&)>& function, WebCore::DOMWrapperWorld& = mainWorld())
     {
-        enumerateFramesAndNamespaceObjects([&](WebFrame&, WebExtensionAPINamespace& namespaceObject) {
+        enumerateFramesAndNamespaceObjects([&](auto&, auto& namespaceObject) {
             function(namespaceObject);
         });
-    }
-
-    void enumerateContentScriptFramesAndNamespaceObjects(const Function<void(WebFrame&, WebExtensionAPINamespace&)>& function)
-    {
-        enumerateFramesAndNamespaceObjects(function, contentScriptWorld());
     }
 
 private:
@@ -166,6 +167,7 @@ private:
     void dispatchMenusClickedEvent(const WebExtensionMenuItemParameters&, bool wasChecked, const WebExtensionMenuItemContextParameters&, const std::optional<WebExtensionTabParameters>&);
 
     // Permissions
+    void updateGrantedPermissions(PermissionsMap&&);
     void dispatchPermissionsEvent(WebExtensionEventListenerType, HashSet<String> permissions, HashSet<String> origins);
 
     // Port
@@ -215,10 +217,13 @@ private:
     WeakPtr<WebExtensionControllerProxy> m_extensionControllerProxy;
     URL m_baseURL;
     String m_uniqueIdentifier;
+    HashSet<String> m_unsupportedAPIs;
     RetainPtr<_WKWebExtensionLocalization> m_localization;
     RetainPtr<NSDictionary> m_manifest;
     double m_manifestVersion { 0 };
     bool m_isSessionStorageAllowedInContentScripts { false };
+    mutable PermissionsMap m_grantedPermissions;
+    mutable WallTime m_nextGrantedPermissionsExpirationDate { WallTime::nan() };
     RefPtr<WebCore::DOMWrapperWorld> m_contentScriptWorld;
     WeakFrameSet m_extensionContentFrames;
     WeakPtr<WebPage> m_backgroundPage;

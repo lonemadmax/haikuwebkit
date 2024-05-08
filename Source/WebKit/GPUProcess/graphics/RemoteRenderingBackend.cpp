@@ -269,7 +269,9 @@ RefPtr<ImageBuffer> RemoteRenderingBackend::allocateImageBuffer(const FloatSize&
     assertIsCurrent(workQueue());
 
     ASSERT(!creationContext.resourceOwner);
+#if HAVE(IOSURFACE)
     ASSERT(!creationContext.surfacePool);
+#endif
     ImageBufferCreationContext adjustedCreationContext = creationContext;
     adjustedCreationContext.resourceOwner = m_resourceOwner;
 #if HAVE(IOSURFACE)
@@ -345,7 +347,7 @@ void RemoteRenderingBackend::cacheNativeImage(ShareableBitmap::Handle&& handle, 
     m_remoteResourceCache.cacheNativeImage(image.releaseNonNull());
 }
 
-void RemoteRenderingBackend::cacheFont(const Font::Attributes& fontAttributes, FontPlatformData::Attributes platformData, std::optional<RenderingResourceIdentifier> fontCustomPlatformDataIdentifier)
+void RemoteRenderingBackend::cacheFont(const Font::Attributes& fontAttributes, FontPlatformDataAttributes platformData, std::optional<RenderingResourceIdentifier> fontCustomPlatformDataIdentifier)
 {
     ASSERT(!RunLoop::isMain());
 
@@ -414,7 +416,7 @@ void RemoteRenderingBackend::flush(IPC::Semaphore&& semaphore)
 #endif
 
 #if PLATFORM(COCOA)
-void RemoteRenderingBackend::prepareImageBufferSetsForDisplay(Vector<ImageBufferSetPrepareBufferForDisplayInputData> swapBuffersInput, RenderingUpdateID renderingUpdateID)
+void RemoteRenderingBackend::prepareImageBufferSetsForDisplay(Vector<ImageBufferSetPrepareBufferForDisplayInputData> swapBuffersInput)
 {
     assertIsCurrent(workQueue());
 
@@ -422,7 +424,7 @@ void RemoteRenderingBackend::prepareImageBufferSetsForDisplay(Vector<ImageBuffer
         RefPtr<RemoteImageBufferSet> remoteImageBufferSet = m_remoteImageBufferSets.get(swapBuffersInput[i].remoteBufferSet);
         MESSAGE_CHECK(remoteImageBufferSet, "BufferSet is being updated before being created"_s);
         SwapBuffersDisplayRequirement displayRequirement = SwapBuffersDisplayRequirement::NeedsNormalDisplay;
-        remoteImageBufferSet->ensureBufferForDisplay(swapBuffersInput[i], displayRequirement, renderingUpdateID);
+        remoteImageBufferSet->ensureBufferForDisplay(swapBuffersInput[i], displayRequirement);
         MESSAGE_CHECK(displayRequirement != SwapBuffersDisplayRequirement::NeedsFullDisplay, "Can't asynchronously require full display for a buffer set"_s);
 
         if (displayRequirement != SwapBuffersDisplayRequirement::NeedsNoDisplay)
@@ -430,7 +432,7 @@ void RemoteRenderingBackend::prepareImageBufferSetsForDisplay(Vector<ImageBuffer
     }
 }
 
-void RemoteRenderingBackend::prepareImageBufferSetsForDisplaySync(Vector<ImageBufferSetPrepareBufferForDisplayInputData> swapBuffersInput, RenderingUpdateID renderingUpdateID,  CompletionHandler<void(Vector<SwapBuffersDisplayRequirement>&&)>&& completionHandler)
+void RemoteRenderingBackend::prepareImageBufferSetsForDisplaySync(Vector<ImageBufferSetPrepareBufferForDisplayInputData> swapBuffersInput, CompletionHandler<void(Vector<SwapBuffersDisplayRequirement>&&)>&& completionHandler)
 {
     assertIsCurrent(workQueue());
 
@@ -440,7 +442,7 @@ void RemoteRenderingBackend::prepareImageBufferSetsForDisplaySync(Vector<ImageBu
     for (unsigned i = 0; i < swapBuffersInput.size(); ++i) {
         RefPtr<RemoteImageBufferSet> remoteImageBufferSet = m_remoteImageBufferSets.get(swapBuffersInput[i].remoteBufferSet);
         MESSAGE_CHECK(remoteImageBufferSet, "BufferSet is being updated before being created"_s);
-        remoteImageBufferSet->ensureBufferForDisplay(swapBuffersInput[i], outputData[i], renderingUpdateID);
+        remoteImageBufferSet->ensureBufferForDisplay(swapBuffersInput[i], outputData[i]);
     }
 
     completionHandler(WTFMove(outputData));

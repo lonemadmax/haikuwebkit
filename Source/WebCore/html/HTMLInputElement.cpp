@@ -1080,7 +1080,7 @@ void HTMLInputElement::setChecked(bool isChecked, WasSetByJavaScript wasCheckedB
 
     if (auto* buttons = radioButtonGroups())
         buttons->updateCheckedState(*this);
-    if (auto* renderer = this->renderer(); renderer && renderer->style().hasEffectiveAppearance())
+    if (auto* renderer = this->renderer(); renderer && renderer->style().hasUsedAppearance())
         renderer->repaint();
     updateValidity();
 
@@ -1101,7 +1101,7 @@ void HTMLInputElement::setIndeterminate(bool newValue)
     Style::PseudoClassChangeInvalidation indeterminateInvalidation(*this, CSSSelector::PseudoClass::Indeterminate, newValue);
     m_isIndeterminate = newValue;
 
-    if (auto* renderer = this->renderer(); renderer && renderer->style().hasEffectiveAppearance())
+    if (auto* renderer = this->renderer(); renderer && renderer->style().hasUsedAppearance())
         renderer->repaint();
 
     if (auto* cache = document().existingAXObjectCache())
@@ -2358,19 +2358,19 @@ bool HTMLInputElement::dirAutoUsesValue() const
 float HTMLInputElement::switchAnimationVisuallyOnProgress() const
 {
     ASSERT(isSwitch());
-    return checkedDowncast<CheckboxInputType>(*m_inputType).switchAnimationVisuallyOnProgress();
+    return downcast<CheckboxInputType>(*m_inputType).switchAnimationVisuallyOnProgress();
 }
 
 bool HTMLInputElement::isSwitchVisuallyOn() const
 {
     ASSERT(isSwitch());
-    return checkedDowncast<CheckboxInputType>(*m_inputType).isSwitchVisuallyOn();
+    return downcast<CheckboxInputType>(*m_inputType).isSwitchVisuallyOn();
 }
 
 float HTMLInputElement::switchAnimationPressedProgress() const
 {
     ASSERT(isSwitch());
-    return checkedDowncast<CheckboxInputType>(*m_inputType).switchAnimationPressedProgress();
+    return downcast<CheckboxInputType>(*m_inputType).switchAnimationPressedProgress();
 }
 
 } // namespace

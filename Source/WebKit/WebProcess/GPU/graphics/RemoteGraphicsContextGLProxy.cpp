@@ -165,7 +165,7 @@ void RemoteGraphicsContextGLProxy::initialize(const RemoteGraphicsContextGLIniti
     m_externalImageBindingQuery = initializationState.externalImageBindingQuery;
 }
 
-GCEGLImage RemoteGraphicsContextGLProxy::createAndBindEGLImage(GCGLenum, GraphicsContextGL::EGLImageSource, GCGLint)
+GCEGLImage RemoteGraphicsContextGLProxy::createAndBindEGLImage(GCGLenum, GCGLenum, GraphicsContextGL::EGLImageSource, GCGLint)
 {
     notImplemented();
     return { };
@@ -508,6 +508,11 @@ void RemoteGraphicsContextGLProxy::disconnectGpuProcessIfNeeded()
         m_connection = nullptr;
     }
     ASSERT(isContextLost());
+}
+
+uint32_t RemoteGraphicsContextGLProxy::createObjectName()
+{
+    return ++m_nextObjectName;
 }
 
 } // namespace WebKit

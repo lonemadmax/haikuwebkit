@@ -1130,6 +1130,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/PageTransitionEvent.idl \
     $(WebCore)/dom/ParentNode.idl \
     $(WebCore)/dom/PointerEvent.idl \
+    $(WebCore)/dom/PointerLockOptions.idl \
     $(WebCore)/dom/PopStateEvent.idl \
     $(WebCore)/dom/ProcessingInstruction.idl \
     $(WebCore)/dom/ProgressEvent.idl \
@@ -1523,7 +1524,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/svg/Document+SVG.idl \
     $(WebCore)/svg/SVGAElement.idl \
     $(WebCore)/svg/SVGAngle.idl \
-    $(WebCore)/svg/SVGAnimateColorElement.idl \
     $(WebCore)/svg/SVGAnimateElement.idl \
     $(WebCore)/svg/SVGAnimateMotionElement.idl \
     $(WebCore)/svg/SVGAnimateTransformElement.idl \
@@ -2035,7 +2035,6 @@ USER_AGENT_STYLE_SHEETS = \
     $(WebCore)/css/plugIns.css \
     $(WebCore)/css/popover.css \
     $(WebCore)/css/quirks.css \
-    $(WebCore)/css/ruby.css \
     $(WebCore)/css/svg.css \
     $(WebCore)/css/viewTransitions.css \
     $(WebCore)/html/shadow/mac/imageControlsMac.css \

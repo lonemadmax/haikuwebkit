@@ -74,7 +74,7 @@ InlineLayoutUnit TextUtil::width(const InlineTextBox& inlineTextBox, const FontC
         if (fontCascade.canTakeFixedPitchFastContentMeasuring())
             width = fontCascade.widthForSimpleTextWithFixedPitch(view, inlineTextBox.style().collapseWhiteSpace());
         else
-            width = fontCascade.widthForSimpleText(view);
+            width = fontCascade.widthForTextUsingSimplifiedMeasuring(view);
     } else {
         auto& style = inlineTextBox.style();
         auto directionalOverride = style.unicodeBidi() == UnicodeBidi::Override;
@@ -434,6 +434,9 @@ TextBreakIterator::ContentAnalysis TextUtil::contentAnalysis(WordBreak wordBreak
 
 bool TextUtil::isStrongDirectionalityCharacter(char32_t character)
 {
+    if (isLatin1(character))
+        return false;
+
     auto bidiCategory = u_charDirection(character);
     return bidiCategory == U_RIGHT_TO_LEFT
         || bidiCategory == U_RIGHT_TO_LEFT_ARABIC
@@ -569,10 +572,7 @@ static bool canUseSimplifiedTextMeasuringForCharacters(std::span<const Character
     auto* rawCharacters = characters.data();
     for (unsigned i = 0; i < characters.size(); ++i) {
         auto character = rawCharacters[i]; // Not using characters[i] to bypass the bounds check.
-        if (!WidthIterator::characterCanUseSimplifiedTextMeasuring(character, whitespaceIsCollapsed))
-            return false;
-        auto glyphData = fontCascade.glyphDataForCharacter(character, false);
-        if (!glyphData.isValid() || glyphData.font != &primaryFont)
+        if (!fontCascade.canUseSimplifiedTextMeasuring(character, AutoVariant, whitespaceIsCollapsed, primaryFont))
             return false;
     }
     return true;

@@ -118,8 +118,13 @@ public:
     {
     }
 
-    virtual void didExceedMemoryFootprintThreshold(size_t, const String&, unsigned, Seconds, bool inForeground, WebCore::WasPrivateRelayed)
+    enum class CanSuspend : bool { No, Yes };
+    virtual void didExceedMemoryFootprintThreshold(size_t, const String&, unsigned, Seconds, bool inForeground, WebCore::WasPrivateRelayed, CanSuspend)
     {
+    }
+    virtual std::optional<Vector<uint8_t>> webCryptoMasterKey()
+    {
+        return std::nullopt;
     }
 };
 

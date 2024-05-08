@@ -230,7 +230,7 @@ inline void LineCandidate::reset()
 
 
 LineBuilder::LineBuilder(InlineFormattingContext& inlineFormattingContext, HorizontalConstraints rootHorizontalConstraints, const InlineItemList& inlineItemList)
-    : AbstractLineBuilder(inlineFormattingContext, rootHorizontalConstraints, inlineItemList)
+    : AbstractLineBuilder(inlineFormattingContext, inlineFormattingContext.root(), rootHorizontalConstraints, inlineItemList)
     , m_floatingContext(inlineFormattingContext.floatingContext())
 {
 }
@@ -267,7 +267,7 @@ LineLayoutResult LineBuilder::layoutInlineContent(const LineInput& lineInput, co
         , { WTFMove(m_placedFloats), WTFMove(m_suspendedFloats), m_lineIsConstrainedByFloat }
         , { contentLogicalLeft, result.contentLogicalWidth, contentLogicalLeft + result.contentLogicalRight, lineContent.overflowLogicalWidth }
         , { m_lineLogicalRect.topLeft(), m_lineLogicalRect.width(), m_lineInitialLogicalRect.left() + m_initialIntrusiveFloatsWidth, m_initialLetterClearGap }
-        , { !result.isHangingTrailingContentWhitespace, result.hangingTrailingContentWidth }
+        , { !result.isHangingTrailingContentWhitespace, result.hangingTrailingContentWidth, result.hangablePunctuationStartWidth }
         , { WTFMove(visualOrderList), inlineBaseDirection }
         , { isFirstFormattedLine() ? LineLayoutResult::IsFirstLast::FirstFormattedLine::WithinIFC : LineLayoutResult::IsFirstLast::FirstFormattedLine::No, isLastInlineContent }
         , { WTFMove(lineContent.rubyBaseAlignmentOffsetList), lineContent.rubyAnnotationOffset }
@@ -801,7 +801,7 @@ LineBuilder::RectAndFloatConstraints LineBuilder::adjustedLineRectWithCandidateI
         return { m_lineLogicalRect };
     // FIXME: Use InlineFormattingUtils::inlineLevelBoxAffectsLineBox instead.
     auto candidateContentHeight = InlineLayoutUnit { };
-    auto lineBoxContain = formattingContext().root().style().lineBoxContain();
+    auto lineBoxContain = rootStyle().lineBoxContain();
     for (auto& run : inlineContent.continuousContent().runs()) {
         auto& inlineItem = run.inlineItem;
         if (inlineItem.isText()) {

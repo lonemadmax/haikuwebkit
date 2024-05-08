@@ -219,14 +219,16 @@ void WebExtensionContext::runtimeSendNativeMessage(const String& applicationID, 
 
     auto *applicationIdentifier = !applicationID.isNull() ? (NSString *)applicationID : nil;
 
-    [delegate webExtensionController:extensionController()->wrapper() sendMessage:message toApplicationIdentifier:applicationIdentifier forExtensionContext:wrapper() replyHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler)] (id replyMessage, NSError *error) mutable {
+    [delegate webExtensionController:extensionController()->wrapper() sendMessage:message toApplicationIdentifier:applicationIdentifier forExtensionContext:wrapper() replyHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler)](id replyMessage, NSError *error) mutable {
         if (error) {
             completionHandler(toWebExtensionError(apiName, nil, error.localizedDescription));
             return;
         }
 
-        if (replyMessage)
-            THROW_UNLESS(isValidJSONObject(replyMessage, JSONOptions::FragmentsAllowed), @"reply message is not JSON-serializable");
+        if (replyMessage && !isValidJSONObject(replyMessage, JSONOptions::FragmentsAllowed)) {
+            completionHandler(toWebExtensionError(apiName, nil, @"reply message was not JSON-serializable"));
+            return;
+        }
 
         completionHandler(String(encodeJSONString(replyMessage, JSONOptions::FragmentsAllowed)));
     }).get()];

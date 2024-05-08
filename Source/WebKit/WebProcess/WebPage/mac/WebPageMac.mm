@@ -102,6 +102,7 @@
 #import <pal/spi/mac/NSApplicationSPI.h>
 #import <wtf/SetForScope.h>
 #import <wtf/SortedArrayMap.h>
+#import <wtf/cocoa/VectorCocoa.h>
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
 #import "MediaPlaybackTargetContextSerialized.h"
@@ -381,58 +382,6 @@ void WebPage::attributedSubstringForCharacterRangeAsync(const EditingRange& edit
 
     completionHandler(WebCore::AttributedString::fromNSAttributedString(WTFMove(attributedString)), rangeToSend);
 }
-
-#if ENABLE(PDF_PLUGIN)
-
-DictionaryPopupInfo WebPage::dictionaryPopupInfoForSelectionInPDFPlugin(PDFSelection *selection, PluginView& pdfPlugin, WebCore::TextIndicatorPresentationTransition presentationTransition)
-{
-    DictionaryPopupInfo dictionaryPopupInfo;
-    if (!selection.string.length)
-        return dictionaryPopupInfo;
-
-    NSRect rangeRect = pdfPlugin.rectForSelectionInRootView(selection);
-
-    NSAttributedString *nsAttributedString = selection.attributedString;
-    
-    RetainPtr<NSMutableAttributedString> scaledNSAttributedString = adoptNS([[NSMutableAttributedString alloc] initWithString:[nsAttributedString string]]);
-    
-    NSFontManager *fontManager = [NSFontManager sharedFontManager];
-
-    CGFloat scaleFactor = pdfPlugin.contentScaleFactor();
-
-    __block CGFloat maxAscender = 0;
-    __block CGFloat maxDescender = 0;
-    [nsAttributedString enumerateAttributesInRange:NSMakeRange(0, [nsAttributedString length]) options:0 usingBlock:^(NSDictionary *attributes, NSRange range, BOOL *stop) {
-        RetainPtr<NSMutableDictionary> scaledAttributes = adoptNS([attributes mutableCopy]);
-        
-        NSFont *font = [scaledAttributes objectForKey:NSFontAttributeName];
-        if (font) {
-            maxAscender = std::max(maxAscender, font.ascender * scaleFactor);
-            maxDescender = std::min(maxDescender, font.descender * scaleFactor);
-            font = [fontManager convertFont:font toSize:[font pointSize] * scaleFactor];
-            [scaledAttributes setObject:font forKey:NSFontAttributeName];
-        }
-        
-        [scaledNSAttributedString addAttributes:scaledAttributes.get() range:range];
-    }];
-
-    rangeRect.size.height = nsAttributedString.size.height * scaleFactor;
-    rangeRect.size.width = nsAttributedString.size.width * scaleFactor;
-    
-    TextIndicatorData dataForSelection;
-    dataForSelection.selectionRectInRootViewCoordinates = rangeRect;
-    dataForSelection.textBoundingRectInRootViewCoordinates = rangeRect;
-    dataForSelection.contentImageScaleFactor = scaleFactor;
-    dataForSelection.presentationTransition = presentationTransition;
-    
-    dictionaryPopupInfo.origin = rangeRect.origin;
-    dictionaryPopupInfo.textIndicator = dataForSelection;
-    dictionaryPopupInfo.platformData.attributedString = WebCore::AttributedString::fromNSAttributedString(scaledNSAttributedString);
-    
-    return dictionaryPopupInfo;
-}
-
-#endif
 
 bool WebPage::performNonEditingBehaviorForSelector(const String& selector, KeyboardEvent* event)
 {
@@ -815,7 +764,7 @@ void WebPage::handleSelectionServiceClick(FrameSelection& selection, const Vecto
     NSData *selectionData = [attributedSelection RTFDFromRange:NSMakeRange(0, [attributedSelection length]) documentAttributes:@{ }];
 
     flushPendingEditorStateUpdate();
-    send(Messages::WebPageProxy::ShowContextMenu(ContextMenuContextData(point, Vector { reinterpret_cast<const uint8_t*>(selectionData.bytes), selectionData.length }, phoneNumbers, selection.selection().isContentEditable()), UserData()));
+    send(Messages::WebPageProxy::ShowContextMenu(ContextMenuContextData(point, makeVector(selectionData), phoneNumbers, selection.selection().isContentEditable()), UserData()));
 }
 
 void WebPage::handleImageServiceClick(const IntPoint& point, Image& image, HTMLImageElement& element)
@@ -963,16 +912,10 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
 #if ENABLE(PDF_PLUGIN)
     if (RefPtr embedOrObject = dynamicDowncast<HTMLPlugInImageElement>(element)) {
         if (RefPtr pluginView = static_cast<PluginView*>(embedOrObject->pluginWidget())) {
-            // FIXME: We don't have API to identify images inside PDFs based on position.
-            if (auto [lookupText, selection] = pluginView->lookupTextAtLocation(locationInViewCoordinates, immediateActionResult); !lookupText.isEmpty()) {
+            if (pluginView->performImmediateActionHitTestAtLocation(locationInViewCoordinates, immediateActionResult)) {
                 // FIXME (144030): Focus does not seem to get set to the PDF when invoking the menu.
                 if (RefPtr pluginDocument = dynamicDowncast<PluginDocument>(element->document()))
                     pluginDocument->setFocusedElement(element.get());
-
-                immediateActionResult.lookupText = lookupText;
-                immediateActionResult.isTextNode = true;
-                immediateActionResult.isSelected = true;
-                immediateActionResult.dictionaryPopupInfo = dictionaryPopupInfoForSelectionInPDFPlugin(selection.get(), *pluginView, TextIndicatorPresentationTransition::FadeIn);
             }
         }
     }

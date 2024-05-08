@@ -75,11 +75,6 @@ static Position positionForIndex(TextControlInnerTextElement*, unsigned);
 HTMLTextFormControlElement::HTMLTextFormControlElement(const QualifiedName& tagName, Document& document, HTMLFormElement* form)
     : HTMLFormControlElement(tagName, document, form)
     , m_cachedSelectionDirection(document.frame() && document.frame()->editor().behavior().shouldConsiderSelectionAsDirectional() ? SelectionHasForwardDirection : SelectionHasNoDirection)
-    , m_lastChangeWasUserEdit(false)
-    , m_isPlaceholderVisible(false)
-    , m_canShowPlaceholder(true)
-    , m_cachedSelectionStart(0)
-    , m_cachedSelectionEnd(0)
 {
 }
 
@@ -555,24 +550,41 @@ void HTMLTextFormControlElement::restoreCachedSelection(SelectionRevealMode reve
         scheduleSelectEvent();
 }
 
-void HTMLTextFormControlElement::selectionChanged(bool shouldFireSelectEvent)
+bool HTMLTextFormControlElement::selectionChanged(bool shouldFireSelectEvent)
 {
     if (!isTextField())
-        return;
+        return false;
 
     // FIXME: Don't re-compute selection start and end if this function was called inside setSelectionRange.
     // selectionStart() or selectionEnd() will return cached selection when this node doesn't have focus
+    unsigned previousSelectionStart = m_cachedSelectionStart;
+    unsigned previousSelectionEnd = m_cachedSelectionEnd;
     cacheSelection(computeSelectionStart(), computeSelectionEnd(), computeSelectionDirection());
 
     document().setHasEverHadSelectionInsideTextFormControl();
 
     if (shouldFireSelectEvent && m_cachedSelectionStart != m_cachedSelectionEnd)
         dispatchEvent(Event::create(eventNames().selectEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
+
+    return previousSelectionStart != m_cachedSelectionStart || previousSelectionEnd != m_cachedSelectionEnd;
+}
+
+void HTMLTextFormControlElement::scheduleSelectionChangeEvent()
+{
+    if (m_hasScheduledSelectionChangeEvent)
+        return;
+
+    m_hasScheduledSelectionChangeEvent = true;
+    document().eventLoop().queueTask(TaskSource::UserInteraction, [textControl = GCReachableRef { *this }] {
+        textControl->m_hasScheduledSelectionChangeEvent = false;
+        textControl->dispatchEvent(Event::create(eventNames().selectionchangeEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
+    });
 }
 
 void HTMLTextFormControlElement::scheduleSelectEvent()
 {
     queueTaskToDispatchEvent(TaskSource::UserInteraction, Event::create(eventNames().selectEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
+    scheduleSelectionChangeEvent();
 }
 
 void HTMLTextFormControlElement::attributeChanged(const QualifiedName& name, const AtomString& oldValue, const AtomString& newValue, AttributeModificationReason attributeModificationReason)

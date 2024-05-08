@@ -67,7 +67,6 @@ const TestFeatures& TestOptions::defaults()
             // These are non-experimental WebPreference values that must always be set as they
             // differ from the default set in the WebPreferences*.yaml configuration.
             { "AllowsInlineMediaPlayback", true },
-            { "CSSUnprefixedBackdropFilterEnabled", true },
             { "CanvasUsesAcceleratedDrawing", true },
             { "ColorFilterEnabled", true },
             { "CustomPasteboardDataEnabled", true },
@@ -120,6 +119,7 @@ const TestFeatures& TestOptions::defaults()
             { "CSSOMViewSmoothScrollingEnabled", false },
             { "ContactPickerAPIEnabled", false },
             { "CoreMathMLEnabled", false },
+            { "DigitalCredentialsEnabled", false },
             { "GenericCueAPIEnabled", false },
             { "IsLoggedInAPIEnabled", false },
             { "LazyIframeLoadingEnabled", false },
@@ -136,7 +136,6 @@ const TestFeatures& TestOptions::defaults()
             { "AsyncClipboardAPIEnabled", false },
             { "AttachmentElementEnabled", false },
             { "AttachmentWideLayoutEnabled", false },
-            { "CSSContainmentEnabled", false },
             { "CSSCounterStyleAtRuleImageSymbolsEnabled", false },
             { "CSSGradientInterpolationColorSpacesEnabled", true },
             { "CSSGradientPremultipliedAlphaInterpolationEnabled", true },

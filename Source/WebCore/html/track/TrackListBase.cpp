@@ -44,8 +44,13 @@ TrackListBase::TrackListBase(ScriptExecutionContext* context, Type type)
 {
 }
 
-TrackListBase::~TrackListBase()
+TrackListBase::~TrackListBase() = default;
+
+void TrackListBase::didMoveToNewDocument(Document& newDocument)
 {
+    ActiveDOMObject::didMoveToNewDocument(newDocument);
+    for (RefPtr track : m_inbandTracks)
+        track->didMoveToNewDocument(newDocument);
 }
 
 WebCoreOpaqueRoot TrackListBase::opaqueRoot()

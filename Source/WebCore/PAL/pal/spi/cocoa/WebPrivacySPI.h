@@ -97,6 +97,8 @@ constexpr NSInteger WPResourceTypeStorageAccessPromptQuirksData = 7;
 @interface WPStorageAccessPromptQuirk : NSObject
 @property (nonatomic, readonly) NSString *name;
 @property (nonatomic, readonly) NSDictionary<NSString *, NSArray<NSString *> *> *domainPairings;
+@property (nonatomic, readonly) NSDictionary<NSString *, NSArray<NSString *> *> *quirkDomains;
+@property (nonatomic, readonly) NSArray<NSString *> *triggerPages;
 @end
 
 @interface WPStorageAccessPromptQuirksData : NSObject
@@ -151,6 +153,13 @@ typedef void (^WPRestrictedOpenerDomainsCompletionHandler)(NSArray<WPRestrictedO
 
 @interface WPResources (Staging_118208263)
 - (void)requestRestrictedOpenerDomains:(WPResourceRequestOptions *)options completionHandler:(WPRestrictedOpenerDomainsCompletionHandler)completion;
+@end
+#endif
+
+#if !defined(HAS_WEB_PRIVACY_STORAGE_ACCESS_PROMPT_TRIGGER) && HAVE(WEB_PRIVACY_FRAMEWORK)
+@interface WPStorageAccessPromptQuirk (Staging_124689085)
+@property (nonatomic, readonly) NSDictionary<NSString *, NSArray<NSString *> *> *quirkDomains;
+@property (nonatomic, readonly) NSArray<NSString *> *triggerPages;
 @end
 #endif
 

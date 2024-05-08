@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-2023 Apple Inc.  All rights reserved.
+ * Copyright (C) 2003-2024 Apple Inc.  All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
  * Copyright (C) 2011 University of Szeged. All rights reserved.
  *
@@ -113,7 +113,7 @@ ALLOW_NONLITERAL_FORMAT_BEGIN
 
 ALLOW_NONLITERAL_FORMAT_END
 
-    return StringImpl::create(reinterpret_cast<const LChar*>(buffer.data()), length);
+    return StringImpl::create(std::span { reinterpret_cast<const LChar*>(buffer.data()), length });
 }
 
 #if PLATFORM(COCOA)
@@ -347,6 +347,9 @@ void WTFCrash()
     WTFReportBacktrace();
 #if ASAN_ENABLED
     __builtin_trap();
+#elif OS(DARWIN) && CPU(ARM64)
+    WTFBreakpointTrap();
+    __builtin_trap(); // Suppress NO_RETURN_DUE_TO_CRASH warning.
 #else
     *(int *)(uintptr_t)0xbbadbeef = 0;
     // More reliable, but doesn't say BBADBEEF.
@@ -650,35 +653,6 @@ void WTFReleaseLogStackTrace(WTFLogChannel* channel)
 } // extern "C"
 
 #if (OS(DARWIN) || PLATFORM(PLAYSTATION)) && (CPU(X86_64) || CPU(ARM64))
-#if CPU(X86_64)
-
-#define CRASH_INST "int3"
-
-// This ordering was chosen to be consistent with JSC's JIT asserts. We probably shouldn't change this ordering
-// since it would make tooling crash reports much harder. If, for whatever reason, we decide to change the ordering
-// here we should update the abortWithuint64_t functions.
-#define CRASH_GPR0 "r11"
-#define CRASH_GPR1 "r10"
-#define CRASH_GPR2 "r9"
-#define CRASH_GPR3 "r8"
-#define CRASH_GPR4 "r15"
-#define CRASH_GPR5 "r14"
-#define CRASH_GPR6 "r13"
-
-#elif CPU(ARM64) // CPU(X86_64)
-
-#define CRASH_INST "brk #0xc471"
-
-// See comment above on the ordering.
-#define CRASH_GPR0 "x16"
-#define CRASH_GPR1 "x17"
-#define CRASH_GPR2 "x19" // We skip x18, which is reserved on ARM64 for platform use.
-#define CRASH_GPR3 "x20"
-#define CRASH_GPR4 "x21"
-#define CRASH_GPR5 "x22"
-#define CRASH_GPR6 "x23"
-
-#endif // CPU(ARM64)
 
 void WTFCrashWithInfoImpl(int, const char*, const char*, int, uint64_t reason, uint64_t misc1, uint64_t misc2, uint64_t misc3, uint64_t misc4, uint64_t misc5, uint64_t misc6)
 {
@@ -689,7 +663,7 @@ void WTFCrashWithInfoImpl(int, const char*, const char*, int, uint64_t reason, u
     register uint64_t misc4GPR asm(CRASH_GPR4) = misc4;
     register uint64_t misc5GPR asm(CRASH_GPR5) = misc5;
     register uint64_t misc6GPR asm(CRASH_GPR6) = misc6;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR), "r"(misc3GPR), "r"(misc4GPR), "r"(misc5GPR), "r"(misc6GPR));
+    __asm__ volatile (WTF_FATAL_CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR), "r"(misc3GPR), "r"(misc4GPR), "r"(misc5GPR), "r"(misc6GPR));
     __builtin_unreachable();
 }
 
@@ -701,7 +675,7 @@ void WTFCrashWithInfoImpl(int, const char*, const char*, int, uint64_t reason, u
     register uint64_t misc3GPR asm(CRASH_GPR3) = misc3;
     register uint64_t misc4GPR asm(CRASH_GPR4) = misc4;
     register uint64_t misc5GPR asm(CRASH_GPR5) = misc5;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR), "r"(misc3GPR), "r"(misc4GPR), "r"(misc5GPR));
+    __asm__ volatile (WTF_FATAL_CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR), "r"(misc3GPR), "r"(misc4GPR), "r"(misc5GPR));
     __builtin_unreachable();
 }
 
@@ -712,7 +686,7 @@ void WTFCrashWithInfoImpl(int, const char*, const char*, int, uint64_t reason, u
     register uint64_t misc2GPR asm(CRASH_GPR2) = misc2;
     register uint64_t misc3GPR asm(CRASH_GPR3) = misc3;
     register uint64_t misc4GPR asm(CRASH_GPR4) = misc4;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR), "r"(misc3GPR), "r"(misc4GPR));
+    __asm__ volatile (WTF_FATAL_CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR), "r"(misc3GPR), "r"(misc4GPR));
     __builtin_unreachable();
 }
 
@@ -722,7 +696,7 @@ void WTFCrashWithInfoImpl(int, const char*, const char*, int, uint64_t reason, u
     register uint64_t misc1GPR asm(CRASH_GPR1) = misc1;
     register uint64_t misc2GPR asm(CRASH_GPR2) = misc2;
     register uint64_t misc3GPR asm(CRASH_GPR3) = misc3;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR), "r"(misc3GPR));
+    __asm__ volatile (WTF_FATAL_CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR), "r"(misc3GPR));
     __builtin_unreachable();
 }
 
@@ -731,7 +705,7 @@ void WTFCrashWithInfoImpl(int, const char*, const char*, int, uint64_t reason, u
     register uint64_t reasonGPR asm(CRASH_GPR0) = reason;
     register uint64_t misc1GPR asm(CRASH_GPR1) = misc1;
     register uint64_t misc2GPR asm(CRASH_GPR2) = misc2;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR));
+    __asm__ volatile (WTF_FATAL_CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR), "r"(misc2GPR));
     __builtin_unreachable();
 }
 
@@ -739,14 +713,14 @@ void WTFCrashWithInfoImpl(int, const char*, const char*, int, uint64_t reason, u
 {
     register uint64_t reasonGPR asm(CRASH_GPR0) = reason;
     register uint64_t misc1GPR asm(CRASH_GPR1) = misc1;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR));
+    __asm__ volatile (WTF_FATAL_CRASH_INST : : "r"(reasonGPR), "r"(misc1GPR));
     __builtin_unreachable();
 }
 
 void WTFCrashWithInfoImpl(int, const char*, const char*, int, uint64_t reason)
 {
     register uint64_t reasonGPR asm(CRASH_GPR0) = reason;
-    __asm__ volatile (CRASH_INST : : "r"(reasonGPR));
+    __asm__ volatile (WTF_FATAL_CRASH_INST : : "r"(reasonGPR));
     __builtin_unreachable();
 }
 

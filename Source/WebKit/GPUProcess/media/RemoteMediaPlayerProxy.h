@@ -142,7 +142,7 @@ public:
 
     void getConfiguration(RemoteMediaPlayerConfiguration&);
 
-    void prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload, bool preservesPitch, WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, WebCore::DynamicRangeMode);
+    void prepareForPlayback(bool privateMode, WebCore::MediaPlayerEnums::Preload, bool preservesPitch, WebCore::MediaPlayerEnums::PitchCorrectionAlgorithm, bool prepareToPlay, bool prepareForRendering, WebCore::IntSize presentationSize, float videoContentScale, WebCore::DynamicRangeMode);
     void prepareForRendering();
 
     void load(URL&&, std::optional<SandboxExtension::Handle>&&, const WebCore::ContentType&, const String&, bool, CompletionHandler<void(RemoteMediaPlayerConfiguration&&)>&&);
@@ -254,7 +254,7 @@ private:
     void mediaPlayerRateChanged() final;
     void mediaPlayerPlaybackStateChanged() final;
     void mediaPlayerResourceNotSupported() final;
-    void mediaPlayerEngineFailedToLoad() const final;
+    void mediaPlayerEngineFailedToLoad() final;
     void mediaPlayerActiveSourceBuffersChanged() final;
     void mediaPlayerBufferedTimeRangesChanged() final;
     void mediaPlayerSeekableTimeRangesChanged() final;

@@ -573,9 +573,6 @@ RefPtr<StyleRuleImport> CSSParserImpl::consumeImportRule(CSSParserTokenRange pre
     prelude.consumeWhitespace();
 
     auto consumeCascadeLayer = [&]() -> std::optional<CascadeLayerName> {
-        if (!m_context.cascadeLayersEnabled)
-            return { };
-
         auto& token = prelude.peek();
         if (token.type() == FunctionToken && equalLettersIgnoringASCIICase(token.value(), "layer"_s)) {
             auto savedPreludeForFailure = prelude;
@@ -1120,9 +1117,6 @@ RefPtr<StyleRuleStartingStyle> CSSParserImpl::consumeStartingStyleRule(CSSParser
 
 RefPtr<StyleRuleLayer> CSSParserImpl::consumeLayerRule(CSSParserTokenRange prelude, std::optional<CSSParserTokenRange> block)
 {
-    if (!m_context.cascadeLayersEnabled)
-        return nullptr;
-
     auto preludeCopy = prelude;
 
     if (!block) {
@@ -1177,9 +1171,6 @@ RefPtr<StyleRuleLayer> CSSParserImpl::consumeLayerRule(CSSParserTokenRange prelu
 
 RefPtr<StyleRuleContainer> CSSParserImpl::consumeContainerRule(CSSParserTokenRange prelude, CSSParserTokenRange block)
 {
-    if (!m_context.propertySettings.cssContainerQueriesEnabled)
-        return nullptr;
-
     if (prelude.atEnd())
         return nullptr;
 
@@ -1209,9 +1200,6 @@ RefPtr<StyleRuleContainer> CSSParserImpl::consumeContainerRule(CSSParserTokenRan
 
 RefPtr<StyleRuleProperty> CSSParserImpl::consumePropertyRule(CSSParserTokenRange prelude, CSSParserTokenRange block)
 {
-    if (!m_context.propertySettings.cssCustomPropertiesAndValuesEnabled)
-        return nullptr;
-
     auto nameToken = prelude.consumeIncludingWhitespace();
     if (nameToken.type() != IdentToken || !prelude.atEnd())
         return nullptr;

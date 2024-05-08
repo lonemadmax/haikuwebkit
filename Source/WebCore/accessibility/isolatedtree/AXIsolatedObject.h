@@ -56,7 +56,6 @@ public:
     ~AXIsolatedObject();
 
     AXID treeID() const final { return tree()->treeID(); }
-    ProcessID processID() const final { return tree()->processID(); }
     String dbg() const final;
 
     AccessibilityRole roleValue() const final { return static_cast<AccessibilityRole>(intAttributeValue(AXPropertyName::RoleValue)); }
@@ -85,6 +84,7 @@ public:
 #endif // ENABLE(AX_THREAD_TEXT_APIS)
 
 private:
+    constexpr ProcessID processID() const final { return tree()->processID(); }
     void detachRemoteParts(AccessibilityDetachmentType) final;
     void detachPlatformWrapper(AccessibilityDetachmentType) final;
 
@@ -228,9 +228,7 @@ private:
     IntSize size() const final { return snappedIntRect(LayoutRect(relativeFrame())).size(); }
     FloatRect relativeFrameFromChildren() const;
     WallTime dateTimeValue() const final { return propertyValue<WallTime>(AXPropertyName::DateTimeValue); }
-#if PLATFORM(MAC)
-    unsigned dateTimeComponents() const final { return propertyValue<unsigned>(AXPropertyName::DateTimeComponents); }
-#endif
+    DateComponentsType dateTimeComponentsType() const final { return propertyValue<DateComponentsType>(AXPropertyName::DateTimeComponentsType); }
     bool supportsDatetimeAttribute() const final { return boolAttributeValue(AXPropertyName::SupportsDatetimeAttribute); }
     String datetimeAttributeValue() const final { return stringAttributeValue(AXPropertyName::DatetimeAttributeValue); }
     bool canSetValueAttribute() const final { return boolAttributeValue(AXPropertyName::CanSetValueAttribute); }
@@ -442,7 +440,7 @@ private:
     void setPreventKeyboardDOMEventDispatch(bool) final;
 #endif
 
-    String textUnderElement(AccessibilityTextUnderElementMode = AccessibilityTextUnderElementMode()) const final;
+    String textUnderElement(TextUnderElementMode = TextUnderElementMode()) const final;
     std::optional<SimpleRange> misspellingRange(const SimpleRange&, AccessibilitySearchDirection) const final;
     FloatRect convertFrameToSpace(const FloatRect&, AccessibilityConversionSpace) const final;
     void increment() final;
@@ -461,7 +459,6 @@ private:
     // Functions that should never be called on an isolated tree object. ASSERT that these are not reached;
     bool isAccessibilityRenderObject() const final;
     bool isAccessibilityTableInstance() const final;
-    bool isAccessibilityARIAGridInstance() const final { return false; }
     bool isAccessibilityARIAGridRowInstance() const final { return false; }
     bool isAccessibilityARIAGridCellInstance() const final { return false; }
     bool isAXRemoteFrame() const final { return false; }

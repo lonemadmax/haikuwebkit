@@ -79,6 +79,7 @@
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/cocoa/SpanCocoa.h>
 #import <wtf/spi/darwin/SandboxSPI.h>
 
 #if ENABLE(GPU_PROCESS) && PLATFORM(COCOA)
@@ -148,6 +149,7 @@ void WebPage::setHasLaunchedWebContentProcess()
 
 void WebPage::platformDidReceiveLoadParameters(const LoadParameters& parameters)
 {
+    WebCore::PublicSuffixStore::singleton().addPublicSuffix(parameters.publicSuffix);
     m_dataDetectionReferenceDate = parameters.dataDetectionReferenceDate;
 }
 
@@ -358,7 +360,7 @@ void WebPage::addDictationAlternative(const String& text, DictationContext conte
 
     auto targetOffset = characterCount(*searchRange);
     targetOffset -= std::min<uint64_t>(targetOffset, text.length());
-    auto matchRange = findClosestPlainText(*searchRange, text, { Backwards, DoNotRevealSelection }, targetOffset);
+    auto matchRange = findClosestPlainText(*searchRange, text, { FindOption::Backwards, FindOption::DoNotRevealSelection }, targetOffset);
     if (matchRange.collapsed()) {
         completion(false);
         return;
@@ -421,8 +423,7 @@ void WebPage::clearDictationAlternatives(Vector<DictationContext>&& contexts)
 
 void WebPage::accessibilityTransferRemoteToken(RetainPtr<NSData> remoteToken, FrameIdentifier frameID)
 {
-    std::span dataToken(reinterpret_cast<const uint8_t*>([remoteToken bytes]), [remoteToken length]);
-    send(Messages::WebPageProxy::RegisterWebProcessAccessibilityToken(dataToken, frameID));
+    send(Messages::WebPageProxy::RegisterWebProcessAccessibilityToken(span(remoteToken.get()), frameID));
 }
 
 void WebPage::accessibilityManageRemoteElementStatus(bool registerStatus, int processIdentifier)
@@ -461,9 +462,7 @@ void WebPage::bindRemoteAccessibilityFrames(int processIdentifier, WebCore::Fram
     registerRemoteFrameAccessibilityTokens(processIdentifier, dataToken);
 
     // Get our remote token data and send back to the RemoteFrame.
-    auto remoteToken = accessibilityRemoteTokenData();
-    std::span remoteDataToken(reinterpret_cast<const uint8_t*>([remoteToken bytes]), [remoteToken length]);
-    completionHandler(remoteDataToken, getpid());
+    completionHandler(span(accessibilityRemoteTokenData().get()), getpid());
 }
 
 #if ENABLE(APPLE_PAY)
@@ -903,9 +902,9 @@ void WebPage::setMediaEnvironment(const String& mediaEnvironment)
 #endif
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-void WebPage::willBeginTextReplacementSession(const WTF::UUID& uuid, CompletionHandler<void(const Vector<WebUnifiedTextReplacementContextData>&)>&& completionHandler)
+void WebPage::willBeginTextReplacementSession(const WTF::UUID& uuid, WebUnifiedTextReplacementType type, CompletionHandler<void(const Vector<WebUnifiedTextReplacementContextData>&)>&& completionHandler)
 {
-    m_unifiedTextReplacementController->willBeginTextReplacementSession(uuid, WTFMove(completionHandler));
+    m_unifiedTextReplacementController->willBeginTextReplacementSession(uuid, type, WTFMove(completionHandler));
 }
 
 void WebPage::didBeginTextReplacementSession(const WTF::UUID& uuid, const Vector<WebUnifiedTextReplacementContextData>& contexts)
@@ -936,6 +935,16 @@ void WebPage::textReplacementSessionDidReceiveTextWithReplacementRange(const WTF
 void WebPage::textReplacementSessionDidReceiveEditAction(const WTF::UUID& uuid, WebKit::WebTextReplacementData::EditAction action)
 {
     m_unifiedTextReplacementController->textReplacementSessionDidReceiveEditAction(uuid, action);
+}
+
+void WebPage::textReplacementSessionShowInformationForReplacementWithUUIDRelativeToRect(const WTF::UUID& sessionUUID, const WTF::UUID& replacementUUID, WebCore::IntRect rect)
+{
+    send(Messages::WebPageProxy::TextReplacementSessionShowInformationForReplacementWithUUIDRelativeToRect(sessionUUID, replacementUUID, rect));
+}
+
+void WebPage::textReplacementSessionUpdateStateForReplacementWithUUID(const WTF::UUID& sessionUUID, WebTextReplacementData::State state, const WTF::UUID& replacementUUID)
+{
+    send(Messages::WebPageProxy::TextReplacementSessionUpdateStateForReplacementWithUUID(sessionUUID, state, replacementUUID));
 }
 
 #endif
