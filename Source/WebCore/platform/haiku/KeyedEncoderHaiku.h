@@ -43,7 +43,7 @@ public:
     virtual RefPtr<WebCore::SharedBuffer> finishEncoding() override;
 
 private:
-    virtual void encodeBytes(const String& key, const uint8_t*, size_t) override;
+    virtual void encodeBytes(const String& key, std::span<const uint8_t>) override;
     virtual void encodeBool(const String& key, bool) override;
     virtual void encodeUInt32(const String& key, uint32_t) override;
     virtual void encodeInt32(const String& key, int32_t) override;

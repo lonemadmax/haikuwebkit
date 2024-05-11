@@ -67,7 +67,7 @@ SocketStreamHandleImpl::~SocketStreamHandleImpl()
     stopThread();
 }
 
-std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(const uint8_t* data, size_t length)
+std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(std::span<const uint8_t> data)
 {
     LOG(Network, "SocketStreamHandle %p platformSend", this);
     ASSERT(isMainThread());
@@ -77,17 +77,17 @@ std::optional<size_t> SocketStreamHandleImpl::platformSendInternal(const uint8_t
 
     m_hasPendingWriteData = true;
 
-    auto writeBuffer = makeUniqueArray<uint8_t>(length);
-    memcpy(writeBuffer.get(), data, length);
+    auto writeBuffer = makeUniqueArray<uint8_t>(data.size());
+    memcpy(writeBuffer.get(), data.data(), data.size());
 
-    callOnWorkerThread([this, writeBuffer = WTFMove(writeBuffer), writeBufferSize = length]() mutable {
+    callOnWorkerThread([this, writeBuffer = WTFMove(writeBuffer), writeBufferSize = data.size()]() mutable {
         ASSERT(!isMainThread());
         m_writeBuffer = WTFMove(writeBuffer);
         m_writeBufferSize = writeBufferSize;
         m_writeBufferOffset = 0;
     });
 
-    return length;
+    return data.size();
 }
 
 void SocketStreamHandleImpl::platformClose()
@@ -168,7 +168,7 @@ void SocketStreamHandleImpl::threadEntryPoint()
 
             callOnMainThread([this, protectedThis = Ref{*this}, buffer = WTFMove(readBuffer), size = bytesRead ] {
                 if (m_state == Open)
-                    m_client.didReceiveSocketStreamData(*this, buffer.get(), size);
+                    m_client.didReceiveSocketStreamData(*this, std::span<const unsigned char>(buffer.get(), size));
             });
         }
     }

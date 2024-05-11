@@ -563,7 +563,7 @@ void ResourceHandle::handleDataURL()
         if (client()) {
             auto decodedData = base64Decode(data, Base64DecodeMode::URL);
             if (decodedData && decodedData->size() > 0)
-                client()->didReceiveBuffer(this, SharedBuffer::create(decodedData->data(), decodedData->size()), originalSize);
+                client()->didReceiveBuffer(this, SharedBuffer::create(decodedData->span()), originalSize);
         }
     } else {
         PAL::TextEncoding encoding(charset);

@@ -32,15 +32,15 @@
 
 namespace WebCore {
 
-std::unique_ptr<KeyedDecoder> KeyedDecoder::decoder(const uint8_t* data, size_t size)
+std::unique_ptr<KeyedDecoder> KeyedDecoder::decoder(std::span<const uint8_t> data)
 {
-    return std::make_unique<KeyedDecoderHaiku>(data, size);
+    return std::make_unique<KeyedDecoderHaiku>(data);
 }
 
-KeyedDecoderHaiku::KeyedDecoderHaiku(const uint8_t* data, size_t size)
+KeyedDecoderHaiku::KeyedDecoderHaiku(std::span<const uint8_t> data)
 {
     currentMessage = new BMessage();
-    currentMessage->Unflatten((const char*)data);
+    currentMessage->Unflatten((const char*)data.data());
     m_messageStack.append(currentMessage);
 }
 
@@ -49,14 +49,13 @@ KeyedDecoderHaiku::~KeyedDecoderHaiku()
     delete currentMessage;
 }
 
-bool KeyedDecoderHaiku::decodeBytes(const String& key, const uint8_t*& bytes, size_t& size)
+bool KeyedDecoderHaiku::decodeBytes(const String& key, std::span<const uint8_t>& bytes)
 {
     const void* storage;
     ssize_t storeSize;
     if (currentMessage->FindData(key.utf8().data(), B_RAW_TYPE, &storage, &storeSize) == B_OK)
     {
-        bytes = (const uint8_t*)storage;
-        size = storeSize;
+        bytes = std::span<const uint8_t>((const uint8_t*)storage, storeSize);
         return true;
     }
 

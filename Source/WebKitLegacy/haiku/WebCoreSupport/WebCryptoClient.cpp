@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Apple Inc.  All rights reserved.
+ * Copyright (C) 2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,47 +23,31 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "NativeImage.h"
+#import "WebCryptoClient.h"
 
-#include "GraphicsContext.h"
-#include "NotImplemented.h"
+#import <WebCore/SerializedCryptoKeyWrap.h>
+#import <optional>
 
-#include <Bitmap.h>
-
-namespace WebCore {
-
-IntSize PlatformImageNativeImageBackend::size() const
+std::optional<Vector<uint8_t>> WebCryptoClient::wrapCryptoKey(const Vector<uint8_t>& key) const
 {
-    return IntSize(platformImage()->Bounds().Size());
-}
+    Vector<uint8_t> wrappedKey;
 
-bool PlatformImageNativeImageBackend::hasAlpha() const
-{
-    return platformImage()->ColorSpace() == B_RGBA32;
-}
-
-std::optional<Color> NativeImage::singlePixelSolidColor() const
-{
-    if (size() != IntSize(1, 1))
+    auto masterKey = WebCore::defaultWebCryptoMasterKey();
+    if (!masterKey)
         return std::nullopt;
-
-    return (asSRGBA(PackedColor::ARGB { *(uint32*)platformImage()->Bits()}));
+    if (!WebCore::wrapSerializedCryptoKey(WTFMove(*masterKey), key, wrappedKey))
+        return std::nullopt;
+    return wrappedKey;
 }
 
-DestinationColorSpace PlatformImageNativeImageBackend::colorSpace() const
+std::optional<Vector<uint8_t>> WebCryptoClient::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey) const
 {
-    notImplemented();
-    return DestinationColorSpace::SRGB();
-}
+    Vector<uint8_t> key;
 
-void NativeImage::draw(GraphicsContext& context, const FloatRect& destinationRect, const FloatRect& sourceRect, ImagePaintingOptions options)
-{
-    context.drawNativeImageInternal(*this, destinationRect, sourceRect, options);
+    auto masterKey = WebCore::defaultWebCryptoMasterKey();
+    if (!masterKey)
+        return std::nullopt;
+    if (!WebCore::unwrapSerializedCryptoKey(WTFMove(*masterKey), wrappedKey, key))
+        return std::nullopt;
+    return key;
 }
-
-void NativeImage::clearSubimages()
-{
-}
-
-} // namespace WebCore

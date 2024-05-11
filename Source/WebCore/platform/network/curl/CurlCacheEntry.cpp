@@ -207,7 +207,7 @@ void CurlCacheEntry::didFinishLoading()
 void CurlCacheEntry::generateBaseFilename(const CString& url)
 {
     SHA1 sha1;
-    sha1.addBytes(url.dataAsUInt8Ptr(), url.length());
+    sha1.addBytes(url.span());
 
     SHA1::Digest sum;
     sha1.computeHash(sum);

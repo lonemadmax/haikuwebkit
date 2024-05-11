@@ -137,7 +137,6 @@ list(APPEND WebCore_SOURCES
   platform/graphics/haiku/GraphicsLayerHaiku.cpp
 
   platform/network/haiku/NetworkStateNotifierHaiku.cpp
-  platform/network/curl/PublicSuffixCurl.cpp
 
   platform/mock/GeolocationClientMock.cpp
 

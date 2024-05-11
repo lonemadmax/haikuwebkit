@@ -69,7 +69,7 @@ void computeSHA1HashStringForBitmapContext(BitmapContext* context, char hashStri
 
     SHA1 sha1;
     for (int i = 0; i <= pixelsHigh; ++i) {
-        sha1.addBytes(pixelData, 4 * pixelsWide);
+        sha1.addBytes(std::span<unsigned char>(pixelData, 4 * pixelsWide));
         pixelData += bytesPerRow;
     }
 

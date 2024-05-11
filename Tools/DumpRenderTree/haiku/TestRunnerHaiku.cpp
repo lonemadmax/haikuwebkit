@@ -134,7 +134,7 @@ void TestRunner::forceImmediateCompletion()
 
 JSRetainPtr<JSStringRef> TestRunner::pathToLocalResource(JSContextRef context, JSStringRef url)
 {
-    String requestedUrl(url->characters(), url->length());
+    String requestedUrl(url->string());
     String resourceRoot;
     String requestedRoot;
 

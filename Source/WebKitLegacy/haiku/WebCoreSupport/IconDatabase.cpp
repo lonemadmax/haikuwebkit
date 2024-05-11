@@ -135,7 +135,7 @@ void IconDatabase::IconRecord::setImageData(RefPtr<SharedBuffer>&& data)
         return;
     }
 
-    m_image = image->nativeImageForCurrentFrame()->platformImage();
+    m_image = image->currentNativeImage()->platformImage();
     if (!m_image) {
         LOG(IconDatabase, "Manual image data for iconURL '%s' FAILED - it was probably invalid image data", m_iconURL.ascii().data());
         m_imageData = nullptr;
@@ -1817,7 +1817,7 @@ RefPtr<SharedBuffer> IconDatabase::getImageDataForIconURLFromSQLDatabase(const S
     int result = m_getImageDataForIconURLStatement->step();
     if (result == SQLITE_ROW) {
         auto data = m_getImageDataForIconURLStatement->columnBlob(0);
-        imageData = SharedBuffer::create(data.data(), data.size());
+        imageData = SharedBuffer::create(std::span<const unsigned char>(data.data(), data.size()));
     } else if (result != SQLITE_DONE)
         LOG_ERROR("getImageDataForIconURLFromSQLDatabase failed for url %s", urlForLogging(iconURL).ascii().data());
 
@@ -1904,7 +1904,7 @@ void IconDatabase::writeIconSnapshotToSQLDatabase(const IconSnapshot& snapshot)
         // If we *have* image data, bind it to this statement - Otherwise bind "null" for the blob data,
         // signifying that this icon doesn't have any data
         if (snapshot.data() && snapshot.data()->size())
-            m_updateIconDataStatement->bindBlob(1, snapshot.data()->dataAsSpanForContiguousData());
+            m_updateIconDataStatement->bindBlob(1, snapshot.data()->span());
         else
             m_updateIconDataStatement->bindNull(1);
 
@@ -1930,7 +1930,7 @@ void IconDatabase::writeIconSnapshotToSQLDatabase(const IconSnapshot& snapshot)
         // If we *have* image data, bind it to this statement - Otherwise bind "null" for the blob data,
         // signifying that this icon doesn't have any data
         if (snapshot.data() && snapshot.data()->size())
-            m_setIconDataStatement->bindBlob(2, snapshot.data()->dataAsSpanForContiguousData());
+            m_setIconDataStatement->bindBlob(2, snapshot.data()->span());
         else
             m_setIconDataStatement->bindNull(2);
 

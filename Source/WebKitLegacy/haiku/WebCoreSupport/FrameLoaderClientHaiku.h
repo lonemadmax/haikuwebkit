@@ -224,7 +224,6 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
     status_t dispatchNavigationRequested(const ResourceRequest& request) const;
     status_t dispatchMessage(BMessage& message, bool allowChildFrame = false) const;
 
-    void broadcastFrameRemovalToOtherProcesses() override {}
     void broadcastMainFrameURLChangeToOtherProcesses(const URL&) override {}
 
     void loadStorageAccessQuirksIfNeeded() final override {}

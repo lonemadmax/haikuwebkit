@@ -99,6 +99,10 @@ private:
     {
         return m_blobRegistry.blobSize(url);
     }
+    String blobType(const URL& url) final override
+    {
+        return m_blobRegistry.blobType(url);
+    }
     void writeBlobsToTemporaryFilesForIndexedDB(const Vector<String>& blobURLs, CompletionHandler<void(Vector<String>&& filePaths)>&& completionHandler) final override
     {
         m_blobRegistry.writeBlobsToTemporaryFilesForIndexedDB(blobURLs, WTFMove(completionHandler));

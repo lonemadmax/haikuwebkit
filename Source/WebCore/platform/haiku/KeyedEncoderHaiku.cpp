@@ -56,7 +56,7 @@ RefPtr<WebCore::SharedBuffer> KeyedEncoderHaiku::finishEncoding()
         }
 
         ssize_t Write(const void* data, size_t size) override {
-            fBuffer->append((const char*)data, size);
+            fBuffer->append(std::span<const char>((const char*)data, size));
             return size;
         }
 
@@ -72,9 +72,9 @@ RefPtr<WebCore::SharedBuffer> KeyedEncoderHaiku::finishEncoding()
     return buffer.takeAsContiguous();
 }
 
-void KeyedEncoderHaiku::encodeBytes(const String& key, const uint8_t* data, size_t size)
+void KeyedEncoderHaiku::encodeBytes(const String& key, std::span<const uint8_t> data)
 {
-    currentMessage->AddData(key.utf8().data(), B_RAW_TYPE, data, size, false);
+    currentMessage->AddData(key.utf8().data(), B_RAW_TYPE, data.data(), data.size(), false);
 }
 
 void KeyedEncoderHaiku::encodeBool(const String& key, bool value)

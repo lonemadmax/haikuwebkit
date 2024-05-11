@@ -224,7 +224,7 @@ Vector<uint8_t> encodeData(BBitmap* bitmap, const String& mimeType, std::optiona
     Vector<uint8_t> result;
     off_t size;
     translatedStream.GetSize(&size);
-    result.append((uint8_t*)translatedStream.Buffer(), size);
+    result.append(std::span<uint8_t>((uint8_t*)translatedStream.Buffer(), size));
 
     return result;
 }

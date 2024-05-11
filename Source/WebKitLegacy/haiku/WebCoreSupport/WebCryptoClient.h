@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2020 Apple Inc.  All rights reserved.
+ * Copyright (C) 2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,47 +23,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "NativeImage.h"
+#pragma once
 
-#include "GraphicsContext.h"
-#include "NotImplemented.h"
+#import "WebView.h"
+#import <WebCore/CryptoClient.h>
 
-#include <Bitmap.h>
 
-namespace WebCore {
-
-IntSize PlatformImageNativeImageBackend::size() const
-{
-    return IntSize(platformImage()->Bounds().Size());
-}
-
-bool PlatformImageNativeImageBackend::hasAlpha() const
-{
-    return platformImage()->ColorSpace() == B_RGBA32;
-}
-
-std::optional<Color> NativeImage::singlePixelSolidColor() const
-{
-    if (size() != IntSize(1, 1))
-        return std::nullopt;
-
-    return (asSRGBA(PackedColor::ARGB { *(uint32*)platformImage()->Bits()}));
-}
-
-DestinationColorSpace PlatformImageNativeImageBackend::colorSpace() const
-{
-    notImplemented();
-    return DestinationColorSpace::SRGB();
-}
-
-void NativeImage::draw(GraphicsContext& context, const FloatRect& destinationRect, const FloatRect& sourceRect, ImagePaintingOptions options)
-{
-    context.drawNativeImageInternal(*this, destinationRect, sourceRect, options);
-}
-
-void NativeImage::clearSubimages()
-{
-}
-
-} // namespace WebCore
+class WebCryptoClient:  public WebCore::CryptoClient {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+    WebCryptoClient() = default;
+    ~WebCryptoClient() = default;
+    std::optional<Vector<uint8_t>> wrapCryptoKey(const Vector<uint8_t>&) const override;
+    std::optional<Vector<uint8_t>> unwrapCryptoKey(const Vector<uint8_t>&) const override;
+};

@@ -101,6 +101,7 @@
 
 #include "WebApplicationCache.h"
 #include "WebBroadcastChannelRegistry.h"
+#include "WebCryptoClient.h"
 #include "WebDatabaseProvider.h"
 #include "WebDiagnosticLoggingClient.h"
 #include "WebDownload.h"
@@ -309,7 +310,8 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         EmptyBadgeClient::create(),
         LegacyHistoryItemClient::singleton(),
         makeUniqueRef<ContextMenuClientHaiku>(this),
-        makeUniqueRef<ChromeClientHaiku>(this, webView)
+        makeUniqueRef<ChromeClientHaiku>(this, webView),
+        makeUniqueRef<WebCryptoClient>()
     );
 
     // alternativeText
@@ -1435,13 +1437,13 @@ void BWebPage::handleFindString(BMessage* message)
 
     WebCore::FindOptions options;
     if (!forward)
-        options.add(WebCore::Backwards);
+        options.add(WebCore::FindOption::Backwards);
     if (!caseSensitive)
-        options.add(WebCore::CaseInsensitive);
+        options.add(WebCore::FindOption::CaseInsensitive);
     if (wrapSelection)
-        options.add(WebCore::WrapAround);
+        options.add(WebCore::FindOption::WrapAround);
     if (startInSelection)
-        options.add(WebCore::StartInSelection);
+        options.add(WebCore::FindOption::StartInSelection);
 
     bool result = fMainFrame->FindString(string, options);
 
