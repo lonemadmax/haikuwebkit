@@ -25,7 +25,9 @@
 
 #pragma once
 
+#include <libxml/parser.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/WeakPtr.h>
 
 #if ENABLE(XSLT)
 #include <libxml/xmlerror.h>
@@ -50,6 +52,7 @@ public:
 
 private:
     WeakPtr<CachedResourceLoader> m_oldCachedResourceLoader;
+    xmlExternalEntityLoader m_oldEntityLoader { nullptr };
 
 #if ENABLE(XSLT)
     xmlGenericErrorFunc m_oldGenericErrorFunc { nullptr };

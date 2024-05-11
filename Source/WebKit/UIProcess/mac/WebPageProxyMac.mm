@@ -31,7 +31,6 @@
 #import "APIUIClient.h"
 #import "CocoaImage.h"
 #import "Connection.h"
-#import "FontInfo.h"
 #import "FrameInfoData.h"
 #import "ImageAnalysisUtilities.h"
 #import "InsertTextOptions.h"
@@ -41,9 +40,9 @@
 #import "PDFContextMenu.h"
 #import "PageClient.h"
 #import "PageClientImplMac.h"
+#import "PlatformFontInfo.h"
 #import "RemoteLayerTreeHost.h"
 #import "RemoteLayerTreeNode.h"
-#import "StringUtilities.h"
 #import "TextChecker.h"
 #import "WKBrowsingContextControllerInternal.h"
 #import "WKQuickLookPreviewController.h"
@@ -156,7 +155,7 @@ void WebPageProxy::getIsSpeaking(CompletionHandler<void(bool)>&& completionHandl
 void WebPageProxy::speak(const String& string)
 {
     ASSERT(hasProcessPrivilege(ProcessPrivilege::CanCommunicateWithWindowServer));
-    [NSApp speakString:nsStringFromWebCoreString(string)];
+    [NSApp speakString:string];
 }
 
 void WebPageProxy::stopSpeaking()

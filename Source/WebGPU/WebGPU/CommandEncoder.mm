@@ -526,18 +526,19 @@ Ref<RenderPassEncoder> CommandEncoder::beginRenderPass(const WGPURenderPassDescr
         if (attachment.depthSlice) {
             if (textureDimension != WGPUTextureViewDimension_3D)
                 return RenderPassEncoder::createInvalid(*this, m_device, @"depthSlice specified on 2D texture");
-            depthSliceOrArrayLayer = *attachment.depthSlice;
+            depthSliceOrArrayLayer = textureIsDestroyed ? 0 : *attachment.depthSlice;
             if (depthSliceOrArrayLayer >= texture.depthOrArrayLayers())
                 return RenderPassEncoder::createInvalid(*this, m_device, @"depthSlice is greater than texture's depth or array layers");
 
         } else {
             if (textureDimension == WGPUTextureViewDimension_3D)
                 return RenderPassEncoder::createInvalid(*this, m_device, @"textureDimension is 3D and no depth slice is specified");
-            depthSliceOrArrayLayer = texture.baseArrayLayer();
+            depthSliceOrArrayLayer = textureIsDestroyed ? 0 : texture.baseArrayLayer();
         }
 
         auto* bridgedTexture = (__bridge void*)texture.parentTexture();
-        uint64_t depthAndMipLevel = depthSliceOrArrayLayer | (static_cast<uint64_t>(texture.baseMipLevel()) << 32);
+        auto baseMipLevel = textureIsDestroyed ? 0 : texture.baseMipLevel();
+        uint64_t depthAndMipLevel = depthSliceOrArrayLayer | (static_cast<uint64_t>(baseMipLevel) << 32);
         if (auto it = depthSlices.find(bridgedTexture); it != depthSlices.end()) {
             auto addResult = it->value.add(depthAndMipLevel);
             if (!addResult.isNewEntry)
@@ -633,8 +634,8 @@ Ref<RenderPassEncoder> CommandEncoder::beginRenderPass(const WGPURenderPassDescr
 
         if (zeroColorTargets) {
             mtlDescriptor.defaultRasterSampleCount = textureView.sampleCount();
-            mtlDescriptor.renderTargetWidth = textureView.width();
-            mtlDescriptor.renderTargetHeight = textureView.height();
+            mtlDescriptor.renderTargetWidth = metalDepthStencilTexture.width;
+            mtlDescriptor.renderTargetHeight = metalDepthStencilTexture.height;
         }
     }
 
@@ -1298,6 +1299,20 @@ void CommandEncoder::makeSubmitInvalid(NSString* errorString)
         m_cachedCommandBuffer->makeInvalid(errorString ?: m_lastErrorString);
 }
 
+static bool hasValidDimensions(WGPUTextureDimension dimension, NSUInteger width, NSUInteger height, NSUInteger depth)
+{
+    switch (dimension) {
+    case WGPUTextureDimension_1D:
+        return !!width;
+    case WGPUTextureDimension_2D:
+        return width && height;
+    case WGPUTextureDimension_3D:
+        return width && height && depth;
+    default:
+        return true;
+    }
+}
+
 void CommandEncoder::copyTextureToBuffer(const WGPUImageCopyTexture& source, const WGPUImageCopyBuffer& destination, const WGPUExtent3D& copySize)
 {
     if (source.nextInChain || destination.nextInChain || destination.layout.nextInChain)
@@ -1412,6 +1427,9 @@ void CommandEncoder::copyTextureToBuffer(const WGPUImageCopyTexture& source, con
             clearTextureIfNeeded(source, sourceSlice);
     }
 
+    if (!hasValidDimensions(sourceTexture.dimension(), widthForMetal, heightForMetal, depthForMetal))
+        return;
+
     if (destinationBuffer.length < Texture::bytesPerRow(aspectSpecificFormat, widthForMetal, sourceTexture.sampleCount()))
         return;
 
@@ -1420,9 +1438,6 @@ void CommandEncoder::copyTextureToBuffer(const WGPUImageCopyTexture& source, con
         // https://developer.apple.com/documentation/metal/mtlblitcommandencoder/1400756-copyfromtexture?language=objc
         // "When you copy to a 1D texture, height and depth must be 1."
         auto sourceSize = MTLSizeMake(widthForMetal, 1, 1);
-        if (!widthForMetal)
-            return;
-
         auto sourceOrigin = MTLOriginMake(source.origin.x, 0, 0);
         for (uint32_t layer = 0; layer < copySize.depthOrArrayLayers; ++layer) {
             auto destinationOffset = static_cast<NSUInteger>(destination.layout.offset + layer * destinationBytesPerImage);
@@ -1447,9 +1462,6 @@ void CommandEncoder::copyTextureToBuffer(const WGPUImageCopyTexture& source, con
         // https://developer.apple.com/documentation/metal/mtlblitcommandencoder/1400756-copyfromtexture?language=objc
         // "When you copy to a 2D texture, depth must be 1."
         auto sourceSize = MTLSizeMake(widthForMetal, heightForMetal, 1);
-        if (!widthForMetal || !heightForMetal)
-            return;
-
         auto sourceOrigin = MTLOriginMake(source.origin.x, source.origin.y, 0);
         for (uint32_t layer = 0; layer < copySize.depthOrArrayLayers; ++layer) {
             auto destinationOffset = static_cast<NSUInteger>(destination.layout.offset + layer * destinationBytesPerImage);
@@ -1470,9 +1482,6 @@ void CommandEncoder::copyTextureToBuffer(const WGPUImageCopyTexture& source, con
     }
     case WGPUTextureDimension_3D: {
         auto sourceSize = MTLSizeMake(widthForMetal, heightForMetal, depthForMetal);
-        if (!widthForMetal || !heightForMetal || !depthForMetal)
-            return;
-
         auto sourceOrigin = MTLOriginMake(source.origin.x, source.origin.y, source.origin.z);
         auto destinationOffset = static_cast<NSUInteger>(destination.layout.offset);
             [m_blitCommandEncoder

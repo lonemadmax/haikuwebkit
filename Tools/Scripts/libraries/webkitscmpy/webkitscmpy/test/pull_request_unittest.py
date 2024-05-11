@@ -1991,6 +1991,7 @@ class TestNetworkPullRequestGitHub(unittest.TestCase):
         result.pull_requests = [dict(
             number=1,
             state='open',
+            merged=False,
             title='Example Change',
             user=dict(login='tcontributor'),
             body='''#### 95507e3a1a4a919d1a156abbc279fdf6d24b13f5
@@ -2101,10 +2102,22 @@ Reviewed by NOBODY (OOPS!).
             repo = remote.GitHub(self.remote)
             pr = repo.pull_requests.get(1)
             self.assertTrue(pr.opened)
+            self.assertFalse(pr.merged)
             pr.close()
             self.assertFalse(pr.opened)
+            self.assertFalse(pr.merged)
             pr.open()
             self.assertTrue(pr.opened)
+            self.assertFalse(pr.merged)
+
+    def test_merged(self):
+        with self.webserver() as server:
+            server.pull_requests[0]['state'] = 'closed'
+            server.pull_requests[0]['merged'] = True
+
+            repo = remote.GitHub(self.remote)
+            pr = repo.pull_requests.get(1)
+            self.assertTrue(pr.merged)
 
     def test_review(self):
         with self.webserver():
@@ -2251,7 +2264,7 @@ class TestNetworkPullRequestBitBucket(unittest.TestCase):
                     emailAddress='tcontributor@apple.com',
                     displayName='Tim Contributor',
                 ),
-            ), body='''#### 95507e3a1a4a919d1a156abbc279fdf6d24b13f5
+            ), description='''#### 95507e3a1a4a919d1a156abbc279fdf6d24b13f5
 ```
 Example Change
 https://bugs.webkit.org/show_bug.cgi?id=1234
@@ -2281,6 +2294,10 @@ Reviewed by NOBODY (OOPS!).
                     ), status='NEEDS_WORK',
                 ),
             ],
+            commit=Commit(
+                hash='95507e3a1a4a919d1a156abbc279fdf6d24b13f5',
+                message='Example Change\nhttps://bugs.webkit.org/show_bug.cgi?id=1234\n\nReviewed by NOBODY (OOPS!).\n* Source/file.cpp:\n',
+            ),
         )]
 
         result.statuses['95507e3a1a4a'] = PullRequest.Status.Encoder().default([
@@ -2368,10 +2385,23 @@ Reviewed by NOBODY (OOPS!).
             repo = remote.BitBucket(self.remote)
             pr = repo.pull_requests.get(1)
             self.assertTrue(pr.opened)
+            self.assertFalse(pr.merged)
             pr.close()
             self.assertFalse(pr.opened)
+            self.assertFalse(pr.merged)
             pr.open()
             self.assertTrue(pr.opened)
+            self.assertFalse(pr.merged)
+
+    def test_merged(self):
+        with self.webserver() as server:
+            server.pull_requests[0]['open'] = False
+            server.pull_requests[0]['closed'] = True
+            server.pull_requests[0]['state'] = 'MERGED'
+
+            repo = remote.BitBucket(self.remote)
+            pr = repo.pull_requests.get(1)
+            self.assertTrue(pr.merged)
 
     def test_whoami(self):
         with self.webserver():
@@ -2399,3 +2429,102 @@ Reviewed by NOBODY (OOPS!).
                 [pr.status for pr in pr.statuses],
                 ['pending', 'success', 'failure'],
             )
+
+    def test_diff(self):
+        with self.webserver():
+            repo = remote.BitBucket(self.remote)
+            pr = repo.pull_requests.get(1)
+            self.assertEqual([
+                '--- a/ChangeLog',
+                '+++ b/ChangeLog',
+                '@@ -1,0 +1,0 @@',
+                '+Example Change',
+                '+https://bugs.webkit.org/show_bug.cgi?id=1234',
+                '+',
+                '+Reviewed by NOBODY (OOPS!).',
+                '+* Source/file.cpp:',
+            ], list(pr.diff()))
+
+    def test_no_comments(self):
+        with self.webserver():
+            repo = remote.BitBucket(self.remote)
+            pr = repo.pull_requests.get(1)
+            self.assertEqual([
+                '--- a/ChangeLog',
+                '+++ b/ChangeLog',
+                '@@ -1,0 +1,0 @@',
+                '+Example Change',
+                '+https://bugs.webkit.org/show_bug.cgi?id=1234',
+                '+',
+                '+Reviewed by NOBODY (OOPS!).',
+                '+* Source/file.cpp:',
+            ], list(pr.diff(comments=True)))
+
+    def test_comment(self):
+        with self.webserver():
+            repo = remote.BitBucket(self.remote)
+            pr = repo.pull_requests.get(1)
+            pr.review(diff_comments=dict(ChangeLog={4: ['We need a review before landing']}))
+            self.assertEqual([
+                '--- a/ChangeLog',
+                '+++ b/ChangeLog',
+                '@@ -1,0 +1,0 @@',
+                '+Example Change',
+                '+https://bugs.webkit.org/show_bug.cgi?id=1234',
+                '+',
+                '+Reviewed by NOBODY (OOPS!).',
+                '>>>>',
+                'Tim Committer <committer@webkit.org>: We need a review before landing',
+                '<<<<',
+                '+* Source/file.cpp:',
+            ], list(pr.diff(comments=True)))
+
+    def test_file_comment(self):
+        with self.webserver():
+            repo = remote.BitBucket(self.remote)
+            pr = repo.pull_requests.get(1)
+            pr.review(diff_comments=dict(ChangeLog={None: ['ChangeLogs are deprecated, please remove']}))
+            self.assertEqual([
+                '--- a/ChangeLog',
+                '+++ b/ChangeLog',
+                '>>>>',
+                'Tim Committer <committer@webkit.org>: ChangeLogs are deprecated, please remove',
+                '<<<<',
+                '@@ -1,0 +1,0 @@',
+                '+Example Change',
+                '+https://bugs.webkit.org/show_bug.cgi?id=1234',
+                '+',
+                '+Reviewed by NOBODY (OOPS!).',
+                '+* Source/file.cpp:',
+            ], list(pr.diff(comments=True)))
+
+    def test_comment_reply(self):
+        with self.webserver():
+            repo = remote.BitBucket(self.remote)
+            pr = repo.pull_requests.get(1)
+            pr.review(diff_comments=dict(ChangeLog={
+                None: ['Top-level comment 1'],
+                4: ['Line comment 1'],
+            }))
+            pr.review(diff_comments=dict(ChangeLog={
+                None: ['Top-level comment 2'],
+                4: ['Line comment 2'],
+            }))
+            self.assertEqual([
+                '--- a/ChangeLog',
+                '+++ b/ChangeLog',
+                '>>>>',
+                'Tim Committer <committer@webkit.org>: Top-level comment 1',
+                '    Tim Committer <committer@webkit.org>: Top-level comment 2',
+                '<<<<',
+                '@@ -1,0 +1,0 @@',
+                '+Example Change',
+                '+https://bugs.webkit.org/show_bug.cgi?id=1234',
+                '+',
+                '+Reviewed by NOBODY (OOPS!).',
+                '>>>>',
+                'Tim Committer <committer@webkit.org>: Line comment 1',
+                '    Tim Committer <committer@webkit.org>: Line comment 2',
+                '<<<<',
+                '+* Source/file.cpp:',
+            ], list(pr.diff(comments=True)))

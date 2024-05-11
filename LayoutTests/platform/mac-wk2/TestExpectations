@@ -1781,9 +1781,20 @@ webkit.org/b/261356 [ Debug ] fast/mediastream/device-change-event-2.html [ Pass
 
 webkit.org/b/263396 css3/color/text.html [ Skip ]
 
-webkit.org/b/263754 [ Sonoma+ x86_64 ] css3/filters/effect-drop-shadow-clip-abspos.html [ ImageOnlyFailure ]
-
 # WebGPU
+
+http/tests/webgpu/webgpu/api/operation/buffers/map.html [ Pass ]
+# skipped debug due to https://bugs.webkit.org/show_bug.cgi?id=273716
+[ Release ] http/tests/webgpu/webgpu/api/operation/buffers/map_ArrayBuffer.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/buffers/map_detach.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/buffers/map_oom.html [ Pass ]
+http/tests/webgpu/webgpu/api/operation/buffers/threading.html [ Pass ]
+
+http/tests/webgpu/webgpu/api/validation/buffer/create.html [ Pass ]
+http/tests/webgpu/webgpu/api/validation/buffer/destroy.html [ Pass ]
+http/tests/webgpu/webgpu/api/validation/buffer/mapping.html [ Pass ]
+
+# Skip tests until they can be validated to consistently pass in EWS
 http/tests/webgpu/webgpu/idl/constructable.html [ Skip ]
 http/tests/webgpu/webgpu/idl/constants/flags.html [ Skip ]
 
@@ -1847,8 +1858,6 @@ webkit.org/b/267384 [ Sonoma+ ] fast/selectors/text-field-selection-window-inact
 
 webkit.org/b/267670 [ Sonoma+ ] imported/w3c/web-platform-tests/css/css-position/fixed-z-index-blend.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/267778 [ Sonoma+ Release ] fast/forms/listbox-padding-clip-selected.html [  Pass ImageOnlyFailure ]
-
 webkit.org/b/267880 [ Sonoma+ ] fast/scrolling/mac/scrollbars/select-overlay-scrollbar-reveal.html [ Pass Timeout ]
 
 webkit.org/b/267885 [ Sonoma+ Release ] fast/scrolling/rtl-scrollbars-overlay-no-push-contents.html [ Pass ImageOnlyFailure ]
@@ -1864,28 +1873,17 @@ webkit.org/b/271059 [ Monterey x86_64 ] imported/w3c/web-platform-tests/webrtc/s
 webkit.org/b/271059 [ Monterey x86_64 ] imported/w3c/web-platform-tests/webrtc/simulcast/h264.https.html [ Pass Failure ]
 webkit.org/b/271059 [ Monterey x86_64 ] imported/w3c/web-platform-tests/webrtc/simulcast/setParameters-active.https.html [ Pass Failure ]
 
-webkit.org/b/268200 [ Sonoma+ Release ] inspector/console/console-screenshot.html [ Pass Failure ]
-
-webkit.org/b/268494 [ Monterey+ Release ] media/track/media-element-enqueue-event-crash.html [ Pass Crash ]
-
 webkit.org/b/264001 [ Debug ] imported/w3c/web-platform-tests/requestidlecallback/callback-multiple-calls.html [ Pass Failure ]
 
-# webkit.org/b/269003 Umbrella bug for flaky test failures impacting EWS 
-[ Monterey+ Release X86_64 ] compositing/clipping/border-radius-async-overflow-non-stacking.html [ Pass ImageOnlyFailure ]
-[ Monterey+ Release ] imported/w3c/web-platform-tests/css/css-view-transitions/rotated-cat-off-top-edge.html [ Pass ImageOnlyFailure ]
-[ Monterey+ Release ] media/audio-session-category-unmute-mute.html [ Pass Failure ]
-[ Monterey+ Release ] media/audio-session-category.html [ Pass Failure ]
-[ Monterey+ Release ] imported/w3c/web-platform-tests/preload/preload-in-data-doc.html [ Pass ImageOnlyFailure ]
+# webkit.org/b/269003 Umbrella bug for flaky test failures impacting EWS
+[ Release ] media/audio-session-category.html [ Pass Failure ]
+[ Release ] imported/w3c/web-platform-tests/preload/preload-in-data-doc.html [ Pass ImageOnlyFailure ]
 
 #webkit.org/b/269301  (2X imported/w3c/web-platform-tests/webcodecs/videoFrame (layout-tests) are constant failures)
 [ Monterey+ x86_64 ] imported/w3c/web-platform-tests/webcodecs/videoFrame-createImageBitmap.https.any.html [ Failure ]
 [ Monterey+ x86_64 ] imported/w3c/web-platform-tests/webcodecs/videoFrame-createImageBitmap.https.any.worker.html [ Failure ]
 
 webkit.org/b/268398 [ Sonoma+ ] compositing/plugins/pdf/pdf-in-iframe-scrolling-tree-after-back.html [ Pass Failure ]
-
-# webkit.org/b/269798 REGRESSION (274409@main): [ macOS wk2 ] 2 tests in http/tests/navigation/ping-attribute are flaky
-[ Monterey+ ] http/tests/navigation/ping-attribute/area-cross-origin-from-https.html [ Pass Failure ]
-[ Monterey+ ] http/tests/navigation/ping-attribute/area-cross-origin-from-https-UpgradeMixedContent.html [ Pass Failure ]
 
 imported/w3c/web-platform-tests/css/css-view-transitions/inline-element-size.html [ ImageOnlyFailure ]
 
@@ -1907,5 +1905,9 @@ webkit.org/b/272685 [ Ventura+ x86_64 ] imported/w3c/web-platform-tests/svg/pain
 
 # Inline predictions are only supported on Sonoma and later.
 [ Monterey Ventura ] editing/input/mac/show-inline-prediction-with-adjacent-text.html [ Skip ]
+[ Monterey Ventura ] editing/input/mac/writing-suggestions-textarea-multiple-lines.html [ Skip ]
+[ Monterey Ventura ] editing/input/mac/do-not-allow-inline-predictions-if-text-changes.html [ Skip ]
 
 webkit.org/b/273012 [ Ventura+ x86_64 ] imported/w3c/web-platform-tests/svg/painting/reftests/percentage.svg [ ImageOnlyFailure ]
+
+webkit.org/b/273588 fast/forms/select/mac-wk2/inactive-appearance.html [ Pass ImageOnlyFailure ]

@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include "DocumentMarker.h"
 #include "RenderElement.h"
 #include "RenderTextLineBoxes.h"
 #include "Text.h"
@@ -36,6 +37,10 @@ class LegacyInlineTextBox;
 struct GlyphOverflow;
 struct WordTrailingSpace;
 
+namespace Layout {
+class InlineTextBox;
+}
+
 namespace LayoutIntegration {
 class LineLayout;
 }
@@ -48,6 +53,9 @@ public:
     RenderText(Type, Document&, const String&);
 
     virtual ~RenderText();
+
+    Layout::InlineTextBox* layoutBox();
+    const Layout::InlineTextBox* layoutBox() const;
 
     WEBCORE_EXPORT Text* textNode() const;
 
@@ -176,7 +184,7 @@ public:
     
     bool containsOnlyCSSWhitespace(unsigned from, unsigned length) const;
 
-    Vector<std::pair<unsigned, unsigned>> draggedContentRangesBetweenOffsets(unsigned startOffset, unsigned endOffset) const;
+    Vector<std::pair<unsigned, unsigned>> contentRangesBetweenOffsetsForType(const DocumentMarker::Type, unsigned startOffset, unsigned endOffset) const;
 
     RenderInline* inlineWrapperForDisplayContents();
     void setInlineWrapperForDisplayContents(RenderInline*);

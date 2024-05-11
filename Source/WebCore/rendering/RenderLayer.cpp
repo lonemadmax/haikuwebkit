@@ -811,7 +811,13 @@ void RenderLayer::rebuildZOrderLists(std::unique_ptr<Vector<RenderLayer*>>& posZ
             if (!posZOrderList)
                 posZOrderList = makeUnique<Vector<RenderLayer*>>();
 
+            CheckedPtr<RenderLayer> viewTransitionLayer;
+            if (posZOrderList->size() && posZOrderList->last()->renderer().style().pseudoElementType() == PseudoId::ViewTransition)
+                viewTransitionLayer = posZOrderList->takeLast();
+
             posZOrderList->appendVector(topLayerLayers);
+            if (viewTransitionLayer)
+                posZOrderList->append(viewTransitionLayer.get());
         }
     }
 }
@@ -3508,8 +3514,12 @@ void RenderLayer::paintList(LayerList layerIterator, GraphicsContext& context, c
 #endif
 
     for (auto* childLayer : layerIterator) {
-        if (paintFlags.contains(PaintLayerFlag::PaintingSkipDescendantViewTransition) && childLayer->renderer().capturedInViewTransition())
-            continue;
+        if (paintFlags.contains(PaintLayerFlag::PaintingSkipDescendantViewTransition)) {
+            if (childLayer->renderer().capturedInViewTransition() && !childLayer->renderer().isDocumentElementRenderer())
+                continue;
+            if (childLayer->renderer().isViewTransitionPseudo())
+                continue;
+        }
         childLayer->paintLayer(context, paintingInfo, paintFlags);
     }
 }

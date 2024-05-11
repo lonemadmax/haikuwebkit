@@ -124,7 +124,7 @@
 #import "_WKRemoteObjectRegistryInternal.h"
 #import "_WKSessionStateInternal.h"
 #import "_WKTargetedElementInfoInternal.h"
-#import "_WKTargetedElementRequest.h"
+#import "_WKTargetedElementRequestInternal.h"
 #import "_WKTextInputContextInternal.h"
 #import "_WKTextManipulationConfiguration.h"
 #import "_WKTextManipulationDelegate.h"
@@ -2839,21 +2839,9 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 #endif
 }
 
-
 - (void)_requestTargetedElementInfo:(_WKTargetedElementRequest *)request completionHandler:(void(^)(NSArray<_WKTargetedElementInfo *> *))completion
 {
-    WebCore::TargetedElementRequest coreRequest;
-    if (request.searchText)
-        coreRequest.data = String { request.searchText };
-    else {
-#if PLATFORM(IOS_FAMILY)
-        coreRequest.data = [self convertPoint:request.point toView:_contentView.get()];
-#else
-        coreRequest.data = request.point;
-#endif
-    }
-    coreRequest.canIncludeNearbyElements = !!request.canIncludeNearbyElements;
-    _page->requestTargetedElement(WTFMove(coreRequest), [completion = makeBlockPtr(completion)](auto& elements) {
+    _page->requestTargetedElement(*request->_request, [completion = makeBlockPtr(completion)](auto& elements) {
         completion(createNSArray(elements, [](auto& element) {
             return wrapper(element);
         }).get());
@@ -3956,6 +3944,21 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
         _page->setFormClient(makeUnique<FormClient>(self));
     else
         _page->setFormClient(nullptr);
+}
+
+- (BOOL)_isDisplayingPDF
+{
+#if PLATFORM(MAC)
+    if (RefPtr mainFrame = _page->mainFrame())
+        return mainFrame->isDisplayingPDFDocument();
+#else
+    for (auto& type : WebCore::MIMETypeRegistry::pdfMIMETypes()) {
+        Class providerClass = [[self _contentProviderRegistry] providerForMIMEType:@(type.characters())];
+        if ([_customContentView isKindOfClass:providerClass])
+            return YES;
+    }
+#endif
+    return NO;
 }
 
 - (BOOL)_isDisplayingStandaloneImageDocument

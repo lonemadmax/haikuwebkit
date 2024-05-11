@@ -32,6 +32,7 @@
 #include "ImageBuffer.h"
 #include "JSValueInWrappedObject.h"
 #include "MutableStyleProperties.h"
+#include "Styleable.h"
 #include "ViewTransitionUpdateCallback.h"
 #include <wtf/CheckedRef.h>
 #include <wtf/Ref.h>
@@ -41,7 +42,9 @@ namespace WebCore {
 
 class DOMPromise;
 class DeferredPromise;
+class RenderLayerModelObject;
 class RenderViewTransitionCapture;
+class RenderLayerModelObject;
 
 enum class ViewTransitionPhase : uint8_t {
     PendingCapture,
@@ -60,7 +63,7 @@ public:
     LayoutRect oldOverflowRect;
     LayoutSize oldSize;
     RefPtr<MutableStyleProperties> oldProperties;
-    WeakPtr<Element, WeakPtrImplWithEventTargetData> newElement;
+    WeakStyleable newElement;
 
     RefPtr<MutableStyleProperties> groupStyleProperties;
 };
@@ -133,17 +136,15 @@ public:
     static Ref<ViewTransition> create(Document&, RefPtr<ViewTransitionUpdateCallback>&&);
     ~ViewTransition();
 
+    // ActiveDOMObject.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
+
     void skipTransition();
     void skipViewTransition(ExceptionOr<JSC::JSValue>&&);
-    void callUpdateCallback();
 
     void setupViewTransition();
-    ExceptionOr<void> captureOldState();
-    ExceptionOr<void> captureNewState();
-    void setupTransitionPseudoElements();
-    void activateViewTransition();
     void handleTransitionFrame();
-    void clearViewTransition();
 
     DOMPromise& ready();
     DOMPromise& updateCallbackDone();
@@ -155,16 +156,29 @@ public:
     Document* document() const { return downcast<Document>(scriptExecutionContext()); }
     RefPtr<Document> protectedDocument() const { return document(); }
 
-    RenderViewTransitionCapture* viewTransitionNewPseudoForCapturedElement(Element&);
+    bool documentElementIsCaptured() const;
+
+    RenderViewTransitionCapture* viewTransitionNewPseudoForCapturedElement(RenderLayerModelObject&);
 
 private:
     ViewTransition(Document&, RefPtr<ViewTransitionUpdateCallback>&&);
 
-    Ref<MutableStyleProperties> copyElementBaseProperties(Element&, LayoutSize&);
+    Ref<MutableStyleProperties> copyElementBaseProperties(RenderLayerModelObject&, LayoutSize&);
 
-    ExceptionOr<void> updatePseudoElementStyles();
+    // Setup view transition sub-algorithms.
+    void activateViewTransition();
+    ExceptionOr<void> captureOldState();
+    ExceptionOr<void> captureNewState();
+    void setupTransitionPseudoElements();
     void setupDynamicStyleSheet(const AtomString&, const CapturedElement&);
 
+    void callUpdateCallback();
+
+    ExceptionOr<void> updatePseudoElementStyles();
+
+    void clearViewTransition();
+
+    // ActiveDOMObject.
     void stop() final;
 
     OrderedNamedElementsMap m_namedElements;

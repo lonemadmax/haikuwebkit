@@ -428,20 +428,6 @@ bool Quirks::shouldDisableElementFullscreenQuirk() const
 #endif
 }
 
-// rdar://123642870
-bool Quirks::shouldDisableWritingSuggestionsByDefaultQuirk() const
-{
-    if (!needsQuirks())
-        return false;
-
-    return isDomain("reddit.com"_s)
-        || isDomain("discord.com"_s)
-        || isDomain("twitch.tv"_s)
-        || isDomain("godbolt.org"_s)
-        || m_document->url().host().endsWith("officeapps.live.com"_s)
-        || m_document->url().host().endsWith("onedrive.live.com"_s);
-}
-
 #if ENABLE(TOUCH_EVENTS)
 bool Quirks::isAmazon() const
 {
@@ -1857,6 +1843,43 @@ bool Quirks::needsGetElementsByNameQuirk() const
 #else
     return false;
 #endif
+}
+
+bool Quirks::needsRelaxedCorsMixedContentCheckQuirk() const
+{
+    if (!needsQuirks())
+        return false;
+
+    if (m_needsRelaxedCorsMixedContentCheckQuirk)
+        return *m_needsRelaxedCorsMixedContentCheckQuirk;
+
+    m_needsRelaxedCorsMixedContentCheckQuirk = false;
+
+    auto host = m_document->url().host();
+
+    // FIXME: Remove this quirk when <rdar://127247321> is complete
+    if (host == "tripadvisor.com"_s || host.endsWith(".tripadvisor.com"_s))
+        m_needsRelaxedCorsMixedContentCheckQuirk = true;
+
+    return *m_needsRelaxedCorsMixedContentCheckQuirk;
+}
+
+// rdar://127398734
+bool Quirks::needsLaxSameSiteCookieQuirk() const
+{
+    if (!needsQuirks())
+        return false;
+
+    if (m_needsLaxSameSiteCookieQuirk)
+        return *m_needsLaxSameSiteCookieQuirk;
+
+    m_needsLaxSameSiteCookieQuirk = false;
+
+    auto url = m_document->url();
+    if (url.protocolIs("https"_s) && url.host() == "www.bing.com"_s)
+        m_needsLaxSameSiteCookieQuirk = true;
+
+    return *m_needsLaxSameSiteCookieQuirk;
 }
 
 }

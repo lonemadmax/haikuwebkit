@@ -37,6 +37,15 @@
 #include <wtf/HashMap.h>
 #include <wtf/WeakPtr.h>
 
+namespace WebKit {
+class RemoteLayerTreeDrawingArea;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::RemoteLayerTreeDrawingArea> : std::true_type { };
+}
+
 namespace WebCore {
 class PlatformCALayer;
 class ThreadSafeImageBufferFlusher;
@@ -95,8 +104,8 @@ private:
     void setLayerTreeStateIsFrozen(bool) final;
     bool layerTreeStateIsFrozen() const final { return m_isRenderingSuspended; }
 
-    void forceRepaint() final;
-    void forceRepaintAsync(WebPage&, CompletionHandler<void()>&&) final;
+    void updateRenderingWithForcedRepaint() final;
+    void updateRenderingWithForcedRepaintAsync(WebPage&, CompletionHandler<void()>&&) final;
 
     void setViewExposedRect(std::optional<WebCore::FloatRect>) final;
     std::optional<WebCore::FloatRect> viewExposedRect() const final { return m_viewExposedRect; }

@@ -329,7 +329,8 @@ static RetainPtr<dispatch_data_t> dataFromString(String&& s)
 {
     auto impl = s.releaseImpl();
     ASSERT(impl->is8Bit());
-    return adoptNS(dispatch_data_create(impl->characters8(), impl->length(), dispatch_get_main_queue(), ^{
+    auto characters = impl->span8();
+    return adoptNS(dispatch_data_create(characters.data(), characters.size(), dispatch_get_main_queue(), ^{
         (void)impl;
     }));
 }
@@ -587,12 +588,12 @@ Vector<uint8_t> HTTPResponse::bodyFromString(const String& string)
 Vector<uint8_t> HTTPResponse::serialize(IncludeContentLength includeContentLength) const
 {
     StringBuilder responseBuilder;
-    responseBuilder.append("HTTP/1.1 ", statusCode, ' ', statusText(statusCode), "\r\n");
+    responseBuilder.append("HTTP/1.1 "_s, statusCode, ' ', statusText(statusCode), "\r\n"_s);
     if (includeContentLength == IncludeContentLength::Yes)
-        responseBuilder.append("Content-Length: ", body.size(), "\r\n");
+        responseBuilder.append("Content-Length: "_s, body.size(), "\r\n"_s);
     for (auto& pair : headerFields)
-        responseBuilder.append(pair.key, ": ", pair.value, "\r\n");
-    responseBuilder.append("\r\n");
+        responseBuilder.append(pair.key, ": "_s, pair.value, "\r\n"_s);
+    responseBuilder.append("\r\n"_s);
     
     Vector<uint8_t> bytesToSend;
     appendUTF8ToVector(bytesToSend, responseBuilder.toString());

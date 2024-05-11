@@ -6326,7 +6326,7 @@ static Vector<WebCore::CompositionHighlight> compositionHighlights(NSAttributedS
     _autocorrectionContextNeedsUpdate = YES;
     _candidateViewNeedsUpdate = !self.hasMarkedText && _isDeferringKeyEventsToInputMethod;
     _markedText = markedText;
-    _page->setCompositionAsync(markedText, underlines, highlights, selectedRange, { });
+    _page->setCompositionAsync(markedText, underlines, highlights, { }, selectedRange, { });
 }
 
 - (void)unmarkText
@@ -6914,7 +6914,14 @@ static UITextAutocapitalizationType toUITextAutocapitalize(WebCore::Autocapitali
         privateTraits.shortcutConversionType = _focusedElementInformation.elementType == WebKit::InputType::Password ? UITextShortcutConversionTypeNo : UITextShortcutConversionTypeDefault;
 
 #if HAVE(INLINE_PREDICTIONS)
-    traits.inlinePredictionType = (self.webView.configuration.allowsInlinePredictions || _page->preferences().inlinePredictionsInAllEditableElementsEnabled() || _focusedElementInformation.isWritingSuggestionsEnabled) ? UITextInlinePredictionTypeDefault : UITextInlinePredictionTypeNo;
+    bool allowsInlinePredictions = [&] {
+        if (self.webView.configuration.allowsInlinePredictions)
+            return true;
+        if (auto& state = _page->editorState(); state.hasPostLayoutData() && !_isFocusingElementWithKeyboard && !_page->waitingForPostLayoutEditorStateUpdateAfterFocusingElement())
+            return state.postLayoutData->canEnableWritingSuggestions;
+        return _focusedElementInformation.isWritingSuggestionsEnabled;
+    }();
+    traits.inlinePredictionType = allowsInlinePredictions ? UITextInlinePredictionTypeDefault : UITextInlinePredictionTypeNo;
 #endif
 
     [self _updateTextInputTraitsForInteractionTintColor];

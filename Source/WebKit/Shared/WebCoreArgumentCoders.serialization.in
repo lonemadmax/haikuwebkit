@@ -888,6 +888,7 @@ header: <WebCore/ElementTargetingTypes.h>
 [CustomHeader] struct WebCore::TargetedElementRequest {
     std::variant<WebCore::FloatPoint, String> data
     bool canIncludeNearbyElements
+    bool shouldIgnorePointerEventsNone
 };
 
 header: <WebCore/ElementTargetingTypes.h>
@@ -905,6 +906,7 @@ header: <WebCore/ElementTargetingTypes.h>
     bool isNearbyTarget
     bool isPseudoElement
     bool isInShadowTree
+    bool hasAudibleMedia
 };
 
 header: <WebCore/RenderStyleConstants.h>
@@ -3907,13 +3909,6 @@ header: <WebCore/FontAttributes.h>
     Natural
 };
 
-#if USE(CORE_TEXT)
-[RefCounted] class WebCore::Font {
-    WebCore::FontInternalAttributes attributes();
-    WebCore::FontPlatformData platformData();
-}
-#endif
-
 [CustomHeader] struct WebCore::FontAttributes {
     RefPtr<WebCore::Font> font
     WebCore::Color backgroundColor
@@ -3926,6 +3921,27 @@ header: <WebCore/FontAttributes.h>
     bool hasStrikeThrough
     bool hasMultipleFonts
 };
+
+#if USE(CORE_TEXT)
+using WebCore::FontPlatformData::IPCData = std::variant<WebCore::FontPlatformSerializedData, WebCore::FontPlatformSerializedCreationData>;
+#endif
+
+#if USE(CORE_TEXT)
+[RefCounted] class WebCore::Font {
+    WebCore::FontInternalAttributes attributes();
+    WebCore::FontPlatformData platformData();
+}
+
+[CreateUsing=fromIPCData] class WebCore::FontPlatformData {
+    float size();
+    WebCore::FontOrientation orientation();
+    WebCore::FontWidthVariant widthVariant();
+    WebCore::TextRenderingMode textRenderingMode();
+    bool syntheticBold();
+    bool syntheticOblique();
+    WebCore::FontPlatformData::IPCData toIPCData();
+}
+#endif
 
 header: <WebCore/WritingDirection.h>
 enum class WebCore::WritingDirection : uint8_t {

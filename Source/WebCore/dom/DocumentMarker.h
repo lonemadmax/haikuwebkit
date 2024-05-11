@@ -34,6 +34,15 @@
 #endif
 
 namespace WebCore {
+class DocumentMarker;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::DocumentMarker> : std::true_type { };
+}
+
+namespace WebCore {
 
 // A range of a node within a document that is "marked", such as the range of a misspelled word.
 // It optionally includes a description that could be displayed in the user interface.
@@ -86,6 +95,7 @@ public:
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
         UnifiedTextReplacement = 1 << 16,
 #endif
+        TransparentContent = 1 << 17,
     };
 
     static constexpr OptionSet<Type> allMarkers();
@@ -183,6 +193,7 @@ constexpr auto DocumentMarker::allMarkers() -> OptionSet<Type>
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
         Type::UnifiedTextReplacement,
 #endif
+        Type::TransparentContent,
     };
 }
 

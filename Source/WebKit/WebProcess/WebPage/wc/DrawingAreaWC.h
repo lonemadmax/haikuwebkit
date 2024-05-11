@@ -35,6 +35,15 @@
 #include <WebCore/Timer.h>
 
 namespace WebKit {
+class DrawingAreaWC;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::DrawingAreaWC> : std::true_type { };
+}
+
+namespace WebKit {
 
 class DrawingAreaWC final
     : public DrawingArea
@@ -49,7 +58,7 @@ private:
     void setNeedsDisplay() override;
     void setNeedsDisplayInRect(const WebCore::IntRect&) override;
     void scroll(const WebCore::IntRect& scrollRect, const WebCore::IntSize& scrollDelta) override;
-    void forceRepaintAsync(WebPage&, CompletionHandler<void()>&&) override;
+    void updateRenderingWithForcedRepaintAsync(WebPage&, CompletionHandler<void()>&&) override;
     void triggerRenderingUpdate() override;
     void didChangeViewportAttributes(WebCore::ViewportAttributes&&) override { }
     void deviceOrPageScaleFactorChanged() override { }

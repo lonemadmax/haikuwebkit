@@ -53,6 +53,15 @@
 #include <wtf/WeakPtr.h>
 #include <wtf/WorkQueue.h>
 
+namespace WebKit {
+class TimerAlignment;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::RemoteRenderingBackendProxy> : std::true_type { };
+}
+
 namespace WebCore {
 
 class DestinationColorSpace;

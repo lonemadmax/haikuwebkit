@@ -40,6 +40,7 @@ namespace WebCore {
 struct TargetedElementRequest {
     std::variant<FloatPoint, String> data;
     bool canIncludeNearbyElements { true };
+    bool shouldIgnorePointerEventsNone { true };
 };
 
 struct TargetedElementInfo {
@@ -56,6 +57,7 @@ struct TargetedElementInfo {
     bool isNearbyTarget { true };
     bool isPseudoElement { false };
     bool isInShadowTree { false };
+    bool hasAudibleMedia { false };
 };
 
 } // namespace WebCore

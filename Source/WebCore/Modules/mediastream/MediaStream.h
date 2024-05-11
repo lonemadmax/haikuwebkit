@@ -49,7 +49,7 @@ class Document;
 class MediaStream final
     : public EventTarget
     , public ActiveDOMObject
-    , public MediaStreamPrivate::Observer
+    , public MediaStreamPrivateObserver
     , private MediaCanStartListener
 #if !RELEASE_LOG_DISABLED
     , private LoggerHelper
@@ -78,9 +78,9 @@ public:
 
     RefPtr<MediaStream> clone();
 
-    using MediaStreamPrivate::Observer::weakPtrFactory;
-    using MediaStreamPrivate::Observer::WeakValueType;
-    using MediaStreamPrivate::Observer::WeakPtrImplType;
+    using MediaStreamPrivateObserver::weakPtrFactory;
+    using MediaStreamPrivateObserver::WeakValueType;
+    using MediaStreamPrivateObserver::WeakPtrImplType;
 
     bool active() const { return m_isActive; }
     bool muted() const { return m_private->muted(); }
@@ -97,8 +97,9 @@ public:
     enum EventTargetInterfaceType eventTargetInterface() const final { return EventTargetInterfaceType::MediaStream; }
     ScriptExecutionContext* scriptExecutionContext() const final { return ContextDestructionObserver::scriptExecutionContext(); }
 
-    using RefCounted<MediaStream>::ref;
-    using RefCounted<MediaStream>::deref;
+    // ActiveDOMObject.
+    void ref() const final { RefCounted::ref(); }
+    void deref() const final { RefCounted::deref(); }
 
     void addTrackFromPlatform(Ref<MediaStreamTrack>&&);
 
@@ -124,7 +125,7 @@ private:
     void refEventTarget() final { ref(); }
     void derefEventTarget() final { deref(); }
 
-    // MediaStreamPrivate::Observer
+    // MediaStreamPrivateObserver
     void activeStatusChanged() final;
     void didAddTrack(MediaStreamTrackPrivate&) final;
     void didRemoveTrack(MediaStreamTrackPrivate&) final;
@@ -135,7 +136,7 @@ private:
     // MediaCanStartListener
     void mediaCanStart(Document&) final;
 
-    // ActiveDOMObject API.
+    // ActiveDOMObject.
     void stop() final;
     bool virtualHasPendingActivity() const final;
 

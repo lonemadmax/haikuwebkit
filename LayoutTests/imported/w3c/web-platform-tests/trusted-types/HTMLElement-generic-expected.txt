@@ -10,6 +10,10 @@ CONSOLE MESSAGE: This requires a TrustedHTML value else it violates the followin
 CONSOLE MESSAGE: This requires a TrustedHTML value else it violates the following Content Security Policy directive: "require-trusted-types-for 'script'"
 CONSOLE MESSAGE: This requires a TrustedScript value else it violates the following Content Security Policy directive: "require-trusted-types-for 'script'"
 CONSOLE MESSAGE: This requires a TrustedScript value else it violates the following Content Security Policy directive: "require-trusted-types-for 'script'"
+CONSOLE MESSAGE: This requires a TrustedScript value else it violates the following Content Security Policy directive: "require-trusted-types-for 'script'"
+CONSOLE MESSAGE: This requires a TrustedScript value else it violates the following Content Security Policy directive: "require-trusted-types-for 'script'"
+CONSOLE MESSAGE: This requires a TrustedScript value else it violates the following Content Security Policy directive: "require-trusted-types-for 'script'"
+CONSOLE MESSAGE: This requires a TrustedScript value else it violates the following Content Security Policy directive: "require-trusted-types-for 'script'"
 hello
 hello
 
@@ -58,10 +62,10 @@ PASS TT enabled: script.text = String on a connected element.
 PASS TT enabled: script.text = String on a non-connected element.
 PASS TT enabled: script.innerText = TrustedScript on a connected element.
 PASS TT enabled: script.innerText = TrustedScript on a non-connected element.
-FAIL TT enabled: script.innerText = String on a connected element. assert_throws_js: function "_ => { elem[attr] = value; }" did not throw
-FAIL TT enabled: script.innerText = String on a non-connected element. assert_throws_js: function "_ => { elem[attr] = value; }" did not throw
+PASS TT enabled: script.innerText = String on a connected element.
+PASS TT enabled: script.innerText = String on a non-connected element.
 PASS TT enabled: script.textContent = TrustedScript on a connected element.
 PASS TT enabled: script.textContent = TrustedScript on a non-connected element.
-FAIL TT enabled: script.textContent = String on a connected element. assert_throws_js: function "_ => { elem[attr] = value; }" did not throw
-FAIL TT enabled: script.textContent = String on a non-connected element. assert_throws_js: function "_ => { elem[attr] = value; }" did not throw
+PASS TT enabled: script.textContent = String on a connected element.
+PASS TT enabled: script.textContent = String on a non-connected element.
 

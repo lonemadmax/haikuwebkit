@@ -2103,13 +2103,9 @@ String MediaPlayer::lastErrorMessage() const
 
 String SeekTarget::toString() const
 {
-    StringBuilder builder;
-    builder.append("[");
-    builder.append(WTF::LogArgument<MediaTime>::toString(time));
-    builder.append(WTF::LogArgument<MediaTime>::toString(negativeThreshold));
-    builder.append(WTF::LogArgument<MediaTime>::toString(positiveThreshold));
-    builder.append("]");
-    return builder.toString();
+    return makeString('[', WTF::LogArgument<MediaTime>::toString(time),
+        WTF::LogArgument<MediaTime>::toString(negativeThreshold),
+        WTF::LogArgument<MediaTime>::toString(positiveThreshold), ']');
 }
 
 }

@@ -70,6 +70,7 @@
 #include "HTMLCanvasElement.h"
 #include "HTMLDialogElement.h"
 #include "HTMLDocument.h"
+#include "HTMLFrameOwnerElement.h"
 #include "HTMLHtmlElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
@@ -2867,7 +2868,7 @@ void Element::addShadowRoot(Ref<ShadowRoot>&& newShadowRoot)
         WidgetHierarchyUpdatesSuspensionScope suspendWidgetHierarchyUpdates;
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
         if (renderer() || hasDisplayContents())
-            RenderTreeUpdater::tearDownRenderers(*this);
+            RenderTreeUpdater::tearDownRenderersForShadowRootInsertion(*this);
 
         ensureElementRareData().setShadowRoot(WTFMove(newShadowRoot));
 
@@ -3190,10 +3191,10 @@ void Element::finishParsingChildren()
 static void appendAttributes(StringBuilder& builder, const Element& element)
 {
     if (element.hasID())
-        builder.append(" id=\'", element.getIdAttribute(), '\'');
+        builder.append(" id=\'"_s, element.getIdAttribute(), '\'');
 
     if (element.hasClass()) {
-        builder.append(" class=\'");
+        builder.append(" class=\'"_s);
         size_t classNamesToDump = element.classNames().size();
         constexpr size_t maxNumClassNames = 7;
         bool addEllipsis = false;
@@ -3208,7 +3209,7 @@ static void appendAttributes(StringBuilder& builder, const Element& element)
             builder.append(element.classNames()[i]);
         }
         if (addEllipsis)
-            builder.append(" ...");
+            builder.append(" ..."_s);
         builder.append('\'');
     }
 }
@@ -4829,9 +4830,6 @@ bool Element::isWritingSuggestionsEnabled() const
     if (equalLettersIgnoringASCIICase(autocompleteValue, "off"_s))
         return false;
 
-    if (protectedDocument()->quirks().shouldDisableWritingSuggestionsByDefaultQuirk())
-        return false;
-
     // Otherwise, return `true`.
     return true;
 }
@@ -5656,6 +5654,51 @@ OptionSet<VisibilityAdjustment> Element::visibilityAdjustment() const
 void Element::setVisibilityAdjustment(OptionSet<VisibilityAdjustment> adjustment)
 {
     ensureElementRareData().setVisibilityAdjustment(adjustment);
+
+    if (!adjustment)
+        return;
+
+    if (RefPtr page = document().page())
+        page->didSetVisibilityAdjustment();
+}
+
+bool Element::isInVisibilityAdjustmentSubtree() const
+{
+    RefPtr page = document().page();
+    if (!page)
+        return false;
+
+    if (!page->hasEverSetVisibilityAdjustment())
+        return false;
+
+    auto lineageIsInAdjustmentSubtree = [this] {
+        for (auto& element : lineageOfType<Element>(*this)) {
+            if (element.visibilityAdjustment().contains(VisibilityAdjustment::Subtree))
+                return true;
+        }
+        return false;
+    };
+
+    if (RefPtr owner = document().ownerElement()) {
+        if (owner->isInVisibilityAdjustmentSubtree())
+            return true;
+
+        ASSERT(!lineageIsInAdjustmentSubtree());
+        return false;
+    }
+
+    return lineageIsInAdjustmentSubtree();
+}
+
+TextStream& operator<<(TextStream& ts, ContentRelevancy relevancy)
+{
+    switch (relevancy) {
+    case ContentRelevancy::OnScreen: ts << "OnScreen"; break;
+    case ContentRelevancy::Focused: ts << "Focused"; break;
+    case ContentRelevancy::IsInTopLayer: ts << "IsInTopLayer"; break;
+    case ContentRelevancy::Selected: ts << "Selected"; break;
+    }
+    return ts;
 }
 
 } // namespace WebCore

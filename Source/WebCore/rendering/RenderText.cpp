@@ -39,6 +39,7 @@
 #include "InlineIteratorTextBox.h"
 #include "InlineIteratorTextBoxInlines.h"
 #include "InlineRunAndOffset.h"
+#include "LayoutInlineTextBox.h"
 #include "LayoutIntegrationLineLayout.h"
 #include "LineSelection.h"
 #include "LocalFrame.h"
@@ -272,6 +273,16 @@ RenderText::~RenderText()
 {
     // Do not add any code here. Add it to willBeDestroyed() instead.
     ASSERT(!originalTextMap().contains(this));
+}
+
+Layout::InlineTextBox* RenderText::layoutBox()
+{
+    return downcast<Layout::InlineTextBox>(RenderObject::layoutBox());
+}
+
+const Layout::InlineTextBox* RenderText::layoutBox() const
+{
+    return downcast<Layout::InlineTextBox>(RenderObject::layoutBox());
 }
 
 ASCIILiteral RenderText::renderName() const
@@ -1411,7 +1422,7 @@ bool RenderText::containsOnlyCSSWhitespace(unsigned from, unsigned length) const
     return containsOnlyPossiblyCollapsibleWhitespace(text().span16().subspan(from, length));
 }
 
-Vector<std::pair<unsigned, unsigned>> RenderText::draggedContentRangesBetweenOffsets(unsigned startOffset, unsigned endOffset) const
+Vector<std::pair<unsigned, unsigned>> RenderText::contentRangesBetweenOffsetsForType(DocumentMarker::Type type, unsigned startOffset, unsigned endOffset) const
 {
     if (!textNode())
         return { };
@@ -1420,23 +1431,20 @@ Vector<std::pair<unsigned, unsigned>> RenderText::draggedContentRangesBetweenOff
     if (!markerController)
         return { };
 
-    auto markers = markerController->markersFor(*textNode(), DocumentMarker::Type::DraggedContent);
+    auto markers = markerController->markersFor(*textNode(), type);
     if (markers.isEmpty())
         return { };
 
-    Vector<std::pair<unsigned, unsigned>> draggedContentRanges;
+    Vector<std::pair<unsigned, unsigned>> contentRanges;
     for (auto& marker : markers) {
         unsigned markerStart = std::max(marker->startOffset(), startOffset);
         unsigned markerEnd = std::min(marker->endOffset(), endOffset);
         if (markerStart >= markerEnd || markerStart > endOffset || markerEnd < startOffset)
             continue;
 
-        std::pair<unsigned, unsigned> draggedContentRange;
-        draggedContentRange.first = markerStart;
-        draggedContentRange.second = markerEnd;
-        draggedContentRanges.append(draggedContentRange);
+        contentRanges.append({ markerStart, markerEnd });
     }
-    return draggedContentRanges;
+    return contentRanges;
 }
 
 IntPoint RenderText::firstRunLocation() const
@@ -1683,7 +1691,7 @@ void RenderText::secureText(UChar maskingCharacter)
         characters[revealedCharactersOffset] = characterToReveal;
 }
 
-static void invalidateLineLayoutPathOnContentChangeIfNeeded(const RenderText& renderer, size_t offset, int delta)
+static void invalidateLineLayoutPathOnContentChangeIfNeeded(RenderText& renderer, size_t offset, int delta)
 {
     auto* container = LayoutIntegration::LineLayout::blockContainer(renderer);
     if (!container)

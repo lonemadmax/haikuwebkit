@@ -122,7 +122,7 @@ struct ScrollingTreeState {
 
 struct RenderLayerCompositor::OverlapExtent {
     LayoutRect bounds;
-    Vector<LayerOverlapMap::LayerAndBounds> clippingScopes;
+    LayerOverlapMap::LayerAndBoundsVector clippingScopes;
 
     bool extentComputed { false };
     bool hasTransformAnimation { false };
@@ -1409,16 +1409,25 @@ void RenderLayerCompositor::collectViewTransitionNewContentLayers(RenderLayer& l
         return;
 
     auto* capturedElement = activeViewTransition->namedElements().find(layer.renderer().style().pseudoElementNameArgument());
-    if (!capturedElement || !capturedElement->newElement)
+    if (!capturedElement)
         return;
 
-    auto* capturedRenderer = capturedElement->newElement->renderer();
+    auto newStyleable = capturedElement->newElement.styleable();
+    if (!newStyleable)
+        return;
+
+    auto* capturedRenderer = newStyleable->renderer();
     if (!capturedRenderer || !capturedRenderer->hasLayer())
         return;
 
+    if (capturedRenderer->isDocumentElementRenderer()) {
+        capturedRenderer = &capturedRenderer->view();
+        ASSERT(capturedRenderer->hasLayer());
+    }
+
     auto& modelObject = downcast<RenderLayerModelObject>(*capturedRenderer);
     if (RenderLayerBacking* backing = modelObject.layer()->backing())
-        childList.append(*backing->childForSuperlayers());
+        childList.append(*backing->childForSuperlayersExcludingViewTransitions());
 }
 
 void RenderLayerCompositor::updateBackingAndHierarchy(RenderLayer& layer, Vector<Ref<GraphicsLayer>>& childLayersOfEnclosingLayer, UpdateBackingTraversalState& traversalState, ScrollingTreeState& scrollingTreeState, OptionSet<UpdateLevel> updateLevel)
@@ -1557,7 +1566,13 @@ void RenderLayerCompositor::updateBackingAndHierarchy(RenderLayer& layer, Vector
             }
         }
 
-        if (!layer.renderer().capturedInViewTransition())
+        // Layers that are captured in a view transition get manually parented to their pseudo in collectViewTransitionNewContentLayers.
+        // The view transition root (when the document element is captured) gets parented in RenderLayerBacking::childForSuperlayers.
+        bool skipAddToEnclosing = layer.renderer().capturedInViewTransition() && !layer.renderer().isDocumentElementRenderer();
+        if (layer.renderer().isViewTransitionRoot() && layer.renderer().document().activeViewTransitionCapturedDocumentElement())
+            skipAddToEnclosing = true;
+
+        if (!skipAddToEnclosing)
             childLayersOfEnclosingLayer.append(*layerBacking->childForSuperlayers());
 
         if (layerBacking->hasAncestorClippingLayers() && layerBacking->ancestorClippingStack()->hasAnyScrollingLayers())
@@ -2311,17 +2326,16 @@ void RenderLayerCompositor::computeClippingScopes(const RenderLayer& layer, Over
         return;
 
     // FIXME: constrain the scopes (by composited stacking context ancestor I think).
-    auto enclosingClippingScopes = [] (const RenderLayer& layer, const RenderLayer& rootLayer) {
+    auto populateEnclosingClippingScopes = [](const RenderLayer& layer, const RenderLayer& rootLayer, LayerOverlapMap::LayerAndBoundsVector& clippingScopes) {
 
         auto createsClippingScope = [](const RenderLayer& layer) {
             return layer.hasCompositedScrollableOverflow();
         };
 
-        Vector<LayerOverlapMap::LayerAndBounds> clippingScopes;
         clippingScopes.append({ const_cast<RenderLayer&>(rootLayer), { } });
 
         if (!layer.hasCompositedScrollingAncestor())
-            return clippingScopes;
+            return;
 
         traverseAncestorLayers(layer, [&](const RenderLayer& ancestorLayer, bool inContainingBlockChain, bool) {
             if (inContainingBlockChain && createsClippingScope(ancestorLayer)) {
@@ -2337,11 +2351,9 @@ void RenderLayerCompositor::computeClippingScopes(const RenderLayer& layer, Over
             }
             return AncestorTraversal::Continue;
         });
-
-        return clippingScopes;
     };
 
-    extent.clippingScopes = enclosingClippingScopes(layer, rootRenderLayer());
+    populateEnclosingClippingScopes(layer, rootRenderLayer(), extent.clippingScopes);
     extent.clippingScopesComputed = true;
 }
 

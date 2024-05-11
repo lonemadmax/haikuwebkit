@@ -186,7 +186,7 @@ class Internals final
     , private ContextDestructionObserver
 #if ENABLE(MEDIA_STREAM)
     , public CanMakeCheckedPtr<Internals>
-    , public RealtimeMediaSource::Observer
+    , public RealtimeMediaSourceObserver
     , private RealtimeMediaSource::AudioSampleObserver
     , private RealtimeMediaSource::VideoFrameObserver
 #endif
@@ -1468,6 +1468,8 @@ public:
 
     const String& defaultSpatialTrackingLabel() const;
 
+    bool isEffectivelyMuted(const HTMLMediaElement&);
+
 private:
     explicit Internals(Document&);
 
@@ -1504,7 +1506,7 @@ private:
     bool hasMarkerFor(DocumentMarker::Type, int from, int length);
 
 #if ENABLE(MEDIA_STREAM)
-    // RealtimeMediaSource::Observer API
+    // RealtimeMediaSourceObserver API
     void videoFrameAvailable(VideoFrame&, VideoFrameTimeMetadata) final;
     // RealtimeMediaSource::AudioSampleObserver API
     void audioSamplesAvailable(const MediaTime&, const PlatformAudioData&, const AudioStreamDescription&, size_t) final { m_trackAudioSampleCount++; }

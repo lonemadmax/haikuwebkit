@@ -60,10 +60,10 @@ public:
     void append(const String&);
     void append(StringView);
     void append(ASCIILiteral);
+    void append(const char*) = delete; // Pass ASCIILiteral or span instead.
     void append(UChar);
     void append(LChar);
     void append(char character) { append(static_cast<LChar>(character)); }
-    void append(const char*);
 
     // FIXME: Add a StringTypeAdapter so we can append one string builder to another with variadic append.
     void append(const StringBuilder&);
@@ -158,11 +158,11 @@ inline void StringBuilder::append(UChar character)
 {
     if (m_buffer && m_length < m_buffer->length() && m_string.isNull()) {
         if (!m_buffer->is8Bit()) {
-            const_cast<UChar*>(m_buffer->characters<UChar>())[m_length++] = character;
+            spanConstCast(m_buffer->span16())[m_length++] = character;
             return;
         }
         if (isLatin1(character)) {
-            const_cast<LChar*>(m_buffer->characters<LChar>())[m_length++] = static_cast<LChar>(character);
+            spanConstCast(m_buffer->span8())[m_length++] = static_cast<LChar>(character);
             return;
         }
     }
@@ -173,9 +173,9 @@ inline void StringBuilder::append(LChar character)
 {
     if (m_buffer && m_length < m_buffer->length() && m_string.isNull()) {
         if (m_buffer->is8Bit())
-            const_cast<LChar*>(m_buffer->characters<LChar>())[m_length++] = character;
+            spanConstCast(m_buffer->span8())[m_length++] = character;
         else
-            const_cast<UChar*>(m_buffer->characters<UChar>())[m_length++] = character;
+            spanConstCast(m_buffer->span16())[m_length++] = character;
         return;
     }
     append(WTF::span(character));
@@ -224,11 +224,6 @@ inline void StringBuilder::append(ASCIILiteral string)
 inline void StringBuilder::appendSubstring(const String& string, unsigned offset, unsigned length)
 {
     append(StringView { string }.substring(offset, length));
-}
-
-inline void StringBuilder::append(const char* characters)
-{
-    append(StringView::fromLatin1(characters));
 }
 
 inline String StringBuilder::toString()
@@ -292,7 +287,7 @@ template<typename CharacterType> inline const CharacterType* StringBuilder::char
         return nullptr;
     if (!m_string.isNull())
         return m_string.span<CharacterType>().data();
-    return m_buffer->characters<CharacterType>();
+    return m_buffer->span<CharacterType>().data();
 }
 
 template<typename... StringTypeAdapters> void StringBuilder::appendFromAdapters(StringTypeAdapters... adapters)

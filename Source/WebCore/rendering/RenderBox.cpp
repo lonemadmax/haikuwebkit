@@ -213,8 +213,10 @@ LayoutRect RenderBox::clientBoxRectInFragment(const RenderFragmentContainer* fra
         return clientBoxRect();
 
     LayoutRect clientBox = borderBoxRectInFragment(fragment);
-    clientBox.setLocation(clientBox.location() + LayoutSize(borderLeft(), borderTop()));
-    clientBox.setSize(clientBox.size() - LayoutSize(borderLeft() + borderRight() + verticalScrollbarWidth(), borderTop() + borderBottom() + horizontalScrollbarHeight()));
+    auto borderWidths = this->borderWidths();
+
+    clientBox.setLocation(clientBox.location() + LayoutSize(borderWidths.left(), borderWidths.top()));
+    clientBox.setSize(clientBox.size() - LayoutSize(borderWidths.left() + borderWidths.right() + verticalScrollbarWidth(), borderWidths.top() + borderWidths.bottom() + horizontalScrollbarHeight()));
 
     return clientBox;
 }
@@ -389,6 +391,19 @@ void RenderBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle
     // any override content size set by our container, because it would likely be incorrect after the style change.
     if (isOutOfFlowPositioned() && parent() && parent()->style().isDisplayFlexibleBoxIncludingDeprecatedOrGridBox())
         clearOverridingContentSize();
+
+    if (oldStyle && oldStyle->hasOutOfFlowPosition() != style().hasOutOfFlowPosition())
+        clearOverridingContainingBlockContentSize();
+}
+
+static bool gridStyleHasNotChanged(const RenderStyle& style, const RenderStyle* oldStyle)
+{
+    return (oldStyle->gridItemColumnStart() == style.gridItemColumnStart()
+        && oldStyle->gridItemColumnEnd() == style.gridItemColumnEnd()
+        && oldStyle->gridItemRowStart() == style.gridItemRowStart()
+        && oldStyle->gridItemRowEnd() == style.gridItemRowEnd()
+        && oldStyle->order() == style.order()
+        && oldStyle->hasOutOfFlowPosition() == style.hasOutOfFlowPosition());
 }
 
 void RenderBox::updateGridPositionAfterStyleChange(const RenderStyle& style, const RenderStyle* oldStyle)
@@ -399,17 +414,9 @@ void RenderBox::updateGridPositionAfterStyleChange(const RenderStyle& style, con
     if (!parentGrid)
         return;
 
-    if (oldStyle->gridItemColumnStart() == style.gridItemColumnStart()
-        && oldStyle->gridItemColumnEnd() == style.gridItemColumnEnd()
-        && oldStyle->gridItemRowStart() == style.gridItemRowStart()
-        && oldStyle->gridItemRowEnd() == style.gridItemRowEnd()
-        && oldStyle->order() == style.order()
-        && oldStyle->hasOutOfFlowPosition() == style.hasOutOfFlowPosition())
-        return;
-
     // Positioned items don't participate on the layout of the grid,
     // so we don't need to mark the grid as dirty if they change positions.
-    if (oldStyle->hasOutOfFlowPosition() && style.hasOutOfFlowPosition())
+    if ((oldStyle->hasOutOfFlowPosition() && style.hasOutOfFlowPosition()) || gridStyleHasNotChanged(style, oldStyle))
         return;
 
     // It should be possible to not dirty the grid in some cases (like moving an
@@ -794,12 +801,19 @@ RoundedRect RenderBox::roundedBorderBoxRect() const
 
 LayoutRect RenderBox::paddingBoxRect() const
 {
-    auto verticalScrollbarWidth = this->verticalScrollbarWidth();
-    LayoutUnit offsetForScrollbar = shouldPlaceVerticalScrollbarOnLeft() ? verticalScrollbarWidth : 0;
+    auto offsetForScrollbar = 0_lu;
+    auto verticalScrollbarWidth = 0_lu;
+    auto horizontalScrollbarHeight = 0_lu;
+    if (hasNonVisibleOverflow()) {
+        verticalScrollbarWidth = this->verticalScrollbarWidth();
+        offsetForScrollbar = shouldPlaceVerticalScrollbarOnLeft() ? verticalScrollbarWidth : 0_lu;
+        horizontalScrollbarHeight = this->horizontalScrollbarHeight();
+    }
 
-    return LayoutRect(borderLeft() + offsetForScrollbar, borderTop(),
-        width() - borderLeft() - borderRight() - verticalScrollbarWidth,
-        height() - borderTop() - borderBottom() - horizontalScrollbarHeight());
+    auto borderWidths = this->borderWidths();
+    return LayoutRect(borderWidths.left() + offsetForScrollbar, borderWidths.top(),
+        width() - borderWidths.left() - borderWidths.right() - verticalScrollbarWidth,
+        height() - borderWidths.top() - borderWidths.bottom() - horizontalScrollbarHeight);
 }
 
 LayoutPoint RenderBox::contentBoxLocation() const

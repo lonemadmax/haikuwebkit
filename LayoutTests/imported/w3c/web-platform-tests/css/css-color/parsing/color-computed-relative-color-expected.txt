@@ -132,22 +132,13 @@ PASS Property color value 'hsl(from rebeccapurple calc((h / 360) * 360deg) calc(
 PASS Property color value 'hsl(from hsl(from rebeccapurple h s l / calc(alpha + 0.5)) h s l / calc(alpha - 0.5))'
 PASS Property color value 'hsl(from hsl(from rebeccapurple h s l / calc(alpha - 1.5)) h s l / calc(alpha + 0.5))'
 PASS Property color value 'hsl(from rebeccapurple none none none)'
-FAIL Property color value 'hsl(from rebeccapurple none none none / none)' Colors do not match.
-Actual:   color(srgb 0 0 0 / 0)
-Expected: color(srgb 0 0 0 / none).
-Error: assert_array_approx_equals: Numeric parameters are approximately equal. lengths differ, expected 3 got 4
+PASS Property color value 'hsl(from rebeccapurple none none none / none)'
 PASS Property color value 'hsl(from rebeccapurple h s none)'
 PASS Property color value 'hsl(from rebeccapurple h s none / alpha)'
-FAIL Property color value 'hsl(from rebeccapurple h s l / none)' Colors do not match.
-Actual:   color(srgb 0.4 0.2 0.6 / 0)
-Expected: color(srgb 0.4 0.2 0.6 / none).
-Error: assert_array_approx_equals: Numeric parameters are approximately equal. lengths differ, expected 3 got 4
+PASS Property color value 'hsl(from rebeccapurple h s l / none)'
 PASS Property color value 'hsl(from rebeccapurple none s l / alpha)'
 PASS Property color value 'hsl(from hsl(120deg 20% 50% / .5) h s none / alpha)'
-FAIL Property color value 'hsl(from hsl(120deg 20% 50% / .5) h s l / none)' Colors do not match.
-Actual:   color(srgb 0.4 0.6 0.4 / 0)
-Expected: color(srgb 0.4 0.6 0.4 / none).
-Error: assert_array_approx_equals: Numeric parameters are approximately equal. lengths differ, expected 3 got 4
+PASS Property color value 'hsl(from hsl(120deg 20% 50% / .5) h s l / none)'
 PASS Property color value 'hsl(from hsl(120deg 20% 50% / .5) none s l / alpha)'
 PASS Property color value 'hsl(from hsl(none none none) h s l)'
 PASS Property color value 'hsl(from hsl(none none none / none) h s l / alpha)'
@@ -200,22 +191,13 @@ PASS Property color value 'hwb(from rebeccapurple calc((h / 360) * 360deg) calc(
 PASS Property color value 'hwb(from hwb(from rebeccapurple h w b / calc(alpha + 0.5)) h w b / calc(alpha - 0.5))'
 PASS Property color value 'hwb(from hwb(from rebeccapurple h w b / calc(alpha - 1.5)) h w b / calc(alpha + 0.5))'
 PASS Property color value 'hwb(from rebeccapurple none none none)'
-FAIL Property color value 'hwb(from rebeccapurple none none none / none)' Colors do not match.
-Actual:   color(srgb 1 0 0 / 0)
-Expected: color(srgb 1 0 0 / none).
-Error: assert_array_approx_equals: Numeric parameters are approximately equal. lengths differ, expected 3 got 4
+PASS Property color value 'hwb(from rebeccapurple none none none / none)'
 PASS Property color value 'hwb(from rebeccapurple h w none)'
 PASS Property color value 'hwb(from rebeccapurple h w none / alpha)'
-FAIL Property color value 'hwb(from rebeccapurple h w b / none)' Colors do not match.
-Actual:   color(srgb 0.4 0.2 0.6 / 0)
-Expected: color(srgb 0.4 0.2 0.6 / none).
-Error: assert_array_approx_equals: Numeric parameters are approximately equal. lengths differ, expected 3 got 4
+PASS Property color value 'hwb(from rebeccapurple h w b / none)'
 PASS Property color value 'hwb(from rebeccapurple none w b / alpha)'
 PASS Property color value 'hwb(from hwb(120deg 20% 50% / .5) h w none / alpha)'
-FAIL Property color value 'hwb(from hwb(120deg 20% 50% / .5) h w b / none)' Colors do not match.
-Actual:   color(srgb 0.2 0.5 0.2 / 0)
-Expected: color(srgb 0.2 0.5 0.2 / none).
-Error: assert_array_approx_equals: Numeric parameters are approximately equal. lengths differ, expected 3 got 4
+PASS Property color value 'hwb(from hwb(120deg 20% 50% / .5) h w b / none)'
 PASS Property color value 'hwb(from hwb(120deg 20% 50% / .5) none w b / alpha)'
 PASS Property color value 'hwb(from hwb(none none none) h w b)'
 PASS Property color value 'hwb(from hwb(none none none / none) h w b / alpha)'
@@ -656,10 +638,7 @@ PASS Property color value 'color(from color(a98-rgb none none none) a98-rgb r g 
 PASS Property color value 'color(from color(a98-rgb none none none / none) a98-rgb r g b / alpha)'
 PASS Property color value 'color(from color(a98-rgb 0.7 none 0.3) a98-rgb r g b)'
 PASS Property color value 'color(from color(a98-rgb 0.7 0.5 0.3 / none) a98-rgb r g b / alpha)'
-FAIL Property color value 'color(from color-mix(in xyz, color(a98-rgb 0.7 0.5 0.3), color(a98-rgb 0.7 0.5 0.3)) a98-rgb r g b / alpha)' Colors do not match.
-Actual:   color(a98-rgb 0.724466 0.511409 0.324083)
-Expected: color(a98-rgb 0.7 0.5 0.3).
-Error: assert_array_approx_equals: Numeric parameters are approximately equal. property 0, expected 0.7 +/- 0.01, expected 0.7 but got 0.724466
+PASS Property color value 'color(from color-mix(in xyz, color(a98-rgb 0.7 0.5 0.3), color(a98-rgb 0.7 0.5 0.3)) a98-rgb r g b / alpha)'
 PASS Property color value 'color(from color(rec2020 0.7 0.5 0.3) rec2020 r g b)'
 PASS Property color value 'color(from color(rec2020 0.7 0.5 0.3) rec2020 r g b / alpha)'
 PASS Property color value 'color(from color(rec2020 0.7 0.5 0.3 / 40%) rec2020 r g b)'
@@ -1022,10 +1001,7 @@ PASS Property color value 'color(from color(srgb 0.25 0.5 0.75) srgb-linear r g 
 PASS Property color value 'color(from color(display-p3 0.25 0.5 0.75) srgb r g b)'
 PASS Property color value 'color(from color(srgb 0.25 0.5 0.75) display-p3 r g b)'
 PASS Property color value 'color(from color(a98-rgb 0.25 0.5 0.75) srgb r g b)'
-FAIL Property color value 'color(from color(srgb 0.25 0.5 0.75) a98-rgb r g b)' Colors do not match.
-Actual:   color(a98-rgb 0.316842 0.490356 0.724415)
-Expected: color(a98-rgb 0.346851 0.496124 0.736271).
-Error: assert_array_approx_equals: Numeric parameters are approximately equal. property 0, expected 0.346851 +/- 0.001, expected 0.346851 but got 0.316842
+PASS Property color value 'color(from color(srgb 0.25 0.5 0.75) a98-rgb r g b)'
 PASS Property color value 'color(from color(prophoto-rgb 0.25 0.5 0.75) srgb r g b)'
 PASS Property color value 'color(from color(srgb 0.25 0.5 0.75) prophoto-rgb r g b)'
 PASS Property color value 'color(from color(rec2020 0.25 0.5 0.75) srgb r g b)'
@@ -1051,10 +1027,7 @@ PASS Property color value 'color(from oklch(from color(xyz-d50 0.99 0.88 0.77) l
 PASS Property color value 'color(from color(from color(xyz-d50 0.99 0.88 0.77) srgb r g b) xyz-d50 x y z)'
 PASS Property color value 'color(from color(from color(xyz-d50 0.99 0.88 0.77) srgb-linear r g b) xyz-d50 x y z)'
 PASS Property color value 'color(from color(from color(xyz-d50 0.99 0.88 0.77) display-p3 r g b) xyz-d50 x y z)'
-FAIL Property color value 'color(from color(from color(xyz-d50 0.99 0.88 0.77) a98-rgb r g b) xyz-d50 x y z)' Colors do not match.
-Actual:   color(xyz-d50 1.030322 0.91025 0.771908)
-Expected: color(xyz-d50 0.99 0.88 0.77).
-Error: assert_array_approx_equals: Numeric parameters are approximately equal. property 0, expected 0.99 +/- 0.0001, expected 0.99 but got 1.030322
+PASS Property color value 'color(from color(from color(xyz-d50 0.99 0.88 0.77) a98-rgb r g b) xyz-d50 x y z)'
 PASS Property color value 'color(from color(from color(xyz-d50 0.99 0.88 0.77) prophoto-rgb r g b) xyz-d50 x y z)'
 PASS Property color value 'color(from color(from color(xyz-d50 0.99 0.88 0.77) rec2020 r g b) xyz-d50 x y z)'
 PASS Property color value 'color(from color(from color(xyz-d50 0.99 0.88 0.77) xyz x y z) xyz-d50 x y z)'
@@ -1069,10 +1042,7 @@ PASS Property color value 'color(from oklch(from color(xyz-d65 0.99 0.88 0.77) l
 PASS Property color value 'color(from color(from color(xyz-d65 0.99 0.88 0.77) srgb r g b) xyz-d65 x y z)'
 PASS Property color value 'color(from color(from color(xyz-d65 0.99 0.88 0.77) srgb-linear r g b) xyz-d65 x y z)'
 PASS Property color value 'color(from color(from color(xyz-d65 0.99 0.88 0.77) display-p3 r g b) xyz-d65 x y z)'
-FAIL Property color value 'color(from color(from color(xyz-d65 0.99 0.88 0.77) a98-rgb r g b) xyz-d65 x y z)' Colors do not match.
-Actual:   color(xyz-d65 1.043651 0.920559 0.788224)
-Expected: color(xyz-d65 0.99 0.88 0.77).
-Error: assert_array_approx_equals: Numeric parameters are approximately equal. property 0, expected 0.99 +/- 0.0001, expected 0.99 but got 1.043651
+PASS Property color value 'color(from color(from color(xyz-d65 0.99 0.88 0.77) a98-rgb r g b) xyz-d65 x y z)'
 PASS Property color value 'color(from color(from color(xyz-d65 0.99 0.88 0.77) prophoto-rgb r g b) xyz-d65 x y z)'
 PASS Property color value 'color(from color(from color(xyz-d65 0.99 0.88 0.77) rec2020 r g b) xyz-d65 x y z)'
 PASS Property color value 'color(from color(from color(xyz-d65 0.99 0.88 0.77) xyz x y z) xyz-d65 x y z)'

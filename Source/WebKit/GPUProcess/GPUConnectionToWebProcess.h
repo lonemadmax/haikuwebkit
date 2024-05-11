@@ -132,7 +132,7 @@ class RemoteGraphicsContextGL;
 
 class GPUConnectionToWebProcess
     : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<GPUConnectionToWebProcess, WTF::DestructionThread::Main>
-    , public WebCore::NowPlayingManager::Client
+    , public WebCore::NowPlayingManagerClient
     , IPC::Connection::Client {
 public:
     static Ref<GPUConnectionToWebProcess> create(GPUProcess&, WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, GPUProcessConnectionParameters&&);
@@ -146,19 +146,21 @@ public:
     bool isDynamicContentScalingEnabled() const { return m_preferences.isDynamicContentScalingEnabled; }
 #endif
 
-    using WebCore::NowPlayingManager::Client::weakPtrFactory;
-    using WebCore::NowPlayingManager::Client::WeakValueType;
-    using WebCore::NowPlayingManager::Client::WeakPtrImplType;
+    using WebCore::NowPlayingManagerClient::weakPtrFactory;
+    using WebCore::NowPlayingManagerClient::WeakValueType;
+    using WebCore::NowPlayingManagerClient::WeakPtrImplType;
 
     IPC::Connection& connection() { return m_connection.get(); }
     Ref<IPC::Connection> protectedConnection() { return m_connection; }
     IPC::MessageReceiverMap& messageReceiverMap() { return m_messageReceiverMap; }
     GPUProcess& gpuProcess() { return m_gpuProcess.get(); }
+    Ref<GPUProcess> protectedGPUProcess() const;
     WebCore::ProcessIdentifier webProcessIdentifier() const { return m_webProcessIdentifier; }
     Ref<RemoteSharedResourceCache> sharedResourceCache();
 
 #if ENABLE(VIDEO)
     RemoteMediaResourceManager& remoteMediaResourceManager();
+    Ref<RemoteMediaResourceManager> protectedRemoteMediaResourceManager();
 #endif
 
     PAL::SessionID sessionID() const { return m_sessionID; }
@@ -246,6 +248,7 @@ public:
 #endif
 
 #if ENABLE(VIDEO)
+    Ref<RemoteVideoFrameObjectHeap> protectedVideoFrameObjectHeap();
     void performWithMediaPlayerOnMainThread(WebCore::MediaPlayerIdentifier, Function<void(WebCore::MediaPlayer&)>&&);
 #endif
 
@@ -261,10 +264,17 @@ public:
 private:
     GPUConnectionToWebProcess(GPUProcess&, WebCore::ProcessIdentifier, PAL::SessionID, IPC::Connection::Handle&&, GPUProcessConnectionParameters&&);
 
+    Ref<IPC::Connection> protectedConnection() const { return m_connection.copyRef(); }
+
+#if PLATFORM(COCOA) && USE(LIBWEBRTC)
+    Ref<LibWebRTCCodecsProxy> protectedLibWebRTCCodecsProxy() const;
+#endif
+
 #if ENABLE(WEB_AUDIO)
     RemoteAudioDestinationManager& remoteAudioDestinationManager();
 #endif
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
+    Ref<RemoteSampleBufferDisplayLayerManager> protectedSampleBufferDisplayLayerManager() const;
     UserMediaCaptureManagerProxy& userMediaCaptureManagerProxy();
     RemoteAudioMediaStreamTrackRendererInternalUnitManager& audioMediaStreamTrackRendererInternalUnitManager();
 #endif
@@ -330,7 +340,7 @@ private:
     bool dispatchMessage(IPC::Connection&, IPC::Decoder&);
     bool dispatchSyncMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
 
-    // NowPlayingManager::Client
+    // NowPlayingManagerClient
     void didReceiveRemoteControlCommand(WebCore::PlatformMediaSession::RemoteControlCommandType, const WebCore::PlatformMediaSession::RemoteCommandArgument&) final;
 
 #if PLATFORM(MAC) && ENABLE(WEBGL)

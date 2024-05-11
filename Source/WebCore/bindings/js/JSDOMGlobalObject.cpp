@@ -67,6 +67,7 @@
 #include "WorkletGlobalScope.h"
 #include <JavaScriptCore/BuiltinNames.h>
 #include <JavaScriptCore/CodeBlock.h>
+#include <JavaScriptCore/ConsoleClient.h>
 #include <JavaScriptCore/GetterSetter.h>
 #include <JavaScriptCore/GlobalObjectMethodTable.h>
 #include <JavaScriptCore/JSCustomGetterFunction.h>
@@ -681,9 +682,8 @@ JSC::JSGlobalObject* JSDOMGlobalObject::deriveShadowRealmGlobalObject(JSC::JSGlo
         auto& originalWorld = domGlobalObject->world();
 
         while (!document->isTopDocument()) {
-            auto candidateDocument = document->parentDocument();
-
-            if (!candidateDocument->securityOrigin().isSameOriginDomain(originalOrigin))
+            auto* candidateDocument = document->parentDocument();
+            if (!candidateDocument || !candidateDocument->securityOrigin().isSameOriginDomain(originalOrigin))
                 break;
 
             document = candidateDocument;

@@ -49,10 +49,19 @@ OBJC_CLASS WebCoreScreenCaptureKitHelper;
 using CMSampleBufferRef = struct opaqueCMSampleBuffer*;
 
 namespace WebCore {
+class ScreenCaptureKitCaptureSource;
+}
+
+namespace WTF {
+template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
+template<> struct IsDeprecatedWeakRefSmartPointerException<WebCore::ScreenCaptureKitCaptureSource> : std::true_type { };
+}
+
+namespace WebCore {
 
 class ScreenCaptureKitCaptureSource final
     : public DisplayCaptureSourceCocoa::Capturer
-    , public ScreenCaptureSessionSource::Observer {
+    , public ScreenCaptureSessionSourceObserver {
 public:
     static Expected<UniqueRef<DisplayCaptureSourceCocoa::Capturer>, CaptureSourceError> create(const CaptureDevice&, const MediaConstraints*);
 
@@ -67,6 +76,8 @@ public:
     using Content = std::variant<RetainPtr<SCWindow>, RetainPtr<SCDisplay>>;
     void streamDidOutputVideoSampleBuffer(RetainPtr<CMSampleBufferRef>);
     void sessionFailedWithError(RetainPtr<NSError>&&, const String&);
+    void outputVideoEffectDidStartForStream() { m_isVideoEffectEnabled = true; }
+    void outputVideoEffectDidStopForStream() { m_isVideoEffectEnabled = false; }
 
 private:
 
@@ -116,6 +127,7 @@ private:
     uint32_t m_height { 0 };
     float m_frameRate { 0 };
     bool m_isRunning { false };
+    bool m_isVideoEffectEnabled { false };
 };
 
 } // namespace WebCore

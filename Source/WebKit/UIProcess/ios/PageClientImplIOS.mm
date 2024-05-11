@@ -40,7 +40,6 @@
 #import "PlatformXRSystem.h"
 #import "RemoteLayerTreeNode.h"
 #import "RunningBoardServicesSPI.h"
-#import "StringUtilities.h"
 #import "TapHandlingResult.h"
 #import "UIKitSPI.h"
 #import "UndoOrRedo.h"
@@ -1236,6 +1235,11 @@ UIViewController *PageClientImpl::presentingViewController() const
 FloatRect PageClientImpl::rootViewToWebView(const FloatRect& rect) const
 {
     return [webView() convertRect:rect fromView:contentView().get()];
+}
+
+FloatPoint PageClientImpl::webViewToRootView(const FloatPoint& point) const
+{
+    return [webView() convertPoint:point toView:contentView().get()];
 }
 
 #if HAVE(SPATIAL_TRACKING_LABEL)

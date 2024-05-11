@@ -508,6 +508,9 @@ void RenderElement::initializeStyle()
 
     // It would be nice to assert that !parent() here, but some RenderLayer subrenderers
     // have their parent set before getting a call to initializeStyle() :|
+
+    if (auto styleable = Styleable::fromRenderer(*this))
+        setCapturedInViewTransition(styleable->capturedInViewTransition());
 }
 
 void RenderElement::setStyle(RenderStyle&& style, StyleDifference minimalStyleDifference)
@@ -2071,11 +2074,6 @@ bool RenderElement::hasSelfPaintingLayer() const
     return layerModelObject.hasSelfPaintingLayer();
 }
 
-bool RenderElement::capturedInViewTransition() const
-{
-    return element() && element()->capturedInViewTransition();
-}
-
 bool RenderElement::hasViewTransitionName() const
 {
     return !!style().viewTransitionName();
@@ -2084,6 +2082,11 @@ bool RenderElement::hasViewTransitionName() const
 bool RenderElement::requiresRenderingConsolidationForViewTransition() const
 {
     return hasViewTransitionName() || capturedInViewTransition();
+}
+
+bool RenderElement::isViewTransitionRoot() const
+{
+    return style().pseudoElementType() == PseudoId::ViewTransition;
 }
 
 bool RenderElement::checkForRepaintDuringLayout() const
@@ -2458,6 +2461,27 @@ FloatRect RenderElement::referenceBoxRect(CSSBoxType boxType) const
 
     ASSERT_NOT_REACHED();
     return { };
+}
+
+void RenderElement::markRendererDirtyAfterTopLayerChange(RenderElement* renderer, RenderBlock* containingBlockBeforeStyleResolution)
+{
+    auto* renderBox = dynamicDowncast<RenderBox>(renderer);
+    if (!renderBox || !renderBox->parent() || !containingBlockBeforeStyleResolution)
+        return;
+    auto* newContainingBlock = renderBox->containingBlock();
+    ASSERT(newContainingBlock);
+    if (containingBlockBeforeStyleResolution == newContainingBlock)
+        return;
+
+    // Let's carry out the same set of tasks we would normally do when containing block changes for out-of-flow content in RenderBox::styleWillChange.
+    if (!renderBox->isOutOfFlowPositioned())
+        return;
+
+    RenderBlock::removePositionedObject(*renderBox);
+    // This is to make sure we insert the box to the correct containing block list during static position computation.
+    renderBox->parent()->setChildNeedsLayout();
+    newContainingBlock->setChildNeedsLayout();
+    renderBox->setNeedsLayout();
 }
 
 bool RenderElement::isSkippedContentRoot() const
