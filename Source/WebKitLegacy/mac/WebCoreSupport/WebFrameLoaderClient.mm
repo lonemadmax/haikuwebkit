@@ -1385,7 +1385,7 @@ void WebFrameLoaderClient::didRestoreFrameHierarchyForCachedFrame()
 }
 #endif
 
-void WebFrameLoaderClient::transitionToCommittedForNewPage()
+void WebFrameLoaderClient::transitionToCommittedForNewPage(InitializingIframe)
 {
     WebDataSource *dataSource = [m_webFrame.get() _dataSource];
 

@@ -23,8 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef OpaqueJSString_h
-#define OpaqueJSString_h
+#pragma once
 
 #include <atomic>
 #include <wtf/ThreadSafeRefCounted.h>
@@ -57,8 +56,8 @@ struct OpaqueJSString : public ThreadSafeRefCounted<OpaqueJSString> {
     JS_EXPORT_PRIVATE ~OpaqueJSString();
 
     bool is8Bit() { return m_string.is8Bit(); }
-    const LChar* characters8() { return m_string.characters8(); }
-    const UChar* characters16() { return m_string.characters16(); }
+    std::span<const LChar> span8() { return m_string.span8(); }
+    std::span<const UChar> span16() { return m_string.span16(); }
     unsigned length() { return m_string.length(); }
 
     const UChar* characters();
@@ -78,13 +77,13 @@ private:
 
     OpaqueJSString(const String& string)
         : m_string(string.isolatedCopy())
-        , m_characters(m_string.impl() && m_string.is8Bit() ? nullptr : const_cast<UChar*>(m_string.characters16()))
+        , m_characters(m_string.impl() && m_string.is8Bit() ? nullptr : const_cast<UChar*>(m_string.span16().data()))
     {
     }
 
     explicit OpaqueJSString(String&& string)
         : m_string(WTFMove(string))
-        , m_characters(m_string.impl() && m_string.is8Bit() ? nullptr : const_cast<UChar*>(m_string.characters16()))
+        , m_characters(m_string.impl() && m_string.is8Bit() ? nullptr : const_cast<UChar*>(m_string.span16().data()))
     {
     }
 
@@ -96,7 +95,7 @@ private:
 
     OpaqueJSString(std::span<const UChar> characters)
         : m_string(characters)
-        , m_characters(m_string.impl() && m_string.is8Bit() ? nullptr : const_cast<UChar*>(m_string.characters16()))
+        , m_characters(m_string.impl() && m_string.is8Bit() ? nullptr : const_cast<UChar*>(m_string.span16().data()))
     {
     }
 
@@ -105,5 +104,3 @@ private:
     // This will be initialized on demand when characters() is called if the string needs up-conversion.
     std::atomic<UChar*> m_characters;
 };
-
-#endif

@@ -60,6 +60,7 @@
 #import <WebKit/_WKWebsiteDataStoreConfiguration.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/CompletionHandler.h>
 #import <wtf/MainThread.h>
 #import <wtf/RunLoop.h>
 #import <wtf/UniqueRef.h>
@@ -504,32 +505,12 @@ unsigned TestController::imageCountInGeneralPasteboard() const
     return imagesArray.count;
 }
 
-void TestController::removeAllSessionCredentials()
+void TestController::removeAllSessionCredentials(CompletionHandler<void(WKTypeRef)>&& completionHandler)
 {
     auto types = adoptNS([[NSSet alloc] initWithObjects:_WKWebsiteDataTypeCredentials, nil]);
-    [[globalWebViewConfiguration() websiteDataStore] removeDataOfTypes:types.get() modifiedSince:[NSDate distantPast] completionHandler:^() {
-        m_currentInvocation->didRemoveAllSessionCredentials();
-    }];
-}
-
-void TestController::loadedSubresourceDomains()
-{
-    auto* parentView = mainWebView();
-    if (!parentView)
-        return;
-    
-    [[globalWebViewConfiguration() websiteDataStore] _loadedSubresourceDomainsFor:parentView->platformView() completionHandler:^(NSArray<NSString *> *domains) {
-        m_currentInvocation->didReceiveLoadedSubresourceDomains(makeVector<String>(domains));
-    }];
-}
-
-void TestController::clearLoadedSubresourceDomains()
-{
-    auto* parentView = mainWebView();
-    if (!parentView)
-        return;
-
-    [[globalWebViewConfiguration() websiteDataStore] _clearLoadedSubresourceDomainsFor:parentView->platformView()];
+    [[globalWebViewConfiguration() websiteDataStore] removeDataOfTypes:types.get() modifiedSince:[NSDate distantPast] completionHandler:makeBlockPtr([completionHandler = WTFMove(completionHandler)] () mutable {
+        completionHandler(nullptr);
+    }).get()];
 }
 
 bool TestController::didLoadAppInitiatedRequest()

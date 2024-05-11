@@ -35,27 +35,73 @@
 
 namespace WebCore {
 
-void FontCascade::drawGlyphs(GraphicsContext& graphicsContext, const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned glyphCount, const FloatPoint& position, FontSmoothingMode)
+void FontCascade::drawGlyphs(GraphicsContext& graphicsContext, const Font& font, const GlyphBufferGlyph* glyphs, const GlyphBufferAdvance* advances, unsigned glyphCount, const FloatPoint& position, FontSmoothingMode smoothingMode)
 {
     if (!font.platformData().size())
         return;
 
-    const auto& skFont = font.platformData().skFont();
+    const auto& fontPlatformData = font.platformData();
+    const auto& skFont = fontPlatformData.skFont();
+
+    if (!font.allowsAntialiasing())
+        smoothingMode = FontSmoothingMode::NoSmoothing;
+
+    SkFont::Edging edging;
+    switch (smoothingMode) {
+    case FontSmoothingMode::AutoSmoothing:
+        edging = skFont.getEdging();
+        break;
+    case FontSmoothingMode::Antialiased:
+        edging = SkFont::Edging::kAntiAlias;
+        break;
+    case FontSmoothingMode::SubpixelAntialiased:
+        edging = SkFont::Edging::kSubpixelAntiAlias;
+        break;
+    case FontSmoothingMode::NoSmoothing:
+        edging = SkFont::Edging::kAlias;
+        break;
+    }
+
+    bool isVertical = fontPlatformData.orientation() == FontOrientation::Vertical;
     SkTextBlobBuilder builder;
-    float glyphPosition = 0;
-    auto& buffer = builder.allocRunPosH(skFont, glyphCount, 0);
+    const auto& buffer = [&]() {
+        if (skFont.getEdging() == edging)
+            return isVertical ? builder.allocRunPos(skFont, glyphCount) : builder.allocRunPosH(skFont, glyphCount, 0);
+
+        SkFont copiedFont = skFont;
+        copiedFont.setEdging(edging);
+        return isVertical ? builder.allocRunPos(copiedFont, glyphCount) : builder.allocRunPosH(copiedFont, glyphCount, 0);
+    }();
+
+    FloatSize glyphPosition;
     for (unsigned i = 0; i < glyphCount; ++i) {
         buffer.glyphs[i] = glyphs[i];
-        buffer.pos[i] = glyphPosition;
-        glyphPosition += advances[i].width();
+
+        if (isVertical) {
+            glyphPosition += advances[i];
+            buffer.pos[2 * i] = glyphPosition.height();
+            buffer.pos[2 * i + 1] = glyphPosition.width();
+        } else {
+            buffer.pos[i] = glyphPosition.width();
+            glyphPosition += advances[i];
+        }
     }
+
     auto blob = builder.make();
     auto* canvas = graphicsContext.platformContext();
     auto* skiaGraphicsContext = static_cast<GraphicsContextSkia*>(&graphicsContext);
 
+    if (isVertical) {
+        canvas->save();
+
+        SkMatrix matrix;
+        matrix.setSinCos(-1, 0, position.x(), position.y());
+        canvas->concat(matrix);
+    }
+
     if (graphicsContext.textDrawingMode().contains(TextDrawingMode::Fill)) {
         SkPaint paint = skiaGraphicsContext->createFillPaint();
-        paint.setAntiAlias(font.allowsAntialiasing());
+        paint.setAntiAlias(edging != SkFont::Edging::kAlias);
         paint.setImageFilter(skiaGraphicsContext->createDropShadowFilterIfNeeded(GraphicsContextSkia::ShadowStyle::Outset));
         skiaGraphicsContext->setupFillSource(paint);
         canvas->drawTextBlob(blob, SkFloatToScalar(position.x()), SkFloatToScalar(position.y()), paint);
@@ -63,10 +109,13 @@ void FontCascade::drawGlyphs(GraphicsContext& graphicsContext, const Font& font,
 
     if (graphicsContext.textDrawingMode().contains(TextDrawingMode::Stroke)) {
         SkPaint paint = skiaGraphicsContext->createStrokePaint();
-        paint.setAntiAlias(font.allowsAntialiasing());
+        paint.setAntiAlias(edging != SkFont::Edging::kAlias);
         skiaGraphicsContext->setupStrokeSource(paint);
         canvas->drawTextBlob(blob, SkFloatToScalar(position.x()), SkFloatToScalar(position.y()), paint);
     }
+
+    if (isVertical)
+        canvas->restore();
 }
 
 bool FontCascade::canReturnFallbackFontsForComplexText()

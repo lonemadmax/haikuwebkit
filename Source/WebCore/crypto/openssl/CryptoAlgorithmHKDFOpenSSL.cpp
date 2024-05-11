@@ -61,7 +61,7 @@ namespace WebCore {
 	}
 #endif
 
-ExceptionOr<Vector<uint8_t>> CryptoAlgorithmHKDF::platformDeriveBits(const CryptoAlgorithmHkdfParams& parameters, const CryptoKeyRaw& key, size_t length)
+ExceptionOr<Vector<uint8_t>> CryptoAlgorithmHKDF::platformDeriveBits(const CryptoAlgorithmHkdfParams& parameters, const CryptoKeyRaw& key, size_t length, UseCryptoKit)
 {
     auto algorithm = digestAlgorithm(parameters.hashIdentifier);
     if (!algorithm)

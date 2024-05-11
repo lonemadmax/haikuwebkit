@@ -2439,6 +2439,26 @@ TEST(SiteIsolation, NavigateOpener)
     checkFrameTreesInProcesses(opened.webView.get(), { { "https://webkit.org"_s } });
 }
 
+TEST(SiteIsolation, NavigateOpenerToProvisionalNavigationFailure)
+{
+    HTTPServer server({
+        { "/example"_s, { "<script>w = window.open('https://webkit.org/webkit')</script>"_s } },
+        { "/webkit"_s, { "hi"_s } },
+        { "/terminate"_s, { HTTPResponse::TerminateConnection::Yes } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [opener, opened] = openerAndOpenedViews(server);
+    checkFrameTreesInProcesses(opener.webView.get(), { { "https://example.com"_s }, { RemoteFrame } });
+    checkFrameTreesInProcesses(opened.webView.get(), { { RemoteFrame }, { "https://webkit.org"_s } });
+
+    [opened.webView evaluateJavaScript:@"opener.location = '/terminate'" completionHandler:nil];
+    [opener.navigationDelegate waitForDidFailProvisionalNavigation];
+    EXPECT_NE(opened.webView.get()._webProcessIdentifier, opener.webView.get()._webProcessIdentifier);
+
+    checkFrameTreesInProcesses(opener.webView.get(), { { "https://example.com"_s }, { RemoteFrame } });
+    checkFrameTreesInProcesses(opened.webView.get(), { { RemoteFrame }, { "https://webkit.org"_s } });
+}
+
 TEST(SiteIsolation, OpenThenClose)
 {
     HTTPServer server({
@@ -2834,6 +2854,17 @@ TEST(SiteIsolation, SelectAll)
 }
 #endif
 
-// FIXME: <rdar://121240941> Add tests covering provisional navigation failures in cases like SiteIsolation.NavigateOpener.
+TEST(SiteIsolation, PresentationUpdateAfterCrossSiteNavigation)
+{
+    HTTPServer server({
+        { "/source"_s, { "<script> location.href = 'https://webkit.org/destination'; </script>"_s } },
+        { "/destination"_s, { ""_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/source"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView waitForNextPresentationUpdate];
+}
 
 }

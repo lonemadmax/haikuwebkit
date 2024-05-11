@@ -1244,7 +1244,8 @@ void VideoPresentationManagerProxy::failedToEnterFullscreen(PlaybackSessionConte
 
 void VideoPresentationManagerProxy::didCleanupFullscreen(PlaybackSessionContextIdentifier contextId)
 {
-    if (!m_page)
+    RefPtr page = m_page.get();
+    if (!page)
         return;
 
     auto& [model, interface] = ensureModelAndInterface(contextId);
@@ -1267,12 +1268,14 @@ void VideoPresentationManagerProxy::didCleanupFullscreen(PlaybackSessionContextI
         model->setLayerHostView(nullptr);
     }
 
-    m_page->send(Messages::VideoPresentationManager::DidCleanupFullscreen(contextId));
+    page->send(Messages::VideoPresentationManager::DidCleanupFullscreen(contextId));
 
     if (!hasMode(HTMLMediaElementEnums::VideoFullscreenModeInWindow)) {
         interface->setMode(HTMLMediaElementEnums::VideoFullscreenModeNone, false);
         removeClientForContext(contextId);
     }
+
+    page->didCleanupFullscreen(contextId);
 }
 
 void VideoPresentationManagerProxy::setVideoLayerFrame(PlaybackSessionContextIdentifier contextId, WebCore::FloatRect frame)
@@ -1356,7 +1359,7 @@ const void* VideoPresentationManagerProxy::logIdentifier() const
     return m_playbackSessionManagerProxy->logIdentifier();
 }
 
-const char* VideoPresentationManagerProxy::logClassName() const
+ASCIILiteral VideoPresentationManagerProxy::logClassName() const
 {
     return m_playbackSessionManagerProxy->logClassName();
 }

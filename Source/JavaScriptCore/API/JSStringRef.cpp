@@ -32,7 +32,6 @@
 #include <wtf/unicode/UTF8Conversion.h>
 
 using namespace JSC;
-using namespace WTF::Unicode;
 
 JSStringRef JSStringCreateWithCharacters(const JSChar* chars, size_t numChars)
 {
@@ -46,12 +45,11 @@ JSStringRef JSStringCreateWithUTF8CString(const char* string)
     if (string) {
         auto stringSpan = span8(string);
         Vector<UChar, 1024> buffer(stringSpan.size());
-        UChar* p = buffer.data();
-        bool sourceContainsOnlyASCII;
-        if (convertUTF8ToUTF16(spanReinterpretCast<const char8_t>(stringSpan), &p, p + buffer.size(), &sourceContainsOnlyASCII)) {
-            if (sourceContainsOnlyASCII)
+        auto result = WTF::Unicode::convert(spanReinterpretCast<const char8_t>(stringSpan), buffer.mutableSpan());
+        if (result.code == WTF::Unicode::ConversionResultCode::Success) {
+            if (result.isAllASCII)
                 return &OpaqueJSString::create(stringSpan).leakRef();
-            return &OpaqueJSString::create({ buffer.data(), p }).leakRef();
+            return &OpaqueJSString::create(result.buffer).leakRef();
         }
     }
 
@@ -100,19 +98,17 @@ size_t JSStringGetUTF8CString(JSStringRef string, char* buffer, size_t bufferSiz
     if (!string || !buffer || !bufferSize)
         return 0;
 
-    char* destination = buffer;
-    bool failed = false;
-    if (string->is8Bit()) {
-        const LChar* source = string->characters8();
-        convertLatin1ToUTF8(&source, source + string->length(), &destination, destination + bufferSize - 1);
-    } else {
-        const UChar* source = string->characters16();
-        auto result = convertUTF16ToUTF8(&source, source + string->length(), &destination, destination + bufferSize - 1);
-        failed = result != ConversionResult::Success && result != ConversionResult::TargetExhausted;
-    }
+    std::span<char8_t> target { reinterpret_cast<char8_t*>(buffer), bufferSize - 1 };
+    WTF::Unicode::ConversionResult<char8_t> result;
+    if (string->is8Bit())
+        result = WTF::Unicode::convert(string->span8(), target);
+    else
+        result = WTF::Unicode::convert(string->span16(), target);
+    if (result.code == WTF::Unicode::ConversionResultCode::SourceInvalid)
+        return 0;
 
-    *destination++ = '\0';
-    return failed ? 0 : destination - buffer;
+    buffer[result.buffer.size()] = '\0';
+    return result.buffer.size() + 1;
 }
 
 bool JSStringIsEqual(JSStringRef a, JSStringRef b)

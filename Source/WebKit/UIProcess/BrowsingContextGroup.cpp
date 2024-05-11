@@ -28,6 +28,7 @@
 
 #include "FrameProcess.h"
 #include "PageLoadState.h"
+#include "ProvisionalPageProxy.h"
 #include "RemotePageProxy.h"
 #include "WebFrameProxy.h"
 #include "WebPageProxy.h"
@@ -45,9 +46,6 @@ Ref<FrameProcess> BrowsingContextGroup::ensureProcessForDomain(const WebCore::Re
         if (auto* existingProcess = processForDomain(domain)) {
             if (existingProcess->process().coreProcessIdentifier() == process.coreProcessIdentifier())
                 return *existingProcess;
-
-            // In the case of WebsiteDataStore swap during navigation, the process may be different from existing process.
-            ASSERT(existingProcess->process().websiteDataStore() != process.websiteDataStore());
         }
     }
 
@@ -199,6 +197,22 @@ void BrowsingContextGroup::transitionPageToRemotePage(WebPageProxy& page, const 
     }).iterator->value;
 
     auto newRemotePage = makeUnique<RemotePageProxy>(page, page.process(), openerDomain, &page.messageReceiverRegistration());
+#if ASSERT_ENABLED
+    for (auto& existingPage : set) {
+        ASSERT(existingPage->process().coreProcessIdentifier() != newRemotePage->process().coreProcessIdentifier() || existingPage->domain() != newRemotePage->domain());
+        ASSERT(existingPage->page() == newRemotePage->page());
+    }
+#endif
+    set.add(WTFMove(newRemotePage));
+}
+
+void BrowsingContextGroup::transitionProvisionalPageToRemotePage(ProvisionalPageProxy& page, const WebCore::RegistrableDomain& provisionalNavigationFailureDomain)
+{
+    auto& set = m_remotePages.ensure(page.page(), [] {
+        return HashSet<std::unique_ptr<RemotePageProxy>> { };
+    }).iterator->value;
+
+    auto newRemotePage = makeUnique<RemotePageProxy>(page.page(), page.process(), provisionalNavigationFailureDomain, &page.messageReceiverRegistration());
 #if ASSERT_ENABLED
     for (auto& existingPage : set) {
         ASSERT(existingPage->process().coreProcessIdentifier() != newRemotePage->process().coreProcessIdentifier() || existingPage->domain() != newRemotePage->domain());

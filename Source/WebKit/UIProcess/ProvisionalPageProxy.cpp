@@ -129,7 +129,7 @@ ProvisionalPageProxy::~ProvisionalPageProxy()
         if (dataStore && dataStore!= &m_page->websiteDataStore())
             process().processPool().pageEndUsingWebsiteDataStore(Ref { m_page.get() }, *dataStore);
 
-        if (process().hasConnection())
+        if (process().hasConnection() && m_shouldClosePage)
             send(Messages::WebPage::Close());
         process().removeVisitedLinkStoreUser(m_page->visitedLinkStore(), m_page->identifier());
     }
@@ -207,17 +207,15 @@ void ProvisionalPageProxy::initializeWebPage(RefPtr<API::WebsitePolicies>&& webs
 {
     m_drawingArea = m_page->pageClient().createDrawingAreaProxy(protectedProcess());
 
-    bool sendPageCreationParameters { true };
     bool registerWithInspectorController { true };
     if (websitePolicies)
         m_mainFrameWebsitePoliciesData = makeUnique<WebsitePoliciesData>(websitePolicies->data());
     std::optional<WebCore::FrameIdentifier> mainFrameIdentifier;
 
+    Ref protectedProcess = this->protectedProcess();
     if (page().preferences().processSwapOnCrossSiteWindowOpenEnabled() || page().preferences().siteIsolationEnabled()) {
         RegistrableDomain navigationDomain(m_request.url());
-        RefPtr openerFrame = m_page->openerFrame();
-        RefPtr openerPage = openerFrame ? openerFrame->page() : nullptr;
-        if (openerFrame)
+        if (m_page->openerFrame())
             mainFrameIdentifier = m_page->mainFrame()->frameID();
         if (auto existingRemotePageProxy = m_browsingContextGroup->takeRemotePageInProcessForProvisionalPage(page(), navigationDomain)) {
             m_webPageID = existingRemotePageProxy->pageID();
@@ -227,19 +225,15 @@ void ProvisionalPageProxy::initializeWebPage(RefPtr<API::WebsitePolicies>&& webs
             LocalFrameCreationParameters localFrameCreationParameters {
                 std::nullopt
             };
-            protectedProcess()->send(Messages::WebPage::TransitionFrameToLocal(localFrameCreationParameters, m_page->mainFrame()->frameID()), m_webPageID);
-            sendPageCreationParameters = false;
+            protectedProcess->send(Messages::WebPage::TransitionFrameToLocal(localFrameCreationParameters, m_page->mainFrame()->frameID()), m_webPageID);
             m_needsCookieAccessAddedInNetworkProcess = true;
             registerWithInspectorController = false; // FIXME: <rdar://121240770> This is a hack. There seems to be a bug in our interaction with WebPageInspectorController.
         }
         m_needsDidStartProvisionalLoad = false;
     }
 
-    if (sendPageCreationParameters) {
-        Ref protectedProcess = this->protectedProcess();
-        protectedProcess->send(Messages::WebProcess::CreateWebPage(m_webPageID, m_page->creationParametersForProvisionalPage(process(), *m_drawingArea, WTFMove(websitePolicies), WTFMove(mainFrameIdentifier))), 0);
-        protectedProcess->addVisitedLinkStoreUser(m_page->visitedLinkStore(), m_page->identifier());
-    }
+    protectedProcess->send(Messages::WebProcess::CreateWebPage(m_webPageID, m_page->creationParametersForProvisionalPage(process(), *m_drawingArea, WTFMove(websitePolicies), WTFMove(mainFrameIdentifier))), 0);
+    protectedProcess->addVisitedLinkStoreUser(m_page->visitedLinkStore(), m_page->identifier());
 
     if (m_page->isLayerTreeFrozenDueToSwipeAnimation())
         send(Messages::WebPage::SwipeAnimationDidStart());
@@ -389,7 +383,13 @@ void ProvisionalPageProxy::didFailProvisionalLoadForFrame(FrameInfoData&& frameI
     m_provisionalLoadURL = { };
 
     // Make sure the Page's main frame's expectedURL gets cleared since we updated it in didStartProvisionalLoad.
-    if (auto* pageMainFrame = m_page->mainFrame())
+    // When site isolation is enabled, we use the same WebFrameProxy so we don't need this duplicate call.
+    // didFailProvisionalLoadForFrameShared will call didFailProvisionalLoad on the same main frame.
+    if (m_page->preferences().siteIsolationEnabled()) {
+        send(Messages::WebPage::TransitionFrameToRemote(m_page->mainFrame()->frameID(), std::nullopt));
+        m_browsingContextGroup->transitionProvisionalPageToRemotePage(*this, RegistrableDomain(request.url()));
+        m_shouldClosePage = false;
+    } else if (auto* pageMainFrame = m_page->mainFrame())
         pageMainFrame->didFailProvisionalLoad();
 
     RefPtr frame = WebFrameProxy::webFrame(frameInfo.frameID);
@@ -411,7 +411,7 @@ void ProvisionalPageProxy::didCommitLoadForFrame(FrameIdentifier frameID, FrameI
             RegistrableDomain openerDomain(openerFrame->url());
             RegistrableDomain openedDomain(request.url());
             if (openerDomain != openedDomain) {
-                page->send(Messages::WebPage::DidCommitLoadInAnotherProcess(page->mainFrame()->frameID(), std::nullopt));
+                page->send(Messages::WebPage::TransitionFrameToRemote(page->mainFrame()->frameID(), std::nullopt));
                 m_browsingContextGroup->transitionPageToRemotePage(page, openerDomain);
             }
         }

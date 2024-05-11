@@ -29,6 +29,7 @@
 #include "BlockFormattingState.h"
 #include "BlockLayoutState.h"
 #include "EventRegion.h"
+#include "FormattingContextBoxIterator.h"
 #include "HitTestLocation.h"
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
@@ -335,19 +336,10 @@ std::optional<LayoutRect> LineLayout::layout()
     preparePlacedFloats();
 
     auto isPartialLayout = Layout::InlineInvalidation::mayOnlyNeedPartialLayout(m_lineDamage.get());
-
-    auto clearInlineContentAndCacheBeforeFullLayoutIfNeeded = [&] {
-        if (isPartialLayout)
-            return;
-        // FIXME: Partial layout should not rely on inline display content, but instead InlineContentCache
-        // should retain all the pieces of data required -and then we can destroy damaged content here instead of after
-        // layout in constructContent.
+    if (!isPartialLayout) {
+        // FIXME: Partial layout should not rely on previous inline display content.
         clearInlineContent();
-        if (m_lineDamage && m_lineDamage->reasons().containsAny({ Layout::InlineDamage::Reason::BreakingContextChanged, Layout::InlineDamage::Reason::InlineItemTypeChanged }))
-            releaseCaches();
-        m_lineDamage = { };
-    };
-    clearInlineContentAndCacheBeforeFullLayoutIfNeeded();
+    }
 
     ASSERT(m_inlineContentConstraints);
     auto intrusiveInitialLetterBottom = [&]() -> std::optional<LayoutUnit> {
@@ -478,8 +470,7 @@ void LineLayout::updateRenderTreePositions(const Vector<LineAdjustment>& lineAdj
         }
     }
 
-    for (auto& renderObject : m_boxTree.renderers()) {
-        auto& layoutBox = *renderObject->layoutBox();
+    for (auto& layoutBox : formattingContextBoxes(rootLayoutBox())) {
         if (!layoutBox.isFloatingPositioned() && !layoutBox.isOutOfFlowPositioned())
             continue;
         if (layoutBox.isLineBreakBox())
@@ -1073,8 +1064,7 @@ void LineLayout::shiftLinesBy(LayoutUnit blockShift)
         }
     }
 
-    for (auto& object : m_boxTree.renderers()) {
-        Layout::Box& layoutBox = *object->layoutBox();
+    for (auto& layoutBox : formattingContextBoxes(rootLayoutBox())) {
         if (layoutBox.isOutOfFlowPositioned() && layoutBox.style().hasStaticBlockPosition(isHorizontalWritingMode)) {
             CheckedRef renderer = downcast<RenderLayerModelObject>(m_boxTree.rendererForLayoutBox(layoutBox));
             if (!renderer->layer())
@@ -1145,15 +1135,17 @@ void LineLayout::releaseCaches(RenderView& view)
 {
     for (auto& renderer : descendantsOfType<RenderBlockFlow>(view)) {
         if (auto* lineLayout = renderer.modernLineLayout())
-            lineLayout->releaseCaches();
+            lineLayout->releaseCachesAndResetDamage();
     }
 }
 
-void LineLayout::releaseCaches()
+void LineLayout::releaseCachesAndResetDamage()
 {
     m_inlineContentCache.inlineItems().content().clear();
     if (m_inlineContent)
         m_inlineContent->releaseCaches();
+    if (m_lineDamage)
+        Layout::InlineInvalidation::resetInlineDamage(*m_lineDamage);
 }
 
 void LineLayout::clearInlineContent()
