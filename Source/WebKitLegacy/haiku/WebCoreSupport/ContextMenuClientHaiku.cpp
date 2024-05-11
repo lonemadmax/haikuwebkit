@@ -59,11 +59,10 @@ void ContextMenuClientHaiku::searchWithGoogle(const LocalFrame* frame)
 {
     String searchString = frame->editor().selectedText();
     String encoded = WTF::encodeWithURLEscapeSequences(searchString.trim(deprecatedIsSpaceOrNewline));
-    encoded = makeStringByReplacingAll(encoded, ASCIILiteral::fromLiteralUnsafe("%20"),
-        ASCIILiteral::fromLiteralUnsafe("+"));
+    encoded = makeStringByReplacingAll(encoded, "%20"_s, "+"_s);
 
     StringBuilder url;
-    url.append("http://www.google.com/search?q=");
+    url.append("http://www.google.com/search?q="_s);
     url.append(encoded);
 
     if (Page* page = frame->page()) {

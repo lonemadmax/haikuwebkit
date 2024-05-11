@@ -212,21 +212,21 @@ void FrameLoaderClientHaiku::dispatchDidReceiveAuthenticationChallenge(DocumentL
 {
     const ProtectionSpace& space = challenge.protectionSpace();
     StringBuilder text;
-    text.append("Host \"");
+    text.append("Host \""_s);
     text.append(space.host());
-    text.append("\" requests authentication for realm \"");
+    text.append("\" requests authentication for realm \""_s);
     text.append(space.realm());
-    text.append("\"\n");
-    text.append(ASCIILiteral::fromLiteralUnsafe("Authentication Scheme: "));
+    text.append("\"\n"_s);
+    text.append("Authentication Scheme: "_s);
     switch (space.authenticationScheme()) {
         case WebCore::ProtectionSpaceBase::AuthenticationScheme::HTTPBasic:
-        text.append(ASCIILiteral::fromLiteralUnsafe("Basic (data will be sent as plain text)"));
+        text.append("Basic (data will be sent as plain text)"_s);
         break;
         case WebCore::ProtectionSpaceBase::AuthenticationScheme::HTTPDigest:
-        text.append(ASCIILiteral::fromLiteralUnsafe("Digest (data will not be sent plain text)"));
+        text.append("Digest (data will not be sent plain text)"_s);
         break;
     default:
-        text.append(ASCIILiteral::fromLiteralUnsafe("Unknown (possibly plaintext)"));
+        text.append("Unknown (possibly plaintext)"_s);
         break;
     }
 
