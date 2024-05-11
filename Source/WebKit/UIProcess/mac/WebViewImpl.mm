@@ -67,6 +67,7 @@
 #import "WKQuickLookPreviewController.h"
 #import "WKRevealItemPresenter.h"
 #import "WKSafeBrowsingWarning.h"
+#import "WKTextIndicatorStyleManager.h"
 #import "WKTextInputWindowController.h"
 #import "WKViewLayoutStrategy.h"
 #import "WKWebViewInternal.h"
@@ -267,27 +268,29 @@ WTF_DECLARE_CF_TYPE_TRAIT(CGImage);
 @interface WKWindowVisibilityObserver : NSObject
 - (instancetype)initWithView:(NSView *)view impl:(WebKit::WebViewImpl&)impl;
 - (void)startObserving:(NSWindow *)window;
-- (void)stopObserving:(NSWindow *)window;
+- (void)stopObserving;
+- (void)enableObservingFontPanel;
 - (void)startObservingFontPanel;
 - (void)startObservingLookupDismissalIfNeeded;
 @end
 
 @implementation WKWindowVisibilityObserver {
-    NSView *_view;
-    WebKit::WebViewImpl *_impl;
+    WeakPtr<WebKit::WebViewImpl> _impl;
+    __weak NSWindow *_window;
 
     BOOL _didRegisterForLookupPopoverCloseNotifications;
     BOOL _shouldObserveFontPanel;
+    BOOL _isObservingFontPanel;
 }
 
 - (instancetype)initWithView:(NSView *)view impl:(WebKit::WebViewImpl&)impl
 {
+    RELEASE_ASSERT(isMainRunLoop());
     self = [super init];
     if (!self)
         return nil;
 
-    _view = view;
-    _impl = &impl;
+    _impl = impl;
 
     NSNotificationCenter* workspaceNotificationCenter = [[NSWorkspace sharedWorkspace] notificationCenter];
     [workspaceNotificationCenter addObserver:self selector:@selector(_activeSpaceDidChange:) name:NSWorkspaceActiveSpaceDidChangeNotification object:nil];
@@ -297,13 +300,12 @@ WTF_DECLARE_CF_TYPE_TRAIT(CGImage);
 
 - (void)dealloc
 {
-#if !ENABLE(REVEAL)
-    if (_didRegisterForLookupPopoverCloseNotifications && PAL::canLoad_Lookup_LUNotificationPopoverWillClose())
-        [[NSNotificationCenter defaultCenter] removeObserver:self name:PAL::get_Lookup_LUNotificationPopoverWillClose() object:nil];
-#endif // !ENABLE(REVEAL)
+    RELEASE_ASSERT(isMainRunLoop());
 
-    NSNotificationCenter *workspaceNotificationCenter = [[NSWorkspace sharedWorkspace] notificationCenter];
-    [workspaceNotificationCenter removeObserver:self name:NSWorkspaceActiveSpaceDidChangeNotification object:nil];
+    [self stopObserving];
+
+    [[NSNotificationCenter defaultCenter] removeObserver:self];
+    [[[NSWorkspace sharedWorkspace] notificationCenter] removeObserver:self];
 
     [super dealloc];
 }
@@ -312,6 +314,14 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 
 - (void)startObserving:(NSWindow *)window
 {
+    RELEASE_ASSERT(isMainRunLoop());
+
+    if (_window == window)
+        return;
+
+    [self stopObserving];
+
+    _window = window;
     if (!window)
         return;
 
@@ -335,19 +345,30 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 
     [defaultNotificationCenter addObserver:self selector:@selector(_screenDidChangeColorSpace:) name:NSScreenColorSpaceDidChangeNotification object:nil];
 
-    if (_shouldObserveFontPanel)
+    if (_shouldObserveFontPanel) {
+        ASSERT(!_isObservingFontPanel);
         [self startObservingFontPanel];
+    }
 
-    if (objc_getAssociatedObject(window, _impl))
+    if (objc_getAssociatedObject(window, _impl.get()))
         return;
 
-    objc_setAssociatedObject(window, _impl, @YES, OBJC_ASSOCIATION_COPY_NONATOMIC);
+    objc_setAssociatedObject(window, _impl.get(), @YES, OBJC_ASSOCIATION_COPY_NONATOMIC);
     [window addObserver:self forKeyPath:@"contentLayoutRect" options:NSKeyValueObservingOptionInitial context:keyValueObservingContext];
     [window addObserver:self forKeyPath:@"titlebarAppearsTransparent" options:NSKeyValueObservingOptionInitial context:keyValueObservingContext];
 }
 
-- (void)stopObserving:(NSWindow *)window
+- (void)stopObserving
 {
+    RELEASE_ASSERT(isMainRunLoop());
+
+    if (_isObservingFontPanel) {
+        ASSERT(_shouldObserveFontPanel);
+        _isObservingFontPanel = NO;
+        [[NSFontPanel sharedFontPanel] removeObserver:self forKeyPath:@"visible" context:keyValueObservingContext];
+    }
+
+    NSWindow *window = std::exchange(_window, nil);
     if (!window)
         return;
 
@@ -370,25 +391,33 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 
     [defaultNotificationCenter removeObserver:self name:NSScreenColorSpaceDidChangeNotification object:nil];
 
-    if (_shouldObserveFontPanel)
-        [[NSFontPanel sharedFontPanel] removeObserver:self forKeyPath:@"visible" context:keyValueObservingContext];
-
-    if (!objc_getAssociatedObject(window, _impl))
+    if (!objc_getAssociatedObject(window, _impl.get()))
         return;
 
-    objc_setAssociatedObject(window, _impl, nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
+    objc_setAssociatedObject(window, _impl.get(), nil, OBJC_ASSOCIATION_COPY_NONATOMIC);
     [window removeObserver:self forKeyPath:@"contentLayoutRect" context:keyValueObservingContext];
     [window removeObserver:self forKeyPath:@"titlebarAppearsTransparent" context:keyValueObservingContext];
 }
 
+- (void)enableObservingFontPanel
+{
+    RELEASE_ASSERT(isMainRunLoop());
+    _shouldObserveFontPanel = YES;
+    [self startObservingFontPanel];
+}
+
 - (void)startObservingFontPanel
 {
-    _shouldObserveFontPanel = YES;
+    ASSERT(_shouldObserveFontPanel);
+    if (_isObservingFontPanel)
+        return;
+    _isObservingFontPanel = YES;
     [[NSFontPanel sharedFontPanel] addObserver:self forKeyPath:@"visible" options:0 context:keyValueObservingContext];
 }
 
 - (void)startObservingLookupDismissalIfNeeded
 {
+    RELEASE_ASSERT(isMainRunLoop());
     if (_didRegisterForLookupPopoverCloseNotifications)
         return;
 
@@ -401,73 +430,88 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 
 - (void)_windowDidOrderOnScreen:(NSNotification *)notification
 {
-    _impl->windowDidOrderOnScreen();
+    if (_impl)
+        _impl->windowDidOrderOnScreen();
 }
 
 - (void)_windowDidOrderOffScreen:(NSNotification *)notification
 {
-    _impl->windowDidOrderOffScreen();
+    if (_impl)
+        _impl->windowDidOrderOffScreen();
 }
 
 - (void)_windowDidBecomeKey:(NSNotification *)notification
 {
-    _impl->windowDidBecomeKey([notification object]);
+    if (_impl)
+        _impl->windowDidBecomeKey([notification object]);
 }
 
 - (void)_windowDidResignKey:(NSNotification *)notification
 {
-    _impl->windowDidResignKey([notification object]);
+    if (_impl)
+        _impl->windowDidResignKey([notification object]);
 }
 
 - (void)_windowDidMiniaturize:(NSNotification *)notification
 {
-    _impl->windowDidMiniaturize();
+    if (_impl)
+        _impl->windowDidMiniaturize();
 }
 
 - (void)_windowDidDeminiaturize:(NSNotification *)notification
 {
-    _impl->windowDidDeminiaturize();
+    if (_impl)
+        _impl->windowDidDeminiaturize();
 }
 
 - (void)_windowDidMove:(NSNotification *)notification
 {
-    _impl->windowDidMove();
+    if (_impl)
+        _impl->windowDidMove();
 }
 
 - (void)_windowDidResize:(NSNotification *)notification
 {
-    _impl->windowDidResize();
+    if (_impl)
+        _impl->windowDidResize();
 }
 
 - (void)_windowWillBeginSheet:(NSNotification *)notification
 {
-    _impl->windowWillBeginSheet();
+    if (_impl)
+        _impl->windowWillBeginSheet();
 }
 
 - (void)_windowDidChangeBackingProperties:(NSNotification *)notification
 {
+    if (!_impl)
+        return;
     CGFloat oldBackingScaleFactor = [[notification.userInfo objectForKey:NSBackingPropertyOldScaleFactorKey] doubleValue];
     _impl->windowDidChangeBackingProperties(oldBackingScaleFactor);
 }
 
 - (void)_windowDidChangeScreen:(NSNotification *)notification
 {
-    _impl->windowDidChangeScreen();
+    if (_impl)
+        _impl->windowDidChangeScreen();
 }
 
 - (void)_windowDidChangeLayerHosting:(NSNotification *)notification
 {
-    _impl->windowDidChangeLayerHosting();
+    if (_impl)
+        _impl->windowDidChangeLayerHosting();
 }
 
 - (void)_windowDidChangeOcclusionState:(NSNotification *)notification
 {
-    _impl->windowDidChangeOcclusionState();
+    if (_impl)
+        _impl->windowDidChangeOcclusionState();
 }
 
 - (void)_screenDidChangeColorSpace:(NSNotification *)notification
 {
-    _impl->screenDidChangeColorSpace();
+    if (_impl)
+        _impl->screenDidChangeColorSpace();
 }
 
 - (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context
@@ -476,6 +520,9 @@ static void* keyValueObservingContext = &keyValueObservingContext;
         [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
         return;
     }
+
+    if (!_impl)
+        return;
 
     if ([keyPath isEqualToString:@"visible"] && [NSFontPanel sharedFontPanelExists] && object == [NSFontPanel sharedFontPanel]) {
         _impl->updateFontManagerIfNeeded();
@@ -488,13 +535,15 @@ static void* keyValueObservingContext = &keyValueObservingContext;
 #if !ENABLE(REVEAL)
 - (void)_dictionaryLookupPopoverWillClose:(NSNotification *)notification
 {
-    _impl->clearTextIndicatorWithAnimation(WebCore::TextIndicatorDismissalAnimation::None);
+    if (_impl)
+        _impl->clearTextIndicatorWithAnimation(WebCore::TextIndicatorDismissalAnimation::None);
 }
 #endif
 
 - (void)_activeSpaceDidChange:(NSNotification *)notification
 {
-    _impl->activeSpaceDidChange();
+    if (_impl)
+        _impl->activeSpaceDidChange();
 }
 
 @end
@@ -1291,10 +1340,8 @@ WebViewImpl::~WebViewImpl()
 #endif
 #endif
 
-    if (m_targetWindowForMovePreparation) {
-        [m_windowVisibilityObserver stopObserving:m_targetWindowForMovePreparation.get()];
-        m_targetWindowForMovePreparation = nil;
-    }
+    [m_windowVisibilityObserver stopObserving];
+    m_targetWindowForMovePreparation = nil;
 
     m_page->close();
 
@@ -2164,11 +2211,8 @@ void WebViewImpl::viewWillMoveToWindowImpl(NSWindow *window)
 
     clearAllEditCommands();
 
-    if (!m_isPreparingToUnparentView) {
-        NSWindow *stopObservingWindow = m_targetWindowForMovePreparation.get() ?: [m_view window];
-        [m_windowVisibilityObserver stopObserving:stopObservingWindow];
+    if (!m_isPreparingToUnparentView)
         [m_windowVisibilityObserver startObserving:window];
-    }
 
 #if HAVE(NSSCROLLVIEW_SEPARATOR_TRACKING_ADAPTER)
     if (m_isRegisteredScrollViewSeparatorTrackingAdapter) {
@@ -2784,7 +2828,7 @@ void WebViewImpl::shareSheetDidDismiss(WKShareSheet *shareSheet)
 
 void WebViewImpl::didBecomeEditable()
 {
-    [m_windowVisibilityObserver startObservingFontPanel];
+    [m_windowVisibilityObserver enableObservingFontPanel];
 
     RunLoop::main().dispatch([] {
         [[NSSpellChecker sharedSpellChecker] _preflightChosenSpellServer];
@@ -3198,8 +3242,13 @@ NSTextCheckingTypes WebViewImpl::getTextCheckingTypes() const
 {
     NSTextCheckingTypes types = NSTextCheckingTypeSpelling | NSTextCheckingTypeReplacement | NSTextCheckingTypeCorrection;
 #if HAVE(INLINE_PREDICTIONS)
-    if (allowsInlinePredictions())
+    if (allowsInlinePredictions()) {
         types |= (NSTextCheckingType)_NSTextCheckingTypeSingleCompletion;
+
+#if HAVE(TEXT_CHECKING_TYPE_GRAMMAR)
+        types |= (NSTextCheckingType)_NSTextCheckingTypeGrammar;
+#endif
+    }
 #endif
 
     return types;
@@ -4498,6 +4547,30 @@ void WebViewImpl::saveBackForwardSnapshotForItem(WebBackForwardListItem& item)
     m_page->recordNavigationSnapshot(item);
 }
 
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT_UI)
+void WebViewImpl::addTextIndicatorStyleForID(WTF::UUID uuid, WKTextIndicatorStyleType styleType)
+{
+    if (!m_page->preferences().textIndicatorStylingEnabled())
+        return;
+
+    if (![WKTextIndicatorStyleManager supportsTextIndicatorStyle])
+        return;
+
+    if (!m_textIndicatorStyleManager)
+        m_textIndicatorStyleManager = adoptNS([[WKTextIndicatorStyleManager alloc] initWithWebViewImpl:*this]);
+
+    [m_textIndicatorStyleManager addTextIndicatorStyleForID:uuid withStyleType:styleType];
+}
+
+void WebViewImpl::removeTextIndicatorStyleForID(WTF::UUID uuid)
+{
+    if (!m_page->preferences().textIndicatorStylingEnabled())
+        return;
+
+    [m_textIndicatorStyleManager removeTextIndicatorStyleForID:uuid];
+}
+#endif
+
 ViewGestureController& WebViewImpl::ensureGestureController()
 {
     if (!m_gestureController)
@@ -5129,56 +5202,40 @@ static Vector<WebCore::CompositionUnderline> compositionUnderlines(NSAttributedS
     return mergedUnderlines;
 }
 
-static HashMap<String, Vector<WebCore::CharacterRange>> compositionAnnotations(NSAttributedString *string)
-{
-    if (!string.length)
-        return { };
-
-    static NSSet *supportedAttributes = nil;
-#if HAVE(INLINE_PREDICTIONS)
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        supportedAttributes = [[NSSet alloc] initWithObjects:NSTextCompletionAttributeName, nil];
-    });
-#endif
-
-    HashMap<String, Vector<WebCore::CharacterRange>> annotations;
-    [string enumerateAttributesInRange:NSMakeRange(0, string.length) options:0 usingBlock:[&annotations](NSDictionary<NSAttributedStringKey, id> *attributes, NSRange range, BOOL *) {
-        [attributes enumerateKeysAndObjectsUsingBlock:[&annotations, &range](NSAttributedStringKey key, id value, BOOL *) {
-
-            if (![supportedAttributes containsObject:key] || ![value respondsToSelector:@selector(boolValue)] || ![value boolValue])
-                return;
-
-            auto it = annotations.find(key);
-            if (it == annotations.end())
-                it = annotations.add(key, Vector<WebCore::CharacterRange> { }).iterator;
-            auto& vector = it->value;
-
-            // Coalesce this range into the previous one if possible
-            if (vector.size() > 0) {
-                auto& last = vector.last();
-                if (NSMaxRange(last) == range.location) {
-                    last.length += range.length;
-                    return;
-                }
-            }
-            vector.append(range);
-        }];
-    }];
-
-    return annotations;
-}
-
 void WebViewImpl::setMarkedText(id string, NSRange selectedRange, NSRange replacementRange)
 {
     BOOL isAttributedString = [string isKindOfClass:[NSAttributedString class]];
     ASSERT(isAttributedString || [string isKindOfClass:[NSString class]]);
 
-    LOG(TextInput, "setMarkedText:\"%@\" selectedRange:(%u, %u) replacementRange:(%u, %u)", isAttributedString ? [string string] : string, selectedRange.location, selectedRange.length, replacementRange.location, replacementRange.length);
+    LOG(TextInput, "setMarkedText:\"%@\" selectedRange:(%u, %u) replacementRange:(%u, %u)", string, selectedRange.location, selectedRange.length, replacementRange.location, replacementRange.length);
+
+#if HAVE(INLINE_PREDICTIONS)
+    BOOL hasTextCompletion = [&] {
+        if (!isAttributedString)
+            return NO;
+
+        __block BOOL result;
+
+        NSAttributedString *attributedString = (NSAttributedString *)string;
+        [attributedString enumerateAttribute:NSTextCompletionAttributeName inRange:NSMakeRange(0, attributedString.length) options:0 usingBlock:^(id value, NSRange range, BOOL *stop) {
+            if ([value respondsToSelector:@selector(boolValue)] && [value boolValue]) {
+                result = YES;
+                *stop = YES;
+            }
+        }];
+
+        return result;
+    }();
+
+    if (hasTextCompletion || m_isHandlingAcceptedCandidate) {
+        m_isHandlingAcceptedCandidate = hasTextCompletion;
+        m_page->setWritingSuggestion([string string], selectedRange);
+        return;
+    }
+#endif
 
     Vector<WebCore::CompositionUnderline> underlines;
     Vector<WebCore::CompositionHighlight> highlights;
-    HashMap<String, Vector<WebCore::CharacterRange>> annotations;
     NSString *text;
 
     if (isAttributedString) {
@@ -5190,7 +5247,6 @@ void WebViewImpl::setMarkedText(id string, NSRange selectedRange, NSRange replac
         else
 #endif
             underlines = compositionUnderlines(string);
-        annotations = compositionAnnotations(string);
     } else {
         text = string;
         underlines.append(WebCore::CompositionUnderline(0, [text length], WebCore::CompositionUnderlineColor::TextColor, WebCore::Color::black, false));
@@ -5209,7 +5265,7 @@ void WebViewImpl::setMarkedText(id string, NSRange selectedRange, NSRange replac
         return;
     }
 
-    m_page->setCompositionAsync(text, WTFMove(underlines), WTFMove(highlights), WTFMove(annotations), selectedRange, replacementRange);
+    m_page->setCompositionAsync(text, WTFMove(underlines), WTFMove(highlights), selectedRange, replacementRange);
 }
 
 #if HAVE(INLINE_PREDICTIONS)
@@ -6034,9 +6090,9 @@ bool WebViewImpl::isContentRichlyEditable() const
 }
 
 #if ENABLE(MULTI_REPRESENTATION_HEIC)
-void WebViewImpl::insertMultiRepresentationHEIC(NSData *data)
+void WebViewImpl::insertMultiRepresentationHEIC(NSData *data, NSString *altText)
 {
-    m_page->insertMultiRepresentationHEIC(data);
+    m_page->insertMultiRepresentationHEIC(data, altText);
 }
 #endif
 
@@ -6094,7 +6150,7 @@ void WebViewImpl::nowPlayingMediaTitleAndArtist(void(^completionHandler)(NSStrin
     }
 
     m_page->requestActiveNowPlayingSessionInfo([completionHandler = makeBlockPtr(completionHandler)] (bool registeredAsNowPlayingApplication, WebCore::NowPlayingInfo&& nowPlayingInfo) {
-        completionHandler(nowPlayingInfo.title, nowPlayingInfo.artist);
+        completionHandler(nowPlayingInfo.metadata.title, nowPlayingInfo.metadata.artist);
     });
 #else
     completionHandler(nil, nil);
@@ -6381,7 +6437,7 @@ void WebViewImpl::didFinishPresentation(WKRevealItemPresenter *presenter)
 CocoaImageAnalyzer *WebViewImpl::ensureImageAnalyzer()
 {
     if (!m_imageAnalyzer) {
-        m_imageAnalyzerQueue = WorkQueue::create("WebKit image analyzer queue");
+        m_imageAnalyzerQueue = WorkQueue::create("WebKit image analyzer queue"_s);
         m_imageAnalyzer = createImageAnalyzer();
         [m_imageAnalyzer setCallbackQueue:m_imageAnalyzerQueue->dispatchQueue()];
     }

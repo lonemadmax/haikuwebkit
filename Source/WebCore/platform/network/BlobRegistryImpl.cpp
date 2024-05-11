@@ -133,16 +133,16 @@ void BlobRegistryImpl::registerInternalFileBlobURL(const URL& url, Ref<BlobDataF
     addBlobData(url.string(), WTFMove(blobData));
 }
 
-static FileSystem::MappedFileData storeInMappedFileData(const String& path, const uint8_t* data, size_t size)
+static FileSystem::MappedFileData storeInMappedFileData(const String& path, std::span<const uint8_t> data)
 {
-    auto mappedFileData = FileSystem::createMappedFileData(path, size);
+    auto mappedFileData = FileSystem::createMappedFileData(path, data.size());
     if (!mappedFileData)
         return { };
     FileSystem::deleteFile(path);
 
-    memcpy(const_cast<void*>(mappedFileData.data()), data, size);
+    memcpy(const_cast<void*>(mappedFileData.data()), data.data(), data.size());
 
-    FileSystem::finalizeMappedFileData(mappedFileData, size);
+    FileSystem::finalizeMappedFileData(mappedFileData, data.size());
     return mappedFileData;
 }
 
@@ -155,10 +155,10 @@ Ref<DataSegment> BlobRegistryImpl::createDataSegment(Vector<uint8_t>&& movedData
         return data;
 
     static uint64_t blobMappingFileCounter;
-    static NeverDestroyed<Ref<WorkQueue>> workQueue(WorkQueue::create("BlobRegistryImpl Data Queue"));
+    static NeverDestroyed<Ref<WorkQueue>> workQueue(WorkQueue::create("BlobRegistryImpl Data Queue"_s));
     auto filePath = FileSystem::pathByAppendingComponent(m_fileDirectory, makeString("mapping-file-", ++blobMappingFileCounter, ".blob"));
     workQueue.get()->dispatch([blobData = Ref { blobData }, data, filePath = WTFMove(filePath).isolatedCopy()]() mutable {
-        auto mappedFileData = storeInMappedFileData(filePath, data->data(), data->size());
+        auto mappedFileData = storeInMappedFileData(filePath, data->span());
         if (!mappedFileData)
             return;
         ASSERT(mappedFileData.size() == data->size());
@@ -325,7 +325,7 @@ unsigned long long BlobRegistryImpl::blobSize(const URL& url)
 
 static WorkQueue& blobUtilityQueue()
 {
-    static auto& queue = WorkQueue::create("org.webkit.BlobUtility", WorkQueue::QOS::Utility).leakRef();
+    static auto& queue = WorkQueue::create("org.webkit.BlobUtility"_s, WorkQueue::QOS::Utility).leakRef();
     return queue;
 }
 

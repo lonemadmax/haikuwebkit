@@ -58,6 +58,7 @@
 #include "SimpleRange.h"
 #include "SliderThumbElement.h"
 #include "StyleResolver.h"
+#include "TextIterator.h"
 #include <wtf/NeverDestroyed.h>
 
 namespace WebCore {
@@ -125,7 +126,7 @@ static bool shouldAllowAccessibilityRoleAsPointerCursorReplacement(const Element
     }
 }
 
-bool elementMatchesHoverRules(Element& element)
+static bool elementMatchesHoverRules(Element& element)
 {
     bool foundHoverRules = false;
     bool initialValue = element.isUserActionElement() && element.document().userActionElements().isHovered(element);
@@ -225,6 +226,13 @@ static bool isGuardContainer(const Element& element)
     return hasTransparentContainerStyle(renderer.style());
 }
 
+static FloatRect absoluteBoundingRect(const RenderObject& renderer)
+{
+    Vector<FloatQuad> quads;
+    renderer.absoluteQuads(quads);
+    return unitedBoundingBoxes(quads);
+}
+
 static bool cachedImageIsPhoto(const CachedImage& cachedImage)
 {
     if (cachedImage.errorOccurred())
@@ -270,6 +278,15 @@ static std::optional<std::pair<Ref<SVGSVGElement>, Ref<SVGGraphicsElement>>> fin
 
     return std::nullopt;
 }
+
+#if ENABLE(INTERACTION_REGION_TEXT_CONTENT)
+static String interactionRegionTextContentForNode(Node& node)
+{
+    if (auto nodeRange = makeRangeSelectingNode(node))
+        return plainText(*nodeRange);
+    return { };
+}
+#endif
 
 std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject& regionRenderer, const FloatRect& bounds)
 {
@@ -423,8 +440,8 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
     std::optional<Path> clipPath = std::nullopt;
     RefPtr styleClipPath = regionRenderer.style().clipPath();
 
-    if (styleClipPath && styleClipPath->type() == PathOperation::OperationType::Shape) {
-        auto boundingRect = originalElement->boundingClientRect();
+    if (styleClipPath && styleClipPath->type() == PathOperation::OperationType::Shape && originalElement) {
+        auto boundingRect = absoluteBoundingRect(regionRenderer);
         clipPath = styleClipPath->getPath(TransformOperationData(FloatRect(FloatPoint(), boundingRect.size())));
     } else if (iconImage && originalElement) {
         LayoutRect imageRect(rect);
@@ -432,7 +449,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
         Shape::DisplayPaths paths;
         shape->buildDisplayPaths(paths);
         auto path = paths.shape;
-        auto boundingRect = originalElement->boundingClientRect();
+        auto boundingRect = absoluteBoundingRect(regionRenderer);
         path.translate(FloatSize(-boundingRect.x(), -boundingRect.y()));
         clipPath = path;
     } else if (svgClipElements) {
@@ -511,7 +528,10 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(RenderObject
         cornerRadius,
         maskedCorners,
         isPhoto ? InteractionRegion::ContentHint::Photo : InteractionRegion::ContentHint::Default,
-        clipPath
+        clipPath,
+#if ENABLE(INTERACTION_REGION_TEXT_CONTENT)
+        interactionRegionTextContentForNode(*regionRenderer.node())
+#endif
     } };
 }
 
@@ -539,7 +559,10 @@ TextStream& operator<<(TextStream& ts, const InteractionRegion& interactionRegio
     }
     if (interactionRegion.clipPath)
         ts.dumpProperty("clipPath", interactionRegion.clipPath.value());
-
+#if ENABLE(INTERACTION_REGION_TEXT_CONTENT)
+    if (!interactionRegion.text.isEmpty())
+        ts.dumpProperty("text", interactionRegion.text);
+#endif
     return ts;
 }
 

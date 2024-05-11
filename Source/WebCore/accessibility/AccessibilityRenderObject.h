@@ -54,7 +54,7 @@ class VisibleSelection;
 
 class AccessibilityRenderObject : public AccessibilityNodeObject {
 public:
-    static Ref<AccessibilityRenderObject> create(RenderObject*);
+    static Ref<AccessibilityRenderObject> create(RenderObject&);
     virtual ~AccessibilityRenderObject();
     
     FloatRect frameRect() const final;
@@ -76,8 +76,8 @@ public:
     
     AccessibilityObject* firstChild() const override;
     AccessibilityObject* lastChild() const override;
-    AccessibilityObject* previousSibling() const override;
-    AccessibilityObject* nextSibling() const override;
+    AccessibilityObject* previousSibling() const final;
+    AccessibilityObject* nextSibling() const final;
     AccessibilityObject* parentObject() const override;
     AccessibilityObject* parentObjectIfExists() const override;
     AccessibilityObject* observableObject() const override;
@@ -139,7 +139,7 @@ public:
     void labelText(Vector<AccessibilityText>&) const override;
 
 protected:
-    explicit AccessibilityRenderObject(RenderObject*);
+    explicit AccessibilityRenderObject(RenderObject&);
     explicit AccessibilityRenderObject(Node&);
     void detachRemoteParts(AccessibilityDetachmentType) override;
     ScrollableArea* getScrollableAreaIfScrollable() const override;
@@ -162,7 +162,7 @@ private:
     bool isAllowedChildOfTree() const;
     CharacterRange documentBasedSelectedTextRange() const;
     RefPtr<Element> rootEditableElementForPosition(const Position&) const;
-    bool nodeIsTextControl(const Node*) const;
+    bool nodeIsTextControl(const Node&) const;
     Path elementPath() const override;
     
     AccessibilityObject* accessibilityImageMapHitTest(HTMLAreaElement&, const IntPoint&) const;

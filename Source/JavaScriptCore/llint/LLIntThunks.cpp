@@ -46,6 +46,10 @@ namespace JSC {
 
 JSC_ANNOTATE_JIT_OPERATION_RETURN(jitCagePtrGateAfter);
 JSC_ANNOTATE_JIT_OPERATION(vmEntryToJavaScript);
+JSC_ANNOTATE_JIT_OPERATION(vmEntryToJavaScriptWith0Arguments);
+JSC_ANNOTATE_JIT_OPERATION(vmEntryToJavaScriptWith1Arguments);
+JSC_ANNOTATE_JIT_OPERATION(vmEntryToJavaScriptWith2Arguments);
+JSC_ANNOTATE_JIT_OPERATION(vmEntryToJavaScriptWith3Arguments);
 JSC_ANNOTATE_JIT_OPERATION(vmEntryToNative);
 JSC_ANNOTATE_JIT_OPERATION_RETURN(vmEntryToJavaScriptGateAfter);
 JSC_ANNOTATE_JIT_OPERATION_RETURN(llint_function_for_call_arity_checkUntagGateAfter);
@@ -786,6 +790,7 @@ MacroAssemblerCodeRef<JSEntryPtrTag> returnLocationThunk(OpcodeID opcodeID, Opco
     LLINT_RETURN_LOCATION(op_call_varargs)
     LLINT_RETURN_LOCATION(op_construct_varargs)
     LLINT_RETURN_LOCATION(op_get_by_id)
+    LLINT_RETURN_LOCATION(op_get_length)
     LLINT_RETURN_LOCATION(op_get_by_val)
     LLINT_RETURN_LOCATION(op_put_by_id)
     LLINT_RETURN_LOCATION(op_put_by_val)
@@ -796,6 +801,24 @@ MacroAssemblerCodeRef<JSEntryPtrTag> returnLocationThunk(OpcodeID opcodeID, Opco
 }
 
 #endif
+
+} // namespace LLInt
+
+#else // ENABLE(JIT)
+
+namespace LLInt {
+
+#if ENABLE(WEBASSEMBLY)
+MacroAssemblerCodeRef<JITThunkPtrTag> wasmFunctionEntryThunk()
+{
+    return { };
+}
+
+MacroAssemblerCodeRef<JITThunkPtrTag> wasmFunctionEntryThunkSIMD()
+{
+    return { };
+}
+#endif // ENABLE(WEBASSEMBLY)
 
 } // namespace LLInt
 

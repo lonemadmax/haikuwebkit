@@ -136,6 +136,7 @@ list(APPEND WebKit_UNIFIED_SOURCE_LIST_FILES
 set(WebKit_MESSAGES_IN_FILES
     GPUProcess/GPUConnectionToWebProcess
     GPUProcess/GPUProcess
+    GPUProcess/RemoteSharedResourceCache
 
     GPUProcess/ShapeDetection/RemoteBarcodeDetector
     GPUProcess/ShapeDetection/RemoteFaceDetector
@@ -666,15 +667,13 @@ elseif (USE_ANGLE_EGL)
         ANGLE::EGL
     )
 else ()
-    if (USE_EGL)
-        list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
-            ${EGL_INCLUDE_DIRS}
-        )
-        list(APPEND WebKit_PRIVATE_LIBRARIES
-            ${EGL_LIBRARIES}
-        )
-        add_definitions(${EGL_DEFINITIONS})
-    endif ()
+    list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
+        ${EGL_INCLUDE_DIRS}
+    )
+    list(APPEND WebKit_PRIVATE_LIBRARIES
+        ${EGL_LIBRARIES}
+    )
+    add_definitions(${EGL_DEFINITIONS})
 endif ()
 
 if (USE_LIBWEBRTC)

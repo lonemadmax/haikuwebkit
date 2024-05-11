@@ -2281,9 +2281,11 @@ bool LocalFrameView::scrollToFragment(const URL& url)
             auto parsedTextDirectives = fragmentDirectiveParser.parsedTextDirectives();
             
             auto highlightRanges = FragmentDirectiveRangeFinder::findRangesFromTextDirectives(parsedTextDirectives, document);
-            for (auto range : highlightRanges)
-                document->fragmentHighlightRegistry().addAnnotationHighlightWithRange(StaticRange::create(range));
-            
+            if (m_frame->settings().scrollToTextFragmentMarkingEnabled()) {
+                for (auto range : highlightRanges)
+                    document->fragmentHighlightRegistry().addAnnotationHighlightWithRange(StaticRange::create(range));
+            }
+
             if (highlightRanges.size()) {
                 auto range = highlightRanges.first();
                 RefPtr commonAncestor = commonInclusiveAncestor<ComposedTree>(range);
@@ -2401,7 +2403,7 @@ void LocalFrameView::maintainScrollPositionAtScrollToTextFragmentRange(SimpleRan
 
 void LocalFrameView::scrollElementToRect(const Element& element, const IntRect& rect)
 {
-    m_frame->document()->updateLayoutIgnorePendingStylesheets();
+    m_frame->protectedDocument()->updateLayoutIgnorePendingStylesheets();
 
     LayoutRect bounds;
     if (RenderElement* renderer = element.renderer())
@@ -3971,7 +3973,7 @@ void LocalFrameView::performFixedWidthAutoSize()
 {
     LOG(Layout, "LocalFrameView %p performFixedWidthAutoSize", this);
 
-    auto* document = m_frame->document();
+    RefPtr document = m_frame->document();
     auto* renderView = document->renderView();
     auto* firstChild = renderView->firstChild();
 
@@ -4007,10 +4009,10 @@ void LocalFrameView::performSizeToContentAutoSize()
     LOG(Layout, "LocalFrameView %p performSizeToContentAutoSize", this);
     ASSERT(m_frame->document() && m_frame->document()->renderView());
 
-    auto& document = *m_frame->document();
-    auto& renderView = *document.renderView();
+    auto document = m_frame->protectedDocument();
+    auto& renderView = *document->renderView();
     auto layoutWithAdjustedStyleIfNeeded = [&] {
-        document.updateStyleIfNeeded();
+        document->updateStyleIfNeeded();
         if (auto* documentRenderer = downcast<RenderElement>(renderView.firstChild())) {
             auto& style = documentRenderer->mutableStyle();
             if (style.logicalHeight().isPercent()) {
@@ -4019,7 +4021,7 @@ void LocalFrameView::performSizeToContentAutoSize()
                 style.setLogicalHeight({ });
             }
         }
-        document.updateLayout();
+        document->updateLayout();
     };
 
     resetOverriddenWidthForCSSDefaultViewportUnits();
@@ -4525,7 +4527,7 @@ Color LocalFrameView::documentBackgroundColor() const
         if (!fullscreenManager)
             return { };
 
-        auto* fullscreenElement = fullscreenManager->fullscreenElement();
+        RefPtr fullscreenElement = fullscreenManager->fullscreenElement();
         if (!fullscreenElement)
             return { };
 
@@ -4945,11 +4947,11 @@ void LocalFrameView::updateLayoutAndStyleIfNeededRecursive(OptionSet<LayoutOptio
 #include <span>
 
 template<typename CharacterType>
-static unsigned nonWhitespaceLength(const CharacterType* characters, unsigned length)
+static size_t nonWhitespaceLength(std::span<const CharacterType> characters)
 {
-    unsigned result = length;
-    for (unsigned i = 0; i < length; ++i) {
-        if (isASCIIWhitespace(characters[i]))
+    size_t result = characters.size();
+    for (auto character : characters) {
+        if (isASCIIWhitespace(character))
             --result;
     }
     return result;
@@ -4958,9 +4960,9 @@ static unsigned nonWhitespaceLength(const CharacterType* characters, unsigned le
 void LocalFrameView::incrementVisuallyNonEmptyCharacterCountSlowCase(const String& inlineText)
 {
     if (inlineText.is8Bit())
-        m_visuallyNonEmptyCharacterCount += nonWhitespaceLength(inlineText.characters8(), inlineText.length());
+        m_visuallyNonEmptyCharacterCount += nonWhitespaceLength(inlineText.span8());
     else
-        m_visuallyNonEmptyCharacterCount += nonWhitespaceLength(inlineText.characters16(), inlineText.length());
+        m_visuallyNonEmptyCharacterCount += nonWhitespaceLength(inlineText.span16());
     ++m_textRendererCountForVisuallyNonEmptyCharacters;
 }
 
@@ -5337,8 +5339,8 @@ void LocalFrameView::setTracksRepaints(bool trackRepaints)
 
     // Force layout to flush out any pending repaints.
     if (trackRepaints) {
-        if (m_frame->document())
-            m_frame->document()->updateLayout(LayoutOptions::UpdateCompositingLayers);
+        if (RefPtr document = m_frame->document())
+            document->updateLayout(LayoutOptions::UpdateCompositingLayers);
     }
 
     for (Frame* frame = &m_frame->tree().top(); frame; frame = frame->tree().traverseNext()) {
@@ -5365,7 +5367,7 @@ String LocalFrameView::trackedRepaintRectsAsText() const
     auto& frame = this->m_frame.get();
     Ref protectedFrame { frame };
 
-    if (auto* document = frame.document())
+    if (RefPtr document = frame.document())
         document->updateLayout();
 
     TextStream ts;
@@ -5616,7 +5618,7 @@ void LocalFrameView::didAddScrollbar(Scrollbar* scrollbar, ScrollbarOrientation 
     if (page && page->isMonitoringWheelEvents())
         scrollAnimator().setWheelEventTestMonitor(page->wheelEventTestMonitor());
     if (AXObjectCache* cache = axObjectCache())
-        cache->onScrollbarUpdate(this);
+        cache->onScrollbarUpdate(*this);
 }
 
 void LocalFrameView::willRemoveScrollbar(Scrollbar* scrollbar, ScrollbarOrientation orientation)
@@ -5624,7 +5626,7 @@ void LocalFrameView::willRemoveScrollbar(Scrollbar* scrollbar, ScrollbarOrientat
     ScrollableArea::willRemoveScrollbar(scrollbar, orientation);
     if (AXObjectCache* cache = axObjectCache()) {
         cache->remove(scrollbar);
-        cache->onScrollbarUpdate(this);
+        cache->onScrollbarUpdate(*this);
     }
 }
 

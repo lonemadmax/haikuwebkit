@@ -42,8 +42,10 @@ if (!m_parentEncoder->isLocked() || m_parentEncoder->isFinished()) { \
     m_device->generateAValidationError([NSString stringWithFormat:@"%s: failed as encoding has finished", __PRETTY_FUNCTION__]); \
     return; \
 } \
-if (!m_computeCommandEncoder || !m_parentEncoder->isValid()) \
-    return;
+if (!m_computeCommandEncoder || !m_parentEncoder->isValid() || !m_parentEncoder->encoderIsCurrent(m_computeCommandEncoder)) { \
+    m_computeCommandEncoder = nil; \
+    return; \
+}
 
 ComputePassEncoder::ComputePassEncoder(id<MTLComputeCommandEncoder> computeCommandEncoder, const WGPUComputePassDescriptor& descriptor, CommandEncoder& parentEncoder, Device& device)
     : m_computeCommandEncoder(computeCommandEncoder)
@@ -422,8 +424,12 @@ void ComputePassEncoder::setBindGroup(uint32_t groupIndex, const BindGroup& grou
     }
 
     auto* bindGroupLayout = group.bindGroupLayout();
-    if (!bindGroupLayout || !bindGroupLayout->validateDynamicOffsets(dynamicOffsets, dynamicOffsetCount, group)) {
-        makeInvalid(@"GPUComputePassEncoder.setBindGroup: insufficient dynamic offsets in layout for bind group");
+    if (!bindGroupLayout) {
+        makeInvalid(@"GPUComputePassEncoder.setBindGroup: bind group is nil");
+        return;
+    }
+    if (NSString* error = bindGroupLayout->errorValidatingDynamicOffsets(dynamicOffsets, dynamicOffsetCount, group)) {
+        makeInvalid([NSString stringWithFormat:@"GPUComputePassEncoder.setBindGroup: %@", error]);
         return;
     }
 

@@ -93,6 +93,9 @@ static RenderBundleICBWithResources* makeRenderBundleICBWithResources(id<MTLIndi
     Vector<BindGroupEntryUsageData> stageResourceUsages[maxStageValue][maxResourceUsageValue];
 
     for (id<MTLResource> r : resources) {
+        if (!r)
+            continue;
+
         ResourceUsageAndRenderStage *usageAndStage = [resources objectForKey:r];
         stageResources[usageAndStage.renderStages - 1][usageAndStage.usage - 1].append(r);
         stageResourceUsages[usageAndStage.renderStages - 1][usageAndStage.usage - 1].append(BindGroupEntryUsageData { .usage = usageAndStage.entryUsage, .binding = usageAndStage.binding, .resource = usageAndStage.resource });
@@ -815,8 +818,12 @@ void RenderBundleEncoder::setBindGroup(uint32_t groupIndex, const BindGroup& gro
 
         if (dynamicOffsets) {
             auto* bindGroupLayout = group.bindGroupLayout();
-            if (!bindGroupLayout || !bindGroupLayout->validateDynamicOffsets(dynamicOffsets ? dynamicOffsets->data() : nullptr, dynamicOffsets ? dynamicOffsets->size() : 0, group)) {
-                makeInvalid(@"insufficient dynamic offsets in layout for bind group");
+            if (!bindGroupLayout) {
+                makeInvalid(@"GPURenderBundleEncoder.setBindGroup: bind group is nil");
+                return;
+            }
+            if (NSString* error = bindGroupLayout->errorValidatingDynamicOffsets(dynamicOffsets ? dynamicOffsets->data() : nullptr, dynamicOffsets ? dynamicOffsets->size() : 0, group)) {
+                makeInvalid([NSString stringWithFormat:@"GPURenderBundleEncoder.setBindGroup: %@", error]);
                 return;
             }
         }

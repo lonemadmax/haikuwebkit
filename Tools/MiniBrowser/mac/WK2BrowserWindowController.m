@@ -521,7 +521,7 @@ static BOOL areEssentiallyEqual(double a, double b)
 
 - (void)zoomOut:(id)sender
 {
-    if (!self.canZoomIn)
+    if (!self.canZoomOut)
         return;
 
     self.currentZoomFactor /= DefaultZoomFactorRatio;
@@ -581,6 +581,8 @@ static BOOL areEssentiallyEqual(double a, double b)
         visibleOverlayRegions |= _WKWheelEventHandlerRegion;
     if (settings.interactionRegionOverlayVisible)
         visibleOverlayRegions |= _WKInteractionRegion;
+    if (settings.siteIsolationOverlayEnabled)
+        visibleOverlayRegions |= _WKSiteIsolationRegion;
     
     preferences._visibleDebugOverlayRegions = visibleOverlayRegions;
 

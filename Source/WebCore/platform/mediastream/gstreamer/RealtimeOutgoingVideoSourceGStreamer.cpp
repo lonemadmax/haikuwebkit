@@ -60,16 +60,14 @@ RealtimeOutgoingVideoSourceGStreamer::RealtimeOutgoingVideoSourceGStreamer(const
     m_videoFlip = makeGStreamerElement("videoflip", nullptr);
     gst_util_set_object_arg(G_OBJECT(m_videoFlip.get()), "method", "automatic");
 
-    // Variable framerate for canvas capture tracks requires further investigation, so disable it for now.
-    if (!track.isCanvas()) {
-        m_videoRate = makeGStreamerElement("videorate", nullptr);
-        g_object_set(m_videoRate.get(), "skip-to-first", TRUE, nullptr);
-        m_frameRateCapsFilter = makeGStreamerElement("capsfilter", nullptr);
-        gst_bin_add_many(GST_BIN_CAST(m_bin.get()), m_videoRate.get(), m_frameRateCapsFilter.get(), nullptr);
-    }
+    m_videoRate = makeGStreamerElement("videorate", nullptr);
+    m_frameRateCapsFilter = makeGStreamerElement("capsfilter", nullptr);
+
+    // https://gitlab.freedesktop.org/gstreamer/gst-plugins-base/issues/97#note_56575
+    g_object_set(m_videoRate.get(), "skip-to-first", TRUE, "drop-only", TRUE, "average-period", UINT64_C(1), nullptr);
 
     m_encoder = gst_element_factory_make("webkitvideoencoder", nullptr);
-    gst_bin_add_many(GST_BIN_CAST(m_bin.get()), m_videoFlip.get(), m_videoConvert.get(), m_encoder.get(), nullptr);
+    gst_bin_add_many(GST_BIN_CAST(m_bin.get()), m_videoRate.get(), m_frameRateCapsFilter.get(), m_videoFlip.get(), m_videoConvert.get(), m_encoder.get(), nullptr);
 }
 
 RTCRtpCapabilities RealtimeOutgoingVideoSourceGStreamer::rtpCapabilities() const
@@ -107,8 +105,10 @@ void RealtimeOutgoingVideoSourceGStreamer::teardown()
 bool RealtimeOutgoingVideoSourceGStreamer::setPayloadType(const GRefPtr<GstCaps>& caps)
 {
     GST_DEBUG_OBJECT(m_bin.get(), "Setting payload caps: %" GST_PTR_FORMAT, caps.get());
-    auto* structure = gst_caps_get_structure(caps.get(), 0);
-    const char* encodingName = gst_structure_get_string(structure, "encoding-name");
+    // FIXME: We use only the first structure of the caps. This not be the right approach specially
+    // we don't have a payloader or encoder for that format.
+    GUniquePtr<GstStructure> structure(gst_structure_copy(gst_caps_get_structure(caps.get(), 0)));
+    const char* encodingName = gst_structure_get_string(structure.get(), "encoding-name");
     if (!encodingName) {
         GST_ERROR_OBJECT(m_bin.get(), "encoding-name not found");
         return false;
@@ -132,20 +132,21 @@ bool RealtimeOutgoingVideoSourceGStreamer::setPayloadType(const GRefPtr<GstCaps>
             gst_util_set_object_arg(G_OBJECT(m_payloader.get()), "picture-id-mode", "15-bit");
 
         encoderCaps = adoptGRef(gst_caps_new_empty_simple("video/x-vp9"));
-        if (const char* vp9Profile = gst_structure_get_string(structure, "vp9-profile-id"))
+        if (const char* vp9Profile = gst_structure_get_string(structure.get(), "vp9-profile-id"))
             gst_caps_set_simple(encoderCaps.get(), "profile", G_TYPE_STRING, vp9Profile, nullptr);
     } else if (encoding == "h264"_s) {
         encoderCaps = adoptGRef(gst_caps_new_empty_simple("video/x-h264"));
-        // FIXME: https://gitlab.freedesktop.org/gstreamer/gst-plugins-good/-/issues/893
-        // gst_util_set_object_arg(G_OBJECT(m_payloader.get()), "aggregate-mode", "zero-latency");
-        // g_object_set(m_payloader.get(), "config-interval", -1, nullptr);
+        gst_util_set_object_arg(G_OBJECT(m_payloader.get()), "aggregate-mode", "zero-latency");
+        g_object_set(m_payloader.get(), "config-interval", -1, nullptr);
 
-        const char* profile = gst_structure_get_string(structure, "profile");
+        const char* profile = gst_structure_get_string(structure.get(), "profile");
         if (!profile)
             profile = "baseline";
         gst_caps_set_simple(encoderCaps.get(), "profile", G_TYPE_STRING, profile, nullptr);
     } else if (encoding == "h265"_s) {
         encoderCaps = adoptGRef(gst_caps_new_empty_simple("video/x-h265"));
+        gst_util_set_object_arg(G_OBJECT(m_payloader.get()), "aggregate-mode", "zero-latency");
+        g_object_set(m_payloader.get(), "config-interval", -1, nullptr);
         // FIXME: profile tier level?
     } else if (encoding == "av1"_s) {
         encoderCaps = adoptGRef(gst_caps_new_empty_simple("video/x-av1"));
@@ -163,7 +164,7 @@ bool RealtimeOutgoingVideoSourceGStreamer::setPayloadType(const GRefPtr<GstCaps>
     }
 
     int payloadType;
-    if (gst_structure_get_int(structure, "payload", &payloadType))
+    if (gst_structure_get_int(structure.get(), "payload", &payloadType))
         g_object_set(m_payloader.get(), "pt", payloadType, nullptr);
 
     if (m_payloaderState) {
@@ -171,7 +172,11 @@ bool RealtimeOutgoingVideoSourceGStreamer::setPayloadType(const GRefPtr<GstCaps>
         m_payloaderState.reset();
     }
 
-    g_object_set(m_capsFilter.get(), "caps", caps.get(), nullptr);
+    auto rtpCaps = adoptGRef(gst_caps_new_empty());
+    gst_caps_append_structure(rtpCaps.get(), structure.release());
+
+    g_object_set(m_capsFilter.get(), "caps", rtpCaps.get(), nullptr);
+    GST_DEBUG_OBJECT(m_bin.get(), "RTP caps: %" GST_PTR_FORMAT, rtpCaps.get());
 
     gst_bin_add(GST_BIN_CAST(m_bin.get()), m_payloader.get());
 

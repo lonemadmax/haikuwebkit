@@ -65,6 +65,10 @@
 #import <rootless.h>
 #endif
 
+#if __has_include(<WebKitAdditions/DyldCallbackAdditions.h>)
+#import <WebKitAdditions/DyldCallbackAdditions.h>
+#endif
+
 SOFT_LINK_SYSTEM_LIBRARY(libsystem_info)
 SOFT_LINK_OPTIONAL(libsystem_info, mbr_close_connections, int, (), ());
 SOFT_LINK_OPTIONAL(libsystem_info, lookup_close_connections, int, (), ());
@@ -208,18 +212,18 @@ static std::optional<Vector<char>> fileContents(const String& path, bool shouldL
 #if USE(APPLE_INTERNAL_SDK)
 // These strings must match the last segment of the "com.apple.rootless.storage.<this part must match>" entry in each
 // process's restricted entitlements file (ex. Configurations/Networking-OSX-restricted.entitlements).
-constexpr const char* processStorageClass(WebCore::AuxiliaryProcessType type)
+constexpr ASCIILiteral processStorageClass(WebCore::AuxiliaryProcessType type)
 {
     switch (type) {
     case WebCore::AuxiliaryProcessType::WebContent:
-        return "WebKitWebContentSandbox";
+        return "WebKitWebContentSandbox"_s;
     case WebCore::AuxiliaryProcessType::Network:
-        return "WebKitNetworkingSandbox";
+        return "WebKitNetworkingSandbox"_s;
     case WebCore::AuxiliaryProcessType::Plugin:
-        return "WebKitPluginSandbox";
+        return "WebKitPluginSandbox"_s;
 #if ENABLE(GPU_PROCESS)
     case WebCore::AuxiliaryProcessType::GPU:
-        return "WebKitGPUSandbox";
+        return "WebKitGPUSandbox"_s;
 #endif
     }
 }
@@ -310,7 +314,7 @@ static bool ensureSandboxCacheDirectory(const SandboxInfo& info)
     }
 
 #if USE(APPLE_INTERNAL_SDK)
-    const char* storageClass = processStorageClass(info.processType);
+    auto storageClass = processStorageClass(info.processType);
     CString directoryPath = FileSystem::fileSystemRepresentation(info.directoryPath);
     if (directoryPath.isNull())
         return false;
@@ -652,6 +656,14 @@ static String getHomeDirectory()
     return String::fromUTF8(pwd.pw_dir);
 }
 
+static void closeOpenDirectoryConnections()
+{
+    if (mbr_close_connectionsPtr())
+        mbr_close_connectionsPtr()();
+    if (lookup_close_connectionsPtr())
+        lookup_close_connectionsPtr()();
+}
+
 static void populateSandboxInitializationParameters(SandboxInitializationParameters& sandboxParameters)
 {
     RELEASE_ASSERT(!sandboxParameters.userDirectorySuffix().isNull());
@@ -696,10 +708,9 @@ static void populateSandboxInitializationParameters(SandboxInitializationParamet
 #else
 #error "Unknown architecture."
 #endif
-    if (mbr_close_connectionsPtr())
-        mbr_close_connectionsPtr()();
-    if (lookup_close_connectionsPtr())
-        lookup_close_connectionsPtr()();
+
+    closeOpenDirectoryConnections();
+
     if (HIS_XPC_ResetMessageConnectionPtr())
         HIS_XPC_ResetMessageConnectionPtr()();
 }
@@ -740,6 +751,10 @@ void AuxiliaryProcess::initializeSandbox(const AuxiliaryProcessInitializationPar
             exitProcess(EX_NOPERM);
         }
     }
+
+#if __has_include(<WebKitAdditions/DyldCallbackAdditions.h>)
+    register_for_dlsym_callbacks();
+#endif
 }
 
 void AuxiliaryProcess::applySandboxProfileForDaemon(const String& profilePath, const String& userDirectorySuffix)
@@ -810,6 +825,8 @@ void AuxiliaryProcess::openDirectoryCacheInvalidated(SandboxExtension::Handle&& 
     getHomeDirectory();
 
     sandboxExtension->revoke();
+
+    closeOpenDirectoryConnections();
 }
 #endif // PLATFORM(MAC)
 

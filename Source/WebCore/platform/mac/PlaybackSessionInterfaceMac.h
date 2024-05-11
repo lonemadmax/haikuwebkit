@@ -43,7 +43,10 @@ class PlaybackSessionModel;
 
 class WEBCORE_EXPORT PlaybackSessionInterfaceMac final
     : public PlaybackSessionModelClient
-    , public RefCounted<PlaybackSessionInterfaceMac> {
+    , public RefCounted<PlaybackSessionInterfaceMac>
+    , public CanMakeCheckedPtr<PlaybackSessionInterfaceMac> {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(PlaybackSessionInterfaceMac);
 public:
     static Ref<PlaybackSessionInterfaceMac> create(PlaybackSessionModel&);
     virtual ~PlaybackSessionInterfaceMac();
@@ -86,6 +89,13 @@ public:
 
 private:
     PlaybackSessionInterfaceMac(PlaybackSessionModel&);
+
+    // CheckedPtr interface
+    uint32_t ptrCount() const final;
+    uint32_t ptrCountWithoutThreadCheck() const final;
+    void incrementPtrCount() const final;
+    void decrementPtrCount() const final;
+
     WeakPtr<PlaybackSessionModel> m_playbackSessionModel;
 #if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
     WeakObjCPtr<WebPlaybackControlsManager> m_playbackControlsManager;

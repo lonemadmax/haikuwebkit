@@ -98,9 +98,16 @@ public:
 #endif
 };
 
-class VideoPresentationModelClient : public CanMakeWeakPtr<VideoPresentationModelClient>, public CanMakeCheckedPtr {
+class VideoPresentationModelClient : public CanMakeWeakPtr<VideoPresentationModelClient> {
 public:
     virtual ~VideoPresentationModelClient() = default;
+
+    // CheckedPtr interface
+    virtual uint32_t ptrCount() const = 0;
+    virtual uint32_t ptrCountWithoutThreadCheck() const = 0;
+    virtual void incrementPtrCount() const = 0;
+    virtual void decrementPtrCount() const = 0;
+
     virtual void hasVideoChanged(bool) { }
     virtual void videoDimensionsChanged(const FloatSize&) { }
     virtual void willEnterPictureInPicture() { }
@@ -110,7 +117,7 @@ public:
     virtual void didExitPictureInPicture() { }
     virtual void setPlayerIdentifier(std::optional<MediaPlayerIdentifier>) { }
 };
-    
+
 } // namespace WebCore
 
 #endif // ENABLE(VIDEO_PRESENTATION_MODE)

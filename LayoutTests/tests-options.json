@@ -2219,6 +2219,9 @@
     "imported/w3c/web-platform-tests/css/css-view-transitions/new-content-captures-different-size.html": [
         "slow"
     ],
+    "imported/w3c/web-platform-tests/css/css-view-transitions/new-content-changes-overflow-left.html": [
+        "slow"
+    ],
     "imported/w3c/web-platform-tests/css/css-view-transitions/new-content-changes-overflow.html": [
         "slow"
     ],
@@ -2244,6 +2247,12 @@
         "slow"
     ],
     "imported/w3c/web-platform-tests/css/css-view-transitions/old-content-with-object-view-box.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/css/css-view-transitions/transition-in-hidden-page.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/css/css-view-transitions/update-callback-timeout.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/css/cssom-view/idlharness.html": [
@@ -4034,6 +4043,39 @@
     "imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/show-picker-user-gesture.tentative.html": [
         "slow"
     ],
+    "imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-button-event-dispatch.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-fullscreen-behavior.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-on-audio-behavior.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-on-audio-invalid-behavior.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-on-details-behavior.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-on-details-invalid-behavior.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-on-dialog-behavior.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-on-dialog-invalid-behavior.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-on-popover-behavior.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-on-popover-invalid-behavior.tentative.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-on-video-behavior.tentative.html": [
+        "slow"
+    ],
     "imported/w3c/web-platform-tests/html/semantics/links/links-created-by-a-and-area-elements/target_blank_implicit_noopener.html": [
         "slow"
     ],
@@ -5201,16 +5243,7 @@
     "imported/w3c/web-platform-tests/mst-content-hint/RTCRtpSendParameters-degradationEffect.html": [
         "slow"
     ],
-    "imported/w3c/web-platform-tests/payment-request/allowpaymentrequest/setting-allowpaymentrequest-timing.https.sub.html": [
-        "slow"
-    ],
     "imported/w3c/web-platform-tests/payment-request/payment-is-showing.https.html": [
-        "slow"
-    ],
-    "imported/w3c/web-platform-tests/payment-request/payment-request-constructor-crash.https.html": [
-        "slow"
-    ],
-    "imported/w3c/web-platform-tests/payment-request/payment-request-constructor-thcrash.https.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/picture-in-picture/leave-picture-in-picture.html": [
@@ -5661,6 +5694,9 @@
         "slow"
     ],
     "imported/w3c/web-platform-tests/service-workers/service-worker/worker-interception.https.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/shadow-dom/declarative/gethtml.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/svg/animations/svglengthlist-animation-3.html": [

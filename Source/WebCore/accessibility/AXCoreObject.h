@@ -727,6 +727,8 @@ enum class AccessibilityOrientation {
     Undefined,
 };
 
+enum class TrimWhitespace : bool { No, Yes };
+
 struct TextUnderElementMode {
     enum class Children : uint8_t {
         SkipIgnoredChildren,
@@ -737,6 +739,8 @@ struct TextUnderElementMode {
     Children childrenInclusion;
     bool includeFocusableContent;
     bool considerHiddenState { true };
+    bool inHiddenSubtree { false };
+    TrimWhitespace trimWhitespace { TrimWhitespace::Yes };
     Node* ignoredChildNode;
 
     TextUnderElementMode(Children childrenInclusion = Children::SkipIgnoredChildren, bool includeFocusable = false, Node* ignoredChild = nullptr)
@@ -744,6 +748,8 @@ struct TextUnderElementMode {
         , includeFocusableContent(includeFocusable)
         , ignoredChildNode(ignoredChild)
     { }
+
+    bool isHidden() { return considerHiddenState && inHiddenSubtree; }
 };
 
 enum class AccessibilityVisiblePositionForBounds {
@@ -841,7 +847,7 @@ public:
     bool isCheckbox() const { return roleValue() == AccessibilityRole::Checkbox; }
     bool isRadioButton() const { return roleValue() == AccessibilityRole::RadioButton; }
     bool isListBox() const { return roleValue() == AccessibilityRole::ListBox; }
-    virtual bool isListBoxOption() const = 0;
+    bool isListBoxOption() const { return roleValue() == AccessibilityRole::ListBoxOption; }
     virtual bool isAttachment() const = 0;
     bool isMenuRelated() const;
     bool isMenu() const { return roleValue() == AccessibilityRole::Menu; }
@@ -928,6 +934,7 @@ public:
     bool isRadioGroup() const { return roleValue() == AccessibilityRole::RadioGroup; }
     bool isComboBox() const { return roleValue() == AccessibilityRole::ComboBox; }
     bool isDateTime() const { return roleValue() == AccessibilityRole::DateTime; }
+    bool isGrid() const { return roleValue() == AccessibilityRole::Grid; }
     bool isTree() const { return roleValue() == AccessibilityRole::Tree; }
     bool isTreeGrid() const { return roleValue() == AccessibilityRole::TreeGrid; }
     bool isTreeItem() const { return roleValue() == AccessibilityRole::TreeItem; }
@@ -1034,6 +1041,7 @@ public:
     virtual std::optional<AccessibilityChildrenVector> imageOverlayElements() = 0;
     virtual String extendedDescription() const = 0;
 
+    bool supportsActiveDescendant() const;
     virtual bool supportsARIAOwns() const = 0;
 
     // Retrieval of related objects.
@@ -1054,6 +1062,7 @@ public:
     AccessibilityChildrenVector ownedObjects() const { return relatedObjects(AXRelationType::OwnerFor); }
     AccessibilityChildrenVector owners() const { return relatedObjects(AXRelationType::OwnedBy); }
     virtual AccessibilityChildrenVector relatedObjects(AXRelationType) const = 0;
+    bool canBeControlledBy(AccessibilityRole) const;
 
     virtual AXCoreObject* internalLinkElement() const = 0;
     void appendRadioButtonGroupMembers(AccessibilityChildrenVector& linkedUIElements) const;
@@ -1258,8 +1267,7 @@ public:
     virtual void detachFromParent() = 0;
     virtual bool isDetachedFromParent() = 0;
 
-    bool canHaveSelectedChildren() const;
-    virtual AccessibilityChildrenVector selectedChildren() = 0;
+    virtual std::optional<AccessibilityChildrenVector> selectedChildren() = 0;
     virtual void setSelectedChildren(const AccessibilityChildrenVector&) = 0;
     virtual AccessibilityChildrenVector visibleChildren() = 0;
     AccessibilityChildrenVector tabChildren();
@@ -1267,7 +1275,6 @@ public:
     bool isAncestorOfObject(const AXCoreObject*) const;
 
     virtual String nameAttribute() const = 0;
-    virtual AtomString tagName() const = 0;
 
     virtual std::optional<SimpleRange> simpleRange() const = 0;
     virtual VisiblePositionRange visiblePositionRange() const = 0;

@@ -104,6 +104,7 @@
 #include "SamplingProfiler.h"
 #include "ScopedArguments.h"
 #include "ShadowChicken.h"
+#include "SharedJITStubSet.h"
 #include "SideDataRepository.h"
 #include "SimpleTypedArrayController.h"
 #include "SourceProviderCache.h"
@@ -433,8 +434,7 @@ VM::VM(VMType vmType, HeapType heapType, WTF::RunLoop* runLoop, bool* success)
         jitSizeStatistics = makeUnique<JITSizeStatistics>();
 #endif
 
-    if (!g_jscConfig.disabledFreezingForTesting)
-        Config::permanentlyFreeze();
+    Config::finalize();
 
     // We must set this at the end only after the VM is fully initialized.
     WTF::storeStoreFence();
@@ -681,6 +681,10 @@ static ThunkGenerator thunkGeneratorForIntrinsic(Intrinsic intrinsic)
         return imulThunkGenerator;
     case RandomIntrinsic:
         return randomThunkGenerator;
+#if USE(JSVALUE64)
+    case ObjectIsIntrinsic:
+        return objectIsThunkGenerator;
+#endif
 #if !OS(WINDOWS)
     case BoundFunctionCallIntrinsic:
         return boundFunctionCallGenerator;

@@ -441,7 +441,7 @@ void AuxiliaryProcessProxy::connectionWillOpen(IPC::Connection&)
 
 void AuxiliaryProcessProxy::logInvalidMessage(IPC::Connection& connection, IPC::MessageName messageName)
 {
-    RELEASE_LOG_FAULT(IPC, "Received an invalid message '%" PUBLIC_LOG_STRING "' from the %" PUBLIC_LOG_STRING " process with PID %d", description(messageName), processName().characters(), processID());
+    RELEASE_LOG_FAULT(IPC, "Received an invalid message '%" PUBLIC_LOG_STRING "' from the %" PUBLIC_LOG_STRING " process with PID %d", description(messageName).characters(), processName().characters(), processID());
 }
 
 bool AuxiliaryProcessProxy::platformIsBeingDebugged() const
@@ -570,5 +570,17 @@ bool AuxiliaryProcessProxy::runningBoardThrottlingEnabled()
     return !m_lifetimeActivity;
 }
 #endif
+
+void AuxiliaryProcessProxy::didChangeThrottleState(ProcessThrottleState state)
+{
+    bool isNowSuspended = state == ProcessThrottleState::Suspended;
+    if (m_isSuspended == isNowSuspended)
+        return;
+    m_isSuspended = isNowSuspended;
+#if ENABLE(CFPREFS_DIRECT_MODE)
+    if (!m_isSuspended && (!m_domainlessPreferencesUpdatedWhileSuspended.isEmpty() || !m_preferencesUpdatedWhileSuspended.isEmpty()))
+        send(Messages::AuxiliaryProcess::PreferencesDidUpdate(std::exchange(m_domainlessPreferencesUpdatedWhileSuspended, { }), std::exchange(m_preferencesUpdatedWhileSuspended, { })), 0);
+#endif
+}
 
 } // namespace WebKit

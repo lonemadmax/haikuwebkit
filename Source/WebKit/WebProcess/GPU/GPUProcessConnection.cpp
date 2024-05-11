@@ -46,6 +46,7 @@
 #include "RemoteMediaEngineConfigurationFactory.h"
 #include "RemoteMediaPlayerManager.h"
 #include "RemoteRemoteCommandListenerMessages.h"
+#include "RemoteSharedResourceCacheProxy.h"
 #include "SampleBufferDisplayLayerManager.h"
 #include "SampleBufferDisplayLayerMessages.h"
 #include "SourceBufferPrivateRemoteMessageReceiverMessages.h"
@@ -155,6 +156,13 @@ std::optional<audit_token_t> GPUProcessConnection::auditToken()
     return m_auditToken;
 }
 #endif
+
+Ref<RemoteSharedResourceCacheProxy> GPUProcessConnection::sharedResourceCache()
+{
+    if (!m_sharedResourceCache)
+        m_sharedResourceCache = RemoteSharedResourceCacheProxy::create();
+    return *m_sharedResourceCache;
+}
 
 void GPUProcessConnection::invalidate()
 {
@@ -313,7 +321,7 @@ bool GPUProcessConnection::waitForDidInitialize()
     if (!m_hasInitialized) {
         auto result = m_connection->waitForAndDispatchImmediately<Messages::GPUProcessConnection::DidInitialize>(0, defaultTimeout);
         if (result != IPC::Error::NoError) {
-            RELEASE_LOG_ERROR(Process, "%p - GPUProcessConnection::waitForDidInitialize - failed, error:%" PUBLIC_LOG_STRING, this, IPC::errorAsString(result));
+            RELEASE_LOG_ERROR(Process, "%p - GPUProcessConnection::waitForDidInitialize - failed, error:%" PUBLIC_LOG_STRING, this, IPC::errorAsString(result).characters());
             invalidate();
             return false;
         }

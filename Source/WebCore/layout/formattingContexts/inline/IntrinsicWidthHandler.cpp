@@ -209,7 +209,7 @@ InlineLayoutUnit IntrinsicWidthHandler::computedIntrinsicWidthForConstraint(Intr
         if (lineEndsWithLineBreak)
             contentWidthBetweenLineBreaks = { std::max(contentWidthBetweenLineBreaks.maximum, contentWidthBetweenLineBreaks.current), { } };
 
-        layoutRange.start = InlineFormattingUtils::leadingInlineItemPositionForNextLine(lineLayoutResult.inlineItemRange.end, previousLineEnd, !lineLayoutResult.floatContent.hasIntrusiveFloat.isEmpty(), layoutRange.end);
+        layoutRange.start = InlineFormattingUtils::leadingInlineItemPositionForNextLine(lineLayoutResult.inlineItemRange.end, previousLineEnd, !lineLayoutResult.floatContent.hasIntrusiveFloat.isEmpty() || !lineLayoutResult.floatContent.placedFloats.isEmpty(), layoutRange.end);
         if (layoutRange.isEmpty()) {
             auto cacheLineBreakingResultForSubsequentLayoutIfApplicable = [&] {
                 m_maximumIntrinsicWidthResultForSingleLine = { };
@@ -275,7 +275,11 @@ InlineLayoutUnit IntrinsicWidthHandler::simplifiedMaximumWidth(MayCacheLayoutRes
     auto& inlineTextItem = downcast<InlineTextItem>(inlineItemList()[0]);
     auto& style = inlineTextItem.firstLineStyle();
 
-    auto contentLogicalWidth = TextUtil::width(inlineTextItem, style.fontCascade(), { });
+    auto contentLogicalWidth = [&] {
+        if (auto width = inlineTextItem.width())
+            return *width;
+        return TextUtil::width(inlineTextItem, style.fontCascade(), { });
+    }();
     if (mayCacheLayoutResult == MayCacheLayoutResult::No)
         return contentLogicalWidth;
 

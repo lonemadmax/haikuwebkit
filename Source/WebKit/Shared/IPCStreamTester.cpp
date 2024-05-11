@@ -50,7 +50,7 @@ RefPtr<IPCStreamTester> IPCStreamTester::create(IPCStreamTesterIdentifier identi
 }
 
 IPCStreamTester::IPCStreamTester(IPCStreamTesterIdentifier identifier, IPC::StreamServerConnection::Handle&& connectionHandle, bool ignoreInvalidMessageForTesting)
-    : m_workQueue(IPC::StreamConnectionWorkQueue::create("IPCStreamTester work queue"))
+    : m_workQueue(IPC::StreamConnectionWorkQueue::create("IPCStreamTester work queue"_s))
     , m_streamConnection(IPC::StreamServerConnection::tryCreate(WTFMove(connectionHandle), { ignoreInvalidMessageForTesting }).releaseNonNull())
     , m_identifier(identifier)
 {
@@ -107,9 +107,9 @@ void IPCStreamTester::syncCrashOnZero(int32_t value, CompletionHandler<void(int3
     completionHandler(value);
 }
 
-void IPCStreamTester::asyncMessage(bool value, CompletionHandler<void(bool)>&& completionHandler)
+void IPCStreamTester::asyncPing(uint32_t value, CompletionHandler<void(uint32_t)>&& completionHandler)
 {
-    completionHandler(!value);
+    completionHandler(value + 1);
 }
 
 #if USE(FOUNDATION)

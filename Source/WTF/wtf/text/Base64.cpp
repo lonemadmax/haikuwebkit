@@ -25,6 +25,7 @@
 #include <wtf/text/Base64.h>
 
 #include <limits.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WTF {
 
@@ -130,7 +131,7 @@ template<typename CharacterType> static void base64EncodeInternal(std::span<cons
 
 template<typename CharacterType> static void base64EncodeInternal(std::span<const std::byte> input, std::span<CharacterType> destinationDataBuffer, Base64EncodeMode mode)
 {
-    base64EncodeInternal(std::span(reinterpret_cast<const uint8_t*>(input.data()), input.size()), destinationDataBuffer, mode);
+    base64EncodeInternal(asBytes(input), destinationDataBuffer, mode);
 }
 
 static Vector<uint8_t> base64EncodeInternal(std::span<const std::byte> input, Base64EncodeMode mode)
@@ -257,15 +258,14 @@ std::optional<Vector<uint8_t>> base64Decode(std::span<const std::byte> input, Ba
 {
     if (input.size() > std::numeric_limits<unsigned>::max())
         return std::nullopt;
-    return base64DecodeInternal(std::span(reinterpret_cast<const uint8_t*>(input.data()), input.size()), mode);
+    return base64DecodeInternal(asBytes(input), mode);
 }
 
 std::optional<Vector<uint8_t>> base64Decode(StringView input, Base64DecodeMode mode)
 {
-    unsigned length = input.length();
-    if (!length || input.is8Bit())
-        return base64DecodeInternal(std::span(input.characters8(), length), mode);
-    return base64DecodeInternal(std::span(input.characters16(), length), mode);
+    if (input.is8Bit())
+        return base64DecodeInternal(input.span8(), mode);
+    return base64DecodeInternal(input.span16(), mode);
 }
 
 String base64DecodeToString(StringView input, Base64DecodeMode mode)\
@@ -276,10 +276,9 @@ String base64DecodeToString(StringView input, Base64DecodeMode mode)\
         return String::adopt(WTFMove(*optionalBuffer));
     };
 
-    unsigned length = input.length();
-    if (!length || input.is8Bit())
-        return toString(base64DecodeInternal<LChar, StringImplMalloc>(std::span(input.characters8(), length), mode));
-    return toString(base64DecodeInternal<UChar, StringImplMalloc>(std::span(input.characters16(), length), mode));
+    if (input.is8Bit())
+        return toString(base64DecodeInternal<LChar, StringImplMalloc>(input.span8(), mode));
+    return toString(base64DecodeInternal<UChar, StringImplMalloc>(input.span16(), mode));
 }
 
 } // namespace WTF

@@ -704,7 +704,8 @@ void AXIsolatedTree::updateNodeProperties(AXCoreObject& axObject, const AXProper
             propertyMap.set(AXPropertyName::KeyShortcuts, axObject.keyShortcuts().isolatedCopy());
             break;
         case AXPropertyName::SelectedChildren:
-            propertyMap.set(AXPropertyName::SelectedChildren, axIDs(axObject.selectedChildren()));
+            if (auto selectedChildren = axObject.selectedChildren())
+                propertyMap.set(AXPropertyName::SelectedChildren, axIDs(*selectedChildren));
             break;
         case AXPropertyName::SupportsARIAOwns:
             propertyMap.set(AXPropertyName::SupportsARIAOwns, axObject.supportsARIAOwns());
@@ -940,7 +941,7 @@ void AXIsolatedTree::updateChildren(AccessibilityObject& axObject, ResolveNodeCh
         queueRemovals(WTFMove(oldChildrenIDs));
 }
 
-void AXIsolatedTree::updateChildrenForObjects(const ListHashSet<RefPtr<AccessibilityObject>>& axObjects)
+void AXIsolatedTree::updateChildrenForObjects(const ListHashSet<Ref<AccessibilityObject>>& axObjects)
 {
     AXTRACE("AXIsolatedTree::updateChildrenForObjects"_s);
 
@@ -949,7 +950,7 @@ void AXIsolatedTree::updateChildrenForObjects(const ListHashSet<RefPtr<Accessibi
 
     AXAttributeCacheEnabler enableCache(axObjectCache());
     for (auto& axObject : axObjects)
-        updateChildren(*axObject, ResolveNodeChanges::No);
+        updateChildren(axObject.get(), ResolveNodeChanges::No);
 
     queueRemovalsAndUnresolvedChanges({ });
 }
@@ -1094,7 +1095,7 @@ void AXIsolatedTree::removeNode(const AccessibilityObject& axObject)
     if (labeledObjectIDs) {
         // Update the labeled objects since axObject is one of their labels and it is being removed.
         for (AXID labeledObjectID : *labeledObjectIDs) {
-            // The label/title of an isolated object is computed based on its AccessibilityText propperty, thus update it.
+            // The label/title of an isolated object is computed based on its AccessibilityText property, thus update it.
             queueNodeUpdate(labeledObjectID, { AXPropertyName::AccessibilityText });
         }
     }

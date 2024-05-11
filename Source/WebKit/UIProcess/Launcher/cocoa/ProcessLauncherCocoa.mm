@@ -160,28 +160,28 @@ static void launchWithExtensionKit(ProcessLauncher& processLauncher, ProcessLaun
 #endif // USE(EXTENSIONKIT)
 
 #if !USE(EXTENSIONKIT) || !PLATFORM(IOS)
-static const char* webContentServiceName(const ProcessLauncher::LaunchOptions& launchOptions, ProcessLauncher::Client* client)
+static ASCIILiteral webContentServiceName(const ProcessLauncher::LaunchOptions& launchOptions, ProcessLauncher::Client* client)
 {
     if (client && client->shouldEnableLockdownMode())
-        return "com.apple.WebKit.WebContent.CaptivePortal";
+        return "com.apple.WebKit.WebContent.CaptivePortal"_s;
 
-    return launchOptions.nonValidInjectedCodeAllowed ? "com.apple.WebKit.WebContent.Development" : "com.apple.WebKit.WebContent";
+    return launchOptions.nonValidInjectedCodeAllowed ? "com.apple.WebKit.WebContent.Development"_s : "com.apple.WebKit.WebContent"_s;
 }
 
-static const char* serviceName(const ProcessLauncher::LaunchOptions& launchOptions, ProcessLauncher::Client* client)
+static ASCIILiteral serviceName(const ProcessLauncher::LaunchOptions& launchOptions, ProcessLauncher::Client* client)
 {
     switch (launchOptions.processType) {
     case ProcessLauncher::ProcessType::Web:
         return webContentServiceName(launchOptions, client);
     case ProcessLauncher::ProcessType::Network:
-        return "com.apple.WebKit.Networking";
+        return "com.apple.WebKit.Networking"_s;
 #if ENABLE(GPU_PROCESS)
     case ProcessLauncher::ProcessType::GPU:
-        return "com.apple.WebKit.GPU";
+        return "com.apple.WebKit.GPU"_s;
 #endif
 #if ENABLE(MODEL_PROCESS)
     case ProcessLauncher::ProcessType::Model:
-        return "com.apple.WebKit.Model";
+        return "com.apple.WebKit.Model"_s;
 #endif
     }
 }
@@ -238,7 +238,7 @@ void ProcessLauncher::launchProcess()
                 auto launcher = weakProcessLauncher.get();
                 if (!launcher)
                     return;
-                const char* name = serviceName(launcher->m_launchOptions, launcher->m_client);
+                auto name = serviceName(launcher->m_launchOptions, launcher->m_client);
                 launcher->m_xpcConnection = adoptOSObject(xpc_connection_create(name, nullptr));
                 launcher->finishLaunchingProcess(name);
             });
@@ -269,19 +269,19 @@ void ProcessLauncher::launchProcess()
             launcher->m_xpcConnection = WTFMove(xpcConnection);
             launcher->m_process = WTFMove(process);
             launcher->m_launchGrant = WTFMove(launchGrant);
-            launcher->finishLaunchingProcess(name.characters());
+            launcher->finishLaunchingProcess(name);
         });
     };
 
     launchWithExtensionKit(*this, m_launchOptions.processType, m_client, WTFMove(handler));
 #else
-    const char* name = serviceName(m_launchOptions, m_client);
+    auto name = serviceName(m_launchOptions, m_client);
     m_xpcConnection = adoptOSObject(xpc_connection_create(name, nullptr));
     finishLaunchingProcess(name);
 #endif
 }
 
-void ProcessLauncher::finishLaunchingProcess(const char* name)
+void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
 {
     uuid_t uuid;
     uuid_generate(uuid);
@@ -294,17 +294,6 @@ void ProcessLauncher::finishLaunchingProcess(const char* name)
     // 2. When AppleLanguages is passed as command line argument for UI process, or set in its preferences, we should respect it in child processes.
     auto initializationMessage = adoptOSObject(xpc_dictionary_create(nullptr, nullptr, 0));
     _CFBundleSetupXPCBootstrap(initializationMessage.get());
-
-    auto languagesIterator = m_launchOptions.extraInitializationData.find<HashTranslatorASCIILiteral>("OverrideLanguages"_s);
-    if (languagesIterator != m_launchOptions.extraInitializationData.end()) {
-        LOG_WITH_STREAM(Language, stream << "Process Launcher is copying OverrideLanguages into initialization message: " << languagesIterator->value);
-        auto languages = adoptOSObject(xpc_array_create(nullptr, 0));
-        for (auto language : StringView(languagesIterator->value).split(','))
-            xpc_array_set_string(languages.get(), XPC_ARRAY_APPEND, language.utf8().data());
-        xpc_dictionary_set_value(initializationMessage.get(), "OverrideLanguages", languages.get());
-    }
-
-    xpc_connection_set_bootstrap(m_xpcConnection.get(), initializationMessage.get());
 
     // Create the listening port.
     mach_port_t listeningPort = MACH_PORT_NULL;
@@ -339,6 +328,15 @@ void ProcessLauncher::finishLaunchingProcess(const char* name)
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
     xpc_dictionary_set_string(bootstrapMessage.get(), "WebKitBundleVersion", WEBKIT_BUNDLE_VERSION);
 #endif
+
+    auto languagesIterator = m_launchOptions.extraInitializationData.find<HashTranslatorASCIILiteral>("OverrideLanguages"_s);
+    if (languagesIterator != m_launchOptions.extraInitializationData.end()) {
+        LOG_WITH_STREAM(Language, stream << "Process Launcher is copying OverrideLanguages into initialization message: " << languagesIterator->value);
+        auto languages = adoptOSObject(xpc_array_create(nullptr, 0));
+        for (auto language : StringView(languagesIterator->value).split(','))
+            xpc_array_set_string(languages.get(), XPC_ARRAY_APPEND, language.utf8().data());
+        xpc_dictionary_set_value(bootstrapMessage.get(), "OverrideLanguages", languages.get());
+    }
 
 #if PLATFORM(IOS_FAMILY)
     // Clients that set these environment variables explicitly do not have the values automatically forwarded by libxpc.

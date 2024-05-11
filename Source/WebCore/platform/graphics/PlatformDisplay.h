@@ -29,7 +29,6 @@
 #include <wtf/TypeCasts.h>
 #include <wtf/text/WTFString.h>
 
-#if USE(EGL)
 typedef intptr_t EGLAttrib;
 typedef void *EGLClientBuffer;
 typedef void *EGLContext;
@@ -41,7 +40,6 @@ typedef void *EGLDeviceEXT;
 #endif
 #if USE(GBM)
 struct gbm_device;
-#endif
 #endif
 
 #if PLATFORM(GTK)
@@ -92,22 +90,16 @@ public:
 #if USE(WPE_RENDERER)
         WPE,
 #endif
-#if USE(EGL)
         Surfaceless,
 #if USE(GBM)
         GBM,
-#endif
 #endif
     };
 
     virtual Type type() const = 0;
 
-#if USE(EGL)
     WEBCORE_EXPORT GLContext* sharingGLContext();
     void clearSharingGLContext();
-#endif
-
-#if USE(EGL)
     EGLDisplay eglDisplay() const;
     bool eglCheckVersion(int major, int minor) const;
 
@@ -143,7 +135,6 @@ public:
     EGLDisplay angleEGLDisplay() const;
     EGLContext angleSharingGLContext();
 #endif
-#endif
 
 #if ENABLE(VIDEO) && USE(GSTREAMER_GL)
     GstGLDisplay* gstGLDisplay() const;
@@ -176,14 +167,13 @@ protected:
 
     static void setSharedDisplayForCompositing(PlatformDisplay&);
 
+    virtual void initializeEGLDisplay();
+
 #if PLATFORM(GTK)
     virtual void sharedDisplayDidClose();
 
     GRefPtr<GdkDisplay> m_sharedDisplay;
 #endif
-
-#if USE(EGL)
-    virtual void initializeEGLDisplay();
 
     EGLDisplay m_eglDisplay;
     bool m_eglDisplayOwned { true };
@@ -197,7 +187,6 @@ protected:
 #if ENABLE(WEBGL) && !PLATFORM(WIN)
     std::optional<int> m_anglePlatform;
     void* m_angleNativeDisplay { nullptr };
-#endif
 #endif
 
 #if USE(LCMS)
@@ -217,7 +206,6 @@ private:
     void clearANGLESharingGLContext();
 #endif
 
-#if USE(EGL)
     void terminateEGLDisplay();
 #if USE(LIBDRM)
     EGLDeviceEXT eglDevice();
@@ -233,7 +221,6 @@ private:
 #endif
 #if USE(GBM)
     Vector<DMABufFormat> m_dmabufFormats;
-#endif
 #endif
 
 #if ENABLE(VIDEO) && USE(GSTREAMER_GL)

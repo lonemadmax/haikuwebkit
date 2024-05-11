@@ -30,7 +30,10 @@
 #include "FontRenderOptions.h"
 #include "GraphicsContextSkia.h"
 #include "NotImplemented.h"
+
+IGNORE_CLANG_WARNINGS_BEGIN("cast-align")
 #include <skia/core/SkSurface.h>
+IGNORE_CLANG_WARNINGS_END
 
 namespace WebCore {
 
@@ -39,14 +42,14 @@ std::optional<DestinationColorSpace> ShareableBitmapConfiguration::validateColor
     return colorSpace;
 }
 
-CheckedUint32 ShareableBitmapConfiguration::calculateBytesPerPixel(const DestinationColorSpace&)
+CheckedUint32 ShareableBitmapConfiguration::calculateBytesPerPixel(const DestinationColorSpace& colorSpace)
 {
-    return 4;
+    return SkImageInfo::MakeN32Premul(1, 1, colorSpace.platformColorSpace()).bytesPerPixel();
 }
 
-CheckedUint32 ShareableBitmapConfiguration::calculateBytesPerRow(const IntSize& size, const DestinationColorSpace&)
+CheckedUint32 ShareableBitmapConfiguration::calculateBytesPerRow(const IntSize& size, const DestinationColorSpace& colorSpace)
 {
-    return SkImageInfo::MakeN32Premul(size.width(), size.height()).minRowBytes();
+    return SkImageInfo::MakeN32Premul(size.width(), size.height(), colorSpace.platformColorSpace()).minRowBytes();
 }
 
 std::unique_ptr<GraphicsContext> ShareableBitmap::createGraphicsContext()

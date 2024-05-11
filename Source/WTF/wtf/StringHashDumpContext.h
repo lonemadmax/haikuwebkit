@@ -45,10 +45,10 @@ public:
             return iter->value;
         
         for (unsigned hashValue = toCString(*value).hash(); ; hashValue++) {
-            CString fullHash = integerToSixCharacterHashString(hashValue).data();
+            CString fullHash = std::span<const char> { integerToSixCharacterHashString(hashValue) };
             
             for (unsigned length = 2; length < 6; ++length) {
-                CString shortHash = CString(fullHash.data(), length);
+                CString shortHash { fullHash.span().first(length) };
                 if (!m_backwardMap.contains(shortHash)) {
                     m_forwardMap.add(value, shortHash);
                     m_backwardMap.add(shortHash, value);

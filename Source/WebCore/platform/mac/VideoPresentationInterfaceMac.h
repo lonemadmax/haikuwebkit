@@ -33,6 +33,8 @@
 #include "PlaybackSessionModel.h"
 #include "VideoFullscreenCaptions.h"
 #include "VideoPresentationModel.h"
+#include <wtf/CheckedRef.h>
+#include <wtf/FastMalloc.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/ThreadSafeWeakPtr.h>
@@ -47,12 +49,14 @@ class IntRect;
 class FloatSize;
 class PlaybackSessionInterfaceMac;
 
-class VideoPresentationInterfaceMac
+class VideoPresentationInterfaceMac final
     : public VideoPresentationModelClient
     , private PlaybackSessionModelClient
     , public VideoFullscreenCaptions
-    , public RefCounted<VideoPresentationInterfaceMac> {
-
+    , public RefCounted<VideoPresentationInterfaceMac>
+    , public CanMakeCheckedPtr<VideoPresentationInterfaceMac> {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(VideoPresentationInterfaceMac);
 public:
     static Ref<VideoPresentationInterfaceMac> create(PlaybackSessionInterfaceMac& playbackSessionInterface)
     {
@@ -88,7 +92,7 @@ public:
     bool hasMode(HTMLMediaElementEnums::VideoFullscreenMode mode) const { return m_mode & mode; }
     bool isMode(HTMLMediaElementEnums::VideoFullscreenMode mode) const { return m_mode == mode; }
     WEBCORE_EXPORT void setMode(HTMLMediaElementEnums::VideoFullscreenMode, bool);
-    void clearMode(HTMLMediaElementEnums::VideoFullscreenMode);
+    WEBCORE_EXPORT void clearMode(HTMLMediaElementEnums::VideoFullscreenMode);
 
     WEBCORE_EXPORT bool isPlayingVideoInEnhancedFullscreen() const;
 
@@ -110,6 +114,13 @@ public:
 
 private:
     WEBCORE_EXPORT VideoPresentationInterfaceMac(PlaybackSessionInterfaceMac&);
+
+    // CheckedPtr interface
+    uint32_t ptrCount() const final { return CanMakeCheckedPtr::ptrCount(); }
+    uint32_t ptrCountWithoutThreadCheck() const final { return CanMakeCheckedPtr::ptrCountWithoutThreadCheck(); }
+    void incrementPtrCount() const final { CanMakeCheckedPtr::incrementPtrCount(); }
+    void decrementPtrCount() const final { CanMakeCheckedPtr::decrementPtrCount(); }
+
     Ref<PlaybackSessionInterfaceMac> m_playbackSessionInterface;
     std::optional<MediaPlayerIdentifier> m_playerIdentifier;
     ThreadSafeWeakPtr<VideoPresentationModel> m_videoPresentationModel;

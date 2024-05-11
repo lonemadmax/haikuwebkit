@@ -37,6 +37,12 @@
 #include <wtf/UUID.h>
 #include <wtf/WeakPtr.h>
 
+namespace WebCore {
+struct TextIndicatorData;
+enum class TextIndicatorOption : uint16_t;
+class Editor;
+}
+
 namespace WebKit {
 
 enum class WebUnifiedTextReplacementType : uint8_t;
@@ -68,10 +74,17 @@ public:
 
     void updateStateForSelectedReplacementIfNeeded();
 
-private:
-    void textReplacementSessionPerformEditActionForPlainText(WebCore::Document&, const WTF::UUID&, WebKit::WebTextReplacementData::EditAction);
+    std::optional<WebCore::SimpleRange> contextRangeForSessionWithUUID(const WTF::UUID&) const;
 
+private:
+    void replaceContentsOfRangeInSessionInternal(const WTF::UUID&, const WebCore::SimpleRange&, WTF::Function<void(WebCore::Editor&)>&&);
+    void replaceContentsOfRangeInSession(const WTF::UUID&, const WebCore::SimpleRange&, const String&);
+    void replaceContentsOfRangeInSession(const WTF::UUID&, const WebCore::SimpleRange&, WebCore::DocumentFragment&);
+
+    void textReplacementSessionPerformEditActionForPlainText(WebCore::Document&, const WTF::UUID&, WebKit::WebTextReplacementData::EditAction);
     void textReplacementSessionPerformEditActionForRichText(WebCore::Document&, const WTF::UUID&, WebKit::WebTextReplacementData::EditAction);
+
+    RefPtr<WebCore::Document> document() const;
 
     WeakPtr<WebPage> m_webPage;
 

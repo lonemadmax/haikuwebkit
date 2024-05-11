@@ -29,6 +29,8 @@
 #include "GLContext.h"
 #include <cstdlib>
 #include <mutex>
+#include <wtf/HashSet.h>
+#include <wtf/NeverDestroyed.h>
 
 #if PLATFORM(X11)
 #include "PlatformDisplayX11.h"
@@ -78,28 +80,23 @@
 #endif
 #endif
 
-#if USE(EGL)
 #if USE(LIBEPOXY)
 #include <epoxy/egl.h>
 #else
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
 #endif
-#include <wtf/HashSet.h>
-#include <wtf/NeverDestroyed.h>
-#endif
 
-#if USE(EGL)
 #if USE(LIBDRM)
 #include <xf86drm.h>
 #ifndef EGL_DRM_RENDER_NODE_FILE_EXT
 #define EGL_DRM_RENDER_NODE_FILE_EXT 0x3377
 #endif
 #endif
+
 #if USE(GBM)
-#include "GBMDevice.h"
+#include "DRMDeviceManager.h"
 #include <drm_fourcc.h>
-#endif
 #endif
 
 #if USE(ATSPI)
@@ -110,18 +107,14 @@
 #include <wtf/glib/GRefPtr.h>
 #endif
 
-#if USE(EGL) && !USE(LIBEPOXY)
-#if !defined(PFNEGLCREATEIMAGEPROC)
-typedef EGLImage (*PFNEGLCREATEIMAGEPROC) (EGLDisplay, EGLContext, EGLenum, EGLClientBuffer, const EGLAttrib*);
-#endif
-#if !defined(PFNEGLDESTROYIMAGEPROC)
-typedef EGLBoolean (*PFNEGLDESTROYIMAGEPROC) (EGLDisplay, EGLImage);
-#endif
-#if !defined(PFNEGLCREATEIMAGEKHRPROC)
-typedef EGLImageKHR (*PFNEGLCREATEIMAGEKHRPROC) (EGLDisplay, EGLContext, EGLenum target, EGLClientBuffer, const EGLint* attribList);
-#endif
-#if !defined(PFNEGLDESTROYIMAGEKHRPROC)
-typedef EGLBoolean (*PFNEGLDESTROYIMAGEKHRPROC) (EGLDisplay, EGLImageKHR);
+#if !USE(LIBEPOXY)
+typedef EGLImage (EGLAPIENTRYP PFNEGLCREATEIMAGEPROC) (EGLDisplay, EGLContext, EGLenum, EGLClientBuffer, const EGLAttrib*);
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLDESTROYIMAGEPROC) (EGLDisplay, EGLImage);
+#ifndef EGL_KHR_image_base
+#define EGL_KHR_image_base 1
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLDESTROYIMAGEKHRPROC) (EGLDisplay, EGLImage);
+typedef EGLImageKHR (EGLAPIENTRYP PFNEGLCREATEIMAGEKHRPROC) (EGLDisplay, EGLContext, EGLenum target, EGLClientBuffer, const EGLint* attribList);
+typedef EGLBoolean (EGLAPIENTRYP PFNEGLDESTROYIMAGEKHRPROC) (EGLDisplay, EGLImageKHR);
 #endif
 #endif
 
@@ -168,8 +161,8 @@ std::unique_ptr<PlatformDisplay> PlatformDisplay::createPlatformDisplay()
 #if PLATFORM(WPE)
     if (s_useDMABufForRendering) {
 #if USE(GBM)
-        if (GBMDevice::singleton().isInitialized()) {
-            if (auto* device = GBMDevice::singleton().device(GBMDevice::Type::Render))
+        if (DRMDeviceManager::singleton().isInitialized()) {
+            if (auto* device = DRMDeviceManager::singleton().mainGBMDeviceNode(DRMDeviceManager::NodeType::Render))
                 return PlatformDisplayGBM::create(device);
         }
 #endif
@@ -219,18 +212,14 @@ void PlatformDisplay::setSharedDisplayForCompositing(PlatformDisplay& display)
 }
 
 PlatformDisplay::PlatformDisplay()
-#if USE(EGL)
     : m_eglDisplay(EGL_NO_DISPLAY)
-#endif
 {
 }
 
 #if PLATFORM(GTK)
 PlatformDisplay::PlatformDisplay(GdkDisplay* display)
     : m_sharedDisplay(display)
-#if USE(EGL)
     , m_eglDisplay(EGL_NO_DISPLAY)
-#endif
 {
     if (m_sharedDisplay) {
 #if USE(ATSPI) && USE(GTK4)
@@ -247,26 +236,20 @@ PlatformDisplay::PlatformDisplay(GdkDisplay* display)
 
 void PlatformDisplay::sharedDisplayDidClose()
 {
-#if USE(EGL)
     terminateEGLDisplay();
-#endif
 }
-#endif
+#endif // PLATFORM(GTK)
 
-#if USE(EGL)
 static HashSet<PlatformDisplay*>& eglDisplays()
 {
     static NeverDestroyed<HashSet<PlatformDisplay*>> displays;
     return displays;
 }
-#endif
 
 PlatformDisplay::~PlatformDisplay()
 {
-#if USE(EGL)
     if (m_eglDisplay != EGL_NO_DISPLAY && eglDisplays().remove(this))
         terminateEGLDisplay();
-#endif
 
 #if PLATFORM(GTK)
     if (m_sharedDisplay)
@@ -276,7 +259,6 @@ PlatformDisplay::~PlatformDisplay()
         s_sharedDisplayForCompositing = nullptr;
 }
 
-#if USE(EGL)
 GLContext* PlatformDisplay::sharingGLContext()
 {
     if (!m_sharingGLContext)
@@ -294,9 +276,7 @@ void PlatformDisplay::clearSharingGLContext()
 #endif
     m_sharingGLContext = nullptr;
 }
-#endif
 
-#if USE(EGL)
 EGLDisplay PlatformDisplay::eglDisplay() const
 {
     if (!m_eglDisplayInitialized)
@@ -553,11 +533,11 @@ const String& PlatformDisplay::drmRenderNodeFile()
 #if USE(GBM)
 struct gbm_device* PlatformDisplay::gbmDevice()
 {
-    auto& device = GBMDevice::singleton();
-    if (!device.isInitialized())
-        device.initialize(drmRenderNodeFile());
+    auto& manager = DRMDeviceManager::singleton();
+    if (!manager.isInitialized())
+        manager.initializeMainDevice(drmRenderNodeFile());
 
-    return device.device(GBMDevice::Type::Render);
+    return manager.mainGBMDeviceNode(DRMDeviceManager::NodeType::Render);
 }
 
 const Vector<PlatformDisplay::DMABufFormat>& PlatformDisplay::dmabufFormats()
@@ -614,7 +594,6 @@ const Vector<PlatformDisplay::DMABufFormat>& PlatformDisplay::dmabufFormats()
     return m_dmabufFormats;
 }
 #endif // USE(GBM)
-#endif // USE(EGL)
 
 #if USE(LCMS)
 cmsHPROFILE PlatformDisplay::colorProfile() const

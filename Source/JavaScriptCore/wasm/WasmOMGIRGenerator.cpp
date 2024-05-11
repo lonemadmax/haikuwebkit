@@ -4798,7 +4798,7 @@ auto OMGIRGenerator::emitInlineDirectCall(uint32_t calleeFunctionIndex, const Ty
     const FunctionData& function = m_info.functions[calleeFunctionIndex];
     m_protectedInlineeGenerators.append(makeUnique<OMGIRGenerator>(*this, *m_inlineRoot, calleeFunctionIndex, continuation, WTFMove(getArgs)));
     auto& irGenerator = *m_protectedInlineeGenerators.last();
-    m_protectedInlineeParsers.append(makeUnique<FunctionParser<OMGIRGenerator>>(irGenerator, function.data.data(), function.data.size(), calleeSignature, m_info));
+    m_protectedInlineeParsers.append(makeUnique<FunctionParser<OMGIRGenerator>>(irGenerator, function.data, calleeSignature, m_info));
     auto& parser = *m_protectedInlineeParsers.last();
     WASM_FAIL_IF_HELPER_FAILS(parser.parse());
 
@@ -5211,7 +5211,7 @@ void OMGIRGenerator::dump(const ControlStack& controlStack, const Stack* express
     ASSERT(controlStack.size());
     for (size_t i = controlStack.size(); i--;) {
         dataLog("  ", controlStack[i].controlData, ": ");
-        CommaPrinter comma(", ", "");
+        CommaPrinter comma(", "_s, ""_s);
         dumpExpressionStack(comma, *expressionStack);
         expressionStack = &controlStack[i].enclosedExpressionStack;
         dataLogLn();
@@ -5241,7 +5241,7 @@ static bool shouldDumpIRFor(uint32_t functionIndex)
 
 Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileOMG(CompilationContext& compilationContext, OptimizingJITCallee& callee, const FunctionData& function, const TypeDefinition& signature, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, const ModuleInformation& info, MemoryMode mode, CompilationMode compilationMode, uint32_t functionIndex, std::optional<bool> hasExceptionHandlers, uint32_t loopIndexForOSREntry, TierUpCount* tierUp)
 {
-    CompilerTimingScope totalScope("B3", "Total OMG compilation");
+    CompilerTimingScope totalScope("B3"_s, "Total OMG compilation"_s);
 
     Wasm::Thunks::singleton().stub(Wasm::catchInWasmThunkGenerator);
 
@@ -5281,7 +5281,7 @@ Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileOMG(Compilati
     procedure.code().setForceIRCRegisterAllocation();
 
     OMGIRGenerator irGenerator(info, callee, procedure, unlinkedWasmToWasmCalls, result->osrEntryScratchBufferSize, mode, compilationMode, functionIndex, hasExceptionHandlers, loopIndexForOSREntry, tierUp);
-    FunctionParser<OMGIRGenerator> parser(irGenerator, function.data.data(), function.data.size(), signature, info);
+    FunctionParser<OMGIRGenerator> parser(irGenerator, function.data, signature, info);
     WASM_FAIL_IF_HELPER_FAILS(parser.parse());
 
     irGenerator.insertEntrySwitch();

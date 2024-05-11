@@ -66,6 +66,7 @@ OptionSet<AccessibilityObjectAtspi::Interface> AccessibilityObjectAtspi::interfa
 {
     OptionSet<Interface> interfaces = { Interface::Accessible, Interface::Component, Interface::Action, Interface::Collection };
 
+    auto* axObject = dynamicDowncast<AccessibilityObject>(coreObject);
     RenderObject* renderer = coreObject.isAccessibilityRenderObject() ? coreObject.renderer() : nullptr;
     if (coreObject.roleValue() == AccessibilityRole::StaticText || coreObject.roleValue() == AccessibilityRole::ColorWell)
         interfaces.add(Interface::Text);
@@ -91,7 +92,7 @@ OptionSet<AccessibilityObjectAtspi::Interface> AccessibilityObjectAtspi::interfa
     if (coreObject.isImage())
         interfaces.add(Interface::Image);
 
-    if (coreObject.canHaveSelectedChildren())
+    if (axObject && axObject->canHaveSelectedChildren())
         interfaces.add(Interface::Selection);
 
     if (coreObject.isTable())
@@ -863,7 +864,7 @@ HashMap<String, String> AccessibilityObjectAtspi::attributes() const
 
     RefPtr liveObject = dynamicDowncast<AccessibilityObject>(m_coreObject);
 
-    String tagName = m_coreObject->tagName();
+    String tagName = liveObject->tagName();
     if (!tagName.isEmpty())
         map.add("tag"_s, tagName);
 

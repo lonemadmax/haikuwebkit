@@ -40,6 +40,7 @@
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/RunLoop.h>
 #include <wtf/Scope.h>
+#include <wtf/SystemTracing.h>
 #include <wtf/WTFProcess.h>
 #include <wtf/text/WTFString.h>
 #include <wtf/threads/BinarySemaphore.h>
@@ -64,8 +65,7 @@ namespace IPC {
 constexpr size_t maxPendingIncomingMessagesKillingThreshold { 50000 };
 #endif
 
-constexpr size_t largeOutgoingMessageQueueCountThreshold { 1024 };
-constexpr Seconds largeOutgoingMessageQueueTimeThreshold { 30_s };
+constexpr Seconds largeOutgoingMessageQueueTimeThreshold { 20_s };
 
 std::atomic<unsigned> UnboundedSynchronousIPCScope::unboundedSynchronousIPCCount = 0;
 
@@ -309,7 +309,7 @@ HashMap<IPC::Connection::UniqueID, ThreadSafeWeakPtr<Connection>>& Connection::c
 Connection::Connection(Identifier identifier, bool isServer, Thread::QOS receiveQueueQOS)
     : m_uniqueID(UniqueID::generate())
     , m_isServer(isServer)
-    , m_connectionQueue(WorkQueue::create("com.apple.IPC.ReceiveQueue", receiveQueueQOS))
+    , m_connectionQueue(WorkQueue::create("com.apple.IPC.ReceiveQueue"_s, receiveQueueQOS))
 {
     {
         Locker locker { s_connectionMapLock };
@@ -423,14 +423,14 @@ void Connection::dispatchMessageReceiverMessage(MessageReceiver& messageReceiver
         return;
     }
 
-    SyncRequestID syncRequestID;
-    if (UNLIKELY(!decoder->decode(syncRequestID))) {
+    auto syncRequestID = decoder->decode<SyncRequestID>();
+    if (UNLIKELY(!syncRequestID)) {
         // We received an invalid sync message.
         // FIXME: Handle this.
         return;
     }
 
-    auto replyEncoder = makeUniqueRef<Encoder>(MessageName::SyncMessageReply, syncRequestID.toUInt64());
+    auto replyEncoder = makeUniqueRef<Encoder>(MessageName::SyncMessageReply, syncRequestID->toUInt64());
 
     // Hand off both the decoder and encoder to the work queue message receiver.
     bool wasHandled = messageReceiver.didReceiveSyncMessage(*this, *decoder, replyEncoder);
@@ -525,7 +525,33 @@ UniqueRef<Encoder> Connection::createSyncMessageEncoder(MessageName messageName,
     return encoder;
 }
 
+#if ENABLE(CORE_IPC_SIGNPOSTS)
+
+void* Connection::generateSignpostIdentifier()
+{
+    static std::atomic<uintptr_t> identifier;
+    return reinterpret_cast<void*>(++identifier);
+}
+
+#endif
+
 Error Connection::sendMessage(UniqueRef<Encoder>&& encoder, OptionSet<SendOption> sendOptions, std::optional<Thread::QOS> qos)
+{
+#if ENABLE(CORE_IPC_SIGNPOSTS)
+    auto signpostIdentifier = generateSignpostIdentifier();
+    WTFBeginSignpost(signpostIdentifier, IPCConnection, "sendMessage: %{public}s", description(encoder->messageName()));
+#endif
+
+    auto error = sendMessageImpl(WTFMove(encoder), sendOptions, qos);
+
+#if ENABLE(CORE_IPC_SIGNPOSTS)
+    WTFEndSignpost(signpostIdentifier, IPCConnection);
+#endif
+
+    return error;
+}
+
+Error Connection::sendMessageImpl(UniqueRef<Encoder>&& encoder, OptionSet<SendOption> sendOptions, std::optional<Thread::QOS> qos)
 {
     if (!isValid())
         return Error::InvalidConnection;
@@ -616,8 +642,20 @@ Error Connection::sendMessageWithAsyncReply(UniqueRef<Encoder>&& encoder, AsyncR
     ASSERT(replyHandler.completionHandler);
     auto replyID = replyHandler.replyID;
     encoder.get() << replyID;
+
+#if ENABLE(CORE_IPC_SIGNPOSTS)
+    auto signpostIdentifier = generateSignpostIdentifier();
+    replyHandler.completionHandler = CompletionHandler<void(Decoder*)>([signpostIdentifier, handler = WTFMove(replyHandler.completionHandler)](Decoder *decoder) mutable {
+        WTFEndSignpost(signpostIdentifier, IPCConnection);
+        handler(decoder);
+    });
+
+    WTFBeginSignpost(signpostIdentifier, IPCConnection, "sendMessageWithAsyncReply: %{public}s", description(encoder->messageName()));
+#endif
+
     addAsyncReplyHandler(WTFMove(replyHandler));
-    auto error = sendMessage(WTFMove(encoder), sendOptions, qos);
+
+    auto error = sendMessageImpl(WTFMove(encoder), sendOptions, qos);
     if (error == Error::NoError)
         return Error::NoError;
 
@@ -650,7 +688,7 @@ Error Connection::sendMessageWithAsyncReplyWithDispatcher(UniqueRef<Encoder>&& e
 
 Error Connection::sendSyncReply(UniqueRef<Encoder>&& encoder)
 {
-    return sendMessage(WTFMove(encoder), { });
+    return sendMessageImpl(WTFMove(encoder), { });
 }
 
 Timeout Connection::timeoutRespectingIgnoreTimeoutsForTesting(Timeout timeout) const
@@ -662,6 +700,14 @@ auto Connection::waitForMessage(MessageName messageName, uint64_t destinationID,
 {
     if (!isValid())
         return makeUnexpected(Error::InvalidConnection);
+
+#if ENABLE(CORE_IPC_SIGNPOSTS)
+    auto signpostIdentifier = generateSignpostIdentifier();
+    WTFBeginSignpost(signpostIdentifier, IPCConnection, "waitForMessage: %{public}s", description(messageName));
+    auto endSignpost = makeScopeExit([&] {
+        WTFEndSignpost(signpostIdentifier, IPCConnection);
+    });
+#endif
 
     assertIsCurrent(dispatcher());
     Ref protectedThis { *this };
@@ -726,7 +772,7 @@ auto Connection::waitForMessage(MessageName messageName, uint64_t destinationID,
         }
 
         if (UNLIKELY(m_inDispatchSyncMessageCount && !timeout.isInfinity())) {
-            RELEASE_LOG_ERROR(IPC, "Connection::waitForMessage(%" PUBLIC_LOG_STRING "): Exiting immediately, since we're handling a sync message already", description(messageName));
+            RELEASE_LOG_ERROR(IPC, "Connection::waitForMessage(%" PUBLIC_LOG_STRING "): Exiting immediately, since we're handling a sync message already", description(messageName).characters());
             m_waitingForMessage = nullptr;
             return makeUnexpected(Error::AttemptingToWaitInsideSyncMessageHandling);
         }
@@ -799,14 +845,23 @@ auto Connection::sendSyncMessage(SyncRequestID syncRequestID, UniqueRef<Encoder>
 
     auto messageName = encoder->messageName();
 
+#if ENABLE(CORE_IPC_SIGNPOSTS)
+    auto signpostIdentifier = generateSignpostIdentifier();
+    WTFBeginSignpost(signpostIdentifier, IPCConnection, "sendSyncMessage: %{public}s", description(messageName));
+#endif
+
     // Since sync IPC is blocking the current thread, make sure we use the same priority for the IPC sending thread
     // as the current thread.
-    sendMessage(WTFMove(encoder), sendOptions, Thread::currentThreadQOS());
+    sendMessageImpl(WTFMove(encoder), sendOptions, Thread::currentThreadQOS());
 
     // Then wait for a reply. Waiting for a reply could involve dispatching incoming sync messages, so
     // keep an extra reference to the connection here in case it's invalidated.
     Ref<Connection> protect(*this);
     auto replyOrError = waitForSyncReply(syncRequestID, messageName, timeout, sendSyncOptions);
+
+#if ENABLE(CORE_IPC_SIGNPOSTS)
+    WTFEndSignpost(signpostIdentifier, IPCConnection);
+#endif
 
     popPendingSyncRequestID(syncRequestID);
 
@@ -862,9 +917,9 @@ auto Connection::waitForSyncReply(SyncRequestID syncRequestID, MessageName messa
     }
 
 #if OS(DARWIN)
-    RELEASE_LOG_ERROR(IPC, "Connection::waitForSyncReply: Timed-out while waiting for reply for %" PUBLIC_LOG_STRING " from process %d, id=%" PRIu64, description(messageName), remoteProcessID(), syncRequestID.toUInt64());
+    RELEASE_LOG_ERROR(IPC, "Connection::waitForSyncReply: Timed-out while waiting for reply for %" PUBLIC_LOG_STRING " from process %d, id=%" PRIu64, description(messageName).characters(), remoteProcessID(), syncRequestID.toUInt64());
 #else
-    RELEASE_LOG_ERROR(IPC, "Connection::waitForSyncReply: Timed-out while waiting for reply for %s, id=%" PRIu64, description(messageName), syncRequestID.toUInt64());
+    RELEASE_LOG_ERROR(IPC, "Connection::waitForSyncReply: Timed-out while waiting for reply for %s, id=%" PRIu64, description(messageName).characters(), syncRequestID.toUInt64());
 #endif
 
     return makeUnexpected(Error::Timeout);
@@ -987,7 +1042,7 @@ uint64_t Connection::installIncomingSyncMessageCallback(WTF::Function<void ()>&&
     m_nextIncomingSyncMessageCallbackID++;
 
     if (!m_incomingSyncMessageCallbackQueue)
-        m_incomingSyncMessageCallbackQueue = WorkQueue::create("com.apple.WebKit.IPC.IncomingSyncMessageCallbackQueue");
+        m_incomingSyncMessageCallbackQueue = WorkQueue::create("com.apple.WebKit.IPC.IncomingSyncMessageCallbackQueue"_s);
 
     m_incomingSyncMessageCallbacks.add(m_nextIncomingSyncMessageCallbackID, WTFMove(callback));
 
@@ -1114,8 +1169,8 @@ void Connection::dispatchSyncMessage(Decoder& decoder)
     assertIsCurrent(dispatcher());
     ASSERT(decoder.isSyncMessage());
 
-    SyncRequestID syncRequestID;
-    if (UNLIKELY(!decoder.decode(syncRequestID))) {
+    auto syncRequestID = decoder.decode<SyncRequestID>();
+    if (UNLIKELY(!syncRequestID)) {
         // We received an invalid sync message.
         return;
     }
@@ -1126,7 +1181,7 @@ void Connection::dispatchSyncMessage(Decoder& decoder)
         --m_inDispatchSyncMessageCount;
     });
 
-    auto replyEncoder = makeUniqueRef<Encoder>(MessageName::SyncMessageReply, syncRequestID.toUInt64());
+    auto replyEncoder = makeUniqueRef<Encoder>(MessageName::SyncMessageReply, syncRequestID->toUInt64());
 
     bool wasHandled = false;
     if (decoder.messageName() == MessageName::WrappedAsyncMessageForTesting) {
@@ -1411,7 +1466,7 @@ void Connection::dispatchIncomingMessages()
         messagesToProcess = numberOfMessagesToProcess(m_incomingMessages.size());
         if (messagesToProcess < m_incomingMessages.size()) {
             RELEASE_LOG_ERROR(IPC, "%p - Connection::dispatchIncomingMessages: IPC throttling was triggered (has %zu pending incoming messages, will only process %zu before yielding)", this, m_incomingMessages.size(), messagesToProcess);
-            RELEASE_LOG_ERROR(IPC, "%p - Connection::dispatchIncomingMessages: first IPC message in queue is %" PUBLIC_LOG_STRING, this, description(message->messageName()));
+            RELEASE_LOG_ERROR(IPC, "%p - Connection::dispatchIncomingMessages: first IPC message in queue is %" PUBLIC_LOG_STRING, this, description(message->messageName()).characters());
         }
 
         // Re-schedule ourselves *before* we dispatch the messages because we want to process follow-up messages if the client
@@ -1525,30 +1580,30 @@ std::optional<Connection::ConnectionIdentifierPair> Connection::createConnection
 }
 #endif
 
-const char* errorAsString(Error error)
+ASCIILiteral errorAsString(Error error)
 {
     switch (error) {
-    case Error::NoError: return "NoError";
-    case Error::InvalidConnection: return "InvalidConnection";
-    case Error::NoConnectionForIdentifier: return "NoConnectionForIdentifier";
-    case Error::NoMessageSenderConnection: return "NoMessageSenderConnection";
-    case Error::Timeout: return "Timeout";
-    case Error::Unspecified: return "Unspecified";
-    case Error::MultipleWaitingClients: return "MultipleWaitingClients";
-    case Error::AttemptingToWaitOnClosedConnection: return "AttemptingToWaitOnClosedConnection";
-    case Error::WaitingOnAlreadyDispatchedMessage: return "WaitingOnAlreadyDispatchedMessage";
-    case Error::AttemptingToWaitInsideSyncMessageHandling: return "AttemptingToWaitInsideSyncMessageHandling";
-    case Error::SyncMessageInterruptedWait: return "SyncMessageInterruptedWait";
-    case Error::CantWaitForSyncReplies: return "CantWaitForSyncReplies";
-    case Error::FailedToEncodeMessageArguments: return "FailedToEncodeMessageArguments";
-    case Error::FailedToDecodeReplyArguments: return "FailedToDecodeReplyArguments";
-    case Error::FailedToFindReplyHandler: return "FailedToFindReplyHandler";
-    case Error::FailedToAcquireBufferSpan: return "FailedToAcquireBufferSpan";
-    case Error::FailedToAcquireReplyBufferSpan: return "FailedToAcquireReplyBufferSpan";
-    case Error::StreamConnectionEncodingError: return "StreamConnectionEncodingError";
+    case Error::NoError: return "NoError"_s;
+    case Error::InvalidConnection: return "InvalidConnection"_s;
+    case Error::NoConnectionForIdentifier: return "NoConnectionForIdentifier"_s;
+    case Error::NoMessageSenderConnection: return "NoMessageSenderConnection"_s;
+    case Error::Timeout: return "Timeout"_s;
+    case Error::Unspecified: return "Unspecified"_s;
+    case Error::MultipleWaitingClients: return "MultipleWaitingClients"_s;
+    case Error::AttemptingToWaitOnClosedConnection: return "AttemptingToWaitOnClosedConnection"_s;
+    case Error::WaitingOnAlreadyDispatchedMessage: return "WaitingOnAlreadyDispatchedMessage"_s;
+    case Error::AttemptingToWaitInsideSyncMessageHandling: return "AttemptingToWaitInsideSyncMessageHandling"_s;
+    case Error::SyncMessageInterruptedWait: return "SyncMessageInterruptedWait"_s;
+    case Error::CantWaitForSyncReplies: return "CantWaitForSyncReplies"_s;
+    case Error::FailedToEncodeMessageArguments: return "FailedToEncodeMessageArguments"_s;
+    case Error::FailedToDecodeReplyArguments: return "FailedToDecodeReplyArguments"_s;
+    case Error::FailedToFindReplyHandler: return "FailedToFindReplyHandler"_s;
+    case Error::FailedToAcquireBufferSpan: return "FailedToAcquireBufferSpan"_s;
+    case Error::FailedToAcquireReplyBufferSpan: return "FailedToAcquireReplyBufferSpan"_s;
+    case Error::StreamConnectionEncodingError: return "StreamConnectionEncodingError"_s;
     }
 
-    return "";
+    return ""_s;
 }
 
 } // namespace IPC

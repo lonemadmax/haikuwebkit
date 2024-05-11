@@ -162,6 +162,49 @@ static id attributeValue(id element, NSString *attribute)
     if ([attribute isEqual:NSAccessibilityFocusedUIElementAttribute] && [element respondsToSelector:@selector(accessibilityFocusedUIElement)])
         return [element accessibilityFocusedUIElement];
 
+    // These are internal APIs used by DRT/WKTR; tests are allowed to use them but we don't want to advertise them.
+    static NeverDestroyed<RetainPtr<NSArray>> internalAttributes = @[
+        @"AXARIAPressedIsPresent",
+        @"AXARIARole",
+        @"AXAutocompleteValue",
+        @"AXClickPoint",
+        @"AXControllerFor",
+        @"AXControllers",
+        @"AXDRTSpeechAttribute",
+        @"AXDateTimeComponentsType",
+        @"AXDescribedBy",
+        @"AXDescriptionFor",
+        @"AXDetailsFor",
+        @"AXErrorMessageFor",
+        @"AXFlowFrom",
+        @"AXIsInCell",
+        @"AXIsInDescriptionListDetail",
+        @"AXIsInDescriptionListTerm",
+        @"AXIsIndeterminate",
+        @"AXIsMultiSelectable",
+        @"AXIsOnScreen",
+        @"AXLabelFor",
+        @"AXLabelledBy",
+        @"AXLineRectsAndText",
+        @"AXOwners",
+        @"AXStringValue",
+        @"AXValueAutofillType",
+
+        // FIXME: these shouldn't be here, but removing one of these causes tests to fail.
+        @"AXARIACurrent",
+        @"AXARIALive",
+        @"AXDescription",
+        @"AXKeyShortcutsValue",
+        @"AXOrientation",
+        @"AXOwns",
+        @"AXPopupValue",
+        @"AXRequired",
+        @"AXValue",
+    ];
+
+    NSArray<NSString *> *supportedAttributes = [element accessibilityAttributeNames];
+    if (![supportedAttributes containsObject:attribute] && ![internalAttributes.get() containsObject:attribute] && ![attribute isEqualToString:NSAccessibilityRoleAttribute])
+        return nil;
     return [element accessibilityAttributeValue:attribute];
 }
 
@@ -474,7 +517,7 @@ unsigned AccessibilityUIElement::indexOfChild(AccessibilityUIElement* element)
     return index;
 }
 
-RefPtr<AccessibilityUIElement> AccessibilityUIElement::elementForAttribute(NSString* attribute) const
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::elementForAttribute(NSString *attribute) const
 {
     auto element = attributeValue(attribute);
     return element ? AccessibilityUIElement::create(element.get()) : RefPtr<AccessibilityUIElement>();
@@ -589,6 +632,21 @@ RefPtr<AccessibilityUIElement> AccessibilityUIElement::disclosedRowAtIndex(unsig
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::rowAtIndex(unsigned index)
 {
     return elementForAttributeAtIndex(NSAccessibilityRowsAttribute, index);
+}
+
+RefPtr<AccessibilityUIElement> AccessibilityUIElement::activeElement() const
+{
+    return elementForAttribute(@"AXActiveElement");
+}
+
+JSValueRef AccessibilityUIElement::selectedChildren() const
+{
+    BEGIN_AX_OBJC_EXCEPTIONS
+    auto children = attributeValue(NSAccessibilitySelectedChildrenAttribute);
+    if ([children isKindOfClass:NSArray.class])
+        return makeJSArray(makeVector<RefPtr<AccessibilityUIElement>>(children.get()));
+    END_AX_OBJC_EXCEPTIONS
+    return makeJSArray({ });
 }
 
 RefPtr<AccessibilityUIElement> AccessibilityUIElement::selectedChildAtIndex(unsigned index) const

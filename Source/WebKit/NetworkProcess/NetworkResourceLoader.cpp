@@ -1853,9 +1853,9 @@ static void logCookieInformationInternal(NetworkConnectionToWebProcess& connecti
     auto size = cookies.size();
     decltype(size) count = 0;
     for (const auto& cookie : cookies) {
-        const char* trailingComma = ",";
+        auto trailingComma = ","_s;
         if (++count == size)
-            trailingComma = "";
+            trailingComma = ""_s;
 
         auto escapedName = escapeForJSON(cookie.name);
         auto escapedValue = escapeForJSON(cookie.value);
@@ -1876,7 +1876,7 @@ static void logCookieInformationInternal(NetworkConnectionToWebProcess& connecti
         LOCAL_LOG("    \"session\": %" PUBLIC_LOG_STRING ",", cookie.session ? "true" : "false");
         LOCAL_LOG("    \"comment\": \"%" PUBLIC_LOG_STRING "\",", escapedComment.utf8().data());
         LOCAL_LOG("    \"commentURL\": \"%" PUBLIC_LOG_STRING "\"", escapedCommentURL.utf8().data());
-        LOCAL_LOG("  }%" PUBLIC_LOG_STRING, trailingComma);
+        LOCAL_LOG("  }%" PUBLIC_LOG_STRING, trailingComma.characters());
     }
     LOCAL_LOG("]}");
 #undef LOCAL_LOG
@@ -2103,10 +2103,7 @@ void NetworkResourceLoader::cancelMainResourceLoadForContentFilter(const WebCore
 
 void NetworkResourceLoader::handleProvisionalLoadFailureFromContentFilter(const URL& blockedPageURL, WebCore::SubstituteData& substituteData)
 {
-    auto blockedPageDomain = RegistrableDomain { WebCore::ContentFilter::blockedPageURL() };
-    if (auto* connection = m_connection->networkProcess().webProcessConnection(m_connection->webProcessIdentifier()))
-        connection->addAllowedFirstPartyForCookies(blockedPageDomain);
-    m_connection->networkProcess().addAllowedFirstPartyForCookies(m_connection->webProcessIdentifier(), WTFMove(blockedPageDomain), LoadedWebArchive::No, [] { });
+    m_connection->networkProcess().addAllowedFirstPartyForCookies(m_connection->webProcessIdentifier(), RegistrableDomain { WebCore::ContentFilter::blockedPageURL() }, LoadedWebArchive::No, [] { });
     send(Messages::WebResourceLoader::ContentFilterDidBlockLoad(m_unblockHandler, m_unblockRequestDeniedScript, m_contentFilter->blockedError(), blockedPageURL, substituteData));
 }
 #endif // ENABLE(CONTENT_FILTERING)

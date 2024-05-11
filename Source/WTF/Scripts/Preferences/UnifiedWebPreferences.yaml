@@ -1081,7 +1081,6 @@ CSSPaintingAPIEnabled:
   category: css
   humanReadableName: "CSS Painting API"
   humanReadableDescription: "Enable the CSS Painting API"
-  condition: ENABLE(CSS_PAINTING_API)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -1987,6 +1986,20 @@ DeclarativeShadowRootsParserAPIsEnabled:
   category: dom
   humanReadableName: "Declarative Shadow Roots Parser APIs"
   humanReadableDescription: "Declarative Shadow Roots Parser APIs (Element/ShadowRoot's setHTMLUnsafe() and Document.parseHTMLUnsafe())"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
+DeclarativeShadowRootsSerializerAPIsEnabled:
+  type: bool
+  status: stable
+  category: dom
+  humanReadableName: "Declarative Shadow Roots Serializer APIs"
+  humanReadableDescription: "Declarative Shadow Roots Serializer APIs (Element/ShadowRoot's getHTML() and ShadowRoot's serializable)"
   defaultValue:
     WebKitLegacy:
       default: true
@@ -2902,12 +2915,12 @@ ICECandidateFilteringEnabled:
     WebCore:
       default: true
 
-IPAddressMixedContentUpgradeTestingEnabled:
+IPAddressAndLocalhostMixedContentUpgradeTestingEnabled:
   type: bool
   status: testable
   category: security
-  humanReadableName: "Upgrade IP address in mixed content"
-  humanReadableDescription: "Enable Upgrade IP address in mixed content"
+  humanReadableName: "Upgrade IP addresses and localhost in mixed content"
+  humanReadableDescription: "Enable Upgrading IP addresses and localhost in mixed content"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -3658,6 +3671,19 @@ LegacyOverflowScrollingTouchEnabled:
     WebCore:
       default: true
 
+LegacyPluginQuirkForMailSignaturesEnabled:
+  type: bool
+  status: internal
+  humanReadableName: "Quirk to get Mail to load signatures correctly with WebKitLegacy"
+  humanReadableDescription: "Quirk to get Mail to load signatures correctly with WebKitLegacy"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 LinearMediaPlayerEnabled:
   type: bool
   status: internal
@@ -3669,6 +3695,8 @@ LinearMediaPlayerEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      # FIXME: this line can be removed when WebKitSwift is available in Simulators (see rdar://125735304)
+      "PLATFORM(IOS_FAMILY_SIMULATOR)": false
       default: true
     WebCore:
       default: false
@@ -5651,6 +5679,19 @@ ScrollToTextFragmentIndicatorEnabled:
     WebCore:
       default: true
 
+ScrollToTextFragmentMarkingEnabled:
+  type: bool
+  status: embedder
+  humanReadableName: "Scroll To Text Fragment Marking"
+  humanReadableDescription: "Enable Scroll To Text Fragment Marking"
+  defaultValue:
+    WebKit:
+      default: true
+    WebKitLegacy:
+      default: true
+    WebCore:
+      default: true
+
 ScrollingPerformanceTestingEnabled:
   type: bool
   status: internal
@@ -6486,6 +6527,20 @@ TextExtractionEnabled:
   defaultValue:
     WebKit:
       default: true
+      
+TextIndicatorStylingEnabled:
+  type: bool
+  status: internal
+  humanReadableName: "Text Indicator Styling"
+  humanReadableDescription: "Text Indicator Styling"
+  condition: ENABLE(UNIFIED_TEXT_REPLACEMENT)
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
 
 TextInteractionEnabled:
   type: bool
@@ -6624,17 +6679,17 @@ TrustedTypesEnabled:
 
 UAVisualTransitionDetectionEnabled:
   type: bool
-  status: testable
+  status: stable
   category: dom
   humanReadableName: "Detect UA visual transitions"
   humanReadableDescription: "Enable detection of UA visual transitions"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 UndoManagerAPIEnabled:
@@ -6804,18 +6859,6 @@ UseGPUProcessForWebGLEnabled:
       "ENABLE(GPU_PROCESS_BY_DEFAULT) && ENABLE(GPU_PROCESS_WEBGL_BY_DEFAULT)": true
       "USE(GRAPHICS_LAYER_WC)": true
       default: false
-
-UseGeneralDirectoryForStorage:
-  type: bool
-  status: internal
-  category: dom
-  humanReadableName: "Use General Directory For Storage"
-  humanReadableDescription: "Use general storage directory for IndexedDB and LocalStorage"
-  webcoreBinding: none
-  exposed: [ WebKit ]
-  defaultValue:
-    WebKit:
-      default: true
 
 UseGiantTiles:
   type: bool
@@ -7361,7 +7404,7 @@ WebCodecsVideoEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "PLATFORM(COCOA)": true
+      "USE(LIBWEBRTC) && PLATFORM(COCOA)": WebKit::defaultPeerConnectionEnabledAvailable()
       "USE(GSTREAMER)": true
       default: false
     WebCore:
@@ -7582,7 +7625,7 @@ WebRTCEncodedTransformEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "USE(LIBWEBRTC)": true
+      "USE(LIBWEBRTC) && PLATFORM(COCOA)": WebKit::defaultPeerConnectionEnabledAvailable()
       default: false
     WebCore:
       "USE(LIBWEBRTC)": true

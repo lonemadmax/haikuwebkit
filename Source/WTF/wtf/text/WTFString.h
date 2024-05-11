@@ -43,14 +43,14 @@ namespace WTF {
 
 // Declarations of string operations
 
-WTF_EXPORT_PRIVATE double charactersToDouble(const LChar*, size_t, bool* ok = nullptr);
-WTF_EXPORT_PRIVATE double charactersToDouble(const UChar*, size_t, bool* ok = nullptr);
-WTF_EXPORT_PRIVATE float charactersToFloat(const LChar*, size_t, bool* ok = nullptr);
-WTF_EXPORT_PRIVATE float charactersToFloat(const UChar*, size_t, bool* ok = nullptr);
-WTF_EXPORT_PRIVATE float charactersToFloat(const LChar*, size_t, size_t& parsedLength);
-WTF_EXPORT_PRIVATE float charactersToFloat(const UChar*, size_t, size_t& parsedLength);
+WTF_EXPORT_PRIVATE double charactersToDouble(std::span<const LChar>, bool* ok = nullptr);
+WTF_EXPORT_PRIVATE double charactersToDouble(std::span<const UChar>, bool* ok = nullptr);
+WTF_EXPORT_PRIVATE float charactersToFloat(std::span<const LChar>, bool* ok = nullptr);
+WTF_EXPORT_PRIVATE float charactersToFloat(std::span<const UChar>, bool* ok = nullptr);
+WTF_EXPORT_PRIVATE float charactersToFloat(std::span<const LChar>, size_t& parsedLength);
+WTF_EXPORT_PRIVATE float charactersToFloat(std::span<const UChar>, size_t& parsedLength);
 
-template<bool isSpecialCharacter(UChar), typename CharacterType> bool containsOnly(const CharacterType*, size_t);
+template<bool isSpecialCharacter(UChar), typename CharacterType, std::size_t Extent> bool containsOnly(std::span<const CharacterType, Extent>);
 
 enum class TrailingZerosPolicy : bool { Keep, Truncate };
 
@@ -111,6 +111,7 @@ public:
 
     // Return characters8() or characters16() depending on CharacterType.
     template<typename CharacterType> const CharacterType* characters() const;
+    template<typename CharacterType> std::span<const CharacterType> span() const;
 
     bool is8Bit() const { return !m_impl || m_impl->is8Bit(); }
 
@@ -268,25 +269,19 @@ public:
     WTF_EXPORT_PRIVATE Vector<wchar_t> wideCharacters() const;
 #endif
 
-    WTF_EXPORT_PRIVATE static String make8Bit(const UChar*, unsigned);
+    WTF_EXPORT_PRIVATE static String make8Bit(std::span<const UChar>);
     WTF_EXPORT_PRIVATE void convertTo16Bit();
 
     // String::fromUTF8 will return a null string if the input data contains invalid UTF-8 sequences.
-    WTF_EXPORT_PRIVATE static String fromUTF8(const LChar*, size_t);
+    WTF_EXPORT_PRIVATE static String fromUTF8(std::span<const LChar>);
     WTF_EXPORT_PRIVATE static String fromUTF8(const LChar*);
-    static String fromUTF8(const char* characters, size_t length) { return fromUTF8(reinterpret_cast<const LChar*>(characters), length); }
+    static String fromUTF8(std::span<const char> characters) { return fromUTF8(std::span { reinterpret_cast<const LChar*>(characters.data()), characters.size() }); }
     static String fromUTF8(const char* string) { return fromUTF8(reinterpret_cast<const LChar*>(string)); }
-    WTF_EXPORT_PRIVATE static String fromUTF8(const CString&);
-    static String fromUTF8(const std::span<const LChar>& characters);
-    static String fromUTF8(const Vector<LChar>& characters) { return fromUTF8(characters.span()); }
-    static String fromUTF8ReplacingInvalidSequences(const LChar*, size_t);
+    static String fromUTF8ReplacingInvalidSequences(std::span<const LChar>);
 
     // Tries to convert the passed in string to UTF-8, but will fall back to Latin-1 if the string is not valid UTF-8.
     WTF_EXPORT_PRIVATE static String fromUTF8WithLatin1Fallback(std::span<const LChar>);
-
-    // FIXME: Update all call sites to pass a span and remove these 2 overloads.
-    static String fromUTF8WithLatin1Fallback(const LChar* characters, size_t length) { return fromUTF8WithLatin1Fallback(std::span { characters, length }); }
-    static String fromUTF8WithLatin1Fallback(const char* characters, size_t length) { return fromUTF8WithLatin1Fallback(std::span { reinterpret_cast<const LChar*>(characters), length }); }
+    static String fromUTF8WithLatin1Fallback(std::span<const char> characters) { return fromUTF8WithLatin1Fallback({ reinterpret_cast<const LChar*>(characters.data()), characters.size() }); }
 
     WTF_EXPORT_PRIVATE static String fromCodePoint(char32_t codePoint);
 
@@ -385,7 +380,7 @@ template<> struct VectorTraits<String> : VectorTraitsBase<false, void> {
 template<> struct IntegerToStringConversionTrait<String> {
     using ReturnType = String;
     using AdditionalArgumentType = void;
-    static String flush(const LChar* characters, unsigned length, void*) { return std::span { characters, length }; }
+    static String flush(std::span<const LChar> characters, void*) { return characters; }
 };
 
 #ifdef __OBJC__
@@ -455,6 +450,16 @@ template<> inline const UChar* String::characters<UChar>() const
     return characters16();
 }
 
+template<> inline std::span<const LChar> String::span<LChar>() const
+{
+    return span8();
+}
+
+template<> inline std::span<const UChar> String::span<UChar>() const
+{
+    return span16();
+}
+
 inline UChar String::characterAt(unsigned index) const
 {
     if (!m_impl || index >= m_impl->length())
@@ -472,7 +477,7 @@ inline String WARN_UNUSED_RETURN makeStringByReplacingAll(const String& string, 
 ALWAYS_INLINE String WARN_UNUSED_RETURN makeStringByReplacingAll(const String& string, UChar target, ASCIILiteral literal)
 {
     if (auto impl = string.impl())
-        return String { impl->replace(target, literal.characters(), literal.length()) };
+        return String { impl->replace(target, literal.span8()) };
     return string;
 }
 
@@ -542,13 +547,6 @@ inline NSString * nsStringNilIfNull(const String& string)
 inline bool codePointCompareLessThan(const String& a, const String& b)
 {
     return codePointCompare(a.impl(), b.impl()) < 0;
-}
-
-inline String String::fromUTF8(const std::span<const LChar>& characters)
-{
-    if (characters.empty())
-        return emptyString();
-    return fromUTF8(characters.data(), characters.size());
 }
 
 template<typename Predicate>

@@ -117,31 +117,6 @@ bool AXCoreObject::isTextControl() const
     }
 }
 
-bool AXCoreObject::canHaveSelectedChildren() const
-{
-    switch (roleValue()) {
-    // These roles are containers whose children support aria-selected:
-    case AccessibilityRole::Grid:
-    case AccessibilityRole::ListBox:
-    case AccessibilityRole::TabList:
-    case AccessibilityRole::Tree:
-    case AccessibilityRole::TreeGrid:
-    case AccessibilityRole::List:
-    // These roles are containers whose children are treated as selected by assistive
-    // technologies. We can get the "selected" item via aria-activedescendant or the
-    // focused element.
-    case AccessibilityRole::Menu:
-    case AccessibilityRole::MenuBar:
-    case AccessibilityRole::ComboBox:
-#if USE(ATSPI)
-    case AccessibilityRole::MenuListPopup:
-#endif
-        return true;
-    default:
-        return false;
-    }
-}
-
 AXCoreObject::AccessibilityChildrenVector AXCoreObject::tabChildren()
 {
     if (roleValue() != AccessibilityRole::TabList)
@@ -274,7 +249,7 @@ bool AXCoreObject::hasPopup() const
     if (!equalLettersIgnoringASCIICase(popupValue(), "false"_s))
         return true;
 
-    for (auto* ancestor = parentObject(); ancestor; ancestor = ancestor->parentObject()) {
+    for (RefPtr ancestor = parentObject(); ancestor; ancestor = ancestor->parentObject()) {
         if (!ancestor->isLink())
             continue;
 
@@ -290,7 +265,7 @@ unsigned AXCoreObject::tableLevel() const
         return 0;
 
     unsigned level = 0;
-    auto* current = exposedTableAncestor(true /* includeSelf */);
+    RefPtr current = exposedTableAncestor(true /* includeSelf */);
     while (current) {
         level++;
         current = current->exposedTableAncestor(false);
@@ -369,11 +344,69 @@ String AXCoreObject::ariaLandmarkRoleDescription() const
     }
 }
 
+bool AXCoreObject::supportsActiveDescendant() const
+{
+    switch (roleValue()) {
+    case AccessibilityRole::ComboBox:
+    case AccessibilityRole::Grid:
+    case AccessibilityRole::List:
+    case AccessibilityRole::ListBox:
+    case AccessibilityRole::Tree:
+    case AccessibilityRole::TreeGrid:
+        return true;
+    default:
+        return false;
+    }
+}
+
 AXCoreObject* AXCoreObject::activeDescendant() const
 {
     auto activeDescendants = relatedObjects(AXRelationType::ActiveDescendant);
     ASSERT(activeDescendants.size() <= 1);
-    return activeDescendants.size() ? activeDescendants[0].get() : nullptr;
+    if (!activeDescendants.isEmpty())
+        return activeDescendants[0].get();
+
+#if PLATFORM(COCOA)
+    // In COCOA, when the active descendant changes for a combobox, the target
+    // of the notification is the owned or controlled element of the combobox
+    // if exists, most commonly a list or listbox (seee AXObjectCache::handleActiveDescendantChange).
+    // Thus, a client could request the new active descendant from the list or
+    // listbox. To support this scenario, we try to get the controller or owner
+    // combobox if exists and return its active descendant.
+    if (canBeControlledBy(AccessibilityRole::ComboBox)) {
+        auto controllers = this->controllers();
+        if (controllers.isEmpty())
+            controllers = owners();
+        if (controllers.isEmpty())
+            return nullptr;
+
+        auto combobox = std::find_if(controllers.begin(), controllers.end(), [] (const auto& object) {
+            return object->isComboBox();
+        });
+        if (combobox != controllers.end())
+            return (*combobox)->activeDescendant();
+    }
+#endif
+
+    return nullptr;
+}
+
+bool AXCoreObject::canBeControlledBy(AccessibilityRole controllerRole) const
+{
+    if (controllerRole == AccessibilityRole::ComboBox) {
+        switch (roleValue()) {
+        case AccessibilityRole::Grid:
+        case AccessibilityRole::List:
+        case AccessibilityRole::ListBox:
+        case AccessibilityRole::Tree:
+        case AccessibilityRole::TreeGrid:
+            return true;
+        default:
+            return false;
+        }
+    }
+    // FIXME: add other restrictions.
+    return true;
 }
 
 AXCoreObject::AccessibilityChildrenVector AXCoreObject::selectedCells()
@@ -387,7 +420,7 @@ AXCoreObject::AccessibilityChildrenVector AXCoreObject::selectedCells()
             selectedCells.append(cell);
     }
 
-    if (auto* activeDescendant = this->activeDescendant()) {
+    if (RefPtr activeDescendant = this->activeDescendant()) {
         if (activeDescendant->isExposedTableCell() && !selectedCells.contains(activeDescendant))
             selectedCells.append(activeDescendant);
     }
@@ -560,7 +593,7 @@ AXCoreObject::AccessibilityChildrenVector AXCoreObject::linkedObjects() const
     auto linkedObjects = flowToObjects();
 
     if (isLink()) {
-        if (auto* linkedAXElement = internalLinkElement())
+        if (RefPtr linkedAXElement = internalLinkElement())
             linkedObjects.append(linkedAXElement);
     } else if (isRadioButton())
         appendRadioButtonGroupMembers(linkedObjects);
@@ -591,7 +624,7 @@ void AXCoreObject::appendRadioButtonGroupMembers(AccessibilityChildrenVector& li
             linkedUIElements.append(radioSibling);
     } else {
         // If we didn't find any radio button siblings with the traditional naming, lets search for a radio group role and find its children.
-        for (auto* parent = parentObject(); parent; parent = parent->parentObject()) {
+        for (RefPtr parent = parentObject(); parent; parent = parent->parentObject()) {
             if (parent->roleValue() == AccessibilityRole::RadioGroup) {
                 appendRadioButtonDescendants(*parent, linkedUIElements);
                 break;

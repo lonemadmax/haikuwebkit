@@ -45,6 +45,11 @@
 #include "CSSParserIdioms.h"
 #include "CSSPendingSubstitutionValue.h"
 #include "CSSPrimitiveValueMappings.h"
+#include "CSSPropertyParserConsumer+Angle.h"
+#include "CSSPropertyParserConsumer+Color.h"
+#include "CSSPropertyParserConsumer+List.h"
+#include "CSSPropertyParserConsumer+Resolution.h"
+#include "CSSPropertyParserConsumer+Time.h"
 #include "CSSPropertyParsing.h"
 #include "CSSQuadValue.h"
 #include "CSSTokenizer.h"
@@ -62,6 +67,7 @@
 #include "TimingFunction.h"
 #include "TransformFunctions.h"
 #include <memory>
+#include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
@@ -71,45 +77,41 @@ bool isCustomPropertyName(StringView propertyName)
     return propertyName.length() > 2 && propertyName.characterAt(0) == '-' && propertyName.characterAt(1) == '-';
 }
 
-static bool hasPrefix(const char* string, unsigned length, const char* prefix)
+static bool hasPrefix(std::span<const char> string, std::span<const LChar> prefix)
 {
-    for (unsigned i = 0; i < length; ++i) {
-        if (!prefix[i])
-            return true;
-        if (string[i] != prefix[i])
-            return false;
-    }
-    return false;
+    if (string.size() < prefix.size())
+        return false;
+    return equalSpans(string.first(prefix.size()), prefix);
 }
 
-template<typename CharacterType> static CSSPropertyID cssPropertyID(const CharacterType* characters, unsigned length)
+template<typename CharacterType> static CSSPropertyID cssPropertyID(std::span<const CharacterType> characters)
 {
     char buffer[maxCSSPropertyNameLength];
-    for (unsigned i = 0; i != length; ++i) {
+    for (size_t i = 0; i != characters.size(); ++i) {
         auto character = characters[i];
         if (!character || !isASCII(character))
             return CSSPropertyInvalid;
         buffer[i] = toASCIILower(character);
     }
-    return findCSSProperty(buffer, length);
+    return findCSSProperty(buffer, characters.size());
 }
 
 // FIXME: Remove this mechanism entirely once we can do it without breaking the web.
-static bool isAppleLegacyCSSValueKeyword(const char* characters, unsigned length)
+static bool isAppleLegacyCSSValueKeyword(std::span<const char> characters)
 {
-    return hasPrefix(characters + 1, length - 1, "apple-")
-        && !hasPrefix(characters + 7, length - 7, "system")
-        && !hasPrefix(characters + 7, length - 7, "pay")
-        && !hasPrefix(characters + 7, length - 7, "wireless");
+    return hasPrefix(characters.subspan(1), "apple-"_span)
+        && !hasPrefix(characters.subspan(7), "system"_span)
+        && !hasPrefix(characters.subspan(7), "pay"_span)
+        && !hasPrefix(characters.subspan(7), "wireless"_span);
 }
 
-template<typename CharacterType> static CSSValueID cssValueKeywordID(const CharacterType* characters, unsigned length)
+template<typename CharacterType> static CSSValueID cssValueKeywordID(std::span<const CharacterType> characters)
 {
-    ASSERT(length > 0); // Otherwise buffer[0] would access uninitialized memory below.
+    ASSERT(!characters.empty()); // Otherwise buffer[0] would access uninitialized memory below.
 
-    char buffer[maxCSSValueKeywordLength + 1]; // 1 to turn "apple" into "webkit"
+    std::array<char, maxCSSValueKeywordLength + 1> buffer; // 1 to turn "apple" into "webkit"
     
-    for (unsigned i = 0; i != length; ++i) {
+    for (unsigned i = 0; i != characters.size(); ++i) {
         auto character = characters[i];
         if (!character || !isASCII(character))
             return CSSValueInvalid;
@@ -117,13 +119,14 @@ template<typename CharacterType> static CSSValueID cssValueKeywordID(const Chara
     }
 
     // In most cases, if the prefix is -apple-, change it to -webkit-. This makes the string one character longer.
-    if (buffer[0] == '-' && isAppleLegacyCSSValueKeyword(buffer, length)) {
-        memmove(buffer + 7, buffer + 6, length - 6);
-        memcpy(buffer + 1, "webkit", 6);
+    auto length = characters.size();
+    if (buffer[0] == '-' && isAppleLegacyCSSValueKeyword(std::span { buffer }.first(length))) {
+        memmove(buffer.data() + 7, buffer.data() + 6, length - 6);
+        memcpy(buffer.data() + 1, "webkit", 6);
         ++length;
     }
 
-    return findCSSValueKeyword(buffer, length);
+    return findCSSValueKeyword(std::span { buffer }.first(length));
 }
 
 CSSValueID cssValueKeywordID(StringView string)
@@ -134,7 +137,7 @@ CSSValueID cssValueKeywordID(StringView string)
     if (length > maxCSSValueKeywordLength)
         return CSSValueInvalid;
     
-    return string.is8Bit() ? cssValueKeywordID(string.characters8(), length) : cssValueKeywordID(string.characters16(), length);
+    return string.is8Bit() ? cssValueKeywordID(string.span8()) : cssValueKeywordID(string.span16());
 }
 
 CSSPropertyID cssPropertyID(StringView string)
@@ -146,7 +149,7 @@ CSSPropertyID cssPropertyID(StringView string)
     if (length > maxCSSPropertyNameLength)
         return CSSPropertyInvalid;
     
-    return string.is8Bit() ? cssPropertyID(string.characters8(), length) : cssPropertyID(string.characters16(), length);
+    return string.is8Bit() ? cssPropertyID(string.span8()) : cssPropertyID(string.span16());
 }
     
 using namespace CSSPropertyParserHelpers;

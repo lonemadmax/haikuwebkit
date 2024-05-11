@@ -599,7 +599,9 @@ private:
             if (m_locked.contains(left) || m_locked.contains(right)
                 || !Arg::isValidIndexForm(Air::Move, 1, offset, width))
                 return fallback();
-            
+
+            if (isMergeableValue(left, ZExt32) || isMergeableValue(left, SExt32))
+                return indexArg(tmp(right), left, 1, offset);
             return indexArg(tmp(left), right, 1, offset);
         }
 
@@ -5281,7 +5283,7 @@ private:
 
 void lowerToAir(Procedure& procedure)
 {
-    PhaseScope phaseScope(procedure, "lowerToAir");
+    PhaseScope phaseScope(procedure, "lowerToAir"_s);
     LowerToAir lowerToAir(procedure);
     lowerToAir.run();
 }

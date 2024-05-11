@@ -129,14 +129,14 @@ bool SVGRenderSupport::checkForSVGRepaintDuringLayout(const RenderElement& rende
         return false;
     // When a parent container is transformed in SVG, all children will be painted automatically
     // so we are able to skip redundant repaint checks.
-    auto* parent = dynamicDowncast<LegacyRenderSVGContainer>(renderer.parent());
+    CheckedPtr parent = dynamicDowncast<LegacyRenderSVGContainer>(renderer.parent());
     return !parent || !parent->didTransformToRootUpdate();
 }
 
 // Update a bounding box taking into account the validity of the other bounding box.
 static inline void updateObjectBoundingBox(FloatRect& objectBoundingBox, bool& objectBoundingBoxValid, const RenderObject* other, FloatRect otherBoundingBox)
 {
-    auto* otherContainer = dynamicDowncast<LegacyRenderSVGContainer>(*other);
+    CheckedPtr otherContainer = dynamicDowncast<LegacyRenderSVGContainer>(*other);
     bool otherValid = !otherContainer || otherContainer->isObjectBoundingBoxValid();
     if (!otherValid)
         return;
@@ -155,21 +155,21 @@ void SVGRenderSupport::computeContainerBoundingBoxes(const RenderElement& contai
     objectBoundingBox = FloatRect();
     objectBoundingBoxValid = false;
     repaintBoundingBox = FloatRect();
-    for (auto& current : childrenOfType<RenderObject>(container)) {
-        if (current.isLegacyRenderSVGHiddenContainer())
+    for (CheckedRef current : childrenOfType<RenderObject>(container)) {
+        if (current->isLegacyRenderSVGHiddenContainer())
             continue;
 
         // Don't include elements in the union that do not render.
-        if (auto* shape = dynamicDowncast<LegacyRenderSVGShape>(current); shape && shape->isRenderingDisabled())
+        if (auto* shape = dynamicDowncast<LegacyRenderSVGShape>(current.ptr()); shape && shape->isRenderingDisabled())
             continue;
 
-        const AffineTransform& transform = current.localToParentTransform();
+        const AffineTransform& transform = current->localToParentTransform();
         if (transform.isIdentity()) {
-            updateObjectBoundingBox(objectBoundingBox, objectBoundingBoxValid, &current, current.objectBoundingBox());
-            repaintBoundingBox.unite(current.repaintRectInLocalCoordinates(repaintRectCalculation));
+            updateObjectBoundingBox(objectBoundingBox, objectBoundingBoxValid, current.ptr(), current->objectBoundingBox());
+            repaintBoundingBox.unite(current->repaintRectInLocalCoordinates(repaintRectCalculation));
         } else {
-            updateObjectBoundingBox(objectBoundingBox, objectBoundingBoxValid, &current, transform.mapRect(current.objectBoundingBox()));
-            repaintBoundingBox.unite(transform.mapRect(current.repaintRectInLocalCoordinates(repaintRectCalculation)));
+            updateObjectBoundingBox(objectBoundingBox, objectBoundingBoxValid, current.ptr(), transform.mapRect(current->objectBoundingBox()));
+            repaintBoundingBox.unite(transform.mapRect(current->repaintRectInLocalCoordinates(repaintRectCalculation)));
         }
     }
 }
@@ -178,18 +178,18 @@ FloatRect SVGRenderSupport::computeContainerStrokeBoundingBox(const RenderElemen
 {
     ASSERT(container.isLegacyRenderSVGRoot() || container.isLegacyRenderSVGContainer());
     FloatRect strokeBoundingBox = FloatRect();
-    for (auto& current : childrenOfType<RenderObject>(container)) {
-        if (current.isLegacyRenderSVGHiddenContainer())
+    for (CheckedRef current : childrenOfType<RenderObject>(container)) {
+        if (current->isLegacyRenderSVGHiddenContainer())
             continue;
 
         // Don't include elements in the union that do not render.
-        if (auto* shape = dynamicDowncast<LegacyRenderSVGShape>(current); shape && shape->isRenderingDisabled())
+        if (auto* shape = dynamicDowncast<LegacyRenderSVGShape>(current.ptr()); shape && shape->isRenderingDisabled())
             continue;
 
-        FloatRect childStrokeBoundingBox = current.strokeBoundingBox();
-        if (auto* currentElement = dynamicDowncast<RenderElement>(current))
+        FloatRect childStrokeBoundingBox = current->strokeBoundingBox();
+        if (auto* currentElement = dynamicDowncast<RenderElement>(current.get()))
             SVGRenderSupport::intersectRepaintRectWithResources(*currentElement, childStrokeBoundingBox, RepaintRectCalculation::Accurate);
-        const AffineTransform& transform = current.localToParentTransform();
+        const AffineTransform& transform = current->localToParentTransform();
         if (transform.isIdentity())
             strokeBoundingBox.unite(childStrokeBoundingBox);
         else
@@ -228,7 +228,7 @@ static inline void invalidateResourcesOfChildren(RenderElement& renderer)
 
 static inline bool layoutSizeOfNearestViewportChanged(const RenderElement& renderer)
 {
-    for (auto* start = &renderer; start; start = start->parent()) {
+    for (CheckedPtr start = &renderer; start; start = start->parent()) {
         if (auto* svgRoot = dynamicDowncast<LegacyRenderSVGRoot>(*start))
             return svgRoot->isLayoutSizeChanged();
         if (auto* container = dynamicDowncast<LegacyRenderSVGViewportContainer>(*start))
@@ -303,7 +303,7 @@ void SVGRenderSupport::layoutChildren(RenderElement& start, bool selfNeedsLayout
             if (!childEverHadLayout)
                 child.repaint();
         } else if (layoutSizeChanged) {
-            if (auto* childElement = dynamicDowncast<RenderElement>(child))
+            if (CheckedPtr childElement = dynamicDowncast<RenderElement>(child))
                 elementsThatDidNotReceiveLayout.add(*childElement);
         }
 
@@ -472,9 +472,9 @@ void SVGRenderSupport::applyStrokeStyleToContext(GraphicsContext& context, const
             ASSERT(renderer.isRenderOrLegacyRenderSVGShape());
             // FIXME: A value of zero is valid. Need to differentiate this case from being unspecified.
             if (float pathLength = geometryElement->pathLength()) {
-                if (auto* shape = dynamicDowncast<LegacyRenderSVGShape>(renderer))
+                if (CheckedPtr shape = dynamicDowncast<LegacyRenderSVGShape>(renderer))
                     scaleFactor = shape->getTotalLength() / pathLength;
-                else if (auto* shape = dynamicDowncast<RenderSVGShape>(renderer))
+                else if (CheckedPtr shape = dynamicDowncast<RenderSVGShape>(renderer))
                     scaleFactor = shape->getTotalLength() / pathLength;
             }
         }
@@ -597,7 +597,7 @@ FloatRect SVGRenderSupport::calculateApproximateStrokeBoundingBox(const RenderEl
         return calculateApproximateScalingStrokeBoundingBox(renderer, renderer.objectBoundingBox());
     };
 
-    if (auto* shape = dynamicDowncast<LegacyRenderSVGShape>(renderer))
+    if (CheckedPtr shape = dynamicDowncast<LegacyRenderSVGShape>(renderer))
         return shape->adjustStrokeBoundingBoxForMarkersAndZeroLengthLinecaps(RepaintRectCalculation::Fast, calculate(*shape));
 
     const auto& shape = downcast<RenderSVGShape>(renderer);

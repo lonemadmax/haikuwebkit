@@ -59,9 +59,6 @@ SOFT_LINK_FRAMEWORK(UIKit)
 SOFT_LINK_CLASS(UIKit, UIWindow)
 
 #if USE(BROWSERENGINEKIT)
-// FIXME: Replace this with linker flags in TestWebKitAPI.xcconfig once BrowserEngineKit
-// is available everywhere we require it.
-asm(".linker_option \"-framework\", \"BrowserEngineKit\"");
 // FIXME: This workaround can be removed once the fix for rdar://120390585 lands in the SDK.
 SOFT_LINK_CLASS(UIKit, UIKeyEvent)
 #endif
@@ -135,6 +132,12 @@ static NSString *overrideBundleIdentifier(id, SEL)
 {
     [self loadTestPageNamed:pageName];
     [self _test_waitForDidFinishNavigation];
+}
+
+- (void)synchronouslyLoadTestPageNamed:(NSString *)pageName preferences:(WKWebpagePreferences *)preferences
+{
+    [self loadTestPageNamed:pageName];
+    [self _test_waitForDidFinishNavigationWithPreferences:preferences];
 }
 
 - (BOOL)_synchronouslyExecuteEditCommand:(NSString *)command argument:(NSString *)argument
@@ -451,6 +454,18 @@ static WebEvent *unwrap(BEKeyEntry *event)
     __block bool done = false;
     __block RetainPtr<NSString> result;
     [self _getContentsAsStringWithCompletionHandler:^(NSString *contents, NSError *error) {
+        result = contents;
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+    return result.autorelease();
+}
+
+- (NSData *)contentsAsWebArchive
+{
+    __block bool done = false;
+    __block RetainPtr<NSData> result;
+    [self createWebArchiveDataWithCompletionHandler:^(NSData *contents, NSError *error) {
         result = contents;
         done = true;
     }];
@@ -1291,13 +1306,30 @@ static WKContentView *recursiveFindWKContentView(UIView *view)
     [self typeCharacter:character modifiers:0];
 }
 
+- (void)sendKey:(NSString *)characters code:(unsigned short)keyCode isDown:(BOOL)isDown modifiers:(NSEventModifierFlags)modifiers
+{
+    NSEvent *event = [NSEvent keyEventWithType:isDown ? NSEventTypeKeyDown : NSEventTypeKeyUp
+        location:NSZeroPoint
+        modifierFlags:modifiers
+        timestamp:self.eventTimestamp
+        windowNumber:[_hostWindow windowNumber]
+        context:nil
+        characters:characters
+        charactersIgnoringModifiers:characters
+        isARepeat:NO
+        keyCode:keyCode];
+
+    if (isDown)
+        [self keyDown:event];
+    else
+        [self keyUp:event];
+}
+
 - (void)typeCharacter:(char)character modifiers:(NSEventModifierFlags)modifiers
 {
-    NSString *characterAsString = [NSString stringWithFormat:@"%c" , character];
-    NSEventType keyDownEventType = NSEventTypeKeyDown;
-    NSEventType keyUpEventType = NSEventTypeKeyUp;
-    [self keyDown:[NSEvent keyEventWithType:keyDownEventType location:NSZeroPoint modifierFlags:modifiers timestamp:self.eventTimestamp windowNumber:[_hostWindow windowNumber] context:nil characters:characterAsString charactersIgnoringModifiers:characterAsString isARepeat:NO keyCode:character]];
-    [self keyUp:[NSEvent keyEventWithType:keyUpEventType location:NSZeroPoint modifierFlags:modifiers timestamp:self.eventTimestamp windowNumber:[_hostWindow windowNumber] context:nil characters:characterAsString charactersIgnoringModifiers:characterAsString isARepeat:NO keyCode:character]];
+    NSString *characters = [NSString stringWithFormat:@"%c", character];
+    for (auto isDown : std::array { YES, NO })
+        [self sendKey:characters code:character isDown:isDown modifiers:modifiers];
 }
 
 // Note: this testing strategy makes a couple of assumptions:

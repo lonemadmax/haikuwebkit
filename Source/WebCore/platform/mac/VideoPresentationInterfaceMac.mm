@@ -408,6 +408,10 @@ void VideoPresentationInterfaceMac::setMode(HTMLMediaElementEnums::VideoFullscre
         return;
 
     m_mode = newMode;
+
+    if (hasMode(HTMLMediaElementEnums::VideoFullscreenModePictureInPicture) && !isMode(HTMLMediaElementEnums::VideoFullscreenModePictureInPicture))
+        return;
+
     if (auto model = videoPresentationModel())
         model->fullscreenModeChanged(m_mode);
 }
@@ -419,6 +423,10 @@ void VideoPresentationInterfaceMac::clearMode(HTMLMediaElementEnums::VideoFullsc
         return;
 
     m_mode = newMode;
+
+    if (hasMode(HTMLMediaElementEnums::VideoFullscreenModePictureInPicture) && !isMode(HTMLMediaElementEnums::VideoFullscreenModePictureInPicture))
+        return;
+
     if (auto model = videoPresentationModel())
         model->fullscreenModeChanged(m_mode);
 }
@@ -448,7 +456,7 @@ void VideoPresentationInterfaceMac::setupFullscreen(NSView& layerHostedView, con
     UNUSED_PARAM(allowsPictureInPicturePlayback);
     ASSERT(mode == HTMLMediaElementEnums::VideoFullscreenModePictureInPicture);
 
-    m_mode = mode;
+    m_mode |= mode;
 
     [videoPresentationInterfaceObjC() setUpPIPForVideoView:&layerHostedView withFrame:(NSRect)initialRect inWindow:parentWindow];
 
@@ -462,7 +470,7 @@ void VideoPresentationInterfaceMac::enterFullscreen()
 {
     LOG(Fullscreen, "VideoPresentationInterfaceMac::enterFullscreen(%p)", this);
 
-    if (mode() == HTMLMediaElementEnums::VideoFullscreenModePictureInPicture) {
+    if (hasMode(HTMLMediaElementEnums::VideoFullscreenModePictureInPicture)) {
         if (auto model = videoPresentationModel())
             model->willEnterPictureInPicture();
         [m_webVideoPresentationInterfaceObjC enterPIP];

@@ -370,6 +370,11 @@ void RenderText::styleDidChange(StyleDifference diff, const RenderStyle* oldStyl
     TextSecurity oldSecurity = oldStyle ? oldStyle->textSecurity() : TextSecurity::None;
     if (needsResetText || oldTransform != newStyle.textTransform() || oldSecurity != newStyle.textSecurity())
         RenderText::setText(originalText(), true);
+
+    // FIXME: First line change on the block comes in as equal on text with inline box parent.
+    auto needsLayoutBoxStyleUpdate = (diff >= StyleDifference::Repaint || (is<RenderInline>(parent()) && &style() != &firstLineStyle())) && layoutBox();
+    if (needsLayoutBoxStyleUpdate)
+        LayoutIntegration::LineLayout::updateStyle(*this);
 }
 
 void RenderText::removeAndDestroyTextBoxes()
@@ -975,7 +980,7 @@ RenderText::Widths RenderText::trimmedPreferredWidths(float leadWidth, bool& str
     if (text()[0] == ' ' || (text()[0] == '\n' && !style.preserveNewline()) || text()[0] == '\t') {
         auto& font = style.fontCascade(); // FIXME: This ignores first-line.
         if (stripFrontSpaces)
-            widths.max -= font.width(RenderBlock::constructTextRun(&space, 1, style));
+            widths.max -= font.width(RenderBlock::constructTextRun(span(space), style));
         else
             widths.max += font.wordSpacing();
     }
@@ -1370,10 +1375,10 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, SingleThreadWeak
     setPreferredLogicalWidthsDirty(false);
 }
 
-template<typename CharacterType> static inline bool containsOnlyCollapsibleWhitespace(const CharacterType* characters, unsigned length, const RenderStyle& style)
+template<typename CharacterType> static inline bool containsOnlyCollapsibleWhitespace(std::span<const CharacterType> characters, const RenderStyle& style)
 {
-    for (unsigned i = 0; i < length; ++i) {
-        if (!style.isCollapsibleWhiteSpace(characters[i]))
+    for (auto character : characters) {
+        if (!style.isCollapsibleWhiteSpace(character))
             return false;
     }
     return true;
@@ -1382,15 +1387,15 @@ template<typename CharacterType> static inline bool containsOnlyCollapsibleWhite
 bool RenderText::containsOnlyCollapsibleWhitespace() const
 {
     if (text().is8Bit())
-        return WebCore::containsOnlyCollapsibleWhitespace(text().characters8(), text().length(), style());
-    return WebCore::containsOnlyCollapsibleWhitespace(text().characters16(), text().length(), style());
+        return WebCore::containsOnlyCollapsibleWhitespace(text().span8(), style());
+    return WebCore::containsOnlyCollapsibleWhitespace(text().span16(), style());
 }
 
 // FIXME: merge this with isCSSSpace somehow
-template<typename CharacterType> static inline bool containsOnlyPossiblyCollapsibleWhitespace(const CharacterType* characters, unsigned length)
+template<typename CharacterType> static inline bool containsOnlyPossiblyCollapsibleWhitespace(std::span<const CharacterType> characters)
 {
-    for (unsigned i = 0; i < length; ++i) {
-        if (!(characters[i] == '\n' || characters[i] == ' ' || characters[i] == '\t'))
+    for (auto character : characters) {
+        if (!(character == '\n' || character == ' ' || character == '\t'))
             return false;
     }
     return true;
@@ -1402,8 +1407,8 @@ bool RenderText::containsOnlyCSSWhitespace(unsigned from, unsigned length) const
     ASSERT(length <= text().length());
     ASSERT(from + length <= text().length());
     if (text().is8Bit())
-        return containsOnlyPossiblyCollapsibleWhitespace(text().characters8() + from, length);
-    return containsOnlyPossiblyCollapsibleWhitespace(text().characters16() + from, length);
+        return containsOnlyPossiblyCollapsibleWhitespace(text().span8().subspan(from, length));
+    return containsOnlyPossiblyCollapsibleWhitespace(text().span16().subspan(from, length));
 }
 
 Vector<std::pair<unsigned, unsigned>> RenderText::draggedContentRangesBetweenOffsets(unsigned startOffset, unsigned endOffset) const
@@ -1689,11 +1694,11 @@ static void invalidateLineLayoutPathOnContentChangeIfNeeded(const RenderText& re
         return;
 
     if (LayoutIntegration::LineLayout::shouldInvalidateLineLayoutPathAfterContentChange(*container, renderer, *modernLineLayout)) {
-        container->invalidateLineLayoutPath();
+        container->invalidateLineLayoutPath(RenderBlockFlow::InvalidationReason::ContentChange);
         return;
     }
     if (!modernLineLayout->updateTextContent(renderer, offset, delta))
-        container->invalidateLineLayoutPath();
+        container->invalidateLineLayoutPath(RenderBlockFlow::InvalidationReason::ContentChange);
 }
 
 void RenderText::setTextInternal(const String& text, bool force)
@@ -1720,8 +1725,10 @@ void RenderText::setTextInternal(const String& text, bool force)
 
 void RenderText::setText(const String& newContent, bool force)
 {
+    auto isDifferent = newContent != text();
     setTextInternal(newContent, force);
-    invalidateLineLayoutPathOnContentChangeIfNeeded(*this, 0, text().length());
+    if (isDifferent || force)
+        invalidateLineLayoutPathOnContentChangeIfNeeded(*this, 0, text().length());
 }
 
 void RenderText::setTextWithOffset(const String& newText, unsigned offset, unsigned, bool force)

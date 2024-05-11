@@ -74,13 +74,16 @@ using OffscreenRenderingContext = std::variant<
     RefPtr<OffscreenCanvasRenderingContext2D>
 >;
 
+class OffscreenCanvasPlaceholderData;
+
 class DetachedOffscreenCanvas {
     WTF_MAKE_NONCOPYABLE(DetachedOffscreenCanvas);
     WTF_MAKE_FAST_ALLOCATED;
     friend class OffscreenCanvas;
 
 public:
-    DetachedOffscreenCanvas(std::unique_ptr<SerializedImageBuffer>, const IntSize&, bool originClean);
+    DetachedOffscreenCanvas(std::unique_ptr<SerializedImageBuffer>, const IntSize&, bool originClean, RefPtr<OffscreenCanvasPlaceholderData>);
+    WEBCORE_EXPORT ~DetachedOffscreenCanvas();
 
     RefPtr<ImageBuffer> takeImageBuffer(ScriptExecutionContext&);
     const IntSize& size() const { return m_size; }
@@ -92,13 +95,13 @@ public:
             return buffer->memoryCost();
         return 0;
     }
-    WeakPtr<HTMLCanvasElement, WeakPtrImplWithEventTargetData> takePlaceholderCanvas();
+    RefPtr<OffscreenCanvasPlaceholderData> takePlaceholderData();
 
 private:
     std::unique_ptr<SerializedImageBuffer> m_buffer;
+    RefPtr<OffscreenCanvasPlaceholderData> m_placeholderData;
     IntSize m_size;
     bool m_originClean;
-    WeakPtr<HTMLCanvasElement, WeakPtrImplWithEventTargetData> m_placeholderCanvas;
 };
 
 class OffscreenCanvas final : public ActiveDOMObject, public RefCounted<OffscreenCanvas>, public CanvasBase, public EventTarget {
@@ -122,7 +125,7 @@ public:
 
     static Ref<OffscreenCanvas> create(ScriptExecutionContext&, unsigned width, unsigned height);
     static Ref<OffscreenCanvas> create(ScriptExecutionContext&, std::unique_ptr<DetachedOffscreenCanvas>&&);
-    static Ref<OffscreenCanvas> create(ScriptExecutionContext&, HTMLCanvasElement&);
+    static Ref<OffscreenCanvas> create(ScriptExecutionContext&, HTMLCanvasElement& placeholder);
     WEBCORE_EXPORT virtual ~OffscreenCanvas();
 
     void setWidth(unsigned);
@@ -131,6 +134,8 @@ public:
     void setImageBufferAndMarkDirty(RefPtr<ImageBuffer>&&) final;
 
     CanvasRenderingContext* renderingContext() const final { return m_context.get(); }
+
+    const CSSParserContext& cssParserContext() const final;
 
     ExceptionOr<std::optional<OffscreenRenderingContext>> getContext(JSC::JSGlobalObject&, RenderingContextType, FixedVector<JSC::Strong<JSC::Unknown>>&& arguments);
     ExceptionOr<RefPtr<ImageBitmap>> transferToImageBitmap();
@@ -159,7 +164,7 @@ public:
     bool isDetached() const { return m_detached; };
 
 private:
-    OffscreenCanvas(ScriptExecutionContext&, unsigned width, unsigned height);
+    OffscreenCanvas(ScriptExecutionContext&, IntSize, RefPtr<OffscreenCanvasPlaceholderData>);
 
     bool isOffscreenCanvas() const final { return true; }
 
@@ -179,36 +184,17 @@ private:
     std::unique_ptr<SerializedImageBuffer> takeImageBuffer() const;
 
     void reset();
-
-    void setPlaceholderCanvas(HTMLCanvasElement&);
-    void pushBufferToPlaceholder();
     void scheduleCommitToPlaceholderCanvas();
 
     std::unique_ptr<CanvasRenderingContext> m_context;
-
+    RefPtr<OffscreenCanvasPlaceholderData> m_placeholderData;
+    mutable RefPtr<Image> m_copiedImage;
     // m_hasCreatedImageBuffer means we tried to malloc the buffer. We didn't necessarily get it.
     mutable bool m_hasCreatedImageBuffer { false };
-
     bool m_detached { false };
-
-    mutable RefPtr<Image> m_copiedImage;
-
     bool m_hasScheduledCommit { false };
 
-    class PlaceholderData : public ThreadSafeRefCounted<PlaceholderData, WTF::DestructionThread::Main> {
-    public:
-        static Ref<PlaceholderData> create()
-        {
-            return adoptRef(*new PlaceholderData);
-        }
-
-        WeakPtr<HTMLCanvasElement, WeakPtrImplWithEventTargetData> canvas;
-        RefPtr<ImageBufferPipe::Source> bufferPipeSource;
-        std::unique_ptr<SerializedImageBuffer> pendingCommitBuffer;
-        mutable Lock bufferLock;
-    };
-
-    RefPtr<PlaceholderData> m_placeholderData;
+    mutable std::unique_ptr<CSSParserContext> m_cssParserContext;
 };
 
 }

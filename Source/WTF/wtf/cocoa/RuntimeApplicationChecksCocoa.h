@@ -33,6 +33,7 @@ namespace WTF {
 
 enum class SDKAlignedBehavior {
     AllowsWheelEventGesturesToBecomeNonBlocking,
+    ApplicationStateTrackerDoesNotObserveWindow,
     AuthorizationHeaderOnSameOriginRedirects,
     BlanksViewOnJSPrompt,
     ContextMenuTriggersLinkActivationNavigationType,
@@ -118,6 +119,9 @@ enum class SDKAlignedBehavior {
     DoNotLoadStyleSheetIfHTTPStatusIsNotOK,
     ScrollViewSubclassImplementsAddGestureRecognizer,
     ThrowIfCanDeclareGlobalFunctionFails,
+    ThrowOnKVCInstanceVariableAccess,
+    LaxCookieSameSiteAttribute,
+    BlockOptionallyBlockableMixedContent,
 
     NumberOfBehaviors
 };

@@ -70,7 +70,7 @@ LayerTreeHost::LayerTreeHost(WebPage& webPage, WebCore::PlatformDisplayID displa
 {
 #if USE(GLIB_EVENT_LOOP)
     m_layerFlushTimer.setPriority(RunLoopSourcePriority::LayerFlushTimer);
-    m_layerFlushTimer.setName("[WebKit] LayerTreeHost");
+    m_layerFlushTimer.setName("[WebKit] LayerTreeHost"_s);
 #endif
     scheduleLayerFlush();
 
@@ -176,10 +176,6 @@ void LayerTreeHost::layerFlushTimerFired()
     // that WebCore makes to the relevant layers, so re-apply our changes after flushing.
     if (m_transientZoom)
         applyTransientZoomToLayers(m_transientZoomScale, m_transientZoomOrigin);
-#endif
-
-#if HAVE(DISPLAY_LINK)
-    m_compositor->updateScene();
 #endif
 }
 

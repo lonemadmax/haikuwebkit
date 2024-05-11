@@ -37,8 +37,9 @@ class RenderText;
 class RenderedDocumentMarker;
 struct TextBoxSelectableRange;
 
-struct MarkedText : public CanMakeCheckedPtr {
+struct MarkedText : public CanMakeCheckedPtr<MarkedText> {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
+    WTF_STRUCT_OVERRIDE_DELETE_FOR_CHECKED_PTR(MarkedText);
 
     // Sorted by paint order
     enum class Type : uint8_t {

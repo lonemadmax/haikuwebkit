@@ -1016,6 +1016,7 @@ JITCompiler::JumpList SpeculativeJIT::jumpSlowForUnwantedArrayMode(GPRReg tempGP
         IndexingType shape = arrayMode.shapeMask();
         switch (arrayMode.arrayClass()) {
         case Array::OriginalArray:
+        case Array::OriginalNonCopyOnWriteArray:
         case Array::OriginalCopyOnWriteArray:
             RELEASE_ASSERT_NOT_REACHED();
             return result;
@@ -1048,6 +1049,7 @@ JITCompiler::JumpList SpeculativeJIT::jumpSlowForUnwantedArrayMode(GPRReg tempGP
 
         switch (arrayMode.arrayClass()) {
         case Array::OriginalArray:
+        case Array::OriginalNonCopyOnWriteArray:
         case Array::OriginalCopyOnWriteArray:
             RELEASE_ASSERT_NOT_REACHED();
             return result;
@@ -3795,16 +3797,23 @@ static double clampDoubleToByte(double d)
     return std::nearbyint(d);
 }
 
-static void compileClampIntegerToByte(JITCompiler& jit, GPRReg result)
+static void compileClampIntegerToByte(JITCompiler& jit, GPRReg resultGPR, GPRReg scratch1GPR)
 {
-    MacroAssembler::Jump inBounds = jit.branch32(MacroAssembler::BelowOrEqual, result, JITCompiler::TrustedImm32(0xff));
-    MacroAssembler::Jump tooBig = jit.branch32(MacroAssembler::GreaterThan, result, JITCompiler::TrustedImm32(0xff));
-    jit.xorPtr(result, result);
+#if CPU(ARM64)
+    jit.clearBitsWithMaskRightShift32(resultGPR, resultGPR, CCallHelpers::TrustedImm32(31), resultGPR);
+    jit.move(CCallHelpers::TrustedImm32(0xff), scratch1GPR);
+    jit.moveConditionally32(CCallHelpers::Below, resultGPR, scratch1GPR, resultGPR, scratch1GPR, resultGPR);
+#else
+    UNUSED_PARAM(scratch1GPR);
+    MacroAssembler::Jump inBounds = jit.branch32(MacroAssembler::BelowOrEqual, resultGPR, JITCompiler::TrustedImm32(0xff));
+    MacroAssembler::Jump tooBig = jit.branch32(MacroAssembler::GreaterThan, resultGPR, JITCompiler::TrustedImm32(0xff));
+    jit.xorPtr(resultGPR, resultGPR);
     MacroAssembler::Jump clamped = jit.jump();
     tooBig.link(&jit);
-    jit.move(JITCompiler::TrustedImm32(255), result);
+    jit.move(JITCompiler::TrustedImm32(255), resultGPR);
     clamped.link(&jit);
     inBounds.link(&jit);
+#endif
 }
 
 static void compileClampDoubleToByte(JITCompiler& jit, GPRReg result, FPRReg source, FPRReg scratch)
@@ -3883,14 +3892,6 @@ JITCompiler::Jump SpeculativeJIT::jumpForTypedArrayOutOfBounds(Node* node, GPRRe
 #endif
 }
 
-void SpeculativeJIT::emitTypedArrayBoundsCheck(Node* node, GPRReg baseGPR, GPRReg indexGPR, GPRReg scratchGPR, GPRReg scratch2GPR)
-{
-    Jump jump = jumpForTypedArrayOutOfBounds(node, baseGPR, indexGPR, scratchGPR, scratch2GPR);
-    if (!jump.isSet())
-        return;
-    speculationCheck(OutOfBounds, JSValueRegs(), nullptr, jump);
-}
-
 JITCompiler::Jump SpeculativeJIT::jumpForTypedArrayIsDetachedIfOutOfBounds(Node* node, GPRReg base, Jump outOfBounds)
 {
     Jump done;
@@ -3940,7 +3941,7 @@ void SpeculativeJIT::loadFromIntTypedArray(GPRReg storageReg, GPRReg propertyReg
     }
 }
 
-void SpeculativeJIT::setIntTypedArrayLoadResult(Node* node, JSValueRegs resultRegs, TypedArrayType type, bool canSpeculate, bool shouldBox, FPRReg resultFPR)
+void SpeculativeJIT::setIntTypedArrayLoadResult(Node* node, JSValueRegs resultRegs, TypedArrayType type, bool canSpeculate, bool shouldBox, FPRReg resultFPR, Jump outOfBounds)
 {
     bool isUInt32 = elementSize(type) == 4 && !JSC::isSigned(type);
     if (isUInt32)
@@ -3956,6 +3957,8 @@ void SpeculativeJIT::setIntTypedArrayLoadResult(Node* node, JSValueRegs resultRe
             boxDouble(resultFPR, resultRegs);
         } else
             boxInt32(resultRegs.payloadGPR(), resultRegs);
+        if (outOfBounds.isSet())
+            outOfBounds.link(this);
         jsValueResult(resultRegs, node);
         return;
     }
@@ -4019,14 +4022,28 @@ void SpeculativeJIT::compileGetByValOnIntTypedArray(Node* node, TypedArrayType t
 #endif
 
     JSValueRegs resultRegs;
-    DataFormat format;
-    std::tie(resultRegs, format, std::ignore) = prefix(DataFormatInt32);
+    DataFormat format = DataFormatInt32;
+    if (node->arrayMode().isOutOfBounds())
+        format = DataFormatJS;
+    std::tie(resultRegs, format, std::ignore) = prefix(format);
     bool shouldBox = format == DataFormatJS;
 
-    emitTypedArrayBoundsCheck(node, baseReg, propertyReg, scratchGPR, scratch2GPR);
+    if (node->arrayMode().isOutOfBounds()) {
+        ASSERT(shouldBox);
+        moveTrustedValue(jsUndefined(), resultRegs);
+    }
+
+    Jump jump = jumpForTypedArrayOutOfBounds(node, baseReg, propertyReg, scratchGPR, scratch2GPR);
+    if (jump.isSet()) {
+        if (!node->arrayMode().isOutOfBounds()) {
+            speculationCheck(OutOfBounds, JSValueRegs(), nullptr, jump);
+            jump = { };
+        }
+    }
+
     loadFromIntTypedArray(storageReg, propertyReg, resultRegs.payloadGPR(), type);
     constexpr bool canSpeculate = true;
-    setIntTypedArrayLoadResult(node, resultRegs, type, canSpeculate, shouldBox, resultFPR);
+    setIntTypedArrayLoadResult(node, resultRegs, type, canSpeculate, shouldBox, resultFPR, jump);
 }
 
 bool SpeculativeJIT::getIntTypedArrayStoreOperand(
@@ -4063,12 +4080,17 @@ bool SpeculativeJIT::getIntTypedArrayStoreOperand(
         switch (valueUse.useKind()) {
         case Int32Use: {
             SpeculateInt32Operand valueOp(this, valueUse);
-            GPRTemporary scratch(this);
-            GPRReg scratchReg = scratch.gpr();
-            move(valueOp.gpr(), scratchReg);
-            if (isClamped)
-                compileClampIntegerToByte(*this, scratchReg);
-            value.adopt(scratch);
+            GPRTemporary scratch1(this);
+            GPRReg scratch1GPR = scratch1.gpr();
+            if (isClamped) {
+                GPRTemporary scratch2(this);
+                GPRReg valueGPR = valueOp.gpr();
+                GPRReg scratch2GPR = scratch2.gpr();
+                move(valueGPR, scratch1GPR);
+                compileClampIntegerToByte(*this, scratch1GPR, scratch2GPR);
+            } else
+                move(valueOp.gpr(), scratch1GPR);
+            value.adopt(scratch1);
             break;
         }
             
@@ -4180,9 +4202,14 @@ void SpeculativeJIT::compilePutByValForIntTypedArray(Node* node, TypedArrayType 
 {
     ASSERT(isInt(type));
 
-    SpeculateCellOperand base(this, m_graph.varArgChild(node, 0));
-    SpeculateStrictInt32Operand property(this, m_graph.varArgChild(node, 1));
-    StorageOperand storage(this, m_graph.varArgChild(node, 3));
+    Edge child1 = m_graph.varArgChild(node, 0);
+    Edge child2 = m_graph.varArgChild(node, 1);
+    Edge child3 = m_graph.varArgChild(node, 2);
+    Edge child4 = m_graph.varArgChild(node, 3);
+
+    SpeculateCellOperand base(this, child1);
+    SpeculateStrictInt32Operand property(this, child2);
+    StorageOperand storage(this, child4);
 
     GPRTemporary scratch(this);
     std::optional<GPRTemporary> scratch2;
@@ -4198,12 +4225,28 @@ void SpeculativeJIT::compilePutByValForIntTypedArray(Node* node, TypedArrayType 
 
     JumpList slowPathCases;
 
+    bool isClamped = JSC::isClamped(type);
+    if (isClamped) {
+        if (child3->op() == GetByVal) {
+            switch (child3->arrayMode().type()) {
+            case Array::Uint8Array:
+            case Array::Uint8ClampedArray: {
+                // If the value is coming from Uint8Array / Uint8ClampedArray, the value is always within uint8_t.
+                isClamped = false;
+                break;
+            }
+            default:
+                break;
+            }
+        }
+    }
+
     bool result = getIntTypedArrayStoreOperand(
         value, propertyReg,
 #if USE(JSVALUE32_64)
         propertyTag, valueTag,
 #endif
-        m_graph.varArgChild(node, 2), slowPathCases, isClamped(type));
+        child3, slowPathCases, isClamped);
     if (!result) {
         noResult(node);
         return;
@@ -4289,10 +4332,22 @@ void SpeculativeJIT::compileGetByValOnFloatTypedArray(Node* node, TypedArrayType
 #endif
 
     JSValueRegs resultRegs;
-    DataFormat format;
-    std::tie(resultRegs, format, std::ignore) = prefix(DataFormatDouble);
+    DataFormat format = DataFormatDouble;
+    if (node->arrayMode().isOutOfBounds())
+        format = DataFormatJS;
+    std::tie(resultRegs, format, std::ignore) = prefix(format);
 
-    emitTypedArrayBoundsCheck(node, baseReg, propertyReg, scratchGPR, scratch2GPR);
+    if (node->arrayMode().isOutOfBounds())
+        moveTrustedValue(jsUndefined(), resultRegs);
+
+    Jump jump = jumpForTypedArrayOutOfBounds(node, baseReg, propertyReg, scratchGPR, scratch2GPR);
+    if (jump.isSet()) {
+        if (!node->arrayMode().isOutOfBounds()) {
+            speculationCheck(OutOfBounds, JSValueRegs(), nullptr, jump);
+            jump = { };
+        }
+    }
+
     switch (elementSize(type)) {
     case 4:
         loadFloat(BaseIndex(storageReg, propertyReg, TimesFour), resultReg);
@@ -4309,6 +4364,8 @@ void SpeculativeJIT::compileGetByValOnFloatTypedArray(Node* node, TypedArrayType
     if (format == DataFormatJS) {
         purifyNaN(resultReg);
         boxDouble(resultReg, resultRegs);
+        if (jump.isSet())
+            jump.link(this);
         jsValueResult(resultRegs, node);
     } else {
         ASSERT(format == DataFormatDouble);
@@ -8112,12 +8169,15 @@ bool SpeculativeJIT::compileStrictEq(Node* node)
         return false;
     }
 
-    if (node->isBinaryUseKind(MiscUse, UntypedUse)
-        || node->isBinaryUseKind(UntypedUse, MiscUse)) {
-        compileMiscStrictEq(node);
+    if (node->isReflexiveBinaryUseKind(BooleanUse, UntypedUse)
+        || node->isBinaryUseKind(OtherUse)
+        || node->isReflexiveBinaryUseKind(OtherUse, UntypedUse)
+        || node->isBinaryUseKind(MiscUse)
+        || node->isReflexiveBinaryUseKind(MiscUse, UntypedUse)) {
+        compileBitwiseStrictEq(node);
         return false;
     }
-    
+
     if (node->isBinaryUseKind(StringIdentUse, NotStringVarUse)) {
         compileStringIdentToNotStringVarEquality(node, node->child1(), node->child2());
         return false;
@@ -16426,23 +16486,24 @@ void SpeculativeJIT::compileExtractFromTuple(Node* node)
     info.initFromTupleResult(node);
 }
 
-void SpeculativeJIT::compileMiscStrictEq(Node* node)
+void SpeculativeJIT::compileBitwiseStrictEq(Node* node)
 {
     JSValueOperand op1(this, node->child1(), ManualOperandSpeculation);
     JSValueOperand op2(this, node->child2(), ManualOperandSpeculation);
     GPRTemporary result(this);
 
-    if (node->child1().useKind() == MiscUse)
-        speculateMisc(node->child1(), op1.jsValueRegs());
-    if (node->child2().useKind() == MiscUse)
-        speculateMisc(node->child2(), op2.jsValueRegs());
+    JSValueRegs op1Regs = op1.jsValueRegs();
+    JSValueRegs op2Regs = op2.jsValueRegs();
+
+    speculate(node, node->child1());
+    speculate(node, node->child2());
 
 #if USE(JSVALUE64)
-    compare64(Equal, op1.gpr(), op2.gpr(), result.gpr());
+    compare64(Equal, op1Regs.payloadGPR(), op2Regs.payloadGPR(), result.gpr());
 #else
     move(TrustedImm32(0), result.gpr());
-    Jump notEqual = branch32(NotEqual, op1.tagGPR(), op2.tagGPR());
-    compare32(Equal, op1.payloadGPR(), op2.payloadGPR(), result.gpr());
+    Jump notEqual = branch32(NotEqual, op1Regs.tagGPR(), op2Regs.tagGPR());
+    compare32(Equal, op1Regs.payloadGPR(), op2Regs.payloadGPR(), result.gpr());
     notEqual.link(this);
 #endif
     unblessedBooleanResult(result.gpr(), node);
@@ -17058,22 +17119,28 @@ void SpeculativeJIT::compileMakeRope(Node* node)
     orPtr(TrustedImmPtr(JSString::isRopeInPointer), scratchGPR);
     storePtr(scratchGPR, Address(resultGPR, JSRopeString::offsetOfFiber0()));
 
-    move(opGPRs[1], scratchGPR);
-    lshiftPtr(TrustedImm32(32), scratchGPR);
+#if CPU(ARM64)
+    orLeftShift64(allocatorGPR, opGPRs[1], TrustedImm32(32), scratchGPR);
+#else
+    lshiftPtr(opGPRs[1], TrustedImm32(32), scratchGPR);
     orPtr(allocatorGPR, scratchGPR);
-    storePtr(scratchGPR, Address(resultGPR, JSRopeString::offsetOfFiber1()));
+#endif
 
     if (numOpGPRs == 2) {
-        move(opGPRs[1], scratchGPR);
-        rshiftPtr(TrustedImm32(32), scratchGPR);
-        storePtr(scratchGPR, Address(resultGPR, JSRopeString::offsetOfFiber2()));
+        rshiftPtr(opGPRs[1], TrustedImm32(32), scratch2GPR);
+        storePairPtr(scratchGPR, scratch2GPR, Address(resultGPR, JSRopeString::offsetOfFiber1()));
     } else {
-        move(opGPRs[1], scratchGPR);
-        rshiftPtr(TrustedImm32(32), scratchGPR);
-        move(opGPRs[2], scratch2GPR);
-        lshiftPtr(TrustedImm32(16), scratch2GPR);
+#if CPU(ARM64)
+        rshiftPtr(opGPRs[1], TrustedImm32(32), scratch2GPR);
+        orLeftShift64(scratch2GPR, opGPRs[2], TrustedImm32(16), scratch2GPR);
+        storePairPtr(scratchGPR, scratch2GPR, Address(resultGPR, JSRopeString::offsetOfFiber1()));
+#else
+        storePtr(scratchGPR, Address(resultGPR, JSRopeString::offsetOfFiber1()));
+        rshiftPtr(opGPRs[1], TrustedImm32(32), scratchGPR);
+        lshiftPtr(opGPRs[2], TrustedImm32(16), scratch2GPR);
         orPtr(scratch2GPR, scratchGPR);
         storePtr(scratchGPR, Address(resultGPR, JSRopeString::offsetOfFiber2()));
+#endif
     }
 
     auto isNonEmptyString = branchTest32(NonZero, allocatorGPR);

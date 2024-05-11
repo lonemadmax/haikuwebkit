@@ -94,6 +94,7 @@
 #include <sys/types.h>
 #include <type_traits>
 #include <wtf/CPUTime.h>
+#include <wtf/CommaPrinter.h>
 #include <wtf/FileSystem.h>
 #include <wtf/MainThread.h>
 #include <wtf/MemoryPressureHandler.h>
@@ -122,6 +123,7 @@
 #if PLATFORM(COCOA)
 #include <crt_externs.h>
 #include <wtf/OSObjectPtr.h>
+#include <wtf/cocoa/CrashReporter.h>
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
 
@@ -521,7 +523,7 @@ long StopWatch::getElapsedMS()
 template<typename Vector>
 static inline String stringFromUTF(const Vector& utf8)
 {
-    return String::fromUTF8WithLatin1Fallback(utf8.data(), utf8.size());
+    return String::fromUTF8WithLatin1Fallback(utf8.span());
 }
 
 static JSC_DECLARE_CUSTOM_GETTER(accessorMakeMasquerader);
@@ -1155,6 +1157,11 @@ static void convertShebangToJSComment(Vector& buffer)
 
 static RefPtr<Uint8Array> fillBufferWithContentsOfFile(FILE* file)
 {
+    struct stat statBuf;
+    if (fstat(fileno(file), &statBuf) == -1)
+        return nullptr;
+    if ((statBuf.st_mode & S_IFMT) != S_IFREG)
+        return nullptr;
     if (fseek(file, 0, SEEK_END) == -1)
         return nullptr;
     long bufferCapacity = ftell(file);
@@ -1204,6 +1211,16 @@ static bool fillBufferWithContentsOfFile(FILE* file, Vector& buffer)
 
 static bool fillBufferWithContentsOfFile(const String& fileName, Vector<char>& buffer)
 {
+    struct stat statBuf;
+    if (stat(fileName.utf8().data(), &statBuf) == -1) {
+        fprintf(stderr, "Could not open file: %s\n", fileName.utf8().data());
+        return false;
+    }
+
+    if ((statBuf.st_mode & S_IFMT) != S_IFREG) {
+        fprintf(stderr, "Trying to open a non-file: %s\n", fileName.utf8().data());
+        return false;
+    }
     FILE* f = fopen(fileName.utf8().data(), "rb");
     if (!f) {
         fprintf(stderr, "Could not open file: %s\n", fileName.utf8().data());
@@ -1995,7 +2012,7 @@ JSC_DEFINE_HOST_FUNCTION(functionReadFile, (JSGlobalObject* globalObject, CallFr
         return throwVMError(globalObject, scope, "Could not open file."_s);
 
     if (!isBinary)
-        return JSValue::encode(jsString(vm, String::fromUTF8WithLatin1Fallback(content->data(), content->length())));
+        return JSValue::encode(jsString(vm, String::fromUTF8WithLatin1Fallback(content->span())));
 
     Structure* structure = globalObject->typedArrayStructure(TypeUint8, content->isResizableOrGrowableShared());
     JSObject* result = JSUint8Array::create(vm, structure, WTFMove(content));
@@ -2499,7 +2516,7 @@ JSC_DEFINE_HOST_FUNCTION(functionDollarAgentStart, (JSGlobalObject* globalObject
     }
     
     Thread::create(
-        "JSC Agent",
+        "JSC Agent"_s,
         [sourceCode = WTFMove(sourceCode).isolatedCopy(), workerPath = WTFMove(workerPath).isolatedCopy(), &didStartLock, &didStartCondition, &didStart] () {
             CommandLine commandLine(CommandLine::CommandLineForWorkers);
             commandLine.m_interactive = false;
@@ -3362,7 +3379,7 @@ static void startMemoryMonitoringThreadIfNeeded()
     if (!memoryLimit)
         return;
 
-    Thread::create("jsc Memory Monitor", [=] {
+    Thread::create("jsc Memory Monitor"_s, [=] {
         while (true) {
             sleep(Seconds::fromMilliseconds(5));
             crashIfExceedingMemoryLimit();
@@ -3379,7 +3396,7 @@ static VM* s_vm;
 
 static void startTimeoutTimer(Seconds duration)
 {
-    Thread::create("jsc Timeout Thread", [=] () {
+    Thread::create("jsc Timeout Thread"_s, [=] () {
         sleep(duration);
         VMInspector::forEachVM([&] (VM& vm) -> IterationStatus {
             if (&vm != s_vm)
@@ -3448,14 +3465,6 @@ static void startTimeoutThreadIfNeeded(VM& vm)
 
 int main(int argc, char** argv WTF_TZONE_EXTRA_MAIN_ARGS)
 {
-#if OS(DARWIN) && CPU(ARM_THUMB2)
-    // Enabled IEEE754 denormal support.
-    fenv_t env;
-    fegetenv( &env );
-    env.__fpscr &= ~0x01000000u;
-    fesetenv( &env );
-#endif
-
 #if USE(TZONE_MALLOC)
     const char* boothash = GET_TZONE_SEED_FROM_ENV(darwinEnvp);
     WTF_TZONE_INIT(boothash);
@@ -3501,13 +3510,18 @@ int main(int argc, char** argv WTF_TZONE_EXTRA_MAIN_ARGS)
     WTF::initialize();
 #if PLATFORM(COCOA)
     WTF::disableForwardingVPrintfStdErrToOSLog();
+
+    if (getenv("JSCTEST_CrashReportArgV")) {
+        StringPrintStream out;
+        CommaPrinter space(" "_s);
+        for (int i = 0; i < argc; ++i)
+            out.print(space, argv[i]);
+        WTF::setCrashLogMessage(out.toCString().data());
+    }
 #endif
 
 #if OS(UNIX)
     if (getenv("JS_SHELL_WAIT_FOR_SIGUSR2_TO_EXIT")) {
-        uint32_t key = 0;
-        int mask = 0;
-        initializeSignalHandling(key, mask);
         addSignalHandler(Signal::Usr, SignalHandler([&] (Signal, SigInfo&, PlatformRegisters&) {
             dataLogLn("Signal handler hit, we can exit now.");
             waitToExit.signal();
@@ -3981,20 +3995,6 @@ void CommandLine::parseArguments(int argc, char** argv)
         }
         if (!strcmp(arg, "-s")) {
 #if OS(UNIX)
-            uint32_t key = 0;
-            int mask = 0;
-#if HAVE(MACH_EXCEPTIONS)
-            mask |= toMachMask(Signal::IllegalInstruction);
-            mask |= toMachMask(Signal::AccessFault);
-            mask |= toMachMask(Signal::FloatingPoint);
-            mask |= toMachMask(Signal::Breakpoint);
-#if !OS(DARWIN)
-            mask |= toMachMask(Signal::Abort);
-#endif // !OS(DARWIN)
-#endif // HAVE(MACH_EXCEPTIONS)
-
-            initializeSignalHandling(key, mask);
-
             SignalAction (*exit)(Signal, SigInfo&, PlatformRegisters&) = [] (Signal, SigInfo&, PlatformRegisters&) {
                 dataLogLn("Signal handler hit. Exiting with status 0");
                 // Deliberate exit with a SIGKILL code greater than 130.
@@ -4017,7 +4017,6 @@ void CommandLine::parseArguments(int argc, char** argv)
             addSignalHandler(Signal::Abort, SignalHandler(exit));
             activateSignalHandlersFor(Signal::Abort);
 #endif
-            finalizeSignalHandlers();
 #endif
             continue;
         }
@@ -4349,6 +4348,9 @@ int jscmain(int argc, char** argv)
     if (UNLIKELY(Options::needDisassemblySupport()))
         JSC::JITOperationList::populateDisassemblyLabelsInEmbedder(&startOfJITOperationsInShell, &endOfJITOperationsInShell);
 #endif
+
+    if (!Options::maxHeapSizeAsRAMSizeMultiple())
+        Options::maxHeapSizeAsRAMSizeMultiple() = 2;
 
     initializeTimeoutIfNeeded();
 

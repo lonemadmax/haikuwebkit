@@ -78,6 +78,12 @@ enum class Behavior : uint8_t {
 };
 using Behaviors = OptionSet<Behavior>;
 
+enum class BreakTarget : uint8_t {
+    Switch,
+    Loop,
+    Continuing
+};
+
 static ASCIILiteral bindingKindToString(Binding::Kind kind)
 {
     switch (kind) {
@@ -237,6 +243,7 @@ private:
 
     TypeStore& m_types;
     Vector<Error> m_errors;
+    Vector<BreakTarget> m_breakTargetStack;
     HashMap<String, OverloadedDeclaration> m_overloadedOperations;
 };
 
@@ -427,6 +434,8 @@ TypeChecker::TypeChecker(ShaderModule& shaderModule)
 
 std::optional<FailedCheck> TypeChecker::check()
 {
+    ContextScope moduleScope(this);
+
     Base::visit(m_shaderModule);
 
     if (shouldDumpInferredTypes) {
@@ -712,9 +721,10 @@ void TypeChecker::visit(AST::Function& function)
             introduceValue(function.parameters()[i].name(), parameters[i]);
         Base::visit(function.body());
 
-        auto behaviours = analyze(function.body());
-        if (!behaviours.contains(Behavior::Return) && function.maybeReturnType())
+        auto behaviors = analyze(function.body());
+        if (behaviors.contains(Behavior::Next) && function.maybeReturnType())
             typeError(InferBottom::No, function.span(), "missing return at end of function");
+        ASSERT(!behaviors.containsAny({ Behavior::Break, Behavior::Continue }));
     }
 
     const Type* functionType = m_types.functionType(WTFMove(parameters), m_returnType, mustUse);
@@ -762,8 +772,8 @@ void TypeChecker::visit(AST::SizeAttribute& attribute)
 
 void TypeChecker::visit(AST::WorkgroupSizeAttribute& attribute)
 {
-    auto* xType = check(attribute.x(), Constraints::ConcreteInteger, Evaluation::Override);
-    if (!xType) {
+    auto* xType = infer(attribute.x(), Evaluation::Override);
+    if (!satisfies(xType, Constraints::ConcreteInteger)) {
         typeError(InferBottom::No, attribute.span(), "@workgroup_size x dimension must be an i32 or u32 value");
         return;
     }
@@ -771,15 +781,15 @@ void TypeChecker::visit(AST::WorkgroupSizeAttribute& attribute)
     const Type* yType = nullptr;
     const Type* zType = nullptr;
     if (auto* y = attribute.maybeY()) {
-        yType = check(*y, Constraints::ConcreteInteger, Evaluation::Override);
-        if (!yType) {
+        yType = infer(*y, Evaluation::Override);
+        if (!satisfies(yType, Constraints::ConcreteInteger)) {
             typeError(InferBottom::No, attribute.span(), "@workgroup_size y dimension must be an i32 or u32 value");
             return;
         }
 
         if (auto* z = attribute.maybeZ()) {
-            zType = check(*z, Constraints::ConcreteInteger, Evaluation::Override);
-            if (!zType) {
+            zType = infer(*z, Evaluation::Override);
+            if (!satisfies(zType, Constraints::ConcreteInteger)) {
                 typeError(InferBottom::No, attribute.span(), "@workgroup_size z dimension must be an i32 or u32 value");
                 return;
             }
@@ -1987,7 +1997,6 @@ Behaviors TypeChecker::analyze(AST::Statement& statement)
 {
     switch (statement.kind()) {
     case AST::NodeKind::AssignmentStatement:
-    case AST::NodeKind::BreakStatement:
     case AST::NodeKind::CallStatement:
     case AST::NodeKind::CompoundAssignmentStatement:
     case AST::NodeKind::ConstAssertStatement:
@@ -1997,9 +2006,31 @@ Behaviors TypeChecker::analyze(AST::Statement& statement)
     case AST::NodeKind::StaticAssertStatement:
     case AST::NodeKind::VariableStatement:
         return Behavior::Next;
+    case AST::NodeKind::BreakStatement:
+        if (m_breakTargetStack.isEmpty())
+            typeError(InferBottom::No, statement.span(), "break statement must be in a loop or switch case");
+        else if (m_breakTargetStack.last() == BreakTarget::Continuing)
+            typeError(InferBottom::No, statement.span(), "`break` must not be used to exit from a continuing block. Use `break-if` instead");
+        return Behavior::Break;
     case AST::NodeKind::ReturnStatement:
+        if (m_breakTargetStack.contains(BreakTarget::Continuing))
+            typeError(InferBottom::No, statement.span(), "continuing blocks must not contain a return statement");
         return Behavior::Return;
     case AST::NodeKind::ContinueStatement:
+        if (m_breakTargetStack.isEmpty())
+            typeError(InferBottom::No, statement.span(), "break statement must be in a loop");
+        else {
+            for (int i = m_breakTargetStack.size() - 1; i >= 0; --i) {
+                auto target = m_breakTargetStack[i];
+                if (target == BreakTarget::Continuing)
+                    typeError(InferBottom::No, statement.span(), "continuing blocks must not contain a continue statement");
+                else if (target == BreakTarget::Switch)
+                    continue;
+                else // BreakTarget::Loop
+                    break;
+
+            }
+        }
         return Behavior::Continue;
     case AST::NodeKind::CompoundStatement:
         return analyze(uncheckedDowncast<AST::CompoundStatement>(statement));
@@ -2025,9 +2056,23 @@ Behaviors TypeChecker::analyze(AST::CompoundStatement& statement)
 
 Behaviors TypeChecker::analyze(AST::ForStatement& statement)
 {
-    auto behaviors = Behaviors({ Behavior::Next, Behavior::Break, Behavior::Continue });
+    auto behaviors = Behaviors();
+    if (statement.maybeTest())
+        behaviors.add({ Behavior::Next, Behavior::Break });
+
+    m_breakTargetStack.append(BreakTarget::Loop);
     behaviors.add(analyze(statement.body()));
-    behaviors.remove({ Behavior::Break, Behavior::Continue });
+    m_breakTargetStack.removeLast();
+
+    if (behaviors.contains(Behavior::Break)) {
+        behaviors.remove({ Behavior::Break, Behavior::Continue });
+        behaviors.add(Behavior::Next);
+    } else
+        behaviors.remove({ Behavior::Next, Behavior::Continue });
+
+    if (behaviors.isEmpty())
+        typeError(InferBottom::No, statement.span(), "for-loop does not exit");
+
     return behaviors;
 }
 
@@ -2036,32 +2081,46 @@ Behaviors TypeChecker::analyze(AST::IfStatement& statement)
     auto behaviors = analyze(statement.trueBody());
     if (auto* elseBody = statement.maybeFalseBody())
         behaviors.add(analyze(*elseBody));
+    else
+        behaviors.add(Behavior::Next);
     return behaviors;
 }
 
 Behaviors TypeChecker::analyze(AST::LoopStatement& statement)
 {
+    m_breakTargetStack.append(BreakTarget::Loop);
     auto behaviors = analyzeStatements(statement.body());
     if (auto& continuing = statement.continuing()) {
+        m_breakTargetStack.append(BreakTarget::Continuing);
         behaviors.add(analyzeStatements(continuing->body));
+        m_breakTargetStack.removeLast();
         if (auto* breakIf = continuing->breakIf)
-            behaviors.add({ Behavior::Break, Behavior:: Continue });
+            behaviors.add({ Behavior::Break, Behavior::Continue });
     }
-    if (behaviors.contains(Behavior::Break))
+    m_breakTargetStack.removeLast();
+    if (behaviors.contains(Behavior::Break)) {
         behaviors.remove({ Behavior::Break, Behavior::Continue });
-    else
+        behaviors.add(Behavior::Next);
+    } else
         behaviors.remove({ Behavior::Next, Behavior::Continue });
+
+    if (behaviors.isEmpty())
+        typeError(InferBottom::No, statement.span(), "loop does not exit");
+
     return behaviors;
 }
 
 Behaviors TypeChecker::analyze(AST::SwitchStatement& statement)
 {
+    m_breakTargetStack.append(BreakTarget::Switch);
     auto behaviors = analyze(statement.defaultClause().body);
     for (auto& clause : statement.clauses())
         behaviors.add(analyze(clause.body));
+    m_breakTargetStack.removeLast();
+
     if (behaviors.contains(Behavior::Break)) {
         behaviors.remove(Behavior::Break);
-        behaviors.add(Behavior::Break);
+        behaviors.add(Behavior::Next);
     }
     return behaviors;
 }
@@ -2069,7 +2128,9 @@ Behaviors TypeChecker::analyze(AST::SwitchStatement& statement)
 Behaviors TypeChecker::analyze(AST::WhileStatement& statement)
 {
     auto behaviors = Behaviors({ Behavior::Next, Behavior::Break });
+    m_breakTargetStack.append(BreakTarget::Loop);
     behaviors.add(analyze(statement.body()));
+    m_breakTargetStack.removeLast();
     behaviors.remove({ Behavior::Break, Behavior::Continue });
     return behaviors;
 }
@@ -2078,10 +2139,11 @@ Behaviors TypeChecker::analyzeStatements(AST::Statement::List& statements)
 {
     auto behaviors = Behaviors(Behavior::Next);
     for (auto& statement : statements) {
-        behaviors.remove(Behavior::Next);
-        behaviors.add(analyze(statement));
-        if (!behaviors.contains(Behavior::Next))
-            break;
+        auto behavior = analyze(statement);
+        if (behaviors.contains(Behavior::Next)) {
+            behaviors.remove(Behavior::Next);
+            behaviors.add(behavior);
+        }
     }
     return behaviors;
 }

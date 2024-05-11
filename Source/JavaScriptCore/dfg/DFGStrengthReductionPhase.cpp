@@ -53,7 +53,7 @@ class StrengthReductionPhase : public Phase {
     
 public:
     StrengthReductionPhase(Graph& graph)
-        : Phase(graph, "strength reduction")
+        : Phase(graph, "strength reduction"_s)
         , m_insertionSet(graph)
     {
     }
@@ -110,6 +110,11 @@ private:
                 && m_node->child1()->child2()->isInt32Constant()
                 && (m_node->child1()->child2()->asInt32() & 0x1f)
                 && m_node->arithMode() != Arith::DoOverflow) {
+                m_node->convertToIdentity();
+                m_changed = true;
+                break;
+            }
+            if (bytecodeCanTruncateInteger(m_node->arithNodeFlags())) {
                 m_node->convertToIdentity();
                 m_changed = true;
                 break;

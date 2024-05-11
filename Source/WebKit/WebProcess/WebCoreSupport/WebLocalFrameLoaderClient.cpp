@@ -1541,7 +1541,8 @@ void WebLocalFrameLoaderClient::transitionToCommittedForNewPage()
     bool horizontalLock = shouldHideScrollbars || webPage->alwaysShowsHorizontalScroller();
     bool verticalLock = shouldHideScrollbars || webPage->alwaysShowsVerticalScroller();
 
-    m_frame->coreLocalFrame()->createView(webPage->size(), webPage->backgroundColor(),
+    auto size = m_frame->isRootFrame() && !isMainFrame && oldView ? oldView->size() : webPage->size();
+    m_frame->coreLocalFrame()->createView(size, webPage->backgroundColor(),
         webPage->fixedLayoutSize(), fixedVisibleContentRect, shouldUseFixedLayout,
         horizontalScrollbarMode, horizontalLock, verticalScrollbarMode, verticalLock);
 
@@ -1588,6 +1589,8 @@ void WebLocalFrameLoaderClient::transitionToCommittedForNewPage()
 
     if (webPage->scrollPinningBehavior() != ScrollPinningBehavior::DoNotPin)
         view->setScrollPinningBehavior(webPage->scrollPinningBehavior());
+
+    webPage->scheduleFullEditorStateUpdate();
 
 #if USE(COORDINATED_GRAPHICS)
     if (shouldUseFixedLayout) {
