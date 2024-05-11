@@ -37,10 +37,10 @@ public:
     PopupMenuHaiku(PopupMenuClient*);
     ~PopupMenuHaiku();
 
-    virtual void show(const IntRect&, LocalFrameView*, int index);
-    virtual void hide();
-    virtual void updateFromElement();
-    virtual void disconnectClient();
+    void show(const IntRect&, LocalFrameView&, int index) final override;
+    void hide() final override;
+    void updateFromElement() final override;
+    void disconnectClient() final override;
 
 private:
     PopupMenuClient* client() const { return m_popupClient; }

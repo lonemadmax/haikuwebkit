@@ -56,7 +56,7 @@ SocketStreamHandleImpl::SocketStreamHandleImpl(const URL& url, SocketStreamHandl
     LOG(Network, "SocketStreamHandle %p new client %p", this, &m_client);
     ASSERT(isMainThread());
 
-    m_workerThread = Thread::create("WebSocket thread", [this, protectedThis = Ref{*this}] {
+    m_workerThread = Thread::create("WebSocket thread"_s, [this, protectedThis = Ref{*this}] {
         threadEntryPoint();
     });
 }

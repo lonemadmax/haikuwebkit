@@ -646,7 +646,7 @@ PlatformKeyboardEvent::PlatformKeyboardEvent(BMessage* message)
 
     int32 nativeVirtualKeyCode = message->FindInt32("key");
 
-    m_text = String::fromUTF8(bytes.String(), bytes.Length());
+    m_text = String::fromUTF8(std::span<const char>(bytes.String(), bytes.Length()));
     m_unmodifiedText = String(std::span<const char>(bytes.String(), bytes.Length()));
     m_keyIdentifier = keyIdentifierForHaikuKeyCode(bytes.ByteAt(0), nativeVirtualKeyCode);
 

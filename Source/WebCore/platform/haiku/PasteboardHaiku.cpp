@@ -265,7 +265,7 @@ void Pasteboard::read(PasteboardPlainText& text, WebCore::PlainTextURLReadingPol
     ssize_t bufferLength;
     if (data->FindData("text/plain", B_MIME_TYPE, 
             reinterpret_cast<const void**>(&buffer), &bufferLength) == B_OK)
-        text.text = String::fromUTF8(buffer, bufferLength);
+        text.text = String::fromUTF8(std::span<const char>(buffer, bufferLength));
 }
 
 RefPtr<DocumentFragment> Pasteboard::documentFragment(LocalFrame& frame, const SimpleRange& context,
@@ -300,7 +300,7 @@ RefPtr<DocumentFragment> Pasteboard::documentFragment(LocalFrame& frame, const S
         return nullptr;
 
     if (data->FindData("text/plain", B_MIME_TYPE, reinterpret_cast<const void**>(&buffer), &bufferLength) == B_OK) {
-        String plainText = String::fromUTF8(buffer, bufferLength);
+        String plainText = String::fromUTF8(std::span<const char>(buffer, bufferLength));
 
         chosePlainText = true;
         RefPtr<DocumentFragment> fragment = createFragmentFromText(context, plainText);

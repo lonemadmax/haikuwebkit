@@ -38,6 +38,7 @@
 
 #include "WebCore/Document.h"
 #include "WebCore/DocumentLoader.h"
+#include "WebCore/DOMWrapperWorld.h"
 #include "WebCore/Editor.h"
 #include "WebCore/Element.h"
 #include "WebCore/Frame.h"
@@ -183,7 +184,7 @@ bool BWebFrame::CanCut() const
 bool BWebFrame::CanPaste() const
 {
     if (fData->frame && fData->frame->view())
-        return fData->frame->editor().canPaste() || fData->frame->editor().canDHTMLPaste();
+        return fData->frame->editor().canEdit() || fData->frame->editor().canDHTMLPaste();
 
     return false;
 }

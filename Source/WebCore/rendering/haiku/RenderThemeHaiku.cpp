@@ -163,7 +163,7 @@ String RenderThemeHaiku::mediaControlsStyleSheet()
 {
 #if ENABLE(MODERN_MEDIA_CONTROLS)
     if (m_mediaControlsStyleSheet.isEmpty())
-        m_mediaControlsStyleSheet = StringImpl::createWithoutCopying(ModernMediaControlsUserAgentStyleSheet, sizeof(ModernMediaControlsUserAgentStyleSheet));
+        m_mediaControlsStyleSheet = StringImpl::createWithoutCopying(ModernMediaControlsUserAgentStyleSheet);
     return m_mediaControlsStyleSheet;
 #else
     return emptyString();
@@ -173,7 +173,7 @@ String RenderThemeHaiku::mediaControlsStyleSheet()
 Vector<String, 2> RenderThemeHaiku::mediaControlsScripts()
 {
 #if ENABLE(MODERN_MEDIA_CONTROLS)
-    return { StringImpl::createWithoutCopying(ModernMediaControlsJavaScript, sizeof(ModernMediaControlsJavaScript)) };
+    return { StringImpl::createWithoutCopying(std::span<const char>(ModernMediaControlsJavaScript, sizeof(ModernMediaControlsJavaScript))) };
 #else
     return { };
 #endif

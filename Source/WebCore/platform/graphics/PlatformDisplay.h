@@ -167,7 +167,9 @@ protected:
 
     static void setSharedDisplayForCompositing(PlatformDisplay&);
 
+#if !PLATFORM(HAIKU)
     virtual void initializeEGLDisplay();
+#endif
 
 #if PLATFORM(GTK)
     virtual void sharedDisplayDidClose();
@@ -177,7 +179,9 @@ protected:
 
     EGLDisplay m_eglDisplay;
     bool m_eglDisplayOwned { true };
+#if !PLATFORM(HAIKU)
     std::unique_ptr<GLContext> m_sharingGLContext;
+#endif
 
 #if USE(LIBDRM)
     std::optional<String> m_drmDeviceFile;
@@ -206,7 +210,9 @@ private:
     void clearANGLESharingGLContext();
 #endif
 
+#if !PLATFORM(HAIKU)
     void terminateEGLDisplay();
+#endif
 #if USE(LIBDRM)
     EGLDeviceEXT eglDevice();
 #endif

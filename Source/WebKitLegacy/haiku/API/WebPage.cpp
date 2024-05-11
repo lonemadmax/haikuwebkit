@@ -1477,7 +1477,7 @@ void BWebPage::handleSendEditingCapabilities(BMessage*)
 
     canCut = editor.canCut() || editor.canDHTMLCut();
     canCopy = editor.canCopy() || editor.canDHTMLCopy();
-    canPaste = editor.canPaste() || editor.canDHTMLPaste();
+    canPaste = editor.canEdit() || editor.canDHTMLPaste();
 
     BMessage message(B_EDITING_CAPABILITIES_RESULT);
     message.AddBool("can cut", canCut);

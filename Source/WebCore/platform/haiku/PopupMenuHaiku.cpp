@@ -172,10 +172,10 @@ void PopupMenuHaiku::disconnectClient()
     m_popupClient = 0;
 }
 
-void PopupMenuHaiku::show(const IntRect& rect, LocalFrameView* view, int index)
+void PopupMenuHaiku::show(const IntRect& rect, LocalFrameView& view, int index)
 {
     // The menu will update itself from the PopupMenuClient before showing.
-    m_menu->show(rect, view, index);
+    m_menu->show(rect, &view, index);
 }
 
 void PopupMenuHaiku::hide()
