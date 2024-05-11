@@ -178,7 +178,7 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
 
     void savePlatformDataToCachedFrame(CachedFrame*) override;
     void transitionToCommittedFromCachedFrame(CachedFrame*) override;
-    void transitionToCommittedForNewPage() override;
+    void transitionToCommittedForNewPage(InitializingIframe) override;
 
     bool canHandleRequest(const ResourceRequest&) const override;
     bool canShowMIMEType(const String& MIMEType) const override;

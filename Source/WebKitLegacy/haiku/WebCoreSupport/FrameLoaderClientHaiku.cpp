@@ -876,7 +876,7 @@ void FrameLoaderClientHaiku::transitionToCommittedFromCachedFrame(CachedFrame* c
     cachedFrame->view()->setTopLevelPlatformWidget(m_webPage->WebView());
 }
 
-void FrameLoaderClientHaiku::transitionToCommittedForNewPage()
+void FrameLoaderClientHaiku::transitionToCommittedForNewPage(InitializingIframe)
 {
     CALLED();
     ASSERT(m_webFrame);
