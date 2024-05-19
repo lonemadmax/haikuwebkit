@@ -253,10 +253,12 @@ FloatPoint Widget::convertFromContainingView(const FloatPoint& parentPoint) cons
 
 #if !PLATFORM(COCOA)
 
+#if !PLATFORM(HAIKU)
 Widget::Widget(PlatformWidget widget)
 {
     init(widget);
 }
+#endif
 
 Widget::~Widget()
 {
@@ -273,6 +275,7 @@ IntRect Widget::frameRect() const
     return m_frame;
 }
 
+#if !PLATFORM(HAIKU)
 void Widget::show()
 {
 }
@@ -284,6 +287,7 @@ void Widget::hide()
 void Widget::setFocus(bool)
 {
 }
+#endif
 
 void Widget::setIsSelected(bool)
 {

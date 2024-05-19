@@ -49,13 +49,6 @@
 
 namespace WebCore {
 
-const WTF::Seconds EventHandler::TextDragDelay = WTF::Seconds(0.0);
-
-bool EventHandler::tabsToAllFormControls(KeyboardEvent*) const
-{
-    return true;
-}
-
 void EventHandler::focusDocumentView()
 {
     BView* view = m_frame->view()->platformWidget();
@@ -67,69 +60,6 @@ void EventHandler::focusDocumentView()
     Page* page = m_frame->page();
     if (page)
         page->focusController().setFocusedFrame(&m_frame.get());
-}
-
-bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestResults& event)
-{
-    // Figure out which view to send the event to.
-    RenderObject* target = event.targetNode() ? event.targetNode()->renderer() : 0;
-    if (!target || !target->isRenderWidget())
-        return false;
-    return passMouseDownEventToWidget(downcast<RenderWidget>(target)->widget());
-}
-
-bool EventHandler::passWidgetMouseDownEventToWidget(RenderWidget* renderWidget)
-{
-    return passMouseDownEventToWidget(renderWidget->widget());
-}
-
-bool EventHandler::passMouseDownEventToWidget(Widget*)
-{
-    notImplemented();
-    return false;
-}
-
-bool EventHandler::eventActivatedView(const PlatformMouseEvent&) const
-{
-    // On Haiku, clicks which activate the window in non focus-follows-mouse mode
-    // are not passed to the window, so any event we generate is not the activation
-    // event.
-    return false;
-}
-
-bool EventHandler::passWheelEventToWidget(const PlatformWheelEvent& event, Widget& widget, OptionSet<WheelEventProcessingSteps> processingSteps)
-{
-    if (!widget.isLocalFrameView())
-        return false;
-
-    auto& localFrame = static_cast<LocalFrame&>(static_cast<LocalFrameView&>(widget).frame());
-    return localFrame.eventHandler().handleWheelEvent(event, processingSteps).wasHandled();
-}
-
-bool EventHandler::passMousePressEventToSubframe(MouseEventWithHitTestResults& mev, LocalFrame& subframe)
-{
-    subframe.eventHandler().handleMousePressEvent(mev.event());
-    return true;
-}
-
-bool EventHandler::passMouseMoveEventToSubframe(MouseEventWithHitTestResults& mev, LocalFrame& subframe, HitTestResult* hoveredNode)
-{
-    subframe.eventHandler().handleMouseMoveEvent(mev.event(), hoveredNode);
-    return true;
-}
-
-bool EventHandler::passMouseReleaseEventToSubframe(MouseEventWithHitTestResults& mev, LocalFrame& subframe)
-{
-    subframe.eventHandler().handleMouseReleaseEvent(mev.event());
-    return true;
-}
-
-WTF::OptionSet<WebCore::PlatformEvent::Modifier> EventHandler::accessKeyModifiers()
-{
-    // NOTE: On Haiku, the user can choose Alt or Ctrl as access key, but
-    // the PlatformKeyboardEvent already takes care of this, internally,
-    // we always use Alt.
-    return PlatformEvent::Modifier::AltKey;
 }
 
 } // namespace WebCore

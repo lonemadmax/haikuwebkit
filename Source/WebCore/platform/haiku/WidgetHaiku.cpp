@@ -74,17 +74,6 @@ void Widget::setFocus(bool focused)
         topLevelPlatformWidget()->MakeFocus(focused);
 }
 
-void Widget::setCursor(const Cursor& cursor)
-{
-    AutoPlatformWidgetLocker locker(topLevelPlatformWidget());
-    if (locker.isLocked()) {
-        if (cursor.platformCursor())
-            topLevelPlatformWidget()->SetViewCursor(cursor.platformCursor());
-        else
-            topLevelPlatformWidget()->SetViewCursor(B_CURSOR_SYSTEM_DEFAULT);
-    }
-}
-
 void Widget::show()
 {
     setSelfVisible(true);
