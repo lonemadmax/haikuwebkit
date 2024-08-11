@@ -22,11 +22,11 @@ checkout to about 600MB.
 
 Dependencies can be installed (for a gcc2hybrid version) via:
 
-    $ pkgman install cmake_x86 gcc_x86 gperf haiku_x86_devel lcms2_x86_devel libjpeg_turbo_x86_devel \
-    libjxl_x86_devel sqlite_x86_devel libpng16_x86_devel libxml2_x86_devel libxslt_x86_devel \
-    icu74_x86_devel perl python310 ruby_x86 libexecinfo_x86_devel libwebp_x86_devel ninja_x86 \
-    pkgconfig_x86 pywebsocket libpsl_x86_devel libidn2_x86_devel libunistring_x86_devel \
-    libavif_x86_devel woff2_x86_devel
+    $ pkgman install cmake_x86 curl_x86_devel gcc_x86 gperf haiku_x86_devel icu74_x86_devel \
+    libavif_x86_devel libjpeg_turbo_x86_devel libjxl_x86_devel sqlite_x86_devel libpng16_x86_devel \
+    libxml2_x86_devel libxslt_x86_devel libexecinfo_x86_devel libwebp_x86_devel \
+    libpsl_x86_devel libidn2_x86_devel libunistring_x86_devel lcms_x86_devel ninja_x86 \
+    pkgconfig_x86 perl python3.10 ruby_x86 woff2_x86_devel
 
 (for other versions, remove the _x86 part from all package names)
 
