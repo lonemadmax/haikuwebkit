@@ -45,7 +45,7 @@
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
 
-#if PLATFORM(HAIKU)
+#if PLATFORM(HAIKU) && !USE(CURL)
 #include <UrlContext.h>
 #endif
 
