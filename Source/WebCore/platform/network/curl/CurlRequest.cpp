@@ -794,6 +794,7 @@ void CurlRequest::writeDataToDownloadFileIfEnabled(std::span<const unsigned char
         if (m_downloadFilePath.isEmpty()) {
             auto [path, file] = FileSystem::openTemporaryFile("download"_s);
             m_downloadFileHandle = file;
+            m_downloadFilePath = path;
         }
     }
 
