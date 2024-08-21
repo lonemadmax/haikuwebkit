@@ -92,6 +92,7 @@ public:
     // Download
     void enableDownloadToFile();
     const String& getDownloadedFilePath();
+    void setDownloadedFilePath(const String& path) { m_downloadFilePath = path; }
 
 private:
     WEBCORE_EXPORT CurlRequest(const ResourceRequest&, CurlRequestClient*, ShouldSuspend, CaptureNetworkLoadMetrics, RefPtr<SynchronousLoaderMessageQueue>&&);

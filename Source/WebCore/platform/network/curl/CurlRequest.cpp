@@ -37,6 +37,7 @@
 #include "SharedBuffer.h"
 #include "SynchronousLoaderClient.h"
 #include <wtf/CrossThreadCopier.h>
+#include "wtf/FileSystem.h"
 #include <wtf/Language.h>
 #include <wtf/MainThread.h>
 
@@ -795,6 +796,8 @@ void CurlRequest::writeDataToDownloadFileIfEnabled(std::span<const unsigned char
             auto [path, file] = FileSystem::openTemporaryFile("download"_s);
             m_downloadFileHandle = file;
             m_downloadFilePath = path;
+        } else if (m_downloadFileHandle == FileSystem::invalidPlatformFileHandle) {
+            m_downloadFileHandle = FileSystem::openFile(m_downloadFilePath, FileSystem::FileOpenMode::Truncate);
         }
     }
 

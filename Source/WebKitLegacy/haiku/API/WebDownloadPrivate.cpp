@@ -107,7 +107,22 @@ void WebDownloadPrivate::didReceiveResponseAsync(ResourceHandle*, ResourceRespon
     m_url = response.url().string();
 
 #if USE(CURL)
-	createFile();
+    // Now that we have the proper filename from the request, rename the downloaded file to that
+    // and notify the UI that the download is started
+    //
+    // findAvailableFilename uses m_path as an input (the downlaod directory) and as an output
+    // (the final file name). Since we already called it once when starting the download, restore
+    // m_path to be the download path again.
+    BPath temp;
+    m_path.GetParent(&temp);
+    m_path = temp;
+    findAvailableFilename();
+    m_download->setDestination(WTF::String::fromUTF8(m_path.Path()));
+    if (m_progressListener.IsValid()) {
+        BMessage message(B_DOWNLOAD_STARTED);
+        message.AddString("path", m_path.Path());
+        m_progressListener.SendMessage(&message);
+    }
 #endif
 }
 
@@ -202,11 +217,14 @@ void WebDownloadPrivate::setDownload(BWebDownload* download)
 
 void WebDownloadPrivate::start(const BPath& path)
 {
-	if (path.InitCheck() == B_OK)
-		m_path = path;
+    if (path.InitCheck() == B_OK)
+        m_path = path;
 
 #if USE(CURL)
-	m_download->start();
+    // Create the download with the name "Download" in the target directory.
+    // After the request is complete, and we have the actual filename, it will be renamed.
+    findAvailableFilename();
+    m_download->start(WTF::String::fromUTF8(m_path.Path()));
 #endif
 }
 
@@ -259,17 +277,14 @@ void WebDownloadPrivate::handleFinished(WebCore::ResourceHandle* handle, uint32 
     delete m_webDownload;
 }
 
+#if !USE(CURL)
 void WebDownloadPrivate::createFile()
 {
     // Don't overwrite existing files
     findAvailableFilename();
 
-#if USE(CURL)
-	m_download->setDestination(WTF::String::fromUTF8(m_path.Path()));
-#else
     if (m_file.SetTo(m_path.Path(), B_CREATE_FILE | B_ERASE_FILE | B_WRITE_ONLY) == B_OK)
         m_file.WriteAttrString("META:url", &m_url);
-#endif
 
     if (m_progressListener.IsValid()) {
         BMessage message(B_DOWNLOAD_STARTED);
@@ -277,6 +292,7 @@ void WebDownloadPrivate::createFile()
         m_progressListener.SendMessage(&message);
     }
 }
+#endif
 
 void WebDownloadPrivate::findAvailableFilename()
 {

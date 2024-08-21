@@ -56,12 +56,13 @@ void CurlDownload::init(CurlDownloadListener& listener, ResourceHandle*, const R
     m_request = request.isolatedCopy();
 }
 
-void CurlDownload::start()
+void CurlDownload::start(const String& destination)
 {
     ASSERT(isMainThread());
 
     m_curlRequest = createCurlRequest(m_request);
     m_curlRequest->enableDownloadToFile();
+    m_curlRequest->setDownloadedFilePath(destination);
     m_curlRequest->start();
 }
 
@@ -122,7 +123,7 @@ void CurlDownload::curlDidComplete(CurlRequest& request, NetworkLoadMetrics&&)
         return;
 
     if (!m_destination.isEmpty()) {
-        if (!request.getDownloadedFilePath().isEmpty())
+        if (!request.getDownloadedFilePath().isEmpty() && (request.getDownloadedFilePath() != m_destination))
             FileSystem::moveFile(request.getDownloadedFilePath(), m_destination);
     }
 

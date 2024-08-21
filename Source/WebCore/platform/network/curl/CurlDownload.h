@@ -61,7 +61,7 @@ public:
 
     void setListener(CurlDownloadListener* listener) { m_listener = listener; }
 
-    WEBCORE_EXPORT void start();
+    WEBCORE_EXPORT void start(const String& destination);
     WEBCORE_EXPORT bool cancel();
 
     bool deletesFileUponFailure() const { return m_deletesFileUponFailure; }
