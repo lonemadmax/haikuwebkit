@@ -199,6 +199,10 @@ private:
 
     void teardown() override;
 
+    void incrementalLoadingDidProgress() override;
+    void incrementalLoadingDidCancel() override;
+    void incrementalLoadingDidFinish() override;
+
     void installPDFDocument() override;
 
 #if ENABLE(UNIFIED_PDF_DATA_DETECTION)
@@ -330,7 +334,7 @@ private:
     Vector<PDFContextMenuItem> selectionContextMenuItems(const WebCore::IntPoint& contextMenuEventRootViewPoint) const;
     Vector<PDFContextMenuItem> displayModeContextMenuItems() const;
     Vector<PDFContextMenuItem> scaleContextMenuItems() const;
-    Vector<PDFContextMenuItem> navigationContextMenuItems() const;
+    Vector<PDFContextMenuItem> navigationContextMenuItemsForPageAtIndex(PDFDocumentLayout::PageIndex) const;
     ContextMenuItemTag toContextMenuItemTag(int tagValue) const;
     void performContextMenuAction(ContextMenuItemTag, const WebCore::IntPoint& contextMenuEventRootViewPoint);
 
@@ -424,6 +428,9 @@ private:
     void updatePageBackgroundLayers();
     void updateLayerHierarchy();
     void updateLayerPositions();
+
+    void incrementalLoadingRepaintTimerFired();
+    void repaintForIncrementalLoad();
 
     void didChangeScrollOffset() override;
     void didChangeIsInWindow();
@@ -591,6 +598,8 @@ private:
 
     bool m_inActiveAutoscroll { false };
     WebCore::Timer m_autoscrollTimer { *this, &UnifiedPDFPlugin::autoscrollTimerFired };
+
+    WebCore::Timer m_incrementalLoadingRepaintTimer { *this, &UnifiedPDFPlugin::incrementalLoadingRepaintTimerFired };
 
     RetainPtr<WKPDFFormMutationObserver> m_pdfMutationObserver;
 

@@ -103,6 +103,7 @@
                   { "name": "gtk-linux-bot-20", "platform": "gtk" },
                   { "name": "gtk-linux-bot-21", "platform": "gtk" },
                   { "name": "gtk-linux-bot-22", "platform": "gtk" },
+                  { "name": "gtk-linux-bot-23", "platform": "gtk" },
 
                   { "name": "jsconly-linux-igalia-bot-1", "platform": "jsc-only" },
                   { "name": "jsconly-linux-igalia-bot-2", "platform": "jsc-only" },
@@ -143,7 +144,8 @@
                   { "name": "wpe-linux-bot-32", "platform": "wpe" },
                   { "name": "wpe-linux-bot-33", "platform": "wpe" },
                   { "name": "wpe-linux-bot-34", "platform": "wpe" },
-                  { "name": "wpe-linux-bot-35", "platform": "wpe" }
+                  { "name": "wpe-linux-bot-35", "platform": "wpe" },
+                  { "name": "wpe-linux-bot-36", "platform": "wpe" }
                 ],
 
   "builders":   [
@@ -430,7 +432,7 @@
                     "workernames": ["gtk-linux-bot-22"]
                   },
                   {
-                    "name": "GTK-Linux-64-bit-Release-Ubuntu-2004-Build", "factory": "NoInstallDependenciesBuildFactory",
+                    "name": "GTK-Linux-64-bit-Release-Ubuntu-2204-Build", "factory": "NoInstallDependenciesBuildFactory",
                     "platform": "gtk", "configuration": "release", "architectures": ["x86_64"],
                     "additionalArguments": ["--no-experimental-features"],
                     "workernames": ["gtk-linux-bot-11"]
@@ -446,6 +448,12 @@
                     "platform": "gtk", "configuration": "release", "architectures": ["x86_64"],
                     "additionalArguments": ["--no-bubblewrap-sandbox"],
                     "workernames": ["gtk-linux-bot-17"]
+                  },
+                  {
+                    "name": "GTK-Linux-64bit-Release-Packaging-Nightly-Ubuntu2204", "factory": "BuildAndGenerateMiniBrowserBundleFactory",
+                    "platform": "gtk", "configuration": "release", "architectures": ["x86_64"],
+                    "additionalArguments": ["--no-bubblewrap-sandbox"],
+                    "workernames": ["gtk-linux-bot-23"]
                   },
                   {
                     "name": "GTK-Linux-64-bit-Release-GTK4-Tests", "factory": "BuildAndTestAndArchiveAllButJSCFactory",
@@ -564,13 +572,19 @@
                     "workernames": ["wpe-linux-bot-8"]
                   },
                   {
+                    "name": "WPE-Linux-64bit-Release-Packaging-Nightly-Ubuntu2204", "factory": "BuildAndGenerateMiniBrowserBundleFactory",
+                    "platform": "wpe", "configuration": "release", "architectures": ["x86_64"],
+                    "additionalArguments": ["--no-bubblewrap-sandbox", "--cmakeargs=-DENABLE_WPE_QT_API=OFF"],
+                    "workernames": ["wpe-linux-bot-36"]
+                  },
+                  {
                     "name": "WPE-Linux-64-bit-Release-Non-Unified-Build", "factory": "BuildFactory",
                     "platform": "wpe", "configuration": "release", "architectures": ["x86_64"],
                     "additionalArguments": ["--cmakeargs=-DENABLE_UNIFIED_BUILDS=OFF"],
                     "workernames": ["wpe-linux-bot-9"]
                   },
                   {
-                    "name": "WPE-Linux-64-bit-Release-Ubuntu-2004-Build", "factory": "NoInstallDependenciesBuildFactory",
+                    "name": "WPE-Linux-64-bit-Release-Ubuntu-2204-Build", "factory": "NoInstallDependenciesBuildFactory",
                     "platform": "wpe", "configuration": "release", "architectures": ["x86_64"],
                     "additionalArguments": ["--no-experimental-features"],
                     "workernames": ["wpe-linux-bot-10"]
@@ -633,8 +647,9 @@
                     "workernames": ["wpe-linux-bot-27", "wpe-linux-bot-28", "wpe-linux-bot-29", "wpe-linux-bot-30", "wpe-linux-bot-31", "wpe-linux-bot-32", "wpe-linux-bot-33", "wpe-linux-bot-34"]
                   },
                   {
-                    "name": "WPE-Linux-64-bit-Release-Skia-Build", "factory": "BuildFactory",
+                    "name": "WPE-Linux-64-bit-Release-Cairo-Build", "factory": "BuildFactory",
                     "platform": "wpe", "configuration": "release", "architectures": ["x86_64"],
+                    "additionalArguments": ["--cmakeargs=-DUSE_SKIA=OFF"],
                     "workernames": ["wpe-linux-bot-35"]
                   }
                 ],
@@ -644,10 +659,10 @@
                                      "GTK-Linux-64-bit-Release-Clang-Build",
                                      "GTK-Linux-64-bit-Release-Debian-11-Build",
                                      "GTK-Linux-64-bit-Release-Debian-Stable-Build",
-                                     "GTK-Linux-64-bit-Release-Ubuntu-2004-Build",
+                                     "GTK-Linux-64-bit-Release-Ubuntu-2204-Build",
                                      "GTK-Linux-64-bit-Release-Ubuntu-LTS-Build",
                                      "GTK-Linux-64-bit-Release-GTK4-Tests",
-                                     "WPE-Linux-64-bit-Release-Ubuntu-2004-Build",
+                                     "WPE-Linux-64-bit-Release-Ubuntu-2204-Build",
                                      "WPE-Linux-64-bit-Release-Ubuntu-LTS-Build",
                                      "WPE-Linux-RPi4-32bits-Mesa-Release-Perf-Build",
                                      "WPE-Linux-RPi4-64bits-Mesa-Release-Perf-Build",
@@ -657,7 +672,7 @@
                                      "WinCairo-64-bit-Release-Build", "WinCairo-64-bit-Debug-Build",
                                      "WPE-Linux-64-bit-Release-Build", "WPE-Linux-64-bit-Debug-Build",
                                      "WPE-Linux-64-bit-Release-Clang-Build",
-                                     "WPE-Linux-64-bit-Release-Skia-Build",
+                                     "WPE-Linux-64-bit-Release-Cairo-Build",
                                      "WPE-Linux-ARM64-bit-Release-Debian-Stable-Build",
                                      "WPE-Linux-ARM32-bit-Release-Debian-Stable-Build",
                                      "WPE-Linux-64-bit-Release-Non-Unified-Build"]
@@ -843,7 +858,9 @@
                   { "type": "Nightly", "name": "NightlyScheduler", "change_filter": "main_filter",
                     "branch": "main", "hour": 22, "minute": 0,
                     "builderNames": ["GTK-Linux-64bit-Release-Packaging-Nightly-Ubuntu2004",
-                                     "WPE-Linux-64bit-Release-Packaging-Nightly-Ubuntu2004"]
+                                     "GTK-Linux-64bit-Release-Packaging-Nightly-Ubuntu2204",
+                                     "WPE-Linux-64bit-Release-Packaging-Nightly-Ubuntu2004",
+                                     "WPE-Linux-64bit-Release-Packaging-Nightly-Ubuntu2204"]
                   }
                 ]
 }

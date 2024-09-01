@@ -892,6 +892,11 @@ bool RenderLayerBacking::shouldClipCompositedBounds() const
         return false;
 #endif
 
+    if (renderer().capturedInViewTransition())
+        return false;
+    if (renderer().style().pseudoElementType() == PseudoId::ViewTransitionNew)
+        return false;
+
     if (m_isFrameLayerWithTiledBacking)
         return false;
 
@@ -1932,7 +1937,7 @@ bool RenderLayerBacking::maintainsEventRegion() const
     if (!settings.asyncFrameScrollingEnabled() && !settings.asyncOverflowScrollingEnabled())
         return false;
 
-    if (!m_owningLayer.page().scrollingCoordinator()->hasSubscrollers())
+    if (!m_owningLayer.page().scrollingCoordinator()->hasSubscrollers(renderer().view().frame().rootFrame().frameID()))
         return false;
 
     return true;

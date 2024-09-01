@@ -2902,7 +2902,7 @@ void RenderLayer::paintLayer(GraphicsContext& context, const LayerPaintingInfo& 
         paintFlags.add(PaintLayerFlag::TemporaryClipRects);
     }
 
-    if (viewportConstrainedNotCompositedReason() == NotCompositedForBoundsOutOfView) {
+    if (viewportConstrainedNotCompositedReason() == NotCompositedForBoundsOutOfView && !(paintingInfo.paintBehavior & PaintBehavior::Snapshotting)) {
         // Don't paint out-of-view viewport constrained layers (when doing prepainting) because they will never be visible
         // unless their position or viewport size is changed.
         ASSERT(renderer().isFixedPositioned());
@@ -4096,11 +4096,25 @@ Ref<HitTestingTransformState> RenderLayer::createLocalTransformState(RenderLayer
     return transformState.releaseNonNull();
 }
 
+static RefPtr<Element> flattenedParent(Element* element)
+{
+    if (!element)
+        return nullptr;
+    RefPtr parent = element->parentElementInComposedTree();
+    while (parent) {
+        if (parent->computedStyle()->display() != DisplayType::Contents)
+            break;
+        parent = parent->parentElementInComposedTree();
+    }
+    return parent;
+}
+
 bool RenderLayer::ancestorLayerIsDOMParent(const RenderLayer* ancestor) const
 {
     if (!ancestor)
         return false;
-    if (renderer().element() && ancestor->renderer().element() == renderer().element()->parentElementInComposedTree())
+    auto parent = flattenedParent(renderer().element());
+    if (parent && ancestor->renderer().element() == parent)
         return true;
 
     std::optional<PseudoId> parentPseudoId = parentPseudoElement(renderer().style().pseudoElementType());

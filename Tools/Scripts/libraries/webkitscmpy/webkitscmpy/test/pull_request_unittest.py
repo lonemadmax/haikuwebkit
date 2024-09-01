@@ -1739,7 +1739,10 @@ No pre-PR checks to run""")
         )
 
     def test_bitbucket_update(self):
-        with mocks.remote.BitBucket() as remote, mocks.local.Git(self.path, remote='ssh://git@{}/{}/{}.git'.format(
+        with mocks.remote.BitBucket(environment=Environment(**{
+            'BITBUCKET_EXAMPLE_COM_USERNAME': 'timcommitter',
+            'BITBUCKET_EXAMPLE_COM_PASSWORD': 'password',
+        })) as remote, mocks.local.Git(self.path, remote='ssh://git@{}/{}/{}.git'.format(
             remote.hosts[0], remote.project.split('/')[1], remote.project.split('/')[3],
         )) as repo, mocks.local.Svn(), patch('webkitbugspy.Tracker._trackers', []):
             with OutputCapture():
@@ -1778,7 +1781,10 @@ No pre-PR checks to run""")
         )
 
     def test_bitbucket_append(self):
-        with mocks.remote.BitBucket() as remote, mocks.local.Git(self.path, remote='ssh://git@{}/{}/{}.git'.format(
+        with mocks.remote.BitBucket(environment=Environment(**{
+            'BITBUCKET_EXAMPLE_COM_USERNAME': 'timcommitter',
+            'BITBUCKET_EXAMPLE_COM_PASSWORD': 'password',
+        })) as remote, mocks.local.Git(self.path, remote='ssh://git@{}/{}/{}.git'.format(
             remote.hosts[0], remote.project.split('/')[1], remote.project.split('/')[3],
         )) as repo, mocks.local.Svn(), patch('webkitbugspy.Tracker._trackers', []):
             with OutputCapture():
@@ -1817,7 +1823,10 @@ No pre-PR checks to run""")
         )
 
     def test_bitbucket_reopen(self):
-        with mocks.remote.BitBucket() as remote, mocks.local.Git(self.path, remote='ssh://git@{}/{}/{}.git'.format(
+        with mocks.remote.BitBucket(environment=Environment(**{
+            'BITBUCKET_EXAMPLE_COM_USERNAME': 'timcommitter',
+            'BITBUCKET_EXAMPLE_COM_PASSWORD': 'password',
+        })) as remote, mocks.local.Git(self.path, remote='ssh://git@{}/{}/{}.git'.format(
             remote.hosts[0], remote.project.split('/')[1], remote.project.split('/')[3],
         )) as repo, mocks.local.Svn(), patch('webkitbugspy.Tracker._trackers', []):
             with OutputCapture():
@@ -1970,8 +1979,11 @@ class TestNetworkPullRequestGitHub(unittest.TestCase):
     remote = 'https://github.example.com/WebKit/WebKit'
 
     @classmethod
-    def webserver(cls):
-        result = mocks.remote.GitHub()
+    def webserver(cls, user='tcontributor'):
+        result = mocks.remote.GitHub(environment=Environment(
+            GITHUB_EXAMPLE_COM_USERNAME=user,
+            GITHUB_EXAMPLE_COM_TOKEN='password',
+        ))
         result.users.create('Eager Reviewer', 'ereviewer', ['ereviewer@webkit.org'])
         result.users.create('Reluctant Reviewer', 'rreviewer', ['rreviewer@webkit.org'])
         result.users.create('Suspicious Reviewer', 'sreviewer', ['sreviewer@webkit.org'])
@@ -2052,6 +2064,15 @@ Reviewed by NOBODY (OOPS!).
             self.assertEqual(pr.base, 'main')
             self.assertEqual(pr.draft, False)
 
+    def test_title(self):
+        with self.webserver():
+            pr = remote.GitHub(self.remote).pull_requests.get(1)
+            self.assertEqual(pr.title, 'Example Change')
+            pr.generator.update(pr, title='New Title')
+
+            pr = remote.GitHub(self.remote).pull_requests.get(1)
+            self.assertEqual(pr.title, 'New Title')
+
     def test_reviewers(self):
         with self.webserver():
             pr = remote.GitHub(self.remote).pull_requests.get(1)
@@ -2127,8 +2148,23 @@ Reviewed by NOBODY (OOPS!).
             self.assertEqual(pr.blockers, [Contributor('Suspicious Reviewer', ['sreviewer@webkit.org'])])
 
             pr.review(comment='Looks good!', approve=True)
+
+            pr = repo.pull_requests.get(1)
             self.assertEqual(pr.comments[-1].content, 'Looks good!')
             self.assertEqual(len(pr.approvers), 2)
+
+    def test_review_reject(self):
+        with self.webserver():
+            repo = remote.GitHub(self.remote)
+            pr = repo.pull_requests.get(1)
+            self.assertEqual(pr.approvers, [Contributor('Eager Reviewer', ['ereviewer@webkit.org'])])
+            self.assertEqual(pr.blockers, [Contributor('Suspicious Reviewer', ['sreviewer@webkit.org'])])
+
+            pr.review(comment='Needs work.', approve=False)
+
+            pr = repo.pull_requests.get(1)
+            self.assertEqual(pr.comments[-1].content, 'Needs work.')
+            self.assertEqual(len(pr.blockers), 2)
 
     def test_status(self):
         with self.webserver():
@@ -2187,7 +2223,7 @@ Reviewed by NOBODY (OOPS!).
                 '+',
                 '+Reviewed by NOBODY (OOPS!).',
                 '>>>>',
-                'username <?>: We need a review before landing',
+                'tcontributor <?>: We need a review before landing',
                 '<<<<',
                 '+* Source/file.cpp:',
             ], list(pr.diff(comments=True)))
@@ -2202,7 +2238,7 @@ Reviewed by NOBODY (OOPS!).
                 '--- a/ChangeLog',
                 '+++ b/ChangeLog',
                 '>>>>',
-                'username <?>: ChangeLogs are deprecated, please remove',
+                'tcontributor <?>: ChangeLogs are deprecated, please remove',
                 '<<<<',
                 '@@ -1,0 +1,0 @@',
                 '+Example Change',
@@ -2229,8 +2265,8 @@ Reviewed by NOBODY (OOPS!).
                 '--- a/ChangeLog',
                 '+++ b/ChangeLog',
                 '>>>>',
-                'username <?>: Top-level comment 1',
-                'username <?>: Top-level comment 2',
+                'tcontributor <?>: Top-level comment 1',
+                'tcontributor <?>: Top-level comment 2',
                 '<<<<',
                 '@@ -1,0 +1,0 @@',
                 '+Example Change',
@@ -2238,8 +2274,8 @@ Reviewed by NOBODY (OOPS!).
                 '+',
                 '+Reviewed by NOBODY (OOPS!).',
                 '>>>>',
-                'username <?>: Line comment 1',
-                'username <?>: Line comment 2',
+                'tcontributor <?>: Line comment 1',
+                'tcontributor <?>: Line comment 2',
                 '<<<<',
                 '+* Source/file.cpp:',
             ], list(pr.diff(comments=True)))
@@ -2249,8 +2285,11 @@ class TestNetworkPullRequestBitBucket(unittest.TestCase):
     remote = 'https://bitbucket.example.com/projects/WEBKIT/repos/webkit'
 
     @classmethod
-    def webserver(cls):
-        result = mocks.remote.BitBucket()
+    def webserver(cls, user='tcontributor'):
+        result = mocks.remote.BitBucket(environment=Environment(
+            BITBUCKET_EXAMPLE_COM_USERNAME=user,
+            BITBUCKET_EXAMPLE_COM_PASSWORD='password',
+        ))
         result.pull_requests = [dict(
             id=1,
             state='OPEN',
@@ -2330,6 +2369,15 @@ Reviewed by NOBODY (OOPS!).
             self.assertEqual(pr.base, 'main')
             self.assertEqual(pr.draft, False)
 
+    def test_title(self):
+        with self.webserver():
+            pr = remote.BitBucket(self.remote).pull_requests.get(1)
+            self.assertEqual(pr.title, 'Example Change')
+            pr.generator.update(pr, title='New Title')
+
+            pr = remote.BitBucket(self.remote).pull_requests.get(1)
+            self.assertEqual(pr.title, 'New Title')
+
     def test_reviewers(self):
         with self.webserver():
             pr = remote.BitBucket(self.remote).pull_requests.get(1)
@@ -2406,7 +2454,7 @@ Reviewed by NOBODY (OOPS!).
     def test_whoami(self):
         with self.webserver():
             repo = remote.BitBucket(self.remote)
-            self.assertEqual(repo.whoami(), 'timcommitter')
+            self.assertEqual(repo.whoami(), 'tcontributor')
 
     def test_review(self):
         with self.webserver():

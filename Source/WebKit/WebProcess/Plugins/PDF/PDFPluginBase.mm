@@ -386,6 +386,8 @@ void PDFPluginBase::streamDidReceiveData(const SharedBuffer& buffer)
     if (m_incrementalLoader)
         m_incrementalLoader->incrementalPDFStreamDidReceiveData(buffer);
 #endif
+
+    incrementalLoadingDidProgress();
 }
 
 void PDFPluginBase::streamDidFinishLoading()
@@ -415,6 +417,7 @@ void PDFPluginBase::streamDidFinishLoading()
         installPDFDocument();
     }
 
+    incrementalLoadingDidFinish();
     tryRunScriptsInPDFDocument();
 
 #if ENABLE(PDF_HUD)
@@ -436,6 +439,8 @@ void PDFPluginBase::streamDidFail()
     if (m_incrementalLoader)
         m_incrementalLoader->incrementalPDFStreamDidFail();
 #endif
+
+    incrementalLoadingDidCancel();
 }
 
 #if HAVE(INCREMENTAL_PDF_APIS)
@@ -517,6 +522,8 @@ void PDFPluginBase::receivedNonLinearizedPDFSentinel()
 
     if (m_incrementalLoader)
         m_incrementalLoader->receivedNonLinearizedPDFSentinel();
+
+    incrementalLoadingDidCancel();
 
     if (!m_documentFinishedLoading || m_pdfDocument)
         return;
@@ -1226,6 +1233,11 @@ void PDFPluginBase::registerPDFTest(RefPtr<WebCore::VoidCallback>&& callback)
         callback->handleEvent();
     else
         m_pdfTestCallback = WTFMove(callback);
+}
+
+FrameIdentifier PDFPluginBase::rootFrameID() const
+{
+    return m_view->frame()->rootFrame().frameID();
 }
 
 } // namespace WebKit

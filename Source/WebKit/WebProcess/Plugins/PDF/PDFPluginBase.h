@@ -261,6 +261,7 @@ public:
 #endif
 
     uint64_t streamedBytes() const;
+    WebCore::FrameIdentifier rootFrameID() const final;
 
 protected:
     virtual double contentScaleFactor() const = 0;
@@ -342,6 +343,10 @@ protected:
     virtual void updateScrollbars();
     virtual Ref<WebCore::Scrollbar> createScrollbar(WebCore::ScrollbarOrientation);
     virtual void destroyScrollbar(WebCore::ScrollbarOrientation);
+
+    virtual void incrementalLoadingDidProgress() { }
+    virtual void incrementalLoadingDidCancel() { }
+    virtual void incrementalLoadingDidFinish() { }
 
 #if ENABLE(PDF_HUD)
     void updateHUDLocation();

@@ -33,5 +33,7 @@
 #endif
 #endif
 
+IGNORE_WARNINGS_BEGIN("constant-conversion")
 #include <wtf/simde/arm/neon.h>
 #include <wtf/simde/arm/sve.h>
+IGNORE_WARNINGS_END

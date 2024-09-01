@@ -1046,7 +1046,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'delete-stale-build-files',
             'compile-webkit'
         ],
-        'GTK-Linux-64-bit-Release-Ubuntu-2004-Build': [
+        'GTK-Linux-64-bit-Release-Ubuntu-2204-Build': [
             'configure-build',
             'configuration',
             'clean-and-update-working-directory',
@@ -1058,6 +1058,19 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'compile-webkit'
         ],
         'GTK-Linux-64bit-Release-Packaging-Nightly-Ubuntu2004': [
+            'configure-build',
+            'configuration',
+            'clean-and-update-working-directory',
+            'checkout-specific-revision',
+            'show-identifier',
+            'kill-old-processes',
+            'delete-WebKitBuild-directory',
+            'delete-stale-build-files',
+            'jhbuild',
+            'compile-webkit',
+            'generate-minibrowser-bundle'
+        ],
+        'GTK-Linux-64bit-Release-Packaging-Nightly-Ubuntu2204': [
             'configure-build',
             'configuration',
             'clean-and-update-working-directory',
@@ -1448,6 +1461,19 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'compile-webkit',
             'generate-minibrowser-bundle'
         ],
+        'WPE-Linux-64bit-Release-Packaging-Nightly-Ubuntu2204': [
+            'configure-build',
+            'configuration',
+            'clean-and-update-working-directory',
+            'checkout-specific-revision',
+            'show-identifier',
+            'kill-old-processes',
+            'delete-WebKitBuild-directory',
+            'delete-stale-build-files',
+            'jhbuild',
+            'compile-webkit',
+            'generate-minibrowser-bundle'
+        ],
         'WPE-Linux-64-bit-Release-Non-Unified-Build': [
             'configure-build',
             'configuration',
@@ -1471,7 +1497,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'delete-stale-build-files',
             'compile-webkit'
         ],
-        'WPE-Linux-64-bit-Release-Ubuntu-2004-Build': [
+        'WPE-Linux-64-bit-Release-Ubuntu-2204-Build': [
             'configure-build',
             'configuration',
             'clean-and-update-working-directory',
@@ -1570,7 +1596,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'extract-built-product',
             'benchmark-test'
         ],
-        'WPE-Linux-64-bit-Release-Skia-Build': [
+        'WPE-Linux-64-bit-Release-Cairo-Build': [
             'configure-build',
             'configuration',
             'clean-and-update-working-directory',

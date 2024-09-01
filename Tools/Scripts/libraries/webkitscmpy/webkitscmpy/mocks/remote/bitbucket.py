@@ -34,7 +34,7 @@ class BitBucket(mocks.Requests):
 
     def __init__(
         self, remote='bitbucket.example.com/projects/WEBKIT/repos/webkit', datafile=None,
-        default_branch='main', git_svn=False, statuses=None,
+        default_branch='main', git_svn=False, statuses=None, environment=None,
     ):
         if not scmremote.BitBucket.is_webserver('https://{}'.format(remote)):
             raise ValueError('"{}" is not a valid BitBucket remote'.format(remote))
@@ -45,6 +45,13 @@ class BitBucket(mocks.Requests):
         self.current_id = 1
 
         super(BitBucket, self).__init__(self.remote.split('/')[0])
+
+        prefix = self.hosts[0].replace('.', '_').upper()
+        self._environment = environment or mocks.Environment(**{
+            '{}_USERNAME'.format(prefix): 'username',
+            '{}_PASSWORD'.format(prefix): 'password',
+        })
+        self._username = self._environment.environ.get('{}_USERNAME'.format(prefix), 'timcommitter')
 
         with open(datafile or os.path.join(os.path.dirname(os.path.dirname(__file__)), 'git-repo.json')) as file:
             self.commits = json.load(file)
@@ -68,6 +75,15 @@ class BitBucket(mocks.Requests):
         self.tags = {}
         self.pull_requests = []
         self.statuses = statuses or {}
+
+    def __enter__(self):
+        self._environment.__enter__()
+        return super(BitBucket, self).__enter__()
+
+    def __exit__(self, *args, **kwargs):
+        result = super(BitBucket, self).__exit__(*args, **kwargs)
+        self._environment.__exit__(*args, **kwargs)
+        return result
 
     def resolve_all_commits(self, branch):
         all_commits = self.commits[branch][:]
@@ -199,7 +215,7 @@ class BitBucket(mocks.Requests):
 
         stripped_url = url.split('://')[-1]
         if stripped_url == '{}/plugins/servlet/applinks/whoami'.format(self.hosts[0]):
-            return mocks.Response.fromText('timcommitter')
+            return mocks.Response.fromText(self._username)
 
         if stripped_url == '{}/rest/api/1.0/{}/branches/default'.format(self.hosts[0], self.project):
             return self._branches_default(url)
@@ -337,9 +353,11 @@ class BitBucket(mocks.Requests):
                 return mocks.Response.fromJson({})
             if method == 'PUT':
                 self.pull_requests[existing].update(json)
-                self.pull_requests[existing]['fromRef']['displayId'] = '/'.join(json['fromRef']['id'].split('/')[-2:])
                 self.pull_requests[existing]['fromRef']['latestCommit'] = json['fromRef']['latestCommit']
-                self.pull_requests[existing]['toRef']['displayId'] = '/'.join(json['toRef']['id'].split('/')[-2:])
+                if 'id' in json['fromRef']:
+                    self.pull_requests[existing]['fromRef']['displayId'] = '/'.join(json['fromRef']['id'].split('/')[-2:])
+                if 'id' in json['toRef']:
+                    self.pull_requests[existing]['toRef']['displayId'] = '/'.join(json['toRef']['id'].split('/')[-2:])
             if len(split_url) < 11:
                 return mocks.Response.fromJson({key: value for key, value in self.pull_requests[existing].items() if key not in ('commit', 'activities')})
 

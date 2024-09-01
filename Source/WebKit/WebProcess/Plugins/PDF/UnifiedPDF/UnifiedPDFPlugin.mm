@@ -279,7 +279,24 @@ void UnifiedPDFPlugin::installPDFDocument()
         m_pdfTestCallback->handleEvent();
         m_pdfTestCallback = nullptr;
     }
+}
 
+void UnifiedPDFPlugin::incrementalLoadingDidProgress()
+{
+    static constexpr auto incrementalLoadRepaintInterval = 1_s;
+    if (!m_incrementalLoadingRepaintTimer.isActive())
+        m_incrementalLoadingRepaintTimer.startRepeating(incrementalLoadRepaintInterval);
+}
+
+void UnifiedPDFPlugin::incrementalLoadingDidCancel()
+{
+    m_incrementalLoadingRepaintTimer.stop();
+}
+
+void UnifiedPDFPlugin::incrementalLoadingDidFinish()
+{
+    m_incrementalLoadingRepaintTimer.stop();
+    repaintForIncrementalLoad();
 }
 
 #if ENABLE(UNIFIED_PDF_DATA_DETECTION)
@@ -452,6 +469,7 @@ void UnifiedPDFPlugin::ensureLayers()
         m_contentsLayer = createGraphicsLayer("PDF contents"_s, isFullMainFramePlugin() ? GraphicsLayer::Type::PageTiledBacking : GraphicsLayer::Type::TiledBacking);
         m_contentsLayer->setAnchorPoint({ });
         m_contentsLayer->setDrawsContent(true);
+        m_contentsLayer->setAcceleratesDrawing(canPaintSelectionIntoOwnedLayer());
         m_scrolledContentsLayer->addChild(*m_contentsLayer);
 
         // This is the call that enables async rendering.
@@ -469,8 +487,7 @@ void UnifiedPDFPlugin::ensureLayers()
         m_selectionLayer = createGraphicsLayer("PDF selections"_s, GraphicsLayer::Type::TiledBacking);
         m_selectionLayer->setAnchorPoint({ });
         m_selectionLayer->setDrawsContent(true);
-        if (canPaintSelectionIntoOwnedLayer())
-            m_selectionLayer->setAcceleratesDrawing(true);
+        m_selectionLayer->setAcceleratesDrawing(true);
         m_selectionLayer->setBlendMode(BlendMode::Multiply);
         m_scrolledContentsLayer->addChild(*m_selectionLayer);
     }
@@ -531,6 +548,7 @@ void UnifiedPDFPlugin::updatePageBackgroundLayers()
             pageBackgroundLayer->setAnchorPoint({ });
             pageBackgroundLayer->setBackgroundColor(Color::white);
             pageBackgroundLayer->setDrawsContent(true);
+            pageBackgroundLayer->setAcceleratesDrawing(true);
             pageBackgroundLayer->setShouldUpdateRootRelativeScaleFactor(false);
             pageBackgroundLayer->setNeedsDisplay(); // We only need to paint this layer once.
 
@@ -560,6 +578,24 @@ void UnifiedPDFPlugin::updatePageBackgroundLayers()
     }
 
     m_pageBackgroundsContainerLayer->setChildren(WTFMove(pageContainerLayers));
+}
+
+void UnifiedPDFPlugin::incrementalLoadingRepaintTimerFired()
+{
+    repaintForIncrementalLoad();
+}
+
+void UnifiedPDFPlugin::repaintForIncrementalLoad()
+{
+    auto coverageRect = FloatRect { { }, m_documentLayout.contentsSize() };
+
+    if (auto* tiledBacking = m_contentsLayer->tiledBacking()) {
+        coverageRect = tiledBacking->coverageRect();
+
+        coverageRect = convertDown(CoordinateSpace::Contents, CoordinateSpace::PDFDocumentLayout, coverageRect);
+    }
+
+    setNeedsRepaintInDocumentRect(RepaintRequirement::PDFContent, coverageRect);
 }
 
 void UnifiedPDFPlugin::paintBackgroundLayerForPage(const GraphicsLayer*, GraphicsContext& context, const FloatRect& clipRect, PDFDocumentLayout::PageIndex pageIndex)
@@ -648,7 +684,7 @@ void UnifiedPDFPlugin::createScrollingNodeIfNecessary()
         return;
 
     m_scrollingNodeID = scrollingCoordinator->uniqueScrollingNodeID();
-    scrollingCoordinator->createNode(ScrollingNodeType::PluginScrolling, m_scrollingNodeID);
+    scrollingCoordinator->createNode(m_frame->coreLocalFrame()->rootFrame().frameID(), ScrollingNodeType::PluginScrolling, m_scrollingNodeID);
 
 #if ENABLE(SCROLLING_THREAD)
     m_scrollContainerLayer->setScrollingNodeID(m_scrollingNodeID);
@@ -778,11 +814,12 @@ std::optional<float> UnifiedPDFPlugin::customContentsScale(const GraphicsLayer* 
     return { };
 }
 
-bool UnifiedPDFPlugin::layerNeedsPlatformContext(const WebCore::GraphicsLayer*) const
+bool UnifiedPDFPlugin::layerNeedsPlatformContext(const WebCore::GraphicsLayer* layer) const
 {
     // We need a platform context if the plugin can not paint selections into its own layer,
     // since we would then have to vend a platform context that PDFKit can paint into.
-    return !canPaintSelectionIntoOwnedLayer();
+    // However, this constraint only applies for the contents layer. No other layer needs to be WP-backed.
+    return layer == m_contentsLayer.get() && !canPaintSelectionIntoOwnedLayer();
 }
 
 void UnifiedPDFPlugin::tiledBackingUsageChanged(const GraphicsLayer* layer, bool usingTiledBacking)
@@ -893,7 +930,6 @@ void UnifiedPDFPlugin::paintContents(const GraphicsLayer* layer, GraphicsContext
         paintBackgroundLayerForPage(layer, context, clipRect, *backgroundLayerPageIndex);
         return;
     }
-
 }
 
 PDFPageCoverage UnifiedPDFPlugin::pageCoverageForRect(const FloatRect& clipRect) const
@@ -1080,7 +1116,7 @@ void UnifiedPDFPlugin::paintPDFSelection(GraphicsContext& context, const FloatRe
 bool UnifiedPDFPlugin::canPaintSelectionIntoOwnedLayer() const
 {
 #if ENABLE(UNIFIED_PDF_SELECTION_LAYER)
-    return [m_currentSelection respondsToSelector:@selector(enumerateRectsAndTransformsForPage:usingBlock:)];
+    return [getPDFSelectionClass() instancesRespondToSelector:@selector(enumerateRectsAndTransformsForPage:usingBlock:)];
 #endif
     return false;
 }
@@ -1563,6 +1599,7 @@ bool UnifiedPDFPlugin::updateOverflowControlsLayers(bool needsHorizontalScrollba
             layer->setAllowsBackingStoreDetaching(false);
             layer->setAllowsTiling(false);
             layer->setDrawsContent(true);
+            layer->setAcceleratesDrawing(true);
 
 #if ENABLE(SCROLLING_THREAD)
             layer->setScrollingNodeID(m_scrollingNodeID);
@@ -1616,6 +1653,7 @@ void UnifiedPDFPlugin::positionOverflowControlsLayers()
         layer->setPosition(cornerRect.location());
         layer->setSize(cornerRect.size());
         layer->setDrawsContent(!cornerRect.isEmpty());
+        layer->setAcceleratesDrawing(true);
     }
 }
 
@@ -1668,12 +1706,7 @@ void UnifiedPDFPlugin::createScrollbarsController()
     if (!page)
         return;
 
-    if (auto scrollbarController = page->chrome().client().createScrollbarsController(*page, *this)) {
-        setScrollbarsController(WTFMove(scrollbarController));
-        return;
-    }
-
-    PDFPluginBase::createScrollbarsController();
+    page->chrome().client().ensureScrollbarsController(*page, *this);
 }
 
 DelegatedScrollingMode UnifiedPDFPlugin::scrollingMode() const
@@ -1833,8 +1866,9 @@ void UnifiedPDFPlugin::updateSnapOffsets()
     Vector<LayoutRect> snapAreas;
 
     for (PDFDocumentLayout::PageIndex i = 0; i < m_documentLayout.pageCount(); ++i) {
-        // FIXME: Factor out documentToContents from pageToContents?
-        auto destinationRect = pageBoundsInContentsSpace(i);
+        auto pageBoundsInDocumentSpace = m_documentLayout.layoutBoundsForPageAtIndex(i);
+        auto destinationRect = convertUp(CoordinateSpace::PDFDocumentLayout, CoordinateSpace::Contents, pageBoundsInDocumentSpace);
+
         snapAreas.append(LayoutRect { destinationRect });
 
         bool isTallerThanViewport = destinationRect.height() > m_size.height();
@@ -1878,11 +1912,13 @@ void UnifiedPDFPlugin::determineCurrentlySnappedPage()
     if (isInDiscreteDisplayMode() && snapOffsetsInfo() && snapOffsetsInfo()->verticalSnapOffsets.size()) {
         std::optional<ElementIdentifier> newSnapIdentifier = snapOffsetsInfo()->verticalSnapOffsets[0].snapTargetID;
 
-        float scrollPositionY = scrollPosition().y();
+        FloatPoint currentScrollPosition = scrollPosition();
+        float scrollPositionYInContentsSpace = convertDown(CoordinateSpace::ScrolledContents, CoordinateSpace::Contents, currentScrollPosition).y();
+
         auto closestDistanceToSnapOffset = std::numeric_limits<float>::max();
         for (const auto& offsetInfo : snapOffsetsInfo()->verticalSnapOffsets) {
             // FIXME: Can this padding be derived from something?
-            auto distance = std::abs(scrollPositionY + 10 - offsetInfo.offset);
+            auto distance = std::abs(scrollPositionYInContentsSpace + 10 - offsetInfo.offset);
             if (distance < closestDistanceToSnapOffset) {
                 closestDistanceToSnapOffset = distance;
                 newSnapIdentifier = offsetInfo.snapTargetID;
@@ -2737,6 +2773,8 @@ std::optional<PDFContextMenu> UnifiedPDFPlugin::createContextMenu(const WebMouse
     if (!frameView)
         return std::nullopt;
 
+    auto contextMenuEventRootViewPoint = contextMenuEvent.position();
+
     Vector<PDFContextMenuItem> menuItems;
 
     auto addSeparator = [item = separatorContextMenuItem(), &menuItems] {
@@ -2744,7 +2782,7 @@ std::optional<PDFContextMenu> UnifiedPDFPlugin::createContextMenu(const WebMouse
     };
 
     if ([m_pdfDocument allowsCopying] && m_currentSelection) {
-        menuItems.appendVector(selectionContextMenuItems(contextMenuEvent.position()));
+        menuItems.appendVector(selectionContextMenuItems(contextMenuEventRootViewPoint));
         addSeparator();
     }
 
@@ -2760,9 +2798,11 @@ std::optional<PDFContextMenu> UnifiedPDFPlugin::createContextMenu(const WebMouse
 
     addSeparator();
 
-    menuItems.appendVector(navigationContextMenuItems());
+    auto contextMenuEventPluginPoint = convertFromRootViewToPlugin(contextMenuEventRootViewPoint);
+    auto contextMenuEventDocumentPoint = convertDown<FloatPoint>(CoordinateSpace::Plugin, CoordinateSpace::PDFDocumentLayout, contextMenuEventPluginPoint);
+    menuItems.appendVector(navigationContextMenuItemsForPageAtIndex(m_documentLayout.nearestPageIndexForDocumentPoint(contextMenuEventDocumentPoint)));
 
-    auto contextMenuPoint = frameView->contentsToScreen(IntRect(frameView->windowToContents(contextMenuEvent.position()), IntSize())).location();
+    auto contextMenuPoint = frameView->contentsToScreen(IntRect(frameView->windowToContents(contextMenuEventRootViewPoint), IntSize())).location();
 
     return PDFContextMenu { contextMenuPoint, WTFMove(menuItems), { enumToUnderlyingType(ContextMenuItemTag::OpenWithPreview) } };
 }
@@ -2877,12 +2917,18 @@ Vector<PDFContextMenuItem> UnifiedPDFPlugin::scaleContextMenuItems() const
     };
 }
 
-Vector<PDFContextMenuItem> UnifiedPDFPlugin::navigationContextMenuItems() const
+Vector<PDFContextMenuItem> UnifiedPDFPlugin::navigationContextMenuItemsForPageAtIndex(PDFDocumentLayout::PageIndex pageIndex) const
 {
-    auto currentPageIndex = indexForCurrentPageInView();
+    auto pageIncrement = m_documentLayout.pagesPerRow();
+    auto effectiveLastPageIndex = [pageCount = m_documentLayout.pageCount(), pageIncrement] {
+        if (pageCount % 2)
+            return pageCount - 1;
+        return pageCount < pageIncrement ? 0 : pageCount - pageIncrement;
+    }();
+
     return {
-        contextMenuItem(ContextMenuItemTag::NextPage, currentPageIndex != m_documentLayout.pageCount() - 1),
-        contextMenuItem(ContextMenuItemTag::PreviousPage, currentPageIndex && currentPageIndex)
+        contextMenuItem(ContextMenuItemTag::NextPage, pageIndex < effectiveLastPageIndex),
+        contextMenuItem(ContextMenuItemTag::PreviousPage, pageIndex > pageIncrement - 1)
     };
 }
 
@@ -4081,7 +4127,17 @@ void UnifiedPDFPlugin::setDisplayModeAndUpdateLayout(PDFDocumentLayout::DisplayM
         SetForScope scope(m_shouldUpdateAutoSizeScale, ShouldUpdateAutoSizeScale::Yes);
         updateLayout(shouldAdjustPageScale);
     }
-    resnapAfterLayout();
+
+    if (isInDiscreteDisplayMode()) {
+        ASSERT(m_currentlySnappedPage);
+        if (!m_currentlySnappedPage)
+            return;
+
+        auto pageBoundsInDocumentSpace = layoutBoundsForPageAtIndex(m_currentlySnappedPage.value());
+        auto pageBoundsInScrolledContents = convertUp(CoordinateSpace::PDFDocumentLayout, CoordinateSpace::ScrolledContents, pageBoundsInDocumentSpace);
+
+        scrollToPointInContentsSpace(pageBoundsInScrolledContents.location());
+    }
 }
 
 } // namespace WebKit

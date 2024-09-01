@@ -193,7 +193,7 @@ bool WebPage::shouldUsePDFPlugin(const String& contentType, StringView path) con
     if (!pluginEnabled)
         return false;
 
-    return MIMETypeRegistry::isPDFOrPostScriptMIMEType(contentType) || (contentType.isEmpty() && (path.endsWithIgnoringASCIICase(".pdf"_s) || path.endsWithIgnoringASCIICase(".ps"_s)));
+    return MIMETypeRegistry::isPDFMIMEType(contentType) || (contentType.isEmpty() && path.endsWithIgnoringASCIICase(".pdf"_s));
 }
 #endif
 
@@ -311,7 +311,7 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(LocalFrame& frame, cons
 }
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-std::optional<WebCore::SimpleRange> WebPage::getRangeforUUID(const WTF::UUID& uuid)
+std::optional<WebCore::SimpleRange> WebPage::getRangeForUUID(const WTF::UUID& uuid)
 {
     auto range = m_unifiedTextReplacementController->contextRangeForSessionWithUUID(uuid);
     if (range)
@@ -323,7 +323,7 @@ std::optional<WebCore::SimpleRange> WebPage::getRangeforUUID(const WTF::UUID& uu
 
 void WebPage::getTextIndicatorForID(const WTF::UUID& uuid, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&& completionHandler)
 {
-    auto sessionRange = getRangeforUUID(uuid);
+    auto sessionRange = getRangeForUUID(uuid);
 
     if (!sessionRange) {
         completionHandler(std::nullopt);
@@ -361,7 +361,7 @@ void WebPage::updateTextIndicatorStyleVisibilityForID(const WTF::UUID uuid, bool
         return;
     }
 
-    auto sessionRange = getRangeforUUID(uuid);
+    auto sessionRange = getRangeForUUID(uuid);
 
     if (!sessionRange) {
         completionHandler();
@@ -369,17 +369,15 @@ void WebPage::updateTextIndicatorStyleVisibilityForID(const WTF::UUID uuid, bool
     }
 
     if (visible)
-        document->markers().removeMarkers(*sessionRange, { DocumentMarker::Type::TransparentContent });
+        m_unifiedTextReplacementController->removeTransparentMarkersForSession(uuid, *sessionRange);
     else
-        document->markers().addMarker(*sessionRange, DocumentMarker::Type::TransparentContent);
+        document->markers().addMarker(*sessionRange, DocumentMarker::Type::TransparentContent, { DocumentMarker::TransparentContentData { uuid } });
 
     completionHandler();
 }
 
 void WebPage::enableTextIndicatorStyleAfterElementWithID(const String& elementID, const WTF::UUID& uuid)
 {
-    // FIXME: move the start of the range to be after the element with the ID listed.
-
     RefPtr frame = m_page->checkedFocusController()->focusedOrMainFrame();
     if (!frame) {
         ASSERT_NOT_REACHED();
@@ -403,6 +401,12 @@ void WebPage::enableTextIndicatorStyleAfterElementWithID(const String& elementID
     if (!simpleRange) {
         ASSERT_NOT_REACHED();
         return;
+    }
+
+    if (RefPtr element = document->getElementById(elementID)) {
+        auto elementRange = makeRangeSelectingNodeContents(*element);
+        if (!elementRange.collapsed())
+            simpleRange->start = elementRange.end;
     }
 
     m_textIndicatorStyleEnablementRanges.add(uuid, createLiveRange(*simpleRange));
@@ -583,7 +587,7 @@ void WebPage::accessibilityManageRemoteElementStatus(bool registerStatus, int pr
 #endif
 }
 
-void WebPage::bindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier frameID, std::span<const uint8_t> dataToken, CompletionHandler<void(std::span<const uint8_t>, int)>&& completionHandler)
+void WebPage::bindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier frameID, Vector<uint8_t> dataToken, CompletionHandler<void(Vector<uint8_t>, int)>&& completionHandler)
 {
     RefPtr webFrame = WebProcess::singleton().webFrame(frameID);
     if (!webFrame) {
@@ -603,10 +607,10 @@ void WebPage::bindRemoteAccessibilityFrames(int processIdentifier, WebCore::Fram
         return completionHandler({ }, 0);
     }
 
-    registerRemoteFrameAccessibilityTokens(processIdentifier, dataToken);
+    registerRemoteFrameAccessibilityTokens(processIdentifier, dataToken.span());
 
     // Get our remote token data and send back to the RemoteFrame.
-    completionHandler(span(accessibilityRemoteTokenData().get()), getpid());
+    completionHandler({ span(accessibilityRemoteTokenData().get()) }, getpid());
 }
 
 #if ENABLE(APPLE_PAY)
