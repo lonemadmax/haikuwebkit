@@ -285,7 +285,7 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
     auto storageProvider = PageStorageSessionProvider::create();
 
     PageConfiguration pageClients(
-        std::nullopt,
+        WebCore::PageIdentifier::generate(),
         PAL::SessionID::defaultSessionID(),
         makeUniqueRef<EditorClientHaiku>(this),
         LegacySocketProvider::create(),
@@ -299,7 +299,9 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         BackForwardList::create(),
         CookieJar::create(storageProvider.copyRef()),
         makeUniqueRef<ProgressTrackerClientHaiku>(this),
-        UniqueRef<LocalFrameLoaderClient>(makeUniqueRef<FrameLoaderClientHaiku>(this)),
+        CompletionHandler<UniqueRef<WebCore::LocalFrameLoaderClient>(WebCore::LocalFrame&)> { [this] (WebCore::LocalFrame&) {
+            return makeUniqueRef<FrameLoaderClientHaiku>(this);
+        } },
         WebCore::FrameIdentifier::generate(),
         nullptr,
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
