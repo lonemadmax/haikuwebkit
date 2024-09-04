@@ -232,13 +232,7 @@ LocalFrame::~LocalFrame()
     if (!isMainFrame() && localMainFrame)
         localMainFrame->selfOnlyDeref();
 
-    if (isRootFrame()) {
-        if (RefPtr page = this->page()) {
-            page->removeRootFrame(*this);
-            if (auto* scrollingCoordinator = page->scrollingCoordinator())
-                scrollingCoordinator->rootFrameWasRemoved(frameID());
-        }
-    }
+    detachFromPage();
 }
 
 void LocalFrame::addDestructionObserver(FrameDestructionObserver& observer)
@@ -436,7 +430,7 @@ static JSC::Yarr::RegularExpression createRegExpForLabels(const Vector<String>& 
 
         // Search for word boundaries only if label starts/ends with "word characters".
         // If we always searched for word boundaries, this wouldn't work for languages such as Japanese.
-        pattern.append(i ? "|" : "", startsWithWordCharacter ? "\\b" : "", label, endsWithWordCharacter ? "\\b" : "");
+        pattern.append(i ? "|"_s : ""_s, startsWithWordCharacter ? "\\b"_s : ""_s, label, endsWithWordCharacter ? "\\b"_s : ""_s);
     }
     pattern.append(')');
     return JSC::Yarr::RegularExpression(pattern.toString(), { JSC::Yarr::Flags::IgnoreCase });

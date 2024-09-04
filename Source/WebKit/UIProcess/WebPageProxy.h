@@ -31,6 +31,7 @@
 #include "MessageSender.h"
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/NowPlayingMetadataObserver.h>
+#include <pal/HysteresisActivity.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/OptionSet.h>
@@ -527,6 +528,7 @@ enum class SelectionTouch : uint8_t;
 enum class ShouldDelayClosingUntilFirstLayerFlush : bool;
 enum class SyntheticEditingCommandType : uint8_t;
 enum class TextRecognitionUpdateResult : uint8_t;
+enum class TextIndicatorStyle : uint8_t;
 enum class UndoOrRedo : bool;
 enum class WasNavigationIntercepted : bool;
 enum class WebContentMode : uint8_t;
@@ -939,6 +941,10 @@ public:
         
     void adjustLayersForLayoutViewport(const WebCore::FloatPoint& scrollPosition, const WebCore::FloatRect& layoutViewport, double scale);
 
+#if PLATFORM(COCOA)
+    void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID);
+#endif
+
 #if PLATFORM(IOS_FAMILY)
     void textInputContextsInRect(WebCore::FloatRect, CompletionHandler<void(const Vector<WebCore::ElementContext>&)>&&);
     void focusTextInputContextAndPlaceCaret(const WebCore::ElementContext&, const WebCore::IntPoint&, CompletionHandler<void(bool)>&&);
@@ -961,7 +967,6 @@ public:
     WebCore::FloatRect unconstrainedLayoutViewportRect() const;
 
     void scrollingNodeScrollViewWillStartPanGesture(WebCore::ScrollingNodeID);
-    void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID);
     void scrollingNodeScrollWillStartScroll(std::optional<WebCore::ScrollingNodeID>);
     void scrollingNodeScrollDidEndScroll(std::optional<WebCore::ScrollingNodeID>);
 
@@ -1761,6 +1766,9 @@ public:
 
     bool isShowingNavigationGestureSnapshot() const { return m_isShowingNavigationGestureSnapshot; }
 
+    void willBeginViewGesture();
+    void didEndViewGesture();
+
     bool isPlayingAudio() const;
     bool hasMediaStreaming() const;
     void isPlayingMediaDidChange(WebCore::MediaProducerMediaStateFlags);
@@ -1897,7 +1905,10 @@ public:
 #endif
 
 #if ENABLE(GAMEPAD)
+    static constexpr Seconds gamepadsRecentlyAccessedThreshold { 1500_ms };
+
     void gamepadActivity(const Vector<std::optional<GamepadData>>&, WebCore::EventMakesGamepadsVisible);
+    void gamepadsRecentlyAccessed();
 #endif
 
     void isLoadingChanged();
@@ -2409,6 +2420,7 @@ public:
     void textReplacementSessionShowInformationForReplacementWithUUIDRelativeToRect(const WTF::UUID& sessionUUID, const WTF::UUID& replacementUUID, WebCore::IntRect selectionBoundsInRootView);
     void textReplacementSessionUpdateStateForReplacementWithUUID(const WTF::UUID& sessionUUID, WebTextReplacementDataState, const WTF::UUID& replacementUUID);
 
+    void addTextIndicatorStyleForID(const WTF::UUID&, const WebKit::TextIndicatorStyle, const WebCore::TextIndicatorData&);
     void removeTextIndicatorStyleForID(const WTF::UUID&);
     void enableTextIndicatorStyleAfterElementWithID(const String& elementID, const WTF::UUID&);
     void enableTextIndicatorStyleForElementWithID(const String& elementID, const WTF::UUID&);
@@ -3049,6 +3061,10 @@ private:
 
     void frameNameChanged(IPC::Connection&, WebCore::FrameIdentifier, const String& frameName);
 
+#if ENABLE(GAMEPAD)
+    void recentGamepadAccessStateChanged(PAL::HysteresisState);
+#endif
+
     struct Internals;
     Internals& internals() { return m_internals; }
     const Internals& internals() const { return m_internals; }
@@ -3581,6 +3597,10 @@ private:
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
     bool m_isUnifiedTextReplacementActive { false };
+#endif
+
+#if ENABLE(GAMEPAD)
+    PAL::HysteresisActivity m_recentGamepadAccessHysteresis;
 #endif
 };
 

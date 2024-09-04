@@ -279,6 +279,11 @@ void WebPageProxy::createSandboxExtensionsIfNeeded(const Vector<String>& files, 
     }
 }
 
+void WebPageProxy::scrollingNodeScrollViewDidScroll(ScrollingNodeID nodeID)
+{
+    protectedPageClient()->scrollingNodeScrollViewDidScroll(nodeID);
+}
+
 bool WebPageProxy::scrollingUpdatesDisabledForTesting()
 {
     return protectedPageClient()->scrollingUpdatesDisabledForTesting();
@@ -927,10 +932,10 @@ NSDictionary *WebPageProxy::contentsOfUserInterfaceItem(NSString *userInterfaceI
 #if PLATFORM(MAC)
 bool WebPageProxy::isQuarantinedAndNotUserApproved(const String& fileURLString)
 {
-    if (!fileURLString.endsWithIgnoringASCIICase(".webarchive"_s))
+    NSURL *fileURL = [NSURL URLWithString:fileURLString];
+    if ([fileURL.pathExtension caseInsensitiveCompare:@"webarchive"] != NSOrderedSame)
         return false;
 
-    NSURL *fileURL = [NSURL URLWithString:fileURLString];
     qtn_file_t qf = qtn_file_alloc();
 
     int quarantineError = qtn_file_init_with_path(qf, fileURL.path.fileSystemRepresentation);
@@ -1203,18 +1208,38 @@ void WebPageProxy::enableTextIndicatorStyleForElementWithID(const String& elemen
     send(Messages::WebPage::EnableTextIndicatorStyleForElementWithID(elementID, uuid));
 }
 
+void WebPageProxy::addTextIndicatorStyleForID(const WTF::UUID& uuid, const WebKit::TextIndicatorStyle styleType, const WebCore::TextIndicatorData& data)
+    {
+    MESSAGE_CHECK(uuid.isValid());
+
+    internals().textIndicatorDataForChunk.add(uuid, data);
+
+    protectedPageClient()->addTextIndicatorStyleForID(uuid, styleType);
+}
+
 void WebPageProxy::getTextIndicatorForID(const WTF::UUID& uuid, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&& completionHandler)
 {
-    if (!hasRunningProcess())
+    if (!hasRunningProcess()) {
+        completionHandler(std::nullopt);
         return;
+    }
 
-    sendWithAsyncReply(Messages::WebPage::GetTextIndicatorForID(uuid), WTFMove(completionHandler));
+    auto textIndicatorData = internals().textIndicatorDataForChunk.getOptional(uuid);
+
+    if (textIndicatorData) {
+        completionHandler(*textIndicatorData);
+        return;
+    }
+
+    sendWithAsyncReply(Messages::WebPage::CreateTextIndicatorForID(uuid), WTFMove(completionHandler));
 }
 
 void WebPageProxy::updateTextIndicatorStyleVisibilityForID(const WTF::UUID& uuid, bool visible, CompletionHandler<void()>&& completionHandler)
 {
-    if (!hasRunningProcess())
+    if (!hasRunningProcess()) {
+        completionHandler();
         return;
+    }
 
     sendWithAsyncReply(Messages::WebPage::UpdateTextIndicatorStyleVisibilityForID(uuid, visible), WTFMove(completionHandler));
 }

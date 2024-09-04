@@ -49,16 +49,17 @@ namespace WebCore {
 static String validationPolicyAsString(OptionSet<TileGrid::ValidationPolicyFlag> policy)
 {
     return makeString('[',
-        policy.contains(TileGrid::PruneSecondaryTiles) ? "prune secondary" : "",
-        policy.containsAll({ TileGrid::PruneSecondaryTiles, TileGrid::UnparentAllTiles }) ? ", " : "",
-        policy.contains(TileGrid::PruneSecondaryTiles) ? "unparent all" : "",
+        policy.contains(TileGrid::PruneSecondaryTiles) ? "prune secondary"_s : ""_s,
+        policy.containsAll({ TileGrid::PruneSecondaryTiles, TileGrid::UnparentAllTiles }) ? ", "_s : ""_s,
+        policy.contains(TileGrid::PruneSecondaryTiles) ? "unparent all"_s : ""_s,
         ']');
 }
 
 #endif
 
 TileGrid::TileGrid(TileController& controller)
-    : m_controller(controller)
+    : m_identifier(TileGridIdentifier::generate())
+    , m_controller(controller)
     , m_containerLayer(controller.rootLayer().createCompatibleLayer(PlatformCALayer::LayerType::LayerTypeLayer, nullptr))
     , m_cohortRemovalTimer(*this, &TileGrid::cohortRemovalTimerFired)
     , m_tileSize(kDefaultTileSize, kDefaultTileSize)

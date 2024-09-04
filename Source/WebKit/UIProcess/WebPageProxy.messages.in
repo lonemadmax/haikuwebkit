@@ -525,6 +525,7 @@ messages -> WebPageProxy {
 #endif
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+    AddTextIndicatorStyleForID(WTF::UUID uuid, enum:uint8_t WebKit::TextIndicatorStyle style, struct WebCore::TextIndicatorData data)
     RemoveTextIndicatorStyleForID(WTF::UUID uuid)
 #endif
 
@@ -646,4 +647,8 @@ messages -> WebPageProxy {
     DidAdjustVisibilityWithSelectors(Vector<String> selectors)
 
     FrameNameChanged(WebCore::FrameIdentifier frameID, String frameName)
+
+#if ENABLE(GAMEPAD)
+    GamepadsRecentlyAccessed()
+#endif
 }

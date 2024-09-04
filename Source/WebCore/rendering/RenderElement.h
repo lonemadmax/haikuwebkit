@@ -297,6 +297,11 @@ public:
 
     void clearNeedsLayoutForSkippedContent();
 
+    void setRenderBoxHasShapeOutsideInfo(bool b) { m_renderBoxHasShapeOutsideInfo = b; }
+    void setHasCachedSVGResource(bool b) { m_hasCachedSVGResource = b; }
+    bool renderBoxHasShapeOutsideInfo() const { return m_renderBoxHasShapeOutsideInfo; }
+    bool hasCachedSVGResource() const { return m_hasCachedSVGResource; }
+
 protected:
     RenderElement(Type, Element&, RenderStyle&&, OptionSet<TypeFlag>, TypeSpecificFlags);
     RenderElement(Type, Document&, RenderStyle&&, OptionSet<TypeFlag>, TypeSpecificFlags);
@@ -324,9 +329,11 @@ protected:
     void setRenderBlockHasMarginBeforeQuirk(bool b) { m_renderBlockHasMarginBeforeQuirk = b; }
     void setRenderBlockHasMarginAfterQuirk(bool b) { m_renderBlockHasMarginAfterQuirk = b; }
     void setRenderBlockShouldForceRelayoutChildren(bool b) { m_renderBlockShouldForceRelayoutChildren = b; }
+    void setRenderBlockHasRareData(bool b) { m_renderBlockHasRareData = b; }
     bool renderBlockHasMarginBeforeQuirk() const { return m_renderBlockHasMarginBeforeQuirk; }
     bool renderBlockHasMarginAfterQuirk() const { return m_renderBlockHasMarginAfterQuirk; }
     bool renderBlockShouldForceRelayoutChildren() const { return m_renderBlockShouldForceRelayoutChildren; }
+    bool renderBlockHasRareData() const { return m_renderBlockHasRareData; }
 
     void setRenderBlockFlowLineLayoutPath(unsigned u) { m_renderBlockFlowLineLayoutPath = u; }
     unsigned renderBlockFlowLineLayoutPath() const { return m_renderBlockFlowLineLayoutPath; }
@@ -406,12 +413,15 @@ private:
     unsigned m_renderBlockHasMarginAfterQuirk : 1;
     unsigned m_renderBlockShouldForceRelayoutChildren : 1;
     unsigned m_renderBlockFlowLineLayoutPath : 3;
+    unsigned m_renderBlockHasRareData : 1 { false };
+    unsigned m_renderBoxHasShapeOutsideInfo : 1 { false };
+    unsigned m_hasCachedSVGResource : 1 { false };
 
     unsigned m_isRegisteredForVisibleInViewportCallback : 1;
     unsigned m_visibleInViewportState : 2;
     unsigned m_didContributeToVisuallyNonEmptyPixelCount : 1;
 
-    // 4 bits free.
+    // 1 bits free.
 
     RenderStyle m_style;
 };

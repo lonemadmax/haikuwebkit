@@ -44,6 +44,7 @@
 #import "PageClient.h"
 #import "PageClientImplMac.h"
 #import "PasteboardTypes.h"
+#import "PickerDismissalReason.h"
 #import "PlatformFontInfo.h"
 #import "PlaybackSessionManagerProxy.h"
 #import "RemoteLayerTreeDrawingAreaProxyMac.h"
@@ -126,6 +127,7 @@
 #import <WebKit/WKShareSheet.h>
 #import <WebKit/WKWebViewPrivate.h>
 #import <WebKit/WebBackForwardList.h>
+#import <pal/HysteresisActivity.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <pal/spi/cocoa/AVKitSPI.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
@@ -1221,6 +1223,7 @@ WebViewImpl::WebViewImpl(NSView <WebViewImplDelegate> *view, WKWebView *outerWeb
     , m_undoTarget(adoptNS([[WKEditorUndoTarget alloc] init]))
     , m_windowVisibilityObserver(adoptNS([[WKWindowVisibilityObserver alloc] initWithView:view impl:*this]))
     , m_accessibilitySettingsObserver(adoptNS([[WKAccessibilitySettingsObserver alloc] initWithImpl:*this]))
+    , m_contentRelativeViewsHysteresis(makeUnique<PAL::HysteresisActivity>([this](auto state) { this->contentRelativeViewsHysteresisTimerFired(state); }, 500_ms))
     , m_mouseTrackingObserver(adoptNS([[WKMouseTrackingObserver alloc] initWithViewImpl:*this]))
     , m_primaryTrackingArea(adoptNS([[NSTrackingArea alloc] initWithRect:view.frame options:trackingAreaOptions() owner:m_mouseTrackingObserver.get() userInfo:nil]))
 {
@@ -1655,6 +1658,8 @@ void WebViewImpl::renewGState()
 {
     if (m_textIndicatorWindow)
         dismissContentRelativeChildWindowsWithAnimation(false);
+
+    suppressContentRelativeChildViews(ContentRelativeChildViewsSuppressionType::TemporarilyRemove);
 
     // Update the view frame.
     if ([m_view window])
@@ -2808,7 +2813,7 @@ void WebViewImpl::selectionDidChange()
 void WebViewImpl::showShareSheet(const WebCore::ShareDataWithParsedURL& data, WTF::CompletionHandler<void(bool)>&& completionHandler, WKWebView *view)
 {
     if (_shareSheet)
-        [_shareSheet dismiss];
+        [_shareSheet dismissIfNeededWithReason:WebKit::PickerDismissalReason::ResetState];
 
     ASSERT([view respondsToSelector:@selector(shareSheetDidDismiss:)]);
     _shareSheet = adoptNS([[WKShareSheet alloc] initWithView:view]);
@@ -3433,6 +3438,57 @@ void WebViewImpl::dismissContentRelativeChildWindowsFromViewOnly()
 
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
     [std::exchange(m_lastContextMenuTranslationPopover, nil) close];
+#endif
+}
+
+bool WebViewImpl::hasContentRelativeChildViews() const
+{
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT_UI)
+    return [m_textIndicatorStyleManager hasActiveTextIndicatorStyle];
+#else
+    return false;
+#endif
+}
+
+void WebViewImpl::suppressContentRelativeChildViews(ContentRelativeChildViewsSuppressionType type)
+{
+    if (!hasContentRelativeChildViews())
+        return;
+
+    switch (type) {
+    case ContentRelativeChildViewsSuppressionType::Remove:
+        return m_contentRelativeViewsHysteresis->start();
+
+    case ContentRelativeChildViewsSuppressionType::Restore:
+        return m_contentRelativeViewsHysteresis->stop();
+
+    case ContentRelativeChildViewsSuppressionType::TemporarilyRemove:
+        return m_contentRelativeViewsHysteresis->impulse();
+    }
+}
+
+void WebViewImpl::contentRelativeViewsHysteresisTimerFired(PAL::HysteresisState state)
+{
+    if (!hasContentRelativeChildViews())
+        return;
+
+    if (state == PAL::HysteresisState::Started)
+        suppressContentRelativeChildViews();
+    else
+        restoreContentRelativeChildViews();
+}
+
+void WebViewImpl::suppressContentRelativeChildViews()
+{
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT_UI)
+    [m_textIndicatorStyleManager suppressTextIndicatorStyle];
+#endif
+}
+
+void WebViewImpl::restoreContentRelativeChildViews()
+{
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT_UI)
+    [m_textIndicatorStyleManager restoreTextIndicatorStyle];
 #endif
 }
 
@@ -4610,6 +4666,7 @@ void WebViewImpl::setMagnification(double magnification, CGPoint centerPoint)
         [NSException raise:NSInvalidArgumentException format:@"Magnification should be a positive number"];
 
     dismissContentRelativeChildWindowsWithAnimation(false);
+    suppressContentRelativeChildViews(ContentRelativeChildViewsSuppressionType::TemporarilyRemove);
 
     m_page->scalePageInViewCoordinates(magnification, WebCore::roundedIntPoint(centerPoint));
 }
@@ -4620,6 +4677,7 @@ void WebViewImpl::setMagnification(double magnification)
         [NSException raise:NSInvalidArgumentException format:@"Magnification should be a positive number"];
 
     dismissContentRelativeChildWindowsWithAnimation(false);
+    suppressContentRelativeChildViews(ContentRelativeChildViewsSuppressionType::TemporarilyRemove);
 
     WebCore::FloatPoint viewCenter(NSMidX([m_view bounds]), NSMidY([m_view bounds]));
     m_page->scalePageInViewCoordinates(magnification, roundedIntPoint(viewCenter));
@@ -5224,27 +5282,25 @@ void WebViewImpl::setMarkedText(id string, NSRange selectedRange, NSRange replac
     LOG(TextInput, "setMarkedText:\"%@\" selectedRange:(%u, %u) replacementRange:(%u, %u)", string, selectedRange.location, selectedRange.length, replacementRange.location, replacementRange.length);
 
 #if HAVE(INLINE_PREDICTIONS)
-    BOOL hasTextCompletion = [&] {
-        if (!isAttributedString)
-            return NO;
+    if (RetainPtr attributedString = dynamic_objc_cast<NSAttributedString>(string)) {
+        BOOL hasTextCompletion = [&] {
+            __block BOOL result;
 
-        __block BOOL result;
+            [attributedString enumerateAttribute:NSTextCompletionAttributeName inRange:NSMakeRange(0, [attributedString length]) options:0 usingBlock:^(id value, NSRange range, BOOL *stop) {
+                if ([value respondsToSelector:@selector(boolValue)] && [value boolValue]) {
+                    result = YES;
+                    *stop = YES;
+                }
+            }];
 
-        NSAttributedString *attributedString = (NSAttributedString *)string;
-        [attributedString enumerateAttribute:NSTextCompletionAttributeName inRange:NSMakeRange(0, attributedString.length) options:0 usingBlock:^(id value, NSRange range, BOOL *stop) {
-            if ([value respondsToSelector:@selector(boolValue)] && [value boolValue]) {
-                result = YES;
-                *stop = YES;
-            }
-        }];
+            return result;
+        }();
 
-        return result;
-    }();
-
-    if (hasTextCompletion || m_isHandlingAcceptedCandidate) {
-        m_isHandlingAcceptedCandidate = hasTextCompletion;
-        m_page->setWritingSuggestion([string string], selectedRange);
-        return;
+        if (hasTextCompletion || m_isHandlingAcceptedCandidate) {
+            m_isHandlingAcceptedCandidate = hasTextCompletion;
+            m_page->setWritingSuggestion([attributedString string], selectedRange);
+            return;
+        }
     }
 #endif
 

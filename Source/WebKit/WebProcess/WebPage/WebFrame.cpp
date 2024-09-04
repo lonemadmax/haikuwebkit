@@ -396,6 +396,8 @@ void WebFrame::loadDidCommitInAnotherProcess(std::optional<WebCore::LayerHosting
     if (corePage->focusController().focusedFrame() == localFrame.get())
         corePage->focusController().setFocusedFrame(newFrame.ptr(), FocusController::BroadcastFocusedFrame::No);
 
+    localFrame->loader().detachFromParent();
+
     if (ownerElement)
         ownerElement->scheduleInvalidateStyleAndLayerComposition();
 }

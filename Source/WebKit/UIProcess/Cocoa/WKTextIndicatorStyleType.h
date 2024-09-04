@@ -27,5 +27,6 @@
 
 typedef NS_ENUM(NSInteger, WKTextIndicatorStyleType) {
     WKTextIndicatorStyleTypeInitial,
+    WKTextIndicatorStyleTypeSource,
     WKTextIndicatorStyleTypeFinal
 };

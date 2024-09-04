@@ -135,6 +135,7 @@ http/tests/media/modern-media-controls/overflow-support [ Pass ]
 # media/modern-media-controls/tracks-support [ Pass ]
 
 media/media-source/media-managedmse-airplay.html [ Pass ]
+media/media-source/media-managedmse-airplay-withsrc.html [ Pass ]
 media/media-source/media-managedmse-idl.html [ Pass ]
 webkit.org/b/269897 media/media-source/media-managedmse-poster.html [ Skip ]
 
@@ -148,7 +149,7 @@ accessibility/ios-simulator/image-overlay-elements.html [ Pass ]
 http/tests/ssl/applepay [ Pass ]
 webkit.org/b/212975 http/tests/ssl/applepay/PaymentRequest.https.html [ Pass Timeout ]
 
-http/tests/paymentrequest/ApplePayModifier-disbursementPaymentRequest.https.html [ Skip ]
+http/tests/paymentrequest/ApplePayModifier-disbursementRequest.https.html [ Skip ]
 http/tests/paymentrequest/paymentrequest-merchantCategoryCode.https.html [ Skip ]
 http/tests/paymentrequest [ Pass ]
 imported/w3c/web-platform-tests/payment-request [ Pass ]
@@ -7301,3 +7302,13 @@ webkit.org/b/273848 [ Release ] imported/w3c/web-platform-tests/html/semantics/e
 webkit.org/b/273905 svg/filters/filter-on-root-tile-boundary.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/273984 http/tests/site-isolation/window-open-with-name-cross-site.html [ Timeout ]
+
+# webkit.org/b/274175 REGRESSION (276847@main): [ iOS Debug ] 3X fast/viewport/ios/viewport-fit tests are consistent failures 
+fast/viewport/ios/viewport-fit-auto.html [ Failure ]
+fast/viewport/ios/viewport-fit-contain.html [ Failure ]
+fast/viewport/ios/viewport-fit-cover.html [ Failure ]
+
+webkit.org/b/274180 editing/selection/ios/place-selection-in-overflow-area.html [ Timeout ]
+
+# webkit.org/b/274219 (REGRESSION (278786@main): [ MacOS iOS ] 3X http/wpt/webauthn tests are consistent failures)
+http/wpt/webauthn/idl.https.html [ Failure ]

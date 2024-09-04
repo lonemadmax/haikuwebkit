@@ -910,6 +910,7 @@ header: <WebCore/ElementTargetingTypes.h>
     WebCore::RectEdges<bool> offsetEdges
     String renderedText
     String searchableText
+    String screenReaderText;
     Vector<Vector<String>> selectors
     WebCore::FloatRect boundsInRootView
     WebCore::FloatRect boundsInClientCoordinates
@@ -1184,7 +1185,7 @@ struct WebCore::ApplePayDetailsUpdateBase {
     std::optional<WebCore::ApplePayDeferredPaymentRequest> newDeferredPaymentRequest;
 #endif
 #if ENABLE(APPLE_PAY_DISBURSEMENTS)
-    std::optional<WebCore::ApplePayDisbursementPaymentRequest> newDisbursementPaymentRequest;
+    std::optional<WebCore::ApplePayDisbursementRequest> newDisbursementRequest;
 #endif
 }
 
@@ -1258,7 +1259,7 @@ enum class WebCore::ApplePayErrorCode : uint8_t {
 #endif // ENABLE(APPLE_PAY)
 
 #if ENABLE(APPLE_PAY_DISBURSEMENTS)
-struct WebCore::ApplePayDisbursementPaymentRequest {
+struct WebCore::ApplePayDisbursementRequest {
     std::optional<Vector<WebCore::ApplePayContactField>> requiredRecipientContactFields
 };
 #endif
@@ -5253,24 +5254,24 @@ header: <WebCore/MediaConstraints.h>
     std::optional<int> m_min;
     std::optional<int> m_max;
     std::optional<int> m_exact;
-    std::optional<int> m_ideal;
+    [Validator='*dataType == WebCore::MediaConstraint::DataType::Integer'] std::optional<int> m_ideal;
 };
 
 [CustomHeader] class WebCore::DoubleConstraint : WebCore::MediaConstraint {
     std::optional<double> m_min;
     std::optional<double> m_max;
     std::optional<double> m_exact;
-    std::optional<double> m_ideal;
+    [Validator='*dataType == WebCore::MediaConstraint::DataType::Double'] std::optional<double> m_ideal;
 };
 
 [CustomHeader] class WebCore::BooleanConstraint : WebCore::MediaConstraint {
     std::optional<bool> m_exact;
-    std::optional<bool> m_ideal;
+    [Validator='*dataType == WebCore::MediaConstraint::DataType::Boolean'] std::optional<bool> m_ideal;
 };
 
 [CustomHeader] class WebCore::StringConstraint : WebCore::MediaConstraint {
     Vector<String> m_exact;
-    Vector<String> m_ideal;
+    [Validator='*dataType == WebCore::MediaConstraint::DataType::String'] Vector<String> m_ideal;
 };
 
 header: <WebCore/VideoPreset.h>
@@ -5959,7 +5960,7 @@ struct WebCore::InteractionRegion {
 
 [AdditionalEncoder=StreamConnectionEncoder] class WebCore::Region {
     WebCore::IntRect bounds();
-    std::unique_ptr<WebCore::Region::Shape> copyShape();
+    [Validator='!*copyShape || (*copyShape)->isValid()'] std::unique_ptr<WebCore::Region::Shape> copyShape();
 }
 
 header: <WebCore/ISOVTTCue.h>

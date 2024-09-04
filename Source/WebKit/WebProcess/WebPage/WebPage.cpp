@@ -7050,6 +7050,10 @@ void WebPage::didChangeSelection(LocalFrame& frame)
 {
     didChangeSelectionOrOverflowScrollPosition();
 
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+    m_unifiedTextReplacementController->updateStateForSelectedReplacementIfNeeded();
+#endif
+
 #if PLATFORM(IOS_FAMILY)
     if (!std::exchange(m_sendAutocorrectionContextAfterFocusingElement, false))
         return;
@@ -7063,10 +7067,6 @@ void WebPage::didChangeSelection(LocalFrame& frame)
 #else
     UNUSED_PARAM(frame);
 #endif // PLATFORM(IOS_FAMILY)
-
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    m_unifiedTextReplacementController->updateStateForSelectedReplacementIfNeeded();
-#endif
 }
 
 void WebPage::didChangeSelectionOrOverflowScrollPosition()
@@ -8100,6 +8100,11 @@ void WebPage::setUserInterfaceLayoutDirection(uint32_t direction)
 void WebPage::gamepadActivity(const Vector<std::optional<GamepadData>>& gamepadDatas, EventMakesGamepadsVisible eventVisibilty)
 {
     WebGamepadProvider::singleton().gamepadActivity(gamepadDatas, eventVisibilty);
+}
+
+void WebPage::gamepadsRecentlyAccessed()
+{
+    send(Messages::WebPageProxy::GamepadsRecentlyAccessed());
 }
 
 #endif
@@ -9142,6 +9147,11 @@ void WebPage::lastNavigationWasAppInitiated(CompletionHandler<void(bool)>&& comp
 }
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+
+void WebPage::addTextIndicatorStyleForID(const WTF::UUID& uuid, const WebKit::TextIndicatorStyle styleType, const WebCore::TextIndicatorData& data)
+{
+    send(Messages::WebPageProxy::AddTextIndicatorStyleForID(uuid, styleType, data));
+}
 
 void WebPage::removeTextIndicatorStyleForID(const WTF::UUID& uuid)
 {

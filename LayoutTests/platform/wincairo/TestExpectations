@@ -416,9 +416,6 @@ webgl/webgl-worker.html [ Skip ]
 # Accelerated canvas isn't supported yet
 fast/canvas/canvas-will-read-frequently.html [ Skip ]
 
-# Limiting accelerated canvases not implemented for WK1
-fast/canvas/image-buffer-backend-count-limit.html [ Skip ]
-
 #//////////////////////////////////////////////////////////////////////////////////////////
 # These areas are not implemented well on WinCairo
 #//////////////////////////////////////////////////////////////////////////////////////////
@@ -3348,3 +3345,8 @@ http/tests/loading/reusing-cached-stylesheet-from-different-domain.html [ ImageO
 resize-observer/contain-instrinsic-size-should-not-leak-nodes.html [ Failure Pass ]
 
 fast/css/view-transitions-nested-transparency-layers.html [ ImageOnlyFailure Pass ]
+
+webkit.org/b/274226 fast/canvas/drawImage-source-rect-outside-image.html [ ImageOnlyFailure ]
+webkit.org/b/274226 fast/canvas/drawImage-srcRect-clipping.html [ ImageOnlyFailure ]
+webkit.org/b/274226 fast/canvas/canvas-drawImage-negative-coordinate.html [ ImageOnlyFailure ]
+webkit.org/b/274226 fast/canvas/canvas-drawImage-out-of-bounds-coordinate.html [ ImageOnlyFailure ]

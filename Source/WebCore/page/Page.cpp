@@ -106,6 +106,7 @@
 #include "ModelPlayerProvider.h"
 #include "NavigationScheduler.h"
 #include "Navigator.h"
+#include "NavigatorGamepad.h"
 #include "OpportunisticTaskScheduler.h"
 #include "PageColorSampler.h"
 #include "PageConfiguration.h"
@@ -451,7 +452,6 @@ Page::~Page()
     m_validationMessageClient = nullptr;
     m_diagnosticLoggingClient = nullptr;
     m_performanceLoggingClient = nullptr;
-    m_rootFrames.clear();
     if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame))
         localMainFrame->setView(nullptr);
     setGroupName(String());
@@ -467,6 +467,7 @@ Page::~Page()
         frame.willDetachPage();
         frame.detachFromPage();
     });
+    ASSERT(m_rootFrames.isEmpty());
 
     if (RefPtr scrollingCoordinator = m_scrollingCoordinator)
         scrollingCoordinator->pageDestroyed();
@@ -1347,7 +1348,7 @@ void Page::logMediaDiagnosticMessage(const RefPtr<FormData>& formData) const
     unsigned imageOrMediaFilesCount = formData ? formData->imageOrMediaFilesCount() : 0;
     if (!imageOrMediaFilesCount)
         return;
-    auto message = makeString(imageOrMediaFilesCount, imageOrMediaFilesCount == 1 ? " media file has been submitted" : " media files have been submitted");
+    auto message = makeString(imageOrMediaFilesCount, imageOrMediaFilesCount == 1 ? " media file has been submitted"_s : " media files have been submitted"_s);
     diagnosticLoggingClient().logDiagnosticMessageWithDomain(message, DiagnosticLoggingDomain::Media);
 }
 
@@ -4797,6 +4798,17 @@ void Page::setDefaultSpatialTrackingLabel(const String& label)
     forEachDocument([&] (Document& document) {
         document.defaultSpatialTrackingLabelChanged(m_defaultSpatialTrackingLabel);
     });
+}
+#endif
+
+#if ENABLE(GAMEPAD)
+void Page::gamepadsRecentlyAccessed()
+{
+    if (MonotonicTime::now() - m_lastAccessNotificationTime < NavigatorGamepad::gamepadsRecentlyAccessedThreshold())
+        return;
+
+    chrome().client().gamepadsRecentlyAccessed();
+    m_lastAccessNotificationTime = MonotonicTime::now();
 }
 #endif
 

@@ -1403,6 +1403,9 @@ static WKMediaPlaybackState toWKMediaPlaybackState(WebKit::MediaPlaybackState me
 - (void)setPageZoom:(CGFloat)pageZoom
 {
     THROW_IF_SUSPENDED;
+#if PLATFORM(MAC)
+    _impl->suppressContentRelativeChildViews(WebKit::WebViewImpl::ContentRelativeChildViewsSuppressionType::TemporarilyRemove);
+#endif
     _page->setPageZoomFactor(pageZoom);
 }
 
@@ -1786,12 +1789,23 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 #endif
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-- (void)_removeTextIndicatorStyleForID:(NSUUID *)nsuuid
+- (void)_addTextIndicatorStyleForID:(NSUUID *)nsUUID withStyleType:(WKTextIndicatorStyleType)styleType
 {
 #if PLATFORM(IOS_FAMILY)
-    [_contentView removeTextIndicatorStyleForID:nsuuid];
+    [_contentView addTextIndicatorStyleForID:nsUUID withStyleType:styleType];
 #elif PLATFORM(MAC)
-    auto uuid = WTF::UUID::fromNSUUID(nsuuid);
+    auto uuid = WTF::UUID::fromNSUUID(nsUUID);
+    if (!uuid)
+        return;
+    _impl->addTextIndicatorStyleForID(*uuid, styleType);
+#endif
+}
+- (void)_removeTextIndicatorStyleForID:(NSUUID *)nsUUID
+{
+#if PLATFORM(IOS_FAMILY)
+    [_contentView removeTextIndicatorStyleForID:nsUUID];
+#elif PLATFORM(MAC)
+    auto uuid = WTF::UUID::fromNSUUID(nsUUID);
     if (!uuid)
         return;
     _impl->removeTextIndicatorStyleForID(*uuid);
@@ -2828,13 +2842,13 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 #endif
 }
 
-- (void)_disableTextIndicatorStylingWithUUID:(NSUUID *)nsuuid
+- (void)_disableTextIndicatorStylingWithUUID:(NSUUID *)nsUUID
 {
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
 #if PLATFORM(IOS_FAMILY)
-    [_contentView removeTextIndicatorStyleForID:nsuuid];
+    [_contentView removeTextIndicatorStyleForID:nsUUID];
 #elif PLATFORM(MAC) && ENABLE(UNIFIED_TEXT_REPLACEMENT_UI)
-    auto uuid = WTF::UUID::fromNSUUID(nsuuid);
+    auto uuid = WTF::UUID::fromNSUUID(nsUUID);
     if (!uuid)
         return;
     _impl->removeTextIndicatorStyleForID(*uuid);
@@ -3721,6 +3735,9 @@ static inline OptionSet<WebCore::LayoutMilestone> layoutMilestones(_WKRenderingP
 - (void)_setTextZoomFactor:(double)zoomFactor
 {
     THROW_IF_SUSPENDED;
+#if PLATFORM(MAC)
+    _impl->suppressContentRelativeChildViews(WebKit::WebViewImpl::ContentRelativeChildViewsSuppressionType::TemporarilyRemove);
+#endif
     _page->setTextZoomFactor(zoomFactor);
 }
 
