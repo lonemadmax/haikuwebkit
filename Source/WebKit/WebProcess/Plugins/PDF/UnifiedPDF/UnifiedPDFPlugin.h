@@ -28,6 +28,7 @@
 #if ENABLE(UNIFIED_PDF)
 
 #include "PDFDocumentLayout.h"
+#include "PDFPageCoverage.h"
 #include "PDFPluginBase.h"
 #include <WebCore/ElementIdentifier.h>
 #include <WebCore/GraphicsLayer.h>
@@ -63,7 +64,6 @@ class WebFrame;
 class WebMouseEvent;
 struct PDFContextMenu;
 struct PDFContextMenuItem;
-struct PDFPageCoverage;
 
 enum class WebEventType : uint8_t;
 enum class WebMouseEventButton : int8_t;
@@ -183,8 +183,6 @@ public:
         ScrolledContents,
         Plugin
     };
-
-    Vector<WebCore::FloatRect> boundsForSelection(const PDFSelection *, CoordinateSpace inSpace) const;
 
     RetainPtr<PDFPage> pageAtIndex(PDFDocumentLayout::PageIndex) const;
 
@@ -391,8 +389,14 @@ private:
 
     RefPtr<WebCore::TextIndicator> textIndicatorForCurrentSelection(OptionSet<WebCore::TextIndicatorOption>, WebCore::TextIndicatorPresentationTransition) final;
     RefPtr<WebCore::TextIndicator> textIndicatorForSelection(PDFSelection *, OptionSet<WebCore::TextIndicatorOption>, WebCore::TextIndicatorPresentationTransition);
+
     bool performDictionaryLookupAtLocation(const WebCore::FloatPoint&) override;
-    std::optional<WebCore::FloatRect> selectionBoundsForFirstPageInDocumentSpace(const RetainPtr<PDFSelection>&) const;
+
+    enum class FirstPageOnly : bool { No, Yes };
+    PDFPageCoverage pageCoverageForSelection(PDFSelection *, FirstPageOnly = FirstPageOnly::No) const;
+
+    Vector<WebCore::FloatRect> boundsForSelection(PDFSelection *, CoordinateSpace) const;
+
     bool showDefinitionForSelection(PDFSelection *);
     std::pair<String, RetainPtr<PDFSelection>> textForImmediateActionHitTestAtPoint(const WebCore::FloatPoint&, WebHitTestResultData&) override;
     WebCore::DictionaryPopupInfo dictionaryPopupInfoForSelection(PDFSelection *, WebCore::TextIndicatorPresentationTransition) override;
@@ -415,6 +419,7 @@ private:
 
     // Package up the data needed to paint a set of pages for the given clip, for use by UnifiedPDFPlugin::paintPDFContent and async rendering.
     PDFPageCoverage pageCoverageForRect(const WebCore::FloatRect& clipRect) const;
+    PDFPageCoverageAndScales pageCoverageAndScalesForRect(const WebCore::FloatRect& clipRect) const;
 
     enum class PaintingBehavior : bool { All, PageContentsOnly };
     enum class AllowsAsyncRendering : bool { No, Yes };
@@ -492,10 +497,9 @@ private:
     void resetZoom();
 #endif
 
+    std::optional<PDFDocumentLayout::PageIndex> pageIndexForAnnotation(PDFAnnotation *) const;
     std::optional<PDFDocumentLayout::PageIndex> pageIndexWithHoveredAnnotation() const;
     void paintHoveredAnnotationOnPage(PDFDocumentLayout::PageIndex, WebCore::GraphicsContext&, const WebCore::FloatRect& clipRect);
-
-    WebCore::FloatRect documentRectForAnnotation(PDFAnnotation *) const;
 
     void followLinkAnnotation(PDFAnnotation *);
 
@@ -503,9 +507,12 @@ private:
     void updateTrackedAnnotation(PDFAnnotation *annotationUnderMouse);
     void finishTrackingAnnotation(PDFAnnotation *annotationUnderMouse, WebEventType, WebMouseEventButton, OptionSet<RepaintRequirement> = { });
 
+    void revealAnnotation(PDFAnnotation *);
+
     RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(GraphicsLayerClient&, WebCore::GraphicsLayer::Type);
     RefPtr<WebCore::GraphicsLayer> createGraphicsLayer(const String& name, WebCore::GraphicsLayer::Type);
 
+    void setNeedsRepaintForAnnotation(PDFAnnotation *, OptionSet<RepaintRequirement>);
     void setNeedsRepaintInDocumentRect(OptionSet<RepaintRequirement>, const WebCore::FloatRect&);
     void setNeedsRepaintInDocumentRects(OptionSet<RepaintRequirement>, const Vector<WebCore::FloatRect>&);
 

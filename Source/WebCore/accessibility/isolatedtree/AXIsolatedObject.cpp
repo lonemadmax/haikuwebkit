@@ -78,8 +78,8 @@ AXIsolatedObject::~AXIsolatedObject()
 String AXIsolatedObject::dbg() const
 {
     return makeString(
-        "{role: ", accessibilityRoleToString(roleValue()),
-        ", ID ", objectID().loggingString(), "}"
+        "{role: "_s, accessibilityRoleToString(roleValue()),
+        ", ID "_s, objectID().loggingString(), '}'
     );
 }
 
@@ -1324,7 +1324,7 @@ bool AXIsolatedObject::replaceTextInRange(const String& replacementText, const C
 
 bool AXIsolatedObject::insertText(const String& text)
 {
-    AXTRACE(makeString("AXIsolatedObject::insertText text = ", text));
+    AXTRACE(makeString("AXIsolatedObject::insertText text = "_s, text));
 
     // Dispatch to the main thread without waiting since AXObject::insertText waits for the UI process that can be waiting resulting in a deadlock. That is the case when running LayoutTests.
     // The return value of insertText is not used, so not waiting does not result in any loss of functionality.

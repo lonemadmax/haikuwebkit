@@ -226,7 +226,7 @@ class Assembler
         @lastlabel = ""
     end
 
-    def putsLabel(labelName, isGlobal, isExport, isAligned)
+    def putsLabel(labelName, isGlobal, isExport, isAligned, alignTo)
         raise unless @state == :asm
         @deferredNextLabelActions.each {
             | action |
@@ -242,6 +242,8 @@ class Assembler
                 if isAligned
                     if isExport
                         @outp.puts(formatDump("OFFLINE_ASM_GLOBAL_EXPORT_LABEL(#{labelName})", lastComment))
+                    elsif alignTo
+                        @outp.puts(formatDump("OFFLINE_ASM_ALIGNED_GLOBAL_LABEL(#{labelName}, #{alignTo})", lastComment))
                     else
                         @outp.puts(formatDump("OFFLINE_ASM_GLOBAL_LABEL(#{labelName})", lastComment))
                     end
@@ -263,6 +265,9 @@ class Assembler
                 @outp.puts(formatDump("  _#{label}::", lastComment))
             end            
         else
+            if alignTo
+                @outp.puts(formatDump("OFFLINE_ASM_ALIGN_TRAP(#{alignTo})", lastComment))
+            end
             if !$emitWinAsm
                 @outp.puts(formatDump("OFFLINE_ASM_GLUE_LABEL(#{labelName})", lastComment))
             else
@@ -380,7 +385,7 @@ if isMSVC
     $enableDebugAnnotations = false
 end
 
-$emitWinAsm = isMSVC ? outputFlnm.index(".asm") != nil : false
+$emitWinAsm = false # TODO Cleanup unused emitWinAsm code paths
 $commentPrefix = $emitWinAsm ? ";" : "//"
 
 # We want this in all ELF systems we support, except for C_LOOP (we'll disable it later on if we are building cloop)

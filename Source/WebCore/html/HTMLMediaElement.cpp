@@ -5788,6 +5788,16 @@ void HTMLMediaElement::mediaPlayerMuteChanged()
     endProcessingMediaPlayerCallback();
 }
 
+void HTMLMediaElement::mediaPlayerSeeked(const MediaTime&)
+{
+    ALWAYS_LOG(LOGIDENTIFIER);
+
+#if ENABLE(MEDIA_SOURCE)
+    if (m_mediaSource)
+        m_mediaSource->monitorSourceBuffers(); // Update readyState.
+#endif
+}
+
 void HTMLMediaElement::mediaPlayerDurationChanged()
 {
     beginProcessingMediaPlayerCallback();
@@ -8296,7 +8306,7 @@ RefPtr<VideoPlaybackQuality> HTMLMediaElement::getVideoPlaybackQuality() const
 DOMWrapperWorld& HTMLMediaElement::ensureIsolatedWorld()
 {
     if (!m_isolatedWorld)
-        m_isolatedWorld = DOMWrapperWorld::create(Ref { commonVM() }, DOMWrapperWorld::Type::Internal, makeString("Media Controls (", localName(), ')'));
+        m_isolatedWorld = DOMWrapperWorld::create(Ref { commonVM() }, DOMWrapperWorld::Type::Internal, makeString("Media Controls ("_s, localName(), ')'));
     return *m_isolatedWorld;
 }
 

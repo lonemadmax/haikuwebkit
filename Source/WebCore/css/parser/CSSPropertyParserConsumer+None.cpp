@@ -25,6 +25,7 @@
 #include "config.h"
 #include "CSSPropertyParserConsumer+NoneDefinitions.h"
 
+#include "CSSCalcSymbolsAllowed.h"
 #include "CSSParserTokenRange.h"
 #include "CSSPropertyParserConsumer+Ident.h"
 
@@ -36,7 +37,7 @@ std::optional<NoneRaw> validatedNoneRaw(NoneRaw value, CSSPropertyParserOptions)
     return value;
 }
 
-std::optional<NoneRaw> NoneKnownTokenTypeIdentConsumer::consume(CSSParserTokenRange& range, const CSSCalcSymbolTable&, CSSPropertyParserOptions)
+std::optional<NoneRaw> NoneKnownTokenTypeIdentConsumer::consume(CSSParserTokenRange& range, CSSCalcSymbolsAllowed, CSSPropertyParserOptions)
 {
     ASSERT(range.peek().type() == IdentToken);
 

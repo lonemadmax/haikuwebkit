@@ -28,6 +28,7 @@
 #include "APIObject.h"
 #include "WebPreferencesDefaultValues.h"
 #include "WebURLSchemeHandler.h"
+#include "WebUnifiedTextReplacementContextData.h"
 #include <WebCore/ContentSecurityPolicy.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
@@ -307,6 +308,11 @@ public:
     void setAppHighlightsEnabled(bool enabled) { m_data.appHighlightsEnabled = enabled; }
 #endif
 
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+    bool multiRepresentationHEICInsertionEnabled() const { return m_data.multiRepresentationHEICInsertionEnabled; }
+    void setMultiRepresentationHEICInsertionEnabled(bool enabled) { m_data.multiRepresentationHEICInsertionEnabled = enabled; }
+#endif
+
     const WTF::String& groupIdentifier() const { return m_data.groupIdentifier; }
     void setGroupIdentifier(WTF::String&& identifier) { m_data.groupIdentifier = WTFMove(identifier); }
 
@@ -375,6 +381,11 @@ public:
 
     bool allowsInlinePredictions() const { return m_data.allowsInlinePredictions; }
     void setAllowsInlinePredictions(bool allows) { m_data.allowsInlinePredictions = allows; }
+
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+    WebKit::WebUnifiedTextReplacementBehavior unifiedTextReplacementBehavior() const { return m_data.unifiedTextReplacementBehavior; }
+    void setUnifiedTextReplacementBehavior(WebKit::WebUnifiedTextReplacementBehavior behavior) { m_data.unifiedTextReplacementBehavior = behavior; }
+#endif
 
     void setShouldRelaxThirdPartyCookieBlocking(WebCore::ShouldRelaxThirdPartyCookieBlocking value) { m_data.shouldRelaxThirdPartyCookieBlocking = value; }
     WebCore::ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking() const { return m_data.shouldRelaxThirdPartyCookieBlocking; }
@@ -546,6 +557,9 @@ private:
 #if ENABLE(APP_HIGHLIGHTS)
         bool appHighlightsEnabled { DEFAULT_VALUE_FOR_AppHighlightsEnabled };
 #endif
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+        bool multiRepresentationHEICInsertionEnabled { false };
+#endif
         WTF::String groupIdentifier;
         WTF::String mediaContentTypesRequiringHardwareSupport;
         std::optional<WTF::String> applicationNameForUserAgent;
@@ -571,6 +585,10 @@ private:
         bool allowsInlinePredictions { false };
         bool scrollToTextFragmentIndicatorEnabled { true };
         bool scrollToTextFragmentMarkingEnabled { true };
+
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+        WebKit::WebUnifiedTextReplacementBehavior unifiedTextReplacementBehavior { WebKit::WebUnifiedTextReplacementBehavior::Default };
+#endif
 
         WebCore::ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking { WebCore::ShouldRelaxThirdPartyCookieBlocking::No };
         WTF::String attributedBundleIdentifier;

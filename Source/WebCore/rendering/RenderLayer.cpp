@@ -1024,8 +1024,8 @@ void RenderLayer::recursiveUpdateLayerPositions(OptionSet<UpdateLayerPositionsFl
         // LayoutState outside the layout() phase and use it here.
         ASSERT(!renderer().view().frameView().layoutContext().isPaintOffsetCacheEnabled());
 
-        CheckedPtr repaintContainer = renderer().containerForRepaint().renderer;
-        
+        WeakPtr repaintContainer = renderer().containerForRepaint().renderer.get();
+
         auto oldRects = repaintRects();
         computeRepaintRects(repaintContainer.get());
         auto newRects = repaintRects();
@@ -1033,7 +1033,7 @@ void RenderLayer::recursiveUpdateLayerPositions(OptionSet<UpdateLayerPositionsFl
         if (checkForRepaint && shouldRepaintAfterLayout() && newRects) {
             auto needsFullRepaint = m_repaintStatus == RepaintStatus::NeedsFullRepaint ? RequiresFullRepaint::Yes : RequiresFullRepaint::No;
             auto resolvedOldRects = valueOrDefault(oldRects);
-            renderer().repaintAfterLayoutIfNeeded(repaintContainer.get(), needsFullRepaint, resolvedOldRects, *newRects);
+            renderer().repaintAfterLayoutIfNeeded(WTFMove(repaintContainer), needsFullRepaint, resolvedOldRects, *newRects);
         }
     };
 
@@ -2659,13 +2659,13 @@ String RenderLayer::debugDescription() const
         compositedDescription = stream.release();
     }
 
-    return makeString("RenderLayer 0x", hex(reinterpret_cast<uintptr_t>(this), Lowercase),
+    return makeString("RenderLayer 0x"_s, hex(reinterpret_cast<uintptr_t>(this), Lowercase),
         ' ', size().width(), 'x', size().height(),
-        transform() ? " has transform" : "",
-        hasFilter() ? " has filter" : "",
-        hasBackdropFilter() ? " has backdrop filter" : "",
-        hasBlendMode() ? " has blend mode" : "",
-        isolatesBlending() ? " isolates blending" : "",
+        transform() ? " has transform"_s : ""_s,
+        hasFilter() ? " has filter"_s : ""_s,
+        hasBackdropFilter() ? " has backdrop filter"_s : ""_s,
+        hasBlendMode() ? " has blend mode"_s : ""_s,
+        isolatesBlending() ? " isolates blending"_s : ""_s,
         compositedDescription);
 }
 
@@ -3296,7 +3296,7 @@ void RenderLayer::paintLayerContents(GraphicsContext& context, const LayerPainti
     RenderObject* subtreePaintRootForRenderer = nullptr;
 
     auto paintBehavior = [&]() {
-        constexpr OptionSet<PaintBehavior> flagsToCopy = { PaintBehavior::FlattenCompositingLayers, PaintBehavior::Snapshotting, PaintBehavior::ExcludeSelection };
+        constexpr OptionSet<PaintBehavior> flagsToCopy = { PaintBehavior::FlattenCompositingLayers, PaintBehavior::Snapshotting, PaintBehavior::ExcludeSelection, PaintBehavior::ExcludeReplacedContent };
         OptionSet<PaintBehavior> paintBehavior = paintingInfo.paintBehavior & flagsToCopy;
 
         if (localPaintFlags.contains(PaintLayerFlag::PaintingSkipRootBackground))
@@ -3778,7 +3778,7 @@ void RenderLayer::paintForegroundForFragments(const LayerFragments& layerFragmen
         localPaintBehavior = paintBehavior;
 
     // FIXME: It's unclear if this flag copying is necessary.
-    constexpr OptionSet<PaintBehavior> flagsToCopy { PaintBehavior::ExcludeSelection, PaintBehavior::Snapshotting, PaintBehavior::DefaultAsynchronousImageDecode, PaintBehavior::CompositedOverflowScrollContent, PaintBehavior::ForceSynchronousImageDecode };
+    constexpr OptionSet<PaintBehavior> flagsToCopy { PaintBehavior::ExcludeSelection, PaintBehavior::Snapshotting, PaintBehavior::DefaultAsynchronousImageDecode, PaintBehavior::CompositedOverflowScrollContent, PaintBehavior::ForceSynchronousImageDecode, PaintBehavior::ExcludeReplacedContent };
     localPaintBehavior.add(localPaintingInfo.paintBehavior & flagsToCopy);
 
     if (localPaintingInfo.paintBehavior & PaintBehavior::DontShowVisitedLinks)
@@ -5888,6 +5888,7 @@ TextStream& operator<<(TextStream& ts, PaintBehavior behavior)
     case PaintBehavior::EventRegionIncludeBackground: ts << "EventRegionIncludeBackground"; break;
     case PaintBehavior::Snapshotting: ts << "Snapshotting"; break;
     case PaintBehavior::DontShowVisitedLinks: ts << "DontShowVisitedLinks"; break;
+    case PaintBehavior::ExcludeReplacedContent: ts << "ExcludeReplacedContent"; break;
     }
 
     return ts;

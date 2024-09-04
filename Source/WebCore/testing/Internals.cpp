@@ -823,7 +823,7 @@ Vector<Ref<SVGSVGElement>> Internals::allSVGSVGElements() const
 
 String Internals::address(Node& node)
 {
-    return makeString("0x", hex(reinterpret_cast<uintptr_t>(&node)));
+    return makeString("0x"_s, hex(reinterpret_cast<uintptr_t>(&node)));
 }
 
 bool Internals::nodeNeedsStyleRecalc(Node& node)
@@ -1631,10 +1631,10 @@ ExceptionOr<Vector<AtomString>> Internals::formControlStateOfPreviousHistoryItem
     HistoryItem* mainItem = frame()->history().previousItem();
     if (!mainItem)
         return Exception { ExceptionCode::InvalidAccessError };
-    auto uniqueName = frame()->tree().uniqueName();
-    if (mainItem->target() != uniqueName && !mainItem->childItemWithTarget(uniqueName))
+    auto frameID = frame()->frameID();
+    if (mainItem->frameID() != frameID && !mainItem->childItemWithFrameID(frameID))
         return Exception { ExceptionCode::InvalidAccessError };
-    return Vector<AtomString> { mainItem->target() == uniqueName ? mainItem->documentState() : mainItem->childItemWithTarget(uniqueName)->documentState() };
+    return Vector<AtomString> { mainItem->frameID() == frameID ? mainItem->documentState() : mainItem->childItemWithFrameID(frameID)->documentState() };
 }
 
 ExceptionOr<void> Internals::setFormControlStateOfPreviousHistoryItem(const Vector<AtomString>& state)
@@ -1642,10 +1642,10 @@ ExceptionOr<void> Internals::setFormControlStateOfPreviousHistoryItem(const Vect
     HistoryItem* mainItem = frame()->history().previousItem();
     if (!mainItem)
         return Exception { ExceptionCode::InvalidAccessError };
-    auto uniqueName = frame()->tree().uniqueName();
-    if (mainItem->target() == uniqueName)
+    auto frameID = frame()->frameID();
+    if (mainItem->frameID() == frameID)
         mainItem->setDocumentState(state);
-    else if (HistoryItem* subItem = mainItem->childItemWithTarget(uniqueName))
+    else if (HistoryItem* subItem = mainItem->childItemWithFrameID(frameID))
         subItem->setDocumentState(state);
     else
         return Exception { ExceptionCode::InvalidAccessError };
@@ -2303,7 +2303,7 @@ ExceptionOr<String> Internals::configurationForViewport(float devicePixelRatio, 
     restrictScaleFactorToInitialScaleIfNotUserScalable(attributes);
 
     // FIXME: Using fixed precision here because of test results that contain numbers with specific precision. Would be nice to update the test results and move to default formatting.
-    return makeString("viewport size ", FormattedNumber::fixedPrecision(attributes.layoutSize.width()), 'x', FormattedNumber::fixedPrecision(attributes.layoutSize.height()), " scale ", FormattedNumber::fixedPrecision(attributes.initialScale), " with limits [", FormattedNumber::fixedPrecision(attributes.minimumScale), ", ", FormattedNumber::fixedPrecision(attributes.maximumScale), "] and userScalable ", (attributes.userScalable ? "true" : "false"));
+    return makeString("viewport size "_s, FormattedNumber::fixedPrecision(attributes.layoutSize.width()), 'x', FormattedNumber::fixedPrecision(attributes.layoutSize.height()), " scale "_s, FormattedNumber::fixedPrecision(attributes.initialScale), " with limits ["_s, FormattedNumber::fixedPrecision(attributes.minimumScale), ", "_s, FormattedNumber::fixedPrecision(attributes.maximumScale), "] and userScalable "_s, (attributes.userScalable ? "true"_s : "false"_s));
 }
 
 ExceptionOr<bool> Internals::wasLastChangeUserEdit(Element& textField)
@@ -5327,7 +5327,7 @@ String Internals::createTemporaryFile(const String& name, const String& contents
     if (name.isEmpty())
         return nullString();
 
-    auto [path, file] = FileSystem::openTemporaryFile(makeString("WebCoreTesting-", name));
+    auto [path, file] = FileSystem::openTemporaryFile(makeString("WebCoreTesting-"_s, name));
     if (!FileSystem::isHandleValid(file))
         return nullString();
 
@@ -5348,7 +5348,7 @@ void Internals::queueMicroTask(int testNumber)
     ScriptExecutionContext* context = document;
     auto& eventLoop = context->eventLoop();
     eventLoop.queueMicrotask([document = Ref { *document }, testNumber]() {
-        document->addConsoleMessage(MessageSource::JS, MessageLevel::Debug, makeString("MicroTask #", testNumber, " has run."));
+        document->addConsoleMessage(MessageSource::JS, MessageLevel::Debug, makeString("MicroTask #"_s, testNumber, " has run."_s));
     });
 }
 

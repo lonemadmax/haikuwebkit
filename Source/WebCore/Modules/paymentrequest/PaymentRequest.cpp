@@ -90,10 +90,10 @@ static ExceptionOr<String> checkAndCanonicalizeData(ScriptExecutionContext& cont
 static ExceptionOr<void> checkAndCanonicalizeAmount(PaymentCurrencyAmount& amount)
 {
     if (!isWellFormedCurrencyCode(amount.currency))
-        return Exception { ExceptionCode::RangeError, makeString("\"", amount.currency, "\" is not a valid currency code.") };
+        return Exception { ExceptionCode::RangeError, makeString('"', amount.currency, "\" is not a valid currency code."_s) };
 
     if (!isValidDecimalMonetaryValue(amount.value))
-        return Exception { ExceptionCode::TypeError, makeString("\"", amount.value, "\" is not a valid decimal monetary value.") };
+        return Exception { ExceptionCode::TypeError, makeString('"', amount.value, "\" is not a valid decimal monetary value."_s) };
 
     amount.currency = amount.currency.convertToASCIIUppercase();
     return { };
@@ -245,7 +245,7 @@ static ExceptionOr<std::tuple<String, Vector<String>>> checkAndCanonicalizeDetai
             if (isUpdate == IsUpdate::Yes) {
                 auto paymentMethodIdentifier = convertAndValidatePaymentMethodIdentifier(modifier.supportedMethods);
                 if (!paymentMethodIdentifier)
-                    return Exception { ExceptionCode::RangeError, makeString('"', modifier.supportedMethods, "\" is an invalid payment method identifier.") };
+                    return Exception { ExceptionCode::RangeError, makeString('"', modifier.supportedMethods, "\" is an invalid payment method identifier."_s) };
             }
 
             if (modifier.total) {
@@ -313,7 +313,7 @@ ExceptionOr<Ref<PaymentRequest>> PaymentRequest::create(Document& document, Vect
     for (auto& paymentMethod : methodData) {
         auto identifier = convertAndValidatePaymentMethodIdentifier(paymentMethod.supportedMethods);
         if (!identifier)
-            return Exception { ExceptionCode::RangeError, makeString('"', paymentMethod.supportedMethods, "\" is an invalid payment method identifier.") };
+            return Exception { ExceptionCode::RangeError, makeString('"', paymentMethod.supportedMethods, "\" is an invalid payment method identifier."_s) };
 
         if (!seenMethodIDs.add(stringify(*identifier)))
             return Exception { ExceptionCode::RangeError, "Payment method IDs must be unique."_s };

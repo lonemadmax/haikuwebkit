@@ -311,20 +311,14 @@ static void exerciseIsIgnored(AccessibilityObject& object)
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         [[object.wrapper() attachmentView] accessibilityIsIgnored];
 ALLOW_DEPRECATED_DECLARATIONS_END
-
         return;
     }
     object.accessibilityIsIgnored();
 }
 #endif
 
-void AXObjectCache::postPlatformNotification(AXCoreObject* object, AXNotification notification)
+void AXObjectCache::postPlatformNotification(AccessibilityObject& object, AXNotification notification)
 {
-    if (!is<AccessibilityObject>(object)) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     processQueuedIsolatedNodeUpdates();
 #endif
@@ -334,7 +328,7 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* object, AXNotificatio
     NSString *macNotification;
     switch (notification) {
     case AXActiveDescendantChanged:
-        if (object->isComboBox() || object->canBeControlledBy(AccessibilityRole::ComboBox))
+        if (object.isComboBox() || object.canBeControlledBy(AccessibilityRole::ComboBox))
             macNotification = @"AXActiveElementChanged";
         else
             macNotification = NSAccessibilityFocusedUIElementChangedNotification;
@@ -370,7 +364,7 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* object, AXNotificatio
         macNotification = @"AXInvalidStatusChanged";
         break;
     case AXSelectedChildrenChanged:
-        if (object->isTable() && object->isExposable())
+        if (object.isTable() && object.isExposable())
             macNotification = NSAccessibilitySelectedRowsChangedNotification;
         else
             macNotification = NSAccessibilitySelectedChildrenChangedNotification;
@@ -450,13 +444,13 @@ void AXObjectCache::postPlatformNotification(AXCoreObject* object, AXNotificatio
         return;
     }
 
-    RefPtr protectedObject = object;
+    Ref protectedObject = object;
 
 #ifndef NDEBUG
-    exerciseIsIgnored(downcast<AccessibilityObject>(*object));
+    exerciseIsIgnored(object);
 #endif
 
-    AXPostNotificationWithUserInfo(object->wrapper(), macNotification, nil, skipSystemNotification);
+    AXPostNotificationWithUserInfo(object.wrapper(), macNotification, nil, skipSystemNotification);
 }
 
 void AXObjectCache::postPlatformAnnouncementNotification(const String& message)
@@ -855,20 +849,20 @@ static RetainPtr<AXTextMarkerRef> AXTextMarkerRangeEnd(AXTextMarkerRangeRef text
 
 static TextMarkerData getBytesFromAXTextMarker(AXTextMarkerRef textMarker)
 {
-    TextMarkerData data;
     if (!textMarker)
-        return data;
+        return { };
 
     ASSERT(CFGetTypeID(textMarker) == AXTextMarkerGetTypeID());
     if (CFGetTypeID(textMarker) != AXTextMarkerGetTypeID())
-        return data;
+        return { };
 
-    ASSERT(AXTextMarkerGetLength(textMarker) == sizeof(data));
-    if (AXTextMarkerGetLength(textMarker) != sizeof(data))
-        return data;
+    RawTextMarkerData rawTextMarkerData;
+    ASSERT(AXTextMarkerGetLength(textMarker) == sizeof(rawTextMarkerData));
+    if (AXTextMarkerGetLength(textMarker) != sizeof(rawTextMarkerData))
+        return { };
 
-    memcpy(&data, AXTextMarkerGetBytePtr(textMarker), sizeof(data));
-    return data;
+    memcpy(&rawTextMarkerData, AXTextMarkerGetBytePtr(textMarker), sizeof(rawTextMarkerData));
+    return rawTextMarkerData.toTextMarkerData();
 }
 
 AccessibilityObject* accessibilityObjectForTextMarker(AXObjectCache* cache, AXTextMarkerRef textMarker)
@@ -878,9 +872,6 @@ AccessibilityObject* accessibilityObjectForTextMarker(AXObjectCache* cache, AXTe
         return nullptr;
 
     auto textMarkerData = getBytesFromAXTextMarker(textMarker);
-    if (textMarkerData.ignored)
-        return nullptr;
-
     return cache->accessibilityObjectForTextMarkerData(textMarkerData);
 }
 
@@ -896,7 +887,8 @@ AXTextMarkerRef textMarkerForVisiblePosition(AXObjectCache* cache, const Visible
     if (!textMarkerData)
         return nil;
 
-    return adoptCF(AXTextMarkerCreate(kCFAllocatorDefault, (const UInt8*)&textMarkerData.value(), sizeof(textMarkerData.value()))).autorelease();
+    auto rawTextMarkerData = textMarkerData->toRawTextMarkerData();
+    return adoptCF(AXTextMarkerCreate(kCFAllocatorDefault, (const UInt8*)&rawTextMarkerData, sizeof(rawTextMarkerData))).autorelease();
 }
 
 VisiblePosition visiblePositionForTextMarker(AXObjectCache* cache, AXTextMarkerRef textMarker)
@@ -944,7 +936,8 @@ AXTextMarkerRef textMarkerForCharacterOffset(AXObjectCache* cache, const Charact
     auto textMarkerData = cache->textMarkerDataForCharacterOffset(characterOffset);
     if (!textMarkerData.objectID || textMarkerData.ignored)
         return nil;
-    return adoptCF(AXTextMarkerCreate(kCFAllocatorDefault, (const UInt8*)&textMarkerData, sizeof(textMarkerData))).autorelease();
+    auto rawTextMarkerData = textMarkerData.toRawTextMarkerData();
+    return adoptCF(AXTextMarkerCreate(kCFAllocatorDefault, (const UInt8*)&rawTextMarkerData, sizeof(rawTextMarkerData))).autorelease();
 }
 
 CharacterOffset characterOffsetForTextMarker(AXObjectCache* cache, AXTextMarkerRef textMarker)
@@ -968,7 +961,8 @@ AXTextMarkerRef startOrEndTextMarkerForRange(AXObjectCache* cache, const std::op
     auto textMarkerData = cache->startOrEndTextMarkerDataForRange(*range, isStart);
     if (!textMarkerData.objectID)
         return nil;
-    return adoptCF(AXTextMarkerCreate(kCFAllocatorDefault, (const UInt8*)&textMarkerData, sizeof(textMarkerData))).autorelease();
+    auto rawTextMarkerData = textMarkerData.toRawTextMarkerData();
+    return adoptCF(AXTextMarkerCreate(kCFAllocatorDefault, (const UInt8*)&rawTextMarkerData, sizeof(rawTextMarkerData))).autorelease();
 }
 
 AXTextMarkerRangeRef textMarkerRangeFromRange(AXObjectCache* cache, const std::optional<SimpleRange>& range)

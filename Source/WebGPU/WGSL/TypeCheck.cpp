@@ -725,7 +725,7 @@ void TypeChecker::visit(AST::Function& function)
         auto behaviors = analyze(function.body());
         if (behaviors.contains(Behavior::Next) && function.maybeReturnType())
             typeError(InferBottom::No, function.span(), "missing return at end of function"_s);
-        ASSERT(!behaviors.containsAny({ Behavior::Break, Behavior::Continue }));
+        ASSERT(!behaviors.containsAny({ Behavior::Break, Behavior::Continue }) || !m_errors.isEmpty());
     }
 
     const Type* functionType = m_types.functionType(WTFMove(parameters), m_returnType, mustUse);
@@ -1708,10 +1708,13 @@ void TypeChecker::visit(AST::ArrayTypeExpression& array)
 
         auto value = array.maybeElementCount()->constantValue();
         if (value.has_value()) {
-            auto elementCount = value->integerValue();
-            if (elementCount < 1) {
-                typeError(array.span(), "array count must be greater than 0"_s);
-                return;
+            int64_t elementCount = 0;
+            if (convertValue(array.maybeElementCount()->span(), concretize(elementCountType, m_types), value)) {
+                elementCount = value->integerValue();
+                if (elementCount < 1) {
+                    typeError(array.span(), "array count must be greater than 0"_s);
+                    return;
+                }
             }
             size = { static_cast<unsigned>(elementCount) };
         } else

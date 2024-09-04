@@ -91,7 +91,8 @@
     || OS(HAIKU)               \
     || OS(NETBSD)              \
     || OS(QNX)                 \
-    || COMPILER(MINGW)
+    || COMPILER(MINGW)         \
+    || OS(WINDOWS)
     // GNU as-compatible syntax.
 #define LOCAL_LABEL_STRING(name) ".L" #name
 #endif

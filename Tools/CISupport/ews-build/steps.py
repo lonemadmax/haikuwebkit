@@ -2582,10 +2582,21 @@ class CheckStatusOfPR(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
         failed_checks = []
         url = '{}status/{}/'.format(EWS_URL, change_id)
 
-        response = yield TwistedAdditions.request(url, logger=lambda content: self._addToLog('stdio', content))
-        if response and response.status_code // 100 != 2:
-            yield self._addToLog('stdio', f'Accessed {url} with unexpected status code {response.status_code}.\n')
-            return defer.returnValue(False if response.status_code // 100 == 4 else None)
+        for attempt in range(1, 4):
+            response = yield TwistedAdditions.request(url, logger=lambda content: self._addToLog('stdio', content))
+            if not response:
+                yield self._addToLog('stdio', f'Could not retrieve data from {url}.\n')
+                if attempt == 3:
+                    return defer.returnValue(None)
+                yield self._addToLog('stdio', f'Retrying, attempt {attempt + 1} of 3\n')
+            else:
+                if response.status_code // 100 != 2:
+                    yield self._addToLog('stdio', f'Accessed {url} with unexpected status code {response.status_code}.\n')
+                    if attempt == 3:
+                        return defer.returnValue(False if response.status_code // 100 == 4 else None)
+                    yield self._addToLog('stdio', f'Retrying, attempt {attempt + 1} of 3\n')
+                else:
+                    break
 
         # FIXME: safe-merge-queue should obtain skipped status from EWS instead of hardcoding
         queues_for_safe_merge = self.EMBEDDED_CHECKS + self.MACOS_CHECKS
@@ -2596,7 +2607,7 @@ class CheckStatusOfPR(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
         for queue in queues_for_safe_merge:
             queue_data = response.json().get(queue, None)
             # jsc-arm7-tests will not set its status if skipped, so we condition on jsc-armv7
-            if queue == 'jsc-armv7-tests' and response.json().get('jsc-armv7', None).get('state', None) == 3:
+            if queue == 'jsc-armv7-tests' and response.json().get('jsc-armv7', {}).get('state', None) == 3:
                 yield self._addToLog('stdio', f'{queue}: Skipped\n')
             elif queue_data:
                 status = queue_data.get('state', None)
@@ -3019,9 +3030,13 @@ class RunResultsdbpyTests(shell.ShellCommandNewStyle):
         return {'step': 'Failed resultsdbpy unit tests'}
 
 
-class WebKitPyTest(shell.ShellCommandNewStyle, AddToLogMixin):
-    language = 'python'
+class RunWebKitPyTests(shell.ShellCommandNewStyle, AddToLogMixin):
+    name = 'webkitpy-tests'
     descriptionDone = ['webkitpy-tests']
+    description = ['webkitpy-tests']
+    jsonFileName = 'webkitpy_test_results.json'
+    logfiles = {'json': jsonFileName}
+    command = ['python3', 'Tools/Scripts/test-webkitpy', '--verbose', '--json-output={0}'.format(jsonFileName)]
     flunkOnFailure = True
     NUM_FAILURES_TO_DISPLAY = 10
 
@@ -3049,7 +3064,7 @@ class WebKitPyTest(shell.ShellCommandNewStyle, AddToLogMixin):
 
     def getResultSummary(self):
         if self.results == SUCCESS:
-            message = 'Passed webkitpy {} tests'.format(self.language)
+            message = 'Passed webkitpy tests'
             self.setBuildSummary(message)
             return {'step': message}
 
@@ -3066,29 +3081,11 @@ class WebKitPyTest(shell.ShellCommandNewStyle, AddToLogMixin):
             return super().getResultSummary()
         pluralSuffix = 's' if len(failures) > 1 else ''
         failures_string = ', '.join([failure.get('name') for failure in failures[:self.NUM_FAILURES_TO_DISPLAY]])
-        message = 'Found {} webkitpy {} test failure{}: {}'.format(len(failures), self.language, pluralSuffix, failures_string)
+        message = 'Found {} webkitpy test failure{}: {}'.format(len(failures), pluralSuffix, failures_string)
         if len(failures) > self.NUM_FAILURES_TO_DISPLAY:
             message += ' ...'
         self.setBuildSummary(message)
         return {'step': message}
-
-
-class RunWebKitPyPython2Tests(WebKitPyTest):
-    language = 'python2'
-    name = 'webkitpy-tests-{}'.format(language)
-    description = ['webkitpy-tests running ({})'.format(language)]
-    jsonFileName = 'webkitpy_test_{}_results.json'.format(language)
-    logfiles = {'json': jsonFileName}
-    command = ['python', 'Tools/Scripts/test-webkitpy', '--verbose', '--json-output={0}'.format(jsonFileName)]
-
-
-class RunWebKitPyPython3Tests(WebKitPyTest):
-    language = 'python3'
-    name = 'webkitpy-tests-{}'.format(language)
-    description = ['webkitpy-tests running ({})'.format(language)]
-    jsonFileName = 'webkitpy_test_{}_results.json'.format(language)
-    logfiles = {'json': jsonFileName}
-    command = ['python3', 'Tools/Scripts/test-webkitpy', '--verbose', '--json-output={0}'.format(jsonFileName)]
 
 
 class InstallGtkDependencies(shell.ShellCommandNewStyle):
@@ -3269,7 +3266,7 @@ class CompileWebKit(shell.Compile, AddToLogMixin, ShellMixin):
         steps_to_add = self.follow_up_steps()
 
         if cmd.didFail():
-            steps_to_add += [RevertAppliedChanges(), ValidateChange(verifyBugClosed=False, addURLs=False)]
+            steps_to_add += [RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyBugClosed=False, addURLs=False)]
             platform = self.getProperty('platform')
             if platform == 'wpe':
                 steps_to_add.append(InstallWpeDependencies())
@@ -3636,6 +3633,7 @@ class RunJavaScriptCoreTests(shell.Test, AddToLogMixin, ShellMixin):
         else:
             steps_to_add += [
                 RevertAppliedChanges(),
+                CleanWorkingDirectory(),
                 ValidateChange(verifyBugClosed=False, addURLs=False),
                 CompileJSCWithoutChange(),
                 ValidateChange(verifyBugClosed=False, addURLs=False),
@@ -4144,6 +4142,7 @@ class RunWebKitTests(shell.Test, AddToLogMixin):
             else:
                 steps_to_add += [
                     RevertAppliedChanges(),
+                    CleanWorkingDirectory(),
                     ValidateChange(verifyBugClosed=False, addURLs=False),
                     CompileWebKitWithoutChange(retry_build_on_failure=True),
                     ValidateChange(verifyBugClosed=False, addURLs=False),
@@ -4284,6 +4283,7 @@ class ReRunWebKitTests(RunWebKitTests):
                                                 UploadTestResults(identifier='rerun'),
                                                 ExtractTestResults(identifier='rerun'),
                                                 RevertAppliedChanges(),
+                                                CleanWorkingDirectory(),
                                                 ValidateChange(verifyBugClosed=False, addURLs=False),
                                                 CompileWebKitWithoutChange(retry_build_on_failure=True),
                                                 ValidateChange(verifyBugClosed=False, addURLs=False),
@@ -4713,7 +4713,7 @@ class RunWebKitTestsRedTree(RunWebKitTests):
             if retry_count < AnalyzeLayoutTestsResultsRedTree.MAX_RETRY:
                 next_steps.append(AnalyzeLayoutTestsResultsRedTree())
             else:
-                next_steps.extend([RevertAppliedChanges()])
+                next_steps.extend([RevertAppliedChanges(), CleanWorkingDirectory()])
                 if platform == 'wpe':
                     next_steps.append(InstallWpeDependencies())
                 elif platform == 'gtk':
@@ -4757,7 +4757,9 @@ class RunWebKitTestsRepeatFailuresRedTree(RunWebKitTestsRedTree):
             next_steps.extend([
                 ValidateChange(verifyBugClosed=False, addURLs=False),
                 KillOldProcesses(),
-                RevertAppliedChanges()])
+                RevertAppliedChanges(),
+                CleanWorkingDirectory(),
+            ])
             if platform == 'wpe':
                 next_steps.append(InstallWpeDependencies())
             elif platform == 'gtk':
@@ -5462,7 +5464,7 @@ class ReRunAPITests(RunAPITests):
     suffix = 'second_run'
 
     def doOnFailure(self):
-        steps_to_add = [RevertAppliedChanges(), ValidateChange(verifyBugClosed=False, addURLs=False)]
+        steps_to_add = [RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyBugClosed=False, addURLs=False)]
         platform = self.getProperty('platform')
         if platform == 'wpe':
             steps_to_add.append(InstallWpeDependencies())

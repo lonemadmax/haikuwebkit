@@ -869,7 +869,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/Rect.h
     css/RectBase.h
     css/ShorthandSerializer.h
-    css/StyleColor.h
     css/StyleProperties.h
     css/StylePropertiesInlines.h
     css/StyleRule.h
@@ -878,7 +877,13 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/StyleSheetContents.h
     css/StyleSheetList.h
 
+    css/calc/CSSCalcSymbolsAllowed.h
     css/calc/CSSCalcValue.h
+
+    css/color/CSSColorDescriptors.h
+    css/color/StyleAbsoluteColor.h
+    css/color/StyleColor.h
+    css/color/StyleCurrentColor.h
 
     css/parser/CSSParser.h
     css/parser/CSSParserContext.h
@@ -886,6 +891,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/parser/CSSParserMode.h
     css/parser/CSSParserToken.h
     css/parser/CSSParserTokenRange.h
+    css/parser/CSSPropertyParserConsumer+Primitives.h
+    css/parser/CSSPropertyParserConsumer+RawTypes.h
+    css/parser/CSSPropertyParserConsumer+UnevaluatedCalc.h
     css/parser/CSSSelectorParser.h
     css/parser/CSSSelectorParserContext.h
     css/parser/MutableCSSSelector.h
@@ -1995,6 +2003,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/MediaPlaybackTargetClient.h
     platform/graphics/MediaPlaybackTargetPicker.h
     platform/graphics/MediaPlayer.h
+    platform/graphics/MediaPlayerClientIdentifier.h
     platform/graphics/MediaPlayerEnums.h
     platform/graphics/MediaPlayerIdentifier.h
     platform/graphics/MediaPlayerPrivate.h
@@ -2066,6 +2075,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/VelocityData.h
     platform/graphics/VideoLayerManager.h
     platform/graphics/VideoPlaybackQualityMetrics.h
+    platform/graphics/VideoTarget.h
     platform/graphics/VideoTrackPrivate.h
     platform/graphics/VideoTrackPrivateClient.h
     platform/graphics/WidthCache.h

@@ -416,7 +416,7 @@ std::optional<ExceptionOr<void>> XMLHttpRequest::prepareToSend()
     auto& context = *scriptExecutionContext();
 
     if (RefPtr contextDocument = dynamicDowncast<Document>(context); contextDocument && contextDocument->shouldIgnoreSyncXHRs()) {
-        logConsoleError(&context, makeString("Ignoring XMLHttpRequest.send() call for '", m_url.url().string(), "' because the maximum number of synchronous failures was reached."));
+        logConsoleError(&context, makeString("Ignoring XMLHttpRequest.send() call for '"_s, m_url.url().string(), "' because the maximum number of synchronous failures was reached."_s));
         return ExceptionOr<void> { };
     }
 
@@ -557,7 +557,7 @@ ExceptionOr<void> XMLHttpRequest::send(DOMFormData& body)
     if (m_method != "GET"_s && m_method != "HEAD"_s) {
         m_requestEntityBody = FormData::createMultiPart(body);
         if (!m_requestHeaders.contains(HTTPHeaderName::ContentType))
-            m_requestHeaders.set(HTTPHeaderName::ContentType, makeString("multipart/form-data; boundary=", m_requestEntityBody->boundary()));
+            m_requestHeaders.set(HTTPHeaderName::ContentType, makeString("multipart/form-data; boundary="_s, m_requestEntityBody->boundary()));
     }
 
     return createRequest();
@@ -804,7 +804,7 @@ ExceptionOr<void> XMLHttpRequest::setRequestHeader(const String& name, const Str
     if (securityOrigin()->canLoadLocalResources() && scriptExecutionContext()->isDocument() && document()->settings().allowSettingAnyXHRHeaderFromFileURLs())
         allowUnsafeHeaderField = true;
     if (!allowUnsafeHeaderField && isForbiddenHeader(name, normalizedValue)) {
-        logConsoleError(scriptExecutionContext(), "Refused to set unsafe header \"" + name + "\"");
+        logConsoleError(scriptExecutionContext(), makeString("Refused to set unsafe header \""_s, name, '"'));
         return { };
     }
 
@@ -837,7 +837,7 @@ String XMLHttpRequest::getAllResponseHeaders() const
 
         StringBuilder stringBuilder;
         for (auto& header : headers)
-            stringBuilder.append(asASCIILowercase(header.first), ": ", header.second, "\r\n");
+            stringBuilder.append(asASCIILowercase(header.first), ": "_s, header.second, "\r\n"_s);
 
         m_allResponseHeaders = stringBuilder.toString();
     }

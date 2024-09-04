@@ -127,6 +127,17 @@ std::unique_ptr<ProvisionalFrameProxy> WebFrameProxy::takeProvisionalFrame()
     return std::exchange(m_provisionalFrame, nullptr);
 }
 
+WebProcessProxy& WebFrameProxy::provisionalLoadProcess()
+{
+    if (m_provisionalFrame)
+        return m_provisionalFrame->process();
+    if (isMainFrame()) {
+        if (WeakPtr provisionalPage = m_page ? m_page->provisionalPageProxy() : nullptr)
+            return provisionalPage->process();
+    }
+    return process();
+}
+
 void WebFrameProxy::webProcessWillShutDown()
 {
     for (auto& childFrame : std::exchange(m_childFrames, { }))
@@ -412,7 +423,7 @@ void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, const St
     m_childFrames.add(WTFMove(child));
 }
 
-void WebFrameProxy::prepareForProvisionalNavigationInProcess(WebProcessProxy& process, const API::Navigation& navigation, BrowsingContextGroup& group, CompletionHandler<void()>&& completionHandler)
+void WebFrameProxy::prepareForProvisionalLoadInProcess(WebProcessProxy& process, const API::Navigation& navigation, BrowsingContextGroup& group, CompletionHandler<void()>&& completionHandler)
 {
     if (isMainFrame())
         return completionHandler();
@@ -433,7 +444,7 @@ void WebFrameProxy::prepareForProvisionalNavigationInProcess(WebProcessProxy& pr
         // FIXME: Main resource (of main or subframe) request redirects should go straight from the network to UI process so we don't need to make the processes for each domain in a redirect chain. <rdar://116202119>
         RegistrableDomain mainFrameDomain(page->mainFrame()->url());
 
-        m_provisionalFrame = makeUnique<ProvisionalFrameProxy>(*this, group.ensureProcessForDomain(navigationDomain, process, page->preferences()), navigation.currentRequestIsCrossSiteRedirect());
+        m_provisionalFrame = makeUnique<ProvisionalFrameProxy>(*this, group.ensureProcessForDomain(navigationDomain, process, page->preferences()));
         page->websiteDataStore().protectedNetworkProcess()->addAllowedFirstPartyForCookies(process, mainFrameDomain, LoadedWebArchive::No, [aggregator] { });
     }
 

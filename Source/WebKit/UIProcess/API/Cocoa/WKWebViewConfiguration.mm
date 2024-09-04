@@ -127,6 +127,60 @@ WK_OBJECT_DISABLE_DISABLE_KVC_IVAR_ACCESS;
     return _pageConfiguration->allowsInlinePredictions();
 }
 
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+
+static _WKUnifiedTextReplacementBehavior convertToPlatformBehavior(WebKit::WebUnifiedTextReplacementBehavior behavior)
+{
+    switch (behavior) {
+    case WebKit::WebUnifiedTextReplacementBehavior::None:
+        return _WKUnifiedTextReplacementBehaviorNone;
+
+    case WebKit::WebUnifiedTextReplacementBehavior::Default:
+        return _WKUnifiedTextReplacementBehaviorDefault;
+
+    case WebKit::WebUnifiedTextReplacementBehavior::Limited:
+        return _WKUnifiedTextReplacementBehaviorLimited;
+
+    case WebKit::WebUnifiedTextReplacementBehavior::Complete:
+        return _WKUnifiedTextReplacementBehaviorComplete;
+    }
+}
+
+static WebKit::WebUnifiedTextReplacementBehavior convertToWebBehavior(_WKUnifiedTextReplacementBehavior behavior)
+{
+    switch (behavior) {
+    case _WKUnifiedTextReplacementBehaviorNone:
+        return WebKit::WebUnifiedTextReplacementBehavior::None;
+
+    case _WKUnifiedTextReplacementBehaviorDefault:
+        return WebKit::WebUnifiedTextReplacementBehavior::Default;
+
+    case _WKUnifiedTextReplacementBehaviorLimited:
+        return WebKit::WebUnifiedTextReplacementBehavior::Limited;
+
+    case _WKUnifiedTextReplacementBehaviorComplete:
+        return WebKit::WebUnifiedTextReplacementBehavior::Complete;
+    }
+}
+
+#endif
+
+- (void)_setUnifiedTextReplacementBehavior:(_WKUnifiedTextReplacementBehavior)behavior
+{
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+    _pageConfiguration->setUnifiedTextReplacementBehavior(convertToWebBehavior(behavior));
+#endif
+}
+
+- (_WKUnifiedTextReplacementBehavior)_unifiedTextReplacementBehavior
+{
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+    return convertToPlatformBehavior(_pageConfiguration->unifiedTextReplacementBehavior());
+#else
+    return _WKUnifiedTextReplacementBehaviorNone;
+#endif
+}
+
 #if PLATFORM(IOS_FAMILY)
 - (void)setAllowsInlineMediaPlayback:(BOOL)allows
 {
@@ -244,6 +298,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
     [coder encodeBool:self._scrollToTextFragmentIndicatorEnabled forKey:@"scrollToTextFragmentIndicatorEnabled"];
     [coder encodeBool:self._scrollToTextFragmentMarkingEnabled forKey:@"scrollToTextFragmentMarkingEnabled"];
+    [coder encodeBool:self._multiRepresentationHEICInsertionEnabled forKey:@"multiRepresentationHEICInsertionEnabled"];
 }
 
 - (instancetype)initWithCoder:(NSCoder *)coder
@@ -290,6 +345,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
     self._scrollToTextFragmentIndicatorEnabled = [coder decodeBoolForKey:@"scrollToTextFragmentIndicatorEnabled"];
     self._scrollToTextFragmentMarkingEnabled = [coder decodeBoolForKey:@"scrollToTextFragmentMarkingEnabled"];
+    self._multiRepresentationHEICInsertionEnabled = [coder decodeBoolForKey:@"multiRepresentationHEICInsertionEnabled"];
 
     return self;
 }
@@ -1428,6 +1484,22 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
 - (BOOL)_markedTextInputEnabled
 {
     return _pageConfiguration->allowsInlinePredictions();
+}
+
+- (void)_setMultiRepresentationHEICInsertionEnabled:(BOOL)enabled
+{
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+    _pageConfiguration->setMultiRepresentationHEICInsertionEnabled(enabled);
+#endif
+}
+
+- (BOOL)_multiRepresentationHEICInsertionEnabled
+{
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+    return _pageConfiguration->multiRepresentationHEICInsertionEnabled();
+#else
+    return NO;
+#endif
 }
 
 @end

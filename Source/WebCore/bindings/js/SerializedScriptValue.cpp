@@ -364,7 +364,7 @@ void printInternal(PrintStream&, WebCore::SerializationTag);
 void printInternal(PrintStream& out, WebCore::SerializationTag tag)
 {
     auto tagName = WebCore::name(tag);
-    if (tagName[0] != '<')
+    if (tagName[0U] != '<')
         out.print(tagName);
     else
         out.print("<unknown tag "_s, static_cast<unsigned>(tag), ">"_s);
@@ -1804,7 +1804,7 @@ private:
             if (auto* stringObject = jsDynamicCast<StringObject*>(obj)) {
                 if (!addToObjectPoolIfNotDupe<EmptyStringObjectTag, StringObjectTag>(stringObject))
                     return true;
-                String str = asString(stringObject->internalValue())->value(m_lexicalGlobalObject);
+                auto str = asString(stringObject->internalValue())->value(m_lexicalGlobalObject);
                 dumpStringObject(str);
                 return true;
             }

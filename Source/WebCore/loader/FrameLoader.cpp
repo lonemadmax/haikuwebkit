@@ -1507,6 +1507,7 @@ void FrameLoader::loadURL(FrameLoadRequest&& frameLoadRequest, const String& ref
     // The search for a target frame is done earlier in the case of form submission.
     RefPtr effectiveTargetFrame = findFrameForNavigation(effectiveFrameName);
     if (is<RemoteFrame>(effectiveTargetFrame)) {
+        updateRequestAndAddExtraFields(*effectiveTargetFrame, frameLoadRequest.resourceRequest(), IsMainResource::Yes, newLoadType, ShouldUpdateAppInitiatedValue::Yes, FrameLoader::IsServiceWorkerNavigationLoad::No, WillOpenInNewWindow::No, frameLoadRequest.protectedRequester().ptr());
         effectiveTargetFrame->changeLocation(WTFMove(frameLoadRequest));
         return;
     }
@@ -1851,7 +1852,7 @@ void FrameLoader::reportLocalLoadFailed(LocalFrame* frame, const String& url)
 void FrameLoader::reportBlockedLoadFailed(LocalFrame& frame, const URL& url)
 {
     ASSERT(!url.isEmpty());
-    auto message = makeString("Not allowed to use restricted network port ", url.port().value(), ": ", url.stringCenterEllipsizedToLength());
+    auto message = makeString("Not allowed to use restricted network port "_s, url.port().value(), ": "_s, url.stringCenterEllipsizedToLength());
     frame.protectedDocument()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, message);
 }
 
@@ -2348,7 +2349,7 @@ void FrameLoader::commitProvisionalLoad()
         }
 
         // FIXME: Why only this frame and not parent frames?
-        checkLoadCompleteForThisFrame();
+        checkLoadCompleteForThisFrame(LoadWillContinueInAnotherProcess::No);
     }
 }
 
@@ -2720,7 +2721,7 @@ void FrameLoader::handleLoadFailureRecovery(DocumentLoader& documentLoader, cons
     protectedFrame()->checkedNavigationScheduler()->scheduleRedirect(*m_frame->protectedDocument(), 0, url, IsMetaRefresh::No);
 }
 
-void FrameLoader::checkLoadCompleteForThisFrame()
+void FrameLoader::checkLoadCompleteForThisFrame(LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
 {
     ASSERT(m_client->hasWebView());
 
@@ -2764,8 +2765,10 @@ void FrameLoader::checkLoadCompleteForThisFrame()
         if (!provisionalDocumentLoader->isLoadingInAPISense() || provisionalDocumentLoader->isStopping()) {
             FRAMELOADER_RELEASE_LOG(ResourceLoading, "checkLoadCompleteForThisFrame: Failed provisional load (isTimeout = %d, isCancellation = %d, errorCode = %d, httpsFirstApplicable = %d)", error.isTimeout(), error.isCancellation(), error.errorCode(), isHTTPSFirstApplicable);
 
-            auto willInternallyHandleFailure = (error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::NoRecovery || (error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::HTTPFallback && (!isHTTPSFirstApplicable || isHTTPFallbackInProgress()))) ? WillInternallyHandleFailure::No : WillInternallyHandleFailure::Yes;
-            dispatchDidFailProvisionalLoad(*provisionalDocumentLoader, error, willInternallyHandleFailure);
+            if (loadWillContinueInAnotherProcess == LoadWillContinueInAnotherProcess::No) {
+                auto willInternallyHandleFailure = (error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::NoRecovery || (error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::HTTPFallback && (!isHTTPSFirstApplicable || isHTTPFallbackInProgress()))) ? WillInternallyHandleFailure::No : WillInternallyHandleFailure::Yes;
+                dispatchDidFailProvisionalLoad(*provisionalDocumentLoader, error, willInternallyHandleFailure);
+            }
 
             ASSERT(!provisionalDocumentLoader->isLoading());
 
@@ -3013,7 +3016,7 @@ void FrameLoader::closeAndRemoveChild(LocalFrame& child)
 }
 
 // Called every time a resource is completely loaded or an error is received.
-void FrameLoader::checkLoadComplete()
+void FrameLoader::checkLoadComplete(LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
 {
     m_shouldCallCheckLoadComplete = false;
 
@@ -3033,7 +3036,7 @@ void FrameLoader::checkLoadComplete()
     // To process children before their parents, iterate the vector backwards.
     for (auto frame = frames.rbegin(); frame != frames.rend(); ++frame) {
         if ((*frame)->page())
-            (*frame)->checkedLoader()->checkLoadCompleteForThisFrame();
+            (*frame)->checkedLoader()->checkLoadCompleteForThisFrame(loadWillContinueInAnotherProcess);
     }
 }
 
@@ -3191,47 +3194,53 @@ ResourceRequestCachePolicy FrameLoader::defaultRequestCachingPolicy(const Resour
 
 void FrameLoader::updateRequestAndAddExtraFields(ResourceRequest& request, IsMainResource mainResource, FrameLoadType loadType, ShouldUpdateAppInitiatedValue shouldUpdate, IsServiceWorkerNavigationLoad isServiceWorkerNavigationLoad, WillOpenInNewWindow willOpenInNewWindow, Document* initiator)
 {
+    updateRequestAndAddExtraFields(m_frame.get(), request, mainResource, loadType, shouldUpdate, isServiceWorkerNavigationLoad, willOpenInNewWindow, initiator);
+}
+
+void FrameLoader::updateRequestAndAddExtraFields(Frame& targetFrame, ResourceRequest& request, IsMainResource mainResource, FrameLoadType loadType, ShouldUpdateAppInitiatedValue shouldUpdate, IsServiceWorkerNavigationLoad isServiceWorkerNavigationLoad, WillOpenInNewWindow willOpenInNewWindow, Document* initiator)
+{
     ASSERT(isServiceWorkerNavigationLoad == IsServiceWorkerNavigationLoad::No || mainResource != IsMainResource::Yes);
 
     // If the request came from a previous process due to process-swap-on-navigation then we should not modify the request.
     if (m_currentLoadContinuingState == LoadContinuingState::ContinuingWithRequest)
         return;
 
+    auto* localFrame = dynamicDowncast<LocalFrame>(targetFrame);
+    RefPtr document = localFrame ? localFrame->document() : nullptr;
     // Don't set the cookie policy URL if it's already been set.
     // But make sure to set it on all requests regardless of protocol, as it has significance beyond the cookie policy (<rdar://problem/6616664>).
     bool isMainResource = mainResource == IsMainResource::Yes;
-    bool isMainFrameMainResource = isMainResource && (m_frame->isMainFrame() || willOpenInNewWindow == WillOpenInNewWindow::Yes);
+    bool isMainFrameMainResource = isMainResource && (targetFrame.isMainFrame() || willOpenInNewWindow == WillOpenInNewWindow::Yes);
     if (request.firstPartyForCookies().isEmpty()) {
         if (isMainFrameMainResource)
             request.setFirstPartyForCookies(request.url());
-        else if (RefPtr document = m_frame->document())
+        else if (document)
             request.setFirstPartyForCookies(document->firstPartyForCookies());
     }
 
+    RefPtr page = targetFrame.page();
     if (request.isSameSiteUnspecified()) {
-        if (!initiator) {
-            initiator = m_frame->document();
+        if (!initiator && document) {
+            initiator = document.get();
             if (isMainResource) {
-                RefPtr ownerFrame = dynamicDowncast<LocalFrame>(m_frame->tree().parent());
+                RefPtr ownerFrame = dynamicDowncast<LocalFrame>(localFrame->tree().parent());
                 if (!ownerFrame && m_stateMachine.isDisplayingInitialEmptyDocument()) {
-                    if (RefPtr localOpener = dynamicDowncast<LocalFrame>(m_frame->opener()))
+                    if (RefPtr localOpener = dynamicDowncast<LocalFrame>(localFrame->opener()))
                         ownerFrame = WTFMove(localOpener);
                 }
                 if (ownerFrame)
                     initiator = ownerFrame->document();
-                ASSERT(ownerFrame || m_frame->isMainFrame());
+                ASSERT(ownerFrame || localFrame->isMainFrame());
             }
         }
-        addSameSiteInfoToRequestIfNeeded(request, initiator, protectedFrame()->protectedPage().get());
+        addSameSiteInfoToRequestIfNeeded(request, initiator, page.get());
     }
 
     // In case of service worker navigation load, we inherit isTopSite from the FetchEvent request directly.
     if (isServiceWorkerNavigationLoad == IsServiceWorkerNavigationLoad::No)
         request.setIsTopSite(isMainFrameMainResource);
 
-    RefPtr page = frame().page();
     bool hasSpecificCachePolicy = request.cachePolicy() != ResourceRequestCachePolicy::UseProtocolCachePolicy;
-
     if (page && page->isResourceCachingDisabledByWebInspector()) {
         request.setCachePolicy(ResourceRequestCachePolicy::ReloadIgnoringCacheData);
         loadType = FrameLoadType::ReloadFromOrigin;
@@ -3262,21 +3271,19 @@ void FrameLoader::updateRequestAndAddExtraFields(ResourceRequest& request, IsMai
     if (isMainResource)
         request.setHTTPHeaderField(HTTPHeaderName::Accept, CachedResourceRequest::acceptHeaderValueFromType(CachedResource::Type::MainResource));
 
-    if (RefPtr document = m_frame->document(); document && frame().settings().privateTokenUsageByThirdPartyEnabled() && !frame().loader().client().isRemoteWorkerFrameLoaderClient())
+    if (document && localFrame->settings().privateTokenUsageByThirdPartyEnabled() && !localFrame->loader().client().isRemoteWorkerFrameLoaderClient())
         request.setIsPrivateTokenUsageByThirdPartyAllowed(isPermissionsPolicyAllowedByDocumentAndAllOwners(PermissionsPolicy::Type::PrivateToken, *document, LogPermissionsPolicyFailure::No));
 
     // Only set fallback array if it's still empty (later attempts may be incorrect, see bug 117818).
-    if (request.responseContentDispositionEncodingFallbackArray().isEmpty()) {
+    if (document && request.responseContentDispositionEncodingFallbackArray().isEmpty()) {
         // Always try UTF-8. If that fails, try frame encoding (if any) and then the default.
-        request.setResponseContentDispositionEncodingFallbackArray("UTF-8"_s, m_frame->document()->encoding(), m_frame->settings().defaultTextEncodingName());
+        request.setResponseContentDispositionEncodingFallbackArray("UTF-8"_s, document->encoding(), localFrame->settings().defaultTextEncodingName());
     }
 
-    RefPtr localFrame = dynamicDowncast<LocalFrame>(m_frame->mainFrame());
-    if (!localFrame)
-        return;
-
-    if (shouldUpdate == ShouldUpdateAppInitiatedValue::Yes && localFrame->loader().documentLoader())
-        request.setIsAppInitiated(localFrame->loader().documentLoader()->lastNavigationWasAppInitiated());
+    if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(targetFrame.mainFrame())) {
+        if (shouldUpdate == ShouldUpdateAppInitiatedValue::Yes && localMainFrame->loader().documentLoader())
+            request.setIsAppInitiated(localMainFrame->loader().documentLoader()->lastNavigationWasAppInitiated());
+    }
 
     if (page && isMainResource) {
         auto [filteredURL, didFilter] = page->chrome().client().applyLinkDecorationFilteringWithResult(request.url(), LinkDecorationFilteringTrigger::Navigation);
@@ -3505,7 +3512,7 @@ ResourceLoaderIdentifier FrameLoader::loadResourceSynchronously(const ResourceRe
     return identifier;
 }
 
-void FrameLoader::receivedMainResourceError(const ResourceError& error)
+void FrameLoader::receivedMainResourceError(const ResourceError& error, LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
 {
     // Retain because the stop may release the last reference to it.
     Ref frame = m_frame.get();
@@ -3539,7 +3546,7 @@ void FrameLoader::receivedMainResourceError(const ResourceError& error)
 
     checkCompleted();
     if (frame->page())
-        checkLoadComplete();
+        checkLoadComplete(loadWillContinueInAnotherProcess);
 }
 
 void FrameLoader::continueFragmentScrollAfterNavigationPolicy(const ResourceRequest& request, const SecurityOrigin* requesterOrigin, bool shouldContinue)

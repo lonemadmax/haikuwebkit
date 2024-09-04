@@ -2216,6 +2216,12 @@
     "imported/w3c/web-platform-tests/css/css-view-transitions/iframe-transition.sub.html": [
         "slow"
     ],
+    "imported/w3c/web-platform-tests/css/css-view-transitions/navigation/hide-before-reveal.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/css/css-view-transitions/navigation/skip-outbound-vt-before-reveal.html": [
+        "slow"
+    ],
     "imported/w3c/web-platform-tests/css/css-view-transitions/new-content-captures-different-size.html": [
         "slow"
     ],
@@ -5703,6 +5709,9 @@
         "slow"
     ],
     "imported/w3c/web-platform-tests/trusted-types/TrustedTypePolicyFactory-metadata.html": [
+        "slow"
+    ],
+    "imported/w3c/web-platform-tests/trusted-types/TrustedTypePolicyFactory-metadata.tentative.html": [
         "slow"
     ],
     "imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting.html": [

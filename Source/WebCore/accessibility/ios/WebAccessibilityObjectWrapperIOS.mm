@@ -142,9 +142,9 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
 {
     if (!(self = [super init]))
         return nil;
-    
+
     _cache = cache;
-    memcpy(&_textMarkerData, data, sizeof(TextMarkerData));
+    _textMarkerData = *data;
     return self;
 }
 
@@ -154,7 +154,9 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
         return nil;
     
     _cache = cache;
-    [data getBytes:&_textMarkerData length:sizeof(TextMarkerData)];
+    RawTextMarkerData rawTextMarkerData;
+    [data getBytes:&rawTextMarkerData length:sizeof(rawTextMarkerData)];
+    _textMarkerData = rawTextMarkerData.toTextMarkerData();
     
     return self;
 }
@@ -201,7 +203,8 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
 
 - (NSData *)dataRepresentation
 {
-    return [NSData dataWithBytes:&_textMarkerData length:sizeof(TextMarkerData)];
+    auto rawTextMarkerData = _textMarkerData.toRawTextMarkerData();
+    return [NSData dataWithBytes:&rawTextMarkerData length:sizeof(rawTextMarkerData)];
 }
 
 - (VisiblePosition)visiblePosition
@@ -221,14 +224,12 @@ static AccessibilityObjectWrapper* AccessibilityUnignoredAncestor(AccessibilityO
 
 - (AccessibilityObject*)accessibilityObject
 {
-    if (_textMarkerData.ignored)
-        return nullptr;
     return _cache->accessibilityObjectForTextMarkerData(_textMarkerData);
 }
 
 - (NSString *)description
 {
-    return [NSString stringWithFormat:@"[AXTextMarker %p] = node: %p offset: %d", self, _textMarkerData.node, _textMarkerData.offset];
+    return [NSString stringWithFormat:@"[AXTextMarker %p] = node: %p offset: %d", self, _textMarkerData.node.get(), _textMarkerData.offset];
 }
 
 - (TextMarkerData)textMarkerData

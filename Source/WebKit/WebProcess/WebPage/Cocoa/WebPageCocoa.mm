@@ -335,7 +335,8 @@ void WebPage::getTextIndicatorForID(const WTF::UUID& uuid, CompletionHandler<voi
         constexpr OptionSet textIndicatorOptions {
             TextIndicatorOption::IncludeSnapshotOfAllVisibleContentWithoutSelection,
             TextIndicatorOption::ExpandClipBeyondVisibleRect,
-            TextIndicatorOption::UseSelectionRectForSizing
+            TextIndicatorOption::UseSelectionRectForSizing,
+            TextIndicatorOption::SkipReplacedContent,
         };
         if (auto textIndicator = TextIndicator::createWithRange(*sessionRange, textIndicatorOptions, TextIndicatorPresentationTransition::None, { }))
             textIndicatorData = textIndicator->data();
@@ -371,7 +372,7 @@ void WebPage::updateTextIndicatorStyleVisibilityForID(const WTF::UUID uuid, bool
     if (visible)
         m_unifiedTextReplacementController->removeTransparentMarkersForSession(uuid, *sessionRange);
     else
-        document->markers().addMarker(*sessionRange, DocumentMarker::Type::TransparentContent, { DocumentMarker::TransparentContentData { uuid } });
+        document->markers().addTransparentContentMarker(*sessionRange, uuid);
 
     completionHandler();
 }
@@ -1083,9 +1084,9 @@ void WebPage::didEndTextReplacementSession(const WTF::UUID& uuid, bool accepted)
     m_unifiedTextReplacementController->didEndTextReplacementSession(uuid, accepted);
 }
 
-void WebPage::textReplacementSessionDidReceiveTextWithReplacementRange(const WTF::UUID& uuid, const WebCore::AttributedString& attributedText, const WebCore::CharacterRange& range, const WebUnifiedTextReplacementContextData& context)
+void WebPage::textReplacementSessionDidReceiveTextWithReplacementRange(const WTF::UUID& uuid, const WebCore::AttributedString& attributedText, const WebCore::CharacterRange& range, const WebUnifiedTextReplacementContextData& context, bool finished)
 {
-    m_unifiedTextReplacementController->textReplacementSessionDidReceiveTextWithReplacementRange(uuid, attributedText, range, context);
+    m_unifiedTextReplacementController->textReplacementSessionDidReceiveTextWithReplacementRange(uuid, attributedText, range, context, finished);
 }
 
 void WebPage::textReplacementSessionDidReceiveEditAction(const WTF::UUID& uuid, WebKit::WebTextReplacementData::EditAction action)

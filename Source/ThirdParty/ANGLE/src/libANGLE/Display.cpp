@@ -1756,7 +1756,7 @@ Error Display::makeCurrent(Thread *thread,
     // Tick all the scratch buffers to make sure they get cleaned up eventually if they stop being
     // used.
     {
-        std::lock_guard<std::mutex> lock(mScratchBufferMutex);
+        std::lock_guard<angle::SimpleMutex> lock(mScratchBufferMutex);
 
         for (angle::ScratchBuffer &scatchBuffer : mScratchBuffers)
         {
@@ -2180,6 +2180,7 @@ static ClientExtensions GenerateClientExtensions()
     extensions.debug                     = true;
     extensions.featureControlANGLE       = true;
     extensions.deviceQueryEXT            = true;
+    extensions.noErrorANGLE              = true;
 
     return extensions;
 }
@@ -2593,7 +2594,7 @@ void Display::returnZeroFilledBuffer(angle::ScratchBuffer zeroFilledBuffer)
 angle::ScratchBuffer Display::requestScratchBufferImpl(
     std::vector<angle::ScratchBuffer> *bufferVector)
 {
-    std::lock_guard<std::mutex> lock(mScratchBufferMutex);
+    std::lock_guard<angle::SimpleMutex> lock(mScratchBufferMutex);
     if (!bufferVector->empty())
     {
         angle::ScratchBuffer buffer = std::move(bufferVector->back());
@@ -2607,7 +2608,7 @@ angle::ScratchBuffer Display::requestScratchBufferImpl(
 void Display::returnScratchBufferImpl(angle::ScratchBuffer scratchBuffer,
                                       std::vector<angle::ScratchBuffer> *bufferVector)
 {
-    std::lock_guard<std::mutex> lock(mScratchBufferMutex);
+    std::lock_guard<angle::SimpleMutex> lock(mScratchBufferMutex);
     bufferVector->push_back(std::move(scratchBuffer));
 }
 

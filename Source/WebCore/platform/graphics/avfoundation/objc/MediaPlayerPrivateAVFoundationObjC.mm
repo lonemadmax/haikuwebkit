@@ -447,6 +447,9 @@ MediaPlayerPrivateAVFoundationObjC::MediaPlayerPrivateAVFoundationObjC(MediaPlay
     m_defaultSpatialTrackingLabel = player->defaultSpatialTrackingLabel();
     m_spatialTrackingLabel = player->spatialTrackingLabel();
 #endif
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    setVideoTarget(player->videoTarget());
+#endif
 }
 
 MediaPlayerPrivateAVFoundationObjC::~MediaPlayerPrivateAVFoundationObjC()
@@ -533,6 +536,11 @@ void MediaPlayerPrivateAVFoundationObjC::cancelLoad()
             [m_avPlayer removeTimeObserver:m_videoFrameMetadataGatheringObserver.get()];
             m_videoFrameMetadataGatheringObserver = nil;
         }
+
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    if (m_videoTarget)
+        [m_avPlayer removeVideoTarget:m_videoTarget.get()];
+#endif
 
         m_avPlayer = nil;
     }
@@ -1188,6 +1196,13 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
             currentTimeDidChange(WTFMove(time));
         });
     }];
+
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    if (m_videoTarget) {
+        INFO_LOG(LOGIDENTIFIER, "Setting videoTarget");
+        [m_avPlayer addVideoTarget:m_videoTarget.get()];
+    }
+#endif
 
     if (m_isGatheringVideoFrameMetadata)
         startVideoFrameMetadataGathering();
@@ -3129,9 +3144,11 @@ void MediaPlayerPrivateAVFoundationObjC::processMediaSelectionOptions()
     // We enabled automatic media selection because we want alternate audio tracks to be enabled/disabled automatically,
     // but set the selected legible track to nil so text tracks will not be automatically configured.
     if (!m_textTracks.size()) {
-BEGIN_BLOCK_OBJC_EXCEPTIONS
-        [m_avPlayerItem selectMediaOption:nil inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
-END_BLOCK_OBJC_EXCEPTIONS
+        @try {
+            [m_avPlayerItem selectMediaOption:nil inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
+        } @catch(NSException *exception) {
+            ERROR_LOG(LOGIDENTIFIER, "exception thrown from -selectMediaOption:inMediaSelectionGroup: ", exception.name, ", reason : ", exception.reason);
+        }
     }
 
     Vector<RefPtr<InbandTextTrackPrivateAVF>> removedTextTracks = m_textTracks;
@@ -3220,21 +3237,27 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
             [m_avPlayer setClosedCaptionDisplayEnabled:YES];
 ALLOW_DEPRECATED_DECLARATIONS_END
         else if (track->textTrackCategory() == InbandTextTrackPrivateAVF::OutOfBand) {
-BEGIN_BLOCK_OBJC_EXCEPTIONS
-            [m_avPlayerItem selectMediaOption:static_cast<OutOfBandTextTrackPrivateAVF*>(track)->mediaSelectionOption() inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
-END_BLOCK_OBJC_EXCEPTIONS
+            @try {
+                [m_avPlayerItem selectMediaOption:static_cast<OutOfBandTextTrackPrivateAVF*>(track)->mediaSelectionOption() inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
+            } @catch(NSException *exception) {
+                ERROR_LOG(LOGIDENTIFIER, "exception thrown from -selectMediaOption:inMediaSelectionGroup: ", exception.name, ", reason : ", exception.reason);
+            }
         } else {
-BEGIN_BLOCK_OBJC_EXCEPTIONS
-            [m_avPlayerItem selectMediaOption:static_cast<InbandTextTrackPrivateAVFObjC*>(track)->mediaSelectionOption() inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
-END_BLOCK_OBJC_EXCEPTIONS
+            @try {
+                [m_avPlayerItem selectMediaOption:static_cast<InbandTextTrackPrivateAVFObjC*>(track)->mediaSelectionOption() inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
+            } @catch(NSException *exception) {
+                ERROR_LOG(LOGIDENTIFIER, "exception thrown from -selectMediaOption:inMediaSelectionGroup: ", exception.name, ", reason : ", exception.reason);
+            }
         }
 
         return;
     }
 
-BEGIN_BLOCK_OBJC_EXCEPTIONS
-    [m_avPlayerItem selectMediaOption:0 inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
-END_BLOCK_OBJC_EXCEPTIONS
+    @try {
+        [m_avPlayerItem selectMediaOption:0 inMediaSelectionGroup:safeMediaSelectionGroupForLegibleMedia()];
+    } @catch(NSException *exception) {
+        ERROR_LOG(LOGIDENTIFIER, "exception thrown from -selectMediaOption:inMediaSelectionGroup: ", exception.name, ", reason : ", exception.reason);
+    }
 
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
     [m_avPlayer setClosedCaptionDisplayEnabled:NO];
@@ -4075,25 +4098,26 @@ void MediaPlayerPrivateAVFoundationObjC::updateSpatialTrackingLabel()
 }
 #endif
 
-void MediaPlayerPrivateAVFoundationObjC::setVideoReceiverEndpoint(const VideoReceiverEndpoint& endpoint)
+void MediaPlayerPrivateAVFoundationObjC::setVideoTarget(const PlatformVideoTarget& videoTarget)
 {
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     assertIsMainThread();
 
-    if (!endpoint) {
+    if (m_videoTarget.get() == videoTarget.get())
+        return;
+
+    ALWAYS_LOG(LOGIDENTIFIER, !!videoTarget);
+    if (m_videoTarget)
+        [m_avPlayer removeVideoTarget:m_videoTarget.get()];
+
+    m_videoTarget = videoTarget;
+
+    if (m_videoTarget)
+        [m_avPlayer addVideoTarget:m_videoTarget.get()];
+    else
         [m_videoLayer setPlayer:m_avPlayer.get()];
-        return;
-    }
-
-    FigVideoTargetRef videoTarget;
-    OSStatus status = FigVideoTargetCreateWithVideoReceiverEndpointID(kCFAllocatorDefault, endpoint.get(), nullptr, &videoTarget);
-    if (status != noErr)
-        return;
-
-    m_videoTarget = adoptCF(videoTarget);
-    [m_avPlayer addVideoTarget:m_videoTarget.get()];
 #else
-    UNUSED_PARAM(endpoint);
+    UNUSED_PARAM(videoTarget);
 #endif
 }
 
@@ -4104,8 +4128,10 @@ void MediaPlayerPrivateAVFoundationObjC::isInFullscreenOrPictureInPictureChanged
 
     if (isInFullscreenOrPictureInPicture)
         [m_videoLayer setPlayer:nil];
-    else if (RetainPtr videoTarget = std::exchange(m_videoTarget, nullptr))
+    else if (RetainPtr videoTarget = std::exchange(m_videoTarget, nullptr)) {
+        INFO_LOG(LOGIDENTIFIER, "Clearing videoTarget");
         [m_avPlayer removeVideoTarget:videoTarget.get()];
+    }
 #else
     UNUSED_PARAM(isInFullscreenOrPictureInPicture);
 #endif

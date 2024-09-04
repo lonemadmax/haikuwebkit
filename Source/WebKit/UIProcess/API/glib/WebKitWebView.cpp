@@ -25,6 +25,7 @@
 #include "APIContentWorld.h"
 #include "APIData.h"
 #include "APINavigation.h"
+#include "APIPageConfiguration.h"
 #include "APISerializedScriptValue.h"
 #include "ImageOptions.h"
 #include "NotificationService.h"
@@ -57,6 +58,7 @@
 #include "WebKitUIClient.h"
 #include "WebKitURIRequestPrivate.h"
 #include "WebKitURIResponsePrivate.h"
+#include "WebKitUserContentManagerPrivate.h"
 #include "WebKitUserMessagePrivate.h"
 #include "WebKitWebContextPrivate.h"
 #include "WebKitWebResourceLoadManager.h"
@@ -86,6 +88,7 @@
 #include <wtf/text/StringBuilder.h>
 
 #if PLATFORM(GTK)
+#include "GtkSettingsManager.h"
 #include "WebKitFaviconDatabasePrivate.h"
 #include "WebKitInputMethodContextImplGtk.h"
 #include "WebKitPointerLockPermissionRequest.h"
@@ -349,6 +352,8 @@ struct _WebKitWebViewPrivate {
 
     CString defaultContentSecurityPolicy;
     WebKitWebExtensionMode webExtensionMode;
+
+    double textScaleFactor;
 
     bool isWebProcessResponsive;
 };
@@ -780,6 +785,55 @@ static void webkitWebViewWatchForChangesInFavicon(WebKitWebView* webView)
 }
 #endif
 
+static Ref<API::PageConfiguration> webkitWebViewCreatePageConfiguration(WebKitWebView* webView)
+{
+    auto* priv = webView->priv;
+    auto pageConfiguration = API::PageConfiguration::create();
+    pageConfiguration->setProcessPool(&webkitWebContextGetProcessPool(priv->context.get()));
+    pageConfiguration->setPreferences(webkitSettingsGetPreferences(priv->settings.get()));
+    pageConfiguration->setRelatedPage(priv->relatedView ? &webkitWebViewGetPage(priv->relatedView) : nullptr);
+    pageConfiguration->setUserContentController(priv->userContentManager ? webkitUserContentManagerGetUserContentControllerProxy(priv->userContentManager.get()) : nullptr);
+    pageConfiguration->setControlledByAutomation(priv->isControlledByAutomation);
+
+    switch (priv->webExtensionMode) {
+    case WEBKIT_WEB_EXTENSION_MODE_MANIFESTV3:
+        pageConfiguration->setContentSecurityPolicyModeForExtension(WebCore::ContentSecurityPolicyModeForExtension::ManifestV3);
+        break;
+    case WEBKIT_WEB_EXTENSION_MODE_MANIFESTV2:
+        pageConfiguration->setContentSecurityPolicyModeForExtension(WebCore::ContentSecurityPolicyModeForExtension::ManifestV2);
+        break;
+    case WEBKIT_WEB_EXTENSION_MODE_NONE:
+        break;
+    }
+
+    if (!priv->defaultContentSecurityPolicy.isNull())
+        pageConfiguration->setOverrideContentSecurityPolicy(String::fromUTF8(priv->defaultContentSecurityPolicy.data()));
+
+#if ENABLE(2022_GLIB_API)
+    auto* manager = webkit_network_session_get_website_data_manager(priv->networkSession.get());
+#else
+    auto* manager = priv->websiteDataManager ? priv->websiteDataManager.get() : webkit_web_context_get_website_data_manager(priv->context.get());
+#endif
+    pageConfiguration->setWebsiteDataStore(&webkitWebsiteDataManagerGetDataStore(manager));
+
+    pageConfiguration->setDefaultWebsitePolicies(webkitWebsitePoliciesGetWebsitePolicies(priv->websitePolicies.get()));
+
+    return pageConfiguration;
+}
+
+static void webkitWebViewCreatePage(WebKitWebView* webView, Ref<API::PageConfiguration>&& configuration)
+{
+#if PLATFORM(GTK)
+    webkitWebViewBaseCreateWebPage(WEBKIT_WEB_VIEW_BASE(webView), WTFMove(configuration));
+#elif PLATFORM(WPE)
+#if ENABLE(WPE_PLATFORM)
+    webView->priv->view.reset(WKWPE::View::create(webView->priv->backend ? webkit_web_view_backend_get_wpe_backend(webView->priv->backend.get()) : nullptr, webkit_web_view_get_display(webView), configuration.get()));
+#else
+    webView->priv->view.reset(WKWPE::View::create(webkit_web_view_backend_get_wpe_backend(webView->priv->backend.get()), configuration.get()));
+#endif
+#endif
+}
+
 static void webkitWebViewConstructed(GObject* object)
 {
     G_OBJECT_CLASS(webkit_web_view_parent_class)->constructed(object);
@@ -855,7 +909,8 @@ static void webkitWebViewConstructed(GObject* object)
     if (!priv->websitePolicies)
         priv->websitePolicies = adoptGRef(webkit_website_policies_new());
 
-    webkitWebContextCreatePageForWebView(priv->context.get(), webView, priv->userContentManager.get(), priv->relatedView, priv->websitePolicies.get());
+    webkitWebViewCreatePage(webView, webkitWebViewCreatePageConfiguration(webView));
+    webkitWebContextWebViewCreated(priv->context.get(), webView);
 
     priv->loadObserver = makeUnique<PageLoadStateObserver>(webView);
     getPage(webView).pageLoadState().addObserver(*priv->loadObserver);
@@ -890,6 +945,25 @@ static void webkitWebViewConstructed(GObject* object)
 
     priv->backForwardList = adoptGRef(webkitBackForwardListCreate(&getPage(webView).backForwardList()));
     priv->windowProperties = adoptGRef(webkitWindowPropertiesCreate());
+
+#if PLATFORM(GTK)
+    double dpi = GtkSettingsManager::singleton().settingsState().xftDPI.value() / 1024.0;
+    priv->textScaleFactor = dpi / 96.;
+    getPage(webView).setTextZoomFactor(priv->textScaleFactor);
+    GtkSettingsManager::singleton().addObserver([webView](const GtkSettingsState& state) {
+        if (!state.xftDPI)
+            return;
+
+        double dpi = state.xftDPI.value() / 1024.0;
+        auto& page = getPage(webView);
+        auto zoomFactor = page.textZoomFactor() / webView->priv->textScaleFactor;
+        webView->priv->textScaleFactor = dpi / 96.;
+        page.setTextZoomFactor(zoomFactor * webView->priv->textScaleFactor);
+    }, webView);
+#else
+    priv->textScaleFactor = 1;
+#endif
+
     priv->isWebProcessResponsive = true;
 }
 
@@ -1112,6 +1186,10 @@ static void webkitWebViewDispose(GObject* object)
 
 #if PLATFORM(WPE)
     webView->priv->view->close();
+#endif
+
+#if PLATFORM(GTK)
+    GtkSettingsManager::singleton().removeObserver(webView);
 #endif
 
     G_OBJECT_CLASS(webkit_web_view_parent_class)->dispose(object);
@@ -2442,19 +2520,6 @@ static void webkitWebViewCompleteAuthenticationRequest(WebKitWebView* webView)
 
     webkit_authentication_request_cancel(priv->authenticationRequest.get());
     priv->authenticationRequest = nullptr;
-}
-
-void webkitWebViewCreatePage(WebKitWebView* webView, Ref<API::PageConfiguration>&& configuration)
-{
-#if PLATFORM(GTK)
-    webkitWebViewBaseCreateWebPage(WEBKIT_WEB_VIEW_BASE(webView), WTFMove(configuration));
-#elif PLATFORM(WPE)
-#if ENABLE(WPE_PLATFORM)
-    webView->priv->view.reset(WKWPE::View::create(webView->priv->backend ? webkit_web_view_backend_get_wpe_backend(webView->priv->backend.get()) : nullptr, webkit_web_view_get_display(webView), configuration.get()));
-#else
-    webView->priv->view.reset(WKWPE::View::create(webkit_web_view_backend_get_wpe_backend(webView->priv->backend.get()), configuration.get()));
-#endif
-#endif
 }
 
 WebPageProxy& webkitWebViewGetPage(WebKitWebView* webView)
@@ -3893,17 +3958,11 @@ void webkit_web_view_set_zoom_level(WebKitWebView* webView, gdouble zoomLevel)
     if (webkit_web_view_get_zoom_level(webView) == zoomLevel)
         return;
 
-#if PLATFORM(GTK)
-    auto [pageScale, textScale] = webkitWebViewBaseGetScaleFactors(WEBKIT_WEB_VIEW_BASE(webView));
-#else
-    const double pageScale = 1.0, textScale = 1.0;
-#endif
-
     auto& page = getPage(webView);
     if (webkit_settings_get_zoom_text_only(webView->priv->settings.get()))
-        page.setTextZoomFactor(zoomLevel * textScale);
+        page.setTextZoomFactor(zoomLevel * webView->priv->textScaleFactor);
     else
-        page.setPageZoomFactor(zoomLevel * pageScale);
+        page.setPageZoomFactor(zoomLevel);
     g_object_notify_by_pspec(G_OBJECT(webView), sObjProperties[PROP_ZOOM_LEVEL]);
 }
 
@@ -3922,15 +3981,9 @@ gdouble webkit_web_view_get_zoom_level(WebKitWebView* webView)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 1);
 
-#if PLATFORM(GTK)
-    auto [pageScale, textScale] = webkitWebViewBaseGetScaleFactors(WEBKIT_WEB_VIEW_BASE(webView));
-#else
-    const double pageScale = 1.0, textScale = 1.0;
-#endif
-
     auto& page = getPage(webView);
     gboolean zoomTextOnly = webkit_settings_get_zoom_text_only(webView->priv->settings.get());
-    return zoomTextOnly ? page.textZoomFactor() / textScale : page.pageZoomFactor() / pageScale;
+    return zoomTextOnly ? page.textZoomFactor() / webView->priv->textScaleFactor : page.pageZoomFactor();
 }
 
 /**

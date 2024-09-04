@@ -132,6 +132,11 @@ void RemotePageProxy::didReceiveMessage(IPC::Connection& connection, IPC::Decode
         return;
     }
 
+    if (decoder.messageName() == Messages::WebPageProxy::DidStartProvisionalLoadForFrame::name()) {
+        IPC::handleMessage<Messages::WebPageProxy::DidStartProvisionalLoadForFrame>(connection, decoder, this, &RemotePageProxy::didStartProvisionalLoadForFrame);
+        return;
+    }
+
     if (decoder.messageName() == Messages::WebPageProxy::HandleMessage::name()) {
         IPC::handleMessage<Messages::WebPageProxy::HandleMessage>(connection, decoder, this, &RemotePageProxy::handleMessage);
         return;
@@ -187,10 +192,14 @@ void RemotePageProxy::didFailProvisionalLoadForFrame(FrameInfoData&& frameInfo, 
     if (!frame)
         return;
 
-    if (auto* provisionalFrame = frame->provisionalFrame(); provisionalFrame && provisionalFrame->isCrossSiteRedirect())
-        return;
-
     m_page->didFailProvisionalLoadForFrameShared(m_process.copyRef(), *frame, WTFMove(frameInfo), WTFMove(request), navigationID, provisionalURL, error, willContinueLoading, userData, willInternallyHandleFailure);
+}
+
+void RemotePageProxy::didStartProvisionalLoadForFrame(WebCore::FrameIdentifier frameID, FrameInfoData&& frameInfo, WebCore::ResourceRequest&& request, uint64_t navigationID, URL&& url, URL&& unreachableURL, const UserData& userData)
+{
+    if (!m_page)
+        return;
+    m_page->didStartProvisionalLoadForFrameShared(protectedProcess(), frameID, WTFMove(frameInfo), WTFMove(request), navigationID, WTFMove(url), WTFMove(unreachableURL), userData);
 }
 
 void RemotePageProxy::didChangeProvisionalURLForFrame(WebCore::FrameIdentifier frameID, uint64_t navigationID, URL&& url)

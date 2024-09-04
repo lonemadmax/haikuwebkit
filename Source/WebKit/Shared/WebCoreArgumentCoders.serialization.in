@@ -58,6 +58,9 @@ enum class WebCore::ApplePayFeature : uint8_t {
 #if ENABLE(APPLE_PAY_COUPON_CODE)
     PaymentRequestCouponCode,
 #endif
+#if ENABLE(APPLE_PAY_MERCHANT_CATEGORY_CODE)
+    PaymentRequestMerchantCategoryCode,
+#endif
 #if ENABLE(APPLE_PAY_MULTI_MERCHANT_PAYMENTS)
     PaymentRequestMultiTokenContexts,
 #endif
@@ -884,10 +887,13 @@ struct WebCore::ShareData {
 
 enum class WebCore::ShareDataOriginator : bool
 
+using WebCore::TargetedElementIdentifiers = std::pair<WebCore::ElementIdentifier, WebCore::ScriptExecutionContextIdentifier>;
+using WebCore::TargetedElementSelectors = Vector<HashSet<String>>;
+
 header: <WebCore/ElementTargetingTypes.h>
 [CustomHeader] struct WebCore::TargetedElementAdjustment {
-    std::pair<WebCore::ElementIdentifier, WebCore::ScriptExecutionContextIdentifier> identifiers
-    Vector<HashSet<String>> selectors
+    WebCore::TargetedElementIdentifiers identifiers
+    WebCore::TargetedElementSelectors selectors
 };
 
 header: <WebCore/ElementTargetingTypes.h>
@@ -5898,6 +5904,7 @@ enum class WebCore::TextIndicatorPresentationTransition : uint8_t {
     UseSelectionRectForSizing,
     ComputeEstimatedBackgroundColor,
     UseUserSelectAllCommonAncestor,
+    SkipReplacedContent,
 };
 
 using WebCore::IDBConnectionIdentifier = WebCore::ProcessIdentifier;

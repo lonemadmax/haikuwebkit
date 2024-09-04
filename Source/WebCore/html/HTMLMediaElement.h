@@ -730,6 +730,7 @@ protected:
     void mediaPlayerTimeChanged() final;
     void mediaPlayerVolumeChanged() final;
     void mediaPlayerMuteChanged() final;
+    void mediaPlayerSeeked(const MediaTime&) final;
     void mediaPlayerDurationChanged() final;
     void mediaPlayerRateChanged() final;
     void mediaPlayerPlaybackStateChanged() final;
@@ -861,6 +862,8 @@ private:
 
     FloatSize mediaPlayerVideoLayerSize() const final { return videoLayerSize(); }
     void mediaPlayerVideoLayerSizeDidChange(const FloatSize& size) final { m_videoLayerSize = size; }
+
+    MediaPlayerClientIdentifier mediaPlayerClientIdentifier() const final { return identifier(); }
 
     void pendingActionTimerFired();
     void progressEventTimerFired();

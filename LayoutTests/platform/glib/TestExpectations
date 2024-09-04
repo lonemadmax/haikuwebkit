@@ -1656,8 +1656,6 @@ webkit.org/b/273396 mathml/presentation/mo-stacked-glyphs.html [ ImageOnlyFailur
 webkit.org/b/273396 svg/animations/animateMotion-accumulate-1a.svg [ ImageOnlyFailure ]
 webkit.org/b/273396 svg/animations/animateMotion-accumulate-1b.svg [ ImageOnlyFailure ]
 
-webkit.org/b/273471 fast/canvas/canvas-composite-stroke-alpha.html [ Failure ]
-
 webkit.org/b/273472 fast/css3-text/font-synthesis.html [ ImageOnlyFailure ]
 
 webkit.org/b/273474 fast/text/emoji-variation-selector.html [ ImageOnlyFailure ]
@@ -1699,8 +1697,6 @@ imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/replaced-element-019
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-canvas-element/toDataURL.jpg.html [ Failure ]
 
 imported/w3c/web-platform-tests/svg/import/filters-displace-01-f-manual.svg [ Failure ]
-
-imported/w3c/web-platform-tests/svg/path/distance/pathlength-path.svg [ Failure ]
 
 fast/mediastream/MediaStream-video-element-displays-buffer.html [ Failure ]
 
@@ -4145,6 +4141,7 @@ imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-on-top-
 imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-right-of-viewport-offscreen-old.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-below-viewport-offscreen-old.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-left-of-viewport-offscreen-old.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/names-are-tree-scoped.html [ ImageOnlyFailure ]
 
 imported/w3c/web-platform-tests/svg/text/reftests/transform-dynamic-change.html [ ImageOnlyFailure ]
 

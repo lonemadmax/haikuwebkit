@@ -21,6 +21,7 @@
 #include "config.h"
 #include "CSSPrimitiveValue.h"
 
+#include "CSSCalcSymbolTable.h"
 #include "CSSCalcValue.h"
 #include "CSSHelper.h"
 #include "CSSMarkup.h"
@@ -310,6 +311,21 @@ CSSPrimitiveValue::CSSPrimitiveValue(Color color)
     setPrimitiveUnitType(CSSUnitType::CSS_RGBCOLOR);
     static_assert(sizeof(m_value.colorAsInteger) == sizeof(color));
     new (reinterpret_cast<Color*>(&m_value.colorAsInteger)) Color(WTFMove(color));
+}
+
+Color CSSPrimitiveValue::absoluteColor() const
+{
+    if (isColor())
+        return color();
+
+    // FIXME: there are some cases where we can resolve a dynamic color at parse time, we should support them.
+    if (isUnresolvedColor())
+        return { };
+
+    if (StyleColor::isAbsoluteColorKeyword(valueID()))
+        return StyleColor::colorFromAbsoluteKeyword(valueID());
+
+    return { };
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(StaticCSSValueTag, CSSValueID valueID)
@@ -1084,13 +1100,13 @@ double CSSPrimitiveValue::doubleValue(CSSUnitType unitType) const
 
 double CSSPrimitiveValue::doubleValue() const
 {
-    return isCalculated() ? m_value.calc->doubleValue() : m_value.number;
+    return isCalculated() ? m_value.calc->doubleValue({ }) : m_value.number;
 }
 
 double CSSPrimitiveValue::doubleValueDividingBy100IfPercentage() const
 {
     if (isCalculated())
-        return m_value.calc->primitiveType() == CSSUnitType::CSS_PERCENTAGE ? m_value.calc->doubleValue() / 100.0 : m_value.calc->doubleValue();
+        return m_value.calc->primitiveType() == CSSUnitType::CSS_PERCENTAGE ? m_value.calc->doubleValue({ }) / 100.0 : m_value.calc->doubleValue({ });
     if (isPercentage())
         return m_value.number / 100.0;
     return m_value.number;
@@ -1196,30 +1212,49 @@ String CSSPrimitiveValue::stringValue() const
     }
 }
 
-static NEVER_INLINE String formatNonfiniteValue(double number, ASCIILiteral suffix)
+static NEVER_INLINE ASCIILiteral formatNonfiniteCSSNumberValuePrefix(double number)
 {
-    auto prefix = [&] {
-        if (number == std::numeric_limits<double>::infinity())
-            return "infinity"_s;
-        if (number == -std::numeric_limits<double>::infinity())
-            return "-infinity"_s;
-        ASSERT(std::isnan(number));
-        return "NaN"_s;
-    }();
-    return makeString(prefix, suffix.isEmpty() ? ""_s : " * 1"_s, suffix);
+    if (number == std::numeric_limits<double>::infinity())
+        return "infinity"_s;
+    if (number == -std::numeric_limits<double>::infinity())
+        return "-infinity"_s;
+    ASSERT(std::isnan(number));
+    return "NaN"_s;
+}
+
+static NEVER_INLINE void formatNonfiniteCSSNumberValue(StringBuilder& builder, double number, ASCIILiteral suffix)
+{
+    return builder.append(formatNonfiniteCSSNumberValuePrefix(number), suffix.isEmpty() ? ""_s : " * 1"_s, suffix);
+}
+
+static NEVER_INLINE String formatNonfiniteCSSNumberValue(double number, ASCIILiteral suffix)
+{
+    return makeString(formatNonfiniteCSSNumberValuePrefix(number), suffix.isEmpty() ? ""_s : " * 1"_s, suffix);
+}
+
+NEVER_INLINE void formatCSSNumberValue(StringBuilder& builder, double value, ASCIILiteral suffix)
+{
+    if (!std::isfinite(value))
+        return formatNonfiniteCSSNumberValue(builder, value, suffix);
+    return builder.append(FormattedCSSNumber::create(value), suffix);
+}
+
+NEVER_INLINE String formatCSSNumberValue(double value, ASCIILiteral suffix)
+{
+    if (!std::isfinite(value))
+        return formatNonfiniteCSSNumberValue(value, suffix);
+    return makeString(FormattedCSSNumber::create(value), suffix);
 }
 
 NEVER_INLINE String CSSPrimitiveValue::formatNumberValue(ASCIILiteral suffix) const
 {
-    if (!std::isfinite(m_value.number))
-        return formatNonfiniteValue(m_value.number, suffix);
-    return makeString(FormattedCSSNumber::create(m_value.number), suffix);
+    return formatCSSNumberValue(m_value.number, suffix);
 }
 
 NEVER_INLINE String CSSPrimitiveValue::formatIntegerValue(ASCIILiteral suffix) const
 {
     if (!std::isfinite(m_value.number))
-        return formatNonfiniteValue(m_value.number, suffix);
+        return formatNonfiniteCSSNumberValue(m_value.number, suffix);
     return makeString(m_value.number, suffix);
 }
 

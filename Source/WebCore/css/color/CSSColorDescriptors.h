@@ -25,30 +25,28 @@
 
 #pragma once
 
+#include "CSSPropertyParserConsumer+Primitives.h"
 #include "CSSPropertyParserConsumer+RawTypes.h"
+#include "CSSPropertyParserConsumer+UnevaluatedCalc.h"
+#include "CSSValueKeywords.h"
 #include "Color.h"
 #include "ColorTypes.h"
+#include <optional>
+#include <variant>
+#include <variant>
 #include <wtf/Brigand.h>
+#include <wtf/OptionSet.h>
+#include <wtf/text/ASCIILiteral.h>
 
 namespace WebCore {
-namespace CSSPropertyParserHelpers {
 
 enum class CSSColorFunctionSyntax { Legacy, Modern };
-
-template<typename... Ts>
-using CSSColorComponentVariantWrapper = typename std::variant<Ts...>;
+enum class CSSColorFunctionForm { Relative, Absolute };
 
 template<typename... Ts>
 struct CSSColorComponent {
     using ResultTypeList = brigand::list<Ts...>;
-
-    // If only one type is in the parameter pack, Ts..., Result is that type.
-    // Otherwise, Result is std::variant<Ts...>.
-    using Result = std::conditional_t<
-        brigand::size<ResultTypeList>::value == 1,
-        brigand::front<ResultTypeList>,
-        brigand::wrap<ResultTypeList, CSSColorComponentVariantWrapper>
-    >;
+    using Result = VariantOrSingle<ResultTypeList>;
 
     // Symbol used to represent component for relative color form.
     CSSValueID symbol;
@@ -73,6 +71,8 @@ struct CSSColorComponent {
     ColorComponentType type = ColorComponentType::Number;
 };
 
+// MARK: Fully resolved parse type
+
 template<typename Descriptor, unsigned Index>
 using GetComponent = std::decay_t<decltype(std::get<Index>(Descriptor::components))>;
 
@@ -96,6 +96,44 @@ using CSSColorParseType = std::tuple<
     std::optional<GetComponentResult<Descriptor, 3>>
 >;
 
+// MARK: Parse type + Unevaluated Calc (absolute color parse result)
+
+template<typename Descriptor, unsigned Index>
+struct ResultTypeListWithCalcHelper {
+    using ResultTypeList = typename TypesPlusUnevaluatedCalc<typename GetComponent<Descriptor, Index>::ResultTypeList>::ResultTypeList;
+    using Result = VariantOrSingle<ResultTypeList>;
+};
+
+template<typename Descriptor, unsigned Index>
+using GetComponentResultWithCalcResult = typename ResultTypeListWithCalcHelper<Descriptor, Index>::Result;
+
+template<typename Descriptor>
+using CSSColorParseTypeWithCalc = std::tuple<
+    GetComponentResultWithCalcResult<Descriptor, 0>,
+    GetComponentResultWithCalcResult<Descriptor, 1>,
+    GetComponentResultWithCalcResult<Descriptor, 2>,
+    std::optional<GetComponentResultWithCalcResult<Descriptor, 3>>
+>;
+
+// MARK: Parse type + Unevaluated Calc + Symbols (relative color parse result).
+
+template<typename Descriptor, unsigned Index>
+struct ResultTypeListWithCalcAndSymbolsHelper {
+    using ResultTypeList = typename TypesPlusSymbolRaw<typename ResultTypeListWithCalcHelper<Descriptor, Index>::ResultTypeList>::ResultTypeList;
+    using Result = VariantOrSingle<ResultTypeList>;
+};
+
+template<typename Descriptor, unsigned Index>
+using GetComponentResultWithCalcAndSymbolsResult = typename ResultTypeListWithCalcAndSymbolsHelper<Descriptor, Index>::Result;
+
+template<typename Descriptor>
+using CSSColorParseTypeWithCalcAndSymbols = std::tuple<
+    GetComponentResultWithCalcAndSymbolsResult<Descriptor, 0>,
+    GetComponentResultWithCalcAndSymbolsResult<Descriptor, 1>,
+    GetComponentResultWithCalcAndSymbolsResult<Descriptor, 2>,
+    std::optional<GetComponentResultWithCalcAndSymbolsResult<Descriptor, 3>>
+>;
+
 // MARK: - Shared Component Descriptors
 
 constexpr auto AlphaComponent = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw> { .symbol = CSSValueAlpha, .min = 0.0, .max = 1.0 };
@@ -111,6 +149,8 @@ struct RGBFunctionLegacy {
     static constexpr bool allowConversionTo8BitSRGB = true;
     static constexpr OptionSet<Color::Flags> flagsForAbsolute = { };
     static constexpr auto syntax = CSSColorFunctionSyntax::Legacy;
+    static constexpr bool usesColorFunctionForSerialization = false;
+    static constexpr ASCIILiteral serializationFunctionName = "rgb"_s;
 
     using R = CSSColorComponent<Component>;
     using G = CSSColorComponent<Component>;
@@ -131,6 +171,8 @@ struct RGBFunctionModernAbsolute {
     static constexpr bool allowConversionTo8BitSRGB = true;
     static constexpr OptionSet<Color::Flags> flagsForAbsolute = { };
     static constexpr auto syntax = CSSColorFunctionSyntax::Modern;
+    static constexpr bool usesColorFunctionForSerialization = false;
+    static constexpr ASCIILiteral serializationFunctionName = "rgb"_s;
 
     using R = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
     using G = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
@@ -151,6 +193,8 @@ struct RGBFunctionModernRelative {
     static constexpr bool allowConversionTo8BitSRGB = true;
     static constexpr OptionSet<Color::Flags> flagsForRelative = Color::Flags::UseColorFunctionSerialization;
     static constexpr auto syntax = CSSColorFunctionSyntax::Modern;
+    static constexpr bool usesColorFunctionForSerialization = false;
+    static constexpr ASCIILiteral serializationFunctionName = "rgb"_s;
 
     using R = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
     using G = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
@@ -171,6 +215,8 @@ struct HSLFunctionLegacy {
     static constexpr bool allowConversionTo8BitSRGB = true;
     static constexpr OptionSet<Color::Flags> flagsForAbsolute = { };
     static constexpr auto syntax = CSSColorFunctionSyntax::Legacy;
+    static constexpr bool usesColorFunctionForSerialization = false;
+    static constexpr ASCIILiteral serializationFunctionName = "hsl"_s;
 
     using H = CSSColorComponent<AngleRaw, NumberRaw>;
     using S = CSSColorComponent<PercentRaw>;
@@ -192,6 +238,8 @@ struct HSLFunctionModern {
     static constexpr OptionSet<Color::Flags> flagsForRelative = Color::Flags::UseColorFunctionSerialization;
     static constexpr OptionSet<Color::Flags> flagsForAbsolute = { };
     static constexpr auto syntax = CSSColorFunctionSyntax::Modern;
+    static constexpr bool usesColorFunctionForSerialization = false;
+    static constexpr ASCIILiteral serializationFunctionName = "hsl"_s;
 
     using H = CSSColorComponent<AngleRaw, NumberRaw, NoneRaw>;
     using S = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
@@ -212,6 +260,8 @@ struct HWBFunction {
     static constexpr OptionSet<Color::Flags> flagsForRelative = Color::Flags::UseColorFunctionSerialization;
     static constexpr OptionSet<Color::Flags> flagsForAbsolute = { };
     static constexpr auto syntax = CSSColorFunctionSyntax::Modern;
+    static constexpr bool usesColorFunctionForSerialization = false;
+    static constexpr ASCIILiteral serializationFunctionName = "hwb"_s;
 
     using H = CSSColorComponent<AngleRaw, NumberRaw, NoneRaw>;
     using W = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
@@ -232,6 +282,8 @@ struct LabFunction {
     static constexpr OptionSet<Color::Flags> flagsForRelative = { };
     static constexpr OptionSet<Color::Flags> flagsForAbsolute = { };
     static constexpr auto syntax = CSSColorFunctionSyntax::Modern;
+    static constexpr bool usesColorFunctionForSerialization = false;
+    static constexpr ASCIILiteral serializationFunctionName = "lab"_s;
 
     using L = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
     using A = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
@@ -252,6 +304,8 @@ struct LCHFunction {
     static constexpr OptionSet<Color::Flags> flagsForRelative = { };
     static constexpr OptionSet<Color::Flags> flagsForAbsolute = { };
     static constexpr auto syntax = CSSColorFunctionSyntax::Modern;
+    static constexpr bool usesColorFunctionForSerialization = false;
+    static constexpr ASCIILiteral serializationFunctionName = "lch"_s;
 
     using L = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
     using C = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
@@ -272,6 +326,8 @@ struct OKLabFunction {
     static constexpr OptionSet<Color::Flags> flagsForRelative = { };
     static constexpr OptionSet<Color::Flags> flagsForAbsolute = { };
     static constexpr auto syntax = CSSColorFunctionSyntax::Modern;
+    static constexpr bool usesColorFunctionForSerialization = false;
+    static constexpr ASCIILiteral serializationFunctionName = "oklab"_s;
 
     using L = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
     using A = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
@@ -292,6 +348,8 @@ struct OKLCHFunction {
     static constexpr OptionSet<Color::Flags> flagsForRelative = { };
     static constexpr OptionSet<Color::Flags> flagsForAbsolute = { };
     static constexpr auto syntax = CSSColorFunctionSyntax::Modern;
+    static constexpr bool usesColorFunctionForSerialization = false;
+    static constexpr ASCIILiteral serializationFunctionName = "oklch"_s;
 
     using L = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
     using C = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
@@ -315,6 +373,8 @@ struct ColorRGBFunction {
     static constexpr OptionSet<Color::Flags> flagsForRelative = Color::Flags::UseColorFunctionSerialization;
     static constexpr OptionSet<Color::Flags> flagsForAbsolute = Color::Flags::UseColorFunctionSerialization;
     static constexpr auto syntax = CSSColorFunctionSyntax::Modern;
+    static constexpr bool usesColorFunctionForSerialization = true;
+    static constexpr ASCIILiteral serializationFunctionName = "color"_s;
 
     using R = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
     using G = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
@@ -338,6 +398,8 @@ struct ColorXYZFunction {
     static constexpr OptionSet<Color::Flags> flagsForRelative = Color::Flags::UseColorFunctionSerialization;
     static constexpr OptionSet<Color::Flags> flagsForAbsolute = Color::Flags::UseColorFunctionSerialization;
     static constexpr auto syntax = CSSColorFunctionSyntax::Modern;
+    static constexpr bool usesColorFunctionForSerialization = true;
+    static constexpr ASCIILiteral serializationFunctionName = "color"_s;
 
     using X = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
     using Y = CSSColorComponent<PercentRaw, NumberRaw, NoneRaw>;
@@ -351,5 +413,4 @@ struct ColorXYZFunction {
     );
 };
 
-} // namespace CSSPropertyParserHelpers
 } // namespace WebCore

@@ -3640,7 +3640,7 @@ void WebPageProxy::continueWheelEventHandling(const WebWheelEvent& wheelEvent, c
     LOG_WITH_STREAM(WheelEvents, stream << "WebPageProxy::continueWheelEventHandling - " << result);
 
     if (!result.needsMainThreadProcessing()) {
-        if (wheelEvent.phase() == WebWheelEvent::Phase::PhaseBegan) {
+        if (m_mainFrame && wheelEvent.phase() == WebWheelEvent::Phase::PhaseBegan) {
             // When wheel events are handled entirely in the UI process, we still need to tell the web process where the mouse is for cursor updates.
             sendToProcessContainingFrame(m_mainFrame->frameID(), Messages::WebPage::SetLastKnownMousePosition(m_mainFrame->frameID(), wheelEvent.position(), wheelEvent.globalPosition()));
         }
@@ -4647,7 +4647,22 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
         loadParameters.lockBackForwardList = LockBackForwardList::Yes;
 
         auto webPageID = webPageIDInProcess(newProcess);
-        frame.prepareForProvisionalNavigationInProcess(newProcess, navigation, m_browsingContextGroup, [loadParameters = WTFMove(loadParameters), newProcess = newProcess.copyRef(), webPageID, preventProcessShutdownScope = newProcess->shutdownPreventingScope()] () mutable {
+        frame.prepareForProvisionalLoadInProcess(newProcess, navigation, m_browsingContextGroup, [
+            this,
+            protectedThis = Ref { *this },
+            frame = Ref { frame },
+            loadParameters = WTFMove(loadParameters),
+            newProcess = newProcess.copyRef(),
+            webPageID,
+            preventProcessShutdownScope = newProcess->shutdownPreventingScope(),
+            navigation = Ref { navigation },
+            previousProvisionalLoadProcess = Ref { frame.provisionalLoadProcess() }
+        ] () mutable {
+            if (frame->frameLoadState().state() == FrameLoadState::State::Provisional) {
+                sendToWebPageInProcess(previousProvisionalLoadProcess, Messages::WebPage::DestroyProvisionalFrame(frame->frameID()));
+                if (!navigation->currentRequestIsCrossSiteRedirect())
+                    frame->didFailProvisionalLoad();
+            }
             newProcess->send(Messages::WebPage::LoadRequest(WTFMove(loadParameters)), webPageID);
         });
         return;
@@ -4715,19 +4730,13 @@ bool WebPageProxy::isPageOpenedByDOMShowingInitialEmptyDocument() const
 
 // MSVC gives a redeclaration error if noreturn is used on the definition and not the declaration, while
 // Cocoa tests segfault if it is moved to the declaration site (even if we move the definition with it!).
-#if !COMPILER(MSVC)
-NO_RETURN_DUE_TO_ASSERT
-#endif
-void WebPageProxy::didFailToSuspendAfterProcessSwap()
+NO_RETURN_DUE_TO_ASSERT void WebPageProxy::didFailToSuspendAfterProcessSwap()
 {
     // Only the SuspendedPageProxy should be getting this call.
     ASSERT_NOT_REACHED();
 }
 
-#if !COMPILER(MSVC)
-NO_RETURN_DUE_TO_ASSERT
-#endif
-void WebPageProxy::didSuspendAfterProcessSwap()
+NO_RETURN_DUE_TO_ASSERT void WebPageProxy::didSuspendAfterProcessSwap()
 {
     // Only the SuspendedPageProxy should be getting this call.
     ASSERT_NOT_REACHED();
@@ -5995,6 +6004,13 @@ void WebPageProxy::didStartProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& 
     MESSAGE_CHECK_URL(process, url);
     MESSAGE_CHECK_URL(process, unreachableURL);
 
+    // If a provisional load has since been started in another process, ignore this message.
+    if (frame->provisionalLoadProcess().coreProcessIdentifier() != process->coreProcessIdentifier() && m_preferences->siteIsolationEnabled()) {
+        // FIXME: The API test ProcessSwap.DoSameSiteNavigationAfterCrossSiteProvisionalLoadStarted
+        // is probably not handled correctly with site isolation on.
+        return;
+    }
+
     // If the page starts a new main frame provisional load, then cancel any pending one in a provisional process.
     if (frame->isMainFrame() && m_provisionalPage && m_provisionalPage->mainFrame() != frame) {
         m_provisionalPage->cancel();
@@ -6177,7 +6193,11 @@ void WebPageProxy::sendToWebPageInProcess(WebProcessProxy& process, M&& message)
 {
     if (auto* remotePage = m_browsingContextGroup->remotePageInProcess(*this, process))
         return remotePage->send(std::forward<M>(message));
-    ASSERT(process.coreProcessIdentifier() == this->process().coreProcessIdentifier());
+    if (process.coreProcessIdentifier() != this->process().coreProcessIdentifier()) {
+        // If there is no longer a remote page in a process that is not the main frame process,
+        // not sending the message is the correct thing to do.
+        return;
+    }
     send(std::forward<M>(message));
 }
 
@@ -12636,16 +12656,6 @@ void WebPageProxy::removeTextPlaceholder(const ElementContext& placeholder, Comp
     sendWithAsyncReply(Messages::WebPage::RemoveTextPlaceholder { placeholder }, WTFMove(completionHandler));
 }
 #endif
-
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-void WebPageProxy::removeTextIndicatorStyleForID(const WTF::UUID& uuid)
-{
-    MESSAGE_CHECK(m_process, uuid.isValid());
-
-    protectedPageClient()->removeTextIndicatorStyleForID(uuid);
-}
-#endif
-
 
 namespace {
 enum class CompletionCondition {

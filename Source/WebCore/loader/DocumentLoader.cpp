@@ -280,7 +280,7 @@ void DocumentLoader::setMainDocumentError(const ResourceError& error)
     frameLoader()->client().setMainDocumentError(this, error);
 }
 
-void DocumentLoader::mainReceivedError(const ResourceError& error)
+void DocumentLoader::mainReceivedError(const ResourceError& error, LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
 {
     ASSERT(!error.isNull());
 
@@ -305,7 +305,7 @@ void DocumentLoader::mainReceivedError(const ResourceError& error)
 
     setMainDocumentError(error);
     clearMainResourceLoader();
-    frameLoader()->receivedMainResourceError(error);
+    frameLoader()->receivedMainResourceError(error, loadWillContinueInAnotherProcess);
 }
 
 void DocumentLoader::frameDestroyed()
@@ -430,7 +430,7 @@ bool DocumentLoader::isLoading() const
     return isLoadingMainResource() || !m_subresourceLoaders.isEmpty() || !m_plugInStreamLoaders.isEmpty();
 }
 
-void DocumentLoader::notifyFinished(CachedResource& resource, const NetworkLoadMetrics& metrics)
+void DocumentLoader::notifyFinished(CachedResource& resource, const NetworkLoadMetrics& metrics, LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
 {
     ASSERT(isMainThread());
 #if ENABLE(CONTENT_FILTERING)
@@ -458,7 +458,7 @@ void DocumentLoader::notifyFinished(CachedResource& resource, const NetworkLoadM
     if (!m_mainResource->resourceError().isNull())
         DOCUMENTLOADER_RELEASE_LOG("notifyFinished: canceling load (type=%d, code=%d)", static_cast<int>(m_mainResource->resourceError().type()), m_mainResource->resourceError().errorCode());
 
-    mainReceivedError(m_mainResource->resourceError());
+    mainReceivedError(m_mainResource->resourceError(), loadWillContinueInAnotherProcess);
 }
 
 void DocumentLoader::finishedLoading()
@@ -666,11 +666,11 @@ void DocumentLoader::willSendRequest(ResourceRequest&& newRequest, const Resourc
             if (m_frame && requestingDocument->isNavigationBlockedByThirdPartyIFrameRedirectBlocking(*m_frame, newRequest.url())) {
                 DOCUMENTLOADER_RELEASE_LOG("willSendRequest: canceling - cross-site redirect of top frame triggered by third-party iframe");
                 if (m_frame->document()) {
-                    auto message = makeString("Unsafe JavaScript attempt to initiate navigation for frame with URL '"
+                    auto message = makeString("Unsafe JavaScript attempt to initiate navigation for frame with URL '"_s
                         , m_frame->document()->url().string()
-                        , "' from frame with URL '"
+                        , "' from frame with URL '"_s
                         , requestingDocument->url().string()
-                        , "'. The frame attempting navigation of the top-level window is cross-origin or untrusted and the user has never interacted with the frame.");
+                        , "'. The frame attempting navigation of the top-level window is cross-origin or untrusted and the user has never interacted with the frame."_s);
                     m_frame->document()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, message);
                 }
                 cancelMainResourceLoad(frameLoader()->cancelledError(newRequest));
@@ -768,7 +768,7 @@ void DocumentLoader::willSendRequest(ResourceRequest&& newRequest, const Resourc
         switch (navigationPolicyDecision) {
         case NavigationPolicyDecision::IgnoreLoad:
         case NavigationPolicyDecision::LoadWillContinueInAnotherProcess:
-            stopLoadingForPolicyChange();
+            stopLoadingForPolicyChange(navigationPolicyDecision == NavigationPolicyDecision::LoadWillContinueInAnotherProcess ? LoadWillContinueInAnotherProcess::Yes : LoadWillContinueInAnotherProcess::No);
             break;
         case NavigationPolicyDecision::ContinueLoad:
             break;
@@ -1103,7 +1103,7 @@ bool DocumentLoader::disallowDataRequest() const
         ResourceLoaderIdentifier identifier = m_identifierForLoadWithoutResourceLoader ? m_identifierForLoadWithoutResourceLoader : m_mainResource->identifier();
         ASSERT(identifier);
 
-        currentDocument->addConsoleMessage(MessageSource::Security, MessageLevel::Error, makeString("Not allowed to navigate top frame to data URL '", m_response.url().stringCenterEllipsizedToLength(), "'."), identifier.toUInt64());
+        currentDocument->addConsoleMessage(MessageSource::Security, MessageLevel::Error, makeString("Not allowed to navigate top frame to data URL '"_s, m_response.url().stringCenterEllipsizedToLength(), "'."_s), identifier.toUInt64());
     }
     DOCUMENTLOADER_RELEASE_LOG("continueAfterContentPolicy: cannot show URL");
 
@@ -1243,9 +1243,9 @@ ResourceError DocumentLoader::interruptedForPolicyChangeError() const
     return error;
 }
 
-void DocumentLoader::stopLoadingForPolicyChange()
+void DocumentLoader::stopLoadingForPolicyChange(LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
 {
-    cancelMainResourceLoad(interruptedForPolicyChangeError());
+    cancelMainResourceLoad(interruptedForPolicyChangeError(), loadWillContinueInAnotherProcess);
 }
 
 // https://w3c.github.io/ServiceWorker/#control-and-use-window-client
@@ -2326,7 +2326,7 @@ void DocumentLoader::cancelPolicyCheckIfNeeded()
     }
 }
 
-void DocumentLoader::cancelMainResourceLoad(const ResourceError& resourceError)
+void DocumentLoader::cancelMainResourceLoad(const ResourceError& resourceError, LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
 {
     Ref<DocumentLoader> protectedThis(*this);
     ResourceError error = resourceError.isNull() ? frameLoader()->cancelledError(m_request) : resourceError;
@@ -2338,7 +2338,7 @@ void DocumentLoader::cancelMainResourceLoad(const ResourceError& resourceError)
     cancelPolicyCheckIfNeeded();
 
     if (mainResourceLoader())
-        mainResourceLoader()->cancel(error);
+        mainResourceLoader()->cancel(error, loadWillContinueInAnotherProcess);
 
     clearMainResource();
 

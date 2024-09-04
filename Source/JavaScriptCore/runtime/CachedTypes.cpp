@@ -1368,8 +1368,9 @@ public:
 
         if (auto* string = jsDynamicCast<JSString*>(cell)) {
             m_type = EncodedType::String;
-            StringImpl* impl = string->tryGetValue().impl();
-            this->allocate<CachedUniquedStringImpl>(encoder)->encode(encoder, *impl);
+            // TODO: This seems wrong? What if this fails.
+            auto str = string->tryGetValue();
+            this->allocate<CachedUniquedStringImpl>(encoder)->encode(encoder, *str.data.impl());
             return;
         }
 
@@ -2543,10 +2544,7 @@ bool GenericCacheEntry::decode(Decoder& decoder, std::pair<SourceCodeKey, Unlink
         RELEASE_ASSERT_NOT_REACHED();
     }
     RELEASE_ASSERT_NOT_REACHED();
-#if COMPILER(MSVC)
-    // Without this, MSVC will complain that this path does not return a value.
     return false;
-#endif
 }
 
 bool GenericCacheEntry::isStillValid(Decoder& decoder, const SourceCodeKey& key, CachedCodeBlockTag tag) const
