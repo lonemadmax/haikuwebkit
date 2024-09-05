@@ -98,5 +98,11 @@ String DragData::asURL(FilenameConversionPolicy, String*) const
     return String();
 }
 
+bool DragData::shouldMatchStyleOnDrop() const
+{
+    return false;
+}
+
+
 } // namespace WebCore
 
