@@ -2794,8 +2794,10 @@ void WebViewImpl::selectionDidChange()
 #endif
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    if (m_page->editorState().hasPostLayoutData() && wantsCompleteUnifiedTextReplacementBehavior() && m_page->editorState().selectionIsRange) {
-        auto selectionRect = m_page->editorState().postLayoutData->selectionBoundingRect;
+    if (wantsCompleteUnifiedTextReplacementBehavior()) {
+        auto isRange = m_page->editorState().hasPostLayoutData() && m_page->editorState().selectionIsRange;
+        auto selectionRect = isRange ? m_page->editorState().postLayoutData->selectionBoundingRect : IntRect { };
+
         scheduleShowSwapCharactersViewForSelectionRectOfView(selectionRect, m_view.getAutoreleased());
     }
 #endif
@@ -4273,12 +4275,9 @@ void WebViewImpl::startDrag(const WebCore::DragItem& item, ShareableBitmap::Hand
 
         [m_view beginDraggingSessionWithItems:@[draggingItem.get()] event:m_lastMouseDownEvent.get() source:(id <NSDraggingSource>)m_view.getAutoreleased()];
 
-        ASSERT(info.additionalTypes.size() == info.additionalData.size());
-        if (info.additionalTypes.size() == info.additionalData.size()) {
-            for (size_t index = 0; index < info.additionalTypes.size(); ++index) {
-                auto nsData = info.additionalData[index]->createNSData();
-                [pasteboard setData:nsData.get() forType:info.additionalTypes[index]];
-            }
+        for (size_t index = 0; index < info.additionalTypesAndData.size(); ++index) {
+            auto nsData = info.additionalTypesAndData[index].second->createNSData();
+            [pasteboard setData:nsData.get() forType:info.additionalTypesAndData[index].first];
         }
         m_page->didStartDrag();
         return;
@@ -4613,12 +4612,7 @@ void WebViewImpl::removeTextPlaceholder(NSTextPlaceholder *placeholder, bool wil
 }
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-bool WebViewImpl::wantsCompleteUnifiedTextReplacementBehavior() const
-{
-    return isEditable() || unifiedTextReplacementBehavior() == WebUnifiedTextReplacementBehavior::Complete;
-}
-
-void WebViewImpl::addTextIndicatorStyleForID(WTF::UUID uuid, WKTextIndicatorStyleType styleType)
+void WebViewImpl::addTextIndicatorStyleForID(WTF::UUID uuid, const WebKit::TextIndicatorStyleData& data)
 {
     if (!m_page->preferences().textIndicatorStylingEnabled())
         return;
@@ -4629,7 +4623,7 @@ void WebViewImpl::addTextIndicatorStyleForID(WTF::UUID uuid, WKTextIndicatorStyl
     if (!m_textIndicatorStyleManager)
         m_textIndicatorStyleManager = adoptNS([[WKTextIndicatorStyleManager alloc] initWithWebViewImpl:*this]);
 
-    [m_textIndicatorStyleManager addTextIndicatorStyleForID:uuid withStyleType:styleType];
+    [m_textIndicatorStyleManager addTextIndicatorStyleForID:uuid withData:data];
 }
 
 void WebViewImpl::removeTextIndicatorStyleForID(WTF::UUID uuid)
@@ -6435,6 +6429,11 @@ void WebViewImpl::handleContextMenuTranslation(const WebCore::TranslationContext
 WebUnifiedTextReplacementBehavior WebViewImpl::unifiedTextReplacementBehavior() const
 {
     return m_page->configuration().unifiedTextReplacementBehavior();
+}
+
+bool WebViewImpl::wantsCompleteUnifiedTextReplacementBehavior() const
+{
+    return [m_view _web_wantsCompleteUnifiedTextReplacementBehavior];
 }
 #endif
 

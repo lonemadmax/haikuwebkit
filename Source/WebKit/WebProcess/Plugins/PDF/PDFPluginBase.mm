@@ -369,7 +369,8 @@ void PDFPluginBase::streamDidReceiveData(const SharedBuffer& buffer)
             m_data = adoptCF(CFDataCreateMutable(0, 0));
 
         ensureDataBufferLength(m_streamedBytes + buffer.size());
-        memcpy(CFDataGetMutableBytePtr(m_data.get()) + m_streamedBytes, buffer.data(), buffer.size());
+        auto bufferSpan = buffer.span();
+        memcpy(CFDataGetMutableBytePtr(m_data.get()) + m_streamedBytes, bufferSpan.data(), bufferSpan.size());
         m_streamedBytes += buffer.size();
 
         // Keep our ranges-lookup-table compact by continuously updating its first range
@@ -495,7 +496,7 @@ void PDFPluginBase::startByteRangeRequest(NetscapePlugInStreamLoaderClient& stre
     auto resourceRequest = documentLoader->request();
     resourceRequest.setRequester(ResourceRequestRequester::Unspecified);
     resourceRequest.setURL(m_view->mainResourceURL());
-    resourceRequest.setHTTPHeaderField(HTTPHeaderName::Range, makeString("bytes="_s, position, "-"_s, position + count - 1));
+    resourceRequest.setHTTPHeaderField(HTTPHeaderName::Range, makeString("bytes="_s, position, '-', position + count - 1));
     resourceRequest.setCachePolicy(ResourceRequestCachePolicy::DoNotUseAnyCache);
 
     WebProcess::singleton().webLoaderStrategy().schedulePluginStreamLoad(*coreFrame, streamLoaderClient, WTFMove(resourceRequest), [incrementalLoader = Ref { *m_incrementalLoader }, requestIdentifier] (RefPtr<NetscapePlugInStreamLoader>&& streamLoader) {
@@ -818,7 +819,7 @@ IntPoint PDFPluginBase::convertFromContainingViewToScrollbar(const Scrollbar& sc
 
 String PDFPluginBase::debugDescription() const
 {
-    return makeString("PDFPluginBase 0x", hex(reinterpret_cast<uintptr_t>(this), Lowercase));
+    return makeString("PDFPluginBase 0x"_s, hex(reinterpret_cast<uintptr_t>(this), Lowercase));
 }
 
 void PDFPluginBase::willDetachRenderer()

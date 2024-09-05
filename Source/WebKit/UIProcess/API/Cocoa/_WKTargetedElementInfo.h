@@ -46,7 +46,9 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA))
 @property (nonatomic, readonly, getter=isNearbyTarget) BOOL nearbyTarget;
 @property (nonatomic, readonly, getter=isPseudoElement) BOOL pseudoElement;
 @property (nonatomic, readonly, getter=isInShadowTree) BOOL inShadowTree;
+@property (nonatomic, readonly, getter=isInVisibilityAdjustmentSubtree) BOOL inVisibilityAdjustmentSubtree;
 @property (nonatomic, readonly) BOOL hasAudibleMedia;
+@property (nonatomic, readonly) NSSet<NSURL *> *mediaAndLinkURLs;
 
 @property (nonatomic, readonly, copy) NSArray<NSString *> *selectors;
 @property (nonatomic, readonly, copy) NSArray<NSArray<NSString *> *> *selectorsIncludingShadowHosts;
@@ -61,6 +63,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA))
 - (BOOL)isSameElement:(_WKTargetedElementInfo *)other;
 
 - (void)getChildFrames:(void(^)(NSArray<_WKFrameTreeNode *> *))completionHandler;
+- (void)takeSnapshotWithCompletionHandler:(void(^)(CGImageRef))completionHandler;
 
 @end
 

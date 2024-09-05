@@ -61,12 +61,12 @@ Queue::~Queue()
     // It's actually fine, though, because we can just drop any pending copies on the floor.
     // If the queue is being destroyed, this is unobservable.
     if (m_blitCommandEncoder)
-        [m_blitCommandEncoder endEncoding];
+        endEncoding(m_blitCommandEncoder, m_commandBuffer);
 }
 
 void Queue::ensureBlitCommandEncoder()
 {
-    if (m_blitCommandEncoder)
+    if (m_blitCommandEncoder && m_blitCommandEncoder == encoderForBuffer(m_commandBuffer))
         return;
 
     auto *commandBufferDescriptor = [MTLCommandBufferDescriptor new];
@@ -75,16 +75,27 @@ void Queue::ensureBlitCommandEncoder()
     m_commandBuffer = blitCommandBufferWithSharedEvent.first;
     m_commandBufferEvent = blitCommandBufferWithSharedEvent.second;
     m_blitCommandEncoder = [m_commandBuffer blitCommandEncoder];
+    setEncoderForBuffer(m_commandBuffer, m_blitCommandEncoder);
 }
 
 void Queue::finalizeBlitCommandEncoder()
 {
     if (m_blitCommandEncoder) {
-        [m_blitCommandEncoder endEncoding];
+        endEncoding(m_blitCommandEncoder, m_commandBuffer);
         commitMTLCommandBuffer(m_commandBuffer);
         m_blitCommandEncoder = nil;
         m_commandBuffer = nil;
     }
+}
+
+void Queue::endEncoding(id<MTLCommandEncoder> commandEncoder, id<MTLCommandBuffer> commandBuffer) const
+{
+    id<MTLCommandEncoder> currentEncoder = encoderForBuffer(commandBuffer);
+    if (currentEncoder != commandEncoder)
+        return;
+
+    [currentEncoder endEncoding];
+    [m_openCommandEncoders removeObjectForKey:commandBuffer];
 }
 
 id<MTLCommandEncoder> Queue::encoderForBuffer(id<MTLCommandBuffer> commandBuffer) const
@@ -100,6 +111,7 @@ void Queue::setEncoderForBuffer(id<MTLCommandBuffer> commandBuffer, id<MTLComman
     if (!commandBuffer)
         return;
 
+    endEncoding(encoderForBuffer(commandBuffer), commandBuffer);
     if (!commandEncoder)
         [m_openCommandEncoders removeObjectForKey:commandBuffer];
     else
@@ -108,6 +120,9 @@ void Queue::setEncoderForBuffer(id<MTLCommandBuffer> commandBuffer, id<MTLComman
 
 std::pair<id<MTLCommandBuffer>, id<MTLSharedEvent>> Queue::commandBufferWithDescriptor(MTLCommandBufferDescriptor* descriptor)
 {
+    if (!isValid())
+        return std::make_pair(nil, nil);
+
     constexpr auto maxCommandBufferCount = 64;
     if (m_createdNotCommittedBuffers.count >= maxCommandBufferCount) {
         id<MTLCommandBuffer> buffer = [m_createdNotCommittedBuffers objectAtIndex:0];
@@ -248,6 +263,12 @@ void Queue::commitMTLCommandBuffer(id<MTLCommandBuffer> commandBuffer)
     ++m_submittedCommandBufferCount;
 }
 
+static void invalidateCommandBuffers(Vector<std::reference_wrapper<CommandBuffer>>&& commands, auto&& makeInvalidFunc)
+{
+    for (auto commandBuffer : commands)
+        makeInvalidFunc(commandBuffer.get());
+}
+
 void Queue::submit(Vector<std::reference_wrapper<CommandBuffer>>&& commands)
 {
     auto device = m_device.get();
@@ -257,21 +278,31 @@ void Queue::submit(Vector<std::reference_wrapper<CommandBuffer>>&& commands)
     // https://gpuweb.github.io/gpuweb/#dom-gpuqueue-submit
     if (NSString* error = errorValidatingSubmit(commands)) {
         device->generateAValidationError(error ?: @"Validation failure.");
-        return;
+        return invalidateCommandBuffers(WTFMove(commands), ^(CommandBuffer& command) {
+            command.makeInvalid(command.lastError() ?: error);
+        });
     }
 
     finalizeBlitCommandEncoder();
 
-    NSMutableArray<id<MTLCommandBuffer>> *commandBuffersToSubmit = [NSMutableArray arrayWithCapacity:commands.size()];
+    NSMutableOrderedSet<id<MTLCommandBuffer>> *commandBuffersToSubmit = [NSMutableOrderedSet orderedSetWithCapacity:commands.size()];
+    NSString* validationError = nil;
     for (auto commandBuffer : commands) {
         auto& command = commandBuffer.get();
-        if (id<MTLCommandBuffer> mtlBuffer = command.commandBuffer())
+        if (id<MTLCommandBuffer> mtlBuffer = command.commandBuffer(); mtlBuffer && ![commandBuffersToSubmit containsObject:mtlBuffer])
             [commandBuffersToSubmit addObject:mtlBuffer];
         else {
-            device->generateAValidationError(command.lastError() ?: @"Command buffer appears twice.");
-            return;
+            validationError = command.lastError() ?: @"Command buffer appears twice.";
+            break;
         }
-        command.makeInvalidDueToCommit(@"command buffer was submitted");
+    }
+
+    invalidateCommandBuffers(WTFMove(commands), ^(CommandBuffer& command) {
+        validationError ? command.makeInvalid(command.lastError() ?: validationError) : command.makeInvalidDueToCommit(@"command buffer was submitted");
+    });
+    if (validationError) {
+        device->generateAValidationError(@"Command buffer appears twice.");
+        return;
     }
 
     for (id<MTLCommandBuffer> commandBuffer in commandBuffersToSubmit)
@@ -631,7 +662,7 @@ void Queue::writeTexture(const WGPUImageCopyTexture& destination, void* data, si
     if (isCompressed && (widthMismatch || multipleOfBlockSize)) {
 
         auto maxY = std::max<size_t>(blockHeight, heightForMetal) / blockHeight;
-        auto newBytesPerImage = newBytesPerRow * std::max<size_t>(blockHeight, logicalSize.height) / blockHeight;
+        auto newBytesPerImage = newBytesPerRow * std::max<size_t>(blockHeight, logicalSize.height / blockHeight);
         auto maxZ = std::max<size_t>(1, size.depthOrArrayLayers);
         newData.resize(newBytesPerImage * maxZ);
         memset(&newData[0], 0, newData.size());

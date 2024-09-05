@@ -870,11 +870,12 @@ static inline ExceptionOr<PeerConnectionBackend::CertificateInformation> certifi
     JSC::VM& vm = lexicalGlobalObject.vm();
     auto scope = DECLARE_CATCH_SCOPE(vm);
 
-    auto parameters = convertDictionary<RTCPeerConnection::CertificateParameters>(lexicalGlobalObject, value.get());
-    if (UNLIKELY(scope.exception())) {
+    auto parametersConversionResult = convertDictionary<RTCPeerConnection::CertificateParameters>(lexicalGlobalObject, value.get());
+    if (UNLIKELY(parametersConversionResult.hasException(scope))) {
         scope.clearException();
         return Exception { ExceptionCode::TypeError, "Unable to read certificate parameters"_s };
     }
+    auto parameters = parametersConversionResult.releaseReturnValue();
 
     if (parameters.expires && *parameters.expires < 0)
         return Exception { ExceptionCode::TypeError, "Expire value is invalid"_s };
@@ -1058,24 +1059,25 @@ void RTCPeerConnection::updateTransceiversAfterSuccessfulRemoteDescription()
     updateTransceiverTransports();
 }
 
-void RTCPeerConnection::updateSctpBackend(std::unique_ptr<RTCSctpTransportBackend>&& sctpBackend)
+void RTCPeerConnection::updateSctpBackend(std::unique_ptr<RTCSctpTransportBackend>&& sctpBackend, std::optional<double> maxMessageSize)
 {
     if (!sctpBackend) {
         m_sctpTransport = nullptr;
         return;
     }
-    if (m_sctpTransport && m_sctpTransport->backend() == *sctpBackend) {
-        m_sctpTransport->update();
-        return;
-    }
-    RefPtr context = scriptExecutionContext();
-    if (!context)
-        return;
 
-    auto dtlsTransport = getOrCreateDtlsTransport(sctpBackend->dtlsTransportBackend().moveToUniquePtr());
-    if (!dtlsTransport)
-        return;
-    m_sctpTransport = RTCSctpTransport::create(*context, makeUniqueRefFromNonNullUniquePtr(WTFMove(sctpBackend)), dtlsTransport.releaseNonNull());
+    if (!m_sctpTransport || m_sctpTransport->backend() != *sctpBackend) {
+        RefPtr context = scriptExecutionContext();
+        if (!context)
+            return;
+
+        auto dtlsTransport = getOrCreateDtlsTransport(sctpBackend->dtlsTransportBackend().moveToUniquePtr());
+        if (!dtlsTransport)
+            return;
+        m_sctpTransport = RTCSctpTransport::create(*context, makeUniqueRefFromNonNullUniquePtr(WTFMove(sctpBackend)), dtlsTransport.releaseNonNull());
+    }
+
+    m_sctpTransport->updateMaxMessageSize(maxMessageSize);
 }
 
 #if !RELEASE_LOG_DISABLED

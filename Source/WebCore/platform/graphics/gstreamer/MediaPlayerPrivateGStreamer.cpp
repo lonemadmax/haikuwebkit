@@ -331,8 +331,8 @@ void MediaPlayerPrivateGStreamer::load(const String& urlString)
         m_fillTimer.stop();
 
     ASSERT(m_pipeline);
-    setPlaybinURL(url);
     setVisibleInViewport(player->isVisibleInViewport());
+    setPlaybinURL(url);
 
     GST_DEBUG_OBJECT(pipeline(), "preload: %s", convertEnumerationToString(m_preload).utf8().data());
     if (m_preload == MediaPlayer::Preload::None && !isMediaSource()) {
@@ -2261,7 +2261,7 @@ void MediaPlayerPrivateGStreamer::processMpegTsSection(GstMpegtsSection* section
         gsize size;
         const void* bytes = g_bytes_get_data(data.get(), &size);
 
-        track->addDataCue(currentTime(), currentTime(), bytes, size);
+        track->addDataCue(currentTime(), currentTime(), { static_cast<const uint8_t*>(bytes), size });
     }
 }
 #endif
@@ -2322,7 +2322,7 @@ void MediaPlayerPrivateGStreamer::configureElement(GstElement* element)
     configureElementPlatformQuirks(element);
 
     GUniquePtr<char> elementName(gst_element_get_name(element));
-    auto elementClass = makeString(gst_element_get_metadata(element, GST_ELEMENT_METADATA_KLASS));
+    String elementClass = WTF::span(gst_element_get_metadata(element, GST_ELEMENT_METADATA_KLASS));
     auto classifiers = elementClass.split('/');
 
     // In GStreamer 1.20 and older urisourcebin mishandles source elements with dynamic pads. This
@@ -3006,7 +3006,7 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url)
     if (elementId.isEmpty())
         elementId = "media-player"_s;
 
-    const char* type = isMediaSource() ? "MSE-" : isMediaStream ? "mediastream-" : "";
+    auto type = isMediaSource() ? "MSE-"_s : isMediaStream ? "mediastream-"_s : ""_s;
 
     m_isLegacyPlaybin = !g_strcmp0(playbinName, "playbin");
 
@@ -3978,18 +3978,10 @@ void MediaPlayerPrivateGStreamer::setVisibleInViewport(bool isVisible)
     if (!isVisible) {
         GstState currentState;
         gst_element_get_state(m_pipeline.get(), &currentState, nullptr, 0);
-        // WebKitMediaSrc cannot properly handle PAUSED -> READY -> PAUSED currently, so we have to avoid transitioning
-        // back to READY when the player becomes visible.
-        GstState minimumState = isMediaSource() ? GST_STATE_PAUSED : GST_STATE_READY;
-        if (currentState >= minimumState)
+        if (currentState > GST_STATE_NULL)
             m_invisiblePlayerState = currentState;
         m_isVisibleInViewport = false;
-        // Avoid setting the pipeline to PAUSED unless the playbin URL has already been set,
-        // otherwise it will fail, and may leave the pipeline stuck on READY with PAUSE pending.
-        if (!m_url.isValid())
-            return;
-        [[maybe_unused]] auto setStateResult = gst_element_set_state(m_pipeline.get(), GST_STATE_PAUSED);
-        ASSERT(setStateResult != GST_STATE_CHANGE_FAILURE);
+        gst_element_set_state(m_pipeline.get(), GST_STATE_PAUSED);
     } else {
         m_isVisibleInViewport = true;
         if (m_invisiblePlayerState != GST_STATE_VOID_PENDING)
@@ -4436,7 +4428,7 @@ void MediaPlayerPrivateGStreamer::initializationDataEncountered(InitData&& initD
 
         GST_DEBUG("scheduling initializationDataEncountered %s event of size %zu", initData.payloadContainerType().utf8().data(),
             initData.payload()->size());
-        GST_MEMDUMP("init datas", reinterpret_cast<const uint8_t*>(initData.payload()->makeContiguous()->data()), initData.payload()->size());
+        GST_MEMDUMP("init datas", initData.payload()->makeContiguous()->span().data(), initData.payload()->size());
         if (player)
             player->initializationDataEncountered(initData.payloadContainerType(), initData.payload()->tryCreateArrayBuffer());
     });

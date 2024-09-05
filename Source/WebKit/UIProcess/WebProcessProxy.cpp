@@ -587,9 +587,7 @@ void WebProcessProxy::platformGetLaunchOptions(ProcessLauncher::LaunchOptions& l
 bool WebProcessProxy::shouldSendPendingMessage(const PendingMessage& message)
 {
     if (message.encoder->messageName() == IPC::MessageName::WebPage_LoadRequestWaitingForProcessLaunch) {
-        auto buffer = message.encoder->buffer();
-        auto bufferSize = message.encoder->bufferSize();
-        auto decoder = IPC::Decoder::create({ buffer, bufferSize }, { });
+        auto decoder = IPC::Decoder::create(message.encoder->span(), { });
         ASSERT(decoder);
         if (!decoder)
             return false;
@@ -607,9 +605,7 @@ bool WebProcessProxy::shouldSendPendingMessage(const PendingMessage& message)
             ASSERT_NOT_REACHED();
         return false;
     } else if (message.encoder->messageName() == IPC::MessageName::WebPage_GoToBackForwardItemWaitingForProcessLaunch) {
-        auto buffer = message.encoder->buffer();
-        auto bufferSize = message.encoder->bufferSize();
-        auto decoder = IPC::Decoder::create({ buffer, bufferSize }, { });
+        auto decoder = IPC::Decoder::create(message.encoder->span(), { });
         ASSERT(decoder);
         if (!decoder)
             return false;
@@ -1212,7 +1208,7 @@ void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReas
     // FIXME: Perhaps this should consider ProcessTerminationReasons ExceededMemoryLimit, ExceededCPULimit, Unresponsive as well.
     if (pages.size() == 1 && reason == ProcessTerminationReason::Crash) {
         auto& page = pages[0];
-        auto domain = PublicSuffixStore::singleton().topPrivatelyControlledDomain(URL({ }, page->currentURL()).host().toString());
+        auto domain = PublicSuffixStore::singleton().topPrivatelyControlledDomain(URL({ }, page->currentURL()).host());
         if (!domain.isEmpty())
             page->logDiagnosticMessageWithEnhancedPrivacy(WebCore::DiagnosticLoggingKeys::domainCausingCrashKey(), domain, WebCore::ShouldSample::No);
     }
@@ -1841,7 +1837,7 @@ void WebProcessProxy::didDropLastAssertion()
 
 void WebProcessProxy::prepareToDropLastAssertion(CompletionHandler<void()>&& completionHandler)
 {
-#if ENABLE(WEBPROCESS_CACHE)
+#if !ENABLE(NON_VISIBLE_WEBPROCESS_MEMORY_CLEANUP_TIMER) && ENABLE(WEBPROCESS_CACHE)
     if (isInProcessCache() || !m_suspendedPages.isEmptyIgnoringNullReferences() || (canTerminateAuxiliaryProcess() && canBeAddedToWebProcessCache())) {
         // We avoid freeing caches if:
         //
@@ -2015,7 +2011,7 @@ void WebProcessProxy::didExceedMemoryFootprintThreshold(size_t footprint)
     bool hasAllowedToRunInTheBackgroundActivity = false;
 
     for (auto& page : this->pages()) {
-        auto pageDomain = PublicSuffixStore::singleton().topPrivatelyControlledDomain(URL({ }, page->currentURL()).host().toString());
+        auto pageDomain = PublicSuffixStore::singleton().topPrivatelyControlledDomain(URL({ }, page->currentURL()).host());
         if (domain.isEmpty())
             domain = WTFMove(pageDomain);
         else if (domain != pageDomain)

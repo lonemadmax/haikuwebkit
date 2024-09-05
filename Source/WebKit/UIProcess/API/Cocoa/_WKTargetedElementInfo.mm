@@ -31,6 +31,7 @@
 #import "WebPageProxy.h"
 #import "_WKFrameTreeNodeInternal.h"
 #import "_WKTargetedElementInfoInternal.h"
+#import <WebCore/ShareableBitmap.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/cocoa/VectorCocoa.h>
@@ -153,6 +154,19 @@
     return _info->isNearbyTarget();
 }
 
+- (BOOL)isInVisibilityAdjustmentSubtree
+{
+    return _info->isInVisibilityAdjustmentSubtree();
+}
+
+- (NSSet<NSURL *> *)mediaAndLinkURLs
+{
+    RetainPtr result = adoptNS([NSMutableSet<NSURL *> new]);
+    for (auto& url : _info->mediaAndLinkURLs())
+        [result addObject:(NSURL *)url];
+    return result.autorelease();
+}
+
 - (BOOL)isPseudoElement
 {
     return _info->isPseudoElement();
@@ -166,6 +180,40 @@
 - (BOOL)hasAudibleMedia
 {
     return _info->hasAudibleMedia();
+}
+
+- (void)takeSnapshotWithCompletionHandler:(void(^)(CGImageRef))completion
+{
+    return _info->takeSnapshot([completion = makeBlockPtr(completion)](std::optional<WebCore::ShareableBitmapHandle>&& imageHandle) mutable {
+        if (!imageHandle)
+            return completion(nullptr);
+
+        if (RefPtr bitmap = WebCore::ShareableBitmap::create(WTFMove(*imageHandle), WebCore::SharedMemory::Protection::ReadOnly))
+            return completion(bitmap->makeCGImage().get());
+
+        completion(nullptr);
+    });
+}
+
+- (NSString *)debugDescription
+{
+    auto firstSelector = [&]() -> String {
+        auto& allSelectors = _info->selectors();
+        if (allSelectors.isEmpty())
+            return { };
+
+        if (allSelectors.last().isEmpty())
+            return { };
+
+        // Most relevant selector for the final target element (after all enclosing shadow
+        // roots have been resolved).
+        return allSelectors.last().first();
+    }();
+
+    auto bounds = _info->boundsInRootView();
+    return [NSString stringWithFormat:@"<%@ %p \"%@\" at {{%.0f,%.0f},{%.0f,%.0f}}>"
+        , self.class, self, (NSString *)firstSelector
+        , bounds.x(), bounds.y(), bounds.width(), bounds.height()];
 }
 
 @end

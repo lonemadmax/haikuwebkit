@@ -230,7 +230,7 @@ void FileReaderLoader::didReceiveData(const SharedBuffer& buffer)
     if (length <= 0)
         return;
 
-    memcpy(static_cast<char*>(m_rawData->data()) + m_bytesLoaded, buffer.data(), length);
+    memcpy(static_cast<char*>(m_rawData->data()) + m_bytesLoaded, buffer.span().data(), length);
     m_bytesLoaded += length;
 
     m_isRawDataConverted = false;
@@ -358,7 +358,7 @@ void FileReaderLoader::convertToText()
 
 void FileReaderLoader::convertToDataURL()
 {
-    m_stringResult = makeString("data:"_s, m_dataType.isEmpty() ? "application/octet-stream"_s : m_dataType, ";base64,"_s, base64Encoded(m_rawData ? m_rawData->data() : nullptr, m_bytesLoaded));
+    m_stringResult = makeString("data:"_s, m_dataType.isEmpty() ? "application/octet-stream"_s : m_dataType, ";base64,"_s, base64Encoded(m_rawData ? m_rawData->span().first(m_bytesLoaded) : std::span<const uint8_t>()));
 }
 
 bool FileReaderLoader::isCompleted() const

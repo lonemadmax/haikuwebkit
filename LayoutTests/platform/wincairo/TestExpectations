@@ -1255,6 +1255,8 @@ storage/indexeddb/structured-clone-image-data-display-p3.html [ Failure ]
 
 webkit.org/b/210046 storage/indexeddb/value-cursor-cycle.html [ Pass Failure ]
 
+webkit.org/b/210517 storage/indexeddb/result-request-cycle.html [ Pass Failure ]
+
 # WPT diff failures that need more investigation
 imported/w3c/web-platform-tests/cookies/domain/domain-attribute-host-with-leading-period.sub.https.html [ Failure ]
 imported/w3c/web-platform-tests/cookies/encoding/charset.html [ Failure ]
@@ -1921,6 +1923,8 @@ webkit.org/b/274059 webgl/2.0.y/conformance/misc/uninitialized-test.html [ Skip 
 webkit.org/b/274059 webgl/2.0.y/conformance/rendering/multisample-corruption.html [ Skip ] # Timeout
 webkit.org/b/274059 webgl/max-active-contexts-webglcontextlost-prevent-default.html [ Skip ] # Failure Timeout
 
+webkit.org/b/268988 fast/events/key-events-in-input-button.html [ Failure ]
+
 webgl/2.0.0/conformance/canvas/drawingbuffer-test.html [ Failure ]
 animations/shadow-host-child-change.html [ Skip ]
 css1/font_properties/font_family.html [ Failure Pass ]
@@ -1975,7 +1979,6 @@ fast/events/fire-mousedown-while-pressing-mouse-button.html [ Failure ]
 fast/events/ime-composition-events-001.html [ Failure ]
 fast/events/ime-compositionend-on-selection-change.html [ Failure ]
 fast/events/input-event-insert-replacement.html [ Skip ] # UIScript
-fast/events/key-events-in-input-button.html [ Failure ]
 fast/events/keyboardevent-code.html [ Failure ]
 fast/events/keydown-numpad-keys.html [ Failure ]
 fast/events/mouseover-button.html [ Failure ]
@@ -3267,6 +3270,7 @@ webkit.org/b/271223 fast/events/wheel/redispatched-wheel-event.html [ Skip ] # T
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting.html [ Skip ]
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-report-only.html [ Skip ]
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-no-unsafe-eval.html [ Skip ]
+webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting.html [ Skip ]
 
 # testRunner.dontForceRepaint
 compositing/repaint/copy-forward-dirty-region-purged-backbuffer.html [ Skip ]
@@ -3345,8 +3349,3 @@ http/tests/loading/reusing-cached-stylesheet-from-different-domain.html [ ImageO
 resize-observer/contain-instrinsic-size-should-not-leak-nodes.html [ Failure Pass ]
 
 fast/css/view-transitions-nested-transparency-layers.html [ ImageOnlyFailure Pass ]
-
-webkit.org/b/274226 fast/canvas/drawImage-source-rect-outside-image.html [ ImageOnlyFailure ]
-webkit.org/b/274226 fast/canvas/drawImage-srcRect-clipping.html [ ImageOnlyFailure ]
-webkit.org/b/274226 fast/canvas/canvas-drawImage-negative-coordinate.html [ ImageOnlyFailure ]
-webkit.org/b/274226 fast/canvas/canvas-drawImage-out-of-bounds-coordinate.html [ ImageOnlyFailure ]

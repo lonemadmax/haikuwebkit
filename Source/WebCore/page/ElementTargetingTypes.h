@@ -32,6 +32,7 @@
 #include "RectEdges.h"
 #include "RenderStyleConstants.h"
 #include "ScriptExecutionContextIdentifier.h"
+#include <wtf/URLHash.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -46,7 +47,7 @@ struct TargetedElementAdjustment {
 };
 
 struct TargetedElementRequest {
-    std::variant<FloatPoint, String> data;
+    std::variant<FloatPoint, String, TargetedElementSelectors> data;
     bool canIncludeNearbyElements { true };
     bool shouldIgnorePointerEventsNone { true };
 };
@@ -63,9 +64,11 @@ struct TargetedElementInfo {
     FloatRect boundsInClientCoordinates;
     PositionType positionType { PositionType::Static };
     Vector<FrameIdentifier> childFrameIdentifiers;
+    HashSet<URL> mediaAndLinkURLs;
     bool isNearbyTarget { true };
     bool isPseudoElement { false };
     bool isInShadowTree { false };
+    bool isInVisibilityAdjustmentSubtree { false };
     bool hasAudibleMedia { false };
 };
 

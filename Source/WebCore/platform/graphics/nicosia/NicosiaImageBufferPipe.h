@@ -30,6 +30,10 @@
 #include "ImageBufferPipe.h"
 #include "NicosiaContentLayer.h"
 
+namespace WebCore {
+class NativeImage;
+}
+
 namespace Nicosia {
 
 class NicosiaImageBufferPipeSourceDisplayDelegate final : public WebCore::GraphicsLayerContentsDisplayDelegate {
@@ -65,8 +69,8 @@ public:
 private:
     RefPtr<ContentLayer> m_nicosiaLayer;
 
-    mutable Lock m_imageBufferLock;
-    RefPtr<WebCore::ImageBuffer> m_imageBuffer;
+    RefPtr<WebCore::NativeImage> m_image WTF_GUARDED_BY_LOCK(m_imageLock);
+    mutable Lock m_imageLock;
 };
 
 class NicosiaImageBufferPipe final : public WebCore::ImageBufferPipe {

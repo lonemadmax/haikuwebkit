@@ -1438,7 +1438,6 @@
 		95CA6AD328809E010062D5EC /* ImplementationVisibility.h in Headers */ = {isa = PBXBuildFile; fileRef = 95CA6AD228809E010062D5EC /* ImplementationVisibility.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		960097A60EBABB58007A7297 /* LabelScope.h in Headers */ = {isa = PBXBuildFile; fileRef = 960097A50EBABB58007A7297 /* LabelScope.h */; };
 		9688CB150ED12B4E001D649F /* AssemblerBuffer.h in Headers */ = {isa = PBXBuildFile; fileRef = 9688CB130ED12B4E001D649F /* AssemblerBuffer.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		9688CB160ED12B4E001D6491 /* X86Registers.h in Headers */ = {isa = PBXBuildFile; fileRef = 9688CB140ED12B4E001D6491 /* X86Registers.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		9688CB160ED12B4E001D6492 /* X86_64Registers.h in Headers */ = {isa = PBXBuildFile; fileRef = 9688CB140ED12B4E001D6492 /* X86_64Registers.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		9688CB160ED12B4E001D6499 /* RegisterInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 9688CB140ED12B4E001D6499 /* RegisterInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		9688CB160ED12B4E001D649F /* X86Assembler.h in Headers */ = {isa = PBXBuildFile; fileRef = 9688CB140ED12B4E001D649F /* X86Assembler.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -2110,6 +2109,7 @@
 		FE1E2C3F2240DD5800F6B729 /* MacroAssemblerARM64E.h in Headers */ = {isa = PBXBuildFile; fileRef = FE1E2C3E2240D30B00F6B729 /* MacroAssemblerARM64E.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FE1E2C402240DD6200F6B729 /* ARM64EAssembler.h in Headers */ = {isa = PBXBuildFile; fileRef = FE1E2C3D2240D2F600F6B729 /* ARM64EAssembler.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FE20CE9E15F04A9500DF3430 /* LLIntCLoop.h in Headers */ = {isa = PBXBuildFile; fileRef = FE20CE9C15F04A9500DF3430 /* LLIntCLoop.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		FE265F202C02D39100997B07 /* AssertInvariants.h in Headers */ = {isa = PBXBuildFile; fileRef = FE265F1E2C02D39100997B07 /* AssertInvariants.h */; };
 		FE287D02252FB2E800D723F9 /* VerifierSlotVisitor.h in Headers */ = {isa = PBXBuildFile; fileRef = FE287D01252FB2E800D723F9 /* VerifierSlotVisitor.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		FE2A87601F02381600EB31B2 /* MinimumReservedZoneSize.h in Headers */ = {isa = PBXBuildFile; fileRef = FE2A875F1F02381600EB31B2 /* MinimumReservedZoneSize.h */; };
 		FE2CC9302756B2B9003F5AB8 /* HeapSubspaceTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = FE2CC92F2756B2B9003F5AB8 /* HeapSubspaceTypes.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -4755,7 +4755,6 @@
 		95CA6AD228809E010062D5EC /* ImplementationVisibility.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ImplementationVisibility.h; sourceTree = "<group>"; };
 		960097A50EBABB58007A7297 /* LabelScope.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LabelScope.h; sourceTree = "<group>"; };
 		9688CB130ED12B4E001D649F /* AssemblerBuffer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AssemblerBuffer.h; sourceTree = "<group>"; };
-		9688CB140ED12B4E001D6491 /* X86Registers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = X86Registers.h; sourceTree = "<group>"; };
 		9688CB140ED12B4E001D6492 /* X86_64Registers.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = X86_64Registers.h; sourceTree = "<group>"; };
 		9688CB140ED12B4E001D6499 /* RegisterInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RegisterInfo.h; sourceTree = "<group>"; };
 		9688CB140ED12B4E001D649F /* X86Assembler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = X86Assembler.h; sourceTree = "<group>"; };
@@ -5889,6 +5888,8 @@
 		FE1E2C3E2240D30B00F6B729 /* MacroAssemblerARM64E.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MacroAssemblerARM64E.h; sourceTree = "<group>"; };
 		FE20CE9B15F04A9500DF3430 /* LLIntCLoop.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = LLIntCLoop.cpp; path = llint/LLIntCLoop.cpp; sourceTree = "<group>"; };
 		FE20CE9C15F04A9500DF3430 /* LLIntCLoop.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LLIntCLoop.h; path = llint/LLIntCLoop.h; sourceTree = "<group>"; };
+		FE265F1E2C02D39100997B07 /* AssertInvariants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AssertInvariants.h; sourceTree = "<group>"; };
+		FE265F1F2C02D39100997B07 /* AssertInvariants.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AssertInvariants.cpp; sourceTree = "<group>"; };
 		FE287D01252FB2E800D723F9 /* VerifierSlotVisitor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = VerifierSlotVisitor.h; sourceTree = "<group>"; };
 		FE2A875F1F02381600EB31B2 /* MinimumReservedZoneSize.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MinimumReservedZoneSize.h; sourceTree = "<group>"; };
 		FE2BD66E25C0DC8200999D3B /* VerifierSlotVisitor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = VerifierSlotVisitor.cpp; sourceTree = "<group>"; };
@@ -5901,7 +5902,6 @@
 		FE336B5225DB497D0098F034 /* MarkingConstraintExecutorPair.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = MarkingConstraintExecutorPair.h; sourceTree = "<group>"; };
 		FE3422111D6B818C0032BE88 /* ThrowScope.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ThrowScope.h; sourceTree = "<group>"; };
 		FE34EE2024398A9A00AA2E7C /* EnsureStillAliveHere.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EnsureStillAliveHere.h; sourceTree = "<group>"; };
-		FE34EE2224398B8500AA2E7C /* EnsureStillAliveHere.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = EnsureStillAliveHere.cpp; sourceTree = "<group>"; };
 		FE35C2F021B1E6C5000F4CA8 /* Template.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = Template.rb; sourceTree = "<group>"; };
 		FE35C2F121B1E6C6000F4CA8 /* Fits.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = Fits.rb; sourceTree = "<group>"; };
 		FE35C2F221B1E6C6000F4CA8 /* GeneratedFile.rb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.ruby; path = GeneratedFile.rb; sourceTree = "<group>"; };
@@ -7902,6 +7902,8 @@
 				E3443E3028E9711700C0020C /* ArrayPrototypeInlines.h */,
 				0FB7F38A15ED8E3800F167B2 /* ArrayStorage.h */,
 				FE1D6D7023625AB0007A5C26 /* ArrayStorageInlines.h */,
+				FE265F1F2C02D39100997B07 /* AssertInvariants.cpp */,
+				FE265F1E2C02D39100997B07 /* AssertInvariants.h */,
 				8B6016F31F3E3CC000F9DE6A /* AsyncFromSyncIteratorPrototype.cpp */,
 				8B6016F41F3E3CC000F9DE6A /* AsyncFromSyncIteratorPrototype.h */,
 				276B385A2A71D0B500252F4E /* AsyncFromSyncIteratorPrototypeInlines.h */,
@@ -8054,7 +8056,6 @@
 				A70447EC17A0BD7000F5898E /* DumpContext.h */,
 				145FF2C6243BB99A00569E71 /* ECMAMode.cpp */,
 				145FF2C7243BB99A00569E71 /* ECMAMode.h */,
-				FE34EE2224398B8500AA2E7C /* EnsureStillAliveHere.cpp */,
 				FE34EE2024398A9A00AA2E7C /* EnsureStillAliveHere.h */,
 				2AD2EDFA19799E38004D6478 /* EnumerationMode.h */,
 				BC337BEA0E1B00CB0076918A /* Error.cpp */,
@@ -9371,7 +9372,6 @@
 				FE533CA01F217C310016A1FE /* testmasm.cpp */,
 				9688CB140ED12B4E001D6492 /* X86_64Registers.h */,
 				9688CB140ED12B4E001D649F /* X86Assembler.h */,
-				9688CB140ED12B4E001D6491 /* X86Registers.h */,
 			);
 			path = assembler;
 			sourceTree = "<group>";
@@ -10269,6 +10269,7 @@
 				4BDF3004289324AC00AE1DE3 /* AssemblyComments.h in Headers */,
 				0F24E54117EA9F5900ABB217 /* AssemblyHelpers.h in Headers */,
 				6B767E7B26791F270017F8D1 /* AssemblyHelpersSpoolers.h in Headers */,
+				FE265F202C02D39100997B07 /* AssertInvariants.h in Headers */,
 				A784A26111D16622005776AC /* ASTBuilder.h in Headers */,
 				8B6016F61F3E3CC000F9DE6A /* AsyncFromSyncIteratorPrototype.h in Headers */,
 				276B38692A71D0B600252F4E /* AsyncFromSyncIteratorPrototypeInlines.h in Headers */,
@@ -11954,7 +11955,6 @@
 				0FC8150A14043BF500CFA603 /* WriteBarrierSupport.h in Headers */,
 				9688CB160ED12B4E001D6492 /* X86_64Registers.h in Headers */,
 				9688CB160ED12B4E001D649F /* X86Assembler.h in Headers */,
-				9688CB160ED12B4E001D6491 /* X86Registers.h in Headers */,
 				9959E92E1BD17FA4001AA413 /* xxd.pl in Headers */,
 				451539B912DC994500EF7AC4 /* Yarr.h in Headers */,
 				E3282BBB1FE930AF00EDAF71 /* YarrErrorCode.h in Headers */,

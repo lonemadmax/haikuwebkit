@@ -66,6 +66,7 @@ namespace WTF {
 class SymbolImpl;
 class SymbolRegistry;
 
+struct ASCIICaseInsensitiveStringViewHashTranslator;
 struct HashedUTF8CharactersTranslator;
 struct HashTranslatorASCIILiteral;
 struct LCharBufferTranslator;
@@ -185,6 +186,7 @@ class StringImpl : private StringImplShape {
     friend class SymbolImpl;
     friend class ExternalStringImpl;
 
+    friend struct WTF::ASCIICaseInsensitiveStringViewHashTranslator;
     friend struct WTF::HashedUTF8CharactersTranslator;
     friend struct WTF::HashTranslatorASCIILiteral;
     friend struct WTF::LCharBufferTranslator;
@@ -247,7 +249,7 @@ public:
 
     WTF_EXPORT_PRIVATE static Ref<StringImpl> create(std::span<const UChar>);
     WTF_EXPORT_PRIVATE static Ref<StringImpl> create(std::span<const LChar>);
-    ALWAYS_INLINE static Ref<StringImpl> create(std::span<const char> characters) { return create({ reinterpret_cast<const LChar*>(characters.data()), characters.size() }); }
+    ALWAYS_INLINE static Ref<StringImpl> create(std::span<const char> characters) { return create(byteCast<LChar>(characters)); }
     WTF_EXPORT_PRIVATE static Ref<StringImpl> create8BitIfPossible(std::span<const UChar>);
 
     // Not using create() naming to encourage developers to call create(ASCIILiteral) when they have a string literal.
@@ -259,7 +261,7 @@ public:
 
     static Ref<StringImpl> createWithoutCopying(std::span<const UChar> characters) { return characters.empty() ?  Ref { *empty() } : createWithoutCopyingNonEmpty(characters); }
     static Ref<StringImpl> createWithoutCopying(std::span<const LChar> characters) { return characters.empty() ? Ref { *empty() } : createWithoutCopyingNonEmpty(characters); }
-    ALWAYS_INLINE static Ref<StringImpl> createWithoutCopying(std::span<const char> characters) { return createWithoutCopying({ reinterpret_cast<const LChar*>(characters.data()), characters.size() }); }
+    ALWAYS_INLINE static Ref<StringImpl> createWithoutCopying(std::span<const char> characters) { return createWithoutCopying(byteCast<LChar>(characters)); }
 
     WTF_EXPORT_PRIVATE static Ref<StringImpl> createUninitialized(size_t length, LChar*&);
     WTF_EXPORT_PRIVATE static Ref<StringImpl> createUninitialized(size_t length, UChar*&);
@@ -270,9 +272,8 @@ public:
 
     static Ref<StringImpl> createStaticStringImpl(std::span<const char> characters)
     {
-        std::span lcharSpan { reinterpret_cast<const LChar*>(characters.data()), characters.size() };
-        ASSERT(charactersAreAllASCII(lcharSpan));
-        return createStaticStringImpl(lcharSpan);
+        ASSERT(charactersAreAllASCII(byteCast<LChar>(characters)));
+        return createStaticStringImpl(byteCast<LChar>(characters));
     }
     WTF_EXPORT_PRIVATE static Ref<StringImpl> createStaticStringImpl(std::span<const LChar>);
     WTF_EXPORT_PRIVATE static Ref<StringImpl> createStaticStringImpl(std::span<const UChar>);
@@ -299,7 +300,7 @@ public:
     WTF_EXPORT_PRIVATE static Ref<StringImpl> adopt(StringBuffer<LChar>&&);
 
     unsigned length() const { return m_length; }
-    static ptrdiff_t lengthMemoryOffset() { return OBJECT_OFFSETOF(StringImpl, m_length); }
+    static constexpr ptrdiff_t lengthMemoryOffset() { return OBJECT_OFFSETOF(StringImpl, m_length); }
     bool isEmpty() const { return !m_length; }
 
     bool is8Bit() const { return m_hashAndFlags & s_hashFlag8BitBuffer; }
@@ -491,7 +492,7 @@ public:
 
     WTF_EXPORT_PRIVATE Ref<StringImpl> replace(UChar, UChar);
     WTF_EXPORT_PRIVATE Ref<StringImpl> replace(UChar, StringView);
-    ALWAYS_INLINE Ref<StringImpl> replace(UChar pattern, std::span<const char> replacement) { return replace(pattern, { reinterpret_cast<const LChar*>(replacement.data()), replacement.size() }); }
+    ALWAYS_INLINE Ref<StringImpl> replace(UChar pattern, std::span<const char> replacement) { return replace(pattern, byteCast<LChar>(replacement)); }
     WTF_EXPORT_PRIVATE Ref<StringImpl> replace(UChar, std::span<const LChar>);
     Ref<StringImpl> replace(UChar, std::span<const UChar>);
     WTF_EXPORT_PRIVATE Ref<StringImpl> replace(StringView, StringView);
@@ -603,13 +604,13 @@ template<> struct ValueCheck<StringImpl*> {
 
 WTF_EXPORT_PRIVATE bool equal(const StringImpl*, const StringImpl*);
 WTF_EXPORT_PRIVATE bool equal(const StringImpl*, const LChar*);
-inline bool equal(const StringImpl* a, const char* b) { return equal(a, reinterpret_cast<const LChar*>(b)); }
+inline bool equal(const StringImpl* a, const char* b) { return equal(a, byteCast<LChar>(b)); }
 WTF_EXPORT_PRIVATE bool equal(const StringImpl*, std::span<const LChar>);
 WTF_EXPORT_PRIVATE bool equal(const StringImpl*, std::span<const UChar>);
 ALWAYS_INLINE bool equal(const StringImpl* a, ASCIILiteral b) { return equal(a, b.span8()); }
-inline bool equal(const StringImpl* a, std::span<const char> b) { return equal(a, { reinterpret_cast<const LChar*>(b.data()), b.size() }); }
+inline bool equal(const StringImpl* a, std::span<const char> b) { return equal(a, byteCast<LChar>(b)); }
 inline bool equal(const LChar* a, StringImpl* b) { return equal(b, a); }
-inline bool equal(const char* a, StringImpl* b) { return equal(b, reinterpret_cast<const LChar*>(a)); }
+inline bool equal(const char* a, StringImpl* b) { return equal(b, byteCast<LChar>(a)); }
 WTF_EXPORT_PRIVATE bool equal(const StringImpl& a, const StringImpl& b);
 
 WTF_EXPORT_PRIVATE bool equalIgnoringNullity(StringImpl*, StringImpl*);
@@ -739,7 +740,7 @@ inline size_t StringImpl::find(LChar character, size_t start)
 
 ALWAYS_INLINE size_t StringImpl::find(char character, size_t start)
 {
-    return find(static_cast<LChar>(character), start);
+    return find(byteCast<LChar>(character), start);
 }
 
 inline size_t StringImpl::find(UChar character, size_t start)

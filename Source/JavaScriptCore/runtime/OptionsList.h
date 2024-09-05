@@ -477,6 +477,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Bool, usePollingTraps, false, Normal, "use polling (instead of signalling) VM traps"_s) \
     \
     v(Bool, useMachForExceptions, true, Normal, "Use mach exceptions rather than signals to handle faults and pass thread messages. (This does nothing on platforms without mach)"_s) \
+    v(Bool, allowNonSPTagging, true, Normal, "allow use of the pacib instruction instead of just pacibsp (This can break lldb/posix signals as it puts live data below SP)"_s) \
     \
     v(Bool, useICStats, false, Normal, nullptr) \
     \
@@ -598,6 +599,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Bool, useShadowRealm, false, Normal, "Expose the ShadowRealm object."_s) \
     v(Bool, useStringWellFormed, true, Normal, "Expose the String well-formed methods."_s) \
     v(Bool, useTemporal, false, Normal, "Expose the Temporal object."_s) \
+    v(Bool, useTrustedTypes, false, Normal, "Enable trusted types eval protection feature."_s) \
     v(Bool, useWebAssemblyThreading, true, Normal, "Allow instructions from the wasm threading spec."_s) \
     v(Bool, useWebAssemblyTypedFunctionReferences, true, Normal, "Allow function types from the wasm typed function references spec."_s) \
     v(Bool, useWebAssemblyGC, false, Normal, "Allow gc types from the wasm gc proposal."_s) \

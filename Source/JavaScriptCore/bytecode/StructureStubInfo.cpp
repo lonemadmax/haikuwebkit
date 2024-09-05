@@ -138,17 +138,16 @@ AccessGenerationResult StructureStubInfo::addAccessCase(
             }
         } else {
             std::unique_ptr<PolymorphicAccess> access = makeUnique<PolymorphicAccess>();
-            
-            Vector<RefPtr<AccessCase>, 2> accessCases;
-            
-            auto previousCase = AccessCase::fromStructureStubInfo(vm, codeBlock, ident, *this);
-            if (previousCase)
-                accessCases.append(WTFMove(previousCase));
-            
-            accessCases.append(WTFMove(accessCase));
-            
+
+            PolymorphicAccess::ListType accessCases;
+
+            if (auto previousCase = AccessCase::fromStructureStubInfo(vm, codeBlock, ident, *this))
+                accessCases.append(previousCase.releaseNonNull());
+
+            accessCases.append(accessCase.releaseNonNull());
+
             result = access->addCases(locker, vm, codeBlock, *this, WTFMove(accessCases));
-            
+
             if (StructureStubInfoInternal::verbose)
                 dataLog("Created stub, result: ", result, "\n");
 
@@ -567,7 +566,6 @@ void StructureStubInfo::initializeFromUnlinkedStructureStubInfo(VM& vm, CodeBloc
     }
     propertyIsInt32 = unlinkedStubInfo.propertyIsInt32;
     canBeMegamorphic = unlinkedStubInfo.canBeMegamorphic;
-    isEnumerator = unlinkedStubInfo.isEnumerator;
     useDataIC = true;
 
     if (unlinkedStubInfo.canBeMegamorphic)
@@ -771,7 +769,6 @@ void StructureStubInfo::initializeFromDFGUnlinkedStructureStubInfo(CodeBlock* co
     prototypeIsKnownObject = unlinkedStubInfo.prototypeIsKnownObject;
     hasConstantIdentifier = unlinkedStubInfo.hasConstantIdentifier;
     canBeMegamorphic = unlinkedStubInfo.canBeMegamorphic;
-    isEnumerator = unlinkedStubInfo.isEnumerator;
     useDataIC = true;
 
     if (unlinkedStubInfo.canBeMegamorphic)

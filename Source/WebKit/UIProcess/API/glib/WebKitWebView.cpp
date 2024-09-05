@@ -88,7 +88,6 @@
 #include <wtf/text/StringBuilder.h>
 
 #if PLATFORM(GTK)
-#include "GtkSettingsManager.h"
 #include "WebKitFaviconDatabasePrivate.h"
 #include "WebKitInputMethodContextImplGtk.h"
 #include "WebKitPointerLockPermissionRequest.h"
@@ -290,6 +289,7 @@ struct _WebKitWebViewPrivate {
     HashSet<unsigned> frameDisplayedCallbacksToRemove;
 #endif
 
+    RefPtr<API::PageConfiguration> configurationForNextRelatedView;
     WebKitWebView* relatedView;
     CString title;
     CString customTextEncoding;
@@ -352,8 +352,6 @@ struct _WebKitWebViewPrivate {
 
     CString defaultContentSecurityPolicy;
     WebKitWebExtensionMode webExtensionMode;
-
-    double textScaleFactor;
 
     bool isWebProcessResponsive;
 };
@@ -909,7 +907,8 @@ static void webkitWebViewConstructed(GObject* object)
     if (!priv->websitePolicies)
         priv->websitePolicies = adoptGRef(webkit_website_policies_new());
 
-    webkitWebViewCreatePage(webView, webkitWebViewCreatePageConfiguration(webView));
+    Ref configuration = priv->relatedView && priv->relatedView->priv->configurationForNextRelatedView ? priv->relatedView->priv->configurationForNextRelatedView.releaseNonNull() : webkitWebViewCreatePageConfiguration(webView);
+    webkitWebViewCreatePage(webView, WTFMove(configuration));
     webkitWebContextWebViewCreated(priv->context.get(), webView);
 
     priv->loadObserver = makeUnique<PageLoadStateObserver>(webView);
@@ -945,25 +944,6 @@ static void webkitWebViewConstructed(GObject* object)
 
     priv->backForwardList = adoptGRef(webkitBackForwardListCreate(&getPage(webView).backForwardList()));
     priv->windowProperties = adoptGRef(webkitWindowPropertiesCreate());
-
-#if PLATFORM(GTK)
-    double dpi = GtkSettingsManager::singleton().settingsState().xftDPI.value() / 1024.0;
-    priv->textScaleFactor = dpi / 96.;
-    getPage(webView).setTextZoomFactor(priv->textScaleFactor);
-    GtkSettingsManager::singleton().addObserver([webView](const GtkSettingsState& state) {
-        if (!state.xftDPI)
-            return;
-
-        double dpi = state.xftDPI.value() / 1024.0;
-        auto& page = getPage(webView);
-        auto zoomFactor = page.textZoomFactor() / webView->priv->textScaleFactor;
-        webView->priv->textScaleFactor = dpi / 96.;
-        page.setTextZoomFactor(zoomFactor * webView->priv->textScaleFactor);
-    }, webView);
-#else
-    priv->textScaleFactor = 1;
-#endif
-
     priv->isWebProcessResponsive = true;
 }
 
@@ -1186,10 +1166,6 @@ static void webkitWebViewDispose(GObject* object)
 
 #if PLATFORM(WPE)
     webView->priv->view->close();
-#endif
-
-#if PLATFORM(GTK)
-    GtkSettingsManager::singleton().removeObserver(webView);
 #endif
 
     G_OBJECT_CLASS(webkit_web_view_parent_class)->dispose(object);
@@ -2646,21 +2622,27 @@ void webkitWebViewSetIcon(WebKitWebView* webView, const LinkIcon& icon, API::Dat
 }
 #endif
 
-RefPtr<WebPageProxy> webkitWebViewCreateNewPage(WebKitWebView* webView, const WindowFeatures& windowFeatures, WebKitNavigationAction* navigationAction)
+RefPtr<WebPageProxy> webkitWebViewCreateNewPage(WebKitWebView* webView, Ref<API::PageConfiguration>&& configuration, WindowFeatures&& windowFeatures, WebKitNavigationAction* navigationAction)
 {
+    RefPtr openerProcess = configuration->openerProcess();
+
+    ASSERT(!webView->priv->configurationForNextRelatedView);
+    SetForScope configurationScope(webView->priv->configurationForNextRelatedView, WTFMove(configuration));
+
     WebKitWebView* newWebView;
     g_signal_emit(webView, signals[CREATE], 0, navigationAction, &newWebView);
     if (!newWebView)
         return nullptr;
 
-    if (&getPage(webView).process() != &getPage(newWebView).process()) {
+    Ref newPage = getPage(newWebView);
+    if (&getPage(webView) != newPage->configuration().relatedPage() || openerProcess != newPage->configuration().openerProcess()) {
         g_warning("WebKitWebView returned by WebKitWebView::create signal was not created with the related WebKitWebView");
         return nullptr;
     }
 
     webkitWindowPropertiesUpdateFromWebWindowFeatures(newWebView->priv->windowProperties.get(), windowFeatures);
 
-    return &getPage(newWebView);
+    return newPage;
 }
 
 void webkitWebViewReadyToShowPage(WebKitWebView* webView)
@@ -3958,11 +3940,17 @@ void webkit_web_view_set_zoom_level(WebKitWebView* webView, gdouble zoomLevel)
     if (webkit_web_view_get_zoom_level(webView) == zoomLevel)
         return;
 
+#if PLATFORM(GTK)
+    auto pageScale = webkitWebViewBaseGetPageScale(WEBKIT_WEB_VIEW_BASE(webView));
+#else
+    const double pageScale = 1.0;
+#endif
+
     auto& page = getPage(webView);
     if (webkit_settings_get_zoom_text_only(webView->priv->settings.get()))
-        page.setTextZoomFactor(zoomLevel * webView->priv->textScaleFactor);
+        page.setTextZoomFactor(zoomLevel);
     else
-        page.setPageZoomFactor(zoomLevel);
+        page.setPageZoomFactor(zoomLevel * pageScale);
     g_object_notify_by_pspec(G_OBJECT(webView), sObjProperties[PROP_ZOOM_LEVEL]);
 }
 
@@ -3981,9 +3969,15 @@ gdouble webkit_web_view_get_zoom_level(WebKitWebView* webView)
 {
     g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 1);
 
+#if PLATFORM(GTK)
+    auto pageScale = webkitWebViewBaseGetPageScale(WEBKIT_WEB_VIEW_BASE(webView));
+#else
+    const double pageScale = 1.0;
+#endif
+
     auto& page = getPage(webView);
     gboolean zoomTextOnly = webkit_settings_get_zoom_text_only(webView->priv->settings.get());
-    return zoomTextOnly ? page.textZoomFactor() / webView->priv->textScaleFactor : page.pageZoomFactor();
+    return zoomTextOnly ? page.textZoomFactor() : page.pageZoomFactor() / pageScale;
 }
 
 /**

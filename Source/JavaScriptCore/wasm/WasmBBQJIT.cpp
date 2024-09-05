@@ -3960,6 +3960,25 @@ void BBQJIT::returnValuesFromCall(Vector<Value, N>& results, const FunctionSigna
                     m_fprSet.add(returnLocation.asFPR(), Width::Width128);
                 }
             }
+        } else {
+            ASSERT(returnLocation.isStackArgument());
+            // FIXME: Ideally, we would leave these values where they are but a subsequent call could clobber them before they are used.
+            // That said, stack results are very rare so this isn't too painful.
+            // Even if we did leave them where they are, we'd need to flush them to their canonical location at the next branch otherwise
+            // we could have something like (assume no result regs for simplicity):
+            // call (result i32 i32) $foo
+            // if (result i32) // Stack: i32(StackArgument:8) i32(StackArgument:0)
+            //   // Stack: i32(StackArgument:8)
+            // else
+            //   call (result i32 i32) $bar // Stack: i32(StackArgument:8) we have to flush the stack argument to make room for the result of bar
+            //   drop // Stack: i32(Stack:X) i32(StackArgument:8) i32(StackArgument:0)
+            //   drop // Stack: i32(Stack:X) i32(StackArgument:8)
+            // end
+            // return // Stack i32(*Conflicting locations*)
+
+            Location canonicalLocation = canonicalSlot(result);
+            emitMoveMemory(result.type(), returnLocation, canonicalLocation);
+            returnLocation = canonicalLocation;
         }
         bind(result, returnLocation);
         results.append(result);
@@ -4179,13 +4198,13 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallIndirect(unsigned tableIndex, co
             }
 
 #if USE(JSVALUE64)
-            ASSERT(static_cast<ptrdiff_t>(FuncRefTable::Function::offsetOfInstance() + sizeof(void*)) == FuncRefTable::Function::offsetOfValue());
+            static_assert(static_cast<ptrdiff_t>(FuncRefTable::Function::offsetOfInstance() + sizeof(void*)) == FuncRefTable::Function::offsetOfValue());
             m_jit.loadPairPtr(calleeSignatureIndex, TrustedImm32(FuncRefTable::Function::offsetOfInstance()), calleeInstance, jsCalleeAnchor);
 #else
             m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfInstance()), calleeInstance);
             m_jit.loadPtr(Address(calleeSignatureIndex, FuncRefTable::Function::offsetOfValue()), jsCalleeAnchor);
 #endif
-            ASSERT(static_cast<ptrdiff_t>(WasmToWasmImportableFunction::offsetOfSignatureIndex() + sizeof(void*)) == WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation());
+            static_assert(static_cast<ptrdiff_t>(WasmToWasmImportableFunction::offsetOfSignatureIndex() + sizeof(void*)) == WasmToWasmImportableFunction::offsetOfEntrypointLoadLocation());
 
             // Save the table entry in calleeRTT if needed for the subtype check.
             bool needsSubtypeCheck = Options::useWebAssemblyGC() && !originalSignature.isFinalType();
@@ -4234,6 +4253,11 @@ ALWAYS_INLINE void BBQJIT::didParseOpcode()
 }
 
 // SIMD
+
+bool BBQJIT::usesSIMD()
+{
+    return m_usesSIMD;
+}
 
 void BBQJIT::dump(const ControlStack&, const Stack*) { }
 void BBQJIT::didFinishParsingLocals() { }

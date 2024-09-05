@@ -37,6 +37,7 @@
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "ImageOverlay.h"
 #include "LocalFrame.h"
 #include "Page.h"
 #include "RenderBox.h"
@@ -466,7 +467,7 @@ static IntSize reducePrecision(FloatSize size)
     };
 }
 
-static void extractRenderedText(Vector<StringsAndBlockOffset>& stringsAndOffsets, ContainerNode& node, BlockFlowDirection direction, IncludeGeometryText includeGeometryText)
+static void extractRenderedText(Vector<StringsAndBlockOffset>& stringsAndOffsets, ContainerNode& node, BlockFlowDirection direction, OnlyIncludeTextContent onlyIncludeTextContent)
 {
     CheckedPtr renderer = node.renderer();
     if (!renderer)
@@ -506,30 +507,31 @@ static void extractRenderedText(Vector<StringsAndBlockOffset>& stringsAndOffsets
 
     if (CheckedPtr frameRenderer = dynamicDowncast<RenderIFrame>(*renderer)) {
         if (auto contentDocument = frameRenderer->iframeElement().protectedContentDocument())
-            extractRenderedText(stringsAndOffsets, *contentDocument, direction, includeGeometryText);
+            extractRenderedText(stringsAndOffsets, *contentDocument, direction, onlyIncludeTextContent);
         return;
     }
 
     auto frameView = renderer->view().protectedFrameView();
-    auto appendReplacedRenderer = [&](RenderReplaced& renderReplaced) {
-        auto rectIgnoringZoom = renderReplaced.replacedContentRect();
-        rectIgnoringZoom.scale(1 / frameView->protectedFrame()->pageZoomFactor());
-        auto roundedSizeIgnoringZoom = reducePrecision(rectIgnoringZoom.size());
-        appendStrings({ makeString('{', roundedSizeIgnoringZoom.width(), ',', roundedSizeIgnoringZoom.height(), '}') }, frameView->contentsToRootView(renderReplaced.absoluteBoundingBoxRect()));
+    auto appendReplacedContentOrBackgroundImage = [&](const RenderObject& renderer) {
+        if (!renderer.style().hasBackgroundImage() && !is<RenderReplaced>(renderer))
+            return;
+
+        auto absoluteRect = renderer.absoluteBoundingBoxRect();
+        auto roundedSize = reducePrecision(frameView->absoluteToDocumentRect(absoluteRect).size());
+        appendStrings({ makeString('{', roundedSize.width(), ',', roundedSize.height(), '}') }, frameView->contentsToRootView(absoluteRect));
     };
 
-    if (includeGeometryText == IncludeGeometryText::Yes) {
-        if (CheckedPtr renderReplaced = dynamicDowncast<RenderReplaced>(*renderer)) {
-            appendReplacedRenderer(*renderReplaced);
-            return;
-        }
-    }
+    if (onlyIncludeTextContent == OnlyIncludeTextContent::No)
+        appendReplacedContentOrBackgroundImage(*renderer);
 
     for (auto& descendant : descendantsOfType<RenderObject>(*renderer)) {
         if (descendant.style().usedVisibility() == Visibility::Hidden)
             continue;
 
         if (descendant.style().opacity() < minOpacityToConsiderVisible)
+            continue;
+
+        if (RefPtr node = descendant.node(); node && ImageOverlay::isInsideOverlay(*node))
             continue;
 
         if (CheckedPtr textRenderer = dynamicDowncast<RenderText>(descendant); textRenderer && textRenderer->hasRenderedText()) {
@@ -547,20 +549,16 @@ static void extractRenderedText(Vector<StringsAndBlockOffset>& stringsAndOffsets
 
         if (CheckedPtr frameRenderer = dynamicDowncast<RenderIFrame>(descendant)) {
             if (auto contentDocument = frameRenderer->iframeElement().protectedContentDocument())
-                extractRenderedText(stringsAndOffsets, *contentDocument, direction, includeGeometryText);
+                extractRenderedText(stringsAndOffsets, *contentDocument, direction, onlyIncludeTextContent);
             continue;
         }
 
-        if (includeGeometryText == IncludeGeometryText::Yes) {
-            if (CheckedPtr renderReplaced = dynamicDowncast<RenderReplaced>(descendant)) {
-                appendReplacedRenderer(*renderReplaced);
-                continue;
-            }
-        }
+        if (onlyIncludeTextContent == OnlyIncludeTextContent::No)
+            appendReplacedContentOrBackgroundImage(descendant);
     }
 }
 
-String extractRenderedText(Element& element, IncludeGeometryText includeGeometryText)
+String extractRenderedText(Element& element, OnlyIncludeTextContent onlyIncludeTextContent)
 {
     if (!element.renderer())
         return emptyString();
@@ -568,7 +566,7 @@ String extractRenderedText(Element& element, IncludeGeometryText includeGeometry
     auto direction = element.renderer()->style().blockFlowDirection();
 
     Vector<StringsAndBlockOffset> stringsAndOffsets;
-    extractRenderedText(stringsAndOffsets, element, direction, includeGeometryText);
+    extractRenderedText(stringsAndOffsets, element, direction, onlyIncludeTextContent);
 
     bool ascendingOrder = [&] {
         switch (direction) {

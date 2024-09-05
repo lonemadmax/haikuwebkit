@@ -159,6 +159,10 @@ struct TranslationContextMenuInfo;
 - (void)_didHandleAcceptedCandidate;
 - (void)_didUpdateCandidateListVisibility:(BOOL)visible;
 
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+- (BOOL)_web_wantsCompleteUnifiedTextReplacementBehavior;
+#endif
+
 @end
 
 namespace WebCore {
@@ -740,7 +744,7 @@ public:
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
     bool wantsCompleteUnifiedTextReplacementBehavior() const;
 
-    void addTextIndicatorStyleForID(WTF::UUID, WKTextIndicatorStyleType);
+    void addTextIndicatorStyleForID(WTF::UUID, const WebKit::TextIndicatorStyleData&);
     void removeTextIndicatorStyleForID(WTF::UUID);
 #endif
 

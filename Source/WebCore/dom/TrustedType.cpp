@@ -32,6 +32,7 @@
 #include "JSDOMExceptionHandling.h"
 #include "LocalDOMWindow.h"
 #include "Node.h"
+#include "SVGNames.h"
 #include "Text.h"
 #include "TrustedTypePolicy.h"
 #include "TrustedTypePolicyFactory.h"
@@ -185,6 +186,19 @@ ExceptionOr<String> trustedTypeCompliantString(TrustedType expectedType, ScriptE
     }
 
     return stringValue;
+}
+
+ExceptionOr<String> trustedTypeCompliantString(ScriptExecutionContext& scriptExecutionContext, std::variant<RefPtr<TrustedHTML>, String>&& input, const String& sink)
+{
+    return WTF::switchOn(
+        WTFMove(input),
+        [&scriptExecutionContext, &sink](const String& string) -> ExceptionOr<String> {
+            return trustedTypeCompliantString(TrustedType::TrustedHTML, scriptExecutionContext, string, sink);
+        },
+        [](const RefPtr<TrustedHTML>& html) -> ExceptionOr<String> {
+            return html->toString();
+        }
+    );
 }
 
 ExceptionOr<String> trustedTypeCompliantString(ScriptExecutionContext& scriptExecutionContext, std::variant<RefPtr<TrustedScript>, String>&& input, const String& sink)

@@ -408,7 +408,7 @@ bool Options::overrideAliasedOptionWithHeuristic(const char* name)
     if (!stringValue)
         return false;
 
-    auto aliasedOption = makeString(&name[4], '=', stringValue);
+    auto aliasedOption = makeString(span(&name[4]), '=', span(stringValue));
     if (Options::setOption(aliasedOption.utf8().data()))
         return true;
 
@@ -826,18 +826,20 @@ void Options::notifyOptionsChanged()
         if (Options::forceAllFunctionsToUseSIMD() && !Options::useWebAssemblySIMD())
             Options::forceAllFunctionsToUseSIMD() = false;
 
-        if (Options::useWebAssemblySIMD() && !(Options::useWasmLLInt() || Options::useWasmIPInt())) {
-            // The LLInt is responsible for discovering if functions use SIMD.
-            // If we can't run using it, then we should be conservative.
-            Options::forceAllFunctionsToUseSIMD() = true;
-        }
-
         if (Options::useWebAssemblyTailCalls()) {
             // The single-pass BBQ JIT doesn't support these features currently, so we should use a different
             // BBQ backend if any of them are enabled. We should remove these limitations as support for each
             // is added.
             // FIXME: Add WASM tail calls support to single-pass BBQ JIT. https://bugs.webkit.org/show_bug.cgi?id=253192
             Options::useBBQJIT() = false;
+            Options::useWasmLLInt() = true;
+            Options::wasmLLIntTiersUpToBBQ() = false;
+        }
+
+        if (Options::useWebAssemblySIMD() && !(Options::useWasmLLInt() || Options::useWasmIPInt())) {
+            // The LLInt is responsible for discovering if functions use SIMD.
+            // If we can't run using it, then we should be conservative.
+            Options::forceAllFunctionsToUseSIMD() = true;
         }
     }
 
@@ -912,6 +914,11 @@ void Options::notifyOptionsChanged()
         }
     }
 #endif
+
+    // We can't use our pacibsp system while using posix signals because the signal handler could trash our stack during reifyInlinedCallFrames.
+    // If we have JITCage we don't need to restrict ourselves to pacibsp.
+    if (!Options::useMachForExceptions() || Options::useJITCage())
+        Options::allowNonSPTagging() = true;
 
     if (!Options::useWasmFaultSignalHandler())
         Options::useWebAssemblyFastMemory() = false;
@@ -1283,6 +1290,11 @@ void Options::assertOptionsAreCoherent()
         coherent = false;
         dataLogLn("Bytecode profiler is not concurrent JIT safe.");
     }
+    if (!allowNonSPTagging() && !useMachForExceptions()) {
+        coherent = false;
+        dataLog("INCOHERENT OPTIONS: can't restrict pointer tagging to pacibsp and use posix signals");
+    }
+
     if (!coherent)
         CRASH();
 }

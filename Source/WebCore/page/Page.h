@@ -174,6 +174,10 @@ class WheelEventDeltaFilter;
 class WheelEventTestMonitor;
 class WindowEventLoop;
 
+#if ENABLE(WEBXR)
+class WebXRSession;
+#endif
+
 struct AXTreeData;
 struct ApplePayAMSUIRequest;
 struct SimpleRange;
@@ -183,6 +187,7 @@ using PlatformDisplayID = uint32_t;
 using SharedStringHash = uint32_t;
 
 enum class ActivityState : uint16_t;
+enum class AdvancedPrivacyProtections : uint16_t;
 enum class CanWrap : bool;
 enum class DidWrap : bool;
 enum class DisabledAdaptations : uint8_t;
@@ -297,7 +302,7 @@ public:
     WEBCORE_EXPORT static void updateStyleForAllPagesAfterGlobalChangeInEnvironment();
     WEBCORE_EXPORT static void clearPreviousItemFromAllPages(HistoryItem*);
 
-    WEBCORE_EXPORT void setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& topOrigin, const String& referrerPolicy);
+    WEBCORE_EXPORT void setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& topOrigin, const String& referrerPolicy, OptionSet<AdvancedPrivacyProtections>);
 
     WEBCORE_EXPORT void updateStyleAfterChangeInEnvironment();
 
@@ -342,7 +347,7 @@ public:
     bool openedByDOMWithOpener() const { return m_openedByDOMWithOpener; }
     void setOpenedByDOMWithOpener(bool value) { m_openedByDOMWithOpener = value; }
 
-    WEBCORE_EXPORT void goToItem(LocalFrame& localMainFrame, HistoryItem&, FrameLoadType, ShouldTreatAsContinuingLoad);
+    WEBCORE_EXPORT void goToItem(Frame& mainFrame, HistoryItem&, FrameLoadType, ShouldTreatAsContinuingLoad);
 
     WEBCORE_EXPORT void setGroupName(const String&);
     WEBCORE_EXPORT const String& groupName() const;
@@ -894,7 +899,6 @@ public:
     void playbackControlsMediaEngineChanged();
 #endif
     WEBCORE_EXPORT void setMuted(MediaProducerMutedStateFlags);
-    WEBCORE_EXPORT bool shouldBlockLayerTreeFreezingForVideo();
 
     WEBCORE_EXPORT void stopMediaCapture(MediaProducerMediaCaptureKind);
 
@@ -1180,6 +1184,10 @@ private:
 #if ENABLE(IMAGE_ANALYSIS)
     void resetTextRecognitionResults();
     void updateElementsWithTextRecognitionResults();
+#endif
+
+#if ENABLE(WEBXR)
+    RefPtr<WebXRSession> activeImmersiveXRSession() const;
 #endif
 
     std::optional<PageIdentifier> m_identifier;

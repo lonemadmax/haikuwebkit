@@ -61,11 +61,15 @@ typedef struct _GstGLDisplay GstGLDisplay;
 
 #if USE(SKIA)
 #include <skia/gpu/GrDirectContext.h>
+#include <wtf/ThreadSafeWeakHashSet.h>
 #endif
 
 namespace WebCore {
 
 class GLContext;
+#if USE(SKIA)
+class SkiaGLContext;
+#endif
 
 class PlatformDisplay {
     WTF_MAKE_NONCOPYABLE(PlatformDisplay); WTF_MAKE_FAST_ALLOCATED;
@@ -144,7 +148,7 @@ public:
 
 #if USE(SKIA)
     GLContext* skiaGLContext();
-    GrDirectContext* skiaGrContext() { RELEASE_ASSERT(m_skiaGLContext); return m_skiaGrContext.get(); }
+    GrDirectContext* skiaGrContext();
 #endif
 
 #if USE(LCMS)
@@ -206,6 +210,10 @@ protected:
 private:
     static std::unique_ptr<PlatformDisplay> createPlatformDisplay();
 
+#if USE(SKIA)
+    void invalidateSkiaGLContexts();
+#endif
+
 #if ENABLE(WEBGL) && !PLATFORM(WIN)
     void clearANGLESharingGLContext();
 #endif
@@ -235,8 +243,7 @@ private:
 #endif
 
 #if USE(SKIA)
-    std::unique_ptr<GLContext> m_skiaGLContext;
-    sk_sp<GrDirectContext> m_skiaGrContext;
+    ThreadSafeWeakHashSet<SkiaGLContext> m_skiaGLContexts;
 #endif
 
 #if PLATFORM(WPE)

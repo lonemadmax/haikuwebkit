@@ -156,7 +156,7 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::ExpandedTextValue, object.expandedTextValue().isolatedCopy());
     setProperty(AXPropertyName::SupportsExpandedTextValue, object.supportsExpandedTextValue());
     setProperty(AXPropertyName::ValueAutofillButtonType, static_cast<int>(object.valueAutofillButtonType()));
-    setProperty(AXPropertyName::URL, object.url().isolatedCopy());
+    setProperty(AXPropertyName::URL, std::make_shared<URL>(object.url().isolatedCopy()));
     setProperty(AXPropertyName::AccessKey, object.accessKey().isolatedCopy());
     setProperty(AXPropertyName::AutoCompleteValue, object.autoCompleteValue().isolatedCopy());
     setProperty(AXPropertyName::ColorValue, object.colorValue());
@@ -166,7 +166,7 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
     setProperty(AXPropertyName::LiveRegionStatus, object.liveRegionStatus().isolatedCopy());
     setProperty(AXPropertyName::LiveRegionRelevant, object.liveRegionRelevant().isolatedCopy());
     setProperty(AXPropertyName::LiveRegionAtomic, object.liveRegionAtomic());
-    setProperty(AXPropertyName::Path, object.elementPath());
+    setProperty(AXPropertyName::Path, std::make_shared<Path>(object.elementPath()));
     setProperty(AXPropertyName::HasHighlighting, object.hasHighlighting());
     setProperty(AXPropertyName::HasBoldFont, object.hasBoldFont());
     setProperty(AXPropertyName::HasItalicFont, object.hasItalicFont());
@@ -363,7 +363,6 @@ void AXIsolatedObject::initializeProperties(const Ref<AccessibilityObject>& axOb
             setProperty(AXPropertyName::TextInputMarkedTextMarkerRange, std::pair<AXID, CharacterRange>(range.start().objectID(), *characterRange));
 
         bool isNonNativeTextControl = object.isNonNativeTextControl();
-        setProperty(AXPropertyName::IsNonNativeTextControl, isNonNativeTextControl);
         setProperty(AXPropertyName::CanBeMultilineTextField, canBeMultilineTextField(object, isNonNativeTextControl));
     }
 
@@ -459,7 +458,7 @@ void AXIsolatedObject::setProperty(AXPropertyName propertyName, AXPropertyValueV
         [](uint64_t typedValue) { return !typedValue; },
         [](AccessibilityButtonState& typedValue) { return typedValue == AccessibilityButtonState::Off; },
         [](Color& typedValue) { return typedValue == Color(); },
-        [](URL& typedValue) { return typedValue == URL(); },
+        [](std::shared_ptr<URL>& typedValue) { return !typedValue || *typedValue == URL(); },
         [](LayoutRect& typedValue) { return typedValue == LayoutRect(); },
         [](IntPoint& typedValue) { return typedValue == IntPoint(); },
         [](IntRect& typedValue) { return typedValue == IntRect(); },
@@ -473,7 +472,7 @@ void AXIsolatedObject::setProperty(AXPropertyName propertyName, AXPropertyValueV
         [](Vector<AXID>& typedValue) { return typedValue.isEmpty(); },
         [](Vector<std::pair<AXID, AXID>>& typedValue) { return typedValue.isEmpty(); },
         [](Vector<String>& typedValue) { return typedValue.isEmpty(); },
-        [](Path& typedValue) { return typedValue.isEmpty(); },
+        [](std::shared_ptr<Path>& typedValue) { return !typedValue || typedValue->isEmpty(); },
         [](OptionSet<AXAncestorFlag>& typedValue) { return typedValue.isEmpty(); },
 #if PLATFORM(COCOA)
         [](RetainPtr<NSAttributedString>& typedValue) { return !typedValue; },
@@ -950,7 +949,10 @@ URL AXIsolatedObject::urlAttributeValue(AXPropertyName propertyName) const
 {
     auto value = m_propertyMap.get(propertyName);
     return WTF::switchOn(value,
-        [] (URL& typedValue) -> URL { return typedValue; },
+        [] (std::shared_ptr<URL>& typedValue) -> URL {
+            ASSERT(typedValue.get());
+            return *typedValue.get();
+        },
         [] (auto&) { return URL(); }
     );
 }
@@ -959,7 +961,10 @@ Path AXIsolatedObject::pathAttributeValue(AXPropertyName propertyName) const
 {
     auto value = m_propertyMap.get(propertyName);
     return WTF::switchOn(value,
-        [] (Path& typedValue) -> Path { return typedValue; },
+        [] (std::shared_ptr<Path>& typedValue) -> Path {
+            ASSERT(typedValue.get());
+            return *typedValue.get();
+        },
         [] (auto&) { return Path(); }
     );
 }
@@ -1589,6 +1594,12 @@ int AXIsolatedObject::lineForPosition(const VisiblePosition& position) const
 }
 
 bool AXIsolatedObject::isMockObject() const
+{
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool AXIsolatedObject::isNonNativeTextControl() const
 {
     ASSERT_NOT_REACHED();
     return false;

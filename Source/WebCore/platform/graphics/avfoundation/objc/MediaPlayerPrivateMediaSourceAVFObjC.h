@@ -214,7 +214,7 @@ private:
     bool hasVideo() const override;
     bool hasAudio() const override;
 
-    void setPageIsVisible(bool, String&& sceneIdentifier) final;
+    void setPageIsVisible(bool) final;
 
     MediaTime duration() const override;
     MediaTime startTime() const override;
@@ -407,6 +407,7 @@ ALLOW_NEW_API_WITHOUT_GUARDS_END
     String m_spatialTrackingLabel;
 #endif
 #if ENABLE(LINEAR_MEDIA_PLAYER)
+    bool m_usingLinearMediaPlayer { false };
     RetainPtr<FigVideoTargetRef> m_videoTarget;
 #endif
 };

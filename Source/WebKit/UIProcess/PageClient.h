@@ -518,6 +518,8 @@ public:
     virtual void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID) = 0;
 #endif
 
+    virtual void didClearEditorStateAfterPageTransition() = 0;
+
 #if PLATFORM(IOS_FAMILY)
     virtual void commitPotentialTapFailed() = 0;
     virtual void didGetTapHighlightGeometries(WebKit::TapIdentifier requestID, const WebCore::Color&, const Vector<WebCore::FloatQuad>& highlightedQuads, const WebCore::IntSize& topLeftRadius, const WebCore::IntSize& topRightRadius, const WebCore::IntSize& bottomLeftRadius, const WebCore::IntSize& bottomRightRadius, bool nodeHasBuiltInClickHandling) = 0;
@@ -703,7 +705,7 @@ public:
     virtual void storeAppHighlight(const WebCore::AppHighlight&) = 0;
 #endif
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    virtual void addTextIndicatorStyleForID(const WTF::UUID&, WebKit::TextIndicatorStyle) = 0;
+    virtual void addTextIndicatorStyleForID(const WTF::UUID&, const WebKit::TextIndicatorStyleData&) = 0;
     virtual void removeTextIndicatorStyleForID(const WTF::UUID&) = 0;
 #endif
     virtual void requestScrollToRect(const WebCore::FloatRect& targetRect, const WebCore::FloatPoint& origin) { }
@@ -763,6 +765,14 @@ public:
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
     virtual const String& spatialTrackingLabel() const = 0;
+#endif
+
+#if ENABLE(GAMEPAD)
+    enum class GamepadsRecentlyAccessed : bool {
+        No,
+        Yes
+    };
+    virtual void setGamepadsRecentlyAccessed(GamepadsRecentlyAccessed) { }
 #endif
 };
 

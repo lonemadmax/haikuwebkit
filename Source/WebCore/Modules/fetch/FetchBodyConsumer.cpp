@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2023 Apple Inc.
+ * Copyright (C) 2016-2024 Apple Inc.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted, provided that the following conditions
@@ -232,6 +232,9 @@ static void resolveWithTypeAndData(Ref<DeferredPromise>&& promise, FetchBodyCons
             return blobFromData(&context, { data }, contentType);
         });
         return;
+    case FetchBodyConsumer::Type::Bytes:
+        fulfillPromiseWithUint8ArrayFromSpan(WTFMove(promise), data);
+        return;
     case FetchBodyConsumer::Type::JSON:
         fulfillPromiseWithJSON(WTFMove(promise), TextResourceDecoder::textFromUTF8(data));
         return;
@@ -299,7 +302,7 @@ void FetchBodyConsumer::resolveWithFormData(Ref<DeferredPromise>&& promise, cons
 void FetchBodyConsumer::consumeFormDataAsStream(const FormData& formData, FetchBodySource& source, ScriptExecutionContext* context)
 {
     if (auto sharedBuffer = formData.asSharedBuffer()) {
-        if (source.enqueue(ArrayBuffer::tryCreate(sharedBuffer->makeContiguous()->data(), sharedBuffer->size())))
+        if (source.enqueue(ArrayBuffer::tryCreate(sharedBuffer->makeContiguous()->span())))
             source.close();
         return;
     }
@@ -374,6 +377,12 @@ void FetchBodyConsumer::resolve(Ref<DeferredPromise>&& promise, const String& co
             return takeAsBlob(&context, contentType);
         });
         return;
+    case Type::Bytes: {
+        RefPtr buffer = takeAsArrayBuffer();
+        RefPtr view = buffer ? RefPtr { Uint8Array::create(buffer.releaseNonNull()) } : nullptr;
+        fulfillPromiseWithUint8Array(WTFMove(promise), view.get());
+        return;
+    }
     case Type::JSON:
         fulfillPromiseWithJSON(WTFMove(promise), takeAsText());
         return;

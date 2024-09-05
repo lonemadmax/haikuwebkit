@@ -341,10 +341,14 @@ void RenderTreeUpdater::updateAfterDescendants(Element& element, const Style::El
     if (!renderer)
         return;
 
-    generatedContent().updateBackdropRenderer(*renderer);
-    generatedContent().updateWritingSuggestionsRenderer(*renderer);
+    StyleDifference minimalStyleDifference = StyleDifference::Equal;
+    if (update && update->recompositeLayer)
+        minimalStyleDifference = StyleDifference::RecompositeLayer;
+
+    generatedContent().updateBackdropRenderer(*renderer, minimalStyleDifference);
+    generatedContent().updateWritingSuggestionsRenderer(*renderer, minimalStyleDifference);
     if (&element == element.document().documentElement())
-        viewTransition().updatePseudoElementTree(*renderer);
+        viewTransition().updatePseudoElementTree(*renderer, minimalStyleDifference);
 
     m_builder.updateAfterDescendants(*renderer);
 
@@ -697,11 +701,26 @@ void RenderTreeUpdater::tearDownRenderer(Text& text)
     invalidateRebuildRootIfNeeded(text);
 }
 
-static void repaintBeforeTearDown(const Element& root, auto composedTreeDescendantsIterator)
+static void repaintAndMarkContainingBlockDirtyBeforeTearDown(const Element& root, auto composedTreeDescendantsIterator)
 {
     auto* destroyRootRenderer = root.renderer();
     if (destroyRootRenderer && destroyRootRenderer->renderTreeBeingDestroyed())
         return;
+
+    auto markContainingBlockDirty = [&](auto& renderer) {
+        auto* container = renderer.container();
+        if (!container) {
+            ASSERT_NOT_REACHED();
+            renderer.setNeedsLayout();
+            return;
+        }
+        if (!renderer.isOutOfFlowPositioned()) {
+            container->setChildNeedsLayout();
+            container->setPreferredLogicalWidthsDirty(true);
+            return;
+        }
+        container->setNeedsSimplifiedNormalFlowLayout();
+    };
 
     auto repaint = [&](auto& renderer) {
         if (renderer.isBody()) {
@@ -717,8 +736,10 @@ static void repaintBeforeTearDown(const Element& root, auto composedTreeDescenda
         renderer.repaint(RenderObject::ForceRepaint::Yes);
     };
 
-    if (destroyRootRenderer)
+    if (destroyRootRenderer) {
         repaint(*destroyRootRenderer);
+        markContainingBlockDirty(*destroyRootRenderer);
+    }
 
     for (auto it = composedTreeDescendantsIterator.begin(), end = composedTreeDescendantsIterator.end(); it != end; ++it) {
         auto* element = dynamicDowncast<Element>(*it);
@@ -736,6 +757,10 @@ static void repaintBeforeTearDown(const Element& root, auto composedTreeDescenda
         };
         if (shouldRepaint())
             renderer.repaint();
+        if (renderer.isOutOfFlowPositioned()) {
+            // FIXME: Ideally we would check if containing block is the destory root or a descendent of the destroy root.
+            markContainingBlockDirty(renderer);
+        }
     }
 }
 
@@ -806,12 +831,12 @@ void RenderTreeUpdater::tearDownRenderers(Element& root, TeardownType teardownTy
     push(root);
 
     auto descendants = composedTreeDescendants(root);
-    repaintBeforeTearDown(root, descendants);
+    repaintAndMarkContainingBlockDirtyBeforeTearDown(root, descendants);
     for (auto it = descendants.begin(), end = descendants.end(); it != end; ++it) {
         pop(it.depth());
 
         if (auto* text = dynamicDowncast<Text>(*it)) {
-            tearDownTextRenderer(*text, &root, builder, NeedsRepaint::No);
+            tearDownTextRenderer(*text, &root, builder, NeedsRepaintAndLayout::No);
             continue;
         }
 
@@ -823,13 +848,18 @@ void RenderTreeUpdater::tearDownRenderers(Element& root, TeardownType teardownTy
     tearDownLeftoverPaginationRenderersIfNeeded(root, builder);
 }
 
-void RenderTreeUpdater::tearDownTextRenderer(Text& text, const ContainerNode* root, RenderTreeBuilder& builder, NeedsRepaint needsRepaint)
+void RenderTreeUpdater::tearDownTextRenderer(Text& text, const ContainerNode* root, RenderTreeBuilder& builder, NeedsRepaintAndLayout needsRepaintAndLayout)
 {
     auto* renderer = text.renderer();
     if (!renderer)
         return;
-    if (needsRepaint == NeedsRepaint::Yes)
+    if (needsRepaintAndLayout == NeedsRepaintAndLayout::Yes) {
         renderer->repaint();
+        if (auto* parent = renderer->parent()) {
+            parent->setChildNeedsLayout();
+            parent->setPreferredLogicalWidthsDirty(true);
+        }
+    }
     builder.destroyAndCleanUpAnonymousWrappers(*renderer, root ? root->renderer() : nullptr);
     text.setRenderer(nullptr);
 }
@@ -852,7 +882,7 @@ void RenderTreeUpdater::tearDownLeftoverChildrenOfComposedTree(Element& element,
         if (!child->renderer())
             continue;
         if (auto* text = dynamicDowncast<Text>(*child)) {
-            tearDownTextRenderer(*text, &element, builder, NeedsRepaint::No);
+            tearDownTextRenderer(*text, &element, builder, NeedsRepaintAndLayout::No);
             continue;
         }
         if (auto* element = dynamicDowncast<Element>(*child))

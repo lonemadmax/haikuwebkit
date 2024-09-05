@@ -116,11 +116,7 @@ RemoteRenderingBackend::RemoteRenderingBackend(GPUConnectionToWebProcess& gpuCon
     , m_streamConnection(WTFMove(streamConnection))
     , m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_sharedResourceCache(gpuConnectionToWebProcess.sharedResourceCache())
-    , m_resourceOwner(gpuConnectionToWebProcess.webProcessIdentity())
     , m_renderingBackendIdentifier(creationParameters.identifier)
-#if HAVE(IOSURFACE)
-    , m_ioSurfacePool(IOSurfacePool::create())
-#endif
     , m_shapeDetectionObjectHeap(ShapeDetection::ObjectHeap::create())
 {
     ASSERT(RunLoop::isMain());
@@ -230,6 +226,14 @@ void RemoteRenderingBackend::moveToSerializedBuffer(RenderingResourceIdentifier 
     m_sharedResourceCache->addSerializedImageBuffer(identifier, imageBuffer.releaseNonNull());
 }
 
+static void adjustImageBufferCreationContext(RemoteSharedResourceCache& sharedResourceCache, ImageBufferCreationContext& creationContext)
+{
+#if HAVE(IOSURFACE)
+    creationContext.surfacePool = &sharedResourceCache.ioSurfacePool();
+#endif
+    creationContext.resourceOwner = sharedResourceCache.resourceOwner();
+}
+
 void RemoteRenderingBackend::moveToImageBuffer(RenderingResourceIdentifier identifier)
 {
     assertIsCurrent(workQueue());
@@ -242,10 +246,7 @@ void RemoteRenderingBackend::moveToImageBuffer(RenderingResourceIdentifier ident
     ASSERT(identifier == imageBuffer->renderingResourceIdentifier());
 
     ImageBufferCreationContext creationContext;
-#if HAVE(IOSURFACE)
-    creationContext.surfacePool = &ioSurfacePool();
-#endif
-    creationContext.resourceOwner = m_resourceOwner;
+    adjustImageBufferCreationContext(m_sharedResourceCache, creationContext);
     imageBuffer->transferToNewContext(creationContext);
     didCreateImageBuffer(imageBuffer.releaseNonNull());
 }
@@ -269,29 +270,19 @@ static RefPtr<ImageBuffer> allocateImageBufferInternal(const FloatSize& logicalS
     return imageBuffer;
 }
 
-RefPtr<ImageBuffer> RemoteRenderingBackend::allocateImageBuffer(const FloatSize& logicalSize, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat, const ImageBufferCreationContext& creationContext, RenderingResourceIdentifier imageBufferIdentifier)
+RefPtr<ImageBuffer> RemoteRenderingBackend::allocateImageBuffer(const FloatSize& logicalSize, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat, ImageBufferCreationContext creationContext, RenderingResourceIdentifier imageBufferIdentifier)
 {
     assertIsCurrent(workQueue());
-
-    ASSERT(!creationContext.resourceOwner);
-#if HAVE(IOSURFACE)
-    ASSERT(!creationContext.surfacePool);
-#endif
-    ImageBufferCreationContext adjustedCreationContext = creationContext;
-    adjustedCreationContext.resourceOwner = m_resourceOwner;
-#if HAVE(IOSURFACE)
-    adjustedCreationContext.surfacePool = &ioSurfacePool();
-#endif
-
+    adjustImageBufferCreationContext(m_sharedResourceCache, creationContext);
     RefPtr<ImageBuffer> imageBuffer;
 
 #if ENABLE(RE_DYNAMIC_CONTENT_SCALING)
     if (m_gpuConnectionToWebProcess->isDynamicContentScalingEnabled() && (purpose == RenderingPurpose::LayerBacking || purpose == RenderingPurpose::DOM))
-        imageBuffer = allocateImageBufferInternal<DynamicContentScalingBifurcatedImageBuffer>(logicalSize, renderingMode, purpose, resolutionScale, colorSpace, pixelFormat, adjustedCreationContext, imageBufferIdentifier);
+        imageBuffer = allocateImageBufferInternal<DynamicContentScalingBifurcatedImageBuffer>(logicalSize, renderingMode, purpose, resolutionScale, colorSpace, pixelFormat, creationContext, imageBufferIdentifier);
 #endif
 
     if (!imageBuffer)
-        imageBuffer = allocateImageBufferInternal<ImageBuffer>(logicalSize, renderingMode, purpose, resolutionScale, colorSpace, pixelFormat, adjustedCreationContext, imageBufferIdentifier);
+        imageBuffer = allocateImageBufferInternal<ImageBuffer>(logicalSize, renderingMode, purpose, resolutionScale, colorSpace, pixelFormat, creationContext, imageBufferIdentifier);
 
     return imageBuffer;
 }
@@ -396,13 +387,19 @@ void RemoteRenderingBackend::cacheDecomposedGlyphs(Ref<DecomposedGlyphs>&& decom
 void RemoteRenderingBackend::cacheGradient(Ref<Gradient>&& gradient)
 {
     ASSERT(!RunLoop::isMain());
-    m_remoteResourceCache.cacheGradient(WTFMove(gradient));
+    if (gradient->hasValidRenderingResourceIdentifier())
+        m_remoteResourceCache.cacheGradient(WTFMove(gradient));
+    else
+        LOG_WITH_STREAM(DisplayLists, stream << "Received a Gradient without a valid resource identifier");
 }
 
 void RemoteRenderingBackend::cacheFilter(Ref<Filter>&& filter)
 {
     ASSERT(!RunLoop::isMain());
-    m_remoteResourceCache.cacheFilter(WTFMove(filter));
+    if (filter->hasValidRenderingResourceIdentifier())
+        m_remoteResourceCache.cacheFilter(WTFMove(filter));
+    else
+        LOG_WITH_STREAM(DisplayLists, stream << "Received a Filter without a valid resource identifier");
 }
 
 void RemoteRenderingBackend::releaseAllDrawingResources()
@@ -506,14 +503,6 @@ void RemoteRenderingBackend::markSurfacesVolatile(MarkSurfacesAsVolatileRequestI
 void RemoteRenderingBackend::finalizeRenderingUpdate(RenderingUpdateID renderingUpdateID)
 {
     send(Messages::RemoteRenderingBackendProxy::DidFinalizeRenderingUpdate(renderingUpdateID), m_renderingBackendIdentifier);
-}
-
-void RemoteRenderingBackend::lowMemoryHandler(Critical, Synchronous)
-{
-    ASSERT(isMainRunLoop());
-#if HAVE(IOSURFACE)
-    m_ioSurfacePool->discardAllSurfaces();
-#endif
 }
 
 void RemoteRenderingBackend::createRemoteBarcodeDetector(ShapeDetectionIdentifier identifier, const WebCore::ShapeDetection::BarcodeDetectorOptions& barcodeDetectorOptions)

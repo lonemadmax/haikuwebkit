@@ -1280,6 +1280,7 @@ editing/ApplyBlockElementCommand.cpp
 editing/ApplyStyleCommand.cpp
 editing/BreakBlockquoteCommand.cpp
 editing/ChangeListTypeCommand.cpp
+editing/CharacterRange.cpp
 editing/CompositeEditCommand.cpp
 editing/CreateLinkCommand.cpp
 editing/CustomUndoStep.cpp
@@ -4482,6 +4483,7 @@ JSCSSTranslate.cpp
 JSCSSStyleValue.cpp
 JSCSSUnitValue.cpp
 JSCSSUnparsedValue.cpp
+JSFragmentDirective.cpp
 JSFullscreenOptions.cpp
 JSUIEvent.cpp
 JSUIEventInit.cpp

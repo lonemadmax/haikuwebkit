@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -318,6 +318,7 @@ void SpeculativeJIT::exceptionCheck(GPRReg exceptionReg)
     HandlerInfo* exceptionHandler;
     bool willCatchException = m_graph.willCatchExceptionInMachineFrame(m_currentNode->origin.forExit, opCatchOrigin, exceptionHandler);
     if (willCatchException) {
+        RELEASE_ASSERT(!m_underSilentSpill);
         unsigned streamIndex = m_outOfLineStreamIndex ? *m_outOfLineStreamIndex : m_stream.size();
         Jump hadException = emitNonPatchableExceptionCheck(vm(), exceptionReg);
         // We assume here that this is called after callOperation()/appendCall() is called.
@@ -674,6 +675,7 @@ void SpeculativeJIT::runSlowPathGenerators(PCToCodeOriginMapBuilder& pcToCodeOri
         auto sizeMarker = markSlowPathIfNeeded(currentNode);
 
         slowPathLambda.generator();
+        ASSERT(!m_underSilentSpill);
         m_outOfLineStreamIndex = std::nullopt;
         if (UNLIKELY(sizeMarker))
             vm().jitSizeStatistics->markEnd(WTFMove(*sizeMarker), *this, m_graph.m_plan);
@@ -876,8 +878,9 @@ SilentRegisterSavePlan SpeculativeJIT::silentSavePlanForFPR(VirtualRegister spil
     return SilentRegisterSavePlan(spillAction, fillAction, node, source);
 }
     
-void SpeculativeJIT::silentSpill(const SilentRegisterSavePlan& plan)
+void SpeculativeJIT::silentSpillImpl(const SilentRegisterSavePlan& plan)
 {
+    ASSERT(m_underSilentSpill);
     switch (plan.spillAction()) {
     case DoNothingForSpill:
         break;
@@ -903,8 +906,9 @@ void SpeculativeJIT::silentSpill(const SilentRegisterSavePlan& plan)
     }
 }
     
-void SpeculativeJIT::silentFill(const SilentRegisterSavePlan& plan)
+void SpeculativeJIT::silentFillImpl(const SilentRegisterSavePlan& plan)
 {
+    ASSERT(m_underSilentSpill);
     switch (plan.fillAction()) {
     case DoNothingForFill:
         break;
@@ -2264,9 +2268,7 @@ void SpeculativeJIT::compileToLowerCase(Node* node)
     jump().linkTo(loopStart, this);
     
     slowPath.link(this);
-    silentSpillAllRegisters(lengthGPR);
-    callOperation(operationToLowerCase, lengthGPR, LinkableConstant::globalObject(*this, node), stringGPR, indexGPR);
-    silentFillAllRegisters();
+    callOperationWithSilentSpill(operationToLowerCase, lengthGPR, LinkableConstant::globalObject(*this, node), stringGPR, indexGPR);
     auto done = jump();
 
     loopDone.link(this);
@@ -4430,12 +4432,11 @@ void SpeculativeJIT::compileGetByValForObjectWithString(Node* node, const Scoped
     speculateString(m_graph.varArgChild(node, 1), arg2GPR);
 
     if (canUseFlush == CanUseFlush::No)
-        silentSpillAllRegisters(resultRegs);
-    else
+        callOperationWithSilentSpill(operationGetByValObjectString, resultRegs, LinkableConstant::globalObject(*this, node), arg1GPR, arg2GPR);
+    else {
         flushRegisters();
-    callOperation(operationGetByValObjectString, resultRegs, LinkableConstant::globalObject(*this, node), arg1GPR, arg2GPR);
-    if (canUseFlush == CanUseFlush::No)
-        silentFillAllRegisters();
+        callOperation(operationGetByValObjectString, resultRegs, LinkableConstant::globalObject(*this, node), arg1GPR, arg2GPR);
+    }
 
     jsValueResult(resultRegs, node);
 }
@@ -4456,12 +4457,11 @@ void SpeculativeJIT::compileGetByValForObjectWithSymbol(Node* node, const Scoped
     speculateSymbol(m_graph.varArgChild(node, 1), arg2GPR);
 
     if (canUseFlush == CanUseFlush::No)
-        silentSpillAllRegisters(resultRegs);
-    else
+        callOperationWithSilentSpill(operationGetByValObjectSymbol, resultRegs, LinkableConstant::globalObject(*this, node), arg1GPR, arg2GPR);
+    else {
         flushRegisters();
-    callOperation(operationGetByValObjectSymbol, resultRegs, LinkableConstant::globalObject(*this, node), arg1GPR, arg2GPR);
-    if (canUseFlush == CanUseFlush::No)
-        silentFillAllRegisters();
+        callOperation(operationGetByValObjectSymbol, resultRegs, LinkableConstant::globalObject(*this, node), arg1GPR, arg2GPR);
+    }
 
     jsValueResult(resultRegs, node);
 }
@@ -5256,7 +5256,6 @@ void SpeculativeJIT::emitUntypedOrAnyBigIntBitOp(Node* node)
     gen.endJumpList().append(jump());
 
     gen.slowPathJumpList().link(this);
-    silentSpillAllRegisters(resultRegs);
 
     if (leftOperand.isConst()) {
         leftRegs = resultRegs;
@@ -5266,9 +5265,7 @@ void SpeculativeJIT::emitUntypedOrAnyBigIntBitOp(Node* node)
         moveValue(rightChild->asJSValue(), rightRegs);
     }
 
-    callOperation(snippetSlowPathFunction, resultRegs, LinkableConstant::globalObject(*this, node), leftRegs, rightRegs);
-
-    silentFillAllRegisters();
+    callOperationWithSilentSpill(snippetSlowPathFunction, resultRegs, LinkableConstant::globalObject(*this, node), leftRegs, rightRegs);
 
     gen.endJumpList().link(this);
     jsValueResult(resultRegs, node);
@@ -5472,7 +5469,6 @@ void SpeculativeJIT::emitUntypedOrBigIntRightShiftBitOp(Node* node)
     gen.endJumpList().append(jump());
 
     gen.slowPathJumpList().link(this);
-    silentSpillAllRegisters(resultRegs);
 
     if (leftOperand.isConst()) {
         leftRegs = resultRegs;
@@ -5482,9 +5478,7 @@ void SpeculativeJIT::emitUntypedOrBigIntRightShiftBitOp(Node* node)
         moveValue(rightChild->asJSValue(), rightRegs);
     }
 
-    callOperation(snippetSlowPathFunction, resultRegs, LinkableConstant::globalObject(*this, node), leftRegs, rightRegs);
-
-    silentFillAllRegisters();
+    callOperationWithSilentSpill(snippetSlowPathFunction, resultRegs, LinkableConstant::globalObject(*this, node), leftRegs, rightRegs);
 
     gen.endJumpList().link(this);
     jsValueResult(resultRegs, node);
@@ -5833,8 +5827,6 @@ void SpeculativeJIT::compileMathIC(Node* node, JITBinaryMathIC<Generator>* mathI
             auto slowPathStart = label();
 #endif
 
-            silentSpill(savePlans);
-
             auto innerLeftRegs = leftRegs;
             auto innerRightRegs = rightRegs;
             if (Generator::isLeftOperandValidConstant(leftOperand)) {
@@ -5846,11 +5838,10 @@ void SpeculativeJIT::compileMathIC(Node* node, JITBinaryMathIC<Generator>* mathI
             }
 
             if (addICGenerationState->shouldSlowPathRepatch)
-                addICGenerationState->slowPathCall = callOperation(repatchingFunction, resultRegs, LinkableConstant::globalObject(*this, node), innerLeftRegs, innerRightRegs, TrustedImmPtr(mathIC));
+                addICGenerationState->slowPathCall = callOperationWithSilentSpill(savePlans, repatchingFunction, resultRegs, LinkableConstant::globalObject(*this, node), innerLeftRegs, innerRightRegs, TrustedImmPtr(mathIC));
             else
-                addICGenerationState->slowPathCall = callOperation(nonRepatchingFunction, resultRegs, LinkableConstant::globalObject(*this, node), innerLeftRegs, innerRightRegs);
+                addICGenerationState->slowPathCall = callOperationWithSilentSpill(savePlans, nonRepatchingFunction, resultRegs, LinkableConstant::globalObject(*this, node), innerLeftRegs, innerRightRegs);
 
-            silentFill(savePlans);
             jump().linkTo(done, this);
 
             addLinkTask([=] (LinkBuffer& linkBuffer) {
@@ -6464,14 +6455,11 @@ void SpeculativeJIT::compileMathIC(Node* node, JITUnaryMathIC<Generator>* mathIC
             auto slowPathStart = label();
 #endif
 
-            silentSpill(savePlans);
-
             if (icGenerationState->shouldSlowPathRepatch)
-                icGenerationState->slowPathCall = callOperation(repatchingFunction, resultRegs, LinkableConstant::globalObject(*this, node), childRegs, TrustedImmPtr(mathIC));
+                icGenerationState->slowPathCall = callOperationWithSilentSpill(savePlans, repatchingFunction, resultRegs, LinkableConstant::globalObject(*this, node), childRegs, TrustedImmPtr(mathIC));
             else
-                icGenerationState->slowPathCall = callOperation(nonRepatchingFunction, resultRegs, LinkableConstant::globalObject(*this, node), childRegs);
+                icGenerationState->slowPathCall = callOperationWithSilentSpill(savePlans, nonRepatchingFunction, resultRegs, LinkableConstant::globalObject(*this, node), childRegs);
 
-            silentFill(savePlans);
             jump().linkTo(done, this);
 
             addLinkTask([=] (LinkBuffer& linkBuffer) {
@@ -6839,7 +6827,6 @@ void SpeculativeJIT::compileValueDiv(Node* node)
     gen.endJumpList().append(jump());
 
     gen.slowPathJumpList().link(this);
-    silentSpillAllRegisters(resultRegs);
 
     if (leftOperand.isConst()) {
         leftRegs = resultRegs;
@@ -6850,9 +6837,7 @@ void SpeculativeJIT::compileValueDiv(Node* node)
         moveValue(rightChild->asJSValue(), rightRegs);
     }
 
-    callOperation(operationValueDiv, resultRegs, LinkableConstant::globalObject(*this, node), leftRegs, rightRegs);
-
-    silentFillAllRegisters();
+    callOperationWithSilentSpill(operationValueDiv, resultRegs, LinkableConstant::globalObject(*this, node), leftRegs, rightRegs);
 
     gen.endJumpList().link(this);
     jsValueResult(resultRegs, node);
@@ -9837,7 +9822,7 @@ void SpeculativeJIT::compileSpread(Node* node)
         add32(TrustedImm32(JSImmutableButterfly::offsetOfData()), scratch1GPR);
 
         emitAllocateVariableSizedCell<JSImmutableButterfly>(vm(), resultGPR, TrustedImmPtr(m_graph.registerStructure(vm().immutableButterflyStructures[arrayIndexFromIndexingType(CopyOnWriteArrayWithContiguous) - NumberOfIndexingShapes].get())), scratch1GPR, scratch1GPR, scratch2GPR, slowPath, SlowAllocationResult::UndefinedBehavior);
-        ASSERT(JSImmutableButterfly::offsetOfPublicLength() + static_cast<ptrdiff_t>(sizeof(uint32_t)) == JSImmutableButterfly::offsetOfVectorLength());
+        static_assert(JSImmutableButterfly::offsetOfPublicLength() + static_cast<ptrdiff_t>(sizeof(uint32_t)) == JSImmutableButterfly::offsetOfVectorLength());
         storePair32(lengthGPR, lengthGPR, resultGPR, TrustedImm32(JSImmutableButterfly::offsetOfPublicLength()));
 
         loadPtr(Address(argument, JSObject::butterflyOffset()), scratch1GPR);
@@ -11983,8 +11968,8 @@ void SpeculativeJIT::compileNewMap(Node* node)
 
 #if CPU(ARM64)
     ASSERT(JSValue::encode(JSValue()) == 0);
-    ASSERT(JSMap::BucketType::offsetOfNext() + 8 == JSMap::BucketType::offsetOfPrev());
-    ASSERT(JSMap::BucketType::offsetOfKey() + 8 == JSMap::BucketType::offsetOfValue());
+    static_assert(JSMap::BucketType::offsetOfNext() + sizeof(void*) == JSMap::BucketType::offsetOfPrev());
+    static_assert(JSMap::BucketType::offsetOfKey() + sizeof(void*) == JSMap::BucketType::offsetOfValue());
     storePairPtr(ARM64Registers::zr, ARM64Registers::zr, Address(headGPR, JSMap::BucketType::offsetOfNext()));
     storePairPtr(ARM64Registers::zr, ARM64Registers::zr, Address(headGPR, JSMap::BucketType::offsetOfKey()));
 #else
@@ -12000,9 +11985,9 @@ void SpeculativeJIT::compileNewMap(Node* node)
 
 #if CPU(ARM64)
     ASSERT(JSValue::encode(JSValue()) == 0);
-    ASSERT(JSMap::offsetOfHead() + 8 == JSMap::offsetOfTail());
-    ASSERT(JSMap::offsetOfBuffer() + 8 == JSMap::offsetOfKeyCount());
-    ASSERT(JSMap::offsetOfKeyCount() + 4 == JSMap::offsetOfDeleteCount());
+    static_assert(JSMap::offsetOfHead() + sizeof(void*) == JSMap::offsetOfTail());
+    static_assert(JSMap::offsetOfBuffer() + sizeof(void*) == JSMap::offsetOfKeyCount());
+    static_assert(JSMap::offsetOfKeyCount() + sizeof(uint32_t) == JSMap::offsetOfDeleteCount());
     storePairPtr(headGPR, headGPR, Address(resultGPR, JSMap::offsetOfHead()));
     storePairPtr(ARM64Registers::zr, ARM64Registers::zr, Address(resultGPR, JSMap::offsetOfBuffer()));
     store32(ARM64Registers::zr, Address(resultGPR, JSMap::offsetOfCapacity()));
@@ -12039,7 +12024,7 @@ void SpeculativeJIT::compileNewSet(Node* node)
     emitAllocateJSCell(headGPR, JITAllocator::constant(allocatorValue), scratch1GPR, TrustedImmPtr(m_graph.registerStructure(vm().hashMapBucketSetStructure.get())), scratch2GPR, slowPath, SlowAllocationResult::UndefinedBehavior);
 
 #if CPU(ARM64)
-    ASSERT(JSSet::BucketType::offsetOfNext() + 8 == JSSet::BucketType::offsetOfPrev());
+    static_assert(JSSet::BucketType::offsetOfNext() + sizeof(void*) == JSSet::BucketType::offsetOfPrev());
     storePairPtr(ARM64Registers::zr, ARM64Registers::zr, Address(headGPR, JSSet::BucketType::offsetOfNext()));
 #else
     storePtr(TrustedImmPtr(nullptr), Address(headGPR, JSSet::BucketType::offsetOfNext()));
@@ -12053,9 +12038,9 @@ void SpeculativeJIT::compileNewSet(Node* node)
 
 #if CPU(ARM64)
     ASSERT(JSValue::encode(JSValue()) == 0);
-    ASSERT(JSSet::offsetOfHead() + 8 == JSSet::offsetOfTail());
-    ASSERT(JSSet::offsetOfBuffer() + 8 == JSSet::offsetOfKeyCount());
-    ASSERT(JSSet::offsetOfKeyCount() + 4 == JSSet::offsetOfDeleteCount());
+    static_assert(JSSet::offsetOfHead() + sizeof(void*) == JSSet::offsetOfTail());
+    static_assert(JSSet::offsetOfBuffer() + sizeof(void*) == JSSet::offsetOfKeyCount());
+    static_assert(JSSet::offsetOfKeyCount() + sizeof(uint32_t) == JSSet::offsetOfDeleteCount());
     storePairPtr(headGPR, headGPR, Address(resultGPR, JSSet::offsetOfHead()));
     storePairPtr(ARM64Registers::zr, ARM64Registers::zr, Address(resultGPR, JSSet::offsetOfBuffer()));
     store32(ARM64Registers::zr, Address(resultGPR, JSSet::offsetOfCapacity()));
@@ -13080,7 +13065,7 @@ void SpeculativeJIT::emitSwitchIntJump(
     addBranch(
         branch32(AboveOrEqual, value, Imm32(linkedTable.m_ctiOffsets.size())),
         data->fallThrough.block);
-    move(TrustedImmPtr(linkedTable.m_ctiOffsets.data()), scratch);
+    move(TrustedImmPtr(linkedTable.m_ctiOffsets.mutableSpan().data()), scratch);
 
 #if USE(JSVALUE64)
     farJump(BaseIndex(scratch, value, ScalePtr), JSSwitchPtrTag);
@@ -13413,9 +13398,7 @@ void SpeculativeJIT::emitSwitchStringOnString(Node* node, SwitchData* data, GPRR
         data, cases, 0, 0, cases.size(), string, lengthGPR, tempGPR, 0, false);
     
     slowCases.link(this);
-    silentSpillAllRegisters(string);
-    callOperation(operationSwitchString, string, LinkableConstant::globalObject(*this, node), static_cast<size_t>(data->switchTableIndex), TrustedImmPtr(&unlinkedTable), string);
-    silentFillAllRegisters();
+    callOperationWithSilentSpill(operationSwitchString, string, LinkableConstant::globalObject(*this, node), static_cast<size_t>(data->switchTableIndex), TrustedImmPtr(&unlinkedTable), string);
     farJump(string, JSSwitchPtrTag);
 }
 
@@ -14372,7 +14355,7 @@ void SpeculativeJIT::emitAllocateButterfly(GPRReg storageResultGPR, GPRReg sizeG
     emitAllocateVariableSized(
         storageResultGPR, vm().auxiliarySpace(), scratch2, scratch1, scratch3, slowCases);
     addPtr(TrustedImm32(sizeof(IndexingHeader)), storageResultGPR);
-    ASSERT(Butterfly::offsetOfPublicLength() + static_cast<ptrdiff_t>(sizeof(uint32_t)) == Butterfly::offsetOfVectorLength());
+    static_assert(Butterfly::offsetOfPublicLength() + static_cast<ptrdiff_t>(sizeof(uint32_t)) == Butterfly::offsetOfVectorLength());
     storePair32(sizeGPR, sizeGPR, storageResultGPR, TrustedImm32(Butterfly::offsetOfPublicLength()));
 }
 
@@ -14442,7 +14425,7 @@ void SpeculativeJIT::compileGetMapBucketHead(Node* node)
     else
         RELEASE_ASSERT_NOT_REACHED();
 
-    ASSERT(HashMapImpl<HashMapBucket<HashMapBucketDataKey>>::offsetOfHead() == HashMapImpl<HashMapBucket<HashMapBucketDataKeyValue>>::offsetOfHead());
+    static_assert(HashMapImpl<HashMapBucket<HashMapBucketDataKey>>::offsetOfHead() == HashMapImpl<HashMapBucket<HashMapBucketDataKeyValue>>::offsetOfHead());
     loadPtr(Address(mapGPR, HashMapImpl<HashMapBucket<HashMapBucketDataKey>>::offsetOfHead()), bucketGPR);
     cellResult(bucketGPR, node);
 }
@@ -14455,8 +14438,8 @@ void SpeculativeJIT::compileGetMapBucketNext(Node* node)
     GPRReg bucketGPR = bucket.gpr();
     GPRReg resultGPR = result.gpr();
 
-    ASSERT(HashMapBucket<HashMapBucketDataKey>::offsetOfNext() == HashMapBucket<HashMapBucketDataKeyValue>::offsetOfNext());
-    ASSERT(HashMapBucket<HashMapBucketDataKey>::offsetOfKey() == HashMapBucket<HashMapBucketDataKeyValue>::offsetOfKey());
+    static_assert(HashMapBucket<HashMapBucketDataKey>::offsetOfNext() == HashMapBucket<HashMapBucketDataKeyValue>::offsetOfNext());
+    static_assert(HashMapBucket<HashMapBucketDataKey>::offsetOfKey() == HashMapBucket<HashMapBucketDataKeyValue>::offsetOfKey());
     loadPtr(Address(bucketGPR, HashMapBucket<HashMapBucketDataKeyValue>::offsetOfNext()), resultGPR);
 
     Label loop = label();
@@ -14982,9 +14965,7 @@ void SpeculativeJIT::compileGetPropertyEnumerator(Node* node)
         doneCases.append(jump());
 
         slowCases.link(this);
-        silentSpillAllRegisters(scratch1GPR);
-        callOperation(operationGetPropertyEnumeratorCell, scratch1GPR, LinkableConstant::globalObject(*this, node), baseRegs.payloadGPR());
-        silentFillAllRegisters();
+        callOperationWithSilentSpill(operationGetPropertyEnumeratorCell, scratch1GPR, LinkableConstant::globalObject(*this, node), baseRegs.payloadGPR());
 
         doneCases.link(this);
         cellResult(scratch1GPR, node);
@@ -16021,8 +16002,8 @@ void SpeculativeJIT::compileWeakMapGet(Node* node)
         else
             speculateWeakSetObject(node->child1(), weakMapGPR);
 
-        ASSERT(WeakMapImpl<WeakMapBucket<WeakMapBucketDataKey>>::offsetOfCapacity() == WeakMapImpl<WeakMapBucket<WeakMapBucketDataKeyValue>>::offsetOfCapacity());
-        ASSERT(WeakMapImpl<WeakMapBucket<WeakMapBucketDataKey>>::offsetOfBuffer() == WeakMapImpl<WeakMapBucket<WeakMapBucketDataKeyValue>>::offsetOfBuffer());
+        static_assert(WeakMapImpl<WeakMapBucket<WeakMapBucketDataKey>>::offsetOfCapacity() == WeakMapImpl<WeakMapBucket<WeakMapBucketDataKeyValue>>::offsetOfCapacity());
+        static_assert(WeakMapImpl<WeakMapBucket<WeakMapBucketDataKey>>::offsetOfBuffer() == WeakMapImpl<WeakMapBucket<WeakMapBucketDataKeyValue>>::offsetOfBuffer());
         load32(Address(weakMapGPR, WeakMapImpl<WeakMapBucket<WeakMapBucketDataKey>>::offsetOfCapacity()), maskGPR);
         loadPtr(Address(weakMapGPR, WeakMapImpl<WeakMapBucket<WeakMapBucketDataKey>>::offsetOfBuffer()), bufferGPR);
     }
@@ -16785,9 +16766,7 @@ void SpeculativeJIT::genericJSValuePeepholeBranch(Node* node, Node* branchNode, 
 
             slowPath.link(this);
 
-            silentSpillAllRegisters(resultGPR);
-            callOperation(helperFunction, resultGPR, LinkableConstant::globalObject(*this, node), arg1Regs, arg2Regs);
-            silentFillAllRegisters();
+            callOperationWithSilentSpill(helperFunction, resultGPR, LinkableConstant::globalObject(*this, node), arg1Regs, arg2Regs);
 
             branchTest32(callResultCondition, resultGPR, taken);
         }

@@ -229,13 +229,12 @@ void CommandEncoder::endEncoding(id<MTLCommandEncoder> encoder)
 {
     id<MTLCommandEncoder> existingEncoder = m_device->getQueue().encoderForBuffer(m_commandBuffer);
     if (existingEncoder != encoder) {
-        [existingEncoder endEncoding];
+        m_device->getQueue().endEncoding(existingEncoder, m_commandBuffer);
         setExistingEncoder(nil);
         return;
     }
 
-    if (encoderIsCurrent(m_existingCommandEncoder))
-        [m_existingCommandEncoder endEncoding];
+    m_device->getQueue().endEncoding(m_existingCommandEncoder, m_commandBuffer);
     setExistingEncoder(nil);
     m_blitCommandEncoder = nil;
 }
@@ -372,6 +371,7 @@ void CommandEncoder::runClearEncoder(NSMutableDictionary<NSNumber*, TextureAndCl
             mtlAttachment.depthPlane = textureAndClearColor.depthPlane;
         }
         clearRenderCommandEncoder = [m_commandBuffer renderCommandEncoderWithDescriptor:clearDescriptor];
+        setExistingEncoder(clearRenderCommandEncoder);
     }
 
     auto [pso, depthStencil] = createSimplePso(attachmentsToClear, depthStencilAttachmentToClear, depthAttachmentToClear, stencilAttachmentToClear, device);
@@ -380,7 +380,8 @@ void CommandEncoder::runClearEncoder(NSMutableDictionary<NSNumber*, TextureAndCl
         [clearRenderCommandEncoder setDepthStencilState:depthStencil];
     [clearRenderCommandEncoder setCullMode:MTLCullModeNone];
     [clearRenderCommandEncoder drawPrimitives:MTLPrimitiveTypePoint vertexStart:0 vertexCount:1 instanceCount:1 baseInstance:0];
-    [clearRenderCommandEncoder endEncoding];
+    m_device->getQueue().endEncoding(clearRenderCommandEncoder, m_commandBuffer);
+    setExistingEncoder(nil);
 }
 
 static bool isMultisampleTexture(id<MTLTexture> texture)
@@ -710,7 +711,7 @@ void CommandEncoder::decrementBufferMapCount()
         m_cachedCommandBuffer->setBufferMapCount(m_bufferMapCount);
 }
 
-void CommandEncoder::copyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, const Buffer& destination, uint64_t destinationOffset, uint64_t size)
+void CommandEncoder::copyBufferToBuffer(const Buffer& source, uint64_t sourceOffset, Buffer& destination, uint64_t destinationOffset, uint64_t size)
 {
     // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-copybuffertobuffer
     if (!prepareTheEncoderState()) {
@@ -725,6 +726,7 @@ void CommandEncoder::copyBufferToBuffer(const Buffer& source, uint64_t sourceOff
 
     source.setCommandEncoder(*this);
     destination.setCommandEncoder(*this);
+    destination.indirectBufferInvalidated();
     if (!size || source.isDestroyed() || destination.isDestroyed())
         return;
 
@@ -1213,6 +1215,11 @@ void CommandEncoder::makeInvalid(NSString* errorString)
         m_cachedCommandBuffer.get()->makeInvalid(errorString);
 }
 
+bool CommandEncoder::submitWillBeInvalid() const
+{
+    return m_makeSubmitInvalid;
+}
+
 void CommandEncoder::makeSubmitInvalid(NSString* errorString)
 {
     m_makeSubmitInvalid = true;
@@ -1255,6 +1262,7 @@ void CommandEncoder::copyTextureToBuffer(const WGPUImageCopyTexture& source, con
     auto& apiDestinationBuffer = fromAPI(destination.buffer);
     sourceTexture.setCommandEncoder(*this);
     apiDestinationBuffer.setCommandEncoder(*this);
+    apiDestinationBuffer.indirectBufferInvalidated();
     if (sourceTexture.isDestroyed() || apiDestinationBuffer.isDestroyed())
         return;
 
@@ -1667,7 +1675,7 @@ bool CommandEncoder::validateClearBuffer(const Buffer& buffer, uint64_t offset, 
     return true;
 }
 
-void CommandEncoder::clearBuffer(const Buffer& buffer, uint64_t offset, uint64_t size)
+void CommandEncoder::clearBuffer(Buffer& buffer, uint64_t offset, uint64_t size)
 {
     // https://gpuweb.github.io/gpuweb/#dom-gpucommandencoder-clearbuffer
 
@@ -1691,6 +1699,7 @@ void CommandEncoder::clearBuffer(const Buffer& buffer, uint64_t offset, uint64_t
     }
 
     buffer.setCommandEncoder(*this);
+    buffer.indirectBufferInvalidated();
     auto range = NSMakeRange(static_cast<NSUInteger>(offset), static_cast<NSUInteger>(size));
     if (buffer.isDestroyed() || !size || NSMaxRange(range) > buffer.buffer().length)
         return;

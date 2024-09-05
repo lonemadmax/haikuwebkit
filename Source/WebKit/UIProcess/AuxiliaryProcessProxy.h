@@ -82,6 +82,16 @@ public:
 
     static AuxiliaryProcessCreationParameters auxiliaryProcessParameters();
 
+    enum class Type : uint8_t {
+        GraphicsProcessing,
+        Network,
+#if ENABLE(MODEL_PROCESS)
+        Model,
+#endif
+        WebContent,
+    };
+    virtual Type type() const = 0;
+
     void connect();
     virtual void terminate();
 
@@ -132,6 +142,7 @@ public:
     {
         return m_connection == &connection;
     }
+    static AuxiliaryProcessProxy* fromConnection(const IPC::Connection&);
 
     void addMessageReceiver(IPC::ReceiverName, IPC::MessageReceiver&);
     void addMessageReceiver(IPC::ReceiverName, uint64_t destinationID, IPC::MessageReceiver&);
@@ -272,6 +283,9 @@ private:
     void populateOverrideLanguagesLaunchOptions(ProcessLauncher::LaunchOptions&) const;
     Vector<String> platformOverrideLanguages() const;
     void platformStartConnectionTerminationWatchdog();
+
+    // Connection::Client
+    void requestRemoteProcessTermination() final;
 
     ResponsivenessTimer m_responsivenessTimer;
     Vector<PendingMessage> m_pendingMessages;

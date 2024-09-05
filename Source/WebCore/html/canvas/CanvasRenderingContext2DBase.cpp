@@ -262,6 +262,13 @@ bool CanvasRenderingContext2DBase::isAccelerated() const
 #endif
 }
 
+RefPtr<GraphicsLayerContentsDisplayDelegate> CanvasRenderingContext2DBase::layerContentsDisplayDelegate()
+{
+    if (auto buffer = canvasBase().buffer())
+        return buffer->layerContentsDisplayDelegate();
+    return nullptr;
+}
+
 bool CanvasRenderingContext2DBase::hasDeferredOperations() const
 {
     // At the time of writing, any draw might linger in IPC buffer or queue of the underlying graphics system, like with Accelerated
@@ -498,20 +505,14 @@ void CanvasRenderingContext2DBase::restore()
 
 void CanvasRenderingContext2DBase::setStrokeStyle(CanvasStyle style)
 {
-    if (!style.isValid())
-        return;
-
     if (state().strokeStyle.isEquivalentColor(style))
         return;
 
-    if (style.isCurrentColor())
-        style = CanvasStyle(currentColor(canvasBase()).colorWithAlpha(style.overrideAlpha()));
-    else
-        checkOrigin(style.canvasPattern().get());
+    checkOrigin(style.canvasPattern().get());
 
     realizeSaves();
     State& state = modifiableState();
-    state.strokeStyle = style;
+    state.strokeStyle = WTFMove(style);
     GraphicsContext* c = drawingContext();
     if (!c)
         return;
@@ -519,28 +520,36 @@ void CanvasRenderingContext2DBase::setStrokeStyle(CanvasStyle style)
     state.unparsedStrokeColor = String();
 }
 
+void CanvasRenderingContext2DBase::setStrokeStyle(std::optional<CanvasStyle> style)
+{
+    if (!style)
+        return;
+    return setStrokeStyle(WTFMove(*style));
+}
+
 void CanvasRenderingContext2DBase::setFillStyle(CanvasStyle style)
 {
-    if (!style.isValid())
-        return;
-
     if (state().fillStyle.isEquivalentColor(style))
         return;
 
-    if (style.isCurrentColor())
-        style = CanvasStyle(currentColor(canvasBase()).colorWithAlpha(style.overrideAlpha()));
-    else
-        checkOrigin(style.canvasPattern().get());
+    checkOrigin(style.canvasPattern().get());
 
     realizeSaves();
     State& state = modifiableState();
-    state.fillStyle = style;
+    state.fillStyle = WTFMove(style);
     GraphicsContext* c = drawingContext();
     if (!c)
         return;
 
     state.fillStyle.applyFillColor(*c);
     state.unparsedFillColor = String();
+}
+
+void CanvasRenderingContext2DBase::setFillStyle(std::optional<CanvasStyle> style)
+{
+    if (!style)
+        return;
+    return setFillStyle(WTFMove(*style));
 }
 
 void CanvasRenderingContext2DBase::setLineWidth(double width)
@@ -662,7 +671,7 @@ void CanvasRenderingContext2DBase::setShadowBlur(float blur)
 
 void CanvasRenderingContext2DBase::setShadowColor(const String& colorString)
 {
-    Color color = parseColorOrCurrentColor(colorString, canvasBase());
+    Color color = parseColor(colorString, canvasBase());
     if (!color.isValid())
         return;
     if (state().shadowColor == color)
@@ -1416,7 +1425,7 @@ void CanvasRenderingContext2DBase::setShadow(float width, float height, float bl
 
     Color color = Color::transparentBlack;
     if (!colorString.isNull()) {
-        color = parseColorOrCurrentColor(colorString, canvasBase());
+        color = parseColor(colorString, canvasBase());
         if (!color.isValid())
             return;
     }
@@ -1584,7 +1593,15 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(HTMLImageElement& imag
 {
     if (!imageElement.complete())
         return { };
-    FloatRect imageRect = FloatRect(FloatPoint(), size(imageElement, ImageSizeType::BeforeDevicePixelRatio));
+
+    auto* cachedImage = imageElement.cachedImage();
+    if (!cachedImage)
+        return { };
+
+    if (cachedImage->status() == CachedImage::Status::DecodeError)
+        return Exception { ExceptionCode::InvalidStateError, "The HTMLImageElement provided is in the 'broken' state."_s };
+
+    auto imageRect = FloatRect(FloatPoint(), size(imageElement, ImageSizeType::BeforeDevicePixelRatio));
 
     auto orientation = ImageOrientation::Orientation::FromImage;
     if (imageElement.allowsOrientationOverride()) {
@@ -1594,7 +1611,7 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(HTMLImageElement& imag
             orientation = computedStyle->imageOrientation().orientation();
     }
 
-    auto result = drawImage(imageElement.document(), imageElement.cachedImage(), imageElement.renderer(), imageRect, srcRect, dstRect, op, blendMode, orientation);
+    auto result = drawImage(imageElement.document(), *cachedImage, imageElement.renderer(), imageRect, srcRect, dstRect, op, blendMode, orientation);
 
     if (!result.hasException())
         checkOrigin(&imageElement);
@@ -1608,9 +1625,16 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(SVGImageElement& image
 
 ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(SVGImageElement& imageElement, const FloatRect& srcRect, const FloatRect& dstRect, const CompositeOperator& op, const BlendMode& blendMode)
 {
-    FloatRect imageRect = FloatRect(FloatPoint(), size(imageElement, ImageSizeType::BeforeDevicePixelRatio));
+    auto* cachedImage = imageElement.cachedImage();
+    if (!cachedImage)
+        return { };
 
-    auto result = drawImage(imageElement.document(), imageElement.cachedImage(), imageElement.renderer(), imageRect, srcRect, dstRect, op, blendMode);
+    if (cachedImage->status() == CachedImage::Status::DecodeError)
+        return Exception { ExceptionCode::InvalidStateError, "The SVGImageElement provided is in the 'broken' state."_s };
+
+    auto imageRect = FloatRect(FloatPoint(), size(imageElement, ImageSizeType::BeforeDevicePixelRatio));
+
+    auto result = drawImage(imageElement.document(), *cachedImage, imageElement.renderer(), imageRect, srcRect, dstRect, op, blendMode);
 
     if (!result.hasException())
         checkOrigin(&imageElement);
@@ -1624,7 +1648,7 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(CSSStyleImageValue& im
         return { };
     FloatRect imageRect = FloatRect(FloatPoint(), size(image));
 
-    auto result = drawImage(*image.document(), cachedImage, nullptr, imageRect, srcRect, dstRect, state().globalComposite, state().globalBlend);
+    auto result = drawImage(*image.document(), *cachedImage, nullptr, imageRect, srcRect, dstRect, state().globalComposite, state().globalBlend);
 
     if (!result.hasException())
         checkOrigin(image);
@@ -1657,7 +1681,7 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(WebCodecsVideoFrame& f
 }
 #endif
 
-ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(Document& document, CachedImage* cachedImage, const RenderObject* renderer, const FloatRect& imageRect, const FloatRect& srcRect, const FloatRect& dstRect, const CompositeOperator& op, const BlendMode& blendMode, ImageOrientation orientation)
+ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(Document& document, CachedImage& cachedImage, const RenderObject* renderer, const FloatRect& imageRect, const FloatRect& srcRect, const FloatRect& dstRect, const CompositeOperator& op, const BlendMode& blendMode, ImageOrientation orientation)
 {
     if (!std::isfinite(dstRect.x()) || !std::isfinite(dstRect.y()) || !std::isfinite(dstRect.width()) || !std::isfinite(dstRect.height())
         || !std::isfinite(srcRect.x()) || !std::isfinite(srcRect.y()) || !std::isfinite(srcRect.width()) || !std::isfinite(srcRect.height()))
@@ -1688,10 +1712,7 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(Document& document, Ca
     if (!state().hasInvertibleTransform)
         return { };
 
-    if (!cachedImage)
-        return { };
-
-    RefPtr<Image> image = cachedImage->imageForRenderer(renderer);
+    RefPtr<Image> image = cachedImage.imageForRenderer(renderer);
     if (!image)
         return { };
 
@@ -1778,14 +1799,11 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(CanvasBase& sourceCanv
         return { };
 
     Ref protectedCanvas { sourceCanvas };
-    // FIXME: Do this through platform-independent GraphicsContext API.
-    RefPtr buffer = sourceCanvas.buffer();
-    if (!buffer)
-        return { };
-
     checkOrigin(&sourceCanvas);
 
-    sourceCanvas.makeRenderingResultsAvailable(ShouldApplyPostProcessingToDirtyRect::No);
+    RefPtr buffer = sourceCanvas.makeRenderingResultsAvailable(ShouldApplyPostProcessingToDirtyRect::No);
+    if (!buffer)
+        return { };
 
     bool repaintEntireCanvas = false;
     if (rectContainsCanvas(normalizedDstRect)) {
@@ -2055,11 +2073,11 @@ template<class T> void CanvasRenderingContext2DBase::fullCanvasCompositedDrawIma
 
 static CanvasRenderingContext2DBase::StyleVariant toStyleVariant(const CanvasStyle& style)
 {
-    if (auto gradient = style.canvasGradient())
-        return gradient;
-    if (auto pattern = style.canvasPattern())
-        return pattern;
-    return style.color();
+    return style.visit(
+        [](const String& string) -> CanvasRenderingContext2DBase::StyleVariant { return string; },
+        [](const Ref<CanvasGradient>& gradient) -> CanvasRenderingContext2DBase::StyleVariant { return gradient.ptr(); },
+        [](const Ref<CanvasPattern>& pattern) -> CanvasRenderingContext2DBase::StyleVariant { return pattern.ptr(); }
+    );
 }
 
 CanvasRenderingContext2DBase::StyleVariant CanvasRenderingContext2DBase::strokeStyle() const
@@ -2069,10 +2087,10 @@ CanvasRenderingContext2DBase::StyleVariant CanvasRenderingContext2DBase::strokeS
 
 void CanvasRenderingContext2DBase::setStrokeStyle(CanvasRenderingContext2DBase::StyleVariant&& style)
 {
-    WTF::switchOn(style,
-        [this] (const String& string) { this->setStrokeColor(string); },
-        [this] (const RefPtr<CanvasGradient>& gradient) { this->setStrokeStyle(CanvasStyle(*gradient)); },
-        [this] (const RefPtr<CanvasPattern>& pattern) { this->setStrokeStyle(CanvasStyle(*pattern)); }
+    WTF::switchOn(WTFMove(style),
+        [this](String&& string) { this->setStrokeColor(WTFMove(string)); },
+        [this](RefPtr<CanvasGradient>&& gradient) { this->setStrokeStyle(CanvasStyle(gradient.releaseNonNull())); },
+        [this](RefPtr<CanvasPattern>&& pattern) { this->setStrokeStyle(CanvasStyle(pattern.releaseNonNull())); }
     );
 }
 
@@ -2083,10 +2101,10 @@ CanvasRenderingContext2DBase::StyleVariant CanvasRenderingContext2DBase::fillSty
 
 void CanvasRenderingContext2DBase::setFillStyle(CanvasRenderingContext2DBase::StyleVariant&& style)
 {
-    WTF::switchOn(style,
-        [this] (const String& string) { this->setFillColor(string); },
-        [this] (const RefPtr<CanvasGradient>& gradient) { this->setFillStyle(CanvasStyle(*gradient)); },
-        [this] (const RefPtr<CanvasPattern>& pattern) { this->setFillStyle(CanvasStyle(*pattern)); }
+    WTF::switchOn(WTFMove(style),
+        [this](String&& string) { this->setFillColor(WTFMove(string)); },
+        [this](RefPtr<CanvasGradient>&& gradient) { this->setFillStyle(CanvasStyle(gradient.releaseNonNull())); },
+        [this](RefPtr<CanvasPattern>&& pattern) { this->setFillStyle(CanvasStyle(pattern.releaseNonNull())); }
     );
 }
 
@@ -2533,8 +2551,7 @@ ExceptionOr<Ref<ImageData>> CanvasRenderingContext2DBase::getImageData(int sx, i
     if (auto imageData = makeImageDataIfContentsCached(imageDataRect, computedColorSpace))
         return imageData.releaseNonNull();
 
-    canvasBase().makeRenderingResultsAvailable();
-    RefPtr buffer = canvasBase().buffer();
+    RefPtr<ImageBuffer> buffer = canvasBase().makeRenderingResultsAvailable();
     if (!buffer) {
         auto imageData = ImageData::createUninitialized(imageDataRect.width(), imageDataRect.height(), m_settings.colorSpace, settings);
         if (!imageData.hasException())

@@ -120,6 +120,7 @@
 		00B9661A18E25AE100CE1F88 /* FindClient.h in Headers */ = {isa = PBXBuildFile; fileRef = 00B9661818E25AE100CE1F88 /* FindClient.h */; };
 		0250C2512B5DCB2000D05C0B /* FindStringCallbackAggregator.h in Headers */ = {isa = PBXBuildFile; fileRef = 0250C24F2B5DCB0100D05C0B /* FindStringCallbackAggregator.h */; };
 		0701789E23BE9CFC005F0FAA /* RemoteMediaPlayerMIMETypeCache.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0701789B23BAE261005F0FAA /* RemoteMediaPlayerMIMETypeCache.cpp */; };
+		0711EDD82BF8998900B0E592 /* WebUnifiedTextReplacementSessionData.h in Headers */ = {isa = PBXBuildFile; fileRef = 0711EDD72BF8997400B0E592 /* WebUnifiedTextReplacementSessionData.h */; };
 		0712654928EE06F800AE69D7 /* WebChromeClientCocoa.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0712654728EE06F800AE69D7 /* WebChromeClientCocoa.mm */; };
 		071BC58F23CE1EAA00680D7C /* RemoteMediaPlayerProxyMessageReceiver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 071BC58C23CE1EA900680D7C /* RemoteMediaPlayerProxyMessageReceiver.cpp */; };
 		071BC59023CE1EAA00680D7C /* RemoteMediaPlayerProxyMessages.h in Headers */ = {isa = PBXBuildFile; fileRef = 071BC58D23CE1EAA00680D7C /* RemoteMediaPlayerProxyMessages.h */; };
@@ -2570,6 +2571,7 @@
 		FAA4E3012A1575A5003F5E50 /* WebFrameLoaderClient.h in Headers */ = {isa = PBXBuildFile; fileRef = FAA4E2FF2A1575A4003F5E50 /* WebFrameLoaderClient.h */; };
 		FAB955FB2B75E43D0060829C /* CoreIPCNull.h in Headers */ = {isa = PBXBuildFile; fileRef = FAB955F92B75E43D0060829C /* CoreIPCNull.h */; };
 		FABBDEA12B85557500EFAFC4 /* CoreIPCNSURLCredential.mm in Sources */ = {isa = PBXBuildFile; fileRef = FABBDE9E2B85550100EFAFC4 /* CoreIPCNSURLCredential.mm */; };
+		FAD2A1EE2BF6D51000953297 /* CoroutineUtilities.h in Headers */ = {isa = PBXBuildFile; fileRef = FAD2A1ED2BF6D4FD00953297 /* CoroutineUtilities.h */; };
 		FEDBDCD61E68D20000A59F8F /* WebInspectorInterruptDispatcherMessageReceiver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = FEDBDCD41E68D19C00A59F8F /* WebInspectorInterruptDispatcherMessageReceiver.cpp */; };
 		FEDBDCD71E68D20500A59F8F /* WebInspectorInterruptDispatcherMessages.h in Headers */ = {isa = PBXBuildFile; fileRef = FEDBDCD51E68D19C00A59F8F /* WebInspectorInterruptDispatcherMessages.h */; };
 		FEE43FD31E67B0180077D6D1 /* WebInspectorInterruptDispatcher.h in Headers */ = {isa = PBXBuildFile; fileRef = FEE43FD11E67AFC60077D6D1 /* WebInspectorInterruptDispatcher.h */; };
@@ -3154,6 +3156,7 @@
 		0701789B23BAE261005F0FAA /* RemoteMediaPlayerMIMETypeCache.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RemoteMediaPlayerMIMETypeCache.cpp; sourceTree = "<group>"; };
 		0701789C23BAE262005F0FAA /* RemoteMediaPlayerMIMETypeCache.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RemoteMediaPlayerMIMETypeCache.h; sourceTree = "<group>"; };
 		070259BE2522841C00153405 /* UserMediaPermissionRequestManagerProxy.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = UserMediaPermissionRequestManagerProxy.mm; sourceTree = "<group>"; };
+		0711EDD72BF8997400B0E592 /* WebUnifiedTextReplacementSessionData.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebUnifiedTextReplacementSessionData.h; sourceTree = "<group>"; };
 		0712654728EE06F800AE69D7 /* WebChromeClientCocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = WebChromeClientCocoa.mm; sourceTree = "<group>"; };
 		071BC57723C93BB700680D7C /* AudioTrackPrivateRemote.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AudioTrackPrivateRemote.h; sourceTree = "<group>"; };
 		071BC57923C93BB900680D7C /* AudioTrackPrivateRemote.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AudioTrackPrivateRemote.cpp; sourceTree = "<group>"; };
@@ -8300,6 +8303,7 @@
 		FAC8499E2AA01B0C00D407EF /* WebTransportReceiveStreamSource.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = WebTransportReceiveStreamSource.h; path = Network/WebTransportReceiveStreamSource.h; sourceTree = "<group>"; };
 		FAC849A02AA01B7900D407EF /* NetworkTransportSendStream.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = NetworkTransportSendStream.cpp; sourceTree = "<group>"; };
 		FAC849A22AA01B7900D407EF /* NetworkTransportSendStream.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NetworkTransportSendStream.h; sourceTree = "<group>"; };
+		FAD2A1ED2BF6D4FD00953297 /* CoroutineUtilities.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CoroutineUtilities.h; sourceTree = "<group>"; };
 		FED3C1DA1B447AE800E0EB7F /* APISerializedScriptValueCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = APISerializedScriptValueCocoa.mm; sourceTree = "<group>"; };
 		FEDBDCD41E68D19C00A59F8F /* WebInspectorInterruptDispatcherMessageReceiver.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = WebInspectorInterruptDispatcherMessageReceiver.cpp; sourceTree = "<group>"; };
 		FEDBDCD51E68D19C00A59F8F /* WebInspectorInterruptDispatcherMessages.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WebInspectorInterruptDispatcherMessages.h; sourceTree = "<group>"; };
@@ -9309,6 +9313,7 @@
 				C0337DD7127A51B6008FF4F4 /* WebTouchEvent.cpp */,
 				0F4001002527D73C00E91DA7 /* WebTouchEvent.h */,
 				07E5652F2B68320F00035A5F /* WebUnifiedTextReplacementContextData.h */,
+				0711EDD72BF8997400B0E592 /* WebUnifiedTextReplacementSessionData.h */,
 				5CD748B523C8EB190092A999 /* WebURLSchemeHandlerIdentifier.h */,
 				7C065F2A1C8CD95F00C2D950 /* WebUserContentControllerDataTypes.h */,
 				527D1AEC2AD0A5BB00D145E5 /* WebUserContentControllerDataTypes.serialization.in */,
@@ -14600,6 +14605,7 @@
 				1A7E814E1152D2240003695B /* mac */,
 				CE1A0BCA1A48E6C60054EF74 /* spi */,
 				51B15A7D138439B200321AD8 /* unix */,
+				FAD2A1ED2BF6D4FD00953297 /* CoroutineUtilities.h */,
 				ECA680D31E6904B500731D20 /* ExtraPrivateSymbolsForTAPI.h */,
 				ECBFC1DB1E6A4D66000300C7 /* ExtraPublicSymbolsForTAPI.h */,
 				51A7F2F4125BF8D4008AEB1D /* Logging.cpp */,
@@ -16205,6 +16211,7 @@
 				37C21CAE1E994C0C0029D5F9 /* CorePredictionSPI.h in Headers */,
 				1C62900D28EE2CD300C26B60 /* CoreSVGSPI.h in Headers */,
 				F43E893D2AEDBB9000097D2D /* CoreTelephonyUtilities.h in Headers */,
+				FAD2A1EE2BF6D51000953297 /* CoroutineUtilities.h in Headers */,
 				B878B615133428DC006888E9 /* CorrectionPanel.h in Headers */,
 				57597EBD218184900037F924 /* CtapAuthenticator.h in Headers */,
 				526C5722284ADCBC00E08955 /* CtapCcidDriver.h in Headers */,
@@ -17098,6 +17105,7 @@
 				6D9A666E2A27FAE300BD68A0 /* WebTouchEvent.h in Headers */,
 				BCA0EF7F12331E78007D3CFB /* WebUndoStep.h in Headers */,
 				07E565302B68321100035A5F /* WebUnifiedTextReplacementContextData.h in Headers */,
+				0711EDD82BF8998900B0E592 /* WebUnifiedTextReplacementSessionData.h in Headers */,
 				1AAF08AE1926936700B6390C /* WebUserContentController.h in Headers */,
 				7C065F2C1C8CD95F00C2D950 /* WebUserContentControllerDataTypes.h in Headers */,
 				1AAF08B819269E6D00B6390C /* WebUserContentControllerMessages.h in Headers */,

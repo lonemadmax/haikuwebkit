@@ -268,9 +268,7 @@ list(APPEND JavaScriptCore_HEADERS
 )
 
 if (WIN32)
-    if (WTF_CPU_X86)
-        set(OFFLINE_ASM_BACKEND "X86_WIN")
-    elseif (WTF_CPU_X86_64)
+    if (WTF_CPU_X86_64)
         set(OFFLINE_ASM_BACKEND "X86_64_WIN")
     endif ()
 
@@ -280,9 +278,7 @@ if (WIN32)
         endif ()
     endif ()
 else ()
-    if (WTF_CPU_X86)
-        set(OFFLINE_ASM_BACKEND "X86")
-    elseif (WTF_CPU_X86_64)
+    if (WTF_CPU_X86_64)
         set(OFFLINE_ASM_BACKEND "X86_64")
     elseif (WTF_CPU_ARM64)
         set(OFFLINE_ASM_BACKEND "ARM64")
@@ -595,7 +591,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     assembler/SecureARM64EHashPins.h
     assembler/SecureARM64EHashPinsInlines.h
     assembler/X86Assembler.h
-    assembler/X86Registers.h
     assembler/X86_64Registers.h
 
     b3/B3Common.h
@@ -937,6 +932,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/ArrayPrototype.h
     runtime/ArrayStorage.h
     runtime/ArrayStorageInlines.h
+    runtime/AssertInvariants.h
     runtime/AsyncIteratorPrototype.h
     runtime/AuxiliaryBarrier.h
     runtime/AuxiliaryBarrierInlines.h
@@ -1437,18 +1433,6 @@ add_custom_command(
     DEPENDS ${JavaScriptCore_INSPECTOR_PROTOCOL_SCRIPTS}
     COMMAND ${PYTHON_EXECUTABLE} ${JavaScriptCore_INSPECTOR_SCRIPTS_DIR}/generate-inspector-protocol-bindings.py --outputDir "${JavaScriptCore_DERIVED_SOURCES_DIR}/inspector" --framework JavaScriptCore ${JavaScriptCore_DERIVED_SOURCES_DIR}/CombinedDomains.json
     VERBATIM)
-
-if (WTF_CPU_X86_64)
-    if (MSVC AND NOT ENABLE_C_LOOP)
-        add_custom_command(
-            OUTPUT ${JavaScriptCore_DERIVED_SOURCES_DIR}/JITStubsMSVC64.obj
-            MAIN_DEPENDENCY ${JAVASCRIPTCORE_DIR}/jit/JITStubsMSVC64.asm
-            COMMAND ml64 -nologo -c -Fo ${JavaScriptCore_DERIVED_SOURCES_DIR}/JITStubsMSVC64.obj ${JAVASCRIPTCORE_DIR}/jit/JITStubsMSVC64.asm
-            VERBATIM)
-
-        list(APPEND JavaScriptCore_SOURCES ${JavaScriptCore_DERIVED_SOURCES_DIR}/JITStubsMSVC64.obj)
-    endif ()
-endif ()
 
 set(JavaScriptCore_INTERFACE_LIBRARIES JavaScriptCore)
 set(JavaScriptCore_INTERFACE_INCLUDE_DIRECTORIES

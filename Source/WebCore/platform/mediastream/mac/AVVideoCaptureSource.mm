@@ -252,6 +252,9 @@ AVVideoCaptureSource::AVVideoCaptureSource(AVCaptureDevice* avDevice, const Capt
     , m_objcObserver(adoptNS([[WebCoreAVVideoCaptureSourceObserver alloc] initWithCallback:this]))
     , m_device(avDevice)
     , m_zoomScaleFactor(cameraZoomScaleFactor([avDevice deviceType]))
+#if PLATFORM(IOS_FAMILY)
+    , m_startupTimer(*this, &AVVideoCaptureSource::startupTimerFired)
+#endif
     , m_verifyCapturingTimer(*this, &AVVideoCaptureSource::verifyIsCapturing)
     , m_defaultTorchMode((int64_t)[m_device torchMode])
 {
@@ -299,6 +302,14 @@ void AVVideoCaptureSource::updateVerifyCapturingTimer()
     m_lastFramesCount = 0;
 }
 
+#if PLATFORM(IOS_FAMILY)
+void AVVideoCaptureSource::startupTimerFired()
+{
+    if (std::exchange(m_shouldCallNotifyMutedChange, false))
+        notifyMutedChange(!m_isRunning);
+}
+#endif
+
 void AVVideoCaptureSource::clearSession()
 {
     ALWAYS_LOG_IF(loggerPtr(), LOGIDENTIFIER);
@@ -321,6 +332,12 @@ void AVVideoCaptureSource::startProducingData()
 
     [m_objcObserver addNotificationObservers];
     [m_session startRunning];
+
+#if PLATFORM(IOS_FAMILY)
+    m_shouldCallNotifyMutedChange = false;
+    static constexpr Seconds startupTimerInterval = 1_s;
+    m_startupTimer.startOneShot(startupTimerInterval);
+#endif
 }
 
 void AVVideoCaptureSource::stopProducingData()
@@ -1092,6 +1109,7 @@ bool AVVideoCaptureSource::setupCaptureSession()
     [session() addOutput:m_videoOutput.get()];
 
     setSessionSizeFrameRateAndZoom();
+    m_needsTorchReconfiguration = m_needsTorchReconfiguration || torch();
 
     m_sensorOrientation = sensorOrientationFromVideoOutput();
     computeVideoFrameRotation();
@@ -1190,7 +1208,7 @@ void AVVideoCaptureSource::reconfigureIfNeeded()
     if (!m_isRunning || (!m_needsTorchReconfiguration && !m_needsWhiteBalanceReconfiguration))
         return;
 
-    beginConfiguration();
+    startApplyingConstraints();
 
     if (std::exchange(m_needsTorchReconfiguration, false))
         updateTorch();
@@ -1198,7 +1216,7 @@ void AVVideoCaptureSource::reconfigureIfNeeded()
     if (std::exchange(m_needsWhiteBalanceReconfiguration, false))
         updateWhiteBalanceMode();
 
-    commitConfiguration();
+    endApplyingConstraints();
 }
 
 void AVVideoCaptureSource::captureSessionIsRunningDidChange(bool state)
@@ -1213,6 +1231,14 @@ void AVVideoCaptureSource::captureSessionIsRunningDidChange(bool state)
         reconfigureIfNeeded();
 
         updateVerifyCapturingTimer();
+
+#if PLATFORM(IOS_FAMILY)
+        if (m_startupTimer.isActive()) {
+            m_shouldCallNotifyMutedChange = true;
+            return;
+        }
+#endif
+
         notifyMutedChange(!m_isRunning);
     });
 }

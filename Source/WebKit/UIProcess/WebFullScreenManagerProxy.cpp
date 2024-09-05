@@ -131,10 +131,10 @@ void WebFullScreenManagerProxy::setAnimatingFullScreen(bool animating)
     m_page.send(Messages::WebFullScreenManager::SetAnimatingFullScreen(animating));
 }
 
-void WebFullScreenManagerProxy::requestRestoreFullScreen()
+void WebFullScreenManagerProxy::requestRestoreFullScreen(CompletionHandler<void(bool)>&& completionHandler)
 {
     ALWAYS_LOG(LOGIDENTIFIER);
-    m_page.send(Messages::WebFullScreenManager::RequestRestoreFullScreen());
+    m_page.sendWithAsyncReply(Messages::WebFullScreenManager::RequestRestoreFullScreen(), WTFMove(completionHandler));
 }
 
 void WebFullScreenManagerProxy::requestExitFullScreen()
@@ -231,7 +231,7 @@ void WebFullScreenManagerProxy::prepareQuickLookImageURL(CompletionHandler<void(
         auto [filePath, fileHandle] = FileSystem::openTemporaryFile("QuickLook"_s, suffix);
         ASSERT(FileSystem::isHandleValid(fileHandle));
 
-        size_t byteCount = FileSystem::writeToFile(fileHandle, buffer->data(), buffer->size());
+        size_t byteCount = FileSystem::writeToFile(fileHandle, buffer->span());
         ASSERT_UNUSED(byteCount, byteCount == buffer->size());
         FileSystem::closeFile(fileHandle);
 

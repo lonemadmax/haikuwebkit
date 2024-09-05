@@ -2461,7 +2461,7 @@ static JSC::JSObject* jsResultFromReplyDecoder(JSC::JSGlobalObject* globalObject
         return nullptr;
     }
 
-    auto arrayBuffer = JSC::ArrayBuffer::create(decoder.buffer());
+    auto arrayBuffer = JSC::ArrayBuffer::create(decoder.span());
     JSC::JSArrayBuffer* jsArrayBuffer = nullptr;
     if (auto* structure = globalObject->arrayBufferStructure(arrayBuffer->sharingMode()))
         jsArrayBuffer = JSC::JSArrayBuffer::create(vm, structure, WTFMove(arrayBuffer));
@@ -3028,7 +3028,7 @@ void JSMessageListener::didReceiveMessage(const IPC::Decoder& decoder)
     auto context = toRef(globalObject);
     JSC::JSLockHolder lock(globalObject->vm());
 
-    auto mutableDecoder = IPC::Decoder::create(decoder.buffer(), { });
+    auto mutableDecoder = IPC::Decoder::create(decoder.span(), { });
     auto* description = jsDescriptionFromDecoder(globalObject, *mutableDecoder);
 
     JSValueRef arguments[] = { description ? toRef(globalObject, description) : JSValueMakeUndefined(context) };
@@ -3043,7 +3043,7 @@ void JSMessageListener::willSendMessage(const IPC::Encoder& encoder, OptionSet<I
     RELEASE_ASSERT(m_jsIPC);
     Ref protectOwnerOfThis = *m_jsIPC;
 
-    auto decoder = IPC::Decoder::create({ encoder.buffer(), encoder.bufferSize() }, { });
+    auto decoder = IPC::Decoder::create(encoder.span(), { });
     RunLoop::main().dispatch([this, protectOwnerOfThis = WTFMove(protectOwnerOfThis), decoder = WTFMove(decoder)] {
         auto* globalObject = m_globalObject.get();
         if (!globalObject)
@@ -3082,7 +3082,7 @@ JSC::JSObject* JSMessageListener::jsDescriptionFromDecoder(JSC::JSGlobalObject* 
             RETURN_IF_EXCEPTION(scope, nullptr);
         }
     }
-    auto arrayBuffer = JSC::ArrayBuffer::create(decoder.buffer());
+    auto arrayBuffer = JSC::ArrayBuffer::create(decoder.span());
     if (auto* structure = globalObject->arrayBufferStructure(arrayBuffer->sharingMode())) {
         if (auto* jsArrayBuffer = JSC::JSArrayBuffer::create(vm, structure, WTFMove(arrayBuffer))) {
             jsResult->putDirect(vm, JSC::Identifier::fromString(vm, "buffer"_s), jsArrayBuffer);

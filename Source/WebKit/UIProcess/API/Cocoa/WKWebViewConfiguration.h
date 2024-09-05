@@ -27,6 +27,12 @@
 #import <WebKit/WKDataDetectorTypes.h>
 #import <WebKit/WKFoundation.h>
 
+#if TARGET_OS_IPHONE
+#import <UIKit/UIKit.h>
+#else
+#import <AppKit/AppKit.h>
+#endif
+
 NS_ASSUME_NONNULL_BEGIN
 
 @class WKPreferences;
@@ -90,6 +96,7 @@ typedef NS_OPTIONS(NSUInteger, WKAudiovisualMediaTypes) {
  which to initialize a web view.
  @helps Contains properties used to configure a @link WKWebView @/link.
  */
+WK_SWIFT_UI_ACTOR
 WK_CLASS_AVAILABLE(macos(10.10), ios(8.0))
 @interface WKWebViewConfiguration : NSObject <NSSecureCoding, NSCopying>
 
@@ -213,6 +220,10 @@ on the system setting.
  @param scheme The URL scheme to lookup.
  */
 - (nullable id <WKURLSchemeHandler>)urlSchemeHandlerForURLScheme:(NSString *)urlScheme WK_API_AVAILABLE(macos(10.13), ios(11.0));
+
+#if 0 // API_WEBKIT_ADDITIONS_REPLACEMENT
+#import <WebKitAdditions/WKWebViewConfigurationAdditions.h>
+#endif
 
 @end
 

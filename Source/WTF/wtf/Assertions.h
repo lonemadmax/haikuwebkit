@@ -106,16 +106,9 @@
 #define VERBOSE_RELEASE_LOG ENABLE(JOURNALD_LOG)
 #endif
 
-#if COMPILER(GCC_COMPATIBLE)
 #define WTF_PRETTY_FUNCTION __PRETTY_FUNCTION__
-#else
-#define WTF_PRETTY_FUNCTION __FUNCTION__
-#endif
 
-#if COMPILER(MINGW)
-/* By default MinGW emits warnings when C99 format attributes are used, even if __USE_MINGW_ANSI_STDIO is defined */
-#define WTF_ATTRIBUTE_PRINTF(formatStringArgument, extraArguments) __attribute__((__format__(gnu_printf, formatStringArgument, extraArguments)))
-#elif COMPILER(GCC_COMPATIBLE) && !defined(__OBJC__)
+#if COMPILER(GCC_COMPATIBLE) && !defined(__OBJC__)
 /* WTF logging functions can process %@ in the format string to log a NSObject* but the printf format attribute
    emits a warning when %@ is used in the format string.  Until <rdar://problem/5195437> is resolved we can't include
    the attribute when being used from Objective-C code in case it decides to use %@. */
@@ -292,9 +285,7 @@ WTF_EXPORT_PRIVATE bool WTFIsDebuggerAttached(void);
 
 #endif // CPU(ARM64)
 
-#if COMPILER(MSVC)
-#define WTFBreakpointTrap()  __debugbreak()
-#elif ASAN_ENABLED
+#if ASAN_ENABLED
 #define WTFBreakpointTrap()  __builtin_trap()
 #elif CPU(X86_64) || CPU(X86)
 #define WTFBreakpointTrap()  asm volatile (WTF_FATAL_CRASH_INST)

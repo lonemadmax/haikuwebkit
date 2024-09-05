@@ -234,9 +234,12 @@ ExceptionOr<std::optional<OffscreenRenderingContext>> OffscreenCanvas::getContex
     if (contextType == RenderingContextType::_2d) {
         if (!m_context) {
             auto scope = DECLARE_THROW_SCOPE(state.vm());
+
             auto settings = convert<IDLDictionary<CanvasRenderingContext2DSettings>>(state, arguments.isEmpty() ? JSC::jsUndefined() : (arguments[0].isObject() ? arguments[0].get() : JSC::jsNull()));
-            RETURN_IF_EXCEPTION(scope, Exception { ExceptionCode::ExistingExceptionError });
-            m_context = OffscreenCanvasRenderingContext2D::create(*this, WTFMove(settings));
+            if (UNLIKELY(settings.hasException(scope)))
+                return Exception { ExceptionCode::ExistingExceptionError };
+
+            m_context = OffscreenCanvasRenderingContext2D::create(*this, settings.releaseReturnValue());
         }
         if (RefPtr context = dynamicDowncast<OffscreenCanvasRenderingContext2D>(m_context.get()))
             return { { WTFMove(context) } };
@@ -245,9 +248,12 @@ ExceptionOr<std::optional<OffscreenRenderingContext>> OffscreenCanvas::getContex
     if (contextType == RenderingContextType::Bitmaprenderer) {
         if (!m_context) {
             auto scope = DECLARE_THROW_SCOPE(state.vm());
+
             auto settings = convert<IDLDictionary<ImageBitmapRenderingContextSettings>>(state, arguments.isEmpty() ? JSC::jsUndefined() : (arguments[0].isObject() ? arguments[0].get() : JSC::jsNull()));
-            RETURN_IF_EXCEPTION(scope, Exception { ExceptionCode::ExistingExceptionError });
-            m_context = ImageBitmapRenderingContext::create(*this, WTFMove(settings));
+            if (UNLIKELY(settings.hasException(scope)))
+                return Exception { ExceptionCode::ExistingExceptionError };
+
+            m_context = ImageBitmapRenderingContext::create(*this, settings.releaseReturnValue());
             downcast<ImageBitmapRenderingContext>(m_context.get())->transferFromImageBitmap(nullptr);
         }
         if (RefPtr context = dynamicDowncast<ImageBitmapRenderingContext>(m_context.get()))
@@ -280,11 +286,14 @@ ExceptionOr<std::optional<OffscreenRenderingContext>> OffscreenCanvas::getContex
         auto webGLVersion = contextType == RenderingContextType::Webgl ? WebGLVersion::WebGL1 : WebGLVersion::WebGL2;
         if (!m_context) {
             auto scope = DECLARE_THROW_SCOPE(state.vm());
+
             auto attributes = convert<IDLDictionary<WebGLContextAttributes>>(state, arguments.isEmpty() ? JSC::jsUndefined() : (arguments[0].isObject() ? arguments[0].get() : JSC::jsNull()));
-            RETURN_IF_EXCEPTION(scope, Exception { ExceptionCode::ExistingExceptionError });
+            if (UNLIKELY(attributes.hasException(scope)))
+                return Exception { ExceptionCode::ExistingExceptionError };
+
             auto* scriptExecutionContext = this->scriptExecutionContext();
             if (shouldEnableWebGL(scriptExecutionContext->settingsValues(), is<WorkerGlobalScope>(scriptExecutionContext)))
-                m_context = WebGLRenderingContextBase::create(*this, attributes, webGLVersion);
+                m_context = WebGLRenderingContextBase::create(*this, attributes.releaseReturnValue(), webGLVersion);
         }
         if (webGLVersion == WebGLVersion::WebGL1) {
             if (RefPtr context = dynamicDowncast<WebGLRenderingContext>(m_context.get()))
@@ -405,17 +414,16 @@ void OffscreenCanvas::convertToBlob(ImageEncodeOptions&& options, Ref<DeferredPr
         promise->reject(ExceptionCode::IndexSizeError);
         return;
     }
-    if (!buffer()) {
+    RefPtr buffer = makeRenderingResultsAvailable();
+    if (!buffer) {
         promise->reject(ExceptionCode::InvalidStateError);
         return;
     }
 
-    makeRenderingResultsAvailable();
-
     auto encodingMIMEType = toEncodingMimeType(options.type);
     auto quality = qualityFromDouble(options.quality);
 
-    Vector<uint8_t> blobData = buffer()->toData(encodingMIMEType, quality);
+    Vector<uint8_t> blobData = buffer->toData(encodingMIMEType, quality);
     if (blobData.isEmpty()) {
         promise->reject(ExceptionCode::EncodingError);
         return;
@@ -437,10 +445,10 @@ Image* OffscreenCanvas::copiedImage() const
     if (m_detached)
         return nullptr;
 
-    if (!m_copiedImage && buffer()) {
-        if (m_context)
-            m_context->drawBufferToCanvas(CanvasRenderingContext::SurfaceBuffer::DrawingBuffer);
-        m_copiedImage = BitmapImage::create(buffer()->copyNativeImage());
+    if (!m_copiedImage) {
+        RefPtr buffer = const_cast<OffscreenCanvas*>(this)->makeRenderingResultsAvailable(ShouldApplyPostProcessingToDirtyRect::No);
+        if (buffer)
+            m_copiedImage = BitmapImage::create(buffer->copyNativeImage());
     }
     return m_copiedImage.get();
 }

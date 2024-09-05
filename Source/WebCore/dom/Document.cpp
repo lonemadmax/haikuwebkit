@@ -622,6 +622,7 @@ Document::Document(LocalFrame* frame, const Settings& settings, const URL& url, 
     , m_cookieCacheExpiryTimer(*this, &Document::invalidateDOMCookieCache)
     , m_socketProvider(page() ? &page()->socketProvider() : nullptr)
     , m_selection(makeUniqueRef<FrameSelection>(this))
+    , m_fragmentDirectiveForBindings(FragmentDirective::create())
     , m_documentClasses(documentClasses)
     , m_latestFocusTrigger { FocusTrigger::Other }
 #if ENABLE(DOM_AUDIO_SESSION)
@@ -1095,11 +1096,15 @@ void Document::setMarkupUnsafe(const String& markup, OptionSet<ParserContentPoli
     close();
 }
 
-Ref<Document> Document::parseHTMLUnsafe(Document& context, const String& html)
+ExceptionOr<Ref<Document>> Document::parseHTMLUnsafe(Document& context, std::variant<RefPtr<TrustedHTML>, String>&& html)
 {
+    auto stringValueHolder = trustedTypeCompliantString(*context.scriptExecutionContext(), WTFMove(html), "Document parseHTMLUnsafe"_s);
+    if (stringValueHolder.hasException())
+        return stringValueHolder.releaseException();
+
     Ref document = HTMLDocument::create(nullptr, context.protectedSettings(), URL { });
-    document->setMarkupUnsafe(html, { ParserContentPolicy::AllowDeclarativeShadowRoots });
-    return document;
+    document->setMarkupUnsafe(stringValueHolder.releaseReturnValue(), { ParserContentPolicy::AllowDeclarativeShadowRoots });
+    return { document };
 }
 
 Element* Document::elementForAccessKey(const String& key)
@@ -3937,71 +3942,28 @@ ExceptionOr<void> Document::write(Document* entryDocument, SegmentedString&& tex
     return { };
 }
 
-ExceptionOr<void> Document::write(Document* entryDocument, FixedVector<std::variant<RefPtr<TrustedHTML>, String>>&& strings)
+ExceptionOr<void> Document::write(Document* entryDocument, FixedVector<String>&& strings)
 {
     if (!isHTMLDocument() || m_throwOnDynamicMarkupInsertionCount)
         return Exception { ExceptionCode::InvalidStateError };
 
-    auto isTrusted = true;
     SegmentedString text;
-    for (auto& entry : strings) {
-        text.append(
-            WTF::switchOn(
-                WTFMove(entry),
-                [&isTrusted](const String& string) -> String {
-                    isTrusted = false;
-                    return string;
-                },
-                [](const RefPtr<TrustedHTML>& html) -> String {
-                    return html->toString();
-                }
-            )
-        );
-    }
-
-    if (!isTrusted) {
-        auto stringValueHolder = trustedTypeCompliantString(TrustedType::TrustedHTML, *scriptExecutionContext(), text.toString(), "Document write"_s);
-        if (stringValueHolder.hasException())
-            return stringValueHolder.releaseException();
-        text.clear();
-        text.append(stringValueHolder.releaseReturnValue());
-    }
+    for (auto& string : strings)
+        text.append(WTFMove(string));
 
     return write(entryDocument, WTFMove(text));
 }
 
-ExceptionOr<void> Document::writeln(Document* entryDocument, FixedVector<std::variant<RefPtr<TrustedHTML>, String>>&& strings)
+ExceptionOr<void> Document::writeln(Document* entryDocument, FixedVector<String>&& strings)
 {
     if (!isHTMLDocument() || m_throwOnDynamicMarkupInsertionCount)
         return Exception { ExceptionCode::InvalidStateError };
 
-    auto isTrusted = true;
     SegmentedString text;
-    for (auto& entry : strings) {
-        text.append(
-            WTF::switchOn(
-                WTFMove(entry),
-                [&isTrusted](const String& string) -> String {
-                    isTrusted = false;
-                    return string;
-                },
-                [](const RefPtr<TrustedHTML>& html) -> String {
-                    return html->toString();
-                }
-            )
-        );
-    }
-
-    if (!isTrusted) {
-        auto stringValueHolder = trustedTypeCompliantString(TrustedType::TrustedHTML, *scriptExecutionContext(), text.toString(), "Document writeln"_s);
-        if (stringValueHolder.hasException())
-            return stringValueHolder.releaseException();
-        text.clear();
-        text.append(stringValueHolder.releaseReturnValue());
-    }
+    for (auto& string : strings)
+        text.append(WTFMove(string));
 
     text.append("\n"_s);
-
     return write(entryDocument, WTFMove(text));
 }
 
@@ -4108,8 +4070,8 @@ const URL& Document::urlForBindings() const
 
         auto areSameSiteIgnoringPublicSuffix = [](StringView domain, StringView otherDomain) {
             auto& publicSuffixStore = PublicSuffixStore::singleton();
-            auto domainString = publicSuffixStore.topPrivatelyControlledDomain(domain.toStringWithoutCopying());
-            auto otherDomainString = publicSuffixStore.topPrivatelyControlledDomain(otherDomain.toStringWithoutCopying());
+            auto domainString = publicSuffixStore.topPrivatelyControlledDomain(domain);
+            auto otherDomainString = publicSuffixStore.topPrivatelyControlledDomain(otherDomain);
             auto substringToSeparator = [](const String& string) -> String {
                 auto indexOfFirstSeparator = string.find('.');
                 if (indexOfFirstSeparator == notFound)
@@ -8451,8 +8413,12 @@ bool Document::hasRecentUserInteractionForNavigationFromJS() const
     if (UserGestureIndicator::processingUserGesture(this))
         return true;
 
-    static constexpr Seconds maximumItervalForUserGestureForwarding { 10_s };
-    return (MonotonicTime::now() - lastHandledUserGestureTimestamp()) <= maximumItervalForUserGestureForwarding;
+    RefPtr window = domWindow();
+    if (!window || window->lastActivationTimestamp().isInfinity())
+        return false;
+
+    static constexpr Seconds maximumIntervalForUserActivationForwarding { 10_s };
+    return (MonotonicTime::now() - window->lastActivationTimestamp()) <= maximumIntervalForUserActivationForwarding;
 }
 
 void Document::startTrackingStyleRecalcs()
@@ -10060,7 +10026,7 @@ void Document::navigateFromServiceWorker(const URL& url, CompletionHandler<void(
             callback(ScheduleLocationChangeResult::Stopped);
             return;
         }
-        frame->navigationScheduler().scheduleLocationChange(*weakThis, weakThis->securityOrigin(), url, frame->loader().outgoingReferrer(), LockHistory::Yes, LockBackForwardList::No, [callback = WTFMove(callback)](auto result) mutable {
+        frame->navigationScheduler().scheduleLocationChange(*weakThis, weakThis->securityOrigin(), url, frame->loader().outgoingReferrer(), LockHistory::Yes, LockBackForwardList::No, NavigationHistoryBehavior::Auto, [callback = WTFMove(callback)](auto result) mutable {
             callback(result);
         });
     });
@@ -10501,11 +10467,16 @@ void Document::resetObservationSizeForContainIntrinsicSize(Element& target)
 
 NoiseInjectionPolicy Document::noiseInjectionPolicy() const
 {
-    if (RefPtr loader = topDocument().loader()) {
-        if (loader->advancedPrivacyProtections().contains(AdvancedPrivacyProtections::FingerprintingProtections))
-            return NoiseInjectionPolicy::Minimal;
-    }
+    if (advancedPrivacyProtections().contains(AdvancedPrivacyProtections::FingerprintingProtections))
+        return NoiseInjectionPolicy::Minimal;
     return NoiseInjectionPolicy::None;
+}
+
+OptionSet<AdvancedPrivacyProtections> Document::advancedPrivacyProtections() const
+{
+    if (RefPtr loader = topDocument().loader())
+        return loader->advancedPrivacyProtections();
+    return { };
 }
 
 std::optional<uint64_t> Document::noiseInjectionHashSalt() const

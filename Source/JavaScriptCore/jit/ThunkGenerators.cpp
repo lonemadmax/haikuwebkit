@@ -302,7 +302,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> virtualThunkForConstruct(VM& vm)
 }
 
 enum class ClosureMode : uint8_t { No, Yes };
-static MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkFor(VM&, CallMode mode, ClosureMode closureMode)
+static MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkFor(VM&, ClosureMode closureMode)
 {
     // The callee is in regT0 (for JSVALUE32_64, the tag is in regT1).
     // The return address is on the stack, or in the link register. We will hence
@@ -315,17 +315,13 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkFor(VM&, CallMode m
 
     CCallHelpers jit;
 
-    bool isTailCall = mode == CallMode::Tail;
     bool isClosureCall = closureMode == ClosureMode::Yes;
 
     CCallHelpers::JumpList slowCase;
 
 
 #if USE(JSVALUE32_64)
-    if (isTailCall)
-        slowCase.append(jit.branchIfNotCell(GPRInfo::regT0, DoNotHaveTagRegisters));
-    else
-        slowCase.append(jit.branchIfNotCell(GPRInfo::regT0));
+    slowCase.append(jit.branchIfNotCell(GPRInfo::regT0, DoNotHaveTagRegisters));
 #endif
 
     GPRReg comparisonValueGPR;
@@ -333,10 +329,7 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkFor(VM&, CallMode m
         comparisonValueGPR = GPRInfo::regT4;
         // Verify that we have a function and stash the executable in scratchGPR.
 #if USE(JSVALUE64)
-        if (isTailCall)
-            slowCase.append(jit.branchIfNotCell(GPRInfo::regT0, DoNotHaveTagRegisters));
-        else
-            slowCase.append(jit.branchIfNotCell(GPRInfo::regT0));
+        slowCase.append(jit.branchIfNotCell(GPRInfo::regT0, DoNotHaveTagRegisters));
 #endif
         // FIXME: We could add a fast path for InternalFunction with closure call.
         slowCase.append(jit.branchIfNotFunction(GPRInfo::regT0));
@@ -365,7 +358,7 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkFor(VM&, CallMode m
     jit.jump().linkTo(loop, &jit);
 
     found.link(&jit);
-    ASSERT((CallSlot::offsetOfTarget() + sizeof(void*)) == static_cast<size_t>(CallSlot::offsetOfCodeBlock()));
+    static_assert((CallSlot::offsetOfTarget() + sizeof(void*)) == static_cast<size_t>(CallSlot::offsetOfCodeBlock()));
     jit.add32(CCallHelpers::TrustedImm32(1), CCallHelpers::Address(GPRInfo::regT5, CallSlot::offsetOfCount()));
     jit.loadPairPtr(CCallHelpers::Address(GPRInfo::regT5, CallSlot::offsetOfTarget()), GPRInfo::regT4, GPRInfo::regT5);
 
@@ -401,28 +394,18 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkFor(VM&, CallMode m
     return FINALIZE_THUNK(
         patchBuffer, JITThunkPtrTag,
         "PolymorphicCall"_s,
-        "Polymorphic %s slow path thunk",
-        mode == CallMode::Regular ? "call" : mode == CallMode::Tail ? "tail call" : "construct");
+        "Polymorphic %s thunk",
+        isClosureCall ? "closure" : "normal");
 }
 
-MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkForRegularCall(VM& vm)
+MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunk(VM& vm)
 {
-    return polymorphicThunkFor(vm, CallMode::Regular, ClosureMode::No);
+    return polymorphicThunkFor(vm, ClosureMode::No);
 }
 
-MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkForTailCall(VM& vm)
+MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkForClosure(VM& vm)
 {
-    return polymorphicThunkFor(vm, CallMode::Tail, ClosureMode::No);
-}
-
-MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkForRegularCallForClosure(VM& vm)
-{
-    return polymorphicThunkFor(vm, CallMode::Regular, ClosureMode::Yes);
-}
-
-MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkForTailCallForClosure(VM& vm)
-{
-    return polymorphicThunkFor(vm, CallMode::Tail, ClosureMode::Yes);
+    return polymorphicThunkFor(vm, ClosureMode::Yes);
 }
 
 MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicRepatchThunk(VM&)
@@ -626,9 +609,9 @@ MacroAssemblerCodeRef<JITThunkPtrTag> arityFixupGenerator(VM& vm)
     jit.addPtr(JSInterfaceJIT::TrustedImm32(sizeof(CallerFrameAndPC)), GPRInfo::callFrameRegister, extraTemp);
     jit.untagPtr(extraTemp, GPRInfo::regT3);
     jit.validateUntaggedPtr(GPRInfo::regT3, extraTemp);
-    PtrTag tempReturnPCTag = static_cast<PtrTag>(random());
-    jit.move(JSInterfaceJIT::TrustedImmPtr(tempReturnPCTag), extraTemp);
-    jit.tagPtr(extraTemp, GPRInfo::regT3);
+    // We don't want to pass a tag register to pacib because it could get hijacked to make a PAC bypass gadget so we use pacizb instead.
+    static_assert(NoPtrTag == static_cast<PtrTag>(0));
+    jit.tagPtr(NoPtrTag, GPRInfo::regT3);
     jit.storePtr(GPRInfo::regT3, JSInterfaceJIT::Address(GPRInfo::callFrameRegister, CallFrame::returnPCOffset()));
 #endif
     jit.move(JSInterfaceJIT::callFrameRegister, JSInterfaceJIT::regT3);
@@ -697,18 +680,35 @@ MacroAssemblerCodeRef<JITThunkPtrTag> arityFixupGenerator(VM& vm)
 
 #if CPU(ARM64E)
     jit.loadPtr(JSInterfaceJIT::Address(GPRInfo::callFrameRegister, CallFrame::returnPCOffset()), GPRInfo::regT3);
-    jit.move(JSInterfaceJIT::TrustedImmPtr(tempReturnPCTag), extraTemp);
-    jit.untagPtr(extraTemp, GPRInfo::regT3);
-    jit.validateUntaggedPtr(GPRInfo::regT3, extraTemp);
-    jit.addPtr(JSInterfaceJIT::TrustedImm32(sizeof(CallerFrameAndPC)), GPRInfo::callFrameRegister, extraTemp);
-    jit.tagPtr(extraTemp, GPRInfo::regT3);
-    jit.storePtr(GPRInfo::regT3, JSInterfaceJIT::Address(GPRInfo::callFrameRegister, CallFrame::returnPCOffset()));
+    if (Options::allowNonSPTagging()) {
+        static_assert(NoPtrTag == static_cast<PtrTag>(0));
+        jit.untagPtr(NoPtrTag, GPRInfo::regT3);
+        jit.validateUntaggedPtr(GPRInfo::regT3, extraTemp);
+        jit.addPtr(JSInterfaceJIT::TrustedImm32(sizeof(CallerFrameAndPC)), GPRInfo::callFrameRegister, extraTemp);
+        jit.tagPtr(extraTemp, GPRInfo::regT3);
+        jit.storePtr(GPRInfo::regT3, JSInterfaceJIT::Address(GPRInfo::callFrameRegister, CallFrame::returnPCOffset()));
+    } else {
+        jit.move(ARM64Registers::lr, JSInterfaceJIT::argumentGPR0);
+        jit.move(ARM64Registers::sp, JSInterfaceJIT::argumentGPR1);
+        JIT_COMMENT(jit, "lldb dynamic execution / posix signals could trash your stack"); // We don't have to worry about signals because they shouldn't fire in WebContent process in this window.
+        jit.addPtr(JSInterfaceJIT::TrustedImm32(sizeof(CallerFrameAndPC)), GPRInfo::callFrameRegister, ARM64Registers::sp);
+        jit.move(GPRInfo::regT3, ARM64Registers::lr);
+        static_assert(NoPtrTag == static_cast<PtrTag>(0));
+        jit.untagPtr(NoPtrTag, ARM64Registers::lr);
+        jit.validateUntaggedPtr(ARM64Registers::lr, extraTemp);
+        jit.tagReturnAddress();
+        jit.storePtr(ARM64Registers::lr, JSInterfaceJIT::Address(GPRInfo::callFrameRegister, CallFrame::returnPCOffset()));
+        JIT_COMMENT(jit, "lldb dynamic execution / posix signals are ok again");
+        jit.move(JSInterfaceJIT::argumentGPR1, ARM64Registers::sp);
+        jit.move(JSInterfaceJIT::argumentGPR0, ARM64Registers::lr);
+    }
 #endif
 
 #if CPU(X86_64)
     jit.push(JSInterfaceJIT::regT4);
 #endif
     jit.ret();
+
 #else // USE(JSVALUE64) section above, USE(JSVALUE32_64) section below.
     jit.move(JSInterfaceJIT::callFrameRegister, JSInterfaceJIT::regT3);
     jit.load32(JSInterfaceJIT::addressFor(CallFrameSlot::argumentCountIncludingThis), JSInterfaceJIT::argumentGPR2);
@@ -1019,54 +1019,6 @@ typedef MathThunkCallingConvention(*MathThunk)(MathThunkCallingConvention);
     } \
     static MathThunk UnaryDoubleOpWrapper(function) = &function##Thunk;
 
-#elif CPU(X86) && COMPILER(GCC_COMPATIBLE) && OS(LINUX) && defined(__PIC__)
-#define defineUnaryDoubleOpWrapper(function) \
-    asm( \
-        ".text\n" \
-        ".globl " SYMBOL_STRING(function##Thunk) "\n" \
-        HIDE_SYMBOL(function##Thunk) "\n" \
-        SYMBOL_STRING(function##Thunk) ":" "\n" \
-        "pushl %ebx\n" \
-        "subl $20, %esp\n" \
-        "movsd %xmm0, (%esp) \n" \
-        "call __x86.get_pc_thunk.bx\n" \
-        "addl $_GLOBAL_OFFSET_TABLE_, %ebx\n" \
-        "call " GLOBAL_REFERENCE(function) "\n" \
-        "fstpl (%esp) \n" \
-        "movsd (%esp), %xmm0 \n" \
-        "addl $20, %esp\n" \
-        "popl %ebx\n" \
-        "ret\n" \
-        ".previous\n" \
-    );\
-    extern "C" { \
-        MathThunkCallingConvention function##Thunk(MathThunkCallingConvention); \
-        JSC_ANNOTATE_JIT_OPERATION(function##Thunk); \
-    } \
-    static MathThunk UnaryDoubleOpWrapper(function) = &function##Thunk;
-
-#elif CPU(X86) && COMPILER(GCC_COMPATIBLE) && (OS(DARWIN) || OS(LINUX))
-#define defineUnaryDoubleOpWrapper(function) \
-    asm( \
-        ".text\n" \
-        ".globl " SYMBOL_STRING(function##Thunk) "\n" \
-        HIDE_SYMBOL(function##Thunk) "\n" \
-        SYMBOL_STRING(function##Thunk) ":" "\n" \
-        "subl $20, %esp\n" \
-        "movsd %xmm0, (%esp) \n" \
-        "call " GLOBAL_REFERENCE(function) "\n" \
-        "fstpl (%esp) \n" \
-        "movsd (%esp), %xmm0 \n" \
-        "addl $20, %esp\n" \
-        "ret\n" \
-        ".previous\n" \
-    );\
-    extern "C" { \
-        MathThunkCallingConvention function##Thunk(MathThunkCallingConvention); \
-        JSC_ANNOTATE_JIT_OPERATION(function##Thunk); \
-    } \
-    static MathThunk UnaryDoubleOpWrapper(function) = &function##Thunk;
-
 #elif CPU(ARM_THUMB2) && COMPILER(GCC_COMPATIBLE) && OS(DARWIN)
 
 #define defineUnaryDoubleOpWrapper(function) \
@@ -1108,33 +1060,6 @@ typedef MathThunkCallingConvention(*MathThunk)(MathThunkCallingConvention);
         MathThunkCallingConvention function##Thunk(MathThunkCallingConvention); \
         JSC_ANNOTATE_JIT_OPERATION(function##Thunk); \
     } \
-    static MathThunk UnaryDoubleOpWrapper(function) = &function##Thunk;
-
-#elif CPU(X86) && COMPILER(MSVC) && OS(WINDOWS)
-
-// MSVC does not accept floor, etc, to be called directly from inline assembly, so we need to wrap these functions.
-static double (_cdecl *floorFunction)(double) = floor;
-static double (_cdecl *ceilFunction)(double) = ceil;
-static double (_cdecl *truncFunction)(double) = trunc;
-static double (_cdecl *expFunction)(double) = exp;
-static double (_cdecl *logFunction)(double) = log;
-static double (_cdecl *jsRoundFunction)(double) = jsRound;
-
-#define defineUnaryDoubleOpWrapper(function) \
-    extern "C" __declspec(naked) MathThunkCallingConvention function##Thunk(MathThunkCallingConvention) \
-    { \
-        __asm \
-        { \
-        __asm sub esp, 20 \
-        __asm movsd mmword ptr [esp], xmm0  \
-        __asm call function##Function \
-        __asm fstp qword ptr [esp] \
-        __asm movsd xmm0, mmword ptr [esp] \
-        __asm add esp, 20 \
-        __asm ret \
-        } \
-    } \
-    JSC_ANNOTATE_JIT_OPERATION(function##Thunk); \
     static MathThunk UnaryDoubleOpWrapper(function) = &function##Thunk;
 
 #else

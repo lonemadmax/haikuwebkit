@@ -46,11 +46,8 @@
 #include <CoreFoundation/CFString.h>
 #endif // USE(CF)
 
-#if COMPILER(MSVC)
-#include <crtdbg.h>
-#endif
-
 #if OS(WINDOWS)
+#include <crtdbg.h>
 #include <windows.h>
 #endif
 
@@ -87,7 +84,7 @@ ALLOW_NONLITERAL_FORMAT_BEGIN
 #endif
 
     // Do the format once to get the length.
-#if COMPILER(MSVC)
+#if OS(WINDOWS)
     int result = _vscprintf(format, args);
 #else
     char ch;
@@ -352,11 +349,7 @@ void WTFCrash()
 #else
     *(int *)(uintptr_t)0xbbadbeef = 0;
     // More reliable, but doesn't say BBADBEEF.
-#if COMPILER(GCC) || COMPILER(CLANG)
     __builtin_trap();
-#else
-    ((void(*)())nullptr)();
-#endif // COMPILER(GCC_COMPATIBLE)
 #endif // ASAN_ENABLED
 }
 #else

@@ -115,6 +115,7 @@ extern ASCIILiteral errorAsString(Error);
 #define CONNECTION_STRINGIFY_MACRO(line) CONNECTION_STRINGIFY(line)
 
 #define MESSAGE_CHECK_BASE(assertion, connection) MESSAGE_CHECK_COMPLETION_BASE(assertion, connection, (void)0)
+#define MESSAGE_CHECK_BASE_COROUTINE(assertion, connection) MESSAGE_CHECK_COMPLETION_BASE_COROUTINE(assertion, connection, (void)0)
 
 #define MESSAGE_CHECK_COMPLETION_BASE(assertion, connection, completion) do { \
     if (UNLIKELY(!(assertion))) { \
@@ -122,6 +123,15 @@ extern ASCIILiteral errorAsString(Error);
         (connection)->markCurrentlyDispatchedMessageAsInvalid(); \
         { completion; } \
         return; \
+    } \
+} while (0)
+
+#define MESSAGE_CHECK_COMPLETION_BASE_COROUTINE(assertion, connection, completion) do { \
+    if (UNLIKELY(!(assertion))) { \
+        RELEASE_LOG_FAULT(IPC, __FILE__ " " CONNECTION_STRINGIFY_MACRO(__LINE__) ": Invalid message dispatched %s", WTF_PRETTY_FUNCTION); \
+        (connection)->markCurrentlyDispatchedMessageAsInvalid(); \
+        { completion; } \
+        co_return { }; \
     } \
 } while (0)
 
@@ -198,6 +208,7 @@ public:
     public:
         virtual void didClose(Connection&) = 0;
         virtual void didReceiveInvalidMessage(Connection&, MessageName) = 0;
+        virtual void requestRemoteProcessTermination() { }
 
     protected:
         virtual ~Client() { }
@@ -388,7 +399,7 @@ public:
 
     Identifier identifier() const;
 
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) && !USE(EXTENSIONKIT)
     bool kill();
 #endif
 

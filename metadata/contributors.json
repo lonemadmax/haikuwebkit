@@ -1887,6 +1887,14 @@
    },
    {
       "emails" : [
+         "dan.hecht@apple.com"
+      ],
+      "expertise" : "JavaScriptCore",
+      "github" : "dhecht",
+      "name" : "Dan Hecht"
+   },
+   {
+      "emails" : [
          "dtr_bugzilla@apple.com"
       ],
       "github" : "drobson1005",
@@ -2016,6 +2024,16 @@
       "nicks" : [
          "darryl-apple",
          "darryl.p"
+      ]
+   },
+   {
+      "emails" : [
+         "darryl@dpogue.ca"
+      ],
+      "github" : "dpogue",
+      "name" : "Darryl Pogue",
+      "nicks" : [
+         "dpogue"
       ]
    },
    {
@@ -4503,6 +4521,7 @@
    },
    {
       "emails" : [
+         "jmichaud@igalia.com",
          "justin@justinmichaud.com"
       ],
       "expertise" : "JavaScriptCore",
@@ -7163,6 +7182,16 @@
    },
    {
       "emails" : [
+         "aosukeke@gmail.com"
+      ],
+      "github" : "sosukesuzuki",
+      "name" : "Sosuke Suzuki",
+      "nicks" : [
+         "sosukesuzuki"
+      ]
+   },
+   {
+      "emails" : [
          "stephan.szabo@sony.com"
       ],
       "github" : "foopoiuyt",
@@ -7998,12 +8027,13 @@
          "yijia_huang@apple.com",
          "hyjorc1@gmail.com"
       ],
+      "expertise" : "JavaScriptCore",
       "github" : "hyjorc1",
       "name" : "Yijia Huang",
       "nicks" : [
          "yijia"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [

@@ -858,6 +858,9 @@ imported/w3c/web-platform-tests/html/rendering/replaced-elements/the-select-elem
 imported/w3c/web-platform-tests/html/rendering/widgets/button-layout/anonymous-button-content-box.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/widgets/button-layout/inline-level.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/widgets/button-layout/propagate-text-decoration.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/rendering/widgets/button-layout/display-none-or-contents.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/rendering/widgets/button-layout/input-type-button-clip.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/rendering/widgets/input-password-background-suppresses-appearance.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/widgets/the-select-element/option-checked-styling.html [ ImageOnlyFailure ]
 
 #[ iOS MacOS ] imported/w3c/web-platform-tests/html/rendering/widgets/the-select-element/option-add-label-quirks.html(layout-tests) is a constant IMAGE failure
@@ -989,7 +992,7 @@ imported/w3c/web-platform-tests/fetch/api/cors/cors-cookies.any.html [ Failure P
 imported/w3c/web-platform-tests/fetch/content-length/parsing.window.html [ Failure Pass ]
 imported/w3c/web-platform-tests/fetch/redirects/subresource-fragments.html [ Failure Pass ]
 imported/w3c/web-platform-tests/html/browsers/history/joint-session-history/joint-session-history-only-fully-active.html [ Failure Pass ]
-imported/w3c/web-platform-tests/html/browsers/history/the-history-interface/001.html [ Failure Pass ]
+imported/w3c/web-platform-tests/html/browsers/history/the-history-interface/001.html [ Failure Pass Crash ]
 imported/w3c/web-platform-tests/html/browsers/history/the-history-interface/002.html [ Failure Pass ]
 imported/w3c/web-platform-tests/html/browsers/history/the-history-interface/combination_history_002.html [ Failure Pass ]
 imported/w3c/web-platform-tests/html/browsers/history/the-history-interface/combination_history_003.html [ Failure Pass ]
@@ -2087,6 +2090,9 @@ webkit.org/b/139639 [ Debug ] cssom/non-subpixel-scroll-top-left-values.html [ S
 [ Debug ] fast/workers/worker-cloneport.html [ Slow ]
 [ Debug ] fast/webgpu/present-without-compute-pipeline.html [ Slow ]
 [ Debug ] fast/webgpu/multidimensional-texture-bounds.html [ Slow ]
+
+fast/webgpu/regression [ Pass ]
+
 [ Debug ] fast/webgpu/fuzz-272863.html [ Skip ]
 [ Release ] fast/webgpu/fuzz-272863.html [ Pass Failure Timeout ]
 [ Debug ] fast/webgpu/fuzz-272903.html [ Skip ]
@@ -2117,6 +2123,28 @@ webkit.org/b/139639 [ Debug ] cssom/non-subpixel-scroll-top-left-values.html [ S
 [ Release ] fast/webgpu/fuzz-273578.html [ Pass Failure Timeout ]
 [ Debug ] fast/webgpu/fuzz-273585.html [ Skip ]
 [ Release ] fast/webgpu/fuzz-273585.html [ Pass Failure Timeout ]
+[ Debug ] fast/webgpu/fuzz-274270.html [ Skip ]
+[ Release ] fast/webgpu/fuzz-274270.html [ Pass Failure Timeout ]
+[ Debug ] fast/webgpu/fuzz-274161.html [ Skip ]
+[ Release ] fast/webgpu/fuzz-274161.html [ Pass Failure Timeout ]
+[ Debug ] fast/webgpu/fuzz-274271.html [ Skip ]
+[ Release ] fast/webgpu/fuzz-274271.html [ Pass Failure Timeout ]
+[ Debug ] fast/webgpu/fuzz-274275.html [ Skip ]
+[ Release ] fast/webgpu/fuzz-274275.html [ Pass Failure Timeout ]
+[ Debug ] fast/webgpu/fuzz-274317.html [ Skip ]
+[ Release ] fast/webgpu/fuzz-274317.html [ Pass Failure Timeout ]
+[ Debug ] fast/webgpu/fuzz-274334.html [ Skip ]
+[ Release ] fast/webgpu/fuzz-274334.html [ Pass Failure Timeout ]
+[ Debug ] fast/webgpu/fuzz-274289.html [ Skip ]
+[ Release ] fast/webgpu/fuzz-274289.html [ Pass Failure Timeout ]
+[ Debug ] fast/webgpu/fuzz-274171.html [ Skip ]
+[ Release ] fast/webgpu/fuzz-274171.html [ Pass Failure Timeout ]
+[ Debug ] fast/webgpu/fuzz-274290.html [ Skip ]
+[ Release ] fast/webgpu/fuzz-274290.html [ Pass Failure Timeout ]
+[ Debug ] fast/webgpu/fuzz-128396311.html [ Skip ]
+[ Release ] fast/webgpu/fuzz-128396311.html [ Pass Failure Timeout ]
+[ Debug ] fast/webgpu/fuzz-274622.html [ Skip ]
+[ Release ] fast/webgpu/fuzz-274622.html [ Pass Failure Timeout ]
 
 # Imported W3C HTML/DOM ref tests that are failing.
 imported/w3c/web-platform-tests/html/dom/elements/global-attributes/dir_auto-textarea-script-N-between-Rs.html [ ImageOnlyFailure ]
@@ -2920,6 +2948,8 @@ webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/letter-spacing/
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-loose-hyphens-001.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-shaping-001.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/line-breaking/line-breaking-017.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-text/line-breaking/line-breaking-013.html [ ImageOnlyFailure Pass ]
+imported/w3c/web-platform-tests/css/css-text/line-breaking/line-breaking-014.html [ ImageOnlyFailure Pass ]
 imported/w3c/web-platform-tests/css/css-text/line-breaking/line-breaking-022.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/line-breaking/line-breaking-023.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/line-breaking/line-breaking-atomic-003.html [ ImageOnlyFailure ]
@@ -5369,6 +5399,9 @@ imported/w3c/web-platform-tests/css/motion/offset-path-shape-xywh-003.html [ Ima
 
 # IPC test failing in Debug mode due to assert.
 [ Debug ] ipc/send-invalid-message.html [ Skip ]
+webkit.org/b/272000 [ Debug ] ipc/send-filter.html [ Crash ]
+webkit.org/b/272000 [ Debug ] ipc/send-gradient.html [ Crash ]
+
 # mac-only IPC test
 ipc/webpageproxy-correctionpanel-no-crash.html [ Skip ]
 
@@ -5381,9 +5414,10 @@ webkit.org/b/239959 ipc/stream-sync-crash-no-timeout.html [ Skip ]
 # The test invokes random messages, potentially produces random results.
 ipc/start-message-testing.html [ Skip ]
 
-# Fixing timeouts is tracked by https://bugs.webkit.org/show_bug.cgi?id=267714 (rdar://120486467)
+# Fixing timeouts/crashes is tracked by https://bugs.webkit.org/show_bug.cgi?id=267714 (rdar://120486467)
 ipc/invalid-fullscreen-enum.html [ Pass Timeout ]
 ipc/invalid-message-to-addTrackBuffer.html [ Pass Timeout ]
+ipc/removeMediaUsageManagerSession-test.html [ Skip ]
 
 # Test is crashing in Debug builds since import.
 webkit.org/b/234977 [ Debug ] imported/w3c/web-platform-tests/dom/events/focus-event-document-move.html [ Skip ]
@@ -5483,14 +5517,41 @@ webkit.org/b/261849 imported/w3c/web-platform-tests/css/css-scroll-anchoring/zer
 webkit.org/b/261849 imported/w3c/web-platform-tests/css/css-scroll-anchoring/start-edge-in-block-layout-direction.html [ Skip ]
 
 # Trusted Types aren't fully implemented yet
-webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/WorkerGlobalScope-eval.html [ Skip ]
+webkit.org/b/272196 imported/w3c/web-platform-tests/trusted-types/trusted-types-createHTMLDocument.html [ Pass Failure ]
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting.html [ Skip ]
-webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-svg-script.html [ Skip ]
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-no-unsafe-eval.html [ Skip ]
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-report-only.html [ Skip ]
+webkit.org/b/274519 imported/w3c/web-platform-tests/trusted-types/HTMLScriptElement-in-xhtml-document.tentative.https.xhtml [ Skip ]
+webkit.org/b/274519 imported/w3c/web-platform-tests/trusted-types/Document-write-exception-order.xhtml [ Skip ]
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/WorkerGlobalScope-importScripts.html [ Pass Failure ]
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-navigation.html [ Pass Failure ]
 webkit.org/b/274088 imported/w3c/web-platform-tests/trusted-types/Element-setAttribute-respects-Elements-node-documents-globals-CSP.html [ Pass Failure ]
+webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/WorkerGlobalScope-eval.html [ Pass Failure ]
+
+# Close watchers aren't implemented yet
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/n-activate-preventDefault.html?dialog [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/ny-activate-preventDefault.html?dialog [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/n-activate.html?dialog [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/yn-activate.html?dialog [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/n-closerequest-n.html?dialog [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/nn-activate-dialog.html [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/nn-dialog.html [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/nnn-dialog.html [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/ynn-dialog.html [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/nyyn-dialog.html [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/nyyyn-dialog.html [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/n-destroy-n.html?dialog [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/y.html?dialog [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/n.html?dialog [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/ny.html?dialog [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/yn.html?dialog [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/yyn.html?dialog [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/yy.html?dialog [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/yyy.html?dialog [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/nnn-popovers.html [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/nyn-popovers.html [ Skip ]
+webkit.org/b/263305 imported/w3c/web-platform-tests/close-watcher/user-activation/yyy-popovers.html [ Skip ]
+
 
 # These tests are image failures
 imported/w3c/web-platform-tests/css/css-scroll-anchoring/vertical-rl-viewport-size-change-000.html [ Skip ]
@@ -6072,6 +6133,11 @@ imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/js
 imported/w3c/web-platform-tests/import-maps/acquiring/modulepreload.html [ Skip ]
 imported/w3c/web-platform-tests/import-maps/acquiring/modulepreload-link-header.html [ Skip ]
 
+imported/w3c/web-platform-tests/import-maps/dynamic-integrity.html [ DumpJSConsoleLogInStdErr ]
+imported/w3c/web-platform-tests/import-maps/static-integrity.html [ DumpJSConsoleLogInStdErr ]
+imported/w3c/web-platform-tests/import-maps/no-referencing-script-integrity.html [ DumpJSConsoleLogInStdErr ]
+imported/w3c/web-platform-tests/import-maps/nonimport-integrity.html [ DumpJSConsoleLogInStdErr ]
+
 # These tests have been timing out since their import.
 imported/w3c/web-platform-tests/import-maps/data-driven [ Skip ]
 
@@ -6584,8 +6650,6 @@ webkit.org/b/257336 imported/w3c/web-platform-tests/css/css-tables/visibility-co
 # Only Sonoma+/iOS 17+ have support for auto word breaking. Skipped globally and re-enabled for each platform.
 imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase [ Skip ]
 
-webkit.org/b/255970 [ Debug ] fullscreen/exit-full-screen-video-crash.html [ Crash ]
-
 # These tests time out because WebTransport only has a stub implementation.
 imported/w3c/web-platform-tests/webtransport/bidirectional-cancel-crash.https.html [ Skip ]
 imported/w3c/web-platform-tests/webtransport/constructor.https.any.worker.html [ Skip ]
@@ -6878,11 +6942,11 @@ imported/w3c/web-platform-tests/navigation-api/navigate-event/cross-window/ [ Sk
 # These failures include UUIDs that change every run.
 imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/key-id-back-same-document.html [ Failure ]
 imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/key-id-location-reload.html [ Failure ]
-imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/key-id-location-replace.html [ Failure ]
+imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/key-id-location-replace-cross-origin.html [ Failure ]
 imported/w3c/web-platform-tests/navigation-api/navigation-methods/navigate-replace-same-document.html [ Failure ]
 
 # Crash caused by detach.
-imported/w3c/web-platform-tests/navigation-api/navigate-event/signal-abort-detach-in-onnavigate.html [ Crash ]
+imported/w3c/web-platform-tests/navigation-api/navigate-event/signal-abort-detach-in-onnavigate.html [ Skip ]
 
 # General flakes, almost exclusively on mac-wk2-stress.
 imported/w3c/web-platform-tests/navigation-api/currententrychange-event/anchor-click.html [ Failure Pass ]
@@ -6895,7 +6959,7 @@ imported/w3c/web-platform-tests/navigation-api/navigation-methods/back-forward-m
 imported/w3c/web-platform-tests/navigation-api/navigation-methods/disambigaute-back.html [ Failure Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigation-methods/navigate-state-repeated-await.html [ Timeout Failure Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigation-methods/return-value/back-204-205-download.html [ Failure Pass ]
-imported/w3c/web-platform-tests/navigation-api/navigation-methods/return-value/navigate-detach-in-onnavigate.html [ Crash Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigation-methods/return-value/navigate-detach-in-onnavigate.html [ Crash Pass Failure ]
 imported/w3c/web-platform-tests/navigation-api/navigation-methods/return-value/navigate-interrupted-within-onnavigate.html [ Crash Timeout Failure Pass ]
 imported/w3c/web-platform-tests/navigation-api/navigation-methods/return-value/reload-rejection-order-pagehide-unserializablestate.html [ Failure Pass ]
 imported/w3c/web-platform-tests/navigation-api/ordering-and-transition/location-href-intercept-reentrant.html?currententrychange [ Failure Pass ]
@@ -6909,6 +6973,7 @@ imported/w3c/web-platform-tests/navigation-api/per-entry-events/dispose-after-bf
 imported/w3c/web-platform-tests/navigation-api/state/cross-document-away-and-back.html [ Failure Pass ]
 imported/w3c/web-platform-tests/navigation-api/state/cross-document-getState-undefined.html [ Failure Pass ]
 imported/w3c/web-platform-tests/navigation-api/updateCurrentEntry-method/basic.html [ Failure Pass ]
+imported/w3c/web-platform-tests/navigation-api/navigate-event/cross-origin-traversal-redirect.html [ Skip ]
 
 # -- View Transitions -- #
 # Reftest failures:
@@ -6934,7 +6999,6 @@ imported/w3c/web-platform-tests/css/css-view-transitions/snapshot-containing-blo
 imported/w3c/web-platform-tests/css/css-view-transitions/fractional-translation-from-position.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/scroller-child.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/scroller.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-view-transitions/iframe-and-main-frame-transition-new-main-new-iframe.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/iframe-and-main-frame-transition-old-main-new-iframe.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/iframe-and-main-frame-transition-old-main-old-iframe.html [ ImageOnlyFailure ]
 

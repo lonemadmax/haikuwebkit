@@ -32,6 +32,7 @@
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/NowPlayingMetadataObserver.h>
 #include <pal/HysteresisActivity.h>
+#include <wtf/ApproximateTime.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/OptionSet.h>
@@ -481,6 +482,7 @@ struct SessionState;
 struct SubframeProcessPageParameters;
 struct TapIdentifierType;
 struct TextCheckerRequestType;
+struct TextIndicatorStyleData;
 struct TransactionIDType;
 struct URLSchemeTaskParameters;
 struct UserMessage;
@@ -499,6 +501,7 @@ struct WebSpeechSynthesisVoice;
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
 struct WebTextReplacementData;
 struct WebUnifiedTextReplacementContextData;
+struct WebUnifiedTextReplacementSessionData;
 #endif
 struct WebsitePoliciesData;
 #if PLATFORM(WPE) && USE(GBM)
@@ -526,6 +529,9 @@ enum class SameDocumentNavigationType : uint8_t;
 enum class SelectionFlags : uint8_t;
 enum class SelectionTouch : uint8_t;
 enum class ShouldDelayClosingUntilFirstLayerFlush : bool;
+enum class ShouldExpectAppBoundDomainResult : bool;
+enum class ShouldExpectSafeBrowsingResult : bool;
+enum class ShouldWaitForInitialLinkDecorationFilteringData : bool;
 enum class SyntheticEditingCommandType : uint8_t;
 enum class TextRecognitionUpdateResult : uint8_t;
 enum class TextIndicatorStyle : uint8_t;
@@ -536,9 +542,10 @@ enum class WebEventModifier : uint8_t;
 enum class WebEventType : uint8_t;
 enum class WebTextReplacementDataEditAction : uint8_t;
 enum class WebTextReplacementDataState : uint8_t;
-enum class WebUnifiedTextReplacementType : uint8_t;
+enum class WebUnifiedTextReplacementSessionDataReplacementType : uint8_t;
 enum class WindowKind : uint8_t;
 
+template<typename> class Lazy;
 template<typename> class MonotonicObjectIdentifier;
 
 using ActivityStateChangeID = uint64_t;
@@ -1460,7 +1467,7 @@ public:
     enum class WillContinueLoadInNewProcess : bool { No, Yes };
     void receivedPolicyDecision(WebCore::PolicyAction, API::Navigation*, RefPtr<API::WebsitePolicies>&&, Ref<API::NavigationAction>&&, WillContinueLoadInNewProcess, std::optional<SandboxExtensionHandle>, std::optional<PolicyDecisionConsoleMessage>&&, CompletionHandler<void(PolicyDecision&&)>&&);
     void receivedNavigationResponsePolicyDecision(WebCore::PolicyAction, API::Navigation*, const WebCore::ResourceRequest&, Ref<API::NavigationResponse>&&, CompletionHandler<void(PolicyDecision&&)>&&);
-    void receivedNavigationActionPolicyDecision(WebProcessProxy&, WebCore::PolicyAction, API::Navigation*, Ref<API::NavigationAction>&&, ProcessSwapRequestedByClient, WebFrameProxy&, const FrameInfoData&, WasNavigationIntercepted, std::optional<PolicyDecisionConsoleMessage>&&, CompletionHandler<void(PolicyDecision&&)>&&);
+    void receivedNavigationActionPolicyDecision(WebProcessProxy&, WebCore::PolicyAction, API::Navigation*, Ref<API::NavigationAction>&&, ProcessSwapRequestedByClient, WebFrameProxy&, const FrameInfoData&, WasNavigationIntercepted, const URL&, std::optional<PolicyDecisionConsoleMessage>&&, CompletionHandler<void(PolicyDecision&&)>&&);
 
     void backForwardRemovedItem(const WebCore::BackForwardItemIdentifier&);
 
@@ -2012,7 +2019,7 @@ public:
     void startURLSchemeTaskShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, URLSchemeTaskParameters&&);
     void loadDataWithNavigationShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, API::Navigation&, std::span<const uint8_t>, const String& MIMEType, const String& encoding, const String& baseURL, API::Object* userData, WebCore::ShouldTreatAsContinuingLoad, std::optional<NavigatingToAppBoundDomain>, std::optional<WebsitePoliciesData>&&, WebCore::ShouldOpenExternalURLsPolicy, WebCore::SessionHistoryVisibility);
     void loadRequestWithNavigationShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, API::Navigation&, WebCore::ResourceRequest&&, WebCore::ShouldOpenExternalURLsPolicy, API::Object* userData, WebCore::ShouldTreatAsContinuingLoad, std::optional<NavigatingToAppBoundDomain>, std::optional<WebsitePoliciesData>&&, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume);
-    void backForwardAddItemShared(Ref<WebProcessProxy>&&, BackForwardListItemState&&, LoadedWebArchive);
+    void backForwardAddItemShared(Ref<WebProcessProxy>&&, WebCore::FrameIdentifier, BackForwardListItemState&&, LoadedWebArchive);
     void backForwardGoToItemShared(const WebCore::BackForwardItemIdentifier&, CompletionHandler<void(const WebBackForwardListCounts&)>&&);
     void decidePolicyForNavigationActionSyncShared(Ref<WebProcessProxy>&&, NavigationActionData&&, CompletionHandler<void(PolicyDecision&&)>&&);
     void didDestroyNavigationShared(Ref<WebProcessProxy>&&, uint64_t navigationID);
@@ -2202,7 +2209,6 @@ public:
 
 #if ENABLE(APP_HIGHLIGHTS)
     void createAppHighlightInSelectedRange(WebCore::CreateNewGroupForHighlight, WebCore::HighlightRequestOriginatedInApp);
-    void storeAppHighlight(const WebCore::AppHighlight&);
     void restoreAppHighlightsAndScrollToIndex(const Vector<Ref<WebCore::SharedMemory>>& highlights, const std::optional<unsigned> index);
     void setAppHighlightsVisibility(const WebCore::HighlightVisibility);
     bool appHighlightsVisibility();
@@ -2395,38 +2401,39 @@ public:
     void setCrossSiteLoadWithLinkDecorationForTesting(const URL& fromURL, const URL& toURL, bool wasFiltered, CompletionHandler<void()>&&);
 
     void requestTargetedElement(const API::TargetedElementRequest&, CompletionHandler<void(const Vector<Ref<API::TargetedElementInfo>>&)>&&);
+    void takeSnapshotForTargetedElement(const API::TargetedElementInfo&, CompletionHandler<void(std::optional<WebCore::ShareableBitmapHandle>&&)>&&);
 
     void requestTextExtraction(std::optional<WebCore::FloatRect>&& collectionRectInRootView, CompletionHandler<void(WebCore::TextExtraction::Item&&)>&&);
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
     void setUnifiedTextReplacementActive(bool);
 
-    void willBeginTextReplacementSession(const WTF::UUID&, WebUnifiedTextReplacementType, CompletionHandler<void(const Vector<WebUnifiedTextReplacementContextData>&)>&&);
+    void willBeginTextReplacementSession(const std::optional<WebUnifiedTextReplacementSessionData>&, CompletionHandler<void(const Vector<WebUnifiedTextReplacementContextData>&)>&&);
 
-    void didBeginTextReplacementSession(const WTF::UUID&, const Vector<WebKit::WebUnifiedTextReplacementContextData>&);
+    void didBeginTextReplacementSession(const WebUnifiedTextReplacementSessionData&, const Vector<WebKit::WebUnifiedTextReplacementContextData>&);
 
-    void textReplacementSessionDidReceiveReplacements(const WTF::UUID&, const Vector<WebKit::WebTextReplacementData>&, const WebKit::WebUnifiedTextReplacementContextData&, bool finished);
+    void textReplacementSessionDidReceiveReplacements(const WebUnifiedTextReplacementSessionData&, const Vector<WebKit::WebTextReplacementData>&, const WebKit::WebUnifiedTextReplacementContextData&, bool finished);
 
-    void textReplacementSessionDidUpdateStateForReplacement(const WTF::UUID&, WebKit::WebTextReplacementDataState, const WebKit::WebTextReplacementData&, const WebKit::WebUnifiedTextReplacementContextData&);
+    void textReplacementSessionDidUpdateStateForReplacement(const WebUnifiedTextReplacementSessionData&, WebKit::WebTextReplacementDataState, const WebKit::WebTextReplacementData&, const WebKit::WebUnifiedTextReplacementContextData&);
 
-    void didEndTextReplacementSession(const WTF::UUID&, bool accepted);
+    void didEndTextReplacementSession(const WebUnifiedTextReplacementSessionData&, bool accepted);
 
-    void textReplacementSessionDidReceiveTextWithReplacementRange(const WTF::UUID&, const WebCore::AttributedString&, const WebCore::CharacterRange&, const WebKit::WebUnifiedTextReplacementContextData&, bool finished);
+    void textReplacementSessionDidReceiveTextWithReplacementRange(const WebUnifiedTextReplacementSessionData&, const WebCore::AttributedString&, const WebCore::CharacterRange&, const WebKit::WebUnifiedTextReplacementContextData&, bool finished);
 
-    void textReplacementSessionDidReceiveEditAction(const WTF::UUID&, WebKit::WebTextReplacementDataEditAction);
+    void textReplacementSessionDidReceiveEditAction(const WebUnifiedTextReplacementSessionData&, WebKit::WebTextReplacementDataEditAction);
 
     bool isUnifiedTextReplacementActive() const { return m_isUnifiedTextReplacementActive; }
 
     void textReplacementSessionShowInformationForReplacementWithUUIDRelativeToRect(const WTF::UUID& sessionUUID, const WTF::UUID& replacementUUID, WebCore::IntRect selectionBoundsInRootView);
     void textReplacementSessionUpdateStateForReplacementWithUUID(const WTF::UUID& sessionUUID, WebTextReplacementDataState, const WTF::UUID& replacementUUID);
 
-    void addTextIndicatorStyleForID(const WTF::UUID&, const WebKit::TextIndicatorStyle, const WebCore::TextIndicatorData&);
+    void addTextIndicatorStyleForID(const WTF::UUID&, const WebKit::TextIndicatorStyleData&, const WebCore::TextIndicatorData&);
     void removeTextIndicatorStyleForID(const WTF::UUID&);
     void enableTextIndicatorStyleAfterElementWithID(const String& elementID, const WTF::UUID&);
     void enableTextIndicatorStyleForElementWithID(const String& elementID, const WTF::UUID&);
 
     void getTextIndicatorForID(const WTF::UUID&, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&&);
-    void updateTextIndicatorStyleVisibilityForID(const WTF::UUID&, bool, CompletionHandler<void()>&&);
+    void updateTextIndicatorStyleVisibilityForID(const WTF::UUID&, bool, CompletionHandler<void()>&& = [] { });
 #endif
 
     void resetVisibilityAdjustmentsForTargetedElements(const Vector<Ref<API::TargetedElementInfo>>&, CompletionHandler<void(bool)>&&);
@@ -2449,6 +2456,7 @@ public:
     bool hasAllowedToRunInTheBackgroundActivity() const;
 
     template<typename M> void sendToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&);
+    template<typename M> void sendToWebPageInProcess(WebProcessProxy&, M&&);
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
     void setDefaultSpatialTrackingLabel(const String&);
@@ -2548,6 +2556,8 @@ private:
     void didDestroyNavigation(uint64_t navigationID);
 
     void decidePolicyForNavigationAction(Ref<WebProcessProxy>&&, WebFrameProxy&, NavigationActionData&&, CompletionHandler<void(PolicyDecision&&)>&&);
+    Lazy<PolicyDecision> awaitableDecidePolicyForNavigationAction(Ref<WebProcessProxy>&&, WebFrameProxy&, NavigationActionData&&);
+    void continueDecidePolicyForNavigationAction(Ref<API::NavigationAction>&&, WebFrameProxy&, Ref<WebProcessProxy>&&, RefPtr<API::Navigation>&&, FrameInfoData&&, ShouldExpectSafeBrowsingResult, ShouldExpectAppBoundDomainResult, ShouldWaitForInitialLinkDecorationFilteringData, WebCore::ResourceRequest&&, WebCore::ResourceRequest&& originalRequest, RefPtr<WebFrameProxy>&& originatingFrame, std::optional<PolicyDecisionConsoleMessage>&&, CompletionHandler<void(PolicyDecision&&)>&&);
     void decidePolicyForNavigationActionAsync(NavigationActionData&&, CompletionHandler<void(PolicyDecision&&)>&&);
     void decidePolicyForNavigationActionSync(IPC::Connection&, NavigationActionData&&, CompletionHandler<void(PolicyDecision&&)>&&);
     void decidePolicyForNewWindowAction(NavigationActionData&&, const String& frameName, CompletionHandler<void(PolicyDecision&&)>&&);
@@ -2685,11 +2695,11 @@ private:
     void setIsNeverRichlyEditableForTouchBar(bool);
 #endif
 
-    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&);
+    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::FrameIdentifier, const WebCore::IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&);
     void willPerformPasteCommand(WebCore::DOMPasteAccessCategory, std::optional<WebCore::FrameIdentifier> = std::nullopt);
 
     // Back/Forward list management
-    void backForwardAddItem(BackForwardListItemState&&);
+    void backForwardAddItem(WebCore::FrameIdentifier, BackForwardListItemState&&);
     void backForwardGoToItem(const WebCore::BackForwardItemIdentifier&, CompletionHandler<void(const WebBackForwardListCounts&)>&&);
     void backForwardListContainsItem(const WebCore::BackForwardItemIdentifier&, CompletionHandler<void(bool)>&&);
     void backForwardItemAtIndex(int32_t index, CompletionHandler<void(std::optional<WebCore::BackForwardItemIdentifier>&&)>&&);
@@ -3040,7 +3050,6 @@ private:
 #endif
 
     template<typename F> decltype(auto) sendToWebPage(std::optional<WebCore::FrameIdentifier>, F&&);
-    template<typename M> void sendToWebPageInProcess(WebProcessProxy&, M&&);
     template<typename M, typename C> void sendToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&, C&&);
     template<typename M> IPC::ConnectionSendSyncResult<M> sendSyncToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&);
 
@@ -3228,6 +3237,8 @@ private:
 #if ENABLE(CONTEXT_MENUS)
     RefPtr<WebContextMenuProxy> m_activeContextMenu;
 #endif
+
+    Vector<std::pair<String, ApproximateTime>> m_recentlyRequestedDOMPasteOrigins;
 
 #if PLATFORM(MAC)
     RefPtr<API::HitTestResult> m_lastMouseMoveHitTestResult;

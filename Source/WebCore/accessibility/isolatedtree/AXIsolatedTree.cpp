@@ -590,9 +590,6 @@ void AXIsolatedTree::updateNodeProperties(AXCoreObject& axObject, const AXProper
         case AXPropertyName::AXColumnIndex:
             propertyMap.set(AXPropertyName::AXColumnIndex, axObject.axColumnIndex());
             break;
-        case AXPropertyName::IsNonNativeTextControl:
-            propertyMap.set(AXPropertyName::IsNonNativeTextControl, axObject.isNonNativeTextControl());
-            break;
         case AXPropertyName::CanSetFocusAttribute:
             propertyMap.set(AXPropertyName::CanSetFocusAttribute, axObject.canSetFocusAttribute());
             break;
@@ -739,7 +736,7 @@ void AXIsolatedTree::updateNodeProperties(AXCoreObject& axObject, const AXProper
             propertyMap.set(AXPropertyName::Title, axObject.title().isolatedCopy());
             break;
         case AXPropertyName::URL:
-            propertyMap.set(AXPropertyName::URL, axObject.url().isolatedCopy());
+            propertyMap.set(AXPropertyName::URL, std::make_shared<URL>(axObject.url().isolatedCopy()));
             break;
         case AXPropertyName::ValueForRange:
             propertyMap.set(AXPropertyName::ValueForRange, axObject.valueForRange());

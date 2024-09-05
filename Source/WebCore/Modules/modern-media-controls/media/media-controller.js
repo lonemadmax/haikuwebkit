@@ -105,7 +105,7 @@ class MediaController
         if (!this.media)
             return false;
 
-        return this.media.webkitSupportsPresentationMode ? this.media.webkitPresentationMode === "fullscreen" || this.media.webkitPresentationMode === "in-window" : this.media.webkitDisplayingFullscreen;
+        return this.media.webkitSupportsPresentationMode ? this.media.webkitPresentationMode === "fullscreen" || (this.host && this.host.inWindowFullscreen) : this.media.webkitDisplayingFullscreen;
     }
 
     get layoutTraits()
@@ -184,7 +184,7 @@ class MediaController
     macOSControlsBackgroundWasClicked()
     {
         // Toggle playback when clicking on the video but not on any controls on macOS.
-        if (this.media.controls)
+        if (this.media.controls || (this.host && this.host.shouldForceControlsDisplay))
             this.togglePlayback();
     }
 
@@ -334,6 +334,9 @@ class MediaController
         this.controls = new ControlsClass;
         this.controls.delegate = this;
 
+        if (this.host && this.host.inWindowFullscreen)
+            this._stopPropagationOnClickEvents();
+
         if (this.controls.autoHideController && this.shadowRoot.host && this.shadowRoot.host.dataset.autoHideDelay)
             this.controls.autoHideController.autoHideDelay = this.shadowRoot.host.dataset.autoHideDelay;
 
@@ -355,6 +358,16 @@ class MediaController
             this.controls.timeControl.scrubber.disabled = true;
 
         this._updateControlsAvailability();
+    }
+
+    _stopPropagationOnClickEvents()
+    {
+        let clickEvents = ["click", "mousedown", "mouseup", "pointerdown", "pointerup"];
+        for (let clickEvent of clickEvents) {
+            this.controls.element.addEventListener(clickEvent, (event) => {
+                event.stopPropagation();
+            });
+        }
     }
 
     _updateControlsSize()

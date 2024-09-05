@@ -289,10 +289,10 @@ void RemoteMediaPlayerProxy::prepareForRendering()
     m_player->prepareForRendering();
 }
 
-void RemoteMediaPlayerProxy::setPageIsVisible(bool visible, String&& sceneIdentifier)
+void RemoteMediaPlayerProxy::setPageIsVisible(bool visible)
 {
     ALWAYS_LOG(LOGIDENTIFIER, visible);
-    m_player->setPageIsVisible(visible, WTFMove(sceneIdentifier));
+    m_player->setPageIsVisible(visible);
 }
 
 void RemoteMediaPlayerProxy::setShouldMaintainAspectRatio(bool maintainRatio)
@@ -787,8 +787,7 @@ RefPtr<ArrayBuffer> RemoteMediaPlayerProxy::mediaPlayerCachedKeyForKeyId(const S
 
 void RemoteMediaPlayerProxy::mediaPlayerKeyNeeded(const SharedBuffer& message)
 {
-    std::span messageReference { message.data(), message.size() };
-    m_webProcessConnection->send(Messages::MediaPlayerPrivateRemote::MediaPlayerKeyNeeded(messageReference), m_id);
+    m_webProcessConnection->send(Messages::MediaPlayerPrivateRemote::MediaPlayerKeyNeeded(message.span()), m_id);
 }
 #endif
 

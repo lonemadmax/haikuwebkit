@@ -233,7 +233,7 @@ static LayoutRect selectionRectForTextBox(const InlineIterator::TextBox& textBox
 
     auto textRun = textBox.textRun();
     if (clampedStart || clampedEnd != textRun.length())
-        textBox.fontCascade().adjustSelectionRectForText(textRun, selectionRect, clampedStart, clampedEnd);
+        textBox.fontCascade().adjustSelectionRectForText(textBox.renderer().canUseSimplifiedTextMeasuring().value_or(false), textRun, selectionRect, clampedStart, clampedEnd);
 
     return snappedSelectionRect(selectionRect, textBox.logicalRightIgnoringInlineDirection(), lineSelectionRect.y(), lineSelectionRect.height(), textBox.isHorizontal());
 }
@@ -317,7 +317,8 @@ void RenderText::initiateFontLoadingByAccessingGlyphDataAndComputeCanUseSimplifi
     auto fontVariant = AutoVariant;
     m_canUseSimplifiedTextMeasuring = canUseSimpleFontCodePath();
 #if USE(FONT_VARIANT_VIA_FEATURES)
-    if (fontCascade.fontDescription().variantCaps() == FontVariantCaps::Small) {
+    auto fontVariantCaps = fontCascade.fontDescription().variantCaps();
+    if (fontVariantCaps == FontVariantCaps::Small || fontVariantCaps == FontVariantCaps::AllSmall || fontVariantCaps ==  FontVariantCaps::Petite || fontVariantCaps == FontVariantCaps::AllPetite) {
         // This matches the behavior of ComplexTextController::collectComplexTextRuns(): that function doesn't perform font fallback
         // on the capitalized characters when small caps is enabled, so we shouldn't here either.
         fontVariant = NormalVariant;
@@ -1219,7 +1220,8 @@ void RenderText::computePreferredLogicalWidths(float leadWidth, SingleThreadWeak
     // word-break, but we support it as though it means break-all.
     bool breakAll = (style.wordBreak() == WordBreak::BreakAll || style.wordBreak() == WordBreak::BreakWord || style.overflowWrap() == OverflowWrap::Anywhere) && style.autoWrap();
     bool keepAllWords = style.wordBreak() == WordBreak::KeepAll;
-    bool canUseLineBreakShortcut = iteratorMode == TextBreakIterator::LineMode::Behavior::Default;
+    bool canUseLineBreakShortcut = iteratorMode == TextBreakIterator::LineMode::Behavior::Default
+        && contentAnalysis == TextBreakIterator::ContentAnalysis::Mechanical;
 
     for (unsigned i = 0; i < length; i++) {
         UChar c = string[i];

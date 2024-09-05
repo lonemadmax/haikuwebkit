@@ -43,6 +43,7 @@ namespace WebCore {
 
 class Element;
 class Document;
+class Image;
 class Node;
 class Page;
 
@@ -62,16 +63,27 @@ public:
     WEBCORE_EXPORT uint64_t numberOfVisibilityAdjustmentRects() const;
     WEBCORE_EXPORT bool resetVisibilityAdjustments(const Vector<TargetedElementIdentifiers>&);
 
+    WEBCORE_EXPORT RefPtr<Image> snapshotIgnoringVisibilityAdjustment(ElementIdentifier, ScriptExecutionContextIdentifier);
+
 private:
     void cleanUpAdjustmentClientRects();
 
-    void applyVisibilityAdjustmentFromSelectors(Document&);
+    void applyVisibilityAdjustmentFromSelectors();
+
+    struct FindElementFromSelectorsResult {
+        RefPtr<Element> element;
+        String lastSelectorIncludingPseudo;
+    };
+    FindElementFromSelectorsResult findElementFromSelectors(const TargetedElementSelectors&);
+
+    RefPtr<Document> mainDocument() const;
 
     void dispatchVisibilityAdjustmentStateDidChange();
     void selectorBasedVisibilityAdjustmentTimerFired();
 
     std::pair<Vector<Ref<Node>>, RefPtr<Element>> findNodes(FloatPoint location, bool shouldIgnorePointerEventsNone);
     std::pair<Vector<Ref<Node>>, RefPtr<Element>> findNodes(const String& searchText);
+    std::pair<Vector<Ref<Node>>, RefPtr<Element>> findNodes(const TargetedElementSelectors&);
 
     Vector<TargetedElementInfo> extractTargets(Vector<Ref<Node>>&&, RefPtr<Element>&& innerElement, bool canIncludeNearbyElements);
 
@@ -81,6 +93,7 @@ private:
     ApproximateTime m_startTimeForSelectorBasedVisibilityAdjustment;
     Timer m_selectorBasedVisibilityAdjustmentTimer;
     Vector<std::pair<ElementIdentifier, TargetedElementSelectors>> m_visibilityAdjustmentSelectors;
+    Vector<TargetedElementSelectors> m_initialVisibilityAdjustmentSelectors;
     Region m_adjustmentClientRegion;
     Region m_repeatedAdjustmentClientRegion;
     WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_adjustedElements;

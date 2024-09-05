@@ -2585,6 +2585,7 @@ platform/ios/media/video-interruption-suspendunderlock.html [ Skip ]
 media/airplay-allows-buffering.html
 media/airplay-autoplay.html
 media/airplay-target-availability.html
+media/airplay-target-availability-disableremoteplayback.html
 
 # needs enhanced eventSender.contextMenu() return value
 webkit.org/b/116651 media/context-menu-actions.html
@@ -3661,7 +3662,6 @@ webkit.org/b/221478 imported/w3c/web-platform-tests/css/css-flexbox/dynamic-base
 webkit.org/b/221478 imported/w3c/web-platform-tests/css/css-flexbox/dynamic-baseline-change.html [ Pass ]
 webkit.org/b/212046 imported/w3c/web-platform-tests/css/css-flexbox/percentage-heights-014.html [ Pass ]
 webkit.org/b/231021 imported/w3c/web-platform-tests/css/css-grid/grid-items/replaced-element-015.html [ Pass ]
-webkit.org/b/149828 imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-mask-image.html [ Pass ]
 webkit.org/b/214456 imported/w3c/web-platform-tests/css/css-images/multiple-position-color-stop-conic-2.html [ Pass ]
 webkit.org/b/214456 imported/w3c/web-platform-tests/css/css-images/tiled-conic-gradients.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-polygon-013.html [ Pass ]
@@ -4721,6 +4721,7 @@ imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-main-frame-root.h
 webkit.org/b/257698 imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase/word-break-auto-phrase-004.html [ ImageOnlyFailure ]
 webkit.org/b/257698 imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase/word-break-auto-phrase-005.html [ ImageOnlyFailure ]
 webkit.org/b/257698 imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase/word-break-auto-phrase-006.html [ ImageOnlyFailure ]
+webkit.org/b/274628 imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase/word-break-auto-phrase-009.html [ ImageOnlyFailure ]
 webkit.org/b/257698 imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase/word-break-auto-phrase-overflow-001.html [ ImageOnlyFailure ]
 webkit.org/b/257698 imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase/word-break-auto-phrase-wbr-nobr-001.html [ ImageOnlyFailure ]
 webkit.org/b/257698 imported/w3c/web-platform-tests/css/css-text/word-break/auto-phrase/word-break-auto-phrase-wbr-nobr-002.html [ ImageOnlyFailure ]
@@ -6933,8 +6934,6 @@ webgl/1.0.3/conformance/textures/tex-image-with-format-and-type.html [ Pass Time
 webgl/1.0.3/conformance/textures/texture-size-cube-maps.html [ Pass Timeout ]
 webgl/1.0.3/conformance/textures/texture-transparent-pixels-initialized.html [ Pass Timeout ]
 
-webkit.org/b/269033 fast/events/ios/select-all-with-existing-selection.html [ Pass Failure ]
-
 webkit.org/b/269086 [ Release ] imported/w3c/web-platform-tests/feature-policy/feature-policy-frame-policy-allowed-for-all.https.sub.html [ Pass Failure ]
 
 webkit.org/b/269760 mathml/presentation/scripts-underover.html [ Failure ]
@@ -7303,12 +7302,19 @@ webkit.org/b/273905 svg/filters/filter-on-root-tile-boundary.html [ Pass ImageOn
 
 webkit.org/b/273984 http/tests/site-isolation/window-open-with-name-cross-site.html [ Timeout ]
 
-# webkit.org/b/274175 REGRESSION (276847@main): [ iOS Debug ] 3X fast/viewport/ios/viewport-fit tests are consistent failures 
-fast/viewport/ios/viewport-fit-auto.html [ Failure ]
-fast/viewport/ios/viewport-fit-contain.html [ Failure ]
-fast/viewport/ios/viewport-fit-cover.html [ Failure ]
-
-webkit.org/b/274180 editing/selection/ios/place-selection-in-overflow-area.html [ Timeout ]
-
 # webkit.org/b/274219 (REGRESSION (278786@main): [ MacOS iOS ] 3X http/wpt/webauthn tests are consistent failures)
 http/wpt/webauthn/idl.https.html [ Failure ]
+
+webkit.org/b/274340 fast/events/ios/key-command-transpose.html [ Pass Timeout ]
+
+# webkit.org/b/274475 REGRESSION (278960@main?): [ MacOS iOS ] 8X imported/w3c/web-platform-t ests/navigation-api are consistently failing and 1 is crashing
+imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/entries-after-navigations-in-multiple-windows.html [ Failure ]
+imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/key-id-location-replace-cross-origin.html [ Failure ]
+
+# webkit.org/b/274488 REGRESSION (278902@main): [ iOS ] editing/selection/ios/selection-handles-in-iframe.html and fast/images/text-recognition/iOS.. are timing out 
+editing/selection/ios/selection-handles-in-iframe.html [ Timeout ]
+fast/images/text-recognition/ios/select-word-in-image-overlay-inside-link.html [ Timeout ]
+
+webkit.org/b/271916 media/track/track-in-band-layout.html [ Failure ]
+
+webkit.org/b/274766 [ Debug ] http/wpt/webauthn/public-key-credential-get-success-u2f.https.html [ Failure ]

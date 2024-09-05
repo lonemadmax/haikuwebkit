@@ -588,6 +588,8 @@ void RenderObject::scheduleLayout(RenderElement* layoutRoot)
 RenderElement* RenderObject::markContainingBlocksForLayout(RenderElement* layoutRoot)
 {
     ASSERT(!isSetNeedsLayoutForbidden());
+    if (is<RenderView>(*this))
+        return downcast<RenderElement>(this);
 
     CheckedPtr ancestor = container();
 
@@ -1481,6 +1483,19 @@ FloatPoint RenderObject::localToAbsolute(const FloatPoint& localPoint, OptionSet
     return transformState.lastPlanarPoint();
 }
 
+std::unique_ptr<TransformationMatrix> RenderObject::viewTransitionTransform() const
+{
+    // Compute the accumulated local to absolute TransformationMatrix, using the
+    // 'TrackSVGCTMMatrix' option. This computes a single matrix, applying flatten()
+    // to the matrix at 3d rendering context boundaries.
+    TransformState transformState(TransformState::ApplyTransformDirection, FloatPoint { });
+    transformState.setTransformMatrixTracking(TransformState::TrackSVGCTMMatrix);
+    OptionSet<MapCoordinatesMode> mode { UseTransforms, ApplyContainerFlip };
+    mapLocalToContainer(nullptr, transformState, mode, nullptr);
+    transformState.flatten();
+    return transformState.releaseTrackedTransform();
+}
+
 FloatPoint RenderObject::absoluteToLocal(const FloatPoint& containerPoint, OptionSet<MapCoordinatesMode> mode) const
 {
     TransformState transformState(TransformState::UnapplyInverseTransformDirection, containerPoint);
@@ -1770,6 +1785,17 @@ bool RenderObject::isSelectionBorder() const
         || st == HighlightState::Both
         || view().selection().start() == this
         || view().selection().end() == this;
+}
+
+void RenderObject::setCapturedInViewTransition(bool captured)
+{
+    if (capturedInViewTransition() != captured) {
+        m_stateBitfields.setFlag(StateFlag::CapturedInViewTransition, captured);
+        if (isDocumentElementRenderer())
+            view().layer()->setNeedsPostLayoutCompositingUpdate();
+        else if (hasLayer())
+            downcast<RenderLayerModelObject>(*this).layer()->setNeedsPostLayoutCompositingUpdate();
+    }
 }
 
 void RenderObject::willBeDestroyed()
@@ -2382,6 +2408,15 @@ void RenderObject::RepaintRects::transform(const TransformationMatrix& matrix, f
         *outlineBoundsRect = clippedOverflowRect;
     else if (outlineBoundsRect)
         *outlineBoundsRect = LayoutRect(encloseRectToDevicePixels(matrix.mapRect(*outlineBoundsRect), deviceScaleFactor));
+}
+
+bool RenderObject::effectiveCapturedInViewTransition() const
+{
+    if (isDocumentElementRenderer())
+        return false;
+    if (isRenderView())
+        return document().activeViewTransitionCapturedDocumentElement();
+    return capturedInViewTransition();
 }
 
 #if PLATFORM(IOS_FAMILY)

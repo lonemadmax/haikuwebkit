@@ -202,6 +202,11 @@ NetworkConnectionToWebProcess::~NetworkConnectionToWebProcess()
     unregisterSharedWorkerConnection();
 }
 
+Ref<NetworkProcess> NetworkConnectionToWebProcess::protectedNetworkProcess()
+{
+    return networkProcess();
+}
+
 void NetworkConnectionToWebProcess::hasUploadStateChanged(bool hasUpload)
 {
     CONNECTION_RELEASE_LOG(Loading, "hasUploadStateChanged: (hasUpload=%d)", hasUpload);
@@ -1508,13 +1513,13 @@ void NetworkConnectionToWebProcess::logOnBehalfOfWebContent(std::span<const uint
     // os_log_hook on sender side sends a null category and subsystem when logging to OS_LOG_DEFAULT.
     auto osLog = OSObjectPtr<os_log_t>();
     if (isNullTerminated(logSubsystem) && isNullTerminated(logCategory)) {
-        auto subsystem = reinterpret_cast<const char*>(logSubsystem.data());
-        auto category = reinterpret_cast<const char*>(logCategory.data());
+        auto subsystem = byteCast<char>(logSubsystem.data());
+        auto category = byteCast<char>(logCategory.data());
         osLog = adoptOSObject(os_log_create(subsystem, category));
     }
 
     auto osLogPointer = osLog.get() ? osLog.get() : OS_LOG_DEFAULT;
-    auto logData = reinterpret_cast<const char*>(logString.data());
+    auto logData = byteCast<char>(logString.data());
 
 #if HAVE(OS_SIGNPOST)
     if (WTFSignpostHandleIndirectLog(osLogPointer, pid, logData))

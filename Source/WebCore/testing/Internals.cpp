@@ -506,6 +506,8 @@ static bool markerTypeFrom(const String& markerType, DocumentMarker::Type& resul
     else if (equalLettersIgnoringASCIICase(markerType, "unifiedtextreplacement"_s))
         result = DocumentMarker::Type::UnifiedTextReplacement;
 #endif
+    else if (equalLettersIgnoringASCIICase(markerType, "transparentcontent"_s))
+        result = DocumentMarker::Type::TransparentContent;
     else
         return false;
 
@@ -5353,7 +5355,7 @@ String Internals::createTemporaryFile(const String& name, const String& contents
         return nullString();
 
     auto contentsUTF8 = contents.utf8();
-    FileSystem::writeToFile(file, contentsUTF8.data(), contentsUTF8.length());
+    FileSystem::writeToFile(file, contentsUTF8.span());
 
     FileSystem::closeFile(file);
 

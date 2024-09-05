@@ -756,6 +756,7 @@ runtime/ArrayConstructor.cpp
 runtime/ArrayConventions.cpp
 runtime/ArrayIteratorPrototype.cpp
 runtime/ArrayPrototype.cpp
+runtime/AssertInvariants.cpp
 runtime/AsyncFromSyncIteratorPrototype.cpp
 runtime/AsyncGeneratorFunctionConstructor.cpp
 runtime/AsyncGeneratorFunctionPrototype.cpp
@@ -809,7 +810,6 @@ runtime/DirectEvalExecutable.cpp
 runtime/DoublePredictionFuzzerAgent.cpp
 runtime/DumpContext.cpp
 runtime/ECMAMode.cpp
-runtime/EnsureStillAliveHere.cpp
 runtime/Error.cpp
 runtime/ErrorConstructor.cpp
 runtime/ErrorHandlingScope.cpp

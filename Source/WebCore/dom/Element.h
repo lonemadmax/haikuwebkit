@@ -117,6 +117,9 @@ enum class InvokeAction: uint8_t {
     TogglePopover,
     HidePopover,
     ShowPopover,
+
+    ShowModal,
+    Close,
 };
 
 struct CheckVisibilityOptions;
@@ -163,7 +166,7 @@ public:
     AtomString getAttributeForBindings(const QualifiedName&, ResolveURLs = ResolveURLs::NoExcludingURLsForPrivacy) const;
     template<typename... QualifiedNames>
     inline const AtomString& getAttribute(const QualifiedName&, const QualifiedNames&...) const;
-    WEBCORE_EXPORT void setAttribute(const QualifiedName&, const AtomString& value);
+    WEBCORE_EXPORT ExceptionOr<void> setAttribute(const QualifiedName&, const AtomString& value, bool enforceTrustedTypes = false);
     void setAttributeWithoutOverwriting(const QualifiedName&, const AtomString& value);
     WEBCORE_EXPORT void setAttributeWithoutSynchronization(const QualifiedName&, const AtomString& value);
     void setSynchronizedLazyAttribute(const QualifiedName&, const AtomString& value);
@@ -310,7 +313,7 @@ public:
 
     const QualifiedName& tagQName() const { return m_tagName; }
 #if ENABLE(JIT)
-    static ptrdiff_t tagQNameMemoryOffset() { return OBJECT_OFFSETOF(Element, m_tagName); }
+    static constexpr ptrdiff_t tagQNameMemoryOffset() { return OBJECT_OFFSETOF(Element, m_tagName); }
 #endif
     String tagName() const { return nodeName(); }
     bool hasTagName(const QualifiedName& tagName) const { return m_tagName.matches(tagName); }
@@ -365,7 +368,7 @@ public:
     void stripScriptingAttributes(Vector<Attribute>&) const;
 
     const ElementData* elementData() const { return m_elementData.get(); }
-    static ptrdiff_t elementDataMemoryOffset() { return OBJECT_OFFSETOF(Element, m_elementData); }
+    static constexpr ptrdiff_t elementDataMemoryOffset() { return OBJECT_OFFSETOF(Element, m_elementData); }
     inline UniqueElementData& ensureUniqueElementData();
 
     void synchronizeAllAttributes() const;
@@ -445,7 +448,7 @@ public:
     ExceptionOr<void> insertAdjacentHTML(const String& where, const String& html, NodeVector* addedNodes);
 
     WEBCORE_EXPORT ExceptionOr<Element*> insertAdjacentElement(const String& where, Element& newChild);
-    WEBCORE_EXPORT ExceptionOr<void> insertAdjacentHTML(const String& where, const String& html);
+    WEBCORE_EXPORT ExceptionOr<void> insertAdjacentHTML(const String& where, std::variant<RefPtr<TrustedHTML>, String>&&);
     WEBCORE_EXPORT ExceptionOr<void> insertAdjacentText(const String& where, String&& text);
 
     using Node::computedStyle;
@@ -518,13 +521,13 @@ public:
     virtual void blur();
     virtual void runFocusingStepsForAutofocus();
 
-    ExceptionOr<void> setHTMLUnsafe(const String&);
+    ExceptionOr<void> setHTMLUnsafe(std::variant<RefPtr<TrustedHTML>, String>&&);
     String getHTML(GetHTMLOptions&&) const;
 
     WEBCORE_EXPORT String innerHTML() const;
     WEBCORE_EXPORT String outerHTML() const;
-    WEBCORE_EXPORT ExceptionOr<void> setInnerHTML(const String&);
-    WEBCORE_EXPORT ExceptionOr<void> setOuterHTML(const String&);
+    WEBCORE_EXPORT ExceptionOr<void> setInnerHTML(std::variant<RefPtr<TrustedHTML>, String>&&);
+    WEBCORE_EXPORT ExceptionOr<void> setOuterHTML(std::variant<RefPtr<TrustedHTML>, String>&&);
     WEBCORE_EXPORT String innerText();
     WEBCORE_EXPORT String outerText();
  

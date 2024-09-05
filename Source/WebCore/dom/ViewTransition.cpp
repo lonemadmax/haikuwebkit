@@ -643,41 +643,33 @@ Ref<MutableStyleProperties> ViewTransition::copyElementBaseProperties(RenderLaye
     };
 
     Ref<MutableStyleProperties> props = styleExtractor.copyProperties(transitionProperties);
+    auto& frameView = renderer.view().frameView();
 
     if (renderer.isDocumentElementRenderer()) {
-        auto& frameView = renderer.view().frameView();
         size.setWidth(frameView.frameRect().width());
         size.setHeight(frameView.frameRect().height());
-    } else if (CheckedPtr renderBox = dynamicDowncast<RenderBoxModelObject>(&renderer))
+    } else if (CheckedPtr renderBox = dynamicDowncast<RenderBoxModelObject>(&renderer)) {
         size = renderBox->borderBoundingBox().size();
+
+        if (auto transform = renderer.viewTransitionTransform()) {
+            // FIXME(mattwoodrow): `transform` gives absolute coords, not
+            // document. We should be accounting for page zoom to get the
+            // absolute->document conversion correct.
+            auto offset = frameView.documentToClientOffset();
+            transform->translate(offset.width(), offset.height());
+
+            // Apply the inverse of what will be added by the default value of 'transform-origin',
+            // since the computed transform has already included it.
+            transform->translate(size.width() / 2, size.height() / 2);
+            transform->translateRight(-size.width() / 2, -size.height() / 2);
+
+            Ref transformListValue = CSSTransformListValue::create(ComputedStyleExtractor::matrixTransformValue(*transform, renderer.style()));
+            props->setProperty(CSSPropertyTransform, WTFMove(transformListValue));
+        }
+    }
 
     props->setProperty(CSSPropertyWidth, CSSPrimitiveValue::create(size.width(), CSSUnitType::CSS_PX));
     props->setProperty(CSSPropertyHeight, CSSPrimitiveValue::create(size.height(), CSSUnitType::CSS_PX));
-
-    TransformationMatrix transform;
-    RenderElement* current = &renderer;
-    RenderElement* container = nullptr;
-    while (current && !current->isRenderView()) {
-        container = current->container();
-        if (!container)
-            break;
-        LayoutSize containerOffset = current->offsetFromContainer(*container, LayoutPoint());
-        if (container->isRenderView()) {
-            auto frameView = current->view().protectedFrameView();
-            containerOffset -= toLayoutSize(frameView->scrollPositionRespectingCustomFixedPosition());
-        }
-        TransformationMatrix localTransform;
-        current->getTransformFromContainer(containerOffset, localTransform);
-        transform = localTransform * transform;
-        current = container;
-    }
-    // Apply the inverse of what will be added by the default value of 'transform-origin',
-    // since the computed transform has already included it.
-    transform.translate(size.width() / 2, size.height() / 2);
-    transform.translateRight(-size.width() / 2, -size.height() / 2);
-
-    Ref<CSSValue> transformListValue = CSSTransformListValue::create(ComputedStyleExtractor::matrixTransformValue(transform, renderer.style()));
-    props->setProperty(CSSPropertyTransform, WTFMove(transformListValue));
     return props;
 }
 
@@ -685,6 +677,7 @@ Ref<MutableStyleProperties> ViewTransition::copyElementBaseProperties(RenderLaye
 ExceptionOr<void> ViewTransition::updatePseudoElementStyles()
 {
     Ref resolver = protectedDocument()->styleScope().resolver();
+    bool changed = false;
 
     for (auto& [name, capturedElement] : m_namedElements.map()) {
         RefPtr<MutableStyleProperties> properties;
@@ -701,11 +694,15 @@ ExceptionOr<void> ViewTransition::updatePseudoElementStyles()
             if (RefPtr documentElement = document()->documentElement()) {
                 Styleable styleable(*documentElement, Style::PseudoElementIdentifier { PseudoId::ViewTransitionNew, name });
                 if (CheckedPtr viewTransitionCapture = dynamicDowncast<RenderViewTransitionCapture>(styleable.renderer())) {
-                    viewTransitionCapture->setSize(boxSize, overflowRect);
+                    if (viewTransitionCapture->setSize(boxSize, overflowRect))
+                        viewTransitionCapture->setNeedsLayout();
 
                     RefPtr<ImageBuffer> image;
-                    if (RefPtr frame = document()->frame(); !viewTransitionCapture->canUseExistingLayers())
+                    if (RefPtr frame = document()->frame(); !viewTransitionCapture->canUseExistingLayers()) {
                         image = snapshotElementVisualOverflowClippedToViewport(*frame, *renderer, overflowRect);
+                        changed = true;
+                    } else if (CheckedPtr layer = renderer->layer())
+                        layer->setNeedsCompositingGeometryUpdate();
                     viewTransitionCapture->setImage(image);
                 }
             }
@@ -717,12 +714,14 @@ ExceptionOr<void> ViewTransition::updatePseudoElementStyles()
             if (!capturedElement->groupStyleProperties) {
                 capturedElement->groupStyleProperties = properties;
                 resolver->setViewTransitionStyles(CSSSelector::PseudoElement::ViewTransitionGroup, name, *properties);
+                changed = true;
             } else
-                capturedElement->groupStyleProperties->mergeAndOverrideOnConflict(*properties);
+                changed |= capturedElement->groupStyleProperties->mergeAndOverrideOnConflict(*properties);
         }
     }
 
-    protectedDocument()->styleScope().didChangeStyleSheetContents();
+    if (changed)
+        protectedDocument()->styleScope().didChangeStyleSheetContents();
     return { };
 }
 

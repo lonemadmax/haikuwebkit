@@ -31,6 +31,10 @@
 #include <wtf/Forward.h>
 #include <wtf/WeakPtr.h>
 
+namespace WebCore {
+class ShareableBitmapHandle;
+}
+
 namespace WebKit {
 class WebPageProxy;
 }
@@ -62,7 +66,10 @@ public:
     bool isNearbyTarget() const { return m_info.isNearbyTarget; }
     bool isPseudoElement() const { return m_info.isPseudoElement; }
     bool isInShadowTree() const { return m_info.isInShadowTree; }
+    bool isInVisibilityAdjustmentSubtree() const { return m_info.isInVisibilityAdjustmentSubtree; }
     bool hasAudibleMedia() const { return m_info.hasAudibleMedia; }
+
+    const HashSet<WTF::URL>& mediaAndLinkURLs() const { return m_info.mediaAndLinkURLs; }
 
     void childFrames(CompletionHandler<void(Vector<Ref<FrameTreeNode>>&&)>&&) const;
 
@@ -70,6 +77,8 @@ public:
 
     WebCore::ElementIdentifier elementIdentifier() const { return m_info.elementIdentifier; }
     WebCore::ScriptExecutionContextIdentifier documentIdentifier() const { return m_info.documentIdentifier; }
+
+    void takeSnapshot(CompletionHandler<void(std::optional<WebCore::ShareableBitmapHandle>&&)>&&);
 
 private:
     WebCore::TargetedElementInfo m_info;

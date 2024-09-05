@@ -97,13 +97,14 @@ AffineTransform CanvasBase::baseTransform() const
     return m_imageBuffer->baseTransform();
 }
 
-void CanvasBase::makeRenderingResultsAvailable(ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
+RefPtr<ImageBuffer> CanvasBase::makeRenderingResultsAvailable(ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
 {
     if (auto* context = renderingContext()) {
         context->drawBufferToCanvas(CanvasRenderingContext::SurfaceBuffer::DrawingBuffer);
         if (m_canvasNoiseHashSalt && shouldApplyPostProcessingToDirtyRect == ShouldApplyPostProcessingToDirtyRect::Yes)
             m_canvasNoiseInjection.postProcessDirtyCanvasBuffer(buffer(), *m_canvasNoiseHashSalt, context->is2d() ? CanvasNoiseInjectionPostProcessArea::DirtyRect : CanvasNoiseInjectionPostProcessArea::FullBuffer);
     }
+    return buffer();
 }
 
 size_t CanvasBase::memoryCost() const
@@ -297,12 +298,6 @@ bool CanvasBase::shouldAccelerate(uint64_t area) const
         return false;
 #if PLATFORM(GTK)
     if (!scriptExecutionContext()->settingsValues().acceleratedCompositingEnabled)
-        return false;
-#endif
-#if USE(SKIA)
-    // FIXME: Skia based ports don't implement accelerated offscreen canvas yet.
-    auto* context = renderingContext();
-    if (context && context->isOffscreen2d())
         return false;
 #endif
     return true;

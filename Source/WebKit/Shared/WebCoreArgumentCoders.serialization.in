@@ -898,7 +898,7 @@ header: <WebCore/ElementTargetingTypes.h>
 
 header: <WebCore/ElementTargetingTypes.h>
 [CustomHeader] struct WebCore::TargetedElementRequest {
-    std::variant<WebCore::FloatPoint, String> data
+    std::variant<WebCore::FloatPoint, String, WebCore::TargetedElementSelectors> data
     bool canIncludeNearbyElements
     bool shouldIgnorePointerEventsNone
 };
@@ -916,9 +916,11 @@ header: <WebCore/ElementTargetingTypes.h>
     WebCore::FloatRect boundsInClientCoordinates
     WebCore::PositionType positionType
     Vector<WebCore::FrameIdentifier> childFrameIdentifiers
+    HashSet<URL> mediaAndLinkURLs;
     bool isNearbyTarget
     bool isPseudoElement
     bool isInShadowTree
+    bool isInVisibilityAdjustmentSubtree
     bool hasAudibleMedia
 };
 
@@ -2559,7 +2561,7 @@ class WebCore::DatabaseDetails {
     std::optional<WallTime> modificationTime();
 };
 
-[RefCounted] class WebCore::DecomposedGlyphs {
+[RefCounted, AdditionalEncoder=StreamConnectionEncoder] class WebCore::DecomposedGlyphs {
     WebCore::PositionedGlyphs positionedGlyphs();
     WebCore::RenderingResourceIdentifier renderingResourceIdentifier();
 }
@@ -2591,8 +2593,7 @@ struct WebCore::PromisedAttachmentInfo {
 #if ENABLE(ATTACHMENT_ELEMENT)
     String attachmentIdentifier;
 #endif
-    Vector<String> additionalTypes;
-    Vector<RefPtr<WebCore::SharedBuffer>> additionalData;
+    Vector<std::pair<String, RefPtr<WebCore::SharedBuffer>>> additionalTypesAndData;
 }
 
 header: <WebCore/SearchPopupMenu.h>
@@ -2967,7 +2968,7 @@ struct WebCore::LengthSize {
 }
 
 class WebCore::SVGPathByteStream {
-    Vector<unsigned char> data();
+    Vector<unsigned char> bytes();
 }
 
 header: <WebCore/BasicShapes.h>
@@ -4677,6 +4678,13 @@ enum class WebCore::AudioSessionMode : uint8_t {
     MoviePlayback,
 };
 
+enum class WebCore::AudioSessionSoundStageSize : uint8_t {
+    Automatic,
+    Small,
+    Medium,
+    Large,
+};
+
 [Nested] enum class WebCore::AudioSession::MayResume : bool;
 
 enum class WebCore::AudioSessionRoutingArbitrationError : uint8_t {
@@ -5084,6 +5092,7 @@ struct WebCore::ServiceWorkerClientData {
     std::optional<WebCore::PageIdentifier> pageIdentifier;
     std::optional<WebCore::FrameIdentifier> frameIdentifier;
     WebCore::LastNavigationWasAppInitiated lastNavigationWasAppInitiated;
+    OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections;
     bool isVisible;
     bool isFocused;
     uint64_t focusOrder;
@@ -5308,10 +5317,7 @@ class WebCore::RealtimeMediaSourceSupportedConstraints {
     bool supportsBackgroundBlur();
 };
 
-[Nested] class WebCore::RealtimeMediaSource::Type : uint8_t {
-    Audio,
-    Video,
-};
+[Nested] enum class WebCore::RealtimeMediaSource::Type : bool;
 
 enum class WebCore::VideoFacingMode : uint8_t {
     Unknown,
@@ -5782,6 +5788,7 @@ struct WebCore::WorkerOptions {
 struct WebCore::WorkerInitializationData {
     std::optional<WebCore::ServiceWorkerData> serviceWorkerData;
     std::optional<WebCore::ScriptExecutionContextIdentifier> clientIdentifier;
+    OptionSet<WebCore::AdvancedPrivacyProtections> advancedPrivacyProtections;
     String userAgent;
 };
 
@@ -8008,8 +8015,8 @@ class WebCore::SerializedPlatformDataCueValue {
     RetainPtr<NSLocale> locale;
     std::variant<std::nullptr_t, RetainPtr<NSString>, RetainPtr<NSDate>, RetainPtr<NSNumber>, RetainPtr<NSData>> value;
 #endif
-#endif
 };
+#endif
 
 header: <WebCore/SharedBuffer.h>
 [RefCounted, CustomHeader, CreateUsing=fromIPCData] class WebCore::FragmentedSharedBuffer {
@@ -8068,10 +8075,13 @@ using WebCore::DOMCacheEngine::RecordIdentifiersOrError = Expected<Vector<uint64
 using WebCore::DOMCacheEngine::CrossThreadRecordsOrError = Expected<Vector<WebCore::DOMCacheEngine::CrossThreadRecord>, WebCore::DOMCacheEngine::Error>
 using WebCore::DOMCacheEngine::RemoveCacheIdentifierOrError = Expected<bool, WebCore::DOMCacheEngine::Error>
 
-using WebCore::MediaPlayerEnums::VideoFullscreenMode = uint32_t
 using WebCore::SVGFilterExpression = Vector<WebCore::SVGFilterExpressionTerm>;
 using WebCore::SandboxFlags = int
+#if ENABLE(VIDEO)
+using WebCore::MediaPlayerEnums::VideoFullscreenMode = uint32_t
+using WebCore::MediaPlayer::VideoFullscreenMode = uint32_t
 using WebCore::TrackID = uint64_t
+#endif
 using WebCore::EpochTimeStamp = uint64_t
 using WebCore::SharedMemory::Handle = WebCore::SharedMemoryHandle
 using WebCore::ServiceWorkerOrClientIdentifier = std::variant<WebCore::ServiceWorkerIdentifier, WebCore::ScriptExecutionContextIdentifier>
@@ -8107,6 +8117,7 @@ using WebCore::PageOverlay::PageOverlayID = uint64_t
     SVG_MEETORSLICE_SLICE
 }
 
+#if ENABLE(VIDEO)
 enum class WebCore::PlatformMediaError : uint8_t {
     AppendError,
     ClientDisconnected,
@@ -8121,6 +8132,7 @@ enum class WebCore::PlatformMediaError : uint8_t {
     NotSupportedError,
     NetworkError,
 };
+#endif
 
 #if USE(CG)
 using WebCore::DashArray = Vector<CGFloat>;
@@ -8152,5 +8164,8 @@ using Inspector::ExtensionTabID = String
 using WebCore::ArgumentWireBytesMap = HashMap<String, Vector<uint8_t>>
 using WebCore::IDBKeyPath = std::variant<String, Vector<String>>;
 using WebCore::ServiceWorkerOrClientData = std::variant<WebCore::ServiceWorkerData, WebCore::ServiceWorkerClientData>
-using WebCore::MediaPlayer::VideoFullscreenMode = uint32_t
 enum class WebCore::CrossOriginMode : bool
+
+[CreateUsing=fromRawString] class WebCore::PublicSuffix {
+    String string();
+};

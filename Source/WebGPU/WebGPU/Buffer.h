@@ -32,6 +32,7 @@
 #import <wtf/RangeSet.h>
 #import <wtf/Ref.h>
 #import <wtf/RefCounted.h>
+#import <wtf/WeakHashSet.h>
 #import <wtf/WeakPtr.h>
 
 struct WGPUBufferImpl {
@@ -82,6 +83,8 @@ public:
     };
 
     id<MTLBuffer> buffer() const { return m_buffer; }
+    id<MTLBuffer> indirectBuffer() const;
+    id<MTLBuffer> indirectIndexedBuffer() const;
     uint64_t initialSize() const;
     uint64_t currentSize() const;
     WGPUBufferUsageFlags usage() const { return m_usage; }
@@ -92,17 +95,24 @@ public:
     void setCommandEncoder(CommandEncoder&, bool mayModifyBuffer = false) const;
     uint32_t maxIndex(MTLIndexType) const;
     uint8_t* getBufferContents();
+    bool indirectBufferRequiresRecomputation(uint32_t baseIndex, uint32_t indexCount, uint32_t minVertexCount, MTLIndexType) const;
+    void indirectBufferRecomputed(uint32_t baseIndex, uint32_t indexCount, uint32_t minVertexCount, MTLIndexType);
+    void indirectBufferInvalidated();
 
 private:
     Buffer(id<MTLBuffer>, uint64_t initialSize, WGPUBufferUsageFlags, State initialState, MappingRange initialMappingRange, Device&);
     Buffer(Device&);
-    void recomputeMaxIndexValues() const;
 
     bool validateGetMappedRange(size_t offset, size_t rangeSize) const;
     NSString* errorValidatingMapAsync(WGPUMapModeFlags, size_t offset, size_t rangeSize) const;
     bool validateUnmap() const;
+    void setState(State);
+    void incrementBufferMapCount();
+    void decrementBufferMapCount();
 
     id<MTLBuffer> m_buffer { nil };
+    id<MTLBuffer> m_indirectBuffer { nil };
+    id<MTLBuffer> m_indirectIndexedBuffer { nil };
 
     // https://gpuweb.github.io/gpuweb/#buffer-interface
 
@@ -114,9 +124,15 @@ private:
     using MappedRanges = RangeSet<Range<size_t>>;
     MappedRanges m_mappedRanges;
     WGPUMapModeFlags m_mapMode { WGPUMapMode_None };
+    struct IndirectArgsCache {
+        uint32_t lastBaseIndex { 0 };
+        uint32_t indexCount { 0 };
+        uint32_t minVertexCount { 0 };
+        MTLIndexType indexType { MTLIndexTypeUInt16 };
+    } m_indirectCache;
 
     const Ref<Device> m_device;
-    mutable WeakPtr<CommandEncoder> m_commandEncoder;
+    mutable WeakHashSet<CommandEncoder> m_commandEncoders;
     mutable uint16_t m_max16BitIndex { 0 };
     mutable uint32_t m_max32BitIndex { 0 };
 };

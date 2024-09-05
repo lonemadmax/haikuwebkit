@@ -140,7 +140,7 @@
 #undef Function
 #endif
 
-#if COMPILER(MSVC)
+#if OS(WINDOWS)
 #include <crtdbg.h>
 #include <mmsystem.h>
 #include <windows.h>
@@ -480,6 +480,7 @@ public:
     bool m_exitCode { false };
     bool m_destroyVM { false };
     bool m_treatWatchdogExceptionAsSuccess { false };
+    bool m_ignoreUncaughtExceptions { false };
     bool m_alwaysDumpUncaughtException { false };
     bool m_dumpMemoryFootprint { false };
     bool m_dumpLinkBufferStats { false };
@@ -943,7 +944,8 @@ const GlobalObjectMethodTable GlobalObject::s_globalObjectMethodTable = {
     nullptr, // defaultLanguage
     nullptr, // compileStreaming
     nullptr, // instantinateStreaming
-    &deriveShadowRealmGlobalObject
+    &deriveShadowRealmGlobalObject,
+    &codeForEval
 };
 
 GlobalObject::GlobalObject(VM& vm, Structure* structure)
@@ -1312,11 +1314,11 @@ public:
         if (!FileSystem::truncateFile(fd, m_cachedBytecode->sizeForUpdate()))
             return;
 
-        m_cachedBytecode->commitUpdates([&] (off_t offset, const void* data, size_t size) {
+        m_cachedBytecode->commitUpdates([&] (off_t offset, std::span<const uint8_t> data) {
             long long result = FileSystem::seekFile(fd, offset, FileSystem::FileSeekOrigin::Beginning);
             ASSERT_UNUSED(result, result != -1);
-            size_t bytesWritten = static_cast<size_t>(FileSystem::writeToFile(fd, data, size));
-            ASSERT_UNUSED(bytesWritten, bytesWritten == size);
+            size_t bytesWritten = static_cast<size_t>(FileSystem::writeToFile(fd, data));
+            ASSERT_UNUSED(bytesWritten, bytesWritten == data.size());
         });
     }
 
@@ -1395,7 +1397,7 @@ static bool fetchModuleFromLocalFileSystem(const URL& fileURL, Vector& buffer)
     // These also appear to turn off handling forward slashes as
     // directory separators as it disables all string parsing on names.
     fileName = makeStringByReplacingAll(fileName, '/', '\\');
-    auto pathName = makeString("\\\\?\\", fileName).wideCharacters();
+    auto pathName = makeString("\\\\?\\"_s, fileName).wideCharacters();
     struct _stat status { };
     if (_wstat(pathName.data(), &status))
         return false;
@@ -2057,9 +2059,9 @@ JSC_DEFINE_HOST_FUNCTION(functionWriteFile, (JSGlobalObject* globalObject, CallF
 
     int size = std::visit(WTF::makeVisitor([&](const String& string) {
         CString utf8 = string.utf8();
-        return FileSystem::writeToFile(handle, utf8.data(), utf8.length());
+        return FileSystem::writeToFile(handle, utf8.span());
     }, [&] (const std::span<const uint8_t>& data) {
-        return FileSystem::writeToFile(handle, data.data(), data.size());
+        return FileSystem::writeToFile(handle, data);
     }), data);
 
     FileSystem::closeFile(handle);
@@ -2813,11 +2815,6 @@ JSC_DEFINE_HOST_FUNCTION(functionQuit, (JSGlobalObject* globalObject, CallFrame*
     vm.codeCache()->write();
 
     jscExit(EXIT_SUCCESS);
-
-#if COMPILER(MSVC) && !COMPILER(CLANG)
-    // Without this, Visual Studio will complain that this method does not return a value.
-    return JSValue::encode(jsUndefined());
-#endif
 }
 
 JSC_DEFINE_HOST_FUNCTION(functionFalse, (JSGlobalObject*, CallFrame*))
@@ -3682,13 +3679,13 @@ static void checkException(GlobalObject* globalObject, bool isLastFile, bool has
     }
 
     if (!options.m_uncaughtExceptionName || !isLastFile) {
-        success = success && !hasException;
+        success = success && (!hasException || options.m_ignoreUncaughtExceptions);
         if (options.m_dump && !hasException)
             printf("End: %s\n", value.toWTFString(globalObject).utf8().data());
-        if (hasException)
+        if (hasException && !options.m_ignoreUncaughtExceptions)
             dumpException(globalObject, value);
     } else
-        success = success && checkUncaughtException(vm, globalObject, (hasException) ? value : JSValue(), options);
+        success = success && (checkUncaughtException(vm, globalObject, (hasException) ? value : JSValue(), options) || options.m_ignoreUncaughtExceptions);
 }
 
 void GlobalObject::reportUncaughtExceptionAtEventLoop(JSGlobalObject* globalObject, Exception* exception)
@@ -3900,6 +3897,7 @@ static NO_RETURN void printUsageStatement(bool help = false)
     fprintf(stderr, "  --strict-file=<file>       Parse the given file as if it were in strict mode (this option may be passed more than once)\n");
     fprintf(stderr, "  --module-file=<file>       Parse and evaluate the given file as module (this option may be passed more than once)\n");
     fprintf(stderr, "  --exception=<name>         Check the last script exits with an uncaught exception with the specified name\n");
+    fprintf(stderr, "  --ignoreUncaughtExceptions Do not error out if an uncaught exception is observed\n");
     fprintf(stderr, "  --watchdog-exception-ok    Uncaught watchdog exceptions exit with success\n");
     fprintf(stderr, "  --dumpException            Dump uncaught exception text\n");
     fprintf(stderr, "  --footprint                Dump memory footprint after done executing\n");
@@ -4099,6 +4097,11 @@ void CommandLine::parseArguments(int argc, char** argv)
             continue;
         }
 
+        if (!strcmp(arg, "--ignoreUncaughtExceptions")) {
+            m_ignoreUncaughtExceptions = true;
+            continue;
+        }
+
         if (!strcmp(arg, "--footprint")) {
             m_dumpMemoryFootprint = true;
             continue;
@@ -4166,6 +4169,7 @@ void CommandLine::parseArguments(int argc, char** argv)
 
 CommandLine::CommandLine(CommandLineForWorkersTag)
     : m_treatWatchdogExceptionAsSuccess(mainCommandLine->m_treatWatchdogExceptionAsSuccess)
+    , m_ignoreUncaughtExceptions(mainCommandLine->m_ignoreUncaughtExceptions)
 {
 }
 
@@ -4366,7 +4370,7 @@ int jscmain(int argc, char** argv)
         enableSuperSampler();
 
     bool gigacageDisableRequested = false;
-#if GIGACAGE_ENABLED && !COMPILER(MSVC)
+#if GIGACAGE_ENABLED && !OS(WINDOWS)
     if (char* gigacageEnabled = getenv("GIGACAGE_ENABLED")) {
         if (!strcasecmp(gigacageEnabled, "no") || !strcasecmp(gigacageEnabled, "false") || !strcasecmp(gigacageEnabled, "0"))
             gigacageDisableRequested = true;

@@ -1358,8 +1358,6 @@ public:
             GPRInfo::regT13,
             GPRInfo::regT14,
             GPRInfo::regT15,
-#elif CPU(X86_64) && OS(WINDOWS)
-            // No additional registers.
 #elif CPU(X86_64)
             GPRInfo::regT6,
             GPRInfo::regT7,
@@ -1646,7 +1644,7 @@ public:
 #endif
     }
     
-    void callExceptionFuzz(VM&);
+    void callExceptionFuzz(VM&, GPRReg exceptionReg);
     
     enum ExceptionCheckKind { NormalExceptionCheck, InvertedExceptionCheck };
     enum ExceptionJumpWidth { NormalJumpWidth, FarJumpWidth };

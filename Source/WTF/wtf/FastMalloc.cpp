@@ -210,8 +210,7 @@ void fastAlignedFree(void* p)
 void* fastAlignedMalloc(size_t alignment, size_t size) 
 {
     ASSERT_IS_WITHIN_LIMIT(size);
-    void* p = nullptr;
-    posix_memalign(&p, alignment, size);
+    void* p = aligned_alloc(alignment, size);
     if (UNLIKELY(!p))
         CRASH();
     return p;
@@ -220,9 +219,7 @@ void* fastAlignedMalloc(size_t alignment, size_t size)
 void* tryFastAlignedMalloc(size_t alignment, size_t size) 
 {
     FAIL_IF_EXCEEDS_LIMIT(size);
-    void* p = nullptr;
-    posix_memalign(&p, alignment, size);
-    return p;
+    return aligned_alloc(alignment, size);
 }
 
 void fastAlignedFree(void* p) 
