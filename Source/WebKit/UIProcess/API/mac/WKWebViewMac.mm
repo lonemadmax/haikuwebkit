@@ -1642,6 +1642,11 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     _impl->gestureEventWasNotHandledByWebCoreFromViewOnly(event);
 }
 
+- (double)minimumMagnification
+{
+    return _page->minPageZoomFactor();
+}
+
 - (void)_disableFrameSizeUpdates
 {
     _impl->disableFrameSizeUpdates();
@@ -1755,6 +1760,16 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)_simulateMouseMove:(NSEvent *)event
 {
     return _impl->mouseMoved(event);
+}
+
+- (void)_createFlagsChangedEventMonitorForTesting
+{
+    _impl->createFlagsChangedEventMonitor();
+}
+
+- (void)_removeFlagsChangedEventMonitorForTesting
+{
+    _impl->removeFlagsChangedEventMonitor();
 }
 
 - (void)_setFont:(NSFont *)font sender:(id)sender

@@ -101,6 +101,7 @@
 #include <WebCore/Settings.h>
 #include <WebCore/TextIndicator.h>
 #include <WebCore/TextRecognitionOptions.h>
+#include <WebCore/ViewportConfiguration.h>
 #include <WebCore/WindowFeatures.h>
 
 #if HAVE(WEBGPU_IMPLEMENTATION)
@@ -1002,11 +1003,7 @@ RefPtr<GraphicsContextGL> WebChromeClient::createGraphicsContextGL(const Graphic
 {
 #if ENABLE(GPU_PROCESS)
     if (WebProcess::singleton().shouldUseRemoteRenderingForWebGL())
-        return RemoteGraphicsContextGLProxy::create(WebProcess::singleton().ensureGPUProcessConnection().connection(), attributes, protectedPage()->ensureRemoteRenderingBackendProxy()
-#if ENABLE(VIDEO)
-            , WebProcess::singleton().ensureGPUProcessConnection().videoFrameObjectHeapProxy()
-#endif
-        );
+        return RemoteGraphicsContextGLProxy::create(attributes, protectedPage());
 #endif
     return WebCore::createWebProcessGraphicsContextGL(attributes);
 }
@@ -1016,7 +1013,7 @@ RefPtr<GraphicsContextGL> WebChromeClient::createGraphicsContextGL(const Graphic
 RefPtr<WebCore::WebGPU::GPU> WebChromeClient::createGPUForWebGPU() const
 {
 #if ENABLE(GPU_PROCESS)
-    return RemoteGPUProxy::create(WebProcess::singleton().ensureGPUProcessConnection().connection(), WebGPU::DowncastConvertToBackingContext::create(), WebGPUIdentifier::generate(), protectedPage()->ensureRemoteRenderingBackendProxy().ensureBackendCreated());
+    return RemoteGPUProxy::create(WebGPU::DowncastConvertToBackingContext::create(), protectedPage());
 #else
     return WebCore::WebGPU::create([](WebCore::WebGPU::WorkItem&& workItem) {
         callOnMainRunLoop(WTFMove(workItem));
@@ -1030,7 +1027,11 @@ RefPtr<WebCore::ShapeDetection::BarcodeDetector> WebChromeClient::createBarcodeD
 #if ENABLE(GPU_PROCESS)
     auto page = protectedPage();
     auto& remoteRenderingBackendProxy = page->ensureRemoteRenderingBackendProxy();
-    return ShapeDetection::RemoteBarcodeDetectorProxy::create(remoteRenderingBackendProxy.streamConnection(), remoteRenderingBackendProxy.renderingBackendIdentifier(), ShapeDetectionIdentifier::generate(), barcodeDetectorOptions);
+    // FIXME(https://bugs.webkit.org/show_bug.cgi?id=275245): Does not work when GPUP crashes.
+    RefPtr connection = remoteRenderingBackendProxy.connection();
+    if (!connection)
+        return nullptr;
+    return ShapeDetection::RemoteBarcodeDetectorProxy::create(connection.releaseNonNull(), remoteRenderingBackendProxy.renderingBackendIdentifier(), ShapeDetectionIdentifier::generate(), barcodeDetectorOptions);
 #elif HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
     return WebCore::ShapeDetection::BarcodeDetectorImpl::create(barcodeDetectorOptions);
 #else
@@ -1043,7 +1044,13 @@ void WebChromeClient::getBarcodeDetectorSupportedFormats(CompletionHandler<void(
 #if ENABLE(GPU_PROCESS)
     auto page = protectedPage();
     auto& remoteRenderingBackendProxy = page->ensureRemoteRenderingBackendProxy();
-    ShapeDetection::RemoteBarcodeDetectorProxy::getSupportedFormats(remoteRenderingBackendProxy.streamConnection(), remoteRenderingBackendProxy.renderingBackendIdentifier(), WTFMove(completionHandler));
+    // FIXME(https://bugs.webkit.org/show_bug.cgi?id=275245): Does not work when GPUP crashes.
+    RefPtr connection = remoteRenderingBackendProxy.connection();
+    if (!connection) {
+        completionHandler({ });
+        return;
+    }
+    ShapeDetection::RemoteBarcodeDetectorProxy::getSupportedFormats(connection.releaseNonNull(), remoteRenderingBackendProxy.renderingBackendIdentifier(), WTFMove(completionHandler));
 #elif HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
     WebCore::ShapeDetection::BarcodeDetectorImpl::getSupportedFormats(WTFMove(completionHandler));
 #else
@@ -1056,7 +1063,11 @@ RefPtr<WebCore::ShapeDetection::FaceDetector> WebChromeClient::createFaceDetecto
 #if ENABLE(GPU_PROCESS)
     auto page = protectedPage();
     auto& remoteRenderingBackendProxy = page->ensureRemoteRenderingBackendProxy();
-    return ShapeDetection::RemoteFaceDetectorProxy::create(remoteRenderingBackendProxy.streamConnection(), remoteRenderingBackendProxy.renderingBackendIdentifier(), ShapeDetectionIdentifier::generate(), faceDetectorOptions);
+    // FIXME(https://bugs.webkit.org/show_bug.cgi?id=275245): Does not work when GPUP crashes.
+    RefPtr connection = remoteRenderingBackendProxy.connection();
+    if (!connection)
+        return nullptr;
+    return ShapeDetection::RemoteFaceDetectorProxy::create(connection.releaseNonNull(), remoteRenderingBackendProxy.renderingBackendIdentifier(), ShapeDetectionIdentifier::generate(), faceDetectorOptions);
 #elif HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
     return WebCore::ShapeDetection::FaceDetectorImpl::create(faceDetectorOptions);
 #else
@@ -1069,7 +1080,11 @@ RefPtr<WebCore::ShapeDetection::TextDetector> WebChromeClient::createTextDetecto
 #if ENABLE(GPU_PROCESS)
     auto page = protectedPage();
     auto& remoteRenderingBackendProxy = page->ensureRemoteRenderingBackendProxy();
-    return ShapeDetection::RemoteTextDetectorProxy::create(remoteRenderingBackendProxy.streamConnection(), remoteRenderingBackendProxy.renderingBackendIdentifier(), ShapeDetectionIdentifier::generate());
+    // FIXME(https://bugs.webkit.org/show_bug.cgi?id=275245): Does not work when GPUP crashes.
+    RefPtr connection = remoteRenderingBackendProxy.connection();
+    if (!connection)
+        return nullptr;
+    return ShapeDetection::RemoteTextDetectorProxy::create(connection.releaseNonNull(), remoteRenderingBackendProxy.renderingBackendIdentifier(), ShapeDetectionIdentifier::generate());
 #elif HAVE(SHAPE_DETECTION_API_IMPLEMENTATION)
     return WebCore::ShapeDetection::TextDetectorImpl::create();
 #else
@@ -1738,6 +1753,15 @@ URL WebChromeClient::allowedQueryParametersForAdvancedPrivacyProtections(const U
 void WebChromeClient::textAutosizingUsesIdempotentModeChanged()
 {
     protectedPage()->textAutosizingUsesIdempotentModeChanged();
+}
+
+#endif
+
+#if ENABLE(META_VIEWPORT)
+
+double WebChromeClient::baseViewportLayoutSizeScaleFactor() const
+{
+    return protectedPage()->baseViewportLayoutSizeScaleFactor();
 }
 
 #endif

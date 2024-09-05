@@ -27,7 +27,7 @@
 #include "B3LowerToAir.h"
 
 #if ENABLE(B3_JIT)
-
+#if USE(JSVALUE64)
 #include "AirBlockInsertionSet.h"
 #include "AirCCallSpecial.h"
 #include "AirCode.h"
@@ -5307,4 +5307,5 @@ void lowerToAir(Procedure& procedure)
 IGNORE_RETURN_TYPE_WARNINGS_END
 #endif
 
+#endif // USE(JSVALUE64)
 #endif // ENABLE(B3_JIT)

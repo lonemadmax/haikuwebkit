@@ -150,7 +150,6 @@ MESSAGE_RECEIVERS = \
 	Shared/ApplePay/WebPaymentCoordinatorProxy \
 	Shared/Authentication/AuthenticationManager \
 	Shared/Notifications/NotificationManagerMessageHandler \
-	Shared/WebConnection \
 	Shared/IPCConnectionTester \
 	Shared/IPCStreamTester \
 	Shared/IPCStreamTesterProxy \
@@ -495,7 +494,6 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	GPUProcess/GPUProcessSessionParameters.serialization.in \
 	GPUProcess/graphics/PathSegment.serialization.in \
 	GPUProcess/graphics/RemoteGraphicsContextGLInitializationState.serialization.in \
-	GPUProcess/graphics/RemoteRenderingBackendCreationParameters.serialization.in \
 	GPUProcess/graphics/WebGPU/RemoteGPURequestAdapterResponse.serialization.in \
 	GPUProcess/media/AudioTrackPrivateRemoteConfiguration.serialization.in \
 	GPUProcess/media/InitializationSegmentInfo.serialization.in \

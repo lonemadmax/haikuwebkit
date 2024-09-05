@@ -64,7 +64,6 @@ class NativeExecutable;
     macro(InternalFunctionConstruct, internalFunctionConstructGenerator) \
     macro(ThrowExceptionFromCall, throwExceptionFromCallGenerator) \
     macro(ThrowExceptionFromCallSlowPath, throwExceptionFromCallSlowPathGenerator) \
-    macro(PolymorphicRepatchThunk, polymorphicRepatchThunk) \
     macro(VirtualThunkForRegularCall, virtualThunkForRegularCall) \
     macro(VirtualThunkForTailCall, virtualThunkForTailCall) \
     macro(VirtualThunkForConstruct, virtualThunkForConstruct) \
@@ -72,7 +71,21 @@ class NativeExecutable;
     macro(PolymorphicThunkForClosure, polymorphicThunkForClosure) \
     macro(ReturnFromBaseline, returnFromBaselineGenerator) \
     macro(ArityFixup, arityFixupGenerator) \
-
+    macro(GetByIdLoadOwnPropertyHandler, getByIdLoadOwnPropertyHandlerCodeGenerator) \
+    macro(GetByIdLoadPrototypePropertyHandler, getByIdLoadPrototypePropertyHandlerCodeGenerator) \
+    macro(GetByIdMissHandler, getByIdMissHandlerCodeGenerator) \
+    macro(GetByIdCustomAccessorHandler, getByIdCustomAccessorHandler) \
+    macro(GetByIdCustomValueHandler, getByIdCustomValueHandler) \
+    macro(GetByIdGetterHandler, getByIdGetterHandler) \
+    macro(GetByIdProxyObjectLoadHandler, getByIdProxyObjectLoadHandler) \
+    macro(PutByIdReplaceHandler, putByIdReplaceHandlerCodeGenerator) \
+    macro(PutByIdTransitionNonAllocatingHandler, putByIdTransitionNonAllocatingHandlerCodeGenerator) \
+    macro(PutByIdTransitionNewlyAllocatingHandler, putByIdTransitionNewlyAllocatingHandlerCodeGenerator) \
+    macro(PutByIdTransitionReallocatingHandler, putByIdTransitionReallocatingHandlerCodeGenerator) \
+    macro(PutByIdCustomAccessorHandler, putByIdCustomAccessorHandler) \
+    macro(PutByIdCustomValueHandler, putByIdCustomValueHandler) \
+    macro(PutByIdStrictSetterHandler, putByIdStrictSetterHandler) \
+    macro(PutByIdSloppySetterHandler, putByIdSloppySetterHandler) \
 
 #if ENABLE(YARR_JIT_BACKREFERENCES_FOR_16BIT_EXPRS)
 #define JSC_FOR_EACH_YARR_JIT_BACKREFERENCES_THUNK(macro) \

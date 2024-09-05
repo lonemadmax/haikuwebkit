@@ -24,12 +24,15 @@
  */
 
 #include "config.h"
+#include "AutomationProtocolObjects.h"
+#include "SimulatedInputDispatcher.h"
 #include "WebAutomationSession.h"
 
 #include "WebAutomationSessionLibWPE.h"
 #include "WebAutomationSessionMacros.h"
 #include "WebEventModifier.h"
 #include "WebPageProxy.h"
+#include <optional>
 #include <wpe/wpe.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/GUniquePtr.h>
@@ -37,6 +40,7 @@
 
 #if ENABLE(WPE_PLATFORM)
 #include "GRefPtrWPE.h"
+#include "Logging.h"
 #include <wpe/wpe-platform.h>
 #endif
 
@@ -96,7 +100,7 @@ static uint32_t modifiersToEventState(OptionSet<WebEventModifier> modifiers)
     return state;
 }
 
-static unsigned mouseButtonToWPEButton(MouseButton button)
+static unsigned libWPEMouseButtonToWPEButton(MouseButton button)
 {
     switch (button) {
     case MouseButton::None:
@@ -110,7 +114,7 @@ static unsigned mouseButtonToWPEButton(MouseButton button)
     return 1;
 }
 
-static unsigned stateModifierForWPEButton(unsigned button)
+static unsigned libWPEStateModifierForWPEButton(unsigned button)
 {
     uint32_t state = 0;
 
@@ -151,7 +155,7 @@ static WebCore::IntPoint deviceScaleLocationInView(WebPageProxy& page, const Web
 static void doMouseEvent(WebPageProxy& page, const WebCore::IntPoint& location, unsigned button, bool isPressed, uint32_t modifiers)
 {
     auto* view = page.wpeView();
-    auto buttonModifiers =  stateModifierForWPEButton(button);
+    auto buttonModifiers =  libWPEStateModifierForWPEButton(button);
     if (isPressed)
         modifiers |= buttonModifiers;
     else
@@ -181,8 +185,8 @@ void WebAutomationSession::platformSimulateMouseInteraction(WebPageProxy& page, 
     }
 
 #if ENABLE(WPE_PLATFORM)
-    unsigned wpeButton = mouseButtonToWPEButton(button);
-    auto modifier = stateModifierForWPEButton(wpeButton);
+    unsigned wpeButton = libWPEMouseButtonToWPEButton(button);
+    auto modifier = libWPEStateModifierForWPEButton(wpeButton);
     uint32_t state = modifiersToEventState(keyModifiers) | m_currentModifiers;
 
     switch (interaction) {
@@ -226,16 +230,16 @@ static void doKeyStrokeEvent(WebPageProxy &page, bool pressed, uint32_t keyVal, 
         return;
     }
 
-    WPEKeymapEntry* entries;
+    GUniqueOutPtr<WPEKeymapEntry> entries;
     guint entriesCount;
-    if (!wpe_keymap_get_entries_for_keyval(keymap, keyVal, &entries, &entriesCount)) {
+    if (!wpe_keymap_get_entries_for_keyval(keymap, keyVal, &entries.outPtr(), &entriesCount)) {
         LOG(Automation, "WebAutomationSession::doKeyStrokeEvent: Failed to get keymap entries for keyval %u. Ignoring event.", keyVal);
         return;
     }
-    unsigned keyCode = entries[0].keycode;
+    unsigned keyCode = entries.get()[0].keycode;
 
     WPEModifiers consumedModifiers;
-    if (!wpe_keymap_translate_keyboard_state(keymap, keyCode, static_cast<WPEModifiers>(modifiers), entries[0].group, &keyVal, nullptr, nullptr, &consumedModifiers)) {
+    if (!wpe_keymap_translate_keyboard_state(keymap, keyCode, static_cast<WPEModifiers>(modifiers), entries.get()[0].group, &keyVal, nullptr, nullptr, &consumedModifiers)) {
         LOG(Automation, "WebAutomationSession::doKeyStrokeEvent: Failed to translate keyboard state for keycode %u. Ignoring event.", keyCode);
         return;
     }
@@ -483,5 +487,44 @@ void WebAutomationSession::platformSimulateWheelInteraction(WebPageProxy& page, 
 #endif
 }
 #endif // ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
+
+#if ENABLE(WEBDRIVER_TOUCH_INTERACTIONS)
+
+void WebAutomationSession::platformSimulateTouchInteraction(WebPageProxy&page, TouchInteraction interaction, const WebCore::IntPoint& locationInView, std::optional<Seconds> duration, AutomationCompletionHandler&& completionHandler)
+{
+
+    if (page.viewBackend()) {
+        LOG(Automation, "Touch event emulation is not supported for the legacy libwpe API");
+        completionHandler(AutomationCommandError(Inspector::Protocol::Automation::ErrorMessage::InternalError, "Touch event emulation is not supported for the legacy libwpe API"_s));
+        return;
+    }
+
+    auto location = deviceScaleLocationInView(page, locationInView);
+
+#if ENABLE(WPE_PLATFORM)
+    GRefPtr<WPEEvent> event;
+
+    switch (interaction) {
+    case TouchInteraction::TouchDown:
+        event = adoptGRef(wpe_event_touch_new(WPE_EVENT_TOUCH_DOWN, page.wpeView(), WPE_INPUT_SOURCE_TOUCHSCREEN, 0,
+            static_cast<WPEModifiers>(m_currentModifiers), 0, location.x(), location.y()));
+        break;
+    case TouchInteraction::LiftUp:
+        event = adoptGRef(wpe_event_touch_new(WPE_EVENT_TOUCH_UP, page.wpeView(), WPE_INPUT_SOURCE_TOUCHSCREEN, 0,
+            static_cast<WPEModifiers>(m_currentModifiers), 0, location.x(), location.y()));
+        break;
+    case TouchInteraction::MoveTo:
+        // TODO: Spread over intermediate points based on the duration, like iOS's WKTouchEventGenerator::moveToPoints
+        // See https://bugs.webkit.org/show_bug.cgi?id=275031
+        event = adoptGRef(wpe_event_touch_new(WPE_EVENT_TOUCH_MOVE, page.wpeView(), WPE_INPUT_SOURCE_TOUCHSCREEN, 0,
+            static_cast<WPEModifiers>(m_currentModifiers), 0, location.x(), location.y()));
+        break;
+    }
+
+    wpe_view_event(page.wpeView(), event.get());
+#endif
+    completionHandler(std::nullopt);
+}
+#endif
 
 } // namespace WebKit

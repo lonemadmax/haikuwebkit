@@ -119,6 +119,48 @@ static Vector<WGPUFeatureName> baseFeatures(id<MTLDevice> device, const Hardware
     return features;
 }
 
+static HardwareCapabilities apple4(id<MTLDevice> device)
+{
+    auto baseCapabilities = WebGPU::baseCapabilities(device);
+
+    baseCapabilities.supportsNonPrivateDepthStencilTextures = true;
+    baseCapabilities.canPresentRGB10A2PixelFormats = false;
+
+    auto features = WebGPU::baseFeatures(device, baseCapabilities);
+
+    features.append(WGPUFeatureName_TextureCompressionETC2);
+    features.append(WGPUFeatureName_TextureCompressionASTC);
+
+    std::sort(features.begin(), features.end());
+
+    return {
+        defaultLimits(),
+        WTFMove(features),
+        baseCapabilities,
+    };
+}
+
+static HardwareCapabilities apple5(id<MTLDevice> device)
+{
+    auto baseCapabilities = WebGPU::baseCapabilities(device);
+
+    baseCapabilities.supportsNonPrivateDepthStencilTextures = true;
+    baseCapabilities.canPresentRGB10A2PixelFormats = false;
+
+    auto features = WebGPU::baseFeatures(device, baseCapabilities);
+
+    features.append(WGPUFeatureName_TextureCompressionETC2);
+    features.append(WGPUFeatureName_TextureCompressionASTC);
+
+    std::sort(features.begin(), features.end());
+
+    return {
+        defaultLimits(),
+        WTFMove(features),
+        baseCapabilities,
+    };
+}
+
 #if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
 static HardwareCapabilities apple6(id<MTLDevice> device)
 {
@@ -372,6 +414,10 @@ static std::optional<HardwareCapabilities> rawHardwareCapabilities(id<MTLDevice>
         result->baseCapabilities = mergeBaseCapabilities(result->baseCapabilities, capabilities.baseCapabilities);
     };
 
+    if ([device supportsFamily:MTLGPUFamilyApple4])
+        merge(apple4(device));
+    if ([device supportsFamily:MTLGPUFamilyApple5])
+        merge(apple5(device));
 #if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
     if ([device supportsFamily:MTLGPUFamilyApple6])
         merge(apple6(device));

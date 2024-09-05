@@ -27,6 +27,7 @@
 #include "ProvisionalFrameProxy.h"
 
 #include "FrameProcess.h"
+#include "ProvisionalFrameCreationParameters.h"
 #include "VisitedLinkStore.h"
 #include "WebFrameProxy.h"
 #include "WebPageMessages.h"
@@ -34,23 +35,19 @@
 
 namespace WebKit {
 
-Ref<ProvisionalFrameProxy> ProvisionalFrameProxy::create(WebFrameProxy& frame, Ref<FrameProcess>&& frameProcess)
-{
-    return adoptRef(*new ProvisionalFrameProxy(frame, WTFMove(frameProcess)));
-}
-
 ProvisionalFrameProxy::ProvisionalFrameProxy(WebFrameProxy& frame, Ref<FrameProcess>&& frameProcess)
     : m_frame(frame)
     , m_frameProcess(WTFMove(frameProcess))
     , m_visitedLinkStore(frame.page()->visitedLinkStore())
 {
     process().markProcessAsRecentlyUsed();
+    process().send(Messages::WebPage::CreateProvisionalFrame({ frame.layerHostingContextIdentifier() }, frame.frameID()), frame.page()->webPageIDInProcess(process()));
 }
 
 ProvisionalFrameProxy::~ProvisionalFrameProxy()
 {
     if (m_frameProcess && m_frame->page())
-        m_frame->page()->sendToWebPageInProcess(m_frameProcess->process(), Messages::WebPage::DestroyProvisionalFrame(m_frame->frameID()));
+        process().send(Messages::WebPage::DestroyProvisionalFrame(m_frame->frameID()), m_frame->page()->webPageIDInProcess(process()));
 }
 
 RefPtr<FrameProcess> ProvisionalFrameProxy::takeFrameProcess()
@@ -61,6 +58,7 @@ RefPtr<FrameProcess> ProvisionalFrameProxy::takeFrameProcess()
 
 WebProcessProxy& ProvisionalFrameProxy::process() const
 {
+    ASSERT(m_frameProcess);
     return m_frameProcess->process();
 }
 

@@ -40,8 +40,10 @@
 #include "LayoutRect.h"
 #include "PseudoElementRequest.h"
 #include "RenderBox.h"
+#include "RenderInline.h"
 #include "RenderLayer.h"
 #include "RenderLayerModelObject.h"
+#include "RenderStyleInlines.h"
 #include "RenderView.h"
 #include "RenderViewTransitionCapture.h"
 #include "StyleResolver.h"
@@ -109,7 +111,7 @@ void ViewTransition::skipViewTransition(ExceptionOr<JSC::JSValue>&& reason)
         });
     }
 
-    // FIXME: Set rendering suppression for view transitions to false.
+    document()->clearRenderingIsSuppressedForViewTransition();
 
     if (document()->activeViewTransition() == this)
         clearViewTransition();
@@ -230,7 +232,7 @@ void ViewTransition::setupViewTransition()
         return;
     }
 
-    // FIXME: Set document’s rendering suppression for view transitions to true.
+    document()->setRenderingIsSuppressedForViewTransitionAfterUpdateRendering();
     protectedDocument()->checkedEventLoop()->queueTask(TaskSource::DOMManipulation, [this, weakThis = WeakPtr { *this }] {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
@@ -273,19 +275,34 @@ static LayoutRect captureOverflowRect(RenderLayerModelObject& renderer)
     return renderer.layer()->calculateLayerBounds(renderer.layer(), LayoutSize(), { RenderLayer::IncludeFilterOutsets, RenderLayer::ExcludeHiddenDescendants, RenderLayer::IncludeCompositedDescendants, RenderLayer::PreserveAncestorFlags });
 }
 
+// The computed local-to-absolute transform, and layer bounds don't include the position
+// of a RenderInline. Manually add an extra offset to adjust for it.
+static LayoutPoint layerToLayoutOffset(const RenderLayerModelObject& renderer)
+{
+    if (const auto* renderInline = dynamicDowncast<RenderInline>(renderer)) {
+        auto boundingBox = renderInline->linesBoundingBox();
+        return LayoutPoint { boundingBox.x(), boundingBox.y() };
+    }
+    return { };
+}
+
 static RefPtr<ImageBuffer> snapshotElementVisualOverflowClippedToViewport(LocalFrame& frame, RenderLayerModelObject& renderer, const LayoutRect& snapshotRect)
 {
     ASSERT(renderer.hasLayer());
     CheckedRef layerRenderer = renderer;
-    if (layerRenderer->isDocumentElementRenderer())
-        layerRenderer = layerRenderer->view();
 
     IntRect paintRect = snappedIntRect(snapshotRect);
 
+    if (layerRenderer->isDocumentElementRenderer()) {
+        auto& view = layerRenderer->view();
+        layerRenderer = view;
+
+        auto scrollPosition = view.frameView().scrollPosition();
+        paintRect.moveBy(scrollPosition);
+    }
+
     ASSERT(frame.page());
     float scaleFactor = frame.page()->deviceScaleFactor();
-    if (frame.page()->delegatesScaling())
-        scaleFactor *= frame.page()->pageScaleFactor();
 
     ASSERT(frame.document());
     auto hostWindow = (frame.document()->view() && frame.document()->view()->root()) ? frame.document()->view()->root()->hostWindow() : nullptr;
@@ -346,7 +363,9 @@ ExceptionOr<void> ViewTransition::captureOldState()
     protectedDocument()->updateStyleIfNeeded();
 
     if (CheckedPtr view = document()->renderView()) {
+        Ref frame = view->frameView().frame();
         m_initialLargeViewportSize = view->sizeForCSSLargeViewportUnits();
+        m_initialPageZoom = frame->pageZoomFactor() * frame->frameScaleFactor();
 
         auto result = forEachRendererInPaintOrder([&](RenderLayerModelObject& renderer) -> ExceptionOr<void> {
             auto styleable = Styleable::fromRenderer(renderer);
@@ -375,6 +394,7 @@ ExceptionOr<void> ViewTransition::captureOldState()
         capture.oldOverflowRect = captureOverflowRect(renderer.get());
         if (RefPtr frame = document()->frame())
             capture.oldImage = snapshotElementVisualOverflowClippedToViewport(*frame, renderer.get(), capture.oldOverflowRect);
+        capture.oldLayerToLayoutOffset = layerToLayoutOffset(renderer.get());
 
         auto transitionName = renderer->style().viewTransitionName();
         m_namedElements.add(transitionName->name, capture);
@@ -501,18 +521,32 @@ void ViewTransition::setupTransitionPseudoElements()
     protectedDocument()->updateStyleIfNeeded();
 }
 
+ExceptionOr<void> ViewTransition::checkForViewportSizeChange()
+{
+    CheckedPtr view = protectedDocument()->renderView();
+    if (!view)
+        return Exception { ExceptionCode::InvalidStateError, "Skipping view transition because viewport size changed."_s };
+
+    Ref frame = view->frameView().frame();
+    if (view->sizeForCSSLargeViewportUnits() != m_initialLargeViewportSize || m_initialPageZoom != (frame->pageZoomFactor() * frame->frameScaleFactor()))
+        return Exception { ExceptionCode::InvalidStateError, "Skipping view transition because viewport size changed."_s };
+    return { };
+}
+
 // https://drafts.csswg.org/css-view-transitions/#activate-view-transition
 void ViewTransition::activateViewTransition()
 {
     if (m_phase == ViewTransitionPhase::Done)
         return;
 
+    document()->clearRenderingIsSuppressedForViewTransition();
+
     // Ensure style & render tree are up-to-date.
     protectedDocument()->updateStyleIfNeeded();
 
-    // FIXME: Set rendering suppression for view transitions to false.
-    if (!protectedDocument()->renderView() || protectedDocument()->renderView()->sizeForCSSLargeViewportUnits() != m_initialLargeViewportSize) {
-        skipViewTransition(Exception { ExceptionCode::InvalidStateError, "Skipping view transition because viewport size changed."_s });
+    auto checkSize = checkForViewportSizeChange();
+    if (checkSize.hasException()) {
+        skipViewTransition(checkSize.releaseException());
         return;
     }
 
@@ -582,8 +616,9 @@ void ViewTransition::handleTransitionFrame()
         return;
     }
 
-    if (!protectedDocument()->renderView() || protectedDocument()->renderView()->sizeForCSSLargeViewportUnits() != m_initialLargeViewportSize) {
-        skipViewTransition(Exception { ExceptionCode::InvalidStateError, "Skipping view transition because viewport size changed."_s });
+    auto checkSize = checkForViewportSizeChange();
+    if (checkSize.hasException()) {
+        skipViewTransition(checkSize.releaseException());
         return;
     }
 
@@ -652,10 +687,10 @@ Ref<MutableStyleProperties> ViewTransition::copyElementBaseProperties(RenderLaye
         size = renderBox->borderBoundingBox().size();
 
         if (auto transform = renderer.viewTransitionTransform()) {
-            // FIXME(mattwoodrow): `transform` gives absolute coords, not
-            // document. We should be accounting for page zoom to get the
-            // absolute->document conversion correct.
-            auto offset = frameView.documentToClientOffset();
+            auto layoutOffset = layerToLayoutOffset(renderer);
+            transform->translate(layoutOffset.x(), layoutOffset.y());
+
+            auto offset = -toFloatSize(frameView.visibleContentRect().location());
             transform->translate(offset.width(), offset.height());
 
             // Apply the inverse of what will be added by the default value of 'transform-origin',
@@ -668,8 +703,9 @@ Ref<MutableStyleProperties> ViewTransition::copyElementBaseProperties(RenderLaye
         }
     }
 
-    props->setProperty(CSSPropertyWidth, CSSPrimitiveValue::create(size.width(), CSSUnitType::CSS_PX));
-    props->setProperty(CSSPropertyHeight, CSSPrimitiveValue::create(size.height(), CSSUnitType::CSS_PX));
+    LayoutSize cssSize = adjustLayoutSizeForAbsoluteZoom(size, renderer.style());
+    props->setProperty(CSSPropertyWidth, CSSPrimitiveValue::create(cssSize.width(), CSSUnitType::CSS_PX));
+    props->setProperty(CSSPropertyHeight, CSSPrimitiveValue::create(cssSize.height(), CSSUnitType::CSS_PX));
     return props;
 }
 
@@ -694,14 +730,14 @@ ExceptionOr<void> ViewTransition::updatePseudoElementStyles()
             if (RefPtr documentElement = document()->documentElement()) {
                 Styleable styleable(*documentElement, Style::PseudoElementIdentifier { PseudoId::ViewTransitionNew, name });
                 if (CheckedPtr viewTransitionCapture = dynamicDowncast<RenderViewTransitionCapture>(styleable.renderer())) {
-                    if (viewTransitionCapture->setSize(boxSize, overflowRect))
+                    if (viewTransitionCapture->setCapturedSize(boxSize, overflowRect, layerToLayoutOffset(*renderer)))
                         viewTransitionCapture->setNeedsLayout();
 
                     RefPtr<ImageBuffer> image;
                     if (RefPtr frame = document()->frame(); !viewTransitionCapture->canUseExistingLayers()) {
                         image = snapshotElementVisualOverflowClippedToViewport(*frame, *renderer, overflowRect);
                         changed = true;
-                    } else if (CheckedPtr layer = renderer->layer())
+                    } else if (CheckedPtr layer = renderer->isDocumentElementRenderer() ? renderer->view().layer() : renderer->layer())
                         layer->setNeedsCompositingGeometryUpdate();
                     viewTransitionCapture->setImage(image);
                 }

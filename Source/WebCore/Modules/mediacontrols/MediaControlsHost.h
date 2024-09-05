@@ -45,6 +45,7 @@ class HTMLMediaElement;
 class MediaControlTextTrackContainerElement;
 class TextTrack;
 class TextTrackList;
+class TextTrackRepresentation;
 class VoidCallback;
 
 class MediaControlsHost final : public RefCounted<MediaControlsHost>, public CanMakeWeakPtr<MediaControlsHost> {
@@ -74,6 +75,7 @@ public:
     void setSelectedTextTrack(TextTrack*);
     Element* textTrackContainer();
     void updateTextTrackContainer();
+    TextTrackRepresentation* textTrackRepresentation() const;
     bool allowsInlineMediaPlayback() const;
     bool supportsFullscreen() const;
     bool isVideoLayerInline() const;
@@ -82,12 +84,14 @@ public:
     bool shouldForceControlsDisplay() const;
     bool supportsSeeking() const;
     bool inWindowFullscreen() const;
+    bool supportsRewind() const;
 
     enum class ForceUpdate : bool { No, Yes };
     void updateCaptionDisplaySizes(ForceUpdate = ForceUpdate::No);
     void updateTextTrackRepresentationImageIfNeeded();
     void enteredFullscreen();
     void exitedFullscreen();
+    void requiresTextTrackRepresentationChanged();
 
     String externalDeviceDisplayName() const;
 

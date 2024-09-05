@@ -208,7 +208,6 @@ public:
     public:
         virtual void didClose(Connection&) = 0;
         virtual void didReceiveInvalidMessage(Connection&, MessageName) = 0;
-        virtual void requestRemoteProcessTermination() { }
 
     protected:
         virtual ~Client() { }
@@ -327,8 +326,29 @@ public:
     void invalidate();
     void markCurrentlyDispatchedMessageAsInvalid();
 
+    template<typename PC, typename BasePromise>
+    struct ConvertedPromise {
+        template <typename T, typename E>
+        struct Promise
+        {
+            using Type = NativePromise<T, E>;
+        };
+
+        template <typename T, typename E>
+        struct Promise<Expected<T, E>, E>
+        {
+            using Type = NativePromise<T, E>;
+        };
+
+        using RejectValueType = std::remove_reference_t<decltype(PC::convertError(std::declval<IPC::Error>()).value())>;
+        using Type = typename Promise<typename BasePromise::ResolveValueType, RejectValueType>::Type;
+    };
+    struct NoOpPromiseConverter {
+        static auto convertError(IPC::Error error) { return makeUnexpected(error); }
+    };
+
     template<typename T, typename C> AsyncReplyID sendWithAsyncReply(T&& message, C&& completionHandler, uint64_t destinationID = 0, OptionSet<SendOption> = { }); // Thread-safe, but the reply will be called on the Connection's dispatcher
-    template<typename T> Ref<typename T::Promise> sendWithPromisedReply(T&& message, uint64_t destinationID = 0, OptionSet<SendOption> = { }); // Thread-safe.
+    template<typename PC = NoOpPromiseConverter, typename T, typename Promise = typename ConvertedPromise<PC, typename T::Promise>::Type> Ref<Promise> sendWithPromisedReply(T&& message, uint64_t destinationID = 0, OptionSet<SendOption> = { }); // Thread-safe.
     template<typename T, typename C> AsyncReplyID sendWithAsyncReplyOnDispatcher(T&& message, RefCountedSerialFunctionDispatcher&, C&& completionHandler, uint64_t destinationID = 0, OptionSet<SendOption> = { }); // Thread-safe.
     template<typename T> Error send(T&& message, uint64_t destinationID, OptionSet<SendOption> sendOptions = { }, std::optional<Thread::QOS> qos = std::nullopt); // Thread-safe.
     template<typename T> static Error send(UniqueID, T&& message, uint64_t destinationID, OptionSet<SendOption> sendOptions = { }, std::optional<Thread::QOS> qos = std::nullopt); // Thread-safe.
@@ -343,41 +363,36 @@ public:
     template<typename> Error waitForAsyncReplyAndDispatchImmediately(AsyncReplyID, Timeout); // Main thread only.
 
     // // Thread-safe, but the reply will be called on the Connection's dispatcher
-    template<typename T, typename C>
-    AsyncReplyID sendWithAsyncReply(T&& message, C&& completionHandler, const ObjectIdentifierGenericBase& destinationID, OptionSet<SendOption> sendOptions = { })
+    template<typename T, typename C, typename RawValue>
+    AsyncReplyID sendWithAsyncReply(T&& message, C&& completionHandler, const ObjectIdentifierGenericBase<RawValue>& destinationID, OptionSet<SendOption> sendOptions = { })
     {
         return sendWithAsyncReply<T, C>(std::forward<T>(message), std::forward<C>(completionHandler), destinationID.toUInt64(), sendOptions);
     }
 
     // Thread-safe.
-    template<typename T>
-    Ref<typename T::Promise> sendWithPromisedReply(T&& message, const ObjectIdentifierGenericBase& destinationID, OptionSet<SendOption> sendOptions = { })
+    template<typename PC = NoOpPromiseConverter, typename T, typename Promise = typename ConvertedPromise<PC, typename T::Promise>::Type, typename RawValue>
+    Ref<Promise> sendWithPromisedReply(T&& message, const ObjectIdentifierGenericBase<RawValue>& destinationID, OptionSet<SendOption> sendOptions = { })
     {
-        return sendWithPromisedReply<T>(WTFMove(message), destinationID.toUInt64(), sendOptions);
-    }
-    template<typename T>
-    Ref<typename T::Promise> sendWithPromisedReplyOnDispatcher(T&& message, RefCountedSerialFunctionDispatcher& dispatcher, const ObjectIdentifierGenericBase& destinationID, OptionSet<SendOption> sendOptions = { })
-    {
-        return sendWithPromisedReplyOnDispatcher<T>(WTFMove(message), dispatcher, destinationID.toUInt64(), sendOptions);
+        return sendWithPromisedReply<PC, T, Promise>(WTFMove(message), destinationID.toUInt64(), sendOptions);
     }
 
     // Thread-safe.
-    template<typename T>
-    Error send(T&& message, const ObjectIdentifierGenericBase& destinationID, OptionSet<SendOption> sendOptions = { }, std::optional<Thread::QOS> qos = std::nullopt)
+    template<typename T, typename RawValue>
+    Error send(T&& message, const ObjectIdentifierGenericBase<RawValue>& destinationID, OptionSet<SendOption> sendOptions = { }, std::optional<Thread::QOS> qos = std::nullopt)
     {
         return send<T>(std::forward<T>(message), destinationID.toUInt64(), sendOptions, qos);
     }
 
     // Main thread only.
-    template<typename T>
-    SendSyncResult<T> sendSync(T&& message, const ObjectIdentifierGenericBase& destinationID, Timeout timeout = Timeout::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
+    template<typename T, typename RawValue>
+    SendSyncResult<T> sendSync(T&& message, const ObjectIdentifierGenericBase<RawValue>& destinationID, Timeout timeout = Timeout::infinity(), OptionSet<SendSyncOption> sendSyncOptions = { })
     {
         return sendSync<T>(std::forward<T>(message), destinationID.toUInt64(), timeout, sendSyncOptions);
     }
 
     // Main thread only.
-    template<typename T>
-    Error waitForAndDispatchImmediately(const ObjectIdentifierGenericBase& destinationID, Timeout timeout, OptionSet<WaitForOption> waitForOptions = { })
+    template<typename T, typename RawValue>
+    Error waitForAndDispatchImmediately(const ObjectIdentifierGenericBase<RawValue>& destinationID, Timeout timeout, OptionSet<WaitForOption> waitForOptions = { })
     {
         return waitForAndDispatchImmediately<T>(destinationID.toUInt64(), timeout, waitForOptions);
     }
@@ -399,7 +414,7 @@ public:
 
     Identifier identifier() const;
 
-#if PLATFORM(COCOA) && !USE(EXTENSIONKIT)
+#if PLATFORM(COCOA)
     bool kill();
 #endif
 
@@ -458,7 +473,8 @@ private:
     bool isAsyncReplyHandlerWithDispatcher(AsyncReplyID);
     CompletionHandler<void(std::unique_ptr<Decoder>&&)> takeAsyncReplyHandlerWithDispatcher(AsyncReplyID);
     template<typename T, typename C> static AsyncReplyHandlerWithDispatcher makeAsyncReplyHandlerWithDispatcher(C&& completionHandler, RefCountedSerialFunctionDispatcher&);
-    template<typename T> static AsyncReplyHandlerWithDispatcher makeAsyncReplyHandlerWithDispatcher(typename T::Promise::Producer&&);
+    template<typename T, typename PC, typename Promise> static AsyncReplyHandlerWithDispatcher makeAsyncReplyHandlerWithDispatcher(typename Promise::Producer&&);
+
     Error sendMessageWithAsyncReplyWithDispatcher(UniqueRef<Encoder>&&, AsyncReplyHandlerWithDispatcher&&, OptionSet<SendOption> sendOptions, std::optional<Thread::QOS> = std::nullopt);
     // Utility methods to avoid code duplication.
     template<typename T, typename C> static CompletionHandler<void(Decoder*)> makeAsyncReplyCompletionHandler(C&& completionHandler, ThreadLikeAssertion);
@@ -703,13 +719,13 @@ Connection::AsyncReplyID Connection::sendWithAsyncReplyOnDispatcher(T&& message,
     return { };
 }
 
-template<typename T>
-Ref<typename T::Promise> Connection::sendWithPromisedReply(T&& message, uint64_t destinationID, OptionSet<SendOption> sendOptions)
+template<typename PC, typename T, typename Promise>
+Ref<Promise> Connection::sendWithPromisedReply(T&& message, uint64_t destinationID, OptionSet<SendOption> sendOptions)
 {
     static_assert(!T::isSync, "Async message expected");
-    typename T::Promise::Producer producer;
+    typename Promise::Producer producer;
     auto promise = producer.promise();
-    auto handler = makeAsyncReplyHandlerWithDispatcher<T>(WTFMove(producer));
+    auto handler = makeAsyncReplyHandlerWithDispatcher<PC, T, Promise>(WTFMove(producer));
     auto encoder = makeUniqueRef<Encoder>(T::name(), destinationID);
     encoder.get() << message.arguments();
     sendMessageWithAsyncReplyWithDispatcher(WTFMove(encoder), WTFMove(handler), sendOptions);
@@ -829,19 +845,19 @@ Connection::AsyncReplyHandlerWithDispatcher Connection::makeAsyncReplyHandlerWit
     };
 }
 
-template<typename T>
-Connection::AsyncReplyHandlerWithDispatcher Connection::makeAsyncReplyHandlerWithDispatcher(typename T::Promise::Producer&& producer)
+template<typename PC, typename T, typename Promise>
+Connection::AsyncReplyHandlerWithDispatcher Connection::makeAsyncReplyHandlerWithDispatcher(typename Promise::Producer&& producer)
 {
     return {
         {
             [producer = WTFMove(producer)](std::unique_ptr<Decoder>&& decoder) mutable {
-                producer.settleWithFunction([decoder = WTFMove(decoder)]() mutable -> typename T::Promise::Result {
+                producer.settleWithFunction([decoder = WTFMove(decoder)]() mutable -> typename Promise::Result {
                     if (!decoder)
-                        return makeUnexpected(Error::InvalidConnection);
+                        return PC::convertError(Error::InvalidConnection);
                     if (!decoder->isValid())
-                        return makeUnexpected(Error::FailedToDecodeReplyArguments);
+                        return PC::convertError(Error::FailedToDecodeReplyArguments);
                     if constexpr (!std::tuple_size_v<typename T::ReplyArguments>)
-                        return typename T::Promise::Result { };
+                        return { };
                     else if (auto arguments = decoder->decode<typename T::ReplyArguments>()) {
                         if constexpr (std::tuple_size_v<typename T::ReplyArguments> == 1)
                             return std::get<0>(WTFMove(*arguments));
@@ -849,7 +865,7 @@ Connection::AsyncReplyHandlerWithDispatcher Connection::makeAsyncReplyHandlerWit
                             return WTFMove(*arguments);
                     }
                     ASSERT_NOT_REACHED();
-                    return makeUnexpected(Error::FailedToDecodeReplyArguments);
+                    return PC::convertError(Error::FailedToDecodeReplyArguments);
                 });
             }, CompletionHandlerCallThread::AnyThread
         },

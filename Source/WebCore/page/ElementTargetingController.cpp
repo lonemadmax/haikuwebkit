@@ -66,6 +66,7 @@
 #include "TextIterator.h"
 #include "TypedElementDescendantIteratorInlines.h"
 #include "VisibilityAdjustment.h"
+#include <wtf/Scope.h>
 
 namespace WebCore {
 
@@ -655,13 +656,14 @@ enum class IsNearbyTarget : bool { No, Yes };
 static TargetedElementInfo targetedElementInfo(Element& element, IsNearbyTarget isNearbyTarget, ElementSelectorCache& cache)
 {
     CheckedPtr renderer = element.renderer();
+    auto [renderedText, screenReaderText, hasLargeReplacedDescendant] = TextExtraction::extractRenderedText(element);
     return {
         .elementIdentifier = element.identifier(),
         .documentIdentifier = element.document().identifier(),
         .offsetEdges = computeOffsetEdges(renderer->style()),
-        .renderedText = TextExtraction::extractRenderedText(element, TextExtraction::OnlyIncludeTextContent::No),
+        .renderedText = WTFMove(renderedText),
         .searchableText = searchableTextForTarget(element),
-        .screenReaderText = TextExtraction::extractRenderedText(element, TextExtraction::OnlyIncludeTextContent::Yes),
+        .screenReaderText = WTFMove(screenReaderText),
         .selectors = selectorsForTarget(element, cache),
         .boundsInRootView = element.boundingBoxInRootViewCoordinates(),
         .boundsInClientCoordinates = computeClientRect(*renderer),
@@ -672,6 +674,7 @@ static TargetedElementInfo targetedElementInfo(Element& element, IsNearbyTarget 
         .isPseudoElement = element.isPseudoElement(),
         .isInShadowTree = element.isInShadowTree(),
         .isInVisibilityAdjustmentSubtree = element.isInVisibilityAdjustmentSubtree(),
+        .hasLargeReplacedDescendant = hasLargeReplacedDescendant,
         .hasAudibleMedia = hasAudibleMedia(element)
     };
 }
@@ -768,13 +771,13 @@ static inline std::optional<IntRect> inflatedClientRectForAdjustmentRegionTracki
 
 Vector<TargetedElementInfo> ElementTargetingController::findTargets(TargetedElementRequest&& request)
 {
-    auto [nodes, innerElement] = std::visit(WTF::makeVisitor([this](const String& searchText) {
+    auto [nodes, innerElement] = switchOn(request.data, [this](const String& searchText) {
         return findNodes(searchText);
     }, [this, &request](const FloatPoint& point) {
         return findNodes(point, request.shouldIgnorePointerEventsNone);
     }, [this](const TargetedElementSelectors& selectors) {
         return findNodes(selectors);
-    }), request.data);
+    });
 
     if (nodes.isEmpty())
         return { };
@@ -1005,7 +1008,7 @@ Vector<TargetedElementInfo> ElementTargetingController::extractTargets(Vector<Re
 
             return targetRenderer->isOutOfFlowPositioned()
                 && (!style.hasBackground() || !style.opacity())
-                && style.usedPointerEvents() == PointerEvents::None;
+                && targetRenderer->usedPointerEvents() == PointerEvents::None;
         }();
 
         if (shouldSkipTargetThatCoversViewport)
@@ -1638,14 +1641,23 @@ uint64_t ElementTargetingController::numberOfVisibilityAdjustmentRects() const
 
     Vector<FloatRect> clientRects;
     clientRects.reserveInitialCapacity(m_adjustedElements.computeSize());
+
+    unsigned numberOfParentedEmptyOrNonRenderedElements = 0;
     for (auto& element : m_adjustedElements) {
-        CheckedPtr renderer = element.renderer();
-        if (!renderer)
+        if (!element.isConnected())
             continue;
 
-        auto clientRect = computeClientRect(*renderer);
-        if (clientRect.isEmpty())
+        CheckedPtr renderer = element.renderer();
+        if (!renderer) {
+            numberOfParentedEmptyOrNonRenderedElements++;
             continue;
+        }
+
+        auto clientRect = computeClientRect(*renderer);
+        if (clientRect.isEmpty()) {
+            numberOfParentedEmptyOrNonRenderedElements++;
+            continue;
+        }
 
         clientRects.append(clientRect);
     }
@@ -1667,7 +1679,7 @@ uint64_t ElementTargetingController::numberOfVisibilityAdjustmentRects() const
         adjustedRegion.unite(enclosingRect);
     }
 
-    return numberOfRects;
+    return numberOfParentedEmptyOrNonRenderedElements + numberOfRects;
 }
 
 void ElementTargetingController::cleanUpAdjustmentClientRects()
@@ -1747,13 +1759,33 @@ RefPtr<Image> ElementTargetingController::snapshotIgnoringVisibilityAdjustment(E
     if (!element)
         return { };
 
+    RefPtr frameView = mainFrame->view();
+    if (!frameView)
+        return { };
+
     if (element->document().identifier() != documentID)
         return { };
 
     ClearVisibilityAdjustmentForScope clearAdjustmentScope { *element };
     element->document().updateLayoutIgnorePendingStylesheets();
 
-    auto buffer = snapshotNode(*mainFrame, *element, { { }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() });
+    CheckedPtr renderer = element->renderer();
+    if (!renderer)
+        return { };
+
+    auto backgroundColor = frameView->baseBackgroundColor();
+    frameView->setBaseBackgroundColor(Color::transparentBlack);
+    frameView->setNodeToDraw(element.get());
+    auto resetPaintingState = makeScopeExit([frameView, backgroundColor]() mutable {
+        frameView->setBaseBackgroundColor(WTFMove(backgroundColor));
+        frameView->setNodeToDraw(nullptr);
+    });
+
+    auto snapshotRect = renderer->absoluteBoundingBoxRect();
+    if (snapshotRect.isEmpty())
+        return { };
+
+    auto buffer = snapshotFrameRect(*mainFrame, snapshotRect, { { }, PixelFormat::BGRA8, DestinationColorSpace::SRGB() });
     return BitmapImage::create(ImageBuffer::sinkIntoNativeImage(WTFMove(buffer)));
 }
 

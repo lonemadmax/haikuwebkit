@@ -339,6 +339,7 @@ class RemoteRenderingBackendProxy;
 class RemoteWebInspectorUI;
 class SharedMemoryHandle;
 class TextCheckingControllerProxy;
+class TextIndicatorStyleController;
 class UserMediaPermissionRequestManager;
 class ViewGestureGeometryCollector;
 class WebColorChooser;
@@ -485,7 +486,7 @@ public:
 
 #if PLATFORM(COCOA)
     void willCommitLayerTree(RemoteLayerTreeTransaction&, WebCore::FrameIdentifier);
-    void didFlushLayerTreeAtTime(MonotonicTime);
+    void didFlushLayerTreeAtTime(MonotonicTime, bool flushSucceeded);
 #endif
 
     void layoutIfNeeded();
@@ -860,6 +861,12 @@ public:
 #if PLATFORM(COCOA)
     void insertTextPlaceholder(const WebCore::IntSize&, CompletionHandler<void(const std::optional<WebCore::ElementContext>&)>&&);
     void removeTextPlaceholder(const WebCore::ElementContext&, CompletionHandler<void()>&&);
+#endif
+
+#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+    TextIndicatorStyleController& textIndicatorStyleController() { return m_textIndicatorStyleController.get(); };
+
+    UnifiedTextReplacementController& unifiedTextReplacementController() { return m_unifiedTextReplacementController.get(); };
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -1267,7 +1274,7 @@ public:
 #endif
 
 #if ENABLE(META_VIEWPORT)
-    void setViewportConfigurationViewLayoutSize(const WebCore::FloatSize&, double scaleFactor, double minimumEffectiveDeviceWidth);
+    void setViewportConfigurationViewLayoutSize(const WebCore::FloatSize&, double layoutSizeScaleFactorFromClient, double minimumEffectiveDeviceWidth);
     void setOverrideViewportArguments(const std::optional<WebCore::ViewportArguments>&);
     const WebCore::ViewportConfiguration& viewportConfiguration() const { return m_viewportConfiguration; }
 
@@ -1664,6 +1671,10 @@ public:
     void textAutosizingUsesIdempotentModeChanged();
 #endif
 
+#if ENABLE(META_VIEWPORT)
+    double baseViewportLayoutSizeScaleFactor() const { return m_baseViewportLayoutSizeScaleFactor; }
+#endif
+
 #if ENABLE(WEBXR) && !USE(OPENXR)
     PlatformXRSystemProxy& xrSystemProxy();
 #endif
@@ -1735,10 +1746,6 @@ public:
 #if ENABLE(EXTENSION_CAPABILITIES)
     const String& mediaEnvironment() const { return m_mediaEnvironment; }
     void setMediaEnvironment(const String&);
-#endif
-
-#if PLATFORM(COCOA)
-    std::optional<WebCore::SimpleRange> autocorrectionContextRange();
 #endif
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
@@ -1826,6 +1833,7 @@ private:
 #if ENABLE(TEXT_AUTOSIZING)
     void textAutoSizingAdjustmentTimerFired();
     void resetIdempotentTextAutosizingIfNeeded(double previousInitialScale);
+    void updateTextAutosizingEnablementFromInitialScale(double);
 #endif
     void resetTextAutosizing();
 
@@ -2260,8 +2268,6 @@ private:
 
     void textReplacementSessionDidReceiveEditAction(const WebUnifiedTextReplacementSessionData&, WebKit::WebTextReplacementDataEditAction);
 
-    std::optional<WebCore::SimpleRange> getRangeForUUID(const WTF::UUID&);
-
     void updateTextIndicatorStyleVisibilityForID(const WTF::UUID&, bool, CompletionHandler<void()>&&);
 #endif
 
@@ -2584,6 +2590,7 @@ private:
 
 #if ENABLE(META_VIEWPORT)
     WebCore::ViewportConfiguration m_viewportConfiguration;
+    double m_baseViewportLayoutSizeScaleFactor { 1 };
     bool m_useTestingViewportConfiguration { false };
     bool m_forceAlwaysUserScalable { false };
 #endif
@@ -2814,7 +2821,7 @@ private:
 
 #if ENABLE(UNIFIED_TEXT_REPLACEMENT)
     UniqueRef<UnifiedTextReplacementController> m_unifiedTextReplacementController;
-    HashMap<WTF::UUID, Ref<WebCore::Range>> m_textIndicatorStyleEnablementRanges;
+    UniqueRef<TextIndicatorStyleController> m_textIndicatorStyleController;
 #endif
 
     std::unique_ptr<WebCore::NowPlayingMetadataObserver> m_nowPlayingMetadataObserver;

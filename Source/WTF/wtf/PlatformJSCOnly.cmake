@@ -93,10 +93,6 @@ elseif (CMAKE_SYSTEM_NAME MATCHES "Linux")
 
         unix/MemoryPressureHandlerUnix.cpp
     )
-    list(APPEND WTF_PUBLIC_HEADERS
-        linux/CurrentProcessMemoryStatus.h
-        linux/ProcessMemoryFootprint.h
-    )
 elseif (CMAKE_SYSTEM_NAME MATCHES "FreeBSD")
     list(APPEND WTF_SOURCES
         generic/MemoryFootprintGeneric.cpp
@@ -141,3 +137,9 @@ endif ()
 list(APPEND WTF_LIBRARIES
     Threads::Threads
 )
+
+if (USE_LIBBACKTRACE)
+    list(APPEND WTF_LIBRARIES
+        LIBBACKTRACE::LIBBACKTRACE
+    )
+endif ()

@@ -105,6 +105,12 @@ static inline bool isYahooMail(Document& document)
 }
 #endif
 
+#if USE(APPLE_INTERNAL_SDK)
+#import <WebKitAdditions/QuirksAdditions.cpp>
+#else
+static inline bool needsDesktopUserAgentInternal(const URL&) { return false; }
+#endif
+
 Quirks::Quirks(Document& document)
     : m_document(document)
 {
@@ -1800,6 +1806,11 @@ bool Quirks::needsIPhoneUserAgent(const URL& url)
     return false;
 }
 
+bool Quirks::needsDesktopUserAgent(const URL& url)
+{
+    return needsDesktopUserAgentInternal(url);
+}
+
 bool Quirks::shouldIgnorePlaysInlineRequirementQuirk() const
 {
 #if PLATFORM(IOS_FAMILY)
@@ -1863,21 +1874,22 @@ bool Quirks::needsRelaxedCorsMixedContentCheckQuirk() const
 }
 
 // rdar://127398734
-bool Quirks::needsLaxSameSiteCookieQuirk() const
+bool Quirks::needsLaxSameSiteCookieQuirk(const URL& requestURL) const
 {
     if (!needsQuirks())
         return false;
 
-    if (m_needsLaxSameSiteCookieQuirk)
-        return *m_needsLaxSameSiteCookieQuirk;
-
-    m_needsLaxSameSiteCookieQuirk = false;
-
     auto url = m_document->url();
-    if (url.protocolIs("https"_s) && url.host() == "www.bing.com"_s)
-        m_needsLaxSameSiteCookieQuirk = true;
-
-    return *m_needsLaxSameSiteCookieQuirk;
+    return url.protocolIs("https"_s) && url.host() == "login.microsoftonline.com"_s && requestURL.protocolIs("https"_s) && requestURL.host() == "www.bing.com"_s;
 }
+#if ENABLE(TEXT_AUTOSIZING)
+// rdar://127246368
+bool Quirks::shouldIgnoreTextAutoSizing() const
+{
+    if (!needsQuirks())
+        return false;
+    return m_document->topDocument().url().host() == "news.ycombinator.com"_s;
+}
+#endif
 
 }

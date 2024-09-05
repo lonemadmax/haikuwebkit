@@ -31,6 +31,7 @@
 #include "CSSFontSelector.h"
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
+#include "CacheStorageProvider.h"
 #include "CommonVM.h"
 #include "ContentSecurityPolicy.h"
 #include "Crypto.h"
@@ -42,6 +43,7 @@
 #include "ImageBitmapOptions.h"
 #include "InspectorInstrumentation.h"
 #include "JSDOMExceptionHandling.h"
+#include "Logging.h"
 #include "NotImplemented.h"
 #include "PageConsoleClient.h"
 #include "Performance.h"
@@ -59,7 +61,6 @@
 #include "URLKeepingBlobAlive.h"
 #include "ViolationReportType.h"
 #include "WindowOrWorkerGlobalScopeTrustedTypes.h"
-#include "WorkerCacheStorageConnection.h"
 #include "WorkerClient.h"
 #include "WorkerFileSystemStorageConnection.h"
 #include "WorkerFontLoadRequest.h"
@@ -167,9 +168,6 @@ void WorkerGlobalScope::prepareForDestruction()
         swClientConnection().unregisterServiceWorkerClient(identifier());
 
     stopIndexedDatabase();
-
-    if (m_cacheStorageConnection)
-        m_cacheStorageConnection->clearPendingRequests();
 
     if (m_storageConnection)
         m_storageConnection->scopeClosed();
@@ -430,8 +428,6 @@ ExceptionOr<void> WorkerGlobalScope::importScripts(const FixedVector<std::varian
         // https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-classic-worker-imported-script (step 7).
         bool mutedErrors = scriptLoader->responseTainting() == ResourceResponse::Tainting::Opaque || scriptLoader->responseTainting() == ResourceResponse::Tainting::Opaqueredirect;
 
-        InspectorInstrumentation::scriptImported(*this, scriptLoader->identifier(), scriptLoader->script().toString());
-
         WeakPtr<ScriptBufferSourceProvider> sourceProvider;
         {
             NakedPtr<JSC::Exception> exception;
@@ -548,10 +544,22 @@ Ref<Performance> WorkerGlobalScope::protectedPerformance() const
     return *m_performance;
 }
 
-WorkerCacheStorageConnection& WorkerGlobalScope::cacheStorageConnection()
+CacheStorageConnection& WorkerGlobalScope::cacheStorageConnection()
 {
-    if (!m_cacheStorageConnection)
-        m_cacheStorageConnection = WorkerCacheStorageConnection::create(*this);
+    if (!m_cacheStorageConnection) {
+        RefPtr<CacheStorageConnection> mainThreadConnection;
+        callOnMainThreadAndWait([workerThread = Ref { thread() }, &mainThreadConnection]() mutable {
+            if (workerThread->runLoop().terminated())
+                return;
+            if (auto* workerLoaderProxy = workerThread->workerLoaderProxy())
+                mainThreadConnection = workerLoaderProxy->createCacheStorageConnection();
+        });
+        if (!mainThreadConnection) {
+            RELEASE_LOG_INFO(ServiceWorker, "Creating worker dummy CacheStorageConnection");
+            mainThreadConnection = CacheStorageProvider::DummyCacheStorageConnection::create();
+        }
+        m_cacheStorageConnection = mainThreadConnection.releaseNonNull();
+    }
     return *m_cacheStorageConnection;
 }
 
@@ -745,6 +753,5 @@ void WorkerGlobalScope::sendReportToEndpoints(const URL&, const Vector<String>& 
 {
     notImplemented();
 }
-
 
 } // namespace WebCore

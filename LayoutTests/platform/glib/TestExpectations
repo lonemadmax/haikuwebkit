@@ -669,7 +669,6 @@ accessibility/cells-inside-contenteditable.html [ Skip ]
 # Clipboard API
 #////////////////////////////////////////////////////////////////////////////////////////
 
-webkit.org/b/206653 imported/w3c/web-platform-tests/clipboard-apis/async-navigator-clipboard-basics.https.html [ Failure ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Clipboard API
@@ -1596,8 +1595,6 @@ webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-view-transitions/cap
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-view-transitions/new-content-captures-spans.html [ ImageOnlyFailure ]
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-view-transitions/rotated-cat-off-top-edge.html [ ImageOnlyFailure ]
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/filter-effects/background-image-blur-repaint.html [ ImageOnlyFailure ]
-webkit.org/b/273396 imported/w3c/web-platform-tests/css/motion/offset-path-shape-circle-003.html [ ImageOnlyFailure ]
-webkit.org/b/273396 imported/w3c/web-platform-tests/css/motion/offset-path-shape-circle-007.html [ ImageOnlyFailure ]
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/motion/offset-path-shape-inset-002.html [ ImageOnlyFailure ]
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/motion/offset-path-shape-polygon-002.html [ ImageOnlyFailure ]
 webkit.org/b/273396 mathml/presentation/mo-stacked-glyphs.html [ ImageOnlyFailure ]
@@ -1620,13 +1617,10 @@ webkit.org/b/273480 imported/w3c/web-platform-tests/css/geometry/DOMMatrix2DInit
 
 webkit.org/b/273481 imported/w3c/web-platform-tests/html/canvas/offscreen/manual/draw-generic-family/2d.text.draw.generic.family.html [ Failure ]
 
-webkit.org/b/273482 imported/w3c/web-platform-tests/svg/shapes/scripted/stroke-dashes-hit-at-high-scale.svg [ Failure ]
 
 webkit.org/b/273483 imported/w3c/web-platform-tests/svg/text/scripted/transform-dynamic-update.html [ Failure ]
 
 webkit.org/b/273484 inspector/model/font-calculate-properties.html [ Failure ]
-
-webkit.org/b/273485 svg/dom/SVGGeometry-circle.xhtml [ Failure ]
 
 webkit.org/b/273486 svg/filters/svg-gaussianblur-edgeMode-duplicate.svg [ ImageOnlyFailure ]
 
@@ -1745,7 +1739,6 @@ webkit.org/b/238738 http/wpt/service-workers/navigate-iframes-window-client.http
 webkit.org/b/238738238738 imported/w3c/web-platform-tests/service-workers/service-worker/windowclient-navigate.https.html [ Failure ]
 
 webkit.org/b/215638 http/tests/websocket/tests/hybi/invalid-continuation.html [ Failure ]
-webkit.org/b/215638 http/tests/websocket/tests/hybi/stop-on-resume-in-error-handler.html [ Failure ]
 
 webkit.org/b/217267 http/tests/workers/service/postmessage-after-sw-process-crash.https.html [ Timeout Pass ]
 
@@ -1990,7 +1983,6 @@ webgl/webgl-backend-type.html [ Skip ]
 ipc/restrictedendpoints/allow-access-webGPU.html  [ Skip ]
 
 # Failing with ANGLE backend
-fast/canvas/webgl/draw-elements-out-of-bounds-uint-index.html [ Failure ]
 fast/canvas/webgl/oes-texture-float-linear.html [ Failure ]
 fast/canvas/webgl/webgl-compressed-texture-size-limit.html [ Failure ]
 fast/canvas/webgl/colorspaces-test.html [ Failure ]
@@ -2793,6 +2785,7 @@ imported/w3c/web-platform-tests/credential-management/ [ Skip ]
 
 # Digital Crendentials API
 http/wpt/identity/ [ Skip ]
+imported/w3c/web-platform-tests/digital-credentials/ [ Skip ]
 
 # WebGL2
 webkit.org/b/166536 fast/canvas/webgl/webgl-transformed-varying-name-crash.html [ Skip ]
@@ -2925,7 +2918,7 @@ webkit.org/b/264700 security/contentSecurityPolicy/video-with-data-url-allowed-b
 webkit.org/b/264700 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-video.html [ Pass ImageOnlyFailure ]
 webkit.org/b/264700 imported/w3c/web-platform-tests/css/css-color/filters-under-will-change-opacity.html [ Pass ImageOnlyFailure ]
 webkit.org/b/264700 imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-fixed-scroll.html [ Pass ImageOnlyFailure ]
-webkit.org/b/264700 imported/w3c/web-platform-tests/css/css-transforms/add-child-in-empty-layer.html [ Pass ImageOnlyFailure ]
+
 # Timeout tracked in webkit.org/b/261024
 webkit.org/b/264700 webkit.org/b/261024 imported/w3c/web-platform-tests/web-animations/animation-model/keyframe-effects/effect-value-opacity-replaced-effect.html  [ Pass ImageOnlyFailure Timeout ]
 
@@ -3598,7 +3591,6 @@ imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across
 # WebSocket tests failing after Python 3 transition
 webkit.org/b/237108 http/tests/websocket/tests/hybi/handshake-ok-with-legacy-sec-websocket-response-headers.html [ Failure ]
 webkit.org/b/237108 http/tests/websocket/tests/hybi/imported/blink/permessage-deflate-invalid-parameter.html [ Failure ]
-webkit.org/b/237108 http/tests/websocket/tests/hybi/simple-wss.html [ Failure ]
 
 webkit.org/b/236298 fast/text/combining-character-sequence-vertical.html [ ImageOnlyFailure ]
 
@@ -3707,7 +3699,6 @@ imported/w3c/web-platform-tests/preload/preload-type-match.html [ DumpJSConsoleL
 # WPT import failures
 imported/w3c/web-platform-tests/html/canvas/offscreen/layers [ Skip ]
 imported/w3c/web-platform-tests/html/canvas/element/fill-and-stroke-styles/2d.pattern.image.broken.html [ Failure ]
-imported/w3c/web-platform-tests/html/canvas/element/manual/imagebitmap/createImageBitmap-exif-orientation.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/offscreen/fill-and-stroke-styles/2d.fillStyle.get.halftransparent.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/offscreen/fill-and-stroke-styles/2d.fillStyle.get.halftransparent.worker.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/offscreen/filters/2d.filter.canvasFilterObject.dropShadow.tentative.html [ ImageOnlyFailure ]
@@ -3715,8 +3706,6 @@ imported/w3c/web-platform-tests/html/canvas/offscreen/filters/2d.filter.canvasFi
 imported/w3c/web-platform-tests/html/canvas/offscreen/manual/wide-gamut-canvas/2d.color.space.p3.convertToBlobp3.canvas.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.isPointInStroke.scaleddashes.html [ Failure ]
 imported/w3c/web-platform-tests/html/canvas/offscreen/path-objects/2d.path.isPointInStroke.scaleddashes.worker.html [ Failure ]
-imported/w3c/web-platform-tests/html/canvas/offscreen/text/2d.text.measure.actualBoundingBox.html [ Failure ]
-imported/w3c/web-platform-tests/html/canvas/offscreen/text/2d.text.measure.actualBoundingBox.worker.html [ Failure ]
 
 webkit.org/b/225349 imported/w3c/web-platform-tests/html/canvas/offscreen/reset/2d.reset.state.clip.w.html [ Timeout ]
 
@@ -3955,11 +3944,42 @@ imported/w3c/web-platform-tests/css/css-view-transitions/element-is-grouping-dur
 imported/w3c/web-platform-tests/css/css-view-transitions/view-transition-name-removed-mid-transition.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/modify-style-via-cssom.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/names-are-tree-scoped.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/no-painting-while-render-blocked.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/no-white-flash-before-activation.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/input-targets-root-while-render-blocked.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/no-css-animation-while-render-blocked.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/no-raf-while-render-blocked.html [ ImageOnlyFailure ]
 
 imported/w3c/web-platform-tests/svg/text/reftests/transform-dynamic-change.html [ ImageOnlyFailure ]
 
 # This test hits some infinite-loop condition inside Cairo
 fast/css/repeating-conic-gradient-small-range.html [ Skip ]
+
+# Kerning for SVG not working as expected.
+webkit.org/b/156148 fast/text/svg-font-face-with-kerning.html [ Failure ]
+webkit.org/b/156148 svg/custom/glyph-selection-lang-attribute.svg [ Failure ]
+webkit.org/b/156148 svg/text/kerning.svg [ Failure ]
+webkit.org/b/156148 svg/text/multichar-glyph.svg [ Failure ]
+webkit.org/b/156148 svg/text/text-hkern.svg [ Failure ]
+webkit.org/b/156148 svg/text/text-overflow-ellipsis-svgfont-kerning-ligatures.html [ Failure ]
+webkit.org/b/156148 svg/text/text-text-04-t.svg [ Failure ]
+webkit.org/b/156148 svg/text/text-text-06-t.svg [ Failure ]
+webkit.org/b/156148 svg/text/text-vkern.svg [ Failure ]
+webkit.org/b/156148 svg/W3C-SVG-1.1/text-text-05-t.svg [ Failure ]
+webkit.org/b/156148 svg/W3C-SVG-1.1/text-text-06-t.svg [ Failure ]
+
+webkit.org/b/190990 fast/block/basic/inline-content-with-floating-image.html [ Failure ]
+
+webkit.org/b/191400 fast/block/basic/child-block-level-box-with-height-percent.html [ Failure ]
+webkit.org/b/191400 fast/block/basic/inline-content-with-floating-images2.html [ Failure ]
+webkit.org/b/191400 fast/block/basic/quirk-mode-percent-height.html [ Failure ]
+
+webkit.org/b/191885 fast/inline/simple-inline-inflow-positioned.html [ Failure ]
+webkit.org/b/191885 fast/inline/simple-inline-with-out-of-flow-descendant.html [ Failure ]
+webkit.org/b/191885 fast/inline/simple-inline-with-out-of-flow-descendant2.html [ Failure ]
+webkit.org/b/191885 fast/inline/simple-intruding-floats3.html [ Failure ]
+
+webkit.org/b/195259 compositing/geometry/fixed-position-composited-page-scale-smaller-than-viewport.html [ ImageOnlyFailure Pass ]
 
 # End: Common failures between GTK and WPE.
 

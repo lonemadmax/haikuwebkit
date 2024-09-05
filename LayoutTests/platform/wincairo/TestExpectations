@@ -753,7 +753,6 @@ http/tests/loading/hidpi-preload-picture-sizes.html [ Failure ]
 http/tests/loading/oauth.html [ Failure ]
 http/tests/loading/post-in-iframe-with-back-navigation.html [ Failure ]
 http/tests/loading/promote-img-preload-priority.html [ Failure ]
-http/tests/loading/sizes/preload-image-sizes-2x.html [ Failure ]
 
 http/tests/loading/307-after-303-after-post.html [ Skip ] # Timeout
 
@@ -909,6 +908,12 @@ http/tests/websocket/tests/hybi/multiple-connections-limit.html [ Skip ] # Timeo
 
 # Timeout on local PC
 http/tests/websocket/tests/hybi/frame-lengths.html [ Pass Timeout ]
+
+# Connections need additional validation
+http/tests/security/block-iframe-to-all-zero-address.html [ Failure ]
+http/tests/security/block-popup-to-all-zero-address.html [ Failure ]
+http/tests/security/redirect-BLOCKED-to-all-zero-address.html [ Failure ]
+http/tests/websocket/connection-to-all-zero-address-blocked.html [ Failure ]
 
 # Failure on Buildbot
 http/tests/websocket/tests/hybi/inspector/binary.html [ Pass Failure ]
@@ -1124,6 +1129,12 @@ css-typedom [ Skip ]
 # Dark mode not supported on Windows
 css-dark-mode [ Pass ]
 css-dark-mode/older-systems [ Skip ]
+
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-getComputedStyle-002.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-borders-002.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-position-try-007.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-position-try-008.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-position-try-010.html [ Pass ]
 
 ################################################################################
 ##############################   End CSS Issues   ##############################
@@ -1559,6 +1570,12 @@ fast/forms/validation-message-minimum-font-size.html [ Skip ]
 fast/forms/validation-messages.html [ Skip ]
 fast/forms/visual-hebrew-text-field.html [ Skip ]
 
+fast/forms/implicit-submission.html [ Skip ] # Timeout
+fast/forms/select-script-onchange.html [ Skip ] # Timeout
+fast/forms/select/menulist-popup-crash.html [ Skip ] # Timeout
+fast/forms/select/optgroup-clicking.html [ Skip ] # Timeout
+fast/forms/select/select-show-picker.html [ Skip ] # Timeout
+
 fast/frames [ Skip ]
 fast/hidpi [ Skip ]
 fast/history [ Skip ]
@@ -1691,6 +1708,7 @@ imported/w3c/web-platform-tests/console [ Skip ]
 imported/w3c/web-platform-tests/content-security-policy [ Skip ]
 imported/w3c/web-platform-tests/cors [ Skip ]
 imported/w3c/web-platform-tests/credential-management [ Skip ]
+imported/w3c/web-platform-tests/digital-credentials [ Skip ]
 
 imported/w3c/web-platform-tests/css/compositing [ Skip ]
 imported/w3c/web-platform-tests/css/css-align [ Skip ]
@@ -3011,8 +3029,6 @@ fast/canvas/canvas-blending-text.html [ Failure ]
 fast/canvas/canvas-composite-text-alpha.html [ Failure ]
 fast/canvas/canvas-pattern-from-modified-canvas.html [ Failure ]
 fast/constructors/event-source-caching.html [ Failure ]
-fast/dom/HTMLImageElement/sizes/image-sizes-2x.html [ Failure ]
-fast/dom/HTMLImageElement/sizes/image-sizes-js-change.html [ Failure ]
 fast/dom/HTMLLinkElement/link-stylesheet-load-once.html [ Failure ]
 fast/dom/Window/window-focus-self.html [ Failure ]
 fast/dom/Window/window-resize-and-move-arguments.html [ Failure ]
@@ -3315,18 +3331,10 @@ fast/text/font-load-data-partitioned-alphabet.html [ Failure ]
 
 imported/w3c/web-platform-tests/navigation-api [ Skip ]
 
-webkit.org/b/271408 [ Debug ] fast/images/decode-render-animated-image.html [ Skip ] # Crash
-
 # Makes a subsequent test crash
 webkit.org/b/272127 fast/text/remove-renderer-and-select-crash.html [ Skip ]
 
 http/tests/navigation/keyboard-events-during-provisional-subframe-navigation.html [ Failure ]
-
-# Pass on Buildbot, Failure on my PC
-webkit.org/b/272445 http/tests/inspector/network/resource-sizes-network.html [ Failure Pass ]
-webkit.org/b/272445 http/tests/xmlhttprequest/onabort-response-getters.html [ Failure Pass ]
-webkit.org/b/272445 http/tests/xmlhttprequest/onload-progressevent-attributes.html [ Failure Pass ]
-webkit.org/b/272445 http/tests/xmlhttprequest/xmlhttprequest-LSProgressEvent-ProgressEvent-should-match.html [ Failure Pass ]
 
 fast/forms/form-submission-crash-4.html [ Timeout Failure Pass ]
 

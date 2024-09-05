@@ -851,7 +851,7 @@ bool MediaPlayerPrivateMediaSourceAVFObjC::shouldEnsureLayerOrVideoRenderer() co
         return player && player->renderingCanBeAccelerated();
     }();
 #else
-    return !m_hasBeenAskedToPaintGL && !m_isGatheringVideoFrameMetadata;
+    return !m_hasBeenAskedToPaintGL;
 #endif
 }
 
@@ -1149,7 +1149,7 @@ void MediaPlayerPrivateMediaSourceAVFObjC::configureLayerOrVideoRenderer(WebSamp
 MediaPlayerPrivateMediaSourceAVFObjC::AcceleratedVideoMode MediaPlayerPrivateMediaSourceAVFObjC::acceleratedVideoMode() const
 {
 #if ENABLE(LINEAR_MEDIA_PLAYER)
-    if (!m_usingLinearMediaPlayer) {
+    if (m_usingLinearMediaPlayer) {
         RefPtr player = m_player.get();
         if (player && player->isInFullscreenOrPictureInPicture()) {
             if (m_videoTarget)
@@ -1540,11 +1540,6 @@ void MediaPlayerPrivateMediaSourceAVFObjC::setVideoFullscreenLayer(PlatformLayer
 void MediaPlayerPrivateMediaSourceAVFObjC::setVideoFullscreenFrame(FloatRect frame)
 {
     m_videoLayerManager->setVideoFullscreenFrame(frame);
-}
-
-bool MediaPlayerPrivateMediaSourceAVFObjC::requiresTextTrackRepresentation() const
-{
-    return m_videoLayerManager->videoFullscreenLayer();
 }
 
 void MediaPlayerPrivateMediaSourceAVFObjC::syncTextTrackBounds()

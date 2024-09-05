@@ -351,6 +351,12 @@ TEST(ElementTargeting, AdjustVisibilityFromSelectors)
         EXPECT_TRUE([adjustedSelectors containsObject:@".absolute.bottom-right"]);
         EXPECT_TRUE([adjustedSelectors containsObject:@".fixed.container"]);
         EXPECT_TRUE([adjustedSelectors containsObject:@".absolute.bottom-left"]);
+
+        [webView objectByEvaluatingJavaScript:@"[...document.querySelectorAll('.fixed,.absolute')].map(e => e.style.display = 'none')"];
+        [webView waitForNextPresentationUpdate];
+        EXPECT_GT([webView numberOfVisibilityAdjustmentRects], 0U);
+        [webView objectByEvaluatingJavaScript:@"[...document.querySelectorAll('.fixed,.absolute')].map(e => e.style.display = '')"];
+        [webView waitForNextPresentationUpdate];
     }
 
     [webView resetVisibilityAdjustmentsForTargets:nil];
@@ -556,6 +562,8 @@ TEST(ElementTargeting, ReplacedRendererSizeIgnoresPageScaleAndZoom)
     [webView waitForNextPresentationUpdate];
     RetainPtr targetAfterScaling = [[webView targetedElementInfoAt:CGPointMake(100, 100)] firstObject];
     EXPECT_WK_STREQ([targetBeforeScaling renderedText], [targetAfterScaling renderedText]);
+    EXPECT_FALSE([targetBeforeScaling hasLargeReplacedDescendant]);
+    EXPECT_FALSE([targetAfterScaling hasLargeReplacedDescendant]);
 }
 
 TEST(ElementTargeting, RequestTargetedElementsBySearchableText)
@@ -595,14 +603,15 @@ TEST(ElementTargeting, AdjustVisibilityAfterRecreatingElement)
     Util::run(&didAdjustment);
 }
 
-TEST(ElementTargeting, TargetedElementScreenReaderText)
+TEST(ElementTargeting, TargetedElementWithLargeImage)
 {
-    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600)]);
-    [webView synchronouslyLoadTestPageNamed:@"element-targeting-7"];
-    RetainPtr element = [[webView targetedElementInfoAt:CGPointMake(100, 100)] firstObject];
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 480, 600)]);
+    [webView synchronouslyLoadTestPageNamed:@"element-targeting-9"];
+    RetainPtr element = [[webView targetedElementInfoAt:CGPointMake(80, 80)] firstObject];
 
-    EXPECT_TRUE([[element renderedText] containsString:@"{200,100}"]);
-    EXPECT_FALSE([[element screenReaderText] containsString:@"{200,100}"]);
+    EXPECT_WK_STREQ("{480,150}", [element renderedText]);
+    EXPECT_EQ([[element screenReaderText] length], 0U);
+    EXPECT_TRUE([element hasLargeReplacedDescendant]);
 }
 
 } // namespace TestWebKitAPI

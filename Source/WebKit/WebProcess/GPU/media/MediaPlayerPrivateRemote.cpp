@@ -1463,7 +1463,7 @@ void MediaPlayerPrivateRemote::waitingForKeyChanged(bool waitingForKey)
 
 void MediaPlayerPrivateRemote::initializationDataEncountered(const String& initDataType, std::span<const uint8_t> initData)
 {
-    auto initDataBuffer = ArrayBuffer::create(initData.data(), initData.size());
+    auto initDataBuffer = ArrayBuffer::create(initData);
     if (auto player = m_player.get())
         player->initializationDataEncountered(initDataType, WTFMove(initDataBuffer));
 }
@@ -1480,15 +1480,6 @@ void MediaPlayerPrivateRemote::setShouldContinueAfterKeyNeeded(bool should)
     connection().send(Messages::RemoteMediaPlayerProxy::SetShouldContinueAfterKeyNeeded(should), m_id);
 }
 #endif
-
-bool MediaPlayerPrivateRemote::requiresTextTrackRepresentation() const
-{
-#if PLATFORM(COCOA)
-    return m_videoLayerManager->requiresTextTrackRepresentation();
-#else
-    return false;
-#endif
-}
 
 void MediaPlayerPrivateRemote::setTextTrackRepresentation(WebCore::TextTrackRepresentation* representation)
 {

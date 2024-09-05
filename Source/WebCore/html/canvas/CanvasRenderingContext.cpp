@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -87,6 +87,17 @@ void CanvasRenderingContext::deref() const
     m_canvas.derefCanvasBase();
 }
 
+RefPtr<ImageBuffer> CanvasRenderingContext::surfaceBufferToImageBuffer(SurfaceBuffer)
+{
+    // This will be removed once all contexts store their own buffers.
+    return canvasBase().buffer();
+}
+
+bool CanvasRenderingContext::isSurfaceBufferTransparentBlack(SurfaceBuffer) const
+{
+    return false;
+}
+
 RefPtr<GraphicsLayerContentsDisplayDelegate> CanvasRenderingContext::layerContentsDisplayDelegate()
 {
     return nullptr;
@@ -95,6 +106,12 @@ RefPtr<GraphicsLayerContentsDisplayDelegate> CanvasRenderingContext::layerConten
 void CanvasRenderingContext::setContentsToLayer(GraphicsLayer& layer)
 {
     layer.setContentsDisplayDelegate(layerContentsDisplayDelegate(), GraphicsLayer::ContentsLayerPurpose::Canvas);
+}
+
+RefPtr<ImageBuffer> CanvasRenderingContext::transferToImageBuffer()
+{
+    ASSERT_NOT_REACHED(); // Implemented and called only for offscreen capable contexts.
+    return nullptr;
 }
 
 PixelFormat CanvasRenderingContext::pixelFormat() const

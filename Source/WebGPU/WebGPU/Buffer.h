@@ -93,10 +93,9 @@ public:
     Device& device() const { return m_device; }
     bool isDestroyed() const;
     void setCommandEncoder(CommandEncoder&, bool mayModifyBuffer = false) const;
-    uint32_t maxIndex(MTLIndexType) const;
     uint8_t* getBufferContents();
-    bool indirectBufferRequiresRecomputation(uint32_t baseIndex, uint32_t indexCount, uint32_t minVertexCount, MTLIndexType) const;
-    void indirectBufferRecomputed(uint32_t baseIndex, uint32_t indexCount, uint32_t minVertexCount, MTLIndexType);
+    bool indirectBufferRequiresRecomputation(uint32_t baseIndex, uint32_t indexCount, uint32_t minVertexCount, uint32_t minInstanceCount, MTLIndexType) const;
+    void indirectBufferRecomputed(uint32_t baseIndex, uint32_t indexCount, uint32_t minVertexCount, uint32_t minInstanceCount, MTLIndexType);
     void indirectBufferInvalidated();
 
 private:
@@ -128,13 +127,12 @@ private:
         uint32_t lastBaseIndex { 0 };
         uint32_t indexCount { 0 };
         uint32_t minVertexCount { 0 };
+        uint32_t minInstanceCount { 0 };
         MTLIndexType indexType { MTLIndexTypeUInt16 };
     } m_indirectCache;
 
     const Ref<Device> m_device;
     mutable WeakHashSet<CommandEncoder> m_commandEncoders;
-    mutable uint16_t m_max16BitIndex { 0 };
-    mutable uint32_t m_max32BitIndex { 0 };
 };
 
 } // namespace WebGPU

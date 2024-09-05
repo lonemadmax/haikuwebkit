@@ -570,29 +570,24 @@ bool HTMLCanvasElement::shouldNotifyRendererOnDidDraw() const
 void HTMLCanvasElement::didDraw(const std::optional<FloatRect>& rect, ShouldApplyPostProcessingToDirtyRect shouldApplyPostProcessingToDirtyRect)
 {
     clearCopiedImage();
-    auto adjustedRect = rect;
     if (CheckedPtr renderer = renderBox()) {
         if (shouldNotifyRendererOnDidDraw())
             renderer->contentChanged(CanvasPixelsChanged);
-        else if (adjustedRect) {
+        else if (rect) {
             FloatRect destRect;
             if (CheckedPtr renderReplaced = dynamicDowncast<RenderReplaced>(*renderer))
                 destRect = renderReplaced->replacedContentRect();
             else
                 destRect = renderer->contentBoxRect();
 
-            // Inflate dirty rect to cover antialiasing on image buffers.
-            if (drawingContext() && drawingContext()->shouldAntialias())
-                adjustedRect->inflate(1);
-
-            FloatRect r = mapRect(*adjustedRect, FloatRect { { }, size() }, destRect);
+            FloatRect r = mapRect(*rect, FloatRect { { }, size() }, destRect);
             r.intersect(destRect);
 
             if (!r.isEmpty())
                 renderer->repaintRectangle(enclosingIntRect(r));
         }
     }
-    CanvasBase::didDraw(adjustedRect, shouldApplyPostProcessingToDirtyRect);
+    CanvasBase::didDraw(rect, shouldApplyPostProcessingToDirtyRect);
 }
 
 void HTMLCanvasElement::reset()
@@ -661,30 +656,24 @@ bool HTMLCanvasElement::paintsIntoCanvasBuffer() const
 
 void HTMLCanvasElement::paint(GraphicsContext& context, const LayoutRect& r)
 {
-    if (m_context)
-        m_context->clearAccumulatedDirtyRect();
+    if (!m_context)
+        return;
+    m_context->clearAccumulatedDirtyRect();
 
     if (!context.paintingDisabled()) {
-        bool shouldPaint = true;
-
-        if (m_context) {
-            shouldPaint = paintsIntoCanvasBuffer() || document().printing() || m_isSnapshotting;
-            if (shouldPaint) {
-                if (m_context->compositingResultsNeedUpdating())
-                    m_context->prepareForDisplay();
-                m_context->drawBufferToCanvas(CanvasRenderingContext::SurfaceBuffer::DisplayBuffer);
-            }
-        }
-
-        if (shouldPaint) {
-            if (hasCreatedImageBuffer()) {
-                if (RefPtr imageBuffer = buffer())
-                    context.drawImageBuffer(*imageBuffer, snappedIntRect(r), { context.compositeOperation() });
+        if (paintsIntoCanvasBuffer() || document().printing() || m_isSnapshotting) {
+            if (m_context->compositingResultsNeedUpdating())
+                m_context->prepareForDisplay();
+            const bool skipTransparentBlackDraw = context.compositeMode() == CompositeMode { CompositeOperator::SourceOver, BlendMode::Normal };
+            if (!skipTransparentBlackDraw || !m_context->isSurfaceBufferTransparentBlack(CanvasRenderingContext::SurfaceBuffer::DisplayBuffer)) {
+                RefPtr buffer = m_context->surfaceBufferToImageBuffer(CanvasRenderingContext::SurfaceBuffer::DisplayBuffer);
+                if (buffer)
+                    context.drawImageBuffer(*buffer, snappedIntRect(r), { context.compositeOperation() });
             }
         }
     }
 
-    if (UNLIKELY(m_context && m_context->hasActiveInspectorCanvasCallTracer()))
+    if (UNLIKELY(m_context->hasActiveInspectorCanvasCallTracer()))
         InspectorInstrumentation::didFinishRecordingCanvasFrame(*m_context);
 }
 

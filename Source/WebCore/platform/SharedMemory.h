@@ -46,6 +46,10 @@
 #include <OS.h>
 #endif
 
+#if PLATFORM(COCOA)
+OBJC_CLASS NSData;
+#endif
+
 namespace WebCore {
 
 class FragmentedSharedBuffer;
@@ -117,11 +121,6 @@ public:
     WEBCORE_EXPORT std::optional<Handle> createHandle(Protection);
 
     size_t size() const { return m_size; }
-    void* data() const
-    {
-        ASSERT(m_data);
-        return m_data;
-    }
 
     std::span<const uint8_t> span() const { return { static_cast<const uint8_t*>(m_data), m_size }; }
     std::span<uint8_t> mutableSpan() const { return { static_cast<uint8_t*>(m_data), m_size }; }
@@ -132,6 +131,7 @@ public:
 
 #if PLATFORM(COCOA)
     Protection protection() const { return m_protection; }
+    WEBCORE_EXPORT RetainPtr<NSData> toNSData() const;
 #endif
 
 #if OS(HAIKU)

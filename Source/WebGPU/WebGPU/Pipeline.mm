@@ -73,7 +73,12 @@ std::optional<LibraryCreationResult> createLibrary(id<MTLDevice> device, const S
             continue;
 
         auto constantValue = WGSL::evaluate(*kvp.value.defaultValue, wgslConstantValues);
-        auto addResult = wgslConstantValues.add(kvp.key, constantValue);
+        if (!constantValue) {
+            if (error)
+                *error = [NSError errorWithDomain:@"WebGPU" code:1 userInfo:@{ NSLocalizedDescriptionKey: @"Failed to evaluate override value" }];
+            return std::nullopt;
+        }
+        auto addResult = wgslConstantValues.add(kvp.key, *constantValue);
         ASSERT_UNUSED(addResult, addResult.isNewEntry);
     }
 
@@ -142,8 +147,8 @@ std::optional<LibraryCreationResult> createLibrary(id<MTLDevice> device, const S
             for (unsigned i = 0; i < wgslBindGroupLayout.entries.size(); ++i) {
                 auto& wgslBindGroupLayoutEntry = wgslBindGroupLayout.entries[i];
                 auto* wgslBufferBinding = std::get_if<WGSL::BufferBindingLayout>(&wgslBindGroupLayoutEntry.bindingMember);
-                if (wgslBufferBinding)
-                    shaderBindingSizeForBuffer.add(wgslBindGroupLayoutEntry.binding, wgslBufferBinding->minBindingSize);
+                if (wgslBufferBinding && wgslBufferBinding->minBindingSize)
+                    shaderBindingSizeForBuffer.set(wgslBindGroupLayoutEntry.binding, wgslBufferBinding->minBindingSize);
             }
         }
     }
@@ -168,7 +173,7 @@ id<MTLFunction> createFunction(id<MTLLibrary> library, const WGSL::Reflection::E
     return function;
 }
 
-NSString* errorValidatingBindGroup(const BindGroup& bindGroup, const BufferBindingSizesForBindGroup* mininumBufferSizes)
+NSString* errorValidatingBindGroup(const BindGroup& bindGroup, const BufferBindingSizesForBindGroup* mininumBufferSizes, const Vector<uint32_t>* dynamicOffsets)
 {
     auto bindGroupLayout = bindGroup.bindGroupLayout();
     if (!bindGroupLayout)
@@ -195,8 +200,11 @@ NSString* errorValidatingBindGroup(const BindGroup& bindGroup, const BufferBindi
             }
 
             if (bufferSize && buffer->get()) {
-                if (buffer->get()->buffer().length < bufferSize)
-                    return [NSString stringWithFormat:@"buffer length is %zu which is less than required bufferSize of %llu", buffer->get()->buffer().length, bufferSize];
+                auto dynamicOffset = bindGroup.dynamicOffset(bindingIndex, dynamicOffsets);
+                auto totalOffset = resource.entryOffset + dynamicOffset;
+                auto mtlBufferLength = buffer->get()->buffer().length;
+                if (totalOffset > mtlBufferLength || (mtlBufferLength - totalOffset) < bufferSize)
+                    return [NSString stringWithFormat:@"buffer length(%zu) minus offset(%llu), (resourceOffset(%llu) + dynamicOffset(%u)), is less than required bufferSize(%llu)", mtlBufferLength, totalOffset, resource.entryOffset, dynamicOffset, bufferSize];
             }
         }
     }

@@ -1404,6 +1404,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #if USE(UICONTEXTMENU)
     _isDisplayingContextMenuWithAnimation = NO;
 #endif
+    _isUpdatingAccessoryView = NO;
 
 #if ENABLE(DATALIST_ELEMENT)
     _dataListTextSuggestionsInputView = nil;
@@ -1416,7 +1417,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     _autocorrectionContextNeedsUpdate = YES;
 
-    _page->process().updateTextCheckerState();
+    _page->legacyMainFrameProcess().updateTextCheckerState();
     _page->setScreenIsBeingCaptured([self screenIsBeingCaptured]);
 
 #if ENABLE(IMAGE_ANALYSIS)
@@ -2590,9 +2591,7 @@ static inline WebCore::FloatSize tapHighlightBorderRadius(WebCore::FloatSize bor
 
 - (void)_cancelTouchEventGestureRecognizer
 {
-#if HAVE(CANCEL_WEB_TOUCH_EVENTS_GESTURE)
     [_touchEventGestureRecognizer cancel];
-#endif
 }
 
 - (void)_didScroll
@@ -3093,7 +3092,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (!_page->hasRunningProcess())
         return NO;
 
-    auto* connection = _page->process().connection();
+    auto* connection = _page->legacyMainFrameProcess().connection();
     if (!connection)
         return NO;
 
@@ -5677,7 +5676,7 @@ static void logTextInteraction(const char* methodName, UIGestureRecognizer *loup
     _pendingAutocorrectionContextHandler = WTFMove(completionHandler);
     _page->requestAutocorrectionContext();
 
-    if (_page->process().connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::HandleAutocorrectionContext>(_page->webPageID(), 1_s, IPC::WaitForOption::DispatchIncomingSyncMessagesWhileWaiting) != IPC::Error::NoError)
+    if (_page->legacyMainFrameProcess().connection()->waitForAndDispatchImmediately<Messages::WebPageProxy::HandleAutocorrectionContext>(_page->webPageID(), 1_s, IPC::WaitForOption::DispatchIncomingSyncMessagesWhileWaiting) != IPC::Error::NoError)
         RELEASE_LOG(TextInput, "Timed out while waiting for autocorrection context.");
 
     if (_autocorrectionContextNeedsUpdate)
@@ -5902,6 +5901,11 @@ static void logTextInteraction(const char* methodName, UIGestureRecognizer *loup
 
 - (void)_updateAccessory
 {
+    if (_isUpdatingAccessoryView)
+        return;
+
+    SetForScope updateAccessoryScope { _isUpdatingAccessoryView, YES };
+
     auto* accessoryView = self.formAccessoryView; // Creates one, if needed.
 
     if ([accessoryView respondsToSelector:@selector(setNextPreviousItemsVisible:)])
@@ -8410,7 +8414,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 #endif // HAVE(QUICKBOARD_CONTROLLER)
 
     // Presenting a fullscreen input view controller fully obscures the web view. Without taking this token, the web content process will get backgrounded.
-    _page->process().startBackgroundActivityForFullscreenInput();
+    _page->legacyMainFrameProcess().startBackgroundActivityForFullscreenInput();
 
     // FIXME: PUICQuickboardController does not present its view controller immediately, since it asynchronously
     // establishes a connection to QuickboardViewService before presenting the remote view controller.
@@ -8480,7 +8484,7 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
             [self becomeFirstResponder];
     }
 
-    _page->process().endBackgroundActivityForFullscreenInput();
+    _page->legacyMainFrameProcess().endBackgroundActivityForFullscreenInput();
 }
 
 - (void)focusedFormControlViewDidSubmit:(WKFocusedFormControlView *)view
@@ -9302,8 +9306,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return NO;
 }
 
-// FIXME: Likely we can remove this special case for watchOS and tvOS.
-#if !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
+// FIXME: Likely we can remove this special case for watchOS.
+#if !PLATFORM(WATCHOS)
 - (CGRect)unoccludedWindowBoundsForActionSheetAssistant:(WKActionSheetAssistant *)assistant
 {
     UIEdgeInsets contentInset = [[_webView scrollView] adjustedContentInset];
@@ -9435,7 +9439,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (BOOL)_shouldUseContextMenus
 {
-#if HAVE(LINK_PREVIEW) && USE(UICONTEXTMENU)
+#if USE(UICONTEXTMENU)
     return linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::HasUIContextMenuInteraction);
 #endif
     return NO;
@@ -10887,7 +10891,11 @@ static RetainPtr<UITargetedPreview> createFallbackTargetedPreview(UIView *rootVi
 
 - (BOOL)positionInformationHasImageOverlayDataDetector
 {
+#if ENABLE(DATA_DETECTION)
     return _positionInformation.isImageOverlayText && [_positionInformation.dataDetectorResults count];
+#else
+    return NO;
+#endif
 }
 
 - (UITargetedPreview *)_createTargetedContextMenuHintPreviewIfPossible
@@ -10913,7 +10921,14 @@ static RetainPtr<UITargetedPreview> createFallbackTargetedPreview(UIView *rootVi
     }
 
     if (!targetedPreview) {
-        auto boundsForFallbackPreview = self.positionInformationHasImageOverlayDataDetector ? _positionInformation.dataDetectorBounds : _positionInformation.bounds;
+        auto boundsForFallbackPreview = [&] {
+#if ENABLE(DATA_DETECTION)
+            if (self.positionInformationHasImageOverlayDataDetector)
+                return _positionInformation.dataDetectorBounds;
+#endif
+            return _positionInformation.bounds;
+        }();
+
         targetedPreview = createFallbackTargetedPreview(self, self.containerForContextMenuHintPreviews, boundsForFallbackPreview, nil);
     }
 
@@ -11261,7 +11276,7 @@ static WebKit::DocumentEditingContextRequest toWebRequest(id request)
 - (void)setContinuousSpellCheckingEnabled:(BOOL)enabled
 {
     if (WebKit::TextChecker::setContinuousSpellCheckingEnabled(enabled))
-        _page->process().updateTextCheckerState();
+        _page->legacyMainFrameProcess().updateTextCheckerState();
 }
 
 - (void)setGrammarCheckingEnabled:(BOOL)enabled
@@ -11270,7 +11285,7 @@ static WebKit::DocumentEditingContextRequest toWebRequest(id request)
         return;
 
     WebKit::TextChecker::setGrammarCheckingEnabled(enabled);
-    _page->process().updateTextCheckerState();
+    _page->legacyMainFrameProcess().updateTextCheckerState();
 }
 
 #if HAVE(UIKIT_WITH_MOUSE_SUPPORT)

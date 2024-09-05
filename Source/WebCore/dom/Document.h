@@ -38,6 +38,7 @@
 #include "HitTestSource.h"
 #include "IntDegrees.h"
 #include "PageIdentifier.h"
+#include "PermissionsPolicy.h"
 #include "PlaybackTargetClientContextIdentifier.h"
 #include "PseudoElementIdentifier.h"
 #include "RegistrableDomain.h"
@@ -501,8 +502,6 @@ public:
     WEBCORE_EXPORT bool hasFocus() const;
     void whenVisible(Function<void()>&&);
 
-    bool hasManifest() const;
-    
     WEBCORE_EXPORT ExceptionOr<Ref<Element>> createElementForBindings(const AtomString& tagName);
     WEBCORE_EXPORT Ref<DocumentFragment> createDocumentFragment();
     WEBCORE_EXPORT Ref<Text> createTextNode(String&& data);
@@ -844,6 +843,7 @@ public:
 
     void disableEval(const String& errorMessage) final;
     void disableWebAssembly(const String& errorMessage) final;
+    void setRequiresTrustedTypes(bool required) final;
 
     IDBClient::IDBConnectionProxy* idbConnectionProxy() final;
     StorageConnection* storageConnection();
@@ -1687,6 +1687,11 @@ public:
 
     void performPendingViewTransitions();
 
+    bool renderingIsSuppressedForViewTransition() const;
+    void setRenderingIsSuppressedForViewTransitionAfterUpdateRendering();
+    void clearRenderingIsSuppressedForViewTransition();
+    void flushDeferredRenderingIsSuppressedForViewTransitionChanges();
+
 #if ENABLE(MEDIA_STREAM)
     void setHasCaptureMediaStreamTrack() { m_hasHadCaptureMediaStreamTrack = true; }
     bool hasHadCaptureMediaStreamTrack() const { return m_hasHadCaptureMediaStreamTrack; }
@@ -1929,6 +1934,8 @@ public:
 
     void detachFromFrame();
 
+    PermissionsPolicy permissionsPolicy() const;
+
 protected:
     enum class ConstructionFlag : uint8_t {
         Synthesized = 1 << 0,
@@ -2075,6 +2082,7 @@ private:
     MediaProducerMediaStateFlags computeCaptureState() const;
 #endif
     bool isTopDocumentLegacy() const { return &topDocument() == this; }
+    void securityOriginDidChange() final;
 
     const Ref<const Settings> m_settings;
 
@@ -2577,6 +2585,8 @@ private:
 #endif
 
     bool m_hasViewTransitionPseudoElementTree { false };
+    bool m_renderingIsSuppressedForViewTransition { false };
+    bool m_enableRenderingIsSuppressedForViewTransitionAfterUpdateRendering { false };
 
 #if ENABLE(TOUCH_ACTION_REGIONS)
     bool m_mayHaveElementsWithNonAutoTouchAction { false };
@@ -2605,6 +2615,7 @@ private:
     std::optional<bool> m_cachedCookiesEnabled;
 
     mutable std::unique_ptr<CSSParserContext> m_cachedCSSParserContext;
+    mutable std::unique_ptr<PermissionsPolicy> m_permissionsPolicy;
 };
 
 Element* eventTargetElementForDocument(Document*);

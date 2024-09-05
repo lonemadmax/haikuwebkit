@@ -168,8 +168,9 @@ public:
     Ref<WebProcessProxy> protectedProcess() const { return process(); }
     void setProcess(FrameProcess&);
     const FrameProcess& frameProcess() const { return m_frameProcess.get(); }
+    void removeChildFrames();
     ProvisionalFrameProxy* provisionalFrame() { return m_provisionalFrame.get(); }
-    RefPtr<ProvisionalFrameProxy> takeProvisionalFrame();
+    std::unique_ptr<ProvisionalFrameProxy> takeProvisionalFrame();
     WebProcessProxy& provisionalLoadProcess();
     void remoteProcessDidTerminate(WebProcessProxy&);
     std::optional<WebCore::PageIdentifier> webPageIDInCurrentProcess();
@@ -189,6 +190,9 @@ public:
 
     void setHasPendingBackForwardItem(bool hasPendingBackForwardItem) { m_hasPendingBackForwardItem = hasPendingBackForwardItem; }
     bool hasPendingBackForwardItem() { return m_hasPendingBackForwardItem; }
+
+    WebCore::LayerHostingContextIdentifier layerHostingContextIdentifier() const { return m_layerHostingContextIdentifier; }
+    void setRemoteFrameSize(WebCore::IntSize size) { m_remoteFrameSize = size; }
 
 private:
     WebFrameProxy(WebPageProxy&, FrameProcess&, WebCore::FrameIdentifier);
@@ -215,13 +219,14 @@ private:
     WebCore::FrameIdentifier m_frameID;
     ListHashSet<Ref<WebFrameProxy>> m_childFrames;
     WeakPtr<WebFrameProxy> m_parentFrame;
-    RefPtr<ProvisionalFrameProxy> m_provisionalFrame;
+    std::unique_ptr<ProvisionalFrameProxy> m_provisionalFrame;
 #if ENABLE(CONTENT_FILTERING)
     WebCore::ContentFilterUnblockHandler m_contentFilterUnblockHandler;
 #endif
     CompletionHandler<void(std::optional<WebCore::PageIdentifier>, std::optional<WebCore::FrameIdentifier>)> m_navigateCallback;
     const WebCore::LayerHostingContextIdentifier m_layerHostingContextIdentifier;
     bool m_hasPendingBackForwardItem { false };
+    std::optional<WebCore::IntSize> m_remoteFrameSize;
 };
 
 } // namespace WebKit

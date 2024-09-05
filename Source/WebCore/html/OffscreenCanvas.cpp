@@ -93,22 +93,14 @@ private:
     RefPtr<ImageBufferPipe::Source> m_pipeSource;
 };
 
-DetachedOffscreenCanvas::DetachedOffscreenCanvas(std::unique_ptr<SerializedImageBuffer> buffer, const IntSize& size, bool originClean, RefPtr<OffscreenCanvasPlaceholderData> placeholderData)
-    : m_buffer(WTFMove(buffer))
-    , m_placeholderData(WTFMove(placeholderData))
+DetachedOffscreenCanvas::DetachedOffscreenCanvas(const IntSize& size, bool originClean, RefPtr<OffscreenCanvasPlaceholderData> placeholderData)
+    : m_placeholderData(WTFMove(placeholderData))
     , m_size(size)
     , m_originClean(originClean)
 {
 }
 
 DetachedOffscreenCanvas::~DetachedOffscreenCanvas() = default;
-
-RefPtr<ImageBuffer> DetachedOffscreenCanvas::takeImageBuffer(ScriptExecutionContext& context)
-{
-    if (!m_buffer)
-        return nullptr;
-    return SerializedImageBuffer::sinkIntoImageBuffer(WTFMove(m_buffer), context.graphicsClient());
-}
 
 RefPtr<OffscreenCanvasPlaceholderData> DetachedOffscreenCanvas::takePlaceholderData()
 {
@@ -138,7 +130,6 @@ Ref<OffscreenCanvas> OffscreenCanvas::create(ScriptExecutionContext& scriptExecu
 Ref<OffscreenCanvas> OffscreenCanvas::create(ScriptExecutionContext& scriptExecutionContext, std::unique_ptr<DetachedOffscreenCanvas>&& detachedCanvas)
 {
     Ref<OffscreenCanvas> clone = adoptRef(*new OffscreenCanvas(scriptExecutionContext, detachedCanvas->size(), detachedCanvas->takePlaceholderData()));
-    clone->setImageBuffer(detachedCanvas->takeImageBuffer(scriptExecutionContext));
     if (!detachedCanvas->originClean())
         clone->setOriginTainted();
     clone->suspendIfNeeded();
@@ -313,76 +304,13 @@ ExceptionOr<RefPtr<ImageBitmap>> OffscreenCanvas::transferToImageBitmap()
 {
     if (m_detached || !m_context)
         return Exception { ExceptionCode::InvalidStateError };
-
-    if (is<OffscreenCanvasRenderingContext2D>(*m_context) || is<ImageBitmapRenderingContext>(*m_context)) {
-        if (!width() || !height())
-            return { RefPtr<ImageBitmap> { nullptr } };
-
-        if (!m_hasCreatedImageBuffer) {
-            auto buffer = allocateImageBuffer();
-            if (!buffer)
-                return { RefPtr<ImageBitmap> { nullptr } };
-            return { ImageBitmap::create(buffer.releaseNonNull(), originClean()) };
-        }
-
-        if (!buffer())
-            return { RefPtr<ImageBitmap> { nullptr } };
-
-        RefPtr<ImageBuffer> bitmap;
-        if (RefPtr context = dynamicDowncast<OffscreenCanvasRenderingContext2D>(*m_context)) {
-            // As the canvas context state is stored in GraphicsContext, which is owned
-            // by buffer(), to avoid resetting the context state, we have to make a copy and
-            // clear the original buffer rather than returning the original buffer.
-            bitmap = buffer()->clone();
-            context->clearCanvas();
-        } else {
-            // ImageBitmapRenderingContext doesn't use the context state, so we can just take its
-            // buffer, and then call transferFromImageBitmap(nullptr) which will trigger it to allocate
-            // a new blank bitmap.
-            bitmap = buffer();
-            downcast<ImageBitmapRenderingContext>(*m_context).transferFromImageBitmap(nullptr);
-        }
-        clearCopiedImage();
-        if (!bitmap)
-            return { RefPtr<ImageBitmap> { nullptr } };
-        return { ImageBitmap::create(bitmap.releaseNonNull(), originClean(), false, false) };
-    }
-
-#if ENABLE(WEBGL)
-    if (auto* webGLContext = dynamicDowncast<WebGLRenderingContextBase>(*m_context)) {
-        // FIXME: We're supposed to create an ImageBitmap using the backing
-        // store from this canvas (or its context), but for now we'll just
-        // create a new bitmap and paint into it.
-        auto buffer = allocateImageBuffer();
-        if (!buffer)
-            return { RefPtr<ImageBitmap> { nullptr } };
-
-        RefPtr gc3d = webGLContext->graphicsContextGL();
-        gc3d->drawSurfaceBufferToImageBuffer(GraphicsContextGL::SurfaceBuffer::DrawingBuffer, *buffer);
-
-        // FIXME: The transfer algorithm requires that the canvas effectively
-        // creates a new backing store. Since we're not doing that yet, we
-        // need to erase what's there.
-
-        GCGLfloat clearColor[4] { };
-        gc3d->getFloatv(GraphicsContextGL::COLOR_CLEAR_VALUE, clearColor);
-        gc3d->clearColor(0, 0, 0, 0);
-        gc3d->clear(GraphicsContextGL::COLOR_BUFFER_BIT | GraphicsContextGL::DEPTH_BUFFER_BIT | GraphicsContextGL::STENCIL_BUFFER_BIT);
-        gc3d->clearColor(clearColor[0], clearColor[1], clearColor[2], clearColor[3]);
-        return { ImageBitmap::create(buffer.releaseNonNull(), originClean()) };
-    }
-#endif
-
-    if (auto* context = dynamicDowncast<GPUCanvasContext>(*m_context)) {
-        auto buffer = allocateImageBuffer();
-        if (!buffer)
-            return Exception { ExceptionCode::OutOfMemoryError };
-
-        Ref<ImageBuffer> bufferRef = buffer.releaseNonNull();
-        return context->getCurrentTextureAsImageBitmap(bufferRef, originClean());
-    }
-
-    return Exception { ExceptionCode::NotSupportedError };
+    if (size().isEmpty())
+        return { RefPtr<ImageBitmap> { nullptr } };
+    clearCopiedImage();
+    RefPtr buffer = m_context->transferToImageBuffer();
+    if (!buffer)
+        return Exception { ExceptionCode::UnknownError }; // UnknownError is used for DOM out-of-memory.
+    return { ImageBitmap::create(buffer.releaseNonNull(), originClean()) };
 }
 
 static String toEncodingMimeType(const String& mimeType)
@@ -481,26 +409,22 @@ std::unique_ptr<DetachedOffscreenCanvas> OffscreenCanvas::detach()
 
     m_detached = true;
 
-    auto detached = makeUnique<DetachedOffscreenCanvas>(takeImageBuffer(), size(), originClean(), WTFMove(m_placeholderData));
+    auto detached = makeUnique<DetachedOffscreenCanvas>(size(), originClean(), WTFMove(m_placeholderData));
     setSize(IntSize(0, 0));
     return detached;
 }
 
 void OffscreenCanvas::commitToPlaceholderCanvas()
 {
-    RefPtr imageBuffer = buffer();
-    if (!imageBuffer)
-        return;
     if (!m_placeholderData)
         return;
-
-    // FIXME: Transfer texture over if we're using accelerated compositing
-    if (m_context && (m_context->isWebGL() || m_context->isAccelerated())) {
-        if (m_context->compositingResultsNeedUpdating())
-            m_context->prepareForDisplay();
-        m_context->drawBufferToCanvas(CanvasRenderingContext::SurfaceBuffer::DisplayBuffer);
-    }
-
+    if  (!m_context)
+        return;
+    if (m_context->compositingResultsNeedUpdating())
+        m_context->prepareForDisplay();
+    RefPtr imageBuffer = m_context->surfaceBufferToImageBuffer(CanvasRenderingContext::SurfaceBuffer::DisplayBuffer);
+    if (!imageBuffer)
+        return;
     if (auto pipeSource = m_placeholderData->pipeSource())
         pipeSource->handle(*imageBuffer);
 
@@ -545,20 +469,6 @@ void OffscreenCanvas::setImageBufferAndMarkDirty(RefPtr<ImageBuffer>&& buffer)
     setImageBuffer(WTFMove(buffer));
 
     CanvasBase::didDraw(FloatRect(FloatPoint(), size()));
-}
-
-std::unique_ptr<SerializedImageBuffer> OffscreenCanvas::takeImageBuffer() const
-{
-    ASSERT(m_detached);
-
-    if (size().isEmpty())
-        return nullptr;
-
-    clearCopiedImage();
-    RefPtr<ImageBuffer> buffer = setImageBuffer(nullptr);
-    if (!buffer)
-        return nullptr;
-    return ImageBuffer::sinkIntoSerializedImageBuffer(WTFMove(buffer));
 }
 
 void OffscreenCanvas::reset()

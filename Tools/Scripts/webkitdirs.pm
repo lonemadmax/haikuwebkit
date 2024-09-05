@@ -72,7 +72,6 @@ BEGIN {
        &XcodeStaticAnalyzerOption
        &appDisplayNameFromBundle
        &appendToEnvironmentVariableList
-       &archCommandLineArgumentsForRestrictedEnvironmentVariables
        &architecture
        &architecturesForProducts
        &argumentsForConfiguration
@@ -2795,7 +2794,7 @@ sub generateBuildSystemFromCMakeProject
     push @args, "-DLTO_MODE=$ltoMode" if ltoMode();
 
     if (isPlayStation()) {
-        my $toolChainFile = $ENV{'CMAKE_TOOLCHAIN_FILE'} || "Platform/PlayStation";
+        my $toolChainFile = $ENV{'CMAKE_TOOLCHAIN_FILE'} || "Platform/PlayStation5";
         push @args, '-DCMAKE_TOOLCHAIN_FILE=' . $toolChainFile;
     }
 
@@ -3374,15 +3373,10 @@ sub runIOSWebKitApp($)
     die "Not using an iOS SDK."
 }
 
-sub archCommandLineArgumentsForRestrictedEnvironmentVariables()
+sub commandLineArgumentsForRestrictedEnvironmentVariables($)
 {
-    my @arguments = ();
-    foreach my $key (keys(%ENV)) {
-        if ($key =~ /^DYLD_/) {
-            push @arguments, "-e", "$key=$ENV{$key}";
-        }
-    }
-    return @arguments;
+    my $prefix = shift;
+    return map { ($prefix, "$_=$ENV{$_}") } grep { /^DYLD_/ } keys %ENV;
 }
 
 sub runMacWebKitApp($;$)
@@ -3395,10 +3389,10 @@ sub runMacWebKitApp($;$)
     setupMacWebKitEnvironment($productDir);
 
     if (defined($useOpenCommand) && $useOpenCommand == USE_OPEN_COMMAND) {
-        return system("open", "-W", "-a", $appPath, "--args", argumentsForRunAndDebugMacWebKitApp());
+        return system("open", "-W", "-a", $appPath, commandLineArgumentsForRestrictedEnvironmentVariables("--env"), "--args", argumentsForRunAndDebugMacWebKitApp());
     }
     if (architecture()) {
-        return system "arch", "-" . architecture(), archCommandLineArgumentsForRestrictedEnvironmentVariables(), $appPath, argumentsForRunAndDebugMacWebKitApp();
+        return system "arch", "-" . architecture(), commandLineArgumentsForRestrictedEnvironmentVariables("-e"), $appPath, argumentsForRunAndDebugMacWebKitApp();
     }
     return system { $appPath } $appPath, argumentsForRunAndDebugMacWebKitApp();
 }

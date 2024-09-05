@@ -213,7 +213,6 @@ Shared/mac/NativeWebGestureEventMac.mm
 Shared/mac/NativeWebKeyboardEventMac.mm
 Shared/mac/NativeWebMouseEventMac.mm
 Shared/mac/NativeWebWheelEventMac.mm
-Shared/mac/ObjCObjectGraph.mm
 Shared/mac/PasteboardTypes.mm
 Shared/mac/PrintInfoMac.mm
 Shared/mac/ScrollingAccelerationCurveMac.mm
@@ -325,7 +324,6 @@ UIProcess/API/Cocoa/NSAttributedString.mm
 UIProcess/API/Cocoa/WKBackForwardList.mm
 UIProcess/API/Cocoa/WKBackForwardListItem.mm
 UIProcess/API/Cocoa/WKBrowsingContextController.mm
-UIProcess/API/Cocoa/WKConnection.mm
 UIProcess/API/Cocoa/WKContentRuleList.mm
 UIProcess/API/Cocoa/WKContentRuleListStore.mm
 UIProcess/API/Cocoa/WKContentWorld.mm
@@ -540,8 +538,9 @@ UIProcess/Launcher/cocoa/ProcessLauncherCocoa.mm
 
 UIProcess/mac/CorrectionPanel.mm
 UIProcess/mac/DisplayCaptureSessionManager.mm
-UIProcess/mac/DisplayLinkMac.cpp
+UIProcess/mac/DisplayLinkMac.mm
 UIProcess/mac/HighPerformanceGPUManager.mm
+UIProcess/mac/LegacyDisplayLinkMac.cpp
 UIProcess/mac/LegacySessionStateCoding.cpp
 UIProcess/mac/PageClientImplMac.mm
 UIProcess/mac/SecItemShimProxy.cpp
@@ -738,6 +737,7 @@ WebProcess/WebPage/WKAccessibilityWebPageObjectIOS.mm
 
 WebProcess/WebPage/Cocoa/DrawingAreaCocoa.mm
 WebProcess/WebPage/Cocoa/TextCheckingControllerProxy.mm
+WebProcess/WebPage/Cocoa/TextIndicatorStyleController.mm
 WebProcess/WebPage/Cocoa/WebCookieCacheCocoa.mm
 WebProcess/WebPage/Cocoa/WebCookieJarCocoa.mm
 WebProcess/WebPage/Cocoa/WebPageCocoa.mm

@@ -58,10 +58,11 @@
 #endif
 
 #if USE(EXTENSIONKIT)
+#import "AssertionCapability.h"
+#import "ExtensionKitSPI.h"
 #import <BrowserEngineKit/BENetworkingProcess.h>
 #import <BrowserEngineKit/BERenderingProcess.h>
 #import <BrowserEngineKit/BEWebContentProcess.h>
-#import "ExtensionKitSPI.h"
 
 #if USE(LEGACY_EXTENSIONKIT_SPI)
 SOFT_LINK_FRAMEWORK_OPTIONAL(ServiceExtensions);
@@ -195,13 +196,14 @@ Ref<LaunchGrant> LaunchGrant::create(ExtensionProcess& process)
 
 LaunchGrant::LaunchGrant(ExtensionProcess& process)
 {
-    BEProcessCapability* capability = [BEProcessCapability foreground];
-    m_grant = process.grantCapability(capability);
+    AssertionCapability capability(emptyString(), emptyString(), "Foreground"_s);
+    auto grant = process.grantCapability(capability.platformCapability());
+    m_grant.setPlatformGrant(WTFMove(grant));
 }
 
 LaunchGrant::~LaunchGrant()
 {
-    [m_grant invalidate];
+    m_grant.invalidate();
 }
 #endif
 
@@ -501,11 +503,6 @@ void ProcessLauncher::finishLaunchingProcess(ASCIILiteral name)
 
 void ProcessLauncher::terminateProcess()
 {
-#if USE(EXTENSIONKIT)
-    if (m_process)
-        m_process->invalidate();
-#endif
-
     if (m_isLaunching) {
         terminateXPCConnection();
         return;
@@ -535,9 +532,7 @@ void ProcessLauncher::terminateXPCConnection()
         return;
 
     xpc_connection_cancel(m_xpcConnection.get());
-#if !USE(EXTENSIONKIT)
     terminateWithReason(m_xpcConnection.get(), WebKit::ReasonCode::Invalidation, "ProcessLauncher::platformInvalidate");
-#endif
     m_xpcConnection = nullptr;
 }
 

@@ -147,6 +147,7 @@ private:
     bool isHandlePaused() const;
 
     NetworkLoadMetrics networkLoadMetrics();
+    std::optional<long long> getContentLength();
 
     // Download
     void writeDataToDownloadFileIfEnabled(std::span<const unsigned char>);
@@ -206,6 +207,7 @@ private:
     FileSystem::PlatformFileHandle m_downloadFileHandle { FileSystem::invalidPlatformFileHandle };
 
     bool m_captureExtraMetrics;
+    size_t m_requestHeaderSize { 0 };
     HTTPHeaderMap m_requestHeaders;
     MonotonicTime m_performStartTime;
     size_t m_totalReceivedSize { 0 };

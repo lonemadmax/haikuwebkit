@@ -184,6 +184,7 @@ public:
     id accessibilityAssociatedPluginParentForElement(WebCore::Element*) const;
 
     bool isBeingDestroyed() const { return m_isBeingDestroyed; }
+    virtual void releaseMemory() { }
 
     bool isFullFramePlugin() const;
     WebCore::IntSize size() const { return m_size; }
@@ -227,7 +228,15 @@ public:
     PDFPluginAnnotation* activeAnnotation() const { return m_activeAnnotation.get(); }
     RefPtr<PDFPluginAnnotation> protectedActiveAnnotation() const;
 #endif
-    virtual void setActiveAnnotation(RetainPtr<PDFAnnotation>&&) = 0;
+
+    enum class IsInPluginCleanup : bool { No, Yes };
+
+    struct SetActiveAnnotationParams {
+        RetainPtr<PDFAnnotation> annotation;
+        IsInPluginCleanup isInPluginCleanup { IsInPluginCleanup::No };
+    };
+
+    virtual void setActiveAnnotation(SetActiveAnnotationParams&&) = 0;
     void didMutatePDFDocument() { m_pdfDocumentWasMutated = true; }
 
     virtual CGRect pluginBoundsForAnnotation(RetainPtr<PDFAnnotation>&) const = 0;
@@ -276,9 +285,9 @@ private:
     void insertRangeRequestData(uint64_t offset, const Vector<uint8_t>&);
 
     // Returns the number of bytes copied.
-    size_t copyDataAtPosition(void* buffer, uint64_t sourcePosition, size_t count) const;
+    size_t copyDataAtPosition(std::span<uint8_t> buffer, uint64_t sourcePosition) const;
     // FIXME: It would be nice to avoid having both the "copy into a buffer" and "return a pointer" ways of getting data.
-    std::span<const uint8_t> dataPtrForRange(uint64_t sourcePosition, size_t count, CheckValidRanges) const;
+    std::span<const uint8_t> dataSpanForRange(uint64_t sourcePosition, size_t count, CheckValidRanges) const;
     // Returns true only if we can satisfy all of the requests.
     bool getByteRanges(CFMutableArrayRef, const CFRange*, size_t count) const;
 

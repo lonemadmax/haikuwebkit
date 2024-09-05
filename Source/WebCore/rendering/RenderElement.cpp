@@ -127,13 +127,13 @@ inline RenderElement::RenderElement(Type type, ContainerNode& elementOrDocument,
     , m_hasPausedImageAnimations(false)
     , m_hasCounterNodeMap(false)
     , m_hasContinuationChainNode(false)
-    , m_lastChild(nullptr)
     , m_isContinuation(false)
     , m_isFirstLetter(false)
     , m_renderBlockHasMarginBeforeQuirk(false)
     , m_renderBlockHasMarginAfterQuirk(false)
     , m_renderBlockShouldForceRelayoutChildren(false)
     , m_renderBlockFlowLineLayoutPath(RenderBlockFlow::UndeterminedPath)
+    , m_lastChild(nullptr)
     , m_isRegisteredForVisibleInViewportCallback(false)
     , m_visibleInViewportState(static_cast<unsigned>(VisibleInViewportState::Unknown))
     , m_didContributeToVisuallyNonEmptyPixelCount(false)
@@ -1101,6 +1101,11 @@ void RenderElement::willBeRemovedFromTree()
     RenderObject::willBeRemovedFromTree();
 }
 
+bool RenderElement::didVisitDuringLastLayout() const
+{
+    return layoutIdentifier() == view().frameView().layoutContext().layoutIdentifier();
+}
+
 inline void RenderElement::clearSubtreeLayoutRootIfNeeded() const
 {
     if (renderTreeBeingDestroyed())
@@ -1191,6 +1196,7 @@ void RenderElement::clearChildNeedsLayout()
     setPosChildNeedsLayoutBit(false);
     setNeedsSimplifiedNormalFlowLayoutBit(false);
     setNeedsPositionedMovementLayoutBit(false);
+    setOutOfFlowChildNeedsStaticPositionLayoutBit(false);
 }
 
 void RenderElement::setNeedsSimplifiedNormalFlowLayout()
@@ -1202,6 +1208,16 @@ void RenderElement::setNeedsSimplifiedNormalFlowLayout()
     scheduleLayout(markContainingBlocksForLayout());
     if (hasLayer())
         setLayerNeedsFullRepaint();
+}
+
+void RenderElement::setOutOfFlowChildNeedsStaticPositionLayout()
+{
+    // FIXME: Currently this dirty bit has a very limited useage but should be expanded to
+    // optimize all kinds of out-of-flow cases.
+    // It's also assumed that regular, positioned child related bits are already set.
+    ASSERT(!isSetNeedsLayoutForbidden());
+    ASSERT(posChildNeedsLayout() || selfNeedsLayout() || needsSimplifiedNormalFlowLayout() || !parent());
+    setOutOfFlowChildNeedsStaticPositionLayoutBit(true);
 }
 
 static inline void paintPhase(RenderElement& element, PaintPhase phase, PaintInfo& paintInfo, const LayoutPoint& childPoint)

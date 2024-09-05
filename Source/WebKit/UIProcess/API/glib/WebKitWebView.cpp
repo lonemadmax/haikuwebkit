@@ -105,6 +105,9 @@
 #include "WebKitOptionMenuPrivate.h"
 #include "WebKitWebViewBackendPrivate.h"
 #include "WebKitWebViewClient.h"
+#if ENABLE(WPE_PLATFORM)
+#include "WebKitInputMethodContextImplWPE.h"
+#endif
 #endif
 
 #if ENABLE(2022_GLIB_API)
@@ -826,6 +829,8 @@ static void webkitWebViewCreatePage(WebKitWebView* webView, Ref<API::PageConfigu
 #elif PLATFORM(WPE)
 #if ENABLE(WPE_PLATFORM)
     webView->priv->view.reset(WKWPE::View::create(webView->priv->backend ? webkit_web_view_backend_get_wpe_backend(webView->priv->backend.get()) : nullptr, webkit_web_view_get_display(webView), configuration.get()));
+    if (auto* wpeView = webView->priv->view->wpeView())
+        g_signal_connect_object(wpeView, "closed", G_CALLBACK(webkitWebViewClosePage), webView, G_CONNECT_SWAPPED);
 #else
     webView->priv->view.reset(WKWPE::View::create(webkit_web_view_backend_get_wpe_backend(webView->priv->backend.get()), configuration.get()));
 #endif
@@ -932,6 +937,12 @@ static void webkitWebViewConstructed(GObject* object)
     GRefPtr<WebKitInputMethodContext> imContext = adoptGRef(webkitInputMethodContextImplGtkNew());
     webkitInputMethodContextSetWebView(imContext.get(), webView);
     webkitWebViewBaseSetInputMethodContext(WEBKIT_WEB_VIEW_BASE(webView), imContext.get());
+#elif PLATFORM(WPE) && ENABLE(WPE_PLATFORM)
+    if (priv->display) {
+        GRefPtr<WebKitInputMethodContext> imContext = adoptGRef(webkitInputMethodContextImplWPENew(priv->view->wpeView()));
+        webkitInputMethodContextSetWebView(imContext.get(), webView);
+        priv->view->setInputMethodContext(imContext.get());
+    }
 #endif
 
 #if PLATFORM(WPE)
@@ -4876,7 +4887,7 @@ WebKitDownload* webkit_web_view_download_uri(WebKitWebView* webView, const char*
     g_return_val_if_fail(uri, nullptr);
 
     auto& page = getPage(webView);
-    auto downloadProxy = page.process().processPool().download(page.websiteDataStore(), &page, ResourceRequest { String::fromUTF8(uri) });
+    auto downloadProxy = page.configuration().processPool().download(page.websiteDataStore(), &page, ResourceRequest { String::fromUTF8(uri) });
     auto download = webkitDownloadCreate(downloadProxy, webView);
 #if ENABLE(2022_GLIB_API)
     downloadProxy->setDidStartCallback([session = GRefPtr<WebKitNetworkSession> { webView->priv->networkSession }, download = download.get()](auto* downloadProxy) {
@@ -5406,11 +5417,11 @@ void webkit_web_view_terminate_web_process(WebKitWebView* webView)
 
     auto& page = getPage(webView);
 
-    Ref<WebKit::WebProcessProxy> protectedProcessProxy(page.process());
+    Ref protectedProcessProxy(page.legacyMainFrameProcess());
     protectedProcessProxy->requestTermination(WebKit::ProcessTerminationReason::RequestedByClient);
 
     if (auto* provisionalPageProxy = page.provisionalPageProxy()) {
-        Ref<WebKit::WebProcessProxy> protectedProcessProxy(provisionalPageProxy->process());
+        Ref protectedProcessProxy(provisionalPageProxy->process());
         protectedProcessProxy->requestTermination(WebKit::ProcessTerminationReason::RequestedByClient);
     }
 }

@@ -5870,21 +5870,4 @@ auto OMGIRGenerator::addI64TruncUF32(ExpressionType argVar, ExpressionType& resu
 #include "WasmOMGIRGeneratorInlines.h"
 
 #endif // USE(JSVALUE64)
-
-namespace JSC { namespace Wasm {
-
-using namespace B3;
-
-#if !USE(JSVALUE64)
-// On 32-bit platforms, we stub out the entire B3 generator
-
-Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileOMG(CompilationContext&, OptimizingJITCallee&, const FunctionData&, const TypeDefinition&, Vector<UnlinkedWasmToWasmCall>&, CalleeGroup&, const ModuleInformation&, MemoryMode, CompilationMode, uint32_t, std::optional<bool>, uint32_t, TierUpCount*)
-{
-    UNREACHABLE_FOR_PLATFORM();
-}
-
-#endif
-
-} } // namespace JSC::Wasm
-
 #endif // ENABLE(WEBASSEMBLY_OMGJIT)

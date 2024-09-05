@@ -146,6 +146,7 @@ def types_that_must_be_moved():
         'WebKit::WebGPU::ExternalTextureDescriptor',
         'WebCore::GraphicsContextGL::ExternalImageSource',
         'WebCore::GraphicsContextGL::ExternalSyncSource',
+        'WebCore::ProcessIdentity',
         'WebKit::ConsumerSharedCARingBufferHandle',
         'WebKit::GPUProcessConnectionParameters',
         'WebKit::ModelProcessConnectionParameters',
@@ -640,8 +641,10 @@ def generate_messages_header(receiver):
 
 
 def handler_function(receiver, message):
-    if message.name.find('URL') == 0:
+    if message.name.startswith('URL'):
         return '%s::%s' % (receiver.name, 'url' + message.name[3:])
+    if message.name.startswith('GPU'):
+        return '%s::%s' % (receiver.name, 'gpu' + message.name[3:])
     return '%s::%s' % (receiver.name, message.name[0].lower() + message.name[1:])
 
 

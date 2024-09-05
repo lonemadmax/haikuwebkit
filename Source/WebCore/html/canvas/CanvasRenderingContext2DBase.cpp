@@ -262,6 +262,13 @@ bool CanvasRenderingContext2DBase::isAccelerated() const
 #endif
 }
 
+bool CanvasRenderingContext2DBase::isSurfaceBufferTransparentBlack(SurfaceBuffer) const
+{
+    // Before the first draw (or first access to the drawing buffer), the drawing buffer is transparent black.
+    // Currently the canvas does not support alpha == false.
+    return !canvasBase().hasCreatedImageBuffer();
+}
+
 RefPtr<GraphicsLayerContentsDisplayDelegate> CanvasRenderingContext2DBase::layerContentsDisplayDelegate()
 {
     if (auto buffer = canvasBase().buffer())
@@ -2328,6 +2335,10 @@ void CanvasRenderingContext2DBase::didDraw(std::optional<FloatRect> rect, Option
         shadowRect.inflate(state().shadowBlur);
         dirtyRect.unite(shadowRect);
     }
+
+    // Inflate dirty rect to cover antialiasing on image buffers.
+    if (drawingContext()->shouldAntialias())
+        dirtyRect.inflate(1);
 
     // FIXME: This does not apply the clip because we have no way of reading the clip out of the GraphicsContext.
     if (m_dirtyRect.contains(dirtyRect))

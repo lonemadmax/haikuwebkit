@@ -661,42 +661,40 @@ TEST_P(ConnectionRunLoopTest, RunLoopSendWithPromisedReply)
     localReferenceBarrier();
 }
 
-TEST_P(ConnectionRunLoopTest, RunLoopSendWithPromisedReplyOnDispatcher)
-{
-    HashSet<uint64_t> replies;
-
+struct PromiseConverter {
+    static auto convertError(IPC::Error)
     {
-        AutoWorkQueue awq;
-        ASSERT_TRUE(openA());
-        aClient().setAsyncMessageHandler([&] (IPC::Decoder& decoder) -> bool {
-            auto listenerID = decoder.decode<uint64_t>();
-            auto encoder = makeUniqueRef<IPC::Encoder>(MockTestMessageWithAsyncReply1::asyncMessageReplyName(), *listenerID);
-            encoder.get() << decoder.destinationID();
-            a()->sendSyncReply(WTFMove(encoder));
-            return true;
-        });
-
-        auto runLoop = createRunLoop(RUN_LOOP_NAME);
-        dispatchAndWait(runLoop, [&] {
-            ASSERT_TRUE(openB());
-            for (uint64_t i = 100u; i < 160u; ++i) {
-                b()->sendWithPromisedReply(MockTestMessageWithAsyncReply1 { }, i)->whenSettled(awq.queue(), [&, j = i] (auto&& result) {
-                    EXPECT_TRUE(result);
-                    auto value = *result;
-                    if (!value)
-                        WTFLogAlways("GOT: %llu", j);
-                    EXPECT_GE(value, 100u);
-                    replies.add(value);
-                });
-            }
-            while (replies.size() < 60u)
-                RunLoop::current().cycle();
-            b()->invalidate();
-        });
-        awq.queue()->beginShutdown();
+        return makeUnexpected(String { "2"_s });
     }
-    for (uint64_t i = 100u; i < 160u; ++i)
-        EXPECT_TRUE(replies.contains(i));
+};
+
+TEST_P(ConnectionRunLoopTest, SendWithConvertedPromisedReply)
+{
+    ASSERT_TRUE(openA());
+    aClient().setAsyncMessageHandler([&] (IPC::Decoder& decoder) -> bool {
+        auto listenerID = decoder.decode<uint64_t>();
+        auto encoder = makeUniqueRef<IPC::Encoder>(MockTestMessageWithAsyncReply1::asyncMessageReplyName(), *listenerID);
+        encoder.get() << decoder.destinationID();
+        a()->sendSyncReply(WTFMove(encoder));
+        return true;
+    });
+    std::atomic<bool> isFinished = false;
+
+    auto runLoop = createRunLoop(RUN_LOOP_NAME);
+    dispatchAndWait(runLoop, [&] {
+        ASSERT_TRUE(openB());
+        b()->sendWithPromisedReply<PromiseConverter>(MockTestMessageWithAsyncReply1 { }, 1)->then(runLoop, [&] (uint64_t value) {
+            EXPECT_EQ(value, 1u);
+            isFinished = true;
+        }, [&] (String&& error) {
+            EXPECT_EQ(error, "2"_s);
+            isFinished = true;
+        });
+        while (!isFinished)
+            RunLoop::current().cycle();
+        b()->invalidate();
+    });
+
     localReferenceBarrier();
 }
 

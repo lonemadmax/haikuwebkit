@@ -146,7 +146,7 @@ NSDictionary *toWebAPI(const WebExtensionTabParameters& parameters)
         result[windowIdKey] = @(toWebAPI(parameters.windowIdentifier.value()));
 
     if (parameters.index)
-        result[indexKey] = @(parameters.index.value());
+        result[indexKey] = toWebAPI(parameters.index.value());
 
     if (parameters.size) {
         auto size = parameters.size.value();
@@ -506,7 +506,7 @@ bool WebExtensionAPITabs::parseScriptOptions(NSDictionary *options, WebExtension
         return false;
     }
 
-    if (options[allFramesKey] && options[frameIdKey]) {
+    if (objectForKey<NSNumber>(options, allFramesKey).boolValue && options[frameIdKey]) {
         *outExceptionString = toErrorString(nil, @"details", @"it cannot specify both 'allFrames' and 'frameId'");
         return false;
     }

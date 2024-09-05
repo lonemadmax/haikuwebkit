@@ -1818,6 +1818,7 @@ imported/w3c/web-platform-tests/credential-management/ [ Skip ]
 
 # Skip Digital Credentials API
 http/wpt/identity/ [ Skip ]
+imported/w3c/web-platform-tests/digital-credentials/ [ Skip ]
 
 webkit.org/b/182554 transitions/transition-display-property.html [ Pass ImageOnlyFailure ]
 
@@ -1835,21 +1836,6 @@ http/tests/security/contentSecurityPolicy/block-all-mixed-content/insecure-image
 http/tests/security/contentSecurityPolicy/block-all-mixed-content/insecure-image-in-iframe-with-enforced-and-report-policies.html [ Pass Failure ]
 
 webkit.org/b/186581 [ Debug ] fast/parser/xml-error-adopted.xml [ Timeout Pass ]
-
-webkit.org/b/187557 [ Debug ] media/media-fragments/TC0005.html [ Pass Failure ]
-webkit.org/b/187522 [ Debug ] media/media-fragments/TC0015.html [ Pass Failure ]
-webkit.org/b/187557 [ Debug ] media/media-fragments/TC0024.html [ Pass Failure ]
-webkit.org/b/187557 [ Debug ] media/media-fragments/TC0036.html [ Pass Failure ]
-webkit.org/b/187557 [ Debug ] media/media-fragments/TC0037.html [ Pass Failure ]
-webkit.org/b/187557 [ Debug ] media/media-fragments/TC0078.html [ Pass Failure ]
-webkit.org/b/187557 [ Debug ] media/media-fragments/TC0079.html [ Pass Failure ]
-webkit.org/b/187557 [ Debug ] media/media-fragments/TC0085.html [ Pass Failure ]
-webkit.org/b/187557 [ Debug ] media/media-fragments/TC0086.html [ Pass Failure ]
-webkit.org/b/187557 [ Debug ] media/media-fragments/TC0087.html [ Pass Failure ]
-webkit.org/b/187557 [ Debug ] media/media-fragments/TC0088.html [ Pass Failure ]
-webkit.org/b/187557 [ Debug ] media/media-fragments/TC0089.html [ Pass Failure ]
-webkit.org/b/187557 [ Debug ] media/media-fragments/TC0090.html [ Pass Failure ]
-webkit.org/b/187557 [ Debug ] media/media-fragments/TC0091.html [ Pass Failure ]
 
 webkit.org/b/187711 [ Debug ] svg/custom/linking-uri-01-b.svg [ Pass Failure ]
 
@@ -1891,10 +1877,6 @@ webkit.org/b/190849 http/tests/security/XFrameOptions/x-frame-options-multiple-h
 
 webkit.org/b/186406 compositing/iframes/display-none-subframe.html [ Pass Failure ]
 
-webkit.org/b/190383 fast/images/animated-gif-loop-count.html [ Pass ImageOnlyFailure ]
-webkit.org/b/190383 fast/images/animated-png-loop-count.html [ Pass ImageOnlyFailure ]
-webkit.org/b/190383 fast/images/animated-image-different-dest-size.html [ Pass ImageOnlyFailure ]
-
 webkit.org/b/191639 imported/blink/compositing/squashing/squashing-into-ancestor-painted-layer.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/177397 [ Release ] compositing/masks/compositing-clip-path-change-no-repaint.html [ Pass Failure ] # old: webkit.org/b/190627
@@ -1935,6 +1917,7 @@ imported/w3c/web-platform-tests/html/rendering/replaced-elements/embedded-conten
 
 # "reftest-wait" blocks attachment rendering.
 webkit.org/b/263367 fast/attachment/attachment-icon-from-file-extension.html [ Skip ]
+webkit.org/b/263367 fast/attachment/attachment-icon-update-after-type-change.html [ Skip ]
 webkit.org/b/263367 fast/attachment/attachment-uti.html [ Skip ]
 webkit.org/b/265962 fast/attachment/attachment-folder-icon.html [ Skip ]
 webkit.org/b/265962 fast/attachment/attachment-type-attribute.html [ Skip ]
@@ -2001,8 +1984,6 @@ webkit.org/b/208165 http/tests/cookies/document-cookie-after-showModalDialog.htm
 webkit.org/b/207560 media/airplay-target-availability.html [ Pass Failure ]
 
 webkit.org/b/207568 inspector/page/overrideUserAgent.html [ Pass Failure ]
-
-webkit.org/b/207857 fast/canvas/webgl/texImage2D-mse-flipY-false.html [ Pass Timeout ]
 
 webkit.org/b/207891 imported/w3c/web-platform-tests/css/css-position/fixed-z-index-blend.html [ Pass ImageOnlyFailure ]
 
@@ -2099,6 +2080,8 @@ imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/type-chan
 imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/valueMode-weekmonth.html
 fast/forms/ua-shadow-select-all-behavior.html
 fast/forms/ua-shadow-select-all-crash.html
+
+webkit.org/b/265521 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/show-picker-being-cv-hidden.html [ Skip ]
 
 # New failure after update of WPT tests in bug 214278
 webkit.org/b/214291 imported/w3c/web-platform-tests/css/css-writing-modes/sizing-orthog-htb-in-vrl-013.xht [ ImageOnlyFailure ]
@@ -2477,6 +2460,10 @@ css3/scroll-snap/scroll-padding-mainframe-paging.html [ Failure ]
 # https://bugs.webkit.org/show_bug.cgi?id=249544
 # Generic Permissions API is not supported in WK1
 imported/w3c/web-platform-tests/geolocation-API/permission.https.html [ WontFix ]
+imported/w3c/web-platform-tests/geolocation-API/disabled-by-permissions-policy.https.sub.html [ WontFix Slow ]
+imported/w3c/web-platform-tests/geolocation-API/enabled-by-permission-policy-attribute-redirect-on-load.https.sub.html [ Skip Slow ]
+imported/w3c/web-platform-tests/geolocation-API/enabled-by-permissions-policy.https.sub.html [ Skip Slow ]
+imported/w3c/web-platform-tests/geolocation-API/enabled-on-self-origin-by-permissions-policy.https.sub.html [ Skip Slow ]
 
 # Per-process limit is only for WK2
 http/tests/websocket/tests/hybi/multiple-connections-limit.html [ Skip ]
@@ -2788,7 +2775,7 @@ webkit.org/b/220552 media/media-source/media-source-webm-init-inside-segment.htm
 
 webkit.org/b/222493 media/media-source/media-source-webm-vp8-malformed-header.html [ Skip ]
 
-# webkit.org/b/221300 Updating tests expectations for 3 tests
+# webkit.org/b/221300 vp8 unsupported on WK1
 imported/w3c/web-platform-tests/media-source/mediasource-config-change-webm-v-bitrate.html [ Skip ]
 imported/w3c/web-platform-tests/media-source/mediasource-config-change-webm-v-framerate.html [ Skip ]
 imported/w3c/web-platform-tests/media-source/mediasource-config-change-webm-v-framesize.html [ Skip ]
@@ -2800,3 +2787,5 @@ imported/w3c/web-platform-tests/media-source/mediasource-config-change-webm-v-fr
 webkit.org/b/260883 inspector/timeline/timeline-recording.html [ Skip ]
 
 webkit.org/b/274409 imported/w3c/web-platform-tests/content-security-policy/reporting-api/reporting-api-works-on-frame-src.https.sub.html [ Pass Failure ]
+
+webkit.org/b/274792 compositing/repaint/iframes/compositing-iframe-with-fixed-background-doc-repaint.html [ Pass Failure ]

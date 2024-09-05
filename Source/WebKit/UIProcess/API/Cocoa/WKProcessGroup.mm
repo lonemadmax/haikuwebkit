@@ -28,11 +28,9 @@
 
 #import "APINavigationData.h"
 #import "APIProcessPoolConfiguration.h"
-#import "ObjCObjectGraph.h"
 #import "WKAPICast.h"
 #import "WKBrowsingContextControllerInternal.h"
 #import "WKBrowsingContextHistoryDelegate.h"
-#import "WKConnectionInternal.h"
 #import "WKNSString.h"
 #import "WKNSURL.h"
 #import "WKNavigationDataInternal.h"

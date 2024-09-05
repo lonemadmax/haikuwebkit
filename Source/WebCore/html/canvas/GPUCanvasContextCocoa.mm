@@ -180,7 +180,7 @@ void GPUCanvasContextCocoa::reshape(int width, int height, int oldWidth, int old
     }
 }
 
-void GPUCanvasContextCocoa::drawBufferToCanvas(SurfaceBuffer)
+RefPtr<ImageBuffer> GPUCanvasContextCocoa::surfaceBufferToImageBuffer(SurfaceBuffer)
 {
     // FIXME(https://bugs.webkit.org/show_bug.cgi?id=263957): WebGPU should support obtaining drawing buffer for Web Inspector.
     m_compositorIntegration->prepareForDisplay([this, weakThis = WeakPtr { *this }] {
@@ -196,22 +196,23 @@ void GPUCanvasContextCocoa::drawBufferToCanvas(SurfaceBuffer)
             present();
         }
     });
+    return canvasBase().buffer();
 }
 
-ExceptionOr<RefPtr<ImageBitmap>> GPUCanvasContextCocoa::getCurrentTextureAsImageBitmap(ImageBuffer& buffer, bool originClean)
+RefPtr<ImageBuffer> GPUCanvasContextCocoa::transferToImageBuffer()
 {
+    auto buffer = canvasBase().allocateImageBuffer();
+    if (!buffer)
+        return nullptr;
+    Ref<ImageBuffer> bufferRef = buffer.releaseNonNull();
     if (m_configuration) {
-        buffer.flushDrawingContext();
         if (m_compositorIntegration)
-            m_compositorIntegration->paintCompositedResultsToCanvas(buffer, m_configuration->frameCount);
+            m_compositorIntegration->paintCompositedResultsToCanvas(bufferRef, m_configuration->frameCount);
         m_currentTexture = nullptr;
         if (m_presentationContext)
             m_presentationContext->present(true);
-
-        return { ImageBitmap::create(buffer, originClean) };
     }
-
-    return { ImageBitmap::create(buffer, originClean) };
+    return bufferRef;
 }
 
 GPUCanvasContext::CanvasType GPUCanvasContextCocoa::canvas()

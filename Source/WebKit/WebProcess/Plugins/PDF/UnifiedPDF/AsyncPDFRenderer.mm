@@ -68,6 +68,21 @@ void AsyncPDFRenderer::teardown()
         tiledBacking->setClient(nullptr);
 }
 
+void AsyncPDFRenderer::releaseMemory()
+{
+    auto* tiledBacking = m_pdfContentsLayer->tiledBacking();
+    if (!tiledBacking)
+        return;
+
+#if !LOG_DISABLED
+    auto oldPagePreviewCount = m_pagePreviews.size();
+#endif
+    // Ideally we'd be able to make the ImageBuffer memory volatile which would eliminate the need for this callback: webkit.org/b/274878
+    removePagePreviewsOutsideCoverageRect(tiledBacking->coverageRect());
+
+    LOG_WITH_STREAM(PDFAsyncRendering, stream << "AsyncPDFRenderer::releaseMemory - reduced page preview count from " << oldPagePreviewCount << " to " << m_pagePreviews.size());
+}
+
 void AsyncPDFRenderer::setupWithLayer(GraphicsLayer& layer)
 {
     m_pdfContentsLayer = &layer;
@@ -100,6 +115,8 @@ void AsyncPDFRenderer::generatePreviewImageForPage(PDFDocumentLayout::PageIndex 
     pageBounds.setLocation({ });
 
     auto pagePreviewRequest = PagePreviewRequest { pageIndex, pageBounds, scale };
+    m_enqueuedPagePreviews.set(pageIndex, pagePreviewRequest);
+
     m_paintingWorkQueue->dispatch([protectedThis = Ref { *this }, pdfDocument = WTFMove(pdfDocument), pagePreviewRequest]() mutable {
         protectedThis->paintPagePreviewOnWorkQueue(WTFMove(pdfDocument), pagePreviewRequest);
     });
@@ -109,7 +126,6 @@ void AsyncPDFRenderer::removePreviewForPage(PDFDocumentLayout::PageIndex pageInd
 {
     LOG_WITH_STREAM(PDFAsyncRendering, stream << "AsyncPDFRenderer::removePreviewForPage " << pageIndex);
 
-    // We could use a purgeable cache here.
     m_enqueuedPagePreviews.remove(pageIndex);
     m_pagePreviews.remove(pageIndex);
 }
@@ -133,13 +149,23 @@ void AsyncPDFRenderer::paintPagePreviewOnWorkQueue(RetainPtr<PDFDocument>&& pdfD
         if (!protectedThis)
             return;
 
-        RefPtr plugin = protectedThis->m_plugin.get();
-        if (!plugin)
-            return;
-
-        protectedThis->m_pagePreviews.set(pagePreviewRequest.pageIndex, WTFMove(imageBuffer));
-        plugin->didGeneratePreviewForPage(pagePreviewRequest.pageIndex);
+        protectedThis->didCompletePagePreviewRender(WTFMove(imageBuffer), pagePreviewRequest);
     });
+}
+
+void AsyncPDFRenderer::didCompletePagePreviewRender(RefPtr<ImageBuffer>&& imageBuffer, const PagePreviewRequest& pagePreviewRequest)
+{
+    ASSERT(isMainRunLoop());
+    RefPtr plugin = m_plugin.get();
+    if (!plugin)
+        return;
+
+    auto pageIndex = pagePreviewRequest.pageIndex;
+    LOG_WITH_STREAM(PDFAsyncRendering, stream << "AsyncPDFRenderer::didCompletePagePreviewRender for page " << pageIndex << " (have request " << m_enqueuedPagePreviews.contains(pageIndex) << ")");
+
+    m_enqueuedPagePreviews.remove(pageIndex);
+    m_pagePreviews.set(pageIndex, WTFMove(imageBuffer));
+    plugin->didGeneratePreviewForPage(pageIndex);
 }
 
 RefPtr<WebCore::ImageBuffer> AsyncPDFRenderer::previewImageForPage(PDFDocumentLayout::PageIndex pageIndex) const
@@ -218,6 +244,27 @@ void AsyncPDFRenderer::coverageRectDidChange(TiledBacking&, const FloatRect& cov
     auto pageCoverage = plugin->pageCoverageForRect(coverageRect);
     auto pagePreviewScale = plugin->scaleForPagePreviews();
 
+    for (auto& pageInfo : pageCoverage) {
+        if (m_pagePreviews.contains(pageInfo.pageIndex))
+            continue;
+
+        generatePreviewImageForPage(pageInfo.pageIndex, pagePreviewScale);
+    }
+
+    if (!plugin->shouldCachePagePreviews())
+        removePagePreviewsOutsideCoverageRect(coverageRect);
+
+    LOG_WITH_STREAM(PDFAsyncRendering, stream << "AsyncPDFRenderer::coverageRectDidChange " << coverageRect << " " << pageCoverage << " - preview scale " << pagePreviewScale << " - have " << m_pagePreviews.size() << " page previews and " << m_enqueuedPagePreviews.size() << " enqueued");
+}
+
+void AsyncPDFRenderer::removePagePreviewsOutsideCoverageRect(const FloatRect& coverageRect)
+{
+    RefPtr plugin = m_plugin.get();
+    if (!plugin)
+        return;
+
+    auto pageCoverage = plugin->pageCoverageForRect(coverageRect);
+
     PDFPageIndexSet unwantedPageIndices;
     for (auto pageIndex : m_pagePreviews.keys())
         unwantedPageIndices.add(pageIndex);
@@ -228,18 +275,19 @@ void AsyncPDFRenderer::coverageRectDidChange(TiledBacking&, const FloatRect& cov
             unwantedPageIndices.remove(it);
             continue;
         }
-
-        generatePreviewImageForPage(pageInfo.pageIndex, pagePreviewScale);
     }
 
     for (auto pageIndex : unwantedPageIndices)
         removePreviewForPage(pageIndex);
-
-    LOG_WITH_STREAM(PDFAsyncRendering, stream << "AsyncPDFRenderer::coverageRectDidChange " << coverageRect << " " << pageCoverage << " - preview scale " << pagePreviewScale << " - have " << m_pagePreviews.size() << " page previews and " << m_enqueuedPagePreviews.size() << " enqueued");
 }
 
 void AsyncPDFRenderer::tilingScaleFactorDidChange(TiledBacking&, float)
 {
+}
+
+void AsyncPDFRenderer::didAddGrid(TiledBacking&, TileGridIdentifier)
+{
+
 }
 
 void AsyncPDFRenderer::willRemoveGrid(WebCore::TiledBacking&, TileGridIdentifier gridIdentifier)
@@ -588,6 +636,9 @@ bool AsyncPDFRenderer::paintTilesForPage(GraphicsContext& context, float documen
 
             auto tileClipInPaintingCoordinates = scaleTransform.mapRect(renderedTile.tileInfo.tileRect);
             if (!pageBoundsInPaintingCoordinates.intersects(tileClipInPaintingCoordinates))
+                continue;
+
+            if (!tileClipInPaintingCoordinates.intersects(clipRect))
                 continue;
 
             LOG_WITH_STREAM(PDFAsyncRendering, stream << "AsyncPDFRenderer::paintTilesForPage " << pageBoundsInPaintingCoordinates  << " - painting tile for " << keyValuePair.key << " with clip " << renderedTile.tileInfo.tileRect << " tiling scale " << tilingScaleFactor);

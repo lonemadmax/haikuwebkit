@@ -101,7 +101,6 @@ Modules/cache/DOMCache.cpp
 Modules/cache/DOMCacheEngine.cpp
 Modules/cache/DOMCacheStorage.cpp
 Modules/cache/WindowOrWorkerGlobalScopeCaches.cpp
-Modules/cache/WorkerCacheStorageConnection.cpp
 Modules/compression/CompressionStreamEncoder.cpp
 Modules/compression/DecompressionStreamDecoder.cpp
 Modules/contact-picker/ContactsManager.cpp
@@ -1744,6 +1743,7 @@ inspector/agents/page/PageDebuggerAgent.cpp
 inspector/agents/page/PageHeapAgent.cpp
 inspector/agents/page/PageNetworkAgent.cpp
 inspector/agents/page/PageRuntimeAgent.cpp
+inspector/agents/page/PageWorkerAgent.cpp
 inspector/agents/worker/ServiceWorkerAgent.cpp
 inspector/agents/worker/WorkerAuditAgent.cpp
 inspector/agents/worker/WorkerCanvasAgent.cpp
@@ -1752,6 +1752,7 @@ inspector/agents/worker/WorkerDOMDebuggerAgent.cpp
 inspector/agents/worker/WorkerDebuggerAgent.cpp
 inspector/agents/worker/WorkerNetworkAgent.cpp
 inspector/agents/worker/WorkerRuntimeAgent.cpp
+inspector/agents/worker/WorkerWorkerAgent.cpp
 layout/formattingContexts/FormattingContext.cpp
 layout/formattingContexts/FormattingGeometry.cpp
 layout/formattingContexts/FormattingQuirks.cpp
@@ -2281,6 +2282,7 @@ platform/graphics/AlphaPremultiplication.cpp
 platform/graphics/AnimationFrameRate.cpp
 platform/graphics/BifurcatedGraphicsContext.cpp
 platform/graphics/BitmapImage.cpp
+platform/graphics/BitmapImageDescriptor.cpp
 platform/graphics/BitmapImageSource.cpp
 platform/graphics/ByteArrayPixelBuffer.cpp
 platform/graphics/CachedSubimage.cpp
@@ -2497,15 +2499,16 @@ platform/graphics/transforms/IdentityTransformOperation.cpp
 platform/graphics/transforms/Matrix3DTransformOperation.cpp
 platform/graphics/transforms/MatrixTransformOperation.cpp
 platform/graphics/transforms/PerspectiveTransformOperation.cpp
+platform/graphics/transforms/Quaternion.cpp
 platform/graphics/transforms/RotateTransformOperation.cpp
 platform/graphics/transforms/ScaleTransformOperation.cpp
 platform/graphics/transforms/SkewTransformOperation.cpp
 platform/graphics/transforms/TransformOperation.cpp
 platform/graphics/transforms/TransformOperations.cpp
+platform/graphics/transforms/TransformOperationsSharedPrimitivesPrefix.cpp
 platform/graphics/transforms/TransformState.cpp
 platform/graphics/transforms/TransformationMatrix.cpp
 platform/graphics/transforms/TranslateTransformOperation.cpp
-platform/graphics/transforms/Quaternion.cpp
 platform/mediacapabilities/MediaCapabilitiesLogging.cpp
 platform/mediacapabilities/MediaEngineConfigurationFactory.cpp
 platform/mediarecorder/MediaRecorderPrivate.cpp

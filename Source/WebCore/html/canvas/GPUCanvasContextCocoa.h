@@ -65,13 +65,14 @@ public:
     PixelFormat pixelFormat() const override;
     void reshape(int width, int height, int oldWidth, int oldHeight) override;
 
-    void drawBufferToCanvas(SurfaceBuffer) override;
+
+    RefPtr<ImageBuffer> surfaceBufferToImageBuffer(SurfaceBuffer) override;
     // GPUCanvasContext methods:
     CanvasType canvas() override;
     ExceptionOr<void> configure(GPUCanvasConfiguration&&) override;
     void unconfigure() override;
     ExceptionOr<RefPtr<GPUTexture>> getCurrentTexture() override;
-    ExceptionOr<RefPtr<ImageBitmap>> getCurrentTextureAsImageBitmap(ImageBuffer&, bool originClean) override;
+    RefPtr<ImageBuffer> transferToImageBuffer() override;
 
     bool isWebGPU() const override { return true; }
 

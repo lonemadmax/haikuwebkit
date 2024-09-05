@@ -86,7 +86,7 @@ public:
 
     Device& device() const { return m_device; }
     PipelineLayout& pipelineLayout() const;
-    bool colorDepthStencilTargetsMatch(const WGPURenderPassDescriptor&, const Vector<WeakPtr<TextureView>>&, const WeakPtr<TextureView>&) const;
+    bool colorDepthStencilTargetsMatch(const WGPURenderPassDescriptor&, const Vector<RefPtr<TextureView>>&, const RefPtr<TextureView>&) const;
     bool validateRenderBundle(const WGPURenderBundleEncoderDescriptor&) const;
     bool writesDepth() const;
     bool writesStencil() const;
@@ -94,7 +94,6 @@ public:
     const RequiredBufferIndicesContainer& requiredBufferIndices() const { return m_requiredBufferIndices; }
     WGPUPrimitiveTopology primitiveTopology() const;
     MTLIndexType stripIndexFormat() const;
-    size_t vertexStageInBufferCount() const;
     const BufferBindingSizesForBindGroup* minimumBufferSizes(uint32_t) const;
 
 private:

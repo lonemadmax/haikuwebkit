@@ -39,7 +39,6 @@
 #include "MessageArgumentDescriptions.h"
 #include "MessageObserver.h"
 #include "NetworkProcessConnection.h"
-#include "RemoteRenderingBackendCreationParameters.h"
 #include "SerializedTypeInfo.h"
 #include "StreamClientConnection.h"
 #include "StreamConnectionBuffer.h"
@@ -65,6 +64,7 @@
 #include <WebCore/SharedMemory.h>
 #include <wtf/PageBlock.h>
 #include <wtf/Scope.h>
+#include <wtf/StdLibExtras.h>
 #include <wtf/text/StringConcatenate.h>
 
 namespace WebKit::IPCTestingAPI {
@@ -1547,7 +1547,7 @@ JSValueRef JSSharedMemory::readBytes(JSContextRef context, JSObjectRef, JSObject
             length = *lengthValue;
     }
 
-    auto arrayBuffer = JSC::ArrayBuffer::create(static_cast<uint8_t*>(jsSharedMemory->m_sharedMemory->data()) + offset, length);
+    auto arrayBuffer = JSC::ArrayBuffer::create(jsSharedMemory->m_sharedMemory->span().subspan(offset, length));
     JSC::JSArrayBuffer* jsArrayBuffer = nullptr;
     if (auto* structure = globalObject->arrayBufferStructure(arrayBuffer->sharingMode()))
         jsArrayBuffer = JSC::JSArrayBuffer::create(vm, structure, WTFMove(arrayBuffer));
@@ -1637,7 +1637,7 @@ JSValueRef JSSharedMemory::writeBytes(JSContextRef context, JSObjectRef, JSObjec
         length = *lengthValue;
     }
 
-    memcpy(static_cast<uint8_t*>(jsSharedMemory->m_sharedMemory->data()) + offset, span.data(), length);
+    memcpySpan(jsSharedMemory->m_sharedMemory->mutableSpan().subspan(offset, length), span.first(length));
 
     return JSValueMakeUndefined(context);
 }
@@ -1684,7 +1684,6 @@ JSValueRef JSIPCStreamConnectionBuffer::readBytes(JSContextRef context, JSObject
 {
     size_t offset = 0;
     size_t length = span.size();
-    uint8_t* data = span.data();
     auto* globalObject = toJS(context);
     auto& vm = globalObject->vm();
     JSC::JSLockHolder lock(vm);
@@ -1711,7 +1710,7 @@ JSValueRef JSIPCStreamConnectionBuffer::readBytes(JSContextRef context, JSObject
             length = *lengthValue;
     }
 
-    auto arrayBuffer = JSC::ArrayBuffer::create(data + offset, length);
+    auto arrayBuffer = JSC::ArrayBuffer::create(span.subspan(offset, length));
     JSC::JSArrayBuffer* jsArrayBuffer = nullptr;
     if (auto* structure = globalObject->arrayBufferStructure(arrayBuffer->sharingMode()))
         jsArrayBuffer = JSC::JSArrayBuffer::create(vm, structure, WTFMove(arrayBuffer));
@@ -2061,24 +2060,6 @@ std::optional<T> getObjectIdentifierFromProperty(JSC::JSGlobalObject* globalObje
     return std::optional<T> { *number };
 }
 
-static bool encodeRemoteRenderingBackendCreationParameters(IPC::Encoder& encoder, JSC::JSGlobalObject* globalObject, JSC::JSObject* jsObject, JSC::CatchScope& scope)
-{
-    auto identifier = getObjectIdentifierFromProperty<RenderingBackendIdentifier>(globalObject, jsObject, "identifier"_s, scope);
-    if (!identifier)
-        return false;
-
-    auto pageProxyID = getObjectIdentifierFromProperty<WebPageProxyIdentifier>(globalObject, jsObject, "pageProxyID"_s, scope);
-    if (!pageProxyID)
-        return false;
-
-    auto pageID = getObjectIdentifierFromProperty<WebCore::PageIdentifier>(globalObject, jsObject, "pageID"_s, scope);
-    if (!pageID)
-        return false;
-
-    RemoteRenderingBackendCreationParameters parameters { *identifier, *pageProxyID, *pageID };
-    encoder << parameters;
-    return true;
-}
 #endif
 
 static bool encodeSharedMemory(IPC::Encoder& encoder, JSC::JSGlobalObject* globalObject, JSC::JSObject* jsObject, JSC::CatchScope& scope)
@@ -2288,16 +2269,6 @@ static bool encodeArgument(IPC::Encoder& encoder, JSContextRef context, JSValueR
         }
         return true;
     }
-
-#if ENABLE(GPU_PROCESS)
-    if (type == "RemoteRenderingBackendCreationParameters"_s) {
-        if (!encodeRemoteRenderingBackendCreationParameters(encoder, globalObject, jsObject, scope)) {
-            *exception = createTypeError(context, "Failed to convert RemoteRenderingBackendCreationParameters"_s);
-            return false;
-        }
-        return true;
-    }
-#endif
 
     if (type == "SharedMemory"_s) {
         if (!encodeSharedMemory(encoder, globalObject, jsObject, scope)) {

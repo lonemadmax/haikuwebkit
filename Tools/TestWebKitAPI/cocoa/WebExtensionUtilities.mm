@@ -639,6 +639,8 @@ static WKUserContentController *userContentController(BOOL usingPrivateBrowsing)
         tab.mainWebView = nil;
 
         [_extensionController didCloseTab:tab windowIsClosing:NO];
+
+        [tab assignWindow:nil];
     }
 
     _tabs = [tabs mutableCopy];
@@ -699,6 +701,9 @@ static WKUserContentController *userContentController(BOOL usingPrivateBrowsing)
         completionHandler(duplicatedTab, nil);
     };
 
+    if (!_activeTab)
+        _activeTab = newTab;
+
     [_tabs insertObject:newTab atIndex:index];
     [_extensionController didOpenTab:newTab];
 
@@ -725,6 +730,8 @@ static WKUserContentController *userContentController(BOOL usingPrivateBrowsing)
     }
 
     [_extensionController didCloseTab:tab windowIsClosing:windowIsClosing];
+
+    [tab assignWindow:nil];
 }
 
 - (void)replaceTab:(TestWebExtensionTab *)oldTab withTab:(TestWebExtensionTab *)newTab
@@ -735,8 +742,13 @@ static WKUserContentController *userContentController(BOOL usingPrivateBrowsing)
     [oldTab.mainWebView _close];
     oldTab.mainWebView = nil;
 
+    if (_activeTab == oldTab)
+        _activeTab = newTab;
+
     [_tabs replaceObjectAtIndex:[_tabs indexOfObject:oldTab] withObject:newTab];
     [_extensionController didReplaceTab:oldTab withTab:newTab];
+
+    [oldTab assignWindow:nil];
 }
 
 - (void)moveTab:(TestWebExtensionTab *)tab toIndex:(NSUInteger)newIndex

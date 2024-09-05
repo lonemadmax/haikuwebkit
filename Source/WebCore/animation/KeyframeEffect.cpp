@@ -66,6 +66,7 @@
 #include "StyledElement.h"
 #include "TimingFunction.h"
 #include "TransformOperationData.h"
+#include "TransformOperationsSharedPrimitivesPrefix.h"
 #include "TranslateTransformOperation.h"
 #include <JavaScriptCore/Exception.h>
 #include <wtf/IsoMallocInlines.h>
@@ -1061,7 +1062,7 @@ void KeyframeEffect::checkForMatchingTransformFunctionLists()
         return;
     }
 
-    SharedPrimitivesPrefix prefix;
+    TransformOperationsSharedPrimitivesPrefix prefix;
     for (const auto& keyframe : m_blendingKeyframes)
         prefix.update(keyframe.style()->transform());
 
@@ -1307,25 +1308,31 @@ void KeyframeEffect::didChangeTargetStyleable(const std::optional<const Styleabl
         newTargetStyleable->ensureKeyframeEffectStack().addEffect(*this);
 }
 
-void KeyframeEffect::apply(RenderStyle& targetStyle, const Style::ResolutionContext& resolutionContext, std::optional<Seconds> startTime)
+OptionSet<AnimationImpact> KeyframeEffect::apply(RenderStyle& targetStyle, const Style::ResolutionContext& resolutionContext, std::optional<Seconds> startTime)
 {
+    OptionSet<AnimationImpact> impact;
     if (!m_target)
-        return;
+        return impact;
 
     updateBlendingKeyframes(targetStyle, resolutionContext);
 
     auto computedTiming = getComputedTiming(startTime);
     if (!startTime) {
-        m_phaseAtLastApplication = computedTiming.phase;
+        if (m_phaseAtLastApplication != computedTiming.phase) {
+            m_phaseAtLastApplication = computedTiming.phase;
+            impact.add(AnimationImpact::RequiresRecomposite);
+        }
+
         if (auto target = targetStyleable())
             InspectorInstrumentation::willApplyKeyframeEffect(*target, *this, computedTiming);
     }
 
     if (!computedTiming.progress)
-        return;
+        return impact;
 
     ASSERT(computedTiming.currentIteration);
     setAnimatedPropertiesInStyle(targetStyle, *computedTiming.progress, *computedTiming.currentIteration);
+    return impact;
 }
 
 bool KeyframeEffect::isRunningAccelerated() const
@@ -2190,28 +2197,19 @@ bool KeyframeEffect::computeExtentOfTransformAnimation(LayoutRect& bounds) const
     return true;
 }
 
-static bool containsRotation(const Vector<RefPtr<TransformOperation>>& operations)
-{
-    for (const auto& operation : operations) {
-        if (operation->type() == TransformOperation::Type::Rotate)
-            return true;
-    }
-    return false;
-}
-
 bool KeyframeEffect::computeTransformedExtentViaTransformList(const FloatRect& rendererBox, const RenderStyle& style, LayoutRect& bounds) const
 {
     FloatRect floatBounds = bounds;
     FloatPoint transformOrigin;
 
-    bool applyTransformOrigin = containsRotation(style.transform().operations()) || style.transform().affectedByTransformOrigin();
+    bool applyTransformOrigin = style.transform().hasTransformOfType<TransformOperation::Type::Rotate>() || style.transform().affectedByTransformOrigin();
     if (applyTransformOrigin) {
         transformOrigin = style.computeTransformOrigin(rendererBox).xy();
         // Ignore transformOriginZ because we'll bail if we encounter any 3D transforms.
         floatBounds.moveBy(-transformOrigin);
     }
 
-    for (const auto& operation : style.transform().operations()) {
+    for (const auto& operation : style.transform()) {
         if (operation->type() == TransformOperation::Type::Rotate) {
             // For now, just treat this as a full rotation. This could take angle into account to reduce inflation.
             floatBounds = boundsOfRotatingRect(floatBounds);

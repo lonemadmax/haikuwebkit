@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "DeferredWorkTimer.h"
 #include "JSSegmentedVariableObject.h"
 #include "LazyClassStructure.h"
 #include "RegExpGlobalData.h"
@@ -120,6 +121,12 @@ enum class ScriptExecutionStatus {
 };
 
 enum class BindingCreationContext : bool { Global, Eval };
+
+enum class CompilationType {
+    Function,
+    DirectEval,
+    IndirectEval,
+};
 
 constexpr bool typeExposedByDefault = true;
 
@@ -499,6 +506,11 @@ public:
 #undef DECLARE_TYPED_ARRAY_TYPE_WATCHPOINT
     Vector<std::unique_ptr<ObjectAdaptiveStructureWatchpoint>> m_missWatchpoints;
 
+    void addObjectsForTicket(DeferredWorkTimer::Ticket, JSObject* scriptExecutionOwner, FixedVector<Weak<JSCell>>& dependencies);
+    void removeObjectsForTicket(DeferredWorkTimer::Ticket);
+    void clearObjectsForTicket();
+    std::unique_ptr<HashMap<DeferredWorkTimer::Ticket, FixedVector<WriteBarrier<JSCell>>>> m_objectsForTicket;
+
     inline std::unique_ptr<ObjectAdaptiveStructureWatchpoint>& typedArrayConstructorSpeciesAbsenceWatchpoint(TypedArrayType);
     inline std::unique_ptr<ObjectAdaptiveStructureWatchpoint>& typedArrayPrototypeSymbolIteratorAbsenceWatchpoint(TypedArrayType);
     inline std::unique_ptr<ObjectPropertyChangeAdaptiveWatchpoint<InlineWatchpointSet>>& typedArrayPrototypeConstructorWatchpoint(TypedArrayType);
@@ -551,6 +563,7 @@ public:
 
     bool m_evalEnabled { true };
     bool m_webAssemblyEnabled { true };
+    bool m_requiresTrustedTypes { true };
     bool m_needsSiteSpecificQuirks { false };
     unsigned m_globalLexicalBindingEpoch { 1 };
     ScopeOffset m_lastStaticGlobalOffset;
@@ -923,6 +936,7 @@ public:
     static ScriptExecutionStatus scriptExecutionStatus(JSGlobalObject*, JSObject*) { return ScriptExecutionStatus::Running; }
     static void reportViolationForUnsafeEval(JSGlobalObject*, JSString*) { }
     static String codeForEval(JSGlobalObject*, JSValue) { return nullString(); }
+    static bool canCompileStrings(JSGlobalObject*, CompilationType, String, JSValue) { return true; }
 
     inline JSObject* arrayBufferPrototype(ArrayBufferSharingMode) const;
     inline Structure* arrayBufferStructure(ArrayBufferSharingMode) const;
@@ -1023,6 +1037,7 @@ public:
 
     bool evalEnabled() const { return m_evalEnabled; }
     bool webAssemblyEnabled() const { return m_webAssemblyEnabled; }
+    bool requiresTrustedTypes() const { return m_requiresTrustedTypes; }
     const String& evalDisabledErrorMessage() const { return m_evalDisabledErrorMessage; }
     const String& webAssemblyDisabledErrorMessage() const { return m_webAssemblyDisabledErrorMessage; }
     void setEvalEnabled(bool enabled, const String& errorMessage = String())
@@ -1034,6 +1049,10 @@ public:
     {
         m_webAssemblyEnabled = enabled;
         m_webAssemblyDisabledErrorMessage = errorMessage;
+    }
+    void setRequiresTrustedTypes(bool required)
+    {
+        m_requiresTrustedTypes = required;
     }
 
 #if ASSERT_ENABLED

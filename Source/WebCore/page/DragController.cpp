@@ -645,7 +645,7 @@ bool DragController::concludeEditDrag(const DragData& dragData)
                 OptionSet<ReplaceSelectionCommand::CommandOption> options { ReplaceSelectionCommand::SelectReplacement, ReplaceSelectionCommand::PreventNesting };
                 if (dragData.canSmartReplace())
                     options.add(ReplaceSelectionCommand::SmartReplace);
-                if (chosePlainText)
+                if (chosePlainText || dragData.shouldMatchStyleOnDrop())
                     options.add(ReplaceSelectionCommand::MatchStyle);
                 ReplaceSelectionCommand::create(protectedDocumentUnderMouse().releaseNonNull(), fragment.releaseNonNull(), options, EditAction::InsertFromDrop)->apply();
             }
@@ -765,6 +765,11 @@ bool DragController::tryDHTMLDrag(LocalFrame& frame, const DragData& dragData, s
 
 static bool imageElementIsDraggable(const HTMLImageElement& image, const LocalFrame& sourceFrame)
 {
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+    if (image.isMultiRepresentationHEIC())
+        return false;
+#endif
+
     if (sourceFrame.settings().loadsImagesAutomatically())
         return true;
 

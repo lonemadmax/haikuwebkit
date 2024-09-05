@@ -107,7 +107,7 @@ public:
 
     static constexpr auto startIndexForFragmentDynamicOffsets = 3;
     static constexpr uint32_t defaultSampleMask = UINT32_MAX;
-    static constexpr uint32_t invalidVertexCount = UINT32_MAX;
+    static constexpr uint32_t invalidVertexInstanceCount = UINT32_MAX;
 
     bool validateDepthStencilState(bool depthReadOnly, bool stencilReadOnly) const;
     Device& device() const { return m_device; }
@@ -137,14 +137,14 @@ private:
     uint32_t maxBindGroupIndex() const;
     void recordCommand(WTF::Function<bool(void)>&&);
     void storeVertexBufferCountsForValidation(uint32_t indexCount, uint32_t instanceCount, uint32_t firstIndex, int32_t baseVertex, uint32_t firstInstance, MTLIndexType, NSUInteger indexBufferOffsetInBytes);
-    uint32_t computeMininumVertexCount() const;
+    std::pair<uint32_t, uint32_t> computeMininumVertexInstanceCount() const;
 
     const Ref<Device> m_device;
-    WeakPtr<Buffer> m_indexBuffer;
+    RefPtr<Buffer> m_indexBuffer;
     MTLIndexType m_indexType { MTLIndexTypeUInt16 };
     NSUInteger m_indexBufferOffset { 0 };
     NSUInteger m_indexBufferSize { 0 };
-    WeakPtr<RenderPipeline> m_pipeline;
+    RefPtr<const RenderPipeline> m_pipeline;
     uint32_t m_maxVertexBufferSlot { 0 };
     uint32_t m_maxBindGroupSlot { 0 };
     using UtilizedBufferIndicesContainer = HashMap<uint32_t, uint64_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>;
@@ -178,7 +178,7 @@ private:
     Vector<BufferAndOffset> m_fragmentBuffers;
     using BindGroupDynamicOffsetsContainer = HashMap<uint32_t, Vector<uint32_t>, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>>;
     std::optional<BindGroupDynamicOffsetsContainer> m_bindGroupDynamicOffsets;
-    HashMap<uint32_t, WeakPtr<BindGroup>, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_bindGroups;
+    HashMap<uint32_t, RefPtr<const BindGroup>, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_bindGroups;
     HashMap<uint64_t, IndexBufferAndIndexData, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> m_minVertexCountForDrawCommand;
     NSMutableArray<RenderBundleICBWithResources*> *m_icbArray;
     id<MTLBuffer> m_dynamicOffsetsVertexBuffer { nil };
