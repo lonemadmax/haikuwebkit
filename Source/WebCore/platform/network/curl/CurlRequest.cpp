@@ -802,7 +802,7 @@ void CurlRequest::writeDataToDownloadFileIfEnabled(std::span<const unsigned char
     }
 
     if (m_downloadFileHandle != FileSystem::invalidPlatformFileHandle)
-        FileSystem::writeToFile(m_downloadFileHandle, buffer.data(), buffer.size());
+        FileSystem::writeToFile(m_downloadFileHandle, buffer);
 }
 
 void CurlRequest::closeDownloadFile()

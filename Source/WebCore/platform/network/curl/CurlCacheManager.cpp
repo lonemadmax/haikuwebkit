@@ -151,8 +151,8 @@ void CurlCacheManager::saveIndex()
     const auto& end = m_LRUEntryList.end();
     while (it != end) {
         const CString& urlLatin1 = it->latin1();
-        FileSystem::writeToFile(indexFile, urlLatin1.data(), urlLatin1.length());
-        FileSystem::writeToFile(indexFile, "\n", 1);
+        FileSystem::writeToFile(indexFile, std::span<const unsigned char>((unsigned char*)urlLatin1.data(), urlLatin1.length()));
+        FileSystem::writeToFile(indexFile, std::span<const unsigned char>((unsigned char*)"\n", 1));
         ++it;
     }
 
@@ -254,7 +254,7 @@ void CurlCacheManager::didReceiveData(ResourceHandle& job, const SharedBuffer& d
         if (it->value->getJob() != &job)
             return;
 
-        if (!it->value->saveCachedData(data.data(), data.size()))
+        if (!it->value->saveCachedData(data.span()))
             invalidateCacheEntry(url);
 
         else {

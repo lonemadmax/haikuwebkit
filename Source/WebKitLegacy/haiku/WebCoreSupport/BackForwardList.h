@@ -39,7 +39,7 @@ public:
     static Ref<BackForwardList> create() { return adoptRef(*new BackForwardList()); }
     virtual ~BackForwardList();
 
-    void addItem(Ref<WebCore::HistoryItem>&&) override;
+    void addItem(WebCore::FrameIdentifier, Ref<WebCore::HistoryItem>&&) override;
     //void goBack() override;
     //void goForward() override;
     void goToItem(WebCore::HistoryItem&) override;

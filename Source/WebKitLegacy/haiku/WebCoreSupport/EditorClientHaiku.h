@@ -77,7 +77,7 @@ public:
     bool isSelectTrailingWhitespaceEnabled() const override;
     void willWriteSelectionToPasteboard(const std::optional<SimpleRange>&) override;
     void didWriteSelectionToPasteboard() override;
-    void getClientPasteboardData(const std::optional<SimpleRange>&, Vector<String>& pasteboardTypes, Vector<RefPtr<WebCore::SharedBuffer> >& pasteboardData) override;
+    void getClientPasteboardData(const std::optional<SimpleRange>&, Vector<std::pair<String, RefPtr<WebCore::SharedBuffer>>>& pasteboardTypesAndData) override {};
 
     void respondToChangedContents() override;
     void respondToChangedSelection(LocalFrame*) override;
@@ -133,7 +133,7 @@ public:
     void getGuessesForWord(const String& word, const String& context, const WebCore::VisibleSelection&, Vector<String>& guesses) override;
     void requestCheckingOfString(TextCheckingRequest&, const VisibleSelection& currentSelection) override;
 
-    WebCore::DOMPasteAccessResponse requestDOMPasteAccess(DOMPasteAccessCategory, const String&) final { return WebCore::DOMPasteAccessResponse::DeniedForGesture;}
+    WebCore::DOMPasteAccessResponse requestDOMPasteAccess(DOMPasteAccessCategory, FrameIdentifier, const String&) final { return WebCore::DOMPasteAccessResponse::DeniedForGesture;}
 
     void subFrameScrollPositionChanged() final {}
 

@@ -50,7 +50,7 @@ public:
     size_t entrySize();
     HTTPHeaderMap& requestHeaders() { return m_requestHeaders; }
 
-    bool saveCachedData(const uint8_t* data, size_t);
+    bool saveCachedData(std::span<const uint8_t> data);
     bool readCachedData(ResourceHandle*);
 
     bool saveResponseHeaders(const ResourceResponse&);

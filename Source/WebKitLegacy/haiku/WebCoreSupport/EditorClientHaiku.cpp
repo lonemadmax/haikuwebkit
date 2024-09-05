@@ -223,10 +223,6 @@ void EditorClientHaiku::willWriteSelectionToPasteboard(const std::optional<Simpl
 {
 }
 
-void EditorClientHaiku::getClientPasteboardData(const std::optional<SimpleRange>&, Vector<String>&, Vector<RefPtr<WebCore::SharedBuffer> >&)
-{
-}
-
 void EditorClientHaiku::discardedComposition(const Document&)
 {
 }

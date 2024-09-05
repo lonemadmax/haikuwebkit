@@ -74,7 +74,7 @@ public:
         bool hasAudio() const override;
         bool hasVideo() const override;
 
-        void setPageIsVisible(bool, WTF::String&&) override;
+        void setPageIsVisible(bool) override;
 
         WTF::MediaTime duration() const override;
         WTF::MediaTime currentTime() const override;

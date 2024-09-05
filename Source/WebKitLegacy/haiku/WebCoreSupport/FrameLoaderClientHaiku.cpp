@@ -267,11 +267,10 @@ void FrameLoaderClientHaiku::dispatchDidReceiveAuthenticationChallenge(DocumentL
 bool FrameLoaderClientHaiku::dispatchDidReceiveInvalidCertificate(DocumentLoader* loader,
     const CertificateInfo& certificate, const char* message)
 {
-    String text = "The SSL certificate received from " +
-        loader->url().string() + " could not be "
-        "authenticated for the following reason: " + message + ".\n\n"
-        "The secure connection to the website may be compromised, make sure "
-        "to not send any sensitive information.";
+    String text = makeString("The SSL certificate received from "_s,
+        loader->url().string(),
+        " could not be authenticated for the following reason: "_s, StringView::fromLatin1(message),
+        ".\n\nThe secure connection to the website may be compromised, make sure to not send any sensitive information."_s);
 
     BMessage warningMessage(SSL_CERT_ERROR);
     warningMessage.AddString("text", text.utf8().data());

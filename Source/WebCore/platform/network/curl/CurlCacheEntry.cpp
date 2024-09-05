@@ -94,13 +94,13 @@ bool CurlCacheEntry::isCached()
     return true;
 }
 
-bool CurlCacheEntry::saveCachedData(const uint8_t* data, size_t size)
+bool CurlCacheEntry::saveCachedData(std::span<const uint8_t> data)
 {
     if (!openContentFile())
         return false;
 
     // Append
-    FileSystem::writeToFile(m_contentFile, data, size);
+    FileSystem::writeToFile(m_contentFile, data);
 
     return true;
 }
@@ -133,8 +133,8 @@ bool CurlCacheEntry::saveResponseHeaders(const ResourceResponse& response)
     HTTPHeaderMap::const_iterator it = response.httpHeaderFields().begin();
     HTTPHeaderMap::const_iterator end = response.httpHeaderFields().end();
     while (it != end) {
-        auto headerField = makeString(it->key, ": ", it->value, '\n').latin1();
-        FileSystem::writeToFile(headerFile, headerField.data(), headerField.length());
+        auto headerField = makeString(it->key, ": "_s, it->value, '\n').latin1();
+        FileSystem::writeToFile(headerFile, std::span<const unsigned char>((const unsigned char*)headerField.data(), headerField.length()));
         m_cachedResponse.setHTTPHeaderField(it->key, it->value);
         ++it;
     }

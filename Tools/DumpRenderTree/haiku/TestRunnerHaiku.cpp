@@ -153,7 +153,7 @@ JSRetainPtr<JSStringRef> TestRunner::pathToLocalResource(JSContextRef context, J
 
     size_t indexOfRootStart = requestedUrl.reverseFind(requestedRoot);
     size_t indexOfSeparatorAfterRoot = indexOfRootStart + requestedRoot.length();
-    String fullPathToUrl = "file://" + resourceRoot + requestedUrl.substring(indexOfSeparatorAfterRoot);
+    String fullPathToUrl = makeString("file://"_s, resourceRoot, requestedUrl.substring(indexOfSeparatorAfterRoot));
 
     return JSStringCreateWithUTF8CString(fullPathToUrl.utf8().data());
 }

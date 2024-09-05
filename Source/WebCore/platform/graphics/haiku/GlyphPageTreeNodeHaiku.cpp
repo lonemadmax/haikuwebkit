@@ -36,14 +36,14 @@
 
 namespace WebCore {
 
-bool GlyphPage::fill(UChar* buffer, unsigned bufferLength)
+bool GlyphPage::fill(std::span<const char16_t> buffer)
 {
     unsigned bufferOffset = 0;
     for (unsigned i = 0;; i++) {
-        if (bufferOffset == bufferLength)
+        if (bufferOffset == buffer.size())
             break;
         char32_t character;
-        U16_NEXT(buffer, bufferOffset, bufferLength, character);
+        U16_NEXT(buffer.data(), bufferOffset, buffer.size(), character);
 
         setGlyphForIndex(i, character, ColorGlyphType::Outline);
     }

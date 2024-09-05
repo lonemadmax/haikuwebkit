@@ -381,8 +381,8 @@ static String timeToString(float time)
     int minutes = (seconds / 60) % 60;
     seconds %= 60;
     if (hours)
-        return makeString((time < 0 ? "-" : ""), hours, ':', pad('0', 2, minutes), ':', pad('0', 2, seconds));
-    return makeString((time < 0 ? "-" : ""), pad('0', 2, minutes), ':', pad('0', 2, seconds));
+        return makeString((time < 0 ? "-"_s : ""_s), hours, ':', pad('0', 2, minutes), ':', pad('0', 2, seconds));
+    return makeString((time < 0 ? "-"_s : ""_s), pad('0', 2, minutes), ':', pad('0', 2, seconds));
 }
 
 void FullscreenVideoController::draw()

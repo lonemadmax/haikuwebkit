@@ -877,7 +877,7 @@ void IconDatabase::iconDatabaseSyncThread()
 
     // Existence of a journal file is evidence of a previous crash/force quit and automatically qualifies
     // us to do an integrity check
-    String journalFilename = m_completeDatabasePath + "-journal";
+    String journalFilename = makeString(m_completeDatabasePath, "-journal"_s);
     if (!checkIntegrityOnOpen)
         checkIntegrityOnOpen = FileSystem::fileExists(journalFilename);
 
@@ -1021,7 +1021,7 @@ void IconDatabase::performOpenInitialization()
             {
                 Locker locker(m_syncLock);
                 // Should've been consumed by SQLite, delete just to make sure we don't see it again in the future;
-                FileSystem::deleteFile(m_completeDatabasePath + "-journal");
+                FileSystem::deleteFile(makeString(m_completeDatabasePath, "-journal"_s));
                 FileSystem::deleteFile(m_completeDatabasePath);
             }
 

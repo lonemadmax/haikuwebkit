@@ -112,8 +112,8 @@ static String keyIdentifierForHaikuKeyCode(char singleByte, int keyCode)
         return ASCIILiteral::fromLiteralUnsafe("U+0009");
     }
 
-	// FIXME will not work for non-ASCII characters
-    return makeString("U+", hex(toASCIIUpper(singleByte)), 4);
+    // FIXME will not work for non-ASCII characters
+    return makeString("U+"_s, hex(toASCIIUpper(singleByte)));
 }
 
 static int windowsKeyCodeForKeyEvent(char singleByte, int keyCode)

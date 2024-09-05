@@ -48,17 +48,17 @@ static String getSystemSoftwareVersion()
     return "R1"_s;
 }
 
-static constexpr const char* versionForUAString()
+static String versionForUAString()
 {
     // https://bugs.webkit.org/show_bug.cgi?id=180365
-    return "605.1.15";
+    return "605.1.15"_s;
 }
 
 static String standardUserAgentStatic()
 {
     // Version/X is mandatory *before* Safari/X to be a valid Safari UA. See
     // https://bugs.webkit.org/show_bug.cgi?id=133403 for details.
-    static NeverDestroyed<String> uaStatic(makeString("Mozilla/5.0 (", getSystemSoftwareName(), '/', getSystemSoftwareVersion(), ") AppleWebKit/", versionForUAString(), " (KHTML, like Gecko) ", "Version/14.0 Safari/", versionForUAString()));
+    static NeverDestroyed<String> uaStatic(makeString("Mozilla/5.0 ("_s, getSystemSoftwareName(), '/', getSystemSoftwareVersion(), ") AppleWebKit/"_s, versionForUAString(), " (KHTML, like Gecko) "_s, "Version/14.0 Safari/"_s, versionForUAString()));
     return uaStatic;
 }
 
@@ -77,7 +77,7 @@ String standardUserAgent(const String& applicationName, const String& applicatio
 
     String finalApplicationVersion = applicationVersion;
     if (finalApplicationVersion.isEmpty())
-        finalApplicationVersion = String::fromUTF8(versionForUAString());
+        finalApplicationVersion = versionForUAString();
 
     return makeString(standardUserAgentStatic(), ' ', applicationName, '/', finalApplicationVersion);
 }

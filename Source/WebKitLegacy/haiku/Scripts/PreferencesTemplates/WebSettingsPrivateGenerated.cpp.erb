@@ -1,6 +1,6 @@
 /*
  * WebSettingsPrivateGenerated.cpp
- * Copyright (C) 2021 pulkomandy <pulkomandy@kitt>
+ * Copyright (C) 2021 Adrien Destugues <pulkomandy@pulkomandy.tk>
  *
  * Distributed under terms of the MIT license.
  */
@@ -21,11 +21,7 @@ void WebSettingsPrivate::defaults()
 #if <%= @pref.condition %>
 <%- end -%>
 
-<%-     if @pref.type == "String" -%>
-        settings->set<%= @pref.webcoreNameUpper %>(String::fromUTF8(DEFAULT_VALUE_FOR_<%= @pref.name %>));
-<%-     else -%>
         settings->set<%= @pref.webcoreNameUpper %>(DEFAULT_VALUE_FOR_<%= @pref.name %>);
-<%-     end -%>
 
 <%- if @pref.condition -%>
 #endif

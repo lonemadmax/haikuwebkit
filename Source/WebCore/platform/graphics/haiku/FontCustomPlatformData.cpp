@@ -47,7 +47,7 @@ RefPtr<FontCustomPlatformData> FontCustomPlatformData::create(SharedBuffer& buff
 	area_id area = create_area("web font", &sharedData, B_ANY_ADDRESS, buffer.size(), B_NO_LOCK, B_WRITE_AREA | B_READ_AREA | B_CLONEABLE_AREA);
 
 
-	memcpy(sharedData, buffer.data(), buffer.size());
+	memcpy(sharedData, buffer.span().data(), buffer.span().size());
 	BFont font;
 
 	status_t result = font.LoadFont(area, buffer.size(), 0);
