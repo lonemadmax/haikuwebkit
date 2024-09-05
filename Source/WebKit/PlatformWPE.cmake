@@ -236,6 +236,7 @@ set(WPE_WEB_PROCESS_EXTENSION_API_INSTALLED_HEADERS
 )
 
 set(WPE_WEB_PROCESS_EXTENSION_API_HEADER_TEMPLATES
+    ${WEBKIT_DIR}/WebProcess/InjectedBundle/API/glib/WebKitConsoleMessage.h.in
     ${WEBKIT_DIR}/WebProcess/InjectedBundle/API/glib/WebKitFrame.h.in
     ${WEBKIT_DIR}/WebProcess/InjectedBundle/API/glib/WebKitScriptWorld.h.in
     ${WEBKIT_DIR}/WebProcess/InjectedBundle/API/glib/WebKitWebEditor.h.in
@@ -575,6 +576,7 @@ if (ENABLE_WPE_QT_API)
         )
         target_compile_definitions(qtwpe PUBLIC
             QT_NO_KEYWORDS=1
+            QT_WPE_LIBRARY
         )
         target_link_libraries(qtwpe
             PUBLIC

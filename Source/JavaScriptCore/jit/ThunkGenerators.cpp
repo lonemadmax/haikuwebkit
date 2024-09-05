@@ -302,7 +302,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> virtualThunkForConstruct(VM& vm)
 }
 
 enum class ClosureMode : uint8_t { No, Yes };
-static MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkFor(VM&, ClosureMode closureMode)
+static MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkFor(VM&, ClosureMode closureMode, bool isTopTier)
 {
     // The callee is in regT0 (for JSVALUE32_64, the tag is in regT1).
     // The return address is on the stack, or in the link register. We will hence
@@ -359,7 +359,8 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkFor(VM&, ClosureMod
 
     found.link(&jit);
     static_assert((CallSlot::offsetOfTarget() + sizeof(void*)) == static_cast<size_t>(CallSlot::offsetOfCodeBlock()));
-    jit.add32(CCallHelpers::TrustedImm32(1), CCallHelpers::Address(GPRInfo::regT5, CallSlot::offsetOfCount()));
+    if (!isTopTier)
+        jit.add32(CCallHelpers::TrustedImm32(1), CCallHelpers::Address(GPRInfo::regT5, CallSlot::offsetOfCount()));
     jit.loadPairPtr(CCallHelpers::Address(GPRInfo::regT5, CallSlot::offsetOfTarget()), GPRInfo::regT4, GPRInfo::regT5);
 
     jit.storePtr(GPRInfo::regT5, CCallHelpers::calleeFrameCodeBlockBeforeTailCall());
@@ -400,12 +401,26 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkFor(VM&, ClosureMod
 
 MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunk(VM& vm)
 {
-    return polymorphicThunkFor(vm, ClosureMode::No);
+    constexpr bool isTopTier = false;
+    return polymorphicThunkFor(vm, ClosureMode::No, isTopTier);
 }
 
 MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicThunkForClosure(VM& vm)
 {
-    return polymorphicThunkFor(vm, ClosureMode::Yes);
+    constexpr bool isTopTier = false;
+    return polymorphicThunkFor(vm, ClosureMode::Yes, isTopTier);
+}
+
+MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicTopTierThunk(VM& vm)
+{
+    constexpr bool isTopTier = true;
+    return polymorphicThunkFor(vm, ClosureMode::No, isTopTier);
+}
+
+MacroAssemblerCodeRef<JITThunkPtrTag> polymorphicTopTierThunkForClosure(VM& vm)
+{
+    constexpr bool isTopTier = true;
+    return polymorphicThunkFor(vm, ClosureMode::Yes, isTopTier);
 }
 
 enum ThunkEntryType { EnterViaCall, EnterViaJumpWithSavedTags, EnterViaJumpWithoutSavedTags };
@@ -446,12 +461,6 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> nativeForGenerator(VM& vm, ThunkFun
     }
 
     // Host function signature: f(JSGlobalObject*, CallFrame*);
-#if CPU(X86_64) && OS(WINDOWS)
-    // Leave space for the callee parameter home addresses.
-    // At this point the stack is aligned to 16 bytes, but if this changes at some point, we need to emit code to align it.
-    jit.subPtr(CCallHelpers::TrustedImm32(4 * sizeof(int64_t)), CCallHelpers::stackPointerRegister);
-#endif
-
     jit.move(GPRInfo::callFrameRegister, GPRInfo::argumentGPR1);
     jit.emitGetFromCallFrameHeaderPtr(CallFrameSlot::callee, GPRInfo::argumentGPR2);
 
@@ -476,10 +485,6 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> nativeForGenerator(VM& vm, ThunkFun
             jit.call(CCallHelpers::Address(GPRInfo::argumentGPR2, InternalFunction::offsetOfNativeFunctionFor(kind)), HostFunctionPtrTag);
     }
 
-#if CPU(X86_64) && OS(WINDOWS)
-    jit.addPtr(CCallHelpers::TrustedImm32(4 * sizeof(int64_t)), CCallHelpers::stackPointerRegister);
-#endif
-
     // Check for an exception
 #if USE(JSVALUE64)
     jit.loadPtr(vm.addressOfException(), JSInterfaceJIT::regT2);
@@ -500,16 +505,10 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> nativeForGenerator(VM& vm, ThunkFun
 
     jit.copyCalleeSavesToEntryFrameCalleeSavesBuffer(vm.topEntryFrame, GPRInfo::argumentGPR0);
     jit.storePtr(JSInterfaceJIT::callFrameRegister, &vm.topCallFrame);
-#if OS(WINDOWS)
-    // Allocate space on stack for the 4 parameter registers.
-    jit.subPtr(JSInterfaceJIT::TrustedImm32(4 * sizeof(int64_t)), JSInterfaceJIT::stackPointerRegister);
-#endif
+
     jit.move(CCallHelpers::TrustedImmPtr(&vm), JSInterfaceJIT::argumentGPR0);
     jit.move(JSInterfaceJIT::TrustedImmPtr(tagCFunction<OperationPtrTag>(operationVMHandleException)), JSInterfaceJIT::regT3);
     jit.call(JSInterfaceJIT::regT3, OperationPtrTag);
-#if OS(WINDOWS)
-    jit.addPtr(JSInterfaceJIT::TrustedImm32(4 * sizeof(int64_t)), JSInterfaceJIT::stackPointerRegister);
-#endif
 
     jit.jumpToExceptionHandler(vm);
 
@@ -564,11 +563,8 @@ MacroAssemblerCodeRef<JITThunkPtrTag> arityFixupGenerator(VM& vm)
     // We enter with fixup count in argumentGPR0
     // We have the guarantee that a0, a1, a2, t3, t4 and t5 (or t0 for Windows) are all distinct :-)
 #if USE(JSVALUE64)
-#if OS(WINDOWS)
-    const GPRReg extraTemp = JSInterfaceJIT::regT0;
-#else
     const GPRReg extraTemp = JSInterfaceJIT::regT5;
-#endif
+
     static_assert(noOverlap(GPRInfo::argumentGPR0, GPRInfo::argumentGPR1, GPRInfo::argumentGPR2, GPRInfo::regT3, GPRInfo::regT4, extraTemp));
 #if CPU(X86_64)
     jit.pop(JSInterfaceJIT::regT4);

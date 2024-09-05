@@ -95,10 +95,6 @@
 #import "WKProcessExtension.h"
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-#import "UnifiedTextReplacementController.h"
-#endif
-
 #define WEBPAGE_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [webPageID=%" PRIu64 "] WebPage::" fmt, this, m_identifier.toUInt64(), ##__VA_ARGS__)
 
 #if PLATFORM(COCOA)
@@ -317,42 +313,28 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(LocalFrame& frame, cons
     return dictionaryPopupInfo;
 }
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-void WebPage::createTextIndicatorForID(const WTF::UUID& uuid, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&& completionHandler)
+#if ENABLE(WRITING_TOOLS_UI)
+void WebPage::createTextIndicatorForTextAnimationID(const WTF::UUID& uuid, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&& completionHandler)
 {
-    m_textIndicatorStyleController->createTextIndicatorForID(uuid, WTFMove(completionHandler));
+    m_textAnimationController->createTextIndicatorForTextAnimationID(uuid, WTFMove(completionHandler));
 }
 
-void WebPage::updateTextIndicatorStyleVisibilityForID(const WTF::UUID& uuid, bool visible, CompletionHandler<void()>&& completionHandler)
+void WebPage::updateUnderlyingTextVisibilityForTextAnimationID(const WTF::UUID& uuid, bool visible, CompletionHandler<void()>&& completionHandler)
 {
-    RefPtr frame = m_page->checkedFocusController()->focusedOrMainFrame();
-    if (!frame) {
-        ASSERT_NOT_REACHED();
-        completionHandler();
-        return;
-    }
-
-    RefPtr document = frame->document();
-    if (!document) {
-        ASSERT_NOT_REACHED();
-        completionHandler();
-        return;
-    }
-
-    m_textIndicatorStyleController->updateTextIndicatorStyleVisibilityForID(uuid, visible, WTFMove(completionHandler));
+    m_textAnimationController->updateUnderlyingTextVisibilityForTextAnimationID(uuid, visible, WTFMove(completionHandler));
 }
 
-void WebPage::enableTextIndicatorStyleAfterElementWithID(const String& elementID, const WTF::UUID& uuid)
+void WebPage::enableSourceTextAnimationAfterElementWithID(const String& elementID, const WTF::UUID& uuid)
 {
-    m_textIndicatorStyleController->enableTextIndicatorStyleAfterElementWithID(elementID, uuid);
+    m_textAnimationController->enableSourceTextAnimationAfterElementWithID(elementID, uuid);
 }
 
-void WebPage::enableTextIndicatorStyleForElementWithID(const String& elementID, const WTF::UUID& uuid)
+void WebPage::enableTextAnimationTypeForElementWithID(const String& elementID, const WTF::UUID& uuid)
 {
-    m_textIndicatorStyleController->enableTextIndicatorStyleForElementWithID(elementID, uuid);
+    m_textAnimationController->enableTextAnimationTypeForElementWithID(elementID, uuid);
 }
 
-#endif // ENABLE(UNIFIED_TEXT_REPLACEMENT)
+#endif // ENABLE(WRITING_TOOLS)
 
 void WebPage::insertDictatedTextAsync(const String& text, const EditingRange& replacementEditingRange, const Vector<WebCore::DictationAlternative>& dictationAlternativeLocations, InsertTextOptions&& options)
 {
@@ -962,50 +944,50 @@ void WebPage::setMediaEnvironment(const String& mediaEnvironment)
 }
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-void WebPage::willBeginTextReplacementSession(const std::optional<WebUnifiedTextReplacementSessionData>& session, CompletionHandler<void(const Vector<WebUnifiedTextReplacementContextData>&)>&& completionHandler)
+#if ENABLE(WRITING_TOOLS)
+void WebPage::willBeginWritingToolsSession(const std::optional<WebCore::WritingTools::Session>& session, CompletionHandler<void(const Vector<WebCore::WritingTools::Context>&)>&& completionHandler)
 {
-    m_unifiedTextReplacementController->willBeginTextReplacementSession(session, WTFMove(completionHandler));
+    corePage()->willBeginWritingToolsSession(session, WTFMove(completionHandler));
 }
 
-void WebPage::didBeginTextReplacementSession(const WebUnifiedTextReplacementSessionData& session, const Vector<WebUnifiedTextReplacementContextData>& contexts)
+void WebPage::didBeginWritingToolsSession(const WebCore::WritingTools::Session& session, const Vector<WebCore::WritingTools::Context>& contexts)
 {
-    m_unifiedTextReplacementController->didBeginTextReplacementSession(session, contexts);
+    corePage()->didBeginWritingToolsSession(session, contexts);
 }
 
-void WebPage::textReplacementSessionDidReceiveReplacements(const WebUnifiedTextReplacementSessionData& session, const Vector<WebTextReplacementData>& replacements, const WebUnifiedTextReplacementContextData& context, bool finished)
+void WebPage::proofreadingSessionDidReceiveSuggestions(const WebCore::WritingTools::Session& session, const Vector<WebCore::WritingTools::TextSuggestion>& suggestions, const WebCore::WritingTools::Context& context, bool finished)
 {
-    m_unifiedTextReplacementController->textReplacementSessionDidReceiveReplacements(session, replacements, context, finished);
+    corePage()->proofreadingSessionDidReceiveSuggestions(session, suggestions, context, finished);
 }
 
-void WebPage::textReplacementSessionDidUpdateStateForReplacement(const WebUnifiedTextReplacementSessionData& session, WebTextReplacementData::State state, const WebTextReplacementData& replacement, const WebUnifiedTextReplacementContextData& context)
+void WebPage::proofreadingSessionDidUpdateStateForSuggestion(const WebCore::WritingTools::Session& session, WebCore::WritingTools::TextSuggestion::State state, const WebCore::WritingTools::TextSuggestion& suggestion, const WebCore::WritingTools::Context& context)
 {
-    m_unifiedTextReplacementController->textReplacementSessionDidUpdateStateForReplacement(session, state, replacement, context);
+    corePage()->proofreadingSessionDidUpdateStateForSuggestion(session, state, suggestion, context);
 }
 
-void WebPage::didEndTextReplacementSession(const WebUnifiedTextReplacementSessionData& session, bool accepted)
+void WebPage::didEndWritingToolsSession(const WebCore::WritingTools::Session& session, bool accepted)
 {
-    m_unifiedTextReplacementController->didEndTextReplacementSession(session, accepted);
+    corePage()->didEndWritingToolsSession(session, accepted);
 }
 
-void WebPage::textReplacementSessionDidReceiveTextWithReplacementRange(const WebUnifiedTextReplacementSessionData& session, const WebCore::AttributedString& attributedText, const WebCore::CharacterRange& range, const WebUnifiedTextReplacementContextData& context, bool finished)
+void WebPage::compositionSessionDidReceiveTextWithReplacementRange(const WebCore::WritingTools::Session& session, const WebCore::AttributedString& attributedText, const WebCore::CharacterRange& range, const WebCore::WritingTools::Context& context, bool finished)
 {
-    m_unifiedTextReplacementController->textReplacementSessionDidReceiveTextWithReplacementRange(session, attributedText, range, context, finished);
+    corePage()->compositionSessionDidReceiveTextWithReplacementRange(session, attributedText, range, context, finished);
 }
 
-void WebPage::textReplacementSessionDidReceiveEditAction(const WebUnifiedTextReplacementSessionData& session, WebKit::WebTextReplacementData::EditAction action)
+void WebPage::writingToolsSessionDidReceiveAction(const WritingTools::Session& session, WebCore::WritingTools::Action action)
 {
-    m_unifiedTextReplacementController->textReplacementSessionDidReceiveEditAction(session, action);
+    corePage()->writingToolsSessionDidReceiveAction(session, action);
 }
 
-void WebPage::textReplacementSessionShowInformationForReplacementWithUUIDRelativeToRect(const WTF::UUID& sessionUUID, const WTF::UUID& replacementUUID, WebCore::IntRect rect)
+void WebPage::proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(const WebCore::WritingTools::Session::ID& sessionID, const WebCore::WritingTools::TextSuggestion::ID& replacementID, WebCore::IntRect rect)
 {
-    send(Messages::WebPageProxy::TextReplacementSessionShowInformationForReplacementWithUUIDRelativeToRect(sessionUUID, replacementUUID, rect));
+    send(Messages::WebPageProxy::ProofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(sessionID, replacementID, rect));
 }
 
-void WebPage::textReplacementSessionUpdateStateForReplacementWithUUID(const WTF::UUID& sessionUUID, WebTextReplacementData::State state, const WTF::UUID& replacementUUID)
+void WebPage::proofreadingSessionUpdateStateForSuggestionWithID(const WebCore::WritingTools::Session::ID& sessionID, WebCore::WritingTools::TextSuggestion::State state, const WebCore::WritingTools::TextSuggestion::ID& replacementID)
 {
-    send(Messages::WebPageProxy::TextReplacementSessionUpdateStateForReplacementWithUUID(sessionUUID, state, replacementUUID));
+    send(Messages::WebPageProxy::ProofreadingSessionUpdateStateForSuggestionWithID(sessionID, state, replacementID));
 }
 
 #endif

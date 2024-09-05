@@ -135,6 +135,8 @@ public:
     static void registerMediaEngine(MediaEngineRegistrar);
     static bool supportsKeySystem(const String& keySystem, const String& mimeType);
 
+    void mediaPlayerWillBeDestroyed() final;
+
     bool hasVideo() const final { return m_hasVideo; }
     bool hasAudio() const final { return m_hasAudio; }
     void load(const String &url) override;
@@ -328,7 +330,7 @@ protected:
     template <typename TrackPrivateType> void notifyPlayerOfTrack();
 
     void ensureAudioSourceProvider();
-    void checkPlayingConsistency();
+    virtual void checkPlayingConsistency();
 
     virtual bool doSeek(const SeekTarget& position, float rate);
     void invalidateCachedPosition() const;

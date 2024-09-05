@@ -39,6 +39,7 @@ class RemoteFrameClient;
 class RemoteFrameView;
 class WeakPtrImplWithEventTargetData;
 
+enum class AdvancedPrivacyProtections : uint16_t;
 enum class RenderAsTextFlag : uint16_t;
 
 class RemoteFrame final : public Frame {
@@ -69,6 +70,12 @@ public:
     void setCustomUserAgentAsSiteSpecificQuirks(const String& customUserAgentAsSiteSpecificQuirks) { m_customUserAgentAsSiteSpecificQuirks = customUserAgentAsSiteSpecificQuirks; }
     String customUserAgentAsSiteSpecificQuirks() const final;
 
+    void setCustomNavigatorPlatform(const String& customNavigatorPlatform) { m_customNavigatorPlatform = customNavigatorPlatform; }
+    String customNavigatorPlatform() const final;
+
+    void setAdvancedPrivacyProtections(OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections) { m_advancedPrivacyProtections = advancedPrivacyProtections; }
+    OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections() const final;
+
 private:
     WEBCORE_EXPORT explicit RemoteFrame(Page&, ClientCreator&&, FrameIdentifier, HTMLFrameOwnerElement*, Frame* parent, Markable<LayerHostingContextIdentifier>, Frame* opener);
 
@@ -91,6 +98,8 @@ private:
     Markable<LayerHostingContextIdentifier> m_layerHostingContextIdentifier;
     String m_customUserAgent;
     String m_customUserAgentAsSiteSpecificQuirks;
+    String m_customNavigatorPlatform;
+    OptionSet<AdvancedPrivacyProtections> m_advancedPrivacyProtections;
     bool m_preventsParentFromBeingComplete { true };
 };
 

@@ -631,8 +631,8 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     boolean hasAutocorrectedMarker(long from, long length);
     boolean hasDictationAlternativesMarker(long from, long length);
     boolean hasCorrectionIndicatorMarker(long from, long length);
-#if defined(ENABLE_UNIFIED_TEXT_REPLACEMENT) && ENABLE_UNIFIED_TEXT_REPLACEMENT
-    boolean hasUnifiedTextReplacementMarker(long from, long length);
+#if defined(ENABLE_WRITING_TOOLS) && ENABLE_WRITING_TOOLS
+    boolean hasWritingToolsTextSuggestionMarker(long from, long length);
 #endif
     undefined setContinuousSpellCheckingEnabled(boolean enabled);
     undefined setAutomaticQuoteSubstitutionEnabled(boolean enabled);
@@ -981,7 +981,6 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     [Conditional=WEB_RTC] undefined stopPeerConnection(RTCPeerConnection connection);
     [Conditional=WEB_RTC] undefined clearPeerConnectionFactory();
     [Conditional=WEB_RTC] undefined setEnableWebRTCEncryption(boolean enabled);
-    [Conditional=WEB_RTC] undefined setUseDTLS10(boolean use);
 
     [Conditional=VIDEO] undefined simulateSystemSleep();
     [Conditional=VIDEO] undefined simulateSystemWake();
@@ -1104,6 +1103,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     [Conditional=MEDIA_STREAM] undefined setMediaStreamSourceInterrupted(MediaStreamTrack track, boolean interrupted);
     [Conditional=MEDIA_STREAM] boolean isMediaStreamSourceInterrupted(MediaStreamTrack track);
     [Conditional=MEDIA_STREAM] boolean isMediaStreamSourceEnded(MediaStreamTrack track);
+    [Conditional=MEDIA_STREAM] boolean isMediaStreamTrackPowerEfficient(MediaStreamTrack track);
     [Conditional=MEDIA_STREAM] boolean isMockRealtimeMediaSourceCenterEnabled();
     [Conditional=MEDIA_STREAM] boolean shouldAudioTrackPlay(AudioTrack track);
 
@@ -1347,6 +1347,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     sequence<PDFAnnotationRect> pdfAnnotationRectsForTesting(Element element);
     undefined registerPDFTest(VoidCallback callback, Element element);
     undefined setPDFDisplayModeForTesting(Element element, DOMString mode);
+    boolean sendEditingCommandToPDFForTesting(Element element, DOMString commandName, optional DOMString argument = "");
 
     readonly attribute DOMString defaultSpatialTrackingLabel;
 

@@ -1315,7 +1315,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         milestones.add(WebCore::LayoutMilestone::DidFirstVisuallyNonEmptyLayout);
 
     if (milestones)
-        webPageProxy->send(Messages::WebPage::ListenForLayoutMilestones(milestones));
+        webPageProxy->legacyMainFrameProcess().send(Messages::WebPage::ListenForLayoutMilestones(milestones), webPageProxy->webPageIDInMainFrameProcess());
 
     webPageProxy->setLoaderClient(WTFMove(loaderClient));
 }
@@ -3224,4 +3224,19 @@ void WKPageClearNotificationPermissionState(WKPageRef pageRef)
 #if ENABLE(NOTIFICATIONS)
     toImpl(pageRef)->clearNotificationPermissionState();
 #endif
+}
+
+void WKPageExecuteCommandForTesting(WKPageRef pageRef, WKStringRef command, WKStringRef value)
+{
+    toImpl(pageRef)->executeEditCommand(toImpl(command)->string(), toImpl(value)->string());
+}
+
+bool WKPageIsEditingCommandEnabledForTesting(WKPageRef pageRef, WKStringRef command)
+{
+    return toImpl(pageRef)->isEditingCommandEnabledForTesting(toImpl(command)->string());
+}
+
+void WKPageSetPermissionLevelForTesting(WKPageRef pageRef, WKStringRef origin, bool allowed)
+{
+    toImpl(pageRef)->setPermissionLevelForTesting(toImpl(origin)->string(), allowed);
 }

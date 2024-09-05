@@ -174,7 +174,6 @@ Shared/Cocoa/SandboxInitialiationParametersCocoa.mm
 Shared/Cocoa/SandboxUtilities.mm
 Shared/Cocoa/SharedCARingBuffer.cpp
 Shared/Cocoa/TCCSoftLink.mm @no-unify
-Shared/Cocoa/UnifiedTextReplacementSoftLink.mm
 Shared/Cocoa/WebCoreArgumentCodersCocoa.mm
 Shared/Cocoa/WebErrorsCocoa.mm
 Shared/Cocoa/WebKit2InitializeCocoa.mm
@@ -409,6 +408,7 @@ UIProcess/Cocoa/MediaPermissionUtilities.mm
 UIProcess/Cocoa/ModelElementControllerCocoa.mm
 UIProcess/Cocoa/NavigationState.mm
 UIProcess/Cocoa/PageClientImplCocoa.mm
+UIProcess/Cocoa/PlatformWritingToolsUtilities.mm
 UIProcess/Cocoa/PlatformXRCoordinator.mm
 UIProcess/Cocoa/PlaybackSessionManagerProxy.mm
 UIProcess/Cocoa/ProcessAssertionCocoa.mm
@@ -538,9 +538,8 @@ UIProcess/Launcher/cocoa/ProcessLauncherCocoa.mm
 
 UIProcess/mac/CorrectionPanel.mm
 UIProcess/mac/DisplayCaptureSessionManager.mm
-UIProcess/mac/DisplayLinkMac.mm
+UIProcess/mac/DisplayLinkMac.cpp
 UIProcess/mac/HighPerformanceGPUManager.mm
-UIProcess/mac/LegacyDisplayLinkMac.cpp
 UIProcess/mac/LegacySessionStateCoding.cpp
 UIProcess/mac/PageClientImplMac.mm
 UIProcess/mac/SecItemShimProxy.cpp
@@ -565,7 +564,7 @@ UIProcess/mac/WKQuickLookPreviewController.mm
 UIProcess/mac/WKRevealItemPresenter.mm
 UIProcess/mac/WKSharingServicePickerDelegate.mm
 UIProcess/mac/WKTextFinderClient.mm
-UIProcess/mac/WKTextIndicatorStyleManager.mm
+UIProcess/mac/WKTextAnimationManager.mm
 UIProcess/mac/WKTextInputWindowController.mm
 UIProcess/mac/WKViewLayoutStrategy.mm
 UIProcess/mac/WebViewImpl.mm
@@ -737,12 +736,11 @@ WebProcess/WebPage/WKAccessibilityWebPageObjectIOS.mm
 
 WebProcess/WebPage/Cocoa/DrawingAreaCocoa.mm
 WebProcess/WebPage/Cocoa/TextCheckingControllerProxy.mm
-WebProcess/WebPage/Cocoa/TextIndicatorStyleController.mm
+WebProcess/WebPage/Cocoa/TextAnimationController.mm
 WebProcess/WebPage/Cocoa/WebCookieCacheCocoa.mm
 WebProcess/WebPage/Cocoa/WebCookieJarCocoa.mm
 WebProcess/WebPage/Cocoa/WebPageCocoa.mm
 WebProcess/WebPage/Cocoa/WebRemoteObjectRegistry.cpp
-WebProcess/WebPage/Cocoa/UnifiedTextReplacementController.mm
 
 WebProcess/WebPage/ios/FindControllerIOS.mm
 WebProcess/WebPage/ios/WebPageIOS.mm

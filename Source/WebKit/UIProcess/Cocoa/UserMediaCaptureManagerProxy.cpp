@@ -142,11 +142,16 @@ public:
     void setShouldApplyRotation(bool shouldApplyRotation) { m_shouldApplyRotation = true; }
     void setIsInBackground(bool value) { m_source->setIsInBackground(value); }
 
+    bool isPowerEfficient()
+    {
+        return m_source->isPowerEfficient();
+    }
+
     bool updateVideoConstraints(const WebCore::MediaConstraints& constraints)
     {
         m_videoConstraints = constraints;
 
-        auto resultingConstraints = m_source->extractVideoFrameSizeConstraints(constraints);
+        auto resultingConstraints = m_source->extractVideoPresetConstraints(constraints);
 
         bool didChange = false;
         if (resultingConstraints.width) {
@@ -590,15 +595,15 @@ void UserMediaCaptureManagerProxy::startProducingData(RealtimeMediaSourceIdentif
 #if ENABLE(APP_PRIVACY_REPORT)
     m_connectionProxy->setTCCIdentity();
 #endif
-#if ENABLE(EXTENSION_CAPABILITIES)
+#if ENABLE(EXTENSION_CAPABILITIES) && !PLATFORM(IOS_FAMILY_SIMULATOR)
     bool hasValidMediaEnvironmentOrIdentity = m_connectionProxy->setCurrentMediaEnvironment(pageIdentifier) || RealtimeMediaSourceCenter::singleton().hasIdentity();
-    if (PlatformMediaSessionManager::mediaCapabilityGrantsEnabled() && !hasValidMediaEnvironmentOrIdentity && proxy->source().deviceType() == CaptureDevice::DeviceType::Camera
+    if (!hasValidMediaEnvironmentOrIdentity && proxy->source().deviceType() == CaptureDevice::DeviceType::Camera
         && WTF::processHasEntitlement("com.apple.developer.web-browser-engine.rendering"_s)) {
         RELEASE_LOG_ERROR(WebRTC, "Unable to set media environment, failing capture.");
         proxy->source().captureFailed();
         return;
     }
-#endif
+#endif // ENABLE(EXTENSION_CAPABILITIES) && !PLATFORM(IOS_FAMILY_SIMULATOR)
     m_connectionProxy->startProducingData(proxy->source().deviceType());
     proxy->start();
 }
@@ -719,6 +724,12 @@ void UserMediaCaptureManagerProxy::setIsInBackground(RealtimeMediaSourceIdentifi
 {
     if (auto* proxy = m_proxies.get(sourceID))
         proxy->setIsInBackground(isInBackground);
+}
+
+void UserMediaCaptureManagerProxy::isPowerEfficient(WebCore::RealtimeMediaSourceIdentifier sourceID, CompletionHandler<void(bool)>&& callback)
+{
+    auto* proxy = m_proxies.get(sourceID);
+    callback(proxy ? proxy->isPowerEfficient() : false);
 }
 
 void UserMediaCaptureManagerProxy::clear()

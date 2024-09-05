@@ -518,7 +518,7 @@ AssemblyHelpers::JumpList AssemblyHelpers::loadMegamorphicProperty(VM& vm, GPRRe
         mul32(TrustedImm32(sizeof(MegamorphicCache::LoadEntry)), scratch3GPR, scratch3GPR);
     auto& cache = vm.ensureMegamorphicCache();
     move(TrustedImmPtr(&cache), scratch2GPR);
-    ASSERT(!MegamorphicCache::offsetOfLoadCachePrimaryEntries());
+    static_assert(!MegamorphicCache::offsetOfLoadCachePrimaryEntries());
     addPtr(scratch2GPR, scratch3GPR);
 
     load16(Address(scratch2GPR, MegamorphicCache::offsetOfEpoch()), scratch2GPR);
@@ -813,14 +813,14 @@ void AssemblyHelpers::emitLoadPrototype(VM& vm, GPRReg objectGPR, JSValueRegs re
 
 void AssemblyHelpers::makeSpaceOnStackForCCall()
 {
-    unsigned stackOffset = WTF::roundUpToMultipleOf(stackAlignmentBytes(), maxFrameExtentForSlowPathCall);
+    unsigned stackOffset = WTF::roundUpToMultipleOf<stackAlignmentBytes()>(maxFrameExtentForSlowPathCall);
     if (stackOffset)
         subPtr(TrustedImm32(stackOffset), stackPointerRegister);
 }
 
 void AssemblyHelpers::reclaimSpaceOnStackForCCall()
 {
-    unsigned stackOffset = WTF::roundUpToMultipleOf(stackAlignmentBytes(), maxFrameExtentForSlowPathCall);
+    unsigned stackOffset = WTF::roundUpToMultipleOf<stackAlignmentBytes()>(maxFrameExtentForSlowPathCall);
     if (stackOffset)
         addPtr(TrustedImm32(stackOffset), stackPointerRegister);
 }

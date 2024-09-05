@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2023 Apple Inc. All rights reserved.
+Copyright (C) 2010-2024 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -223,7 +223,6 @@ messages -> WebPageProxy {
     EditorStateChanged(struct WebKit::EditorState editorState)
     CompositionWasCanceled()
     SetHasHadSelectionChangesFromUserInteraction(bool hasHadUserSelectionChanges)
-    ClearEditorStateAfterPageTransition(WebKit::EditorStateIdentifier identifier)
 
 #if ENABLE(IMAGE_ANALYSIS)
     RequestTextRecognition(URL imageURL, WebCore::ShareableBitmapHandle imageData, String source, String target) -> (struct WebCore::TextRecognitionResult result)
@@ -233,14 +232,14 @@ messages -> WebPageProxy {
     HandleContextMenuTranslation(struct WebCore::TranslationContextMenuInfo info)
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT) && ENABLE(CONTEXT_MENUS)
-    HandleContextMenuSwapCharacters(WebCore::IntRect selectionBoundsInRootView)
+#if ENABLE(WRITING_TOOLS) && ENABLE(CONTEXT_MENUS)
+    HandleContextMenuWritingTools(WebCore::IntRect selectionBoundsInRootView)
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    TextReplacementSessionShowInformationForReplacementWithUUIDRelativeToRect(WTF::UUID sessionUUID, WTF::UUID replacementUUID, WebCore::IntRect selectionBoundsInRootView)
+#if ENABLE(WRITING_TOOLS)
+    ProofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(struct WebCore::WritingTools::Session::ID sessionID, struct WebCore::WritingTools::TextSuggestion::ID replacementID, WebCore::IntRect selectionBoundsInRootView)
 
-    TextReplacementSessionUpdateStateForReplacementWithUUID(WTF::UUID sessionUUID, enum:uint8_t WebKit::WebTextReplacementDataState state, WTF::UUID replacementUUID)
+    ProofreadingSessionUpdateStateForSuggestionWithID(struct WebCore::WritingTools::Session::ID sessionID, enum:uint8_t WebCore::WritingTools::TextSuggestion::State state, struct WebCore::WritingTools::TextSuggestion::ID replacementID)
 #endif
 
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
@@ -390,7 +389,7 @@ messages -> WebPageProxy {
     FocusedElementDidChangeInputMode(enum:uint8_t WebCore::InputMode mode)
     ScrollingNodeScrollWillStartScroll(std::optional<WebCore::ScrollingNodeID> nodeID)
     ScrollingNodeScrollDidEndScroll(std::optional<WebCore::ScrollingNodeID> nodeID)
-    ShowInspectorHighlight(struct WebCore::InspectorOverlay::Highlight highlight)
+    ShowInspectorHighlight(struct WebCore::InspectorOverlayHighlight highlight)
     HideInspectorHighlight()
 
     ShowInspectorIndication()
@@ -418,7 +417,7 @@ messages -> WebPageProxy {
     DidUpdateActivityState() CanDispatchOutOfOrder
 
     WrapCryptoKey(Vector<uint8_t> key) -> (std::optional<Vector<uint8_t>> wrappedKey) Synchronous
-    UnwrapCryptoKey(Vector<uint8_t> wrappedKey) -> (std::optional<Vector<uint8_t>> key) Synchronous
+    UnwrapCryptoKey(struct WebCore::WrappedCryptoKey wrappedKey) -> (std::optional<Vector<uint8_t>> key) Synchronous
 
 
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
@@ -520,9 +519,9 @@ messages -> WebPageProxy {
     [EnabledIf='attachmentElementEnabled()'] RequestAttachmentIcon(String identifier, String contentType, String path, String title, WebCore::FloatSize size)
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    AddTextIndicatorStyleForID(WTF::UUID uuid, struct WebKit::TextIndicatorStyleData styleData, struct WebCore::TextIndicatorData indicatorData)
-    RemoveTextIndicatorStyleForID(WTF::UUID uuid)
+#if ENABLE(WRITING_TOOLS_UI)
+    AddTextAnimationTypeForID(WTF::UUID uuid, struct WebKit::TextAnimationData styleData, struct WebCore::TextIndicatorData indicatorData)
+    removeTextAnimationForID(WTF::UUID uuid)
 #endif
 
 CreateAppHighlightInSelectedRange)

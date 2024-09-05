@@ -47,6 +47,7 @@
 #include "WebProcess.h"
 #include <JavaScriptCore/TypedArrayInlines.h>
 #include <WebCore/FontCustomPlatformData.h>
+#include <WebCore/ImageBufferPixelFormat.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/TextStream.h>
 
@@ -199,7 +200,7 @@ bool RemoteRenderingBackendProxy::canMapRemoteImageBufferBackendBackingStore()
     return !WebProcess::singleton().shouldUseRemoteRenderingFor(RenderingPurpose::DOM);
 }
 
-RefPtr<ImageBuffer> RemoteRenderingBackendProxy::createImageBuffer(const FloatSize& size, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat, OptionSet<ImageBufferOptions> options)
+RefPtr<ImageBuffer> RemoteRenderingBackendProxy::createImageBuffer(const FloatSize& size, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, ImageBufferPixelFormat pixelFormat, OptionSet<ImageBufferOptions> options)
 {
     RefPtr<ImageBuffer> imageBuffer;
 
@@ -224,7 +225,7 @@ RefPtr<ImageBuffer> RemoteRenderingBackendProxy::createImageBuffer(const FloatSi
     return nullptr;
 }
 
-std::unique_ptr<RemoteDisplayListRecorderProxy> RemoteRenderingBackendProxy::createDisplayListRecorder(WebCore::RenderingResourceIdentifier renderingResourceIdentifier, const FloatSize& size, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, PixelFormat pixelFormat, OptionSet<ImageBufferOptions> options)
+std::unique_ptr<RemoteDisplayListRecorderProxy> RemoteRenderingBackendProxy::createDisplayListRecorder(WebCore::RenderingResourceIdentifier renderingResourceIdentifier, const FloatSize& size, RenderingPurpose purpose, float resolutionScale, const DestinationColorSpace& colorSpace, ImageBufferPixelFormat pixelFormat, OptionSet<ImageBufferOptions> options)
 {
     ASSERT(WebProcess::singleton().shouldUseRemoteRenderingFor(RenderingPurpose::DOM));
     ImageBufferParameters parameters { size, resolutionScale, colorSpace, pixelFormat, purpose };
@@ -237,6 +238,8 @@ std::unique_ptr<RemoteDisplayListRecorderProxy> RemoteRenderingBackendProxy::cre
 
 void RemoteRenderingBackendProxy::releaseImageBuffer(RenderingResourceIdentifier renderingResourceIdentifier)
 {
+    if (!m_connection)
+        return;
     send(Messages::RemoteRenderingBackend::ReleaseImageBuffer(renderingResourceIdentifier));
 }
 
@@ -254,6 +257,8 @@ void RemoteRenderingBackendProxy::releaseRemoteImageBufferSet(RemoteImageBufferS
 {
     bool success = m_bufferSets.remove(bufferSet.identifier());
     ASSERT_UNUSED(success, success);
+    if (!m_connection)
+        return;
     send(Messages::RemoteRenderingBackend::ReleaseRemoteImageBufferSet(bufferSet.identifier()));
 }
 
@@ -369,16 +374,22 @@ void RemoteRenderingBackendProxy::cacheFilter(Ref<Filter>&& filter)
 
 void RemoteRenderingBackendProxy::releaseAllDrawingResources()
 {
+    if (!m_connection)
+        return;
     send(Messages::RemoteRenderingBackend::ReleaseAllDrawingResources());
 }
 
 void RemoteRenderingBackendProxy::releaseRenderingResource(RenderingResourceIdentifier renderingResourceIdentifier)
 {
+    if (!m_connection)
+        return;
     send(Messages::RemoteRenderingBackend::ReleaseRenderingResource(renderingResourceIdentifier));
 }
 
 void RemoteRenderingBackendProxy::releaseAllImageResources()
 {
+    if (!m_connection)
+        return;
     send(Messages::RemoteRenderingBackend::ReleaseAllImageResources());
 }
 
@@ -466,6 +477,8 @@ void RemoteRenderingBackendProxy::didMarkLayersAsVolatile(MarkSurfacesAsVolatile
 
 void RemoteRenderingBackendProxy::finalizeRenderingUpdate()
 {
+    if (!m_connection)
+        return;
     send(Messages::RemoteRenderingBackend::FinalizeRenderingUpdate(m_renderingUpdateID));
     m_renderingUpdateID.increment();
 }

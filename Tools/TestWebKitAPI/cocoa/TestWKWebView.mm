@@ -39,6 +39,7 @@
 #import <WebKit/WKWebViewPrivateForTesting.h>
 #import <WebKit/WebKitPrivate.h>
 #import <WebKit/_WKActivatedElementInfo.h>
+#import <WebKit/_WKFrameTreeNode.h>
 #import <WebKit/_WKProcessPoolConfiguration.h>
 #import <WebKit/_WKTextInputContext.h>
 #import <objc/runtime.h>
@@ -531,6 +532,21 @@ static WebEvent *unwrap(BEKeyEntry *event)
     bool callbackComplete = false;
     RetainPtr<id> evalResult;
     [self _evaluateJavaScriptWithoutUserGesture:script completionHandler:[&] (id result, NSError *error) {
+        evalResult = result;
+        callbackComplete = true;
+        EXPECT_TRUE(!error);
+        if (error)
+            NSLog(@"Encountered error: %@ while evaluating script: %@", error, script);
+    }];
+    TestWebKitAPI::Util::run(&callbackComplete);
+    return evalResult.autorelease();
+}
+
+- (id)objectByEvaluatingJavaScript:(NSString *)script inFrame:(WKFrameInfo *)frame
+{
+    bool callbackComplete = false;
+    RetainPtr<id> evalResult;
+    [self _evaluateJavaScript:script withSourceURL:nil inFrame:frame inContentWorld:WKContentWorld.pageWorld withUserGesture:NO completionHandler:[&](id result, NSError *error) {
         evalResult = result;
         callbackComplete = true;
         EXPECT_TRUE(!error);
@@ -1417,3 +1433,39 @@ static WKContentView *recursiveFindWKContentView(UIView *view)
 @end
 
 #endif // PLATFORM(IOS_FAMILY)
+
+@implementation TestWKWebView (SiteIsolation)
+
+- (_WKFrameTreeNode *)mainFrame
+{
+    __block RetainPtr<_WKFrameTreeNode> frame;
+    [self _frames:^(_WKFrameTreeNode *mainFrame) {
+        frame = mainFrame;
+    }];
+    while (!frame)
+        TestWebKitAPI::Util::spinRunLoop();
+    return frame.autorelease();
+}
+
+- (_WKFrameTreeNode *)firstChildFrame
+{
+    return [self mainFrame].childFrames.firstObject;
+}
+
+- (void)evaluateJavaScript:(NSString *)string inFrame:(WKFrameInfo *)frame completionHandler:(void(^)(id, NSError *))completionHandler
+{
+    [self evaluateJavaScript:string inFrame:frame inContentWorld:WKContentWorld.pageWorld completionHandler:completionHandler];
+}
+
+- (WKFindResult *)findStringAndWait:(NSString *)string withConfiguration:(WKFindConfiguration *)configuration
+{
+    __block RetainPtr<WKFindResult> findResult;
+    [self findString:string withConfiguration:configuration completionHandler:^(WKFindResult *result) {
+        findResult = result;
+    }];
+    while (!findResult)
+        TestWebKitAPI::Util::spinRunLoop();
+    return findResult.autorelease();
+}
+
+@end

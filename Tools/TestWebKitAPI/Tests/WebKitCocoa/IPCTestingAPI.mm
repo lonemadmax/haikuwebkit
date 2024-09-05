@@ -684,14 +684,11 @@ TEST(IPCTestingAPI, SerializedTypeInfo)
         @"CGBitmapInfo",
         @"NSParagraphStyle",
 #if PLATFORM(MAC)
+#if !HAVE(WK_SECURE_CODING_DATA_DETECTORS)
         @"WKDDActionContext",
+#endif
         @"CGDisplayChangeSummaryFlags",
         @"WebCore::ContextMenuAction"
-#else
-        @"WebCore::InspectorOverlay::Highlight",
-        @"WebCore::MediaControlsContextMenuItem::ID",
-        @"UIColor",
-        @"WebCore::RenderThemeIOS::CSSValueToSystemColorMap"
 #endif
     ]];
     if (![expectedTypesNeedingDescriptions isEqual:typesNeedingDescriptions]) {

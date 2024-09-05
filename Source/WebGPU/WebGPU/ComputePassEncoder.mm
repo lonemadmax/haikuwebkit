@@ -179,6 +179,7 @@ void ComputePassEncoder::executePreDispatchCommands(const Buffer* indirectBuffer
             return;
         }
         auto& group = *kvp.value.get();
+        group.rebindSamplersIfNeeded();
         const Vector<uint32_t>* dynamicOffsets = nullptr;
         if (auto it = m_bindGroupDynamicOffsets.find(bindGroupIndex); it != m_bindGroupDynamicOffsets.end())
             dynamicOffsets = &it->value;
@@ -229,8 +230,7 @@ void ComputePassEncoder::executePreDispatchCommands(const Buffer* indirectBuffer
         if (pcomputeOffsets && pcomputeOffsets->size()) {
             auto& computeOffsets = *pcomputeOffsets;
             auto startIndex = pipelineLayout.computeOffsetForBindGroup(bindGroupIndex);
-            RELEASE_ASSERT(computeOffsets.size() <= m_computeDynamicOffsets.size() + startIndex);
-            memcpy(&m_computeDynamicOffsets[startIndex], &computeOffsets[0], sizeof(computeOffsets[0]) * computeOffsets.size());
+            memcpySpan(m_computeDynamicOffsets.mutableSpan().subspan(startIndex, computeOffsets.size()), computeOffsets.span());
         }
     }
 

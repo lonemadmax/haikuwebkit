@@ -2151,6 +2151,7 @@ webkit.org/b/215926 svg/custom/object-sizing.xhtml [ Pass Failure ]
 
 # rdar://problem/66487888 media/media-source/media-source-webm.html is a constant failure
 media/media-source/media-source-webm.html [ Failure ]
+media/media-source/media-source-seek-back-after-ended.html [ Skip ]
 
 webkit.org/b/216492 imported/w3c/web-platform-tests/selection/collapse-45.html [ Slow ]
 webkit.org/b/216492 imported/w3c/web-platform-tests/selection/collapse-15.html [ Slow ]
@@ -2789,3 +2790,4 @@ webkit.org/b/260883 inspector/timeline/timeline-recording.html [ Skip ]
 webkit.org/b/274409 imported/w3c/web-platform-tests/content-security-policy/reporting-api/reporting-api-works-on-frame-src.https.sub.html [ Pass Failure ]
 
 webkit.org/b/274792 compositing/repaint/iframes/compositing-iframe-with-fixed-background-doc-repaint.html [ Pass Failure ]
+

@@ -30,6 +30,10 @@
 #include "WebGPUIdentifier.h"
 #include <WebCore/WorkerClient.h>
 
+namespace WebCore {
+class Page;
+}
+
 namespace WebCore::WebGPU {
 class GPU;
 }
@@ -47,14 +51,14 @@ public:
     // happen on the worker.
     // Any details needed from the page must be copied at this
     // point, but can't hold references to any main-thread objects.
-    static UniqueRef<WebWorkerClient> create(WebPage&, SerialFunctionDispatcher&);
+    static UniqueRef<WebWorkerClient> create(WebCore::Page&, SerialFunctionDispatcher&);
 
     UniqueRef<WorkerClient> createNestedWorkerClient(SerialFunctionDispatcher&) override;
 
     WebCore::PlatformDisplayID displayID() const final;
 
     RefPtr<WebCore::ImageBuffer> sinkIntoImageBuffer(std::unique_ptr<WebCore::SerializedImageBuffer>) override;
-    RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::PixelFormat, OptionSet<WebCore::ImageBufferOptions>) const override;
+    RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::ImageBufferPixelFormat, OptionSet<WebCore::ImageBufferOptions>) const override;
 #if ENABLE(WEBGL)
     RefPtr<WebCore::GraphicsContextGL> createGraphicsContextGL(const WebCore::GraphicsContextGLAttributes&) const override;
 #endif

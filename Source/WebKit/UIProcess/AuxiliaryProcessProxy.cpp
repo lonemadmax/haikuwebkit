@@ -186,7 +186,7 @@ void AuxiliaryProcessProxy::terminate()
 {
     RELEASE_LOG(Process, "AuxiliaryProcessProxy::terminate: PID=%d", processID());
 
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) && !USE(EXTENSIONKIT)
     if (RefPtr connection = m_connection) {
         if (connection->kill())
             return;
@@ -262,7 +262,7 @@ bool AuxiliaryProcessProxy::sendMessage(UniqueRef<IPC::Encoder>&& encoder, Optio
 
     if (asyncReplyHandler && canSendMessage() && shouldStartProcessThrottlerActivity == ShouldStartProcessThrottlerActivity::Yes) {
         auto completionHandler = WTFMove(asyncReplyHandler->completionHandler);
-        asyncReplyHandler->completionHandler = [activity = throttler().quietBackgroundActivity(descriptionLiteral(encoder->messageName())), completionHandler = WTFMove(completionHandler)](IPC::Decoder* decoder) mutable {
+        asyncReplyHandler->completionHandler = [activity = throttler().quietBackgroundActivity(description(encoder->messageName())), completionHandler = WTFMove(completionHandler)](IPC::Decoder* decoder) mutable {
             completionHandler(decoder);
         };
     }
@@ -577,6 +577,11 @@ void AuxiliaryProcessProxy::platformStartConnectionTerminationWatchdog()
 }
 
 #endif
+
+void AuxiliaryProcessProxy::requestRemoteProcessTermination()
+{
+    terminate();
+}
 
 #if PLATFORM(MAC) && USE(RUNNINGBOARD)
 void AuxiliaryProcessProxy::setRunningBoardThrottlingEnabled()

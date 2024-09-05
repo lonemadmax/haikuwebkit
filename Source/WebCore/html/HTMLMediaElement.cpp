@@ -1687,6 +1687,12 @@ void HTMLMediaElement::loadResource(const URL& initialURL, const ContentType& in
         return;
     }
 
+    if (!m_player) {
+        ASSERT_NOT_REACHED("It should not be possible to enter loadResource without a valid m_player object");
+        mediaLoadingFailed(MediaPlayer::NetworkState::FormatError);
+        return;
+    }
+
     URL url = initialURL;
 #if PLATFORM(COCOA)
     if (url.protocolIsFile() && !frame->loader().willLoadMediaElementURL(url, *this)) {
@@ -2889,9 +2895,19 @@ void HTMLMediaElement::changeNetworkStateFromLoadingToIdle()
 void HTMLMediaElement::mediaPlayerReadyStateChanged()
 {
     if (isSuspended()) {
-        queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [this] {
-            mediaPlayerReadyStateChanged();
-        });
+        // FIXME: In some situations the MediaSource closing procedure triggerring a readyState
+        // update on the player, while the media element is suspended would lead to infinite
+        // recursion. The workaround is to attempt a fixed amount of recursions.
+        if (!m_isChangingReadyStateWhileSuspended) {
+            m_isChangingReadyStateWhileSuspended = true;
+            m_remainingReadyStateChangedAttempts.store(128);
+        }
+
+        if (m_remainingReadyStateChangedAttempts.exchangeSub(1)) {
+            queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [this] {
+                mediaPlayerReadyStateChanged();
+            });
+        }
         return;
     }
 
@@ -2900,6 +2916,9 @@ void HTMLMediaElement::mediaPlayerReadyStateChanged()
     setReadyState(m_player->readyState());
 
     endProcessingMediaPlayerCallback();
+
+    m_isChangingReadyStateWhileSuspended = false;
+    m_remainingReadyStateChangedAttempts.store(0);
 }
 
 Expected<void, MediaPlaybackDenialReason> HTMLMediaElement::canTransitionFromAutoplayToPlay() const
@@ -3487,6 +3506,9 @@ void HTMLMediaElement::progressEventTimerFired()
     ASSERT(m_player);
     if (m_networkState != NETWORK_LOADING)
         return;
+
+    updateSleepDisabling();
+
     if (!m_player->supportsProgressMonitoring())
         return;
 
@@ -5951,7 +5973,7 @@ void HTMLMediaElement::mediaEngineWasUpdated()
 #endif
 
     if (RefPtr page = document().page())
-        page->playbackControlsMediaEngineChanged();
+        page->mediaEngineChanged(*this);
 }
 
 void HTMLMediaElement::mediaPlayerEngineUpdated()
@@ -7119,8 +7141,10 @@ bool HTMLMediaElement::videoUsesElementFullscreen() const
 {
 #if ENABLE(FULLSCREEN_API) && ENABLE(VIDEO_USES_ELEMENT_FULLSCREEN)
 #if ENABLE(LINEAR_MEDIA_PLAYER)
-    if (document().settings().linearMediaPlayerEnabled())
-        return false;
+    if (document().settings().linearMediaPlayerEnabled()) {
+        if (RefPtr player = m_player; player && player->supportsLinearMediaPlayer())
+            return false;
+    }
 #endif
 
 #if PLATFORM(IOS_FAMILY)

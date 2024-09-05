@@ -32,7 +32,7 @@
 #include "BlendingKeyframes.h"
 #include "CSSPropertyNames.h"
 #include "CachedImage.h"
-#include "CanvasRenderingContext.h"
+#include "CanvasRenderingContext2DBase.h"
 #include "Chrome.h"
 #include "DebugOverlayRegions.h"
 #include "DebugPageOverlays.h"
@@ -113,20 +113,16 @@ using namespace HTMLNames;
 CanvasCompositingStrategy canvasCompositingStrategy(const RenderObject& renderer)
 {
     ASSERT(renderer.isRenderHTMLCanvas());
-    
-    const HTMLCanvasElement* canvas = downcast<HTMLCanvasElement>(renderer.node());
-    auto* context = canvas->renderingContext();
-    if (!context || !context->isAccelerated())
-        return UnacceleratedCanvas;
-    
-    if (context->isGPUBased())
+    RefPtr context = downcast<RenderHTMLCanvas>(renderer).canvasElement().renderingContext();
+    if (!context)
+        return CanvasPaintedToEnclosingLayer;
+    if (context->delegatesDisplay())
         return CanvasAsLayerContents;
-
-#if USE(SKIA) && USE(NICOSIA)
-    return CanvasAsLayerContents;
-#endif
-
-    return CanvasPaintedToLayer; // On Mac and iOS we paint accelerated canvases into their layers.
+    if (RefPtr context2D = dynamicDowncast<CanvasRenderingContext2DBase>(context)) {
+        if (context2D->isAccelerated())
+            return CanvasPaintedToLayer;
+    }
+    return CanvasPaintedToEnclosingLayer;
 }
 
 // This acts as a cache of what we know about what is painting into this RenderLayerBacking.
@@ -576,14 +572,7 @@ bool RenderLayerBacking::shouldSetContentsDisplayDelegate() const
     if (!renderer().isRenderHTMLCanvas())
         return false;
 
-    if (canvasCompositingStrategy(renderer()) != CanvasAsLayerContents)
-        return false;
-
-#if ENABLE(WEBGL) || ENABLE(OFFSCREEN_CANVAS)
-    return true;
-#else
-    return renderer().settings().webGPUEnabled();
-#endif
+    return canvasCompositingStrategy(renderer()) == CanvasAsLayerContents;
 }
 
 #if PLATFORM(IOS_FAMILY)
@@ -1698,6 +1687,18 @@ void RenderLayerBacking::updateScrollOffset(ScrollOffset scrollOffset)
     ASSERT(m_scrolledContentsLayer->position().isZero());
 }
 
+static bool layerRendererStyleHas3DTransformOperation(RenderLayer& layer)
+{
+    auto* renderer = &layer.renderer();
+    if (layer.isReflection())
+        renderer = downcast<RenderLayerModelObject>(renderer->parent());
+    const RenderStyle& style = renderer->style();
+    return style.transform().has3DOperation()
+        || (style.translate() && style.translate()->is3DOperation())
+        || (style.scale() && style.scale()->is3DOperation())
+        || (style.rotate() && style.rotate()->is3DOperation());
+}
+
 void RenderLayerBacking::updateAfterDescendants()
 {
     // FIXME: this potentially duplicates work we did in updateConfiguration().
@@ -1717,6 +1718,10 @@ void RenderLayerBacking::updateAfterDescendants()
         ASSERT(!m_backgroundLayer);
         m_graphicsLayer->setContentsOpaque(!m_hasSubpixelRounding && m_owningLayer.backgroundIsKnownToBeOpaqueInRect(compositedBounds()));
     }
+
+    if (layerRendererStyleHas3DTransformOperation(m_owningLayer)
+        || m_owningLayer.hasCompositedScrollableOverflow())
+        m_graphicsLayer->markDamageRectsUnreliable();
 
     m_graphicsLayer->setContentsVisible(m_owningLayer.hasVisibleContent() || hasVisibleNonCompositedDescendants());
     if (m_scrollContainerLayer) {

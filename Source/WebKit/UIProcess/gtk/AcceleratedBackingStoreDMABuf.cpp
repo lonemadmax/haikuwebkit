@@ -407,7 +407,7 @@ void AcceleratedBackingStoreDMABuf::BufferSHM::didUpdateContents()
 #if USE(CAIRO)
     m_surface = m_bitmap->createCairoSurface();
 #elif USE(SKIA)
-    m_surface = cairo_image_surface_create_for_data(static_cast<unsigned char*>(m_bitmap->data()), CAIRO_FORMAT_ARGB32, m_size.width(), m_size.height(), m_bitmap->bytesPerRow());
+    m_surface = cairo_image_surface_create_for_data(m_bitmap->mutableSpan().data(), CAIRO_FORMAT_ARGB32, m_size.width(), m_size.height(), m_bitmap->bytesPerRow());
     m_bitmap->ref();
     static cairo_user_data_key_t s_surfaceDataKey;
     cairo_surface_set_user_data(m_surface.get(), &s_surfaceDataKey, m_bitmap.get(), [](void* userData) {
@@ -535,7 +535,7 @@ void AcceleratedBackingStoreDMABuf::didDestroyBuffer(uint64_t id)
     m_buffers.remove(id);
 }
 
-void AcceleratedBackingStoreDMABuf::frame(uint64_t bufferID)
+void AcceleratedBackingStoreDMABuf::frame(uint64_t bufferID, const std::optional<WebCore::Region>&)
 {
     ASSERT(!m_pendingBuffer);
     auto* buffer = m_buffers.get(bufferID);
@@ -543,12 +543,6 @@ void AcceleratedBackingStoreDMABuf::frame(uint64_t bufferID)
         frameDone();
         return;
     }
-
-    if (buffer->type() == Buffer::Type::EglImage) {
-        ensureGLContext();
-        gdk_gl_context_make_current(m_gdkGLContext.get());
-    }
-    buffer->didUpdateContents();
 
     m_pendingBuffer = buffer;
     gtk_widget_queue_draw(m_webPage.viewWidget());
@@ -613,10 +607,13 @@ void AcceleratedBackingStoreDMABuf::update(const LayerTreeContext& context)
 
 bool AcceleratedBackingStoreDMABuf::prepareForRendering()
 {
-    if (m_gdkGLContext)
-        gdk_gl_context_make_current(m_gdkGLContext.get());
-
     if (m_pendingBuffer) {
+        if (m_pendingBuffer->type() == Buffer::Type::EglImage) {
+            ensureGLContext();
+            gdk_gl_context_make_current(m_gdkGLContext.get());
+        }
+        m_pendingBuffer->didUpdateContents();
+
         if (m_committedBuffer)
             m_webPage.legacyMainFrameProcess().send(Messages::AcceleratedSurfaceDMABuf::ReleaseBuffer(m_committedBuffer->id()), m_surfaceID);
         m_committedBuffer = WTFMove(m_pendingBuffer);

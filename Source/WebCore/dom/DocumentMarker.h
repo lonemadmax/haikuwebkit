@@ -35,7 +35,13 @@
 
 namespace WebCore {
 class DocumentMarker;
+
+namespace WritingTools {
+using TextSuggestionID = WTF::UUID;
+using SessionID = WTF::UUID;
 }
+
+} // namespace WebCore
 
 namespace WTF {
 template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
@@ -92,8 +98,8 @@ public:
         // This marker maintains state for the platform text checker.
         PlatformTextChecking = 1 << 15,
 #endif
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-        UnifiedTextReplacement = 1 << 16,
+#if ENABLE(WRITING_TOOLS)
+        WritingToolsTextSuggestion = 1 << 16,
 #endif
         TransparentContent = 1 << 17,
     };
@@ -111,18 +117,17 @@ public:
     };
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    struct UnifiedTextReplacementData {
+#if ENABLE(WRITING_TOOLS)
+    struct WritingToolsTextSuggestionData {
         enum class State: uint8_t {
-            Pending,
-            Committed,
-            Reverted
+            Accepted,
+            Rejected
         };
 
         String originalText;
-        WTF::UUID uuid;
-        WTF::UUID sessionUUID;
-        State state { State::Pending };
+        WritingTools::TextSuggestionID suggestionID;
+        WritingTools::SessionID sessionID;
+        State state { State::Accepted };
     };
 #endif
 
@@ -142,8 +147,8 @@ public:
 #if ENABLE(PLATFORM_DRIVEN_TEXT_CHECKING)
         , PlatformTextCheckingData // PlatformTextChecking
 #endif
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-        , UnifiedTextReplacementData // UnifiedTextReplacement
+#if ENABLE(WRITING_TOOLS)
+        , WritingToolsTextSuggestionData // WritingToolsTextSuggestion
 #endif
         , TransparentContentData // TransparentContent
     >;
@@ -196,8 +201,8 @@ constexpr auto DocumentMarker::allMarkers() -> OptionSet<Type>
 #if ENABLE(PLATFORM_DRIVEN_TEXT_CHECKING)
         Type::PlatformTextChecking,
 #endif
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-        Type::UnifiedTextReplacement,
+#if ENABLE(WRITING_TOOLS)
+        Type::WritingToolsTextSuggestion,
 #endif
         Type::TransparentContent,
     };
@@ -221,8 +226,8 @@ inline String DocumentMarker::description() const
     if (auto* description = std::get_if<String>(&m_data))
         return *description;
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    if (auto* data = std::get_if<DocumentMarker::UnifiedTextReplacementData>(&m_data))
+#if ENABLE(WRITING_TOOLS)
+    if (auto* data = std::get_if<DocumentMarker::WritingToolsTextSuggestionData>(&m_data))
         return makeString("('"_s, data->originalText, "', state: "_s, enumToUnderlyingType(data->state), ')');
 #endif
 

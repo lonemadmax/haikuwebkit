@@ -49,7 +49,7 @@ class HTMLVideoElement;
 class ImageBitmap;
 class SVGImageElement;
 class WebGLObject;
-enum class PixelFormat : uint8_t;
+enum class ImageBufferPixelFormat : uint8_t;
 
 class CanvasRenderingContext : public ScriptWrappable, public CanMakeWeakPtr<CanvasRenderingContext> {
     WTF_MAKE_NONCOPYABLE(CanvasRenderingContext);
@@ -72,7 +72,6 @@ public:
     bool isWebGL() const { return isWebGL1() || isWebGL2(); }
     virtual bool isWebGPU() const { return false; }
     virtual bool isGPUBased() const { return false; }
-    virtual bool isAccelerated() const { return false; }
     virtual bool isBitmapRenderer() const { return false; }
     virtual bool isPlaceholder() const { return false; }
     virtual bool isOffscreen2d() const { return false; }
@@ -93,6 +92,7 @@ public:
     // Draws the source buffer to the canvasBase().buffer().
     virtual RefPtr<ImageBuffer> surfaceBufferToImageBuffer(SurfaceBuffer);
     virtual bool isSurfaceBufferTransparentBlack(SurfaceBuffer) const;
+    virtual bool delegatesDisplay() const;
     virtual RefPtr<GraphicsLayerContentsDisplayDelegate> layerContentsDisplayDelegate();
     virtual void setContentsToLayer(GraphicsLayer&);
 
@@ -113,7 +113,7 @@ public:
     // Swaps the current drawing buffer to display buffer.
     virtual void prepareForDisplay() { }
 
-    virtual PixelFormat pixelFormat() const;
+    virtual ImageBufferPixelFormat pixelFormat() const;
     virtual DestinationColorSpace colorSpace() const;
     virtual bool willReadFrequently() const;
     virtual OptionSet<ImageBufferOptions> adjustImageBufferOptionsForTesting(OptionSet<ImageBufferOptions> bufferOptions) { return bufferOptions; }

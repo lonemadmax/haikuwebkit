@@ -1778,7 +1778,7 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
 
     if (shouldPerformFragmentNavigation(isFormSubmission, httpMethod, policyChecker().loadType(), newURL)) {
 
-        if (!dispatchNavigateEvent(newURL, type, loader->triggeringAction(), NavigationHistoryBehavior::Auto, true))
+        if (!dispatchNavigateEvent(newURL, type, loader->triggeringAction(), NavigationHistoryBehavior::Auto, true, formState.get()))
             return;
 
         RefPtr oldDocumentLoader = m_documentLoader;
@@ -1794,6 +1794,12 @@ void FrameLoader::loadWithDocumentLoader(DocumentLoader* loader, FrameLoadType t
             continueFragmentScrollAfterNavigationPolicy(request, requesterOrigin.get(), navigationPolicyDecision == NavigationPolicyDecision::ContinueLoad, NavigationHistoryBehavior::Auto);
         }, PolicyDecisionMode::Synchronous);
         return;
+    }
+
+    auto& action = loader->triggeringAction();
+    if (m_frame->document() && action.requester() && m_frame->document()->securityOrigin().isSameOriginDomain(action.requester()->securityOrigin)) {
+        if (!dispatchNavigateEvent(newURL, type, action, NavigationHistoryBehavior::Auto, false, formState.get()))
+            return;
     }
 
     if (RefPtr parent = dynamicDowncast<LocalFrame>(frame->tree().parent()))
@@ -3079,13 +3085,9 @@ String FrameLoader::userAgent(const URL& url) const
 
 String FrameLoader::navigatorPlatform() const
 {
-    if (RefPtr localFrame = dynamicDowncast<LocalFrame>(m_frame->mainFrame())) {
-        if (RefPtr documentLoader = localFrame->loader().activeDocumentLoader()) {
-            auto& customNavigatorPlatform = documentLoader->customNavigatorPlatform();
-            if (!customNavigatorPlatform.isEmpty())
-                return customNavigatorPlatform;
-        }
-    }
+    auto customNavigatorPlatform = m_frame->mainFrame().customNavigatorPlatform();
+    if (!customNavigatorPlatform.isEmpty())
+        return customNavigatorPlatform;
     return String();
 }
 
@@ -3432,6 +3434,11 @@ void FrameLoader::loadPostRequest(FrameLoadRequest&& request, const String& refe
             completionHandler();
         });
         return;
+    }
+
+    if (request.requesterSecurityOrigin().isSameOriginDomain(frame->document()->securityOrigin())) {
+        if (!dispatchNavigateEvent(url, loadType, action, request.navigationHistoryBehavior(), false, formState.get()))
+            return;
     }
 
     // must grab this now, since this load may stop the previous load and clear this flag
@@ -4161,7 +4168,7 @@ RefPtr<Frame> FrameLoader::findFrameForNavigation(const AtomString& name, Docume
     return frame;
 }
 
-bool FrameLoader::dispatchNavigateEvent(const URL& newURL, FrameLoadType loadType, const NavigationAction& action, NavigationHistoryBehavior historyHandling, bool isSameDocument)
+bool FrameLoader::dispatchNavigateEvent(const URL& newURL, FrameLoadType loadType, const NavigationAction& action, NavigationHistoryBehavior historyHandling, bool isSameDocument, FormState* formState)
 {
     RefPtr document = m_frame->document();
     if (!document || !document->settings().navigationAPIEnabled())
@@ -4180,7 +4187,7 @@ bool FrameLoader::dispatchNavigateEvent(const URL& newURL, FrameLoadType loadTyp
     if (navigationType == NavigationNavigationType::Traverse)
         return true;
 
-    return window->protectedNavigation()->dispatchPushReplaceReloadNavigateEvent(newURL, navigationType, isSameDocument);
+    return window->protectedNavigation()->dispatchPushReplaceReloadNavigateEvent(newURL, navigationType, isSameDocument, formState);
 }
 
 void FrameLoader::loadSameDocumentItem(HistoryItem& item)
@@ -4334,8 +4341,12 @@ void FrameLoader::loadItem(HistoryItem& item, HistoryItem* fromItem, FrameLoadTy
 
     if (frame().document() && frame().document()->settings().navigationAPIEnabled() && fromItem && SecurityOrigin::create(item.url())->isSameOriginAs(SecurityOrigin::create(fromItem->url()))) {
         if (RefPtr domWindow = frame().document()->domWindow()) {
-            if (!domWindow->protectedNavigation()->dispatchTraversalNavigateEvent(item))
-                return;
+            if (RefPtr navigation = domWindow->protectedNavigation(); navigation->frame()) {
+                navigation->dispatchTraversalNavigateEvent(item);
+                // In case the event detached the frame.
+                if (!navigation->frame())
+                    return;
+            }
         }
     }
 

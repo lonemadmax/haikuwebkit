@@ -76,6 +76,7 @@ fast/scrolling/gtk [ Skip ]
 fast/scrolling/ios [ Skip ]
 fast/scrolling/mac [ Skip ]
 fast/scrolling/ipad [ Skip ]
+fast/scrolling/pan-scroll [ Skip ]
 fast/speechsynthesis/mac [ Skip ]
 fast/text/mac [ Skip ]
 scrollingcoordinator [ Skip ]
@@ -139,6 +140,29 @@ editing/execCommand/show-modal-dialog-during-execCommand.html [ Skip ]
 http/tests/security/cross-origin-modal-dialog-base.html [ Skip ]
 fast/events/scroll-event-during-modal-dialog.html [ Skip ]
 fast/harness/show-modal-dialog.html [ Skip ]
+
+# skip specific imported touch event tests
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-document.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-root.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-body.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-window.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-root.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-body.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-div.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-div.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-window.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/synthetic-events-cancelable.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-div.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-document.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchstart-event-listener-on-document.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-window.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-root.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchstart-event-listener-on-window.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-body.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-div.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-body.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/passive-touchmove-event-listener-on-root.html [ Skip ]
+imported/w3c/web-platform-tests/dom/events/non-cancelable-when-passive/non-passive-touchmove-event-listener-on-document.html [ Skip ]
 
 fast/shadow-dom/touch-event-on-text-assigned-to-slot.html [ Skip ]
 
@@ -2095,6 +2119,7 @@ fast/webgpu/regression/repro_275108.html [ Pass Failure Timeout ]
 
 [ Debug ] fast/webgpu/nocrash [ Skip ]
 [ Release ] fast/webgpu/nocrash [ Pass Failure Timeout ]
+[ Debug ] fast/webgpu/regression/repro_275624.html [ Skip ]
 
 # Imported W3C HTML/DOM ref tests that are failing.
 imported/w3c/web-platform-tests/html/dom/elements/global-attributes/dir_auto-textarea-script-N-between-Rs.html [ ImageOnlyFailure ]
@@ -5468,12 +5493,10 @@ webkit.org/b/261849 imported/w3c/web-platform-tests/css/css-scroll-anchoring/sta
 
 # Trusted Types aren't fully implemented yet
 webkit.org/b/272196 imported/w3c/web-platform-tests/trusted-types/trusted-types-createHTMLDocument.html [ Pass Failure ]
-webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-reporting.html [ Skip ]
-webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-no-unsafe-eval.html [ Skip ]
-webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-eval-reporting-report-only.html [ Skip ]
 webkit.org/b/274519 imported/w3c/web-platform-tests/trusted-types/HTMLScriptElement-in-xhtml-document.tentative.https.xhtml [ Skip ]
 webkit.org/b/274519 imported/w3c/web-platform-tests/trusted-types/Document-write-exception-order.xhtml [ Skip ]
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/WorkerGlobalScope-importScripts.html [ Pass Failure ]
+webkit.org/b/274089 imported/w3c/web-platform-tests/trusted-types/trusted-types-from-literal.tentative.html [ Pass Failure ]
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/trusted-types-navigation.html [ Pass Failure ]
 webkit.org/b/274088 imported/w3c/web-platform-tests/trusted-types/Element-setAttribute-respects-Elements-node-documents-globals-CSP.html [ Pass Failure ]
 webkit.org/b/266630 imported/w3c/web-platform-tests/trusted-types/WorkerGlobalScope-eval.html [ Pass Failure ]
@@ -6743,13 +6766,44 @@ imported/w3c/web-platform-tests/css/css-inline/initial-letter/initial-letter-wit
 imported/w3c/web-platform-tests/css/css-inline/initial-letter/initial-letter-with-tab-rtl.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-inline/initial-letter/initial-letter-with-tab.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-half-leading-block-box-001.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-half-leading-inline-box-001.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-half-leading-inline-box-002.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-half-leading-inline-box-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-atomic-inline-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-block-in-inline-start-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-block-in-inline-start-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-block-in-inline-start-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-end-empty-line-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-half-leading-block-box-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-initial-letter-start-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-line-clamp-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-multicol-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-ruby-end-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-ruby-start-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-tall-line-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-inline/baseline-source/baseline-source-first-002.html [ Pass Failure ]
 imported/w3c/web-platform-tests/css/css-inline/baseline-source/baseline-source-first-003.html [ Pass Failure ]
 imported/w3c/web-platform-tests/css/css-inline/baseline-source/baseline-source-last-002.html [ Pass Failure ]
 imported/w3c/web-platform-tests/css/css-inline/baseline-source/baseline-source-last-003.html [ Pass Failure ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-accumulation-001.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-end-001.html?class=alphabetic [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-end-001.html?class=leading [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-end-001.html?class=text [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-end-001.html?class=vlr,cap [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-end-001.html?class=vlr,ex [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-end-001.html?class=vlr,leading [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-end-001.html?class=vlr,text [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-end-001.html?class=vrl,alphabetic [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-end-001.html?class=vrl,leading [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-end-001.html?class=vrl,text [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-start-001.html?class=cap [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-start-001.html?class=ex [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-start-001.html?class=leading [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-start-001.html?class=text [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-start-001.html?class=vlr,alphabetic [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-start-001.html?class=vlr,leading [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-start-001.html?class=vlr,text [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-start-001.html?class=vrl,cap [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-start-001.html?class=vrl,ex [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-start-001.html?class=vrl,leading [ Skip ]
+imported/w3c/web-platform-tests/css/css-inline/text-box-trim/text-box-trim-start-001.html?class=vrl,text [ Skip ]
 
 webkit.org/b/245032 imported/w3c/web-platform-tests/css/compositing/root-element-background-image-transparency-004.html [ ImageOnlyFailure ]
 
@@ -6888,6 +6942,10 @@ imported/w3c/web-platform-tests/navigation-api/commit-behavior/ [ Skip ]
 imported/w3c/web-platform-tests/navigation-api/scroll-behavior/ [ Skip ]
 imported/w3c/web-platform-tests/navigation-api/focus-reset/ [ Skip ]
 
+# Tests for sourceElement is not yet part of the HTML spec.
+imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-form-requestSubmit.html [ Skip ]
+
+
 # These cross-window tests won't work on ports that don't run on the web-platform.test domains (not glib).
 imported/w3c/web-platform-tests/navigation-api/navigate-event/cross-window/ [ Skip ]
 
@@ -6983,7 +7041,6 @@ imported/w3c/web-platform-tests/css/css-view-transitions/pseudo-with-classes-vie
 imported/w3c/web-platform-tests/css/css-view-transitions/navigation [ Skip ]
 
 # View transitions Level 2 - types.
-imported/w3c/web-platform-tests/css/css-view-transitions/view-transition-types-universal-match.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/view-transition-types-match-early-mutation.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-view-transitions/view-transition-types-match-early.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-view-transitions/view-transition-types-match-late-mutation.html [ Skip ]
@@ -7525,13 +7582,22 @@ imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-remo
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-remove-no-overflow.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/sticky-anchor-position-invalid.html [ ImageOnlyFailure ]
 
-# ios-wk2-wpt and mac-AS-debug-wk2 failures (leaving in the general TestExpectations for now since these are not useful failures)
+# The following failures are left in the general TestExpectations for now since these are not useful failures
+
+# ios-wk2-wpt failures
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-borders-001.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-dynamic-001.html [ Failure ]
+
+# ios-wk2-wpt AND wpe-wk2 AND gtk-wk2 failures
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-invalid-fallback.html [ Failure ]
+
+# ios-wk2-wpt AND mac-AS-debug-wk2 failures
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-borders-002.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-position-try-007.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-position-try-008.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-position-try-010.html [ Failure ]
 
-# wpe-wk2 AND gtk-wk2 AND wincairo failures (leaving in the general TestExpectations for now since these are not useful failures)
+# wpe-wk2 AND gtk-wk2 AND wincairo failures
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-center-htb-htb.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-center-htb-vrl.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-center-vrl-htb.html [ Failure ]
@@ -7540,3 +7606,6 @@ imported/w3c/web-platform-tests/css/css-anchor-position/anchor-center-vrl-vrl.ht
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-getComputedStyle-002.html [ Failure ]
 
 # -- End: Anchor Positioning -- #
+
+# WebRTC Encoded Transform - Test Expectation - Crashes on 'mac-wk2' debug and gtk-wk2 / wpe-wk2
+webkit.org/b/275663 imported/w3c/web-platform-tests/webrtc-encoded-transform/script-transform-generateKeyFrame-simulcast.https.html [ Skip ]

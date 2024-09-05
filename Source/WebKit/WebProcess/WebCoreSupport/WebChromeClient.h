@@ -258,7 +258,7 @@ private:
     WebCore::DisplayRefreshMonitorFactory* displayRefreshMonitorFactory() const final;
 
 #if ENABLE(GPU_PROCESS)
-    RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::PixelFormat, OptionSet<WebCore::ImageBufferOptions>) const final;
+    RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::RenderingPurpose, float resolutionScale, const WebCore::DestinationColorSpace&, WebCore::ImageBufferPixelFormat, OptionSet<WebCore::ImageBufferOptions>) const final;
     RefPtr<WebCore::ImageBuffer> sinkIntoImageBuffer(std::unique_ptr<WebCore::SerializedImageBuffer>) final;
 #endif
     std::unique_ptr<WebCore::WorkerClient> createWorkerClient(SerialFunctionDispatcher&) final;
@@ -310,7 +310,7 @@ private:
     void exitVideoFullscreenForVideoElement(WebCore::HTMLVideoElement&, WTF::CompletionHandler<void(bool)>&& = [](bool) { }) final;
     void setUpPlaybackControlsManager(WebCore::HTMLMediaElement&) final;
     void clearPlaybackControlsManager() final;
-    void playbackControlsMediaEngineChanged() final;
+    void mediaEngineChanged(WebCore::HTMLMediaElement&) final;
 #endif
 
 #if ENABLE(MEDIA_USAGE)
@@ -504,6 +504,22 @@ private:
 
 #if ENABLE(GAMEPAD)
     void gamepadsRecentlyAccessed() final;
+#endif
+
+#if ENABLE(WRITING_TOOLS)
+    void proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(const WebCore::WritingTools::SessionID&, const WebCore::WritingTools::TextSuggestionID&, WebCore::IntRect selectionBoundsInRootView) final;
+
+    void proofreadingSessionUpdateStateForSuggestionWithID(const WebCore::WritingTools::SessionID&, WebCore::WritingTools::TextSuggestionState, const WebCore::WritingTools::TextSuggestionID&) final;
+#endif
+
+#if ENABLE(WRITING_TOOLS_UI)
+    void removeTextAnimationForID(const WebCore::WritingTools::SessionID&) final;
+
+    void cleanUpTextAnimationsForSessionID(const WebCore::WritingTools::SessionID&) final;
+
+    void addSourceTextAnimation(const WebCore::WritingTools::SessionID&, const WebCore::CharacterRange&) final;
+
+    void addDestinationTextAnimation(const WebCore::WritingTools::SessionID&, const WebCore::CharacterRange&) final;
 #endif
 
     mutable bool m_cachedMainFrameHasHorizontalScrollbar { false };

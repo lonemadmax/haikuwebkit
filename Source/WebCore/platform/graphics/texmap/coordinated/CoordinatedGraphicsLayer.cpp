@@ -38,6 +38,7 @@
 #include "TextureMapperPlatformLayerProxyProvider.h"
 #include "TiledBackingStore.h"
 #include "TransformOperation.h"
+#include <algorithm>
 #ifndef NDEBUG
 #include <wtf/SetForScope.h>
 #endif
@@ -415,6 +416,7 @@ void CoordinatedGraphicsLayer::setContentsOpaque(bool b)
     if (!m_needsDisplay.completeLayer) {
         m_needsDisplay.completeLayer = true;
         m_needsDisplay.rects.clear();
+        m_nicosia.delta.damageChanged = true;
 
         addRepaintRect({ { }, m_size });
     }
@@ -509,6 +511,15 @@ void CoordinatedGraphicsLayer::setContentsNeedsDisplay()
 
     notifyFlushRequired();
     addRepaintRect(contentsRect());
+}
+
+void CoordinatedGraphicsLayer::markDamageRectsUnreliable()
+{
+    if (m_damagedRectsAreUnreliable)
+        return;
+
+    m_damagedRectsAreUnreliable = true;
+    m_nicosia.delta.damageChanged = true;
 }
 
 void CoordinatedGraphicsLayer::setContentsToPlatformLayer(PlatformLayer* platformLayer, ContentsLayerPurpose)
@@ -684,6 +695,7 @@ void CoordinatedGraphicsLayer::setNeedsDisplay()
 
     m_needsDisplay.completeLayer = true;
     m_needsDisplay.rects.clear();
+    m_nicosia.delta.damageChanged = true;
 
     notifyFlushRequired();
     addRepaintRect({ { }, m_size });
@@ -708,6 +720,7 @@ void CoordinatedGraphicsLayer::setNeedsDisplayInRect(const FloatRect& initialRec
         return;
 
     rects.append(rect);
+    m_nicosia.delta.damageChanged = true;
 
     notifyFlushRequired();
     addRepaintRect(rect);
@@ -914,10 +927,15 @@ void CoordinatedGraphicsLayer::flushCompositingStateForThisLayerOnly()
 
         // Update the image contents only when the image layer is visible and the native image changed.
         auto& layerState = m_nicosia.imageBacking->layerState();
-        layerState.imageID = imageID;
-        layerState.update.isVisible = transformedVisibleRect().intersects(IntRect(contentsRect()));
-        if (layerState.update.isVisible && (!nativeImageID || layerState.update.nativeImageID != nativeImageID)) {
+        bool nativeImageChanged = layerState.update.nativeImageID != nativeImageID;
+        if (nativeImageChanged)
             layerState.update.nativeImageID = nativeImageID;
+
+        bool wasVisible = layerState.update.isVisible;
+        layerState.update.isVisible = transformedVisibleRect().intersects(IntRect(contentsRect()));
+
+        // Update the image contents only when the image layer is visible and it was previously hidden or the native image changed.
+        if (layerState.update.isVisible && (!wasVisible || nativeImageChanged)) {
             layerState.update.imageBackingStore = m_coordinator->imageBackingStore(nativeImageID, [&] {
                 return paintImage(image);
             });
@@ -1046,6 +1064,17 @@ void CoordinatedGraphicsLayer::flushCompositingStateForThisLayerOnly()
 #endif
                 if (localDelta.eventRegionChanged)
                     state.eventRegion = eventRegion();
+                if (localDelta.damageChanged) {
+                    state.damage = Damage();
+                    if (m_needsDisplay.completeLayer)
+                        state.damage.add(FloatRect({ }, m_size));
+                    else {
+                        for (const auto& rect : m_needsDisplay.rects)
+                            state.damage.add(rect);
+                    }
+                    if (m_damagedRectsAreUnreliable)
+                        state.damage.invalidate();
+                }
             });
         m_nicosia.performLayerSync = !!m_nicosia.delta.value;
         m_nicosia.delta = { };
@@ -1354,7 +1383,8 @@ void CoordinatedGraphicsLayer::computeTransformedVisibleRect()
     m_layerTransform.setChildrenTransform(childrenTransform());
     m_layerTransform.combineTransforms(parent() ? downcast<CoordinatedGraphicsLayer>(*parent()).m_layerTransform.combinedForChildren() : TransformationMatrix());
 
-    m_cachedInverseTransform = m_layerTransform.combined().inverse().value_or(TransformationMatrix());
+    m_cachedCombinedTransform = m_layerTransform.combined();
+    m_cachedInverseTransform = m_cachedCombinedTransform.inverse().value_or(TransformationMatrix());
 
     // The combined transform will be used in tiledBackingStoreVisibleRect.
     setNeedsVisibleRectAdjustment();
@@ -1366,7 +1396,7 @@ bool CoordinatedGraphicsLayer::shouldHaveBackingStore() const
     bool isInvisibleBecauseOpacityZero = !opacity() && !m_animations.hasActiveAnimationsOfType(AnimatedProperty::Opacity);
 
     // Check if there's a filter that sets the opacity to zero.
-    bool hasOpacityZeroFilter = WTF::anyOf(filters(), [](auto& operation) {
+    bool hasOpacityZeroFilter = std::ranges::any_of(filters(), [](auto& operation) {
         return operation->type() == FilterOperation::Type::Opacity && !downcast<BasicComponentTransferFilterOperation>(operation.get()).amount();
     });
 

@@ -313,7 +313,7 @@ using namespace WebCore;
 
 void WebInspectorUIProxy::didBecomeActive()
 {
-    m_inspectorPage->send(Messages::WebInspectorUI::UpdateFindString(WebKit::stringForFind()));
+    m_inspectorPage->legacyMainFrameProcess().send(Messages::WebInspectorUI::UpdateFindString(WebKit::stringForFind()), m_inspectorPage->webPageIDInMainFrameProcess());
 }
 
 void WebInspectorUIProxy::attachmentViewDidChange(NSView *oldView, NSView *newView)
@@ -403,7 +403,7 @@ void WebInspectorUIProxy::showSavePanel(NSWindow *frontendWindow, NSURL *platfor
 
         if ([controller base64Encoded]) {
             String contentString = [controller content];
-            auto decodedData = base64Decode(contentString, Base64DecodeMode::DefaultValidatePadding);
+            auto decodedData = base64Decode(contentString, { Base64DecodeOption::ValidatePadding });
             if (!decodedData)
                 return;
             auto dataContent = adoptNS([[NSData alloc] initWithBytes:decodedData->data() length:decodedData->size()]);

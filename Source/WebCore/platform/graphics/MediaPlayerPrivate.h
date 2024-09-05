@@ -352,6 +352,8 @@ public:
 
     virtual void renderVideoWillBeDestroyed() { }
 
+    virtual void mediaPlayerWillBeDestroyed() { }
+
     virtual void isLoopingChanged() { }
 
     virtual void setShouldCheckHardwareSupport(bool value) { m_shouldCheckHardwareSupport = value; }
@@ -367,6 +369,10 @@ public:
 #endif
 
     virtual void isInFullscreenOrPictureInPictureChanged(bool) { }
+
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    virtual bool supportsLinearMediaPlayer() const { return false; }
+#endif
 
 protected:
     mutable PlatformTimeRanges m_seekable;

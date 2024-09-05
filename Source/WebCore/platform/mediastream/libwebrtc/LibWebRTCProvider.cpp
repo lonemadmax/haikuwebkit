@@ -176,10 +176,22 @@ static rtc::LoggingSeverity computeLogLevel(WTFLogLevel level)
     return rtc::LS_NONE;
 }
 
+static LibWebRTCLogSink& getRTCLogSink()
+{
+    static LazyNeverDestroyed<LibWebRTCLogSink> logSink;
+    static std::once_flag onceKey;
+    std::call_once(onceKey, [&] {
+        LibWebRTCLogSink::LogCallback callback = [] (auto&& severity, auto&& message) {
+            doReleaseLogging(severity, message.c_str());
+        };
+        logSink.construct(WTFMove(callback));
+    });
+    return logSink.get();
+}
+
 void LibWebRTCProvider::setRTCLogging(WTFLogLevel level)
 {
-    auto rtcLevel = computeLogLevel(level);
-    rtc::LogMessage::SetLogOutput(rtcLevel, (rtcLevel == rtc::LS_NONE) ? nullptr : doReleaseLogging);
+    getRTCLogSink().start(computeLogLevel(level));
 }
 
 static void initializePeerConnectionFactoryAndThreads(PeerConnectionFactoryAndThreads& factoryAndThreads)
@@ -362,20 +374,6 @@ void LibWebRTCProvider::setEnableWebRTCEncryption(bool enableWebRTCEncryption)
 
     webrtc::PeerConnectionFactoryInterface::Options options;
     options.disable_encryption = !enableWebRTCEncryption;
-    options.ssl_max_version = m_useDTLS10 ? rtc::SSL_PROTOCOL_DTLS_10 : rtc::SSL_PROTOCOL_DTLS_12;
-    m_factory->SetOptions(options);
-}
-
-void LibWebRTCProvider::setUseDTLS10(bool useDTLS10)
-{
-    m_useDTLS10 = useDTLS10;
-
-    auto* factory = this->factory();
-    if (!factory)
-        return;
-
-    webrtc::PeerConnectionFactoryInterface::Options options;
-    options.ssl_max_version = useDTLS10 ? rtc::SSL_PROTOCOL_DTLS_10 : rtc::SSL_PROTOCOL_DTLS_12;
     m_factory->SetOptions(options);
 }
 

@@ -30,6 +30,7 @@
 #import "BindGroupLayout.h"
 #import "Buffer.h"
 #import "Device.h"
+#import "MetalSPI.h"
 #import "Sampler.h"
 #import "TextureView.h"
 #import <wtf/EnumeratedArray.h>
@@ -38,12 +39,15 @@
 #include <CoreVideo/CVPixelBufferPrivate.h>
 #else
 
-#if HAVE(COREVIDEO_COMPRESSED_PIXEL_FORMAT_TYPES)
 enum {
+    kCVPixelFormatType_420YpCbCr10PackedBiPlanarVideoRange = 'p420',
+    kCVPixelFormatType_422YpCbCr10PackedBiPlanarVideoRange = 'p422',
+    kCVPixelFormatType_444YpCbCr10PackedBiPlanarVideoRange = 'p444',
+#if HAVE(COREVIDEO_COMPRESSED_PIXEL_FORMAT_TYPES)
     kCVPixelFormatType_AGX_420YpCbCr8BiPlanarVideoRange = '&8v0',
     kCVPixelFormatType_AGX_420YpCbCr8BiPlanarFullRange = '&8f0',
-};
 #endif
+};
 #endif
 
 namespace WebGPU {
@@ -76,9 +80,6 @@ static MTLRenderStages metalRenderStage(ShaderStage shaderStage)
         return BindGroup::MTLRenderStageUndefined;
     }
 }
-
-template <typename T>
-using ShaderStageArray = EnumeratedArray<ShaderStage, T, ShaderStage::Compute>;
 
 #if HAVE(COREVIDEO_METAL_SUPPORT)
 
@@ -191,7 +192,7 @@ static simd::float4x3 colorSpaceConversionMatrixForPixelBuffer(CVPixelBufferRef 
     } }
 }
 
-static MTLPixelFormat metalPixelFormat(CVPixelBufferRef pixelBuffer, size_t plane, std::optional<MTLTextureSwizzleChannels>& swizzle)
+static MTLPixelFormat metalPixelFormat(CVPixelBufferRef pixelBuffer, size_t plane, std::optional<MTLTextureSwizzleChannels>& swizzle, bool supportsExtendedFormats)
 {
     auto pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer);
     auto biplanarFormat = [](int plane) {
@@ -411,6 +412,13 @@ static MTLPixelFormat metalPixelFormat(CVPixelBufferRef pixelBuffer, size_t plan
 
     case kCVPixelFormatType_Lossy_422YpCbCr10PackedBiPlanarVideoRange: /* Lossy-compressed form of kCVPixelFormatType_422YpCbCr10BiPlanarVideoRange.  No CVPlanarPixelBufferInfo struct. Format is compressed-packed with no padding bits between pixels. */
         return biplanarFormat(plane);
+
+    case kCVPixelFormatType_420YpCbCr10PackedBiPlanarVideoRange:
+        return !plane && supportsExtendedFormats ? static_cast<MTLPixelFormat>(MTLPixelFormatYCBCR10_420_2P_PACKED) : MTLPixelFormatInvalid;
+    case kCVPixelFormatType_422YpCbCr10PackedBiPlanarVideoRange:
+        return !plane && supportsExtendedFormats ? static_cast<MTLPixelFormat>(MTLPixelFormatYCBCR10_422_2P_PACKED) : MTLPixelFormatInvalid;
+    case kCVPixelFormatType_444YpCbCr10PackedBiPlanarVideoRange:
+        return !plane && supportsExtendedFormats ? static_cast<MTLPixelFormat>(MTLPixelFormatYCBCR10_444_2P_PACKED) : MTLPixelFormatInvalid;
     }
 
     return MTLPixelFormatInvalid;
@@ -423,11 +431,12 @@ Device::ExternalTextureData Device::createExternalTextureFromPixelBuffer(CVPixel
 #if HAVE(COREVIDEO_METAL_SUPPORT)
     UNUSED_PARAM(colorSpace);
 
-    std::optional<MTLTextureSwizzleChannels> firstPlaneSwizzle;
+    std::optional<MTLTextureSwizzleChannels> firstPlaneSwizzle, secondPlaneSwizzle;
     auto gbTextureFromRGB = ^(id<MTLTexture> texture, bool alphaFirst) {
         return [texture newTextureViewWithPixelFormat:texture.pixelFormat textureType:texture.textureType levels:NSMakeRange(0, texture.mipmapLevelCount) slices:NSMakeRange(0, texture.arrayLength) swizzle:alphaFirst ? MTLTextureSwizzleChannelsMake(MTLTextureSwizzleBlue, MTLTextureSwizzleAlpha, MTLTextureSwizzleZero, MTLTextureSwizzleZero) : MTLTextureSwizzleChannelsMake(MTLTextureSwizzleGreen, MTLTextureSwizzleBlue, MTLTextureSwizzleZero, MTLTextureSwizzleZero)];
     };
 
+    const bool supportsExtendedFormats = [m_device supportsFamily:MTLGPUFamilyApple4];
     if (!CVPixelBufferGetIOSurface(pixelBuffer)) {
         auto planeCount = std::max<size_t>(CVPixelBufferGetPlaneCount(pixelBuffer), 1);
         if (planeCount > 2) {
@@ -450,7 +459,7 @@ Device::ExternalTextureData Device::createExternalTextureFromPixelBuffer(CVPixel
             textureDescriptor.textureType = MTLTextureType2D;
             textureDescriptor.width = width;
             textureDescriptor.height = height;
-            textureDescriptor.pixelFormat = metalPixelFormat(pixelBuffer, plane, firstPlaneSwizzle);
+            textureDescriptor.pixelFormat = metalPixelFormat(pixelBuffer, plane, firstPlaneSwizzle, supportsExtendedFormats);
             if (firstPlaneSwizzle)
                 textureDescriptor.swizzle = *firstPlaneSwizzle;
             textureDescriptor.mipmapLevelCount = 1;
@@ -492,13 +501,17 @@ Device::ExternalTextureData Device::createExternalTextureFromPixelBuffer(CVPixel
     CVMetalTextureRef plane0 = nullptr;
     CVMetalTextureRef plane1 = nullptr;
     auto planeCount = CVPixelBufferGetPlaneCount(pixelBuffer);
-    CVReturn status1;
+    CVReturn status1 = kCVReturnInvalidPixelFormat;
     CVReturn status2 = kCVReturnInvalidPixelFormat;
     if (planeCount < 2)
-        status1 = CVMetalTextureCacheCreateTextureFromImage(nullptr, m_coreVideoTextureCache.get(), pixelBuffer, nullptr, metalPixelFormat(pixelBuffer, 0, firstPlaneSwizzle), CVPixelBufferGetWidthOfPlane(pixelBuffer, 0), CVPixelBufferGetHeightOfPlane(pixelBuffer, 0), 0, &plane0);
+        status1 = CVMetalTextureCacheCreateTextureFromImage(nullptr, m_coreVideoTextureCache.get(), pixelBuffer, nullptr, metalPixelFormat(pixelBuffer, 0, firstPlaneSwizzle, supportsExtendedFormats), CVPixelBufferGetWidthOfPlane(pixelBuffer, 0), CVPixelBufferGetHeightOfPlane(pixelBuffer, 0), 0, &plane0);
     else {
-        status1 = CVMetalTextureCacheCreateTextureFromImage(nullptr, m_coreVideoTextureCache.get(), pixelBuffer, nullptr, MTLPixelFormatR8Unorm, CVPixelBufferGetWidthOfPlane(pixelBuffer, 0), CVPixelBufferGetHeightOfPlane(pixelBuffer, 0), 0, &plane0);
-        status2 = CVMetalTextureCacheCreateTextureFromImage(nullptr, m_coreVideoTextureCache.get(), pixelBuffer, nullptr, MTLPixelFormatRG8Unorm, CVPixelBufferGetWidthOfPlane(pixelBuffer, 1), CVPixelBufferGetHeightOfPlane(pixelBuffer, 1), 1, &plane1);
+        auto format0 = metalPixelFormat(pixelBuffer, 0, firstPlaneSwizzle, supportsExtendedFormats);
+        if (format0 != MTLPixelFormatInvalid)
+            status1 = CVMetalTextureCacheCreateTextureFromImage(nullptr, m_coreVideoTextureCache.get(), pixelBuffer, nullptr, format0, CVPixelBufferGetWidthOfPlane(pixelBuffer, 0), CVPixelBufferGetHeightOfPlane(pixelBuffer, 0), 0, &plane0);
+        auto format1 = metalPixelFormat(pixelBuffer, 1, firstPlaneSwizzle, supportsExtendedFormats);
+        if (format1 != MTLPixelFormatInvalid)
+            status2 = CVMetalTextureCacheCreateTextureFromImage(nullptr, m_coreVideoTextureCache.get(), pixelBuffer, nullptr, format1, CVPixelBufferGetWidthOfPlane(pixelBuffer, 1), CVPixelBufferGetHeightOfPlane(pixelBuffer, 1), 1, &plane1);
     }
 
     float lowerLeft[2];
@@ -517,8 +530,11 @@ Device::ExternalTextureData Device::createExternalTextureFromPixelBuffer(CVPixel
         return { };
     }
 
-    if (status2 == kCVReturnSuccess)
+    if (status2 == kCVReturnSuccess) {
         mtlTexture1 = CVMetalTextureGetTexture(plane1);
+        if (secondPlaneSwizzle)
+            mtlTexture1 = [mtlTexture1 newTextureViewWithPixelFormat:mtlTexture1.pixelFormat textureType:mtlTexture1.textureType levels:NSMakeRange(0, mtlTexture1.mipmapLevelCount) slices:NSMakeRange(0, mtlTexture1.arrayLength) swizzle:*secondPlaneSwizzle];
+    }
 
     m_defaultQueue->onSubmittedWorkDone([plane0, plane1](WGPUQueueWorkDoneStatus) {
         if (plane0)
@@ -902,8 +918,8 @@ Ref<BindGroup> Device::createBindGroup(const WGPUBindGroupDescriptor& descriptor
         return BindGroup::createInvalid(*this);
     }
 
-    ShaderStageArray<id<MTLArgumentEncoder>> argumentEncoder = std::array<id<MTLArgumentEncoder>, stageCount>({ bindGroupLayout.vertexArgumentEncoder(), bindGroupLayout.fragmentArgumentEncoder(), bindGroupLayout.computeArgumentEncoder() });
-    ShaderStageArray<id<MTLBuffer>> argumentBuffer;
+    BindGroup::ShaderStageArray<id<MTLArgumentEncoder>> argumentEncoder = std::array<id<MTLArgumentEncoder>, stageCount>({ bindGroupLayout.vertexArgumentEncoder(), bindGroupLayout.fragmentArgumentEncoder(), bindGroupLayout.computeArgumentEncoder() });
+    BindGroup::ShaderStageArray<id<MTLBuffer>> argumentBuffer;
     for (ShaderStage stage : stages) {
         auto encodedLength = bindGroupLayout.encodedLength(stage);
         argumentBuffer[stage] = encodedLength ? safeCreateBuffer(encodedLength, MTLStorageModeShared) : nil;
@@ -920,6 +936,7 @@ Ref<BindGroup> Device::createBindGroup(const WGPUBindGroupDescriptor& descriptor
         return a.binding < b.binding;
     });
     BindGroup::DynamicBuffersContainer dynamicBuffers;
+    BindGroup::SamplersContainer samplersSet;
 
     for (uint32_t i = 0, entryCount = descriptor.entryCount; i < entryCount; ++i) {
         const WGPUBindGroupEntry& entry = descriptor.entries[i];
@@ -1043,8 +1060,10 @@ Ref<BindGroup> Device::createBindGroup(const WGPUBindGroupDescriptor& descriptor
                 }
 
                 id<MTLSamplerState> sampler = apiSampler.samplerState();
-                if (stage != ShaderStage::Undefined)
+                if (stage != ShaderStage::Undefined) {
                     [argumentEncoder[stage] setSamplerState:sampler atIndex:index];
+                    samplersSet.add(&apiSampler, BindGroup::ShaderStageArray<std::optional<uint32_t>> { }).iterator->value[stage] = index;
+                }
             } else if (textureViewIsPresent) {
                 auto it = bindGroupLayoutEntries.find(bindingIndex);
                 RELEASE_ASSERT(it != bindGroupLayoutEntries.end());
@@ -1166,7 +1185,7 @@ Ref<BindGroup> Device::createBindGroup(const WGPUBindGroupDescriptor& descriptor
     argumentBuffer[ShaderStage::Fragment].label = bindGroupLayout.fragmentArgumentEncoder().label;
     argumentBuffer[ShaderStage::Compute].label = bindGroupLayout.computeArgumentEncoder().label;
 
-    return BindGroup::create(argumentBuffer[ShaderStage::Vertex], argumentBuffer[ShaderStage::Fragment], argumentBuffer[ShaderStage::Compute], WTFMove(resources), bindGroupLayout, WTFMove(dynamicBuffers), *this);
+    return BindGroup::create(argumentBuffer[ShaderStage::Vertex], argumentBuffer[ShaderStage::Fragment], argumentBuffer[ShaderStage::Compute], WTFMove(resources), bindGroupLayout, WTFMove(dynamicBuffers), WTFMove(samplersSet), *this);
 #undef VALIDATION_ERROR
 #undef INTERNAL_ERROR_STRING
 }
@@ -1181,7 +1200,7 @@ const BindGroupLayout* BindGroup::bindGroupLayout() const
     return m_bindGroupLayout.get();
 }
 
-BindGroup::BindGroup(id<MTLBuffer> vertexArgumentBuffer, id<MTLBuffer> fragmentArgumentBuffer, id<MTLBuffer> computeArgumentBuffer, Vector<BindableResources>&& resources, const BindGroupLayout& bindGroupLayout, DynamicBuffersContainer&& dynamicBuffers, Device& device)
+BindGroup::BindGroup(id<MTLBuffer> vertexArgumentBuffer, id<MTLBuffer> fragmentArgumentBuffer, id<MTLBuffer> computeArgumentBuffer, Vector<BindableResources>&& resources, const BindGroupLayout& bindGroupLayout, DynamicBuffersContainer&& dynamicBuffers, SamplersContainer&& samplers, Device& device)
     : m_vertexArgumentBuffer(vertexArgumentBuffer)
     , m_fragmentArgumentBuffer(fragmentArgumentBuffer)
     , m_computeArgumentBuffer(computeArgumentBuffer)
@@ -1189,6 +1208,7 @@ BindGroup::BindGroup(id<MTLBuffer> vertexArgumentBuffer, id<MTLBuffer> fragmentA
     , m_resources(WTFMove(resources))
     , m_bindGroupLayout(&bindGroupLayout)
     , m_dynamicBuffers(WTFMove(dynamicBuffers))
+    , m_samplers(WTFMove(samplers))
 {
     for (size_t index = 0, maxIndex = m_dynamicBuffers.size(); index < maxIndex; ++index)
         m_dynamicOffsetsIndices.add(m_dynamicBuffers[index].bindingIndex, index);
@@ -1271,6 +1291,31 @@ uint64_t BindGroup::makeEntryMapKey(uint32_t baseMipLevel, uint32_t baseArrayLay
 {
     RELEASE_ASSERT(aspect);
     return (static_cast<uint64_t>(aspect) - 1) | (static_cast<uint64_t>(baseMipLevel) << 1) | (static_cast<uint64_t>(baseArrayLayer) << 32);
+}
+
+void BindGroup::rebindSamplersIfNeeded() const
+{
+    for (auto& [samplerRefPtr, shaderStageArray] : m_samplers) {
+        auto* sampler = samplerRefPtr.get();
+        ASSERT(sampler);
+        if (!sampler || sampler->cachedSampler())
+            continue;
+
+        WTFLogAlways("Rebinding of samplers required, if this occurs frequently the application is using too many unique samplers");
+        id<MTLSamplerState> samplerState = sampler->samplerState();
+        if (shaderStageArray[ShaderStage::Vertex].has_value()) {
+            [m_bindGroupLayout->vertexArgumentEncoder() setArgumentBuffer:vertexArgumentBuffer() offset:0];
+            [m_bindGroupLayout->vertexArgumentEncoder() setSamplerState:samplerState atIndex:*shaderStageArray[ShaderStage::Vertex]];
+        }
+        if (shaderStageArray[ShaderStage::Fragment].has_value()) {
+            [m_bindGroupLayout->fragmentArgumentEncoder() setArgumentBuffer:fragmentArgumentBuffer() offset:0];
+            [m_bindGroupLayout->fragmentArgumentEncoder() setSamplerState:samplerState atIndex:*shaderStageArray[ShaderStage::Fragment]];
+        }
+        if (shaderStageArray[ShaderStage::Compute].has_value()) {
+            [m_bindGroupLayout->computeArgumentEncoder() setArgumentBuffer:computeArgumentBuffer() offset:0];
+            [m_bindGroupLayout->computeArgumentEncoder() setSamplerState:samplerState atIndex:*shaderStageArray[ShaderStage::Compute]];
+        }
+    }
 }
 
 } // namespace WebGPU

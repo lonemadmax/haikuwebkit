@@ -26,8 +26,8 @@
 #import "config.h"
 #import "PageClientImplCocoa.h"
 
-#import "TextIndicatorStyle.h"
-#import "WKTextIndicatorStyleType.h"
+#import "TextAnimationType.h"
+#import "WKTextAnimationType.h"
 #import "WKWebViewInternal.h"
 #import <WebCore/AlternativeTextUIController.h>
 #import <WebKit/WKWebViewConfigurationPrivate.h>
@@ -156,15 +156,15 @@ void PageClientImplCocoa::storeAppHighlight(const WebCore::AppHighlight &highlig
 }
 #endif // ENABLE(APP_HIGHLIGHTS)
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-void PageClientImplCocoa::addTextIndicatorStyleForID(const WTF::UUID& uuid, const WebKit::TextIndicatorStyleData& data)
+#if ENABLE(WRITING_TOOLS_UI)
+void PageClientImplCocoa::addTextAnimationTypeForID(const WTF::UUID& uuid, const WebKit::TextAnimationData& data)
 {
-    [m_webView _addTextIndicatorStyleForID:uuid withData:data];
+    [m_webView _addTextAnimationTypeForID:uuid withData:data];
 }
 
-void PageClientImplCocoa::removeTextIndicatorStyleForID(const WTF::UUID& uuid)
+void PageClientImplCocoa::removeTextAnimationForID(const WTF::UUID& uuid)
 {
-    [m_webView _removeTextIndicatorStyleForID:uuid];
+    [m_webView _removeTextAnimationForID:uuid];
 }
 #endif
 
@@ -286,25 +286,27 @@ WindowKind PageClientImplCocoa::windowKind()
     return WindowKind::Normal;
 }
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-void PageClientImplCocoa::textReplacementSessionShowInformationForReplacementWithUUIDRelativeToRect(const WTF::UUID& sessionUUID, const WTF::UUID& replacementUUID, WebCore::IntRect selectionBoundsInRootView)
+#if ENABLE(WRITING_TOOLS)
+void PageClientImplCocoa::proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(const WebCore::WritingTools::Session::ID& sessionID, const WebCore::WritingTools::TextSuggestion::ID& replacementID, WebCore::IntRect selectionBoundsInRootView)
 {
-    [m_webView _textReplacementSession:sessionUUID showInformationForReplacementWithUUID:replacementUUID relativeToRect:selectionBoundsInRootView];
+    [m_webView _proofreadingSessionWithUUID:sessionID showDetailsForSuggestionWithUUID:replacementID relativeToRect:selectionBoundsInRootView];
 }
 
-void PageClientImplCocoa::textReplacementSessionUpdateStateForReplacementWithUUID(const WTF::UUID& sessionUUID, WebTextReplacementDataState state, const WTF::UUID& replacementUUID)
+void PageClientImplCocoa::proofreadingSessionUpdateStateForSuggestionWithID(const WebCore::WritingTools::Session::ID& sessionID, WebCore::WritingTools::TextSuggestion::State state, const WebCore::WritingTools::TextSuggestion::ID& replacementID)
 {
-    [m_webView _textReplacementSession:sessionUUID updateState:state forReplacementWithUUID:replacementUUID];
+    [m_webView _proofreadingSessionWithUUID:sessionID updateState:state forSuggestionWithUUID:replacementID];
 }
 
-void PageClientImplCocoa::unifiedTextReplacementActiveWillChange()
+static NSString *writingToolsActiveKey = @"writingToolsActive";
+
+void PageClientImplCocoa::writingToolsActiveWillChange()
 {
-    [m_webView willChangeValueForKey:unifiedTextReplacementActiveKey];
+    [m_webView willChangeValueForKey:writingToolsActiveKey];
 }
 
-void PageClientImplCocoa::unifiedTextReplacementActiveDidChange()
+void PageClientImplCocoa::writingToolsActiveDidChange()
 {
-    [m_webView didChangeValueForKey:unifiedTextReplacementActiveKey];
+    [m_webView didChangeValueForKey:writingToolsActiveKey];
 }
 #endif
 

@@ -90,9 +90,9 @@ void JIT::compileSetupFrame(const Op& bytecode)
         }
 
 #if USE(JSVALUE64)
-        addPtr(TrustedImm32(-static_cast<int32_t>(sizeof(CallerFrameAndPC) + WTF::roundUpToMultipleOf(stackAlignmentBytes(), 5 * sizeof(void*)))), regT1, stackPointerRegister);
+        addPtr(TrustedImm32(-static_cast<int32_t>(sizeof(CallerFrameAndPC) + WTF::roundUpToMultipleOf<stackAlignmentBytes()>(5 * sizeof(void*)))), regT1, stackPointerRegister);
 #elif USE(JSVALUE32_64)
-        addPtr(TrustedImm32(-(sizeof(CallerFrameAndPC) + WTF::roundUpToMultipleOf(stackAlignmentBytes(), 6 * sizeof(void*)))), regT1, stackPointerRegister);
+        addPtr(TrustedImm32(-(sizeof(CallerFrameAndPC) + WTF::roundUpToMultipleOf<stackAlignmentBytes()>(6 * sizeof(void*)))), regT1, stackPointerRegister);
 #endif
 
         {
@@ -427,7 +427,7 @@ void JIT::emit_op_iterator_next(const JSInstruction* instruction)
     Jump genericCase = branchIfNotEmpty(nextJSR);
 
     JumpList doneCases;
-#if CPU(ARM64) || (CPU(X86_64) && !OS(WINDOWS))
+#if CPU(ARM64) || CPU(X86_64)
     loadGlobalObject(argumentGPR0);
     emitGetVirtualRegister(bytecode.m_iterator, argumentGPR1);
     emitGetVirtualRegister(bytecode.m_iterable, argumentGPR2);

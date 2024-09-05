@@ -53,7 +53,7 @@
 #include "TextPaintStyle.h"
 #include "TextPainter.h"
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+#if ENABLE(WRITING_TOOLS)
 #include "GraphicsContextCG.h"
 #endif
 
@@ -1045,7 +1045,7 @@ FloatRect LegacyTextBoxPainter::calculateUnionOfAllDocumentMarkerBounds(const Le
     return result;
 }
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+#if ENABLE(WRITING_TOOLS)
 
 #if USE(APPLE_INTERNAL_SDK)
 #import <WebKitAdditions/TextBoxPainterAdditions.cpp>
@@ -1053,7 +1053,7 @@ FloatRect LegacyTextBoxPainter::calculateUnionOfAllDocumentMarkerBounds(const Le
 static void drawUnifiedTextReplacementUnderline(GraphicsContext&, const FloatRect&, IntSize) { }
 #endif
 
-#endif // ENABLE(UNIFIED_TEXT_REPLACEMENT)
+#endif // ENABLE(WRITING_TOOLS)
 
 template<typename TextBoxPath>
 void TextBoxPainter<TextBoxPath>::paintPlatformDocumentMarker(const MarkedText& markedText)
@@ -1065,8 +1065,8 @@ void TextBoxPainter<TextBoxPath>::paintPlatformDocumentMarker(const MarkedText& 
     auto bounds = calculateDocumentMarkerBounds(makeIterator(), markedText);
     bounds.moveBy(m_paintRect.location());
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    if (markedText.type == MarkedText::Type::UnifiedTextReplacement) {
+#if ENABLE(WRITING_TOOLS)
+    if (markedText.type == MarkedText::Type::WritingToolsTextSuggestion) {
         drawUnifiedTextReplacementUnderline(m_paintInfo.context(), bounds,  m_renderer.frame().view()->size());
         return;
     }

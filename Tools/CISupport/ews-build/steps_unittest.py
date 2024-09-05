@@ -2327,7 +2327,7 @@ class TestRunWebKitTestsInStressMode(BuildStepMixinAdditions, unittest.TestCase)
         self.setProperty('fullPlatform', 'ios-simulator')
         self.setProperty('configuration', 'release')
         self.setProperty('modified_tests', ['test1', 'test2'])
-        self.setProperty('additionalArguments', ['--child-processes=6', '--exclude-tests', 'imported/w3c/web-platform-tests'])
+        self.setProperty('additionalArguments', ['--child-processes=5', '--exclude-tests', 'imported/w3c/web-platform-tests'])
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logfiles={'json': self.jsonFileName},
@@ -4996,7 +4996,7 @@ class TestRunAPITests(BuildStepMixinAdditions, unittest.TestCase):
                         logEnviron=False,
                         command=['/bin/sh', '-c', f'python3 Tools/Scripts/run-api-tests --no-build --release --verbose --json-output={self.jsonFileName} > logs.txt 2>&1 ; grep "Ran " logs.txt'],
                         logfiles={'json': self.jsonFileName},
-                        timeout=2 * 60 * 60
+                        timeout=3 * 60 * 60
                         )
             + ExpectShell.log('stdio', stdout='''...
 worker/0 TestWTF.WTF_Variant.OperatorAmpersand Passed
@@ -5025,7 +5025,7 @@ All tests successfully passed!
                         logEnviron=False,
                         command=['/bin/sh', '-c', f'python3 Tools/Scripts/run-api-tests --no-build --debug --verbose --json-output={self.jsonFileName} --ios-simulator > logs.txt 2>&1 ; grep "Ran " logs.txt'],
                         logfiles={'json': self.jsonFileName},
-                        timeout=2 * 60 * 60
+                        timeout=3 * 60 * 60
                         )
             + ExpectShell.log('stdio', stdout='''...
 worker/0 TestWTF.WTF_Variant.OperatorAmpersand Passed
@@ -5054,7 +5054,7 @@ All tests successfully passed!
                         logEnviron=False,
                         command=['/bin/sh', '-c', f'python3 Tools/Scripts/run-gtk-tests --release --json-output={self.jsonFileName} > logs.txt 2>&1 ; grep "Ran " logs.txt'],
                         logfiles={'json': self.jsonFileName},
-                        timeout=2 * 60 * 60
+                        timeout=3 * 60 * 60
                         )
             + ExpectShell.log('stdio', stdout='''...
 **PASS** TransformationMatrix.Blend
@@ -5088,7 +5088,7 @@ Ran 1316 tests of 1318 with 1316 successful
                         logEnviron=False,
                         command=['/bin/sh', '-c', f'python3 Tools/Scripts/run-wpe-tests --release --json-output={self.jsonFileName} > logs.txt 2>&1 ; grep "Ran " logs.txt'],
                         logfiles={'json': self.jsonFileName},
-                        timeout=2 * 60 * 60
+                        timeout=3 * 60 * 60
                         )
             + ExpectShell.log('stdio', stdout='''...
 **PASS** TransformationMatrix.Blend
@@ -5122,7 +5122,7 @@ Ran 1316 tests of 1318 with 1316 successful
                         logEnviron=False,
                         command=['/bin/sh', '-c', f'python3 Tools/Scripts/run-api-tests --no-build --debug --verbose --json-output={self.jsonFileName} > logs.txt 2>&1 ; grep "Ran " logs.txt'],
                         logfiles={'json': self.jsonFileName},
-                        timeout=2 * 60 * 60
+                        timeout=3 * 60 * 60
                         )
             + ExpectShell.log('stdio', stdout='''
 worker/0 TestWTF.WTF_Variant.OperatorAmpersand Passed
@@ -5165,7 +5165,7 @@ Testing completed, Exit status: 3
                         logEnviron=False,
                         command=['/bin/sh', '-c', f'python3 Tools/Scripts/run-api-tests --no-build --debug --verbose --json-output={self.jsonFileName} > logs.txt 2>&1 ; grep "Ran " logs.txt'],
                         logfiles={'json': self.jsonFileName},
-                        timeout=2 * 60 * 60
+                        timeout=3 * 60 * 60
                         )
             + ExpectShell.log('stdio', stdout='''...
 worker/0 TestWTF.WTF_Variant.OperatorAmpersand Passed
@@ -5222,7 +5222,7 @@ Testing completed, Exit status: 3
                         logEnviron=False,
                         command=['/bin/sh', '-c', f'python3 Tools/Scripts/run-api-tests --no-build --debug --verbose --json-output={self.jsonFileName} > logs.txt 2>&1 ; grep "Ran " logs.txt'],
                         logfiles={'json': self.jsonFileName},
-                        timeout=2 * 60 * 60
+                        timeout=3 * 60 * 60
                         )
             + ExpectShell.log('stdio', stdout='Unexpected failure. Failed to run api tests.')
             + 2,
@@ -5241,7 +5241,7 @@ Testing completed, Exit status: 3
                         logEnviron=False,
                         command=['/bin/sh', '-c', f'python3 Tools/Scripts/run-api-tests --no-build --debug --verbose --json-output={self.jsonFileName} > logs.txt 2>&1 ; grep "Ran " logs.txt'],
                         logfiles={'json': self.jsonFileName},
-                        timeout=2 * 60 * 60
+                        timeout=3 * 60 * 60
                         )
             + ExpectShell.log('stdio', stdout='''...
 worker/0 TestWTF.WTF_Variant.OperatorAmpersand Passed
@@ -5284,7 +5284,7 @@ class TestRunAPITestsWithoutChange(BuildStepMixinAdditions, unittest.TestCase):
                         logEnviron=False,
                         command=['/bin/sh', '-c', f'python3 Tools/Scripts/run-api-tests --no-build --release --verbose --json-output={self.jsonFileName} > logs.txt 2>&1 ; grep "Ran " logs.txt'],
                         logfiles={'json': self.jsonFileName},
-                        timeout=2 * 60 * 60
+                        timeout=3 * 60 * 60
                         )
             + ExpectShell.log('stdio', stdout='''...
 worker/0 TestWTF.WTF_Variant.OperatorAmpersand Passed
@@ -5316,7 +5316,7 @@ All tests successfully passed!
                         logEnviron=False,
                         command=['/bin/sh', '-c', f'python3 Tools/Scripts/run-api-tests --no-build --debug --verbose --json-output={self.jsonFileName} > logs.txt 2>&1 ; grep "Ran " logs.txt'],
                         logfiles={'json': self.jsonFileName},
-                        timeout=2 * 60 * 60
+                        timeout=3 * 60 * 60
                         )
             + ExpectShell.log('stdio', stdout='''
 worker/0 TestWTF.WTF_Variant.OperatorAmpersand Passed
@@ -5362,7 +5362,7 @@ Testing completed, Exit status: 3
                         logEnviron=False,
                         command=['/bin/sh', '-c', f'python3 Tools/Scripts/run-gtk-tests --debug --json-output={self.jsonFileName} > logs.txt 2>&1 ; grep "Ran " logs.txt'],
                         logfiles={'json': self.jsonFileName},
-                        timeout=2 * 60 * 60
+                        timeout=3 * 60 * 60
                         )
             + ExpectShell.log('stdio', stdout='''
 **PASS** GStreamerTest.mappedBufferBasics
@@ -5404,7 +5404,7 @@ Ran 1296 tests of 1298 with 1293 successful
                         logEnviron=False,
                         command=['/bin/sh', '-c', f'python3 Tools/Scripts/run-wpe-tests --debug --json-output={self.jsonFileName} > logs.txt 2>&1 ; grep "Ran " logs.txt'],
                         logfiles={'json': self.jsonFileName},
-                        timeout=2 * 60 * 60
+                        timeout=3 * 60 * 60
                         )
             + ExpectShell.log('stdio', stdout='''
 **PASS** GStreamerTest.mappedBufferBasics
@@ -6212,6 +6212,8 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                         {'context': 'style', 'state': 'SUCCESS'},
                         {'context': 'tv', 'state': 'SUCCESS'},
                         {'context': 'tv-sim', 'state': 'SUCCESS'},
+                        {'context': 'vision', 'state': 'SUCCESS'},
+                        {'context': 'vision-sim', 'state': 'SUCCESS'},
                         {'context': 'watch', 'state': 'SUCCESS'},
                         {'context': 'watch-sim', 'state': 'SUCCESS'},
                         {'context': 'webkitperl', 'state': 'SUCCESS'},

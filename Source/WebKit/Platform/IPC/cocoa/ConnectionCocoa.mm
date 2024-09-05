@@ -495,6 +495,18 @@ static mach_msg_header_t* readFromMachPort(mach_port_t machPort, ReceiveBuffer& 
     return header;
 }
 
+static bool shouldLogIncomingMessageHandling()
+{
+    static dispatch_once_t once;
+    static bool shouldLog;
+
+    dispatch_once(&once, ^{
+        shouldLog = !!getenv("WEBKIT_LOG_INCOMING_MESSAGES");
+    });
+
+    return shouldLog;
+}
+
 void Connection::receiveSourceEventHandler()
 {
     ReceiveBuffer buffer;
@@ -558,6 +570,9 @@ void Connection::receiveSourceEventHandler()
         return;
     }
 
+    if (UNLIKELY(shouldLogIncomingMessageHandling()))
+        RELEASE_LOG(IPCMessages, "Connection::processIncomingMessage(%p) received %" PUBLIC_LOG_STRING " from port 0x%08x", this, description(decoder->messageName()).characters(), m_receivePort);
+
     processIncomingMessage(makeUniqueRefFromNonNullUniquePtr(WTFMove(decoder)));
 }
 
@@ -576,6 +591,7 @@ std::optional<audit_token_t> Connection::getAuditToken()
     return WTFMove(auditToken);
 }
 
+#if !USE(EXTENSIONKIT)
 bool Connection::kill()
 {
     if (m_xpcConnection) {
@@ -583,9 +599,9 @@ bool Connection::kill()
         m_wasKilled = true;
         return true;
     }
-
     return false;
 }
+#endif
 
 pid_t Connection::remoteProcessID() const
 {

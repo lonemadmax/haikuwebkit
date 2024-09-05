@@ -129,8 +129,8 @@ class EmptyContextMenuClient final : public ContextMenuClient {
     void handleTranslation(const TranslationContextMenuInfo&) final { }
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    void handleSwapCharacters(IntRect) final { };
+#if ENABLE(WRITING_TOOLS)
+    void handleWritingTools(IntRect) final { };
 #endif
 
 #if PLATFORM(GTK)

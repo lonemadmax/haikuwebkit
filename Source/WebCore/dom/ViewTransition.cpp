@@ -307,7 +307,7 @@ static RefPtr<ImageBuffer> snapshotElementVisualOverflowClippedToViewport(LocalF
     ASSERT(frame.document());
     auto hostWindow = (frame.document()->view() && frame.document()->view()->root()) ? frame.document()->view()->root()->hostWindow() : nullptr;
 
-    auto buffer = ImageBuffer::create(paintRect.size(), RenderingPurpose::Snapshot, scaleFactor, DestinationColorSpace::SRGB(), PixelFormat::BGRA8, { ImageBufferOptions::Accelerated }, hostWindow);
+    auto buffer = ImageBuffer::create(paintRect.size(), RenderingPurpose::Snapshot, scaleFactor, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8, { ImageBufferOptions::Accelerated }, hostWindow);
     if (!buffer)
         return nullptr;
 
@@ -691,7 +691,7 @@ Ref<MutableStyleProperties> ViewTransition::copyElementBaseProperties(RenderLaye
             transform->translate(layoutOffset.x(), layoutOffset.y());
 
             auto offset = -toFloatSize(frameView.visibleContentRect().location());
-            transform->translate(offset.width(), offset.height());
+            transform->translateRight(offset.width(), offset.height());
 
             // Apply the inverse of what will be added by the default value of 'transform-origin',
             // since the computed transform has already included it.

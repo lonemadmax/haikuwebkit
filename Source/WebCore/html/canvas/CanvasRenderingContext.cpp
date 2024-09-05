@@ -98,6 +98,11 @@ bool CanvasRenderingContext::isSurfaceBufferTransparentBlack(SurfaceBuffer) cons
     return false;
 }
 
+bool CanvasRenderingContext::delegatesDisplay() const
+{
+    return false;
+}
+
 RefPtr<GraphicsLayerContentsDisplayDelegate> CanvasRenderingContext::layerContentsDisplayDelegate()
 {
     return nullptr;
@@ -114,9 +119,9 @@ RefPtr<ImageBuffer> CanvasRenderingContext::transferToImageBuffer()
     return nullptr;
 }
 
-PixelFormat CanvasRenderingContext::pixelFormat() const
+ImageBufferPixelFormat CanvasRenderingContext::pixelFormat() const
 {
-    return PixelFormat::BGRA8;
+    return ImageBufferPixelFormat::BGRA8;
 }
 
 DestinationColorSpace CanvasRenderingContext::colorSpace() const

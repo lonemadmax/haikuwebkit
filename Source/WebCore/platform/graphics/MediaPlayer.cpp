@@ -478,6 +478,8 @@ MediaPlayer::MediaPlayer(MediaPlayerClient& client, MediaPlayerEnums::MediaEngin
 MediaPlayer::~MediaPlayer()
 {
     ASSERT(!m_initializingMediaEngine);
+    if (m_private)
+        m_private->mediaPlayerWillBeDestroyed();
 }
 
 void MediaPlayer::invalidate()
@@ -1984,6 +1986,13 @@ bool MediaPlayer::isInFullscreenOrPictureInPicture() const
     return m_isInFullscreenOrPictureInPicture;
 }
 
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+bool MediaPlayer::supportsLinearMediaPlayer() const
+{
+    return m_private->supportsLinearMediaPlayer();
+}
+#endif
+
 #if !RELEASE_LOG_DISABLED
 const Logger& MediaPlayer::mediaPlayerLogger()
 {
@@ -2103,6 +2112,6 @@ String SeekTarget::toString() const
         WTF::LogArgument<MediaTime>::toString(positiveThreshold), ']');
 }
 
-}
+} // namespace WebCore
 
-#endif
+#endif // ENABLE(VIDEO)

@@ -30,7 +30,7 @@
 #include "PDFPluginIdentifier.h"
 #include "PasteboardAccessIntent.h"
 #include "SameDocumentNavigationType.h"
-#include "TextIndicatorStyle.h"
+#include "TextAnimationType.h"
 #include "WebColorPicker.h"
 #include "WebDateTimePicker.h"
 #include "WebPopupMenuProxy.h"
@@ -132,6 +132,7 @@ enum class TextIndicatorLifetime : uint8_t;
 enum class TextIndicatorDismissalAnimation : uint8_t;
 enum class DOMPasteAccessCategory : uint8_t;
 enum class DOMPasteAccessResponse : uint8_t;
+enum class DOMPasteRequiresInteraction : bool;
 enum class ScrollIsAnimated : bool;
 
 struct AppHighlight;
@@ -155,13 +156,25 @@ struct PromisedAttachmentInfo;
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
 struct TranslationContextMenuInfo;
 #endif
+
+namespace WritingTools {
+enum class Action : uint8_t;
+enum class TextSuggestionState : uint8_t;
+
+struct Context;
+struct TextSuggestion;
+struct Session;
+
+using TextSuggestionID = WTF::UUID;
+using SessionID = WTF::UUID;
+}
+
 }
 
 namespace WebKit {
 
 enum class UndoOrRedo : bool;
 enum class TapHandlingResult : uint8_t;
-enum class WebTextReplacementDataState : uint8_t;
 
 class ContextMenuContextData;
 class DrawingAreaProxy;
@@ -518,8 +531,6 @@ public:
     virtual void scrollingNodeScrollViewDidScroll(WebCore::ScrollingNodeID) = 0;
 #endif
 
-    virtual void didClearEditorStateAfterPageTransition() = 0;
-
 #if PLATFORM(IOS_FAMILY)
     virtual void commitPotentialTapFailed() = 0;
     virtual void didGetTapHighlightGeometries(WebKit::TapIdentifier requestID, const WebCore::Color&, const Vector<WebCore::FloatQuad>& highlightedQuads, const WebCore::IntSize& topLeftRadius, const WebCore::IntSize& topRightRadius, const WebCore::IntSize& bottomLeftRadius, const WebCore::IntSize& bottomRightRadius, bool nodeHasBuiltInClickHandling) = 0;
@@ -686,7 +697,7 @@ public:
     virtual void didReceiveEditDragSnapshot(std::optional<WebCore::TextIndicatorData>) = 0;
 #endif
 
-    virtual void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const WebCore::IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) = 0;
+    virtual void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteRequiresInteraction, const WebCore::IntRect& elementRect, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) = 0;
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     virtual void didInsertAttachment(API::Attachment&, const String& source) { }
@@ -704,9 +715,9 @@ public:
 #if ENABLE(APP_HIGHLIGHTS)
     virtual void storeAppHighlight(const WebCore::AppHighlight&) = 0;
 #endif
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    virtual void addTextIndicatorStyleForID(const WTF::UUID&, const WebKit::TextIndicatorStyleData&) = 0;
-    virtual void removeTextIndicatorStyleForID(const WTF::UUID&) = 0;
+#if ENABLE(WRITING_TOOLS_UI)
+    virtual void addTextAnimationTypeForID(const WTF::UUID&, const WebKit::TextAnimationData&) = 0;
+    virtual void removeTextAnimationForID(const WTF::UUID&) = 0;
 #endif
     virtual void requestScrollToRect(const WebCore::FloatRect& targetRect, const WebCore::FloatPoint& origin) { }
 
@@ -726,19 +737,19 @@ public:
     virtual void handleContextMenuTranslation(const WebCore::TranslationContextMenuInfo&) = 0;
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT) && ENABLE(CONTEXT_MENUS)
-    virtual bool canHandleSwapCharacters() const = 0;
-    virtual void handleContextMenuSwapCharacters(WebCore::IntRect selectionBoundsInRootView) = 0;
+#if ENABLE(WRITING_TOOLS) && ENABLE(CONTEXT_MENUS)
+    virtual bool canHandleContextMenuWritingTools() const = 0;
+    virtual void handleContextMenuWritingTools(WebCore::IntRect selectionBoundsInRootView) = 0;
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    virtual void textReplacementSessionShowInformationForReplacementWithUUIDRelativeToRect(const WTF::UUID& sessionUUID, const WTF::UUID& replacementUUID, WebCore::IntRect selectionBoundsInRootView) = 0;
+#if ENABLE(WRITING_TOOLS)
+    virtual void proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(const WebCore::WritingTools::SessionID&, const WebCore::WritingTools::TextSuggestionID&, WebCore::IntRect selectionBoundsInRootView) = 0;
 
-    virtual void textReplacementSessionUpdateStateForReplacementWithUUID(const WTF::UUID& sessionUUID, WebTextReplacementDataState, const WTF::UUID& replacementUUID) = 0;
+    virtual void proofreadingSessionUpdateStateForSuggestionWithID(const WebCore::WritingTools::SessionID&, WebCore::WritingTools::TextSuggestionState, const WebCore::WritingTools::TextSuggestionID&) = 0;
 
-    virtual void unifiedTextReplacementActiveWillChange() = 0;
+    virtual void writingToolsActiveWillChange() = 0;
 
-    virtual void unifiedTextReplacementActiveDidChange() = 0;
+    virtual void writingToolsActiveDidChange() = 0;
 #endif
 
 #if ENABLE(DATA_DETECTION)

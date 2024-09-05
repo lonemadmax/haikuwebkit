@@ -875,15 +875,6 @@ http/tests/resourceLoadStatistics/cap-cache-max-age-for-prevalent-resource.html 
 http/tests/resourceLoadStatistics/set-all-cookies-to-same-site-strict.html [ Pass ]
 http/tests/resourceLoadStatistics/enforce-samesite-strict-based-on-top-frame-unique-redirects-to.html [ Pass ]
 
-# The CNAME and cookie transform SPIs are only available in macOS Big Sur and above.
-http/tests/resourceLoadStatistics/cname-cloaking-top-cname-sub-1p-cname.html [ Pass ]
-http/tests/resourceLoadStatistics/cname-cloaking-top-cname-sub-3p-cname.html [ Pass ]
-http/tests/resourceLoadStatistics/cname-cloaking-top-cname-sub-matching-cname.html [ Pass ]
-http/tests/resourceLoadStatistics/cname-cloaking-top-cname-sub-no-cname.html [ Pass ]
-http/tests/resourceLoadStatistics/cname-cloaking-top-no-cname-sub-1p-cname.html [ Pass ]
-http/tests/resourceLoadStatistics/cname-cloaking-top-no-cname-sub-3p-cname.html [ Pass ]
-http/tests/resourceLoadStatistics/cname-cloaking-top-no-cname-sub-no-cname.html [ Pass ]
-
 # Skipped in general expectations since they only work on iOS and Mac, WK2.
 media/deactivate-audio-session.html [ Pass ]
 
@@ -1608,8 +1599,6 @@ webkit.org/b/261005 swipe/pushState-cached-back-swipe.html [ Pass Failure Timeou
 
 webkit.org/b/227761 imported/w3c/web-platform-tests/beacon/beacon-cors.https.window.html [ Pass Failure ]
 
-webkit.org/b/261215 webrtc/vp8-then-h264-gpu-process-crash.html [ Pass Timeout Failure ]
-
 webkit.org/b/261226 [ Sonoma+ ] fast/images/mac/play-pause-individual-animation-context-menu-items.html [ Pass ] # backing functionality only in Sonoma+
 
 # The test takes an incredibly long time to run and typically times out when run in stress-test.
@@ -1645,6 +1634,9 @@ webkit.org/b/263396 css3/color/text.html [ Skip ]
 [ Release arm64 ] http/tests/webgpu/webgpu/shader [ Pass Failure Timeout ]
 [ Release arm64 ] http/tests/webgpu/webgpu/web_platform [ Pass Failure Timeout ]
 
+# pixel differences on Intel Macs
+[ x86_64 ] fast/webgpu/regression/repro_275345.html [ ImageOnlyFailure ]
+
 # skipped due to debug crashes - https://bugs.webkit.org/show_bug.cgi?id=274972
 http/tests/webgpu/webgpu/api/validation/render_pass/render_pass_descriptor.html [ Skip ]
 http/tests/webgpu/webgpu/api/validation/texture/destroy.html [ Skip ]
@@ -1664,6 +1656,8 @@ http/tests/webgpu/webgpu/api/validation/buffer/mapping.html [ Pass ]
 
 http/tests/webgpu/webgpu/api/validation/queue/submit.html [ Pass ]
 http/tests/webgpu/webgpu/api/validation/queue/destroyed [ Pass ]
+
+http/tests/webgpu/webgpu/shader/execution/flow_control/switch.html [ Pass ]
 
 webkit.org/b/263920 svg/transforms/transformed-text-fill-gradient.html [ Pass ImageOnlyFailure ]
 
@@ -1725,8 +1719,6 @@ webkit.org/b/264001 [ Debug ] imported/w3c/web-platform-tests/requestidlecallbac
 webkit.org/b/268398 [ Sonoma+ ] compositing/plugins/pdf/pdf-in-iframe-scrolling-tree-after-back.html [ Pass Failure ]
 
 imported/w3c/web-platform-tests/css/css-view-transitions/inline-element-size.html [ ImageOnlyFailure ]
-webkit.org/b/274852 imported/w3c/web-platform-tests/css/css-view-transitions/new-content-flat-transform-ancestor.html [ ImageOnlyFailure ]
-webkit.org/b/273613 [ Ventura ] imported/w3c/web-platform-tests/css/css-view-transitions/no-painting-while-render-blocked.html [ Skip ]
 
 # webkit.org/b/270092  (REGRESSION (275274@main): [ Sonoma+ wk2 ] Multiple compositing/plugins/pdf/pdf are constant failures)
 [ Sonoma+ ] compositing/plugins/pdf/pdf-in-embed.html [ Failure ]
@@ -1757,12 +1749,16 @@ webkit.org/b/273905 [ X86_64 ] svg/filters/filter-on-root-tile-boundary.html [ P
 
 webkit.org/b/274130 [ Debug ] media/video-pause-immediately.html [ Pass Failure ]
 
+webkit.org/b/274382 media/media-source/media-source-video-play-holds-sleep-assertion.html [ Failure ]
+
 webkit.org/b/274709 imported/w3c/web-platform-tests/pointerevents/pointer-events-none-skip-scroll-in-iframe.html [ Pass Failure ]
 webkit.org/b/274709 imported/w3c/web-platform-tests/pointerevents/pointer-events-none-skip-scroll-will-change-in-iframe.html [ Pass Failure ]
 
 webkit.org/b/274766 http/wpt/webauthn/public-key-credential-get-success-u2f.https.html [ Failure ]
 
 webkit.org/b/258228 [ Sonoma+ Debug ] accessibility/mac/text-input-session-notifications.html [ Skip ]
+
+webkit.org/b/274852 imported/w3c/web-platform-tests/css/css-view-transitions/new-content-flat-transform-ancestor.html [ ImageOnlyFailure ]
 
 # rdar://129424261 (REGRESSION (279443@main): [ Sonoma Release ] WindowServer watchdog timeout on Intel machine)
 [ Release x86_64 ] http/tests/webgpu/webgpu/idl/constructable.html [ Skip ]
@@ -1789,3 +1785,9 @@ webkit.org/b/258228 [ Sonoma+ Debug ] accessibility/mac/text-input-session-notif
 [ Release x86_64 ] http/tests/webgpu/webgpu/api/operation/memory_sync/buffer/multiple_buffers.html [ Skip ]
 [ Release x86_64 ] http/tests/webgpu/webgpu/api/operation/memory_sync/texture/same_subresource.html [ Skip ]
 [ Release x86_64 ] http/tests/webgpu/webgpu/api/operation/command_buffer/programmable/state_tracking.html [ Skip ]
+
+webkit.org/b/273613 [ Ventura ] imported/w3c/web-platform-tests/css/css-view-transitions/no-painting-while-render-blocked.html [ Skip ]
+
+webkit.org/b/275709 [ Debug ] imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-form.html [ Skip ]
+
+webkit.org/b/275758 [ x86_64 ] fast/webgpu/regression/repro_275111b.html [ Failure ]

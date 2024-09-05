@@ -174,12 +174,30 @@ class WheelEventDeltaFilter;
 class WheelEventTestMonitor;
 class WindowEventLoop;
 
+#if ENABLE(WRITING_TOOLS)
+class WritingToolsController;
+
+namespace WritingTools {
+enum class Action : uint8_t;
+enum class TextSuggestionState : uint8_t;
+
+struct Context;
+struct TextSuggestion;
+struct Session;
+
+using TextSuggestionID = WTF::UUID;
+using SessionID = WTF::UUID;
+}
+#endif
+
 #if ENABLE(WEBXR)
 class WebXRSession;
 #endif
 
 struct AXTreeData;
 struct ApplePayAMSUIRequest;
+struct AttributedString;
+struct CharacterRange;
 struct SimpleRange;
 struct TextRecognitionResult;
 
@@ -398,7 +416,7 @@ public:
     PointerLockController& pointerLockController() { return m_pointerLockController.get(); }
 #endif
     WebRTCProvider& webRTCProvider() { return m_webRTCProvider.get(); }
-    RTCController& rtcController() { return m_rtcController; }
+    RTCController& rtcController() { return m_rtcController.get(); }
     WEBCORE_EXPORT void disableICECandidateFiltering();
     WEBCORE_EXPORT void enableICECandidateFiltering();
     bool shouldEnableICECandidateFilteringByDefault() const { return m_shouldEnableICECandidateFilteringByDefault; }
@@ -896,7 +914,7 @@ public:
     inline bool isMediaCaptureMuted() const;
     void schedulePlaybackControlsManagerUpdate();
 #if ENABLE(VIDEO)
-    void playbackControlsMediaEngineChanged();
+    void mediaEngineChanged(HTMLMediaElement&);
 #endif
     WEBCORE_EXPORT void setMuted(MediaProducerMutedStateFlags);
 
@@ -1129,6 +1147,26 @@ public:
     void gamepadsRecentlyAccessed();
 #endif
 
+#if ENABLE(WRITING_TOOLS)
+    WEBCORE_EXPORT void willBeginWritingToolsSession(const std::optional<WritingTools::Session>&, CompletionHandler<void(const Vector<WritingTools::Context>&)>&&);
+
+    WEBCORE_EXPORT void didBeginWritingToolsSession(const WritingTools::Session&, const Vector<WritingTools::Context>&);
+
+    WEBCORE_EXPORT void proofreadingSessionDidReceiveSuggestions(const WritingTools::Session&, const Vector<WritingTools::TextSuggestion>&, const WritingTools::Context&, bool finished);
+
+    WEBCORE_EXPORT void proofreadingSessionDidUpdateStateForSuggestion(const WritingTools::Session&, WritingTools::TextSuggestionState, const WritingTools::TextSuggestion&, const WritingTools::Context&);
+
+    WEBCORE_EXPORT void didEndWritingToolsSession(const WritingTools::Session&, bool accepted);
+
+    WEBCORE_EXPORT void compositionSessionDidReceiveTextWithReplacementRange(const WritingTools::Session&, const AttributedString&, const CharacterRange&, const WritingTools::Context&, bool finished);
+
+    WEBCORE_EXPORT void writingToolsSessionDidReceiveAction(const WritingTools::Session&, WritingTools::Action);
+
+    WEBCORE_EXPORT void updateStateForSelectedSuggestionIfNeeded();
+
+    WEBCORE_EXPORT std::optional<SimpleRange> contextRangeForSessionWithID(const WritingTools::SessionID&) const;
+#endif
+
 private:
     explicit Page(PageConfiguration&&);
 
@@ -1236,7 +1274,7 @@ private:
 
     UniqueRef<MediaRecorderProvider> m_mediaRecorderProvider;
     UniqueRef<WebRTCProvider> m_webRTCProvider;
-    RTCController m_rtcController;
+    Ref<RTCController> m_rtcController;
 
     PlatformDisplayID m_displayID { 0 };
     std::optional<FramesPerSecond> m_displayNominalFramesPerSecond;
@@ -1530,6 +1568,10 @@ private:
 
 #if ENABLE(GAMEPAD)
     MonotonicTime m_lastAccessNotificationTime;
+#endif
+
+#if ENABLE(WRITING_TOOLS)
+    UniqueRef<WritingToolsController> m_writingToolsController;
 #endif
 }; // class Page
 

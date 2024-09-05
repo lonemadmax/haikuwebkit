@@ -313,15 +313,25 @@ bool WebExtensionContext::unload(NSError **outError)
     writeStateToStorage();
 
     unloadBackgroundWebView();
-    m_safeToLoadBackgroundContent = false;
-
     removeInjectedContent();
-    m_registeredScriptsMap.clear();
 
     invalidateStorage();
     unloadDeclarativeNetRequestState();
 
-    m_extensionController = nil;
+    m_actionsToPerformAfterBackgroundContentLoads.clear();
+    m_backgroundContentEventListeners.clear();
+    m_eventListenerPages.clear();
+    m_installReason = InstallReason::None;
+    m_previousVersion = nullString();
+    m_safeToLoadBackgroundContent = false;
+    m_backgroundContentLoadError = nil;
+
+    m_registeredScriptsMap.clear();
+    m_dynamicallyInjectedUserStyleSheets.clear();
+    m_injectedScriptsPerPatternMap.clear();
+    m_injectedStyleSheetsPerPatternMap.clear();
+
+    m_extensionController = nullptr;
     m_contentScriptWorld = nullptr;
 
     m_tabMap.clear();
@@ -338,8 +348,24 @@ bool WebExtensionContext::unload(NSError **outError)
     m_popupPageActionMap.clear();
 
     m_ports.clear();
+    m_pagePortMap.clear();
     m_portQueuedMessages.clear();
     m_nativePortMap.clear();
+
+    m_alarmMap.clear();
+
+    m_commands.clear();
+    m_populatedCommands = false;
+
+    m_menuItems.clear();
+    m_mainMenuItems.clear();
+
+#if ENABLE(INSPECTOR_EXTENSIONS)
+    m_inspectorBackgroundPageMap.clear();
+    m_inspectorExtensionMap.clear();
+#endif
+
+    m_pendingPermissionRequests = 0;
 
     return true;
 }
@@ -2156,8 +2182,7 @@ void WebExtensionContext::didCloseTab(WebExtensionTab& tab, WindowIsClosing wind
     if (!isLoaded() || !tab.extensionHasAccess() || suppressEvents == SuppressEvents::Yes)
         return;
 
-    // SkipValidation::Yes since the window might not contain the tab anymore since things are closing.
-    RefPtr window = tab.window(WebExtensionTab::SkipValidation::Yes);
+    RefPtr window = tab.window();
     auto windowIdentifier = window ? window->identifier() : WebExtensionWindowConstants::NoneIdentifier;
 
     fireTabsRemovedEventIfNeeded(tab.identifier(), windowIdentifier, windowIsClosing);
@@ -2239,7 +2264,7 @@ void WebExtensionContext::didMoveTab(WebExtensionTab& tab, size_t oldIndex, cons
     RefPtr newWindow = tab.window();
     size_t newIndex = tab.index();
 
-    if (oldWindow == newWindow)
+    if (newWindow && oldWindow == newWindow)
         RELEASE_LOG_DEBUG(Extensions, "Moved tab %{public}llu from index %{public}zu to index %{public}zu (in same window)", tab.identifier().toUInt64(), oldIndex, newIndex);
     else if (oldWindow && newWindow)
         RELEASE_LOG_DEBUG(Extensions, "Moved tab %{public}llu to window %{public}llu at index %{public}zu", tab.identifier().toUInt64(), newWindow->identifier().toUInt64(), newIndex);
@@ -2254,12 +2279,10 @@ void WebExtensionContext::didMoveTab(WebExtensionTab& tab, size_t oldIndex, cons
     if (!isLoaded() || !tab.extensionHasAccess())
         return;
 
-    if (oldWindow == newWindow) {
+    if (newWindow && oldWindow == newWindow) {
         // Window did not change, only the index.
-        if (newIndex == oldIndex)
-            return;
-
-        fireTabsMovedEventIfNeeded(tab.identifier(), newWindow->identifier(), oldIndex, newIndex);
+        if (newIndex != oldIndex)
+            fireTabsMovedEventIfNeeded(tab.identifier(), newWindow->identifier(), oldIndex, newIndex);
     } else if (oldWindow && newWindow) {
         // Window changed to another.
         fireTabsDetachedEventIfNeeded(tab.identifier(), oldWindow->identifier(), oldIndex);
@@ -2377,7 +2400,7 @@ void WebExtensionContext::didCommitLoadForFrame(WebPageProxyIdentifier pageID, W
         auto& userContentController = page.get()->userContentController();
         m_dynamicallyInjectedUserStyleSheets.removeAllMatching([&](auto& styleSheet) {
             auto styleSheetPageID = styleSheet->userStyleSheet().pageID();
-            if (!styleSheetPageID || styleSheetPageID.value() != page->webPageID())
+            if (!styleSheetPageID || styleSheetPageID.value() != page->webPageIDInMainFrameProcess())
                 return false;
 
             userContentController.removeUserStyleSheet(styleSheet);
@@ -2926,7 +2949,7 @@ std::optional<WebCore::PageIdentifier> WebExtensionContext::backgroundPageIdenti
     if (!m_backgroundWebView || extension().backgroundContentIsServiceWorker())
         return std::nullopt;
 
-    return m_backgroundWebView.get()._page->webPageID();
+    return m_backgroundWebView.get()._page->webPageIDInMainFrameProcess();
 }
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
@@ -2943,7 +2966,7 @@ Vector<WebExtensionContext::PageIdentifierTuple> WebExtensionContext::inspectorB
 
         RetainPtr webView = std::get<RetainPtr<WKWebView>>(entry.value);
 
-        result.append({ webView.get()._page->webPageID(), tabIdentifier, windowIdentifier });
+        result.append({ webView.get()._page->webPageIDInMainFrameProcess(), tabIdentifier, windowIdentifier });
     }
 
     return result;
@@ -2959,7 +2982,7 @@ Vector<WebExtensionContext::PageIdentifierTuple> WebExtensionContext::inspectorP
         auto tabIdentifier = tab ? std::optional(tab->identifier()) : std::nullopt;
         auto windowIdentifier = window ? std::optional(window->identifier()) : std::nullopt;
 
-        result.append({ inspector->inspectorPage()->webPageID(), tabIdentifier, windowIdentifier });
+        result.append({ inspector->inspectorPage()->webPageIDInMainFrameProcess(), tabIdentifier, windowIdentifier });
     }
 
     return result;
@@ -2977,7 +3000,7 @@ Vector<WebExtensionContext::PageIdentifierTuple> WebExtensionContext::popupPageI
         auto tabIdentifier = tab ? std::optional(tab->identifier()) : std::nullopt;
         auto windowIdentifier = window ? std::optional(window->identifier()) : std::nullopt;
 
-        result.append({ entry.key.webPageID(), tabIdentifier, windowIdentifier });
+        result.append({ entry.key.webPageIDInMainFrameProcess(), tabIdentifier, windowIdentifier });
     }
 
     return result;
@@ -2995,7 +3018,7 @@ Vector<WebExtensionContext::PageIdentifierTuple> WebExtensionContext::tabPageIde
         RefPtr window = tab->window();
         auto windowIdentifier = window ? std::optional(window->identifier()) : std::nullopt;
 
-        result.append({ entry.key.webPageID(), tab->identifier(), windowIdentifier });
+        result.append({ entry.key.webPageIDInMainFrameProcess(), tab->identifier(), windowIdentifier });
     }
 
     return result;
@@ -3011,7 +3034,7 @@ void WebExtensionContext::addPopupPage(WebPageProxy& page, WebExtensionAction& a
     auto tabIdentifier = tab ? std::optional(tab->identifier()) : std::nullopt;
     auto windowIdentifier = window ? std::optional(window->identifier()) : std::nullopt;
 
-    page.legacyMainFrameProcess().send(Messages::WebExtensionContextProxy::AddPopupPageIdentifier(page.webPageID(), tabIdentifier, windowIdentifier), identifier());
+    page.legacyMainFrameProcess().send(Messages::WebExtensionContextProxy::AddPopupPageIdentifier(page.webPageIDInMainFrameProcess(), tabIdentifier, windowIdentifier), identifier());
 }
 
 void WebExtensionContext::addExtensionTabPage(WebPageProxy& page, WebExtensionTab& tab)
@@ -3021,7 +3044,7 @@ void WebExtensionContext::addExtensionTabPage(WebPageProxy& page, WebExtensionTa
     RefPtr window = tab.window();
     auto windowIdentifier = window ? std::optional(window->identifier()) : std::nullopt;
 
-    page.legacyMainFrameProcess().send(Messages::WebExtensionContextProxy::AddTabPageIdentifier(page.webPageID(), tab.identifier(), windowIdentifier), identifier());
+    page.legacyMainFrameProcess().send(Messages::WebExtensionContextProxy::AddTabPageIdentifier(page.webPageIDInMainFrameProcess(), tab.identifier(), windowIdentifier), identifier());
 }
 
 void WebExtensionContext::enumerateExtensionPages(Function<void(WebPageProxy&, bool&)>&& action)
@@ -3236,7 +3259,7 @@ void WebExtensionContext::loadBackgroundWebView()
 
     if (!extension().backgroundContentIsServiceWorker()) {
         auto backgroundPage = m_backgroundWebView.get()._page;
-        backgroundPage->legacyMainFrameProcess().send(Messages::WebExtensionContextProxy::SetBackgroundPageIdentifier(backgroundPage->webPageID()), identifier());
+        backgroundPage->legacyMainFrameProcess().send(Messages::WebExtensionContextProxy::SetBackgroundPageIdentifier(backgroundPage->webPageIDInMainFrameProcess()), identifier());
 
         [m_backgroundWebView loadRequest:[NSURLRequest requestWithURL:backgroundContentURL()]];
         return;
@@ -3258,6 +3281,7 @@ void WebExtensionContext::unloadBackgroundWebView()
         return;
 
     m_backgroundContentIsLoaded = false;
+    m_unloadBackgroundWebViewTimer = nullptr;
 
     [m_backgroundWebView _close];
     m_backgroundWebView = nil;
@@ -3291,7 +3315,6 @@ void WebExtensionContext::scheduleBackgroundContentToUnload()
 {
     if (!m_backgroundWebView || extension().backgroundContentIsPersistent())
         return;
-
 
 #ifdef NDEBUG
     static const auto testRunnerDelayBeforeUnloading = 3_s;
@@ -3553,13 +3576,14 @@ void WebExtensionContext::didFailNavigation(WKWebView *webView, WKNavigation *, 
         return;
 
     m_backgroundContentLoadError = createError(Error::BackgroundContentFailedToLoad, nil, error);
+
+    unloadBackgroundWebView();
 }
 
 void WebExtensionContext::webViewWebContentProcessDidTerminate(WKWebView *webView)
 {
     if (webView == m_backgroundWebView) {
-        m_backgroundWebView = nil;
-        m_backgroundContentIsLoaded = false;
+        unloadBackgroundWebView();
 
         if (extension().backgroundContentIsPersistent())
             loadBackgroundWebView();
@@ -3840,8 +3864,8 @@ void WebExtensionContext::loadInspectorBackgroundPage(WebInspectorUIProxy& inspe
 
         Ref process = webView._page->legacyMainFrameProcess();
         ASSERT(inspectorWebView._page->legacyMainFrameProcess() == process);
-        process->send(Messages::WebExtensionContextProxy::AddInspectorPageIdentifier(inspectorWebView._page->webPageID(), tab->identifier(), windowIdentifier), identifier());
-        process->send(Messages::WebExtensionContextProxy::AddInspectorBackgroundPageIdentifier(webView._page->webPageID(), tab->identifier(), windowIdentifier), identifier());
+        process->send(Messages::WebExtensionContextProxy::AddInspectorPageIdentifier(inspectorWebView._page->webPageIDInMainFrameProcess(), tab->identifier(), windowIdentifier), identifier());
+        process->send(Messages::WebExtensionContextProxy::AddInspectorBackgroundPageIdentifier(webView._page->webPageIDInMainFrameProcess(), tab->identifier(), windowIdentifier), identifier());
         process->send(Messages::WebExtensionContextProxy::DispatchDevToolsPanelsThemeChangedEvent(appearance), identifier());
 
         [webView loadRequest:[NSURLRequest requestWithURL:inspectorBackgroundPageURL()]];

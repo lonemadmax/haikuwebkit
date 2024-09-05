@@ -177,6 +177,8 @@ void WebRemoteFrameClient::applyWebsitePolicies(WebsitePoliciesData&& websitePol
 
     coreFrame->setCustomUserAgent(websitePolicies.customUserAgent);
     coreFrame->setCustomUserAgentAsSiteSpecificQuirks(websitePolicies.customUserAgentAsSiteSpecificQuirks);
+    coreFrame->setAdvancedPrivacyProtections(websitePolicies.advancedPrivacyProtections);
+    coreFrame->setCustomNavigatorPlatform(websitePolicies.customNavigatorPlatform);
 }
 
 }

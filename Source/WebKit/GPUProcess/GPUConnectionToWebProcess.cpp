@@ -667,10 +667,13 @@ void GPUConnectionToWebProcess::createRenderingBackend(RenderingBackendIdentifie
     auto streamConnection = IPC::StreamServerConnection::tryCreate(WTFMove(connectionHandle), params);
     MESSAGE_CHECK(streamConnection);
 
-    auto addResult = m_remoteRenderingBackendMap.ensure(identifier, [&, streamConnection = WTFMove(streamConnection)] () mutable {
+    auto addResult = m_remoteRenderingBackendMap.ensure(identifier, [&, streamConnection] () mutable {
         return IPC::ScopedActiveMessageReceiveQueue { RemoteRenderingBackend::create(*this, identifier, streamConnection.releaseNonNull()) };
     });
-    ASSERT_UNUSED(addResult, addResult.isNewEntry);
+    if (!addResult.isNewEntry) {
+        streamConnection->invalidate();
+        MESSAGE_CHECK(false);
+    }
 }
 
 void GPUConnectionToWebProcess::releaseRenderingBackend(RenderingBackendIdentifier renderingBackendIdentifier)
@@ -1032,6 +1035,12 @@ bool GPUConnectionToWebProcess::dispatchSyncMessage(IPC::Connection& connection,
     }
     if (decoder.messageReceiverName() == Messages::RemoteMediaPlayerProxy::messageReceiverName()) {
         return remoteMediaPlayerManagerProxy().didReceiveSyncPlayerMessage(connection, decoder, replyEncoder);
+    }
+#endif
+#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
+    if (decoder.messageReceiverName() == Messages::UserMediaCaptureManagerProxy::messageReceiverName()) {
+        userMediaCaptureManagerProxy().didReceiveSyncMessage(connection, decoder, replyEncoder);
+        return true;
     }
 #endif
 #if ENABLE(ENCRYPTED_MEDIA)

@@ -67,7 +67,7 @@
 #import "WKQuickLookPreviewController.h"
 #import "WKRevealItemPresenter.h"
 #import "WKSafeBrowsingWarning.h"
-#import "WKTextIndicatorStyleManager.h"
+#import "WKTextAnimationManager.h"
 #import "WKTextInputWindowController.h"
 #import "WKTextPlaceholder.h"
 #import "WKViewLayoutStrategy.h"
@@ -80,7 +80,6 @@
 #import "WebPageProxy.h"
 #import "WebProcessPool.h"
 #import "WebProcessProxy.h"
-#import "WebTextReplacementData.h"
 #import "_WKDragActionsInternal.h"
 #import "_WKRemoteObjectRegistryInternal.h"
 #import "_WKThumbnailViewInternal.h"
@@ -133,6 +132,8 @@
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <pal/spi/cocoa/NSTouchBarSPI.h>
 #import <pal/spi/cocoa/VisionKitCoreSPI.h>
+#import <pal/spi/cocoa/WritingToolsSPI.h>
+#import <pal/spi/cocoa/WritingToolsUISPI.h>
 #import <pal/spi/mac/LookupSPI.h>
 #import <pal/spi/mac/NSAppearanceSPI.h>
 #import <pal/spi/mac/NSApplicationSPI.h>
@@ -160,13 +161,10 @@
 #include "MediaSessionCoordinatorProxyPrivate.h"
 #endif
 
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/WebViewImplAdditionsBefore.mm>
-#endif
-
 #import <pal/cocoa/RevealSoftLink.h>
 #import <pal/cocoa/VisionKitCoreSoftLink.h>
 #import <pal/cocoa/TranslationUIServicesSoftLink.h>
+#import <pal/cocoa/WritingToolsUISoftLink.h>
 #import <pal/mac/DataDetectorsSoftLink.h>
 
 #if HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
@@ -2788,12 +2786,13 @@ void WebViewImpl::selectionDidChange()
         updateCursorAccessoryPlacement();
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    if (wantsCompleteUnifiedTextReplacementBehavior()) {
+#if ENABLE(WRITING_TOOLS)
+    if ([m_view _web_wantsWritingToolsInlineEditing]) {
         auto isRange = m_page->editorState().hasPostLayoutData() && m_page->editorState().selectionIsRange;
         auto selectionRect = isRange ? m_page->editorState().postLayoutData->selectionBoundingRect : IntRect { };
 
-        scheduleShowSwapCharactersViewForSelectionRectOfView(selectionRect, m_view.getAutoreleased());
+        // The affordance will only show up if the selected range consists of >= 50 characters.
+        [[PAL::getWTWritingToolsClass() sharedInstance] scheduleShowAffordanceForSelectionRect:selectionRect ofView:m_view.getAutoreleased() forDelegate:(NSObject<WTWritingToolsDelegate> *)m_view.getAutoreleased()];
     }
 #endif
 
@@ -3246,8 +3245,8 @@ NSTextCheckingTypes WebViewImpl::getTextCheckingTypes() const
     if (allowsInlinePredictions()) {
         types |= (NSTextCheckingType)_NSTextCheckingTypeSingleCompletion;
 
-#if HAVE(TEXT_CHECKING_TYPE_GRAMMAR)
-        types |= (NSTextCheckingType)_NSTextCheckingTypeGrammar;
+#if HAVE(NS_TEXT_CHECKING_TYPE_MATH_COMPLETION)
+        types |= (NSTextCheckingType)_NSTextCheckingTypeMathCompletion;
 #endif
     }
 #endif
@@ -3440,8 +3439,8 @@ void WebViewImpl::dismissContentRelativeChildWindowsFromViewOnly()
 
 bool WebViewImpl::hasContentRelativeChildViews() const
 {
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT_UI)
-    return [m_textIndicatorStyleManager hasActiveTextIndicatorStyle];
+#if ENABLE(WRITING_TOOLS)
+    return [m_TextAnimationTypeManager hasActiveTextAnimationType];
 #else
     return false;
 #endif
@@ -3477,15 +3476,15 @@ void WebViewImpl::contentRelativeViewsHysteresisTimerFired(PAL::HysteresisState 
 
 void WebViewImpl::suppressContentRelativeChildViews()
 {
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT_UI)
-    [m_textIndicatorStyleManager suppressTextIndicatorStyle];
+#if ENABLE(WRITING_TOOLS)
+    [m_TextAnimationTypeManager suppressTextAnimationType];
 #endif
 }
 
 void WebViewImpl::restoreContentRelativeChildViews()
 {
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT_UI)
-    [m_textIndicatorStyleManager restoreTextIndicatorStyle];
+#if ENABLE(WRITING_TOOLS)
+    [m_TextAnimationTypeManager restoreTextAnimationType];
 #endif
 }
 
@@ -4006,7 +4005,7 @@ NSDragOperation WebViewImpl::draggingEntered(id <NSDraggingInfo> draggingInfo)
     WebCore::IntPoint global(WebCore::globalPoint(draggingInfo.draggingLocation, [m_view window]));
     auto dragDestinationActionMask = coreDragDestinationActionMask([m_view _web_dragDestinationActionForDraggingInfo:draggingInfo]);
     auto dragOperationMask = coreDragOperationMask(draggingInfo.draggingSourceOperationMask);
-    WebCore::DragData dragData(draggingInfo, client, global, dragOperationMask, applicationFlagsForDrag(m_view.getAutoreleased(), draggingInfo), dragDestinationActionMask, m_page->webPageID());
+    WebCore::DragData dragData(draggingInfo, client, global, dragOperationMask, applicationFlagsForDrag(m_view.getAutoreleased(), draggingInfo), dragDestinationActionMask, m_page->webPageIDInMainFrameProcess());
 
     m_page->resetCurrentDragInformation();
     m_page->dragEntered(dragData, draggingInfo.draggingPasteboard.name);
@@ -4044,7 +4043,7 @@ NSDragOperation WebViewImpl::draggingUpdated(id <NSDraggingInfo> draggingInfo)
     WebCore::IntPoint global(WebCore::globalPoint(draggingInfo.draggingLocation, [m_view window]));
     auto dragDestinationActionMask = coreDragDestinationActionMask([m_view _web_dragDestinationActionForDraggingInfo:draggingInfo]);
     auto dragOperationMask = coreDragOperationMask(draggingInfo.draggingSourceOperationMask);
-    WebCore::DragData dragData(draggingInfo, client, global, dragOperationMask, applicationFlagsForDrag(m_view.getAutoreleased(), draggingInfo), dragDestinationActionMask, m_page->webPageID());
+    WebCore::DragData dragData(draggingInfo, client, global, dragOperationMask, applicationFlagsForDrag(m_view.getAutoreleased(), draggingInfo), dragDestinationActionMask, m_page->webPageIDInMainFrameProcess());
     m_page->dragUpdated(dragData, draggingInfo.draggingPasteboard.name);
 
     NSInteger numberOfValidItemsForDrop = m_page->currentDragNumberOfFilesToBeAccepted();
@@ -4068,7 +4067,7 @@ void WebViewImpl::draggingExited(id <NSDraggingInfo> draggingInfo)
 {
     WebCore::IntPoint client([m_view convertPoint:draggingInfo.draggingLocation fromView:nil]);
     WebCore::IntPoint global(WebCore::globalPoint(draggingInfo.draggingLocation, [m_view window]));
-    WebCore::DragData dragData(draggingInfo, client, global, coreDragOperationMask(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view.getAutoreleased(), draggingInfo), WebCore::anyDragDestinationAction(), m_page->webPageID());
+    WebCore::DragData dragData(draggingInfo, client, global, coreDragOperationMask(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view.getAutoreleased(), draggingInfo), WebCore::anyDragDestinationAction(), m_page->webPageIDInMainFrameProcess());
     m_page->dragExited(dragData);
     m_page->resetCurrentDragInformation();
     draggingInfo.numberOfValidItemsForDrop = m_initialNumberOfValidItemsForDrop;
@@ -4084,7 +4083,7 @@ bool WebViewImpl::performDragOperation(id <NSDraggingInfo> draggingInfo)
 {
     WebCore::IntPoint client([m_view convertPoint:draggingInfo.draggingLocation fromView:nil]);
     WebCore::IntPoint global(WebCore::globalPoint(draggingInfo.draggingLocation, [m_view window]));
-    auto dragData = Box<WebCore::DragData>::create(draggingInfo, client, global, coreDragOperationMask(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view.getAutoreleased(), draggingInfo), WebCore::anyDragDestinationAction(), m_page->webPageID());
+    auto dragData = Box<WebCore::DragData>::create(draggingInfo, client, global, coreDragOperationMask(draggingInfo.draggingSourceOperationMask), applicationFlagsForDrag(m_view.getAutoreleased(), draggingInfo), WebCore::anyDragDestinationAction(), m_page->webPageIDInMainFrameProcess());
 
     NSArray *types = draggingInfo.draggingPasteboard.types;
     SandboxExtension::Handle sandboxExtensionHandle;
@@ -4458,14 +4457,14 @@ static NSPasteboard *pasteboardForAccessCategory(WebCore::DOMPasteAccessCategory
     }
 }
 
-void WebViewImpl::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory pasteAccessCategory, const WebCore::IntRect&, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completion)
+void WebViewImpl::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory pasteAccessCategory, WebCore::DOMPasteRequiresInteraction requiresInteraction, const WebCore::IntRect&, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completion)
 {
     ASSERT(!m_domPasteRequestHandler);
     hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse::DeniedForGesture);
 
     NSData *data = [pasteboardForAccessCategory(pasteAccessCategory) dataForType:@(WebCore::PasteboardCustomData::cocoaType().characters())];
     auto buffer = WebCore::SharedBuffer::create(data);
-    if (WebCore::PasteboardCustomData::fromSharedBuffer(buffer.get()).origin() == originIdentifier) {
+    if (requiresInteraction == WebCore::DOMPasteRequiresInteraction::No && WebCore::PasteboardCustomData::fromSharedBuffer(buffer.get()).origin() == originIdentifier) {
         m_page->grantAccessToCurrentPasteboardData(pasteboardNameForAccessCategory(pasteAccessCategory));
         completion(WebCore::DOMPasteAccessResponse::GrantedForGesture);
         return;
@@ -4606,27 +4605,24 @@ void WebViewImpl::removeTextPlaceholder(NSTextPlaceholder *placeholder, bool wil
         completionHandler();
 }
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-void WebViewImpl::addTextIndicatorStyleForID(WTF::UUID uuid, const WebKit::TextIndicatorStyleData& data)
+#if ENABLE(WRITING_TOOLS_UI)
+void WebViewImpl::addTextAnimationTypeForID(WTF::UUID uuid, const WebKit::TextAnimationData& data)
 {
-    if (!m_page->preferences().textIndicatorStylingEnabled())
+    if (!m_page->preferences().textAnimationsEnabled())
         return;
 
-    if (![WKTextIndicatorStyleManager supportsTextIndicatorStyle])
-        return;
+    if (!m_TextAnimationTypeManager)
+        m_TextAnimationTypeManager = adoptNS([[WKTextAnimationManager alloc] initWithWebViewImpl:*this]);
 
-    if (!m_textIndicatorStyleManager)
-        m_textIndicatorStyleManager = adoptNS([[WKTextIndicatorStyleManager alloc] initWithWebViewImpl:*this]);
-
-    [m_textIndicatorStyleManager addTextIndicatorStyleForID:uuid withData:data];
+    [m_TextAnimationTypeManager addTextAnimationTypeForID:uuid withData:data];
 }
 
-void WebViewImpl::removeTextIndicatorStyleForID(WTF::UUID uuid)
+void WebViewImpl::removeTextAnimationForID(WTF::UUID uuid)
 {
-    if (!m_page->preferences().textIndicatorStylingEnabled())
+    if (!m_page->preferences().textAnimationsEnabled())
         return;
 
-    [m_textIndicatorStyleManager removeTextIndicatorStyleForID:uuid];
+    [m_TextAnimationTypeManager removeTextAnimationForID:uuid];
 }
 #endif
 
@@ -6189,9 +6185,18 @@ void WebViewImpl::togglePictureInPicture()
     [m_playbackControlsManager togglePictureInPicture];
 }
 
+
+RefPtr<PlatformPlaybackSessionInterface> WebViewImpl::protectedPlaybackSessionInterface() const
+{
+    if (RefPtr manager = m_page->playbackSessionManager())
+        return manager->controlsManagerInterface();
+
+    return nullptr;
+}
+
 bool WebViewImpl::isInWindowFullscreenActive() const
 {
-    if (auto* interface = m_page->playbackSessionManager()->controlsManagerInterface())
+    if (RefPtr interface = protectedPlaybackSessionInterface())
         return interface->isInWindowFullscreenActive();
 
     return false;
@@ -6199,7 +6204,7 @@ bool WebViewImpl::isInWindowFullscreenActive() const
 
 void WebViewImpl::toggleInWindowFullscreen()
 {
-    if (auto* interface = m_page->playbackSessionManager()->controlsManagerInterface())
+    if (RefPtr interface = protectedPlaybackSessionInterface())
         return interface->toggleInWindowFullscreen();
 }
 
@@ -6214,8 +6219,8 @@ void WebViewImpl::updateMediaPlaybackControlsManager()
         [m_playbackControlsManager setCanTogglePictureInPicture:NO];
     }
 
-    if (WebCore::PlatformPlaybackSessionInterface* interface = m_page->playbackSessionManager()->controlsManagerInterface()) {
-        [m_playbackControlsManager setPlaybackSessionInterfaceMac:interface];
+    if (RefPtr interface = protectedPlaybackSessionInterface()) {
+        [m_playbackControlsManager setPlaybackSessionInterfaceMac:interface.get()];
         interface->updatePlaybackControlsManagerCanTogglePictureInPicture();
     }
 }
@@ -6448,34 +6453,22 @@ void WebViewImpl::handleContextMenuTranslation(const WebCore::TranslationContext
 
 #endif // HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-WebUnifiedTextReplacementBehavior WebViewImpl::unifiedTextReplacementBehavior() const
+#if ENABLE(WRITING_TOOLS) && ENABLE(CONTEXT_MENUS)
+
+bool WebViewImpl::canHandleContextMenuWritingTools() const
 {
-    return m_page->configuration().unifiedTextReplacementBehavior();
+    return [PAL::getWTWritingToolsViewControllerClass() isAvailable] && m_page->configuration().writingToolsBehavior() != WebCore::WritingTools::Behavior::None;
 }
 
-bool WebViewImpl::wantsCompleteUnifiedTextReplacementBehavior() const
+void WebViewImpl::handleContextMenuWritingTools(IntRect selectionBoundsInRootView)
 {
-    return [m_view _web_wantsCompleteUnifiedTextReplacementBehavior];
-}
-#endif
-
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT) && ENABLE(CONTEXT_MENUS)
-
-bool WebViewImpl::canHandleSwapCharacters() const
-{
-    return webViewCanHandleSwapCharacters() && unifiedTextReplacementBehavior() != WebUnifiedTextReplacementBehavior::None;
-}
-
-void WebViewImpl::handleContextMenuSwapCharacters(IntRect selectionBoundsInRootView)
-{
-    if (!canHandleSwapCharacters()) {
+    if (!canHandleContextMenuWritingTools()) {
         ASSERT_NOT_REACHED();
         return;
     }
 
     auto view = m_view.get();
-    showSwapCharactersViewRelativeToRectOfView(selectionBoundsInRootView, view.get());
+    [[PAL::getWTWritingToolsClass() sharedInstance] showPanelForSelectionRect:selectionBoundsInRootView ofView:view.get() forDelegate:(NSObject<WTWritingToolsDelegate> *)view.get()];
 }
 #endif
 
@@ -6691,10 +6684,6 @@ Ref<WebPageProxy> WebViewImpl::protectedPage() const
 {
     return m_page.get();
 }
-
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/WebViewImplAdditionsAfter.mm>
-#endif
 
 } // namespace WebKit
 

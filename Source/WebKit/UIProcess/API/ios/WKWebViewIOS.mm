@@ -50,7 +50,7 @@
 #import "WKProcessPoolPrivate.h"
 #import "WKSafeBrowsingWarning.h"
 #import "WKScrollView.h"
-#import "WKTextIndicatorStyleType.h"
+#import "WKTextAnimationType.h"
 #import "WKUIDelegatePrivate.h"
 #import "WKWebViewConfigurationInternal.h"
 #import "WKWebViewContentProvider.h"
@@ -63,8 +63,6 @@
 #import "WebPageProxy.h"
 #import "WebPreferences.h"
 #import "WebProcessPool.h"
-#import "WebTextReplacementData.h"
-#import "WebUnifiedTextReplacementContextData.h"
 #import "_WKActivatedElementInfoInternal.h"
 #import <WebCore/ColorCocoa.h>
 #import <WebCore/GraphicsContextCG.h>
@@ -140,10 +138,6 @@ static WebCore::IntDegrees deviceOrientationForUIInterfaceOrientation(UIInterfac
 @interface UIWindow (UIWindowInternal)
 - (BOOL)_isHostedInAnotherProcess;
 @end
-
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/WKWebViewPrivateAdditions.mm>
-#endif
 
 @implementation WKWebView (WKViewInternalIOS)
 

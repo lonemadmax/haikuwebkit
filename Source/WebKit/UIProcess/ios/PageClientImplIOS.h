@@ -197,7 +197,6 @@ private:
     void elementDidBlur() override;
     void focusedElementDidChangeInputMode(WebCore::InputMode) override;
     void didUpdateEditorState() override;
-    void didClearEditorStateAfterPageTransition() final;
     bool isFocusingElement() override;
     void selectionDidChange() override;
     bool interpretKeyEvent(const NativeWebKeyboardEvent&, bool isCharEvent) override;
@@ -286,7 +285,7 @@ private:
     void requestPasswordForQuickLookDocument(const String& fileName, WTF::Function<void(const String&)>&&) override;
 #endif
 
-    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const WebCore::IntRect& elementRect, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) final;
+    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteRequiresInteraction, const WebCore::IntRect& elementRect, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&) final;
 
 #if ENABLE(DRAG_SUPPORT)
     void didPerformDragOperation(bool handled) override;

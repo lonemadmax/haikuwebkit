@@ -354,12 +354,11 @@ enum class WebCore::PlatformCALayerLayerType : uint8_t {
     LayerTypeHost,
 };
 
-#if USE(APPKIT)
-using WebCore::CocoaColor = NSColor;
+#if HAVE(WK_SECURE_CODING_DATA_DETECTORS)
+DDScannerResult wrapped by CoreIPCDDScannerResult
+#if PLATFORM(MAC)
+WKDDActionContext wrapped by CoreIPCDDSecureActionContext
 #endif
-
-#if PLATFORM(IOS_FAMILY)
-using WebCore::CocoaColor = UIColor;
 #endif
 
 #if USE(AVFOUNDATION)
@@ -383,7 +382,6 @@ NSValue wrapped by CoreIPCNSValue
 NSURLCredential wrapped by CoreIPCNSURLCredential
 NSPersonNameComponents wrapped by CoreIPCPersonNameComponents
 NSDateComponents wrapped by CoreIPCDateComponents
-PlatformColor wrapped by CoreIPCColor
 NSData wrapped by CoreIPCData
 NSURL wrapped by CoreIPCURL
 NSNull wrapped by CoreIPCNull
@@ -398,10 +396,23 @@ NSDictionary wrapped by CoreIPCDictionary
 NSPresentationIntent wrapped by CoreIPCPresentationIntent
 
 #if PLATFORM(MAC)
-using NSColor = PlatformColor
 using CGDirectDisplayID = uint32_t
+using WebCore::CocoaColor = NSColor;
+NSColor wrapped by CoreIPCColor
+#else
+using WebCore::CocoaColor = UIColor;
+UIColor wrapped by CoreIPCColor
 #endif
 
 using CFTimeInterval = double
 using CGGlyph = uint16_t
 using NSRect = CGRect
+
+#if ENABLE(WRITING_TOOLS)
+using WebCore::WritingTools::TextSuggestion::ID = WTF::UUID
+using WebCore::WritingTools::Session::ID = WTF::UUID
+#endif
+
+#if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
+using WebCore::MediaControlsContextMenuItem::ID = uint64_t;
+#endif

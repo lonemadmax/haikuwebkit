@@ -85,8 +85,10 @@ skip:
     - test/intl402/Locale/likely-subtags-grandfathered.js
 
     # ICU 72~ is required
+    - test/intl402/Intl/supportedValuesOf/numberingSystems-with-simple-digit-mappings.js
     - test/intl402/NumberFormat/prototype/format/format-rounding-priority-less-precision.js
     - test/intl402/NumberFormat/prototype/format/format-rounding-priority-more-precision.js
+    - test/intl402/NumberFormat/prototype/format/numbering-systems.js
     - test/intl402/NumberFormat/test-option-roundingPriority-mixed-options.js
 
     # ICU canonicalization bug
@@ -253,6 +255,7 @@ skip:
     - test/built-ins/Temporal/Duration/prototype/round/timezone-wrong-type.js
     - test/built-ins/Temporal/Duration/prototype/round/total-duration-nanoseconds-too-large-with-zoned-datetime.js
     - test/built-ins/Temporal/Duration/prototype/round/year-zero.js
+    - test/built-ins/Temporal/Duration/prototype/round/precision-exact-in-balance-time-duration.js
     - test/built-ins/Temporal/Duration/prototype/subtract/balance-negative-result.js
     - test/built-ins/Temporal/Duration/prototype/subtract/balance-negative-time-units.js
     - test/built-ins/Temporal/Duration/prototype/subtract/calendar-dateadd-called-with-options-undefined.js
@@ -339,6 +342,7 @@ skip:
     - test/built-ins/Temporal/Duration/prototype/total/timezone-string-leap-second.js
     - test/built-ins/Temporal/Duration/prototype/total/timezone-string.js
     - test/built-ins/Temporal/Duration/prototype/total/timezone-wrong-type.js
+    - test/built-ins/Temporal/Duration/prototype/total/precision-exact-mathematical-values-5.js
     - test/built-ins/Temporal/PlainDate/prototype/since/rounding-relative.js
     - test/built-ins/Temporal/PlainDate/prototype/since/roundingincrement.js
     - test/built-ins/Temporal/PlainDate/prototype/since/roundingmode-ceil.js

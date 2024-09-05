@@ -27,6 +27,7 @@
 #include <gst/gst.h>
 #include <gst/video/video-format.h>
 #include <gst/video/video-info.h>
+#include <wtf/Logger.h>
 #include <wtf/MediaTime.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
@@ -269,6 +270,31 @@ GstBuffer* gstBufferNewWrappedFast(void* data, size_t length);
 GstElement* makeGStreamerElement(const char* factoryName, const char* name);
 GstElement* makeGStreamerBin(const char* description, bool ghostUnlinkedPads);
 
+template<typename T>
+inline std::optional<T> gstStructureGet(const GstStructure* structure, ASCIILiteral key)
+{
+    static_assert(std::is_same_v<T, int> || std::is_same_v<T, int64_t> || std::is_same_v<T, unsigned> || std::is_same_v<T, uint64_t> || std::is_same_v<T, double>);
+
+    T value;
+    if constexpr(std::is_same_v<T, int>) {
+        if (gst_structure_get_int(structure, key.characters(), &value))
+            return value;
+    } else if constexpr(std::is_same_v<T, int64_t>) {
+        if (gst_structure_get_int64(structure, key.characters(), &value))
+            return value;
+    } else if constexpr(std::is_same_v<T, unsigned>) {
+        if (gst_structure_get_uint(structure, key.characters(), &value))
+            return value;
+    } else if constexpr(std::is_same_v<T, uint64_t>) {
+        if (gst_structure_get_uint64(structure, key.characters(), &value))
+            return value;
+    } else if constexpr(std::is_same_v<T, double>) {
+        if (gst_structure_get_double(structure, key.characters(), &value))
+            return value;
+    }
+    return std::nullopt;
+}
+
 String gstStructureToJSONString(const GstStructure*);
 
 GstClockTime webkitGstInitTime();
@@ -290,6 +316,24 @@ GRefPtr<GstBuffer> wrapSpanData(const std::span<const uint8_t>&);
 
 void registerActivePipeline(const GRefPtr<GstElement>&);
 void unregisterPipeline(const GRefPtr<GstElement>&);
+
+class WebCoreLogObserver : public Logger::Observer {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_NONCOPYABLE(WebCoreLogObserver);
+    friend NeverDestroyed<WebCoreLogObserver>;
+public:
+    explicit WebCoreLogObserver() = default;
+    void didLogMessage(const WTFLogChannel&, WTFLogLevel, Vector<JSONLogValue>&&) final;
+
+    virtual GstDebugCategory* debugCategory() const = 0;
+    virtual bool shouldEmitLogMessage(const WTFLogChannel&) const = 0;
+
+    void addWatch(const Logger&);
+    void removeWatch(const Logger&);
+
+private:
+    Atomic<uint64_t> m_totalObservers;
+};
 
 } // namespace WebCore
 
@@ -388,5 +432,9 @@ private:
     GUniquePtr<GstIterator> m_iter;
     bool m_started { false };
 };
+
+#if !GST_CHECK_VERSION(1, 20, 0)
+GstBuffer* gst_buffer_new_memdup(gconstpointer data, gsize size);
+#endif
 
 #endif // USE(GSTREAMER)

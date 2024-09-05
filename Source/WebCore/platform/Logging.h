@@ -133,6 +133,7 @@ namespace WebCore {
     M(TextShaping) \
     M(Tiling) \
     M(Threading) \
+    M(WritingTools) \
     M(URLParser) \
     M(Viewports) \
     M(ViewTransitions) \

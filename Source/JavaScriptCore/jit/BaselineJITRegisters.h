@@ -72,6 +72,7 @@ namespace Instanceof {
     static constexpr JSValueRegs protoJSR { preferredArgumentJSR<SlowOperation, 1>() };
     static constexpr GPRReg globalObjectGPR { preferredArgumentGPR<SlowOperation, 2>() };
     static constexpr GPRReg stubInfoGPR { preferredArgumentGPR<SlowOperation, 3>() };
+    static constexpr GPRReg scratch1GPR { globalObjectGPR };
     static_assert(noOverlap(globalObjectGPR, stubInfoGPR, valueJSR, protoJSR), "Required for call to slow operation");
     static_assert(noOverlap(resultJSR, stubInfoGPR));
 }
@@ -98,14 +99,16 @@ namespace ResolveScope {
     static constexpr GPRReg metadataGPR { GPRInfo::regT2 };
     static constexpr GPRReg scopeGPR { GPRInfo::regT0 };
     static constexpr GPRReg bytecodeOffsetGPR { GPRInfo::regT3 };
-    static_assert(noOverlap(metadataGPR, scopeGPR, bytecodeOffsetGPR), "Required for call to CTI thunk");
+    static constexpr GPRReg scratch1GPR { GPRInfo::regT5 };
+    static_assert(noOverlap(metadataGPR, scopeGPR, bytecodeOffsetGPR, scratch1GPR), "Required for call to CTI thunk");
 }
 
 namespace GetFromScope {
     static constexpr GPRReg metadataGPR { GPRInfo::regT4 };
     static constexpr GPRReg scopeGPR { GPRInfo::regT2 };
     static constexpr GPRReg bytecodeOffsetGPR { GPRInfo::regT3 };
-    static_assert(noOverlap(metadataGPR, scopeGPR, bytecodeOffsetGPR), "Required for call to CTI thunk");
+    static constexpr GPRReg scratch1GPR { GPRInfo::regT5 };
+    static_assert(noOverlap(metadataGPR, scopeGPR, bytecodeOffsetGPR, scratch1GPR), "Required for call to CTI thunk");
 }
 
 namespace PutToScope {
@@ -288,7 +291,11 @@ namespace DelById {
     static constexpr GPRReg globalObjectGPR { preferredArgumentGPR<SlowOperation, 1>() };
     static constexpr GPRReg stubInfoGPR { preferredArgumentGPR<SlowOperation, 2>() };
     static constexpr GPRReg scratch1GPR { globalObjectGPR };
-    static_assert(noOverlap(baseJSR, globalObjectGPR, stubInfoGPR), "Required for call to slow operation");
+    static constexpr auto scratchRegisters = allocatedScratchRegisters<GPRInfo, baseJSR, stubInfoGPR, scratch1GPR, GPRInfo::handlerGPR>;
+    static constexpr GPRReg scratch2GPR { scratchRegisters[0] };
+    static constexpr GPRReg scratch3GPR { scratchRegisters[1] };
+
+    static_assert(noOverlap(baseJSR, globalObjectGPR, stubInfoGPR, scratch2GPR, scratch3GPR), "Required for call to slow operation");
     static_assert(noOverlap(resultJSR.payloadGPR(), stubInfoGPR));
 }
 
@@ -301,7 +308,10 @@ namespace DelByVal {
     static constexpr GPRReg globalObjectGPR { preferredArgumentGPR<SlowOperation, 2>() };
     static constexpr GPRReg stubInfoGPR { preferredArgumentGPR<SlowOperation, 3>() };
     static constexpr GPRReg scratch1GPR { globalObjectGPR };
-    static_assert(noOverlap(baseJSR, propertyJSR, globalObjectGPR, stubInfoGPR), "Required for call to slow operation");
+    static constexpr auto scratchRegisters = allocatedScratchRegisters<GPRInfo, baseJSR, propertyJSR, stubInfoGPR, scratch1GPR, GPRInfo::handlerGPR>;
+    static constexpr GPRReg scratch2GPR { scratchRegisters[0] };
+    static constexpr GPRReg scratch3GPR { scratchRegisters[1] };
+    static_assert(noOverlap(baseJSR, propertyJSR, globalObjectGPR, stubInfoGPR, scratch2GPR, scratch3GPR), "Required for call to slow operation");
     static_assert(noOverlap(resultJSR.payloadGPR(), stubInfoGPR));
 }
 

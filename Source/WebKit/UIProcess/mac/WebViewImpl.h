@@ -32,9 +32,10 @@
 #include "ImageAnalysisUtilities.h"
 #include "PDFPluginIdentifier.h"
 #include "WKLayoutMode.h"
-#include "WKTextIndicatorStyleType.h"
+#include "WKTextAnimationType.h"
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/FocusDirection.h>
+#include <WebCore/PlatformPlaybackSessionInterface.h>
 #include <WebCore/ScrollTypes.h>
 #include <WebCore/ShareableBitmap.h>
 #include <WebCore/TextIndicatorWindow.h>
@@ -72,7 +73,7 @@ OBJC_CLASS WKMouseTrackingObserver;
 OBJC_CLASS WKRevealItemPresenter;
 OBJC_CLASS WKSafeBrowsingWarning;
 OBJC_CLASS WKShareSheet;
-OBJC_CLASS WKTextIndicatorStyleManager;
+OBJC_CLASS WKTextAnimationManager;
 OBJC_CLASS WKViewLayoutStrategy;
 OBJC_CLASS WKWebView;
 OBJC_CLASS WKWindowVisibilityObserver;
@@ -119,7 +120,12 @@ struct TextRecognitionResult;
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
 struct TranslationContextMenuInfo;
 #endif
+
+namespace WritingTools {
+enum class ReplacementBehavior : uint8_t;
 }
+
+} // namespace WebCore
 
 @protocol WebViewImplDelegate
 
@@ -159,8 +165,8 @@ struct TranslationContextMenuInfo;
 - (void)_didHandleAcceptedCandidate;
 - (void)_didUpdateCandidateListVisibility:(BOOL)visible;
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-- (BOOL)_web_wantsCompleteUnifiedTextReplacementBehavior;
+#if ENABLE(WRITING_TOOLS)
+- (BOOL)_web_wantsWritingToolsInlineEditing;
 #endif
 
 @end
@@ -189,10 +195,6 @@ struct WebHitTestResultData;
 
 enum class ContinueUnsafeLoad : bool;
 enum class UndoOrRedo : bool;
-
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-enum class WebUnifiedTextReplacementBehavior : uint8_t;
-#endif
 
 typedef id <NSValidatedUserInterfaceItem> ValidationItem;
 typedef Vector<RetainPtr<ValidationItem>> ValidationVector;
@@ -665,6 +667,7 @@ public:
     NSTouchBar *currentTouchBar() const { return m_currentTouchBar.get(); }
     NSCandidateListTouchBarItem *candidateListTouchBarItem() const;
 #if ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
+    RefPtr<WebCore::PlatformPlaybackSessionInterface> protectedPlaybackSessionInterface() const;
     bool isPictureInPictureActive();
     void togglePictureInPicture();
     bool isInWindowFullscreenActive() const;
@@ -703,7 +706,7 @@ public:
     void takeFocus(WebCore::FocusDirection);
     void clearPromisedDragImage();
 
-    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const WebCore::IntRect&, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&);
+    void requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteRequiresInteraction, const WebCore::IntRect&, const String& originIdentifier, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&&);
     void handleDOMPasteRequestForCategoryWithResult(WebCore::DOMPasteAccessCategory, WebCore::DOMPasteAccessResponse);
     NSMenu *domPasteMenu() const { return m_domPasteMenu.get(); }
     void hideDOMPasteMenuWithResult(WebCore::DOMPasteAccessResponse);
@@ -713,13 +716,13 @@ public:
     void handleContextMenuTranslation(const WebCore::TranslationContextMenuInfo&);
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    WebUnifiedTextReplacementBehavior unifiedTextReplacementBehavior() const;
+#if ENABLE(WRITING_TOOLS)
+    WebCore::WritingTools::Behavior writingToolsBehavior() const;
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT) && ENABLE(CONTEXT_MENUS)
-    bool canHandleSwapCharacters() const;
-    void handleContextMenuSwapCharacters(WebCore::IntRect selectionBoundsInRootView);
+#if ENABLE(WRITING_TOOLS) && ENABLE(CONTEXT_MENUS)
+    bool canHandleContextMenuWritingTools() const;
+    void handleContextMenuWritingTools(WebCore::IntRect selectionBoundsInRootView);
 #endif
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
@@ -743,11 +746,9 @@ public:
     bool inlinePredictionsEnabled() const { return m_inlinePredictionsEnabled; }
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    bool wantsCompleteUnifiedTextReplacementBehavior() const;
-
-    void addTextIndicatorStyleForID(WTF::UUID, const WebKit::TextIndicatorStyleData&);
-    void removeTextIndicatorStyleForID(WTF::UUID);
+#if ENABLE(WRITING_TOOLS_UI)
+    void addTextAnimationTypeForID(WTF::UUID, const WebKit::TextAnimationData&);
+    void removeTextAnimationForID(WTF::UUID);
 #endif
 
 #if HAVE(INLINE_PREDICTIONS)
@@ -987,8 +988,8 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     NSInteger m_initialNumberOfValidItemsForDrop { 0 };
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT_UI)
-    RetainPtr<WKTextIndicatorStyleManager> m_textIndicatorStyleManager;
+#if ENABLE(WRITING_TOOLS)
+    RetainPtr<WKTextAnimationManager> m_TextAnimationTypeManager;
 #endif
 
 #if HAVE(NSSCROLLVIEW_SEPARATOR_TRACKING_ADAPTER)

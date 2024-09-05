@@ -48,6 +48,7 @@
 #import "MediaUtilities.h"
 #import "NavigationState.h"
 #import "PageClient.h"
+#import "PlatformWritingToolsUtilities.h"
 #import "ProvisionalPageProxy.h"
 #import "QuickLookThumbnailLoader.h"
 #import "RemoteLayerTreeScrollingPerformanceData.h"
@@ -82,9 +83,9 @@
 #import "WKSecurityOriginInternal.h"
 #import "WKSharedAPICast.h"
 #import "WKSnapshotConfigurationPrivate.h"
+#import "WKTextAnimationType.h"
 #import "WKTextExtractionItem.h"
 #import "WKTextExtractionUtilities.h"
-#import "WKTextIndicatorStyleType.h"
 #import "WKUIDelegate.h"
 #import "WKUIDelegatePrivate.h"
 #import "WKUserContentControllerInternal.h"
@@ -440,9 +441,9 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     _timeOfFirstVisibleContentRectUpdateWithPendingCommit = timeNow;
 #endif
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    _unifiedTextReplacementSessions = [NSMapTable strongToWeakObjectsMapTable];
-    _unifiedTextReplacementSessionReplacements = [NSMapTable strongToWeakObjectsMapTable];
+#if ENABLE(WRITING_TOOLS)
+    _writingToolsSessions = [NSMapTable strongToWeakObjectsMapTable];
+    _writingToolsTextSuggestions = [NSMapTable strongToWeakObjectsMapTable];
 #endif
 }
 
@@ -1787,39 +1788,39 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 }
 #endif
 
-static inline WKTextIndicatorStyleType toWKTextIndicatorStyleType(WebKit::TextIndicatorStyle style)
+static inline WKTextAnimationType toWKTextAnimationType(WebKit::TextAnimationType style)
 {
     switch (style) {
-    case WebKit::TextIndicatorStyle::Initial:
-        return WKTextIndicatorStyleTypeInitial;
-    case WebKit::TextIndicatorStyle::Source:
-        return WKTextIndicatorStyleTypeSource;
-    case WebKit::TextIndicatorStyle::Final:
-        return WKTextIndicatorStyleTypeFinal;
+    case WebKit::TextAnimationType::Initial:
+        return WKTextAnimationTypeInitial;
+    case WebKit::TextAnimationType::Source:
+        return WKTextAnimationTypeSource;
+    case WebKit::TextAnimationType::Final:
+        return WKTextAnimationTypeFinal;
     }
 }
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-- (void)_addTextIndicatorStyleForID:(NSUUID *)nsUUID withData:(const WebKit::TextIndicatorStyleData&)data
+#if ENABLE(WRITING_TOOLS_UI)
+- (void)_addTextAnimationTypeForID:(NSUUID *)nsUUID withData:(const WebKit::TextAnimationData&)data
 {
 #if PLATFORM(IOS_FAMILY)
-    [_contentView addTextIndicatorStyleForID:nsUUID withStyleType:toWKTextIndicatorStyleType(data.style)];
+    [_contentView addTextAnimationTypeForID:nsUUID withStyleType:toWKTextAnimationType(data.style)];
 #elif PLATFORM(MAC)
     auto uuid = WTF::UUID::fromNSUUID(nsUUID);
     if (!uuid)
         return;
-    _impl->addTextIndicatorStyleForID(*uuid, data);
+    _impl->addTextAnimationTypeForID(*uuid, data);
 #endif
 }
-- (void)_removeTextIndicatorStyleForID:(NSUUID *)nsUUID
+- (void)_removeTextAnimationForID:(NSUUID *)nsUUID
 {
 #if PLATFORM(IOS_FAMILY)
-    [_contentView removeTextIndicatorStyleForID:nsUUID];
+    [_contentView removeTextAnimationForID:nsUUID];
 #elif PLATFORM(MAC)
     auto uuid = WTF::UUID::fromNSUUID(nsUUID);
     if (!uuid)
         return;
-    _impl->removeTextIndicatorStyleForID(*uuid);
+    _impl->removeTextAnimationForID(*uuid);
 #endif
 }
 #endif
@@ -2057,6 +2058,262 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     _minimumViewportInset = minimumViewportInset;
     _maximumViewportInset = maximumViewportInset;
 }
+
+#if ENABLE(WRITING_TOOLS)
+
+#pragma mark - Writing Tools API
+
+- (BOOL)isWritingToolsActive
+{
+#if ENABLE(WRITING_TOOLS)
+    return _page->isWritingToolsActive();
+#else
+    return NO;
+#endif
+}
+
+#pragma mark - WTWritingToolsDelegate conformance
+
+- (PlatformWritingToolsAllowedInputOptions)writingToolsAllowedInputOptions {
+    auto& editorState = _page->editorState();
+    if (editorState.isContentEditable && !editorState.isContentRichlyEditable)
+        return PlatformWritingToolsAllowedInputOptionsPlainText;
+
+    PlatformWritingToolsAllowedInputOptions listOption = (PlatformWritingToolsAllowedInputOptions)(1 << 2);
+
+    return PlatformWritingToolsAllowedInputOptionsPlainText | PlatformWritingToolsAllowedInputOptionsRichText | listOption | PlatformWritingToolsAllowedInputOptionsTable;
+}
+
+- (BOOL)wantsWritingToolsInlineEditing
+{
+    return [self _isEditable] || [_configuration writingToolsBehavior] == PlatformWritingToolsBehaviorComplete;
+}
+
+- (void)willBeginWritingToolsSession:(WTSession *)session requestContexts:(void (^)(NSArray<WTContext *> *))completion
+{
+    auto webSession = WebKit::convertToWebSession(session);
+
+    if (session) {
+        [_writingToolsSessions setObject:session forKey:session.uuid];
+        _page->setWritingToolsActive(true);
+    }
+
+    _page->willBeginWritingToolsSession(webSession, [completion = makeBlockPtr(completion)](const auto& contextData) {
+        auto contexts = [NSMutableArray arrayWithCapacity:contextData.size()];
+        for (auto& context : contextData) {
+            auto platformContext = WebKit::convertToPlatformContext(context);
+            [contexts addObject:platformContext.get()];
+        }
+        completion(contexts);
+    });
+}
+
+- (void)didBeginWritingToolsSession:(WTSession *)session contexts:(NSArray<WTContext *> *)contexts
+{
+    auto webSession = WebKit::convertToWebSession(session);
+    if (!webSession) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    Vector<WebCore::WritingTools::Context> contextData;
+    for (WTContext *context in contexts) {
+        auto webContext = WebKit::convertToWebContext(context);
+        if (!webContext) {
+            ASSERT_NOT_REACHED();
+            return;
+        }
+
+        contextData.append(*webContext);
+    }
+
+    // Don't animate smart replies, they are animated by UIKit/AppKit.
+    if (webSession->compositionType != WebCore::WritingTools::Session::CompositionType::SmartReply)
+        [self beginWritingToolsAnimationForSessionWithUUID:session.uuid];
+
+    _page->didBeginWritingToolsSession(*webSession, contextData);
+}
+
+- (void)proofreadingSession:(WTSession *)session didReceiveSuggestions:(NSArray<WTTextSuggestion *> *)suggestions processedRange:(NSRange)range inContext:(WTContext *)context finished:(BOOL)finished
+{
+    auto webSession = WebKit::convertToWebSession(session);
+    if (!webSession) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto webContext = WebKit::convertToWebContext(context);
+    if (!webContext) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    Vector<WebCore::WritingTools::TextSuggestion> replacementData;
+    for (WTTextSuggestion *suggestion in suggestions) {
+        auto replacementDataItem = WebKit::convertToWebTextSuggestion(suggestion);
+        if (!replacementDataItem) {
+            ASSERT_NOT_REACHED();
+            continue;
+        }
+
+        replacementData.append(*replacementDataItem);
+
+        [_writingToolsTextSuggestions setObject:suggestion forKey:suggestion.uuid];
+    }
+
+    _page->proofreadingSessionDidReceiveSuggestions(*webSession, replacementData, *webContext, finished);
+}
+
+- (void)proofreadingSession:(WTSession *)session didUpdateState:(WTTextSuggestionState)state forSuggestionWithUUID:(NSUUID *)suggestionUUID inContext:(WTContext *)context
+{
+    auto webSession = WebKit::convertToWebSession(session);
+    if (!webSession) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto webContext = WebKit::convertToWebContext(context);
+    if (!webContext) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto webTextSuggestionState = WebKit::convertToWebTextSuggestionState(state);
+
+    WTTextSuggestion *suggestion = [_writingToolsTextSuggestions objectForKey:suggestionUUID];
+    if (!suggestion) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto webTextSuggestion = WebKit::convertToWebTextSuggestion(suggestion);
+    if (!webTextSuggestion) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    _page->proofreadingSessionDidUpdateStateForSuggestion(*webSession, webTextSuggestionState, *webTextSuggestion, *webContext);
+}
+
+- (void)didEndWritingToolsSession:(WTSession *)session accepted:(BOOL)accepted
+{
+    auto webSession = WebKit::convertToWebSession(session);
+    if (!webSession) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    [_writingToolsSessions removeObjectForKey:session.uuid];
+    [_writingToolsTextSuggestions removeAllObjects];
+
+    _page->setWritingToolsActive(false);
+
+    _page->didEndWritingToolsSession(*webSession, accepted);
+}
+
+- (void)compositionSession:(WTSession *)session didReceiveText:(NSAttributedString *)attributedText replacementRange:(NSRange)range inContext:(WTContext *)context finished:(BOOL)finished
+{
+    auto webSession = WebKit::convertToWebSession(session);
+    if (!webSession) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    auto webContext = WebKit::convertToWebContext(context);
+    if (!webContext) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    _page->compositionSessionDidReceiveTextWithReplacementRange(*webSession, WebCore::AttributedString::fromNSAttributedString(attributedText), { range }, *webContext, finished);
+}
+
+- (void)writingToolsSession:(WTSession *)session didReceiveAction:(WTAction)action
+{
+    auto webSession = WebKit::convertToWebSession(session);
+    if (!webSession) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    _page->writingToolsSessionDidReceiveAction(*webSession, WebKit::convertToWebAction(action));
+}
+
+
+#pragma mark - WTTextViewDelegate invoking methods
+
+- (void)_proofreadingSessionWithUUID:(NSUUID *)sessionUUID showDetailsForSuggestionWithUUID:(NSUUID *)replacementUUID relativeToRect:(CGRect)rect
+{
+    WTSession *session = [_writingToolsSessions objectForKey:sessionUUID];
+    if (!session)
+        return;
+
+    auto textViewDelegate = (NSObject<WTTextViewDelegate> *)session.textViewDelegate;
+
+    if (![textViewDelegate respondsToSelector:@selector(proofreadingSessionWithUUID:showDetailsForSuggestionWithUUID:relativeToRect:inView:)])
+        return;
+
+#if PLATFORM(MAC)
+    RetainPtr view = self;
+#else
+    RetainPtr view = _contentView;
+#endif
+
+    [textViewDelegate proofreadingSessionWithUUID:session.uuid showDetailsForSuggestionWithUUID:replacementUUID relativeToRect:rect inView:view.get()];
+}
+
+- (void)_proofreadingSessionWithUUID:(NSUUID *)sessionUUID updateState:(WebCore::WritingTools::TextSuggestion::State)state forSuggestionWithUUID:(NSUUID *)replacementUUID
+{
+    WTSession *session = [_writingToolsSessions objectForKey:sessionUUID];
+    if (!session)
+        return;
+
+    auto textViewDelegate = (NSObject<WTTextViewDelegate> *)session.textViewDelegate;
+
+    if (![textViewDelegate respondsToSelector:@selector(proofreadingSessionWithUUID:updateState:forSuggestionWithUUID:)])
+        return;
+
+    [textViewDelegate proofreadingSessionWithUUID:session.uuid updateState:WebKit::convertToPlatformTextSuggestionState(state) forSuggestionWithUUID:replacementUUID];
+}
+
+
+#pragma mark - Writing Tools Animation
+
+- (void)beginWritingToolsAnimationForSessionWithUUID:(NSUUID *)sessionUUID
+{
+#if ENABLE(WRITING_TOOLS_UI)
+#if PLATFORM(MAC)
+    auto uuid = WTF::UUID::fromNSUUID(sessionUUID);
+    if (!uuid) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    _impl->addTextAnimationTypeForID(*uuid, { WebKit::TextAnimationType::Initial, WTF::UUID(WTF::UUID::emptyValue) });
+#else
+    [_contentView addTextAnimationTypeForID:sessionUUID withStyleType:WKTextAnimationTypeInitial];
+#endif
+#endif // ENABLE(WRITING_TOOLS_UI)
+}
+
+- (void)endWritingToolsAnimationForSessionWithUUID:(NSUUID *)sessionUUID
+{
+#if ENABLE(WRITING_TOOLS_UI)
+#if PLATFORM(MAC)
+    auto uuid = WTF::UUID::fromNSUUID(sessionUUID);
+    if (!uuid) {
+        ASSERT_NOT_REACHED();
+        return;
+    }
+
+    _impl->removeTextAnimationForID(*uuid);
+#else
+    [_contentView removeTextAnimationForID:sessionUUID];
+#endif
+#endif // ENABLE(WRITING_TOOLS_UI)
+}
+
+#endif
 
 #if USE(APPLE_INTERNAL_SDK)
 #import <WebKitAdditions/WKWebViewAdditionsAfter.mm>
@@ -2816,60 +3073,73 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 
 - (NSUUID *)_enableTextIndicatorStylingAfterElementWithID:(NSString *)elementID
 {
-    RetainPtr nsUUID = [NSUUID UUID];
-
-    auto uuid = WTF::UUID::fromNSUUID(nsUUID.get());
-    if (!uuid)
-        return nil;
-
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    _page->enableTextIndicatorStyleAfterElementWithID(elementID, *uuid);
-
-#if PLATFORM(IOS_FAMILY)
-    [_contentView addTextIndicatorStyleForID:nsUUID.get() withStyleType:WKTextIndicatorStyleTypeInitial];
-#elif PLATFORM(MAC) && ENABLE(UNIFIED_TEXT_REPLACEMENT_UI)
-    _impl->addTextIndicatorStyleForID(*uuid, { WebKit::TextIndicatorStyle::Initial, WTF::UUID(WTF::UUID::emptyValue) });
-#endif
-    return nsUUID.get();
-#else // ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    return nil;
-#endif
+    return [self _enableSourceTextAnimationAfterElementWithID:elementID];
 }
-
 - (NSUUID *)_enableTextIndicatorStylingForElementWithID:(NSString *)elementID
 {
+    return [self _enableFinalTextAnimationForElementWithID:elementID];
+}
+- (void)_disableTextIndicatorStylingWithUUID:(NSUUID *)nsUUID
+{
+    return [self _disableTextAnimationWithUUID:nsUUID];
+}
+
+- (NSUUID *)_enableSourceTextAnimationAfterElementWithID:(NSString *)elementID
+{
     RetainPtr nsUUID = [NSUUID UUID];
 
     auto uuid = WTF::UUID::fromNSUUID(nsUUID.get());
     if (!uuid)
         return nil;
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    _page->enableTextIndicatorStyleForElementWithID(elementID, *uuid);
+#if ENABLE(WRITING_TOOLS_UI)
+    _page->enableSourceTextAnimationAfterElementWithID(elementID, *uuid);
 
 #if PLATFORM(IOS_FAMILY)
-    [_contentView addTextIndicatorStyleForID:nsUUID.get() withStyleType:WKTextIndicatorStyleTypeFinal];
-#elif PLATFORM(MAC) && ENABLE(UNIFIED_TEXT_REPLACEMENT_UI)
-    _impl->addTextIndicatorStyleForID(*uuid, { WebKit::TextIndicatorStyle::Final, WTF::UUID(WTF::UUID::emptyValue) });
+    [_contentView addTextAnimationTypeForID:nsUUID.get() withStyleType:WKTextAnimationTypeInitial];
+#elif PLATFORM(MAC)
+    _impl->addTextAnimationTypeForID(*uuid, { WebKit::TextAnimationType::Initial, WTF::UUID(WTF::UUID::emptyValue) });
 #endif
     return nsUUID.get();
-#else // ENABLE(UNIFIED_TEXT_REPLACEMENT)
+#else // ENABLE(WRITING_TOOLS_UI)
     return nil;
 #endif
 }
 
-- (void)_disableTextIndicatorStylingWithUUID:(NSUUID *)nsUUID
+- (NSUUID *)_enableFinalTextAnimationForElementWithID:(NSString *)elementID
 {
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
+    RetainPtr nsUUID = [NSUUID UUID];
+
+    auto uuid = WTF::UUID::fromNSUUID(nsUUID.get());
+    if (!uuid)
+        return nil;
+
+#if ENABLE(WRITING_TOOLS_UI)
+    _page->enableTextAnimationTypeForElementWithID(elementID, *uuid);
+
 #if PLATFORM(IOS_FAMILY)
-    [_contentView removeTextIndicatorStyleForID:nsUUID];
-#elif PLATFORM(MAC) && ENABLE(UNIFIED_TEXT_REPLACEMENT_UI)
+    [_contentView addTextAnimationTypeForID:nsUUID.get() withStyleType:WKTextAnimationTypeFinal];
+#elif PLATFORM(MAC)
+    _impl->addTextAnimationTypeForID(*uuid, { WebKit::TextAnimationType::Final, WTF::UUID(WTF::UUID::emptyValue) });
+#endif
+    return nsUUID.get();
+#else // ENABLE(WRITING_TOOLS_UI)
+    return nil;
+#endif
+}
+
+- (void)_disableTextAnimationWithUUID:(NSUUID *)nsUUID
+{
+#if ENABLE(WRITING_TOOLS_UI)
+#if PLATFORM(IOS_FAMILY)
+    [_contentView removeTextAnimationForID:nsUUID];
+#elif PLATFORM(MAC)
     auto uuid = WTF::UUID::fromNSUUID(nsUUID);
     if (!uuid)
         return;
-    _impl->removeTextIndicatorStyleForID(*uuid);
+    _impl->removeTextAnimationForID(*uuid);
 #endif
-#endif
+#endif // ENABLE(WRITING_TOOLS_UI)
 }
 
 - (void)_requestTargetedElementInfo:(_WKTargetedElementRequest *)request completionHandler:(void(^)(NSArray<_WKTargetedElementInfo *> *))completion
@@ -4414,15 +4684,6 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
     _page->numberOfVisibilityAdjustmentRects([completion = makeBlockPtr(completion)](uint64_t count) {
         completion(static_cast<NSUInteger>(count));
     });
-}
-
-- (BOOL)_isUnifiedTextReplacementActive
-{
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    return _page->isUnifiedTextReplacementActive();
-#else
-    return NO;
-#endif
 }
 
 @end

@@ -2511,7 +2511,7 @@ class CheckStatusOfPR(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
     name = 'check-status-of-pr'
     flunkOnFailure = False
     haltOnFailure = False
-    EMBEDDED_CHECKS = ['ios', 'ios-sim', 'ios-wk2', 'ios-wk2-wpt', 'api-ios', 'tv', 'tv-sim', 'watch', 'watch-sim']
+    EMBEDDED_CHECKS = ['ios', 'ios-sim', 'ios-wk2', 'ios-wk2-wpt', 'api-ios', 'vision', 'vision-sim', 'vision-wk2', 'tv', 'tv-sim', 'watch', 'watch-sim']
     MACOS_CHECKS = ['mac', 'mac-AS-debug', 'api-mac', 'mac-wk1', 'mac-wk2', 'mac-AS-debug-wk2', 'mac-wk2-stress', 'jsc', 'jsc-arm64']
     LINUX_CHECKS = ['gtk', 'gtk-wk2', 'api-gtk', 'wpe', 'wpe-cairo', 'wpe-wk2', 'api-wpe', 'jsc-armv7', 'jsc-armv7-tests']
     WINDOWS_CHECKS = ['wincairo']
@@ -3125,11 +3125,11 @@ class InstallWinDependencies(shell.ShellCommandNewStyle):
 
 def customBuildFlag(platform, fullPlatform):
     # FIXME: Make a common 'supported platforms' list.
-    if platform not in ('gtk', 'wincairo', 'ios', 'jsc-only', 'wpe', 'playstation', 'tvos', 'watchos'):
+    if platform not in ('gtk', 'wincairo', 'ios', 'visionos', 'jsc-only', 'wpe', 'playstation', 'tvos', 'watchos'):
         return []
     if 'simulator' in fullPlatform:
         platform = platform + '-simulator'
-    elif platform in ['ios', 'tvos', 'watchos']:
+    elif platform in ['ios', 'visionos', 'tvos', 'watchos']:
         platform = platform + '-device'
     return ['--' + platform]
 
@@ -3181,7 +3181,7 @@ class CompileWebKit(shell.Compile, AddToLogMixin, ShellMixin):
     build_command = ['perl', 'Tools/Scripts/build-webkit']
     filter_command = ['perl', 'Tools/Scripts/filter-build-webkit', '-logfile', 'build-log.txt']
     VALID_ADDITIONAL_ARGUMENTS_LIST = []  # If additionalArguments is added to config.json for CompileWebKit step, it should be added here as well.
-    APPLE_PLATFORMS = ('mac', 'ios', 'tvos', 'watchos')
+    APPLE_PLATFORMS = ('mac', 'ios', 'visionos', 'tvos', 'watchos')
 
     def __init__(self, skipUpload=False, **kwargs):
         self.skipUpload = skipUpload
@@ -5398,7 +5398,7 @@ class RunAPITests(shell.TestNewStyle, AddToLogMixin, ShellMixin):
     MSG_FOR_EXCESSIVE_LOGS_API_TEST = f'Stopped due to excessive logging, limit: {THRESHOLD_FOR_EXCESSIVE_LOGS_API_TESTS}'
 
     def __init__(self, **kwargs):
-        super().__init__(logEnviron=False, timeout=2 * 60 * 60, **kwargs)
+        super().__init__(logEnviron=False, timeout=3 * 60 * 60, **kwargs)
         self.failing_tests_filtered = []
         self.preexisting_failures_in_results_db = []
         self.steps_to_add = []
@@ -5573,7 +5573,7 @@ class ReRunAPITests(RunAPITests):
     suffix = 'second_run'
 
     def doOnFailure(self):
-        self.steps_to_add = [RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyBugClosed=False, addURLs=False)]
+        self.steps_to_add += [RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyBugClosed=False, addURLs=False)]
         platform = self.getProperty('platform')
         if platform == 'wpe':
             self.steps_to_add.append(InstallWpeDependencies())
@@ -5839,7 +5839,7 @@ class PrintConfiguration(steps.ShellSequence):
         platform = self.getProperty('platform', '*')
         if platform != 'jsc-only':
             platform = platform.split('-')[0]
-        if platform in ('mac', 'ios', 'tvos', 'watchos', '*'):
+        if platform in ('mac', 'ios', 'visionos', 'tvos', 'watchos', '*'):
             command_list.extend(self.command_list_apple)
         elif platform in ('gtk', 'wpe', 'jsc-only'):
             command_list.extend(self.command_list_linux)
@@ -6564,9 +6564,16 @@ class ValidateCommitMessage(steps.ShellSequence, ShellMixin, AddToLogMixin):
             defer.returnValue(rc)
             return
 
-        self.contributors, errors = yield Contributors.load(use_network=True)
-        for error in errors:
-            self._addToLog('stdio', error)
+        retry_attempts = 3
+        for i in range(1, retry_attempts + 1):
+            self.contributors, errors = yield Contributors.load(use_network=True)
+            for error in errors:
+                self._addToLog('stdio', error)
+            self._addToLog('stdio', '\n')
+            if self.contributors:
+                break
+            if i < retry_attempts:
+                self._addToLog('stdio', f'Retrying, attempt {i + 1} of {retry_attempts}...\n')
 
         reviewers, log_text = self.extract_reviewers(self.log_observer.getStdout())
         log_text = log_text.rstrip()
@@ -6576,7 +6583,7 @@ class ValidateCommitMessage(steps.ShellSequence, ShellMixin, AddToLogMixin):
             self.summary = 'ChangeLog modified, WebKit only allows commit messages'
             rc = FAILURE
         elif log_text:
-            self.summary = log_text
+            self.summary = log_text.split('\n')[0]  # Display the first error if there are multiple
             rc = FAILURE
         elif rc == SUCCESS:
             if reviewers and not self.contributors:

@@ -128,7 +128,7 @@ ServiceWorkerThread::~ServiceWorkerThread() = default;
 Ref<WorkerGlobalScope> ServiceWorkerThread::createWorkerGlobalScope(const WorkerParameters& params, Ref<SecurityOrigin>&& origin, Ref<SecurityOrigin>&& topOrigin)
 {
     RELEASE_ASSERT(m_contextData);
-    return ServiceWorkerGlobalScope::create(*std::exchange(m_contextData, std::nullopt), *std::exchange(m_workerData, std::nullopt), params, WTFMove(origin), *this, WTFMove(topOrigin), idbConnectionProxy(), socketProvider(), WTFMove(m_notificationClient));
+    return ServiceWorkerGlobalScope::create(*std::exchange(m_contextData, std::nullopt), *std::exchange(m_workerData, std::nullopt), params, WTFMove(origin), *this, WTFMove(topOrigin), idbConnectionProxy(), socketProvider(), WTFMove(m_notificationClient), WTFMove(m_workerClient));
 }
 
 void ServiceWorkerThread::runEventLoop()
@@ -137,11 +137,11 @@ void ServiceWorkerThread::runEventLoop()
     WorkerThread::runEventLoop();
 }
 
-void ServiceWorkerThread::queueTaskToFireFetchEvent(Ref<ServiceWorkerFetch::Client>&& client, ResourceRequest&& request, String&& referrer, FetchOptions&& options, FetchIdentifier fetchIdentifier, bool isServiceWorkerNavigationPreloadEnabled, String&& clientIdentifier, String&& resultingClientIdentifier)
+void ServiceWorkerThread::queueTaskToFireFetchEvent(Ref<ServiceWorkerFetch::Client>&& client, ResourceRequest&& request, String&& referrer, FetchOptions&& options, SWServerConnectionIdentifier connectionIdentifier, FetchIdentifier fetchIdentifier, bool isServiceWorkerNavigationPreloadEnabled, String&& clientIdentifier, String&& resultingClientIdentifier)
 {
     Ref serviceWorkerGlobalScope = downcast<ServiceWorkerGlobalScope>(*globalScope());
-    serviceWorkerGlobalScope->eventLoop().queueTask(TaskSource::DOMManipulation, [serviceWorkerGlobalScope, client = WTFMove(client), request = WTFMove(request), referrer = WTFMove(referrer), options = WTFMove(options), fetchIdentifier, isServiceWorkerNavigationPreloadEnabled, clientIdentifier = WTFMove(clientIdentifier), resultingClientIdentifier = WTFMove(resultingClientIdentifier)]() mutable {
-        ServiceWorkerFetch::dispatchFetchEvent(WTFMove(client), serviceWorkerGlobalScope, WTFMove(request), WTFMove(referrer), WTFMove(options), fetchIdentifier, isServiceWorkerNavigationPreloadEnabled, WTFMove(clientIdentifier), WTFMove(resultingClientIdentifier));
+    serviceWorkerGlobalScope->eventLoop().queueTask(TaskSource::DOMManipulation, [serviceWorkerGlobalScope, client = WTFMove(client), request = WTFMove(request), referrer = WTFMove(referrer), options = WTFMove(options), connectionIdentifier, fetchIdentifier, isServiceWorkerNavigationPreloadEnabled, clientIdentifier = WTFMove(clientIdentifier), resultingClientIdentifier = WTFMove(resultingClientIdentifier)]() mutable {
+        ServiceWorkerFetch::dispatchFetchEvent(WTFMove(client), serviceWorkerGlobalScope, WTFMove(request), WTFMove(referrer), WTFMove(options), connectionIdentifier, fetchIdentifier, isServiceWorkerNavigationPreloadEnabled, WTFMove(clientIdentifier), WTFMove(resultingClientIdentifier));
     });
 }
 

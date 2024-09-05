@@ -214,6 +214,8 @@ public:
         LegacySVGPath,
         LegacySVGRect,
         LegacySVGResourceClipper,
+        LegacySVGResourceFilter,
+        LegacySVGResourceFilterPrimitive,
         LegacySVGResourceLinearGradient,
         LegacySVGResourceMarker,
         LegacySVGResourceMasker,
@@ -508,10 +510,9 @@ public:
     bool beingDestroyed() const { return m_stateBitfields.hasFlag(StateFlag::BeingDestroyed); }
 
     bool everHadLayout() const { return m_stateBitfields.hasFlag(StateFlag::EverHadLayout); }
+    std::optional<bool> wasSkippedDuringLastLayoutDueToContentVisibility() const { return everHadLayout() ? std::make_optional(m_stateBitfields.hasFlag(StateFlag::WasSkippedDuringLastLayoutDueToContentVisibility)) : std::nullopt; }
 
     static ScrollAnchoringController* searchParentChainForScrollAnchoringController(const RenderObject&);
-
-    bool everHadSkippedContentLayout() const { return m_stateBitfields.hasFlag(StateFlag::EverHadSkippedContentLayout); }
 
     bool childrenInline() const { return m_stateBitfields.hasFlag(StateFlag::ChildrenInline); }
     virtual void setChildrenInline(bool b) { m_stateBitfields.setFlag(StateFlag::ChildrenInline, b); }
@@ -559,7 +560,7 @@ public:
     bool isLegacyRenderSVGViewportContainer() const { return type() == Type::LegacySVGViewportContainer; }
     bool isRenderSVGGradientStop() const { return type() == Type::SVGGradientStop; }
     bool isLegacyRenderSVGHiddenContainer() const { return type() == Type::LegacySVGHiddenContainer || isLegacyRenderSVGResourceContainer(); }
-    bool isRenderSVGHiddenContainer() const { return type() == Type::SVGHiddenContainer || isRenderSVGResourceContainer(); }
+    bool isRenderSVGHiddenContainer() const { return type() == Type::SVGHiddenContainer || isRenderSVGResourceContainer() || isRenderSVGResourceFilterPrimitive(); }
     bool isLegacyRenderSVGPath() const { return type() == Type::LegacySVGPath; }
     bool isRenderSVGPath() const { return type() == Type::SVGPath; }
     bool isRenderSVGShape() const { return isRenderSVGModelObject() && m_typeSpecificFlags.svgFlags().contains(SVGModelObjectFlag::IsShape); }
@@ -575,14 +576,16 @@ public:
     bool isRenderSVGForeignObject() const { return type() == Type::SVGForeignObject; }
     bool isLegacyRenderSVGResourceContainer() const { return isLegacyRenderSVGModelObject() && m_typeSpecificFlags.svgFlags().contains(SVGModelObjectFlag::IsResourceContainer); }
     bool isRenderSVGResourceContainer() const { return isRenderSVGModelObject() && m_typeSpecificFlags.svgFlags().contains(SVGModelObjectFlag::IsResourceContainer); }
+    bool isLegacyRenderSVGResourceFilter() const { return type() == Type::LegacySVGResourceFilter; }
     bool isRenderSVGResourceFilter() const { return type() == Type::SVGResourceFilter; }
     bool isLegacyRenderSVGResourceClipper() const { return type() == Type::LegacySVGResourceClipper; }
     bool isLegacyRenderSVGResourceMarker() const { return type() == Type::LegacySVGResourceMarker; }
     bool isLegacyRenderSVGResourceMasker() const { return type() == Type::LegacySVGResourceMasker; }
     bool isRenderSVGResourceGradient() const { return type() == Type::SVGResourceLinearGradient || type() == Type::SVGResourceRadialGradient; }
-    bool isRenderSVGResourcePaintServer() const { return isRenderSVGResourceGradient() || isRenderSVGResourcePattern(); }
+    bool isRenderSVGResourcePaintServer() const { return isRenderSVGResourceFilter() || isRenderSVGResourceGradient() || isRenderSVGResourcePattern(); }
     bool isRenderSVGResourcePattern() const { return type() == Type::SVGResourcePattern; }
     bool isRenderSVGResourceClipper() const { return type() == Type::SVGResourceClipper; }
+    bool isLegacyRenderSVGResourceFilterPrimitive() const { return type() == Type::LegacySVGResourceFilterPrimitive; }
     bool isRenderSVGResourceFilterPrimitive() const { return type() == Type::SVGResourceFilterPrimitive; }
     bool isRenderSVGResourceLinearGradient() const { return type() == Type::SVGResourceLinearGradient; }
     bool isRenderSVGResourceMarker() const { return type() == Type::SVGResourceMarker; }
@@ -594,6 +597,7 @@ public:
     bool isRenderOrLegacyRenderSVGImage() const { return isRenderSVGImage() || isLegacyRenderSVGImage(); }
     bool isRenderOrLegacyRenderSVGForeignObject() const { return isRenderSVGForeignObject() || isLegacyRenderSVGForeignObject(); }
     bool isRenderOrLegacyRenderSVGModelObject() const { return isRenderSVGModelObject() || isLegacyRenderSVGModelObject(); }
+    bool isRenderOrLegacyRenderSVGResourceFilterPrimitive() const { return isRenderSVGResourceFilterPrimitive() || isLegacyRenderSVGResourceFilterPrimitive(); }
     bool isSVGLayerAwareRenderer() const { return isRenderSVGRoot() || isRenderSVGModelObject() || isRenderSVGText() || isRenderSVGInline() || isRenderSVGForeignObject(); }
     bool isSVGRenderer() const { return isRenderOrLegacyRenderSVGRoot() || isLegacyRenderSVGModelObject() || isRenderSVGModelObject() || isRenderSVGBlock() || isRenderSVGInline(); }
 
@@ -769,8 +773,8 @@ public:
 
     RenderElement* markContainingBlocksForLayout(RenderElement* layoutRoot = nullptr);
     void setNeedsLayout(MarkingBehavior = MarkContainingBlockChain);
-    enum class EverHadSkippedContentLayout { Yes, No };
-    void clearNeedsLayout(EverHadSkippedContentLayout = EverHadSkippedContentLayout::Yes);
+    enum class HadSkippedLayout { No, Yes };
+    void clearNeedsLayout(HadSkippedLayout = HadSkippedLayout::No);
     void setPreferredLogicalWidthsDirty(bool, MarkingBehavior = MarkContainingBlockChain);
     void invalidateContainerPreferredLogicalWidths();
     
@@ -1190,8 +1194,7 @@ private:
     void propagateRepaintToParentWithOutlineAutoIfNeeded(const RenderLayerModelObject& repaintContainer, const LayoutRect& repaintRect) const;
 
     void setEverHadLayout() { m_stateBitfields.setFlag(StateFlag::EverHadLayout); }
-
-    void setEverHadSkippedContentLayout(bool b) { m_stateBitfields.setFlag(StateFlag::EverHadSkippedContentLayout, b); }
+    void setHadSkippedLayout(bool b) { m_stateBitfields.setFlag(StateFlag::WasSkippedDuringLastLayoutDueToContentVisibility, b); }
 
     bool hasRareData() const { return m_stateBitfields.hasFlag(StateFlag::HasRareData); }
 
@@ -1227,7 +1230,7 @@ private:
         ChildrenInline = 1 << 18,
         PaintContainmentApplies = 1 << 19,
         HasSVGTransform = 1 << 20,
-        EverHadSkippedContentLayout = 1 << 21,
+        WasSkippedDuringLastLayoutDueToContentVisibility = 1 << 21,
         CapturedInViewTransition = 1 << 22
     };
 

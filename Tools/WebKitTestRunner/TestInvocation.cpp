@@ -942,11 +942,15 @@ WKRetainPtr<WKTypeRef> TestInvocation::didReceiveSynchronousMessageFromInjectedB
         return adoptWK(WKUInt64Create(count));
     }
 
-    if (WKStringIsEqualToUTF8CString(messageName, "GrantNotificationPermission"))
+    if (WKStringIsEqualToUTF8CString(messageName, "GrantNotificationPermission")) {
+        WKPageSetPermissionLevelForTesting(TestController::singleton().mainWebView()->page(), stringValue(messageBody), true);
         return adoptWK(WKBooleanCreate(TestController::singleton().grantNotificationPermission(stringValue(messageBody))));
+    }
 
-    if (WKStringIsEqualToUTF8CString(messageName, "DenyNotificationPermission"))
+    if (WKStringIsEqualToUTF8CString(messageName, "DenyNotificationPermission")) {
+        WKPageSetPermissionLevelForTesting(TestController::singleton().mainWebView()->page(), stringValue(messageBody), false);
         return adoptWK(WKBooleanCreate(TestController::singleton().denyNotificationPermission(stringValue(messageBody))));
+    }
 
     if (WKStringIsEqualToUTF8CString(messageName, "DenyNotificationPermissionOnPrompt"))
         return adoptWK(WKBooleanCreate(TestController::singleton().denyNotificationPermissionOnPrompt(stringValue(messageBody))));
@@ -1395,6 +1399,15 @@ WKRetainPtr<WKTypeRef> TestInvocation::didReceiveSynchronousMessageFromInjectedB
         TestController::singleton().setRequestStorageAccessThrowsExceptionUntilReload(booleanValue(messageBody));
         return nullptr;
     }
+
+    if (WKStringIsEqualToUTF8CString(messageName, "ExecuteCommand")) {
+        auto dictionary = dictionaryValue(messageBody);
+        WKPageExecuteCommandForTesting(TestController::singleton().mainWebView()->page(), stringValue(dictionary, "Command"), stringValue(dictionary, "Value"));
+        return nullptr;
+    }
+
+    if (WKStringIsEqualToUTF8CString(messageName, "IsCommandEnabled"))
+        return adoptWK(WKBooleanCreate(WKPageIsEditingCommandEnabledForTesting(TestController::singleton().mainWebView()->page(), stringValue(messageBody))));
 
     ASSERT_NOT_REACHED();
     return nullptr;

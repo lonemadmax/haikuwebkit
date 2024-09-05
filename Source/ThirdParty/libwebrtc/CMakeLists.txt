@@ -60,7 +60,6 @@ set(webrtc_SOURCES
     Source/third_party/abseil-cpp/absl/debugging/stacktrace.cc
     Source/third_party/abseil-cpp/absl/debugging/symbolize.cc
     Source/third_party/abseil-cpp/absl/flags/commandlineflag.cc
-    Source/third_party/abseil-cpp/absl/flags/flag.cc
     Source/third_party/abseil-cpp/absl/flags/flag_test_defs.cc
     Source/third_party/abseil-cpp/absl/flags/internal/commandlineflag.cc
     Source/third_party/abseil-cpp/absl/flags/internal/flag.cc
@@ -2308,7 +2307,7 @@ endif ()
 add_library(webrtc STATIC ${webrtc_SOURCES})
 
 target_compile_options(webrtc PRIVATE
-    "$<$<COMPILE_LANGUAGE:CXX>:-std=c++2a>"
+    "$<$<COMPILE_LANGUAGE:CXX>:-std=c++2b>"
     "-UHAVE_CONFIG_H"
     "-DWEBRTC_WEBKIT_BUILD=1"
     "-w"

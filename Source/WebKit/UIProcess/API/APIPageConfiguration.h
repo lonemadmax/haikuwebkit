@@ -28,10 +28,10 @@
 #include "APIObject.h"
 #include "WebPreferencesDefaultValues.h"
 #include "WebURLSchemeHandler.h"
-#include "WebUnifiedTextReplacementContextData.h"
 #include <WebCore/ContentSecurityPolicy.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
+#include <WebCore/WritingToolsTypes.h>
 #include <wtf/Forward.h>
 #include <wtf/GetPtr.h>
 #include <wtf/HashMap.h>
@@ -382,9 +382,9 @@ public:
     bool allowsInlinePredictions() const { return m_data.allowsInlinePredictions; }
     void setAllowsInlinePredictions(bool allows) { m_data.allowsInlinePredictions = allows; }
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-    WebKit::WebUnifiedTextReplacementBehavior unifiedTextReplacementBehavior() const { return m_data.unifiedTextReplacementBehavior; }
-    void setUnifiedTextReplacementBehavior(WebKit::WebUnifiedTextReplacementBehavior behavior) { m_data.unifiedTextReplacementBehavior = behavior; }
+#if ENABLE(WRITING_TOOLS)
+    WebCore::WritingTools::Behavior writingToolsBehavior() const { return m_data.writingToolsBehavior; }
+    void setWritingToolsBehavior(WebCore::WritingTools::Behavior behavior) { m_data.writingToolsBehavior = behavior; }
 #endif
 
     void setShouldRelaxThirdPartyCookieBlocking(WebCore::ShouldRelaxThirdPartyCookieBlocking value) { m_data.shouldRelaxThirdPartyCookieBlocking = value; }
@@ -586,8 +586,8 @@ private:
         bool scrollToTextFragmentIndicatorEnabled { true };
         bool scrollToTextFragmentMarkingEnabled { true };
 
-#if ENABLE(UNIFIED_TEXT_REPLACEMENT)
-        WebKit::WebUnifiedTextReplacementBehavior unifiedTextReplacementBehavior { WebKit::WebUnifiedTextReplacementBehavior::Default };
+#if ENABLE(WRITING_TOOLS)
+        WebCore::WritingTools::Behavior writingToolsBehavior { WebCore::WritingTools::Behavior::Default };
 #endif
 
         WebCore::ShouldRelaxThirdPartyCookieBlocking shouldRelaxThirdPartyCookieBlocking { WebCore::ShouldRelaxThirdPartyCookieBlocking::No };

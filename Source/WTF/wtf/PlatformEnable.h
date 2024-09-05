@@ -561,6 +561,14 @@
 #define ENABLE_WHEEL_EVENT_REGIONS 0
 #endif
 
+#if !defined(ENABLE_WRITING_TOOLS)
+#define ENABLE_WRITING_TOOLS 0
+#endif
+
+#if !defined(ENABLE_WRITING_TOOLS_UI)
+#define ENABLE_WRITING_TOOLS_UI 0
+#endif
+
 #if !defined(ENABLE_WKPDFVIEW)
 #define ENABLE_WKPDFVIEW 0
 #endif
@@ -876,7 +884,7 @@
 #endif
 
 /* CSS Selector JIT Compiler */
-#if !defined(ENABLE_CSS_SELECTOR_JIT) && ((CPU(X86_64) || CPU(ARM64)) && ENABLE(JIT) && (OS(DARWIN) || OS(HAIKU) || OS(WINDOWS) || PLATFORM(GTK) || PLATFORM(WPE)))
+#if !defined(ENABLE_CSS_SELECTOR_JIT) && ((CPU(X86_64) || CPU(ARM64)) && ENABLE(JIT) && (OS(DARWIN) || OS(HAIKU) || PLATFORM(GTK) || PLATFORM(WPE)))
 #define ENABLE_CSS_SELECTOR_JIT 1
 #endif
 

@@ -2058,6 +2058,7 @@
    {
       "emails" : [
          "david_choi5@apple.com",
+         "davidchoi1027@gmail.com",
          "djchoi@andrew.cmu.edu"
       ],
       "expertise" : "WebCore",
@@ -2065,7 +2066,8 @@
       "name" : "David Choi",
       "nicks" : [
          "RWDavid"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -6099,7 +6101,8 @@
       "name" : "Nitin Mahendru",
       "nicks" : [
          "Nitin"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -6440,6 +6443,14 @@
       "nicks" : [
          "pol"
       ]
+   },
+   {
+      "emails" : [
+         "pbahrami@apple.com",
+         "pnikkhah@ucdavis.edu"
+      ],
+      "github" : "pooneh-nb",
+      "name" : "Pouneh Bahrami"
    },
    {
       "emails" : [

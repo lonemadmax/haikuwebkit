@@ -181,15 +181,6 @@ http/tests/webAPIStatistics [ Pass ]
 scrollingcoordinator/non-fast-scrollable-region-scaled-iframe.html [ Skip ]
 scrollingcoordinator/non-fast-scrollable-region-transformed-iframe.html [ Skip ]
 
-# The CNAME and cookie transform SPIs are only available in iOS 14 and above.
-http/tests/resourceLoadStatistics/cname-cloaking-top-cname-sub-1p-cname.html [ Pass ]
-http/tests/resourceLoadStatistics/cname-cloaking-top-cname-sub-3p-cname.html [ Pass ]
-http/tests/resourceLoadStatistics/cname-cloaking-top-cname-sub-matching-cname.html [ Pass ]
-http/tests/resourceLoadStatistics/cname-cloaking-top-cname-sub-no-cname.html [ Pass ]
-http/tests/resourceLoadStatistics/cname-cloaking-top-no-cname-sub-1p-cname.html [ Pass ]
-http/tests/resourceLoadStatistics/cname-cloaking-top-no-cname-sub-3p-cname.html [ Pass ]
-http/tests/resourceLoadStatistics/cname-cloaking-top-no-cname-sub-no-cname.html [ Pass ]
-
 imported/w3c/web-platform-tests/video-rvfc [ Pass ]
 fast/mediastream/getUserMedia-rvfc.html [ Pass ]
 webrtc/peerConnection-rvfc.html [ Pass ]
@@ -3141,6 +3132,7 @@ fast/events/touch/ios/pointer-events-with-modifiers.html [ Skip ]
 
 webkit.org/b/191707 imported/w3c/web-platform-tests/webrtc/simplecall-no-ssrcs.https.html [ Skip ]
 webkit.org/b/191707 imported/w3c/web-platform-tests/webrtc/simplecall.https.html [ Skip ]
+imported/w3c/web-platform-tests/webrtc-encoded-transform/script-metadata-transform.https.html [ Skip ]
 
 webkit.org/b/197473 imported/w3c/web-platform-tests/resource-timing/resource-timing-level1.sub.html [ Pass Failure ]
 
@@ -3290,8 +3282,6 @@ webkit.org/b/207858 fast/canvas/webgl/uninitialized-test.html [ Pass Failure ]
 webkit.org/b/207858 fast/canvas/webgl/oes-texture-float-linear.html [ Pass Failure ]
 webkit.org/b/207858 fast/canvas/webgl/tex-image-and-sub-image-2d-with-video.html [ Pass Failure ]
 
-webkit.org/b/208023 fast/text/international/system-language/declarative-language.html [ Failure ]
-
 webkit.org/b/204312 imported/w3c/web-platform-tests/svg/import/struct-dom-06-b-manual.svg [ Failure Pass ]
 
 webkit.org/b/209257 svg/as-object/object-box-sizing-no-width-height.html [ Pass Failure ]
@@ -3336,6 +3326,7 @@ webkit.org/b/250767 imported/w3c/web-platform-tests/html/user-activation/activat
 # :hover simulation not working on iOS
 imported/w3c/web-platform-tests/css/selectors/hover-002.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-text-decor/invalidation/text-decoration-thickness.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-view-transitions/hit-test-unrelated-element.html [ Skip ]
 
 # Certain versions of iOS use different text security characters.
 webkit.org/b/209692 platform/ios/fast/text/text-security-disc-bullet-pua-ios-new.html [ Pass ]
@@ -3712,8 +3703,6 @@ imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visib
 imported/w3c/web-platform-tests/html/user-activation/no-activation-thru-escape-key.html
 
 webkit.org/b/240670 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-move-into-script-disabled-iframe.html [ Pass Crash ]
-
-webkit.org/b/231266 fast/events/ios/rotation/layout-viewport-during-safari-type-rotation.html [ Pass Failure ]
 
 webkit.org/b/227845 [ Debug ] webaudio/audioworket-out-of-memory.html [ Pass Timeout DumpJSConsoleLogInStdErr ]
 
@@ -4599,7 +4588,6 @@ webkit.org/b/257904 http/tests/site-isolation/draw-after-navigation.html [ Skip 
 webkit.org/b/257904 http/tests/site-isolation/draw-with-size-after-same-origin-navigation.html [ Skip ]
 webkit.org/b/257904 http/tests/site-isolation/page-zoom.html [ Skip ]
 webkit.org/b/257904 http/tests/site-isolation/selection-focus.html [ Skip ]
-webkit.org/b/257904 http/tests/site-isolation/basic-iframe-render-output.html [ Failure Timeout Pass ]
 
 webkit.org/b/269550 http/tests/site-isolation/scrolling/ [ Skip ]
 
@@ -4697,9 +4685,7 @@ webkit.org/b/266356 imported/w3c/web-platform-tests/video-rvfc/request-video-fra
 imported/w3c/web-platform-tests/css/css-contain/contain-size-block-003.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-contain/contain-size-inline-block-003.html [ ImageOnlyFailure ]
 
-# webkit.org/b/266660 [GARDENING] NEW-TEST(270986@main):[ iOS17 ] 2X imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-below-viewport-partially-onscreen are constant ImageOnlyFailures
-imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-below-viewport-partially-onscreen-new.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-below-viewport-partially-onscreen-old.html [ ImageOnlyFailure ]
+# Needs extra fuzziness on iOS.
 imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-on-top-of-viewport-partially-onscreen-old.html [ ImageOnlyFailure ]
 
 # webkit.org/b/266661 RE-IMPORT(271918@main) 3X imported/w3c/web-platform-tests/css/selectors (layout-tests) are constant text failures
@@ -6186,15 +6172,15 @@ webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-i
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-indent-vrl-014.xht [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-indent-vrl-016.xht [ ImageOnlyFailure ]
 
-# rdar://problem/59595496
+# webkit.org/b/275710 (REGRESSION (iOS 14): [ iOS ] 8 quicklook tests are constantly failing.)
 quicklook/keynote-09.html [ Failure ]
 quicklook/keynote.html [ ImageOnlyFailure ]
 quicklook/numbers-09.html [ Failure ]
 quicklook/numbers.html [ ImageOnlyFailure ]
 quicklook/pages-09.html [ Failure ]
 quicklook/pages.html [ ImageOnlyFailure ]
-webkit.org/b/175865 quicklook/multi-sheet-numbers-09.html [ Skip ]
-http/tests/quicklook/secure-document-with-subresources.html [ Skip ]
+quicklook/multi-sheet-numbers-09.html [ Failure ]
+http/tests/quicklook/secure-document-with-subresources.html [ ImageOnlyFailure ]
 
 webkit.org/b/209446 imported/w3c/web-platform-tests/navigation-timing/test_timing_attributes_order.html [ Pass Failure ]
 
@@ -6427,22 +6413,13 @@ http/wpt/mediarecorder/video-rotation.html [ Pass Failure ]
 
 webkit.org/b/228604 [ Release ] http/wpt/mediarecorder/set-srcObject-MediaStream-Blob.html [ Pass Failure ]
 
-# These tests currently fail or are flaky in EWS on iOS 14.
-editing/selection/ios/changing-selection-does-not-trigger-autocapitalization.html [ Pass Timeout ]
-editing/selection/ios/do-not-hide-selection-in-visible-field.html [ Failure ]
-
-webkit.org/b/231962 editing/selection/modal-dialog-select-paragraph.html [ Failure ]
+# iOS does not support eventSender.mouse*
+webkit.org/b/231962 editing/selection/modal-dialog-select-paragraph.html [ WontFix ]
 
 # rdar://80393995 ([ iOS15 ] http/tests/media/modern-media-controls/overflow-support/playback-speed-live-broadcast.html is a constant timeout)
 http/tests/media/modern-media-controls/overflow-support/playback-speed-live-broadcast.html [ Timeout ]
 
 webkit.org/b/168961 fast/events/wheelevent-in-frame.html [ Pass Timeout ]
-
-webkit.org/b/231264 fast/events/ios/rotation/layout-viewport-during-rotation.html [ Failure ]
-
-webkit.org/b/231269 fast/events/ios/rotation/safari-like-rotation.html [ Failure ]
-
-webkit.org/b/231315 fast/events/ios/rotation/safe-area-insets-during-safari-type-rotation.html [ Pass Timeout Failure ]
 
 webkit.org/b/230987 fast/events/ios/viewport-shrink-to-fit-allows-double-tap.html [ Pass Timeout ]
 
@@ -6534,6 +6511,8 @@ webkit.org/b/232252 [ Release ] imported/w3c/web-platform-tests/webrtc/RTCDtlsTr
 imported/w3c/web-platform-tests/pointerevents [ Skip ]
 webkit.org/b/237348 pointerevents/mouse [ Skip ]
 
+webkit.org/b/275768 imported/w3c/web-platform-tests/inert/inert-iframe-hittest.html [ Skip ]
+
 # webkit.org/b/234410 Multiple semantics web-platform-tests have become flaky after r286944
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_anchor_download_allow_downloads.tentative.html [ DumpJSConsoleLogInStdErr Pass Failure ]
 imported/w3c/web-platform-tests/html/semantics/text-level-semantics/the-a-element/a-download-click-404.html [ Pass Failure ]
@@ -6562,7 +6541,8 @@ webkit.org/b/234536 webxr/high-performance.html [ Failure ]
 
 # Media failures
 fast/mediastream/video-rotation-gpu-process-crash.html [ Timeout Crash Pass ]
-webkit.org/b/236926 webrtc/vp8-then-h264-gpu-process-crash.html [ Timeout Pass ]
+# webkit.org/b/236926 webrtc/vp8-then-h264-gpu-process-crash.html [ Timeout Pass ]
+webkit.org/b/275741 webrtc/vp8-then-h264-gpu-process-crash.html [ Pass Crash ] # Uncomment above when this is resolved. 
 
 # Flaky crash
 webkit.org/b/237674 imported/w3c/web-platform-tests/html/semantics/links/links-created-by-a-and-area-elements/target_blank_implicit_noopener.html [ Timeout Crash Pass ]
@@ -6933,8 +6913,6 @@ imported/w3c/web-platform-tests/content-security-policy/script-src/script-src-re
 
 webkit.org/b/271445 fast/events/ios/rotation/resize-iframe-after-orientation-change.html [ Pass Failure ]
 
-webkit.org/b/271678 imported/w3c/web-platform-tests/css/css-view-transitions/hit-test-unrelated-element.html [ ImageOnlyFailure ]
-
 webkit.org/b/271682 imported/w3c/web-platform-tests/css/css-content/quotes-007.html [ ImageOnlyFailure ] # TODO: uncomment line above with explicit pass expectation for this test when issue is resolved.
 
 webkit.org/b/271712 [ Debug ] fast/forms/datalist/datalist-textinput-dynamically-add-options-on-keydown.html [ Timeout ]
@@ -7239,6 +7217,8 @@ webkit.org/b/254872 webrtc/video-rotation.html [ Pass Timeout ]
 fast/overflow/infiniteRecursion.html [ Failure Pass ]
 tables/mozilla/bugs/bug2479-2.html [ Failure Pass ]
 
+webkit.org/b/269506 fast/forms/ios/autocapitalize-words.html [ Pass Failure ]
+
 # webkit.org/b/271850 [iOS] 10 fast/forms/switch/click-animation*.html layout tests are passing.
 fast/forms/switch/click-animation-redundant-checked.html [ ImageOnlyFailure ]
 fast/forms/switch/click-animation-redundant-disabled.html [ ImageOnlyFailure ]
@@ -7250,8 +7230,6 @@ webkit.org/b/273848 [ Release ] imported/w3c/web-platform-tests/html/semantics/e
 
 webkit.org/b/273905 svg/filters/filter-on-root-tile-boundary.html [ Pass ImageOnlyFailure ]
 
-webkit.org/b/273984 http/tests/site-isolation/window-open-with-name-cross-site.html [ Timeout ]
-
 # webkit.org/b/274219 (REGRESSION (278786@main): [ MacOS iOS ] 3X http/wpt/webauthn tests are consistent failures)
 http/wpt/webauthn/idl.https.html [ Failure ]
 
@@ -7261,12 +7239,17 @@ webkit.org/b/274340 fast/events/ios/key-command-transpose.html [ Pass Timeout ]
 imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/entries-after-navigations-in-multiple-windows.html [ Failure ]
 imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/key-id-location-replace-cross-origin.html [ Failure ]
 
-# webkit.org/b/274488 REGRESSION (278902@main): [ iOS ] editing/selection/ios/selection-handles-in-iframe.html and fast/images/text-recognition/iOS.. are timing out 
-editing/selection/ios/selection-handles-in-iframe.html [ Timeout ]
-fast/images/text-recognition/ios/select-word-in-image-overlay-inside-link.html [ Timeout ]
-
 webkit.org/b/271916 media/track/track-in-band-layout.html [ Failure ]
 
 webkit.org/b/274766 [ Debug ] http/wpt/webauthn/public-key-credential-get-success-u2f.https.html [ Failure ]
 
-webkit.org/b/274925 [ Debug ] ipc/dirty-region-overflow.html [ Skip ]
+#webkit.org/b/231315 fast/events/ios/rotation/safe-area-insets-during-safari-type-rotation.html [ Pass Timeout Failure ]
+# uncomment above after below is resolved
+# webkit.org/b/275696 ([ iOS ] 3 fast/events/ios/rotation/* tests are constantly failing.)
+fast/events/ios/rotation/safe-area-insets-during-safari-type-rotation.html [ Failure ]
+fast/events/ios/rotation/layout-viewport-during-rotation.html [ Failure ]
+fast/events/ios/rotation/safari-like-rotation.html [ Failure ]
+
+webkit.org/b/275713 fast/text/international/system-language/declarative-language.html [ Failure ]
+
+webkit.org/b/275709 [ Debug ] imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-form.html [ Skip ]

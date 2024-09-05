@@ -306,7 +306,7 @@ template<typename T> struct ArgumentCoder<std::unique_ptr<T>> {
         static_assert(std::is_same_v<std::remove_cvref_t<U>, std::unique_ptr<T>>);
 
         if (object)
-            encoder << true << std::forward_like<U>(*object);
+            encoder << true << WTF::forward_like<U>(*object);
         else
             encoder << false;
     }
@@ -333,7 +333,7 @@ template<typename T> struct ArgumentCoder<UniqueRef<T>> {
     static void encode(Encoder& encoder, U&& object)
     {
         static_assert(std::is_same_v<std::remove_cvref_t<U>, UniqueRef<T>>);
-        encoder << std::forward_like<U>(*object);
+        encoder << WTF::forward_like<U>(*object);
     }
 
     template<typename Decoder>
@@ -385,7 +385,7 @@ template<typename KeyType, typename ValueType> struct ArgumentCoder<WTF::KeyValu
     static void encode(Encoder& encoder, T&& pair)
     {
         static_assert(std::is_same_v<std::remove_cvref_t<T>, WTF::KeyValuePair<KeyType, ValueType>>);
-        encoder << std::forward_like<T>(pair.key) << std::forward_like<T>(pair.value);
+        encoder << WTF::forward_like<T>(pair.key) << WTF::forward_like<T>(pair.value);
     }
 
     template<typename Decoder>
@@ -410,7 +410,7 @@ template<typename T, size_t size> struct ArgumentCoder<std::array<T, size>> {
         static_assert(std::is_same_v<std::remove_cvref_t<U>, std::array<T, size>>);
 
         for (auto&& item : array)
-            encoder << std::forward_like<U>(item);
+            encoder << WTF::forward_like<U>(item);
     }
 
     template<typename Decoder, typename... DecodedTypes>
@@ -461,7 +461,7 @@ template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t min
 
         encoder << static_cast<size_t>(vector.size());
         for (auto&& item : vector)
-            encoder << std::forward_like<U>(item);
+            encoder << WTF::forward_like<U>(item);
     }
 
     template<typename Decoder>
@@ -526,7 +526,7 @@ template<typename KeyArg, typename MappedArg, typename HashArg, typename KeyTrai
 
         encoder << static_cast<unsigned>(hashMap.size());
         for (auto&& entry : hashMap)
-            encoder << std::forward_like<T>(entry);
+            encoder << WTF::forward_like<T>(entry);
     }
 
     template<typename Decoder>
@@ -606,7 +606,7 @@ template<typename KeyArg, typename HashArg, typename KeyTraitsArg> struct Argume
 
         encoder << static_cast<unsigned>(hashCountedSet.size());
         for (auto&& entry : hashCountedSet)
-            encoder << std::forward_like<T>(entry);
+            encoder << WTF::forward_like<T>(entry);
     }
 
     template<typename Decoder>

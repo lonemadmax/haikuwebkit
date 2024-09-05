@@ -1340,6 +1340,20 @@ String LocalFrame::customUserAgentAsSiteSpecificQuirks() const
     return { };
 }
 
+String LocalFrame::customNavigatorPlatform() const
+{
+    if (RefPtr documentLoader = loader().activeDocumentLoader())
+        return documentLoader->customNavigatorPlatform();
+    return { };
+}
+
+OptionSet<AdvancedPrivacyProtections> LocalFrame::advancedPrivacyProtections() const
+{
+    if (auto* documentLoader = loader().activeDocumentLoader())
+        return documentLoader->advancedPrivacyProtections();
+    return { };
+}
+
 } // namespace WebCore
 
 #undef FRAME_RELEASE_LOG_ERROR

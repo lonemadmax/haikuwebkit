@@ -138,7 +138,7 @@ Error StreamClientConnection::send(T&& message, ObjectIdentifierGeneric<U, V, W>
 {
 #if ENABLE(CORE_IPC_SIGNPOSTS)
     auto signpostIdentifier = Connection::generateSignpostIdentifier();
-    WTFBeginSignpost(signpostIdentifier, StreamClientConnection, "send: %{public}s", description(message.name()));
+    WTFBeginSignpost(signpostIdentifier, StreamClientConnection, "send: %{public}s", description(message.name()).characters());
     auto endSignpost = makeScopeExit([&] {
         WTFEndSignpost(signpostIdentifier, StreamClientConnection);
     });
@@ -165,7 +165,7 @@ StreamClientConnection::AsyncReplyID StreamClientConnection::sendWithAsyncReply(
 {
 #if ENABLE(CORE_IPC_SIGNPOSTS)
     auto signpostIdentifier = Connection::generateSignpostIdentifier();
-    WTFBeginSignpost(signpostIdentifier, StreamClientConnection, "sendWithAsyncReply: %{public}s", description(message.name()));
+    WTFBeginSignpost(signpostIdentifier, StreamClientConnection, "sendWithAsyncReply: %{public}s", description(message.name()).characters());
 #endif
 
     static_assert(!T::isSync, "Message is sync!");
@@ -231,7 +231,7 @@ StreamClientConnection::SendSyncResult<T> StreamClientConnection::sendSync(T&& m
 {
 #if ENABLE(CORE_IPC_SIGNPOSTS)
     auto signpostIdentifier = Connection::generateSignpostIdentifier();
-    WTFBeginSignpost(signpostIdentifier, StreamClientConnection, "sendSync: %{public}s", description(message.name()));
+    WTFBeginSignpost(signpostIdentifier, StreamClientConnection, "sendSync: %{public}s", description(message.name()).characters());
     auto endSignpost = makeScopeExit([&] {
         WTFEndSignpost(signpostIdentifier, StreamClientConnection);
     });
@@ -292,7 +292,7 @@ std::optional<StreamClientConnection::SendSyncResult<T>> StreamClientConnection:
             auto decoder = makeUniqueRef<Decoder>(*replySpan, m_currentDestinationID);
             if (decoder->messageName() != MessageName::ProcessOutOfStreamMessage) {
                 ASSERT(decoder->messageName() == MessageName::SyncMessageReply);
-                return WTFMove(decoder);
+                return decoder;
             }
         } else
             m_buffer.resetClientOffset();
@@ -309,7 +309,7 @@ std::optional<StreamClientConnection::SendSyncResult<T>> StreamClientConnection:
         auto& decoder = decoderResult->value();
         *decoder >> replyArguments;
         if (replyArguments)
-            return { { WTFMove(*replyArguments) } };
+            return { { WTFMove(decoderResult->value()), WTFMove(*replyArguments) } };
         return { Error::FailedToDecodeReplyArguments };
     }
     return { decoderResult->error() };
