@@ -26,6 +26,7 @@
 
 #include "Grid.h"
 #include "GridBaselineAlignment.h"
+#include "GridLayoutState.h"
 #include "GridTrackSize.h"
 #include "LayoutSize.h"
 #include "RenderBoxInlines.h"
@@ -119,7 +120,7 @@ public:
     GridTrackSizingAlgorithm(const RenderGrid*, Grid&);
     ~GridTrackSizingAlgorithm();
 
-    void setup(GridTrackSizingDirection, unsigned numTracks, SizingOperation, std::optional<LayoutUnit> availableSpace);
+    void setup(GridTrackSizingDirection, unsigned numTracks, SizingOperation, std::optional<LayoutUnit> availableSpace, GridLayoutState&);
     void run();
     void reset();
 
@@ -218,15 +219,21 @@ private:
     void computeFlexSizedTracksGrowth(double flexFraction, Vector<LayoutUnit>& increments, LayoutUnit& totalGrowth) const;
     double findFrUnitSize(const GridSpan& tracksSpan, LayoutUnit leftOverSpace) const;
 
+
+    void handleInfinityGrowthLimit();
+    void computeIndefiniteItemsForMasonry(MasonryIndefiniteItems&) const;
+    bool shouldExcludeGridItemForMasonryTrackSizing(const RenderBox& gridItem, unsigned trackIndex, GridSpan itemSpan) const;
     // Track sizing algorithm steps. Note that the "Maximize Tracks" step is done
     // entirely inside the strategies, that's why we don't need an additional
     // method at this level.
     void initializeTrackSizes();
     void resolveIntrinsicTrackSizes();
+    void resolveIntrinsicTrackSizesMasonry();
     void stretchFlexibleTracks(std::optional<LayoutUnit> freeSpace);
     void stretchAutoTracks();
 
-    void accumulateIntrinsicSizesForTrack(GridTrack&, unsigned trackIndex, GridIterator&, Vector<GridItemWithSpan>& itemsSortedByIncreasingSpan, Vector<GridItemWithSpan>& itemsCrossingFlexibleTracks, SingleThreadWeakHashSet<RenderBox>& itemsSet, MasonryIndefiniteItems&, LayoutUnit currentAccumulatedMbp);
+    void accumulateIntrinsicSizesForTrack(GridTrack&, unsigned trackIndex, GridIterator&, Vector<GridItemWithSpan>& itemsSortedByIncreasingSpan, Vector<GridItemWithSpan>& itemsCrossingFlexibleTracks, SingleThreadWeakHashSet<RenderBox>& itemsSet, LayoutUnit currentAccumulatedMbp);
+    void accumulateIntrinsicSizesForTrackMasonry(GridTrack&, unsigned trackIndex, GridIterator&, Vector<GridItemWithSpan>& itemsSortedByIncreasingSpan, Vector<GridItemWithSpan>& itemsCrossingFlexibleTracks, SingleThreadWeakHashSet<RenderBox>& itemsSet, MasonryIndefiniteItems&, LayoutUnit currentAccumulatedMbp);
 
     bool copyUsedTrackSizesForSubgrid();
 
@@ -262,6 +269,8 @@ private:
 
     const RenderGrid* m_renderGrid;
     std::unique_ptr<GridTrackSizingAlgorithmStrategy> m_strategy;
+
+    WeakPtr<GridLayoutState> m_gridLayoutState;
 
     // The track sizing algorithm is used for both layout and intrinsic size
     // computation. We're normally just interested in intrinsic inline sizes

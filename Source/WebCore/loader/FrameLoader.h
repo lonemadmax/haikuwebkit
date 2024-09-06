@@ -139,7 +139,7 @@ public:
 
     bool shouldUpgradeRequestforHTTPSOnly(const URL& originalURL, ResourceRequest&) const;
     bool upgradeRequestforHTTPSOnlyIfNeeded(const URL&, ResourceRequest&) const;
-    WEBCORE_EXPORT void changeLocation(const URL&, const AtomString& target, Event*, const ReferrerPolicy&, ShouldOpenExternalURLsPolicy, std::optional<NewFrameOpenerPolicy> = std::nullopt, const AtomString& downloadAttribute = nullAtom(), std::optional<PrivateClickMeasurement>&& = std::nullopt);
+    WEBCORE_EXPORT void changeLocation(const URL&, const AtomString& target, Event*, const ReferrerPolicy&, ShouldOpenExternalURLsPolicy, std::optional<NewFrameOpenerPolicy> = std::nullopt, const AtomString& downloadAttribute = nullAtom(), std::optional<PrivateClickMeasurement>&& = std::nullopt, NavigationHistoryBehavior = NavigationHistoryBehavior::Push);
     void changeLocation(FrameLoadRequest&&, Event* = nullptr, std::optional<PrivateClickMeasurement>&& = std::nullopt);
     void submitForm(Ref<FormSubmission>&&);
 
@@ -351,6 +351,8 @@ public:
     // HistoryController specific.
     void loadItem(HistoryItem&, HistoryItem* fromItem, FrameLoadType, ShouldTreatAsContinuingLoad);
     HistoryItem* requestedHistoryItem() const { return m_requestedHistoryItem.get(); }
+
+    void updateURLAndHistory(const URL&, RefPtr<SerializedScriptValue>&& stateObject, NavigationHistoryBehavior = NavigationHistoryBehavior::Replace);
 
 private:
     enum FormSubmissionCacheLoadPolicy {

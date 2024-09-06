@@ -2015,6 +2015,7 @@
 		E389D854291226BC0085C3DC /* PageCount.h in Headers */ = {isa = PBXBuildFile; fileRef = E389D852291226BC0085C3DC /* PageCount.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E38DAB532A95D23A0050B7A8 /* PerfLog.h in Headers */ = {isa = PBXBuildFile; fileRef = E38DAB512A95D23A0050B7A8 /* PerfLog.h */; };
 		E38DB2E727F588F80027BD3F /* ScriptExecutableInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = E38DB2E627F588F70027BD3F /* ScriptExecutableInlines.h */; };
+		E38DE55C2C4A11C700EF7055 /* CharacterPropertyDataGenerator.h in Headers */ = {isa = PBXBuildFile; fileRef = E38DE55A2C4A11AD00EF7055 /* CharacterPropertyDataGenerator.h */; };
 		E38E8790254B978400F6F9E4 /* JSDateMath.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9788FC221471AD0C0068CE2D /* JSDateMath.cpp */; };
 		E38F091A288D35CF009FD386 /* ObjectAdaptiveStructureWatchpoint.h in Headers */ = {isa = PBXBuildFile; fileRef = E38F0919288D35CF009FD386 /* ObjectAdaptiveStructureWatchpoint.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E39006212208BFC4001019CF /* SubspaceAccess.h in Headers */ = {isa = PBXBuildFile; fileRef = E39006202208BFC3001019CF /* SubspaceAccess.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -4725,6 +4726,8 @@
 		918E15BD2447B22600447A56 /* AggregateErrorPrototype.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AggregateErrorPrototype.h; sourceTree = "<group>"; };
 		918E15BE2447B22700447A56 /* AggregateErrorPrototype.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AggregateErrorPrototype.cpp; sourceTree = "<group>"; };
 		918E15BF2447B22700447A56 /* AggregateErrorConstructor.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AggregateErrorConstructor.h; sourceTree = "<group>"; };
+		91C326592BFFB2B3009C7E2B /* JSGenericTypedArrayView.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSGenericTypedArrayView.cpp; sourceTree = "<group>"; };
+		91C3265B2BFFB2B9009C7E2B /* JSGenericTypedArrayViewConstructor.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSGenericTypedArrayViewConstructor.cpp; sourceTree = "<group>"; };
 		91C3265D2BFFB2BF009C7E2B /* JSGenericTypedArrayViewPrototype.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = JSGenericTypedArrayViewPrototype.cpp; sourceTree = "<group>"; };
 		91D1578C24E0BE35001F4CED /* Breakpoint.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Breakpoint.cpp; sourceTree = "<group>"; };
 		91F548A52A4CF448007292DE /* MapConstructor.js */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.javascript; path = MapConstructor.js; sourceTree = "<group>"; };
@@ -5690,6 +5693,8 @@
 		E38DAB512A95D23A0050B7A8 /* PerfLog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PerfLog.h; sourceTree = "<group>"; };
 		E38DAB522A95D23A0050B7A8 /* PerfLog.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PerfLog.cpp; sourceTree = "<group>"; };
 		E38DB2E627F588F70027BD3F /* ScriptExecutableInlines.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScriptExecutableInlines.h; sourceTree = "<group>"; };
+		E38DE55A2C4A11AD00EF7055 /* CharacterPropertyDataGenerator.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CharacterPropertyDataGenerator.h; sourceTree = "<group>"; };
+		E38DE55B2C4A11AD00EF7055 /* CharacterPropertyDataGenerator.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = CharacterPropertyDataGenerator.cpp; sourceTree = "<group>"; };
 		E38F0919288D35CF009FD386 /* ObjectAdaptiveStructureWatchpoint.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ObjectAdaptiveStructureWatchpoint.h; sourceTree = "<group>"; };
 		E39006202208BFC3001019CF /* SubspaceAccess.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SubspaceAccess.h; sourceTree = "<group>"; };
 		E3915C062309682900CB2561 /* WasmContext.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = WasmContext.cpp; sourceTree = "<group>"; };
@@ -8336,7 +8341,9 @@
 				70B7918C1C024462002481E2 /* JSGeneratorFunction.cpp */,
 				70B7918D1C024462002481E2 /* JSGeneratorFunction.h */,
 				276B39092A71D2B400252F4E /* JSGeneratorFunctionInlines.h */,
+				91C326592BFFB2B3009C7E2B /* JSGenericTypedArrayView.cpp */,
 				0F2B66C317B6B5AB00A7AE3F /* JSGenericTypedArrayView.h */,
+				91C3265B2BFFB2B9009C7E2B /* JSGenericTypedArrayViewConstructor.cpp */,
 				0F2B66C417B6B5AB00A7AE3F /* JSGenericTypedArrayViewConstructor.h */,
 				0F2B66C517B6B5AB00A7AE3F /* JSGenericTypedArrayViewConstructorInlines.h */,
 				0F2B66C617B6B5AB00A7AE3F /* JSGenericTypedArrayViewInlines.h */,
@@ -8884,6 +8891,8 @@
 				FE1BD01B1E72002100134BC9 /* CellList.cpp */,
 				FE1BD01C1E72002100134BC9 /* CellList.h */,
 				FE1BD0201E72027000134BC9 /* CellProfile.h */,
+				E38DE55B2C4A11AD00EF7055 /* CharacterPropertyDataGenerator.cpp */,
+				E38DE55A2C4A11AD00EF7055 /* CharacterPropertyDataGenerator.h */,
 				0F4F11E7209BCDA100709654 /* CompilerTimingScope.cpp */,
 				0F4F11E6209BCDA100709654 /* CompilerTimingScope.h */,
 				52EED7922492B868008F4C93 /* FunctionAllowlist.cpp */,
@@ -10489,6 +10498,7 @@
 				FEC160322339E9F900A04CB8 /* CellSize.h in Headers */,
 				0F1C3DDA1BBCE09E00E523E4 /* CellState.h in Headers */,
 				E3E6E9CC28F3C33F00EDE7C0 /* ChainedWatchpoint.h in Headers */,
+				E38DE55C2C4A11C700EF7055 /* CharacterPropertyDataGenerator.h in Headers */,
 				5338E2A72396EFFB00C61BAD /* CheckpointOSRExitSideState.h in Headers */,
 				86281EF425B61AF000367004 /* CheckPrivateBrandStatus.h in Headers */,
 				86281EF025B6160000367004 /* CheckPrivateBrandVariant.h in Headers */,

@@ -305,6 +305,7 @@ public:
     RenderLayer* backingSharingStackingContext() const { return m_backingSharingStackingContext; }
 
     Provider* backingProviderCandidateForLayer(const RenderLayer&, const RenderLayerCompositor&, LayerOverlapMap&, OverlapExtent&);
+    Provider* existingBackingProviderCandidateForLayer(const RenderLayer&);
     Provider* backingProviderForLayer(const RenderLayer&);
 
     // Add a layer that would repaint into a layer in m_backingSharingLayers.
@@ -451,6 +452,16 @@ auto RenderLayerCompositor::BackingSharingState::backingProviderCandidateForLaye
     }
 
     return &candidate;
+}
+
+auto RenderLayerCompositor::BackingSharingState::existingBackingProviderCandidateForLayer(const RenderLayer& layer) -> Provider*
+{
+    ASSERT(layer.paintsIntoProvidedBacking());
+    for (auto& candidate : m_backingProviderCandidates) {
+        if (layer.backingProviderLayer() == candidate.providerLayer.get())
+            return &candidate;
+    }
+    return nullptr;
 }
 
 auto RenderLayerCompositor::BackingSharingState::backingProviderForLayer(const RenderLayer& layer) -> Provider*
@@ -1416,8 +1427,9 @@ void RenderLayerCompositor::traverseUnchangedSubtree(RenderLayer* ancestorLayer,
         computeExtent(overlapMap, layer, layerExtent);
 
     if (layer.paintsIntoProvidedBacking()) {
-        auto* provider = backingSharingState.backingProviderCandidateForLayer(layer, *this, overlapMap, layerExtent);
-        ASSERT(provider);
+        auto* provider = backingSharingState.existingBackingProviderCandidateForLayer(layer);
+        ASSERT_WITH_SECURITY_IMPLICATION(provider);
+        ASSERT_WITH_SECURITY_IMPLICATION(provider == backingSharingState.backingProviderCandidateForLayer(layer, *this, overlapMap, layerExtent));
         provider->sharingLayers.add(layer);
         layerPaintsIntoProvidedBacking = true;
     }
@@ -1970,6 +1982,28 @@ static bool recompositeChangeRequiresChildrenGeometryUpdate(const RenderStyle& o
 {
     return oldStyle.hasPerspective() != newStyle.hasPerspective()
         || oldStyle.usedTransformStyle3D() != newStyle.usedTransformStyle3D();
+}
+
+void RenderLayerCompositor::layerGainedCompositedScrollableOverflow(RenderLayer& layer)
+{
+    RequiresCompositingData queryData;
+    queryData.layoutUpToDate = LayoutUpToDate::No;
+
+    bool layerChanged = updateBacking(layer, queryData, nullptr, BackingRequired::Yes);
+    if (layerChanged) {
+        layer.setChildrenNeedCompositingGeometryUpdate();
+        layer.setNeedsCompositingLayerConnection();
+        layer.setSubsequentLayersNeedCompositingRequirementsTraversal();
+        // Ancestor layers that composited for indirect reasons (things listed in styleChangeMayAffectIndirectCompositingReasons()) need to get updated.
+        // This could be optimized by only setting this flag on layers with the relevant styles.
+        layer.setNeedsPostLayoutCompositingUpdateOnAncestors();
+    }
+
+    auto* backing = layer.backing();
+    if (!backing)
+        return;
+
+    backing->updateConfigurationAfterStyleChange();
 }
 
 void RenderLayerCompositor::layerStyleChanged(StyleDifference diff, RenderLayer& layer, const RenderStyle* oldStyle)

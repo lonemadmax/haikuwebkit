@@ -476,6 +476,12 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
 
     pageConfiguration->setAdditionalSupportedImageTypes(makeVector<String>([_configuration _additionalSupportedImageTypes]));
 
+    pageConfiguration->setWaitsForPaintAfterViewDidMoveToWindow([_configuration _waitsForPaintAfterViewDidMoveToWindow]);
+    pageConfiguration->setDrawsBackground([_configuration _drawsBackground]);
+    pageConfiguration->setControlledByAutomation([_configuration _isControlledByAutomation]);
+
+    pageConfiguration->preferences().startBatchingUpdates();
+
     pageConfiguration->preferences().setSuppressesIncrementalRendering(!![_configuration suppressesIncrementalRendering]);
 #if !PLATFORM(MAC)
     // FIXME: rdar://99156546. Remove this and WKWebViewConfiguration._printsBackgrounds once all iOS clients adopt the new API.
@@ -488,9 +494,6 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     pageConfiguration->preferences().setHTTPEquivEnabled(!![_configuration _allowsMetaRefresh]);
     pageConfiguration->preferences().setAllowUniversalAccessFromFileURLs(!![_configuration _allowUniversalAccessFromFileURLs]);
     pageConfiguration->preferences().setAllowTopNavigationToDataURLs(!![_configuration _allowTopNavigationToDataURLs]);
-    pageConfiguration->setWaitsForPaintAfterViewDidMoveToWindow([_configuration _waitsForPaintAfterViewDidMoveToWindow]);
-    pageConfiguration->setDrawsBackground([_configuration _drawsBackground]);
-    pageConfiguration->setControlledByAutomation([_configuration _isControlledByAutomation]);
     pageConfiguration->preferences().setIncompleteImageBorderEnabled(!![_configuration _incompleteImageBorderEnabled]);
     pageConfiguration->preferences().setShouldDeferAsynchronousScriptsUntilAfterDocumentLoadOrFirstPaint(!![_configuration _shouldDeferAsynchronousScriptsUntilAfterDocumentLoad]);
     pageConfiguration->preferences().setShouldRestrictBaseURLSchemes(shouldRestrictBaseURLSchemes());
@@ -583,6 +586,8 @@ static void hardwareKeyboardAvailabilityChangedCallback(CFNotificationCenterRef,
     pageConfiguration->preferences().setAlternateFormControlDesignEnabled(WebKit::defaultAlternateFormControlDesignEnabled());
     pageConfiguration->preferences().setVideoFullscreenRequiresElementFullscreen(WebKit::defaultVideoFullscreenRequiresElementFullscreen());
 #endif
+
+    pageConfiguration->preferences().endBatchingUpdates();
 }
 
 - (instancetype)initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)configuration
@@ -2079,14 +2084,19 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 
 #pragma mark - WTWritingToolsDelegate conformance
 
-- (PlatformWritingToolsAllowedInputOptions)writingToolsAllowedInputOptions {
+- (PlatformWritingToolsResultOptions)allowedWritingToolsResultOptions
+{
     auto& editorState = _page->editorState();
     if (editorState.isContentEditable && !editorState.isContentRichlyEditable)
-        return PlatformWritingToolsAllowedInputOptionsPlainText;
+        return PlatformWritingToolsResultPlainText;
 
-    PlatformWritingToolsAllowedInputOptions listOption = (PlatformWritingToolsAllowedInputOptions)(1 << 2);
+    return PlatformWritingToolsResultPlainText | PlatformWritingToolsResultRichText | PlatformWritingToolsResultList | PlatformWritingToolsResultTable;
+}
 
-    return PlatformWritingToolsAllowedInputOptionsPlainText | PlatformWritingToolsAllowedInputOptionsRichText | listOption | PlatformWritingToolsAllowedInputOptionsTable;
+// FIXME: (rdar://130540028) Remove uses of the old WritingToolsAllowedInputOptions API in favor of the new WritingToolsResultOptions API, and remove staging.
+- (PlatformWritingToolsResultOptions)writingToolsAllowedInputOptions
+{
+    return [self allowedWritingToolsResultOptions];
 }
 
 - (PlatformWritingToolsBehavior)writingToolsBehavior
@@ -4678,6 +4688,19 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
         return completionHandler(NO);
 
     _page->pauseNowPlayingMediaSession([completionHandler = makeBlockPtr(completionHandler)](bool success) {
+        completionHandler(static_cast<BOOL>(success));
+    });
+}
+
+- (void)_simulateClickOverFirstMatchingTextInViewportWithUserInteraction:(NSString *)targetText completionHandler:(void(^)(BOOL))completionHandler
+{
+    if (!targetText.length)
+        [NSException raise:NSInvalidArgumentException format:@"The target text must be non-empty."];
+
+    if (!self._isValid)
+        return completionHandler(NO);
+
+    _page->simulateClickOverFirstMatchingTextInViewportWithUserInteraction(targetText, [completionHandler = makeBlockPtr(completionHandler)](bool success) {
         completionHandler(static_cast<BOOL>(success));
     });
 }

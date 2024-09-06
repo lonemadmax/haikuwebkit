@@ -133,7 +133,7 @@ MediaPlayerPrivateWebM::MediaPlayerPrivateWebM(MediaPlayer* player)
     ALWAYS_LOG(LOGIDENTIFIER, "synchronizer initial rate:", [m_synchronizer rate]);
     [m_synchronizer setRate:0];
 #if ENABLE(LINEAR_MEDIA_PLAYER)
-    m_videoTarget = player->videoTarget();
+    setVideoTarget(player->videoTarget());
 #endif
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
@@ -1891,18 +1891,21 @@ void MediaPlayerPrivateWebM::updateSpatialTrackingLabel()
 {
     auto *renderer = m_sampleBufferVideoRenderer ? m_sampleBufferVideoRenderer.get() : [m_sampleBufferDisplayLayer sampleBufferRenderer];
     if (!m_spatialTrackingLabel.isNull()) {
+        INFO_LOG(LOGIDENTIFIER, "Explicitly set STSLabel: ", m_spatialTrackingLabel);
         renderer.STSLabel = m_spatialTrackingLabel;
         return;
     }
 
-    if (renderer) {
+    if (renderer && m_visible) {
         // Let AVSBRS manage setting the spatial tracking label in its video renderer itself.
+        INFO_LOG(LOGIDENTIFIER, "Has visible renderer, set STSLabel: nil");
         renderer.STSLabel = nil;
         return;
     }
 
     if (m_audioRenderers.empty()) {
         // If there are no audio renderers, there's nothing to do.
+        INFO_LOG(LOGIDENTIFIER, "No audio renderers - no-op");
         return;
     }
 
@@ -1910,7 +1913,14 @@ void MediaPlayerPrivateWebM::updateSpatialTrackingLabel()
     // the session's spatial tracking label if not, and set the label directly on each audio
     // renderer.
     AVAudioSession *session = [PAL::getAVAudioSessionClass() sharedInstance];
-    auto *defaultLabel = !m_defaultSpatialTrackingLabel.isNull() ? (NSString *)m_defaultSpatialTrackingLabel : session.spatialTrackingLabel;
+    String defaultLabel;
+    if (!m_defaultSpatialTrackingLabel.isNull()) {
+        INFO_LOG(LOGIDENTIFIER, "Default STSLabel: ", m_defaultSpatialTrackingLabel);
+        defaultLabel = m_defaultSpatialTrackingLabel;
+    } else {
+        INFO_LOG(LOGIDENTIFIER, "AVAudioSession label: ", session.spatialTrackingLabel);
+        defaultLabel = session.spatialTrackingLabel;
+    }
     for (auto& renderer : m_audioRenderers)
         [(__bridge AVSampleBufferAudioRenderer *)renderer.second.get() setSTSLabel:defaultLabel];
 }

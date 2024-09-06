@@ -70,6 +70,7 @@
 #include <WebCore/MediaControlsContextMenuItem.h>
 #include <WebCore/MediaKeySystemRequest.h>
 #include <WebCore/NowPlayingMetadataObserver.h>
+#include <WebCore/OwnerPermissionsPolicyData.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/PageOverlay.h>
 #include <WebCore/PlatformLayerIdentifier.h>
@@ -539,6 +540,8 @@ public:
 
     void startPlayingPredominantVideo(CompletionHandler<void(bool)>&&);
 #endif
+
+    void simulateClickOverFirstMatchingTextInViewportWithUserInteraction(const String& targetText, CompletionHandler<void(bool)>&&);
 
 #if PLATFORM(IOS_FAMILY)
     void setAllowsMediaDocumentInlinePlayback(bool);
@@ -1625,10 +1628,6 @@ public:
 
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
     void handleContextMenuTranslation(const WebCore::TranslationContextMenuInfo&);
-#endif
-
-#if ENABLE(WRITING_TOOLS) && ENABLE(CONTEXT_MENUS)
-    void handleContextMenuWritingToolsDeprecated(WebCore::IntRect selectionBoundsInRootView);
 #endif
 
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)

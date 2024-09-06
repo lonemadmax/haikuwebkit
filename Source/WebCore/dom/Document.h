@@ -224,6 +224,7 @@ class SelectorQuery;
 class SelectorQueryCache;
 class SerializedScriptValue;
 class Settings;
+class SharedBuffer;
 class SleepDisabler;
 class SpaceSplitString;
 class SpeechRecognition;
@@ -274,6 +275,7 @@ struct CSSParserContext;
 struct ClientOrigin;
 struct FocusOptions;
 struct IntersectionObserverData;
+struct OwnerPermissionsPolicyData;
 struct QuerySelectorAllResults;
 struct SecurityPolicyViolationEventInit;
 
@@ -854,7 +856,7 @@ public:
 #if ENABLE(WEB_RTC)
     RTCNetworkManager* rtcNetworkManager() { return m_rtcNetworkManager.get(); }
     WEBCORE_EXPORT void setRTCNetworkManager(Ref<RTCNetworkManager>&&);
-    void startGatheringRTCLogs(Function<void(String&& logType, String&& logMessage, String&& logLevel, RefPtr<RTCPeerConnection>&&)>&&);
+    void startGatheringRTCLogs(Function<void(String&& logType, String&& logMessage, RefPtr<SharedBuffer>&&, String&& logLevel, RefPtr<RTCPeerConnection>&&)>&&);
     void stopGatheringRTCLogs();
 #endif
 
@@ -1100,6 +1102,7 @@ public:
     // Returns the owning element in the parent document.
     // Returns nullptr if this is the top level document.
     WEBCORE_EXPORT HTMLFrameOwnerElement* ownerElement() const;
+    WEBCORE_EXPORT std::optional<OwnerPermissionsPolicyData> ownerPermissionsPolicy() const;
 
     // Used by DOM bindings; no direction known.
     const String& title() const { return m_title.string; }

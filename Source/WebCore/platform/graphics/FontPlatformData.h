@@ -319,8 +319,7 @@ public:
     RetainPtr<CFTypeRef> objectForEqualityCheck() const;
     bool hasCustomTracking() const { return isSystemFont(); }
 
-    CTFontRef font() const { return m_font.get(); }
-    CTFontRef ctFont() const;
+    CTFontRef ctFont() const { return m_font.get(); }
 #endif
 
 #if PLATFORM(COCOA)
@@ -428,20 +427,13 @@ private:
 #endif
 #if PLATFORM(HAIKU)
     static void findMatchingFontFamily(const AtomString& familyName, font_family& fontFamily);
+    std::shared_ptr<BFont> m_font;
 #endif
 
 #if PLATFORM(WIN)
     RefPtr<SharedGDIObject<HFONT>> m_font; // FIXME: Delete this in favor of m_ctFont or m_dwFont or m_scaledFont.
 #elif USE(CORE_TEXT)
-    // FIXME: Get rid of one of these. These two fonts are subtly different, and it is not obvious which one to use where.
     RetainPtr<CTFontRef> m_font;
-    mutable RetainPtr<CTFontRef> m_ctFont;
-#elif PLATFORM(HAIKU)
-    std::shared_ptr<BFont> m_font;
-#endif
-
-#if USE(CG) && PLATFORM(WIN)
-    RetainPtr<CGFontRef> m_cgFont;
 #endif
 
 #if USE(CAIRO)

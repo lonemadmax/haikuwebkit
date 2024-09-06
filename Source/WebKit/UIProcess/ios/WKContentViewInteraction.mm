@@ -6294,6 +6294,32 @@ static Vector<WebCore::CompositionHighlight> compositionHighlights(NSAttributedS
 
 - (void)setAttributedMarkedText:(NSAttributedString *)markedText selectedRange:(NSRange)selectedRange
 {
+    BOOL hasTextCompletion = ^{
+        // UIKit doesn't include the `NSTextCompletionAttributeName`, so the next best way to detect if this method
+        // is being used for a text completion is to check if the attributes match these hard-coded ones.
+        RetainPtr textCompletionAttributes = @{
+            NSForegroundColorAttributeName : UIColor.systemGrayColor,
+            NSBackgroundColorAttributeName : UIColor.clearColor,
+        };
+
+        RetainPtr markedTextAttributes = [markedText attributesAtIndex:0 effectiveRange:nil];
+
+        RetainPtr foregroundColor = [markedTextAttributes objectForKey:NSForegroundColorAttributeName];
+        if (![foregroundColor isEqual:UIColor.systemGrayColor])
+            return NO;
+
+        RetainPtr backgroundColor = [markedTextAttributes objectForKey:NSBackgroundColorAttributeName];
+        if (![backgroundColor isEqual:UIColor.clearColor])
+            return NO;
+
+        return YES;
+    }();
+
+    if (hasTextCompletion) {
+        _page->setWritingSuggestion([markedText string], { 0, 0 });
+        return;
+    }
+
     Vector<WebCore::CompositionUnderline> underlines;
     Vector<WebCore::CompositionHighlight> highlights;
 
@@ -6912,11 +6938,15 @@ static UITextAutocapitalizationType toUITextAutocapitalize(WebCore::Autocapitali
 
 #if HAVE(INLINE_PREDICTIONS)
     bool allowsInlinePredictions = [&] {
+#if PLATFORM(MACCATALYST)
+        return false;
+#else
         if (self.webView.configuration.allowsInlinePredictions)
             return true;
         if (auto& state = _page->editorState(); state.hasPostLayoutData() && !_isFocusingElementWithKeyboard && !_page->waitingForPostLayoutEditorStateUpdateAfterFocusingElement())
             return state.postLayoutData->canEnableWritingSuggestions;
         return _focusedElementInformation.isWritingSuggestionsEnabled;
+#endif
     }();
     traits.inlinePredictionType = allowsInlinePredictions ? UITextInlinePredictionTypeDefault : UITextInlinePredictionTypeNo;
 #endif
@@ -7783,7 +7813,11 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
         return adoptNS([[WKFormSelectControl alloc] initWithView:view]);
 #if ENABLE(INPUT_TYPE_COLOR)
     case WebKit::InputType::Color:
+#if PLATFORM(APPLETV)
+        return nil;
+#else
         return adoptNS([[WKFormColorControl alloc] initWithView:view]);
+#endif
 #endif // ENABLE(INPUT_TYPE_COLOR)
     case WebKit::InputType::Date:
     case WebKit::InputType::DateTimeLocal:
@@ -9136,8 +9170,8 @@ static String fallbackLabelTextForUnlabeledInputFieldInZoomedFormControls(WebCor
 {
     bool isPasswordField = false;
 
-    auto elementTypeIsAnyOf = [elementType](const std::initializer_list<WebKit::InputType>& elementTypes) {
-        return WTF::anyOf(elementTypes, [elementType](auto type) {
+    auto elementTypeIsAnyOf = [elementType](std::initializer_list<WebKit::InputType>&& elementTypes) {
+        return std::ranges::any_of(WTFMove(elementTypes), [elementType](auto&& type) {
             return elementType == type;
         });
     };
@@ -12217,10 +12251,14 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 }
 
 
-- (void)updateImageAnalysisForContextMenuPresentation:(CocoaImageAnalysis *)analysis
+- (void)updateImageAnalysisForContextMenuPresentation:(CocoaImageAnalysis *)analysis elementBounds:(CGRect)elementBounds
 {
 #if USE(UICONTEXTMENU) && ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
     analysis.presentingViewControllerForMrcAction = self._wk_viewControllerForFullScreenPresentation;
+    if ([analysis respondsToSelector:@selector(setRectForMrcActionInPresentingViewController:)]) {
+        CGRect boundsInPresentingViewController = [self convertRect:elementBounds toView:analysis.presentingViewControllerForMrcAction.viewIfLoaded];
+        analysis.rectForMrcActionInPresentingViewController = boundsInPresentingViewController;
+    }
 #endif
 }
 
@@ -12408,8 +12446,9 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
     if (_positionInformation.isPausedVideo)
         [request setImageSource:VKImageAnalyzerRequestImageSourceVideoFrame];
 
+    auto elementBounds = _positionInformation.bounds;
     auto visualSearchAnalysisStartTime = MonotonicTime::now();
-    [self.imageAnalyzer processRequest:request.get() progressHandler:nil completionHandler:[requestIdentifier = WTFMove(requestIdentifier), weakSelf, visualSearchAnalysisStartTime, aggregator = aggregator.copyRef(), data] (CocoaImageAnalysis *result, NSError *error) mutable {
+    [self.imageAnalyzer processRequest:request.get() progressHandler:nil completionHandler:[requestIdentifier = WTFMove(requestIdentifier), weakSelf, visualSearchAnalysisStartTime, aggregator = aggregator.copyRef(), data, elementBounds] (CocoaImageAnalysis *result, NSError *error) mutable {
         auto strongSelf = weakSelf.get();
         if (!strongSelf)
             return;
@@ -12424,6 +12463,8 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
         if (!result || error)
             return;
 
+        [strongSelf updateImageAnalysisForContextMenuPresentation:result elementBounds:elementBounds];
+
 #if ENABLE(IMAGE_ANALYSIS_FOR_MACHINE_READABLE_CODES)
         if (shouldUseMachineReadableCodeMenuFromImageAnalysisResult(result))
             data->machineReadableCodeMenu = result.mrcMenu;
@@ -12431,7 +12472,6 @@ static BOOL shouldUseMachineReadableCodeMenuFromImageAnalysisResult(CocoaImageAn
 #if USE(QUICK_LOOK)
         data->hasVisualSearchResults = hasVisualSearchResults;
 #endif
-        [strongSelf updateImageAnalysisForContextMenuPresentation:result];
     }];
 
 #if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
@@ -13259,9 +13299,15 @@ inline static NSString *extendSelectionCommand(UITextLayoutDirection direction)
 
 #if ENABLE(WRITING_TOOLS)
 
-- (UIWritingToolsAllowedInputOptions)writingToolsAllowedInputOptions
+// FIXME: (rdar://130540028) Remove uses of the old WritingToolsAllowedInputOptions API in favor of the new WritingToolsResultOptions API, and remove staging.
+- (PlatformWritingToolsResultOptions)writingToolsAllowedInputOptions
 {
-    return [_webView writingToolsAllowedInputOptions];
+    return [_webView allowedWritingToolsResultOptions];
+}
+
+- (PlatformWritingToolsResultOptions)allowedWritingToolsResultOptions
+{
+    return [_webView allowedWritingToolsResultOptions];
 }
 
 - (UIWritingToolsBehavior)writingToolsBehavior

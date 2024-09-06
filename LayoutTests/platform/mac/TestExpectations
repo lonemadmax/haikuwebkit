@@ -9,7 +9,6 @@
 accessibility/mac [ Pass ]
 compositing/scrolling/async-overflow-scrolling/mac [ Pass ]
 editing/execCommand/mac [ Pass ]
-editing/input/cocoa [ Pass ]
 editing/mac [ Pass ]
 editing/pasteboard/mac [ Pass ]
 fast/dom/Range/mac [ Pass ]
@@ -78,6 +77,7 @@ fast/attachment/attachment-subtitle-resize.html [ Pass ]
 
 fast/harness/uiscriptcontroller [ Pass ]
 
+fast/events/mac [ Pass ]
 fast/events/do-not-drag-and-drop-data-detectors-link.html [ Pass ]
 
 scrollbars/custom-scrollbar-scroller-style-change.html [ Pass ]
@@ -2466,3 +2466,5 @@ webkit.org/b/275962 imported/w3c/web-platform-tests/navigation-api/navigation-hi
 [ Sequoia+ ] fast/text/combining-mark-paint.html [ ImageOnlyFailure ]
 
 webkit.org/b/276434 workers/wasm-hashset-many.html  [ Pass Crash ]
+
+webkit.org/b/276624 fast/dynamic/layer-hit-test-crash.html [ Pass Failure ]

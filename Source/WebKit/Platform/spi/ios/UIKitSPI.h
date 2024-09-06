@@ -86,6 +86,7 @@
 #import <UIKit/UIVisualEffect_Private.h>
 #import <UIKit/UIWKTextInteractionAssistant.h>
 #import <UIKit/UIWebBrowserView.h>
+#import <UIKit/UIWebClip.h>
 #import <UIKit/UIWebDocumentView.h>
 #import <UIKit/UIWebTiledView.h>
 #import <UIKit/UIWindowScene_Private.h>
@@ -143,6 +144,11 @@
 #endif
 
 #else // USE(APPLE_INTERNAL_SDK)
+
+@interface UIWebClip : NSObject
++ (UIWebClip *)webClipWithIdentifier:(NSString *)identifier;
+@property (nonatomic, copy) NSString *title;
+@end
 
 #if ENABLE(DRAG_SUPPORT)
 #import <UIKit/NSItemProvider+UIKitAdditions.h>
@@ -1214,6 +1220,14 @@ typedef NS_ENUM(NSUInteger, _UIScrollDeviceCategory) {
 @end
 
 @class UITextInputArrowKeyHistory;
+
+#if HAVE(UI_FOCUS_ITEM_DEFERRAL_MODE)
+// FIXME: <rdar://131799614> Remove staging code.
+
+typedef NS_ENUM(NSInteger, UIFocusItemDeferralMode);
+
+#define UIFocusItemDeferralModeNever 2
+#endif
 
 WTF_EXTERN_C_BEGIN
 

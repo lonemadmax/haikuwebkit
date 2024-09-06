@@ -1,4 +1,4 @@
-# These are the layout test expectations for the WinCairo port of WebKit.
+# These are the layout test expectations for the Windows port of WebKit.
 #
 # See http://trac.webkit.org/wiki/TestExpectations for more information on this file.
 
@@ -160,7 +160,7 @@ fast/shadow-dom/touch-event-ios.html [ Skip ]
 imported/w3c/web-platform-tests/touch-events [ Skip ]
 imported/blink/fast/events/touch/touch-action-double-remove.html [ Skip ]
 
-# WinCairo bots have a problem of running Media Foundation
+# Windows port bots have a problem of running Media Foundation
 compositing/geometry/clipped-video-controller.html [ Skip ] # Timeout
 compositing/geometry/video-fixed-scrolling.html [ Skip ] # Timeout
 compositing/geometry/video-opacity-overlay.html [ Skip ] # Timeout
@@ -339,6 +339,7 @@ fast/url/user-visible [ Skip ]
 # These tests reference specific fonts on Mac port.
 fast/text/font-weights.html [ Skip ]
 fast/text/font-weights-zh.html [ Skip ]
+fast/text/postscript-bold.html [ Skip ]
 
 # SoftBank emoji isn't supported
 fast/text/softbank-emoji.html [ Skip ]
@@ -418,7 +419,7 @@ fast/canvas/canvas-will-read-frequently.html [ Skip ]
 fast/scrolling/pan-scroll [ Pass ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
-# These areas are not implemented well on WinCairo
+# These areas are not implemented well on Windows port
 #//////////////////////////////////////////////////////////////////////////////////////////
 
 ### TestRunner
@@ -859,6 +860,9 @@ webkit.org/b/255747 http/tests/security/canvas-remote-read-remote-video-redirect
 
 http/tests/security/canvas-remote-read-remote-video-hls.html [ Skip ] # Timeout
 
+http/tests/performance/performance-resource-timing-cross-origin-media.html [ Skip ] # Timeout
+http/tests/performance/performance-resource-timing-cross-origin-media-with-cors.html [ Skip ] # Timeout
+
 http/tests/security/clipboard/copy-paste-html-across-origin-sanitizes-html.html [ Skip ] # Failure
 http/tests/security/clipboard/copy-paste-html-across-origin-strips-mso-list.html [ Skip ] # Failure
 http/tests/security/clipboard/copy-paste-html-cross-origin-iframe-across-origin.html [ Skip ] # Failure
@@ -983,11 +987,6 @@ http/wpt/service-workers/mac [ Skip ]
 
 webkit.org/b/209455 http/wpt/misc/last-modified-parsing.html [ Failure Pass ]
 webkit.org/b/209455 http/wpt/misc/no-last-modified.html [ Failure Pass ]
-
-# Needs long path support
-webkit.org/b/276408 http/tests/IndexedDB/storage-limit-1.https.html [ Failure Pass ]
-webkit.org/b/276408 http/tests/IndexedDB/storage-limit.https.html [ Failure Pass ]
-webkit.org/b/276408 http/tests/workers/service/service-worker-cache-api.https.html [ Failure Pass ]
 
 http/tests/cookies/document-cookie-multiple-cookies.html [ Failure ]
 http/tests/misc/form-post-textplain-cross-site.html [ Failure ]
@@ -2136,6 +2135,8 @@ webgl/2.0.0/conformance2/transform_feedback/transform_feedback.html [ Skip ] # T
 workers/bomb.html [ Skip ] # Timeout
 
 webkit.org/b/162830 fast/events/tabindex-focus-blur-all.html [ Pass Timeout ]
+
+fast/events/recorded-keydown-event.html [ Pass Timeout ]
 
 fast/masking/clip-path-selection.html [ Failure ]
 animations/remove-syncing-animation.html [ Pass Failure ]
@@ -3882,7 +3883,6 @@ fast/events/mouse-cursor-image-set.html [ Failure ]
 fast/events/mouse-cursor-no-mousemove.html [ Failure ]
 fast/events/mouse-cursor-udpate-during-raf.html [ Failure ]
 fast/events/selectstart-by-single-click-with-shift.html [ Failure ]
-fast/rendering/render-style-null-optgroup-crash.html [ Failure ]
 fast/text/font-download-font-face-src-list.html [ Failure ]
 fast/text/font-download-font-family-property.html [ Failure ]
 fast/text/font-download-remote-fallback-all.html [ Failure ]
@@ -3952,7 +3952,7 @@ fast/text/international/plane2.html [ Failure Pass ]
 fast/text/khmer-lao-font.html [ Failure Pass ]
 fonts/fantasy.html [ Failure Pass ]
 
-# Failing on WinCairo Debug tester
+# Failing on Windows Debug tester
 fast/text/atsui-multiple-renderers.html [ Failure Pass ]
 fast/text/international/thai-baht-space.html [ Failure Pass ]
 fast/text/international/thai-line-breaks.html [ Failure Pass ]
@@ -4201,3 +4201,6 @@ fast/css/view-transitions-nested-transparency-layers.html [ ImageOnlyFailure Pas
 # ImageOnlyFailure only on EWS. The background images doesn't seem to be loaded.
 imported/w3c/web-platform-tests/css/css-viewport/zoom/background-image.html [ ImageOnlyFailure Pass ]
 imported/w3c/web-platform-tests/css/css-viewport/zoom/image-intrinsic-size.html [ ImageOnlyFailure Pass ]
+
+# Requires layer tiling
+compositing/repaint/scroller-repaints-once.html [ Failure ]

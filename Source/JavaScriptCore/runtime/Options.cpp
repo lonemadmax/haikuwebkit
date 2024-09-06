@@ -64,6 +64,11 @@
 #include <wtf/cocoa/Entitlements.h>
 #endif
 
+#if OS(LINUX)
+#include <unistd.h>
+extern "C" char **environ;
+#endif
+
 namespace JSC {
 
 bool useOSLogOptionHasChanged = false;
@@ -978,11 +983,17 @@ void Options::initialize()
             overrideDefaults();
 
             // Allow environment vars to override options if applicable.
-            // The evn var should be the name of the option prefixed with
+            // The env var should be the name of the option prefixed with
             // "JSC_".
-#if PLATFORM(COCOA)
+#if PLATFORM(COCOA) || OS(LINUX)
             bool hasBadOptions = false;
-            for (char** envp = *_NSGetEnviron(); *envp; envp++) {
+#if PLATFORM(COCOA)
+            char** envp = *_NSGetEnviron();
+#else
+            char** envp = environ;
+#endif
+
+            for (; *envp; envp++) {
                 const char* env = *envp;
                 if (!strncmp("JSC_", env, 4)) {
                     if (!Options::setOption(&env[4])) {
@@ -993,7 +1004,9 @@ void Options::initialize()
             }
             if (hasBadOptions && Options::validateOptions())
                 CRASH();
-#else // PLATFORM(COCOA)
+#endif // PLATFORM(COCOA) || OS(LINUX)
+
+#if !PLATFORM(COCOA)
 #define OVERRIDE_OPTION_WITH_HEURISTICS(type_, name_, defaultValue_, availability_, description_) \
             overrideOptionWithHeuristic(name_(), name_##ID, "JSC_" #name_, Availability::availability_);
             FOR_EACH_JSC_OPTION(OVERRIDE_OPTION_WITH_HEURISTICS)
@@ -1004,7 +1017,7 @@ void Options::initialize()
             FOR_EACH_JSC_ALIASED_OPTION(OVERRIDE_ALIASED_OPTION_WITH_HEURISTICS)
 #undef OVERRIDE_ALIASED_OPTION_WITH_HEURISTICS
 
-#endif // PLATFORM(COCOA)
+#endif // !PLATFORM(COCOA)
 
 #if 0
                 ; // Deconfuse editors that do auto indentation
@@ -1414,11 +1427,7 @@ bool canUseJITCage() { return false; }
 
 bool canUseHandlerIC()
 {
-#if CPU(X86_64)
-    return true;
-#elif CPU(ARM64)
-    return !isIOS();
-#elif CPU(RISCV64)
+#if USE(JSVALUE64)
     return true;
 #else
     return false;

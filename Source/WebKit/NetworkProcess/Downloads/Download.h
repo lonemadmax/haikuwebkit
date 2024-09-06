@@ -40,7 +40,7 @@
 #include <wtf/WeakPtr.h>
 
 #if PLATFORM(COCOA)
-OBJC_CLASS NSProgress;
+OBJC_CLASS WKDownloadProgress;
 OBJC_CLASS NSURLSessionDownloadTask;
 #endif
 
@@ -87,6 +87,10 @@ public:
     void publishProgress(const URL&, SandboxExtension::Handle&&);
 #endif
 
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+    void publishProgress(const URL&, std::span<const uint8_t>);
+#endif
+
     DownloadID downloadID() const { return m_downloadID; }
     PAL::SessionID sessionID() const { return m_sessionID; }
 
@@ -121,7 +125,7 @@ private:
     RefPtr<NetworkDataTask> m_download;
 #if PLATFORM(COCOA)
     RetainPtr<NSURLSessionDownloadTask> m_downloadTask;
-    RetainPtr<NSProgress> m_progress;
+    RetainPtr<WKDownloadProgress> m_progress;
 #endif
     PAL::SessionID m_sessionID;
     bool m_hasReceivedData { false };

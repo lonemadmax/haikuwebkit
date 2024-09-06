@@ -45,6 +45,9 @@ class PlatformMouseEvent;
 
 enum class SyntheticClickType : uint8_t;
 
+bool isAnyClick(const AtomString& eventType);
+bool isAnyClick(const Event&);
+
 class MouseEvent : public MouseRelatedEvent {
     WTF_MAKE_ISO_ALLOCATED(MouseEvent);
 public:
@@ -54,7 +57,7 @@ public:
 
     WEBCORE_EXPORT static Ref<MouseEvent> create(const AtomString& eventType, RefPtr<WindowProxy>&&, const PlatformMouseEvent&, int detail, Node* relatedTarget);
 
-    static Ref<MouseEvent> create(const AtomString& eventType, CanBubble, IsCancelable, IsComposed, RefPtr<WindowProxy>&&, int detail,
+    static Ref<MouseEvent> create(const AtomString& eventType, CanBubble, IsCancelable, IsComposed, MonotonicTime timestamp, RefPtr<WindowProxy>&&, int detail,
         int screenX, int screenY, int clientX, int clientY, OptionSet<Modifier>, MouseButton, unsigned short buttons,
         SyntheticClickType, EventTarget* relatedTarget);
 
@@ -93,7 +96,7 @@ protected:
         const IntPoint& screenLocation, const IntPoint& windowLocation, double movementX, double movementY, OptionSet<Modifier>, MouseButton, unsigned short buttons,
         EventTarget* relatedTarget, double force, SyntheticClickType, IsSimulated, IsTrusted);
 
-    MouseEvent(enum EventInterfaceType, const AtomString& type, CanBubble, IsCancelable, IsComposed, RefPtr<WindowProxy>&&, int detail,
+    MouseEvent(enum EventInterfaceType, const AtomString& type, CanBubble, IsCancelable, IsComposed, MonotonicTime timestamp, RefPtr<WindowProxy>&&, int detail,
         const IntPoint& screenLocation, const IntPoint& clientLocation, double movementX, double movementY, OptionSet<Modifier>, MouseButton, unsigned short buttons,
         SyntheticClickType, EventTarget* relatedTarget);
 

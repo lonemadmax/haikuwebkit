@@ -29,7 +29,13 @@ css2.1/20110323/replaced-intrinsic-002.htm [ Pass ]
 fast/events/constructors/keyboard-event-constructor.html [ Pass ]
 
 webkit.org/b/136754 imported/w3c/web-platform-tests/css/css-flexbox/flexbox_flex-natural-mixed-basis-auto.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-flexbox/grid-flex-item-007.html [ Pass ]
 
+imported/w3c/web-platform-tests/css/css-images/conic-gradient-angle-negative.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-images/out-of-range-color-stop-conic.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-circle-001.svg [ Pass ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-circle-002.svg [ Pass ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path-svg-content/clip-path-shape-circle-005.svg [ Pass ]
 imported/w3c/web-platform-tests/css/css-ui/text-overflow-005.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-display/run-in/quotes-applies-to-011.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/boundary-shaping/boundary-shaping-004.html [ ImageOnlyFailure ]
@@ -68,10 +74,29 @@ imported/w3c/web-platform-tests/css/css-text/text-align/text-align-start-014.htm
 imported/w3c/web-platform-tests/css/css-text/text-align/text-align-start-015.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-text/text-align/text-align-start-016.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-text/text-align/text-align-start-017.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-text-decor/text-emphasis-color-001.xht [ Pass ]
+
+imported/w3c/web-platform-tests/css/filter-effects/svg-unknown-input-001.html [ Pass ]
+imported/w3c/web-platform-tests/css/filter-effects/svg-unknown-input-002.html [ Pass ]
 
 imported/w3c/web-platform-tests/html/browsers/windows/browsing-context-names/choose-_blank-003.html [ Pass ]
 
+imported/w3c/web-platform-tests/html/canvas/element/manual/filters/canvas-filter-opacity.html [ Pass ]
+imported/w3c/web-platform-tests/html/canvas/element/manual/filters/canvas-filter-shadow-and-properties-blur.html [ Pass ]
+imported/w3c/web-platform-tests/html/canvas/element/manual/filters/canvas-filter-shadow-and-properties.html [ Pass ]
+imported/w3c/web-platform-tests/html/canvas/element/manual/filters/canvas-filter-shadow.html [ Pass ]
+imported/w3c/web-platform-tests/html/canvas/element/manual/shadows/canvas_shadows_system_colors.html [ Pass ]
+
+imported/w3c/web-platform-tests/html/dom/elements/global-attributes/dir_auto-N-EN.html [ Pass ]
+imported/w3c/web-platform-tests/html/dom/elements/global-attributes/dir-shadow-41.html [ Pass ]
+
+imported/w3c/web-platform-tests/html/rendering/non-replaced-elements/the-hr-element-0/width.html [ Pass ]
+imported/w3c/web-platform-tests/html/rendering/widgets/input-password-background-suppresses-appearance.html [ Pass ]
+
 imported/w3c/web-platform-tests/html/semantics/forms/form-submission-0/url-encoded.html [ Pass ]
+
+imported/w3c/web-platform-tests/mathml/relations/css-styling/mathvariant-auto.html [ Pass ]
+
 
 # PointerEvents not enabled globally, but enabled for WPE (EXPERIMENTAL_FEATURES)
 pointerevents/pointer-id-crash.html [ Pass ]
@@ -262,7 +287,6 @@ http/wpt/webxr/xrHandInput_gc.html [ Failure ]
 # Pending to create bug.
 fast/canvas/webgl/context-lost-restored-p3.html [ Failure ]
 [ Release ] fast/events/prevent-default-prevents-interaction-with-scrollbars.html [ Failure Pass ]
-fast/rendering/render-style-null-optgroup-crash.html [ Failure Pass ]
 http/wpt/mediarecorder/MediaRecorder-AV-audio-video-dataavailable.html [ Failure ]
 media/no-fullscreen-when-hidden.html [ Failure ]
 media/video-background-tab-playback.html [ Failure ]
@@ -275,10 +299,6 @@ imported/w3c/web-platform-tests/cookies/attributes/domain.sub.html [ Failure ]
 imported/w3c/web-platform-tests/css/selectors/media/media-playback-state.html [ Failure ]
 imported/w3c/web-platform-tests/custom-elements/form-associated/ElementInternals-validation.html [ Failure ]
 imported/w3c/web-platform-tests/custom-elements/form-associated/upgrading/inside-datalist.tentative.html [ Failure ]
-imported/w3c/web-platform-tests/fetch/api/request/request-keepalive-quota.html?include=fast [ Failure ]
-imported/w3c/web-platform-tests/fetch/api/request/request-keepalive-quota.html?include=slow-2 [ Failure ]
-imported/w3c/web-platform-tests/fetch/api/request/request-keepalive-quota.html?include=slow-3 [ Failure ]
-imported/w3c/web-platform-tests/fetch/api/request/request-keepalive-quota.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/metadata/generated/css-font-face.https.sub.tentative.html [ Failure ]
 imported/w3c/web-platform-tests/fetch/metadata/generated/css-font-face.sub.tentative.html [ Failure ]
 imported/w3c/web-platform-tests/fetch/metadata/generated/element-a.https.sub.html [ Failure ]
@@ -437,7 +457,6 @@ fast/events/resources/drag-in-frames-right.html [ Skip ]
 fast/events/shift-drag-selection-on-image-triggers-drag-n-drop.html [ Skip ]
 fast/events/shift-drag-selection-on-link-triggers-drag-n-drop.html [ Skip ]
 fast/text/canceled-mousemove-does-not-prevent-selectionchange.html [ Failure ]
-imported/w3c/web-platform-tests/uievents/mouse/mousemove_prevent_default_action.tentative.html [ Failure ]
 
 css-dark-mode [ Pass ]
 css-dark-mode/older-systems [ Skip ]
@@ -825,6 +844,8 @@ webkit.org/b/252878 webrtc/audio-peer-connection-webaudio.html [ Pass Timeout ]
 webkit.org/b/252878 webrtc/datachannel/bufferedAmountLowThreshold-default.html [ Crash Failure Pass Timeout ]
 
 webkit.org/b/235885 webrtc/video-remote-mute.html [ Timeout ]
+
+webkit.org/b/276587 webrtc/video-av1.html [ Timeout ]
 
 webkit.org/b/265290 webrtc/datachannel/basic.html [ Pass Crash ]
 webkit.org/b/265290 webrtc/datachannel/bufferedAmount-afterClose.html [ Pass Crash ]
@@ -1368,6 +1389,7 @@ imported/w3c/web-platform-tests/css/css-transforms/transform3d-sorting-004.html 
 imported/w3c/web-platform-tests/css/css-transforms/ttwf-css-3d-polygon-cycle.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-writing-modes/text-shadow-orientation-upright-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/image-orientation/drawImage-with-src-rect.tentative.html [ ImageOnlyFailure ]
+
 imported/w3c/web-platform-tests/html/rendering/the-details-element/summary-text-decoration.html [ ImageOnlyFailure ]
 
 fast/canvas/webgl/lose-context-on-timeout-async.html [ Skip ] # Timeout.
@@ -1573,3 +1595,6 @@ webkit.org/b/272224 imported/w3c/web-platform-tests/selection/textcontrols/selec
 webkit.org/b/272225 media/media-source/media-managedmse-resume-after-stall.html [ Failure ]
 
 webkit.org/b/272426 http/tests/webxr/webxr-third-party-iframe-requestsession-denied-by-insufficient-feature-policy.html [ Crash Pass ]
+
+imported/w3c/web-platform-tests/uievents/mouse/mousemove_prevent_default_action.html [ Pass Failure ]
+imported/w3c/web-platform-tests/uievents/interface/keyboard-accesskey-click-event.html [ Pass Failure ]

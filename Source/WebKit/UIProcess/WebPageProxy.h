@@ -2253,7 +2253,6 @@ public:
 #if ENABLE(WRITING_TOOLS)
 #if ENABLE(CONTEXT_MENUS)
     bool canHandleContextMenuWritingTools() const;
-    void handleContextMenuWritingToolsDeprecated(WebCore::IntRect selectionBoundsInRootView);
     void handleContextMenuWritingTools(WebCore::WritingTools::RequestedTool);
 #endif
 #endif
@@ -2488,6 +2487,8 @@ public:
     void dispatchActivityStateChange();
 
     void closeCurrentTypingCommand();
+
+    void simulateClickOverFirstMatchingTextInViewportWithUserInteraction(String&& targetText, CompletionHandler<void(bool)>&&);
 
 private:
     void getWebCryptoMasterKey(CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&&);
@@ -3084,6 +3085,7 @@ private:
 #endif
 
     void setAllowsLayoutViewportHeightExpansion(bool);
+    void setBrowsingContextGroup(BrowsingContextGroup&);
 
     struct Internals;
     Internals& internals() { return m_internals; }

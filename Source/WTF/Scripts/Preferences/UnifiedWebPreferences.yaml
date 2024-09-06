@@ -725,6 +725,20 @@ AutomaticallyAdjustsViewScaleUsingMinimumEffectiveDeviceWidth:
     WebCore:
       default: false
 
+AuxclickEventEnabled:
+  type: bool
+  status: stable
+  category: dom
+  humanReadableName: "Enable `auxclick` event"
+  humanReadableDescription: "Enable the `auxclick` UI event"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
 BackgroundFetchAPIEnabled:
   type: bool
   status: testable
@@ -1821,11 +1835,11 @@ CryptoKitEnabled:
   humanReadableDescription: "Enable CryptoKit for supported Algorithms."
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CursiveFontFamily:
   type: String
@@ -2816,6 +2830,20 @@ GenericCueAPIEnabled:
       default: false
     WebKit:
       default: true
+    WebCore:
+      default: false
+
+GetCoalescedEventsEnabled:
+  type: bool
+  status: unstable
+  category: dom
+  humanReadableName: "Pointer Events getCoalescedEvents API"
+  humanReadableDescription: "Enable the `getCoalescedEvents` function of the Pointer Events API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
     WebCore:
       default: false
 
@@ -4755,6 +4783,20 @@ NotificationsEnabled:
       "PLATFORM(IOS_FAMILY)": false
       default: true
 
+ObservableEnabled:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "Observable API"
+  humanReadableDescription: "Support for the Observable API"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 OffscreenCanvasDeprecatedCommitEnabled:
   type: bool
   status: testable
@@ -5366,7 +5408,7 @@ ReportingEnabled:
 
 RequestIdleCallbackEnabled:
   type: bool
-  status: preview
+  status: stable
   category: dom
   humanReadableName: "requestIdleCallback"
   humanReadableDescription: "Enable requestIdleCallback support"
@@ -5374,6 +5416,7 @@ RequestIdleCallbackEnabled:
     WebKitLegacy:
       default: false
     WebKit:
+      "USE(CF)": true
       default: false
     WebCore:
       default: false
@@ -7556,6 +7599,21 @@ WebCryptoX25519Enabled:
     WebCore:
       default: false
 
+WebExtensionSidebarEnabled:
+  type: bool
+  status: testable
+  category: extensions
+  humanReadableName: "WebExtension sidebarAction and sidePanel APIs"
+  humanReadableDescription: "Enable support for WebExtensions using the sidebarAction / sidePanel family of APIs"
+  condition: ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 WebGLDraftExtensionsEnabled:
   type: bool
   status: testable
@@ -7760,21 +7818,6 @@ WebRTCH264HardwareEncoderEnabled:
       default: true
 
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
-WebRTCH264LowLatencyEncoderEnabled:
-  type: bool
-  status: internal
-  category: media
-  humanReadableName: "WebRTC H264 LowLatency encoder"
-  humanReadableDescription: "Enable H264 LowLatency encoder"
-  webcoreBinding: DeprecatedGlobalSettings
-  condition: ENABLE(WEB_RTC)
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: true
-
-# FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 WebRTCH265CodecEnabled:
   type: bool
   status: stable
@@ -7821,30 +7864,6 @@ WebRTCPlatformCodecsInGPUProcessEnabled:
       default: false
     WebCore:
       default: false
-
-WebRTCPlatformTCPSocketsEnabled:
-  type: bool
-  status: internal
-  category: media
-  humanReadableName: "WebRTC Platform TCP Sockets"
-  humanReadableDescription: "Enable WebRTC Platform TCP Sockets"
-  webcoreBinding: DeprecatedGlobalSettings
-  condition: ENABLE(WEB_RTC)
-  defaultValue:
-    WebKit:
-      default: true
-
-WebRTCPlatformUDPSocketsEnabled:
-  type: bool
-  status: internal
-  category: media
-  humanReadableName: "WebRTC Platform UDP Sockets"
-  humanReadableDescription: "Enable WebRTC Platform UDP Sockets"
-  webcoreBinding: DeprecatedGlobalSettings
-  condition: ENABLE(WEB_RTC)
-  defaultValue:
-    WebKit:
-      default: true
 
 WebRTCRemoteVideoFrameEnabled:
   type: bool

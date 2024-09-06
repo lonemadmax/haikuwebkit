@@ -30,10 +30,11 @@
     DOMString type;
     DOMString message;
     DOMString level;
+    ArrayBuffer data;
     RTCPeerConnection connection;
 };
 
 [
     Conditional=WEB_RTC,
-    IsStrongCallback
+    GenerateIsReachable=ImplScriptExecutionContext
 ] callback RTCLogsCallback = undefined (RTCLogs logs);

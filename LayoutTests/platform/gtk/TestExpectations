@@ -145,6 +145,9 @@ imported/w3c/web-platform-tests/pointerevents/pointerevent_touch-action-span-non
 imported/w3c/web-platform-tests/pointerevents/pointerevent_touch-action-svg-none-test_touch.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_touch-action-table-none-test_touch.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_sequence_at_implicit_release_on_click.html [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/persistentDeviceId/get-persistendeviceid-from-pointer-event.tentative.html [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/pointerevent_to_slotted_target.html?touch [ Skip ]
+imported/w3c/web-platform-tests/uievents/interface/keyboard-accesskey-click-event.html [ Skip ]
 
 http/tests/cookies/same-site [ Pass ]
 webkit.org/b/264804 http/tests/cookies/same-site/fetch-after-navigating-iframe-in-cross-origin-page.html [ Failure ]
@@ -1052,7 +1055,6 @@ webkit.org/b/190703 inspector/worker/debugger-pause.html [ Failure Pass Timeout 
 webkit.org/b/194382 mathml/presentation/stretchy-depth-height-symmetric.html [ Failure ]
 imported/w3c/web-platform-tests/mathml/presentation-markup/tables/table-002.html [ Pass ]
 imported/w3c/web-platform-tests/mathml/relations/css-styling/not-participating-to-parent-layout.html [ Pass ]
-imported/w3c/web-platform-tests/mathml/relations/css-styling/padding-border-margin/padding-002.html [ Pass ]
 
 webkit.org/b/195466 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/ready-states/autoplay.html [ Failure ]
 
@@ -1910,6 +1912,8 @@ webkit.org/b/264680 inspector/heap/getPreview.html [ Failure Pass ]
 webkit.org/b/264680 media/video-seek-past-end-playing.html [ Pass Timeout ]
 webkit.org/b/264680 scrollbars/scrollbar-selectors.html [ Missing Pass Timeout ]
 webkit.org/b/264680 webrtc/peer-connection-audio-mute2.html [ Failure Pass Timeout ]
+
+webkit.org/b/276587 webrtc/video-av1.html [ Pass Timeout ]
 
 webkit.org/b/266204 [ Debug ] imported/w3c/web-platform-tests/scroll-animations/css/animation-inactive-outside-range-test.html [ Crash ]
 [ Debug ] imported/w3c/web-platform-tests/scroll-animations/css/animation-fill-outside-range-test.html [ Crash ]
