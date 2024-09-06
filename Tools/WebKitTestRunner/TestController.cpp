@@ -1109,6 +1109,8 @@ bool TestController::resetStateToConsistentValues(const TestOptions& options, Re
 
     auto resetMessageBody = adoptWK(WKMutableDictionaryCreate());
 
+    if (resetStage == ResetStage::AfterTest)
+        WKPageStopLoading(m_mainWebView->page());
     setValue(resetMessageBody, "ResetStage", resetStage == ResetStage::AfterTest ? "AfterTest" : "BeforeTest");
 
     setValue(resetMessageBody, "ShouldGC", m_gcBetweenTests);
@@ -2189,8 +2191,10 @@ void TestController::didReceiveSynchronousMessageFromInjectedBundle(WKStringRef 
             return completionHandler(nullptr);
         }
 
-        if (WKStringIsEqualToUTF8CString(subMessageName, "WaitForDeferredMouseEvents"))
+        if (WKStringIsEqualToUTF8CString(subMessageName, "WaitForDeferredMouseEvents")) {
+            WKPageFlushDeferredDidReceiveMouseEventForTesting(mainWebView()->page());
             return completionHandler(nullptr);
+        }
 
 #if PLATFORM(MAC)
         if (WKStringIsEqualToUTF8CString(subMessageName, "MouseForceClick")) {

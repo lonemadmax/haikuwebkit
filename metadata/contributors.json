@@ -704,6 +704,13 @@
    },
    {
       "emails" : [
+         "a_fryer@apple.com"
+      ],
+      "github" : "Andrew-Fryer",
+      "name" : "Andrew Fryer"
+   },
+   {
+      "emails" : [
          "anlo@rim.com",
          "anlo@blackberry.com",
          "andrewlo@gmail.com"
@@ -5126,6 +5133,13 @@
          "liachen@rim.com"
       ],
       "name" : "Lia Chen"
+   },
+   {
+      "emails" : [
+         "lily_spiniolas@apple.com"
+      ],
+      "github" : "lilyspiniolas",
+      "name" : "Lily Spiniolas"
    },
    {
       "emails" : [

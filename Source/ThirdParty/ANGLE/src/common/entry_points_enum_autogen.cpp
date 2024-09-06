@@ -688,8 +688,12 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glClearStencil";
         case EntryPoint::GLClearTexImage:
             return "glClearTexImage";
+        case EntryPoint::GLClearTexImageEXT:
+            return "glClearTexImageEXT";
         case EntryPoint::GLClearTexSubImage:
             return "glClearTexSubImage";
+        case EntryPoint::GLClearTexSubImageEXT:
+            return "glClearTexSubImageEXT";
         case EntryPoint::GLClientActiveTexture:
             return "glClientActiveTexture";
         case EntryPoint::GLClientWaitSync:
@@ -1122,6 +1126,8 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glEndQueryEXT";
         case EntryPoint::GLEndQueryIndexed:
             return "glEndQueryIndexed";
+        case EntryPoint::GLEndTilingQCOM:
+            return "glEndTilingQCOM";
         case EntryPoint::GLEndTransformFeedback:
             return "glEndTransformFeedback";
         case EntryPoint::GLEvalCoord1d:
@@ -1212,6 +1218,8 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glFramebufferRenderbuffer";
         case EntryPoint::GLFramebufferRenderbufferOES:
             return "glFramebufferRenderbufferOES";
+        case EntryPoint::GLFramebufferResolveRenderbufferWEBKIT:
+            return "glFramebufferResolveRenderbufferWEBKIT";
         case EntryPoint::GLFramebufferTexture:
             return "glFramebufferTexture";
         case EntryPoint::GLFramebufferTexture1D:
@@ -2742,6 +2750,8 @@ const char *GetEntryPointName(EntryPoint ep)
             return "glSignalSemaphoreEXT";
         case EntryPoint::GLSpecializeShader:
             return "glSpecializeShader";
+        case EntryPoint::GLStartTilingQCOM:
+            return "glStartTilingQCOM";
         case EntryPoint::GLStencilFunc:
             return "glStencilFunc";
         case EntryPoint::GLStencilFuncSeparate:

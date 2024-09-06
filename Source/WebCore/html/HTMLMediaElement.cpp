@@ -7195,7 +7195,7 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
         if (isContextStopped())
             return;
 
-        if (document().hidden()) {
+        if (document().hidden() && mode != HTMLMediaElementEnums::VideoFullscreenModePictureInPicture) {
             ALWAYS_LOG(logIdentifier, " returning because document is hidden");
             m_changingVideoFullscreenMode = false;
             return;
@@ -8794,7 +8794,7 @@ void HTMLMediaElement::resumeAutoplaying()
 void HTMLMediaElement::mayResumePlayback(bool shouldResume)
 {
     ALWAYS_LOG(LOGIDENTIFIER, "paused = ", paused());
-    if (paused() && shouldResume)
+    if (!ended() && paused() && shouldResume)
         play();
 }
 
@@ -9599,6 +9599,12 @@ String HTMLMediaElement::localizedSourceType() const
 
     ASSERT_NOT_REACHED();
     return { };
+}
+
+void HTMLMediaElement::isActiveNowPlayingSessionChanged()
+{
+    if (RefPtr page = protectedDocument()->protectedPage())
+        page->hasActiveNowPlayingSessionChanged();
 }
 
 #if HAVE(SPATIAL_TRACKING_LABEL)

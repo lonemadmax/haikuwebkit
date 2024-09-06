@@ -1621,6 +1621,7 @@ no-preference
 // prefers-contrast
 more
 less
+custom
 // no-preference
 
 // prefers-color-scheme, font-palette
@@ -1665,6 +1666,7 @@ symbolic
 additive
 // fixed
 -internal-disclosure-closed
+-internal-disclosure-open
 -internal-simplified-chinese-informal
 -internal-simplified-chinese-formal
 -internal-traditional-chinese-informal

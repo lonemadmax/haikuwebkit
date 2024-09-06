@@ -200,7 +200,7 @@ void BBQPlan::work(CompilationEffort effort)
         m_calleeGroup->callsiteCollection().updateCallsitesToCallUs(locker, *m_calleeGroup, CodeLocationLabel<WasmEntryPtrTag>(entrypoint), m_functionIndex, functionIndexSpace);
 
         {
-            if (Options::useWasmIPInt()) {
+            if (Options::useWebAssemblyIPInt()) {
                 IPIntCallee& ipintCallee = m_calleeGroup->m_ipintCallees->at(m_functionIndex).get();
                 Locker locker { ipintCallee.tierUpCounter().m_lock };
                 ipintCallee.setReplacement(callee.copyRef(), mode());
@@ -217,7 +217,7 @@ void BBQPlan::work(CompilationEffort effort)
     // Replace the LLInt interpreted entry callee. Note that we can do this after we publish our
     // callee because calling into the LLInt should still work.
     auto* jsEntrypointCallee = m_calleeGroup->m_jsEntrypointCallees.get(m_functionIndex);
-    if (jsEntrypointCallee && jsEntrypointCallee->compilationMode() == CompilationMode::JSEntrypointInterpreterMode) {
+    if (jsEntrypointCallee && jsEntrypointCallee->compilationMode() == CompilationMode::JSEntrypointInterpreterMode && !static_cast<JSEntrypointInterpreterCallee*>(jsEntrypointCallee)->hasReplacement()) {
         Locker locker { m_lock };
         TypeIndex typeIndex = m_moduleInformation->internalFunctionTypeIndices[m_functionIndex];
         const TypeDefinition& signature = TypeInformation::get(typeIndex).expand();
@@ -303,7 +303,7 @@ std::unique_ptr<InternalFunction> BBQPlan::compileFunction(uint32_t functionInde
 {
     const auto& function = m_moduleInformation->functions[functionIndex];
     TypeIndex typeIndex = m_moduleInformation->internalFunctionTypeIndices[functionIndex];
-    const TypeDefinition& signature = TypeInformation::get(typeIndex);
+    const TypeDefinition& signature = TypeInformation::get(typeIndex).expand();
     unsigned functionIndexSpace = m_moduleInformation->importFunctionCount() + functionIndex;
     ASSERT_UNUSED(functionIndexSpace, m_moduleInformation->typeIndexFromFunctionIndexSpace(functionIndexSpace) == typeIndex);
     Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileResult;
@@ -332,7 +332,7 @@ void BBQPlan::didCompleteCompilation()
     for (uint32_t functionIndex = 0; functionIndex < m_moduleInformation->functions.size(); functionIndex++) {
         CompilationContext& context = m_compilationContexts[functionIndex];
         TypeIndex typeIndex = m_moduleInformation->internalFunctionTypeIndices[functionIndex];
-        const TypeDefinition& signature = TypeInformation::get(typeIndex);
+        const TypeDefinition& signature = TypeInformation::get(typeIndex).expand();
         const uint32_t functionIndexSpace = functionIndex + m_moduleInformation->importFunctionCount();
         ASSERT(functionIndexSpace < m_moduleInformation->functionIndexSpaceSize());
         {

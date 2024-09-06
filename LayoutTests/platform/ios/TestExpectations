@@ -4564,7 +4564,7 @@ imported/w3c/web-platform-tests/html/semantics/popovers/popover-close-request.ht
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-focus-2.html [ Failure ]
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-focus-harness.html [ Failure ]
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss-hint.tentative.html [ Failure ]
-imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss-with-anchor.tentative.tentative.html [ Failure ]
+imported/w3c/web-platform-tests/html/semantics/popovers/popover-light-dismiss-with-anchor.tentative.html [ Failure ]
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-top-layer-nesting-anchor.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-top-layer-nesting-hints.tentative.html [ Failure ]
 imported/w3c/web-platform-tests/html/semantics/popovers/popover-top-layer-nesting.html [ Skip ]
@@ -6541,8 +6541,7 @@ webkit.org/b/234536 webxr/high-performance.html [ Failure ]
 
 # Media failures
 fast/mediastream/video-rotation-gpu-process-crash.html [ Timeout Crash Pass ]
-# webkit.org/b/236926 webrtc/vp8-then-h264-gpu-process-crash.html [ Timeout Pass ]
-webkit.org/b/275741 webrtc/vp8-then-h264-gpu-process-crash.html [ Pass Crash ] # Uncomment above when this is resolved. 
+webkit.org/b/236926 webrtc/vp8-then-h264-gpu-process-crash.html [ Timeout Pass ]
 
 # Flaky crash
 webkit.org/b/237674 imported/w3c/web-platform-tests/html/semantics/links/links-created-by-a-and-area-elements/target_blank_implicit_noopener.html [ Timeout Crash Pass ]
@@ -6663,6 +6662,7 @@ webkit.org/b/245007 imported/w3c/web-platform-tests/html/cross-origin-opener-pol
 webkit.org/b/245009 http/wpt/service-workers/controlled-sharedworker.https.html [ Pass Failure ]
 
 webkit.org/b/245010 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/replace-before-load/location-setter.html [ Pass Failure ]
+imported/w3c/web-platform-tests/css/css-sizing/aspect-ratio/grid-aspect-ratio-041.html [ ImageOnlyFailure ]
 
 webkit.org/b/245091 http/wpt/shared-workers/connect-event-ordering.html [ Pass Failure ]
 
@@ -6874,9 +6874,6 @@ webkit.org/b/271018 imported/w3c/web-platform-tests/svg/painting/reftests/marker
 
 webkit.org/b/271178 media/now-playing-webaudio.html [ Pass Failure ]
 
-# rdar://124971386 (REGRESSION (iOS 17.4): 2 imported WPT css-box/margin-trim/computed-margin-values layout tests are consistently failing.)
-imported/w3c/web-platform-tests/css/css-box/margin-trim/computed-margin-values/block-container-block-start-child-with-border.html [ Pass Failure ]
-imported/w3c/web-platform-tests/css/css-box/margin-trim/computed-margin-values/block-container-block-start-self-collapsing-nested.html [ Pass Failure ]
 # rdar://124987637 (REGRESSION (iOS 17.4): 7 imported/w3c/web-platform-tests/css/css-break/out-of-flow-in-multicolumn-*.html layout tests are flaky/consistent ImageOnlyFailures.)
 imported/w3c/web-platform-tests/css/css-break/out-of-flow-in-multicolumn-048.html
 imported/w3c/web-platform-tests/css/css-break/out-of-flow-in-multicolumn-049.html
@@ -7252,4 +7249,18 @@ fast/events/ios/rotation/safari-like-rotation.html [ Failure ]
 
 webkit.org/b/275713 fast/text/international/system-language/declarative-language.html [ Failure ]
 
-webkit.org/b/275709 [ Debug ] imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-form.html [ Skip ]
+# these tests have slight differences in iOS simulator when run on a x86_64 vs arm64 Mac
+webkit.org/b/276005 [ x86_64 ] webgl/1.0.x/conformance/textures/canvas/tex-2d-rgba-rgba-unsigned_byte.html [ Failure ]
+webkit.org/b/276005 [ x86_64 ] webgl/2.0.y/conformance/textures/canvas/tex-2d-rgba-rgba-unsigned_byte.html [ Failure ]
+webkit.org/b/276005 [ x86_64 ] webgl/2.0.y/conformance2/textures/canvas/tex-2d-rgba16f-rgba-float.html [ Failure ]
+webkit.org/b/276006 [ x86_64 ] imported/w3c/web-platform-tests/css/motion/offset-path-shape-inset-002.html [ ImageOnlyFailure ]
+webkit.org/b/276006 [ x86_64 ] imported/w3c/web-platform-tests/css/motion/offset-path-shape-polygon-002.html [ ImageOnlyFailure ]
+webkit.org/b/276006 [ x86_64 ] imported/w3c/web-platform-tests/css/motion/offset-path-shape-xywh-002.html [ ImageOnlyFailure ]
+webkit.org/b/276013 [ x86_64 ] webgl/1.0.x/conformance/glsl/bugs/sampler-array-using-loop-index.html [ Failure ]
+webkit.org/b/276013 [ x86_64 ] webgl/2.0.y/conformance/glsl/bugs/sampler-array-using-loop-index.html [ Failure ]
+# these specifically are baselined to pass on arm64, so we expect failure on x86_64
+webkit.org/b/275963 [ x86_64 ] imported/w3c/web-platform-tests/svg/import/metadata-example-01-t-manual.svg [ Failure ]
+webkit.org/b/275963 [ x86_64 ] svg/W3C-SVG-1.1/metadata-example-01-b.svg [ Failure ]
+webkit.org/b/275963 [ x86_64 ] svg/custom/use-on-symbol-inside-pattern.svg [ Failure ]
+
+webkit.org/b/275962 imported/w3c/web-platform-tests/navigation-api/navigation-history-entry/no-referrer-dynamic-url-censored.html [ Failure ]

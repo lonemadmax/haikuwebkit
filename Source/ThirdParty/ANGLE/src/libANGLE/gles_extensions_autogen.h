@@ -89,6 +89,9 @@ struct Extensions
     // GL_KHR_blend_equation_advanced
     bool blendEquationAdvancedKHR = false;
 
+    // GL_KHR_blend_equation_advanced_coherent
+    bool blendEquationAdvancedCoherentKHR = false;
+
     // GL_EXT_blend_func_extended
     bool blendFuncExtendedEXT = false;
 
@@ -97,6 +100,9 @@ struct Extensions
 
     // GL_EXT_buffer_storage
     bool bufferStorageEXT = false;
+
+    // GL_EXT_clear_texture
+    bool clearTextureEXT = false;
 
     // GL_EXT_clip_control
     bool clipControlEXT = false;
@@ -590,6 +596,9 @@ struct Extensions
     // GL_ANGLE_texture_usage
     bool textureUsageANGLE = false;
 
+    // GL_QCOM_tiled_rendering
+    bool tiledRenderingQCOM = false;
+
     // GL_ANGLE_translated_shader_source
     bool translatedShaderSourceANGLE = false;
 
@@ -649,6 +658,9 @@ struct Extensions
 
     // GL_ANGLE_copy_texture_3d
     bool copyTexture3dANGLE = false;
+
+    // GL_WEBKIT_explicit_resolve_target
+    bool explicitResolveTargetWEBKIT = false;
 
     // GL_CHROMIUM_framebuffer_mixed_samples
     bool framebufferMixedSamplesCHROMIUM = false;

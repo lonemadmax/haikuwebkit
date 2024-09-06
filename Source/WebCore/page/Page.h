@@ -100,6 +100,7 @@ class BadgeClient;
 class BroadcastChannelRegistry;
 class CacheStorageProvider;
 class Chrome;
+class CompositeEditCommand;
 class ContextMenuController;
 class CookieJar;
 class CryptoClient;
@@ -110,6 +111,7 @@ class DiagnosticLoggingClient;
 class DragCaretController;
 class DragController;
 class EditorClient;
+class EditCommandComposition;
 class ElementTargetingController;
 class Element;
 class FocusController;
@@ -1164,8 +1166,15 @@ public:
 
     WEBCORE_EXPORT void updateStateForSelectedSuggestionIfNeeded();
 
+    void respondToUnappliedWritingToolsEditing(EditCommandComposition*);
+    void respondToReappliedWritingToolsEditing(EditCommandComposition*);
+
     WEBCORE_EXPORT std::optional<SimpleRange> contextRangeForSessionWithID(const WritingTools::SessionID&) const;
 #endif
+
+    bool hasActiveNowPlayingSession() const { return m_hasActiveNowPlayingSession; }
+    void hasActiveNowPlayingSessionChanged();
+    void activeNowPlayingSessionUpdateTimerFired();
 
 private:
     explicit Page(PageConfiguration&&);
@@ -1573,6 +1582,9 @@ private:
 #if ENABLE(WRITING_TOOLS)
     UniqueRef<WritingToolsController> m_writingToolsController;
 #endif
+
+    bool m_hasActiveNowPlayingSession { false };
+    Timer m_activeNowPlayingSessionUpdateTimer;
 }; // class Page
 
 inline Page* Frame::page() const

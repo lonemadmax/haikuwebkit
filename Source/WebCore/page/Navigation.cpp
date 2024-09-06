@@ -29,6 +29,7 @@
 #include "AbortController.h"
 #include "CallbackResult.h"
 #include "DOMFormData.h"
+#include "DocumentLoader.h"
 #include "ErrorEvent.h"
 #include "EventNames.h"
 #include "Exception.h"
@@ -43,6 +44,7 @@
 #include "JSNavigationHistoryEntry.h"
 #include "MessagePort.h"
 #include "NavigateEvent.h"
+#include "NavigationActivation.h"
 #include "NavigationCurrentEntryChangeEvent.h"
 #include "NavigationDestination.h"
 #include "NavigationHistoryEntry.h"
@@ -114,6 +116,35 @@ void Navigation::initializeEntries(Ref<HistoryItem>&& currentItem, Vector<Ref<Hi
         m_entries.append(NavigationHistoryEntry::create(protectedScriptExecutionContext().get(), WTFMove(item)));
 
     m_currentEntryIndex = getEntryIndexOfHistoryItem(m_entries, currentItem);
+}
+
+// https://html.spec.whatwg.org/multipage/nav-history-apis.html#navigation-activation
+void Navigation::updateForActivation(HistoryItem* previousItem, std::optional<NavigationNavigationType> type)
+{
+    ASSERT(!m_activation);
+    if (hasEntriesAndEventsDisabled() || !type)
+        return;
+
+    ASSERT(m_currentEntryIndex);
+    if (currentEntry()->associatedHistoryItem().url().isAboutBlank())
+        return;
+
+    bool wasAboutBlank = previousItem && previousItem->url().isAboutBlank(); // FIXME: *Initial* about:blank
+    if (wasAboutBlank) // FIXME: For navigations on the initial about blank this should already be the type.
+        type = NavigationNavigationType::Replace;
+
+    bool isSameOrigin = frame()->document() && previousItem && SecurityOrigin::create(previousItem->url())->isSameOriginAs(frame()->document()->securityOrigin());
+    auto previousEntryIndex = previousItem ? getEntryIndexOfHistoryItem(m_entries, *previousItem) : std::nullopt;
+
+    RefPtr<NavigationHistoryEntry> previousEntry = nullptr;
+    if (previousEntryIndex && isSameOrigin)
+        previousEntry = m_entries.at(previousEntryIndex.value()).ptr();
+    if (type == NavigationNavigationType::Reload)
+        previousEntry = currentEntry();
+    else if (type == NavigationNavigationType::Replace && (isSameOrigin || wasAboutBlank))
+        previousEntry = NavigationHistoryEntry::create(scriptExecutionContext(), *previousItem);
+
+    m_activation = NavigationActivation::create(*type, *currentEntry(), WTFMove(previousEntry));
 }
 
 const Vector<Ref<NavigationHistoryEntry>>& Navigation::entries() const
@@ -274,7 +305,7 @@ Navigation::Result Navigation::navigate(const String& url, NavigateOptions&& opt
 
     auto request = FrameLoadRequest(*frame(), newURL);
     request.setNavigationHistoryBehavior(options.history);
-    frame()->loader().load(WTFMove(request));
+    frame()->loader().loadFrameRequest(WTFMove(request), nullptr, { });
 
     // If the load() call never made it to the point that NavigateEvent was emitted, thus promoteUpcomingAPIMethodTracker() called, this will be true.
     if (m_upcomingNonTraverseMethodTracker == apiMethodTracker) {
@@ -385,6 +416,8 @@ ExceptionOr<void> Navigation::updateCurrentEntry(UpdateCurrentEntryOptions&& opt
 bool Navigation::hasEntriesAndEventsDisabled() const
 {
     if (!window()->document() || !window()->document()->isFullyActive())
+        return true;
+    if (window()->document()->loader() && window()->document()->loader()->isInitialAboutBlank())
         return true;
     if (window()->securityOrigin() && window()->securityOrigin()->isOpaque())
         return true;
@@ -590,8 +623,7 @@ bool Navigation::innerDispatchNavigateEvent(NavigationNavigationType navigationT
         return true;
     }
 
-    if (m_ongoingNavigateEvent)
-        abortOngoingNavigation(*m_ongoingNavigateEvent);
+    abortOngoingNavigationIfNeeded();
 
     promoteUpcomingAPIMethodTracker(destination->key());
 
@@ -760,6 +792,14 @@ bool Navigation::dispatchDownloadNavigateEvent(const URL& url, const String& dow
 {
     Ref destination = NavigationDestination::create(url, nullptr, false);
     return innerDispatchNavigateEvent(NavigationNavigationType::Push, WTFMove(destination), downloadFilename);
+}
+
+// https://html.spec.whatwg.org/multipage/nav-history-apis.html#inform-the-navigation-api-about-aborting-navigation
+void Navigation::abortOngoingNavigationIfNeeded()
+{
+    if (!m_ongoingNavigateEvent)
+        return;
+    abortOngoingNavigation(*m_ongoingNavigateEvent);
 }
 
 } // namespace WebCore

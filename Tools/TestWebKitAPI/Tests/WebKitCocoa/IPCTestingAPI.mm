@@ -615,6 +615,10 @@ TEST(IPCTestingAPI, SerializedTypeInfo)
             for (NSDictionary *argument in arguments) {
                 if (![argument isKindOfClass:NSDictionary.class])
                     continue;
+                if (NSString *enumName = argument[@"enum"]) {
+                    [typesNeedingDescriptions addObject:enumName];
+                    continue;
+                }
                 [typesNeedingDescriptions addObject:argument[@"type"]];
             }
         }
@@ -683,6 +687,9 @@ TEST(IPCTestingAPI, SerializedTypeInfo)
         @"MachSendRight",
         @"CGBitmapInfo",
         @"NSParagraphStyle",
+#if ENABLE(DATA_DETECTION) && !HAVE(WK_SECURE_CODING_DATA_DETECTORS)
+        @"DDScannerResult",
+#endif
 #if PLATFORM(MAC)
 #if !HAVE(WK_SECURE_CODING_DATA_DETECTORS)
         @"WKDDActionContext",

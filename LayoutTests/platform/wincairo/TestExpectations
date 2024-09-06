@@ -770,6 +770,7 @@ http/tests/media [ Skip ]
 
 # need to implement content sniffing
 http/tests/mime/mime-type-sniff.html [ Skip ]
+http/tests/mime/html-with-nosniff-html.html [ Skip ]
 
 http/tests/misc/authentication-redirect-3/authentication-sent-to-redirect-same-origin-with-location-credentials.html [ Failure ]
 http/tests/misc/favicon-loads-with-icon-loading-override.html [ Failure ]
@@ -1951,7 +1952,6 @@ webkit.org/b/274059 webgl/max-active-contexts-webglcontextlost-prevent-default.h
 
 webkit.org/b/268988 fast/events/key-events-in-input-button.html [ Failure ]
 
-webgl/2.0.0/conformance/canvas/drawingbuffer-test.html [ Failure ]
 animations/shadow-host-child-change.html [ Skip ]
 css1/font_properties/font_family.html [ Failure Pass ]
 css2.1/t1503-c522-font-family-00-b.html [ Failure Pass ]
@@ -2179,8 +2179,6 @@ compositing/tiling/tiled-reflection-inwindow.html [ Skip ]
 animations/3d/change-transform-in-end-event.html [ Skip ]
 animations/3d/matrix-transform-type-animation.html [ Skip ]
 animations/3d/state-at-end-event-transform.html [ Skip ]
-animations/missing-values-first-keyframe.html [ Skip ]
-animations/missing-values-last-keyframe.html [ Skip ]
 animations/state-at-end-event.html [ Skip ]
 compositing/animation/state-at-end-event-transform-layer.html [ Skip ]
 compositing/color-matching/image-color-matching.html [ Skip ]
@@ -3776,6 +3774,7 @@ compositing/visibility/layer-visible-content.html [ Skip ]
 compositing/visibility/root-visibility-toggle.html [ Skip ]
 compositing/visibility/visibility-change-in-subframe.html [ Skip ]
 compositing/visibility/visibility-image-layers-dynamic.html [ Skip ]
+css3/filters/backdrop/resource-use-change-size-from-zero.html [ Skip ]
 css3/filters/filtered-compositing-descendant.html [ Skip ]
 
 compositing/animation/repaint-after-clearing-shared-backing.html [ ImageOnlyFailure ]

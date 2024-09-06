@@ -41,6 +41,7 @@ public:
 
     // Use this directly only if you're not generating code with it.
     static constexpr X86Registers::RegisterID s_scratchRegister = X86Registers::r11;
+    static constexpr X86Registers::XMMRegisterID fpTempRegister = X86Registers::xmm15;
 
     // Use this when generating code so that we get enforcement of the disallowing of scratch register
     // usage.
@@ -474,6 +475,18 @@ public:
     {
         move32IfNeeded(src, dest);
         lshift32(imm, dest);
+    }
+
+    void lshift32(TrustedImm32 imm, RegisterID shiftAmount, RegisterID dest)
+    {
+        if (shiftAmount == dest) {
+            move(imm, scratchRegister());
+            lshift32(shiftAmount, scratchRegister());
+            move(scratchRegister(), dest);
+        } else {
+            move(imm, dest);
+            lshift32(shiftAmount, dest);
+        }
     }
 
     void lshift32(Address src, RegisterID shiftAmount, RegisterID dest)
@@ -1799,7 +1812,12 @@ public:
             m_assembler.vdivsd_rrr(op2, op1, dest);
         else {
             // B := A / B is invalid.
-            ASSERT(op1 == dest || op2 != dest);
+            if (op1 != dest && op2 == dest) {
+                moveDouble(op2, fpTempRegister);
+                moveDouble(op1, dest);
+                divDouble(fpTempRegister, dest);
+                return;
+            }
             moveDouble(op1, dest);
             divDouble(op2, dest);
         }
@@ -1837,7 +1855,12 @@ public:
             m_assembler.vdivss_rrr(op2, op1, dest);
         else {
             // B := A / B is invalid.
-            ASSERT(op1 == dest || op2 != dest);
+            if (op1 != dest && op2 == dest) {
+                moveDouble(op2, fpTempRegister);
+                moveDouble(op1, dest);
+                divFloat(fpTempRegister, dest);
+                return;
+            }
             moveDouble(op1, dest);
             divFloat(op2, dest);
         }
@@ -1855,7 +1878,12 @@ public:
             m_assembler.vsubsd_rrr(op2, op1, dest);
         else {
             // B := A - B is invalid.
-            ASSERT(op1 == dest || op2 != dest);
+            if (op1 != dest && op2 == dest) {
+                moveDouble(op2, fpTempRegister);
+                moveDouble(op1, dest);
+                m_assembler.subsd_rr(fpTempRegister, dest);
+                return;
+            }
             moveDouble(op1, dest);
             m_assembler.subsd_rr(op2, dest);
         }
@@ -1899,7 +1927,12 @@ public:
             m_assembler.vsubss_rrr(op2, op1, dest);
         else {
             // B := A - B is invalid.
-            ASSERT(op1 == dest || op2 != dest);
+            if (op1 != dest && op2 == dest) {
+                moveDouble(op2, fpTempRegister);
+                moveDouble(op1, dest);
+                m_assembler.subss_rr(fpTempRegister, dest);
+                return;
+            }
             moveDouble(op1, dest);
             m_assembler.subss_rr(op2, dest);
         }

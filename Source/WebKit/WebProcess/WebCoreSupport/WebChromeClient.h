@@ -467,6 +467,8 @@ private:
     void textAutosizingUsesIdempotentModeChanged() final;
 #endif
 
+    void didAddOrRemoveViewportConstrainedObjects() final;
+
 #if ENABLE(META_VIEWPORT)
     double baseViewportLayoutSizeScaleFactor() const final;
 #endif
@@ -513,14 +515,20 @@ private:
 #endif
 
 #if ENABLE(WRITING_TOOLS_UI)
-    void removeTextAnimationForID(const WebCore::WritingTools::SessionID&) final;
+    void removeTextAnimationForAnimationID(const WTF::UUID&) final;
 
-    void cleanUpTextAnimationsForSessionID(const WebCore::WritingTools::SessionID&) final;
+    void removeInitialTextAnimation(const WebCore::WritingTools::SessionID&) final;
+
+    void addInitialTextAnimation(const WebCore::WritingTools::SessionID&) final;
+
+    void removeTransparentMarkersForSessionID(const WebCore::WritingTools::SessionID&) final;
 
     void addSourceTextAnimation(const WebCore::WritingTools::SessionID&, const WebCore::CharacterRange&) final;
 
     void addDestinationTextAnimation(const WebCore::WritingTools::SessionID&, const WebCore::CharacterRange&) final;
 #endif
+
+    void hasActiveNowPlayingSessionChanged(bool) final;
 
     mutable bool m_cachedMainFrameHasHorizontalScrollbar { false };
     mutable bool m_cachedMainFrameHasVerticalScrollbar { false };

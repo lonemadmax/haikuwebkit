@@ -101,6 +101,7 @@
 #import "WebPageGroup.h"
 #import "WebPageInspectorController.h"
 #import "WebPageProxy.h"
+#import "WebPageProxyTesting.h"
 #import "WebPreferences.h"
 #import "WebProcessPool.h"
 #import "WebProcessProxy.h"
@@ -1801,26 +1802,26 @@ static inline WKTextAnimationType toWKTextAnimationType(WebKit::TextAnimationTyp
 }
 
 #if ENABLE(WRITING_TOOLS_UI)
-- (void)_addTextAnimationTypeForID:(NSUUID *)nsUUID withData:(const WebKit::TextAnimationData&)data
+- (void)_addTextAnimationForAnimationID:(NSUUID *)nsUUID withData:(const WebKit::TextAnimationData&)data
 {
 #if PLATFORM(IOS_FAMILY)
-    [_contentView addTextAnimationTypeForID:nsUUID withStyleType:toWKTextAnimationType(data.style)];
+    [_contentView addTextAnimationForAnimationID:nsUUID withStyleType:toWKTextAnimationType(data.style)];
 #elif PLATFORM(MAC)
     auto uuid = WTF::UUID::fromNSUUID(nsUUID);
     if (!uuid)
         return;
-    _impl->addTextAnimationTypeForID(*uuid, data);
+    _impl->addTextAnimationForAnimationID(*uuid, data);
 #endif
 }
-- (void)_removeTextAnimationForID:(NSUUID *)nsUUID
+- (void)_removeTextAnimationForAnimationID:(NSUUID *)nsUUID
 {
 #if PLATFORM(IOS_FAMILY)
-    [_contentView removeTextAnimationForID:nsUUID];
+    [_contentView removeTextAnimationForAnimationID:nsUUID];
 #elif PLATFORM(MAC)
     auto uuid = WTF::UUID::fromNSUUID(nsUUID);
     if (!uuid)
         return;
-    _impl->removeTextAnimationForID(*uuid);
+    _impl->removeTextAnimationForAnimationID(*uuid);
 #endif
 }
 #endif
@@ -2084,9 +2085,20 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     return PlatformWritingToolsAllowedInputOptionsPlainText | PlatformWritingToolsAllowedInputOptionsRichText | listOption | PlatformWritingToolsAllowedInputOptionsTable;
 }
 
-- (BOOL)wantsWritingToolsInlineEditing
+- (PlatformWritingToolsBehavior)writingToolsBehavior
 {
-    return [self _isEditable] || [_configuration writingToolsBehavior] == PlatformWritingToolsBehaviorComplete;
+    if ([self _isEditable])
+        return PlatformWritingToolsBehaviorComplete;
+
+    auto& editorState = _page->editorState();
+
+    if ([_configuration writingToolsBehavior] == PlatformWritingToolsBehaviorNone || editorState.selectionIsNone || editorState.isInPasswordField)
+        return PlatformWritingToolsBehaviorNone;
+
+    if ([_configuration writingToolsBehavior] == PlatformWritingToolsBehaviorComplete && editorState.isContentEditable)
+        return PlatformWritingToolsBehaviorComplete;
+
+    return PlatformWritingToolsBehaviorLimited;
 }
 
 - (void)willBeginWritingToolsSession:(WTSession *)session requestContexts:(void (^)(NSArray<WTContext *> *))completion
@@ -2126,10 +2138,6 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 
         contextData.append(*webContext);
     }
-
-    // Don't animate smart replies, they are animated by UIKit/AppKit.
-    if (webSession->compositionType != WebCore::WritingTools::Session::CompositionType::SmartReply)
-        [self beginWritingToolsAnimationForSessionWithUUID:session.uuid];
 
     _page->didBeginWritingToolsSession(*webSession, contextData);
 }
@@ -2274,43 +2282,6 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
         return;
 
     [textViewDelegate proofreadingSessionWithUUID:session.uuid updateState:WebKit::convertToPlatformTextSuggestionState(state) forSuggestionWithUUID:replacementUUID];
-}
-
-
-#pragma mark - Writing Tools Animation
-
-- (void)beginWritingToolsAnimationForSessionWithUUID:(NSUUID *)sessionUUID
-{
-#if ENABLE(WRITING_TOOLS_UI)
-#if PLATFORM(MAC)
-    auto uuid = WTF::UUID::fromNSUUID(sessionUUID);
-    if (!uuid) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    _impl->addTextAnimationTypeForID(*uuid, { WebKit::TextAnimationType::Initial, WTF::UUID(WTF::UUID::emptyValue) });
-#else
-    [_contentView addTextAnimationTypeForID:sessionUUID withStyleType:WKTextAnimationTypeInitial];
-#endif
-#endif // ENABLE(WRITING_TOOLS_UI)
-}
-
-- (void)endWritingToolsAnimationForSessionWithUUID:(NSUUID *)sessionUUID
-{
-#if ENABLE(WRITING_TOOLS_UI)
-#if PLATFORM(MAC)
-    auto uuid = WTF::UUID::fromNSUUID(sessionUUID);
-    if (!uuid) {
-        ASSERT_NOT_REACHED();
-        return;
-    }
-
-    _impl->removeTextAnimationForID(*uuid);
-#else
-    [_contentView removeTextAnimationForID:sessionUUID];
-#endif
-#endif // ENABLE(WRITING_TOOLS_UI)
 }
 
 #endif
@@ -2981,7 +2952,8 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
 
 - (void)_setStatisticsCrossSiteLoadWithLinkDecorationForTesting:(NSString *)fromHost withToHost:(NSString *)toHost withWasFiltered:(BOOL)wasFiltered withCompletionHandler:(void(^)(void))completionHandler
 {
-    _page->setCrossSiteLoadWithLinkDecorationForTesting(URL { fromHost }, URL { toHost }, wasFiltered, makeBlockPtr(completionHandler));
+    if (auto* pageForTesting = _page->pageForTesting())
+        pageForTesting->setCrossSiteLoadWithLinkDecorationForTesting(URL { fromHost }, URL { toHost }, wasFiltered, makeBlockPtr(completionHandler));
 }
 
 - (_WKMediaMutedState)_mediaMutedState
@@ -3096,9 +3068,9 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
     _page->enableSourceTextAnimationAfterElementWithID(elementID, *uuid);
 
 #if PLATFORM(IOS_FAMILY)
-    [_contentView addTextAnimationTypeForID:nsUUID.get() withStyleType:WKTextAnimationTypeInitial];
+    [_contentView addTextAnimationForAnimationID:nsUUID.get() withStyleType:WKTextAnimationTypeInitial];
 #elif PLATFORM(MAC)
-    _impl->addTextAnimationTypeForID(*uuid, { WebKit::TextAnimationType::Initial, WTF::UUID(WTF::UUID::emptyValue) });
+    _impl->addTextAnimationForAnimationID(*uuid, { WebKit::TextAnimationType::Initial, WTF::UUID(WTF::UUID::emptyValue) });
 #endif
     return nsUUID.get();
 #else // ENABLE(WRITING_TOOLS_UI)
@@ -3118,9 +3090,9 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
     _page->enableTextAnimationTypeForElementWithID(elementID, *uuid);
 
 #if PLATFORM(IOS_FAMILY)
-    [_contentView addTextAnimationTypeForID:nsUUID.get() withStyleType:WKTextAnimationTypeFinal];
+    [_contentView addTextAnimationForAnimationID:nsUUID.get() withStyleType:WKTextAnimationTypeFinal];
 #elif PLATFORM(MAC)
-    _impl->addTextAnimationTypeForID(*uuid, { WebKit::TextAnimationType::Final, WTF::UUID(WTF::UUID::emptyValue) });
+    _impl->addTextAnimationForAnimationID(*uuid, { WebKit::TextAnimationType::Final, WTF::UUID(WTF::UUID::emptyValue) });
 #endif
     return nsUUID.get();
 #else // ENABLE(WRITING_TOOLS_UI)
@@ -3132,12 +3104,12 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 {
 #if ENABLE(WRITING_TOOLS_UI)
 #if PLATFORM(IOS_FAMILY)
-    [_contentView removeTextAnimationForID:nsUUID];
+    [_contentView removeTextAnimationForAnimationID:nsUUID];
 #elif PLATFORM(MAC)
     auto uuid = WTF::UUID::fromNSUUID(nsUUID);
     if (!uuid)
         return;
-    _impl->removeTextAnimationForID(*uuid);
+    _impl->removeTextAnimationForAnimationID(*uuid);
 #endif
 #endif // ENABLE(WRITING_TOOLS_UI)
 }
@@ -3201,17 +3173,17 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
     return wrapper(_page->loadRequest(request, policy)).autorelease();
 }
 
-- (void)_loadAndDecodeImage:(NSURLRequest *)request constrainedToSize:(CGSize)maxSize completionHandler:(void (^)(CocoaImage *, NSError *))completionHandler
+- (void)_loadAndDecodeImage:(NSURLRequest *)request constrainedToSize:(CGSize)maxSize maximumBytesFromNetwork:(size_t)maximumBytesFromNetwork completionHandler:(void (^)(CocoaImage *, NSError *))completionHandler
 {
     auto sizeConstraint = (maxSize.height || maxSize.width) ? std::optional(WebCore::FloatSize(maxSize)) : std::nullopt;
     WebCore::ResourceRequest resourceRequest(request);
     auto url = resourceRequest.url();
-    _page->loadAndDecodeImage(request, sizeConstraint, [completionHandler = makeBlockPtr(completionHandler), url](std::variant<WebCore::ResourceError, Ref<WebCore::ShareableBitmap>>&& result) mutable {
-        WTF::switchOn(result, [&] (const WebCore::ResourceError& error) {
+    _page->loadAndDecodeImage(request, sizeConstraint, maximumBytesFromNetwork, [completionHandler = makeBlockPtr(completionHandler), url](std::variant<WebCore::ResourceError, Ref<WebCore::ShareableBitmap>>&& result) mutable {
+        WTF::switchOn(WTFMove(result), [&] (WebCore::ResourceError&& error) {
             if (error.isNull())
                 return completionHandler(nil, WebCore::internalError(url)); // This can happen if IPC fails.
             completionHandler(nil, error.nsError());
-        }, [&] (const Ref<WebCore::ShareableBitmap>& bitmap) {
+        }, [&] (Ref<WebCore::ShareableBitmap>&& bitmap) {
 #if PLATFORM(MAC)
             completionHandler(adoptNS([[NSImage alloc] initWithCGImage:bitmap->makeCGImageCopy().get() size:bitmap->size()]).get(), nil);
 #else

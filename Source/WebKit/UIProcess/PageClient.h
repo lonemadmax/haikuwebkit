@@ -716,8 +716,8 @@ public:
     virtual void storeAppHighlight(const WebCore::AppHighlight&) = 0;
 #endif
 #if ENABLE(WRITING_TOOLS_UI)
-    virtual void addTextAnimationTypeForID(const WTF::UUID&, const WebKit::TextAnimationData&) = 0;
-    virtual void removeTextAnimationForID(const WTF::UUID&) = 0;
+    virtual void addTextAnimationForAnimationID(const WTF::UUID&, const WebKit::TextAnimationData&) = 0;
+    virtual void removeTextAnimationForAnimationID(const WTF::UUID&) = 0;
 #endif
     virtual void requestScrollToRect(const WebCore::FloatRect& targetRect, const WebCore::FloatPoint& origin) { }
 
@@ -785,6 +785,10 @@ public:
     };
     virtual void setGamepadsRecentlyAccessed(GamepadsRecentlyAccessed) { }
 #endif
+
+    virtual void hasActiveNowPlayingSessionChanged(bool) { }
+
+    virtual void scheduleVisibleContentRectUpdate() { }
 };
 
 } // namespace WebKit

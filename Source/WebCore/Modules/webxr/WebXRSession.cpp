@@ -120,7 +120,7 @@ ExceptionOr<void> WebXRSession::updateRenderState(const XRRenderStateInit& newSt
 
     // 3. If newState's baseLayer was created with an XRSession other than session,
     //    throw an InvalidStateError and abort these steps.
-    if (newState.baseLayer && &newState.baseLayer->session() != this)
+    if (newState.baseLayer && newState.baseLayer->session() != this)
         return Exception { ExceptionCode::InvalidStateError };
 
     // 4. If newState's inlineVerticalFieldOfView is set and session is an immersive session,
@@ -350,11 +350,14 @@ void WebXRSession::shutdown(InitiatedBySystem initiatedBySystem)
 
     m_inputSources->clear();
 
+    RefPtr device = m_device.get();
     if (initiatedBySystem == InitiatedBySystem::Yes) {
         // If we get here, the session termination was triggered by the system rather than
         // via XRSession.end(). Since the system has completed the session shutdown, we can
         // immediately do the final cleanup.
         didCompleteShutdown();
+        if (device)
+            device->didCompleteShutdownTriggeredBySystem();
         return;
     }
 
@@ -364,7 +367,6 @@ void WebXRSession::shutdown(InitiatedBySystem initiatedBySystem)
     //  6.1. Releasing exclusive access to the XR device if session is an immersive session.
     //  6.2. Deallocating any graphics resources acquired by session for presentation to the XR device.
     //  6.3. Putting the XR device in a state such that a different source may be able to initiate a session with the same device if session is an immersive session.
-    auto device = m_device.get();
     if (device)
         device->shutDownTrackingAndRendering();
 

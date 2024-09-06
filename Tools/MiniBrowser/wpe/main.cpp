@@ -61,6 +61,7 @@ static gboolean printVersion;
 static GHashTable* openViews;
 #if ENABLE_WPE_PLATFORM
 static gboolean useWPEPlatformAPI;
+static const char* defaultWindowTitle = "WPEWebKit MiniBrowser";
 #endif
 
 static const GOptionEntry commandLineOptions[] =
@@ -157,40 +158,44 @@ static gboolean wpeViewEventCallback(WPEView* view, WPEEvent* event, WebKitWebVi
         }
 
         if (keyval == WPE_KEY_Up) {
-            if (wpe_view_get_state(view) & WPE_VIEW_STATE_MAXIMIZED)
-                wpe_view_unmaximize(view);
-            else
-                wpe_view_maximize(view);
-            return TRUE;
+            if (auto* toplevel = wpe_view_get_toplevel(view)) {
+                if (wpe_toplevel_get_state(toplevel) & WPE_TOPLEVEL_STATE_MAXIMIZED)
+                    wpe_toplevel_unmaximize(toplevel);
+                else
+                    wpe_toplevel_maximize(toplevel);
+                return TRUE;
+            }
         }
     }
 
     if (keyval == WPE_KEY_F11) {
-        if (wpe_view_get_state(view) & WPE_VIEW_STATE_FULLSCREEN)
-            wpe_view_unfullscreen(view);
-        else
-            wpe_view_fullscreen(view);
-        return TRUE;
+        if (auto* toplevel = wpe_view_get_toplevel(view)) {
+            if (wpe_toplevel_get_state(toplevel) & WPE_TOPLEVEL_STATE_FULLSCREEN)
+                wpe_toplevel_unfullscreen(toplevel);
+            else
+                wpe_toplevel_fullscreen(toplevel);
+            return TRUE;
+        }
     }
 
     return FALSE;
 }
+
+static void webViewTitleChanged(WebKitWebView* webView, GParamSpec*, WPEView* view)
+{
+    const char* title = webkit_web_view_get_title(webView);
+    if (!title)
+        title = defaultWindowTitle;
+    char* privateTitle = nullptr;
+    if (webkit_web_view_is_controlled_by_automation(webView))
+        privateTitle = g_strdup_printf("[Automation] %s", title);
+    else if (webkit_network_session_is_ephemeral(webkit_web_view_get_network_session(webView)))
+        privateTitle = g_strdup_printf("[Private] %s", title);
+    wpe_toplevel_set_title(wpe_view_get_toplevel(view), privateTitle ? privateTitle : title);
+    g_free(privateTitle);
+}
 #endif
 
-static WebKitWebView* createWebViewForAutomationCallback(WebKitAutomationSession*, WebKitWebView* view)
-{
-    return view;
-}
-
-static void automationStartedCallback(WebKitWebContext*, WebKitAutomationSession* session, WebKitWebView* view)
-{
-    auto* info = webkit_application_info_new();
-    webkit_application_info_set_version(info, WEBKIT_MAJOR_VERSION, WEBKIT_MINOR_VERSION, WEBKIT_MICRO_VERSION);
-    webkit_automation_session_set_application_info(session, info);
-    webkit_application_info_unref(info);
-
-    g_signal_connect(session, "create-web-view", G_CALLBACK(createWebViewForAutomationCallback), view);
-}
 
 static gboolean decidePermissionRequest(WebKitWebView *, WebKitPermissionRequest *request, gpointer)
 {
@@ -255,12 +260,63 @@ static WebKitWebView* createWebView(WebKitWebView* webView, WebKitNavigationActi
         "user-content-manager", webkit_web_view_get_user_content_manager(webView),
         nullptr));
 
+#if ENABLE_WPE_PLATFORM
+    if (auto* wpeView = webkit_web_view_get_wpe_view(newWebView)) {
+        g_signal_connect(wpeView, "event", G_CALLBACK(wpeViewEventCallback), newWebView);
+        wpe_toplevel_set_title(wpe_view_get_toplevel(wpeView), defaultWindowTitle);
+        g_signal_connect(newWebView, "notify::title", G_CALLBACK(webViewTitleChanged), wpeView);
+    }
+#endif
+
     g_signal_connect(newWebView, "create", G_CALLBACK(createWebView), user_data);
     g_signal_connect(newWebView, "close", G_CALLBACK(webViewClose), user_data);
 
     g_hash_table_add(openViews, newWebView);
 
     return newWebView;
+}
+
+static WebKitWebView* createWebViewForAutomationCallback(WebKitAutomationSession*, WebKitWebView* view)
+{
+#if ENABLE_WPE_PLATFORM
+    // Creating new views in the old API is not supported by WPE's MiniBrowser, so we just return the same view as before
+    if (!useWPEPlatformAPI)
+        return view;
+
+    if (g_hash_table_size(openViews) == 1 && !webkit_web_view_get_uri(view)) {
+        webkit_web_view_load_uri(view, "about:blank");
+        return view;
+    }
+
+    auto* newWebView = WEBKIT_WEB_VIEW(g_object_new(WEBKIT_TYPE_WEB_VIEW,
+        "settings", webkit_web_view_get_settings(view),
+        "web-context", webkit_web_view_get_context(view),
+        "is-controlled-by-automation", TRUE,
+        "user-content-manager", webkit_web_view_get_user_content_manager(view),
+        "website-policies", webkit_web_view_get_website_policies(view),
+        nullptr));
+
+    auto* application = g_application_get_default();
+    g_signal_connect(newWebView, "create", G_CALLBACK(createWebView), application);
+    g_signal_connect(newWebView, "close", G_CALLBACK(webViewClose), application);
+    webkit_web_view_load_uri(newWebView, "about:blank");
+
+    g_hash_table_add(openViews, newWebView);
+
+    return newWebView;
+#else
+    return view;
+#endif
+}
+
+static void automationStartedCallback(WebKitWebContext*, WebKitAutomationSession* session, WebKitWebView* view)
+{
+    auto* info = webkit_application_info_new();
+    webkit_application_info_set_version(info, WEBKIT_MAJOR_VERSION, WEBKIT_MINOR_VERSION, WEBKIT_MICRO_VERSION);
+    webkit_automation_session_set_application_info(session, info);
+    webkit_application_info_unref(info);
+
+    g_signal_connect(session, "create-web-view", G_CALLBACK(createWebViewForAutomationCallback), view);
 }
 
 static WebKitFeature* findFeature(WebKitFeatureList* featureList, const char* identifier)
@@ -446,8 +502,11 @@ static void activate(GApplication* application, WPEToolingBackends::ViewBackend*
     }
 
 #if ENABLE_WPE_PLATFORM
-    if (auto* wpeView = webkit_web_view_get_wpe_view(webView))
+    if (auto* wpeView = webkit_web_view_get_wpe_view(webView)) {
         g_signal_connect(wpeView, "event", G_CALLBACK(wpeViewEventCallback), webView);
+        wpe_toplevel_set_title(wpe_view_get_toplevel(wpeView), defaultWindowTitle);
+        g_signal_connect(webView, "notify::title", G_CALLBACK(webViewTitleChanged), wpeView);
+    }
 #endif
 
     openViews = g_hash_table_new_full(nullptr, nullptr, g_object_unref, nullptr);
@@ -473,9 +532,7 @@ static void activate(GApplication* application, WPEToolingBackends::ViewBackend*
         g_object_unref(file);
         webkit_web_view_load_uri(webView, url);
         g_free(url);
-    } else if (automationMode)
-        webkit_web_view_load_uri(webView, "about:blank");
-    else
+    } else if (!automationMode)
         webkit_web_view_load_uri(webView, "https://wpewebkit.org");
 
     g_object_unref(webContext);

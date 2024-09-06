@@ -4435,11 +4435,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     if (action == @selector(cut:))
         return !editorState.isInPasswordField && editorState.isContentEditable && editorState.selectionIsRange;
 
-#if ENABLE(WRITING_TOOLS)
-    if (action == @selector(_startWritingTools:))
-        return _page->configuration().writingToolsBehavior() != WebCore::WritingTools::Behavior::None && [super canPerformAction:action withSender:sender];
-#endif
-
     if (action == @selector(paste:) || action == @selector(_pasteAsQuotation:) || action == @selector(_pasteAndMatchStyle:) || action == @selector(pasteAndMatchStyle:)) {
         if (editorState.selectionIsNone || !editorState.isContentEditable)
             return NO;
@@ -4730,13 +4725,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
     [self lookupForWebView:sender];
 }
-
-#if ENABLE(WRITING_TOOLS)
-- (void)_startWritingToolsForWebView:(id)sender
-{
-    [super _startWritingTools:sender];
-}
-#endif
 
 - (void)accessibilityRetrieveSpeakSelectionContent
 {
@@ -5886,6 +5874,9 @@ static void logTextInteraction(const char* methodName, UIGestureRecognizer *loup
 
 - (WKFormAccessoryView *)formAccessoryView
 {
+#if PLATFORM(APPLETV)
+    return nil;
+#else
     if (WebKit::defaultAlternateFormControlDesignEnabled())
         return nil;
 
@@ -5893,6 +5884,7 @@ static void logTextInteraction(const char* methodName, UIGestureRecognizer *loup
         _formAccessoryView = adoptNS([[WKFormAccessoryView alloc] initWithInputAssistantItem:self.inputAssistantItem delegate:self]);
 
     return _formAccessoryView.get();
+#endif
 }
 
 - (void)accessoryOpen
@@ -6929,11 +6921,6 @@ static UITextAutocapitalizationType toUITextAutocapitalize(WebCore::Autocapitali
         return _focusedElementInformation.isWritingSuggestionsEnabled;
     }();
     traits.inlinePredictionType = allowsInlinePredictions ? UITextInlinePredictionTypeDefault : UITextInlinePredictionTypeNo;
-#endif
-
-#if ENABLE(WRITING_TOOLS)
-    auto behavior = WebKit::convertToPlatformWritingToolsBehavior(_page->configuration().writingToolsBehavior());
-    [traits setWritingToolsBehavior:behavior];
 #endif
 
     [self _updateTextInputTraitsForInteractionTintColor];
@@ -11754,7 +11741,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 #if ENABLE(WRITING_TOOLS_UI)
 
-- (void)addTextAnimationTypeForID:(NSUUID *)uuid withStyleType:(WKTextAnimationType)styleType
+- (void)addTextAnimationForAnimationID:(NSUUID *)uuid withStyleType:(WKTextAnimationType)styleType
 {
     if (!_page->preferences().textAnimationsEnabled())
         return;
@@ -11762,10 +11749,10 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     if (!_textAnimationManager)
         _textAnimationManager = adoptNS([WebKit::allocWKSTextAnimationManagerInstance() initWithDelegate:self]);
 
-    [_textAnimationManager addTextAnimationTypeForID:uuid withStyleType:styleType];
+    [_textAnimationManager addTextAnimationForAnimationID:uuid withStyleType:styleType];
 }
 
-- (void)removeTextAnimationForID:(NSUUID *)uuid
+- (void)removeTextAnimationForAnimationID:(NSUUID *)uuid
 {
     if (!_page->preferences().textAnimationsEnabled())
         return;
@@ -11773,7 +11760,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     if (!_textAnimationManager)
         return;
 
-    [_textAnimationManager removeTextAnimationForID:uuid];
+    [_textAnimationManager removeTextAnimationForAnimationID:uuid];
 }
 
 #endif
@@ -13191,9 +13178,9 @@ inline static NSString *extendSelectionCommand(UITextLayoutDirection direction)
     return [_webView writingToolsAllowedInputOptions];
 }
 
-- (BOOL)wantsWritingToolsInlineEditing
+- (UIWritingToolsBehavior)writingToolsBehavior
 {
-    return [_webView wantsWritingToolsInlineEditing];
+    return [_webView writingToolsBehavior];
 }
 
 - (void)willBeginWritingToolsSession:(WTSession *)session requestContexts:(void (^)(NSArray<WTContext *> *))completion

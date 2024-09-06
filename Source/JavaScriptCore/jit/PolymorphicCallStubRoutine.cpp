@@ -26,9 +26,6 @@
 #include "config.h"
 #include "PolymorphicCallStubRoutine.h"
 
-#if ENABLE(JIT)
-
-#include "AccessCase.h"
 #include "CachedCall.h"
 #include "CallLinkInfo.h"
 #include "CodeBlock.h"
@@ -76,7 +73,6 @@ PolymorphicCallStubRoutine::PolymorphicCallStubRoutine(unsigned headerSize, unsi
     , ButterflyArray<PolymorphicCallStubRoutine, PolymorphicCallNode, CallSlot>(headerSize, trailingSize)
     , m_callLinkInfo(&callLinkInfo)
     , m_notUsingCounting(notUsingCounting)
-    , m_isDataIC(m_callLinkInfo->isDataIC())
     , m_isClosureCall(isClosureCall)
 {
     for (unsigned index = 0; index < callSlots.size(); ++index) {
@@ -101,10 +97,6 @@ PolymorphicCallStubRoutine::PolymorphicCallStubRoutine(unsigned headerSize, unsi
 
 bool PolymorphicCallStubRoutine::upgradeIfPossible(VM&, CodeBlock* oldCodeBlock, CodeBlock* newCodeBlock, uint8_t index)
 {
-    // Not DataIC.
-    if (!m_isDataIC)
-        return false;
-
     // It is possible that we can just upgrade the CallSlot and continue using this PolymorphicCallStubRoutine instead of unlinking CallLinkInfo.
     auto& callNode = leadingSpan()[index];
     auto& slot = trailingSpan()[index];
@@ -181,21 +173,12 @@ bool PolymorphicCallStubRoutine::visitWeakImpl(VM& vm)
     return isStillLive;
 }
 
-template<typename Visitor>
-ALWAYS_INLINE void PolymorphicCallStubRoutine::markRequiredObjectsInternalImpl(Visitor& visitor)
+void PolymorphicCallStubRoutine::markRequiredObjectsImpl(AbstractSlotVisitor&)
 {
-    forEachDependentCell([&](JSCell* cell) {
-        visitor.appendUnbarriered(cell);
-    });
 }
 
-void PolymorphicCallStubRoutine::markRequiredObjectsImpl(AbstractSlotVisitor& visitor)
+void PolymorphicCallStubRoutine::markRequiredObjectsImpl(SlotVisitor&)
 {
-    markRequiredObjectsInternalImpl(visitor);
-}
-void PolymorphicCallStubRoutine::markRequiredObjectsImpl(SlotVisitor& visitor)
-{
-    markRequiredObjectsInternalImpl(visitor);
 }
 
 void PolymorphicCallStubRoutine::destroy(PolymorphicCallStubRoutine* derived)
@@ -204,5 +187,3 @@ void PolymorphicCallStubRoutine::destroy(PolymorphicCallStubRoutine* derived)
 }
 
 } // namespace JSC
-
-#endif // ENABLE(JIT)

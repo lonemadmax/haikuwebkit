@@ -165,10 +165,6 @@ enum class ReplacementBehavior : uint8_t;
 - (void)_didHandleAcceptedCandidate;
 - (void)_didUpdateCandidateListVisibility:(BOOL)visible;
 
-#if ENABLE(WRITING_TOOLS)
-- (BOOL)_web_wantsWritingToolsInlineEditing;
-#endif
-
 @end
 
 namespace WebCore {
@@ -716,10 +712,6 @@ public:
     void handleContextMenuTranslation(const WebCore::TranslationContextMenuInfo&);
 #endif
 
-#if ENABLE(WRITING_TOOLS)
-    WebCore::WritingTools::Behavior writingToolsBehavior() const;
-#endif
-
 #if ENABLE(WRITING_TOOLS) && ENABLE(CONTEXT_MENUS)
     bool canHandleContextMenuWritingTools() const;
     void handleContextMenuWritingTools(WebCore::IntRect selectionBoundsInRootView);
@@ -747,8 +739,8 @@ public:
 #endif
 
 #if ENABLE(WRITING_TOOLS_UI)
-    void addTextAnimationTypeForID(WTF::UUID, const WebKit::TextAnimationData&);
-    void removeTextAnimationForID(WTF::UUID);
+    void addTextAnimationForAnimationID(WTF::UUID, const WebKit::TextAnimationData&);
+    void removeTextAnimationForAnimationID(WTF::UUID);
 #endif
 
 #if HAVE(INLINE_PREDICTIONS)

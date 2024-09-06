@@ -353,11 +353,6 @@ void WKAccessibilitySetForceInitialFrameCaching(bool shouldForce)
     WebCore::AXObjectCache::setForceInitialFrameCaching(shouldForce);
 }
 
-void WKBundlePageStopLoading(WKBundlePageRef pageRef)
-{
-    WebKit::toImpl(pageRef)->stopLoading();
-}
-
 void WKBundlePageSetDefersLoading(WKBundlePageRef, bool)
 {
 }
@@ -779,11 +774,6 @@ void WKBundlePageCallAfterTasksAndTimers(WKBundlePageRef pageRef, WKBundlePageTe
     document->postTask([=] (WebCore::ScriptExecutionContext&) {
         new TimerOwner(callback, context); // deletes itself when done.
     });
-}
-
-void WKBundlePageFlushDeferredDidReceiveMouseEventForTesting(WKBundlePageRef page)
-{
-    WebKit::toImpl(page)->flushDeferredDidReceiveMouseEvent();
 }
 
 void WKBundlePagePostMessage(WKBundlePageRef pageRef, WKStringRef messageNameRef, WKTypeRef messageBodyRef)

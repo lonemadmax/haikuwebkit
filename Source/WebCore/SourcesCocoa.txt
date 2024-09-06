@@ -422,7 +422,7 @@ platform/graphics/cg/PathCG.cpp
 platform/graphics/cg/PatternCG.cpp
 platform/graphics/cg/ShareableBitmapCG.mm @no-unify
 platform/graphics/cg/TransformationMatrixCG.cpp
-platform/graphics/cg/UTIRegistry.cpp
+platform/graphics/cg/UTIRegistry.mm
 platform/graphics/cocoa/AV1UtilitiesCocoa.mm @no-unify
 platform/graphics/cocoa/AudioTrackPrivateWebM.cpp
 platform/graphics/cocoa/CMUtilities.mm @no-unify
@@ -445,7 +445,7 @@ platform/graphics/cocoa/IconCocoa.mm
 platform/graphics/cocoa/IntRectCocoa.mm
 platform/graphics/cocoa/MediaEngineConfigurationFactoryCocoa.cpp
 platform/graphics/cocoa/MediaPlayerCocoa.mm
-platform/graphics/cocoa/MediaPlayerPrivateWebM.mm
+platform/graphics/cocoa/MediaPlayerPrivateWebM.mm @no-unify
 platform/graphics/cocoa/SourceBufferParser.cpp
 platform/graphics/cocoa/SourceBufferParserWebM.cpp
 platform/graphics/cocoa/SystemFontDatabaseCocoa.mm

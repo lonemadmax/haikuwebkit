@@ -31,7 +31,7 @@ messages -> WebPageProxy {
     MouseDidMoveOverElement(struct WebKit::WebHitTestResultData hitTestResultData, OptionSet<WebKit::WebEventModifier> modifiers, WebKit::UserData userData)
 
     DidChangeViewportProperties(struct WebCore::ViewportAttributes attributes)
-    DidReceiveEvent(enum:uint8_t WebKit::WebEventType eventType, bool handled)
+    DidReceiveEvent(enum:uint8_t WebKit::WebEventType eventType, bool handled, struct std::optional<WebCore::RemoteUserInputEventData> remoteUserInputEventData)
     SetCursor(WebCore::Cursor cursor)
     SetCursorHiddenUntilMouseMoves(bool hiddenUntilMouseMoves)
     SetStatusText(String statusText)
@@ -239,7 +239,7 @@ messages -> WebPageProxy {
 #if ENABLE(WRITING_TOOLS)
     ProofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(struct WebCore::WritingTools::Session::ID sessionID, struct WebCore::WritingTools::TextSuggestion::ID replacementID, WebCore::IntRect selectionBoundsInRootView)
 
-    ProofreadingSessionUpdateStateForSuggestionWithID(struct WebCore::WritingTools::Session::ID sessionID, enum:uint8_t WebCore::WritingTools::TextSuggestion::State state, struct WebCore::WritingTools::TextSuggestion::ID replacementID)
+    ProofreadingSessionUpdateStateForSuggestionWithID(struct WebCore::WritingTools::Session::ID sessionID, enum:uint8_t WebCore::WritingTools::TextSuggestionState state, struct WebCore::WritingTools::TextSuggestion::ID replacementID)
 #endif
 
 #if ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS) && USE(UICONTEXTMENU)
@@ -465,7 +465,7 @@ messages -> WebPageProxy {
     ShowPlaybackTargetPicker(WebCore::PlaybackTargetClientContextIdentifier contextId, WebCore::FloatRect pickerLocation, bool hasVideo)
     PlaybackTargetPickerClientStateDidChange(WebCore::PlaybackTargetClientContextIdentifier contextId, OptionSet<WebCore::MediaProducerMediaState> mediaState)
     SetMockMediaPlaybackTargetPickerEnabled(bool enabled)
-    SetMockMediaPlaybackTargetPickerState(String name, enum:uint8_t WebCore::MediaPlaybackTargetContext::MockState pickerState)
+    SetMockMediaPlaybackTargetPickerState(String name, enum:uint8_t WebCore::MediaPlaybackTargetContextMockState pickerState)
     MockMediaPlaybackTargetPickerDismissPopup()
 #endif
 
@@ -520,8 +520,8 @@ messages -> WebPageProxy {
 #endif
 
 #if ENABLE(WRITING_TOOLS_UI)
-    AddTextAnimationTypeForID(WTF::UUID uuid, struct WebKit::TextAnimationData styleData, struct WebCore::TextIndicatorData indicatorData)
-    removeTextAnimationForID(WTF::UUID uuid)
+    AddTextAnimationForAnimationID(WTF::UUID uuid, struct WebKit::TextAnimationData styleData, struct WebCore::TextIndicatorData indicatorData)
+    RemoveTextAnimationForAnimationID(WTF::UUID uuid)
 #endif
 
 CreateAppHighlightInSelectedRange)
@@ -647,4 +647,8 @@ CreateAppHighlightInSelectedRange)
 #if ENABLE(GAMEPAD)
     GamepadsRecentlyAccessed()
 #endif
+
+    HasActiveNowPlayingSessionChanged(bool hasActiveNowPlayingSessionChanged)
+
+    SetAllowsLayoutViewportHeightExpansion(bool newValue)
 }

@@ -85,6 +85,7 @@ class NativeExecutable;
     macro(PutByIdTransitionNonAllocatingHandler, putByIdTransitionNonAllocatingHandler) \
     macro(PutByIdTransitionNewlyAllocatingHandler, putByIdTransitionNewlyAllocatingHandler) \
     macro(PutByIdTransitionReallocatingHandler, putByIdTransitionReallocatingHandler) \
+    macro(PutByIdTransitionReallocatingOutOfLineHandler, putByIdTransitionReallocatingOutOfLineHandler) \
     macro(PutByIdCustomAccessorHandler, putByIdCustomAccessorHandler) \
     macro(PutByIdCustomValueHandler, putByIdCustomValueHandler) \
     macro(PutByIdStrictSetterHandler, putByIdStrictSetterHandler) \
@@ -99,17 +100,33 @@ class NativeExecutable;
     macro(GetByValWithStringLoadOwnPropertyHandler, getByValWithStringLoadOwnPropertyHandler) \
     macro(GetByValWithStringLoadPrototypePropertyHandler, getByValWithStringLoadPrototypePropertyHandler) \
     macro(GetByValWithStringMissHandler, getByValWithStringMissHandler) \
+    macro(GetByValWithStringCustomAccessorHandler, getByValWithStringCustomAccessorHandler) \
+    macro(GetByValWithStringCustomValueHandler, getByValWithStringCustomValueHandler) \
+    macro(GetByValWithStringGetterHandler, getByValWithStringGetterHandler) \
     macro(GetByValWithSymbolLoadOwnPropertyHandler, getByValWithSymbolLoadOwnPropertyHandler) \
     macro(GetByValWithSymbolLoadPrototypePropertyHandler, getByValWithSymbolLoadPrototypePropertyHandler) \
     macro(GetByValWithSymbolMissHandler, getByValWithSymbolMissHandler) \
+    macro(GetByValWithSymbolCustomAccessorHandler, getByValWithSymbolCustomAccessorHandler) \
+    macro(GetByValWithSymbolCustomValueHandler, getByValWithSymbolCustomValueHandler) \
+    macro(GetByValWithSymbolGetterHandler, getByValWithSymbolGetterHandler) \
     macro(PutByValWithStringReplaceHandler, putByValWithStringReplaceHandler) \
     macro(PutByValWithStringTransitionNonAllocatingHandler, putByValWithStringTransitionNonAllocatingHandler) \
     macro(PutByValWithStringTransitionNewlyAllocatingHandler, putByValWithStringTransitionNewlyAllocatingHandler) \
     macro(PutByValWithStringTransitionReallocatingHandler, putByValWithStringTransitionReallocatingHandler) \
+    macro(PutByValWithStringTransitionReallocatingOutOfLineHandler, putByValWithStringTransitionReallocatingOutOfLineHandler) \
+    macro(PutByValWithStringCustomAccessorHandler, putByValWithStringCustomAccessorHandler) \
+    macro(PutByValWithStringCustomValueHandler, putByValWithStringCustomValueHandler) \
+    macro(PutByValWithStringStrictSetterHandler, putByValWithStringStrictSetterHandler) \
+    macro(PutByValWithStringSloppySetterHandler, putByValWithStringSloppySetterHandler) \
     macro(PutByValWithSymbolReplaceHandler, putByValWithSymbolReplaceHandler) \
     macro(PutByValWithSymbolTransitionNonAllocatingHandler, putByValWithSymbolTransitionNonAllocatingHandler) \
     macro(PutByValWithSymbolTransitionNewlyAllocatingHandler, putByValWithSymbolTransitionNewlyAllocatingHandler) \
     macro(PutByValWithSymbolTransitionReallocatingHandler, putByValWithSymbolTransitionReallocatingHandler) \
+    macro(PutByValWithSymbolTransitionReallocatingOutOfLineHandler, putByValWithSymbolTransitionReallocatingOutOfLineHandler) \
+    macro(PutByValWithSymbolCustomAccessorHandler, putByValWithSymbolCustomAccessorHandler) \
+    macro(PutByValWithSymbolCustomValueHandler, putByValWithSymbolCustomValueHandler) \
+    macro(PutByValWithSymbolStrictSetterHandler, putByValWithSymbolStrictSetterHandler) \
+    macro(PutByValWithSymbolSloppySetterHandler, putByValWithSymbolSloppySetterHandler) \
     macro(InByValWithStringHitHandler, inByValWithStringHitHandler) \
     macro(InByValWithStringMissHandler, inByValWithStringMissHandler) \
     macro(InByValWithSymbolHitHandler, inByValWithSymbolHitHandler) \

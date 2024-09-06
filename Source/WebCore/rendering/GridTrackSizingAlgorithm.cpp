@@ -30,12 +30,9 @@
 #include "Grid.h"
 #include "GridArea.h"
 #include "GridLayoutFunctions.h"
-#include "RenderBoxInlines.h"
-#include "RenderBoxModelObjectInlines.h"
 #include "RenderElementInlines.h"
 #include "RenderGrid.h"
 #include "RenderStyleConstants.h"
-#include "RenderStyleInlines.h"
 #include "StyleSelfAlignmentData.h"
 
 namespace WebCore {
@@ -918,7 +915,7 @@ LayoutUnit GridTrackSizingAlgorithmStrategy::minSizeForChild(RenderBox& child) c
         const GridSpan& span = m_algorithm.m_renderGrid->gridSpanForChild(child, direction());
 
         LayoutUnit maxBreadth;
-        auto allTracks = m_algorithm.tracks(direction());
+        const auto& allTracks = m_algorithm.tracks(direction());
         bool allFixed = true;
         for (auto trackPosition : span) {
             const auto& trackSize = allTracks[trackPosition].cachedTrackSize();

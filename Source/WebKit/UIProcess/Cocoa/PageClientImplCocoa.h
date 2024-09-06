@@ -100,8 +100,8 @@ public:
 #endif
 
 #if ENABLE(WRITING_TOOLS_UI)
-    void addTextAnimationTypeForID(const WTF::UUID&, const WebKit::TextAnimationData&) final;
-    void removeTextAnimationForID(const WTF::UUID&) final;
+    void addTextAnimationForAnimationID(const WTF::UUID&, const WebKit::TextAnimationData&) final;
+    void removeTextAnimationForAnimationID(const WTF::UUID&) final;
 #endif
 
     void microphoneCaptureWillChange() final;
@@ -131,6 +131,8 @@ public:
     void setGamepadsRecentlyAccessed(GamepadsRecentlyAccessed) final;
 #endif
 
+    void hasActiveNowPlayingSessionChanged(bool) final;
+
 protected:
     RetainPtr<WKWebView> webView() const { return m_webView.get(); }
 
@@ -138,4 +140,4 @@ protected:
     std::unique_ptr<WebCore::AlternativeTextUIController> m_alternativeTextUIController;
 };
 
-}
+} // namespace WebKit

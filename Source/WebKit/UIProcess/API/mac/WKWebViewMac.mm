@@ -673,6 +673,13 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_BEGIN
     _impl->attributedSubstringForProposedRange(nsRange, completionHandlerPtr);
 }
 
+// FIXME: actually return valid information.
+// rdar://130702677
+- (void)unionRectForCharacterRange:(NSRange)range completionHandler:(void(^)(NSRect rect))completionHandler
+{
+    completionHandler(NSZeroRect);
+}
+
 - (void)firstRectForCharacterRange:(NSRange)theRange completionHandler:(void(^)(NSRect firstRect, NSRange actualRange))completionHandlerPtr
 {
     _impl->firstRectForCharacterRange(theRange, completionHandlerPtr);
@@ -1231,13 +1238,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)_web_didChangeContentSize:(NSSize)newSize
 {
 }
-
-#if ENABLE(WRITING_TOOLS)
-- (BOOL)_web_wantsWritingToolsInlineEditing
-{
-    return [self wantsWritingToolsInlineEditing];
-}
-#endif
 
 #if ENABLE(DRAG_SUPPORT)
 

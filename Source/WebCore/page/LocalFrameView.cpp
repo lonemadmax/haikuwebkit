@@ -1311,7 +1311,7 @@ void LocalFrameView::didLayout(SingleThreadWeakPtr<RenderElement> layoutRoot, bo
     Ref document = *m_frame->document();
 
 #if PLATFORM(COCOA) || PLATFORM(WIN) || PLATFORM(GTK)
-    if (auto* cache = document->existingAXObjectCache())
+    if (CheckedPtr cache = document->existingAXObjectCache())
         cache->postNotification(layoutRoot.get(), AXObjectCache::AXLayoutComplete);
 #endif
 
@@ -1602,6 +1602,9 @@ void LocalFrameView::addViewportConstrainedObject(RenderLayerModelObject& object
 
         if (auto scrollingCoordinator = this->scrollingCoordinator())
             scrollingCoordinator->frameViewFixedObjectsDidChange(*this);
+
+        if (RefPtr page = m_frame->page())
+            page->chrome().client().didAddOrRemoveViewportConstrainedObjects();
     }
 }
 
@@ -1614,6 +1617,9 @@ void LocalFrameView::removeViewportConstrainedObject(RenderLayerModelObject& obj
         // FIXME: In addFixedObject() we only call this if there's a platform widget,
         // why isn't the same check being made here?
         updateCanBlitOnScrollRecursively();
+
+        if (RefPtr page = m_frame->page())
+            page->chrome().client().didAddOrRemoveViewportConstrainedObjects();
     }
 }
 

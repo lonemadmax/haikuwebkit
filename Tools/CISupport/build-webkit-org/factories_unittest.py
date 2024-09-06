@@ -359,6 +359,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'delete-WebKitBuild-directory',
             'delete-stale-build-files',
             'prune-coresymbolicationd-cache-if-too-large',
+            'print-clang-version',
             'scan-build-smart-pointer'
         ],
         'Apple-Ventura-Release-Build': [
@@ -1117,6 +1118,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'kill-old-processes',
             'delete-WebKitBuild-directory',
             'delete-stale-build-files',
+            'jhbuild',
             'compile-webkit'
         ],
         'GTK-Linux-64-bit-Release-Debian-Stable-Build': [

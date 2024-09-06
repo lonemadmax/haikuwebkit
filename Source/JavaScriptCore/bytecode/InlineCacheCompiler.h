@@ -217,6 +217,12 @@ public:
     static constexpr ptrdiff_t offsetOfModuleVariableSlot() { return OBJECT_OFFSETOF(InlineCacheHandler, u.s3.m_moduleVariableSlot); }
     static constexpr ptrdiff_t offsetOfCallLinkInfos() { return Base::offsetOfData(); }
 
+    StructureID structureID() const { return m_structureID; }
+    PropertyOffset offset() const { return m_offset; }
+    size_t newSize() const { return u.s2.m_newSize; }
+    size_t oldSize() const { return u.s2.m_oldSize; }
+    StructureID newStructureID() const { return u.s2.m_newStructureID; }
+
 private:
     InlineCacheHandler()
         : Base(0)
@@ -389,7 +395,7 @@ private:
     void generateWithConditionChecks(unsigned index, AccessCase&);
     void generateAccessCase(unsigned index, AccessCase&);
 
-    MacroAssemblerCodeRef<JITStubRoutinePtrTag> compileGetByIdDOMJITHandler(CodeBlock*, const DOMJIT::GetterSetter*);
+    MacroAssemblerCodeRef<JITStubRoutinePtrTag> compileGetByDOMJITHandler(CodeBlock*, const DOMJIT::GetterSetter*, std::optional<bool> isSymbol);
     RefPtr<AccessCase> tryFoldToMegamorphic(CodeBlock*, std::span<const Ref<AccessCase>>);
 
     VM& m_vm;
@@ -429,6 +435,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> putByIdReplaceHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByIdTransitionNonAllocatingHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByIdTransitionNewlyAllocatingHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByIdTransitionReallocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByIdTransitionReallocatingOutOfLineHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByIdCustomAccessorHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByIdCustomValueHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByIdStrictSetterHandler(VM&);
@@ -443,17 +450,33 @@ MacroAssemblerCodeRef<JITThunkPtrTag> instanceOfMissHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithStringLoadOwnPropertyHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithStringLoadPrototypePropertyHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithStringMissHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithStringCustomAccessorHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithStringCustomValueHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithStringGetterHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithSymbolLoadOwnPropertyHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithSymbolLoadPrototypePropertyHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithSymbolMissHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithSymbolCustomAccessorHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithSymbolCustomValueHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> getByValWithSymbolGetterHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithStringReplaceHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithStringTransitionNonAllocatingHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithStringTransitionNewlyAllocatingHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithStringTransitionReallocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithStringTransitionReallocatingOutOfLineHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithStringCustomAccessorHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithStringCustomValueHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithStringStrictSetterHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithStringSloppySetterHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithSymbolReplaceHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithSymbolTransitionNonAllocatingHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithSymbolTransitionNewlyAllocatingHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithSymbolTransitionReallocatingHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithSymbolTransitionReallocatingOutOfLineHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithSymbolCustomAccessorHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithSymbolCustomValueHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithSymbolStrictSetterHandler(VM&);
+MacroAssemblerCodeRef<JITThunkPtrTag> putByValWithSymbolSloppySetterHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> inByValWithStringHitHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> inByValWithStringMissHandler(VM&);
 MacroAssemblerCodeRef<JITThunkPtrTag> inByValWithSymbolHitHandler(VM&);

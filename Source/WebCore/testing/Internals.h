@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2012 Google Inc. All rights reserved.
- * Copyright (C) 2013-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -984,6 +984,9 @@ public:
     bool isMediaStreamTrackPowerEfficient(const MediaStreamTrack&) const;
     bool isMockRealtimeMediaSourceCenterEnabled();
     bool shouldAudioTrackPlay(const AudioTrack&);
+#endif // ENABLE(MEDIA_STREAM)
+#if ENABLE(WEB_RTC)
+    String rtcNetworkInterfaceName() const;
 #endif
 
     bool isHardwareVP9DecoderExpected();
@@ -1349,8 +1352,6 @@ public:
 
     int readPreferenceInteger(const String& domain, const String& key);
     String encodedPreferenceValue(const String& domain, const String& key);
-
-    String getUTIFromTag(const String& tagClass, const String& tag, const String& conformingToUTI);
 
     bool supportsPictureInPicture();
 

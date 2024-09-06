@@ -157,14 +157,14 @@ void PageClientImplCocoa::storeAppHighlight(const WebCore::AppHighlight &highlig
 #endif // ENABLE(APP_HIGHLIGHTS)
 
 #if ENABLE(WRITING_TOOLS_UI)
-void PageClientImplCocoa::addTextAnimationTypeForID(const WTF::UUID& uuid, const WebKit::TextAnimationData& data)
+void PageClientImplCocoa::addTextAnimationForAnimationID(const WTF::UUID& uuid, const WebKit::TextAnimationData& data)
 {
-    [m_webView _addTextAnimationTypeForID:uuid withData:data];
+    [m_webView _addTextAnimationForAnimationID:uuid withData:data];
 }
 
-void PageClientImplCocoa::removeTextAnimationForID(const WTF::UUID& uuid)
+void PageClientImplCocoa::removeTextAnimationForAnimationID(const WTF::UUID& uuid)
 {
-    [m_webView _removeTextAnimationForID:uuid];
+    [m_webView _removeTextAnimationForAnimationID:uuid];
 }
 #endif
 
@@ -317,4 +317,14 @@ void PageClientImplCocoa::setGamepadsRecentlyAccessed(GamepadsRecentlyAccessed g
 }
 #endif
 
+void PageClientImplCocoa::hasActiveNowPlayingSessionChanged(bool hasActiveNowPlayingSession)
+{
+    if ([m_webView _hasActiveNowPlayingSession] == hasActiveNowPlayingSession)
+        return;
+
+    [m_webView willChangeValueForKey:@"_hasActiveNowPlayingSession"];
+    [m_webView _setHasActiveNowPlayingSession:hasActiveNowPlayingSession];
+    [m_webView didChangeValueForKey:@"_hasActiveNowPlayingSession"];
 }
+
+} // namespace WebKit

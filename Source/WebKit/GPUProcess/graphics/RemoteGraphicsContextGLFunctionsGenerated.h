@@ -1638,13 +1638,6 @@
         assertIsCurrent(workQueue());
         m_context->setDrawingBufferColorSpace(arg0);
     }
-    void drawingBufferToPixelBuffer(WebCore::GraphicsContextGLFlipY&& arg0, CompletionHandler<void(RefPtr<WebCore::PixelBuffer>&&)>&& completionHandler)
-    {
-        assertIsCurrent(workQueue());
-        RefPtr<WebCore::PixelBuffer> returnValue = { };
-        returnValue = m_context->drawingBufferToPixelBuffer(arg0);
-        completionHandler(WTFMove(returnValue));
-    }
 #if ENABLE(WEBXR)
     void createExternalImage(uint32_t name, WebCore::GraphicsContextGL::ExternalImageSource&& arg0, uint32_t internalFormat, int32_t layer)
     {
@@ -1713,6 +1706,13 @@
     {
         assertIsCurrent(workQueue());
         m_context->framebufferDiscard(target, attachments);
+    }
+    void framebufferResolveRenderbuffer(uint32_t target, uint32_t attachment, uint32_t renderbuffertarget, uint32_t arg3)
+    {
+        assertIsCurrent(workQueue());
+        if (arg3)
+            arg3 = m_objectNames.get(arg3);
+        m_context->framebufferResolveRenderbuffer(target, attachment, renderbuffertarget, arg3);
     }
 #endif
 

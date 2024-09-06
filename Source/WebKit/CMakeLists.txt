@@ -349,6 +349,7 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/WebPage/EventDispatcher
     WebProcess/WebPage/VisitedLinkTableController
     WebProcess/WebPage/WebPage
+    WebProcess/WebPage/WebPageTesting
 
     WebProcess/WebStorage/StorageAreaMap
 

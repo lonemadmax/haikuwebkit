@@ -378,6 +378,7 @@ class WebOpenPanelResultListener;
 class WebPageGroupProxy;
 class WebPageInspectorTargetController;
 class WebPageOverlay;
+class WebPageTesting;
 class WebPaymentCoordinator;
 class WebPopupMenu;
 class WebRemoteObjectRegistry;
@@ -439,6 +440,11 @@ class WebExtensionControllerProxy;
 #if ENABLE(WEBXR) && !USE(OPENXR)
 class PlatformXRSystemProxy;
 #endif
+
+enum class DisallowLayoutViewportHeightExpansionReason : uint8_t {
+    ElementFullScreen       = 1 << 0,
+    LargeContainer          = 1 << 1,
+};
 
 using SnapshotOptions = uint32_t;
 using WKEventModifiers = uint32_t;
@@ -542,6 +548,10 @@ public:
 
     enum class IsInFullscreenMode : bool { No, Yes };
     void isInFullscreenChanged(IsInFullscreenMode);
+
+    void prepareToEnterElementFullScreen();
+    void prepareToExitElementFullScreen();
+    void closeFullScreen();
 #endif
 
     void addConsoleMessage(WebCore::FrameIdentifier, MessageSource, MessageLevel, const String&, std::optional<WebCore::ResourceLoaderIdentifier> = std::nullopt);
@@ -675,7 +685,6 @@ public:
     Ref<API::Array> trackedRepaintRects();
 
     void executeEditingCommand(const String& commandName, const String& argument);
-    void isEditingCommandEnabled(const String& commandName, CompletionHandler<void(bool)>&&);
     void clearMainFrameName();
     void sendClose();
 
@@ -741,7 +750,6 @@ public:
     void stopLoading();
     void stopLoadingDueToProcessSwap();
     bool defersLoading() const;
-    void setDefersLoading(bool deferLoading);
 
     void enterAcceleratedCompositingMode(WebCore::Frame&, WebCore::GraphicsLayer*);
     void exitAcceleratedCompositingMode(WebCore::Frame&);
@@ -1007,8 +1015,6 @@ public:
     void unfreezeLayerTree(LayerTreeFreezeReason);
 
     void updateFrameSize(WebCore::FrameIdentifier, WebCore::IntSize);
-
-    void isLayerTreeFrozen(CompletionHandler<void(bool)>&&);
 
     void markLayersVolatile(CompletionHandler<void(bool)>&& completionHandler = { });
     void cancelMarkLayersVolatile();
@@ -1449,7 +1455,7 @@ public:
 
     void flushPendingEditorStateUpdate();
 
-    void loadAndDecodeImage(WebCore::ResourceRequest&&, std::optional<WebCore::FloatSize> sizeConstraint, CompletionHandler<void(std::variant<WebCore::ResourceError, Ref<WebCore::ShareableBitmap>>&&)>&&);
+    void loadAndDecodeImage(WebCore::ResourceRequest&&, std::optional<WebCore::FloatSize> sizeConstraint, size_t, CompletionHandler<void(std::variant<WebCore::ResourceError, Ref<WebCore::ShareableBitmap>>&&)>&&);
 
     void hasStorageAccess(WebCore::RegistrableDomain&& subFrameDomain, WebCore::RegistrableDomain&& topFrameDomain, WebFrame&, CompletionHandler<void(bool)>&&);
     void requestStorageAccess(WebCore::RegistrableDomain&& subFrameDomain, WebCore::RegistrableDomain&& topFrameDomain, WebFrame&, WebCore::StorageAccessScope, CompletionHandler<void(WebCore::RequestStorageAccessResult)>&&);
@@ -1651,6 +1657,8 @@ public:
     void setAppHighlightsVisibility(const WebCore::HighlightVisibility);
 #endif
 
+    void didAddOrRemoveViewportConstrainedObjects();
+
 #if PLATFORM(IOS_FAMILY)
     void dispatchWheelEventWithoutScrolling(WebCore::FrameIdentifier, const WebWheelEvent&, CompletionHandler<void(bool)>&&);
 #endif
@@ -1759,12 +1767,13 @@ public:
     void enableSourceTextAnimationAfterElementWithID(const String&, const WTF::UUID&);
     void enableTextAnimationTypeForElementWithID(const String&, const WTF::UUID&);
 
-    void addTextAnimationTypeForID(const WTF::UUID&, const WebKit::TextAnimationData&, const WebCore::TextIndicatorData&);
-    // FIXME: try and combine these two and/or clarify why both are needed.
-    // rdar://129882958 (Combine or clarify removeTextAnimationForID and cleanUpTextAnimationsForSessionID)
-    void removeTextAnimationForID(const WebCore::WritingTools::SessionID&);
-    void cleanUpTextAnimationsForSessionID(const WebCore::WritingTools::SessionID&);
+    void addTextAnimationForAnimationID(const WTF::UUID&, const WebKit::TextAnimationData&, const WebCore::TextIndicatorData&);
 
+    void removeTextAnimationForAnimationID(const WTF::UUID&);
+    void removeTransparentMarkersForSessionID(const WebCore::WritingTools::SessionID&);
+
+    void removeInitialTextAnimation(const WebCore::WritingTools::SessionID&);
+    void addInitialTextAnimation(const WebCore::WritingTools::SessionID&);
     void addSourceTextAnimation(const WebCore::WritingTools::SessionID&, const WebCore::CharacterRange&);
     void addDestinationTextAnimation(const WebCore::WritingTools::SessionID&, const WebCore::CharacterRange&);
 
@@ -1779,16 +1788,16 @@ public:
 
     void takeSnapshotForTargetedElement(WebCore::ElementIdentifier, WebCore::ScriptExecutionContextIdentifier, CompletionHandler<void(std::optional<WebCore::ShareableBitmapHandle>&&)>&&);
 
+    void hasActiveNowPlayingSessionChanged(bool);
+
+    OptionSet<LayerTreeFreezeReason> layerTreeFreezeReasons() const { return m_layerTreeFreezeReasons; }
+
 private:
     WebPage(WebCore::PageIdentifier, WebPageCreationParameters&&);
 
     void constructFrameTree(WebFrame& parent, const FrameTreeCreationParameters&);
 
     void updateThrottleState();
-
-#if ENABLE(NOTIFICATIONS)
-    void clearNotificationPermissionState();
-#endif
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const override;
@@ -1851,6 +1860,13 @@ private:
 #if ENABLE(VIEWPORT_RESIZING)
     void shrinkToFitContent(ZoomToInitialScale = ZoomToInitialScale::No);
 #endif
+
+#if PLATFORM(IOS_FAMILY)
+    void updateLayoutViewportHeightExpansionTimerFired();
+#endif
+
+    void addReasonsToDisallowLayoutViewportHeightExpansion(OptionSet<DisallowLayoutViewportHeightExpansionReason>);
+    void removeReasonsToDisallowLayoutViewportHeightExpansion(OptionSet<DisallowLayoutViewportHeightExpansionReason>);
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT)
     void requestDragStart(const WebCore::IntPoint& clientPosition, const WebCore::IntPoint& globalPosition, OptionSet<WebCore::DragSourceAction> allowedActionsMask);
@@ -1924,8 +1940,8 @@ private:
 
     void setNeedsFontAttributes(bool);
 
-    void mouseEvent(WebCore::FrameIdentifier, const WebMouseEvent&, std::optional<Vector<SandboxExtension::Handle>>&& sandboxExtensions, CompletionHandler<void(std::optional<WebEventType>, bool, std::optional<WebCore::RemoteUserInputEventData>)>&&);
-    void keyEvent(WebCore::FrameIdentifier, const WebKeyboardEvent&, CompletionHandler<void(std::optional<WebEventType>, bool)>&&);
+    void mouseEvent(WebCore::FrameIdentifier, const WebMouseEvent&, std::optional<Vector<SandboxExtension::Handle>>&& sandboxExtensions);
+    void keyEvent(WebCore::FrameIdentifier, const WebKeyboardEvent&);
 
     void setLastKnownMousePosition(WebCore::FrameIdentifier, WebCore::IntPoint eventPoint, WebCore::IntPoint globalPoint);
 
@@ -2184,8 +2200,6 @@ private:
     void playbackTargetPickerWasDismissed(WebCore::PlaybackTargetClientContextIdentifier);
 #endif
 
-    void clearWheelEventTestMonitor();
-
     void setShouldScaleViewToFitDocument(bool);
 
     void pageStoppedScrolling();
@@ -2312,8 +2326,6 @@ private:
 
     void frameNameWasChangedInAnotherProcess(WebCore::FrameIdentifier, const String& frameName);
 
-    void setPermissionLevelForTesting(const String& origin, bool allowed);
-
     WebCore::PageIdentifier m_identifier;
 
     RefPtr<WebCore::Page> m_page;
@@ -2321,6 +2333,8 @@ private:
     WebCore::IntSize m_viewSize;
     LayerHostingMode m_layerHostingMode;
     std::unique_ptr<DrawingArea> m_drawingArea;
+
+    std::unique_ptr<WebPageTesting> m_webPageTesting;
 
     Ref<WebFrame> m_mainFrame;
 
@@ -2558,12 +2572,11 @@ private:
 
     unsigned m_cachedPageCount { 0 };
 
-    struct DeferredMouseEventCompletionHandler {
+    struct DeferredDidReceiveMouseEvent {
         std::optional<WebEventType> type;
         bool handled { false };
-        CompletionHandler<void(std::optional<WebEventType>, bool, std::optional<WebCore::RemoteUserInputEventData>)> completionHandler;
     };
-    std::optional<DeferredMouseEventCompletionHandler> m_deferredMouseEventCompletionHandler;
+    std::optional<DeferredDidReceiveMouseEvent> m_deferredDidReceiveMouseEvent;
 
     HashSet<WebCore::ResourceLoaderIdentifier> m_trackedNetworkResourceRequestIdentifiers;
 
@@ -2776,6 +2789,11 @@ private:
 
 #if HAVE(APP_ACCENT_COLORS)
     bool m_appUsesCustomAccentColor { false };
+#endif
+
+    OptionSet<DisallowLayoutViewportHeightExpansionReason> m_disallowLayoutViewportHeightExpansionReasons;
+#if PLATFORM(IOS_FAMILY)
+    WebCore::DeferrableOneShotTimer m_updateLayoutViewportHeightExpansionTimer;
 #endif
 
     WeakPtr<WebCore::Node, WebCore::WeakPtrImplWithEventTargetData> m_lastNodeBeforeWritingSuggestions;
