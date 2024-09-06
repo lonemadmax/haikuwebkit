@@ -58,10 +58,8 @@ private:
 #endif
 
     void clearWheelEventTestMonitor();
+    Ref<WebPage> protectedPage() const;
 
-    void flushDeferredDidReceiveMouseEvent(CompletionHandler<void()>&&);
-
-    const WebCore::PageIdentifier m_identifier;
     WeakRef<WebPage> m_page;
 };
 

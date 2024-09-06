@@ -30,12 +30,14 @@
 #include "config.h"
 #include "MatchedDeclarationsCache.h"
 
+#include "AnchorPositionEvaluator.h"
 #include "CSSFontSelector.h"
 #include "Document.h"
 #include "DocumentInlines.h"
 #include "FontCascade.h"
 #include "RenderStyleInlines.h"
 #include "StyleResolver.h"
+#include "StyleScope.h"
 #include <wtf/text/StringHash.h>
 
 namespace WebCore {
@@ -59,7 +61,7 @@ void MatchedDeclarationsCache::deref() const
     m_owner->deref();
 }
 
-bool MatchedDeclarationsCache::isCacheable(const Element& element, const RenderStyle& style, const RenderStyle& parentStyle)
+bool MatchedDeclarationsCache::isCacheable(const Element& element, const RenderStyle& style, const RenderStyle& parentStyle, const AnchorPositionedStateMap* anchorPositionedStateMap)
 {
     // FIXME: Writing mode and direction properties modify state when applying to document element by calling
     // Document::setWritingMode/DirectionSetOnDocumentElement. We can't skip the applying by caching.
@@ -78,6 +80,14 @@ bool MatchedDeclarationsCache::isCacheable(const Element& element, const RenderS
     if (style.writingMode() != RenderStyle::initialWritingMode() || style.direction() != RenderStyle::initialDirection())
         return false;
     if (style.usesContainerUnits())
+        return false;
+
+    // An anchor-positioned element needs to first be resolved in order to gather
+    // relevant anchor-names. Style & layout interleaving uses that information to find
+    // the relevant anchors that this element will be positioned relative to. Then, the
+    // anchor-positioned element will be resolved once again, this time with the anchor
+    // information needed to fully resolve the element.
+    if (anchorPositionedStateMap && anchorPositionedStateMap->contains(element))
         return false;
 
     // Getting computed style after a font environment change but before full style resolution may involve styles with non-current fonts.

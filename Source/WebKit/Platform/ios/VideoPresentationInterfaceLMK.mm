@@ -41,6 +41,7 @@
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/UUID.h>
+#import <wtf/text/MakeString.h>
 
 @interface WKLinearMediaKitCaptionsLayer : CALayer {
     ThreadSafeWeakPtr<WebKit::VideoPresentationInterfaceLMK> _parent;
@@ -200,8 +201,11 @@ LMPlayableViewController *VideoPresentationInterfaceLMK::playableViewController(
 
 void VideoPresentationInterfaceLMK::ensurePlayableViewController()
 {
-    if (!m_playerViewController)
-        m_playerViewController = [linearMediaPlayer() makeViewController];
+    if (m_playerViewController)
+        return;
+
+    m_playerViewController = [linearMediaPlayer() makeViewController];
+    [m_playerViewController view].alpha = 0;
 }
 
 } // namespace WebKit

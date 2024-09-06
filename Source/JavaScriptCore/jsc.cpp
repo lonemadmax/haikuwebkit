@@ -109,6 +109,7 @@
 #include <wtf/WTFProcess.h>
 #include <wtf/WallTime.h>
 #include <wtf/text/Base64.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/threads/BinarySemaphore.h>
 #include <wtf/threads/Signals.h>
@@ -3810,8 +3811,7 @@ static void runInteractive(GlobalObject* globalObject)
             shouldQuit = !line;
             if (!line)
                 break;
-            source = source + String::fromUTF8(line);
-            source = source + '\n';
+            source = makeString(source, String::fromUTF8(line), '\n');
             checkSyntax(vm, jscSource(source, sourceOrigin), error);
             if (!line[0]) {
                 free(line);
@@ -3928,7 +3928,8 @@ static bool isMJSFile(char *filename)
 static NEVER_INLINE void crashPGMUAF()
 {
     WTF::forceEnablePGM();
-    char* result = static_cast<char*>(fastMalloc(10000000));
+    size_t allocSize = getpagesize() * 10000;
+    char* result = static_cast<char*>(fastMalloc(allocSize));
     fastFree(result);
     *result = 'a';
 }
@@ -3937,7 +3938,7 @@ static NEVER_INLINE void crashPGMUpperGuardPage()
 {
     WTF::forceEnablePGM();
     size_t allocSize = getpagesize() * 10000;
-    char* result = static_cast<char*>(fastMalloc(10000000));
+    char* result = static_cast<char*>(fastMalloc(allocSize));
     result = result + allocSize;
     *result = 'a';
 }
@@ -3945,8 +3946,9 @@ static NEVER_INLINE void crashPGMUpperGuardPage()
 static NEVER_INLINE void crashPGMLowerGuardPage()
 {
     WTF::forceEnablePGM();
-    char* result = static_cast<char*>(fastMalloc(10000000));
-    result = result - getpagesize();
+    size_t allocSize = getpagesize() * 10000;
+    char* result = static_cast<char*>(fastMalloc(allocSize));
+    result = result - 1;
     *result = 'a';
 }
 #endif

@@ -108,7 +108,6 @@
 #include "TimingFunction.h"
 #include "WebKitFontFamilyNames.h"
 #include <wtf/SortedArrayMap.h>
-#include <wtf/text/StringConcatenateNumbers.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -4455,11 +4454,10 @@ RefPtr<CSSPrimitiveValue> consumeAnchor(CSSParserTokenRange& range, CSSParserMod
 {
     // https://drafts.csswg.org/css-anchor-position-1/#anchor-pos
     // <anchor()> = anchor( <anchor-element>? && <anchor-side>, <length-percentage>? )
-    auto rangeCopy = range;
-
-    if (rangeCopy.peek().type() != FunctionToken || range.peek().functionId() != CSSValueAnchor)
+    if (range.peek().type() != FunctionToken || range.peek().functionId() != CSSValueAnchor)
         return nullptr;
 
+    auto rangeCopy = range;
     auto args = consumeFunction(rangeCopy);
     if (!args.size())
         return nullptr;

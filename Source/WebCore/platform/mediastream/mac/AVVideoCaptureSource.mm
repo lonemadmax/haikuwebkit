@@ -486,6 +486,11 @@ const RealtimeMediaSourceSettings& AVVideoCaptureSource::settings()
         settings.setTorch([device() torchMode] == AVCaptureTorchModeOn);
     }
 
+#if PLATFORM(IOS_FAMILY)
+    supportedConstraints.setSupportsPowerEfficient(true);
+    if (canBePowerEfficient())
+        settings.setPowerEfficient(m_currentPreset ? m_currentPreset->isEfficient() : false);
+#endif
     settings.setSupportedConstraints(supportedConstraints);
 
     m_currentSettings = WTFMove(settings);
@@ -530,7 +535,11 @@ const RealtimeMediaSourceCapabilities& AVVideoCaptureSource::capabilities()
     }
 
     capabilities.setBackgroundBlur(device().portraitEffectActive ? RealtimeMediaSourceCapabilities::BackgroundBlur::On : RealtimeMediaSourceCapabilities::BackgroundBlur::Off);
-    supportedConstraints.setSupportsBackgroundBlur(true);
+
+#if PLATFORM(IOS_FAMILY)
+    supportedConstraints.setSupportsPowerEfficient(true);
+    capabilities.setPowerEfficient(canBePowerEfficient());
+#endif
 
     capabilities.setSupportedConstraints(supportedConstraints);
     updateCapabilities(capabilities);
@@ -793,6 +802,15 @@ void AVVideoCaptureSource::setFrameRateAndZoomWithPreset(double requestedFrameRa
     m_currentZoom = requestedZoom;
 
     setSessionSizeFrameRateAndZoom();
+
+#if PLATFORM(IOS_FAMILY)
+    // Updating the device configuration may switch off the torch. We reenable torch asynchronously if needed.
+    if (torch()) {
+        scheduleDeferredTask([this] {
+            updateTorch();
+        });
+    }
+#endif
 }
 
 static bool isFrameRateMatching(double frameRate, AVCaptureDevice* device)

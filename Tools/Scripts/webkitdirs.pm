@@ -103,7 +103,6 @@ BEGIN {
        &debugWebKitTestRunner
        &determineCurrentSVNRevision
        &determineCrossTarget
-       &determineIsWin64
        &determineXcodeSDK
        &executableProductDir
        &exitStatus
@@ -136,8 +135,7 @@ BEGIN {
        &isMacCatalystWebKit
        &isPlayStation
        &isWPE
-       &isWinCairo
-       &isWin64
+       &isWin
        &isWindows
        &isX86_64
        &jscPath
@@ -228,7 +226,7 @@ use constant {
     MacCatalyst => "MacCatalyst",
     JSCOnly     => "JSCOnly",
     PlayStation => "PlayStation",
-    WinCairo    => "WinCairo",
+    Win         => "Win",
     WPE         => "WPE",
     Unknown     => "Unknown"
 };
@@ -276,7 +274,6 @@ my $generateDsym;
 my $isCMakeBuild;
 my $isGenerateProjectOnly;
 my $shouldBuild32Bit;
-my $isWin64;
 my $isInspectorFrontend;
 my $portName;
 my $shouldUseGuardMalloc;
@@ -828,7 +825,7 @@ sub argumentsForConfiguration()
     }
 
     my @args = ();
-    # FIXME: Is it necessary to pass --debug, --release, --32-bit or --64-bit?
+    # FIXME: Is it necessary to pass --debug, --release, or --32-bit?
     # These are determined automatically from stored configuration.
     push(@args, '--debug') if ($configuration =~ "^Debug");
     push(@args, '--release') if ($configuration =~ "^Release");
@@ -842,13 +839,12 @@ sub argumentsForConfiguration()
     push(@args, '--visionos-device') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'xros');
     push(@args, '--visionos-simulator') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'xrsimulator');
     push(@args, '--maccatalyst') if (defined $xcodeSDKPlatformName && $xcodeSDKPlatformName eq 'maccatalyst');
-    push(@args, '--32-bit') if ($architecture eq "x86" and !isWin64());
-    push(@args, '--64-bit') if (isWin64());
+    push(@args, '--32-bit') if ($architecture eq "x86");
     push(@args, '--gtk') if isGtk();
     push(@args, '--haiku') if isHaiku();
     push(@args, '--wpe') if isWPE();
     push(@args, '--jsc-only') if isJSCOnly();
-    push(@args, '--wincairo') if isWinCairo();
+    push(@args, '--win') if isWin();
     push(@args, '--playstation') if isPlayStation();
     return @args;
 }
@@ -856,7 +852,7 @@ sub argumentsForConfiguration()
 sub extractNonMacOSHostConfiguration
 {
     my @args = ();
-    my @extract = ('--device', '--gtk', '--ios', '--platform', '--sdk', '--simulator', '--wincairo', '--tvos', '--visionos', '--watchos', 'SDKROOT', 'ARCHS');
+    my @extract = ('--device', '--gtk', '--ios', '--platform', '--sdk', '--simulator', '--win', '--tvos', '--visionos', '--watchos', 'SDKROOT', 'ARCHS');
     foreach (@{$_[0]}) {
         my $line = $_;
         my $flag = 0;
@@ -1140,7 +1136,7 @@ sub determineConfigurationProductDir
     return if defined $configurationProductDir;
     determineBaseProductDir();
     determineConfiguration();
-    if (isWinCairo() || isPlayStation()) {
+    if (isWin() || isPlayStation()) {
         $configurationProductDir = File::Spec->catdir($baseProductDir, $configuration);
     } else {
         if (usesPerConfigurationBuildDirectory()) {
@@ -1695,7 +1691,8 @@ sub determinePortName()
         haiku => Haiku,
         'jsc-only' => JSCOnly,
         playstation => PlayStation,
-        wincairo => WinCairo,
+        win => Win,
+        wincairo => Win,
         wpe => WPE
     );
 
@@ -1713,7 +1710,7 @@ sub determinePortName()
     # Port was not selected via command line, use appropriate default value
 
     if (isAnyWindows()) {
-        $portName = WinCairo;
+        $portName = Win;
     } elsif (isDarwin()) {
         determineXcodeSDKPlatformName();
         if (willUseIOSDeviceSDK() || willUseIOSSimulatorSDK()) {
@@ -1784,9 +1781,9 @@ sub isFedoraBased()
     return -e "/etc/fedora-release";
 }
 
-sub isWinCairo()
+sub isWin()
 {
-    return portName() eq WinCairo;
+    return portName() eq Win;
 }
 
 sub shouldBuild32Bit()
@@ -1799,18 +1796,6 @@ sub determineShouldBuild32Bit()
 {
     return if defined($shouldBuild32Bit);
     $shouldBuild32Bit = checkForArgumentAndRemoveFromARGV("--32-bit");
-}
-
-sub isWin64()
-{
-    determineIsWin64();
-    return $isWin64;
-}
-
-sub determineIsWin64()
-{
-    return if defined($isWin64);
-    $isWin64 = checkForArgumentAndRemoveFromARGV("--64-bit") || (isAnyWindows() && !shouldBuild32Bit());
 }
 
 sub isCygwin()
@@ -1846,21 +1831,6 @@ sub winVersion()
 {
     determineWinVersion();
     return $winVersion;
-}
-
-sub isWindows7SP0()
-{
-    return isAnyWindows() && winVersion()->{major} == 6 && winVersion()->{minor} == 1 && winVersion()->{build} == 7600;
-}
-
-sub isWindowsVista()
-{
-    return isAnyWindows() && winVersion()->{major} == 6 && winVersion()->{minor} == 0;
-}
-
-sub isWindowsXP()
-{
-    return isAnyWindows() && winVersion()->{major} == 5 && winVersion()->{minor} == 1;
 }
 
 sub isDarwin()
@@ -2142,11 +2112,6 @@ sub iosVersion()
     return $iosVersion;
 }
 
-sub isWindowsNT()
-{
-    return $ENV{'OS'} eq 'Windows_NT';
-}
-
 sub appendToEnvironmentVariableList($$)
 {
     my ($name, $value) = @_;
@@ -2313,8 +2278,6 @@ sub setupCygwinEnv()
     print "Building results into: ", baseProductDir(), "\n";
     print "WEBKIT_OUTPUTDIR is set to: ", $ENV{"WEBKIT_OUTPUTDIR"}, "\n";
     print "WEBKIT_LIBRARIES is set to: ", $ENV{"WEBKIT_LIBRARIES"}, "\n";
-    # FIXME (125180): Remove the following temporary 64-bit support once official support is available.
-    print "WEBKIT_64_SUPPORT is set to: ", $ENV{"WEBKIT_64_SUPPORT"}, "\n" if isWin64();
 
     # We will actually use MSBuild to build WebKit, but we need to find the Visual Studio install (above) to make
     # sure we use the right options.
@@ -2357,10 +2320,8 @@ sub getVisualStudioToolset()
 {
     if (isPlayStation()) {
         return "";
-    } elsif (isWin64()) {
-        return "x64";
     } else {
-        return "Win32";
+        return "x64";
     }
 }
 
@@ -2979,8 +2940,8 @@ sub setPathForRunningWebKitApp
 
     if (isAnyWindows()) {
         my $productBinaryDir = executableProductDir();
-        my $winCairoBin = sourceDir() . "/WebKitLibraries/win/" . (isWin64() ? "bin64/" : "bin32/");
-        $env->{PATH} = join(':', $productBinaryDir, $winCairoBin, $env->{PATH} || "");
+        my $winBin = sourceDir() . "/WebKitLibraries/win/bin64/";
+        $env->{PATH} = join(':', $productBinaryDir, $winBin, $env->{PATH} || "");
     }
 }
 

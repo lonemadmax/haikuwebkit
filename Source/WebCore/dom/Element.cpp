@@ -161,6 +161,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Scope.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
@@ -2545,6 +2546,17 @@ void Element::invalidateForQueryContainerSizeChange()
 
 void Element::invalidateForResumingQueryContainerResolution()
 {
+    markAncestorsForInvalidatedStyle();
+}
+
+void Element::invalidateAncestorsForAnchor()
+{
+    markAncestorsForInvalidatedStyle();
+}
+
+void Element::invalidateForResumingAnchorPositionedElementResolution()
+{
+    invalidateStyleInternal();
     markAncestorsForInvalidatedStyle();
 }
 

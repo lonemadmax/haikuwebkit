@@ -739,14 +739,12 @@ private:
             if (Node::shouldSpeculateHeapBigInt(leftChild.node(), rightChild.node())) {
                 fixEdge<HeapBigIntUse>(leftChild);
                 fixEdge<HeapBigIntUse>(rightChild);
-                node->clearFlags(NodeMustGenerate);
                 break;
             }
 #if USE(BIGINT32)
             if (Node::shouldSpeculateBigInt(leftChild.node(), rightChild.node())) {
                 fixEdge<AnyBigIntUse>(leftChild);
                 fixEdge<AnyBigIntUse>(rightChild);
-                node->clearFlags(NodeMustGenerate);
                 break; 
             }
 #endif
@@ -818,14 +816,12 @@ private:
             if (Node::shouldSpeculateHeapBigInt(node->child1().node(), node->child2().node())) {
                 fixEdge<HeapBigIntUse>(node->child1());
                 fixEdge<HeapBigIntUse>(node->child2());
-                node->clearFlags(NodeMustGenerate);
                 break;
             }
 #if USE(BIGINT32)
             if (Node::shouldSpeculateBigInt(node->child1().node(), node->child2().node())) {
                 fixEdge<AnyBigIntUse>(node->child1());
                 fixEdge<AnyBigIntUse>(node->child2());
-                node->clearFlags(NodeMustGenerate);
                 break;
             }
 #endif
@@ -2723,7 +2719,12 @@ private:
             break;
         }
 
-        case GetMapBucket:
+        case MapValue:
+            fixEdge<MapObjectUse>(node->child1());
+            fixEdge<Int32Use>(node->child2());
+            break;
+
+        case MapKeyIndex:
             if (node->child1().useKind() == MapObjectUse)
                 fixEdge<MapObjectUse>(node->child1());
             else if (node->child1().useKind() == SetObjectUse)
@@ -2759,7 +2760,7 @@ private:
             fixEdge<Int32Use>(node->child3());
             break;
 
-        case GetMapBucketHead:
+        case MapStorage:
             if (node->child1().useKind() == MapObjectUse)
                 fixEdge<MapObjectUse>(node->child1());
             else if (node->child1().useKind() == SetObjectUse)
@@ -2768,10 +2769,26 @@ private:
                 RELEASE_ASSERT_NOT_REACHED();
             break;
 
-        case GetMapBucketNext:
-        case LoadKeyFromMapBucket:
-        case LoadValueFromMapBucket:
+        case MapIterationNext:
             fixEdge<CellUse>(node->child1());
+            fixEdge<Int32Use>(node->child2());
+            break;
+
+        case MapIterationEntry:
+        case MapIterationEntryKey:
+        case MapIterationEntryValue:
+            fixEdge<CellUse>(node->child1());
+            break;
+
+        case MapIteratorNext:
+        case MapIteratorKey:
+        case MapIteratorValue:
+            if (node->child1().useKind() == MapIteratorObjectUse)
+                fixEdge<MapIteratorObjectUse>(node->child1());
+            else if (node->child1().useKind() == SetIteratorObjectUse)
+                fixEdge<SetIteratorObjectUse>(node->child1());
+            else
+                RELEASE_ASSERT_NOT_REACHED();
             break;
 
         case MapHash: {
@@ -3893,6 +3910,8 @@ private:
                 }
                 if (edge->shouldSpeculateInt32())
                     return;
+                if (edge->shouldSpeculateNumber())
+                    return;
                 if (m_graph.canOptimizeStringObjectAccess(node->origin.semantic)) {
                     if (edge->shouldSpeculateStringObject()) {
                         atLeastOneString = true;
@@ -3921,6 +3940,10 @@ private:
                 }
                 if (edge->shouldSpeculateInt32()) {
                     convertStringAddUse<Int32Use>(node, edge);
+                    return;
+                }
+                if (edge->shouldSpeculateNumber()) {
+                    convertStringAddUse<DoubleRepUse>(node, edge);
                     return;
                 }
                 if (edge->op() == ToPrimitive) {

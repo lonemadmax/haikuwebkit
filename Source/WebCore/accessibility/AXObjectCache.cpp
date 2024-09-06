@@ -127,7 +127,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SetForScope.h>
 #include <wtf/text/AtomString.h>
-#include <wtf/text/StringConcatenateNumbers.h>
+#include <wtf/text/MakeString.h>
 
 #if COMPILER(MSVC)
 // See https://msdn.microsoft.com/en-us/library/1wea5zwe.aspx
@@ -1103,7 +1103,6 @@ void AXObjectCache::remove(Node& node)
 {
     AXTRACE(makeString("AXObjectCache::remove Node& 0x"_s, hex(reinterpret_cast<uintptr_t>(this))));
 
-    removeNodeForUse(node);
     remove(m_nodeObjectMapping.take(&node));
     remove(node.renderer());
 
@@ -2799,14 +2798,14 @@ Ref<Document> AXObjectCache::protectedDocument() const
 
 VisiblePosition AXObjectCache::visiblePositionForTextMarkerData(const TextMarkerData& textMarkerData)
 {
-    if (!textMarkerData.node)
+    RefPtr node = nodeForID(textMarkerData.axObjectID());
+    if (!node)
         return { };
 
-    Ref node = *textMarkerData.node;
-    if (!isNodeInUse(node) || node->isPseudoElement())
+    if (node->isPseudoElement())
         return { };
 
-    auto visiblePosition = VisiblePosition({ node.ptr(), textMarkerData.offset, textMarkerData.anchorType }, textMarkerData.affinity);
+    auto visiblePosition = VisiblePosition({ node.get(), textMarkerData.offset, textMarkerData.anchorType }, textMarkerData.affinity);
     auto deepPosition = visiblePosition.deepEquivalent();
     if (deepPosition.isNull())
         return { };
@@ -2816,7 +2815,7 @@ VisiblePosition AXObjectCache::visiblePositionForTextMarkerData(const TextMarker
         return { };
 
     auto* cache = renderer->document().axObjectCache();
-    if (cache && !cache->m_idsInUse.contains(textMarkerData.objectID))
+    if (cache && !cache->m_idsInUse.contains(textMarkerData.axObjectID()))
         return { };
 
     return visiblePosition;
@@ -2824,14 +2823,14 @@ VisiblePosition AXObjectCache::visiblePositionForTextMarkerData(const TextMarker
 
 CharacterOffset AXObjectCache::characterOffsetForTextMarkerData(const TextMarkerData& textMarkerData)
 {
-    if (textMarkerData.ignored || !textMarkerData.node)
+    if (textMarkerData.ignored)
         return { };
 
-    RefAllowingPartiallyDestroyed<Node> node = *textMarkerData.node;
-    if (!isNodeInUse(node))
+    RefPtr node = nodeForID(textMarkerData.axObjectID());
+    if (!node)
         return { };
 
-    CharacterOffset result(node.ptr(), textMarkerData.characterStart, textMarkerData.characterOffset);
+    CharacterOffset result(node.get(), textMarkerData.characterStart, textMarkerData.characterOffset);
     // When we are at a line wrap and the VisiblePosition is upstream, it means the text marker is at the end of the previous line.
     // We use the previous CharacterOffset so that it will match the Range.
     if (textMarkerData.affinity == Affinity::Upstream)
@@ -3103,7 +3102,6 @@ TextMarkerData AXObjectCache::textMarkerDataForCharacterOffset(const CharacterOf
     if (RefPtr input = dynamicDowncast<HTMLInputElement>(characterOffset.node.get()); input && input->isSecureField())
         return { *this, { }, true };
 
-    setNodeInUse(Ref { *characterOffset.node });
     return { *this, characterOffset, false };
 }
 
@@ -3310,69 +3308,73 @@ VisiblePosition AXObjectCache::visiblePositionFromCharacterOffset(const Characte
     return makeContainerOffsetPosition(range->start);
 }
 
-CharacterOffset AXObjectCache::characterOffsetFromVisiblePosition(const VisiblePosition& visiblePos)
+CharacterOffset AXObjectCache::characterOffsetFromVisiblePosition(const VisiblePosition& targetVisiblePosition)
 {
-    if (visiblePos.isNull())
-        return CharacterOffset();
-    
-    Position deepPos = visiblePos.deepEquivalent();
-    // Dereferencing deprecatedNode is safe because VisiblePosition::isNull returns true if the deepEquivalent position has a null node.
-    Ref node = *deepPos.deprecatedNode();
+    if (targetVisiblePosition.isNull())
+        return { };
 
-    if (node->isCharacterDataNode())
-        return traverseToOffsetInRange(rangeForNodeContents(node.get()), deepPos.deprecatedEditingOffset(), TraverseOptionValidateOffset);
-    
-    RefPtr<AccessibilityObject> obj = this->getOrCreate(node.get());
-    if (!obj)
-        return CharacterOffset();
-    
+    Position targetDeepPosition = targetVisiblePosition.deepEquivalent();
+    // Dereferencing deprecatedNode is safe because VisiblePosition::isNull returns true if the deepEquivalent position has a null node.
+    Ref targetNode = *targetDeepPosition.deprecatedNode();
+    if (targetNode->isCharacterDataNode())
+        return traverseToOffsetInRange(rangeForNodeContents(targetNode.get()), targetDeepPosition.deprecatedEditingOffset(), TraverseOptionValidateOffset);
+
+    RefPtr object = getOrCreate(targetNode.get());
+    if (!object)
+        return { };
+
     // Use nextVisiblePosition to calculate how many characters we need to traverse to the current position.
-    VisiblePositionRange visiblePositionRange = obj->visiblePositionRange();
-    VisiblePosition visiblePosition = visiblePositionRange.start;
+    auto visiblePosition = object->visiblePositionRange().start;
     int characterOffset = 0;
-    Position currentPosition = visiblePosition.deepEquivalent();
-    
-    VisiblePosition previousVisiblePos;
-    while (!currentPosition.isNull() && !deepPos.equals(currentPosition)) {
-        previousVisiblePos = visiblePosition;
+    auto currentPosition = visiblePosition.deepEquivalent();
+    auto startPosition = currentPosition;
+
+    while (!currentPosition.isNull() && !targetDeepPosition.equals(currentPosition)) {
+        auto previousPosition = visiblePosition.deepEquivalent();
         visiblePosition = VisiblePosition(nextVisuallyDistinctCandidate(visiblePosition.deepEquivalent(), SkipDisplayContents::No), visiblePosition.affinity());
         currentPosition = visiblePosition.deepEquivalent();
-        Position previousPosition = previousVisiblePos.deepEquivalent();
         // Sometimes nextVisiblePosition will give the same VisiblePostion,
         // we break here to avoid infinite loop.
         if (currentPosition.equals(previousPosition))
             break;
+        // FIXME: Due to a foundational editing bug, it's possible to end up back at the start position, causing
+        // an infinite loop. This break condition should be removed after this bug is fixed (tracked by https://bugs.webkit.org/show_bug.cgi?id=276460).
+        if (startPosition.equals(currentPosition))
+            break;
         characterOffset++;
-        
+
         // When VisiblePostion moves to next node, it will count the leading line break as
         // 1 offset, which we shouldn't include in CharacterOffset.
         if (currentPosition.deprecatedNode() != previousPosition.deprecatedNode()) {
             if (visiblePosition.characterBefore() == '\n')
                 characterOffset--;
-        } else {
+        } else if (currentPosition.deprecatedNode()->isCharacterDataNode()) {
             // Sometimes VisiblePosition will move multiple characters, like emoji.
-            if (currentPosition.deprecatedNode()->isCharacterDataNode())
-                characterOffset += currentPosition.offsetInContainerNode() - previousPosition.offsetInContainerNode() - 1;
+            characterOffset += currentPosition.offsetInContainerNode() - previousPosition.offsetInContainerNode() - 1;
         }
     }
     
     // Sometimes when the node is a replaced node and is ignored in accessibility, we get a wrong CharacterOffset from it.
-    CharacterOffset result = traverseToOffsetInRange(rangeForNodeContents(node.get()), characterOffset);
+    CharacterOffset result = traverseToOffsetInRange(rangeForNodeContents(targetNode.get()), characterOffset);
     if (result.remainingOffset > 0 && !result.isNull() && isRendererReplacedElement(result.node->renderer()))
         result.offset += result.remainingOffset;
     return result;
 }
 
-AccessibilityObject* AXObjectCache::accessibilityObjectForTextMarkerData(const TextMarkerData& textMarkerData)
+AccessibilityObject* AXObjectCache::objectForTextMarkerData(const TextMarkerData& textMarkerData)
 {
     if (textMarkerData.ignored)
         return nullptr;
 
-    RefPtr domNode = textMarkerData.node.get();
-    if (!domNode || !isNodeInUse(*domNode))
+    RefPtr object = m_objects.get(textMarkerData.axObjectID());
+    if (!object)
         return nullptr;
 
-    return getOrCreate(*domNode);
+    Node* node = object->node();
+    if (!node)
+        return nullptr;
+    ASSERT(object.get() == getOrCreate(*node));
+    return getOrCreate(*node);
 }
 
 std::optional<TextMarkerData> AXObjectCache::textMarkerDataForVisiblePosition(const VisiblePosition& visiblePosition)
@@ -3398,22 +3400,8 @@ std::optional<TextMarkerData> AXObjectCache::textMarkerDataForVisiblePosition(co
     CheckedPtr cache = node->document().axObjectCache();
     if (!cache)
         return std::nullopt;
-    cache->setNodeInUse(*node);
-    return { { *cache, node.get(), visiblePosition,
+    return { { *cache, visiblePosition,
         characterOffset.startIndex, characterOffset.offset, false } };
-}
-
-// This function exists as a performance optimization to avoid a synchronous layout.
-std::optional<TextMarkerData> AXObjectCache::textMarkerDataForFirstPositionInTextControl(HTMLTextFormControlElement& textControl)
-{
-    if (RefPtr input = dynamicDowncast<HTMLInputElement>(textControl); input && input->isSecureField())
-        return std::nullopt;
-
-    CheckedPtr cache = textControl.document().axObjectCache();
-    if (!cache)
-        return std::nullopt;
-    cache->setNodeInUse(textControl);
-    return { { *cache, &textControl, { }, false } };
 }
 
 CharacterOffset AXObjectCache::nextCharacterOffset(const CharacterOffset& characterOffset, bool ignoreNextNodeStart)
@@ -4031,7 +4019,6 @@ static void filterWeakHashMapForRemoval(WeakHashMapType& map, const Document& do
 void AXObjectCache::prepareForDocumentDestruction(const Document& document)
 {
     HashSet<Ref<Node>> nodesToRemove;
-    filterListForRemoval(m_textMarkerNodes, document, nodesToRemove);
     filterWeakListHashSetForRemoval(m_deferredTextChangedList, document, nodesToRemove);
     filterWeakListHashSetForRemoval(m_deferredNodeAddedOrRemovedList, document, nodesToRemove);
     filterWeakHashSetForRemoval(m_deferredRecomputeIsIgnoredList, document, nodesToRemove);

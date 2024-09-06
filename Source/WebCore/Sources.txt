@@ -708,6 +708,7 @@ bindings/js/JSRTCRtpSFrameTransformCustom.cpp
 bindings/js/JSRangeCustom.cpp
 bindings/js/JSReadableStreamSourceCustom.cpp
 bindings/js/JSReportBodyCustom.cpp
+bindings/js/JSReportingObserverCustom.cpp
 bindings/js/JSResizeObserverCustom.cpp
 bindings/js/JSResizeObserverEntryCustom.cpp
 bindings/js/JSSVGPathSegCustom.cpp
@@ -728,6 +729,10 @@ bindings/js/JSCSSStyleValueCustom.cpp
 bindings/js/JSCSSTransformComponentCustom.cpp
 bindings/js/JSUndoItemCustom.cpp
 bindings/js/JSWebAnimationCustom.cpp
+bindings/js/JSWebCodecsAudioDecoderCustom.cpp
+bindings/js/JSWebCodecsVideoDecoderCustom.cpp
+bindings/js/JSWebCodecsAudioEncoderCustom.cpp
+bindings/js/JSWebCodecsVideoEncoderCustom.cpp
 bindings/js/JSWebGL2RenderingContextCustom.cpp
 bindings/js/JSWebGLRenderingContextCustom.cpp
 bindings/js/JSWebXRSessionCustom.cpp
@@ -2206,6 +2211,7 @@ platform/SleepDisabler.cpp
 platform/SleepDisablerClient.cpp
 platform/SystemSoundManager.cpp
 platform/StaticPasteboard.cpp
+platform/StyleAppearance.cpp
 platform/Theme.cpp
 platform/ThemeTypes.cpp
 platform/ThermalMitigationNotifier.cpp
@@ -2937,6 +2943,7 @@ storage/StorageEventDispatcher.cpp
 storage/StorageMap.cpp
 storage/StorageNamespaceProvider.cpp
 storage/StorageUtilities.cpp
+style/AnchorPositionEvaluator.cpp
 style/AttributeChangeInvalidation.cpp
 style/ChildChangeInvalidation.cpp
 style/ClassChangeInvalidation.cpp
@@ -2959,7 +2966,6 @@ style/RuleFeature.cpp
 style/RuleSet.cpp
 style/RuleSetBuilder.cpp
 style/StyleAdjuster.cpp
-style/StyleAppearance.cpp
 style/StyleBuilder.cpp
 style/StyleBuilderState.cpp
 style/StyleChange.cpp

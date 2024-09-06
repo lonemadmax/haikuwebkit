@@ -38,6 +38,7 @@
 #include "JSObject.h"
 #include "JSStringInlines.h"
 #include "MathCommon.h"
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringImpl.h>
 
 namespace JSC {
@@ -732,6 +733,28 @@ inline int32_t JSValue::bigInt32AsInt32() const
     return static_cast<int32_t>(u.asInt64 >> 16);
 }
 #endif // USE(BIGINT32)
+
+inline bool JSValue::isZeroBigInt() const
+{
+    ASSERT(isBigInt());
+#if USE(BIGINT32)
+    if (isBigInt32())
+        return !bigInt32AsInt32();
+#endif
+    ASSERT(isHeapBigInt());
+    return asHeapBigInt()->isZero();
+}
+
+inline bool JSValue::isNegativeBigInt() const
+{
+    ASSERT(isBigInt());
+#if USE(BIGINT32)
+    if (isBigInt32())
+        return bigInt32AsInt32() < 0;
+#endif
+    ASSERT(isHeapBigInt());
+    return asHeapBigInt()->sign();
+}
 
 inline bool JSValue::isSymbol() const
 {

@@ -1068,13 +1068,9 @@ http/tests/media/cross-origin-webm-video.html [ Skip ]
 http/tests/media/video-webm-stall.html
 http/tests/media/video-src-webm-blob.html [ Failure ]
 http/tests/media/video-srcobject-webm-blob.html [ Failure ]
-media/W3C/video/canPlayType/canPlayType_codecs_order_1.html [ Failure ]
-media/W3C/video/canPlayType/canPlayType_supported_but_no_codecs_parameter_1.html [ Failure ]
-media/W3C/video/canPlayType/canPlayType_two_implies_one_1.html [ Failure ]
-media/W3C/video/canPlayType/canPlayType_two_implies_one_2.html [ Failure ]
-media/media-can-play-webm.html [ Failure ]
 media/media-vp8-webm-error.html [ Failure ]
 media/media-vp8-webm.html [ Skip ]
+media/media-vp8-webm-seek-to-start.html [ Skip ]
 media/video-src-webm-blob.html [ Failure ]
 media/track/media-audio-track.html [ Failure ]
 media/media-sources-selection.html [ ImageOnlyFailure ]
@@ -1500,6 +1496,11 @@ storage/indexeddb/modern/exceed-open-file-limit.html
 
 # Only fails in WK1
 imported/w3c/web-platform-tests/cookies/secure/set-from-ws.sub.html [ Failure ]
+
+webkit.org/b/276371 imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/cfrg_curves_bits.https.any.html [ Failure ]
+webkit.org/b/276371 imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/cfrg_curves_bits.https.any.worker.html [ Failure ]
+webkit.org/b/276371 imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/cfrg_curves_keys.https.any.html [ Failure ]
+webkit.org/b/276371 imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/cfrg_curves_keys.https.any.worker.html [ Failure ]
 
 webkit.org/b/244308 imported/w3c/web-platform-tests/cookies/attributes/attributes-ctl.sub.html [ Pass Failure ]
 
@@ -2463,11 +2464,11 @@ css3/scroll-snap/scroll-padding-mainframe-paging.html [ Failure ]
 
 # https://bugs.webkit.org/show_bug.cgi?id=249544
 # Generic Permissions API is not supported in WK1
-imported/w3c/web-platform-tests/geolocation-API/permission.https.html [ WontFix ]
-imported/w3c/web-platform-tests/geolocation-API/disabled-by-permissions-policy.https.sub.html [ WontFix Slow ]
-imported/w3c/web-platform-tests/geolocation-API/enabled-by-permission-policy-attribute-redirect-on-load.https.sub.html [ Skip Slow ]
-imported/w3c/web-platform-tests/geolocation-API/enabled-by-permissions-policy.https.sub.html [ Skip Slow ]
-imported/w3c/web-platform-tests/geolocation-API/enabled-on-self-origin-by-permissions-policy.https.sub.html [ Skip Slow ]
+imported/w3c/web-platform-tests/geolocation/permission.https.html [ WontFix ]
+imported/w3c/web-platform-tests/geolocation/disabled-by-permissions-policy.https.sub.html [ WontFix Slow ]
+imported/w3c/web-platform-tests/geolocation/enabled-by-permission-policy-attribute-redirect-on-load.https.sub.html [ Skip Slow ]
+imported/w3c/web-platform-tests/geolocation/enabled-by-permissions-policy.https.sub.html [ Skip Slow ]
+imported/w3c/web-platform-tests/geolocation/enabled-on-self-origin-by-permissions-policy.https.sub.html [ Skip Slow ]
 
 # Per-process limit is only for WK2
 http/tests/websocket/tests/hybi/multiple-connections-limit.html [ Skip ]
@@ -2793,4 +2794,6 @@ webkit.org/b/260883 inspector/timeline/timeline-recording.html [ Skip ]
 webkit.org/b/274409 imported/w3c/web-platform-tests/content-security-policy/reporting-api/reporting-api-works-on-frame-src.https.sub.html [ Pass Failure ]
 
 webkit.org/b/274792 compositing/repaint/iframes/compositing-iframe-with-fixed-background-doc-repaint.html [ Pass Failure ]
+
+webkit.org/b/276145 http/tests/security/block-popup-to-all-zero-address.html [ Skip ]
 

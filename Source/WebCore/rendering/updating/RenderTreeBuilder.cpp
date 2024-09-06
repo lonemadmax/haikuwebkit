@@ -73,6 +73,7 @@
 #include "RenderTreeBuilderSVG.h"
 #include "RenderTreeBuilderTable.h"
 #include "RenderTreeMutationDisallowedScope.h"
+#include "RenderVideo.h"
 #include "RenderView.h"
 #include <wtf/SetForScope.h>
 
@@ -477,7 +478,8 @@ void RenderTreeBuilder::attachToRenderElementInternal(RenderElement& parent, Ren
             // in order to compute static position for out of flow boxes, the parent has to run normal flow layout as well (as opposed to simplified)
             // FIXME: Introduce a dirty bit to bridge the gap between parent and containing block which would
             // not trigger layout but a simple traversal all the way to the direct parent and also expand it non-direct parent cases.
-            if (newChild->containingBlock() == &parent)
+            // FIXME: RenderVideo's setNeedsLayout pattern does not play well with this optimization: see webkit.org/b/276253
+            if (newChild->containingBlock() == &parent && !is<RenderVideo>(*newChild))
                 parent.setOutOfFlowChildNeedsStaticPositionLayout();
             else
                 parent.setChildNeedsLayout();
@@ -914,14 +916,19 @@ void RenderTreeBuilder::destroyAndCleanUpAnonymousWrappers(RenderObject& rendere
     WeakPtr destroyRootParent = destroyRoot->parent();
     if (&rendererToDestroy != destroyRoot.get()) {
         // Destroy the child renderer first, before we start tearing down the anonymous wrapper ancestor chain.
+        auto anonymousDestroyRoot = SetForScope { m_anonymousDestroyRoot, destroyRoot };
         destroy(rendererToDestroy);
     }
 
-    if (destroyRoot)
+    if (destroyRoot) {
+        auto anonymousDestroyRoot = SetForScope { m_anonymousDestroyRoot, destroyRoot.get() != &rendererToDestroy ? destroyRoot : nullptr };
         destroy(*destroyRoot);
+    }
 
     if (!destroyRootParent)
         return;
+
+    auto anonymousDestroyRoot = SetForScope { m_anonymousDestroyRoot, destroyRootParent };
     removeAnonymousWrappersForInlineChildrenIfNeeded(*destroyRootParent);
 
     // Anonymous parent might have become empty, try to delete it too.

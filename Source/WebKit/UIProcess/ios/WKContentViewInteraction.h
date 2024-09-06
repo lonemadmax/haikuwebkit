@@ -594,6 +594,7 @@ struct ImageAnalysisContextMenuActionData {
     RetainPtr<NSURL> _visualSearchPreviewImageURL;
     RetainPtr<NSString> _visualSearchPreviewTitle;
     CGRect _visualSearchPreviewImageBounds;
+    std::optional<CGRect> _cachedVisualSearchPreviewImageBoundsInWindowCoordinates;
 #endif // USE(QUICK_LOOK)
     WebKit::DynamicImageAnalysisContextMenuState _dynamicImageAnalysisContextMenuState;
     std::optional<WebKit::ImageAnalysisContextMenuActionData> _imageAnalysisContextMenuActionData;
@@ -901,6 +902,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(DECLARE_WKCONTENTVIEW_ACTION_FOR_WEB_VIEW)
 - (void)cancelTextRecognitionForVideoInElementFullscreen;
 
 - (BOOL)_tryToHandlePressesEvent:(UIPressesEvent *)event;
+- (void)_closeCurrentTypingCommand;
 
 @property (nonatomic, readonly) BOOL shouldUseAsyncInteractions;
 

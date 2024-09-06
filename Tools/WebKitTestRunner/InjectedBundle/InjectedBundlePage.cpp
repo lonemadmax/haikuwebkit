@@ -51,6 +51,7 @@
 #include <wtf/RunLoop.h>
 #include <wtf/URL.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/unicode/CharacterNames.h>
 
@@ -353,7 +354,7 @@ void InjectedBundlePage::prepare()
     WKBundleClearHistoryForTesting(m_page);
 
     WKBundleFrameClearOpener(WKBundlePageGetMainFrame(m_page));
-    
+
     WKBundlePageSetTracksRepaints(m_page, false);
     
     // Force consistent "responsive" behavior for WebPage::eventThrottlingDelay() for testing. Tests can override via internals.

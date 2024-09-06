@@ -82,8 +82,8 @@
 #include <wtf/SetForScope.h>
 #include <wtf/SystemTracing.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
-#include <wtf/text/StringConcatenateNumbers.h>
 #include <wtf/text/TextStream.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -1992,7 +1992,8 @@ void RenderLayerCompositor::layerStyleChanged(StyleDifference diff, RenderLayer&
         // This could be optimized by only setting this flag on layers with the relevant styles.
         layer.setNeedsPostLayoutCompositingUpdateOnAncestors();
     }
-    
+    layer.setIntrinsicallyComposited(queryData.intrinsic);
+
     if (queryData.reevaluateAfterLayout)
         layer.setNeedsPostLayoutCompositingUpdate();
 
@@ -2729,7 +2730,7 @@ String RenderLayerCompositor::layerTreeAsText(OptionSet<LayerTreeAsTextOptions> 
     // The true root layer is not included in the dump, so if we want to report
     // its repaint rects, they must be included here.
     if (options & LayerTreeAsTextOptions::IncludeRepaintRects)
-        return m_renderView.frameView().trackedRepaintRectsAsText() + layerTreeText;
+        return makeString(m_renderView.frameView().trackedRepaintRectsAsText(), layerTreeText);
 
     return layerTreeText;
 }
@@ -3016,7 +3017,7 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer& layer, R
     }
 
     // The root layer always has a compositing layer, but it may not have backing.
-    return requiresCompositingForTransform(renderer)
+    if (requiresCompositingForTransform(renderer)
         || requiresCompositingForAnimation(renderer)
         || requiresCompositingForPosition(renderer, *renderer.layer(), queryData)
         || requiresCompositingForCanvas(renderer)
@@ -3028,7 +3029,11 @@ bool RenderLayerCompositor::requiresCompositingLayer(const RenderLayer& layer, R
         || requiresCompositingForModel(renderer)
         || requiresCompositingForFrame(renderer, queryData)
         || requiresCompositingForPlugin(renderer, queryData)
-        || requiresCompositingForOverflowScrolling(*renderer.layer(), queryData);
+        || requiresCompositingForOverflowScrolling(*renderer.layer(), queryData)) {
+        queryData.intrinsic = true;
+        return true;
+    }
+    return false;
 }
 
 bool RenderLayerCompositor::canBeComposited(const RenderLayer& layer) const

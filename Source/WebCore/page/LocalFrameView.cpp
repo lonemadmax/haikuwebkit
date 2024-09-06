@@ -130,6 +130,7 @@
 #include <wtf/Ref.h>
 #include <wtf/SetForScope.h>
 #include <wtf/SystemTracing.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/TextStream.h>
 
 #if USE(COORDINATED_GRAPHICS)
@@ -1618,7 +1619,7 @@ void LocalFrameView::removeViewportConstrainedObject(RenderLayerModelObject& obj
         // why isn't the same check being made here?
         updateCanBlitOnScrollRecursively();
 
-        if (RefPtr page = m_frame->page())
+        if (RefPtrAllowingPartiallyDestroyed<Page> page = m_frame->page())
             page->chrome().client().didAddOrRemoveViewportConstrainedObjects();
     }
 }

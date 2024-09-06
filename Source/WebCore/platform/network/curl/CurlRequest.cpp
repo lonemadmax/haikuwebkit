@@ -41,6 +41,7 @@
 #include "wtf/FileSystem.h"
 #include <wtf/Language.h>
 #include <wtf/MainThread.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 

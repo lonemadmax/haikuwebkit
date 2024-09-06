@@ -144,6 +144,7 @@
 #import <WebCore/WebCoreCALayerExtras.h>
 #import <WebCore/WebEventPrivate.h>
 #import <WebCore/WebTextIndicatorLayer.h>
+#import <WebCore/WindowsKeyboardCodes.h>
 #import <WebCore/WritingDirection.h>
 #import <WebKit/WebSelectionRect.h> // FIXME: WebKit should not include WebKitLegacy headers!
 #import <pal/spi/cg/CoreGraphicsSPI.h>
@@ -166,6 +167,7 @@
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
+#import <wtf/text/MakeString.h>
 #import <wtf/text/TextStream.h>
 
 #if ENABLE(DRAG_SUPPORT)
@@ -189,10 +191,6 @@
 
 #if HAVE(PEPPER_UI_CORE)
 #import "PepperUICoreSPI.h"
-#endif
-
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/WKContentViewInteractionAdditionsBefore.mm>
 #endif
 
 #if HAVE(AVKIT)
@@ -3992,7 +3990,7 @@ FOR_EACH_PRIVATE_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKWEBVIEW)
         else
             presentationRect = visualData.caretRectAtStart;
         
-        String selectionContext = textBefore + selectedText + textAfter;
+        auto selectionContext = makeString(textBefore, selectedText, textAfter);
         NSRange selectedRangeInContext = NSMakeRange(textBefore.length(), selectedText.length());
 
         if (auto textSelectionAssistant = view->_textInteractionWrapper)
@@ -7209,6 +7207,26 @@ static UITextAutocapitalizationType toUITextAutocapitalize(WebCore::Autocapitali
         return;
     }
 
+#if PLATFORM(MACCATALYST)
+    bool hasPendingArrowKey = _keyWebEventHandlers.containsIf([](auto& eventAndCompletion) {
+        switch ([eventAndCompletion.event keyCode]) {
+        case VK_RIGHT:
+        case VK_LEFT:
+        case VK_DOWN:
+        case VK_UP:
+            return true;
+        default:
+            return false;
+        }
+    });
+
+    if (hasPendingArrowKey) {
+        RELEASE_LOG_ERROR(KeyHandling, "Ignoring incoming key event due to pending arrow key event");
+        completionHandler(event, NO);
+        return;
+    }
+#endif // PLATFORM(MACCATALYST)
+
     if (event.type == WebEventKeyDown)
         _isHandlingActiveKeyEvent = YES;
 
@@ -9113,6 +9131,58 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 #endif
 }
 
+#if PLATFORM(WATCHOS)
+static String fallbackLabelTextForUnlabeledInputFieldInZoomedFormControls(WebCore::InputMode inputMode, WebKit::InputType elementType)
+{
+    bool isPasswordField = false;
+
+    auto elementTypeIsAnyOf = [elementType](const std::initializer_list<WebKit::InputType>& elementTypes) {
+        return WTF::anyOf(elementTypes, [elementType](auto type) {
+            return elementType == type;
+        });
+    };
+
+    // If unspecified, try to infer the input mode from the input type
+    if (inputMode == WebCore::InputMode::Unspecified) {
+        if (elementTypeIsAnyOf({ WebKit::InputType::ContentEditable, WebKit::InputType::Text, WebKit::InputType::TextArea }))
+            inputMode = WebCore::InputMode::Text;
+        if (elementTypeIsAnyOf({ WebKit::InputType::URL }))
+            inputMode = WebCore::InputMode::Url;
+        if (elementTypeIsAnyOf({ WebKit::InputType::Number, WebKit::InputType::NumberPad }))
+            inputMode = WebCore::InputMode::Numeric;
+        if (elementTypeIsAnyOf({ WebKit::InputType::Search }))
+            inputMode = WebCore::InputMode::Search;
+        if (elementTypeIsAnyOf({ WebKit::InputType::Email }))
+            inputMode = WebCore::InputMode::Email;
+        if (elementTypeIsAnyOf({ WebKit::InputType::Phone }))
+            inputMode = WebCore::InputMode::Telephone;
+        if (elementTypeIsAnyOf({ WebKit::InputType::Password }))
+            isPasswordField = true;
+    }
+
+    if (isPasswordField)
+        return WEB_UI_STRING("Password", "Fallback label text for unlabeled password field.");
+
+    switch (inputMode) {
+    case WebCore::InputMode::Telephone:
+        return WEB_UI_STRING("Phone number", "Fallback label text for unlabeled telephone number input field.");
+    case WebCore::InputMode::Url:
+        return WEB_UI_STRING("URL", "Fallback label text for unlabeled URL input field.");
+    case WebCore::InputMode::Email:
+        return WEB_UI_STRING("Email address", "Fallback label text for unlabeled email address field.");
+    case WebCore::InputMode::Numeric:
+    case WebCore::InputMode::Decimal:
+        return WEB_UI_STRING("Enter a number", "Fallback label text for unlabeled numeric field.");
+    case WebCore::InputMode::Search:
+        return WEB_UI_STRING("Search", "Fallback label text for unlabeled search field");
+    case WebCore::InputMode::Unspecified:
+    case WebCore::InputMode::None:
+    case WebCore::InputMode::Text:
+        return WEB_UI_STRING("Enter text", "Fallback label text for unlabeled text field.");
+    }
+}
+#endif
+
 - (NSString *)inputLabelText
 {
     if (!_focusedElementInformation.label.isEmpty())
@@ -9123,6 +9193,11 @@ static bool canUseQuickboardControllerFor(UITextContentType type)
 
     if (!_focusedElementInformation.title.isEmpty())
         return _focusedElementInformation.title;
+
+#if PLATFORM(WATCHOS)
+    if (_focusedElementInformation.placeholder.isEmpty())
+        return fallbackLabelTextForUnlabeledInputFieldInZoomedFormControls(_focusedElementInformation.inputMode, _focusedElementInformation.elementType);
+#endif
 
     return _focusedElementInformation.placeholder;
 }
@@ -11992,7 +12067,11 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
 
 - (UIImage *)previewController:(QLPreviewController *)controller transitionImageForPreviewItem:(id <QLPreviewItem>)item contentRect:(CGRect *)outContentRect
 {
-    *outContentRect = { CGPointZero, [self convertRect:_visualSearchPreviewImageBounds toView:nil].size };
+    // FIXME: We should remove this caching when UIKit doesn't call this delegate method twice, with
+    // the second call being in the midst of an ongoing animation. See <rdar://problem/131368437>.
+    if (!_cachedVisualSearchPreviewImageBoundsInWindowCoordinates)
+        _cachedVisualSearchPreviewImageBoundsInWindowCoordinates = { CGPointZero, [self convertRect:_visualSearchPreviewImageBounds toView:nil].size };
+    *outContentRect = *_cachedVisualSearchPreviewImageBoundsInWindowCoordinates;
     return _visualSearchPreviewImage.get();
 }
 
@@ -12003,6 +12082,7 @@ static RetainPtr<NSItemProvider> createItemProvider(const WebKit::WebPageProxy& 
     _visualSearchPreviewImage.clear();
     _visualSearchPreviewTitle.clear();
     _visualSearchPreviewImageURL.clear();
+    _cachedVisualSearchPreviewImageBoundsInWindowCoordinates.reset();
 }
 
 #pragma mark - QLPreviewControllerDataSource
@@ -13153,6 +13233,12 @@ inline static NSString *extendSelectionCommand(UITextLayoutDirection direction)
     return self;
 }
 
+- (void)callCompletionHandlerForAnimationID:(NSUUID *)uuid
+{
+    auto animationUUID = WTF::UUID::fromNSUUID(uuid);
+    _page->callCompletionHandlerForAnimationID(*animationUUID);
+}
+
 #endif
 
 #pragma mark - BETextInteractionDelegate
@@ -13220,9 +13306,30 @@ inline static NSString *extendSelectionCommand(UITextLayoutDirection direction)
 
 #endif
 
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/WKContentViewInteractionAdditionsAfter.mm>
+#if ENABLE(MULTI_REPRESENTATION_HEIC)
+
+- (BOOL)supportsAdaptiveImageGlyph
+{
+    if (self.webView._isEditable || self.webView.configuration._multiRepresentationHEICInsertionEnabled)
+        return _page->editorState().isContentRichlyEditable;
+
+    return NO;
+}
+
+- (void)insertAdaptiveImageGlyph:(NSAdaptiveImageGlyph *)adaptiveImageGlyph replacementRange:(UITextRange *)replacementRange
+{
+    _page->insertMultiRepresentationHEIC(adaptiveImageGlyph.imageContent, adaptiveImageGlyph.contentDescription);
+}
+
 #endif
+
+- (void)_closeCurrentTypingCommand
+{
+    if (!_page)
+        return;
+
+    _page->closeCurrentTypingCommand();
+}
 
 @end
 

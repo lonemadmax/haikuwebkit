@@ -32,6 +32,7 @@
 #include "ColorSerialization.h"
 #include "CommonAtomStrings.h"
 #include "FloatConversion.h"
+#include "FontCacheCoreText.h"
 #include "HTMLMediaElement.h"
 #include "LocalizedStrings.h"
 #include "Logging.h"
@@ -46,8 +47,8 @@
 #include <wtf/URL.h>
 #include <wtf/cf/VectorCF.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
-#include <wtf/text/StringConcatenateNumbers.h>
 #include <wtf/text/cf/StringConcatenateCF.h>
 #include <wtf/unicode/Collator.h>
 
@@ -460,6 +461,18 @@ String CaptionUserPreferencesMediaAF::captionsDefaultFontCSS() const
     RetainPtr name = adoptCF(static_cast<CFStringRef>(CTFontDescriptorCopyAttribute(font.get(), kCTFontNameAttribute)));
     if (!name)
         return emptyString();
+
+    if (fontNameIsSystemFont(name.get())) {
+        if (CFStringHasPrefix(CFSTR(".AppleSystemUIFontMonospaced"), name.get()))
+            name = CFSTR("system-ui-monospaced");
+        else if (CFStringHasPrefix(CFSTR(".AppleSystemUIFont"), name.get()))
+            name = CFSTR("system-ui");
+        else {
+            // FIXME: Add more fallbacks for system font names
+            // Default to "system-ui" for all other disallowed system fonts
+            name = CFSTR("system-ui");
+        }
+    }
 
     StringBuilder builder;
     builder.append("font-family: \""_s, name.get(), '"');

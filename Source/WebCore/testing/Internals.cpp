@@ -260,8 +260,8 @@
 #include <wtf/ProcessID.h>
 #include <wtf/RunLoop.h>
 #include <wtf/URLHelpers.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
-#include <wtf/text/StringConcatenateNumbers.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
 #if USE(CG)
@@ -602,6 +602,8 @@ void Internals::resetToConsistentState(Page& page)
     PlatformMediaSessionManager::sharedManager().resetSessionState();
     PlatformMediaSessionManager::sharedManager().setWillIgnoreSystemInterruptions(true);
     PlatformMediaSessionManager::sharedManager().applicationWillEnterForeground(false);
+    if (page.mediaPlaybackIsSuspended())
+        page.resumeAllMediaPlayback();
 #endif
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
     PlatformMediaSessionManager::sharedManager().setIsPlayingToAutomotiveHeadUnit(false);
@@ -841,6 +843,8 @@ static String styleValidityToToString(Style::Validity validity)
         return "NoStyleChange"_s;
     case Style::Validity::AnimationInvalid:
         return "AnimationInvalid"_s;
+    case Style::Validity::InlineStyleInvalid:
+        return "InlineStyleInvalid"_s;
     case Style::Validity::ElementInvalid:
         return "InlineStyleChange"_s;
     case Style::Validity::SubtreeInvalid:
@@ -4977,6 +4981,32 @@ void Internals::suspendAllMediaBuffering()
     page->suspendAllMediaBuffering();
 }
 
+void Internals::suspendAllMediaPlayback()
+{
+    auto frame = this->frame();
+    if (!frame)
+        return;
+
+    auto page = frame->page();
+    if (!page)
+        return;
+
+    page->suspendAllMediaPlayback();
+}
+
+void Internals::resumeAllMediaPlayback()
+{
+    auto frame = this->frame();
+    if (!frame)
+        return;
+
+    auto page = frame->page();
+    if (!page)
+        return;
+
+    page->resumeAllMediaPlayback();
+}
+
 #endif // ENABLE(VIDEO)
 
 #if ENABLE(WEB_AUDIO)
@@ -5018,6 +5048,13 @@ void Internals::simulateSystemWake() const
 #if ENABLE(VIDEO)
     PlatformMediaSessionManager::sharedManager().processSystemDidWake();
 #endif
+}
+
+std::optional<Internals::NowPlayingMetadata> Internals::nowPlayingMetadata() const
+{
+    if (auto nowPlayingInfo = PlatformMediaSessionManager::sharedManager().nowPlayingInfo())
+        return nowPlayingInfo->metadata;
+    return std::nullopt;
 }
 
 ExceptionOr<Internals::NowPlayingState> Internals::nowPlayingState() const
@@ -6092,11 +6129,6 @@ bool Internals::isMediaStreamSourceInterrupted(MediaStreamTrack& track) const
 bool Internals::isMediaStreamSourceEnded(MediaStreamTrack& track) const
 {
     return track.source().isEnded();
-}
-
-bool Internals::isMediaStreamTrackPowerEfficient(const MediaStreamTrack& track) const
-{
-    return track.source().isPowerEfficient();
 }
 
 bool Internals::isMockRealtimeMediaSourceCenterEnabled()

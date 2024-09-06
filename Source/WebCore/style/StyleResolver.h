@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "AnchorPositionEvaluator.h"
 #include "CSSSelector.h"
 #include "ElementRuleCollector.h"
 #include "InspectorCSSOMWrappers.h"
@@ -78,6 +79,7 @@ struct ResolutionContext {
     // This needs to be provided during style resolution when up-to-date document element style is not available via DOM.
     const RenderStyle* documentElementStyle { nullptr };
     SelectorMatchingState* selectorMatchingState { nullptr };
+    AnchorPositionedStateMap* anchorPositionedStateMap { nullptr };
     bool isSVGUseTreeRoot { false };
 };
 
@@ -92,6 +94,7 @@ public:
     ~Resolver();
 
     ResolvedStyle styleForElement(Element&, const ResolutionContext&, RuleMatchingBehavior = RuleMatchingBehavior::MatchAllRules);
+    ResolvedStyle styleForElementWithCachedMatchResult(Element&, const ResolutionContext&, const MatchResult&, const RenderStyle& existingRenderStyle);
 
     void keyframeStylesForAnimation(Element&, const RenderStyle& elementStyle, const ResolutionContext&, BlendingKeyframes&);
 
@@ -161,6 +164,7 @@ private:
 
     class State;
 
+    State initializeStateAndStyle(const Element&, const ResolutionContext&);
     BuilderContext builderContext(const State&);
 
     void applyMatchedProperties(State&, const MatchResult&);

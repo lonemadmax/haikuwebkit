@@ -25,7 +25,6 @@
 
 #include "config.h"
 #include "WasmOMGPlan.h"
-#include "JSToWasm.h"
 
 #if ENABLE(WEBASSEMBLY_OMGJIT)
 
@@ -40,6 +39,7 @@
 #include <wtf/DataLog.h>
 #include <wtf/Locker.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/MakeString.h>
 
 namespace JSC { namespace Wasm {
 
@@ -119,7 +119,7 @@ void OMGPlan::work(CompilationEffort)
 
     if (UNLIKELY(!parseAndCompileResult)) {
         Locker locker { m_lock };
-        fail(makeString(parseAndCompileResult.error(), "when trying to tier up "_s, m_functionIndex));
+        fail(makeString(parseAndCompileResult.error(), "when trying to tier up "_s, m_functionIndex), Plan::Error::Parse);
         return;
     }
 
@@ -127,7 +127,7 @@ void OMGPlan::work(CompilationEffort)
     LinkBuffer linkBuffer(*context.wasmEntrypointJIT, callee.ptr(), LinkBuffer::Profile::WasmOMG, JITCompilationCanFail);
     if (UNLIKELY(linkBuffer.didFailToAllocate())) {
         Locker locker { m_lock };
-        Base::fail(makeString("Out of executable memory while tiering up function at index "_s, m_functionIndex));
+        Base::fail(makeString("Out of executable memory while tiering up function at index "_s, m_functionIndex), Plan::Error::OutOfMemory);
         return;
     }
 
@@ -196,44 +196,6 @@ void OMGPlan::work(CompilationEffort)
                 llintCallee.setReplacement(callee.copyRef(), mode());
                 llintCallee.tierUpCounter().setCompilationStatus(mode(), LLIntTierUpCounter::CompilationStatus::Compiled);
             }
-        }
-    }
-
-    // Replace the LLInt interpreted entry callee. Note that we can do this after we publish our
-    // callee because calling into the LLInt should still work.
-    auto* jsEntrypointCallee = m_calleeGroup->m_jsEntrypointCallees.get(m_functionIndex);
-    if (jsEntrypointCallee && jsEntrypointCallee->compilationMode() == CompilationMode::JSEntrypointInterpreterMode && !static_cast<JSEntrypointInterpreterCallee*>(jsEntrypointCallee)->hasReplacement()) {
-        ASSERT(!m_entrypoint);
-        Locker locker { m_lock };
-        TypeIndex typeIndex = m_moduleInformation->internalFunctionTypeIndices[m_functionIndex];
-        const TypeDefinition& signature = TypeInformation::get(typeIndex).expand();
-
-        auto callee = JSEntrypointJITCallee::create();
-        context.jsEntrypointJIT = makeUnique<CCallHelpers>();
-        Vector<UnlinkedWasmToWasmCall> newCall;
-        auto jsToWasmInternalFunction = createJSToWasmWrapper(*context.jsEntrypointJIT, callee.get(), nullptr, signature, &newCall, m_moduleInformation.get(), m_mode, m_functionIndex);
-        auto linkBuffer = makeUnique<LinkBuffer>(*context.jsEntrypointJIT, &callee.get(), LinkBuffer::Profile::WasmBBQ, JITCompilationCanFail);
-
-        if (linkBuffer->isValid()) {
-            jsToWasmInternalFunction->entrypoint.compilation = makeUnique<Compilation>(
-                FINALIZE_WASM_CODE(*linkBuffer, JITCompilationPtrTag, nullptr, "(ipint upgrade edition) JS->WebAssembly entrypoint[%i] %s", m_functionIndex, signature.toString().ascii().data()),
-                nullptr);
-
-            for (auto& call : newCall) {
-                CodePtr<WasmEntryPtrTag> entrypoint;
-                if (call.functionIndexSpace < m_moduleInformation->importFunctionCount())
-                    entrypoint = m_calleeGroup->m_wasmToWasmExitStubs[call.functionIndexSpace].code();
-                else
-                    entrypoint = m_calleeGroup->wasmEntrypointCalleeFromFunctionIndexSpace(locker, call.functionIndexSpace).entrypoint().retagged<WasmEntryPtrTag>();
-
-                MacroAssembler::repatchNearCall(call.callLocation, CodeLocationLabel<WasmEntryPtrTag>(entrypoint));
-            }
-
-            callee->setEntrypoint(WTFMove(jsToWasmInternalFunction->entrypoint));
-            // Note that we can compile the same function with multiple memory modes, which can cause this
-            // race. That's fine, both stubs should do the same thing.
-            static_cast<JSEntrypointInterpreterCallee*>(jsEntrypointCallee)->setReplacement(callee.ptr());
-            m_entrypoint = WTFMove(callee);
         }
     }
 

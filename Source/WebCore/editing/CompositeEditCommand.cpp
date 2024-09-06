@@ -77,6 +77,7 @@
 #include "VisibleUnits.h"
 #include "WrapContentsInDummySpanCommand.h"
 #include "markup.h"
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -453,11 +454,6 @@ EditCommandComposition& CompositeEditCommand::ensureComposition()
     if (!command->m_composition)
         command->m_composition = EditCommandComposition::create(protectedDocument(), startingSelection(), endingSelection(), editingAction());
     return *command->m_composition;
-}
-
-bool CompositeEditCommand::isCreateLinkCommand() const
-{
-    return false;
 }
 
 bool CompositeEditCommand::preservesTypingStyle() const

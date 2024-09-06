@@ -1165,6 +1165,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     history/CachedPage.h
     history/HistoryItem.h
 
+    html/Allowlist.h
     html/AttachmentAssociatedElement.h
     html/Autocapitalize.h
     html/AutocapitalizeTypes.h
@@ -1277,6 +1278,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     html/MediaElementSession.h
     html/MediaError.h
     html/OffscreenCanvas.h
+    html/OwnerPermissionsPolicyData.h
     html/PDFDocument.h
     html/PermissionsPolicy.h
     html/PluginDocument.h
@@ -1800,6 +1802,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/SleepDisabler.h
     platform/SleepDisablerClient.h
     platform/SleepDisablerIdentifier.h
+    platform/StyleAppearance.h
     platform/SuddenTermination.h
     platform/Supplementable.h
     platform/SystemSoundDelegate.h
@@ -2501,9 +2504,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     storage/StorageType.h
     storage/StorageUtilities.h
 
+    style/AnchorPositionEvaluator.h
     style/PseudoElementIdentifier.h
     style/ScopedName.h
-    style/StyleAppearance.h
     style/StyleChange.h
     style/StyleScope.h
     style/StyleScopeOrdinal.h

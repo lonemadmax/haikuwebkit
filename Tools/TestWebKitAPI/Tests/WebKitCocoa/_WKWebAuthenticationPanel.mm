@@ -25,7 +25,7 @@
 
 #import "config.h"
 
-#if ENABLE(WEB_AUTHN)
+#if ENABLE(WEB_AUTHN) && HAVE(UNIFIED_ASC_AUTH_UI)
 
 #import "HTTPServer.h"
 #import "PlatformUtilities.h"
@@ -60,7 +60,7 @@
 #import <wtf/WeakRandomNumber.h>
 #import <wtf/cocoa/SpanCocoa.h>
 #import <wtf/spi/cocoa/SecuritySPI.h>
-#import <wtf/text/StringConcatenateNumbers.h>
+#import <wtf/text/MakeString.h>
 
 static bool webAuthenticationPanelRan = false;
 static bool webAuthenticationPanelFailed = false;
@@ -2407,4 +2407,4 @@ TEST(WebAuthenticationPanel, DeleteOneCredential)
 
 } // namespace TestWebKitAPI
 
-#endif // ENABLE(WEB_AUTHN)
+#endif // ENABLE(WEB_AUTHN) && HAVE(UNIFIED_ASC_AUTH_UI)

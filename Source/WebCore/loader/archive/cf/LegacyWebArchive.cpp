@@ -61,8 +61,9 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/URLHash.h>
 #include <wtf/URLParser.h>
-#include <wtf/text/StringBuilder.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -506,14 +507,14 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(Node& node, Function<bool(Loca
     String markupString = serializeFragment(node, SerializedNodes::SubtreeIncludingNode, &nodeList, ResolveURLs::No, std::nullopt, SerializeShadowRoots::AllForInterchange, { }, markupExclusionRules);
     auto nodeType = node.nodeType();
     if (nodeType != Node::DOCUMENT_NODE && nodeType != Node::DOCUMENT_TYPE_NODE)
-        markupString = documentTypeString(node.document()) + markupString;
+        markupString = makeString(documentTypeString(node.document()), markupString);
 
     return create(markupString, *frame, WTFMove(nodeList), WTFMove(frameFilter), markupExclusionRules, mainResourceFilePath);
 }
 
 RefPtr<LegacyWebArchive> LegacyWebArchive::create(LocalFrame& frame)
 {
-    auto* documentLoader = frame.loader().documentLoader();
+    RefPtr documentLoader = frame.loader().documentLoader();
     if (!documentLoader)
         return nullptr;
 
@@ -542,7 +543,7 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(const SimpleRange& range)
 
     // FIXME: This is always "for interchange". Is that right?
     Vector<Ref<Node>> nodeList;
-    String markupString = documentTypeString(document) + serializePreservingVisualAppearance(range, &nodeList, AnnotateForInterchange::Yes);
+    auto markupString = makeString(documentTypeString(document), serializePreservingVisualAppearance(range, &nodeList, AnnotateForInterchange::Yes));
     return create(markupString, *frame, WTFMove(nodeList), nullptr);
 }
 
@@ -697,7 +698,7 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString, Lo
             node->getCandidateSubresourceURLs(subresourceURLs);
 
             ASSERT(frame.loader().documentLoader());
-            auto& documentLoader = *frame.loader().documentLoader();
+            Ref documentLoader = *frame.loader().documentLoader();
 
             for (auto& subresourceURL : subresourceURLs) {
                 if (uniqueSubresources.contains(subresourceURL.string()))
@@ -708,7 +709,7 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString, Lo
                     continue;
 
                 auto addResult = uniqueSubresources.add(subresourceURL.string(), emptyString());
-                RefPtr<ArchiveResource> resource = documentLoader.subresource(subresourceURL);
+                auto resource = documentLoader->subresource(subresourceURL);
                 if (!resource) {
                     ResourceRequest request(subresourceURL);
                     request.setDomainForCachePartition(frame.document()->domainForCachePartition());
@@ -743,7 +744,7 @@ RefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString, Lo
 
     // If we are archiving the entire page, add any link icons that we have data for.
     if (!nodes.isEmpty() && nodes[0]->isDocumentNode()) {
-        auto* documentLoader = frame.loader().documentLoader();
+        RefPtr documentLoader = frame.loader().documentLoader();
         ASSERT(documentLoader);
         for (auto& icon : documentLoader->linkIcons()) {
             if (auto resource = documentLoader->subresource(icon.url))

@@ -30,6 +30,7 @@
 #include "config.h"
 #include "StyleResolver.h"
 
+#include "AnchorPositionEvaluator.h"
 #include "BlendingKeyframes.h"
 #include "CSSCustomPropertyValue.h"
 #include "CSSFontSelector.h"
@@ -98,9 +99,10 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(Resolver);
 class Resolver::State {
 public:
     State() = default;
-    State(const Element& element, const RenderStyle* parentStyle, const RenderStyle* documentElementStyle = nullptr)
+    State(const Element& element, const RenderStyle* parentStyle, const RenderStyle* documentElementStyle = nullptr, AnchorPositionedStateMap* anchorPositionedStateMap = nullptr)
         : m_element(&element)
         , m_parentStyle(parentStyle)
+        , m_anchorPositionedStateMap(anchorPositionedStateMap)
     {
         auto& document = element.document();
         auto* documentElement = document.documentElement();
@@ -127,14 +129,18 @@ public:
     const RenderStyle* userAgentAppearanceStyle() const { return m_userAgentAppearanceStyle.get(); }
     void setUserAgentAppearanceStyle(std::unique_ptr<RenderStyle> style) { m_userAgentAppearanceStyle = WTFMove(style); }
 
+    AnchorPositionedStateMap* anchorPositionedStateMap() const { return m_anchorPositionedStateMap; }
+
 private:
-    const Element* m_element { nullptr };
+    const Element* m_element { };
     std::unique_ptr<RenderStyle> m_style;
-    const RenderStyle* m_parentStyle { nullptr };
+    const RenderStyle* m_parentStyle { };
     std::unique_ptr<const RenderStyle> m_ownedParentStyle;
-    const RenderStyle* m_rootElementStyle { nullptr };
+    const RenderStyle* m_rootElementStyle { };
 
     std::unique_ptr<RenderStyle> m_userAgentAppearanceStyle;
+
+    AnchorPositionedStateMap* m_anchorPositionedStateMap { };
 };
 
 Ref<Resolver> Resolver::create(Document& document, ScopeType scopeType)
@@ -238,19 +244,9 @@ void Resolver::addKeyframeStyle(Ref<StyleRuleKeyframes>&& rule)
     document().keyframesRuleDidChange(animationName);
 }
 
-BuilderContext Resolver::builderContext(const State& state)
+auto Resolver::initializeStateAndStyle(const Element& element, const ResolutionContext& context) -> State
 {
-    return {
-        document(),
-        *state.parentStyle(),
-        state.rootElementStyle(),
-        state.element()
-    };
-}
-
-ResolvedStyle Resolver::styleForElement(Element& element, const ResolutionContext& context, RuleMatchingBehavior matchingBehavior)
-{
-    auto state = State(element, context.parentStyle, context.documentElementStyle);
+    auto state = State { element, context.parentStyle, context.documentElementStyle, context.anchorPositionedStateMap };
 
     if (state.parentStyle()) {
         state.setStyle(RenderStyle::createPtrWithRegisteredInitialValues(document().customPropertyRegistry()));
@@ -264,9 +260,8 @@ ResolvedStyle Resolver::styleForElement(Element& element, const ResolutionContex
         state.setParentStyle(RenderStyle::clonePtr(*state.style()));
     }
 
-    auto& style = *state.style();
-
     if (element.isLink()) {
+        auto& style = *state.style();
         style.setIsLink(true);
         InsideLink linkState = document().visitedLinkState().determineLinkState(element);
         if (linkState != InsideLink::NotInside) {
@@ -276,6 +271,25 @@ ResolvedStyle Resolver::styleForElement(Element& element, const ResolutionContex
         }
         style.setInsideLink(linkState);
     }
+
+    return state;
+}
+
+BuilderContext Resolver::builderContext(const State& state)
+{
+    return {
+        document(),
+        *state.parentStyle(),
+        state.rootElementStyle(),
+        state.element(),
+        state.anchorPositionedStateMap()
+    };
+}
+
+ResolvedStyle Resolver::styleForElement(Element& element, const ResolutionContext& context, RuleMatchingBehavior matchingBehavior)
+{
+    auto state = initializeStateAndStyle(element, context);
+    auto& style = *state.style();
 
     UserAgentStyle::ensureDefaultStyleSheetsForElement(element);
 
@@ -299,12 +313,31 @@ ResolvedStyle Resolver::styleForElement(Element& element, const ResolutionContex
     applyMatchedProperties(state, collector.matchResult());
 
     Adjuster adjuster(document(), *state.parentStyle(), context.parentBoxStyle, &element);
-    adjuster.adjust(*state.style(), state.userAgentAppearanceStyle());
+    adjuster.adjust(style, state.userAgentAppearanceStyle());
 
-    if (state.style()->usesViewportUnits())
+    if (style.usesViewportUnits())
         document().setHasStyleWithViewportUnits();
 
     return { state.takeStyle(), WTFMove(elementStyleRelations), collector.releaseMatchResult() };
+}
+
+ResolvedStyle Resolver::styleForElementWithCachedMatchResult(Element& element, const ResolutionContext& context, const MatchResult& matchResult, const RenderStyle& existingRenderStyle)
+{
+    auto state = initializeStateAndStyle(element, context);
+    auto& style = *state.style();
+
+    style.copyPseudoElementBitsFrom(existingRenderStyle);
+    copyRelations(style, existingRenderStyle);
+
+    applyMatchedProperties(state, matchResult);
+
+    Adjuster adjuster(document(), *state.parentStyle(), context.parentBoxStyle, &element);
+    adjuster.adjust(style, state.userAgentAppearanceStyle());
+
+    if (style.usesViewportUnits())
+        document().setHasStyleWithViewportUnits();
+
+    return { state.takeStyle(), { }, makeUnique<MatchResult>(matchResult) };
 }
 
 std::unique_ptr<RenderStyle> Resolver::styleForKeyframe(Element& element, const RenderStyle& elementStyle, const ResolutionContext& context, const StyleRuleKeyframe& keyframe, BlendingKeyframe& blendingKeyframe)
@@ -635,7 +668,7 @@ void Resolver::applyMatchedProperties(State& state, const MatchResult& matchResu
 
     auto* cacheEntry = m_matchedDeclarationsCache.find(cacheHash, matchResult, parentStyle.inheritedCustomProperties());
 
-    auto hasUsableEntry = cacheEntry && MatchedDeclarationsCache::isCacheable(element, style, parentStyle);
+    auto hasUsableEntry = cacheEntry && MatchedDeclarationsCache::isCacheable(element, style, parentStyle, state.anchorPositionedStateMap());
     if (hasUsableEntry) {
         // We can build up the style by copying non-inherited properties from an earlier style object built using the same exact
         // style declarations. We then only need to apply the inherited properties, if any, as their values can depend on the
@@ -711,7 +744,7 @@ void Resolver::applyMatchedProperties(State& state, const MatchResult& matchResu
     if (cacheEntry || !cacheHash)
         return;
 
-    if (MatchedDeclarationsCache::isCacheable(element, style, parentStyle))
+    if (MatchedDeclarationsCache::isCacheable(element, style, parentStyle, state.anchorPositionedStateMap()))
         m_matchedDeclarationsCache.add(style, parentStyle, state.userAgentAppearanceStyle(), cacheHash, matchResult);
 }
 

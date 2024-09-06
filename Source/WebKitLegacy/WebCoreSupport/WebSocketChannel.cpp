@@ -63,6 +63,7 @@
 #include <WebCore/WebSocketHandshake.h>
 #include <wtf/FastMalloc.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 

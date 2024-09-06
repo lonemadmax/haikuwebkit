@@ -41,20 +41,20 @@ namespace WebKit {
 using namespace WebCore;
 
 WebPageTesting::WebPageTesting(WebPage& page)
-    : m_identifier(page.identifier())
-    , m_page(page)
+    : m_page(page)
 {
-    WebProcess::singleton().addMessageReceiver(Messages::WebPageTesting::messageReceiverName(), page.identifier(), *this);
+    WebProcess::singleton().addMessageReceiver(Messages::WebPageTesting::messageReceiverName(), m_page->identifier(), *this);
 }
 
 WebPageTesting::~WebPageTesting()
 {
-    WebProcess::singleton().removeMessageReceiver(Messages::WebPageTesting::messageReceiverName(), m_identifier);
+    WebProcess::singleton().removeMessageReceiver(Messages::WebPageTesting::messageReceiverName(), m_page->identifier());
 }
 
 void WebPageTesting::setDefersLoading(bool defersLoading)
 {
-    m_page->corePage()->setDefersLoading(defersLoading);
+    if (RefPtr page = m_page->corePage())
+        page->setDefersLoading(defersLoading);
 }
 
 void WebPageTesting::isLayerTreeFrozen(CompletionHandler<void(bool)>&& completionHandler)
@@ -65,7 +65,8 @@ void WebPageTesting::isLayerTreeFrozen(CompletionHandler<void(bool)>&& completio
 void WebPageTesting::setPermissionLevel(const String& origin, bool allowed)
 {
 #if ENABLE(NOTIFICATIONS)
-    m_page->notificationPermissionRequestManager()->setPermissionLevelForTesting(origin, allowed);
+    if (RefPtr notificationPermissionRequestManager = protectedPage()->notificationPermissionRequestManager())
+        notificationPermissionRequestManager->setPermissionLevelForTesting(origin, allowed);
 #else
     UNUSED_PARAM(origin);
     UNUSED_PARAM(allowed);
@@ -74,23 +75,26 @@ void WebPageTesting::setPermissionLevel(const String& origin, bool allowed)
 
 void WebPageTesting::isEditingCommandEnabled(const String& commandName, CompletionHandler<void(bool)>&& completionHandler)
 {
-    RefPtr frame = m_page->corePage()->checkedFocusController()->focusedOrMainFrame();
+    RefPtr page = m_page->corePage();
+    RefPtr frame = page->checkedFocusController()->focusedOrMainFrame();
     if (!frame)
         return completionHandler(false);
 
 #if ENABLE(PDF_PLUGIN)
-    if (auto* pluginView = m_page->focusedPluginViewForFrame(*frame))
+    if (RefPtr pluginView = protectedPage()->focusedPluginViewForFrame(*frame))
         return completionHandler(pluginView->isEditingCommandEnabled(commandName));
 #endif
 
-    auto command = frame->editor().command(commandName);
+    auto command = frame->checkedEditor()->command(commandName);
     completionHandler(command.isSupported() && command.isEnabled());
 }
 
 #if ENABLE(NOTIFICATIONS)
 void WebPageTesting::clearNotificationPermissionState()
 {
-    static_cast<WebNotificationClient&>(WebCore::NotificationController::from(m_page->corePage())->client()).clearNotificationPermissionState();
+    RefPtr page = m_page->corePage();
+    auto& client = static_cast<WebNotificationClient&>(WebCore::NotificationController::from(page.get())->client());
+    client.clearNotificationPermissionState();
 }
 #endif
 
@@ -103,10 +107,9 @@ void WebPageTesting::clearWheelEventTestMonitor()
     page->clearWheelEventTestMonitor();
 }
 
-void WebPageTesting::flushDeferredDidReceiveMouseEvent(CompletionHandler<void()>&& completionHandler)
+Ref<WebPage> WebPageTesting::protectedPage() const
 {
-    m_page->flushDeferredDidReceiveMouseEvent();
-    completionHandler();
+    return m_page.get();
 }
 
 } // namespace WebKit

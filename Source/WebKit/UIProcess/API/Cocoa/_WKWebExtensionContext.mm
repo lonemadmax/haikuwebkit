@@ -720,7 +720,7 @@ static inline WebKit::WebExtensionContext::TabSet toImpl(NSSet<id<_WKWebExtensio
     WebKit::WebExtensionContext::TabSet result;
     result.reserveInitialCapacity(tabs.count);
 
-    for (id<_WKWebExtensionTab> tab in tabs) {
+    for (id tab in tabs) {
         NSCParameterAssert([tab conformsToProtocol:@protocol(_WKWebExtensionTab)]);
         result.addVoid(context.getOrCreateTab(tab));
     }
@@ -1103,6 +1103,7 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(_WKWe
 
 - (void)loadBackgroundContentWithCompletionHandler:(void (^)(NSError *error))completionHandler
 {
+    completionHandler([NSError errorWithDomain:NSCocoaErrorDomain code:NSFeatureUnsupportedError userInfo:nil]);
 }
 
 - (_WKWebExtensionAction *)actionForTab:(id<_WKWebExtensionTab>)tab NS_SWIFT_NAME(action(for:))
