@@ -1309,6 +1309,11 @@ fast/scrolling/v-rl-scrollbars-initial-position-dynamic.html [ Skip ]
 fast/scrolling/v-rl-scrollbars-initial-position.html [ Skip ]
 fast/scrolling/vertical-scrollbar-position.html [ Skip ]
 
+imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-004.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-006.html [ ImageOnlyFailure ]
+
 # This is specific to extensions on macOS
 webkit.org/b/167795 http/tests/security/bypassing-cors-checks-for-extension-urls.html [ Skip ]
 
@@ -1361,6 +1366,9 @@ fast/css/variables/env/ios [ Pass ]
 
 # Tests use resizable popups which are not a thing on iOS.
 imported/w3c/web-platform-tests/css/css-view-transitions/window-resize-aborts-transition-before-ready.html [ Failure ]
+
+imported/w3c/web-platform-tests/css/css-view-transitions/navigation/hide-before-reveal.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/navigation/pageswap-push-from-click.html [ Failure ]
 
 # Needs special fuzziness on iOS.
 imported/w3c/web-platform-tests/css/css-view-transitions/rotated-cat-off-top-edge.html [ ImageOnlyFailure ]
@@ -1569,14 +1577,6 @@ webkit.org/b/181752 storage/indexeddb/modern/transaction-scheduler-6.html [ Skip
 webkit.org/b/181752 storage/indexeddb/odd-strings.html [ Skip ]
 webkit.org/b/181752 storage/indexeddb/transaction-coordination-within-database.html [ Skip ]
 webkit.org/b/181752 storage/indexeddb/transaction-starvation.html [ Skip ]
-imported/w3c/web-platform-tests/IndexedDB/idbindex_batchGetAll.tentative.any.html [ Failure ]
-imported/w3c/web-platform-tests/IndexedDB/idbindex_batchGetAll.tentative.any.worker.html [ Failure ]
-imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_batchGetAll.tentative.any.html [ Failure ]
-imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_batchGetAll.tentative.any.worker.html [ Failure ]
-imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_batchGetAll_largeValue.tentative.any.html [ Failure ]
-imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_batchGetAll_largeValue.tentative.any.worker.html [ Failure ]
-imported/w3c/web-platform-tests/IndexedDB/transaction-relaxed-durability.tentative.any.html [ Failure ]
-imported/w3c/web-platform-tests/IndexedDB/transaction-relaxed-durability.tentative.any.worker.html [ Failure ]
 
 # SVG tests that fail:
 svg/as-object/svg-embedded-in-html-in-iframe.html [ Failure ]
@@ -1795,6 +1795,10 @@ imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-mode-c.html [ Im
 imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-opacity-1a.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-opacity-1b.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-opacity-1e.html [ ImageOnlyFailure ]
+
+imported/w3c/web-platform-tests/css/css-text-decor/text-decoration-thickness-length-rounding-min-val.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-text-decor/text-shadow/svg-fill-none.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-text-decor/text-shadow/svg-stroke-dasharray.html [ ImageOnlyFailure ]
 
 fast/flexbox/flex-hang.html [ Failure ]
 fast/flexbox/overhanging-floats-removed.html [ Failure ]
@@ -2018,7 +2022,6 @@ fast/dom/DeviceOrientation/updates.html
 fast/dom/MutationObserver/inline-event-listener.html
 fast/dom/Window/open-window-min-size.html
 fast/dom/rtl-scroll-to-leftmost-and-resize.html
-fast/dynamic/paused-event-dispatch.html
 fast/events/resize-subframe.html
 fast/files/read-blob-async.html
 fast/files/read-file-async.html
@@ -2348,8 +2351,10 @@ accessibility/insert-text-into-password-field.html [ Pass ]
 accessibility/list-with-dynamically-changing-content.html [ Pass ]
 accessibility/live-region-attributes-update-after-dynamic-change.html [ Pass ]
 accessibility/menu-list-crash2.html [ Pass ]
-accessibility/mixed-contenteditable-visible-character-range-hang.html [ Pass ]
-accessibility/mixed-contenteditable-double-br-visible-character-range-hang.html [ Pass ]
+accessibility/menu-with-menuitem-grandchildren.html [ Pass ]
+# rdar://132587324 These two tests have been flakey on iOS since they were introduced — temporarily disable them for now.
+# accessibility/mixed-contenteditable-visible-character-range-hang.html [ Pass ]
+# accessibility/mixed-contenteditable-double-br-visible-character-range-hang.html [ Pass ]
 accessibility/multiple-attribute-change-crash.html [ Pass ]
 accessibility/nested-custom-element-accname.html [ Pass ]
 accessibility/node-only-inert-object.html [ Pass ]
@@ -2845,7 +2850,7 @@ http/tests/storageAccess/has-storage-access-false-by-default-ephemeral.html [ Pa
 http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies.html [ Pass Timeout ]
 
 # Enable again when fixing https://bugs.webkit.org/show_bug.cgi?id=208400.
-http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies-ephemeral.html [ Skip ]
+http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies-ephemeral.https.html [ Skip ]
 
 # Skipped in general expectations since they only work on iOS and Mac, WK2.
 http/tests/security/strip-referrer-to-origin-for-third-party-redirects-in-private-mode.html [ Pass ]
@@ -3283,8 +3288,6 @@ webkit.org/b/205216 imported/w3c/web-platform-tests/content-security-policy/repo
 
 webkit.org/b/207769 crypto/subtle/rsa-indexeddb-non-exportable.html [ Pass Timeout ]
 
-webkit.org/b/207770 http/tests/cache/disk-cache/disk-cache-vary-cookie.html [ Pass Timeout ]
-
 webkit.org/b/207858 fast/canvas/webgl/context-attributes-alpha.html [ Pass Failure ImageOnlyFailure ]
 # webkit.org/b/207858 fast/canvas/webgl/match-page-color-space.html [ Pass Failure ImageOnlyFailure ]
 webkit.org/b/207858 webgl/smell-test.html [ Pass Failure ImageOnlyFailure ]
@@ -3362,6 +3365,8 @@ webkit.org/b/212227 imported/w3c/web-platform-tests/css/css-grid/alignment/self-
 imported/w3c/web-platform-tests/css/css-grid/alignment/grid-self-baseline-not-applied-if-sizing-cyclic-dependency-001.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-grid/alignment/grid-self-baseline-not-applied-if-sizing-cyclic-dependency-002.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-grid/subgrid/alignment-in-subgridded-axes-001.html [ Skip ]
+webkit.org/b/266091 imported/w3c/web-platform-tests/css/css-grid/masonry/tentative/intrinsic-sizing/masonry-intrinsic-sizing-cols-006.html
+
 
 fast/text/text-styles/-apple-system [ Pass ]
 
@@ -3487,9 +3492,10 @@ webkit.org/b/229154 webrtc/peer-connection-audio-mute2.html [ Pass Failure ]
 # WebM is not supported on iOS
 http/tests/media/video-webm-stall.html [ Skip ]
 
+# webkit.org/b/277760 [ iOS ] 2x imported/w3c/web-platform-tests/html/rendering/widgets/input-checkbox-switch-rtl.tentative.html (layout-tests) are ref mismatch
 webkit.org/b/229291 imported/w3c/web-platform-tests/html/rendering/replaced-elements/images/revoked-blob-print.html [ Pass ImageOnlyFailure ]
-imported/w3c/web-platform-tests/html/rendering/widgets/input-checkbox-switch-rtl.tentative.html [ Failure ]
-imported/w3c/web-platform-tests/html/rendering/widgets/input-date-baseline-min-height.html [ Failure ]
+imported/w3c/web-platform-tests/html/rendering/widgets/input-checkbox-switch-rtl.tentative.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/rendering/widgets/input-date-baseline-min-height.html [ ImageOnlyFailure ]
 
 #rdar://82146367 ([Mac, iOS Release] imported/w3c/web-platform-tests/worklets/layout-worklet-csp.https.html is a flaky failure) imported/w3c/web-platform-tests/worklets/layout-worklet-csp.https.html [ Pass Failure ] 
 
@@ -3679,8 +3685,9 @@ webkit.org/b/238824 http/tests/workers/service/openwindow-from-notification-clic
 webkit.org/b/237433 editing/pasteboard/4076267-3.html [ Timeout Pass Failure ]
 webkit.org/b/237433 editing/pasteboard/paste-and-sanitize.html [ Timeout Pass Failure ]
 
+imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-anchor-positioning-007.html [ Failure ]
 webkit.org/b/237955 imported/w3c/web-platform-tests/css/css-contain/content-visibility/content-visibility-044.html [ Failure ]
-
+imported/w3c/web-platform-tests/css/css-conditional/container-queries/pseudo-elements-009.html [ ImageOnlyFailure ]
 
 imported/w3c/web-platform-tests/css/css-color/system-color-hightlights-vs-getSelection-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-color/system-color-hightlights-vs-getSelection-002.html [ ImageOnlyFailure ]
@@ -3977,6 +3984,7 @@ imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-multiple-scro
 imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-size-scrolling-and-sizing.optional.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-multiple-options-visual-order.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-writing-modes/forms/select-multiple-keyboard-selection.optional.html [ Failure ]
+fast/css/container-query-listbox.html [ Skip ]
 fast/forms/select/multiselect-in-listbox-mouse-release-outside.html [ Skip ]
 
 # To investigate: might need to relax the tests, or adapt native thumb appearance.
@@ -4689,6 +4697,7 @@ imported/w3c/web-platform-tests/css/css-ruby/rt-display-blockified.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-ruby/ruby-bidi-003.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-ruby/ruby-text-combine-upright-001a.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-ruby/ruby-text-combine-upright-001b.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-ruby/ruby-align-001.html [ ImageOnlyFailure ]
 fast/ruby/annotation-with-line-gap.html [ ImageOnlyFailure ]
 fast/ruby/tight-line-spacing-with-line-height.html [ ImageOnlyFailure ]
 
@@ -5826,8 +5835,6 @@ webkit.org/b/207771 http/wpt/service-workers/persistent-importScripts.html [ Pas
 webkit.org/b/207774 http/wpt/service-workers/third-party-cookie.html [ Pass Timeout ]
 
 webkit.org/b/207866 imported/w3c/IndexedDB-private-browsing [ Pass Timeout ]
-webkit.org/b/243682 imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_putall.tentative.any.html [ Failure ]
-webkit.org/b/243682 imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_putall.tentative.any.worker.html [ Failure ]
 
 # skip LFC regression tests on iOS for now.
 fast/layoutformattingcontext/ [ Skip ]
@@ -6213,8 +6220,6 @@ http/tests/quicklook/secure-document-with-subresources.html [ ImageOnlyFailure ]
 
 webkit.org/b/209446 imported/w3c/web-platform-tests/navigation-timing/test_timing_attributes_order.html [ Pass Failure ]
 
-webkit.org/b/209512 http/tests/cache/disk-cache/disk-cache-vary-cookie-private.html [ Pass Timeout ]
-
 webkit.org/b/231630 http/tests/cache/disk-cache/redirect-chain-limits.html [ Slow ]
 
 webkit.org/b/209520 http/wpt/fetch/dnt-header-after-redirection.html [ Pass Timeout ]
@@ -6263,6 +6268,23 @@ webkit.org/b/251848 imported/w3c/web-platform-tests/css/css-images/image-set/ima
 webkit.org/b/251848 imported/w3c/web-platform-tests/css/css-images/image-set/image-set-empty-url-rendering.html [ ImageOnlyFailure ]
 webkit.org/b/251848 imported/w3c/web-platform-tests/css/css-images/image-set/image-set-rendering-2.html [ ImageOnlyFailure ]
 webkit.org/b/251848 imported/w3c/web-platform-tests/css/css-images/image-set/image-set-unordered-res-rendering.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-background-properties-border-radius.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-background-properties.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-default.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-from-image-composited-dynamic1.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-from-image-composited-dynamic2.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-from-image-composited.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-from-image-dynamic1.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-from-image-dynamic2.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-from-image.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-none-image-document.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-none.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/object-position-png-001c.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/object-position-png-001p.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/object-position-png-002c.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/object-position-png-002p.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/object-position-svg-001p.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/object-position-svg-002p.html [ ImageOnlyFailure ]
 
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-fonts/font-language-override-02.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-multicol/equal-gap-and-rule.html [ ImageOnlyFailure ]
@@ -6435,7 +6457,8 @@ webkit.org/b/228327 [ Release ] imported/w3c/web-platform-tests/worklets/audio-w
 webkit.org/b/228327 [ Release ] imported/w3c/web-platform-tests/worklets/paint-worklet-service-worker-interception.https.html [ Pass Failure ]
 
 webkit.org/b/228604 http/tests/cookies/same-site/fetch-in-same-origin-service-worker.html [ Pass Timeout ]
-webkit.org/b/228604 http/tests/cookies/same-site/fetch-in-cross-origin-service-worker.html [ Pass Timeout ]
+#webkit.org/b/228604 http/tests/cookies/same-site/fetch-in-cross-origin-service-worker.html [ Pass Timeout ]
+# Uncomment above when webkit.org/b/277460 is resolved.
 
 #<rdar://76434263>
 http/wpt/mediarecorder/video-rotation.html [ Pass Failure ]
@@ -7364,3 +7387,111 @@ imported/w3c/web-platform-tests/webcodecs/full-cycle-test.https.any.worker.html?
 imported/w3c/web-platform-tests/webcodecs/videoDecoder-codec-specific.https.any.html?h264_annexb [ Failure DumpJSConsoleLogInStdErr ]
 
 webkit.org/b/276624 fast/dynamic/layer-hit-test-crash.html [ Pass Failure ]
+
+webkit.org/b/276906 imported/w3c/web-platform-tests/IndexedDB/storage-buckets.https.any.worker.html [ Pass Failure ]
+
+webkit.org/b/276920 fast/events/ios/rotation/basic-rotation.html [ Pass Failure ]
+
+webkit.org/b/277067 http/tests/misc/authentication-redirect-3/authentication-sent-to-redirect-same-origin-with-location-credentials.html [ Pass Timeout ]
+
+imported/w3c/web-platform-tests/css/css-text/i18n/ja/css-text-line-break-ja-in-loose.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-text/i18n/ja/css-text-line-break-ja-pr-normal.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-text/i18n/ja/css-text-line-break-ja-pr-strict.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-text/i18n/zh/css-text-line-break-zh-pr-normal.html [ Failure ]
+imported/w3c/web-platform-tests/css/css-text/i18n/zh/css-text-line-break-zh-pr-strict.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/manual/drawing-images-to-the-canvas/drawimage_canvas.html [ Failure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/mrow/inferred-mrow-stretchy.html [ Failure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/operators/embellished-op-4-1.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/operators/embellished-op-4-2.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/operators/embellished-op-4-3.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/operators/mo-minsize-maxsize-legacy-length-values.html [ Failure ]
+imported/w3c/web-platform-tests/mathml/relations/css-styling/padding-border-margin/padding-border-margin-003.html [ ImageOnlyFailure ]
+
+webkit.org/b/277195 imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/inert-label-focus.html [ Failure ]
+
+# webkit.org/b/277196 (REGRESSION (281345@main): [ iOS ] 2 imported/w3c/web-platform-tests/html/semantics/invokers/* layout tests are constantly failing.)
+imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-on-dialog-behavior.tentative.html [ Failure ]
+imported/w3c/web-platform-tests/html/semantics/invokers/invoketarget-on-popover-behavior.tentative.html [ Failure ]
+
+# webkit.org/b/277308 (webgl/1.0.3/conformance/uniforms/out-of-bounds-uniform-array-access.html needs to be marked as slow.)
+webgl/1.0.3/conformance/uniforms/out-of-bounds-uniform-array-access.html [ Slow ]
+
+# webkit.org/b/27730 (REGRESSION (280752@main?): [ macOS iOS ] http/wpt/service-workers/fetch-service-worker-preload-cache.https.html is flaky failing.)
+http/wpt/service-workers/fetch-service-worker-preload-cache.https.html [ Pass Failure ]
+
+# webkit.org/b/277710 [ iOS ] [ Release ] editing/execCommand/insert-ordered-list-and-delete.html is a flaky text failure
+editing/execCommand/insert-ordered-list-and-delete.html [ Pass Failure ]
+
+# webkit.org/b/277715 [ iOS ] fast/events/ios/rotation/layout-viewport-during-safari-type-rotation.html is a flaky text failure
+fast/events/ios/rotation/layout-viewport-during-safari-type-rotation.html [ Pass Failure ]
+
+# webkit.org/b/277717 [ iOS ] fast/forms/ios/show-software-keyboard-on-programmatic-focus-during-dblclick.html is a flaky timeout
+fast/forms/ios/show-software-keyboard-on-programmatic-focus-during-dblclick.html [ Pass Timeout ]
+
+# webkit.org/b/277720 [ iOS MacOS ] 4x http/wpt/service-workers/fetch-service-worker-preload* (layout-tests) are flaky failures
+http/wpt/service-workers/fetch-service-worker-preload-changing-request.https.html [ Pass Failure ]
+http/wpt/service-workers/fetch-service-worker-preload-download-through-direct-preload.https.html [ Pass Timeout Failure ]
+http/wpt/service-workers/fetch-service-worker-preload-download.https.html [ Pass Timeout ]
+http/wpt/service-workers/fetch-service-worker-preload.https.html [ Pass Failure ]
+
+# webkit.org/b/277758 [ iOS ] imported/w3c/web-platform-tests/css/css-cascade/all-prop-initial-xml.html is a constant text failure
+imported/w3c/web-platform-tests/css/css-cascade/all-prop-initial-xml.html [ Failure ]
+
+# webkit.org/b/277762 [ iOS ] imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-form-submission.html is a constant text failure
+imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/dialog-form-submission.html [ Failure ]
+
+# webkit.org/b/277763 [ iOS ] imported/w3c/web-platform-tests/screen-orientation/lock-unlock-check.html is a flaky failure
+imported/w3c/web-platform-tests/screen-orientation/lock-unlock-check.html [ Pass Failure ]
+
+# webkit.org/b/277896 ([ iOS ] fast/forms/ios/time-picker-value-change.html is a flaky text failure (277896))
+fast/forms/ios/time-picker-value-change.html [ Pass Failure ]
+
+# webkit.org/b/277897 (Regression: 282030@main? [ iOS 17 Release ] imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-inline-004.html is a flaky text failure (277897))
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-position-inline-004.html [ Pass Failure ]
+
+# webkit.org/b/277898 [ iOS 17 ] imported/w3c/web-platform-tests/css/css-tables/tentative/td-box-sizing-003.html is a flaky text failure
+imported/w3c/web-platform-tests/css/css-tables/tentative/td-box-sizing-003.html [ Pass Failure ]
+
+# webkit.org/b/277901 Regression: (246931@main?) [ iOS ] imported/w3c/web-platform-tests/workers/SharedWorker_dataUrl.html is a flaky failure
+imported/w3c/web-platform-tests/workers/SharedWorker_dataUrl.html [ Pass Failure ]
+
+# webkit.org/b/261919 NEW TEST(247465@main): [ macOS wk2 ] webanimations/frame-rate/animation-frame-rate-alignment-started-with-one-frame-separation.html is a flaky failure.
+webanimations/frame-rate/animation-frame-rate-alignment-started-with-one-frame-separation.html [ Pass Failure ]
+
+# webkit.org/b/276764 REGRESSION(280750@main) imported/w3c/web-platform-tests/websockets/basic-auth.any.html?wss regressed
+imported/w3c/web-platform-tests/websockets/basic-auth.any.html?wss [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/basic-auth.any.serviceworker.html?wss [ Pass Failure ]
+
+# webkit.org/b/277905 [ iOS ] fast/scrolling/ios/scroll-anchoring-momentum-scroll.html is a flaky text failure
+fast/scrolling/ios/scroll-anchoring-momentum-scroll.html [ Pass Failure ]
+
+# webkit.org/b/277907 [ iOS ] fast/scrolling/ios/overscroll-behavior-on-body.html is a flaky text failure
+fast/scrolling/ios/overscroll-behavior-on-body.html [ Pass Failure ]
+
+# rdar://124971386 (css-box/margin-trim/computed-margin-values layout tests failing in recursive cases)
+imported/w3c/web-platform-tests/css/css-box/margin-trim/computed-margin-values/block-container-block-start-child-with-border.html [ Pass Failure ]
+imported/w3c/web-platform-tests/css/css-box/margin-trim/computed-margin-values/block-container-block-start-self-collapsing-nested.html [ Pass Failure ]
+
+# webkit.org/b/277908 [ iOS ] imported/w3c/web-platform-tests/mediacapture-insertable-streams/VideoTrackGenerator-with-window-tracks.https.html is a flaky text failure
+imported/w3c/web-platform-tests/mediacapture-insertable-streams/VideoTrackGenerator-with-window-tracks.https.html [ Pass Failure ]
+
+# webkit.org/b/277432 (REGRESSION (281139@main): [ Ventura iOS18 ] 2 WebCrypto layout tests failing after CryptoKit enablement.)
+imported/w3c/web-platform-tests/WebCryptoAPI/import_export/ec_importKey.https.any.html [ Failure ]
+imported/w3c/web-platform-tests/WebCryptoAPI/import_export/ec_importKey.https.any.worker.html [ Failure ]
+
+# webkit.org/b/277460 (REGRESSION (iOS 18): 9 layout tests need to be re-written to expect new behavior.)
+http/tests/cookies/same-site/fetch-after-navigating-iframe-in-cross-origin-page.html [ Failure ]
+http/tests/cookies/same-site/fetch-in-cross-origin-service-worker.html [ Failure ] # uncomment expectation set for this test (above) when this is resolved
+http/tests/cookies/same-site/popup-cross-site-post.html [ Failure ]
+http/tests/privateClickMeasurement/send-attribution-conversion-request.html [ Failure ]
+imported/w3c/web-platform-tests/fetch/api/cors/cors-cookies-redirect.any.html [ Failure ]
+imported/w3c/web-platform-tests/fetch/api/cors/cors-cookies-redirect.any.worker.html [ Failure ]
+imported/w3c/web-platform-tests/html/anonymous-iframe/cookie.tentative.https.window.html [ Failure ]
+imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/anonymous-iframe/cookie.tentative.https.window.html [ Failure ]
+
+# webkit.org/b/277933 (REGRESSION (iOS 18): 5 WPT CSS layout tests are constantly failing (ImageOnlyFailure). (277933))
+imported/w3c/web-platform-tests/css/css-content/quotes-025.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-content/quotes-026.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-content/quotes-027.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-fullwidth-004.xht [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-fullwidth-005.xht [ ImageOnlyFailure ]

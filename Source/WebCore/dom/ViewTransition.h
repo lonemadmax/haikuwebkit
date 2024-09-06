@@ -33,6 +33,7 @@
 #include "JSValueInWrappedObject.h"
 #include "MutableStyleProperties.h"
 #include "Styleable.h"
+#include "ViewTransitionTypeSet.h"
 #include "ViewTransitionUpdateCallback.h"
 #include <wtf/CheckedRef.h>
 #include <wtf/Ref.h>
@@ -127,14 +128,31 @@ public:
         return nullptr;
     }
 
+    void swap(OrderedNamedElementsMap& other)
+    {
+        m_keys.swap(other.m_keys);
+        m_map.swap(other.m_map);
+    }
+
 private:
     ListHashSet<AtomString> m_keys;
     HashMap<AtomString, UniqueRef<CapturedElement>> m_map;
 };
 
+struct ViewTransitionParams {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
+
+    OrderedNamedElementsMap namedElements;
+    FloatSize initialLargeViewportSize;
+    float initialPageZoom;
+};
+
 class ViewTransition : public RefCounted<ViewTransition>, public CanMakeWeakPtr<ViewTransition>, public ActiveDOMObject {
 public:
-    static Ref<ViewTransition> create(Document&, RefPtr<ViewTransitionUpdateCallback>&&);
+    static Ref<ViewTransition> createSamePage(Document&, RefPtr<ViewTransitionUpdateCallback>&&, Vector<AtomString>&&);
+    static Ref<ViewTransition> createInbound(Document&, std::unique_ptr<ViewTransitionParams>);
+    static Ref<ViewTransition> createOutbound(Document&);
     ~ViewTransition();
 
     // ActiveDOMObject.
@@ -146,6 +164,10 @@ public:
 
     void setupViewTransition();
     void handleTransitionFrame();
+
+    void startInbound();
+
+    UniqueRef<ViewTransitionParams> takeViewTransitionParams();
 
     DOMPromise& ready();
     DOMPromise& updateCallbackDone();
@@ -159,10 +181,14 @@ public:
 
     bool documentElementIsCaptured() const;
 
+    const ViewTransitionTypeSet& types() const { return m_types; }
+    void setTypes(Ref<ViewTransitionTypeSet>&& newTypes) { m_types = newTypes; }
+
     RenderViewTransitionCapture* viewTransitionNewPseudoForCapturedElement(RenderLayerModelObject&);
 
 private:
-    ViewTransition(Document&, RefPtr<ViewTransitionUpdateCallback>&&);
+    ViewTransition(Document&, RefPtr<ViewTransitionUpdateCallback>&&, Vector<AtomString>&&);
+    ViewTransition(Document&);
 
     Ref<MutableStyleProperties> copyElementBaseProperties(RenderLayerModelObject&, LayoutSize&);
 
@@ -188,13 +214,16 @@ private:
     FloatSize m_initialLargeViewportSize;
     float m_initialPageZoom;
 
-    RefPtr<ViewTransitionUpdateCallback> m_updateCallback;
+    RefPtr<ViewTransitionUpdateCallback>  m_updateCallback;
+    bool m_shouldCallUpdateCallback { false };
 
     using PromiseAndWrapper = std::pair<Ref<DOMPromise>, Ref<DeferredPromise>>;
     PromiseAndWrapper m_ready;
     PromiseAndWrapper m_updateCallbackDone;
     PromiseAndWrapper m_finished;
     EventLoopTimerHandle m_updateCallbackTimeout;
+
+    Ref<ViewTransitionTypeSet> m_types;
 };
 
 }

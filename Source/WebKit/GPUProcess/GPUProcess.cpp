@@ -35,7 +35,6 @@
 #include "GPUProcessConnectionParameters.h"
 #include "GPUProcessCreationParameters.h"
 #include "GPUProcessPreferences.h"
-#include "GPUProcessPreferencesForWebProcess.h"
 #include "GPUProcessProxyMessages.h"
 #include "GPUProcessSessionParameters.h"
 #include "LogInitialization.h"
@@ -149,6 +148,13 @@ void GPUProcess::createGPUConnectionToWebProcess(WebCore::ProcessIdentifier iden
     m_webProcessConnections.add(identifier, WTFMove(newConnection));
 }
 
+void GPUProcess::sharedPreferencesForWebProcessDidChange(WebCore::ProcessIdentifier identifier, SharedPreferencesForWebProcess&& sharedPreferencesForWebProcess, CompletionHandler<void()>&& completionHandler)
+{
+    if (RefPtr connection = m_webProcessConnections.get(identifier))
+        connection->updateSharedPreferencesForWebProcess(WTFMove(sharedPreferencesForWebProcess));
+    completionHandler();
+}
+
 void GPUProcess::removeGPUConnectionToWebProcess(GPUConnectionToWebProcess& connection)
 {
     RELEASE_LOG(Process, "%p - GPUProcess::removeGPUConnectionToWebProcess: processIdentifier=%" PRIu64, this, connection.webProcessIdentifier().toUInt64());
@@ -222,8 +228,10 @@ void GPUProcess::lowMemoryHandler(Critical critical, Synchronous synchronous)
     WebCore::releaseGraphicsMemory(critical, synchronous);
 }
 
-void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters)
+void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters, CompletionHandler<void()>&& completionHandler)
 {
+    CompletionHandlerCallingScope callCompletionHandler(WTFMove(completionHandler));
+
     applyProcessCreationParameters(parameters.auxiliaryProcessParameters);
     RELEASE_LOG(Process, "%p - GPUProcess::initializeGPUProcess:", this);
     WTF::Thread::setCurrentThreadIsUserInitiated();
@@ -275,6 +283,9 @@ void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters)
 
 #if USE(GBM)
     WebCore::DRMDeviceManager::singleton().initializeMainDevice(parameters.renderDeviceFile);
+
+    // Ensure that the GBM device is also initialized before WebGL worker threads try using it.
+    RELEASE_ASSERT(WebCore::DRMDeviceManager::singleton().mainGBMDeviceNode(WebCore::DRMDeviceManager::NodeType::Render));
 #endif
 
     m_applicationVisibleName = WTFMove(parameters.applicationVisibleName);
@@ -527,14 +538,6 @@ void GPUProcess::cancelGetDisplayMediaPrompt()
 
 #endif // HAVE(SCREEN_CAPTURE_KIT)
 
-#if PLATFORM(MAC)
-void GPUProcess::displayConfigurationChanged(CGDirectDisplayID displayID, CGDisplayChangeSummaryFlags flags)
-{
-    for (auto& connection : m_webProcessConnections.values())
-        connection->displayConfigurationChanged(displayID, flags);
-}
-#endif
-
 void GPUProcess::addSession(PAL::SessionID sessionID, GPUProcessSessionParameters&& parameters)
 {
     ASSERT(!m_sessions.contains(sessionID));
@@ -545,7 +548,7 @@ void GPUProcess::addSession(PAL::SessionID sessionID, GPUProcessSessionParameter
 
     m_sessions.add(sessionID, GPUSession {
         WTFMove(parameters.mediaCacheDirectory)
-#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA)
         , WTFMove(parameters.mediaKeysStorageDirectory)
 #endif
     });
@@ -563,7 +566,7 @@ const String& GPUProcess::mediaCacheDirectory(PAL::SessionID sessionID) const
     return m_sessions.find(sessionID)->value.mediaCacheDirectory;
 }
 
-#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA)
 const String& GPUProcess::mediaKeysStorageDirectory(PAL::SessionID sessionID) const
 {
     ASSERT(m_sessions.contains(sessionID));

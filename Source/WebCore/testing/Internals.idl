@@ -449,6 +449,25 @@ typedef (FetchRequest or FetchResponse) FetchObject;
 
 [
     ExportMacro=WEBCORE_TESTSUPPORT_EXPORT,
+    JSGenerateToJSObject,
+] dictionary ImageBufferResourceLimits {
+    unsigned long long acceleratedImageBufferForCanvasCount;
+    unsigned long long acceleratedImageBufferForCanvasLimit;
+    unsigned long long globalAcceleratedImageBufferCount;
+    unsigned long long globalAcceleratedImageBufferLimit;
+    unsigned long long globalImageBufferForCanvasCount;
+    unsigned long long globalImageBufferForCanvasLimit;
+    unsigned long long imageBufferForCanvasCount;
+    unsigned long long imageBufferForCanvasLimit;
+};
+
+enum RenderingMode {
+    "Unaccelerated",
+    "Accelerated"
+};
+
+[
+    ExportMacro=WEBCORE_TESTSUPPORT_EXPORT,
     LegacyNoInterfaceObject,
 ] interface Internals {
     DOMString address(Node node);
@@ -703,6 +722,8 @@ typedef (FetchRequest or FetchResponse) FetchObject;
 
     boolean testProcessIncomingSyncMessagesWhenWaitingForSyncReply();
 
+    undefined setResourceCachingDisabledByWebInspector(boolean disabled);
+
     // Flags for layerTreeAsText.
     const unsigned short LAYER_TREE_INCLUDES_VISIBLE_RECTS = 1;
     const unsigned short LAYER_TREE_INCLUDES_TILE_CACHES = 2;
@@ -810,8 +831,6 @@ typedef (FetchRequest or FetchResponse) FetchObject;
 
     undefined setHeaderHeight(unrestricted float height);
     undefined setFooterHeight(unrestricted float height);
-
-    undefined setTopContentInset(unrestricted float contentInset);
 
     [Conditional=FULLSCREEN_API] undefined webkitWillEnterFullScreenForElement(Element element);
     [Conditional=FULLSCREEN_API] undefined webkitDidEnterFullScreenForElement(Element element);
@@ -968,6 +987,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     [Conditional=MEDIA_SOURCE] undefined setShouldGenerateTimestamps(SourceBuffer buffer, boolean flag);
     [Conditional=MEDIA_SOURCE] double minimumUpcomingPresentationTimeForTrackID(SourceBuffer buffer, [AtomString] DOMString trackID);
     [Conditional=MEDIA_SOURCE] undefined setMaximumQueueDepthForTrackID(SourceBuffer buffer, [AtomString] DOMString trackID, unsigned long maxQueueDepth);
+    [Conditional=MEDIA_SOURCE] unsigned long evictableSize(SourceBuffer buffer);
 
     [Conditional=VIDEO] undefined beginMediaSessionInterruption(DOMString interruptionType);
     [Conditional=VIDEO] undefined endMediaSessionInterruption(DOMString flags);
@@ -1025,6 +1045,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     undefined disableCORSForURL(DOMString url);
 
     File? createFile(DOMString url);
+    Promise<File> asyncCreateFile(DOMString url);
     DOMString createTemporaryFile(DOMString name, DOMString contents);
 
     undefined queueMicroTask(long testNumber);
@@ -1143,7 +1164,6 @@ typedef (FetchRequest or FetchResponse) FetchObject;
 
     unsigned long long elementIdentifier(Element element);
     boolean isElementAlive(unsigned long long elementIdentifier);
-    unsigned long long frameIdentifier(Document document);
     unsigned long long pageIdentifier(Document document);
 
     boolean isAnyWorkletGlobalScopeAlive();
@@ -1375,4 +1395,7 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     readonly attribute DOMString defaultSpatialTrackingLabel;
 
     boolean isEffectivelyMuted(HTMLMediaElement element);
+
+    RenderingMode? getEffectiveRenderingModeOfNewlyCreatedAcceleratedImageBuffer();
+    Promise<ImageBufferResourceLimits> getImageBufferResourceLimits();
 };

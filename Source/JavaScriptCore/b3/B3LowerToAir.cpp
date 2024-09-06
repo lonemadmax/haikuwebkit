@@ -529,11 +529,9 @@ private:
         return true;
     }
 
-    bool isMergeableValue(Value* v, B3::Opcode b3Opcode, bool checkCanBeInternal = false)
+    bool isMergeableValue(Value* v, B3::Opcode b3Opcode)
     { 
         if (v->opcode() != b3Opcode)
-            return false;
-        if (checkCanBeInternal && !canBeInternal(v))
             return false;
         if (m_locked.contains(v->child(0)))
             return false;
@@ -645,7 +643,10 @@ private:
         case WasmAddress: {
             WasmAddressValue* wasmAddress = address->as<WasmAddressValue>();
             Value* pointer = wasmAddress->child(0);
-            if (!Arg::isValidIndexForm(Air::Move, 1, offset, width) || m_locked.contains(pointer))
+            // Why don't we need to check m_locked here? WasmAddressValue is purely used for address computation,
+            // which is different from the other operations. And we already know that numUses(address) is below the threshold.
+            // If we ensure that all use of WasmAddress gets indexArg form, we do not need to have WasmAddressValue's instruction actually.
+            if (!Arg::isValidIndexForm(Air::Move, 1, offset, width))
                 return fallback();
 
             // FIXME: We should support ARM64 LDR 32-bit addressing, which will
@@ -1299,7 +1300,7 @@ private:
             }
             break;
         case Width128:
-            RELEASE_ASSERT(is64Bit() && Options::useWebAssemblySIMD());
+            RELEASE_ASSERT(is64Bit() && Options::useWasmSIMD());
             RELEASE_ASSERT(bank == FP);
             return MoveVector;
         }
@@ -2930,10 +2931,10 @@ private:
                 }
             }
 
-            // Pre-Index Canonical Form:
+            // PreIndex Canonical Form:
             //     address = Add(base, offset)    --->   Move %base %address
             //     memory = Load(base, offset)           MoveWithIncrement (%address, prefix(offset)) %memory
-            // Post-Index Canonical Form:
+            // PostIndex Canonical Form:
             //     address = Add(base, offset)    --->   Move %base %address
             //     memory = Load(base, 0)                MoveWithIncrement (%address, postfix(offset)) %memory
             auto tryAppendIncrementAddress = [&] () -> bool {
@@ -3859,10 +3860,10 @@ private:
         }
 
         case Store: {
-            // Pre-Index Canonical Form:
+            // PreIndex Canonical Form:
             //     address = Add(base, Offset)              --->    Move %base %address
             //     memory = Store(value, base, Offset)              MoveWithIncrement %value (%address, prefix(offset))
-            // Post-Index Canonical Form:
+            // PostIndex Canonical Form:
             //     address = Add(base, Offset)              --->    Move %base %address
             //     memory = Store(value, base, 0)                   MoveWithIncrement %value (%address, postfix(offset))
             auto tryAppendIncrementAddress = [&] () -> bool {

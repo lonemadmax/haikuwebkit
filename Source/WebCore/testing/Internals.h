@@ -37,10 +37,12 @@
 #include "ExceptionOr.h"
 #include "HEVCUtilities.h"
 #include "IDLTypes.h"
+#include "ImageBufferResourceLimits.h"
 #include "NowPlayingInfo.h"
 #include "OrientationNotifier.h"
 #include "PageConsoleClient.h"
 #include "RealtimeMediaSource.h"
+#include "RenderingMode.h"
 #include "SleepDisabler.h"
 #include "TextIndicator.h"
 #include "VP9Utilities.h"
@@ -580,7 +582,6 @@ public:
     uint64_t elementIdentifier(Element&) const;
     bool isElementAlive(uint64_t elementIdentifier) const;
 
-    uint64_t frameIdentifier(const Document&) const;
     uint64_t pageIdentifier(const Document&) const;
 
     bool isAnyWorkletGlobalScopeAlive() const;
@@ -613,8 +614,6 @@ public:
 
     void setHeaderHeight(float);
     void setFooterHeight(float);
-
-    void setTopContentInset(float);
 
 #if ENABLE(FULLSCREEN_API)
     void webkitWillEnterFullScreenForElement(Element&);
@@ -810,6 +809,7 @@ public:
     double minimumUpcomingPresentationTimeForTrackID(SourceBuffer&, const AtomString&);
     void setShouldGenerateTimestamps(SourceBuffer&, bool);
     void setMaximumQueueDepthForTrackID(SourceBuffer&, const AtomString&, size_t);
+    size_t evictableSize(SourceBuffer&);
 #endif
 
 #if ENABLE(VIDEO)
@@ -868,6 +868,7 @@ public:
     void disableCORSForURL(const String&);
 
     RefPtr<File> createFile(const String&);
+    void asyncCreateFile(const String&, DOMPromiseDeferred<IDLInterface<File>>&&);
     String createTemporaryFile(const String& name, const String& contents);
 
     void queueMicroTask(int);
@@ -1481,6 +1482,15 @@ public:
     const String& defaultSpatialTrackingLabel() const;
 
     bool isEffectivelyMuted(const HTMLMediaElement&);
+
+    using RenderingMode = WebCore::RenderingMode;
+    std::optional<RenderingMode> getEffectiveRenderingModeOfNewlyCreatedAcceleratedImageBuffer();
+
+    using ImageBufferResourceLimits = WebCore::ImageBufferResourceLimits;
+    using ImageBufferResourceLimitsPromise = DOMPromiseDeferred<IDLDictionary<ImageBufferResourceLimits>>;
+    void getImageBufferResourceLimits(ImageBufferResourceLimitsPromise&&);
+
+    void setResourceCachingDisabledByWebInspector(bool);
 
 private:
     explicit Internals(Document&);

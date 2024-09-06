@@ -70,7 +70,7 @@ inline void RenderStyle::resetBorderTopRightRadius() { SET_NESTED(m_nonInherited
 inline void RenderStyle::resetColumnRule() { SET_DOUBLY_NESTED(m_nonInheritedData, miscData, multiCol, rule, BorderValue()); }
 inline void RenderStyle::resetMargin() { SET_NESTED(m_nonInheritedData, surroundData, margin, LengthBox(LengthType::Fixed)); }
 inline void RenderStyle::resetPadding() { SET_NESTED(m_nonInheritedData, surroundData, padding, LengthBox { 0 }); }
-inline void RenderStyle::resetPageSizeType() { SET_NESTED(m_nonInheritedData, rareData, pageSizeType, PAGE_SIZE_AUTO); }
+inline void RenderStyle::resetPageSizeType() { SET_NESTED(m_nonInheritedData, rareData, pageSizeType, static_cast<unsigned>(PageSizeType::Auto)); }
 inline void RenderStyle::setAccentColor(const StyleColor& color) { SET_PAIR(m_rareInheritedData, accentColor, color, hasAutoAccentColor, false); }
 inline void RenderStyle::setAlignContent(const StyleContentAlignmentData& data) { SET_NESTED(m_nonInheritedData, miscData, alignContent, data); }
 inline void RenderStyle::setAlignItems(const StyleSelfAlignmentData& data) { SET_NESTED(m_nonInheritedData, miscData, alignItems, data); }
@@ -222,7 +222,6 @@ inline void RenderStyle::setMarqueeIncrement(Length&& length) { SET_DOUBLY_NESTE
 inline void RenderStyle::setMarqueeLoopCount(int i) { SET_DOUBLY_NESTED(m_nonInheritedData, rareData, marquee, loops, i); }
 inline void RenderStyle::setMarqueeSpeed(int speed) { SET_DOUBLY_NESTED(m_nonInheritedData, rareData, marquee, speed, speed); }
 inline void RenderStyle::setMaskBorder(const NinePieceImage& image) { SET_NESTED(m_nonInheritedData, rareData, maskBorder, image); }
-inline void RenderStyle::setMaskBorderSource(RefPtr<StyleImage>&& value) { m_nonInheritedData.access().rareData.access().maskBorder.setImage(WTFMove(value)); }
 inline void RenderStyle::setMaskImage(RefPtr<StyleImage>&& image) { m_nonInheritedData.access().miscData.access().mask.access().setImage(WTFMove(image)); }
 inline void RenderStyle::setMaskRepeat(FillRepeatXY repeat) { SET_DOUBLY_NESTED_PAIR(m_nonInheritedData, miscData, mask, m_repeat, repeat, m_repeatSet, true); }
 inline void RenderStyle::setMaskSize(LengthSize size) { SET_DOUBLY_NESTED(m_nonInheritedData, miscData, mask, m_sizeLength, WTFMove(size)); }
@@ -261,7 +260,7 @@ inline void RenderStyle::setPaddingLeft(Length&& length) { SET_NESTED(m_nonInher
 inline void RenderStyle::setPaddingRight(Length&& length) { SET_NESTED(m_nonInheritedData, surroundData, padding.right(), WTFMove(length)); }
 inline void RenderStyle::setPaddingTop(Length&& length) { SET_NESTED(m_nonInheritedData, surroundData, padding.top(), WTFMove(length)); }
 inline void RenderStyle::setPageSize(LengthSize size) { SET_NESTED(m_nonInheritedData, rareData, pageSize, WTFMove(size)); }
-inline void RenderStyle::setPageSizeType(PageSizeType type) { SET_NESTED(m_nonInheritedData, rareData, pageSizeType, type); }
+inline void RenderStyle::setPageSizeType(PageSizeType type) { SET_NESTED(m_nonInheritedData, rareData, pageSizeType, static_cast<unsigned>(type)); }
 inline void RenderStyle::setPaintOrder(PaintOrder order) { SET(m_rareInheritedData, paintOrder, static_cast<unsigned>(order)); }
 inline void RenderStyle::setPerspective(float perspective) { SET_NESTED(m_nonInheritedData, rareData, perspective, perspective); }
 inline void RenderStyle::setPerspectiveOriginX(Length&& length) { SET_NESTED(m_nonInheritedData, rareData, perspectiveOriginX, WTFMove(length)); }
@@ -271,6 +270,7 @@ inline void RenderStyle::setResize(Resize r) { SET_NESTED(m_nonInheritedData, mi
 inline void RenderStyle::setRight(Length&& length) { SET_NESTED(m_nonInheritedData, surroundData, offset.right(), WTFMove(length)); }
 inline void RenderStyle::setRowGap(GapLength&& gapLength) { SET_NESTED(m_nonInheritedData, rareData, rowGap, WTFMove(gapLength)); }
 inline void RenderStyle::setRubyPosition(RubyPosition position) { SET(m_rareInheritedData, rubyPosition, static_cast<unsigned>(position)); }
+inline void RenderStyle::setRubyAlign(RubyAlign alignment) { SET(m_rareInheritedData, rubyAlign, static_cast<unsigned>(alignment)); }
 inline void RenderStyle::setScrollTimelineAxes(const Vector<ScrollAxis>& axes) { SET_NESTED(m_nonInheritedData, rareData, scrollTimelineAxes, axes); }
 inline void RenderStyle::setScrollTimelineNames(const Vector<AtomString>& names) { SET_NESTED(m_nonInheritedData, rareData, scrollTimelineNames, names); }
 inline void RenderStyle::setViewTimelineAxes(const Vector<ScrollAxis>& axes) { SET_NESTED(m_nonInheritedData, rareData, viewTimelineAxes, axes); }
@@ -303,6 +303,7 @@ inline void RenderStyle::setTextEmphasisMark(TextEmphasisMark mark) { SET(m_rare
 inline void RenderStyle::setTextEmphasisPosition(OptionSet<TextEmphasisPosition> position) { SET(m_rareInheritedData, textEmphasisPosition, static_cast<unsigned>(position.toRaw())); }
 inline void RenderStyle::setTextFillColor(const StyleColor& color) { SET(m_rareInheritedData, textFillColor, color); }
 inline void RenderStyle::setHasExplicitlySetColor(bool value) { m_inheritedFlags.hasExplicitlySetColor = value; }
+inline void RenderStyle::setTableLayout(TableLayoutType value) { SET_NESTED(m_nonInheritedData, miscData, tableLayout, static_cast<unsigned>(value)); }
 inline void RenderStyle::setTextGroupAlign(TextGroupAlign value) { SET_NESTED(m_nonInheritedData, rareData, textGroupAlign, static_cast<unsigned>(value)); }
 inline void RenderStyle::setTextIndent(Length&& length) { SET(m_rareInheritedData, indent, WTFMove(length)); }
 inline void RenderStyle::setTextIndentLine(TextIndentLine value) { SET(m_rareInheritedData, textIndentLine, static_cast<unsigned>(value)); }
@@ -314,7 +315,7 @@ inline void RenderStyle::setTextStrokeColor(const StyleColor& c) { SET(m_rareInh
 inline void RenderStyle::setTextStrokeWidth(float value) { SET(m_rareInheritedData, textStrokeWidth, value); }
 inline void RenderStyle::setTextTransform(OptionSet<TextTransform> value) { m_inheritedFlags.textTransform = value.toRaw(); }
 inline void RenderStyle::setTextUnderlineOffset(TextUnderlineOffset textUnderlineOffset) { SET(m_rareInheritedData, textUnderlineOffset, textUnderlineOffset); }
-inline void RenderStyle::setTextUnderlinePosition(TextUnderlinePosition position) { SET(m_rareInheritedData, textUnderlinePosition, static_cast<unsigned>(position)); }
+inline void RenderStyle::setTextUnderlinePosition(OptionSet<TextUnderlinePosition> position) { SET(m_rareInheritedData, textUnderlinePosition, static_cast<unsigned>(position.toRaw())); }
 inline void RenderStyle::setTextZoom(TextZoom zoom) { SET(m_rareInheritedData, textZoom, static_cast<unsigned>(zoom)); }
 inline void RenderStyle::setTop(Length&& length) { SET_NESTED(m_nonInheritedData, surroundData, offset.top(), WTFMove(length)); }
 inline void RenderStyle::setTouchActions(OptionSet<TouchAction> actions) { SET_NESTED(m_nonInheritedData, rareData, touchActions, actions); }

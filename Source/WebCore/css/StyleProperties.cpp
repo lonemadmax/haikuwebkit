@@ -256,9 +256,6 @@ static constexpr bool canUseShorthandForLonghand(CSSPropertyID shorthandID, CSSP
     case CSSPropertyGridRow:
     case CSSPropertyMaskPosition:
     case CSSPropertyOffset:
-    case CSSPropertyPlaceContent:
-    case CSSPropertyPlaceItems:
-    case CSSPropertyPlaceSelf:
     case CSSPropertyTextEmphasis:
     case CSSPropertyWebkitTextStroke:
         return false;
@@ -396,7 +393,7 @@ Ref<MutableStyleProperties> StyleProperties::copyProperties(std::span<const CSSP
 {
     auto vector = WTF::compactMap(properties, [&](auto& property) -> std::optional<CSSProperty> {
         if (auto value = getPropertyCSSValue(property))
-            return CSSProperty(property, WTFMove(value), false);
+            return CSSProperty(property, WTFMove(value));
         return std::nullopt;
     });
     return MutableStyleProperties::create(WTFMove(vector));

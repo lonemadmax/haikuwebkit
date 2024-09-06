@@ -218,7 +218,6 @@ RenderStyle::RenderStyle(CreateDefaultStyleTag)
     m_nonInheritedFlags.position = static_cast<unsigned>(initialPosition());
     m_nonInheritedFlags.unicodeBidi = static_cast<unsigned>(initialUnicodeBidi());
     m_nonInheritedFlags.floating = static_cast<unsigned>(initialFloating());
-    m_nonInheritedFlags.tableLayout = static_cast<unsigned>(initialTableLayout());
     m_nonInheritedFlags.textDecorationLine = initialTextDecorationLine().toRaw();
     m_nonInheritedFlags.usesViewportUnits = false;
     m_nonInheritedFlags.usesContainerUnits = false;
@@ -398,7 +397,6 @@ inline void RenderStyle::NonInheritedFlags::copyNonInheritedFrom(const NonInheri
     position = other.position;
     unicodeBidi = other.unicodeBidi;
     floating = other.floating;
-    tableLayout = other.tableLayout;
     textDecorationLine = other.textDecorationLine;
     usesViewportUnits = other.usesViewportUnits;
     usesContainerUnits = other.usesContainerUnits;
@@ -877,6 +875,9 @@ static bool rareDataChangeRequiresLayout(const StyleRareNonInheritedData& first,
     if (first.scrollbarWidth != second.scrollbarWidth)
         return true;
 
+    if (first.textBoxTrim != second.textBoxTrim)
+        return true;
+
     return false;
 }
 
@@ -888,6 +889,7 @@ static bool rareInheritedDataChangeRequiresLayout(const StyleRareInheritedData& 
         || first.textAlignLast != second.textAlignLast
         || first.textJustify != second.textJustify
         || first.textIndentLine != second.textIndentLine
+        || first.textBoxEdge != second.textBoxEdge
         || first.usedZoom != second.usedZoom
         || first.textZoom != second.textZoom
 #if ENABLE(TEXT_AUTOSIZING)
@@ -903,6 +905,7 @@ static bool rareInheritedDataChangeRequiresLayout(const StyleRareInheritedData& 
         || first.hyphenationLimitAfter != second.hyphenationLimitAfter
         || first.hyphenationString != second.hyphenationString
         || first.rubyPosition != second.rubyPosition
+        || first.rubyAlign != second.rubyAlign
         || first.textCombine != second.textCombine
         || first.textEmphasisMark != second.textEmphasisMark
         || first.textEmphasisPosition != second.textEmphasisPosition
@@ -1035,7 +1038,7 @@ bool RenderStyle::changeRequiresLayout(const RenderStyle& other, OptionSet<Style
         if (m_inheritedFlags.borderCollapse != other.m_inheritedFlags.borderCollapse
             || m_inheritedFlags.emptyCells != other.m_inheritedFlags.emptyCells
             || m_inheritedFlags.captionSide != other.m_inheritedFlags.captionSide
-            || m_nonInheritedFlags.tableLayout != other.m_nonInheritedFlags.tableLayout)
+            || tableLayout() != other.tableLayout())
             return true;
 
         // In the collapsing border model, 'hidden' suppresses other borders, while 'none'
@@ -1544,8 +1547,6 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyDisplay);
         if (first.floating != second.floating)
             changingProperties.m_properties.set(CSSPropertyFloat);
-        if (first.tableLayout != second.tableLayout)
-            changingProperties.m_properties.set(CSSPropertyTableLayout);
         if (first.textDecorationLine != second.textDecorationLine)
             changingProperties.m_properties.set(CSSPropertyTextDecorationLine);
 
@@ -1713,9 +1714,10 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
         }
 
         if (first.multiCol != second.multiCol) {
-            changingProperties.m_properties.set(CSSPropertyColumnFill);
-            changingProperties.m_properties.set(CSSPropertyColumnWidth);
             changingProperties.m_properties.set(CSSPropertyColumnCount);
+            changingProperties.m_properties.set(CSSPropertyColumnFill);
+            changingProperties.m_properties.set(CSSPropertyColumnSpan);
+            changingProperties.m_properties.set(CSSPropertyColumnWidth);
             changingProperties.m_properties.set(CSSPropertyColumnRuleColor);
             changingProperties.m_properties.set(CSSPropertyColumnRuleStyle);
             changingProperties.m_properties.set(CSSPropertyColumnRuleWidth);
@@ -1786,6 +1788,10 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyResize);
         if (first.objectFit != second.objectFit)
             changingProperties.m_properties.set(CSSPropertyObjectFit);
+        if (first.appearance != second.appearance)
+            changingProperties.m_properties.set(CSSPropertyAppearance);
+        if (first.tableLayout != second.tableLayout)
+            changingProperties.m_properties.set(CSSPropertyTableLayout);
 
         if (first.transform.ptr() != second.transform.ptr())
             conservativelyCollectChangedAnimatablePropertiesViaTransformData(*first.transform, *second.transform);
@@ -1796,12 +1802,15 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
         // hasExplicitlySetColorScheme
         // hasExplicitlySetDirection
         // hasExplicitlySetWritingMode
-        // appearance
         // usedAppearance
         // userDrag
     };
 
     auto conservativelyCollectChangedAnimatablePropertiesViaNonInheritedRareData = [&](auto& first, auto& second) {
+        if (first.blockStepInsert != second.blockStepInsert)
+            changingProperties.m_properties.set(CSSPropertyBlockStepInsert);
+        if (first.blockStepSize != second.blockStepSize)
+            changingProperties.m_properties.set(CSSPropertyBlockStepSize);
         if (first.containIntrinsicWidth != second.containIntrinsicWidth || first.containIntrinsicWidthType != second.containIntrinsicWidthType)
             changingProperties.m_properties.set(CSSPropertyContainIntrinsicWidth);
         if (first.containIntrinsicHeight != second.containIntrinsicHeight || first.containIntrinsicHeightType != second.containIntrinsicHeightType)
@@ -1841,6 +1850,7 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyMaskBorderWidth);
             changingProperties.m_properties.set(CSSPropertyMaskBorderOutset);
             changingProperties.m_properties.set(CSSPropertyMaskBorderRepeat);
+            changingProperties.m_properties.set(CSSPropertyWebkitMaskBoxImage);
         }
         if (!arePointingToEqualData(first.shapeOutside, second.shapeOutside))
             changingProperties.m_properties.set(CSSPropertyShapeOutside);
@@ -1918,6 +1928,12 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyAnchorName);
         if (first.positionAnchor != second.positionAnchor)
             changingProperties.m_properties.set(CSSPropertyPositionAnchor);
+        if (first.scrollSnapAlign != second.scrollSnapAlign)
+            changingProperties.m_properties.set(CSSPropertyScrollSnapAlign);
+        if (first.scrollSnapStop != second.scrollSnapStop)
+            changingProperties.m_properties.set(CSSPropertyScrollSnapStop);
+        if (first.scrollSnapType != second.scrollSnapType)
+            changingProperties.m_properties.set(CSSPropertyScrollSnapType);
 
         // Non animated styles are followings.
         // customProperties
@@ -1933,11 +1949,6 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
         // boxReflect
         // pageSize
         // pageSizeType
-        // scrollSnapType
-        // scrollSnapAlign
-        // scrollSnapStop
-        // blockStepSize
-        // blockStepInsert
         // overscrollBehaviorX
         // overscrollBehaviorY
         // applePayButtonStyle
@@ -1964,6 +1975,7 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyTextAutospace);
             changingProperties.m_properties.set(CSSPropertyFontStyle);
 #if ENABLE(VARIATION_FONTS)
+            changingProperties.m_properties.set(CSSPropertyFontOpticalSizing);
             changingProperties.m_properties.set(CSSPropertyFontVariationSettings);
 #endif
             changingProperties.m_properties.set(CSSPropertyFontWeight);
@@ -2027,6 +2039,8 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyOverflowWrap);
         if (first.lineBreak != second.lineBreak)
             changingProperties.m_properties.set(CSSPropertyLineBreak);
+        if (first.hangingPunctuation != second.hangingPunctuation)
+            changingProperties.m_properties.set(CSSPropertyHangingPunctuation);
         if (first.hyphens != second.hyphens)
             changingProperties.m_properties.set(CSSPropertyHyphens);
         if (first.textEmphasisPosition != second.textEmphasisPosition)
@@ -2045,14 +2059,24 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyTabSize);
         if (first.imageOrientation != second.imageOrientation)
             changingProperties.m_properties.set(CSSPropertyImageOrientation);
+        if (first.imageRendering != second.imageRendering)
+            changingProperties.m_properties.set(CSSPropertyImageRendering);
         if (first.textAlignLast != second.textAlignLast)
             changingProperties.m_properties.set(CSSPropertyTextAlignLast);
+        if (first.textBoxEdge != second.textBoxEdge)
+            changingProperties.m_properties.set(CSSPropertyTextBoxEdge);
         if (first.textJustify != second.textJustify)
             changingProperties.m_properties.set(CSSPropertyTextJustify);
         if (first.textDecorationSkipInk != second.textDecorationSkipInk)
             changingProperties.m_properties.set(CSSPropertyTextDecorationSkipInk);
+        if (first.textUnderlinePosition != second.textUnderlinePosition)
+            changingProperties.m_properties.set(CSSPropertyTextUnderlinePosition);
         if (first.rubyPosition != second.rubyPosition)
-            changingProperties.m_properties.set(CSSPropertyWebkitRubyPosition);
+            changingProperties.m_properties.set(CSSPropertyRubyPosition);
+        if (first.rubyAlign != second.rubyAlign)
+            changingProperties.m_properties.set(CSSPropertyRubyAlign);
+        if (first.strokeColor != second.strokeColor)
+            changingProperties.m_properties.set(CSSPropertyStrokeColor);
         if (first.paintOrder != second.paintOrder)
             changingProperties.m_properties.set(CSSPropertyPaintOrder);
         if (first.capStyle != second.capStyle)
@@ -2067,6 +2091,8 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyScrollbarColor);
         if (first.listStyleType != second.listStyleType)
             changingProperties.m_properties.set(CSSPropertyListStyleType);
+        if (first.hyphenationString != second.hyphenationString)
+            changingProperties.m_properties.set(CSSPropertyHyphenateCharacter);
 
         // customProperties is handled separately.
         // Non animated styles are followings.
@@ -2076,7 +2102,6 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
         // hyphenationLimitBefore
         // hyphenationLimitAfter
         // hyphenationLimitLines
-        // hyphenationString
         // tapHighlightColor
         // nbspMode
         // useTouchOverflowScrolling
@@ -2087,11 +2112,9 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
         // eventListenerRegionTypes
         // effectiveInert
         // usedContentVisibility
-        // strokeColor
         // visitedLinkStrokeColor
         // hasSetStrokeColor
         // usedZoom
-        // textBoxEdge
         // textSecurity
         // userModify
         // speakAs
@@ -2100,12 +2123,9 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
         // lineBoxContain
         // touchCalloutEnabled
         // lineGrid
-        // imageRendering
-        // textUnderlinePosition
         // textZoom
         // lineSnap
         // lineAlign
-        // hangingPunctuation
         // cursorData
         // textEmphasisCustomMark
     };
@@ -2167,12 +2187,12 @@ void RenderStyle::setCursorList(RefPtr<CursorList>&& list)
     m_rareInheritedData.access().cursorData = WTFMove(list);
 }
 
-void RenderStyle::setQuotes(RefPtr<QuotesData>&& q)
+void RenderStyle::setQuotes(RefPtr<QuotesData>&& quotes)
 {
-    if (m_rareInheritedData->quotes == q || (m_rareInheritedData->quotes && q && *m_rareInheritedData->quotes == *q))
+    if (arePointingToEqualData(m_rareInheritedData->quotes.get(), quotes.get()))
         return;
 
-    m_rareInheritedData.access().quotes = WTFMove(q);
+    m_rareInheritedData.access().quotes = WTFMove(quotes);
 }
 
 void RenderStyle::setWillChange(RefPtr<WillChangeData>&& willChangeData)
@@ -2774,8 +2794,7 @@ float RenderStyle::computedLineHeight() const
 
 float RenderStyle::computeLineHeight(const Length& lineHeightLength) const
 {
-    // Negative value means the line height is not set. Use the font's built-in spacing.
-    if (lineHeightLength.isNegative())
+    if (lineHeightLength.isNormal())
         return metricsOfPrimaryFont().lineSpacing();
 
     if (lineHeightLength.isPercentOrCalculated())
@@ -2881,6 +2900,16 @@ void RenderStyle::setFontSizeAdjust(FontSizeAdjust sizeAdjust)
     auto selector = fontCascade().fontSelector();
     auto description = fontDescription();
     description.setFontSizeAdjust(sizeAdjust);
+
+    setFontDescription(WTFMove(description));
+    fontCascade().update(selector);
+}
+
+void RenderStyle::setFontOpticalSizing(FontOpticalSizing opticalSizing)
+{
+    auto selector = fontCascade().fontSelector();
+    auto description = fontDescription();
+    description.setOpticalSizing(opticalSizing);
 
     setFontDescription(WTFMove(description));
     fontCascade().update(selector);
@@ -3392,6 +3421,55 @@ void RenderStyle::setBorderImageVerticalRule(NinePieceImageRule rule)
     m_nonInheritedData.access().surroundData.access().border.m_image.setVerticalRule(rule);
 }
 
+void RenderStyle::setMaskBorderSource(RefPtr<StyleImage>&& image)
+{
+    if (m_nonInheritedData.access().rareData.access().maskBorder.image() == image.get())
+        return;
+    m_nonInheritedData.access().rareData.access().maskBorder.setImage(WTFMove(image));
+}
+
+void RenderStyle::setMaskBorderSliceFill(bool fill)
+{
+    if (m_nonInheritedData->rareData->maskBorder.fill() == fill)
+        return;
+    m_nonInheritedData.access().rareData.access().maskBorder.setFill(fill);
+}
+
+void RenderStyle::setMaskBorderSlices(LengthBox&& slices)
+{
+    if (m_nonInheritedData->rareData->maskBorder.imageSlices() == slices)
+        return;
+    m_nonInheritedData.access().rareData.access().maskBorder.setImageSlices(WTFMove(slices));
+}
+
+void RenderStyle::setMaskBorderWidth(LengthBox&& slices)
+{
+    if (m_nonInheritedData->rareData->maskBorder.borderSlices() == slices)
+        return;
+    m_nonInheritedData.access().rareData.access().maskBorder.setBorderSlices(WTFMove(slices));
+}
+
+void RenderStyle::setMaskBorderOutset(LengthBox&& outset)
+{
+    if (m_nonInheritedData->rareData->maskBorder.outset() == outset)
+        return;
+    m_nonInheritedData.access().rareData.access().maskBorder.setOutset(WTFMove(outset));
+}
+
+void RenderStyle::setMaskBorderHorizontalRule(NinePieceImageRule rule)
+{
+    if (m_nonInheritedData->rareData->maskBorder.horizontalRule() == rule)
+        return;
+    m_nonInheritedData.access().rareData.access().maskBorder.setHorizontalRule(rule);
+}
+
+void RenderStyle::setMaskBorderVerticalRule(NinePieceImageRule rule)
+{
+    if (m_nonInheritedData->rareData->maskBorder.verticalRule() == rule)
+        return;
+    m_nonInheritedData.access().rareData.access().maskBorder.setVerticalRule(rule);
+}
+
 void RenderStyle::setColumnStylesFromPaginationMode(PaginationMode paginationMode)
 {
     if (paginationMode == Pagination::Mode::Unpaginated)
@@ -3619,7 +3697,7 @@ ScrollbarWidth RenderStyle::initialScrollbarWidth()
     return ScrollbarWidth::Auto;
 }
 
-const ScrollSnapType RenderStyle::scrollSnapType() const
+ScrollSnapType RenderStyle::scrollSnapType() const
 {
     return m_nonInheritedData->rareData->scrollSnapType;
 }
@@ -3634,7 +3712,7 @@ ScrollSnapStop RenderStyle::scrollSnapStop() const
     return m_nonInheritedData->rareData->scrollSnapStop;
 }
 
-const ScrollbarGutter RenderStyle::scrollbarGutter() const
+ScrollbarGutter RenderStyle::scrollbarGutter() const
 {
     return m_nonInheritedData->rareData->scrollbarGutter;
 }
@@ -3644,7 +3722,7 @@ ScrollbarWidth RenderStyle::scrollbarWidth() const
     return m_nonInheritedData->rareData->scrollbarWidth;
 }
 
-void RenderStyle::setScrollSnapType(const ScrollSnapType type)
+void RenderStyle::setScrollSnapType(ScrollSnapType type)
 {
     SET_NESTED_VAR(m_nonInheritedData, rareData, scrollSnapType, type);
 }
@@ -3654,7 +3732,7 @@ void RenderStyle::setScrollSnapAlign(const ScrollSnapAlign& alignment)
     SET_NESTED_VAR(m_nonInheritedData, rareData, scrollSnapAlign, alignment);
 }
 
-void RenderStyle::setScrollSnapStop(const ScrollSnapStop stop)
+void RenderStyle::setScrollSnapStop(ScrollSnapStop stop)
 {
     SET_NESTED_VAR(m_nonInheritedData, rareData, scrollSnapStop, stop);
 }

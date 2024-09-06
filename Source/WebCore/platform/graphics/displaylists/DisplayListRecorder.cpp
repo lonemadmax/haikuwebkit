@@ -236,7 +236,7 @@ void Recorder::drawGlyphsAndCacheResources(const Font& font, const GlyphBufferGl
     recordDrawGlyphs(font, glyphs, advances, numGlyphs, localAnchor, smoothingMode);
 }
 
-void Recorder::drawDisplayListItems(const Vector<Item>& items, const ResourceHeap& resourceHeap, const FloatPoint& destination)
+void Recorder::drawDisplayListItems(const Vector<Item>& items, const ResourceHeap& resourceHeap, ControlFactory&, const FloatPoint& destination)
 {
     appendStateChangeItemIfNecessary();
 
@@ -479,16 +479,16 @@ void Recorder::drawFocusRing(const Vector<FloatRect>& rects, float outlineOffset
     recordDrawFocusRingRects(rects, outlineOffset, outlineWidth, color);
 }
 
-void Recorder::fillRect(const FloatRect& rect)
+void Recorder::fillRect(const FloatRect& rect, RequiresClipToRect requiresClipToRect)
 {
     appendStateChangeItemIfNecessary();
-    recordFillRect(rect);
+    recordFillRect(rect, requiresClipToRect);
 }
 
-void Recorder::fillRect(const FloatRect& rect, Gradient& gradient, const AffineTransform& gradientSpaceTransform)
+void Recorder::fillRect(const FloatRect& rect, Gradient& gradient, const AffineTransform& gradientSpaceTransform, RequiresClipToRect requiresClipToRect)
 {
     appendStateChangeItemIfNecessary();
-    recordFillRectWithGradientAndSpaceTransform(rect, gradient, gradientSpaceTransform);
+    recordFillRectWithGradientAndSpaceTransform(rect, gradient, gradientSpaceTransform, requiresClipToRect);
 }
 
 void Recorder::fillRect(const FloatRect& rect, const Color& color)

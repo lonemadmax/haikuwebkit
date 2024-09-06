@@ -42,6 +42,7 @@
 #include "CSSSelector.h"
 #include "CSSStyleRule.h"
 #include "CSSStyleSheet.h"
+#include "CSSViewTransitionRule.h"
 #include "CachedResourceLoader.h"
 #include "CompositeOperation.h"
 #include "Document.h"
@@ -180,7 +181,7 @@ void Resolver::initialize()
         document().fontSelector().incrementIsComputingRootStyleFont();
         m_rootDefaultStyle->fontCascade().update(&document().fontSelector());
         m_rootDefaultStyle->fontCascade().primaryFont();
-        document().fontSelector().decrementIsComputingRootStyleFont();
+        document().protectedFontSelector()->decrementIsComputingRootStyleFont();
     }
 
     if (m_rootDefaultStyle && view)
@@ -813,6 +814,10 @@ static CSSSelectorList viewTransitionSelector(CSSSelector::PseudoElement element
     return CSSSelectorList(WTFMove(selectorList));
 }
 
+RefPtr<StyleRuleViewTransition> Resolver::viewTransitionRule() const
+{
+    return m_ruleSets.viewTransitionRule();
+}
 
 void Resolver::setViewTransitionStyles(CSSSelector::PseudoElement element, const AtomString& name, Ref<MutableStyleProperties> properties)
 {

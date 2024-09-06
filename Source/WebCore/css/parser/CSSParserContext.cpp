@@ -28,7 +28,7 @@
 
 #include "CSSPropertyNames.h"
 #include "CSSValuePool.h"
-#include "Document.h"
+#include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "OriginAccessPatterns.h"
 #include "Page.h"
@@ -55,6 +55,7 @@ CSSParserContext::CSSParserContext(CSSParserMode mode, const URL& baseURL)
 {
     // FIXME: We should turn all of the features on from their WebCore Settings defaults.
     if (isUASheetBehavior(mode)) {
+        cssTextUnderlinePositionLeftRightEnabled = true;
         lightDarkEnabled = true;
         popoverAttributeEnabled = true;
         propertySettings.cssInputSecurityEnabled = true;
@@ -79,7 +80,7 @@ CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBas
     , charset { charset }
     , mode { document.inQuirksMode() ? HTMLQuirksMode : HTMLStandardMode }
     , isHTMLDocument { document.isHTMLDocument() }
-    , hasDocumentSecurityOrigin { sheetBaseURL.isNull() || document.securityOrigin().canRequest(baseURL, OriginAccessPatternsForWebProcess::singleton()) }
+    , hasDocumentSecurityOrigin { sheetBaseURL.isNull() || document.protectedSecurityOrigin()->canRequest(baseURL, OriginAccessPatternsForWebProcess::singleton()) }
     , useSystemAppearance { document.page() ? document.page()->useSystemAppearance() : false }
     , colorContrastEnabled { document.settings().cssColorContrastEnabled() }
     , counterStyleAtRuleImageSymbolsEnabled { document.settings().cssCounterStyleAtRuleImageSymbolsEnabled() }
@@ -91,9 +92,11 @@ CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBas
     , cssNestingEnabled { document.settings().cssNestingEnabled() }
     , cssPaintingAPIEnabled { document.settings().cssPaintingAPIEnabled() }
     , cssScopeAtRuleEnabled { document.settings().cssScopeAtRuleEnabled() }
+    , cssShapeFunctionEnabled { document.settings().cssShapeFunctionEnabled() }
     , cssStartingStyleAtRuleEnabled { document.settings().cssStartingStyleAtRuleEnabled() }
     , cssStyleQueriesEnabled { document.settings().cssStyleQueriesEnabled() }
     , cssTextUnderlinePositionLeftRightEnabled { document.settings().cssTextUnderlinePositionLeftRightEnabled() }
+    , cssBackgroundClipBorderAreaEnabled  { document.settings().cssBackgroundClipBorderAreaEnabled() }
     , cssWordBreakAutoPhraseEnabled { document.settings().cssWordBreakAutoPhraseEnabled() }
     , popoverAttributeEnabled { document.settings().popoverAttributeEnabled() }
     , sidewaysWritingModesEnabled { document.settings().sidewaysWritingModesEnabled() }
@@ -105,6 +108,7 @@ CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBas
 #if ENABLE(SERVICE_CONTROLS)
     , imageControlsEnabled { document.settings().imageControlsEnabled() }
 #endif
+    , colorLayersEnabled { document.settings().cssColorLayersEnabled() }
     , lightDarkEnabled { document.settings().cssLightDarkEnabled() }
     , propertySettings { CSSPropertySettings { document.settings() } }
 {
@@ -125,20 +129,23 @@ void add(Hasher& hasher, const CSSParserContext& context)
         | context.cssNestingEnabled                         << 8
         | context.cssPaintingAPIEnabled                     << 9
         | context.cssScopeAtRuleEnabled                     << 10
-        | context.cssTextUnderlinePositionLeftRightEnabled  << 11
-        | context.cssWordBreakAutoPhraseEnabled             << 12
-        | context.popoverAttributeEnabled                   << 13
-        | context.sidewaysWritingModesEnabled               << 14
-        | context.cssTextWrapPrettyEnabled                  << 15
-        | context.highlightAPIEnabled                       << 16
-        | context.grammarAndSpellingPseudoElementsEnabled   << 17
-        | context.customStateSetEnabled                     << 18
-        | context.thumbAndTrackPseudoElementsEnabled        << 19
+        | context.cssShapeFunctionEnabled                   << 11
+        | context.cssTextUnderlinePositionLeftRightEnabled  << 12
+        | context.cssBackgroundClipBorderAreaEnabled        << 13
+        | context.cssWordBreakAutoPhraseEnabled             << 14
+        | context.popoverAttributeEnabled                   << 15
+        | context.sidewaysWritingModesEnabled               << 16
+        | context.cssTextWrapPrettyEnabled                  << 17
+        | context.highlightAPIEnabled                       << 18
+        | context.grammarAndSpellingPseudoElementsEnabled   << 19
+        | context.customStateSetEnabled                     << 20
+        | context.thumbAndTrackPseudoElementsEnabled        << 21
 #if ENABLE(SERVICE_CONTROLS)
-        | context.imageControlsEnabled                      << 20
+        | context.imageControlsEnabled                      << 22
 #endif
-        | context.lightDarkEnabled                          << 21
-        | (uint32_t)context.mode                            << 22; // This is multiple bits, so keep it last.
+        | context.colorLayersEnabled                        << 23
+        | context.lightDarkEnabled                          << 24
+        | (uint32_t)context.mode                            << 25; // This is multiple bits, so keep it last.
     add(hasher, context.baseURL, context.charset, context.propertySettings, bits);
 }
 

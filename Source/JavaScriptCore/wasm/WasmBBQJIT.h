@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -890,6 +890,8 @@ public:
 
     PartialResult WARN_UNUSED_RETURN setLocal(uint32_t localIndex, Value value);
 
+    PartialResult WARN_UNUSED_RETURN teeLocal(uint32_t localIndex, Value, Value& result);
+
     // Globals
 
     Value topValue(TypeKind type);
@@ -1171,8 +1173,8 @@ public:
 
     PartialResult WARN_UNUSED_RETURN addArrayNewDefault(uint32_t typeIndex, ExpressionType size, ExpressionType& result);
 
-    using arraySegmentOperation = EncodedJSValue SYSV_ABI (&)(JSC::Wasm::Instance*, uint32_t, uint32_t, uint32_t, uint32_t);
-    void pushArrayNewFromSegment(arraySegmentOperation operation, uint32_t typeIndex, uint32_t segmentIndex, ExpressionType arraySize, ExpressionType offset, ExceptionType exceptionType, ExpressionType& result);
+    using ArraySegmentOperation = EncodedJSValue SYSV_ABI (&)(JSC::JSWebAssemblyInstance*, uint32_t, uint32_t, uint32_t, uint32_t);
+    void pushArrayNewFromSegment(ArraySegmentOperation operation, uint32_t typeIndex, uint32_t segmentIndex, ExpressionType arraySize, ExpressionType offset, ExceptionType exceptionType, ExpressionType& result);
 
     PartialResult WARN_UNUSED_RETURN addArrayNewData(uint32_t typeIndex, uint32_t dataIndex, ExpressionType arraySize, ExpressionType offset, ExpressionType& result);
 
@@ -1776,9 +1778,11 @@ public:
     template<typename Func, size_t N>
     void emitCCall(Func function, const Vector<Value, N>& arguments, Value& result);
 
+    void emitTailCall(unsigned functionIndex, const TypeDefinition& signature, Vector<Value>& arguments);
     PartialResult WARN_UNUSED_RETURN addCall(unsigned functionIndex, const TypeDefinition& signature, Vector<Value>& arguments, ResultList& results, CallType callType = CallType::Call);
 
-    void emitIndirectCall(const char* opcode, const Value& calleeIndex, GPRReg calleeInstance, GPRReg calleeCode, GPRReg jsCalleeAnchor, const TypeDefinition& signature, Vector<Value>& arguments, ResultList& results, CallType callType = CallType::Call);
+    void emitIndirectCall(const char* opcode, const Value& calleeIndex, GPRReg calleeInstance, GPRReg calleeCode, const TypeDefinition& signature, Vector<Value>& arguments, ResultList& results);
+    void emitIndirectTailCall(const Value& calleeIndex, GPRReg calleeInstance, GPRReg calleeCode, const TypeDefinition& signature, Vector<Value>& arguments);
     void addRTTSlowPathJump(TypeIndex, GPRReg);
     void emitSlowPathRTTCheck(MacroAssembler::Label, TypeIndex, GPRReg);
 
@@ -1791,6 +1795,8 @@ public:
     PartialResult WARN_UNUSED_RETURN addCrash();
 
     ALWAYS_INLINE void willParseOpcode();
+
+    ALWAYS_INLINE void willParseExtendedOpcode();
 
     ALWAYS_INLINE void didParseOpcode();
 
@@ -1848,7 +1854,7 @@ public:
 
     void dump(const ControlStack&, const Stack*);
     void didFinishParsingLocals();
-    void didPopValueFromStack(ExpressionType, String);
+    void didPopValueFromStack(ExpressionType, ASCIILiteral);
 
     void finalize();
 
@@ -2171,17 +2177,22 @@ private:
         template<typename... Args>
         void initializedPreservedSet(RegisterSet registers, Args... args)
         {
-            for (JSC::Reg reg : registers) {
-                if (reg.isGPR())
-                    m_preserved.add(reg.gpr(), IgnoreVectors);
-                else
-                    m_preserved.add(reg.fpr(), Width::Width128);
-            }
+            for (JSC::Reg reg : registers)
+                initializedPreservedSet(reg);
             initializedPreservedSet(args...);
         }
 
-        inline void initializedPreservedSet()
-        { }
+        template<typename... Args>
+        void initializedPreservedSet(JSC::Reg reg, Args... args)
+        {
+            if (reg.isGPR())
+                m_preserved.add(reg.gpr(), IgnoreVectors);
+            else
+                m_preserved.add(reg.fpr(), Width::Width128);
+            initializedPreservedSet(args...);
+        }
+
+        inline void initializedPreservedSet() { }
 
         BBQJIT& m_generator;
         GPRReg m_tempGPRs[GPRs];
@@ -2237,6 +2248,7 @@ private:
     uint32_t m_lastUseTimestamp; // Monotonically increasing integer incrementing with each register use.
     Vector<RefPtr<SharedTask<void(BBQJIT&, CCallHelpers&)>>, 8> m_latePaths; // Late paths to emit after the rest of the function body.
 
+    // FIXME: All uses of this are to restore sp, so we should emit these as a patchable sub instruction rather than move.
     Vector<DataLabelPtr, 1> m_frameSizeLabels;
     int m_frameSize { 0 };
     int m_maxCalleeStackSize { 0 };

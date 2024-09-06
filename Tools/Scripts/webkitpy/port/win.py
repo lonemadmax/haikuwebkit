@@ -117,6 +117,18 @@ class WinPort(ApplePort):
 
     def setup_environ_for_server(self, server_name=None):
         env = super(WinPort, self).setup_environ_for_server(server_name)
+        variables_to_copy = [
+            'COMSPEC',
+            'HOMEDRIVE',
+            'HOMEPATH',
+            'SYSTEMDRIVE',
+            'SYSTEMROOT',
+            'TEMP',
+            'TMP',
+            'WEBKIT_LIBRARIES',
+        ]
+        for variable in variables_to_copy:
+            self._copy_value_from_environ_if_set(env, variable)
         if 'WEBKIT_TESTFONTS' not in env:
             env['WEBKIT_TESTFONTS'] = self.path_from_webkit_base('Tools', 'WebKitTestRunner', 'fonts')
         if 'WEBKIT_LIBRARIES' in env:
@@ -126,17 +138,6 @@ class WinPort(ApplePort):
         env['PATH'] = lib + ';' + env['PATH']
         env['PYTHONUTF8'] = '1'
         env['XML_CATALOG_FILES'] = ''  # work around missing /etc/catalog <rdar://problem/4292995>
-        return env
-
-    def environment_for_api_tests(self):
-        env = super(WinPort, self).environment_for_api_tests()
-        variables_to_copy = [
-            'SYSTEMROOT',
-            'TEMP',
-            'TMP',
-        ]
-        for variable in variables_to_copy:
-            self._copy_value_from_environ_if_set(env, variable)
         return env
 
     def driver_name(self):
@@ -297,13 +298,6 @@ class WinPort(ApplePort):
         return True
 
     def setup_crash_log_saving(self):
-        if '_NT_SYMBOL_PATH' not in os.environ:
-            _log.warning("The _NT_SYMBOL_PATH environment variable is not set. Using Microsoft Symbol Server.")
-            os.environ['_NT_SYMBOL_PATH'] = 'SRV*http://msdl.microsoft.com/download/symbols'
-
-        # Add build path to symbol path
-        os.environ['_NT_SYMBOL_PATH'] += ";" + str(self._build_path())
-
         ntsd_path = self._ntsd_location()
         if not ntsd_path:
             _log.warning("Can't find ntsd.exe. Crash logs will not be saved.")

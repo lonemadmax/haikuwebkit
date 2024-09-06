@@ -93,7 +93,7 @@ PutByStatus PutByStatus::computeFromLLInt(CodeBlock* profiledBlock, BytecodeInde
         if (!isValidOffset(offset))
             return PutByStatus(NoInformation);
         
-        return PutByVariant::replace(nullptr, structure, offset);
+        return PutByVariant::replace(nullptr, structure, offset, /* viaGlobalProxy */ false);
     }
 
     Structure* newStructure = newStructureID.decode();
@@ -169,7 +169,7 @@ PutByStatus PutByStatus::computeForStubInfo(const ConcurrentJSLocker& locker, Co
     return computeForStubInfo(locker, baselineBlock, stubInfo, CallLinkStatus::computeExitSiteData(baselineBlock, codeOrigin.bytecodeIndex()), codeOrigin);
 }
 
-PutByStatus PutByStatus::computeForStubInfo(const ConcurrentJSLocker& locker, CodeBlock* profiledBlock, StructureStubInfo* stubInfo, CallLinkStatus::ExitSiteData callExitSiteData, CodeOrigin codeOrigin)
+PutByStatus PutByStatus::computeForStubInfo(const ConcurrentJSLocker& locker, CodeBlock* profiledBlock, StructureStubInfo* stubInfo, CallLinkStatus::ExitSiteData callExitSiteData, CodeOrigin)
 {
     StubInfoSummary summary = StructureStubInfo::summary(profiledBlock->vm(), stubInfo);
     if (!isInlineable(summary))
@@ -187,7 +187,7 @@ PutByStatus PutByStatus::computeForStubInfo(const ConcurrentJSLocker& locker, Co
         Structure* structure = stubInfo->inlineAccessBaseStructure();
         PropertyOffset offset = structure->getConcurrently(uid);
         if (isValidOffset(offset))
-            return PutByVariant::replace(WTFMove(identifier), structure, offset);
+            return PutByVariant::replace(WTFMove(identifier), structure, offset, /* viaGlobalProxy */ false);
         return PutByStatus(JSC::slowVersion(summary), *stubInfo);
     }
         
@@ -202,16 +202,7 @@ PutByStatus PutByStatus::computeForStubInfo(const ConcurrentJSLocker& locker, Co
             switch (access.type()) {
             case AccessCase::StoreMegamorphic:
             case AccessCase::IndexedMegamorphicStore: {
-                // Emitting StoreMegamorphic means that we give up polymorphic IC optimization. So this needs very careful handling.
-                // It is possible that one function can be inlined from the other function, and then it gets limited # of structures.
-                // In this case, continue using IC is better than falling back to megamorphic case. But if the function gets compiled before,
-                // and even optimizing JIT saw the megamorphism, then this is likely that this function continues having megamorphic behavior,
-                // and inlined megamorphic code is faster. Currently, we use StoreMegamorphic only when the exact same form of CodeOrigin gets
-                // this megamorphic GetById before (same level of inlining etc.). This is very conservative but effective since IC is very fast
-                // when it worked well (but costly if it doesn't work and get megamorphic). Once this cost-benefit tradeoff gets changed (via
-                // handler IC), we can revisit this condition.
-                // FIXME: Add this thing.
-                if (isSameStyledCodeOrigin(stubInfo->codeOrigin, codeOrigin) && !stubInfo->tookSlowPath)
+                if (!stubInfo->tookSlowPath)
                     return PutByStatus(Megamorphic);
                 break;
             }
@@ -234,8 +225,8 @@ PutByStatus PutByStatus::computeForStubInfo(const ConcurrentJSLocker& locker, Co
 
         for (unsigned i = 0; i < list->size(); ++i) {
             const AccessCase& access = list->at(i);
-            if (access.viaGlobalProxy())
-                return PutByStatus(JSC::slowVersion(summary), *stubInfo);
+            bool viaGlobalProxy = access.viaGlobalProxy();
+
             if (access.usesPolyProto())
                 return PutByStatus(JSC::slowVersion(summary), *stubInfo);
             
@@ -245,7 +236,7 @@ PutByStatus PutByStatus::computeForStubInfo(const ConcurrentJSLocker& locker, Co
                 PropertyOffset offset = structure->getConcurrently(access.uid());
                 if (!isValidOffset(offset))
                     return PutByStatus(JSC::slowVersion(summary), *stubInfo);
-                auto variant = PutByVariant::replace(access.identifier(), structure, offset);
+                auto variant = PutByVariant::replace(access.identifier(), structure, offset, viaGlobalProxy);
                 if (!result.appendVariant(variant))
                     return PutByStatus(JSC::slowVersion(summary), *stubInfo);
                 break;
@@ -283,7 +274,7 @@ PutByStatus PutByStatus::computeForStubInfo(const ConcurrentJSLocker& locker, Co
                     domAttribute = WTF::makeUnique<DOMAttributeAnnotation>(*access.as<GetterSetterAccessCase>().domAttribute());
                 result.m_state = CustomAccessor;
 
-                auto variant = PutByVariant::customSetter(access.identifier(), access.structure(), WTFMove(conditionSet), customAccessorSetter, WTFMove(domAttribute));
+                auto variant = PutByVariant::customSetter(access.identifier(), access.structure(), viaGlobalProxy, WTFMove(conditionSet), customAccessorSetter, WTFMove(domAttribute));
                 if (!result.appendVariant(variant))
                     return PutByStatus(JSC::slowVersion(summary), *stubInfo);
                 break;
@@ -306,7 +297,7 @@ PutByStatus PutByStatus::computeForStubInfo(const ConcurrentJSLocker& locker, Co
                     if (CallLinkInfo* callLinkInfo = stubInfo->callLinkInfoAt(locker, i, access))
                         *callLinkStatus = CallLinkStatus::computeFor(locker, profiledBlock, *callLinkInfo, callExitSiteData);
 
-                    auto variant = PutByVariant::setter(access.identifier(), structure, complexGetStatus.offset(), complexGetStatus.conditionSet(), WTFMove(callLinkStatus));
+                    auto variant = PutByVariant::setter(access.identifier(), structure, complexGetStatus.offset(), viaGlobalProxy, complexGetStatus.conditionSet(), WTFMove(callLinkStatus));
                     if (!result.appendVariant(variant))
                         return PutByStatus(JSC::slowVersion(summary), *stubInfo);
                     break;
@@ -425,7 +416,7 @@ PutByStatus PutByStatus::computeFor(JSGlobalObject* globalObject, const Structur
                 return PutByStatus(LikelyTakesSlowPath);
             }
 
-            PutByVariant variant = PutByVariant::replace(identifier, structure, offset);
+            PutByVariant variant = PutByVariant::replace(identifier, structure, offset, /* viaGlobalProxy */ false);
             if (!result.appendVariant(variant))
                 return PutByStatus(LikelyTakesSlowPath);
             continue;

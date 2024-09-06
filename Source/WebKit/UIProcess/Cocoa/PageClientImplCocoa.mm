@@ -26,10 +26,11 @@
 #import "config.h"
 #import "PageClientImplCocoa.h"
 
-#import "TextAnimationType.h"
+
 #import "WKTextAnimationType.h"
 #import "WKWebViewInternal.h"
 #import <WebCore/AlternativeTextUIController.h>
+#import <WebCore/TextAnimationTypes.h>
 #import <WebKit/WKWebViewConfigurationPrivate.h>
 #import <WebKit/WKWebViewPrivateForTesting.h>
 #import <pal/spi/ios/BrowserEngineKitSPI.h>
@@ -157,7 +158,7 @@ void PageClientImplCocoa::storeAppHighlight(const WebCore::AppHighlight &highlig
 #endif // ENABLE(APP_HIGHLIGHTS)
 
 #if ENABLE(WRITING_TOOLS_UI)
-void PageClientImplCocoa::addTextAnimationForAnimationID(const WTF::UUID& uuid, const WebKit::TextAnimationData& data)
+void PageClientImplCocoa::addTextAnimationForAnimationID(const WTF::UUID& uuid, const WebCore::TextAnimationData& data)
 {
     [m_webView _addTextAnimationForAnimationID:uuid withData:data];
 }
@@ -165,6 +166,11 @@ void PageClientImplCocoa::addTextAnimationForAnimationID(const WTF::UUID& uuid, 
 void PageClientImplCocoa::removeTextAnimationForAnimationID(const WTF::UUID& uuid)
 {
     [m_webView _removeTextAnimationForAnimationID:uuid];
+}
+
+void PageClientImplCocoa::didEndPartialIntelligenceTextPonderingAnimation()
+{
+    [m_webView _didEndPartialIntelligenceTextPonderingAnimation];
 }
 #endif
 
@@ -315,12 +321,21 @@ void PageClientImplCocoa::setGamepadsRecentlyAccessed(GamepadsRecentlyAccessed g
 {
     [m_webView _setGamepadsRecentlyAccessed:(gamepadsRecentlyAccessed == GamepadsRecentlyAccessed::No) ? NO : YES];
 }
+
+#if PLATFORM(VISION)
+void PageClientImplCocoa::gamepadsConnectedStateChanged()
+{
+    [m_webView _gamepadsConnectedStateChanged];
+}
+#endif
 #endif
 
 void PageClientImplCocoa::hasActiveNowPlayingSessionChanged(bool hasActiveNowPlayingSession)
 {
     if ([m_webView _hasActiveNowPlayingSession] == hasActiveNowPlayingSession)
         return;
+
+    RELEASE_LOG(ViewState, "%p PageClientImplCocoa::hasActiveNowPlayingSessionChanged %d", m_webView.get().get(), hasActiveNowPlayingSession);
 
     [m_webView willChangeValueForKey:@"_hasActiveNowPlayingSession"];
     [m_webView _setHasActiveNowPlayingSession:hasActiveNowPlayingSession];
@@ -331,6 +346,11 @@ void PageClientImplCocoa::videoControlsManagerDidChange()
 {
     [m_webView willChangeValueForKey:@"_canEnterFullscreen"];
     [m_webView didChangeValueForKey:@"_canEnterFullscreen"];
+}
+
+CocoaWindow *PageClientImplCocoa::platformWindow() const
+{
+    return [m_webView window];
 }
 
 } // namespace WebKit

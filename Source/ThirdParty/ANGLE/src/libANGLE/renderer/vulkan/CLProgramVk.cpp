@@ -662,8 +662,8 @@ angle::Result CLProgramVk::createKernel(const cl::Kernel &kernel,
             default:
                 continue;
         }
-        descriptorSetLayoutDesc.update(arg.descriptorBinding, descType, 1,
-                                       VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
+        descriptorSetLayoutDesc.addBinding(arg.descriptorBinding, descType, 1,
+                                           VK_SHADER_STAGE_COMPUTE_BIT, nullptr);
     }
 
     // Get descriptor set layout from cache (creates if missed)
@@ -775,6 +775,11 @@ bool CLProgramVk::buildInternal(const cl::DevicePtrs &devices,
         const cl::RefPointer<cl::Device> &device = devices.at(i);
         DeviceProgramData &deviceProgramData     = mAssociatedDevicePrograms[device->getNative()];
         deviceProgramData.buildStatus            = CL_BUILD_IN_PROGRESS;
+
+        cl_uint addressBits;
+        ANGLE_CL_IMPL_TRY(
+            device->getInfo(cl::DeviceInfo::AddressBits, sizeof(cl_uint), &addressBits, nullptr));
+        processedOptions += addressBits == 64 ? " -arch=spir64" : " -arch=spir";
 
         if (buildType != BuildType::BINARY)
         {

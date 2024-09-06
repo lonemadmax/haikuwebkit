@@ -94,17 +94,21 @@ public:
     void finalizeBlitCommandEncoder();
 
     void runClearEncoder(NSMutableDictionary<NSNumber*, TextureAndClearColor*> *attachmentsToClear, id<MTLTexture> depthStencilAttachmentToClear, bool depthAttachmentToClear, bool stencilAttachmentToClear, float depthClearValue = 0, uint32_t stencilClearValue = 0, id<MTLRenderCommandEncoder> existingEncoder = nil);
-    static void clearTextureIfNeeded(const WGPUImageCopyTexture&, NSUInteger, id<MTLDevice>, id<MTLBlitCommandEncoder>);
-    static void clearTextureIfNeeded(Texture&, NSUInteger, NSUInteger, id<MTLDevice>, id<MTLBlitCommandEncoder>);
+    static void clearTextureIfNeeded(const WGPUImageCopyTexture&, NSUInteger, const Device&, id<MTLBlitCommandEncoder>);
+    static void clearTextureIfNeeded(Texture&, NSUInteger, NSUInteger, const Device&, id<MTLBlitCommandEncoder>);
     void makeInvalid(NSString*);
     void makeSubmitInvalid(NSString* = nil);
     void incrementBufferMapCount();
     void decrementBufferMapCount();
     void endEncoding(id<MTLCommandEncoder>);
     void setLastError(NSString*);
-    void onCommandBufferCompletion(Function<void()>&&);
+    void waitForCommandBufferCompletion();
     bool encoderIsCurrent(id<MTLCommandEncoder>) const;
     bool submitWillBeInvalid() const;
+    void addBuffer(id<MTLBuffer>);
+    void addTexture(id<MTLTexture>);
+    id<MTLCommandBuffer> commandBuffer() const;
+    void setExistingEncoder(id<MTLCommandEncoder>);
 
 private:
     CommandEncoder(id<MTLCommandBuffer>, id<MTLSharedEvent>, Device&);
@@ -118,7 +122,6 @@ private:
     NSString* errorValidatingRenderPassDescriptor(const WGPURenderPassDescriptor&) const;
 
     void clearTextureIfNeeded(const WGPUImageCopyTexture&, NSUInteger);
-    void setExistingEncoder(id<MTLCommandEncoder>);
     NSString* errorValidatingImageCopyBuffer(const WGPUImageCopyBuffer&) const;
     NSString* errorValidatingCopyBufferToTexture(const WGPUImageCopyBuffer&, const WGPUImageCopyTexture&, const WGPUExtent3D&) const;
     NSString* errorValidatingCopyTextureToBuffer(const WGPUImageCopyTexture&, const WGPUImageCopyBuffer&, const WGPUExtent3D&) const;
@@ -138,6 +141,10 @@ private:
     int m_bufferMapCount { 0 };
     bool m_makeSubmitInvalid { false };
 
+#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+    NSMutableSet<id<MTLTexture>> *m_managedTextures { nil };
+    NSMutableSet<id<MTLBuffer>> *m_managedBuffers { nil };
+#endif
     const Ref<Device> m_device;
 };
 

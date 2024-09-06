@@ -208,6 +208,8 @@ public:
     // A characteristic of the media file, eg. video, audio, closed captions, etc, has changed.
     virtual void mediaPlayerCharacteristicChanged() { }
 
+    virtual void mediaPlayerVideoPlaybackConfigurationChanged() { }
+
     // whether the rendering system can accelerate the display of this MediaPlayer.
     virtual bool mediaPlayerRenderingCanBeAccelerated() { return false; }
 
@@ -223,6 +225,9 @@ public:
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     virtual RefPtr<ArrayBuffer> mediaPlayerCachedKeyForKeyId(const String&) const = 0;
     virtual void mediaPlayerKeyNeeded(const SharedBuffer&) { }
+#endif
+
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA)
     virtual String mediaPlayerMediaKeysStorageDirectory() const { return emptyString(); }
 #endif
 
@@ -248,7 +253,7 @@ public:
     virtual bool mediaPlayerPlatformVolumeConfigurationRequired() const { return false; }
     virtual bool mediaPlayerIsLooping() const { return false; }
     virtual CachedResourceLoader* mediaPlayerCachedResourceLoader() { return nullptr; }
-    virtual RefPtr<PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() = 0;
+    virtual Ref<PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() = 0;
     virtual bool doesHaveAttribute(const AtomString&, AtomString* = nullptr) const { return false; }
     virtual bool mediaPlayerShouldUsePersistentCache() const { return true; }
     virtual const String& mediaPlayerMediaCacheDirectory() const { return emptyString(); }
@@ -535,6 +540,11 @@ public:
     using MediaPlayerEnums::MovieLoadType;
     MovieLoadType movieLoadType() const;
 
+    using MediaPlayerEnums::VideoPlaybackConfiguration;
+    using MediaPlayerEnums::VideoPlaybackConfigurationOption;
+    void videoPlaybackConfigurationChanged();
+    VideoPlaybackConfiguration videoPlaybackConfiguration() const;
+
     using MediaPlayerEnums::Preload;
     Preload preload() const;
     void setPreload(Preload);
@@ -625,7 +635,7 @@ public:
     String elementId() const;
 
     CachedResourceLoader* cachedResourceLoader();
-    RefPtr<PlatformMediaResourceLoader> createResourceLoader();
+    Ref<PlatformMediaResourceLoader> createResourceLoader();
 
     void addAudioTrack(AudioTrackPrivate&);
     void addTextTrack(InbandTextTrackPrivate&);

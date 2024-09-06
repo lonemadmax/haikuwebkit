@@ -46,6 +46,8 @@ class Page;
 
 struct SimpleRange;
 
+enum class TextAnimationRunMode : uint8_t;
+
 class WritingToolsController final : public CanMakeWeakPtr<WritingToolsController>, public CanMakeCheckedPtr<WritingToolsController> {
     WTF_MAKE_FAST_ALLOCATED;
     WTF_MAKE_NONCOPYABLE(WritingToolsController);
@@ -74,8 +76,9 @@ public:
     void respondToReappliedEditing(EditCommandComposition*);
 
     // FIXME: Refactor `TextAnimationController` in such a way so as to not explicitly depend on `WritingToolsController`,
-    // and then remove this method after doing so.
+    // and then remove these methods after doing so.
     std::optional<SimpleRange> contextRangeForSessionWithID(const WritingTools::Session::ID&) const;
+    void showSelectionForWritingToolsSessionWithID(const WritingTools::Session::ID&) const;
 
 private:
     struct CompositionState : CanMakeCheckedPtr<CompositionState> {
@@ -91,6 +94,7 @@ private:
         // These two vectors should never have the same command in both of them.
         Vector<Ref<WritingToolsCompositionCommand>> unappliedCommands;
         Vector<Ref<WritingToolsCompositionCommand>> reappliedCommands;
+        std::optional<SimpleRange> currentRange;
     };
 
     struct ProofreadingState : CanMakeCheckedPtr<ProofreadingState> {
@@ -144,6 +148,11 @@ private:
 
     void replaceContentsOfRangeInSession(ProofreadingState&, const SimpleRange&, const String&);
     void replaceContentsOfRangeInSession(CompositionState&, const SimpleRange&, const AttributedString&, WritingToolsCompositionCommand::State);
+
+    void compositionSessionDidFinishReplacement(const WritingTools::Session&);
+    void compositionSessionDidFinishReplacement(const WritingTools::Session&, const CharacterRange&, const String&);
+
+    void compositionSessionDidReceiveTextWithReplacementRangeAsync(const WritingTools::Session&, const AttributedString&, const CharacterRange&, const WritingTools::Context&, bool finished, TextAnimationRunMode);
 
     void showOriginalCompositionForSession(const WritingTools::Session&);
     void showRewrittenCompositionForSession(const WritingTools::Session&);

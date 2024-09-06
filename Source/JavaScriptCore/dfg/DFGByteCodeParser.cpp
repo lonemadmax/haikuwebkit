@@ -212,14 +212,14 @@ private:
     template<typename ChecksFunctor>
     bool handleDOMJITCall(Node* callee, Operand result, const DOMJIT::Signature*, int registerOffset, int argumentCountIncludingThis, SpeculatedType prediction, const ChecksFunctor& insertChecks);
     template<typename ChecksFunctor>
-    bool handleIntrinsicGetter(Operand result, SpeculatedType prediction, const GetByVariant& intrinsicVariant, Node* thisNode, const ChecksFunctor& insertChecks);
+    bool handleIntrinsicGetter(Operand result, SpeculatedType prediction, const GetByVariant& intrinsicVariant, Node* thisNode, Node* unwrapped, const ChecksFunctor& insertChecks);
     template<typename ChecksFunctor>
     bool handleTypedArrayConstructor(Operand result, JSObject*, int registerOffset, int argumentCountIncludingThis, TypedArrayType, const ChecksFunctor& insertChecks, CodeSpecializationKind);
     template<typename ChecksFunctor>
     bool handleConstantFunction(Node* callTargetNode, Operand result, JSObject*, int registerOffset, int argumentCountIncludingThis, CodeSpecializationKind, SpeculatedType, const ChecksFunctor& insertChecks);
     Node* handlePutByOffset(Node* base, unsigned identifier, PropertyOffset, Node* value);
     Node* handleGetByOffset(SpeculatedType, Node* base, unsigned identifierNumber, PropertyOffset, NodeType = GetByOffset);
-    bool handleDOMJITGetter(Operand result, const GetByVariant&, Node* thisNode, unsigned identifierNumber, SpeculatedType prediction);
+    bool handleDOMJITGetter(Operand result, const GetByVariant&, Node* thisNode, Node* unwrapped, unsigned identifierNumber, SpeculatedType prediction);
     bool handleModuleNamespaceLoad(VirtualRegister result, SpeculatedType, Node* base, GetByStatus);
     bool handleProxyObjectLoad(VirtualRegister result, SpeculatedType, Node* base, GetByStatus, BytecodeIndex osrExitIndex);
     bool handleIndexedProxyObjectLoad(VirtualRegister result, SpeculatedType, Node* base, Node* subscript, GetByStatus, BytecodeIndex osrExitIndex);
@@ -256,7 +256,7 @@ private:
     
     // Works with both GetByVariant and the setter form of PutByVariant.
     template<typename VariantType>
-    Node* load(SpeculatedType, Node* base, unsigned identifierNumber, const VariantType&);
+    Node* load(SpeculatedType, Node* base, Node* unwrapped, unsigned identifierNumber, const VariantType&);
 
     Node* replace(Node* base, unsigned identifier, const PutByVariant&, Node* value);
 
@@ -2514,6 +2514,7 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
         }
 
         case FRoundIntrinsic:
+        case F16RoundIntrinsic:
         case SqrtIntrinsic: {
             if (argumentCountIncludingThis == 1) {
                 insertChecks();
@@ -2525,6 +2526,11 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
             switch (intrinsic) {
             case FRoundIntrinsic:
                 nodeType = ArithFRound;
+                break;
+            case F16RoundIntrinsic:
+                nodeType = ArithF16Round;
+                if (!CCallHelpers::supportsFloat16())
+                    return CallOptimizationResult::DidNothing;
                 break;
             case SqrtIntrinsic:
                 nodeType = ArithSqrt;
@@ -3788,6 +3794,7 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
         case DataViewGetUint16:
         case DataViewGetInt32:
         case DataViewGetUint32:
+        case DataViewGetFloat16:
         case DataViewGetFloat32:
         case DataViewGetFloat64: {
             if (!is64Bit())
@@ -3800,6 +3807,9 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
             if (argumentCountIncludingThis < 2)
                 return CallOptimizationResult::DidNothing;
             if (m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType))
+                return CallOptimizationResult::DidNothing;
+
+            if (intrinsic == DataViewGetFloat16 && !CCallHelpers::supportsFloat16())
                 return CallOptimizationResult::DidNothing;
 
             insertChecks();
@@ -3830,6 +3840,10 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
                 byteSize = 4;
                 break;
 
+            case DataViewGetFloat16:
+                byteSize = 2;
+                op = DataViewGetFloat;
+                break;
             case DataViewGetFloat32:
                 byteSize = 4;
                 op = DataViewGetFloat;
@@ -3883,6 +3897,7 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
         case DataViewSetUint16:
         case DataViewSetInt32:
         case DataViewSetUint32:
+        case DataViewSetFloat16:
         case DataViewSetFloat32:
         case DataViewSetFloat64: {
             if (!is64Bit())
@@ -3892,6 +3907,9 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
                 return CallOptimizationResult::DidNothing;
 
             if (m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType))
+                return CallOptimizationResult::DidNothing;
+
+            if (intrinsic == DataViewSetFloat16 && !CCallHelpers::supportsFloat16())
                 return CallOptimizationResult::DidNothing;
 
             insertChecks();
@@ -3922,6 +3940,10 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
                 byteSize = 4;
                 break;
 
+            case DataViewSetFloat16:
+                isFloatingPoint = true;
+                byteSize = 2;
+                break;
             case DataViewSetFloat32:
                 isFloatingPoint = true;
                 byteSize = 4;
@@ -4265,11 +4287,14 @@ bool ByteCodeParser::handleDOMJITCall(Node* callTarget, Operand result, const DO
 
 
 template<typename ChecksFunctor>
-bool ByteCodeParser::handleIntrinsicGetter(Operand result, SpeculatedType prediction, const GetByVariant& variant, Node* thisNode, const ChecksFunctor& insertChecks)
+bool ByteCodeParser::handleIntrinsicGetter(Operand result, SpeculatedType prediction, const GetByVariant& variant, Node* thisNode, Node* unwrapped, const ChecksFunctor& insertChecks)
 {
 #if USE(LARGE_TYPED_ARRAYS)
     static_assert(enableInt52());
 #endif
+
+    if (thisNode != unwrapped)
+        return false;
 
     switch (variant.intrinsic()) {
     case TypedArrayByteLengthIntrinsic: {
@@ -4449,7 +4474,7 @@ static void blessCallDOMGetter(Node* node)
         node->clearFlags(NodeMustGenerate);
 }
 
-bool ByteCodeParser::handleDOMJITGetter(Operand result, const GetByVariant& variant, Node* thisNode, unsigned identifierNumber, SpeculatedType prediction)
+bool ByteCodeParser::handleDOMJITGetter(Operand result, const GetByVariant& variant, Node* thisNode, Node* unwrapped, unsigned identifierNumber, SpeculatedType prediction)
 {
     if (!variant.domAttribute())
         return false;
@@ -4460,10 +4485,10 @@ bool ByteCodeParser::handleDOMJITGetter(Operand result, const GetByVariant& vari
     // since replacement of CustomGetterSetter always incurs Structure transition.
     if (!check(variant.conditionSet()))
         return false;
-    addToGraph(CheckStructure, OpInfo(m_graph.addStructureSet(variant.structureSet())), thisNode);
+    addToGraph(CheckStructure, OpInfo(m_graph.addStructureSet(variant.structureSet())), unwrapped);
     
     // We do not need to emit CheckIsConstant thingy here. When the custom accessor is replaced to different one, Structure transition occurs.
-    addToGraph(CheckJSCast, OpInfo(domAttribute->classInfo), thisNode);
+    addToGraph(CheckJSCast, OpInfo(domAttribute->classInfo), unwrapped);
     
     bool wasSeenInJIT = true;
     GetByStatus* status = m_graph.m_plan.recordedStatuses().addGetByStatus(currentCodeOrigin(), GetByStatus(GetByStatus::CustomAccessor, wasSeenInJIT));
@@ -5270,7 +5295,7 @@ void ByteCodeParser::checkReplacement(
 
 template<typename VariantType>
 Node* ByteCodeParser::load(
-    SpeculatedType prediction, Node* base, unsigned identifierNumber, const VariantType& variant)
+    SpeculatedType prediction, Node* base, Node* unwrapped, unsigned identifierNumber, const VariantType& variant)
 {
     // Make sure backwards propagation knows that we've used base.
     addToGraph(Phantom, base);
@@ -5279,10 +5304,10 @@ Node* ByteCodeParser::load(
     
     UniquedStringImpl* uid = m_graph.identifiers()[identifierNumber];
     
-    if (JSObject* knownBase = base->dynamicCastConstant<JSObject*>()) {
+    if (JSObject* knownBase = unwrapped->dynamicCastConstant<JSObject*>()) {
         // Try to optimize away the structure check. Note that it's not worth doing anything about this
         // if the base's structure is watched.
-        Structure* structure = base->constant()->structure();
+        Structure* structure = unwrapped->constant()->structure();
         if (!structure->dfgShouldWatch()) {
             if (!variant.conditionSet().isEmpty()) {
                 // This means that we're loading from a prototype or we have a property miss. We expect
@@ -5330,7 +5355,7 @@ Node* ByteCodeParser::load(
     }
 
     if (needStructureCheck)
-        addToGraph(CheckStructure, OpInfo(m_graph.addStructureSet(variant.structureSet())), base);
+        addToGraph(CheckStructure, OpInfo(m_graph.addStructureSet(variant.structureSet())), unwrapped);
 
     if (variant.isPropertyUnset()) {
         if (m_graph.watchConditions(variant.conditionSet()))
@@ -5352,17 +5377,17 @@ Node* ByteCodeParser::load(
     if (!variant.conditionSet().isEmpty())
         loadedValue = load(loadPrediction, variant.conditionSet(), loadOp);
     else {
-        if (needStructureCheck && base->hasConstant()) {
+        if (needStructureCheck && unwrapped->hasConstant()) {
             // We did emit a structure check. That means that we have an opportunity to do constant folding
             // here, since we didn't do it above.
             JSValue constant = m_graph.tryGetConstantProperty(
-                base->asJSValue(), *m_graph.addStructureSet(variant.structureSet()), variant.offset());
+                unwrapped->asJSValue(), *m_graph.addStructureSet(variant.structureSet()), variant.offset());
             if (constant)
                 return weakJSConstant(constant);
         }
 
         loadedValue = handleGetByOffset(
-            loadPrediction, base, identifierNumber, variant.offset(), loadOp);
+            loadPrediction, unwrapped, identifierNumber, variant.offset(), loadOp);
     }
 
     return loadedValue;
@@ -5399,8 +5424,12 @@ void ByteCodeParser::handleGetById(
     VirtualRegister destination, SpeculatedType prediction, Node* base, CacheableIdentifier identifier, unsigned identifierNumber,
     GetByStatus getByStatus, AccessType type, BytecodeIndex osrExitIndex)
 {
+    Node* unwrapped = base;
+    if (getByStatus.viaGlobalProxy())
+        unwrapped = addToGraph(UnwrapGlobalProxy, Edge(base, GlobalProxyUse));
+
     simplifyGetByStatus(base, getByStatus);
-    
+
     NodeType getById;
     if (type == AccessType::GetById)
         getById = getByStatus.makesCalls() ? GetByIdFlush : GetById;
@@ -5443,7 +5472,7 @@ void ByteCodeParser::handleGetById(
                 // DOMGetter does not perform type check for base. So if we found variant.domAttribute(), we must use CallDOMGetter.
                 if (Options::useDOMJIT() && variant.domAttribute()) {
                     ASSERT(!getByStatus.makesCalls());
-                    if (handleDOMJITGetter(destination, variant, base, identifierNumber, prediction)) {
+                    if (handleDOMJITGetter(destination, variant, base, unwrapped, identifierNumber, prediction)) {
                         if (UNLIKELY(m_graph.compilation()))
                             m_graph.compilation()->noticeInlinedGetById();
                         return;
@@ -5461,7 +5490,7 @@ void ByteCodeParser::handleGetById(
                     m_graph.compilation()->noticeInlinedGetById();
 
                 addToGraph(FilterGetByStatus, OpInfo(m_graph.m_plan.recordedStatuses().addGetByStatus(currentCodeOrigin(), getByStatus)), base);
-                addToGraph(CheckStructure, OpInfo(m_graph.addStructureSet(variant.structureSet())), base);
+                addToGraph(CheckStructure, OpInfo(m_graph.addStructureSet(variant.structureSet())), unwrapped);
                 auto* data = m_graph.m_callCustomAccessorData.add();
                 data->m_customAccessor = variant.customAccessorGetter();
                 data->m_identifier = identifier;
@@ -5531,8 +5560,7 @@ void ByteCodeParser::handleGetById(
         MultiGetByOffsetData* data = m_graph.m_multiGetByOffsetData.add();
         data->cases = cases;
         data->identifierNumber = identifierNumber;
-        set(destination,
-            addToGraph(MultiGetByOffset, OpInfo(data), OpInfo(prediction), base));
+        set(destination, addToGraph(MultiGetByOffset, OpInfo(data), OpInfo(prediction), unwrapped));
         return;
     }
 
@@ -5541,10 +5569,9 @@ void ByteCodeParser::handleGetById(
     ASSERT(getByStatus.numVariants() == 1);
     GetByVariant variant = getByStatus[0];
     
-    Node* loadedValue = load(prediction, base, identifierNumber, variant);
+    Node* loadedValue = load(prediction, base, unwrapped, identifierNumber, variant);
     if (!loadedValue) {
-        set(destination,
-            addToGraph(getById, OpInfo(identifier), OpInfo(prediction), base));
+        set(destination, addToGraph(getById, OpInfo(identifier), OpInfo(prediction), base));
         return;
     }
 
@@ -5563,7 +5590,7 @@ void ByteCodeParser::handleGetById(
             addToGraph(CheckIsConstant, OpInfo(m_graph.freeze(variant.intrinsicFunction())), getter);
         };
 
-        if (handleIntrinsicGetter(destination, prediction, variant, base, addChecks)) {
+        if (handleIntrinsicGetter(destination, prediction, variant, base, unwrapped, addChecks)) {
             if (UNLIKELY(m_graph.compilation()))
                 m_graph.compilation()->noticeInlinedGetById();
             addToGraph(Phantom, base);
@@ -5631,6 +5658,10 @@ void ByteCodeParser::handleGetById(
 void ByteCodeParser::handleGetPrivateNameById(
     VirtualRegister destination, SpeculatedType prediction, Node* base, CacheableIdentifier identifier, unsigned identifierNumber, GetByStatus getByStatus)
 {
+    Node* unwrapped = base;
+    if (getByStatus.viaGlobalProxy())
+        unwrapped = addToGraph(UnwrapGlobalProxy, Edge(base, GlobalProxyUse));
+
     simplifyGetByStatus(base, getByStatus);
 
     ASSERT(!getByStatus.isCustomAccessor());
@@ -5670,7 +5701,7 @@ void ByteCodeParser::handleGetPrivateNameById(
         data->cases = cases;
         data->identifierNumber = identifierNumber;
         set(destination,
-            addToGraph(MultiGetByOffset, OpInfo(data), OpInfo(prediction), base));
+            addToGraph(MultiGetByOffset, OpInfo(data), OpInfo(prediction), unwrapped));
         return;
     }
 
@@ -5682,7 +5713,7 @@ void ByteCodeParser::handleGetPrivateNameById(
     ASSERT(getByStatus.numVariants() == 1);
     GetByVariant variant = getByStatus[0];
 
-    Node* loadedValue = load(prediction, base, identifierNumber, variant);
+    Node* loadedValue = load(prediction, base, unwrapped, identifierNumber, variant);
     if (!loadedValue) {
         set(destination,
             addToGraph(GetPrivateNameById, OpInfo(identifier), OpInfo(prediction), base, nullptr));
@@ -5871,6 +5902,10 @@ void ByteCodeParser::handlePutById(
     Node* base, CacheableIdentifier identifier, unsigned identifierNumber, Node* value,
     const PutByStatus& putByStatus, bool isDirect, BytecodeIndex osrExitIndex, ECMAMode ecmaMode)
 {
+    Node* unwrapped = base;
+    if (putByStatus.viaGlobalProxy())
+        unwrapped = addToGraph(UnwrapGlobalProxy, Edge(base, GlobalProxyUse));
+
     if (is64Bit()) {
         if (putByStatus.isCustomAccessor()) {
             if (putByStatus.numVariants() == 1) {
@@ -5887,7 +5922,7 @@ void ByteCodeParser::handlePutById(
                 auto* data = m_graph.m_callCustomAccessorData.add();
                 data->m_customAccessor = variant.customAccessorSetter();
                 data->m_identifier = identifier;
-                addToGraph(CheckStructure, OpInfo(m_graph.addStructureSet(variant.oldStructure())), base);
+                addToGraph(CheckStructure, OpInfo(m_graph.addStructureSet(variant.oldStructure())), unwrapped);
                 addToGraph(CallCustomAccessorSetter, OpInfo(data), OpInfo(SpecNone), base, value);
                 return;
             }
@@ -5942,7 +5977,7 @@ void ByteCodeParser::handlePutById(
         MultiPutByOffsetData* data = m_graph.m_multiPutByOffsetData.add();
         data->variants = putByStatus.variants();
         data->identifierNumber = identifierNumber;
-        addToGraph(MultiPutByOffset, OpInfo(data), base, value);
+        addToGraph(MultiPutByOffset, OpInfo(data), unwrapped, value);
         return;
     }
     
@@ -5953,7 +5988,7 @@ void ByteCodeParser::handlePutById(
     case PutByVariant::Replace: {
         addToGraph(FilterPutByStatus, OpInfo(m_graph.m_plan.recordedStatuses().addPutByStatus(currentCodeOrigin(), putByStatus)), base);
 
-        replace(base, identifierNumber, variant, value);
+        replace(unwrapped, identifierNumber, variant, value);
         if (UNLIKELY(m_graph.compilation()))
             m_graph.compilation()->noticeInlinedPutById();
         return;
@@ -5962,7 +5997,7 @@ void ByteCodeParser::handlePutById(
     case PutByVariant::Transition: {
         addToGraph(FilterPutByStatus, OpInfo(m_graph.m_plan.recordedStatuses().addPutByStatus(currentCodeOrigin(), putByStatus)), base);
 
-        addToGraph(CheckStructure, OpInfo(m_graph.addStructureSet(variant.oldStructure())), base);
+        addToGraph(CheckStructure, OpInfo(m_graph.addStructureSet(variant.oldStructure())), unwrapped);
         if (!check(variant.conditionSet())) {
             emitPutById(base, identifier, value, putByStatus, isDirect, ecmaMode);
             return;
@@ -5982,17 +6017,17 @@ void ByteCodeParser::handlePutById(
 
             if (!variant.oldStructureForTransition()->outOfLineCapacity()) {
                 propertyStorage = addToGraph(
-                    AllocatePropertyStorage, OpInfo(transition), base);
+                    AllocatePropertyStorage, OpInfo(transition), unwrapped);
             } else {
                 propertyStorage = addToGraph(
                     ReallocatePropertyStorage, OpInfo(transition),
-                    base, addToGraph(GetButterfly, base));
+                    unwrapped, addToGraph(GetButterfly, unwrapped));
             }
         } else {
             if (isInlineOffset(variant.offset()))
-                propertyStorage = base;
+                propertyStorage = unwrapped;
             else
-                propertyStorage = addToGraph(GetButterfly, base);
+                propertyStorage = addToGraph(GetButterfly, unwrapped);
         }
 
         StorageAccessData* data = m_graph.m_storageAccessData.add();
@@ -6010,16 +6045,16 @@ void ByteCodeParser::handlePutById(
             PutByOffset,
             OpInfo(data),
             propertyStorage,
-            base,
+            unwrapped,
             value);
         
         if (variant.reallocatesStorage())
-            addToGraph(NukeStructureAndSetButterfly, base, propertyStorage);
+            addToGraph(NukeStructureAndSetButterfly, unwrapped, propertyStorage);
 
         // FIXME: PutStructure goes last until we fix either
         // https://bugs.webkit.org/show_bug.cgi?id=142921 or
         // https://bugs.webkit.org/show_bug.cgi?id=142924.
-        addToGraph(PutStructure, OpInfo(transition), base);
+        addToGraph(PutStructure, OpInfo(transition), unwrapped);
 
         if (UNLIKELY(m_graph.compilation()))
             m_graph.compilation()->noticeInlinedPutById();
@@ -6029,7 +6064,7 @@ void ByteCodeParser::handlePutById(
     case PutByVariant::Setter: {
         addToGraph(FilterPutByStatus, OpInfo(m_graph.m_plan.recordedStatuses().addPutByStatus(currentCodeOrigin(), putByStatus)), base);
 
-        Node* loadedValue = load(SpecCellOther, base, identifierNumber, variant);
+        Node* loadedValue = load(SpecCellOther, base, unwrapped, identifierNumber, variant);
         if (!loadedValue) {
             emitPutById(base, identifier, value, putByStatus, isDirect, ecmaMode);
             return;
@@ -6581,7 +6616,24 @@ void ByteCodeParser::parseBlock(unsigned limit)
             for (int operandIdx = startOperand; operandIdx > startOperand - numOperands; --operandIdx)
                 addVarArgChild(get(VirtualRegister(operandIdx)));
             unsigned vectorLengthHint = std::max<unsigned>(profile.vectorLengthHintConcurrently(), numOperands);
-            set(bytecode.m_dst, addToGraph(Node::VarArg, NewArray, OpInfo(profile.selectIndexingTypeConcurrently()), OpInfo(vectorLengthHint)));
+            IndexingType indexingType = profile.selectIndexingTypeConcurrently();
+
+            // If it is an empty array and there is larger vectorLengthHint, it is very likely that this array will be extended later and just initially starting with an empty array.
+            // Let's use non CoW array in this case.
+            if (!numOperands && vectorLengthHint && isCopyOnWrite(indexingType)) {
+                switch (indexingType) {
+                case CopyOnWriteArrayWithInt32:
+                    indexingType = ArrayWithInt32;
+                    break;
+                case CopyOnWriteArrayWithDouble:
+                    indexingType = ArrayWithDouble;
+                    break;
+                case CopyOnWriteArrayWithContiguous:
+                    indexingType = ArrayWithContiguous;
+                    break;
+                }
+            }
+            set(bytecode.m_dst, addToGraph(Node::VarArg, NewArray, OpInfo(indexingType), OpInfo(vectorLengthHint)));
             NEXT_OPCODE(op_new_array);
         }
 
@@ -6634,11 +6686,34 @@ void ByteCodeParser::parseBlock(unsigned limit)
             // cannot allocate from compilation threads.
             FrozenValue* frozen = get(VirtualRegister(bytecode.m_immutableButterfly))->constant();
             WTF::dependentLoadLoadFence();
+
             JSImmutableButterfly* immutableButterfly = frozen->cast<JSImmutableButterfly*>();
             NewArrayBufferData data { };
-            data.indexingMode = immutableButterfly->indexingMode();
-            data.vectorLengthHint = immutableButterfly->toButterfly()->vectorLength();
+            unsigned vectorLengthHint = immutableButterfly->toButterfly()->vectorLength();
 
+            // If it is an empty array and there is larger vectorLengthHint, it is very likely that this array will be extended later and just initially starting with an empty array.
+            // Let's use non CoW array in this case.
+            if (!immutableButterfly->length() && vectorLengthHint) {
+                IndexingType indexingType = immutableButterfly->indexingType();
+                if (isCopyOnWrite(indexingType)) {
+                    switch (indexingType) {
+                    case CopyOnWriteArrayWithInt32:
+                        indexingType = ArrayWithInt32;
+                        break;
+                    case CopyOnWriteArrayWithDouble:
+                        indexingType = ArrayWithDouble;
+                        break;
+                    case CopyOnWriteArrayWithContiguous:
+                        indexingType = ArrayWithContiguous;
+                        break;
+                    }
+                    set(bytecode.m_dst, addToGraph(Node::VarArg, NewArray, OpInfo(indexingType), OpInfo(vectorLengthHint)));
+                    NEXT_OPCODE(op_new_array_buffer);
+                }
+            }
+
+            data.indexingMode = immutableButterfly->indexingMode();
+            data.vectorLengthHint = vectorLengthHint;
             set(VirtualRegister(bytecode.m_dst), addToGraph(NewArrayBuffer, OpInfo(frozen), OpInfo(data.asQuadWord)));
             NEXT_OPCODE(op_new_array_buffer);
         }
@@ -6904,11 +6979,9 @@ void ByteCodeParser::parseBlock(unsigned limit)
 
         case op_instanceof: {
             auto bytecode = currentInstruction->as<OpInstanceof>();
-            
-            InstanceOfStatus status = InstanceOfStatus::computeFor(
-                m_inlineStackTop->m_profiledBlock, m_inlineStackTop->m_baselineMap,
-                m_currentIndex);
-            
+
+            InstanceOfStatus status = InstanceOfStatus::computeFor(m_inlineStackTop->m_profiledBlock, m_inlineStackTop->m_baselineMap, m_currentIndex);
+
             Node* value = get(bytecode.m_value);
             Node* prototype = get(bytecode.m_prototype);
 
@@ -6943,8 +7016,11 @@ void ByteCodeParser::parseBlock(unsigned limit)
                     NEXT_OPCODE(op_instanceof);
                 }
             }
-            
-            set(bytecode.m_dst, addToGraph(InstanceOf, value, prototype));
+
+            NodeType op = status.isMegamorphic() ? InstanceOfMegamorphic : InstanceOf;
+            if (m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType))
+                op = InstanceOf;
+            set(bytecode.m_dst, addToGraph(op, value, prototype));
             NEXT_OPCODE(op_instanceof);
         }
 
@@ -7546,7 +7622,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 m_inlineStackTop->m_profiledBlock,
                 m_inlineStackTop->m_baselineMap, m_icContextStack,
                 currentCodeOrigin());
-            
+
             handlePutById(base, CacheableIdentifier::createFromIdentifierOwnedByCodeBlock(m_inlineStackTop->m_profiledBlock, uid), identifierNumber, value, putByStatus, direct, nextOpcodeIndex(), bytecode.m_flags.ecmaMode());
             NEXT_OPCODE(op_put_by_id);
         }
@@ -8193,7 +8269,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
         case op_call_direct_eval: {
             auto bytecode = currentInstruction->as<OpCallDirectEval>();
             int registerOffset = -bytecode.m_argv;
-            addCall(bytecode.m_dst, CallDirectEval, OpInfo(bytecode.m_ecmaMode), get(bytecode.m_callee), bytecode.m_argc, registerOffset, getPrediction(), get(bytecode.m_thisValue), get(bytecode.m_scope));
+            addCall(bytecode.m_dst, CallDirectEval, OpInfo(bytecode.m_lexicallyScopedFeatures), get(bytecode.m_callee), bytecode.m_argc, registerOffset, getPrediction(), get(bytecode.m_thisValue), get(bytecode.m_scope));
             NEXT_OPCODE(op_call_direct_eval);
         }
 
@@ -8818,7 +8894,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 }
 
                 Node* base = weakJSConstant(globalObject);
-                Node* result = load(prediction, base, identifierNumber, status[0]);
+                Node* result = load(prediction, base, base, identifierNumber, status[0]);
                 addToGraph(Phantom, get(bytecode.m_scope));
                 set(bytecode.m_dst, result);
                 break;

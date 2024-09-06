@@ -41,6 +41,10 @@ private:
     void clearNotifications(const Vector<WTF::UUID>& notificationIDs) final;
     void didDestroyNotification(const WTF::UUID& notificationID) final;
     void pageWasNotifiedOfNotificationPermission() final;
+    void requestPermission(WebCore::SecurityOriginData&&, CompletionHandler<void(bool)>&&) final;
+    void setAppBadge(const WebCore::SecurityOriginData&, std::optional<uint64_t>) final { }
+    void getPermissionState(WebCore::SecurityOriginData&&, CompletionHandler<void(WebCore::PushPermissionState)>&&) final;
+    void getPermissionStateSync(WebCore::SecurityOriginData&&, CompletionHandler<void(WebCore::PushPermissionState)>&&) final;
 
     WebPageProxy& m_webPageProxy;
 };

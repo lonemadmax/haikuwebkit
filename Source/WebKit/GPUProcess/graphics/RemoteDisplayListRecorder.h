@@ -38,6 +38,11 @@
 #include <wtf/RefCounted.h>
 #include <wtf/WeakPtr.h>
 
+#if !LOG_DISABLED
+#include "Logging.h"
+#include <wtf/text/TextStream.h>
+#endif
+
 namespace WebKit {
 
 class RemoteRenderingBackend;
@@ -98,7 +103,7 @@ public:
     void drawPath(const WebCore::Path&);
     void drawFocusRingPath(const WebCore::Path&, float outlineWidth, const WebCore::Color&);
     void drawFocusRingRects(const Vector<WebCore::FloatRect>&, float outlineOffset, float outlineWidth, const WebCore::Color&);
-    void fillRect(const WebCore::FloatRect&);
+    void fillRect(const WebCore::FloatRect&, WebCore::GraphicsContext::RequiresClipToRect);
     void fillRectWithColor(const WebCore::FloatRect&, const WebCore::Color&);
     void fillRectWithGradient(WebCore::DisplayList::FillRectWithGradient&&);
     void fillRectWithGradientAndSpaceTransform(WebCore::DisplayList::FillRectWithGradientAndSpaceTransform&&);
@@ -144,6 +149,7 @@ private:
     void drawFilteredImageBufferInternal(std::optional<WebCore::RenderingResourceIdentifier> sourceImageIdentifier, const WebCore::FloatRect& sourceImageRect, WebCore::Filter&, WebCore::FilterResults&);
 
     RemoteResourceCache& resourceCache() const;
+    WebCore::ControlFactory& controlFactory();
     WebCore::GraphicsContext& drawingContext() { return m_imageBuffer->context(); }
     RefPtr<WebCore::ImageBuffer> imageBuffer(WebCore::RenderingResourceIdentifier) const;
     std::optional<WebCore::SourceImage> sourceImage(WebCore::RenderingResourceIdentifier) const;
@@ -154,6 +160,7 @@ private:
         // FIXME: In the future, we should consider buffering up batches of display list items before
         // applying them instead of applying them immediately, so that we can apply clipping and occlusion
         // optimizations to skip over parts of a display list, if possible.
+        LOG_WITH_STREAM(DisplayLists, stream << "handleItem " << item);
         item.apply(drawingContext(), std::forward<AdditionalArgs>(args)...);
     }
 
@@ -172,7 +179,7 @@ private:
     WebCore::RenderingResourceIdentifier m_imageBufferIdentifier;
     RefPtr<RemoteRenderingBackend> m_renderingBackend;
     Ref<RemoteSharedResourceCache> m_sharedResourceCache;
-    std::unique_ptr<WebCore::ControlFactory> m_controlFactory;
+    RefPtr<WebCore::ControlFactory> m_controlFactory;
 #if PLATFORM(COCOA) && ENABLE(VIDEO)
     std::unique_ptr<SharedVideoFrameReader> m_sharedVideoFrameReader;
 #endif

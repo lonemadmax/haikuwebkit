@@ -145,6 +145,7 @@ Modules/highlight/AppHighlightRangeData.cpp
 Modules/highlight/AppHighlightStorage.cpp
 Modules/highlight/HighlightRegistry.cpp
 Modules/highlight/Highlight.cpp
+Modules/identity/CredentialRequestCoordinator.cpp
 Modules/identity/DigitalCredential.cpp
 Modules/identity/IdentityCredentialsContainer.cpp
 Modules/identity/NavigatorIdentity.cpp
@@ -521,10 +522,15 @@ Modules/webxr/WebXRView.cpp
 Modules/webxr/WebXRViewerPose.cpp
 Modules/webxr/WebXRViewport.cpp
 Modules/webxr/WebXRWebGLLayer.cpp
+Modules/webxr/XRCompositionLayer.cpp
 Modules/webxr/XRInputSourceEvent.cpp
 Modules/webxr/XRInputSourcesChangeEvent.cpp
+Modules/webxr/XRLayerEvent.cpp
+Modules/webxr/XRProjectionLayer.cpp
 Modules/webxr/XRReferenceSpaceEvent.cpp
 Modules/webxr/XRSessionEvent.cpp
+Modules/webxr/XRWebGLBinding.cpp
+Modules/webxr/XRWebGLSubImage.cpp
 accessibility/AXCoreObject.cpp
 accessibility/AXGeometryManager.cpp
 accessibility/AXImage.cpp
@@ -825,10 +831,12 @@ crypto/keys/CryptoKeyOKP.cpp
 crypto/keys/CryptoKeyRSA.cpp
 crypto/keys/CryptoKeyRSAComponents.cpp
 crypto/keys/CryptoKeyRaw.cpp
-css/BasicShapeFunctions.cpp
+css/BasicShapeConversion.cpp
+css/BasicShapesShapeSegmentConversion.cpp
 css/CSSAnchorValue.cpp
 css/CSSAspectRatioValue.cpp
 css/CSSBackgroundRepeatValue.cpp
+css/CSSShapeSegmentValue.cpp
 css/CSSBasicShapes.cpp
 css/CSSBorderImage.cpp
 css/CSSBorderImageSliceValue.cpp
@@ -923,6 +931,7 @@ css/CSSValuePool.cpp
 css/CSSVariableData.cpp
 css/CSSVariableReferenceValue.cpp
 css/CSSViewValue.cpp
+css/CSSViewTransitionRule.cpp
 css/ComputedStyleExtractor.cpp
 css/DOMCSSNamespace.cpp
 css/DOMCSSPaintWorklet.cpp
@@ -968,6 +977,7 @@ css/calc/CSSCalcSymbolNode.cpp
 css/calc/CSSCalcSymbolsAllowed.cpp
 css/calc/CSSCalcSymbolTable.cpp
 css/calc/CSSCalcValue.cpp
+css/color/CSSColorLayersResolver.cpp
 css/color/CSSColorMixResolver.cpp
 css/color/CSSColorMixSerialization.cpp
 css/color/CSSRelativeColorSerialization.cpp
@@ -975,12 +985,14 @@ css/color/CSSUnresolvedAbsoluteColor.cpp
 css/color/CSSUnresolvedColor.cpp
 css/color/CSSUnresolvedColorHex.cpp
 css/color/CSSUnresolvedColorKeyword.cpp
+css/color/CSSUnresolvedColorLayers.cpp
 css/color/CSSUnresolvedColorMix.cpp
 css/color/CSSUnresolvedColorResolutionContext.cpp
 css/color/CSSUnresolvedLightDark.cpp
 css/color/CSSUnresolvedRelativeColor.cpp
 css/color/StyleAbsoluteColor.cpp
 css/color/StyleColor.cpp
+css/color/StyleColorLayers.cpp
 css/color/StyleColorMix.cpp
 css/color/StyleCurrentColor.cpp
 css/parser/CSSAtRuleID.cpp
@@ -1100,6 +1112,7 @@ dom/ChildNodeList.cpp
 dom/ClassCollection.cpp
 dom/ClipboardEvent.cpp
 dom/CollectionIndexCache.cpp
+dom/CommandEvent.cpp
 dom/Comment.cpp
 dom/ComposedTreeIterator.cpp
 dom/CompositionEvent.cpp
@@ -1175,7 +1188,12 @@ dom/ImageOverlay.cpp
 dom/InlineClassicScript.cpp
 dom/InlineStyleSheetOwner.cpp
 dom/InputEvent.cpp
-dom/InvokeEvent.cpp
+dom/InternalObserver.cpp
+dom/InternalObserverFromScript.cpp
+dom/InternalObserverFilter.cpp
+dom/InternalObserverMap.cpp
+dom/InternalObserverTake.cpp
+dom/InternalObserverDrop.cpp
 dom/KeyboardEvent.cpp
 dom/LiveNodeList.cpp
 dom/LoadableClassicScript.cpp
@@ -1203,7 +1221,8 @@ dom/NodeList.cpp
 dom/NodeRareData.cpp
 dom/NodeTraversal.cpp
 dom/Observable.cpp
-dom/OverflowEvent.cpp
+dom/PageRevealEvent.cpp
+dom/PageSwapEvent.cpp
 dom/PageTransitionEvent.cpp
 dom/PendingScript.cpp
 dom/PointerEvent.cpp
@@ -1271,6 +1290,7 @@ dom/UserActionElementSet.cpp
 dom/UserGestureIndicator.cpp
 dom/UserTypingGestureIndicator.cpp
 dom/ViewTransition.cpp
+dom/ViewTransitionTypeSet.cpp
 dom/ViewportArguments.cpp
 dom/VisitedLinkState.cpp
 dom/WheelEvent.cpp
@@ -1832,6 +1852,7 @@ layout/integration/inline/LayoutIntegrationPagination.cpp
 layout/integration/inline/LayoutIntegrationBoxGeometryUpdater.cpp
 layout/integration/LayoutIntegrationBoxTree.cpp
 layout/integration/LayoutIntegrationCoverage.cpp
+layout/integration/LayoutIntegrationFormattingContextLayout.cpp
 layout/layouttree/LayoutBox.cpp
 layout/layouttree/LayoutBoxGeometry.cpp
 layout/layouttree/LayoutElementBox.cpp
@@ -2440,6 +2461,7 @@ platform/graphics/controls/ApplePayButtonPart.cpp
 platform/graphics/controls/ControlFactory.cpp
 platform/graphics/controls/ControlPart.cpp
 platform/graphics/controls/ControlStyle.cpp
+platform/graphics/controls/EmptyControlFactory.cpp
 platform/graphics/controls/MeterPart.cpp
 platform/graphics/controls/ProgressBarPart.cpp
 platform/graphics/controls/SliderTrackPart.cpp
@@ -2795,6 +2817,7 @@ rendering/shapes/RectangleShape.cpp
 rendering/shapes/Shape.cpp
 rendering/shapes/ShapeOutsideInfo.cpp
 rendering/style/BasicShapes.cpp
+rendering/style/BasicShapesShape.cpp
 rendering/style/BorderData.cpp
 rendering/style/BorderValue.cpp
 rendering/style/ContentData.cpp
@@ -2843,8 +2866,10 @@ rendering/style/StyleNonInheritedData.cpp
 rendering/style/StylePaintImage.cpp
 rendering/style/StyleRareInheritedData.cpp
 rendering/style/StyleRareNonInheritedData.cpp
+rendering/style/StyleScrollSnapPoints.cpp
 rendering/style/StyleSelfAlignmentData.cpp
 rendering/style/StyleSurroundData.cpp
+rendering/style/StyleTextBoxEdge.cpp
 rendering/style/StyleTransformData.cpp
 rendering/style/StyleVisitedLinkColorData.cpp
 rendering/style/TextSizeAdjustment.cpp
@@ -3390,6 +3415,7 @@ JSCSSSupportsRule.cpp
 JSCSSTransition.cpp
 JSCSSTransitionEvent.cpp
 JSCSSUnknownRule.cpp
+JSCSSViewTransitionRule.cpp
 JSCOEPInheritenceViolationReportBody.cpp
 JSCORPViolationReportBody.cpp
 JSCacheQueryOptions.cpp
@@ -3434,6 +3460,7 @@ JSClipboardEvent.cpp
 JSClipboardItem.cpp
 JSCloseEvent.cpp
 JSColorGamut.cpp
+JSCommandEvent.cpp
 JSCommandLineAPIHost.cpp
 JSComment.cpp
 JSCompositeOperation.cpp
@@ -3920,7 +3947,7 @@ JSIntersectionObserver.cpp
 JSIntersectionObserverCallback.cpp
 JSIntersectionObserverEntry.cpp
 JSIterationCompositeOperation.cpp
-JSInvokeEvent.cpp
+JSIsLoggedIn.cpp
 JSJsonWebKey.cpp
 JSKeyboardEvent.cpp
 JSKeyframeAnimationOptions.cpp
@@ -3931,6 +3958,7 @@ JSLandmarkType.cpp
 JSLatencyMode.cpp
 JSLocation.cpp
 JSLongRange.cpp
+JSMapperCallback.cpp
 JSMathMLElement.cpp
 JSMathMLMathElement.cpp
 JSManagedMediaSource.cpp
@@ -4052,6 +4080,7 @@ JSOfflineAudioContext.cpp
 JSOfflineAudioContextOptions.cpp
 JSOffscreenCanvas.cpp
 JSOffscreenCanvasRenderingContext2D.cpp
+JSOpenID4VPRequest.cpp
 JSOptionalEffectTiming.cpp
 JSOpusEncoderConfig.cpp
 JSOscillatorNode.cpp
@@ -4060,7 +4089,8 @@ JSOscillatorType.cpp
 JSOverSampleType.cpp
 JSOverconstrainedError.cpp
 JSOverconstrainedErrorEvent.cpp
-JSOverflowEvent.cpp
+JSPageRevealEvent.cpp
+JSPageSwapEvent.cpp
 JSPageTransitionEvent.cpp
 JSPaintRenderingContext2D.cpp
 JSPaintWorkletGlobalScope.cpp
@@ -4126,6 +4156,7 @@ JSPopStateEvent.cpp
 JSPositionCallback.cpp
 JSPositionErrorCallback.cpp
 JSPositionOptions.cpp
+JSPredicateCallback.cpp
 JSPredefinedColorSpace.cpp
 JSProcessingInstruction.cpp
 JSProgressEvent.cpp
@@ -4427,6 +4458,7 @@ JSSpeechSynthesisUtterance.cpp
 JSSpeechSynthesisVoice.cpp
 JSStereoPannerNode.cpp
 JSStereoPannerOptions.cpp
+JSStartViewTransitionOptions.cpp
 JSStaticRange.cpp
 JSStorage.cpp
 JSStorageManager.cpp
@@ -4546,6 +4578,7 @@ JSVideoTransferCharacteristics.cpp
 JSViewTimeline.cpp
 JSViewTimelineOptions.cpp
 JSViewTransition.cpp
+JSViewTransitionTypeSet.cpp
 JSViewTransitionUpdateCallback.cpp
 JSVisibilityState.cpp
 JSVisualViewport.cpp
@@ -4707,6 +4740,13 @@ JSXPathEvaluator.cpp
 JSXPathExpression.cpp
 JSXPathNSResolver.cpp
 JSXPathResult.cpp
+JSXRCompositionLayer.cpp
+JSXRCubeLayer.cpp
+JSXRCubeLayerInit.cpp
+JSXRCylinderLayer.cpp
+JSXRCylinderLayerInit.cpp
+JSXREquirectLayer.cpp
+JSXREquirectLayerInit.cpp
 JSXREnvironmentBlendMode.cpp
 JSXREye.cpp
 JSXRFrameRequestCallback.cpp
@@ -4715,13 +4755,24 @@ JSXRHandedness.cpp
 JSXRInputSourceEvent.cpp
 JSXRInputSourcesChangeEvent.cpp
 JSXRInteractionMode.cpp
+JSXRLayerEvent.cpp
+JSXRLayerLayout.cpp
+JSXRLayerQuality.cpp
+JSXRProjectionLayer.cpp
+JSXRProjectionLayerInit.cpp
+JSXRQuadLayer.cpp
+JSXRQuadLayerInit.cpp
 JSXRReferenceSpaceEvent.cpp
 JSXRReferenceSpaceType.cpp
 JSXRRenderStateInit.cpp
 JSXRSessionEvent.cpp
 JSXRSessionInit.cpp
 JSXRSessionMode.cpp
+JSXRSubImage.cpp
 JSXRTargetRayMode.cpp
+JSXRTextureType.cpp
 JSXRVisibilityState.cpp
+JSXRWebGLBinding.cpp
 JSXRWebGLLayerInit.cpp
+JSXRWebGLSubImage.cpp
 JSXSLTProcessor.cpp

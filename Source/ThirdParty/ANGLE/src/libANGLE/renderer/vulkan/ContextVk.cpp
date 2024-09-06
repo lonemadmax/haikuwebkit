@@ -58,6 +58,15 @@ static constexpr VkDeviceSize kMaxBufferToImageCopySize = 64 * 1024 * 1024;
 // RenderPassCommands.
 static constexpr size_t kMaxReservedOutsideRenderPassQueueSerials = 15;
 
+// Dumping the command stream is disabled by default.
+static constexpr bool kEnableCommandStreamDiagnostics = false;
+
+// All glMemoryBarrier bits that related to texture usage
+static constexpr GLbitfield kWriteAfterAccessImageMemoryBarriers =
+    GL_SHADER_IMAGE_ACCESS_BARRIER_BIT;
+static constexpr GLbitfield kWriteAfterAccessMemoryBarriers =
+    kWriteAfterAccessImageMemoryBarriers | GL_SHADER_STORAGE_BARRIER_BIT;
+
 // For shader uniforms such as gl_DepthRange and the viewport size.
 struct GraphicsDriverUniforms
 {
@@ -640,8 +649,6 @@ constexpr angle::PackedEnumMap<RenderPassClosureReason, const char *> kRenderPas
     {RenderPassClosureReason::XfbPause, "Render pass closed due to transform feedback pause"},
     {RenderPassClosureReason::FramebufferFetchEmulation,
      "Render pass closed due to framebuffer fetch emulation"},
-    {RenderPassClosureReason::ColorBufferInvalidate,
-     "Render pass closed due to glInvalidateFramebuffer() on a color buffer"},
     {RenderPassClosureReason::GenerateMipmapOnCPU,
      "Render pass closed due to fallback to CPU when generating mipmaps"},
     {RenderPassClosureReason::CopyTextureOnCPU,
@@ -876,11 +883,11 @@ ContextVk::ContextVk(const gl::State &state, gl::ErrorSet *errorSet, vk::Rendere
       mClearColorValue{},
       mClearDepthStencilValue{},
       mClearColorMasks(0),
+      mDeferredMemoryBarriers(0),
       mFlipYForCurrentSurface(false),
       mFlipViewportForDrawFramebuffer(false),
       mFlipViewportForReadFramebuffer(false),
       mIsAnyHostVisibleBufferWritten(false),
-      mEmulateSeamfulCubeMapSampling(false),
       mCurrentQueueSerialIndex(kInvalidQueueSerialIndex),
       mOutsideRenderPassCommands(nullptr),
       mRenderPassCommands(nullptr),
@@ -1407,8 +1414,6 @@ angle::Result ContextVk::initialize(const angle::ImageLoadContext &imageLoadCont
     mGpuEventsEnabled = gpuEventsEnabled && *gpuEventsEnabled;
 #endif
 
-    mEmulateSeamfulCubeMapSampling = shouldEmulateSeamfulCubeMapSampling();
-
     // Assign initial command buffers from queue
     ANGLE_TRY(vk::OutsideRenderPassCommandBuffer::InitializeCommandPool(
         this, &mCommandPools.outsideRenderPassPool, mRenderer->getQueueFamilyIndex(),
@@ -1855,7 +1860,7 @@ bool ContextVk::renderPassUsesStorageResources() const
     const gl::ProgramExecutable *executable = mState.getProgramExecutable();
     ASSERT(executable);
 
-    if (!hasActiveRenderPass())
+    if (!mRenderPassCommands->started())
     {
         return false;
     }
@@ -2549,8 +2554,8 @@ ANGLE_INLINE angle::Result ContextVk::handleDirtyTexturesImpl(
                                      mState.getSamplers(), &mActiveTexturesDesc);
 
         ANGLE_TRY(executableVk->updateTexturesDescriptorSet(
-            this, mActiveTextures, mState.getSamplers(), mEmulateSeamfulCubeMapSampling,
-            pipelineType, mShareGroupVk->getUpdateDescriptorSetsBuilder(), commandBufferHelper,
+            this, mActiveTextures, mState.getSamplers(), pipelineType,
+            mShareGroupVk->getUpdateDescriptorSetsBuilder(), commandBufferHelper,
             mActiveTexturesDesc));
     }
 
@@ -2804,7 +2809,7 @@ angle::Result ContextVk::handleDirtyShaderResourcesImpl(CommandBufferHelperT *co
             this, commandBufferHelper, *executable, variableInfoMap,
             mState.getOffsetBindingPointerUniformBuffers(), executable->getUniformBlocks(),
             executableVk->getUniformBufferDescriptorType(), limits.maxUniformBufferRange,
-            mEmptyBuffer, mShaderBufferWriteDescriptorDescs);
+            mEmptyBuffer, mShaderBufferWriteDescriptorDescs, mDeferredMemoryBarriers);
     }
     if (hasStorageBuffers)
     {
@@ -2812,7 +2817,8 @@ angle::Result ContextVk::handleDirtyShaderResourcesImpl(CommandBufferHelperT *co
             this, commandBufferHelper, *executable, variableInfoMap,
             mState.getOffsetBindingPointerShaderStorageBuffers(),
             executable->getShaderStorageBlocks(), executableVk->getStorageBufferDescriptorType(),
-            limits.maxStorageBufferRange, mEmptyBuffer, mShaderBufferWriteDescriptorDescs);
+            limits.maxStorageBufferRange, mEmptyBuffer, mShaderBufferWriteDescriptorDescs,
+            mDeferredMemoryBarriers);
     }
     if (hasAtomicCounterBuffers)
     {
@@ -2835,6 +2841,8 @@ angle::Result ContextVk::handleDirtyShaderResourcesImpl(CommandBufferHelperT *co
             this, *executable, variableInfoMap, vk::GetImpl(mState.getDrawFramebuffer()),
             mShaderBufferWriteDescriptorDescs));
     }
+
+    mDeferredMemoryBarriers = 0;
 
     vk::SharedDescriptorSetCacheKey newSharedCacheKey;
     ANGLE_TRY(executableVk->updateShaderResourcesDescriptorSet(
@@ -2891,7 +2899,7 @@ angle::Result ContextVk::handleDirtyUniformBuffersImpl(CommandBufferT *commandBu
             mState.getOffsetBindingPointerUniformBuffers(),
             executable->getUniformBlocks()[blockIndex], binding,
             executableVk->getUniformBufferDescriptorType(), limits.maxUniformBufferRange,
-            mEmptyBuffer, mShaderBufferWriteDescriptorDescs);
+            mEmptyBuffer, mShaderBufferWriteDescriptorDescs, mDeferredMemoryBarriers);
     }
 
     vk::SharedDescriptorSetCacheKey newSharedCacheKey;
@@ -3641,7 +3649,7 @@ angle::Result ContextVk::submitCommands(const vk::Semaphore *signalSemaphore,
                                         const vk::SharedExternalFence *externalFence,
                                         Submit submission)
 {
-    if (vk::CommandBufferHelperCommon::kEnableCommandStreamDiagnostics)
+    if (kEnableCommandStreamDiagnostics)
     {
         dumpCommandStreamDiagnostics();
     }
@@ -4553,7 +4561,7 @@ angle::Result ContextVk::optimizeRenderPassForPresent(vk::ImageViewHelper *color
     }
 
     // Use finalLayout instead of extra barrier for layout change to present
-    if (colorImage != nullptr)
+    if (colorImage != nullptr && getFeatures().supportsPresentation.enabled)
     {
         mRenderPassCommands->setImageOptimizeForPresent(colorImage);
     }
@@ -4578,7 +4586,8 @@ angle::Result ContextVk::optimizeRenderPassForPresent(vk::ImageViewHelper *color
                                                              0, gl::SrgbWriteControlMode::Default,
                                                              &resolveImageView));
 
-        mRenderPassCommands->addColorResolveAttachment(0, resolveImageView->getHandle());
+        mRenderPassCommands->addColorResolveAttachment(0, colorImage, resolveImageView->getHandle(),
+                                                       gl::LevelIndex(0), 0, 1, {});
         onImageRenderPassWrite(gl::LevelIndex(0), 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
                                vk::ImageLayout::ColorWrite, colorImage);
 
@@ -6674,15 +6683,8 @@ angle::Result ContextVk::dispatchComputeIndirect(const gl::Context *context, GLi
 angle::Result ContextVk::memoryBarrier(const gl::Context *context, GLbitfield barriers)
 {
     // First, turn GL_ALL_BARRIER_BITS into a mask that has only the valid barriers set.
-    constexpr GLbitfield kCoreBarrierBits =
-        GL_VERTEX_ATTRIB_ARRAY_BARRIER_BIT | GL_ELEMENT_ARRAY_BARRIER_BIT | GL_UNIFORM_BARRIER_BIT |
-        GL_TEXTURE_FETCH_BARRIER_BIT | GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_COMMAND_BARRIER_BIT |
-        GL_PIXEL_BUFFER_BARRIER_BIT | GL_TEXTURE_UPDATE_BARRIER_BIT | GL_BUFFER_UPDATE_BARRIER_BIT |
-        GL_FRAMEBUFFER_BARRIER_BIT | GL_TRANSFORM_FEEDBACK_BARRIER_BIT |
-        GL_ATOMIC_COUNTER_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT;
-    constexpr GLbitfield kExtensionBarrierBits = GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT_EXT;
-
-    barriers &= kCoreBarrierBits | kExtensionBarrierBits;
+    constexpr GLbitfield kAllMemoryBarrierBits = kBufferMemoryBarrierBits | kImageMemoryBarrierBits;
+    barriers &= kAllMemoryBarrierBits;
 
     // GL_CLIENT_MAPPED_BUFFER_BARRIER_BIT_EXT specifies that a fence sync or glFinish must be used
     // after the barrier for the CPU to to see the shader writes.  Since host-visible buffer writes
@@ -6742,13 +6744,13 @@ angle::Result ContextVk::memoryBarrier(const gl::Context *context, GLbitfield ba
         ANGLE_TRY(flushOutsideRenderPassCommands());
     }
 
-    constexpr GLbitfield kWriteAfterAccessBarriers =
-        GL_SHADER_IMAGE_ACCESS_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT;
-
-    if ((barriers & kWriteAfterAccessBarriers) == 0)
+    if ((barriers & kWriteAfterAccessMemoryBarriers) == 0)
     {
         return angle::Result::Continue;
     }
+
+    // Accumulate unprocessed memoryBarrier bits
+    mDeferredMemoryBarriers |= barriers;
 
     // Defer flushing the command buffers until a draw/dispatch with storage buffer/image is
     // encountered.
@@ -7361,9 +7363,12 @@ angle::Result ContextVk::initBufferForVertexConversion(vk::BufferHelper *bufferH
 {
     if (bufferHelper->valid())
     {
-        // If size is big enough and it is idle, then just reuse the existing buffer.
+        // If size is big enough and it is idle, then just reuse the existing buffer. Or if current
+        // render pass uses the buffer, try to allocate a new one to avoid breaking the render pass.
         if (size <= bufferHelper->getSize() &&
-            (hostVisibility == vk::MemoryHostVisibility::Visible) == bufferHelper->isHostVisible())
+            (hostVisibility == vk::MemoryHostVisibility::Visible) ==
+                bufferHelper->isHostVisible() &&
+            !isRenderPassStartedAndUsesBuffer(*bufferHelper))
         {
             if (mRenderer->hasResourceUseFinished(bufferHelper->getResourceUse()))
             {
@@ -7515,6 +7520,15 @@ angle::Result ContextVk::updateActiveImages(CommandBufferHelperT *commandBufferH
     const gl::ProgramExecutable *executable = glState.getProgramExecutable();
     ASSERT(executable);
 
+    // If there are memoryBarrier call being made that requires we insert barriers for images we
+    // must do so.
+    bool memoryBarrierRequired = false;
+    if ((mDeferredMemoryBarriers & kWriteAfterAccessImageMemoryBarriers) != 0)
+    {
+        memoryBarrierRequired = true;
+        mDeferredMemoryBarriers &= ~kWriteAfterAccessImageMemoryBarriers;
+    }
+
     FillWithNullptr(&mActiveImages);
 
     const gl::ActiveTextureMask &activeImages = executable->getActiveImagesMask();
@@ -7572,8 +7586,18 @@ angle::Result ContextVk::updateActiveImages(CommandBufferHelperT *commandBufferH
         const vk::ImageLayout imageLayout = GetImageWriteLayoutAndSubresource(
             imageUnit, *image, shaderStages, &level, &layerStart, &layerCount);
 
-        commandBufferHelper->imageWrite(this, level, layerStart, layerCount,
-                                        image->getAspectFlags(), imageLayout, image);
+        if (imageLayout == image->getCurrentImageLayout() && !memoryBarrierRequired)
+        {
+            // GL spec does not require implementation to do WAW barriers for shader image access.
+            // If there is no layout change, we skip the barrier here unless there is prior
+            // memoryBarrier call.
+            commandBufferHelper->retainImageWithEvent(this, image);
+        }
+        else
+        {
+            commandBufferHelper->imageWrite(this, level, layerStart, layerCount,
+                                            image->getAspectFlags(), imageLayout, image);
+        }
     }
 
     return angle::Result::Continue;
@@ -7747,6 +7771,12 @@ void ContextVk::addWaitSemaphore(VkSemaphore semaphore, VkPipelineStageFlags sta
 angle::Result ContextVk::getCompatibleRenderPass(const vk::RenderPassDesc &desc,
                                                  const vk::RenderPass **renderPassOut)
 {
+    if (getFeatures().preferDynamicRendering.enabled)
+    {
+        *renderPassOut = &mNullRenderPass;
+        return angle::Result::Continue;
+    }
+
     // Note: Each context has it's own RenderPassCache so no locking needed.
     return mRenderPassCache.getCompatibleRenderPass(this, desc, renderPassOut);
 }
@@ -7755,6 +7785,16 @@ angle::Result ContextVk::getRenderPassWithOps(const vk::RenderPassDesc &desc,
                                               const vk::AttachmentOpsArray &ops,
                                               const vk::RenderPass **renderPassOut)
 {
+    if (getFeatures().preferDynamicRendering.enabled)
+    {
+        if (mState.isPerfMonitorActive())
+        {
+            mRenderPassCommands->updatePerfCountersForDynamicRenderingInstance(this,
+                                                                               &mPerfCounters);
+        }
+        return angle::Result::Continue;
+    }
+
     // Note: Each context has it's own RenderPassCache so no locking needed.
     return mRenderPassCache.getRenderPassWithOps(this, desc, ops, renderPassOut);
 }
@@ -7837,17 +7877,6 @@ void ContextVk::invalidateDefaultAttributes(const gl::AttributesMask &dirtyMask)
         mGraphicsDirtyBits.set(DIRTY_BIT_DEFAULT_ATTRIBS);
         mGraphicsDirtyBits.set(DIRTY_BIT_VERTEX_BUFFERS);
     }
-}
-
-bool ContextVk::shouldEmulateSeamfulCubeMapSampling() const
-{
-    // Only allow seamful cube map sampling in non-webgl ES2.
-    if (mState.getClientMajorVersion() != 2 || mState.isWebGL())
-    {
-        return false;
-    }
-
-    return true;
 }
 
 angle::Result ContextVk::onBufferReleaseToExternal(const vk::BufferHelper &buffer)
@@ -7983,14 +8012,10 @@ angle::Result ContextVk::flushCommandsAndEndRenderPassWithoutSubmit(RenderPassCl
 
     ANGLE_TRY(mRenderPassCommands->endRenderPass(this));
 
-    if (vk::CommandBufferHelperCommon::kEnableCommandStreamDiagnostics)
+    if (kEnableCommandStreamDiagnostics)
     {
         addCommandBufferDiagnostics(mRenderPassCommands->getCommandDiagnostics());
     }
-
-    const vk::RenderPass *renderPass = nullptr;
-    ANGLE_TRY(getRenderPassWithOps(mRenderPassCommands->getRenderPassDesc(),
-                                   mRenderPassCommands->getAttachmentOps(), &renderPass));
 
     flushDescriptorSetUpdates();
     // Collect RefCountedEvent garbage before submitting to renderer
@@ -8003,10 +8028,17 @@ angle::Result ContextVk::flushCommandsAndEndRenderPassWithoutSubmit(RenderPassCl
                                                    mRenderPassCommands->getQueueSerial()));
     mLastFlushedQueueSerial = mRenderPassCommands->getQueueSerial();
 
-    // If a new framebuffer is used to accommodate resolve attachments that have been added after
-    // the fact, create a temp one now and add it to garbage list.
+    const vk::RenderPass unusedRenderPass;
+    const vk::RenderPass *renderPass  = &unusedRenderPass;
     VkFramebuffer framebufferOverride = VK_NULL_HANDLE;
-    if (mRenderPassCommands->getFramebuffer().needsNewFramebufferWithResolveAttachments())
+
+    ANGLE_TRY(getRenderPassWithOps(mRenderPassCommands->getRenderPassDesc(),
+                                   mRenderPassCommands->getAttachmentOps(), &renderPass));
+
+    // If a new framebuffer is used to accommodate resolve attachments that have been added
+    // after the fact, create a temp one now and add it to garbage list.
+    if (!getFeatures().preferDynamicRendering.enabled &&
+        mRenderPassCommands->getFramebuffer().needsNewFramebufferWithResolveAttachments())
     {
         vk::Framebuffer tempFramebuffer;
         ANGLE_TRY(mRenderPassCommands->getFramebuffer().packResolveViewsAndCreateFramebuffer(
@@ -8270,7 +8302,7 @@ angle::Result ContextVk::flushOutsideRenderPassCommands()
 
     addOverlayUsedBuffersCount(mOutsideRenderPassCommands);
 
-    if (vk::CommandBufferHelperCommon::kEnableCommandStreamDiagnostics)
+    if (kEnableCommandStreamDiagnostics)
     {
         addCommandBufferDiagnostics(mOutsideRenderPassCommands->getCommandDiagnostics());
     }
@@ -8601,11 +8633,12 @@ angle::Result ContextVk::onResourceAccess(const vk::CommandBufferAccess &access)
 
     for (const vk::CommandBufferImageAccess &imageAccess : access.getReadImages())
     {
-        ASSERT(!isRenderPassStartedAndUsesImage(*imageAccess.image));
+        vk::ImageHelper *image = imageAccess.image;
+        ASSERT(!isRenderPassStartedAndUsesImage(*image));
 
         imageAccess.image->recordReadBarrier(this, imageAccess.aspectFlags, imageAccess.imageLayout,
                                              mOutsideRenderPassCommands);
-        mOutsideRenderPassCommands->retainResource(imageAccess.image);
+        mOutsideRenderPassCommands->retainImage(image);
     }
 
     for (const vk::CommandBufferImageSubresourceAccess &imageReadAccess :
@@ -8618,7 +8651,7 @@ angle::Result ContextVk::onResourceAccess(const vk::CommandBufferAccess &access)
             this, imageReadAccess.access.aspectFlags, imageReadAccess.access.imageLayout,
             imageReadAccess.levelStart, imageReadAccess.levelCount, imageReadAccess.layerStart,
             imageReadAccess.layerCount, mOutsideRenderPassCommands);
-        mOutsideRenderPassCommands->retainResource(image);
+        mOutsideRenderPassCommands->retainImage(image);
     }
 
     for (const vk::CommandBufferImageSubresourceAccess &imageWrite : access.getWriteImages())
@@ -8630,7 +8663,7 @@ angle::Result ContextVk::onResourceAccess(const vk::CommandBufferAccess &access)
                                   imageWrite.access.imageLayout, imageWrite.levelStart,
                                   imageWrite.levelCount, imageWrite.layerStart,
                                   imageWrite.layerCount, mOutsideRenderPassCommands);
-        mOutsideRenderPassCommands->retainResource(image);
+        mOutsideRenderPassCommands->retainImage(image);
         image->onWrite(imageWrite.levelStart, imageWrite.levelCount, imageWrite.layerStart,
                        imageWrite.layerCount, imageWrite.access.aspectFlags);
     }
@@ -8901,9 +8934,10 @@ angle::Result ContextVk::switchToFramebufferFetchMode(bool hasFramebufferFetch)
         getDrawFramebuffer()->switchToFramebufferFetchMode(this, mIsInFramebufferFetchMode);
     }
 
-    // Clear the render pass cache; all render passes will be incompatible from now on with the old
-    // ones.
-    if (getFeatures().permanentlySwitchToFramebufferFetchMode.enabled)
+    // Clear the render pass cache; all render passes will be incompatible from now on with the
+    // old ones.
+    if (!getFeatures().preferDynamicRendering.enabled &&
+        getFeatures().permanentlySwitchToFramebufferFetchMode.enabled)
     {
         mRenderPassCache.clear(this);
     }

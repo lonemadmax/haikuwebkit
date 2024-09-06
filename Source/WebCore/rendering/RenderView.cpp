@@ -35,6 +35,7 @@
 #include "ImageQualityController.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutInitialContainingBlock.h"
+#include "LayoutIntegrationFormattingContextLayout.h"
 #include "LayoutState.h"
 #include "LegacyRenderSVGRoot.h"
 #include "LocalFrame.h"
@@ -49,9 +50,9 @@
 #include "RenderGeometryMap.h"
 #include "RenderImage.h"
 #include "RenderIterator.h"
-#include "RenderLayer.h"
 #include "RenderLayerBacking.h"
 #include "RenderLayerCompositor.h"
+#include "RenderLayerInlines.h"
 #include "RenderLayoutState.h"
 #include "RenderMultiColumnFlow.h"
 #include "RenderMultiColumnSet.h"
@@ -79,7 +80,7 @@ RenderView::RenderView(Document& document, RenderStyle&& style)
     : RenderBlockFlow(Type::View, document, WTFMove(style))
     , m_frameView(*document.view())
     , m_initialContainingBlock(makeUniqueRef<Layout::InitialContainingBlock>(RenderStyle::clone(this->style())))
-    , m_layoutState(makeUniqueRef<Layout::LayoutState>(document, *m_initialContainingBlock, Layout::LayoutState::Type::Primary))
+    , m_layoutState(makeUniqueRef<Layout::LayoutState>(document, *m_initialContainingBlock, Layout::LayoutState::Type::Primary, LayoutIntegration::layoutWithFormattingContextForBox))
     , m_selection(*this)
 {
     // FIXME: We should find a way to enforce this at compile time.
@@ -375,7 +376,7 @@ static inline bool rendererObscuresBackground(const RenderElement& rootElement)
     if (rootElement.isComposited())
         return false;
 
-    if (rootElement.hasClipPath() && rootElement.isRenderSVGRoot())
+    if (rootElement.hasClipPath() && rootElement.isRenderOrLegacyRenderSVGRoot())
         return false;
 
     auto* rendererForBackground = rootElement.view().rendererForRootBackground();

@@ -437,7 +437,7 @@ static void adjustSelectListButtonStyle(RenderStyle& style, const Element& eleme
     applyCommonButtonPaddingToStyle(style, element);
 
     // Enforce "line-height: normal".
-    style.setLineHeight(Length(-100.0, LengthType::Percent));
+    style.setLineHeight(Length(LengthType::Normal));
 }
     
 class RenderThemeMeasureTextClient : public MeasureTextClient {
@@ -468,8 +468,13 @@ static void adjustInputElementButtonStyle(RenderStyle& style, const HTMLInputEle
 
     // Don't adjust for unsupported date input types.
     DateComponentsType dateType = inputElement.dateType();
-    if (dateType == DateComponentsType::Invalid || dateType == DateComponentsType::Week)
+    if (dateType == DateComponentsType::Invalid)
         return;
+
+#if !ENABLE(INPUT_TYPE_WEEK_PICKER)
+    if (dateType == DateComponentsType::Week)
+        return;
+#endif
 
     // Enforce the width and set the box-sizing to content-box to not conflict with the padding.
     FontCascade font = style.fontCascade();

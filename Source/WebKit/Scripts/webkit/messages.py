@@ -651,6 +651,16 @@ def handler_function(receiver, message):
     return '%s::%s' % (receiver.name, message.name[0].lower() + message.name[1:])
 
 
+def generate_enabled_by(receiver, enabled_by):
+    return ' && '.join(['sharedPreferences.' + preference[0].lower() + preference[1:] for preference in enabled_by])
+
+
+def generate_runtime_enablement(receiver, message):
+    if not message.enabled_by:
+        return message.enabled_if
+    return generate_enabled_by(receiver, message.enabled_by)
+
+
 def async_message_statement(receiver, message):
     if receiver.has_attribute(NOT_USING_IPC_CONNECTION_ATTRIBUTE) and message.reply_parameters is not None and not message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
         dispatch_function_args = ['decoder', 'WTFMove(replyHandler)', 'this', '&%s' % handler_function(receiver, message)]
@@ -672,8 +682,9 @@ def async_message_statement(receiver, message):
         connection = ''
 
     result = []
-    if message.runtime_enablement:
-        result.append('    if (decoder.messageName() == Messages::%s::%s::name() && %s)\n' % (receiver.name, message.name, message.runtime_enablement))
+    runtime_enablement = generate_runtime_enablement(receiver, message)
+    if runtime_enablement:
+        result.append('    if (decoder.messageName() == Messages::%s::%s::name() && %s)\n' % (receiver.name, message.name, runtime_enablement))
     else:
         result.append('    if (decoder.messageName() == Messages::%s::%s::name())\n' % (receiver.name, message.name))
     result.append('        return IPC::%s<Messages::%s::%s>(%s%s);\n' % (dispatch_function, receiver.name, message.name, connection, ', '.join(dispatch_function_args)))
@@ -694,8 +705,9 @@ def sync_message_statement(receiver, message):
         maybe_reply_encoder = ', replyEncoder'
 
     result = []
-    if message.runtime_enablement:
-        result.append('    if (decoder.messageName() == Messages::%s::%s::name() && %s)\n' % (receiver.name, message.name, message.runtime_enablement))
+    runtime_enablement = generate_runtime_enablement(receiver, message)
+    if runtime_enablement:
+        result.append('    if (decoder.messageName() == Messages::%s::%s::name() && %s)\n' % (receiver.name, message.name, runtime_enablement))
     else:
         result.append('    if (decoder.messageName() == Messages::%s::%s::name())\n' % (receiver.name, message.name))
     result.append('        return IPC::%s<Messages::%s::%s>(connection, decoder%s, this, &%s);\n' % (dispatch_function, receiver.name, message.name, maybe_reply_encoder, handler_function(receiver, message)))
@@ -885,6 +897,7 @@ def headers_for_type(type):
         'WebCore::InputMode': ['<WebCore/InputMode.h>'],
         'WebCore::InspectorClientDeveloperPreference': ['<WebCore/InspectorClient.h>'],
         'WebCore::InspectorOverlayHighlight': ['<WebCore/InspectorOverlay.h>'],
+        'WebCore::IsLoggedIn': ['<WebCore/IsLoggedIn.h>'],
         'WebCore::ISOWebVTTCue': ['<WebCore/ISOVTTCue.h>'],
         'WebCore::KeyframeValueList': ['<WebCore/GraphicsLayer.h>'],
         'WebCore::KeypressCommand': ['<WebCore/KeyboardEvent.h>'],
@@ -992,6 +1005,9 @@ def headers_for_type(type):
         'WebCore::TargetedElementAdjustment': ['<WebCore/ElementTargetingTypes.h>'],
         'WebCore::TargetedElementInfo': ['<WebCore/ElementTargetingTypes.h>'],
         'WebCore::TargetedElementRequest': ['<WebCore/ElementTargetingTypes.h>'],
+        'WebCore::TextAnimationData': ['<WebCore/TextAnimationTypes.h>'],
+        'WebCore::TextAnimationRunMode': ['<WebCore/TextAnimationTypes.h>'],
+        'WebCore::TextAnimationType': ['<WebCore/TextAnimationTypes.h>'],
         'WebCore::TextCheckingRequestData': ['<WebCore/TextChecking.h>'],
         'WebCore::TextCheckingResult': ['<WebCore/TextCheckerClient.h>'],
         'WebCore::TextCheckingType': ['<WebCore/TextChecking.h>'],
@@ -1005,12 +1021,12 @@ def headers_for_type(type):
         'WebCore::WritingTools::Action': ['<WebCore/WritingToolsTypes.h>'],
         'WebCore::WritingTools::TextSuggestion': ['<WebCore/WritingToolsTypes.h>'],
         'WebCore::WritingTools::Behavior': ['<WebCore/WritingToolsTypes.h>'],
-        'WebCore::WritingTools::TextSuggestion::ID': ['<WebCore/WritingToolsTypes.h>'],
-        'WebCore::WritingTools::TextSuggestionState': ['<WebCore/WritingToolsTypes.h>'],
         'WebCore::WritingTools::Session': ['<WebCore/WritingToolsTypes.h>'],
         'WebCore::WritingTools::Session::Type': ['<WebCore/WritingToolsTypes.h>'],
         'WebCore::WritingTools::Session::CompositionType': ['<WebCore/WritingToolsTypes.h>'],
         'WebCore::WritingTools::Session::ID': ['<WebCore/WritingToolsTypes.h>'],
+        'WebCore::WritingTools::TextSuggestion::ID': ['<WebCore/WritingToolsTypes.h>'],
+        'WebCore::WritingTools::TextSuggestionState': ['<WebCore/WritingToolsTypes.h>'],
         'WebCore::UsedLegacyTLS': ['<WebCore/ResourceResponseBase.h>'],
         'WebCore::VideoFrameRotation': ['<WebCore/VideoFrame.h>'],
         'WebCore::VideoPlaybackQualityMetrics': ['<WebCore/VideoPlaybackQualityMetrics.h>'],
@@ -1105,8 +1121,6 @@ def headers_for_type(type):
         'WebKit::SelectionTouch': ['"GestureTypes.h"'],
         'WebKit::TapIdentifier': ['"IdentifierTypes.h"'],
         'WebKit::TextCheckerRequestID': ['"IdentifierTypes.h"'],
-        'WebKit::TextAnimationType': ['"TextAnimationType.h"'],
-        'WebKit::TextAnimationData': ['"TextAnimationType.h"'],
         'WebKit::WebEventType': ['"WebEvent.h"'],
         'WebKit::WebExtensionContextInstallReason': ['"WebExtensionContext.h"'],
         'WebKit::WebExtensionCookieFilterParameters': ['"WebExtensionCookieParameters.h"'],
@@ -1225,6 +1239,9 @@ def collect_header_conditions_for_receiver(receiver, header_conditions):
         if not parameter.condition in type_conditions[parameter.type]:
             type_conditions[parameter.type].append(parameter.condition)
 
+    if receiver.receiver_enabled_by:
+        header_conditions['"SharedPreferencesForWebProcess.h"'] = [None]
+
     for parameter in receiver.iterparameters():
         type = parameter.type
         conditions = type_conditions[type]
@@ -1243,6 +1260,8 @@ def collect_header_conditions_for_receiver(receiver, header_conditions):
             header_conditions[header].extend(conditions)
 
     for message in receiver.messages:
+        if message.enabled_by:
+            header_conditions['"SharedPreferencesForWebProcess.h"'] = [None]
         if message.reply_parameters is not None:
             for reply_parameter in message.reply_parameters:
                 type = reply_parameter.type
@@ -1273,6 +1292,30 @@ def generate_header_includes_from_conditions(header_conditions):
         else:
             result += ['#include %s // NOLINT\n' % header]
     return result
+
+
+def generate_enabled_by_for_receiver(receiver, messages, ignore_invalid_message_for_testing, return_value=None):
+    enabled_by = receiver.receiver_enabled_by
+    shared_preferences_retrieval = [
+        '    auto& sharedPreferences = sharedPreferencesForWebProcess(%s);\n' % ('connection' if receiver.shared_preferences_needs_connection else ''),
+        '    UNUSED_VARIABLE(sharedPreferences);\n'
+    ]
+    if not enabled_by:
+        if any([message.enabled_by for message in messages]):
+            return shared_preferences_retrieval
+        return []
+    runtime_enablement = generate_enabled_by(receiver, enabled_by)
+    return_statement_line = 'return %s' % return_value if return_value else 'return'
+    return shared_preferences_retrieval + [
+        '    if (!%s) {\n' % ('(%s)' % runtime_enablement if len(enabled_by) > 1 else runtime_enablement),
+        '#if ENABLE(IPC_TESTING_API)\n',
+        '        if (%s)\n' % ignore_invalid_message_for_testing,
+        '            %s;\n' % return_statement_line,
+        '#endif // ENABLE(IPC_TESTING_API)\n',
+        '        ASSERT_NOT_REACHED_WITH_MESSAGE("Message received by a disabled message receiver %s");\n' % receiver.name,
+        '        %s;\n' % return_statement_line,
+        '    }\n',
+    ]
 
 
 def generate_message_handler(receiver):
@@ -1327,6 +1370,7 @@ def generate_message_handler(receiver):
     if receiver.has_attribute(STREAM_ATTRIBUTE):
         result.append('void %s::didReceiveStreamMessage(IPC::StreamServerConnection& connection, IPC::Decoder& decoder)\n' % (receiver.name))
         result.append('{\n')
+        result += generate_enabled_by_for_receiver(receiver, receiver.messages, 'connection.protectedConnection()->ignoreInvalidMessageForTesting()')
         assert(receiver.has_attribute(NOT_REFCOUNTED_RECEIVER_ATTRIBUTE))
         assert(not receiver.has_attribute(WANTS_DISPATCH_MESSAGE_ATTRIBUTE))
         assert(not receiver.has_attribute(WANTS_ASYNC_DISPATCH_MESSAGE_ATTRIBUTE))
@@ -1350,6 +1394,7 @@ def generate_message_handler(receiver):
         else:
             result.append('void %s::didReceive%sMessage(IPC::Connection& connection, IPC::Decoder& decoder)\n' % (receiver.name, receive_variant))
         result.append('{\n')
+        result += generate_enabled_by_for_receiver(receiver, async_messages, 'connection.ignoreInvalidMessageForTesting()')
         if not (receiver.has_attribute(NOT_REFCOUNTED_RECEIVER_ATTRIBUTE) or receiver.has_attribute(STREAM_ATTRIBUTE)):
             result.append('    Ref protectedThis { *this };\n')
         result += async_message_statements
@@ -1374,6 +1419,7 @@ def generate_message_handler(receiver):
         result.append('\n')
         result.append('bool %s::didReceiveSync%sMessage(IPC::Connection& connection, IPC::Decoder& decoder, UniqueRef<IPC::Encoder>& replyEncoder)\n' % (receiver.name, receiver.name if receiver.has_attribute(LEGACY_RECEIVER_ATTRIBUTE) else ''))
         result.append('{\n')
+        result += generate_enabled_by_for_receiver(receiver, sync_messages, 'connection.ignoreInvalidMessageForTesting()', 'false')
         if not receiver.has_attribute(NOT_REFCOUNTED_RECEIVER_ATTRIBUTE):
             result.append('    Ref protectedThis { *this };\n')
         result += sync_message_statements

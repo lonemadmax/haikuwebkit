@@ -36,8 +36,11 @@
 #import "WKNavigationActionPrivate.h"
 #import "WKNavigationDelegatePrivate.h"
 #import "WKUIDelegatePrivate.h"
+#import "WKWebExtensionActionInternal.h"
+#import "WKWebExtensionControllerDelegatePrivate.h"
 #import "WKWebViewConfigurationPrivate.h"
 #import "WKWebViewInternal.h"
+#import "WKWindowFeaturesPrivate.h"
 #import "WebExtensionContext.h"
 #import "WebExtensionContextProxyMessages.h"
 #import "WebExtensionMenuItem.h"
@@ -46,8 +49,6 @@
 #import "WebExtensionTabParameters.h"
 #import "WebPageProxy.h"
 #import "WebProcessProxy.h"
-#import "_WKWebExtensionActionInternal.h"
-#import "_WKWebExtensionControllerDelegatePrivate.h"
 #import <wtf/BlockPtr.h>
 
 #if PLATFORM(IOS_FAMILY)
@@ -120,8 +121,8 @@ using namespace WebKit;
         tabParameters.index = currentTab ? std::optional(currentTab->index() + 1) : std::nullopt;
         tabParameters.active = true;
 
-        _webExtensionAction->extensionContext()->openNewTab(tabParameters, [](RefPtr<WebExtensionTab> newTab) {
-            ASSERT(newTab);
+        _webExtensionAction->extensionContext()->openNewTab(tabParameters, [](auto newTab) {
+            // Nothing to do.
         });
 
         decisionHandler(WKNavigationActionPolicyCancel);
@@ -139,6 +140,59 @@ using namespace WebKit;
     ASSERT(isURLForThisExtension);
 
     decisionHandler(WKNavigationActionPolicyAllow);
+}
+
+- (WKWebView *)webView:(WKWebView *)webView createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration forNavigationAction:(WKNavigationAction *)navigationAction windowFeatures:(WKWindowFeatures *)windowFeatures
+{
+    // This can't return a web view because it must use the supplied configuration,
+    // or an exception will be thrown. Web extension URLs can't load in a web view
+    // configured for HTTP-family URLs, and vice versa, making it imposible to
+    // use the configuration for a new tab.
+
+    if (!_webExtensionAction || !_webExtensionAction->extensionContext())
+        return nil;
+
+    WebExtensionTabParameters tabParameters;
+    tabParameters.url = navigationAction.request.URL;
+
+    if (_webExtensionAction->extensionContext()->canOpenNewWindow()) {
+        WebExtensionWindowParameters windowParameters;
+        windowParameters.focused = true;
+        windowParameters.tabs = { WTFMove(tabParameters) };
+        windowParameters.type = windowFeatures._wantsPopup ? WebExtensionWindow::Type::Popup : WebExtensionWindow::Type::Normal;
+        windowParameters.state = windowFeatures._fullscreenDisplay.boolValue ? WebExtensionWindow::State::Fullscreen : WebExtensionWindow::State::Normal;
+
+        static constexpr CGFloat NaN = std::numeric_limits<CGFloat>::quiet_NaN();
+
+        CGRect frame;
+        frame.origin.x = windowFeatures.x ? windowFeatures.x.doubleValue : NaN;
+        frame.origin.y = windowFeatures.y ? windowFeatures.y.doubleValue : NaN;
+        frame.size.width = windowFeatures.width ? windowFeatures.width.doubleValue : NaN;
+        frame.size.height = windowFeatures.height ? windowFeatures.height.doubleValue : NaN;
+
+        windowParameters.frame = frame;
+
+        _webExtensionAction->extensionContext()->openNewWindow(windowParameters, [](auto newWindow) {
+            // Nothing to do.
+        });
+
+        return nil;
+    }
+
+    RefPtr currentWindow = _webExtensionAction->window();
+    RefPtr currentTab = _webExtensionAction->tab();
+    if (!currentWindow && currentTab)
+        currentWindow = currentTab->window();
+
+    tabParameters.windowIdentifier = currentWindow ? currentWindow->identifier() : WebExtensionWindowConstants::CurrentIdentifier;
+    tabParameters.index = currentTab ? std::optional(currentTab->index() + 1) : std::nullopt;
+    tabParameters.active = true;
+
+    _webExtensionAction->extensionContext()->openNewTab(tabParameters, [](auto newTab) {
+        // Nothing to do.
+    });
+
+    return nil;
 }
 
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView
@@ -565,7 +619,7 @@ void WebExtensionAction::clearBlockedResourceCount()
 void WebExtensionAction::propertiesDidChange()
 {
     dispatch_async(dispatch_get_main_queue(), makeBlockPtr([this, protectedThis = Ref { *this }]() {
-        [NSNotificationCenter.defaultCenter postNotificationName:_WKWebExtensionActionPropertiesDidChangeNotification object:wrapper() userInfo:nil];
+        [NSNotificationCenter.defaultCenter postNotificationName:WKWebExtensionActionPropertiesDidChangeNotification object:wrapper() userInfo:nil];
     }).get());
 }
 

@@ -536,7 +536,10 @@ private:
     bool sendMessage(std::unique_ptr<MachMessage>);
 #endif
     template<typename F>
-    void dispatchToClient(F&& clientRunLoopTask);
+    void dispatchToClient(F&& clientRunLoopTask) WTF_EXCLUDES_LOCK(m_incomingMessagesLock);
+
+    template<typename F>
+    void dispatchToClientWithIncomingMessagesLock(F&& clientRunLoopTask) WTF_REQUIRES_LOCK(m_incomingMessagesLock);
 
     size_t numberOfMessagesToProcess(size_t totalMessages);
     bool isThrottlingIncomingMessages() const { return *m_incomingMessagesThrottlingLevel > 0; }
@@ -580,7 +583,11 @@ private:
     std::optional<uint8_t> m_incomingMessagesThrottlingLevel;
 
     // Incoming messages.
+#if ENABLE(UNFAIR_LOCK)
+    mutable UnfairLock m_incomingMessagesLock;
+#else
     mutable Lock m_incomingMessagesLock;
+#endif
     Deque<UniqueRef<Decoder>> m_incomingMessages WTF_GUARDED_BY_LOCK(m_incomingMessagesLock);
     MessageReceiveQueueMap m_receiveQueues WTF_GUARDED_BY_LOCK(m_incomingMessagesLock);
 
@@ -651,7 +658,7 @@ private:
     std::unique_ptr<MachMessage> m_pendingOutgoingMachMessage;
 
     OSObjectPtr<xpc_connection_t> m_xpcConnection;
-    bool m_wasKilled { false };
+    std::atomic<bool> m_didRequestProcessTermination { false };
 #elif OS(WINDOWS)
     // Called on the connection queue.
     void readEventHandler();

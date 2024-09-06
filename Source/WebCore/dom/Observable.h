@@ -25,7 +25,7 @@
 
 #pragma once
 
-#include "AbortSignal.h"
+#include "ExceptionOr.h"
 #include "ScriptWrappable.h"
 #include "SubscriberCallback.h"
 #include "VoidCallback.h"
@@ -33,9 +33,11 @@
 
 namespace WebCore {
 
+class InternalObserver;
 class ScriptExecutionContext;
 class JSSubscriptionObserverCallback;
-class SubscriptionObserverCallback;
+class PredicateCallback;
+class MapperCallback;
 struct SubscriptionObserver;
 struct SubscribeOptions;
 
@@ -45,16 +47,23 @@ class Observable final : public ScriptWrappable, public RefCounted<Observable> {
 public:
     using ObserverUnion = std::variant<RefPtr<JSSubscriptionObserverCallback>, SubscriptionObserver>;
 
-    static ExceptionOr<Ref<Observable>> create(Ref<SubscriberCallback>);
+    static Ref<Observable> create(Ref<SubscriberCallback>);
 
     explicit Observable(Ref<SubscriberCallback>);
 
     void subscribe(ScriptExecutionContext&, std::optional<ObserverUnion>, SubscribeOptions);
+    void subscribeInternal(ScriptExecutionContext&, Ref<InternalObserver>, SubscribeOptions);
+
+    Ref<Observable> map(ScriptExecutionContext&, MapperCallback&);
+
+    Ref<Observable> filter(ScriptExecutionContext&, PredicateCallback&);
+
+    Ref<Observable> take(ScriptExecutionContext&, uint64_t);
+
+    Ref<Observable> drop(ScriptExecutionContext&, uint64_t);
 
 private:
-    Ref<SubscriberCallback> m_subscriber;
-
-    Ref<Subscriber> makeSubscriber(ScriptExecutionContext&, std::optional<ObserverUnion>);
+    Ref<SubscriberCallback> m_subscriberCallback;
 };
 
 } // namespace WebCore

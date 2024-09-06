@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006-2024 Apple Inc. All rights reserved.
- * Copyright (C) 2014 Google Inc. All rights reserved.
+ * Copyright (C) 2013-2014 Google Inc. All rights reserved.
  * Copyright (C) 2019 Adobe. All rights reserved.
  * Copyright (c) 2020, 2021, 2022 Igalia S.L.
  *
@@ -88,7 +88,6 @@
 #include "LocalFrameLoaderClient.h"
 #include "LocalFrameView.h"
 #include "Logging.h"
-#include "OverflowEvent.h"
 #include "OverlapTestRequestClient.h"
 #include "Page.h"
 #include "PlatformMouseEvent.h"
@@ -528,10 +527,6 @@ void RenderLayer::removeOnlyThisLayer(LayerChangeTiming timing)
     if (timing == LayerChangeTiming::StyleChange)
         renderer().view().layerChildrenChangedDuringStyleChange(*parent());
 
-    // Mark that we are about to lose our layer. This makes render tree
-    // walks ignore this layer while we're removing it.
-    renderer().setHasLayer(false);
-
     compositor().layerWillBeRemoved(*m_parent, *this);
 
     // Dirty the clip rects.
@@ -725,7 +720,7 @@ bool RenderLayer::willCompositeClipPath() const
     if (renderer().hasMask())
         return false;
 
-    return (clipPath->type() != PathOperation::Shape || clipPath->type() == PathOperation::Shape) && GraphicsLayer::supportsLayerType(GraphicsLayer::Type::Shape);
+    return (clipPath->type() != PathOperation::Type::Shape || clipPath->type() == PathOperation::Type::Shape) && GraphicsLayer::supportsLayerType(GraphicsLayer::Type::Shape);
 }
 
 void RenderLayer::dirtyNormalFlowList()
@@ -753,6 +748,7 @@ void RenderLayer::updateNormalFlowList()
             if (!m_normalFlowList)
                 m_normalFlowList = makeUnique<Vector<RenderLayer*>>();
             m_normalFlowList->append(child);
+            child->setWasIncludedInZOrderTree();
         }
     }
 
@@ -831,10 +827,32 @@ void RenderLayer::rebuildZOrderLists(std::unique_ptr<Vector<RenderLayer*>>& posZ
     }
 }
 
+void RenderLayer::removeSelfAndDescendantsFromCompositor()
+{
+    if (parent())
+        compositor().layerWillBeRemoved(*parent(), *this);
+    clearBacking();
+
+    for (RenderLayer* child = firstChild(); child; child = child->nextSibling())
+        child->removeSelfAndDescendantsFromCompositor();
+}
+
+void RenderLayer::setWasOmittedFromZOrderTree()
+{
+    if (m_wasOmittedFromZOrderTree)
+        return;
+
+    removeSelfAndDescendantsFromCompositor();
+
+    if (compositor().hasContentCompositingLayers() && parent())
+        parent()->setDescendantsNeedCompositingRequirementsTraversal();
+
+    m_wasOmittedFromZOrderTree = true;
+}
+
 void RenderLayer::collectLayers(std::unique_ptr<Vector<RenderLayer*>>& positiveZOrderList, std::unique_ptr<Vector<RenderLayer*>>& negativeZOrderList, OptionSet<Compositing>& accumulatedDirtyFlags)
 {
-    updateDescendantDependentFlags();
-
+    ASSERT(!descendantDependentFlagsAreDirty());
     if (establishesTopLayer())
         return;
 
@@ -842,12 +860,16 @@ void RenderLayer::collectLayers(std::unique_ptr<Vector<RenderLayer*>>& positiveZ
     // Overflow layers are just painted by their enclosing layers, so they don't get put in zorder lists.
     bool includeHiddenLayer = (m_hasVisibleContent || m_intrinsicallyComposited) || ((m_hasVisibleDescendant || m_hasIntrinsicallyCompositedDescendants) && isStacking);
     includeHiddenLayer |= page().hasEverSetVisibilityAdjustment();
-    if (includeHiddenLayer && !isNormalFlowOnly()) {
-        auto& layerList = (zIndex() >= 0) ? positiveZOrderList : negativeZOrderList;
-        if (!layerList)
-            layerList = makeUnique<Vector<RenderLayer*>>();
-        layerList->append(this);
-        accumulatedDirtyFlags.add(m_compositingDirtyBits);
+    if (!isNormalFlowOnly()) {
+        if (includeHiddenLayer) {
+            auto& layerList = (zIndex() >= 0) ? positiveZOrderList : negativeZOrderList;
+            if (!layerList)
+                layerList = makeUnique<Vector<RenderLayer*>>();
+            layerList->append(this);
+            accumulatedDirtyFlags.add(m_compositingDirtyBits);
+            setWasIncludedInZOrderTree();
+        } else
+            setWasOmittedFromZOrderTree();
     }
 
     // Recur into our children to collect more layers, but only if we don't establish
@@ -872,6 +894,7 @@ void RenderLayer::setAncestorsHaveCompositingDirtyFlag(Compositing flag)
 
 void RenderLayer::updateLayerListsIfNeeded()
 {
+    updateDescendantDependentFlags();
     updateZOrderLists();
     updateNormalFlowList();
 
@@ -1034,7 +1057,7 @@ void RenderLayer::recursiveUpdateLayerPositions(OptionSet<UpdateLayerPositionsFl
                 return true;
             if (!renderer().didVisitDuringLastLayout())
                 return false;
-            if (auto* renderBox = this->renderBox(); renderBox && renderBox->hasRenderOverflow() && renderBox->hasTransformRelatedProperty()) {
+            if (auto* renderBox = this->renderBox(); renderBox && renderBox->hasRenderOverflow()) {
                 // Disable optimization for subtree when dealing with overflow as RenderLayer is not sized to enclose overflow.
                 // FIXME: This should check if transform related property has changed.
                 canUseSimplifiedRepaintPass = CanUseSimplifiedRepaintPass::No;
@@ -1151,13 +1174,10 @@ void RenderLayer::setAncestorChainHasSelfPaintingLayerDescendant()
 void RenderLayer::dirtyAncestorChainHasSelfPaintingLayerDescendantStatus()
 {
     for (RenderLayer* layer = this; layer; layer = layer->parent()) {
-        layer->m_hasSelfPaintingLayerDescendantDirty = true;
-        // If we have reached a self-painting layer, we know our parent should have a self-painting descendant
-        // in this case, there is no need to dirty our ancestors further.
-        if (layer->isSelfPaintingLayer()) {
-            ASSERT(!parent() || parent()->m_hasSelfPaintingLayerDescendantDirty || parent()->hasSelfPaintingLayerDescendant());
+        if (layer->m_hasSelfPaintingLayerDescendantDirty)
             break;
-        }
+
+        layer->m_hasSelfPaintingLayerDescendantDirty = true;
     }
 }
 
@@ -1309,9 +1329,6 @@ void RenderLayer::dirtyAncestorChainHasBlendingDescendants()
             break;
         
         layer->m_hasNotIsolatedBlendingDescendantsStatusDirty = true;
-
-        if (layer->isCSSStackingContext())
-            break;
     }
 }
 
@@ -1621,29 +1638,24 @@ void RenderLayer::updateAncestorDependentState()
 
 void RenderLayer::updateDescendantDependentFlags()
 {
-    if (m_visibleDescendantStatusDirty || m_hasSelfPaintingLayerDescendantDirty || hasNotIsolatedBlendingDescendantsStatusDirty()) {
+    if (m_visibleDescendantStatusDirty || m_hasSelfPaintingLayerDescendantDirty || hasNotIsolatedBlendingDescendantsStatusDirty() || m_hasIntrinsicallyCompositedDescendantsStatusDirty) {
         bool hasVisibleDescendant = false;
         bool hasSelfPaintingLayerDescendant = false;
         bool hasNotIsolatedBlendingDescendants = false;
         bool hasIntrinsicallyCompositedDescendants = false;
 
-        auto firstLayerChild = [&] () -> RenderLayer* {
-            if (renderer().isSkippedContentRoot())
-                return nullptr;
-            return firstChild();
-        }();
-        for (RenderLayer* child = firstLayerChild; child; child = child->nextSibling()) {
+        if (m_hasNotIsolatedBlendingDescendantsStatusDirty) {
+            m_hasNotIsolatedBlendingDescendantsStatusDirty = false;
+            updateSelfPaintingLayer();
+        }
+
+        for (RenderLayer* child = firstChild(); child; child = child->nextSibling()) {
             child->updateDescendantDependentFlags();
 
             hasVisibleDescendant |= child->m_hasVisibleContent || child->m_hasVisibleDescendant;
             hasSelfPaintingLayerDescendant |= child->isSelfPaintingLayer() || child->hasSelfPaintingLayerDescendant();
             hasNotIsolatedBlendingDescendants |= child->hasBlendMode() || (child->hasNotIsolatedBlendingDescendants() && !child->isolatesBlending());
             hasIntrinsicallyCompositedDescendants |= child->isIntrinsicallyComposited() || child->m_hasIntrinsicallyCompositedDescendants;
-
-            bool allFlagsSet = hasVisibleDescendant && hasSelfPaintingLayerDescendant;
-            allFlagsSet &= hasNotIsolatedBlendingDescendants;
-            if (allFlagsSet)
-                break;
         }
 
         m_hasVisibleDescendant = hasVisibleDescendant;
@@ -1654,19 +1666,26 @@ void RenderLayer::updateDescendantDependentFlags()
         m_hasIntrinsicallyCompositedDescendantsStatusDirty = false;
 
         m_hasNotIsolatedBlendingDescendants = hasNotIsolatedBlendingDescendants;
-        if (m_hasNotIsolatedBlendingDescendantsStatusDirty) {
-            m_hasNotIsolatedBlendingDescendantsStatusDirty = false;
-            updateSelfPaintingLayer();
-        }
     }
 
     if (m_visibleContentStatusDirty) {
         //  We need the parent to know if we have skipped content or content-visibility root.
         if (renderer().style().hasSkippedContent() && !renderer().parent())
             return;
-        m_hasVisibleContent = computeHasVisibleContent();
+        bool hasVisibleContent = computeHasVisibleContent();
+        if (hasVisibleContent != m_hasVisibleContent) {
+            m_hasVisibleContent = hasVisibleContent;
+            if (!isNormalFlowOnly()) {
+                // We don't collect invisible layers in z-order lists if they are not composited.
+                // As we change visibility, we need to dirty our stacking containers ancestors to be properly
+                // collected.
+                dirtyHiddenStackingContextAncestorZOrderLists();
+            }
+        }
         m_visibleContentStatusDirty = false;
     }
+
+    ASSERT(!descendantDependentFlagsAreDirty());
 }
 
 bool RenderLayer::computeHasVisibleContent() const
@@ -3116,10 +3135,6 @@ void RenderLayer::setupClipPath(GraphicsContext& context, GraphicsContextStateSa
 {
     bool isCollectingRegions = paintFlags.contains(PaintLayerFlag::CollectingEventRegion) || is<AccessibilityRegionContext>(paintingInfo.regionContext);
     if (!renderer().hasClipPath() || (context.paintingDisabled() && !isCollectingRegions) || paintingInfo.paintDirtyRect.isEmpty())
-        return;
-
-    // SVG elements get clipped in SVG code.
-    if (is<LegacyRenderSVGRoot>(renderer()))
         return;
 
     // Applying clip-path on <clipPath> enforces us to use mask based clipping, so return false here to disable path based clipping.
@@ -5949,6 +5964,7 @@ TextStream& operator<<(TextStream& ts, PaintBehavior behavior)
     case PaintBehavior::SkipSelectionHighlight: ts << "SkipSelectionHighlight"; break;
     case PaintBehavior::ForceBlackText: ts << "ForceBlackText"; break;
     case PaintBehavior::ForceWhiteText: ts << "ForceWhiteText"; break;
+    case PaintBehavior::ForceBlackBorder: ts << "ForceBlackBorder"; break;
     case PaintBehavior::RenderingSVGClipOrMask: ts << "RenderingSVGClipOrMask"; break;
     case PaintBehavior::SkipRootBackground: ts << "SkipRootBackground"; break;
     case PaintBehavior::RootBackgroundOnly: ts << "RootBackgroundOnly"; break;

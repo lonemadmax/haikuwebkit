@@ -391,20 +391,11 @@ webkit.org/b/98942 fast/workers/worker-storagequota-query-usage.html [ Failure ]
 webkit.org/b/61661 editing/pasteboard/drag-drop-list.html [ Failure ]
 
 # CSS filters related failures
-webkit.org/b/99026 css3/filters/effect-brightness-clamping-hw.html [ Failure Missing ]
-webkit.org/b/99026 css3/filters/effect-brightness-clamping.html [ Failure Missing ]
 webkit.org/b/99026 css3/filters/effect-drop-shadow-hw.html [ ImageOnlyFailure ]
 webkit.org/b/99026 css3/filters/effect-drop-shadow.html [ ImageOnlyFailure ]
 
 # Needs testRunner.enableAutoResizeMode()
 webkit.org/b/99028 fast/autoresize [ Failure ]
-
-# Failures related with compositing tests.
-webkit.org/b/169918 compositing/tiling/rotated-tiled-clamped.html [ Missing Failure ]
-webkit.org/b/169918 compositing/tiling/rotated-tiled-preserve3d-clamped.html [ Missing Failure ]
-webkit.org/b/169918 compositing/visibility/visibility-composited-transforms.html [ Missing Failure ]
-webkit.org/b/169918 compositing/visibility/visibility-composited.html [ Missing Failure ]
-webkit.org/b/169918 compositing/fixed-with-fixed-layout.html [ Crash ]
 
 webkit.org/b/224105 compositing/video/video-clip-change-src.html [ ImageOnlyFailure Pass ]
 
@@ -764,10 +755,6 @@ webkit.org/b/153466 inspector/sampling-profiler [ Skip ]
 fast/text/han-generic-font-families.html [ WontFix ]
 fast/text/hangul-generic-font-families.html [ WontFix ]
 
-# Skip tests requiring UIScriptController to generate events
-webkit.org/b/153833 css3/touch-action/touch-action-manipulation-fast-clicks.html [ Skip ]
-webkit.org/b/153833 fast/events/can-click-element-on-page-with-active-pseudo-class-and-search-field.html [ Skip ]
-
 # These tests test the Shadow DOM based HTML form validation UI but GTK WK2 is using native dialogs instead.
 fast/forms/validation-message-on-listbox.html [ Skip ]
 fast/forms/validation-message-on-menulist.html [ Skip ]
@@ -910,7 +897,6 @@ webkit.org/b/209275 imported/w3c/web-platform-tests/css/css-writing-modes/vertic
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-auto-010.html [ Pass ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-auto-inline-010.html [ Pass ]
 webkit.org/b/257011 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-vertical-002.html [ ImageOnlyFailure ]
-webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-016.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/white-space/textarea-pre-wrap-012.html [ ImageOnlyFailure ]
 
 # Timing out since import.
@@ -941,20 +927,17 @@ webkit.org/b/214470 imported/w3c/web-platform-tests/css/css-backgrounds/backgrou
 webkit.org/b/214470 imported/w3c/web-platform-tests/css/css-values/ch-unit-002.html [ ImageOnlyFailure ]
 webkit.org/b/214470 imported/w3c/web-platform-tests/css/css-values/ch-unit-011.html [ ImageOnlyFailure ]
 webkit.org/b/214470 imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-border-image.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/object-fit-contain-svg-001p.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/object-fit-contain-svg-003p.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/object-fit-contain-svg-005i.html [ ImageOnlyFailure ]
 
 webkit.org/b/219614 inspector/css/getComputedPrimaryFontForNode.html [ Failure ]
-
-webkit.org/b/249364 imported/w3c/web-platform-tests/css/css-grid/masonry/tentative/intrinsic-sizing/masonry-intrinsic-sizing-006.html [ ImageOnlyFailure ]
 
 webkit.org/b/232386 fast/css/background-shorthand-invalid-url.html [ Failure ]
 webkit.org/b/232386 fast/dom/rtl-scroll-to-leftmost-and-resize.html [ Failure ]
 webkit.org/b/232386 fast/overflow/clip-rects-fixed-ancestor.html [ Failure ]
 
 webkit.org/b/236298 fast/inline-block/hidpi-margin-top-with-subpixel-value-and-overflow-hidden.html [ ImageOnlyFailure ]
-
-# Changes to logical height/width computations (https://bugs.webkit.org/show_bug.cgi?id=241601)
-webkit.org/b/241601 svg/wicd/rightsizing-grid.xhtml [ Failure ]
-webkit.org/b/241601 svg/wicd/test-rightsizing-b.xhtml [ Failure ]
 
 # Shared Workers don't seem to generate some CSP report events in GTK
 webkit.org/b/244517 imported/w3c/web-platform-tests/content-security-policy/gen/top.http-rp/script-src-self/sharedworker-import.http.html [ Failure ]
@@ -1189,8 +1172,6 @@ webkit.org/b/252878 imported/w3c/web-platform-tests/fetch/api/request/request-ca
 webkit.org/b/252878 imported/w3c/web-platform-tests/fetch/api/request/request-cache-default-conditional.any.worker.html [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/fetch/connection-pool/network-partition-key.html [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/fetch/http-cache/invalidate.any.worker.html [ Failure Pass ]
-webkit.org/b/252878 imported/w3c/web-platform-tests/fetch/metadata/generated/element-iframe.sub.html [ Failure DumpJSConsoleLogInStdErr ]
-webkit.org/b/252878 imported/w3c/web-platform-tests/fetch/metadata/generated/element-meta-refresh.optional.sub.html [ Failure DumpJSConsoleLogInStdErr ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/fetch/origin/assorted.window.html [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/history-traversal/persisted-user-state-restoration/resume-timer-on-history-back.html [ Failure Pass ]
 webkit.org/b/252878 imported/w3c/web-platform-tests/html/browsers/origin/cross-origin-objects/location-properties-smoke-test.html [ Failure Pass ]
@@ -1563,8 +1544,6 @@ webkit.org/b/99893 svg/animations/mozilla/animateMotion-mpath-targetChange-1.svg
 
 webkit.org/b/118220 http/tests/cache/partitioned-cache.html [ Failure ]
 
-webkit.org/b/124566 fast/dom/SelectorAPI/resig-SelectorsAPI-test.xhtml [ Failure ]
-
 webkit.org/b/128061 svg/zoom/page/zoom-svg-float-border-padding.xml [ Failure ]
 
 # PasteBoard::plainText() does not support file names.
@@ -1910,13 +1889,10 @@ webkit.org/b/264680 imported/w3c/web-platform-tests/html/semantics/embedded-cont
 webkit.org/b/264680 imported/w3c/web-platform-tests/media-source/mediasource-seek-during-pending-seek.html [ Crash Failure Pass Timeout ]
 webkit.org/b/264680 inspector/heap/getPreview.html [ Failure Pass ]
 webkit.org/b/264680 media/video-seek-past-end-playing.html [ Pass Timeout ]
-webkit.org/b/264680 scrollbars/scrollbar-selectors.html [ Missing Pass Timeout ]
+webkit.org/b/264680 scrollbars/scrollbar-selectors.html [ Pass Timeout ]
 webkit.org/b/264680 webrtc/peer-connection-audio-mute2.html [ Failure Pass Timeout ]
 
 webkit.org/b/276587 webrtc/video-av1.html [ Pass Timeout ]
-
-webkit.org/b/266204 [ Debug ] imported/w3c/web-platform-tests/scroll-animations/css/animation-inactive-outside-range-test.html [ Crash ]
-[ Debug ] imported/w3c/web-platform-tests/scroll-animations/css/animation-fill-outside-range-test.html [ Crash ]
 
 fast/dom/no-scroll-when-command-click-fragment-URL.html [ Skip ]
 
@@ -1931,3 +1907,12 @@ fast/scrolling/gtk/repeated-mouse-wheel-smooth.html [ Timeout ]
 compositing/repaint/copy-forward-dirty-region.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/web-animations-api.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-on-top-of-viewport-partially-onscreen-new.html [ ImageOnlyFailure ]
+
+http/tests/login-status/login-status-api-getter-setter-functions.html [ Failure ]
+
+imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-004.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-005.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-006.html [ ImageOnlyFailure ]

@@ -75,7 +75,6 @@
 #include "Logging.h"
 #include "MemoryCache.h"
 #include "NullGraphicsContext.h"
-#include "OverflowEvent.h"
 #include "Page.h"
 #include "PageOverlayController.h"
 #include "PerformanceLoggingClient.h"
@@ -1325,9 +1324,6 @@ void LocalFrameView::didLayout(SingleThreadWeakPtr<RenderElement> layoutRoot, bo
 
     handleDeferredScrollbarsUpdate();
     handleDeferredPositionScrollbarLayers();
-
-    if (document->hasListenerType(Document::ListenerType::OverflowChanged))
-        updateOverflowStatus(layoutWidth() < contentsWidth(), layoutHeight() < contentsHeight());
 
     if (CheckedPtr markers = document->markersIfExists())
         markers->invalidateRectsForAllMarkers();
@@ -4152,34 +4148,6 @@ RenderElement* LocalFrameView::viewportRenderer() const
     return nullptr;
 }
 
-void LocalFrameView::updateOverflowStatus(bool horizontalOverflow, bool verticalOverflow)
-{
-    auto* viewportRenderer = this->viewportRenderer();
-    if (!viewportRenderer)
-        return;
-    
-    if (m_overflowStatusDirty) {
-        m_horizontalOverflow = horizontalOverflow;
-        m_verticalOverflow = verticalOverflow;
-        m_overflowStatusDirty = false;
-        return;
-    }
-    
-    bool horizontalOverflowChanged = (m_horizontalOverflow != horizontalOverflow);
-    bool verticalOverflowChanged = (m_verticalOverflow != verticalOverflow);
-    
-    if (horizontalOverflowChanged || verticalOverflowChanged) {
-        m_horizontalOverflow = horizontalOverflow;
-        m_verticalOverflow = verticalOverflow;
-
-        Ref<OverflowEvent> overflowEvent = OverflowEvent::create(horizontalOverflowChanged, horizontalOverflow,
-            verticalOverflowChanged, verticalOverflow);
-        overflowEvent->setTarget(RefPtr { viewportRenderer->element() });
-
-        m_frame->document()->enqueueOverflowEvent(WTFMove(overflowEvent));
-    }
-}
-
 const Pagination& LocalFrameView::pagination() const
 {
     if (m_pagination != Pagination())
@@ -6212,6 +6180,12 @@ void LocalFrameView::scrollbarStyleDidChange()
 FrameIdentifier LocalFrameView::rootFrameID() const
 {
     return m_frame->rootFrame().frameID();
+}
+
+void LocalFrameView::scrollbarWidthChanged(ScrollbarWidth width)
+{
+    scrollbarsController().scrollbarWidthChanged(width);
+    m_needsDeferredScrollbarsUpdate = true;
 }
 
 } // namespace WebCore

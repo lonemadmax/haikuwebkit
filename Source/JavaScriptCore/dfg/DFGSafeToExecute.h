@@ -67,6 +67,7 @@ public:
         case RegExpObjectUse:
         case PromiseObjectUse:
         case ProxyObjectUse:
+        case GlobalProxyUse:
         case DerivedArrayUse:
         case DateObjectUse:
         case MapObjectUse:
@@ -224,6 +225,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case ArithPow:
     case ArithSqrt:
     case ArithFRound:
+    case ArithF16Round:
     case ArithRound:
     case ArithFloor:
     case ArithCeil:
@@ -240,6 +242,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case SkipScope:
     case GetGlobalObject:
     case GetGlobalThis:
+    case UnwrapGlobalProxy:
     case GetClosureVar:
     case GetGlobalVar:
     case GetGlobalLexicalVariable:
@@ -641,6 +644,7 @@ bool safeToExecute(AbstractStateType& state, Graph& graph, Node* node, bool igno
     case ProfileType:
     case ProfileControlFlow:
     case InstanceOf:
+    case InstanceOfMegamorphic:
     case InstanceOfCustom:
     case CallObjectConstructor:
     case ToPrimitive:

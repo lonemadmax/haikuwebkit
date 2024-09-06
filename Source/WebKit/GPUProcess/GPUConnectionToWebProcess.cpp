@@ -293,7 +293,7 @@ GPUConnectionToWebProcess::GPUConnectionToWebProcess(GPUProcess& gpuProcess, Web
 #if ENABLE(ROUTING_ARBITRATION) && HAVE(AVAUDIO_ROUTING_ARBITER)
     , m_routingArbitrator(LocalAudioSessionRoutingArbitrator::create(*this))
 #endif
-    , m_preferences(parameters.preferences)
+    , m_sharedPreferencesForWebProcess(WTFMove(parameters.sharedPreferencesForWebProcess))
 {
     RELEASE_ASSERT(RunLoop::isMain());
 
@@ -490,7 +490,7 @@ bool GPUConnectionToWebProcess::allowsExitUnderMemoryPressure() const
     if (hasOutstandingRenderingResourceUsage())
         return false;
 
-    if (m_preferences.isDOMRenderingEnabled)
+    if (sharedPreferencesForWebProcess().useGPUProcessForDOMRenderingEnabled)
         return false;
 
 #if ENABLE(WEB_AUDIO)
@@ -746,7 +746,7 @@ void GPUConnectionToWebProcess::performWithMediaPlayerOnMainThread(MediaPlayerId
 
 void GPUConnectionToWebProcess::createGPU(WebGPUIdentifier identifier, RenderingBackendIdentifier renderingBackendIdentifier, IPC::StreamServerConnection::Handle&& connectionHandle)
 {
-    MESSAGE_CHECK(isWebGPUEnabled());
+    MESSAGE_CHECK(sharedPreferencesForWebProcess().webGPUEnabled);
 
     auto it = m_remoteRenderingBackendMap.find(renderingBackendIdentifier);
     if (it == m_remoteRenderingBackendMap.end())
@@ -1101,7 +1101,7 @@ const String& GPUConnectionToWebProcess::mediaCacheDirectory() const
     return protectedGPUProcess()->mediaCacheDirectory(m_sessionID);
 }
 
-#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA)
 const String& GPUConnectionToWebProcess::mediaKeysStorageDirectory() const
 {
     return protectedGPUProcess()->mediaKeysStorageDirectory(m_sessionID);
@@ -1163,25 +1163,6 @@ RemoteVideoFrameObjectHeap& GPUConnectionToWebProcess::videoFrameObjectHeap() co
 }
 #endif
 
-#if PLATFORM(MAC)
-void GPUConnectionToWebProcess::displayConfigurationChanged(CGDirectDisplayID, CGDisplayChangeSummaryFlags flags)
-{
-#if ENABLE(WEBGL)
-    if (flags & kCGDisplaySetModeFlag)
-        dispatchDisplayWasReconfigured();
-#else
-    UNUSED_VARIABLE(flags);
-#endif
-}
-#endif
-
-#if PLATFORM(MAC) && ENABLE(WEBGL)
-void GPUConnectionToWebProcess::dispatchDisplayWasReconfigured()
-{
-    for (auto& context : m_remoteGraphicsContextGLMap.values())
-        context->displayWasReconfigured();
-}
-#endif
 
 #if ENABLE(MEDIA_SOURCE)
 void GPUConnectionToWebProcess::enableMockMediaSource()

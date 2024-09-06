@@ -38,6 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class WKPreferences;
 @class WKProcessPool;
 @class WKUserContentController;
+@class WKWebExtensionController;
 @class WKWebpagePreferences;
 @class WKWebsiteDataStore;
 

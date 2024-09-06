@@ -224,7 +224,12 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case CompareEqPtr:
         def(PureValue(node, node->cellOperand()->cell()));
         return;
-        
+
+    case UnwrapGlobalProxy:
+        read(JSGlobalProxy_target);
+        def(HeapLocation(GlobalProxyTargetLoc, JSGlobalProxy_target, node->child1()), LazyNode(node));
+        return;
+
     case ArithIMul:
     case ArithPow:
     case GetScope:
@@ -306,6 +311,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         return;
 
     case ArithFRound:
+    case ArithF16Round:
     case ArithSqrt:
         if (node->child1().useKind() == DoubleRepUse)
             def(PureValue(node));
@@ -801,6 +807,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     case CreateGenerator:
     case CreateAsyncGenerator:
     case InstanceOf:
+    case InstanceOfMegamorphic:
     case StringValueOf:
     case ObjectKeys:
     case ObjectGetOwnPropertyNames:
@@ -966,7 +973,8 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
     }
 
     case LoadVarargs: {
-        clobberTop();
+        if (node->argumentsChild().useKind() != OtherUse)
+            clobberTop();
         LoadVarargsData* data = node->loadVarargsData();
         write(AbstractHeap(Stack, data->count));
         for (unsigned i = data->limit; i--;)
@@ -1099,6 +1107,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         case Array::Uint8ClampedArray:
         case Array::Uint16Array:
         case Array::Uint32Array:
+        case Array::Float16Array:
         case Array::Float32Array:
         case Array::Float64Array:
             // Even if we hit out-of-bounds, this is fine. TypedArray does not propagate access to its [[Prototype]] when out-of-bounds access happens.
@@ -1234,6 +1243,7 @@ void clobberize(Graph& graph, Node* node, const ReadFunctor& read, const WriteFu
         case Array::Uint8ClampedArray:
         case Array::Uint16Array:
         case Array::Uint32Array:
+        case Array::Float16Array:
         case Array::Float32Array:
         case Array::Float64Array:
             if (node->arrayMode().mayBeResizableOrGrowableSharedTypedArray()) {

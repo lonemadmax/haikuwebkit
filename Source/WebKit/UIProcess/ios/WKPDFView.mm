@@ -109,6 +109,10 @@
 
 #endif // HAVE(UIFINDINTERACTION)
 
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+static void* kvoContext = &kvoContext;
+#endif
+
 @interface WKPDFView () <PDFHostViewControllerDelegate, WKActionSheetAssistantDelegate
 #if HAVE(UIFINDINTERACTION)
     , UITextSearching
@@ -135,7 +139,9 @@
     RetainPtr<NSString> _suggestedFilename;
     WeakObjCPtr<WKWebView> _webView;
     RetainPtr<WKKeyboardScrollViewAnimator> _keyboardScrollingAnimator;
+#if HAVE(SHARE_SHEET_UI)
     RetainPtr<WKShareSheet> _shareSheet;
+#endif
     BOOL _isShowingPasswordView;
 #if HAVE(UIFINDINTERACTION)
     RetainPtr<id<UITextSearchAggregator>> _searchAggregator;
@@ -145,10 +151,12 @@
 
 - (void)dealloc
 {
+#if HAVE(SHARE_SHEET_UI)
     if (_shareSheet) {
         [_shareSheet dismissIfNeededWithReason:WebKit::PickerDismissalReason::ProcessExited];
         _shareSheet = nil;
     }
+#endif
     [_actionSheetAssistant cleanupSheet];
     [[_hostViewController view] removeFromSuperview];
     [_pageNumberIndicator removeFromSuperview];
@@ -158,6 +166,11 @@
     _searchAggregator = nil;
     _searchString = nil;
 #endif
+
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+    [[_webView _wkScrollView] removeObserver:self forKeyPath:@"contentSize" context:kvoContext];
+#endif
+
     [super dealloc];
 }
 
@@ -194,6 +207,10 @@
 
     _keyboardScrollingAnimator = adoptNS([[WKKeyboardScrollViewAnimator alloc] initWithScrollView:webView._scrollViewInternal]);
     _webView = webView;
+
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+    [[_webView _wkScrollView] addObserver:self forKeyPath:@"contentSize" options:NSKeyValueObservingOptionNew context:kvoContext];
+#endif
 
     [self updateBackgroundColor];
 
@@ -504,6 +521,22 @@ static NSStringCompareOptions stringCompareOptions(_WKFindOptions findOptions)
     return self.isBackground;
 }
 
+#pragma mark KVO
+
+#if ENABLE(OVERLAY_REGIONS_IN_EVENT_REGION)
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary<NSString *, id> *)change context:(void*)context
+{
+    if (context != kvoContext) {
+        [super observeValueForKeyPath:keyPath ofObject:object change:change context:context];
+        return;
+    }
+
+    ASSERT(object == [_webView _wkScrollView]);
+
+    [_webView _updateOverlayRegionsForCustomContentView];
+}
+#endif
+
 #pragma mark PDFHostViewControllerDelegate
 
 - (void)pdfHostViewController:(PDFHostViewController *)controller updatePageCount:(NSInteger)pageCount
@@ -670,14 +703,17 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     WebCore::ShareDataWithParsedURL shareData;
     shareData.url = { url };
     shareData.originator = WebCore::ShareDataOriginator::User;
-    
+
+#if HAVE(SHARE_SHEET_UI)
     [_shareSheet dismissIfNeededWithReason:WebKit::PickerDismissalReason::ResetState];
 
     _shareSheet = adoptNS([[WKShareSheet alloc] initWithView:webView]);
     [_shareSheet setDelegate:self];
     [_shareSheet presentWithParameters:shareData inRect: { [[_hostViewController view] convertRect:boundingRect toView:webView] } completionHandler:[] (bool success) { }];
+#endif
 }
 
+#if HAVE(SHARE_SHEET_UI)
 - (void)shareSheetDidDismiss:(WKShareSheet *)shareSheet
 {
     ASSERT(_shareSheet == shareSheet);
@@ -685,6 +721,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [_shareSheet setDelegate:nil];
     _shareSheet = nil;
 }
+#endif
 
 #if HAVE(APP_LINKS)
 - (BOOL)actionSheetAssistant:(WKActionSheetAssistant *)assistant shouldIncludeAppLinkActionsForElement:(_WKActivatedElementInfo *)element

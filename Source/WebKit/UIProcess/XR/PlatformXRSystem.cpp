@@ -50,6 +50,11 @@ PlatformXRSystem::~PlatformXRSystem()
     m_page.legacyMainFrameProcess().removeMessageReceiver(Messages::PlatformXRSystem::messageReceiverName(), m_page.webPageIDInMainFrameProcess());
 }
 
+const SharedPreferencesForWebProcess& PlatformXRSystem::sharedPreferencesForWebProcess() const
+{
+    return m_page.legacyMainFrameProcess().sharedPreferencesForWebProcess();
+}
+
 void PlatformXRSystem::invalidate()
 {
     ASSERT(RunLoop::isMain());
@@ -81,7 +86,7 @@ void PlatformXRSystem::enumerateImmersiveXRDevices(CompletionHandler<void(Vector
         return;
     }
 
-    xrCoordinator->getPrimaryDeviceInfo([completionHandler = WTFMove(completionHandler)](std::optional<XRDeviceInfo> deviceInfo) mutable {
+    xrCoordinator->getPrimaryDeviceInfo(m_page, [completionHandler = WTFMove(completionHandler)](std::optional<XRDeviceInfo> deviceInfo) mutable {
         RunLoop::main().dispatch([completionHandler = WTFMove(completionHandler), deviceInfo = WTFMove(deviceInfo)]() mutable {
             if (!deviceInfo) {
                 completionHandler({ });
@@ -139,7 +144,8 @@ void PlatformXRSystem::requestPermissionOnSessionFeatures(const WebCore::Securit
                 protectedThis->invalidateImmersiveSessionState();
                 completionHandler(WTFMove(grantedFeatures));
             }
-        }
+        } else
+            completionHandler(WTFMove(grantedFeatures));
     });
 }
 
@@ -243,15 +249,14 @@ void PlatformXRSystem::setImmersiveSessionState(ImmersiveSessionState state, Com
     case ImmersiveSessionState::RequestingPermissions:
         break;
     case ImmersiveSessionState::PermissionsGranted:
-        GPUProcessProxy::getOrCreate()->webXRPromptAccepted(m_page.ensureRunningProcess().processIdentity(), WTFMove(completion));
-        break;
+        return GPUProcessProxy::getOrCreate()->webXRPromptAccepted(m_page.ensureRunningProcess().processIdentity(), WTFMove(completion));
     case ImmersiveSessionState::SessionRunning:
-        break;
     case ImmersiveSessionState::SessionEndingFromWebContent:
     case ImmersiveSessionState::SessionEndingFromSystem:
-        GPUProcessProxy::getOrCreate()->webXRPromptAccepted(std::nullopt, WTFMove(completion));
         break;
     }
+
+    completion(true);
 #else
     completion(true);
 #endif

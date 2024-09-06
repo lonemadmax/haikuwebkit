@@ -35,6 +35,7 @@ namespace WebCore {
 
 class HTMLFormControlElement : public HTMLElement, public ValidatedFormListedElement {
     WTF_MAKE_ISO_ALLOCATED(HTMLFormControlElement);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HTMLFormControlElement);
 public:
     virtual ~HTMLFormControlElement();
 
@@ -102,7 +103,7 @@ public:
     const AtomString& popoverTargetAction() const;
     void setPopoverTargetAction(const AtomString& value);
 
-    RefPtr<Element> invokeTargetElement() const;
+    RefPtr<Element> commandForElement() const;
 
     bool isKeyboardFocusable(KeyboardEvent*) const override;
 
@@ -131,8 +132,8 @@ protected:
 
     void handlePopoverTargetAction() const;
 
-    InvokeAction invokeAction() const;
-    void handleInvokeAction();
+    CommandType commandType() const;
+    void handleCommand();
 
 private:
     void refFormAssociatedElement() const final { ref(); }
@@ -150,8 +151,6 @@ private:
     FormAssociatedElement* asFormAssociatedElement() final { return this; }
     FormListedElement* asFormListedElement() final { return this; }
     ValidatedFormListedElement* asValidatedFormListedElement() final { return this; }
-
-    bool needsMouseFocusableQuirk() const;
 
     unsigned m_isRequired : 1;
     unsigned m_valueMatchesRenderer : 1;

@@ -211,7 +211,7 @@ public:
     void setWhatToDump(WhatToDump);
 
     bool shouldDumpAllFrameScrollPositions() const { return m_shouldDumpAllFrameScrollPositions; }
-    bool shouldDumpBackForwardListsForAllWindows() const { return m_shouldDumpBackForwardListsForAllWindows; }
+    bool shouldDumpBackForwardListsForAllWindows() const;
     bool shouldDumpEditingCallbacks() const { return m_dumpEditingCallbacks; }
     bool shouldDumpMainFrameScrollPosition() const { return whatToDump() == WhatToDump::RenderTree; }
     bool shouldDumpStatusCallbacks() const { return m_dumpStatusCallbacks; }
@@ -415,8 +415,8 @@ public:
     void installStatisticsDidScanDataRecordsCallback(JSContextRef, JSValueRef callback);
     void statisticsDidModifyDataRecordsCallback();
     void statisticsDidScanDataRecordsCallback();
-    bool statisticsNotifyObserver();
-    void statisticsProcessStatisticsAndDataRecords();
+    void statisticsNotifyObserver(JSContextRef, JSValueRef completionHandler);
+    void statisticsProcessStatisticsAndDataRecords(JSContextRef, JSValueRef completionHandler);
     void statisticsUpdateCookieBlocking(JSContextRef, JSValueRef completionHandler);
     void setStatisticsDebugMode(JSContextRef, bool value, JSValueRef completionHandler);
     void setStatisticsPrevalentResourceForDebugMode(JSContextRef, JSStringRef hostName, JSValueRef completionHandler);
@@ -454,7 +454,7 @@ public:
     void statisticsClearInMemoryAndPersistentStore(JSContextRef, JSValueRef callback);
     void statisticsClearInMemoryAndPersistentStoreModifiedSinceHours(JSContextRef, unsigned hours, JSValueRef callback);
     void statisticsClearThroughWebsiteDataRemoval(JSContextRef, JSValueRef callback);
-    void statisticsDeleteCookiesForHost(JSStringRef hostName, bool includeHttpOnlyCookies);
+    void statisticsDeleteCookiesForHost(JSContextRef, JSStringRef hostName, bool includeHttpOnlyCookies, JSValueRef callback);
     bool isStatisticsHasLocalStorage(JSStringRef hostName);
     void setStatisticsCacheMaxAgeCap(double seconds);
     bool hasStatisticsIsolatedSession(JSStringRef hostName);
@@ -563,6 +563,8 @@ public:
 
     void getAndClearReportedWindowProxyAccessDomains(JSContextRef, JSValueRef);
 
+    void setTopContentInset(JSContextRef, double, JSValueRef);
+
 private:
     TestRunner();
 
@@ -588,7 +590,6 @@ private:
 
     unsigned m_renderTreeDumpOptions { 0 };
     bool m_shouldDumpAllFrameScrollPositions { false };
-    bool m_shouldDumpBackForwardListsForAllWindows { false };
     bool m_shouldAllowEditing { true };
 
     bool m_dumpEditingCallbacks { false };

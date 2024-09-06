@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2022 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,6 @@
 #include "WasmCallee.h"
 #include "WasmCallingConvention.h"
 #include "WasmFunctionCodeBlockGenerator.h"
-#include "WasmInstance.h"
 #include "WasmLLIntBuiltin.h"
 #include "WasmLLIntGenerator.h"
 #include "WasmModuleInformation.h"
@@ -89,7 +88,7 @@ namespace JSC { namespace LLInt {
 #if ENABLE(WEBASSEMBLY_BBQJIT)
 enum class RequiredWasmJIT { Any, OMG };
 
-extern "C" void SYSV_ABI wasm_log_crash(CallFrame*, Wasm::Instance* instance)
+extern "C" void SYSV_ABI wasm_log_crash(CallFrame*, JSWebAssemblyInstance* instance)
 {
     dataLogLn("Reached LLInt code that should never have been executed.");
     dataLogLn("Module internal function count: ", instance->module().moduleInformation().internalFunctionCount());
@@ -105,21 +104,21 @@ static inline bool shouldJIT(Wasm::LLIntCallee* callee, RequiredWasmJIT required
     }
 #endif
     if (requiredJIT == RequiredWasmJIT::Any) {
-        if (Options::webAssemblyLLIntTiersUpToBBQ()
+        if (Options::wasmLLIntTiersUpToBBQ()
             && (!Options::useBBQJIT() || !Wasm::BBQPlan::ensureGlobalBBQAllowlist().containsWasmFunction(callee->functionIndex())))
             return false;
 #if ENABLE(WEBASSEMBLY_OMGJIT)
-        if (!Options::webAssemblyLLIntTiersUpToBBQ()
+        if (!Options::wasmLLIntTiersUpToBBQ()
             && (!Options::useOMGJIT() || !Wasm::OMGPlan::ensureGlobalOMGAllowlist().containsWasmFunction(callee->functionIndex())))
             return false;
 #endif
     }
-    if (!Options::webAssemblyFunctionIndexRangeToCompile().isInRange(callee->functionIndex()))
+    if (!Options::wasmFunctionIndexRangeToCompile().isInRange(callee->functionIndex()))
         return false;
     return true;
 }
 
-static inline bool jitCompileAndSetHeuristics(Wasm::LLIntCallee* callee, Wasm::Instance* instance)
+static inline bool jitCompileAndSetHeuristics(Wasm::LLIntCallee* callee, JSWebAssemblyInstance* instance)
 {
     ASSERT(!instance->module().moduleInformation().usesSIMD(callee->functionIndex()));
 
@@ -155,7 +154,7 @@ static inline bool jitCompileAndSetHeuristics(Wasm::LLIntCallee* callee, Wasm::I
     if (compile) {
         uint32_t functionIndex = callee->functionIndex();
         RefPtr<Wasm::Plan> plan;
-        if (Options::webAssemblyLLIntTiersUpToBBQ() && Wasm::BBQPlan::ensureGlobalBBQAllowlist().containsWasmFunction(functionIndex))
+        if (Options::wasmLLIntTiersUpToBBQ() && Wasm::BBQPlan::ensureGlobalBBQAllowlist().containsWasmFunction(functionIndex))
             plan = adoptRef(*new Wasm::BBQPlan(instance->vm(), const_cast<Wasm::ModuleInformation&>(instance->module().moduleInformation()), functionIndex, callee->hasExceptionHandlers(), instance->calleeGroup(), Wasm::Plan::dontFinalize()));
 #if ENABLE(WEBASSEMBLY_OMGJIT)
         else // No need to check OMG allow list: if we didn't want to compile this function, shouldJIT should have returned false.
@@ -174,7 +173,7 @@ static inline bool jitCompileAndSetHeuristics(Wasm::LLIntCallee* callee, Wasm::I
     return !!callee->replacement(memoryMode);
 }
 
-static inline std::optional<Wasm::Plan::Error> jitCompileSIMDFunction(Wasm::LLIntCallee* callee, Wasm::Instance* instance)
+static inline std::optional<Wasm::Plan::Error> jitCompileSIMDFunction(Wasm::LLIntCallee* callee, JSWebAssemblyInstance* instance)
 {
     Wasm::LLIntTierUpCounter& tierUpCounter = callee->tierUpCounter();
 
@@ -204,7 +203,7 @@ static inline std::optional<Wasm::Plan::Error> jitCompileSIMDFunction(Wasm::LLIn
     uint32_t functionIndex = callee->functionIndex();
     ASSERT(instance->module().moduleInformation().usesSIMD(functionIndex));
     RefPtr<Wasm::Plan> plan;
-    if (Options::webAssemblyLLIntTiersUpToBBQ())
+    if (Options::wasmLLIntTiersUpToBBQ())
         plan = adoptRef(*new Wasm::BBQPlan(instance->vm(), const_cast<Wasm::ModuleInformation&>(instance->module().moduleInformation()), functionIndex, callee->hasExceptionHandlers(), instance->calleeGroup(), Wasm::Plan::dontFinalize()));
 #if ENABLE(WEBASSEMBLY_OMGJIT)
     else
@@ -234,7 +233,7 @@ WASM_SLOW_PATH_DECL(prologue_osr)
         WASM_RETURN_TWO(nullptr, nullptr);
     }
 
-    if (!Options::useWebAssemblyLLIntPrologueOSR())
+    if (!Options::useWasmLLIntPrologueOSR())
         WASM_RETURN_TWO(nullptr, nullptr);
 
     dataLogLnIf(Options::verboseOSR(), *callee, ": Entered prologue_osr with tierUpCounter = ", callee->tierUpCounter());
@@ -250,7 +249,7 @@ WASM_SLOW_PATH_DECL(loop_osr)
     Wasm::LLIntCallee* callee = CALLEE();
     Wasm::LLIntTierUpCounter& tierUpCounter = callee->tierUpCounter();
 
-    if (!Options::useWebAssemblyOSR() || !Options::useWebAssemblyLLIntLoopOSR() || !shouldJIT(callee, RequiredWasmJIT::Any)) {
+    if (!Options::useWasmOSR() || !Options::useWasmLLIntLoopOSR() || !shouldJIT(callee, RequiredWasmJIT::Any)) {
         slow_path_wasm_prologue_osr(callFrame, pc, instance);
         WASM_RETURN_TWO(nullptr, nullptr);
     }
@@ -265,7 +264,7 @@ WASM_SLOW_PATH_DECL(loop_osr)
     unsigned loopOSREntryBytecodeOffset = callee->bytecodeOffset(pc);
     const auto& osrEntryData = tierUpCounter.osrEntryDataForLoop(loopOSREntryBytecodeOffset);
 
-    if (Options::webAssemblyLLIntTiersUpToBBQ() && Options::useBBQJIT()) {
+    if (Options::wasmLLIntTiersUpToBBQ() && Options::useBBQJIT()) {
         if (!jitCompileAndSetHeuristics(callee, instance))
             WASM_RETURN_TWO(nullptr, nullptr);
 
@@ -377,7 +376,7 @@ WASM_SLOW_PATH_DECL(epilogue_osr)
         callee->tierUpCounter().deferIndefinitely();
         WASM_END_IMPL();
     }
-    if (!Options::useWebAssemblyLLIntEpilogueOSR())
+    if (!Options::useWasmLLIntEpilogueOSR())
         WASM_END_IMPL();
 
     dataLogLnIf(Options::verboseOSR(), *callee, ": Entered epilogue_osr with tierUpCounter = ", callee->tierUpCounter());
@@ -391,7 +390,7 @@ WASM_SLOW_PATH_DECL(simd_go_straight_to_bbq_osr)
     UNUSED_PARAM(pc);
     Wasm::LLIntCallee* callee = CALLEE();
 
-    if (!Options::useWebAssemblySIMD())
+    if (!Options::useWasmSIMD())
         RELEASE_ASSERT_NOT_REACHED();
     RELEASE_ASSERT(shouldJIT(callee));
 
@@ -666,7 +665,7 @@ WASM_SLOW_PATH_DECL(grow_memory)
     WASM_RETURN(Wasm::growMemory(instance, delta));
 }
 
-static inline UGPRPair doWasmCall(Register* partiallyConstructedCalleeFrame, Wasm::Instance* instance, unsigned functionIndex)
+static inline UGPRPair doWasmCall(Register* partiallyConstructedCalleeFrame, JSWebAssemblyInstance* instance, unsigned functionIndex)
 {
     uint32_t importFunctionCount = instance->module().moduleInformation().importFunctionCount();
 
@@ -674,7 +673,7 @@ static inline UGPRPair doWasmCall(Register* partiallyConstructedCalleeFrame, Was
     EncodedJSValue boxedCallee = CalleeBits::encodeNullCallee();
 
     if (functionIndex < importFunctionCount) {
-        Wasm::Instance::ImportFunctionInfo* functionInfo = instance->importFunctionInfo(functionIndex);
+        JSWebAssemblyInstance::ImportFunctionInfo* functionInfo = instance->importFunctionInfo(functionIndex);
         codePtr = functionInfo->importFunctionStub;
     } else {
         // Target is a wasm function within the same instance
@@ -697,7 +696,7 @@ WASM_SLOW_PATH_DECL(call)
     return doWasmCall(partiallyConstructedCalleeFrame, instance, instruction.m_functionIndex);
 }
 
-static inline UGPRPair doWasmCallIndirect(Register* partiallyConstructedCalleeFrame, CallFrame* callFrame, Wasm::Instance* instance, unsigned functionIndex, unsigned tableIndex, unsigned typeIndex)
+static inline UGPRPair doWasmCallIndirect(Register* partiallyConstructedCalleeFrame, CallFrame* callFrame, JSWebAssemblyInstance* instance, unsigned functionIndex, unsigned tableIndex, unsigned typeIndex)
 {
     Wasm::FuncRefTable* table = instance->table(tableIndex)->asFuncrefTable();
 
@@ -731,7 +730,7 @@ WASM_SLOW_PATH_DECL(call_indirect)
     return doWasmCallIndirect(partiallyConstructedCalleeFrame, callFrame, instance, functionIndex, instruction.m_tableIndex, instruction.m_typeIndex);
 }
 
-static inline UGPRPair doWasmCallRef(Register* partiallyConstructedCalleeFrame, CallFrame* callFrame, Wasm::Instance* callerInstance, JSValue targetReference, unsigned typeIndex)
+static inline UGPRPair doWasmCallRef(Register* partiallyConstructedCalleeFrame, CallFrame* callFrame, JSWebAssemblyInstance* callerInstance, JSValue targetReference, unsigned typeIndex)
 {
     UNUSED_PARAM(callFrame);
     UNUSED_PARAM(callerInstance);
@@ -745,7 +744,7 @@ static inline UGPRPair doWasmCallRef(Register* partiallyConstructedCalleeFrame, 
     ASSERT(referenceAsObject->inherits<WebAssemblyFunctionBase>());
     auto* wasmFunction = jsCast<WebAssemblyFunctionBase*>(referenceAsObject);
     Wasm::WasmToWasmImportableFunction function = wasmFunction->importableFunction();
-    Wasm::Instance* calleeInstance = &wasmFunction->instance()->instance();
+    JSWebAssemblyInstance* calleeInstance = wasmFunction->instance();
 
     Register& calleeStackSlot = partiallyConstructedCalleeFrame[static_cast<int>(CallFrameSlot::callee)];
     ASSERT(calleeStackSlot.unboxedInt64() == 0xBEEF);
@@ -818,7 +817,7 @@ WASM_SLOW_PATH_DECL(call_builtin)
 
     switch (builtin) {
     case Wasm::LLIntBuiltin::CurrentMemory: {
-        size_t size = instance->memory()->handle().size() >> 16;
+        size_t size = instance->memory()->memory().handle().size() >> 16;
         gprStart[0] = static_cast<EncodedJSValue>(size);
         WASM_END();
     }
@@ -1319,7 +1318,7 @@ WASM_SLOW_PATH_DECL(i64_trunc_sat_f64_s)
 }
 #endif
 
-extern "C" UGPRPair SYSV_ABI slow_path_wasm_throw_exception(CallFrame* callFrame, Wasm::Instance* instance, Wasm::ExceptionType exceptionType)
+extern "C" UGPRPair SYSV_ABI slow_path_wasm_throw_exception(CallFrame* callFrame, JSWebAssemblyInstance* instance, Wasm::ExceptionType exceptionType)
 {
     SlowPathFrameTracer tracer(instance->vm(), callFrame);
     WASM_RETURN_TWO(Wasm::throwWasmToJSException(callFrame, exceptionType, instance), nullptr);

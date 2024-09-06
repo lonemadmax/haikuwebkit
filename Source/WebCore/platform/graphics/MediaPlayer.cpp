@@ -47,6 +47,7 @@
 #include "PlatformStrategies.h"
 #include "PlatformTextTrack.h"
 #include "PlatformTimeRanges.h"
+#include "ResourceError.h"
 #include "SecurityOrigin.h"
 #include "VideoFrame.h"
 #include "VideoFrameMetadata.h"
@@ -198,7 +199,7 @@ static const std::optional<Vector<FourCC>>& nullOptionalFourCCVector()
     return vector;
 }
 
-class NullMediaPlayerClient : public MediaPlayerClient {
+class NullMediaPlayerClient final : public MediaPlayerClient {
 private:
 #if !RELEASE_LOG_DISABLED
     const Logger& mediaPlayerLogger() final
@@ -214,7 +215,11 @@ private:
 
     const Vector<WebCore::ContentType>& mediaContentTypesRequiringHardwareSupport() const final { return nullContentTypeVector(); }
 
-    RefPtr<PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() final { ASSERT_NOT_REACHED(); return nullptr; }
+    Ref<PlatformMediaResourceLoader> mediaPlayerCreateResourceLoader() final
+    {
+        ASSERT_NOT_REACHED();
+        return adoptRef(*new NullMediaResourceLoader());
+    }
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     RefPtr<ArrayBuffer> mediaPlayerCachedKeyForKeyId(const String&) const final { return nullptr; }
@@ -225,6 +230,14 @@ private:
     const std::optional<Vector<FourCC>>& allowedMediaVideoCodecIDs() const final { return nullOptionalFourCCVector(); }
     const std::optional<Vector<FourCC>>& allowedMediaAudioCodecIDs() const final { return nullOptionalFourCCVector(); }
     const std::optional<Vector<FourCC>>& allowedMediaCaptionFormatTypes() const final { return nullOptionalFourCCVector(); }
+
+    class NullMediaResourceLoader final : public PlatformMediaResourceLoader {
+        void sendH2Ping(const URL&, CompletionHandler<void(Expected<Seconds, ResourceError>&&)>&& completionHandler) final
+        {
+            completionHandler(makeUnexpected(ResourceError { }));
+        }
+        RefPtr<PlatformMediaResource> requestResource(ResourceRequest&&, LoadOptions) final { return nullptr; }
+    };
 };
 
 const Vector<ContentType>& MediaPlayerClient::mediaContentTypesRequiringHardwareSupport() const
@@ -1336,6 +1349,16 @@ MediaPlayer::MovieLoadType MediaPlayer::movieLoadType() const
     return m_private->movieLoadType();
 }
 
+MediaPlayer::VideoPlaybackConfiguration MediaPlayer::videoPlaybackConfiguration() const
+{
+    return m_private->videoPlaybackConfiguration();
+}
+
+void MediaPlayer::videoPlaybackConfigurationChanged()
+{
+    return client().mediaPlayerVideoPlaybackConfigurationChanged();
+}
+
 MediaTime MediaPlayer::mediaTimeForTimeValue(const MediaTime& timeValue) const
 {
     return m_private->mediaTimeForTimeValue(timeValue);
@@ -1583,7 +1606,7 @@ CachedResourceLoader* MediaPlayer::cachedResourceLoader()
     return client().mediaPlayerCachedResourceLoader();
 }
 
-RefPtr<PlatformMediaResourceLoader> MediaPlayer::createResourceLoader()
+Ref<PlatformMediaResourceLoader> MediaPlayer::createResourceLoader()
 {
     return client().mediaPlayerCreateResourceLoader();
 }
@@ -2106,6 +2129,14 @@ String convertEnumerationToString(MediaPlayer::BufferingPolicy enumerationValue)
     static_assert(static_cast<size_t>(MediaPlayer::BufferingPolicy::PurgeResources) == 3, "MediaPlayer::PurgeResources is not 3 as expected");
     ASSERT(static_cast<size_t>(enumerationValue) < std::size(values));
     return values[static_cast<size_t>(enumerationValue)];
+}
+
+String convertOptionSetToString(const MediaPlayer::VideoPlaybackConfiguration& value)
+{
+    return makeString('[', value.contains(MediaPlayer::VideoPlaybackConfigurationOption::Stereo) ? "Stereo|"_s : ""_s,
+        value.contains(MediaPlayer::VideoPlaybackConfigurationOption::StereoMultiview) ? "StereoMultiview|"_s : ""_s,
+        value.contains(MediaPlayer::VideoPlaybackConfigurationOption::Spatial) ? "Spatial|"_s : ""_s,
+        ']');
 }
 
 String MediaPlayer::lastErrorMessage() const

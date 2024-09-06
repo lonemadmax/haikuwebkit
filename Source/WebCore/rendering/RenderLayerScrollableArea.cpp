@@ -2049,5 +2049,10 @@ FrameIdentifier RenderLayerScrollableArea::rootFrameID() const
     return m_layer.renderer().frame().rootFrame().frameID();
 }
 
+void RenderLayerScrollableArea::scrollbarWidthChanged(ScrollbarWidth width)
+{
+    scrollbarsController().scrollbarWidthChanged(width);
+    availableContentSizeChanged(AvailableSizeChangeReason::ScrollbarsChanged);
+}
 
 } // namespace WebCore

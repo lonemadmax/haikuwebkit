@@ -117,7 +117,6 @@
 		6311592628989A55006A9A12 /* LibraryPathDiagnostics.h in Headers */ = {isa = PBXBuildFile; fileRef = 6311592428989A55006A9A12 /* LibraryPathDiagnostics.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		6311592728989A55006A9A12 /* LibraryPathDiagnostics.mm in Sources */ = {isa = PBXBuildFile; fileRef = 6311592528989A55006A9A12 /* LibraryPathDiagnostics.mm */; };
 		63F9BED42898D96400371416 /* CFPrivSPI.h in Headers */ = {isa = PBXBuildFile; fileRef = 63F9BED32898D96400371416 /* CFPrivSPI.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		65072B162B6D7FAA0065065C /* TZoneMallocInitialization.h in Headers */ = {isa = PBXBuildFile; fileRef = 65072B152B6D7FAA0065065C /* TZoneMallocInitialization.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		70A993FE1AD7151300FA615B /* SymbolRegistry.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 70A993FC1AD7151300FA615B /* SymbolRegistry.cpp */; };
 		70ECA60D1B02426800449739 /* AtomStringImpl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 70ECA60A1B02426800449739 /* AtomStringImpl.cpp */; };
 		7A05093F1FB9DCC500B33FB8 /* JSONValues.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 7A05093E1FB9DCC500B33FB8 /* JSONValues.cpp */; };
@@ -851,6 +850,7 @@
 		E396C11D2BE885D9000CBAE1 /* neon.h in Headers */ = {isa = PBXBuildFile; fileRef = E396C1192BE885D9000CBAE1 /* neon.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E396C11E2BE885D9000CBAE1 /* sve.h in Headers */ = {isa = PBXBuildFile; fileRef = E396C11A2BE885D9000CBAE1 /* sve.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3ABBABE2BE88FBE00D84916 /* simde.h in Headers */ = {isa = PBXBuildFile; fileRef = E3ABBABD2BE88FBE00D84916 /* simde.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		E3B876262C40CBEC0004DF71 /* Float16.h in Headers */ = {isa = PBXBuildFile; fileRef = E3B876252C40CBEC0004DF71 /* Float16.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3B8E6032961EA7600A8AEE3 /* AccessibleAddress.h in Headers */ = {isa = PBXBuildFile; fileRef = E3B8E6012961EA7600A8AEE3 /* AccessibleAddress.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3BE09A724A5854D009DF2B4 /* ICUHelpers.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E3BE09A624A58545009DF2B4 /* ICUHelpers.cpp */; };
 		E3DA37E7287AD1A10066808F /* StringCommon.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E3DA37E6287AD1A10066808F /* StringCommon.cpp */; };
@@ -1253,7 +1253,6 @@
 		6311592428989A55006A9A12 /* LibraryPathDiagnostics.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LibraryPathDiagnostics.h; sourceTree = "<group>"; };
 		6311592528989A55006A9A12 /* LibraryPathDiagnostics.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = LibraryPathDiagnostics.mm; sourceTree = "<group>"; };
 		63F9BED32898D96400371416 /* CFPrivSPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = CFPrivSPI.h; sourceTree = "<group>"; };
-		65072B152B6D7FAA0065065C /* TZoneMallocInitialization.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TZoneMallocInitialization.h; sourceTree = "<group>"; };
 		70A993FC1AD7151300FA615B /* SymbolRegistry.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = SymbolRegistry.cpp; sourceTree = "<group>"; };
 		70A993FD1AD7151300FA615B /* SymbolRegistry.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SymbolRegistry.h; sourceTree = "<group>"; };
 		70ECA60A1B02426800449739 /* AtomStringImpl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = AtomStringImpl.cpp; sourceTree = "<group>"; };
@@ -1808,6 +1807,7 @@
 		E396C11A2BE885D9000CBAE1 /* sve.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sve.h; sourceTree = "<group>"; };
 		E3A32BC31FC830E2007D7E76 /* JSValueMalloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSValueMalloc.h; sourceTree = "<group>"; };
 		E3ABBABD2BE88FBE00D84916 /* simde.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = simde.h; sourceTree = "<group>"; };
+		E3B876252C40CBEC0004DF71 /* Float16.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Float16.h; sourceTree = "<group>"; };
 		E3B8E6012961EA7600A8AEE3 /* AccessibleAddress.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AccessibleAddress.h; sourceTree = "<group>"; };
 		E3BE09A624A58545009DF2B4 /* ICUHelpers.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = ICUHelpers.cpp; sourceTree = "<group>"; };
 		E3C583C826127ADD00C57568 /* RobinHoodHashMap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RobinHoodHashMap.h; sourceTree = "<group>"; };
@@ -2172,6 +2172,7 @@
 				E3E0F04F26197157004640FC /* FixedVector.h */,
 				33479C1C27236F2000B2E1B7 /* FixedWidthDouble.h */,
 				0F2B66A517B6B4F700A7AE3F /* FlipBytes.h */,
+				E3B876252C40CBEC0004DF71 /* Float16.h */,
 				FE86A8741E59440200111BBF /* ForbidHeapAllocation.h */,
 				A8A472A6151A825A004123FF /* Forward.h */,
 				83F2BADE1CF9524E003E99C3 /* Function.h */,
@@ -2465,7 +2466,6 @@
 				83FBA93119DF459700F30ADB /* TypeCasts.h */,
 				5164042E2AB1D4DD0042B1C3 /* TypeTraits.h */,
 				FE03831B2ABC04F700A576A2 /* TZoneMalloc.h */,
-				65072B152B6D7FAA0065065C /* TZoneMallocInitialization.h */,
 				FE03831A2ABC04F700A576A2 /* TZoneMallocInlines.h */,
 				E360C7642127B85B00C90F0E /* UnalignedAccess.h */,
 				E360C7652127B85C00C90F0E /* Unexpected.h */,
@@ -3235,6 +3235,7 @@
 				DD3DC96527A4BF8E007E5B61 /* FixedVector.h in Headers */,
 				339B7B1127C45EF50072BF9A /* FixedWidthDouble.h in Headers */,
 				DD3DC8D327A4BF8E007E5B61 /* FlipBytes.h in Headers */,
+				E3B876262C40CBEC0004DF71 /* Float16.h in Headers */,
 				E361DB64289115D000B2A2B8 /* float_common.h in Headers */,
 				DD3DC95D27A4BF8E007E5B61 /* ForbidHeapAllocation.h in Headers */,
 				DD3DC90827A4BF8E007E5B61 /* Forward.h in Headers */,
@@ -3544,7 +3545,6 @@
 				DDF306FD27C086CC006A526F /* TypeCastsCocoa.h in Headers */,
 				5164042F2AB1D4DD0042B1C3 /* TypeTraits.h in Headers */,
 				FE03831D2ABC04F700A576A2 /* TZoneMalloc.h in Headers */,
-				65072B162B6D7FAA0065065C /* TZoneMallocInitialization.h in Headers */,
 				FE03831C2ABC04F700A576A2 /* TZoneMallocInlines.h in Headers */,
 				DD3DC8C927A4BF8E007E5B61 /* UnalignedAccess.h in Headers */,
 				DD3DC86A27A4BF8E007E5B61 /* Unexpected.h in Headers */,

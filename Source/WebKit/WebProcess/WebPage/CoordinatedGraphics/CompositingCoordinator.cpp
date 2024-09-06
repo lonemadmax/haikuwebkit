@@ -46,6 +46,7 @@
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/NumberOfCores.h>
 #include <wtf/SetForScope.h>
+#include <wtf/SystemTracing.h>
 #include <wtf/text/StringToIntegerConversion.h>
 
 #if USE(CAIRO)
@@ -90,7 +91,7 @@ CompositingCoordinator::CompositingCoordinator(WebPage& page, CompositingCoordin
 #endif
 {
 #if USE(SKIA)
-    if (ProcessCapabilities::canUseAcceleratedBuffers() && PlatformDisplay::sharedDisplayForCompositing().skiaGLContext())
+    if (ProcessCapabilities::canUseAcceleratedBuffers() && PlatformDisplay::sharedDisplay().skiaGLContext())
         m_skiaAcceleratedBufferPool = makeUnique<SkiaAcceleratedBufferPool>();
     else if (auto numberOfThreads = skiaNumberOfCpuPaintingThreads(); numberOfThreads > 0)
         m_skiaUnacceleratedThreadedRenderingPool = WorkerPool::create("SkiaPaintingThread"_s, numberOfThreads);
@@ -161,6 +162,7 @@ void CompositingCoordinator::sizeDidChange(const IntSize& newSize)
 
 bool CompositingCoordinator::flushPendingLayerChanges(OptionSet<FinalizeRenderingUpdateFlags> flags)
 {
+    TraceScope traceScope(BackingStoreFlushStart, BackingStoreFlushEnd);
     SetForScope protector(m_isFlushingLayerChanges, true);
 
     bool shouldSyncFrame = initializeRootCompositingLayerIfNeeded();
@@ -177,12 +179,9 @@ bool CompositingCoordinator::flushPendingLayerChanges(OptionSet<FinalizeRenderin
     m_page.finalizeRenderingUpdate(flags);
 
     auto& coordinatedLayer = downcast<CoordinatedGraphicsLayer>(*m_rootLayer);
-    coordinatedLayer.updateContentBuffersIncludingSubLayers();
-    shouldSyncFrame |= coordinatedLayer.checkPendingStateChangesIncludingSubLayers();
-
-#if !HAVE(DISPLAY_LINK)
+    auto [performLayerSync, platformLayerUpdated] = coordinatedLayer.finalizeCompositingStateFlush();
+    shouldSyncFrame |= performLayerSync;
     shouldSyncFrame |= m_forceFrameSync;
-#endif
 
     if (shouldSyncFrame) {
         m_nicosia.scene->accessState(
@@ -212,12 +211,10 @@ bool CompositingCoordinator::flushPendingLayerChanges(OptionSet<FinalizeRenderin
             });
 
         m_client.commitSceneState(m_nicosia.scene);
-#if !HAVE(DISPLAY_LINK)
         m_forceFrameSync = false;
-#endif
     }
 #if HAVE(DISPLAY_LINK)
-    else
+    else if (platformLayerUpdated)
         m_client.commitSceneState(nullptr);
 #endif
 

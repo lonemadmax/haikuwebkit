@@ -1292,8 +1292,8 @@ JSC_DEFINE_JIT_OPERATION(operationPutByMegamorphicReallocating, void, (VM* vmPoi
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    Structure* oldStructure = baseObject->structure();
-    Structure* newStructure = entry->m_newStructureID.decode();
+    Structure* oldStructure = WTF::opaque(baseObject->structure());
+    Structure* newStructure = WTF::opaque(entry->m_newStructureID.decode());
     PropertyOffset offset = entry->m_offset;
 
     ASSERT(oldStructure == entry->m_oldStructureID.decode());
@@ -1303,6 +1303,9 @@ JSC_DEFINE_JIT_OPERATION(operationPutByMegamorphicReallocating, void, (VM* vmPoi
     baseObject->setStructure(vm, newStructure);
     ASSERT(newStructure == baseObject->structure());
     dataLogLnIf(verbose, JSValue(baseObject), " ", offset);
+
+    ensureStillAliveHere(oldStructure);
+    ensureStillAliveHere(newStructure);
     OPERATION_RETURN(scope);
 }
 
@@ -2387,7 +2390,7 @@ JSC_DEFINE_JIT_OPERATION(operationCallDirectEvalSloppy, EncodedJSValue, (void* f
     auto scope = DECLARE_THROW_SCOPE(vm);
     calleeFrame->setCodeBlock(nullptr);
 
-    OPERATION_RETURN(scope, JSValue::encode(eval(calleeFrame, JSValue::decode(encodedThisValue), callerScopeChain, ECMAMode::sloppy())));
+    OPERATION_RETURN(scope, JSValue::encode(eval(calleeFrame, JSValue::decode(encodedThisValue), callerScopeChain, NoLexicallyScopedFeatures)));
 }
 
 JSC_DEFINE_JIT_OPERATION(operationCallDirectEvalStrict, EncodedJSValue, (void* frame, JSScope* callerScopeChain, EncodedJSValue encodedThisValue))
@@ -2398,7 +2401,29 @@ JSC_DEFINE_JIT_OPERATION(operationCallDirectEvalStrict, EncodedJSValue, (void* f
     auto scope = DECLARE_THROW_SCOPE(vm);
     calleeFrame->setCodeBlock(nullptr);
 
-    OPERATION_RETURN(scope, JSValue::encode(eval(calleeFrame, JSValue::decode(encodedThisValue), callerScopeChain, ECMAMode::strict())));
+    OPERATION_RETURN(scope, JSValue::encode(eval(calleeFrame, JSValue::decode(encodedThisValue), callerScopeChain, StrictModeLexicallyScopedFeature)));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationCallDirectEvalSloppyTaintedByWithScope, EncodedJSValue, (void* frame, JSScope* callerScopeChain, EncodedJSValue encodedThisValue))
+{
+    CallFrame* calleeFrame = reinterpret_cast<CallFrame*>(frame);
+    // We can't trust our callee since it could be garbage but our caller's should be ok.
+    VM& vm = calleeFrame->callerFrame()->deprecatedVM();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    calleeFrame->setCodeBlock(nullptr);
+
+    OPERATION_RETURN(scope, JSValue::encode(eval(calleeFrame, JSValue::decode(encodedThisValue), callerScopeChain, TaintedByWithScopeLexicallyScopedFeature)));
+}
+
+JSC_DEFINE_JIT_OPERATION(operationCallDirectEvalStrictTaintedByWithScope, EncodedJSValue, (void* frame, JSScope* callerScopeChain, EncodedJSValue encodedThisValue))
+{
+    CallFrame* calleeFrame = reinterpret_cast<CallFrame*>(frame);
+    // We can't trust our callee since it could be garbage but our caller's should be ok.
+    VM& vm = calleeFrame->callerFrame()->deprecatedVM();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    calleeFrame->setCodeBlock(nullptr);
+
+    OPERATION_RETURN(scope, JSValue::encode(eval(calleeFrame, JSValue::decode(encodedThisValue), callerScopeChain, StrictModeLexicallyScopedFeature | TaintedByWithScopeLexicallyScopedFeature)));
 }
 
 JSC_DEFINE_JIT_OPERATION(operationPolymorphicCall, UCPURegister, (CallFrame* calleeFrame, CallLinkInfo* callLinkInfo))
@@ -4218,6 +4243,20 @@ JSC_DEFINE_JIT_OPERATION(operationInstanceOfGaveUp, EncodedJSValue, (EncodedJSVa
     OPERATION_RETURN(scope, JSValue::encode(jsBoolean(result)));
 }
 
+JSC_DEFINE_JIT_OPERATION(operationInstanceOfGeneric, EncodedJSValue, (JSGlobalObject* globalObject, EncodedJSValue encodedValue, EncodedJSValue encodedProto))
+{
+    VM& vm = globalObject->vm();
+    CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
+    JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
+    auto scope = DECLARE_THROW_SCOPE(vm);
+
+    JSValue value = JSValue::decode(encodedValue);
+    JSValue proto = JSValue::decode(encodedProto);
+
+    bool result = JSObject::defaultHasInstance(globalObject, value, proto);
+    OPERATION_RETURN(scope, JSValue::encode(jsBoolean(result)));
+}
+
 JSC_DEFINE_JIT_OPERATION(operationInstanceOfOptimize, EncodedJSValue, (EncodedJSValue encodedValue, EncodedJSValue encodedProto, StructureStubInfo* stubInfo))
 {
     JSGlobalObject* globalObject = stubInfo->globalObject();
@@ -4551,8 +4590,8 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationReallocateButterflyAndTransition, voi
     size_t newSize = handler->newSize() / sizeof(JSValue);
     size_t oldSize = handler->oldSize() / sizeof(JSValue);
     PropertyOffset offset = handler->offset();
-    Structure* oldStructure = handler->structureID().decode();
-    Structure* newStructure = handler->newStructureID().decode();
+    Structure* oldStructure = WTF::opaque(handler->structureID().decode());
+    Structure* newStructure = WTF::opaque(handler->newStructureID().decode());
 
     ASSERT(oldStructure == baseObject->structure());
     Butterfly* newButterfly = baseObject->allocateMoreOutOfLineStorage(vm, oldSize, newSize);

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -57,7 +57,7 @@ using namespace WebExtensionDynamicScripts;
 
 bool WebExtensionContext::isScriptingMessageAllowed()
 {
-    return isLoaded() && hasPermission(_WKWebExtensionPermissionScripting);
+    return isLoaded() && hasPermission(WKWebExtensionPermissionScripting);
 }
 
 void WebExtensionContext::scriptingExecuteScript(const WebExtensionScriptInjectionParameters& parameters, CompletionHandler<void(Expected<InjectionResults, WebExtensionError>&&)>&& completionHandler)
@@ -76,7 +76,7 @@ void WebExtensionContext::scriptingExecuteScript(const WebExtensionScriptInjecti
             return;
         }
 
-        auto *webView = tab->mainWebView();
+        auto *webView = tab->webView();
         if (!webView) {
             completionHandler(toWebExtensionError(apiName, nil, @"could not execute script on this tab"));
             return;
@@ -107,7 +107,7 @@ void WebExtensionContext::scriptingInsertCSS(const WebExtensionScriptInjectionPa
             return;
         }
 
-        auto *webView = tab->mainWebView();
+        auto *webView = tab->webView();
         if (!webView) {
             completionHandler(toWebExtensionError(apiName, nil, @"could not inject stylesheet on this tab"));
             return;
@@ -138,7 +138,7 @@ void WebExtensionContext::scriptingRemoveCSS(const WebExtensionScriptInjectionPa
         return;
     }
 
-    auto *webView = tab->mainWebView();
+    auto *webView = tab->webView();
     if (!webView) {
         completionHandler(toWebExtensionError(apiName, nil, @"could not remove stylesheet from this tab"));
         return;
@@ -296,7 +296,7 @@ void WebExtensionContext::scriptingUnregisterContentScripts(const Vector<String>
 
 void WebExtensionContext::loadRegisteredContentScripts()
 {
-    if (!hasPermission(_WKWebExtensionPermissionScripting))
+    if (!hasPermission(WKWebExtensionPermissionScripting))
         return;
 
     [registeredContentScriptsStore() getScriptsWithCompletionHandler:makeBlockPtr([this, protectedThis = Ref { *this }](NSArray *scripts, NSString *errorMessage) mutable {

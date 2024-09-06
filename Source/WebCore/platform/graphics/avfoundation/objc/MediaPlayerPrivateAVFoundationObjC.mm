@@ -65,6 +65,7 @@
 #import "SecurityOrigin.h"
 #import "SerializedPlatformDataCueMac.h"
 #import "SharedBuffer.h"
+#import "SourceBufferParserAVFObjC.h"
 #import "SourceBufferParserWebM.h"
 #import "TextTrack.h"
 #import "TextTrackRepresentation.h"
@@ -174,6 +175,8 @@ SOFT_LINK_CONSTANT(Celestial, AVController_RouteDescriptionKey_AVAudioRouteName,
 #endif // HAVE(CELESTIAL)
 
 #endif // PLATFORM(IOS_FAMILY)
+
+OBJC_CLASS AVAssetPlaybackAssistant;
 
 using namespace WebCore;
 
@@ -1051,10 +1054,9 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url, Ret
     AVAssetResourceLoader *resourceLoader = [m_avAsset resourceLoader];
     [resourceLoader setDelegate:m_loaderDelegate.get() queue:globalLoaderDelegateQueue()];
 
-    if (auto mediaResourceLoader = player->createResourceLoader()) {
-        m_targetDispatcher = mediaResourceLoader->targetDispatcher();
-        resourceLoader.URLSession = (NSURLSession *)adoptNS([[WebCoreNSURLSession alloc] initWithResourceLoader:*mediaResourceLoader delegate:resourceLoader.URLSessionDataDelegate delegateQueue:resourceLoader.URLSessionDataDelegateQueue]).get();
-    }
+    Ref mediaResourceLoader = player->createResourceLoader();
+    m_targetDispatcher = mediaResourceLoader->targetDispatcher();
+    resourceLoader.URLSession = (NSURLSession *)adoptNS([[WebCoreNSURLSession alloc] initWithResourceLoader:mediaResourceLoader delegate:resourceLoader.URLSessionDataDelegate delegateQueue:resourceLoader.URLSessionDataDelegateQueue]).get();
 
     [[NSNotificationCenter defaultCenter] addObserver:m_objcObserver.get() selector:@selector(chapterMetadataDidChange:) name:AVAssetChapterMetadataGroupsDidChangeNotification object:m_avAsset.get()];
 
@@ -2310,8 +2312,20 @@ void MediaPlayerPrivateAVFoundationObjC::updateVideoLayerGravity(ShouldAnimate s
 
 void MediaPlayerPrivateAVFoundationObjC::metadataLoaded()
 {
+#if ENABLE(LINEAR_MEDIA_PLAYER)
+    ASSERT(m_avAsset);
+    SourceBufferParserAVFObjC::getVideoPlaybackConfiguration(m_avAsset.get())->whenSettled(RunLoop::main(), [weakThis = ThreadSafeWeakPtr { *this }](auto&& result) {
+        if (RefPtr protectedThis = weakThis.get()) {
+            if (result)
+                protectedThis->m_cachedVideoPlaybackConfiguration = *result;
+            protectedThis->MediaPlayerPrivateAVFoundation::metadataLoaded();
+            protectedThis->processChapterTracks();
+        }
+    });
+#else
     MediaPlayerPrivateAVFoundation::metadataLoaded();
     processChapterTracks();
+#endif
 }
 
 void MediaPlayerPrivateAVFoundationObjC::processChapterTracks()

@@ -257,9 +257,9 @@ public:
         return push(NoConsistencyCheck);
     }
 
-    void didPopValueFromStack(ExpressionType, String) { --m_stackSize; }
+    void didPopValueFromStack(ExpressionType, ASCIILiteral) { --m_stackSize; }
     bool usesSIMD() { return m_usesSIMD; }
-    void notifyFunctionUsesSIMD() { ASSERT(Options::useWebAssemblySIMD()); m_usesSIMD = true; }
+    void notifyFunctionUsesSIMD() { ASSERT(Options::useWasmSIMD()); m_usesSIMD = true; }
 
     PartialResult WARN_UNUSED_RETURN addDrop(ExpressionType);
 
@@ -287,6 +287,7 @@ public:
     // Locals
     PartialResult WARN_UNUSED_RETURN getLocal(uint32_t index, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN setLocal(uint32_t index, ExpressionType value);
+    PartialResult WARN_UNUSED_RETURN teeLocal(uint32_t, ExpressionType, ExpressionType& result);
 
     // Globals
     PartialResult WARN_UNUSED_RETURN getGlobal(uint32_t index, ExpressionType& result);
@@ -385,6 +386,7 @@ public:
     PartialResult WARN_UNUSED_RETURN addCrash();
 
     ALWAYS_INLINE void willParseOpcode() { }
+    ALWAYS_INLINE void willParseExtendedOpcode() { }
     ALWAYS_INLINE void didParseOpcode() { }
     void didFinishParsingLocals();
 
@@ -425,7 +427,7 @@ private:
         if (UNLIKELY(!m_jsNullConstant.isValid())) {
             m_jsNullConstant = VirtualRegister(FirstConstantRegisterIndex + m_codeBlock->m_constants.size());
             m_codeBlock->m_constants.append(JSValue::encode(jsNull()));
-            if (UNLIKELY(Options::dumpGeneratedWebAssemblyBytecodes()))
+            if (UNLIKELY(Options::dumpGeneratedWasmBytecodes()))
                 m_codeBlock->m_constantTypes.append(Types::Externref);
         }
         return m_jsNullConstant;
@@ -436,7 +438,7 @@ private:
         if (UNLIKELY(!m_zeroConstant.isValid())) {
             m_zeroConstant = VirtualRegister(FirstConstantRegisterIndex + m_codeBlock->m_constants.size());
             m_codeBlock->m_constants.append(0);
-            if (UNLIKELY(Options::dumpGeneratedWebAssemblyBytecodes()))
+            if (UNLIKELY(Options::dumpGeneratedWasmBytecodes()))
                 m_codeBlock->m_constantTypes.append(Types::I32);
         }
         return m_zeroConstant;
@@ -972,7 +974,7 @@ auto LLIntGenerator::addConstantWithoutPush(Type type, int64_t value) -> Express
     if (!result.isNewEntry)
         return result.iterator->value;
     m_codeBlock->m_constants.append(value);
-    if (UNLIKELY(Options::dumpGeneratedWebAssemblyBytecodes()))
+    if (UNLIKELY(Options::dumpGeneratedWasmBytecodes()))
         m_codeBlock->m_constantTypes.append(type);
     return source;
 }
@@ -1006,6 +1008,19 @@ auto LLIntGenerator::setLocal(uint32_t index, ExpressionType value) -> PartialRe
 
     WasmMov::emit(this, target, value);
 
+    return { };
+}
+
+auto LLIntGenerator::teeLocal(uint32_t index, ExpressionType value, ExpressionType& result) -> PartialResult
+{
+    {
+        auto check = setLocal(index, value);
+        ASSERT_UNUSED(check, check);
+    }
+    {
+        auto check = getLocal(index, result);
+        ASSERT_UNUSED(check, check);
+    }
     return { };
 }
 
@@ -1488,7 +1503,7 @@ auto LLIntGenerator::addCall(uint32_t functionIndex, const TypeDefinition& signa
 
         const auto& callingConvention = wasmCallingConvention();
         const TypeIndex callerTypeIndex = m_info.internalFunctionTypeIndices[m_functionIndex];
-        const TypeDefinition& callerTypeDefinition = TypeInformation::get(callerTypeIndex);
+        const TypeDefinition& callerTypeDefinition = TypeInformation::get(callerTypeIndex).expand();
         uint32_t callerStackArgs = WTF::roundUpToMultipleOf(stackAlignmentRegisters(), callingConvention.numberOfStackValues(*callerTypeDefinition.as<FunctionSignature>()));
 
         WasmTailCall::emit(this, functionIndex, wasmCalleeInfo.stackOffset, wasmCalleeInfo.numberOfStackArguments, callerStackArgs);
@@ -1520,7 +1535,7 @@ auto LLIntGenerator::addCallIndirect(unsigned tableIndex, const TypeDefinition& 
 
         const auto& callingConvention = wasmCallingConvention();
         const TypeIndex callerTypeIndex = m_info.internalFunctionTypeIndices[m_functionIndex];
-        const TypeDefinition& callerTypeDefinition = TypeInformation::get(callerTypeIndex);
+        const TypeDefinition& callerTypeDefinition = TypeInformation::get(callerTypeIndex).expand();
         uint32_t callerStackArgs = WTF::roundUpToMultipleOf(stackAlignmentRegisters(), callingConvention.numberOfStackValues(*callerTypeDefinition.as<FunctionSignature>()));
 
         WasmTailCallIndirect::emit(this, calleeIndex, m_codeBlock->addSignature(signature), calleeInfo.stackOffset, calleeInfo.numberOfStackArguments, callerStackArgs, tableIndex);

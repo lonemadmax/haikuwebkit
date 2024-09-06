@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +33,8 @@
 #if ENABLE(WK_WEB_EXTENSIONS)
 
 #import "CocoaHelpers.h"
+#import "WKWebExtensionControllerDelegatePrivate.h"
+#import "WKWebExtensionTabCreationOptionsInternal.h"
 #import "WKWebViewInternal.h"
 #import "WKWebViewPrivate.h"
 #import "WebExtensionContextProxy.h"
@@ -43,8 +45,6 @@
 #import "WebExtensionUtilities.h"
 #import "WebExtensionWindowIdentifier.h"
 #import "WebPageProxy.h"
-#import "_WKWebExtensionControllerDelegatePrivate.h"
-#import "_WKWebExtensionTabCreationOptionsInternal.h"
 #import <WebCore/ImageBufferUtilitiesCG.h>
 #import <wtf/CallbackAggregator.h>
 
@@ -69,12 +69,12 @@ void WebExtensionContext::tabsCreate(std::optional<WebPageProxyIdentifier> webPa
         return;
     }
 
-    auto *creationOptions = [[_WKWebExtensionTabCreationOptions alloc] _init];
-    creationOptions.shouldActivate = parameters.active.value_or(true);
-    creationOptions.shouldSelect = creationOptions.shouldActivate ?: parameters.selected.value_or(false);
-    creationOptions.shouldPin = parameters.pinned.value_or(false);
-    creationOptions.shouldMute = parameters.muted.value_or(false);
-    creationOptions.shouldShowReaderMode = parameters.showingReaderMode.value_or(false);
+    auto *creationOptions = [[WKWebExtensionTabCreationOptions alloc] _init];
+    creationOptions.active = parameters.active.value_or(true);
+    creationOptions.selected = creationOptions.active ?: parameters.selected.value_or(false);
+    creationOptions.pinned = parameters.pinned.value_or(false);
+    creationOptions.muted = parameters.muted.value_or(false);
+    creationOptions.readerModeShowing = parameters.showingReaderMode.value_or(false);
 
     RefPtr window = getWindow(parameters.windowIdentifier.value_or(WebExtensionWindowConstants::CurrentIdentifier), webPageProxyIdentifier);
     if (parameters.windowIdentifier && !window) {
@@ -82,8 +82,8 @@ void WebExtensionContext::tabsCreate(std::optional<WebPageProxyIdentifier> webPa
         return;
     }
 
-    creationOptions.desiredWindow = window ? window->delegate() : nil;
-    creationOptions.desiredIndex = parameters.index.value_or(window ? window->tabs().size() : 0);
+    creationOptions.window = window ? window->delegate() : nil;
+    creationOptions.index = parameters.index.value_or(window ? window->tabs().size() : 0);
 
     if (parameters.parentTabIdentifier) {
         RefPtr tab = getTab(parameters.parentTabIdentifier.value());
@@ -92,13 +92,13 @@ void WebExtensionContext::tabsCreate(std::optional<WebPageProxyIdentifier> webPa
             return;
         }
 
-        creationOptions.desiredParentTab = tab->delegate();
+        creationOptions.parentTab = tab->delegate();
     }
 
     if (parameters.url)
-        creationOptions.desiredURL = parameters.url.value();
+        creationOptions.url = parameters.url.value();
 
-    [delegate webExtensionController:extensionController()->wrapper() openNewTabWithOptions:creationOptions forExtensionContext:wrapper() completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](id<_WKWebExtensionTab> newTab, NSError *error) mutable {
+    [delegate webExtensionController:extensionController()->wrapper() openNewTabWithOptions:creationOptions forExtensionContext:wrapper() completionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](id<WKWebExtensionTab> newTab, NSError *error) mutable {
         if (error) {
             RELEASE_LOG_ERROR(Extensions, "Error for open new tab: %{public}@", privacyPreservingDescription(error));
             completionHandler(toWebExtensionError(apiName, nil, error.localizedDescription));
@@ -330,10 +330,7 @@ void WebExtensionContext::tabsReload(WebPageProxyIdentifier webPageProxyIdentifi
         return;
     }
 
-    if (reloadFromOrigin == ReloadFromOrigin::Yes)
-        tab->reloadFromOrigin(WTFMove(completionHandler));
-    else
-        tab->reload(WTFMove(completionHandler));
+    tab->reload(reloadFromOrigin, WTFMove(completionHandler));
 }
 
 void WebExtensionContext::tabsGoBack(WebPageProxyIdentifier webPageProxyIdentifier, std::optional<WebExtensionTabIdentifier> tabIdentifier, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&& completionHandler)
@@ -581,7 +578,7 @@ void WebExtensionContext::tabsExecuteScript(WebPageProxyIdentifier webPageProxyI
             return;
         }
 
-        auto *webView = tab->mainWebView();
+        auto *webView = tab->webView();
         if (!webView) {
             completionHandler(toWebExtensionError(apiName, nil, @"could not execute script in tab"));
             return;
@@ -622,7 +619,7 @@ void WebExtensionContext::tabsInsertCSS(WebPageProxyIdentifier webPageProxyIdent
             return;
         }
 
-        auto *webView = tab->mainWebView();
+        auto *webView = tab->webView();
         if (!webView) {
             completionHandler(toWebExtensionError(apiName, nil, @"could not inject stylesheet on this tab"));
             return;
@@ -648,7 +645,7 @@ void WebExtensionContext::tabsRemoveCSS(WebPageProxyIdentifier webPageProxyIdent
         return;
     }
 
-    auto *webView = tab->mainWebView();
+    auto *webView = tab->webView();
     if (!webView) {
         completionHandler(toWebExtensionError(apiName, nil, @"could not remove stylesheet on this tab"));
         return;

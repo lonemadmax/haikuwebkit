@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2016-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -63,7 +63,6 @@
 #include "WasmExceptionType.h"
 #include "WasmFunctionParser.h"
 #include "WasmIRGeneratorHelpers.h"
-#include "WasmInstance.h"
 #include "WasmMemory.h"
 #include "WasmOSREntryData.h"
 #include "WasmOpcodeOrigin.h"
@@ -711,6 +710,7 @@ public:
     // Locals
     PartialResult WARN_UNUSED_RETURN getLocal(uint32_t index, ExpressionType& result);
     PartialResult WARN_UNUSED_RETURN setLocal(uint32_t index, ExpressionType value);
+    PartialResult WARN_UNUSED_RETURN teeLocal(uint32_t, ExpressionType, ExpressionType& result);
 
     // Globals
     PartialResult WARN_UNUSED_RETURN getGlobal(uint32_t index, ExpressionType& result);
@@ -811,8 +811,8 @@ public:
     PartialResult WARN_UNUSED_RETURN addCallRef(const TypeDefinition&, Vector<ExpressionType>& args, ResultList& results);
     PartialResult WARN_UNUSED_RETURN addUnreachable();
     PartialResult WARN_UNUSED_RETURN addCrash();
-    PartialResult WARN_UNUSED_RETURN emitIndirectCall(Value* calleeInstance, Value* calleeCode, Value* boxedCalleeCallee, Value* jsCalleeAnchor, const TypeDefinition&, const Vector<ExpressionType>& args, ResultList&, CallType = CallType::Call);
-    auto createCallPatchpoint(BasicBlock*, Value* jsCalleeAnchor, B3::Type, const CallInformation&, const Vector<ExpressionType>& tmpArgs) -> CallPatchpointData;
+    PartialResult WARN_UNUSED_RETURN emitIndirectCall(Value* calleeInstance, Value* calleeCode, Value* boxedCalleeCallee, const TypeDefinition&, const Vector<ExpressionType>& args, ResultList&, CallType = CallType::Call);
+    auto createCallPatchpoint(BasicBlock*, B3::Type, const CallInformation&, const Vector<ExpressionType>& tmpArgs) -> CallPatchpointData;
     auto createTailCallPatchpoint(BasicBlock*, CallInformation wasmCallerInfoAsCallee, CallInformation wasmCalleeInfoAsCallee, const Vector<ExpressionType>& tmpArgSourceLocations, Vector<B3::ConstrainedValue> patchArgs) -> CallPatchpointData;
 
     PartialResult WARN_UNUSED_RETURN emitInlineDirectCall(uint32_t calleeIndex, const TypeDefinition&, Vector<ExpressionType>& args, ResultList& results);
@@ -820,12 +820,13 @@ public:
     void dump(const ControlStack&, const Stack* expressionStack);
     void setParser(FunctionParser<OMGIRGenerator>* parser) { m_parser = parser; };
     ALWAYS_INLINE void willParseOpcode() { }
+    ALWAYS_INLINE void willParseExtendedOpcode() { }
     ALWAYS_INLINE void didParseOpcode() { }
     void didFinishParsingLocals() { }
-    void didPopValueFromStack(ExpressionType expr, String msg)
+    void didPopValueFromStack(ExpressionType expr, ASCIILiteral message)
     {
         --m_stackSize;
-        TRACE_VALUE(Wasm::Types::Void, get(expr), "pop at height: ", m_stackSize.value() + 1, " site: [", msg, "], var ", *expr);
+        TRACE_VALUE(Wasm::Types::Void, get(expr), "pop at height: ", m_stackSize.value() + 1, " site: [", message, "], var ", *expr);
     }
     const Ref<TypeDefinition> getTypeDefinition(uint32_t typeIndex) { return m_info.typeSignatures[typeIndex]; }
     const ArrayType* getArrayTypeDefinition(uint32_t);
@@ -910,7 +911,7 @@ private:
     {
 #if !USE(BUILTIN_FRAME_ADDRESS) || ASSERT_ENABLED
         // Prepare wasm operation calls.
-        append<B3::MemoryValue>(block, heapInstanceFields(), m_proc, B3::Store, origin(), framePointer(), instanceValue(), Instance::offsetOfTemporaryCallFrame());
+        append<B3::MemoryValue>(block, heapInstanceFields(), m_proc, B3::Store, origin(), framePointer(), instanceValue(), JSWebAssemblyInstance::offsetOfTemporaryCallFrame());
 #else
         UNUSED_PARAM(block);
 #endif
@@ -947,8 +948,8 @@ private:
     void emitArraySetUnchecked(uint32_t, Value*, Value*, Value*);
     void emitStructSet(Value*, uint32_t, const StructType&, Value*);
     ExpressionType WARN_UNUSED_RETURN pushArrayNew(uint32_t typeIndex, Value* initValue, ExpressionType size);
-    using arraySegmentOperation = EncodedJSValue SYSV_ABI (&)(JSC::Wasm::Instance*, uint32_t, uint32_t, uint32_t, uint32_t);
-    ExpressionType WARN_UNUSED_RETURN pushArrayNewFromSegment(arraySegmentOperation, uint32_t typeIndex, uint32_t segmentIndex, ExpressionType arraySize, ExpressionType offset, ExceptionType);
+    using ArraySegmentOperation = EncodedJSValue SYSV_ABI (&)(JSC::JSWebAssemblyInstance*, uint32_t, uint32_t, uint32_t, uint32_t);
+    ExpressionType WARN_UNUSED_RETURN pushArrayNewFromSegment(ArraySegmentOperation, uint32_t typeIndex, uint32_t segmentIndex, ExpressionType arraySize, ExpressionType offset, ExceptionType);
     void emitRefTestOrCast(CastKind, ExpressionType, bool, int32_t, bool, ExpressionType&);
     template <typename Generator>
     void emitCheckOrBranchForCast(CastKind, Value*, const Generator&, BasicBlock*);
@@ -1501,7 +1502,7 @@ void OMGIRGenerator::reloadMemoryRegistersFromInstance(const MemoryInformation& 
         patchpoint->setGenerator([](CCallHelpers& jit, const B3::StackmapGenerationParams& params) {
             AllowMacroScratchRegisterUsage allowScratch(jit);
             GPRReg scratch = params.gpScratch(0);
-            jit.loadPairPtr(params[0].gpr(), CCallHelpers::TrustedImm32(Instance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister);
+            jit.loadPairPtr(params[0].gpr(), CCallHelpers::TrustedImm32(JSWebAssemblyInstance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister);
             jit.cageConditionally(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, scratch);
         });
     }
@@ -1907,7 +1908,7 @@ auto OMGIRGenerator::addCrash() -> PartialResult
     return { };
 }
 
-auto OMGIRGenerator::emitIndirectCall(Value* calleeInstance, Value* calleeCode, Value* boxedCalleeCallee, Value* jsCalleeAnchor, const TypeDefinition& signature, const Vector<ExpressionType>& args, ResultList& results, CallType callType) -> PartialResult
+auto OMGIRGenerator::emitIndirectCall(Value* calleeInstance, Value* calleeCode, Value* boxedCalleeCallee, const TypeDefinition& signature, const Vector<ExpressionType>& args, ResultList& results, CallType callType) -> PartialResult
 {
     const bool isTailCallInlineCaller = callType == CallType::TailCall && m_inlineParent;
     const bool isTailCall = callType == CallType::TailCall && !isTailCallInlineCaller;
@@ -1946,7 +1947,7 @@ auto OMGIRGenerator::emitIndirectCall(Value* calleeInstance, Value* calleeCode, 
             //   see: https://bugs.webkit.org/show_bug.cgi?id=162952
             ASSERT(GPRInfo::wasmBoundsCheckingSizeRegister != calleeInstance);
             GPRReg scratch = params.gpScratch(0);
-            jit.loadPairPtr(calleeInstance, CCallHelpers::TrustedImm32(Instance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister);
+            jit.loadPairPtr(calleeInstance, CCallHelpers::TrustedImm32(JSWebAssemblyInstance::offsetOfCachedMemory()), GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister);
             jit.cageConditionally(Gigacage::Primitive, GPRInfo::wasmBaseMemoryPointer, GPRInfo::wasmBoundsCheckingSizeRegister, scratch);
         });
         doContextSwitch->appendNewControlValue(m_proc, Jump, origin(), continuation);
@@ -1965,7 +1966,7 @@ auto OMGIRGenerator::emitIndirectCall(Value* calleeInstance, Value* calleeCode, 
 
     if (isTailCall) {
         const TypeIndex callerTypeIndex = m_info.internalFunctionTypeIndices[m_functionIndex];
-        const TypeDefinition& callerTypeDefinition = TypeInformation::get(callerTypeIndex);
+        const TypeDefinition& callerTypeDefinition = TypeInformation::get(callerTypeIndex).expand();
         CallInformation wasmCallerInfoAsCallee = callingConvention.callInformationFor(callerTypeDefinition, CallRole::Callee);
 
         auto [patchpoint, _, prepareForCall] = createTailCallPatchpoint(m_currentBlock, wasmCallerInfoAsCallee, wasmCalleeInfoAsCallee, args, { { calleeCode, ValueRep(GPRInfo::wasmScratchGPR0) } });
@@ -1983,7 +1984,7 @@ auto OMGIRGenerator::emitIndirectCall(Value* calleeInstance, Value* calleeCode, 
     }
 
     B3::Type returnType = toB3ResultType(&signature);
-    auto [patchpoint, handle, prepareForCall] = createCallPatchpoint(m_currentBlock, jsCalleeAnchor, returnType, wasmCalleeInfo, args);
+    auto [patchpoint, handle, prepareForCall] = createCallPatchpoint(m_currentBlock, returnType, wasmCalleeInfo, args);
     // We need to clobber all potential pinned registers since we might be leaving the instance.
     // We pessimistically assume we're always calling something that is bounds checking so
     // because the wasm->wasm thunk unconditionally overrides the size registers.
@@ -2052,7 +2053,8 @@ auto OMGIRGenerator::addCurrentMemory(ExpressionType& result) -> PartialResult
 {
     static_assert(sizeof(std::declval<Memory*>()->size()) == sizeof(uint64_t), "codegen relies on this size");
 
-    Value* memory = append<MemoryValue>(heapInstanceFields(), m_proc, Load, Int64, origin(), instanceValue(), safeCast<int32_t>(Instance::offsetOfMemory()));
+    Value* jsMemory = append<MemoryValue>(heapInstanceFields(), m_proc, Load, Int64, origin(), instanceValue(), safeCast<int32_t>(JSWebAssemblyInstance::offsetOfJSMemory()));
+    Value* memory = append<MemoryValue>(heapTop(), m_proc, Load, Int64, origin(), jsMemory, safeCast<int32_t>(JSWebAssemblyMemory::offsetOfMemory()));
     Value* handle = append<MemoryValue>(heapTop(), m_proc, Load, Int64, origin(), memory, safeCast<int32_t>(Memory::offsetOfHandle()));
     Value* size = append<MemoryValue>(heapTop(), m_proc, Load, Int64, origin(), handle, safeCast<int32_t>(BufferMemoryHandle::offsetOfSize()));
 
@@ -2240,18 +2242,28 @@ auto OMGIRGenerator::setLocal(uint32_t index, ExpressionType value) -> PartialRe
     return { };
 }
 
+auto OMGIRGenerator::teeLocal(uint32_t index, ExpressionType value, ExpressionType& result) -> PartialResult
+{
+    ASSERT(m_locals[index]);
+    Value* input = get(value);
+    append<VariableValue>(m_proc, B3::Set, origin(), m_locals[index], input);
+    result = push(input);
+    TRACE_VALUE(m_parser->typeOfLocal(index), input, "tee_local ", index);
+    return { };
+}
+
 auto OMGIRGenerator::getGlobal(uint32_t index, ExpressionType& result) -> PartialResult
 {
     const Wasm::GlobalInformation& global = m_info.globals[index];
     switch (global.bindingMode) {
     case Wasm::GlobalInformation::BindingMode::EmbeddedInInstance: {
-        MemoryValue* load = append<MemoryValue>(heapGlobals(), index, m_proc, Load, toB3Type(global.type), origin(), instanceValue(), safeCast<int32_t>(Instance::offsetOfGlobalPtr(m_numImportFunctions, m_info.tableCount(), index)));
+        MemoryValue* load = append<MemoryValue>(heapGlobals(), index, m_proc, Load, toB3Type(global.type), origin(), instanceValue(), safeCast<int32_t>(JSWebAssemblyInstance::offsetOfGlobalPtr(m_numImportFunctions, m_info.tableCount(), index)));
         result = push(load);
         break;
     }
     case Wasm::GlobalInformation::BindingMode::Portable: {
         ASSERT(global.mutability == Wasm::Mutability::Mutable);
-        MemoryValue* pointer = append<MemoryValue>(heapGlobals(), index, m_proc, Load, B3::Int64, origin(), instanceValue(), safeCast<int32_t>(Instance::offsetOfGlobalPtr(m_numImportFunctions, m_info.tableCount(), index)));
+        MemoryValue* pointer = append<MemoryValue>(heapGlobals(), index, m_proc, Load, B3::Int64, origin(), instanceValue(), safeCast<int32_t>(JSWebAssemblyInstance::offsetOfGlobalPtr(m_numImportFunctions, m_info.tableCount(), index)));
         result = push<MemoryValue>(heapGlobals(), index, m_proc, Load, toB3Type(global.type), origin(), pointer);
         break;
     }
@@ -2269,21 +2281,20 @@ auto OMGIRGenerator::setGlobal(uint32_t index, ExpressionType value) -> PartialR
 
     switch (global.bindingMode) {
     case Wasm::GlobalInformation::BindingMode::EmbeddedInInstance: {
-        append<MemoryValue>(heapGlobals(), index, m_proc, Store, origin(), get(value), instanceValue(), safeCast<int32_t>(Instance::offsetOfGlobalPtr(m_numImportFunctions, m_info.tableCount(), index)));
+        append<MemoryValue>(heapGlobals(), index, m_proc, Store, origin(), get(value), instanceValue(), safeCast<int32_t>(JSWebAssemblyInstance::offsetOfGlobalPtr(m_numImportFunctions, m_info.tableCount(), index)));
         if (isRefType(global.type))
             emitWriteBarrierForJSWrapper();
         break;
     }
     case Wasm::GlobalInformation::BindingMode::Portable: {
         ASSERT(global.mutability == Wasm::Mutability::Mutable);
-        MemoryValue* pointer = append<MemoryValue>(heapGlobals(), index, m_proc, Load, B3::Int64, origin(), instanceValue(), safeCast<int32_t>(Instance::offsetOfGlobalPtr(m_numImportFunctions, m_info.tableCount(), index)));
+        MemoryValue* pointer = append<MemoryValue>(heapGlobals(), index, m_proc, Load, B3::Int64, origin(), instanceValue(), safeCast<int32_t>(JSWebAssemblyInstance::offsetOfGlobalPtr(m_numImportFunctions, m_info.tableCount(), index)));
         append<MemoryValue>(heapTop(), m_proc, Store, origin(), get(value), pointer->as<Value>());
         // We emit a write-barrier onto JSWebAssemblyGlobal, not JSWebAssemblyInstance.
         if (isRefType(global.type)) {
-            Value* instance = append<MemoryValue>(heapTop(), m_proc, Load, pointerType(), origin(), instanceValue(), safeCast<int32_t>(Instance::offsetOfOwner()));
             Value* cell = append<MemoryValue>(heapTop(), m_proc, Load, pointerType(), origin(), pointer, Wasm::Global::offsetOfOwner() - Wasm::Global::offsetOfValue());
             Value* cellState = append<MemoryValue>(heapTop(), m_proc, Load8Z, Int32, origin(), cell, safeCast<int32_t>(JSCell::cellStateOffset()));
-            Value* vm = append<MemoryValue>(heapTop(), m_proc, Load, pointerType(), origin(), instance, safeCast<int32_t>(JSWebAssemblyInstance::offsetOfVM()));
+            Value* vm = append<MemoryValue>(heapTop(), m_proc, Load, pointerType(), origin(), instanceValue(), safeCast<int32_t>(JSWebAssemblyInstance::offsetOfVM()));
             Value* threshold = append<MemoryValue>(heapTop(), m_proc, Load, Int32, origin(), vm, safeCast<int32_t>(VM::offsetOfHeapBarrierThreshold()));
 
             BasicBlock* fenceCheckPath = m_proc.addBlock();
@@ -2333,8 +2344,7 @@ auto OMGIRGenerator::setGlobal(uint32_t index, ExpressionType value) -> PartialR
 
 inline void OMGIRGenerator::emitWriteBarrierForJSWrapper()
 {
-    MemoryValue* instance = append<MemoryValue>(heapInstanceFields(), m_proc, Load, pointerType(), origin(), instanceValue(), safeCast<int32_t>(Instance::offsetOfOwner()));
-    emitWriteBarrier(instance, instance);
+    emitWriteBarrier(instanceValue(), instanceValue());
 }
 
 inline void OMGIRGenerator::emitWriteBarrier(Value* cell, Value* instanceCell)
@@ -2946,10 +2956,8 @@ void OMGIRGenerator::emitStructSet(Value* structValue, uint32_t fieldIndex, cons
 
     ASSERT(fieldType.is<Type>());
     append<MemoryValue>(heapTop(), m_proc, memoryKind(Store), origin(), argument, payloadBase, fieldOffset);
-    if (isRefType(fieldType.unpacked())) {
-        Value* instance = append<MemoryValue>(heapTop(), m_proc, Load, pointerType(), origin(), instanceValue(), safeCast<int32_t>(Instance::offsetOfOwner()));
-        emitWriteBarrier(structValue, instance);
-    }
+    if (isRefType(fieldType.unpacked()))
+        emitWriteBarrier(structValue, instanceValue());
 }
 
 auto OMGIRGenerator::atomicCompareExchange(ExtAtomicOpType op, Type valueType, ExpressionType pointer, ExpressionType expected, ExpressionType value, ExpressionType& result, uint32_t offset) -> PartialResult
@@ -3314,7 +3322,7 @@ auto OMGIRGenerator::addArrayNew(uint32_t typeIndex, ExpressionType size, Expres
     return { };
 }
 
-Variable* OMGIRGenerator::pushArrayNewFromSegment(arraySegmentOperation operation, uint32_t typeIndex, uint32_t segmentIndex, ExpressionType arraySize, ExpressionType offset, ExceptionType exceptionType)
+Variable* OMGIRGenerator::pushArrayNewFromSegment(ArraySegmentOperation operation, uint32_t typeIndex, uint32_t segmentIndex, ExpressionType arraySize, ExpressionType offset, ExceptionType exceptionType)
 {
     Value* resultValue = callWasmOperation(m_currentBlock, toB3Type(Types::Arrayref), operation,
         instanceValue(), append<Const32Value>(m_proc, origin(), typeIndex),
@@ -3484,10 +3492,8 @@ void OMGIRGenerator::emitArraySetUnchecked(uint32_t typeIndex, Value* arrayref, 
     ASSERT(elementType.is<Type>());
     append<MemoryValue>(heapTop(), m_proc, memoryKind(Store), origin(), setValue, indexedAddress);
 
-    if (isRefType(elementType.unpacked())) {
-        Value* instance = append<MemoryValue>(heapTop(), m_proc, Load, pointerType(), origin(), instanceValue(), safeCast<int32_t>(Instance::offsetOfOwner()));
-        emitWriteBarrier(arrayref, instance);
-    }
+    if (isRefType(elementType.unpacked()))
+        emitWriteBarrier(arrayref, instanceValue());
 
     return;
 }
@@ -4348,7 +4354,7 @@ void OMGIRGenerator::emitLoopTierUpCheck(uint32_t loopIndex, const Stack& enclos
     for (auto& local : m_locals)
         stackmap.append(get(local));
 
-    if (Options::useWebAssemblyIPInt()) {
+    if (Options::useWasmIPInt()) {
         // Do rethrow slots first because IPInt has them in a shadow stack.
         for (unsigned controlIndex = 0; controlIndex < m_parser->controlStack().size(); ++controlIndex) {
             auto& data = m_parser->controlStack()[controlIndex].controlData;
@@ -4968,13 +4974,11 @@ auto OMGIRGenerator::addEndToUnreachable(ControlEntry& entry, const Stack& expre
 }
 
 
-auto OMGIRGenerator::createCallPatchpoint(BasicBlock* block, Value* jsCalleeAnchor, B3::Type returnType, const CallInformation& wasmCalleeInfo, const Vector<ExpressionType>& tmpArgs) -> CallPatchpointData
+auto OMGIRGenerator::createCallPatchpoint(BasicBlock* block, B3::Type returnType, const CallInformation& wasmCalleeInfo, const Vector<ExpressionType>& tmpArgs) -> CallPatchpointData
 {
     Vector<B3::ConstrainedValue> constrainedPatchArgs;
     for (unsigned i = 0; i < tmpArgs.size(); ++i)
         constrainedPatchArgs.append(B3::ConstrainedValue(get(block, tmpArgs[i]), wasmCalleeInfo.params[i]));
-    if (jsCalleeAnchor)
-        constrainedPatchArgs.append(B3::ConstrainedValue(jsCalleeAnchor, wasmCalleeInfo.thisArgument));
 
     Box<PatchpointExceptionHandle> exceptionHandle = Box<PatchpointExceptionHandle>::create(m_hasExceptionHandlers, callSiteIndex());
 
@@ -5033,8 +5037,8 @@ static inline void prepareForTailCallImpl(unsigned functionIndex, CCallHelpers& 
     ASSERT(WTF::roundUpToMultipleOf<stackAlignmentBytes()>(frameSize) == frameSize);
     ASSERT(WTF::roundUpToMultipleOf<stackAlignmentBytes()>(std::abs(newFPOffsetFromFP)) == static_cast<size_t>(std::abs(newFPOffsetFromFP)));
 
-    auto fpOffsetToSPOffset = [frameSize](unsigned offset) {
-        return checkedSum<int>(frameSize + offset).value();
+    auto fpOffsetToSPOffset = [frameSize](int32_t offset) {
+        return checkedSum<int>(safeCast<int>(frameSize), offset).value();
     };
 
     JIT_COMMENT(jit, "Let's use the caller's frame, so that we always have a valid frame.");
@@ -5276,7 +5280,7 @@ static inline void prepareForTailCallImpl(unsigned functionIndex, CCallHelpers& 
     }
 #if CPU(ARM64E)
     JIT_COMMENT(jit, "The return pointer was signed with the stack height before we pushed lr, fp, see emitFunctionPrologue. newFPOffsetFromSP: ", newFPOffsetFromSP, " newFPOffsetFromFP ", newFPOffsetFromFP);
-    jit.addPtr(MacroAssembler::TrustedImm32(sizeof(CallerFrameAndPC)), MacroAssembler::stackPointerRegister, tmp);
+    jit.addPtr(MacroAssembler::TrustedImm32(params.code().frameSize() + sizeof(CallerFrameAndPC)), MacroAssembler::stackPointerRegister, tmp);
     jit.untagPtr(tmp, MacroAssembler::linkRegister);
     if (WasmOMGIRGeneratorInternal::verboseTailCalls) {
         jit.probeDebugSIMD([] (Probe::Context& context) {
@@ -5360,7 +5364,7 @@ auto OMGIRGenerator::createTailCallPatchpoint(BasicBlock* block, CallInformation
     //    +----------------------------+                                         |                            +----------------------------+
     //    | argumentCountIncludingThis |                                         |                            |          A.C.I.T.'         |
     //    +----------------------------+                                         |                            +----------------------------+
-    //    |  F.callee                  |                                         |                            |        G.callee            |
+    //    |          F.callee          |                                         |                            |        G.callee            |
     //    +----------------------------+                                         |                            +----------------------------+
     //    |        F.codeBlock         |                               (shuffleStackArgs...)                  |        G.codeBlock         |
     //    +----------------------------+                                         |                     (arm) >+----------------------------+
@@ -5387,7 +5391,7 @@ auto OMGIRGenerator::createTailCallPatchpoint(BasicBlock* block, CallInformation
     const Checked<int32_t> offsetOfFirstSlotFromFP = WTF::roundUpToMultipleOf<stackAlignmentBytes()>(wasmCallerInfoAsCallee.headerAndArgumentStackSizeInBytes);
     ASSERT(offsetOfFirstSlotFromFP > 0);
     const Checked<int32_t> offsetOfNewFPFromFirstSlot = checkedProduct<int32_t>(-1, WTF::roundUpToMultipleOf<stackAlignmentBytes()>(wasmCalleeInfoAsCallee.headerAndArgumentStackSizeInBytes));
-    const Checked<int32_t> newFPOffsetFromFP = checkedSum<int32_t>(offsetOfFirstSlotFromFP + offsetOfNewFPFromFirstSlot);
+    const Checked<int32_t> newFPOffsetFromFP = offsetOfFirstSlotFromFP + offsetOfNewFPFromFirstSlot;
     m_tailCallStackOffsetFromFP = std::min(m_tailCallStackOffsetFromFP, newFPOffsetFromFP);
 
     RegisterSet scratchRegisters = RegisterSetBuilder::macroClobberedGPRs();
@@ -5450,8 +5454,8 @@ auto OMGIRGenerator::createTailCallPatchpoint(BasicBlock* block, CallInformation
 bool OMGIRGenerator::canInline() const
 {
     ASSERT(!m_inlinedBytes || !m_inlineParent);
-    return m_inlineDepth < Options::maximumWebAssemblyDepthForInlining()
-        && m_inlineRoot->m_inlinedBytes.value() < Options::maximumWebAssemblyCallerSizeForInlining()
+    return m_inlineDepth < Options::maximumWasmDepthForInlining()
+        && m_inlineRoot->m_inlinedBytes.value() < Options::maximumWasmCallerSizeForInlining()
         && (m_inlineDepth <= 1 || StackCheck().isSafeToRecurse());
 }
 
@@ -5538,7 +5542,7 @@ auto OMGIRGenerator::addCall(uint32_t functionIndex, const TypeDefinition& signa
     if (isTailCall)
         calleeStackSize = WTF::roundUpToMultipleOf<stackAlignmentBytes()>(wasmCalleeInfo.headerAndArgumentStackSizeInBytes * 2 + sizeof(Register));
     const TypeIndex callerTypeIndex = m_info.internalFunctionTypeIndices[m_functionIndex];
-    const TypeDefinition& callerTypeDefinition = TypeInformation::get(callerTypeIndex);
+    const TypeDefinition& callerTypeDefinition = TypeInformation::get(callerTypeIndex).expand();
     CallInformation wasmCallerInfoAsCallee = callingConvention.callInformationFor(callerTypeDefinition, CallRole::Callee);
 
     B3::Type returnType = toB3ResultType(&signature);
@@ -5586,14 +5590,9 @@ auto OMGIRGenerator::addCall(uint32_t functionIndex, const TypeDefinition& signa
                     prepareForCall->run(jit, params);
                 if (handle)
                     handle->generate(jit, params, this);
-                if (isTailCall) {
-                    // In tail-call, we always configure JSWebAssemblyInstance* in |this| to anchor it from conservative GC roots.
-                    JIT_COMMENT(jit, "Store wasm instance in 'this' to anchor it for gc.");
-                    CCallHelpers::Address thisSlot(CCallHelpers::stackPointerRegister,  (CallFrameSlot::thisArgument - CallerFrameAndPC::sizeInRegisters) * static_cast<int>(sizeof(Register)) + sizeof(CallerFrameAndPC) - prologueStackPointerDelta());
-                    jit.loadPtr(CCallHelpers::Address(GPRInfo::wasmContextInstancePointer, Instance::offsetOfOwner()), GPRInfo::nonPreservedNonArgumentGPR1);
-                    jit.storePtr(GPRInfo::nonPreservedNonArgumentGPR1, thisSlot.withOffset(PayloadOffset));
+                if (isTailCall)
                     jit.farJump(params[patchArgsIndex].gpr(), WasmEntryPtrTag);
-                } else
+                else
                     jit.call(params[patchArgsIndex].gpr(), WasmEntryPtrTag);
             });
         };
@@ -5604,7 +5603,7 @@ auto OMGIRGenerator::addCall(uint32_t functionIndex, const TypeDefinition& signa
         // for calls out to the js. This shouldn't be that hard to do. We could probably
         // implement the IC to be over Context*.
         // https://bugs.webkit.org/show_bug.cgi?id=170375
-        jumpDestination = append<MemoryValue>(heapImports(), m_proc, Load, pointerType(), origin(), instanceValue(), safeCast<int32_t>(Instance::offsetOfImportFunctionStub(functionIndex)));
+        jumpDestination = append<MemoryValue>(heapImports(), m_proc, Load, pointerType(), origin(), instanceValue(), safeCast<int32_t>(JSWebAssemblyInstance::offsetOfImportFunctionStub(functionIndex)));
 
         if (isTailCall) {
             auto [patchpoint, handle, prepareForCall] = createTailCallPatchpoint(m_currentBlock, wasmCallerInfoAsCallee, wasmCalleeInfoAsCallee, args, { });
@@ -5612,7 +5611,7 @@ auto OMGIRGenerator::addCall(uint32_t functionIndex, const TypeDefinition& signa
             return { };
         }
 
-        auto [patchpoint, handle, prepareForCall] = createCallPatchpoint(m_currentBlock, nullptr, returnType, wasmCalleeInfo, args);
+        auto [patchpoint, handle, prepareForCall] = createCallPatchpoint(m_currentBlock, returnType, wasmCalleeInfo, args);
         emitCallToImport(patchpoint, handle, prepareForCall);
 
         if (returnType != B3::Void)
@@ -5660,7 +5659,7 @@ auto OMGIRGenerator::addCall(uint32_t functionIndex, const TypeDefinition& signa
 
     if (callType == CallType::Call
         && functionIndex - m_numImportFunctions != m_functionIndex
-        && m_info.functionWasmSizeImportSpace(functionIndex) < Options::maximumWebAssemblyCalleeSizeForInlining()
+        && m_info.functionWasmSizeImportSpace(functionIndex) < Options::maximumWasmCalleeSizeForInlining()
         && isAnyOMG(m_compilationMode)
         && canInline()
         && !m_info.callCanClobberInstance(functionIndex)) {
@@ -5674,7 +5673,7 @@ auto OMGIRGenerator::addCall(uint32_t functionIndex, const TypeDefinition& signa
     // 1. It is not tail-call. So this does not clobber the arguments of this function.
     // 2. We are not changing instance. Thus, |this| of this function's arguments are the same and OK.
 
-    auto [patchpoint, handle, prepareForCall] = createCallPatchpoint(m_currentBlock, nullptr, returnType, wasmCalleeInfo, args);
+    auto [patchpoint, handle, prepareForCall] = createCallPatchpoint(m_currentBlock, returnType, wasmCalleeInfo, args);
     emitUnlinkedWasmToWasmCall(patchpoint, handle, prepareForCall);
     // We need to clobber the size register since the LLInt always bounds checks
     if (useSignalingMemory() || m_info.memory.isShared())
@@ -5714,7 +5713,7 @@ auto OMGIRGenerator::addCallIndirect(unsigned tableIndex, const TypeDefinition& 
     Value* callableFunctionBuffer = nullptr;
     Value* callableFunctionBufferLength;
     {
-        MemoryValue* table = append<MemoryValue>(heapTables(), tableIndex, m_proc, Load, pointerType(), origin(), instanceValue(), safeCast<int32_t>(Instance::offsetOfTablePtr(m_numImportFunctions, tableIndex)));
+        MemoryValue* table = append<MemoryValue>(heapTables(), tableIndex, m_proc, Load, pointerType(), origin(), instanceValue(), safeCast<int32_t>(JSWebAssemblyInstance::offsetOfTablePtr(m_numImportFunctions, tableIndex)));
         ASSERT(tableIndex < m_info.tableCount());
         auto& tableInformation = m_info.table(tableIndex);
 
@@ -5754,7 +5753,6 @@ auto OMGIRGenerator::addCallIndirect(unsigned tableIndex, const TypeDefinition& 
         append<MemoryValue>(heapFunctionFields(), m_proc, Load, pointerType(), origin(), callableFunction, safeCast<int32_t>(FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfBoxedWasmCalleeLoadLocation())));
     Value* calleeRTT = append<MemoryValue>(heapFunctionFields(), m_proc, Load, pointerType(), origin(), callableFunction, safeCast<int32_t>(FuncRefTable::Function::offsetOfFunction() + WasmToWasmImportableFunction::offsetOfRTT()));
     Value* calleeInstance = append<MemoryValue>(heapFunctionFields(), m_proc, Load, pointerType(), origin(), callableFunction, safeCast<int32_t>(FuncRefTable::Function::offsetOfInstance()));
-    Value* jsCalleeAnchor = append<MemoryValue>(heapFunctionFields(), m_proc, Load, pointerType(), origin(), callableFunction, safeCast<int32_t>(FuncRefTable::Function::offsetOfValue()));
 
     BasicBlock* continuation = m_proc.addBlock();
     BasicBlock* moreChecks = m_proc.addBlock();
@@ -5776,7 +5774,7 @@ auto OMGIRGenerator::addCallIndirect(unsigned tableIndex, const TypeDefinition& 
 
     BasicBlock* throwBlock = m_proc.addBlock();
     // The subtype check can be omitted as an optimization for final types, but is needed otherwise if GC is on.
-    if (Options::useWebAssemblyGC() && !originalSignature.isFinalType()) {
+    if (Options::useWasmGC() && !originalSignature.isFinalType()) {
         // We don't need to check the RTT kind because by validation both RTTs must be for functions.
         Value* rttSize = append<MemoryValue>(heapTop(), m_proc, Load, Int32, origin(), calleeRTT, safeCast<uint32_t>(RTT::offsetOfDisplaySize()));
         Value* rttSizeAsPointerType = append<Value>(m_proc, ZExt32, origin(), rttSize);
@@ -5821,7 +5819,7 @@ auto OMGIRGenerator::addCallIndirect(unsigned tableIndex, const TypeDefinition& 
 
     m_currentBlock = continuation;
     Value* calleeCode = append<MemoryValue>(heapTop(), m_proc, Load, pointerType(), origin(), calleeCodeLocation);
-    return emitIndirectCall(calleeInstance, calleeCode, calleeCallee, jsCalleeAnchor, signature, args, results, callType);
+    return emitIndirectCall(calleeInstance, calleeCode, calleeCallee, signature, args, results, callType);
 }
 
 auto OMGIRGenerator::addCallRef(const TypeDefinition& originalSignature, Vector<ExpressionType>& args, ResultList& results) -> PartialResult
@@ -5846,12 +5844,9 @@ auto OMGIRGenerator::addCallRef(const TypeDefinition& originalSignature, Vector<
         });
     }
 
-    Value* jsInstanceOffset = constant(pointerType(), safeCast<int32_t>(WebAssemblyFunctionBase::offsetOfInstance()));
-    Value* jsCalleeInstance = append<MemoryValue>(heapTop(), m_proc, Load, pointerType(), origin(), append<Value>(m_proc, Add, origin(), callee, jsInstanceOffset));
-
-    Value* instanceOffset = constant(pointerType(), safeCast<int32_t>(JSWebAssemblyInstance::offsetOfInstance()));
+    Value* instanceOffset = constant(pointerType(), safeCast<int32_t>(WebAssemblyFunctionBase::offsetOfInstance()));
     Value* calleeInstance = append<MemoryValue>(heapTop(), m_proc, Load, pointerType(), origin(),
-        append<Value>(m_proc, Add, origin(), jsCalleeInstance, instanceOffset));
+        append<Value>(m_proc, Add, origin(), callee, instanceOffset));
 
     Value* calleeCode = append<MemoryValue>(heapTop(), m_proc, Load, pointerType(), origin(),
         append<MemoryValue>(heapTop(), m_proc, Load, pointerType(), origin(), callee,
@@ -5861,7 +5856,7 @@ auto OMGIRGenerator::addCallRef(const TypeDefinition& originalSignature, Vector<
         append<MemoryValue>(heapTop(), m_proc, Load, pointerType(), origin(), callee,
         safeCast<int32_t>(WebAssemblyFunctionBase::offsetOfBoxedWasmCalleeLoadLocation())));
 
-    return emitIndirectCall(calleeInstance, calleeCode, calleeCallee, jsCalleeInstance, signature, args, results);
+    return emitIndirectCall(calleeInstance, calleeCode, calleeCallee, signature, args, results);
 }
 
 void OMGIRGenerator::unify(Value* phi, const ExpressionType source)
@@ -5912,7 +5907,17 @@ auto OMGIRGenerator::origin() -> Origin
 {
     if (!m_parser)
         return Origin();
-    OpcodeOrigin origin(m_parser->currentOpcode(), m_parser->currentOpcodeStartingOffset());
+    OpcodeOrigin origin = OpcodeOrigin(m_parser->currentOpcode(), m_parser->currentOpcodeStartingOffset());
+    switch (m_parser->currentOpcode()) {
+    case OpType::Ext1:
+    case OpType::ExtGC:
+    case OpType::ExtAtomic:
+    case OpType::ExtSIMD:
+        origin = OpcodeOrigin(m_parser->currentOpcode(), m_parser->currentExtendedOpcode(), m_parser->currentOpcodeStartingOffset());
+        break;
+    default:
+        break;
+    }
     ASSERT(isValidOpType(static_cast<uint8_t>(origin.opcode())));
     return bitwise_cast<Origin>(origin);
 }
@@ -5922,7 +5927,7 @@ static bool shouldDumpIRFor(uint32_t functionIndex)
     static LazyNeverDestroyed<FunctionAllowlist> dumpAllowlist;
     static std::once_flag initializeAllowlistFlag;
     std::call_once(initializeAllowlistFlag, [] {
-        const char* functionAllowlistFile = Options::webAssemblyOMGFunctionsToDump();
+        const char* functionAllowlistFile = Options::wasmOMGFunctionsToDump();
         dumpAllowlist.construct(functionAllowlistFile);
     });
     return dumpAllowlist->shouldDumpWasmFunction(functionIndex);
@@ -5963,7 +5968,7 @@ Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileOMG(Compilati
     // optLevel=1.
     procedure.setNeedsUsedRegisters(false);
     
-    procedure.setOptLevel(Options::webAssemblyOMGOptimizationLevel());
+    procedure.setOptLevel(Options::wasmOMGOptimizationLevel());
 
     procedure.code().setForceIRCRegisterAllocation();
 

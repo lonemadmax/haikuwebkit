@@ -35,6 +35,7 @@ class HTMLImageElement;
 class RegistrableDomain;
 enum class CookieConsentDecisionResult : uint8_t;
 enum class DidFilterLinkDecoration : bool;
+enum class IsLoggedIn : uint8_t;
 enum class StorageAccessPromptWasShown : bool;
 enum class StorageAccessWasGranted : uint8_t;
 struct TextRecognitionOptions;
@@ -236,7 +237,8 @@ private:
     void triggerRenderingUpdate() final;
     bool scheduleRenderingUpdate() final;
     void renderingUpdateFramesPerSecondChanged() final;
-    unsigned remoteImagesCountForTesting() const final; 
+    unsigned remoteImagesCountForTesting() const final;
+    void registerBlobPathForTesting(const String& path, CompletionHandler<void()>&&) final;
 
     void contentRuleListNotification(const URL&, const WebCore::ContentRuleListResults&) final;
 
@@ -297,7 +299,7 @@ private:
 #endif
 
 #if PLATFORM(MAC)
-    void ensureScrollbarsController(WebCore::Page&, WebCore::ScrollableArea&) const final;
+    void ensureScrollbarsController(WebCore::Page&, WebCore::ScrollableArea&, bool update = false) const final;
 #endif
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
@@ -433,6 +435,9 @@ private:
     void requestStorageAccess(WebCore::RegistrableDomain&& subFrameDomain, WebCore::RegistrableDomain&& topFrameDomain, WebCore::LocalFrame&, WebCore::StorageAccessScope, WTF::CompletionHandler<void(WebCore::RequestStorageAccessResult)>&&) final;
     bool hasPageLevelStorageAccess(const WebCore::RegistrableDomain& topLevelDomain, const WebCore::RegistrableDomain& resourceDomain) const final;
 
+    void setLoginStatus(WebCore::RegistrableDomain&&, WebCore::IsLoggedIn, WTF::CompletionHandler<void()>&&) final;
+    void isLoggedIn(WebCore::RegistrableDomain&&, WTF::CompletionHandler<void(bool)>&&) final;
+
 #if ENABLE(DEVICE_ORIENTATION)
     void shouldAllowDeviceOrientationAndMotionAccess(WebCore::LocalFrame&, bool mayPrompt, CompletionHandler<void(WebCore::DeviceOrientationOrMotionPermissionState)>&&) final;
 #endif
@@ -523,15 +528,19 @@ private:
 
     void removeTransparentMarkersForSessionID(const WebCore::WritingTools::SessionID&) final;
 
-    void addSourceTextAnimation(const WebCore::WritingTools::SessionID&, const WebCore::CharacterRange&, const String, WTF::CompletionHandler<void(void)>&&) final;
+    void addSourceTextAnimation(const WebCore::WritingTools::SessionID&, const WebCore::CharacterRange&, const String&, CompletionHandler<void(WebCore::TextAnimationRunMode)>&&) final;
 
-    void addDestinationTextAnimation(const WebCore::WritingTools::SessionID&, const WebCore::CharacterRange&, const String) final;
+    void addDestinationTextAnimation(const WebCore::WritingTools::SessionID&, const std::optional<WebCore::CharacterRange>&, const String&) final;
 
     void clearAnimationsForSessionID(const WebCore::WritingTools::SessionID&) final;
 
 #endif
 
     void hasActiveNowPlayingSessionChanged(bool) final;
+
+#if ENABLE(GPU_PROCESS)
+    void getImageBufferResourceLimitsForTesting(CompletionHandler<void(std::optional<WebCore::ImageBufferResourceLimits>)>&&) const final;
+#endif
 
     mutable bool m_cachedMainFrameHasHorizontalScrollbar { false };
     mutable bool m_cachedMainFrameHasVerticalScrollbar { false };

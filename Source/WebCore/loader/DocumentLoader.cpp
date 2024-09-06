@@ -72,6 +72,7 @@
 #include "MIMETypeRegistry.h"
 #include "MemoryCache.h"
 #include "MixedContentChecker.h"
+#include "NavigationNavigationType.h"
 #include "NavigationRequester.h"
 #include "NavigationScheduler.h"
 #include "NetworkLoadMetrics.h"
@@ -558,7 +559,7 @@ void DocumentLoader::handleSubstituteDataLoadNow()
     if (auto* page = m_frame ? m_frame->page() : nullptr) {
         // We intentionally do nothing with the results of this call.
         // We want the CSS to be loaded for us, but we ignore any attempt to block or upgrade the connection since there is no connection.
-        page->userContentProvider().processContentRuleListsForLoad(*page, response.url(), ContentExtensions::ResourceType::Document, *this);
+        page->protectedUserContentProvider()->processContentRuleListsForLoad(*page, response.url(), ContentExtensions::ResourceType::Document, *this);
     }
 #endif
 
@@ -935,7 +936,7 @@ void DocumentLoader::responseReceived(CachedResource& resource, const ResourceRe
             auto firstPartyDomain = RegistrableDomain(response.url());
             if (auto loginDomains = NetworkStorageSession::subResourceDomainsInNeedOfStorageAccessForFirstParty(firstPartyDomain)) {
                 if (!Quirks::hasStorageAccessForAllLoginDomains(*loginDomains, firstPartyDomain)) {
-                    m_frame->navigationScheduler().scheduleRedirect(document, 0, microsoftTeamsRedirectURL(), IsMetaRefresh::No);
+                    m_frame->checkedNavigationScheduler()->scheduleRedirect(document, 0, microsoftTeamsRedirectURL(), IsMetaRefresh::No);
                     return;
                 }
             }
@@ -2140,8 +2141,17 @@ void DocumentLoader::startLoadingMainResource()
     if (contentFilterInDocumentLoader())
         m_contentFilter = !m_substituteData.isValid() ? ContentFilter::create(*this) : nullptr;
 #endif
-    
-    
+
+    auto url = m_request.url();
+    auto fragmentDirective = url.consumeFragmentDirective();
+
+    m_request.setURL(url, m_request.didFilterLinkDecoration());
+    if (m_frame) {
+        RefPtr page = m_frame->protectedPage();
+        if (page)
+            page->setMainFrameURLFragment(WTFMove(fragmentDirective));
+    }
+
     // Make sure we re-apply the user agent to the Document's ResourceRequest upon reload in case the embedding
     // application has changed it, by clearing the previous user agent value here and applying the new value in CachedResourceLoader.
     m_request.clearHTTPUserAgent();
@@ -2483,6 +2493,31 @@ ShouldOpenExternalURLsPolicy DocumentLoader::shouldOpenExternalURLsPolicyToPropa
     return ShouldOpenExternalURLsPolicy::ShouldNotAllow;
 }
 
+// https://www.w3.org/TR/css-view-transitions-2/#navigation-can-trigger-a-cross-document-view-transition
+bool DocumentLoader::navigationCanTriggerCrossDocumentViewTransition(Document& oldDocument)
+{
+    // FIXME: Consider adding implementation-defined navigation experience step.
+
+    if (!oldDocument.resolveViewTransitionRule())
+        return false;
+
+    if (!m_triggeringAction.navigationAPIType() || *m_triggeringAction.navigationAPIType() == NavigationNavigationType::Reload)
+        return false;
+
+    Ref newOrigin = SecurityOrigin::create(documentURL());
+    if (!newOrigin->isSameOriginAs(oldDocument.securityOrigin()))
+        return false;
+
+    // FIXME: If newDocument was created via cross-origin redirects, then return false.
+
+    if (*m_triggeringAction.navigationAPIType() == NavigationNavigationType::Traverse)
+        return true;
+
+    // FIXME: If isBrowserUINavigation is true, then return false.
+
+    return true;
+}
+
 void DocumentLoader::becomeMainResourceClient()
 {
 #if ENABLE(CONTENT_FILTERING)
@@ -2629,6 +2664,17 @@ bool DocumentLoader::allowsActiveContentRuleListActionsForURL(const String& cont
 bool DocumentLoader::fingerprintingProtectionsEnabled() const
 {
     return m_advancedPrivacyProtections.contains(AdvancedPrivacyProtections::FingerprintingProtections);
+}
+
+void DocumentLoader::setHTTPSByDefaultMode(HTTPSByDefaultMode mode)
+{
+    if (mode == HTTPSByDefaultMode::Disabled) {
+        if (m_advancedPrivacyProtections.contains(AdvancedPrivacyProtections::HTTPSOnly))
+            m_httpsByDefaultMode = HTTPSByDefaultMode::UpgradeAndFailClosed;
+        else if (m_advancedPrivacyProtections.contains(AdvancedPrivacyProtections::HTTPSFirst))
+            m_httpsByDefaultMode = HTTPSByDefaultMode::UpgradeWithHTTPFallback;
+    } else
+        m_httpsByDefaultMode = mode;
 }
 
 Ref<CachedResourceLoader> DocumentLoader::protectedCachedResourceLoader() const

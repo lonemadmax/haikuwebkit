@@ -923,7 +923,7 @@ std::unique_ptr<MutableCSSSelector> CSSSelectorParser::consumePseudo(CSSParserTo
 CSSSelector::Relation CSSSelectorParser::consumeCombinator(CSSParserTokenRange& range)
 {
     auto fallbackResult = CSSSelector::Relation::Subselector;
-    while (range.peek().type() == WhitespaceToken) {
+    while (CSSTokenizer::isWhitespace(range.peek().type())) {
         range.consume();
         fallbackResult = CSSSelector::Relation::DescendantSpace;
     }
@@ -1127,7 +1127,7 @@ void CSSSelectorParser::prependTypeSelectorIfNeeded(const AtomString& namespaceP
     // ::cue), we need a universal selector to set the combinator
     // (relation) on in the cases where there are no simple selectors preceding
     // the pseudo element.
-    bool isHostPseudo = compoundSelector.isHostPseudoSelector();
+    bool isHostPseudo = compoundSelector.isHostPseudoClass();
     if (isHostPseudo && elementName.isNull() && namespacePrefix.isNull())
         return;
     if (tag != anyQName() || isHostPseudo || isShadowDOM)

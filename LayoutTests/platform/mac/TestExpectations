@@ -1356,12 +1356,6 @@ webkit.org/b/170830 inspector/sampling-profiler/named-function-expression.html [
 
 webkit.org/b/185659 [ Debug ] animations/needs-layout.html [ Pass ImageOnlyFailure ]
 
-# Imported css-text test suite from WPT
-webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/i18n/css3-text-line-break-opclns-010.html [ ImageOnlyFailure ]
-webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/i18n/css3-text-line-break-opclns-011.html [ ImageOnlyFailure ]
-webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/i18n/css3-text-line-break-opclns-115.html [ ImageOnlyFailure ]
-webkit.org/b/183258 imported/w3c/web-platform-tests/css/css-text/i18n/css3-text-line-break-opclns-116.html [ ImageOnlyFailure ]
-
 http/tests/cookies/same-site [ Pass ]
 
 # FIXME: Mark as Pass once <rdar://problem/47165939> is fixed.
@@ -1628,8 +1622,7 @@ webkit.org/b/209072 [ Debug ] http/tests/css/shared-stylesheet-mutation-preconst
 webkit.org/b/207150 platform/mac/webrtc/captureCanvas-webrtc-software-encoder.html [ Pass Failure Timeout ]
 
 # The line breaking rules changed in ICU 66. We've updated the tests to match, but old platforms won't get updated line breaking rules.
-webkit.org/b/216315 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-normal-015a.xht [ ImageOnlyFailure ]
-webkit.org/b/216315 imported/w3c/web-platform-tests/css/css-text/line-break/line-break-strict-015a.xht [ ImageOnlyFailure ]
+[ Ventura ] imported/w3c/web-platform-tests/css/css-text/line-breaking/line-breaking-023.html [ ImageOnlyFailure ]
 
 webkit.org/b/207858 fast/canvas/webgl/simulated-vertexAttrib0-invalid-indicies.html [ Skip ]
 
@@ -2099,12 +2092,6 @@ svg/transforms/translation-tiny-element.svg [ ImageOnlyFailure ]
 # Timing out since its import.
 imported/w3c/web-platform-tests/html/user-activation/activation-trigger-pointerevent.html?touch [ Skip ]
 
-# webkit.org/b/243681  Newly imported tests that fail on Monterey+
-[ Debug ] imported/w3c/web-platform-tests/IndexedDB/structured-clone.any.html?101-last [ Failure ]
-[ Release ] imported/w3c/web-platform-tests/IndexedDB/structured-clone.any.html?101-last [ Pass Failure ]
-[ Debug ] imported/w3c/web-platform-tests/IndexedDB/structured-clone.any.worker.html?101-last [ Failure ]
-[ Release ] imported/w3c/web-platform-tests/IndexedDB/structured-clone.any.worker.html?101-last [ Pass Failure ]
-
 # These tests have been flaky on macOS since their import.
 imported/w3c/web-platform-tests/websockets/cookies/005.html?wss&wpt_flags=https [ Pass Failure ]
 imported/w3c/web-platform-tests/websockets/cookies/007.html?wss&wpt_flags=https [ Pass Failure ]
@@ -2379,9 +2366,6 @@ webkit.org/b/269873 imported/w3c/web-platform-tests/webrtc-extensions/transfer-d
 [ Sonoma ] imported/blink/fast/multicol/composited-layer-single-fragment.html [ ImageOnlyFailure ]
 [ Sonoma ] imported/blink/svg/canvas/canvas-draw-pattern-size.html [ ImageOnlyFailure ]
 [ Sonoma ] imported/blink/transforms/inline-transform-and-clipping-roots.html [ ImageOnlyFailure ]
-[ Sonoma ] imported/w3c/web-platform-tests/css/css-masking/clip/clip-absolute-positioned-002.html [ ImageOnlyFailure ]
-[ Sonoma ] imported/w3c/web-platform-tests/css/css-masking/clip/clip-not-absolute-positioned-003.html [ ImageOnlyFailure ]
-[ Sonoma ] imported/w3c/web-platform-tests/css/css-masking/clip/clip-transform-order.html [ ImageOnlyFailure ]
 [ Sonoma ] imported/w3c/web-platform-tests/css/css-transforms/3d-rendering-context-and-inline.html [ ImageOnlyFailure ]
 [ Sonoma ] imported/w3c/web-platform-tests/css/css-transforms/backface-visibility-hidden-002.html [ ImageOnlyFailure ]
 [ Sonoma ] imported/w3c/web-platform-tests/css/css-transforms/backface-visibility-hidden-004.html [ ImageOnlyFailure ]
@@ -2445,6 +2429,7 @@ imported/w3c/web-platform-tests/fetch/metadata/generated/form-submission.sub.htm
 imported/w3c/web-platform-tests/fetch/metadata/generated/window-location.sub.html [ Skip ]
 
 [ Ventura ] imported/w3c/web-platform-tests/css/css-view-transitions/window-resize-aborts-transition.html [ Failure ]
+[ Ventura ] imported/w3c/web-platform-tests/css/css-view-transitions/navigation/hide-before-reveal.html [ Failure ]
 
 webkit.org/b/273308 http/tests/media/media-source/mediasource-rvfc.html [ Timeout ]
 
@@ -2468,3 +2453,18 @@ webkit.org/b/275962 imported/w3c/web-platform-tests/navigation-api/navigation-hi
 webkit.org/b/276434 workers/wasm-hashset-many.html  [ Pass Crash ]
 
 webkit.org/b/276624 fast/dynamic/layer-hit-test-crash.html [ Pass Failure ]
+
+webkit.org/b/276906 imported/w3c/web-platform-tests/IndexedDB/storage-buckets.https.any.worker.html [ Pass Failure ]
+
+# rdar://132528380 (REGRESSION (281042@main): [ macOS ] 2x tiled-drawing/scrolling/overflow/overflow-scrolled-* is flaky failing.
+tiled-drawing/scrolling/overflow/overflow-scrolled-down-tile-coverage.html [ Pass Failure ]
+tiled-drawing/scrolling/overflow/overflow-scrolled-up-tile-coverage.html [ Pass Failure ]
+
+# webkit.org/b/27730 (REGRESSION (280752@main?): [ macOS iOS ] http/wpt/service-workers/fetch-service-worker-preload-cache.https.html is flaky failing.)
+http/wpt/service-workers/fetch-service-worker-preload-cache.https.html [ Pass Failure ]
+
+# webkit.org/b/277720 [ iOS MacOS ] 4x http/wpt/service-workers/fetch-service-worker-preload* (layout-tests) are flaky failures
+http/wpt/service-workers/fetch-service-worker-preload-changing-request.https.html [ Pass Failure ]
+http/wpt/service-workers/fetch-service-worker-preload-download-through-direct-preload.https.html [ Pass Timeout Failure ]
+http/wpt/service-workers/fetch-service-worker-preload-download.https.html [ Pass Timeout ]
+http/wpt/service-workers/fetch-service-worker-preload.https.html [ Pass Failure ]

@@ -318,7 +318,7 @@ public:
     };
     static Statistics& statistics();    
 
-    void terminateAllWebContentProcesses();
+    void terminateAllWebContentProcesses(ProcessTerminationReason);
     void sendNetworkProcessPrepareToSuspendForTesting(CompletionHandler<void()>&&);
     void sendNetworkProcessWillSuspendImminentlyForTesting();
     void sendNetworkProcessDidResume();
@@ -345,6 +345,9 @@ public:
     // Defaults to false.
     void setHTTPPipeliningEnabled(bool);
     bool httpPipeliningEnabled() const;
+
+    WebProcessProxy* webProcessProxyFromConnection(const IPC::Connection&) const;
+    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess(const IPC::Connection&) const;
 
     bool javaScriptConfigurationFileEnabled() { return m_javaScriptConfigurationFileEnabled; }
     void setJavaScriptConfigurationFileEnabled(bool flag);

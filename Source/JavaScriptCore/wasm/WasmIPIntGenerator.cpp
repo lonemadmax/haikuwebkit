@@ -205,7 +205,7 @@ public:
     // SIMD
 
     bool usesSIMD() { return m_usesSIMD; }
-    void notifyFunctionUsesSIMD() { ASSERT(Options::useWebAssemblySIMD()); m_usesSIMD = true; }
+    void notifyFunctionUsesSIMD() { ASSERT(Options::useWasmSIMD()); m_usesSIMD = true; }
     PartialResult WARN_UNUSED_RETURN addSIMDLoad(ExpressionType, uint32_t, ExpressionType&);
     PartialResult WARN_UNUSED_RETURN addSIMDStore(ExpressionType, ExpressionType, uint32_t);
     PartialResult WARN_UNUSED_RETURN addSIMDSplat(SIMDLane, ExpressionType, ExpressionType&);
@@ -255,6 +255,7 @@ public:
 
     PartialResult WARN_UNUSED_RETURN getLocal(uint32_t index, ExpressionType&);
     PartialResult WARN_UNUSED_RETURN setLocal(uint32_t, ExpressionType);
+    PartialResult WARN_UNUSED_RETURN teeLocal(uint32_t, ExpressionType, ExpressionType& result);
 
     // Globals
 
@@ -494,8 +495,9 @@ public:
     {
         m_metadata->m_bytecodeOffset = m_parser->offset();
     }
-    void didPopValueFromStack(ExpressionType, String) { }
+    void didPopValueFromStack(ExpressionType, ASCIILiteral) { }
     void willParseOpcode() { }
+    void willParseExtendedOpcode() { }
     void didParseOpcode()
     {
         if (!m_parser->unreachableBlocks())
@@ -732,11 +734,17 @@ PartialResult WARN_UNUSED_RETURN IPIntGenerator::getLocal(uint32_t, ExpressionTy
     changeStackSize(1);
     return { };
 }
+
 PartialResult WARN_UNUSED_RETURN IPIntGenerator::setLocal(uint32_t, ExpressionType)
 {
     // Local indices are usually very small, so we decode them on the fly
     // instead of generating metadata.
     changeStackSize(-1);
+    return { };
+}
+
+PartialResult WARN_UNUSED_RETURN IPIntGenerator::teeLocal(uint32_t, ExpressionType, ExpressionType&)
+{
     return { };
 }
 

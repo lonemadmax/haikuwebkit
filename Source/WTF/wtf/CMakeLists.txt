@@ -87,6 +87,7 @@ set(WTF_PUBLIC_HEADERS
     FixedVector.h
     FixedWidthDouble.h
     FlipBytes.h
+    Float16.h
     ForbidHeapAllocation.h
     Forward.h
     Function.h
@@ -299,7 +300,6 @@ set(WTF_PUBLIC_HEADERS
     SystemMalloc.h
     SystemTracing.h
     TZoneMalloc.h
-    TZoneMallocInitialization.h
     TZoneMallocInlines.h
     TaggedArrayStoragePtr.h
     ThreadAssertions.h

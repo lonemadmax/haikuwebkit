@@ -69,7 +69,7 @@ public:
     unsigned refCount() const { return m_refCount / refCountIncrement; }
     bool hasAtLeastOneRef() const { return m_refCount; }
 
-    String cssText() const;
+    WEBCORE_EXPORT String cssText() const;
 
     bool isAnchorValue() const { return m_classType == AnchorClass; }
     bool isAspectRatioValue() const { return m_classType == AspectRatioClass; }
@@ -128,6 +128,8 @@ public:
     bool isReflectValue() const { return m_classType == ReflectClass; }
     bool isScrollValue() const { return m_classType == ScrollClass; }
     bool isShadowValue() const { return m_classType == ShadowClass; }
+    bool isShape() const { return m_classType == ShapeClass; }
+    bool isShapeSegment() const { return m_classType == ShapeSegmentClass; }
     bool isSpringTimingFunctionValue() const { return m_classType == SpringTimingFunctionClass; }
     bool isStepsTimingFunctionValue() const { return m_classType == StepsTimingFunctionClass; }
     bool isSubgridValue() const { return m_classType == SubgridClass; }
@@ -271,6 +273,7 @@ protected:
         ReflectClass,
         ScrollClass,
         ShadowClass,
+        ShapeSegmentClass,
         UnicodeRangeClass,
         ValuePairClass,
         VariableReferenceClass,
@@ -284,6 +287,7 @@ protected:
         GridIntegerRepeatClass,
         ImageSetClass,
         PolygonClass,
+        ShapeClass,
         SubgridClass,
         TransformListClass,
         // Do not append classes here unless they derive from CSSValueContainingVector.

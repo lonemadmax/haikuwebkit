@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -63,7 +63,12 @@
 #endif
 
 #if ENABLE(WK_WEB_EXTENSIONS)
-#import "_WKWebExtensionControllerInternal.h"
+#import "WKWebExtensionControllerInternal.h"
+#import "_WKWebExtensionController.h"
+#endif
+
+#if PLATFORM(VISION) && ENABLE(GAMEPAD)
+#import <WebCore/ShouldRequireExplicitConsentForGamepadAccess.h>
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -249,6 +254,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [coder encodeBool:self._scrollToTextFragmentIndicatorEnabled forKey:@"scrollToTextFragmentIndicatorEnabled"];
     [coder encodeBool:self._scrollToTextFragmentMarkingEnabled forKey:@"scrollToTextFragmentMarkingEnabled"];
     [coder encodeBool:self._multiRepresentationHEICInsertionEnabled forKey:@"multiRepresentationHEICInsertionEnabled"];
+#if PLATFORM(VISION)
+    [coder encodeBool:self._gamepadAccessRequiresExplicitConsent forKey:@"gamepadAccessRequiresExplicitConsent"];
+#endif
 }
 
 - (instancetype)initWithCoder:(NSCoder *)coder
@@ -296,6 +304,9 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     self._scrollToTextFragmentIndicatorEnabled = [coder decodeBoolForKey:@"scrollToTextFragmentIndicatorEnabled"];
     self._scrollToTextFragmentMarkingEnabled = [coder decodeBoolForKey:@"scrollToTextFragmentMarkingEnabled"];
     self._multiRepresentationHEICInsertionEnabled = [coder decodeBoolForKey:@"multiRepresentationHEICInsertionEnabled"];
+#if PLATFORM(VISION)
+    self._gamepadAccessRequiresExplicitConsent = [coder decodeBoolForKey:@"gamepadAccessRequiresExplicitConsent"];
+#endif
 
     return self;
 }
@@ -374,7 +385,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 }
 
-- (_WKWebExtensionController *)_strongWebExtensionController
+- (WKWebExtensionController *)_strongWebExtensionController
 {
 #if ENABLE(WK_WEB_EXTENSIONS)
     return wrapper(_pageConfiguration->webExtensionController());
@@ -383,23 +394,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 }
 
-- (_WKWebExtensionController *)_webExtensionController
-{
-#if ENABLE(WK_WEB_EXTENSIONS)
-    return self._weakWebExtensionController ?: self._strongWebExtensionController;
-#else
-    return nil;
-#endif
-}
-
-- (void)_setWebExtensionController:(_WKWebExtensionController *)webExtensionController
-{
-#if ENABLE(WK_WEB_EXTENSIONS)
-    _pageConfiguration->setWebExtensionController(webExtensionController ? &webExtensionController._webExtensionController : nullptr);
-#endif
-}
-
-- (_WKWebExtensionController *)_weakWebExtensionController
+- (WKWebExtensionController *)_weakWebExtensionController
 {
 #if ENABLE(WK_WEB_EXTENSIONS)
     return wrapper(_pageConfiguration->weakWebExtensionController());
@@ -408,10 +403,42 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 #endif
 }
 
-- (void)_setWeakWebExtensionController:(_WKWebExtensionController *)webExtensionController
+- (void)_setWeakWebExtensionController:(WKWebExtensionController *)webExtensionController
 {
 #if ENABLE(WK_WEB_EXTENSIONS)
     _pageConfiguration->setWeakWebExtensionController(webExtensionController ? &webExtensionController._webExtensionController : nullptr);
+#endif
+}
+
+- (WKWebExtensionController *)webExtensionController
+{
+#if ENABLE(WK_WEB_EXTENSIONS)
+    return self._weakWebExtensionController ?: self._strongWebExtensionController;
+#else
+    return nil;
+#endif
+}
+
+- (void)setWebExtensionController:(WKWebExtensionController *)webExtensionController
+{
+#if ENABLE(WK_WEB_EXTENSIONS)
+    _pageConfiguration->setWebExtensionController(webExtensionController ? &webExtensionController._webExtensionController : nullptr);
+#endif
+}
+
+- (_WKWebExtensionController *)_webExtensionController
+{
+#if ENABLE(WK_WEB_EXTENSIONS)
+    return (_WKWebExtensionController *)self.webExtensionController;
+#else
+    return nil;
+#endif
+}
+
+- (void)_setWebExtensionController:(_WKWebExtensionController *)webExtensionController
+{
+#if ENABLE(WK_WEB_EXTENSIONS)
+    self.webExtensionController = webExtensionController;
 #endif
 }
 
@@ -1475,6 +1502,24 @@ static WebKit::AttributionOverrideTesting toAttributionOverrideTesting(_WKAttrib
     return NO;
 #endif
 }
+
+#if PLATFORM(VISION)
+- (BOOL)_gamepadAccessRequiresExplicitConsent
+{
+#if ENABLE(GAMEPAD)
+    return _pageConfiguration->gamepadAccessRequiresExplicitConsent() == WebCore::ShouldRequireExplicitConsentForGamepadAccess::Yes;
+#else
+    return NO;
+#endif
+}
+
+- (void)_setGamepadAccessRequiresExplicitConsent:(BOOL)gamepadAccessRequiresExplicitConsent
+{
+#if ENABLE(GAMEPAD)
+    _pageConfiguration->setGamepadAccessRequiresExplicitConsent(gamepadAccessRequiresExplicitConsent ? WebCore::ShouldRequireExplicitConsentForGamepadAccess::Yes : WebCore::ShouldRequireExplicitConsentForGamepadAccess::No);
+#endif
+}
+#endif // PLATFORM(VISION)
 
 @end
 

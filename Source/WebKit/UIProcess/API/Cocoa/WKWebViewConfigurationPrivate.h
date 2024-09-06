@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2014-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2014-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,9 +65,10 @@ typedef NS_ENUM(NSUInteger, _WKContentSecurityPolicyModeForExtension) {
 // When not set, the web view allows navigation to any URL that isn't a web extension URL. This is needed to ensure proper configuration of the web view.
 @property (nonatomic, strong, setter=_setRequiredWebExtensionBaseURL:) NSURL *_requiredWebExtensionBaseURL;
 
-@property (nonatomic, strong, readonly) _WKWebExtensionController *_strongWebExtensionController;
-@property (nonatomic, weak, setter=_setWeakWebExtensionController:) _WKWebExtensionController *_weakWebExtensionController;
+@property (nonatomic, strong, readonly) WKWebExtensionController *_strongWebExtensionController;
+@property (nonatomic, weak, setter=_setWeakWebExtensionController:) WKWebExtensionController *_weakWebExtensionController;
 @property (nonatomic, strong, setter=_setWebExtensionController:) _WKWebExtensionController *_webExtensionController;
+@property (nonatomic, strong) WKWebExtensionController *webExtensionController;
 
 @property (nonatomic, weak, setter=_setAlternateWebViewForNavigationGestures:) WKWebView *_alternateWebViewForNavigationGestures;
 
@@ -174,6 +175,10 @@ typedef NS_ENUM(NSUInteger, _WKContentSecurityPolicyModeForExtension) {
 @property (nonatomic, setter=_setScrollToTextFragmentIndicatorEnabled:) BOOL _scrollToTextFragmentIndicatorEnabled WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
 
 @property (nonatomic, setter=_setScrollToTextFragmentMarkingEnabled:) BOOL _scrollToTextFragmentMarkingEnabled WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
+
+#if defined(TARGET_OS_VISION) && TARGET_OS_VISION
+@property (nonatomic, setter=_setGamepadAccessRequiresExplicitConsent:) BOOL _gamepadAccessRequiresExplicitConsent WK_API_AVAILABLE(visionos(2.0));
+#endif
 
 @end
 

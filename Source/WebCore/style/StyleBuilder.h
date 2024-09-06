@@ -56,7 +56,7 @@ public:
 
 private:
     void applyProperties(int firstProperty, int lastProperty);
-    void applyDeferredProperties();
+    void applyLogicalGroupProperties();
     void applyCustomProperties();
     void applyCustomPropertyImpl(const AtomString&, const PropertyCascade::Property&);
 
@@ -70,6 +70,8 @@ private:
 
     Ref<CSSValue> resolveVariableReferences(CSSPropertyID, CSSValue&);
     RefPtr<CSSCustomPropertyValue> resolveCustomPropertyValue(CSSCustomPropertyValue&);
+
+    void applyPageSizeDescriptor(CSSValue&);
 
     const PropertyCascade* ensureRollbackCascadeForRevert();
     const PropertyCascade* ensureRollbackCascadeForRevertLayer();

@@ -79,7 +79,6 @@
 #include <wtf/Lock.h>
 #include <wtf/NumberOfCores.h>
 #include <wtf/StdList.h>
-#include <wtf/TZoneMallocInitialization.h>
 #include <wtf/Threading.h>
 #include <wtf/WTFProcess.h>
 #include <wtf/text/StringCommon.h>
@@ -1214,6 +1213,7 @@ void testLoadPreIndex32();
 void testLoadPreIndex64();
 void testLoadPostIndex32();
 void testLoadPostIndex64();
+void testLoadPreIndex32WithStore();
 
 void testStorePreIndex32();
 void testStorePreIndex64();

@@ -432,6 +432,7 @@ void RemoteMediaPlayerProxy::mediaPlayerReadyStateChanged()
     m_cachedState.canSaveMediaData = m_player->canSaveMediaData();
     m_cachedState.didPassCORSAccessCheck = m_player->didPassCORSAccessCheck();
     m_cachedState.documentIsCrossOrigin = m_player->isCrossOrigin(m_configuration.documentSecurityOrigin.securityOrigin());
+    m_cachedState.videoConfiguration = m_player->videoPlaybackConfiguration();
 
     m_webProcessConnection->send(Messages::MediaPlayerPrivateRemote::ReadyStateChanged(m_cachedState, newReadyState), m_id);
 }
@@ -487,7 +488,7 @@ void RemoteMediaPlayerProxy::mediaPlayerEngineFailedToLoad()
     m_webProcessConnection->send(Messages::MediaPlayerPrivateRemote::EngineFailedToLoad(m_player->platformErrorCode()), m_id);
 }
 
-#if ENABLE(LEGACY_ENCRYPTED_MEDIA)
+#if ENABLE(LEGACY_ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA)
 String RemoteMediaPlayerProxy::mediaPlayerMediaKeysStorageDirectory() const
 {
     ASSERT(m_manager && m_manager->gpuConnectionToWebProcess());
@@ -591,6 +592,13 @@ void RemoteMediaPlayerProxy::mediaPlayerCharacteristicChanged()
     m_cachedState.languageOfPrimaryAudioTrack = m_player->languageOfPrimaryAudioTrack();
 
     m_webProcessConnection->send(Messages::MediaPlayerPrivateRemote::CharacteristicChanged(m_cachedState), m_id);
+}
+
+void RemoteMediaPlayerProxy::mediaPlayerVideoPlaybackConfigurationChanged()
+{
+    updateCachedVideoMetrics();
+    updateCachedState();
+    m_webProcessConnection->send(Messages::MediaPlayerPrivateRemote::VideoPlaybackConfigurationChanged(m_cachedState.videoConfiguration), m_id);
 }
 
 bool RemoteMediaPlayerProxy::mediaPlayerRenderingCanBeAccelerated()
@@ -858,7 +866,7 @@ CachedResourceLoader* RemoteMediaPlayerProxy::mediaPlayerCachedResourceLoader()
     return nullptr;
 }
 
-RefPtr<PlatformMediaResourceLoader> RemoteMediaPlayerProxy::mediaPlayerCreateResourceLoader()
+Ref<PlatformMediaResourceLoader> RemoteMediaPlayerProxy::mediaPlayerCreateResourceLoader()
 {
     return adoptRef(*new RemoteMediaResourceLoader(*this));
 }

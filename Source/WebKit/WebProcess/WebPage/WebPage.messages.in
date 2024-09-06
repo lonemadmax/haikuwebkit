@@ -38,7 +38,9 @@ messages -> WebPage LegacyReceiver {
 #if PLATFORM(COCOA)
     SetTopContentInsetFenced(float contentInset, MachSendRight machSendRight)
 #endif
+#if !PLATFORM(COCOA)
     SetTopContentInset(float contentInset)
+#endif
 
     SetUnderlayColor(WebCore::Color color)
     SetUnderPageBackgroundColorOverride(WebCore::Color underPageBackgroundColorOverride)
@@ -256,8 +258,8 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     ChangeFont(WebCore::FontChanges changes)
     ChangeFontAttributes(WebCore::FontAttributeChanges changes)
 
-    PreferencesDidChange(struct WebKit::WebPreferencesStore store)
-    PreferencesDidChangeDuringDOMPrintOperation(struct WebKit::WebPreferencesStore store) AllowedWhenWaitingForSyncReplyDuringUnboundedIPC
+    PreferencesDidChange(struct WebKit::WebPreferencesStore store, std::optional<uint64_t> sharedPreferencesVersion)
+    PreferencesDidChangeDuringDOMPrintOperation(struct WebKit::WebPreferencesStore store, std::optional<uint64_t> sharedPreferencesVersion) AllowedWhenWaitingForSyncReplyDuringUnboundedIPC
 
     SetUserAgent(String userAgent)
     SetHasCustomUserAgent(bool hasCustomUserAgent)
@@ -377,8 +379,14 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 #endif
     
 #if ENABLE(WRITING_TOOLS_UI)
-    createTextIndicatorForTextAnimationID(WTF::UUID uuid) -> (std::optional<WebCore::TextIndicatorData> textIndicator)
-    updateUnderlyingTextVisibilityForTextAnimationID(WTF::UUID uuid, bool visible) -> ()
+    CreateTextIndicatorForTextAnimationID(WTF::UUID uuid) -> (std::optional<WebCore::TextIndicatorData> textIndicator)
+    UpdateUnderlyingTextVisibilityForTextAnimationID(WTF::UUID uuid, bool visible) -> ()
+
+    EnableSourceTextAnimationAfterElementWithID(String elementID, WTF::UUID uuid);
+    EnableTextAnimationTypeForElementWithID(String elementID, WTF::UUID uuid);
+
+    ShowSelectionForWritingToolsSessionAssociatedWithAnimationID(WTF::UUID animationID);
+    ShowSelectionForWritingToolsSessionWithID(WebCore::WritingTools::Session::ID sessionID);
 #endif
 
     # Popup menu.
@@ -411,9 +419,9 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     DidFinishCheckingText(WebKit::TextCheckerRequestID requestID, Vector<WebCore::TextCheckingResult> result)
     DidCancelCheckingText(WebKit::TextCheckerRequestID requestID)
 #if USE(APPKIT)
-    UppercaseWord()
-    LowercaseWord()
-    CapitalizeWord()
+    UppercaseWord(WebCore::FrameIdentifier frameID)
+    LowercaseWord(WebCore::FrameIdentifier frameID)
+    CapitalizeWord(WebCore::FrameIdentifier frameID)
 #endif
 #if PLATFORM(COCOA)
     SetSmartInsertDeleteEnabled(bool isSmartInsertDeleteEnabled)
@@ -625,6 +633,9 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
 #if ENABLE(GAMEPAD)
     GamepadActivity(Vector<std::optional<WebKit::GamepadData>> gamepadDatas, enum:bool WebCore::EventMakesGamepadsVisible eventVisibility)
+#if PLATFORM(VISION)
+    AllowGamepadAccess()
+#endif
 #endif
 
     RegisterURLSchemeHandler(WebKit::WebURLSchemeHandlerIdentifier handlerIdentifier, String scheme)
@@ -766,6 +777,10 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
     RequestTextExtraction(std::optional<WebCore::FloatRect> collectionRectInRootView) -> (struct WebCore::TextExtraction::Item item)
 
+#if PLATFORM(IOS_FAMILY)
+    ShouldDismissKeyboardAfterTapAtPoint(WebCore::FloatPoint point) -> (bool shouldDismiss)
+#endif
+
 #if ENABLE(EXTENSION_CAPABILITIES)
     SetMediaEnvironment(String mediaEnvironment)
 #endif
@@ -784,12 +799,6 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     CompositionSessionDidReceiveTextWithReplacementRange(struct WebCore::WritingTools::Session session, struct WebCore::AttributedString attributedText, struct WebCore::CharacterRange range, struct WebCore::WritingTools::Context context, bool finished);
 
     WritingToolsSessionDidReceiveAction(struct WebCore::WritingTools::Session session, enum:uint8_t WebCore::WritingTools::Action action);
-#endif
-
-#if ENABLE(WRITING_TOOLS_UI)
-    enableSourceTextAnimationAfterElementWithID(String elementID, WTF::UUID uuid);
-    
-    EnableTextAnimationTypeForElementWithID(String elementID, WTF::UUID uuid);
 #endif
 
     TakeSnapshotForTargetedElement(WebCore::ElementIdentifier elementID, WebCore::ScriptExecutionContextIdentifier documentID) -> (std::optional<WebCore::ShareableBitmapHandle> image)

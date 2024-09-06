@@ -26,9 +26,11 @@
 #pragma once
 
 #if ENABLE(WPE_PLATFORM)
+#include "FenceMonitor.h"
 #include "MessageReceiver.h"
 #include "RendererBufferFormat.h"
 #include <WebCore/IntSize.h>
+#include <WebCore/Region.h>
 #include <wtf/HashMap.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/unix/UnixFileDescriptor.h>
@@ -68,16 +70,19 @@ private:
     void didCreateBuffer(uint64_t id, const WebCore::IntSize&, uint32_t format, Vector<WTF::UnixFileDescriptor>&&, Vector<uint32_t>&& offsets, Vector<uint32_t>&& strides, uint64_t modifier, DMABufRendererBufferFormat::Usage);
     void didCreateBufferSHM(uint64_t id, WebCore::ShareableBitmapHandle&&);
     void didDestroyBuffer(uint64_t id);
-    void frame(uint64_t bufferID, const std::optional<WebCore::Region>&);
+    void frame(uint64_t bufferID, WebCore::Region&&, WTF::UnixFileDescriptor&&);
     void frameDone();
+    void renderPendingBuffer();
     void bufferRendered();
     void bufferReleased(WPEBuffer*);
 
     WebPageProxy& m_webPage;
     GRefPtr<WPEView> m_wpeView;
+    FenceMonitor m_fenceMonitor;
     uint64_t m_surfaceID { 0 };
     GRefPtr<WPEBuffer> m_pendingBuffer;
     GRefPtr<WPEBuffer> m_committedBuffer;
+    WebCore::Region m_pendingDamageRegion;
     HashMap<uint64_t, GRefPtr<WPEBuffer>> m_buffers;
     HashMap<WPEBuffer*, uint64_t> m_bufferIDs;
 };

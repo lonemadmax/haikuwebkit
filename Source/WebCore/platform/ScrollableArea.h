@@ -389,10 +389,10 @@ public:
     // This function is static so that it can be called from the main thread or the scrolling thread.
     WEBCORE_EXPORT static void computeScrollbarValueAndOverhang(float currentPosition, float totalSize, float visibleSize, float& scrollbarValue, float& overhangAmount);
 
-    static std::optional<BoxSide> targetSideForScrollDelta(FloatSize, ScrollEventAxis);
+    WEBCORE_EXPORT static std::optional<BoxSide> targetSideForScrollDelta(FloatSize, ScrollEventAxis);
 
     // "Pinned" means scrolled at or beyond the edge.
-    bool isPinnedOnSide(BoxSide) const;
+    WEBCORE_EXPORT bool isPinnedOnSide(BoxSide) const;
     WEBCORE_EXPORT RectEdges<bool> edgePinnedState() const;
 
     // True if scrolling happens by moving compositing layers.
@@ -438,6 +438,7 @@ public:
     virtual FrameIdentifier rootFrameID() const { return { }; }
 
     WEBCORE_EXPORT void setScrollbarsController(std::unique_ptr<ScrollbarsController>&&);
+    WEBCORE_EXPORT virtual void scrollbarWidthChanged(ScrollbarWidth) { }
 
 protected:
     WEBCORE_EXPORT ScrollableArea();
@@ -506,6 +507,6 @@ private:
     Markable<ScrollingNodeID> m_scrollingNodeIDForTesting;
 };
 
-WTF::TextStream& operator<<(WTF::TextStream&, const ScrollableArea&);
+WEBCORE_EXPORT WTF::TextStream& operator<<(WTF::TextStream&, const ScrollableArea&);
 
 } // namespace WebCore

@@ -85,13 +85,14 @@ static MTLStorageMode storageMode(bool deviceHasUnifiedMemory, WGPUBufferUsageFl
 {
     if (deviceHasUnifiedMemory)
         return MTLStorageModeShared;
-    if (usage & (WGPUBufferUsage_MapRead | WGPUBufferUsage_MapWrite | WGPUBufferUsage_Index))
-        return MTLStorageModeShared;
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+    if (usage & (WGPUBufferUsage_MapRead | WGPUBufferUsage_MapWrite | WGPUBufferUsage_Index))
+        return MTLStorageModeManaged;
     if (mappedAtCreation)
         return MTLStorageModeManaged;
 #else
     UNUSED_PARAM(mappedAtCreation);
+    UNUSED_PARAM(usage);
 #endif
     return MTLStorageModePrivate;
 }
@@ -102,6 +103,11 @@ id<MTLBuffer> Device::safeCreateBuffer(NSUInteger length, MTLStorageMode storage
     id<MTLBuffer> buffer = [m_device newBufferWithLength:std::max<NSUInteger>(1, length) options:resourceOptions];
     setOwnerWithIdentity(buffer);
     return buffer;
+}
+
+id<MTLBuffer> Device::safeCreateBuffer(NSUInteger length) const
+{
+    return safeCreateBuffer(length, MTLStorageModeShared);
 }
 
 Ref<Buffer> Device::createBuffer(const WGPUBufferDescriptor& descriptor)
@@ -172,6 +178,7 @@ void Buffer::setCommandEncoder(CommandEncoder& commandEncoder, bool mayModifyBuf
 {
     UNUSED_PARAM(mayModifyBuffer);
     m_commandEncoders.add(commandEncoder);
+    commandEncoder.addBuffer(m_buffer);
     if (m_state == State::Mapped || m_state == State::MappedAtCreation)
         commandEncoder.incrementBufferMapCount();
     if (isDestroyed())
@@ -363,9 +370,10 @@ void Buffer::unmap()
         return;
 
     decrementBufferMapCount();
+    indirectBufferInvalidated();
 
 #if PLATFORM(MAC) || PLATFORM(MACCATALYST)
-    if (m_state == State::MappedAtCreation && m_buffer.storageMode == MTLStorageModeManaged) {
+    if (m_buffer.storageMode == MTLStorageModeManaged) {
         for (const auto& mappedRange : m_mappedRanges)
             [m_buffer didModifyRange:NSMakeRange(static_cast<NSUInteger>(mappedRange.begin()), static_cast<NSUInteger>(mappedRange.end() - mappedRange.begin()))];
     }
@@ -418,6 +426,32 @@ bool Buffer::indirectBufferRequiresRecomputation(uint32_t baseIndex, uint32_t in
     return baseIndex != rangeBegin || newRangeEnd != rangeEnd || minVertexCount != m_indirectCache.minVertexCount || minInstanceCount != m_indirectCache.minInstanceCount || m_indirectCache.indexType != indexType || m_indirectCache.firstInstance != firstInstance;
 }
 
+bool Buffer::indirectBufferRequiresRecomputation(uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount) const
+{
+    return m_indirectCache.indirectOffset != indirectOffset || m_indirectCache.minVertexCount != minVertexCount || m_indirectCache.minInstanceCount != minInstanceCount;
+}
+
+bool Buffer::indirectIndexedBufferRequiresRecomputation(MTLIndexType indexType, NSUInteger indexBufferOffsetInBytes, uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount) const
+{
+    return m_indirectCache.indexType != indexType || m_indirectCache.indexBufferOffsetInBytes != indexBufferOffsetInBytes || m_indirectCache.indirectOffset != indirectOffset || m_indirectCache.minVertexCount != minVertexCount || m_indirectCache.minInstanceCount != minInstanceCount;
+}
+
+void Buffer::indirectBufferRecomputed(uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount)
+{
+    m_indirectCache.indirectOffset = indirectOffset;
+    m_indirectCache.minVertexCount = minVertexCount;
+    m_indirectCache.minInstanceCount = minInstanceCount;
+}
+
+void Buffer::indirectIndexedBufferRecomputed(MTLIndexType indexType, NSUInteger indexBufferOffsetInBytes, uint64_t indirectOffset, uint32_t minVertexCount, uint32_t minInstanceCount)
+{
+    m_indirectCache.indexType = indexType;
+    m_indirectCache.indexBufferOffsetInBytes = indexBufferOffsetInBytes;
+    m_indirectCache.indirectOffset = indirectOffset;
+    m_indirectCache.minVertexCount = minVertexCount;
+    m_indirectCache.minInstanceCount = minInstanceCount;
+}
+
 void Buffer::indirectBufferRecomputed(uint32_t baseIndex, uint32_t indexCount, uint32_t minVertexCount, uint32_t minInstanceCount, MTLIndexType indexType, uint32_t firstInstance)
 {
     m_indirectCache.lastBaseIndex = baseIndex;
@@ -430,6 +464,8 @@ void Buffer::indirectBufferRecomputed(uint32_t baseIndex, uint32_t indexCount, u
 
 void Buffer::indirectBufferInvalidated()
 {
+    m_indirectCache.indirectOffset = UINT64_MAX;
+    m_indirectCache.indexBufferOffsetInBytes = UINT64_MAX;
     indirectBufferRecomputed(0, 0, 0, 0, MTLIndexTypeUInt16, 0);
 }
 

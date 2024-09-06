@@ -46,6 +46,7 @@
 #include "ContextMenuClient.h"
 #include "ContextMenuController.h"
 #include "CookieJar.h"
+#include "CredentialRequestCoordinator.h"
 #include "CryptoClient.h"
 #include "DOMRect.h"
 #include "DOMRectList.h"
@@ -226,6 +227,10 @@
 #include "WebXRSystem.h"
 #endif
 
+#if PLATFORM(VISION) && ENABLE(GAMEPAD)
+#include "GamepadManager.h"
+#endif
+
 namespace WebCore {
 
 static HashSet<SingleThreadWeakRef<Page>>& allPages()
@@ -394,6 +399,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
 #endif
 #if ENABLE(WEB_AUTHN)
     , m_authenticatorCoordinator(makeUniqueRef<AuthenticatorCoordinator>(WTFMove(pageConfiguration.authenticatorCoordinatorClient)))
+    , m_credentialRequestCoordinator(makeUniqueRef<CredentialRequestCoordinator>(WTFMove(pageConfiguration.credentialRequestCoordinatorClient)))
 #endif
 #if ENABLE(APPLICATION_MANIFEST)
     , m_applicationManifest(pageConfiguration.applicationManifest)
@@ -417,6 +423,9 @@ Page::Page(PageConfiguration&& pageConfiguration)
     , m_contentSecurityPolicyModeForExtension(WTFMove(pageConfiguration.contentSecurityPolicyModeForExtension))
     , m_badgeClient(WTFMove(pageConfiguration.badgeClient))
     , m_historyItemClient(WTFMove(pageConfiguration.historyItemClient))
+#if PLATFORM(VISION) && ENABLE(GAMEPAD)
+    , m_gamepadAccessRequiresExplicitConsent(pageConfiguration.gamepadAccessRequiresExplicitConsent)
+#endif
 #if ENABLE(WRITING_TOOLS)
     , m_writingToolsController(makeUniqueRef<WritingToolsController>(*this))
 #endif
@@ -455,6 +464,10 @@ Page::Page(PageConfiguration&& pageConfiguration)
 
 #if PLATFORM(COCOA)
     platformInitialize();
+#endif
+
+#if PLATFORM(VISION) && ENABLE(GAMEPAD)
+    initializeGamepadAccessForPageLoad();
 #endif
 
     settingsDidChange();
@@ -754,6 +767,12 @@ void Page::setMainFrameURL(const URL& url)
 {
     m_mainFrameURL = url;
     m_mainFrameOrigin = SecurityOrigin::create(url);
+}
+
+void Page::setMainFrameURLFragment(String&& fragment)
+{
+    if (!fragment.isEmpty())
+        m_mainFrameURLFragment = WTFMove(fragment);
 }
 
 SecurityOrigin& Page::mainFrameOrigin() const
@@ -1579,6 +1598,12 @@ void Page::didCommitLoad()
 
     m_hasEverSetVisibilityAdjustment = false;
 
+    m_mainFrameURLFragment = { };
+
+#if PLATFORM(VISION) && ENABLE(GAMEPAD)
+    initializeGamepadAccessForPageLoad();
+#endif
+
     resetSeenPlugins();
     resetSeenMediaEngines();
 
@@ -1900,6 +1925,10 @@ void Page::updateRendering()
         initialDocuments.append(document);
     });
 
+    runProcessingStep(RenderingUpdateStep::Reveal, [] (Document& document) {
+        document.reveal();
+    });
+
     runProcessingStep(RenderingUpdateStep::FlushAutofocusCandidates, [] (Document& document) {
         if (document.isTopDocument())
             document.flushAutofocusCandidates();
@@ -1966,7 +1995,7 @@ void Page::updateRendering()
     });
 
     runProcessingStep(RenderingUpdateStep::Images, [] (Document& document) {
-        for (auto& image : document.cachedResourceLoader().allCachedSVGImages()) {
+        for (auto& image : document.protectedCachedResourceLoader()->allCachedSVGImages()) {
             if (RefPtr page = image->internalPage())
                 page->isolatedUpdateRendering();
         }
@@ -2731,11 +2760,25 @@ void Page::mediaEngineChanged(HTMLMediaElement& mediaElement)
 
 #endif
 
-void Page::setMuted(MediaProducerMutedStateFlags muted)
+void Page::setMuted(MediaProducerMutedStateFlags mutedState)
 {
-    m_mutedState = muted;
+#if ENABLE(MEDIA_SESSION)
+    bool cameraCaptureStateDidChange = mutedState.contains(MediaProducerMutedState::VideoCaptureIsMuted) != m_mutedState.contains(MediaProducerMutedState::VideoCaptureIsMuted);
+    bool microphoneCaptureStateDidChange = mutedState.contains(MediaProducerMutedState::AudioCaptureIsMuted) != m_mutedState.contains(MediaProducerMutedState::AudioCaptureIsMuted);
+    bool screenshareCaptureStateDidChange = (mutedState.contains(MediaProducerMutedState::ScreenCaptureIsMuted) || mutedState.contains(MediaProducerMutedState::WindowCaptureIsMuted)) != (m_mutedState.contains(MediaProducerMutedState::ScreenCaptureIsMuted) || m_mutedState.contains(MediaProducerMutedState::WindowCaptureIsMuted));
+#endif
 
-    forEachDocument([] (Document& document) {
+    m_mutedState = mutedState;
+
+    forEachDocument([&] (Document& document) {
+#if ENABLE(MEDIA_STREAM) && ENABLE(MEDIA_SESSION)
+        if (cameraCaptureStateDidChange)
+            document.cameraCaptureStateDidChange();
+        if (microphoneCaptureStateDidChange)
+            document.microphoneCaptureStateDidChange();
+        if (screenshareCaptureStateDidChange)
+            document.screenshareCaptureStateDidChange();
+#endif
         document.pageMutedStateDidChange();
     });
 }
@@ -3940,7 +3983,7 @@ void Page::enableICECandidateFiltering()
 #endif
 }
 
-void Page::didChangeMainDocument()
+void Page::didChangeMainDocument(Document* newDocument)
 {
 #if ENABLE(WEB_RTC)
     m_rtcController->reset(m_shouldEnableICECandidateFilteringByDefault);
@@ -3951,6 +3994,8 @@ void Page::didChangeMainDocument()
         m_sampledPageTopColor = std::nullopt;
         chrome().client().sampledPageTopColorChanged();
     }
+
+    checkedElementTargetingController()->didChangeMainDocument(newDocument);
 }
 
 RenderingUpdateScheduler& Page::renderingUpdateScheduler()
@@ -4085,8 +4130,6 @@ void Page::applicationWillResignActive()
 
 void Page::applicationDidEnterBackground()
 {
-    m_webRTCProvider->setActive(false);
-
 #if ENABLE(WEBXR)
     if (auto session = this->activeImmersiveXRSession())
         session->applicationDidEnterBackground();
@@ -4095,8 +4138,6 @@ void Page::applicationDidEnterBackground()
 
 void Page::applicationWillEnterForeground()
 {
-    m_webRTCProvider->setActive(true);
-
 #if ENABLE(WEBXR)
     if (auto session = this->activeImmersiveXRSession())
         session->applicationWillEnterForeground();
@@ -4414,6 +4455,7 @@ SpeechRecognitionConnection& Page::speechRecognitionConnection()
 WTF::TextStream& operator<<(WTF::TextStream& ts, RenderingUpdateStep step)
 {
     switch (step) {
+    case RenderingUpdateStep::Reveal: ts << "Reveal"; break;
     case RenderingUpdateStep::FlushAutofocusCandidates: ts << "FlushAutofocusCandidates"; break;
     case RenderingUpdateStep::Resize: ts << "Resize"; break;
     case RenderingUpdateStep::Scroll: ts << "Scroll"; break;
@@ -4852,7 +4894,24 @@ void Page::gamepadsRecentlyAccessed()
     chrome().client().gamepadsRecentlyAccessed();
     m_lastAccessNotificationTime = MonotonicTime::now();
 }
-#endif
+
+#if PLATFORM(VISION)
+void Page::allowGamepadAccess()
+{
+    if (m_gamepadAccessGranted)
+        return;
+
+    m_gamepadAccessGranted = true;
+    GamepadManager::singleton().updateQuarantineStatus();
+}
+
+void Page::initializeGamepadAccessForPageLoad()
+{
+    m_gamepadAccessGranted = m_gamepadAccessRequiresExplicitConsent == ShouldRequireExplicitConsentForGamepadAccess::No;
+}
+#endif // PLATFORM(VISION)
+
+#endif // ENABLE(GAMEPAD)
 
 #if ENABLE(WRITING_TOOLS)
 void Page::willBeginWritingToolsSession(const std::optional<WritingTools::Session>& session, CompletionHandler<void(const Vector<WritingTools::Context>&)>&& completionHandler)
@@ -4903,6 +4962,11 @@ void Page::respondToReappliedWritingToolsEditing(EditCommandComposition* command
 std::optional<SimpleRange> Page::contextRangeForSessionWithID(const WritingTools::Session::ID& sessionID) const
 {
     return m_writingToolsController->contextRangeForSessionWithID(sessionID);
+}
+
+void Page::showSelectionForWritingToolsSessionWithID(const WritingTools::Session::ID& sessionID) const
+{
+    return m_writingToolsController->showSelectionForWritingToolsSessionWithID(sessionID);
 }
 
 void Page::writingToolsSessionDidReceiveAction(const WritingTools::Session& session, WritingTools::Action action)

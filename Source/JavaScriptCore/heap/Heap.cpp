@@ -271,7 +271,7 @@ private:
     , name ISO_SUBSPACE_INIT(*this, heapCellType, type)
 
 #define INIT_SERVER_STRUCTURE_ISO_SUBSPACE(name, heapCellType, type) \
-    , name("IsoSubspace" #name, *this, heapCellType, WTF::roundUpToMultipleOf<type::atomSize>(sizeof(type)), type::numberOfLowerTierCells, makeUnique<StructureAlignedMemoryAllocator>("Structure"))
+    , name("IsoSubspace" #name, *this, heapCellType, WTF::roundUpToMultipleOf<type::atomSize>(sizeof(type)), type::usePreciseAllocationsOnly, type::numberOfLowerTierPreciseCells, makeUnique<StructureAlignedMemoryAllocator>("Structure"))
 
 Heap::Heap(VM& vm, HeapType heapType)
     : m_heapType(heapType)
@@ -2223,13 +2223,13 @@ void Heap::finalize()
     if (auto* cache = vm().megamorphicCache())
         cache->age(m_lastCollectionScope && m_lastCollectionScope.value() == CollectionScope::Full ? CollectionScope::Full : CollectionScope::Eden);
 
-    if (m_lastCollectionScope && m_lastCollectionScope.value() == CollectionScope::Full)
+    if (m_lastCollectionScope && m_lastCollectionScope.value() == CollectionScope::Full) {
         vm().jsonAtomStringCache.clear();
+        vm().numericStrings.clearOnGarbageCollection();
+        vm().stringReplaceCache.clear();
+    }
     vm().keyAtomStringCache.clear();
     vm().stringSplitCache.clear();
-    vm().stringReplaceCache.clear();
-    if (m_lastCollectionScope && m_lastCollectionScope.value() == CollectionScope::Full)
-        vm().numericStrings.clearOnGarbageCollection();
 
     m_possiblyAccessedStringsFromConcurrentThreads.clear();
 

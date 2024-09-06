@@ -760,10 +760,12 @@ void NetworkSessionCocoa::setClientAuditToken(const WebCore::AuthenticationChall
     
     // Proxy authentication is handled by CFNetwork internally. We can get here if the user cancels
     // CFNetwork authentication dialog, and we shouldn't ask the client to display another one in that case.
-    if (challenge.protectionSpace.isProxy && !sessionCocoa->preventsSystemHTTPProxyAuthentication()) {
-        completionHandler(NSURLSessionAuthChallengeUseCredential, nil);
-        return;
-    }
+    if (challenge.protectionSpace.isProxy
+#if HAVE(NW_PROXY_CONFIG)
+        && sessionCocoa->proxyConfigs().isEmpty()
+#endif
+        && !sessionCocoa->preventsSystemHTTPProxyAuthentication())
+        return completionHandler(NSURLSessionAuthChallengeUseCredential, nil);
 
     NegotiatedLegacyTLS negotiatedLegacyTLS = NegotiatedLegacyTLS::No;
 
@@ -895,10 +897,15 @@ static NSDictionary<NSString *, id> *extractResolutionReport(NSError *error)
             newUserInfo[@"networkTaskMetricsPrivacyStance"] = privacyStanceToString(networkDataTask->networkLoadMetrics().privacyStance);
 #endif
 #if HAVE(NETWORK_RESOLUTION_FAILURE_REPORT) && defined(NW_CONNECTION_HAS_FAILED_RESOLUTION_REPORT)
-            for (NSError *underlyingError in error.underlyingErrors) {
-                if (auto report = extractResolutionReport(underlyingError)) {
-                    newUserInfo[@"networkResolutionReport"] = report;
-                    break;
+            if (auto report = extractResolutionReport(error))
+                newUserInfo[@"networkResolutionReport"] = report;
+            else {
+                // This can be removed when the CFNetwork loader is no longer in use
+                for (NSError *underlyingError in error.underlyingErrors) {
+                    if (auto report = extractResolutionReport(underlyingError)) {
+                        newUserInfo[@"networkResolutionReport"] = report;
+                        break;
+                    }
                 }
             }
 #endif

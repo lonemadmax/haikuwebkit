@@ -99,7 +99,15 @@ public:
             m_insertionSet.execute(m_block);
             m_changed |= m_blockInsertionSet.execute();
         }
-
+        InsertionSet dropSynthetic(m_proc);
+        for (BasicBlock *block : blocksInPreOrder) {
+            for (size_t index = 0; index < block->size(); ++index) {
+                Value* value = block->at(index);
+                if ((value->opcode() == Identity) && value->child(0) == m_zero)
+                    value->replaceWithBottom(dropSynthetic, index);
+            }
+            dropSynthetic.execute(block);
+        }
         m_proc.deleteValue(m_zero);
         if (m_changed) {
             m_proc.resetReachability();
@@ -847,6 +855,7 @@ private:
         case Load16Z:
         case Load16S:
         case Mod:
+        case Oops:
         case SExt8:
         case SExt16:
         case SlotBase:
@@ -856,6 +865,7 @@ private:
         case UDiv:
         case UMod:
         case Jump:
+        case Nop:
             return;
         case BitwiseCast: {
             if (m_value->type() == Int64) {
@@ -874,8 +884,22 @@ private:
             RELEASE_ASSERT_NOT_REACHED(); // XXX: TBD
         }
         case Trunc: {
+            if (m_value->child(0)->type() != Int64)
+                return;
             auto input = getMapping(m_value->child(0));
             m_value->replaceWithIdentity(input.second);
+            return;
+        }
+        case TruncHigh: {
+            if (m_value->child(0)->type() != Int64)
+                return;
+            auto input = getMapping(m_value->child(0));
+            m_value->replaceWithIdentity(input.first);
+            return;
+        }
+        case Stitch: {
+            setMapping(m_value, m_value->child(0), m_value->child(1));
+            valueReplaced();
             return;
         }
         case Identity: {
@@ -919,32 +943,42 @@ private:
             valueReplaced();
             return;
         }
-        case SExt8To64: {
-            Value* signBit = insert<Value>(m_index, BitAnd, m_origin, m_value->child(0), insert<Const32Value>(m_index, m_origin, 0x00000080));
-            Value* one = insert<Const32Value>(m_index, m_origin, 1);
-            Value* ones = insert<Const32Value>(m_index, m_origin, 0xffffffff);
-            Value* signIntermediate = insert<Value>(m_index, BitXor, m_origin, insert<Value>(m_index, Sub, m_origin, signBit, one), ones);
-            Value* lo = insert<Value>(m_index, BitOr, m_origin, m_value->child(0), signIntermediate);
-            Value* hi = insert<Value>(m_index, SShr, m_origin, signIntermediate, insert<Const32Value>(m_index, m_origin, 8));
-            setMapping(m_value, hi, lo);
-            valueReplaced();
-            return;
-        }
+        case SExt8To64:
         case SExt16To64: {
-            Value* signBit = insert<Value>(m_index, BitAnd, m_origin, m_value->child(0), insert<Const32Value>(m_index, m_origin, 0x00008000));
-            Value* one = insert<Const32Value>(m_index, m_origin, 1);
+            size_t inputBits = 8;
+            if (m_value->opcode() == SExt16To64)
+                inputBits = 16;
+            uint32_t signBitMask = 1 << (inputBits - 1);
+            uint32_t inputMask = (1 << inputBits) - 1;
+            Value* signBit = insert<Value>(m_index, BitAnd, m_origin, m_value->child(0), insert<Const32Value>(m_index, m_origin, signBitMask));
             Value* ones = insert<Const32Value>(m_index, m_origin, 0xffffffff);
-            Value* signIntermediate = insert<Value>(m_index, BitXor, m_origin, insert<Value>(m_index, Sub, m_origin, signBit, one), ones);
-            Value* lo = insert<Value>(m_index, BitOr, m_origin, m_value->child(0), signIntermediate);
-            Value* hi = insert<Value>(m_index, SShr, m_origin, signIntermediate, insert<Const32Value>(m_index, m_origin, 16));
+            Value* zero = insert<Const32Value>(m_index, m_origin, 0);
+            Value* extension = insert<Value>(m_index, Select, m_origin, signBit, ones, zero);
+            Value* shiftedExtension = insert<Value>(m_index, Shl, m_origin, extension, insert<Const32Value>(m_index, m_origin, inputBits));
+            Value* maskedInput = insert<Value>(m_index, BitAnd, m_origin, m_value->child(0), insert<Const32Value>(m_index, m_origin, inputMask));
+            Value* lo = insert<Value>(m_index, BitOr, m_origin, maskedInput, shiftedExtension);
+            Value* hi = extension;
             setMapping(m_value, hi, lo);
             valueReplaced();
             return;
         }
         case Load: {
-            if (m_value->type() != Int64)
-                return;
+            // Lower Int64 loads to Int32 loads.
+            //
+            // If loads of Doubles/Floats would fault on unaligned access,
+            // lower those to Int32 loads as well.
             MemoryValue* memory = m_value->as<MemoryValue>();
+            if (!hasUnalignedFPMemoryAccess() && m_value->type() == Float) {
+                MemoryValue* asInt32 = insert<MemoryValue>(m_index, Load, Int32, m_origin, memory->child(0));
+                asInt32->setOffset(memory->offset());
+                asInt32->setRange(memory->range());
+                asInt32->setFenceRange(memory->fenceRange());
+                Value* result = insert<Value>(m_index, BitwiseCast, m_origin, asInt32);
+                m_value->replaceWithIdentity(result);
+                return;
+            }
+            if (!(m_value->type() == Int64 || (!hasUnalignedFPMemoryAccess() && m_value->type() == Double)))
+                return;
             HeapRange rangeHi, rangeLo;
             splitRange(memory->range(), rangeHi, rangeLo);
 
@@ -964,14 +998,37 @@ private:
             lo->setOffset(memory->offset());
             lo->setRange(rangeLo);
             lo->setFenceRange(fenceRangeLo);
-            setMapping(m_value, hi, lo);
-            valueReplaced();
+            if (m_value->type() == Double) {
+                Value* result = insert<Value>(m_index, BitwiseCast, m_origin, valueHiLo(hi, lo));
+                m_value->replaceWithIdentity(result);
+            } else {
+                setMapping(m_value, hi, lo);
+                valueReplaced();
+            }
             return;
         }
         case Store: {
-            if (m_value->child(0)->type() != Int64)
-                return;
+            // Lower Int64 stores to Int32 stores.
+            //
+            // If stores of Doubles/Floats would fault on unaligned access,
+            // lower those to Int32 stores as well.
             MemoryValue* memory = m_value->as<MemoryValue>();
+            std::pair<Value*, Value*> value;
+            if (!hasUnalignedFPMemoryAccess() && m_value->child(0)->type() == Double) {
+                Value* asInt64 = insert<Value>(m_index, BitwiseCast, m_origin, m_value->child(0));
+                value = { valueHi(asInt64), valueLo(asInt64) };
+            } else if (!hasUnalignedFPMemoryAccess() && m_value->child(0)->type() == Float) {
+                Value* asInt32 = insert<Value>(m_index, BitwiseCast, m_origin, m_value->child(0));
+                MemoryValue* store = insert<MemoryValue>(m_index, Store, m_origin, asInt32, memory->child(1));
+                store->setOffset(memory->offset());
+                store->setRange(memory->range());
+                store->setFenceRange(memory->fenceRange());
+                valueReplaced();
+                return;
+            } else if (m_value->child(0)->type() == Int64)
+                value = getMapping(m_value->child(0));
+            else
+                return;
 
             HeapRange rangeHi, rangeLo;
             splitRange(memory->range(), rangeHi, rangeLo);
@@ -979,7 +1036,6 @@ private:
             HeapRange fenceRangeHi, fenceRangeLo;
             splitRange(memory->fenceRange(), fenceRangeHi, fenceRangeLo);
 
-            auto value = getMapping(m_value->child(0));
 
             MemoryValue* hi = insert<MemoryValue>(m_index, Store, m_origin, value.first, memory->child(1));
             CheckedInt32 offsetHi = CheckedInt32(memory->offset()) + CheckedInt32(bytesForWidth(Width32));

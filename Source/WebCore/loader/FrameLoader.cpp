@@ -476,31 +476,6 @@ void FrameLoader::checkContentPolicy(const ResourceResponse& response, ContentPo
     client().dispatchDecidePolicyForResponse(response, activeDocumentLoader()->request(), activeDocumentLoader()->downloadAttribute(), WTFMove(function));
 }
 
-bool FrameLoader::shouldUpgradeRequestforHTTPSOnly(const URL& originalURL, ResourceRequest& request) const
-{
-    RefPtr documentLoader = m_provisionalDocumentLoader ? m_provisionalDocumentLoader : m_documentLoader;
-    auto& newURL = request.url();
-    const auto& isSameSiteBypassEnabled = (originalURL.isEmpty()
-        || RegistrableDomain(newURL) == RegistrableDomain(originalURL))
-        && documentLoader && documentLoader->advancedPrivacyProtections().contains(AdvancedPrivacyProtections::HTTPSOnlyExplicitlyBypassedForDomain);
-
-    return documentLoader && documentLoader->advancedPrivacyProtections().contains(AdvancedPrivacyProtections::HTTPSOnly)
-        && newURL.protocolIs("http"_s)
-        && !isSameSiteBypassEnabled;
-}
-
-bool FrameLoader::upgradeRequestforHTTPSOnlyIfNeeded(const URL& originalURL, ResourceRequest& request) const
-{
-    if (shouldUpgradeRequestforHTTPSOnly(originalURL, request)) {
-        FRAMELOADER_RELEASE_LOG(ResourceLoading, "upgradeRequestforHTTPSOnlyIfNeeded: upgrading navigation request");
-        request.upgradeInsecureRequest();
-        // FIXME: Make this timeout adaptive based on network conditions
-        request.setTimeoutInterval(10);
-        return true;
-    }
-    return false;
-}
-
 void FrameLoader::changeLocation(const URL& url, const AtomString& passedTarget, Event* triggeringEvent, const ReferrerPolicy& referrerPolicy, ShouldOpenExternalURLsPolicy shouldOpenExternalURLsPolicy, std::optional<NewFrameOpenerPolicy> openerPolicy, const AtomString& downloadAttribute, std::optional<PrivateClickMeasurement>&& privateClickMeasurement, NavigationHistoryBehavior historyBehavior)
 {
     RefPtr frame = lexicalFrameFromCommonVM();
@@ -526,10 +501,8 @@ void FrameLoader::changeLocation(FrameLoadRequest&& frameRequest, Event* trigger
     if (frameRequest.frameName().isEmpty())
         frameRequest.setFrameName(frame->document()->baseTarget());
 
-    auto currentURL { frame->document() ? frame->document()->url() : URL { } };
-    upgradeRequestforHTTPSOnlyIfNeeded(currentURL, frameRequest.resourceRequest());
-
-    frame->protectedDocument()->checkedContentSecurityPolicy()->upgradeInsecureRequestIfNeeded(frameRequest.resourceRequest(), ContentSecurityPolicy::InsecureRequestType::Navigation);
+    if (RefPtr document = frame->protectedDocument())
+        document->checkedContentSecurityPolicy()->upgradeInsecureRequestIfNeeded(frameRequest.resourceRequest(), ContentSecurityPolicy::InsecureRequestType::Navigation);
 
     loadFrameRequest(WTFMove(frameRequest), triggeringEvent, { }, WTFMove(privateClickMeasurement));
 }
@@ -703,6 +676,9 @@ void FrameLoader::clear(RefPtr<Document>&& newDocument, bool clearWindowProperti
 
     RefAllowingPartiallyDestroyed<LocalFrame> frame = m_frame.get();
 
+    if (neededClear)
+        frame->document()->transferViewTransitionParams(*newDocument);
+
     if (neededClear && frame->document()->backForwardCacheState() != Document::InBackForwardCache) {
         Ref document { *frame->document() };
         document->cancelParsing();
@@ -822,8 +798,8 @@ void FrameLoader::didBeginDocument(bool dispatch)
     document->initContentSecurityPolicy();
 
     Ref settings = frame->settings();
-    document->cachedResourceLoader().setImagesEnabled(settings->areImagesEnabled());
-    document->cachedResourceLoader().setAutoLoadImages(settings->loadsImagesAutomatically());
+    document->protectedCachedResourceLoader()->setImagesEnabled(settings->areImagesEnabled());
+    document->protectedCachedResourceLoader()->setAutoLoadImages(settings->loadsImagesAutomatically());
 
     std::optional<NavigationNavigationType> navigationType;
 
@@ -2418,6 +2394,13 @@ void FrameLoader::transitionToCommitted(CachedPage* cachedPage)
     m_client->setCopiesOnScroll();
     m_frame->checkedHistory()->updateForCommit();
 
+    if (RefPtr document = m_frame->document()) {
+        bool canTriggerCrossDocumentViewTransition = false;
+        if (m_provisionalDocumentLoader)
+            canTriggerCrossDocumentViewTransition = m_provisionalDocumentLoader->navigationCanTriggerCrossDocumentViewTransition(*document);
+        document->dispatchPageswapEvent(canTriggerCrossDocumentViewTransition);
+    }
+
     // The call to closeURL() invokes the unload event handler, which can execute arbitrary
     // JavaScript. If the script initiates a new load, we need to abandon the current load,
     // or the two will stomp each other.
@@ -2729,7 +2712,7 @@ void FrameLoader::dispatchDidFailProvisionalLoad(DocumentLoader& provisionalDocu
     auto contentFilterWillContinueLoading = false;
 #endif
 
-    auto willContinueLoading = WillContinueLoading::No;
+    auto willContinueLoading = willInternallyHandleFailure == WillInternallyHandleFailure::Yes ? WillContinueLoading::Yes : WillContinueLoading::No;
     if (m_frame->history().provisionalItem())
         willContinueLoading = WillContinueLoading::Yes;
 #if ENABLE(CONTENT_FILTERING)
@@ -2797,6 +2780,7 @@ void FrameLoader::checkLoadCompleteForThisFrame(LoadWillContinueInAnotherProcess
         if (error.isNull())
             return;
 
+        bool isHTTPSByDefaultEnabled { false };
         // Check all children first.
         RefPtr<HistoryItem> item;
         if (RefPtr page = m_frame->page()) {
@@ -2804,9 +2788,14 @@ void FrameLoader::checkLoadCompleteForThisFrame(LoadWillContinueInAnotherProcess
                 // Reset the back forward list to the last committed history item at the top level.
                 item = page->mainFrame().history().currentItem();
             }
+
+            isHTTPSByDefaultEnabled = page->protectedSettings()->httpsByDefault();
         }
 
-        bool isHTTPSFirstApplicable = provisionalDocumentLoader->advancedPrivacyProtections().contains(AdvancedPrivacyProtections::HTTPSFirst) && !provisionalDocumentLoader->advancedPrivacyProtections().contains(AdvancedPrivacyProtections::HTTPSOnly) && !isHTTPFallbackInProgress() && (!provisionalDocumentLoader->mainResourceLoader() || !provisionalDocumentLoader->mainResourceLoader()->redirectCount());
+        bool isHTTPSFirstApplicable = (isHTTPSByDefaultEnabled || provisionalDocumentLoader->httpsByDefaultMode() == HTTPSByDefaultMode::UpgradeWithHTTPFallback)
+            && provisionalDocumentLoader->httpsByDefaultMode() != HTTPSByDefaultMode::UpgradeAndFailClosed
+            && !isHTTPFallbackInProgress()
+            && (!provisionalDocumentLoader->mainResourceLoader() || !provisionalDocumentLoader->mainResourceLoader()->redirectCount());
 
         // Only reset if we aren't already going to a new provisional item.
         bool shouldReset = !m_frame->history().provisionalItem();
@@ -2923,11 +2912,13 @@ void FrameLoader::checkLoadCompleteForThisFrame(LoadWillContinueInAnotherProcess
             protectedFrame()->protectedPage()->diagnosticLoggingClient().logDiagnosticMessageWithResult(DiagnosticLoggingKeys::pageLoadedKey(), emptyString(), error.isNull() ? DiagnosticLoggingResultPass : DiagnosticLoggingResultFail, ShouldSample::Yes);
         }
 
+        m_shouldSkipHTTPSUpgradeForSameSiteNavigation = m_isHTTPFallbackInProgress;
+        setHTTPFallbackInProgress(false);
+
         return;
     }
         
     case FrameState::Complete:
-        setHTTPFallbackInProgress(false);
         m_loadType = FrameLoadType::Standard;
         frameLoadCompleted();
         return;
@@ -3529,7 +3520,7 @@ ResourceLoaderIdentifier FrameLoader::loadResourceSynchronously(const ResourceRe
     if (error.isNull()) {
         if (RefPtr page = m_frame->page()) {
             if (RefPtr documentLoader = m_documentLoader) {
-                auto results = page->userContentProvider().processContentRuleListsForLoad(*page, newRequest.url(), ContentExtensions::ResourceType::Fetch, *documentLoader);
+                auto results = page->protectedUserContentProvider()->processContentRuleListsForLoad(*page, newRequest.url(), ContentExtensions::ResourceType::Fetch, *documentLoader);
                 bool blockedLoad = results.summary.blockedLoad;
                 ContentExtensions::applyResultsToRequest(WTFMove(results), page.get(), newRequest);
                 if (blockedLoad) {
@@ -4122,6 +4113,9 @@ void FrameLoader::applyUserAgentIfNeeded(ResourceRequest& request)
 
 bool FrameLoader::shouldInterruptLoadForXFrameOptions(const String& content, const URL& url, ResourceLoaderIdentifier requestIdentifier)
 {
+    if (m_frame->settings().ignoreIframeEmbeddingProtectionsEnabled())
+        return false;
+
     RefPtr topFrame = dynamicDowncast<LocalFrame>(m_frame->tree().top());
     if (m_frame.ptr() == topFrame)
         return false;

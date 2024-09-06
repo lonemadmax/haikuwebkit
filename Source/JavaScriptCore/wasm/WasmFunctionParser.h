@@ -134,6 +134,7 @@ public:
     Result WARN_UNUSED_RETURN parseConstantExpression();
 
     OpType currentOpcode() const { return m_currentOpcode; }
+    uint32_t currentExtendedOpcode() const { return m_currentExtOp; }
     size_t currentOpcodeStartingOffset() const { return m_currentOpcodeStartingOffset; }
     const TypeDefinition& signature() const { return m_signature; }
     const Type& typeOfLocal(uint32_t localIndex) const { return m_locals[localIndex]; }
@@ -144,7 +145,7 @@ public:
 
     void pushLocalInitialized(uint32_t index)
     {
-        if (Options::useWebAssemblyTypedFunctionReferences() && !isDefaultableType(typeOfLocal(index)) && !localIsInitialized(index)) {
+        if (Options::useWasmTypedFunctionReferences() && !isDefaultableType(typeOfLocal(index)) && !localIsInitialized(index)) {
             m_localInitStack.append(index);
             m_localInitFlags.quickSet(index);
         }
@@ -152,7 +153,7 @@ public:
     uint32_t getLocalInitStackHeight() const { return m_localInitStack.size(); }
     void resetLocalInitStackToHeight(uint32_t height)
     {
-        if (Options::useWebAssemblyTypedFunctionReferences()) {
+        if (Options::useWasmTypedFunctionReferences()) {
             for (uint32_t i = height; i < m_localInitStack.size(); i++)
                 m_localInitFlags.quickClear(m_localInitStack.takeLast());
         }
@@ -186,10 +187,10 @@ private:
     PartialResult WARN_UNUSED_RETURN parseNestedBlocksEagerly(bool&);
     void switchToBlock(ControlType&&, Stack&&);
 
-#define WASM_TRY_POP_EXPRESSION_STACK_INTO(result, what) do {                               \
+#define WASM_TRY_POP_EXPRESSION_STACK_INTO(result, what) do { \
         WASM_PARSER_FAIL_IF(m_expressionStack.isEmpty(), "can't pop empty stack in "_s, what); \
-        result = m_expressionStack.takeLast();                                              \
-        m_context.didPopValueFromStack(result, WTF::makeString("WasmFunctionParser.h:"_s, (__LINE__)));                                                   \
+        result = m_expressionStack.takeLast(); \
+        m_context.didPopValueFromStack(result, "WasmFunctionParser.h " STRINGIZE(__LINE__) ""_s); \
     } while (0)
 
     using UnaryOperationHandler = PartialResult (Context::*)(ExpressionType, ExpressionType&);
@@ -277,7 +278,7 @@ private:
     NEVER_INLINE UnexpectedResult WARN_UNUSED_RETURN validationFail(const Args&... args) const
     {
         using namespace FailureHelper; // See ADL comment in WasmParser.h.
-        if (UNLIKELY(ASSERT_ENABLED && Options::crashOnFailedWebAssemblyValidate()))
+        if (UNLIKELY(ASSERT_ENABLED && Options::crashOnFailedWasmValidate()))
             WTFBreakpointTrap();
 
         StringPrintStream out;
@@ -296,7 +297,7 @@ private:
 
     String typeToStringModuleRelative(const Type& type) const
     {
-        if (isRefType(type) && Options::useWebAssemblyTypedFunctionReferences()) {
+        if (isRefType(type) && Options::useWasmTypedFunctionReferences()) {
             StringPrintStream out;
             out.print("(ref "_s);
             if (type.isNullable())
@@ -350,6 +351,7 @@ private:
     BitVector m_localInitFlags;
 
     OpType m_currentOpcode { 0 };
+    uint32_t m_currentExtOp { 0 };
     size_t m_currentOpcodeStartingOffset { 0 };
 
     unsigned m_unreachableBlocks { 0 };
@@ -428,7 +430,7 @@ auto FunctionParser<Context>::parse() -> Result
         WASM_PARSER_FAIL_IF(totalNumberOfLocals > maxFunctionLocals, "Function's number of locals is too big "_s, totalNumberOfLocals, " maximum "_s, maxFunctionLocals);
         WASM_PARSER_FAIL_IF(!parseValueType(m_info, typeOfLocal), "can't get Function local's type in group "_s, i);
         if (UNLIKELY(!isDefaultableType(typeOfLocal))) {
-            if (!Options::useWebAssemblyTypedFunctionReferences())
+            if (!Options::useWasmTypedFunctionReferences())
                 return fail("Function locals must have a defaultable type"_s);
             totalNonDefaultableLocals++;
         }
@@ -445,7 +447,7 @@ auto FunctionParser<Context>::parse() -> Result
         WASM_TRY_ADD_TO_CONTEXT(addLocal(typeOfLocal, numberOfLocals));
     }
 
-    if (Options::useWebAssemblyTypedFunctionReferences()) {
+    if (Options::useWasmTypedFunctionReferences()) {
         WASM_PARSER_FAIL_IF(!m_localInitStack.tryReserveCapacity(totalNonDefaultableLocals), "can't allocate enough memory for tracking function's local initialization"_s);
         m_localInitFlags.ensureSize(totalNumberOfLocals);
         // Param locals are always considered initialized, so we need to pre-set them.
@@ -491,7 +493,7 @@ auto FunctionParser<Context>::parseBody() -> PartialResult
 
         m_currentOpcode = static_cast<OpType>(op);
 #if ENABLE(WEBASSEMBLY_OMGJIT)
-        if (UNLIKELY(Options::dumpWebAssemblyOpcodeStatistics()))
+        if (UNLIKELY(Options::dumpWasmOpcodeStatistics()))
             WasmOpcodeCounter::singleton().increment(m_currentOpcode);
 #endif
 
@@ -834,7 +836,7 @@ auto FunctionParser<Context>::simd(SIMDLaneOperation op, SIMDLane lane, SIMDSign
     };
 
     if (isRelaxedSIMDOperation(op))
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyRelaxedSIMD(), "relaxed simd instructions not supported"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmRelaxedSIMD(), "relaxed simd instructions not supported"_s);
 
     switch (op) {
     case SIMDLaneOperation::Const: {
@@ -1614,7 +1616,7 @@ template<typename Context>
 auto FunctionParser<Context>::checkLocalInitialized(uint32_t index) -> PartialResult
 {
     // If typed funcrefs are off, non-defaultable locals fail earlier.
-    if (!Options::useWebAssemblyTypedFunctionReferences() || isDefaultableType(typeOfLocal(index)))
+    if (!Options::useWasmTypedFunctionReferences() || isDefaultableType(typeOfLocal(index)))
         return { };
 
     WASM_VALIDATOR_FAIL_IF(!localIsInitialized(index), "non-defaultable function local "_s, index, " is accessed before initialization"_s);
@@ -1850,10 +1852,10 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
     }
 
     case Ext1: {
-        uint32_t extOp;
-        WASM_PARSER_FAIL_IF(!parseVarUInt32(extOp), "can't parse 0xfc extended opcode"_s);
+        WASM_PARSER_FAIL_IF(!parseVarUInt32(m_currentExtOp), "can't parse 0xfc extended opcode"_s);
+        m_context.willParseExtendedOpcode();
 
-        Ext1OpType op = static_cast<Ext1OpType>(extOp);
+        Ext1OpType op = static_cast<Ext1OpType>(m_currentExtOp);
         switch (op) {
         case Ext1OpType::TableInit: {
             TableInitImmediates immediates;
@@ -2019,19 +2021,18 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
 #undef CREATE_CASE
 
         default:
-            WASM_PARSER_FAIL_IF(true, "invalid 0xfc extended op "_s, extOp);
+            WASM_PARSER_FAIL_IF(true, "invalid 0xfc extended op "_s, m_currentExtOp);
             break;
         }
         return { };
     }
 
     case ExtGC: {
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyGC(), "Wasm GC is not enabled"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmGC(), "Wasm GC is not enabled"_s);
+        WASM_PARSER_FAIL_IF(!parseVarUInt32(m_currentExtOp), "can't parse extended GC opcode"_s);
+        m_context.willParseExtendedOpcode();
 
-        uint32_t extOp;
-        WASM_PARSER_FAIL_IF(!parseVarUInt32(extOp), "can't parse extended GC opcode"_s);
-
-        ExtGCOpType op = static_cast<ExtGCOpType>(extOp);
+        ExtGCOpType op = static_cast<ExtGCOpType>(m_currentExtOp);
         switch (op) {
         case ExtGCOpType::RefI31: {
             TypedExpression value;
@@ -2650,19 +2651,19 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
             return { };
         }
         default:
-            WASM_PARSER_FAIL_IF(true, "invalid extended GC op "_s, extOp);
+            WASM_PARSER_FAIL_IF(true, "invalid extended GC op "_s, m_currentExtOp);
             break;
         }
         return { };
     }
 
     case ExtAtomic: {
-        uint32_t extOp;
-        WASM_PARSER_FAIL_IF(!parseVarUInt32(extOp), "can't parse atomic extended opcode"_s);
+        WASM_PARSER_FAIL_IF(!parseVarUInt32(m_currentExtOp), "can't parse atomic extended opcode"_s);
+        m_context.willParseExtendedOpcode();
 
-        ExtAtomicOpType op = static_cast<ExtAtomicOpType>(extOp);
+        ExtAtomicOpType op = static_cast<ExtAtomicOpType>(m_currentExtOp);
 #if ENABLE(WEBASSEMBLY_OMGJIT)
-        if (UNLIKELY(Options::dumpWebAssemblyOpcodeStatistics()))
+        if (UNLIKELY(Options::dumpWasmOpcodeStatistics()))
             WasmOpcodeCounter::singleton().increment(op);
 #endif
 
@@ -2694,7 +2695,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         case ExtAtomicOpType::I64AtomicRmwCmpxchg:
             return atomicCompareExchange(op, Types::I64);
         default:
-            WASM_PARSER_FAIL_IF(true, "invalid extended atomic op "_s, extOp);
+            WASM_PARSER_FAIL_IF(true, "invalid extended atomic op "_s, m_currentExtOp);
             break;
         }
         return { };
@@ -2702,7 +2703,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
 
     case RefNull: {
         Type typeOfNull;
-        if (Options::useWebAssemblyTypedFunctionReferences()) {
+        if (Options::useWasmTypedFunctionReferences()) {
             int32_t heapType;
             WASM_PARSER_FAIL_IF(!parseHeapType(m_info, heapType), "ref.null heaptype must be funcref, externref or type_idx"_s);
             if (isTypeIndexHeapType(heapType)) {
@@ -2738,7 +2739,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         ExpressionType result;
         WASM_TRY_ADD_TO_CONTEXT(addRefFunc(index, result));
 
-        if (Options::useWebAssemblyTypedFunctionReferences()) {
+        if (Options::useWasmTypedFunctionReferences()) {
             TypeIndex typeIndex = m_info.typeIndexFromFunctionIndexSpace(index);
             m_expressionStack.constructAndAppend(Type { TypeKind::Ref, typeIndex }, result);
             return { };
@@ -2749,9 +2750,10 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
     }
 
     case RefAsNonNull: {
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyTypedFunctionReferences(), "function references are not enabled"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmTypedFunctionReferences(), "function references are not enabled"_s);
         TypedExpression ref;
         WASM_TRY_POP_EXPRESSION_STACK_INTO(ref, "ref.as_non_null"_s);
+        WASM_VALIDATOR_FAIL_IF(!isRefType(ref.type()), "ref.as_non_null ref to type ", ref.type(), " expected a reference type");
 
         ExpressionType result;
         WASM_TRY_ADD_TO_CONTEXT(addRefAsNonNull(ref, result));
@@ -2761,7 +2763,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
     }
 
     case BrOnNull: {
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyTypedFunctionReferences(), "function references are not enabled"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmTypedFunctionReferences(), "function references are not enabled"_s);
         uint32_t target;
         WASM_FAIL_IF_HELPER_FAILS(parseBranchTarget(target));
 
@@ -2781,7 +2783,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
     }
 
     case BrOnNonNull: {
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyTypedFunctionReferences(), "function references are not enabled"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmTypedFunctionReferences(), "function references are not enabled"_s);
         uint32_t target;
         WASM_FAIL_IF_HELPER_FAILS(parseBranchTarget(target));
 
@@ -2805,7 +2807,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
     }
 
     case RefEq: {
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyGC(), "Wasm GC is not enabled"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmGC(), "Wasm GC is not enabled"_s);
 
         TypedExpression ref0;
         TypedExpression ref1;
@@ -2855,10 +2857,8 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         WASM_TRY_POP_EXPRESSION_STACK_INTO(value, "tee_local"_s);
         WASM_VALIDATOR_FAIL_IF(index >= m_locals.size(), "attempt to tee unknown local "_s, index, "_s, the number of locals is "_s, m_locals.size());
         WASM_VALIDATOR_FAIL_IF(!isSubtype(value.type(), m_locals[index]), "set_local to type "_s, value.type(), " expected "_s, m_locals[index]);
-        WASM_TRY_ADD_TO_CONTEXT(setLocal(index, value));
-
         ExpressionType result;
-        WASM_TRY_ADD_TO_CONTEXT(getLocal(index, result));
+        WASM_TRY_ADD_TO_CONTEXT(teeLocal(index, value, result));
         m_expressionStack.constructAndAppend(m_locals[index], result);
         return { };
     }
@@ -2906,7 +2906,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
     }
 
     case TailCall:
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyTailCalls(), "wasm tail calls are not enabled"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmTailCalls(), "wasm tail calls are not enabled"_s);
         FALLTHROUGH;
     case Call: {
         uint32_t functionIndex;
@@ -2968,7 +2968,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
     }
 
     case TailCallIndirect:
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyTailCalls(), "wasm tail calls are not enabled"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmTailCalls(), "wasm tail calls are not enabled"_s);
         FALLTHROUGH;
     case CallIndirect: {
         uint32_t signatureIndex;
@@ -3036,7 +3036,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
     }
 
     case CallRef: {
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyTypedFunctionReferences(), "function references are not enabled");
+        WASM_PARSER_FAIL_IF(!Options::useWasmTypedFunctionReferences(), "function references are not enabled");
 
         uint32_t typeIndex;
         WASM_PARSER_FAIL_IF(!parseVarUInt32(typeIndex), "can't get call_ref's signature index"_s);
@@ -3441,15 +3441,15 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
     }
 #if ENABLE(B3_JIT)
     case ExtSIMD: {
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblySIMD(), "wasm-simd is not enabled"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmSIMD(), "wasm-simd is not enabled"_s);
         m_context.notifyFunctionUsesSIMD();
-        uint32_t extOp;
-        WASM_PARSER_FAIL_IF(!parseVarUInt32(extOp), "can't parse wasm extended opcode"_s);
+        WASM_PARSER_FAIL_IF(!parseVarUInt32(m_currentExtOp), "can't parse wasm extended opcode"_s);
+        m_context.willParseExtendedOpcode();
 
         constexpr bool isReachable = true;
 
-        ExtSIMDOpType op = static_cast<ExtSIMDOpType>(extOp);
-        if (UNLIKELY(Options::dumpWebAssemblyOpcodeStatistics()))
+        ExtSIMDOpType op = static_cast<ExtSIMDOpType>(m_currentExtOp);
+        if (UNLIKELY(Options::dumpWasmOpcodeStatistics()))
             WasmOpcodeCounter::singleton().increment(op);
 
         switch (op) {
@@ -3460,7 +3460,7 @@ FOR_EACH_WASM_MEMORY_STORE_OP(CREATE_CASE)
         FOR_EACH_WASM_EXT_SIMD_REL_OP(CREATE_SIMD_CASE)
         #undef CREATE_SIMD_CASE
         default:
-            WASM_PARSER_FAIL_IF(true, "invalid extended simd op "_s, extOp);
+            WASM_PARSER_FAIL_IF(true, "invalid extended simd op "_s, m_currentExtOp);
             break;
         }
         return { };
@@ -3602,7 +3602,7 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
     }
 
     case TailCallIndirect:
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyTailCalls(), "wasm tail calls are not enabled"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmTailCalls(), "wasm tail calls are not enabled"_s);
         FALLTHROUGH;
     case CallIndirect: {
         uint32_t unused;
@@ -3613,7 +3613,7 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
     }
 
     case CallRef: {
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyTypedFunctionReferences(), "function references are not enabled"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmTypedFunctionReferences(), "function references are not enabled"_s);
         uint32_t unused;
         WASM_PARSER_FAIL_IF(!parseVarUInt32(unused), "can't call_ref's signature index in unreachable context"_s);
         return { };
@@ -3663,7 +3663,7 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
     }
 
     case TailCall:
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyTailCalls(), "wasm tail calls are not enabled"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmTailCalls(), "wasm tail calls are not enabled"_s);
         FALLTHROUGH;
     case Call: {
         uint32_t functionIndex;
@@ -3707,10 +3707,10 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
     }
 
     case Ext1: {
-        uint32_t extOp;
-        WASM_PARSER_FAIL_IF(!parseVarUInt32(extOp), "can't parse extended 0xfc opcode"_s);
+        WASM_PARSER_FAIL_IF(!parseVarUInt32(m_currentExtOp), "can't parse extended 0xfc opcode"_s);
+        m_context.willParseExtendedOpcode();
 
-        switch (static_cast<Ext1OpType>(extOp)) {
+        switch (static_cast<Ext1OpType>(m_currentExtOp)) {
         case Ext1OpType::TableInit: {
             TableInitImmediates immediates;
             WASM_FAIL_IF_HELPER_FAILS(parseTableInitImmediates(immediates));
@@ -3756,7 +3756,7 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
             return { };
 #undef CREATE_EXT1_CASE
         default:
-            WASM_PARSER_FAIL_IF(true, "invalid extended 0xfc op "_s, extOp);
+            WASM_PARSER_FAIL_IF(true, "invalid extended 0xfc op "_s, m_currentExtOp);
             break;
         }
 
@@ -3799,14 +3799,13 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
     }
 
     case ExtGC: {
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblyGC(), "Wasm GC is not enabled"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmGC(), "Wasm GC is not enabled"_s);
+        WASM_PARSER_FAIL_IF(!parseVarUInt32(m_currentExtOp), "can't parse extended GC opcode"_s);
+        m_context.willParseExtendedOpcode();
 
-        uint32_t extOp;
-        WASM_PARSER_FAIL_IF(!parseVarUInt32(extOp), "can't parse extended GC opcode"_s);
-
-        ExtGCOpType op = static_cast<ExtGCOpType>(extOp);
+        ExtGCOpType op = static_cast<ExtGCOpType>(m_currentExtOp);
 #if ENABLE(WEBASSEMBLY_OMGJIT)
-        if (UNLIKELY(Options::dumpWebAssemblyOpcodeStatistics()))
+        if (UNLIKELY(Options::dumpWasmOpcodeStatistics()))
             WasmOpcodeCounter::singleton().increment(op);
 #endif
 
@@ -3900,7 +3899,7 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
             return { };
         }
         default:
-            WASM_PARSER_FAIL_IF(true, "invalid extended GC op "_s, extOp);
+            WASM_PARSER_FAIL_IF(true, "invalid extended GC op "_s, m_currentExtOp);
             break;
         }
 
@@ -3917,9 +3916,10 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
 
 #define CREATE_ATOMIC_CASE(name, ...) case ExtAtomicOpType::name:
     case ExtAtomic: {
-        uint32_t extOp;
-        WASM_PARSER_FAIL_IF(!parseVarUInt32(extOp), "can't parse atomic extended opcode"_s);
-        ExtAtomicOpType op = static_cast<ExtAtomicOpType>(extOp);
+        WASM_PARSER_FAIL_IF(!parseVarUInt32(m_currentExtOp), "can't parse atomic extended opcode"_s);
+        m_context.willParseExtendedOpcode();
+
+        ExtAtomicOpType op = static_cast<ExtAtomicOpType>(m_currentExtOp);
         switch (op) {
         FOR_EACH_WASM_EXT_ATOMIC_LOAD_OP(CREATE_ATOMIC_CASE)
         FOR_EACH_WASM_EXT_ATOMIC_STORE_OP(CREATE_ATOMIC_CASE)
@@ -3950,7 +3950,7 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
             break;
         }
         default:
-            WASM_PARSER_FAIL_IF(true, "invalid extended atomic op "_s, extOp);
+            WASM_PARSER_FAIL_IF(true, "invalid extended atomic op "_s, m_currentExtOp);
             break;
         }
 
@@ -3960,14 +3960,14 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
 
 #if ENABLE(B3_JIT)
     case ExtSIMD: {
-        WASM_PARSER_FAIL_IF(!Options::useWebAssemblySIMD(), "wasm-simd is not enabled"_s);
+        WASM_PARSER_FAIL_IF(!Options::useWasmSIMD(), "wasm-simd is not enabled"_s);
         m_context.notifyFunctionUsesSIMD();
-        uint32_t extOp;
-        WASM_PARSER_FAIL_IF(!parseVarUInt32(extOp), "can't parse wasm extended opcode"_s);
+        WASM_PARSER_FAIL_IF(!parseVarUInt32(m_currentExtOp), "can't parse wasm extended opcode"_s);
+        m_context.willParseExtendedOpcode();
 
         constexpr bool isReachable = false;
 
-        ExtSIMDOpType op = static_cast<ExtSIMDOpType>(extOp);
+        ExtSIMDOpType op = static_cast<ExtSIMDOpType>(m_currentExtOp);
         switch (op) {
         #define CREATE_SIMD_CASE(name, _, laneOp, lane, signMode) case ExtSIMDOpType::name: return simd<isReachable>(SIMDLaneOperation::laneOp, lane, signMode);
         FOR_EACH_WASM_EXT_SIMD_GENERAL_OP(CREATE_SIMD_CASE)
@@ -3976,7 +3976,7 @@ auto FunctionParser<Context>::parseUnreachableExpression() -> PartialResult
         FOR_EACH_WASM_EXT_SIMD_REL_OP(CREATE_SIMD_CASE)
         #undef CREATE_SIMD_CASE
         default:
-            WASM_PARSER_FAIL_IF(true, "invalid extended simd op "_s, extOp);
+            WASM_PARSER_FAIL_IF(true, "invalid extended simd op "_s, m_currentExtOp);
             break;
         }
         return { };

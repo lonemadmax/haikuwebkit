@@ -120,7 +120,8 @@ private:
     void selectAudioMediaOption(uint64_t) final;
     void selectLegibleMediaOption(uint64_t) final;
     void togglePictureInPicture() final;
-    void toggleInWindowFullscreen() final;
+    void enterInWindowFullscreen() final;
+    void exitInWindowFullscreen() final;
     void enterFullscreen() final;
     void exitFullscreen() final;
     void toggleMuted() final;
@@ -231,7 +232,7 @@ public:
     void invalidate();
 
     bool hasControlsManagerInterface() const { return !!m_controlsManagerContextId; }
-    WebCore::PlatformPlaybackSessionInterface* controlsManagerInterface();
+    RefPtr<WebCore::PlatformPlaybackSessionInterface> controlsManagerInterface();
     void requestControlledElementID();
 
     bool isPaused(PlaybackSessionContextIdentifier) const;
@@ -246,11 +247,11 @@ private:
     explicit PlaybackSessionManagerProxy(WebPageProxy&);
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
 
-    typedef std::tuple<RefPtr<PlaybackSessionModelContext>, RefPtr<WebCore::PlatformPlaybackSessionInterface>> ModelInterfaceTuple;
+    typedef std::tuple<Ref<PlaybackSessionModelContext>, Ref<WebCore::PlatformPlaybackSessionInterface>> ModelInterfaceTuple;
     ModelInterfaceTuple createModelAndInterface(PlaybackSessionContextIdentifier);
-    ModelInterfaceTuple& ensureModelAndInterface(PlaybackSessionContextIdentifier);
-    PlaybackSessionModelContext& ensureModel(PlaybackSessionContextIdentifier);
-    WebCore::PlatformPlaybackSessionInterface& ensureInterface(PlaybackSessionContextIdentifier);
+    const ModelInterfaceTuple& ensureModelAndInterface(PlaybackSessionContextIdentifier);
+    Ref<PlaybackSessionModelContext> ensureModel(PlaybackSessionContextIdentifier);
+    Ref<WebCore::PlatformPlaybackSessionInterface> ensureInterface(PlaybackSessionContextIdentifier);
     void addClientForContext(PlaybackSessionContextIdentifier);
     void removeClientForContext(PlaybackSessionContextIdentifier);
 
@@ -299,7 +300,8 @@ private:
     void togglePictureInPicture(PlaybackSessionContextIdentifier);
     void enterFullscreen(PlaybackSessionContextIdentifier);
     void exitFullscreen(PlaybackSessionContextIdentifier);
-    void toggleInWindow(PlaybackSessionContextIdentifier);
+    void enterInWindow(PlaybackSessionContextIdentifier);
+    void exitInWindow(PlaybackSessionContextIdentifier);
     void toggleMuted(PlaybackSessionContextIdentifier);
     void setMuted(PlaybackSessionContextIdentifier, bool);
     void setVolume(PlaybackSessionContextIdentifier, double);

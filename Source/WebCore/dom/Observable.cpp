@@ -25,29 +25,57 @@
 #include "config.h"
 #include "Observable.h"
 
+#include "AbortSignal.h"
 #include "CallbackResult.h"
+#include "Document.h"
 #include "Exception.h"
 #include "ExceptionCode.h"
+#include "InternalObserverDrop.h"
+#include "InternalObserverFilter.h"
+#include "InternalObserverFromScript.h"
+#include "InternalObserverMap.h"
+#include "InternalObserverTake.h"
+#include "JSSubscriptionObserverCallback.h"
+#include "MapperCallback.h"
+#include "PredicateCallback.h"
 #include "SubscribeOptions.h"
 #include "Subscriber.h"
 #include "SubscriberCallback.h"
 #include "SubscriptionObserver.h"
-#include "SubscriptionObserverCallback.h"
+#include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
 
-ExceptionOr<Ref<Observable>> Observable::create(Ref<SubscriberCallback> callback)
+WTF_MAKE_ISO_ALLOCATED_IMPL(Observable);
+
+Ref<Observable> Observable::create(Ref<SubscriberCallback> callback)
 {
     return adoptRef(*new Observable(callback));
 }
 
 void Observable::subscribe(ScriptExecutionContext& context, std::optional<ObserverUnion> observer, SubscribeOptions options)
 {
+    if (observer) {
+        WTF::switchOn(
+            observer.value(),
+            [&](RefPtr<JSSubscriptionObserverCallback>& next) {
+                subscribeInternal(context, InternalObserverFromScript::create(context, next), options);
+            },
+            [&](SubscriptionObserver& subscription) {
+                subscribeInternal(context, InternalObserverFromScript::create(context, subscription), options);
+            }
+        );
+    } else
+        subscribeInternal(context, InternalObserverFromScript::create(context, nullptr), options);
+}
+
+void Observable::subscribeInternal(ScriptExecutionContext& context, Ref<InternalObserver> observer, SubscribeOptions options)
+{
     RefPtr document = dynamicDowncast<Document>(context);
     if (document && !document->isFullyActive())
         return;
 
-    Ref<Subscriber> subscriber = makeSubscriber(context, observer);
+    auto subscriber = Subscriber::create(context, observer);
 
     if (options.signal)
         subscriber->followSignal(*options.signal.get());
@@ -62,7 +90,7 @@ void Observable::subscribe(ScriptExecutionContext& context, std::optional<Observ
     JSC::Exception* previousException = nullptr;
     {
         auto catchScope = DECLARE_CATCH_SCOPE(vm);
-        m_subscriber->handleEvent(subscriber);
+        m_subscriberCallback->handleEvent(subscriber);
         previousException = catchScope.exception();
         if (previousException) {
             catchScope.clearException();
@@ -71,27 +99,28 @@ void Observable::subscribe(ScriptExecutionContext& context, std::optional<Observ
     }
 }
 
-Ref<Subscriber> Observable::makeSubscriber(ScriptExecutionContext& context, std::optional<ObserverUnion> observer)
+Ref<Observable> Observable::map(ScriptExecutionContext& context, MapperCallback& mapper)
 {
-    if (observer.has_value()) {
-        return WTF::switchOn(
-            observer.value(),
-            [&](RefPtr<JSSubscriptionObserverCallback>& next) {
-                return Subscriber::create(context, next);
-            },
-            [&](SubscriptionObserver& subscription) {
-                return Subscriber::create(context, subscription.next, subscription.error, subscription.complete);
-            }
-        );
-    }
-
-    return Subscriber::create(context);
+    return create(createSubscriberCallbackMap(context, *this, mapper));
 }
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(Observable);
+Ref<Observable> Observable::filter(ScriptExecutionContext& context, PredicateCallback& predicate)
+{
+    return create(createSubscriberCallbackFilter(context, *this, predicate));
+}
+
+Ref<Observable> Observable::take(ScriptExecutionContext& context, uint64_t amount)
+{
+    return create(createSubscriberCallbackTake(context, *this, amount));
+}
+
+Ref<Observable> Observable::drop(ScriptExecutionContext& context, uint64_t amount)
+{
+    return create(createSubscriberCallbackDrop(context, *this, amount));
+}
 
 Observable::Observable(Ref<SubscriberCallback> callback)
-    : m_subscriber(callback)
+    : m_subscriberCallback(callback)
 {
 }
 

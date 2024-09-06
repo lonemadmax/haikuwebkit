@@ -39,14 +39,12 @@
 #include "LLIntData.h"
 #include "NativeCalleeRegistry.h"
 #include "Options.h"
-#include "RegisterTZoneTypes.h"
 #include "SuperSampler.h"
 #include "VMTraps.h"
 #include "WasmCapabilities.h"
 #include "WasmFaultSignalHandler.h"
 #include "WasmThunks.h"
 #include <mutex>
-#include <wtf/TZoneMallocInitialization.h>
 #include <wtf/Threading.h>
 #include <wtf/threads/Signals.h>
 
@@ -72,14 +70,6 @@ void initialize()
     static std::once_flag onceFlag;
 
     std::call_once(onceFlag, [] {
-#if USE(TZONE_MALLOC)
-        // This is needed for apps that link with the JavaScriptCore ObjC API
-        if (!WTF_TZONE_IS_READY()) {
-            WTF_TZONE_INIT(nullptr);
-            JSC::registerTZoneTypes();
-            WTF_TZONE_REGISTRATION_DONE();
-        }
-#endif
         WTF::initialize();
         Options::initialize();
 
@@ -116,7 +106,7 @@ void initialize()
 
         AssemblyCommentRegistry::initialize();
 #if ENABLE(WEBASSEMBLY)
-        if (Options::useWebAssemblyIPInt() || Options::useInterpretedJSEntryWrappers())
+        if (Options::useWasmIPInt())
             IPInt::initialize();
 #endif
         LLInt::initialize();
@@ -148,9 +138,6 @@ void initialize()
         WTF::compilerFence();
         RELEASE_ASSERT(!g_jscConfig.initializeHasBeenCalled);
         g_jscConfig.initializeHasBeenCalled = true;
-#if OS(WINDOWS) && ENABLE(WEBASSEMBLY)
-        g_wtfConfigForLLInt = g_wtfConfig;
-#endif
     });
 }
 

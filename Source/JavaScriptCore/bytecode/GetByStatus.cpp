@@ -161,7 +161,7 @@ GetByStatus GetByStatus::computeFromLLInt(CodeBlock* profiledBlock, BytecodeInde
         return GetByStatus(NoInformation, false);
 
     GetByStatus result(Simple, false);
-    result.appendVariant(GetByVariant(nullptr, StructureSet(structure), offset));
+    result.appendVariant(GetByVariant(nullptr, StructureSet(structure), /* viaGlobalProxy */ false, offset));
     return result;
 }
 
@@ -223,7 +223,7 @@ GetByStatus::GetByStatus(const ModuleNamespaceAccessCase& accessCase)
 {
 }
 
-GetByStatus GetByStatus::computeForStubInfoWithoutExitSiteFeedback(const ConcurrentJSLocker& locker, CodeBlock* profiledBlock, StructureStubInfo* stubInfo, CallLinkStatus::ExitSiteData callExitSiteData, CodeOrigin codeOrigin)
+GetByStatus GetByStatus::computeForStubInfoWithoutExitSiteFeedback(const ConcurrentJSLocker& locker, CodeBlock* profiledBlock, StructureStubInfo* stubInfo, CallLinkStatus::ExitSiteData callExitSiteData, CodeOrigin)
 {
     StubInfoSummary summary = StructureStubInfo::summary(profiledBlock->vm(), stubInfo);
     if (!isInlineable(summary))
@@ -271,20 +271,12 @@ GetByStatus GetByStatus::computeForStubInfoWithoutExitSiteFeedback(const Concurr
                 auto callLinkStatus = makeUnique<CallLinkStatus>();
                 if (CallLinkInfo* callLinkInfo = stubInfo->callLinkInfoAt(locker, 0, access))
                     *callLinkStatus = CallLinkStatus::computeFor(locker, profiledBlock, *callLinkInfo, callExitSiteData);
-                status.appendVariant(GetByVariant(access.identifier(), { }, invalidOffset, { }, WTFMove(callLinkStatus)));
+                status.appendVariant(GetByVariant(access.identifier(), { }, /* viaGlobalProxy */ false, invalidOffset, { }, WTFMove(callLinkStatus)));
                 return status;
             }
             case AccessCase::LoadMegamorphic:
             case AccessCase::IndexedMegamorphicLoad: {
-                // Emitting LoadMegamorphic means that we give up polymorphic IC optimization. So this needs very careful handling.
-                // It is possible that one function can be inlined from the other function, and then it gets limited # of structures.
-                // In this case, continue using IC is better than falling back to megamorphic case. But if the function gets compiled before,
-                // and even optimizing JIT saw the megamorphism, then this is likely that this function continues having megamorphic behavior,
-                // and inlined megamorphic code is faster. Currently, we use LoadMegamorphic only when the exact same form of CodeOrigin gets
-                // this megamorphic GetById before (same level of inlining etc.). This is very conservative but effective since IC is very fast
-                // when it worked well (but costly if it doesn't work and get megamorphic). Once this cost-benefit tradeoff gets changed (via
-                // handler IC), we can revisit this condition.
-                if (isSameStyledCodeOrigin(stubInfo->codeOrigin, codeOrigin) && !stubInfo->tookSlowPath)
+                if (!stubInfo->tookSlowPath)
                     return GetByStatus(Megamorphic, /* wasSeenInJIT */ true);
                 break;
             }
@@ -295,8 +287,7 @@ GetByStatus GetByStatus::computeForStubInfoWithoutExitSiteFeedback(const Concurr
 
         for (unsigned listIndex = 0; listIndex < list->size(); ++listIndex) {
             const AccessCase& access = list->at(listIndex);
-            if (access.viaGlobalProxy())
-                return GetByStatus(JSC::slowVersion(summary), stubInfo);
+            bool viaGlobalProxy = access.viaGlobalProxy();
 
             if (access.usesPolyProto())
                 return GetByStatus(JSC::slowVersion(summary), stubInfo);
@@ -338,7 +329,7 @@ GetByStatus GetByStatus::computeForStubInfoWithoutExitSiteFeedback(const Concurr
                     domAttribute = WTF::makeUnique<DOMAttributeAnnotation>(*access.as<GetterSetterAccessCase>().domAttribute());
 
                 ASSERT((AccessCase::Miss == access.type() || access.isCustom()) == (access.offset() == invalidOffset));
-                GetByVariant variant(access.identifier(), StructureSet(structure), invalidOffset,
+                GetByVariant variant(access.identifier(), StructureSet(structure), viaGlobalProxy, invalidOffset,
                     WTFMove(conditionSet), nullptr,
                     nullptr,
                     customAccessorGetter,
@@ -395,7 +386,7 @@ GetByStatus GetByStatus::computeForStubInfoWithoutExitSiteFeedback(const Concurr
                     }
 
                     ASSERT((AccessCase::Miss == access.type() || access.isCustom()) == (access.offset() == invalidOffset));
-                    GetByVariant variant(access.identifier(), StructureSet(structure), complexGetStatus.offset(),
+                    GetByVariant variant(access.identifier(), StructureSet(structure), viaGlobalProxy, complexGetStatus.offset(),
                         complexGetStatus.conditionSet(), WTFMove(callLinkStatus), intrinsicFunction);
 
                     if (!result.appendVariant(variant))
@@ -500,7 +491,7 @@ GetByStatus GetByStatus::computeFor(const StructureSet& set, UniquedStringImpl* 
         if (attributes & PropertyAttribute::CustomAccessorOrValue)
             return GetByStatus(LikelyTakesSlowPath);
         
-        if (!result.appendVariant(GetByVariant(nullptr, structure, offset)))
+        if (!result.appendVariant(GetByVariant(nullptr, structure, /* viaGlobalProxy */ false, offset)))
             return GetByStatus(LikelyTakesSlowPath);
     }
     

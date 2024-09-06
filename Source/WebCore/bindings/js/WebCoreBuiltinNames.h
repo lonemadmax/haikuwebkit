@@ -168,6 +168,8 @@ namespace WebCore {
     macro(CSSUnitValue) \
     macro(CSSUnparsedValue) \
     macro(CSSVariableReferenceValue) \
+    macro(CSSViewTransitionRule) \
+    macro(CommandEvent) \
     macro(CookieChangeEvent) \
     macro(CookieStore) \
     macro(CookieStoreManager) \
@@ -280,7 +282,6 @@ namespace WebCore {
     macro(InputEvent) \
     macro(IntersectionObserver) \
     macro(IntersectionObserverEntry) \
-    macro(InvokeEvent) \
     macro(KeyframeEffect) \
     macro(Lock) \
     macro(LockManager) \
@@ -461,6 +462,7 @@ namespace WebCore {
     macro(VideoFrame) \
     macro(ViewTimeline) \
     macro(ViewTransition) \
+    macro(ViewTransitionTypeSet) \
     macro(VisualViewport) \
     macro(WGSLLanguageFeatures) \
     macro(WakeLock) \
@@ -503,6 +505,10 @@ namespace WebCore {
     macro(WritableStreamDefaultWriter) \
     macro(XMLHttpRequest) \
     macro(XRBoundedReferenceSpace) \
+    macro(XRCompositionLayer) \
+    macro(XRCubeLayer) \
+    macro(XRCylinderLayer) \
+    macro(XREquirectLayer) \
     macro(XRFrame) \
     macro(XRHand) \
     macro(XRInputSource) \
@@ -512,7 +518,10 @@ namespace WebCore {
     macro(XRJointPose) \
     macro(XRJointSpace) \
     macro(XRLayer) \
+    macro(XRLayerEvent) \
     macro(XRPose) \
+    macro(XRProjectionLayer) \
+    macro(XRQuadLayer) \
     macro(XRReferenceSpace) \
     macro(XRReferenceSpaceEvent) \
     macro(XRRenderState) \
@@ -520,12 +529,15 @@ namespace WebCore {
     macro(XRSession) \
     macro(XRSessionEvent) \
     macro(XRSpace) \
+    macro(XRSubImage) \
     macro(XRSystem) \
     macro(XRTest) \
     macro(XRView) \
     macro(XRViewerPose) \
     macro(XRViewport) \
+    macro(XRWebGLBinding) \
     macro(XRWebGLLayer) \
+    macro(XRWebGLSubImage) \
     macro(VideoTrackGenerator) \
     macro(abortAlgorithm) \
     macro(abortSteps) \

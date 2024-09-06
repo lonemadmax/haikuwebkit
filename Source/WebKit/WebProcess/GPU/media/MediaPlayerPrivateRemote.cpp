@@ -185,7 +185,7 @@ MediaPlayerPrivateRemote::MediaPlayerPrivateRemote(MediaPlayer* player, MediaPla
     , m_logIdentifier(player->mediaPlayerLogIdentifier())
 #endif
     , m_player(*player)
-    , m_mediaResourceLoader(*player->createResourceLoader())
+    , m_mediaResourceLoader(player->createResourceLoader())
 #if PLATFORM(COCOA)
     , m_videoLayerManager(makeUniqueRef<VideoLayerManagerObjC>(logger(), logIdentifier()))
 #endif
@@ -686,6 +686,7 @@ void MediaPlayerPrivateRemote::updateCachedState(RemoteMediaPlayerState&& state)
     m_cachedState.wirelessVideoPlaybackDisabled = state.wirelessVideoPlaybackDisabled;
     m_cachedState.didPassCORSAccessCheck = state.didPassCORSAccessCheck;
     m_cachedState.documentIsCrossOrigin = state.documentIsCrossOrigin;
+    m_cachedState.videoConfiguration = state.videoConfiguration;
 
     if (state.bufferedRanges)
         m_cachedBufferedTimeRanges = *state.bufferedRanges;
@@ -1832,6 +1833,15 @@ bool MediaPlayerPrivateRemote::supportsLinearMediaPlayer() const
     return false;
 }
 #endif
+
+void MediaPlayerPrivateRemote::videoPlaybackConfigurationChanged(const VideoPlaybackConfiguration& configuration)
+{
+    ALWAYS_LOG(LOGIDENTIFIER, configuration);
+
+    m_cachedState.videoConfiguration = configuration;
+    if (auto player = m_player.get())
+        player->videoPlaybackConfigurationChanged();
+}
 
 void MediaPlayerPrivateRemote::commitAllTransactions(CompletionHandler<void()>&& completionHandler)
 {

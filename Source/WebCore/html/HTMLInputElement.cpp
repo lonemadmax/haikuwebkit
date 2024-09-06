@@ -811,6 +811,8 @@ void HTMLInputElement::attributeChanged(const QualifiedName& name, const AtomStr
             setFormControlValueMatchesRenderer(false);
         }
         updateValidity();
+        if (selfOrPrecedingNodesAffectDirAuto())
+            updateEffectiveDirectionalityOfDirAuto();
         m_valueAttributeWasUpdatedAfterParsing = !m_parsingInProgress;
         break;
     case AttributeNames::nameAttr:
@@ -1342,8 +1344,8 @@ void HTMLInputElement::defaultEventHandler(Event& event)
     // must dispatch a DOMActivate event - a click event will not do the job.
     if (event.type() == eventNames().DOMActivateEvent) {
         m_inputType->handleDOMActivateEvent(event);
-        if (invokeTargetElement())
-            handleInvokeAction();
+        if (commandForElement())
+            handleCommand();
         else
             handlePopoverTargetAction();
         if (event.defaultHandled())

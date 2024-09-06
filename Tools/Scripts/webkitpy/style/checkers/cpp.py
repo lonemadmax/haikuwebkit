@@ -1395,8 +1395,8 @@ class _EnumState(object):
 
 
 def regex_for_lambdas_and_blocks(line, line_number, file_state, error):
-    cpp_result = search(r'\s\[.*?\]\s', line)
-    objc_result = search(r'(\s\^\s?\(.*?\)\s?|\^\s*\{|:\^(\s|\w+)?\(.*?\)\s\{)', line)
+    cpp_result = search(r'\[.*?\]\s*[\(\{]', line)
+    objc_result = search(r'(\^(.*)?\(.*?\)|\^\s*\{)', line)
     if cpp_result:
         group = cpp_result.group()
         targ_error = None
@@ -1420,7 +1420,7 @@ def regex_for_lambdas_and_blocks(line, line_number, file_state, error):
         if search(r'\^\s+\{', group):
             targ_error = [line_number, 'whitespace/brackets', 4,
               'Extra space between ^ and block definition.',line]
-        if search(r'\^\s\(', group):
+        if search(r'\^\s+\(', group):
             targ_error = [line_number, 'whitespace/brackets', 4,
               'Extra space between ^ and block arguments.',line]
 
@@ -4058,6 +4058,10 @@ def check_language(filename, clean_lines, line_number, file_extension, include_s
     if filename != 'Source/WebCore/platform/graphics/gstreamer/GStreamerCommon.cpp':
         if search(r'gst_structure_get_(int|uint|double|boolean)', line):
             error(line_number, 'readability/check', 4, 'Consider using gstStructureGet<T>() instead')
+        if search(r'gst_structure_get_string', line):
+            error(line_number, 'readability/check', 4, 'Consider using gstStructureGetString() instead')
+        if search(r'gst_structure_get_name', line):
+            error(line_number, 'readability/check', 4, 'Consider using gstStructureGetName() instead')
 
 
 def check_identifier_name_in_declaration(filename, line_number, line, file_state, error):

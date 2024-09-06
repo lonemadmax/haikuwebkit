@@ -167,7 +167,7 @@ void linkPolymorphicCall(VM& vm, JSCell* owner, CallFrame* callFrame, CallLinkIn
     // If we are over the limit, just use a normal virtual call.
     unsigned maxPolymorphicCallVariantListSize;
     if (isWebAssembly)
-        maxPolymorphicCallVariantListSize = Options::maxPolymorphicCallVariantListSizeForWebAssemblyToJS();
+        maxPolymorphicCallVariantListSize = Options::maxPolymorphicCallVariantListSizeForWasmToJS();
     else if (callerCodeBlock->jitType() == JITCode::topTierJIT())
         maxPolymorphicCallVariantListSize = Options::maxPolymorphicCallVariantListSizeForTopTier();
     else
@@ -443,7 +443,6 @@ static InlineCacheAction tryCacheGetBy(JSGlobalObject* globalObject, CodeBlock* 
                 if (stubInfo.cacheType() == CacheType::Unset
                     && slot.slotBase() == baseCell
                     && InlineAccess::isCacheableArrayLength(stubInfo, jsCast<JSArray*>(baseCell))) {
-
                     bool generatedCodeInline = InlineAccess::generateArrayLength(stubInfo, jsCast<JSArray*>(baseCell));
                     if (generatedCodeInline) {
                         repatchSlowPathCall(codeBlock, stubInfo, appropriateGetByOptimizeFunction(kind));
@@ -774,6 +773,11 @@ static InlineCacheAction tryCacheArrayGetByVal(JSGlobalObject* globalObject, Cod
                 break;
             case Uint32ArrayType:
                 accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayUint32Load : AccessCase::IndexedTypedArrayUint32Load;
+                break;
+            case Float16ArrayType:
+                if (!CCallHelpers::supportsFloat16())
+                    return GiveUpOnCache;
+                accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayFloat16Load : AccessCase::IndexedTypedArrayFloat16Load;
                 break;
             case Float32ArrayType:
                 accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayFloat32Load : AccessCase::IndexedTypedArrayFloat32Load;
@@ -1318,6 +1322,11 @@ static InlineCacheAction tryCacheArrayPutByVal(JSGlobalObject* globalObject, Cod
                 break;
             case Uint32ArrayType:
                 accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayUint32Store : AccessCase::IndexedTypedArrayUint32Store;
+                break;
+            case Float16ArrayType:
+                if (!CCallHelpers::supportsFloat16())
+                    return GiveUpOnCache;
+                accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayFloat16Store : AccessCase::IndexedTypedArrayFloat16Store;
                 break;
             case Float32ArrayType:
                 accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayFloat32Store : AccessCase::IndexedTypedArrayFloat32Store;
@@ -1914,6 +1923,11 @@ static InlineCacheAction tryCacheArrayInByVal(JSGlobalObject* globalObject, Code
                 break;
             case Uint32ArrayType:
                 accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayUint32InHit : AccessCase::IndexedTypedArrayUint32InHit;
+                break;
+            case Float16ArrayType:
+                if (!CCallHelpers::supportsFloat16())
+                    return GiveUpOnCache;
+                accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayFloat16InHit : AccessCase::IndexedTypedArrayFloat16InHit;
                 break;
             case Float32ArrayType:
                 accessType = typedArray->isResizableOrGrowableShared() ? AccessCase::IndexedResizableTypedArrayFloat32InHit : AccessCase::IndexedTypedArrayFloat32InHit;

@@ -9,6 +9,7 @@
 
 #include <dawn/webgpu_cpp.h>
 #include <stdint.h>
+#include <algorithm>
 
 #include "libANGLE/Error.h"
 #include "libANGLE/ImageIndex.h"
@@ -72,9 +73,14 @@ class ImageHelper
     ImageHelper();
     ~ImageHelper();
 
-    angle::Result initImage(wgpu::Device &device,
+    angle::Result initImage(angle::FormatID intendedFormatID,
+                            angle::FormatID actualFormatID,
+                            wgpu::Device &device,
                             gl::LevelIndex firstAllocatedLevel,
                             wgpu::TextureDescriptor textureDescriptor);
+    angle::Result initExternal(angle::FormatID intendedFormatID,
+                               angle::FormatID actualFormatID,
+                               wgpu::Texture externalTexture);
 
     angle::Result flushStagedUpdates(ContextWgpu *contextWgpu,
                                      ClearValuesArray *deferredClears = nullptr,
@@ -88,6 +94,8 @@ class ImageHelper
                                                     std::uint32_t sampleCount);
 
     angle::Result stageTextureUpload(ContextWgpu *contextWgpu,
+                                     const webgpu::Format &webgpuFormat,
+                                     GLenum type,
                                      const gl::Extents &glExtents,
                                      GLuint inputRowPitch,
                                      GLuint inputDepthPitch,
@@ -116,7 +124,6 @@ class ImageHelper
     angle::Result readPixels(rx::ContextWgpu *contextWgpu,
                              const gl::Rectangle &area,
                              const rx::PackPixelsParams &packPixelsParams,
-                             const angle::Format &aspectFormat,
                              void *pixels);
 
     angle::Result createTextureView(gl::LevelIndex targetLevel,
@@ -127,6 +134,8 @@ class ImageHelper
     bool isTextureLevelInAllocatedImage(gl::LevelIndex textureLevel);
     wgpu::Texture &getTexture() { return mTexture; }
     wgpu::TextureFormat toWgpuTextureFormat() const { return mTextureDescriptor.format; }
+    angle::FormatID getIntendedFormatID() { return mIntendedFormatID; }
+    angle::FormatID getActualFormatID() { return mActualFormatID; }
     const wgpu::TextureDescriptor &getTextureDescriptor() const { return mTextureDescriptor; }
     gl::LevelIndex getFirstAllocatedLevel() { return mFirstAllocatedLevel; }
     gl::LevelIndex getLastAllocatedLevel();
@@ -137,10 +146,11 @@ class ImageHelper
   private:
     wgpu::Texture mTexture;
     wgpu::TextureDescriptor mTextureDescriptor = {};
-    std::vector<wgpu::TextureFormat> mViewFormats;
-    bool mInitialized = false;
+    bool mInitialized                          = false;
 
     gl::LevelIndex mFirstAllocatedLevel = gl::LevelIndex(0);
+    angle::FormatID mIntendedFormatID;
+    angle::FormatID mActualFormatID;
 
     std::vector<SubresourceUpdate> mSubresourceQueue;
 };
@@ -186,10 +196,12 @@ class BufferHelper : public angle::NonCopyable
     bool canMapForWrite() const;
 
     wgpu::Buffer &getBuffer();
-    uint64_t size() const;
+    uint64_t requestedSize() const;
+    uint64_t actualSize() const;
 
   private:
     wgpu::Buffer mBuffer;
+    size_t mRequestedSize = 0;
 
     std::optional<BufferMapState> mMappedState;
 };

@@ -41,6 +41,7 @@ class Range;
 struct TextIndicatorData;
 
 enum class TextIndicatorOption : uint16_t;
+enum class TextAnimationRunMode : uint8_t;
 
 namespace WritingTools {
 using SessionID = WTF::UUID;
@@ -77,14 +78,16 @@ public:
     void removeTransparentMarkersForSessionID(const WTF::UUID& sessionUUID);
     void removeTransparentMarkersForTextAnimationID(const WTF::UUID&);
 
-    void removeInitialTextAnimation(const WTF::UUID& sessionUUID);
-    void addInitialTextAnimation(const WTF::UUID& sessionUUID);
-    void addSourceTextAnimation(const WTF::UUID& sessionUUID, const WebCore::CharacterRange&, const String, WTF::CompletionHandler<void(void)>&&);
-    void addDestinationTextAnimation(const WTF::UUID& sessionUUID, const WebCore::CharacterRange&, const String);
+    void removeInitialTextAnimation(const WebCore::WritingTools::SessionID&);
+    void addInitialTextAnimation(const WebCore::WritingTools::SessionID&);
+    void addSourceTextAnimation(const WebCore::WritingTools::SessionID&, const WebCore::CharacterRange&, const String&, CompletionHandler<void(WebCore::TextAnimationRunMode)>&&);
+    void addDestinationTextAnimation(const WebCore::WritingTools::SessionID&, const std::optional<WebCore::CharacterRange>&, const String&);
 
-    void clearAnimationsForSessionID(const WTF::UUID& sessionUUID);
+    void clearAnimationsForSessionID(const WebCore::WritingTools::SessionID&);
 
     void updateUnderlyingTextVisibilityForTextAnimationID(const WTF::UUID&, bool visible, CompletionHandler<void()>&&);
+
+    void showSelectionForWritingToolsSessionAssociatedWithAnimationID(const WTF::UUID&);
 
     std::optional<WebCore::TextIndicatorData> createTextIndicatorForRange(const WebCore::SimpleRange&);
     void createTextIndicatorForTextAnimationID(const WTF::UUID&, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&&);
@@ -100,12 +103,11 @@ private:
     RefPtr<WebCore::Document> document() const;
     WeakPtr<WebPage> m_webPage;
 
-    // All of these HashMap keys are SessionIDs
-    HashMap<WTF::UUID, WTF::UUID> m_initialAnimations;
-    HashMap<WTF::UUID, Vector<TextAnimationRange>> m_textAnimationRanges;
-    HashMap<WTF::UUID, std::optional<ReplacedRangeAndString>> m_alreadyReplacedRanges;
-    HashMap<WTF::UUID, std::optional<TextAnimationUnstyledRangeData>> m_unstyledRanges;
-    HashMap<WTF::UUID, Ref<WebCore::Range>> m_manuallyEnabledAnimationRanges;
+    HashMap<WebCore::WritingTools::SessionID, WTF::UUID> m_initialAnimations;
+    HashMap<WebCore::WritingTools::SessionID, Vector<TextAnimationRange>> m_textAnimationRanges;
+    HashMap<WebCore::WritingTools::SessionID, std::optional<ReplacedRangeAndString>> m_alreadyReplacedRanges;
+    HashMap<WebCore::WritingTools::SessionID, std::optional<TextAnimationUnstyledRangeData>> m_unstyledRanges;
+    HashMap<WebCore::WritingTools::SessionID, Ref<WebCore::Range>> m_manuallyEnabledAnimationRanges;
 };
 
 } // namespace WebKit

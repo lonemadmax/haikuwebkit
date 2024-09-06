@@ -387,7 +387,7 @@ void AuxiliaryProcessProxy::wakeUpTemporarilyForIPC()
     // in increased memory usage. To avoid this, we allow the process to stay alive for 1 second after draining
     // its message queue.
     auto completionHandler = [activity = throttler().backgroundActivity("IPC sending due to large outgoing queue"_s)]() mutable {
-        WebCore::Timer::schedule(1_s, [activity = WTFMove(activity)]() { });
+        RunLoop::main().dispatchAfter(1_s, [activity = WTFMove(activity)]() { });
     };
     sendWithAsyncReply(Messages::AuxiliaryProcess::MainThreadPing(), WTFMove(completionHandler), 0, { }, ShouldStartProcessThrottlerActivity::No);
 }
@@ -605,6 +605,16 @@ void AuxiliaryProcessProxy::didChangeThrottleState(ProcessThrottleState state)
     if (!m_isSuspended && (!m_domainlessPreferencesUpdatedWhileSuspended.isEmpty() || !m_preferencesUpdatedWhileSuspended.isEmpty()))
         send(Messages::AuxiliaryProcess::PreferencesDidUpdate(std::exchange(m_domainlessPreferencesUpdatedWhileSuspended, { }), std::exchange(m_preferencesUpdatedWhileSuspended, { })), 0);
 #endif
+}
+
+AuxiliaryProcessProxy::InitializationActivityAndGrant AuxiliaryProcessProxy::initializationActivityAndGrant()
+{
+    return {
+        throttler().foregroundActivity("Process initialization"_s)
+#if USE(EXTENSIONKIT)
+        , launchGrant()
+#endif
+    };
 }
 
 } // namespace WebKit

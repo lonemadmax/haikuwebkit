@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -228,11 +228,11 @@ TEST(WKWebExtensionAPIMenus, ActionMenus)
     auto manager = Util::loadAndRunExtension(menusManifest, @{ @"background.js": backgroundScript });
 
     // Reset activeTab, WKWebExtensionAPIMenus.ActionMenusWithActiveTab tests that.
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusUnknown forPermission:_WKWebExtensionPermissionActiveTab];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusUnknown forPermission:WKWebExtensionPermissionActiveTab];
 
     EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Menus Created");
 
-    [manager.get().defaultTab.mainWebView loadRequest:server.requestWithLocalhost()];
+    [manager.get().defaultTab.webView loadRequest:server.requestWithLocalhost()];
     [manager runForTimeInterval:1];
 
     auto *action = [manager.get().context actionForTab:manager.get().defaultTab];
@@ -307,7 +307,7 @@ TEST(WKWebExtensionAPIMenus, ActionMenusWithActiveTab)
         { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, "<title>Test</title>"_s } },
     }, TestWebKitAPI::HTTPServer::Protocol::Http);
 
-    [manager.get().defaultTab.mainWebView loadRequest:server.requestWithLocalhost()];
+    [manager.get().defaultTab.webView loadRequest:server.requestWithLocalhost()];
     [manager runForTimeInterval:1];
 
     auto *action = [manager.get().context actionForTab:manager.get().defaultTab];
@@ -556,7 +556,7 @@ TEST(WKWebExtensionAPIMenus, TabMenus)
 
     EXPECT_NS_EQUAL(manager.get().yieldMessage, @"Menus Created");
 
-    [manager.get().defaultTab.mainWebView loadRequest:server.requestWithLocalhost()];
+    [manager.get().defaultTab.webView loadRequest:server.requestWithLocalhost()];
     [manager runForTimeInterval:1];
 
     auto *menuItems = [manager.get().context menuItemsForTab:manager.get().defaultTab];
@@ -1121,15 +1121,15 @@ TEST(WKWebExtensionAPIMenus, MacContextMenuItems)
     EXPECT_FALSE([manager.get().context hasActiveUserGestureInTab:manager.get().defaultTab]);
 
     auto *urlRequest = server.requestWithLocalhost();
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
 
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-    configuration.get()._webExtensionController = manager.get().controller;
+    configuration.get().webExtensionController = manager.get().controller;
 
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 400, 400) configuration:configuration.get()]);
     webView.get().UIDelegate = delegate.get();
 
-    manager.get().defaultTab.mainWebView = webView.get();
+    manager.get().defaultTab.webView = webView.get();
 
     [webView synchronouslyLoadRequest:urlRequest];
     [webView waitForNextPresentationUpdate];
@@ -1207,12 +1207,12 @@ TEST(WKWebExtensionAPIMenus, MacActiveTabContextMenuItems)
     EXPECT_FALSE([manager.get().context hasActiveUserGestureInTab:manager.get().defaultTab]);
 
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-    configuration.get()._webExtensionController = manager.get().controller;
+    configuration.get().webExtensionController = manager.get().controller;
 
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 400, 400) configuration:configuration.get()]);
     webView.get().UIDelegate = delegate.get();
 
-    manager.get().defaultTab.mainWebView = webView.get();
+    manager.get().defaultTab.webView = webView.get();
 
     [webView synchronouslyLoadRequest:server.requestWithLocalhost()];
     [webView waitForNextPresentationUpdate];
@@ -1303,15 +1303,15 @@ TEST(WKWebExtensionAPIMenus, MacURLPatternContextMenuItems)
     }, TestWebKitAPI::HTTPServer::Protocol::Http);
 
     auto *urlRequest = server.requestWithLocalhost();
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
 
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-    configuration.get()._webExtensionController = manager.get().controller;
+    configuration.get().webExtensionController = manager.get().controller;
 
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 400, 400) configuration:configuration.get()]);
     webView.get().UIDelegate = delegate.get();
 
-    manager.get().defaultTab.mainWebView = webView.get();
+    manager.get().defaultTab.webView = webView.get();
 
     [webView synchronouslyLoadRequest:urlRequest];
     [webView waitForNextPresentationUpdate];
@@ -1387,15 +1387,15 @@ TEST(WKWebExtensionAPIMenus, MacSelectionContextMenuItems)
     }, TestWebKitAPI::HTTPServer::Protocol::Http);
 
     auto *urlRequest = server.requestWithLocalhost();
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
 
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-    configuration.get()._webExtensionController = manager.get().controller;
+    configuration.get().webExtensionController = manager.get().controller;
 
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 400, 400) configuration:configuration.get()]);
     webView.get().UIDelegate = delegate.get();
 
-    manager.get().defaultTab.mainWebView = webView.get();
+    manager.get().defaultTab.webView = webView.get();
 
     [webView synchronouslyLoadRequest:urlRequest];
     [webView waitForNextPresentationUpdate];
@@ -1472,15 +1472,15 @@ TEST(WKWebExtensionAPIMenus, MacLinkContextMenuItems)
     }, TestWebKitAPI::HTTPServer::Protocol::Http);
 
     auto *urlRequest = server.requestWithLocalhost();
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
 
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-    configuration.get()._webExtensionController = manager.get().controller;
+    configuration.get().webExtensionController = manager.get().controller;
 
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 400, 400) configuration:configuration.get()]);
     webView.get().UIDelegate = delegate.get();
 
-    manager.get().defaultTab.mainWebView = webView.get();
+    manager.get().defaultTab.webView = webView.get();
 
     [webView synchronouslyLoadRequest:urlRequest];
     [webView waitForNextPresentationUpdate];
@@ -1556,15 +1556,15 @@ TEST(WKWebExtensionAPIMenus, MacImageContextMenuItems)
     }, TestWebKitAPI::HTTPServer::Protocol::Http);
 
     auto *urlRequest = server.requestWithLocalhost();
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
 
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-    configuration.get()._webExtensionController = manager.get().controller;
+    configuration.get().webExtensionController = manager.get().controller;
 
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 400, 400) configuration:configuration.get()]);
     webView.get().UIDelegate = delegate.get();
 
-    manager.get().defaultTab.mainWebView = webView.get();
+    manager.get().defaultTab.webView = webView.get();
 
     [webView synchronouslyLoadRequest:urlRequest];
     [webView waitForNextPresentationUpdate];
@@ -1640,15 +1640,15 @@ TEST(WKWebExtensionAPIMenus, MacVideoContextMenuItems)
     }, TestWebKitAPI::HTTPServer::Protocol::Http);
 
     auto *urlRequest = server.requestWithLocalhost();
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
 
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-    configuration.get()._webExtensionController = manager.get().controller;
+    configuration.get().webExtensionController = manager.get().controller;
 
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 400, 400) configuration:configuration.get()]);
     webView.get().UIDelegate = delegate.get();
 
-    manager.get().defaultTab.mainWebView = webView.get();
+    manager.get().defaultTab.webView = webView.get();
 
     [webView synchronouslyLoadRequest:urlRequest];
     [webView waitForNextPresentationUpdate];
@@ -1724,15 +1724,15 @@ TEST(WKWebExtensionAPIMenus, MacAudioContextMenuItems)
     }, TestWebKitAPI::HTTPServer::Protocol::Http);
 
     auto *urlRequest = server.requestWithLocalhost();
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
 
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-    configuration.get()._webExtensionController = manager.get().controller;
+    configuration.get().webExtensionController = manager.get().controller;
 
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 400, 400) configuration:configuration.get()]);
     webView.get().UIDelegate = delegate.get();
 
-    manager.get().defaultTab.mainWebView = webView.get();
+    manager.get().defaultTab.webView = webView.get();
 
     [webView synchronouslyLoadRequest:urlRequest];
     [webView waitForNextPresentationUpdate];
@@ -1804,15 +1804,15 @@ TEST(WKWebExtensionAPIMenus, MacEditableContextMenuItems)
     }, TestWebKitAPI::HTTPServer::Protocol::Http);
 
     auto *urlRequest = server.requestWithLocalhost();
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
 
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-    configuration.get()._webExtensionController = manager.get().controller;
+    configuration.get().webExtensionController = manager.get().controller;
 
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 400, 400) configuration:configuration.get()]);
     webView.get().UIDelegate = delegate.get();
 
-    manager.get().defaultTab.mainWebView = webView.get();
+    manager.get().defaultTab.webView = webView.get();
 
     [webView synchronouslyLoadRequest:urlRequest];
     [webView waitForNextPresentationUpdate];
@@ -1887,16 +1887,16 @@ TEST(WKWebExtensionAPIMenus, MacFrameContextMenuItems)
     }, TestWebKitAPI::HTTPServer::Protocol::Http);
 
     auto *urlRequest = server.requestWithLocalhost();
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:server.requestWithLocalhost("/frame.html"_s).URL];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:server.requestWithLocalhost("/frame.html"_s).URL];
 
     auto configuration = adoptNS([[WKWebViewConfiguration alloc] init]);
-    configuration.get()._webExtensionController = manager.get().controller;
+    configuration.get().webExtensionController = manager.get().controller;
 
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 400, 400) configuration:configuration.get()]);
     webView.get().UIDelegate = delegate.get();
 
-    manager.get().defaultTab.mainWebView = webView.get();
+    manager.get().defaultTab.webView = webView.get();
 
     [webView synchronouslyLoadRequest:urlRequest];
     [webView waitForNextPresentationUpdate];
@@ -1932,10 +1932,10 @@ TEST(WKWebExtensionAPIMenus, ClickedMenuItemAndPermissionsRequest)
         @"}, () => browser.test.yield('Menu Item Created'))"
     ]);
 
-    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:menusManifest resources:@{ @"background.js": backgroundScript }]);
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:menusManifest resources:@{ @"background.js": backgroundScript }]);
     auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
 
-    manager.get().internalDelegate.promptForPermissions = ^(id<_WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *, NSDate *)) {
+    manager.get().internalDelegate.promptForPermissions = ^(id<WKWebExtensionTab> tab, NSSet<NSString *> *requestedPermissions, void (^callback)(NSSet<NSString *> *, NSDate *)) {
         EXPECT_EQ(requestedPermissions.count, 1lu);
         EXPECT_TRUE([requestedPermissions isEqualToSet:[NSSet setWithObject:@"menus"]]);
         callback(requestedPermissions, nil);

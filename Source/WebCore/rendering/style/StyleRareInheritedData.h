@@ -125,6 +125,7 @@ public:
     unsigned textOrientation : 2; // TextOrientation
     unsigned textIndentLine : 1; // TextIndentLine
     unsigned textIndentType : 1; // TextIndentType
+    unsigned textUnderlinePosition : 4; // TextUnderlinePosition
     unsigned lineBoxContain: 7; // OptionSet<LineBoxContain>
     // CSS Image Values Level 3
     unsigned imageOrientation : 1; // ImageOrientation
@@ -137,8 +138,8 @@ public:
     unsigned textAlignLast : 3; // TextAlignLast
     unsigned textJustify : 2; // TextJustify
     unsigned textDecorationSkipInk : 2; // TextDecorationSkipInk
-    unsigned textUnderlinePosition : 3; // TextUnderlinePosition
     unsigned rubyPosition : 2; // RubyPosition
+    unsigned rubyAlign : 2; // RubyAlign
     unsigned textZoom: 1; // TextZoom
 
 #if PLATFORM(IOS_FAMILY)

@@ -230,7 +230,7 @@ void ComputePassEncoder::executePreDispatchCommands(const Buffer* indirectBuffer
         if (pcomputeOffsets && pcomputeOffsets->size()) {
             auto& computeOffsets = *pcomputeOffsets;
             auto startIndex = pipelineLayout.computeOffsetForBindGroup(bindGroupIndex);
-            memcpySpan(m_computeDynamicOffsets.mutableSpan().subspan(startIndex, computeOffsets.size()), computeOffsets.span());
+            memcpySpan(m_computeDynamicOffsets.mutableSpan().subspan(startIndex), computeOffsets.span());
         }
     }
 
@@ -292,7 +292,8 @@ void ComputePassEncoder::dispatchIndirect(const Buffer& indirectBuffer, uint64_t
         return;
     }
 
-    if ((indirectOffset % 4) || !(indirectBuffer.usage() & WGPUBufferUsage_Indirect) || (indirectOffset + 3 * sizeof(uint32_t) > indirectBuffer.initialSize())) {
+    auto indirectOffsetSum = checkedSum<uint64_t>(indirectOffset, 3 * sizeof(uint32_t));
+    if ((indirectOffset % 4) || !(indirectBuffer.usage() & WGPUBufferUsage_Indirect) || indirectOffsetSum.hasOverflowed() || (indirectOffsetSum.value() > indirectBuffer.initialSize())) {
         makeInvalid();
         return;
     }

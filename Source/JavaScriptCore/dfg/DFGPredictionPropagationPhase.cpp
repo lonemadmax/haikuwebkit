@@ -592,6 +592,7 @@ private:
                 else
                     changed |= mergePrediction(SpecAnyIntAsDouble);
                 break;
+            case Array::Float16Array:
             case Array::Float32Array:
             case Array::Float64Array:
                 if (node->op() == GetByVal && arrayMode.isOutOfBounds())
@@ -1176,6 +1177,7 @@ private:
         case ArithPow:
         case ArithSqrt:
         case ArithFRound:
+        case ArithF16Round:
         case ArithUnary: {
             setPrediction(SpecBytecodeDouble);
             break;
@@ -1216,6 +1218,7 @@ private:
         case SameValue:
         case OverridesHasInstance:
         case InstanceOf:
+        case InstanceOfMegamorphic:
         case InstanceOfCustom:
         case IsEmpty:
         case IsEmptyStorage:
@@ -1262,13 +1265,14 @@ private:
             break;
 
         case SkipScope:
-        case GetGlobalObject: {
+        case GetGlobalObject:
+        case UnwrapGlobalProxy: {
             setPrediction(SpecObjectOther);
             break;
         }
 
         case GetGlobalThis:
-            setPrediction(SpecObject);
+            setPrediction(SpecGlobalProxy);
             break;
 
         case ResolveScope: {

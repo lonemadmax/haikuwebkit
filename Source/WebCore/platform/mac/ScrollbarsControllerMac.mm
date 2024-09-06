@@ -862,7 +862,6 @@ void ScrollbarsControllerMac::willRemoveHorizontalScrollbar(Scrollbar* scrollbar
     if (!painter)
         return;
 
-    ASSERT(m_horizontalScrollerImpDelegate);
     [m_horizontalScrollerImpDelegate invalidate];
     m_horizontalScrollerImpDelegate = nullptr;
 
@@ -1030,6 +1029,12 @@ void ScrollbarsControllerMac::sendContentAreaScrolled(const FloatSize& delta)
     [m_scrollerImpPair contentAreaScrolledInDirection:NSMakePoint(delta.width(), delta.height())];
 }
 
+void ScrollbarsControllerMac::scrollbarWidthChanged(WebCore::ScrollbarWidth)
+{
+    updateScrollbarsThickness();
+    updateScrollerStyle();
+}
+
 static String scrollbarState(Scrollbar* scrollbar)
 {
     if (!scrollbar)
@@ -1056,6 +1061,9 @@ static String scrollbarState(Scrollbar* scrollbar)
 
     if (scrollerImp.userInterfaceLayoutDirection == NSUserInterfaceLayoutDirectionRightToLeft)
         result.append(",RTL"_s);
+
+    if (scrollerImp.controlSize != NSControlSizeRegular)
+        result.append(",thin"_s);
 
     return result.toString();
 }

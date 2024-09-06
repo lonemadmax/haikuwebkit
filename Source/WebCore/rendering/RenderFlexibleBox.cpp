@@ -1234,9 +1234,10 @@ LayoutUnit RenderFlexibleBox::computeFlexBaseSizeForFlexItem(RenderBox& flexItem
 {
     Length flexBasis = flexBasisForFlexItem(flexItem);
     ScopedFlexBasisAsFlexItemMainSize scoped(flexItem, flexBasis.isContent() ? Length(LengthType::MaxContent) : flexBasis, mainAxisIsFlexItemInlineAxis(flexItem));
+    // FIXME: While we are supposed to ignore min/max here, clients of maybeCacheFlexItemMainIntrinsicSize may expect min/max constrained size.
+    SetForScope<bool> computingBaseSizesScope(m_isComputingFlexBaseSizes, true);
 
     maybeCacheFlexItemMainIntrinsicSize(flexItem, relayoutChildren);
-    SetForScope<bool> computingBaseSizesScope(m_isComputingFlexBaseSizes, true);
 
     // 9.2.3 A.
     if (flexItemMainSizeIsDefinite(flexItem, flexBasis))
@@ -1493,19 +1494,23 @@ LayoutUnit RenderFlexibleBox::marginBoxAscentForFlexItem(const RenderBox& flexIt
 {
     auto isHorizontalFlow = this->isHorizontalFlow();
     auto direction = isHorizontalFlow ? HorizontalLine : VerticalLine;
-    if (crossAxisIsPhysicalWidth() == flexItem.isHorizontalWritingMode())
+
+    if (!mainAxisIsFlexItemInlineAxis(flexItem))
         return synthesizedBaseline(flexItem, style(), direction, BorderBox) + flowAwareMarginBeforeForFlexItem(flexItem);
     auto ascent = alignmentForFlexItem(flexItem) == ItemPosition::LastBaseline ? flexItem.lastLineBaseline() : flexItem.firstLineBaseline();
     if (!ascent)
         return synthesizedBaseline(flexItem, style(), direction, BorderBox) + flowAwareMarginBeforeForFlexItem(flexItem);
 
-    // In either of these cases we require a translation of the ascent because it
-    // was computed in a different coordinate space from the flex container's.
-    // The first scenario below can occur when the flex container has column flex
-    // specified and is in horizontal writing-mode with a vertical-rl flex item *or*
-    // when they are both vertical and the child is flipped blocks.
-    if ((!style().isFlippedBlocksWritingMode() && flexItem.style().isFlippedBlocksWritingMode()) || (style().isFlippedBlocksWritingMode() && flexItem.style().blockFlowDirection() == BlockFlowDirection::LeftToRight))
-        ascent = flexItem.logicalHeight() - ascent.value();
+    if (flexItem.isWritingModeRoot() && style().isFlippedBlocksWritingMode() != flexItem.style().isFlippedBlocksWritingMode() && !flexItem.isHorizontalWritingMode()) {
+        // Baseline from flex item with opposite block direction needs to be resolved as if flex item had the same block direction.
+        //  _____________________________ <- flex box top/left (e.g. writing-mode: vertical-rl)
+        // |        __________________   |
+        // |       |  20px |    80px  |<-- flex item with vertical-lr (top is at visual left)
+        // |       |<----->|<-------->|  |
+        // |       top     baseline   |  |
+        // where computed baseline is 20px and resolved (as if flex item shares the block direction with flex box) is 80px.
+        ascent = flexItem.logicalHeight() - *ascent;
+    }
 
     if (isHorizontalFlow ? flexItem.isScrollContainerY() : flexItem.isScrollContainerX())
         return std::clamp(*ascent, 0_lu, crossAxisExtentForFlexItem(flexItem)) + flowAwareMarginBeforeForFlexItem(flexItem);
@@ -1819,17 +1824,20 @@ static LayoutUnit initialJustifyContentOffset(const RenderStyle& style, LayoutUn
     if (justifyContent == ContentPosition::Center)
         return availableFreeSpace / 2;
     if (justifyContentDistribution == ContentDistribution::SpaceAround) {
-        if (availableFreeSpace > 0 && numberOfFlexItems)
+        if (!numberOfFlexItems)
+            return availableFreeSpace / 2;
+        if (availableFreeSpace > 0)
             return availableFreeSpace / (2 * numberOfFlexItems);
-        return availableFreeSpace / 2;
+        return { };
     }
     if (justifyContentDistribution == ContentDistribution::SpaceEvenly) {
-        if (availableFreeSpace > 0 && numberOfFlexItems)
+        if (!numberOfFlexItems)
+            return availableFreeSpace / 2;
+        if (availableFreeSpace > 0)
             return availableFreeSpace / (numberOfFlexItems + 1);
-        // Fallback to 'center'
-        return availableFreeSpace / 2;
+        return { };
     }
-    return 0;
+    return { };
 }
 
 static LayoutUnit justifyContentSpaceBetweenFlexItems(LayoutUnit availableFreeSpace, ContentDistribution justifyContentDistribution, unsigned numberOfFlexItems)
@@ -1897,7 +1905,7 @@ LayoutUnit RenderFlexibleBox::staticMainAxisPositionForPositionedFlexItem(const 
     auto flexItemMainExtent = mainAxisMarginExtentForFlexItem(flexItem) + mainAxisExtentForFlexItem(flexItem);
     auto availableSpace = mainAxisContentExtent(contentLogicalHeight()) - flexItemMainExtent;
     auto isReverse = isColumnOrRowReverse();
-    LayoutUnit offset = initialJustifyContentOffset(style(), availableSpace, 1, isReverse);
+    LayoutUnit offset = initialJustifyContentOffset(style(), availableSpace, { }, isReverse);
     if (isReverse)
         offset = availableSpace - offset;
     return offset;
@@ -2207,9 +2215,13 @@ void RenderFlexibleBox::layoutAndPlaceFlexItems(LayoutUnit& crossAxisOffset, Fle
     }
 
     LayoutUnit totalMainExtent = mainAxisExtent();
-    LayoutUnit maxAscent, maxDescent, lastBaselineMaxAscent; // Used when align-items: baseline.
-    std::optional<BaselineAlignmentState> baselineAlignmentState;
     LayoutUnit maxFlexItemCrossAxisExtent;
+
+    LayoutUnit maxAscent;
+    LayoutUnit maxDescent;
+    LayoutUnit lastBaselineMaxAscent;
+    std::optional<BaselineAlignmentState> baselineAlignmentState;
+
     ContentDistribution distribution = style().resolvedJustifyContentDistribution(contentAlignmentNormalBehavior());
     bool shouldFlipMainAxis = !isColumnFlow() && !isLeftToRightFlow();
     for (size_t i = 0; i < flexLayoutItems.size(); ++i) {

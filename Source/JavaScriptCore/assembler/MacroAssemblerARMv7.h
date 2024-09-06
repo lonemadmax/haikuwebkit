@@ -386,14 +386,6 @@ public:
         m_assembler.lsl(dest, src, imm.m_value & 0x1f);
     }
 
-    void lshift32(TrustedImm32 imm, RegisterID shiftAmount, RegisterID dest)
-    {
-        // Clamp the shift to the range 0..31
-        m_assembler.ARM_and(dest, shiftAmount, ARMThumbImmediate::makeEncodedImm(0x1f));
-        move(imm, getCachedDataTempRegisterIDAndInvalidate());
-        m_assembler.lsl(dest, dataTempRegister, dest);
-    }
-
     void lshift32(RegisterID shiftAmount, RegisterID dest)
     {
         lshift32(dest, shiftAmount, dest);
@@ -1323,6 +1315,8 @@ public:
 
     void transfer32(Address src, Address dest)
     {
+        if (src == dest)
+            return;
         load32(src, dataTempRegister);
         store32(dataTempRegister, dest);
     }
@@ -1341,6 +1335,46 @@ public:
     void transferPtr(BaseIndex src, BaseIndex dest)
     {
         transfer32(src, dest);
+    }
+
+    void transferFloat(Address src, Address dest)
+    {
+        transfer32(src, dest);
+    }
+
+    void transferDouble(Address src, Address dest)
+    {
+        if (src == dest)
+            return;
+        loadDouble(src, fpTempRegister);
+        storeDouble(fpTempRegister, dest);
+    }
+
+    void transferVector(Address src, Address dest)
+    {
+        if (src == dest)
+            return;
+        UNREACHABLE_FOR_PLATFORM();
+    }
+
+    void transferFloat(BaseIndex src, BaseIndex dest)
+    {
+        transfer32(src, dest);
+    }
+
+    void transferDouble(BaseIndex src, BaseIndex dest)
+    {
+        if (src == dest)
+            return;
+        loadDouble(src, fpTempRegister);
+        storeDouble(fpTempRegister, dest);
+    }
+
+    void transferVector(BaseIndex src, BaseIndex dest)
+    {
+        if (src == dest)
+            return;
+        UNREACHABLE_FOR_PLATFORM();
     }
 
     void storeCond8(RegisterID src, Address addr, RegisterID result)
@@ -1461,6 +1495,7 @@ public:
     static bool supportsFloatingPointSqrt() { return true; }
     static bool supportsFloatingPointAbs() { return true; }
     static bool supportsFloatingPointRounding() { return false; }
+    static bool supportsFloat16() { return false; }
 
     void loadDouble(Address address, FPRegisterID dest)
     {
@@ -2924,9 +2959,13 @@ public:
 
     void compareFloat(DoubleCondition cond, FPRegisterID left, FPRegisterID right, RegisterID dest)
     {
-        // Not handled, but should not be used right now
-        ASSERT(cond != DoubleNotEqualAndOrdered);
-        ASSERT(cond != DoubleEqualOrUnordered);
+        if ((cond == DoubleNotEqualAndOrdered) || (cond == DoubleEqualOrUnordered)) {
+            move(TrustedImm32(1), dest);
+            Jump trueCase = branchFloat(cond, left, right);
+            move(TrustedImm32(0), dest);
+            trueCase.link(this);
+            return;
+        }
         m_assembler.vcmp(asSingle(left), asSingle(right));
         m_assembler.vmrs();
         m_assembler.it(armV7Condition(cond), false);
@@ -2940,6 +2979,22 @@ public:
         UNUSED_PARAM(left);
         UNUSED_PARAM(dest);
         UNREACHABLE_FOR_PLATFORM();
+    }
+
+    void compareDouble(DoubleCondition cond, FPRegisterID left, FPRegisterID right, RegisterID dest)
+    {
+        if ((cond == DoubleNotEqualAndOrdered) || (cond == DoubleEqualOrUnordered)) {
+            move(TrustedImm32(1), dest);
+            Jump trueCase = branchDouble(cond, left, right);
+            move(TrustedImm32(0), dest);
+            trueCase.link(this);
+            return;
+        }
+        m_assembler.vcmp(left, right);
+        m_assembler.vmrs();
+        m_assembler.it(armV7Condition(cond), false);
+        m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(1));
+        m_assembler.mov(dest, ARMThumbImmediate::makeUInt16(0));
     }
 
     void test32(ResultCondition cond, RegisterID op1, RegisterID op2, RegisterID dest)
@@ -3255,6 +3310,82 @@ public:
     static void repatchCall(CodeLocationCall<callTag> call, CodePtr<destTag> destination)
     {
         ARMv7Assembler::relinkCall(call.dataLocation(), destination.taggedPtr());
+    }
+
+    void convertDoubleToFloat16(FPRegisterID src, FPRegisterID dest)
+    {
+        UNUSED_PARAM(src);
+        UNUSED_PARAM(dest);
+        UNREACHABLE_FOR_PLATFORM();
+    }
+
+    void convertFloat16ToDouble(FPRegisterID src, FPRegisterID dest)
+    {
+        UNUSED_PARAM(src);
+        UNUSED_PARAM(dest);
+        UNREACHABLE_FOR_PLATFORM();
+    }
+
+    void loadFloat16(Address address, FPRegisterID dest)
+    {
+        UNUSED_PARAM(address);
+        UNUSED_PARAM(dest);
+        UNREACHABLE_FOR_PLATFORM();
+    }
+
+    void loadFloat16(BaseIndex address, FPRegisterID dest)
+    {
+        UNUSED_PARAM(address);
+        UNUSED_PARAM(dest);
+        UNREACHABLE_FOR_PLATFORM();
+    }
+
+    void loadFloat16(TrustedImmPtr address, FPRegisterID dest)
+    {
+        UNUSED_PARAM(address);
+        UNUSED_PARAM(dest);
+        UNREACHABLE_FOR_PLATFORM();
+    }
+
+    void moveZeroToFloat16(FPRegisterID reg)
+    {
+        UNUSED_PARAM(reg);
+        UNREACHABLE_FOR_PLATFORM();
+    }
+
+    void move16ToFloat16(RegisterID src, FPRegisterID dest)
+    {
+        UNUSED_PARAM(src);
+        UNUSED_PARAM(dest);
+        UNREACHABLE_FOR_PLATFORM();
+    }
+
+    void move16ToFloat16(TrustedImm32 imm, FPRegisterID dest)
+    {
+        UNUSED_PARAM(imm);
+        UNUSED_PARAM(dest);
+        UNREACHABLE_FOR_PLATFORM();
+    }
+
+    void moveFloat16To16(FPRegisterID src, RegisterID dest)
+    {
+        UNUSED_PARAM(src);
+        UNUSED_PARAM(dest);
+        UNREACHABLE_FOR_PLATFORM();
+    }
+
+    void storeFloat16(FPRegisterID src, Address address)
+    {
+        UNUSED_PARAM(src);
+        UNUSED_PARAM(address);
+        UNREACHABLE_FOR_PLATFORM();
+    }
+
+    void storeFloat16(FPRegisterID src, BaseIndex address)
+    {
+        UNUSED_PARAM(src);
+        UNUSED_PARAM(address);
+        UNREACHABLE_FOR_PLATFORM();
     }
 
 protected:

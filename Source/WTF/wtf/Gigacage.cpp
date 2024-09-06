@@ -53,9 +53,7 @@ void* tryAllocateZeroedVirtualPages(Kind, size_t requestedSize)
 {
     size_t size = roundUpToMultipleOf(WTF::pageSize(), requestedSize);
     RELEASE_ASSERT(size >= requestedSize);
-    void* result = OSAllocator::reserveUncommitted(size);
-    if (result)
-        OSAllocator::commit(result, size, true, false);
+    void* result = OSAllocator::tryReserveAndCommit(size);
 #if ASSERT_ENABLED
     if (result) {
         for (size_t i = 0; i < size / sizeof(uintptr_t); ++i)

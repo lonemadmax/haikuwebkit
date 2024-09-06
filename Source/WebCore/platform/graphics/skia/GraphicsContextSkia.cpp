@@ -99,7 +99,7 @@ bool GraphicsContextSkia::makeGLContextCurrentIfNeeded() const
     if (m_renderingMode == RenderingMode::Unaccelerated || m_renderingPurpose != RenderingPurpose::Canvas)
         return true;
 
-    return PlatformDisplay::sharedDisplayForCompositing().skiaGLContext()->makeContextCurrent();
+    return PlatformDisplay::sharedDisplay().skiaGLContext()->makeContextCurrent();
 }
 
 void GraphicsContextSkia::save(GraphicsContextState::Purpose purpose)
@@ -541,7 +541,7 @@ void GraphicsContextSkia::drawSkiaRect(const SkRect& boundaries, SkPaint& paint)
         endTransparencyLayer();
 }
 
-void GraphicsContextSkia::fillRect(const FloatRect& boundaries)
+void GraphicsContextSkia::fillRect(const FloatRect& boundaries, RequiresClipToRect)
 {
     if (!makeGLContextCurrentIfNeeded())
         return;
@@ -561,7 +561,7 @@ void GraphicsContextSkia::fillRect(const FloatRect& boundaries, const Color& fil
     drawSkiaRect(boundaries, paint);
 }
 
-void GraphicsContextSkia::fillRect(const FloatRect& boundaries, Gradient& gradient, const AffineTransform& gradientSpaceTransform)
+void GraphicsContextSkia::fillRect(const FloatRect& boundaries, Gradient& gradient, const AffineTransform& gradientSpaceTransform, RequiresClipToRect)
 {
     if (!makeGLContextCurrentIfNeeded())
         return;

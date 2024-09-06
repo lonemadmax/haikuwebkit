@@ -68,6 +68,8 @@ public:
     Builder& builder() { return m_builder; }
 
     RenderStyle& style() { return m_style; }
+    const RenderStyle& style() const { return m_style; }
+
     const RenderStyle& parentStyle() const { return m_context.parentStyle; }
     const RenderStyle* rootElementStyle() const { return m_context.rootElementStyle; }
 
@@ -112,6 +114,8 @@ public:
     {
         return m_currentProperty && m_currentProperty->cascadeLevel == CascadeLevel::Author;
     }
+
+    CSSPropertyID cssPropertyID() const;
 
 private:
     // See the comment in maybeUpdateFontForLetterSpacing() about why this needs to be a friend.

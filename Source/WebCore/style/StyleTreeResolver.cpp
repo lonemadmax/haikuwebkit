@@ -740,13 +740,12 @@ ElementUpdate TreeResolver::createAnimatedElementUpdate(ResolvedStyle&& resolved
         return keyframeEffectStack->containsProperty(CSSPropertyDisplay);
     }();
 
-    if (!affectsRenderedSubtree(styleable.element, *newStyle)) {
+    if (!affectsRenderedSubtree(styleable.element, *newStyle) && !animationsAffectedDisplay) {
         // If after updating animations we end up not rendering this element or its subtree
         // and the update did not change the "display" value then we should cancel all
         // style-originated animations while ensuring that the new ones are canceled silently,
         // as if they hadn't been created.
-        if (!animationsAffectedDisplay)
-            styleable.cancelStyleOriginatedAnimations(newStyleOriginatedAnimations);
+        styleable.cancelStyleOriginatedAnimations(newStyleOriginatedAnimations);
     } else if (!newStyleOriginatedAnimations.isEmpty()) {
         // If style-originated animations were not canceled, then we should make sure that
         // the creation of new style-originated animations during this update is known to the
@@ -1328,14 +1327,12 @@ auto TreeResolver::updateAnchorPositioningState(Element& element, const RenderSt
         return AnchorPositionedElementAction::None;
 
     // Maintain the list of anchors (in tree order) used for anchor-positioned elements
-    if (m_canFindAnchorsForNextAnchorPositionedElement) {
-        if (!style->anchorNames().isEmpty()) {
-            for (auto& anchorName : style->anchorNames()) {
-                m_anchorElements.add(element);
-                m_anchorsForAnchorName.ensure(anchorName, [&] {
-                    return Vector<Ref<Element>> { };
-                }).iterator->value.append(element);
-            }
+    if (!style->anchorNames().isEmpty()) {
+        for (auto& anchorName : style->anchorNames()) {
+            m_anchorElements.add(element);
+            m_anchorsForAnchorName.ensure(anchorName, [&] {
+                return Vector<Ref<Element>> { };
+            }).iterator->value.append(element);
         }
     }
 

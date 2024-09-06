@@ -26,19 +26,17 @@
 #include "config.h"
 #include "JSSubscriber.h"
 
+#include "VoidCallback.h"
+
 namespace WebCore {
 
 template<typename Visitor>
 void JSSubscriber::visitAdditionalChildren(Visitor& visitor)
 {
-    if (auto* next = wrapped().nextCallbackConcurrently())
-        next->visitJSFunction(visitor);
-    if (auto* error = wrapped().errorCallbackConcurrently())
-        error->visitJSFunction(visitor);
-    if (auto* complete = wrapped().completeCallbackConcurrently())
-        complete->visitJSFunction(visitor);
     for (auto* teardown : wrapped().teardownCallbacksConcurrently())
         teardown->visitJSFunction(visitor);
+
+    wrapped().observerConcurrently()->visitAdditionalChildren(visitor);
 }
 
 DEFINE_VISIT_ADDITIONAL_CHILDREN(JSSubscriber);

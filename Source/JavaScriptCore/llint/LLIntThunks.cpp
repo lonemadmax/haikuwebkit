@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -791,25 +791,7 @@ MacroAssemblerCodeRef<JSEntryPtrTag> returnLocationThunk(OpcodeID opcodeID, Opco
     }
 
     switch (opcodeID) {
-    LLINT_RETURN_LOCATION(op_call)
-    LLINT_RETURN_LOCATION(op_call_ignore_result)
-    LLINT_RETURN_LOCATION(op_iterator_open)
-    LLINT_RETURN_LOCATION(op_iterator_next)
-    LLINT_RETURN_LOCATION(op_construct)
-    LLINT_RETURN_LOCATION(op_call_varargs)
-    LLINT_RETURN_LOCATION(op_construct_varargs)
-    LLINT_RETURN_LOCATION(op_get_by_id)
-    LLINT_RETURN_LOCATION(op_get_by_id_direct)
-    LLINT_RETURN_LOCATION(op_get_length)
-    LLINT_RETURN_LOCATION(op_get_by_val)
-    LLINT_RETURN_LOCATION(op_put_by_id)
-    LLINT_RETURN_LOCATION(op_put_by_val)
-    LLINT_RETURN_LOCATION(op_put_by_val_direct)
-    LLINT_RETURN_LOCATION(op_in_by_id)
-    LLINT_RETURN_LOCATION(op_in_by_val)
-    LLINT_RETURN_LOCATION(op_enumerator_get_by_val)
-    LLINT_RETURN_LOCATION(op_enumerator_put_by_val)
-    LLINT_RETURN_LOCATION(op_enumerator_in_by_val)
+    FOR_EACH_LLINT_OPCODE_WITH_RETURN(LLINT_RETURN_LOCATION)
     default:
         RELEASE_ASSERT_NOT_REACHED();
         return { };

@@ -63,6 +63,7 @@ class StyleRuleNamespace;
 class StyleRulePage;
 class StyleRuleSupports;
 class StyleRuleViewport;
+class StyleRuleViewTransition;
 class StyleSheetContents;
 class ImmutableStyleProperties;
 class Element;
@@ -88,11 +89,12 @@ public:
         KeyframeRules,
         CounterStyleRules,
         FontFeatureValuesRules,
+        ViewTransitionRules,
         NoRules, // For parsing at-rules inside declaration lists (without nesting support)
     };
 
-    static CSSParser::ParseResult parseValue(MutableStyleProperties&, CSSPropertyID, const String&, bool important, const CSSParserContext&);
-    static CSSParser::ParseResult parseCustomPropertyValue(MutableStyleProperties&, const AtomString& propertyName, const String&, bool important, const CSSParserContext&);
+    static CSSParser::ParseResult parseValue(MutableStyleProperties&, CSSPropertyID, const String&, IsImportant, const CSSParserContext&);
+    static CSSParser::ParseResult parseCustomPropertyValue(MutableStyleProperties&, const AtomString& propertyName, const String&, IsImportant, const CSSParserContext&);
     static Ref<ImmutableStyleProperties> parseInlineStyleDeclaration(const String&, const Element&);
     static bool parseDeclarationList(MutableStyleProperties*, const String&, const CSSParserContext&);
     static RefPtr<StyleRuleBase> parseRule(const String&, const CSSParserContext&, StyleSheetContents*, AllowedRules, CSSParserEnum::IsNestedContext = CSSParserEnum::IsNestedContext::No);
@@ -110,7 +112,7 @@ public:
     static void parseDeclarationListForInspector(const String&, const CSSParserContext&, CSSParserObserver&);
     static void parseStyleSheetForInspector(const String&, const CSSParserContext&, StyleSheetContents&, CSSParserObserver&);
 
-    static bool consumeTrailingImportantAndWhitespace(CSSParserTokenRange&);
+    static IsImportant consumeTrailingImportantAndWhitespace(CSSParserTokenRange&);
 
     CSSTokenizer* tokenizer() const { return m_tokenizer.get(); }
 
@@ -160,6 +162,7 @@ private:
     RefPtr<StyleRuleProperty> consumePropertyRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
     RefPtr<StyleRuleScope> consumeScopeRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
     RefPtr<StyleRuleStartingStyle> consumeStartingStyleRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
+    RefPtr<StyleRuleViewTransition> consumeViewTransitionRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
 
     RefPtr<StyleRuleKeyframe> consumeKeyframeStyleRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
     RefPtr<StyleRuleBase> consumeStyleRule(CSSParserTokenRange prelude, CSSParserTokenRange block);
@@ -174,8 +177,8 @@ private:
     void consumeDeclarationList(CSSParserTokenRange, StyleRuleType);
     void consumeStyleBlock(CSSParserTokenRange, StyleRuleType, ParsingStyleDeclarationsInRuleList = ParsingStyleDeclarationsInRuleList::No);
     bool consumeDeclaration(CSSParserTokenRange, StyleRuleType);
-    void consumeDeclarationValue(CSSParserTokenRange, CSSPropertyID, bool important, StyleRuleType);
-    void consumeCustomPropertyValue(CSSParserTokenRange, const AtomString& propertyName, bool important);
+    void consumeDeclarationValue(CSSParserTokenRange, CSSPropertyID, IsImportant, StyleRuleType);
+    void consumeCustomPropertyValue(CSSParserTokenRange, const AtomString& propertyName, IsImportant);
 
     static Vector<double> consumeKeyframeKeyList(CSSParserTokenRange);
 

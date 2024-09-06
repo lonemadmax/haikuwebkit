@@ -60,6 +60,8 @@ css-dark-mode [ Skip ]
 
 media/audioSession [ Skip ]
 
+http/wpt/mediasession [ Skip ]
+
 # Media Stream API testing is not supported for WK1 yet.
 fast/mediastream
 http/wpt/mediastream
@@ -783,12 +785,19 @@ imported/w3c/web-platform-tests/xhr/sync-no-timeout.any.sharedworker.html [ Skip
 imported/w3c/web-platform-tests/IndexedDB/idbfactory-databases-opaque-origin.html [ Skip ]
 imported/w3c/web-platform-tests/IndexedDB/idbfactory-deleteDatabase-opaque-origin.html [ Skip ]
 imported/w3c/web-platform-tests/IndexedDB/idbfactory-open-opaque-origin.html [ Skip ]
+# Tests fail since import due to lack of ServiceWorker and SharedWorker support. 
 imported/w3c/web-platform-tests/IndexedDB/idlharness.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/IndexedDB/reading-autoincrement-indexes-cursors.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/IndexedDB/reading-autoincrement-indexes.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/IndexedDB/reading-autoincrement-store-cursors.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/IndexedDB/reading-autoincrement-store.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/IndexedDB/storage-buckets.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_openKeyCursor.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/IndexedDB/idbindex_openKeyCursor.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_clear.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_clear.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_createIndex.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/IndexedDB/idbobjectstore_createIndex.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/content-encoding/gzip-body.any.serviceworker.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/content-encoding/gzip-body.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/fetch/content-encoding/gzip-body.any.worker.html [ Skip ]
@@ -826,6 +835,7 @@ accessibility/list [ WontFix ]
 accessibility/announcement-notification.html [ WontFix ]
 accessibility/menuitem-is-selected.html [ WontFix ]
 accessibility/relationships.html [ WontFix ]
+accessibility/search-misspellings.html [ WontFix ]
 accessibility/shadow-dom-hit-test.html [ WontFix ]
 accessibility/mac/text-marker-range-for-line.html [ WontFix ]
 # Datalist is unsupported in WK1
@@ -1072,7 +1082,9 @@ media/media-vp8-webm-error.html [ Failure ]
 media/media-vp8-webm.html [ Skip ]
 media/media-vp8-webm-seek-to-start.html [ Skip ]
 media/media-vp8-webm-with-poster.html [ Skip ]
+media/media-vp8-webm-with-preload.html [ Skip ]
 media/video-src-webm-blob.html [ Failure ]
+
 media/track/media-audio-track.html [ Failure ]
 media/media-sources-selection.html [ ImageOnlyFailure ]
 
@@ -1514,6 +1526,8 @@ scrollbars/scrolling-by-page-ignoring-hidden-fixed-elements-on-keyboard-spacebar
 scrollbars/scrolling-by-page-ignoring-transparent-fixed-elements-on-keyboard-spacebar.html [ Skip ]
 scrollbars/scrolling-by-page-on-keyboard-spacebar.html [ Skip ]
 
+imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-004.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-005.html [ ImageOnlyFailure ]
 # This test times out.
 webkit.org/b/147683 fast/scrolling/latching/scroll-div-with-nested-nonscrollable-iframe.html [ Skip ]
 
@@ -1752,6 +1766,9 @@ http/tests/inspector/network/local-resource-override-script-tag.html [ Skip ]
 http/tests/inspector/network/resource-response-inspector-override.html [ Skip ]
 inspector/network/intercept-aborted-request.html [ Skip ]
 inspector/network/interceptContinue.html [ Skip ]
+
+# Test timeout with NowPlaying
+http/tests/media/now-playing-info-media-session-artwork-favicon.html [ Skip ]
 
 # Resource content retrival times out in WebKit1.
 webkit.org/b/257407 http/tests/inspector/network/xhr-request-type.html [ Skip ]
@@ -2058,6 +2075,7 @@ imported/w3c/web-platform-tests/preload/prefetch-document.html [ Skip ]
 imported/w3c/web-platform-tests/preload/prefetch-headers.html [ Skip ]
 imported/w3c/web-platform-tests/preload/prefetch-types.html [ Skip ]
 imported/w3c/web-platform-tests/preload/preload-in-data-doc.html [ Skip ]
+imported/w3c/web-platform-tests/preload/preload-type-match.html [ Skip ]
 
 webkit.org/b/254528 imported/w3c/web-platform-tests/preload/onerror-event.html [ Pass Failure ]
 
@@ -2350,11 +2368,6 @@ webkit.org/b/236128 fullscreen/full-screen-iframe-with-max-width-height.html [ S
 
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-object-element/object-param-url.html [ ImageOnlyFailure ]
 
-webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/canvas-as-container-001.html [ ImageOnlyFailure ]
-webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/canvas-as-container-002.html [ ImageOnlyFailure ]
-webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/canvas-as-container-003.html [ ImageOnlyFailure ]
-webkit.org/b/229659 imported/w3c/web-platform-tests/css/css-contain/container-queries/canvas-as-container-004.html [ ImageOnlyFailure ]
-
 webkit.org/b/237783 imported/w3c/web-platform-tests/html/semantics/forms/input-change-event-properties.html [ Timeout ]
 
 # Flaky since their import.
@@ -2631,6 +2644,7 @@ css3/masking/mask-repeat-space-content.html [ Pass ImageOnlyFailure ]
 # rdar://105915702 (REGRESSION ( Sonoma ): [ Sonoma wk1 ] Nine imported/w3c/web-platform-tests/css/css tests are a consistent failure)
 imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-image-3f.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-masking/mask-image/mask-image-3g.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-masking/clip-path/clip-path-svg-text-backdrop-filter.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-transforms/subpixel-transform-changes-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-transforms/subpixel-transform-changes-002.html [ ImageOnlyFailure ]
 
@@ -2709,6 +2723,11 @@ webkit.org/b/266184 compositing/images/truncated-direct-png-image.html [ ImageOn
 imported/w3c/web-platform-tests/css/css-contain/contain-size-block-003.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-contain/contain-size-inline-block-003.html [ ImageOnlyFailure ]
 
+imported/w3c/web-platform-tests/css/css-conditional/container-queries/canvas-as-container-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-conditional/container-queries/canvas-as-container-002.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-conditional/container-queries/canvas-as-container-003.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-conditional/container-queries/canvas-as-container-004.html [ ImageOnlyFailure ]
+
 # webkit.org/b/263441 [ mac-wk1 ] Several WPTs using wheel actions are timing out after 269632@main
 imported/w3c/web-platform-tests/css/css-overscroll-behavior/overscroll-behavior.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-scroll-snap/input/snap-area-overflow-boundary.html [ Skip ]
@@ -2736,8 +2755,6 @@ fast/dom/no-scroll-when-command-click-fragment-URL.html [ Skip ]
 # webkit.org/b/273522 2 backdrop-filter tests in imported/w3c/web-platform-tests/css/filter-effects are constant failures
 [ Sonoma+ ] imported/w3c/web-platform-tests/css/filter-effects/backdrop-filters-grayscale-001.html [ ImageOnlyFailure ]
 [ Sonoma+ ] imported/w3c/web-platform-tests/css/filter-effects/backdrop-filters-sepia.html [ ImageOnlyFailure ]
-
-webkit.org/b/270274 [ Debug ] imported/w3c/web-platform-tests/scroll-animations/css/animation-fill-outside-range-test.html [ Skip ]
 
 webkit.org/b/270310 [ Sonoma+ ] imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/removed-element-is-removed-from-top-layer.html [ ImageOnlyFailure ]
 webkit.org/b/270310 [ Sonoma+ ] imported/w3c/web-platform-tests/html/semantics/interactive-elements/the-dialog-element/top-layer-stacking-correct-order-remove-readd.html [ ImageOnlyFailure ]
@@ -2820,6 +2837,9 @@ http/tests/media/hls/hls-webvtt-style.html [ Pass Timeout ]
 [ Ventura Debug ] imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/track/track-element/track-mode-disabled.html [ Skip ]
 [ Ventura Debug ] imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/track/track-element/track-mode.html [ Skip ]
 
+# Test relies on GPUP.
+fast/canvas/image-buffer-resource-limits.html [ Skip ]
+
 webkit.org/b/273577 [ Ventura ] http/tests/media/hls/track-webvtt-multitracks.html [ Skip ]
 
 # rdar://65188503
@@ -2854,3 +2874,21 @@ webkit.org/b/276145 http/tests/security/block-popup-to-all-zero-address.html [ S
 http/tests/xmlhttprequest/cross-origin-authorization.html [ Failure ]
 
 compositing/repaint/scroller-repaints-once.html [ Failure ]
+
+http/tests/login-status/ [ Skip ]
+
+imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-background-properties.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-images/image-orientation/image-orientation-img-object-fit.html [ ImageOnlyFailure ]
+
+# Implement render blocking: https://bugs.webkit.org/show_bug.cgi?id=268743
+imported/w3c/web-platform-tests/html/dom/render-blocking/ [ Skip ]
+
+imported/w3c/web-platform-tests/svg/text/reftests/dominant-baseline-hanging-small-font-size.svg [ Skip ]
+imported/w3c/web-platform-tests/svg/text/reftests/text-inline-size-001.svg [ Skip ]
+imported/w3c/web-platform-tests/svg/text/reftests/text-inline-size-002.svg [ Skip ]
+imported/w3c/web-platform-tests/svg/text/reftests/text-inline-size-005.svg [ Skip ]
+imported/w3c/web-platform-tests/svg/text/reftests/text-inline-size-006.svg [ Skip ]
+imported/w3c/web-platform-tests/svg/text/reftests/text-inline-size-007.svg [ Skip ]
+imported/w3c/web-platform-tests/svg/text/reftests/text-inline-size-101.svg [ Skip ]
+imported/w3c/web-platform-tests/svg/text/reftests/text-multiline-001.svg [ Skip ]
+imported/w3c/web-platform-tests/svg/text/reftests/text-multiline-002.svg [ Skip ]

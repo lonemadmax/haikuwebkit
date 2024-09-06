@@ -831,7 +831,7 @@ http/tests/storageAccess/ [ Pass ]
 http/tests/storageAccess/deny-with-prompt-does-not-preserve-gesture.html [ Skip ]
 
 # Enable again when fixing https://bugs.webkit.org/show_bug.cgi?id=208400.
-http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies-ephemeral.html [ Skip ]
+http/tests/storageAccess/has-storage-access-true-if-third-party-has-cookies-ephemeral.https.html [ Skip ]
 
 # As of https://trac.webkit.org/changeset/227762 the timestampResolution is just 5 seconds which makes this test flaky
 http/tests/resourceLoadStatistics/user-interaction-only-reported-once-within-short-period-of-time.html [ Skip ]
@@ -1436,7 +1436,6 @@ fast/borders/border-painting-correctness-dotted.html [ ImageOnlyFailure ]
 [ x86_64 ] css3/blending/background-blend-mode-body-image.html [ ImageOnlyFailure ]
 [ Ventura+ ] fast/images/animated-heics-draw.html [ Pass Timeout ]
 [ Ventura+ ]  http/tests/resourceLoadStatistics/capped-lifetime-for-cookie-set-in-js.html [ Failure ]
-fast/repaint/fixed-move-after-keyboard-scroll.html [ Pass Failure Timeout ]
 [ Ventura+ x86_64 ] imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/block-local-documents-inheriting-none.https.html [ Pass Failure ]
 [ Ventura+ x86_64 ] imported/w3c/web-platform-tests/html/browsers/history/the-history-interface/history_go_no_argument.html [ Pass Failure ]
 [ x86_64 ] scrollbars/scrolling-by-page-on-keyboard-spacebar.html [ Pass Failure ]
@@ -1619,8 +1618,6 @@ webkit.org/b/262411 [ Sonoma+ ] fast/scrolling/scroll-to-anchor-zoomed-header.ht
 [ Ventura ] media/media-vp8-webm.html [ ImageOnlyFailure ] # Missing AVSampleBufferDisplayLayer's ReadyForDisplayDidChangeNotification
 [ Ventura ] media/media-vp8-webm-seek-to-start.html [ ImageOnlyFailure ] # Missing AVSampleBufferDisplayLayer's ReadyForDisplayDidChangeNotification
 
-webkit.org/b/263136 [ Sonoma+ ] imported/w3c/web-platform-tests/css/css-text/line-break/line-break-anywhere-overrides-uax-behavior-011.html [ ImageOnlyFailure ]
-
 webkit.org/b/261356 [ Debug ] fast/mediastream/device-change-event-2.html [ Pass Timeout ] # CHANGE TO [ Pass Timeout ] WITHOUT DEBUG AFTER FIX ACCORDING TO webkit.org/b/188924
 
 webkit.org/b/263396 css3/color/text.html [ Skip ]
@@ -1797,13 +1794,9 @@ webkit.org/b/275873 storage/indexeddb/database-transaction-cycle.html [ Pass Fai
 # Some of these tests have expectations set elsewhere (marked with inline comment). Please uncomment those when this issue is resolved.
 [ Sequoia+ ] http/tests/resourceLoadStatistics/do-not-remove-blocking-in-redirect.html [ Failure ]
 [ Sequoia+ ] http/tests/resourceLoadStatistics/set-all-cookies-to-same-site-strict.html [ Failure Timeout ] # expectation exists above
-[ Sequoia+ ] http/tests/cache/disk-cache/disk-cache-vary-cookie-private.html [ Failure ]
-[ Sequoia+ ] http/tests/cache/disk-cache/disk-cache-vary-cookie.html [ Failure ]
 [ Sequoia+ ] http/tests/cookies/same-site/fetch-after-navigating-iframe-in-cross-origin-page.html [ Failure ]
 [ Sequoia+ ] http/tests/cookies/same-site/fetch-in-cross-origin-service-worker.html [ Failure Timeout ]
 [ Sequoia+ ] http/tests/privateClickMeasurement/send-attribution-conversion-request.html [ Failure Timeout ]
-[ Sequoia+ ] http/tests/websocket/tests/hybi/websocket-allowed-setting-cookie-as-third-party.html [ Failure ]
-[ Sequoia+ ] http/tests/websocket/tests/hybi/websocket-cookie-overwrite-behavior.html [ Failure ]
 [ Sequoia+ ] imported/w3c/web-platform-tests/fetch/api/cors/cors-cookies-redirect.any.html [ Failure ]
 [ Sequoia+ ] imported/w3c/web-platform-tests/fetch/api/cors/cors-cookies-redirect.any.worker.html [ Failure ]
 [ Sequoia+ ] imported/w3c/web-platform-tests/html/anonymous-iframe/cookie.tentative.https.window.html [ Failure ]
@@ -1876,3 +1869,8 @@ webkit.org/b/275873 storage/indexeddb/database-transaction-cycle.html [ Pass Fai
 [ Sequoia+ Release ] imported/w3c/web-platform-tests/html/browsers/browsing-the-web/unloading-documents/beforeunload-on-history-back.html [ Pass Failure ]
 
 webkit.org/b/276389 media/video-transformed.html [ Pass Failure ] 
+
+webkit.org/b/277024 media/now-playing-status-for-video-conference-web-page.html [ Pass Failure ]
+
+# webkit.org/b/277841 [ macOS wk2 ] imported/w3c/web-platform-tests/css/css-view-transitions/new-content-intrinsic-aspect-ratio.html is a flaky failure
+imported/w3c/web-platform-tests/css/css-view-transitions/new-content-intrinsic-aspect-ratio.html [ Pass ImageOnlyFailure ]

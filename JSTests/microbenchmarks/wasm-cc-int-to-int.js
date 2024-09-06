@@ -1,13 +1,12 @@
 //@ skip unless $isWasmPlatform
-//@ $skipModes << :lockdown
-//@ runDefaultWasm("--useWebAssembly=1")
+//@ runDefaultWasm("--useWasm=1", "--useInterpretedJSEntryWrappers=1")
 
 var wasm_code;
 try {
-    wasm_code = read('../../JSTests/microbenchmarks/wasm-cc-int-to-int.wasm', 'binary')
+    wasm_code = read('wasm-cc-int-to-int.wasm', 'binary')
 } catch {
     try {
-        wasm_code = read('wasm-cc-int-to-int.wasm', 'binary')
+        wasm_code = read('../../JSTests/microbenchmarks/wasm-cc-int-to-int.wasm', 'binary')
     } catch {
         wasm_code = read('JSTests/microbenchmarks/wasm-cc-int-to-int.wasm', 'binary')
     }

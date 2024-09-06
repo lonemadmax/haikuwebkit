@@ -37,10 +37,11 @@
 
 namespace WebKit {
 
-RemoteBuffer::RemoteBuffer(WebCore::WebGPU::Buffer& buffer, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, bool mappedAtCreation, WebGPUIdentifier identifier)
+RemoteBuffer::RemoteBuffer(WebCore::WebGPU::Buffer& buffer, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, bool mappedAtCreation, WebGPUIdentifier identifier)
     : m_backing(buffer)
     , m_objectHeap(objectHeap)
     , m_streamConnection(WTFMove(streamConnection))
+    , m_gpu(gpu)
     , m_identifier(identifier)
     , m_isMapped(mappedAtCreation)
     , m_mapModeFlags(mappedAtCreation ? WebCore::WebGPU::MapModeFlags(WebCore::WebGPU::MapMode::Write) : WebCore::WebGPU::MapModeFlags())
@@ -74,8 +75,7 @@ void RemoteBuffer::getMappedRange(WebCore::WebGPU::Size64 offset, std::optional<
 {
     m_backing->getMappedRange(offset, size, [&] (auto mappedRange) {
         m_isMapped = true;
-
-        callback(Vector(std::span { static_cast<const uint8_t*>(mappedRange.source), mappedRange.byteLength }));
+        callback(mappedRange);
     });
 }
 
@@ -96,20 +96,19 @@ void RemoteBuffer::copy(std::optional<WebCore::SharedMemoryHandle>&& dataHandle,
         return;
     }
 
-    auto [buffer, bufferLength] = m_backing->getBufferContents();
-    if (!buffer || !bufferLength) {
+    auto buffer = m_backing->getBufferContents();
+    if (buffer.empty()) {
         completionHandler(false);
         return;
     }
 
-    auto dataSize = data.size();
-    auto endOffset = checkedSum<size_t>(offset, dataSize);
-    if (endOffset.hasOverflowed() || endOffset.value() > bufferLength) {
+    auto endOffset = checkedSum<size_t>(offset, data.size());
+    if (endOffset.hasOverflowed() || endOffset.value() > buffer.size()) {
         completionHandler(false);
         return;
     }
 
-    memcpySpan(std::span { buffer + offset, dataSize }, data);
+    memcpySpan(buffer.subspan(offset), data);
     completionHandler(true);
 }
 

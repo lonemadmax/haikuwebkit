@@ -12,6 +12,7 @@
 
 #include <Availability.h>
 #include <TargetConditionals.h>
+#include <stdio.h>
 
 #include "common/MemoryBuffer.h"
 #include "common/string_utils.h"
@@ -849,7 +850,7 @@ static MTLLanguageVersion GetUserSetOrHighestMSLVersion(const MTLLanguageVersion
 }
 
 AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
-    const mtl::ContextDevice &metalDevice,
+    id<MTLDevice> metalDevice,
     const std::string &source,
     const std::map<std::string, std::string> &substitutionMacros,
     bool disableFastMath,
@@ -860,7 +861,7 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
                                disableFastMath, usesInvariance, error);
 }
 
-AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(const mtl::ContextDevice &metalDevice,
+AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(id<MTLDevice> metalDevice,
                                                 const std::string &source,
                                                 AutoObjCPtr<NSError *> *error)
 {
@@ -869,7 +870,7 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(const mtl::ContextDevice &metalD
 }
 
 AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
-    const mtl::ContextDevice &metalDevice,
+    id<MTLDevice> metalDevice,
     const char *source,
     size_t sourceLen,
     const std::map<std::string, std::string> &substitutionMacros,
@@ -929,7 +930,7 @@ AutoObjCPtr<id<MTLLibrary>> CreateShaderLibrary(
         auto *platform   = ANGLEPlatformCurrent();
         double startTime = platform->currentTime(platform);
 
-        auto library = metalDevice.newLibraryWithSource(nsSource, options, &nsError);
+        auto library = [metalDevice newLibraryWithSource:nsSource options:options error:&nsError];
         if (angle::GetEnvironmentVar(kANGLEPrintMSLEnv)[0] == '1')
         {
             NSLog(@"%@\n", nsSource);
@@ -968,8 +969,10 @@ std::string CompileShaderLibraryToFile(const std::string &source,
     }
     // Save the source.
     {
-        angle::SaveFileHelper saveFileHelper(metalFileName.value());
-        saveFileHelper << source;
+        FILE *fp = fopen(metalFileName.value().c_str(), "wb");
+        ASSERT(fp);
+        fwrite(source.c_str(), sizeof(char), metalFileName.value().length(), fp);
+        fclose(fp);
     }
 
     // metal -> air
@@ -1507,6 +1510,9 @@ bool SupportsAppleGPUFamily(id<MTLDevice> device, uint8_t appleFamily)
 #    if TARGET_OS_IOS || (TARGET_OS_OSX && __MAC_OS_X_VERSION_MAX_ALLOWED >= 110000)
             case 6:
                 family = MTLGPUFamilyApple6;
+                break;
+            case 7:
+                family = MTLGPUFamilyApple7;
                 break;
 #    endif
             default:

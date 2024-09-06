@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -585,15 +585,15 @@ static void overrideDefaults()
 #endif
 
 #if !ENABLE(WEBASSEMBLY)
-    Options::useWebAssemblyFastMemory() = false;
-    Options::useWebAssemblyFaultSignalHandler() = false;
+    Options::useWasmFastMemory() = false;
+    Options::useWasmFaultSignalHandler() = false;
 #endif
 
 #if !HAVE(MACH_EXCEPTIONS)
     Options::useMachForExceptions() = false;
 #endif
 
-    if (Options::useWebAssemblyLLInt() && !Options::webAssemblyLLIntTiersUpToBBQ()) {
+    if (Options::useWasmLLInt() && !Options::wasmLLIntTiersUpToBBQ()) {
         Options::thresholdForOMGOptimizeAfterWarmUp() = 1500;
         Options::thresholdForOMGOptimizeSoon() = 100;
     }
@@ -622,6 +622,30 @@ void Options::setAllJITCodeValidations(bool value)
     Options::useJITAsserts() = value;
 }
 
+static inline void disableAllWasmOptions()
+{
+    Options::useWasm() = false;
+    Options::useWasmIPInt() = false;
+    Options::useWasmLLInt() = false;
+    Options::useBBQJIT() = false;
+    Options::useOMGJIT() = false;
+    Options::dumpWasmDisassembly() = false;
+    Options::dumpBBQDisassembly() = false;
+    Options::dumpOMGDisassembly() = false;
+    Options::failToCompileWasmCode() = true;
+
+    Options::useWasmFastMemory() = false;
+    Options::useWasmFaultSignalHandler() = false;
+    Options::numberOfWasmCompilerThreads() = 0;
+
+    Options::useWasmTypedFunctionReferences() = false;
+    Options::useWasmGC() = false;
+    Options::useWasmSIMD() = false;
+    Options::useWasmRelaxedSIMD() = false;
+    Options::useWasmTailCalls() = false;
+    Options::useWasmExtendedConstantExpressions() = false;
+}
+
 static inline void disableAllJITOptions()
 {
     Options::useLLInt() = true;
@@ -636,8 +660,8 @@ static inline void disableAllJITOptions()
     Options::useJITCage() = false;
     Options::useConcurrentJIT() = false;
 
-    if (!OptionsHelper::wasOverridden(Options::useWebAssemblyID))
-        Options::useWebAssembly() = false;
+    if (!Options::useInterpretedJSEntryWrappers() && Options::useWasm())
+        disableAllWasmOptions();
 
     Options::usePollingTraps() = true;
 
@@ -647,7 +671,7 @@ static inline void disableAllJITOptions()
     Options::dumpDFGDisassembly() = false;
     Options::dumpFTLDisassembly() = false;
     Options::dumpRegExpDisassembly() = false;
-    Options::dumpWebAssemblyDisassembly() = false;
+    Options::dumpWasmDisassembly() = false;
     Options::dumpBBQDisassembly() = false;
     Options::dumpOMGDisassembly() = false;
     Options::needDisassemblySupport() = false;
@@ -718,18 +742,13 @@ void Options::notifyOptionsChanged()
 #if !CPU(X86_64) && !CPU(ARM64)
     Options::useConcurrentGC() = false;
     Options::forceUnlinkedDFG() = false;
-    Options::useWebAssemblySIMD() = false;
-    Options::useInterpretedJSEntryWrappers() = false;
+    Options::useWasmSIMD() = false;
 #if !CPU(ARM_THUMB2)
     Options::useBBQJIT() = false;
 #endif
 #if CPU(ARM_THUMB2)
     Options::useBBQTierUpChecks() = false;
 #endif
-#endif
-
-#if ENABLE(C_LOOP) || !CPU(ADDRESS64) || !(CPU(ARM64) || (CPU(X86_64) && !OS(WINDOWS)))
-    Options::useInterpretedJSEntryWrappers() = false;
 #endif
 
 #if !CPU(ARM64)
@@ -741,6 +760,9 @@ void Options::notifyOptionsChanged()
 
     if (!Options::allowDoubleShape())
         Options::useJIT() = false; // We don't support JIT with !allowDoubleShape. So disable it.
+
+    if (!Options::useWasm())
+        disableAllWasmOptions();
 
     // At initialization time, we may decide that useJIT should be false for any
     // number of reasons (including failing to allocate JIT memory), and therefore,
@@ -754,10 +776,8 @@ void Options::notifyOptionsChanged()
             Options::useFTLJIT() = false;
         }
 
-        // Windows: Building with WEBASSEMBLY_BBQJIT and disabling at runtime
         // Windows: Building with WEBASSEMBLY_OMGJIT and disabling at runtime
 #if OS(WINDOWS)
-        Options::useBBQJIT() = false;
         Options::useOMGJIT() = false;
 #endif
 
@@ -767,7 +787,7 @@ void Options::notifyOptionsChanged()
             || Options::dumpDFGDisassembly()
             || Options::dumpFTLDisassembly()
             || Options::dumpRegExpDisassembly()
-            || Options::dumpWebAssemblyDisassembly()
+            || Options::dumpWasmDisassembly()
             || Options::dumpBBQDisassembly()
             || Options::dumpOMGDisassembly())
             Options::needDisassemblySupport() = true;
@@ -825,27 +845,23 @@ void Options::notifyOptionsChanged()
         ASSERT((static_cast<int64_t>(Options::thresholdForOptimizeAfterLongWarmUp()) << Options::reoptimizationRetryCounterMax()) <= static_cast<int64_t>(std::numeric_limits<int32_t>::max()));
 
         if (!Options::useBBQJIT() && Options::useOMGJIT())
-            Options::webAssemblyLLIntTiersUpToBBQ() = false;
+            Options::wasmLLIntTiersUpToBBQ() = false;
 
-#if CPU(X86_64) && ENABLE(JIT)
-        if (!MacroAssembler::supportsAVX())
-            Options::useWebAssemblySIMD() = false;
-#endif
+        if (isX86_64() && !isX86_64_AVX())
+            Options::useWasmSIMD() = false;
 
-        if (Options::forceAllFunctionsToUseSIMD() && !Options::useWebAssemblySIMD())
+        if (Options::forceAllFunctionsToUseSIMD() && !Options::useWasmSIMD())
             Options::forceAllFunctionsToUseSIMD() = false;
 
-        if (Options::useWebAssemblyTailCalls()) {
-            // The single-pass BBQ JIT doesn't support these features currently, so we should use a different
-            // BBQ backend if any of them are enabled. We should remove these limitations as support for each
-            // is added.
-            // FIXME: Add WASM tail calls support to single-pass BBQ JIT. https://bugs.webkit.org/show_bug.cgi?id=253192
+#if USE(JSVALUE32_64)
+        if (Options::useWasmTailCalls()) {
             Options::useBBQJIT() = false;
-            Options::useWebAssemblyLLInt() = true;
-            Options::webAssemblyLLIntTiersUpToBBQ() = false;
+            Options::useWasmLLInt() = true;
+            Options::wasmLLIntTiersUpToBBQ() = false;
         }
+#endif
 
-        if (Options::useWebAssemblySIMD() && !(Options::useWebAssemblyLLInt() || Options::useWebAssemblyIPInt())) {
+        if (Options::useWasmSIMD() && !(Options::useWasmLLInt() || Options::useWasmIPInt())) {
             // The LLInt is responsible for discovering if functions use SIMD.
             // If we can't run using it, then we should be conservative.
             Options::forceAllFunctionsToUseSIMD() = true;
@@ -913,13 +929,13 @@ void Options::notifyOptionsChanged()
         Options::verifyGC() = true;
 
 #if ASAN_ENABLED && OS(LINUX)
-    if (Options::useWebAssemblyFaultSignalHandler()) {
+    if (Options::useWasmFaultSignalHandler()) {
         const char* asanOptions = getenv("ASAN_OPTIONS");
-        bool okToUseWebAssemblyFastMemory = asanOptions
+        bool okToUseWasmFastMemory = asanOptions
             && (strstr(asanOptions, "allow_user_segv_handler=1") || strstr(asanOptions, "handle_segv=0"));
-        if (!okToUseWebAssemblyFastMemory) {
-            dataLogLn("WARNING: ASAN interferes with JSC signal handlers; useWebAssemblyFastMemory and useWasmFaultSignalHandler will be disabled.");
-            Options::useWebAssemblyFaultSignalHandler() = false;
+        if (!okToUseWasmFastMemory) {
+            dataLogLn("WARNING: ASAN interferes with JSC signal handlers; useWasmFastMemory and useWasmFaultSignalHandler will be disabled.");
+            Options::useWasmFaultSignalHandler() = false;
         }
     }
 #endif
@@ -929,17 +945,15 @@ void Options::notifyOptionsChanged()
     if (!Options::useMachForExceptions() || Options::useJITCage())
         Options::allowNonSPTagging() = true;
 
-    if (!Options::useWebAssemblyFaultSignalHandler())
-        Options::useWebAssemblyFastMemory() = false;
+    if (!Options::useWasmFaultSignalHandler())
+        Options::useWasmFastMemory() = false;
 
 #if CPU(ADDRESS32)
-    Options::useWebAssemblyFastMemory() = false;
+    Options::useWasmFastMemory() = false;
 #endif
 
-#if ENABLE(UNIFIED_AND_FREEZABLE_CONFIG_RECORD)
     uint8_t* reservedConfigBytes = reinterpret_cast_ptr<uint8_t*>(WebConfig::g_config + WebConfig::reservedSlotsForExecutableAllocator);
     reservedConfigBytes[WebConfig::ReservedByteForAllocationProfiling] = Options::useAllocationProfiling() ? 1 : 0;
-#endif
 
     // Do range checks where needed and make corrections to the options:
     ASSERT(Options::thresholdForOptimizeAfterLongWarmUp() >= Options::thresholdForOptimizeAfterWarmUp());
@@ -969,9 +983,10 @@ void Options::initialize()
             RELEASE_ASSERT(OptionsHelper::addressOfOption(gcMaxHeapSizeID) ==  &Options::gcMaxHeapSize());
             RELEASE_ASSERT(OptionsHelper::addressOfOption(forceOSRExitToLLIntID) ==  &Options::forceOSRExitToLLInt());
 
-#ifndef NDEBUG
+#if ENABLE(JSC_RESTRICTED_OPTIONS_BY_DEFAULT)
             Config::enableRestrictedOptions();
 #endif
+
             // Initialize each of the options with their default values:
 #define INIT_OPTION(type_, name_, defaultValue_, availability_, description_) { \
                 name_() = defaultValue_; \
@@ -1299,9 +1314,9 @@ void Options::assertOptionsAreCoherent()
         coherent = false;
         dataLog("INCOHERENT OPTIONS: at least one of useLLInt or useJIT must be true\n");
     }
-    if (useWebAssembly() && !(useWebAssemblyLLInt() || useBBQJIT())) {
+    if (useWasm() && !(useWasmLLInt() || useBBQJIT())) {
         coherent = false;
-        dataLog("INCOHERENT OPTIONS: at least one of useWebAssemblyLLInt or useBBQJIT must be true\n");
+        dataLog("INCOHERENT OPTIONS: at least one of useWasmLLInt or useBBQJIT must be true\n");
     }
     if (useProfiler() && useConcurrentJIT()) {
         coherent = false;
@@ -1377,7 +1392,7 @@ void Option::dump(StringBuilder& builder) const
         builder.append('"', m_optionString ? span8(m_optionString) : ""_span, '"');
         break;
     case Options::Type::GCLogLevel:
-        builder.append(GCLogging::levelAsString(m_gcLogLevel));
+        builder.append(m_gcLogLevel);
         break;
     case Options::Type::OSLogType:
         builder.append(asString(m_osLogType));
@@ -1438,7 +1453,7 @@ bool hasCapacityToUseLargeGigacage()
 {
     // Gigacage::hasCapacityToUseLargeGigacage is determined based on EFFECTIVE_ADDRESS_WIDTH.
     // If we have enough address range to potentially use a large gigacage,
-    // then we have enough address range to useWebAssemblyFastMemory.
+    // then we have enough address range to useWasmFastMemory.
     return Gigacage::hasCapacityToUseLargeGigacage;
 }
 

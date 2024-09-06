@@ -2989,29 +2989,16 @@ void Texture::makeCanvasBacking()
     m_canvasBacking = true;
 }
 
-void Texture::onCommandBufferCompletion(Function<void()>&& completion)
+void Texture::waitForCommandBufferCompletion()
 {
-    size_t completionCount = m_commandEncoders.computeSize();
-    if (!completionCount)
-        return completion();
-
-    NSNumber* currentCount = completionCount > 1 ? [NSNumber numberWithUnsignedLongLong:0] : nil;
-    for (auto& commandEncoder : m_commandEncoders) {
-        commandEncoder.onCommandBufferCompletion([completionCount, currentCount, completion = WTFMove(completion)]() mutable {
-            if (!currentCount)
-                completion();
-            else {
-                currentCount = [NSNumber numberWithUnsignedLongLong:currentCount.intValue + 1];
-                if (currentCount.unsignedLongLongValue == completionCount)
-                    completion();
-            }
-        });
-    }
+    for (auto& commandEncoder : m_commandEncoders)
+        commandEncoder.waitForCommandBufferCompletion();
 }
 
 void Texture::setCommandEncoder(CommandEncoder& commandEncoder) const
 {
     m_commandEncoders.add(commandEncoder);
+    commandEncoder.addTexture(m_texture);
     if (!m_canvasBacking && isDestroyed())
         commandEncoder.makeSubmitInvalid();
 }

@@ -43,6 +43,7 @@
 #include "HostWindow.h"
 #include "Icon.h"
 #include "ImageBuffer.h"
+#include "ImageBufferResourceLimits.h"
 #include "InputMode.h"
 #include "MediaControlsContextMenuItem.h"
 #include "MediaProducer.h"
@@ -126,6 +127,7 @@ class Node;
 class Page;
 class PopupMenuClient;
 class SecurityOrigin;
+class SecurityOriginData;
 class ViewportConstraints;
 class Widget;
 
@@ -143,7 +145,6 @@ struct DateTimeChooserParameters;
 struct FocusOptions;
 struct GraphicsDeviceAdapter;
 struct MockWebAuthenticationConfiguration;
-class SecurityOriginData;
 struct ShareDataWithParsedURL;
 struct TextIndicatorData;
 struct TextRecognitionOptions;
@@ -151,8 +152,10 @@ struct ViewportArguments;
 struct WindowFeatures;
 
 enum class CookieConsentDecisionResult : uint8_t;
+enum class IsLoggedIn : uint8_t;
 enum class ModalContainerControlType : uint8_t;
 enum class ModalContainerDecision : uint8_t;
+enum class TextAnimationRunMode : uint8_t;
 enum class RouteSharingPolicy : uint8_t;
 
 enum class DidFilterLinkDecoration : bool { No, Yes };
@@ -393,6 +396,8 @@ public:
     virtual RefPtr<ShapeDetection::FaceDetector> createFaceDetector(const ShapeDetection::FaceDetectorOptions&) const { return nullptr; }
     virtual RefPtr<ShapeDetection::TextDetector> createTextDetector() const { return nullptr; }
 
+    virtual void registerBlobPathForTesting(const String&, CompletionHandler<void()>&&) { }
+
     // Pass nullptr as the GraphicsLayer to detatch the root layer.
     virtual void attachRootGraphicsLayer(LocalFrame&, GraphicsLayer*) = 0;
     virtual void attachViewOverlayGraphicsLayer(GraphicsLayer*) = 0;
@@ -433,7 +438,7 @@ public:
     virtual bool layerTreeStateIsFrozen() const { return false; }
 
     virtual RefPtr<ScrollingCoordinator> createScrollingCoordinator(Page&) const { return nullptr; }
-    WEBCORE_EXPORT virtual void ensureScrollbarsController(Page&, ScrollableArea&) const;
+    WEBCORE_EXPORT virtual void ensureScrollbarsController(Page&, ScrollableArea&, bool update = false) const;
 
     virtual bool canEnterVideoFullscreen(HTMLMediaElementEnums::VideoFullscreenMode) const { return false; }
     virtual bool supportsVideoFullscreen(HTMLMediaElementEnums::VideoFullscreenMode) { return false; }
@@ -597,6 +602,9 @@ public:
     virtual void requestStorageAccess(RegistrableDomain&& subFrameDomain, RegistrableDomain&& topFrameDomain, LocalFrame&, StorageAccessScope scope, CompletionHandler<void(RequestStorageAccessResult)>&& completionHandler) { completionHandler({ StorageAccessWasGranted::No, StorageAccessPromptWasShown::No, scope, WTFMove(topFrameDomain), WTFMove(subFrameDomain) }); }
     virtual bool hasPageLevelStorageAccess(const RegistrableDomain& /*topLevelDomain*/, const RegistrableDomain& /*resourceDomain*/) const { return false; }
 
+    virtual void setLoginStatus(RegistrableDomain&&, IsLoggedIn, CompletionHandler<void()>&&) { }
+    virtual void isLoggedIn(RegistrableDomain&&, CompletionHandler<void(bool)>&&) { }
+
 #if ENABLE(DEVICE_ORIENTATION)
     virtual void shouldAllowDeviceOrientationAndMotionAccess(LocalFrame&, bool /* mayPrompt */, CompletionHandler<void(DeviceOrientationOrMotionPermissionState)>&& callback) { callback(DeviceOrientationOrMotionPermissionState::Denied); }
 #endif
@@ -678,14 +686,16 @@ public:
 
     virtual void addInitialTextAnimation(const WritingTools::SessionID&) { }
 
-    virtual void addSourceTextAnimation(const WritingTools::SessionID&, const CharacterRange&, const String, WTF::CompletionHandler<void(void)>&&) { }
+    virtual void addSourceTextAnimation(const WritingTools::SessionID&, const CharacterRange&, const String&, CompletionHandler<void(TextAnimationRunMode)>&&) { }
 
-    virtual void addDestinationTextAnimation(const WritingTools::SessionID&, const CharacterRange&, const String) { }
+    virtual void addDestinationTextAnimation(const WritingTools::SessionID&, const std::optional<CharacterRange>&, const String&) { }
 
     virtual void clearAnimationsForSessionID(const WritingTools::SessionID&) { };
 #endif
 
     virtual void hasActiveNowPlayingSessionChanged(bool) { }
+
+    virtual void getImageBufferResourceLimitsForTesting(CompletionHandler<void(std::optional<ImageBufferResourceLimits>)>&& callback) const { callback(std::nullopt); }
 
     WEBCORE_EXPORT virtual ~ChromeClient();
 

@@ -580,6 +580,9 @@ TEST(ElementTargeting, RequestTargetedElementsBySearchableText)
     RetainPtr targetFromSearchText = [[webView targetedElementInfoWithText:searchableText] firstObject];
     EXPECT_TRUE([targetFromSearchText isSameElement:targetFromHitTest.get()]);
     EXPECT_WK_STREQ("sunset-in-cupertino-200px.png", [[[targetFromSearchText mediaAndLinkURLs] anyObject] lastPathComponent]);
+
+    [webView adjustVisibilityForTargets:@[ targetFromSearchText.get() ]];
+    EXPECT_TRUE([targetFromSearchText isSameElement:[[webView targetedElementInfoWithText:searchableText] firstObject]]);
 }
 
 TEST(ElementTargeting, AdjustVisibilityAfterRecreatingElement)
@@ -612,6 +615,26 @@ TEST(ElementTargeting, TargetedElementWithLargeImage)
     EXPECT_WK_STREQ("{480,150}", [element renderedText]);
     EXPECT_EQ([[element screenReaderText] length], 0U);
     EXPECT_TRUE([element hasLargeReplacedDescendant]);
+}
+
+TEST(ElementTargeting, CountVisibilityAdjustmentsAfterNavigatingBack)
+{
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 800, 600)]);
+    [webView synchronouslyLoadTestPageNamed:@"element-targeting-1"];
+
+    RetainPtr element = [[webView targetedElementInfoAt:CGPointMake(150, 150)] firstObject];
+    EXPECT_WK_STREQ("DIV.fixed.container", [[[element selectorsIncludingShadowHosts] firstObject] firstObject]);
+    [webView adjustVisibilityForTargets:@[ element.get() ]];
+    EXPECT_EQ(1U, [webView numberOfVisibilityAdjustmentRects]);
+
+    [webView synchronouslyLoadTestPageNamed:@"element-targeting-2"];
+    EXPECT_EQ(0U, [webView numberOfVisibilityAdjustmentRects]);
+
+    [webView synchronouslyGoBack];
+    EXPECT_EQ(1U, [webView numberOfVisibilityAdjustmentRects]);
+
+    [webView synchronouslyGoForward];
+    EXPECT_EQ(0U, [webView numberOfVisibilityAdjustmentRects]);
 }
 
 } // namespace TestWebKitAPI

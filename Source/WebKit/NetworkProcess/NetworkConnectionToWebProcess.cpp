@@ -144,8 +144,7 @@ NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(NetworkProcess& net
     , m_webProcessIdentifier(webProcessIdentifier)
     , m_schemeRegistry(NetworkSchemeRegistry::create())
     , m_originAccessPatterns(makeUniqueRef<NetworkOriginAccessPatterns>())
-    , m_preferencesForWebProcess(parameters.preferencesForWebProcess)
-    , m_allowTestOnlyIPC(parameters.allowTestOnlyIPC)
+    , m_sharedPreferencesForWebProcess(parameters.sharedPreferencesForWebProcess)
 {
     RELEASE_ASSERT(RunLoop::isMain());
 
@@ -410,6 +409,15 @@ bool NetworkConnectionToWebProcess::didReceiveSyncMessage(IPC::Connection& conne
             return m_swConnection->didReceiveSyncMessage(connection, decoder, reply);
         return false;
     }
+
+#if ENABLE(WEB_PUSH_NOTIFICATIONS)
+    if (decoder.messageReceiverName() == Messages::NotificationManagerMessageHandler::messageReceiverName()) {
+        MESSAGE_CHECK_WITH_RETURN_VALUE(m_networkProcess->builtInNotificationsEnabled(), false);
+        if (auto* networkSession = this->networkSession())
+            return networkSession->notificationManager().didReceiveSyncMessage(connection, decoder, reply);
+        return false;
+    }
+#endif
 
 #if ENABLE(APPLE_PAY_REMOTE_UI)
     if (decoder.messageReceiverName() == Messages::WebPaymentCoordinatorProxy::messageReceiverName())
@@ -950,6 +958,19 @@ void NetworkConnectionToWebProcess::cookieEnabledStateMayHaveChanged()
     protectedConnection()->send(Messages::NetworkProcessConnection::UpdateCachedCookiesEnabled(), 0);
 }
 
+bool NetworkConnectionToWebProcess::isFilePathAllowed(NetworkSession& session, String path)
+{
+    path = FileSystem::lexicallyNormal(path);
+    auto parentPath = FileSystem::parentPath(path);
+    while (parentPath != path) {
+        if (m_allowedFilePaths.contains(path) || parentPath == session.storageManager().path() || parentPath == session.storageManager().customIDBStoragePath())
+            return true;
+        path = parentPath;
+        parentPath = FileSystem::parentPath(path);
+    }
+    return false;
+}
+
 void NetworkConnectionToWebProcess::registerInternalFileBlobURL(const URL& url, const String& path, const String& replacementPath, SandboxExtension::Handle&& extensionHandle, const String& contentType)
 {
     MESSAGE_CHECK(!url.isEmpty());
@@ -957,6 +978,8 @@ void NetworkConnectionToWebProcess::registerInternalFileBlobURL(const URL& url, 
     auto* session = networkSession();
     if (!session)
         return;
+    if (blobFileAccessEnforcementEnabled())
+        MESSAGE_CHECK(isFilePathAllowed(*session, path));
 
     m_blobURLs.add({ url, std::nullopt });
     session->blobRegistry().registerInternalFileBlobURL(url, BlobDataFileReferenceWithSandboxExtension::create(path, replacementPath, SandboxExtension::create(WTFMove(extensionHandle))), contentType);
@@ -982,13 +1005,14 @@ void NetworkConnectionToWebProcess::registerBlobURL(const URL& url, const URL& s
     session->blobRegistry().registerBlobURL(url, srcURL, WTFMove(policyContainer), topOrigin);
 }
 
-void NetworkConnectionToWebProcess::registerInternalBlobURLOptionallyFileBacked(const URL& url, const URL& srcURL, const String& fileBackedPath, const String& contentType)
+void NetworkConnectionToWebProcess::registerInternalBlobURLOptionallyFileBacked(URL&& url, URL&& srcURL, const String& fileBackedPath, String&& contentType)
 {
     MESSAGE_CHECK(!url.isEmpty() && !srcURL.isEmpty() && !fileBackedPath.isEmpty());
-
     auto* session = networkSession();
     if (!session)
         return;
+    if (blobFileAccessEnforcementEnabled())
+        MESSAGE_CHECK(isFilePathAllowed(*session, fileBackedPath));
 
     m_blobURLs.add({ url, std::nullopt });
     session->blobRegistry().registerInternalBlobURLOptionallyFileBacked(url, srcURL, BlobDataFileReferenceWithSandboxExtension::create(fileBackedPath), contentType, { });
@@ -1070,6 +1094,26 @@ void NetworkConnectionToWebProcess::writeBlobsToTemporaryFilesForIndexedDB(const
     });
 }
 
+void NetworkConnectionToWebProcess::registerBlobPathForTesting(const String& path, CompletionHandler<void()>&& completion)
+{
+    if (!allowTestOnlyIPC())
+        return completion();
+    allowAccessToFile(path);
+    completion();
+}
+
+void NetworkConnectionToWebProcess::allowAccessToFile(const String& path)
+{
+    m_allowedFilePaths.add(FileSystem::lexicallyNormal(path));
+}
+
+
+void NetworkConnectionToWebProcess::allowAccessToFiles(const Vector<String>& filePaths)
+{
+    for (auto& filePath : filePaths)
+        m_allowedFilePaths.add(FileSystem::lexicallyNormal(filePath));
+}
+
 void NetworkConnectionToWebProcess::setCaptureExtraNetworkLoadMetricsEnabled(bool enabled)
 {
     m_captureExtraNetworkLoadMetricsEnabled = enabled;
@@ -1144,6 +1188,28 @@ void NetworkConnectionToWebProcess::requestStorageAccess(RegistrableDomain&& sub
     }
 
     completionHandler({ WebCore::StorageAccessWasGranted::Yes, WebCore::StorageAccessPromptWasShown::No, scope, topFrameDomain, subFrameDomain });
+}
+
+void NetworkConnectionToWebProcess::setLoginStatus(RegistrableDomain&& domain, IsLoggedIn loggedInStatus, CompletionHandler<void()>&& completionHandler)
+{
+    if (auto* networkSession = this->networkSession()) {
+        if (auto* resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
+            resourceLoadStatistics->setLoginStatus(WTFMove(domain), loggedInStatus, WTFMove(completionHandler));
+            return;
+        }
+    }
+    completionHandler();
+}
+
+void NetworkConnectionToWebProcess::isLoggedIn(RegistrableDomain&& domain, CompletionHandler<void(bool)>&& completionHandler)
+{
+    if (auto* networkSession = this->networkSession()) {
+        if (auto* resourceLoadStatistics = networkSession->resourceLoadStatistics()) {
+            resourceLoadStatistics->isLoggedIn(WTFMove(domain), WTFMove(completionHandler));
+            return;
+        }
+    }
+    completionHandler(false);
 }
 
 void NetworkConnectionToWebProcess::storageAccessQuirkForTopFrameDomain(URL&& topFrameURL, CompletionHandler<void(Vector<RegistrableDomain>)>&& completionHandler)

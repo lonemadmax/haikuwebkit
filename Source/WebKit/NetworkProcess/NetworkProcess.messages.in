@@ -24,6 +24,7 @@ messages -> NetworkProcess LegacyReceiver {
     InitializeNetworkProcess(struct WebKit::NetworkProcessCreationParameters processCreationParameters) -> ()
 
     CreateNetworkConnectionToWebProcess(WebCore::ProcessIdentifier processIdentifier, PAL::SessionID sessionID, struct WebKit::NetworkProcessConnectionParameters parameters) -> (std::optional<IPC::ConnectionHandle> connectionHandle, enum:uint8_t WebCore::HTTPCookieAcceptPolicy cookieAcceptPolicy) AllowedWhenWaitingForSyncReply
+    SharedPreferencesForWebProcessDidChange(WebCore::ProcessIdentifier processIdentifier, struct WebKit::SharedPreferencesForWebProcess sharedPreferencesForWebProcess) -> ()
 
     AddAllowedFirstPartyForCookies(WebCore::ProcessIdentifier processIdentifier, WebCore::RegistrableDomain firstPartyForCookies, enum:bool WebKit::LoadedWebArchive loadedWebArchive) -> ()
 
@@ -218,8 +219,12 @@ messages -> NetworkProcess LegacyReceiver {
     RemoveWebPageNetworkParameters(PAL::SessionID sessionID, WebKit::WebPageProxyIdentifier pageID)
     CountNonDefaultSessionSets(PAL::SessionID sessionID) -> (size_t count)
 
+    AllowFileAccessFromWebProcess(WebCore::ProcessIdentifier processIdentifier, String url) -> ()
+    AllowFilesAccessFromWebProcess(WebCore::ProcessIdentifier processIdentifier, Vector<String> urls) -> () ReplyCanDispatchOutOfOrder
+
     TerminateRemoteWorkerContextConnectionWhenPossible(enum:uint8_t WebKit::RemoteWorkerType workerType, PAL::SessionID sessionID,  WebCore::RegistrableDomain registrableDomain, WebCore::ProcessIdentifier processIdentifier);
 
+    GetPendingPushMessage(PAL::SessionID sessionID) -> (std::optional<WebKit::WebPushMessage> message)
     GetPendingPushMessages(PAL::SessionID sessionID) -> (Vector<WebKit::WebPushMessage> messages)
     ProcessPushMessage(PAL::SessionID sessionID, struct WebKit::WebPushMessage pushMessage, enum:uint8_t WebCore::PushPermissionState pushPermissionState) -> (bool didSucceed, std::optional<WebCore::NotificationPayload> displayPayload)
     ProcessNotificationEvent(struct WebCore::NotificationData data, enum:bool WebCore::NotificationEventType eventType) -> (bool didSucceed)
@@ -244,4 +249,7 @@ messages -> NetworkProcess LegacyReceiver {
 #endif
 
     SetStorageSiteValidationEnabled(PAL::SessionID sessionID, bool enabled)
+    SetPersistedDomains(PAL::SessionID sessionsID, HashSet<WebCore::RegistrableDomain> domains)
+
+    GetAppBadgeForTesting(PAL::SessionID sessionID) -> (std::optional<uint64_t> badge)
 }

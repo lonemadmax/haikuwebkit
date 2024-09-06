@@ -270,8 +270,8 @@ Shared/API/APIData.cpp
 Shared/API/APIDictionary.cpp
 Shared/API/APIError.cpp
 Shared/API/APIObject.cpp
+Shared/API/APISerializedScriptValue.cpp
 Shared/API/APIURLRequest.cpp
-Shared/API/RegisterTZoneTypes.cpp
 
 Shared/API/c/WKArray.cpp
 Shared/API/c/WKCertificateInfo.cpp
@@ -443,6 +443,7 @@ UIProcess/WebPageProxyTesting.cpp
 UIProcess/WebPasteboardProxy.cpp
 UIProcess/WebPermissionControllerProxy.cpp
 UIProcess/WebPreferences.cpp
+UIProcess/WebProcessActivityState.cpp
 UIProcess/WebProcessCache.cpp
 UIProcess/WebProcessPool.cpp
 UIProcess/WebProcessProxy.cpp

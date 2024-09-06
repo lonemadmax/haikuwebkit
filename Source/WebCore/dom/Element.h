@@ -109,10 +109,9 @@ enum class ShadowRootSerializable : bool { No, Yes };
 enum class VisibilityAdjustment : uint8_t;
 
 // https://github.com/whatwg/html/pull/9841
-enum class InvokeAction: uint8_t {
+enum class CommandType: uint8_t {
     Invalid,
 
-    Auto,
     Custom,
 
     TogglePopover,
@@ -158,6 +157,7 @@ struct ResolvedStyle;
 
 class Element : public ContainerNode {
     WTF_MAKE_ISO_ALLOCATED(Element);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(Element);
 public:
     static Ref<Element> create(const QualifiedName&, Document&);
     virtual ~Element();
@@ -655,8 +655,8 @@ public:
     void clearPopoverData();
     bool isPopoverShowing() const;
 
-    virtual bool isValidInvokeAction(const InvokeAction action) { return action == InvokeAction::Auto; }
-    virtual bool handleInvokeInternal(const HTMLFormControlElement&, const InvokeAction&) { return false; }
+    virtual bool isValidCommandType(const CommandType) { return false; }
+    virtual bool handleCommandInternal(const HTMLFormControlElement&, const CommandType&) { return false; }
 
     ExceptionOr<void> setPointerCapture(int32_t);
     ExceptionOr<void> releasePointerCapture(int32_t);
@@ -818,6 +818,9 @@ public:
     bool hasCustomState(const AtomString& state) const;
     CustomStateSet& ensureCustomStateSet();
 
+    bool hasDirectionAuto() const;
+    std::optional<TextDirection> directionalityIfDirIsAuto() const;
+
 protected:
     Element(const QualifiedName&, Document&, OptionSet<TypeFlag>);
 
@@ -845,6 +848,9 @@ protected:
 
     void disconnectFromIntersectionObservers();
     static AtomString makeTargetBlankIfHasDanglingMarkup(const AtomString& target);
+
+    void updateTextDirectionalityAfterInputTypeChange();
+    void updateEffectiveDirectionalityOfDirAuto();
 
 private:
     LocalFrame* documentFrameWithNonNullView() const;
@@ -943,6 +949,17 @@ private:
 #if ASSERT_ENABLED
     WEBCORE_EXPORT bool fastAttributeLookupAllowed(const QualifiedName&) const;
 #endif
+
+    void dirAttributeChanged(const AtomString&);
+    void updateEffectiveDirectionality(std::optional<TextDirection>);
+    void adjustDirectionalityIfNeededAfterChildAttributeChanged(Element* child);
+    void adjustDirectionalityIfNeededAfterChildrenChanged(Element* beforeChange, ChildChange::Type);
+
+    struct TextDirectionWithStrongDirectionalityNode {
+        TextDirection direction;
+        RefPtr<Node> strongDirectionalityNode;
+    };
+    TextDirectionWithStrongDirectionalityNode computeDirectionalityFromText() const;
 
     bool hasEffectiveLangState() const;
     void updateEffectiveLangState();

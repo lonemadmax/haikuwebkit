@@ -371,7 +371,7 @@ const RealtimeMediaSourceSettings& MockRealtimeVideoSource::settings()
     return m_currentSettings.value();
 }
 
-void MockRealtimeVideoSource::setFrameRateAndZoomWithPreset(double frameRate, double zoom, std::optional<VideoPreset>&& preset)
+void MockRealtimeVideoSource::applyFrameRateAndZoomWithPreset(double frameRate, double zoom, std::optional<VideoPreset>&& preset)
 {
     UNUSED_PARAM(zoom);
     ASSERT(m_beingConfigured);
@@ -750,11 +750,13 @@ void MockRealtimeVideoSource::setIsInterrupted(bool isInterrupted)
 
 void MockRealtimeVideoSource::startApplyingConstraints()
 {
+    ASSERT(!m_beingConfigured);
     m_beingConfigured = true;
 }
 
 void MockRealtimeVideoSource::endApplyingConstraints()
 {
+    ASSERT(m_beingConfigured);
     m_beingConfigured = false;
 }
 

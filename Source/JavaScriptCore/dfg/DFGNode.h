@@ -840,7 +840,7 @@ public:
 
     void convertToNewObject(RegisteredStructure structure)
     {
-        ASSERT(m_op == CallObjectConstructor || m_op == CreateThis || m_op == ObjectCreate);
+        ASSERT(m_op == CallObjectConstructor || m_op == CreateThis || m_op == ObjectCreate || m_op == Construct);
         setOpAndDefaultFlags(NewObject);
         children.reset();
         m_opInfo = structure;
@@ -2551,7 +2551,6 @@ public:
     bool hasECMAMode()
     {
         switch (op()) {
-        case CallDirectEval:
         case DeleteById:
         case DeleteByVal:
         case PutById:
@@ -2577,7 +2576,6 @@ public:
     {
         ASSERT(hasECMAMode());
         switch (op()) {
-        case CallDirectEval:
         case DeleteByVal:
         case PutByValWithThis:
         case ToThis:
@@ -2706,6 +2704,12 @@ public:
         return m_opInfo.as<unsigned>();
     }
 
+    LexicallyScopedFeatures lexicallyScopedFeatures()
+    {
+        ASSERT(op() == CallDirectEval);
+        return m_opInfo.as<uint8_t>();
+    }
+
     DataViewData dataViewData()
     {
         ASSERT(op() == DataViewGetInt || op() == DataViewGetFloat || op() == DataViewSet);
@@ -2798,7 +2802,7 @@ public:
         return isBinaryUseKind(useKind, useKind);
     }
 
-    bool isReflexiveBinaryUseKind(UseKind left, UseKind right)
+    bool isSymmetricBinaryUseKind(UseKind left, UseKind right)
     {
         return isBinaryUseKind(left, right) || isBinaryUseKind(right, left);
     }
@@ -3025,6 +3029,11 @@ public:
         return isProxyObjectSpeculation(prediction());
     }
 
+    bool shouldSpeculateGlobalProxy()
+    {
+        return isGlobalProxySpeculation(prediction());
+    }
+
     bool shouldSpeculateDerivedArray()
     {
         return isDerivedArraySpeculation(prediction());
@@ -3075,6 +3084,11 @@ public:
         return isUint32ArraySpeculation(prediction());
     }
     
+    bool shouldSpeculateFloat16Array()
+    {
+        return isFloat16ArraySpeculation(prediction());
+    }
+
     bool shouldSpeculateFloat32Array()
     {
         return isFloat32ArraySpeculation(prediction());

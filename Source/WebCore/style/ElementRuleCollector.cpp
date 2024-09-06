@@ -323,12 +323,20 @@ void ElementRuleCollector::matchHostPseudoClassRules(CascadeLevel level)
     if (!shadowRules)
         return;
 
-    auto& shadowHostRules = shadowRules->hostPseudoClassRules();
-    if (shadowHostRules.isEmpty())
-        return;
+    auto collect = [&] (const auto& rules) {
+        if (rules.isEmpty())
+            return;
 
-    MatchRequest hostMatchRequest { *shadowRules, ScopeOrdinal::Shadow };
-    collectMatchingRulesForList(&shadowHostRules, hostMatchRequest);
+        MatchRequest hostMatchRequest { *shadowRules, ScopeOrdinal::Shadow };
+        collectMatchingRulesForList(&rules, hostMatchRequest);
+    };
+
+    if (shadowRules->hasHostPseudoClassRulesInUniversalBucket()) {
+        if (auto* universalRules = shadowRules->universalRules())
+            collect(*universalRules);
+    }
+
+    collect(shadowRules->hostPseudoClassRules());
 }
 
 void ElementRuleCollector::matchSlottedPseudoElementRules(CascadeLevel level)
@@ -562,19 +570,17 @@ void ElementRuleCollector::collectMatchingRulesForList(const RuleSet::RuleDataVe
         auto& rule = ruleData.styleRule();
 
         // If the rule has no properties to apply, then ignore it in the non-debug mode.
-        // Note that if we get null back here, it means we have a rule with deferred properties,
-        // and that means we always have to consider it.
         if (rule.properties().isEmpty() && !m_shouldIncludeEmptyRules)
             continue;
 
-        auto addRuleIfMatches = [&] (ScopingRootWithDistance scopingRootWithDistance = { }) {
+        auto addRuleIfMatches = [&] (const ScopingRootWithDistance& scopingRootWithDistance = { }) {
             unsigned specificity;
-            if (ruleMatches(ruleData, specificity, matchRequest.styleScopeOrdinal, scopingRootWithDistance.scopingRoot))
+            if (ruleMatches(ruleData, specificity, matchRequest.styleScopeOrdinal, scopingRootWithDistance.scopingRoot.get()))
                 addMatchedRule(ruleData, specificity, scopingRootWithDistance.distance, matchRequest);
         };
 
         if (scopingRoots) {
-            for (auto scopingRoot : *scopingRoots)
+            for (auto& scopingRoot : *scopingRoots)
                 addRuleIfMatches(scopingRoot);
             continue;
         }
@@ -641,8 +647,8 @@ std::pair<bool, std::optional<Vector<ElementRuleCollector::ScopingRootWithDistan
                     if (previousScopingRoots.isEmpty())
                         appendIfMatch();
                     else {
-                        for (const auto [previousScopingRoot, _] : previousScopingRoots)
-                            appendIfMatch(previousScopingRoot);
+                        for (const auto& [previousScopingRoot, _] : previousScopingRoots)
+                            appendIfMatch(previousScopingRoot.get());
                     }
                 }
                 ancestor = ancestor->parentElement();
@@ -676,7 +682,7 @@ std::pair<bool, std::optional<Vector<ElementRuleCollector::ScopingRootWithDistan
             for (auto scopingRootWithDistance : scopingRoots) {
                 bool anyScopingLimitMatch = false;
                 for (const auto* selector = scopeEnd.first(); selector; selector = CSSSelectorList::next(selector)) {
-                    if (match(scopingRootWithDistance.scopingRoot, selector)) {
+                    if (match(scopingRootWithDistance.scopingRoot.get(), selector)) {
                         anyScopingLimitMatch = true;
                         break;
                     }

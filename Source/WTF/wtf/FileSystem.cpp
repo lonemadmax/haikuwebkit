@@ -491,7 +491,7 @@ MappedFileData mapToFile(const String& path, size_t bytesSize, Function<void(con
     auto mapData = mappedFile.mutableSpan();
 
     apply([&mapData](std::span<const uint8_t> chunk) {
-        memcpySpan(mapData.first(chunk.size()), chunk);
+        memcpySpan(mapData, chunk);
         mapData = mapData.subspan(chunk.size());
         return true;
     });
@@ -829,6 +829,11 @@ String pathFileName(const String& path)
 String parentPath(const String& path)
 {
     return fromStdFileSystemPath(toStdFileSystemPath(path).parent_path());
+}
+
+String lexicallyNormal(const String& path)
+{
+    return fromStdFileSystemPath(toStdFileSystemPath(path).lexically_normal());
 }
 
 String createTemporaryFile(StringView prefix, StringView suffix)

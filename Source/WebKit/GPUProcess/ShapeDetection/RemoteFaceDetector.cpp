@@ -30,6 +30,7 @@
 
 #include "ArgumentCoders.h"
 #include "RemoteRenderingBackend.h"
+#include "ShapeDetectionObjectHeap.h"
 #include <WebCore/DetectedFaceInterface.h>
 #include <WebCore/FaceDetectorInterface.h>
 #include <WebCore/ImageBuffer.h>
@@ -46,6 +47,11 @@ RemoteFaceDetector::RemoteFaceDetector(Ref<WebCore::ShapeDetection::FaceDetector
 }
 
 RemoteFaceDetector::~RemoteFaceDetector() = default;
+
+const SharedPreferencesForWebProcess& RemoteFaceDetector::sharedPreferencesForWebProcess() const
+{
+    return m_backend->sharedPreferencesForWebProcess();
+}
 
 void RemoteFaceDetector::detect(WebCore::RenderingResourceIdentifier renderingResourceIdentifier, CompletionHandler<void(Vector<WebCore::ShapeDetection::DetectedFace>&&)>&& completionHandler)
 {

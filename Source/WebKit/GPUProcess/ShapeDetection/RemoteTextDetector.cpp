@@ -30,6 +30,7 @@
 
 #include "ArgumentCoders.h"
 #include "RemoteRenderingBackend.h"
+#include "ShapeDetectionObjectHeap.h"
 #include <WebCore/DetectedTextInterface.h>
 #include <WebCore/ImageBuffer.h>
 #include <WebCore/TextDetectorInterface.h>
@@ -46,6 +47,11 @@ RemoteTextDetector::RemoteTextDetector(Ref<WebCore::ShapeDetection::TextDetector
 }
 
 RemoteTextDetector::~RemoteTextDetector() = default;
+
+const SharedPreferencesForWebProcess& RemoteTextDetector::sharedPreferencesForWebProcess() const
+{
+    return m_backend->sharedPreferencesForWebProcess();
+}
 
 Ref<WebCore::ShapeDetection::TextDetector> RemoteTextDetector::protectedBacking()
 {

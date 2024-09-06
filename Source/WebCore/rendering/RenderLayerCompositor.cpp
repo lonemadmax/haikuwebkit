@@ -4056,11 +4056,13 @@ static void collectStationaryLayerRelatedOverflowNodes(const RenderLayer& layer,
 
     auto appendOverflowLayerNodeID = [&scrollingNodes] (const RenderLayer& overflowLayer) {
         ASSERT(overflowLayer.isComposited());
-        auto scrollingNodeID = overflowLayer.backing()->scrollingNodeIDForRole(ScrollCoordinationRole::Scrolling);
-        if (scrollingNodeID)
-            scrollingNodes.append(scrollingNodeID);
-        else
-            LOG(Scrolling, "Layer %p doesn't have scrolling node ID yet", &overflowLayer);
+        if (overflowLayer.isComposited()) {
+            if (auto scrollingNodeID = overflowLayer.backing()->scrollingNodeIDForRole(ScrollCoordinationRole::Scrolling)) {
+                scrollingNodes.append(scrollingNodeID);
+                return;
+            }
+        }
+        LOG(Scrolling, "Layer %p isn't composited or doesn't have scrolling node ID yet", &overflowLayer);
     };
 
     // Collect all the composited scrollers which affect the position of this layer relative to its compositing ancestor (which might be inside the scroller or the scroller itself).
@@ -5433,6 +5435,8 @@ ScrollingNodeID RenderLayerCompositor::updateScrollingNodeForScrollingRole(Rende
             scrollingCoordinator->setScrollingNodeScrollableAreaGeometry(newNodeID, frameView);
             scrollingCoordinator->setFrameScrollingNodeState(newNodeID, frameView);
         }
+        page().chrome().client().ensureScrollbarsController(page(), frameView, true);
+
     } else {
         newNodeID = attachScrollingNode(layer, ScrollingNodeType::Overflow, treeState);
         if (!newNodeID) {
@@ -5452,7 +5456,7 @@ ScrollingNodeID RenderLayerCompositor::updateScrollingNodeForScrollingRole(Rende
                 scrollingCoordinator->setScrollingNodeScrollableAreaGeometry(newNodeID, *scrollableArea);
         }
         if (auto* scrollableArea = layer.scrollableArea())
-            page().chrome().client().ensureScrollbarsController(page(), *scrollableArea);
+            page().chrome().client().ensureScrollbarsController(page(), *scrollableArea, true);
     }
 
     return newNodeID;

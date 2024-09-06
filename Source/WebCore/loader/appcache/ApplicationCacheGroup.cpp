@@ -35,6 +35,7 @@
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "DOMApplicationCache.h"
+#include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "EventNames.h"
 #include "FrameLoader.h"
@@ -183,7 +184,7 @@ void ApplicationCacheGroup::selectCache(LocalFrame& frame, const URL& passedMani
             // as part of the initial load.
             // The navigation will not result in the same resource being loaded, because "foreign" entries are never picked during navigation.
             RefPtr document = frame.document();
-            frame.navigationScheduler().scheduleLocationChange(*document, document->protectedSecurityOrigin(), documentLoader.url(), frame.loader().referrer());
+            frame.checkedNavigationScheduler()->scheduleLocationChange(*document, document->protectedSecurityOrigin(), documentLoader.url(), frame.loader().referrer());
         }
         return;
     }

@@ -51,7 +51,6 @@
 #include "WasmFormat.h"
 #include "WasmFunctionParser.h"
 #include "WasmIRGeneratorHelpers.h"
-#include "WasmInstance.h"
 #include "WasmMemoryInformation.h"
 #include "WasmModule.h"
 #include "WasmModuleInformation.h"
@@ -237,7 +236,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::getGlobal(uint32_t index, Value& result
     const Wasm::GlobalInformation& global = m_info.globals[index];
     Type type = global.type;
 
-    int32_t offset = Instance::offsetOfGlobalPtr(m_info.importFunctionCount(), m_info.tableCount(), index);
+    int32_t offset = JSWebAssemblyInstance::offsetOfGlobalPtr(m_info.importFunctionCount(), m_info.tableCount(), index);
     Value globalValue = Value::pinned(type.kind, Location::fromGlobal(offset));
 
     switch (global.bindingMode) {
@@ -305,17 +304,15 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::setGlobal(uint32_t index, Value value)
     const Wasm::GlobalInformation& global = m_info.globals[index];
     Type type = global.type;
 
-    int32_t offset = Instance::offsetOfGlobalPtr(m_info.importFunctionCount(), m_info.tableCount(), index);
+    int32_t offset = JSWebAssemblyInstance::offsetOfGlobalPtr(m_info.importFunctionCount(), m_info.tableCount(), index);
     Location valueLocation = locationOf(value);
 
     switch (global.bindingMode) {
     case Wasm::GlobalInformation::BindingMode::EmbeddedInInstance: {
         emitMove(value, Location::fromGlobal(offset));
         consume(value);
-        if (isRefType(type)) {
-            m_jit.load32(Address(GPRInfo::wasmContextInstancePointer, Instance::offsetOfOwner()), wasmScratchGPR);
+        if (isRefType(type))
             emitWriteBarrier(wasmScratchGPR);
-        }
         break;
     }
     case Wasm::GlobalInformation::BindingMode::Portable: {
@@ -3311,8 +3308,7 @@ void BBQJIT::emitMoveMemory(TypeKind type, Location src, Location dst)
         m_jit.transfer32(src.asAddress().withOffset(4), dst.asAddress().withOffset(4));
         break;
     case TypeKind::F64:
-        m_jit.loadDouble(src.asAddress(), wasmScratchFPR);
-        m_jit.storeDouble(wasmScratchFPR, dst.asAddress());
+        m_jit.transferDouble(src.asAddress(), dst.asAddress());
         break;
     case TypeKind::Externref:
     case TypeKind::Ref:
@@ -3328,13 +3324,9 @@ void BBQJIT::emitMoveMemory(TypeKind type, Location src, Location dst)
         m_jit.transfer32(src.asAddress().withOffset(0), dst.asAddress().withOffset(0));
         m_jit.transfer32(src.asAddress().withOffset(4), dst.asAddress().withOffset(4));
         break;
-    case TypeKind::V128: {
-        Address srcAddress = src.asAddress();
-        Address dstAddress = dst.asAddress();
-        m_jit.loadVector(srcAddress, wasmScratchFPR);
-        m_jit.storeVector(wasmScratchFPR, dstAddress);
+    case TypeKind::V128:
+        m_jit.transferVector(src.asAddress(), dst.asAddress());
         break;
-    }
     default:
         RELEASE_ASSERT_NOT_REACHED_WITH_MESSAGE("Unimplemented type kind move.");
     }
@@ -3463,13 +3455,12 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallRef(const TypeDefinition& origin
     GPRReg calleePtr;
     GPRReg calleeInstance;
     GPRReg calleeCode;
-    GPRReg jsCalleeAnchor;
     {
         ScratchScope<1, 0> calleeCodeScratch(*this, RegisterSetBuilder::argumentGPRS());
         calleeCode = calleeCodeScratch.gpr(0);
         calleeCodeScratch.unbindPreserved();
 
-        ScratchScope<3, 0> otherScratches(*this);
+        ScratchScope<2, 0> otherScratches(*this);
 
         Location calleeLocation;
         if (callee.isConst()) {
@@ -3482,22 +3473,19 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallRef(const TypeDefinition& origin
 
         calleePtr = calleeLocation.asGPRlo();
         calleeInstance = otherScratches.gpr(1);
-        jsCalleeAnchor = otherScratches.gpr(2);
 
         {
-            auto calleeTmp = jsCalleeAnchor;
+            auto calleeTmp = calleeInstance;
             m_jit.loadPtr(Address(calleePtr, WebAssemblyFunctionBase::offsetOfBoxedWasmCalleeLoadLocation()), calleeTmp);
             m_jit.loadPtr(Address(calleeTmp), calleeTmp);
             m_jit.storeWasmCalleeCallee(calleeTmp);
         }
 
-        m_jit.loadPtr(MacroAssembler::Address(calleePtr, WebAssemblyFunctionBase::offsetOfInstance()), jsCalleeAnchor);
+        m_jit.loadPtr(MacroAssembler::Address(calleePtr, WebAssemblyFunctionBase::offsetOfInstance()), calleeInstance);
         m_jit.loadPtr(MacroAssembler::Address(calleePtr, WebAssemblyFunctionBase::offsetOfEntrypointLoadLocation()), calleeCode);
-        m_jit.loadPtr(MacroAssembler::Address(jsCalleeAnchor, JSWebAssemblyInstance::offsetOfInstance()), calleeInstance);
-
     }
 
-    emitIndirectCall("CallRef", callee, calleeInstance, calleeCode, jsCalleeAnchor, signature, args, results, CallType::Call);
+    emitIndirectCall("CallRef", callee, calleeInstance, calleeCode, signature, args, results);
     return { };
 }
 

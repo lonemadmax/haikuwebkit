@@ -124,7 +124,7 @@ void NicosiaPlaceholderRenderingContextSource::setPlaceholderBuffer(ImageBuffer&
         unsigned textureID = 0;
         auto image = nativeImage->platformImage();
         if (image->isTextureBacked()) {
-            auto& display = PlatformDisplay::sharedDisplayForCompositing();
+            auto& display = PlatformDisplay::sharedDisplay();
             if (!display.skiaGLContext()->makeContextCurrent())
                 return;
 
@@ -183,7 +183,7 @@ void NicosiaPlaceholderRenderingContextSource::setPlaceholderBuffer(ImageBuffer&
                 auto image = nativeImage->platformImage();
                 if (image->isTextureBacked()) {
 #if PLATFORM(GTK) || PLATFORM(WPE)
-                    fence->wait(WebCore::GLFence::FlushCommands::No);
+                    fence->serverWait();
 #endif // PLATFORM(GTK) || PLATFORM(WPE)
                     texture->copyFromExternalTexture(textureID);
 #if PLATFORM(GTK) || PLATFORM(WPE)

@@ -1,4 +1,4 @@
-//@ runWebAssemblySuite("--useWebAssemblyTypedFunctionReferences=true", "--useWebAssemblyGC=true")
+//@ runWebAssemblySuite("--useWasmTypedFunctionReferences=true", "--useWasmGC=true")
 
 import * as assert from "../assert.js";
 import { compile, instantiate } from "./wast-wrapper.js";
@@ -121,7 +121,7 @@ function testArrayJS() {
       m.exports.g.value = 42;
     },
     TypeError,
-    "Argument value did not match reference type"
+    "Argument value did not match the reference type"
   )
 }
 

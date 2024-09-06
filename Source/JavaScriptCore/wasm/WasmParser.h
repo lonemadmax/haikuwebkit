@@ -42,6 +42,7 @@
 #include <wtf/LEBDecoder.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/StringPrintStream.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/WTFString.h>
 #include <wtf/unicode/UTF8Conversion.h>
 
@@ -294,7 +295,7 @@ ALWAYS_INLINE typename ParserBase::PartialResult ParserBase::parseBlockSignature
     if (peekInt7(kindByte) && isValidTypeKind(kindByte)) {
         TypeKind typeKind = static_cast<TypeKind>(kindByte);
 
-        if (UNLIKELY(Options::useWebAssemblyTypedFunctionReferences())) {
+        if (UNLIKELY(Options::useWasmTypedFunctionReferences())) {
             if ((isValidHeapTypeKind(kindByte) || typeKind == TypeKind::Ref || typeKind == TypeKind::RefNull))
                 return parseReftypeSignature(info, result);
         }
@@ -331,7 +332,7 @@ inline typename ParserBase::PartialResult ParserBase::parseReftypeSignature(cons
 
 ALWAYS_INLINE bool ParserBase::parseHeapType(const ModuleInformation& info, int32_t& result)
 {
-    if (!Options::useWebAssemblyTypedFunctionReferences())
+    if (!Options::useWasmTypedFunctionReferences())
         return false;
 
     int32_t heapType;
@@ -363,7 +364,7 @@ ALWAYS_INLINE bool ParserBase::parseValueType(const ModuleInformation& info, Typ
 
     TypeKind typeKind = static_cast<TypeKind>(kind);
     TypeIndex typeIndex = 0;
-    if (Options::useWebAssemblyTypedFunctionReferences() && isValidHeapTypeKind(kind)) {
+    if (Options::useWasmTypedFunctionReferences() && isValidHeapTypeKind(kind)) {
         typeIndex = static_cast<TypeIndex>(typeKind);
         typeKind = TypeKind::RefNull;
     } else if (typeKind == TypeKind::Ref || typeKind == TypeKind::RefNull) {

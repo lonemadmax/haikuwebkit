@@ -917,7 +917,6 @@ runtime/JSFinalizationRegistry.cpp
 runtime/JSFunction.cpp
 runtime/JSGenerator.cpp
 runtime/JSGeneratorFunction.cpp
-runtime/JSGenericTypedArrayView.cpp
 runtime/JSGenericTypedArrayViewConstructor.cpp
 runtime/JSGenericTypedArrayViewPrototype.cpp
 runtime/JSGlobalLexicalEnvironment.cpp
@@ -1027,7 +1026,6 @@ runtime/RegExpMatchesArray.cpp
 runtime/RegExpObject.cpp
 runtime/RegExpPrototype.cpp
 runtime/RegExpStringIteratorPrototype.cpp
-runtime/RegisterTZoneTypes.cpp
 runtime/ResourceExhaustion.cpp
 runtime/RuntimeTZoneImpls.cpp
 runtime/RuntimeType.cpp
@@ -1061,7 +1059,6 @@ runtime/SymbolObject.cpp
 runtime/SymbolPrototype.cpp
 runtime/SymbolTable.cpp
 runtime/SyntheticModuleRecord.cpp
-runtime/TZoneInit.cpp
 runtime/TemplateObjectDescriptor.cpp
 runtime/TemporalCalendar.cpp
 runtime/TemporalCalendarConstructor.cpp
@@ -1144,8 +1141,6 @@ wasm/WasmFunctionIPIntMetadataGenerator.cpp
 wasm/WasmGlobal.cpp
 wasm/WasmHandlerInfo.cpp
 wasm/WasmIndexOrName.cpp
-wasm/WasmInstance.cpp
-wasm/WasmInstance.h
 wasm/WasmIPIntGenerator.cpp
 wasm/WasmIPIntPlan.cpp
 wasm/WasmIPIntSlowPaths.cpp @no-unify

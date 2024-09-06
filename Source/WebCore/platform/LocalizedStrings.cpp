@@ -1546,6 +1546,15 @@ String datePickerYearLabelTitle()
 
 #endif
 
+#if ENABLE(INPUT_TYPE_WEEK_PICKER)
+
+String inputWeekLabel()
+{
+    return WEB_UI_STRING_KEY("Week", "Week", "Week label for week of year input type");
+}
+
+#endif
+
 #if USE(SOUP)
 String unacceptableTLSCertificate()
 {

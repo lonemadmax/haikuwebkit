@@ -138,12 +138,12 @@ TEST(WKWebExtensionAPIStorage, SetAccessLevelTrustedContexts)
         @"setTimeout(() => browser.runtime.sendMessage('Ready'), 1000)"
     ]);
 
-    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:storageManifest resources:@{ @"background.js": backgroundScript, @"content.js": contentScript }]);
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:storageManifest resources:@{ @"background.js": backgroundScript, @"content.js": contentScript }]);
     auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
 
     auto *urlRequest = server.requestWithLocalhost();
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
-    [manager.get().defaultTab.mainWebView loadRequest:urlRequest];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+    [manager.get().defaultTab.webView loadRequest:urlRequest];
 
     [manager loadAndRun];
 }
@@ -180,12 +180,12 @@ TEST(WKWebExtensionAPIStorage, SetAccessLevelTrustedAndUntrustedContexts)
         @"setTimeout(() => browser.runtime.sendMessage('Ready'), 1000)"
     ]);
 
-    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:storageManifest resources:@{ @"background.js": backgroundScript, @"content.js": contentScript }]);
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:storageManifest resources:@{ @"background.js": backgroundScript, @"content.js": contentScript }]);
     auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
 
     auto *urlRequest = server.requestWithLocalhost();
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
-    [manager.get().defaultTab.mainWebView loadRequest:urlRequest];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+    [manager.get().defaultTab.webView loadRequest:urlRequest];
 
     [manager loadAndRun];
 }
@@ -434,12 +434,12 @@ TEST(WKWebExtensionAPIStorage, StorageFromSubframe)
         @"content.js": contentScript
     };
 
-    auto extension = adoptNS([[_WKWebExtension alloc] _initWithManifestDictionary:manifest resources:resources]);
+    auto extension = adoptNS([[WKWebExtension alloc] _initWithManifestDictionary:manifest resources:resources]);
     auto manager = adoptNS([[TestWebExtensionManager alloc] initForExtension:extension.get()]);
 
-    [manager.get().context setPermissionStatus:_WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequestSubframe.URL];
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequestSubframe.URL];
 
-    [manager.get().defaultTab.mainWebView loadRequest:urlRequestMain];
+    [manager.get().defaultTab.webView loadRequest:urlRequestMain];
 
     [manager loadAndRun];
 }

@@ -222,9 +222,10 @@ public:
     virtual void fillEllipse(const FloatRect& ellipse) { fillEllipseAsPath(ellipse); }
     virtual void strokeEllipse(const FloatRect& ellipse) { strokeEllipseAsPath(ellipse); }
 
-    virtual void fillRect(const FloatRect&) = 0;
+    enum class RequiresClipToRect : bool { No, Yes };
+    virtual void fillRect(const FloatRect&, RequiresClipToRect = RequiresClipToRect::Yes) = 0;
     virtual void fillRect(const FloatRect&, const Color&) = 0;
-    virtual void fillRect(const FloatRect&, Gradient&, const AffineTransform&) = 0;
+    virtual void fillRect(const FloatRect&, Gradient&, const AffineTransform&, RequiresClipToRect = RequiresClipToRect::Yes) = 0;
     WEBCORE_EXPORT virtual void fillRect(const FloatRect&, Gradient&);
     WEBCORE_EXPORT virtual void fillRect(const FloatRect&, const Color&, CompositeOperator, BlendMode = BlendMode::Normal);
     virtual void fillRoundedRectImpl(const FloatRoundedRect&, const Color&) = 0;
@@ -320,7 +321,7 @@ public:
     virtual void drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle) = 0;
 
     // DisplayList
-    WEBCORE_EXPORT virtual void drawDisplayListItems(const Vector<DisplayList::Item>&, const DisplayList::ResourceHeap&, const FloatPoint& destination);
+    WEBCORE_EXPORT virtual void drawDisplayListItems(const Vector<DisplayList::Item>&, const DisplayList::ResourceHeap&, ControlFactory&, const FloatPoint& destination);
 
     // Transparency Layers
 

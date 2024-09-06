@@ -27,7 +27,7 @@
 
 #include "Event.h"
 #include <optional>
-#include <wtf/WeakPtr.h>
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
@@ -108,7 +108,10 @@ public:
     WEBCORE_EXPORT static bool needsIPhoneUserAgent(const URL&);
     WEBCORE_EXPORT static bool needsDesktopUserAgent(const URL&);
 
+    WEBCORE_EXPORT static std::optional<Vector<HashSet<String>>> defaultVisibilityAdjustmentSelectors(const URL&);
+
     bool needsGMailOverflowScrollQuirk() const;
+    bool needsIPadSkypeOverflowScrollQuirk() const;
     bool needsYouTubeOverflowScrollQuirk() const;
     bool needsFullscreenDisplayNoneQuirk() const;
     bool needsFullscreenObjectFitQuirk() const;
@@ -220,6 +223,7 @@ private:
     mutable std::optional<bool> m_needsFullWidthHeightFullscreenStyleQuirk;
 #if PLATFORM(IOS_FAMILY)
     mutable std::optional<bool> m_needsGMailOverflowScrollQuirk;
+    mutable std::optional<bool> m_needsIPadSkypeOverflowScrollQuirk;
     mutable std::optional<bool> m_needsYouTubeOverflowScrollQuirk;
     mutable std::optional<bool> m_needsPreloadAutoQuirk;
     mutable std::optional<bool> m_needsFullscreenDisplayNoneQuirk;

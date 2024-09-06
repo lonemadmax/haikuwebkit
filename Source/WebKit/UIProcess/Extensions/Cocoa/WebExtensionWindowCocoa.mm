@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Apple Inc. All rights reserved.
+ * Copyright (C) 2023-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,16 +34,16 @@
 
 #import "CocoaHelpers.h"
 #import "Logging.h"
+#import "WKWebExtensionTab.h"
+#import "WKWebExtensionWindow.h"
 #import "WebExtensionContext.h"
 #import "WebExtensionTabQueryParameters.h"
 #import "WebExtensionUtilities.h"
-#import "_WKWebExtensionTab.h"
-#import "_WKWebExtensionWindow.h"
 #import <wtf/BlockPtr.h>
 
 namespace WebKit {
 
-WebExtensionWindow::WebExtensionWindow(const WebExtensionContext& context, _WKWebExtensionWindow* delegate)
+WebExtensionWindow::WebExtensionWindow(const WebExtensionContext& context, WKWebExtensionWindow* delegate)
     : m_extensionContext(context)
     , m_delegate(delegate)
     , m_respondsToTabs([delegate respondsToSelector:@selector(tabsForWebExtensionContext:)])
@@ -54,7 +54,9 @@ WebExtensionWindow::WebExtensionWindow(const WebExtensionContext& context, _WKWe
     , m_respondsToIsUsingPrivateBrowsing([delegate respondsToSelector:@selector(isUsingPrivateBrowsingForWebExtensionContext:)])
     , m_respondsToFrame([delegate respondsToSelector:@selector(frameForWebExtensionContext:)])
     , m_respondsToSetFrame([delegate respondsToSelector:@selector(setFrame:forWebExtensionContext:completionHandler:)])
+#if PLATFORM(MAC)
     , m_respondsToScreenFrame([delegate respondsToSelector:@selector(screenFrameForWebExtensionContext:)])
+#endif
     , m_respondsToFocus([delegate respondsToSelector:@selector(focusForWebExtensionContext:completionHandler:)])
     , m_respondsToClose([delegate respondsToSelector:@selector(closeForWebExtensionContext:completionHandler:)])
 {
@@ -128,7 +130,7 @@ bool WebExtensionWindow::matches(const WebExtensionTabQueryParameters& parameter
     if (!extensionHasAccess())
         return false;
 
-    if (parameters.windowIdentifier && identifier() != parameters.windowIdentifier.value())
+    if (parameters.windowIdentifier && identifier() != parameters.windowIdentifier.value() && !isCurrent(parameters.windowIdentifier.value()))
         return false;
 
     if (parameters.windowType && !matches(parameters.windowType.value()))
@@ -137,7 +139,7 @@ bool WebExtensionWindow::matches(const WebExtensionTabQueryParameters& parameter
     if (parameters.frontmostWindow && isFrontmost() != parameters.frontmostWindow.value())
         return false;
 
-    if (parameters.currentWindow) {
+    if (parameters.currentWindow || isCurrent(parameters.windowIdentifier)) {
         auto currentWindow = extensionContext()->getWindow(WebExtensionWindowConstants::CurrentIdentifier, webPageProxyIdentifier);
         if (!currentWindow)
             return false;
@@ -209,25 +211,25 @@ RefPtr<WebExtensionTab> WebExtensionWindow::activeTab(SkipValidation skipValidat
     return result;
 }
 
-_WKWebExtensionWindowType toAPI(WebExtensionWindow::Type type)
+WKWebExtensionWindowType toAPI(WebExtensionWindow::Type type)
 {
     switch (type) {
     case WebExtensionWindow::Type::Normal:
-        return _WKWebExtensionWindowTypeNormal;
+        return WKWebExtensionWindowTypeNormal;
     case WebExtensionWindow::Type::Popup:
-        return _WKWebExtensionWindowTypePopup;
+        return WKWebExtensionWindowTypePopup;
     }
 
     ASSERT_NOT_REACHED();
-    return _WKWebExtensionWindowTypeNormal;
+    return WKWebExtensionWindowTypeNormal;
 }
 
-static inline WebExtensionWindow::Type toImpl(_WKWebExtensionWindowType type)
+static inline WebExtensionWindow::Type toImpl(WKWebExtensionWindowType type)
 {
     switch (type) {
-    case _WKWebExtensionWindowTypeNormal:
+    case WKWebExtensionWindowTypeNormal:
         return WebExtensionWindow::Type::Normal;
-    case _WKWebExtensionWindowTypePopup:
+    case WKWebExtensionWindowTypePopup:
         return WebExtensionWindow::Type::Popup;
     }
 
@@ -243,16 +245,16 @@ WebExtensionWindow::Type WebExtensionWindow::type() const
     return toImpl([m_delegate windowTypeForWebExtensionContext:m_extensionContext->wrapper()]);
 }
 
-static inline WebExtensionWindow::State toImpl(_WKWebExtensionWindowState state)
+static inline WebExtensionWindow::State toImpl(WKWebExtensionWindowState state)
 {
     switch (state) {
-    case _WKWebExtensionWindowStateNormal:
+    case WKWebExtensionWindowStateNormal:
         return WebExtensionWindow::State::Normal;
-    case _WKWebExtensionWindowStateMinimized:
+    case WKWebExtensionWindowStateMinimized:
         return WebExtensionWindow::State::Minimized;
-    case _WKWebExtensionWindowStateMaximized:
+    case WKWebExtensionWindowStateMaximized:
         return WebExtensionWindow::State::Maximized;
-    case _WKWebExtensionWindowStateFullscreen:
+    case WKWebExtensionWindowStateFullscreen:
         return WebExtensionWindow::State::Fullscreen;
     }
 
@@ -268,21 +270,21 @@ WebExtensionWindow::State WebExtensionWindow::state() const
     return toImpl([m_delegate windowStateForWebExtensionContext:m_extensionContext->wrapper()]);
 }
 
-_WKWebExtensionWindowState toAPI(WebExtensionWindow::State state)
+WKWebExtensionWindowState toAPI(WebExtensionWindow::State state)
 {
     switch (state) {
     case WebExtensionWindow::State::Normal:
-        return _WKWebExtensionWindowStateNormal;
+        return WKWebExtensionWindowStateNormal;
     case WebExtensionWindow::State::Minimized:
-        return _WKWebExtensionWindowStateMinimized;
+        return WKWebExtensionWindowStateMinimized;
     case WebExtensionWindow::State::Maximized:
-        return _WKWebExtensionWindowStateMaximized;
+        return WKWebExtensionWindowStateMaximized;
     case WebExtensionWindow::State::Fullscreen:
-        return _WKWebExtensionWindowStateFullscreen;
+        return WKWebExtensionWindowStateFullscreen;
     }
 
     ASSERT_NOT_REACHED();
-    return _WKWebExtensionWindowStateNormal;
+    return WKWebExtensionWindowStateNormal;
 }
 
 void WebExtensionWindow::setState(WebExtensionWindow::State state, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&& completionHandler)
@@ -413,6 +415,7 @@ void WebExtensionWindow::setFrame(CGRect frame, CompletionHandler<void(Expected<
     }).get()];
 }
 
+#if PLATFORM(MAC)
 CGRect WebExtensionWindow::screenFrame() const
 {
     if (!isValid() || !m_respondsToScreenFrame)
@@ -420,6 +423,7 @@ CGRect WebExtensionWindow::screenFrame() const
 
     return CGRectStandardize([m_delegate screenFrameForWebExtensionContext:m_extensionContext->wrapper()]);
 }
+#endif
 
 void WebExtensionWindow::close(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&& completionHandler)
 {

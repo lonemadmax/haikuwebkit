@@ -89,6 +89,11 @@ WKSLinearMediaPlayer *VideoPresentationInterfaceLMK::linearMediaPlayer() const
     return playbackSessionInterface().linearMediaPlayer();
 }
 
+void VideoPresentationInterfaceLMK::setVideoSpatial(bool isSpatial)
+{
+    linearMediaPlayer().isSpatial = isSpatial;
+}
+
 void VideoPresentationInterfaceLMK::setupFullscreen(UIView& videoView, const WebCore::FloatRect& initialRect, const WebCore::FloatSize& videoDimensions, UIView* parentView, WebCore::HTMLMediaElementEnums::VideoFullscreenMode mode, bool allowsPictureInPicturePlayback, bool standby, bool blocksReturnToFullscreenFromPictureInPicture)
 {
     linearMediaPlayer().contentDimensions = videoDimensions;
@@ -97,8 +102,8 @@ void VideoPresentationInterfaceLMK::setupFullscreen(UIView& videoView, const Web
 
 void VideoPresentationInterfaceLMK::finalizeSetup()
 {
-    RunLoop::main().dispatch([protectedThis = Ref { *this }, this] {
-        if (RefPtr model = videoPresentationModel())
+    RunLoop::main().dispatch([protectedThis = Ref { *this }] {
+        if (RefPtr model = protectedThis->videoPresentationModel())
             model->didSetupFullscreen();
     });
 }
@@ -120,7 +125,7 @@ void VideoPresentationInterfaceLMK::presentFullscreen(bool animated, Function<vo
 {
     playbackSessionInterface().startObservingNowPlayingMetadata();
     [linearMediaPlayer() enterFullscreenWithCompletionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)] (BOOL success, NSError *error) {
-        if (auto* playbackSessionModel = playbackSessionInterface().playbackSessionModel()) {
+        if (auto* playbackSessionModel = this->playbackSessionModel()) {
             playbackSessionModel->setSpatialTrackingLabel(m_spatialTrackingLabel);
             playbackSessionModel->setSoundStageSize(WebCore::AudioSessionSoundStageSize::Large);
         }
@@ -132,7 +137,7 @@ void VideoPresentationInterfaceLMK::dismissFullscreen(bool animated, Function<vo
 {
     playbackSessionInterface().stopObservingNowPlayingMetadata();
     [linearMediaPlayer() exitFullscreenWithCompletionHandler:makeBlockPtr([this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)] (BOOL success, NSError *error) {
-        if (auto* playbackSessionModel = playbackSessionInterface().playbackSessionModel()) {
+        if (auto* playbackSessionModel = this->playbackSessionModel()) {
             playbackSessionModel->setSpatialTrackingLabel(nullString());
             playbackSessionModel->setSoundStageSize(WebCore::AudioSessionSoundStageSize::Automatic);
         }

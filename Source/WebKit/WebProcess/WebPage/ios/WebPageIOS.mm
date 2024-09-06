@@ -972,6 +972,8 @@ void WebPage::completeSyntheticClick(Node& nodeRespondingToClick, const WebCore:
         send(Messages::WebPageProxy::DidNotHandleTapAsClick(roundedIntPoint(location)));
 
     send(Messages::WebPageProxy::DidCompleteSyntheticClick());
+
+    scheduleLayoutViewportHeightExpansionUpdate();
 }
 
 void WebPage::attemptSyntheticClick(const IntPoint& point, OptionSet<WebEventModifier> modifiers, TransactionID lastLayerTreeTransactionId)
@@ -2947,6 +2949,10 @@ static inline bool isAssistableElement(Element& element)
         if (inputElement->isColorControl())
             return true;
 #endif
+#if ENABLE(INPUT_TYPE_WEEK_PICKER)
+        if (inputElement->isWeekField())
+            return true;
+#endif
         return inputElement->isTextField() || inputElement->isDateField() || inputElement->isDateTimeLocalField() || inputElement->isMonthField() || inputElement->isTimeField();
     }
     if (is<HTMLIFrameElement>(element))
@@ -3142,6 +3148,9 @@ static void imagePositionInformation(WebPage& page, Element& element, const Inte
     info.isAnimating = image.isAnimating();
     RefPtr htmlElement = dynamicDowncast<HTMLElement>(element);
     info.elementContainsImageOverlay = htmlElement && ImageOverlay::hasOverlay(*htmlElement);
+#if ENABLE(SPATIAL_IMAGE_DETECTION)
+    info.isSpatialImage = image.isSpatial();
+#endif
 
     if (request.includeSnapshot || request.includeImageData)
         info.image = createShareableBitmap(renderImage, { screenSize() * page.corePage()->deviceScaleFactor(), AllowAnimatedImages::Yes, UseSnapshotForTransparentImages::Yes });
@@ -3606,6 +3615,10 @@ void WebPage::performActionOnElement(uint32_t action, const String& authorizatio
             return;
         send(Messages::WebPageProxy::SaveImageToLibrary(WTFMove(*handle), authorizationToken));
     }
+#if ENABLE(SPATIAL_IMAGE_DETECTION)
+    else if (static_cast<SheetAction>(action) == SheetAction::ViewSpatial)
+        element->webkitRequestFullscreen();
+#endif
 
     handleAnimationActions(*element, action);
 }
@@ -4166,14 +4179,20 @@ void WebPage::resetViewportDefaultConfiguration(WebFrame* frame, bool hasMobileD
     auto updateViewportConfigurationForMobileDocType = [this, document] {
         m_viewportConfiguration.setDefaultConfiguration(ViewportConfiguration::xhtmlMobileParameters());
 
-        // Do not update the viewport arguments if they are already configured from, say, a meta tag.
-        if (m_viewportConfiguration.viewportArguments().type >= ViewportArguments::Type::CSSDeviceAdaptation)
+        // Do not update the viewport arguments if they are already configured by the website.
+        if (m_viewportConfiguration.viewportArguments().type == ViewportArguments::Type::ViewportMeta)
             return;
 
         if (!document || !document->isViewportDocument())
             return;
 
-        auto viewportArguments = ViewportArguments { ViewportArguments::Type::CSSDeviceAdaptation };
+        // https://www.w3.org/TR/2016/WD-css-device-adapt-1-20160329/#intro
+        // Certain DOCTYPEs (for instance XHTML Mobile Profile) are used to recognize mobile documents which are assumed
+        // to be designed for handheld devices, hence using the viewport size as the initial containing block size.
+        ViewportArguments viewportArguments { ViewportArguments::Type::ViewportMeta };
+        viewportArguments.width = ViewportArguments::ValueDeviceWidth;
+        viewportArguments.height = ViewportArguments::ValueDeviceHeight;
+        viewportArguments.zoom = 1;
         document->setViewportArguments(viewportArguments);
         viewportPropertiesDidChange(viewportArguments);
     };
@@ -4686,6 +4705,19 @@ void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo& visi
     }
 }
 
+void WebPage::scheduleLayoutViewportHeightExpansionUpdate()
+{
+    if (!m_page->settings().layoutViewportHeightExpansionFactor())
+        return;
+
+    if (m_updateLayoutViewportHeightExpansionTimer.isActive()) {
+        m_shouldRescheduleLayoutViewportHeightExpansionTimer = true;
+        return;
+    }
+
+    m_updateLayoutViewportHeightExpansionTimer.restart();
+}
+
 void WebPage::updateLayoutViewportHeightExpansionTimerFired()
 {
     if (m_disallowLayoutViewportHeightExpansionReasons.contains(DisallowLayoutViewportHeightExpansionReason::LargeContainer))
@@ -4709,15 +4741,15 @@ void WebPage::updateLayoutViewportHeightExpansionTimerFired()
         if (!view->hasViewportConstrainedObjects())
             return false;
 
-        Vector<Ref<Element>> largeViewportConstrainedElements;
+        HashSet<Ref<Element>> largeViewportConstrainedElements;
         for (auto& renderer : *view->viewportConstrainedObjects()) {
             RefPtr element = renderer.element();
             if (!element)
                 continue;
 
             auto bounds = renderer.absoluteBoundingBoxRect();
-            if (intersection(viewportRect, bounds).area() > 0.9 * viewportRect.area())
-                largeViewportConstrainedElements.append(element.releaseNonNull());
+            if (intersection(viewportRect, bounds).height() > 0.9 * viewportRect.height())
+                largeViewportConstrainedElements.add(element.releaseNonNull());
         }
 
         if (largeViewportConstrainedElements.isEmpty())
@@ -4728,13 +4760,32 @@ void WebPage::updateLayoutViewportHeightExpansionTimerFired()
             return false;
 
         auto& hitTestedNodes = hitTestResult.listBasedTestResult();
-        return std::ranges::any_of(largeViewportConstrainedElements, [&hitTestedNodes](auto& element) {
-            return hitTestedNodes.contains(element);
-        });
+        HashSet<Ref<Element>> elementsOutsideOfAnyLargeViewportConstrainedContainers;
+        for (auto& node : hitTestedNodes) {
+            RefPtr firstParentOrSelf = dynamicDowncast<Element>(node) ?: node->parentElementInComposedTree();
+            Vector<Ref<Element>> ancestorsForHitTestedNode;
+            for (RefPtr parent = firstParentOrSelf; parent; parent = parent->parentElementInComposedTree()) {
+                if (largeViewportConstrainedElements.contains(*parent))
+                    return true;
+
+                if (elementsOutsideOfAnyLargeViewportConstrainedContainers.contains(*parent))
+                    break;
+
+                ancestorsForHitTestedNode.append(*parent);
+            }
+            for (auto& ancestor : ancestorsForHitTestedNode)
+                elementsOutsideOfAnyLargeViewportConstrainedContainers.add(ancestor);
+        }
+        return false;
     }();
 
-    if (hitTestedToLargeViewportConstrainedElement)
+    if (hitTestedToLargeViewportConstrainedElement) {
+        RELEASE_LOG(ViewportSizing, "Shrinking viewport down to normal height (found large fixed-position container)");
         addReasonsToDisallowLayoutViewportHeightExpansion(DisallowLayoutViewportHeightExpansionReason::LargeContainer);
+    } else if (m_shouldRescheduleLayoutViewportHeightExpansionTimer) {
+        m_shouldRescheduleLayoutViewportHeightExpansionTimer = false;
+        m_updateLayoutViewportHeightExpansionTimer.restart();
+    }
 }
 
 void WebPage::willStartUserTriggeredZooming()
@@ -4744,18 +4795,18 @@ void WebPage::willStartUserTriggeredZooming()
 }
 
 #if ENABLE(IOS_TOUCH_EVENTS)
-void WebPage::dispatchAsynchronousTouchEvents(Vector<EventDispatcher::TouchEventData, 1>&& queue)
+void WebPage::dispatchAsynchronousTouchEvents(UniqueRef<EventDispatcher::TouchEventQueue>&& queue)
 {
-    for (auto& touchEventData : queue) {
+    for (auto& touchEventData : queue.get()) {
         auto handleTouchEventResult = dispatchTouchEvent(touchEventData.frameID, touchEventData.event);
         if (auto& completionHandler = touchEventData.completionHandler)
             completionHandler(handleTouchEventResult.wasHandled(), handleTouchEventResult.remoteUserInputEventData());
     }
 }
 
-void WebPage::cancelAsynchronousTouchEvents(Vector<EventDispatcher::TouchEventData, 1>&& queue)
+void WebPage::cancelAsynchronousTouchEvents(UniqueRef<EventDispatcher::TouchEventQueue>&& queue)
 {
-    for (auto& touchEventData : queue) {
+    for (auto& touchEventData : queue.get()) {
         if (auto& completionHandler = touchEventData.completionHandler)
             completionHandler(true, std::nullopt);
     }
@@ -5401,7 +5452,21 @@ void WebPage::requestPasswordForQuickLookDocumentInMainFrame(const String& fileN
 
 #endif
 
-void WebPage::animationDidFinishForElement(const WebCore::Element& animatedElement)
+void WebPage::animationDidFinishForElement(const Element& animatedElement)
+{
+    scheduleEditorStateUpdateAfterAnimationIfNeeded(animatedElement);
+
+    if (!m_page->settings().layoutViewportHeightExpansionFactor())
+        return;
+
+    if (!animatedElement.document().isTopDocument())
+        return;
+
+    if (CheckedPtr renderer = animatedElement.renderer(); renderer && renderer->isFixedPositioned())
+        scheduleLayoutViewportHeightExpansionUpdate();
+}
+
+void WebPage::scheduleEditorStateUpdateAfterAnimationIfNeeded(const Element& animatedElement)
 {
     RefPtr frame = m_page->checkedFocusController()->focusedOrMainFrame();
     if (!frame)
@@ -5450,6 +5515,34 @@ FloatSize WebPage::screenSizeForFingerprintingProtections(const LocalFrame&, Flo
     }
 
     return std::get<std::tuple_size_v<decltype(fixedSizes)> - 1>(fixedSizes);
+}
+
+void WebPage::shouldDismissKeyboardAfterTapAtPoint(FloatPoint point, CompletionHandler<void(bool)>&& completion)
+{
+    RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_page->mainFrame());
+    if (!localMainFrame)
+        return completion(false);
+
+    RefPtr mainFrameView = localMainFrame->view();
+    if (!mainFrameView)
+        return completion(false);
+
+    FloatPoint adjustedPoint;
+    RefPtr target = localMainFrame->nodeRespondingToClickEvents(point, adjustedPoint);
+    if (!target)
+        return completion(true);
+
+    if (target->hasEditableStyle())
+        return completion(false);
+
+    if (RefPtr element = dynamicDowncast<Element>(*target); element && element->isFormControlElement())
+        return completion(false);
+
+    auto minimumSizeForDismissal = FloatSize { 0.9f * mainFrameView->unobscuredContentSize().width(), 150.f };
+
+    bool isReplaced;
+    FloatSize targetSize = target->absoluteBoundingRect(&isReplaced).size();
+    completion(targetSize.width() >= minimumSizeForDismissal.width() && targetSize.height() >= minimumSizeForDismissal.height());
 }
 
 } // namespace WebKit

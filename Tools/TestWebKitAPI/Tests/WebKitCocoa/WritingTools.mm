@@ -31,6 +31,7 @@
 #import "PlatformUtilities.h"
 #import "Test.h"
 #import "TestInputDelegate.h"
+#import "TestNavigationDelegate.h"
 #import "TestUIDelegate.h"
 #import "TestWKWebView.h"
 #import "UIKitSPIForTesting.h"
@@ -1198,6 +1199,92 @@ TEST(WritingTools, CompositionWithUnderline)
     TestWebKitAPI::Util::run(&finished);
 }
 
+#if PLATFORM(MAC)
+static RetainPtr<NSAttributedString> makeTableAttributedString(NSArray<NSArray<NSString *> *> *rawTable)
+{
+    if (!rawTable.count)
+        return nil;
+
+    RetainPtr textTable = adoptNS([[NSTextTable alloc] init]);
+    [textTable setNumberOfColumns:rawTable.firstObject.count];
+
+    RetainPtr result = adoptNS([[NSMutableAttributedString alloc] init]);
+
+    for (NSUInteger row = 0; row < rawTable.count; row++) {
+        for (NSUInteger column = 0; column < rawTable[row].count; column++) {
+            RetainPtr textTableBlock = adoptNS([[NSTextTableBlock alloc] initWithTable:textTable.get() startingRow:row rowSpan:1 startingColumn:column columnSpan:1]);
+
+            RetainPtr paragraphStyle = adoptNS([[NSMutableParagraphStyle alloc] init]);
+            [paragraphStyle setTextBlocks:@[ textTableBlock.get() ]];
+
+            RetainPtr attributedString = adoptNS([[NSAttributedString alloc] initWithString:[rawTable[row][column] stringByAppendingString:@"\n"] attributes:@{
+                NSParagraphStyleAttributeName : paragraphStyle.get()
+            }]);
+
+            [result appendAttributedString:attributedString.get()];
+        }
+    }
+
+    return result;
+}
+
+TEST(WritingTools, CompositionWithTable)
+{
+    RetainPtr session = adoptNS([[WTSession alloc] initWithType:WTSessionTypeComposition textViewDelegate:nil]);
+
+    RetainPtr webView = adoptNS([[WritingToolsWKWebView alloc] initWithHTMLString:@""
+        "<body contenteditable>"
+        "   <div>Task Name, Start Date, End Date, Status</div>"
+        "   <div>Task A, 2024-01-01, 2024-01-10, In Progress</div>"
+        "   <div>Task B, 2024-01-05, 2024-01-15, Completed</div>"
+        "</body>"
+    ]);
+
+    [webView focusDocumentBodyAndSelectAll];
+
+    __block bool finished = false;
+    [[webView writingToolsDelegate] willBeginWritingToolsSession:session.get() requestContexts:^(NSArray<WTContext *> *contexts) {
+        [[webView writingToolsDelegate] writingToolsSession:session.get() didReceiveAction:WTActionCompositionRestart];
+
+        RetainPtr attributedText = makeTableAttributedString(@[
+            @[ @"Task Name", @"Start Date", @"End Date", @"Status" ],
+            @[ @"Task A", @"2024-01-01", @"2024-01-10", @"In Progress" ],
+            @[ @"Task B", @"2024-01-05", @"2024-01-15", @"Completed" ],
+        ]);
+
+        // Invoke `didReceiveText` multiple times to ensure multiple tables are *not* created.
+
+        [[webView writingToolsDelegate] compositionSession:session.get() didReceiveText:attributedText.get() replacementRange:NSMakeRange(0, 27) inContext:contexts.firstObject finished:NO];
+        TestWebKitAPI::Util::runFor(0.1_s);
+
+        [[webView writingToolsDelegate] compositionSession:session.get() didReceiveText:attributedText.get() replacementRange:NSMakeRange(0, 27) inContext:contexts.firstObject finished:YES];
+        TestWebKitAPI::Util::runFor(0.1_s);
+
+        EXPECT_EQ([webView stringByEvaluatingJavaScript:@"document.getElementsByTagName('table').length"].intValue, 1);
+        EXPECT_EQ([webView stringByEvaluatingJavaScript:@"document.getElementsByTagName('tr').length"].intValue, 3);
+        EXPECT_EQ([webView stringByEvaluatingJavaScript:@"document.getElementsByTagName('td').length"].intValue, 12);
+
+        [[webView writingToolsDelegate] writingToolsSession:session.get() didReceiveAction:WTActionShowOriginal];
+
+        EXPECT_EQ([webView stringByEvaluatingJavaScript:@"document.getElementsByTagName('table').length"].intValue, 0);
+        EXPECT_EQ([webView stringByEvaluatingJavaScript:@"document.getElementsByTagName('tr').length"].intValue, 0);
+        EXPECT_EQ([webView stringByEvaluatingJavaScript:@"document.getElementsByTagName('td').length"].intValue, 0);
+
+        [[webView writingToolsDelegate] writingToolsSession:session.get() didReceiveAction:WTActionShowRewritten];
+
+        EXPECT_EQ([webView stringByEvaluatingJavaScript:@"document.getElementsByTagName('table').length"].intValue, 1);
+        EXPECT_EQ([webView stringByEvaluatingJavaScript:@"document.getElementsByTagName('tr').length"].intValue, 3);
+        EXPECT_EQ([webView stringByEvaluatingJavaScript:@"document.getElementsByTagName('td').length"].intValue, 12);
+
+        [[webView writingToolsDelegate] didEndWritingToolsSession:session.get() accepted:YES];
+
+        finished = true;
+    }];
+
+    TestWebKitAPI::Util::run(&finished);
+}
+#endif
+
 TEST(WritingTools, CompositionWithList)
 {
     auto session = adoptNS([[WTSession alloc] initWithType:WTSessionTypeComposition textViewDelegate:nil]);
@@ -2028,6 +2115,48 @@ TEST(WritingTools, TransparencyMarkersUsingWKWebViewSPI)
     EXPECT_EQ(0U, [webView transparentContentMarkerCount:@"document.getElementById('content').childNodes[0]"]);
 }
 
+TEST(WritingTools, NoCrashWhenWebProcessTerminates)
+{
+    auto session = adoptNS([[WTSession alloc] initWithType:WTSessionTypeComposition textViewDelegate:nil]);
+
+    auto webView = adoptNS([[WritingToolsWKWebView alloc] initWithHTMLString:@"<body contenteditable>Early morning in Cupertino</body>"]);
+    [webView focusDocumentBodyAndSelectAll];
+
+    auto waitForValue = [webView](NSUInteger expectedValue) {
+        do {
+            if ([webView transparentContentMarkerCount:@"document.body.childNodes[0]"] == expectedValue)
+                break;
+
+            TestWebKitAPI::Util::runFor(0.1_s);
+        } while (true);
+    };
+
+    [webView waitForNextPresentationUpdate];
+
+    __block bool finished = false;
+    [[webView writingToolsDelegate] willBeginWritingToolsSession:session.get() requestContexts:^(NSArray<WTContext *> *contexts) {
+
+        [[webView writingToolsDelegate] writingToolsSession:session.get() didReceiveAction:WTActionCompositionRestart];
+
+        waitForValue(1U);
+        [webView _killWebContentProcess];
+
+        finished = true;
+    }];
+
+    TestWebKitAPI::Util::run(&finished);
+
+    __block bool webProcessTerminated = false;
+    auto navigationDelegate = adoptNS([[TestNavigationDelegate alloc] init]);
+    [webView setNavigationDelegate:navigationDelegate.get()];
+    [navigationDelegate setWebContentProcessDidTerminate:^(WKWebView *, _WKProcessTerminationReason) {
+        webProcessTerminated = true;
+    }];
+
+    [webView _killWebContentProcess];
+    TestWebKitAPI::Util::run(&webProcessTerminated);
+}
+
 #endif
 
 #if PLATFORM(MAC)
@@ -2508,12 +2637,19 @@ TEST(WritingTools, SuggestedTextIsSelectedAfterSmartReply)
     [[webView writingToolsDelegate] willBeginWritingToolsSession:session.get() requestContexts:^(NSArray<WTContext *> *contexts) {
         EXPECT_EQ(1UL, contexts.count);
 
+        [[webView writingToolsDelegate] writingToolsSession:session.get() didReceiveAction:WTActionCompositionRestart];
+        TestWebKitAPI::Util::runFor(0.1_s);
+
         EXPECT_WK_STREQ(@"", contexts.firstObject.attributedText.string);
 
         RetainPtr attributedText = adoptNS([[NSAttributedString alloc] initWithString:@"Z"]);
 
-        [[webView writingToolsDelegate] compositionSession:session.get() didReceiveText:attributedText.get() replacementRange:NSMakeRange(0, 0) inContext:contexts.firstObject finished:YES];
+        [[webView writingToolsDelegate] compositionSession:session.get() didReceiveText:attributedText.get() replacementRange:NSMakeRange(0, 0) inContext:contexts.firstObject finished:NO];
         TestWebKitAPI::Util::runFor(0.1_s);
+
+        [[webView writingToolsDelegate] compositionSession:session.get() didReceiveText:attributedText.get() replacementRange:NSMakeRange(0, 0) inContext:contexts.firstObject finished:YES];
+
+        [webView waitForSelectionValue:@"Z"];
 
         [[webView writingToolsDelegate] didEndWritingToolsSession:session.get() accepted:YES];
 

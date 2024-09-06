@@ -269,6 +269,9 @@ bool NetworkResourceLoader::startContentFiltering(ResourceRequest& request)
     if (!isMainResource())
         return true;
     m_contentFilter = ContentFilter::create(*this);
+#if HAVE(AUDIT_TOKEN)
+    m_contentFilter->setHostProcessAuditToken(connectionToWebProcess().networkProcess().sourceApplicationAuditToken());
+#endif
     m_contentFilter->startFilteringMainResource(request.url());
     if (!m_contentFilter->continueAfterWillSendRequest(request, ResourceResponse())) {
         m_contentFilter->stopFilteringMainResource();
@@ -403,6 +406,11 @@ void NetworkResourceLoader::startNetworkLoad(ResourceRequest&& request, FirstLoa
                 httpBody = IPC::FormDataReference { WTFMove(formData) };
         }
         m_connection->networkProcess().parentProcessConnection()->send(Messages::NetworkProcessProxy::ResourceLoadDidSendRequest(m_parameters.webPageProxyID, resourceLoadInfo(), request, httpBody), 0);
+    }
+
+    if (request.wasSchemeOptimisticallyUpgraded()) {
+        // FIXME: This timeout should be adaptive based on network conditions
+        request.setTimeoutInterval(10);
     }
 
     if (networkSession->shouldSendPrivateTokenIPCForTesting())
@@ -676,6 +684,9 @@ bool NetworkResourceLoader::shouldInterruptLoadForXFrameOptions(const String& xF
 bool NetworkResourceLoader::shouldInterruptLoadForCSPFrameAncestorsOrXFrameOptions(const ResourceResponse& response)
 {
     ASSERT(isMainResource());
+
+    if (connectionToWebProcess().sharedPreferencesForWebProcess().ignoreIframeEmbeddingProtectionsEnabled)
+        return false;
 
 #if USE(QUICK_LOOK)
     if (PreviewConverter::supportsMIMEType(response.mimeType()))

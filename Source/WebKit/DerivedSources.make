@@ -479,6 +479,9 @@ WEB_PREFERENCES = \
 #
 
 WEB_PREFERENCES_TEMPLATES = \
+    $(WebKit2)/Scripts/PreferencesTemplates/SharedPreferencesForWebProcess.h.erb \
+    $(WebKit2)/Scripts/PreferencesTemplates/SharedPreferencesForWebProcess.cpp.erb \
+    $(WebKit2)/Scripts/PreferencesTemplates/SharedPreferencesForWebProcess.serialization.in.erb \
     $(WebKit2)/Scripts/PreferencesTemplates/WebPageUpdatePreferences.cpp.erb \
     $(WebKit2)/Scripts/PreferencesTemplates/WebPreferencesDefinitions.h.erb \
     $(WebKit2)/Scripts/PreferencesTemplates/WebPreferencesFeatures.cpp.erb \
@@ -488,7 +491,7 @@ WEB_PREFERENCES_TEMPLATES = \
     $(WebKit2)/Scripts/PreferencesTemplates/WebPreferencesStoreDefaultsMap.cpp.erb \
 #
 WEB_PREFERENCES_FILES = $(basename $(notdir $(WEB_PREFERENCES_TEMPLATES)))
-WEB_PREFERENCES_PATTERNS = $(subst .,%,$(WEB_PREFERENCES_FILES))
+WEB_PREFERENCES_PATTERNS = $(subst .cpp,%cpp, $(subst .h,%h, $(subst .in,%in, $(WEB_PREFERENCES_FILES))))
 
 all : $(WEB_PREFERENCES_FILES)
 
@@ -573,10 +576,12 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/Cocoa/CoreIPCNSShadow.serialization.in \
 	Shared/Cocoa/CoreIPCNSURLCredential.serialization.in \
 	Shared/Cocoa/CoreIPCNSURLProtectionSpace.serialization.in \
+	Shared/Cocoa/CoreIPCNSURLRequest.serialization.in \
 	Shared/Cocoa/CoreIPCNSValue.serialization.in \
 	Shared/Cocoa/CoreIPCNull.serialization.in \
 	Shared/Cocoa/CoreIPCPassKit.serialization.in \
 	Shared/Cocoa/CoreIPCPersonNameComponents.serialization.in \
+	Shared/Cocoa/CoreIPCPlist.serialization.in \
 	Shared/Cocoa/CoreIPCPresentationIntent.serialization.in \
 	Shared/Cocoa/CoreIPCSecureCoding.serialization.in \
 	Shared/Cocoa/CoreIPCString.serialization.in \
@@ -611,6 +616,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/Extensions/WebExtensionMatchedRuleParameters.serialization.in \
 	Shared/Extensions/WebExtensionMenuItem.serialization.in \
 	Shared/Extensions/WebExtensionMessageSenderParameters.serialization.in \
+	Shared/Extensions/WebExtensionSidebarParameters.serialization.in \
 	Shared/Extensions/WebExtensionStorage.serialization.in \
 	Shared/Extensions/WebExtensionTab.serialization.in \
 	Shared/Extensions/WebExtensionWindow.serialization.in \
@@ -622,7 +628,6 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/FullScreenMediaDetails.serialization.in \
 	Shared/Gamepad/GamepadData.serialization.in \
 	Shared/GPUProcessConnectionParameters.serialization.in \
-	Shared/GPUProcessPreferencesForWebProcess.serialization.in \
 	Shared/GoToBackForwardItemParameters.serialization.in \
 	Shared/InspectorExtensionTypes.serialization.in \
 	Shared/PlatformFontInfo.serialization.in \
@@ -642,7 +647,6 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/MonotonicObjectIdentifier.serialization.in \
 	Shared/NavigationActionData.serialization.in \
 	Shared/NetworkProcessConnectionParameters.serialization.in \
-	Shared/NetworkProcessPreferencesForWebProcess.serialization.in \
 	Shared/Pasteboard.serialization.in \
 	Shared/PlatformPopupMenuData.serialization.in \
 	Shared/PolicyDecision.serialization.in \
@@ -662,7 +666,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/SessionState.serialization.in \
 	Shared/SyntheticEditingCommandType.serialization.in \
 	Shared/TextFlags.serialization.in \
-	Shared/TextAnimationType.serialization.in \
+	Shared/TextAnimationTypes.serialization.in \
 	Shared/TextRecognitionResult.serialization.in \
 	Shared/TextRecognitionUpdateResult.serialization.in \
 	Shared/URLSchemeTaskParameters.serialization.in \
@@ -812,6 +816,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	WebProcess/UserContent/InjectUserScriptImmediately.serialization.in \
 	WebProcess/WebCoreSupport/WebSpeechSynthesisVoice.serialization.in \
 	WebProcess/WebPage/RemoteLayerTree/PlatformCAAnimationRemoteProperties.serialization.in \
+	SharedPreferencesForWebProcess.serialization.in \
 #
 
 WEBCORE_SERIALIZATION_DESCRIPTION_FILES = \

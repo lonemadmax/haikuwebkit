@@ -683,7 +683,9 @@ TEST(IPCTestingAPI, SerializedTypeInfo)
         @"NSObject<NSSecureCoding>",
         @"PKSecureElementPass",
         @"GCGLErrorCodeSet",
+#if !HAVE(WK_SECURE_CODING_NSURLREQUEST)
         @"NSURLRequest",
+#endif
         @"MachSendRight",
         @"CGBitmapInfo",
         @"NSParagraphStyle",
@@ -694,7 +696,6 @@ TEST(IPCTestingAPI, SerializedTypeInfo)
 #if !HAVE(WK_SECURE_CODING_DATA_DETECTORS)
         @"WKDDActionContext",
 #endif
-        @"CGDisplayChangeSummaryFlags",
         @"WebCore::ContextMenuAction"
 #endif
     ]];

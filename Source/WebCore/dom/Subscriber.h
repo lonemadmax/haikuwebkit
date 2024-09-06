@@ -27,13 +27,14 @@
 
 #include "AbortController.h"
 #include "ActiveDOMObject.h"
-#include "ScriptExecutionContext.h"
+#include "InternalObserver.h"
 #include "ScriptWrappable.h"
-#include "SubscriptionObserverCallback.h"
 #include "VoidCallback.h"
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
+
+class ScriptExecutionContext;
 
 class Subscriber final : public ActiveDOMObject, public ScriptWrappable, public RefCounted<Subscriber> {
     WTF_MAKE_ISO_ALLOCATED(Subscriber);
@@ -47,29 +48,17 @@ public:
     bool active() { return m_active; }
     AbortSignal& signal() { return m_abortController->signal(); }
 
-    static Ref<Subscriber> create(ScriptExecutionContext&);
+    static Ref<Subscriber> create(ScriptExecutionContext&, Ref<InternalObserver>);
 
-    static Ref<Subscriber> create(ScriptExecutionContext&, RefPtr<SubscriptionObserverCallback> next);
-
-    static Ref<Subscriber> create(ScriptExecutionContext&, RefPtr<SubscriptionObserverCallback> next,
-        RefPtr<SubscriptionObserverCallback> error,
-        RefPtr<VoidCallback>);
-
-    explicit Subscriber(ScriptExecutionContext&, RefPtr<SubscriptionObserverCallback> next,
-        RefPtr<SubscriptionObserverCallback> error,
-        RefPtr<VoidCallback>);
-
+    explicit Subscriber(ScriptExecutionContext&, Ref<InternalObserver>);
     void followSignal(AbortSignal&);
+    void reportErrorObject(JSC::JSValue);
 
     // JSCustomMarkFunction; for JSSubscriberCustom
-    SubscriptionObserverCallback* nextCallbackConcurrently() { return m_next.get(); }
-    SubscriptionObserverCallback* errorCallbackConcurrently() { return m_error.get(); }
-    VoidCallback* completeCallbackConcurrently() { return m_complete.get(); }
-    Vector<VoidCallback*> teardownCallbacksConcurrently()
-    {
-        Locker locker { m_teardownsLock };
-        return m_teardowns.map([](auto& callback) { return callback.ptr(); });
-    }
+    Vector<VoidCallback*> teardownCallbacksConcurrently();
+    InternalObserver* observerConcurrently();
+    void visitAdditionalChildren(JSC::AbstractSlotVisitor&);
+    void visitAdditionalChildren(JSC::SlotVisitor&);
 
     // ActiveDOMObject
     void ref() const final { RefCounted::ref(); }
@@ -79,9 +68,7 @@ private:
     bool m_active = true;
     Lock m_teardownsLock;
     Ref<AbortController> m_abortController;
-    RefPtr<SubscriptionObserverCallback> m_next;
-    RefPtr<SubscriptionObserverCallback> m_error;
-    RefPtr<VoidCallback> m_complete;
+    Ref<InternalObserver> m_observer;
     Vector<Ref<VoidCallback>> m_teardowns WTF_GUARDED_BY_LOCK(m_teardownsLock);
 
     void close(JSC::JSValue);
@@ -93,15 +80,9 @@ private:
 
     bool isInactiveDocument() const;
 
-    void reportErrorObject(JSC::JSValue);
-
     // ActiveDOMObject
     void stop() final
     {
-        m_active = false;
-        m_next = nullptr;
-        m_error = nullptr;
-        m_complete = nullptr;
         Locker locker { m_teardownsLock };
         m_teardowns.clear();
     }

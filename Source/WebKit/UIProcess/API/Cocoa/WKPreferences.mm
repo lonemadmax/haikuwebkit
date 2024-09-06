@@ -702,14 +702,14 @@ static _WKStorageBlockingPolicy toAPI(WebCore::StorageBlockingPolicy policy)
     _preferences->setMediaCaptureRequiresSecureConnection(requiresSecureConnection);
 }
 
-- (double)_inactiveMediaCaptureSteamRepromptIntervalInMinutes
+- (double)_inactiveMediaCaptureStreamRepromptIntervalInMinutes
 {
-    return _preferences->inactiveMediaCaptureSteamRepromptIntervalInMinutes();
+    return _preferences->inactiveMediaCaptureStreamRepromptIntervalInMinutes();
 }
 
-- (void)_setInactiveMediaCaptureSteamRepromptIntervalInMinutes:(double)interval
+- (void)_setInactiveMediaCaptureStreamRepromptIntervalInMinutes:(double)interval
 {
-    _preferences->setInactiveMediaCaptureSteamRepromptIntervalInMinutes(interval);
+    _preferences->setInactiveMediaCaptureStreamRepromptIntervalInMinutes(interval);
 }
 
 - (BOOL)_interruptAudioOnPageVisibilityChangeEnabled
@@ -1645,6 +1645,16 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 - (void)_setMediaCapabilityGrantsEnabled:(BOOL)mediaCapabilityGrantsEnabled
 {
     _preferences->setMediaCapabilityGrantsEnabled(mediaCapabilityGrantsEnabled);
+}
+
+- (void)_setAllowPrivacySensitiveOperationsInNonPersistentDataStores:(BOOL)allowPrivacySensitiveOperationsInNonPersistentDataStores
+{
+    _preferences->setAllowPrivacySensitiveOperationsInNonPersistentDataStores(allowPrivacySensitiveOperationsInNonPersistentDataStores);
+}
+
+- (BOOL)_allowPrivacySensitiveOperationsInNonPersistentDataStores
+{
+    return _preferences->allowPrivacySensitiveOperationsInNonPersistentDataStores();
 }
 
 @end

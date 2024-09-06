@@ -67,6 +67,10 @@
 #include "ApplicationManifest.h"
 #endif
 
+#if PLATFORM(VISION) && ENABLE(GAMEPAD)
+#include "ShouldRequireExplicitConsentForGamepadAccess.h"
+#endif
+
 namespace JSC {
 class Debugger;
 }
@@ -108,6 +112,7 @@ class DOMRectList;
 class DatabaseProvider;
 class DeviceOrientationUpdateProvider;
 class DiagnosticLoggingClient;
+class CredentialRequestCoordinator;
 class DragCaretController;
 class DragController;
 class EditorClient;
@@ -240,35 +245,37 @@ enum class FinalizeRenderingUpdateFlags : uint8_t {
 };
 
 enum class RenderingUpdateStep : uint32_t {
-    Resize                          = 1 << 0,
-    Scroll                          = 1 << 1,
-    MediaQueryEvaluation            = 1 << 2,
-    Animations                      = 1 << 3,
-    Fullscreen                      = 1 << 4,
-    AnimationFrameCallbacks         = 1 << 5,
-    UpdateContentRelevancy          = 1 << 6,
-    PerformPendingViewTransitions   = 1 << 7,
-    IntersectionObservations        = 1 << 8,
-    ResizeObservations              = 1 << 9,
-    Images                          = 1 << 10,
-    WheelEventMonitorCallbacks      = 1 << 11,
-    CursorUpdate                    = 1 << 12,
-    EventRegionUpdate               = 1 << 13,
-    LayerFlush                      = 1 << 14,
+    Reveal                          = 1 << 0,
+    Resize                          = 1 << 1,
+    Scroll                          = 1 << 2,
+    MediaQueryEvaluation            = 1 << 3,
+    Animations                      = 1 << 4,
+    Fullscreen                      = 1 << 5,
+    AnimationFrameCallbacks         = 1 << 6,
+    UpdateContentRelevancy          = 1 << 7,
+    PerformPendingViewTransitions   = 1 << 8,
+    IntersectionObservations        = 1 << 9,
+    ResizeObservations              = 1 << 10,
+    Images                          = 1 << 11,
+    WheelEventMonitorCallbacks      = 1 << 12,
+    CursorUpdate                    = 1 << 13,
+    EventRegionUpdate               = 1 << 14,
+    LayerFlush                      = 1 << 15,
 #if ENABLE(ASYNC_SCROLLING)
-    ScrollingTreeUpdate             = 1 << 15,
+    ScrollingTreeUpdate             = 1 << 16,
 #endif
-    FlushAutofocusCandidates        = 1 << 16,
-    VideoFrameCallbacks             = 1 << 17,
-    PrepareCanvasesForDisplayOrFlush = 1 << 18,
-    CaretAnimation                  = 1 << 19,
-    FocusFixup                      = 1 << 20,
-    UpdateValidationMessagePositions= 1 << 21,
+    FlushAutofocusCandidates        = 1 << 17,
+    VideoFrameCallbacks             = 1 << 18,
+    PrepareCanvasesForDisplayOrFlush = 1 << 19,
+    CaretAnimation                  = 1 << 20,
+    FocusFixup                      = 1 << 21,
+    UpdateValidationMessagePositions= 1 << 22,
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
-    AccessibilityRegionUpdate       = 1 << 22,
+    AccessibilityRegionUpdate       = 1 << 23,
 #endif
-    RestoreScrollPositionAndViewState = 1 << 23,
-    AdjustVisibility                  = 1 << 24,
+    RestoreScrollPositionAndViewState = 1 << 24,
+    AdjustVisibility                  = 1 << 25,
+
 };
 
 enum class LinkDecorationFilteringTrigger : uint8_t {
@@ -279,6 +286,7 @@ enum class LinkDecorationFilteringTrigger : uint8_t {
 };
 
 constexpr OptionSet<RenderingUpdateStep> updateRenderingSteps = {
+    RenderingUpdateStep::Reveal,
     RenderingUpdateStep::FlushAutofocusCandidates,
     RenderingUpdateStep::Resize,
     RenderingUpdateStep::Scroll,
@@ -360,6 +368,8 @@ public:
     const URL& mainFrameURL() const { return m_mainFrameURL; }
     SecurityOrigin& mainFrameOrigin() const;
     WEBCORE_EXPORT void setMainFrameURL(const URL&);
+    WEBCORE_EXPORT void setMainFrameURLFragment(String&&);
+    String mainFrameURLFragment() const { return m_mainFrameURLFragment; }
 
     bool openedByDOM() const;
     WEBCORE_EXPORT void setOpenedByDOM();
@@ -425,7 +435,7 @@ public:
 
     WEBCORE_EXPORT CheckedRef<ElementTargetingController> checkedElementTargetingController();
 
-    void didChangeMainDocument();
+    void didChangeMainDocument(Document* newDocument);
     void mainFrameDidChangeToNonInitialEmptyDocument();
 
     PerformanceMonitor* performanceMonitor() { return m_performanceMonitor.get(); }
@@ -670,6 +680,7 @@ public:
 
 #if ENABLE(WEB_AUTHN)
     AuthenticatorCoordinator& authenticatorCoordinator() { return m_authenticatorCoordinator.get(); }
+    CredentialRequestCoordinator& credentialRequestCoordinator() { return m_credentialRequestCoordinator.get(); }
 #endif
 
 #if ENABLE(APPLICATION_MANIFEST)
@@ -1147,6 +1158,10 @@ public:
 
 #if ENABLE(GAMEPAD)
     void gamepadsRecentlyAccessed();
+#if PLATFORM(VISION)
+    WEBCORE_EXPORT void allowGamepadAccess();
+    bool gamepadAccessGranted() const { return m_gamepadAccessGranted; }
+#endif
 #endif
 
 #if ENABLE(WRITING_TOOLS)
@@ -1170,6 +1185,7 @@ public:
     void respondToReappliedWritingToolsEditing(EditCommandComposition*);
 
     WEBCORE_EXPORT std::optional<SimpleRange> contextRangeForSessionWithID(const WritingTools::SessionID&) const;
+    WEBCORE_EXPORT void showSelectionForWritingToolsSessionWithID(const WritingTools::SessionID&) const;
 #endif
 
     bool hasActiveNowPlayingSession() const { return m_hasActiveNowPlayingSession; }
@@ -1242,6 +1258,10 @@ private:
     RefPtr<WebXRSession> activeImmersiveXRSession() const;
 #endif
 
+#if PLATFORM(VISION) && ENABLE(GAMEPAD)
+    void initializeGamepadAccessForPageLoad();
+#endif
+
     std::optional<PageIdentifier> m_identifier;
     UniqueRef<Chrome> m_chrome;
     UniqueRef<DragCaretController> m_dragCaretController;
@@ -1271,6 +1291,7 @@ private:
     Ref<Frame> m_mainFrame;
     URL m_mainFrameURL;
     RefPtr<SecurityOrigin> m_mainFrameOrigin;
+    String m_mainFrameURLFragment;
 
     RefPtr<PluginData> m_pluginData;
 
@@ -1499,6 +1520,7 @@ private:
 
 #if ENABLE(WEB_AUTHN)
     UniqueRef<AuthenticatorCoordinator> m_authenticatorCoordinator;
+    UniqueRef<CredentialRequestCoordinator> m_credentialRequestCoordinator;
 #endif
 
 #if ENABLE(APPLICATION_MANIFEST)
@@ -1582,6 +1604,10 @@ private:
 
 #if ENABLE(GAMEPAD)
     MonotonicTime m_lastAccessNotificationTime;
+#if PLATFORM(VISION)
+    bool m_gamepadAccessGranted { true };
+    ShouldRequireExplicitConsentForGamepadAccess m_gamepadAccessRequiresExplicitConsent { ShouldRequireExplicitConsentForGamepadAccess::No };
+#endif
 #endif
 
 #if ENABLE(WRITING_TOOLS)

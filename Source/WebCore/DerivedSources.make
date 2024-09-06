@@ -376,8 +376,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/highlight/Highlight.idl \
     $(WebCore)/Modules/identity/DigitalCredential.idl \
     $(WebCore)/Modules/identity/DigitalCredentialRequestOptions.idl \
-    $(WebCore)/Modules/identity/IdentityRequestProvider.idl \
+    $(WebCore)/Modules/identity/OpenID4VPRequest.idl \
     $(WebCore)/Modules/identity/IdentityCredentialProtocol.idl \
+    $(WebCore)/Modules/identity/IdentityRequestProvider.idl \
     $(WebCore)/Modules/identity/Navigator+Identity.idl \
     $(WebCore)/Modules/indexeddb/IDBCursor.idl \
     $(WebCore)/Modules/indexeddb/IDBCursorDirection.idl \
@@ -830,6 +831,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webxr/WebXRPose.idl \
     $(WebCore)/Modules/webxr/WebXRReferenceSpace.idl \
     $(WebCore)/Modules/webxr/WebXRRenderState.idl \
+    $(WebCore)/Modules/webxr/WebXRRenderState+Layers.idl \
     $(WebCore)/Modules/webxr/WebXRRigidTransform.idl \
     $(WebCore)/Modules/webxr/WebXRSession+AR.idl \
     $(WebCore)/Modules/webxr/WebXRSession.idl \
@@ -839,7 +841,14 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webxr/WebXRView.idl \
     $(WebCore)/Modules/webxr/WebXRViewport.idl \
     $(WebCore)/Modules/webxr/WebXRWebGLLayer.idl \
+    $(WebCore)/Modules/webxr/XRCompositionLayer.idl \
+    $(WebCore)/Modules/webxr/XRCubeLayer.idl \
+    $(WebCore)/Modules/webxr/XRCubeLayerInit.idl \
+    $(WebCore)/Modules/webxr/XRCylinderLayer.idl \
+    $(WebCore)/Modules/webxr/XRCylinderLayerInit.idl \
     $(WebCore)/Modules/webxr/XREnvironmentBlendMode.idl \
+    $(WebCore)/Modules/webxr/XREquirectLayer.idl \
+    $(WebCore)/Modules/webxr/XREquirectLayerInit.idl \
     $(WebCore)/Modules/webxr/XREye.idl \
     $(WebCore)/Modules/webxr/XRFrameRequestCallback.idl \
     $(WebCore)/Modules/webxr/XRHandJoint.idl \
@@ -847,15 +856,27 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webxr/XRInputSourceEvent.idl \
     $(WebCore)/Modules/webxr/XRInputSourcesChangeEvent.idl \
     $(WebCore)/Modules/webxr/XRInteractionMode.idl \
+    $(WebCore)/Modules/webxr/XRLayerEvent.idl \
+    $(WebCore)/Modules/webxr/XRLayerInit.idl \
+    $(WebCore)/Modules/webxr/XRLayerLayout.idl \
+    $(WebCore)/Modules/webxr/XRLayerQuality.idl \
+    $(WebCore)/Modules/webxr/XRProjectionLayer.idl \
+    $(WebCore)/Modules/webxr/XRProjectionLayerInit.idl \
+    $(WebCore)/Modules/webxr/XRQuadLayer.idl \
+    $(WebCore)/Modules/webxr/XRQuadLayerInit.idl \
     $(WebCore)/Modules/webxr/XRReferenceSpaceEvent.idl \
     $(WebCore)/Modules/webxr/XRReferenceSpaceType.idl \
     $(WebCore)/Modules/webxr/XRRenderStateInit.idl \
     $(WebCore)/Modules/webxr/XRSessionEvent.idl \
     $(WebCore)/Modules/webxr/XRSessionInit.idl \
     $(WebCore)/Modules/webxr/XRSessionMode.idl \
+    $(WebCore)/Modules/webxr/XRSubImage.idl \
     $(WebCore)/Modules/webxr/XRTargetRayMode.idl \
+    $(WebCore)/Modules/webxr/XRTextureType.idl \
     $(WebCore)/Modules/webxr/XRVisibilityState.idl \
+    $(WebCore)/Modules/webxr/XRWebGLBinding.idl \
     $(WebCore)/Modules/webxr/XRWebGLLayerInit.idl \
+    $(WebCore)/Modules/webxr/XRWebGLSubImage.idl \
     $(WebCore)/accessibility/AccessibilityRole.idl \
     $(WebCore)/accessibility/AriaAttributes.idl \
     $(WebCore)/animation/Animatable.idl \
@@ -952,6 +973,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/CSSStyleSheet.idl \
     $(WebCore)/css/CSSSupportsRule.idl \
     $(WebCore)/css/CSSUnknownRule.idl \
+    $(WebCore)/css/CSSViewTransitionRule.idl \
     $(WebCore)/css/DocumentOrShadowRoot+CSSOM.idl \
     $(WebCore)/css/DOMCSSCustomPropertyDescriptor.idl \
     $(WebCore)/css/DOMCSSNamespace.idl \
@@ -1033,7 +1055,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/CheckVisibilityOptions.idl \
     $(WebCore)/dom/ChildNode.idl \
     $(WebCore)/dom/ClipboardEvent.idl \
+    $(WebCore)/dom/CommandEvent.idl \
     $(WebCore)/dom/Comment.idl \
+    $(WebCore)/dom/CommandEvent.idl \
     $(WebCore)/dom/CompositionEvent.idl \
     $(WebCore)/dom/ContentVisibilityAutoStateChangeEvent.idl \
     $(WebCore)/dom/CreateHTMLCallback.idl \
@@ -1109,8 +1133,8 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/IdleRequestOptions.idl \
     $(WebCore)/dom/InnerHTML.idl \
     $(WebCore)/dom/InputEvent.idl \
-    $(WebCore)/dom/InvokeEvent.idl \
     $(WebCore)/dom/KeyboardEvent.idl \
+    $(WebCore)/dom/MapperCallback.idl \
     $(WebCore)/dom/MessageChannel.idl \
     $(WebCore)/dom/MessageEvent.idl \
     $(WebCore)/dom/MessagePort.idl \
@@ -1128,13 +1152,15 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/NodeList.idl \
     $(WebCore)/dom/NonDocumentTypeChildNode.idl \
     $(WebCore)/dom/NonElementParentNode.idl \
-    $(WebCore)/dom/OverflowEvent.idl \
     $(WebCore)/dom/Observable.idl \
+    $(WebCore)/dom/PageRevealEvent.idl \
+    $(WebCore)/dom/PageSwapEvent.idl \
     $(WebCore)/dom/PageTransitionEvent.idl \
     $(WebCore)/dom/ParentNode.idl \
     $(WebCore)/dom/PointerEvent.idl \
     $(WebCore)/dom/PointerLockOptions.idl \
     $(WebCore)/dom/PopStateEvent.idl \
+    $(WebCore)/dom/PredicateCallback.idl \
     $(WebCore)/dom/ProcessingInstruction.idl \
     $(WebCore)/dom/ProgressEvent.idl \
     $(WebCore)/dom/PromiseRejectionEvent.idl \
@@ -1149,6 +1175,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/ShadowRootMode.idl \
     $(WebCore)/dom/SlotAssignmentMode.idl \
     $(WebCore)/dom/Slotable.idl \
+    $(WebCore)/dom/StartViewTransitionOptions.idl \
     $(WebCore)/dom/StaticRange.idl \
     $(WebCore)/dom/StringCallback.idl \
     $(WebCore)/dom/Subscriber.idl \
@@ -1176,6 +1203,8 @@ JS_BINDING_IDLS := \
     $(WebCore)/dom/UIEventInit.idl \
     $(WebCore)/dom/ValidityStateFlags.idl \
     $(WebCore)/dom/ViewTransition.idl \
+    $(WebCore)/dom/ViewTransitionTypeSet.idl \
+    $(WebCore)/dom/ViewTransition+Types.idl \
     $(WebCore)/dom/ViewTransitionUpdateCallback.idl \
     $(WebCore)/dom/VisibilityState.idl \
     $(WebCore)/dom/WheelEvent.idl \
@@ -1449,6 +1478,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/page/EventSource.idl \
     $(WebCore)/page/FragmentDirective.idl \
     $(WebCore)/page/History.idl \
+    $(WebCore)/page/IsLoggedIn.idl \
     $(WebCore)/page/IntersectionObserver.idl \
     $(WebCore)/page/IntersectionObserverCallback.idl \
     $(WebCore)/page/IntersectionObserverEntry.idl \
@@ -2005,6 +2035,7 @@ MODERN_MEDIA_CONTROLS_STYLE_SHEETS = \
     $(WebCore)/Modules/modern-media-controls/controls/macos-inline-media-controls.css \
     $(WebCore)/Modules/modern-media-controls/controls/media-controls.css \
     $(WebCore)/Modules/modern-media-controls/controls/media-document.css \
+    $(WebCore)/Modules/modern-media-controls/controls/metadata-container.css \
     $(WebCore)/Modules/modern-media-controls/controls/placard.css \
     $(WebCore)/Modules/modern-media-controls/controls/slider-base.css \
     $(WebCore)/Modules/modern-media-controls/controls/slider.css \
@@ -2108,6 +2139,7 @@ MODERN_MEDIA_CONTROLS_SCRIPTS = \
     $(WebCore)/Modules/modern-media-controls/controls/macos-inline-media-controls.js \
     $(WebCore)/Modules/modern-media-controls/controls/macos-fullscreen-media-controls.js \
     $(WebCore)/Modules/modern-media-controls/controls/macos-layout-traits.js \
+    $(WebCore)/Modules/modern-media-controls/controls/metadata-container.js \
     $(WebCore)/Modules/modern-media-controls/controls/placard.js \
     $(WebCore)/Modules/modern-media-controls/controls/airplay-placard.js \
     $(WebCore)/Modules/modern-media-controls/controls/invalid-placard.js \
@@ -2127,6 +2159,7 @@ MODERN_MEDIA_CONTROLS_SCRIPTS = \
     $(WebCore)/Modules/modern-media-controls/media/close-support.js \
     $(WebCore)/Modules/modern-media-controls/media/controls-visibility-support.js \
     $(WebCore)/Modules/modern-media-controls/media/fullscreen-support.js \
+    $(WebCore)/Modules/modern-media-controls/media/metadata-support.js \
     $(WebCore)/Modules/modern-media-controls/media/mute-support.js \
     $(WebCore)/Modules/modern-media-controls/media/overflow-support.js \
     $(WebCore)/Modules/modern-media-controls/media/pip-support.js \

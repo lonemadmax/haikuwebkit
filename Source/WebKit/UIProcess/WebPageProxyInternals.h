@@ -95,6 +95,10 @@
 #include "HardwareKeyboardState.h"
 #endif
 
+#if PLATFORM(COCOA)
+#include "CocoaWindow.h"
+#endif
+
 namespace WebKit {
 
 class WebPageProxyFrameLoadStateObserver;
@@ -193,6 +197,7 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
     WebCore::IntSize minimumSizeForAutoLayout;
     WebCore::FloatSize minimumUnobscuredSize;
     Deque<NativeWebMouseEvent> mouseEventQueue;
+    Vector<WebMouseEvent> coalescedMouseEvents;
     WebCore::MediaProducerMutedStateFlags mutedState;
     WebNotificationManagerMessageHandler notificationManagerMessageHandler;
     OptionSet<WebCore::LayoutMilestone> observedLayoutMilestones;
@@ -295,7 +300,7 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
 
 #if ENABLE(WRITING_TOOLS)
     HashMap<WTF::UUID, WebCore::TextIndicatorData> textIndicatorDataForAnimationID;
-    HashMap<WTF::UUID, CompletionHandler<void()>> completionHandlerForAnimationID;
+    HashMap<WTF::UUID, CompletionHandler<void(WebCore::TextAnimationRunMode)>> completionHandlerForAnimationID;
 #endif
 
     MonotonicTime didFinishDocumentLoadForMainFrameTimestamp;
@@ -364,8 +369,8 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
 #if ENABLE(APPLE_PAY) && PLATFORM(IOS_FAMILY) && ENABLE(APPLE_PAY_REMOTE_UI_USES_SCENE)
     void getWindowSceneAndBundleIdentifierForPaymentPresentation(WebPageProxyIdentifier, CompletionHandler<void(const String&, const String&)>&&) final;
 #endif
-#if ENABLE(APPLE_PAY) && PLATFORM(MAC)
-    NSWindow *paymentCoordinatorPresentingWindow(const WebPaymentCoordinatorProxy&) final;
+#if ENABLE(APPLE_PAY)
+    CocoaWindow *paymentCoordinatorPresentingWindow(const WebPaymentCoordinatorProxy&) const final;
 #endif
 
 #if ENABLE(INPUT_TYPE_COLOR)

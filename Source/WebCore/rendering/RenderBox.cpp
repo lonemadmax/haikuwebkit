@@ -345,6 +345,15 @@ void RenderBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle
             scrollableArea->scrollbarsController().scrollbarLayoutDirectionChanged(shouldPlaceVerticalScrollbarOnLeft() ? UserInterfaceLayoutDirection::RTL : UserInterfaceLayoutDirection::LTR);
     }
 
+    bool isDocElementRenderer = isDocumentElementRenderer();
+
+    if (layer() && oldStyle && oldStyle->scrollbarWidth() != newStyle.scrollbarWidth()) {
+        if (isDocElementRenderer)
+            view().frameView().scrollbarWidthChanged(newStyle.scrollbarWidth());
+        else if (auto* scrollableArea = layer()->scrollableArea())
+            scrollableArea->scrollbarWidthChanged(newStyle.scrollbarWidth());
+    }
+
 #if ENABLE(DARK_MODE_CSS)
     if (layer() && oldStyle && oldStyle->colorScheme() != newStyle.colorScheme()) {
         if (auto* scrollableArea = layer()->scrollableArea())
@@ -362,7 +371,6 @@ void RenderBox::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle
     }
 
     bool isBodyRenderer = isBody();
-    bool isDocElementRenderer = isDocumentElementRenderer();
 
     if (isDocElementRenderer || isBodyRenderer) {
 #if ENABLE(DARK_MODE_CSS)
@@ -756,13 +764,26 @@ LayoutUnit RenderBox::constrainLogicalHeightByMinMax(LayoutUnit logicalHeight, s
 
 LayoutUnit RenderBox::constrainContentBoxLogicalHeightByMinMax(LayoutUnit logicalHeight, std::optional<LayoutUnit> intrinsicContentHeight) const
 {
+    // If the min/max height and logical height are both percentages we take advantage of already knowing the current resolved percentage height
+    // to avoid recursing up through our containing blocks again to determine it.
     const RenderStyle& styleToUse = style();
     if (!styleToUse.logicalMaxHeight().isUndefined()) {
-        if (std::optional<LayoutUnit> maxH = computeContentLogicalHeight(MaxSize, styleToUse.logicalMaxHeight(), intrinsicContentHeight))
-            logicalHeight = std::min(logicalHeight, maxH.value());
+        if (styleToUse.logicalMaxHeight().isPercent() && styleToUse.logicalHeight().isPercent()) {
+            auto availableLogicalHeight = logicalHeight / styleToUse.logicalHeight().value() * 100;
+            logicalHeight = std::min(logicalHeight, valueForLength(styleToUse.logicalMaxHeight(), availableLogicalHeight));
+        } else {
+            if (std::optional<LayoutUnit> maxH = computeContentLogicalHeight(MaxSize, styleToUse.logicalMaxHeight(), intrinsicContentHeight))
+                logicalHeight = std::min(logicalHeight, maxH.value());
+        }
     }
-    if (std::optional<LayoutUnit> computedContentLogicalHeight = computeContentLogicalHeight(MinSize, styleToUse.logicalMinHeight(), intrinsicContentHeight))
-        return std::max(logicalHeight, computedContentLogicalHeight.value());
+
+    if (styleToUse.logicalMinHeight().isPercent() && styleToUse.logicalHeight().isPercent()) {
+        auto availableLogicalHeight = logicalHeight / styleToUse.logicalHeight().value() * 100;
+        logicalHeight = std::max(logicalHeight, valueForLength(styleToUse.logicalMinHeight(), availableLogicalHeight));
+    } else {
+        if (std::optional<LayoutUnit> computedContentLogicalHeight = computeContentLogicalHeight(MinSize, styleToUse.logicalMinHeight(), intrinsicContentHeight))
+            logicalHeight = std::max(logicalHeight, computedContentLogicalHeight.value());
+    }
     return logicalHeight;
 }
 
@@ -954,20 +975,20 @@ int RenderBox::horizontalScrollbarHeight() const
     return includeHorizontalScrollbarSize() ? scrollableArea->horizontalScrollbarHeight(IgnoreOverlayScrollbarSize, isHorizontalWritingMode()) : 0;
 }
 
-int RenderBox::intrinsicScrollbarLogicalWidth() const
+int RenderBox::intrinsicScrollbarLogicalWidthIncludingGutter() const
 {
     if (!hasNonVisibleOverflow())
         return 0;
 
-    if (isHorizontalWritingMode() && (style().overflowY() == Overflow::Scroll && !canUseOverlayScrollbars())) {
-        ASSERT(layer() && layer()->scrollableArea() && layer()->scrollableArea()->hasVerticalScrollbar());
-        return verticalScrollbarWidth();
-    }
+    auto shouldIncludeScrollbarGutter = [](ScrollbarGutter gutter, bool hasVisibleOverflow, Overflow overflow) {
+        return (overflow == Overflow::Auto && (!gutter.isAuto || hasVisibleOverflow)) || (overflow == Overflow::Hidden && !gutter.isAuto);
+    };
 
-    if (!isHorizontalWritingMode() && (style().overflowX() == Overflow::Scroll && !canUseOverlayScrollbars())) {
-        ASSERT(layer() && layer()->scrollableArea() && layer()->scrollableArea()->hasHorizontalScrollbar());
-        return horizontalScrollbarHeight();
-    }
+    if (isHorizontalWritingMode() && ((style().overflowY() == Overflow::Scroll || shouldIncludeScrollbarGutter(style().scrollbarGutter(), hasScrollableOverflowY(), style().overflowY())) && !canUseOverlayScrollbars()))
+        return style().scrollbarGutter().bothEdges ? verticalScrollbarWidth() * 2 : verticalScrollbarWidth();
+
+    if (!isHorizontalWritingMode() && ((style().overflowX() == Overflow::Scroll || shouldIncludeScrollbarGutter(style().scrollbarGutter(), hasScrollableOverflowX(), style().overflowX())) && !canUseOverlayScrollbars()))
+        return style().scrollbarGutter().bothEdges ? horizontalScrollbarHeight() * 2 : horizontalScrollbarHeight();
 
     return 0;
 }
@@ -1522,14 +1543,14 @@ bool RenderBox::hitTestClipPath(const HitTestLocation& hitTestLocation, const La
     };
 
     switch (style().clipPath()->type()) {
-    case PathOperation::Shape: {
+    case PathOperation::Type::Shape: {
         auto& clipPath = uncheckedDowncast<ShapePathOperation>(*style().clipPath());
         auto referenceBoxRect = this->referenceBoxRect(clipPath.referenceBox());
         if (!clipPath.pathForReferenceRect(referenceBoxRect).contains(hitTestLocationInLocalCoordinates, clipPath.windRule()))
             return false;
         break;
     }
-    case PathOperation::Reference: {
+    case PathOperation::Type::Reference: {
         const auto& referencePathOperation = uncheckedDowncast<ReferencePathOperation>(*style().clipPath());
         RefPtr element = document().getElementById(referencePathOperation.fragment());
         if (!element || !element->renderer())
@@ -1540,9 +1561,9 @@ bool RenderBox::hitTestClipPath(const HitTestLocation& hitTestLocation, const La
             return false;
         break;
     }
-    case PathOperation::Box:
+    case PathOperation::Type::Box:
         break;
-    case PathOperation::Ray:
+    case PathOperation::Type::Ray:
         ASSERT_NOT_REACHED("clip-path does not support Ray shape");
         break;
     }
@@ -1790,13 +1811,13 @@ bool RenderBox::backgroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect) c
         return false;
     LayoutRect backgroundRect;
     switch (style().backgroundClip()) {
-    case FillBox::Border:
+    case FillBox::BorderBox:
         backgroundRect = borderBoxRect();
         break;
-    case FillBox::Padding:
+    case FillBox::PaddingBox:
         backgroundRect = paddingBoxRect();
         break;
-    case FillBox::Content:
+    case FillBox::ContentBox:
         backgroundRect = contentBoxRect();
         break;
     default:
@@ -1886,7 +1907,7 @@ bool RenderBox::computeBackgroundIsKnownToBeObscured(const LayoutPoint& paintOff
 bool RenderBox::backgroundHasOpaqueTopLayer() const
 {
     auto& fillLayer = style().backgroundLayers();
-    if (fillLayer.clip() != FillBox::Border)
+    if (fillLayer.clip() != FillBox::BorderBox)
         return false;
 
     // Clipped with local scrolling
@@ -1923,7 +1944,7 @@ void RenderBox::paintClippingMask(PaintInfo& paintInfo, const LayoutPoint& paint
 
     LayoutRect paintRect = LayoutRect(paintOffset, size());
 
-    if (document().settings().layerBasedSVGEngineEnabled() && style().clipPath() && style().clipPath()->type() == PathOperation::Reference) {
+    if (document().settings().layerBasedSVGEngineEnabled() && style().clipPath() && style().clipPath()->type() == PathOperation::Type::Reference) {
         paintSVGClippingMask(paintInfo, paintRect);
         return;
     }
@@ -3443,7 +3464,7 @@ LayoutUnit RenderBox::computeReplacedLogicalWidth(ShouldComputePreferred shouldC
 
 LayoutUnit RenderBox::computeReplacedLogicalWidthRespectingMinMaxWidth(LayoutUnit logicalWidth, ShouldComputePreferred shouldComputePreferred) const
 {
-    if (shouldIgnoreMinMaxSizes())
+    if (shouldIgnoreLogicalMinMaxWidthSizes())
         return logicalWidth;
 
     auto& logicalMinWidth = style().logicalMinWidth();
@@ -3639,6 +3660,8 @@ LayoutUnit RenderBox::computeReplacedLogicalHeightUsing(SizeType heightType, Len
             availableHeight = containingBlockLogicalHeightForPositioned(downcast<RenderBoxModelObject>(*container));
         else if (stretchedHeight)
             availableHeight = stretchedHeight.value();
+        else if (auto gridAreaLogicalHeight = isGridItem() ? this->overridingContainingBlockContentLogicalHeight() : std::nullopt; gridAreaLogicalHeight && *gridAreaLogicalHeight)
+            availableHeight = gridAreaLogicalHeight->value();
         else {
             availableHeight = hasPerpendicularContainingBlock ? containingBlockLogicalWidthForContent() : containingBlockLogicalHeightForContent(IncludeMarginBorderPadding);
             // It is necessary to use the border-box to match WinIE's broken
@@ -5736,9 +5759,24 @@ LayoutUnit RenderBox::intrinsicLogicalWidth() const
     return style().isHorizontalWritingMode() ? intrinsicSize().width() : intrinsicSize().height();
 }
 
-bool RenderBox::shouldIgnoreMinMaxSizes() const
+bool RenderBox::shouldIgnoreLogicalMinMaxWidthSizes() const
 {
-    return isFlexItem() && downcast<RenderFlexibleBox>(parent())->isComputingFlexBaseSizes();
+    if (!isFlexItem())
+        return false;
+    if (auto* flexBox = dynamicDowncast<RenderFlexibleBox>(parent()))
+        return flexBox->isComputingFlexBaseSizes() && style().isHorizontalWritingMode() == flexBox->isHorizontalFlow();
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+bool RenderBox::shouldIgnoreLogicalMinMaxHeightSizes() const
+{
+    if (!isFlexItem())
+        return false;
+    if (auto* flexBox = dynamicDowncast<RenderFlexibleBox>(parent()))
+        return flexBox->isComputingFlexBaseSizes() && style().isHorizontalWritingMode() != flexBox->isHorizontalFlow();
+    ASSERT_NOT_REACHED();
+    return false;
 }
 
 std::optional<LayoutUnit> RenderBox::explicitIntrinsicInnerWidth() const

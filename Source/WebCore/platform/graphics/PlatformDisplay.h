@@ -55,10 +55,6 @@ typedef struct _GstGLContext GstGLContext;
 typedef struct _GstGLDisplay GstGLDisplay;
 #endif // ENABLE(VIDEO) && USE(GSTREAMER_GL)
 
-#if USE(LCMS)
-#include "LCMSUniquePtr.h"
-#endif
-
 #if USE(SKIA)
 #include <skia/gpu/GrDirectContext.h>
 #include <wtf/ThreadSafeWeakHashSet.h>
@@ -75,7 +71,7 @@ class PlatformDisplay {
     WTF_MAKE_NONCOPYABLE(PlatformDisplay); WTF_MAKE_FAST_ALLOCATED;
 public:
     WEBCORE_EXPORT static PlatformDisplay& sharedDisplay();
-    WEBCORE_EXPORT static PlatformDisplay& sharedDisplayForCompositing();
+    WEBCORE_EXPORT static void setSharedDisplay(std::unique_ptr<PlatformDisplay>&&);
     virtual ~PlatformDisplay();
 
     enum class Type {
@@ -109,10 +105,13 @@ public:
 
     struct EGLExtensions {
         bool KHR_image_base { false };
+        bool KHR_fence_sync { false };
         bool KHR_surfaceless_context { false };
+        bool KHR_wait_sync { false };
         bool EXT_image_dma_buf_import { false };
         bool EXT_image_dma_buf_import_modifiers { false };
         bool MESA_image_dma_buf_export { false };
+        bool ANDROID_native_fence_sync { false };
     };
     const EGLExtensions& eglExtensions() const;
 
@@ -151,16 +150,8 @@ public:
     GrDirectContext* skiaGrContext();
 #endif
 
-#if USE(LCMS)
-    virtual cmsHPROFILE colorProfile() const;
-#endif
-
 #if USE(ATSPI)
     const String& accessibilityBusAddress() const;
-#endif
-
-#if PLATFORM(WPE)
-    static void setUseDMABufForRendering(bool useDMABufForRendering) { s_useDMABufForRendering = useDMABufForRendering; }
 #endif
 
 protected:
@@ -168,8 +159,6 @@ protected:
 #if PLATFORM(GTK)
     explicit PlatformDisplay(GdkDisplay*);
 #endif
-
-    static void setSharedDisplayForCompositing(PlatformDisplay&);
 
 #if !PLATFORM(HAIKU)
     virtual void initializeEGLDisplay();
@@ -195,10 +184,6 @@ protected:
 #if ENABLE(WEBGL) && !PLATFORM(WIN)
     std::optional<int> m_anglePlatform;
     void* m_angleNativeDisplay { nullptr };
-#endif
-
-#if USE(LCMS)
-    mutable LCMSProfilePtr m_iccProfile;
 #endif
 
 #if USE(ATSPI)
@@ -244,10 +229,6 @@ private:
 
 #if USE(SKIA)
     ThreadSafeWeakHashSet<SkiaGLContext> m_skiaGLContexts;
-#endif
-
-#if PLATFORM(WPE)
-    static bool s_useDMABufForRendering;
 #endif
 };
 

@@ -31,6 +31,7 @@
 #include "IPCSemaphore.h"
 #include "RemoteImageBufferMessages.h"
 #include "RemoteRenderingBackend.h"
+#include "RemoteSharedResourceCache.h"
 #include "StreamConnectionWorkQueue.h"
 #include <WebCore/GraphicsContext.h>
 #include <wtf/StdLibExtras.h>
@@ -55,10 +56,13 @@ RemoteImageBuffer::RemoteImageBuffer(Ref<WebCore::ImageBuffer> imageBuffer, Remo
     : m_backend(&backend)
     , m_imageBuffer(WTFMove(imageBuffer))
 {
+    m_backend->sharedResourceCache().didCreateImageBuffer(m_imageBuffer->renderingPurpose(), m_imageBuffer->renderingMode());
 }
 
 RemoteImageBuffer::~RemoteImageBuffer()
 {
+    if (m_backend)
+        m_backend->sharedResourceCache().didReleaseImageBuffer(m_imageBuffer->renderingPurpose(), m_imageBuffer->renderingMode());
     // Volatile image buffers do not have contexts.
     if (m_imageBuffer->volatilityState() == WebCore::VolatilityState::Volatile)
         return;
@@ -78,8 +82,10 @@ void RemoteImageBuffer::startListeningForIPC()
 
 void RemoteImageBuffer::stopListeningForIPC()
 {
-    if (auto backend = std::exchange(m_backend, { }))
+    if (auto backend = std::exchange(m_backend, { })) {
+        backend->sharedResourceCache().didReleaseImageBuffer(m_imageBuffer->renderingPurpose(), m_imageBuffer->renderingMode());
         backend->streamConnection().stopReceivingMessages(Messages::RemoteImageBuffer::messageReceiverName(), identifier().toUInt64());
+    }
 }
 
 void RemoteImageBuffer::getPixelBuffer(WebCore::PixelBufferFormat destinationFormat, WebCore::IntPoint srcPoint, WebCore::IntSize srcSize, CompletionHandler<void()>&& completionHandler)
@@ -88,10 +94,10 @@ void RemoteImageBuffer::getPixelBuffer(WebCore::PixelBufferFormat destinationFor
     auto memory = m_backend->sharedMemoryForGetPixelBuffer();
     MESSAGE_CHECK(memory, "No shared memory for getPixelBufferForImageBuffer"_s);
     MESSAGE_CHECK(WebCore::PixelBuffer::supportedPixelFormat(destinationFormat.pixelFormat), "Pixel format not supported"_s);
-    IntRect srcRect(srcPoint, srcSize);
+    WebCore::IntRect srcRect(srcPoint, srcSize);
     if (auto pixelBuffer = m_imageBuffer->getPixelBuffer(destinationFormat, srcRect)) {
         MESSAGE_CHECK(pixelBuffer->bytes().size() <= memory->size(), "Shmem for return of getPixelBuffer is too small"_s);
-        memcpySpan(memory->mutableSpan().first(pixelBuffer->bytes().size()), pixelBuffer->bytes());
+        memcpySpan(memory->mutableSpan(), pixelBuffer->bytes());
     } else
         memsetSpan(memory->mutableSpan(), 0);
     completionHandler();
@@ -110,7 +116,7 @@ void RemoteImageBuffer::getPixelBufferWithNewMemory(WebCore::SharedMemory::Handl
 void RemoteImageBuffer::putPixelBuffer(Ref<WebCore::PixelBuffer> pixelBuffer, WebCore::IntPoint srcPoint, WebCore::IntSize srcSize, WebCore::IntPoint destPoint, WebCore::AlphaPremultiplication destFormat)
 {
     assertIsCurrent(workQueue());
-    IntRect srcRect(srcPoint, srcSize);
+    WebCore::IntRect srcRect(srcPoint, srcSize);
     m_imageBuffer->putPixelBuffer(pixelBuffer, srcRect, destPoint, destFormat);
 }
 

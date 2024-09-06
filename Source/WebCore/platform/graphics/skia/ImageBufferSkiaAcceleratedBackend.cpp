@@ -31,6 +31,7 @@
 #include "GLContext.h"
 #include "IntRect.h"
 #include "PixelBuffer.h"
+#include "PixelBufferConversion.h"
 #include "PlatformDisplay.h"
 #include "ProcessCapabilities.h"
 #include <skia/core/SkBitmap.h>
@@ -65,13 +66,13 @@ std::unique_ptr<ImageBufferSkiaAcceleratedBackend> ImageBufferSkiaAcceleratedBac
     if (parameters.purpose != RenderingPurpose::Canvas && !ProcessCapabilities::canUseAcceleratedBuffers())
         return nullptr;
 
-    auto* glContext = PlatformDisplay::sharedDisplayForCompositing().skiaGLContext();
+    auto* glContext = PlatformDisplay::sharedDisplay().skiaGLContext();
     if (!glContext || !glContext->makeContextCurrent())
         return nullptr;
 
-    auto* grContext = PlatformDisplay::sharedDisplayForCompositing().skiaGrContext();
+    auto* grContext = PlatformDisplay::sharedDisplay().skiaGrContext();
     RELEASE_ASSERT(grContext);
-    auto imageInfo = SkImageInfo::MakeN32Premul(backendSize.width(), backendSize.height(), parameters.colorSpace.platformColorSpace());
+    auto imageInfo = SkImageInfo::Make(backendSize.width(), backendSize.height(), kRGBA_8888_SkColorType, kPremul_SkAlphaType, parameters.colorSpace.platformColorSpace());
     SkSurfaceProps properties = { 0, FontRenderOptions::singleton().subpixelOrder() };
     auto surface = SkSurfaces::RenderTarget(grContext, skgpu::Budgeted::kNo, imageInfo, 0, kTopLeft_GrSurfaceOrigin, &properties);
     if (!surface || !surface->getCanvas())
@@ -96,7 +97,7 @@ ImageBufferSkiaAcceleratedBackend::~ImageBufferSkiaAcceleratedBackend()
 {
 #if USE(NICOSIA)
     if (m_texture.back || m_texture.front) {
-        GLContext::ScopedGLContextCurrent scopedContext(*PlatformDisplay::sharedDisplayForCompositing().sharingGLContext());
+        GLContext::ScopedGLContextCurrent scopedContext(*PlatformDisplay::sharedDisplay().sharingGLContext());
         m_texture.back = nullptr;
         m_texture.front = nullptr;
     }
@@ -119,27 +120,33 @@ RefPtr<NativeImage> ImageBufferSkiaAcceleratedBackend::createNativeImageReferenc
 
 void ImageBufferSkiaAcceleratedBackend::getPixelBuffer(const IntRect& srcRect, PixelBuffer& destination)
 {
-    if (!PlatformDisplay::sharedDisplayForCompositing().skiaGLContext()->makeContextCurrent())
+    if (!PlatformDisplay::sharedDisplay().skiaGLContext()->makeContextCurrent())
         return;
 
     auto info = m_surface->imageInfo();
     auto data = SkData::MakeUninitialized(info.computeMinByteSize());
     auto* pixels = static_cast<uint8_t*>(data->writable_data());
     size_t rowBytes = static_cast<size_t>(info.minRowBytes64());
-    if (m_surface->readPixels(info, pixels, rowBytes, 0, 0))
+
+    // Create a SkImageInfo so the readPixels call will convert the RGBA pixels from the surface into BGRA.
+    SkImageInfo imageInfo = SkImageInfo::Make(info.width(), info.height(), SkColorType::kBGRA_8888_SkColorType, SkAlphaType::kPremul_SkAlphaType, colorSpace().platformColorSpace());
+    if (m_surface->readPixels(imageInfo, pixels, rowBytes, 0, 0))
         ImageBufferBackend::getPixelBuffer(srcRect, pixels, destination);
 }
 
 void ImageBufferSkiaAcceleratedBackend::putPixelBuffer(const PixelBuffer& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat)
 {
-    if (!PlatformDisplay::sharedDisplayForCompositing().skiaGLContext()->makeContextCurrent())
+    if (!PlatformDisplay::sharedDisplay().skiaGLContext()->makeContextCurrent())
         return;
 
     auto info = m_surface->imageInfo();
     auto data = SkData::MakeUninitialized(info.computeMinByteSize());
     auto* pixels = static_cast<uint8_t*>(data->writable_data());
     ImageBufferBackend::putPixelBuffer(pixelBuffer, srcRect, destPoint, destFormat, pixels);
-    SkPixmap pixmap(info, pixels, info.minRowBytes64());
+
+    // Create a SkImageInfo so the writePixels call will transform the pixels from BGRA to RGBA when painting.
+    SkImageInfo imageInfo = SkImageInfo::Make(info.width(), info.height(), SkColorType::kBGRA_8888_SkColorType, SkAlphaType::kPremul_SkAlphaType, colorSpace().platformColorSpace());
+    SkPixmap pixmap(imageInfo, pixels, info.minRowBytes64());
     m_surface->writePixels(pixmap, 0, 0);
 }
 
@@ -151,7 +158,7 @@ RefPtr<GraphicsLayerContentsDisplayDelegate> ImageBufferSkiaAcceleratedBackend::
 
 void ImageBufferSkiaAcceleratedBackend::swapBuffersIfNeeded()
 {
-    auto& display = PlatformDisplay::sharedDisplayForCompositing();
+    auto& display = PlatformDisplay::sharedDisplay();
     if (!display.skiaGLContext()->makeContextCurrent())
         return;
 
@@ -176,7 +183,7 @@ void ImageBufferSkiaAcceleratedBackend::swapBuffersIfNeeded()
     IntSize textureSize(info.width(), info.height());
     if (!m_texture.back)
         m_texture.back = BitmapTexture::create(textureSize, BitmapTexture::Flags::SupportsAlpha);
-    fence->wait(GLFence::FlushCommands::No);
+    fence->serverWait();
     m_texture.back->copyFromExternalTexture(textureInfo.fID);
     fence = GLFence::create();
     std::swap(m_texture.back, m_texture.front);

@@ -201,6 +201,7 @@ struct UIEdgeInsets;
 
 - (void)_webView:(WKWebView *)webView requestPermissionForXRSessionOrigin:(NSString *)originString mode:(_WKXRSessionMode)mode grantedFeatures:(_WKXRSessionFeatureFlags)grantedFeatures consentRequiredFeatures:(_WKXRSessionFeatureFlags)consentRequiredFeatures consentOptionalFeatures:(_WKXRSessionFeatureFlags)consentOptionalFeatures completionHandler:(void (^)(_WKXRSessionFeatureFlags))completionHandler WK_API_AVAILABLE(macos(13.0), ios(16.0));
 - (void)_webView:(WKWebView *)webView requestPermissionForXRSessionOrigin:(NSString *)originString mode:(_WKXRSessionMode)mode grantedFeatures:(_WKXRSessionFeatureFlags)grantedFeatures consentRequiredFeatures:(_WKXRSessionFeatureFlags)consentRequiredFeatures consentOptionalFeatures:(_WKXRSessionFeatureFlags)consentOptionalFeatures requiredFeaturesRequested:(_WKXRSessionFeatureFlags)requiredFeaturesRequested optionalFeaturesRequested:(_WKXRSessionFeatureFlags)optionalFeaturesRequested completionHandler:(void (^)(_WKXRSessionFeatureFlags))completionHandler WK_API_AVAILABLE(macos(14.0), ios(17.0));
+- (void)_webView:(WKWebView *)webView supportedXRSessionFeatures:(_WKXRSessionFeatureFlags *)vrFeatures arFeatures:(_WKXRSessionFeatureFlags *)arFeatures WK_API_AVAILABLE(ios(18.0), visionos(2.0));
 - (void)_webView:(WKWebView *)webView startXRSessionWithCompletionHandler:(void (^)(id))completionHandler WK_API_AVAILABLE(macos(12.0), ios(15.0));
 - (void)_webView:(WKWebView *)webView requestNotificationPermissionForSecurityOrigin:(WKSecurityOrigin *)securityOrigin decisionHandler:(void (^)(BOOL))decisionHandler WK_API_AVAILABLE(macos(10.13.4), ios(16.0));
 - (void)_webViewEndXRSession:(WKWebView *)webView WK_API_AVAILABLE(macos(13.0), ios(16.0));
@@ -215,6 +216,11 @@ struct UIEdgeInsets;
 
 - (void)_webViewRecentlyAccessedGamepadsForTesting:(WKWebView *)webView WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
 - (void)_webViewStoppedAccessingGamepadsForTesting:(WKWebView *)webView WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
+
+#if defined(TARGET_OS_VISION) && TARGET_OS_VISION
+- (void)_webView:(WKWebView *)webView setRecentlyAccessedGamepads:(BOOL)recentlyAccessedGamepads WK_API_AVAILABLE(visionos(2.0));
+- (void)_webView:(WKWebView *)webView gamepadsConnectedStateDidChange:(BOOL)gamepadsConnected WK_API_AVAILABLE(visionos(2.0));
+#endif
 
 #if TARGET_OS_IPHONE
 

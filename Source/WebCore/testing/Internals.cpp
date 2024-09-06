@@ -128,7 +128,9 @@
 #include "InternalsMapLike.h"
 #include "InternalsSetLike.h"
 #include "JSDOMPromiseDeferred.h"
+#include "JSFile.h"
 #include "JSImageData.h"
+#include "JSInternals.h"
 #include "LegacySchemeRegistry.h"
 #include "LoaderStrategy.h"
 #include "LocalDOMWindow.h"
@@ -557,6 +559,7 @@ void Internals::resetToConsistentState(Page& page)
     page.setPagination(Pagination());
 
     page.setDefersLoading(false);
+    page.setResourceCachingDisabledByWebInspector(false);
 
     auto* localMainFrame = dynamicDowncast<LocalFrame>(page.mainFrame());
     if (!localMainFrame)
@@ -3084,15 +3087,6 @@ bool Internals::isElementAlive(uint64_t elementIdentifier) const
     return Element::fromIdentifier(ObjectIdentifier<ElementIdentifierType>(elementIdentifier));
 }
 
-uint64_t Internals::frameIdentifier(const Document& document) const
-{
-    if (auto* page = document.page()) {
-        if (auto* localMainFrame = dynamicDowncast<LocalFrame>(page->mainFrame()))
-            return localMainFrame->loader().frameID().object().toUInt64();
-    }
-    return 0;
-}
-
 uint64_t Internals::pageIdentifier(const Document& document) const
 {
     return valueOrDefault(document.pageID()).toUInt64();
@@ -3812,15 +3806,6 @@ void Internals::setFooterHeight(float height)
         return;
 
     document->page()->setFooterHeight(height);
-}
-
-void Internals::setTopContentInset(float contentInset)
-{
-    Document* document = contextDocument();
-    if (!document || !document->page())
-        return;
-
-    document->page()->setTopContentInset(contentInset);
 }
 
 #if ENABLE(FULLSCREEN_API)
@@ -4702,6 +4687,11 @@ void Internals::setMaximumQueueDepthForTrackID(SourceBuffer& buffer, const AtomS
     buffer.setMaximumQueueDepthForTrackID(parseInteger<TrackID>(trackID).value_or(0), maxQueueDepth);
 }
 
+size_t Internals::evictableSize(SourceBuffer& buffer)
+{
+    return buffer.evictableSize();
+}
+
 #endif
 
 void Internals::enableMockMediaCapabilities()
@@ -5377,8 +5367,38 @@ RefPtr<File> Internals::createFile(const String& path)
     if (!url.protocolIsFile())
         return nullptr;
 
+    if (auto* page = document->page())
+        page->chrome().client().registerBlobPathForTesting(url.fileSystemPath(), [] () { });
+
     return File::create(document, url.fileSystemPath());
 }
+void Internals::asyncCreateFile(const String& path, DOMPromiseDeferred<IDLInterface<File>>&& promise)
+{
+    Document* document = contextDocument();
+    if (!document) {
+        promise.reject(ExceptionCode::InvalidStateError);
+        return;
+    }
+
+    URL url = document->completeURL(path);
+    if (!url.protocolIsFile()) {
+        promise.reject(ExceptionCode::InvalidStateError);
+        return;
+    }
+
+    if (auto* page = document->page()) {
+        auto fileSystemPath = url.fileSystemPath();
+        page->chrome().client().registerBlobPathForTesting(fileSystemPath, [promise = WTFMove(promise), weakDocument = WeakPtr { *document }, url = WTFMove(url)] () mutable {
+            if (!weakDocument) {
+                promise.reject(ExceptionCode::InvalidStateError);
+                return;
+            }
+            promise.resolve(File::create(weakDocument.get(), url.fileSystemPath()));
+        });
+    } else
+        promise.reject(ExceptionCode::InvalidStateError);
+}
+
 
 String Internals::createTemporaryFile(const String& name, const String& contents)
 {
@@ -7535,6 +7555,46 @@ const String& Internals::defaultSpatialTrackingLabel() const
 bool Internals::isEffectivelyMuted(const HTMLMediaElement& element)
 {
     return element.effectiveMuted();
+}
+
+std::optional<RenderingMode> Internals::getEffectiveRenderingModeOfNewlyCreatedAcceleratedImageBuffer()
+{
+    RefPtr document = contextDocument();
+    if (!document || !document->page())
+        return std::nullopt;
+
+    if (RefPtr imageBuffer = ImageBuffer::create({ 100, 100 }, RenderingPurpose::DOM, 1, DestinationColorSpace::SRGB(), ImageBufferPixelFormat::BGRA8, ImageBufferOptions::Accelerated, &document->page()->chrome())) {
+        imageBuffer->ensureBackendCreated();
+        if (imageBuffer->hasBackend())
+            return imageBuffer->renderingMode();
+    }
+    return std::nullopt;
+}
+
+void Internals::getImageBufferResourceLimits(ImageBufferResourceLimitsPromise&& promise)
+{
+    RefPtr document = contextDocument();
+    if (!document || !document->page()) {
+        promise.reject(Exception { ExceptionCode::InvalidStateError });
+        return;
+    }
+
+    document->page()->chrome().client().getImageBufferResourceLimitsForTesting([promise = WTFMove(promise)](auto&& limits) mutable {
+        if (!limits) {
+            promise.reject(Exception { ExceptionCode::InvalidStateError });
+            return;
+        }
+        promise.resolve(*limits);
+    });
+}
+
+void Internals::setResourceCachingDisabledByWebInspector(bool disabled)
+{
+    RefPtr document = contextDocument();
+    if (!document || !document->page())
+        return;
+
+    document->page()->setResourceCachingDisabledByWebInspector(disabled);
 }
 
 } // namespace WebCore

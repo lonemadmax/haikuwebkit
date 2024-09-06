@@ -390,6 +390,12 @@ enum class WebCore::StorageBlockingPolicy : uint8_t {
     BlockAll
 };
 
+enum class WebCore::HTTPSByDefaultMode : uint8_t {
+    Disabled,
+    UpgradeWithHTTPFallback,
+    UpgradeAndFailClosed
+};
+
 #if HAVE(TRANSLATION_UI_SERVICES) && ENABLE(CONTEXT_MENUS)
 struct WebCore::TranslationContextMenuInfo {
     String text;
@@ -1804,6 +1810,12 @@ enum class WebCore::RotationDirection : bool
 [Nested] enum class WebCore::MockContentFilterSettings::Decision : bool
 #endif
 
+header: <WebCore/IsLoggedIn.h>
+enum class WebCore::IsLoggedIn : uint8_t {
+    LoggedOut,
+    LoggedIn
+};
+
 header: <WebCore/AutoplayEvent.h>
 enum class WebCore::AutoplayEvent : uint8_t {
     DidPreventMediaFromPlaying,
@@ -1926,18 +1938,13 @@ header: <WebCore/RectEdges.h>
     PluginDocument,
     ImageDocument,
 #endif
-    ViewportMeta,
-    CSSDeviceAdaptation
+    ViewportMeta
 };
 
 struct WebCore::ViewportArguments {
     WebCore::ViewportArguments::Type type;
     float width;
-    float minWidth;
-    float maxWidth;
     float height;
-    float minHeight;
-    float maxHeight;
     float zoom;
     float minZoom;
     float maxZoom;
@@ -2004,6 +2011,7 @@ header: <WebCore/ResourceRequest.h>
     [BitField] bool m_useAdvancedPrivacyProtections;
     [BitField] bool m_didFilterLinkDecoration;
     [BitField] bool m_isPrivateTokenUsageByThirdPartyAllowed;
+    [BitField] bool m_wasSchemeOptimisticallyUpgraded;
 };
 
 #if USE(SOUP)
@@ -2931,11 +2939,8 @@ struct WebCore::GraphicsContextGLAttributes {
     bool preserveDrawingBuffer;
     WebCore::GraphicsContextGLPowerPreference powerPreference;
     bool isWebGL2;
-#if PLATFORM(MAC) || PLATFORM(MACCATALYST)
+#if PLATFORM(MAC)
     uint64_t windowGPUID;
-#endif
-#if PLATFORM(COCOA)
-    bool useMetal;
 #endif
 #if ENABLE(WEBXR)
     bool xrCompatible;
@@ -2991,7 +2996,9 @@ header: <WebCore/BasicShapes.h>
 [Nested, CustomHeader] enum class WebCore::BasicShapeRadius::Type : uint8_t {
     Value,
     ClosestSide,
-    FarthestSide
+    FarthestSide,
+    ClosestCorner,
+    FarthestCorner
 };
 
 [CustomHeader] class WebCore::BasicShapeRadius {
@@ -4088,6 +4095,7 @@ header: <WebCore/ScrollingStateNode.h>
     ScrollbarHoverState
     ScrollbarEnabledState
     ScrollbarLayoutDirection
+    ScrollbarWidth
     FrameScaleFactor
     EventTrackingRegion
     RootContentsLayer
@@ -4437,6 +4445,12 @@ enum class WebCore::MediaPlayerPitchCorrectionAlgorithm : uint8_t {
     BestAllAround,
     BestForMusic,
     BestForSpeech,
+};
+
+[OptionSet] enum class WebCore::MediaPlayerVideoPlaybackConfigurationOption : uint8_t {
+    Stereo,
+    StereoMultiview,
+    Spatial
 };
 
 class WebCore::GeolocationPositionData {
@@ -6039,6 +6053,8 @@ header: <WebCore/ISOVTTCue.h>
     bool expectCancel;
     bool supportClientPin;
     bool supportInternalUV;
+    long maxCredentialCountInList;
+    long maxCredentialIdLength;
 };
 
 [Nested] enum class WebCore::MockWebAuthenticationConfiguration::NfcError : uint8_t {
@@ -8165,6 +8181,8 @@ using WebCore::EpochTimeStamp = uint64_t
 using WebCore::SharedMemory::Handle = WebCore::SharedMemoryHandle
 using WebCore::ServiceWorkerOrClientIdentifier = std::variant<WebCore::ServiceWorkerIdentifier, WebCore::ScriptExecutionContextIdentifier>
 
+[Nested] enum class WebCore::GraphicsContext::RequiresClipToRect : bool
+
 enum class WebCore::HighlightVisibility : bool
 
 #if OS(WINDOWS)
@@ -8282,6 +8300,10 @@ enum class WebCore::ShouldContinuePolicyCheck : bool
 
 #if ENABLE(GAMEPAD)
 enum class WebCore::EventMakesGamepadsVisible : bool
+
+#if PLATFORM(VISION)
+enum class WebCore::ShouldRequireExplicitConsentForGamepadAccess : bool;
+#endif
 #endif
 
 enum class WebCore::WillInternallyHandleFailure : bool
@@ -8331,4 +8353,18 @@ struct WebCore::OwnerPermissionsPolicyData {
 
 class WebCore::PermissionsPolicy {
     WebCore::PermissionsPolicy::InheritedPolicy inheritedPolicy()
+};
+using WebCore::PermissionsPolicy::InheritedPolicy = HashSet<WebCore::PermissionsPolicy::Feature, IntHash<WebCore::PermissionsPolicy::Feature>, WTF::StrongEnumHashTraits<WebCore::PermissionsPolicy::Feature>>;
+using WebCore::OwnerPermissionsPolicyData::PolicyDirective = HashMap<WebCore::PermissionsPolicy::Feature, WebCore::Allowlist, IntHash<WebCore::PermissionsPolicy::Feature>, WTF::StrongEnumHashTraits<WebCore::PermissionsPolicy::Feature>>;
+
+header: <WebCore/ImageBufferResourceLimits.h>
+struct WebCore::ImageBufferResourceLimits {
+    size_t acceleratedImageBufferForCanvasCount;
+    size_t acceleratedImageBufferForCanvasLimit;
+    size_t globalAcceleratedImageBufferCount;
+    size_t globalAcceleratedImageBufferLimit;
+    size_t globalImageBufferForCanvasCount;
+    size_t globalImageBufferForCanvasLimit;
+    size_t imageBufferForCanvasCount;
+    size_t imageBufferForCanvasLimit;
 };

@@ -41,6 +41,7 @@
 #include "ElementTargetingTypes.h"
 #include "FrameDestructionObserver.h"
 #include "FrameLoaderTypes.h"
+#include "HTTPSByDefaultMode.h"
 #include "LinkIcon.h"
 #include "NavigationAction.h"
 #include "ResourceError.h"
@@ -399,6 +400,9 @@ public:
     WEBCORE_EXPORT ColorSchemePreference colorSchemePreference() const;
     void setColorSchemePreference(ColorSchemePreference preference) { m_colorSchemePreference = preference; }
 
+    HTTPSByDefaultMode httpsByDefaultMode() { return m_httpsByDefaultMode; }
+    WEBCORE_EXPORT void setHTTPSByDefaultMode(HTTPSByDefaultMode);
+
     void addSubresourceLoader(SubresourceLoader&);
     void removeSubresourceLoader(LoadCompletionType, SubresourceLoader&);
     void addPlugInStreamLoader(ResourceLoader&);
@@ -509,6 +513,8 @@ public:
     WEBCORE_EXPORT void setNavigationID(uint64_t);
 
     bool isInitialAboutBlank() const { return m_isInitialAboutBlank; }
+
+    bool navigationCanTriggerCrossDocumentViewTransition(Document& oldDocument);
 
 protected:
     WEBCORE_EXPORT DocumentLoader(const ResourceRequest&, const SubstituteData&);
@@ -732,6 +738,7 @@ private:
     MouseEventPolicy m_mouseEventPolicy { MouseEventPolicy::Default };
     ModalContainerObservationPolicy m_modalContainerObservationPolicy { ModalContainerObservationPolicy::Disabled };
     ColorSchemePreference m_colorSchemePreference { ColorSchemePreference::NoPreference };
+    HTTPSByDefaultMode m_httpsByDefaultMode { HTTPSByDefaultMode::Disabled };
     ShouldOpenExternalURLsPolicy m_shouldOpenExternalURLsPolicy { ShouldOpenExternalURLsPolicy::ShouldNotAllow };
 
     bool m_idempotentModeAutosizingOnlyHonorsPercentages { false };

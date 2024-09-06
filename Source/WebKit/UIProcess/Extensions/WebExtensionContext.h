@@ -66,6 +66,7 @@
 #include <wtf/ListHashSet.h>
 #include <wtf/RefPtr.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/RunLoop.h>
 #include <wtf/URLHash.h>
 #include <wtf/UUID.h>
 #include <wtf/WeakHashCountedSet.h>
@@ -77,6 +78,11 @@
 #include "APIInspectorExtensionClient.h"
 #include "InspectorExtensionTypes.h"
 #include "WebInspectorUIProxy.h"
+#endif
+
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+#include "WebExtensionSidebar.h"
+#include "WebExtensionSidebarParameters.h"
 #endif
 
 OBJC_CLASS NSArray;
@@ -91,15 +97,15 @@ OBJC_CLASS NSUUID;
 OBJC_CLASS WKContentRuleListStore;
 OBJC_CLASS WKNavigation;
 OBJC_CLASS WKNavigationAction;
+OBJC_CLASS WKWebExtensionContext;
+OBJC_CLASS _WKWebExtensionRegisteredScriptsSQLiteStore;
 OBJC_CLASS WKWebView;
 OBJC_CLASS WKWebViewConfiguration;
-OBJC_CLASS _WKWebExtensionContext;
 OBJC_CLASS _WKWebExtensionContextDelegate;
 OBJC_CLASS _WKWebExtensionDeclarativeNetRequestSQLiteStore;
-OBJC_CLASS _WKWebExtensionRegisteredScriptsSQLiteStore;
 OBJC_CLASS _WKWebExtensionStorageSQLiteStore;
-OBJC_PROTOCOL(_WKWebExtensionTab);
-OBJC_PROTOCOL(_WKWebExtensionWindow);
+OBJC_PROTOCOL(WKWebExtensionTab);
+OBJC_PROTOCOL(WKWebExtensionWindow);
 
 #if PLATFORM(MAC)
 OBJC_CLASS NSEvent;
@@ -214,9 +220,10 @@ public:
     using TabIdentifierWebViewPair = std::pair<WebExtensionTabIdentifier, RetainPtr<WKWebView>>;
 #endif
 
+    using ReloadFromOrigin = WebExtensionTab::ReloadFromOrigin;
+
     enum class EqualityOnly : bool { No, Yes };
     enum class WindowIsClosing : bool { No, Yes };
-    enum class ReloadFromOrigin : bool { No, Yes };
     enum class UserTriggered : bool { No, Yes };
     enum class SuppressEvents : bool { No, Yes };
     enum class UpdateWindowOrder : bool { No, Yes };
@@ -256,6 +263,7 @@ public:
         Background,
         Inspector,
         Popup,
+        Sidebar,
         Tab,
     };
 
@@ -369,16 +377,18 @@ public:
 
     void removePage(WebPageProxy&);
 
-    Ref<WebExtensionWindow> getOrCreateWindow(_WKWebExtensionWindow *) const;
+    Ref<WebExtensionWindow> getOrCreateWindow(WKWebExtensionWindow *) const;
     RefPtr<WebExtensionWindow> getWindow(WebExtensionWindowIdentifier, std::optional<WebPageProxyIdentifier> = std::nullopt, IgnoreExtensionAccess = IgnoreExtensionAccess::No) const;
     void forgetWindow(WebExtensionWindowIdentifier) const;
 
-    Ref<WebExtensionTab> getOrCreateTab(_WKWebExtensionTab *) const;
+    Ref<WebExtensionTab> getOrCreateTab(WKWebExtensionTab *) const;
     RefPtr<WebExtensionTab> getTab(WebExtensionTabIdentifier, IgnoreExtensionAccess = IgnoreExtensionAccess::No) const;
     RefPtr<WebExtensionTab> getTab(WebPageProxyIdentifier, std::optional<WebExtensionTabIdentifier> = std::nullopt, IncludeExtensionViews = IncludeExtensionViews::No, IgnoreExtensionAccess = IgnoreExtensionAccess::No) const;
     RefPtr<WebExtensionTab> getCurrentTab(WebPageProxyIdentifier, IncludeExtensionViews = IncludeExtensionViews::Yes, IgnoreExtensionAccess = IgnoreExtensionAccess::No) const;
     void forgetTab(WebExtensionTabIdentifier) const;
 
+    bool canOpenNewWindow() const;
+    void openNewWindow(const WebExtensionWindowParameters&, CompletionHandler<void(RefPtr<WebExtensionWindow>)>&&);
     void openNewTab(const WebExtensionTabParameters&, CompletionHandler<void(RefPtr<WebExtensionTab>)>&&);
 
     WindowVector openWindows(IgnoreExtensionAccess = IgnoreExtensionAccess::No) const;
@@ -430,6 +440,16 @@ public:
     Ref<WebExtensionAction> getOrCreateAction(WebExtensionWindow*);
     Ref<WebExtensionAction> getOrCreateAction(WebExtensionTab*);
     void performAction(WebExtensionTab*, UserTriggered = UserTriggered::No);
+
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+    WebExtensionSidebar& defaultSidebar();
+    std::optional<Ref<WebExtensionSidebar>> getSidebar(WebExtensionWindow const&);
+    std::optional<Ref<WebExtensionSidebar>> getSidebar(WebExtensionTab const&);
+    std::optional<Ref<WebExtensionSidebar>> getOrCreateSidebar(WebExtensionWindow&);
+    std::optional<Ref<WebExtensionSidebar>> getOrCreateSidebar(WebExtensionTab&);
+    void openSidebarForTab(WebExtensionTab&, UserTriggered = UserTriggered::No);
+    void closeSidebarForTab(WebExtensionTab&, UserTriggered = UserTriggered::No);
+#endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
 
     const CommandsVector& commands();
     WebExtensionCommand* command(const String& identifier);
@@ -543,7 +563,7 @@ public:
     void sendToContentScriptProcessesForEvent(WebExtensionEventListenerType, const T& message) const;
 
 #ifdef __OBJC__
-    _WKWebExtensionContext *wrapper() const { return (_WKWebExtensionContext *)API::ObjectImpl<API::Object::Type::WebExtensionContext>::wrapper(); }
+    WKWebExtensionContext *wrapper() const { return (WKWebExtensionContext *)API::ObjectImpl<API::Object::Type::WebExtensionContext>::wrapper(); }
 #endif
 
 private:
@@ -798,6 +818,20 @@ private:
     void scriptingUnregisterContentScripts(const Vector<String>&, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
     bool createInjectedContentForScripts(const Vector<WebExtensionRegisteredScriptParameters>&, WebExtensionDynamicScripts::WebExtensionRegisteredScript::FirstTimeRegistration, DynamicInjectedContentsMap&, NSString *callingAPIName, NSString **errorMessage);
 
+    // Sidebar APIs
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+    bool isSidebarMessageAllowed();
+    void sidebarOpen(const std::optional<WebExtensionWindowIdentifier>, const std::optional<WebExtensionTabIdentifier>, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void sidebarIsOpen(const std::optional<WebExtensionWindowIdentifier>, CompletionHandler<void(Expected<bool, WebExtensionError>&&)>&&);
+    void sidebarClose(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void sidebarToggle(CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void sidebarGetOptions(const std::optional<WebExtensionWindowIdentifier>, const std::optional<WebExtensionTabIdentifier>, CompletionHandler<void(Expected<WebExtensionSidebarParameters, WebExtensionError>&&)>&&);
+    void sidebarSetOptions(const std::optional<WebExtensionWindowIdentifier>, const std::optional<WebExtensionTabIdentifier>, const std::optional<String>& panelSourcePath, const std::optional<bool> enabled, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void sidebarGetTitle(const std::optional<WebExtensionWindowIdentifier>, const std::optional<WebExtensionTabIdentifier>, CompletionHandler<void(Expected<String, WebExtensionError>&&)>&&);
+    void sidebarSetTitle(const std::optional<WebExtensionWindowIdentifier>, const std::optional<WebExtensionTabIdentifier>, const std::optional<String>& title, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+    void sidebarSetIcon(const std::optional<WebExtensionWindowIdentifier>, const std::optional<WebExtensionTabIdentifier>, const String& iconJSON, CompletionHandler<void(Expected<void, WebExtensionError>&&)>&&);
+#endif
+
     // Storage APIs
     bool isStorageMessageAllowed();
     void storageGet(WebPageProxyIdentifier, WebExtensionDataType, const Vector<String>& keys, CompletionHandler<void(Expected<String, WebExtensionError>&&)>&&);
@@ -912,7 +946,7 @@ private:
 
     String m_backgroundWebViewInspectionName;
 
-    std::unique_ptr<WebCore::Timer> m_unloadBackgroundWebViewTimer;
+    std::unique_ptr<RunLoop::Timer> m_unloadBackgroundWebViewTimer;
     MonotonicTime m_lastBackgroundPortActivityTime;
     bool m_backgroundContentIsLoaded { false };
     bool m_safeToLoadBackgroundContent { false };
@@ -934,6 +968,12 @@ private:
     WeakHashMap<WebExtensionWindow, Ref<WebExtensionAction>> m_actionWindowMap;
     WeakHashMap<WebExtensionTab, Ref<WebExtensionAction>> m_actionTabMap;
     RefPtr<WebExtensionAction> m_defaultAction;
+
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+    WeakHashMap<WebExtensionWindow, Ref<WebExtensionSidebar>> m_sidebarWindowMap;
+    WeakHashMap<WebExtensionTab, Ref<WebExtensionSidebar>> m_sidebarTabMap;
+    RefPtr<WebExtensionSidebar> m_defaultSidebar;
+#endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
 
     PortCountedSet m_ports;
     PageProxyIdentifierPortMap m_pagePortMap;

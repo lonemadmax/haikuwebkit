@@ -28,22 +28,42 @@
 #if USE(APPLE_INTERNAL_SDK)
 
 #import <UserNotifications/UNNotificationContent_Private.h>
-#import <UserNotifications/UNNotificationIcon_Private.h>
+#import <UserNotifications/UNNotificationSettings_Private.h>
 #import <UserNotifications/UNUserNotificationCenter_Private.h>
 
-#else
+#if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+#import <UserNotifications/UNNotificationIcon.h>
+#import <UserNotifications/UNNotificationIcon_Private.h>
+#import <UserNotifications/UNNotification_Private.h>
+#endif
+
+#else // USE(APPLE_INTERNAL_SDK)
+
+#if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+@interface UNNotification ()
++ (instancetype)notificationWithRequest:(UNNotificationRequest *)request date:(NSDate *)date;
+@end
 
 @interface UNNotificationIcon : NSObject <NSCopying, NSSecureCoding>
 + (instancetype)iconForApplicationIdentifier:(NSString *)applicationIdentifier;
 @end
+#endif
 
 @interface UNMutableNotificationContent ()
 @property (NS_NONATOMIC_IOSONLY, copy) NSString *defaultActionBundleIdentifier;
+#if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
 @property (NS_NONATOMIC_IOSONLY, copy) UNNotificationIcon *icon;
+#endif
+@end
+
+@interface UNMutableNotificationSettings : UNNotificationSettings
++ (instancetype)emptySettings;
+@property (NS_NONATOMIC_IOSONLY, readwrite) UNAuthorizationStatus authorizationStatus;
 @end
 
 @interface UNUserNotificationCenter ()
 - (instancetype)initWithBundleIdentifier:(NSString *)bundleIdentifier;
+- (UNNotificationSettings *)notificationSettings;
 @end
 
 #endif // USE(APPLE_INTERNAL_SDK)
