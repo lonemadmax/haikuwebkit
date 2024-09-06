@@ -155,12 +155,12 @@ GraphicsContext& ImageBufferHaikuSurfaceBackend::context()
 void ImageBufferHaikuSurfaceBackend::getPixelBuffer(
     const IntRect& srcRect, PixelBuffer& destination)
 {
-    return ImageBufferBackend::getPixelBuffer(srcRect, m_data.m_image->Bits(), destination);
+    return ImageBufferBackend::getPixelBuffer(srcRect, (const uint8_t*)m_data.m_image->Bits(), destination);
 }
 
 void ImageBufferHaikuSurfaceBackend::putPixelBuffer(const PixelBuffer& imageData, const IntRect& sourceRect, const IntPoint& destPoint, AlphaPremultiplication premultiplication)
 {
-    ImageBufferBackend::putPixelBuffer(imageData, sourceRect, destPoint, premultiplication, m_data.m_image->Bits());
+    ImageBufferBackend::putPixelBuffer(imageData, sourceRect, destPoint, premultiplication, (uint8_t*)m_data.m_image->Bits());
 }
 
 unsigned ImageBufferHaikuSurfaceBackend::bytesPerRow() const

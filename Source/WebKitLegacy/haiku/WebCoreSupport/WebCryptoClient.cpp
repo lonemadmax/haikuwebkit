@@ -25,8 +25,10 @@
 
 #import "WebCryptoClient.h"
 
-#import <WebCore/SerializedCryptoKeyWrap.h>
-#import <optional>
+#include "WebCore/WrappedCryptoKey.h"
+#include "WebCore/SerializedCryptoKeyWrap.h"
+
+#include <optional>
 
 std::optional<Vector<uint8_t>> WebCryptoClient::wrapCryptoKey(const Vector<uint8_t>& key) const
 {
@@ -42,12 +44,11 @@ std::optional<Vector<uint8_t>> WebCryptoClient::wrapCryptoKey(const Vector<uint8
 
 std::optional<Vector<uint8_t>> WebCryptoClient::unwrapCryptoKey(const Vector<uint8_t>& wrappedKey) const
 {
-    Vector<uint8_t> key;
-
     auto masterKey = WebCore::defaultWebCryptoMasterKey();
     if (!masterKey)
         return std::nullopt;
-    if (!WebCore::unwrapSerializedCryptoKey(WTFMove(*masterKey), wrappedKey, key))
+    auto readKey = WebCore::readSerializedCryptoKey(wrappedKey);
+    if (!readKey)
         return std::nullopt;
-    return key;
+    return WebCore::unwrapCryptoKey(*masterKey, *readKey);
 }

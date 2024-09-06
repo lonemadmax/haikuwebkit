@@ -561,7 +561,7 @@ void ResourceHandle::handleDataURL()
 
         // didReceiveResponse might cause the client to be deleted.
         if (client()) {
-            auto decodedData = base64Decode(data, Base64DecodeMode::URL);
+            auto decodedData = base64Decode(data, {Base64DecodeOption::URL});
             if (decodedData && decodedData->size() > 0)
                 client()->didReceiveBuffer(this, SharedBuffer::create(decodedData->span()), originalSize);
         }

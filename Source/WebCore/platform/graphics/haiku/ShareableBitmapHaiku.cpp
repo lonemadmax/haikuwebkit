@@ -51,7 +51,7 @@ std::unique_ptr<GraphicsContext> ShareableBitmap::createGraphicsContext()
 void ShareableBitmap::paint(GraphicsContext& context, const IntPoint& dstPoint, const IntRect& srcRect)
 {
     BBitmap bitmap(BRect(B_ORIGIN, size()), B_RGBA32, true);
-    bitmap.ImportBits(data(), size().width() * size().height() * 4, 4 * size().width(), 0, B_RGBA32);
+    bitmap.ImportBits(span().data(), size().width() * size().height() * 4, 4 * size().width(), 0, B_RGBA32);
 
     BView* viewSurface = context.platformContext();
 
