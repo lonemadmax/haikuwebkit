@@ -246,7 +246,7 @@ static String getFinalTestURL(const String& testURL)
         free(cFilePath);
 
         if (BFile(filePath.utf8().data(), B_READ_ONLY).IsFile())
-            return String::fromUTF8("file://") + filePath;
+            return makeString("file://"_s, filePath);
     }
 
     return testURL;

@@ -37,6 +37,7 @@
 #include "pal/ExportMacros.h"
 
 #include <wtf/FileSystem.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringConcatenateNumbers.h>
 #include <wtf/URL.h>
 #include <wtf/MainThread.h>

@@ -27,6 +27,7 @@
 #include "UserAgent.h"
 
 #include <wtf/NeverDestroyed.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringConcatenate.h>
 
 // WARNING! WARNING! WARNING!

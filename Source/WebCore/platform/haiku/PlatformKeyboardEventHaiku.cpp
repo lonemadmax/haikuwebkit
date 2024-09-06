@@ -33,6 +33,7 @@
 #include <wtf/text/StringConcatenateNumbers.h>
 #include <wtf/HexNumber.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/StringConcatenate.h>
 
 #include "PlatformKeyboardEvent.h"

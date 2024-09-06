@@ -39,6 +39,7 @@
 #include "WebCore/FindOptions.h"
 #include <stdio.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/MakeString.h>
 #include <wtf/text/WTFString.h>
 
 #include <Application.h>

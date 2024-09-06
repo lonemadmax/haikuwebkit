@@ -130,15 +130,15 @@ String DumpRenderTreeClient::suitableDRTFrameName(const BWebFrame* frame)
 
     if (frame->Frame() == &frame->fData->page->mainFrame()) {
         if (!frameName.isEmpty())
-            return ASCIILiteral::fromLiteralUnsafe("main frame \"") + frameName + ASCIILiteral::fromLiteralUnsafe("\"");
+            return makeString("main frame \""_s, frameName, "\""_s);
 
-        return ASCIILiteral::fromLiteralUnsafe("main frame");
+        return "main frame"_s;
     }
 
     if (!frameName.isEmpty())
-        return ASCIILiteral::fromLiteralUnsafe("frame \"") + frameName + ASCIILiteral::fromLiteralUnsafe("\"");
+        return makeString("frame \""_s, frameName, "\""_s);
 
-    return ASCIILiteral::fromLiteralUnsafe("frame (anonymous)");
+    return "frame (anonymous)"_s;
 }
 
 BBitmap* DumpRenderTreeClient::getOffscreen(BWebView* view)
