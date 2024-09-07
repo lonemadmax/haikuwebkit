@@ -53,9 +53,9 @@ public:
     void drawEllipse(const FloatRect&) override;
     void fillPath(const Path&) override;
     void strokePath(const Path&) override;
-    void fillRect(const FloatRect&) override;
+    void fillRect(const FloatRect&, RequiresClipToRect) override;
     void fillRect(const FloatRect&, const Color&) override;
-    void fillRect(const WebCore::FloatRect&, WebCore::Gradient&, const WebCore::AffineTransform&) override;
+    void fillRect(const WebCore::FloatRect&, WebCore::Gradient&, const WebCore::AffineTransform&, RequiresClipToRect) override;
     void fillRoundedRectImpl(const FloatRoundedRect&, const Color&) override;
     void clearRect(const FloatRect&) override;
     void strokeRect(const FloatRect&, float lineWidth) override;

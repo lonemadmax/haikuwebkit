@@ -222,14 +222,14 @@ void GraphicsContextHaiku::fillRect(const FloatRect& rect, const Color& color)
     m_view->SetHighColor(previousColor);
 }
 
-void GraphicsContextHaiku::fillRect(const FloatRect& rect)
+void GraphicsContextHaiku::fillRect(const FloatRect& rect, RequiresClipToRect)
 {
     HGTRACE(("fillRect: [%f:%f] [%f:%f]\n", rect.x(), rect.y(), rect.width(), rect.height()));
     // TODO fill the shadow
     m_view->FillRect(rect, B_SOLID_LOW);
 }
 
-void GraphicsContextHaiku::fillRect(const WebCore::FloatRect& r, WebCore::Gradient& g, const WebCore::AffineTransform&)
+void GraphicsContextHaiku::fillRect(const WebCore::FloatRect& r, WebCore::Gradient& g, const WebCore::AffineTransform&, RequiresClipToRect)
 {
     // TODO handle the transform
     m_view->FillRect(r, g.getHaikuGradient());
