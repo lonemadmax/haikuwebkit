@@ -103,8 +103,6 @@ namespace WebCore {
 
         KeyboardUIMode keyboardUIMode() override;
 
-        void setStatusbarText(const String&) override;
-
         void invalidateRootView(const IntRect&) override;
         void invalidateContentsAndRootView(const IntRect&) override;
 

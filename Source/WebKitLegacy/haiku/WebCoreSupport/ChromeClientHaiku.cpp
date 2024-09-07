@@ -286,12 +286,6 @@ std::unique_ptr<ColorChooser> ChromeClientHaiku::createColorChooser(
     return std::make_unique<ColorChooserHaiku>(&client, color);
 }
 
-
-void ChromeClientHaiku::setStatusbarText(const String& message)
-{
-    m_webPage->setStatusMessage(BString(message));
-}
-
 KeyboardUIMode ChromeClientHaiku::keyboardUIMode()
 {
     return KeyboardAccessFull;
