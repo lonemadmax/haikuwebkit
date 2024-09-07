@@ -88,6 +88,8 @@ private:
     FloatRect fastBoundingRect() const final;
     FloatRect boundingRect() const final;
 
+    bool definitelyEqual(const WebCore::PathImpl& other) const { return m_platformPath == ((PathHaiku&)other).m_platformPath; }
+
     BShape m_platformPath;
     RefPtr<PathStream> m_elementsStream;
 };

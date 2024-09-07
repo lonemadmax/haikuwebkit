@@ -617,3 +617,14 @@ void TestRunner::generateTestReport(JSStringRef message, JSStringRef group)
     fprintf(testResult, "ERROR: TestRunner::generateTestReport() not implemented\n");
 }
 
+void TestRunner::setPageScaleFactor(double scaleFactor, long x, long y)
+{
+}
+
+JSValueRef TestRunner::alwaysResolvePromise(JSContextRef context)
+{
+}
+
+void TestRunner::setTopContentInset(double contentInset)
+{
+}
