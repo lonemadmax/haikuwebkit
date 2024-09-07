@@ -150,8 +150,7 @@ Ref<CurlRequest> ResourceHandle::createCurlRequest(ResourceRequest&& request, Re
             request.addHTTPHeaderField(HTTPHeaderName::Cookie, cookieHeaderField);
     }
 
-    CurlRequest::ShouldSuspend shouldSuspend = d->m_defersLoading ? CurlRequest::ShouldSuspend::Yes : CurlRequest::ShouldSuspend::No;
-    auto curlRequest = CurlRequest::create(request, *delegate(), shouldSuspend, CurlRequest::CaptureNetworkLoadMetrics::Basic, RefPtr<SynchronousLoaderMessageQueue>(d->m_messageQueue));
+    auto curlRequest = CurlRequest::create(request, *delegate(), CurlRequest::CaptureNetworkLoadMetrics::Basic);
 
     return curlRequest;
 }

@@ -50,7 +50,6 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(CurlRequest);
 
 CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, CaptureNetworkLoadMetrics captureExtraMetrics)
     : m_client(client)
-    , m_messageQueue(WTFMove(messageQueue))
     , m_request(request.isolatedCopy())
     , m_startState(StartState::WaitingForStart)
     , m_formDataStream(m_request.httpBody())
@@ -66,7 +65,6 @@ void CurlRequest::invalidateClient()
     ASSERT(isMainThread());
 
     m_client = nullptr;
-    m_messageQueue = nullptr;
 }
 
 void CurlRequest::setAuthenticationScheme(ProtectionSpace::AuthenticationScheme scheme)
@@ -221,10 +219,7 @@ void CurlRequest::callClient(Function<void(CurlRequest&, CurlRequestClient&)>&& 
 
 void CurlRequest::runOnMainThread(Function<void()>&& task)
 {
-    if (m_messageQueue)
-        m_messageQueue->append(makeUnique<Function<void()>>(WTFMove(task)));
-    else
-        ensureOnMainThread(WTFMove(task));
+    ensureOnMainThread(WTFMove(task));
 }
 
 void CurlRequest::runOnWorkerThreadIfRequired(Function<void()>&& task)

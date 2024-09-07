@@ -33,7 +33,6 @@
 #include "ProtectionSpace.h"
 #include "ResourceRequest.h"
 #include <wtf/FileSystem.h>
-#include <wtf/MessageQueue.h>
 #include <wtf/MonotonicTime.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/TZoneMalloc.h>
@@ -43,26 +42,20 @@ namespace WebCore {
 class CurlRequestClient;
 class NetworkLoadMetrics;
 class ResourceError;
-class SynchronousLoaderMessageQueue;
 
 class CurlRequest final : public ThreadSafeRefCounted<CurlRequest>, public CurlRequestSchedulerClient, public CurlMultipartHandleClient, public CanMakeThreadSafeCheckedPtr<CurlRequest> {
     WTF_MAKE_TZONE_ALLOCATED(CurlRequest);
     WTF_MAKE_NONCOPYABLE(CurlRequest);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(CurlRequest);
 public:
-    enum class ShouldSuspend : bool {
-        No = false,
-        Yes = true
-    };
-
     enum class CaptureNetworkLoadMetrics : uint8_t {
         Basic,
         Extended
     };
 
-    static Ref<CurlRequest> create(const ResourceRequest& request, CurlRequestClient& client, ShouldSuspend shouldSuspend = ShouldSuspend::No, CaptureNetworkLoadMetrics captureMetrics = CaptureNetworkLoadMetrics::Basic, RefPtr<SynchronousLoaderMessageQueue>&& messageQueue = nullptr)
+    static Ref<CurlRequest> create(const ResourceRequest& request, CurlRequestClient& client, CaptureNetworkLoadMetrics captureMetrics = CaptureNetworkLoadMetrics::Basic)
     {
-        return adoptRef(*new CurlRequest(request, &client, shouldSuspend, captureMetrics, WTFMove(messageQueue)));
+        return adoptRef(*new CurlRequest(request, &client, captureMetrics));
     }
 
     virtual ~CurlRequest();
@@ -96,7 +89,7 @@ public:
     void setDownloadedFilePath(const String& path) { m_downloadFilePath = path; }
 
 private:
-    WEBCORE_EXPORT CurlRequest(const ResourceRequest&, CurlRequestClient*, ShouldSuspend, CaptureNetworkLoadMetrics, RefPtr<SynchronousLoaderMessageQueue>&&);
+    WEBCORE_EXPORT CurlRequest(const ResourceRequest&, CurlRequestClient*, CaptureNetworkLoadMetrics);
 
     // CheckedPtr interface
     uint32_t ptrCount() const final { return CanMakeThreadSafeCheckedPtr::ptrCount(); }
@@ -166,7 +159,6 @@ private:
     Lock m_statusMutex;
     bool m_cancelled { false };
     bool m_completed { false };
-    RefPtr<SynchronousLoaderMessageQueue> m_messageQueue;
 
     ResourceRequest m_request;
     String m_user;
