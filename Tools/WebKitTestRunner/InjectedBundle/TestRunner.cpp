@@ -895,7 +895,7 @@ void TestRunner::setCameraPermission(bool enabled)
 
 void TestRunner::setMicrophonePermission(bool enabled)
 {
-    InjectedBundle::singleton().setCameraPermission(enabled);
+    InjectedBundle::singleton().setMicrophonePermission(enabled);
 }
 
 void TestRunner::setUserMediaPermission(bool enabled)
@@ -1699,6 +1699,15 @@ void TestRunner::triggerMockCaptureConfigurationChange(bool forMicrophone, bool 
     postSynchronousMessage("TriggerMockCaptureConfigurationChange", createWKDictionary({
         { "microphone", adoptWK(WKBooleanCreate(forMicrophone)) },
         { "display", adoptWK(WKBooleanCreate(forDisplay)) },
+    }));
+}
+
+void TestRunner::setCaptureState(bool cameraState, bool microphoneState, bool displayState)
+{
+    postSynchronousMessage("SetCaptureState", createWKDictionary({
+        { "camera", adoptWK(WKBooleanCreate(cameraState)) },
+        { "microphone", adoptWK(WKBooleanCreate(microphoneState)) },
+        { "display", adoptWK(WKBooleanCreate(displayState)) },
     }));
 }
 

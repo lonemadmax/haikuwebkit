@@ -68,6 +68,11 @@ void WebUserMediaClient::removeDeviceChangeObserver(DeviceChangeObserverToken to
     m_page.userMediaPermissionRequestManager().removeDeviceChangeObserver(token);
 }
 
+void WebUserMediaClient::updateCaptureState(const WebCore::Document& document, bool isActive, WebCore::MediaProducerMediaCaptureKind kind, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& completionHandler)
+{
+    m_page.userMediaPermissionRequestManager().updateCaptureState(document, isActive, kind, WTFMove(completionHandler));
+}
+
 } // namespace WebKit;
 
 #endif // MEDIA_STREAM

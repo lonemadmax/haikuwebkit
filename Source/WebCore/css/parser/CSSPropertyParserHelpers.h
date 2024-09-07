@@ -47,28 +47,17 @@ namespace WebCore {
 
 class CSSGridLineNamesValue;
 
-
 // When these functions are successful, they will consume all the relevant
 // tokens from the range and also consume any whitespace which follows. When
 // the start of the range doesn't match the type we're looking for, the range
 // will not be modified.
 namespace CSSPropertyParserHelpers {
 
-RefPtr<CSSPrimitiveValue> consumeFontWeightNumber(CSSParserTokenRange&);
-
-enum class AllowedFilterFunctions {
-    PixelFilters,
-    ColorFilters
-};
-
-RefPtr<CSSValue> consumeFilter(CSSParserTokenRange&, const CSSParserContext&, AllowedFilterFunctions);
 RefPtr<CSSShadowValue> consumeSingleShadow(CSSParserTokenRange&, const CSSParserContext&, bool allowInset, bool allowSpread, bool isWebkitBoxShadow = false);
-
 
 RefPtr<CSSPrimitiveValue> consumeCounterStyleName(CSSParserTokenRange&);
 AtomString consumeCounterStyleNameInPrelude(CSSParserTokenRange&, CSSParserMode = CSSParserMode::HTMLStandardMode);
 RefPtr<CSSPrimitiveValue> consumeSingleContainerName(CSSParserTokenRange&);
-
 
 RefPtr<CSSValue> consumeAspectRatio(CSSParserTokenRange&);
 
@@ -99,7 +88,6 @@ RefPtr<CSSValue> consumeTouchAction(CSSParserTokenRange&);
 RefPtr<CSSValue> consumeKeyframesName(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeSingleTransitionPropertyOrNone(CSSParserTokenRange&);
 RefPtr<CSSValue> consumeSingleTransitionProperty(CSSParserTokenRange&, const CSSParserContext&);
-RefPtr<CSSValue> consumeTimingFunction(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeTextShadow(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeBoxShadow(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeWebkitBoxShadow(CSSParserTokenRange&, const CSSParserContext&);
@@ -107,11 +95,6 @@ RefPtr<CSSValue> consumeTextDecorationLine(CSSParserTokenRange&);
 RefPtr<CSSValue> consumeTextEmphasisStyle(CSSParserTokenRange&);
 RefPtr<CSSValue> consumeBorderWidth(CSSParserTokenRange&, CSSPropertyID currentShorthand, const CSSParserContext&);
 RefPtr<CSSValue> consumeBorderColor(CSSParserTokenRange&, CSSPropertyID currentShorthand, const CSSParserContext&);
-RefPtr<CSSValue> consumeTransform(CSSParserTokenRange&, const CSSParserContext&);
-RefPtr<CSSValue> consumeTransformFunction(CSSParserTokenRange&, const CSSParserContext&);
-RefPtr<CSSValue> consumeTranslate(CSSParserTokenRange&, CSSParserMode);
-RefPtr<CSSValue> consumeScale(CSSParserTokenRange&, CSSParserMode);
-RefPtr<CSSValue> consumeRotate(CSSParserTokenRange&, CSSParserMode);
 RefPtr<CSSValue> consumeRepeatStyle(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumePaintStroke(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeListStyleType(CSSParserTokenRange&, const CSSParserContext&);

@@ -127,6 +127,7 @@ private:
     String serializeGridTemplate() const;
     String serializeOffset() const;
     String serializePageBreak() const;
+    String serializeLineClamp() const;
     String serializeTextBox() const;
     String serializeTextWrap() const;
     String serializeWhiteSpace() const;
@@ -384,6 +385,8 @@ String ShorthandSerializer::serialize()
         return serializeGridRowColumn();
     case CSSPropertyGridTemplate:
         return serializeGridTemplate();
+    case CSSPropertyLineClamp:
+        return serializeLineClamp();
     case CSSPropertyMarker:
         return serializeCommonValue();
     case CSSPropertyOffset:
@@ -958,7 +961,7 @@ String ShorthandSerializer::serializeFont() const
         auto& stretchValue = downcast<CSSPrimitiveValue>(longhandValue(stretchIndex));
         if (stretchValue.isCalculated() || !stretchValue.isPercentage())
             return String();
-        auto keyword = fontStretchKeyword(stretchValue.doubleValue());
+        auto keyword = fontStretchKeyword(stretchValue.resolveAsPercentageNoConversionDataRequired());
         if (!keyword)
             return String();
         stretchKeyword = *keyword;
@@ -1255,6 +1258,24 @@ String ShorthandSerializer::serializePageBreak() const
     default:
         return String();
     }
+}
+
+String ShorthandSerializer::serializeLineClamp() const
+{
+    auto isMaxLinesInitial = isLonghandInitialValue(0);
+    auto isBlockEllipsisInitial = isLonghandInitialValue(1);
+    if (isMaxLinesInitial && isBlockEllipsisInitial)
+        return nameString(CSSValueNone);
+
+    if (isMaxLinesInitial != isBlockEllipsisInitial)
+        return { };
+
+    auto blockEllipsis = longhandValueID(1);
+    if (isBlockEllipsisInitial || (!isMaxLinesInitial && blockEllipsis == CSSValueAuto))
+        return serializeLonghands(1);
+
+    // FIXME: Add check for correct order.
+    return serializeLonghands(2);
 }
 
 String ShorthandSerializer::serializeTextBox() const

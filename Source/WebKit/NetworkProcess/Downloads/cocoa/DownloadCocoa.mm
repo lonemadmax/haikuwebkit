@@ -42,7 +42,7 @@ void Download::resume(std::span<const uint8_t> resumeData, const String& path, S
     if (m_sandboxExtension)
         m_sandboxExtension->consume();
 
-    auto* networkSession = m_downloadManager.client().networkSession(m_sessionID);
+    auto* networkSession = m_downloadManager->client().networkSession(m_sessionID);
     if (!networkSession) {
         WTFLogAlways("Could not find network session with given session ID");
         return;
@@ -90,7 +90,7 @@ void Download::platformDestroyDownload()
 }
 
 #if HAVE(MODERN_DOWNLOADPROGRESS)
-void Download::publishProgress(const URL& url, std::span<const uint8_t> bookmarkData)
+void Download::publishProgress(const URL& url, std::span<const uint8_t> bookmarkData, UseDownloadPlaceholder useDownloadPlaceholder)
 {
     if (m_progress) {
         RELEASE_LOG(Network, "Progress is already being published for download.");
@@ -110,7 +110,8 @@ void Download::publishProgress(const URL& url, std::span<const uint8_t> bookmark
     bool shouldEnableModernDownloadProgress = CFPreferencesGetAppBooleanValue(CFSTR("EnableModernDownloadProgress"), CFSTR("com.apple.WebKit"), NULL);
 
     if (shouldEnableModernDownloadProgress) {
-        m_progress = adoptNS([[WKModernDownloadProgress alloc] initWithDownloadTask:m_downloadTask.get() download:*this URL:(NSURL *)url]);
+        NSData *accessToken = [NSData data]; // FIXME: replace with actual access token
+        m_progress = adoptNS([[WKModernDownloadProgress alloc] initWithDownloadTask:m_downloadTask.get() download:*this URL:(NSURL *)url useDownloadPlaceholder:useDownloadPlaceholder == WebKit::UseDownloadPlaceholder::Yes liveActivityAccessToken:accessToken]);
         [m_progress publish];
     } else {
         m_progress = adoptNS([[WKDownloadProgress alloc] initWithDownloadTask:m_downloadTask.get() download:*this URL:(NSURL *)url sandboxExtension:nullptr]);

@@ -48,7 +48,7 @@ namespace WebCore {
 class CAAudioStreamDescription;
 struct GraphicsContextGLAttributes;
 struct PageIdentifierType;
-using PageIdentifier = LegacyNullableObjectIdentifier<PageIdentifierType>;
+using PageIdentifier = ObjectIdentifier<PageIdentifierType>;
 }
 
 namespace IPC {
@@ -70,6 +70,8 @@ class RemoteVideoFrameObjectHeapProxy;
 #endif
 
 class GPUProcessConnection : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<GPUProcessConnection>, public IPC::Connection::Client {
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(GPUProcessConnection);
 public:
     static Ref<GPUProcessConnection> create(Ref<IPC::Connection>&&);
     ~GPUProcessConnection();

@@ -325,6 +325,7 @@ MappedFileData::~MappedFileData()
 {
     if (!m_fileData)
         return;
+
     munmap(m_fileData, m_fileSize);
 }
 

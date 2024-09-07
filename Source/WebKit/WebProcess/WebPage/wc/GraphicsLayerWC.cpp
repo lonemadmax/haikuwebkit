@@ -96,7 +96,7 @@ public:
 
     // TiledBacking override
     void setClient(TiledBackingClient*) final { }
-    PlatformLayerIdentifier layerIdentifier() const final { return m_owner.primaryLayerID(); }
+    PlatformLayerIdentifier layerIdentifier() const final { return *m_owner.primaryLayerID(); }
     TileGridIdentifier primaryGridIdentifier() const final { return TileGridIdentifier { 0 }; }
     std::optional<TileGridIdentifier> secondaryGridIdentifier() const final { return { }; }
     void setVisibleRect(const FloatRect&) final { }
@@ -167,7 +167,7 @@ GraphicsLayerWC::~GraphicsLayerWC()
         m_observer->graphicsLayerRemoved(*this);
 }
 
-PlatformLayerIdentifier GraphicsLayerWC::primaryLayerID() const
+std::optional<PlatformLayerIdentifier> GraphicsLayerWC::primaryLayerID() const
 {
     return m_layerID;
 }
@@ -527,6 +527,8 @@ void GraphicsLayerWC::noteLayerPropertyChanged(OptionSet<WCLayerChange> flags, S
         return;
     bool needsFlush = !m_uncommittedChanges;
     m_uncommittedChanges.add(flags);
+    if (m_isFlushing)
+        return;
     if (needsFlush && scheduleFlush == ScheduleFlush)
         client().notifyFlushRequired(this);
 }
@@ -545,12 +547,14 @@ void GraphicsLayerWC::flushCompositingStateForThisLayerOnly()
 {
     if (!m_uncommittedChanges)
         return;
-    WCLayerUpdateInfo update;
-    update.id = primaryLayerID();
-    update.changes = std::exchange(m_uncommittedChanges, { });
+    SetForScope<bool> scopedIsFlushing(m_isFlushing, true);
+    WCLayerUpdateInfo update {
+        .id = *primaryLayerID(),
+        .changes = std::exchange(m_uncommittedChanges, { })
+    };
     if (update.changes & WCLayerChange::Children) {
         update.children = WTF::map(children(), [](auto& layer) {
-            return layer->primaryLayerID();
+            return *layer->primaryLayerID();
         });
     }
     if (update.changes & WCLayerChange::MaskLayer) {

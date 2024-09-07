@@ -262,6 +262,7 @@
 #include <wtf/NativePromise.h>
 #include <wtf/ProcessID.h>
 #include <wtf/RunLoop.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/URLHelpers.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
@@ -414,10 +415,13 @@ using JSC::StackVisitor;
 
 namespace WebCore {
 
+WTF_MAKE_TZONE_ALLOCATED_IMPL(Internals);
+
 using namespace Inspector;
 using namespace HTMLNames;
 
 class InspectorStubFrontend final : public InspectorFrontendClientLocal, public FrontendChannel {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(InspectorStubFrontend);
 public:
     InspectorStubFrontend(Page& inspectedPage, RefPtr<LocalDOMWindow>&& frontendWindow);
     virtual ~InspectorStubFrontend();
@@ -2816,6 +2820,11 @@ bool Internals::hasWritingToolsTextSuggestionMarker(int from, int length)
 }
 #endif
 
+bool Internals::hasTransparentContentMarker(int from, int length)
+{
+    return hasMarkerFor(DocumentMarker::Type::TransparentContent, from, length);
+}
+
 void Internals::setContinuousSpellCheckingEnabled(bool enabled)
 {
     if (!contextDocument() || !contextDocument()->frame())
@@ -3106,7 +3115,7 @@ bool Internals::isElementAlive(uint64_t elementIdentifier) const
 
 uint64_t Internals::pageIdentifier(const Document& document) const
 {
-    return valueOrDefault(document.pageID()).toUInt64();
+    return document.pageID() ? document.pageID()->toUInt64() : 0;
 }
 
 bool Internals::isAnyWorkletGlobalScopeAlive() const
@@ -3242,7 +3251,7 @@ ExceptionOr<uint64_t> Internals::layerIDForElement(Element& element)
         return Exception { ExceptionCode::NotFoundError };
 
     auto* backing = layerModelObject.layer()->backing();
-    return backing->graphicsLayer()->primaryLayerID().object().toUInt64();
+    return backing->graphicsLayer()->primaryLayerID() ? backing->graphicsLayer()->primaryLayerID()->object().toUInt64() : 0;
 }
 
 ExceptionOr<Vector<uint64_t>> Internals::scrollingNodeIDForNode(Node* node)
@@ -3900,7 +3909,7 @@ void Internals::setMockVideoPresentationModeEnabled(bool enabled)
 
 void Internals::setCanvasNoiseInjectionSalt(HTMLCanvasElement& element, unsigned long long salt)
 {
-    return element.setNoiseInjectionSalt(salt);
+    element.setNoiseInjectionSalt(salt);
 }
 
 bool Internals::doesCanvasHavePendingCanvasNoiseInjection(HTMLCanvasElement& element) const
@@ -6728,6 +6737,13 @@ bool Internals::validateAV1PerLevelConstraints(const String& parameters, const V
 {
     if (auto record = WebCore::parseAV1CodecParameters(parameters))
         return WebCore::validateAV1PerLevelConstraints(*record, configuration);
+    return false;
+}
+
+bool Internals::validateAV1ConfigurationRecord(const String& parameters)
+{
+    if (auto record = WebCore::parseAV1CodecParameters(parameters))
+        return WebCore::validateAV1ConfigurationRecord(*record);
     return false;
 }
 

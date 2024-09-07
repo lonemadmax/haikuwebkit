@@ -91,17 +91,59 @@
 #include "MediaCapability.h"
 #endif
 
-#if PLATFORM(IOS_FAMILY)
-#include "HardwareKeyboardState.h"
-#endif
-
 #if PLATFORM(COCOA)
 #include "CocoaWindow.h"
 #endif
 
 namespace WebKit {
 
-class WebPageProxyFrameLoadStateObserver;
+#if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)
+class WebPageProxyFrameLoadStateObserver final : public FrameLoadStateObserver {
+    WTF_MAKE_NONCOPYABLE(WebPageProxyFrameLoadStateObserver);
+    WTF_MAKE_TZONE_ALLOCATED(WebPageProxyFrameLoadStateObserver);
+public:
+    static constexpr size_t maxVisitedDomainsSize = 6;
+
+    WebPageProxyFrameLoadStateObserver();
+    virtual ~WebPageProxyFrameLoadStateObserver();
+
+    void didReceiveProvisionalURL(const URL& url) override
+    {
+        m_provisionalURLs.append(url);
+    }
+
+    void didCancelProvisionalLoad() override
+    {
+        m_provisionalURLs.clear();
+    }
+
+    void didCommitProvisionalLoad() override
+    {
+        for (auto& url : m_provisionalURLs)
+            didVisitDomain(WebCore::RegistrableDomain(url));
+    }
+
+    const ListHashSet<WebCore::RegistrableDomain>& visitedDomains() const
+    {
+        return m_visitedDomains;
+    }
+
+private:
+    void didVisitDomain(WebCore::RegistrableDomain&& domain)
+    {
+        if (domain.isEmpty())
+            return;
+
+        m_visitedDomains.prependOrMoveToFirst(WTFMove(domain));
+
+        if (m_visitedDomains.size() > maxVisitedDomainsSize)
+            m_visitedDomains.removeLast();
+    }
+
+    Vector<URL> m_provisionalURLs;
+    ListHashSet<WebCore::RegistrableDomain> m_visitedDomains;
+};
+#endif
 
 struct PrivateClickMeasurementAndMetadata {
     WebCore::PrivateClickMeasurement pcm;
@@ -173,6 +215,9 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
 #endif
 {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
+
+public:
+    virtual ~Internals();
 
     WebPageProxy& page;
     OptionSet<WebCore::ActivityState> activityState;
@@ -321,10 +366,6 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
 
 #if ENABLE(EXTENSION_CAPABILITIES)
     std::optional<MediaCapability> mediaCapability;
-#endif
-
-#if PLATFORM(IOS_FAMILY)
-    HardwareKeyboardState hardwareKeyboardState;
 #endif
 
 #if ENABLE(WINDOW_PROXY_PROPERTY_ACCESS_NOTIFICATION)

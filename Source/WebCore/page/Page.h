@@ -33,6 +33,7 @@
 #include "LengthBox.h"
 #include "LoadSchedulingMode.h"
 #include "LocalFrame.h"
+#include "LoginStatus.h"
 #include "MediaProducer.h"
 #include "MediaSessionGroupIdentifier.h"
 #include "Pagination.h"
@@ -320,8 +321,8 @@ constexpr auto allRenderingUpdateSteps = updateRenderingSteps | OptionSet<Render
 
 
 class Page : public RefCounted<Page>, public Supplementable<Page>, public CanMakeWeakPtr<Page> {
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(Page, WEBCORE_EXPORT);
     WTF_MAKE_NONCOPYABLE(Page);
-    WTF_MAKE_TZONE_ALLOCATED(Page);
     friend class SettingsBase;
 
 public:
@@ -468,7 +469,7 @@ public:
     void progressEstimateChanged(LocalFrame&) const;
     void progressFinished(LocalFrame&) const;
     BackForwardController& backForward() { return m_backForwardController.get(); }
-    CheckedRef<BackForwardController> checkedBackForward();
+    WEBCORE_EXPORT CheckedRef<BackForwardController> checkedBackForward();
 
     Seconds domTimerAlignmentInterval() const { return m_domTimerAlignmentInterval; }
 
@@ -933,6 +934,9 @@ public:
     WEBCORE_EXPORT void setMuted(MediaProducerMutedStateFlags);
 
     WEBCORE_EXPORT void stopMediaCapture(MediaProducerMediaCaptureKind);
+#if ENABLE(MEDIA_STREAM)
+    WEBCORE_EXPORT void updateCaptureState(bool isActive, MediaProducerMediaCaptureKind);
+#endif
 
     MediaSessionGroupIdentifier mediaSessionGroupIdentifier() const;
     WEBCORE_EXPORT bool mediaPlaybackExists();
@@ -1195,6 +1199,13 @@ public:
 
 #if PLATFORM(IOS_FAMILY)
     bool canShowWhileLocked() const { return m_canShowWhileLocked; }
+#endif
+
+    void setLastAuthentication(LoginStatus::AuthenticationType);
+    const std::optional<LoginStatus>& lastAuthentication() const { return m_lastAuthentication; }
+
+#if ENABLE(FULLSCREEN_API)
+    WEBCORE_EXPORT bool isFullscreenManagerEnabled() const;
 #endif
 
 private:
@@ -1617,6 +1628,8 @@ private:
 
     bool m_hasActiveNowPlayingSession { false };
     Timer m_activeNowPlayingSessionUpdateTimer;
+
+    std::optional<LoginStatus> m_lastAuthentication;
 }; // class Page
 
 inline Page* Frame::page() const

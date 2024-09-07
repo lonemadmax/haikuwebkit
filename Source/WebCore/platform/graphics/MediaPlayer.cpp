@@ -56,6 +56,7 @@
 #include <wtf/Lock.h>
 #include <wtf/NativePromise.h>
 #include <wtf/NeverDestroyed.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 
@@ -108,6 +109,9 @@
 #endif
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaPlayer);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaPlayerFactory);
 
 // a null player to make MediaPlayer logic simpler
 

@@ -346,6 +346,7 @@ set(JavaScriptCore_BUILTINS_SOURCES
     ${JAVASCRIPTCORE_DIR}/builtins/GlobalOperations.js
     ${JAVASCRIPTCORE_DIR}/builtins/InternalPromiseConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/IteratorHelpers.js
+    ${JAVASCRIPTCORE_DIR}/builtins/JSIteratorConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/MapConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/MapIteratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/MapPrototype.js
@@ -368,6 +369,7 @@ set(JavaScriptCore_BUILTINS_SOURCES
     ${JAVASCRIPTCORE_DIR}/builtins/TypedArrayConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/TypedArrayPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/WebAssembly.js
+    ${JAVASCRIPTCORE_DIR}/builtins/WrapForValidIteratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/inspector/InjectedScriptSource.js
 )
 
@@ -559,6 +561,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     assembler/ARMv7Registers.h
     assembler/AbortReason.h
     assembler/AbstractMacroAssembler.h
+    assembler/AllowMacroScratchRegisterUsage.h
     assembler/AssemblerBuffer.h
     assembler/AssemblerCommon.h
     assembler/AssemblyComments.h
@@ -1039,7 +1042,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/Intrinsic.h
     runtime/IterationKind.h
     runtime/IteratorOperations.h
-    runtime/IteratorPrototype.h
     runtime/JSArray.h
     runtime/JSArrayInlines.h
     runtime/JSArrayBuffer.h
@@ -1085,6 +1087,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSInternalPromise.h
     runtime/JSIterator.h
     runtime/JSIteratorConstructor.h
+    runtime/JSIteratorPrototype.h
     runtime/JSLexicalEnvironment.h
     runtime/JSLock.h
     runtime/JSMap.h
@@ -1120,6 +1123,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSWeakMap.h
     runtime/JSWeakMapInlines.h
     runtime/JSWithScope.h
+    runtime/JSWrapForValidIterator.h
     runtime/JSWrapperObject.h
     runtime/KeyAtomStringCache.h
     runtime/KeyAtomStringCacheInlines.h
@@ -1248,6 +1252,8 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/WeakGCMapInlines.h
     runtime/WeakGCSet.h
     runtime/WeakGCSetInlines.h
+    runtime/WrapForValidIteratorPrototype.h
+    runtime/WrapForValidIteratorPrototypeInlines.h
     runtime/WriteBarrier.h
     runtime/WriteBarrierInlines.h
 
@@ -1259,6 +1265,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/WasmBranchHints.h
     wasm/WasmCallee.h
     wasm/WasmCalleeGroup.h
+    wasm/WasmCallingConvention.h
     wasm/WasmCallsiteCollection.h
     wasm/WasmCapabilities.h
     wasm/WasmCompilationContext.h
@@ -1287,6 +1294,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     wasm/WasmSIMDOpcodes.h
     wasm/WasmSections.h
     wasm/WasmTypeDefinition.h
+    wasm/WasmTypeDefinitionInlines.h
     wasm/WasmStreamingCompiler.h
     wasm/WasmStreamingParser.h
     wasm/WasmTierUpCount.h

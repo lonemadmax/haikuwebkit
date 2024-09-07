@@ -431,12 +431,15 @@ AllowsPictureInPictureMediaPlayback:
   status: embedder
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(VISION)": false
       "PLATFORM(IOS_FAMILY)": WebKit::defaultAllowsPictureInPictureMediaPlayback()
       default: false
     WebKit:
+      "PLATFORM(VISION)": false
       "PLATFORM(IOS_FAMILY)": true
       default: false
     WebCore:
+      "PLATFORM(VISION)": false
       default: true
   disableInLockdownMode: true
 
@@ -1008,20 +1011,6 @@ CSSBackgroundClipBorderAreaEnabled:
     WebCore:
       default: true
 
-CSSColorContrastEnabled:
-  type: bool
-  status: testable
-  category: css
-  humanReadableName: "CSS color-contrast()"
-  humanReadableDescription: "Enable support for CSS color-contrast() defined in CSS Color 5"
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
-    WebCore:
-      default: false
-
 CSSColorLayersEnabled:
   type: bool
   category: css
@@ -1162,6 +1151,20 @@ CSSLightDarkEnabled:
     WebCore:
       default: true
 
+CSSLineClampEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS line-clamp"
+  humanReadableDescription: "Enable CSS line-clamp"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSMarginTrimEnabled:
   type: bool
   status: stable
@@ -1268,6 +1271,20 @@ CSSRubyAlignEnabled:
   category: css
   humanReadableName: "CSS ruby-align property"
   humanReadableDescription: "Enable ruby-align"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
+CSSRubyOverhangEnabled:
+  type: bool
+  status: stable
+  category: css
+  humanReadableName: "CSS ruby-overhang property"
+  humanReadableDescription: "Enable ruby-overhang"
   defaultValue:
     WebKitLegacy:
       default: true
@@ -3968,6 +3985,21 @@ LegacyPluginQuirkForMailSignaturesEnabled:
     WebCore:
       default: false
 
+LegacyWebRTCOfferOptionsEnabled:
+  type: bool
+  status: embedder
+  humanReadableName: "WebRTC Peer Connection Legacy Offer options"
+  humanReadableDescription: "Enable RTCPeerConnection Legacy offer options (offerToReceiveAudio, offerToReceiveVideo)"
+  condition: ENABLE(WEB_RTC)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      "PLATFORM(GTK) || PLATFORM(WPE)": true
+      default: false
+    WebCore:
+      default: false
+
 LinearMediaPlayerEnabled:
   type: bool
   status: internal
@@ -4193,6 +4225,21 @@ LoginStatusAPIEnabled:
       default: false
     WebCore:
       default: false
+
+LoginStatusAPIRequiresWebAuthnEnabled:
+  type: bool
+  status: internal
+  category: dom
+  humanReadableName: "Require WebAuthn with the Login Status API"
+  humanReadableDescription: "Require a recent WebAuthn authentication to set login status"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+  sharedPreferenceForWebProcess: true
 
 LogsPageMessagesToSystemConsoleEnabled:
   type: bool
@@ -5378,10 +5425,13 @@ PictureInPictureAPIEnabled:
   condition: ENABLE(PICTURE_IN_PICTURE_API)
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(VISION)": false
       default: false
     WebKit:
+      "PLATFORM(VISION)": false
       default: true
     WebCore:
+      "PLATFORM(VISION)": false
       default: true
   disableInLockdownMode: true
 
@@ -5873,25 +5923,6 @@ SafeBrowsingEnabled:
   defaultValue:
     WebKit:
       default: true
-
-SampleBufferContentKeySessionSupportEnabled:
-  type: bool
-  status: unstable
-  category: media
-  humanReadableName: "ContentKeySession support for SampleBuffer Renderers"
-  humanReadableDescription: "ContentKeySession support for SampleBuffer Renderers Enabled"
-  webcoreOnChange: sampleBufferContentKeySessionSupportEnabledChanged
-  condition: HAVE(AVCONTENTKEYSPECIFIER)
-  defaultValue:
-    WebKitLegacy:
-      "PLATFORM(IOS_FAMILY)": true
-      default: false
-    WebKit:
-      "PLATFORM(IOS_FAMILY)": true
-      default: false
-    WebCore:
-      "PLATFORM(IOS_FAMILY)": true
-      default: false
 
 SampledPageTopColorMaxDifference:
   type: double
@@ -6489,6 +6520,22 @@ ShouldTakeNearSuspendedAssertions:
       default: true
     WebKit:
       default: defaultShouldTakeNearSuspendedAssertion()
+    WebCore:
+      default: true
+
+ShouldUseModernAVContentKeySession:
+  type: bool
+  status: internal
+  category: media
+  humanReadableName: "Modern AVContentKeySession"
+  humanReadableDescription: "Use modern AVContentKeySession"
+  webcoreOnChange: shouldUseModernAVContentKeySessionChanged
+  condition: USE(MODERN_AVCONTENTKEYSESSION)
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
     WebCore:
       default: true
 
@@ -7489,15 +7536,16 @@ VerticalFormControlsEnabled:
 VideoFullscreenRequiresElementFullscreen:
   type: bool
   status: embedder
-  condition: PLATFORM(IOS_FAMILY)
+  condition: ENABLE(FULLSCREEN_API)
   defaultValue:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: defaultVideoFullscreenRequiresElementFullscreen()
     WebCore:
       default: false
-      
+  sharedPreferenceForWebProcess: true
+
 VideoPresentationModeAPIEnabled:
   type: bool
   status: embedder
@@ -8413,6 +8461,8 @@ WebXRWebGPUBindingsEnabled:
     WebCore:
       "PLATFORM(VISION) && ENABLE(WEBXR_WEBGPU_BY_DEFAULT)": true
       default: false
+  disableInLockdownMode: true
+  sharedPreferenceForWebProcess: true
 
 WheelEventGesturesBecomeNonBlocking:
   type: bool

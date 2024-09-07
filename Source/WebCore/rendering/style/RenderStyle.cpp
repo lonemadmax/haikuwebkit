@@ -881,6 +881,12 @@ static bool rareDataChangeRequiresLayout(const StyleRareNonInheritedData& first,
     if (first.textBoxEdge != second.textBoxEdge)
         return true;
 
+    if (first.maxLines != second.maxLines)
+        return true;
+
+    if (first.overflowContinue != second.overflowContinue)
+        return true;
+
     return false;
 }
 
@@ -926,7 +932,8 @@ static bool rareInheritedDataChangeRequiresLayout(const StyleRareInheritedData& 
         || first.useTouchOverflowScrolling != second.useTouchOverflowScrolling
 #endif
         || first.listStyleType != second.listStyleType
-        || first.listStyleImage != second.listStyleImage)
+        || first.listStyleImage != second.listStyleImage
+        || first.blockEllipsis != second.blockEllipsis)
         return true;
 
     if (first.textStrokeWidth != second.textStrokeWidth)
@@ -1941,6 +1948,10 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyScrollSnapType);
         if (first.textBoxEdge != second.textBoxEdge)
             changingProperties.m_properties.set(CSSPropertyTextBoxEdge);
+        if (first.maxLines != second.maxLines)
+            changingProperties.m_properties.set(CSSPropertyMaxLines);
+        if (first.overflowContinue != second.overflowContinue)
+            changingProperties.m_properties.set(CSSPropertyContinue);
 
         // Non animated styles are followings.
         // customProperties
@@ -2082,6 +2093,8 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyRubyPosition);
         if (first.rubyAlign != second.rubyAlign)
             changingProperties.m_properties.set(CSSPropertyRubyAlign);
+        if (first.rubyOverhang != second.rubyOverhang)
+            changingProperties.m_properties.set(CSSPropertyRubyOverhang);
         if (first.strokeColor != second.strokeColor)
             changingProperties.m_properties.set(CSSPropertyStrokeColor);
         if (first.paintOrder != second.paintOrder)
@@ -2100,6 +2113,8 @@ void RenderStyle::conservativelyCollectChangedAnimatableProperties(const RenderS
             changingProperties.m_properties.set(CSSPropertyListStyleType);
         if (first.hyphenationString != second.hyphenationString)
             changingProperties.m_properties.set(CSSPropertyHyphenateCharacter);
+        if (first.blockEllipsis != second.blockEllipsis)
+            changingProperties.m_properties.set(CSSPropertyBlockEllipsis);
 
         // customProperties is handled separately.
         // Non animated styles are followings.

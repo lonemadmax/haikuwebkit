@@ -61,6 +61,8 @@
 #include "CSSPropertyParserConsumer+Resolution.h"
 #include "CSSPropertyParserConsumer+String.h"
 #include "CSSPropertyParserConsumer+Time.h"
+#include "CSSPropertyParserConsumer+TimingFunction.h"
+#include "CSSPropertyParserConsumer+Transform.h"
 #include "CSSPropertyParserConsumer+URL.h"
 #include "CSSPropertyParsing.h"
 #include "CSSQuadValue.h"
@@ -77,7 +79,7 @@
 #include "StylePropertyShorthand.h"
 #include "StylePropertyShorthandFunctions.h"
 #include "TimingFunction.h"
-#include "TransformFunctions.h"
+#include "TransformOperationsBuilder.h"
 #include <memory>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
@@ -409,7 +411,7 @@ std::pair<RefPtr<CSSValue>, CSSCustomPropertySyntax::Type> CSSPropertyParser::co
         case CSSCustomPropertySyntax::Type::TransformFunction:
             return consumeTransformFunction(m_range, m_context);
         case CSSCustomPropertySyntax::Type::TransformList:
-            return consumeTransform(m_range, m_context);
+            return consumeTransformList(m_range, m_context);
         case CSSCustomPropertySyntax::Type::Unknown:
             return nullptr;
         }
@@ -484,15 +486,26 @@ RefPtr<CSSCustomPropertyValue> CSSPropertyParser::parseTypedCustomPropertyValue(
             auto length = Style::BuilderConverter::convertLength(builderState, downcast<CSSPrimitiveValue>(value));
             return { WTFMove(length) };
         }
-        case CSSCustomPropertySyntax::Type::Percentage:
         case CSSCustomPropertySyntax::Type::Integer:
-        case CSSCustomPropertySyntax::Type::Number:
-        case CSSCustomPropertySyntax::Type::Angle:
-        case CSSCustomPropertySyntax::Type::Time:
+        case CSSCustomPropertySyntax::Type::Number: {
+            auto doubleValue = downcast<CSSPrimitiveValue>(value).resolveAsNumber(builderState.cssToLengthConversionData());
+            return { CSSCustomPropertyValue::NumericSyntaxValue { doubleValue, CSSUnitType::CSS_NUMBER } };
+        }
+        case CSSCustomPropertySyntax::Type::Percentage: {
+            auto doubleValue = downcast<CSSPrimitiveValue>(value).resolveAsPercentage(builderState.cssToLengthConversionData());
+            return { CSSCustomPropertyValue::NumericSyntaxValue { doubleValue, CSSUnitType::CSS_PERCENTAGE } };
+        }
+        case CSSCustomPropertySyntax::Type::Angle: {
+            auto doubleValue = downcast<CSSPrimitiveValue>(value).resolveAsAngle(builderState.cssToLengthConversionData());
+            return { CSSCustomPropertyValue::NumericSyntaxValue { doubleValue, CSSUnitType::CSS_DEG } };
+        }
+        case CSSCustomPropertySyntax::Type::Time: {
+            auto doubleValue = downcast<CSSPrimitiveValue>(value).resolveAsTime(builderState.cssToLengthConversionData());
+            return { CSSCustomPropertyValue::NumericSyntaxValue { doubleValue, CSSUnitType::CSS_S } };
+        }
         case CSSCustomPropertySyntax::Type::Resolution: {
-            auto canonicalUnit = canonicalUnitTypeForUnitType(downcast<CSSPrimitiveValue>(value).primitiveType());
-            auto doubleValue = downcast<CSSPrimitiveValue>(value).doubleValue(canonicalUnit);
-            return { CSSCustomPropertyValue::NumericSyntaxValue { doubleValue, canonicalUnit } };
+            auto doubleValue = downcast<CSSPrimitiveValue>(value).resolveAsResolution(builderState.cssToLengthConversionData());
+            return { CSSCustomPropertyValue::NumericSyntaxValue { doubleValue, CSSUnitType::CSS_DPPX } };
         }
         case CSSCustomPropertySyntax::Type::Color: {
             auto color = builderState.colorFromPrimitiveValue(downcast<CSSPrimitiveValue>(value), Style::ForVisitedLink::No);
@@ -514,9 +527,7 @@ RefPtr<CSSCustomPropertyValue> CSSPropertyParser::parseTypedCustomPropertyValue(
             return { serializeString(downcast<CSSPrimitiveValue>(value).stringValue()) };
         case CSSCustomPropertySyntax::Type::TransformFunction:
         case CSSCustomPropertySyntax::Type::TransformList:
-            if (RefPtr transform = transformForValue(value, builderState.cssToLengthConversionData()))
-                return { CSSCustomPropertyValue::TransformSyntaxValue { transform.releaseNonNull() } };
-            return { };
+            return { CSSCustomPropertyValue::TransformSyntaxValue { Style::createTransformOperation(value, builderState.cssToLengthConversionData()) } };
         case CSSCustomPropertySyntax::Type::Unknown:
             return { };
         }
@@ -1051,6 +1062,7 @@ static constexpr InitialValue initialValueForLonghand(CSSPropertyID longhand)
     case CSSPropertyAnimationTimeline:
     case CSSPropertyAppearance:
     case CSSPropertyBackgroundImage:
+    case CSSPropertyBlockEllipsis:
     case CSSPropertyBorderBlockEndStyle:
     case CSSPropertyBorderBlockStartStyle:
     case CSSPropertyBorderBlockStyle:
@@ -1093,6 +1105,7 @@ static constexpr InitialValue initialValueForLonghand(CSSPropertyID longhand)
     case CSSPropertyMaxBlockSize:
     case CSSPropertyMaxHeight:
     case CSSPropertyMaxInlineSize:
+    case CSSPropertyMaxLines:
     case CSSPropertyMaxWidth:
     case CSSPropertyMinHeight:
     case CSSPropertyMinWidth:
@@ -1317,7 +1330,7 @@ static bool isValueIDPair(const CSSValue& value, CSSValueID valueID)
 
 static bool isNumber(const CSSPrimitiveValue& value, double number, CSSUnitType type)
 {
-    return value.primitiveType() == type && value.doubleValue() == number;
+    return value.primitiveType() == type && !value.isCalculated() && value.valueNoConversionDataRequired<double>() == number;
 }
 
 static bool isNumber(const CSSPrimitiveValue* value, double number, CSSUnitType type)
@@ -2616,6 +2629,41 @@ bool CSSPropertyParser::consumeListStyleShorthand(bool important)
     return m_range.atEnd();
 }
 
+bool CSSPropertyParser::consumeLineClampShorthand(bool important)
+{
+    if (m_range.peek().id() == CSSValueNone) {
+        // Sets max-lines to none, continue to auto, and block-ellipsis to none.
+        addProperty(CSSPropertyMaxLines, CSSPropertyLineClamp, CSSPrimitiveValue::create(CSSValueNone), important);
+        addProperty(CSSPropertyContinue, CSSPropertyLineClamp, CSSPrimitiveValue::create(CSSValueAuto), important);
+        addProperty(CSSPropertyBlockEllipsis, CSSPropertyLineClamp, CSSPrimitiveValue::create(CSSValueNone), important);
+        consumeIdent(m_range);
+        return m_range.atEnd();
+    }
+
+    RefPtr<CSSValue> maxLines;
+    RefPtr<CSSValue> blockEllipsis;
+
+    for (unsigned propertiesParsed = 0; propertiesParsed < 2 && !m_range.atEnd(); ++propertiesParsed) {
+        if (!maxLines && (maxLines = CSSPropertyParsing::consumeMaxLines(m_range)))
+            continue;
+        if (!blockEllipsis && (blockEllipsis = CSSPropertyParsing::consumeBlockEllipsis(m_range)))
+            continue;
+        // There has to be at least one valid longhand.
+        return false;
+    }
+
+    if (!blockEllipsis)
+        blockEllipsis = CSSPrimitiveValue::create(CSSValueAuto);
+
+    if (!maxLines)
+        maxLines = CSSPrimitiveValue::create(CSSValueNone);
+
+    addProperty(CSSPropertyMaxLines, CSSPropertyLineClamp, WTFMove(maxLines), important);
+    addProperty(CSSPropertyContinue, CSSPropertyLineClamp, CSSPrimitiveValue::create(CSSValueDiscard), important);
+    addProperty(CSSPropertyBlockEllipsis, CSSPropertyLineClamp, WTFMove(blockEllipsis), important);
+    return m_range.atEnd();
+}
+
 bool CSSPropertyParser::consumeTextBoxShorthand(bool important)
 {
     if (m_range.peek().id() == CSSValueNormal) {
@@ -2926,6 +2974,8 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
         return consumeShorthandGreedily(flexFlowShorthand(), important);
     case CSSPropertyColumnRule:
         return consumeShorthandGreedily(columnRuleShorthand(), important);
+    case CSSPropertyLineClamp:
+        return consumeLineClampShorthand(important);
     case CSSPropertyListStyle:
         return consumeListStyleShorthand(important);
     case CSSPropertyBorderRadius:

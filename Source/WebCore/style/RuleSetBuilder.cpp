@@ -34,6 +34,7 @@
 #include "CSSFontSelector.h"
 #include "CSSKeyframesRule.h"
 #include "CSSSelectorParser.h"
+#include "CSSViewTransitionRule.h"
 #include "CustomPropertyRegistry.h"
 #include "Document.h"
 #include "DocumentInlines.h"
@@ -208,6 +209,7 @@ void RuleSetBuilder::addChildRule(Ref<StyleRuleBase> rule)
     case StyleRuleType::FontFeatureValues:
     case StyleRuleType::Keyframes:
     case StyleRuleType::Property:
+    case StyleRuleType::ViewTransition:
         disallowDynamicMediaQueryEvaluationIfNeeded();
         if (m_resolver)
             m_collectedResolverMutatingRules.append({ rule, m_currentCascadeLayerIdentifier });
@@ -219,10 +221,6 @@ void RuleSetBuilder::addChildRule(Ref<StyleRuleBase> rule)
             addChildRules(supportsRule->childRules());
         return;
     }
-    case StyleRuleType::ViewTransition:
-        if (m_ruleSet)
-            m_ruleSet->setViewTransitionRule(uncheckedDowncast<StyleRuleViewTransition>(rule));
-        return;
 
     case StyleRuleType::Import:
     case StyleRuleType::Margin:
@@ -478,6 +476,10 @@ void RuleSetBuilder::addMutatingRulesToResolver()
             auto& registry = m_resolver->document().styleScope().customPropertyRegistry();
             registry.registerFromStylesheet(styleRuleProperty->descriptor());
             continue;
+        }
+        if (auto* styleRuleViewTransition = dynamicDowncast<StyleRuleViewTransition>(rule.get())) {
+            if (m_ruleSet)
+                m_ruleSet->setViewTransitionRule(*styleRuleViewTransition);
         }
     }
 }

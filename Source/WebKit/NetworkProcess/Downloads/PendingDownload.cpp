@@ -65,6 +65,8 @@ PendingDownload::PendingDownload(IPC::Connection* parentProcessConnection, std::
     m_networkLoad->convertTaskToDownload(*this, request, response, WTFMove(completionHandler));
 }
 
+PendingDownload::~PendingDownload() = default;
+
 void PendingDownload::willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&& redirectResponse, CompletionHandler<void(WebCore::ResourceRequest&&)>&& completionHandler)
 {
     sendWithAsyncReply(Messages::DownloadProxy::WillSendRequest(WTFMove(redirectRequest), WTFMove(redirectResponse)), WTFMove(completionHandler));
@@ -79,11 +81,12 @@ void PendingDownload::cancel(CompletionHandler<void(std::span<const uint8_t>)>&&
 
 #if PLATFORM(COCOA)
 #if HAVE(MODERN_DOWNLOADPROGRESS)
-void PendingDownload::publishProgress(const URL& url, std::span<const uint8_t> bookmarkData)
+void PendingDownload::publishProgress(const URL& url, std::span<const uint8_t> bookmarkData, UseDownloadPlaceholder useDownloadPlaceholder)
 {
     ASSERT(!m_progressURL.isValid());
     m_progressURL = url;
     m_bookmarkData = bookmarkData;
+    m_useDownloadPlaceholder = useDownloadPlaceholder;
 }
 #else
 void PendingDownload::publishProgress(const URL& url, SandboxExtension::Handle&& sandboxExtension)
@@ -99,7 +102,7 @@ void PendingDownload::didBecomeDownload(const std::unique_ptr<Download>& downloa
     if (!m_progressURL.isValid())
         return;
 #if HAVE(MODERN_DOWNLOADPROGRESS)
-    download->publishProgress(m_progressURL, m_bookmarkData);
+    download->publishProgress(m_progressURL, m_bookmarkData, m_useDownloadPlaceholder);
 #else
     download->publishProgress(m_progressURL, WTFMove(m_progressSandboxExtension));
 #endif
@@ -123,7 +126,7 @@ void PendingDownload::didReceiveResponse(WebCore::ResourceResponse&& response, P
 
 uint64_t PendingDownload::messageSenderDestinationID() const
 {
-    return m_networkLoad->pendingDownloadID().toUInt64();
+    return m_networkLoad->pendingDownloadID()->toUInt64();
 }
     
 }

@@ -132,7 +132,7 @@
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
 
-#define PAGE_ID ((m_frame ? valueOrDefault(m_frame->pageID()) : PageIdentifier()).toUInt64())
+#define PAGE_ID (m_frame && m_frame->pageID() ? m_frame->pageID()->toUInt64() : 0)
 #define FRAME_ID ((m_frame ? m_frame->frameID() : FrameIdentifier()).object().toUInt64())
 #define IS_MAIN_FRAME (m_frame ? m_frame->isMainFrame() : false)
 #define DOCUMENTLOADER_RELEASE_LOG(fmt, ...) RELEASE_LOG(Network, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] DocumentLoader::" fmt, this, PAGE_ID, FRAME_ID, IS_MAIN_FRAME, ##__VA_ARGS__)
@@ -1321,7 +1321,7 @@ void DocumentLoader::commitData(const SharedBuffer& data)
         if (!isLoading())
             return;
 
-        if (auto* window = document.domWindow()) {
+        if (RefPtr window = document.domWindow()) {
             window->prewarmLocalStorageIfNecessary();
 
             if (m_mainResource) {
@@ -2507,7 +2507,10 @@ bool DocumentLoader::navigationCanTriggerCrossDocumentViewTransition(Document& o
     if (!newOrigin->isSameOriginAs(oldDocument.securityOrigin()))
         return false;
 
-    // FIXME: If newDocument was created via cross-origin redirects, then return false.
+    if (const auto* metrics = response().deprecatedNetworkLoadMetricsOrNull()) {
+        if (metrics->crossOriginRedirect())
+            return false;
+    }
 
     if (*m_triggeringAction.navigationAPIType() == NavigationNavigationType::Traverse)
         return true;

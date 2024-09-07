@@ -78,7 +78,7 @@ public:
 
     // FIXME: Merge these two methods.
     Nicosia::PlatformLayer::LayerID id() const;
-    PlatformLayerIdentifier primaryLayerID() const override;
+    std::optional<PlatformLayerIdentifier> primaryLayerID() const override;
 
     // Reimplementations from GraphicsLayer.h.
     bool setChildren(Vector<Ref<GraphicsLayer>>&&) override;
@@ -223,10 +223,6 @@ private:
     void requestPendingTileCreationTimerFired();
 
     bool filtersCanBeComposited(const FilterOperations&) const;
-
-#if USE(SKIA)
-    RefPtr<BitmapTexture> acquireTextureForAcceleratedBuffer(const IntSize&);
-#endif
 
     Nicosia::PlatformLayer::LayerID m_id;
     GraphicsLayerTransform m_layerTransform;

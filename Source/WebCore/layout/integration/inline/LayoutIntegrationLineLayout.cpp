@@ -188,7 +188,7 @@ LineLayout* LineLayout::containing(RenderObject& renderer)
         if (renderer.isRenderFrameSet()) {
             // Since RenderFrameSet is not a RenderBlock, finding container for nested framesets can't use containingBlock ancestor walk.
             if (auto* parent = dynamicDowncast<RenderBlockFlow>(renderer.parent()))
-                return parent->modernLineLayout();
+                return parent->inlineLayout();
             return nullptr;
         }
         auto adjustedContainingBlock = [&] {
@@ -206,12 +206,12 @@ LineLayout* LineLayout::containing(RenderObject& renderer)
             return dynamicDowncast<RenderBlockFlow>(containingBlock);
         };
         if (auto* blockContainer = adjustedContainingBlock())
-            return blockContainer->modernLineLayout();
+            return blockContainer->inlineLayout();
         return nullptr;
     }
 
     if (auto* container = blockContainer(renderer))
-        return container->modernLineLayout();
+        return container->inlineLayout();
 
     return nullptr;
 }
@@ -304,8 +304,10 @@ std::pair<LayoutUnit, LayoutUnit> LineLayout::computeIntrinsicWidthConstraints()
 static inline std::optional<Layout::BlockLayoutState::LineClamp> lineClamp(const RenderBlockFlow& rootRenderer)
 {
     auto& layoutState = *rootRenderer.view().frameView().layoutContext().layoutState();
+    if (auto legacyLineClamp = layoutState.legacyLineClamp())
+        return Layout::BlockLayoutState::LineClamp { std::max(legacyLineClamp->maximumLineCount - legacyLineClamp->currentLineCount, static_cast<size_t>(0)), false, true };
     if (auto lineClamp = layoutState.lineClamp())
-        return Layout::BlockLayoutState::LineClamp { lineClamp->maximumLineCount, lineClamp->currentLineCount };
+        return Layout::BlockLayoutState::LineClamp { lineClamp->maximumLines, lineClamp->shouldDiscardOverflow, false };
     return { };
 }
 
@@ -650,7 +652,7 @@ std::optional<LayoutUnit> LineLayout::clampedContentLogicalHeight() const
 
     auto firstTruncatedLineIndex = [&]() -> std::optional<size_t> {
         for (size_t lineIndex = 0; lineIndex < lines.size(); ++lineIndex) {
-            if (lines[lineIndex].isTruncatedInBlockDirection())
+            if (lines[lineIndex].isFullyTruncatedInBlockDirection())
                 return lineIndex;
         }
         return { };
@@ -1136,7 +1138,7 @@ bool LineLayout::updateTextContent(const RenderText& textRenderer, size_t offset
 void LineLayout::releaseCaches(RenderView& view)
 {
     for (auto& renderer : descendantsOfType<RenderBlockFlow>(view)) {
-        if (auto* lineLayout = renderer.modernLineLayout())
+        if (auto* lineLayout = renderer.inlineLayout())
             lineLayout->releaseCachesAndResetDamage();
     }
 }

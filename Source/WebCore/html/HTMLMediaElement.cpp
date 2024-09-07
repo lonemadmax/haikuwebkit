@@ -233,7 +233,10 @@ struct LogArgument<URL> {
 
 namespace WebCore {
 
+typedef PODIntervalTree<MediaTime, TextTrackCue*> TextTrackCueIntervalTree;
+
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(HTMLMediaElement);
+WTF_MAKE_TZONE_ALLOCATED_IMPL_TEMPLATE(TextTrackCueIntervalTree);
 
 static const Seconds SeekRepeatDelay { 100_ms };
 static const double SeekTime = 0.2;
@@ -472,7 +475,7 @@ static bool isInWindowOrStandardFullscreen(HTMLMediaElementEnums::VideoFullscree
 
 struct HTMLMediaElement::CueData {
     WTF_MAKE_STRUCT_FAST_ALLOCATED;
-    PODIntervalTree<MediaTime, TextTrackCue*> cueTree;
+    TextTrackCueIntervalTree cueTree;
     CueList currentlyActiveCues;
 };
 
@@ -4325,6 +4328,12 @@ void HTMLMediaElement::play(DOMPromiseDeferred<void>&& promise)
 
     if (processingUserGestureForMedia())
         removeBehaviorRestrictionsAfterFirstUserGesture();
+    else {
+        // If we are allowed to explicitly play without a user gesture, remove the restriction
+        // preventing invisible autoplay, as that will cause explicit playback to be interrupted
+        // by updateShouldAutoplay().
+        mediaSession().removeBehaviorRestriction(MediaElementSession::InvisibleAutoplayNotPermitted);
+    }
 
     m_pendingPlayPromises.append(WTFMove(promise));
     playInternal();
@@ -5763,7 +5772,7 @@ void HTMLMediaElement::mediaPlayerTimeChanged()
     double playbackRate = requestedPlaybackRate();
 
     // When the current playback position reaches the end of the media resource then the user agent must follow these steps:
-    if (dur && dur.isValid() && !dur.isPositiveInfinite() && !dur.isNegativeInfinite()) {
+    if ((dur || (!dur && !now)) && dur.isValid() && !dur.isPositiveInfinite() && !dur.isNegativeInfinite()) {
         // If the media element has a loop attribute specified and does not have a current media controller,
         if (loop() && !m_mediaController && playbackRate > 0) {
             m_sentEndEvent = false;
@@ -7242,7 +7251,7 @@ void HTMLMediaElement::toggleStandardFullscreenState()
 
 bool HTMLMediaElement::videoUsesElementFullscreen() const
 {
-#if ENABLE(FULLSCREEN_API) && ENABLE(VIDEO_USES_ELEMENT_FULLSCREEN)
+#if ENABLE(FULLSCREEN_API)
 #if ENABLE(LINEAR_MEDIA_PLAYER)
     if (document().settings().linearMediaPlayerEnabled()) {
         if (RefPtr player = m_player; player && player->supportsLinearMediaPlayer())
@@ -7283,10 +7292,16 @@ void HTMLMediaElement::enterFullscreen(VideoFullscreenMode mode)
     m_changingVideoFullscreenMode = true;
 
 #if ENABLE(FULLSCREEN_API) && ENABLE(VIDEO_USES_ELEMENT_FULLSCREEN)
-    if (videoUsesElementFullscreen() && document().settings().fullScreenEnabled() && isInWindowOrStandardFullscreen(mode)) {
+    if (videoUsesElementFullscreen() && page->isFullscreenManagerEnabled() && isInWindowOrStandardFullscreen(mode)) {
         m_temporarilyAllowingInlinePlaybackAfterFullscreen = false;
         m_waitingToEnterFullscreen = true;
-        protectedDocument()->checkedFullscreenManager()->requestFullscreenForElement(*this, nullptr, FullscreenManager::ExemptIFrameAllowFullscreenRequirement, [](bool) { }, mode);
+        protectedDocument()->checkedFullscreenManager()->requestFullscreenForElement(*this, nullptr, { }, [weakThis = WeakPtr { *this }](bool success) {
+            RefPtr protectedThis = weakThis.get();
+            if (!protectedThis || success)
+                return;
+            protectedThis->m_changingVideoFullscreenMode = false;
+            protectedThis->m_waitingToEnterFullscreen = false;
+        }, mode);
         return;
     }
 #endif
@@ -7349,7 +7364,7 @@ void HTMLMediaElement::exitFullscreen()
     m_waitingToEnterFullscreen = false;
 
 #if ENABLE(FULLSCREEN_API)
-    if (document().settings().fullScreenEnabled() && document().fullscreenManager().currentFullscreenElement() == this) {
+    if (document().fullscreenManager().currentFullscreenElement() == this) {
         if (document().fullscreenManager().isFullscreen()) {
             m_changingVideoFullscreenMode = true;
             protectedDocument()->checkedFullscreenManager()->cancelFullscreen();
@@ -9674,8 +9689,8 @@ auto HTMLMediaElement::sourceType() const -> std::optional<SourceType>
     switch (movieLoadType()) {
     case HTMLMediaElement::MovieLoadType::Unknown: return std::nullopt;
     case HTMLMediaElement::MovieLoadType::Download: return SourceType::File;
-    case HTMLMediaElement::MovieLoadType::StoredStream: return SourceType::LiveStream;
-    case HTMLMediaElement::MovieLoadType::LiveStream: return SourceType::StoredStream;
+    case HTMLMediaElement::MovieLoadType::LiveStream: return SourceType::LiveStream;
+    case HTMLMediaElement::MovieLoadType::StoredStream: return SourceType::StoredStream;
     case HTMLMediaElement::MovieLoadType::HttpLiveStream: return SourceType::HLS;
     }
 

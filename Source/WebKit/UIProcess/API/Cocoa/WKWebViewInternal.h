@@ -213,8 +213,8 @@ struct PerWebProcessState {
 
     std::optional<WebKit::TransactionID> firstTransactionIDAfterPageRestore;
 
-    WebCore::PlatformLayerIdentifier pendingFindLayerID;
-    WebCore::PlatformLayerIdentifier committedFindLayerID;
+    Markable<WebCore::PlatformLayerIdentifier> pendingFindLayerID;
+    Markable<WebCore::PlatformLayerIdentifier> committedFindLayerID;
 
     std::optional<LiveResizeParameters> liveResizeParameters;
 };
@@ -429,10 +429,6 @@ struct PerWebProcessState {
 
 - (void)_addTextAnimationForAnimationID:(NSUUID *)uuid withData:(const WebCore::TextAnimationData&)styleData;
 - (void)_removeTextAnimationForAnimationID:(NSUUID *)uuid;
-
-- (NSUUID *)_enableSourceTextAnimationAfterElementWithID:(NSString *)elementID;
-- (NSUUID *)_enableFinalTextAnimationForElementWithID:(NSString *)elementID;
-- (void)_disableTextAnimationWithUUID:(NSUUID *)nsUUID;
 
 #endif
 

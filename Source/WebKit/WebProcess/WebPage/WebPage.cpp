@@ -644,7 +644,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     , m_textAnimationController(makeUniqueRef<TextAnimationController>(*this))
 #endif
 {
-    ASSERT(m_identifier);
     WEBPAGE_RELEASE_LOG(Loading, "constructor:");
 
 #if PLATFORM(IOS) || PLATFORM(VISION)
@@ -958,7 +957,8 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     setMuted(parameters.muted, [] { });
 
     // We use the DidFirstVisuallyNonEmptyLayout milestone to determine when to unfreeze the layer tree.
-    m_page->addLayoutMilestones({ WebCore::LayoutMilestone::DidFirstLayout, WebCore::LayoutMilestone::DidFirstVisuallyNonEmptyLayout });
+    // We use LayoutMilestone::DidFirstMeaningfulPaint to generte WKPageLoadTiming.
+    m_page->addLayoutMilestones({ WebCore::LayoutMilestone::DidFirstLayout, WebCore::LayoutMilestone::DidFirstVisuallyNonEmptyLayout, LayoutMilestone::DidFirstMeaningfulPaint });
 
     auto& webProcess = WebProcess::singleton();
     webProcess.addMessageReceiver(Messages::WebPage::messageReceiverName(), m_identifier, *this);
@@ -2514,14 +2514,14 @@ String WebPage::dumpHistoryForTesting(const String& directory)
     if (!m_page)
         return { };
 
-    auto& list = m_page->backForward();
+    CheckedRef list = m_page->backForward();
     
     StringBuilder builder;
-    int begin = -list.backCount();
-    if (list.itemAtIndex(begin)->url() == aboutBlankURL())
+    int begin = -list->backCount();
+    if (list->itemAtIndex(begin)->url() == aboutBlankURL())
         ++begin;
-    for (int i = begin; i <= static_cast<int>(list.forwardCount()); ++i)
-        dumpHistoryItem(*list.itemAtIndex(i), 8, !i, builder, directory);
+    for (int i = begin; i <= static_cast<int>(list->forwardCount()); ++i)
+        dumpHistoryItem(*list->itemAtIndex(i), 8, !i, builder, directory);
     return builder.toString();
 }
 
@@ -4080,6 +4080,11 @@ void WebPage::updateIsInWindow(bool isInitialState)
 
     if (isInWindow)
         layoutIfNeeded();
+
+#if ENABLE(PDF_PLUGIN)
+    for (auto& pluginView : m_pluginViews)
+        pluginView.didChangeIsInWindow();
+#endif
 }
 
 void WebPage::visibilityDidChange()
@@ -5026,12 +5031,20 @@ bool WebPage::shouldTriggerRenderingUpdate(unsigned rescheduledRenderingUpdateCo
 
 void WebPage::finalizeRenderingUpdate(OptionSet<FinalizeRenderingUpdateFlags> flags)
 {
+#if !PLATFORM(COCOA)
+    WTFBeginSignpost(this, FinalizeRenderingUpdate);
+#endif
+
     m_page->finalizeRenderingUpdate(flags);
 #if ENABLE(GPU_PROCESS)
     if (m_remoteRenderingBackendProxy)
         m_remoteRenderingBackendProxy->finalizeRenderingUpdate();
 #endif
     flushDeferredDidReceiveMouseEvent();
+
+#if !PLATFORM(COCOA)
+    WTFEndSignpost(this, FinalizeRenderingUpdate);
+#endif
 }
 
 void WebPage::willStartRenderingUpdateDisplay()
@@ -5504,9 +5517,9 @@ void WebPage::reapplyEditCommand(WebUndoStepID stepID)
     if (!step)
         return;
 
-    m_isInRedo = true;
+    setIsInRedo(true);
     step->step().reapply();
-    m_isInRedo = false;
+    setIsInRedo(false);
 }
 
 void WebPage::didRemoveEditCommand(WebUndoStepID commandID)
@@ -5680,7 +5693,7 @@ void WebPage::requestRectForFoundTextRange(const WebFoundTextRange& range, Compl
     foundTextRangeController().requestRectForFoundTextRange(range, WTFMove(completionHandler));
 }
 
-void WebPage::addLayerForFindOverlay(CompletionHandler<void(WebCore::PlatformLayerIdentifier)>&& completionHandler)
+void WebPage::addLayerForFindOverlay(CompletionHandler<void(std::optional<WebCore::PlatformLayerIdentifier>)>&& completionHandler)
 {
     foundTextRangeController().addLayerForFindOverlay(WTFMove(completionHandler));
 }
@@ -6620,6 +6633,11 @@ void WebPage::drawPagesForPrinting(FrameIdentifier frameID, const PrintInfo& pri
 
 void WebPage::addResourceRequest(WebCore::ResourceLoaderIdentifier identifier, const WebCore::ResourceRequest& request)
 {
+    ASSERT(!m_networkResourceRequestIdentifiersForPageLoadTiming.contains(identifier));
+    if (m_networkResourceRequestIdentifiersForPageLoadTiming.isEmpty())
+        send(Messages::WebPageProxy::StartNetworkRequestsForPageLoadTiming());
+    m_networkResourceRequestIdentifiersForPageLoadTiming.add(identifier);
+
     if (!request.url().protocolIsInHTTPFamily())
         return;
 
@@ -6635,6 +6653,11 @@ void WebPage::addResourceRequest(WebCore::ResourceLoaderIdentifier identifier, c
 
 void WebPage::removeResourceRequest(WebCore::ResourceLoaderIdentifier identifier)
 {
+    auto didRemove = m_networkResourceRequestIdentifiersForPageLoadTiming.remove(identifier);
+    ASSERT_UNUSED(didRemove, didRemove);
+    if (m_networkResourceRequestIdentifiersForPageLoadTiming.isEmpty())
+        send(Messages::WebPageProxy::EndNetworkRequestsForPageLoadTiming(WallTime::now()));
+
     if (!m_trackedNetworkResourceRequestIdentifiers.remove(identifier))
         return;
 
@@ -8160,7 +8183,7 @@ void WebPage::dispatchDidReachLayoutMilestone(OptionSet<WebCore::LayoutMilestone
         updateIntrinsicContentSizeIfNeeded(localMainFrameView()->autoSizingIntrinsicContentSize());
     }
 
-    send(Messages::WebPageProxy::DidReachLayoutMilestone(milestones));
+    send(Messages::WebPageProxy::DidReachLayoutMilestone(milestones, WallTime::now()));
 }
 
 void WebPage::didRestoreScrollPosition()
@@ -8351,7 +8374,11 @@ void WebPage::requestStorageAccess(RegistrableDomain&& subFrameDomain, Registrab
 
 void WebPage::setLoginStatus(RegistrableDomain&& domain, IsLoggedIn loggedInStatus, CompletionHandler<void()>&& completionHandler)
 {
-    WebProcess::singleton().ensureNetworkProcessConnection().protectedConnection()->sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::SetLoginStatus(WTFMove(domain), loggedInStatus), WTFMove(completionHandler));
+    RefPtr page = corePage();
+    if (!page)
+        return completionHandler();
+    auto lastAuthentication = page->lastAuthentication();
+    WebProcess::singleton().ensureNetworkProcessConnection().protectedConnection()->sendWithAsyncReply(Messages::NetworkConnectionToWebProcess::SetLoginStatus(WTFMove(domain), loggedInStatus, lastAuthentication), WTFMove(completionHandler));
 }
 
 void WebPage::isLoggedIn(RegistrableDomain&& domain, CompletionHandler<void(bool)>&& completionHandler)
@@ -9952,6 +9979,31 @@ void WebPage::simulateClickOverFirstMatchingTextInViewportWithUserInteraction(co
     localMainFrame->eventHandler().handleMouseReleaseEvent(makeSyntheticEvent(PlatformEvent::Type::MouseReleased)).wasHandled();
     completion(true);
 }
+
+#if ENABLE(MEDIA_STREAM)
+void WebPage::updateCaptureState(const WebCore::Document& document, bool isActive, WebCore::MediaProducerMediaCaptureKind kind, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& completionHandler)
+{
+    RefPtr frame = document.frame();
+    if (!frame) {
+        completionHandler(WebCore::Exception { ExceptionCode::InvalidStateError, "no frame available"_s });
+        return;
+    }
+
+    RefPtr webFrame = WebFrame::fromCoreFrame(*frame);
+    ASSERT(webFrame);
+
+    sendWithAsyncReply(Messages::WebPageProxy::ValidateCaptureStateUpdate(UserMediaRequestIdentifier::generate(), document.clientOrigin(), webFrame->frameID(), isActive, kind), [weakThis = WeakPtr { *this }, isActive, kind, completionHandler = WTFMove(completionHandler)] (auto&& error) mutable {
+        completionHandler(WTFMove(error));
+        if (error)
+            return;
+
+        RefPtr webPage = weakThis.get();
+        RefPtr page = webPage ? webPage->corePage() : nullptr;
+        if (page)
+            page->updateCaptureState(isActive, kind);
+    });
+}
+#endif
 
 } // namespace WebKit
 

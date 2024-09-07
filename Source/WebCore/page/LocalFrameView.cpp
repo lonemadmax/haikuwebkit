@@ -143,7 +143,7 @@
 
 #include "LayoutContext.h"
 
-#define PAGE_ID valueOrDefault(m_frame->pageID()).toUInt64()
+#define PAGE_ID (m_frame->pageID() ? m_frame->pageID()->toUInt64() : 0)
 #define FRAME_ID m_frame->frameID().object().toUInt64()
 #define FRAMEVIEW_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] LocalFrameView::" fmt, this, PAGE_ID, FRAME_ID, m_frame->isMainFrame(), ##__VA_ARGS__)
 
@@ -3676,7 +3676,7 @@ void LocalFrameView::scrollToAnchor()
         scrollRectToVisible(rect, *anchorNode->renderer(), insideFixed, { SelectionRevealMode::Reveal, ScrollAlignment::alignLeftAlways, ScrollAlignment::alignToEdgeIfNeeded, ShouldAllowCrossOriginScrolling::No });
 
     if (AXObjectCache* cache = m_frame->document()->existingAXObjectCache())
-        cache->handleScrolledToAnchor(anchorNode.get());
+        cache->handleScrolledToAnchor(*anchorNode);
 
     // scrollRectToVisible can call into setScrollPosition(), which resets m_maintainScrollPositionAnchor.
     LOG_WITH_STREAM(Scrolling, stream << " restoring anchor node to " << anchorNode.get());

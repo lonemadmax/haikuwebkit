@@ -47,6 +47,7 @@
 #import <wtf/cocoa/VectorCocoa.h>
 
 NSErrorDomain const WKWebExtensionContextErrorDomain = @"WKWebExtensionContextErrorDomain";
+NSNotificationName const WKWebExtensionContextErrorsDidUpdateNotification = @"WKWebExtensionContextErrorsDidUpdate";
 
 NSNotificationName const WKWebExtensionContextPermissionsWereGrantedNotification = @"WKWebExtensionContextPermissionsWereGranted";
 NSNotificationName const WKWebExtensionContextPermissionsWereDeniedNotification = @"WKWebExtensionContextPermissionsWereDenied";
@@ -105,6 +106,11 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtensionContext, WebExtensionContext
 - (BOOL)isLoaded
 {
     return _webExtensionContext->isLoaded();
+}
+
+-(NSArray<NSError *> *)errors
+{
+    return _webExtensionContext->errors();
 }
 
 - (NSURL *)baseURL
@@ -836,6 +842,23 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(WKWeb
     return _webExtensionContext->backgroundContentURL();
 }
 
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+- (nullable _WKWebExtensionSidebar *)sidebarForTab:(id<WKWebExtensionTab>)tab
+{
+    if (tab)
+        NSParameterAssert([tab conformsToProtocol:@protocol(WKWebExtensionTab)]);
+
+    if (RefPtr maybeSidebar = _webExtensionContext->getOrCreateSidebar(toImplNullable(tab, *_webExtensionContext)))
+        return maybeSidebar->wrapper();
+    return nil;
+}
+#else
+- (nullable _WKWebExtensionSidebar *)sidebarForTab:(id<WKWebExtensionTab>)tab
+{
+    return nil;
+}
+#endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+
 #pragma mark WKObject protocol implementation
 
 - (API::Object&)_apiObject
@@ -873,6 +896,11 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(WKWeb
 - (BOOL)isLoaded
 {
     return NO;
+}
+
+-(NSArray<NSError *> *)errors
+{
+    return nil;
 }
 
 - (NSURL *)baseURL
@@ -1223,6 +1251,11 @@ static inline OptionSet<WebKit::WebExtensionTab::ChangedProperties> toImpl(WKWeb
 }
 
 - (NSURL *)_backgroundContentURL
+{
+    return nil;
+}
+
+- (nullable _WKWebExtensionSidebar *)sidebarForTab:(id<WKWebExtensionTab>)tab
 {
     return nil;
 }

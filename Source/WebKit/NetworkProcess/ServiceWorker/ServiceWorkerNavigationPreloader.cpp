@@ -65,7 +65,7 @@ void ServiceWorkerNavigationPreloader::start()
     }
 
     if (m_session->cache()) {
-        NetworkCache::GlobalFrameID globalID { m_parameters.webPageProxyID, m_parameters.webPageID, m_parameters.webFrameID };
+        NetworkCache::GlobalFrameID globalID { m_parameters.webPageProxyID, *m_parameters.webPageID, m_parameters.webFrameID };
         m_session->cache()->retrieve(m_parameters.request, globalID, m_parameters.isNavigatingToAppBoundDomain, m_parameters.allowPrivacyProxy, m_parameters.advancedPrivacyProtections, [this, weakThis = WeakPtr { *this }](auto&& entry, auto&&) mutable {
             CheckedPtr checkedThis = weakThis.get();
             if (!checkedThis || m_isCancelled)
@@ -168,6 +168,8 @@ void ServiceWorkerNavigationPreloader::didReceiveResponse(ResourceResponse&& res
 {
     RELEASE_LOG(ServiceWorker, "ServiceWorkerNavigationPreloader::didReceiveResponse %p", this);
 
+    m_didReceiveResponseOrError = true;
+
     if (response.isRedirection())
         response.setTainting(ResourceResponse::Tainting::Opaqueredirect);
 
@@ -203,6 +205,7 @@ void ServiceWorkerNavigationPreloader::didFailLoading(const ResourceError& error
 {
     RELEASE_LOG(ServiceWorker, "ServiceWorkerNavigationPreloader::didFailLoading %p", this);
 
+    m_didReceiveResponseOrError = true;
     m_error = error;
     didComplete();
 }

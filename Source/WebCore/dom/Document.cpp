@@ -170,6 +170,7 @@
 #include "MouseEventWithHitTestResults.h"
 #include "MutationEvent.h"
 #include "NameNodeList.h"
+#include "NavigationActivation.h"
 #include "NavigationDisabler.h"
 #include "NavigationScheduler.h"
 #include "Navigator.h"
@@ -397,12 +398,13 @@
 #include "AcceleratedTimeline.h"
 #endif
 
-#define DOCUMENT_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] Document::" fmt, this, valueOrDefault(pageID()).toUInt64(), valueOrDefault(frameID()).object().toUInt64(), this == &topDocument(), ##__VA_ARGS__)
-#define DOCUMENT_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] Document::" fmt, this, valueOrDefault(pageID()).toUInt64(), valueOrDefault(frameID()).object().toUInt64(), this == &topDocument(), ##__VA_ARGS__)
+#define DOCUMENT_RELEASE_LOG(channel, fmt, ...) RELEASE_LOG(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] Document::" fmt, this, pageID() ? pageID()->toUInt64() : 0, valueOrDefault(frameID()).object().toUInt64(), this == &topDocument(), ##__VA_ARGS__)
+#define DOCUMENT_RELEASE_LOG_ERROR(channel, fmt, ...) RELEASE_LOG_ERROR(channel, "%p - [pageID=%" PRIu64 ", frameID=%" PRIu64 ", isMainFrame=%d] Document::" fmt, this, pageID() ? pageID()->toUInt64() : 0, valueOrDefault(frameID()).object().toUInt64(), this == &topDocument(), ##__VA_ARGS__)
 
 namespace WebCore {
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(Document);
+WTF_MAKE_TZONE_ALLOCATED_IMPL(DocumentParserYieldToken);
 
 using namespace HTMLNames;
 using namespace WTF::Unicode;
@@ -413,7 +415,7 @@ static const Seconds maxIntervalForUserGestureForwardingAfterMediaFinishesPlayin
 
 // Defined here to avoid including GCReachableRef.h in Document.h
 struct Document::PendingScrollEventTargetList {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(PendingScrollEventTargetList);
 
 public:
     Vector<GCReachableRef<ContainerNode>> targets;
@@ -1918,7 +1920,7 @@ void Document::removeVisualUpdatePreventedReasons(OptionSet<VisualUpdatesPrevent
     if (CheckedPtr renderView = this->renderView())
         renderView->repaintViewAndCompositedLayers();
 
-    if (RefPtr frame = this->frame(); m_visualUpdatesAllowedChangeCompletesPageTransition)
+    if (RefPtr frame = this->frame(); frame && m_visualUpdatesAllowedChangeCompletesPageTransition)
         frame->checkedLoader()->completePageTransitionIfNeeded();
     m_visualUpdatesAllowedChangeCompletesPageTransition = false;
     scheduleRenderingUpdate({ });
@@ -2341,8 +2343,9 @@ void Document::visibilityStateChanged()
 {
     // https://w3c.github.io/page-visibility/#reacting-to-visibilitychange-changes
     queueTaskToDispatchEvent(TaskSource::UserInteraction, Event::create(eventNames().visibilitychangeEvent, Event::CanBubble::Yes, Event::IsCancelable::No));
-    for (auto& client : m_visibilityStateCallbackClients)
+    m_visibilityStateCallbackClients.forEach([](auto& client) {
         client.visibilityStateChanged();
+    });
 
 #if ENABLE(MEDIA_STREAM) && PLATFORM(IOS_FAMILY)
     if (auto mediaSessionManager = PlatformMediaSessionManager::sharedManagerIfExists()) {
@@ -5405,7 +5408,6 @@ void Document::pageMutedStateDidChange()
 static void updateCaptureSourceToPageMutedState(Document& document, Page& page, RealtimeMediaSource& source)
 {
     ASSERT(source.isCaptureSource());
-
     switch (source.deviceType()) {
     case CaptureDevice::DeviceType::Microphone:
 #if PLATFORM(IOS_FAMILY)
@@ -5418,8 +5420,10 @@ static void updateCaptureSourceToPageMutedState(Document& document, Page& page, 
         source.setMuted(page.mutedState().contains(MediaProducerMutedState::VideoCaptureIsMuted) || (document.hidden() && document.settings().interruptVideoOnPageVisibilityChangeEnabled()));
         break;
     case CaptureDevice::DeviceType::Screen:
-    case CaptureDevice::DeviceType::Window:
         source.setMuted(page.mutedState().contains(MediaProducerMutedState::ScreenCaptureIsMuted));
+        break;
+    case CaptureDevice::DeviceType::Window:
+        source.setMuted(page.mutedState().contains(MediaProducerMutedState::WindowCaptureIsMuted));
         break;
     case CaptureDevice::DeviceType::SystemAudio:
     case CaptureDevice::DeviceType::Speaker:
@@ -8065,7 +8069,7 @@ void Document::dispatchPagehideEvent(PageshowEventPersistence persisted)
 // https://www.w3.org/TR/css-view-transitions-2/#vt-rule-algo
 std::variant<Document::SkipTransition, Vector<AtomString>> Document::resolveViewTransitionRule()
 {
-    if (visibilityState() == VisibilityState::Hidden)
+    if (hidden())
         return SkipTransition { };
 
     auto rule = styleScope().resolver().viewTransitionRule();
@@ -8086,7 +8090,7 @@ void Document::reveal()
 
     PageRevealEvent::Init init;
 
-    RefPtr<ViewTransition> inboundTransition = ViewTransition::resolveInboundCrossDocumentViewTransition(*this, std::exchange(m_inboundViewTransitionParams, nullptr));
+    RefPtr inboundTransition = ViewTransition::resolveInboundCrossDocumentViewTransition(*this, std::exchange(m_inboundViewTransitionParams, nullptr));
     if (inboundTransition)
         init.viewTransition = inboundTransition;
 
@@ -8107,7 +8111,7 @@ void Document::transferViewTransitionParams(Document& newDocument)
     newDocument.m_inboundViewTransitionParams = std::exchange(m_inboundViewTransitionParams, nullptr);
 }
 
-void Document::dispatchPageswapEvent(bool canTriggerCrossDocumentViewTransition)
+void Document::dispatchPageswapEvent(bool canTriggerCrossDocumentViewTransition, RefPtr<NavigationActivation>&& activation)
 {
     if (!settings().crossDocumentViewTransitionsEnabled())
         return;
@@ -8115,6 +8119,7 @@ void Document::dispatchPageswapEvent(bool canTriggerCrossDocumentViewTransition)
     RefPtr<ViewTransition> oldViewTransition;
 
     PageSwapEvent::Init swapInit;
+    swapInit.activation = WTFMove(activation);
     if (canTriggerCrossDocumentViewTransition && globalObject()) {
         oldViewTransition = ViewTransition::setupCrossDocumentViewTransition(*this);
         swapInit.viewTransition = oldViewTransition;
@@ -10703,11 +10708,12 @@ void Document::resetObservationSizeForContainIntrinsicSize(Element& target)
         resizeObserverForContainIntrinsicSize->resetObservationSize(target);
 }
 
-NoiseInjectionPolicy Document::noiseInjectionPolicy() const
+OptionSet<NoiseInjectionPolicy> Document::noiseInjectionPolicies() const
 {
+    OptionSet<NoiseInjectionPolicy> policies;
     if (advancedPrivacyProtections().contains(AdvancedPrivacyProtections::FingerprintingProtections))
-        return NoiseInjectionPolicy::Minimal;
-    return NoiseInjectionPolicy::None;
+        policies.add(NoiseInjectionPolicy::Minimal);
+    return policies;
 }
 
 OptionSet<AdvancedPrivacyProtections> Document::advancedPrivacyProtections() const
@@ -10719,7 +10725,7 @@ OptionSet<AdvancedPrivacyProtections> Document::advancedPrivacyProtections() con
 
 std::optional<uint64_t> Document::noiseInjectionHashSalt() const
 {
-    if (!page() || noiseInjectionPolicy() == NoiseInjectionPolicy::None)
+    if (!page() || !noiseInjectionPolicies())
         return std::nullopt;
     return protectedPage()->noiseInjectionHashSaltForDomain(RegistrableDomain { m_url });
 }
@@ -10823,6 +10829,7 @@ void Document::flushDeferredRenderingIsSuppressedForViewTransitionChanges()
     }
 }
 
+// https://drafts.csswg.org/css-view-transitions/#ViewTransition-prepare
 RefPtr<ViewTransition> Document::startViewTransition(StartViewTransitionCallbackOptions&& callbackOptions)
 {
     if (!globalObject())
@@ -10845,6 +10852,11 @@ RefPtr<ViewTransition> Document::startViewTransition(StartViewTransitionCallback
     }
 
     Ref viewTransition = ViewTransition::createSamePage(*this, WTFMove(updateCallback), WTFMove(activeTypes));
+
+    if (hidden()) {
+        viewTransition->skipViewTransition(Exception { ExceptionCode::InvalidStateError, "View transition was skipped because document visibility state is hidden."_s });
+        return viewTransition;
+    }
 
     if (RefPtr activeViewTransition = m_activeViewTransition)
         activeViewTransition->skipViewTransition(Exception { ExceptionCode::AbortError, "Old view transition aborted by new view transition."_s });

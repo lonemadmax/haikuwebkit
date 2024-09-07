@@ -1336,6 +1336,12 @@ enum class WebCore::ScreenOrientationLockType : uint8_t {
 };
 
 #if ENABLE(APPLICATION_MANIFEST)
+[Nested] enum class WebCore::ApplicationManifest::Direction : uint8_t {
+    Auto
+    LTR
+    RTL
+};
+
 [Nested] enum class WebCore::ApplicationManifest::Display : uint8_t {
     Browser
     MinimalUI
@@ -1364,6 +1370,7 @@ enum class WebCore::ScreenOrientationLockType : uint8_t {
 
 struct WebCore::ApplicationManifest {
     String rawJSON
+    WebCore::ApplicationManifest::Direction dir
     String name
     String shortName
     String description
@@ -1816,6 +1823,25 @@ enum class WebCore::IsLoggedIn : uint8_t {
     LoggedIn
 };
 
+header: <WebCore/LoginStatus.h>
+[Nested] enum class WebCore::LoginStatus::CredentialTokenType : bool
+
+header: <WebCore/LoginStatus.h>
+[Nested] enum class WebCore::LoginStatus::AuthenticationType : uint8_t {
+    WebAuthn,
+    PasswordManager,
+    Unmanaged
+};
+
+class WebCore::LoginStatus {
+    WebCore::RegistrableDomain domain();
+    String username();
+    WebCore::LoginStatus::CredentialTokenType tokenType();
+    WebCore::LoginStatus::AuthenticationType authType();
+    WallTime loggedInTime();
+    Seconds timeToLive();
+};
+
 header: <WebCore/AutoplayEvent.h>
 enum class WebCore::AutoplayEvent : uint8_t {
     DidPreventMediaFromPlaying,
@@ -1919,7 +1945,7 @@ header: <WebCore/RectEdges.h>
     float left()
 };
 
-[Alias=class RectEdges<bool>, AdditionalEncoder=StreamConnectionEncoder, CustomHeader] alias WebCore::BoolBoxExtent {
+[CustomHeader] class WebCore::RectEdges<bool> {
     bool top();
     bool right();
     bool bottom();
@@ -1975,7 +2001,7 @@ class WebCore::HTTPHeaderMap {
 
 struct WebCore::ElementContext {
     WebCore::FloatRect boundingRect;
-    WebCore::PageIdentifier webPageIdentifier;
+    Markable<WebCore::PageIdentifier> webPageIdentifier;
     WebCore::ScriptExecutionContextIdentifier documentIdentifier;
     Markable<WebCore::ElementIdentifier> elementIdentifier;
 };
@@ -2281,7 +2307,7 @@ struct WebCore::MediaStreamRequest {
     WebCore::MediaConstraints audioConstraints;
     WebCore::MediaConstraints videoConstraints;
     bool isUserGesturePriviledged;
-    WebCore::PageIdentifier pageIdentifier;
+    Markable<WebCore::PageIdentifier> pageIdentifier;
 }
 [LegacyPopulateFromEmptyConstructor, CustomHeader] class WebCore::MediaTrackConstraintSetMap {
     std::optional<WebCore::IntConstraint> m_width;
@@ -2317,6 +2343,15 @@ struct WebCore::MediaCapabilitiesDecodingInfo : WebCore::MediaCapabilitiesInfo {
 struct WebCore::MediaCapabilitiesEncodingInfo : WebCore::MediaCapabilitiesInfo {
     WebCore::MediaEncodingConfiguration supportedConfiguration;
 }
+
+header: <WebCore/VideoCodecType.h>
+
+enum class WebCore::VideoCodecType : uint8_t {
+    H264,
+    H265,
+    VP9,
+    AV1
+};
 
 header: <WebCore/FormData.h>
 [CustomHeader] struct WebCore::FormDataElement {
@@ -6475,6 +6510,7 @@ header: <WebCore/WritingToolsTypes.h>
 header: <WebCore/WritingToolsTypes.h>
 [CustomHeader] enum class WebCore::WritingTools::SessionCompositionType : uint8_t {
     None,
+    Compose,
     SmartReply,
     Other
 };

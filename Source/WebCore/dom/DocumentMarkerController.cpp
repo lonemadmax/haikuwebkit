@@ -40,8 +40,11 @@
 #include "RenderedDocumentMarker.h"
 #include "TextIterator.h"
 #include <stdio.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(DocumentMarkerController);
 
 constexpr Seconds markerFadeAnimationDuration = 200_ms;
 
@@ -505,9 +508,9 @@ void DocumentMarkerController::forEach<DocumentMarkerController::IterationDirect
         return;
     ASSERT(!m_markers.isEmpty());
 
-    for (auto& node : intersectingNodes(range)) {
-        if (auto list = m_markers.get(&node)) {
-            auto offsetRange = characterDataOffsetRange(range, node);
+    for (Ref node : intersectingNodes(range)) {
+        if (auto list = m_markers.get(node.ptr())) {
+            auto offsetRange = characterDataOffsetRange(range, node.get());
             for (auto& marker : *list) {
                 // Markers are stored in order, so stop if we are now past the specified range.
                 if (marker.startOffset() >= offsetRange.end)

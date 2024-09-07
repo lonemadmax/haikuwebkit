@@ -140,7 +140,7 @@ webkit.org/b/204115 imported/w3c/web-platform-tests/pointerevents/pointerevent_t
 webkit.org/b/204115 imported/w3c/web-platform-tests/pointerevents/pointerevent_pointerout_pen.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/capturing_boundary_event_handler_at_ua_shadowdom.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes.https.html?touch [ Skip ]
-imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes_under_load.https.html?touch [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes_under_load.https.optional.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/compat/pointerevent_touch-action_two-finger_interaction.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_after_target_removed.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_boundary_events_in_capturing.html?pen [ Skip ]
@@ -545,9 +545,6 @@ webkit.org/b/204001 imported/w3c/web-platform-tests/pointerlock/ [ Skip ]
 Bug(WPE) fast/images/embed-image.html [ Skip ]
 Bug(WPE) fast/images/object-image.html [ Skip ]
 
-Bug(WPE) fast/replaced/invalid-object-with-fallback.html [ Skip ]
-Bug(WPE) fast/replaced/no-focus-ring-embed.html [ Skip ]
-Bug(WPE) fast/replaced/no-focus-ring-object.html [ Skip ]
 Bug(WPE) fast/replaced/pdf-as-object-and-embed.html [ Skip ]
 
 Bug(WPE) fast/fixed-layout [ Skip ]
@@ -1326,6 +1323,8 @@ Bug(WPE) media/video-canvas-createPattern.html [ Failure ]
 webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/backface-visibility-hidden-006.html [ ImageOnlyFailure ]
 webkit.org/b/262893 imported/w3c/web-platform-tests/css/css-transforms/backface-visibility-hidden-005.html [ ImageOnlyFailure ]
 webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/scrollable-scroll-3d-transform-z.html [ ImageOnlyFailure ]
+webkit.org/b/279023 imported/w3c/web-platform-tests/css/css-transforms/composited-under-rotateY-180deg-perspective.html [ ImageOnlyFailure ]
+webkit.org/b/279023 imported/w3c/web-platform-tests/css/css-transforms/composited-under-rotateY-180deg-preserve-3d.html [ ImageOnlyFailure ]
 
 webkit.org/b/244474 fast/canvas/webgl/oes-texture-float-linear.html [ Failure ]
 webkit.org/b/244476 fast/canvas/webgl/webgl-compressed-texture-size-limit.html [ Failure ]
@@ -1589,6 +1588,7 @@ compositing/visible-rect/scrolled.html [ Failure ]
 compositing/video/video-border-radius-clipping.html [ Pass ImageOnlyFailure ]
 
 imported/w3c/web-platform-tests/css/css-view-transitions/capture-with-visibility-mixed-descendants.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/transition-in-hidden-page.html [ Skip ]
 
 webkit.org/b/272224 imported/w3c/web-platform-tests/selection/textcontrols/selectionchange.html [ Failure ]
 
@@ -1607,3 +1607,6 @@ imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-003.htm
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-004.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-005.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-006.html [ ImageOnlyFailure ]
+
+webkit.org/b/278719 fast/events/touch/basic-single-touch-events.html [ Failure ]
+webkit.org/b/278719 fast/events/touch/touch-event-frames.html [ Failure ]

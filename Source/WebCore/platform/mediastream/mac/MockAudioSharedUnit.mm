@@ -44,6 +44,7 @@
 #import <AudioToolbox/AudioConverter.h>
 #import <CoreAudio/CoreAudioTypes.h>
 #include <wtf/RunLoop.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/Vector.h>
 #include <wtf/WorkQueue.h>
 
@@ -86,7 +87,7 @@ static void addHum(float amplitude, float frequency, float sampleRate, uint64_t 
     }
 }
 
-CaptureSourceOrError MockRealtimeAudioSource::create(String&& deviceID, AtomString&& name, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, PageIdentifier pageIdentifier)
+CaptureSourceOrError MockRealtimeAudioSource::create(String&& deviceID, AtomString&& name, MediaDeviceHashSalts&& hashSalts, const MediaConstraints* constraints, std::optional<PageIdentifier> pageIdentifier)
 {
     auto device = MockRealtimeMediaSourceCenter::mockDeviceWithPersistentID(deviceID);
     ASSERT(device);
@@ -109,7 +110,7 @@ private:
 };
 
 class MockAudioSharedInternalUnit :  public CoreAudioSharedUnit::InternalUnit {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(MockAudioSharedInternalUnit);
 public:
     explicit MockAudioSharedInternalUnit(bool enableEchoCancellation);
     ~MockAudioSharedInternalUnit();

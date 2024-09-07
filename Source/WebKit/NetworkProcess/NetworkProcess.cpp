@@ -2141,9 +2141,9 @@ void NetworkProcess::cancelDownload(DownloadID downloadID, CompletionHandler<voi
 
 #if PLATFORM(COCOA)
 #if HAVE(MODERN_DOWNLOADPROGRESS)
-void NetworkProcess::publishDownloadProgress(DownloadID downloadID, const URL& url, std::span<const uint8_t> bookmarkData)
+void NetworkProcess::publishDownloadProgress(DownloadID downloadID, const URL& url, std::span<const uint8_t> bookmarkData, WebKit::UseDownloadPlaceholder useDownloadPlaceholder)
 {
-    downloadManager().publishDownloadProgress(downloadID, url, bookmarkData);
+    downloadManager().publishDownloadProgress(downloadID, url, bookmarkData, useDownloadPlaceholder);
 }
 #else
 void NetworkProcess::publishDownloadProgress(DownloadID downloadID, const URL& url, SandboxExtension::Handle&& sandboxExtensionHandle)
@@ -2155,12 +2155,10 @@ void NetworkProcess::publishDownloadProgress(DownloadID downloadID, const URL& u
 
 void NetworkProcess::findPendingDownloadLocation(NetworkDataTask& networkDataTask, ResponseCompletionHandler&& completionHandler, const ResourceResponse& response)
 {
-    uint64_t destinationID = networkDataTask.pendingDownloadID().toUInt64();
-
     String suggestedFilename = networkDataTask.suggestedFilename();
 
-    downloadProxyConnection()->sendWithAsyncReply(Messages::DownloadProxy::DecideDestinationWithSuggestedFilename(response, suggestedFilename), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), networkDataTask = Ref { networkDataTask }] (String&& destination, SandboxExtension::Handle&& sandboxExtensionHandle, AllowOverwrite allowOverwrite) mutable {
-        auto downloadID = networkDataTask->pendingDownloadID();
+    downloadProxyConnection()->sendWithAsyncReply(Messages::DownloadProxy::DecideDestinationWithSuggestedFilename(response, suggestedFilename), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler), networkDataTask = Ref { networkDataTask }] (String&& destination, SandboxExtension::Handle&& sandboxExtensionHandle, AllowOverwrite allowOverwrite, WebKit::UseDownloadPlaceholder usePlaceholder) mutable {
+        auto downloadID = *networkDataTask->pendingDownloadID();
         if (destination.isEmpty())
             return completionHandler(PolicyAction::Ignore);
         networkDataTask->setPendingDownloadLocation(destination, WTFMove(sandboxExtensionHandle), allowOverwrite == AllowOverwrite::Yes);
@@ -2168,13 +2166,21 @@ void NetworkProcess::findPendingDownloadLocation(NetworkDataTask& networkDataTas
         if (networkDataTask->state() == NetworkDataTask::State::Canceling || networkDataTask->state() == NetworkDataTask::State::Completed)
             return;
 
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+        bool shouldEnableModernDownloadProgress = CFPreferencesGetAppBooleanValue(CFSTR("EnableModernDownloadProgress"), CFSTR("com.apple.WebKit"), nullptr);
+        if (shouldEnableModernDownloadProgress)
+            publishDownloadProgress(downloadID, URL::fileURLWithFileSystemPath(destination), std::span<const uint8_t>(), usePlaceholder);
+#else
+        UNUSED_PARAM(usePlaceholder);
+#endif
+
         if (downloadManager().download(downloadID)) {
             // The completion handler already called dataTaskBecameDownloadTask().
             return;
         }
 
         downloadManager().downloadDestinationDecided(downloadID, WTFMove(networkDataTask));
-    }, destinationID);
+    }, *networkDataTask.pendingDownloadID());
 }
 
 void NetworkProcess::dataTaskWithRequest(WebPageProxyIdentifier pageID, PAL::SessionID sessionID, WebCore::ResourceRequest&& request, const std::optional<WebCore::SecurityOriginData>& topOrigin, IPC::FormDataReference&& httpBody, CompletionHandler<void(DataTaskIdentifier)>&& completionHandler)
@@ -2525,8 +2531,10 @@ void NetworkProcess::getPendingPushMessages(PAL::SessionID sessionID, Completion
         LOG(Notifications, "NetworkProcess getting pending push messages for session ID %" PRIu64, sessionID.toUInt64());
         session->notificationManager().getPendingPushMessages(WTFMove(callback));
         return;
-    } else
-        LOG(Notifications, "NetworkProcess could not find session for ID %llu to get pending push messages", sessionID.toUInt64());
+    }
+
+    LOG(Notifications, "NetworkProcess could not find session for ID %llu to get pending push messages", sessionID.toUInt64());
+    callback({ });
 }
 
 void NetworkProcess::processPushMessage(PAL::SessionID sessionID, WebPushMessage&& pushMessage, PushPermissionState permissionState, CompletionHandler<void(bool, std::optional<WebCore::NotificationPayload>&&)>&& callback)

@@ -31,6 +31,7 @@
 #include "PendingDownload.h"
 #include "PolicyDecision.h"
 #include "SandboxExtension.h"
+#include "UseDownloadPlaceholder.h"
 #include <WebCore/NotImplemented.h>
 #include <wtf/CheckedRef.h>
 #include <wtf/Forward.h>
@@ -62,9 +63,10 @@ class PendingDownload;
 
 enum class CallDownloadDidStart : bool { No, Yes };
 
-class DownloadManager {
+class DownloadManager : public CanMakeCheckedPtr<DownloadManager> {
     WTF_MAKE_NONCOPYABLE(DownloadManager);
-
+    WTF_MAKE_FAST_ALLOCATED;
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(DownloadManager);
 public:
     class Client {
     public:
@@ -89,6 +91,7 @@ public:
     };
 
     explicit DownloadManager(Client&);
+    ~DownloadManager();
 
     void startDownload(PAL::SessionID, DownloadID, const WebCore::ResourceRequest&, const std::optional<WebCore::SecurityOriginData>& topOrigin, std::optional<NavigatingToAppBoundDomain>, const String& suggestedName = { });
     void dataTaskBecameDownloadTask(DownloadID, std::unique_ptr<Download>&&);
@@ -100,7 +103,7 @@ public:
     void cancelDownload(DownloadID, CompletionHandler<void(std::span<const uint8_t>)>&&);
 #if PLATFORM(COCOA)
 #if HAVE(MODERN_DOWNLOADPROGRESS)
-    void publishDownloadProgress(DownloadID, const URL&, std::span<const uint8_t> bookmarkData);
+    void publishDownloadProgress(DownloadID, const URL&, std::span<const uint8_t> bookmarkData, WebKit::UseDownloadPlaceholder);
 #else
     void publishDownloadProgress(DownloadID, const URL&, SandboxExtension::Handle&&);
 #endif

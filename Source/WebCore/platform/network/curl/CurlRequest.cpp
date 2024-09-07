@@ -41,11 +41,14 @@
 #include "wtf/FileSystem.h"
 #include <wtf/Language.h>
 #include <wtf/MainThread.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
-CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, ShouldSuspend shouldSuspend, CaptureNetworkLoadMetrics captureExtraMetrics, RefPtr<SynchronousLoaderMessageQueue>&& messageQueue)
+WTF_MAKE_TZONE_ALLOCATED_IMPL(CurlRequest);
+
+CurlRequest::CurlRequest(const ResourceRequest&request, CurlRequestClient* client, CaptureNetworkLoadMetrics captureExtraMetrics)
     : m_client(client)
     , m_messageQueue(WTFMove(messageQueue))
     , m_request(request.isolatedCopy())

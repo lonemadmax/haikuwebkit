@@ -104,7 +104,7 @@ String WritingToolsController::plainText(const SimpleRange& range)
 
 #pragma mark - Static utility helper methods.
 
-static std::optional<SimpleRange> contextRangeForDocument(const Document& document)
+static std::optional<SimpleRange> contextRangeForSession(Document& document, const std::optional<WritingTools::Session>& session)
 {
     // If the selection is a range, the range of the context should be the range of the paragraph
     // surrounding the selection range, unless such a range is empty.
@@ -113,15 +113,27 @@ static std::optional<SimpleRange> contextRangeForDocument(const Document& docume
 
     auto selection = document.selection().selection();
 
-    if (selection.isRange()) {
-        auto startOfFirstParagraph = startOfParagraph(selection.start());
-        auto endOfLastParagraph = endOfParagraph(selection.end());
-
-        auto paragraphRange = makeSimpleRange(startOfFirstParagraph, endOfLastParagraph);
-
-        if (paragraphRange && hasAnyPlainText(*paragraphRange, defaultTextIteratorBehaviors))
-            return paragraphRange;
+    if (session && session->compositionType == WritingTools::Session::CompositionType::SmartReply) {
+        // The session context range for Smart Replies should only be the selected text range (it should not be expanded).
+        return selection.firstRange();
     }
+
+    if (!session || session->compositionType != WritingTools::Session::CompositionType::Compose) {
+        // If the session is a Compose session, the range should be the range of the entire editable content.
+
+        if (selection.isRange()) {
+            auto startOfFirstParagraph = startOfParagraph(selection.start());
+            auto endOfLastParagraph = endOfParagraph(selection.end());
+
+            auto paragraphRange = makeSimpleRange(startOfFirstParagraph, endOfLastParagraph);
+
+            if (paragraphRange && hasAnyPlainText(*paragraphRange, defaultTextIteratorBehaviors))
+                return paragraphRange;
+        }
+    }
+
+    if (selection.isNone())
+        return makeRangeSelectingNodeContents(document);
 
     auto startOfFirstEditableContent = startOfEditableContent(selection.start());
     auto endOfLastEditableContent = endOfEditableContent(selection.end());
@@ -153,14 +165,12 @@ void WritingToolsController::willBeginWritingToolsSession(const std::optional<Wr
         return;
     }
 
-    auto contextRange = contextRangeForDocument(*document);
+    auto contextRange = contextRangeForSession(*document, session);
     if (!contextRange) {
         RELEASE_LOG(WritingTools, "WritingToolsController::willBeginWritingToolsSession (%s) => no context range", session ? session->identifier.toString().utf8().data() : "");
         completionHandler({ });
         return;
     }
-
-    auto selectedTextRange = document->selection().selection().firstRange();
 
     if (session && session->compositionType == WritingTools::Session::CompositionType::SmartReply) {
         // Smart replies are a unique use case of the Writing Tools delegate methods;
@@ -169,7 +179,7 @@ void WritingToolsController::willBeginWritingToolsSession(const std::optional<Wr
 
         ASSERT(session->type == WritingTools::Session::Type::Composition);
 
-        m_state = CompositionState { { }, { WritingToolsCompositionCommand::create(Ref { *document }, *selectedTextRange) }, *session };
+        m_state = CompositionState { { }, { WritingToolsCompositionCommand::create(Ref { *document }, *contextRange) }, *session };
 
         completionHandler({ { WTF::UUID { 0 }, AttributedString::fromNSAttributedString(adoptNS([[NSAttributedString alloc] initWithString:@""])), CharacterRange { 0, 0 } } });
         return;
@@ -178,8 +188,10 @@ void WritingToolsController::willBeginWritingToolsSession(const std::optional<Wr
     // The attributed string produced uses all `IncludedElement`s so that no information is lost; each element
     // will be encoded as an NSTextAttachment.
 
+    auto selectedTextRange = document->selection().selection().firstRange();
+
     auto attributedStringFromRange = editingAttributedString(*contextRange, { IncludedElement::Images, IncludedElement::Attachments, IncludedElement::PreservedContent });
-    auto selectedTextCharacterRange = characterRange(*contextRange, *selectedTextRange);
+    auto selectedTextCharacterRange = selectedTextRange ? characterRange(*contextRange, *selectedTextRange) : CharacterRange { };
 
     if (attributedStringFromRange.string.isEmpty())
         RELEASE_LOG(WritingTools, "WritingToolsController::willBeginWritingToolsSession (%s) => attributed string is empty", session ? session->identifier.toString().utf8().data() : "");
@@ -365,19 +377,22 @@ void WritingToolsController::showSelection() const
         return;
     }
 
-    auto* state = std::get_if<CompositionState>(&m_state);
-    if (!state) {
+    CheckedPtr state = std::get_if<CompositionState>(&m_state);
+    if (!state)
+        return;
+
+    if (state->reappliedCommands.isEmpty()) {
         ASSERT_NOT_REACHED();
         return;
     }
 
-    auto currentRange = state->currentRange;
-    if (!currentRange) {
+    auto selectionRange = state->reappliedCommands.last()->endingSelection().firstRange();
+    if (!selectionRange) {
         ASSERT_NOT_REACHED();
         return;
     }
 
-    auto visibleSelection = VisibleSelection { *currentRange };
+    auto visibleSelection = VisibleSelection { *selectionRange };
     if (visibleSelection.isNoneOrOrphaned())
         return;
 
@@ -436,6 +451,26 @@ void WritingToolsController::compositionSessionDidReceiveTextWithReplacementRang
 
     Ref currentCommand = state->reappliedCommands.takeLast();
 
+    // Save all the existing transparent document markers before the command is undone, since such
+    // operation is not guaranteed to persist all the markers; some may be discarded if the nodes end
+    // up changing.
+    //
+    // The character ranges are relative to the range of the document, since the document node is the
+    // only guaranteed common ancestor node before the undo and after the replace.
+
+    Vector<std::tuple<CharacterRange, WTF::UUID>> existingTransparentContentDocumentMarkers;
+
+    auto documentRange = makeRangeSelectingNodeContents(*document);
+    document->markers().forEach(documentRange, { DocumentMarker::Type::TransparentContent }, [&](auto& node, auto& marker) mutable {
+        auto markerRange = makeSimpleRange(node, marker);
+        auto data = std::get<DocumentMarker::TransparentContentData>(marker.data());
+
+        auto resolvedCharacterRange = characterRange(documentRange, markerRange);
+        existingTransparentContentDocumentMarkers.append({ resolvedCharacterRange, data.uuid });
+
+        return false;
+    });
+
     // The prior replacement command must be undone in such a way as to not have it be added to the undo stack
     currentCommand->ensureComposition().unapply(EditCommandComposition::AddToUndoStack::No);
 
@@ -472,6 +507,20 @@ void WritingToolsController::compositionSessionDidReceiveTextWithReplacementRang
     auto commandState = finished ? WritingToolsCompositionCommand::State::Complete : WritingToolsCompositionCommand::State::InProgress;
     replaceContentsOfRangeInSession(*state, resolvedRange, attributedText, commandState);
 
+    // Restore the transparent content document markers after the undo + replace is complete.
+    // Since only some markers may have been discarded, all transparent content markers are first
+    // removed, and then the saved ones are re-added. This ensures that there are not duplicate
+    // markers added.
+    //
+    // This methodology is valid since subsequent replacements always have a prefix that is their prior replacement.
+
+    document->markers().removeMarkers({ WebCore::DocumentMarker::Type::TransparentContent });
+
+    for (const auto& [characterRange, markerIdentifier] : existingTransparentContentDocumentMarkers) {
+        auto resolvedRange = resolveCharacterRange(documentRange, characterRange);
+        document->markers().addTransparentContentMarker(resolvedRange, markerIdentifier);
+    }
+
     if (runMode == TextAnimationRunMode::OnlyReplaceText) {
         compositionSessionDidFinishReplacement();
         return;
@@ -485,8 +534,6 @@ void WritingToolsController::compositionSessionDidReceiveTextWithReplacementRang
         ASSERT_NOT_REACHED();
         return;
     }
-
-    state->currentRange = selectionRange;
 
     auto rangeAfterReplace = characterRange(sessionRange, *selectionRange);
 
@@ -829,6 +876,8 @@ void WritingToolsController::showRewrittenCompositionForSession()
 
     auto& stack = state->unappliedCommands;
 
+    m_page->chrome().client().setIsInRedo(true);
+
     while (!stack.isEmpty()) {
         auto oldSize = stack.size();
 
@@ -837,6 +886,8 @@ void WritingToolsController::showRewrittenCompositionForSession()
 
         RELEASE_ASSERT(oldSize > stack.size());
     }
+
+    m_page->chrome().client().setIsInRedo(false);
 }
 
 void WritingToolsController::restartCompositionForSession()
@@ -877,7 +928,7 @@ std::optional<std::tuple<Node&, DocumentMarker&>> WritingToolsController::findTe
     RefPtr<Node> targetNode;
     WeakPtr<DocumentMarker> targetMarker;
 
-    document->markers().forEach(outerRange, { DocumentMarker::Type::WritingToolsTextSuggestion }, [&textSuggestionID, &targetNode, &targetMarker] (auto& node, auto& marker) mutable {
+    document->markers().forEach(outerRange, { DocumentMarker::Type::WritingToolsTextSuggestion }, [&textSuggestionID, &targetNode, &targetMarker](auto& node, auto& marker) mutable {
         auto data = std::get<DocumentMarker::WritingToolsTextSuggestionData>(marker.data());
         if (data.suggestionID != textSuggestionID)
             return false;
@@ -905,7 +956,7 @@ std::optional<std::tuple<Node&, DocumentMarker&>> WritingToolsController::findTe
     RefPtr<Node> targetNode;
     WeakPtr<DocumentMarker> targetMarker;
 
-    document->markers().forEach(range, { DocumentMarker::Type::WritingToolsTextSuggestion }, [&range, &targetNode, &targetMarker] (auto& node, auto& marker) mutable {
+    document->markers().forEach(range, { DocumentMarker::Type::WritingToolsTextSuggestion }, [&range, &targetNode, &targetMarker](auto& node, auto& marker) mutable {
         auto data = std::get<DocumentMarker::WritingToolsTextSuggestionData>(marker.data());
 
         auto markerRange = makeSimpleRange(node, marker);

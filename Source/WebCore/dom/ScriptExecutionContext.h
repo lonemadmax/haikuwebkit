@@ -46,6 +46,7 @@
 #include <wtf/NativePromise.h>
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/OptionSet.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/WTFString.h>
@@ -88,6 +89,7 @@ class SocketProvider;
 class WebCoreOpaqueRoot;
 enum class AdvancedPrivacyProtections : uint16_t;
 enum class LoadedFromOpaqueSource : bool;
+enum class NoiseInjectionPolicy : uint8_t;
 enum class TaskSource : uint8_t;
 
 #if ENABLE(NOTIFICATIONS)
@@ -147,6 +149,7 @@ public:
 
     virtual OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections() const = 0;
     virtual std::optional<uint64_t> noiseInjectionHashSalt() const = 0;
+    virtual OptionSet<NoiseInjectionPolicy> noiseInjectionPolicies() const = 0;
 
     virtual RefPtr<RTCDataChannelRemoteHandlerConnection> createRTCDataChannelRemoteHandlerConnection();
 
@@ -211,7 +214,7 @@ public:
     WEBCORE_EXPORT void derefAllowingPartiallyDestroyed();
 
     class Task {
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_TZONE_ALLOCATED_INLINE(Task);
     public:
         enum CleanupTaskTag { CleanupTask };
 

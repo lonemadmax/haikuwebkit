@@ -36,7 +36,6 @@
 #import "WebExtension.h"
 
 NSErrorDomain const WKWebExtensionErrorDomain = @"WKWebExtensionErrorDomain";
-NSNotificationName const WKWebExtensionErrorsWereUpdatedNotification = @"WKWebExtensionErrorsWereUpdated";
 
 @implementation WKWebExtension
 
@@ -310,6 +309,18 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtension, WebExtension, _webExtensio
     return _webExtension->backgroundContentUsesModules();
 }
 
+#if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+- (BOOL)_hasSidebar
+{
+    return _webExtension->hasSidebar();
+}
+#else // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+- (BOOL)_hasSidebar
+{
+    return NO;
+}
+#endif // ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
+
 #pragma mark WKObject protocol implementation
 
 - (API::Object&)_apiObject
@@ -504,6 +515,11 @@ WK_OBJECT_DEALLOC_IMPL_ON_MAIN_THREAD(WKWebExtension, WebExtension, _webExtensio
 }
 
 - (BOOL)_hasModularBackgroundContent
+{
+    return NO;
+}
+
+- (BOOL)_hasSidebar
 {
     return NO;
 }

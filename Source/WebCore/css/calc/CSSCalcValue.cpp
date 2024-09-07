@@ -127,6 +127,8 @@ CSSUnitType CSSCalcValue::primitiveType() const
     // This returns the CSSUnitType associated with the value returned by doubleValue, or, if CSSUnitType::CSS_CALC_PERCENTAGE_WITH_LENGTH, that a call to createCalculationValue() is needed.
 
     switch (m_tree.category) {
+    case Calculation::Category::Integer:
+        return CSSUnitType::CSS_INTEGER;
     case Calculation::Category::Number:
         return CSSUnitType::CSS_NUMBER;
     case Calculation::Category::Percent:
@@ -186,14 +188,14 @@ inline double CSSCalcValue::clampToPermittedRange(double value) const
     if (m_tree.category == Calculation::Category::Angle && std::isinf(value))
         return 0;
 
+    if (m_tree.category == Calculation::Category::Integer)
+        value = std::floor(value + 0.5);
+
     return m_tree.range == ValueRange::NonNegative && value < 0 ? 0 : value;
 }
 
-double CSSCalcValue::doubleValueDeprecated(const CSSCalcSymbolTable& symbolTable) const
+double CSSCalcValue::doubleValueNoConversionDataRequired(const CSSCalcSymbolTable& symbolTable) const
 {
-    if (m_tree.requiresConversionData)
-        ALWAYS_LOG_WITH_STREAM(stream << "ERROR: The value returned from CSSCalcValue::doubleValueDeprecated is likely incorrect as the calculation tree has unresolved units that require CSSToLengthConversionData to interpret. Update caller to use non-deprecated variant of this function.");
-
     auto options = CSSCalc::EvaluationOptions {
         .conversionData = std::nullopt,
         .symbolTable = symbolTable,
@@ -201,6 +203,14 @@ double CSSCalcValue::doubleValueDeprecated(const CSSCalcSymbolTable& symbolTable
         .allowNonMatchingUnits = true
     };
     return clampToPermittedRange(CSSCalc::evaluateDouble(m_tree, options).value_or(0));
+}
+
+double CSSCalcValue::doubleValueDeprecated(const CSSCalcSymbolTable& symbolTable) const
+{
+    if (m_tree.requiresConversionData)
+        ALWAYS_LOG_WITH_STREAM(stream << "ERROR: The value returned from CSSCalcValue::doubleValueDeprecated is likely incorrect as the calculation tree has unresolved units that require CSSToLengthConversionData to interpret. Update caller to use non-deprecated variant of this function.");
+
+    return doubleValueNoConversionDataRequired(symbolTable);
 }
 
 double CSSCalcValue::doubleValue(const CSSToLengthConversionData& conversionData, const CSSCalcSymbolTable& symbolTable) const

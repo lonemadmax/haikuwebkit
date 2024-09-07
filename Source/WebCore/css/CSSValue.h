@@ -35,6 +35,7 @@ namespace WebCore {
 
 class CSSPrimitiveValue;
 class CSSStyleDeclaration;
+class CSSToLengthConversionData;
 class CSSUnresolvedColor;
 class CachedResource;
 class Color;
@@ -166,6 +167,12 @@ public:
     ComputedStyleDependencies computedStyleDependencies() const;
     void collectComputedStyleDependencies(ComputedStyleDependencies&) const;
 
+    // Checks to see if the provided conversion data is sufficient to resolve the provided dependencies.
+    static bool canResolveDependenciesWithConversionData(const ComputedStyleDependencies&, const CSSToLengthConversionData&);
+
+    // Checks to see if the provided conversion data is sufficient to resolve the dependencies of the CSSValue.
+    bool canResolveDependenciesWithConversionData(const CSSToLengthConversionData&) const;
+
     bool equals(const CSSValue&) const;
     bool operator==(const CSSValue& other) const { return equals(other); }
 
@@ -188,7 +195,8 @@ public:
     inline String customIdent() const;
 
     inline bool isInteger() const;
-    inline int integer() const;
+    inline int integer(const CSSToLengthConversionData&) const;
+    inline int integerDeprecated() const;
 
     inline const CSSValue& first() const; // CSSValuePair
     Ref<CSSValue> protectedFirst() const; // CSSValuePair

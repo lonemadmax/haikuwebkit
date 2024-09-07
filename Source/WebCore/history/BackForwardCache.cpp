@@ -58,10 +58,13 @@
 #include <wtf/MemoryPressureHandler.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SetForScope.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/MakeString.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(BackForwardCache);
 
 #define PCLOG(...) LOG(BackForwardCache, "%*s%s", indentLevel*4, "", makeString(__VA_ARGS__).utf8().data())
 
@@ -185,8 +188,8 @@ static bool canCacheFrame(LocalFrame& frame, DiagnosticLoggingClient& diagnostic
         isCacheable = false;
     }
 
-    for (auto* child = frame.tree().firstChild(); child; child = child->tree().nextSibling()) {
-        RefPtr localChild = dynamicDowncast<LocalFrame>(child);
+    for (RefPtr child = frame.tree().firstChild(); child; child = child->tree().nextSibling()) {
+        auto* localChild = dynamicDowncast<LocalFrame>(child.get());
         if (!localChild)
             continue;
         if (!canCacheFrame(*localChild, diagnosticLoggingClient, indentLevel + 1))
@@ -447,8 +450,8 @@ static void firePageHideEventRecursively(LocalFrame& frame)
 
     frame.loader().stopLoading(UnloadEventPolicy::UnloadAndPageHide);
 
-    for (auto* child = frame.tree().firstChild(); child; child = child->tree().nextSibling()) {
-        if (RefPtr localChild = dynamicDowncast<LocalFrame>(*child))
+    for (RefPtr child = frame.tree().firstChild(); child; child = child->tree().nextSibling()) {
+        if (auto* localChild = dynamicDowncast<LocalFrame>(child.get()))
             firePageHideEventRecursively(*localChild);
     }
 }

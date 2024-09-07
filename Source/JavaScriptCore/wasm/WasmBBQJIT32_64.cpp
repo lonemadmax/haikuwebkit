@@ -122,7 +122,6 @@ uint32_t BBQJIT::sizeOfType(TypeKind type)
     switch (type) {
     case TypeKind::I32:
     case TypeKind::F32:
-    case TypeKind::I31ref:
         // NB: size in memory (on JSVALUE32_64 we represent even four-byte values as EncodedJSValue)
         return sizeof(EncodedJSValue);
     case TypeKind::I64:
@@ -130,6 +129,7 @@ uint32_t BBQJIT::sizeOfType(TypeKind type)
         return 8;
     case TypeKind::V128:
         return 16;
+    case TypeKind::I31ref:
     case TypeKind::Func:
     case TypeKind::Funcref:
     case TypeKind::Ref:
@@ -342,9 +342,6 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::setGlobal(uint32_t index, Value value)
         case TypeKind::I32:
             m_jit.store32(valueLocation.asGPR(), Address(wasmScratchGPR));
             break;
-        case TypeKind::I31ref:
-            m_jit.store32(valueLocation.asGPRlo(), Address(wasmScratchGPR));
-            break;
         case TypeKind::I64:
             m_jit.storePair32(valueLocation.asGPRlo(), valueLocation.asGPRhi(), Address(wasmScratchGPR));
             break;
@@ -357,6 +354,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::setGlobal(uint32_t index, Value value)
         case TypeKind::V128:
             m_jit.storeVector(valueLocation.asFPR(), Address(wasmScratchGPR));
             break;
+        case TypeKind::I31ref:
         case TypeKind::Func:
         case TypeKind::Funcref:
         case TypeKind::Ref:
@@ -1397,6 +1395,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI31GetS(ExpressionType value, Expres
 
 
     Location initialValue = loadIfNecessary(value);
+    emitThrowOnNullReference(ExceptionType::NullI31Get, initialValue);
     consume(value);
 
     result = topValue(TypeKind::I32);
@@ -1404,7 +1403,6 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI31GetS(ExpressionType value, Expres
 
     LOG_INSTRUCTION("I31GetS", value, RESULT(result));
 
-    emitThrowOnNullReference(ExceptionType::NullI31Get, initialValue);
     m_jit.move(initialValue.asGPRlo(), resultLocation.asGPR());
 
     m_jit.lshift32(TrustedImm32(1), resultLocation.asGPR());
@@ -1429,6 +1427,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI31GetU(ExpressionType value, Expres
 
 
     Location initialValue = loadIfNecessary(value);
+    emitThrowOnNullReference(ExceptionType::NullI31Get, initialValue);
     consume(value);
 
     result = topValue(TypeKind::I32);
@@ -1436,7 +1435,6 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addI31GetU(ExpressionType value, Expres
 
     LOG_INSTRUCTION("I31GetU", value, RESULT(result));
 
-    emitThrowOnNullReference(ExceptionType::NullI31Get, initialValue);
     m_jit.move(initialValue.asGPRlo(), resultLocation.asGPR());
 
     return { };
@@ -2967,6 +2965,46 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addRethrow(unsigned, ControlType& data)
     return { };
 }
 
+BBQJIT::BranchFoldResult BBQJIT::tryFoldFusedBranchCompare(OpType, ExpressionType)
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+BBQJIT::Jump BBQJIT::emitFusedBranchCompareBranch(OpType, ExpressionType, Location)
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+BBQJIT::BranchFoldResult BBQJIT::tryFoldFusedBranchCompare(OpType, ExpressionType, ExpressionType)
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+BBQJIT::Jump BBQJIT::emitFusedBranchCompareBranch(OpType, ExpressionType, Location, ExpressionType, Location)
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+PartialResult BBQJIT::addFusedBranchCompare(OpType, ControlType&, ExpressionType, Stack&)
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+PartialResult BBQJIT::addFusedBranchCompare(OpType, ControlType&, ExpressionType, ExpressionType, Stack&)
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+PartialResult BBQJIT::addFusedIfCompare(OpType, ExpressionType, BlockSignature, Stack&, ControlType&, Stack&)
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+PartialResult BBQJIT::addFusedIfCompare(OpType, ExpressionType, ExpressionType, BlockSignature, Stack&, ControlType&, Stack&)
+{
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
 PartialResult WARN_UNUSED_RETURN BBQJIT::addBranchNull(ControlData& data, ExpressionType reference, Stack& returnValues, bool shouldNegate, ExpressionType& result)
 {
     Value condition;
@@ -3442,7 +3480,7 @@ Location BBQJIT::allocateRegisterPair()
     } while (1);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addCallRef(const TypeDefinition& originalSignature, ArgumentList& args, ResultList& results)
+PartialResult WARN_UNUSED_RETURN BBQJIT::addCallRef(const TypeDefinition& originalSignature, ArgumentList& args, ResultList& results, CallType callType)
 {
     Value callee = args.takeLast();
     const TypeDefinition& signature = originalSignature.expand();
@@ -3456,7 +3494,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallRef(const TypeDefinition& origin
     GPRReg calleeInstance;
     GPRReg calleeCode;
     {
-        ScratchScope<1, 0> calleeCodeScratch(*this, RegisterSetBuilder::argumentGPRS());
+        ScratchScope<1, 0> calleeCodeScratch(*this, RegisterSetBuilder::argumentGPRs());
         calleeCode = calleeCodeScratch.gpr(0);
         calleeCodeScratch.unbindPreserved();
 
@@ -3485,7 +3523,10 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCallRef(const TypeDefinition& origin
         m_jit.loadPtr(MacroAssembler::Address(calleePtr, WebAssemblyFunctionBase::offsetOfEntrypointLoadLocation()), calleeCode);
     }
 
-    emitIndirectCall("CallRef", callee, calleeInstance, calleeCode, signature, args, results);
+    if (callType == CallType::Call)
+        emitIndirectCall("CallRef", callee, calleeInstance, calleeCode, signature, args, results);
+    else
+        emitIndirectTailCall("ReturnCallRef", callee, calleeInstance, calleeCode, signature, args);
     return { };
 }
 

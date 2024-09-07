@@ -45,6 +45,7 @@
 #import <WebKit/WKWebpagePreferencesPrivate.h>
 #import <WebKit/WKWebsiteDataStorePrivate.h>
 #import <WebKit/_WKFeature.h>
+#import <WebKit/_WKPageLoadTiming.h>
 #import <WebKit/_WKWebsiteDataStoreConfiguration.h>
 #import <WebKit/_WKWebsiteDataStoreDelegate.h>
 #import <wtf/RetainPtr.h>
@@ -1648,23 +1649,11 @@ TEST(WKNavigation, HTTPSFirstRedirectNoHTTPDowngradeRedirect)
 TEST(WKNavigation, HTTPSFirstLocalHostIPAddress)
 {
     using namespace TestWebKitAPI;
-    HTTPServer httpsServer({
-        { "/secure"_s, { { }, "secure page"_s } }
-    }, HTTPServer::Protocol::HttpsProxy);
     HTTPServer httpServer({
-        { "http://localhost/notsecure"_s, { { }, "not secure page"_s } },
+        { "/notsecure"_s, { { }, "not secure page"_s } },
     }, HTTPServer::Protocol::Http);
 
-    auto storeConfiguration = adoptNS([[_WKWebsiteDataStoreConfiguration alloc] initNonPersistentConfiguration]);
-    [storeConfiguration setProxyConfiguration:@{
-        (NSString *)kCFStreamPropertyHTTPProxyHost: @"127.0.0.1",
-        (NSString *)kCFStreamPropertyHTTPProxyPort: @(httpServer.port()),
-        (NSString *)kCFStreamPropertyHTTPSProxyHost: @"127.0.0.1",
-        (NSString *)kCFStreamPropertyHTTPSProxyPort: @(httpsServer.port())
-    }];
-    auto dataStore = adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:storeConfiguration.get()]);
     auto configuration = adoptNS([WKWebViewConfiguration new]);
-    [configuration setWebsiteDataStore:dataStore.get()];
     configuration.get().defaultWebpagePreferences._networkConnectionIntegrityPolicy = _WKWebsiteNetworkConnectionIntegrityPolicyHTTPSFirst;
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectZero configuration:configuration.get()]);
 
@@ -1714,14 +1703,14 @@ TEST(WKNavigation, HTTPSFirstLocalHostIPAddress)
     EXPECT_FALSE(didReceiveAuthenticationChallenge);
     EXPECT_EQ(loadCount, 1);
     EXPECT_WK_STREQ(url, [webView URL].absoluteString);
-
 }
 
 TEST(WKNavigation, HTTPSOnlyInitialLoad)
 {
     using namespace TestWebKitAPI;
     HTTPServer httpsServer({
-        { "/secure"_s, { { }, "secure page"_s } }
+        { "/secure"_s, { { }, "secure page"_s } },
+        { "/notsecure"_s, { { }, "notsecure page upgraded to secure page"_s } }
     }, HTTPServer::Protocol::HttpsProxy);
     HTTPServer httpServer({
         { "http://site.example/notsecure"_s, { { }, "not secure page"_s } },
@@ -2469,6 +2458,40 @@ TEST(WKNavigation, NavigationToUnknownBlankURL)
     TestWebKitAPI::Util::run(&done);
     EXPECT_FALSE(navigationFailed);
 }
+
+#if PLATFORM(MAC)
+TEST(WKNavigation, GeneratePageLoadTiming)
+{
+    RetainPtr window = adoptNS([[NSWindow alloc] initWithContentRect:NSMakeRect(0, 0, 400, 400) styleMask:0 backing:NSBackingStoreBuffered defer:NO]);
+    RetainPtr webView = adoptNS([[WKWebView alloc] initWithFrame:NSMakeRect(0, 0, 400, 400)]);
+
+    auto delegate = adoptNS([TestNavigationDelegate new]);
+    [webView setNavigationDelegate:delegate.get()];
+    [window.get().contentView addSubview:webView.get()];
+
+    [window.get() makeKeyAndOrderFront:nil];
+    EXPECT_TRUE([window.get() isVisible]);
+
+    __block NSDate *beforeStart = [NSDate now];
+    __block bool done = false;
+    delegate.get().didGeneratePageLoadTiming = ^(_WKPageLoadTiming *timing) {
+        NSDate *afterEnd = [NSDate now];
+        EXPECT_EQ([beforeStart compare:timing.navigationStart], NSOrderedAscending);
+        EXPECT_EQ([timing.navigationStart compare:afterEnd], NSOrderedAscending);
+        EXPECT_EQ([timing.navigationStart compare:timing.firstMeaningfulPaint], NSOrderedAscending);
+        EXPECT_EQ([timing.firstMeaningfulPaint compare:afterEnd], NSOrderedAscending);
+        EXPECT_EQ([timing.navigationStart compare:timing.documentFinishedLoading], NSOrderedAscending);
+        EXPECT_EQ([timing.documentFinishedLoading compare:afterEnd], NSOrderedAscending);
+        EXPECT_EQ([timing.navigationStart compare:timing.allSubresourcesFinishedLoading], NSOrderedAscending);
+        EXPECT_EQ([timing.allSubresourcesFinishedLoading compare:afterEnd], NSOrderedAscending);
+        done = true;
+    };
+
+    auto request = [NSURLRequest requestWithURL:[[NSBundle mainBundle] URLForResource:@"multiple-images" withExtension:@"html" subdirectory:@"TestWebKitAPI.resources"]];
+    [webView loadRequest:request];
+    TestWebKitAPI::Util::run(&done);
+}
+#endif // PLATFORM(MAC)
 
 struct PrivateTokenTestSetupState {
     RetainPtr<WKWebView> webView;

@@ -37,6 +37,7 @@ fast/scrolling/rtl-scrollbars-text-selection.html [ Pass ]
 fast/scrolling/rtl-scrollbars-text-selection-scrolled.html [ Pass ]
 
 webkit.org/b/155132 http/tests/security/contentSecurityPolicy/video-with-https-url-allowed-by-csp-media-src-star.html [ Pass ]
+security/contentSecurityPolicy/plugins-types-allows-youtube-plugin-replacement.html [ Failure ]
 
 webkit.org/b/175290 imported/w3c/web-platform-tests/css/css-ui/text-overflow-005.html [ Pass ]
 
@@ -92,7 +93,7 @@ webkit.org/b/204115 imported/w3c/web-platform-tests/pointerevents/pointerevent_t
 webkit.org/b/204115 imported/w3c/web-platform-tests/pointerevents/pointerevent_pointerout_pen.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/capturing_boundary_event_handler_at_ua_shadowdom.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes.https.html?touch [ Skip ]
-imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes_under_load.https.html?touch [ Skip ]
+imported/w3c/web-platform-tests/pointerevents/coalesced_events_attributes_under_load.https.optional.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_after_target_appended.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_after_target_removed.html?touch [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_boundary_events_in_capturing.html?pen [ Skip ]
@@ -861,13 +862,6 @@ fast/forms/datalist/update-range-with-datalist.html [ Skip ]
 
 # Inspector tests don't work with platform WebSockets API
 webkit.org/b/200162 http/tests/websocket/tests/hybi/inspector/ [ Skip ]
-
-# Plugins.
-http/tests/security/contentSecurityPolicy/cross-origin-plugin-document-allowed-in-child-window.html [ Skip ]
-http/tests/security/contentSecurityPolicy/same-origin-plugin-document-allowed-in-child-window.html [ Skip ]
-http/tests/security/contentSecurityPolicy/same-origin-plugin-document-blocked-in-child-window-report.py [ Skip ]
-http/tests/security/contentSecurityPolicy/same-origin-plugin-document-blocked-in-child-window.html [ Skip ]
-http/tests/security/contentSecurityPolicy/same-origin-plugin-document-with-csp-blocked-in-child-window.html [ Skip ]
 
 # CSP extensions are not available on GTK
 http/tests/security/contentSecurityPolicy/extensions/ [ Skip ]
@@ -1721,6 +1715,9 @@ imported/w3c/web-platform-tests/css/css-transforms/ttwf-css-3d-polygon-cycle.htm
 webkit.org/b/241699 imported/w3c/web-platform-tests/css/css-transforms/3d-rendering-context-and-abspos.html [ ImageOnlyFailure ]
 webkit.org/b/241699 imported/w3c/web-platform-tests/css/css-transforms/3d-rendering-context-and-fixpos.html [ ImageOnlyFailure ]
 webkit.org/b/241699 imported/w3c/web-platform-tests/css/css-transforms/transform3d-sorting-004.html [ ImageOnlyFailure ]
+webkit.org/b/279023 imported/w3c/web-platform-tests/css/css-transforms/backface-visibility-hidden-animated-002.html [ ImageOnlyFailure ]
+webkit.org/b/279023 imported/w3c/web-platform-tests/css/css-transforms/composited-under-rotateY-180deg-perspective.html [ ImageOnlyFailure ]
+webkit.org/b/279023 imported/w3c/web-platform-tests/css/css-transforms/composited-under-rotateY-180deg-preserve-3d.html [ ImageOnlyFailure ]
 
 webkit.org/b/234782 imported/w3c/web-platform-tests/css/css-writing-modes/text-shadow-orientation-upright-001.html [ ImageOnlyFailure ]
 
@@ -1917,3 +1914,25 @@ imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-003.htm
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-004.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-005.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-scrollbars/scrollbar-width-paint-006.html [ ImageOnlyFailure ]
+
+webkit.org/b/278719 fast/events/touch/basic-single-touch-events.html [ Timeout ]
+webkit.org/b/278719 fast/events/touch/emulate-touch-events.html [ Failure ]
+webkit.org/b/278719 fast/events/touch/input-touch-target.html [ Failure ]
+webkit.org/b/278719 fast/events/touch/inserted-fragment-touch-target.html [ Timeout ]
+webkit.org/b/278719 fast/events/touch/moved-touch-target.html [ Timeout ]
+webkit.org/b/278719 fast/events/touch/removed-fragment-touch-target.html [ Timeout ]
+webkit.org/b/278719 fast/events/touch/removed-touch-target.html [ Timeout ]
+webkit.org/b/278719 fast/events/touch/tap-highlight-color.html [ Timeout ]
+webkit.org/b/278719 fast/events/touch/textarea-touch-target.html [ Failure ]
+webkit.org/b/278719 fast/events/touch/text-node-touch-target.html [ Failure ]
+webkit.org/b/278719 fast/events/touch/touch-active-state.html [ Timeout ]
+webkit.org/b/278719 fast/events/touch/touch-coords-in-zoom-and-scroll.html [ Failure ]
+webkit.org/b/278719 fast/events/touch/touch-event-frames.html [ Timeout ]
+webkit.org/b/278719 fast/events/touch/touch-handler-count.html [ Failure ]
+webkit.org/b/278719 fast/events/touch/touch-inside-iframe.html [ Timeout ]
+webkit.org/b/278719 fast/events/touch/touch-inside-iframe-scrolled.html [ Timeout ]
+webkit.org/b/278719 fast/events/touch/touch-slider.html [ Failure ]
+webkit.org/b/278719 fast/events/touch/touch-slider-no-js-touch-listener.html [ Failure ]
+webkit.org/b/278719 fast/events/touch/touch-stale-node-crash.html [ Timeout ]
+webkit.org/b/278719 imported/w3c/web-platform-tests/touch-events/idlharness.window.html [ Failure ]
+webkit.org/b/278719 imported/w3c/web-platform-tests/touch-events/touch-globaleventhandler-interface.html [ Failure ]

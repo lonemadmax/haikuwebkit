@@ -61,6 +61,7 @@
 #include <wtf/ObjectIdentifier.h>
 #include <wtf/Observer.h>
 #include <wtf/RobinHoodHashMap.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/TriState.h>
 #include <wtf/UniqueRef.h>
 #include <wtf/WeakHashCountedSet.h>
@@ -190,6 +191,7 @@ class MediaQueryList;
 class MediaQueryMatcher;
 class MessagePortChannelProvider;
 class MouseEventWithHitTestResults;
+class NavigationActivation;
 class NodeFilter;
 class NodeIterator;
 class NodeList;
@@ -310,7 +312,7 @@ enum class FocusTrigger : uint8_t;
 enum class MediaProducerMediaState : uint32_t;
 enum class MediaProducerMediaCaptureKind : uint8_t;
 enum class MediaProducerMutedState : uint8_t;
-enum class NoiseInjectionPolicy : bool;
+enum class NoiseInjectionPolicy : uint8_t;
 enum class ParserContentPolicy : uint8_t;
 enum class PlatformEventType : uint8_t;
 enum class ReferrerPolicySource : uint8_t;
@@ -406,7 +408,7 @@ using RenderingContext = std::variant<
 using StartViewTransitionCallbackOptions = std::optional<std::variant<RefPtr<JSViewTransitionUpdateCallback>, StartViewTransitionOptions>>;
 
 class DocumentParserYieldToken {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(DocumentParserYieldToken, WEBCORE_EXPORT);
 public:
     WEBCORE_EXPORT DocumentParserYieldToken(Document&);
     WEBCORE_EXPORT ~DocumentParserYieldToken();
@@ -1383,7 +1385,7 @@ public:
     void queueTaskToDispatchEventOnWindow(TaskSource, Ref<Event>&&);
     void dispatchPageshowEvent(PageshowEventPersistence);
     void dispatchPagehideEvent(PageshowEventPersistence);
-    void dispatchPageswapEvent(bool canTriggerCrossDocumentViewTransition);
+    void dispatchPageswapEvent(bool canTriggerCrossDocumentViewTransition, RefPtr<NavigationActivation>&&);
     void transferViewTransitionParams(Document&);
     WEBCORE_EXPORT void enqueueSecurityPolicyViolationEvent(SecurityPolicyViolationEventInit&&);
     void enqueueHashchangeEvent(const String& oldURL, const String& newURL);
@@ -1423,7 +1425,7 @@ public:
     OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections() const final;
 
     std::optional<uint64_t> noiseInjectionHashSalt() const final;
-    NoiseInjectionPolicy noiseInjectionPolicy() const;
+    OptionSet<NoiseInjectionPolicy> noiseInjectionPolicies() const final;
 
     // Used to allow element that loads data without going through a FrameLoader to delay the 'load' event.
     void incrementLoadEventDelayCount() { ++m_loadEventDelayCount; }
