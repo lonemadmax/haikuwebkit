@@ -101,7 +101,7 @@ function shouldThrow(func, errorType, message) {
         Temporal.Instant.from('1677-09-21T00:12:43.145224192Z'),
     ];
     instants.forEach((instant) => {
-        shouldBe(instant.epochMilliseconds, -9223372036854);
+        shouldBe(instant.epochMilliseconds, -9223372036855);
         shouldBe(instant.epochNanoseconds, -9223372036854775808n);
         shouldBe(instant.toString(), '1677-09-21T00:12:43.145224192Z');
         shouldBe(instant.toJSON(), '1677-09-21T00:12:43.145224192Z');
@@ -156,6 +156,19 @@ function shouldThrow(func, errorType, message) {
 ].forEach(([ns, messageMatch = undefined]) => {
     shouldThrow(() => new Temporal.Instant(ns), RangeError, messageMatch);
     shouldThrow(() => Temporal.Instant.fromEpochNanoseconds(ns), RangeError, messageMatch);
+});
+
+[
+    // too large
+    [86400_0000_0000_001, /\b8640000000000001000000\b/],
+    // too small
+    [-86400_0000_0000_001, /-8640000000000001000000\b/],
+    // test 2^53 - 1
+    [Number.MAX_SAFE_INTEGER, /\b9007199254740991000000\b/],
+    // test -(2^53 - 1)
+    [-Number.MAX_SAFE_INTEGER, /-9007199254740991000000\b/],
+].forEach(([ms, messageMatch = undefined]) => {
+    shouldThrow(() => Temporal.Instant.fromEpochMilliseconds(ms), RangeError, messageMatch);
 });
 
 // constructs from string

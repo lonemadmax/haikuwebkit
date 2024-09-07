@@ -85,6 +85,8 @@ set(JavaScriptCore_OBJECT_LUT_SOURCES
     runtime/IntlSegmenterConstructor.cpp
     runtime/IntlSegmenterPrototype.cpp
     runtime/IntlSegmentsPrototype.cpp
+    runtime/JSIterator.cpp
+    runtime/JSIteratorConstructor.cpp
     runtime/JSDataViewPrototype.cpp
     runtime/JSGlobalObject.cpp
     runtime/JSInternalPromiseConstructor.cpp
@@ -337,7 +339,6 @@ set(JavaScriptCore_BUILTINS_SOURCES
     ${JAVASCRIPTCORE_DIR}/builtins/ArrayIteratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/ArrayPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/AsyncFunctionPrototype.js
-    ${JAVASCRIPTCORE_DIR}/builtins/AsyncIteratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/AsyncGeneratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/FunctionPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/GeneratorPrototype.js
@@ -345,7 +346,6 @@ set(JavaScriptCore_BUILTINS_SOURCES
     ${JAVASCRIPTCORE_DIR}/builtins/GlobalOperations.js
     ${JAVASCRIPTCORE_DIR}/builtins/InternalPromiseConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/IteratorHelpers.js
-    ${JAVASCRIPTCORE_DIR}/builtins/IteratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/MapConstructor.js
     ${JAVASCRIPTCORE_DIR}/builtins/MapIteratorPrototype.js
     ${JAVASCRIPTCORE_DIR}/builtins/MapPrototype.js
@@ -575,7 +575,6 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     assembler/MacroAssemblerCodeRef.h
     assembler/MacroAssemblerHelpers.h
     assembler/MacroAssemblerRISCV64.h
-    assembler/MacroAssemblerX86Common.h
     assembler/MacroAssemblerX86_64.h
     assembler/OSCheck.h
     assembler/Printer.h
@@ -821,6 +820,7 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     inspector/augmentable/AugmentableInspectorControllerClient.h
 
     inspector/remote/RemoteAutomationTarget.h
+    inspector/remote/RemoteConnectionToTarget.h
     inspector/remote/RemoteControllableTarget.h
     inspector/remote/RemoteInspectionTarget.h
     inspector/remote/RemoteInspector.h
@@ -1083,6 +1083,8 @@ set(JavaScriptCore_PRIVATE_FRAMEWORK_HEADERS
     runtime/JSImmutableButterfly.h
     runtime/JSInternalFieldObjectImpl.h
     runtime/JSInternalPromise.h
+    runtime/JSIterator.h
+    runtime/JSIteratorConstructor.h
     runtime/JSLexicalEnvironment.h
     runtime/JSLock.h
     runtime/JSMap.h

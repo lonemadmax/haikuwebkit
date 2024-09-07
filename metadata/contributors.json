@@ -81,7 +81,7 @@
       "nicks" : [
          "chanada"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -1135,7 +1135,7 @@
    },
    {
       "emails" : [
-         "basuke.suzuki@sony.com"
+         "basuke@apple.com"
       ],
       "github" : "basuke",
       "name" : "Basuke Suzuki",
@@ -2301,6 +2301,16 @@
       "name" : "Dean Johnson",
       "nicks" : [
          "deanj"
+      ]
+   },
+   {
+      "emails" : [
+         "codesculptures@gmail.com"
+      ],
+      "github" : "codesculpture",
+      "name" : "Deepak Aravind",
+      "nicks" : [
+         "codesculpture"
       ]
    },
    {
@@ -5644,6 +5654,14 @@
    },
    {
       "emails" : [
+         "maximilian@igalia.com"
+      ],
+      "github" : "eugeneia",
+      "name" : "Max Rottenkolber",
+      "status" : "committer"
+   },
+   {
+      "emails" : [
          "mvujovic@adobe.com",
          "maxvujovic@gmail.com"
       ],
@@ -6051,6 +6069,16 @@
    },
    {
       "emails" : [
+         "nathan_solomon@apple.com"
+      ],
+      "github" : "NathanSolomon733",
+      "name" : "Nathan Solomon",
+      "nicks" : [
+         "NathanSolomon733"
+      ]
+   },
+   {
+      "emails" : [
          "nayankk@motorola.com",
          "nayankk@gmail.com"
       ],
@@ -6362,7 +6390,8 @@
       "nicks" : [
          "Scony",
          "plampe"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [

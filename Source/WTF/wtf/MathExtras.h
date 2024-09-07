@@ -71,10 +71,12 @@ constexpr double sqrtOfTwoDouble = M_SQRT2;
 constexpr float sqrtOfTwoFloat = static_cast<float>(M_SQRT2);
 #endif
 
-#if OS(HAIKU)
-    // It seems the C99 version somehow gets redefined after cmath include (which undefines them)
-    #undef isinf
-    #undef signbit
+#ifndef M_E
+constexpr double eDouble = 2.71828182845904523536028747135266250;
+constexpr float eFloat = 2.71828182845904523536028747135266250f;
+#else
+constexpr double eDouble = M_E;
+constexpr float eFloat = static_cast<float>(M_E);
 #endif
 
 #if OS(WINDOWS)

@@ -308,7 +308,7 @@ void LineBoxBuilder::setVerticalPropertiesForInlineLevelBox(const LineBox& lineB
         setVerticalProperties({ marginBoxHeight, { } });
         return;
     }
-    if (inlineLevelBox.isAtomicInlineLevelBox()) {
+    if (inlineLevelBox.isAtomicInlineBox()) {
         auto& layoutBox = inlineLevelBox.layoutBox();
         auto& inlineLevelBoxGeometry = formattingContext().geometryForBox(layoutBox);
         auto marginBoxHeight = inlineLevelBoxGeometry.marginBoxHeight();
@@ -379,12 +379,12 @@ void LineBoxBuilder::constructInlineLevelBoxes(LineBox& lineBox)
                 lineBox.parentInlineBox(run).setHasContent();
             continue;
         }
-        if (run.isBox()) {
+        if (run.isAtomicInlineBox()) {
             auto& inlineLevelBoxGeometry = formattingContext.geometryForBox(layoutBox);
             logicalLeft += std::max(0_lu, inlineLevelBoxGeometry.marginStart());
-            auto atomicInlineLevelBox = InlineLevelBox::createAtomicInlineLevelBox(layoutBox, style, logicalLeft, inlineLevelBoxGeometry.borderBoxWidth());
-            setVerticalPropertiesForInlineLevelBox(lineBox, atomicInlineLevelBox);
-            lineBox.addInlineLevelBox(WTFMove(atomicInlineLevelBox));
+            auto atomicInlineBox = InlineLevelBox::createAtomicInlineBox(layoutBox, style, logicalLeft, inlineLevelBoxGeometry.borderBoxWidth());
+            setVerticalPropertiesForInlineLevelBox(lineBox, atomicInlineBox);
+            lineBox.addInlineLevelBox(WTFMove(atomicInlineBox));
             continue;
         }
         if (run.isInlineBoxStart() || run.isLineSpanningInlineBoxStart()) {
@@ -437,9 +437,9 @@ void LineBoxBuilder::constructInlineLevelBoxes(LineBox& lineBox)
             if (run.isListMarkerOutside())
                 m_outsideListMarkers.append(index);
 
-            auto atomicInlineLevelBox = InlineLevelBox::createAtomicInlineLevelBox(listMarkerBox, style, logicalLeft, formattingContext.geometryForBox(listMarkerBox).borderBoxWidth());
-            setVerticalPropertiesForInlineLevelBox(lineBox, atomicInlineLevelBox);
-            lineBox.addInlineLevelBox(WTFMove(atomicInlineLevelBox));
+            auto atomicInlineBox = InlineLevelBox::createAtomicInlineBox(listMarkerBox, style, logicalLeft, formattingContext.geometryForBox(listMarkerBox).borderBoxWidth());
+            setVerticalPropertiesForInlineLevelBox(lineBox, atomicInlineBox);
+            lineBox.addInlineLevelBox(WTFMove(atomicInlineBox));
             continue;
         }
         if (run.isWordBreakOpportunity()) {
@@ -586,13 +586,13 @@ void LineBoxBuilder::adjustIdeographicBaselineIfApplicable(LineBox& lineBox)
     lineBox.setBaselineType(IdeographicBaseline);
 
     auto adjustLayoutBoundsWithIdeographicBaseline = [&] (auto& inlineLevelBox) {
-        auto initiatesLayoutBoundsChange = inlineLevelBox.isInlineBox() || inlineLevelBox.isAtomicInlineLevelBox() || inlineLevelBox.isLineBreakBox();
+        auto initiatesLayoutBoundsChange = inlineLevelBox.isInlineBox() || inlineLevelBox.isAtomicInlineBox() || inlineLevelBox.isLineBreakBox();
         if (!initiatesLayoutBoundsChange)
             return;
 
         if (inlineLevelBox.isInlineBox() || inlineLevelBox.isLineBreakBox() || (inlineLevelBox.isListMarker() && !downcast<ElementBox>(inlineLevelBox.layoutBox()).isListMarkerImage()))
             setVerticalPropertiesForInlineLevelBox(lineBox, inlineLevelBox);
-        else if (inlineLevelBox.isAtomicInlineLevelBox()) {
+        else if (inlineLevelBox.isAtomicInlineBox()) {
             auto inlineLevelBoxHeight = inlineLevelBox.logicalHeight();
             InlineLayoutUnit ideographicBaseline = roundToInt(inlineLevelBoxHeight / 2);
             // Move the baseline position but keep the same logical height.
@@ -612,7 +612,7 @@ void LineBoxBuilder::adjustIdeographicBaselineIfApplicable(LineBox& lineBox)
 
     adjustLayoutBoundsWithIdeographicBaseline(rootInlineBox);
     for (auto& inlineLevelBox : lineBox.nonRootInlineLevelBoxes()) {
-        if (inlineLevelBox.isAtomicInlineLevelBox()) {
+        if (inlineLevelBox.isAtomicInlineBox()) {
             auto& layoutBox = inlineLevelBox.layoutBox();
             if (layoutBox.isInlineTableBox()) {
                 // This is the integration codepath where inline table boxes are represented as atomic inline boxes.
@@ -652,13 +652,14 @@ InlineLayoutUnit LineBoxBuilder::applyTextBoxTrimIfNeeded(InlineLayoutUnit lineB
     if (!shouldTrimBlockStartOfLineBox && !shouldTrimBlockEndOfLineBox)
         return lineBoxLogicalHeight;
 
+    auto& primaryFontMetrics = rootInlineBox.primarymetricsOfPrimaryFont();
     if (shouldTrimBlockEndOfLineBox) {
-        auto textBoxEdgeUnderForRootInlineBox = [&] {
+        auto textBoxEdgeUnderForRootInlineBox = [&]() -> InlineLayoutUnit {
             switch (textBoxEdge.under) {
             case TextEdgeType::Text:
                 return 0.f;
             case TextEdgeType::Alphabetic:
-                return rootInlineBox.descent();
+                return primaryFontMetrics.intDescent();
             case TextEdgeType::CJKIdeographic:
             case TextEdgeType::CJKIdeographicInk:
                 ASSERT_NOT_IMPLEMENTED_YET();
@@ -678,9 +679,9 @@ InlineLayoutUnit LineBoxBuilder::applyTextBoxTrimIfNeeded(InlineLayoutUnit lineB
             case TextEdgeType::Text:
                 return 0.f;
             case TextEdgeType::CapHeight:
-                return rootInlineBox.ascent() - rootInlineBox.primarymetricsOfPrimaryFont().capHeight().value_or(0);
+                return primaryFontMetrics.intAscent() - primaryFontMetrics.capHeight().value_or(0);
             case TextEdgeType::ExHeight:
-                return rootInlineBox.ascent() - rootInlineBox.primarymetricsOfPrimaryFont().xHeight().value_or(0);
+                return primaryFontMetrics.intAscent() - primaryFontMetrics.xHeight().value_or(0);
             case TextEdgeType::CJKIdeographic:
             case TextEdgeType::CJKIdeographicInk:
                 ASSERT_NOT_IMPLEMENTED_YET();

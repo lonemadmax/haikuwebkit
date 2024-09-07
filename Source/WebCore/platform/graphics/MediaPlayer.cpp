@@ -49,6 +49,7 @@
 #include "PlatformTimeRanges.h"
 #include "ResourceError.h"
 #include "SecurityOrigin.h"
+#include "SpatialVideoMetadata.h"
 #include "VideoFrame.h"
 #include "VideoFrameMetadata.h"
 #include <JavaScriptCore/ArrayBuffer.h>
@@ -1349,16 +1350,6 @@ MediaPlayer::MovieLoadType MediaPlayer::movieLoadType() const
     return m_private->movieLoadType();
 }
 
-MediaPlayer::VideoPlaybackConfiguration MediaPlayer::videoPlaybackConfiguration() const
-{
-    return m_private->videoPlaybackConfiguration();
-}
-
-void MediaPlayer::videoPlaybackConfigurationChanged()
-{
-    return client().mediaPlayerVideoPlaybackConfigurationChanged();
-}
-
 MediaTime MediaPlayer::mediaTimeForTimeValue(const MediaTime& timeValue) const
 {
     return m_private->mediaTimeForTimeValue(timeValue);
@@ -2131,14 +2122,6 @@ String convertEnumerationToString(MediaPlayer::BufferingPolicy enumerationValue)
     return values[static_cast<size_t>(enumerationValue)];
 }
 
-String convertOptionSetToString(const MediaPlayer::VideoPlaybackConfiguration& value)
-{
-    return makeString('[', value.contains(MediaPlayer::VideoPlaybackConfigurationOption::Stereo) ? "Stereo|"_s : ""_s,
-        value.contains(MediaPlayer::VideoPlaybackConfigurationOption::StereoMultiview) ? "StereoMultiview|"_s : ""_s,
-        value.contains(MediaPlayer::VideoPlaybackConfigurationOption::Spatial) ? "Spatial|"_s : ""_s,
-        ']');
-}
-
 String MediaPlayer::lastErrorMessage() const
 {
     return m_lastErrorMessage;
@@ -2149,6 +2132,14 @@ String SeekTarget::toString() const
     return makeString('[', WTF::LogArgument<MediaTime>::toString(time),
         WTF::LogArgument<MediaTime>::toString(negativeThreshold),
         WTF::LogArgument<MediaTime>::toString(positiveThreshold), ']');
+}
+
+String convertSpatialVideoMetadataToString(const SpatialVideoMetadata& metadata)
+{
+    return makeString("SpatialMetadata {"_s, WTF::LogArgument<WebCore::IntSize>::toString(metadata.size),
+        WTF::LogArgument<float>::toString(metadata.horizontalFOVDegrees),
+        WTF::LogArgument<float>::toString(metadata.baseline),
+        WTF::LogArgument<float>::toString(metadata.disparityAdjustment), '}');
 }
 
 } // namespace WebCore

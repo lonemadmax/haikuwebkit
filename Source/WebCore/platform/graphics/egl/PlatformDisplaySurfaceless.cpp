@@ -33,17 +33,18 @@ namespace WebCore {
 
 std::unique_ptr<PlatformDisplaySurfaceless> PlatformDisplaySurfaceless::create()
 {
-    std::unique_ptr<GLDisplay> glDisplay;
     const char* extensions = eglQueryString(nullptr, EGL_EXTENSIONS);
+    if (!GLContext::isExtensionSupported(extensions, "EGL_MESA_platform_surfaceless"))
+        return nullptr;
+
+    std::unique_ptr<GLDisplay> glDisplay;
     if (GLContext::isExtensionSupported(extensions, "EGL_EXT_platform_base"))
         glDisplay = GLDisplay::create(eglGetPlatformDisplayEXT(EGL_PLATFORM_SURFACELESS_MESA, EGL_DEFAULT_DISPLAY, nullptr));
     else if (GLContext::isExtensionSupported(extensions, "EGL_KHR_platform_base"))
         glDisplay = GLDisplay::create(eglGetPlatformDisplay(EGL_PLATFORM_SURFACELESS_MESA, EGL_DEFAULT_DISPLAY, nullptr));
-    else
-        glDisplay = GLDisplay::create(eglGetDisplay(EGL_DEFAULT_DISPLAY));
 
     if (!glDisplay) {
-        WTFLogAlways("Could not create EGL display: %s. Aborting...", GLContext::lastErrorString());
+        WTFLogAlways("Could not create surfaceless EGL display: %s. Aborting...", GLContext::lastErrorString());
         CRASH();
     }
 

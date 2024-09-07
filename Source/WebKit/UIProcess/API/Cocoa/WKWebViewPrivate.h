@@ -420,10 +420,6 @@ for this property.
 - (NSUUID *)_enableTextIndicatorStylingForElementWithID:(NSString *)elementID WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
 - (void)_disableTextIndicatorStylingWithUUID:(NSUUID *)nsUUID WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
 
-- (NSUUID *)_enableSourceTextAnimationAfterElementWithID:(NSString *)elementID WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
-- (NSUUID *)_enableFinalTextAnimationForElementWithID:(NSString *)elementID WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
-- (void)_disableTextAnimationWithUUID:(NSUUID *)nsUUID WK_API_AVAILABLE(macos(15.0), ios(18.0), visionos(2.0));
-
 // FIXME: Remove old `-[WKWebView _themeColor]` SPI <rdar://76662644>
 #if TARGET_OS_IPHONE
 @property (nonatomic, readonly) UIColor *_themeColor WK_API_DEPRECATED_WITH_REPLACEMENT("themeColor", ios(15.0, 15.0));
@@ -835,10 +831,6 @@ typedef NS_OPTIONS(NSUInteger, WKDisplayCaptureSurfaces) {
 
 - (void)_setFont:(NSFont *)font sender:(id)sender WK_API_AVAILABLE(macos(13.3));
 
-@end
-
-@interface WKWebView (WKWindowSnapshot)
-- (NSImage *)_windowSnapshotInRect:(CGRect)rect;
 @end
 
 #endif // !TARGET_OS_IPHONE

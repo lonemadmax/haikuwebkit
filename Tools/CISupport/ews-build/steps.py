@@ -1421,7 +1421,7 @@ class FindModifiedLayoutTests(shell.ShellCommandNewStyle, AnalyzeChange):
 
     def __init__(self, skipBuildIfNoResult=True):
         self.skipBuildIfNoResult = skipBuildIfNoResult
-        super().__init__()
+        super().__init__(logEnviron=False)
 
     @defer.inlineCallbacks
     def run(self):
@@ -5891,9 +5891,10 @@ class PrintConfiguration(steps.ShellSequence):
         self.setProperty('xcode_version', xcode_version)
         os_version_builder = self.getProperty('os_version_builder', '')
         xcode_version_builder = self.getProperty('xcode_version_builder', '')
+        os_major_version_mismatch = os_version and os_version_builder and (os_version.split('.')[:2] != os_version_builder.split('.')[:2])
+        xcode_version_mismatch = xcode_version and xcode_version_builder and (xcode_version != xcode_version_builder)
 
-        if ((os_version and os_version_builder and os_version != os_version_builder) or
-                (xcode_version and xcode_version_builder and xcode_version != xcode_version_builder)):
+        if os_major_version_mismatch or xcode_version_mismatch:
             message = f'Error: OS/SDK version mismatch, please inform an admin.'
             detailed_message = message + f' Builder: OS={os_version_builder}, Xcode={xcode_version_builder}; Tester: OS={os_version}, Xcode={xcode_version}'
             print(f'\n{detailed_message}')
@@ -6639,7 +6640,9 @@ class ValidateCommitMessage(steps.ShellSequence, ShellMixin, AddToLogMixin):
             rc = FAILURE
 
         if rc == FAILURE:
-            self.setProperty('comment_text', f"{self.summary}, blocking PR #{self.getProperty('github.number')}")
+            build_url = f'{self.master.config.buildbotURL}#/builders/{self.build._builderid}/builds/{self.build.number}'
+            url_to_show = f'[Build #{self.getProperty("buildnumber", "")}]({build_url})'
+            self.setProperty('comment_text', f"{self.summary}, blocking PR #{self.getProperty('github.number')}. Details: {url_to_show}")
             self.setProperty('build_finish_summary', 'Commit message validation failed')
             self.build.addStepsAfterCurrentStep([LeaveComment(), SetCommitQueueMinusFlagOnPatch(), BlockPullRequest()])
         defer.returnValue(rc)

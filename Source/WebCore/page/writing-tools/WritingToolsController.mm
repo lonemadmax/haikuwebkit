@@ -46,8 +46,12 @@
 #import "VisibleUnits.h"
 #import "WebContentReader.h"
 #import <ranges>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(WritingToolsController);
+WTF_MAKE_TZONE_ALLOCATED_IMPL_NESTED(WritingToolsControllerEditingScope, WritingToolsController::EditingScope);
 
 #pragma mark - EditingScope
 
@@ -373,7 +377,11 @@ void WritingToolsController::showSelection() const
         return;
     }
 
-    document->selection().setSelection(*currentRange);
+    auto visibleSelection = VisibleSelection { *currentRange };
+    if (visibleSelection.isNoneOrOrphaned())
+        return;
+
+    document->selection().setSelection(visibleSelection);
 }
 
 void WritingToolsController::compositionSessionDidFinishReplacement()
@@ -761,13 +769,11 @@ void WritingToolsController::respondToReappliedEditing(EditCommandComposition* c
 
 std::optional<SimpleRange> WritingToolsController::activeSessionRange() const
 {
-    auto range = WTF::switchOn(m_state,
-        [](std::monostate) -> SimpleRange { RELEASE_ASSERT_NOT_REACHED(); },
-        [](const ProofreadingState& state) { return makeSimpleRange(state.contextRange); },
-        [](const CompositionState& state) { return state.reappliedCommands.last()->currentContextRange(); }
+    return WTF::switchOn(m_state,
+        [](std::monostate) -> std::optional<SimpleRange> { return std::nullopt; },
+        [](const ProofreadingState& state) -> std::optional<SimpleRange> { return makeSimpleRange(state.contextRange); },
+        [](const CompositionState& state) -> std::optional<SimpleRange> { return state.reappliedCommands.last()->currentContextRange(); }
     );
-
-    return range;
 }
 
 template<WritingTools::Session::Type Type>

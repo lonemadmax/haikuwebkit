@@ -530,6 +530,7 @@ accessibility/aria-table-selection-support.html [ Skip ]
 
 # AccessibilityUIElement::customContent is not implemented.
 accessibility/dynamic-aria-describedby-subtree.html [ Skip ]
+accessibility/dynamic-aria-describedby-text.html [ Skip ]
 
 # Timing out since added in https://bugs.webkit.org/show_bug.cgi?id=263715
 accessibility/focus-inside-modal.html [ Skip ]
@@ -1261,12 +1262,6 @@ webkit.org/b/264667 media/track/track-cue-left-align.html [ Pass ImageOnlyFailur
 webkit.org/b/264667 media/track/track-cue-line-position.html [ Pass ImageOnlyFailure ]
 
 webkit.org/b/254207 media/media-source/media-source-monitor-playing-event.html [ Pass Timeout ]
-
-webkit.org/b/264708 media/media-source/media-source-error-crash.html [ Pass Crash ]
-webkit.org/b/264708 [ Debug ] imported/w3c/web-platform-tests/media-source/mediasource-errors.html [ Pass Crash ]
-webkit.org/b/264708 [ Debug ] imported/w3c/web-platform-tests/media-source/mediasource-invalid-codec.html [ Pass Crash ]
-
-webkit.org/b/264708 media/media-source/media-webm-opus-partial-abort.html [ Pass Crash Failure ]
 
 webkit.org/b/265205 imported/w3c/web-platform-tests/media-source/mediasource-remove-preserves-currentTime.html [ Pass Crash ]
 
@@ -4123,6 +4118,10 @@ webkit.org/b/124566 fast/dom/SelectorAPI/resig-SelectorsAPI-test.xhtml [ Skip ] 
 
 # Failures related with compositing tests.
 webkit.org/b/169918 compositing/fixed-with-fixed-layout.html [ Crash Pass ]
+
+# Fails when cookies are not SameSite=Lax by default
+imported/w3c/web-platform-tests/html/anonymous-iframe/cookie.tentative.https.window.html [ Failure ]
+imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/anonymous-iframe/cookie.tentative.https.window.html [ Failure ]
 
 # End: Common failures between GTK and WPE.
 

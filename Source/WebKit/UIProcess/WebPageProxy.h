@@ -412,6 +412,7 @@ class PageLoadState;
 class PageLoadStateObserverBase;
 class PlatformXRSystem;
 class PlaybackSessionManagerProxy;
+class ProcessThrottlerActivity;
 class ProcessThrottlerTimedActivity;
 class ProvisionalPageProxy;
 class RemoteLayerTreeHost;
@@ -823,9 +824,9 @@ public:
     RefPtr<API::Navigation> loadRequest(WebCore::ResourceRequest&&, IsPerformingHTTPFallback = IsPerformingHTTPFallback::No);
     RefPtr<API::Navigation> loadRequest(WebCore::ResourceRequest&&, WebCore::ShouldOpenExternalURLsPolicy, API::Object* userData = nullptr, IsPerformingHTTPFallback = IsPerformingHTTPFallback::No);
     RefPtr<API::Navigation> loadFile(const String& fileURL, const String& resourceDirectoryURL, bool isAppInitiated = true, API::Object* userData = nullptr);
-    RefPtr<API::Navigation> loadData(std::span<const uint8_t>, const String& MIMEType, const String& encoding, const String& baseURL, API::Object* userData = nullptr);
-    RefPtr<API::Navigation> loadData(std::span<const uint8_t>, const String& MIMEType, const String& encoding, const String& baseURL, API::Object* userData, WebCore::ShouldOpenExternalURLsPolicy);
-    RefPtr<API::Navigation> loadSimulatedRequest(WebCore::ResourceRequest&&, WebCore::ResourceResponse&&, std::span<const uint8_t>);
+    RefPtr<API::Navigation> loadData(Ref<WebCore::SharedBuffer>&&, const String& MIMEType, const String& encoding, const String& baseURL, API::Object* userData = nullptr);
+    RefPtr<API::Navigation> loadData(Ref<WebCore::SharedBuffer>&&, const String& MIMEType, const String& encoding, const String& baseURL, API::Object* userData, WebCore::ShouldOpenExternalURLsPolicy);
+    RefPtr<API::Navigation> loadSimulatedRequest(WebCore::ResourceRequest&&, WebCore::ResourceResponse&&, Ref<WebCore::SharedBuffer>&&);
     void loadAlternateHTML(Ref<WebCore::DataSegment>&&, const String& encoding, const URL& baseURL, const URL& unreachableURL, API::Object* userData = nullptr);
     void navigateToPDFLinkWithSimulatedClick(const String& url, WebCore::IntPoint documentPoint, WebCore::IntPoint screenPoint);
 
@@ -2035,7 +2036,7 @@ public:
     void decidePolicyForNavigationActionAsyncShared(Ref<WebProcessProxy>&&, NavigationActionData&&, CompletionHandler<void(PolicyDecision&&)>&&);
     void decidePolicyForResponseShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, FrameInfoData&&, std::optional<WebCore::NavigationIdentifier>, const WebCore::ResourceResponse&, const WebCore::ResourceRequest&, bool canShowMIMEType, const String& downloadAttribute, bool isShowingInitialAboutBlank, WebCore::CrossOriginOpenerPolicyValue activeDocumentCOOPValue, CompletionHandler<void(PolicyDecision&&)>&&);
     void startURLSchemeTaskShared(IPC::Connection&, Ref<WebProcessProxy>&&, WebCore::PageIdentifier, URLSchemeTaskParameters&&);
-    void loadDataWithNavigationShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, API::Navigation&, std::span<const uint8_t>, const String& MIMEType, const String& encoding, const String& baseURL, API::Object* userData, WebCore::ShouldTreatAsContinuingLoad, std::optional<NavigatingToAppBoundDomain>, std::optional<WebsitePoliciesData>&&, WebCore::ShouldOpenExternalURLsPolicy, WebCore::SessionHistoryVisibility);
+    void loadDataWithNavigationShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, API::Navigation&, Ref<WebCore::SharedBuffer>&&, const String& MIMEType, const String& encoding, const String& baseURL, API::Object* userData, WebCore::ShouldTreatAsContinuingLoad, std::optional<NavigatingToAppBoundDomain>, std::optional<WebsitePoliciesData>&&, WebCore::ShouldOpenExternalURLsPolicy, WebCore::SessionHistoryVisibility);
     void loadRequestWithNavigationShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, API::Navigation&, WebCore::ResourceRequest&&, WebCore::ShouldOpenExternalURLsPolicy, API::Object* userData, WebCore::ShouldTreatAsContinuingLoad, std::optional<NavigatingToAppBoundDomain>, std::optional<WebsitePoliciesData>&&, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume, IsPerformingHTTPFallback = IsPerformingHTTPFallback::No);
     void backForwardAddItemShared(Ref<WebProcessProxy>&&, WebCore::FrameIdentifier, BackForwardListItemState&&, LoadedWebArchive);
     void backForwardGoToItemShared(const WebCore::BackForwardItemIdentifier&, CompletionHandler<void(const WebBackForwardListCounts&)>&&);
@@ -2428,10 +2429,9 @@ public:
 
     void proofreadingSessionShowDetailsForSuggestionWithIDRelativeToRect(IPC::Connection&, const WebCore::WritingTools::TextSuggestionID&, WebCore::IntRect selectionBoundsInRootView);
     void proofreadingSessionUpdateStateForSuggestionWithID(IPC::Connection&, WebCore::WritingTools::TextSuggestionState, const WebCore::WritingTools::TextSuggestionID&);
-#endif // ENABLE(WRITING_TOOLS)
 
-#if ENABLE(WRITING_TOOLS_UI)
-    void addTextAnimationForAnimationID(IPC::Connection&, const WTF::UUID&, const WebCore::TextAnimationData&, const WebCore::TextIndicatorData&, WTF::CompletionHandler<void(WebCore::TextAnimationRunMode)>&&);
+    void addTextAnimationForAnimationID(IPC::Connection&, const WTF::UUID&, const WebCore::TextAnimationData&, const WebCore::TextIndicatorData&);
+    void addTextAnimationForAnimationIDWithCompletionHandler(IPC::Connection&, const WTF::UUID&, const WebCore::TextAnimationData&, const WebCore::TextIndicatorData&, WTF::CompletionHandler<void(WebCore::TextAnimationRunMode)>&&);
     void removeTextAnimationForAnimationID(IPC::Connection&, const WTF::UUID&);
     void enableSourceTextAnimationAfterElementWithID(const String& elementID);
     void enableTextAnimationTypeForElementWithID(const String& elementID);
@@ -2440,8 +2440,11 @@ public:
     void getTextIndicatorForID(const WTF::UUID&, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&&);
     void updateUnderlyingTextVisibilityForTextAnimationID(const WTF::UUID&, bool, CompletionHandler<void()>&& = [] { });
 
+    bool writingToolsTextReplacementsFinished();
     void showSelectionForActiveWritingToolsSession();
+
     void didEndPartialIntelligenceTextPonderingAnimation(IPC::Connection&);
+    void didEndPartialIntelligenceTextPonderingAnimationImpl();
 #endif
 
     void resetVisibilityAdjustmentsForTargetedElements(const Vector<Ref<API::TargetedElementInfo>>&, CompletionHandler<void(bool)>&&);
@@ -2460,6 +2463,7 @@ public:
     void sendScrollPositionChangedForNode(std::optional<WebCore::FrameIdentifier>, WebCore::ScrollingNodeID, const WebCore::FloatPoint& scrollPosition, std::optional<WebCore::FloatPoint> layoutViewportOrigin, bool syncLayerPosition, bool isLastUpdate);
 #endif
 
+    bool hasValidAudibleActivity() const;
     bool hasAllowedToRunInTheBackgroundActivity() const;
 
     template<typename M> void sendToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&, OptionSet<IPC::SendOption> = { });
@@ -2467,7 +2471,7 @@ public:
     template<typename M> IPC::ConnectionSendSyncResult<M> sendSyncToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&);
     template<typename M> IPC::ConnectionSendSyncResult<M> sendSyncToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&, const IPC::Timeout&);
 
-    void forEachWebContentProcess(Function<void(WebProcessProxy&, WebCore::PageIdentifier)>&&) const;
+    void forEachWebContentProcess(Function<void(WebProcessProxy&, WebCore::PageIdentifier)>&&);
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
     void setDefaultSpatialTrackingLabel(const String&);
@@ -3104,24 +3108,41 @@ private:
     static WTF::MachSendRight createMachSendRightForRemoteLayerServer();
 #endif
 
-    void takeVisibleActivity();
-    void takeAudibleActivity();
-    void takeCapturingActivity();
+    class ProcessActivityState {
+    public:
+        explicit ProcessActivityState(WebPageProxy&);
+        void takeVisibleActivity();
+        void takeAudibleActivity();
+        void takeCapturingActivity();
 
-    void resetActivityState();
-    void dropVisibleActivity();
-    void dropAudibleActivity();
-    void dropCapturingActivity();
+        void reset();
+        void dropVisibleActivity();
+        void dropAudibleActivity();
+        void dropCapturingActivity();
 
-    bool hasValidVisibleActivity() const;
-    bool hasValidAudibleActivity() const;
-    bool hasValidCapturingActivity() const;
+        bool hasValidVisibleActivity() const;
+        bool hasValidAudibleActivity() const;
+        bool hasValidCapturingActivity() const;
 
 #if PLATFORM(IOS_FAMILY)
-    void takeOpeningAppLinkActivity();
-    void dropOpeningAppLinkActivity();
-    bool hasValidOpeningAppLinkActivity() const;
+        void takeOpeningAppLinkActivity();
+        void dropOpeningAppLinkActivity();
+        bool hasValidOpeningAppLinkActivity() const;
 #endif
+
+    private:
+        WebPageProxy& m_page;
+
+        std::unique_ptr<ProcessThrottlerActivity> m_isVisibleActivity;
+#if PLATFORM(MAC)
+        UniqueRef<ProcessThrottlerTimedActivity> m_wasRecentlyVisibleActivity;
+#endif
+        std::unique_ptr<ProcessThrottlerActivity> m_isAudibleActivity;
+        std::unique_ptr<ProcessThrottlerActivity> m_isCapturingActivity;
+#if PLATFORM(IOS_FAMILY)
+        std::unique_ptr<ProcessThrottlerActivity> m_openingAppLinkActivity;
+#endif
+    };
 
     UniqueRef<Internals> m_internals;
 
@@ -3269,6 +3290,8 @@ private:
     bool m_isListeningForUserFacingStateChangeNotification { false };
 #endif
     bool m_allowsMediaDocumentInlinePlayback { false };
+
+    ProcessActivityState m_legacyMainFrameProcessActivityState;
 
     bool m_initialCapitalizationEnabled { false };
     std::optional<double> m_cpuLimit;

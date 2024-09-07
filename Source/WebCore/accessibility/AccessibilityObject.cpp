@@ -352,7 +352,7 @@ String AccessibilityObject::computedLabel()
 {
     // This method is being called by WebKit inspector, which may happen at any time, so we need to update our backing store now.
     // Also hold onto this object in case updateBackingStore deletes this node.
-    RefPtr<AccessibilityObject> protectedThis(this);
+    Ref protectedThis { *this };
     updateBackingStore();
     Vector<AccessibilityText> text;
     accessibilityText(text);
@@ -2438,8 +2438,12 @@ bool AccessibilityObject::hasAttribute(const QualifiedName& attribute) const
     if (element->hasAttributeWithoutSynchronization(attribute))
         return true;
 
-    if (auto* defaultARIA = element->customElementDefaultARIAIfExists())
-        return defaultARIA->hasAttribute(attribute);
+    if (auto* defaultARIA = element->customElementDefaultARIAIfExists()) {
+        // We do not want to use CustomElementDefaultARIA::hasAttribute here, as it returns true
+        // even if the author has set the attribute to null (e.g. this.internals.ariaValueNow = null),
+        // which should be treated the same as removing the attribute.
+        return !defaultARIA->valueForAttribute(*element, attribute).isNull();
+    }
 
     return false;
 }

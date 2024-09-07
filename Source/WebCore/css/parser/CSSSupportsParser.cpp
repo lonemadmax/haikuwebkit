@@ -31,6 +31,7 @@
 #include "CSSSupportsParser.h"
 
 #include "CSSParserImpl.h"
+#include "CSSPropertyParserConsumer+Font.h"
 #include "CSSPropertyParserHelpers.h"
 #include "CSSSelectorParser.h"
 #include "CSSTokenizer.h"
@@ -164,7 +165,7 @@ CSSSupportsParser::SupportsResult CSSSupportsParser::consumeSupportsSelectorFunc
     auto block = range.consumeBlock();
     block.consumeWhitespace();
 
-    return CSSSelectorParser::supportsComplexSelector(block, m_parser.context(), m_isNestedContext) ? Supported : Unsupported;
+    return CSSSelectorParser::supportsComplexSelector(block, m_parser.context()) ? Supported : Unsupported;
 }
 
 // <supports-font-format-fn>

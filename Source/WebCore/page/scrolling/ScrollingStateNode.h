@@ -29,8 +29,10 @@
 
 #include "GraphicsLayer.h"
 #include "ScrollingCoordinator.h"
+#include "ScrollingPlatformLayer.h"
 #include <stdint.h>
 #include <wtf/CheckedPtr.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/TypeCasts.h>
 #include <wtf/Vector.h>
@@ -67,7 +69,7 @@ public:
         , m_representation(GraphicsLayerRepresentation)
     { }
 
-    LayerRepresentation(PlatformLayer* platformLayer)
+    LayerRepresentation(ScrollingPlatformLayer* platformLayer)
         : m_typelessPlatformLayer(makePlatformLayerTypeless(platformLayer))
         , m_representation(PlatformLayerRepresentation)
     {
@@ -101,7 +103,7 @@ public:
         return m_graphicsLayer.get();
     }
 
-    explicit operator PlatformLayer*() const
+    explicit operator ScrollingPlatformLayer*() const
     {
         ASSERT(m_representation == PlatformLayerRepresentation);
         return makePlatformLayerTyped(m_typelessPlatformLayer);
@@ -181,7 +183,7 @@ public:
             ASSERT(m_representation == GraphicsLayerRepresentation);
             return LayerRepresentation(m_graphicsLayer.get());
         case PlatformLayerRepresentation:
-            return m_graphicsLayer ? m_graphicsLayer->platformLayer() : nullptr;
+            return m_graphicsLayer ? platformLayerFromGraphicsLayer(*m_graphicsLayer) : nullptr;
         case PlatformLayerIDRepresentation:
             return LayerRepresentation(m_layerID);
         }
@@ -195,8 +197,9 @@ public:
 private:
     WEBCORE_EXPORT static void retainPlatformLayer(void* typelessPlatformLayer);
     WEBCORE_EXPORT static void releasePlatformLayer(void* typelessPlatformLayer);
-    WEBCORE_EXPORT static PlatformLayer* makePlatformLayerTyped(void* typelessPlatformLayer);
-    WEBCORE_EXPORT static void* makePlatformLayerTypeless(PlatformLayer*);
+    WEBCORE_EXPORT static ScrollingPlatformLayer* makePlatformLayerTyped(void* typelessPlatformLayer);
+    WEBCORE_EXPORT static void* makePlatformLayerTypeless(ScrollingPlatformLayer*);
+    WEBCORE_EXPORT static ScrollingPlatformLayer* platformLayerFromGraphicsLayer(GraphicsLayer&);
 
     RefPtr<GraphicsLayer> m_graphicsLayer;
     void* m_typelessPlatformLayer { nullptr };
@@ -273,7 +276,7 @@ enum class ScrollingStateNodeProperty : uint64_t {
 };
 
 class ScrollingStateNode : public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<ScrollingStateNode> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(ScrollingStateNode);
 public:
     virtual ~ScrollingStateNode();
 

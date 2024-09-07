@@ -639,7 +639,7 @@ Value WARN_UNUSED_RETURN BBQJIT::emitAtomicLoadOp(ExtAtomicOpType loadOp, Type v
     Address address = Address(pointer.asGPR());
 
     if (accessWidth(loadOp) != Width8)
-        throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branchTest64(ResultCondition::NonZero, pointer.asGPR(), TrustedImm64(sizeOfAtomicOpMemoryAccess(loadOp) - 1)));
+        throwExceptionIf(ExceptionType::UnalignedMemoryAccess, m_jit.branchTest64(ResultCondition::NonZero, pointer.asGPR(), TrustedImm64(sizeOfAtomicOpMemoryAccess(loadOp) - 1)));
 
     Value result = topValue(valueType.kind);
     Location resultLocation = allocate(result);
@@ -731,7 +731,7 @@ void BBQJIT::emitAtomicStoreOp(ExtAtomicOpType storeOp, Type, Location pointer, 
     Address address = Address(pointer.asGPR());
 
     if (accessWidth(storeOp) != Width8)
-        throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branchTest64(ResultCondition::NonZero, pointer.asGPR(), TrustedImm64(sizeOfAtomicOpMemoryAccess(storeOp) - 1)));
+        throwExceptionIf(ExceptionType::UnalignedMemoryAccess, m_jit.branchTest64(ResultCondition::NonZero, pointer.asGPR(), TrustedImm64(sizeOfAtomicOpMemoryAccess(storeOp) - 1)));
 
     GPRReg scratch1GPR = InvalidGPRReg;
     GPRReg scratch2GPR = InvalidGPRReg;
@@ -832,7 +832,7 @@ Value BBQJIT::emitAtomicBinaryRMWOp(ExtAtomicOpType op, Type valueType, Location
     Address address = Address(pointer.asGPR());
 
     if (accessWidth(op) != Width8)
-        throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branchTest64(ResultCondition::NonZero, pointer.asGPR(), TrustedImm64(sizeOfAtomicOpMemoryAccess(op) - 1)));
+        throwExceptionIf(ExceptionType::UnalignedMemoryAccess, m_jit.branchTest64(ResultCondition::NonZero, pointer.asGPR(), TrustedImm64(sizeOfAtomicOpMemoryAccess(op) - 1)));
 
     Value result = topValue(valueType.kind);
     Location resultLocation = allocate(result);
@@ -1196,7 +1196,7 @@ Value WARN_UNUSED_RETURN BBQJIT::emitAtomicCompareExchange(ExtAtomicOpType op, T
     Width accessWidth = this->accessWidth(op);
 
     if (accessWidth != Width8)
-        throwExceptionIf(ExceptionType::OutOfBoundsMemoryAccess, m_jit.branchTest64(ResultCondition::NonZero, pointer.asGPR(), TrustedImm64(sizeOfAtomicOpMemoryAccess(op) - 1)));
+        throwExceptionIf(ExceptionType::UnalignedMemoryAccess, m_jit.branchTest64(ResultCondition::NonZero, pointer.asGPR(), TrustedImm64(sizeOfAtomicOpMemoryAccess(op) - 1)));
 
     Value result = topValue(expected.type());
     Location resultLocation = allocate(result);
@@ -1633,7 +1633,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayNew(uint32_t typeIndex, Express
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayNewFixed(uint32_t typeIndex, Vector<ExpressionType>& args, ExpressionType& result)
+PartialResult WARN_UNUSED_RETURN BBQJIT::addArrayNewFixed(uint32_t typeIndex, ArgumentList& args, ExpressionType& result)
 {
     // Allocate an uninitialized array whose length matches the argument count
     // FIXME: inline the allocation.
@@ -2150,7 +2150,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addStructNewDefault(uint32_t typeIndex,
     return { };
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addStructNew(uint32_t typeIndex, Vector<Value>& args, Value& result)
+PartialResult WARN_UNUSED_RETURN BBQJIT::addStructNew(uint32_t typeIndex, ArgumentList& args, Value& result)
 {
     Vector<Value, 8> arguments = {
         instanceValue(),
@@ -4546,7 +4546,7 @@ Location BBQJIT::allocateRegisterPair()
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addCallRef(const TypeDefinition& originalSignature, Vector<Value>& args, ResultList& results)
+PartialResult WARN_UNUSED_RETURN BBQJIT::addCallRef(const TypeDefinition& originalSignature, ArgumentList& args, ResultList& results)
 {
     Value callee = args.takeLast();
     const TypeDefinition& signature = originalSignature.expand();
