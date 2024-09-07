@@ -124,7 +124,7 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
 		std::optional<WebCore::HitTestResult>&&, FramePolicyFunction&&) override;
     void dispatchDecidePolicyForNavigationAction(const NavigationAction&,
         const ResourceRequest&, const WebCore::ResourceResponse&, FormState*,
-		const String& clientRedirectSourceForHistory, uint64_t navigationID, std::optional<HitTestResult>&&, bool hasOpener, SandboxFlags, PolicyDecisionMode, FramePolicyFunction&&) override;
+		const String& clientRedirectSourceForHistory, std::optional<NavigationIdentifier> navigationID, std::optional<HitTestResult>&&, bool hasOpener, SandboxFlags, PolicyDecisionMode, FramePolicyFunction&&) override;
     void cancelPolicyCheck() override;
 
     void dispatchUnableToImplementPolicy(const ResourceError&) override;

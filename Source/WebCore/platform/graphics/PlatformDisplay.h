@@ -116,7 +116,6 @@ protected:
 
     std::unique_ptr<GLDisplay> m_eglDisplay;
     std::unique_ptr<GLContext> m_sharingGLContext;
-#endif
 
 #if ENABLE(WEBGL) && !PLATFORM(WIN)
     std::optional<int> m_anglePlatform;
@@ -132,9 +131,7 @@ private:
     void clearANGLESharingGLContext();
 #endif
 
-#if USE(LIBDRM)
-    EGLDeviceEXT eglDevice();
-#endif
+    void terminateEGLDisplay();
 
 #if ENABLE(WEBGL) && !PLATFORM(WIN)
     mutable EGLDisplay m_angleEGLDisplay { nullptr };
