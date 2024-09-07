@@ -461,10 +461,12 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     unsigned long long imageBufferForCanvasLimit;
 };
 
+/*
 enum RenderingMode {
     "Unaccelerated",
     "Accelerated"
 };
+*/
 
 [
     ExportMacro=WEBCORE_TESTSUPPORT_EXPORT,
@@ -1405,6 +1407,6 @@ enum RenderingMode {
 
     boolean isEffectivelyMuted(HTMLMediaElement element);
 
-    RenderingMode? getEffectiveRenderingModeOfNewlyCreatedAcceleratedImageBuffer();
+    //RenderingModeInternal? getEffectiveRenderingModeOfNewlyCreatedAcceleratedImageBuffer();
     Promise<ImageBufferResourceLimits> getImageBufferResourceLimits();
 };
