@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "GLDisplay.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/TypeCasts.h>
 #include <wtf/text/WTFString.h>
@@ -35,18 +36,6 @@ typedef void *EGLContext;
 typedef void *EGLDisplay;
 typedef void *EGLImage;
 typedef unsigned EGLenum;
-#if USE(LIBDRM)
-typedef void *EGLDeviceEXT;
-#endif
-#if USE(GBM)
-struct gbm_device;
-#endif
-
-#if PLATFORM(GTK)
-#include <wtf/glib/GRefPtr.h>
-
-typedef struct _GdkDisplay GdkDisplay;
-#endif
 
 #if ENABLE(VIDEO) && USE(GSTREAMER_GL)
 #include "GRefPtrGStreamer.h"
@@ -75,12 +64,6 @@ public:
     virtual ~PlatformDisplay();
 
     enum class Type {
-#if PLATFORM(X11)
-        X11,
-#endif
-#if PLATFORM(WAYLAND)
-        Wayland,
-#endif
 #if PLATFORM(WIN)
         Windows,
 #endif
@@ -103,35 +86,12 @@ public:
     EGLDisplay eglDisplay() const;
     bool eglCheckVersion(int major, int minor) const;
 
-    struct EGLExtensions {
-        bool KHR_image_base { false };
-        bool KHR_fence_sync { false };
-        bool KHR_surfaceless_context { false };
-        bool KHR_wait_sync { false };
-        bool EXT_image_dma_buf_import { false };
-        bool EXT_image_dma_buf_import_modifiers { false };
-        bool MESA_image_dma_buf_export { false };
-        bool ANDROID_native_fence_sync { false };
-    };
-    const EGLExtensions& eglExtensions() const;
+    const GLDisplay::Extensions& eglExtensions() const;
 
     EGLImage createEGLImage(EGLContext, EGLenum target, EGLClientBuffer, const Vector<EGLAttrib>&) const;
     bool destroyEGLImage(EGLImage) const;
-#if USE(LIBDRM)
-    const String& drmDeviceFile();
-    const String& drmRenderNodeFile();
-#endif
 #if USE(GBM)
-    struct gbm_device* gbmDevice();
-    struct DMABufFormat {
-        uint32_t fourcc { 0 };
-        Vector<uint64_t, 1> modifiers;
-    };
-    const Vector<DMABufFormat>& dmabufFormats();
-#endif
-
-#if PLATFORM(GTK)
-    virtual EGLDisplay gtkEGLDisplay() { return nullptr; }
+    const Vector<GLDisplay::DMABufFormat>& dmabufFormats();
 #endif
 
 #if ENABLE(WEBGL)
@@ -148,37 +108,14 @@ public:
 #if USE(SKIA)
     GLContext* skiaGLContext();
     GrDirectContext* skiaGrContext();
-#endif
-
-#if USE(ATSPI)
-    const String& accessibilityBusAddress() const;
+    unsigned msaaSampleCount() const;
 #endif
 
 protected:
-    PlatformDisplay();
-#if PLATFORM(GTK)
-    explicit PlatformDisplay(GdkDisplay*);
-#endif
+    explicit PlatformDisplay(std::unique_ptr<GLDisplay>&&);
 
-#if !PLATFORM(HAIKU)
-    virtual void initializeEGLDisplay();
-#endif
-
-#if PLATFORM(GTK)
-    virtual void sharedDisplayDidClose();
-
-    GRefPtr<GdkDisplay> m_sharedDisplay;
-#endif
-
-    EGLDisplay m_eglDisplay;
-    bool m_eglDisplayOwned { true };
-#if !PLATFORM(HAIKU)
+    std::unique_ptr<GLDisplay> m_eglDisplay;
     std::unique_ptr<GLContext> m_sharingGLContext;
-#endif
-
-#if USE(LIBDRM)
-    std::optional<String> m_drmDeviceFile;
-    std::optional<String> m_drmRenderNodeFile;
 #endif
 
 #if ENABLE(WEBGL) && !PLATFORM(WIN)
@@ -186,15 +123,7 @@ protected:
     void* m_angleNativeDisplay { nullptr };
 #endif
 
-#if USE(ATSPI)
-    virtual String platformAccessibilityBusAddress() const { return { }; }
-
-    mutable std::optional<String> m_accessibilityBusAddress;
-#endif
-
 private:
-    static std::unique_ptr<PlatformDisplay> createPlatformDisplay();
-
 #if USE(SKIA)
     void invalidateSkiaGLContexts();
 #endif
@@ -203,23 +132,13 @@ private:
     void clearANGLESharingGLContext();
 #endif
 
-#if !PLATFORM(HAIKU)
-    void terminateEGLDisplay();
-#endif
 #if USE(LIBDRM)
     EGLDeviceEXT eglDevice();
 #endif
 
-    bool m_eglDisplayInitialized { false };
-    int m_eglMajorVersion { 0 };
-    int m_eglMinorVersion { 0 };
-    EGLExtensions m_eglExtensions;
 #if ENABLE(WEBGL) && !PLATFORM(WIN)
     mutable EGLDisplay m_angleEGLDisplay { nullptr };
     EGLContext m_angleSharingGLContext { nullptr };
-#endif
-#if USE(GBM)
-    Vector<DMABufFormat> m_dmabufFormats;
 #endif
 
 #if ENABLE(VIDEO) && USE(GSTREAMER_GL)

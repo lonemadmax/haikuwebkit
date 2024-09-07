@@ -268,7 +268,7 @@ struct ViewTimelineInsets;
 
 struct TabSize;
 class TextAutospace;
-struct TextBoxEdge;
+struct TextEdge;
 struct TextSpacingTrim;
 struct TransformOperationData;
 
@@ -286,7 +286,7 @@ struct PseudoElementIdentifier;
 struct ScopedName;
 }
 
-constexpr auto PublicPseudoIDBits = 16;
+constexpr auto PublicPseudoIDBits = 17;
 constexpr auto TextDecorationLineBits = 4;
 constexpr auto TextTransformBits = 5;
 constexpr auto PseudoElementTypeBits = 5;
@@ -579,7 +579,8 @@ public:
     inline TextJustify textJustify() const;
 
     inline TextBoxTrim textBoxTrim() const;
-    TextBoxEdge textBoxEdge() const;
+    TextEdge textBoxEdge() const;
+    TextEdge lineFitEdge() const;
 
     inline OptionSet<MarginTrimType> marginTrim() const;
 
@@ -1120,6 +1121,7 @@ public:
 
     inline MathStyle mathStyle() const;
 
+    inline const Vector<Style::ScopedName>& viewTransitionClasses() const;
     inline std::optional<Style::ScopedName> viewTransitionName() const;
 
     void setDisplay(DisplayType value)
@@ -1284,7 +1286,8 @@ public:
     inline void setTextJustify(TextJustify);
 
     inline void setTextBoxTrim(TextBoxTrim);
-    void setTextBoxEdge(TextBoxEdge);
+    void setTextBoxEdge(TextEdge);
+    void setLineFitEdge(TextEdge);
 
     inline void setMarginTrim(OptionSet<MarginTrimType>);
 
@@ -1768,6 +1771,7 @@ public:
     inline QuotesData* quotes() const;
     void setQuotes(RefPtr<QuotesData>&&);
 
+    inline void setViewTransitionClasses(const Vector<Style::ScopedName>&);
     inline void setViewTransitionName(std::optional<Style::ScopedName>);
 
     inline WillChangeData* willChange() const;
@@ -1874,6 +1878,7 @@ public:
     static constexpr ListStylePosition initialListStylePosition();
     static inline ListStyleType initialListStyleType();
     static constexpr OptionSet<TextTransform> initialTextTransform();
+    static inline Vector<Style::ScopedName> initialViewTransitionClasses();
     static inline std::optional<Style::ScopedName> initialViewTransitionName();
     static constexpr Visibility initialVisibility();
     static constexpr WhiteSpaceCollapse initialWhiteSpaceCollapse();
@@ -1899,7 +1904,8 @@ public:
     static inline Length initialPadding();
     static inline Length initialTextIndent();
     static constexpr TextBoxTrim initialTextBoxTrim();
-    static TextBoxEdge initialTextBoxEdge();
+    static TextEdge initialTextBoxEdge();
+    static TextEdge initialLineFitEdge();
     static constexpr LengthType zeroLength();
     static inline Length oneLength();
     static unsigned short initialWidows() { return 2; }

@@ -88,6 +88,7 @@
 #include "FloatQuad.h"
 #include "FontCache.h"
 #include "FormController.h"
+#include "FragmentDirectiveGenerator.h"
 #include "FrameLoader.h"
 #include "FullscreenManager.h"
 #include "GCObservation.h"
@@ -2507,6 +2508,13 @@ Vector<Internals::TextIteratorState> Internals::statesOfTextIterator(const Range
     return states;
 }
 
+String Internals::textFragmentDirectiveForRange(const Range& range)
+{
+    auto simpleRange = makeSimpleRange(range);
+    simpleRange.start.document().updateLayout();
+    return FragmentDirectiveGenerator(simpleRange).urlWithFragment().string();
+}
+
 #if !PLATFORM(MAC)
 ExceptionOr<RefPtr<Range>> Internals::rangeForDictionaryLookupAtLocation(int, int)
 {
@@ -3064,7 +3072,7 @@ uint64_t Internals::messagePortIdentifier(const MessagePort& port) const
 
 bool Internals::isMessagePortAlive(uint64_t messagePortIdentifier) const
 {
-    MessagePortIdentifier portIdentifier { Process::identifier(), AtomicObjectIdentifier<PortIdentifierType>(messagePortIdentifier) };
+    MessagePortIdentifier portIdentifier { Process::identifier(), LegacyNullableAtomicObjectIdentifier<PortIdentifierType>(messagePortIdentifier) };
     return MessagePort::isMessagePortAliveForTesting(portIdentifier);
 }
 
@@ -3722,16 +3730,6 @@ ExceptionOr<float> Internals::pageScaleFactor() const
         return Exception { ExceptionCode::InvalidAccessError };
 
     return document->page()->pageScaleFactor();
-}
-
-ExceptionOr<void> Internals::setPageScaleFactor(float scaleFactor, int x, int y)
-{
-    Document* document = contextDocument();
-    if (!document || !document->page())
-        return Exception { ExceptionCode::InvalidAccessError };
-
-    document->page()->setPageScaleFactor(scaleFactor, IntPoint(x, y));
-    return { };
 }
 
 ExceptionOr<void> Internals::setPageZoomFactor(float zoomFactor)

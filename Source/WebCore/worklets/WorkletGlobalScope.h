@@ -49,10 +49,10 @@ class WorkerScriptLoader;
 struct WorkletParameters;
 
 enum class WorkletGlobalScopeIdentifierType { };
-using WorkletGlobalScopeIdentifier = ObjectIdentifier<WorkletGlobalScopeIdentifierType>;
+using WorkletGlobalScopeIdentifier = LegacyNullableObjectIdentifier<WorkletGlobalScopeIdentifierType>;
 
 class WorkletGlobalScope : public WorkerOrWorkletGlobalScope {
-    WTF_MAKE_ISO_ALLOCATED(WorkletGlobalScope);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(WorkletGlobalScope);
 public:
     virtual ~WorkletGlobalScope();
 

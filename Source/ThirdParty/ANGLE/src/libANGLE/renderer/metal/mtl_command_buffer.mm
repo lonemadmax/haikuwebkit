@@ -12,6 +12,7 @@
 
 #include <cassert>
 #include <cstdint>
+#include <type_traits>
 #include "mtl_command_buffer.h"
 #if ANGLE_MTL_SIMULATE_DISCARD_FRAMEBUFFER
 #    include <random>
@@ -1387,8 +1388,10 @@ void RenderCommandEncoder::reset()
     mCommands.clear();
 }
 
+template <typename ObjCAttachmentDescriptor>
 bool RenderCommandEncoder::finalizeLoadStoreAction(
-    MTLRenderPassAttachmentDescriptor *objCRenderPassAttachment)
+    const RenderPassAttachmentDesc &cppRenderPassAttachment,
+    ObjCAttachmentDescriptor *objCRenderPassAttachment)
 {
     if (!objCRenderPassAttachment.texture)
     {
@@ -1402,18 +1405,52 @@ bool RenderCommandEncoder::finalizeLoadStoreAction(
     {
         if (objCRenderPassAttachment.storeAction == MTLStoreActionStore)
         {
-            // NOTE(hqle): Currently if the store action with implicit MS texture is MTLStoreAction,
-            // it is automatically convert to store and resolve action. It might introduce
-            // unnecessary overhead.
-            // Consider an improvement such as only store the MS texture, and resolve only at
-            // the end of real render pass (not render pass the was interrupted by compute pass)
-            // or before glBlitFramebuffer operation starts.
+            // NOTE(hqle): Currently if the store action with implicit MS texture is
+            // MTLStoreAction, it is automatically converted to store and resolve action. It might
+            // introduce unnecessary overhead. Consider an improvement such as only store the MS
+            // texture, and resolve only at the end of real render pass (not render pass that was
+            // interrupted by compute pass) or before glBlitFramebuffer operation starts.
             objCRenderPassAttachment.storeAction = MTLStoreActionStoreAndMultisampleResolve;
         }
         else if (objCRenderPassAttachment.storeAction == MTLStoreActionDontCare)
         {
             // Ignore resolve texture if the store action is not a resolve action.
             objCRenderPassAttachment.resolveTexture = nil;
+        }
+    }
+
+    // Check if we need to disable MTLLoadActionLoad & MTLStoreActionStore
+    mtl::TextureRef mainTextureRef = cppRenderPassAttachment.texture;
+    ASSERT(mainTextureRef->get() == objCRenderPassAttachment.texture);
+    if (mainTextureRef->shouldNotLoadStore())
+    {
+        // Disable Load.
+        if (objCRenderPassAttachment.loadAction == MTLLoadActionLoad)
+        {
+            objCRenderPassAttachment.loadAction = MTLLoadActionDontCare;
+        }
+
+        // Disable Store.
+        if (objCRenderPassAttachment.storeAction == MTLStoreActionStore)
+        {
+            objCRenderPassAttachment.storeAction = MTLStoreActionDontCare;
+        }
+        else if (objCRenderPassAttachment.storeAction == MTLStoreActionStoreAndMultisampleResolve)
+        {
+            objCRenderPassAttachment.storeAction = MTLStoreActionMultisampleResolve;
+        }
+    }
+
+    // If the texture has emulated format such as RGB, we need to clear the texture so that the
+    // alpha channel will always be one. Otherwise DontCare loadAction would have set the alpha
+    // channel to garbage values.
+    if constexpr (std::is_same_v<ObjCAttachmentDescriptor, MTLRenderPassColorAttachmentDescriptor>)
+    {
+        if (objCRenderPassAttachment.loadAction == MTLLoadActionDontCare &&
+            mainTextureRef->getColorWritableMask() != MTLColorWriteMaskAll)
+        {
+            objCRenderPassAttachment.loadAction = MTLLoadActionClear;
+            objCRenderPassAttachment.clearColor = MTLClearColorMake(0, 0, 0, kEmulatedAlphaValue);
         }
     }
 
@@ -1445,19 +1482,22 @@ void RenderCommandEncoder::endEncodingImpl(bool considerDiscardSimulation)
         // Update store action set between restart() and endEncoding()
         objCRenderPassDesc.colorAttachments[i].storeAction =
             mRenderPassDesc.colorAttachments[i].storeAction;
-        if (finalizeLoadStoreAction(objCRenderPassDesc.colorAttachments[i]))
+        if (finalizeLoadStoreAction(mRenderPassDesc.colorAttachments[i],
+                                    objCRenderPassDesc.colorAttachments[i]))
             hasAttachment = true;
     }
 
     // Update store action set between restart() and endEncoding()
     objCRenderPassDesc.depthAttachment.storeAction = mRenderPassDesc.depthAttachment.storeAction;
-    if (finalizeLoadStoreAction(objCRenderPassDesc.depthAttachment))
+    if (finalizeLoadStoreAction(mRenderPassDesc.depthAttachment,
+                                objCRenderPassDesc.depthAttachment))
         hasAttachment = true;
 
     // Update store action set between restart() and endEncoding()
     objCRenderPassDesc.stencilAttachment.storeAction =
         mRenderPassDesc.stencilAttachment.storeAction;
-    if (finalizeLoadStoreAction(objCRenderPassDesc.stencilAttachment))
+    if (finalizeLoadStoreAction(mRenderPassDesc.stencilAttachment,
+                                objCRenderPassDesc.stencilAttachment))
         hasAttachment = true;
 
     // Set visibility result buffer

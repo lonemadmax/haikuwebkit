@@ -33,7 +33,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/UniqueRef.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
@@ -43,7 +43,8 @@ class WebResourceLoadScheduler;
 WebResourceLoadScheduler& webResourceLoadScheduler();
 
 class WebResourceLoadScheduler final : public WebCore::LoaderStrategy {
-    WTF_MAKE_NONCOPYABLE(WebResourceLoadScheduler); WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(WebResourceLoadScheduler);
+    WTF_MAKE_NONCOPYABLE(WebResourceLoadScheduler);
 public:
     WebResourceLoadScheduler();
 
@@ -86,7 +87,7 @@ private:
 
     class HostInformation final : public CanMakeWeakPtr<HostInformation>, public CanMakeCheckedPtr<HostInformation> {
         WTF_MAKE_NONCOPYABLE(HostInformation);
-        WTF_MAKE_FAST_ALLOCATED;
+        WTF_MAKE_TZONE_ALLOCATED(HostInformation);
         WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(HostInformation);
     public:
         HostInformation(const String&, unsigned);

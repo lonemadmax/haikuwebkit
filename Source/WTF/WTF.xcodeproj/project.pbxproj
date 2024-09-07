@@ -69,6 +69,7 @@
 		1CFD5D3D2851AB3E00A0E30B /* EnumeratedArray.h in Headers */ = {isa = PBXBuildFile; fileRef = 1CFD5D3B2851AB3E00A0E30B /* EnumeratedArray.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		1FA47C8A152502DA00568D1B /* WebCoreThread.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 1FA47C88152502DA00568D1B /* WebCoreThread.cpp */; };
 		27C793CF2C40909D000E1BE8 /* PlatformEnableWin.h in Headers */ = {isa = PBXBuildFile; fileRef = 27C793CE2C40909D000E1BE8 /* PlatformEnableWin.h */; };
+		2B70468D2C6BC5F600318C0A /* StdMultimap.h in Headers */ = {isa = PBXBuildFile; fileRef = 2B70468C2C6BC5F600318C0A /* StdMultimap.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		2CCD892A15C0390200285083 /* GregorianDateTime.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2CCD892915C0390200285083 /* GregorianDateTime.cpp */; };
 		2CDED0EF18115C38004DBA70 /* RunLoopCF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2CDED0EE18115C38004DBA70 /* RunLoopCF.cpp */; };
 		2CDED0F318115C85004DBA70 /* RunLoop.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2CDED0F118115C85004DBA70 /* RunLoop.cpp */; };
@@ -823,7 +824,7 @@
 		E32AB5022B5CE35D00B9FAAE /* LazyUniqueRef.h in Headers */ = {isa = PBXBuildFile; fileRef = E32AB5002B5CE35D00B9FAAE /* LazyUniqueRef.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E336674A2722551100259122 /* Int128.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E33667492722550900259122 /* Int128.cpp */; };
 		E336BD2F2BAB8A0400E8471C /* CharacterProperties.h in Headers */ = {isa = PBXBuildFile; fileRef = E336BD2E2BAB8A0400E8471C /* CharacterProperties.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		E34745D22945E33700F670F2 /* simdutf_impl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E34745D02945E33700F670F2 /* simdutf_impl.cpp */; };
+		E33E83ED2C719900002FBCCD /* simdutf_impl.cpp.h in Headers */ = {isa = PBXBuildFile; fileRef = E33E83EC2C719900002FBCCD /* simdutf_impl.cpp.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E34745D32945E33700F670F2 /* simdutf_impl.h in Headers */ = {isa = PBXBuildFile; fileRef = E34745D12945E33700F670F2 /* simdutf_impl.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3618AB92AD8C4BA00DA7E43 /* ButterflyArray.h in Headers */ = {isa = PBXBuildFile; fileRef = E3618AB82AD8C4B900DA7E43 /* ButterflyArray.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E361DB532891159C00B2A2B8 /* FastFloat.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E361DB512891159B00B2A2B8 /* FastFloat.cpp */; };
@@ -847,6 +848,7 @@
 		E38C82692BECAE9D0071EF52 /* SIMDHelpers.h in Headers */ = {isa = PBXBuildFile; fileRef = E38C82682BECAE9D0071EF52 /* SIMDHelpers.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E38D6E271F5522E300A75CC4 /* StringBuilderJSON.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E38D6E261F5522E300A75CC4 /* StringBuilderJSON.cpp */; };
 		E392FA2722E92BFF00ECDC73 /* ResourceUsageCocoa.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E392FA2622E92BFF00ECDC73 /* ResourceUsageCocoa.cpp */; };
+		E39664762C7198AA00F91F3A /* SIMDUTF.cpp in Sources */ = {isa = PBXBuildFile; fileRef = E39664752C7198AA00F91F3A /* SIMDUTF.cpp */; };
 		E396C11D2BE885D9000CBAE1 /* neon.h in Headers */ = {isa = PBXBuildFile; fileRef = E396C1192BE885D9000CBAE1 /* neon.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E396C11E2BE885D9000CBAE1 /* sve.h in Headers */ = {isa = PBXBuildFile; fileRef = E396C11A2BE885D9000CBAE1 /* sve.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E3ABBABE2BE88FBE00D84916 /* simde.h in Headers */ = {isa = PBXBuildFile; fileRef = E3ABBABD2BE88FBE00D84916 /* simde.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1150,6 +1152,7 @@
 		2684D4351C000D400081D663 /* IndexSparseSet.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IndexSparseSet.h; sourceTree = "<group>"; };
 		275DFB6B238BDF72001230E2 /* OptionSetHash.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OptionSetHash.h; sourceTree = "<group>"; };
 		27C793CE2C40909D000E1BE8 /* PlatformEnableWin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlatformEnableWin.h; sourceTree = "<group>"; };
+		2B70468C2C6BC5F600318C0A /* StdMultimap.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StdMultimap.h; sourceTree = "<group>"; };
 		2C05385315BC819000F21B96 /* GregorianDateTime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = GregorianDateTime.h; sourceTree = "<group>"; };
 		2CCD892915C0390200285083 /* GregorianDateTime.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = GregorianDateTime.cpp; sourceTree = "<group>"; };
 		2CDED0EE18115C38004DBA70 /* RunLoopCF.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = RunLoopCF.cpp; sourceTree = "<group>"; };
@@ -1767,7 +1770,7 @@
 		E336BD2E2BAB8A0400E8471C /* CharacterProperties.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CharacterProperties.h; sourceTree = "<group>"; };
 		E339C163244B4E8700359DA9 /* DataRef.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DataRef.h; sourceTree = "<group>"; };
 		E33D5F871FBED66700BF625E /* RecursableLambda.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RecursableLambda.h; sourceTree = "<group>"; };
-		E34745D02945E33700F670F2 /* simdutf_impl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = simdutf_impl.cpp; sourceTree = "<group>"; };
+		E33E83EC2C719900002FBCCD /* simdutf_impl.cpp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = simdutf_impl.cpp.h; sourceTree = "<group>"; };
 		E34745D12945E33700F670F2 /* simdutf_impl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = simdutf_impl.h; sourceTree = "<group>"; };
 		E34CD0D022810A020020D299 /* Packed.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Packed.h; sourceTree = "<group>"; };
 		E3538D4C276220880075DA50 /* EmbeddedFixedVector.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EmbeddedFixedVector.h; sourceTree = "<group>"; };
@@ -1803,6 +1806,7 @@
 		E38C82682BECAE9D0071EF52 /* SIMDHelpers.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SIMDHelpers.h; sourceTree = "<group>"; };
 		E38D6E261F5522E300A75CC4 /* StringBuilderJSON.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StringBuilderJSON.cpp; sourceTree = "<group>"; };
 		E392FA2622E92BFF00ECDC73 /* ResourceUsageCocoa.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ResourceUsageCocoa.cpp; sourceTree = "<group>"; };
+		E39664752C7198AA00F91F3A /* SIMDUTF.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SIMDUTF.cpp; sourceTree = "<group>"; };
 		E396C1192BE885D9000CBAE1 /* neon.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = neon.h; sourceTree = "<group>"; };
 		E396C11A2BE885D9000CBAE1 /* sve.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sve.h; sourceTree = "<group>"; };
 		E3A32BC31FC830E2007D7E76 /* JSValueMalloc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSValueMalloc.h; sourceTree = "<group>"; };
@@ -2390,6 +2394,7 @@
 				0FEB3DCE1BB5D684009D7AAD /* SharedTask.h */,
 				862A8D32278DE74A0014120C /* SignedPtr.h */,
 				E38C82682BECAE9D0071EF52 /* SIMDHelpers.h */,
+				E39664752C7198AA00F91F3A /* SIMDUTF.cpp */,
 				E38C7CD72C366A1800BB9B18 /* SIMDUTF.h */,
 				A8A4730A151A825B004123FF /* SimpleStats.h */,
 				795212021F42588800BD6421 /* SingleRootGraph.h */,
@@ -2423,6 +2428,7 @@
 				A8A47311151A825B004123FF /* StdLibExtras.h */,
 				FF0A436588954F3CB07DBECA /* StdList.h */,
 				391BD6BA4D164FD294F9A93D /* StdMap.h */,
+				2B70468C2C6BC5F600318C0A /* StdMultimap.h */,
 				53F08A1BA39D49A8BAD369A1 /* StdSet.h */,
 				793BFADD9CED44B8B9FBCA16 /* StdUnorderedMap.h */,
 				132743924FC54E469F5A8E6E /* StdUnorderedSet.h */,
@@ -2969,7 +2975,7 @@
 		E34745CE2945E33600F670F2 /* simdutf */ = {
 			isa = PBXGroup;
 			children = (
-				E34745D02945E33700F670F2 /* simdutf_impl.cpp */,
+				E33E83EC2C719900002FBCCD /* simdutf_impl.cpp.h */,
 				E34745D12945E33700F670F2 /* simdutf_impl.h */,
 			);
 			path = simdutf;
@@ -3450,6 +3456,7 @@
 				E3ABBABE2BE88FBE00D84916 /* simde.h in Headers */,
 				E38C82692BECAE9D0071EF52 /* SIMDHelpers.h in Headers */,
 				E38C7CD82C366A1800BB9B18 /* SIMDUTF.h in Headers */,
+				E33E83ED2C719900002FBCCD /* simdutf_impl.cpp.h in Headers */,
 				E34745D32945E33700F670F2 /* simdutf_impl.h in Headers */,
 				E361DB63289115D000B2A2B8 /* simple_decimal_conversion.h in Headers */,
 				DD3DC8F727A4BF8E007E5B61 /* SimpleStats.h in Headers */,
@@ -3478,6 +3485,7 @@
 				DD3DC98127A4BF8E007E5B61 /* StdLibExtras.h in Headers */,
 				DD3DC94927A4BF8E007E5B61 /* StdList.h in Headers */,
 				DD3DC92727A4BF8E007E5B61 /* StdMap.h in Headers */,
+				2B70468D2C6BC5F600318C0A /* StdMultimap.h in Headers */,
 				DD3DC88E27A4BF8E007E5B61 /* StdSet.h in Headers */,
 				DD3DC96C27A4BF8E007E5B61 /* StdUnorderedMap.h in Headers */,
 				DD3DC93427A4BF8E007E5B61 /* StdUnorderedSet.h in Headers */,
@@ -3803,6 +3811,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 5D247B6614689B8600E78B76 /* Build configuration list for PBXNativeTarget "WTF" */;
 			buildPhases = (
+				520CF9492BDA9B4800C27FD2 /* Generate clangd configuration file */,
 				DDE99316278D08B900F60D26 /* Product Dependencies */,
 				DD07DF4C2A7DB6640091EACE /* Symlink public SDK headers */,
 				DD3DC85D27A4BF87007E5B61 /* Headers */,
@@ -3875,6 +3884,27 @@
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		520CF9492BDA9B4800C27FD2 /* Generate clangd configuration file */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(WK_WORKSPACE_DIR)/Tools/clangd/update-clangd-config",
+				"$(WK_WORKSPACE_DIR)/Tools/clangd/clangd-config.yaml.tpl",
+			);
+			name = "Generate clangd configuration file";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(WK_WORKSPACE_DIR)/.clangd",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${DEPLOYMENT_LOCATION}\" != YES ]; then\n    \"${SCRIPT_INPUT_FILE_0}\" \"${SCRIPT_INPUT_FILE_1}\" \"${SCRIPT_OUTPUT_FILE_0}\"\nfi\n";
+		};
 		DD07DF4C2A7DB6640091EACE /* Symlink public SDK headers */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -4052,7 +4082,7 @@
 				0FA6F38F20CC580F00A03DCD /* SegmentedVector.cpp in Sources */,
 				A8A47421151A825B004123FF /* SHA1.cpp in Sources */,
 				5311BD531EA71CAD00525281 /* Signals.cpp in Sources */,
-				E34745D22945E33700F670F2 /* simdutf_impl.cpp in Sources */,
+				E39664762C7198AA00F91F3A /* SIMDUTF.cpp in Sources */,
 				A748745217A0BDAE00FA04CB /* SixCharacterHash.cpp in Sources */,
 				A8A47425151A825B004123FF /* SizeLimits.cpp in Sources */,
 				0FA6F39320CC73A300A03DCD /* SmallSet.cpp in Sources */,

@@ -66,6 +66,7 @@
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLSlotElement.h"
+#include "HTMLTableSectionElement.h"
 #include "HTMLTextAreaElement.h"
 #include "HitTestResult.h"
 #include "LocalFrame.h"
@@ -629,13 +630,20 @@ void AccessibilityObject::insertChild(AXCoreObject* newChild, unsigned index, De
         }
     }
 
-    auto* displayContentsParent = child->displayContentsParent();
+    RefPtr displayContentsParent = child->displayContentsParent();
     // To avoid double-inserting a child of a `display: contents` element, only insert if `this` is the rightful parent.
     if (displayContentsParent && displayContentsParent != this) {
         // Make sure the display:contents parent object knows it has a child it needs to add.
         displayContentsParent->setNeedsToUpdateChildren();
+
         // Don't exit early for certain table components, as they rely on inserting children for which they are not the rightful parent to behave correctly.
-        if (!isTableColumn() && roleValue() != AccessibilityRole::TableHeaderContainer)
+        bool allowInsert = isTableColumn() || roleValue() == AccessibilityRole::TableHeaderContainer;
+
+        // AccessibilityTable::addChildren never actually calls `insertChild` for table section elements
+        // (e.g. tbody, thead), so don't block this `insertChild` for display:contents section elements,
+        // or else the child elements of the section element will never be inserted into the tree.
+        allowInsert = allowInsert || (isAccessibilityTableInstance() && is<HTMLTableSectionElement>(displayContentsParent->element()));
+        if (!allowInsert)
             return;
     }
 
@@ -1707,7 +1715,7 @@ StringView AccessibilityObject::listMarkerTextForNodeAndPosition(Node* node, Pos
 
 String AccessibilityObject::stringForRange(const SimpleRange& range) const
 {
-    TextIterator it(range);
+    TextIterator it = textIteratorIgnoringFullSizeKana(range);
     if (it.atEnd())
         return String();
 
@@ -1738,7 +1746,8 @@ String AccessibilityObject::stringForVisiblePositionRange(const VisiblePositionR
         return { };
 
     StringBuilder builder;
-    for (TextIterator it(*range); !it.atEnd(); it.advance()) {
+    TextIterator it = textIteratorIgnoringFullSizeKana(*range);
+    for (; !it.atEnd(); it.advance()) {
         // non-zero length means textual node, zero length means replaced node (AKA "attachments" in AX)
         if (it.text().length()) {
             // Add a textual representation for list marker text.
@@ -3851,7 +3860,7 @@ bool AccessibilityObject::pressedIsPresent() const
 
 TextIteratorBehaviors AccessibilityObject::textIteratorBehaviorForTextRange() const
 {
-    TextIteratorBehaviors behaviors { TextIteratorBehavior::IgnoresStyleVisibility };
+    TextIteratorBehaviors behaviors { TextIteratorBehavior::IgnoresStyleVisibility, TextIteratorBehavior::IgnoresFullSizeKana };
 
 #if USE(ATSPI)
     // We need to emit replaced elements for ATSPI, and present
@@ -3861,7 +3870,12 @@ TextIteratorBehaviors AccessibilityObject::textIteratorBehaviorForTextRange() co
     
     return behaviors;
 }
-    
+
+TextIterator AccessibilityObject::textIteratorIgnoringFullSizeKana(const SimpleRange& range)
+{
+    return TextIterator(range, { TextIteratorBehavior::IgnoresFullSizeKana });
+}
+
 AccessibilityRole AccessibilityObject::buttonRoleType() const
 {
     // If aria-pressed is present, then it should be exposed as a toggle button.

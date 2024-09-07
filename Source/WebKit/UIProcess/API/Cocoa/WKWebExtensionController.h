@@ -39,9 +39,9 @@
 WK_HEADER_AUDIT_BEGIN(nullability, sendability)
 
 /*!
- @abstract A `WKWebExtensionController` object manages a set of loaded extension contexts.
+ @abstract A ``WKWebExtensionController`` object manages a set of loaded extension contexts.
  @discussion You can have one or more extension controller instances, allowing different parts of the app to use different sets of extensions.
- A controller is associated with @link WKWebView @/link via the `webExtensionController` property on @link WKWebViewConfiguration @/link.
+ A controller is associated with ``WKWebView`` via the ``webExtensionController`` property on ``WKWebViewConfiguration``.
  */
 WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK_SWIFT_UI_ACTOR
 @interface WKWebExtensionController : NSObject
@@ -49,7 +49,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
 /*!
  @abstract Returns a web extension controller initialized with the default configuration.
  @result An initialized web extension controller, or nil if the object could not be initialized.
- @discussion This is a designated initializer. You can use @link -initWithConfiguration: @/link to
+ @discussion This is a designated initializer. You can use ``initWithConfiguration:`` to
  initialize an instance with a configuration.
  @seealso initWithConfiguration:
 */
@@ -59,7 +59,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
  @abstract Returns a web extension controller initialized with the specified configuration.
  @param configuration The configuration for the new web extension controller.
  @result An initialized web extension controller, or nil if the object could not be initialized.
- @discussion This is a designated initializer. You can use @link -init: @/link to initialize an
+ @discussion This is a designated initializer. You can use ``init:`` to initialize an
  instance with the default configuration. The initializer copies the specified configuration, so mutating
  the configuration after invoking the initializer has no effect on the web extension controller.
  @seealso init
@@ -82,7 +82,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
  @result A Boolean value indicating if the context was successfully loaded.
  @seealso loadExtensionContext:
 */
-- (BOOL)loadExtensionContext:(WKWebExtensionContext *)extensionContext error:(NSError **)error;
+- (BOOL)loadExtensionContext:(WKWebExtensionContext *)extensionContext error:(NSError **)error NS_SWIFT_NAME(load(_:));
 
 /*!
  @abstract Unloads the specified extension context.
@@ -91,7 +91,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
  @result A Boolean value indicating if the context was successfully unloaded.
  @seealso unloadExtensionContext:
 */
-- (BOOL)unloadExtensionContext:(WKWebExtensionContext *)extensionContext error:(NSError **)error;
+- (BOOL)unloadExtensionContext:(WKWebExtensionContext *)extensionContext error:(NSError **)error NS_SWIFT_NAME(unload(_:));
 
 /*!
  @abstract Returns a loaded extension context for the specified extension.
@@ -106,7 +106,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
  @param URL The URL to lookup.
  @result An extension context or `nil` if no match was found.
  @discussion This method is useful for determining the extension context to use when about to navigate to an extension URL. For example,
- you could use this method to retrieve the appropriate extension context and then use its `webViewConfiguration` property to configure a
+ you could use this method to retrieve the appropriate extension context and then use its ``webViewConfiguration`` property to configure a
  web view for loading that URL.
  */
 - (nullable WKWebExtensionContext *)extensionContextForURL:(NSURL *)URL NS_SWIFT_NAME(extensionContext(for:));
@@ -127,29 +127,29 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
 @property (class, nonatomic, readonly, copy) NSSet<WKWebExtensionDataType> *allExtensionDataTypes;
 
 /*!
-  @abstract Fetches data records containing the given extension data types for all known extensions.
-  @param dataTypes The extension data types to fetch records for.
-  @param completionHandler A block to invoke when the data records have been fetched.
-  @note The extension does not need to be loaded to be included in the result.
+ @abstract Fetches data records containing the given extension data types for all known extensions.
+ @param dataTypes The extension data types to fetch records for.
+ @param completionHandler A block to invoke when the data records have been fetched.
+ @note The extension does not need to be loaded to be included in the result.
 */
-- (void)fetchDataRecordsOfTypes:(NSSet<WKWebExtensionDataType> *)dataTypes completionHandler:(void (^)(NSArray<WKWebExtensionDataRecord *> *))completionHandler WK_SWIFT_ASYNC_NAME(dataRecords(ofTypes:));
+- (void)fetchDataRecordsOfTypes:(NSSet<WKWebExtensionDataType> *)dataTypes completionHandler:(void (^)(NSArray<WKWebExtensionDataRecord *> *))completionHandler NS_SWIFT_NAME(fetchDataRecords(ofTypes:completionHandler:)) WK_SWIFT_ASYNC_NAME(dataRecords(ofTypes:));
 
 /*!
-  @abstract Fetches a data record containing the given extension data types for a specific known web extension context.
-  @param dataTypes The extension data types to fetch records for.
-  @param extensionContext The specific web extension context to fetch records for.
-  @param completionHandler A block to invoke when the data record has been fetched.
-  @note The extension does not need to be loaded to be included in the result.
+ @abstract Fetches a data record containing the given extension data types for a specific known web extension context.
+ @param dataTypes The extension data types to fetch records for.
+ @param extensionContext The specific web extension context to fetch records for.
+ @param completionHandler A block to invoke when the data record has been fetched.
+ @note The extension does not need to be loaded to be included in the result.
 */
-- (void)fetchDataRecordOfTypes:(NSSet<WKWebExtensionDataType> *)dataTypes forExtensionContext:(WKWebExtensionContext *)extensionContext completionHandler:(void (^)(WKWebExtensionDataRecord * _Nullable))completionHandler WK_SWIFT_ASYNC_NAME(dataRecord(ofTypes:for:));
+- (void)fetchDataRecordOfTypes:(NSSet<WKWebExtensionDataType> *)dataTypes forExtensionContext:(WKWebExtensionContext *)extensionContext completionHandler:(void (^)(WKWebExtensionDataRecord * _Nullable))completionHandler NS_SWIFT_NAME(fetchDataRecord(ofTypes:for:completionHandler:)) WK_SWIFT_ASYNC_NAME(dataRecord(ofTypes:for:));
 
 /*!
-  @abstract Removes extension data of the given types for the given data records.
-  @param dataTypes The extension data types that should be removed.
-  @param dataRecords The extension data records to delete data for.
-  @param completionHandler A block to invoke when the data has been removed.
+ @abstract Removes extension data of the given types for the given data records.
+ @param dataTypes The extension data types that should be removed.
+ @param dataRecords The extension data records to delete data from.
+ @param completionHandler A block to invoke when the data has been removed.
 */
-- (void)removeDataOfTypes:(NSSet<WKWebExtensionDataType> *)dataTypes forDataRecords:(NSArray<WKWebExtensionDataRecord *> *)dataRecords completionHandler:(void (^)(void))completionHandler;
+- (void)removeDataOfTypes:(NSSet<WKWebExtensionDataType> *)dataTypes fromDataRecords:(NSArray<WKWebExtensionDataRecord *> *)dataRecords completionHandler:(void (^)(void))completionHandler NS_SWIFT_NAME(removeData(ofTypes:from:completionHandler:));
 
 /*!
  @abstract Should be called by the app when a new window is opened to fire appropriate events with all loaded web extensions.
@@ -158,7 +158,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
  If the intention is to inform only a specific extension, you should use the respective method on that extension's context instead.
  @seealso didCloseWindow:
  */
-- (void)didOpenWindow:(id <WKWebExtensionWindow>)newWindow;
+- (void)didOpenWindow:(id <WKWebExtensionWindow>)newWindow NS_SWIFT_NAME(didOpenWindow(_:));
 
 /*!
  @abstract Should be called by the app when a window is closed to fire appropriate events with all loaded web extensions.
@@ -167,7 +167,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
  If the intention is to inform only a specific extension, you should use the respective method on that extension's context instead.
  @seealso didOpenWindow:
  */
-- (void)didCloseWindow:(id <WKWebExtensionWindow>)closedWindow;
+- (void)didCloseWindow:(id <WKWebExtensionWindow>)closedWindow NS_SWIFT_NAME(didCloseWindow(_:));
 
 /*!
  @abstract Should be called by the app when a window gains focus to fire appropriate events with all loaded web extensions.
@@ -175,7 +175,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
  @discussion This method informs all loaded extensions of the focused window, ensuring consistent understanding across extensions.
  If the intention is to inform only a specific extension, you should use the respective method on that extension's context instead.
  */
-- (void)didFocusWindow:(nullable id <WKWebExtensionWindow>)focusedWindow;
+- (void)didFocusWindow:(nullable id <WKWebExtensionWindow>)focusedWindow NS_SWIFT_NAME(didFocusWindow(_:));
 
 /*!
  @abstract Should be called by the app when a new tab is opened to fire appropriate events with all loaded web extensions.
@@ -184,7 +184,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
  If the intention is to inform only a specific extension, you should use the respective method on that extension's context instead.
  @seealso didCloseTab:
  */
-- (void)didOpenTab:(id <WKWebExtensionTab>)newTab;
+- (void)didOpenTab:(id <WKWebExtensionTab>)newTab NS_SWIFT_NAME(didOpenTab(_:));
 
 /*!
  @abstract Should be called by the app when a tab is closed to fire appropriate events with all loaded web extensions.
@@ -194,7 +194,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
  If the intention is to inform only a specific extension, you should use the respective method on that extension's context instead.
  @seealso didOpenTab:
  */
-- (void)didCloseTab:(id <WKWebExtensionTab>)closedTab windowIsClosing:(BOOL)windowIsClosing;
+- (void)didCloseTab:(id <WKWebExtensionTab>)closedTab windowIsClosing:(BOOL)windowIsClosing NS_SWIFT_NAME(didCloseTab(_:windowIsClosing:));
 
 /*!
  @abstract Should be called by the app when a tab is activated to notify all loaded web extensions.
@@ -203,7 +203,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
  @discussion This method informs all loaded extensions of the tab activation, ensuring consistent state awareness across extensions.
  If the intention is to inform only a specific extension, use the respective method on that extension's context instead.
  */
-- (void)didActivateTab:(id<WKWebExtensionTab>)activatedTab previousActiveTab:(nullable id<WKWebExtensionTab>)previousTab;
+- (void)didActivateTab:(id<WKWebExtensionTab>)activatedTab previousActiveTab:(nullable id<WKWebExtensionTab>)previousTab NS_SWIFT_NAME(didActivateTab(_:previousActiveTab:));
 
 /*!
  @abstract Should be called by the app when tabs are selected to fire appropriate events with all loaded web extensions.
@@ -211,7 +211,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
  @discussion This method informs all loaded extensions that tabs have been selected, ensuring consistent understanding across extensions.
  If the intention is to inform only a specific extension, you should use the respective method on that extension's context instead.
  */
-- (void)didSelectTabs:(NSSet<id <WKWebExtensionTab>> *)selectedTabs;
+- (void)didSelectTabs:(NSSet<id <WKWebExtensionTab>> *)selectedTabs NS_SWIFT_NAME(didSelectTabs(_:));
 
 /*!
  @abstract Should be called by the app when tabs are deselected to fire appropriate events with all loaded web extensions.
@@ -219,7 +219,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA), visionos(WK_XROS_TBA)) WK
  @discussion This method informs all loaded extensions that tabs have been deselected, ensuring consistent understanding across extensions.
  If the intention is to inform only a specific extension, you should use the respective method on that extension's context instead.
  */
-- (void)didDeselectTabs:(NSSet<id <WKWebExtensionTab>> *)deselectedTabs;
+- (void)didDeselectTabs:(NSSet<id <WKWebExtensionTab>> *)deselectedTabs NS_SWIFT_NAME(didDeselectTabs(_:));
 
 /*!
  @abstract Should be called by the app when a tab is moved to fire appropriate events with all loaded web extensions.

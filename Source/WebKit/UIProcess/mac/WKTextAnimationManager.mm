@@ -128,7 +128,7 @@
             if (strongWebView->isIntelligenceTextPonderingAnimationFinished() && strongWebView->isWritingToolsTextReplacementsFinished()) {
                 // If the entire replacement has already been completed, and this is the end of the last animation,
                 // then reveal the selection.
-                strongWebView->page().showSelectionForWritingToolsSessionAssociatedWithAnimationID(*animationID);
+                strongWebView->page().showSelectionForActiveWritingToolsSession();
             }
 
             strongWebView->page().updateUnderlyingTextVisibilityForTextAnimationID(remainingID, true);
@@ -227,7 +227,7 @@
     WebCore::IntSize bitmapSize(rect.size.width, rect.size.height);
     bitmapSize.scale(deviceScale, deviceScale);
 
-    _webView->page().takeSnapshot(WebCore::IntRect(rect), bitmapSize, WebKit::SnapshotOptionsShareable, [rect, completionHandler = makeBlockPtr(completionHandler)](std::optional<WebCore::ShareableBitmap::Handle>&& imageHandle) {
+    _webView->page().takeSnapshot(WebCore::IntRect(rect), bitmapSize, WebKit::SnapshotOption::Shareable, [rect, completionHandler = makeBlockPtr(completionHandler)](std::optional<WebCore::ShareableBitmap::Handle>&& imageHandle) {
         if (!imageHandle) {
             completionHandler(nil);
             return;

@@ -33,6 +33,7 @@
 #include <wtf/LoggerHelper.h>
 #include <wtf/RunLoop.h>
 #include <wtf/Seconds.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebKit {
@@ -62,7 +63,7 @@ namespace WebKit {
 class WebPageProxy;
 
 enum class MediaDevicePermissionRequestIdentifierType { };
-using MediaDevicePermissionRequestIdentifier = ObjectIdentifier<MediaDevicePermissionRequestIdentifierType>;
+using MediaDevicePermissionRequestIdentifier = LegacyNullableObjectIdentifier<MediaDevicePermissionRequestIdentifierType>;
 
 class UserMediaPermissionRequestManagerProxy
     : public CanMakeWeakPtr<UserMediaPermissionRequestManagerProxy>
@@ -70,7 +71,7 @@ class UserMediaPermissionRequestManagerProxy
     , private LoggerHelper
 #endif
 {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(UserMediaPermissionRequestManagerProxy);
 public:
     explicit UserMediaPermissionRequestManagerProxy(WebPageProxy&);
     ~UserMediaPermissionRequestManagerProxy();

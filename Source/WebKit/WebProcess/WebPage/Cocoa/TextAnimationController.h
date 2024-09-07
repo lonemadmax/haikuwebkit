@@ -29,8 +29,8 @@
 
 #include <WebCore/CharacterRange.h>
 #include <WebCore/SimpleRange.h>
-#include <wtf/FastMalloc.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/UUID.h>
 #include <wtf/WeakPtr.h>
 
@@ -42,10 +42,6 @@ struct TextIndicatorData;
 
 enum class TextIndicatorOption : uint16_t;
 enum class TextAnimationRunMode : uint8_t;
-
-namespace WritingTools {
-using SessionID = WTF::UUID;
-}
 
 }
 
@@ -69,45 +65,43 @@ struct ReplacedRangeAndString {
 };
 
 class TextAnimationController final {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(TextAnimationController);
     WTF_MAKE_NONCOPYABLE(TextAnimationController);
 
 public:
     explicit TextAnimationController(WebPage&);
 
-    void removeTransparentMarkersForSessionID(const WTF::UUID& sessionUUID);
+    void removeTransparentMarkersForActiveWritingToolsSession();
     void removeTransparentMarkersForTextAnimationID(const WTF::UUID&);
 
-    void removeInitialTextAnimation(const WebCore::WritingTools::SessionID&);
-    void addInitialTextAnimation(const WebCore::WritingTools::SessionID&);
-    void addSourceTextAnimation(const WebCore::WritingTools::SessionID&, const WebCore::CharacterRange&, const String&, CompletionHandler<void(WebCore::TextAnimationRunMode)>&&);
-    void addDestinationTextAnimation(const WebCore::WritingTools::SessionID&, const std::optional<WebCore::CharacterRange>&, const String&);
+    void removeInitialTextAnimationForActiveWritingToolsSession();
+    void addInitialTextAnimationForActiveWritingToolsSession();
+    void addSourceTextAnimationForActiveWritingToolsSession(const WebCore::CharacterRange&, const String&, CompletionHandler<void(WebCore::TextAnimationRunMode)>&&);
+    void addDestinationTextAnimationForActiveWritingToolsSession(const std::optional<WebCore::CharacterRange>&, const String&);
 
-    void clearAnimationsForSessionID(const WebCore::WritingTools::SessionID&);
+    void clearAnimationsForActiveWritingToolsSession();
 
     void updateUnderlyingTextVisibilityForTextAnimationID(const WTF::UUID&, bool visible, CompletionHandler<void()>&&);
-
-    void showSelectionForWritingToolsSessionAssociatedWithAnimationID(const WTF::UUID&);
 
     std::optional<WebCore::TextIndicatorData> createTextIndicatorForRange(const WebCore::SimpleRange&);
     void createTextIndicatorForTextAnimationID(const WTF::UUID&, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&&);
 
-    void enableSourceTextAnimationAfterElementWithID(const String& elementID, const WTF::UUID&);
-    void enableTextAnimationTypeForElementWithID(const String& elementID, const WTF::UUID&);
+    void enableSourceTextAnimationAfterElementWithID(const String& elementID);
+    void enableTextAnimationTypeForElementWithID(const String& elementID);
 
 private:
     std::optional<WebCore::SimpleRange> contextRangeForTextAnimationID(const WTF::UUID&) const;
-    std::optional<WebCore::SimpleRange> contextRangeForSessionWithID(const WebCore::WritingTools::SessionID&) const;
-    std::optional<WebCore::SimpleRange> unreplacedRangeForSessionWithID(const WebCore::WritingTools::SessionID&) const;
+    std::optional<WebCore::SimpleRange> contextRangeForActiveWritingToolsSession() const;
+    std::optional<WebCore::SimpleRange> unreplacedRangeForActiveWritingToolsSession() const;
 
     RefPtr<WebCore::Document> document() const;
     WeakPtr<WebPage> m_webPage;
 
-    HashMap<WebCore::WritingTools::SessionID, WTF::UUID> m_initialAnimations;
-    HashMap<WebCore::WritingTools::SessionID, Vector<TextAnimationRange>> m_textAnimationRanges;
-    HashMap<WebCore::WritingTools::SessionID, std::optional<ReplacedRangeAndString>> m_alreadyReplacedRanges;
-    HashMap<WebCore::WritingTools::SessionID, std::optional<TextAnimationUnstyledRangeData>> m_unstyledRanges;
-    HashMap<WebCore::WritingTools::SessionID, Ref<WebCore::Range>> m_manuallyEnabledAnimationRanges;
+    std::optional<WTF::UUID> m_initialAnimationID;
+    std::optional<TextAnimationUnstyledRangeData> m_unstyledRange;
+    std::optional<ReplacedRangeAndString> m_alreadyReplacedRange;
+    RefPtr<WebCore::Range> m_manuallyEnabledAnimationRange;
+    Vector<TextAnimationRange> m_textAnimationRanges;
 };
 
 } // namespace WebKit

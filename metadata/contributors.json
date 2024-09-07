@@ -1078,6 +1078,13 @@
    },
    {
       "emails" : [
+         "ablackwood@apple.com"
+      ],
+      "github" : "morthaur",
+      "name" : "Austin Blackwood"
+   },
+   {
+      "emails" : [
          "ayumi_kojima@apple.com"
       ],
       "name" : "Ayumi Kojima",
@@ -2898,6 +2905,16 @@
    },
    {
       "emails" : [
+         "com.idmsa@gmail.com"
+      ],
+      "github" : "iidmsa",
+      "name" : "Fady Farag",
+      "nicks" : [
+         "ffarag"
+      ]
+   },
+   {
+      "emails" : [
          "fsamuel@chromium.org"
       ],
       "name" : "Fady Samuel",
@@ -3545,10 +3562,12 @@
    },
    {
       "emails" : [
-         "ian.grunert@gmail.com"
+         "ian.grunert@gmail.com",
+         "ian@andromeda.net"
       ],
       "github" : "iangrunert",
-      "name" : "Ian Grunert"
+      "name" : "Ian Grunert",
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -7263,7 +7282,8 @@
       "name" : "Sosuke Suzuki",
       "nicks" : [
          "sosukesuzuki"
-      ]
+      ],
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -8278,7 +8298,6 @@
    },
    {
       "emails" : [
-         "z_ridouh@apple.com",
          "zakr@apple.com"
       ],
       "github" : "zakariaridouh",

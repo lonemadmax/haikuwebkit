@@ -275,6 +275,14 @@ bool LineLayout::styleWillChange(const RenderElement& renderer, const RenderStyl
     return Layout::InlineInvalidation { ensureLineDamage(), m_inlineContentCache.inlineItems().content(), m_inlineContent->displayContent() }.styleWillChange(*renderer.layoutBox(), newStyle);
 }
 
+bool LineLayout::boxContentWillChange(const RenderBox& renderer)
+{
+    if (!m_inlineContent || !renderer.layoutBox())
+        return false;
+
+    return Layout::InlineInvalidation { ensureLineDamage(), m_inlineContentCache.inlineItems().content(), m_inlineContent->displayContent() }.inlineLevelBoxContentWillChange(*renderer.layoutBox());
+}
+
 void LineLayout::updateOverflow()
 {
     InlineContentBuilder { flow(), m_boxTree }.updateLineOverflow(*m_inlineContent);
@@ -313,6 +321,16 @@ static inline Layout::BlockLayoutState::TextBoxTrim textBoxTrim(const RenderBloc
     if (layoutState->hasTextBoxTrimEnd(rootRenderer))
         textBoxTrimForIFC.add(isFlippedLinesWritingMode ? Layout::BlockLayoutState::TextBoxTrimSide::Start : Layout::BlockLayoutState::TextBoxTrimSide::End);
     return textBoxTrimForIFC;
+}
+
+static inline TextEdge textBoxEdge(const RenderBlockFlow& rootRenderer)
+{
+    auto* layoutState = rootRenderer.view().frameView().layoutContext().layoutState();
+    if (!layoutState)
+        return { };
+    if (auto textBoxTrim = layoutState->textBoxTrim())
+        return textBoxTrim->propagatedTextBoxEdge;
+    return { };
 }
 
 static inline std::optional<Layout::BlockLayoutState::LineGrid> lineGrid(const RenderBlockFlow& rootRenderer)
@@ -382,6 +400,7 @@ std::optional<LayoutRect> LineLayout::layout()
         m_blockFormattingState.placedFloats(),
         lineClamp(flow()),
         textBoxTrim(flow()),
+        textBoxEdge(flow()),
         intrusiveInitialLetterBottom(),
         lineGrid(flow())
     };

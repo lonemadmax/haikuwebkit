@@ -120,7 +120,7 @@ public:
 };
 
 class RenderBlockFlow : public RenderBlock {
-    WTF_MAKE_ISO_ALLOCATED(RenderBlockFlow);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderBlockFlow);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderBlockFlow);
 public:
     RenderBlockFlow(Type, Element&, RenderStyle&&, OptionSet<BlockFlowFlag> = { });
@@ -339,8 +339,7 @@ public:
 
     LayoutPoint flipFloatForWritingModeForChild(const FloatingObject&, const LayoutPoint&) const;
 
-    LegacyRootInlineBox* firstRootBox() const { return legacyLineLayout() ? legacyLineLayout()->firstRootBox() : nullptr; }
-    LegacyRootInlineBox* lastRootBox() const { return legacyLineLayout() ? legacyLineLayout()->lastRootBox() : nullptr; }
+    LegacyRootInlineBox* legacyRootBox() const { return legacyLineLayout() ? legacyLineLayout()->legacyRootBox() : nullptr; }
 
     void setChildrenInline(bool) final;
 

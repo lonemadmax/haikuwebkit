@@ -259,6 +259,7 @@ webaudio/audiocontext-restriction.html [ Skip ]
 webaudio/suspend-context-while-interrupted.html [ Skip ]
 webaudio/codec-tests/vorbis [ Skip ]
 webaudio/decode-audio-data-webm-vorbis.html [ Failure ]
+media/track/audio-track-configuration-webm.html
 
 # No wheel events on iOS
 fast/events/wheel [ Skip ]
@@ -2312,6 +2313,7 @@ accessibility/accessibility-node-reparent.html [ Pass ]
 accessibility/aria-braillelabel.html [ Pass ]
 accessibility/aria-brailleroledescription.html [ Pass ]
 accessibility/aria-checked-mixed-value.html [ Pass ]
+accessibility/aria-controlled-table-row-visibility.html [ Pass ]
 accessibility/aria-describedby-on-input.html [ Pass ]
 accessibility/body-element-aria-hidden.html [ Pass ]
 accessibility/display-contents/aria-hidden.html [ Pass ]
@@ -2328,8 +2330,10 @@ accessibility/checkbox-mixed-value.html [ Pass ]
 accessibility/dialog-slotted-content.html [ Pass ]
 accessibility/display-contents/dynamically-added-children.html [ Pass ]
 accessibility/display-contents/element-roles.html [ Pass ]
+accessibility/display-contents/listbox-item.html [ Pass ]
 accessibility/display-contents/object-ordering.html [ Pass ]
 accessibility/display-contents/table.html [ Pass ]
+accessibility/display-contents/table-section-elements.html [ Pass ]
 accessibility/display-flex-shadow-dom-accname.html [ Pass ]
 accessibility/dynamic-aria-describedby-subtree.html [ Pass ]
 accessibility/dynamic-text.html [ Pass ]
@@ -3598,6 +3602,8 @@ webkit.org/b/159755 fast/text/emoji-num-glyphs.html [ Pass ]
 imported/w3c/web-platform-tests/css/css-pseudo/selection-background-painting-order.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-pseudo/selection-originating-decoration-color.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-pseudo/selection-originating-underline-order.html [ ImageOnlyFailure ]
+
+webkit.org/b/278056 imported/w3c/web-platform-tests/css/css-pseudo/target-text-007.html [ ImageOnlyFailure ]
 
 # These tests require platform support.
 # <rdar://problem/87944426>
@@ -6300,6 +6306,7 @@ webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-shapes/shape-outside
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-shapes/shape-outside/shape-image/shape-image-016.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-sizing/thin-element-render.html [ ImageOnlyFailure ]
 webkit.org/b/214468 imported/w3c/web-platform-tests/css/css-values/ch-unit-002.html [ ImageOnlyFailure ]
+webkit.org/b/277995 imported/w3c/web-platform-tests/css/css-values/attr-all-types.html [ Failure ]
 
 webkit.org/b/229874 imported/w3c/web-platform-tests/css/css-sizing/percentage-height-in-flexbox.html [ Pass Failure ]
 
@@ -6970,7 +6977,7 @@ webkit.org/b/271445 fast/events/ios/rotation/resize-iframe-after-orientation-cha
 
 webkit.org/b/271682 imported/w3c/web-platform-tests/css/css-content/quotes-007.html [ ImageOnlyFailure ] # TODO: uncomment line above with explicit pass expectation for this test when issue is resolved.
 
-webkit.org/b/271712 [ Debug ] fast/forms/datalist/datalist-textinput-dynamically-add-options-on-keydown.html [ Timeout ]
+webkit.org/b/271712 fast/forms/datalist/datalist-textinput-dynamically-add-options-on-keydown.html [ Pass Timeout ]
 
 webkit.org/b/271785 media/modern-media-controls/overflow-support/chapters.html [ Timeout ]
 webkit.org/b/271785 media/modern-media-controls/overflow-support/playback-speed.html [ Timeout ]
@@ -7495,3 +7502,20 @@ imported/w3c/web-platform-tests/css/css-content/quotes-026.html [ ImageOnlyFailu
 imported/w3c/web-platform-tests/css/css-content/quotes-027.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-fullwidth-004.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/text-transform/text-transform-fullwidth-005.xht [ ImageOnlyFailure ]
+
+# webkit.org/b/269496 [ iOS17 ] fast/forms/datalist/datalist-option-labels.html is a flaky timeout
+fast/forms/datalist/datalist-option-labels.html [ Pass Timeout ]
+
+# webkit.org/b/277986 [ iOS MacOS ] http/tests/navigation/page-cache-shared-worker.html is a flaky timeout
+http/tests/navigation/page-cache-shared-worker.html [ Pass Timeout ]
+
+# webkit.org/b/277989 [ iOS ] 3x imported/w3c/web-platform-tests/mathml/presentation-markup/* (layout-tests) are flaky failures
+imported/w3c/web-platform-tests/mathml/presentation-markup/mrow/stretch-along-block-axis-001.html [ Pass Failure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/operators/mo-minsize-maxsize-001.html [ Pass Failure ]
+imported/w3c/web-platform-tests/mathml/presentation-markup/operators/mo-stretch-properties-dynamic-001.html [ Pass Failure ]
+
+# webkit.org/b/278080 (6+ fast/forms/ios/* layout tests are flakily timing out (<20%).)
+fast/forms/ios/focus-button.html [ Pass Timeout ]
+fast/forms/ios/focus-checkbox.html [ Pass Timeout ]
+fast/forms/ios/focus-checked-checkbox.html [ Pass Timeout ]
+fast/forms/ios/focus-checked-radio.html [ Pass Timeout ]

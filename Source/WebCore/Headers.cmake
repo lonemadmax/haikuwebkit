@@ -171,6 +171,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/WebGPU/Implementation/WebGPUShaderModuleImpl.h
     Modules/WebGPU/Implementation/WebGPUTextureImpl.h
     Modules/WebGPU/Implementation/WebGPUTextureViewImpl.h
+    Modules/WebGPU/Implementation/WebGPUXRBindingImpl.h
+    Modules/WebGPU/Implementation/WebGPUXRProjectionLayerImpl.h
+    Modules/WebGPU/Implementation/WebGPUXRSubImageImpl.h
+    Modules/WebGPU/Implementation/WebGPUXRViewImpl.h
 
     Modules/WebGPU/InternalAPI/WebGPU.h
     Modules/WebGPU/InternalAPI/WebGPUAdapter.h
@@ -302,6 +306,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/WebGPU/InternalAPI/WebGPUVertexFormat.h
     Modules/WebGPU/InternalAPI/WebGPUVertexState.h
     Modules/WebGPU/InternalAPI/WebGPUVertexStepMode.h
+    Modules/WebGPU/InternalAPI/WebGPUXRBinding.h
+    Modules/WebGPU/InternalAPI/WebGPUXREye.h
+    Modules/WebGPU/InternalAPI/WebGPUXRProjectionLayer.h
+    Modules/WebGPU/InternalAPI/WebGPUXRSubImage.h
+    Modules/WebGPU/InternalAPI/WebGPUXRView.h
 
     Modules/airplay/PlaybackTargetClientContextIdentifier.h
 
@@ -340,6 +349,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/cookie-consent/CookieConsentDecisionResult.h
 
+    Modules/cookie-store/CookieChangeSubscription.h
     Modules/cookie-store/CookieStoreGetOptions.h
 
     Modules/credentialmanagement/CredentialRequestOptions.h
@@ -1438,6 +1448,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     loader/MediaResourceLoader.h
     loader/MixedContentChecker.h
     loader/NavigationAction.h
+    loader/NavigationIdentifier.h
     loader/NavigationRequester.h
     loader/NavigationScheduler.h
     loader/NetscapePlugInStreamLoader.h
@@ -1548,6 +1559,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/GlobalWindowIdentifier.h
     page/HandleUserInputEventResult.h
     page/ImageAnalysisQueue.h
+    page/ImmediateActionStage.h
     page/InteractionRegion.h
     page/IsLoggedIn.h
     page/LayoutMilestone.h
@@ -2150,6 +2162,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     platform/graphics/egl/GLContext.h
     platform/graphics/egl/GLContextWrapper.h
+    platform/graphics/egl/GLDisplay.h
     platform/graphics/egl/GLFence.h
 
     platform/graphics/filters/DistantLightSource.h
@@ -2496,7 +2509,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/style/StyleScrollSnapPoints.h
     rendering/style/StyleSelfAlignmentData.h
     rendering/style/StyleSurroundData.h
-    rendering/style/StyleTextBoxEdge.h
+    rendering/style/StyleTextEdge.h
     rendering/style/StyleTransformData.h
     rendering/style/StyleVisitedLinkColorData.h
     rendering/style/TextDecorationThickness.h

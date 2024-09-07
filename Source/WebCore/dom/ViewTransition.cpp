@@ -74,12 +74,12 @@ ViewTransition::ViewTransition(Document& document, RefPtr<ViewTransitionUpdateCa
 {
 }
 
-ViewTransition::ViewTransition(Document& document)
+ViewTransition::ViewTransition(Document& document, Vector<AtomString>&& initialActiveTypes)
     : ActiveDOMObject(document)
     , m_ready(createPromiseAndWrapper(document))
     , m_updateCallbackDone(createPromiseAndWrapper(document))
     , m_finished(createPromiseAndWrapper(document))
-    , m_types(ViewTransitionTypeSet::create(document, { }))
+    , m_types(ViewTransitionTypeSet::create(document, WTFMove(initialActiveTypes)))
 {
 }
 
@@ -93,26 +93,50 @@ Ref<ViewTransition> ViewTransition::createSamePage(Document& document, RefPtr<Vi
     return viewTransition;
 }
 
-Ref<ViewTransition> ViewTransition::createInbound(Document& document, std::unique_ptr<ViewTransitionParams> params)
+// https://www.w3.org/TR/css-view-transitions-2/#resolve-inbound-cross-document-view-transition
+RefPtr<ViewTransition> ViewTransition::resolveInboundCrossDocumentViewTransition(Document& document, std::unique_ptr<ViewTransitionParams> inboundViewTransitionParams)
 {
-    Ref viewTransition = adoptRef(*new ViewTransition(document));
+    if (!inboundViewTransitionParams)
+        return nullptr;
+
+    if (document.activeViewTransition())
+        return nullptr;
+
+    auto types = document.resolveViewTransitionRule();
+    if (std::holds_alternative<Document::SkipTransition>(types))
+        return nullptr;
+
+    RefPtr viewTransition = adoptRef(*new ViewTransition(document, WTFMove(std::get<Vector<AtomString>>(types))));
     viewTransition->suspendIfNeeded();
 
-    viewTransition->m_namedElements.swap(params->namedElements);
-    viewTransition->m_initialLargeViewportSize = params->initialLargeViewportSize;
-    viewTransition->m_initialPageZoom = params->initialPageZoom;
+    viewTransition->m_namedElements.swap(inboundViewTransitionParams->namedElements);
+    viewTransition->m_initialLargeViewportSize = inboundViewTransitionParams->initialLargeViewportSize;
+    viewTransition->m_initialPageZoom = inboundViewTransitionParams->initialPageZoom;
 
-    document.setActiveViewTransition(viewTransition.ptr());
+    document.setActiveViewTransition(RefPtr { viewTransition });
 
-    viewTransition->startInbound();
+    viewTransition->m_updateCallbackDone.second->resolve();
+    viewTransition->m_phase = ViewTransitionPhase::UpdateCallbackCalled;
+
+    // FIXME: Setup implementation-defined timeout.
 
     return viewTransition;
 }
 
-Ref<ViewTransition> ViewTransition::createOutbound(Document& document)
+// https://drafts.csswg.org/css-view-transitions-2/#setup-cross-document-view-transition
+Ref<ViewTransition> ViewTransition::setupCrossDocumentViewTransition(Document& document)
 {
-    Ref viewTransition = adoptRef(*new ViewTransition(document));
+    auto types = document.resolveViewTransitionRule();
+    ASSERT(!std::holds_alternative<Document::SkipTransition>(types));
+
+    if (RefPtr activeViewTransition =  document.activeViewTransition())
+        activeViewTransition->skipViewTransition(Exception { ExceptionCode::AbortError, "Old view transition aborted by new view transition."_s });
+
+    Ref viewTransition = adoptRef(*new ViewTransition(document, WTFMove(std::get<Vector<AtomString>>(types))));
     viewTransition->suspendIfNeeded();
+
+    document.setActiveViewTransition(RefPtr { viewTransition.ptr() });
+
     return viewTransition;
 }
 
@@ -184,20 +208,6 @@ void ViewTransition::skipTransition()
 {
     if (m_phase != ViewTransitionPhase::Done)
         skipViewTransition(Exception { ExceptionCode::AbortError, "Skipping view transition because skipTransition() was called."_s });
-}
-
-void ViewTransition::startInbound()
-{
-    if (!document())
-        return;
-
-    ASSERT(m_phase < ViewTransitionPhase::UpdateCallbackCalled || m_phase == ViewTransitionPhase::Done);
-
-    if (m_phase != ViewTransitionPhase::Done)
-        m_phase = ViewTransitionPhase::UpdateCallbackCalled;
-
-    m_updateCallbackDone.second->resolve();
-    activateViewTransition();
 }
 
 // https://drafts.csswg.org/css-view-transitions/#call-dom-update-callback-algorithm
@@ -319,6 +329,21 @@ static ExceptionOr<void> checkDuplicateViewTransitionName(const AtomString& name
         return Exception { ExceptionCode::InvalidStateError, makeString("Multiple elements found with view-transition-name: "_s, name) };
     usedTransitionNames.add(name);
     return { };
+}
+
+static Vector<AtomString> effectiveViewTransitionClassList(RenderLayerModelObject& renderer, Element& originatingElement, Style::Scope& documentScope)
+{
+    auto classList = renderer.style().viewTransitionClasses();
+    if (classList.isEmpty())
+        return { };
+
+    auto scope = Style::Scope::forOrdinal(originatingElement, classList.first().scopeOrdinal);
+    if (!scope || scope != &documentScope)
+        return { };
+
+    return WTF::map(classList, [&](auto& item) {
+        return item.name;
+    });
 }
 
 static LayoutRect captureOverflowRect(RenderLayerModelObject& renderer)
@@ -455,6 +480,10 @@ ExceptionOr<void> ViewTransition::captureOldState()
             capture.oldImage = snapshotElementVisualOverflowClippedToViewport(*frame, renderer.get(), capture.oldOverflowRect);
         capture.oldLayerToLayoutOffset = layerToLayoutOffset(renderer.get());
 
+        auto styleable = Styleable::fromRenderer(renderer);
+        ASSERT(styleable);
+        capture.classList = effectiveViewTransitionClassList(renderer, styleable->element, document()->styleScope());
+
         auto transitionName = renderer->style().viewTransitionName();
         m_namedElements.add(transitionName->name, capture);
     }
@@ -485,7 +514,9 @@ ExceptionOr<void> ViewTransition::captureNewState()
                     CapturedElement capturedElement;
                     m_namedElements.add(name, capturedElement);
                 }
-                m_namedElements.find(name)->newElement = *styleable;
+                auto namedElement = m_namedElements.find(name);
+                namedElement->classList = effectiveViewTransitionClassList(renderer, styleable->element, document()->styleScope());
+                namedElement->newElement = *styleable;
             }
             return { };
         }, *view->layer());

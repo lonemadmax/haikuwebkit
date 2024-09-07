@@ -35,6 +35,7 @@
 #include <WebCore/TiledBacking.h>
 #include <wtf/HashMap.h>
 #include <wtf/ObjectIdentifier.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/ThreadSafeWeakPtr.h>
 #include <wtf/WorkQueue.h>
@@ -74,11 +75,10 @@ struct TileForGridHash {
 };
 
 template<> struct HashTraits<WebKit::TileForGrid> : GenericHashTraits<WebKit::TileForGrid> {
-    static const bool emptyValueIsZero = false;
-    static WebKit::TileForGrid emptyValue()  { return { WebCore::TileGridIdentifier { std::numeric_limits<uint64_t>::max() }, { -1, -1 } }; }
-    static WebKit::TileForGrid deletedValue() { return { WebCore::TileGridIdentifier { 0 }, { -1, -1 } }; }
-    static void constructDeletedValue(WebKit::TileForGrid& tileForGrid) { tileForGrid = deletedValue(); }
-    static bool isDeletedValue(const WebKit::TileForGrid& tileForGrid) { return tileForGrid == deletedValue(); }
+    static constexpr bool emptyValueIsZero = true;
+    static WebKit::TileForGrid emptyValue() { return { HashTraits<WebCore::TileGridIdentifier>::emptyValue(), { 0, 0 } }; }
+    static void constructDeletedValue(WebKit::TileForGrid& tileForGrid) { HashTraits<WebCore::TileGridIdentifier>::constructDeletedValue(tileForGrid.gridIdentifier); }
+    static bool isDeletedValue(const WebKit::TileForGrid& tileForGrid) { return tileForGrid.gridIdentifier.isHashTableDeletedValue(); }
 };
 template<> struct DefaultHash<WebKit::TileForGrid> : TileForGridHash { };
 
@@ -89,11 +89,11 @@ namespace WebKit {
 class PDFPresentationController;
 
 struct PDFTileRenderType;
-using PDFTileRenderIdentifier = ObjectIdentifier<PDFTileRenderType>;
+using PDFTileRenderIdentifier = LegacyNullableObjectIdentifier<PDFTileRenderType>;
 
 class AsyncPDFRenderer final : public WebCore::TiledBackingClient,
     public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<AsyncPDFRenderer> {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(AsyncPDFRenderer);
     WTF_MAKE_NONCOPYABLE(AsyncPDFRenderer);
 public:
     static Ref<AsyncPDFRenderer> create(PDFPresentationController&);

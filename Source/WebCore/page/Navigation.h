@@ -46,7 +46,7 @@ class NavigationDestination;
 enum class FrameLoadType : uint8_t;
 
 enum class NavigationAPIMethodTrackerType { };
-using NavigationAPIMethodTrackerIdentifier = ObjectIdentifier<NavigationAPIMethodTrackerType>;
+using NavigationAPIMethodTrackerIdentifier = LegacyNullableObjectIdentifier<NavigationAPIMethodTrackerType>;
 
 // https://html.spec.whatwg.org/multipage/nav-history-apis.html#navigation-api-method-tracker
 struct NavigationAPIMethodTracker : public RefCounted<NavigationAPIMethodTracker> {
@@ -85,7 +85,7 @@ private:
 };
 
 class Navigation final : public RefCounted<Navigation>, public EventTarget, public LocalDOMWindowProperty {
-    WTF_MAKE_ISO_ALLOCATED(Navigation);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Navigation);
 public:
     ~Navigation();
 

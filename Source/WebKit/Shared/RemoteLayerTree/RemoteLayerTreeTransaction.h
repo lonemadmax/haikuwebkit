@@ -42,6 +42,7 @@
 #include <WebCore/ScrollTypes.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/TZoneMalloc.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/text/WTFString.h>
 
@@ -75,7 +76,7 @@ struct ChangedLayers {
 };
 
 class RemoteLayerTreeTransaction {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED(RemoteLayerTreeTransaction);
 public:
     struct LayerCreationProperties {
         struct NoAdditionalData { };
@@ -180,10 +181,10 @@ public:
     void setScaleWasSetByUIProcess(bool scaleWasSetByUIProcess) { m_scaleWasSetByUIProcess = scaleWasSetByUIProcess; }
 
 #if PLATFORM(MAC)
-    WebCore::PlatformLayerIdentifier pageScalingLayerID() const { return m_pageScalingLayerID.value(); }
+    WebCore::PlatformLayerIdentifier pageScalingLayerID() const { return m_pageScalingLayerID.unsafeValue(); }
     void setPageScalingLayerID(WebCore::PlatformLayerIdentifier layerID) { m_pageScalingLayerID = layerID; }
 
-    WebCore::PlatformLayerIdentifier scrolledContentsLayerID() const { return m_scrolledContentsLayerID.value(); }
+    WebCore::PlatformLayerIdentifier scrolledContentsLayerID() const { return m_scrolledContentsLayerID.unsafeValue(); }
     void setScrolledContentsLayerID(WebCore::PlatformLayerIdentifier layerID) { m_scrolledContentsLayerID = layerID; }
 #endif
 

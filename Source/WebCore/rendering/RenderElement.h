@@ -47,7 +47,7 @@ class ElementBox;
 }
 
 class RenderElement : public RenderObject {
-    WTF_MAKE_ISO_ALLOCATED(RenderElement);
+    WTF_MAKE_TZONE_OR_ISO_ALLOCATED(RenderElement);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderElement);
 public:
     virtual ~RenderElement();
@@ -123,6 +123,7 @@ public:
 
     const RenderStyle* spellingErrorPseudoStyle() const;
     const RenderStyle* grammarErrorPseudoStyle() const;
+    const RenderStyle* targetTextPseudoStyle() const;
 
     virtual bool isChildAllowed(const RenderObject&, const RenderStyle&) const { return true; }
     void didAttachChild(RenderObject& child, RenderObject* beforeChild);

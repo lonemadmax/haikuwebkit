@@ -1332,13 +1332,11 @@ TEST(WKWebExtensionAPIRuntime, ConnectNative)
             EXPECT_NULL(error);
             EXPECT_NS_EQUAL(message, @"Hello");
 
-            [messagePort sendMessage:@"Received 1" completionHandler:^(BOOL success, NSError *error) {
-                EXPECT_TRUE(success);
+            [messagePort sendMessage:@"Received 1" completionHandler:^(NSError *error) {
                 EXPECT_NULL(error);
             }];
 
-            [messagePort sendMessage:@"Received 2" completionHandler:^(BOOL success, NSError *error) {
-                EXPECT_TRUE(success);
+            [messagePort sendMessage:@"Received 2" completionHandler:^(NSError *error) {
                 EXPECT_NULL(error);
             }];
 
@@ -1368,13 +1366,11 @@ TEST(WKWebExtensionAPIRuntime, ConnectNativeWithInvalidMessage)
             EXPECT_NULL(error);
             EXPECT_NS_EQUAL(message, @"Hello");
 
-            [messagePort sendMessage:@{ @"bad": NSUUID.UUID } completionHandler:^(BOOL success, NSError *error) {
-                EXPECT_FALSE(success);
+            [messagePort sendMessage:@{ @"bad": NSUUID.UUID } completionHandler:^(NSError *error) {
                 EXPECT_NOT_NULL(error);
-                EXPECT_EQ(error.code, WKWebExtensionMessagePortErrorMessageInvalid);
             }];
 
-            [messagePort disconnectWithError:nil];
+            [messagePort disconnect];
 
             [manager done];
         };
@@ -1412,8 +1408,7 @@ TEST(WKWebExtensionAPIRuntime, ConnectNativeWithUndefinedMessage)
             EXPECT_NULL(error);
             EXPECT_NS_EQUAL(message, @"Hello");
 
-            [messagePort sendMessage:nil completionHandler:^(BOOL success, NSError *error) {
-                EXPECT_TRUE(success);
+            [messagePort sendMessage:nil completionHandler:^(NSError *error) {
                 EXPECT_NULL(error);
             }];
 

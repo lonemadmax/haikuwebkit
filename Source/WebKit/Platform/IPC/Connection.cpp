@@ -71,7 +71,7 @@ constexpr Seconds largeOutgoingMessageQueueTimeThreshold { 20_s };
 std::atomic<unsigned> UnboundedSynchronousIPCScope::unboundedSynchronousIPCCount = 0;
 
 enum class MessageIdentifierType { };
-using MessageIdentifier = AtomicObjectIdentifier<MessageIdentifierType>;
+using MessageIdentifier = LegacyNullableAtomicObjectIdentifier<MessageIdentifierType>;
 
 #if ENABLE(UNFAIR_LOCK)
 static UnfairLock s_connectionMapLock;
@@ -1041,7 +1041,7 @@ void Connection::processIncomingMessage(UniqueRef<Decoder> message)
     }
 
     if (!MessageReceiveQueueMap::isValidMessage(*message)) {
-        dispatchDidReceiveInvalidMessage(message->messageName());
+        dispatchDidReceiveInvalidMessage(message->messageName(), message->indexOfObjectFailingDecoding());
         return;
     }
 
@@ -1053,7 +1053,7 @@ void Connection::processIncomingMessage(UniqueRef<Decoder> message)
         return;
 
     if (message->messageReceiverName() == ReceiverName::AsyncReply) {
-        if (auto replyHandlerWithDispatcher = takeAsyncReplyHandlerWithDispatcherWithLockHeld(AtomicObjectIdentifier<AsyncReplyIDType>(message->destinationID()))) {
+        if (auto replyHandlerWithDispatcher = takeAsyncReplyHandlerWithDispatcherWithLockHeld(LegacyNullableAtomicObjectIdentifier<AsyncReplyIDType>(message->destinationID()))) {
             replyHandlerWithDispatcher(message.moveToUniquePtr());
             return;
         }
@@ -1097,7 +1097,7 @@ void Connection::processIncomingMessage(UniqueRef<Decoder> message)
     }
 
     if ((message->shouldDispatchMessageWhenWaitingForSyncReply() == ShouldDispatchWhenWaitingForSyncReply::YesDuringUnboundedIPC && !message->isAllowedWhenWaitingForUnboundedSyncReply()) || (message->shouldDispatchMessageWhenWaitingForSyncReply() == ShouldDispatchWhenWaitingForSyncReply::Yes && !message->isAllowedWhenWaitingForSyncReply())) {
-        dispatchDidReceiveInvalidMessage(message->messageName());
+        dispatchDidReceiveInvalidMessage(message->messageName(), message->indexOfObjectFailingDecoding());
         return;
     }
 
@@ -1285,12 +1285,12 @@ void Connection::dispatchSyncMessage(Decoder& decoder)
         sendSyncReply(WTFMove(replyEncoder));
 }
 
-void Connection::dispatchDidReceiveInvalidMessage(MessageName messageName)
+void Connection::dispatchDidReceiveInvalidMessage(MessageName messageName, int32_t indexOfObjectFailingDecoding)
 {
-    dispatchToClient([protectedThis = Ref { *this }, messageName] {
+    dispatchToClient([protectedThis = Ref { *this }, messageName, indexOfObjectFailingDecoding] {
         if (!protectedThis->isValid())
             return;
-        protectedThis->m_client->didReceiveInvalidMessage(protectedThis, messageName);
+        protectedThis->m_client->didReceiveInvalidMessage(protectedThis, messageName, indexOfObjectFailingDecoding);
     });
 }
 
@@ -1372,7 +1372,7 @@ void Connection::dispatchMessage(Decoder& decoder)
     assertIsCurrent(dispatcher());
     RELEASE_ASSERT(m_client);
     if (decoder.messageReceiverName() == ReceiverName::AsyncReply) {
-        auto handler = takeAsyncReplyHandler(AtomicObjectIdentifier<AsyncReplyIDType>(decoder.destinationID()));
+        auto handler = takeAsyncReplyHandler(LegacyNullableAtomicObjectIdentifier<AsyncReplyIDType>(decoder.destinationID()));
         if (!handler) {
             markCurrentlyDispatchedMessageAsInvalid();
 #if ENABLE(IPC_TESTING_API)
@@ -1428,7 +1428,7 @@ void Connection::dispatchMessage(UniqueRef<Decoder> message)
             if (m_ignoreInvalidMessageForTesting)
                 return;
 #endif
-            m_client->didReceiveInvalidMessage(*this, message->messageName());
+            m_client->didReceiveInvalidMessage(*this, message->messageName(), message->indexOfObjectFailingDecoding());
             return;
         }
         m_inDispatchMessageMarkedToUseFullySynchronousModeForTesting++;
@@ -1466,7 +1466,7 @@ void Connection::dispatchMessage(UniqueRef<Decoder> message)
         && !m_ignoreInvalidMessageForTesting
 #endif
         && isValid())
-        m_client->didReceiveInvalidMessage(*this, message->messageName());
+        m_client->didReceiveInvalidMessage(*this, message->messageName(), message->indexOfObjectFailingDecoding());
 
     m_didReceiveInvalidMessage = oldDidReceiveInvalidMessage;
 }

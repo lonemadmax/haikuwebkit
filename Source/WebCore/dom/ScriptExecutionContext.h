@@ -39,6 +39,7 @@
 #include <JavaScriptCore/HandleTypes.h>
 #include <pal/SessionID.h>
 #include <wtf/CheckedRef.h>
+#include <wtf/CompletionHandler.h>
 #include <wtf/CrossThreadTask.h>
 #include <wtf/Function.h>
 #include <wtf/HashSet.h>
@@ -305,7 +306,7 @@ public:
     void setDomainForCachePartition(String&& domain) { m_domainForCachePartition = WTFMove(domain); }
 
     bool allowsMediaDevices() const;
-    ServiceWorker* activeServiceWorker() const;
+    ServiceWorker* activeServiceWorker() const { return m_activeServiceWorker.get(); }
     void setActiveServiceWorker(RefPtr<ServiceWorker>&&);
 
     void registerServiceWorker(ServiceWorker&);
@@ -340,7 +341,7 @@ public:
     WEBCORE_EXPORT HasResourceAccess canAccessResource(ResourceType) const;
 
     enum NotificationCallbackIdentifierType { };
-    using NotificationCallbackIdentifier = AtomicObjectIdentifier<NotificationCallbackIdentifierType>;
+    using NotificationCallbackIdentifier = LegacyNullableAtomicObjectIdentifier<NotificationCallbackIdentifierType>;
 
     WEBCORE_EXPORT NotificationCallbackIdentifier addNotificationCallback(CompletionHandler<void()>&&);
     WEBCORE_EXPORT CompletionHandler<void()> takeNotificationCallback(NotificationCallbackIdentifier);

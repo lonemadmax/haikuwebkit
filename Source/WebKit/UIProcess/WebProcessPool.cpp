@@ -42,6 +42,7 @@
 #include "AuxiliaryProcessProxy.h"
 #include "DownloadProxy.h"
 #include "DownloadProxyMessages.h"
+#include "FrameProcess.h"
 #include "GPUProcessConnectionParameters.h"
 #include "GamepadData.h"
 #include "LegacyGlobalSettings.h"
@@ -479,6 +480,7 @@ static bool shouldReportAuxiliaryProcessCrash(ProcessTerminationReason reason)
     case ProcessTerminationReason::NavigationSwap:
     case ProcessTerminationReason::RequestedByNetworkProcess:
     case ProcessTerminationReason::RequestedByGPUProcess:
+    case ProcessTerminationReason::RequestedByModelProcess:
         return false;
     case ProcessTerminationReason::GPUProcessCrashedTooManyTimes:
     case ProcessTerminationReason::ModelProcessCrashedTooManyTimes:
@@ -953,7 +955,6 @@ void WebProcessPool::initializeNewWebProcess(WebProcessProxy& process, WebsiteDa
     parameters.attrStyleEnabled = m_configuration->attrStyleEnabled();
     parameters.shouldThrowExceptionForGlobalConstantRedeclaration = m_configuration->shouldThrowExceptionForGlobalConstantRedeclaration();
     parameters.crossOriginMode = process.crossOriginMode();
-    parameters.isLockdownModeEnabled = process.lockdownMode() == WebProcessProxy::LockdownMode::Enabled;
 
 #if ENABLE(SERVICE_CONTROLS)
     auto& serviceController = ServicesController::singleton();
@@ -1197,10 +1198,9 @@ Ref<WebPageProxy> WebProcessPool::createWebPage(PageClient& pageClient, Ref<API:
     auto lockdownMode = pageConfiguration->lockdownModeEnabled() ? WebProcessProxy::LockdownMode::Enabled : WebProcessProxy::LockdownMode::Disabled;
     RefPtr relatedPage = pageConfiguration->relatedPage();
 
-    if (pageConfiguration->openerProcess()) {
-        ASSERT(pageConfiguration->preferences().siteIsolationEnabled());
-        process = pageConfiguration->openerProcess();
-    } else if (relatedPage && !relatedPage->isClosed() && relatedPage->hasSameGPUAndNetworkProcessPreferencesAs(pageConfiguration)) {
+    if (auto& openerInfo = pageConfiguration->openerInfo(); openerInfo && pageConfiguration->preferences().siteIsolationEnabled())
+        process = openerInfo->process.ptr();
+    else if (relatedPage && !relatedPage->isClosed() && relatedPage->hasSameGPUAndNetworkProcessPreferencesAs(pageConfiguration)) {
         // Sharing processes, e.g. when creating the page via window.open().
         process = &relatedPage->ensureRunningProcess();
         // We do not support several WebsiteDataStores sharing a single process.

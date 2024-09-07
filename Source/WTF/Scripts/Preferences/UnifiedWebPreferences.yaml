@@ -996,17 +996,17 @@ CSSAnchorPositioningEnabled:
 
 CSSBackgroundClipBorderAreaEnabled:
   type: bool
-  status: preview
+  status: stable
   category: css
   humanReadableName: "CSS background-clip: border-area"
   humanReadableDescription: "Enable the border-area value for background-clip"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSColorContrastEnabled:
   type: bool
@@ -1025,7 +1025,7 @@ CSSColorContrastEnabled:
 CSSColorLayersEnabled:
   type: bool
   category: css
-  status: testable
+  status: preview
   humanReadableName: "CSS color-layers()"
   humanReadableDescription: "Enable support for CSS color-layers()"
   defaultValue:
@@ -1404,17 +1404,17 @@ CSSTextAutospaceEnabled:
 
 CSSTextBoxTrimEnabled:
   type: bool
-  status: preview
+  status: stable
   category: css
   humanReadableName: "CSS text-box-trim property"
   humanReadableDescription: "Enable text-box-trim"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 CSSTextGroupAlignEnabled:
   type: bool
@@ -1710,6 +1710,21 @@ CaretBrowsingEnabled:
     WebCore:
       default: false
 
+ChildProcessDebuggabilityEnabled:
+  comment: Disables GPU process IPC timeouts
+  type: bool
+  status: internal
+  humanReadableName: "Child Process Debuggability"
+  humanReadableDescription: "Enable stopping child processes with a debugger"
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 ClearSiteDataHTTPHeaderEnabled:
   type: bool
   status: stable
@@ -1914,12 +1929,12 @@ CookieStoreAPIExtendedAttributesEnabled:
     WebCore:
       default: false
 
-CookieStoreAPIServiceWorkerEnabled:
+CookieStoreManagerEnabled:
   type: bool
   category: dom
   status: testable
-  humanReadableName: "Cookie Store API for Service Workers"
-  humanReadableDescription: "Enable Cookie Store API for Service Workers"
+  humanReadableName: "Cookie Store API CookieStoreManager"
+  humanReadableDescription: "Enable Cookie Store API CookieStoreManager which controls cookie change subscriptions for Service Workers"
   defaultValue:
     WebKitLegacy:
       default: false
@@ -1927,6 +1942,7 @@ CookieStoreAPIServiceWorkerEnabled:
       default: false
     WebCore:
       default: false
+  sharedPreferenceForWebProcess: true
 
 CoreMathMLEnabled:
   type: bool
@@ -6047,7 +6063,7 @@ ScrollToTextFragmentFeatureDetectionEnabled:
 
 ScrollToTextFragmentGenerationEnabled:
   type: bool
-  status: unstable
+  status: stable
   category: dom
   humanReadableName: "Scroll To Text Fragment Generation"
   humanReadableDescription: "Enable Scroll To Text Fragment Generation Menu"
@@ -6055,9 +6071,9 @@ ScrollToTextFragmentGenerationEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 ScrollToTextFragmentIndicatorEnabled:
   type: bool
@@ -6850,6 +6866,20 @@ TabsToLinks:
       "PLATFORM(GTK) || PLATFORM(WPE)": true
       default: false
 
+TargetTextPseudoElementEnabled:
+  type: bool
+  status: stable
+  category: css
+  humanReadableName: "::target-text pseudo-element"
+  humanReadableDescription: "Enable the ::target-text CSS pseudo-element"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
 TelephoneNumberParsingEnabled:
   type: bool
   status: embedder
@@ -7533,19 +7563,33 @@ ViewGestureDebuggingEnabled:
     WebKit:
       default: false
 
+ViewTransitionClassesEnabled:
+  type: bool
+  category: animation
+  status: stable
+  humanReadableName: "View Transition Classes"
+  humanReadableDescription: "Support specifying classes for view transitions"
+  defaultValue:
+    WebKitLegacy:
+      default: true
+    WebKit:
+      default: true
+    WebCore:
+      default: true
+
 ViewTransitionTypesEnabled:
   type: bool
   category: animation
-  status: testable
+  status: stable
   humanReadableName: "View Transition Types"
   humanReadableDescription: "Support specifying types for view transitions"
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
 
 ViewTransitionsEnabled:
   type: bool
@@ -8369,19 +8413,40 @@ WebXRHandInputModuleEnabled:
       default: true
     WebCore:
       default: true
+
 WebXRLayersAPIEnabled:
   type: bool
-  status: unstable
+  status: Webxr_layers_feature_status
   category: dom
   humanReadableName: "WebXR Layers API"
   humanReadableDescription: "Adds support for the WebXR Layers API"
   condition: ENABLE(WEBXR_LAYERS)
   defaultValue:
     WebKitLegacy:
+      "PLATFORM(VISION) && ENABLE(WEBXR_WEBGPU_BY_DEFAULT)": true
       default: false
     WebKit:
+      "PLATFORM(VISION) && ENABLE(WEBXR_WEBGPU_BY_DEFAULT)": true
       default: false
     WebCore:
+      "PLATFORM(VISION) && ENABLE(WEBXR_WEBGPU_BY_DEFAULT)": true
+      default: false
+
+WebXRWebGPUBindingsEnabled:
+  type: bool
+  status: Webgpu_webxr_feature_status
+  category: dom
+  humanReadableName: "WebGPU Support for WebXR"
+  humanReadableDescription: "Adds WebGPU support for WebXR"
+  defaultValue:
+    WebKitLegacy:
+      "PLATFORM(VISION) && ENABLE(WEBXR_WEBGPU_BY_DEFAULT)": true
+      default: false
+    WebKit:
+      "PLATFORM(VISION) && ENABLE(WEBXR_WEBGPU_BY_DEFAULT)": true
+      default: false
+    WebCore:
+      "PLATFORM(VISION) && ENABLE(WEBXR_WEBGPU_BY_DEFAULT)": true
       default: false
 
 WheelEventGesturesBecomeNonBlocking:

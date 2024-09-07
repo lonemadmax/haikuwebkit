@@ -71,11 +71,9 @@ public:
     using RawValue = uint64_t;
 
     bool isHashTableDeletedValue() const { return m_identifier == hashTableDeletedValue(); }
-    bool isValid() const { return isValidIdentifier(m_identifier); }
 
-    RawValue toUInt64() const { return m_identifier; } // Use `toRawValue` instead.
+    RawValue toUInt64() const { return toRawValue(); } // Use `toRawValue` instead.
     RawValue toRawValue() const { return m_identifier; }
-    explicit operator bool() const { return m_identifier; }
 
     String loggingString() const
     {
@@ -106,10 +104,8 @@ public:
     using RawValue = UUID;
 
     bool isHashTableDeletedValue() const { return m_identifier == hashTableDeletedValue(); }
-    bool isValid() const { return isValidIdentifier(m_identifier); }
 
     RawValue toRawValue() const { return m_identifier; }
-    explicit operator bool() const { return m_identifier; }
 
     String loggingString() const
     {
@@ -134,7 +130,7 @@ private:
     RawValue m_identifier { UUID::MarkableTraits::emptyValue() };
 };
 
-template<typename T, typename ThreadSafety, typename RawValue>
+template<typename T, typename ThreadSafety, typename RawValue, SupportsObjectIdentifierNullState supportsNullState>
 class ObjectIdentifierGeneric : public ObjectIdentifierGenericBase<RawValue> {
 public:
     static ObjectIdentifierGeneric generate()
@@ -151,25 +147,37 @@ public:
     explicit constexpr ObjectIdentifierGeneric(RawValue identifier)
         : ObjectIdentifierGenericBase<RawValue>(identifier)
     {
+        ASSERT(supportsNullState == SupportsObjectIdentifierNullState::Yes || !!identifier);
     }
 
-    ObjectIdentifierGeneric() = default;
+    bool isValid() const requires(supportsNullState == SupportsObjectIdentifierNullState::Yes) { return ObjectIdentifierGenericBase<RawValue>::isValidIdentifier(ObjectIdentifierGenericBase<RawValue>::toRawValue()); }
+    explicit operator bool() const requires(supportsNullState == SupportsObjectIdentifierNullState::Yes) { return ObjectIdentifierGenericBase<RawValue>::toRawValue(); }
+
+    ObjectIdentifierGeneric() requires (supportsNullState == SupportsObjectIdentifierNullState::Yes) = default;
+
     ObjectIdentifierGeneric(HashTableDeletedValueType) : ObjectIdentifierGenericBase<RawValue>(HashTableDeletedValue) { }
 
     struct MarkableTraits {
-        static bool isEmptyValue(ObjectIdentifierGeneric identifier) { return !identifier; }
-        static constexpr ObjectIdentifierGeneric emptyValue() { return ObjectIdentifierGeneric(); }
+        static bool isEmptyValue(ObjectIdentifierGeneric identifier) { return !identifier.toRawValue(); }
+        static constexpr ObjectIdentifierGeneric emptyValue() { return ObjectIdentifierGeneric(InvalidIdValue); }
     };
 
 private:
     friend struct HashTraits<ObjectIdentifierGeneric>;
     template<typename U, typename V> friend struct ObjectIdentifierGenericHash;
 
+    enum InvalidId { InvalidIdValue };
+    ObjectIdentifierGeneric(InvalidId)
+    {
+    }
+
     inline static bool m_generationProtected { false };
 };
 
-template<typename T, typename RawValue> using ObjectIdentifier = ObjectIdentifierGeneric<T, ObjectIdentifierMainThreadAccessTraits<RawValue>, RawValue>;
-template<typename T, typename RawValue> using AtomicObjectIdentifier = ObjectIdentifierGeneric<T, ObjectIdentifierThreadSafeAccessTraits<RawValue>, RawValue>;
+template<typename T, typename RawValue> using LegacyNullableObjectIdentifier = ObjectIdentifierGeneric<T, ObjectIdentifierMainThreadAccessTraits<RawValue>, RawValue, SupportsObjectIdentifierNullState::Yes>;
+template<typename T, typename RawValue> using LegacyNullableAtomicObjectIdentifier = ObjectIdentifierGeneric<T, ObjectIdentifierThreadSafeAccessTraits<RawValue>, RawValue, SupportsObjectIdentifierNullState::Yes>;
+template<typename T, typename RawValue> using ObjectIdentifier = ObjectIdentifierGeneric<T, ObjectIdentifierMainThreadAccessTraits<RawValue>, RawValue, SupportsObjectIdentifierNullState::No>;
+template<typename T, typename RawValue> using AtomicObjectIdentifier = ObjectIdentifierGeneric<T, ObjectIdentifierThreadSafeAccessTraits<RawValue>, RawValue, SupportsObjectIdentifierNullState::No>;
 
 inline void add(Hasher& hasher, const ObjectIdentifierGenericBase<uint64_t>& identifier)
 {
@@ -199,9 +207,11 @@ struct ObjectIdentifierGenericBaseHash<UUID> {
     static constexpr bool safeToCompareToEmptyOrDeleted = true;
 };
 
-template<typename T, typename U, typename V> struct HashTraits<ObjectIdentifierGeneric<T, U, V>> : SimpleClassHashTraits<ObjectIdentifierGeneric<T, U, V>> { };
+template<typename T, typename U, typename V, SupportsObjectIdentifierNullState supportsNullState> struct HashTraits<ObjectIdentifierGeneric<T, U, V, supportsNullState>> : SimpleClassHashTraits<ObjectIdentifierGeneric<T, U, V, supportsNullState>> {
+    static ObjectIdentifierGeneric<T, U, V, supportsNullState> emptyValue() { return ObjectIdentifierGeneric<T, U, V, supportsNullState>(ObjectIdentifierGeneric<T, U, V, supportsNullState>::InvalidIdValue); }
+};
 
-template<typename T, typename U, typename V> struct DefaultHash<ObjectIdentifierGeneric<T, U, V>> : ObjectIdentifierGenericBaseHash<V> { };
+template<typename T, typename U, typename V, SupportsObjectIdentifierNullState supportsNullState> struct DefaultHash<ObjectIdentifierGeneric<T, U, V, supportsNullState>> : ObjectIdentifierGenericBaseHash<V> { };
 
 WTF_EXPORT_PRIVATE TextStream& operator<<(TextStream&, const ObjectIdentifierGenericBase<uint64_t>&);
 
@@ -224,52 +234,52 @@ private:
     uint64_t m_identifier;
 };
 
-template<typename T, typename ThreadSafety>
-class StringTypeAdapter<ObjectIdentifierGeneric<T, ThreadSafety, uint64_t>> : public ObjectIdentifierGenericBaseStringTypeAdapter<uint64_t> {
+template<typename T, typename ThreadSafety, SupportsObjectIdentifierNullState supportsNullState>
+class StringTypeAdapter<ObjectIdentifierGeneric<T, ThreadSafety, uint64_t, supportsNullState>> : public ObjectIdentifierGenericBaseStringTypeAdapter<uint64_t> {
 public:
-    explicit StringTypeAdapter(ObjectIdentifierGeneric<T, ThreadSafety, uint64_t> identifier)
+    explicit StringTypeAdapter(ObjectIdentifierGeneric<T, ThreadSafety, uint64_t, supportsNullState> identifier)
         : ObjectIdentifierGenericBaseStringTypeAdapter(identifier.toRawValue()) { }
 };
 
-template<typename T, typename ThreadSafety>
-class StringTypeAdapter<ObjectIdentifierGeneric<T, ThreadSafety, UUID>> : public StringTypeAdapter<UUID> {
+template<typename T, typename ThreadSafety, SupportsObjectIdentifierNullState supportsNullState>
+class StringTypeAdapter<ObjectIdentifierGeneric<T, ThreadSafety, UUID, supportsNullState>> : public StringTypeAdapter<UUID> {
 public:
-    explicit StringTypeAdapter(ObjectIdentifierGeneric<T, ThreadSafety, UUID> identifier)
+    explicit StringTypeAdapter(ObjectIdentifierGeneric<T, ThreadSafety, UUID, supportsNullState> identifier)
         : StringTypeAdapter<UUID>(identifier.toRawValue()) { }
 };
 
-template<typename T, typename ThreadSafety>
-bool operator==(const ObjectIdentifierGeneric<T, ThreadSafety, UUID>& a, const ObjectIdentifierGeneric<T, ThreadSafety, UUID>& b)
+template<typename T, typename ThreadSafety, SupportsObjectIdentifierNullState supportsNullState>
+bool operator==(const ObjectIdentifierGeneric<T, ThreadSafety, UUID, supportsNullState>& a, const ObjectIdentifierGeneric<T, ThreadSafety, UUID, supportsNullState>& b)
 {
     return a.toRawValue() == b.toRawValue();
 }
 
-template<typename T, typename ThreadSafety>
-bool operator==(const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t>& a, const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t>& b)
+template<typename T, typename ThreadSafety, SupportsObjectIdentifierNullState supportsNullState>
+bool operator==(const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t, supportsNullState>& a, const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t, supportsNullState>& b)
 {
     return a.toRawValue() == b.toRawValue();
 }
 
-template<typename T, typename ThreadSafety>
-bool operator>(const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t>& a, const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t>& b)
+template<typename T, typename ThreadSafety, SupportsObjectIdentifierNullState supportsNullState>
+bool operator>(const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t, supportsNullState>& a, const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t, supportsNullState>& b)
 {
     return a.toRawValue() > b.toRawValue();
 }
 
-template<typename T, typename ThreadSafety>
-bool operator>=(const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t>& a, const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t>& b)
+template<typename T, typename ThreadSafety, SupportsObjectIdentifierNullState supportsNullState>
+bool operator>=(const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t, supportsNullState>& a, const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t, supportsNullState>& b)
 {
     return a.toRawValue() >= b.toRawValue();
 }
 
-template<typename T, typename ThreadSafety>
-bool operator<(const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t>& a, const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t>& b)
+template<typename T, typename ThreadSafety, SupportsObjectIdentifierNullState supportsNullState>
+bool operator<(const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t, supportsNullState>& a, const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t, supportsNullState>& b)
 {
     return a.toRawValue() < b.toRawValue();
 }
 
-template<typename T, typename ThreadSafety>
-bool operator<=(const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t>& a, const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t>& b)
+template<typename T, typename ThreadSafety, SupportsObjectIdentifierNullState supportsNullState>
+bool operator<=(const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t, supportsNullState>& a, const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t, supportsNullState>& b)
 {
     return a.toRawValue() <= b.toRawValue();
 }
@@ -277,6 +287,8 @@ bool operator<=(const ObjectIdentifierGeneric<T, ThreadSafety, uint64_t>& a, con
 } // namespace WTF
 
 using WTF::AtomicObjectIdentifier;
+using WTF::LegacyNullableAtomicObjectIdentifier;
+using WTF::LegacyNullableObjectIdentifier;
 using WTF::ObjectIdentifierGenericBase;
 using WTF::ObjectIdentifierGeneric;
 using WTF::ObjectIdentifier;

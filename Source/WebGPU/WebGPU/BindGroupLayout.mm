@@ -29,6 +29,7 @@
 #import "APIConversions.h"
 #import "Device.h"
 #import "Texture.h"
+#import <wtf/TZoneMallocInlines.h>
 
 namespace WebGPU {
 
@@ -76,6 +77,8 @@ static MTLArgumentDescriptor *createArgumentDescriptor(const WGPUBufferBindingLa
     }
     return descriptor;
 }
+
+WTF_MAKE_TZONE_ALLOCATED_IMPL(BindGroupLayout);
 
 bool BindGroupLayout::isPresent(const WGPUSamplerBindingLayout& sampler)
 {
@@ -254,7 +257,8 @@ Ref<BindGroupLayout> Device::createBindGroupLayout(const WGPUBindGroupLayoutDesc
                 .nextInChain = nullptr,
                 .type = static_cast<WGPUBufferBindingType>(WGPUBufferBindingType_Float3x2),
                 .hasDynamicOffset = static_cast<WGPUBool>(false),
-                .minBindingSize = 0
+                .minBindingSize = 0,
+                .bufferSizeForBinding = 0
             };
             descriptors[2] = createArgumentDescriptor(bufferLayout, *this, entry);
             bufferLayout.type = static_cast<WGPUBufferBindingType>(WGPUBufferBindingType_Float4x3);

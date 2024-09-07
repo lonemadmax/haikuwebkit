@@ -81,6 +81,7 @@
 #include <jsc/JSCContextPrivate.h>
 #include <libsoup/soup.h>
 #include <wtf/SetForScope.h>
+#include <wtf/TZoneMallocInlines.h>
 #include <wtf/URL.h>
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/WTFGType.h>
@@ -243,7 +244,7 @@ enum {
 static GParamSpec* sObjProperties[N_PROPERTIES] = { nullptr, };
 
 class PageLoadStateObserver final : public PageLoadState::Observer {
-    WTF_MAKE_FAST_ALLOCATED;
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(PageLoadStateObserver);
 public:
     PageLoadStateObserver(WebKitWebView* webView)
         : m_webView(webView)
@@ -2650,7 +2651,7 @@ void webkitWebViewSetIcon(WebKitWebView* webView, const LinkIcon& icon, API::Dat
 
 RefPtr<WebPageProxy> webkitWebViewCreateNewPage(WebKitWebView* webView, Ref<API::PageConfiguration>&& configuration, WindowFeatures&& windowFeatures, WebKitNavigationAction* navigationAction)
 {
-    RefPtr openerProcess = configuration->openerProcess();
+    auto& openerInfo = configuration->openerInfo();
 
     ASSERT(!webView->priv->configurationForNextRelatedView);
     SetForScope configurationScope(webView->priv->configurationForNextRelatedView, WTFMove(configuration));
@@ -2661,7 +2662,7 @@ RefPtr<WebPageProxy> webkitWebViewCreateNewPage(WebKitWebView* webView, Ref<API:
         return nullptr;
 
     Ref newPage = getPage(newWebView);
-    if (&getPage(webView) != newPage->configuration().relatedPage() || openerProcess != newPage->configuration().openerProcess()) {
+    if (&getPage(webView) != newPage->configuration().relatedPage() || openerInfo != newPage->configuration().openerInfo()) {
         g_warning("WebKitWebView returned by WebKitWebView::create signal was not created with the related WebKitWebView");
         return nullptr;
     }
@@ -4999,20 +5000,20 @@ void webkit_web_view_get_snapshot(WebKitWebView* webView, WebKitSnapshotRegion r
 {
     g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
 
-    SnapshotOptions snapshotOptions = 0;
+    SnapshotOptions snapshotOptions;
     switch (region) {
     case WEBKIT_SNAPSHOT_REGION_VISIBLE:
-        snapshotOptions |= SnapshotOptionsVisibleContentRect;
+        snapshotOptions.add(SnapshotOption::VisibleContentRect);
         break;
     case WEBKIT_SNAPSHOT_REGION_FULL_DOCUMENT:
-        snapshotOptions |= SnapshotOptionsFullContentRect;
+        snapshotOptions.add(SnapshotOption::FullContentRect);
         break;
     }
 
     if (!(options & WEBKIT_SNAPSHOT_OPTIONS_INCLUDE_SELECTION_HIGHLIGHTING))
-        snapshotOptions |= SnapshotOptionsExcludeSelectionHighlighting;
+        snapshotOptions.add(SnapshotOption::ExcludeSelectionHighlighting);
     if (options & WEBKIT_SNAPSHOT_OPTIONS_TRANSPARENT_BACKGROUND)
-        snapshotOptions |= SnapshotOptionsTransparentBackground;
+        snapshotOptions.add(SnapshotOption::TransparentBackground);
 
     GRefPtr<GTask> task = adoptGRef(g_task_new(webView, cancellable, callback, userData));
     getPage(webView).takeSnapshot({ }, { }, snapshotOptions, [task = WTFMove(task)](std::optional<ShareableBitmap::Handle>&& handle) {

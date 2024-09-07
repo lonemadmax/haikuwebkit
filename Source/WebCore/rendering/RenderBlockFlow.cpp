@@ -70,12 +70,13 @@
 #include "RenderView.h"
 #include "Settings.h"
 #include "TextAutoSizing.h"
+#include "TextBoxTrimmer.h"
 #include "VisiblePosition.h"
-#include <wtf/IsoMallocInlines.h>
+#include <wtf/TZoneMallocInlines.h>
 
 namespace WebCore {
 
-WTF_MAKE_ISO_ALLOCATED_IMPL(RenderBlockFlow);
+WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(RenderBlockFlow);
 
 bool RenderBlock::s_canPropagateFloatIntoSibling = false;
 
@@ -153,7 +154,7 @@ RenderBlockFlow::~RenderBlockFlow()
 void RenderBlockFlow::willBeDestroyed()
 {
     if (!renderTreeBeingDestroyed()) {
-        if (firstRootBox()) {
+        if (legacyRootBox()) {
             // We can't wait for RenderBox::destroy to clear the selection,
             // because by then we will have nuked the line boxes.
             if (isSelectionBorder())
@@ -163,10 +164,8 @@ void RenderBlockFlow::willBeDestroyed()
             // that will outlast this block. In the non-anonymous block case those
             // children will be destroyed by the time we return from this function.
             if (isAnonymousBlock()) {
-                for (auto* box = firstRootBox(); box; box = box->nextRootBox()) {
-                    while (auto childBox = box->firstChild())
-                        childBox->removeFromParent();
-                }
+                if (auto* childBox = legacyRootBox()->firstChild())
+                    childBox->removeFromParent();
             }
         } else if (auto* parent = this->parent(); parent && parent->isSVGRenderer())
             parent->dirtyLineFromChangedChild();
@@ -669,110 +668,12 @@ inline LayoutUnit RenderBlockFlow::shiftForAlignContent(LayoutUnit intrinsicLogi
     return space;
 }
 
-static RenderBlockFlow* firstInlineFormattingContextRoot(const RenderBlockFlow& enclosingBlockContainer)
-{
-    // FIXME: Remove this after implementing "last line damage".
-    for (auto* child = enclosingBlockContainer.firstChild(); child; child = child->previousSibling()) {
-        CheckedPtr blockContainer = dynamicDowncast<RenderBlockFlow>(*child);
-        if (!blockContainer || blockContainer->createsNewFormattingContext())
-            continue;
-        if (blockContainer->hasLines())
-            return blockContainer.get();
-        if (auto* descendantRoot = firstInlineFormattingContextRoot(*blockContainer))
-            return descendantRoot;
-    }
-    return nullptr;
-}
-
-static RenderBlockFlow* lastInlineFormattingContextRoot(const RenderBlockFlow& enclosingBlockContainer)
-{
-    for (auto* child = enclosingBlockContainer.lastChild(); child; child = child->previousSibling()) {
-        CheckedPtr blockContainer = dynamicDowncast<RenderBlockFlow>(*child);
-        if (!blockContainer || blockContainer->createsNewFormattingContext())
-            continue;
-        if (blockContainer->hasLines())
-            return blockContainer.get();
-        if (auto* descendantRoot = lastInlineFormattingContextRoot(*blockContainer))
-            return descendantRoot;
-    }
-    return nullptr;
-}
-
-class TextBoxTrimmer {
-public:
-    TextBoxTrimmer(const RenderBlockFlow& textBoxTrimRoot, const RenderBlockFlow* inlineFormattingContextRootForTextBoxTrimEnd = nullptr)
-        : m_textBoxTrimRoot(textBoxTrimRoot)
-    {
-        setTextBoxTrimForSubtree(inlineFormattingContextRootForTextBoxTrimEnd);
-    }
-
-    ~TextBoxTrimmer()
-    {
-        adjustTextBoxTrimAfterLayout();
-    }
-
-    static TextBoxTrim textBoxTrim(const RenderBlockFlow& textBoxTrimRoot)
-    {
-        if (auto* multiColumnFlow = dynamicDowncast<RenderMultiColumnFlow>(textBoxTrimRoot))
-            return multiColumnFlow->multiColumnBlockFlow()->style().textBoxTrim();
-        return textBoxTrimRoot.style().textBoxTrim();
-    }
-
-private:
-    void setTextBoxTrimForSubtree(const RenderBlockFlow* inlineFormattingContextRootForTextBoxTrimEnd);
-    void adjustTextBoxTrimAfterLayout();
-
-    const RenderBlockFlow& m_textBoxTrimRoot;
-};
-
-void TextBoxTrimmer::setTextBoxTrimForSubtree(const RenderBlockFlow* inlineFormattingContextRootForTextBoxTrimEnd)
-{
-    auto* layoutState = m_textBoxTrimRoot.view().frameView().layoutContext().layoutState();
-    if (!layoutState)
-        return;
-    auto textBoxTrim = TextBoxTrimmer::textBoxTrim(m_textBoxTrimRoot);
-    if (textBoxTrim == TextBoxTrim::None) {
-        if (m_textBoxTrimRoot.borderAndPaddingStart()) {
-            // For block containers: trim the block-start side of the first formatted line to the corresponding
-            // text-box-edge metric of its root inline box. If there is no such line, or if there is intervening non-zero padding or borders,
-            // there is no effect.
-            layoutState->resetTextBoxTrim();
-        }
-        return;
-    }
-    // FIXME: Add support for nested leading trims if applicable.
-    layoutState->resetTextBoxTrim();
-    auto applyTextBoxTrimStart = textBoxTrim == TextBoxTrim::Start || textBoxTrim == TextBoxTrim::Both;
-    auto applyTextBoxTrimEnd = (textBoxTrim == TextBoxTrim::End || textBoxTrim == TextBoxTrim::Both) && inlineFormattingContextRootForTextBoxTrimEnd;
-    if (applyTextBoxTrimEnd) {
-        layoutState->addTextBoxTrimEnd(*inlineFormattingContextRootForTextBoxTrimEnd);
-        // FIXME: Instead we should just damage the last line.
-        if (auto* firstFormattedLineRoot = firstInlineFormattingContextRoot(m_textBoxTrimRoot); firstFormattedLineRoot && firstFormattedLineRoot != inlineFormattingContextRootForTextBoxTrimEnd) {
-            // When we run a "last line" layout on the last formatting context, we should not trim the first line ever (see FIXME).
-            applyTextBoxTrimStart = false;
-        }
-    }
-    if (applyTextBoxTrimStart)
-        layoutState->addTextBoxTrimStart();
-}
-
-void TextBoxTrimmer::adjustTextBoxTrimAfterLayout()
-{
-    auto* layoutState = m_textBoxTrimRoot.view().frameView().layoutContext().layoutState();
-    if (!layoutState)
-        return;
-    if (m_textBoxTrimRoot.style().textBoxTrim() != TextBoxTrim::None)
-        return layoutState->resetTextBoxTrim();
-    // This is propagated text-box-trim.
-    if (layoutState->hasTextBoxTrimStart() && m_textBoxTrimRoot.hasLines()) {
-        // Only the first formatted line is trimmed.
-        layoutState->removeTextBoxTrimStart();
-    }
-}
-
 void RenderBlockFlow::layoutInFlowChildren(bool relayoutChildren, LayoutUnit& repaintLogicalTop, LayoutUnit& repaintLogicalBottom, LayoutUnit& maxFloatLogicalBottom)
 {
     if (!firstChild()) {
+        // Empty block containers produce empty formatting lines which may affect trim-start/end.
+        auto textBoxTrimmer = TextBoxTrimmer { *this };
+
         auto logicalHeight = borderAndPaddingBefore() + borderAndPaddingAfter() + scrollbarLogicalHeight();
         if (hasLineIfEmpty())
             logicalHeight += lineHeight(true, isHorizontalWritingMode() ? HorizontalLine : VerticalLine, PositionOfInteriorLineBoxes);
@@ -784,32 +685,29 @@ void RenderBlockFlow::layoutInFlowChildren(bool relayoutChildren, LayoutUnit& re
         return;
     }
 
-    if (childrenInline())
-        return layoutInlineChildren(relayoutChildren, repaintLogicalTop, repaintLogicalBottom);
-
-    {
-        // With block children, there's no way to tell what the last formatted line is until after we finished laying out the subtree.
+    if (childrenInline()) {
         auto textBoxTrimmer = TextBoxTrimmer { *this };
-        layoutBlockChildren(relayoutChildren, maxFloatLogicalBottom);
+        return layoutInlineChildren(relayoutChildren, repaintLogicalTop, repaintLogicalBottom);
     }
 
-    auto handleTextBoxTrimEnd = [&] {
-        auto textBoxTrim = TextBoxTrimmer::textBoxTrim(*this);
-        auto hasTextBoxTrimEnd = textBoxTrim == TextBoxTrim::End || textBoxTrim == TextBoxTrim::Both;
-        if (!hasTextBoxTrimEnd)
-            return;
-        // Dirty the last formatted line (in the last IFC) and issue relayout with forcing trimming the last line.
-        if (auto* rootForLastFormattedLine = lastInlineFormattingContextRoot(*this)) {
-            for (RenderBlock* ancestor = rootForLastFormattedLine; ancestor && ancestor != this; ancestor = ancestor->containingBlock()) {
-                // FIXME: We should be able to damage the last line only.
-                ancestor->setNeedsLayout(MarkOnlyThis);
-            }
-
-            auto textBoxTrimmer = TextBoxTrimmer { *this, rootForLastFormattedLine };
+    {
+        {
+            // With block children, there's no way to tell what the last formatted line is until after we finished laying out the subtree.
+            auto textBoxTrimmer = TextBoxTrimmer { *this };
             layoutBlockChildren(relayoutChildren, maxFloatLogicalBottom);
         }
-    };
-    handleTextBoxTrimEnd();
+
+        // Dirty the last formatted line (in the last IFC) and issue relayout with forcing trimming the last line if applicable.
+        if (auto* rootForLastFormattedLine = TextBoxTrimmer::lastInlineFormattingContextRootForTrimEnd(*this)) {
+            ASSERT(rootForLastFormattedLine != this);
+            // FIXME: We should be able to damage the last line only.
+            for (RenderBlock* ancestor = rootForLastFormattedLine; ancestor && ancestor != this; ancestor = ancestor->containingBlock())
+                ancestor->setNeedsLayout(MarkOnlyThis);
+
+            auto textBoxTrimmer = TextBoxTrimmer { *this, *rootForLastFormattedLine };
+            layoutBlockChildren(false, maxFloatLogicalBottom);
+        }
+    }
 }
 
 void RenderBlockFlow::layoutBlockChildren(bool relayoutChildren, LayoutUnit& maxFloatLogicalBottom)
@@ -3313,11 +3211,10 @@ std::optional<LayoutUnit> RenderBlockFlow::inlineBlockBaseline(LineDirectionMode
         }
 
         if (legacyLineLayout()) {
-            bool isFirstLine = lastRootBox() == firstRootBox();
-            const auto& style = isFirstLine ? firstLineStyle() : this->style();
+            auto& style = firstLineStyle();
             // LegacyInlineFlowBox::placeBoxesInBlockDirection will flip lines in case of verticalLR mode, so we can assume verticalRL for now.
-            lastBaseline = style.metricsOfPrimaryFont().intAscent(lastRootBox()->baselineType())
-                + (style.isFlippedLinesWritingMode() ? logicalHeight() - lastRootBox()->logicalBottom() : lastRootBox()->logicalTop());
+            lastBaseline = style.metricsOfPrimaryFont().intAscent(legacyRootBox()->baselineType())
+                + (style.isFlippedLinesWritingMode() ? logicalHeight() - legacyRootBox()->logicalBottom() : legacyRootBox()->logicalTop());
         }
         else if (modernLineLayout())
             lastBaseline = floorToInt(modernLineLayout()->lastLineLogicalBaseline());
@@ -3946,10 +3843,17 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
         if (auto* renderText = dynamicDowncast<RenderText>(renderer))
             setFullRepaintOnParentInlineBoxLayerIfNeeded(*renderText);
 
-        auto shouldRunInFlowLayout = renderer.isInFlow() && is<RenderElement>(renderer) && !is<RenderLineBreak>(renderer) && !is<RenderInline>(renderer) && !is<RenderCounter>(renderer);
-        if (shouldRunInFlowLayout)
-            downcast<RenderElement>(renderer).layoutIfNeeded();
-        else if (!renderer.isOutOfFlowPositioned() && !renderer.isFloating())
+        if (auto* inlineLevelBox = dynamicDowncast<RenderBox>(renderer)) {
+            // FIXME: Move this to where the actual content change happens and call it on the parent IFC.
+            auto shouldTriggerFullLayout = inlineLevelBox->isInline() && inlineLevelBox->needsLayout() && modernLineLayout();
+            if (shouldTriggerFullLayout)
+                modernLineLayout()->boxContentWillChange(*inlineLevelBox);
+        }
+
+        if (box && box->style().display() == DisplayType::RubyAnnotation)
+            box->layoutIfNeeded();
+
+        if (is<RenderLineBreak>(renderer) || is<RenderInline>(renderer) || is<RenderText>(renderer))
             renderer.clearNeedsLayout();
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE) && ENABLE(AX_THREAD_TEXT_APIS)
@@ -4000,7 +3904,6 @@ void RenderBlockFlow::layoutModernLines(bool relayoutChildren, LayoutUnit& repai
     auto oldBorderBoxBottom = computeBorderBoxBottom();
     m_previousModernLineLayoutContentBoxLogicalHeight = { };
 
-    auto textBoxTrimmer = TextBoxTrimmer { *this, this };
     auto partialRepaintRect = layoutFormattingContextLineLayout.layout();
 
     auto newBorderBoxBottom = computeBorderBoxBottom();
@@ -4135,7 +4038,7 @@ void RenderBlockFlow::outputLineTreeAndMark(WTF::TextStream& stream, const Legac
         modernLineLayout->outputLineTree(stream, depth);
         return;
     }
-    for (const LegacyRootInlineBox* root = firstRootBox(); root; root = root->nextRootBox())
+    if (auto* root = legacyRootBox())
         root->outputLineTreeAndMark(stream, markedBox, depth);
 }
 #endif

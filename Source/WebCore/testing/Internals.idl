@@ -633,6 +633,8 @@ enum RenderingMode {
     Range? rangeOfStringNearLocation(Range range, DOMString text, long targetOffset);
     sequence<TextIteratorState> statesOfTextIterator(Range range);
 
+    DOMString textFragmentDirectiveForRange(Range range);
+
     undefined setDelegatesScrolling(boolean enabled);
 
     unsigned long long lastSpellCheckRequestSequence();
@@ -817,7 +819,6 @@ enum RenderingMode {
     DOMString pageProperty(DOMString propertyName, long pageNumber);
     DOMString pageSizeAndMarginsInPixels(long pageIndex, long width, long height, long marginTop, long marginRight, long marginBottom, long marginLeft);
 
-    undefined setPageScaleFactor(unrestricted float scaleFactor, long x, long y);
     float pageScaleFactor();
 
     undefined setPageZoomFactor(unrestricted float zoomFactor);

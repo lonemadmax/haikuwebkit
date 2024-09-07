@@ -91,13 +91,13 @@ private:
 
     void recomputeAdjustedElementsIfNeeded();
 
-    SingleThreadWeakPtr<Page> m_page;
+    WeakPtr<Page> m_page;
     DeferrableOneShotTimer m_recentAdjustmentClientRectsCleanUpTimer;
     WeakHashSet<Document, WeakPtrImplWithEventTargetData> m_documentsAffectedByVisibilityAdjustment;
     HashMap<ElementIdentifier, IntRect> m_recentAdjustmentClientRects;
     ApproximateTime m_startTimeForSelectorBasedVisibilityAdjustment;
     Timer m_selectorBasedVisibilityAdjustmentTimer;
-    Vector<std::pair<ElementIdentifier, TargetedElementSelectors>> m_visibilityAdjustmentSelectors;
+    Vector<std::pair<Markable<ElementIdentifier>, TargetedElementSelectors>> m_visibilityAdjustmentSelectors;
     Vector<TargetedElementSelectors> m_initialVisibilityAdjustmentSelectors;
     Region m_adjustmentClientRegion;
     Region m_repeatedAdjustmentClientRegion;
