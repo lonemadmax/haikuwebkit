@@ -174,7 +174,7 @@ is a font with known-size glyphs that render the same on all platforms. Most of
 the characters look like black squares, this is expected and not a bug!
 http://www.w3.org/Style/CSS/Test/Fonts/Ahem/
 
-$ cp LayoutTests/resources/Ahem.ttf /system/non-packaged/data/fonts/
+$ pkgman install ahem
 
 It is also a good idea to enable automated debug reports for DumpRenderTree.
 Create the file ~/config/settings/system/debug\_server/settings and add:
