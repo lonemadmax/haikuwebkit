@@ -1125,6 +1125,8 @@ class Port(object):
             return 'win-httpd-' + self._apache_version() + '.conf'
         if sys_platform == 'darwin':
             return 'apache' + self._apache_version() + '-darwin-httpd.conf'
+        if sys_platform == 'haiku1':
+            return 'apache' + self._apache_version() + '-haiku-httpd.conf'
         if sys_platform.startswith('linux'):
             if self._is_redhat_based():
                 return 'fedora-httpd-' + self._apache_version() + '.conf'

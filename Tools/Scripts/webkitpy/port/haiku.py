@@ -78,6 +78,9 @@ class HaikuPort(Port):
     def _path_to_driver(self):
         return self._build_path('bin', self.driver_name())
 
+    def _path_to_apache(self):
+        return "/system/bin/httpd"
+
     def _path_to_image_diff(self):
         return self._build_path('bin', 'ImageDiff')
 
