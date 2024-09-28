@@ -163,6 +163,7 @@ bool FrameLoaderClientHaiku::dispatchDidLoadResourceFromMemoryCache(DocumentLoad
 }
 
 void FrameLoaderClientHaiku::assignIdentifierToInitialRequest(ResourceLoaderIdentifier identifier,
+                                                              WebCore::IsMainResourceLoad, 
                                                               DocumentLoader* loader,
                                                               const ResourceRequest& request)
 {
@@ -306,12 +307,12 @@ void FrameLoaderClientHaiku::dispatchDidReceiveContentLength(DocumentLoader* /*l
     notImplemented();
 }
 
-void FrameLoaderClientHaiku::dispatchDidFinishLoading(DocumentLoader* /*loader*/, ResourceLoaderIdentifier /*identifier*/)
+void FrameLoaderClientHaiku::dispatchDidFinishLoading(DocumentLoader* /*loader*/, WebCore::IsMainResourceLoad, ResourceLoaderIdentifier /*identifier*/)
 {
     notImplemented();
 }
 
-void FrameLoaderClientHaiku::dispatchDidFailLoading(DocumentLoader* loader, ResourceLoaderIdentifier, const ResourceError& error)
+void FrameLoaderClientHaiku::dispatchDidFailLoading(DocumentLoader* loader, WebCore::IsMainResourceLoad, ResourceLoaderIdentifier, const ResourceError& error)
 {
     if (error.isCancellation())
         return;
@@ -593,7 +594,7 @@ void FrameLoaderClientHaiku::dispatchDecidePolicyForNewWindowAction(
 void FrameLoaderClientHaiku::dispatchDecidePolicyForNavigationAction(
 	const NavigationAction& action, const ResourceRequest& request,
 	const WebCore::ResourceResponse& response, FormState* formState,
-	const String&, std::optional<NavigationIdentifier> identifier, std::optional<HitTestResult>&& hit, bool, SandboxFlags, PolicyDecisionMode, FramePolicyFunction&& function)
+	const String&, std::optional<NavigationIdentifier> identifier, std::optional<HitTestResult>&& hit, bool, IsPerformingHTTPFallback, SandboxFlags, PolicyDecisionMode, FramePolicyFunction&& function)
 {
     // Potentially we want to open a new window, when the user clicked with the
     // tertiary mouse button. That's why we can reuse the other method.

@@ -77,7 +77,7 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
     void detachedFromParent2() override;
     void detachedFromParent3() override;
 
-    void assignIdentifierToInitialRequest(ResourceLoaderIdentifier identifier, DocumentLoader*, const ResourceRequest&) override;
+    void assignIdentifierToInitialRequest(ResourceLoaderIdentifier identifier, WebCore::IsMainResourceLoad, DocumentLoader*, const ResourceRequest&) override;
 
     void dispatchWillSendRequest(DocumentLoader*, ResourceLoaderIdentifier, ResourceRequest&,
                                          const ResourceResponse&) override;
@@ -93,8 +93,8 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
     void dispatchDidReceiveResponse(DocumentLoader*, ResourceLoaderIdentifier,
         const ResourceResponse&) override;
     void dispatchDidReceiveContentLength(DocumentLoader*, ResourceLoaderIdentifier, int) override;
-    void dispatchDidFinishLoading(DocumentLoader*, ResourceLoaderIdentifier) override;
-    void dispatchDidFailLoading(DocumentLoader*, ResourceLoaderIdentifier,
+    void dispatchDidFinishLoading(DocumentLoader*, WebCore::IsMainResourceLoad, ResourceLoaderIdentifier) override;
+    void dispatchDidFailLoading(DocumentLoader*, WebCore::IsMainResourceLoad, ResourceLoaderIdentifier,
                                         const ResourceError&) override;
 
     void dispatchDidDispatchOnloadEvents() override;
@@ -124,7 +124,7 @@ class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
 		std::optional<WebCore::HitTestResult>&&, FramePolicyFunction&&) override;
     void dispatchDecidePolicyForNavigationAction(const NavigationAction&,
         const ResourceRequest&, const WebCore::ResourceResponse&, FormState*,
-		const String& clientRedirectSourceForHistory, std::optional<NavigationIdentifier> navigationID, std::optional<HitTestResult>&&, bool hasOpener, SandboxFlags, PolicyDecisionMode, FramePolicyFunction&&) override;
+		const String& clientRedirectSourceForHistory, std::optional<NavigationIdentifier> navigationID, std::optional<HitTestResult>&&, bool hasOpener, IsPerformingHTTPFallback, SandboxFlags, PolicyDecisionMode, FramePolicyFunction&&) override;
     void cancelPolicyCheck() override;
 
     void dispatchUnableToImplementPolicy(const ResourceError&) override;
