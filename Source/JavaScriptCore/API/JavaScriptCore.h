@@ -28,6 +28,10 @@
 
 #include <JavaScriptCore/JavaScript.h>
 
+#if !OS(HAIKU)
+#include <JavaScriptCore/JSStringRefCF.h>
+#endif
+
 #include <JavaScriptCore/JSContext.h>
 #include <JavaScriptCore/JSValue.h>
 #include <JavaScriptCore/JSManagedValue.h>
