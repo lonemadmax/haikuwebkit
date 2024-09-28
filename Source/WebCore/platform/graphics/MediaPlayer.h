@@ -157,6 +157,21 @@ enum class MediaPlatformType {
     Remote
 };
 
+enum class MediaPlayerType {
+    Null,
+    Mock,
+    MockMSE,
+    MediaFoundation,
+    AVFObjC,
+    AVFObjCMSE,
+    AVFObjCMediaStream,
+    CocoaWebM,
+    GStreamer,
+    GStreamerMSE,
+    HolePunch,
+    Remote
+};
+
 using TrackID = uint64_t;
 
 class MediaPlayerClient : public CanMakeWeakPtr<MediaPlayerClient> {
@@ -323,7 +338,7 @@ public:
 
     virtual PlatformVideoTarget mediaPlayerVideoTarget() const { return nullptr; }
 
-    virtual MediaPlayerClientIdentifier mediaPlayerClientIdentifier() const { return { WTF::HashTableDeletedValue }; }
+    virtual MediaPlayerClientIdentifier mediaPlayerClientIdentifier() const { return { }; }
 
 #if !RELEASE_LOG_DISABLED
     virtual const void* mediaPlayerLogIdentifier() { return nullptr; }
@@ -336,7 +351,7 @@ public:
 };
 
 class WEBCORE_EXPORT MediaPlayer : public MediaPlayerEnums, public ThreadSafeRefCountedAndCanMakeThreadSafeWeakPtr<MediaPlayer, WTF::DestructionThread::Main> {
-    WTF_MAKE_TZONE_ALLOCATED(MediaPlayer);
+    WTF_MAKE_TZONE_ALLOCATED_EXPORT(MediaPlayer, WEBCORE_EXPORT);
     WTF_MAKE_NONCOPYABLE(MediaPlayer);
 public:
     static Ref<MediaPlayer> create(MediaPlayerClient&);

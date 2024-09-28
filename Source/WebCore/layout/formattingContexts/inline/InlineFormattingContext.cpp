@@ -29,8 +29,8 @@
 #include "AvailableLineWidthOverride.h"
 #include "FloatingContext.h"
 #include "FontCascade.h"
-#include "InlineContentBalancer.h"
 #include "InlineContentCache.h"
+#include "InlineContentConstrainer.h"
 #include "InlineDamage.h"
 #include "InlineDisplayBox.h"
 #include "InlineDisplayContentBuilder.h"
@@ -148,11 +148,12 @@ InlineLayoutResult InlineFormattingContext::layout(const ConstraintsForInlineCon
         return PreviousLine { lastLineIndex, { }, { }, true, { }, { } };
     };
 
-    if (root().style().textWrapMode() == TextWrapMode::Wrap && root().style().textWrapStyle() == TextWrapStyle::Balance) {
-        auto balancer = InlineContentBalancer { *this, inlineItemList, constraints.horizontal() };
-        auto balancedLineWidths = balancer.computeBalanceConstraints();
-        if (balancedLineWidths)
-            layoutState().setAvailableLineWidthOverride({ *balancedLineWidths });
+    auto textWrapStyle = root().style().textWrapStyle();
+    if (root().style().textWrapMode() == TextWrapMode::Wrap && (textWrapStyle == TextWrapStyle::Balance || textWrapStyle == TextWrapStyle::Pretty)) {
+        auto constrainer = InlineContentConstrainer { *this, inlineItemList, constraints.horizontal() };
+        auto constrainedLineWidths = constrainer.computeParagraphLevelConstraints(textWrapStyle);
+        if (constrainedLineWidths)
+            layoutState().setAvailableLineWidthOverride({ *constrainedLineWidths });
     }
 
     if (TextOnlySimpleLineBuilder::isEligibleForSimplifiedTextOnlyInlineLayoutByContent(inlineContentCache().inlineItems(), layoutState().placedFloats()) && TextOnlySimpleLineBuilder::isEligibleForSimplifiedInlineLayoutByStyle(root().style())) {

@@ -38,6 +38,7 @@
 #include "HTMLMediaElement.h"
 #include "MediaPlayer.h"
 #include "MediaPromiseTypes.h"
+#include "MediaSourceInit.h"
 #include "MediaSourcePrivateClient.h"
 #include "URLRegistry.h"
 #include <optional>
@@ -78,19 +79,17 @@ class MediaSource
 {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(MediaSource);
 public:
+    DEFINE_VIRTUAL_REFCOUNTED;
+
     static void setRegistry(URLRegistry*);
     static MediaSource* lookup(const String& url) { return s_registry ? static_cast<MediaSource*>(s_registry->lookup(url)) : nullptr; }
 
-    static Ref<MediaSource> create(ScriptExecutionContext&);
+    static Ref<MediaSource> create(ScriptExecutionContext&, MediaSourceInit&&);
     virtual ~MediaSource();
 
     using CanMakeWeakPtr<MediaSource>::weakPtrFactory;
     using CanMakeWeakPtr<MediaSource>::WeakValueType;
     using CanMakeWeakPtr<MediaSource>::WeakPtrImplType;
-
-    // ActiveDOMObject.
-    void ref() const final { RefCounted::ref(); }
-    void deref() const final { RefCounted::deref(); }
 
     static bool enabledForContext(ScriptExecutionContext&);
 
@@ -124,8 +123,8 @@ public:
     ReadyState readyState() const;
     ExceptionOr<void> endOfStream(std::optional<EndOfStreamError>);
 
-    SourceBufferList* sourceBuffers() { return m_sourceBuffers.get(); }
-    SourceBufferList* activeSourceBuffers() { return m_activeSourceBuffers.get(); }
+    Ref<SourceBufferList> sourceBuffers() const;
+    Ref<SourceBufferList> activeSourceBuffers() const;
     ExceptionOr<Ref<SourceBuffer>> addSourceBuffer(const String& type);
     ExceptionOr<void> removeSourceBuffer(SourceBuffer&);
     static bool isTypeSupported(ScriptExecutionContext&, const String& type);
@@ -135,6 +134,7 @@ public:
     static bool canConstructInDedicatedWorker(ScriptExecutionContext&);
     void registerTransferredHandle(MediaSourceHandle&);
 #endif
+    bool detachable() const { return m_detachable; }
 
     ScriptExecutionContext* scriptExecutionContext() const final;
 
@@ -174,7 +174,7 @@ public:
     Ref<MediaSourcePrivateClient> client() const;
 
 protected:
-    explicit MediaSource(ScriptExecutionContext&);
+    MediaSource(ScriptExecutionContext&, MediaSourceInit&&);
 
     bool isBuffered(const PlatformTimeRanges&) const;
 
@@ -186,6 +186,7 @@ protected:
 
     RefPtr<MediaSourcePrivate> m_private;
     WeakPtr<HTMLMediaElement> m_mediaElement;
+    bool m_detachable { false };
 
 private:
     friend class MediaSourceClientImpl;
@@ -196,7 +197,13 @@ private:
 
     static bool isTypeSupported(ScriptExecutionContext&, const String& type, Vector<ContentType>&& contentTypesRequiringHardwareSupport);
 
+    void setPrivate(RefPtr<MediaSourcePrivate>&&);
     void setPrivateAndOpen(Ref<MediaSourcePrivate>&&);
+    void reOpen();
+    void open();
+
+    void removeSourceBufferWithOptionalDestruction(SourceBuffer&, bool withDestruction);
+
     Ref<MediaTimePromise> waitForTarget(const SeekTarget&);
     Ref<MediaPromise> seekToTime(const MediaTime&);
     using RendererType = MediaSourcePrivateClient::RendererType;
@@ -226,13 +233,14 @@ private:
 
     static URLRegistry* s_registry;
 
-    RefPtr<SourceBufferList> m_sourceBuffers;
-    RefPtr<SourceBufferList> m_activeSourceBuffers;
+    const Ref<SourceBufferList> m_sourceBuffers;
+    const Ref<SourceBufferList> m_activeSourceBuffers;
     std::optional<SeekTarget> m_pendingSeekTarget;
     std::optional<MediaTimePromise::AutoRejectProducer> m_seekTargetPromise;
     bool m_openDeferred { false };
     bool m_sourceopenPending { false };
     bool m_isAttached { false };
+    std::optional<ReadyState> m_readyStateBeforeDetached;
 #if ENABLE(MEDIA_SOURCE_IN_WORKERS)
     RefPtr<MediaSourceHandle> m_handle;
 #endif

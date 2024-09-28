@@ -540,8 +540,10 @@ void HistoryController::updateForCommit()
         // Tell all other frames in the tree to commit their provisional items and
         // restore their scroll position.  We'll avoid this frame (which has already
         // committed) and its children (which will be replaced).
-        if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame->mainFrame()))
-            localFrame->checkedHistory()->recursiveUpdateForCommit();
+        if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame->mainFrame())) {
+            if (localFrame->checkedHistory()->isFrameLoadComplete())
+                localFrame->checkedHistory()->recursiveUpdateForCommit();
+        }
     }
 }
 
@@ -781,7 +783,7 @@ Ref<HistoryItem> HistoryController::createItemTree(HistoryItemClient& client, Lo
             item->setDocumentSequenceNumber(previousItem->documentSequenceNumber());
         }
 
-        for (RefPtr child = m_frame->tree().firstChild(); child; child = child->tree().nextSibling())
+        for (RefPtr child = m_frame->tree().firstLocalDescendant(); child; child = child->tree().nextLocalSibling())
             item->addChildItem(child->checkedHistory()->createItemTree(client, targetFrame, clipAtTarget));
     }
     // FIXME: Eliminate the isTargetItem flag in favor of itemSequenceNumber.
@@ -811,7 +813,7 @@ void HistoryController::recursiveSetProvisionalItem(HistoryItem& item, HistoryIt
         if (!fromChildItem)
             continue;
 
-        if (RefPtr childFrame = m_frame->tree().childByFrameID(*frameID))
+        if (RefPtr childFrame = m_frame->tree().descendantByFrameID(*frameID))
             childFrame->checkedHistory()->recursiveSetProvisionalItem(childItem, fromChildItem.get());
     }
 }
@@ -836,7 +838,7 @@ void HistoryController::recursiveGoToItem(HistoryItem& item, HistoryItem* fromIt
         if (!fromChildItem)
             continue;
 
-        if (RefPtr childFrame = m_frame->tree().childByFrameID(*frameID))
+        if (RefPtr childFrame = m_frame->tree().descendantByFrameID(*frameID))
             childFrame->checkedHistory()->recursiveGoToItem(childItem, fromChildItem.get(), type, shouldTreatAsContinuingLoad);
     }
 }

@@ -1364,7 +1364,7 @@ TEST(SiteIsolation, MultipleReloads)
 }
 
 #if PLATFORM(MAC)
-TEST(SiteIsolation, DISABLED_PropagateMouseEventsToSubframe)
+TEST(SiteIsolation, PropagateMouseEventsToSubframe)
 {
     auto mainframeHTML = "<script>"
     "    window.eventTypes = [];"
@@ -1378,6 +1378,7 @@ TEST(SiteIsolation, DISABLED_PropagateMouseEventsToSubframe)
     "    addEventListener('mousemove', (event) => { window.parent.postMessage('mousemove', '*') });"
     "    addEventListener('mousedown', (event) => { window.parent.postMessage('mousedown,' + event.pageX + ',' + event.pageY, '*') });"
     "    addEventListener('mouseup', (event) => { window.parent.postMessage('mouseup,' + event.pageX + ',' + event.pageY, '*') });"
+    "    alert('iframe loaded');"
     "</script>"_s;
 
     HTTPServer server({
@@ -1386,17 +1387,17 @@ TEST(SiteIsolation, DISABLED_PropagateMouseEventsToSubframe)
     }, HTTPServer::Protocol::HttpsProxy);
     auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server, CGRectMake(0, 0, 800, 600));
     [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://domain1.com/mainframe"]]];
-    [navigationDelegate waitForDidFinishNavigation];
+    EXPECT_WK_STREQ("iframe loaded", [webView _test_waitForAlert]);
 
     CGPoint eventLocationInWindow = [webView convertPoint:CGPointMake(50, 50) toView:nil];
     [webView mouseEnterAtPoint:eventLocationInWindow];
     [webView mouseMoveToPoint:eventLocationInWindow withFlags:0];
     [webView mouseDownAtPoint:eventLocationInWindow simulatePressure:NO];
     [webView mouseUpAtPoint:eventLocationInWindow];
-    [webView waitForPendingMouseEvents];
 
     NSArray<NSString *> *eventTypes = [webView objectByEvaluatingJavaScript:@"window.eventTypes"];
-    EXPECT_EQ(3U, eventTypes.count);
+    while (eventTypes.count != 3u)
+        eventTypes = [webView objectByEvaluatingJavaScript:@"window.eventTypes"];
     EXPECT_WK_STREQ("mousemove", eventTypes[0]);
     EXPECT_WK_STREQ("mousedown,40,40", eventTypes[1]);
     EXPECT_WK_STREQ("mouseup,40,40", eventTypes[2]);
@@ -1543,7 +1544,7 @@ TEST(SiteIsolation, PasteGIF)
     [webView mouseUpAtPoint:eventLocationInWindow];
     [webView waitForPendingMouseEvents];
 
-    auto *data = [NSData dataWithContentsOfFile:[[NSBundle mainBundle] pathForResource:@"sunset-in-cupertino-400px" ofType:@"gif" inDirectory:@"TestWebKitAPI.resources"]];
+    auto *data = [NSData dataWithContentsOfFile:[NSBundle.test_resourcesBundle pathForResource:@"sunset-in-cupertino-400px" ofType:@"gif"]];
     writeImageDataToPasteboard((__bridge NSString *)kUTTypeGIF, data);
     [webView paste:nil];
 
@@ -3037,7 +3038,7 @@ TEST(SiteIsolation, NavigateNestedIframeSameOriginBackForward)
 
 TEST(SiteIsolation, AdvancedPrivacyProtectionsHideScreenMetricsFromBindings)
 {
-    auto frameHTML = [NSString stringWithContentsOfFile:[NSBundle.mainBundle pathForResource:@"audio-fingerprinting" ofType:@"html" inDirectory:@"TestWebKitAPI.resources"] encoding:NSUTF8StringEncoding error:NULL];
+    auto frameHTML = [NSString stringWithContentsOfFile:[NSBundle.test_resourcesBundle pathForResource:@"simple" ofType:@"html"] encoding:NSUTF8StringEncoding error:NULL];
     HTTPServer server({
         { "/example"_s, { "<iframe src='https://frame.com/frame'></iframe>"_s } },
         { "/frame"_s, { frameHTML } }
@@ -3370,6 +3371,39 @@ TEST(SiteIsolation, SandboxFlagsDuringNavigation)
     [webView evaluateJavaScript:checkAlertJS inFrame:[webView firstChildFrame] completionHandler:nil];
     Util::run(&receivedMessage);
     EXPECT_FALSE(receivedAlert);
+}
+
+TEST(SiteIsolation, NavigateNestedRootFramesBackForward)
+{
+    HTTPServer server({
+        { "/example"_s, { "<iframe src='https://nested.com/nest'></iframe>"_s } },
+        { "/nest"_s, { "<iframe src='https://a.com/a'></iframe>"_s } },
+        { "/a"_s, { "<script> alert('a'); </script>"_s } },
+        { "/b"_s, { "<script> alert('b'); </script>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "a");
+
+    RetainPtr<_WKFrameTreeNode> nestedChildFrame = [webView mainFrame].childFrames.firstObject.childFrames.firstObject;
+    [webView evaluateJavaScript:@"location.href = 'https://a.com/b'" inFrame:[nestedChildFrame info] completionHandler:nil];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "b");
+    [webView goBack];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "a");
+    [webView goForward];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "b");
+}
+
+TEST(SiteIsolation, RedirectToCSP)
+{
+    HTTPServer server({
+        { "/example"_s, { "<iframe src='https://webkit.org/initial'></iframe>"_s } },
+        { "/initial"_s, { 302, { { "Location"_s, "https://example.org/redirected"_s } }, "redirecting..."_s } },
+        { "/redirected"_s, { { { "Content-Type"_s, "text/html"_s }, { "Content-Security-Policy"_s, "frame-ancestors 'none'"_s } }, "hi"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    [navigationDelegate waitForDidFinishNavigation];
 }
 
 }

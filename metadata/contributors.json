@@ -162,6 +162,13 @@
    },
    {
       "emails" : [
+         "ja_lopezlozoya@apple.com"
+      ],
+      "github" : "lopezlozoya",
+      "name" : "Adan Lopez"
+   },
+   {
+      "emails" : [
          "adele@apple.com"
       ],
       "expertise" : "HTML Forms, Security, Layout and Rendering, Web Compatibility (General)",
@@ -1307,7 +1314,7 @@
       ],
       "github" : "stwrt",
       "name" : "Brandon Stewart",
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -1933,7 +1940,8 @@
       ],
       "expertise" : "JavaScriptCore",
       "github" : "dhecht",
-      "name" : "Dan Hecht"
+      "name" : "Dan Hecht",
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -4977,6 +4985,13 @@
    },
    {
       "emails" : [
+         "kohei.asano@sony.com"
+      ],
+      "github" : "khei4",
+      "name" : "Kohei Asano"
+   },
+   {
+      "emails" : [
          "kohei.ueno119@gmail.com"
       ],
       "github" : "cola119",
@@ -6573,6 +6588,13 @@
       "nicks" : [
          "psolanki"
       ]
+   },
+   {
+      "emails" : [
+         "p_choudhury@apple.com"
+      ],
+      "github" : "pratiksha-99",
+      "name" : "Pratiksha Choudhury"
    },
    {
       "emails" : [

@@ -90,6 +90,7 @@ public:
     void removeProcess(WebProcessProxy&);
 
     API::Array& userScripts() { return m_userScripts.get(); }
+    Ref<API::Array> protectedUserScripts();
     void addUserScript(API::UserScript&, InjectUserScriptImmediately);
     void removeUserScript(API::UserScript&);
     void removeAllUserScripts(API::ContentWorld&);
@@ -136,6 +137,9 @@ public:
     bool operator==(const WebUserContentControllerProxy& other) const { return (this == &other); }
 
 private:
+    Ref<API::Array> protectedUserScripts() const;
+    Ref<API::Array> protectedUserStyleSheets() const;
+
     // IPC::MessageReceiver.
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) override;
 

@@ -38,15 +38,15 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(ManagedMediaSource);
 
-Ref<ManagedMediaSource> ManagedMediaSource::create(ScriptExecutionContext& context)
+Ref<ManagedMediaSource> ManagedMediaSource::create(ScriptExecutionContext& context, MediaSourceInit&& options)
 {
-    auto mediaSource = adoptRef(*new ManagedMediaSource(context));
+    auto mediaSource = adoptRef(*new ManagedMediaSource(context, WTFMove(options)));
     mediaSource->suspendIfNeeded();
     return mediaSource;
 }
 
-ManagedMediaSource::ManagedMediaSource(ScriptExecutionContext& context)
-    : MediaSource(context)
+ManagedMediaSource::ManagedMediaSource(ScriptExecutionContext& context, MediaSourceInit&& options)
+    : MediaSource(context, WTFMove(options))
     , m_streamingTimer(*this, &ManagedMediaSource::streamingTimerFired)
 {
 }
@@ -108,11 +108,13 @@ void ManagedMediaSource::monitorSourceBuffers()
 {
     MediaSource::monitorSourceBuffers();
 
-    if (!activeSourceBuffers() || !activeSourceBuffers()->length()) {
+    if (!activeSourceBuffers()->length()) {
         setStreaming(true);
         return;
     }
     auto currentTime = this->currentTime();
+    if (!currentTime.isValid())
+        return;
 
     ensurePrefsRead();
 

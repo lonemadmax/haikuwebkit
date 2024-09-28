@@ -83,8 +83,10 @@ public:
     MediaPlayerPrivateWebM(MediaPlayer*);
     ~MediaPlayerPrivateWebM();
 
-    void ref() final { WebMResourceClientParent::ref(); }
-    void deref() final { WebMResourceClientParent::deref(); }
+    constexpr MediaPlayerType mediaPlayerType() const final { return MediaPlayerType::CocoaWebM; }
+
+    void ref() const final { WebMResourceClientParent::ref(); }
+    void deref() const final { WebMResourceClientParent::deref(); }
 
     static void registerMediaEngine(MediaEngineRegistrar);
 private:

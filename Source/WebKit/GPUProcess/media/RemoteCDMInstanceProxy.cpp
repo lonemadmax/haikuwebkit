@@ -70,7 +70,7 @@ void RemoteCDMInstanceProxy::unrequestedInitializationDataReceived(const String&
     if (!m_cdm)
         return;
 
-    auto* factory = m_cdm->factory();
+    RefPtr factory = m_cdm->factory();
     if (!factory)
         return;
 
@@ -78,7 +78,7 @@ void RemoteCDMInstanceProxy::unrequestedInitializationDataReceived(const String&
     if (!gpuConnectionToWebProcess)
         return;
 
-    gpuConnectionToWebProcess->connection().send(Messages::RemoteCDMInstance::UnrequestedInitializationDataReceived(type, WTFMove(initData)), m_identifier);
+    gpuConnectionToWebProcess->protectedConnection()->send(Messages::RemoteCDMInstance::UnrequestedInitializationDataReceived(type, WTFMove(initData)), m_identifier);
 }
 
 void RemoteCDMInstanceProxy::initializeWithConfiguration(const WebCore::CDMKeySystemConfiguration& configuration, AllowDistinctiveIdentifiers allowDistinctiveIdentifiers, AllowPersistentState allowPersistentState, CompletionHandler<void(SuccessValue)>&& completion)
@@ -96,7 +96,7 @@ void RemoteCDMInstanceProxy::setStorageDirectory(const String& directory)
     if (!m_cdm)
         return;
 
-    auto* factory = m_cdm->factory();
+    RefPtr factory = m_cdm->factory();
     if (!factory)
         return;
 
@@ -122,8 +122,23 @@ void RemoteCDMInstanceProxy::createSession(uint64_t logIdentifier, CompletionHan
 
     auto identifier = RemoteCDMInstanceSessionIdentifier::generate();
     auto session = RemoteCDMInstanceSessionProxy::create(m_cdm.get(), privSession.releaseNonNull(), logIdentifier, identifier);
-    m_cdm->factory()->addSession(identifier, WTFMove(session));
+    protectedCdm()->protectedFactory()->addSession(identifier, WTFMove(session));
     completion(identifier);
+}
+
+Ref<WebCore::CDMInstance> RemoteCDMInstanceProxy::protectedInstance() const
+{
+    return m_instance;
+}
+
+const SharedPreferencesForWebProcess& RemoteCDMInstanceProxy::sharedPreferencesForWebProcess() const
+{
+    return protectedCdm()->sharedPreferencesForWebProcess();
+}
+
+RefPtr<RemoteCDMProxy> RemoteCDMInstanceProxy::protectedCdm() const
+{
+    return m_cdm.get();
 }
 
 }

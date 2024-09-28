@@ -2773,10 +2773,6 @@ _wasmLLIntPCRangeEnd:
 else
 
 # These need to be defined even when WebAssembly is disabled
-op(js_to_wasm_wrapper_entry_crash_for_simd_parameters, macro ()
-    crash()
-end)
-
 op(js_to_wasm_wrapper_entry, macro ()
     crash()
 end)
@@ -2802,6 +2798,10 @@ op(wasm_function_prologue_simd_trampoline, macro ()
 end)
 
 op(wasm_function_prologue_simd, macro ()
+    crash()
+end)
+
+op(ipint_trampoline, macro ()
     crash()
 end)
 

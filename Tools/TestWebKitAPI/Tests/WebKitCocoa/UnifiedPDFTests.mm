@@ -29,6 +29,7 @@
 
 #import "CGImagePixelReader.h"
 #import "PlatformUtilities.h"
+#import "Test.h"
 #import "TestWKWebView.h"
 #import "WKWebViewConfigurationExtras.h"
 #import <WebCore/ColorSerialization.h>
@@ -37,8 +38,6 @@
 #import <wtf/RetainPtr.h>
 
 namespace TestWebKitAPI {
-
-#if PLATFORM(MAC)
 
 #if ENABLE(UNIFIED_PDF_FOR_TESTING)
 #define UNIFIED_PDF_TEST(name) TEST(UnifiedPDF, name)
@@ -60,6 +59,8 @@ static RetainPtr<WKWebViewConfiguration> configurationForWebViewTestingUnifiedPD
     return configuration;
 }
 
+#if PLATFORM(MAC)
+
 static constexpr auto defaultSamplingInterval = 100;
 static Vector<WebCore::Color> sampleColorsInWebView(TestWKWebView *webView, unsigned interval = defaultSamplingInterval)
 {
@@ -79,7 +80,7 @@ UNIFIED_PDF_TEST(KeyboardScrollingInSinglePageMode)
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 600, 600) configuration:configurationForWebViewTestingUnifiedPDF().get() addToWindow:YES]);
     [webView setForceWindowToBecomeKey:YES];
 
-    RetainPtr request = [NSURLRequest requestWithURL:[[NSBundle mainBundle] URLForResource:@"multiple-pages" withExtension:@"pdf" subdirectory:@"TestWebKitAPI.resources"]];
+    RetainPtr request = [NSURLRequest requestWithURL:[NSBundle.test_resourcesBundle URLForResource:@"multiple-pages" withExtension:@"pdf"]];
     [webView synchronouslyLoadRequest:request.get()];
     [[webView window] makeFirstResponder:webView.get()];
     [[webView window] makeKeyAndOrderFront:nil];
@@ -112,15 +113,28 @@ UNIFIED_PDF_TEST(KeyboardScrollingInSinglePageMode)
     }
 }
 
-UNIFIED_PDF_TEST(SnapshotsPaintPageContent)
+UNIFIED_PDF_TEST(CopyEditingCommandOnEmptySelectionShouldNotCrash)
 {
     auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 600, 600) configuration:configurationForWebViewTestingUnifiedPDF().get() addToWindow:YES]);
     [webView setForceWindowToBecomeKey:YES];
 
-    [webView synchronouslyLoadHTMLString:@"<embed src='multiple-pages.pdf' width='600' height='600'>"];
+    RetainPtr request = [NSURLRequest requestWithURL:[[NSBundle mainBundle] URLForResource:@"multiple-pages" withExtension:@"pdf" subdirectory:@"TestWebKitAPI.resources"]];
+    [webView synchronouslyLoadRequest:request.get()];
     [[webView window] makeFirstResponder:webView.get()];
     [[webView window] makeKeyAndOrderFront:nil];
     [[webView window] orderFrontRegardless];
+
+    [webView sendClickAtPoint:NSMakePoint(200, 200)];
+    [webView objectByEvaluatingJavaScript:@"internals.sendEditingCommandToPDFForTesting(document.querySelector('embed'), 'copy')"];
+}
+
+#endif // PLATFORM(MAC)
+
+UNIFIED_PDF_TEST(SnapshotsPaintPageContent)
+{
+    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 600, 600) configuration:configurationForWebViewTestingUnifiedPDF().get() addToWindow:YES]);
+
+    [webView synchronouslyLoadHTMLString:@"<embed src='multiple-pages.pdf' width='600' height='600'>"];
     [webView waitForNextPresentationUpdate];
 
     __block bool done = false;
@@ -152,23 +166,6 @@ UNIFIED_PDF_TEST(SnapshotsPaintPageContent)
 
     Util::run(&done);
 }
-
-UNIFIED_PDF_TEST(CopyEditingCommandOnEmptySelectionShouldNotCrash)
-{
-    auto webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 600, 600) configuration:configurationForWebViewTestingUnifiedPDF().get() addToWindow:YES]);
-    [webView setForceWindowToBecomeKey:YES];
-
-    RetainPtr request = [NSURLRequest requestWithURL:[[NSBundle mainBundle] URLForResource:@"multiple-pages" withExtension:@"pdf" subdirectory:@"TestWebKitAPI.resources"]];
-    [webView synchronouslyLoadRequest:request.get()];
-    [[webView window] makeFirstResponder:webView.get()];
-    [[webView window] makeKeyAndOrderFront:nil];
-    [[webView window] orderFrontRegardless];
-
-    [webView sendClickAtPoint:NSMakePoint(200, 200)];
-    [webView objectByEvaluatingJavaScript:@"internals.sendEditingCommandToPDFForTesting(document.querySelector('embed'), 'copy')"];
-}
-
-#endif // PLATFORM(MAC)
 
 } // namespace TestWebKitAPI
 

@@ -577,6 +577,12 @@ imported/w3c/web-platform-tests/css/cssom-view/scroll-behavior-element.html [ Fa
 
 webkit.org/b/260640 [ Release arm64 ] editing/execCommand/apply-inline-style-to-element-with-no-renderer-crash.html [ Pass Failure ]
 
+# webkit.org/b/278928 AX: AXTextOperation over multiple ranges is entirely broken
+[ Debug ] accessibility/mac/text-operation/text-operation-capitalize.html [ Crash ]
+[ Debug ] accessibility/mac/text-operation/text-operation-lowercase.html [ Crash ]
+[ Debug ] accessibility/mac/text-operation/text-operation-smart-replace.html [ Crash ]
+[ Debug ] accessibility/mac/text-operation/text-operation-uppercase.html [ Crash ]
+
 ### END OF (1) Classified failures with bug reports
 ########################################
 
@@ -1851,3 +1857,12 @@ fast/scrolling/mac/scrollbars/scrollbar-state.html [ Failure ]
 
 # webkit.org/b/279477 REGRESSION (283102@main?): [macOS iOS wk2 Debug EWS ] ASSERTION FAILED: WebKit::WebPageProxy::startNetworkRequestsForPageLoadTiming(WebCore::FrameIdentifier) result of http/tests/site-isolation/window-open-with-name-cross-site.html to crash
 [ Debug ] http/tests/site-isolation/window-open-with-name-cross-site.html [ Skip ]
+
+# webkit.org/b/279747 [ macOS wk2 ] editing/input/scroll-viewport-page-up-down.html is a flaky text failure
+editing/input/scroll-viewport-page-up-down.html [ Pass Failure ]
+
+# webkit.org/b/279463 Flaky ASSERTION FAILED: m_clients.contains(client) in VideoTrack::clearClient on imported/w3c/web-platform-tests/media-source/URL-createObjectURL.html
+[ Sonoma Debug arm64 ] imported/w3c/web-platform-tests/media-source/URL-createObjectURL.html [ Pass Crash ]
+
+# webkit.org/b/280037 [ Ventura wk2 ] imported/w3c/web-platform-tests/pointerevents/pointerevent_lostpointercapture_remove_setcapture_node.html is a flaky failure
+[ Ventura ] imported/w3c/web-platform-tests/pointerevents/pointerevent_lostpointercapture_remove_setcapture_node.html [ Pass Failure ]

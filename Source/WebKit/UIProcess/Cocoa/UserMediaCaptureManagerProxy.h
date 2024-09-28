@@ -45,11 +45,6 @@ namespace WebKit {
 class UserMediaCaptureManagerProxy;
 }
 
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::UserMediaCaptureManagerProxy> : std::true_type { };
-}
-
 namespace WebCore {
 class PlatformMediaSessionManager;
 class SharedMemory;
@@ -70,8 +65,10 @@ public:
         virtual void addMessageReceiver(IPC::ReceiverName, IPC::MessageReceiver&) = 0;
         virtual void removeMessageReceiver(IPC::ReceiverName) = 0;
         virtual IPC::Connection& connection() = 0;
+        Ref<IPC::Connection> protectedConnection() { return connection(); }
         virtual bool willStartCapture(WebCore::CaptureDevice::DeviceType) const = 0;
         virtual Logger& logger() = 0;
+        Ref<Logger> protectedLogger() { return logger(); };
         virtual bool setCaptureAttributionString() { return true; }
         virtual const WebCore::ProcessIdentity& resourceOwner() const = 0;
 #if ENABLE(APP_PRIVACY_REPORT)
@@ -129,7 +126,7 @@ private:
     void queueAndProcessSerialAction(SerialAction&&);
 
     friend class UserMediaCaptureManagerProxySourceProxy;
-    HashMap<WebCore::RealtimeMediaSourceIdentifier, std::unique_ptr<UserMediaCaptureManagerProxySourceProxy>> m_proxies;
+    HashMap<WebCore::RealtimeMediaSourceIdentifier, Ref<UserMediaCaptureManagerProxySourceProxy>> m_proxies;
     UniqueRef<ConnectionProxy> m_connectionProxy;
     WebCore::OrientationNotifier m_orientationNotifier { 0 };
     Ref<GenericPromise> m_pendingAction { GenericPromise::createAndResolve() };

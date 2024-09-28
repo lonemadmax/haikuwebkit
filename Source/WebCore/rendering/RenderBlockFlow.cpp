@@ -446,7 +446,7 @@ void RenderBlockFlow::layoutBlock(bool relayoutChildren, LayoutUnit pageLogicalH
         relayoutChildren = true;
 
     if (auto* layoutState = view().frameView().layoutContext().layoutState(); layoutState && layoutState->legacyLineClamp())
-        relayoutChildren = true;
+        relayoutChildren = relayoutChildren || !isFieldset();
 
     rebuildFloatingObjectSetFromIntrudingFloats();
 
@@ -3879,8 +3879,9 @@ void RenderBlockFlow::layoutInlineContent(bool relayoutChildren, LayoutUnit& rep
 
     auto& layoutFormattingContextLineLayout = *this->inlineLayout();
 
-    layoutFormattingContextLineLayout.updateInlineContentConstraints();
-    layoutFormattingContextLineLayout.updateInlineContentDimensions();
+    ASSERT(containingBlock() || is<RenderView>(*this));
+    layoutFormattingContextLineLayout.updateInlineContentConstraints(containingBlock() ? containingBlock()->availableLogicalWidth() : LayoutUnit());
+    layoutFormattingContextLineLayout.updateInlineContentDimensions(availableLogicalWidth());
 
     auto contentBoxTop = borderAndPaddingBefore();
 

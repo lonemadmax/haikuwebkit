@@ -214,12 +214,13 @@ IPIntCallee::IPIntCallee(FunctionIPIntMetadataGenerator& generator, size_t index
     , m_functionIndex(generator.m_functionIndex)
     , m_signatures(WTFMove(generator.m_signatures))
     , m_bytecode(generator.m_bytecode.data() + generator.m_bytecodeOffset)
-    , m_bytecodeLength(generator.m_bytecode.size() - generator.m_bytecodeOffset)
+    , m_bytecodeEnd(m_bytecode + (generator.m_bytecode.size() - generator.m_bytecodeOffset - 1))
     , m_metadataVector(WTFMove(generator.m_metadata))
     , m_metadata(m_metadataVector.data())
     , m_argumINTBytecode(WTFMove(generator.m_argumINTBytecode))
     , m_argumINTBytecodePointer(m_argumINTBytecode.data())
-    , m_returnMetadata(generator.m_returnMetadata)
+    , m_uINTBytecode(WTFMove(generator.m_uINTBytecode))
+    , m_uINTBytecodePointer(m_uINTBytecode.data())
     , m_localSizeToAlloc(roundUpToMultipleOf<2>(generator.m_numLocals))
     , m_numRethrowSlotsToAlloc(generator.m_numAlignedRethrowSlots)
     , m_numLocals(generator.m_numLocals)
@@ -306,10 +307,27 @@ LLIntCallee::LLIntCallee(FunctionCodeBlockGenerator& generator, size_t index, st
             HandlerInfo& handler = m_exceptionHandlers[i];
             auto& instruction = *m_instructions->at(unlinkedHandler.m_target).ptr();
             CodeLocationLabel<ExceptionHandlerPtrTag> target;
-            if (unlinkedHandler.m_type == HandlerType::Catch)
+            switch (unlinkedHandler.m_type) {
+            case HandlerType::Catch:
                 target = CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleWasmCatch(instruction.width()).code());
-            else
+                break;
+            case HandlerType::CatchAll:
+            case HandlerType::Delegate:
                 target = CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleWasmCatchAll(instruction.width()).code());
+                break;
+            case HandlerType::TryTableCatch:
+                target = CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleWasmTryTable(wasm_try_table_catch, instruction.width()).code());
+                break;
+            case HandlerType::TryTableCatchRef:
+                target = CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleWasmTryTable(wasm_try_table_catchref, instruction.width()).code());
+                break;
+            case HandlerType::TryTableCatchAll:
+                target = CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleWasmTryTable(wasm_try_table_catchall, instruction.width()).code());
+                break;
+            case HandlerType::TryTableCatchAllRef:
+                target = CodeLocationLabel<ExceptionHandlerPtrTag>(LLInt::handleWasmTryTable(wasm_try_table_catchallref, instruction.width()).code());
+                break;
+            }
 
             handler.initialize(unlinkedHandler, target);
         }
@@ -412,42 +430,50 @@ const StackMap& OptimizingJITCallee::stackmap(CallSiteIndex callSiteIndex) const
 }
 #endif
 
-JSEntrypointCallee::JSEntrypointCallee(unsigned frameSize, TypeIndex typeIndex, bool usesSIMD)
+JSEntrypointCallee::JSEntrypointCallee(TypeIndex typeIndex, bool usesSIMD)
     : Callee(Wasm::CompilationMode::JSToWasmEntrypointMode)
-    , frameSize(frameSize)
-    , typeIndex(typeIndex)
+    , m_typeIndex(typeIndex)
 {
+    const TypeDefinition& signature = TypeInformation::get(typeIndex).expand();
+    CallInformation wasmFrameConvention = wasmCallingConvention().callInformationFor(signature, CallRole::Caller);
+
+    RegisterAtOffsetList savedResultRegisters = wasmFrameConvention.computeResultsOffsetList();
+    size_t totalFrameSize = wasmFrameConvention.headerAndArgumentStackSizeInBytes;
+    totalFrameSize += savedResultRegisters.sizeOfAreaInBytes();
+    totalFrameSize += JSEntrypointCallee::RegisterStackSpaceAligned;
+    totalFrameSize = WTF::roundUpToMultipleOf<stackAlignmentBytes()>(totalFrameSize);
+    m_frameSize = totalFrameSize;
+
 #if ENABLE(JIT)
     if (Options::useJIT()) {
 #else
     if (false) {
 #endif
-        if (usesSIMD)
-            wasmFunctionPrologue = LLInt::wasmFunctionEntryThunkSIMD().code().retagged<WasmEntryPtrTag>();
-        else
-            wasmFunctionPrologue = LLInt::wasmFunctionEntryThunk().code().retagged<WasmEntryPtrTag>();
+        if (Options::useWasmIPInt())
+            m_wasmFunctionPrologue = LLInt::inPlaceInterpreterEntryThunk().code().retagged<WasmEntryPtrTag>();
+        else {
+            if (usesSIMD)
+                m_wasmFunctionPrologue = LLInt::wasmFunctionEntryThunkSIMD().code().retagged<WasmEntryPtrTag>();
+            else
+                m_wasmFunctionPrologue = LLInt::wasmFunctionEntryThunk().code().retagged<WasmEntryPtrTag>();
+        }
     } else {
-        if (usesSIMD)
-            wasmFunctionPrologue = CodePtr<CFunctionPtrTag>(LLInt::getCodeFunctionPtr<CFunctionPtrTag>(wasm_function_prologue_simd_trampoline)).retagged<WasmEntryPtrTag>();
-        else
-            wasmFunctionPrologue = CodePtr<CFunctionPtrTag>(LLInt::getCodeFunctionPtr<CFunctionPtrTag>(wasm_function_prologue_trampoline)).retagged<WasmEntryPtrTag>();
+        if (Options::useWasmIPInt())
+            m_wasmFunctionPrologue = CodePtr<CFunctionPtrTag>(LLInt::getCodeFunctionPtr<CFunctionPtrTag>(ipint_trampoline)).retagged<WasmEntryPtrTag>();
+        else {
+            if (usesSIMD)
+                m_wasmFunctionPrologue = CodePtr<CFunctionPtrTag>(LLInt::getCodeFunctionPtr<CFunctionPtrTag>(wasm_function_prologue_simd_trampoline)).retagged<WasmEntryPtrTag>();
+            else
+                m_wasmFunctionPrologue = CodePtr<CFunctionPtrTag>(LLInt::getCodeFunctionPtr<CFunctionPtrTag>(wasm_function_prologue_trampoline)).retagged<WasmEntryPtrTag>();
+        }
     }
 }
 
 CodePtr<WasmEntryPtrTag> JSEntrypointCallee::entrypointImpl() const
 {
-    const TypeDefinition& typeDefinition = TypeInformation::get(typeIndex).expand();
-    if (Options::useWasmSIMD() && (wasmCallingConvention().callInformationFor(typeDefinition).argumentsOrResultsIncludeV128)) {
-#if ENABLE(JIT)
-        if (Options::useJIT())
-            return createJSToWasmJITSharedCrashForSIMDParameters()->entrypoint.compilation->code().retagged<WasmEntryPtrTag>();
-#endif
-        return LLInt::getCodeFunctionPtr<CFunctionPtrTag>(js_to_wasm_wrapper_entry_crash_for_simd_parameters);
-    }
-
 #if ENABLE(JIT)
     if (Options::useJIT())
-        return createJSToWasmJITShared()->entrypoint.compilation->code().retagged<WasmEntryPtrTag>();
+        return createJSToWasmJITShared().retaggedCode<WasmEntryPtrTag>();
 #endif
     return LLInt::getCodeFunctionPtr<CFunctionPtrTag>(js_to_wasm_wrapper_entry);
 }

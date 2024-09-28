@@ -891,6 +891,7 @@ css/CSSImageSetOptionValue.cpp
 css/CSSImageSetValue.cpp
 css/CSSImageValue.cpp
 css/CSSImportRule.cpp
+css/CSSInternalBaseAppearanceRule.cpp
 css/CSSKeyframeRule.cpp
 css/CSSKeyframesRule.cpp
 css/CSSLayerBlockRule.cpp
@@ -991,6 +992,7 @@ css/calc/CSSCalcValue.cpp
 css/color/CSSColorLayersResolver.cpp
 css/color/CSSColorMixResolver.cpp
 css/color/CSSColorMixSerialization.cpp
+css/color/CSSContrastColorResolver.cpp
 css/color/CSSRelativeColorSerialization.cpp
 css/color/CSSUnresolvedAbsoluteResolvedColor.cpp
 css/color/CSSUnresolvedColor.cpp
@@ -999,15 +1001,16 @@ css/color/CSSUnresolvedColorKeyword.cpp
 css/color/CSSUnresolvedColorLayers.cpp
 css/color/CSSUnresolvedColorMix.cpp
 css/color/CSSUnresolvedColorResolutionState.cpp
+css/color/CSSUnresolvedContrastColor.cpp
 css/color/CSSUnresolvedLightDark.cpp
 css/color/CSSUnresolvedRelativeColor.cpp
 css/color/StyleAbsoluteColor.cpp
 css/color/StyleColor.cpp
 css/color/StyleColorLayers.cpp
 css/color/StyleColorMix.cpp
+css/color/StyleContrastColor.cpp
 css/color/StyleCurrentColor.cpp
 css/parser/CSSAtRuleID.cpp
-css/parser/CSSCalcParser.cpp
 css/parser/CSSCustomPropertySyntax.cpp
 css/parser/CSSParser.cpp
 css/parser/CSSParserContext.cpp
@@ -1838,7 +1841,7 @@ layout/floats/FloatingContext.cpp
 layout/floats/PlacedFloats.cpp
 layout/formattingContexts/inline/AbstractLineBuilder.cpp
 layout/formattingContexts/inline/InlineContentAligner.cpp
-layout/formattingContexts/inline/InlineContentBalancer.cpp
+layout/formattingContexts/inline/InlineContentConstrainer.cpp
 layout/formattingContexts/inline/InlineContentBreaker.cpp
 layout/formattingContexts/inline/InlineFormattingContext.cpp
 layout/formattingContexts/inline/InlineFormattingUtils.cpp
@@ -2103,6 +2106,7 @@ page/ResourceUsageOverlay.cpp
 page/ResourceUsageThread.cpp
 page/Screen.cpp
 page/ScreenOrientation.cpp
+page/ScriptTelemetryCategory.cpp
 page/ScrollBehavior.cpp
 page/SecurityOrigin.cpp
 page/SecurityOriginData.cpp
@@ -3031,7 +3035,7 @@ style/StyleInvalidator.cpp
 style/StylePendingResources.cpp
 style/StyleRelations.cpp
 style/StyleResolveForDocument.cpp
-style/StyleResolveForFontRaw.cpp
+style/StyleResolveForFont.cpp
 style/StyleResolver.cpp
 style/StyleScope.cpp
 style/StyleScopeRuleSets.cpp
@@ -3716,6 +3720,8 @@ JSGPUBufferUsage.cpp
 JSGPUCanvasAlphaMode.cpp
 JSGPUCanvasConfiguration.cpp
 JSGPUCanvasContext.cpp
+JSGPUCanvasToneMapping.cpp
+JSGPUCanvasToneMappingMode.cpp
 JSGPUColorDict.cpp
 JSGPUColorTargetState.cpp
 JSGPUColorWrite.cpp
@@ -4040,6 +4046,7 @@ JSMediaSession.cpp
 JSMediaSettingsRange.cpp
 JSMediaSource.cpp
 JSMediaSourceHandle.cpp
+JSMediaSourceInit.cpp
 JSMediaStream.cpp
 JSMediaStreamAudioDestinationNode.cpp
 JSMediaStreamAudioSourceNode.cpp

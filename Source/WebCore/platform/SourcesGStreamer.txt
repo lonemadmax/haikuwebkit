@@ -49,8 +49,6 @@ platform/audio/gstreamer/PlatformRawAudioDataGStreamer.cpp
 platform/audio/gstreamer/WebKitWebAudioSourceGStreamer.cpp @no-unify
 
 platform/graphics/gstreamer/AudioTrackPrivateGStreamer.cpp
-platform/graphics/gstreamer/DMABufUtilities.cpp
-platform/graphics/gstreamer/DMABufVideoSinkGStreamer.cpp @no-unify
 platform/graphics/gstreamer/GLVideoSinkGStreamer.cpp @no-unify
 platform/graphics/gstreamer/GRefPtrGStreamer.cpp
 platform/graphics/gstreamer/GStreamerAudioMixer.cpp
@@ -105,6 +103,7 @@ platform/gstreamer/GStreamerHolePunchQuirkWesteros.cpp
 platform/gstreamer/GStreamerQuirkAmLogic.cpp
 platform/gstreamer/GStreamerQuirkBcmNexus.cpp
 platform/gstreamer/GStreamerQuirkBroadcom.cpp
+platform/gstreamer/GStreamerQuirkBroadcomBase.cpp
 platform/gstreamer/GStreamerQuirkRealtek.cpp
 platform/gstreamer/GStreamerQuirkRialto.cpp
 platform/gstreamer/GStreamerQuirkWesteros.cpp

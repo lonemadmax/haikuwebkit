@@ -28,13 +28,13 @@
 #include "config.h"
 #include "JSIteratorPrototype.h"
 
+#include "BuiltinNames.h"
 #include "CachedCall.h"
 #include "InterpreterInlines.h"
 #include "IteratorOperations.h"
 #include "JSCBuiltins.h"
 #include "JSCInlines.h"
 #include "JSGlobalObject.h"
-#include "JSIterator.h"
 #include "JSIteratorConstructor.h"
 #include "JSObject.h"
 #include "VMEntryScopeInlines.h"
@@ -65,8 +65,7 @@ void JSIteratorPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
         // https://tc39.es/proposal-iterator-helpers/#sec-iteratorprototype-@@tostringtag
         putDirectCustomGetterSetterWithoutTransition(vm, vm.propertyNames->toStringTagSymbol, CustomGetterSetter::create(vm, iteratorProtoToStringTagGetter, iteratorProtoToStringTagSetter), static_cast<unsigned>(PropertyAttribute::DontEnum | PropertyAttribute::CustomAccessor));
         // https://tc39.es/proposal-iterator-helpers/#sec-iteratorprototype.toarray
-        JSFunction* toArray = JSFunction::create(vm, globalObject, 0, "toArray"_s, iteratorProtoFuncToArray, ImplementationVisibility::Public);
-        putDirectWithoutTransition(vm, vm.propertyNames->toArray, toArray, static_cast<unsigned>(PropertyAttribute::DontEnum));
+        JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION("toArray"_s, iteratorProtoFuncToArray, static_cast<unsigned>(PropertyAttribute::DontEnum), 0, ImplementationVisibility::Private);
         // https://tc39.es/proposal-iterator-helpers/#sec-iteratorprototype.foreach
         JSC_NATIVE_FUNCTION_WITHOUT_TRANSITION("forEach"_s, iteratorProtoFuncForEach, static_cast<unsigned>(PropertyAttribute::DontEnum), 1, ImplementationVisibility::Private);
         // https://tc39.es/proposal-iterator-helpers/#sec-iteratorprototype.some
@@ -151,13 +150,6 @@ JSC_DEFINE_HOST_FUNCTION(iteratorProtoFuncToArray, (JSGlobalObject* globalObject
     JSValue thisValue = callFrame->thisValue();
     if (!thisValue.isObject())
         return throwVMTypeError(globalObject, scope, "Iterator.prototype.toArray requires that |this| be an Object."_s);
-
-    if (getIterationMode(vm, globalObject, thisValue) == IterationMode::FastArray) {
-        JSArray* array = tryCloneArrayFromFast(globalObject, thisValue);
-        RETURN_IF_EXCEPTION(scope, { });
-        if (array)
-            return JSValue::encode(array);
-    }
 
     MarkedArgumentBuffer value;
     forEachInIteratorProtocol(globalObject, thisValue, [&value, &scope](VM&, JSGlobalObject* globalObject, JSValue nextItem) {

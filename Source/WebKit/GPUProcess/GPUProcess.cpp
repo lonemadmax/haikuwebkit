@@ -414,7 +414,7 @@ void GPUProcess::updateSandboxAccess(const Vector<SandboxExtension::Handle>& ext
 #if ENABLE(MEDIA_STREAM)
 void GPUProcess::setMockCaptureDevicesEnabled(bool isEnabled)
 {
-    MockRealtimeMediaSourceCenter::setMockRealtimeMediaSourceCenterEnabled(isEnabled);
+    WebCore::MockRealtimeMediaSourceCenter::setMockRealtimeMediaSourceCenterEnabled(isEnabled);
 }
 
 void GPUProcess::setUseSCContentSharingPicker(bool use)
@@ -426,7 +426,7 @@ void GPUProcess::setUseSCContentSharingPicker(bool use)
 #endif
 }
 
-void GPUProcess::setOrientationForMediaCapture(IntDegrees orientation)
+void GPUProcess::setOrientationForMediaCapture(WebCore::IntDegrees orientation)
 {
     m_orientation = orientation;
     for (auto& connection : m_webProcessConnections.values())
@@ -462,37 +462,37 @@ void GPUProcess::updateCaptureOrigin(const WebCore::SecurityOriginData& originDa
 
 void GPUProcess::addMockMediaDevice(const WebCore::MockMediaDevice& device)
 {
-    MockRealtimeMediaSourceCenter::addDevice(device);
+    WebCore::MockRealtimeMediaSourceCenter::addDevice(device);
 }
 
 void GPUProcess::clearMockMediaDevices()
 {
-    MockRealtimeMediaSourceCenter::setDevices({ });
+    WebCore::MockRealtimeMediaSourceCenter::setDevices({ });
 }
 
 void GPUProcess::removeMockMediaDevice(const String& persistentId)
 {
-    MockRealtimeMediaSourceCenter::removeDevice(persistentId);
+    WebCore::MockRealtimeMediaSourceCenter::removeDevice(persistentId);
 }
 
 void GPUProcess::setMockMediaDeviceIsEphemeral(const String& persistentId, bool isEphemeral)
 {
-    MockRealtimeMediaSourceCenter::setDeviceIsEphemeral(persistentId, isEphemeral);
+    WebCore::MockRealtimeMediaSourceCenter::setDeviceIsEphemeral(persistentId, isEphemeral);
 }
 
 void GPUProcess::resetMockMediaDevices()
 {
-    MockRealtimeMediaSourceCenter::resetDevices();
+    WebCore::MockRealtimeMediaSourceCenter::resetDevices();
 }
 
 void GPUProcess::setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted)
 {
-    MockRealtimeMediaSourceCenter::setMockCaptureDevicesInterrupted(isCameraInterrupted, isMicrophoneInterrupted);
+    WebCore::MockRealtimeMediaSourceCenter::setMockCaptureDevicesInterrupted(isCameraInterrupted, isMicrophoneInterrupted);
 }
 
 void GPUProcess::triggerMockCaptureConfigurationChange(bool forMicrophone, bool forDisplay)
 {
-    MockRealtimeMediaSourceCenter::singleton().triggerMockCaptureConfigurationChange(forMicrophone, forDisplay);
+    WebCore::MockRealtimeMediaSourceCenter::singleton().triggerMockCaptureConfigurationChange(forMicrophone, forDisplay);
 }
 
 void GPUProcess::setShouldListenToVoiceActivity(bool shouldListen)
@@ -541,21 +541,33 @@ void GPUProcess::addSession(PAL::SessionID sessionID, GPUProcessSessionParameter
 
 void GPUProcess::removeSession(PAL::SessionID sessionID)
 {
-    ASSERT(m_sessions.contains(sessionID));
-    m_sessions.remove(sessionID);
+    auto findResult = m_sessions.find(sessionID);
+    if (findResult == m_sessions.end()) {
+        ASSERT_NOT_REACHED("Invalid SessionID");
+        return;
+    }
+    m_sessions.remove(findResult);
 }
 
 const String& GPUProcess::mediaCacheDirectory(PAL::SessionID sessionID) const
 {
-    ASSERT(m_sessions.contains(sessionID));
-    return m_sessions.find(sessionID)->value.mediaCacheDirectory;
+    auto findResult = m_sessions.find(sessionID);
+    if (findResult == m_sessions.end()) {
+        ASSERT_NOT_REACHED("Invalid SessionID");
+        return nullString();
+    }
+    return findResult->value.mediaCacheDirectory;
 }
 
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA) || ENABLE(ENCRYPTED_MEDIA)
 const String& GPUProcess::mediaKeysStorageDirectory(PAL::SessionID sessionID) const
 {
-    ASSERT(m_sessions.contains(sessionID));
-    return m_sessions.find(sessionID)->value.mediaKeysStorageDirectory;
+    auto findResult = m_sessions.find(sessionID);
+    if (findResult == m_sessions.end()) {
+        ASSERT_NOT_REACHED("Invalid SessionID");
+        return nullString();
+    }
+    return findResult->value.mediaKeysStorageDirectory;
 }
 #endif
 
@@ -570,8 +582,13 @@ WebCore::NowPlayingManager& GPUProcess::nowPlayingManager()
 RemoteAudioSessionProxyManager& GPUProcess::audioSessionManager() const
 {
     if (!m_audioSessionManager)
-        m_audioSessionManager = WTF::makeUnique<RemoteAudioSessionProxyManager>(const_cast<GPUProcess&>(*this));
+        m_audioSessionManager = RemoteAudioSessionProxyManager::create(const_cast<GPUProcess&>(*this));
     return *m_audioSessionManager;
+}
+
+Ref<RemoteAudioSessionProxyManager> GPUProcess::protectedAudioSessionManager() const
+{
+    return audioSessionManager();
 }
 #endif
 
@@ -609,13 +626,13 @@ void GPUProcess::processIsStartingToCaptureAudio(GPUConnectionToWebProcess& proc
 #if ENABLE(VIDEO)
 void GPUProcess::requestBitmapImageForCurrentTime(WebCore::ProcessIdentifier processIdentifier, WebCore::MediaPlayerIdentifier playerIdentifier, CompletionHandler<void(std::optional<WebCore::ShareableBitmap::Handle>&&)>&& completion)
 {
-    auto iterator = m_webProcessConnections.find(processIdentifier);
-    if (iterator == m_webProcessConnections.end()) {
+    RefPtr connection = m_webProcessConnections.get(processIdentifier);
+    if (!connection) {
         completion(std::nullopt);
         return;
     }
 
-    completion(iterator->value->remoteMediaPlayerManagerProxy().bitmapImageForCurrentTime(playerIdentifier));
+    completion(connection->protectedRemoteMediaPlayerManagerProxy()->bitmapImageForCurrentTime(playerIdentifier));
 }
 #endif
 

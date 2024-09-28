@@ -166,14 +166,14 @@ public:
         WebExtensionContentWorldType contentWorldType { WebExtensionContentWorldType::ContentScript };
         WebCore::UserStyleLevel styleLevel { WebCore::UserStyleLevel::Author };
 
-        RetainPtr<NSArray> scriptPaths;
-        RetainPtr<NSArray> styleSheetPaths;
+        Vector<String> scriptPaths;
+        Vector<String> styleSheetPaths;
 
-        RetainPtr<NSArray> includeGlobPatternStrings;
-        RetainPtr<NSArray> excludeGlobPatternStrings;
+        Vector<String> includeGlobPatternStrings;
+        Vector<String> excludeGlobPatternStrings;
 
-        NSArray *expandedIncludeMatchPatternStrings() const;
-        NSArray *expandedExcludeMatchPatternStrings() const;
+        Vector<String> expandedIncludeMatchPatternStrings() const;
+        Vector<String> expandedExcludeMatchPatternStrings() const;
     };
 
     struct WebAccessibleResourceData {
@@ -243,7 +243,9 @@ public:
     bool hasPageAction();
 
 #if ENABLE(WK_WEB_EXTENSIONS_SIDEBAR)
-    bool hasSidebar();
+    bool hasSidebarAction();
+    bool hasSidePanel();
+    bool hasAnySidebar();
     CocoaImage *sidebarIcon(CGSize idealSize);
     NSString *sidebarDocumentPath();
     NSString *sidebarTitle();
@@ -288,7 +290,7 @@ public:
     bool hasContentModificationRules() { return !declarativeNetRequestRulesets().isEmpty(); }
 
     const InjectedContentVector& staticInjectedContents();
-    bool hasStaticInjectedContentForURL(NSURL *);
+    bool hasStaticInjectedContentForURL(const URL&);
     bool hasStaticInjectedContent();
 
     // Permissions requested by the extension in their manifest.

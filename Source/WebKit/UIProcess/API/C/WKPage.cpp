@@ -407,7 +407,7 @@ void WKPageGoBack(WKPageRef pageRef)
 {
     CRASH_IF_SUSPENDED;
     auto& page = *toImpl(pageRef);
-    if (page.pageClient().hasBrowsingWarning()) {
+    if (RefPtr pageClient = page.pageClient(); pageClient->hasBrowsingWarning()) {
         WKPageReload(pageRef);
         return;
     }
@@ -2827,7 +2827,7 @@ void WKPageSetMuted(WKPageRef pageRef, WKMediaMutedState mutedState)
     if (mutedState & kWKMediaMicrophoneCaptureUnmuted)
         coreState.remove(WebCore::MediaProducerMutedState::AudioCaptureIsMuted);
 
-    toImpl(pageRef)->setMuted(coreState);
+    toImpl(pageRef)->setMuted(coreState, WebKit::WebPageProxy::FromApplication::Yes);
 }
 
 void WKPageSetMediaCaptureEnabled(WKPageRef pageRef, bool enabled)

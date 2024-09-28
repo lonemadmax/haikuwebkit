@@ -3964,6 +3964,11 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
 
 - (BOOL)requiresAccessoryView
 {
+#if ENABLE(WRITING_TOOLS)
+    if (_isPresentingWritingTools)
+        return NO;
+#endif
+
     if ([_formInputSession accessoryViewShouldNotShow])
         return NO;
 
@@ -6684,7 +6689,8 @@ static WebKit::WritingDirection coreWritingDirection(NSWritingDirection directio
 #else
             platformReplacement = nsReplacement;
 #endif
-            page->pageClient().replaceDictationAlternatives(platformReplacement.get(), context);
+            if (RefPtr pageClient = page->pageClient())
+                pageClient->replaceDictationAlternatives(platformReplacement.get(), context);
         }
         page->clearDictationAlternatives(WTFMove(contextsToRemove));
     });
@@ -13405,6 +13411,22 @@ inline static NSString *extendSelectionCommand(UITextLayoutDirection direction)
 #endif // USE(BROWSERENGINEKIT)
 
 #if ENABLE(WRITING_TOOLS)
+
+- (void)willPresentWritingTools
+{
+    _isPresentingWritingTools = YES;
+    // FIXME (rdar://problem/136376688): Stop manually hiding the accessory view once UIKit fixes rdar://136304542.
+    self.formAccessoryView.hidden = YES;
+    [self reloadInputViews];
+}
+
+- (void)didDismissWritingTools
+{
+    _isPresentingWritingTools = NO;
+    // FIXME (rdar://problem/136376688): Stop manually unhiding the accessory view once UIKit fixes rdar://136304542.
+    self.formAccessoryView.hidden = NO;
+    [self reloadInputViews];
+}
 
 // FIXME: (rdar://130540028) Remove uses of the old WritingToolsAllowedInputOptions API in favor of the new WritingToolsResultOptions API, and remove staging.
 - (PlatformWritingToolsResultOptions)writingToolsAllowedInputOptions

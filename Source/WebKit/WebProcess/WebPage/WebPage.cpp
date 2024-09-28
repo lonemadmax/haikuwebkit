@@ -2085,7 +2085,8 @@ void WebPage::loadRequest(LoadParameters&& loadParameters)
     frameLoadRequest.setClientRedirectSourceForHistory(loadParameters.clientRedirectSourceForHistory);
     if (loadParameters.isRequestFromClientOrUserInput)
         frameLoadRequest.setIsRequestFromClientOrUserInput();
-    frameLoadRequest.setAdvancedPrivacyProtections(loadParameters.advancedPrivacyProtections);
+    if (loadParameters.advancedPrivacyProtections)
+        frameLoadRequest.setAdvancedPrivacyProtections(*loadParameters.advancedPrivacyProtections);
 
     if (loadParameters.effectiveSandboxFlags)
         localFrame->updateSandboxFlags(loadParameters.effectiveSandboxFlags, Frame::NotifyUIProcess::No);
@@ -6119,39 +6120,33 @@ bool WebPage::windowAndWebPageAreFocused() const
     return isVisible() && m_page->focusController().isFocused() && m_page->focusController().isActive();
 }
 
-void WebPage::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
+bool WebPage::dispatchMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
     if (decoder.messageReceiverName() == Messages::WebInspector::messageReceiverName()) {
         if (WebInspector* inspector = this->inspector())
             inspector->didReceiveMessage(connection, decoder);
-        return;
+        return true;
     }
 
     if (decoder.messageReceiverName() == Messages::WebInspectorUI::messageReceiverName()) {
         if (WebInspectorUI* inspectorUI = this->inspectorUI())
             inspectorUI->didReceiveMessage(connection, decoder);
-        return;
+        return true;
     }
 
     if (decoder.messageReceiverName() == Messages::RemoteWebInspectorUI::messageReceiverName()) {
         if (RemoteWebInspectorUI* remoteInspectorUI = this->remoteInspectorUI())
             remoteInspectorUI->didReceiveMessage(connection, decoder);
-        return;
+        return true;
     }
 
 #if ENABLE(FULLSCREEN_API)
     if (decoder.messageReceiverName() == Messages::WebFullScreenManager::messageReceiverName()) {
         fullScreenManager()->didReceiveMessage(connection, decoder);
-        return;
+        return true;
     }
 #endif
-
-    didReceiveWebPageMessage(connection, decoder);
-}
-
-bool WebPage::didReceiveSyncMessage(IPC::Connection& connection, IPC::Decoder& decoder, UniqueRef<IPC::Encoder>& replyEncoder)
-{
-    return didReceiveSyncWebPageMessage(connection, decoder, replyEncoder);
+    return false;
 }
 
 #if ENABLE(ASYNC_SCROLLING)
@@ -6637,9 +6632,9 @@ void WebPage::drawPagesForPrinting(FrameIdentifier frameID, const PrintInfo& pri
 }
 #endif
 
-void WebPage::addResourceRequest(WebCore::ResourceLoaderIdentifier identifier, const WebCore::ResourceRequest& request, LocalFrame* frame)
+void WebPage::addResourceRequest(WebCore::ResourceLoaderIdentifier identifier, bool isMainResourceLoad, const WebCore::ResourceRequest& request, const DocumentLoader* loader, LocalFrame* frame)
 {
-    if (frame) {
+    if (frame && !isMainResourceLoad) {
         auto frameID = frame->frameID();
         auto addResult = m_networkResourceRequestCountForPageLoadTiming.add(frameID, 0);
         if (!addResult.iterator->value)
@@ -6660,9 +6655,9 @@ void WebPage::addResourceRequest(WebCore::ResourceLoaderIdentifier identifier, c
         send(Messages::WebPageProxy::SetNetworkRequestsInProgress(true));
 }
 
-void WebPage::removeResourceRequest(WebCore::ResourceLoaderIdentifier identifier, LocalFrame* frame)
+void WebPage::removeResourceRequest(WebCore::ResourceLoaderIdentifier identifier, bool isMainResourceLoad, LocalFrame* frame)
 {
-    if (frame) {
+    if (frame && !isMainResourceLoad) {
         auto frameID = frame->frameID();
         auto it = m_networkResourceRequestCountForPageLoadTiming.find(frameID);
         ASSERT(it != m_networkResourceRequestCountForPageLoadTiming.end());
@@ -7227,6 +7222,11 @@ void WebPage::didChangeSelectionOrOverflowScrollPosition()
 
 void WebPage::resetFocusedElementForFrame(WebFrame* frame)
 {
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    if (frame->isMainFrame() || m_page->checkedFocusController()->focusedOrMainFrame() == frame->coreLocalFrame())
+        m_page->editorClient().setInputMethodState(nullptr);
+#endif
+
     if (!m_focusedElement)
         return;
 

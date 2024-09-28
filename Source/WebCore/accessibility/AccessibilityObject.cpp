@@ -1029,12 +1029,22 @@ Vector<String> AccessibilityObject::performTextOperation(const AccessibilityText
     if (!frame)
         return result;
 
-    for (const auto& textRange : operation.textRanges) {
+    size_t replacementStringsCount = operation.replacementStrings.size();
+    bool useFirstReplacementStringForAllReplacements = (replacementStringsCount == 1);
+
+    for (size_t i = 0; i < operation.textRanges.size(); ++i) {
+        auto textRange = operation.textRanges[i];
+
+        String replacementString;
+        if (useFirstReplacementStringForAllReplacements)
+            replacementString = operation.replacementStrings[0];
+        else if (i < replacementStringsCount)
+            replacementString = operation.replacementStrings[i];
+
         if (!frame->selection().setSelectedRange(textRange, Affinity::Downstream, FrameSelection::ShouldCloseTyping::Yes))
             continue;
 
         String text = plainText(textRange);
-        String replacementString = operation.replacementText;
         bool replaceSelection = false;
         switch (operation.type) {
         case AccessibilityTextOperationType::Capitalize:
@@ -1063,6 +1073,9 @@ Vector<String> AccessibilityObject::performTextOperation(const AccessibilityText
             }
             break;
         }
+        case AccessibilityTextOperationType::ReplacePreserveCase:
+            replaceSelection = true;
+            break;
         case AccessibilityTextOperationType::Select:
             break;
         }
@@ -1070,7 +1083,7 @@ Vector<String> AccessibilityObject::performTextOperation(const AccessibilityText
         // A bit obvious, but worth noting the API contract for this method is that we should
         // return the replacement string when replacing, but the selected string if not.
         if (replaceSelection) {
-            frame->editor().replaceSelectionWithText(replacementString, Editor::SelectReplacement::Yes, Editor::SmartReplace::Yes);
+            frame->editor().replaceSelectionWithText(replacementString, Editor::SelectReplacement::Yes, operation.smartReplace == AccessibilityTextOperationSmartReplace::No ? Editor::SmartReplace::No : Editor::SmartReplace::Yes);
             result.append(replacementString);
         } else
             result.append(text);

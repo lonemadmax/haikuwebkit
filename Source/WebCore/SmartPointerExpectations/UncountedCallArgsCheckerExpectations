@@ -5,7 +5,6 @@ CompressionStreamBuiltins.h
 CountQueuingStrategyBuiltins.h
 DecompressionStreamBuiltins.h
 EventNames.h
-HTMLNames.cpp
 InternalSettingsGenerated.cpp
 JSANGLEInstancedArrays.cpp
 JSAbortController.cpp
@@ -84,7 +83,6 @@ JSDOMMimeTypeArray.cpp
 JSDOMQuad.cpp
 JSDOMSelection.cpp
 JSDOMStringMap.cpp
-JSDOMTokenList.cpp
 JSDOMURL.cpp
 JSDOMWindow.cpp
 JSDataTransfer.cpp
@@ -117,7 +115,9 @@ JSFormDataEvent.cpp
 JSFullscreenOptions.cpp
 JSGCObservation.cpp
 JSGPUBindGroup.cpp
+JSGPUCanvasConfiguration.cpp
 JSGPUCommandEncoder.cpp
+JSGPUCompilationInfo.cpp
 JSGPUComputePassEncoder.cpp
 JSGPUQueue.cpp
 JSGPURenderBundleEncoder.cpp
@@ -130,6 +130,7 @@ JSHTMLAllCollection.cpp
 JSHTMLAllCollection.h
 JSHTMLAnchorElement.cpp
 JSHTMLAttachmentElement.cpp
+JSHTMLBRElement.cpp
 JSHTMLBodyElement.cpp
 JSHTMLButtonElement.cpp
 JSHTMLCanvasElement.cpp
@@ -146,7 +147,7 @@ JSHTMLLinkElement.cpp
 JSHTMLMediaElement.cpp
 JSHTMLOptionsCollection.cpp
 JSHTMLOutputElement.cpp
-JSHTMLTableElement.cpp
+JSHTMLTableCellElement.cpp
 JSHTMLTemplateElement.cpp
 JSHTMLTrackElement.cpp
 JSHTMLVideoElement.cpp
@@ -172,6 +173,7 @@ JSInternals.cpp
 JSInternalsMapLike.cpp
 JSInternalsSetLike.cpp
 JSIntersectionObserver.cpp
+JSKeyboardEvent.cpp
 JSKeyframeAnimationOptions.cpp
 JSKeyframeEffect.cpp
 JSLocation.cpp
@@ -224,7 +226,6 @@ JSOfflineAudioContext.cpp
 JSOffscreenCanvas.cpp
 JSOffscreenCanvasRenderingContext2D.cpp
 JSOscillatorNode.cpp
-JSPaintRenderingContext2D.cpp
 JSPaintWorkletGlobalScope.cpp
 JSPannerNode.cpp
 JSPath2D.cpp
@@ -259,7 +260,7 @@ JSRTCTransformEvent.cpp
 JSRange.cpp
 JSRemotePlayback.cpp
 JSResizeObserver.cpp
-JSResizeObserverSize.cpp
+JSResizeObserverEntry.cpp
 JSSQLResultSet.cpp
 JSSVGAElement.cpp
 JSSVGCircleElement.cpp
@@ -280,7 +281,6 @@ JSSVGFEMorphologyElement.cpp
 JSSVGFEPointLightElement.cpp
 JSSVGFESpecularLightingElement.cpp
 JSSVGFESpotLightElement.cpp
-JSSVGFETileElement.cpp
 JSSVGFETurbulenceElement.cpp
 JSSVGFilterElement.cpp
 JSSVGGeometryElement.cpp
@@ -301,6 +301,7 @@ JSSVGRectElement.cpp
 JSSVGSVGElement.cpp
 JSSVGStopElement.cpp
 JSSVGStringList.cpp
+JSSVGTSpanElement.cpp
 JSSVGTextContentElement.cpp
 JSSVGTextPathElement.cpp
 JSSVGTextPositioningElement.cpp
@@ -324,7 +325,6 @@ JSSharedWorkerGlobalScope.cpp
 JSSourceBuffer.cpp
 JSSourceBufferList.cpp
 JSSpeechRecognition.cpp
-JSSpeechRecognitionResult.cpp
 JSSpeechSynthesis.cpp
 JSSpeechSynthesisUtterance.cpp
 JSStartViewTransitionOptions.cpp
@@ -332,7 +332,6 @@ JSStereoPannerNode.cpp
 JSStorage.cpp
 JSStorageEvent.cpp
 JSStorageManager.cpp
-JSStyleMedia.cpp
 JSStyleMedia.h
 JSStyleSheetList.cpp
 JSSubscriber.cpp
@@ -361,8 +360,8 @@ JSWebCodecsAudioData.cpp
 JSWebCodecsAudioDecoder.cpp
 JSWebCodecsVideoFrame.cpp
 JSWebGL2RenderingContext.cpp
+JSWebGLCompressedTextureS3TCsRGB.cpp
 JSWebGLContextAttributes.cpp
-JSWebGLContextEvent.cpp
 JSWebGLDebugShaders.cpp
 JSWebGLRenderingContext.cpp
 JSWebKitMediaKeySession.cpp
@@ -381,7 +380,6 @@ JSXMLSerializer.cpp
 JSXPathEvaluator.cpp
 JSXPathExpression.cpp
 JSXSLTProcessor.cpp
-MathMLNames.cpp
 Modules/WebGPU/GPUAdapter.cpp
 Modules/WebGPU/GPUBindGroup.cpp
 Modules/WebGPU/GPUBuffer.cpp
@@ -393,7 +391,6 @@ Modules/WebGPU/GPUQueue.cpp
 Modules/WebGPU/GPURenderBundleEncoder.cpp
 Modules/WebGPU/Implementation/WebGPUCommandEncoderImpl.cpp
 Modules/WebGPU/Implementation/WebGPUDeviceImpl.cpp
-Modules/WebGPU/Implementation/WebGPUImpl.cpp
 Modules/WebGPU/Implementation/WebGPUPresentationContextImpl.cpp
 Modules/WebGPU/Implementation/WebGPUQueueImpl.cpp
 Modules/airplay/WebMediaSessionManager.cpp
@@ -415,6 +412,7 @@ Modules/encryptedmedia/MediaKeySession.cpp
 Modules/encryptedmedia/MediaKeyStatusMap.cpp
 Modules/encryptedmedia/MediaKeySystemRequest.cpp
 Modules/encryptedmedia/MediaKeys.cpp
+Modules/encryptedmedia/legacy/LegacyCDMSessionClearKey.cpp
 Modules/encryptedmedia/legacy/WebKitMediaKeySession.cpp
 Modules/encryptedmedia/legacy/WebKitMediaKeys.cpp
 Modules/entriesapi/DOMFileSystem.cpp
@@ -443,7 +441,6 @@ Modules/highlight/HighlightRegistry.cpp
 Modules/indexeddb/IDBActiveDOMObject.h
 Modules/indexeddb/IDBCursor.cpp
 Modules/indexeddb/IDBDatabase.cpp
-Modules/indexeddb/IDBDatabaseNameAndVersionRequest.h
 Modules/indexeddb/IDBIndex.cpp
 Modules/indexeddb/IDBKey.cpp
 Modules/indexeddb/IDBKeyRange.cpp
@@ -487,12 +484,10 @@ Modules/mediastream/RTCController.cpp
 Modules/mediastream/RTCDTMFSender.cpp
 Modules/mediastream/RTCDataChannel.cpp
 Modules/mediastream/RTCDataChannelRemoteHandler.cpp
-Modules/mediastream/RTCDtlsTransport.cpp
 Modules/mediastream/RTCEncodedAudioFrame.cpp
 Modules/mediastream/RTCEncodedFrame.cpp
 Modules/mediastream/RTCEncodedVideoFrame.cpp
 Modules/mediastream/RTCPeerConnection.cpp
-Modules/mediastream/RTCRtpReceiver.cpp
 Modules/mediastream/RTCRtpSFrameTransform.cpp
 Modules/mediastream/RTCRtpScriptTransformer.cpp
 Modules/mediastream/RTCRtpSender.cpp
@@ -527,7 +522,6 @@ Modules/screen-wake-lock/WakeLockManager.cpp
 Modules/speech/LocalDOMWindowSpeechSynthesis.cpp
 Modules/speech/SpeechRecognitionCaptureSourceImpl.cpp
 Modules/speech/SpeechSynthesis.cpp
-Modules/speech/SpeechSynthesisUtterance.cpp
 Modules/storage/StorageManager.cpp
 Modules/storage/WorkerStorageConnection.cpp
 Modules/streams/ReadableStream.cpp
@@ -557,6 +551,7 @@ Modules/webaudio/BaseAudioContext.cpp
 Modules/webaudio/BiquadDSPKernel.cpp
 Modules/webaudio/BiquadFilterNode.cpp
 Modules/webaudio/BiquadProcessor.cpp
+Modules/webaudio/ChannelMergerNode.cpp
 Modules/webaudio/ConstantSourceNode.cpp
 Modules/webaudio/ConvolverNode.cpp
 Modules/webaudio/DefaultAudioDestinationNode.cpp
@@ -573,7 +568,6 @@ Modules/webaudio/OscillatorNode.cpp
 Modules/webaudio/PannerNode.cpp
 Modules/webaudio/ScriptProcessorNode.cpp
 Modules/webaudio/StereoPannerNode.cpp
-Modules/webaudio/WaveShaperNode.cpp
 Modules/webauthn/AuthenticatorCoordinator.cpp
 Modules/webauthn/PublicKeyCredential.cpp
 Modules/webauthn/fido/Pin.cpp
@@ -583,7 +577,6 @@ Modules/webcodecs/WebCodecsVideoFrame.cpp
 Modules/webdatabase/ChangeVersionWrapper.cpp
 Modules/webdatabase/Database.cpp
 Modules/webdatabase/DatabaseContext.cpp
-Modules/webdatabase/DatabaseManager.cpp
 Modules/webdatabase/DatabaseTask.cpp
 Modules/webdatabase/LocalDOMWindowWebDatabase.cpp
 Modules/webdatabase/SQLStatement.cpp
@@ -601,20 +594,15 @@ ReadableStreamBYOBRequestBuiltins.h
 ReadableStreamDefaultControllerBuiltins.h
 ReadableStreamDefaultReaderBuiltins.h
 ReadableStreamInternalsBuiltins.h
-SVGNames.cpp
 StreamInternalsBuiltins.h
 StyleBuilderGenerated.cpp
 TextDecoderStreamBuiltins.h
 TextEncoderStreamBuiltins.h
 TransformStreamDefaultControllerBuiltins.h
 TransformStreamInternalsBuiltins.h
-WebKitFontFamilyNames.cpp
 WritableStreamDefaultControllerBuiltins.h
 WritableStreamDefaultWriterBuiltins.h
 WritableStreamInternalsBuiltins.h
-XLinkNames.cpp
-XMLNSNames.cpp
-XMLNames.cpp
 accessibility/AXCoreObject.cpp
 accessibility/AXImage.cpp
 accessibility/AXLogger.cpp
@@ -690,7 +678,6 @@ bindings/js/JSDOMConvertEnumeration.h
 bindings/js/JSDOMConvertEventListener.h
 bindings/js/JSDOMConvertIndexedDB.h
 bindings/js/JSDOMConvertInterface.h
-bindings/js/JSDOMConvertResult.h
 bindings/js/JSDOMConvertScheduledAction.h
 bindings/js/JSDOMConvertStrings.h
 bindings/js/JSDOMConvertWebGL.cpp
@@ -790,6 +777,7 @@ contentextensions/ContentExtension.cpp
 contentextensions/ContentExtensionStyleSheet.cpp
 contentextensions/ContentExtensionsBackend.cpp
 crypto/SubtleCrypto.cpp
+crypto/parameters/CryptoAlgorithmRsaKeyGenParams.h
 css/BasicShapeConversion.cpp
 css/CSSAnchorValue.cpp
 css/CSSBasicShapes.cpp
@@ -803,14 +791,12 @@ css/CSSCounterValue.cpp
 css/CSSCounterValue.h
 css/CSSCrossfadeValue.cpp
 css/CSSCursorImageValue.cpp
-css/CSSCustomPropertyValue.cpp
 css/CSSFilterImageValue.cpp
 css/CSSFontFace.cpp
 css/CSSFontFaceRule.cpp
 css/CSSFontFaceSet.cpp
 css/CSSFontFaceSource.cpp
 css/CSSFontFeatureValue.cpp
-css/CSSFontFeatureValuesRule.cpp
 css/CSSFontPaletteValuesOverrideColorsValue.cpp
 css/CSSFontSelector.cpp
 css/CSSFontStyleRangeValue.cpp
@@ -853,7 +839,6 @@ css/CSSStyleRule.cpp
 css/CSSStyleSheet.cpp
 css/CSSStyleSheetObservableArray.cpp
 css/CSSTimingFunctionValue.cpp
-css/CSSTimingFunctionValue.h
 css/CSSToStyleMap.cpp
 css/CSSValueList.cpp
 css/CSSValuePair.cpp
@@ -889,7 +874,6 @@ css/StyleRuleImport.cpp
 css/StyleRuleImport.h
 css/StyleSheetContents.cpp
 css/StyleSheetList.cpp
-css/color/CSSUnresolvedColorKeyword.cpp
 css/color/CSSUnresolvedLightDark.cpp
 css/parser/CSSParserImpl.cpp
 css/parser/CSSPropertyParser.cpp
@@ -925,7 +909,6 @@ dom/BroadcastChannel.cpp
 dom/ComposedTreeAncestorIterator.h
 dom/ComposedTreeIterator.cpp
 dom/ContainerNode.cpp
-dom/ContainerNode.h
 dom/ContainerNodeAlgorithms.cpp
 dom/ContentVisibilityDocumentState.cpp
 dom/ContextDestructionObserver.cpp
@@ -945,13 +928,11 @@ dom/DocumentInlines.h
 dom/DocumentOrShadowRootFullscreen.cpp
 dom/DocumentStorageAccess.cpp
 dom/Element.cpp
-dom/ElementAndTextDescendantIterator.h
 dom/ElementData.cpp
 dom/ElementInlines.h
 dom/ElementInternals.cpp
 dom/ElementIteratorInlines.h
 dom/EmptyScriptExecutionContext.h
-dom/EventContext.cpp
 dom/EventDispatcher.cpp
 dom/EventLoop.h
 dom/EventPath.cpp
@@ -985,12 +966,10 @@ dom/Position.cpp
 dom/PositionIterator.cpp
 dom/PositionIterator.h
 dom/ProcessingInstruction.cpp
-dom/PseudoElement.cpp
 dom/QualifiedName.cpp
 dom/Range.cpp
 dom/RangeBoundaryPoint.h
 dom/RejectedPromiseTracker.cpp
-dom/ScriptDisallowedScope.h
 dom/ScriptElement.cpp
 dom/ScriptExecutionContext.cpp
 dom/ScriptExecutionContext.h
@@ -1009,11 +988,9 @@ dom/StyledElement.cpp
 dom/Subscriber.cpp
 dom/TextDecoderStreamDecoder.h
 dom/TreeScope.cpp
-dom/TreeScopeOrderedMap.cpp
 dom/TreeWalker.cpp
 dom/TrustedType.cpp
 dom/TypedElementDescendantIteratorInlines.h
-dom/UserGestureIndicator.cpp
 dom/ViewTransition.cpp
 dom/ViewTransitionTypeSet.cpp
 dom/VisitedLinkState.cpp
@@ -1029,6 +1006,7 @@ editing/ChangeListTypeCommand.cpp
 editing/CompositeEditCommand.cpp
 editing/CustomUndoStep.cpp
 editing/DeleteSelectionCommand.cpp
+editing/EditCommand.cpp
 editing/Editing.cpp
 editing/EditingStyle.cpp
 editing/Editor.cpp
@@ -1040,7 +1018,6 @@ editing/InsertIntoTextNodeCommand.cpp
 editing/InsertLineBreakCommand.cpp
 editing/InsertListCommand.cpp
 editing/InsertNestedListCommand.cpp
-editing/InsertNodeBeforeCommand.cpp
 editing/InsertParagraphSeparatorCommand.cpp
 editing/InsertTextCommand.cpp
 editing/ModifySelectionListLevel.cpp
@@ -1060,7 +1037,6 @@ editing/VisiblePosition.cpp
 editing/VisiblePosition.h
 editing/VisibleSelection.cpp
 editing/VisibleUnits.cpp
-editing/cocoa/DataDetection.mm
 editing/cocoa/DictionaryLookup.mm
 editing/cocoa/EditorCocoa.mm
 editing/cocoa/HTMLConverter.mm
@@ -1088,7 +1064,6 @@ html/CanvasBase.cpp
 html/CheckboxInputType.cpp
 html/ColorInputType.cpp
 html/CustomPaintCanvas.cpp
-html/CustomPaintImage.cpp
 html/DOMFormData.cpp
 html/DOMTokenList.cpp
 html/DOMURL.cpp
@@ -1097,7 +1072,6 @@ html/FTPDirectoryDocument.cpp
 html/FileInputType.cpp
 html/FormAssociatedCustomElement.cpp
 html/FormAssociatedElement.cpp
-html/FormController.cpp
 html/FormListedElement.cpp
 html/HTMLAllCollection.cpp
 html/HTMLAnchorElement.cpp
@@ -1158,6 +1132,7 @@ html/HTMLVideoElement.cpp
 html/HTMLVideoElement.h
 html/HiddenInputType.cpp
 html/ImageBitmap.cpp
+html/ImageData.cpp
 html/ImageDocument.cpp
 html/ImageInputType.cpp
 html/InputType.cpp
@@ -1197,7 +1172,6 @@ html/canvas/ImageBitmapRenderingContext.cpp
 html/canvas/OffscreenCanvasRenderingContext2D.cpp
 html/canvas/PlaceholderRenderingContext.cpp
 html/canvas/WebGL2RenderingContext.cpp
-html/canvas/WebGLDefaultFramebuffer.cpp
 html/canvas/WebGLDrawBuffers.cpp
 html/canvas/WebGLDrawInstancedBaseVertexBaseInstance.cpp
 html/canvas/WebGLFramebuffer.cpp
@@ -1210,7 +1184,6 @@ html/canvas/WebGLRenderingContextBase.cpp
 html/canvas/WebGLSync.cpp
 html/canvas/WebGLTransformFeedback.cpp
 html/canvas/WebGLUtilities.cpp
-html/canvas/WebGLUtilities.h
 html/canvas/WebGLVertexArrayObject.cpp
 html/canvas/WebGLVertexArrayObjectBase.cpp
 html/canvas/WebGLVertexArrayObjectOES.cpp
@@ -1219,7 +1192,6 @@ html/parser/HTMLConstructionSite.h
 html/parser/HTMLDocumentParser.cpp
 html/parser/HTMLDocumentParserFastPath.cpp
 html/parser/HTMLElementStack.cpp
-html/parser/HTMLFormattingElementList.cpp
 html/parser/HTMLParserScheduler.cpp
 html/parser/HTMLScriptRunner.cpp
 html/parser/HTMLTreeBuilder.cpp
@@ -1232,10 +1204,8 @@ html/shadow/SpinButtonElement.cpp
 html/shadow/TextControlInnerElements.cpp
 html/track/AudioTrack.cpp
 html/track/DataCue.cpp
-html/track/InbandDataTextTrack.cpp
 html/track/InbandGenericTextTrack.cpp
 html/track/InbandTextTrack.cpp
-html/track/InbandWebVTTTextTrack.cpp
 html/track/LoadableTextTrack.cpp
 html/track/TextTrack.cpp
 html/track/TextTrackCue.cpp
@@ -1288,11 +1258,9 @@ inspector/agents/page/PageDOMDebuggerAgent.cpp
 inspector/agents/page/PageNetworkAgent.cpp
 inspector/agents/page/PageRuntimeAgent.cpp
 inspector/agents/worker/ServiceWorkerAgent.cpp
-inspector/agents/worker/WorkerConsoleAgent.cpp
 inspector/agents/worker/WorkerDebuggerAgent.cpp
 inspector/agents/worker/WorkerNetworkAgent.cpp
 inspector/agents/worker/WorkerRuntimeAgent.cpp
-layout/Verification.cpp
 layout/formattingContexts/inline/InlineItemsBuilder.cpp
 layout/integration/inline/LayoutIntegrationInlineContentBuilder.cpp
 layout/integration/inline/LayoutIntegrationLineLayout.cpp
@@ -1367,12 +1335,12 @@ page/LocalFrame.h
 page/LocalFrameView.cpp
 page/LocalFrameViewLayoutContext.cpp
 page/Location.cpp
+page/NavigateEvent.cpp
 page/Navigation.cpp
 page/NavigationDestination.h
 page/NavigationHistoryEntry.cpp
 page/NavigationTransition.cpp
 page/Navigator.cpp
-page/NavigatorBase.cpp
 page/NavigatorLoginStatus.cpp
 page/OpportunisticTaskScheduler.cpp
 page/Page.cpp
@@ -1404,7 +1372,6 @@ page/UndoItem.cpp
 page/VisualViewport.cpp
 page/WheelEventTestMonitor.cpp
 page/cocoa/EventHandlerCocoa.mm
-page/cocoa/MemoryReleaseCocoa.mm
 page/cocoa/ResourceUsageOverlayCocoa.mm
 page/cocoa/ResourceUsageThreadCocoa.mm
 page/cocoa/WebTextIndicatorLayer.mm
@@ -1450,16 +1417,12 @@ platform/SharedBuffer.h
 platform/animation/AcceleratedEffectValues.cpp
 platform/animation/Animation.cpp
 platform/animation/AnimationList.cpp
-platform/audio/AudioSession.cpp
-platform/audio/PlatformMediaSession.cpp
 platform/audio/PlatformMediaSessionManager.cpp
 platform/audio/Reverb.cpp
 platform/audio/cocoa/AudioFileReaderCocoa.cpp
 platform/audio/cocoa/AudioSampleDataSource.mm
 platform/audio/cocoa/AudioSessionCocoa.mm
 platform/audio/cocoa/MediaSessionManagerCocoa.mm
-platform/audio/mac/AudioSessionMac.mm
-platform/audio/mac/SharedRoutingArbitrator.mm
 platform/cocoa/DragImageCocoa.mm
 platform/cocoa/PlatformSpeechSynthesizerCocoa.mm
 platform/cocoa/PlaybackSessionModelMediaElement.mm
@@ -1472,6 +1435,7 @@ platform/graphics/BitmapImage.cpp
 platform/graphics/BitmapImage.h
 platform/graphics/BitmapImageDescriptor.cpp
 platform/graphics/BitmapImageSource.cpp
+platform/graphics/ByteArrayPixelBuffer.cpp
 platform/graphics/Color.cpp
 platform/graphics/Color.h
 platform/graphics/ComplexTextController.cpp
@@ -1479,10 +1443,8 @@ platform/graphics/FontCache.cpp
 platform/graphics/FontCascade.cpp
 platform/graphics/FontCascadeCache.h
 platform/graphics/FontCascadeFonts.cpp
-platform/graphics/FontCreationContext.h
 platform/graphics/FontRanges.cpp
 platform/graphics/GradientImage.cpp
-platform/graphics/GraphicsContext.cpp
 platform/graphics/GraphicsLayer.cpp
 platform/graphics/GraphicsLayer.h
 platform/graphics/ImageAdapter.cpp
@@ -1500,16 +1462,12 @@ platform/graphics/TransparencyLayerContextSwitcher.cpp
 platform/graphics/WidthIterator.cpp
 platform/graphics/avfoundation/AVTrackPrivateAVFObjCImpl.mm
 platform/graphics/avfoundation/AudioSourceProviderAVFObjC.mm
-platform/graphics/avfoundation/CDMFairPlayStreaming.cpp
 platform/graphics/avfoundation/InbandMetadataTextTrackPrivateAVF.cpp
-platform/graphics/avfoundation/InbandTextTrackPrivateAVF.cpp
 platform/graphics/avfoundation/MediaPlayerPrivateAVFoundation.cpp
 platform/graphics/avfoundation/MediaSelectionGroupAVFObjC.mm
 platform/graphics/avfoundation/objc/CDMInstanceFairPlayStreamingAVFObjC.mm
 platform/graphics/avfoundation/objc/CDMSessionAVContentKeySession.mm
-platform/graphics/avfoundation/objc/CDMSessionAVFoundationObjC.mm
 platform/graphics/avfoundation/objc/ImageDecoderAVFObjC.mm
-platform/graphics/avfoundation/objc/InbandChapterTrackPrivateAVFObjC.mm
 platform/graphics/avfoundation/objc/LocalSampleBufferDisplayLayer.mm
 platform/graphics/avfoundation/objc/MediaPlayerPrivateAVFoundationObjC.mm
 platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaSourceAVFObjC.mm
@@ -1517,7 +1475,6 @@ platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaStreamAVFObjC.mm
 platform/graphics/avfoundation/objc/MediaSourcePrivateAVFObjC.mm
 platform/graphics/avfoundation/objc/SourceBufferParserAVFObjC.mm
 platform/graphics/avfoundation/objc/SourceBufferPrivateAVFObjC.mm
-platform/graphics/avfoundation/objc/VideoLayerManagerObjC.mm
 platform/graphics/avfoundation/objc/WebAVContentKeyGroup.mm
 platform/graphics/avfoundation/objc/WebCoreAVFResourceLoader.mm
 platform/graphics/ca/GraphicsLayerCA.cpp
@@ -1563,7 +1520,6 @@ platform/graphics/controls/ToggleButtonPart.h
 platform/graphics/coreimage/FEComponentTransferCoreImageApplier.mm
 platform/graphics/coretext/ComplexTextControllerCoreText.mm
 platform/graphics/coretext/FontCascadeCoreText.cpp
-platform/graphics/coretext/FontCoreText.cpp
 platform/graphics/coretext/FontCustomPlatformDataCoreText.cpp
 platform/graphics/coretext/FontPlatformDataCoreText.cpp
 platform/graphics/cv/GraphicsContextGLCVCocoa.cpp
@@ -1591,9 +1547,7 @@ platform/mediarecorder/cocoa/AudioSampleBufferCompressor.mm
 platform/mediarecorder/cocoa/MediaRecorderPrivateWriterCocoa.mm
 platform/mediarecorder/cocoa/VideoSampleBufferCompressor.mm
 platform/mediastream/AudioTrackPrivateMediaStream.cpp
-platform/mediastream/MediaStreamPrivate.cpp
 platform/mediastream/MediaStreamTrackPrivate.cpp
-platform/mediastream/RealtimeMediaSource.cpp
 platform/mediastream/RealtimeOutgoingAudioSource.cpp
 platform/mediastream/RealtimeOutgoingVideoSource.cpp
 platform/mediastream/RealtimeVideoCaptureSource.cpp
@@ -1608,10 +1562,6 @@ platform/mediastream/mac/CoreAudioSharedUnit.cpp
 platform/mediastream/mac/CoreAudioSharedUnit.mm
 platform/mediastream/mac/MediaStreamTrackAudioSourceProviderCocoa.cpp
 platform/mediastream/mac/MockAudioSharedUnit.mm
-platform/mediastream/mac/RealtimeIncomingAudioSourceCocoa.cpp
-platform/mediastream/mac/RealtimeIncomingVideoSourceCocoa.mm
-platform/mediastream/mac/RealtimeOutgoingVideoSourceCocoa.cpp
-platform/mediastream/mac/ScreenCaptureKitCaptureSource.mm
 platform/mediastream/mac/ScreenCaptureKitSharingSessionManager.mm
 platform/mock/MockRealtimeMediaSourceCenter.cpp
 platform/mock/MockRealtimeVideoSource.cpp
@@ -1852,7 +1802,6 @@ svg/SVGFELightElement.h
 svg/SVGFEMorphologyElement.h
 svg/SVGFEOffsetElement.h
 svg/SVGFESpecularLightingElement.h
-svg/SVGFETileElement.h
 svg/SVGFETurbulenceElement.h
 svg/SVGFilterElement.h
 svg/SVGFilterPrimitiveStandardAttributes.h
@@ -1921,8 +1870,8 @@ svg/properties/SVGValuePropertyAnimator.h
 svg/properties/SVGValuePropertyListAnimatorImpl.h
 testing/InternalSettings.cpp
 testing/Internals.cpp
+testing/LegacyMockCDM.cpp
 testing/MockContentFilter.cpp
-testing/MockMediaSessionCoordinator.cpp
 testing/MockPageOverlayClient.cpp
 testing/MockPaymentCoordinator.cpp
 testing/ServiceWorkerInternals.cpp

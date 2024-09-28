@@ -1468,7 +1468,6 @@ webkit.org/b/76280 media/W3C/video/networkState/networkState_during_progress.htm
 
 webkit.org/b/112521 [ Release ] webaudio/audioprocessingevent.html [ Pass Failure ]
 webkit.org/b/112521 [ Debug ] webaudio/audioprocessingevent.html [ Skip ]
-webkit.org/b/137359 webaudio/distance-linear.html [ Pass Failure ]
 
 # The test frequently times out, and is just unsuccessful at detecting incorrect behavior when it passes.
 webkit.org/b/72698 media/audio-garbage-collect.html [ Skip ]
@@ -3664,7 +3663,6 @@ imported/w3c/web-platform-tests/css/css-overflow/line-clamp/webkit-line-clamp-01
 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/webkit-line-clamp-012.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/webkit-line-clamp-013.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/webkit-line-clamp-018.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-overflow/line-clamp/webkit-line-clamp-027.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/webkit-line-clamp-029.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-overflow/overflow-clip-margin-012.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-overflow/rounded-overflow-clip-visible.html [ ImageOnlyFailure ]
@@ -4987,15 +4985,13 @@ webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/sizing
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/sizing-orthog-vrl-in-htb-008.xht [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/table-cell-001.html [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/table-cell-002.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/table-column-order-slr-007.xht [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-slr-002.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-srl-001.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-vlr-001.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-vlr-003.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-vlr-004.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-vrl-001.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-vrl-003.html [ ImageOnlyFailure ]
-webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-vrl-004.html [ ImageOnlyFailure ]
+webkit.org/b/166941 imported/w3c/web-platform-tests/css/css-writing-modes/table-column-order-slr-007.xht [ ImageOnlyFailure ]
+webkit.org/b/166941 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-slr-001.html [ ImageOnlyFailure ]
+webkit.org/b/166941 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-slr-002.html [ ImageOnlyFailure ]
+webkit.org/b/164507 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-vlr-003.html [ ImageOnlyFailure ]
+webkit.org/b/164507 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-vlr-004.html [ ImageOnlyFailure ]
+webkit.org/b/164507 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-vrl-003.html [ ImageOnlyFailure ]
+webkit.org/b/164507 imported/w3c/web-platform-tests/css/css-writing-modes/table-progression-vrl-004.html [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-baseline-slr-009.xht [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-orientation-mixed-vlr-100.html [ ImageOnlyFailure ]
 webkit.org/b/209080 imported/w3c/web-platform-tests/css/css-writing-modes/text-orientation-mixed-vrl-100.html [ ImageOnlyFailure ]
@@ -6988,10 +6984,6 @@ imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across
 
 webkit.org/b/242658 http/tests/media/user-gesture-preserved-across-xmlhttprequest.html [ Slow Pass Failure ]
 
-# These tests are crashing in debug since its import.
-webkit.org/b/256976 [ Debug ] imported/w3c/web-platform-tests/html/browsers/browsing-the-web/overlapping-navigations-and-traversals/cross-document-traversal-same-document-nav.html [ Skip ]
-webkit.org/b/256976 [ Debug ] imported/w3c/web-platform-tests/html/browsers/browsing-the-web/overlapping-navigations-and-traversals/same-document-nav-cross-document-traversal.html [ Skip ]
-
 # Test has been timing out since its import.
 imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-event-handler-content-attributes.html [ Skip ]
 
@@ -7416,14 +7408,13 @@ imported/w3c/web-platform-tests/navigation-api/ [ Timeout Pass ]
 
 # This is not part of the spec yet and hasn't been implemented.
 imported/w3c/web-platform-tests/navigation-api/commit-behavior/ [ Skip ]
+imported/w3c/web-platform-tests/navigation-api/scroll-behavior/manual-scroll-before-after-transition-commit.html [ Skip ]
 
 # Not yet implemented so just full of timeouts and flakes.
-imported/w3c/web-platform-tests/navigation-api/scroll-behavior/ [ Skip ]
 imported/w3c/web-platform-tests/navigation-api/focus-reset/ [ Skip ]
 
 # Tests for sourceElement is not yet part of the HTML spec.
 imported/w3c/web-platform-tests/navigation-api/navigate-event/navigate-form-requestSubmit.html [ Skip ]
-
 
 # These cross-window tests won't work on ports that don't run on the web-platform.test domains (not glib).
 imported/w3c/web-platform-tests/navigation-api/navigate-event/cross-window/ [ Skip ]
@@ -8048,7 +8039,6 @@ imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-no-o
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-no-overflow.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-remove-anchors-visible.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-anchor-position/position-visibility-remove-no-overflow.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-anchor-position/sticky-anchor-position-invalid.html [ ImageOnlyFailure ]
 
 # timeouts
 imported/w3c/web-platform-tests/css/css-anchor-position/anchor-scroll-js-expose.html [ Skip ]

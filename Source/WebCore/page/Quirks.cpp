@@ -460,8 +460,6 @@ bool Quirks::shouldDispatchSimulatedMouseEvents(const EventTarget* target) const
             return ShouldDispatchSimulatedMouseEvents::Yes;
         if (isDomain("flipkart.com"_s))
             return ShouldDispatchSimulatedMouseEvents::Yes;
-        if (host == "trailers.apple.com"_s)
-            return ShouldDispatchSimulatedMouseEvents::Yes;
         if (isDomain("soundcloud.com"_s))
             return ShouldDispatchSimulatedMouseEvents::Yes;
         if (host == "naver.com"_s)
@@ -535,22 +533,6 @@ bool Quirks::shouldDispatchedSimulatedMouseEventsAssumeDefaultPrevented(EventTar
         return element->classList().contains("sceneLayer"_s);
 
     return false;
-}
-
-// maps.google.com https://bugs.webkit.org/show_bug.cgi?id=199904
-std::optional<Event::IsCancelable> Quirks::simulatedMouseEventTypeForTarget(EventTarget* target) const
-{
-    if (!shouldDispatchSimulatedMouseEvents(target))
-        return { };
-
-    // On Google Maps, we want to limit simulated mouse events to dragging the little man that allows entering into Street View.
-    if (isGoogleMaps()) {
-        if (RefPtr element = dynamicDowncast<Element>(target); element && element->getAttribute(HTMLNames::classAttr) == "widget-expand-button-pegman-icon"_s)
-            return Event::IsCancelable::Yes;
-        return { };
-    }
-
-    return Event::IsCancelable::Yes;
 }
 
 // sites.google.com rdar://58653069
@@ -670,6 +652,18 @@ bool Quirks::needsYouTubeOverflowScrollQuirk() const
 #else
     return false;
 #endif
+}
+
+// youtube.com rdar://135886305
+bool Quirks::needsYouTubeDarkModeQuirk() const
+{
+    if (!needsQuirks())
+        return false;
+
+    if (!m_needsYouTubeDarkModeQuirk)
+        m_needsYouTubeDarkModeQuirk = isDomain("youtube.com"_s);
+
+    return *m_needsYouTubeDarkModeQuirk;
 }
 
 // gizmodo.com rdar://102227302
@@ -1347,15 +1341,14 @@ bool Quirks::shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFull
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     // This quirk disables the "webkitendfullscreen" event when a video enters picture-in-picture
     // from fullscreen for the sites which cannot handle the event properly in that case.
-    // We should remove the quirk once <rdar://problem/73261957> and <rdar://problem/90393832> have been fixed.
+    // We should remove once the quirks have been fixed.
+    // <rdar://90393832> vimeo.com
     if (!needsQuirks())
         return false;
 
     if (!m_shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk) {
-        auto host = m_document->topDocument().url().host();
         auto domain = RegistrableDomain(m_document->topDocument().url());
-
-        m_shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk = host == "trailers.apple.com"_s || domain == "espn.com"_s || domain == "vimeo.com"_s;
+        m_shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk = domain == "espn.com"_s || domain == "vimeo.com"_s;
     }
 
     return *m_shouldDisableEndFullscreenEventWhenEnteringPictureInPictureFromFullscreenQuirk;
@@ -1620,19 +1613,6 @@ bool Quirks::needsDisableDOMPasteAccessQuirk() const
         return globalObject->hasProperty(globalObject, tableauPrepProperty);
     }();
     return *m_needsDisableDOMPasteAccessQuirk;
-}
-
-// oracle.com rdar://117673533
-bool Quirks::shouldDisableNavigatorStandaloneQuirk() const
-{
-#if PLATFORM(MAC)
-    if (!needsQuirks())
-        return false;
-
-    if (isDomain("oracle.com"_s))
-        return true;
-#endif
-    return false;
 }
 
 bool Quirks::shouldPreventOrientationMediaQueryFromEvaluatingToLandscape() const

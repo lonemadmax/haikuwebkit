@@ -61,6 +61,8 @@ public:
 
     const RemoteCDMInstanceConfiguration& configuration() const { return m_configuration.get(); }
     WebCore::CDMInstance& instance() { return m_instance; }
+    Ref<WebCore::CDMInstance> protectedInstance() const;
+    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const;
 
 private:
     friend class RemoteCDMFactoryProxy;
@@ -86,6 +88,8 @@ private:
     void setServerCertificate(Ref<WebCore::SharedBuffer>&&, CompletionHandler<void(SuccessValue)>&&);
     void setStorageDirectory(const String&);
     void createSession(uint64_t logIdentifier, CompletionHandler<void(const RemoteCDMInstanceSessionIdentifier&)>&&);
+
+    RefPtr<RemoteCDMProxy> protectedCdm() const;
 
     WeakPtr<RemoteCDMProxy> m_cdm;
     Ref<WebCore::CDMInstance> m_instance;

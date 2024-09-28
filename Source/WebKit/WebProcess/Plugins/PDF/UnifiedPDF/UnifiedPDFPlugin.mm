@@ -32,6 +32,7 @@
 #include "DataDetectionResult.h"
 #include "FindController.h"
 #include "MessageSenderInlines.h"
+#include "PDFAnnotationTypeHelpers.h"
 #include "PDFContextMenu.h"
 #include "PDFDataDetectorOverlayController.h"
 #include "PDFKitSPI.h"
@@ -137,6 +138,7 @@ static constexpr double zoomIncrement = 1.18920;
 
 namespace WebKit {
 using namespace WebCore;
+using namespace WebKit::PDFAnnotationTypeHelpers;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(UnifiedPDFPlugin);
 
@@ -267,10 +269,8 @@ void UnifiedPDFPlugin::installPDFDocument()
     updateHUDVisibility();
 #endif
 
-#if PLATFORM(MAC)
     if (isLocked())
         createPasswordEntryForm();
-#endif
 
     if (m_view)
         m_view->layerHostingStrategyDidChange();
@@ -343,8 +343,6 @@ void UnifiedPDFPlugin::didInvalidateDataDetectorHighlightOverlayRects()
 
 #endif
 
-#if PLATFORM(MAC)
-
 void UnifiedPDFPlugin::createPasswordEntryForm()
 {
     if (!supportsForms())
@@ -359,8 +357,6 @@ void UnifiedPDFPlugin::createPasswordEntryForm()
     passwordField->attach(m_annotationContainer.get());
 }
 
-#endif
-
 void UnifiedPDFPlugin::attemptToUnlockPDF(const String& password)
 {
     std::optional<ShouldUpdateAutoSizeScale> shouldUpdateAutoSizeScaleOverride;
@@ -368,17 +364,13 @@ void UnifiedPDFPlugin::attemptToUnlockPDF(const String& password)
         shouldUpdateAutoSizeScaleOverride = ShouldUpdateAutoSizeScale::Yes;
 
     if (![m_pdfDocument unlockWithPassword:password]) {
-#if PLATFORM(MAC)
         m_passwordField->resetField();
         m_passwordForm->unlockFailed();
-#endif
         return;
     }
 
-#if PLATFORM(MAC)
     m_passwordForm = nullptr;
     m_passwordField = nullptr;
-#endif
 
     updateLayout(AdjustScaleAfterLayout::Yes, shouldUpdateAutoSizeScaleOverride);
 
@@ -925,7 +917,7 @@ std::optional<PDFDocumentLayout::PageIndex> UnifiedPDFPlugin::pageIndexWithHover
     if (!trackedAnnotation)
         return { };
 
-    if (![trackedAnnotation isKindOfClass:getPDFAnnotationTextWidgetClass()])
+    if (!annotationIsWidgetOfType(trackedAnnotation.get(), WidgetType::Text))
         return { };
 
     if (!m_annotationTrackingState.isBeingHovered())
@@ -1062,6 +1054,7 @@ void UnifiedPDFPlugin::setScaleFactor(double scale, std::optional<WebCore::IntPo
     if (!page)
         return;
 
+#if PLATFORM(MAC)
     IntPoint originInPluginCoordinates;
     if (originInRootViewCoordinates)
         originInPluginCoordinates = convertFromRootViewToPlugin(*originInRootViewCoordinates);
@@ -1086,6 +1079,7 @@ void UnifiedPDFPlugin::setScaleFactor(double scale, std::optional<WebCore::IntPo
     };
 
     auto zoomContentsOrigin = computeOriginInContentsCoordinates();
+#endif
 
     std::exchange(m_scaleFactor, scale);
 
@@ -1100,11 +1094,17 @@ void UnifiedPDFPlugin::setScaleFactor(double scale, std::optional<WebCore::IntPo
 #if PLATFORM(MAC)
     if (m_activeAnnotation)
         m_activeAnnotation->updateGeometry();
-#endif
 
     auto scrolledContentsPoint = roundedIntPoint(convertUp(CoordinateSpace::Contents, CoordinateSpace::ScrolledContents, FloatPoint { zoomContentsOrigin }));
     auto newScrollPosition = IntPoint { scrolledContentsPoint - originInPluginCoordinates };
     newScrollPosition = newScrollPosition.expandedTo({ 0, 0 });
+#else
+    FloatPoint newScrollPosition;
+    if (originInRootViewCoordinates)
+        newScrollPosition = convertUp(CoordinateSpace::Contents, CoordinateSpace::ScrolledContents, FloatPoint { originInRootViewCoordinates.value() });
+    else
+        newScrollPosition = convertUp(CoordinateSpace::Plugin, CoordinateSpace::Contents, FloatRect({ }, size())).center();
+#endif
 
     scrollToPointInContentsSpace(newScrollPosition);
 
@@ -1197,7 +1197,10 @@ void UnifiedPDFPlugin::updateLayout(AdjustScaleAfterLayout shouldAdjustScale, st
     auto layoutSize = availableContentsRect().size();
     auto autoSizeMode = shouldUpdateAutoSizeScaleOverride.value_or(m_didLayoutWithValidDocument ? m_shouldUpdateAutoSizeScale : ShouldUpdateAutoSizeScale::Yes);
 
-    auto anchoringInfo = m_presentationController->pdfPositionForCurrentView(shouldAdjustScale == AdjustScaleAfterLayout::Yes || autoSizeMode == ShouldUpdateAutoSizeScale::Yes);
+    auto computeAnchoringInfo = [&] {
+        return m_presentationController->pdfPositionForCurrentView(shouldAdjustScale == AdjustScaleAfterLayout::Yes || autoSizeMode == ShouldUpdateAutoSizeScale::Yes);
+    };
+    auto anchoringInfo = computeAnchoringInfo();
 
     auto layoutUpdateChanges = m_documentLayout.updateLayout(layoutSize, autoSizeMode);
     updateScrollbars();
@@ -1225,7 +1228,17 @@ void UnifiedPDFPlugin::updateLayout(AdjustScaleAfterLayout shouldAdjustScale, st
 
     LOG_WITH_STREAM(PDF, stream << "UnifiedPDFPlugin::updateLayout - scale " << m_scaleFactor << " normalization factor " << m_scaleNormalizationFactor << " layout scale " << m_documentLayout.scale());
 
-    if (anchoringInfo && layoutUpdateChanges.isEmpty())
+    constexpr OptionSet allLayoutChangeTypes {
+        PDFDocumentLayout::LayoutUpdateChange::PageGeometries,
+        PDFDocumentLayout::LayoutUpdateChange::DocumentBounds,
+    };
+    if (layoutUpdateChanges.containsAll(allLayoutChangeTypes)) {
+        anchoringInfo = anchoringInfo.and_then([&](const PDFPresentationController::VisiblePDFPosition&) {
+            return computeAnchoringInfo();
+        });
+    }
+
+    if (anchoringInfo)
         m_presentationController->restorePDFPosition(*anchoringInfo);
 }
 
@@ -1762,11 +1775,12 @@ auto UnifiedPDFPlugin::pdfElementTypesForPluginPoint(const IntPoint& point) cons
         if ([annotation isKindOfClass:getPDFAnnotationTextClass()])
             pdfElementTypes.add(PDFElementType::Icon);
 
-        if ([annotation isKindOfClass:getPDFAnnotationTextWidgetClass()] && ![annotation isReadOnly])
-            pdfElementTypes.add(PDFElementType::TextField);
-
-        if ([annotation isKindOfClass:getPDFAnnotationButtonWidgetClass()] && ![annotation isReadOnly])
-            pdfElementTypes.add(PDFElementType::Control);
+        if (![annotation isReadOnly]) {
+            if (annotationIsWidgetOfType(annotation, WidgetType::Text))
+                pdfElementTypes.add(PDFElementType::TextField);
+            if (annotationIsWidgetOfType(annotation, WidgetType::Button))
+                pdfElementTypes.add(PDFElementType::Control);
+        }
     }
 
     LOG_WITH_STREAM(PDF, stream << "UnifiedPDFPlugin::pdfElementTypesForPluginPoint " << point << " document point " << pointInDocumentSpace << " found page " << pageIndex << " point in page " << pointInPDFPageSpace << " - elements " << pdfElementTypes);
@@ -1847,7 +1861,7 @@ bool UnifiedPDFPlugin::handleMouseEvent(const WebMouseEvent& event)
             if (auto* currentTrackedAnnotation = m_annotationTrackingState.trackedAnnotation(); (currentTrackedAnnotation && currentTrackedAnnotation != annotationUnderMouse) || (currentTrackedAnnotation && !m_annotationTrackingState.isBeingHovered()))
                 finishTrackingAnnotation(annotationUnderMouse.get(), mouseEventType, mouseEventButton, RepaintRequirement::HoverOverlay);
 
-            if (!m_annotationTrackingState.trackedAnnotation() && annotationUnderMouse && [annotationUnderMouse isKindOfClass:getPDFAnnotationTextWidgetClass()] && supportsForms())
+            if (!m_annotationTrackingState.trackedAnnotation() && annotationUnderMouse && annotationIsWidgetOfType(annotationUnderMouse.get(), WidgetType::Text) && supportsForms())
                 startTrackingAnnotation(WTFMove(annotationUnderMouse), mouseEventType, mouseEventButton);
 
             return true;
@@ -1871,15 +1885,16 @@ bool UnifiedPDFPlugin::handleMouseEvent(const WebMouseEvent& event)
         switch (mouseEventButton) {
         case WebMouseEventButton::Left: {
             if (RetainPtr<PDFAnnotation> annotation = annotationForRootViewPoint(event.position())) {
-                if (([annotation isKindOfClass:getPDFAnnotationButtonWidgetClass()] || [annotation isKindOfClass:getPDFAnnotationTextWidgetClass()] || [annotation isKindOfClass:getPDFAnnotationChoiceWidgetClass()]) && [annotation isReadOnly])
+                if ([annotation isReadOnly]
+                    && annotationIsWidgetOfType(annotation.get(), { WidgetType::Button, WidgetType::Text, WidgetType::Choice }))
                     return true;
 
-                if ([annotation isKindOfClass:getPDFAnnotationTextWidgetClass()] || [annotation isKindOfClass:getPDFAnnotationChoiceWidgetClass()]) {
+                if (annotationIsWidgetOfType(annotation.get(), { WidgetType::Text, WidgetType::Choice })) {
                     setActiveAnnotation({ WTFMove(annotation) });
                     return true;
                 }
 
-                if ([annotation isKindOfClass:getPDFAnnotationButtonWidgetClass()]) {
+                if (annotationIsWidgetOfType(annotation.get(), WidgetType::Button)) {
                     startTrackingAnnotation(WTFMove(annotation), mouseEventType, mouseEventButton);
                     return true;
                 }
@@ -1899,7 +1914,7 @@ bool UnifiedPDFPlugin::handleMouseEvent(const WebMouseEvent& event)
     case WebEventType::MouseUp:
         switch (mouseEventButton) {
         case WebMouseEventButton::Left:
-            if (RetainPtr trackedAnnotation = m_annotationTrackingState.trackedAnnotation(); trackedAnnotation && ![trackedAnnotation isKindOfClass:getPDFAnnotationTextWidgetClass()]) {
+            if (RetainPtr trackedAnnotation = m_annotationTrackingState.trackedAnnotation(); trackedAnnotation && !annotationIsWidgetOfType(trackedAnnotation.get(), WidgetType::Text)) {
                 RetainPtr annotationUnderMouse = annotationForRootViewPoint(event.position());
                 finishTrackingAnnotation(annotationUnderMouse.get(), mouseEventType, mouseEventButton);
 
@@ -2023,19 +2038,19 @@ void UnifiedPDFPlugin::followLinkAnnotation(PDFAnnotation *annotation)
 
 RepaintRequirements UnifiedPDFPlugin::repaintRequirementsForAnnotation(PDFAnnotation *annotation, IsAnnotationCommit isAnnotationCommit)
 {
-    if ([annotation isKindOfClass:getPDFAnnotationButtonWidgetClass()])
+    if (annotationIsWidgetOfType(annotation, WidgetType::Button))
         return RepaintRequirement::PDFContent;
 
     if ([annotation isKindOfClass:getPDFAnnotationPopupClass()])
         return RepaintRequirement::PDFContent;
 
-    if ([annotation isKindOfClass:getPDFAnnotationChoiceWidgetClass()])
+    if (annotationIsWidgetOfType(annotation, WidgetType::Choice))
         return RepaintRequirement::PDFContent;
 
     if ([annotation isKindOfClass:getPDFAnnotationTextClass()])
         return RepaintRequirement::PDFContent;
 
-    if ([annotation isKindOfClass:getPDFAnnotationTextWidgetClass()])
+    if (annotationIsWidgetOfType(annotation, WidgetType::Text))
         return isAnnotationCommit == IsAnnotationCommit::Yes ? RepaintRequirement::PDFContent : RepaintRequirement::HoverOverlay;
 
     // No visual feedback for getPDFAnnotationLinkClass at this time.
@@ -3332,7 +3347,7 @@ static RetainPtr<PDFAnnotation> findFirstTextAnnotationStartingAtIndex(const Ret
     }();
 
     auto searchResult = [annotations indexOfObjectAtIndexes:indexRange options:searchDirection == AnnotationSearchDirection::Forward ? 0 : NSEnumerationReverse passingTest:^BOOL(PDFAnnotation* annotation, NSUInteger, BOOL *) {
-        return [annotation isKindOfClass:getPDFAnnotationTextWidgetClass()] && ![annotation isReadOnly] && [annotation shouldDisplay];
+        return annotationIsWidgetOfType(annotation, WidgetType::Text) && ![annotation isReadOnly] && [annotation shouldDisplay];
     }];
 
     return searchResult != NSNotFound ? [annotations objectAtIndex:searchResult] : nullptr;
@@ -3423,7 +3438,7 @@ void UnifiedPDFPlugin::setActiveAnnotation(SetActiveAnnotationParams&& setActive
         }
 
         if (annotation) {
-            if ([annotation isKindOfClass:getPDFAnnotationTextWidgetClass()] && [annotation isReadOnly]) {
+            if (annotationIsWidgetOfType(annotation.get(), WidgetType::Text) && [annotation isReadOnly]) {
                 m_activeAnnotation = nullptr;
                 return;
             }
@@ -3526,7 +3541,7 @@ RepaintRequirements AnnotationTrackingState::startAnnotationTracking(RetainPtr<P
 
     auto repaintRequirements = RepaintRequirements { };
 
-    if ([m_trackedAnnotation isKindOfClass:getPDFAnnotationButtonWidgetClass()]) {
+    if (annotationIsWidgetOfType(m_trackedAnnotation.get(), WidgetType::Button)) {
         [m_trackedAnnotation setHighlighted:YES];
         repaintRequirements.add(UnifiedPDFPlugin::repaintRequirementsForAnnotation(m_trackedAnnotation.get()));
     }
@@ -3552,7 +3567,7 @@ RepaintRequirements AnnotationTrackingState::finishAnnotationTracking(PDFAnnotat
             repaintRequirements.add(UnifiedPDFPlugin::repaintRequirementsForAnnotation(m_trackedAnnotation.get()));
         }
 
-        if ([m_trackedAnnotation isKindOfClass:getPDFAnnotationButtonWidgetClass()] && [m_trackedAnnotation widgetControlType] != kPDFWidgetPushButtonControl) {
+        if (annotationIsWidgetOfType(m_trackedAnnotation.get(), WidgetType::Button) && [m_trackedAnnotation widgetControlType] != kPDFWidgetPushButtonControl) {
             auto currentButtonState = [m_trackedAnnotation buttonWidgetState];
             if (currentButtonState == PDFWidgetCellState::kPDFWidgetOnState && [m_trackedAnnotation allowsToggleToOff]) {
                 [m_trackedAnnotation setButtonWidgetState:PDFWidgetCellState::kPDFWidgetOffState];

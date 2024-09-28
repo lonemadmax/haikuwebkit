@@ -1351,7 +1351,7 @@ void WebsiteDataStore::setStorageAccessPromptQuirkForTesting(String&& topFrameDo
     } };
 
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
-    StorageAccessPromptQuirkController::shared().setCachedListDataForTesting(WTFMove(quirk));
+    StorageAccessPromptQuirkController::sharedSingleton().setCachedListDataForTesting(WTFMove(quirk));
 #else
     protectedNetworkProcess()->send(Messages::NetworkProcess::UpdateStorageAccessPromptQuirks(WTFMove(quirk)), 0);
 #endif
@@ -1876,7 +1876,7 @@ void WebsiteDataStore::didAllowPrivateTokenUsageByThirdPartyForTesting(bool wasA
 void WebsiteDataStore::setUserAgentStringQuirkForTesting(const String& domain, const String& userAgentString, CompletionHandler<void()>&& completionHandler)
 {
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
-    StorageAccessUserAgentStringQuirkController::shared().setCachedListDataForTesting({ { WebCore::RegistrableDomain::uncheckedCreateFromHost(domain), userAgentString } });
+    StorageAccessUserAgentStringQuirkController::sharedSingleton().setCachedListDataForTesting({ { WebCore::RegistrableDomain::uncheckedCreateFromHost(domain), userAgentString } });
 #endif
     completionHandler();
 }
@@ -1895,14 +1895,32 @@ bool WebsiteDataStore::isBlobRegistryPartitioningEnabled() const
     });
 }
 
-void WebsiteDataStore::updateBlobRegistryPartitioningState()
+bool WebsiteDataStore::isOptInCookiePartitioningEnabled() const
 {
-    auto enabled = isBlobRegistryPartitioningEnabled();
-    if (m_isBlobRegistryPartitioningEnabled == enabled)
+    return WTF::anyOf(m_processes, [] (const WebProcessProxy& process) {
+        return WTF::anyOf(process.pages(), [](auto& page) {
+            return page->preferences().optInPartitionedCookiesEnabled();
+        });
+    });
+}
+
+void WebsiteDataStore::propagateSettingUpdatesToNetworkProcess()
+{
+    RefPtr networkProcess = networkProcessIfExists();
+    if (!networkProcess)
         return;
-    if (RefPtr networkProcess = networkProcessIfExists()) {
+
+    bool enabled = isBlobRegistryPartitioningEnabled();
+    if (m_isBlobRegistryPartitioningEnabled != enabled) {
         m_isBlobRegistryPartitioningEnabled = enabled;
+        // FIXME: Send these updates in a single message.
         networkProcess->send(Messages::NetworkProcess::SetBlobRegistryTopOriginPartitioningEnabled(sessionID(), enabled), 0);
+    }
+
+    enabled = isOptInCookiePartitioningEnabled();
+    if (m_isOptInCookiePartitioningEnabled != enabled) {
+        m_isOptInCookiePartitioningEnabled = enabled;
+        networkProcess->send(Messages::NetworkProcess::SetOptInCookiePartitioningEnabled(sessionID(), enabled), 0);
     }
 }
 
@@ -2014,6 +2032,7 @@ WebsiteDataStoreParameters WebsiteDataStore::parameters()
     networkSessionParameters.webPushMachServiceName = m_configuration->webPushMachServiceName();
     networkSessionParameters.webPushPartitionString = m_configuration->webPushPartitionString();
     networkSessionParameters.isBlobRegistryTopOriginPartitioningEnabled = isBlobRegistryPartitioningEnabled();
+    networkSessionParameters.isOptInCookiePartitioningEnabled = isOptInCookiePartitioningEnabled();
     networkSessionParameters.unifiedOriginStorageLevel = m_configuration->unifiedOriginStorageLevel();
     networkSessionParameters.perOriginStorageQuota = perOriginStorageQuota();
     networkSessionParameters.originQuotaRatio = originQuotaRatio();
@@ -2101,6 +2120,11 @@ API::HTTPCookieStore& WebsiteDataStore::cookieStore()
         m_cookieStore = API::HTTPCookieStore::create(*this);
 
     return *m_cookieStore;
+}
+
+Ref<API::HTTPCookieStore> WebsiteDataStore::protectedCookieStore()
+{
+    return cookieStore();
 }
 
 void WebsiteDataStore::resetQuota(CompletionHandler<void()>&& completionHandler)

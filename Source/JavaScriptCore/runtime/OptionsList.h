@@ -578,13 +578,14 @@ bool hasCapacityToUseLargeGigacage();
     v(Bool, useWasmIPIntEpilogueOSR, true, Normal, "Allow IPInt to tier up during function epilogues"_s) \
     v(Bool, wasmIPIntTiersUpToBBQ, true, Normal, "Allow IPInt to tier up to BBQ"_s) \
     v(Bool, wasmIPIntTiersUpToOMG, true, Normal, "Allow IPInt to tier up to OMG"_s) \
-    v(Bool, useWasmJITLessJSEntrypoint, true, Normal, "Allow JS->wasm wrappers to be replaced by jit-less versions."_s) \
     v(Bool, forceAllFunctionsToUseSIMD, false, Normal, "Force all functions to act conservatively w.r.t fp/vector registers for testing."_s) \
+    v(Bool, useOMGInlining, true, Normal, "Use OMG inlining"_s) \
     \
     /* Feature Flags */\
     \
     v(Bool, useFloat16Array, true, Normal, "Expose Float16Array."_s) \
     v(Bool, useIteratorHelpers, false, Normal, "Expose the Iterator Helpers."_s) \
+    v(Bool, useMathSumPreciseMethod, false, Normal, "Expose the Math.sumPrecise() method."_s) \
     v(Bool, usePromiseTryMethod, true, Normal, "Expose the Promise.try() method."_s) \
     v(Bool, useRegExpEscape, true, Normal, "Expose RegExp.escape feature."_s) \
     v(Bool, useSharedArrayBuffer, false, Normal, nullptr) \

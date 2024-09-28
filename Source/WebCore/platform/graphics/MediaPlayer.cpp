@@ -117,10 +117,11 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaPlayerFactory);
 
 class NullMediaPlayerPrivate final : public MediaPlayerPrivateInterface, public RefCounted<NullMediaPlayerPrivate> {
 public:
+    DEFINE_VIRTUAL_REFCOUNTED;
+
     static Ref<NullMediaPlayerPrivate> create(MediaPlayer& player) { return adoptRef(*new NullMediaPlayerPrivate(player)); }
 
-    void ref() final { RefCounted<NullMediaPlayerPrivate>::ref(); }
-    void deref() final { RefCounted<NullMediaPlayerPrivate>::deref(); }
+    constexpr MediaPlayerType mediaPlayerType() const final { return MediaPlayerType::Null; }
 
     void load(const String&) final { }
 #if ENABLE(MEDIA_SOURCE)

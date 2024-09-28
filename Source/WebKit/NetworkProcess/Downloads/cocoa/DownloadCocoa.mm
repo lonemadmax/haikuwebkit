@@ -86,6 +86,8 @@ void Download::resume(std::span<const uint8_t> resumeData, const String& path, S
 
         if (usingSecurityScopedURL)
             [placeholderURL stopAccessingSecurityScopedResource];
+
+        m_placeholderURL = placeholderURL;
     }
 #else
     UNUSED_PARAM(activityAccessToken);
@@ -167,8 +169,10 @@ void Download::publishProgress(const URL& url, std::span<const uint8_t> bookmark
 
 void Download::setPlaceholderURL(NSURL *placeholderURL, NSData *bookmarkData)
 {
-    if (!placeholderURL)
+    if (!placeholderURL) {
+        didFail({ }, { });
         return;
+    }
 
     m_placeholderURL = placeholderURL;
 

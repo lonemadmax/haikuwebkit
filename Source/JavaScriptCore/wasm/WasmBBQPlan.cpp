@@ -246,17 +246,7 @@ void BBQPlan::compileFunction(uint32_t functionIndex)
     m_callees[functionIndex] = WTFMove(bbqCallee);
 
     if (m_exportedFunctionIndices.contains(functionIndex) || m_moduleInformation->hasReferencedFunction(functionIndexSpace)) {
-        TypeIndex typeIndex = m_moduleInformation->internalFunctionTypeIndices[functionIndex];
-        const TypeDefinition& signature = TypeInformation::get(typeIndex).expand();
-        CallInformation wasmFrameConvention = wasmCallingConvention().callInformationFor(signature, CallRole::Caller);
-
-        RegisterAtOffsetList savedResultRegisters = wasmFrameConvention.computeResultsOffsetList();
-        size_t totalFrameSize = wasmFrameConvention.headerAndArgumentStackSizeInBytes;
-        totalFrameSize += savedResultRegisters.sizeOfAreaInBytes();
-        totalFrameSize += JSEntrypointCallee::RegisterStackSpaceAligned;
-        totalFrameSize = WTF::roundUpToMultipleOf<stackAlignmentBytes()>(totalFrameSize);
-
-        auto callee = JSEntrypointCallee::create(totalFrameSize, typeIndex, m_moduleInformation->usesSIMD(functionIndex));
+        auto callee = JSEntrypointCallee::create(m_moduleInformation->internalFunctionTypeIndices[functionIndex], m_moduleInformation->usesSIMD(functionIndex));
 
         Locker locker { m_lock };
         auto result = m_jsToWasmInternalFunctions.add(functionIndex, WTFMove(callee));
@@ -274,7 +264,9 @@ std::unique_ptr<InternalFunction> BBQPlan::compileFunction(uint32_t functionInde
     Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileResult;
 
 #if ENABLE(WEBASSEMBLY_BBQJIT)
+    beginCompilerSignpost(callee);
     parseAndCompileResult = parseAndCompileBBQ(context, callee, function, signature, unlinkedWasmToWasmCalls, m_moduleInformation.get(), m_mode, functionIndex, m_hasExceptionHandlers, UINT32_MAX, tierUp);
+    endCompilerSignpost(callee);
 #endif
 
     if (UNLIKELY(!parseAndCompileResult)) {

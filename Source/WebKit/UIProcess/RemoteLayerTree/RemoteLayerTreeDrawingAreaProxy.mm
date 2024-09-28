@@ -275,7 +275,7 @@ void RemoteLayerTreeDrawingAreaProxy::commitLayerTreeTransaction(IPC::Connection
     // set the root node during the same CA transaction.
     for (auto& callbackID : layerTreeTransaction.callbackIDs()) {
         if (callbackID == m_replyForUnhidingContent) {
-            m_replyForUnhidingContent = AsyncReplyID { };
+            m_replyForUnhidingContent = std::nullopt;
             break;
         }
     }
@@ -542,7 +542,7 @@ void RemoteLayerTreeDrawingAreaProxy::didRefreshDisplay(ProcessState& state, IPC
 
 void RemoteLayerTreeDrawingAreaProxy::didRefreshDisplay(IPC::Connection* connection)
 {
-    if (!m_webPageProxy->hasRunningProcess())
+    if (!protectedWebPageProxy()->hasRunningProcess())
         return;
 
     if (connection) {
@@ -629,7 +629,7 @@ void RemoteLayerTreeDrawingAreaProxy::windowKindDidChange()
 
 void RemoteLayerTreeDrawingAreaProxy::minimumSizeForAutoLayoutDidChange()
 {
-    if (!m_webPageProxy->hasRunningProcess())
+    if (!protectedWebPageProxy()->hasRunningProcess())
         return;
 
     if (m_isWaitingForDidUpdateGeometry)
@@ -640,7 +640,7 @@ void RemoteLayerTreeDrawingAreaProxy::minimumSizeForAutoLayoutDidChange()
 
 void RemoteLayerTreeDrawingAreaProxy::sizeToContentAutoSizeMaximumSizeDidChange()
 {
-    if (!m_webPageProxy->hasRunningProcess())
+    if (!protectedWebPageProxy()->hasRunningProcess())
         return;
 
     if (m_isWaitingForDidUpdateGeometry)

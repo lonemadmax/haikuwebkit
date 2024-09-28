@@ -32,6 +32,8 @@
 #include "StreamServerConnection.h"
 #include "WebGPUObjectHeap.h"
 #include <WebCore/WebGPUBindGroup.h>
+#include <WebCore/WebGPUBuffer.h>
+#include <WebCore/WebGPURenderBundle.h>
 #include <WebCore/WebGPURenderPassEncoder.h>
 #include <WebCore/WebGPURenderPipeline.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -200,7 +202,7 @@ void RemoteRenderPassEncoder::executeBundles(Vector<WebGPUIdentifier>&& renderBu
     Vector<std::reference_wrapper<WebCore::WebGPU::RenderBundle>> convertedBundles;
     convertedBundles.reserveInitialCapacity(renderBundles.size());
     for (WebGPUIdentifier identifier : renderBundles) {
-        auto convertedBundle = m_objectHeap->convertRenderBundleFromBacking(identifier);
+        auto convertedBundle = protectedObjectHeap()->convertRenderBundleFromBacking(identifier);
         ASSERT(convertedBundle);
         if (!convertedBundle)
             return;

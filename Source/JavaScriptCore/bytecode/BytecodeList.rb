@@ -1487,10 +1487,10 @@ op :wasm_function_prologue_trampoline
 op :wasm_function_prologue
 op :wasm_function_prologue_simd_trampoline
 op :wasm_function_prologue_simd
-op :js_to_wasm_wrapper_entry_crash_for_simd_parameters
 op :js_to_wasm_wrapper_entry
 op :wasm_to_wasm_wrapper_entry
 op :wasm_to_js_wrapper_entry
+op :ipint_trampoline
 
 op :js_trampoline_op_call
 op :js_trampoline_op_call_ignore_result
@@ -1892,6 +1892,11 @@ op :rethrow,
         exception: VirtualRegister,
     }
 
+op :throw_ref,
+    args: {
+        exception: VirtualRegister,
+    }
+
 op_group :Catch,
     [
         :catch,
@@ -1909,6 +1914,21 @@ op_group :CatchAll,
     ],
     args: {
         exception: VirtualRegister,
+    }
+
+op_group :TryTableCatch,
+    [
+        :try_table_catch,
+        :try_table_catchref,
+        :try_table_catchall,
+        :try_table_catchallref,
+    ],
+    args: {
+        kind: unsigned,
+        exceptionIndex: unsigned,
+        exception: VirtualRegister,
+        argumentCount: unsigned,
+        startOffset: unsigned,
     }
 
 op :ref_i31,

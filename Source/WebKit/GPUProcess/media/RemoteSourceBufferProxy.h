@@ -63,7 +63,9 @@ public:
     static Ref<RemoteSourceBufferProxy> create(GPUConnectionToWebProcess&, RemoteSourceBufferIdentifier, Ref<WebCore::SourceBufferPrivate>&&, RemoteMediaPlayerProxy&);
     virtual ~RemoteSourceBufferProxy();
 
-    void shutdown();
+    void setMediaPlayer(RemoteMediaPlayerProxy&);
+
+    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const;
 
 private:
     RemoteSourceBufferProxy(GPUConnectionToWebProcess&, RemoteSourceBufferIdentifier, Ref<WebCore::SourceBufferPrivate>&&, RemoteMediaPlayerProxy&);
@@ -78,6 +80,7 @@ private:
     void sourceBufferPrivateDidDropSample() final;
     void sourceBufferPrivateDidReceiveRenderingError(int64_t errorCode) final;
     void sourceBufferPrivateEvictionDataChanged(const WebCore::SourceBufferEvictionData&) final;
+    Ref<WebCore::MediaPromise> sourceBufferPrivateDidAttach(InitializationSegment&&) final;
 
     // IPC::MessageReceiver
     void didReceiveMessage(IPC::Connection&, IPC::Decoder&) final;
@@ -116,7 +119,10 @@ private:
     void memoryPressure(const MediaTime& currentTime);
     void minimumUpcomingPresentationTimeForTrackID(TrackID, CompletionHandler<void(MediaTime)>&&);
     void setMaximumQueueDepthForTrackID(TrackID, uint64_t);
+    void detach();
+    void attach();
     void disconnect();
+    std::optional<InitializationSegmentInfo> createInitializationSegmentInfo(InitializationSegment&&);
 
     ThreadSafeWeakPtr<GPUConnectionToWebProcess> m_connectionToWebProcess;
     RemoteSourceBufferIdentifier m_identifier;

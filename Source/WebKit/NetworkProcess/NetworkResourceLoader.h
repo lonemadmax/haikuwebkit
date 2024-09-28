@@ -88,6 +88,10 @@ class NetworkResourceLoader final
 #endif
     , public WebCore::ReportingClient {
 public:
+#if ENABLE(CONTENT_FILTERING)
+    DEFINE_VIRTUAL_REFCOUNTED;
+#endif
+
     static Ref<NetworkResourceLoader> create(NetworkResourceLoadParameters&& parameters, NetworkConnectionToWebProcess& connection, CompletionHandler<void(const WebCore::ResourceError&, const WebCore::ResourceResponse, Vector<uint8_t>&&)>&& reply = nullptr)
     {
         return adoptRef(*new NetworkResourceLoader(WTFMove(parameters), connection, WTFMove(reply)));
@@ -104,7 +108,7 @@ public:
     void transferToNewWebProcess(NetworkConnectionToWebProcess&, const NetworkResourceLoadParameters&);
 
     // Message handlers.
-    void didReceiveNetworkResourceLoaderMessage(IPC::Connection&, IPC::Decoder&);
+    void didReceiveMessage(IPC::Connection&, IPC::Decoder&);
 
     void continueWillSendRequest(WebCore::ResourceRequest&&, bool isAllowedToAskUserForCredentials, CompletionHandler<void(WebCore::ResourceRequest&&)>&&);
 
@@ -171,8 +175,6 @@ public:
     bool isAppInitiated();
 
 #if ENABLE(CONTENT_FILTERING)
-    void ref() const final { RefCounted<NetworkResourceLoader>::ref(); }
-    void deref() const final { RefCounted<NetworkResourceLoader>::deref(); }
     bool continueAfterServiceWorkerReceivedData(const WebCore::SharedBuffer&, uint64_t encodedDataLength);
     bool continueAfterServiceWorkerReceivedResponse(const WebCore::ResourceResponse&);
     void serviceWorkerDidFinish();

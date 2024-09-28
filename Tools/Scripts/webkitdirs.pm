@@ -1758,7 +1758,6 @@ sub determinePortName()
         'jsc-only' => JSCOnly,
         playstation => PlayStation,
         win => Win,
-        wincairo => Win,
         wpe => WPE
     );
 

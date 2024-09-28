@@ -27,6 +27,7 @@
 #include "LayoutIntegrationFormattingContextLayout.h"
 
 #include "LayoutIntegrationBoxGeometryUpdater.h"
+#include "RenderBlock.h"
 #include "RenderBox.h"
 
 namespace WebCore {
@@ -47,13 +48,30 @@ void layoutWithFormattingContextForBox(const Layout::ElementBox& box, std::optio
         renderer.clearOverridingLogicalWidthLength();
 
     auto updater = BoxGeometryUpdater { layoutState };
-    updater.updateGeometryAfterLayout(box);
+    updater.updateGeometryAfterLayout(box, widthConstraint.value_or(renderer.containingBlock()->availableLogicalWidth()));
 }
 
-std::pair<LayoutUnit, LayoutUnit> preferredLogicalWidths(const Layout::ElementBox& box)
+LayoutUnit formattingContextRootLogicalWidthForType(const Layout::ElementBox& box, LogicalWidthType logicalWidthType)
 {
+    ASSERT(box.establishesFormattingContext());
+
     auto& renderer = downcast<RenderBox>(*box.rendererForIntegration());
-    return { renderer.minPreferredLogicalWidth(), renderer.maxPreferredLogicalWidth() };
+    switch (logicalWidthType) {
+    case LogicalWidthType::PreferredMaximum:
+        return renderer.maxPreferredLogicalWidth();
+    case LogicalWidthType::PreferredMinimum:
+        return renderer.minPreferredLogicalWidth();
+    case LogicalWidthType::MaxContent:
+    case LogicalWidthType::MinContent: {
+        auto minimunLogicalWidth = LayoutUnit { };
+        auto maximumLogicalWidth = LayoutUnit { };
+        renderer.computeIntrinsicLogicalWidths(minimunLogicalWidth, maximumLogicalWidth);
+        return logicalWidthType == LogicalWidthType::MaxContent ? maximumLogicalWidth : minimunLogicalWidth;
+    }
+    default:
+        ASSERT_NOT_REACHED();
+        return { };
+    }
 }
 
 }

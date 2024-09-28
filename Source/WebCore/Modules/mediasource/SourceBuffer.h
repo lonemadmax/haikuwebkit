@@ -73,16 +73,14 @@ class SourceBuffer
 {
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(SourceBuffer);
 public:
+    DEFINE_VIRTUAL_REFCOUNTED;
+
     static Ref<SourceBuffer> create(Ref<SourceBufferPrivate>&&, MediaSource&);
     virtual ~SourceBuffer();
 
     using CanMakeWeakPtr<SourceBuffer>::weakPtrFactory;
     using CanMakeWeakPtr<SourceBuffer>::WeakValueType;
     using CanMakeWeakPtr<SourceBuffer>::WeakPtrImplType;
-
-    // ActiveDOMObject.
-    void ref() const final { RefCounted::ref(); }
-    void deref() const final { RefCounted::deref(); }
 
     static bool enabledForContext(ScriptExecutionContext&);
 
@@ -152,6 +150,10 @@ public:
     virtual bool isManaged() const { return false; }
     void memoryPressure();
 
+    // Detachable MSE methods.
+    void detach();
+    void attach();
+
 protected:
     SourceBuffer(Ref<SourceBufferPrivate>&&, MediaSource&);
 
@@ -170,6 +172,7 @@ private:
     Ref<MediaPromise> sourceBufferPrivateDurationChanged(const MediaTime& duration);
     void sourceBufferPrivateDidDropSample();
     void sourceBufferPrivateDidReceiveRenderingError(int64_t errorCode);
+    Ref<MediaPromise> sourceBufferPrivateDidAttach(SourceBufferPrivateClient::InitializationSegment&&);
 
     // AudioTrackClient
     void audioTrackEnabledChanged(AudioTrack&) final;

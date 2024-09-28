@@ -446,6 +446,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediasource/ManagedSourceBuffer.idl
     Modules/mediasource/MediaSource.idl
     Modules/mediasource/MediaSourceHandle.idl
+    Modules/mediasource/MediaSourceInit.idl
     Modules/mediasource/SourceBuffer.idl
     Modules/mediasource/SourceBufferList.idl
     Modules/mediasource/TextTrack+MediaSource.idl
@@ -1800,6 +1801,8 @@ list(APPEND WebCore_NON_SVG_IDL_FILES
     Modules/WebGPU/GPUBufferUsage.idl
     Modules/WebGPU/GPUCanvasAlphaMode.idl
     Modules/WebGPU/GPUCanvasConfiguration.idl
+    Modules/WebGPU/GPUCanvasToneMapping.idl
+    Modules/WebGPU/GPUCanvasToneMappingMode.idl
     Modules/WebGPU/GPUColorDict.idl
     Modules/WebGPU/GPUColorTargetState.idl
     Modules/WebGPU/GPUColorWrite.idl

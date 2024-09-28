@@ -35,6 +35,8 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/WebGPU/GPUBufferUsage.h
     Modules/WebGPU/GPUCanvasAlphaMode.h
     Modules/WebGPU/GPUCanvasConfiguration.h
+    Modules/WebGPU/GPUCanvasToneMapping.h
+    Modules/WebGPU/GPUCanvasToneMappingMode.h
     Modules/WebGPU/GPUColorDict.h
     Modules/WebGPU/GPUColorTargetState.h
     Modules/WebGPU/GPUColorWrite.h
@@ -197,6 +199,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/WebGPU/InternalAPI/WebGPUBufferUsage.h
     Modules/WebGPU/InternalAPI/WebGPUCanvasAlphaMode.h
     Modules/WebGPU/InternalAPI/WebGPUCanvasConfiguration.h
+    Modules/WebGPU/InternalAPI/WebGPUCanvasToneMappingMode.h
     Modules/WebGPU/InternalAPI/WebGPUColor.h
     Modules/WebGPU/InternalAPI/WebGPUColorTargetState.h
     Modules/WebGPU/InternalAPI/WebGPUColorWrite.h
@@ -710,6 +713,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     animation/ScrollAxis.h
     animation/ScrollTimeline.h
     animation/ScrollTimelineOptions.h
+    animation/TimelineScope.h
     animation/ViewTimeline.h
     animation/ViewTimelineOptions.h
     animation/WebAnimationTypes.h
@@ -1612,6 +1616,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/RenderingUpdateScheduler.h
     page/ScreenOrientationLockType.h
     page/ScreenOrientationType.h
+    page/ScriptTelemetryCategory.h
     page/ScrollBehavior.h
     page/ScrollIntoViewOptions.h
     page/ScrollLogicalPosition.h

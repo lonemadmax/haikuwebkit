@@ -949,6 +949,11 @@ LocalDOMWindow* LocalFrame::window() const
     return document() ? document()->domWindow() : nullptr;
 }
 
+RefPtr<LocalDOMWindow> LocalFrame::protectedWindow() const
+{
+    return window();
+}
+
 DOMWindow* LocalFrame::virtualWindow() const
 {
     return window();
@@ -1130,11 +1135,11 @@ FloatSize LocalFrame::screenSize() const
     if (!document)
         return defaultSize;
 
-    RefPtr loader = document->loader();
-    if (!loader || !loader->fingerprintingProtectionsEnabled())
+    RefPtr page = this->page();
+    if (!page)
         return defaultSize;
 
-    if (RefPtr page = this->page())
+    if (page->shouldApplyScreenFingerprintingProtections(*document))
         return page->chrome().client().screenSizeForFingerprintingProtections(*this, defaultSize);
 
     return defaultSize;

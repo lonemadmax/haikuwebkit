@@ -63,17 +63,17 @@ class DeprecatedPort(object):
     def port(port_name):
         ports = {
             "gtk-wk2": GtkWK2Port,
+            "haiku": HaikuPort,
             "ios-device": IOSPort,
             "ios-simulator-wk2": IOSSimulatorWK2Port,
             "jsc-only": JscOnlyPort,
             "mac": MacPort,
             "mac-wk2": MacWK2Port,
-            "wincairo": WinCairoPort,
-            "haiku": HaikuPort,
+            "win": WinPort,
             "wpe": WpePort,
         }
         default_port = {
-            "Windows": WinCairoPort,
+            "Windows": WinPort,
             "Darwin": MacPort,
             "Haiku": HaikuPort,
         }
@@ -169,19 +169,8 @@ class MacWK2Port(DeprecatedPort):
     port_flag_name = "mac-wk2"
 
 
-class WinCairoPort(DeprecatedPort):
-    port_flag_name = "wincairo"
-
-    def build_webkit_command(self, build_style=None):
-        command = super(WinCairoPort, self).build_webkit_command(build_style=build_style)
-        command.append('--wincairo')
-        return command
-
-    def run_webkit_tests_command(self, build_style=None):
-        command = super(WinCairoPort, self).run_webkit_tests_command(build_style)
-        command.append("--wincairo")
-        return command
-
+class WinPort(DeprecatedPort):
+    port_flag_name = "win"
 
 class GtkWK2Port(DeprecatedPort):
     port_flag_name = "gtk-wk2"

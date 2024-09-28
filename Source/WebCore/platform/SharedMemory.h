@@ -58,6 +58,8 @@ class SharedBuffer;
 
 enum class MemoryLedger { None, Default, Network, Media, Graphics, Neural };
 
+WEBCORE_EXPORT bool isMemoryAttributionDisabled();
+
 class SharedMemoryHandle {
 public:
     using Type =

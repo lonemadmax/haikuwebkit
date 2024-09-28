@@ -297,7 +297,7 @@ void DocumentLoader::mainReceivedError(const ResourceError& error, LoadWillConti
 
     if (m_identifierForLoadWithoutResourceLoader) {
         ASSERT(!mainResourceLoader());
-        checkedFrameLoader()->client().dispatchDidFailLoading(this, m_identifierForLoadWithoutResourceLoader, error);
+        checkedFrameLoader()->client().dispatchDidFailLoading(this, IsMainResourceLoad::Yes, m_identifierForLoadWithoutResourceLoader, error);
     }
 
     // There is a bug in CFNetwork where callbacks can be dispatched even when loads are deferred.
@@ -485,7 +485,7 @@ void DocumentLoader::finishedLoading()
         NetworkLoadMetrics emptyMetrics;
         ResourceLoaderIdentifier identifier = m_identifierForLoadWithoutResourceLoader;
         m_identifierForLoadWithoutResourceLoader = { };
-        checkedFrameLoader()->notifier().dispatchDidFinishLoading(this, identifier, emptyMetrics, nullptr);
+        checkedFrameLoader()->notifier().dispatchDidFinishLoading(this, IsMainResourceLoad::Yes, identifier, emptyMetrics, nullptr);
     }
 
     maybeFinishLoadingMultipartContent();
@@ -837,7 +837,7 @@ bool DocumentLoader::tryLoadingSubstituteData()
 
     DOCUMENTLOADER_RELEASE_LOG("startLoadingMainResource: Returning substitute data");
     m_identifierForLoadWithoutResourceLoader = ResourceLoaderIdentifier::generate();
-    checkedFrameLoader()->notifier().assignIdentifierToInitialRequest(m_identifierForLoadWithoutResourceLoader, this, m_request);
+    checkedFrameLoader()->notifier().assignIdentifierToInitialRequest(m_identifierForLoadWithoutResourceLoader, IsMainResourceLoad::No, this, m_request);
     checkedFrameLoader()->notifier().dispatchWillSendRequest(this, m_identifierForLoadWithoutResourceLoader, m_request, ResourceResponse(), nullptr);
 
     if (!m_deferMainResourceDataLoad || checkedFrameLoader()->loadsSynchronously())
@@ -2321,7 +2321,7 @@ void DocumentLoader::loadMainResource(ResourceRequest&& request)
 
     if (!mainResourceLoader()) {
         m_identifierForLoadWithoutResourceLoader = ResourceLoaderIdentifier::generate();
-        checkedFrameLoader()->notifier().assignIdentifierToInitialRequest(m_identifierForLoadWithoutResourceLoader, this, mainResourceRequest.resourceRequest());
+        checkedFrameLoader()->notifier().assignIdentifierToInitialRequest(m_identifierForLoadWithoutResourceLoader, IsMainResourceLoad::Yes, this, mainResourceRequest.resourceRequest());
         checkedFrameLoader()->notifier().dispatchWillSendRequest(this, m_identifierForLoadWithoutResourceLoader, mainResourceRequest.resourceRequest(), ResourceResponse(), nullptr);
     }
 
@@ -2611,7 +2611,7 @@ ResourceError DocumentLoader::handleContentFilterDidBlock(ContentFilterUnblockHa
     if (!unblockRequestDeniedScript.isEmpty() && frame()) {
         unblockHandler.wrapWithDecisionHandler([scriptController = WeakPtr { frame()->script() }, script = WTFMove(unblockRequestDeniedScript).isolatedCopy()](bool unblocked) {
             if (!unblocked && scriptController) {
-                // FIXME: This probably needs to figure out if the origin is considered tanited.
+                // FIXME: This probably needs to figure out if the origin is considered tainted.
                 scriptController->executeScriptIgnoringException(script, JSC::SourceTaintedOrigin::Untainted);
             }
         });
@@ -2669,11 +2669,6 @@ bool DocumentLoader::allowsActiveContentRuleListActionsForURL(const String& cont
             return true;
     }
     return false;
-}
-
-bool DocumentLoader::fingerprintingProtectionsEnabled() const
-{
-    return m_advancedPrivacyProtections.contains(AdvancedPrivacyProtections::FingerprintingProtections);
 }
 
 void DocumentLoader::setHTTPSByDefaultMode(HTTPSByDefaultMode mode)

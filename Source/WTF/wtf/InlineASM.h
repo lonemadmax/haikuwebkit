@@ -66,9 +66,10 @@
 #elif  OS(LINUX)               \
     || OS(FREEBSD)             \
     || OS(FUCHSIA)             \
-    || OS(OPENBSD)             \
+    || OS(HAIKU)               \
     || OS(HPUX)                \
     || OS(NETBSD)              \
+    || OS(OPENBSD)             \
     || OS(QNX)
     // ELF platform
 #define HIDE_SYMBOL(name) ".hidden " #name

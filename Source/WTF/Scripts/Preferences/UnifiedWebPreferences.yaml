@@ -470,7 +470,7 @@ AlternateFullScreenControlDesignEnabled:
 
 AlternateWebMPlayerEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "Alternate WebM Player"
   humanReadableDescription: "Enable Alternate WebM Player"
@@ -1052,6 +1052,20 @@ CSSContentVisibilityEnabled:
       default: true
     WebCore:
       default: true
+
+CSSContrastColorEnabled:
+  type: bool
+  category: css
+  status: preview
+  humanReadableName: "CSS contrast-color()"
+  humanReadableDescription: "Enable support for CSS Color Module Level 5 contrast-color()"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 CSSCounterStyleAtRuleImageSymbolsEnabled:
   type: bool
@@ -1668,6 +1682,7 @@ CanvasUsesAcceleratedDrawing:
   type: bool
   status: embedder
   humanReadableName: "Canvas uses accelerated drawing"
+  condition: USE(CA) || USE(SKIA)
   defaultValue:
     WebKitLegacy:
       "PLATFORM(IOS_FAMILY) && !PLATFORM(IOS_FAMILY_SIMULATOR)": true
@@ -2092,7 +2107,7 @@ DNSPrefetchingEnabled:
 
 DOMAudioSessionEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "AudioSession API"
   humanReadableDescription: "Enable AudioSession API"
@@ -2359,6 +2374,21 @@ DeprecationReportingEnabled:
   category: dom
   humanReadableName: "Deprecation Reporting"
   humanReadableDescription: "Enable Deprecation Reporting"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
+DetachableMediaSourceEnabled:
+  type: bool
+  status: developer
+  category: media
+  humanReadableName: "Detachable Media Source"
+  humanReadableDescription: "Detachable Media Source API"
+  condition: ENABLE(MEDIA_SOURCE)
   defaultValue:
     WebKitLegacy:
       default: false
@@ -3956,6 +3986,7 @@ LegacyEncryptedMediaAPIEnabled:
       default: true
     WebCore:
       default: true
+  sharedPreferenceForWebProcess: true
 
 LegacyLineLayoutVisualCoverageEnabled:
   type: bool
@@ -4214,18 +4245,18 @@ LocalStorageEnabled:
 
 LockdownFontParserEnabled:
   type: bool
-  status: testable
+  status: stable
   humanReadableName: "Lockdown Mode Safe Fonts"
   humanReadableDescription: "Try parsing Web fonts with safe font parser in Lockdown Mode"
   exposed: [ WebKit ]
   category: security
   defaultValue:
     WebKitLegacy:
-      default: false
+      default: true
     WebKit:
-      default: false
+      default: true
     WebCore:
-      default: false
+      default: true
   sharedPreferenceForWebProcess: true
 
 LoginStatusAPIEnabled:
@@ -4321,7 +4352,7 @@ ManageCaptureStatusBarInGPUProcessEnabled:
 
 ManagedMediaSourceEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "Managed Media Source API"
   humanReadableDescription: "Managed Media Source API"
@@ -4333,6 +4364,7 @@ ManagedMediaSourceEnabled:
       default: WebKit::defaultManagedMediaSourceEnabled()
     WebCore:
       default: true
+  sharedPreferenceForWebProcess: true
 
 ManagedMediaSourceHighThreshold:
   type: double
@@ -4356,7 +4388,7 @@ ManagedMediaSourceLowThreshold:
 
 ManagedMediaSourceNeedsAirPlay:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "Managed Media Source Requires AirPlay source"
   humanReadableDescription: "Managed Media Source Requires AirPlay source"
@@ -4432,7 +4464,7 @@ MediaCapabilitiesEnabled:
 # FIXME: This is on by default in WebKit2. Perhaps we should consider turning it on for WebKitLegacy as well.
 MediaCapabilitiesExtensionsEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "Media Capabilities Extensions"
   humanReadableDescription: "Media Capabilities Extensions"
@@ -4610,7 +4642,7 @@ MediaPreloadingEnabled:
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 MediaRecorderEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "MediaRecorder"
   humanReadableDescription: "MediaRecorder"
@@ -4642,7 +4674,7 @@ MediaSessionCaptureToggleAPIEnabled:
 
 MediaSessionCoordinatorEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "Experimental MediaSession coordinator API"
   humanReadableDescription: "Enable experimental MediaSession coordinator API"
@@ -4669,10 +4701,11 @@ MediaSessionEnabled:
       default: true
     WebCore:
       default: true
+  sharedPreferenceForWebProcess: true
 
 MediaSessionPlaylistEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "Experimental MediaSession playlist API"
   humanReadableDescription: "Enable experimental MediaSession playlist API"
@@ -4703,10 +4736,11 @@ MediaSourceEnabled:
     WebCore:
       "ENABLE(MEDIA_SOURCE)": true
       default: false
+  sharedPreferenceForWebProcess: true
 
 MediaSourceInWorkerEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "MediaSource in a Worker"
   humanReadableDescription: "MediaSource in a Worker"
@@ -4752,7 +4786,7 @@ MediaStreamEnabled:
 
 MediaStreamTrackProcessingEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "MediaStreamTrack Processing"
   humanReadableDescription: "Enable MediaStreamTrack Processing"
@@ -5175,6 +5209,20 @@ OpportunisticSweepingAndGarbageCollectionEnabled:
     WebKit:
       "PLATFORM(IOS_FAMILY)": false
       default: true
+    WebCore:
+      default: false
+
+OptInPartitionedCookiesEnabled:
+  type: bool
+  status: unstable
+  category: dom
+  humanReadableName: "Opt-in partitioned cookies (CHIPS)"
+  humanReadableDescription: "Enable opt-in partitioned cookies"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
     WebCore:
       default: false
 
@@ -5759,7 +5807,7 @@ RequestStorageAccessThrowsExceptionUntilReload:
 
 RequestVideoFrameCallbackEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "RequestVideoFrameCallback"
   humanReadableDescription: "Enable RequestVideoFrameCallback API"
@@ -5982,7 +6030,7 @@ SansSerifFontFamily:
 # FIXME: This should have it's own ENABLE.
 ScreenCaptureEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   condition: ENABLE(MEDIA_STREAM)
   humanReadableName: "ScreenCapture"
@@ -6048,6 +6096,20 @@ ScriptTelemetryEnabled:
   webcoreBinding: none
   defaultValue:
     WebKit:
+      default: false
+
+ScriptTelemetryLoggingEnabled:
+  type: bool
+  status: internal
+  humanReadableName: "Script Telemetry Logging"
+  humanReadableDescription: "Script telemetry logging enabled"
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
       default: false
 
 ScrollAnimatorEnabled:
@@ -7344,7 +7406,7 @@ UseGPUProcessForDOMRenderingEnabled:
 
 UseGPUProcessForDisplayCapture:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "GPU Process: Screen and Window capture"
   humanReadableDescription: "Display capture in GPU Process"
@@ -7605,6 +7667,7 @@ VideoPresentationModeAPIEnabled:
     WebCore:
       "PLATFORM(VISION)" : false
       default: true
+  sharedPreferenceForWebProcess: true
 
 VideoQualityIncludesDisplayCompositingEnabled:
   type: bool
@@ -7917,7 +7980,7 @@ WebCodecsAV1Enabled:
 
 WebCodecsAudioEnabled:
   type: bool
-  status: preview
+  status: testable
   category: media
   humanReadableName: "WebCodecs Audio API"
   humanReadableDescription: "Enable WebCodecs Audio API"
@@ -7934,7 +7997,7 @@ WebCodecsAudioEnabled:
 
 WebCodecsHEVCEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "WebCodecs HEVC codec"
   humanReadableDescription: "Enable WebCodecs HEVC codec"
@@ -7953,7 +8016,7 @@ WebCodecsHEVCEnabled:
 
 WebCodecsVideoEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "WebCodecs Video API"
   humanReadableDescription: "Enable WebCodecs Video API"
@@ -8079,6 +8142,25 @@ WebGPUEnabled:
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
 
+WebGPUHDREnabled:
+  type: bool
+  status: internal
+  category: dom
+  humanReadableName: "WebGPU support for HDR"
+  humanReadableDescription: "WebGPU High Dynamic Range through canvas configuration tone mapping mode"
+  defaultValue:
+    WebKitLegacy:
+      "ENABLE(WEBGPU_BY_DEFAULT) && ENABLE(WEBGPU_HDR_BY_DEFAULT)": true
+      default: false
+    WebKit:
+      "ENABLE(WEBGPU_BY_DEFAULT) && ENABLE(WEBGPU_HDR_BY_DEFAULT)": true
+      default: false
+    WebCore:
+      "ENABLE(WEBGPU_BY_DEFAULT) && ENABLE(WEBGPU_HDR_BY_DEFAULT)": true
+      default: false
+  disableInLockdownMode: true
+  sharedPreferenceForWebProcess: true
+
 WebInspectorEngineeringSettingsAllowed:
   type: bool
   status: internal
@@ -8169,7 +8251,7 @@ WebRTCDTMFEnabled:
 
 WebRTCEncodedTransformEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   condition: ENABLE(WEB_RTC)
   humanReadableName: "WebRTC Encoded Transform API"
@@ -8205,7 +8287,7 @@ WebRTCH264HardwareEncoderEnabled:
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 WebRTCH265CodecEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   condition: ENABLE(WEB_RTC)
   humanReadableName: "WebRTC HEVC codec"
@@ -8313,7 +8395,7 @@ WebRTCVP9Profile0CodecEnabled:
 
 WebRTCVP9Profile2CodecEnabled:
   type: bool
-  status: stable
+  status: mature
   category: media
   humanReadableName: "WebRTC VP9 profile 2 codec"
   humanReadableDescription: "Enable WebRTC VP9 profile 2 codec"

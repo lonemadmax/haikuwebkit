@@ -117,7 +117,7 @@ ProvisionalPageProxy::ProvisionalPageProxy(WebPageProxy& page, Ref<FrameProcess>
     } else if (m_page->preferences().siteIsolationEnabled())
         m_mainFrame = m_page->mainFrame();
     else {
-        m_mainFrame = WebFrameProxy::create(protectedPage(), m_frameProcess, FrameIdentifier::generate(), previousMainFrame->effectiveSandboxFlags(), WebFrameProxy::IsMainFrame::Yes);
+        m_mainFrame = WebFrameProxy::create(protectedPage(), m_frameProcess, FrameIdentifier::generate(), previousMainFrame->effectiveSandboxFlags(), IsMainFrame::Yes);
 
         // Restore the main frame's committed URL as some clients may rely on it until the next load is committed.
         m_mainFrame->frameLoadState().setURL(previousMainFrame->url());
@@ -234,7 +234,7 @@ void ProvisionalPageProxy::cancel()
 
 void ProvisionalPageProxy::initializeWebPage(RefPtr<API::WebsitePolicies>&& websitePolicies)
 {
-    m_drawingArea = m_page->pageClient().createDrawingAreaProxy(protectedProcess());
+    m_drawingArea = m_page->protectedPageClient()->createDrawingAreaProxy(protectedProcess());
 
     bool registerWithInspectorController { true };
     if (websitePolicies)
@@ -518,11 +518,6 @@ void ProvisionalPageProxy::didDestroyNavigation(WebCore::NavigationIdentifier na
     m_page->didDestroyNavigationShared(protectedProcess(), navigationID);
 }
 
-void ProvisionalPageProxy::startNetworkRequestsForPageLoadTiming(WebCore::FrameIdentifier frameID)
-{
-    m_page->startNetworkRequestsForPageLoadTiming(frameID);
-}
-
 #if USE(QUICK_LOOK)
 void ProvisionalPageProxy::requestPasswordForQuickLookDocumentInMainFrame(const String& fileName, CompletionHandler<void(const String&)>&& completionHandler)
 {
@@ -698,11 +693,6 @@ void ProvisionalPageProxy::didReceiveMessage(IPC::Connection& connection, IPC::D
 
     if (decoder.messageName() == Messages::WebPageProxy::DidPerformServerRedirect::name()) {
         IPC::handleMessage<Messages::WebPageProxy::DidPerformServerRedirect>(connection, decoder, this, &ProvisionalPageProxy::didPerformServerRedirect);
-        return;
-    }
-
-    if (decoder.messageName() == Messages::WebPageProxy::StartNetworkRequestsForPageLoadTiming::name()) {
-        IPC::handleMessage<Messages::WebPageProxy::StartNetworkRequestsForPageLoadTiming>(connection, decoder, this, &ProvisionalPageProxy::startNetworkRequestsForPageLoadTiming);
         return;
     }
 

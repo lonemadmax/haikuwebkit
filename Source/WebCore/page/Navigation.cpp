@@ -29,7 +29,9 @@
 #include "AbortController.h"
 #include "BackForwardController.h"
 #include "CallbackResult.h"
+#include "CommonVM.h"
 #include "DOMFormData.h"
+#include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "ErrorEvent.h"
 #include "EventNames.h"
@@ -905,7 +907,7 @@ bool Navigation::innerDispatchNavigateEvent(NavigationNavigationType navigationT
 
             RefPtr strongThis = weakThis.get();
 
-            m_ongoingNavigateEvent->finish();
+            m_ongoingNavigateEvent->finish(*document, InterceptionHandlersDidFulfill::Yes);
             m_ongoingNavigateEvent = nullptr;
 
             dispatchEvent(Event::create(eventNames().navigatesuccessEvent, { }));
@@ -924,7 +926,7 @@ bool Navigation::innerDispatchNavigateEvent(NavigationNavigationType navigationT
 
             RefPtr strongThis = weakThis.get();
 
-            m_ongoingNavigateEvent->finish();
+            m_ongoingNavigateEvent->finish(*document, InterceptionHandlersDidFulfill::No);
             m_ongoingNavigateEvent = nullptr;
 
             ErrorInformation errorInformation;
