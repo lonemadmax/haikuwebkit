@@ -47,6 +47,7 @@
 #include "ScriptExecutionContext.h"
 #include "StringWithDirection.h"
 #include "Supplementable.h"
+#include "TextIndicator.h"
 #include "Timer.h"
 #include "TreeScope.h"
 #include "TrustedHTML.h"
@@ -378,6 +379,11 @@ enum class LayoutOptions : uint8_t {
     ContentVisibilityForceLayout = 1 << 2,
     UpdateCompositingLayers = 1 << 3,
     DoNotLayoutAncestorDocuments = 1 << 4,
+    // Doesn't call RenderLayer::recursiveUpdateLayerPositionsAfterLayout if
+    // possible. The caller should use a LocalFrameView::AutoPreventLayerAccess
+    // for the scope that layout is expected to be flushed to stop any access to
+    // the stale RenderLayers.
+    CanDeferUpdateLayerPositions = 1 << 5
 };
 
 enum class HttpEquivPolicy : uint8_t {
@@ -1654,6 +1660,9 @@ public:
     void cameraCaptureStateDidChange();
     void microphoneCaptureStateDidChange();
     void screenshareCaptureStateDidChange();
+    void setShouldListenToVoiceActivity(bool);
+    void voiceActivityDetected();
+    bool hasMutedAudioCaptureDevice() const;
 #endif
     void pageMutedStateDidChange();
     void visibilityAdjustmentStateDidChange();
@@ -1833,7 +1842,7 @@ public:
     enum class ImplicitRenderBlocking : bool { Yes, No };
     void blockRenderingOn(Element&, ImplicitRenderBlocking = ImplicitRenderBlocking::No);
     void unblockRenderingOn(Element&);
-    void processInternalResourceLinks(HTMLAnchorElement&);
+    void processInternalResourceLinks(HTMLAnchorElement* = nullptr);
 
 #if ENABLE(VIDEO)
     WEBCORE_EXPORT void forEachMediaElement(const Function<void(HTMLMediaElement&)>&);
@@ -2477,6 +2486,7 @@ private:
     size_t m_activeMediaElementsWithMediaStreamCount { 0 };
     HashSet<Ref<RealtimeMediaSource>> m_captureSources;
     bool m_isUpdatingCaptureAccordingToMutedState { false };
+    bool m_shouldListenToVoiceActivity { false };
 #endif
 
     struct PendingScrollEventTargetList;

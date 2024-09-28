@@ -285,6 +285,7 @@
 #include "TypedElementDescendantIteratorInlines.h"
 #include "UndoManager.h"
 #include "UserGestureIndicator.h"
+#include "UserMediaController.h"
 #include "ValidationMessage.h"
 #include "ValidationMessageClient.h"
 #include "ViewTransition.h"
@@ -2360,6 +2361,10 @@ void Document::visibilityStateChanged()
             callback();
     }
     updateServiceWorkerClientData();
+
+    // https://drafts.csswg.org/css-view-transitions/#page-visibility-change-steps
+    if (hidden())
+        m_inboundViewTransitionParams = nullptr;
 }
 
 VisibilityState Document::visibilityState() const
@@ -2761,9 +2766,9 @@ auto Document::updateLayout(OptionSet<LayoutOptions> layoutOptions, const Elemen
                 } else
                     context = nullptr;
             }
-            if (frameView->layoutContext().isLayoutPending() || renderView()->needsLayout()) {
+            if (frameView->layoutContext().needsLayout(layoutOptions)) {
                 ContentVisibilityForceLayoutScope scope(*renderView(), context);
-                frameView->layoutContext().layout();
+                frameView->layoutContext().layout(layoutOptions.contains(LayoutOptions::CanDeferUpdateLayerPositions));
                 result = UpdateLayoutResult::ChangesDone;
             }
 
@@ -4379,24 +4384,24 @@ bool Document::canNavigateInternal(Frame& targetFrame)
     // Cases (i), (ii) and (iii) pass the tests from the specifications but might not pass the "security origin" tests.
 
     // i. A frame can navigate its top ancestor when its 'allow-top-navigation' flag is set (sometimes known as 'frame-busting').
-    if (!isSandboxed(SandboxTopNavigation) && &targetFrame == &m_frame->tree().top())
+    if (!isSandboxed(SandboxFlag::TopNavigation) && &targetFrame == &m_frame->tree().top())
         return true;
 
     // The user gesture only relaxes permissions for the purpose of navigating if its impacts the current document.
     bool isProcessingUserGestureForDocument = UserGestureIndicator::processingUserGesture(m_frame->document());
 
     // ii. A frame can navigate its top ancestor when its 'allow-top-navigation-by-user-activation' flag is set and navigation is triggered by user activation.
-    if (!isSandboxed(SandboxTopNavigationByUserActivation) && isProcessingUserGestureForDocument && &targetFrame == &m_frame->tree().top())
+    if (!isSandboxed(SandboxFlag::TopNavigationByUserActivation) && isProcessingUserGestureForDocument && &targetFrame == &m_frame->tree().top())
         return true;
 
     // iii. A sandboxed frame can always navigate its descendants.
-    if (isSandboxed(SandboxNavigation) && targetFrame.tree().isDescendantOf(m_frame.get()))
+    if (isSandboxed(SandboxFlag::Navigation) && targetFrame.tree().isDescendantOf(m_frame.get()))
         return true;
 
     // From https://html.spec.whatwg.org/multipage/browsers.html#allowed-to-navigate.
     // 1. If A is not the same browsing context as B, and A is not one of the ancestor browsing contexts of B, and B is not a top-level browsing context, and A's active document's active sandboxing
     // flag set has its sandboxed navigation browsing context flag set, then abort these steps negatively.
-    if (m_frame != &targetFrame && isSandboxed(SandboxNavigation) && targetFrame.tree().parent() && !targetFrame.tree().isDescendantOf(m_frame.get())) {
+    if (m_frame != &targetFrame && isSandboxed(SandboxFlag::Navigation) && targetFrame.tree().parent() && !targetFrame.tree().isDescendantOf(m_frame.get())) {
         printNavigationErrorMessage(*this, targetFrame, url(), "The frame attempting navigation is sandboxed, and is therefore disallowed from navigating its ancestors."_s);
         return false;
     }
@@ -4404,12 +4409,12 @@ bool Document::canNavigateInternal(Frame& targetFrame)
     // 2. Otherwise, if B is a top-level browsing context, and is one of the ancestor browsing contexts of A, then:
     if (m_frame != &targetFrame && &targetFrame == &m_frame->tree().top()) {
         // 1. If this algorithm is triggered by user activation and A's active document's active sandboxing flag set has its sandboxed top-level navigation with user activation browsing context flag set, then abort these steps negatively.
-        if (isProcessingUserGestureForDocument && isSandboxed(SandboxTopNavigationByUserActivation)) {
+        if (isProcessingUserGestureForDocument && isSandboxed(SandboxFlag::TopNavigationByUserActivation)) {
             printNavigationErrorMessage(*this, targetFrame, url(), "The frame attempting navigation of the top-level window is sandboxed, but the 'allow-top-navigation-by-user-activation' flag is not set and navigation is not triggered by user activation."_s);
             return false;
         }
         // 2. Otherwise, If this algorithm is not triggered by user activation and A's active document's active sandboxing flag set has its sandboxed top-level navigation without user activation browsing context flag set, then abort these steps negatively.
-        if (!isProcessingUserGestureForDocument && isSandboxed(SandboxTopNavigation)) {
+        if (!isProcessingUserGestureForDocument && isSandboxed(SandboxFlag::TopNavigation)) {
             printNavigationErrorMessage(*this, targetFrame, url(), "The frame attempting navigation of the top-level window is sandboxed, but the 'allow-top-navigation' flag is not set."_s);
             return false;
         }
@@ -4417,7 +4422,7 @@ bool Document::canNavigateInternal(Frame& targetFrame)
 
     // 3. Otherwise, if B is a top-level browsing context, and is neither A nor one of the ancestor browsing contexts of A, and A's Document's active sandboxing flag set has its
     // sandboxed navigation browsing context flag set, and A is not the one permitted sandboxed navigator of B, then abort these steps negatively.
-    if (!targetFrame.tree().parent() && m_frame != &targetFrame && &targetFrame != &m_frame->tree().top() && isSandboxed(SandboxNavigation) && targetFrame.opener() != m_frame) {
+    if (!targetFrame.tree().parent() && m_frame != &targetFrame && &targetFrame != &m_frame->tree().top() && isSandboxed(SandboxFlag::Navigation) && targetFrame.opener() != m_frame) {
         printNavigationErrorMessage(*this, targetFrame, url(), "The frame attempting navigation is sandboxed, and is not allowed to navigate this popup."_s);
         return false;
     }
@@ -4484,7 +4489,7 @@ bool Document::isNavigationBlockedByThirdPartyIFrameRedirectBlocking(Frame& targ
     // "allow-top-navigation" / "allow-top-navigation-by-user-activation" was explicitly specified.
     // We also want to guard against bypassing this block via an iframe-provided CSP sandbox.
     RefPtr ownerElement = m_frame->ownerElement();
-    if ((!ownerElement || ownerElement->sandboxFlags() == sandboxFlags()) && sandboxFlags() != SandboxNone) {
+    if ((!ownerElement || ownerElement->sandboxFlags() == sandboxFlags()) && !sandboxFlags().isEmpty()) {
         // Navigation is only allowed if the parent of the sandboxed iframe is first-party.
         RefPtr parentFrame = dynamicDowncast<LocalFrame>(m_frame->tree().parent());
         RefPtr parentDocument = parentFrame ? parentFrame->document() : nullptr;
@@ -5305,6 +5310,7 @@ void Document::updateIsPlayingMedia()
 
 #if ENABLE(MEDIA_STREAM)
     bool captureStateChanged = MediaProducer::isCapturing(m_mediaState) != MediaProducer::isCapturing(state);
+    bool microphoneMutedStateChanged = m_mediaState.containsAny(MediaProducer::IsCapturingAudioMask) != state.containsAny(MediaProducer::IsCapturingAudioMask);
 #endif
 
     m_mediaState = state;
@@ -5315,6 +5321,11 @@ void Document::updateIsPlayingMedia()
 #if ENABLE(MEDIA_STREAM)
     if (captureStateChanged)
         mediaStreamCaptureStateChanged();
+
+    if (microphoneMutedStateChanged) {
+        if (auto* controller = UserMediaController::from(page()))
+            controller->checkDocumentForVoiceActivity(this);
+    }
 #endif
 }
 
@@ -5391,6 +5402,42 @@ void Document::screenshareCaptureStateDidChange()
     }, [] (auto& source) {
         return source.deviceType() == CaptureDevice::DeviceType::Screen || source.deviceType() == CaptureDevice::DeviceType::Window;
     }, MediaSessionAction::Togglescreenshare);
+}
+
+bool Document::hasMutedAudioCaptureDevice() const
+{
+    return mediaState().contains(MediaProducerMediaState::HasMutedAudioCaptureDevice);
+}
+
+void Document::setShouldListenToVoiceActivity(bool shouldListen)
+{
+    if (m_shouldListenToVoiceActivity == shouldListen)
+        return;
+
+    m_shouldListenToVoiceActivity = shouldListen;
+
+    if (auto* controller = UserMediaController::from(page()))
+        controller->setShouldListenToVoiceActivity(*this, m_shouldListenToVoiceActivity);
+}
+
+void Document::voiceActivityDetected()
+{
+    if (!isFullyActive() || topDocument().hidden() || !hasMutedAudioCaptureDevice())
+        return;
+
+    RefPtr window = domWindow();
+    RefPtr mediaSession = window ? NavigatorMediaSession::mediaSessionIfExists(window->protectedNavigator()) : nullptr;
+    if (!mediaSession)
+        return;
+
+    eventLoop().queueTask(TaskSource::MediaElement, [weakDocument = WeakPtr { *this }, weakSession = WeakPtr { *mediaSession }] {
+        RefPtr protecteDocument = weakDocument.get();
+        if (!protecteDocument || !protecteDocument->hasMutedAudioCaptureDevice())
+            return;
+
+        if (RefPtr protectedSession = weakSession.get())
+            protectedSession->callActionHandler({ .action = MediaSessionAction:: Voiceactivity });
+    });
 }
 #endif
 
@@ -6497,7 +6544,7 @@ ExceptionOr<void> Document::setDomain(const String& newDomain)
     if (!frame())
         return Exception { ExceptionCode::SecurityError, "A browsing context is required to set a domain."_s };
 
-    if (isSandboxed(SandboxDocumentDomain))
+    if (isSandboxed(SandboxFlag::DocumentDomain))
         return Exception { ExceptionCode::SecurityError, "Assignment is forbidden for sandboxed iframes."_s };
 
     if (LegacySchemeRegistry::isDomainRelaxationForbiddenForURLScheme(securityOrigin().protocol()))
@@ -7508,7 +7555,7 @@ void Document::initSecurityContext()
         applyContentDispositionAttachmentSandbox();
 
     RefPtr documentLoader = m_frame->loader().documentLoader();
-    bool isSecurityOriginUnique = isSandboxed(SandboxOrigin);
+    bool isSecurityOriginUnique = isSandboxed(SandboxFlag::Origin);
     if (!isSecurityOriginUnique)
         isSecurityOriginUnique = documentLoader && documentLoader->response().tainting() == ResourceResponse::Tainting::Opaque;
 
@@ -7527,7 +7574,7 @@ void Document::initSecurityContext()
     if (shouldEnforceHTTP09Sandbox()) {
         auto message = makeString("Sandboxing '"_s, m_url.url().stringCenterEllipsizedToLength(), "' because it is using HTTP/0.9."_s);
         addConsoleMessage(MessageSource::Security, MessageLevel::Error, message);
-        enforceSandboxFlags(SandboxScripts | SandboxPlugins);
+        enforceSandboxFlags({ SandboxFlag::Scripts, SandboxFlag::Plugins });
     }
 
     if (settings().needsStorageAccessFromFileURLsQuirk())
@@ -7591,7 +7638,7 @@ void Document::initSecurityContext()
     if (RefPtr openerDocument = openerFrame ? openerFrame->document() : nullptr)
         contentSecurityPolicy->inheritInsecureNavigationRequestsToUpgradeFromOpener(*openerDocument->checkedContentSecurityPolicy());
 
-    if (isSandboxed(SandboxOrigin)) {
+    if (isSandboxed(SandboxFlag::Origin)) {
         // If we're supposed to inherit our security origin from our owner,
         // but we're also sandboxed, the only thing we inherit is the ability
         // to load local resources. This lets about:blank iframes in file://
@@ -7665,7 +7712,7 @@ static bool isURLPotentiallyTrustworthy(const URL& url)
 // https://w3c.github.io/webappsec-secure-contexts/#is-settings-object-contextually-secure step 5.3 and 5.4
 static inline bool isDocumentSecure(const Document& document)
 {
-    if (document.isSandboxed(SandboxOrigin))
+    if (document.isSandboxed(SandboxFlag::Origin))
         return isURLPotentiallyTrustworthy(document.url());
     return document.securityOrigin().isPotentiallyTrustworthy();
 }
@@ -8118,6 +8165,7 @@ void Document::dispatchPageswapEvent(bool canTriggerCrossDocumentViewTransition,
 
     RefPtr<ViewTransition> oldViewTransition;
 
+    auto startTime = MonotonicTime::now();
     PageSwapEvent::Init swapInit;
     swapInit.activation = WTFMove(activation);
     if (canTriggerCrossDocumentViewTransition && globalObject()) {
@@ -8136,6 +8184,7 @@ void Document::dispatchPageswapEvent(bool canTriggerCrossDocumentViewTransition,
         // FIXME: This should set the params on the new Document, but it doesn't exist yet.
         // Store it on the old, and we'll call transferViewTransitionParams soon.
         m_inboundViewTransitionParams = oldViewTransition->takeViewTransitionParams().moveToUniquePtr();
+        m_inboundViewTransitionParams->startTime = startTime;
     }
 }
 
@@ -8346,12 +8395,12 @@ void Document::unblockRenderingOn(Element& element)
 }
 
 // https://html.spec.whatwg.org/multipage/links.html#process-internal-resource-links
-void Document::processInternalResourceLinks(HTMLAnchorElement& anchor)
+void Document::processInternalResourceLinks(HTMLAnchorElement* anchor)
 {
     auto copy = copyToVector(m_renderBlockingElements);
     for (auto& element : copy) {
         if (RefPtr link = dynamicDowncast<HTMLLinkElement>(element.get()))
-            link->processInternalResourceLink(&anchor);
+            link->processInternalResourceLink(anchor);
     }
 }
 
@@ -9329,7 +9378,7 @@ void Document::applyQuickLookSandbox()
     // The sandbox directive is only allowed if the policy is from an HTTP header.
     checkedContentSecurityPolicy()->didReceiveHeader(quickLookCSP, ContentSecurityPolicyHeaderType::Enforce, ContentSecurityPolicy::PolicyFrom::HTTPHeader, referrer());
 
-    disableSandboxFlags(SandboxNavigation);
+    disableSandboxFlags(SandboxFlag::Navigation);
 
     setReferrerPolicy(ReferrerPolicy::NoReferrer);
 }
@@ -9355,9 +9404,9 @@ void Document::applyContentDispositionAttachmentSandbox()
 
     setReferrerPolicy(ReferrerPolicy::NoReferrer);
     if (!isMediaDocument())
-        enforceSandboxFlags(SandboxAll);
+        enforceSandboxFlags(SandboxFlags::all());
     else
-        enforceSandboxFlags(SandboxOrigin);
+        enforceSandboxFlags(SandboxFlag::Origin);
 }
 
 void Document::addDynamicMediaQueryDependentImage(HTMLImageElement& element)

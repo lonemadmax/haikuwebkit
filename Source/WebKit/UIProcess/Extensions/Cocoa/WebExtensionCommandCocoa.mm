@@ -32,6 +32,7 @@
 
 #if ENABLE(WK_WEB_EXTENSIONS)
 
+#import "WebExtension.h"
 #import "WebExtensionContext.h"
 #import "WebExtensionMenuItem.h"
 #import <wtf/BlockPtr.h>
@@ -114,9 +115,13 @@ bool WebExtensionCommand::setActivationKey(String activationKey)
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
         auto *allowedCharacterSet = [NSMutableCharacterSet alphanumericCharacterSet];
+        // F1-F12.
         [allowedCharacterSet addCharactersInRange:NSMakeRange(0xF704, 12)];
+        // Insert, Delete, Home.
         [allowedCharacterSet addCharactersInRange:NSMakeRange(0xF727, 3)];
+        // End, Page Up, Page Down.
         [allowedCharacterSet addCharactersInRange:NSMakeRange(0xF72B, 3)];
+        // Up, Down, Left, Right.
         [allowedCharacterSet addCharactersInRange:NSMakeRange(0xF700, 4)];
         [allowedCharacterSet addCharactersInString:@",. "];
 
@@ -276,6 +281,8 @@ CocoaMenuItem *WebExtensionCommand::platformMenuItem() const
 
     result.keyEquivalent = activationKey();
     result.keyEquivalentModifierMask = modifierFlags().toRaw();
+    if (RefPtr context = extensionContext())
+        result.image = context->extension().icon(NSMakeSize(16, 16));
 
     return result;
 #else

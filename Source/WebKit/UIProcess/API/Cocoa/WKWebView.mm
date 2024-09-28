@@ -1807,18 +1807,6 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 }
 #endif
 
-static inline WKTextAnimationType toWKTextAnimationType(WebCore::TextAnimationType style)
-{
-    switch (style) {
-    case WebCore::TextAnimationType::Initial:
-        return WKTextAnimationTypeInitial;
-    case WebCore::TextAnimationType::Source:
-        return WKTextAnimationTypeSource;
-    case WebCore::TextAnimationType::Final:
-        return WKTextAnimationTypeFinal;
-    }
-}
-
 - (WKPageRef)_pageForTesting
 {
     return toAPI(_page.get());
@@ -2289,8 +2277,8 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 
     if (!_partialIntelligenceTextPonderingAnimationCount && _writingToolsTextReplacementsFinished) {
         // If the entire replacement has already been completed, and this is the end of the last animation,
-        // then reveal the selection.
-        _page->showSelectionForActiveWritingToolsSession();
+        // then reveal the selection and end the session if needed.
+        _page->intelligenceTextAnimationsDidComplete();
     }
 }
 
@@ -2302,7 +2290,7 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 - (void)_addTextAnimationForAnimationID:(NSUUID *)nsUUID withData:(const WebCore::TextAnimationData&)data
 {
 #if PLATFORM(IOS_FAMILY)
-    [_contentView addTextAnimationForAnimationID:nsUUID withStyleType:toWKTextAnimationType(data.style)];
+    [_contentView addTextAnimationForAnimationID:nsUUID withData:data];
 #else
     auto uuid = WTF::UUID::fromNSUUID(nsUUID);
     if (!uuid)
@@ -4752,9 +4740,9 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
     _page->enableSourceTextAnimationAfterElementWithID(elementID);
 
 #if PLATFORM(IOS_FAMILY)
-    [_contentView addTextAnimationForAnimationID:nsUUID.get() withStyleType:WKTextAnimationTypeInitial];
+    [_contentView addTextAnimationForAnimationID:nsUUID.get() withData:{ WebCore::TextAnimationType::Initial, WebCore::TextAnimationRunMode::RunAnimation }];
 #else
-    _impl->addTextAnimationForAnimationID(*uuid, { WebCore::TextAnimationType::Initial, WebCore::TextAnimationRunMode::RunAnimation, WTF::UUID(WTF::UUID::emptyValue) });
+    _impl->addTextAnimationForAnimationID(*uuid, { WebCore::TextAnimationType::Initial, WebCore::TextAnimationRunMode::RunAnimation });
 #endif
 
     return nsUUID.get();
@@ -4775,9 +4763,9 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
     _page->enableTextAnimationTypeForElementWithID(elementID);
 
 #if PLATFORM(IOS_FAMILY)
-    [_contentView addTextAnimationForAnimationID:nsUUID.get() withStyleType:WKTextAnimationTypeFinal];
+    [_contentView addTextAnimationForAnimationID:nsUUID.get() withData:{ WebCore::TextAnimationType::Final, WebCore::TextAnimationRunMode::RunAnimation }];
 #else
-    _impl->addTextAnimationForAnimationID(*uuid, { WebCore::TextAnimationType::Final, WebCore::TextAnimationRunMode::RunAnimation, WTF::UUID(WTF::UUID::emptyValue) });
+    _impl->addTextAnimationForAnimationID(*uuid, { WebCore::TextAnimationType::Final, WebCore::TextAnimationRunMode::RunAnimation });
 #endif
 
     return nsUUID.get();

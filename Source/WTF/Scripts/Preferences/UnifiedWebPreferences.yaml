@@ -997,6 +997,20 @@ CSSAnchorPositioningEnabled:
     WebCore:
       default: false
 
+CSSAppearanceBaseEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS appearance: base"
+  humanReadableDescription: "Enable base value for CSS appearance"
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
+
 CSSBackgroundClipBorderAreaEnabled:
   type: bool
   status: stable
@@ -1153,7 +1167,7 @@ CSSLightDarkEnabled:
 
 CSSLineClampEnabled:
   type: bool
-  status: testable
+  status: preview
   category: css
   humanReadableName: "CSS line-clamp"
   humanReadableDescription: "Enable CSS line-clamp"
@@ -7100,6 +7114,21 @@ TouchEventsEnabled:
   defaultValue:
     WebCore:
       default: WebCore::screenHasTouchDevice()
+
+TouchInputCompatibilityEnabled:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "Touch Input Compatibility"
+  humanReadableDescription: "Touch Input Compatibility"
+  condition: ENABLE(WEBXR)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+    WebCore:
+      default: false
 
 TrackConfigurationEnabled:
   type: bool

@@ -177,7 +177,7 @@ Pagination::Mode paginationModeForRenderStyle(const RenderStyle& style)
     // is horizontal, then we use TextDirection to choose between those options. If the WritingMode
     // is vertical, then the block flow direction dictates the choice.
     if (overflow == Overflow::PagedX) {
-        if ((isHorizontalWritingMode && textDirection == TextDirection::LTR) || blockFlowDirection == BlockFlowDirection::LeftToRight)
+        if ((isHorizontalWritingMode && textDirection == TextDirection::LTR) || blockFlowDirection == FlowDirection::LeftToRight)
             return Pagination::Mode::LeftToRightPaginated;
         return Pagination::Mode::RightToLeftPaginated;
     }
@@ -185,7 +185,7 @@ Pagination::Mode paginationModeForRenderStyle(const RenderStyle& style)
     // paged-y always corresponds to TopToBottomPaginated or BottomToTopPaginated. If the WritingMode
     // is horizontal, then the block flow direction dictates the choice. If the WritingMode
     // is vertical, then we use TextDirection to choose between those options. 
-    if (blockFlowDirection == BlockFlowDirection::TopToBottom || (!isHorizontalWritingMode && textDirection == TextDirection::RTL))
+    if (blockFlowDirection == FlowDirection::TopToBottom || (!isHorizontalWritingMode && textDirection == TextDirection::RTL))
         return Pagination::Mode::TopToBottomPaginated;
     return Pagination::Mode::BottomToTopPaginated;
 }
@@ -1109,6 +1109,7 @@ void LocalFrameView::topContentInsetDidChange(float newTopContentInset)
     if (platformWidget())
         platformSetTopContentInset(newTopContentInset);
     
+    renderView->setNeedsLayout();
     layoutContext().layout();
     // Every scroll that happens as the result of content inset change is programmatic.
     auto oldScrollType = currentScrollType();
@@ -1299,12 +1300,42 @@ void LocalFrameView::willDoLayout(SingleThreadWeakPtr<RenderElement> layoutRoot)
     forceLayoutParentViewIfNeeded();
 }
 
-void LocalFrameView::didLayout(SingleThreadWeakPtr<RenderElement> layoutRoot, bool didRunSimplifiedLayout)
+bool LocalFrameView::hasPendingUpdateLayerPositions() const
+{
+    return !!m_pendingUpdateLayerPositions;
+}
+
+void LocalFrameView::flushUpdateLayerPositions()
+{
+    if (!m_pendingUpdateLayerPositions)
+        return;
+
+    UpdateLayerPositions updateLayerPositions = *std::exchange(m_pendingUpdateLayerPositions, std::nullopt);
+
+    WeakPtr layoutRoot = updateLayerPositions.layoutRoot;
+    if (!layoutRoot)
+        layoutRoot = renderView();
+
+    if (layoutRoot) {
+        CheckedPtr enclosingLayer = layoutRoot->enclosingLayer();
+        enclosingLayer->updateLayerPositionsAfterLayout(updateLayerPositions.layoutIdentifier, !is<RenderView>(*layoutRoot), updateLayerPositions.needsFullRepaint, updateLayerPositions.didRunSimplifiedLayout ? RenderLayer::CanUseSimplifiedRepaintPass::Yes : RenderLayer::CanUseSimplifiedRepaintPass::No);
+        m_renderLayerPositionUpdateCount++;
+    }
+}
+
+void LocalFrameView::didLayout(SingleThreadWeakPtr<RenderElement> layoutRoot, bool didRunSimplifiedLayout, bool canDeferUpdateLayerPositions)
 {
     ScriptDisallowedScope::InMainThread scriptDisallowedScope;
+    m_layoutUpdateCount++;
 
-    auto* layoutRootEnclosingLayer = layoutRoot->enclosingLayer();
-    layoutRootEnclosingLayer->updateLayerPositionsAfterLayout(!is<RenderView>(*layoutRoot), layoutContext().needsFullRepaint(), didRunSimplifiedLayout ? RenderLayer::CanUseSimplifiedRepaintPass::Yes : RenderLayer::CanUseSimplifiedRepaintPass::No);
+    UpdateLayerPositions updateLayerPositions { layoutRoot, layoutContext().layoutIdentifier(), layoutContext().needsFullRepaint(), didRunSimplifiedLayout };
+    if (!m_pendingUpdateLayerPositions || !m_pendingUpdateLayerPositions->merge(updateLayerPositions)) {
+        flushUpdateLayerPositions();
+        m_pendingUpdateLayerPositions = updateLayerPositions;
+    }
+
+    if (!canDeferUpdateLayerPositions)
+        flushUpdateLayerPositions();
 
     m_updateCompositingLayersIsPending = true;
 
@@ -2075,7 +2106,7 @@ void LocalFrameView::viewportContentsChanged()
         return;
     }
 
-    if (auto* page = m_frame->page())
+    if (RefPtr page = m_frame->page())
         page->updateValidationBubbleStateIfNeeded();
 
     // When the viewport contents changes (scroll, resize, style recalc, layout, ...),
@@ -2956,9 +2987,17 @@ void LocalFrameView::updateLayerPositionsAfterScrolling()
     if (!layoutContext().isLayoutNested() && hasViewportConstrainedObjects()) {
         if (auto* renderView = this->renderView()) {
             updateWidgetPositions();
+            flushUpdateLayerPositions();
             renderView->layer()->updateLayerPositionsAfterDocumentScroll();
         }
     }
+}
+
+void LocalFrameView::updateLayerPositionsAfterOverflowScroll(RenderLayer& layer)
+{
+    flushUpdateLayerPositions();
+    layer.updateLayerPositionsAfterOverflowScroll();
+    scheduleUpdateWidgetPositions();
 }
 
 ScrollingCoordinator* LocalFrameView::scrollingCoordinator() const
@@ -5361,6 +5400,26 @@ String LocalFrameView::trackedRepaintRectsAsText() const
     return ts.release();
 }
 
+void LocalFrameView::startTrackingLayoutUpdates()
+{
+    m_layoutUpdateCount = 0;
+}
+
+unsigned LocalFrameView::layoutUpdateCount()
+{
+    return m_layoutUpdateCount;
+}
+
+void LocalFrameView::startTrackingRenderLayerPositionUpdates()
+{
+    m_renderLayerPositionUpdateCount = 0;
+}
+
+unsigned LocalFrameView::renderLayerPositionUpdateCount()
+{
+    return m_renderLayerPositionUpdateCount;
+}
+
 void LocalFrameView::addScrollableAreaForAnimatedScroll(ScrollableArea* scrollableArea)
 {
     if (!m_scrollableAreasForAnimatedScroll)
@@ -5814,7 +5873,7 @@ void LocalFrameView::setViewExposedRect(std::optional<FloatRect> viewExposedRect
         tiledBacking->setTiledScrollingIndicatorPosition(m_viewExposedRect ? m_viewExposedRect.value().location() : FloatPoint());
     }
 
-    if (auto* page = m_frame->page()) {
+    if (RefPtr page = m_frame->page()) {
         page->scheduleRenderingUpdate(RenderingUpdateStep::LayerFlush);
         page->pageOverlayController().didChangeViewExposedRect();
     }
@@ -6017,7 +6076,7 @@ float LocalFrameView::pageScaleFactor() const
 
 void LocalFrameView::didStartScrollAnimation()
 {
-    if (auto* page = m_frame->page())
+    if (RefPtr page = m_frame->page())
         page->scheduleRenderingUpdate({ RenderingUpdateStep::Scroll });
 }
 

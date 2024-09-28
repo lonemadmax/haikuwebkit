@@ -936,6 +936,7 @@ public:
     WEBCORE_EXPORT void stopMediaCapture(MediaProducerMediaCaptureKind);
 #if ENABLE(MEDIA_STREAM)
     WEBCORE_EXPORT void updateCaptureState(bool isActive, MediaProducerMediaCaptureKind);
+    WEBCORE_EXPORT void voiceActivityDetected();
 #endif
 
     MediaSessionGroupIdentifier mediaSessionGroupIdentifier() const;
@@ -1190,7 +1191,7 @@ public:
     void respondToReappliedWritingToolsEditing(EditCommandComposition*);
 
     WEBCORE_EXPORT std::optional<SimpleRange> contextRangeForActiveWritingToolsSession() const;
-    WEBCORE_EXPORT void showSelectionForActiveWritingToolsSession() const;
+    WEBCORE_EXPORT void intelligenceTextAnimationsDidComplete();
 #endif
 
     bool hasActiveNowPlayingSession() const { return m_hasActiveNowPlayingSession; }

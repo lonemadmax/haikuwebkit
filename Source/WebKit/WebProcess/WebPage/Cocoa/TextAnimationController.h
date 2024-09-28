@@ -71,17 +71,16 @@ class TextAnimationController final {
 public:
     explicit TextAnimationController(WebPage&);
 
-    void removeTransparentMarkersForActiveWritingToolsSession();
-    void removeTransparentMarkersForTextAnimationID(const WTF::UUID&);
-
     void removeInitialTextAnimationForActiveWritingToolsSession();
     void addInitialTextAnimationForActiveWritingToolsSession();
-    void addSourceTextAnimationForActiveWritingToolsSession(const WebCore::CharacterRange&, const String&, CompletionHandler<void(WebCore::TextAnimationRunMode)>&&);
-    void addDestinationTextAnimationForActiveWritingToolsSession(const std::optional<WebCore::CharacterRange>&, const String&);
+    void addSourceTextAnimationForActiveWritingToolsSession(const WTF::UUID& sourceAnimationUUID, const WTF::UUID& destinationAnimationUUID, bool finished, const WebCore::CharacterRange&, const String&, CompletionHandler<void(WebCore::TextAnimationRunMode)>&&);
+    void addDestinationTextAnimationForActiveWritingToolsSession(const WTF::UUID& sourceAnimationUUID, const WTF::UUID& destinationAnimationUUID, const std::optional<WebCore::CharacterRange>&, const String&);
+
+    void saveSnapshotOfTextPlaceholderForAnimation(const WebCore::SimpleRange&);
 
     void clearAnimationsForActiveWritingToolsSession();
 
-    void updateUnderlyingTextVisibilityForTextAnimationID(const WTF::UUID&, bool visible, CompletionHandler<void()>&&);
+    void updateUnderlyingTextVisibilityForTextAnimationID(const WTF::UUID&, bool visible, CompletionHandler<void()>&& = [] { });
 
     std::optional<WebCore::TextIndicatorData> createTextIndicatorForRange(const WebCore::SimpleRange&);
     void createTextIndicatorForTextAnimationID(const WTF::UUID&, CompletionHandler<void(std::optional<WebCore::TextIndicatorData>&&)>&&);
@@ -94,6 +93,9 @@ private:
     std::optional<WebCore::SimpleRange> contextRangeForActiveWritingToolsSession() const;
     std::optional<WebCore::SimpleRange> unreplacedRangeForActiveWritingToolsSession() const;
 
+    void removeTransparentMarkersForTextAnimationID(const WTF::UUID&);
+    void removeTransparentMarkersForActiveWritingToolsSession();
+
     RefPtr<WebCore::Document> document() const;
     WeakPtr<WebPage> m_webPage;
 
@@ -102,6 +104,10 @@ private:
     std::optional<ReplacedRangeAndString> m_alreadyReplacedRange;
     RefPtr<WebCore::Range> m_manuallyEnabledAnimationRange;
     Vector<TextAnimationRange> m_textAnimationRanges;
+    std::optional<WTF::UUID> m_activeAnimation;
+    std::optional<CompletionHandler<void(WebCore::TextAnimationRunMode)>> m_finalReplaceHandler;
+    std::optional<WebCore::TextIndicatorData> m_placeholderTextIndicatorData;
+
 };
 
 } // namespace WebKit

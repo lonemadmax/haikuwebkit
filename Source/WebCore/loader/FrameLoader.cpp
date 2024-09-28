@@ -236,9 +236,9 @@ bool isReload(FrameLoadType type)
 // non-member lets us exclude it from the header file, thus keeping FrameLoader.h's
 // API simpler.
 //
-static bool isDocumentSandboxed(LocalFrame& frame, SandboxFlags mask)
+static bool isDocumentSandboxed(LocalFrame& frame, SandboxFlag flag)
 {
-    return frame.document() && frame.document()->isSandboxed(mask);
+    return frame.document() && frame.document()->isSandboxed(flag);
 }
 
 static bool isInVisibleAndActivePage(const LocalFrame& frame)
@@ -370,7 +370,6 @@ FrameLoader::FrameLoader(LocalFrame& frame, UniqueRef<LocalFrameLoaderClient>&& 
     , m_state(FrameState::Provisional)
     , m_loadType(FrameLoadType::Standard)
     , m_checkTimer(*this, &FrameLoader::checkTimerFired)
-    , m_forcedSandboxFlags(SandboxNone)
 {
 }
 
@@ -523,7 +522,7 @@ void FrameLoader::submitForm(Ref<FormSubmission>&& submission)
         return;
 
     RefPtr document = frame->document();
-    if (isDocumentSandboxed(frame, SandboxForms)) {
+    if (isDocumentSandboxed(frame, SandboxFlag::Forms)) {
         // FIXME: This message should be moved off the console once a solution to https://bugs.webkit.org/show_bug.cgi?id=103274 exists.
         document->addConsoleMessage(MessageSource::Security, MessageLevel::Error, makeString("Blocked form submission to '"_s, submission->action().stringCenterEllipsizedToLength(), "' because the form's frame is sandboxed and the 'allow-forms' permission is not set."_s));
         return;
@@ -2754,27 +2753,6 @@ void FrameLoader::dispatchDidFailProvisionalLoad(DocumentLoader& provisionalDocu
     m_provisionalLoadErrorBeingHandledURL = { };
 }
 
-void FrameLoader::handleLoadFailureRecovery(DocumentLoader& documentLoader, const ResourceError& error, bool isHTTPSFirstApplicable)
-{
-    FRAMELOADER_RELEASE_LOG(ResourceLoading, "handleLoadFailureRecovery: errorRecoveryMethod: %hhu, isHTTPSFirstApplicable: %d, isHTTPFallbackInProgress: %d", enumToUnderlyingType(error.errorRecoveryMethod()), isHTTPSFirstApplicable, isHTTPFallbackInProgress());
-    if (error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::NoRecovery || !isHTTPSFirstApplicable || isHTTPFallbackInProgress()) {
-        if (isHTTPFallbackInProgress())
-            setHTTPFallbackInProgress(false);
-        return;
-    }
-
-    ASSERT(documentLoader.request().url().protocolIs("https"_s));
-    ASSERT(error.errorRecoveryMethod() == ResourceError::ErrorRecoveryMethod::HTTPFallback && isHTTPSFirstApplicable);
-
-    auto request = documentLoader.request();
-    auto url = request.url();
-    url.setProtocol("http"_s);
-    if (url.port() && WTF::isDefaultPortForProtocol(url.port().value(), "https"_s))
-        url.setPort(WTF::defaultPortForProtocol(url.protocol()));
-    setHTTPFallbackInProgress(true);
-    protectedFrame()->checkedNavigationScheduler()->scheduleRedirect(*m_frame->protectedDocument(), 0, url, IsMetaRefresh::No);
-}
-
 void FrameLoader::checkLoadCompleteForThisFrame(LoadWillContinueInAnotherProcess loadWillContinueInAnotherProcess)
 {
     ASSERT(m_client->hasWebView());
@@ -2817,7 +2795,7 @@ void FrameLoader::checkLoadCompleteForThisFrame(LoadWillContinueInAnotherProcess
         bool isHTTPSFirstApplicable = (isHTTPSByDefaultEnabled || provisionalDocumentLoader->httpsByDefaultMode() == HTTPSByDefaultMode::UpgradeWithHTTPFallback)
             && provisionalDocumentLoader->httpsByDefaultMode() != HTTPSByDefaultMode::UpgradeAndFailClosed
             && !isHTTPFallbackInProgress()
-            && (!provisionalDocumentLoader->mainResourceLoader() || !provisionalDocumentLoader->mainResourceLoader()->redirectCount());
+            && provisionalDocumentLoader->request().wasSchemeOptimisticallyUpgraded();
 
         // Only reset if we aren't already going to a new provisional item.
         bool shouldReset = !m_frame->history().provisionalItem();
@@ -2850,7 +2828,6 @@ void FrameLoader::checkLoadCompleteForThisFrame(LoadWillContinueInAnotherProcess
                 page->checkedBackForward()->setCurrentItem(*item);
         }
 
-        handleLoadFailureRecovery(*provisionalDocumentLoader, error, isHTTPSFirstApplicable);
         return;
     }
         
@@ -3795,7 +3772,7 @@ void FrameLoader::dispatchUnloadEvents(UnloadEventPolicy unloadEventPolicy)
 static bool shouldAskForNavigationConfirmation(Document& document, const BeforeUnloadEvent& event)
 {
     // Confirmation dialog should not be displayed when the allow-modals flag is not set.
-    if (document.isSandboxed(SandboxModals))
+    if (document.isSandboxed(SandboxFlag::Modals))
         return false;
 
     bool userDidInteractWithPage = document.topDocument().userDidInteractWithPage();
@@ -3885,7 +3862,7 @@ void FrameLoader::executeJavaScriptURL(const URL& url, const NavigationAction& a
         ownerDocument->incrementLoadEventDelayCount();
 
     bool didReplaceDocument = false;
-    bool requesterSandboxedFromScripts = action.requester() ? (action.requester()->sandboxFlags & SandboxScripts) : false;
+    bool requesterSandboxedFromScripts = action.requester() && action.requester()->sandboxFlags.contains(SandboxFlag::Scripts);
     if (requesterSandboxedFromScripts) {
         // FIXME: This message should be moved off the console once a solution to https://bugs.webkit.org/show_bug.cgi?id=103274 exists.
         // This message is identical to the message in ScriptController::canExecuteScripts.
@@ -4051,7 +4028,7 @@ void FrameLoader::continueLoadAfterNewWindowPolicy(const ResourceRequest& reques
 
     CheckedRef mainFrameLoader = mainFrame->loader();
     SandboxFlags sandboxFlags = frame->loader().effectiveSandboxFlags();
-    if (sandboxFlags & SandboxPropagatesToAuxiliaryBrowsingContexts)
+    if (sandboxFlags.contains(SandboxFlag::PropagatesToAuxiliaryBrowsingContexts))
         mainFrameLoader->forceSandboxFlags(sandboxFlags);
 
     if (!isBlankTargetFrameName(frameName))
@@ -4532,9 +4509,9 @@ SandboxFlags FrameLoader::effectiveSandboxFlags() const
 {
     SandboxFlags flags = m_forcedSandboxFlags;
     if (RefPtr parentFrame = dynamicDowncast<LocalFrame>(m_frame->tree().parent()))
-        flags |= parentFrame->document()->sandboxFlags();
+        flags.add(parentFrame->document()->sandboxFlags());
     if (RefPtr ownerElement = m_frame->ownerElement())
-        flags |= ownerElement->sandboxFlags();
+        flags.add(ownerElement->sandboxFlags());
     return flags;
 }
 
@@ -4671,7 +4648,7 @@ RefPtr<Frame> createWindow(LocalFrame& openerFrame, FrameLoadRequest&& request, 
     }
 
     // Sandboxed frames cannot open new auxiliary browsing contexts.
-    if (isDocumentSandboxed(openerFrame, SandboxPopups)) {
+    if (isDocumentSandboxed(openerFrame, SandboxFlag::Popups)) {
         // FIXME: This message should be moved off the console once a solution to https://bugs.webkit.org/show_bug.cgi?id=103274 exists.
         openerFrame.protectedDocument()->addConsoleMessage(MessageSource::Security, MessageLevel::Error, makeString("Blocked opening '"_s, request.resourceRequest().url().stringCenterEllipsizedToLength(), "' in a new window because the request was made in a sandboxed frame whose 'allow-popups' permission is not set."_s));
         return nullptr;
@@ -4696,7 +4673,7 @@ RefPtr<Frame> createWindow(LocalFrame& openerFrame, FrameLoadRequest&& request, 
 
     Ref frame = page->mainFrame();
 
-    if (isDocumentSandboxed(openerFrame, SandboxPropagatesToAuxiliaryBrowsingContexts)) {
+    if (isDocumentSandboxed(openerFrame, SandboxFlag::PropagatesToAuxiliaryBrowsingContexts)) {
         if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame))
             localFrame->checkedLoader()->forceSandboxFlags(openerFrame.document()->sandboxFlags());
     }

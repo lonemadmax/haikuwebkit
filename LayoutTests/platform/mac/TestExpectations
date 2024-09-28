@@ -1645,7 +1645,7 @@ imported/w3c/web-platform-tests/css/css-sizing/percentage-height-in-flexbox.html
 
 # rdar://66910555 ([ Layout Tests ] REGRESSION (r264345): [ macOS ] 2 media-source/mediasource-changetype-play are a flaky failure)
 imported/w3c/web-platform-tests/media-source/mediasource-changetype-play-implicit.html [ Pass Failure ]
-imported/w3c/web-platform-tests/media-source/mediasource-changetype-play-without-codecs-parameter.html [ Pass Failure ]
+imported/w3c/web-platform-tests/media-source/mediasource-changetype-play-without-codecs-parameter.html [ Crash Pass Failure ]
 
 # WebP images
 fast/images/webp-as-image.html [ Pass ]
@@ -2404,9 +2404,6 @@ webkit.org/b/276624 fast/dynamic/layer-hit-test-crash.html [ Pass Failure ]
 
 webkit.org/b/276906 imported/w3c/web-platform-tests/IndexedDB/storage-buckets.https.any.worker.html [ Pass Failure ]
 
-# webkit.org/b/278052 REGRESSION (282158@main): [macOS] inspector/console/webcore-logging.html is a flaky failure
-inspector/console/webcore-logging.html [ Pass Failure ]
-
 # webkit.org/b/278239 [macOS Release] 2 tests in media/video are flaky failure (failing in EWS)
 [ Release ] media/video-playsinline.html [ Pass Failure ]
 [ Release ] media/video-webkit-playsinline.html [ Pass Failure ]
@@ -2420,3 +2417,8 @@ imported/w3c/web-platform-tests/css/css-view-transitions/capture-with-opacity-ze
 # webkit.org/b/278425 REGRESSION (281435@main): [ macOS ] 2x imported/w3c/web-platform-t ests/css/css-writing-modes/ text-orientation-* is a flaky ImageOnlyFailure. 
 imported/w3c/web-platform-tests/css/css-writing-modes/text-orientation-mixed-srl-016.xht [ Pass ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-writing-modes/text-orientation-upright-srl-018.xht [ Pass ImageOnlyFailure ]
+
+# webkit.org/b/279213 REGRESSION (Sonoma): [ macOS Sonoma ] 3x http/tests/media/video-* is a constant failure.
+[ Sonoma+ ] http/tests/media/video-error-abort.html [ Failure ]
+[ Sonoma+ ] http/tests/media/video-served-as-text.html [ Failure ]
+[ Sonoma+ ] http/tests/media/video-throttled-load-metadata.html [ Failure ]

@@ -480,6 +480,7 @@ struct HTMLMediaElement::CueData {
 };
 
 class PausableIntervalTimer final : public TimerBase {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(PausableIntervalTimer);
 public:
     PausableIntervalTimer(Seconds interval, Function<void()>&& function)
         : m_interval { interval }
@@ -3031,7 +3032,7 @@ Expected<void, MediaPlaybackDenialReason> HTMLMediaElement::canTransitionFromAut
         ALWAYS_LOG(LOGIDENTIFIER, "pausedForUserInteraction");
         return makeUnexpected(MediaPlaybackDenialReason::PageConsentRequired);
     }
-    if (document().isSandboxed(SandboxAutomaticFeatures)) {
+    if (document().isSandboxed(SandboxFlag::AutomaticFeatures)) {
         ALWAYS_LOG(LOGIDENTIFIER, "isSandboxed");
         return makeUnexpected(MediaPlaybackDenialReason::PageConsentRequired);
     }
@@ -4093,6 +4094,8 @@ ExceptionOr<void> HTMLMediaElement::setCurrentTimeForBindings(double time)
     if (m_mediaController)
         return Exception { ExceptionCode::InvalidStateError };
 
+    time = clampTo(time, 0.0);
+
     if (m_readyState == HAVE_NOTHING || !m_player) {
         m_defaultPlaybackStartPosition = MediaTime::createWithDouble(time);
         return { };
@@ -4861,8 +4864,11 @@ void HTMLMediaElement::scheduleTimeupdateEvent(bool periodicEvent)
     Seconds timedelta = now - m_clockTimeAtLastUpdateEvent;
 
     // throttle the periodic events
-    if (periodicEvent && timedelta < maxTimeupdateEventFrequency)
+    if (periodicEvent && timedelta < maxTimeupdateEventFrequency) {
+        // Reschedule the timer to fire at the correct time, ensuring that no full cycles are skipped
+        m_playbackProgressTimer.start(maxTimeupdateEventFrequency - timedelta, maxTimeupdateEventFrequency);
         return;
+    }
 
     // Some media engines make multiple "time changed" callbacks at the same time, but we only want one
     // event at a given time so filter here
@@ -9872,19 +9878,6 @@ void HTMLMediaElement::watchtimeTimerFired()
         audioCodecDictionary.set(DiagnosticLoggingKeys::secondsKey(), numberOfSeconds);
         page->diagnosticLoggingClient().logDiagnosticMessageWithValueDictionary(DiagnosticLoggingKeys::mediaAudioCodecWatchTimeKey(), "Media Watchtime Interval By Audio Codec"_s, audioCodecDictionary, ShouldSample::Yes);
     }();
-}
-
-std::optional<SpatialVideoMetadata> HTMLMediaElement::spatialVideoMetadata() const
-{
-    RefPtr videoTracks = this->videoTracks();
-    if (!videoTracks)
-        return { };
-
-    RefPtr selectedVideoTrack = videoTracks->selectedItem();
-    if (!selectedVideoTrack)
-        return { };
-
-    return selectedVideoTrack->configuration().spatialVideoMetadata();
 }
 
 } // namespace WebCore

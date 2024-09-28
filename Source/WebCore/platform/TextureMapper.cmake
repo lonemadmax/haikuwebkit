@@ -52,12 +52,15 @@ if (USE_COORDINATED_GRAPHICS)
         "${WEBCORE_DIR}/platform/graphics/texmap/coordinated"
     )
     list(APPEND WebCore_SOURCES
-        platform/graphics/texmap/TextureMapperPlatformLayerBuffer.cpp
         platform/graphics/texmap/TextureMapperPlatformLayerProxy.cpp
         platform/graphics/texmap/TextureMapperPlatformLayerProxyGL.cpp
 
         platform/graphics/texmap/coordinated/CoordinatedBackingStore.cpp
         platform/graphics/texmap/coordinated/CoordinatedGraphicsLayer.cpp
+        platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferExternalOES.cpp
+        platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferHolePunch.cpp
+        platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferRGB.cpp
+        platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferYUV.cpp
         platform/graphics/texmap/coordinated/Tile.cpp
         platform/graphics/texmap/coordinated/TiledBackingStore.cpp
     )
@@ -68,6 +71,18 @@ if (USE_COORDINATED_GRAPHICS)
         platform/graphics/texmap/coordinated/TiledBackingStore.h
         platform/graphics/texmap/coordinated/TiledBackingStoreClient.h
     )
+
+    if (USE_GSTREAMER)
+        list(APPEND WebCore_SOURCES
+            platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferVideo.cpp
+        )
+    endif ()
+
+    if (USE_GBM)
+        list(APPEND WebCore_SOURCES
+            platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferDMABuf.cpp
+        )
+    endif ()
 
     if (USE_CAIRO)
         list(APPEND WebCore_SOURCES
@@ -159,6 +174,7 @@ endif ()
 
 if (USE_GBM)
     list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+        platform/graphics/gbm/DMABufBuffer.h
         platform/graphics/gbm/DMABufColorSpace.h
         platform/graphics/gbm/DMABufEGLUtilities.h
         platform/graphics/gbm/DMABufFormat.h

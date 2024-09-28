@@ -43,3 +43,6 @@
 #import <WebKit/_WKThumbnailView.h>
 #import <WebKit/_WKVisitedLinkStore.h>
 #import <WebKit/_WKWebPushAction.h>
+#import <WebKit/_WKWebPushDaemonConnection.h>
+#import <WebKit/_WKWebPushMessage.h>
+#import <WebKit/_WKWebPushSubscriptionData.h>

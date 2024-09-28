@@ -601,6 +601,7 @@ animation/FrameRateAligner.cpp
 animation/KeyframeEffect.cpp
 animation/KeyframeEffectStack.cpp
 animation/KeyframeInterpolation.cpp
+animation/ScrollAxis.cpp
 animation/ScrollTimeline.cpp
 animation/StyleOriginatedAnimation.cpp
 animation/StyleOriginatedAnimationEvent.cpp
@@ -881,6 +882,7 @@ css/CSSGradientValue.cpp
 css/CSSGridAutoRepeatValue.cpp
 css/CSSGridIntegerRepeatValue.cpp
 css/CSSGridLineNamesValue.cpp
+css/CSSGridLineValue.cpp
 css/CSSGridTemplateAreasValue.cpp
 css/CSSGroupingRule.cpp
 css/CSSImageSetOptionValue.cpp
@@ -896,6 +898,7 @@ css/CSSMarkup.cpp
 css/CSSMediaRule.cpp
 css/CSSNamedImageValue.cpp
 css/CSSNamespaceRule.cpp
+css/CSSNestedDeclarations.cpp
 css/CSSOffsetRotateValue.cpp
 css/CSSPageRule.cpp
 css/CSSPaintImageValue.cpp
@@ -1034,6 +1037,7 @@ css/parser/CSSPropertyParserConsumer+Resolution.cpp
 css/parser/CSSPropertyParserConsumer+String.cpp
 css/parser/CSSPropertyParserConsumer+Symbol.cpp
 css/parser/CSSPropertyParserConsumer+Time.cpp
+css/parser/CSSPropertyParserConsumer+Timeline.cpp
 css/parser/CSSPropertyParserConsumer+TimingFunction.cpp
 css/parser/CSSPropertyParserConsumer+Transform.cpp
 css/parser/CSSPropertyParserConsumer+URL.cpp
@@ -1188,6 +1192,7 @@ dom/FormDataEvent.cpp
 dom/FragmentDirectiveGenerator.cpp
 dom/FragmentDirectiveRangeFinder.cpp
 dom/FragmentDirectiveParser.cpp
+dom/FragmentDirectiveUtilities.cpp
 dom/FullscreenManager.cpp
 dom/GCReachableRef.cpp
 dom/HashChangeEvent.cpp
@@ -2953,6 +2958,7 @@ rendering/svg/SVGRenderSupport.cpp
 rendering/svg/SVGRenderTreeAsText.cpp
 rendering/svg/SVGRenderingContext.cpp
 rendering/svg/SVGRootInlineBox.cpp
+rendering/svg/SVGTextBoxPainter.cpp
 rendering/svg/SVGTextChunk.cpp
 rendering/svg/SVGTextChunkBuilder.cpp
 rendering/svg/SVGTextLayoutAttributes.cpp
@@ -3414,6 +3420,7 @@ JSCSSLayerBlockRule.cpp
 JSCSSLayerStatementRule.cpp
 JSCSSMediaRule.cpp
 JSCSSNamespaceRule.cpp
+JSCSSNestedDeclarations.cpp
 JSCSSPageRule.cpp
 JSCSSPaintCallback.cpp
 JSCSSPaintSize.cpp

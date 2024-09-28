@@ -96,6 +96,9 @@ RefPtr<ViewTransition> ViewTransition::resolveInboundCrossDocumentViewTransition
     if (!inboundViewTransitionParams)
         return nullptr;
 
+    if (MonotonicTime::now() - inboundViewTransitionParams->startTime > defaultTimeout)
+        return nullptr;
+
     if (document.activeViewTransition())
         return nullptr;
 
@@ -215,13 +218,14 @@ void ViewTransition::callUpdateCallback()
 
     ASSERT(m_phase < ViewTransitionPhase::UpdateCallbackCalled || m_phase == ViewTransitionPhase::Done);
 
+    if (m_phase != ViewTransitionPhase::Done)
+        m_phase = ViewTransitionPhase::UpdateCallbackCalled;
+
+    if (!m_shouldCallUpdateCallback)
+        return;
+
     Ref document = *this->document();
     RefPtr<DOMPromise> callbackPromise;
-    if (!m_shouldCallUpdateCallback) {
-        if (m_phase != ViewTransitionPhase::Done)
-            m_phase = ViewTransitionPhase::UpdateCallbackCalled;
-        return;
-    }
 
     if (!m_updateCallback) {
         auto promiseAndWrapper = createPromiseAndWrapper(document);
@@ -240,9 +244,6 @@ void ViewTransition::callUpdateCallback()
             callbackPromise = WTFMove(promiseAndWrapper.first);
         }
     }
-
-    if (m_phase != ViewTransitionPhase::Done)
-        m_phase = ViewTransitionPhase::UpdateCallbackCalled;
 
     callbackPromise->whenSettled([this, weakThis = WeakPtr { *this }, callbackPromise] () mutable {
         RefPtr protectedThis = weakThis.get();
@@ -269,7 +270,7 @@ void ViewTransition::callUpdateCallback()
         }
     });
 
-    m_updateCallbackTimeout = protectedDocument()->checkedEventLoop()->scheduleTask(4_s, TaskSource::DOMManipulation, [this, weakThis = WeakPtr { *this }] {
+    m_updateCallbackTimeout = protectedDocument()->checkedEventLoop()->scheduleTask(defaultTimeout, TaskSource::DOMManipulation, [this, weakThis = WeakPtr { *this }] {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;

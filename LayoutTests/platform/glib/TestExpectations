@@ -103,6 +103,7 @@ fast/images/jpegxl-as-image.html [ Pass ]
 fast/images/jpegxl-image-decoding.html [ Pass ]
 fast/images/jpegxl-with-color-profile.html [ Pass ]
 fast/images/animated-jpegxl-loop-count.html [ Pass ]
+fast/images/image-size-unsigned-overflow.html [ Skip ]
 
 # Some Apple ports don't support RTL scrollbars.
 fast/scrolling/rtl-scrollbars-alternate-body-dir-attr-does-not-update-scrollbar-placement-2.html [ Pass ]
@@ -388,7 +389,7 @@ media/media-source/media-source-play-zero-playbackrate.html [ Pass ]
 
 # Test was flaky already before 263317 but it does "enhance its flakyness"
 webkit.org/b/263317 media/video-played-collapse.html [ Failure Pass ]
-webkit.org/b/263317 media/media-source/media-controller-media-source-play-then-pause.html [ Pass Timeout ]
+webkit.org/b/263317 media/media-source/media-controller-media-source-play-then-pause.html [ Crash Pass Timeout ]
 webkit.org/b/263317 media/media-source/media-source-seek-and-play.html [ Pass Timeout ]
 
 # NOTIFICATION_EVENT tests
@@ -1080,6 +1081,7 @@ webkit.org/b/177294 fast/text/fitzpatrick-combination.html [ ImageOnlyFailure ]
 webkit.org/b/254520 media/video-ended-event-negative-playback.html [ Failure Timeout Pass ]
 webkit.org/b/254519 media/media-continues-playing-after-replace-source.html [ Failure Pass ]
 webkit.org/b/254518 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/autoplay-allowed-by-feature-policy.https.sub.html [ Crash Failure Timeout Pass ]
+webkit.org/b/278913 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/seeking/seek-to-max-value.htm [ Failure ]
 webkit.org/b/254521 imported/w3c/web-platform-tests/media-source/mediasource-getvideoplaybackquality.html [ Pass Failure ]
 webkit.org/b/262986 imported/w3c/web-platform-tests/media-source/mediasource-detach.html [ Pass Crash ]
 webkit.org/b/254522 media/video-volume.html [ Pass Failure ]
@@ -2140,7 +2142,7 @@ webkit.org/b/79203 fast/mediastream/RTCPeerConnection-inspect-offer-bundlePolicy
 webkit.org/b/79203 fast/mediastream/RTCPeerConnection-stats.html [ Timeout Crash ]
 webkit.org/b/79203 fast/mediastream/video-srcObject-fit-fill.html [ Pass Timeout ]
 webkit.org/b/230415 fast/mediastream/RTCPeerConnection-iceconnectionstatechange-event.html [ Timeout ]
-webkit.org/b/187603 fast/mediastream/media-stream-track-source-failure.html [ Timeout Failure Pass ]
+webkit.org/b/187603 fast/mediastream/media-stream-track-source-failure.html [ Crash Timeout Failure Pass ]
 
 webkit.org/b/264803 fast/mediastream/mediastreamtrack-video-resize-event.html [ Failure ]
 
@@ -2382,6 +2384,9 @@ http/tests/webrtc/muted-video-mediastream-invisible-autoplay.html [ Failure Time
 
 # Lack of AudioSession category
 http/wpt/mediasession/setCaptureState-audio-category.html [ Skip ]
+
+# Lack of voice activity detection mock
+http/wpt/mediasession/voiceActivityDetection.html [ Skip ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of WebRTC-related bugs
@@ -3474,6 +3479,8 @@ http/tests/media/video-preload.html [ Pass Slow ]
 
 webkit.org/b/108925 http/tests/media/video-play-stall.html [ Failure Timeout ]
 
+webkit.org/b/132262 http/tests/media/video-redirect.html [ Timeout Pass Crash ]
+
 webkit.org/b/137698 media/video-controls-drag.html [ Timeout ]
 webkit.org/b/113127 media/track/track-prefer-captions.html [ Timeout ]
 
@@ -3730,7 +3737,7 @@ webkit.org/b/252878 imported/w3c/web-platform-tests/wasm/webapi/instantiateStrea
 webkit.org/b/252878 imported/w3c/web-platform-tests/wasm/webapi/instantiateStreaming.any.sharedworker.html [ Failure Pass ]
 webkit.org/b/252878 loader/navigation-policy/should-open-external-urls/subframe-navigated-programatically-by-main-frame.html [ Failure Pass ]
 webkit.org/b/252878 webrtc/multi-video.html [ Failure Pass Timeout ]
-webkit.org/b/252878 webrtc/peer-connection-remote-audio-mute2.html [ Pass Failure ]
+webkit.org/b/252878 webrtc/peer-connection-remote-audio-mute2.html [ Crash Pass Failure ]
 
 # Missing support for UIScriptController.paste()
 fast/forms/input-text-max-length-emojis.html [ Failure ]
