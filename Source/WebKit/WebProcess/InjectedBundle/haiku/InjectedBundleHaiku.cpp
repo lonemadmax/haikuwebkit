@@ -35,6 +35,7 @@ namespace WebKit {
 bool InjectedBundle::initialize(const WebProcessCreationParameters&, RefPtr<API::Object>&& initializationUserData)
 {
     notImplemented();
+    return false;
 }
 
 void InjectedBundle::setBundleParameter(WTF::String const&, std::span<const unsigned char>)

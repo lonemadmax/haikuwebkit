@@ -299,9 +299,12 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         BackForwardList::create(),
         CookieJar::create(storageProvider.copyRef()),
         makeUniqueRef<ProgressTrackerClientHaiku>(this),
-        CompletionHandler<UniqueRef<WebCore::LocalFrameLoaderClient>(WebCore::LocalFrame&)> { [this] (WebCore::LocalFrame&) {
-            return makeUniqueRef<FrameLoaderClientHaiku>(this);
-        } },
+        WebCore::PageConfiguration::LocalMainFrameCreationParameters {
+            CompletionHandler<UniqueRef<WebCore::LocalFrameLoaderClient>(WebCore::LocalFrame&)> { [this] (WebCore::LocalFrame&) {
+                return makeUniqueRef<FrameLoaderClientHaiku>(this);
+            } },
+            WebCore::SandboxFlags {}
+        },
         WebCore::FrameIdentifier::generate(),
         nullptr,
         makeUniqueRef<WebCore::DummySpeechRecognitionProvider>(),
