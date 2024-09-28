@@ -112,9 +112,10 @@ public:
     const WebCore::ResourceResponse& response() const { return m_response; }
 
     NetworkConnectionToWebProcess& connectionToWebProcess() const { return m_connection; }
+    Ref<NetworkConnectionToWebProcess> protectedConnectionToWebProcess() const;
     PAL::SessionID sessionID() const { return m_connection->sessionID(); }
     WebCore::ResourceLoaderIdentifier coreIdentifier() const { return m_parameters.identifier; }
-    WebCore::FrameIdentifier frameID() const { return m_parameters.webFrameID; }
+    WebCore::FrameIdentifier frameID() const { return *m_parameters.webFrameID; }
     WebCore::PageIdentifier pageID() const { return *m_parameters.webPageID; }
     const NetworkResourceLoadParameters& parameters() const { return m_parameters; }
     NetworkResourceLoadIdentifier identifier() const { return m_resourceLoadID; }
@@ -183,6 +184,9 @@ public:
 
 private:
     NetworkResourceLoader(NetworkResourceLoadParameters&&, NetworkConnectionToWebProcess&, CompletionHandler<void(const WebCore::ResourceError&, const WebCore::ResourceResponse, Vector<uint8_t>&&)>&&);
+
+    RefPtr<NetworkCache::Cache> protectedCache() const;
+    RefPtr<ServiceWorkerFetchTask> protectedServiceWorkerFetchTask() const;
 
     // IPC::MessageSender
     IPC::Connection* messageSenderConnection() const override;

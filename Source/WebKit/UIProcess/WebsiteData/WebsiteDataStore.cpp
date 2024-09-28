@@ -99,6 +99,10 @@
 #include "VirtualAuthenticatorManager.h"
 #endif // ENABLE(WEB_AUTHN)
 
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+#include <WebKitAdditions/DownloadProgressAdditions.h>
+#endif
+
 namespace WebKit {
 
 static bool allowsWebsiteDataRecordsForAllOrigins;
@@ -1347,7 +1351,7 @@ void WebsiteDataStore::setStorageAccessPromptQuirkForTesting(String&& topFrameDo
     } };
 
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
-    StorageAccessPromptQuirkController::shared().setCachedQuirksForTesting(WTFMove(quirk));
+    StorageAccessPromptQuirkController::shared().setCachedListDataForTesting(WTFMove(quirk));
 #else
     protectedNetworkProcess()->send(Messages::NetworkProcess::UpdateStorageAccessPromptQuirks(WTFMove(quirk)), 0);
 #endif
@@ -1872,7 +1876,7 @@ void WebsiteDataStore::didAllowPrivateTokenUsageByThirdPartyForTesting(bool wasA
 void WebsiteDataStore::setUserAgentStringQuirkForTesting(const String& domain, const String& userAgentString, CompletionHandler<void()>&& completionHandler)
 {
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
-    StorageAccessUserAgentStringQuirkController::shared().setCachedQuirksForTesting({ { WebCore::RegistrableDomain::uncheckedCreateFromHost(domain), userAgentString } });
+    StorageAccessUserAgentStringQuirkController::shared().setCachedListDataForTesting({ { WebCore::RegistrableDomain::uncheckedCreateFromHost(domain), userAgentString } });
 #endif
     completionHandler();
 }
@@ -2281,6 +2285,11 @@ std::optional<double> WebsiteDataStore::defaultTotalQuotaRatio()
 
 #endif // !PLATFORM(COCOA)
 
+Ref<WebCore::LocalWebLockRegistry> WebsiteDataStore::protectedWebLockRegistry()
+{
+    return m_webLockRegistry;
+}
+
 void WebsiteDataStore::renameOriginInWebsiteData(WebCore::SecurityOriginData&& oldOrigin, WebCore::SecurityOriginData&& newOrigin, OptionSet<WebsiteDataType> dataTypes, CompletionHandler<void()>&& completionHandler)
 {
     protectedNetworkProcess()->renameOriginInWebsiteData(m_sessionID, oldOrigin, newOrigin, dataTypes, WTFMove(completionHandler));
@@ -2508,7 +2517,12 @@ void WebsiteDataStore::resumeDownload(const DownloadProxy& downloadProxy, const 
             sandboxExtensionHandle = WTFMove(*handle);
     }
 
-    protectedNetworkProcess()->send(Messages::NetworkProcess::ResumeDownload(m_sessionID, downloadProxy.downloadID(), resumeData.span(), path, WTFMove(sandboxExtensionHandle), callDownloadDidStart), 0);
+    Vector<uint8_t> downloadProgressAccessToken;
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+    downloadProgressAccessToken = activityAccessToken();
+#endif
+
+    protectedNetworkProcess()->send(Messages::NetworkProcess::ResumeDownload(m_sessionID, downloadProxy.downloadID(), resumeData.span(), path, WTFMove(sandboxExtensionHandle), callDownloadDidStart, downloadProgressAccessToken.span()), 0);
 }
 
 bool WebsiteDataStore::hasActivePages()

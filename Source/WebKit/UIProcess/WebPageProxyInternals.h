@@ -219,7 +219,7 @@ struct WebPageProxy::Internals final : WebPopupMenuProxy::Client
 public:
     virtual ~Internals();
 
-    WebPageProxy& page;
+    WeakRef<WebPageProxy> page;
     OptionSet<WebCore::ActivityState> activityState;
     RunLoop::Timer audibleActivityTimer;
     std::optional<WebCore::Color> backgroundColor;
@@ -269,7 +269,6 @@ public:
     std::optional<WebCore::FloatSize> viewportSizeForCSSViewportUnits;
     VisibleWebPageToken visiblePageToken;
     WebCore::IntRect visibleScrollerThumbRect;
-    WebCore::PageIdentifier webPageID;
     WindowKind windowKind { WindowKind::Unparented };
     std::unique_ptr<ProcessThrottlerActivity> pageAllowedToRunInTheBackgroundActivityDueToTitleChanges;
     std::unique_ptr<ProcessThrottlerActivity> pageAllowedToRunInTheBackgroundActivityDueToNotifications;
@@ -383,6 +382,8 @@ public:
 
     explicit Internals(WebPageProxy&);
 
+    Ref<WebPageProxy> protectedPage() const;
+
     SpeechSynthesisData& speechSynthesisData();
 
     // WebPopupMenuProxy::Client
@@ -445,7 +446,7 @@ public:
     void externalOutputDeviceAvailableDidChange(WebCore::PlaybackTargetClientContextIdentifier, bool) final;
     void setShouldPlayToPlaybackTarget(WebCore::PlaybackTargetClientContextIdentifier, bool) final;
     void playbackTargetPickerWasDismissed(WebCore::PlaybackTargetClientContextIdentifier) final;
-    bool alwaysOnLoggingAllowed() const final { return page.sessionID().isAlwaysOnLoggingAllowed(); }
+    bool alwaysOnLoggingAllowed() const final { return protectedPage()->sessionID().isAlwaysOnLoggingAllowed(); }
     RetainPtr<PlatformView> platformView() const final;
 #endif
 };

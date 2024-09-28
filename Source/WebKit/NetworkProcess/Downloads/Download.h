@@ -84,7 +84,7 @@ public:
 
     ~Download();
 
-    void resume(std::span<const uint8_t> resumeData, const String& path, SandboxExtension::Handle&&);
+    void resume(std::span<const uint8_t> resumeData, const String& path, SandboxExtension::Handle&&, std::span<const uint8_t> activityAccessToken);
     enum class IgnoreDidFailCallback : bool { No, Yes };
     void cancel(CompletionHandler<void(std::span<const uint8_t>)>&&, IgnoreDidFailCallback);
 #if PLATFORM(COCOA)
@@ -92,7 +92,9 @@ public:
 #endif
 
 #if HAVE(MODERN_DOWNLOADPROGRESS)
-    void publishProgress(const URL&, std::span<const uint8_t>, WebKit::UseDownloadPlaceholder);
+    void publishProgress(const URL&, std::span<const uint8_t>, WebKit::UseDownloadPlaceholder, std::span<const uint8_t>);
+    void setPlaceholderURL(NSURL *, NSData *);
+    void setFinalURL(NSURL *, NSData *);
 #endif
 
     DownloadID downloadID() const { return m_downloadID; }
@@ -118,6 +120,12 @@ private:
 
     void platformCancelNetworkLoad(CompletionHandler<void(std::span<const uint8_t>)>&&);
     void platformDestroyDownload();
+    void platformDidFinish(CompletionHandler<void()>&&);
+
+#if HAVE(MODERN_DOWNLOADPROGRESS)
+    void startUpdatingProgress() const;
+    static Vector<uint8_t> updateResumeDataWithPlaceholderURL(NSURL *, std::span<const uint8_t> resumeData);
+#endif
 
     CheckedRef<DownloadManager> m_downloadManager;
     DownloadID m_downloadID;
@@ -130,10 +138,11 @@ private:
 #if PLATFORM(COCOA)
     RetainPtr<NSURLSessionDownloadTask> m_downloadTask;
     RetainPtr<NSProgress> m_progress;
-#endif
+    RetainPtr<NSURL> m_placeholderURL;
 #if HAVE(MODERN_DOWNLOADPROGRESS)
     RetainPtr<NSData> m_bookmarkData;
     RetainPtr<NSURL> m_bookmarkURL;
+#endif
 #endif
     PAL::SessionID m_sessionID;
     bool m_hasReceivedData { false };

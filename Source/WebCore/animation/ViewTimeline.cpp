@@ -26,12 +26,14 @@
 #include "config.h"
 #include "ViewTimeline.h"
 
+#include "AnimationTimelinesController.h"
 #include "CSSNumericFactory.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSUnits.h"
 #include "CSSValuePool.h"
 #include "CSSViewValue.h"
+#include "Document.h"
 #include "Element.h"
 #include "StyleBuilderConverter.h"
 
@@ -76,6 +78,8 @@ ViewTimeline::ViewTimeline(ViewTimelineOptions&& options)
     , m_startOffset(CSSNumericFactory::px(0))
     , m_endOffset(CSSNumericFactory::px(0))
 {
+    if (m_subject)
+        m_subject->protectedDocument()->ensureTimelinesController().addTimeline(*this);
 }
 
 ViewTimeline::ViewTimeline(const AtomString& name, ScrollAxis axis, ViewTimelineInsets&& insets)
@@ -119,6 +123,20 @@ Ref<CSSValue> ViewTimeline::toCSSValue(const RenderStyle& style) const
         insetCSSValue(m_insets.start),
         insetCSSValue(m_insets.end)
     );
+}
+
+AnimationTimelinesController* ViewTimeline::controller() const
+{
+    if (m_subject)
+        return &m_subject->document().ensureTimelinesController();
+    return nullptr;
+}
+
+AnimationTimeline::ShouldUpdateAnimationsAndSendEvents ViewTimeline::documentWillUpdateAnimationsAndSendEvents()
+{
+    if (m_subject && m_subject->isConnected())
+        return AnimationTimeline::ShouldUpdateAnimationsAndSendEvents::Yes;
+    return AnimationTimeline::ShouldUpdateAnimationsAndSendEvents::No;
 }
 
 } // namespace WebCore

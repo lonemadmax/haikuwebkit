@@ -44,6 +44,7 @@
 #import "ResourceLoadInfo.h"
 #import "WKNavigationActionPrivate.h"
 #import "WKNavigationDelegatePrivate.h"
+#import "WKOpenPanelParametersPrivate.h"
 #import "WKPreferencesPrivate.h"
 #import "WKUIDelegatePrivate.h"
 #import "WKWebExtensionContextInternal.h"
@@ -78,6 +79,7 @@
 #import "_WKWebExtensionLocalization.h"
 #import "_WKWebExtensionRegisteredScriptsSQLiteStore.h"
 #import "_WKWebExtensionStorageSQLiteStore.h"
+#import <UniformTypeIdentifiers/UTType.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/UserScript.h>
 #import <pal/spi/cocoa/NSKeyedUnarchiverSPI.h>
@@ -172,6 +174,18 @@ static constexpr NSInteger currentDeclarativeNetRequestRuleTranslatorVersion = 1
 
     _webExtensionContext->webViewWebContentProcessDidTerminate(webView);
 }
+
+#if PLATFORM(MAC)
+- (void)webView:(WKWebView *)webView runOpenPanelWithParameters:(WKOpenPanelParameters *)parameters initiatedByFrame:(WKFrameInfo *)frame completionHandler:(void (^)(NSArray<NSURL *> *URLs))completionHandler
+{
+    if (!_webExtensionContext) {
+        completionHandler(nil);
+        return;
+    }
+
+    _webExtensionContext->runOpenPanel(webView, parameters, completionHandler);
+}
+#endif // PLATFORM(MAC)
 
 @end
 
@@ -592,6 +606,13 @@ void WebExtensionContext::setUniqueIdentifier(String&& uniqueIdentifier)
         uniqueIdentifier = WTF::UUID::createVersion4().toString();
 
     m_uniqueIdentifier = uniqueIdentifier;
+}
+
+_WKWebExtensionLocalization *WebExtensionContext::localization()
+{
+    if (!m_localization)
+        m_localization = [[_WKWebExtensionLocalization alloc] initWithLocalizedDictionary:extension().localization().localizationDictionary uniqueIdentifier:baseURL().host().toString()];
+    return m_localization.get();
 }
 
 void WebExtensionContext::setInspectable(bool inspectable)
@@ -3070,6 +3091,10 @@ void WebExtensionContext::userGesturePerformed(WebExtensionTab& tab)
     RefPtr pattern = WebExtensionMatchPattern::getOrCreate(currentURL);
     tab.setTemporaryPermissionMatchPattern(pattern.copyRef());
 
+    // FIXME: <https://webkit.org/b/279287> permissionsDidChange should include a tab parameter for this use-case
+    if (pattern)
+        permissionsDidChange(WKWebExtensionContextPermissionMatchPatternsWereGrantedNotification, MatchPatternSet { *pattern });
+
     // Fire the updated event now that the extension has permission to see the URL and title.
     didChangeTabProperties(tab, { WebExtensionTab::ChangedProperties::URL, WebExtensionTab::ChangedProperties::Title });
 }
@@ -3089,8 +3114,14 @@ void WebExtensionContext::clearUserGesture(WebExtensionTab& tab)
     if (!isLoaded())
         return;
 
+    RefPtr oldTemporaryPermissionMatchPattern = tab.temporaryPermissionMatchPattern();
+
     tab.setActiveUserGesture(false);
     tab.setTemporaryPermissionMatchPattern(nullptr);
+
+    // FIXME: <https://webkit.org/b/279287> permissionsDidChange should include a tab parameter for this use-case
+    if (oldTemporaryPermissionMatchPattern)
+        permissionsDidChange(WKWebExtensionContextGrantedPermissionMatchPatternsWereRemovedNotification, MatchPatternSet { *oldTemporaryPermissionMatchPattern });
 }
 
 std::optional<WebCore::PageIdentifier> WebExtensionContext::backgroundPageIdentifier() const
@@ -3239,7 +3270,7 @@ WKWebView *WebExtensionContext::relatedWebView()
 NSString *WebExtensionContext::processDisplayName()
 {
 ALLOW_NONLITERAL_FORMAT_BEGIN
-    return [NSString localizedStringWithFormat:WEB_UI_STRING("%@ Web Extension", "Extension's process name that appears in Activity Monitor where the parameter is the name of the extension"), extension().displayShortName()];
+    return [NSString localizedStringWithFormat:WEB_UI_STRING("%@ Web Extension", "Extension's process name that appears in Activity Monitor where the parameter is the name of the extension"), static_cast<NSString *>(extension().displayShortName())];
 ALLOW_NONLITERAL_FORMAT_END
 }
 
@@ -3446,9 +3477,9 @@ NSString *WebExtensionContext::backgroundWebViewInspectionName()
         return m_backgroundWebViewInspectionName;
 
     if (extension().backgroundContentIsServiceWorker())
-        m_backgroundWebViewInspectionName = WEB_UI_FORMAT_CFSTRING("%@ — Extension Service Worker", "Label for an inspectable Web Extension service worker", (__bridge CFStringRef)extension().displayShortName());
+        m_backgroundWebViewInspectionName = WEB_UI_FORMAT_CFSTRING("%@ — Extension Service Worker", "Label for an inspectable Web Extension service worker", extension().displayShortName().createCFString().get());
     else
-        m_backgroundWebViewInspectionName = WEB_UI_FORMAT_CFSTRING("%@ — Extension Background Page", "Label for an inspectable Web Extension background page", (__bridge CFStringRef)extension().displayShortName());
+        m_backgroundWebViewInspectionName = WEB_UI_FORMAT_CFSTRING("%@ — Extension Background Page", "Label for an inspectable Web Extension background page", extension().displayShortName().createCFString().get());
 
     return m_backgroundWebViewInspectionName;
 }
@@ -3757,6 +3788,24 @@ void WebExtensionContext::webViewWebContentProcessDidTerminate(WKWebView *webVie
 
     ASSERT_NOT_REACHED();
 }
+
+#if PLATFORM(MAC)
+void WebExtensionContext::runOpenPanel(WKWebView *, WKOpenPanelParameters *parameters, void (^completionHandler)(NSArray *URLs))
+{
+    auto *panel = [NSOpenPanel openPanel];
+    panel.allowsMultipleSelection = parameters.allowsMultipleSelection;
+    panel.canChooseDirectories = parameters.allowsDirectories;
+    panel.canChooseFiles = YES;
+
+    panel.allowedContentTypes = WebKit::mapObjects((NSArray *)parameters._allowedFileExtensions, ^(id, NSString *fileExtension) {
+        return [UTType typeWithFilenameExtension:fileExtension];
+    });
+
+    [panel beginWithCompletionHandler:^(NSModalResponse result) {
+        completionHandler(result == NSModalResponseOK ? panel.URLs : nil);
+    }];
+}
+#endif // PLATFORM(MAC)
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
 URL WebExtensionContext::inspectorBackgroundPageURL() const
@@ -4673,7 +4722,7 @@ void WebExtensionContext::setSessionStorageAllowedInContentScripts(bool allowed)
     extensionController()->sendToAllProcesses(Messages::WebExtensionContextProxy::SetStorageAccessLevel(allowed), identifier());
 }
 
-size_t WebExtensionContext::quoataForStorageType(WebExtensionDataType storageType)
+size_t WebExtensionContext::quotaForStorageType(WebExtensionDataType storageType)
 {
     switch (storageType) {
     case WebExtensionDataType::Local:

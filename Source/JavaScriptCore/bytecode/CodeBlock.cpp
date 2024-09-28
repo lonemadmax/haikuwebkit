@@ -297,6 +297,9 @@ CodeBlock::CodeBlock(VM& vm, Structure* structure, CopyParsedBlockTag, CodeBlock
     , m_functionDecls(other.m_functionDecls)
     , m_functionExprs(other.m_functionExprs)
     , m_creationTime(ApproximateTime::now())
+#if ASSERT_ENABLED
+    , m_magic(CODEBLOCK_MAGIC)
+#endif
 {
     ASSERT(heap()->isDeferred());
     ASSERT(m_scopeRegister.isLocal());
@@ -344,6 +347,9 @@ CodeBlock::CodeBlock(VM& vm, Structure* structure, ScriptExecutable* ownerExecut
     , m_instructionsRawPointer(unlinkedCodeBlock->instructions().rawPointer())
     , m_metadata(unlinkedCodeBlock->metadata().link())
     , m_creationTime(ApproximateTime::now())
+#if ASSERT_ENABLED
+    , m_magic(CODEBLOCK_MAGIC)
+#endif
 {
     ASSERT(heap()->isDeferred());
     ASSERT(m_scopeRegister.isLocal());
@@ -517,12 +523,14 @@ bool CodeBlock::finishCreation(VM& vm, ScriptExecutable* ownerExecutable, Unlink
         LINK(OpTailCall, callLinkInfo)
         LINK(OpCallDirectEval, callLinkInfo)
         LINK(OpConstruct, callLinkInfo)
+        LINK(OpSuperConstruct, callLinkInfo)
         LINK(OpIteratorOpen, callLinkInfo)
         LINK(OpIteratorNext, callLinkInfo)
         LINK(OpCallVarargs, callLinkInfo)
         LINK(OpTailCallVarargs, callLinkInfo)
         LINK(OpTailCallForwardArguments, callLinkInfo)
         LINK(OpConstructVarargs, callLinkInfo)
+        LINK(OpSuperConstructVarargs, callLinkInfo)
         LINK(OpCallIgnoreResult, callLinkInfo)
 
         case op_new_array_with_species: {
@@ -1488,7 +1496,7 @@ void CodeBlock::finalizeLLIntInlineCaches()
             metadata.m_toThisStatus = merge(metadata.m_toThisStatus, ToThisClearedByGC);
         });
 
-        auto handleCreateBytecode = [&] (auto& metadata, ASCIILiteral name) {
+        auto clearCachedCalleeIfNecessary = [&](auto& metadata, ASCIILiteral name) {
             auto& cacheWriteBarrier = metadata.m_cachedCallee;
             if (!cacheWriteBarrier || cacheWriteBarrier.unvalidatedGet() == JSCell::seenMultipleCalleeObjects())
                 return;
@@ -1499,17 +1507,23 @@ void CodeBlock::finalizeLLIntInlineCaches()
             cacheWriteBarrier.clear();
         };
 
-        m_metadata->forEach<OpCreateThis>([&] (auto& metadata) {
-            handleCreateBytecode(metadata, "op_create_this"_s);
+        m_metadata->forEach<OpCreateThis>([&](auto& metadata) {
+            clearCachedCalleeIfNecessary(metadata, "op_create_this"_s);
         });
-        m_metadata->forEach<OpCreatePromise>([&] (auto& metadata) {
-            handleCreateBytecode(metadata, "op_create_promise"_s);
+        m_metadata->forEach<OpCreatePromise>([&](auto& metadata) {
+            clearCachedCalleeIfNecessary(metadata, "op_create_promise"_s);
         });
-        m_metadata->forEach<OpCreateGenerator>([&] (auto& metadata) {
-            handleCreateBytecode(metadata, "op_create_generator"_s);
+        m_metadata->forEach<OpCreateGenerator>([&](auto& metadata) {
+            clearCachedCalleeIfNecessary(metadata, "op_create_generator"_s);
         });
-        m_metadata->forEach<OpCreateAsyncGenerator>([&] (auto& metadata) {
-            handleCreateBytecode(metadata, "op_create_async_generator"_s);
+        m_metadata->forEach<OpCreateAsyncGenerator>([&](auto& metadata) {
+            clearCachedCalleeIfNecessary(metadata, "op_create_async_generator"_s);
+        });
+        m_metadata->forEach<OpSuperConstruct>([&](auto& metadata) {
+            clearCachedCalleeIfNecessary(metadata, "op_super_construct"_s);
+        });
+        m_metadata->forEach<OpSuperConstructVarargs>([&](auto& metadata) {
+            clearCachedCalleeIfNecessary(metadata, "op_super_construct_varargs"_s);
         });
 
         m_metadata->forEach<OpResolveScope>([&] (auto& metadata) {
@@ -1691,7 +1705,13 @@ void CodeBlock::finalizeUnconditionally(VM& vm, CollectionScope)
 
 void CodeBlock::destroy(JSCell* cell)
 {
-    static_cast<CodeBlock*>(cell)->~CodeBlock();
+    auto cb = static_cast<CodeBlock*>(cell);
+    ASSERT(!cb->wasDestructed());
+    cb->~CodeBlock();
+#if ASSERT_ENABLED
+    cb->m_magic = 0;
+#endif
+    ASSERT(cb->wasDestructed());
 }
 
 void CodeBlock::getICStatusMap(const ConcurrentJSLocker&, ICStatusMap& result)
@@ -1755,37 +1775,6 @@ StructureStubInfo* CodeBlock::findStubInfo(CodeOrigin codeOrigin)
         return IterationStatus::Continue;
     });
     return result;
-}
-
-void CodeBlock::resetBaselineJITData()
-{
-    RELEASE_ASSERT(!JITCode::isJIT(jitType()));
-    ConcurrentJSLocker locker(m_lock);
-    
-    if (auto* jitData = baselineJITData()) {
-        // We can clear these because no other thread will have references to any stub infos, call
-        // link infos, or by val infos if we don't have JIT code. Attempts to query these data
-        // structures using the concurrent API (getICStatusMap and friends) will return nothing if we
-        // don't have JIT code. So it's safe to call this if we fail a baseline JIT compile.
-        //
-        // We also call this from finalizeUnconditionally when we degrade from baseline JIT to LLInt
-        // code. This is safe to do since all compiler threads are safepointed in finalizeUnconditionally,
-        // which means we've made it past bytecode parsing. Only the bytecode parser will hold onto
-        // references to these various *infos via its use of ICStatusMap. Also, OSR exit might point to
-        // these *infos, but when we have an OSR exit linked to this CodeBlock, we won't downgrade
-        // to LLInt.
-
-        for (auto& stubInfo : jitData->stubInfos()) {
-            stubInfo.aboutToDie();
-            stubInfo.deref();
-        }
-
-        // We can clear this because the DFG's queries to these data structures are guarded by whether
-        // there is JIT code.
-
-        m_jitData = nullptr;
-        delete jitData;
-    }
 }
 #endif
 

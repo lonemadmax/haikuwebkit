@@ -693,10 +693,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     animation/AcceleratedTimeline.h
     animation/AnimationFrameRatePreset.h
     animation/AnimationTimeline.h
+    animation/AnimationTimelinesController.h
+    animation/CSSNumberishTime.h
     animation/CSSPropertyBlendingClient.h
     animation/CustomAnimationOptions.h
     animation/CompositeOperation.h
-    animation/DocumentTimelinesController.h
     animation/EffectTiming.h
     animation/FillMode.h
     animation/FrameRateAligner.h
@@ -1017,6 +1018,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     dom/FocusOptions.h
     dom/FragmentDirectiveParser.h
     dom/FragmentDirectiveRangeFinder.h
+    dom/FragmentDirectiveUtilities.h
     dom/FullscreenManager.h
     dom/GCReachableRef.h
     dom/GetHTMLOptions.h
@@ -1828,6 +1830,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/SharedMemory.h
     platform/SharedStringHash.h
     platform/SimpleCaretAnimator.h
+    platform/Site.h
     platform/SleepDisabler.h
     platform/SleepDisablerClient.h
     platform/SleepDisablerIdentifier.h

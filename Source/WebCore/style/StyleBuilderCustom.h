@@ -257,7 +257,7 @@ inline void BuilderCustom::applyInitialTextIndent(BuilderState& builderState)
 
 inline void BuilderCustom::applyValueTextIndent(BuilderState& builderState, CSSValue& value)
 {
-    Length lengthOrPercentageValue;
+    Length lengthPercentageValue;
     TextIndentLine textIndentLineValue = RenderStyle::initialTextIndentLine();
     TextIndentType textIndentTypeValue = RenderStyle::initialTextIndentType();
 
@@ -265,7 +265,7 @@ inline void BuilderCustom::applyValueTextIndent(BuilderState& builderState, CSSV
         for (auto& item : *valueList) {
             auto& primitiveValue = downcast<CSSPrimitiveValue>(item);
             if (!primitiveValue.valueID())
-                lengthOrPercentageValue = primitiveValue.convertToLength<FixedIntegerConversion | PercentConversion | CalculatedConversion>(builderState.cssToLengthConversionData());
+                lengthPercentageValue = primitiveValue.convertToLength<FixedIntegerConversion | PercentConversion | CalculatedConversion>(builderState.cssToLengthConversionData());
             else if (primitiveValue.valueID() == CSSValueEachLine)
                 textIndentLineValue = TextIndentLine::EachLine;
             else if (primitiveValue.valueID() == CSSValueHanging)
@@ -273,14 +273,14 @@ inline void BuilderCustom::applyValueTextIndent(BuilderState& builderState, CSSV
         }
     } else if (auto* primitiveValue = dynamicDowncast<CSSPrimitiveValue>(value)) {
         // Values coming from CSSTypedOM didn't go through the parser and may not have been converted to a CSSValueList.
-        lengthOrPercentageValue = primitiveValue->convertToLength<FixedIntegerConversion | PercentConversion | CalculatedConversion>(builderState.cssToLengthConversionData());
+        lengthPercentageValue = primitiveValue->convertToLength<FixedIntegerConversion | PercentConversion | CalculatedConversion>(builderState.cssToLengthConversionData());
     } else
         return;
 
-    if (lengthOrPercentageValue.isUndefined())
+    if (lengthPercentageValue.isUndefined())
         return;
 
-    builderState.style().setTextIndent(WTFMove(lengthOrPercentageValue));
+    builderState.style().setTextIndent(WTFMove(lengthPercentageValue));
     builderState.style().setTextIndentLine(textIndentLineValue);
     builderState.style().setTextIndentType(textIndentTypeValue);
 }
@@ -1145,7 +1145,9 @@ inline void BuilderCustom::applyValueCursor(BuilderState& builderState, CSSValue
     auto& list = downcast<CSSValueList>(value);
     for (auto& item : list) {
         if (auto* image = dynamicDowncast<CSSCursorImageValue>(item)) {
-            builderState.style().addCursor(builderState.createStyleImage(*image), image->hotSpot());
+            auto styleImage = image->createStyleImage(builderState);
+            auto hotSpot = styleImage->hotSpot();
+            builderState.style().addCursor(WTFMove(styleImage), hotSpot);
             continue;
         }
 
@@ -1533,9 +1535,16 @@ inline float BuilderCustom::smallerFontSize(float size)
 
 inline float BuilderCustom::determineRubyTextSizeMultiplier(BuilderState& builderState)
 {
-    if (builderState.style().rubyPosition() != RubyPosition::InterCharacter)
+    if (!builderState.style().isInterCharacterRubyPosition())
         return 0.5f;
 
+    auto rubyPosition = builderState.style().rubyPosition();
+    if (rubyPosition == RubyPosition::InterCharacter) {
+        // If the writing mode of the enclosing ruby container is vertical, 'inter-character' value has the same effect as over.
+        return builderState.parentStyle().isHorizontalWritingMode() ? 0.3f : 0.5f;
+    }
+
+    // Legacy inter-character behavior.
     // FIXME: This hack is to ensure tone marks are the same size as
     // the bopomofo. This code will go away if we make a special renderer
     // for the tone marks eventually.

@@ -33,21 +33,28 @@ namespace IPC {
 enum class ReceiverName : uint8_t {
     TestWithCVPixelBuffer = 1
     , TestWithEnabledBy = 2
-    , TestWithEnabledIf = 3
-    , TestWithIfMessage = 4
-    , TestWithImageData = 5
-    , TestWithLegacyReceiver = 6
-    , TestWithSemaphore = 7
-    , TestWithStream = 8
-    , TestWithStreamBatched = 9
-    , TestWithStreamBuffer = 10
-    , TestWithStreamServerConnectionHandle = 11
-    , TestWithSuperclass = 12
-    , TestWithoutAttributes = 13
-    , TestWithoutUsingIPCConnection = 14
-    , IPC = 15
-    , AsyncReply = 16
-    , Invalid = 17
+    , TestWithEnabledByAndConjunction = 3
+    , TestWithEnabledByOrConjunction = 4
+    , TestWithEnabledIf = 5
+    , TestWithIfMessage = 6
+    , TestWithImageData = 7
+    , TestWithLegacyReceiver = 8
+    , TestWithSemaphore = 9
+    , TestWithStream = 10
+    , TestWithStreamBatched = 11
+    , TestWithStreamBuffer = 12
+    , TestWithStreamServerConnectionHandle = 13
+    , TestWithSuperclass = 14
+    , TestWithSuperclassAndWantsAsyncDispatch = 15
+    , TestWithSuperclassAndWantsDispatch = 16
+    , TestWithWantsAsyncDispatch = 17
+    , TestWithWantsDispatch = 18
+    , TestWithWantsDispatchNoSyncMessages = 19
+    , TestWithoutAttributes = 20
+    , TestWithoutUsingIPCConnection = 21
+    , IPC = 22
+    , AsyncReply = 23
+    , Invalid = 24
 };
 
 enum class MessageName : uint16_t {
@@ -55,6 +62,8 @@ enum class MessageName : uint16_t {
     TestWithCVPixelBuffer_ReceiveCVPixelBuffer,
     TestWithCVPixelBuffer_SendCVPixelBuffer,
 #endif
+    TestWithEnabledByAndConjunction_AlwaysEnabled,
+    TestWithEnabledByOrConjunction_AlwaysEnabled,
     TestWithEnabledBy_AlwaysEnabled,
     TestWithEnabledBy_ConditionallyEnabled,
     TestWithEnabledBy_ConditionallyEnabledAnd,
@@ -111,6 +120,8 @@ enum class MessageName : uint16_t {
 #endif
     TestWithStream_SendString,
     TestWithStream_SendStringAsync,
+    TestWithSuperclassAndWantsAsyncDispatch_LoadURL,
+    TestWithSuperclassAndWantsDispatch_LoadURL,
     TestWithSuperclass_LoadURL,
 #if ENABLE(TEST_FEATURE)
     TestWithSuperclass_TestAsyncMessage,
@@ -118,6 +129,9 @@ enum class MessageName : uint16_t {
     TestWithSuperclass_TestAsyncMessageWithMultipleArguments,
     TestWithSuperclass_TestAsyncMessageWithNoArguments,
 #endif
+    TestWithWantsAsyncDispatch_TestMessage,
+    TestWithWantsDispatchNoSyncMessages_TestMessage,
+    TestWithWantsDispatch_TestMessage,
 #if (ENABLE(TOUCH_EVENTS) && (NESTED_MESSAGE_CONDITION && SOME_OTHER_MESSAGE_CONDITION))
     TestWithoutAttributes_AddEvent,
 #endif
@@ -203,8 +217,12 @@ enum class MessageName : uint16_t {
     TestWithStream_SendAndReceiveMachSendRight,
 #endif
     TestWithStream_SendStringSync,
+    TestWithSuperclassAndWantsAsyncDispatch_TestSyncMessage,
+    TestWithSuperclassAndWantsDispatch_TestSyncMessage,
     TestWithSuperclass_TestSyncMessage,
     TestWithSuperclass_TestSynchronousMessage,
+    TestWithWantsAsyncDispatch_TestSyncMessage,
+    TestWithWantsDispatch_TestSyncMessage,
     TestWithoutAttributes_GetPluginProcessConnection,
     TestWithoutAttributes_TestMultipleAttributes,
     WrappedAsyncMessageForTesting,

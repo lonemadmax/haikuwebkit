@@ -86,8 +86,7 @@ void AssemblyHelpers::decrementSuperSamplerCount()
 void AssemblyHelpers::purifyNaN(FPRReg fpr)
 {
     MacroAssembler::Jump notNaN = branchIfNotNaN(fpr);
-    static const double NaN = PNaN;
-    loadDouble(TrustedImmPtr(&NaN), fpr);
+    move64ToDouble(TrustedImm64(bitwise_cast<uint64_t>(PNaN)), fpr);
     notNaN.link(this);
 }
 
@@ -780,10 +779,15 @@ void AssemblyHelpers::emitNonNullDecodeZeroExtendedStructureID(RegisterID source
 #endif
 }
 
-void AssemblyHelpers::emitLoadStructure(VM&, RegisterID source, RegisterID dest)
+void AssemblyHelpers::emitLoadStructure(RegisterID source, RegisterID dest)
 {
     load32(MacroAssembler::Address(source, JSCell::structureIDOffset()), dest);
     emitNonNullDecodeZeroExtendedStructureID(dest, dest);
+}
+
+void AssemblyHelpers::emitLoadStructure(VM&, RegisterID source, RegisterID dest)
+{
+    emitLoadStructure(source, dest);
 }
 
 void AssemblyHelpers::emitEncodeStructureID(RegisterID source, RegisterID dest)

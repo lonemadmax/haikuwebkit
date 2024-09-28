@@ -77,6 +77,7 @@ struct TileForGridHash {
 template<> struct HashTraits<WebKit::TileForGrid> : GenericHashTraits<WebKit::TileForGrid> {
     static constexpr bool emptyValueIsZero = true;
     static WebKit::TileForGrid emptyValue() { return { HashTraits<WebCore::TileGridIdentifier>::emptyValue(), { 0, 0 } }; }
+    static bool isEmptyValue(const WebKit::TileForGrid& value) { return value.gridIdentifier.isHashTableEmptyValue(); }
     static void constructDeletedValue(WebKit::TileForGrid& tileForGrid) { HashTraits<WebCore::TileGridIdentifier>::constructDeletedValue(tileForGrid.gridIdentifier); }
     static bool isDeletedValue(const WebKit::TileForGrid& tileForGrid) { return tileForGrid.gridIdentifier.isHashTableDeletedValue(); }
 };
@@ -177,6 +178,8 @@ private:
 
     void paintPDFPageIntoBuffer(RetainPtr<PDFDocument>&&, Ref<WebCore::ImageBuffer>, PDFDocumentLayout::PageIndex, const WebCore::FloatRect& pageBounds);
 
+    Ref<ConcurrentWorkQueue> protectedPaintingWorkQueue() { return m_paintingWorkQueue; }
+
     static WebCore::FloatRect convertTileRectToPaintingCoords(const WebCore::FloatRect&, float pageScaleFactor);
     static WebCore::AffineTransform tileToPaintingTransform(float tilingScaleFactor);
     static WebCore::AffineTransform paintingToTileTransform(float tilingScaleFactor);
@@ -201,6 +204,8 @@ private:
     struct RenderedTile {
         RefPtr<WebCore::ImageBuffer> buffer;
         TileRenderInfo tileInfo;
+
+        RefPtr<WebCore::ImageBuffer> protectedBuffer() { return buffer; }
     };
     HashMap<TileForGrid, RenderedTile> m_rendereredTiles;
 

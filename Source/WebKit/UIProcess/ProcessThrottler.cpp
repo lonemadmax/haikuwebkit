@@ -296,13 +296,13 @@ void ProcessThrottler::setThrottleState(ProcessThrottleState newState)
     protectedProcess()->didChangeThrottleState(newState);
 }
 
-void ProcessThrottler::ref()
+void ProcessThrottler::ref() const
 {
     // Forward ref-counting to our owner.
     m_process->ref();
 }
 
-void ProcessThrottler::deref()
+void ProcessThrottler::deref() const
 {
     // Forward ref-counting to our owner.
     m_process->deref();
@@ -523,11 +523,6 @@ void ProcessThrottler::clearAssertion()
 Ref<AuxiliaryProcessProxy> ProcessThrottler::protectedProcess() const
 {
     return m_process.get();
-}
-
-bool ProcessThrottler::isSuspended() const
-{
-    return m_isConnectedToProcess && !m_assertion;
 }
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(ProcessThrottlerTimedActivity);

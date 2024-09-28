@@ -26,12 +26,12 @@
 #pragma once
 
 #include "APIObject.h"
-#include "Site.h"
 #include "WebPreferencesDefaultValues.h"
 #include "WebURLSchemeHandler.h"
 #include <WebCore/ContentSecurityPolicy.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/ShouldRelaxThirdPartyCookieBlocking.h>
+#include <WebCore/Site.h>
 #include <WebCore/WritingToolsTypes.h>
 #include <wtf/Forward.h>
 #include <wtf/GetPtr.h>
@@ -51,6 +51,11 @@ OBJC_PROTOCOL(_UIClickInteractionDriving);
 #if PLATFORM(VISION) && ENABLE(GAMEPAD)
 #include <WebCore/ShouldRequireExplicitConsentForGamepadAccess.h>
 #endif
+
+namespace WebCore {
+enum class SandboxFlag : uint16_t;
+using SandboxFlags = OptionSet<SandboxFlag>;
+}
 
 namespace WebKit {
 class BrowsingContextGroup;
@@ -105,12 +110,15 @@ public:
 
     struct OpenerInfo {
         Ref<WebKit::WebProcessProxy> process;
-        WebKit::Site site;
+        WebCore::Site site;
         WebCore::FrameIdentifier frameID;
         bool operator==(const OpenerInfo&) const;
     };
     const std::optional<OpenerInfo>& openerInfo() const;
     void setOpenerInfo(std::optional<OpenerInfo>&&);
+
+    WebCore::SandboxFlags initialSandboxFlags() const;
+    void setInitialSandboxFlags(WebCore::SandboxFlags);
 
     WebKit::WebProcessPool& processPool() const;
     void setProcessPool(RefPtr<WebKit::WebProcessPool>&&);
@@ -488,6 +496,7 @@ private:
         RefPtr<WebKit::WebPageGroup> pageGroup;
         WeakPtr<WebKit::WebPageProxy> relatedPage;
         std::optional<OpenerInfo> openerInfo;
+        WebCore::SandboxFlags initialSandboxFlags;
         WeakPtr<WebKit::WebPageProxy> pageToCloneSessionStorageFrom;
         WeakPtr<WebKit::WebPageProxy> alternateWebViewForNavigationGestures;
 

@@ -454,7 +454,7 @@ void WebLocalFrameLoaderClient::dispatchWillChangeDocument(const URL& currentURL
     }
 }
 
-void WebLocalFrameLoaderClient::didSameDocumentNavigationForFrameViaJSHistoryAPI(SameDocumentNavigationType navigationType)
+void WebLocalFrameLoaderClient::didSameDocumentNavigationForFrameViaJS(SameDocumentNavigationType navigationType)
 {
     RefPtr webPage = m_frame->page();
     if (!webPage)
@@ -490,7 +490,7 @@ void WebLocalFrameLoaderClient::didSameDocumentNavigationForFrameViaJSHistoryAPI
         WebCore::LockHistory::No,
         WebCore::LockBackForwardList::No,
         { }, /* clientRedirectSourceForHistory */
-        { }, /* effectiveSandboxFlags */
+        m_localFrame->effectiveSandboxFlags(),
         std::nullopt, /* ownerPermissionsPolicy */
         std::nullopt, /* privateClickMeasurement */
         { }, /* advancedPrivacyProtections */
@@ -507,23 +507,23 @@ void WebLocalFrameLoaderClient::didSameDocumentNavigationForFrameViaJSHistoryAPI
     };
 
     // Notify the UIProcess.
-    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrameViaJSHistoryAPI(navigationType, m_localFrame->document()->url(), navigationActionData, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
+    webPage->send(Messages::WebPageProxy::DidSameDocumentNavigationForFrameViaJS(navigationType, m_localFrame->document()->url(), navigationActionData, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get())));
 
 }
 
 void WebLocalFrameLoaderClient::dispatchDidPushStateWithinPage()
 {
-    didSameDocumentNavigationForFrameViaJSHistoryAPI(SameDocumentNavigationType::SessionStatePush);
+    didSameDocumentNavigationForFrameViaJS(SameDocumentNavigationType::SessionStatePush);
 }
 
 void WebLocalFrameLoaderClient::dispatchDidReplaceStateWithinPage()
 {
-    didSameDocumentNavigationForFrameViaJSHistoryAPI(SameDocumentNavigationType::SessionStateReplace);
+    didSameDocumentNavigationForFrameViaJS(SameDocumentNavigationType::SessionStateReplace);
 }
 
 void WebLocalFrameLoaderClient::dispatchDidPopStateWithinPage()
 {
-    didSameDocumentNavigationForFrameViaJSHistoryAPI(SameDocumentNavigationType::SessionStatePop);
+    didSameDocumentNavigationForFrameViaJS(SameDocumentNavigationType::SessionStatePop);
 }
 
 void WebLocalFrameLoaderClient::dispatchWillClose()
@@ -968,7 +968,7 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Nav
         WebCore::LockHistory::No,
         WebCore::LockBackForwardList::No,
         { }, /* clientRedirectSourceForHistory */
-        { }, /* effectiveSandboxFlags */
+        m_localFrame->effectiveSandboxFlags(),
         std::nullopt, /* ownerPermissionsPolicy */
         navigationAction.privateClickMeasurement(),
         { }, /* advancedPrivacyProtections */
@@ -1008,6 +1008,11 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNavigationAction(const Na
     FormState* formState, const String& clientRedirectSourceForHistory, std::optional<WebCore::NavigationIdentifier> navigationID, std::optional<WebCore::HitTestResult>&& hitTestResult, bool hasOpener, IsPerformingHTTPFallback isPerformingHTTPFallback, WebCore::SandboxFlags sandboxFlags, PolicyDecisionMode policyDecisionMode, FramePolicyFunction&& function)
 {
     WebFrameLoaderClient::dispatchDecidePolicyForNavigationAction(navigationAction, request, redirectResponse, formState, clientRedirectSourceForHistory, navigationID, WTFMove(hitTestResult), hasOpener, isPerformingHTTPFallback, sandboxFlags, policyDecisionMode, WTFMove(function));
+}
+
+void WebLocalFrameLoaderClient::updateSandboxFlags(WebCore::SandboxFlags sandboxFlags)
+{
+    WebFrameLoaderClient::updateSandboxFlags(sandboxFlags);
 }
 
 void WebLocalFrameLoaderClient::cancelPolicyCheck()

@@ -26,10 +26,18 @@
 #pragma once
 
 #include <wtf/Forward.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 class Node;
+
+struct ParsedTextDirective {
+    String prefix;
+    String startText;
+    String endText;
+    String suffix;
+};
 
 namespace FragmentDirectiveUtilities {
 

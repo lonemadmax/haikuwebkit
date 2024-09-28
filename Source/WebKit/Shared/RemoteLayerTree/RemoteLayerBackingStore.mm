@@ -30,6 +30,7 @@
 #import "DynamicContentScalingImageBufferBackend.h"
 #import "GPUProcess.h"
 #import "ImageBufferBackendHandleSharing.h"
+#import "ImageBufferSet.h"
 #import "Logging.h"
 #import "PlatformCALayerRemote.h"
 #import "RemoteImageBufferSetProxy.h"
@@ -125,7 +126,7 @@ RemoteLayerBackingStore::~RemoteLayerBackingStore()
 
 RemoteLayerBackingStoreCollection* RemoteLayerBackingStore::backingStoreCollection() const
 {
-    if (auto* context = m_layer.context())
+    if (auto* context = m_layer->context())
         return &context->backingStoreCollection();
 
     return nullptr;
@@ -183,7 +184,7 @@ void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
     // It would be nice to ASSERT(handle && hasValue(*handle)) here, but when we hit the timeout in RemoteImageBufferProxy::ensureBackendCreated(), we don't have a handle.
 #if !LOG_DISABLED
     if (!(handle && hasValue(*handle)))
-        LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer.layerID() << " encode - no buffer handle; did ensureBackendCreated() time out?");
+        LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " encode - no buffer handle; did ensureBackendCreated() time out?");
 #endif
 
     encoder << WTFMove(handle);
@@ -304,7 +305,12 @@ bool RemoteLayerBackingStore::supportsPartialRepaint() const
 
 bool RemoteLayerBackingStore::drawingRequiresClearedPixels() const
 {
-    return !m_parameters.isOpaque && !m_layer.owner()->platformCALayerShouldPaintUsingCompositeCopy();
+    return !m_parameters.isOpaque && !m_layer->owner()->platformCALayerShouldPaintUsingCompositeCopy();
+}
+
+PlatformCALayerRemote& RemoteLayerBackingStore::layer() const
+{
+    return m_layer;
 }
 
 void RemoteLayerBackingStore::setDelegatedContents(const PlatformCALayerRemoteDelegatedContents& contents)
@@ -328,8 +334,8 @@ bool RemoteLayerBackingStore::needsDisplay() const
         return false;
     }
 
-    if (m_layer.owner()->platformCALayerDelegatesDisplay(&m_layer)) {
-        LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer.layerID() << " needsDisplay() - delegates display");
+    if (m_layer->owner()->platformCALayerDelegatesDisplay(m_layer.ptr())) {
+        LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " needsDisplay() - delegates display");
         return true;
     }
 
@@ -346,17 +352,17 @@ bool RemoteLayerBackingStore::needsDisplay() const
         return hasEmptyDirtyRegion() ? BackingStoreNeedsDisplayReason::None : BackingStoreNeedsDisplayReason::HasDirtyRegion;
     }();
 
-    LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer.layerID() << " size " << size() << " needsDisplay() - needs display reason: " << needsDisplayReason);
+    LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " size " << size() << " needsDisplay() - needs display reason: " << needsDisplayReason);
     return needsDisplayReason != BackingStoreNeedsDisplayReason::None;
 }
 
 bool RemoteLayerBackingStore::performDelegatedLayerDisplay()
 {
-    auto& layerOwner = *m_layer.owner();
-    if (layerOwner.platformCALayerDelegatesDisplay(&m_layer)) {
+    auto& layerOwner = *m_layer->owner();
+    if (layerOwner.platformCALayerDelegatesDisplay(m_layer.ptr())) {
         // This can call back to setContents(), setting m_contentsBufferHandle.
-        layerOwner.platformCALayerLayerDisplay(&m_layer);
-        layerOwner.platformCALayerLayerDidDisplay(&m_layer);
+        layerOwner.platformCALayerLayerDisplay(m_layer.ptr());
+        layerOwner.platformCALayerLayerDidDisplay(m_layer.ptr());
         return true;
     }
     
@@ -365,7 +371,7 @@ bool RemoteLayerBackingStore::performDelegatedLayerDisplay()
 
 void RemoteLayerBackingStore::dirtyRepaintCounterIfNecessary()
 {
-    if (m_layer.owner()->platformCALayerShowRepaintCounter(&m_layer)) {
+    if (m_layer->owner()->platformCALayerShowRepaintCounter(m_layer.ptr())) {
         IntRect indicatorRect(0, 0, 52, 27);
         m_dirtyRegion.unite(indicatorRect);
     }
@@ -373,8 +379,8 @@ void RemoteLayerBackingStore::dirtyRepaintCounterIfNecessary()
 
 void RemoteLayerBackingStore::paintContents()
 {
-    LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer.layerID() << " paintContents() - has dirty region " << !hasEmptyDirtyRegion());
-    if (m_layer.owner()->platformCALayerDelegatesDisplay(&m_layer))
+    LOG_WITH_STREAM(RemoteLayerBuffers, stream << "RemoteLayerBackingStore " << m_layer->layerID() << " paintContents() - has dirty region " << !hasEmptyDirtyRegion());
+    if (m_layer->owner()->platformCALayerDelegatesDisplay(m_layer.ptr()))
         return;
 
     if (hasEmptyDirtyRegion()) {
@@ -384,25 +390,7 @@ void RemoteLayerBackingStore::paintContents()
     }
 
     m_lastDisplayTime = MonotonicTime::now();
-
-    // If we have less than webLayerMaxRectsToPaint rects to paint and they cover less
-    // than webLayerWastedSpaceThreshold of the total dirty area, we'll repaint each rect separately.
-    // Otherwise, repaint the entire bounding box of the dirty region.
-    IntRect dirtyBounds = m_dirtyRegion.bounds();
-    auto dirtyRects = m_dirtyRegion.rects();
-    if (dirtyRects.size() > PlatformCALayer::webLayerMaxRectsToPaint || m_dirtyRegion.totalArea() > PlatformCALayer::webLayerWastedSpaceThreshold * dirtyBounds.width() * dirtyBounds.height()) {
-        dirtyRects.clear();
-        dirtyRects.append(dirtyBounds);
-    }
-
-    // FIXME: find a consistent way to scale and snap dirty and CG clip rects.
-    for (const auto& rect : dirtyRects) {
-        FloatRect scaledRect(rect);
-        scaledRect.scale(m_parameters.scale);
-        scaledRect = enclosingIntRect(scaledRect);
-        scaledRect.scale(1 / m_parameters.scale);
-        m_paintingRects.append(scaledRect);
-    }
+    m_paintingRects = ImageBufferSet::computePaintingRects(m_dirtyRegion, m_parameters.scale);
 
     createContextAndPaintContents();
 }
@@ -418,18 +406,18 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context)
 #endif
 
     OptionSet<WebCore::GraphicsLayerPaintBehavior> paintBehavior;
-    if (m_layer.context() && m_layer.context()->nextRenderingUpdateRequiresSynchronousImageDecoding())
+    if (auto* context = m_layer->context(); context && context->nextRenderingUpdateRequiresSynchronousImageDecoding())
         paintBehavior.add(GraphicsLayerPaintBehavior::ForceSynchronousImageDecode);
     
     // FIXME: This should be moved to PlatformCALayerRemote for better layering.
-    switch (m_layer.layerType()) {
+    switch (m_layer->layerType()) {
     case PlatformCALayer::LayerType::LayerTypeSimpleLayer:
     case PlatformCALayer::LayerType::LayerTypeTiledBackingTileLayer:
-        m_layer.owner()->platformCALayerPaintContents(&m_layer, context, dirtyBounds, paintBehavior);
+        m_layer->owner()->platformCALayerPaintContents(m_layer.ptr(), context, dirtyBounds, paintBehavior);
         break;
     case PlatformCALayer::LayerType::LayerTypeWebLayer:
     case PlatformCALayer::LayerType::LayerTypeBackdropLayer:
-        PlatformCALayer::drawLayerContents(context, &m_layer, m_paintingRects, paintBehavior);
+        PlatformCALayer::drawLayerContents(context, m_layer.ptr(), m_paintingRects, paintBehavior);
         break;
     case PlatformCALayer::LayerType::LayerTypeLayer:
     case PlatformCALayer::LayerType::LayerTypeTransformLayer:
@@ -454,7 +442,7 @@ void RemoteLayerBackingStore::drawInContext(GraphicsContext& context)
     m_dirtyRegion = { };
     m_paintingRects.clear();
 
-    m_layer.owner()->platformCALayerLayerDidDisplay(&m_layer);
+    m_layer->owner()->platformCALayerLayerDidDisplay(m_layer.ptr());
 
     m_previouslyPaintedRect = dirtyBounds;
     if (auto flusher = createFlusher())

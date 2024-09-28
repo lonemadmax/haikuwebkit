@@ -208,6 +208,7 @@ enum class ReasonForDismissingAlternativeText : uint8_t;
 enum class ReloadOption : uint8_t;
 enum class RenderAsTextFlag : uint16_t;
 enum class RouteSharingPolicy : uint8_t;
+enum class SandboxFlag : uint16_t;
 enum class ScreenOrientationType : uint8_t;
 enum class ScrollGranularity : uint8_t;
 enum class ScrollIsAnimated : bool;
@@ -349,6 +350,7 @@ using PlatformLayerIdentifier = ProcessQualified<ObjectIdentifier<PlatformLayerI
 using PlaybackTargetClientContextIdentifier = LegacyNullableObjectIdentifier<PlaybackTargetClientContextIdentifierType>;
 using PointerID = uint32_t;
 using ResourceLoaderIdentifier = LegacyNullableAtomicObjectIdentifier<ResourceLoader>;
+using SandboxFlags = OptionSet<SandboxFlag>;
 using ScrollingNodeID = ProcessQualified<LegacyNullableObjectIdentifier<ScrollingNodeIDType>>;
 using SleepDisablerIdentifier = LegacyNullableObjectIdentifier<SleepDisablerIdentifierType>;
 using UserMediaRequestIdentifier = LegacyNullableObjectIdentifier<UserMediaRequestIdentifierType>;
@@ -385,6 +387,7 @@ namespace WebCore {
 class ShareableBitmap;
 class ShareableBitmapHandle;
 class ShareableResourceHandle;
+class Site;
 struct TextAnimationData;
 enum class ExceptionCode : uint8_t;
 }
@@ -402,7 +405,7 @@ class DrawingAreaProxy;
 class GamepadData;
 class GeolocationPermissionRequestManagerProxy;
 class LayerTreeContext;
-class LinkDecorationFilteringDataObserver;
+class ListDataObserver;
 class MediaCapability;
 class MediaKeySystemPermissionRequestManagerProxy;
 class MediaSessionCoordinatorProxyPrivate;
@@ -433,7 +436,6 @@ class RemoteScrollingCoordinatorProxy;
 class RevealItem;
 class SandboxExtensionHandle;
 class SecKeyProxyStore;
-class Site;
 class SpeechRecognitionPermissionManager;
 class SuspendedPageProxy;
 class SystemPreviewController;
@@ -473,6 +475,7 @@ class WebPageProxyTesting;
 class WebPopupMenuProxy;
 class WebPopupMenuProxyClient;
 class WebPreferences;
+class WebProcessActivityState;
 class WebProcessProxy;
 class WebScreenOrientationManagerProxy;
 class WebTouchEvent;
@@ -607,7 +610,7 @@ public:
     using Identifier = WebPageProxyIdentifier;
 
     Identifier identifier() const;
-    WebCore::PageIdentifier webPageIDInMainFrameProcess() const;
+    WebCore::PageIdentifier webPageIDInMainFrameProcess() const { return m_webPageID; }
     WebCore::PageIdentifier identifierInSiteIsolatedProcess() const { return webPageIDInMainFrameProcess(); }
     WebCore::PageIdentifier webPageIDInProcess(const WebProcessProxy&) const;
 
@@ -805,7 +808,7 @@ public:
 
     void setPageLoadStateObserver(std::unique_ptr<PageLoadStateObserverBase>&&);
 
-    void initializeWebPage(const Site&);
+    void initializeWebPage(const WebCore::Site&, WebCore::SandboxFlags);
     void setDrawingArea(std::unique_ptr<DrawingAreaProxy>&&);
 
     WeakPtr<SecKeyProxyStore> secKeyProxyStore(const WebCore::AuthenticationChallenge&);
@@ -1411,7 +1414,7 @@ public:
 
 #if PLATFORM(COCOA)
     // Called by the web process through a message.
-    void registerWebProcessAccessibilityToken(std::span<const uint8_t>, WebCore::FrameIdentifier);
+    void registerWebProcessAccessibilityToken(std::span<const uint8_t>);
     // Called by the UI process when it is ready to send its tokens to the web process.
     void registerUIProcessAccessibilityTokens(std::span<const uint8_t> elementToken, std::span<const uint8_t> windowToken);
     void replaceSelectionWithPasteboardData(const Vector<String>& types, std::span<const uint8_t>);
@@ -2302,7 +2305,7 @@ public:
     WKQuickLookPreviewController *quickLookPreviewController() const { return m_quickLookPreviewController.get(); }
 #endif
 
-    WebProcessProxy* processForSite(const Site&);
+    WebProcessProxy* processForSite(const WebCore::Site&);
 
     void createRemoteSubframesInOtherProcesses(WebFrameProxy&, const String& frameName);
     void broadcastMainFrameURLChangeToOtherProcesses(IPC::Connection&, const URL&);
@@ -2457,8 +2460,8 @@ public:
     bool writingToolsTextReplacementsFinished();
     void intelligenceTextAnimationsDidComplete();
 
-    void didEndPartialIntelligenceTextPonderingAnimation(IPC::Connection&);
-    void didEndPartialIntelligenceTextPonderingAnimationImpl();
+    void didEndPartialIntelligenceTextAnimation(IPC::Connection&);
+    void didEndPartialIntelligenceTextAnimationImpl();
 #endif
 
     void resetVisibilityAdjustmentsForTargetedElements(const Vector<Ref<API::TargetedElementInfo>>&, CompletionHandler<void(bool)>&&);
@@ -2477,7 +2480,6 @@ public:
     void sendScrollPositionChangedForNode(std::optional<WebCore::FrameIdentifier>, WebCore::ScrollingNodeID, const WebCore::FloatPoint& scrollPosition, std::optional<WebCore::FloatPoint> layoutViewportOrigin, bool syncLayerPosition, bool isLastUpdate);
 #endif
 
-    bool hasValidAudibleActivity() const;
     bool hasAllowedToRunInTheBackgroundActivity() const;
 
     template<typename M> void sendToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&, OptionSet<IPC::SendOption> = { });
@@ -2520,6 +2522,8 @@ public:
     void startNetworkRequestsForPageLoadTiming(WebCore::FrameIdentifier);
     void endNetworkRequestsForPageLoadTiming(WebCore::FrameIdentifier, WallTime);
 
+    WebProcessActivityState& processActivityState();
+
 private:
     void getWebCryptoMasterKey(CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&&);
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
@@ -2561,7 +2565,7 @@ private:
     void requestPointerLock();
 #endif
 
-    void didCreateSubframe(IPC::Connection&, WebCore::FrameIdentifier parent, WebCore::FrameIdentifier newFrameID, const String& frameName);
+    void didCreateSubframe(IPC::Connection&, WebCore::FrameIdentifier parent, WebCore::FrameIdentifier newFrameID, const String& frameName, WebCore::SandboxFlags);
 
     void didStartProvisionalLoadForFrame(WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, std::optional<WebCore::NavigationIdentifier>, URL&&, URL&& unreachableURL, const UserData&, WallTime);
     void didReceiveServerRedirectForProvisionalLoadForFrame(WebCore::FrameIdentifier, std::optional<WebCore::NavigationIdentifier>, WebCore::ResourceRequest&&, const UserData&);
@@ -2573,7 +2577,7 @@ private:
     void didFinishLoadForFrame(IPC::Connection&, WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, std::optional<WebCore::NavigationIdentifier>, const UserData&);
     void didFailLoadForFrame(IPC::Connection&, WebCore::FrameIdentifier, FrameInfoData&&, WebCore::ResourceRequest&&, std::optional<WebCore::NavigationIdentifier>, const WebCore::ResourceError&, const UserData&);
     void didSameDocumentNavigationForFrame(IPC::Connection&, WebCore::FrameIdentifier, std::optional<WebCore::NavigationIdentifier>, SameDocumentNavigationType, URL&&, const UserData&);
-    void didSameDocumentNavigationForFrameViaJSHistoryAPI(IPC::Connection&, SameDocumentNavigationType, URL, NavigationActionData&&, const UserData&);
+    void didSameDocumentNavigationForFrameViaJS(IPC::Connection&, SameDocumentNavigationType, URL, NavigationActionData&&, const UserData&);
     void didChangeMainDocument(WebCore::FrameIdentifier);
     void didExplicitOpenForFrame(IPC::Connection&, WebCore::FrameIdentifier, URL&&, String&& mimeType);
 
@@ -2597,6 +2601,7 @@ private:
 #endif
 
     void updateRemoteFrameSize(WebCore::FrameIdentifier, WebCore::IntSize);
+    void updateSandboxFlags(IPC::Connection&, WebCore::FrameIdentifier, WebCore::SandboxFlags);
 
     void didDestroyNavigation(WebCore::NavigationIdentifier);
 
@@ -2702,11 +2707,11 @@ private:
         Crash
     };
 
-    void launchProcess(const Site&, ProcessLaunchReason);
+    void launchProcess(const WebCore::Site&, ProcessLaunchReason);
     void swapToProvisionalPage(std::unique_ptr<ProvisionalPageProxy>);
     void didFailToSuspendAfterProcessSwap();
     void didSuspendAfterProcessSwap();
-    void finishAttachingToWebProcess(const Site&, ProcessLaunchReason);
+    void finishAttachingToWebProcess(const WebCore::Site&, ProcessLaunchReason);
 
     RefPtr<API::Navigation> launchProcessForReload();
 
@@ -3124,6 +3129,8 @@ private:
     void resetRecentGamepadAccessState();
 #endif
 
+    void adjustAdvancedPrivacyProtectionsIfNeeded(API::WebsitePolicies&);
+
     void setAllowsLayoutViewportHeightExpansion(bool);
     void setBrowsingContextGroup(BrowsingContextGroup&);
 
@@ -3135,47 +3142,30 @@ private:
     static WTF::MachSendRight createMachSendRightForRemoteLayerServer();
 #endif
 
-    class ProcessActivityState {
-    public:
-        explicit ProcessActivityState(WebPageProxy&);
-        void takeVisibleActivity();
-        void takeAudibleActivity();
-        void takeCapturingActivity();
-        void takeMutedCaptureAssertion();
+    void takeVisibleActivity();
+    void takeAudibleActivity();
+    void takeCapturingActivity();
+    void takeMutedCaptureAssertion();
 
-        void reset();
-        void dropVisibleActivity();
-        void dropAudibleActivity();
-        void dropCapturingActivity();
-        void dropMutedCaptureAssertion();
+    void resetActivityState();
+    void dropVisibleActivity();
+    void dropAudibleActivity();
+    void dropCapturingActivity();
+    void dropMutedCaptureAssertion();
 
-        bool hasValidVisibleActivity() const;
-        bool hasValidAudibleActivity() const;
-        bool hasValidCapturingActivity() const;
-        bool hasValidMutedCaptureAssertion() const;
+    bool hasValidVisibleActivity() const;
+    bool hasValidAudibleActivity() const;
+    bool hasValidCapturingActivity() const;
+    bool hasValidMutedCaptureAssertion() const;
 
 #if PLATFORM(IOS_FAMILY)
-        void takeOpeningAppLinkActivity();
-        void dropOpeningAppLinkActivity();
-        bool hasValidOpeningAppLinkActivity() const;
+    void takeOpeningAppLinkActivity();
+    void dropOpeningAppLinkActivity();
+    bool hasValidOpeningAppLinkActivity() const;
 #endif
-
-    private:
-        WebPageProxy& m_page;
-
-        std::unique_ptr<ProcessThrottlerActivity> m_isVisibleActivity;
-#if PLATFORM(MAC)
-        UniqueRef<ProcessThrottlerTimedActivity> m_wasRecentlyVisibleActivity;
-#endif
-        std::unique_ptr<ProcessThrottlerActivity> m_isAudibleActivity;
-        std::unique_ptr<ProcessThrottlerActivity> m_isCapturingActivity;
-        RefPtr<ProcessAssertion> m_isMutedCaptureAssertion;
-#if PLATFORM(IOS_FAMILY)
-        std::unique_ptr<ProcessThrottlerActivity> m_openingAppLinkActivity;
-#endif
-    };
 
     UniqueRef<Internals> m_internals;
+    WebCore::PageIdentifier m_webPageID;
 
     WeakPtr<PageClient> m_pageClient;
     Ref<API::PageConfiguration> m_configuration;
@@ -3327,7 +3317,7 @@ private:
 #endif
     bool m_allowsMediaDocumentInlinePlayback { false };
 
-    ProcessActivityState m_legacyMainFrameProcessActivityState;
+    UniqueRef<WebProcessActivityState> m_mainFrameProcessActivityState;
 
     bool m_initialCapitalizationEnabled { false };
     std::optional<double> m_cpuLimit;
@@ -3637,7 +3627,7 @@ private:
     bool m_isLockdownModeExplicitlySet { false };
 
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
-    RefPtr<LinkDecorationFilteringDataObserver> m_linkDecorationFilteringDataUpdateObserver;
+    RefPtr<ListDataObserver> m_linkDecorationFilteringDataUpdateObserver;
     bool m_needsInitialLinkDecorationFilteringData { true };
     bool m_shouldUpdateAllowedQueryParametersForAdvancedPrivacyProtections { false };
     OptionSet<WebCore::AdvancedPrivacyProtections> m_advancedPrivacyProtectionsPolicies;

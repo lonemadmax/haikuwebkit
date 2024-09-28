@@ -134,12 +134,12 @@ GST_DEBUG_CATEGORY(webkit_media_player_debug);
 #define GST_CAT_DEFAULT webkit_media_player_debug
 
 namespace WebCore {
-using namespace std;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaPlayerPrivateGStreamer);
 
 static const FloatSize s_holePunchDefaultFrameSize(1280, 720);
 
+#ifndef GST_DISABLE_GST_DEBUG
 class MediaLogObserver : public WebCoreLogObserver {
 public:
     GstDebugCategory* debugCategory() const final
@@ -157,6 +157,7 @@ MediaLogObserver& mediaLogObserverSingleton()
     static NeverDestroyed<MediaLogObserver> sharedInstance;
     return sharedInstance;
 }
+#endif // GST_DISABLE_GST_DEBUG
 
 MediaPlayerPrivateGStreamer::MediaPlayerPrivateGStreamer(MediaPlayer* player)
     : m_notifier(MainThreadNotifier<MainThreadNotification>::create())
@@ -177,10 +178,10 @@ MediaPlayerPrivateGStreamer::MediaPlayerPrivateGStreamer(MediaPlayer* player)
 #if USE(TEXTURE_MAPPER_DMABUF)
     , m_swapchain(adoptRef(new GBMBufferSwapchain(GBMBufferSwapchain::BufferSwapchainSize::Eight)))
 #endif
-    , m_loader(player->createResourceLoader())
+    , m_loader(player->mediaResourceLoader())
 {
 
-#if !RELEASE_LOG_DISABLED
+#if !RELEASE_LOG_DISABLED && !defined(GST_DISABLE_GST_DEBUG)
     // MediaPlayer relies on the Document logger, so to prevent duplicate messages in case
     // more than one MediaPlayer is created, we register a single observer.
     if (auto player = m_player.get()) {
@@ -332,7 +333,7 @@ void MediaPlayerPrivateGStreamer::registerMediaEngine(MediaEngineRegistrar regis
 void MediaPlayerPrivateGStreamer::mediaPlayerWillBeDestroyed()
 {
     GST_DEBUG_OBJECT(m_pipeline.get(), "Parent MediaPlayer is about to be destroyed");
-#if !RELEASE_LOG_DISABLED
+#if !RELEASE_LOG_DISABLED && !defined(GST_DISABLE_GST_DEBUG)
     if (auto player = m_player.get()) {
         auto& logObserver = mediaLogObserverSingleton();
         logObserver.removeWatch(player->mediaPlayerLogger());
@@ -1567,7 +1568,7 @@ void MediaPlayerPrivateGStreamer::playbin3SendSelectStreamsIfAppropriate()
     g_list_free_full(streams, reinterpret_cast<GDestroyNotify>(g_free));
 }
 
-void MediaPlayerPrivateGStreamer::updateTracks(const GRefPtr<GstObject>& collectionOwner)
+void MediaPlayerPrivateGStreamer::updateTracks([[maybe_unused]] const GRefPtr<GstObject>& collectionOwner)
 {
     ASSERT(!m_isLegacyPlaybin);
 
@@ -2153,7 +2154,7 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
         if (m_isLegacyPlaybin)
             break;
 
-#ifndef GST_DISABLE_DEBUG
+#ifndef GST_DISABLE_GST_DEBUG
         GST_DEBUG_OBJECT(m_pipeline.get(), "Received STREAMS_SELECTED message selecting the following streams:");
         unsigned numStreams = gst_message_streams_selected_get_size(message);
         for (unsigned i = 0; i < numStreams; i++) {
@@ -3579,7 +3580,7 @@ void MediaPlayerPrivateGStreamer::updateVideoOrientation(const GstTagList* tagLi
         m_videoSize = m_videoSize.transposedSize();
 
     GST_DEBUG_OBJECT(pipeline(), "Enqueuing and waiting for main-thread task to call sizeChanged()...");
-    bool sizeChangedProcessed = m_sinkTaskQueue.enqueueTaskAndWait<AbortableTaskQueue::Void>([weakThis = ThreadSafeWeakPtr { *this }, this] {
+    [[maybe_unused]] bool sizeChangedProcessed = m_sinkTaskQueue.enqueueTaskAndWait<AbortableTaskQueue::Void>([weakThis = ThreadSafeWeakPtr { *this }, this] {
         RefPtr self = weakThis.get();
         if (!self)
             return AbortableTaskQueue::Void();
@@ -3882,7 +3883,7 @@ void MediaPlayerPrivateGStreamer::paint(GraphicsContext& context, const FloatRec
         return;
 
     auto frame = VideoFrameGStreamer::createWrappedSample(m_sample);
-    frame->paintInContext(context, rect, m_videoSourceOrientation, false);
+    frame->draw(context, rect, m_videoSourceOrientation, false);
 }
 
 DestinationColorSpace MediaPlayerPrivateGStreamer::colorSpace()
@@ -4311,7 +4312,7 @@ void MediaPlayerPrivateGStreamer::cdmInstanceDetached(CDMInstance& instance)
     gst_element_set_context(GST_ELEMENT(m_pipeline.get()), context.get());
 }
 
-void MediaPlayerPrivateGStreamer::attemptToDecryptWithInstance(CDMInstance& instance)
+void MediaPlayerPrivateGStreamer::attemptToDecryptWithInstance([[maybe_unused]] CDMInstance& instance)
 {
     ASSERT(m_cdmInstance == &instance);
     GST_TRACE("instance %p, current stored %p", &instance, m_cdmInstance.get());
@@ -4320,7 +4321,7 @@ void MediaPlayerPrivateGStreamer::attemptToDecryptWithInstance(CDMInstance& inst
 
 void MediaPlayerPrivateGStreamer::attemptToDecryptWithLocalInstance()
 {
-    bool wasEventHandled = gst_element_send_event(pipeline(), gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, gst_structure_new_empty("attempt-to-decrypt")));
+    [[maybe_unused]] bool wasEventHandled = gst_element_send_event(pipeline(), gst_event_new_custom(GST_EVENT_CUSTOM_DOWNSTREAM_OOB, gst_structure_new_empty("attempt-to-decrypt")));
     GST_DEBUG("attempting to decrypt, event handled %s", boolForPrinting(wasEventHandled));
 }
 
@@ -4349,7 +4350,7 @@ bool MediaPlayerPrivateGStreamer::waitingForKey() const
 }
 #endif
 
-bool MediaPlayerPrivateGStreamer::supportsKeySystem(const String& keySystem, const String& mimeType)
+bool MediaPlayerPrivateGStreamer::supportsKeySystem(const String& keySystem, [[maybe_unused]] const String& mimeType)
 {
     bool result = false;
 

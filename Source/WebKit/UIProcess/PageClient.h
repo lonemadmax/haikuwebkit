@@ -353,7 +353,7 @@ public:
     virtual void executeUndoRedo(UndoOrRedo) = 0;
     virtual void wheelEventWasNotHandledByWebCore(const NativeWebWheelEvent&) = 0;
 #if PLATFORM(COCOA)
-    virtual void accessibilityWebProcessTokenReceived(std::span<const uint8_t>, WebCore::FrameIdentifier, pid_t) = 0;
+    virtual void accessibilityWebProcessTokenReceived(std::span<const uint8_t>, pid_t) = 0;
     virtual bool executeSavedCommandBySelector(const String& selector) = 0;
     virtual void updateSecureInputState() = 0;
     virtual void resetSecureInputState() = 0;
@@ -758,7 +758,7 @@ public:
     virtual void writingToolsActiveWillChange() = 0;
     virtual void writingToolsActiveDidChange() = 0;
 
-    virtual void didEndPartialIntelligenceTextPonderingAnimation() = 0;
+    virtual void didEndPartialIntelligenceTextAnimation() = 0;
     virtual bool writingToolsTextReplacementsFinished() = 0;
 
     virtual void addTextAnimationForAnimationID(const WTF::UUID&, const WebCore::TextAnimationData&) = 0;

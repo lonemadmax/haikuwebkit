@@ -232,12 +232,12 @@ Shared/PrintInfo.cpp
 Shared/ProcessTerminationReason.cpp
 Shared/RTCNetwork.cpp
 Shared/RTCPacketOptions.cpp
+Shared/ScriptTelemetry.cpp
 Shared/ScrollingAccelerationCurve.cpp
 Shared/SessionState.cpp
 Shared/SharedStringHashStore.cpp
 Shared/SharedStringHashTableReadOnly.cpp
 Shared/SharedStringHashTable.cpp
-Shared/Site.cpp
 Shared/UserData.cpp
 Shared/WebBackForwardListItem.cpp
 Shared/WebCompiledContentRuleList.cpp
@@ -306,6 +306,8 @@ Shared/Authentication/AuthenticationManager.cpp
 Shared/Databases/IndexedDB/IDBUtilities.cpp
 
 Shared/Gamepad/GamepadData.cpp
+
+Shared/graphics/ImageBufferSet.cpp
 
 Shared/WebGPU/WebGPUBindGroupDescriptor.cpp
 Shared/WebGPU/WebGPUBindGroupEntry.cpp
@@ -447,6 +449,7 @@ UIProcess/WebPageProxyTesting.cpp
 UIProcess/WebPasteboardProxy.cpp
 UIProcess/WebPermissionControllerProxy.cpp
 UIProcess/WebPreferences.cpp
+UIProcess/WebProcessActivityState.cpp
 UIProcess/WebProcessCache.cpp
 UIProcess/WebProcessPool.cpp
 UIProcess/WebProcessProxy.cpp
@@ -555,6 +558,7 @@ UIProcess/Downloads/DownloadProxyMap.cpp
 
 UIProcess/DigitalCredentials/DigitalCredentialsCoordinatorProxy.cpp
 
+UIProcess/Extensions/WebExtension.cpp
 UIProcess/Extensions/WebExtensionAlarm.cpp
 UIProcess/Extensions/WebExtensionContext.cpp
 UIProcess/Extensions/WebExtensionController.cpp

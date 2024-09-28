@@ -44,6 +44,7 @@
 #include "CSSParserObserverWrapper.h"
 #include "CSSParserToken.h"
 #include "CSSPropertyParser.h"
+#include "CSSPropertyParserConsumer+CounterStyles.h"
 #include "CSSPropertyParserConsumer+Font.h"
 #include "CSSPropertyParserConsumer+Ident.h"
 #include "CSSPropertyParserConsumer+Integer.h"
@@ -875,7 +876,7 @@ RefPtr<StyleRuleFontFeatureValues> CSSParserImpl::consumeFontFeatureValuesRule(C
     // @font-feature-values <family-name># { <declaration-list> }
 
     auto originalPrelude = prelude;
-    auto fontFamilies = CSSPropertyParserHelpers::consumeFontFeatureValuesFamilyNameList(prelude);
+    auto fontFamilies = CSSPropertyParserHelpers::consumeFontFeatureValuesPreludeFamilyNameList(prelude);
     if (fontFamilies.isEmpty() || !prelude.atEnd())
         return nullptr;
 
@@ -1308,8 +1309,12 @@ RefPtr<StyleRuleProperty> CSSParserImpl::consumePropertyRule(CSSParserTokenRange
     auto initialValueIsValid = [&] {
         auto tokenRange = descriptor.initialValue->tokenRange();
         auto dependencies = CSSPropertyParser::collectParsedCustomPropertyValueDependencies(*syntax, tokenRange, strictCSSParserContext());
-        return dependencies.isComputationallyIndependent();
-        // FIXME: We should also check values like "var(--foo)"
+        if (!dependencies.isComputationallyIndependent())
+            return false;
+        auto containsVariable = CSSVariableParser::containsValidVariableReferences(descriptor.initialValue->tokenRange(), m_context);
+        if (containsVariable)
+            return false;
+        return true;
     };
     if (descriptor.initialValue && !initialValueIsValid())
         return nullptr;

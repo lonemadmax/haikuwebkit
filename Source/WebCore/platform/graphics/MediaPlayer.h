@@ -508,19 +508,8 @@ public:
     bool hasClosedCaptions() const;
     void setClosedCaptionsVisible(bool closedCaptionsVisible);
 
-    void paint(GraphicsContext&, const FloatRect&);
-
-    // copyVideoTextureToPlatformTexture() is used to do the GPU-GPU textures copy without a readback to system memory.
-    // The first five parameters denote the corresponding GraphicsContext, destination texture, requested level, requested type and the required internalFormat for destination texture.
-    // The last two parameters premultiplyAlpha and flipY denote whether addtional premultiplyAlpha and flip operation are required during the copy.
-    // It returns true on success and false on failure.
-
-    // In the GPU-GPU textures copy, the source texture(Video texture) should have valid target, internalFormat and size, etc.
-    // The destination texture may need to be resized to to the dimensions of the source texture or re-defined to the required internalFormat.
-    // The current restrictions require that format shoud be RGB or RGBA, type should be UNSIGNED_BYTE and level should be 0. It may be lifted in the future.
-#if !USE(AVFOUNDATION)
-    bool copyVideoTextureToPlatformTexture(GraphicsContextGL*, PlatformGLObject texture, GCGLenum target, GCGLint level, GCGLenum internalFormat, GCGLenum format, GCGLenum type, bool premultiplyAlpha, bool flipY);
-#endif
+    void paint(GraphicsContext&, const FloatRect& destination);
+    void paintCurrentFrameInContext(GraphicsContext&, const FloatRect& destination);
 
 #if PLATFORM(COCOA) && !HAVE(AVSAMPLEBUFFERDISPLAYLAYER_COPYDISPLAYEDPIXELBUFFER)
     void willBeAskedToPaintGL();
@@ -630,7 +619,7 @@ public:
     String elementId() const;
 
     CachedResourceLoader* cachedResourceLoader();
-    Ref<PlatformMediaResourceLoader> createResourceLoader();
+    Ref<PlatformMediaResourceLoader> mediaResourceLoader();
 
     void addAudioTrack(AudioTrackPrivate&);
     void addTextTrack(InbandTextTrackPrivate&);
@@ -821,6 +810,7 @@ private:
     bool m_initializingMediaEngine { false };
     DynamicRangeMode m_preferredDynamicRangeMode;
     PitchCorrectionAlgorithm m_pitchCorrectionAlgorithm { PitchCorrectionAlgorithm::BestAllAround };
+    RefPtr<PlatformMediaResourceLoader> m_mediaResourceLoader;
 
 #if ENABLE(MEDIA_SOURCE)
     ThreadSafeWeakPtr<MediaSourcePrivateClient> m_mediaSource;

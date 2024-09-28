@@ -133,15 +133,19 @@ void WebFrame::initWithCoreMainFrame(WebPage& page, Frame& coreFrame)
 
 Ref<WebFrame> WebFrame::createSubframe(WebPage& page, WebFrame& parent, const AtomString& frameName, HTMLFrameOwnerElement& ownerElement)
 {
+    auto effectiveSandboxFlags = ownerElement.sandboxFlags();
+    if (RefPtr parentLocalFrame = parent.coreLocalFrame())
+        effectiveSandboxFlags.add(parentLocalFrame->effectiveSandboxFlags());
+
     auto frameID = WebCore::FrameIdentifier::generate();
     auto frame = create(page, frameID);
     ASSERT(page.corePage());
     auto coreFrame = LocalFrame::createSubframe(*page.corePage(), [frame] (auto& localFrame) {
         return makeUniqueRef<WebLocalFrameLoaderClient>(localFrame, frame.get(), frame->makeInvalidator());
-    }, frameID, ownerElement);
+    }, frameID, effectiveSandboxFlags, ownerElement);
     frame->m_coreFrame = coreFrame.get();
 
-    page.send(Messages::WebPageProxy::DidCreateSubframe(parent.frameID(), coreFrame->frameID(), frameName));
+    page.send(Messages::WebPageProxy::DidCreateSubframe(parent.frameID(), coreFrame->frameID(), frameName, effectiveSandboxFlags));
 
     coreFrame->tree().setSpecifiedName(frameName);
     ASSERT(ownerElement.document().frame());
@@ -303,12 +307,6 @@ FrameTreeNodeData WebFrame::frameTreeData() const
     return data;
 }
 
-WebCore::FrameIdentifier WebFrame::frameID() const
-{
-    ASSERT(m_frameID);
-    return m_frameID;
-}
-
 void WebFrame::invalidate()
 {
     ASSERT(!WebProcess::singleton().webFrame(m_frameID) || WebProcess::singleton().webFrame(m_frameID) == this);
@@ -408,7 +406,7 @@ void WebFrame::createProvisionalFrame(ProvisionalFrameCreationParameters&& param
     auto clientCreator = [this, protectedThis = Ref { *this }] (auto& localFrame) mutable {
         return makeUniqueRef<WebLocalFrameLoaderClient>(localFrame, WTFMove(protectedThis), makeInvalidator());
     };
-    auto localFrame = parent ? LocalFrame::createProvisionalSubframe(*corePage, WTFMove(clientCreator), m_frameID, *parent) : LocalFrame::createMainFrame(*corePage, WTFMove(clientCreator), m_frameID, remoteFrame->opener());
+    auto localFrame = parent ? LocalFrame::createProvisionalSubframe(*corePage, WTFMove(clientCreator), m_frameID, parameters.effectiveSandboxFlags, *parent) : LocalFrame::createMainFrame(*corePage, WTFMove(clientCreator), m_frameID, parameters.effectiveSandboxFlags, remoteFrame->opener());
     m_provisionalFrame = localFrame.ptr();
     localFrame->init();
 

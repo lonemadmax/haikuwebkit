@@ -41,9 +41,10 @@ struct CSSPrimitiveValueResolverBase {
     static RefPtr<CSSPrimitiveValue> resolve(AngleRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static RefPtr<CSSPrimitiveValue> resolve(LengthRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static RefPtr<CSSPrimitiveValue> resolve(NumberRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
-    static RefPtr<CSSPrimitiveValue> resolve(PercentRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
+    static RefPtr<CSSPrimitiveValue> resolve(PercentageRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static RefPtr<CSSPrimitiveValue> resolve(ResolutionRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static RefPtr<CSSPrimitiveValue> resolve(TimeRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
+    static RefPtr<CSSPrimitiveValue> resolve(LengthPercentageRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static RefPtr<CSSPrimitiveValue> resolve(NoneRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
     static RefPtr<CSSPrimitiveValue> resolve(SymbolRaw, const CSSCalcSymbolTable&, CSSPropertyParserOptions);
 

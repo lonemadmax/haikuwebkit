@@ -819,10 +819,8 @@ void RenderLayerScrollableArea::invalidateScrollCornerRect(const IntRect& rect)
     if (!showsOverflowControls())
         return;
 
-    if (GraphicsLayer* layer = layerForScrollCorner()) {
-        layer->setNeedsDisplayInRect(rect);
-        return;
-    }
+    if (layerForScrollCorner())
+        return ScrollableArea::invalidateScrollCorner(rect);
 
     if (m_scrollCorner)
         m_scrollCorner->repaintRectangle(rect);
@@ -2045,7 +2043,7 @@ void RenderLayerScrollableArea::invalidateScrollAnchoringElement()
         m_scrollAnchoringController->invalidateAnchorElement();
 }
 
-FrameIdentifier RenderLayerScrollableArea::rootFrameID() const
+std::optional<FrameIdentifier> RenderLayerScrollableArea::rootFrameID() const
 {
     return m_layer.renderer().frame().rootFrame().frameID();
 }

@@ -34,6 +34,7 @@
 #include <WebCore/UserStyleSheetTypes.h>
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
+#include <wtf/JSONValues.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Vector.h>
 #include <wtf/WeakPtr.h>
@@ -197,6 +198,7 @@ public:
 
     bool manifestParsedSuccessfully();
     NSDictionary *manifest();
+    RefPtr<const JSON::Object> manifestObject() { return manifestParsedSuccessfully() ? m_manifestJSON->asObject() : nullptr; }
     Ref<API::Data> serializeManifest();
 
     double manifestVersion();
@@ -204,6 +206,7 @@ public:
 
     Ref<API::Data> serializeLocalization();
 
+    NSBundle *bundle() const { return m_bundle.get(); }
     SecStaticCodeRef bundleStaticCode() const;
     NSData *bundleHash() const;
 
@@ -221,13 +224,13 @@ public:
     _WKWebExtensionLocalization *localization();
     NSLocale *defaultLocale();
 
-    NSString *displayName();
-    NSString *displayShortName();
-    NSString *displayVersion();
-    NSString *displayDescription();
-    NSString *version();
+    const String& displayName();
+    const String& displayShortName();
+    const String& displayVersion();
+    const String& displayDescription();
+    const String& version();
 
-    NSString *contentSecurityPolicy();
+    const String& contentSecurityPolicy();
 
     CocoaImage *icon(CGSize idealSize);
 
@@ -274,8 +277,8 @@ public:
     bool hasOptionsPage();
     bool hasOverrideNewTabPage();
 
-    NSString *optionsPagePath();
-    NSString *overrideNewTabPagePath();
+    const String& optionsPagePath();
+    const String& overrideNewTabPagePath();
 
     const CommandsVector& commands();
     bool hasCommands();
@@ -307,7 +310,7 @@ public:
     // Combined pattern set that includes permission patterns and injected content patterns from the manifest.
     MatchPatternSet allRequestedMatchPatterns();
 
-    NSError *createError(Error, NSString *customLocalizedDescription = nil, NSError *underlyingError = nil);
+    NSError *createError(Error, String customLocalizedDescription = { }, NSError *underlyingError = nil);
     void recordErrorIfNeeded(NSError *error) { if (error) recordError(error); }
     void recordError(NSError *);
 
@@ -359,6 +362,7 @@ private:
     mutable RetainPtr<SecStaticCodeRef> m_bundleStaticCode;
     RetainPtr<NSURL> m_resourceBaseURL;
     RetainPtr<NSDictionary> m_manifest;
+    Ref<const JSON::Value> m_manifestJSON;
     RetainPtr<NSMutableDictionary> m_resources;
 
     RetainPtr<NSLocale> m_defaultLocale;
@@ -366,11 +370,11 @@ private:
 
     RetainPtr<NSMutableArray> m_errors;
 
-    RetainPtr<NSString> m_displayName;
-    RetainPtr<NSString> m_displayShortName;
-    RetainPtr<NSString> m_displayVersion;
-    RetainPtr<NSString> m_displayDescription;
-    RetainPtr<NSString> m_version;
+    String m_displayName;
+    String m_displayShortName;
+    String m_displayVersion;
+    String m_displayDescription;
+    String m_version;
 
     RetainPtr<NSMutableDictionary> m_iconsCache;
 
@@ -386,7 +390,7 @@ private:
     RetainPtr<NSString> m_sidebarTitle;
 #endif
 
-    RetainPtr<NSString> m_contentSecurityPolicy;
+    String m_contentSecurityPolicy;
 
     RetainPtr<NSArray> m_backgroundScriptPaths;
     RetainPtr<NSString> m_backgroundPagePath;
@@ -396,8 +400,8 @@ private:
 
     RetainPtr<NSString> m_inspectorBackgroundPagePath;
 
-    RetainPtr<NSString> m_optionsPagePath;
-    RetainPtr<NSString> m_overrideNewTabPagePath;
+    String m_optionsPagePath;
+    String m_overrideNewTabPagePath;
 
     bool m_backgroundContentIsPersistent : 1 { false };
     bool m_backgroundContentUsesModules : 1 { false };

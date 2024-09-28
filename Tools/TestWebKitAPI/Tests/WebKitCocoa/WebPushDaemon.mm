@@ -299,12 +299,17 @@ bool WebPushXPCConnectionMessageSender::performSendWithAsyncReplyWithoutUsingIPC
     return true;
 }
 
+static audit_token_t getSelfAuditToken()
+{
+    audit_token_t auditToken { };
+    mach_msg_type_number_t auditTokenCount = TASK_AUDIT_TOKEN_COUNT;
+    task_info(mach_task_self(), TASK_AUDIT_TOKEN, (task_info_t)(&auditToken), &auditTokenCount);
+    return auditToken;
+}
+
 static WebKit::WebPushD::WebPushDaemonConnectionConfiguration defaultWebPushDaemonConfiguration()
 {
-    audit_token_t token = { 0, 0, 0, 0, 0, 0, 0, 0 };
-    mach_msg_type_number_t auditTokenCount = TASK_AUDIT_TOKEN_COUNT;
-    task_info(mach_task_self(), TASK_AUDIT_TOKEN, (task_info_t)(&token), &auditTokenCount);
-
+    auto token = getSelfAuditToken();
     Vector<uint8_t> auditToken(sizeof(token));
     memcpy(auditToken.data(), &token, sizeof(token));
 
@@ -2391,6 +2396,7 @@ TEST(WebPushD, WKWebPushDaemonConnectionRequestPushPermission)
 
     auto configuration = adoptNS([[_WKWebPushDaemonConnectionConfiguration alloc] init]);
     configuration.get().machServiceName = @"org.webkit.webpushtestdaemon.service";
+    configuration.get().hostApplicationAuditToken = getSelfAuditToken();
     auto connection = adoptNS([[_WKWebPushDaemonConnection alloc] initWithConfiguration:configuration.get()]);
     auto url = adoptNS([[NSURL alloc] initWithString:@"https://webkit.org"]);
 
@@ -2415,15 +2421,17 @@ TEST(WebPushD, WKWebPushDaemonConnectionRequestPushPermission)
     }];
     TestWebKitAPI::Util::run(&done);
 }
+#endif
 
-TEST(WebPushD, WKWebPushDaemonConnectionPushSubscription)
+TEST(WebPushD, WKWebPushDaemonConnectionPushNotifications)
 {
     setUpTestWebPushD();
 
     auto configuration = adoptNS([[_WKWebPushDaemonConnectionConfiguration alloc] init]);
     configuration.get().machServiceName = @"org.webkit.webpushtestdaemon.service";
     // Bundle identifier is required for making push subscription.
-    configuration.get().bundleIdentifier = @"com.apple.WebKit.TestWebKitAPI";
+    configuration.get().bundleIdentifierOverrideForTesting = @"com.apple.WebKit.TestWebKitAPI";
+    configuration.get().hostApplicationAuditToken = getSelfAuditToken();
     auto connection = adoptNS([[_WKWebPushDaemonConnection alloc] initWithConfiguration:configuration.get()]);
     auto url = adoptNS([[NSURL alloc] initWithString:@"https://webkit.org/sw.js"]);
     RetainPtr applicationServerKey = [NSData dataWithBytes:(const void *)validServerKey.characters() length:validServerKey.length()];
@@ -2461,9 +2469,126 @@ TEST(WebPushD, WKWebPushDaemonConnectionPushSubscription)
         done = true;
     }];
     TestWebKitAPI::Util::run(&done);
-}
 
-#endif
+#if HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+    done = false;
+    [connection getNotifications:url.get() tag:@"" completionHandler:^(NSArray<_WKNotificationData *> *notifications, NSError *error) {
+        EXPECT_NULL(error);
+        EXPECT_NOT_NULL(notifications);
+        EXPECT_EQ(notifications.count, 0u);
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+
+    RetainPtr notification = adoptNS([[_WKMutableNotificationData alloc] init]);
+    notification.get().title = @"Hello World!";
+    notification.get().dir = _WKNotificationDirectionLTR;
+    notification.get().lang = @"en";
+    notification.get().body = @"Body1";
+    notification.get().tag = @"Tag1";
+    notification.get().alert = _WKNotificationAlertSilent;
+    notification.get().data = [NSData data];
+    notification.get().securityOrigin = url.get();
+    notification.get().serviceWorkerRegistrationURL = url.get();
+    RetainPtr uuid1 = [NSUUID UUID];
+    notification.get().uuid = uuid1.get();
+
+    done = false;
+    [connection showNotification:notification.get() completionHandler:^{
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+
+    done = false;
+    [connection getNotifications:url.get() tag:@"" completionHandler:^(NSArray<_WKNotificationData *> *notifications, NSError *error) {
+        EXPECT_NULL(error);
+        EXPECT_EQ(notifications.count, 1u);
+        if (notifications.count) {
+            EXPECT_TRUE([notifications[0].title isEqualToString:@"Hello World!"]);
+            EXPECT_EQ(notifications[0].dir, _WKNotificationDirectionLTR);
+            EXPECT_TRUE([notifications[0].lang isEqualToString:@"en"]);
+            EXPECT_TRUE([notifications[0].body isEqualToString:@"Body1"]);
+            EXPECT_TRUE([notifications[0].tag isEqualToString:@"Tag1"]);
+            EXPECT_EQ(notifications[0].alert, _WKNotificationAlertSilent);
+            EXPECT_TRUE([notifications[0].data isEqual:[NSData data]]);
+            EXPECT_TRUE([notifications[0].securityOrigin isEqual:notification.get().securityOrigin]);
+            EXPECT_TRUE([notifications[0].serviceWorkerRegistrationURL isEqual:url.get()]);
+            EXPECT_TRUE([notifications[0].uuid isEqual:uuid1.get()]);
+        }
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+
+    [connection cancelNotification:url.get() uuid:uuid1.get()];
+
+    done = false;
+    [connection getNotifications:url.get() tag:@"" completionHandler:^(NSArray<_WKNotificationData *> *notifications, NSError *error) {
+        EXPECT_NULL(error);
+        EXPECT_NOT_NULL(notifications);
+        EXPECT_EQ(notifications.count, 0u);
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+
+    done = false;
+    [connection showNotification:notification.get() completionHandler:^{
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+
+    notification.get().body = @"Body2";
+    notification.get().tag = @"Tag2";
+    RetainPtr uuid2 = [NSUUID UUID];
+    notification.get().uuid = uuid2.get();
+    done = false;
+    [connection showNotification:notification.get() completionHandler:^{
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+
+    done = false;
+    [connection getNotifications:url.get() tag:@"" completionHandler:^(NSArray<_WKNotificationData *> *notifications, NSError *error) {
+        EXPECT_NULL(error);
+        EXPECT_EQ(notifications.count, 2u);
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+
+    done = false;
+    [connection getNotifications:url.get() tag:@"Tag1" completionHandler:^(NSArray<_WKNotificationData *> *notifications, NSError *error) {
+        EXPECT_NULL(error);
+        EXPECT_EQ(notifications.count, 1u);
+        if (notifications.count)
+            EXPECT_TRUE([notifications[0].body isEqualToString:@"Body1"]);
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+
+    done = false;
+    [connection getNotifications:url.get() tag:@"Tag2" completionHandler:^(NSArray<_WKNotificationData *> *notifications, NSError *error) {
+        EXPECT_NULL(error);
+        EXPECT_EQ(notifications.count, 1u);
+        if (notifications.count)
+            EXPECT_TRUE([notifications[0].body isEqualToString:@"Body2"]);
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+
+    [connection cancelNotification:url.get() uuid:uuid1.get()];
+
+    done = false;
+    [connection getNotifications:url.get() tag:@"" completionHandler:^(NSArray<_WKNotificationData *> *notifications, NSError *error) {
+        EXPECT_NULL(error);
+        EXPECT_EQ(notifications.count, 1u);
+        if (notifications.count) {
+            EXPECT_TRUE([notifications[0].body isEqualToString:@"Body2"]);
+            EXPECT_TRUE([notifications[0].uuid isEqual:uuid2.get()]);
+        }
+        done = true;
+    }];
+    TestWebKitAPI::Util::run(&done);
+#endif // HAVE(FULL_FEATURED_USER_NOTIFICATIONS)
+}
 
 class WebPushDPushNotificationEventTest : public WebPushDTest {
 public:

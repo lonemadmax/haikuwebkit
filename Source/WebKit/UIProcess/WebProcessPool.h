@@ -116,9 +116,6 @@ namespace WebKit {
 
 class LockdownModeObserver;
 class PerActivityStateCPUUsageSampler;
-#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
-class StorageAccessUserAgentStringQuirkObserver;
-#endif
 class SuspendedPageProxy;
 class UIGamepad;
 class WebAutomationSession;
@@ -132,6 +129,10 @@ struct GPUProcessCreationParameters;
 struct NetworkProcessCreationParameters;
 struct WebProcessCreationParameters;
 struct WebProcessDataStoreParameters;
+
+#if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
+class ListDataObserver;
+#endif
 
 #if PLATFORM(COCOA)
 int networkProcessLatencyQOS();
@@ -177,6 +178,12 @@ public:
     T* supplement()
     {
         return static_cast<T*>(m_supplements.get(T::supplementName()));
+    }
+
+    template <typename T>
+    RefPtr<T> protectedSupplement()
+    {
+        return supplement<T>();
     }
 
     template <typename T>
@@ -389,6 +396,7 @@ public:
     GPUProcessProxy& ensureGPUProcess();
     Ref<GPUProcessProxy> ensureProtectedGPUProcess();
     GPUProcessProxy* gpuProcess() const { return m_gpuProcess.get(); }
+    RefPtr<GPUProcessProxy> protectedGPUProcess() const { return gpuProcess(); }
 #endif
 
 #if ENABLE(MODEL_PROCESS)
@@ -910,8 +918,9 @@ private:
 #endif
 
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
-    RefPtr<StorageAccessUserAgentStringQuirkObserver> m_storageAccessUserAgentStringQuirksDataUpdateObserver;
-    RefPtr<StorageAccessPromptQuirkObserver> m_storageAccessPromptQuirksDataUpdateObserver;
+    RefPtr<ListDataObserver> m_storageAccessUserAgentStringQuirksDataUpdateObserver;
+    RefPtr<ListDataObserver> m_storageAccessPromptQuirksDataUpdateObserver;
+    RefPtr<ListDataObserver> m_scriptTelemetryDataUpdateObserver;
 #endif
 };
 
@@ -940,12 +949,12 @@ void WebProcessPool::sendToAllProcessesForSession(const T& message, PAL::Session
 template<typename T>
 void WebProcessPool::sendToAllRemoteWorkerProcesses(const T& message, ShouldSkipSuspendedProcesses shouldSkipSuspendedProcesses)
 {
-    for (auto& process : remoteWorkerProcesses()) {
-        if (!process.canSendMessage())
+    for (Ref process : remoteWorkerProcesses()) {
+        if (!process->canSendMessage())
             continue;
-        if (shouldSkipSuspendedProcesses == ShouldSkipSuspendedProcesses::Yes && process.throttler().isSuspended())
+        if (shouldSkipSuspendedProcesses == ShouldSkipSuspendedProcesses::Yes && process->throttler().isSuspended())
             continue;
-        process.send(T(message), 0);
+        process->send(T(message), 0);
     }
 }
 

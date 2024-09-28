@@ -26,9 +26,11 @@
 #include "config.h"
 #include "ScrollTimeline.h"
 
+#include "AnimationTimelinesController.h"
 #include "CSSPrimitiveValueMappings.h"
 #include "CSSScrollValue.h"
 #include "CSSValuePool.h"
+#include "Document.h"
 #include "Element.h"
 
 namespace WebCore {
@@ -73,6 +75,8 @@ ScrollTimeline::ScrollTimeline(ScrollTimelineOptions&& options)
     : m_source(WTFMove(options.source))
     , m_axis(options.axis)
 {
+    if (m_source)
+        m_source->protectedDocument()->ensureTimelinesController().addTimeline(*this);
 }
 
 ScrollTimeline::ScrollTimeline(const AtomString& name, ScrollAxis axis)
@@ -119,6 +123,20 @@ Ref<CSSValue> ScrollTimeline::toCSSValue(const RenderStyle&) const
     }();
 
     return CSSScrollValue::create(CSSPrimitiveValue::create(scroller), CSSPrimitiveValue::create(toCSSValueID(m_axis)));
+}
+
+AnimationTimelinesController* ScrollTimeline::controller() const
+{
+    if (m_source)
+        return &m_source->document().ensureTimelinesController();
+    return nullptr;
+}
+
+AnimationTimeline::ShouldUpdateAnimationsAndSendEvents ScrollTimeline::documentWillUpdateAnimationsAndSendEvents()
+{
+    if (m_source && m_source->isConnected())
+        return AnimationTimeline::ShouldUpdateAnimationsAndSendEvents::Yes;
+    return AnimationTimeline::ShouldUpdateAnimationsAndSendEvents::No;
 }
 
 } // namespace WebCore

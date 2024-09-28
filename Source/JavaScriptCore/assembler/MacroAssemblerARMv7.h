@@ -310,8 +310,10 @@ public:
 
     void add64(RegisterID op1Hi, RegisterID op1Lo, RegisterID op2Hi, RegisterID op2Lo, RegisterID destHi, RegisterID destLo)
     {
-        m_assembler.add_S(destLo, op1Lo, op2Lo);
+        RegisterID scratch = getCachedDataTempRegisterIDAndInvalidate();
+        m_assembler.add_S(scratch, op1Lo, op2Lo);
         m_assembler.adc(destHi, op1Hi, op2Hi);
+        move(scratch, destLo);
     }
 
     void and16(Address src, RegisterID dest)
@@ -704,8 +706,10 @@ public:
 
     void sub64(RegisterID leftHi, RegisterID leftLo, RegisterID rightHi, RegisterID rightLo, RegisterID destHi, RegisterID destLo)
     {
-        m_assembler.sub_S(destLo, leftLo, rightLo);
+        RegisterID scratch = getCachedDataTempRegisterIDAndInvalidate();
+        m_assembler.sub_S(scratch, leftLo, rightLo);
         m_assembler.sbc(destHi, leftHi, rightHi);
+        move(scratch, destLo);
     }
 
     void xor32(RegisterID op1, RegisterID op2, RegisterID dest)
@@ -1559,6 +1563,30 @@ public:
     {
         if (src != dest)
             m_assembler.vmov(dest, src);
+    }
+
+    void move32ToFloat(TrustedImm32 imm, FPRegisterID dest)
+    {
+        if (!imm.m_value) {
+            moveZeroToFloat(dest);
+            return;
+        }
+        RegisterID scratch = getCachedDataTempRegisterIDAndInvalidate();
+        move(imm, scratch);
+        move32ToFloat(scratch, dest);
+    }
+
+    void move64ToDouble(TrustedImm64 imm, FPRegisterID dest)
+    {
+        if (!imm.m_value) {
+            moveZeroToDouble(dest);
+            return;
+        }
+        RegisterID scratch1 = getCachedDataTempRegisterIDAndInvalidate();
+        RegisterID scratch2 = getCachedAddressTempRegisterIDAndInvalidate();
+        move(TrustedImm32(static_cast<uint32_t>(static_cast<uint64_t>(imm.m_value))), scratch1);
+        move(TrustedImm32(static_cast<uint32_t>(static_cast<uint64_t>(imm.m_value) >> 32)), scratch2);
+        move64ToDouble(scratch2, scratch1, dest);
     }
 
     void moveDoubleOrNop(FPRegisterID src, FPRegisterID dest)

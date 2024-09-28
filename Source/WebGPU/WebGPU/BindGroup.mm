@@ -441,7 +441,7 @@ Device::ExternalTextureData Device::createExternalTextureFromPixelBuffer(CVPixel
 
     const bool supportsExtendedFormats = [m_device supportsFamily:MTLGPUFamilyApple4];
     IOSurfaceRef ioSurface = CVPixelBufferGetIOSurface(pixelBuffer);
-    if (!ioSurface) {
+    if (!ioSurface || isIntel()) {
         auto planeCount = std::max<size_t>(CVPixelBufferGetPlaneCount(pixelBuffer), 1);
         if (planeCount > 2) {
             ASSERT_NOT_REACHED("non-IOSurface CVPixelBuffer instances with more than two planes are not supported");
@@ -1318,6 +1318,9 @@ uint64_t BindGroup::makeEntryMapKey(uint32_t baseMipLevel, uint32_t baseArrayLay
 
 void BindGroup::rebindSamplersIfNeeded() const
 {
+    if (!m_bindGroupLayout)
+        return;
+
     for (auto& [samplerRefPtr, shaderStageArray] : m_samplers) {
         auto* sampler = samplerRefPtr.get();
         ASSERT(sampler);
@@ -1343,6 +1346,9 @@ void BindGroup::rebindSamplersIfNeeded() const
 
 void BindGroup::updateExternalTextures(const ExternalTexture& externalTexture)
 {
+    if (!m_bindGroupLayout)
+        return;
+
     auto textureData = m_device->createExternalTextureFromPixelBuffer(externalTexture.pixelBuffer(), externalTexture.colorSpace());
     id<MTLTexture> texture0 = textureData.texture0 ?: m_device->placeholderTexture(WGPUTextureFormat_BGRA8Unorm);
     id<MTLTexture> texture1 = textureData.texture1 ?: m_device->placeholderTexture(WGPUTextureFormat_BGRA8Unorm);

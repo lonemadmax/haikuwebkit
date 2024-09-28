@@ -176,6 +176,28 @@ op :construct_varargs,
         makeCall: nil,
     }
 
+op :super_construct_varargs,
+    args: {
+        dst: VirtualRegister,
+        callee: VirtualRegister,
+        thisValue?: VirtualRegister,
+        arguments?: VirtualRegister,
+        firstFree: VirtualRegister,
+        firstVarArg: int,
+        valueProfile: unsigned,
+    },
+    metadata: {
+        callLinkInfo: DataOnlyCallLinkInfo,
+        cachedCallee: WriteBarrier[JSCell],
+    },
+    tmps: {
+        argCountIncludingThis: unsigned
+    },
+    checkpoints: {
+        determiningArgCount: nil,
+        makeCall: nil,
+    }
+
 # Semantically, this is iterator = symbolIterator.@call(iterable); next = iterator.next;
 # where symbolIterator the result of iterable[Symbol.iterator] (which is done in a different bytecode).
 # For builtin iterators, however, this has special behavior where next becomes the empty value, which
@@ -248,6 +270,19 @@ op :construct,
     },
     metadata: {
         callLinkInfo: DataOnlyCallLinkInfo,
+    }
+
+op :super_construct,
+    args: {
+        dst: VirtualRegister,
+        callee: VirtualRegister,
+        argc: unsigned,
+        argv: unsigned,
+        valueProfile: unsigned,
+    },
+    metadata: {
+        callLinkInfo: DataOnlyCallLinkInfo,
+        cachedCallee: WriteBarrier[JSCell],
     }
 
 op :tail_call,
@@ -1429,8 +1464,10 @@ op :llint_handle_uncaught_exception
 op :op_call_return_location
 op :op_call_ignore_result_return_location
 op :op_construct_return_location
+op :op_super_construct_return_location
 op :op_call_varargs_return_location
 op :op_construct_varargs_return_location
+op :op_super_construct_varargs_return_location
 op :op_get_by_id_return_location
 op :op_get_by_id_direct_return_location
 op :op_get_length_return_location
@@ -1458,8 +1495,10 @@ op :wasm_to_js_wrapper_entry
 op :js_trampoline_op_call
 op :js_trampoline_op_call_ignore_result
 op :js_trampoline_op_construct
+op :js_trampoline_op_super_construct
 op :js_trampoline_op_call_varargs
 op :js_trampoline_op_construct_varargs
+op :js_trampoline_op_super_construct_varargs
 op :js_trampoline_op_iterator_next
 op :js_trampoline_op_iterator_open
 op :js_trampoline_op_call_direct_eval_slow
@@ -1506,6 +1545,12 @@ op :llint_cloop_did_return_from_js_22
 op :llint_cloop_did_return_from_js_23
 op :llint_cloop_did_return_from_js_24
 op :llint_cloop_did_return_from_js_25
+op :llint_cloop_did_return_from_js_26
+op :llint_cloop_did_return_from_js_27
+op :llint_cloop_did_return_from_js_28
+op :llint_cloop_did_return_from_js_29
+op :llint_cloop_did_return_from_js_30
+op :llint_cloop_did_return_from_js_31
 
 end_section :CLoopReturnHelpers
 

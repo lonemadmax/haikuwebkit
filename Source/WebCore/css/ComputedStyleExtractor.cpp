@@ -1194,9 +1194,12 @@ static Ref<CSSValue> valueForGridTrackList(GridTrackSizingDirection direction, R
     bool isRowAxis = direction == GridTrackSizingDirection::ForColumns;
     auto* renderGrid = dynamicDowncast<RenderGrid>(renderer);
     bool isSubgrid = isRowAxis ? style.gridSubgridColumns() : style.gridSubgridRows();
-    bool isMasonry = (direction == GridTrackSizingDirection::ForRows) ? style.gridMasonryRows() : style.gridMasonryColumns();
     auto& trackSizes = isRowAxis ? style.gridColumnTrackSizes() : style.gridRowTrackSizes();
     auto& autoRepeatTrackSizes = isRowAxis ? style.gridAutoRepeatColumns() : style.gridAutoRepeatRows();
+
+    if ((direction == GridTrackSizingDirection::ForRows && style.gridMasonryRows())
+        || (direction == GridTrackSizingDirection::ForColumns && style.gridMasonryColumns()))
+        return CSSPrimitiveValue::create(CSSValueMasonry);
 
     // Handle the 'none' case.
     bool trackListIsEmpty = trackSizes.isEmpty() && autoRepeatTrackSizes.isEmpty();
@@ -1208,7 +1211,7 @@ static Ref<CSSValue> valueForGridTrackList(GridTrackSizingDirection direction, R
     }
 
     if (trackListIsEmpty && !isSubgrid)
-        return isMasonry ? CSSPrimitiveValue::create(CSSValueMasonry) : CSSPrimitiveValue::create(CSSValueNone);
+        return CSSPrimitiveValue::create(CSSValueNone);
 
     CSSValueListBuilder list;
 
@@ -1259,7 +1262,7 @@ static Ref<CSSValue> valueForGridTrackList(GridTrackSizingDirection direction, R
         CSSValueListBuilder repeatedValues;
         for (auto& entry : repeat.list)
             repeatVisitor(repeatedValues, entry);
-        list.append(CSSGridIntegerRepeatValue::create(repeat.repeats, WTFMove(repeatedValues)));
+        list.append(CSSGridIntegerRepeatValue::create(CSSPrimitiveValue::createInteger(repeat.repeats), WTFMove(repeatedValues)));
     }, [&](const GridTrackEntryAutoRepeat& repeat) {
         CSSValueListBuilder repeatedValues;
         for (auto& entry : repeat.list)
@@ -1512,9 +1515,35 @@ static Ref<CSSPrimitiveValue> valueForTransitionBehavior(bool allowsDiscreteTran
     return CSSPrimitiveValue::create(allowsDiscreteTransitions ? CSSValueAllowDiscrete : CSSValueNormal);
 }
 
-static Ref<CSSPrimitiveValue> valueForAnimationDuration(double duration)
+static Ref<CSSPrimitiveValue> valueForAnimationDuration(MarkableDouble duration, const Animation* animation = nullptr, const AnimationList* animationList = nullptr)
 {
-    return CSSPrimitiveValue::create(duration, CSSUnitType::CSS_S);
+    auto animationListHasMultipleExplicitTimelines = [&]() {
+        if (!animationList || animationList->size() <= 1)
+            return false;
+        auto explicitTimelines = 0;
+        for (auto& animation : *animationList) {
+            if (animation->isTimelineSet())
+                ++explicitTimelines;
+            if (explicitTimelines > 1)
+                return true;
+        }
+        return false;
+    };
+
+    auto animationHasExplicitNonAutoTimeline = [&]() {
+        if (!animation || !animation->isTimelineSet())
+            return false;
+        auto* timelineKeyword = std::get_if<Animation::TimelineKeyword>(&animation->timeline());
+        return !timelineKeyword || *timelineKeyword != Animation::TimelineKeyword::Auto;
+    };
+
+    // https://drafts.csswg.org/css-animations-2/#animation-duration
+    // For backwards-compatibility with Level 1, when the computed value of animation-timeline is auto
+    // (i.e. only one list value, and that value being auto), the resolved value of auto for
+    // animation-duration is 0s whenever its used value would also be 0s.
+    if (!duration && (animationListHasMultipleExplicitTimelines() || animationHasExplicitNonAutoTimeline()))
+        return CSSPrimitiveValue::create(CSSValueAuto);
+    return CSSPrimitiveValue::create(duration.value_or(0), CSSUnitType::CSS_S);
 }
 
 static Ref<CSSPrimitiveValue> valueForAnimationDelay(double delay)
@@ -1670,14 +1699,14 @@ static Ref<CSSValue> valueForAnimationTimingFunction(const TimingFunction& timin
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-static void addValueForAnimationPropertyToList(const RenderStyle& style, CSSValueListBuilder& list, CSSPropertyID property, const Animation* animation)
+static void addValueForAnimationPropertyToList(const RenderStyle& style, CSSValueListBuilder& list, CSSPropertyID property, const Animation* animation, const AnimationList* animationList)
 {
     if (property == CSSPropertyTransitionBehavior) {
         if (!animation || !animation->isAllowsDiscreteTransitionsFilled())
             list.append(valueForTransitionBehavior(animation ? animation->allowsDiscreteTransitions() : Animation::initialAllowsDiscreteTransitions()));
     } else if (property == CSSPropertyAnimationDuration || property == CSSPropertyTransitionDuration) {
         if (!animation || !animation->isDurationFilled())
-            list.append(valueForAnimationDuration(animation ? animation->duration() : Animation::initialDuration()));
+            list.append(valueForAnimationDuration(animation ? animation->duration() : Animation::initialDuration(), animation, animationList));
     } else if (property == CSSPropertyAnimationDelay || property == CSSPropertyTransitionDelay) {
         if (!animation || !animation->isDelayFilled())
             list.append(valueForAnimationDelay(animation ? animation->delay() : Animation::initialDelay()));
@@ -1722,9 +1751,9 @@ static Ref<CSSValueList> valueListForAnimationOrTransitionProperty(const RenderS
     CSSValueListBuilder list;
     if (animationList) {
         for (auto& animation : *animationList)
-            addValueForAnimationPropertyToList(style, list, property, animation.ptr());
+            addValueForAnimationPropertyToList(style, list, property, animation.ptr(), animationList);
     } else
-        addValueForAnimationPropertyToList(style, list, property, nullptr);
+        addValueForAnimationPropertyToList(style, list, property, nullptr, nullptr);
     return CSSValueList::createCommaSeparated(WTFMove(list));
 }
 
@@ -1883,6 +1912,7 @@ static Ref<CSSValue> valueForWebkitRubyPosition(RubyPosition position)
         case RubyPosition::Under:
             return CSSValueAfter;
         case RubyPosition::InterCharacter:
+        case RubyPosition::LegacyInterCharacter:
             return CSSValueInterCharacter;
         }
         return CSSValueBefore;
@@ -2621,7 +2651,7 @@ static inline bool isNonReplacedInline(RenderObject& renderer)
 static bool rendererCanHaveTrimmedMargin(const RenderBox& renderer, MarginTrimType marginTrimType)
 {
     // A renderer will have a specific margin marked as trimmed by setting its rare data bit if:
-    // 1.) The layout system the box is in has this logic (setting the rare data bit for this 
+    // 1.) The layout system the box is in has this logic (setting the rare data bit for this
     // specific margin) implemented
     // 2.) The block container/flexbox/grid has this margin specified in its margin-trim style
     // If marginTrimType is empty we will check if any of the supported margins are in the style
@@ -3787,7 +3817,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
             return CSSPrimitiveValue::create(CSSValueNormal);
         CSSValueListBuilder list;
         for (auto& feature : variationSettings)
-            list.append(CSSFontVariationValue::create(feature.tag(), feature.value()));
+            list.append(CSSFontVariationValue::create(feature.tag(), CSSPrimitiveValue::create(feature.value())));
         return CSSValueList::createCommaSeparated(WTFMove(list));
     }
     case CSSPropertyFontOpticalSizing:
@@ -3808,7 +3838,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
     }
     case CSSPropertyMasonryAutoFlow: {
         CSSValueListBuilder list;
-        // MasonryAutoFlow information is stored in a struct that should always 
+        // MasonryAutoFlow information is stored in a struct that should always
         // hold 2 pieces of information. It should contain both Pack/Next inside
         // the MasonryAutoFlowPlacementAlgorithm enum class and DefiniteFirst/Ordered
         // inside the MasonryAutoFlowPlacementOrder enum class
@@ -3940,7 +3970,7 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         return CSSPrimitiveValue::createCustomIdent(style.specifiedLocale());
     case CSSPropertyMarginTop: {
         if (auto* box = dynamicDowncast<RenderBox>(renderer); box
-            && rendererCanHaveTrimmedMargin(*box, MarginTrimType::BlockStart) 
+            && rendererCanHaveTrimmedMargin(*box, MarginTrimType::BlockStart)
             && box->hasTrimmedMargin(toMarginTrimType(*box, propertyID)))
             return zoomAdjustedPixelValue(box->marginTop(), style);
         return zoomAdjustedPaddingOrMarginPixelValue<&RenderStyle::marginTop, &RenderBoxModelObject::marginTop>(style, renderer);
@@ -3964,14 +3994,14 @@ RefPtr<CSSValue> ComputedStyleExtractor::valueForPropertyInStyle(const RenderSty
         return zoomAdjustedPixelValue(value, style);
     }
     case CSSPropertyMarginBottom:
-        if (auto* box = dynamicDowncast<RenderBox>(renderer); box 
-            && rendererCanHaveTrimmedMargin(*box, MarginTrimType::BlockEnd) 
+        if (auto* box = dynamicDowncast<RenderBox>(renderer); box
+            && rendererCanHaveTrimmedMargin(*box, MarginTrimType::BlockEnd)
             && box->hasTrimmedMargin(toMarginTrimType(*box, propertyID)))
             return zoomAdjustedPixelValue(box->marginBottom(), style);
         return zoomAdjustedPaddingOrMarginPixelValue<&RenderStyle::marginBottom, &RenderBoxModelObject::marginBottom>(style, renderer);
     case CSSPropertyMarginLeft: {
-        if (auto* box = dynamicDowncast<RenderBox>(renderer);  box 
-            && rendererCanHaveTrimmedMargin(*box, MarginTrimType::InlineStart) 
+        if (auto* box = dynamicDowncast<RenderBox>(renderer);  box
+            && rendererCanHaveTrimmedMargin(*box, MarginTrimType::InlineStart)
             && box->hasTrimmedMargin(toMarginTrimType(*box, propertyID)))
             return zoomAdjustedPixelValue(box->marginLeft(), style);
         return zoomAdjustedPaddingOrMarginPixelValue<&RenderStyle::marginLeft, &RenderBoxModelObject::marginLeft>(style, renderer);

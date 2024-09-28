@@ -267,21 +267,21 @@ CSSUnitType CSSPrimitiveValue::primitiveType() const
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(CSSPropertyID propertyID)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_PROPERTY_ID);
     m_value.propertyID = propertyID;
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(double number, CSSUnitType type)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(type);
     m_value.number = number;
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(const String& string, CSSUnitType type)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     ASSERT(isStringType(type));
     setPrimitiveUnitType(type);
@@ -290,7 +290,7 @@ CSSPrimitiveValue::CSSPrimitiveValue(const String& string, CSSUnitType type)
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(Color color)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_RGBCOLOR);
     static_assert(sizeof(m_value.colorAsInteger) == sizeof(color));
@@ -313,7 +313,7 @@ Color CSSPrimitiveValue::absoluteColor() const
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(StaticCSSValueTag, CSSValueID valueID)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_VALUE_ID);
     m_value.valueID = valueID;
@@ -339,21 +339,21 @@ CSSPrimitiveValue::CSSPrimitiveValue(StaticCSSValueTag, ImplicitInitialValueTag)
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(Ref<CSSCalcValue> value)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_CALC);
     m_value.calc = &value.leakRef();
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(CSSUnresolvedColor unresolvedColor)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_UNRESOLVED_COLOR);
     m_value.unresolvedColor = new CSSUnresolvedColor(WTFMove(unresolvedColor));
 }
 
 CSSPrimitiveValue::CSSPrimitiveValue(Ref<CSSAnchorValue> value)
-    : CSSValue(PrimitiveClass)
+    : CSSValue(ClassType::Primitive)
 {
     setPrimitiveUnitType(CSSUnitType::CSS_ANCHOR);
     m_value.anchor = &value.leakRef();
@@ -498,7 +498,7 @@ Ref<CSSPrimitiveValue> CSSPrimitiveValue::create(double value, CSSUnitType type)
             return *result;
         break;
     case CSSUnitType::CSS_PERCENTAGE:
-        if (auto* result = valueFromPool(staticCSSValuePool->m_percentValues, value))
+        if (auto* result = valueFromPool(staticCSSValuePool->m_percentageValues, value))
             return *result;
         break;
     case CSSUnitType::CSS_PX:
@@ -1091,12 +1091,6 @@ double CSSPrimitiveValue::doubleValueDeprecated(CSSUnitType targetUnit) const
 double CSSPrimitiveValue::doubleValue(const CSSToLengthConversionData& conversionData) const
 {
     return isCalculated() ? m_value.calc->doubleValue(conversionData, { }) : m_value.number;
-}
-
-double CSSPrimitiveValue::doubleValueNoConversionDataRequired() const
-{
-    ASSERT(!isCalculated());
-    return m_value.number;
 }
 
 double CSSPrimitiveValue::doubleValueDeprecated() const

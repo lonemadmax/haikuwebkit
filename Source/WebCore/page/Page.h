@@ -400,6 +400,8 @@ public:
 
     bool fingerprintingProtectionsEnabled() const;
 
+    OptionSet<AdvancedPrivacyProtections> advancedPrivacyProtections() const;
+
 #if ENABLE(REMOTE_INSPECTOR)
     WEBCORE_EXPORT bool inspectable() const;
     WEBCORE_EXPORT void setInspectable(bool);
@@ -1115,7 +1117,7 @@ public:
     void setAccessibilityRootObject(AccessibilityRootAtspi*);
 #endif
 
-    void timelineControllerMaximumAnimationFrameRateDidChange(DocumentTimelinesController&);
+    void timelineControllerMaximumAnimationFrameRateDidChange(AnimationTimelinesController&);
 
     ContentSecurityPolicyModeForExtension contentSecurityPolicyModeForExtension() const { return m_contentSecurityPolicyModeForExtension; }
 
@@ -1208,6 +1210,8 @@ public:
 #if ENABLE(FULLSCREEN_API)
     WEBCORE_EXPORT bool isFullscreenManagerEnabled() const;
 #endif
+
+    bool requiresScriptTelemetryForURL(const URL&) const;
 
 private:
     explicit Page(PageConfiguration&&);

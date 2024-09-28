@@ -31,12 +31,14 @@
 namespace WebCore {
 enum class PushPermissionState : uint8_t;
 struct ExceptionData;
+struct NotificationData;
 struct PushSubscriptionData;
 }
 
 namespace WebKit {
 namespace WebPushD {
 class Connection;
+struct WebPushDaemonConnectionConfiguration;
 }
 struct WebPushMessage;
 }
@@ -45,7 +47,7 @@ namespace API {
 
 class WebPushDaemonConnection final : public ObjectImpl<Object::Type::WebPushDaemonConnection> {
 public:
-    WebPushDaemonConnection(const WTF::String& machServiceName, const WTF::String& partition, const WTF::String& bundleIdentifier);
+    WebPushDaemonConnection(const WTF::String& machServiceName, WebKit::WebPushD::WebPushDaemonConnectionConfiguration&&);
 
     void getPushPermissionState(const WTF::URL&, CompletionHandler<void(WebCore::PushPermissionState)>&&);
     void requestPushPermission(const WTF::URL&, CompletionHandler<void(bool)>&&);
@@ -54,6 +56,10 @@ public:
     void unsubscribeFromPushService(const WTF::URL&, CompletionHandler<void(const Expected<bool, WebCore::ExceptionData>&)>&&);
     void getPushSubscription(const WTF::URL&, CompletionHandler<void(const Expected<std::optional<WebCore::PushSubscriptionData>, WebCore::ExceptionData>&)>&&);
     void getNextPendingPushMessage(CompletionHandler<void(const std::optional<WebKit::WebPushMessage>&)>&&);
+
+    void showNotification(const WebCore::NotificationData&, CompletionHandler<void()>&&);
+    void getNotifications(const WTF::URL&, const WTF::String& tag, CompletionHandler<void(const Expected<Vector<WebCore::NotificationData>, WebCore::ExceptionData>&)>&&);
+    void cancelNotification(const WTF::URL&, const WTF::UUID&);
 
 private:
 #if ENABLE(WEB_PUSH_NOTIFICATIONS)

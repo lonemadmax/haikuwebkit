@@ -231,32 +231,32 @@ macro doVMEntry(makeCall)
 .copyHeaderLoop:
     # Copy the CodeBlock/Callee/ArgumentCountIncludingThis/|this| from protoCallFrame into the callee frame.
     if ARM64 or ARM64E
-        loadpairq (8 * 0)[protoCallFrame], extraTempReg, t3
-        storepairq extraTempReg, t3, CodeBlock + (8 * 0)[sp]
-        loadpairq (8 * 2)[protoCallFrame], extraTempReg, t3
-        storepairq extraTempReg, t3, CodeBlock + (8 * 2)[sp]
+        loadpairq (8 * 0)[protoCallFrame], t5, t3
+        storepairq t5, t3, CodeBlock + (8 * 0)[sp]
+        loadpairq (8 * 2)[protoCallFrame], t5, t3
+        storepairq t5, t3, CodeBlock + (8 * 2)[sp]
     else
-        loadq (8 * 0)[protoCallFrame], extraTempReg
-        storeq extraTempReg, CodeBlock + (8 * 0)[sp]
-        loadq (8 * 1)[protoCallFrame], extraTempReg
-        storeq extraTempReg, CodeBlock + (8 * 1)[sp]
-        loadq (8 * 2)[protoCallFrame], extraTempReg
-        storeq extraTempReg, CodeBlock + (8 * 2)[sp]
-        loadq (8 * 3)[protoCallFrame], extraTempReg
-        storeq extraTempReg, CodeBlock + (8 * 3)[sp]
+        loadq (8 * 0)[protoCallFrame], t5
+        storeq t5, CodeBlock + (8 * 0)[sp]
+        loadq (8 * 1)[protoCallFrame], t5
+        storeq t5, CodeBlock + (8 * 1)[sp]
+        loadq (8 * 2)[protoCallFrame], t5
+        storeq t5, CodeBlock + (8 * 2)[sp]
+        loadq (8 * 3)[protoCallFrame], t5
+        storeq t5, CodeBlock + (8 * 3)[sp]
     end
 
     loadi PayloadOffset + ProtoCallFrame::argCountAndCodeOriginValue[protoCallFrame], t4
     subi 1, t4
-    loadi ProtoCallFrame::paddedArgCount[protoCallFrame], extraTempReg
-    subi 1, extraTempReg
+    loadi ProtoCallFrame::paddedArgCount[protoCallFrame], t5
+    subi 1, t5
 
-    bieq t4, extraTempReg, .copyArgs
+    bieq t4, t5, .copyArgs
     move ValueUndefined, t3
 .fillExtraArgsLoop:
-    subi 1, extraTempReg
-    storeq t3, ThisArgumentOffset + 8[sp, extraTempReg, 8]
-    bineq t4, extraTempReg, .fillExtraArgsLoop
+    subi 1, t5
+    storeq t3, ThisArgumentOffset + 8[sp, t5, 8]
+    bineq t4, t5, .fillExtraArgsLoop
 
 .copyArgs:
     loadp ProtoCallFrame::args[protoCallFrame], t3
@@ -264,8 +264,8 @@ macro doVMEntry(makeCall)
 .copyArgsLoop:
     btiz t4, .copyArgsDone
     subi 1, t4
-    loadq [t3, t4, 8], extraTempReg
-    storeq extraTempReg, ThisArgumentOffset + 8[sp, t4, 8]
+    loadq [t3, t4, 8], t5
+    storeq t5, ThisArgumentOffset + 8[sp, t4, 8]
     jmp .copyArgsLoop
 
 .copyArgsDone:
@@ -282,7 +282,7 @@ macro doVMEntry(makeCall)
         storep cfr, VM::topEntryFrame[vm]
     end
 
-    checkStackPointerAlignment(extraTempReg, 0xbad0dc02)
+    checkStackPointerAlignment(t5, 0xbad0dc02)
 
     makeCall(entry, protoCallFrame, t3, t4)
 
@@ -323,10 +323,10 @@ _llint_throw_stack_overflow_error_from_vm_entry:
     vmEntryRecord(cfr, t4)
 
     loadp VMEntryRecord::m_vm[t4], vm
-    loadp VMEntryRecord::m_prevTopCallFrame[t4], extraTempReg
-    storep extraTempReg, VM::topCallFrame[vm]
-    loadp VMEntryRecord::m_prevTopEntryFrame[t4], extraTempReg
-    storep extraTempReg, VM::topEntryFrame[vm]
+    loadp VMEntryRecord::m_prevTopCallFrame[t4], t5
+    storep t5, VM::topCallFrame[vm]
+    loadp VMEntryRecord::m_prevTopEntryFrame[t4], t5
+    storep t5, VM::topEntryFrame[vm]
 
     move ValueUndefined, r0
 
@@ -381,10 +381,10 @@ op(llint_handle_uncaught_exception, macro ()
     vmEntryRecord(cfr, t2)
 
     loadp VMEntryRecord::m_vm[t2], t3
-    loadp VMEntryRecord::m_prevTopCallFrame[t2], extraTempReg
-    storep extraTempReg, VM::topCallFrame[t3]
-    loadp VMEntryRecord::m_prevTopEntryFrame[t2], extraTempReg
-    storep extraTempReg, VM::topEntryFrame[t3]
+    loadp VMEntryRecord::m_prevTopCallFrame[t2], t5
+    storep t5, VM::topCallFrame[t3]
+    loadp VMEntryRecord::m_prevTopEntryFrame[t2], t5
+    storep t5, VM::topEntryFrame[t3]
 
     move ValueUndefined, r0
 
@@ -3148,6 +3148,21 @@ llintOpWithReturn(op_get_parent_scope, OpGetParentScope, macro (size, get, dispa
     loadVariable(get, m_scope, t0)
     loadp JSScope::m_next[t0], t0
     return(t0)
+end)
+
+llintOpWithMetadata(op_super_construct_varargs, OpSuperConstructVarargs, macro (size, get, dispatch, metadata, return)
+    metadata(t5, t0)
+    get(m_thisValue, t0)
+    loadConstantOrVariableCell(size, t0, t1, .done)
+    loadp OpSuperConstructVarargs::Metadata::m_cachedCallee[t5], t2
+    bqeq t1, t2, .done
+    btqz t2, .store
+.invalidate:
+    move SeenMultipleCalleeObjects, t1
+.store:
+    storep t1, OpSuperConstructVarargs::Metadata::m_cachedCallee[t5]
+.done:
+    doCallVarargs(op_super_construct_varargs, size, get, OpSuperConstructVarargs, m_valueProfile, m_dst, dispatch, metadata, _llint_slow_path_size_frame_for_varargs, _llint_slow_path_super_construct_varargs, prepareForRegularCall, invokeForRegularCall, prepareForSlowRegularCall, dispatchAfterRegularCall)
 end)
 
 

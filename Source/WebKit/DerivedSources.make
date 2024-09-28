@@ -670,6 +670,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/ResourceLoadStatisticsParameters.serialization.in \
 	Shared/SameDocumentNavigationType.serialization.in \
 	Shared/SandboxExtension.serialization.in \
+	Shared/ScriptTelemetry.serialization.in \
 	Shared/ScrollingAccelerationCurve.serialization.in \
 	Shared/SessionState.serialization.in \
 	Shared/SyntheticEditingCommandType.serialization.in \
@@ -709,6 +710,7 @@ SERIALIZATION_DESCRIPTION_FILES = \
 	Shared/WebsiteAutoplayQuirk.serialization.in \
 	Shared/WebsitePoliciesData.serialization.in \
 	Shared/WebsitePopUpPolicy.serialization.in \
+	Shared/WebsitePushAndNotificationsEnabledPolicy.serialization.in \
 	Shared/ApplePay/ApplePayPaymentSetupFeatures.serialization.in \
 	Shared/ApplePay/PaymentSetupConfiguration.serialization.in \
 	Shared/Databases/IndexedDB/WebIDBResult.serialization.in \

@@ -45,14 +45,14 @@
 #include "CSSPropertyParserConsumer+ColorInterpolationMethod.h"
 #include "CSSPropertyParserConsumer+Filter.h"
 #include "CSSPropertyParserConsumer+Ident.h"
-#include "CSSPropertyParserConsumer+Length.h"
-#include "CSSPropertyParserConsumer+LengthDefinitions.h"
+#include "CSSPropertyParserConsumer+LengthPercentage.h"
+#include "CSSPropertyParserConsumer+LengthPercentageDefinitions.h"
 #include "CSSPropertyParserConsumer+MetaConsumer.h"
 #include "CSSPropertyParserConsumer+MetaResolver.h"
 #include "CSSPropertyParserConsumer+Number.h"
 #include "CSSPropertyParserConsumer+NumberDefinitions.h"
-#include "CSSPropertyParserConsumer+Percent.h"
-#include "CSSPropertyParserConsumer+PercentDefinitions.h"
+#include "CSSPropertyParserConsumer+Percentage.h"
+#include "CSSPropertyParserConsumer+PercentageDefinitions.h"
 #include "CSSPropertyParserConsumer+Position.h"
 #include "CSSPropertyParserConsumer+RawTypes.h"
 #include "CSSPropertyParserConsumer+Resolution.h"
@@ -84,7 +84,7 @@ static RefPtr<CSSPrimitiveValue> consumeDeprecatedGradientPointValue(CSSParserTo
             return CSSPrimitiveValue::create(50, CSSUnitType::CSS_PERCENTAGE);
         return nullptr;
     }
-    RefPtr<CSSPrimitiveValue> result = consumePercent(range);
+    RefPtr<CSSPrimitiveValue> result = consumePercentage(range);
     if (!result)
         result = consumeNumber(range);
     return result;
@@ -134,7 +134,7 @@ static bool consumeDeprecatedGradientColorStop(CSSParserTokenRange& range, CSSGr
         position = CSSPrimitiveValue::create(1);
         break;
     case CSSValueColorStop:
-        position = consumePercentOrNumber(args);
+        position = consumePercentageOrNumber(args);
         if (!position)
             return false;
         if (!consumeCommaIncludingWhitespace(args))
@@ -300,7 +300,7 @@ template<typename Consumer> static std::optional<CSSGradientColorStopList> consu
 
 static std::optional<CSSGradientColorStopList> consumeLengthColorStopList(CSSParserTokenRange& range, const CSSParserContext& context, SupportsColorHints supportsColorHints)
 {
-    return consumeColorStopList(range, context, supportsColorHints, [&] { return consumeLengthOrPercent(range, context.mode); });
+    return consumeColorStopList(range, context, supportsColorHints, [&] { return consumeLengthPercentage(range, context.mode); });
 }
 
 static std::optional<CSSGradientColorStopList> consumeAngularColorStopList(CSSParserTokenRange& range, const CSSParserContext& context, SupportsColorHints supportsColorHints)
@@ -496,8 +496,8 @@ static RefPtr<CSSValue> consumePrefixedRadialGradient(CSSParserTokenRange& range
     } else if (extentKeyword) {
         gradientBox = *extentKeyword;
     } else {
-        if (auto length1 = consumeLengthOrPercent(range, context.mode, ValueRange::NonNegative)) {
-            auto length2 = consumeLengthOrPercent(range, context.mode, ValueRange::NonNegative);
+        if (auto length1 = consumeLengthPercentage(range, context.mode, ValueRange::NonNegative)) {
+            auto length2 = consumeLengthPercentage(range, context.mode, ValueRange::NonNegative);
             if (!length2)
                 return nullptr;
             if (!consumeCommaIncludingWhitespace(range))
@@ -690,12 +690,12 @@ static RefPtr<CSSValue> consumeRadialGradient(CSSParserTokenRange& range, const 
             if (!shape && !size)
                 break;
         } else {
-            auto length1 = consumeLengthOrPercent(range, context.mode, ValueRange::NonNegative);
+            auto length1 = consumeLengthPercentage(range, context.mode, ValueRange::NonNegative);
             if (!length1)
                 break;
             if (size)
                 return nullptr;
-            if (auto length2 = consumeLengthOrPercent(range, context.mode, ValueRange::NonNegative)) {
+            if (auto length2 = consumeLengthPercentage(range, context.mode, ValueRange::NonNegative)) {
                 size = std::make_pair(length1.releaseNonNull(), length2.releaseNonNull());
 
                 // Additional increment is necessary since we consumed a second token.
@@ -896,7 +896,7 @@ static RefPtr<CSSValue> consumeCrossFade(CSSParserTokenRange& args, const CSSPar
     if (!toImageValueOrNone || !consumeCommaIncludingWhitespace(args))
         return nullptr;
 
-    auto value = consumePercentDividedBy100OrNumber(args);
+    auto value = consumePercentageDividedBy100OrNumber(args);
     if (!value)
         return nullptr;
 

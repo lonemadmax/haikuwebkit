@@ -224,12 +224,12 @@ SOFT_LINK_LIBRARY_OPTIONAL(libAccessibility)
 SOFT_LINK_OPTIONAL(libAccessibility, _AXSReduceMotionAutoplayAnimatedImagesEnabled, Boolean, (), ());
 #endif
 
+#if ENABLE(GAMEPAD) && PLATFORM(VISION) && __has_include(<GameController/GCEventInteraction.h>)
+#import <WebCore/GameControllerSoftLink.h>
+#endif
+
 #define THROW_IF_SUSPENDED if (UNLIKELY(_page && _page->isSuspended())) \
     [NSException raise:NSInternalInconsistencyException format:@"The WKWebView is suspended"]
-
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/WKWebViewAdditionsBefore.mm>
-#endif
 
 RetainPtr<NSError> nsErrorFromExceptionDetails(const WebCore::ExceptionDetails& details)
 {
@@ -436,6 +436,11 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 #if ENABLE(WRITING_TOOLS)
     _activeWritingToolsSession = nil;
     _writingToolsTextSuggestions = [NSMapTable strongToWeakObjectsMapTable];
+#endif
+
+#if PLATFORM(APPLETV)
+    // FIXME: This is a workaround for <rdar://135515434> to prevent the tint color from being set to either solid black or white.
+    self.tintColor = UIColor.systemBlueColor;
 #endif
 }
 
@@ -741,6 +746,9 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 
 - (void)_setResourceLoadDelegate:(id<_WKResourceLoadDelegate>)delegate
 {
+    if (!_page || !_resourceLoadDelegate)
+        return;
+
     if (delegate) {
         _page->setResourceLoadClient(_resourceLoadDelegate->createResourceLoadClient());
         _resourceLoadDelegate->setDelegate(delegate);
@@ -1825,10 +1833,8 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 - (void)createPDFWithConfiguration:(WKPDFConfiguration *)pdfConfiguration completionHandler:(void (^)(NSData *pdfDocumentData, NSError *error))completionHandler
 {
     THROW_IF_SUSPENDED;
-    WebCore::FrameIdentifier frameID;
-    if (auto mainFrame = _page->mainFrame())
-        frameID = mainFrame->frameID();
-    else {
+    auto frameID = _page->mainFrame() ? std::optional { _page->mainFrame()->frameID() } : std::nullopt;
+    if (!frameID) {
         completionHandler(nil, createNSError(WKErrorUnknown).get());
         return;
     }
@@ -1839,7 +1845,7 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
 
     bool allowTransparentBackground = pdfConfiguration && pdfConfiguration.allowTransparentBackground;
 
-    _page->drawToPDF(frameID, floatRect, allowTransparentBackground, [handler = makeBlockPtr(completionHandler)](RefPtr<WebCore::SharedBuffer>&& pdfData) {
+    _page->drawToPDF(*frameID, floatRect, allowTransparentBackground, [handler = makeBlockPtr(completionHandler)](RefPtr<WebCore::SharedBuffer>&& pdfData) {
         if (!pdfData || pdfData->isEmpty()) {
             handler(nil, createNSError(WKErrorUnknown).get());
             return;
@@ -2209,7 +2215,7 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     }
 
     _writingToolsTextReplacementsFinished = finished;
-    _partialIntelligenceTextPonderingAnimationCount += 1;
+    _partialIntelligenceTextAnimationCount += 1;
 
     _page->compositionSessionDidReceiveTextWithReplacementRange(*webSession, WebCore::AttributedString::fromNSAttributedString(attributedText), { range }, *webContext, finished);
 }
@@ -2226,7 +2232,7 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 
     if (webAction == WebCore::WritingTools::Action::Restart) {
         _writingToolsTextReplacementsFinished = false;
-        _partialIntelligenceTextPonderingAnimationCount = 0;
+        _partialIntelligenceTextAnimationCount = 0;
     }
 
     _page->writingToolsSessionDidReceiveAction(*webSession, webAction);
@@ -2266,16 +2272,16 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     [textViewDelegate proofreadingSessionWithUUID:[_activeWritingToolsSession uuid] updateState:WebKit::convertToPlatformTextSuggestionState(state) forSuggestionWithUUID:replacementUUID];
 }
 
-- (void)_didEndPartialIntelligenceTextPonderingAnimation
+- (void)_didEndPartialIntelligenceTextAnimation
 {
-    if (!_partialIntelligenceTextPonderingAnimationCount) {
+    if (!_partialIntelligenceTextAnimationCount) {
         ASSERT_NOT_REACHED();
         return;
     }
 
-    _partialIntelligenceTextPonderingAnimationCount -= 1;
+    _partialIntelligenceTextAnimationCount -= 1;
 
-    if (!_partialIntelligenceTextPonderingAnimationCount && _writingToolsTextReplacementsFinished) {
+    if (!_partialIntelligenceTextAnimationCount && _writingToolsTextReplacementsFinished) {
         // If the entire replacement has already been completed, and this is the end of the last animation,
         // then reveal the selection and end the session if needed.
         _page->intelligenceTextAnimationsDidComplete();
@@ -2315,16 +2321,16 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
 
 #endif
 
-#if USE(APPLE_INTERNAL_SDK)
-#import <WebKitAdditions/WKWebViewAdditionsAfter.mm>
-#endif
-
 #if ENABLE(GAMEPAD)
-#if !__has_include(<WebKitAdditions/WKWebViewAdditionsAfter+Gamepad.mm>)
+
 - (void)_setGamepadsRecentlyAccessed:(BOOL)gamepadsRecentlyAccessed
 {
-}
+#if PLATFORM(VISION)
+    id<WKUIDelegatePrivate> uiDelegate = (id<WKUIDelegatePrivate>)self.UIDelegate;
+    if ([uiDelegate respondsToSelector:@selector(_webView:setRecentlyAccessedGamepads:)])
+        [uiDelegate _webView:self setRecentlyAccessedGamepads:gamepadsRecentlyAccessed];
 #endif
+}
 
 #if PLATFORM(VISION)
 - (BOOL)_gamepadsConnected
@@ -2344,11 +2350,23 @@ static _WKSelectionAttributes selectionAttributes(const WebKit::EditorState& edi
     _page->allowGamepadAccess();
 }
 
-#if !__has_include(<WebKitAdditions/WKWebViewAdditionsAfter+Gamepad.mm>)
 - (void)_setAllowGamepadsInput:(BOOL)allowGamepadsInput
 {
+#if __has_include(<GameController/GCEventInteraction.h>)
+    if (allowGamepadsInput == !!_gamepadsRecentlyAccessedState)
+        return;
+
+    if (allowGamepadsInput) {
+        _gamepadsRecentlyAccessedState = adoptNS([[WebCore::getGCEventInteractionClass() alloc] init]);
+        ((GCEventInteraction *)_gamepadsRecentlyAccessedState.get()).handledEventTypes = GCUIEventTypeGamepad;
+        [self addInteraction:(id<UIInteraction>)_gamepadsRecentlyAccessedState.get()];
+    } else {
+        [self removeInteraction:(id<UIInteraction>)_gamepadsRecentlyAccessedState.get()];
+        _gamepadsRecentlyAccessedState = nil;
+    }
+#endif // __has_include(<GameController/GCEventInteraction.h>)
 }
-#endif
+
 #endif // PLATFORM(VISION)
 #endif // ENABLE(GAMEPAD)
 
@@ -2633,7 +2651,7 @@ static RetainPtr<NSDictionary<NSString *, id>> createUserInfo(const std::optiona
                 [wkToken setUserInfo:createUserInfo(token.info).get()];
                 return wkToken;
             });
-            auto identifier = makeString(item.frameID.processIdentifier(), '-', item.frameID.object(), '-', item.identifier);
+            auto identifier = makeString(item.frameID ? item.frameID->processIdentifier().toUInt64() : 0, '-', item.frameID ? item.frameID->object().toUInt64() : 0, '-', item.identifier);
             return adoptNS([[_WKTextManipulationItem alloc] initWithIdentifier:identifier tokens:tokens.get() isSubframe:item.isSubframe isCrossSiteSubframe:item.isCrossSiteSubframe]);
         };
 
@@ -2679,7 +2697,7 @@ static std::optional<ItemIdentifiers> coreTextManipulationItemIdentifierFromStri
     if (!processID || !*processID || !frameID || !*frameID || !itemID || !*itemID)
         return std::nullopt;
 
-    return ItemIdentifiers { WebCore::ProcessQualified(LegacyNullableObjectIdentifier<WebCore::FrameIdentifierType>(*frameID),
+    return ItemIdentifiers { WebCore::ProcessQualified(ObjectIdentifier<WebCore::FrameIdentifierType>(*frameID),
         LegacyNullableObjectIdentifier<WebCore::ProcessIdentifierType>(*processID)),
         LegacyNullableObjectIdentifier<WebCore::TextManipulationItemIdentifierType>(*itemID) };
 }
@@ -2772,7 +2790,7 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
             return WebCore::TextManipulationToken { coreTextManipulationTokenIdentifierFromString(wkToken.identifier), wkToken.content, std::nullopt };
         });
         auto identifiers = coreTextManipulationItemIdentifierFromString(wkItem.identifier);
-        WebCore::FrameIdentifier frameID;
+        std::optional<WebCore::FrameIdentifier> frameID;
         WebCore::TextManipulationItemIdentifier itemID;
         if (identifiers) {
             frameID = identifiers->frameID;
@@ -3436,7 +3454,10 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 - (void)_getPDFFirstPageSizeInFrame:(_WKFrameHandle *)frame completionHandler:(void(^)(CGSize))completionHandler
 {
     THROW_IF_SUSPENDED;
-    _page->getPDFFirstPageSize(frame->_frameHandle->frameID(), [completionHandler = makeBlockPtr(completionHandler)](WebCore::FloatSize size) {
+    auto frameID = frame->_frameHandle->frameID();
+    if (!frameID)
+        return completionHandler({ });
+    _page->getPDFFirstPageSize(*frameID, [completionHandler = makeBlockPtr(completionHandler)](WebCore::FloatSize size) {
         completionHandler(static_cast<CGSize>(size));
     });
 }
@@ -3910,7 +3931,7 @@ static inline OptionSet<WebCore::LayoutMilestone> layoutMilestones(_WKRenderingP
 {
     THROW_IF_SUSPENDED;
     _page->getTextFragmentMatch([completionHandler = makeBlockPtr(completionHandler)](const String& textFragmentMatch) {
-        completionHandler(textFragmentMatch);
+        completionHandler(nsStringNilIfNull(textFragmentMatch));
     });
 }
 

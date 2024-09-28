@@ -1366,9 +1366,13 @@
                 "inter-character"
             ],
             "codegen-properties": {
-                "cascade-alias": "ruby-position",
-                "parser-grammar": "<<values>>",
-                "skip-builder": true
+                "top-priority": true,
+                "comment": "This is a top priority property to ensure that its value can be checked when determining a smart default font size', (<https://trac.webkit.org/browser/trunk/Source/WebCore/ChangeLog?rev=172861>).",
+                "name-for-methods": "RubyPosition",
+                "parser-function": "consumeWebKitRubyPosition",
+                "parser-function-requires-context": true,
+                "parser-grammar-unused": "before | after | inter-character",
+                "parser-grammar-unused-reason": "Needs to support legacy behavior"
             },
             "specification": {
                 "category": "css-ruby",
@@ -1493,11 +1497,11 @@
                 ],
                 "name-for-methods": "Duration",
                 "separator": ",",
-                "parser-grammar": "<time [0,inf]>#"
+                "parser-grammar": "<single-animation-duration>#"
             },
             "specification": {
                 "category": "css-animations",
-                "url": "https://www.w3.org/TR/css3-animations/#animation-duration-property",
+                "url": "https://drafts.csswg.org/css-animations-2/#animation-duration",
                 "documentation-url": "https://developer.mozilla.org/en-US/docs/Web/CSS/animation-duration"
             }
         },
@@ -7296,8 +7300,7 @@
                 ],
                 "initial": "initialContentAlignment",
                 "converter": "ContentAlignmentData",
-                "parser-function": "consumeContentDistributionOverflowPosition",
-                "parser-function-requires-additional-parameters": ["isContentPositionKeyword"],
+                "parser-function": "consumeAlignContent",
                 "parser-grammar-unused": "normal | <baseline-position> | <content-distribution> | [ <overflow-position>? <content-position> ]",
                 "parser-grammar-unused-reason": "Needs support for ordered groups, '&&' groups and optionals",
                 "comment": "Alternate definition in css-flexbox - flex-start | flex-end | center | space-between | space-around | stretch"
@@ -7365,8 +7368,7 @@
                 ],
                 "initial": "initialSelfAlignment",
                 "converter": "SelfOrDefaultAlignmentData",
-                "parser-function": "consumeSelfPositionOverflowPosition",
-                "parser-function-requires-additional-parameters": ["isSelfPositionKeyword"],
+                "parser-function": "consumeAlignSelf",
                 "parser-grammar-unused": "auto | normal | stretch | <baseline-position> | [ <overflow-position>? <self-position> ]",
                 "parser-grammar-unused-reason": "Needs support for ordered groups, '&&' groups and optionals.",
                 "comment": "Alternate definition in css-flexbox - auto | flex-start | flex-end | center | baseline | stretch"
@@ -7560,8 +7562,7 @@
             "codegen-properties": {
                 "initial": "initialSelfAlignment",
                 "converter": "SelfOrDefaultAlignmentData",
-                "parser-function": "consumeSelfPositionOverflowPosition",
-                "parser-function-requires-additional-parameters": ["isSelfPositionOrLeftOrRightKeyword"],
+                "parser-function": "consumeJustifySelf",
                 "parser-grammar-unused": "auto | normal | stretch | <baseline-position> | [ <overflow-position>? [ <self-position> | left | right ] ]",
                 "parser-grammar-unused-reason": "Needs support for ordered groups, '&&' groups and optionals."
             },
@@ -9784,7 +9785,7 @@
                 "codegen-properties": [
                     {
                         "enable-if": "ENABLE_VARIATION_FONTS",
-                        "parser-function": "consumeFontStretchRange",
+                        "parser-function": "consumeFontFaceFontStretch",
                         "parser-grammar-unused": "auto | [ <font-stretch-absolute> | <percentage [0,inf]> ]{1,2}",
                         "parser-grammar-unused-reason": "Needs support for '{A,B}' multipliers and referencing style properties grammars (actual grammar uses <'font-stretch'>{1,2})."
                     },
@@ -9812,7 +9813,7 @@
                 "codegen-properties": [
                     {
                         "enable-if": "ENABLE_VARIATION_FONTS",
-                        "parser-function": "consumeFontStyleRange",
+                        "parser-function": "consumeFontFaceFontStyle",
                         "parser-function-requires-context-mode": true,
                         "parser-grammar-unused": "auto | normal | italic | [ oblique [ <angle>{1,2} ]? ]",
                         "parser-grammar-unused-reason": "Needs support for ordered groups, optionals and '{A,B}' multipliers."
@@ -9967,13 +9968,13 @@
                 "codegen-properties": [
                     {
                         "enable-if": "ENABLE_VARIATION_FONTS",
-                        "parser-function": "consumeFontWeightAbsoluteRange",
+                        "parser-function": "consumeFontFaceFontWeight",
                         "parser-grammar-unused": "auto | <font-weight-absolute>{1,2}",
                         "parser-grammar-unused-reason": "Needs support for '{A,B}' multipliers and arbitrary ranges on <number>."
                     },
                     {
                         "enable-if": "!ENABLE_VARIATION_FONTS",
-                        "parser-function": "consumeFontWeightAbsolute",
+                        "parser-function": "consumeFontFaceFontWeight",
                         "parser-grammar-unused": "<font-weight-absolute>",
                         "parser-grammar-unused-reason": "Needs support for arbitrary ranges on <number>."
                     }
@@ -10859,6 +10860,14 @@
             "specification": {
                 "category": "css-animations",
                 "url": "https://drafts.csswg.org/css-animations-2/#animation-composition"
+            }
+        },
+        "<single-animation-duration>": {
+            "grammar": "auto | <time [0,inf]>",
+            "exported": true,
+            "specification": {
+                "category": "css-animations",
+                "url": "https://drafts.csswg.org/css-animations-2/#animation-duration"
             }
         },
         "<single-animation-direction>": {

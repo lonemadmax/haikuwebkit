@@ -50,6 +50,7 @@
 #include "FocusController.h"
 #include "FragmentDirectiveParser.h"
 #include "FragmentDirectiveRangeFinder.h"
+#include "FragmentDirectiveUtilities.h"
 #include "FrameLoader.h"
 #include "FrameSelection.h"
 #include "FrameTree.h"
@@ -6241,7 +6242,7 @@ void LocalFrameView::scrollbarStyleDidChange()
     scrollbarsController().updateScrollbarStyle();
 }
 
-FrameIdentifier LocalFrameView::rootFrameID() const
+std::optional<FrameIdentifier> LocalFrameView::rootFrameID() const
 {
     return m_frame->rootFrame().frameID();
 }

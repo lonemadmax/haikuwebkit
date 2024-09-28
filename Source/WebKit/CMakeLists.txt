@@ -44,6 +44,7 @@ set(WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/Shared/Databases/IndexedDB"
     "${WEBKIT_DIR}/Shared/Extensions"
     "${WEBKIT_DIR}/Shared/FileAPI"
+    "${WEBKIT_DIR}/Shared/graphics"
     "${WEBKIT_DIR}/Shared/Gamepad"
     "${WEBKIT_DIR}/Shared/Notifications"
     "${WEBKIT_DIR}/Shared/RemoteLayerTree"
@@ -455,6 +456,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/ResourceLoadStatisticsParameters.serialization.in
     Shared/SameDocumentNavigationType.serialization.in
     Shared/SandboxExtension.serialization.in
+    Shared/ScriptTelemetry.serialization.in
     Shared/ScrollingAccelerationCurve.serialization.in
     Shared/SessionState.serialization.in
     Shared/SyntheticEditingCommandType.serialization.in
@@ -493,6 +495,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/WebsiteDataStoreParameters.serialization.in
     Shared/WebsitePoliciesData.serialization.in
     Shared/WebsitePopUpPolicy.serialization.in
+    Shared/WebsitePushAndNotificationsEnabledPolicy.serialization.in
 
     Shared/API/APIArray.serialization.in
     Shared/API/APIData.serialization.in

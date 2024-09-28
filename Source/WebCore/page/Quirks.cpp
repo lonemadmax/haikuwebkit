@@ -553,15 +553,6 @@ std::optional<Event::IsCancelable> Quirks::simulatedMouseEventTypeForTarget(Even
     return Event::IsCancelable::Yes;
 }
 
-// shutterstock.com rdar://58844166
-bool Quirks::shouldPreventPointerMediaQueryFromEvaluatingToCoarse() const
-{
-    if (!needsQuirks())
-        return false;
-
-    return isDomain("shutterstock.com"_s);
-}
-
 // sites.google.com rdar://58653069
 bool Quirks::shouldPreventDispatchOfTouchEvent(const AtomString& touchEventType, EventTarget* target) const
 {
@@ -576,19 +567,6 @@ bool Quirks::shouldPreventDispatchOfTouchEvent(const AtomString& touchEventType,
     return false;
 }
 
-#endif
-
-#if ENABLE(IOS_TOUCH_EVENTS)
-// mail.yahoo.com rdar://59824469
-bool Quirks::shouldSynthesizeTouchEvents() const
-{
-    if (!needsQuirks())
-        return false;
-
-    if (!m_shouldSynthesizeTouchEventsQuirk)
-        m_shouldSynthesizeTouchEventsQuirk = isYahooMail(*protectedDocument());
-    return m_shouldSynthesizeTouchEventsQuirk.value();
-}
 #endif
 
 // live.com rdar://52116170
@@ -1101,23 +1079,6 @@ bool Quirks::isMicrosoftTeamsRedirectURL(const URL& url)
     return url.host() == "teams.microsoft.com"_s && url.query().contains("Retried+3+times+without+success"_s);
 }
 
-static bool elementHasClassInClosestAncestors(const Element& element, const AtomString& className, unsigned distance)
-{
-    if (element.hasClassName(className))
-        return true;
-
-    unsigned currentDistance = 0;
-    RefPtr ancestor = dynamicDowncast<Element>(element.parentNode());
-    while (ancestor && currentDistance < distance) {
-        ++currentDistance;
-        if (ancestor->hasClassName(className))
-            return true;
-
-        ancestor = dynamicDowncast<Element>(ancestor->parentNode());
-    }
-    return false;
-}
-
 static bool isStorageAccessQuirkDomainAndElement(const URL& url, const Element& element)
 {
     // Microsoft Teams login case.
@@ -1136,10 +1097,6 @@ static bool isStorageAccessQuirkDomainAndElement(const URL& url, const Element& 
         || element.classNames().contains("web-toolbar__signin-button-label"_s)
         || element.classNames().contains("sb-signin-button"_s));
     }
-
-    // Gizmodo login case: rdar://106782128.
-    if (url.host() == "gizmodo.com"_s)
-        return elementHasClassInClosestAncestors(element, "js_user-button"_s, 6);
 
     return false;
 }
@@ -1227,15 +1184,9 @@ Quirks::StorageAccessResult Quirks::triggerOptionalStorageAccessQuirk(Element& e
 
     static NeverDestroyed<HashSet<RegistrableDomain>> kinjaQuirks = [] {
         HashSet<RegistrableDomain> set;
-        set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("avclub.com"_s));
-        set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("deadspin.com"_s));
         set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("jalopnik.com"_s));
-        set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("jezebel.com"_s));
         set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("kotaku.com"_s));
-        set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("lifehacker.com"_s));
         set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("theroot.com"_s));
-        set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("thetakeout.com"_s));
-        set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("theonion.com"_s));
         set.add(RegistrableDomain::uncheckedCreateFromRegistrableDomainString("theinventory.com"_s));
         return set;
     }();
@@ -1899,6 +1850,21 @@ std::optional<TargetedElementSelectors> Quirks::defaultVisibilityAdjustmentSelec
     UNUSED_PARAM(requestURL);
     return { };
 #endif
+}
+
+String Quirks::scriptToEvaluateBeforeRunningScriptFromURL(const URL& scriptURL)
+{
+#if ENABLE(DESKTOP_CONTENT_MODE_QUIRKS)
+    if (!needsQuirks())
+        return { };
+
+    auto topDomain = RegistrableDomain(m_document->topDocument().url()).string();
+    if (UNLIKELY(topDomain == "webex.com"_s && scriptURL.lastPathComponent().startsWith("pushdownload."_s)))
+        return "Object.defineProperty(window, 'Touch', { get: () => undefined });"_s;
+#else
+    UNUSED_PARAM(scriptURL);
+#endif
+    return { };
 }
 
 }

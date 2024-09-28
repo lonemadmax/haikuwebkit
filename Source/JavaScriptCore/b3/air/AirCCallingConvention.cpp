@@ -32,6 +32,9 @@
 #include "AirCode.h"
 #include "B3BasicBlockInlines.h"
 #include "B3BreakCriticalEdges.h"
+#include "B3CCallValue.h"
+#include "B3Procedure.h"
+#include "B3ProcedureInlines.h"
 #include "B3ValueInlines.h"
 
 namespace JSC { namespace B3 { namespace Air {
@@ -262,8 +265,8 @@ Value* ArgumentValueList::makeCCallValue(B3::BasicBlock* block, size_t idx) cons
     case Int64:
         RELEASE_ASSERT(argCount == sizeof(uint64_t) / sizeof(uintptr_t));
 #if CPU(ARM_THUMB2)
-            return makeStitch(block, makeCCallValue(block, types[idx], underlyingArgs[firstUnderlyingArg + 1]),
-                makeCCallValue(block, types[idx], underlyingArgs[firstUnderlyingArg]));
+            return makeStitch(block, makeCCallValue(block, Int32, underlyingArgs[firstUnderlyingArg + 1]),
+                makeCCallValue(block, Int32, underlyingArgs[firstUnderlyingArg]));
 #else
         return makeCCallValue(block, types[idx], underlyingArgs[firstUnderlyingArg]);
 #endif

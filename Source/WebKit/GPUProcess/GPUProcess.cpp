@@ -80,10 +80,6 @@
 #include <WebCore/ScreenCaptureKitCaptureSource.h>
 #endif
 
-#if USE(GBM)
-#include <WebCore/DRMDeviceManager.h>
-#endif
-
 namespace WebKit {
 
 // We wouldn't want the GPUProcess to repeatedly exit then relaunch when under memory pressure. In particular, we need to make sure the
@@ -106,19 +102,6 @@ GPUProcess& GPUProcess::singleton()
 {
     static NeverDestroyed<GPUProcess> gpuProcess;
     return gpuProcess.get();
-}
-
-void GPUProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
-{
-    if (messageReceiverMap().dispatchMessage(connection, decoder))
-        return;
-
-    if (decoder.messageReceiverName() == Messages::AuxiliaryProcess::messageReceiverName()) {
-        AuxiliaryProcess::didReceiveMessage(connection, decoder);
-        return;
-    }
-
-    didReceiveGPUProcessMessage(connection, decoder);
 }
 
 void GPUProcess::createGPUConnectionToWebProcess(WebCore::ProcessIdentifier identifier, PAL::SessionID sessionID, IPC::Connection::Handle&& connectionHandle, GPUProcessConnectionParameters&& parameters, CompletionHandler<void()>&& completionHandler)
@@ -279,13 +262,6 @@ void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters,
 
 #if PLATFORM(COCOA)
     WebCore::setImageSourceAllowableTypes({ });
-#endif
-
-#if USE(GBM)
-    WebCore::DRMDeviceManager::singleton().initializeMainDevice(parameters.renderDeviceFile);
-
-    // Ensure that the GBM device is also initialized before WebGL worker threads try using it.
-    RELEASE_ASSERT(WebCore::DRMDeviceManager::singleton().mainGBMDeviceNode(WebCore::DRMDeviceManager::NodeType::Render));
 #endif
 
     m_applicationVisibleName = WTFMove(parameters.applicationVisibleName);

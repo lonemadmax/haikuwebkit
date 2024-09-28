@@ -41,15 +41,24 @@ security/contentSecurityPolicy/plugins-types-allows-youtube-plugin-replacement.h
 
 webkit.org/b/175290 imported/w3c/web-platform-tests/css/css-ui/text-overflow-005.html [ Pass ]
 
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-color-input-background-color-001.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-ui/compute-kind-widget-generated/kind-of-widget-fallback-select-dropdown-box-background-color-001.html [ Pass ]
+
 webkit.org/b/191506 fast/css-grid-layout/grid-item-scroll-position.html [ Pass ]
 
 css-dark-mode [ Pass ]
 css-dark-mode/older-systems [ Skip ]
+
+editing/selection/extend-by-character-007.html [ Pass ]
+
 fast/loader/plain-text-document-dark-mode.html [ Pass ]
 
 imported/w3c/web-platform-tests/css/css-multicol/multicol-width-ch-001.xht [ Pass ]
 
 fast/events/keyboardevent-modifier.html [ Pass ]
+
+# FAIL results are platform dependent
+imported/w3c/web-platform-tests/css/css-anchor-position/anchor-invalid-fallback.html [ Failure ]
 
 # PointerEvents not enabled globally, but enabled for GTK (EXPERIMENTAL_FEATURES)
 pointerevents/mouse [ Pass ]
@@ -151,9 +160,6 @@ imported/w3c/web-platform-tests/pointerevents/pointerevent_to_slotted_target.htm
 imported/w3c/web-platform-tests/uievents/interface/keyboard-accesskey-click-event.html [ Skip ]
 
 http/tests/cookies/same-site [ Pass ]
-webkit.org/b/264804 http/tests/cookies/same-site/fetch-after-navigating-iframe-in-cross-origin-page.html [ Failure ]
-webkit.org/b/264804 http/tests/cookies/same-site/fetch-in-cross-origin-service-worker.html [ Failure ]
-webkit.org/b/264804 http/tests/cookies/same-site/popup-cross-site-post.html [ Failure ]
 
 imported/w3c/web-platform-tests/service-workers/service-worker/fetch-audio-tainting.https.html [ Pass ]
 
@@ -830,9 +836,6 @@ webkit.org/b/180062 fast/text/user-installed-fonts [ Skip ]
 # Test does not make sense for our platform
 webkit.org/b/181659 fast/canvas/webgl/simulated-vertexAttrib0-invalid-indicies.html [ Skip ]
 
-# This seems to be testing Apple-specific behavior?
-css3/color-filters/color-filter-ignore-semantic.html [ ImageOnlyFailure ]
-
 # Requires support for testing text replacement
 editing/spelling/text-replacement-after-typing-to-word.html [ Skip ]
 editing/spelling/text-replacement-first-word-second-line.html [ Skip ]
@@ -892,6 +895,8 @@ webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-auto-inline-010.html [ Pass ]
 webkit.org/b/257011 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-vertical-002.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/white-space/textarea-pre-wrap-012.html [ ImageOnlyFailure ]
+
+imported/w3c/web-platform-tests/css/css-text/hyphens/hyphenate-character-002.html [ Pass ]
 
 # Timing out since import.
 imported/w3c/web-platform-tests/html/anonymous-iframe/embedding.tentative.https.window.html [ Skip ]
@@ -1085,8 +1090,6 @@ webkit.org/b/208809 imported/w3c/web-platform-tests/css/WOFF2/tabledata-transfor
 
 webkit.org/b/211836 imported/w3c/web-platform-tests/fetch/api/abort/general.any.worker.html [ Failure Pass ]
 
-webkit.org/b/213386 fast/images/low-memory-decode.html [ Timeout ]
-
 webkit.org/b/214801 fast/forms/datalist/datalist-show-hide.html [ Failure Pass ]
 
 webkit.org/b/214802 http/tests/navigation/ping-attribute/anchor-ping-and-follow-redirect-when-sending-ping.html [ Failure Pass ]
@@ -1188,6 +1191,9 @@ webkit.org/b/252878 webaudio/audioworket-out-of-memory.html [ Pass Timeout ]
 webkit.org/b/257624 fast/mediastream/MediaStream-video-element-track-stop.html [ Failure ]
 webkit.org/b/257624 http/tests/frame-throttling/raf-throttle-in-cross-origin-subframe.html [ Failure ]
 webkit.org/b/257624 http/tests/security/video-cross-origin-caching.html [ Pass Timeout Crash ]
+
+[ Debug ] fast/mediastream/resize-trim.html [ Pass Crash ]
+
 # Uncomment when webkit.org/b/267992 is fixed
 #webkit.org/b/257624 http/wpt/cross-origin-opener-policy/header-parsing-with-report-to.https.html [ Failure Pass ]
 webkit.org/b/257624 http/wpt/mediarecorder/pause-recording.html [ Crash Failure Pass ]
@@ -1264,7 +1270,7 @@ Bug(GTK) http/tests/misc/large-js-program.py [ Pass Slow ]
 [ Debug ] editing/selection/move-by-word-visually-inline-block-positioned-element.html [ Pass Timeout ]
 [ Debug ] editing/selection/move-by-word-visually-mac.html [ Failure Timeout ]
 [ Debug ] editing/selection/move-by-word-visually-multi-line.html [ Pass Timeout ]
-[ Debug ] editing/selection/move-by-word-visually-multi-space.html [ Failure Timeout ]
+[ Debug ] editing/selection/move-by-word-visually-multi-space.html [ Pass Timeout ]
 
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/async_007.htm [ Slow ]
 imported/w3c/web-platform-tests/html/semantics/scripting-1/the-script-element/async_010.htm [ Slow ]
@@ -1308,8 +1314,6 @@ webkit.org/b/147518 inspector/debugger/nested-inspectors.html [ Timeout ]
 webkit.org/b/147229 inspector/css/modify-rule-selector.html [ Skip ] # Timeout
 
 webkit.org/b/240349 inspector/timeline/timeline-event-screenshots.html [ Skip ]
-
-webkit.org/b/142292 fast/images/animated-gif-zooming.html [ Timeout ]
 
 webkit.org/b/144690 editing/spelling/context-menu-suggestions-multiword-selection.html [ Timeout ]
 webkit.org/b/144690 editing/spelling/context-menu-suggestions-subword-selection.html [ Timeout ]
@@ -1624,7 +1628,6 @@ webkit.org/b/178441 editing/deleting/delete-ligature-001.html [ Failure ]
 webkit.org/b/178441 editing/deleting/delete-ligature-002.html [ Failure ]
 webkit.org/b/178441 editing/deleting/delete-ligature-003.html [ Failure ]
 
-webkit.org/b/144690 editing/spelling/spelling-marker-includes-hyphen.html [ Failure ImageOnlyFailure ]
 webkit.org/b/144690 fast/writing-mode/english-bt-text-with-spelling-marker.html [ ImageOnlyFailure ]
 
 webkit.org/b/179605 editing/execCommand/underline-selection-containing-image.html [ Failure ]
@@ -1798,15 +1801,13 @@ media/media-source/media-source-rendering-update-count.html [ Skip ]
 
 # Tests failing while still having the right values in expected related to the import in webkit.org/b/252516
 imported/w3c/web-platform-tests/css/css-tables/table-model-fixup-2.html [ Failure ]
-imported/w3c/web-platform-tests/css/css-tables/tentative/baseline-table.html [ Failure ]
-imported/w3c/web-platform-tests/css/css-tables/tentative/baseline-td.html [ Failure ]
-imported/w3c/web-platform-tests/css/css-tables/tentative/caption.html [ Failure ]
-imported/w3c/web-platform-tests/css/css-tables/tentative/colgroup-col.html [ Failure ]
-imported/w3c/web-platform-tests/css/css-tables/tentative/table-quirks.html [ Failure ]
 
 imported/w3c/web-platform-tests/css/css-color/system-color-consistency.html [ Failure ]
 
 webkit.org/b/234726 imported/w3c/web-platform-tests/css/css-color/parsing/color-valid-relative-color.html [ ImageOnlyFailure ]
+
+imported/w3c/web-platform-tests/css/css-color/parsing/color-computed-rgb.html [ Pass ]
+imported/w3c/web-platform-tests/css/css-color/parsing/color-valid-rgb.html [ Pass ]
 
 # Timeout
 animations/animation-end-event-destroy-renderer.html [ Skip ]
@@ -1901,10 +1902,11 @@ webkit.org/b/273196 imported/w3c/web-platform-tests/html/semantics/popovers/popo
 
 compositing/overflow/dynamic-composited-scrolling-status.html [ Failure ]
 http/tests/security/svg-image-with-cached-remote-image.html [ ImageOnlyFailure ]
-fast/scrolling/gtk/repeated-mouse-wheel-smooth.html [ Timeout ]
+fast/scrolling/gtk/repeated-mouse-wheel-smooth.html [ Pass Timeout ]
 compositing/repaint/copy-forward-dirty-region.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-view-transitions/web-animations-api.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-on-top-of-viewport-partially-onscreen-new.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/massive-element-on-top-of-viewport-partially-onscreen-new.html [ Pass ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-view-transitions/scroller.html [ Pass ImageOnlyFailure ]
 
 http/tests/login-status/login-status-api-getter-setter-functions.html [ Failure ]
 

@@ -31,8 +31,7 @@
 #include "CSSCalcValue.h"
 #include "CSSPropertyParserConsumer+CSSPrimitiveValueResolver.h"
 #include "CSSPropertyParserConsumer+MetaConsumer.h"
-#include "CSSPropertyParserConsumer+PercentDefinitions.h"
-#include "CSSPropertyParserConsumer+RawResolver.h"
+#include "CSSPropertyParserConsumer+PercentageDefinitions.h"
 #include "CalculationCategory.h"
 
 namespace WebCore {
@@ -98,16 +97,6 @@ std::optional<AngleRaw> AngleKnownTokenTypeNumberConsumer::consume(CSSParserToke
 
 // MARK: - Consumer functions
 
-std::optional<AngleRaw> consumeAngleRaw(CSSParserTokenRange& range, CSSParserMode parserMode, UnitlessQuirk unitless, UnitlessZeroQuirk unitlessZero)
-{
-    const auto options = CSSPropertyParserOptions {
-        .parserMode = parserMode,
-        .unitless = unitless,
-        .unitlessZero = unitlessZero
-    };
-    return RawResolver<AngleRaw>::consumeAndResolve(range, { }, { }, options);
-}
-
 RefPtr<CSSPrimitiveValue> consumeAngle(CSSParserTokenRange& range, CSSParserMode parserMode, UnitlessQuirk unitless, UnitlessZeroQuirk unitlessZero)
 {
     const auto options = CSSPropertyParserOptions {
@@ -124,7 +113,7 @@ RefPtr<CSSPrimitiveValue> consumeAngleOrPercent(CSSParserTokenRange& range, CSSP
         .parserMode = parserMode,
         .unitlessZero = UnitlessZeroQuirk::Allow
     };
-    return CSSPrimitiveValueResolver<AngleRaw, PercentRaw>::consumeAndResolve(range, { }, { }, options);
+    return CSSPrimitiveValueResolver<AngleRaw, PercentageRaw>::consumeAndResolve(range, { }, { }, options);
 }
 
 } // namespace CSSPropertyParserHelpers

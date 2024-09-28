@@ -642,6 +642,7 @@ void WebProcess::initializeWebProcess(WebProcessCreationParameters&& parameters,
 
     updateStorageAccessUserAgentStringQuirks(WTFMove(parameters.storageAccessUserAgentStringQuirksData));
     updateDomainsWithStorageAccessQuirks(WTFMove(parameters.storageAccessPromptQuirksDomains));
+    updateScriptTelemetryFilter(WTFMove(parameters.scriptTelemetryRules));
 
 #if ENABLE(GAMEPAD)
     // Web processes need to periodically notify the UI process of gamepad access at least as frequently
@@ -963,43 +964,22 @@ void WebProcess::terminate()
     AuxiliaryProcess::terminate();
 }
 
-bool WebProcess::didReceiveSyncMessage(IPC::Connection& connection, IPC::Decoder& decoder, UniqueRef<IPC::Encoder>& replyEncoder)
+bool WebProcess::dispatchMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
-    if (messageReceiverMap().dispatchSyncMessage(connection, decoder, replyEncoder))
-        return true;
-    return false;
-}
-
-void WebProcess::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)
-{
-    if (messageReceiverMap().dispatchMessage(connection, decoder))
-        return;
-
-    if (decoder.messageReceiverName() == Messages::WebProcess::messageReceiverName()) {
-        didReceiveWebProcessMessage(connection, decoder);
-        return;
-    }
-
-    if (decoder.messageReceiverName() == Messages::AuxiliaryProcess::messageReceiverName()) {
-        AuxiliaryProcess::didReceiveMessage(connection, decoder);
-        return;
-    }
-
     if (decoder.messageReceiverName() == Messages::WebSWContextManagerConnection::messageReceiverName()) {
         ASSERT(SWContextManager::singleton().connection());
         if (auto* contextManagerConnection = SWContextManager::singleton().connection())
             static_cast<WebSWContextManagerConnection&>(*contextManagerConnection).didReceiveMessage(connection, decoder);
-        return;
+        return true;
     }
 
     if (decoder.messageReceiverName() == Messages::WebSharedWorkerContextManagerConnection::messageReceiverName()) {
         ASSERT(SharedWorkerContextManager::singleton().connection());
         if (auto* contextManagerConnection = SharedWorkerContextManager::singleton().connection())
             static_cast<WebSharedWorkerContextManagerConnection&>(*contextManagerConnection).didReceiveMessage(connection, decoder);
-        return;
+        return true;
     }
-
-    LOG_ERROR("Unhandled web process message '%s' (destination: %" PRIu64 " pid: %d)", description(decoder.messageName()).characters(), decoder.destinationID(), static_cast<int>(getCurrentProcessID()));
+    return false;
 }
 
 void WebProcess::didClose(IPC::Connection& connection)
@@ -1013,9 +993,9 @@ void WebProcess::didClose(IPC::Connection& connection)
     AuxiliaryProcess::didClose(connection);
 }
 
-WebFrame* WebProcess::webFrame(FrameIdentifier frameID) const
+WebFrame* WebProcess::webFrame(std::optional<FrameIdentifier> frameID) const
 {
-    return m_frameMap.get(frameID).get();
+    return frameID ? m_frameMap.get(*frameID).get() : nullptr;
 }
 
 void WebProcess::addWebFrame(FrameIdentifier frameID, WebFrame* frame)
@@ -1900,9 +1880,10 @@ RefPtr<API::Object> WebProcess::transformHandlesToObjects(API::Object* object)
         RefPtr<API::Object> transformObject(API::Object& object) const override
         {
             switch (object.type()) {
-            case API::Object::Type::FrameHandle:
-                return WebProcess::singleton().webFrame(static_cast<const API::FrameHandle&>(object).frameID());
-
+            case API::Object::Type::FrameHandle: {
+                auto frameID = static_cast<const API::FrameHandle&>(object).frameID();
+                return frameID ? WebProcess::singleton().webFrame(*frameID) : nullptr;
+            }
             case API::Object::Type::PageHandle:
                 return WebProcess::singleton().webPage(static_cast<const API::PageHandle&>(object).webPageID());
 
@@ -2219,6 +2200,14 @@ void WebProcess::updateDomainsWithStorageAccessQuirks(HashSet<WebCore::Registrab
         m_domainsWithStorageAccessQuirks.add(domain);
 }
 
+void WebProcess::updateScriptTelemetryFilter(ScriptTelemetryRules&& rules)
+{
+    if (rules.isEmpty())
+        return;
+
+    m_scriptTelemetryFilter = WTF::makeUnique<ScriptTelemetryFilter>(WTFMove(rules));
+}
+
 void WebProcess::setChildProcessDebuggabilityEnabled(bool childProcessDebuggabilityEnabled)
 {
     m_childProcessDebuggabilityEnabled = childProcessDebuggabilityEnabled;
@@ -2409,6 +2398,11 @@ void WebProcess::updateCachedCookiesEnabled()
 {
     for (auto& document : Document::allDocuments())
         document->updateCachedCookiesEnabled();
+}
+
+bool WebProcess::requiresScriptTelemetryForURL(const URL& url, const WebCore::SecurityOrigin& topOrigin) const
+{
+    return m_scriptTelemetryFilter && m_scriptTelemetryFilter->matches(url, topOrigin);
 }
 
 } // namespace WebKit

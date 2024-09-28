@@ -129,7 +129,7 @@ class DocumentMarkerController;
 class DocumentParser;
 class DocumentSharedObjectPool;
 class DocumentTimeline;
-class DocumentTimelinesController;
+class AnimationTimelinesController;
 class DocumentType;
 class EditingBehavior;
 class Editor;
@@ -1157,7 +1157,7 @@ public:
     //    document inherits the security context of another document, it
     //    inherits its cookieURL but not its URL.
     //
-    const URL& cookieURL() const { return m_cookieURL; }
+    const URL& cookieURL() const final { return m_cookieURL; }
     void setCookieURL(const URL&);
 
     // The firstPartyForCookies is used to compute whether this document
@@ -1802,8 +1802,8 @@ public:
     DocumentTimeline* existingTimeline() const { return m_timeline.get(); }
     Vector<RefPtr<WebAnimation>> getAnimations();
     Vector<RefPtr<WebAnimation>> matchingAnimations(const Function<bool(Element&)>&);
-    DocumentTimelinesController* timelinesController() const { return m_timelinesController.get(); }
-    WEBCORE_EXPORT DocumentTimelinesController& ensureTimelinesController();
+    AnimationTimelinesController* timelinesController() const { return m_timelinesController.get(); }
+    WEBCORE_EXPORT AnimationTimelinesController& ensureTimelinesController();
     void keyframesRuleDidChange(const String& name);
 
 #if ENABLE(THREADED_ANIMATION_RESOLUTION)
@@ -2427,7 +2427,7 @@ private:
     RefPtr<StringCallback> m_consoleMessageListener;
 
     RefPtr<DocumentTimeline> m_timeline;
-    std::unique_ptr<DocumentTimelinesController> m_timelinesController;
+    std::unique_ptr<AnimationTimelinesController> m_timelinesController;
 
     RefPtr<WindowEventLoop> m_eventLoop;
     std::unique_ptr<EventLoopTaskGroup> m_documentTaskGroup;

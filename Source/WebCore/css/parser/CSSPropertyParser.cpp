@@ -47,16 +47,19 @@
 #include "CSSParserIdioms.h"
 #include "CSSPendingSubstitutionValue.h"
 #include "CSSPrimitiveValueMappings.h"
+#include "CSSPropertyParserConsumer+Align.h"
 #include "CSSPropertyParserConsumer+Angle.h"
 #include "CSSPropertyParserConsumer+Color.h"
 #include "CSSPropertyParserConsumer+Font.h"
+#include "CSSPropertyParserConsumer+Grid.h"
 #include "CSSPropertyParserConsumer+Ident.h"
 #include "CSSPropertyParserConsumer+Image.h"
 #include "CSSPropertyParserConsumer+Integer.h"
 #include "CSSPropertyParserConsumer+Length.h"
+#include "CSSPropertyParserConsumer+LengthPercentage.h"
 #include "CSSPropertyParserConsumer+List.h"
 #include "CSSPropertyParserConsumer+Number.h"
-#include "CSSPropertyParserConsumer+Percent.h"
+#include "CSSPropertyParserConsumer+Percentage.h"
 #include "CSSPropertyParserConsumer+Position.h"
 #include "CSSPropertyParserConsumer+Resolution.h"
 #include "CSSPropertyParserConsumer+String.h"
@@ -382,7 +385,7 @@ std::pair<RefPtr<CSSValue>, CSSCustomPropertySyntax::Type> CSSPropertyParser::co
         case CSSCustomPropertySyntax::Type::Length:
             return consumeLength(range, m_context.mode);
         case CSSCustomPropertySyntax::Type::LengthPercentage:
-            return consumeLengthOrPercent(range, m_context.mode);
+            return consumeLengthPercentage(range, m_context.mode);
         case CSSCustomPropertySyntax::Type::CustomIdent:
             if (RefPtr value = consumeCustomIdent(range)) {
                 if (component.ident.isNull() || value->stringValue() == component.ident)
@@ -390,7 +393,7 @@ std::pair<RefPtr<CSSValue>, CSSCustomPropertySyntax::Type> CSSPropertyParser::co
             }
             return nullptr;
         case CSSCustomPropertySyntax::Type::Percentage:
-            return consumePercent(range);
+            return consumePercentage(range);
         case CSSCustomPropertySyntax::Type::Integer:
             return consumeInteger(range);
         case CSSCustomPropertySyntax::Type::Number:
@@ -938,6 +941,7 @@ static constexpr InitialValue initialValueForLonghand(CSSPropertyID longhand)
     switch (longhand) {
     case CSSPropertyAccentColor:
     case CSSPropertyAlignSelf:
+    case CSSPropertyAnimationDuration:
     case CSSPropertyAspectRatio:
     case CSSPropertyBackgroundSize:
     case CSSPropertyBlockSize:
@@ -1054,7 +1058,6 @@ static constexpr InitialValue initialValueForLonghand(CSSPropertyID longhand)
     case CSSPropertyVerticalAlign:
         return CSSValueBaseline;
     case CSSPropertyAnimationDelay:
-    case CSSPropertyAnimationDuration:
     case CSSPropertyTransitionDelay:
     case CSSPropertyTransitionDuration:
         return InitialNumericValue { 0, CSSUnitType::CSS_S };
@@ -1503,27 +1506,52 @@ bool CSSPropertyParser::consumeShorthandGreedily(const StylePropertyShorthand& s
 
 bool CSSPropertyParser::consumeFlex(bool important)
 {
-    static const double unsetValue = -1;
-    double flexGrow = unsetValue;
-    double flexShrink = unsetValue;
+    // <'flex'>        = none | [ <'flex-grow'> <'flex-shrink'>? || <'flex-basis'> ]
+    // <'flex-grow'>   = <number [0,∞]>
+    //     NOTE: When omitted from shorthand, it is set to 1.
+    // <'flex-shrink'> = <number [0,∞]>
+    //     NOTE: When omitted from shorthand, it is set to 1.
+    // <'flex-basis'>  = content | <'width'>
+    //    NOTE: When omitted from shorthand, it is set to 0.
+    // https://drafts.csswg.org/css-flexbox/#propdef-flex
+
+    auto isFlexBasisIdent = [](CSSValueID id) {
+        switch (id) {
+        case CSSValueAuto:
+        case CSSValueContent:
+        case CSSValueIntrinsic:
+        case CSSValueMinIntrinsic:
+        case CSSValueMinContent:
+        case CSSValueWebkitMinContent:
+        case CSSValueMaxContent:
+        case CSSValueWebkitMaxContent:
+        case CSSValueWebkitFillAvailable:
+        case CSSValueFitContent:
+        case CSSValueWebkitFitContent:
+            return true;
+        default:
+            return false;
+        }
+    };
+
+    RefPtr<CSSPrimitiveValue> flexGrow;
+    RefPtr<CSSPrimitiveValue> flexShrink;
     RefPtr<CSSPrimitiveValue> flexBasis;
 
     if (m_range.peek().id() == CSSValueNone) {
-        flexGrow = 0;
-        flexShrink = 0;
+        flexGrow = CSSPrimitiveValue::create(0);
+        flexShrink = CSSPrimitiveValue::create(0);
         flexBasis = CSSPrimitiveValue::create(CSSValueAuto);
         m_range.consumeIncludingWhitespace();
     } else {
         unsigned index = 0;
         while (!m_range.atEnd() && index++ < 3) {
-            if (auto number = consumeNumberRaw(m_range)) {
-                if (number->value < 0)
-                    return false;
-                if (flexGrow == unsetValue)
-                    flexGrow = number->value;
-                else if (flexShrink == unsetValue)
-                    flexShrink = number->value;
-                else if (!number->value) // flex only allows a basis of 0 (sans units) if flex-grow and flex-shrink values have already been set.
+            if (auto number = consumeNumber(m_range, ValueRange::NonNegative)) {
+                if (!flexGrow)
+                    flexGrow = WTFMove(number);
+                else if (!flexShrink)
+                    flexShrink = WTFMove(number);
+                else if (number->isZero() == true) // flex only allows a basis of 0 (sans units) if flex-grow and flex-shrink values have already been set.
                     flexBasis = CSSPrimitiveValue::create(0, CSSUnitType::CSS_PX);
                 else
                     return false;
@@ -1531,17 +1559,17 @@ bool CSSPropertyParser::consumeFlex(bool important)
                 if (isFlexBasisIdent(m_range.peek().id()))
                     flexBasis = consumeIdent(m_range);
                 if (!flexBasis)
-                    flexBasis = consumeLengthOrPercent(m_range, m_context.mode, ValueRange::NonNegative);
+                    flexBasis = consumeLengthPercentage(m_range, m_context.mode, ValueRange::NonNegative);
                 if (index == 2 && !m_range.atEnd())
                     return false;
             }
         }
         if (index == 0)
             return false;
-        if (flexGrow == unsetValue)
-            flexGrow = 1;
-        if (flexShrink == unsetValue)
-            flexShrink = 1;
+        if (!flexGrow)
+            flexGrow = CSSPrimitiveValue::create(1);
+        if (!flexShrink)
+            flexShrink = CSSPrimitiveValue::create(1);
         
         // FIXME: Using % here is a hack to work around intrinsic sizing implementation being
         // a mess (e.g., turned off for nested column flexboxes, failing to relayout properly even
@@ -1553,8 +1581,8 @@ bool CSSPropertyParser::consumeFlex(bool important)
 
     if (!m_range.atEnd())
         return false;
-    addProperty(CSSPropertyFlexGrow, CSSPropertyFlex, CSSPrimitiveValue::create(clampTo<float>(flexGrow)), important);
-    addProperty(CSSPropertyFlexShrink, CSSPropertyFlex, CSSPrimitiveValue::create(clampTo<float>(flexShrink)), important);
+    addProperty(CSSPropertyFlexGrow, CSSPropertyFlex, flexGrow.releaseNonNull(), important);
+    addProperty(CSSPropertyFlexShrink, CSSPropertyFlex, flexShrink.releaseNonNull(), important);
     addProperty(CSSPropertyFlexBasis, CSSPropertyFlex, flexBasis.releaseNonNull(), important);
     return true;
 }
@@ -1785,6 +1813,7 @@ static RefPtr<CSSValue> consumeAnimationValueForShorthand(CSSPropertyID property
     case CSSPropertyAnimationDirection:
         return CSSPropertyParsing::consumeSingleAnimationDirection(range);
     case CSSPropertyAnimationDuration:
+        return CSSPropertyParsing::consumeSingleAnimationDuration(range, context);
     case CSSPropertyTransitionDuration:
         return consumeTime(range, context.mode, ValueRange::NonNegative);
     case CSSPropertyAnimationFillMode:
@@ -2170,7 +2199,7 @@ bool CSSPropertyParser::consumeGridTemplateRowsAndAreasAndColumns(CSSPropertyID 
         ++rowCount;
 
         // Handle template-rows's track-size.
-        if (RefPtr value = consumeGridTrackSize(m_range, m_context.mode))
+        if (RefPtr value = consumeGridTrackSize(m_range, m_context))
             templateRows.append(value.releaseNonNull());
         else
             templateRows.append(CSSPrimitiveValue::create(CSSValueAuto));
@@ -2330,81 +2359,33 @@ bool CSSPropertyParser::consumeGridShorthand(bool important)
     return true;
 }
 
-bool CSSPropertyParser::consumePlaceContentShorthand(bool important)
+bool CSSPropertyParser::consumeAlignShorthand(const StylePropertyShorthand& shorthand, bool important)
 {
-    ASSERT(shorthandForProperty(CSSPropertyPlaceContent).length() == 2);
+    // Used to implement the rules in CSS Align for the following shorthands:
+    //   <'place-content'> https://drafts.csswg.org/css-align/#propdef-place-content
+    //   <'place-items'>   https://drafts.csswg.org/css-align/#propdef-place-items
+    //   <'place-self'>    https://drafts.csswg.org/css-align/#propdef-place-self
+    //   <'gap'>           https://drafts.csswg.org/css-align/#propdef-gap
 
-    if (m_range.atEnd())
+    ASSERT(shorthand.length() == 2);
+    const auto* longhands = shorthand.properties();
+
+    auto rangeCopy = m_range;
+
+    RefPtr prop1 = parseSingleValue(longhands[0], shorthand.id());
+    if (!prop1)
         return false;
 
-    CSSParserTokenRange rangeCopy = m_range;
-    bool isBaseline = isBaselineKeyword(m_range.peek().id());
-    RefPtr alignContentValue = consumeContentDistributionOverflowPosition(m_range, isContentPositionKeyword);
-    if (!alignContentValue)
-        return false;
-
-    // justify-content property does not allow the <baseline-position> values.
-    if (m_range.atEnd() && isBaseline)
-        return false;
-    if (isBaselineKeyword(m_range.peek().id()))
-        return false;
-
+    // If there are no more tokens, that prop2 should use re-use the original range. This is the equivalent of copying and validating prop1.
     if (m_range.atEnd())
         m_range = rangeCopy;
-    RefPtr justifyContentValue = consumeContentDistributionOverflowPosition(m_range, isContentPositionOrLeftOrRightKeyword);
-    if (!justifyContentValue)
-        return false;
-    if (!m_range.atEnd())
-        return false;
 
-    addProperty(CSSPropertyAlignContent, CSSPropertyPlaceContent, alignContentValue.releaseNonNull(), important);
-    addProperty(CSSPropertyJustifyContent, CSSPropertyPlaceContent, justifyContentValue.releaseNonNull(), important);
-    return true;
-}
-
-bool CSSPropertyParser::consumePlaceItemsShorthand(bool important)
-{
-    ASSERT(shorthandForProperty(CSSPropertyPlaceItems).length() == 2);
-
-    CSSParserTokenRange rangeCopy = m_range;
-    RefPtr alignItemsValue = consumeAlignItems(m_range);
-    if (!alignItemsValue)
+    RefPtr prop2 = parseSingleValue(longhands[1], shorthand.id());
+    if (!prop2 || !m_range.atEnd())
         return false;
 
-    if (m_range.atEnd())
-        m_range = rangeCopy;
-    RefPtr justifyItemsValue = consumeJustifyItems(m_range);
-    if (!justifyItemsValue)
-        return false;
-
-    if (!m_range.atEnd())
-        return false;
-
-    addProperty(CSSPropertyAlignItems, CSSPropertyPlaceItems, alignItemsValue.releaseNonNull(), important);
-    addProperty(CSSPropertyJustifyItems, CSSPropertyPlaceItems, justifyItemsValue.releaseNonNull(), important);
-    return true;
-}
-
-bool CSSPropertyParser::consumePlaceSelfShorthand(bool important)
-{
-    ASSERT(shorthandForProperty(CSSPropertyPlaceSelf).length() == 2);
-
-    CSSParserTokenRange rangeCopy = m_range;
-    RefPtr alignSelfValue = consumeSelfPositionOverflowPosition(m_range, isSelfPositionKeyword);
-    if (!alignSelfValue)
-        return false;
-
-    if (m_range.atEnd())
-        m_range = rangeCopy;
-    RefPtr justifySelfValue = consumeSelfPositionOverflowPosition(m_range, isSelfPositionOrLeftOrRightKeyword);
-    if (!justifySelfValue)
-        return false;
-
-    if (!m_range.atEnd())
-        return false;
-
-    addProperty(CSSPropertyAlignSelf, CSSPropertyPlaceSelf, alignSelfValue.releaseNonNull(), important);
-    addProperty(CSSPropertyJustifySelf, CSSPropertyPlaceSelf, justifySelfValue.releaseNonNull(), important);
+    addProperty(longhands[0], shorthand.id(), prop1.releaseNonNull(), important);
+    addProperty(longhands[1], shorthand.id(), prop2.releaseNonNull(), important);
     return true;
 }
 
@@ -2524,11 +2505,8 @@ bool CSSPropertyParser::consumePrefixedPerspective(bool important)
         return m_range.atEnd();
     }
 
-    if (auto perspective = consumeNumberRaw(m_range)) {
-        if (perspective->value < 0)
-            return false;
-        Ref value = CSSPrimitiveValue::create(perspective->value, CSSUnitType::CSS_PX);
-        addProperty(CSSPropertyPerspective, CSSPropertyWebkitPerspective, WTFMove(value), important);
+    if (auto perspective = consumeNumber(m_range, ValueRange::NonNegative)) {
+        addProperty(CSSPropertyPerspective, CSSPropertyWebkitPerspective, WTFMove(perspective), important);
         return m_range.atEnd();
     }
 
@@ -3062,17 +3040,8 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
         return consumePerspectiveOrigin(important);
     case CSSPropertyWebkitPerspective:
         return consumePrefixedPerspective(important);
-    case CSSPropertyGap: {
-        RefPtr rowGap = CSSPropertyParsing::consumeRowGap(m_range, m_context);
-        RefPtr columnGap = CSSPropertyParsing::consumeColumnGap(m_range, m_context);
-        if (!rowGap || !m_range.atEnd())
-            return false;
-        if (!columnGap)
-            columnGap = rowGap;
-        addProperty(CSSPropertyRowGap, CSSPropertyGap, rowGap.releaseNonNull(), important);
-        addProperty(CSSPropertyColumnGap, CSSPropertyGap, columnGap.releaseNonNull(), important);
-        return true;
-    }
+    case CSSPropertyGap:
+        return consumeAlignShorthand(shorthandForProperty(property), important);
     case CSSPropertyGridColumn:
     case CSSPropertyGridRow:
         return consumeGridItemPositionShorthand(property, important);
@@ -3083,11 +3052,11 @@ bool CSSPropertyParser::parseShorthand(CSSPropertyID property, bool important)
     case CSSPropertyGrid:
         return consumeGridShorthand(important);
     case CSSPropertyPlaceContent:
-        return consumePlaceContentShorthand(important);
+        return consumeAlignShorthand(shorthandForProperty(property), important);
     case CSSPropertyPlaceItems:
-        return consumePlaceItemsShorthand(important);
+        return consumeAlignShorthand(shorthandForProperty(property), important);
     case CSSPropertyPlaceSelf:
-        return consumePlaceSelfShorthand(important);
+        return consumeAlignShorthand(shorthandForProperty(property), important);
     case CSSPropertyTextDecorationSkip:
         return consumeTextDecorationSkip(important);
     case CSSPropertyContainer:

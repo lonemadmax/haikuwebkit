@@ -1150,7 +1150,7 @@ void WebProcessProxy::createModelProcessConnection(IPC::Connection::Handle&& con
 {
     bool anyPageHasModelProcessEnabled = false;
     for (auto& page : m_pageMap.values())
-        anyPageHasModelProcessEnabled |= page->preferences().modelProcessEnabled();
+        anyPageHasModelProcessEnabled |= page->preferences().modelElementEnabled() && page->preferences().modelProcessEnabled();
     MESSAGE_CHECK(anyPageHasModelProcessEnabled);
 
 #if ENABLE(IPC_TESTING_API)
@@ -1732,10 +1732,11 @@ RefPtr<API::Object> WebProcessProxy::transformHandlesToObjects(API::Object* obje
         RefPtr<API::Object> transformObject(API::Object& object) const override
         {
             switch (object.type()) {
-            case API::Object::Type::FrameHandle:
+            case API::Object::Type::FrameHandle: {
                 ASSERT(static_cast<API::FrameHandle&>(object).isAutoconverting());
-                return WebFrameProxy::webFrame(static_cast<API::FrameHandle&>(object).frameID());
-
+                auto frameID = static_cast<API::FrameHandle&>(object).frameID();
+                return WebFrameProxy::webFrame(frameID);
+            }
             case API::Object::Type::PageHandle:
                 ASSERT(static_cast<API::PageHandle&>(object).isAutoconverting());
                 return protectedProcess()->webPage(static_cast<API::PageHandle&>(object).pageProxyID());
