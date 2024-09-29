@@ -47,8 +47,7 @@ class MediaPlayerPrivate
 {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    void ref() final { RefCounted::ref(); }
-    void deref() final { RefCounted::deref(); }
+    DEFINE_VIRTUAL_REFCOUNTED;
 
         friend class MediaPlayerFactoryHaiku;
 
@@ -96,7 +95,8 @@ public:
         void paint(GraphicsContext&, const FloatRect&) override;
         DestinationColorSpace colorSpace() override;
 
-    private:
+    constexpr MediaPlayerType mediaPlayerType() const final { return MediaPlayerType::Haiku; }
+private:
         void IdentifyTracks(const String& url);
 
         static void playCallback(void*, void*, size_t,

@@ -169,7 +169,8 @@ enum class MediaPlayerType {
     GStreamer,
     GStreamerMSE,
     HolePunch,
-    Remote
+    Remote,
+    Haiku
 };
 
 using TrackID = uint64_t;
