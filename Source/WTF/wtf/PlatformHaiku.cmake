@@ -19,7 +19,7 @@ posix/CPUTimePOSIX.cpp
 
     PlatformUserPreferredLanguagesHaiku.cpp
 
-    text/haiku/TextBreakIteratorInternalICUHaiku.cpp
+    text/unix/TextBreakIteratorInternalICUUnix.cpp
 
 )
 
