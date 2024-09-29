@@ -226,7 +226,7 @@ void BWebWindow::MessageReceived(BMessage* message)
         int32 lineNumber = message->FindInt32("line");
         int32 columnNumber = message->FindInt32("column");
         BString text = message->FindString("string");
-        printf("MESSAGE %s:%li:%li: %s\n", source.String(), lineNumber,
+        printf("MESSAGE %s:%" B_PRId32 ":%" B_PRId32 ": %s\n", source.String(), lineNumber,
             columnNumber, text.String());
 
         break;
