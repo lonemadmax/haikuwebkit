@@ -263,8 +263,8 @@ private:
     GRefPtr<GSource> m_source;
     WeakHashSet<Observer> m_observers;
 #elif USE(HAIKU_EVENT_LOOP)
-    BHandler* m_handler;
     BLooper* m_looper;
+    BHandler* m_handler;
     friend class LoopHandler;
 #elif USE(GENERIC_EVENT_LOOP)
     void scheduleWithLock(TimerBase::ScheduledTask&) WTF_REQUIRES_LOCK(m_loopLock);
