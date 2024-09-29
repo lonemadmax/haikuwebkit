@@ -50,14 +50,6 @@ CurlResourceHandleDelegate::CurlResourceHandleDelegate(ResourceHandle& handle)
 
 }
 
-void CurlResourceHandleDelegate::ref()
-{
-}
-
-void CurlResourceHandleDelegate::deref()
-{
-}
-
 bool CurlResourceHandleDelegate::cancelledOrClientless()
 {
     return m_handle.cancelledOrClientless();

@@ -32,6 +32,7 @@
 #include <wtf/FastMalloc.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Ref.h>
+#include <wtf/RefCounted.h>
 
 namespace WebCore {
 
@@ -40,17 +41,19 @@ class ResourceHandleClient;
 class ResourceHandleInternal;
 class SharedBuffer;
 
-class CurlResourceHandleDelegate final : public CurlRequestClient {
+class CurlResourceHandleDelegate final
+    : public CurlRequestClient
+    , public RefCounted<CurlResourceHandleDelegate>
+{
     WTF_MAKE_NONCOPYABLE(CurlResourceHandleDelegate); WTF_MAKE_FAST_ALLOCATED;
 public:
+    DEFINE_VIRTUAL_REFCOUNTED;
+
     CurlResourceHandleDelegate(ResourceHandle&);
 
     const ResourceResponse& response() const { return m_response; }
 
     // CurlRequestClient methods
-
-    void ref() final;
-    void deref() final;
 
     void curlDidSendData(CurlRequest&, unsigned long long bytesSent, unsigned long long totalBytesToBeSent) final;
     void curlDidReceiveResponse(CurlRequest&, CurlResponse&&) final;

@@ -34,6 +34,8 @@
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
 
+#include "wtf/RefCounted.h"
+
 namespace WebCore {
 
 class CurlRequest;
@@ -48,13 +50,15 @@ public:
     virtual void didFail() { }
 };
 
-class CurlDownload final : public ThreadSafeRefCounted<CurlDownload>, public CurlRequestClient {
+class CurlDownload final
+    : public RefCounted<CurlDownload>
+    , public CurlRequestClient
+{
 public:
     CurlDownload() = default;
     WEBCORE_EXPORT ~CurlDownload();
 
-    void ref() override { ThreadSafeRefCounted<CurlDownload>::ref(); }
-    void deref() override { ThreadSafeRefCounted<CurlDownload>::deref(); }
+    DEFINE_VIRTUAL_REFCOUNTED;
 
     WEBCORE_EXPORT void init(CurlDownloadListener&, const URL&);
     WEBCORE_EXPORT void init(CurlDownloadListener&, ResourceHandle*, const ResourceRequest&, const ResourceResponse&);
