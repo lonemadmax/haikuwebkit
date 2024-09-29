@@ -116,7 +116,7 @@ void RunLoop::wakeUp()
     m_handler->Looper()->PostMessage('loop', m_handler);
 }
 
-RunLoop::TimerBase::TimerBase(RunLoop& runLoop)
+RunLoop::TimerBase::TimerBase(WTF::Ref<RunLoop>&& runLoop)
     : m_runLoop(runLoop)
 {
     m_messageRunner = NULL;
