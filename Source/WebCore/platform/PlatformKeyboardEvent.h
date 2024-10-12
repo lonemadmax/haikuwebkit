@@ -143,7 +143,13 @@ namespace WebCore {
 #endif
 
 #if PLATFORM(HAIKU)
-        PlatformKeyboardEvent(BMessage*);
+        PlatformKeyboardEvent(const BMessage*);
+
+        static String KeyValueForKeyEvent(BString bytes, int keyCode);
+        static String KeyCodeForKeyEvent(BString bytes, int keyCode);
+        static String keyIdentifierForHaikuKeyCode(char singleByte, int keyCode);
+        static String KeyCodeForKeyEvent(int keyCode);
+        static int windowsKeyCodeForKeyEvent(char singleByte, int keyCode);
 #endif
 
 #if USE(LIBWPE)

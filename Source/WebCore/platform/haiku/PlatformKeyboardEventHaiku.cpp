@@ -46,7 +46,7 @@
 
 namespace WebCore {
 
-static String keyIdentifierForHaikuKeyCode(char singleByte, int keyCode)
+String PlatformKeyboardEvent::keyIdentifierForHaikuKeyCode(char singleByte, int keyCode)
 {
     switch (singleByte) {
     case B_FUNCTION_KEY:
@@ -117,7 +117,7 @@ static String keyIdentifierForHaikuKeyCode(char singleByte, int keyCode)
     return makeString("U+"_s, hex(toASCIIUpper(singleByte)));
 }
 
-static int windowsKeyCodeForKeyEvent(char singleByte, int keyCode)
+int PlatformKeyboardEvent::windowsKeyCodeForKeyEvent(char singleByte, int keyCode)
 {
     switch (singleByte) {
     case B_FUNCTION_KEY:
@@ -331,7 +331,7 @@ static int windowsKeyCodeForKeyEvent(char singleByte, int keyCode)
     return singleByte;
 }
 
-static String KeyValueForKeyEvent(BString bytes, int keyCode)
+String PlatformKeyboardEvent::KeyValueForKeyEvent(BString bytes, int keyCode)
 {
     switch (bytes.ByteAt(0)) {
 
@@ -409,7 +409,7 @@ static String KeyValueForKeyEvent(BString bytes, int keyCode)
     return ASCIILiteral::fromLiteralUnsafe("Unidentified");
 }
 
-static String KeyCodeForKeyEvent(int keyCode)
+String PlatformKeyboardEvent::KeyCodeForKeyEvent(int keyCode)
 {
     switch (keyCode) {
         case 0x0001:
@@ -639,7 +639,7 @@ static String KeyCodeForKeyEvent(int keyCode)
     return ASCIILiteral::fromLiteralUnsafe("Unidentified");
 }
 
-PlatformKeyboardEvent::PlatformKeyboardEvent(BMessage* message)
+PlatformKeyboardEvent::PlatformKeyboardEvent(const BMessage* message)
     : m_autoRepeat(false)
     , m_isKeypad(false)
 {
