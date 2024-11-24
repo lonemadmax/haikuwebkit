@@ -271,10 +271,18 @@ std::pair<String, PlatformFileHandle> openTemporaryFile(StringView prefix, Strin
     if (snprintf(buffer, PATH_MAX, "%s/%sXXXXXX", temporaryFileDirectory(), prefix.utf8().data()) >= PATH_MAX)
         goto end;
 
+#if OS(HAIKU)
+    // Currenrly missing mkostemp
+    handle = mkstemp(buffer);
+#else
     handle = mkostemp(buffer, O_CLOEXEC);
+#endif
     if (handle < 0)
         goto end;
 
+#if OS(HAIKU)
+    fcntl(handle, F_SETFD, FD_CLOEXEC);
+#endif
     return { String::fromUTF8(buffer), handle };
 
 end:
