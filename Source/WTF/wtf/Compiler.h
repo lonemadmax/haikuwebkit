@@ -238,6 +238,20 @@
 #define FALLTHROUGH
 #endif
 
+/* LIFETIME_BOUND */
+
+#if !defined(LIFETIME_BOUND) && defined(__cplusplus)
+#if defined(__has_cpp_attribute) && __has_cpp_attribute(clang::lifetimebound)
+#define LIFETIME_BOUND [[clang::lifetimebound]]
+#elif COMPILER_HAS_ATTRIBUTE(lifetimebound)
+#define LIFETIME_BOUND __attribute__((lifetimebound))
+#endif
+#endif
+
+#if !defined(LIFETIME_BOUND)
+#define LIFETIME_BOUND
+#endif
+
 /* LIKELY */
 
 #if !defined(LIKELY)
@@ -341,6 +355,16 @@
 
 #if !defined(UNUSED_MEMBER_VARIABLE)
 #define UNUSED_MEMBER_VARIABLE __attribute__((unused))
+#endif
+
+/* TRIVIAL_ABI */
+
+#if !defined(TRIVIAL_ABI)
+#if COMPILER(CLANG)
+#define TRIVIAL_ABI __attribute__((trivial_abi))
+#else
+#define TRIVIAL_ABI
+#endif
 #endif
 
 /* UNUSED_TYPE_ALIAS */
@@ -520,7 +544,7 @@
     IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE("cplusplus.Move")
 
 #define SUPPRESS_UNCOUNTED_ARG \
-    IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE("alpha.webkit.UncountedCallArgsChecker")
+    IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE_ON_MEMBER("alpha.webkit.UncountedCallArgsChecker")
 
 #define SUPPRESS_UNCOUNTED_LOCAL \
     IGNORE_CLANG_STATIC_ANALYZER_WARNINGS_ATTRIBUTE("alpha.webkit.UncountedLocalVarsChecker")

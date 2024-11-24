@@ -40,6 +40,7 @@
 #include "ProvisionalFrameProxy.h"
 #include "ProvisionalPageProxy.h"
 #include "RemotePageProxy.h"
+#include "WebBackForwardListFrameItem.h"
 #include "WebFramePolicyListenerProxy.h"
 #include "WebNavigationState.h"
 #include "WebPageMessages.h"
@@ -87,9 +88,10 @@ bool WebFrameProxy::canCreateFrame(FrameIdentifier frameID)
         && !allFrames().contains(frameID);
 }
 
-WebFrameProxy::WebFrameProxy(WebPageProxy& page, FrameProcess& process, FrameIdentifier frameID, SandboxFlags effectiveSandboxFlags, IsMainFrame isMainFrame)
+WebFrameProxy::WebFrameProxy(WebPageProxy& page, FrameProcess& process, FrameIdentifier frameID, SandboxFlags effectiveSandboxFlags, WebFrameProxy* opener, IsMainFrame isMainFrame)
     : m_page(page)
     , m_frameProcess(process)
+    , m_opener(opener)
     , m_frameLoadState(isMainFrame)
     , m_frameID(frameID)
     , m_layerHostingContextIdentifier(LayerHostingContextIdentifier::generate())
@@ -410,7 +412,7 @@ void WebFrameProxy::didCreateSubframe(WebCore::FrameIdentifier frameID, const St
     MESSAGE_CHECK(WebFrameProxy::canCreateFrame(frameID));
     MESSAGE_CHECK(frameID.processIdentifier() == process().coreProcessIdentifier());
 
-    Ref child = WebFrameProxy::create(*page, m_frameProcess, frameID, effectiveSandboxFlags, IsMainFrame::No);
+    Ref child = WebFrameProxy::create(*page, m_frameProcess, frameID, effectiveSandboxFlags, nullptr, IsMainFrame::No);
     child->m_parentFrame = *this;
     child->m_frameName = frameName;
     page->observeAndCreateRemoteSubframesInOtherProcesses(child, frameName);
@@ -673,6 +675,16 @@ WebFrameProxy& WebFrameProxy::rootFrame()
 bool WebFrameProxy::isMainFrame() const
 {
     return m_frameLoadState.isMainFrame() == IsMainFrame::Yes;
+}
+
+void WebFrameProxy::setPendingChildBackForwardItem(WebBackForwardListFrameItem* pendingChildBackForwardItem)
+{
+    m_pendingChildBackForwardItem = pendingChildBackForwardItem;
+}
+
+WebBackForwardListFrameItem* WebFrameProxy::takePendingChildBackForwardItem()
+{
+    return std::exchange(m_pendingChildBackForwardItem, nullptr).get();
 }
 
 } // namespace WebKit

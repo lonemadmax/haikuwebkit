@@ -24,10 +24,13 @@
 # Callee save
 
 macro saveIPIntRegisters()
+    # NOTE: We intentionally don't restore memoryBase and boundsCheckingSize here. These are saved
+    # and restored when entering Wasm by the JSToWasm wrapper and changes to them are meant
+    # to be observable within the same Wasm module.
     subp IPIntCalleeSaveSpaceStackAligned, sp
     if ARM64 or ARM64E
-        storepairq MC, PC, -16[cfr]
-        storeq wasmInstance, -24[cfr]
+        storepairq MC, PC, -0x10[cfr]
+        storeq wasmInstance, -0x18[cfr]
     elsif X86_64 or RISCV64
         storep PC, -0x8[cfr]
         storep MC, -0x10[cfr]
@@ -36,9 +39,12 @@ macro saveIPIntRegisters()
 end
 
 macro restoreIPIntRegisters()
+    # NOTE: We intentionally don't restore memoryBase and boundsCheckingSize here. These are saved
+    # and restored when entering Wasm by the JSToWasm wrapper and changes to them are meant
+    # to be observable within the same Wasm module.
     if ARM64 or ARM64E
-        loadpairq -16[cfr], MC, PC
-        loadq -24[cfr], wasmInstance
+        loadpairq -0x10[cfr], MC, PC
+        loadq -0x18[cfr], wasmInstance
     elsif X86_64 or RISCV64
         loadp -0x8[cfr], PC
         loadp -0x10[cfr], MC
@@ -207,6 +213,7 @@ end
 macro argumINTDispatch()
     loadb [MC], argumINTTmp
     addq 1, MC
+    bbgteq argumINTTmp, 0x12, .err
     lshiftq 6, argumINTTmp
 if ARM64 or ARM64E
     pcrtoaddr _argumINT_begin, argumINTDsp
@@ -219,6 +226,8 @@ elsif X86_64
 else
     break
 end
+.err:
+    break
 end
 
 macro argumINTEnd()
@@ -355,26 +364,26 @@ reservedOpcode(0xa)
 
 macro uintDispatch()
 if ARM64 or ARM64E
-    loadb [MC], ws2
+    loadb [MC], sc2
     addq 1, MC
-    bilt ws2, 5, .safe
+    bilt sc2, 0x12, .safe
     break
 .safe:
-    lshiftq 6, ws2
-    pcrtoaddr _uint_begin, ws3
-    addq ws2, ws3
+    lshiftq 6, sc2
+    pcrtoaddr _uint_begin, sc3
+    addq sc2, ws3
     # ws3 = x12
     emit "br x12"
 elsif X86_64
-    loadb [MC], r1
+    loadb [MC], sc2
     addq 1, MC
-    bilt r1, 5, .safe
+    bilt sc2, 0x12, .safe
     break
 .safe:
-    lshiftq 6, r1
-    leap (_uint_begin), t0
-    addq r1, t0
-    emit "jmp *(%rax)"
+    lshiftq 6, sc2
+    leap (_uint_begin), sc3
+    addq sc2, sc3
+    emit "jmp *(%r10)"
 end
 end
 
@@ -386,6 +395,8 @@ instructionLabel(_end)
 .ipint_end_ret:
     loadp Wasm::IPIntCallee::m_uINTBytecodePointer[ws0], MC
     ipintEpilogueOSR(10)
+    loadi Wasm::IPIntCallee::m_highestReturnStackOffset[ws0], sc0
+    addp cfr, sc0
     uintDispatch()
 
 instructionLabel(_br)
@@ -472,7 +483,7 @@ instructionLabel(_call)
     advancePCByReg(t0)
 
     # get function index
-    loadb IPInt::CallMetadata::functionIndex[MC], a1
+    loadi IPInt::CallMetadata::functionIndex[MC], a1
     advanceMC(IPInt::CallMetadata::argumentBytecode)
 
     subq 16, sp
@@ -725,8 +736,9 @@ instructionLabel(_i32_load_mem)
     # i32.load
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     loadi [memoryBase, t0], t1
@@ -741,8 +753,9 @@ instructionLabel(_i64_load_mem)
     # i32.load
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 8)
     # load memory location
     loadq [memoryBase, t0], t1
@@ -757,8 +770,9 @@ instructionLabel(_f32_load_mem)
     # f32.load
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     loadf [memoryBase, t0], ft0
@@ -773,8 +787,9 @@ instructionLabel(_f64_load_mem)
     # f64.load
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 8)
     # load memory location
     loadd [memoryBase, t0], ft0
@@ -790,8 +805,9 @@ instructionLabel(_i32_load8s_mem)
     # i32.load8_s
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     loadb [memoryBase, t0], t1
@@ -807,8 +823,9 @@ instructionLabel(_i32_load8u_mem)
     # i32.load8_u
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     loadb [memoryBase, t0], t1
@@ -823,8 +840,9 @@ instructionLabel(_i32_load16s_mem)
     # i32.load16_s
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     loadh [memoryBase, t0], t1
@@ -840,8 +858,9 @@ instructionLabel(_i32_load16u_mem)
     # i32.load16_u
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     loadh [memoryBase, t0], t1
@@ -857,8 +876,9 @@ instructionLabel(_i64_load8s_mem)
     # i64.load8_s
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     loadb [memoryBase, t0], t1
@@ -874,8 +894,9 @@ instructionLabel(_i64_load8u_mem)
     # i64.load8_u
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     loadb [memoryBase, t0], t1
@@ -890,8 +911,9 @@ instructionLabel(_i64_load16s_mem)
     # i64.load16_s
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     loadh [memoryBase, t0], t1
@@ -907,8 +929,9 @@ instructionLabel(_i64_load16u_mem)
     # i64.load16_u
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     loadh [memoryBase, t0], t1
@@ -923,8 +946,9 @@ instructionLabel(_i64_load32s_mem)
     # i64.load32_s
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     loadi [memoryBase, t0], t1
@@ -940,8 +964,9 @@ instructionLabel(_i64_load32u_mem)
     # i64.load8_s
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     loadi [memoryBase, t0], t1
@@ -959,8 +984,9 @@ instructionLabel(_i32_store_mem)
     popInt32(t1, t2)
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     storei t1, [memoryBase, t0]
@@ -976,8 +1002,9 @@ instructionLabel(_i64_store_mem)
     popInt64(t1, t2)
     # pop index
     popInt64(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 8)
     # load memory location
     storeq t1, [memoryBase, t0]
@@ -993,8 +1020,9 @@ instructionLabel(_f32_store_mem)
     popFloat32(ft0)
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     storef ft0, [memoryBase, t0]
@@ -1010,8 +1038,9 @@ instructionLabel(_f64_store_mem)
     popFloat64(ft0)
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 8)
     # load memory location
     stored ft0, [memoryBase, t0]
@@ -1027,8 +1056,9 @@ instructionLabel(_i32_store8_mem)
     popInt32(t1, t2)
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     storeb t1, [memoryBase, t0]
@@ -1044,8 +1074,9 @@ instructionLabel(_i32_store16_mem)
     popInt32(t1, t2)
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     storeh t1, [memoryBase, t0]
@@ -1062,7 +1093,7 @@ instructionLabel(_i64_store8_mem)
     # pop index
     popInt64(t0, t2)
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 1)
     # load memory location
     storeb t1, [memoryBase, t0]
@@ -1079,7 +1110,7 @@ instructionLabel(_i64_store16_mem)
     # pop index
     popInt64(t0, t2)
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 2)
     # load memory location
     storeh t1, [memoryBase, t0]
@@ -1096,7 +1127,7 @@ instructionLabel(_i64_store32_mem)
     # pop index
     popInt64(t0, t2)
     loadi IPInt::Const32Metadata::value[MC], t2
-    addi t2, t0
+    addp t2, t0
     ipintCheckMemoryBound(t0, t2, 4)
     # load memory location
     storei t1, [memoryBase, t0]
@@ -3756,9 +3787,10 @@ reservedOpcode(atomic_0xf)
 macro atomicLoadOp(boundsAndAlignmentCheck, loadAndPush)
     # pop index
     popInt32(t0, t2)
+    ori 0, t0
     # load offset
     loadi IPInt::Const32Metadata::value[MC], t2
-    addq t2, t0
+    addp t2, t0
     boundsAndAlignmentCheck(t0,  t3)
     addq memoryBase, t0
     loadAndPush(t0, t2)
@@ -3908,9 +3940,10 @@ macro atomicStoreOp(boundsAndAlignmentCheck, popAndStore)
     popInt64(t1, t0)
     # pop index
     popInt32(t2, t0)
+    ori 0, t2
     # load offset
     loadi IPInt::Const32Metadata::value[MC], t0
-    addq t0, t2
+    addp t0, t2
     boundsAndAlignmentCheck(t2, t3)
     addq memoryBase, t2
     popAndStore(t2, t1, t0, t3)
@@ -4032,9 +4065,10 @@ macro atomicRMWOp(boundsAndAlignmentCheck, rmw)
     popInt64(t1, t0)
     # pop index
     popInt32(t2, t0)
+    ori 0, t2
     # load offset
     loadi IPInt::Const32Metadata::value[MC], t0
-    addq t0, t2
+    addp t0, t2
     boundsAndAlignmentCheck(t2, t3)
     addq memoryBase, t2
     rmw(t2, t1, t0, t3)
@@ -4817,9 +4851,10 @@ macro atomicCmpxchgOp(boundsAndAlignmentCheck, cmpxchg)
     popInt64(t0, t2)
     # pop index
     popInt32(t3, t2)
+    ori 0, t3
     # load offset
     loadi IPInt::Const32Metadata::value[MC], t2
-    addq t2, t3
+    addp t2, t3
     boundsAndAlignmentCheck(t3, t2)
     addq memoryBase, t3
     cmpxchg(t3, t1, t0, t2)
@@ -5037,7 +5072,9 @@ end
 macro mintArgDispatch()
     loadb [MC], sc0
     addq 1, MC
-    andq 15, sc0
+    bilt sc0, 20, .safe
+    break
+.safe:
     lshiftq 6, sc0
 if ARM64 or ARM64E
     pcrtoaddr _mint_begin, csr4
@@ -5055,7 +5092,7 @@ end
 macro mintRetDispatch()
     loadb [MC], sc0
     addq 1, MC
-    bilt sc0, 14, .safe
+    bilt sc0, 18, .safe
     break
 .safe:
     lshiftq 6, sc0
@@ -5145,19 +5182,35 @@ else
 end
 
 mintAlign(_fa0)
-    mintPopF(fa0)
+    mintPopF(wfa0)
     mintArgDispatch()
 
 mintAlign(_fa1)
-    mintPopF(fa1)
+    mintPopF(wfa1)
     mintArgDispatch()
 
 mintAlign(_fa2)
-    mintPopF(fa2)
+    mintPopF(wfa2)
     mintArgDispatch()
 
 mintAlign(_fa3)
-    mintPopF(fa3)
+    mintPopF(wfa3)
+    mintArgDispatch()
+
+mintAlign(_fa4)
+    mintPopF(wfa4)
+    mintArgDispatch()
+
+mintAlign(_fa5)
+    mintPopF(wfa5)
+    mintArgDispatch()
+
+mintAlign(_fa6)
+    mintPopF(wfa6)
+    mintArgDispatch()
+
+mintAlign(_fa7)
+    mintPopF(wfa7)
     mintArgDispatch()
 
 mintAlign(_stackzero)
@@ -5190,7 +5243,7 @@ mintAlign(_call)
     pop t3, t2
 
     # Make the call
-    call targetEntrypoint, JSEntrySlowPathPtrTag
+    call targetEntrypoint, WasmEntryPtrTag
 
     # Restore the stack pointer
     addp FirstArgumentOffset - CallerFrameAndPCSize, sp
@@ -5211,24 +5264,24 @@ mintAlign(_call)
 
 mintAlign(_r0)
 _mint_begin_return:
-    pushQuad(r0)
+    pushQuad(wa0)
     mintRetDispatch()
 
 mintAlign(_r1)
-    pushQuad(r1)
+    pushQuad(wa1)
     mintRetDispatch()
 
 mintAlign(_r2)
-    pushQuad(t2)
+    pushQuad(wa2)
     mintRetDispatch()
 
 mintAlign(_r3)
-    pushQuad(t3)
+    pushQuad(wa3)
     mintRetDispatch()
 
 mintAlign(_r4)
 if ARM64 or ARM64E
-    pushQuad(t4)
+    pushQuad(wa4)
     mintRetDispatch()
 else
     break
@@ -5236,7 +5289,7 @@ end
 
 mintAlign(_r5)
 if ARM64 or ARM64E
-    pushQuad(t5)
+    pushQuad(wa5)
     mintRetDispatch()
 else
     break
@@ -5244,7 +5297,7 @@ end
 
 mintAlign(_r6)
 if ARM64 or ARM64E
-    pushQuad(t6)
+    pushQuad(wa6)
     mintRetDispatch()
 else
     break
@@ -5252,26 +5305,42 @@ end
 
 mintAlign(_r7)
 if ARM64 or ARM64E
-    pushQuad(t7)
+    pushQuad(wa7)
     mintRetDispatch()
 else
     break
 end
 
 mintAlign(_fr0)
-    pushv ft0
+    pushv wfa0
     mintRetDispatch()
 
 mintAlign(_fr1)
-    pushv ft1
+    pushv wfa1
     mintRetDispatch()
 
 mintAlign(_fr2)
-    pushv ft2
+    pushv wfa2
     mintRetDispatch()
 
 mintAlign(_fr3)
-    pushv ft3
+    pushv wfa3
+    mintRetDispatch()
+
+mintAlign(_fr4)
+    pushv wfa4
+    mintRetDispatch()
+
+mintAlign(_fr5)
+    pushv wfa5
+    mintRetDispatch()
+
+mintAlign(_fr6)
+    pushv wfa6
+    mintRetDispatch()
+
+mintAlign(_fr7)
+    pushv wfa7
     mintRetDispatch()
 
 mintAlign(_stack)
@@ -5293,19 +5362,84 @@ mintAlign(_end)
 
 uintAlign(_r0)
 _uint_begin:
-    popQuad(r0, t3)
+    popQuad(wa0, sc1)
     uintDispatch()
 
 uintAlign(_r1)
-    popQuad(r1, t3)
+    popQuad(wa1, sc1)
     uintDispatch()
+
+uintAlign(_r2)
+    popQuad(wa2, sc1)
+    uintDispatch()
+
+uintAlign(_r3)
+    popQuad(wa3, sc1)
+    uintDispatch()
+
+uintAlign(_r4)
+    popQuad(wa4, sc1)
+    uintDispatch()
+
+uintAlign(_r5)
+    popQuad(wa5, sc1)
+    uintDispatch()
+
+uintAlign(_r6)
+if ARM64 or ARM64E
+    popQuad(wa6, sc1)
+    uintDispatch()
+else
+    break
+end
+
+uintAlign(_r7)
+if ARM64 or ARM64E
+    popQuad(wa7, sc1)
+    uintDispatch()
+else
+    break
+end
 
 uintAlign(_fr0)
-    popFloat64(fr)
+    popFloat64(wfa0)
     uintDispatch()
 
+uintAlign(_fr1)
+    popFloat64(wfa1)
+    uintDispatch()
+
+uintAlign(_fr2)
+    popFloat64(wfa2)
+    uintDispatch()
+
+uintAlign(_fr3)
+    popFloat64(wfa3)
+    uintDispatch()
+
+uintAlign(_fr4)
+    popFloat64(wfa4)
+    uintDispatch()
+
+uintAlign(_fr5)
+    popFloat64(wfa5)
+    uintDispatch()
+
+uintAlign(_fr6)
+    popFloat64(wfa6)
+    uintDispatch()
+
+uintAlign(_fr7)
+    popFloat64(wfa7)
+    uintDispatch()
+
+# destination on stack is sc0
+
 uintAlign(_stack)
-    break
+    popInt64(sc1, sc2)
+    storeq sc1, [sc0]
+    subq 8, sc0
+    uintDispatch()
 
 uintAlign(_ret)
     jmp .ipint_exit
@@ -5322,28 +5456,28 @@ uintAlign(_ret)
 
 argumINTAlign(_a0)
 _argumINT_begin:
-    storeq a0, [argumINTDst]
+    storeq wa0, [argumINTDst]
     addq LocalSize, argumINTDst
     argumINTDispatch()
 
 argumINTAlign(_a1)
-    storeq a1, [argumINTDst]
+    storeq wa1, [argumINTDst]
     addq LocalSize, argumINTDst
     argumINTDispatch()
 
 argumINTAlign(_a2)
-    storeq a2, [argumINTDst]
+    storeq wa2, [argumINTDst]
     addq LocalSize, argumINTDst
     argumINTDispatch()
 
 argumINTAlign(_a3)
-    storeq a3, [argumINTDst]
+    storeq wa3, [argumINTDst]
     addq LocalSize, argumINTDst
     argumINTDispatch()
 
 argumINTAlign(_a4)
-if ARM64 or ARM64E
-    storeq a4, [argumINTDst]
+if ARM64 or ARM64E or X86_64
+    storeq wa4, [argumINTDst]
     addq LocalSize, argumINTDst
     argumINTDispatch()
 else
@@ -5351,8 +5485,8 @@ else
 end
 
 argumINTAlign(_a5)
-if ARM64 or ARM64E
-    storeq a5, [argumINTDst]
+if ARM64 or ARM64E or X86_64
+    storeq wa5, [argumINTDst]
     addq LocalSize, argumINTDst
     argumINTDispatch()
 else
@@ -5361,7 +5495,7 @@ end
 
 argumINTAlign(_a6)
 if ARM64 or ARM64E
-    storeq a6, [argumINTDst]
+    storeq wa6, [argumINTDst]
     addq LocalSize, argumINTDst
     argumINTDispatch()
 else
@@ -5370,7 +5504,7 @@ end
 
 argumINTAlign(_a7)
 if ARM64 or ARM64E
-    storeq a7, [argumINTDst]
+    storeq wa7, [argumINTDst]
     addq LocalSize, argumINTDst
     argumINTDispatch()
 else
@@ -5378,22 +5512,42 @@ else
 end
 
 argumINTAlign(_fa0)
-    stored fa0, [argumINTDst]
+    stored wfa0, [argumINTDst]
     addq LocalSize, argumINTDst
     argumINTDispatch()
 
 argumINTAlign(_fa1)
-    stored fa1, [argumINTDst]
+    stored wfa1, [argumINTDst]
     addq LocalSize, argumINTDst
     argumINTDispatch()
 
 argumINTAlign(_fa2)
-    stored fa2, [argumINTDst]
+    stored wfa2, [argumINTDst]
     addq LocalSize, argumINTDst
     argumINTDispatch()
 
 argumINTAlign(_fa3)
-    stored fa3, [argumINTDst]
+    stored wfa3, [argumINTDst]
+    addq LocalSize, argumINTDst
+    argumINTDispatch()
+
+argumINTAlign(_fa4)
+    stored wfa4, [argumINTDst]
+    addq LocalSize, argumINTDst
+    argumINTDispatch()
+
+argumINTAlign(_fa5)
+    stored wfa5, [argumINTDst]
+    addq LocalSize, argumINTDst
+    argumINTDispatch()
+
+argumINTAlign(_fa6)
+    stored wfa6, [argumINTDst]
+    addq LocalSize, argumINTDst
+    argumINTDispatch()
+
+argumINTAlign(_fa7)
+    stored wfa7, [argumINTDst]
     addq LocalSize, argumINTDst
     argumINTDispatch()
 

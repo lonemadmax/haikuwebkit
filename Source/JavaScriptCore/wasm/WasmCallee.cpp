@@ -41,17 +41,17 @@
 
 namespace JSC::Wasm {
 
-WTF_MAKE_TZONE_ALLOCATED_IMPL(Callee);
-WTF_MAKE_TZONE_ALLOCATED_IMPL(JITCallee);
-WTF_MAKE_TZONE_ALLOCATED_IMPL(JSEntrypointCallee);
-WTF_MAKE_TZONE_ALLOCATED_IMPL(WasmToJSCallee);
-WTF_MAKE_TZONE_ALLOCATED_IMPL(JSToWasmICCallee);
-WTF_MAKE_TZONE_ALLOCATED_IMPL(OptimizingJITCallee);
-WTF_MAKE_TZONE_ALLOCATED_IMPL(OMGCallee);
-WTF_MAKE_TZONE_ALLOCATED_IMPL(OSREntryCallee);
-WTF_MAKE_TZONE_ALLOCATED_IMPL(BBQCallee);
-WTF_MAKE_TZONE_ALLOCATED_IMPL(IPIntCallee);
-WTF_MAKE_TZONE_ALLOCATED_IMPL(LLIntCallee);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(Callee);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(JITCallee);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(JSEntrypointCallee);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(WasmToJSCallee);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(JSToWasmICCallee);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(OptimizingJITCallee);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(OMGCallee);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(OSREntryCallee);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(BBQCallee);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(IPIntCallee);
+WTF_MAKE_COMPACT_TZONE_ALLOCATED_IMPL(LLIntCallee);
 
 Callee::Callee(Wasm::CompilationMode compilationMode)
     : NativeCallee(NativeCallee::Category::Wasm, ImplementationVisibility::Private)
@@ -60,7 +60,7 @@ Callee::Callee(Wasm::CompilationMode compilationMode)
 {
 }
 
-Callee::Callee(Wasm::CompilationMode compilationMode, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name)
+Callee::Callee(Wasm::CompilationMode compilationMode, FunctionSpaceIndex index, std::pair<const Name*, RefPtr<NameSection>>&& name)
     : NativeCallee(NativeCallee::Category::Wasm, ImplementationVisibility::Public)
     , m_compilationMode(compilationMode)
     , m_indexOrName(index, WTFMove(name))
@@ -173,7 +173,7 @@ JITCallee::JITCallee(Wasm::CompilationMode compilationMode)
 {
 }
 
-JITCallee::JITCallee(Wasm::CompilationMode compilationMode, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name)
+JITCallee::JITCallee(Wasm::CompilationMode compilationMode, FunctionSpaceIndex index, std::pair<const Name*, RefPtr<NameSection>>&& name)
     : Callee(compilationMode, index, WTFMove(name))
 {
 }
@@ -209,7 +209,7 @@ WasmToJSCallee& WasmToJSCallee::singleton()
     return callee.get().get();
 }
 
-IPIntCallee::IPIntCallee(FunctionIPIntMetadataGenerator& generator, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name)
+IPIntCallee::IPIntCallee(FunctionIPIntMetadataGenerator& generator, FunctionSpaceIndex index, std::pair<const Name*, RefPtr<NameSection>>&& name)
     : Callee(Wasm::CompilationMode::IPIntMode, index, WTFMove(name))
     , m_functionIndex(generator.m_functionIndex)
     , m_signatures(WTFMove(generator.m_signatures))
@@ -221,6 +221,7 @@ IPIntCallee::IPIntCallee(FunctionIPIntMetadataGenerator& generator, size_t index
     , m_argumINTBytecodePointer(m_argumINTBytecode.data())
     , m_uINTBytecode(WTFMove(generator.m_uINTBytecode))
     , m_uINTBytecodePointer(m_uINTBytecode.data())
+    , m_highestReturnStackOffset(generator.m_highestReturnStackOffset)
     , m_localSizeToAlloc(roundUpToMultipleOf<2>(generator.m_numLocals))
     , m_numRethrowSlotsToAlloc(generator.m_numAlignedRethrowSlots)
     , m_numLocals(generator.m_numLocals)
@@ -284,7 +285,7 @@ RegisterAtOffsetList* IPIntCallee::calleeSaveRegistersImpl()
     return &calleeSaveRegisters.get();
 }
 
-LLIntCallee::LLIntCallee(FunctionCodeBlockGenerator& generator, size_t index, std::pair<const Name*, RefPtr<NameSection>>&& name)
+LLIntCallee::LLIntCallee(FunctionCodeBlockGenerator& generator, FunctionSpaceIndex index, std::pair<const Name*, RefPtr<NameSection>>&& name)
     : Callee(Wasm::CompilationMode::LLIntMode, index, WTFMove(name))
     , m_functionIndex(generator.m_functionIndex)
     , m_numVars(generator.m_numVars)

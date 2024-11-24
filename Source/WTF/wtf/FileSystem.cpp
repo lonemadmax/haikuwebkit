@@ -314,7 +314,6 @@ void setMetadataURL(const String&, const String&, const String&)
 MappedFileData::MappedFileData(const String& filePath, MappedFileMode mapMode, bool& success)
 {
     auto fd = openFile(filePath, FileSystem::FileOpenMode::Read);
-
     success = mapFileHandle(fd, FileSystem::FileOpenMode::Read, mapMode);
     closeFile(fd);
 }
@@ -323,10 +322,10 @@ MappedFileData::MappedFileData(const String& filePath, MappedFileMode mapMode, b
 
 MappedFileData::~MappedFileData()
 {
-    if (!m_fileData)
+    if (!m_fileData.data())
         return;
 
-    munmap(m_fileData, m_fileSize);
+    munmap(m_fileData.data(), m_fileData.size());
 }
 
 bool MappedFileData::mapFileHandle(PlatformFileHandle handle, FileOpenMode openMode, MappedFileMode mapMode)
@@ -337,14 +336,12 @@ bool MappedFileData::mapFileHandle(PlatformFileHandle handle, FileOpenMode openM
     int fd = posixFileDescriptor(handle);
 
     struct stat fileStat;
-    if (fstat(fd, &fileStat)) {
+    if (fstat(fd, &fileStat))
         return false;
-    }
 
-    unsigned size;
-    if (!WTF::convertSafely(fileStat.st_size, size)) {
+    size_t size;
+    if (!WTF::convertSafely(fileStat.st_size, size))
         return false;
-    }
 
     if (!size)
         return true;
@@ -366,14 +363,11 @@ bool MappedFileData::mapFileHandle(PlatformFileHandle handle, FileOpenMode openM
 #endif
     }
 
-    void* data = mmap(0, size, pageProtection, MAP_FILE | (mapMode == MappedFileMode::Shared ? MAP_SHARED : MAP_PRIVATE), fd, 0);
-
-    if (data == MAP_FAILED) {
+    auto* data = mmap(0, size, pageProtection, MAP_FILE | (mapMode == MappedFileMode::Shared ? MAP_SHARED : MAP_PRIVATE), fd, 0);
+    if (data == MAP_FAILED)
         return false;
-    }
 
-    m_fileData = data;
-    m_fileSize = size;
+    m_fileData = { static_cast<uint8_t*>(data), size };
     return true;
 }
 #endif

@@ -181,6 +181,9 @@ void RemoteLayerTreeDrawingAreaProxyMac::layoutBannerLayers(const RemoteLayerTre
 
 void RemoteLayerTreeDrawingAreaProxyMac::didCommitLayerTree(IPC::Connection&, const RemoteLayerTreeTransaction& transaction, const RemoteScrollingCoordinatorTransaction&)
 {
+    if (!transaction.isMainFrameProcessTransaction())
+        return;
+
     m_pageScalingLayerID = transaction.pageScalingLayerID();
     m_pageScrollingLayerID = transaction.scrolledContentsLayerID();
 
@@ -303,7 +306,7 @@ void RemoteLayerTreeDrawingAreaProxyMac::commitTransientZoom(double scale, Float
     auto transientZoomScale = std::exchange(m_transientZoomScale, { });
     auto transientZoomOrigin = std::exchange(m_transientZoomOrigin, { });
 
-    auto rootScrollingNodeID = m_webPageProxy->scrollingCoordinatorProxy()->rootScrollingNodeID();
+    auto rootScrollingNodeID = *m_webPageProxy->scrollingCoordinatorProxy()->rootScrollingNodeID();
     m_webPageProxy->scrollingCoordinatorProxy()->deferWheelEventTestCompletionForReason(rootScrollingNodeID, WheelEventTestMonitorDeferReason::CommittingTransientZoom);
 
     if (transientZoomScale == scale && roundedIntPoint(*transientZoomOrigin) == roundedIntPoint(constrainedOrigin)) {
@@ -365,10 +368,14 @@ void RemoteLayerTreeDrawingAreaProxyMac::sendCommitTransientZoom(double scale, F
 {
     updateZoomTransactionID();
 
-    sendWithAsyncReply(Messages::DrawingArea::CommitTransientZoom(scale, origin), [rootNodeID, protectedWebPageProxy = this->protectedWebPageProxy()] {
-        if (auto* scrollingCoordinatorProxy = protectedWebPageProxy->scrollingCoordinatorProxy())
+    Ref webPageProxy = page();
+
+    webPageProxy->scalePageRelativeToScrollPosition(scale, roundedIntPoint(origin));
+    webPageProxy->callAfterNextPresentationUpdate([rootNodeID, webPageProxy]() {
+        if (auto* scrollingCoordinatorProxy = webPageProxy->scrollingCoordinatorProxy())
             scrollingCoordinatorProxy->removeWheelEventTestCompletionDeferralForReason(rootNodeID, WheelEventTestMonitorDeferReason::CommittingTransientZoom);
     });
+
 }
 
 void RemoteLayerTreeDrawingAreaProxyMac::scheduleDisplayRefreshCallbacks()
@@ -399,8 +406,12 @@ void RemoteLayerTreeDrawingAreaProxyMac::pauseDisplayRefreshCallbacks()
     removeObserver(m_displayRefreshObserverID);
 }
 
-void RemoteLayerTreeDrawingAreaProxyMac::setPreferredFramesPerSecond(WebCore::FramesPerSecond preferredFramesPerSecond)
+void RemoteLayerTreeDrawingAreaProxyMac::setPreferredFramesPerSecond(IPC::Connection& connection,  WebCore::FramesPerSecond preferredFramesPerSecond)
 {
+    // FIXME(site-isolation): This currently ignores throttling requests from remote subframes (as would also happen for in-process subframes). We have the opportunity to do better, and allow throttling on a per-process level.
+    if (!m_webProcessProxy->hasConnection() || &m_webProcessProxy->connection() != &connection)
+        return;
+
     m_clientPreferredFramesPerSecond = preferredFramesPerSecond;
 
     if (!m_displayID) {
@@ -498,7 +509,9 @@ void RemoteLayerTreeDrawingAreaProxyMac::didChangeViewExposedRect()
 
 void RemoteLayerTreeDrawingAreaProxyMac::colorSpaceDidChange()
 {
-    send(Messages::DrawingArea::SetColorSpace(protectedWebPageProxy()->colorSpace()));
+    forEachProcessState([&](ProcessState& state, WebProcessProxy& webProcess) {
+        webProcess.send(Messages::DrawingArea::SetColorSpace(protectedWebPageProxy()->colorSpace()), identifier());
+    });
 }
 
 MachSendRight RemoteLayerTreeDrawingAreaProxyMac::createFence()
@@ -537,7 +550,7 @@ MachSendRight RemoteLayerTreeDrawingAreaProxyMac::createFence()
 
 void RemoteLayerTreeDrawingAreaProxyMac::updateZoomTransactionID()
 {
-    m_transactionIDAfterEndingTransientZoom = nextLayerTreeTransactionID();
+    m_transactionIDAfterEndingTransientZoom = nextMainFrameLayerTreeTransactionID();
 }
 
 

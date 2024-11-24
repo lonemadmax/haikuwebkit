@@ -107,10 +107,10 @@ void CrossOriginPreflightChecker::notifyFinished(CachedResource& resource, const
 
         if (!preflightError.isTimeout())
             loader->document().addConsoleMessage(MessageSource::Security, MessageLevel::Error, "CORS-preflight request was blocked"_s);
-        loader->preflightFailure(m_resource->identifier(), preflightError);
+        loader->preflightFailure(*m_resource->identifier(), preflightError);
         return;
     }
-    validatePreflightResponse(loader, WTFMove(m_request), m_resource->identifier(), m_resource->response());
+    validatePreflightResponse(loader, WTFMove(m_request), *m_resource->identifier(), m_resource->response());
 }
 
 Ref<DocumentThreadableLoader> CrossOriginPreflightChecker::protectedLoader() const
@@ -121,7 +121,7 @@ Ref<DocumentThreadableLoader> CrossOriginPreflightChecker::protectedLoader() con
 void CrossOriginPreflightChecker::redirectReceived(CachedResource& resource, ResourceRequest&&, const ResourceResponse& response, CompletionHandler<void(ResourceRequest&&)>&& completionHandler)
 {
     ASSERT_UNUSED(resource, &resource == m_resource);
-    validatePreflightResponse(protectedLoader(), WTFMove(m_request), m_resource->identifier(), response);
+    validatePreflightResponse(protectedLoader(), WTFMove(m_request), *m_resource->identifier(), response);
     completionHandler(ResourceRequest { });
 }
 
@@ -155,7 +155,7 @@ void CrossOriginPreflightChecker::doPreflight(DocumentThreadableLoader& loader, 
     ResourceResponse response;
     RefPtr<SharedBuffer> data;
 
-    auto identifier = loader.document().protectedFrame()->checkedLoader()->loadResourceSynchronously(preflightRequest, ClientCredentialPolicy::CannotAskClientForCredentials, FetchOptions { }, { }, error, response, data);
+    auto identifier = loader.document().protectedFrame()->protectedLoader()->loadResourceSynchronously(preflightRequest, ClientCredentialPolicy::CannotAskClientForCredentials, FetchOptions { }, { }, error, response, data);
 
     if (!error.isNull()) {
         // If the preflight was cancelled by underlying code, it probably means the request was blocked due to some access control policy.

@@ -2404,19 +2404,21 @@ llintOpWithJump(op_switch_imm, OpSwitchImm, macro (size, get, jump, dispatch)
     loadp UnlinkedCodeBlock::RareData::m_unlinkedSwitchJumpTables + UnlinkedSimpleJumpTableFixedVector::m_storage[t2], t2
     addp (constexpr (UnlinkedSimpleJumpTableFixedVector::Storage::offsetOfData())), t2
     addp t3, t2
+
     bqb t1, numberTag, .opSwitchImmNotInt
     subi UnlinkedSimpleJumpTable::m_min[t2], t1
-    loadp UnlinkedSimpleJumpTable::m_branchOffsets + Int32FixedVector::m_storage[t2], t2
-    btpz t2, .opSwitchImmFallThrough
-    biaeq t1, Int32FixedVector::Storage::m_size[t2], .opSwitchImmFallThrough
-    loadis (constexpr (Int32FixedVector::Storage::offsetOfData()))[t2, t1, 4], t1
+    loadp UnlinkedSimpleJumpTable::m_branchOffsets + Int32FixedVector::m_storage[t2], t3
+    btpz t3, .opSwitchImmFallThrough
+    biaeq t1, Int32FixedVector::Storage::m_size[t3], .opSwitchImmFallThrough
+    loadis (constexpr (Int32FixedVector::Storage::offsetOfData()))[t3, t1, 4], t1
     btiz t1, .opSwitchImmFallThrough
     dispatchIndirect(t1)
 
 .opSwitchImmNotInt:
     btqnz t1, numberTag, .opSwitchImmSlow   # Go slow if it's a double.
 .opSwitchImmFallThrough:
-    jump(m_defaultOffset)
+    loadis UnlinkedSimpleJumpTable::m_defaultOffset[t2], t1
+    dispatchIndirect(t1)
 
 .opSwitchImmSlow:
     callSlowPath(_llint_slow_path_switch_imm)
@@ -2435,6 +2437,7 @@ llintOpWithJump(op_switch_char, OpSwitchChar, macro (size, get, jump, dispatch)
     loadp UnlinkedCodeBlock::RareData::m_unlinkedSwitchJumpTables + UnlinkedSimpleJumpTableFixedVector::m_storage[t2], t2
     addp (constexpr (UnlinkedSimpleJumpTableFixedVector::Storage::offsetOfData())), t2
     addp t3, t2
+
     btqnz t1, notCellMask, .opSwitchCharFallThrough
     bbneq JSCell::m_type[t1], StringType, .opSwitchCharFallThrough
     loadp JSString::m_fiber[t1], t0
@@ -2448,15 +2451,16 @@ llintOpWithJump(op_switch_char, OpSwitchChar, macro (size, get, jump, dispatch)
     loadb [t1], t0
 .opSwitchCharReady:
     subi UnlinkedSimpleJumpTable::m_min[t2], t0
-    loadp UnlinkedSimpleJumpTable::m_branchOffsets + Int32FixedVector::m_storage[t2], t2
-    btpz t2, .opSwitchCharFallThrough
-    biaeq t0, Int32FixedVector::Storage::m_size[t2], .opSwitchCharFallThrough
-    loadis (constexpr (Int32FixedVector::Storage::offsetOfData()))[t2, t0, 4], t1
+    loadp UnlinkedSimpleJumpTable::m_branchOffsets + Int32FixedVector::m_storage[t2], t3
+    btpz t3, .opSwitchCharFallThrough
+    biaeq t0, Int32FixedVector::Storage::m_size[t3], .opSwitchCharFallThrough
+    loadis (constexpr (Int32FixedVector::Storage::offsetOfData()))[t3, t0, 4], t1
     btiz t1, .opSwitchCharFallThrough
     dispatchIndirect(t1)
 
 .opSwitchCharFallThrough:
-    jump(m_defaultOffset)
+    loadis UnlinkedSimpleJumpTable::m_defaultOffset[t2], t1
+    dispatchIndirect(t1)
 
 .opSwitchOnRope:
     bineq JSRopeString::m_compactFibers + JSRopeString::CompactFibers::m_length[t1], 1, .opSwitchCharFallThrough
@@ -3229,6 +3233,76 @@ llintOpWithReturn(op_get_rest_length, OpGetRestLength, macro (size, get, dispatc
     return(t0)
 end)
 
+llintOpWithMetadata(op_instanceof, OpInstanceof, macro (size, get, dispatch, metadata, return)
+
+    macro getAndLoadConstantOrVariable(fieldName, index, value)
+        get(fieldName, index)
+        loadConstantOrVariable(size, index, value)
+    end
+
+    macro isObject(field, falseLabel)
+        getAndLoadConstantOrVariable(field, t1, t0)
+        btqnz t0, notCellMask, falseLabel
+        bbb JSCell::m_type[t0], ObjectType, falseLabel
+    end
+
+    macro overridesHasInstance(hasInstanceField, constructorField, trueLabel)
+        getAndLoadConstantOrVariable(hasInstanceField, t1, t0)
+        loadp CodeBlock[cfr], t2
+        loadp CodeBlock::m_globalObject[t2], t2
+        loadp JSGlobalObject::m_functionProtoHasInstanceSymbolFunction[t2], t2
+        bqneq t0, t2, trueLabel
+
+        getAndLoadConstantOrVariable(constructorField, t1, t0)
+        btbz JSCell::m_flags[t0], ImplementsDefaultHasInstance, trueLabel
+    end
+
+    macro storeDst(result)
+        move result, t0
+        storeVariable(get, m_dst, t0, t1)
+    end
+
+    macro getByID(fieldName, modeMetadata, valueProfile, slowPath, return)
+        getAndLoadConstantOrVariable(fieldName, t0, t3)
+        metadata(t2, t0)
+        performGetByIDHelper(OpInstanceof, modeMetadata, valueProfile, .getSlow, size, return)
+    
+    .getSlow:
+        callSlowPath(slowPath)
+        branchIfException(_llint_throw_from_slow_path_trampoline)
+    end
+
+.getHasInstance:
+    isObject(m_constructor, .throwStaticError)
+    getByID(m_constructor, m_hasInstanceModeMetadata, m_hasInstanceValueProfile, _llint_slow_path_get_hasInstance_from_instanceof, macro (result)
+        storeDst(result)
+        jmp .getPrototype
+    end)
+
+.getPrototype:
+    overridesHasInstance(m_dst, m_constructor, .instanceofCustom)
+    isObject(m_value, .false)
+    getByID(m_constructor, m_prototypeModeMetadata, m_prototypeValueProfile, _llint_slow_path_get_prototype_from_instanceof, macro (result)
+        storeDst(result)
+        jmp .instanceof
+    end)
+
+.instanceof:
+    callSlowPath(_llint_slow_path_instanceof_from_instanceof)
+    dispatch()
+
+.throwStaticError:
+    callSlowPath(_slow_path_throw_static_error_from_instanceof)
+    dispatch()
+
+.instanceofCustom:
+    callSlowPath(_slow_path_instanceof_custom_from_instanceof)
+    dispatch()
+
+.false:
+    storeDst(ValueFalse)
+    dispatch()
+end)
 
 llintOpWithMetadata(op_iterator_open, OpIteratorOpen, macro (size, get, dispatch, metadata, return)
     macro fastNarrow()

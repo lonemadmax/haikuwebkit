@@ -26,10 +26,12 @@
 #pragma once
 
 #import "Instance.h"
+#import <Metal/Metal.h>
 #import <wtf/CompletionHandler.h>
 #import <wtf/FastMalloc.h>
 #import <wtf/HashMap.h>
 #import <wtf/Ref.h>
+#import <wtf/RetainReleaseSwift.h>
 #import <wtf/TZoneMalloc.h>
 #import <wtf/ThreadSafeRefCounted.h>
 #import <wtf/Vector.h>
@@ -75,7 +77,7 @@ public:
     void makeInvalid();
     void setCommittedSignalEvent(id<MTLSharedEvent>, size_t frameIndex);
 
-    const Device& device() const;
+    const Device& device() const SWIFT_RETURNS_INDEPENDENT_VALUE;
     void clearTextureIfNeeded(const WGPUImageCopyTexture&, NSUInteger);
     id<MTLCommandBuffer> commandBufferWithDescriptor(MTLCommandBufferDescriptor*);
     void commitMTLCommandBuffer(id<MTLCommandBuffer>);
@@ -86,6 +88,9 @@ public:
     static bool writeWillCompletelyClear(WGPUTextureDimension, uint32_t widthForMetal, uint32_t logicalSizeWidth, uint32_t heightForMetal, uint32_t logicalSizeHeight, uint32_t depthForMetal, uint32_t logicalSizeDepthOrArrayLayers);
     void endEncoding(id<MTLCommandEncoder>, id<MTLCommandBuffer>) const;
 
+    id<MTLBlitCommandEncoder> ensureBlitCommandEncoder();
+    void finalizeBlitCommandEncoder();
+
 private:
     Queue(id<MTLCommandQueue>, Device&);
     Queue(Device&);
@@ -93,8 +98,6 @@ private:
     NSString* errorValidatingSubmit(const Vector<std::reference_wrapper<CommandBuffer>>&) const;
     bool validateWriteBuffer(const Buffer&, uint64_t bufferOffset, size_t) const;
 
-    void ensureBlitCommandEncoder();
-    void finalizeBlitCommandEncoder();
 
     bool isIdle() const;
     bool isSchedulingIdle() const { return m_submittedCommandBufferCount == m_scheduledCommandBufferCount; }
@@ -118,6 +121,17 @@ private:
     HashMap<uint64_t, OnSubmittedWorkDoneCallbacks, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>> m_onSubmittedWorkDoneCallbacks;
     NSMutableOrderedSet<id<MTLCommandBuffer>> *m_createdNotCommittedBuffers { nil };
     NSMapTable<id<MTLCommandBuffer>, id<MTLCommandEncoder>> *m_openCommandEncoders;
-};
+} SWIFT_SHARED_REFERENCE(retainQueue, releaseQueue);
 
 } // namespace WebGPU
+
+inline void retainQueue(WebGPU::Queue* obj)
+{
+    WTF::retainThreadSafeRefCounted(obj);
+}
+
+inline void releaseQueue(WebGPU::Queue* obj)
+{
+    WTF::releaseThreadSafeRefCounted(obj);
+}
+

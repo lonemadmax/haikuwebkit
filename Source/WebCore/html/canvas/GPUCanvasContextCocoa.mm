@@ -51,12 +51,14 @@ public:
     {
         layer.setOpaque(m_isOpaque);
         layer.setContentsScale(m_contentsScale);
+        layer.setContentsFormat(m_contentsFormat);
     }
     void display(PlatformCALayer& layer) final
     {
-        if (m_displayBuffer)
+        if (m_displayBuffer) {
+            layer.setContentsFormat(m_contentsFormat);
             layer.setDelegatedContents({ MachSendRight { m_displayBuffer }, { }, std::nullopt });
-        else
+        } else
             layer.clearContents();
     }
     GraphicsLayer::CompositingCoordinatesOrientation orientation() const final
@@ -75,6 +77,10 @@ public:
 
         m_displayBuffer = MachSendRight { displayBuffer };
     }
+    void setContentsFormat(ContentsFormat contentsFormat)
+    {
+        m_contentsFormat = contentsFormat;
+    }
 private:
     GPUDisplayBufferDisplayDelegate(bool isOpaque, float contentsScale)
         : m_contentsScale(contentsScale)
@@ -84,6 +90,7 @@ private:
     WTF::MachSendRight m_displayBuffer;
     const float m_contentsScale;
     const bool m_isOpaque;
+    ContentsFormat m_contentsFormat { ContentsFormat::RGBA8 };
 };
 
 WTF_MAKE_TZONE_OR_ISO_ALLOCATED_IMPL(GPUCanvasContextCocoa);
@@ -96,16 +103,22 @@ std::unique_ptr<GPUCanvasContext> GPUCanvasContext::create(CanvasBase& canvas, G
     return context;
 }
 
-std::unique_ptr<GPUCanvasContextCocoa> GPUCanvasContextCocoa::create(CanvasBase& canvas, GPU& gpu)
-{
-    return std::unique_ptr<GPUCanvasContextCocoa>(new GPUCanvasContextCocoa(canvas, gpu));
-}
-
 static GPUPresentationContextDescriptor presentationContextDescriptor(GPUCompositorIntegration& compositorIntegration)
 {
     return GPUPresentationContextDescriptor {
         compositorIntegration,
     };
+}
+
+std::unique_ptr<GPUCanvasContextCocoa> GPUCanvasContextCocoa::create(CanvasBase& canvas, GPU& gpu)
+{
+    RefPtr compositorIntegration = gpu.createCompositorIntegration();
+    if (!compositorIntegration)
+        return nullptr;
+    RefPtr presentationContext = gpu.createPresentationContext(presentationContextDescriptor(*compositorIntegration));
+    if (!presentationContext)
+        return nullptr;
+    return std::unique_ptr<GPUCanvasContextCocoa>(new GPUCanvasContextCocoa(canvas, compositorIntegration.releaseNonNull(), presentationContext.releaseNonNull()));
 }
 
 static GPUIntegerCoordinate getCanvasWidth(const GPUCanvasContext::CanvasType& canvas)
@@ -141,11 +154,11 @@ GPUCanvasContextCocoa::CanvasType GPUCanvasContextCocoa::htmlOrOffscreenCanvas()
     return &downcast<OffscreenCanvas>(canvasBase());
 }
 
-GPUCanvasContextCocoa::GPUCanvasContextCocoa(CanvasBase& canvas, GPU& gpu)
+GPUCanvasContextCocoa::GPUCanvasContextCocoa(CanvasBase& canvas, Ref<GPUCompositorIntegration>&& compositorIntegration, Ref<GPUPresentationContext>&& presentationContext)
     : GPUCanvasContext(canvas)
     , m_layerContentsDisplayDelegate(GPUDisplayBufferDisplayDelegate::create())
-    , m_compositorIntegration(gpu.createCompositorIntegration())
-    , m_presentationContext(m_compositorIntegration ? gpu.createPresentationContext(presentationContextDescriptor(*m_compositorIntegration)) : nullptr)
+    , m_compositorIntegration(WTFMove(compositorIntegration))
+    , m_presentationContext(WTFMove(presentationContext))
     , m_width(getCanvasWidth(htmlOrOffscreenCanvas()))
     , m_height(getCanvasHeight(htmlOrOffscreenCanvas()))
 {
@@ -189,8 +202,7 @@ RefPtr<ImageBuffer> GPUCanvasContextCocoa::surfaceBufferToImageBuffer(SurfaceBuf
         base.clearCopiedImage();
         if (auto buffer = base.buffer(); buffer && m_configuration) {
             buffer->flushDrawingContext();
-            if (m_compositorIntegration)
-                m_compositorIntegration->paintCompositedResultsToCanvas(*buffer, m_configuration->frameCount);
+            m_compositorIntegration->paintCompositedResultsToCanvas(*buffer, m_configuration->frameCount);
             present();
         }
     });
@@ -204,11 +216,9 @@ RefPtr<ImageBuffer> GPUCanvasContextCocoa::transferToImageBuffer()
         return nullptr;
     Ref<ImageBuffer> bufferRef = buffer.releaseNonNull();
     if (m_configuration) {
-        if (m_compositorIntegration)
-            m_compositorIntegration->paintCompositedResultsToCanvas(bufferRef, m_configuration->frameCount);
+        m_compositorIntegration->paintCompositedResultsToCanvas(bufferRef, m_configuration->frameCount);
         m_currentTexture = nullptr;
-        if (m_presentationContext)
-            m_presentationContext->present(true);
+        m_presentationContext->present(true);
     }
     return bufferRef;
 }
@@ -239,6 +249,15 @@ static DestinationColorSpace toWebCoreColorSpace(const GPUPredefinedColorSpace& 
     return DestinationColorSpace::SRGB();
 }
 
+static WebGPU::TextureFormat computeTextureFormat(GPUTextureFormat format, GPUCanvasToneMappingMode toneMappingMode)
+{
+    // Force Bgra8unorm to both: clamp color values to SDR, and opt out of CALayer HDR.
+    if (format == GPUTextureFormat::Rgba16float && toneMappingMode == GPUCanvasToneMappingMode::Standard)
+        return WebGPU::TextureFormat::Bgra8unorm;
+
+    return WebCore::convertToBacking(format);
+}
+
 ExceptionOr<void> GPUCanvasContextCocoa::configure(GPUCanvasConfiguration&& configuration, bool dueToReshape)
 {
     if (isConfigured()) {
@@ -260,15 +279,28 @@ ExceptionOr<void> GPUCanvasContextCocoa::configure(GPUCanvasConfiguration&& conf
             return Exception { ExceptionCode::TypeError, "Unsupported texture view format."_s };
     }
 
-    if (!m_compositorIntegration)
-        return { };
+    if (configuration.toneMapping.mode != GPUCanvasToneMappingMode::Standard) {
+#if HAVE(HDR_SUPPORT)
+        RefPtr scriptExecutionContext = canvasBase().scriptExecutionContext();
+        if (!scriptExecutionContext || !scriptExecutionContext->settingsValues().webGPUHDREnabled)
+            configuration.toneMapping.mode = GPUCanvasToneMappingMode::Standard;
+#else
+        configuration.toneMapping.mode = GPUCanvasToneMappingMode::Standard;
+#endif
+    }
 
-    auto renderBuffers = m_compositorIntegration->recreateRenderBuffers(m_width, m_height, toWebCoreColorSpace(configuration.colorSpace), configuration.alphaMode == GPUCanvasAlphaMode::Premultiplied ? WebCore::AlphaPremultiplication::Premultiplied : WebCore::AlphaPremultiplication::Unpremultiplied, WebCore::convertToBacking(configuration.format), configuration.device->backing());
+    auto textureFormat = computeTextureFormat(configuration.format, configuration.toneMapping.mode);
+#if HAVE(HDR_SUPPORT)
+    // Only use RGBA16F when CALayer HDR is needed.
+    m_layerContentsDisplayDelegate->setContentsFormat(textureFormat != WebGPU::TextureFormat::Rgba16float ? ContentsFormat::RGBA8 : ContentsFormat::RGBA16F);
+#endif
+
+    auto renderBuffers = m_compositorIntegration->recreateRenderBuffers(m_width, m_height, toWebCoreColorSpace(configuration.colorSpace), configuration.alphaMode == GPUCanvasAlphaMode::Premultiplied ? WebCore::AlphaPremultiplication::Premultiplied : WebCore::AlphaPremultiplication::Unpremultiplied, textureFormat, configuration.device->backing());
     // FIXME: This ASSERT() is wrong. It's totally possible for the IPC to the GPU process to timeout if the GPUP is busy, and return nothing here.
     ASSERT(!renderBuffers.isEmpty());
 
     bool reportValidationErrors = !dueToReshape;
-    if (!m_presentationContext || !m_presentationContext->configure(configuration, m_width, m_height, reportValidationErrors))
+    if (!m_presentationContext->configure(configuration, m_width, m_height, reportValidationErrors))
         return Exception { ExceptionCode::InvalidStateError, "GPUCanvasContext.configure: Unable to configure."_s };
 
     m_configuration = {
@@ -292,8 +324,7 @@ ExceptionOr<void> GPUCanvasContextCocoa::configure(GPUCanvasConfiguration&& conf
 
 void GPUCanvasContextCocoa::unconfigure()
 {
-    if (m_presentationContext)
-        m_presentationContext->unconfigure();
+    m_presentationContext->unconfigure();
     m_configuration = std::nullopt;
     m_currentTexture = nullptr;
     ASSERT(!isConfigured());
@@ -309,8 +340,6 @@ ExceptionOr<RefPtr<GPUTexture>> GPUCanvasContextCocoa::getCurrentTexture()
         return protectedCurrentTexture;
 
     markContextChangedAndNotifyCanvasObservers();
-    if (!m_presentationContext)
-        return nullptr;
     m_currentTexture = m_presentationContext->getCurrentTexture();
     protectedCurrentTexture = m_currentTexture;
     return protectedCurrentTexture;
@@ -350,8 +379,7 @@ void GPUCanvasContextCocoa::present()
     if (m_currentTexture)
         m_currentTexture->destroy();
     m_currentTexture = nullptr;
-    if (m_presentationContext)
-        m_presentationContext->present();
+    m_presentationContext->present();
 }
 
 void GPUCanvasContextCocoa::prepareForDisplay()
@@ -360,9 +388,6 @@ void GPUCanvasContextCocoa::prepareForDisplay()
         return;
 
     ASSERT(m_configuration->frameCount < m_configuration->renderBuffers.size());
-
-    if (!m_compositorIntegration)
-        return;
 
     m_compositorIntegration->prepareForDisplay([this, weakThis = WeakPtr { *this }] {
         if (!weakThis)

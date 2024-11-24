@@ -257,6 +257,16 @@ private:
 
     RemoteVideoFrameObjectHeap* remoteVideoFrameObjectHeap() final { return &m_process.get()->videoFrameObjectHeap(); }
 
+    void startMonitoringCaptureDeviceRotation(WebCore::PageIdentifier pageIdentifier, const String& persistentId) final
+    {
+        m_process.get()->startMonitoringCaptureDeviceRotation(pageIdentifier, persistentId);
+    }
+
+    void stopMonitoringCaptureDeviceRotation(WebCore::PageIdentifier pageIdentifier, const String& persistentId) final
+    {
+        m_process.get()->stopMonitoringCaptureDeviceRotation(pageIdentifier, persistentId);
+    }
+
     ThreadSafeWeakPtr<GPUConnectionToWebProcess> m_process;
 };
 
@@ -293,7 +303,7 @@ GPUConnectionToWebProcess::GPUConnectionToWebProcess(GPUProcess& gpuProcess, Web
     , m_videoFrameObjectHeap(RemoteVideoFrameObjectHeap::create(m_connection.get()))
 #endif
 #if PLATFORM(COCOA) && USE(LIBWEBRTC)
-    , m_libWebRTCCodecsProxy(LibWebRTCCodecsProxy::create(*this))
+    , m_libWebRTCCodecsProxy(LibWebRTCCodecsProxy::create(*this, parameters.sharedPreferencesForWebProcess))
 #endif
 #if HAVE(AUDIT_TOKEN)
     , m_presentingApplicationAuditToken(parameters.presentingApplicationAuditToken ? std::optional(parameters.presentingApplicationAuditToken->auditToken()) : std::nullopt)
@@ -499,7 +509,7 @@ bool GPUConnectionToWebProcess::allowsExitUnderMemoryPressure() const
     if (hasOutstandingRenderingResourceUsage())
         return false;
 
-    if (sharedPreferencesForWebProcess().useGPUProcessForDOMRenderingEnabled)
+    if (m_sharedPreferencesForWebProcess.useGPUProcessForDOMRenderingEnabled)
         return false;
 
 #if ENABLE(WEB_AUDIO)
@@ -770,7 +780,7 @@ void GPUConnectionToWebProcess::performWithMediaPlayerOnMainThread(MediaPlayerId
 
 void GPUConnectionToWebProcess::createGPU(WebGPUIdentifier identifier, RenderingBackendIdentifier renderingBackendIdentifier, IPC::StreamServerConnection::Handle&& connectionHandle)
 {
-    MESSAGE_CHECK(sharedPreferencesForWebProcess().webGPUEnabled);
+    MESSAGE_CHECK(m_sharedPreferencesForWebProcess.webGPUEnabled);
 
     auto it = m_remoteRenderingBackendMap.find(renderingBackendIdentifier);
     if (it == m_remoteRenderingBackendMap.end())
@@ -1146,6 +1156,36 @@ void GPUConnectionToWebProcess::setOrientationForMediaCapture(IntDegrees orienta
 #endif
 }
 
+void GPUConnectionToWebProcess::startMonitoringCaptureDeviceRotation(WebCore::PageIdentifier pageIdentifier, const String& persistentId)
+{
+#if PLATFORM(COCOA)
+    gpuProcess().protectedParentProcessConnection()->send(Messages::GPUProcessProxy::StartMonitoringCaptureDeviceRotation(pageIdentifier, persistentId), 0);
+#else
+    UNUSED_PARAM(pageIdentifier);
+    UNUSED_PARAM(persistentId);
+#endif
+}
+
+void GPUConnectionToWebProcess::stopMonitoringCaptureDeviceRotation(WebCore::PageIdentifier pageIdentifier, const String& persistentId)
+{
+#if PLATFORM(COCOA)
+    gpuProcess().protectedParentProcessConnection()->send(Messages::GPUProcessProxy::StopMonitoringCaptureDeviceRotation(pageIdentifier, persistentId), 0);
+#else
+    UNUSED_PARAM(pageIdentifier);
+    UNUSED_PARAM(persistentId);
+#endif
+}
+
+void GPUConnectionToWebProcess::rotationAngleForCaptureDeviceChanged(const String& persistentId, WebCore::VideoFrameRotation rotation)
+{
+#if PLATFORM(COCOA)
+    userMediaCaptureManagerProxy().rotationAngleForCaptureDeviceChanged(persistentId, rotation);
+#else
+    UNUSED_PARAM(persistentId);
+    UNUSED_PARAM(rotation);
+#endif
+}
+
 void GPUConnectionToWebProcess::updateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture)
 {
 #if PLATFORM(MAC) && ENABLE(MEDIA_STREAM)
@@ -1209,6 +1249,14 @@ void GPUConnectionToWebProcess::updateSampleBufferDisplayLayerBoundsAndPosition(
     protectedSampleBufferDisplayLayerManager()->updateSampleBufferDisplayLayerBoundsAndPosition(identifier, bounds, WTFMove(fence));
 }
 #endif
+
+void GPUConnectionToWebProcess::updateSharedPreferencesForWebProcess(SharedPreferencesForWebProcess&& sharedPreferencesForWebProcess)
+{
+    m_sharedPreferencesForWebProcess = WTFMove(sharedPreferencesForWebProcess);
+#if PLATFORM(COCOA) && USE(LIBWEBRTC)
+    m_libWebRTCCodecsProxy->updateSharedPreferencesForWebProcess(m_sharedPreferencesForWebProcess);
+#endif
+}
 
 } // namespace WebKit
 

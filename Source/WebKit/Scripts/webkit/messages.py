@@ -374,6 +374,7 @@ def serialized_identifiers():
         'WebKit::IPCStreamTesterIdentifier',
         'WebKit::LegacyCustomProtocolID',
         'WebKit::LibWebRTCResolverIdentifier',
+        'WebKit::LogStreamIdentifier',
         'WebKit::MarkSurfacesAsVolatileRequestIdentifier',
         'WebKit::MediaRecorderIdentifier',
         'WebKit::NetworkResourceLoadIdentifier',
@@ -472,6 +473,7 @@ def types_that_cannot_be_forward_declared():
         'WebCore::PlatformLayerIdentifier',
         'WebCore::PluginLoadClientPolicy',
         'WebCore::PointerID',
+        'WebCore::RTCDataChannelIdentifier',
         'WebCore::RenderingMode',
         'WebCore::RenderingPurpose',
         'WebCore::SandboxFlags',
@@ -659,17 +661,15 @@ def handler_function(receiver, message):
 
 def generate_enabled_by(receiver, enabled_by, enabled_by_conjunction):
     conjunction = ' %s ' % (enabled_by_conjunction or '&&')
-    return conjunction.join(['sharedPreferences.' + preference[0].lower() + preference[1:] for preference in enabled_by])
-
+    return conjunction.join(['sharedPreferences->' + preference[0].lower() + preference[1:] for preference in enabled_by])
 
 def generate_runtime_enablement(receiver, message):
     if not message.enabled_by:
         return message.enabled_if
     runtime_enablement = generate_enabled_by(receiver, message.enabled_by, message.enabled_by_conjunction)
     if len(message.enabled_by) > 1:
-        return '(%s)' % runtime_enablement
-    return runtime_enablement
-
+        return 'sharedPreferences && (%s)' % runtime_enablement
+    return 'sharedPreferences && %s' % runtime_enablement
 
 def async_message_statement(receiver, message):
     if receiver.has_attribute(NOT_USING_IPC_CONNECTION_ATTRIBUTE) and message.reply_parameters is not None and not message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
@@ -686,18 +686,20 @@ def async_message_statement(receiver, message):
         dispatch_function += 'WithoutUsingIPCConnection'
 
     connection = 'connection, '
-    if receiver.has_attribute(STREAM_ATTRIBUTE):
-        connection = 'connection.protectedConnection(), '
     if receiver.has_attribute(NOT_USING_IPC_CONNECTION_ATTRIBUTE):
         connection = ''
 
     result = []
     runtime_enablement = generate_runtime_enablement(receiver, message)
     if runtime_enablement:
-        result.append('    if (decoder.messageName() == Messages::%s::%s::name() && %s)\n' % (receiver.name, message.name, runtime_enablement))
+        result.append('    if (decoder.messageName() == Messages::%s::%s::name()) {\n' % (receiver.name, message.name))
+        result.append('        if (%s)\n' % runtime_enablement)
+        result.append('            return IPC::%s<Messages::%s::%s>(%s%s);\n' % (dispatch_function, receiver.name, message.name, connection, ', '.join(dispatch_function_args)))
+        result.append('        runtimeEnablementCheckFailed = true;\n')
+        result.append('    }\n')
     else:
         result.append('    if (decoder.messageName() == Messages::%s::%s::name())\n' % (receiver.name, message.name))
-    result.append('        return IPC::%s<Messages::%s::%s>(%s%s);\n' % (dispatch_function, receiver.name, message.name, connection, ', '.join(dispatch_function_args)))
+        result.append('        return IPC::%s<Messages::%s::%s>(%s%s);\n' % (dispatch_function, receiver.name, message.name, connection, ', '.join(dispatch_function_args)))
     return result
 
 
@@ -1104,7 +1106,6 @@ def headers_for_type(type):
         'WebKit::AllowOverwrite': ['"DownloadID.h"'],
         'WebKit::AppPrivacyReportTestingData': ['"AppPrivacyReport.h"'],
         'WebKit::AuthenticationChallengeIdentifier': ['"IdentifierTypes.h"'],
-        'WebKit::BackForwardListItemState': ['"SessionState.h"'],
         'WebKit::BufferInSetType': ['"BufferIdentifierSet.h"'],
         'WebKit::CallDownloadDidStart': ['"DownloadManager.h"'],
         'WebKit::ConsumerSharedCARingBufferHandle': ['"SharedCARingBuffer.h"'],
@@ -1113,6 +1114,7 @@ def headers_for_type(type):
         'WebKit::DrawingAreaIdentifier': ['"DrawingAreaInfo.h"'],
         'WebKit::FindDecorationStyle': ['"WebFindOptions.h"'],
         'WebKit::FindOptions': ['"WebFindOptions.h"'],
+        'WebKit::FrameState': ['"SessionState.h"'],
         'WebKit::GestureRecognizerState': ['"GestureTypes.h"'],
         'WebKit::GestureType': ['"GestureTypes.h"'],
         'WebKit::SnapshotOption': ['"ImageOptions.h"'],
@@ -1121,7 +1123,6 @@ def headers_for_type(type):
         'WebKit::LayerHostingMode': ['"LayerTreeContext.h"'],
         'WebKit::MediaTimeUpdateData': ['"MediaPlayerPrivateRemote.h"'],
         'WebKit::PageGroupIdentifier': ['"IdentifierTypes.h"'],
-        'WebKit::PageState': ['"SessionState.h"'],
         'WebKit::PaymentSetupConfiguration': ['"PaymentSetupConfigurationWebKit.h"'],
         'WebKit::PaymentSetupFeatures': ['"ApplePayPaymentSetupFeaturesWebKit.h"'],
         'WebKit::ImageBufferSetPrepareBufferForDisplayInputData': ['"PrepareBackingStoreBuffersData.h"'],
@@ -1315,23 +1316,34 @@ def generate_header_includes_from_conditions(header_conditions):
 def generate_enabled_by_for_receiver(receiver, messages, ignore_invalid_message_for_testing, return_value=None):
     enabled_by = receiver.receiver_enabled_by
     enabled_by_conjunction = receiver.receiver_enabled_by_conjunction
+    enablement_check = [
+        '    bool runtimeEnablementCheckFailed = false;\n'
+        '    UNUSED_VARIABLE(runtimeEnablementCheckFailed);\n',
+    ]
     shared_preferences_retrieval = [
-        '    auto& sharedPreferences = sharedPreferencesForWebProcess(%s);\n' % ('connection' if receiver.shared_preferences_needs_connection else ''),
+        '    auto sharedPreferences = sharedPreferencesForWebProcess(%s);\n' % ('connection' if receiver.shared_preferences_needs_connection else ''),
         '    UNUSED_VARIABLE(sharedPreferences);\n'
     ]
+    result = []
     if not enabled_by:
         if any([message.enabled_by for message in messages]):
-            return shared_preferences_retrieval
-        return []
+            result += enablement_check
+            result += shared_preferences_retrieval
+        elif any([message.enabled_if for message in messages]):
+            result += enablement_check
+        return result
+
     runtime_enablement = generate_enabled_by(receiver, enabled_by, enabled_by_conjunction)
     return_statement_line = 'return %s' % return_value if return_value else 'return'
-    return shared_preferences_retrieval + [
-        '    if (!%s) {\n' % ('(%s)' % runtime_enablement if len(enabled_by) > 1 else runtime_enablement),
+    mark_message_invalid_line = 'connection.markCurrentlyDispatchedMessageAsInvalid()' if not receiver.has_attribute(STREAM_ATTRIBUTE) else ''
+    return enablement_check + shared_preferences_retrieval + [
+        '    if (!sharedPreferences || !%s) {\n' % ('(%s)' % runtime_enablement if len(enabled_by) > 1 else runtime_enablement),
         '#if ENABLE(IPC_TESTING_API)\n',
         '        if (%s)\n' % ignore_invalid_message_for_testing,
         '            %s;\n' % return_statement_line,
         '#endif // ENABLE(IPC_TESTING_API)\n',
-        '        ASSERT_NOT_REACHED_WITH_MESSAGE("Message received by a disabled message receiver %s");\n' % receiver.name,
+        '        ASSERT_NOT_REACHED_WITH_MESSAGE("Message %s received by a disabled message receiver %s", IPC::description(decoder.messageName()).characters());\n' % ('%s', receiver.name),
+        '        %s;\n' % mark_message_invalid_line if mark_message_invalid_line else '',
         '        %s;\n' % return_statement_line,
         '    }\n',
     ]
@@ -1389,7 +1401,7 @@ def generate_message_handler(receiver):
     if receiver.has_attribute(STREAM_ATTRIBUTE):
         result.append('void %s::didReceiveStreamMessage(IPC::StreamServerConnection& connection, IPC::Decoder& decoder)\n' % (receiver.name))
         result.append('{\n')
-        result += generate_enabled_by_for_receiver(receiver, receiver.messages, 'connection.protectedConnection()->ignoreInvalidMessageForTesting()')
+        result += generate_enabled_by_for_receiver(receiver, receiver.messages, 'connection.ignoreInvalidMessageForTesting()')
         assert(receiver.has_attribute(NOT_REFCOUNTED_RECEIVER_ATTRIBUTE))
         assert(not receiver.has_attribute(WANTS_DISPATCH_MESSAGE_ATTRIBUTE))
         assert(not receiver.has_attribute(WANTS_ASYNC_DISPATCH_MESSAGE_ATTRIBUTE))
@@ -1401,7 +1413,7 @@ def generate_message_handler(receiver):
             result.append('    UNUSED_PARAM(decoder);\n')
             result.append('    UNUSED_PARAM(connection);\n')
             result.append('#if ENABLE(IPC_TESTING_API)\n')
-            result.append('    if (connection.protectedConnection()->ignoreInvalidMessageForTesting())\n')
+            result.append('    if (connection.ignoreInvalidMessageForTesting())\n')
             result.append('        return;\n')
             result.append('#endif // ENABLE(IPC_TESTING_API)\n')
             result.append('    ASSERT_NOT_REACHED_WITH_MESSAGE("Unhandled stream message %s to %" PRIu64, IPC::description(decoder.messageName()).characters(), decoder.destinationID());\n')
@@ -1412,7 +1424,8 @@ def generate_message_handler(receiver):
         else:
             result.append('void %s::didReceiveMessage(IPC::Connection& connection, IPC::Decoder& decoder)\n' % (receiver.name))
         result.append('{\n')
-        result += generate_enabled_by_for_receiver(receiver, async_messages, 'connection.ignoreInvalidMessageForTesting()')
+        enable_by_statement = generate_enabled_by_for_receiver(receiver, async_messages, 'connection.ignoreInvalidMessageForTesting()')
+        result += enable_by_statement
         if not (receiver.has_attribute(NOT_REFCOUNTED_RECEIVER_ATTRIBUTE) or receiver.has_attribute(STREAM_ATTRIBUTE)):
             result.append('    Ref protectedThis { *this };\n')
         result += async_message_statements
@@ -1431,6 +1444,9 @@ def generate_message_handler(receiver):
                 result.append('        return;\n')
                 result.append('#endif // ENABLE(IPC_TESTING_API)\n')
             result.append('    ASSERT_NOT_REACHED_WITH_MESSAGE("Unhandled message %s to %" PRIu64, IPC::description(decoder.messageName()).characters(), decoder.destinationID());\n')
+            if enable_by_statement:
+                result.append('    if (runtimeEnablementCheckFailed)\n')
+                result.append('        connection.markCurrentlyDispatchedMessageAsInvalid();\n')
         result.append('}\n')
 
     if not receiver.has_attribute(STREAM_ATTRIBUTE) and (sync_messages or receiver.has_attribute(WANTS_DISPATCH_MESSAGE_ATTRIBUTE)):

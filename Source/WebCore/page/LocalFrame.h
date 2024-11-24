@@ -120,7 +120,7 @@ using NodeQualifier = Function<Node* (const HitTestResult&, Node* terminationNod
 
 class LocalFrame final : public Frame {
 public:
-    using ClientCreator = CompletionHandler<UniqueRef<LocalFrameLoaderClient>(LocalFrame&)>;
+    using ClientCreator = CompletionHandler<UniqueRef<LocalFrameLoaderClient>(LocalFrame&, FrameLoader&)>;
     WEBCORE_EXPORT static Ref<LocalFrame> createMainFrame(Page&, ClientCreator&&, FrameIdentifier, SandboxFlags, Frame* opener);
     WEBCORE_EXPORT static Ref<LocalFrame> createSubframe(Page&, ClientCreator&&, FrameIdentifier, SandboxFlags, HTMLFrameOwnerElement&);
     WEBCORE_EXPORT static Ref<LocalFrame> createProvisionalSubframe(Page&, ClientCreator&&, FrameIdentifier, SandboxFlags, Frame& parent);
@@ -163,8 +163,8 @@ public:
 
     const FrameLoader& loader() const { return m_loader.get(); }
     FrameLoader& loader() { return m_loader.get(); }
-    CheckedRef<const FrameLoader> checkedLoader() const;
-    CheckedRef<FrameLoader> checkedLoader();
+    WEBCORE_EXPORT Ref<const FrameLoader> protectedLoader() const;
+    WEBCORE_EXPORT Ref<FrameLoader> protectedLoader();
 
     FrameSelection& selection() { return document()->selection(); }
     const FrameSelection& selection() const { return document()->selection(); }
@@ -210,11 +210,14 @@ public:
 
     void setDocument(RefPtr<Document>&&);
 
+    // These recursively set zoom on all LocalFrame descendants,
+    // use WebPageProxy instead to zoom the entire frame tree.
     WEBCORE_EXPORT void setPageZoomFactor(float);
-    float pageZoomFactor() const { return m_pageZoomFactor; }
     WEBCORE_EXPORT void setTextZoomFactor(float);
-    float textZoomFactor() const { return m_textZoomFactor; }
     WEBCORE_EXPORT void setPageAndTextZoomFactors(float pageZoomFactor, float textZoomFactor);
+
+    float pageZoomFactor() const { return m_pageZoomFactor; }
+    float textZoomFactor() const { return m_textZoomFactor; }
 
     // Scale factor of this frame with respect to the container.
     WEBCORE_EXPORT float frameScaleFactor() const;

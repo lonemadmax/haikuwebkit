@@ -41,7 +41,7 @@ public:
 
 private:
     // DrawingAreaProxy
-    void deviceScaleFactorDidChange() override;
+    void deviceScaleFactorDidChange(CompletionHandler<void()>&&) override;
     void sizeDidChange() override;
     void colorSpaceDidChange() override;
     void minimumSizeForAutoLayoutDidChange() override;
@@ -54,7 +54,7 @@ private:
     void adjustTransientZoom(double scale, WebCore::FloatPoint origin) override;
     void commitTransientZoom(double scale, WebCore::FloatPoint origin) override;
 
-    void waitForDidUpdateActivityState(ActivityStateChangeID, WebProcessProxy&) override;
+    void waitForDidUpdateActivityState(ActivityStateChangeID) override;
     void dispatchPresentationCallbacksAfterFlushingLayers(IPC::Connection&, Vector<IPC::AsyncReplyID>&&) final;
 
     std::optional<WebCore::FramesPerSecond> displayNominalFramesPerSecond() final;

@@ -65,6 +65,7 @@
 #import "_WKActivatedElementInfoInternal.h"
 #import "_WKWarningView.h"
 #import <WebCore/ColorCocoa.h>
+#import <WebCore/ContentsFormatCocoa.h>
 #import <WebCore/GraphicsContextCG.h>
 #import <WebCore/IOSurfacePool.h>
 #import <WebCore/LocalCurrentTraitCollection.h>
@@ -855,7 +856,7 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
 
 - (void)_didCommitLoadForMainFrame
 {
-    _perProcessState.firstPaintAfterCommitLoadTransactionID = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).nextLayerTreeTransactionID();
+    _perProcessState.firstPaintAfterCommitLoadTransactionID = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).nextMainFrameLayerTreeTransactionID();
 
     _perProcessState.hasCommittedLoadForMainFrame = YES;
     _perProcessState.needsResetViewStateAfterCommitLoadForMainFrame = YES;
@@ -1006,13 +1007,15 @@ static void changeContentOffsetBoundedInValidRange(UIScrollView *scrollView, Web
         LOG_WITH_STREAM(VisibleRects, stream << " updating scroll view with pageScaleFactor " << layerTreeTransaction.pageScaleFactor());
 
         // When web-process-originated scale changes occur, pin the
-        // vertical scroll position to the top edge of the content,
+        // scroll position to the top edge of the content,
         // instead of the center (which UIScrollView does by default).
-        CGFloat contentOffsetY = [_scrollView contentOffset].y * layerTreeTransaction.pageScaleFactor() / [_scrollView zoomScale];
+        CGFloat scaleRatio = layerTreeTransaction.pageScaleFactor() / [_scrollView zoomScale];
+        CGFloat contentOffsetY = [_scrollView contentOffset].y * scaleRatio;
+        CGFloat contentOffsetX = [_scrollView contentOffset].x * scaleRatio;
 
         [_scrollView setZoomScale:layerTreeTransaction.pageScaleFactor()];
 
-        changeContentOffsetBoundedInValidRange(_scrollView.get(), CGPointMake([_scrollView contentOffset].x, contentOffsetY));
+        changeContentOffsetBoundedInValidRange(_scrollView.get(), CGPointMake(contentOffsetX, contentOffsetY));
     }
 }
 
@@ -1406,7 +1409,7 @@ static void configureScrollViewWithOverlayRegionsIDs(WKBaseScrollView* scrollVie
     if (![self usesStandardContentView])
         return;
 
-    _perProcessState.firstTransactionIDAfterPageRestore = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).nextLayerTreeTransactionID();
+    _perProcessState.firstTransactionIDAfterPageRestore = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).nextMainFrameLayerTreeTransactionID();
     if (scrollPosition)
         _perProcessState.scrollOffsetToRestore = WebCore::ScrollableArea::scrollOffsetFromPosition(WebCore::FloatPoint(scrollPosition.value()), WebCore::toFloatSize(scrollOrigin));
     else
@@ -1430,7 +1433,7 @@ static void configureScrollViewWithOverlayRegionsIDs(WKBaseScrollView* scrollVie
     if (![self usesStandardContentView])
         return;
 
-    _perProcessState.firstTransactionIDAfterPageRestore = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).nextLayerTreeTransactionID();
+    _perProcessState.firstTransactionIDAfterPageRestore = downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*_page->drawingArea()).nextMainFrameLayerTreeTransactionID();
     _perProcessState.unobscuredCenterToRestore = center;
 
     _scaleToRestore = scale;
@@ -1446,16 +1449,13 @@ static void configureScrollViewWithOverlayRegionsIDs(WKBaseScrollView* scrollVie
     if (snapshotSize.isEmpty())
         return nullptr;
 
-    CATransform3D transform = CATransform3DMakeScale(deviceScale, deviceScale, 1);
+    auto transform = CATransform3DMakeScale(deviceScale, deviceScale, 1);
 
-#if HAVE(IOSURFACE_RGB10)
-    WebCore::IOSurface::Format snapshotFormat = WebCore::screenSupportsExtendedColor() ? WebCore::IOSurface::Format::RGB10 : WebCore::IOSurface::Format::BGRA;
-#else
-    WebCore::IOSurface::Format snapshotFormat = WebCore::IOSurface::Format::BGRA;
-#endif
+    auto snapshotFormat = WebCore::convertToIOSurfaceFormat(WebCore::screenContentsFormat());
     auto surface = WebCore::IOSurface::create(nullptr, WebCore::expandedIntSize(snapshotSize), WebCore::DestinationColorSpace::SRGB(), WebCore::IOSurface::Name::Snapshot, snapshotFormat);
     if (!surface)
         return nullptr;
+
     CARenderServerRenderLayerWithTransform(MACH_PORT_NULL, self.layer.context.contextId, reinterpret_cast<uint64_t>(self.layer), surface->surface(), 0, 0, &transform);
 
 #if HAVE(IOSURFACE_ACCELERATOR)

@@ -78,9 +78,7 @@ public:
     static Ref<SourceBuffer> create(Ref<SourceBufferPrivate>&&, MediaSource&);
     virtual ~SourceBuffer();
 
-    using CanMakeWeakPtr<SourceBuffer>::weakPtrFactory;
-    using CanMakeWeakPtr<SourceBuffer>::WeakValueType;
-    using CanMakeWeakPtr<SourceBuffer>::WeakPtrImplType;
+    USING_CAN_MAKE_WEAKPTR(CanMakeWeakPtr<SourceBuffer>);
 
     static bool enabledForContext(ScriptExecutionContext&);
 
@@ -140,7 +138,7 @@ public:
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
-    const void* logIdentifier() const final { return m_logIdentifier; }
+    uint64_t logIdentifier() const final { return m_logIdentifier; }
     ASCIILiteral logClassName() const final { return "SourceBuffer"_s; }
     WTFLogChannel& logChannel() const final;
 #endif
@@ -273,7 +271,7 @@ private:
 
 #if !RELEASE_LOG_DISABLED
     Ref<const Logger> m_logger;
-    const void* m_logIdentifier;
+    const uint64_t m_logIdentifier;
 #endif
 };
 

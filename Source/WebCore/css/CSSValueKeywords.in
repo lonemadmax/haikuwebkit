@@ -903,7 +903,7 @@ anywhere
 
 // -webkit-appearance
 // The order here must match the order in the StyleAppearance enum in StyleAppearance.h.
-// All appearance values that should be accepted by the parser should be listed between 'base' and 'textfield':
+// All appearance values that should be accepted by the parser should be listed between 'base' and 'textarea':
 base
 checkbox
 radio
@@ -1075,7 +1075,6 @@ view
 //
 // CSS_PROP_ZOOM
 //
-document
 reset
 
 //
@@ -1497,6 +1496,9 @@ mod
 rem
 to-zero
 // nearest
+// progress
+// from
+// to
 infinity
 -infinity id=NegativeInfinity
 NaN
@@ -1791,5 +1793,10 @@ allow-discrete
 // inline
 -internal-textarea-auto
 
-// anchor()
+// CSS Anchor Positioning
 anchor
+anchor-size
+width
+height
+self-block
+self-inline

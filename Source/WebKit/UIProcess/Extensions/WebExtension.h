@@ -75,8 +75,7 @@ public:
         return adoptRef(*new WebExtension(std::forward<Args>(args)...));
     }
 
-    explicit WebExtension(NSBundle *appExtensionBundle, NSError ** = nullptr);
-    explicit WebExtension(NSURL *resourceBaseURL, NSError ** = nullptr);
+    explicit WebExtension(NSBundle *appExtensionBundle, NSURL *resourceBaseURL, NSError ** = nullptr);
     explicit WebExtension(NSDictionary *manifest, NSDictionary *resources);
     explicit WebExtension(NSDictionary *resources);
 
@@ -270,11 +269,11 @@ public:
     bool backgroundContentUsesModules();
     bool backgroundContentIsServiceWorker();
 
-    NSString *backgroundContentPath();
-    NSString *generatedBackgroundContent();
+    const String& backgroundContentPath();
+    const String& generatedBackgroundContent();
 
     bool hasInspectorBackgroundPage();
-    NSString *inspectorBackgroundPagePath();
+    const String& inspectorBackgroundPagePath();
 
     bool hasOptionsPage();
     bool hasOverrideNewTabPage();
@@ -298,7 +297,7 @@ public:
     const PermissionsSet& requestedPermissions();
     const PermissionsSet& optionalPermissions();
 
-    bool hasRequestedPermission(NSString *) const;
+    bool hasRequestedPermission(String);
 
     // Match patterns requested by the extension in their manifest.
     // These are not the currently allowed permission patterns.
@@ -324,6 +323,9 @@ public:
 
 private:
     bool parseManifest(NSData *);
+
+    void parseWebAccessibleResourcesVersion3();
+    void parseWebAccessibleResourcesVersion2();
 
     void populateDisplayStringsIfNeeded();
     void populateActionPropertiesIfNeeded();
@@ -394,17 +396,20 @@ private:
 
     String m_contentSecurityPolicy;
 
-    RetainPtr<NSArray> m_backgroundScriptPaths;
-    RetainPtr<NSString> m_backgroundPagePath;
-    RetainPtr<NSString> m_backgroundServiceWorkerPath;
-    RetainPtr<NSString> m_generatedBackgroundContent;
+    Vector<String> m_backgroundScriptPaths;
+    String m_backgroundPagePath;
+    String m_backgroundServiceWorkerPath;
+    String m_generatedBackgroundContent;
     Environment m_backgroundContentEnvironment { Environment::Document };
 
-    RetainPtr<NSString> m_inspectorBackgroundPagePath;
+    String m_inspectorBackgroundPagePath;
 
     String m_optionsPagePath;
     String m_overrideNewTabPagePath;
 
+#if PLATFORM(MAC)
+    bool m_shouldValidateResourceData : 1 { true };
+#endif
     bool m_backgroundContentIsPersistent : 1 { false };
     bool m_backgroundContentUsesModules : 1 { false };
     bool m_parsedManifest : 1 { false };

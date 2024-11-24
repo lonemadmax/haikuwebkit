@@ -25,14 +25,15 @@
 #pragma once
 
 #include "CSSCalcType.h"
-#include "CSSPropertyParserConsumer+RawTypes.h"
 #include "CSSUnits.h"
+#include "CSSPrimitiveNumericTypes.h"
 #include "CSSValueKeywords.h"
 #include "CalculationTree.h"
 #include <variant>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/Vector.h>
+#include <wtf/text/AtomString.h>
 
 namespace WebCore {
 
@@ -70,6 +71,11 @@ struct Log;
 struct Exp;
 struct Abs;
 struct Sign;
+struct Progress;
+
+// CSS Anchor Positioning functions.
+struct Anchor;
+struct AnchorSize;
 
 template<typename Op>
 concept Leaf = requires(Op) {
@@ -186,11 +192,14 @@ using Node = std::variant<
     IndirectNode<Log>,
     IndirectNode<Exp>,
     IndirectNode<Abs>,
-    IndirectNode<Sign>
+    IndirectNode<Sign>,
+    IndirectNode<Progress>,
+    IndirectNode<Anchor>,
+    IndirectNode<AnchorSize>
 >;
 
 using Child = Node;
-using ChildOrNone = std::variant<Child, NoneRaw>;
+using ChildOrNone = std::variant<Child, CSS::NoneRaw>;
 using Children = Vector<Child>;
 
 enum class Stage : bool { Specified, Computed };
@@ -704,6 +713,59 @@ public:
     bool operator==(const Sign&) const = default;
 };
 
+// Progress-Related Functions - https://drafts.csswg.org/css-values-5/#progress
+struct Progress {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(Progress);
+public:
+    using Base = Calculation::Progress;
+    static constexpr auto id = CSSValueProgress;
+
+    // <progress()> = progress( <calc-sum> from <calc-sum> to <calc-sum> )
+    //     - INPUT: "consistent" <number>, <dimension>, or <percentage>
+    //     - OUTPUT: <number> "made consistent"
+    static constexpr auto input = AllowedTypes::Any;
+    static constexpr auto merge = MergePolicy::Consistent;
+    static constexpr auto output = OutputTransform::NumberMadeConsistent;
+
+    Child progress;
+    Child from;
+    Child to;
+
+    bool operator==(const Progress&) const = default;
+};
+
+struct Anchor {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(Anchor);
+public:
+    static constexpr auto id = CSSValueAnchor;
+
+    // <anchor()> = anchor( <anchor-element>? && <anchor-side>, <length-percentage>? )
+    // <anchor-side> = inside | outside | top | left | right | bottom | start | end | self-start | self-end | <percentage> | center
+    using Side = std::variant<CSSValueID, Child>;
+
+    AtomString elementName;
+    Side side;
+    std::optional<Child> fallback;
+
+    bool operator==(const Anchor&) const = default;
+};
+
+struct AnchorSize {
+    WTF_MAKE_TZONE_ALLOCATED_INLINE(AnchorSize);
+public:
+    static constexpr auto id = CSSValueAnchorSize;
+
+    // anchor-size() = anchor-size( [ <anchor-element> || <anchor-size> ]? , <length-percentage>? )
+    // <anchor-element> = <dashed-ident>
+    // <anchor-size> = width | height | block | inline | self-block | self-inline
+
+    AtomString elementName;
+    std::optional<CSSValueID> size;
+    std::optional<Child> fallback;
+
+    bool operator==(const AnchorSize&) const = default;
+};
+
 // MARK: Size assertions
 
 static_assert(sizeof(Child) == 24);
@@ -738,6 +800,7 @@ template<> struct ReverseMapping<Calculation::Log> { using Op = Log; };
 template<> struct ReverseMapping<Calculation::Exp> { using Op = Exp; };
 template<> struct ReverseMapping<Calculation::Abs> { using Op = Abs; };
 template<> struct ReverseMapping<Calculation::Sign> { using Op = Sign; };
+template<> struct ReverseMapping<Calculation::Progress> { using Op = Progress; };
 
 // MARK: TextStream
 
@@ -839,6 +902,7 @@ std::optional<Type> toType(const Log&);
 std::optional<Type> toType(const Exp&);
 std::optional<Type> toType(const Abs&);
 std::optional<Type> toType(const Sign&);
+std::optional<Type> toType(const Progress&);
 
 // MARK: CSSUnitType Evaluation
 
@@ -1108,6 +1172,16 @@ template<size_t I> const auto& get(const Sign& root)
     return root.a;
 }
 
+template<size_t I> const auto& get(const Progress& root)
+{
+    if constexpr (!I)
+        return root.progress;
+    else if constexpr (I == 1)
+        return root.from;
+    else if constexpr (I == 2)
+        return root.to;
+}
+
 } // namespace CSSCalc
 } // namespace WebCore
 
@@ -1148,6 +1222,10 @@ OP_TUPLE_LIKE_CONFORMANCE(Log, 2);
 OP_TUPLE_LIKE_CONFORMANCE(Exp, 1);
 OP_TUPLE_LIKE_CONFORMANCE(Abs, 1);
 OP_TUPLE_LIKE_CONFORMANCE(Sign, 1);
+OP_TUPLE_LIKE_CONFORMANCE(Progress, 3);
+// FIXME (webkit.org/b/280798): make Anchor and AnchorSize tuple-like
+OP_TUPLE_LIKE_CONFORMANCE(Anchor, 0);
+OP_TUPLE_LIKE_CONFORMANCE(AnchorSize, 0);
 
 #undef OP_TUPLE_LIKE_CONFORMANCE
 

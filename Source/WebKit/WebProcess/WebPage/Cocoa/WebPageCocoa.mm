@@ -666,12 +666,15 @@ void WebPage::getPlatformEditorStateCommon(const LocalFrame& frame, EditorState&
     }
 
     if (RefPtr editableRootOrFormControl = enclosingTextFormControl(selection.start()) ?: selection.rootEditableElement()) {
-#if PLATFORM(IOS_FAMILY)
-        auto& visualData = *result.visualData;
-        visualData.selectionClipRect = rootViewInteractionBounds(*editableRootOrFormControl);
-#endif
         postLayoutData.editableRootIsTransparentOrFullyClipped = result.isContentEditable && isTransparentOrFullyClipped(*editableRootOrFormControl);
+#if PLATFORM(IOS_FAMILY)
+        result.visualData->editableRootBounds = rootViewInteractionBounds(Ref { *editableRootOrFormControl });
+#endif
     }
+
+#if PLATFORM(IOS_FAMILY)
+    computeSelectionClipRectAndEnclosingScroller(result, selection, result.visualData->editableRootBounds);
+#endif
 }
 
 void WebPage::getPDFFirstPageSize(WebCore::FrameIdentifier frameID, CompletionHandler<void(WebCore::FloatSize)>&& completionHandler)
@@ -834,7 +837,7 @@ std::pair<URL, DidFilterLinkDecoration> WebPage::applyLinkDecorationFilteringWit
     }
 
     RefPtr mainFrame = m_mainFrame->coreLocalFrame();
-    if (!mainFrame)
+    if (!mainFrame || !WebCore::DeprecatedGlobalSettings::trackingPreventionEnabled())
         return { url, DidFilterLinkDecoration::No };
 
     auto isLinkDecorationFilteringEnabled = [&](const DocumentLoader* loader) {

@@ -35,6 +35,7 @@
 #include "GLContext.h"
 #include "GLFence.h"
 #include "PlatformDisplay.h"
+#include "ProcessCapabilities.h"
 #include <skia/core/SkColorSpace.h>
 #include <skia/core/SkImage.h>
 #include <skia/core/SkStream.h>
@@ -106,10 +107,12 @@ UnacceleratedBuffer::UnacceleratedBuffer(const IntSize& size, Flags flags)
 PixelFormat UnacceleratedBuffer::pixelFormat() const
 {
 #if USE(SKIA)
-    return PixelFormat::RGBA8;
-#elif USE(CAIRO)
-    return PixelFormat::BGRA8;
+    // For GPU/hybrid rendering, prefer RGBA, otherwise use BGRA.
+    if (ProcessCapabilities::canUseAcceleratedBuffers())
+        return PixelFormat::RGBA8;
 #endif
+
+    return PixelFormat::BGRA8;
 }
 
 UnacceleratedBuffer::~UnacceleratedBuffer()
@@ -127,7 +130,8 @@ bool UnacceleratedBuffer::tryEnsureSurface()
     if (m_surface)
         return true;
 
-    auto imageInfo = SkImageInfo::Make(m_size.width(), m_size.height(), kRGBA_8888_SkColorType, kPremul_SkAlphaType, SkColorSpace::MakeSRGB());
+    auto colorType = pixelFormat() == PixelFormat::BGRA8 ? kBGRA_8888_SkColorType : kRGBA_8888_SkColorType;
+    auto imageInfo = SkImageInfo::Make(m_size.width(), m_size.height(), colorType, kPremul_SkAlphaType, SkColorSpace::MakeSRGB());
     // FIXME: ref buffer and unref on release proc?
     SkSurfaceProps properties = { 0, FontRenderOptions::singleton().subpixelOrder() };
     m_surface = SkSurfaces::WrapPixels(imageInfo, m_data.get(), imageInfo.minRowBytes64(), &properties);
@@ -148,6 +152,11 @@ void UnacceleratedBuffer::completePainting()
     ASSERT(m_painting.state == PaintingState::InProgress);
     m_painting.state = PaintingState::Complete;
     m_painting.condition.notifyOne();
+
+#if USE(SKIA)
+    // Surface is no longer needed, destroy it here (in the same thread that created it).
+    m_surface = nullptr;
+#endif
 }
 
 void UnacceleratedBuffer::waitUntilPaintingComplete()
@@ -173,11 +182,6 @@ AcceleratedBuffer::AcceleratedBuffer(Ref<BitmapTexture>&& texture, Flags flags)
 
 AcceleratedBuffer::~AcceleratedBuffer()
 {
-    // Owned by us, and the BitmapTexturePool from which it is allocated.
-    // If we could potentially destruct the BitmapTexture here, we'd have to
-    // assure this happens on the main thread - but we don't have to.
-    ASSERT(m_texture->refCount() == 2);
-
     ensureOnMainThread([fence = WTFMove(m_fence)]() mutable {
         PlatformDisplay::sharedDisplay().skiaGLContext()->makeContextCurrent();
         fence = nullptr;
@@ -227,6 +231,9 @@ void AcceleratedBuffer::completePainting()
             grContext->submit(GrSyncCpu::kYes);
     } else
         grContext->flushAndSubmit(m_surface.get(), GrSyncCpu::kYes);
+
+    // Surface is no longer needed, destroy it here (in the same thread that created it).
+    m_surface = nullptr;
 }
 
 void AcceleratedBuffer::waitUntilPaintingComplete()

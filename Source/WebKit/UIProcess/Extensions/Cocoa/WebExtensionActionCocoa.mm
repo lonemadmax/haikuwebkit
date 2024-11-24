@@ -79,6 +79,8 @@ constexpr auto popoverShowTimeout = 750_ms;
 constexpr auto popoverStableSizeDuration = 225_ms;
 #endif
 
+constexpr auto updateThrottleDuration = 15_ms;
+
 using namespace WebKit;
 
 @interface _WKWebExtensionActionWebViewDelegate : NSObject <WKNavigationDelegatePrivate, WKUIDelegatePrivate>
@@ -602,20 +604,6 @@ WebExtensionContext* WebExtensionAction::extensionContext() const
     return m_extensionContext.get();
 }
 
-RefPtr<WebExtensionTab> WebExtensionAction::tab() const
-{
-    return m_tab.and_then([](auto const& maybeTab) {
-        return std::optional(RefPtr(maybeTab.get()));
-    }).value_or(nullptr);
-}
-
-RefPtr<WebExtensionWindow> WebExtensionAction::window() const
-{
-    return m_window.and_then([](auto const& maybeWindow) {
-        return std::optional(RefPtr(maybeWindow.get()));
-    }).value_or(nullptr);
-}
-
 void WebExtensionAction::clearCustomizations()
 {
 #if ENABLE(WK_WEB_EXTENSIONS_ICON_VARIANTS)
@@ -653,8 +641,58 @@ void WebExtensionAction::clearBlockedResourceCount()
 
 void WebExtensionAction::propertiesDidChange()
 {
-    dispatch_async(dispatch_get_main_queue(), makeBlockPtr([this, protectedThis = Ref { *this }]() {
-        [NSNotificationCenter.defaultCenter postNotificationName:WKWebExtensionActionPropertiesDidChangeNotification object:wrapper() userInfo:nil];
+    if (m_updatePending)
+        return;
+
+    m_updatePending = true;
+
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, updateThrottleDuration.nanosecondsAs<int64_t>()), dispatch_get_main_queue(), makeBlockPtr([this, protectedThis = Ref { *this }]() {
+        m_updatePending = false;
+
+        RefPtr extensionContext = m_extensionContext.get();
+        if (!extensionContext)
+            return;
+
+        RefPtr extensionController = extensionContext->extensionController();
+        if (!extensionController)
+            return;
+
+        auto *delegate = extensionController->delegate();
+        if (![delegate respondsToSelector:@selector(webExtensionController:didUpdateAction:forExtensionContext:)])
+            return;
+
+        if (isTabAction()) {
+            // Tab actions are not inherited by other actions, so just call the delegate directly.
+            [delegate webExtensionController:extensionController->wrapper() didUpdateAction:wrapper() forExtensionContext:extensionContext->wrapper()];
+            return;
+        }
+
+        auto callDelegateForTabs = [=](auto&& tabs) {
+            for (Ref tab : tabs) {
+                Ref tabAction = extensionContext->getAction(tab.ptr());
+
+                // Skip tabs with no custom action (i.e., default or window action).
+                if (!tabAction->isTabAction())
+                    continue;
+
+                [delegate webExtensionController:extensionController->wrapper() didUpdateAction:tabAction->wrapper() forExtensionContext:extensionContext->wrapper()];
+            }
+        };
+
+        if (isWindowAction()) {
+            // Call the delegate about tab-specific actions that inherit from the window.
+            RefPtr window = protectedThis->window();
+            callDelegateForTabs(window->tabs());
+            return;
+        }
+
+        ASSERT(isDefaultAction());
+
+        // Call the delegate about the default action, since it is retrievable via the API.
+        [delegate webExtensionController:extensionController->wrapper() didUpdateAction:wrapper() forExtensionContext:extensionContext->wrapper()];
+
+        // Call the delegate about tab-specific actions inheriting from the default.
+        callDelegateForTabs(extensionContext->openTabs());
     }).get());
 }
 

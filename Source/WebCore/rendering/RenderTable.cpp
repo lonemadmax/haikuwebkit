@@ -146,12 +146,24 @@ void RenderTable::styleDidChange(StyleDifference diff, const RenderStyle* oldSty
     m_columnPos[0] = m_hSpacing;
 
     if (!m_tableLayout || style().isFixedTableLayout() != oldFixedTableLayout) {
-        // According to the CSS2 spec, you only use fixed table layout if an
-        // explicit width is specified on the table.  Auto width implies auto table layout.
+        // According to the CSS2 spec, you only use fixed table layout if an explicit width is specified on the table. Auto width implies auto table layout.
         if (style().isFixedTableLayout())
             m_tableLayout = makeUnique<FixedTableLayout>(this);
-        else
+        else {
+            auto resetTableCellPreferredLogicalWidths = [&] {
+                if (!m_tableLayout)
+                    return;
+                // Fixed table layout sets min/max preferred widths to clean without actually computing them (see FixedTableLayout::calcWidthArray).
+                for (auto& section : childrenOfType<RenderTableSection>(*this)) {
+                    for (CheckedPtr row = section.firstRow(); row; row = row->nextRow()) {
+                        for (CheckedPtr cell = row->firstCell(); cell; cell = cell->nextCell())
+                            cell->setPreferredLogicalWidthsDirty(true);
+                    }
+                }
+            };
+            resetTableCellPreferredLogicalWidths();
             m_tableLayout = makeUnique<AutoTableLayout>(this);
+        }
     }
 
     // If border was changed, invalidate collapsed borders cache.
@@ -910,6 +922,7 @@ void RenderTable::computePreferredLogicalWidths()
 
     for (unsigned i = 0; i < m_captions.size(); i++)
         m_minPreferredLogicalWidth = std::max(m_minPreferredLogicalWidth, m_captions[i]->minPreferredLogicalWidth());
+    m_maxPreferredLogicalWidth = std::max(m_maxPreferredLogicalWidth, m_minPreferredLogicalWidth);
 
     auto& styleToUse = style();
     // FIXME: This should probably be checking for isSpecified since you should be able to use percentage or calc values for min-width.

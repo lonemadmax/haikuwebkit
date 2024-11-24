@@ -58,8 +58,11 @@ namespace WebCore {
 class CaptureDevice;
 class NowPlayingManager;
 class SecurityOriginData;
+
 struct MockMediaDevice;
 struct ScreenProperties;
+
+enum class VideoFrameRotation : uint16_t;
 }
 
 namespace WebKit {
@@ -169,7 +172,9 @@ private:
 #if ENABLE(MEDIA_STREAM)
     void setMockCaptureDevicesEnabled(bool);
     void setUseSCContentSharingPicker(bool);
+    void enableMicrophoneMuteStatusAPI();
     void setOrientationForMediaCapture(WebCore::IntDegrees);
+    void rotationAngleForCaptureDeviceChanged(const String&, WebCore::VideoFrameRotation);
     void updateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture, WebCore::ProcessIdentifier, CompletionHandler<void()>&&);
     void updateCaptureOrigin(const WebCore::SecurityOriginData&, WebCore::ProcessIdentifier);
     void addMockMediaDevice(const WebCore::MockMediaDevice&);

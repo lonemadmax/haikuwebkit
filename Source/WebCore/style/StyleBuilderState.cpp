@@ -76,7 +76,7 @@ BuilderState::BuilderState(Builder& builder, RenderStyle& style, BuilderContext&
     , m_styleMap(*this)
     , m_style(style)
     , m_context(WTFMove(context))
-    , m_cssToLengthConversionData(style, m_context)
+    , m_cssToLengthConversionData(style, *this)
 {
 }
 
@@ -273,13 +273,22 @@ void BuilderState::updateFontForOrientationChange()
 void BuilderState::setFontSize(FontCascadeDescription& fontDescription, float size)
 {
     fontDescription.setSpecifiedSize(size);
-    fontDescription.setComputedSize(Style::computedFontSizeFromSpecifiedSize(size, fontDescription.isAbsoluteSize(), useSVGZoomRules(), &style(), document()));
+    fontDescription.setComputedSize(Style::computedFontSizeFromSpecifiedSize(size, fontDescription.isAbsoluteSize(), false, &style(), document()));
 }
 
 CSSPropertyID BuilderState::cssPropertyID() const
 {
-    ASSERT(m_currentProperty);
-    return m_currentProperty->id;
+    return m_currentProperty ? m_currentProperty->id : CSSPropertyInvalid;
+}
+
+bool BuilderState::isCurrentPropertyInvalidAtComputedValueTime() const
+{
+    return m_invalidAtComputedValueTimeProperties.get(cssPropertyID());
+}
+
+void BuilderState::setCurrentPropertyInvalidAtComputedValueTime()
+{
+    m_invalidAtComputedValueTimeProperties.set(cssPropertyID());
 }
 
 }

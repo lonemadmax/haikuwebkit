@@ -173,11 +173,12 @@ void InlineItemsBuilder::computeInlineBoxBoundaryTextSpacingsIfNeeded(const Inli
         }
 
         size_t boundaryDepth = std::min(currentCharacterDepth, lastCharacterDepth);
-        size_t boundaryIndex = inlineBoxStartIndexesOnInlineItemsList.size() - 1 - (currentCharacterDepth - boundaryDepth);
+        size_t inlineBoxStartOnBoundaryIndex = inlineBoxStartIndexesOnInlineItemsList.size() - 1 - (currentCharacterDepth - boundaryDepth);
+        size_t boundaryIndex = inlineBoxStartIndexesOnInlineItemsList[inlineBoxStartOnBoundaryIndex];
         const RenderStyle& boundaryOwnerStyle = inlineItemList[boundaryIndex].layoutBox().parent().style();
         const TextAutospace& boundaryTextAutospace = boundaryOwnerStyle.textAutospace();
         if (!boundaryTextAutospace.isNoAutospace() && boundaryTextAutospace.shouldApplySpacing(inlineTextBox.content().characterAt(start), lastCharacterFromPreviousRun))
-            spacings.add(inlineBoxStartIndexesOnInlineItemsList[boundaryIndex], TextAutospace::textAutospaceSize(boundaryOwnerStyle.fontCascade().primaryFont()));
+            spacings.add(boundaryIndex, TextAutospace::textAutospaceSize(boundaryOwnerStyle.fontCascade().primaryFont()));
 
         lastCharacterFromPreviousRun = inlineTextBox.content().characterAt(start + length - 1);
         lastCharacterDepth = currentCharacterDepth;
@@ -711,10 +712,17 @@ void InlineItemsBuilder::breakAndComputeBidiLevels(InlineItemList& inlineItemLis
                 inlineItem.setBidiLevel(InlineItem::opaqueBidiLevel);
                 continue;
             }
-            // Mark the inline box stack with "content yes", when we come across a content type of inline item.
-            auto* inlineTextItem = dynamicDowncast<InlineTextItem>(inlineItem);
-            if (!inlineTextItem || !inlineTextItem->isWhitespace() || TextUtil::shouldPreserveSpacesAndTabs(inlineTextItem->layoutBox()))
+
+            auto isContentfulInlineItem = [&] {
+                if (auto* inlineTextItem = dynamicDowncast<InlineTextItem>(inlineItem))
+                    return !inlineTextItem->isWhitespace() || TextUtil::shouldPreserveSpacesAndTabs(inlineTextItem->layoutBox());
+                return inlineItem.isAtomicInlineBox() || inlineItem.isLineBreak() || (inlineItem.isOpaque() && inlineItem.layoutBox().isOutOfFlowPositioned());
+            };
+            if (isContentfulInlineItem()) {
+                // Mark the inline box stack with "content yes", when we come across a content type of inline item
+                // so that we can mark the inline box as opaque and let the content drive visual ordering.
                 inlineBoxContentFlagStack.fill(InlineBoxHasContent::Yes);
+            }
         }
     };
     setBidiLevelForOpaqueInlineItems();

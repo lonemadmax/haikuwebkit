@@ -394,8 +394,8 @@
 /* Title for Copy Link button */
 "Copy Link (ActionSheet)" = "Copy Link";
 
-/* Copy link to highlight context menu item */
-"Copy Link to Highlight" = "Copy Link to Highlight";
+/* Copy link with highlight context menu item */
+"Copy Link with Highlight" = "Copy Link with Highlight";
 
 /* Title for Copy Subject */
 "Copy Subject" = "Copy Subject";
@@ -1538,7 +1538,7 @@
 "This is a searchable index. Enter search keywords: " = "This is a searchable index. Enter search keywords: ";
 
 /* Not Secure Connection warning text */
-"This website does not support connecting securely. The information you see and enter on this website, including credit cards, phone numbers, and passwords, can be read and altered by other people." = "This website does not support connecting securely. The information you see and enter on this website, including credit cards, phone numbers, and passwords, can be read and altered by other people.";
+"This website does not support connecting securely over HTTPS. The information you see and enter on this website, including credit cards, phone numbers, and passwords, can be read and altered by other people." = "This website does not support connecting securely over HTTPS. The information you see and enter on this website, including credit cards, phone numbers, and passwords, can be read and altered by other people.";
 
 /* Malware warning */
 "This website may attempt to install dangerous software, which could harm your computer or steal your personal or financial information, like passwords, photos, or credit cards." = "This website may attempt to install dangerous software, which could harm your computer or steal your personal or financial information, like passwords, photos, or credit cards.";
@@ -1707,6 +1707,9 @@
 
 /* Validation message for input form controls with value higher than allowed maximum */
 "Value must be less than or equal to %s" = "Value must be less than or equal to %s";
+
+/* Title for View Spatial action button while in fullscreen */
+"View Spatial" = "View Spatial";
 
 /* Title for View Spatial Photo action button */
 "View Spatial Photo" = "View Spatial Photo";

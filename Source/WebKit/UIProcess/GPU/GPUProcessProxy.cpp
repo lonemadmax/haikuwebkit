@@ -247,6 +247,14 @@ void GPUProcessProxy::setUseSCContentSharingPicker(bool use)
 #endif
 }
 
+void GPUProcessProxy::enableMicrophoneMuteStatusAPI()
+{
+    if (m_isMicrophoneMuteStatusAPIEnabled)
+        return;
+    m_isMicrophoneMuteStatusAPIEnabled = true;
+    send(Messages::GPUProcess::EnableMicrophoneMuteStatusAPI { }, 0);
+}
+
 void GPUProcessProxy::setOrientationForMediaCapture(WebCore::IntDegrees orientation)
 {
     if (m_orientation == orientation)
@@ -400,8 +408,11 @@ void GPUProcessProxy::updateSandboxAccess(bool allowAudioCapture, bool allowVide
 #endif // PLATFORM(COCOA)
 }
 
-void GPUProcessProxy::updateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture, WebCore::ProcessIdentifier processID, CompletionHandler<void()>&& completionHandler)
+void GPUProcessProxy::updateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture, WebCore::ProcessIdentifier processID, WebPageProxyIdentifier pageIdentifier, CompletionHandler<void()>&& completionHandler)
 {
+    if (allowAudioCapture)
+        m_lastPageUsingMicrophone = pageIdentifier;
+
     updateSandboxAccess(allowAudioCapture, allowVideoCapture, allowDisplayCapture);
     sendWithAsyncReply(Messages::GPUProcess::UpdateCaptureAccess { allowAudioCapture, allowVideoCapture, allowDisplayCapture, processID }, WTFMove(completionHandler));
 }
@@ -844,6 +855,33 @@ void GPUProcessProxy::voiceActivityDetected()
 {
     for (Ref page : m_pagesListeningToVoiceActivity)
         page->voiceActivityDetected();
+}
+
+void GPUProcessProxy::startMonitoringCaptureDeviceRotation(PageIdentifier pageID, const String& persistentId)
+{
+    if (auto page = WebProcessProxy::webPage(pageID))
+        page->startMonitoringCaptureDeviceRotation(persistentId);
+}
+
+void GPUProcessProxy::stopMonitoringCaptureDeviceRotation(PageIdentifier pageID, const String& persistentId)
+{
+    if (auto page = WebProcessProxy::webPage(pageID))
+        page->stopMonitoringCaptureDeviceRotation(persistentId);
+}
+
+void GPUProcessProxy::rotationAngleForCaptureDeviceChanged(const String& persistentId, WebCore::VideoFrameRotation rotation)
+{
+    send(Messages::GPUProcess::RotationAngleForCaptureDeviceChanged(persistentId, rotation), 0);
+}
+
+void GPUProcessProxy::microphoneMuteStatusChanged(bool isMuting)
+{
+    // FIXME: We are currently muting/unmuting the last capturing page. If all pages are muted, maybe we should favor the currently focused page if it has muted microphone capture.
+    ASSERT(m_lastPageUsingMicrophone);
+    if (!m_lastPageUsingMicrophone)
+        return;
+    if (RefPtr page = WebProcessProxy::webPage(*m_lastPageUsingMicrophone))
+        page->microphoneMuteStatusChanged(isMuting);
 }
 
 #if PLATFORM(IOS_FAMILY)

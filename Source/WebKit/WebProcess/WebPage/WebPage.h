@@ -334,6 +334,7 @@ namespace WebKit {
 
 class DrawingArea;
 class FindController;
+class FrameState;
 class GPUProcessConnection;
 class GamepadData;
 class GeolocationPermissionRequestManager;
@@ -401,7 +402,6 @@ enum class SnapshotOption : uint16_t;
 enum class SyntheticEditingCommandType : uint8_t;
 enum class TextRecognitionUpdateResult : uint8_t;
 
-struct BackForwardListItemState;
 struct DataDetectionResult;
 struct DeferredDidReceiveMouseEvent;
 struct DocumentEditingContext;
@@ -475,6 +475,7 @@ public:
     inline WebCore::IntRect bounds() const;
 
     DrawingArea* drawingArea() const { return m_drawingArea.get(); }
+    RefPtr<DrawingArea> protectedDrawingArea() const;
 
 #if ENABLE(ASYNC_SCROLLING)
     WebCore::ScrollingCoordinator* scrollingCoordinator() const;
@@ -537,6 +538,7 @@ public:
 
 #if ENABLE(VIDEO_PRESENTATION_MODE)
     VideoPresentationManager& videoPresentationManager();
+    Ref<VideoPresentationManager> protectedVideoPresentationManager();
 
     void startPlayingPredominantVideo(CompletionHandler<void(bool)>&&);
 #endif
@@ -701,10 +703,9 @@ public:
     void sendSetWindowFrame(const WebCore::FloatRect&);
 
     double textZoomFactor() const;
-    void setTextZoomFactor(double);
+    void didSetTextZoomFactor(double);
     double pageZoomFactor() const;
-    void setPageZoomFactor(double);
-    void setPageAndTextZoomFactors(double pageZoomFactor, double textZoomFactor);
+    void didSetPageZoomFactor(double);
     void windowScreenDidChange(WebCore::PlatformDisplayID, std::optional<unsigned> nominalFramesPerSecond);
     String dumpHistoryForTesting(const String& directory);
     void clearHistory();
@@ -716,12 +717,18 @@ public:
 
     void screenPropertiesDidChange();
 
+    // FIXME(site-isolation): Calls to these should be removed in favour of setting via WebPageProxy.
     void scalePage(double scale, const WebCore::IntPoint& origin);
-    void scalePageInViewCoordinates(double scale, WebCore::IntPoint centerInViewCoordinates);
+    void scaleView(double scale);
+
     double pageScaleFactor() const;
     double totalScaleFactor() const;
     double viewScaleFactor() const;
-    void scaleView(double scale);
+
+    void didScalePage(double scale, const WebCore::IntPoint& origin);
+    void didScalePageInViewCoordinates(double scale, const WebCore::IntPoint& origin);
+    void didScalePageRelativeToScrollPosition(double scale, const WebCore::IntPoint& origin);
+    void didScaleView(double scale);
 
     void setUseFixedLayout(bool);
     bool useFixedLayout() const { return m_useFixedLayout; }
@@ -847,6 +854,7 @@ public:
 
 #if ENABLE(GEOLOCATION)
     GeolocationPermissionRequestManager& geolocationPermissionRequestManager() { return m_geolocationPermissionRequestManager.get(); }
+    Ref<GeolocationPermissionRequestManager> protectedGeolocationPermissionRequestManager();
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -865,7 +873,7 @@ public:
     MediaKeySystemPermissionRequestManager& mediaKeySystemPermissionRequestManager() { return m_mediaKeySystemPermissionRequestManager; }
 #endif
 
-    void copyLinkToHighlight();
+    void copyLinkWithHighlight();
 
     void elementDidFocus(WebCore::Element&, const WebCore::FocusOptions&);
     void elementDidRefocus(WebCore::Element&, const WebCore::FocusOptions&);
@@ -1511,7 +1519,7 @@ public:
     void getTextFragmentMatch(CompletionHandler<void(const String&)>&&);
 
 #if USE(WPE_RENDERER)
-    int hostFileDescriptor() const { return m_hostFileDescriptor.value(); }
+    UnixFileDescriptor hostFileDescriptor() const { return m_hostFileDescriptor.duplicate(); }
 #endif
 
     void updateCurrentModifierState(OptionSet<WebCore::PlatformEvent::Modifier> modifiers);
@@ -1763,7 +1771,7 @@ public:
     WebCore::FloatSize screenSizeForFingerprintingProtections(const WebCore::LocalFrame&, WebCore::FloatSize defaultSize) const;
 
     const Logger& logger() const;
-    const void* logIdentifier() const;
+    uint64_t logIdentifier() const;
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
 #if USE(GBM)
@@ -1862,6 +1870,7 @@ private:
     void clearSelectionAfterTapIfNeeded();
     void scheduleLayoutViewportHeightExpansionUpdate();
     void scheduleEditorStateUpdateAfterAnimationIfNeeded(const WebCore::Element&);
+    void computeSelectionClipRectAndEnclosingScroller(EditorState&, const WebCore::VisibleSelection&, const WebCore::IntRect& editableRootBounds) const;
 #endif // PLATFORM(IOS_FAMILY)
 
 #if ENABLE(ADVANCED_PRIVACY_PROTECTIONS)
@@ -1996,11 +2005,11 @@ private:
     void loadDataInFrame(std::span<const uint8_t>, String&& MIMEType, String&& encodingName, URL&& baseURL, WebCore::FrameIdentifier);
 
     enum class WasRestoredByAPIRequest : bool { No, Yes };
-    void restoreSessionInternal(const Vector<BackForwardListItemState>&, WasRestoredByAPIRequest, WebBackForwardListProxy::OverwriteExistingItem);
-    void restoreSession(const Vector<BackForwardListItemState>&);
+    void restoreSessionInternal(const Vector<Ref<FrameState>>&, WasRestoredByAPIRequest, WebBackForwardListProxy::OverwriteExistingItem);
+    void restoreSession(const Vector<Ref<FrameState>>&);
     void didRemoveBackForwardItem(const WebCore::BackForwardItemIdentifier&);
-    void updateBackForwardListForReattach(const Vector<WebKit::BackForwardListItemState>&);
-    void setCurrentHistoryItemForReattach(WebKit::BackForwardListItemState&&);
+    void updateBackForwardListForReattach(const Vector<Ref<FrameState>>&);
+    void setCurrentHistoryItemForReattach(Ref<FrameState>&&);
 
     void requestFontAttributesAtSelectionStart(CompletionHandler<void(const WebCore::FontAttributes&)>&&);
 
@@ -2231,8 +2240,6 @@ private:
 
     void setUserInterfaceLayoutDirection(uint32_t);
 
-    bool canPluginHandleResponse(const WebCore::ResourceResponse&);
-
     void simulateDeviceOrientationChange(double alpha, double beta, double gamma);
 
 #if USE(SYSTEM_PREVIEW)
@@ -2325,6 +2332,7 @@ private:
 
     void remotePostMessage(WebCore::FrameIdentifier source, const String& sourceOrigin, WebCore::FrameIdentifier target, std::optional<WebCore::SecurityOriginData>&& targetOrigin, const WebCore::MessageWithMessagePorts&);
     void renderTreeAsTextForTesting(WebCore::FrameIdentifier, size_t baseIndent, OptionSet<WebCore::RenderAsTextFlag>, CompletionHandler<void(String&&)>&&);
+    void layerTreeAsTextForTesting(WebCore::FrameIdentifier, size_t baseIndent, OptionSet<WebCore::LayerTreeAsTextOptions>, CompletionHandler<void(String&&)>&&);
     void frameTextForTesting(WebCore::FrameIdentifier, CompletionHandler<void(String&&)>&&);
     void bindRemoteAccessibilityFrames(int processIdentifier, WebCore::FrameIdentifier, Vector<uint8_t>, CompletionHandler<void(Vector<uint8_t>, int)>&&);
     void updateRemotePageAccessibilityOffset(WebCore::FrameIdentifier, WebCore::IntPoint);
@@ -2359,7 +2367,7 @@ private:
 
     WebCore::IntSize m_viewSize;
     LayerHostingMode m_layerHostingMode;
-    std::unique_ptr<DrawingArea> m_drawingArea;
+    RefPtr<DrawingArea> m_drawingArea;
 
     std::unique_ptr<WebPageTesting> m_webPageTesting;
 
@@ -2706,6 +2714,7 @@ private:
     std::unique_ptr<WebCore::IgnoreSelectionChangeForScope> m_ignoreSelectionChangeScopeForDictation;
 
     bool m_isMobileDoctype { false };
+    bool m_selectionHonorsOverflowScrolling { false };
 #endif // PLATFORM(IOS_FAMILY)
 
     WebCore::Timer m_layerVolatilityTimer;

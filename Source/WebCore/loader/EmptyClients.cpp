@@ -110,8 +110,9 @@ class UserMessageHandlerDescriptor;
 
 class EmptyBackForwardClient final : public BackForwardClient {
     void addItem(FrameIdentifier, Ref<HistoryItem>&&) final { }
+    void setChildItem(BackForwardItemIdentifier, Ref<HistoryItem>&&) final { }
     void goToItem(HistoryItem&) final { }
-    RefPtr<HistoryItem> itemAtIndex(int) final { return nullptr; }
+    RefPtr<HistoryItem> itemAtIndex(int, FrameIdentifier) final { return nullptr; }
     unsigned backListCount() const final { return 0; }
     unsigned forwardListCount() const final { return 0; }
     bool containsItem(const HistoryItem&) const final { return false; }
@@ -191,7 +192,7 @@ private:
 
 class EmptyDatabaseProvider final : public DatabaseProvider {
     struct EmptyIDBConnectionToServerDeletegate final : public IDBClient::IDBConnectionToServerDelegate {
-        IDBConnectionIdentifier identifier() const final { return { }; }
+        std::optional<IDBConnectionIdentifier> identifier() const final { return std::nullopt; }
         void deleteDatabase(const IDBOpenRequestData&) final { }
         void openDatabase(const IDBOpenRequestData&) final { }
         void abortTransaction(const IDBResourceIdentifier&) final { }
@@ -368,7 +369,6 @@ private:
     void showSpellingUI(bool) final { }
     bool spellingUIIsShowing() final { return false; }
 
-    void willSetInputMethodState() final { }
     void setInputMethodState(Element*) final { }
 
     class EmptyTextCheckerClient final : public TextCheckerClient {
@@ -1218,8 +1218,8 @@ PageConfiguration pageConfigurationWithEmptyClients(std::optional<PageIdentifier
         CookieJar::create(adoptRef(*new EmptyStorageSessionProvider)),
         makeUniqueRef<EmptyProgressTrackerClient>(),
         PageConfiguration::LocalMainFrameCreationParameters {
-            CompletionHandler<UniqueRef<LocalFrameLoaderClient>(LocalFrame&)> { [] (auto&) {
-                return makeUniqueRef<EmptyFrameLoaderClient>();
+            CompletionHandler<UniqueRef<LocalFrameLoaderClient>(LocalFrame&, FrameLoader&)> { [] (auto&, auto& frameLoader) {
+                return makeUniqueRef<EmptyFrameLoaderClient>(frameLoader);
             } },
             SandboxFlags::all(),
         },

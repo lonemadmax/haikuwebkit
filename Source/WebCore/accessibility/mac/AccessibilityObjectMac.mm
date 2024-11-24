@@ -214,7 +214,7 @@ static bool isEmptyGroup(AccessibilityObject& object)
         return false;
 
     return [object.rolePlatformString() isEqual:NSAccessibilityGroupRole]
-        && object.children().isEmpty()
+        && object.unignoredChildren().isEmpty()
         && ![renderWidgetChildren(object) count];
 }
 
@@ -830,7 +830,7 @@ void AXRemoteFrame::initializePlatformElementWithRemoteToken(std::span<const uin
     m_processIdentifier = processIdentifier;
     if ([wrapper() respondsToSelector:@selector(accessibilitySetPresenterProcessIdentifier:)])
         [(id)wrapper() accessibilitySetPresenterProcessIdentifier:processIdentifier];
-    m_remoteFramePlatformElement = adoptNS([[NSAccessibilityRemoteUIElement alloc] initWithRemoteToken:toNSData(token).get()]);
+    m_remoteFramePlatformElement = adoptNS([[NSAccessibilityRemoteUIElement alloc] initWithRemoteToken:toNSData(BufferSource { token }).get()]);
 
     if (auto* cache = axObjectCache())
         cache->onRemoteFrameInitialized(*this);

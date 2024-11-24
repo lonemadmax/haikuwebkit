@@ -268,13 +268,13 @@ void WebPageProxy::scrollingNodeScrollViewWillStartPanGesture(ScrollingNodeID no
 void WebPageProxy::scrollingNodeScrollWillStartScroll(std::optional<ScrollingNodeID> nodeID)
 {
     if (RefPtr pageClient = this->pageClient())
-        pageClient->scrollingNodeScrollWillStartScroll(nodeID.value_or(ScrollingNodeID { }));
+        pageClient->scrollingNodeScrollWillStartScroll(nodeID);
 }
 
 void WebPageProxy::scrollingNodeScrollDidEndScroll(std::optional<ScrollingNodeID> nodeID)
 {
     if (RefPtr pageClient = this->pageClient())
-        pageClient->scrollingNodeScrollDidEndScroll(nodeID.value_or(ScrollingNodeID { }));
+        pageClient->scrollingNodeScrollDidEndScroll(nodeID);
 }
 
 void WebPageProxy::dynamicViewportSizeUpdate(const DynamicViewportSizeUpdate& target)
@@ -750,7 +750,7 @@ void WebPageProxy::registerWebProcessAccessibilityToken(std::span<const uint8_t>
 {
     // Note: The WebFrameProxy with this FrameIdentifier might not exist in the UI process. See rdar://130998804.
     if (RefPtr pageClient = this->pageClient())
-        pageClient->accessibilityWebProcessTokenReceived(data, legacyMainFrameProcess().connection().remoteProcessID());
+        pageClient->accessibilityWebProcessTokenReceived(data, protectedLegacyMainFrameProcess()->protectedConnection()->remoteProcessID());
 }
 
 void WebPageProxy::relayAccessibilityNotification(const String& notificationName, std::span<const uint8_t> data)

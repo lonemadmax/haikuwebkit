@@ -77,6 +77,7 @@
 #import "WKNavigationDelegate.h"
 #import "WKNavigationInternal.h"
 #import "WKPDFConfiguration.h"
+#import "WKPDFView.h"
 #import "WKPreferencesInternal.h"
 #import "WKProcessPoolInternal.h"
 #import "WKSecurityOriginInternal.h"
@@ -174,6 +175,7 @@
 #import <wtf/UUID.h>
 #import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/SpanCocoa.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/spi/darwin/dyldSPI.h>
 #import <wtf/text/MakeString.h>
@@ -409,7 +411,7 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
 
     _page->setApplicationNameForDesktopUserAgent(configuration._applicationNameForDesktopUserAgent);
 
-    _navigationState = makeUnique<WebKit::NavigationState>(self);
+    _navigationState = makeUniqueWithoutRefCountedCheck<WebKit::NavigationState>(self);
     _page->setNavigationClient(_navigationState->createNavigationClient());
 
     _uiDelegate = makeUnique<WebKit::UIDelegate>(self);
@@ -588,6 +590,13 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
     pageConfiguration->preferences().setUsesSingleWebProcess(pool.usesSingleWebProcess());
 
     pageConfiguration->preferences().endBatchingUpdates();
+
+#if PLATFORM(APPLETV)
+    if (RefPtr dataStore = pageConfiguration->websiteDataStoreIfExists(); !dataStore || dataStore->isPersistent()) {
+        RELEASE_LOG_ERROR(API, "Created web view with persistent data store");
+        WTFReportBacktraceWithStackDepth(7);
+    }
+#endif
 }
 
 - (instancetype)initWithFrame:(CGRect)frame configuration:(WKWebViewConfiguration *)configuration
@@ -688,6 +697,14 @@ static uint32_t convertSystemLayoutDirection(NSUserInterfaceLayoutDirection dire
         return (__bridge id)[self serverTrust];
 
     return [super valueForUndefinedKey:key];
+}
+
+- (void)addObserver:(NSObject *)observer forKeyPath:(NSString *)keyPath options:(NSKeyValueObservingOptions)options context:(void *)context
+{
+    if ([keyPath isEqualToString:@"_webProcessState"])
+        _page->configuration().processPool().setWebProcessStateUpdatesForPageClientEnabled(true);
+
+    [super addObserver:observer forKeyPath:keyPath options:options context:context];
 }
 
 #pragma mark - macOS/iOS API
@@ -1825,6 +1842,11 @@ inline OptionSet<WebKit::FindOptions> toFindOptions(WKFindConfiguration *configu
     return _page.get();
 }
 
+- (RefPtr<WebKit::WebPageProxy>)_protectedPage
+{
+    return _page.get();
+}
+
 - (std::optional<BOOL>)_resolutionForShareSheetImmediateCompletionForTesting
 {
     return _resolutionForShareSheetImmediateCompletionForTesting;
@@ -2697,8 +2719,11 @@ static std::optional<ItemIdentifiers> coreTextManipulationItemIdentifierFromStri
     if (!processID || !*processID || !frameID || !*frameID || !itemID || !*itemID)
         return std::nullopt;
 
+    if (!ObjectIdentifier<WebCore::ProcessIdentifierType>::isValidIdentifier(*processID))
+        return std::nullopt;
+
     return ItemIdentifiers { WebCore::ProcessQualified(ObjectIdentifier<WebCore::FrameIdentifierType>(*frameID),
-        LegacyNullableObjectIdentifier<WebCore::ProcessIdentifierType>(*processID)),
+        ObjectIdentifier<WebCore::ProcessIdentifierType>(*processID)),
         LegacyNullableObjectIdentifier<WebCore::TextManipulationItemIdentifierType>(*itemID) };
 }
 
@@ -3168,8 +3193,8 @@ static void convertAndAddHighlight(Vector<Ref<WebCore::SharedMemory>>& buffers, 
 - (void)_loadAlternateHTMLString:(NSString *)string baseURL:(NSURL *)baseURL forUnreachableURL:(NSURL *)unreachableURL
 {
     THROW_IF_SUSPENDED;
-    auto *data = [string dataUsingEncoding:NSUTF8StringEncoding] ?: NSData.data;
-    _page->loadAlternateHTML(WebCore::DataSegment::create((__bridge CFDataRef)data), "UTF-8"_s, baseURL, unreachableURL);
+    RetainPtr data = bridge_cast([string dataUsingEncoding:NSUTF8StringEncoding] ?: NSData.data);
+    _page->loadAlternateHTML(WebCore::DataSegment::create(WTFMove(data)), "UTF-8"_s, baseURL, unreachableURL);
 }
 
 - (WKNavigation *)_loadData:(NSData *)data MIMEType:(NSString *)MIMEType characterEncodingName:(NSString *)characterEncodingName baseURL:(NSURL *)baseURL userData:(id)userData
@@ -4274,17 +4299,40 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
 
 - (BOOL)_isDisplayingPDF
 {
-#if PLATFORM(MAC)
-    if (RefPtr mainFrame = _page->mainFrame())
-        return mainFrame->isDisplayingPDFDocument();
-#else
-    for (auto& type : WebCore::MIMETypeRegistry::pdfMIMETypes()) {
-        Class providerClass = [[self _contentProviderRegistry] providerForMIMEType:@(type.characters())];
-        if ([_customContentView isKindOfClass:providerClass])
-            return YES;
-    }
+    auto mainFrameIsDisplayingPDFDocument = [page = WeakPtr { _page.get() }] {
+        if (!page)
+            return false;
+        if (RefPtr mainFrame = page->mainFrame())
+            return mainFrame->isDisplayingPDFDocument();
+        return false;
+    };
+
+    bool unifiedPDFEnabled = false;
+#if ENABLE(UNIFIED_PDF)
+    unifiedPDFEnabled = _page->preferences().unifiedPDFEnabled();
 #endif
-    return NO;
+
+    bool hasCustomContentViewForPDFType = false;
+#if ENABLE(WKPDFVIEW)
+    hasCustomContentViewForPDFType = [weakSelf = WeakObjCPtr<WKWebView>(self)] {
+        if (![WKPDFView platformSupportsPDFView])
+            return false;
+
+        RetainPtr strongSelf = weakSelf.get();
+        if (!strongSelf)
+            return false;
+
+        for (auto& type : WebCore::MIMETypeRegistry::pdfMIMETypes()) {
+            Class providerClass = [strongSelf->_contentProviderRegistry providerForMIMEType:@(type.characters())];
+            if ([strongSelf->_customContentView isKindOfClass:providerClass])
+                return true;
+        }
+
+        return false;
+    }();
+#endif
+
+    return static_cast<BOOL>(!unifiedPDFEnabled && hasCustomContentViewForPDFType ?: mainFrameIsDisplayingPDFDocument());
 }
 
 - (BOOL)_isDisplayingStandaloneImageDocument
@@ -4654,7 +4702,7 @@ static inline OptionSet<WebKit::FindOptions> toFindOptions(_WKFindOptions wkFind
 
 - (void)_setOverrideDeviceScaleFactor:(CGFloat)deviceScaleFactor
 {
-    _page->setCustomDeviceScaleFactor(deviceScaleFactor);
+    _page->setCustomDeviceScaleFactor(deviceScaleFactor, []() { });
 }
 
 - (CGFloat)_overrideDeviceScaleFactor
@@ -4807,6 +4855,23 @@ static Vector<Ref<API::TargetedElementInfo>> elementsFromWKElements(NSArray<_WKT
     _impl->removeTextAnimationForAnimationID(*uuid);
 #endif // PLATFORM(IOS_FAMILY)
 #endif // ENABLE(WRITING_TOOLS)
+}
+
+- (_WKWebProcessState)_webProcessState
+{
+    if (!_page || !_page->hasRunningProcess())
+        return _WKWebProcessStateNotRunning;
+
+    switch (_page->protectedLegacyMainFrameProcess()->throttleStateForStatistics()) {
+    case WebKit::ProcessThrottleState::Foreground:
+        return _WKWebProcessStateForeground;
+    case WebKit::ProcessThrottleState::Background:
+        return _WKWebProcessStateBackground;
+    case WebKit::ProcessThrottleState::Suspended:
+        return _WKWebProcessStateSuspended;
+    default:
+        return _WKWebProcessStateNotRunning;
+    }
 }
 
 @end

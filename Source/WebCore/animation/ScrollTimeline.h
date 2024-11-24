@@ -28,6 +28,7 @@
 #include "AnimationTimeline.h"
 #include "ScrollAxis.h"
 #include "ScrollTimelineOptions.h"
+#include "TimelineRange.h"
 #include <wtf/Ref.h>
 #include <wtf/WeakPtr.h>
 
@@ -45,7 +46,7 @@ public:
     static Ref<ScrollTimeline> create(const AtomString&, ScrollAxis);
     static Ref<ScrollTimeline> createFromCSSValue(const CSSScrollValue&);
 
-    Element* source() const { return m_source.get(); }
+    virtual Element* source() const { return m_source.get(); }
 
     ScrollAxis axis() const { return m_axis; }
     void setAxis(ScrollAxis axis) { m_axis = axis; }
@@ -66,11 +67,12 @@ protected:
 
 private:
     struct Data {
-        float maxScrollOffset = 0;
-        float scrollOffset = 0;
+        float scrollOffset { 0 };
+        float rangeStart { 0 };
+        float rangeEnd { 0 };
     };
 
-    Data computeScrollTimelineData() const;
+    Data computeScrollTimelineData(const TimelineRange& = { }) const;
 
     enum class Scroller : uint8_t { Nearest, Root, Self };
 

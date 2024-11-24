@@ -178,14 +178,14 @@ private:
             return;
 
         GRefPtr<WebKitURISchemeRequest> request = adoptGRef(webkitURISchemeRequestCreate(m_context, page, task));
-        auto addResult = m_requests.add({ task.resourceLoaderID(), task.pageProxyID() }, WTFMove(request));
+        auto addResult = m_requests.add({ task.resourceLoaderID(), *task.pageProxyID() }, WTFMove(request));
         ASSERT(addResult.isNewEntry);
         m_callback(addResult.iterator->value.get(), m_userData);
     }
 
     void platformStopTask(WebPageProxy&, WebURLSchemeTask& task) final
     {
-        auto it = m_requests.find({ task.resourceLoaderID(), task.pageProxyID() });
+        auto it = m_requests.find({ task.resourceLoaderID(), *task.pageProxyID() });
         if (it == m_requests.end())
             return;
 
@@ -195,7 +195,7 @@ private:
 
     void platformTaskCompleted(WebURLSchemeTask& task) final
     {
-        m_requests.remove({ task.resourceLoaderID(), task.pageProxyID() });
+        m_requests.remove({ task.resourceLoaderID(), *task.pageProxyID() });
     }
 
     WebKitWebContext* m_context { nullptr };
@@ -433,9 +433,11 @@ static void webkitWebContextConstructed(GObject* object)
     API::ProcessPoolConfiguration configuration;
     configuration.setInjectedBundlePath(FileSystem::stringFromFileSystemRepresentation(bundleFilename.get()));
     configuration.setUsesWebProcessCache(true);
-#if PLATFORM(GTK) && !USE(GTK4) && USE(CAIRO)
+#if PLATFORM(GTK) && !USE(GTK4)
     configuration.setProcessSwapsOnNavigation(priv->psonEnabled);
+#if USE(CAIRO)
     configuration.setUseSystemAppearanceForScrollbars(priv->useSystemAppearanceForScrollbars);
+#endif
 #else
     configuration.setProcessSwapsOnNavigation(true);
 #endif

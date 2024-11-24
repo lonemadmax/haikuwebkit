@@ -119,7 +119,7 @@ static Ref<NetworkStorageManager> createNetworkStorageManager(NetworkProcess& ne
     SandboxExtension::consumePermanently(parameters.indexedDBDirectoryExtensionHandle);
     SandboxExtension::consumePermanently(parameters.cacheStorageDirectoryExtensionHandle);
     SandboxExtension::consumePermanently(parameters.generalStorageDirectoryHandle);
-    IPC::Connection::UniqueID connectionID;
+    std::optional<IPC::Connection::UniqueID> connectionID;
     if (auto* connection = networkProcess.parentProcessConnection())
         connectionID = connection->uniqueID();
     String serviceWorkerStorageDirectory;
@@ -618,7 +618,7 @@ void NetworkSession::unregisterNetworkDataTask(NetworkDataTask& task)
 NetworkLoadScheduler& NetworkSession::networkLoadScheduler()
 {
     if (!m_networkLoadScheduler)
-        m_networkLoadScheduler = makeUnique<NetworkLoadScheduler>();
+        m_networkLoadScheduler = NetworkLoadScheduler::create();
     return *m_networkLoadScheduler;
 }
 
@@ -691,6 +691,11 @@ SWServer& NetworkSession::ensureSWServer()
         m_swServer = SWServer::create(*this, makeUniqueRef<WebSWOriginStore>(), info.processTerminationDelayEnabled, WTFMove(path), m_sessionID, shouldRunServiceWorkersOnMainThreadForTesting(), m_networkProcess->parentProcessHasServiceWorkerEntitlement(), overrideServiceWorkerRegistrationCountTestingValue(), inspectable);
     }
     return *m_swServer;
+}
+
+Ref<SWServer> NetworkSession::ensureProtectedSWServer()
+{
+    return ensureSWServer();
 }
 
 bool NetworkSession::hasServiceWorkerDatabasePath() const
@@ -812,9 +817,9 @@ std::unique_ptr<SWRegistrationStore> NetworkSession::createUniqueRegistrationSto
     return makeUnique<WebSWRegistrationStore>(server, m_storageManager.get());
 }
 
-std::unique_ptr<BackgroundFetchRecordLoader> NetworkSession::createBackgroundFetchRecordLoader(BackgroundFetchRecordLoaderClient& client, const WebCore::BackgroundFetchRequest& request, size_t responseDataSize, const ClientOrigin& clientOrigin)
+RefPtr<BackgroundFetchRecordLoader> NetworkSession::createBackgroundFetchRecordLoader(BackgroundFetchRecordLoaderClient& client, const WebCore::BackgroundFetchRequest& request, size_t responseDataSize, const ClientOrigin& clientOrigin)
 {
-    return makeUnique<BackgroundFetchLoad>(m_networkProcess.get(), m_sessionID, client, request, responseDataSize, clientOrigin);
+    return RefPtr { BackgroundFetchLoad::create(m_networkProcess.get(), m_sessionID, client, request, responseDataSize, clientOrigin) };
 }
 
 Ref<BackgroundFetchStore> NetworkSession::createBackgroundFetchStore()

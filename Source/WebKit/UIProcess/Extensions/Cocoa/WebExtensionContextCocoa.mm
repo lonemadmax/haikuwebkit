@@ -645,7 +645,7 @@ void WebExtensionContext::setUnsupportedAPIs(HashSet<String>&& unsupported)
 
 WebExtensionContext::InjectedContentVector WebExtensionContext::injectedContents() const
 {
-    InjectedContentVector result = m_extension->staticInjectedContents();
+    InjectedContentVector result = protectedExtension()->staticInjectedContents();
 
     for (auto& entry : m_registeredScriptsMap)
         result.append(entry.value->injectedContent());
@@ -1639,7 +1639,7 @@ WebExtensionContext::PermissionState WebExtensionContext::permissionState(const 
     if (skipRequestedPermissions)
         return cacheResultAndReturn(PermissionState::Unknown);
 
-    auto requestedMatchPatterns = m_extension->allRequestedMatchPatterns();
+    auto requestedMatchPatterns = protectedExtension()->allRequestedMatchPatterns();
     for (auto& requestedMatchPattern : requestedMatchPatterns) {
         if (urlMatchesPatternIgnoringWildcardHostPatterns(requestedMatchPattern))
             return cacheResultAndReturn(PermissionState::RequestedExplicitly);
@@ -1728,7 +1728,7 @@ WebExtensionContext::PermissionState WebExtensionContext::permissionState(const 
     if (options.contains(PermissionStateOptions::SkipRequestedPermissions))
         return PermissionState::Unknown;
 
-    auto requestedMatchPatterns = m_extension->allRequestedMatchPatterns();
+    auto requestedMatchPatterns = protectedExtension()->allRequestedMatchPatterns();
     for (auto& requestedMatchPattern : requestedMatchPatterns) {
         if (urlMatchesPatternIgnoringWildcardHostPatterns(requestedMatchPattern))
             return PermissionState::RequestedExplicitly;
@@ -2002,9 +2002,8 @@ RefPtr<WebExtensionTab> WebExtensionContext::getCurrentTab(WebPageProxyIdentifie
         if (includeExtensionViews == IncludeExtensionViews::No)
             return nullptr;
 
-        Ref webExtensionAction = entry.value;
-        RefPtr tab = webExtensionAction->tab();
-        RefPtr window = tab ? tab->window() : webExtensionAction->window();
+        RefPtr tab = entry.value->tab();
+        RefPtr window = tab ? tab->window() : entry.value->window();
         if (!tab && window)
             tab = window->activeTab();
 
@@ -2682,7 +2681,7 @@ Ref<WebExtensionAction> WebExtensionContext::getAction(WebExtensionWindow* windo
     if (!window)
         return defaultAction();
 
-    if (auto *windowAction = m_actionWindowMap.get(*window))
+    if (RefPtr windowAction = m_actionWindowMap.get(*window))
         return *windowAction;
 
     return defaultAction();
@@ -2693,7 +2692,7 @@ Ref<WebExtensionAction> WebExtensionContext::getAction(WebExtensionTab* tab)
     if (!tab)
         return defaultAction();
 
-    if (auto *tabAction = m_actionTabMap.get(*tab))
+    if (RefPtr tabAction = m_actionTabMap.get(*tab))
         return *tabAction;
 
     return getAction(tab->window().get());
@@ -2705,7 +2704,7 @@ Ref<WebExtensionAction> WebExtensionContext::getOrCreateAction(WebExtensionWindo
         return defaultAction();
 
     return m_actionWindowMap.ensure(*window, [&] {
-        return WebExtensionAction::create(*this);
+        return WebExtensionAction::create(*this, *window);
     }).iterator->value;
 }
 
@@ -3183,7 +3182,7 @@ Vector<WebExtensionContext::PageIdentifierTuple> WebExtensionContext::inspectorP
         auto tabIdentifier = tab ? std::optional(tab->identifier()) : std::nullopt;
         auto windowIdentifier = window ? std::optional(window->identifier()) : std::nullopt;
 
-        result.append({ inspector->protectedInspectorPage()->webPageIDInMainFrameProcess(), tabIdentifier, windowIdentifier });
+        result.append({ Ref { inspector }->protectedInspectorPage()->webPageIDInMainFrameProcess(), tabIdentifier, windowIdentifier });
     }
 
     return result;
@@ -3246,7 +3245,7 @@ void WebExtensionContext::addExtensionTabPage(WebPageProxy& page, WebExtensionTa
     RefPtr window = tab.window();
     auto windowIdentifier = window ? std::optional(window->identifier()) : std::nullopt;
 
-    page.legacyMainFrameProcess().send(Messages::WebExtensionContextProxy::AddTabPageIdentifier(page.webPageIDInMainFrameProcess(), tab.identifier(), windowIdentifier), identifier());
+    page.protectedLegacyMainFrameProcess()->send(Messages::WebExtensionContextProxy::AddTabPageIdentifier(page.webPageIDInMainFrameProcess(), tab.identifier(), windowIdentifier), identifier());
 }
 
 void WebExtensionContext::enumerateExtensionPages(Function<void(WebPageProxy&, bool&)>&& action)
@@ -3299,15 +3298,16 @@ ALLOW_NONLITERAL_FORMAT_END
 NSArray *WebExtensionContext::corsDisablingPatterns()
 {
     NSMutableSet<NSString *> *patterns = [NSMutableSet set];
+    RefPtr extension = m_extension;
 
-    auto requestedMatchPatterns = m_extension->allRequestedMatchPatterns();
+    auto requestedMatchPatterns = extension->allRequestedMatchPatterns();
     for (auto& requestedMatchPattern : requestedMatchPatterns)
         [patterns addObjectsFromArray:createNSArray(requestedMatchPattern->expandedStrings()).get()];
 
     // Include manifest optional permission origins here, these should be dynamically added when the are granted
     // but we need SPI to update corsDisablingPatterns outside of the WKWebViewConfiguration to do that.
     // FIXME: rdar://102912898 (CORS for Web Extension pages should respect granted per-site permissions)
-    auto optionalPermissionMatchPatterns = m_extension->optionalPermissionMatchPatterns();
+    auto optionalPermissionMatchPatterns = extension->optionalPermissionMatchPatterns();
     for (auto& optionalMatchPattern : optionalPermissionMatchPatterns)
         [patterns addObjectsFromArray:createNSArray(optionalMatchPattern->expandedStrings()).get()];
 
@@ -4344,9 +4344,11 @@ void WebExtensionContext::addInjectedContent(const InjectedContentVector& inject
         auto scriptID = injectedContentData.identifier;
         bool isRegisteredScript = !scriptID.isEmpty();
 
+        RefPtr extension = m_extension;
+
         for (NSString *scriptPath : injectedContentData.scriptPaths) {
             NSError *error;
-            auto *scriptString = m_extension->resourceStringForPath(scriptPath, &error, WebExtension::CacheResult::Yes);
+            auto *scriptString = extension->resourceStringForPath(scriptPath, &error, WebExtension::CacheResult::Yes);
             if (!scriptString) {
                 recordError(error);
                 continue;
@@ -4370,7 +4372,7 @@ void WebExtensionContext::addInjectedContent(const InjectedContentVector& inject
 
         for (NSString *styleSheetPath : injectedContentData.styleSheetPaths) {
             NSError *error;
-            auto *styleSheetString = m_extension->resourceStringForPath(styleSheetPath, &error, WebExtension::CacheResult::Yes);
+            auto *styleSheetString = extension->resourceStringForPath(styleSheetPath, &error, WebExtension::CacheResult::Yes);
             if (!styleSheetString) {
                 recordError(error);
                 continue;
@@ -4549,7 +4551,7 @@ static NSString *computeStringHashForContentBlockerRules(NSString *rules)
 
 void WebExtensionContext::compileDeclarativeNetRequestRules(NSArray *rulesData, CompletionHandler<void(bool)>&& completionHandler)
 {
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0), makeBlockPtr([this, protectedThis = Ref { *this }, rulesData = RetainPtr { rulesData }, completionHandler = WTFMove(completionHandler)]() mutable {
+    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), makeBlockPtr([this, protectedThis = Ref { *this }, rulesData = RetainPtr { rulesData }, completionHandler = WTFMove(completionHandler)]() mutable {
         NSArray<NSString *> *jsonDeserializationErrorStrings;
         auto *allJSONObjects = [_WKWebExtensionDeclarativeNetRequestTranslator jsonObjectsFromData:rulesData.get() errorStrings:&jsonDeserializationErrorStrings];
 

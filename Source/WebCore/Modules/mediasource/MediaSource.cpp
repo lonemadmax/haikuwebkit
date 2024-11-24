@@ -187,7 +187,7 @@ private:
     }
 
 #if !RELEASE_LOG_DISABLED
-    void setLogIdentifier(const void* identifier)
+    void setLogIdentifier(uint64_t identifier)
     {
         ensureWeakOnDispatcher([identifier](MediaSource& parent) {
             parent.setLogIdentifier(identifier);
@@ -1484,7 +1484,7 @@ void MediaSource::notifyElementUpdateMediaState() const
 void MediaSource::ensureWeakOnHTMLMediaElementContext(Function<void(HTMLMediaElement&)>&& task) const
 {
     ensureOnMainThread([weakMediaElement = m_mediaElement, task = WTFMove(task)]() mutable {
-        if (RefPtrAllowingPartiallyDestroyed<HTMLMediaElement> mediaElement = weakMediaElement.get())
+        if (RefPtr<HTMLMediaElement> mediaElement = weakMediaElement.get())
             task(*mediaElement);
     });
 }
@@ -1552,7 +1552,7 @@ void MediaSource::updateBufferedIfNeeded(bool force)
 }
 
 #if !RELEASE_LOG_DISABLED
-void MediaSource::setLogIdentifier(const void* identifier)
+void MediaSource::setLogIdentifier(uint64_t identifier)
 {
     m_logIdentifier = identifier;
     ALWAYS_LOG(LOGIDENTIFIER);

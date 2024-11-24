@@ -45,7 +45,7 @@ class RemoteCDMInstanceSessionProxy final : private IPC::MessageReceiver, privat
 public:
     static std::unique_ptr<RemoteCDMInstanceSessionProxy> create(WeakPtr<RemoteCDMProxy>&&, Ref<WebCore::CDMInstanceSession>&&, uint64_t logIdentifier, RemoteCDMInstanceSessionIdentifier);
     virtual ~RemoteCDMInstanceSessionProxy();
-    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const;
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
 
 private:
     friend class RemoteCDMFactoryProxy;
@@ -83,6 +83,7 @@ private:
     PlatformDisplayID displayID() final { return m_displayID; }
 
     RefPtr<RemoteCDMProxy> protectedCdm() const;
+    Ref<WebCore::CDMInstanceSession> protectedSession() const { return m_session; }
 
     WeakPtr<RemoteCDMProxy> m_cdm;
     Ref<WebCore::CDMInstanceSession> m_session;

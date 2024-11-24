@@ -76,17 +76,7 @@ option(USE_64KB_PAGE_BLOCK "Support 64 KB userspace page size (reduces security 
 macro(WEBKIT_OPTION_BEGIN)
     set(_SETTING_WEBKIT_OPTIONS TRUE)
 
-    if (WTF_OS_WINDOWS)
-        set(ENABLE_JIT_DEFAULT OFF)
-        set(ENABLE_FTL_DEFAULT OFF)
-        set(USE_SYSTEM_MALLOC_DEFAULT ON)
-        if (WTF_CPU_X86_64)
-            set(ENABLE_C_LOOP_DEFAULT OFF)
-        else ()
-            set(ENABLE_C_LOOP_DEFAULT ON)
-        endif ()
-        set(ENABLE_SAMPLING_PROFILER_DEFAULT OFF)
-    elseif (USE_64KB_PAGE_BLOCK)
+    if (USE_64KB_PAGE_BLOCK)
         set(ENABLE_JIT_DEFAULT OFF)
         set(ENABLE_FTL_DEFAULT OFF)
         set(USE_SYSTEM_MALLOC_DEFAULT ON)
@@ -348,6 +338,11 @@ macro(WEBKIT_OPTION_END)
             mark_as_advanced(FORCE ${_name})
         endif ()
     endforeach ()
+
+    if (ENABLE_LAYOUT_TESTS AND NOT DEVELOPER_MODE)
+        set(ENABLE_LAYOUT_TESTS OFF)
+        message(STATUS "Disabling ENABLE_LAYOUT_TESTS since DEVELOPER_MODE is disabled.")
+    endif ()
 
     # Run through every possible depends to make sure we have disabled anything
     # that could cause an unnecessary conflict before processing conflicts.

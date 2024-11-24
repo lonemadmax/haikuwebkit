@@ -29,7 +29,6 @@
 #include "WebAnimationTypes.h"
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
-#include <wtf/Seconds.h>
 #include <wtf/WeakPtr.h>
 
 namespace WebCore {
@@ -50,8 +49,8 @@ public:
     virtual void animationTimingDidChange(WebAnimation&);
     virtual void removeAnimation(WebAnimation&);
 
-    std::optional<double> bindingsCurrentTime();
-    virtual std::optional<Seconds> currentTime() { return m_currentTime; }
+    virtual std::optional<CSSNumberishTime> currentTime() { return m_currentTime; }
+    virtual std::optional<CSSNumberishTime> duration() const { return m_duration; }
 
     virtual void detachFromDocument();
 
@@ -65,14 +64,15 @@ public:
     virtual AnimationTimelinesController* controller() const { return nullptr; }
 
 protected:
-    AnimationTimeline();
+    AnimationTimeline(std::optional<CSSNumberishTime> = std::nullopt);
 
     AnimationCollection m_animations;
 
 private:
     void updateGlobalPosition(WebAnimation&);
 
-    Markable<Seconds, Seconds::MarkableTraits> m_currentTime;
+    std::optional<CSSNumberishTime> m_currentTime;
+    std::optional<CSSNumberishTime> m_duration;
 };
 
 } // namespace WebCore

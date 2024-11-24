@@ -74,9 +74,13 @@ protected:
     AuxiliaryProcessProxy(ShouldTakeUIBackgroundAssertion, AlwaysRunsAtBackgroundPriority = AlwaysRunsAtBackgroundPriority::No, Seconds responsivenessTimeout = ResponsivenessTimer::defaultResponsivenessTimeout);
 
 public:
-    using ResponsivenessTimer::Client::weakPtrFactory;
-    using ResponsivenessTimer::Client::WeakValueType;
-    using ResponsivenessTimer::Client::WeakPtrImplType;
+    USING_CAN_MAKE_WEAKPTR(ResponsivenessTimer::Client);
+
+    // ProcessLauncher::Client
+    uint32_t ptrCount() const final { return IPC::Connection::Client::ptrCount(); }
+    uint32_t ptrCountWithoutThreadCheck() const final { return IPC::Connection::Client::ptrCountWithoutThreadCheck(); }
+    void incrementPtrCount() const final { IPC::Connection::Client::incrementPtrCount(); }
+    void decrementPtrCount() const final { IPC::Connection::Client::decrementPtrCount(); }
 
     virtual ~AuxiliaryProcessProxy();
 
@@ -345,12 +349,13 @@ AuxiliaryProcessProxy::SendSyncResult<T> AuxiliaryProcessProxy::sendSync(T&& mes
 {
     static_assert(T::isSync, "Sync message expected");
 
-    if (!m_connection)
+    RefPtr connection = m_connection;
+    if (!connection)
         return { IPC::Error::InvalidConnection };
 
     TraceScope scope(SyncMessageStart, SyncMessageEnd);
 
-    return connection().sendSync(std::forward<T>(message), destinationID, timeout, sendSyncOptions);
+    return connection->sendSync(std::forward<T>(message), destinationID, timeout, sendSyncOptions);
 }
 
 template<typename T, typename C>

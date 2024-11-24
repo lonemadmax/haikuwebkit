@@ -112,7 +112,7 @@ void AXIsolatedTree::createEmptyContent(AccessibilityObject& axRoot)
     root->setProperty(AXPropertyName::ScreenRelativePosition, axRoot.screenRelativePosition());
     NodeChange rootAppend { root, axRoot.wrapper(), AttachWrapper::OnMainThread };
 
-    RefPtr axWebArea = Accessibility::findChild(axRoot, [] (auto& object) {
+    RefPtr axWebArea = Accessibility::findUnignoredChild(axRoot, [] (auto& object) {
         return object->isWebArea();
     });
     if (!axWebArea) {
@@ -256,8 +256,12 @@ void AXIsolatedTree::generateSubtree(AccessibilityObject& axObject)
 
 bool AXIsolatedTree::shouldCreateNodeChange(AccessibilityObject& axObject)
 {
-    // We should never create an isolated object from a detached or ignored object.
-    return !axObject.isDetached() && (!axObject.isIgnored() || m_unconnectedNodes.contains(axObject.objectID()));
+    // We should never create an isolated object from a detached or ignored object, unless we aren't
+    // enforcing ignored in the core accessibility tree.
+    return !axObject.isDetached()
+        && (axObject.includeIgnoredInCoreTree()
+            || !axObject.isIgnored()
+            || m_unconnectedNodes.contains(axObject.objectID()));
 }
 
 std::optional<AXIsolatedTree::NodeChange> AXIsolatedTree::nodeChangeForObject(Ref<AccessibilityObject> axObject, AttachWrapper attachWrapper)
@@ -418,7 +422,7 @@ void AXIsolatedTree::queueAppendsAndRemovals(Vector<NodeChange>&& appends, Vecto
     queueRemovalsLocked(WTFMove(subtreeRemovals));
 }
 
-void AXIsolatedTree::collectNodeChangesForSubtree(AXCoreObject& axObject)
+void AXIsolatedTree::collectNodeChangesForSubtree(AccessibilityObject& axObject)
 {
     AXTRACE("AXIsolatedTree::collectNodeChangesForSubtree"_s);
     AXLOG(axObject);
@@ -433,7 +437,7 @@ void AXIsolatedTree::collectNodeChangesForSubtree(AXCoreObject& axObject)
     if (m_collectingNodeChangesAtTreeLevel >= m_maxTreeDepth)
         return;
 
-    auto* axParent = axObject.parentObjectUnignored();
+    auto* axParent = axObject.parentInCoreTree();
     auto iterator = m_nodeMap.find(axObject.objectID());
     if (iterator == m_nodeMap.end())
         m_unresolvedPendingAppends.set(axObject.objectID(), AttachWrapper::OnMainThread);
@@ -459,7 +463,7 @@ void AXIsolatedTree::collectNodeChangesForSubtree(AXCoreObject& axObject)
         }
 
         axChildrenIDs.append(axChild->objectID());
-        collectNodeChangesForSubtree(*axChild);
+        collectNodeChangesForSubtree(downcast<AccessibilityObject>(*axChild));
     }
     axChildrenIDs.shrinkToFit();
 
@@ -499,7 +503,7 @@ void AXIsolatedTree::updateNode(AccessibilityObject& axObject)
     if (!axObject.isDescendantOfBarrenParent())
         return;
 
-    auto* axParent = axObject.parentObjectUnignored();
+    auto* axParent = axObject.parentInCoreTree();
     if (!axParent)
         return;
 
@@ -521,7 +525,7 @@ void AXIsolatedTree::updatePropertiesForSelfAndDescendants(AccessibilityObject& 
     for (const auto& property : properties)
         propertySet.add(property);
 
-    Accessibility::enumerateDescendants<AXCoreObject>(axObject, true, [&propertySet, this] (auto& descendant) {
+    Accessibility::enumerateUnignoredDescendants<AXCoreObject>(axObject, true, [&propertySet, this] (auto& descendant) {
         queueNodeUpdate(descendant.objectID(), { propertySet });
     });
 }
@@ -841,7 +845,7 @@ void AXIsolatedTree::updateChildren(AccessibilityObject& axObject, ResolveNodeCh
 
                 // This child should be added to the isolated tree but hasn't been yet.
                 // Add it to the nodemap so the recursive call to updateChildren below properly builds the subtree for this object.
-                auto* parent = liveChild->parentObjectUnignored();
+                auto* parent = axObject.parentInCoreTree();
                 m_nodeMap.set(liveChild->objectID(), ParentChildrenIDs { parent ? parent->objectID() : AXID(), liveChild->childrenIDs() });
                 m_unresolvedPendingAppends.set(liveChild->objectID(), AttachWrapper::OnMainThread);
             }
@@ -880,7 +884,7 @@ void AXIsolatedTree::updateChildren(AccessibilityObject& axObject, ResolveNodeCh
             childrenChanged = true;
             AXLOG(makeString("AXID "_s, axAncestor->objectID().loggingString(), " gaining new subtree, starting at ID "_s, newChildren[i]->objectID().loggingString(), ':'));
             AXLOG(newChildren[i]);
-            collectNodeChangesForSubtree(*newChildren[i]);
+            collectNodeChangesForSubtree(downcast<AccessibilityObject>(*newChildren[i]));
         }
     }
     m_nodeMap.set(axAncestor->objectID(), ParentChildrenIDs { oldIDs.parentID, WTFMove(newChildrenIDs) });
@@ -987,6 +991,17 @@ RefPtr<AXIsolatedObject> AXIsolatedTree::rootNode()
     return m_rootNode;
 }
 
+RefPtr<AXIsolatedObject> AXIsolatedTree::rootWebArea()
+{
+    AXTRACE("AXIsolatedTree::rootWebArea"_s);
+    ASSERT(!isMainThread());
+
+    RefPtr root = rootNode();
+    return root ? Accessibility::findUnignoredChild(*root, [] (auto& object) {
+        return object->isWebArea();
+    }) : nullptr;
+}
+
 void AXIsolatedTree::setRootNode(AXIsolatedObject* root)
 {
     AXTRACE("AXIsolatedTree::setRootNode"_s);
@@ -1087,7 +1102,7 @@ void AXIsolatedTree::removeNode(const AccessibilityObject& axObject)
     }
 
     m_unresolvedPendingAppends.remove(axObject.objectID());
-    removeSubtreeFromNodeMap(axObject.objectID(), axObject.parentObjectUnignored());
+    removeSubtreeFromNodeMap(axObject.objectID(), axObject.parentInCoreTree());
     queueRemovals({ axObject.objectID() });
 }
 
@@ -1352,8 +1367,12 @@ void AXIsolatedTree::processQueuedNodeUpdates()
 #if ENABLE(AX_THREAD_TEXT_APIS)
 AXTextMarker AXIsolatedTree::firstMarker()
 {
-    RefPtr root = rootNode();
-    return root ? AXTextMarker { root->treeID(), root->objectID(), 0 } : AXTextMarker();
+    ASSERT(!isMainThread());
+    // The first marker should be constructed from the root WebArea, not the true root of the tree
+    // which is the ScrollView, so that when we convert the marker to a CharacterPosition, there
+    // is an associated node. Otherwise, the CharacterPosition will be null.
+    RefPtr webArea = rootWebArea();
+    return webArea ? AXTextMarker { webArea->treeID(), webArea->objectID(), 0 } : AXTextMarker();
 }
 
 AXTextMarker AXIsolatedTree::lastMarker()
@@ -1362,7 +1381,7 @@ AXTextMarker AXIsolatedTree::lastMarker()
     if (!root)
         return { };
 
-    const auto& children = root->children();
+    const auto& children = root->unignoredChildren();
     // Start the `findLast` traversal from the last child of the root to reduce the amount of traversal done.
     RefPtr endObject = children.isEmpty() ? root : dynamicDowncast<AXIsolatedObject>(children[children.size() - 1].get());
     return AXTextMarker { endObject->treeID(), endObject->objectID(), 0 }.findLast();

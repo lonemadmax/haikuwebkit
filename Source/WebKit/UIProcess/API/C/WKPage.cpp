@@ -275,7 +275,9 @@ static std::span<const uint8_t> dataFrom(const String& string)
 
 static Ref<WebCore::DataSegment> dataReferenceFrom(const String& string)
 {
-    return WebCore::DataSegment::create(dataFrom(string));
+    return WebCore::DataSegment::create(WebCore::DataSegment::Provider { [span = dataFrom(string)]() {
+        return span;
+    } });
 }
 
 static void loadString(WKPageRef pageRef, WKStringRef stringRef, const String& mimeType, const String& baseURL, WKTypeRef userDataRef)
@@ -626,7 +628,15 @@ double WKPageGetBackingScaleFactor(WKPageRef pageRef)
 void WKPageSetCustomBackingScaleFactor(WKPageRef pageRef, double customScaleFactor)
 {
     CRASH_IF_SUSPENDED;
-    toImpl(pageRef)->setCustomDeviceScaleFactor(customScaleFactor);
+    toImpl(pageRef)->setCustomDeviceScaleFactor(customScaleFactor, [] { });
+}
+
+void WKPageSetCustomBackingScaleFactorWithCallback(WKPageRef pageRef, double customScaleFactor, void* context, WKPageSetCustomBackingScaleFactorFunction completionHandler)
+{
+    CRASH_IF_SUSPENDED;
+    toImpl(pageRef)->setCustomDeviceScaleFactor(customScaleFactor, [context, completionHandler] {
+        completionHandler(context);
+    });
 }
 
 bool WKPageSupportsTextZoom(WKPageRef pageRef)
@@ -662,7 +672,7 @@ void WKPageSetPageAndTextZoomFactors(WKPageRef pageRef, double pageZoomFactor, d
 void WKPageSetScaleFactor(WKPageRef pageRef, double scale, WKPoint origin)
 {
     CRASH_IF_SUSPENDED;
-    toImpl(pageRef)->scalePage(scale, toIntPoint(origin));
+    toImpl(pageRef)->scalePage(scale, toIntPoint(origin), [] { });
 }
 
 double WKPageGetScaleFactor(WKPageRef pageRef)
@@ -2432,14 +2442,22 @@ void WKPageSetPageNavigationClient(WKPageRef pageRef, const WKPageNavigationClie
     webPageProxy->setNavigationClient(makeUniqueRef<NavigationClient>(wkClient));
 }
 
-class StateClient final : public API::Client<WKPageStateClientBase>, public PageLoadState::Observer {
+class StateClient final : public RefCounted<StateClient>, public API::Client<WKPageStateClientBase>, public PageLoadState::Observer {
     WTF_MAKE_TZONE_ALLOCATED_INLINE(StateClient);
 public:
+    static Ref<StateClient> create(const WKPageStateClientBase* client)
+    {
+        return adoptRef(*new StateClient(client));
+    }
+
+    DEFINE_VIRTUAL_REFCOUNTED;
+
+private:
     explicit StateClient(const WKPageStateClientBase* client)
     {
         initialize(client);
     }
-private:
+
     void willChangeIsLoading() override
     {
         if (!m_client.willChangeIsLoading)
@@ -2592,7 +2610,7 @@ void WKPageSetPageStateClient(WKPageRef pageRef, WKPageStateClientBase* client)
 {
     CRASH_IF_SUSPENDED;
     if (client)
-        toImpl(pageRef)->setPageLoadStateObserver(makeUnique<StateClient>(client));
+        toImpl(pageRef)->setPageLoadStateObserver(StateClient::create(client));
     else
         toImpl(pageRef)->setPageLoadStateObserver(nullptr);
 }
@@ -3308,11 +3326,7 @@ void WKPageSetTopContentInsetForTesting(WKPageRef pageRef, float contentInset, v
 
 void WKPageSetPageScaleFactorForTesting(WKPageRef pageRef, float scaleFactor, WKPoint point, void* context, WKPageSetPageScaleFactorForTestingFunction completionHandler)
 {
-    auto* pageForTesting = toImpl(pageRef)->pageForTesting();
-    if (!pageForTesting)
-        return completionHandler(context);
-
-    pageForTesting->setPageScaleFactor(scaleFactor, toIntPoint(point), [context, completionHandler] {
+    toImpl(pageRef)->scalePage(scaleFactor, toIntPoint(point), [context, completionHandler] {
         completionHandler(context);
     });
 }

@@ -52,7 +52,6 @@
 #include "CSSPropertyParserConsumer+String.h"
 #include "CSSPropertyParserConsumer+Time.h"
 #include "CSSPropertyParserConsumer+URL.h"
-#include "CSSPropertyParserConsumer+UnevaluatedCalc.h"
 #include "CSSPropertyParsing.h"
 
 #include "CSSBackgroundRepeatValue.h"
@@ -548,17 +547,18 @@ RefPtr<CSSValue> consumeTextUnderlinePosition(CSSParserTokenRange& range, const 
     return nullptr;
 }
 
-static RefPtr<CSSValue> consumeAutoOrLengthPercentage(CSSParserTokenRange& range, const CSSParserContext& context, UnitlessQuirk unitless, AnchorPolicy anchorPolicy = AnchorPolicy::Forbid)
+static RefPtr<CSSValue> consumeAutoOrLengthPercentage(CSSParserTokenRange& range, const CSSParserContext& context, UnitlessQuirk unitless, AnchorPolicy anchorPolicy = AnchorPolicy::Forbid, AnchorSizePolicy anchorSizePolicy = AnchorSizePolicy::Forbid)
 {
     if (range.peek().id() == CSSValueAuto)
         return consumeIdent(range);
-    return consumeLengthPercentage(range, context, ValueRange::All, unitless, UnitlessZeroQuirk::Allow, NegativePercentagePolicy::Forbid, anchorPolicy);
+    return consumeLengthPercentage(range, context, ValueRange::All, unitless, UnitlessZeroQuirk::Allow, NegativePercentagePolicy::Forbid, anchorPolicy, anchorSizePolicy);
 }
 
 RefPtr<CSSValue> consumeMarginSide(CSSParserTokenRange& range, const CSSParserContext& context, CSSPropertyID currentShorthand)
 {
     UnitlessQuirk unitless = currentShorthand != CSSPropertyInset ? UnitlessQuirk::Allow : UnitlessQuirk::Forbid;
-    return consumeAutoOrLengthPercentage(range, context, unitless);
+    AnchorSizePolicy anchorSizePolicy = context.propertySettings.cssAnchorPositioningEnabled ? AnchorSizePolicy::Allow : AnchorSizePolicy::Forbid;
+    return consumeAutoOrLengthPercentage(range, context, unitless, AnchorPolicy::Forbid, anchorSizePolicy);
 }
 
 RefPtr<CSSValue> consumeMarginTrim(CSSParserTokenRange& range, const CSSParserContext&)
@@ -589,13 +589,15 @@ RefPtr<CSSValue> consumeSide(CSSParserTokenRange& range, const CSSParserContext&
 {
     UnitlessQuirk unitless = currentShorthand != CSSPropertyInset ? UnitlessQuirk::Allow : UnitlessQuirk::Forbid;
     AnchorPolicy anchorPolicy = context.propertySettings.cssAnchorPositioningEnabled ? AnchorPolicy::Allow : AnchorPolicy::Forbid;
-    return consumeAutoOrLengthPercentage(range, context, unitless, anchorPolicy);
+    AnchorSizePolicy anchorSizePolicy = context.propertySettings.cssAnchorPositioningEnabled ? AnchorSizePolicy::Allow : AnchorSizePolicy::Forbid;
+    return consumeAutoOrLengthPercentage(range, context, unitless, anchorPolicy, anchorSizePolicy);
 }
 
 RefPtr<CSSValue> consumeInsetLogicalStartEnd(CSSParserTokenRange& range, const CSSParserContext& context)
 {
     AnchorPolicy anchorPolicy = context.propertySettings.cssAnchorPositioningEnabled ? AnchorPolicy::Allow : AnchorPolicy::Forbid;
-    return consumeAutoOrLengthPercentage(range, context, UnitlessQuirk::Forbid, anchorPolicy);
+    AnchorSizePolicy anchorSizePolicy = context.propertySettings.cssAnchorPositioningEnabled ? AnchorSizePolicy::Allow : AnchorSizePolicy::Forbid;
+    return consumeAutoOrLengthPercentage(range, context, UnitlessQuirk::Forbid, anchorPolicy, anchorSizePolicy);
 }
 
 static RefPtr<CSSPrimitiveValue> consumeClipComponent(CSSParserTokenRange& range, const CSSParserContext& context)
@@ -2430,45 +2432,6 @@ RefPtr<CSSValue> consumeTextAutospace(CSSParserTokenRange& range, const CSSParse
     if (list.isEmpty())
         return nullptr;
     return CSSValueList::createSpaceSeparated(WTFMove(list));
-}
-
-RefPtr<CSSPrimitiveValue> consumeAnchor(CSSParserTokenRange& range, const CSSParserContext& context)
-{
-    // https://drafts.csswg.org/css-anchor-position-1/#anchor-pos
-    // <anchor()> = anchor( <anchor-element>? && <anchor-side>, <length-percentage>? )
-    if (range.peek().type() != FunctionToken || range.peek().functionId() != CSSValueAnchor)
-        return nullptr;
-
-    auto rangeCopy = range;
-    auto args = consumeFunction(rangeCopy);
-    if (!args.size())
-        return nullptr;
-
-    auto anchorElement = consumeDashedIdent(args);
-    auto anchorSidePtr = CSSPropertyParsing::consumeAnchorSide(args, context);
-    if (!anchorSidePtr)
-        return nullptr;
-    auto anchorSide = anchorSidePtr.releaseNonNull();
-
-    if (!anchorElement)
-        anchorElement = consumeDashedIdent(args);
-
-    if (!args.size()) {
-        range = rangeCopy;
-        auto anchor = CSSAnchorValue::create(WTFMove(anchorElement), WTFMove(anchorSide), nullptr);
-        return CSSPrimitiveValue::create(anchor);
-    }
-
-    if (!consumeCommaIncludingWhitespace(args))
-        return nullptr;
-
-    auto fallback = consumeLengthPercentage(args, context, ValueRange::All, UnitlessQuirk::Forbid, UnitlessZeroQuirk::Forbid, NegativePercentagePolicy::Allow, AnchorPolicy::Allow);
-    if (!fallback || args.size())
-        return nullptr;
-
-    range = rangeCopy;
-    auto anchor = CSSAnchorValue::create(WTFMove(anchorElement), WTFMove(anchorSide), WTFMove(fallback));
-    return CSSPrimitiveValue::create(anchor);
 }
 
 } // namespace CSSPropertyParserHelpers

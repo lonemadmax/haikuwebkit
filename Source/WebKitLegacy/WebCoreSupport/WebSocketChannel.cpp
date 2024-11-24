@@ -111,8 +111,7 @@ WebSocketChannel::ConnectStatus WebSocketChannel::connect(const URL& requestedUR
     m_handshake = makeUnique<WebSocketHandshake>(validatedURL->url, protocol, userAgent, clientOrigin, m_allowCookies, isAppInitiated);
     m_handshake->reset();
     m_handshake->addExtensionProcessor(m_deflateFramer.createExtensionProcessor());
-    if (m_progressIdentifier)
-        LegacyWebSocketInspectorInstrumentation::didCreateWebSocket(m_document.get(), m_progressIdentifier, validatedURL->url);
+    LegacyWebSocketInspectorInstrumentation::didCreateWebSocket(m_document.get(), m_progressIdentifier, validatedURL->url);
 
     auto* frame = m_document->frame();
     auto* page = m_document->page();
@@ -258,7 +257,7 @@ void WebSocketChannel::fail(String&& reason)
 void WebSocketChannel::disconnect()
 {
     LOG(Network, "WebSocketChannel %p disconnect()", this);
-    if (m_progressIdentifier && m_document)
+    if (m_document)
         LegacyWebSocketInspectorInstrumentation::didCloseWebSocket(m_document.get(), m_progressIdentifier);
     m_client = nullptr;
     m_document = nullptr;
@@ -284,7 +283,7 @@ void WebSocketChannel::didOpenSocketStream(SocketStreamHandle& handle)
     ASSERT(&handle == m_handle);
     if (!m_document)
         return;
-    if (m_progressIdentifier && UNLIKELY(LegacyWebSocketInspectorInstrumentation::hasFrontends())) {
+    if (UNLIKELY(LegacyWebSocketInspectorInstrumentation::hasFrontends())) {
         auto cookieRequestHeaderFieldValue = [document = m_document] (const URL& url) -> String {
             if (!document || !document->page())
                 return { };
@@ -308,7 +307,7 @@ void WebSocketChannel::didOpenSocketStream(SocketStreamHandle& handle)
 void WebSocketChannel::didCloseSocketStream(SocketStreamHandle& handle)
 {
     LOG(Network, "WebSocketChannel %p didCloseSocketStream()", this);
-    if (m_progressIdentifier && m_document)
+    if (m_document)
         LegacyWebSocketInspectorInstrumentation::didCloseWebSocket(m_document.get(), m_progressIdentifier);
     ASSERT_UNUSED(handle, &handle == m_handle || !m_handle);
     m_closed = true;
@@ -471,8 +470,7 @@ bool WebSocketChannel::processBuffer()
         if (headerLength <= 0)
             return false;
         if (m_handshake->mode() == WebSocketHandshake::Connected) {
-            if (m_progressIdentifier)
-                LegacyWebSocketInspectorInstrumentation::didReceiveWebSocketHandshakeResponse(m_document.get(), m_progressIdentifier, m_handshake->serverHandshakeResponse());
+            LegacyWebSocketInspectorInstrumentation::didReceiveWebSocketHandshakeResponse(m_document.get(), m_progressIdentifier, m_handshake->serverHandshakeResponse());
             String serverSetCookie = m_handshake->serverSetCookie();
             if (!serverSetCookie.isEmpty()) {
                 if (m_document && m_document->page() && m_document->page()->cookieJar().cookiesEnabled(*m_document))

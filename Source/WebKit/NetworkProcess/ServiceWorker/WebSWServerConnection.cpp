@@ -87,7 +87,7 @@ WebSWServerConnection::~WebSWServerConnection()
 {
     if (CheckedPtr session = this->session())
         session->unregisterSWServerConnection(*this);
-    RefAllowingPartiallyDestroyed<SWServer> server = this->server();
+    Ref<SWServer> server = this->server();
     for (const auto& keyValue : m_clientOrigins)
         server->unregisterServiceWorkerClient(keyValue.value, keyValue.key);
     for (auto& completionHandler : m_unregisterJobs.values())
@@ -104,8 +104,11 @@ Ref<NetworkProcess> WebSWServerConnection::protectedNetworkProcess()
     return networkProcess();
 }
 
-const SharedPreferencesForWebProcess& WebSWServerConnection::sharedPreferencesForWebProcess() const
+std::optional<SharedPreferencesForWebProcess> WebSWServerConnection::sharedPreferencesForWebProcess() const
 {
+    if (!m_networkConnectionToWebProcess)
+        return std::nullopt;
+
     return m_networkConnectionToWebProcess->sharedPreferencesForWebProcess();
 }
 
@@ -293,7 +296,7 @@ void WebSWServerConnection::startFetch(ServiceWorkerFetchTask& task, SWServerWor
         }
 
         RefPtr server = protectedServer();
-        RefPtr worker = server->workerByID(task->serviceWorkerIdentifier());
+        RefPtr worker = server->workerByID(*task->serviceWorkerIdentifier());
         if (!worker || worker->hasTimedOutAnyFetchTasks()) {
             task->cannotHandle();
             return;
@@ -302,7 +305,7 @@ void WebSWServerConnection::startFetch(ServiceWorkerFetchTask& task, SWServerWor
         if (!worker->contextConnection())
             server->createContextConnection(worker->topRegistrableDomain(), worker->serviceWorkerPageIdentifier());
 
-        auto identifier = task->serviceWorkerIdentifier();
+        auto identifier = *task->serviceWorkerIdentifier();
         server->runServiceWorkerIfNecessary(identifier, [weakThis = WTFMove(weakThis), this, task = WTFMove(task)](auto* contextConnection) mutable {
 #if RELEASE_LOG_DISABLED
             UNUSED_PARAM(this);
@@ -321,7 +324,7 @@ void WebSWServerConnection::startFetch(ServiceWorkerFetchTask& task, SWServerWor
                 task->cannotHandle();
                 return;
             }
-            SWSERVERCONNECTION_RELEASE_LOG("startFetch: Starting fetch %" PRIu64 " via service worker %" PRIu64, task->fetchIdentifier().toUInt64(), task->serviceWorkerIdentifier().toUInt64());
+            SWSERVERCONNECTION_RELEASE_LOG("startFetch: Starting fetch %" PRIu64 " via service worker %" PRIu64, task->fetchIdentifier().toUInt64(), task->serviceWorkerIdentifier()->toUInt64());
             static_cast<WebSWServerToContextConnection&>(*contextConnection).startFetch(*task);
         });
     };

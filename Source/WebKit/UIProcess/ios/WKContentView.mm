@@ -725,7 +725,7 @@ static WebCore::FloatBoxExtent floatBoxExtent(UIEdgeInsets insets)
         !!self.webView._allowsViewportShrinkToFit,
         !!enclosedInScrollableAncestorView,
         velocityData,
-        downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*drawingArea).lastCommittedLayerTreeTransactionID());
+        downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(*drawingArea).lastCommittedMainFrameLayerTreeTransactionID());
 
     LOG_WITH_STREAM(VisibleRects, stream << "-[WKContentView didUpdateVisibleRect]" << visibleContentRectUpdateInfo.dump());
 
@@ -816,6 +816,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
             [self _becomeFirstResponderWithSelectionMovingForward:NO completionHandler:nil];
     }
 }
+
+// FIXME: <rdar://136769319> Adopt this in visionOS too.
+#if HAVE(UI_FOCUS_ITEM_DEFERRAL_MODE) && !PLATFORM(VISION)
+- (UIFocusItemDeferralMode)focusItemDeferralMode
+{
+    return UIFocusItemDeferralModeNever;
+}
+#endif
 
 #pragma mark Internal
 

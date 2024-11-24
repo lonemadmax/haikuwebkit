@@ -295,6 +295,23 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'trigger-crash-log-submission',
             'set-build-summary'
         ],
+        'macOS-Safer-CPP-Checks-EWS': [
+            'configure-build',
+            'validate-change',
+            'configuration',
+            'clean-up-git-repo',
+            'checkout-source',
+            'fetch-branch-references',
+            'show-identifier',
+            'install-cmake',
+            'install-ninja',
+            'print-clang-version',
+            'checkout-llvm-project',
+            'update-clang',
+            'checkout-pull-request',
+            'kill-old-processes',
+            'scan-build'
+        ],
         'macOS-Release-WK2-Stress-Tests-EWS': [
             'configure-build',
             'validate-change',

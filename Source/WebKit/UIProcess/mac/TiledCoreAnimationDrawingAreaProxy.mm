@@ -55,10 +55,10 @@ TiledCoreAnimationDrawingAreaProxy::~TiledCoreAnimationDrawingAreaProxy()
 {
 }
 
-void TiledCoreAnimationDrawingAreaProxy::deviceScaleFactorDidChange()
+void TiledCoreAnimationDrawingAreaProxy::deviceScaleFactorDidChange(CompletionHandler<void()>&& completionHandler)
 {
     Ref webPageProxy = m_webPageProxy.get();
-    send(Messages::DrawingArea::SetDeviceScaleFactor(webPageProxy->deviceScaleFactor()));
+    sendWithAsyncReply(Messages::DrawingArea::SetDeviceScaleFactor(webPageProxy->deviceScaleFactor()), WTFMove(completionHandler));
 }
 
 void TiledCoreAnimationDrawingAreaProxy::sizeDidChange()
@@ -135,10 +135,10 @@ void TiledCoreAnimationDrawingAreaProxy::didUpdateGeometry()
         sendUpdateGeometry();
 }
 
-void TiledCoreAnimationDrawingAreaProxy::waitForDidUpdateActivityState(ActivityStateChangeID, WebProcessProxy& process)
+void TiledCoreAnimationDrawingAreaProxy::waitForDidUpdateActivityState(ActivityStateChangeID)
 {
     Seconds activityStateUpdateTimeout = Seconds::fromMilliseconds(250);
-    process.protectedConnection()->waitForAndDispatchImmediately<Messages::WebPageProxy::DidUpdateActivityState>(protectedWebPageProxy()->webPageIDInMainFrameProcess(), activityStateUpdateTimeout, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
+    protectedWebProcessProxy()->protectedConnection()->waitForAndDispatchImmediately<Messages::WebPageProxy::DidUpdateActivityState>(protectedWebPageProxy()->webPageIDInMainFrameProcess(), activityStateUpdateTimeout, IPC::WaitForOption::InterruptWaitingIfSyncMessageArrives);
 }
 
 void TiledCoreAnimationDrawingAreaProxy::willSendUpdateGeometry()
@@ -218,7 +218,7 @@ std::optional<WebCore::FramesPerSecond> TiledCoreAnimationDrawingAreaProxy::disp
 {
     if (!m_webPageProxy->displayID())
         return std::nullopt;
-    return m_webProcessProxy->nominalFramesPerSecondForDisplay(*m_webPageProxy->displayID());
+    return protectedWebProcessProxy()->nominalFramesPerSecondForDisplay(*m_webPageProxy->displayID());
 }
 
 } // namespace WebKit

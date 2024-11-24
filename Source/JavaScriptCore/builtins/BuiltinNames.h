@@ -204,6 +204,7 @@ namespace JSC {
     macro(isRemoteFunction) \
     macro(arrayFromFastFillWithUndefined) \
     macro(arrayFromFastFillWithEmpty) \
+    macro(arraySpeciesWatchpointIsValid) \
     macro(arraySort) \
     macro(jsonParse) \
     macro(jsonStringify) \
@@ -219,6 +220,7 @@ namespace JSC {
     macro(wrapForValidIteratorCreate) \
     macro(asyncFromSyncIteratorCreate) \
     macro(regExpStringIteratorCreate) \
+    macro(iteratorHelperCreate) \
 
 
 namespace Symbols {

@@ -28,6 +28,7 @@
 #if ENABLE(PDF_PLUGIN)
 
 #include "PDFPluginIdentifier.h"
+#include "WebFoundTextRange.h"
 #include <WebCore/FindOptions.h>
 #include <WebCore/PluginViewBase.h>
 #include <WebCore/ResourceResponse.h>
@@ -103,6 +104,11 @@ public:
     bool drawsFindOverlay() const;
     RefPtr<WebCore::TextIndicator> textIndicatorForCurrentSelection(OptionSet<WebCore::TextIndicatorOption>, WebCore::TextIndicatorPresentationTransition);
 
+    Vector<WebFoundTextRange::PDFData> findTextMatches(const String& target, WebCore::FindOptions);
+    Vector<WebCore::FloatRect> rectsForTextMatch(const WebFoundTextRange::PDFData&);
+    RefPtr<WebCore::TextIndicator> textIndicatorForTextMatch(const WebFoundTextRange::PDFData&, WebCore::TextIndicatorPresentationTransition);
+    void scrollToRevealTextMatch(const WebFoundTextRange::PDFData&);
+
     String selectionString() const;
 
     RefPtr<WebCore::FragmentedSharedBuffer> liveResourceData() const;
@@ -169,7 +175,7 @@ private:
 
     WebCore::ScrollableArea* scrollableArea() const final;
     bool usesAsyncScrolling() const final;
-    WebCore::ScrollingNodeID scrollingNodeID() const final;
+    std::optional<WebCore::ScrollingNodeID> scrollingNodeID() const final;
     void willAttachScrollingNode() final;
     void didAttachScrollingNode() final;
 

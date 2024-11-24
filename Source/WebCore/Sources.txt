@@ -368,6 +368,7 @@ Modules/streams/ReadableStreamSink.cpp
 Modules/streams/ReadableStreamSource.cpp
 Modules/streams/TransformStream.cpp
 Modules/streams/WritableStream.cpp
+Modules/url-pattern/URLPattern.cpp
 Modules/web-locks/WebLock.cpp
 Modules/web-locks/WebLockManager.cpp
 Modules/web-locks/WebLockRegistry.cpp
@@ -597,6 +598,7 @@ animation/CSSTransitionEvent.cpp
 animation/CompositeOperation.cpp
 animation/CustomEffect.cpp
 animation/DocumentTimeline.cpp
+animation/EffectTiming.cpp
 animation/ElementAnimationRareData.cpp
 animation/FrameRateAligner.cpp
 animation/KeyframeEffect.cpp
@@ -705,6 +707,7 @@ bindings/js/JSMessageEventCustom.cpp
 bindings/js/JSMessagePortCustom.cpp
 bindings/js/JSMutationObserverCustom.cpp
 bindings/js/JSMutationRecordCustom.cpp
+bindings/js/JSNavigateEventCustom.cpp
 bindings/js/JSNavigatorCustom.cpp
 bindings/js/JSNodeCustom.cpp
 bindings/js/JSNodeIteratorCustom.cpp
@@ -842,7 +845,6 @@ crypto/keys/CryptoKeyRSAComponents.cpp
 crypto/keys/CryptoKeyRaw.cpp
 css/BasicShapeConversion.cpp
 css/BasicShapesShapeSegmentConversion.cpp
-css/CSSAnchorValue.cpp
 css/CSSAspectRatioValue.cpp
 css/CSSBackgroundRepeatValue.cpp
 css/CSSShapeSegmentValue.cpp
@@ -891,7 +893,6 @@ css/CSSImageSetOptionValue.cpp
 css/CSSImageSetValue.cpp
 css/CSSImageValue.cpp
 css/CSSImportRule.cpp
-css/CSSInternalBaseAppearanceRule.cpp
 css/CSSKeyframeRule.cpp
 css/CSSKeyframesRule.cpp
 css/CSSLayerBlockRule.cpp
@@ -1023,6 +1024,7 @@ css/parser/CSSParserTokenRange.cpp
 css/parser/CSSPropertyParser.cpp
 css/parser/CSSPropertyParserConsumer+Align.cpp
 css/parser/CSSPropertyParserConsumer+Angle.cpp
+css/parser/CSSPropertyParserConsumer+AnglePercentage.cpp
 css/parser/CSSPropertyParserConsumer+CSSPrimitiveValueResolver.cpp
 css/parser/CSSPropertyParserConsumer+Color.cpp
 css/parser/CSSPropertyParserConsumer+ColorInterpolationMethod.cpp
@@ -1041,7 +1043,6 @@ css/parser/CSSPropertyParserConsumer+Number.cpp
 css/parser/CSSPropertyParserConsumer+Percentage.cpp
 css/parser/CSSPropertyParserConsumer+Position.cpp
 css/parser/CSSPropertyParserConsumer+Primitives.cpp
-css/parser/CSSPropertyParserConsumer+RawTypes.cpp
 css/parser/CSSPropertyParserConsumer+Resolution.cpp
 css/parser/CSSPropertyParserConsumer+String.cpp
 css/parser/CSSPropertyParserConsumer+Symbol.cpp
@@ -1050,7 +1051,6 @@ css/parser/CSSPropertyParserConsumer+Timeline.cpp
 css/parser/CSSPropertyParserConsumer+TimingFunction.cpp
 css/parser/CSSPropertyParserConsumer+Transform.cpp
 css/parser/CSSPropertyParserConsumer+URL.cpp
-css/parser/CSSPropertyParserConsumer+UnevaluatedCalc.cpp
 css/parser/CSSPropertyParserConsumer+ViewTransition.cpp
 css/parser/CSSPropertyParserHelpers.cpp
 css/parser/CSSSelectorParser.cpp
@@ -1117,6 +1117,11 @@ css/typedom/transform/CSSSkewY.cpp
 css/typedom/transform/CSSTransformComponent.cpp
 css/typedom/transform/CSSTransformValue.cpp
 css/typedom/transform/CSSTranslate.cpp
+css/values/CSSPosition.cpp
+css/values/CSSPrimitiveNumericTypes+ComputedStyleDependencies.cpp
+css/values/CSSPrimitiveNumericTypes+Serialization.cpp
+css/values/CSSPrimitiveNumericTypes+SymbolReplacement.cpp
+css/values/CSSUnevaluatedCalc.cpp
 cssjit/SelectorCompiler.cpp
 dom/AbortController.cpp
 dom/AbortSignal.cpp
@@ -1876,7 +1881,7 @@ layout/integration/inline/LayoutIntegrationInlineContent.cpp
 layout/integration/inline/LayoutIntegrationInlineContentPainter.cpp
 layout/integration/inline/LayoutIntegrationLineLayout.cpp
 layout/integration/inline/LayoutIntegrationPagination.cpp
-layout/integration/inline/LayoutIntegrationBoxGeometryUpdater.cpp
+layout/integration/LayoutIntegrationBoxGeometryUpdater.cpp
 layout/integration/LayoutIntegrationBoxTree.cpp
 layout/integration/LayoutIntegrationCoverage.cpp
 layout/integration/LayoutIntegrationFormattingContextLayout.cpp
@@ -1927,6 +1932,7 @@ loader/LinkLoader.cpp
 loader/LinkPreloadResourceClients.cpp
 loader/LoaderMalloc.cpp
 loader/LoaderStrategy.cpp
+loader/LocalFrameLoaderClient.cpp
 loader/MediaResourceLoader.cpp
 loader/MixedContentChecker.cpp
 loader/NavigationAction.cpp
@@ -2364,6 +2370,7 @@ platform/graphics/ColorSpace.cpp
 platform/graphics/ColorUtilities.cpp
 platform/graphics/ComplexTextController.cpp
 platform/graphics/ContentTypeUtilities.cpp
+platform/graphics/ContentsFormat.cpp
 platform/graphics/CrossfadeGeneratedImage.cpp
 platform/graphics/DecomposedGlyphs.cpp
 platform/graphics/DestinationColorSpace.cpp
@@ -3046,6 +3053,9 @@ style/StyleUpdate.cpp
 style/Styleable.cpp
 style/TransformOperationsBuilder.cpp
 style/UserAgentStyle.cpp
+style/values/StylePosition.cpp
+style/values/StylePrimitiveNumericTypes.cpp
+style/values/StylePrimitiveNumericTypes+Conversions.cpp
 svg/DocumentSVG.cpp
 svg/SVGAElement.cpp
 svg/SVGAltGlyphDefElement.cpp
@@ -3376,11 +3386,16 @@ JSAudioWorkletNodeOptions.cpp
 JSAudioWorkletProcessor.cpp
 JSAudioWorkletProcessorConstructor.cpp
 JSAuthenticationExtensionsClientInputs.cpp
+JSAuthenticationExtensionsClientInputsJSON.cpp
 JSAuthenticationExtensionsClientOutputs.cpp
+JSAuthenticationExtensionsClientOutputsJSON.cpp
+JSAuthenticationResponseJSON.cpp
+JSRegistrationResponseJSON.cpp
 JSAuthenticatorAssertionResponse.cpp
 JSAuthenticatorAttachment.cpp
 JSAuthenticatorAttestationResponse.cpp
 JSAuthenticatorResponse.cpp
+JSAuthenticatorSelectionCriteria.cpp
 JSAuthenticatorTransport.cpp
 JSAutomationRate.cpp
 JSBarProp.cpp
@@ -3526,6 +3541,7 @@ JSCreateScriptCallback.cpp
 JSCreateScriptURLCallback.cpp
 JSCredentialCreationOptions.cpp
 JSCredentialMediationRequirement.cpp
+JSCredentialPropertiesOutput.cpp
 JSCredentialRequestOptions.cpp
 JSCredentialsContainer.cpp
 JSCrypto.cpp
@@ -4199,8 +4215,16 @@ JSProgressEvent.cpp
 JSPromiseRejectionEvent.cpp
 JSPublicKeyCredential.cpp
 JSPublicKeyCredentialCreationOptions.cpp
+JSPublicKeyCredentialCreationOptionsJSON.cpp
 JSPublicKeyCredentialDescriptor.cpp
+JSPublicKeyCredentialDescriptorJSON.cpp
+JSPublicKeyCredentialEntity.cpp
+JSPublicKeyCredentialRpEntity.cpp
+JSPublicKeyCredentialParameters.cpp
+JSPublicKeyCredentialUserEntity.cpp
+JSPublicKeyCredentialUserEntityJSON.cpp
 JSPublicKeyCredentialRequestOptions.cpp
+JSPublicKeyCredentialRequestOptionsJSON.cpp
 JSPublicKeyCredentialType.cpp
 JSPushEncryptionKeyName.cpp
 JSPushEvent.cpp
@@ -4530,6 +4554,7 @@ JSTextTrackCueGeneric.cpp
 JSTextTrackCueList.cpp
 JSTextTrackList.cpp
 JSTimeRanges.cpp
+JSTimelineRangeOffset.cpp
 JSToggleEvent.cpp
 JSTrackEvent.cpp
 JSTransferFunction.cpp
@@ -4585,6 +4610,10 @@ JSFragmentDirective.cpp
 JSFullscreenOptions.cpp
 JSUIEvent.cpp
 JSUIEventInit.cpp
+JSURLPattern.cpp
+JSURLPatternInit.cpp
+JSURLPatternOptions.cpp
+JSURLPatternResult.cpp
 JSURLSearchParams.cpp
 JSUserActivation.cpp
 JSUndoItem.cpp

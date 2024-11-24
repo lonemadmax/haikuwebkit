@@ -43,6 +43,7 @@
 #include "CSSNumericArray.h"
 #include "CSSNumericFactory.h"
 #include "CSSNumericType.h"
+#include "CSSParserContext.h"
 #include "CSSParserTokenRange.h"
 #include "CSSPropertyParserHelpers.h"
 #include "CSSTokenizer.h"
@@ -161,7 +162,7 @@ ExceptionOr<Ref<CSSNumericValue>> CSSNumericValue::reifyMathExpression(const CSS
 {
     return WTF::switchOn(root,
         [](const CSSCalc::Child& child) -> ExceptionOr<Ref<CSSNumericValue>> { return CSSNumericValue::reifyMathExpression(child); },
-        [](const NoneRaw&) -> ExceptionOr<Ref<CSSNumericValue>> { return Exception { ExceptionCode::UnknownError }; }
+        [](const CSS::NoneRaw&) -> ExceptionOr<Ref<CSSNumericValue>> { return Exception { ExceptionCode::UnknownError }; }
     );
 }
 

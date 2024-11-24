@@ -62,11 +62,9 @@ public:
     PlatformXRSystem(WebPageProxy&);
     virtual ~PlatformXRSystem();
 
-    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const;
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const;
 
-    using PlatformXRCoordinatorSessionEventClient::weakPtrFactory;
-    using PlatformXRCoordinatorSessionEventClient::WeakValueType;
-    using PlatformXRCoordinatorSessionEventClient::WeakPtrImplType;
+    USING_CAN_MAKE_WEAKPTR(PlatformXRCoordinatorSessionEventClient);
 
     void invalidate();
 

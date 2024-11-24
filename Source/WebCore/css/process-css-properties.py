@@ -1480,7 +1480,7 @@ class BuiltinSchema:
 
 
 # Reference terms look like keyword terms, but are surrounded by '<' and '>' characters (i.e. "<number>").
-# They can either reference a rule from the grammer-rules set, in which case they will be replaced by
+# They can either reference a rule from the grammar-rules set, in which case they will be replaced by
 # the real term during fixup, or a builtin rule, in which case they will inform the generator to call
 # out to a handwritten consumer. Example:
 #
@@ -1497,12 +1497,16 @@ class ReferenceTerm:
             BuiltinSchema.OptionalParameter("unitless", values={"unitless-allowed": "UnitlessQuirk::Allow"}, default="UnitlessQuirk::Forbid")),
         BuiltinSchema.Entry("length-percentage", "consumeLengthPercentage",
             BuiltinSchema.OptionalParameter("value_range", values={"[0,inf]": "ValueRange::NonNegative"}, default="ValueRange::All"),
-            BuiltinSchema.OptionalParameter("unitless", values={"unitless-allowed": "UnitlessQuirk::Allow"}, default="UnitlessQuirk::Forbid")),
+            BuiltinSchema.OptionalParameter("unitless", values={"unitless-allowed": "UnitlessQuirk::Allow"}, default="UnitlessQuirk::Forbid"),
+            BuiltinSchema.OptionalParameter("unitless_zero", values={"unitless-zero-forbidden": "UnitlessZeroQuirk::Forbid"}, default="UnitlessZeroQuirk::Allow"),
+            BuiltinSchema.OptionalParameter("negative_percentage", values={"negative-percentage-allowed": "NegativePercentagePolicy::Allow"}, default="NegativePercentagePolicy::Forbid"),
+            BuiltinSchema.OptionalParameter("anchor", values={"anchor-allowed": "AnchorPolicy::Allow"}, default="AnchorPolicy::Forbid"),
+            BuiltinSchema.OptionalParameter("anchor_size", values={"anchor-size-allowed": "AnchorSizePolicy::Allow"}, default="AnchorSizePolicy::Forbid")),
         BuiltinSchema.Entry("time", "consumeTime",
             BuiltinSchema.OptionalParameter("value_range", values={"[0,inf]": "ValueRange::NonNegative"}, default="ValueRange::All"),
             BuiltinSchema.OptionalParameter("unitless", values={"unitless-allowed": "UnitlessQuirk::Allow"}, default="UnitlessQuirk::Forbid")),
         BuiltinSchema.Entry("integer", "consumeInteger",
-            BuiltinSchema.OptionalParameter("value_range", values={"[0,inf]": "IntegerValueRange::NonNegative", "[1,inf]": "IntegerValueRange::Positive"}, default="IntegerValueRange::All")),
+            BuiltinSchema.OptionalParameter("value_range", values={"[0,inf]": "CSS::IntegerValueRange::NonNegative", "[1,inf]": "CSS::IntegerValueRange::Positive"}, default="CSS::IntegerValueRange::All")),
         BuiltinSchema.Entry("number", "consumeNumber",
             # FIXME: "FontWeight" is not real. Add support for arbitrary ranges.
             BuiltinSchema.OptionalParameter("value_range", values={"[0,inf]": "ValueRange::NonNegative", "[1,1000]": "ValueRange::FontWeight"}, default="ValueRange::All")),
@@ -4411,7 +4415,7 @@ class TermGeneratorReferenceTerm(TermGenerator):
                     return f"{builtin.consume_function_name}({range_string}, {context_string}, {builtin.mode}, {builtin.value_range}, {builtin.unitless})"
                 return f"{builtin.consume_function_name}({range_string}, {context_string}, {builtin.value_range}, {builtin.unitless})"
             elif isinstance(builtin, BuiltinLengthPercentageConsumer):
-                return f"{builtin.consume_function_name}({range_string}, {context_string}, {builtin.value_range}, {builtin.unitless})"
+                return f"{builtin.consume_function_name}({range_string}, {context_string}, {builtin.value_range}, {builtin.unitless}, {builtin.unitless_zero}, {builtin.negative_percentage}, {builtin.anchor}, {builtin.anchor_size})"
             elif isinstance(builtin, BuiltinIntegerConsumer):
                 return f"{builtin.consume_function_name}({range_string}, {context_string}, {builtin.value_range})"
             elif isinstance(builtin, BuiltinNumberConsumer):

@@ -28,10 +28,16 @@
 #import "PlatformUtilities.h"
 #import "TestNavigationDelegate.h"
 #import "TestWKWebView.h"
+#include <pal/cf/CoreTextSoftLink.h>
 
 namespace TestWebKitAPI {
 
+// rdar://136524076
+#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 150000
+TEST(LockdownMode, DISABLED_SVGFonts)
+#else
 TEST(LockdownMode, SVGFonts)
+#endif
 {
     auto webViewConfiguration = adoptNS([WKWebViewConfiguration new]);
     webViewConfiguration.get().defaultWebpagePreferences.lockdownModeEnabled = YES;
@@ -80,7 +86,10 @@ TEST(LockdownMode, NotAllowedFontLoadingAPI)
         auto referenceResult = static_cast<NSNumber *>([webView objectByEvaluatingJavaScript:@"reference.offsetWidth"]).intValue;
 
         EXPECT_NE(beforeTargetResult, targetResult);
-        EXPECT_EQ(targetResult, referenceResult);
+        if (!PAL::canLoad_CoreText_CTFontManagerCreateMemorySafeFontDescriptorFromData())
+            EXPECT_EQ(targetResult, referenceResult);
+        else
+            EXPECT_NE(targetResult, referenceResult);
     }
 }
 
@@ -160,7 +169,10 @@ TEST(LockdownMode, NotAllowedFont)
 #if PLATFORM(WATCHOS)
         EXPECT_NE(targetResult, referenceResult);
 #else
+    if (!PAL::canLoad_CoreText_CTFontManagerCreateMemorySafeFontDescriptorFromData())
         EXPECT_EQ(targetResult, referenceResult);
+    else
+        EXPECT_NE(targetResult, referenceResult);
 #endif
     }
 }

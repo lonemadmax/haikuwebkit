@@ -306,37 +306,15 @@ void WebAnimation::effectTargetDidChange(const std::optional<const Styleable>& p
     InspectorInstrumentation::didChangeWebAnimationEffectTarget(*this);
 }
 
-ExceptionOr<std::optional<Seconds>> WebAnimation::validateCSSNumberishValue(const std::optional<CSSNumberish>& optionalCSSNumberish) const
+ExceptionOr<void> WebAnimation::setBindingsStartTime(const std::optional<CSSNumberishTime>& startTime)
 {
-    // https://drafts.csswg.org/web-animations/#validating-a-css-numberish-time
-    // FIXME: Revisit this when we know how to deal with a progress-based (ie. scroll) timeline.
-
-    if (!optionalCSSNumberish)
-        return { std::nullopt };
-
-    if (auto seconds = CSSNumberishTime { *optionalCSSNumberish }.time())
-        return { *seconds };
-
-    return Exception { ExceptionCode::TypeError };
-}
-
-std::optional<double> WebAnimation::bindingsStartTime() const
-{
-    if (!m_startTime)
-        return std::nullopt;
-    return secondsToWebAnimationsAPITime(*m_startTime);
-}
-
-ExceptionOr<void> WebAnimation::setBindingsStartTime(const std::optional<CSSNumberish>& startTime)
-{
-    auto validStartTimeOrException = validateCSSNumberishValue(startTime);
-    if (validStartTimeOrException.hasException())
-        return validStartTimeOrException.releaseException();
-    setStartTime(validStartTimeOrException.releaseReturnValue());
+    if (startTime && !startTime->isValid())
+        return Exception { ExceptionCode::TypeError };
+    setStartTime(startTime);
     return { };
 }
 
-void WebAnimation::setStartTime(std::optional<Seconds> newStartTime)
+void WebAnimation::setStartTime(std::optional<CSSNumberishTime> newStartTime)
 {
     // 3.4.6 The procedure to set the start time of animation, animation, to new start time, is as follows:
     // https://drafts.csswg.org/web-animations/#setting-the-start-time-of-an-animation
@@ -384,28 +362,19 @@ void WebAnimation::setStartTime(std::optional<Seconds> newStartTime)
     invalidateEffect();
 }
 
-std::optional<double> WebAnimation::bindingsCurrentTime() const
+ExceptionOr<void> WebAnimation::setBindingsCurrentTime(const std::optional<CSSNumberishTime>& currentTime)
 {
-    auto time = currentTime();
-    if (!time)
-        return std::nullopt;
-    return secondsToWebAnimationsAPITime(time.value());
+    if (currentTime && !currentTime->isValid())
+        return Exception { ExceptionCode::TypeError };
+    return setCurrentTime(currentTime);
 }
 
-ExceptionOr<void> WebAnimation::setBindingsCurrentTime(const std::optional<CSSNumberish>& currentTime)
-{
-    auto validCurrentTimeOrException = validateCSSNumberishValue(currentTime);
-    if (validCurrentTimeOrException.hasException())
-        return validCurrentTimeOrException.releaseException();
-    return setCurrentTime(validCurrentTimeOrException.releaseReturnValue());
-}
-
-std::optional<Seconds> WebAnimation::currentTime(std::optional<Seconds> startTime) const
+std::optional<CSSNumberishTime> WebAnimation::currentTime(std::optional<CSSNumberishTime> startTime) const
 {
     return currentTime(RespectHoldTime::Yes, startTime);
 }
 
-std::optional<Seconds> WebAnimation::currentTime(RespectHoldTime respectHoldTime, std::optional<Seconds> startTime) const
+std::optional<CSSNumberishTime> WebAnimation::currentTime(RespectHoldTime respectHoldTime, std::optional<CSSNumberishTime> startTime) const
 {
     // 3.4.4. The current time of an animation
     // https://drafts.csswg.org/web-animations-1/#the-current-time-of-an-animation
@@ -428,7 +397,7 @@ std::optional<Seconds> WebAnimation::currentTime(RespectHoldTime respectHoldTime
     return (*m_timeline->currentTime() - startTime.value_or(*m_startTime)) * m_playbackRate;
 }
 
-ExceptionOr<void> WebAnimation::silentlySetCurrentTime(std::optional<Seconds> seekTime)
+ExceptionOr<void> WebAnimation::silentlySetCurrentTime(std::optional<CSSNumberishTime> seekTime)
 {
     LOG_WITH_STREAM(Animations, stream << "WebAnimation " << this << " silentlySetCurrentTime " << seekTime);
 
@@ -468,7 +437,7 @@ ExceptionOr<void> WebAnimation::silentlySetCurrentTime(std::optional<Seconds> se
     return { };
 }
 
-ExceptionOr<void> WebAnimation::setCurrentTime(std::optional<Seconds> seekTime)
+ExceptionOr<void> WebAnimation::setCurrentTime(std::optional<CSSNumberishTime> seekTime)
 {
     LOG_WITH_STREAM(Animations, stream << "WebAnimation " << this << " setCurrentTime " << seekTime);
 
@@ -692,11 +661,17 @@ auto WebAnimation::playState() const -> PlayState
     return PlayState::Running;
 }
 
-Seconds WebAnimation::effectEndTime() const
+CSSNumberishTime WebAnimation::zeroTime() const
+{
+    // FIXME: once we had support for progress-based timelines, return 0% here.
+    return { 0_s };
+}
+
+CSSNumberishTime WebAnimation::effectEndTime() const
 {
     // The target effect end of an animation is equal to the end time of the animation's target effect.
     // If the animation has no target effect, the target effect end is zero.
-    return m_effect ? m_effect->endTime() : 0_s;
+    return m_effect ? m_effect->endTime() : zeroTime();
 }
 
 void WebAnimation::cancel(Silently silently)
@@ -850,7 +825,7 @@ ExceptionOr<void> WebAnimation::finish()
     // 3. Set limit as follows:
     // If animation playback rate > 0, let limit be target effect end.
     // Otherwise, let limit be zero.
-    auto limit = m_playbackRate > 0 ? effectEndTime() : 0_s;
+    auto limit = m_playbackRate > 0 ? effectEndTime() : zeroTime();
 
     // 4. Silently set the current time to limit.
     silentlySetCurrentTime(limit);
@@ -942,7 +917,7 @@ void WebAnimation::updateFinishedState(DidSeek didSeek, SynchronouslyNotify sync
             else if (!m_previousCurrentTime)
                 m_holdTime = 0_s;
             else
-                m_holdTime = std::min(m_previousCurrentTime.value(), 0_s);
+                m_holdTime = std::min(m_previousCurrentTime.value(), CSSNumberishTime { 0_s });
         } else if (m_playbackRate && m_timeline && m_timeline->currentTime()) {
             // If animation playback rate ≠ 0, and animation is associated with an active timeline,
             // Perform the following steps:
@@ -1054,7 +1029,7 @@ ExceptionOr<void> WebAnimation::play(AutoRewind autoRewind)
     bool hasPendingReadyPromise = false;
 
     // 3. Let seek time be a time value that is initially unresolved.
-    Markable<Seconds, Seconds::MarkableTraits> seekTime;
+    std::optional<CSSNumberishTime> seekTime;
 
     // 4. If the auto-rewind flag is true, perform the steps corresponding to the first matching condition from the following, if any:
     if (autoRewind == AutoRewind::Yes) {
@@ -1230,8 +1205,8 @@ ExceptionOr<void> WebAnimation::pause()
     if (!localTime) {
         if (m_playbackRate >= 0) {
             // If animation's playback rate is ≥ 0, let animation's hold time be zero.
-            m_holdTime = 0_s;
-        } else if (effectEndTime() == Seconds::infinity()) {
+            m_holdTime = zeroTime();
+        } else if (effectEndTime().isInfinity()) {
             // Otherwise, if target effect end for animation is positive infinity, throw an InvalidStateError and abort these steps.
             return Exception { ExceptionCode::InvalidStateError };
         } else {
@@ -1670,6 +1645,40 @@ bool WebAnimation::isSkippedContentAnimation() const
             return element->element.renderer() && element->element.renderer()->isSkippedContent();
     }
     return false;
+}
+
+std::optional<double> WebAnimation::progress() const
+{
+    // https://drafts.csswg.org/web-animations-2/#the-progress-of-an-animation
+    // An animation’s progress is the ratio of its current time to its associated effect end.
+    //
+    // The progress of an animation, animation, is calculated as follows:
+    //
+    // If any of the following are true:
+    //     - animation does not have an associated effect, or
+    //     - animation’s current time is an unresolved time value,
+    // animation’s progress is null.
+    if (!m_effect)
+        return std::nullopt;
+
+    auto currentTime = this->currentTime();
+    if (!currentTime)
+        return std::nullopt;
+
+    auto endTime = effectEndTime();
+
+    // If animation’s associated effect end is zero,
+    //     - If animation’s current time is negative, animation’s progress is zero.
+    //     - Otherwise, animation’s progress is one.
+    if (endTime.isZero())
+        return *currentTime < zeroTime() ? 0 : 1;
+
+    // If animation’s associated effect end is infinite, animation’s progress is zero.
+    if (endTime.isInfinity())
+        return 0;
+
+    // Otherwise, progress = min(max(current time / animation’s associated effect end, 0), 1)
+    return std::min(std::max(*currentTime / endTime, 0.0), 1.0);
 }
 
 } // namespace WebCore

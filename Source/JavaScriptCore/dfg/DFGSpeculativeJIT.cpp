@@ -60,6 +60,7 @@
 #include "JSCInlines.h"
 #include "JSGeneratorFunction.h"
 #include "JSImmutableButterfly.h"
+#include "JSIteratorHelper.h"
 #include "JSLexicalEnvironment.h"
 #include "JSMapIterator.h"
 #include "JSPropertyNameEnumerator.h"
@@ -9359,27 +9360,50 @@ void SpeculativeJIT::compileArraySlice(Node* node)
     cellResult(resultGPR, node);
 }
 
-void SpeculativeJIT::compileArraySpliceExtract(Node* node)
+void SpeculativeJIT::compileArraySplice(Node* node)
 {
     unsigned refCount = node->refCount();
     bool mustGenerate = node->mustGenerate();
     if (mustGenerate)
         --refCount;
 
-    SpeculateCellOperand base(this, node->child1());
-    SpeculateInt32Operand start(this, node->child2());
-    SpeculateInt32Operand deleteCount(this, node->child3());
+    SpeculateCellOperand base(this, m_graph.child(node, 0));
+    SpeculateInt32Operand start(this, m_graph.child(node, 1));
+    SpeculateInt32Operand deleteCount(this, m_graph.child(node, 2));
+    GPRTemporary buffer(this);
 
     GPRReg baseGPR = base.gpr();
     GPRReg startGPR = start.gpr();
     GPRReg deleteCountGPR = deleteCount.gpr();
+    GPRReg bufferGPR = buffer.gpr();
 
-    speculateArray(node->child1(), baseGPR);
+    speculateArray(m_graph.child(node, 0), baseGPR);
+
+    unsigned insertionCount = node->numChildren() - 3;
+    if (insertionCount) {
+        size_t scratchSize = sizeof(EncodedJSValue) * insertionCount;
+        ScratchBuffer* scratchBuffer = vm().scratchBufferForSize(scratchSize);
+        EncodedJSValue* buffer = bitwise_cast<EncodedJSValue*>(scratchBuffer->dataBuffer());
+
+        move(TrustedImmPtr(buffer), bufferGPR);
+        for (unsigned index = 0; index < insertionCount; ++index) {
+            JSValueOperand arg(this, m_graph.child(node, index + 3));
+            JSValueRegs argRegs = arg.regs();
+            storeValue(argRegs, Address(bufferGPR, sizeof(EncodedJSValue) * index));
+        }
+
+        flushRegisters();
+        JSValueRegsFlushedCallResult result(this);
+        JSValueRegs resultRegs = result.regs();
+        callOperation(refCount ? operationArraySplice : operationArraySpliceIgnoreResult, resultRegs, LinkableConstant::globalObject(*this, node), baseGPR, startGPR, deleteCountGPR, bufferGPR, TrustedImm32(insertionCount));
+        jsValueResult(resultRegs, node);
+        return;
+    }
 
     flushRegisters();
     JSValueRegsFlushedCallResult result(this);
     JSValueRegs resultRegs = result.regs();
-    callOperation(operationArraySpliceExtract, resultRegs, LinkableConstant::globalObject(*this, node), baseGPR, startGPR, deleteCountGPR, TrustedImm32(refCount));
+    callOperation(refCount ? operationArraySplice : operationArraySpliceIgnoreResult, resultRegs, LinkableConstant::globalObject(*this, node), baseGPR, startGPR, deleteCountGPR, nullptr, TrustedImm32(insertionCount));
     jsValueResult(resultRegs, node);
 }
 
@@ -11490,14 +11514,8 @@ void SpeculativeJIT::speculateStringIdentAndLoadStorage(Edge edge, GPRReg string
     if (!needsTypeCheck(edge, SpecStringIdent | ~SpecString))
         return;
 
-    speculationCheck(
-        BadType, JSValueSource::unboxedCell(string), edge,
-        branchIfRopeStringImpl(storage));
-    speculationCheck(
-        BadType, JSValueSource::unboxedCell(string), edge, branchTest32(
-            Zero,
-            Address(storage, StringImpl::flagsOffset()),
-            TrustedImm32(StringImpl::flagIsAtom())));
+    speculationCheck(BadStringType, JSValueSource::unboxedCell(string), edge, branchIfRopeStringImpl(storage));
+    speculationCheck(BadStringType, JSValueSource::unboxedCell(string), edge, branchTest32(Zero, Address(storage, StringImpl::flagsOffset()), TrustedImm32(StringImpl::flagIsAtom())));
     
     m_interpreter.filter(edge, SpecStringIdent | ~SpecString);
 }
@@ -13326,9 +13344,9 @@ void SpeculativeJIT::compileNormalizeMapKey(Node* node)
     doneCases.append(jump());
 
     notNaN.link(this);
-    truncateDoubleToInt32(doubleValueFPR, scratchGPR);
-    convertInt32ToDouble(scratchGPR, tempFPR);
-    passThroughCases.append(branchDouble(DoubleNotEqualAndOrdered, doubleValueFPR, tempFPR));
+    JumpList failureCases;
+    branchConvertDoubleToInt32(doubleValueFPR, scratchGPR, failureCases, tempFPR, /* shouldCheckNegativeZero */ false);
+    passThroughCases.append(failureCases);
 
     boxInt32(scratchGPR, resultRegs);
     doneCases.append(jump());
@@ -14669,6 +14687,9 @@ void SpeculativeJIT::compileNewInternalFieldObject(Node* node)
         break;
     case JSSetIteratorType:
         compileNewInternalFieldObjectImpl<JSSetIterator>(node, operationNewSetIterator);
+        break;
+    case JSIteratorHelperType:
+        compileNewInternalFieldObjectImpl<JSIteratorHelper>(node, operationNewIteratorHelper);
         break;
     case JSPromiseType: {
         if (node->structure()->classInfoForCells() == JSInternalPromise::info())

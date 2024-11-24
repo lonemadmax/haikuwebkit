@@ -121,8 +121,8 @@ public:
     RefPtr<ScriptCallStack> m_callStack;
 };
 
-ScriptExecutionContext::ScriptExecutionContext(Type type, ScriptExecutionContextIdentifier contextIdentifier)
-    : m_identifier(contextIdentifier ? contextIdentifier : ScriptExecutionContextIdentifier::generate())
+ScriptExecutionContext::ScriptExecutionContext(Type type, std::optional<ScriptExecutionContextIdentifier> contextIdentifier)
+    : m_identifier(contextIdentifier ? *contextIdentifier : ScriptExecutionContextIdentifier::generate())
     , m_type(type)
 {
 }
@@ -890,36 +890,6 @@ void ScriptExecutionContext::deref()
     }
 }
 
-void ScriptExecutionContext::refAllowingPartiallyDestroyed()
-{
-    switch (m_type) {
-    case Type::Document:
-        uncheckedDowncast<Document>(*this).refAllowingPartiallyDestroyed();
-        break;
-    case Type::WorkerOrWorkletGlobalScope:
-        uncheckedDowncast<WorkerOrWorkletGlobalScope>(*this).refAllowingPartiallyDestroyed();
-        break;
-    case Type::EmptyScriptExecutionContext:
-        uncheckedDowncast<EmptyScriptExecutionContext>(*this).refAllowingPartiallyDestroyed();
-        break;
-    }
-}
-
-void ScriptExecutionContext::derefAllowingPartiallyDestroyed()
-{
-    switch (m_type) {
-    case Type::Document:
-        uncheckedDowncast<Document>(*this).derefAllowingPartiallyDestroyed();
-        break;
-    case Type::WorkerOrWorkletGlobalScope:
-        uncheckedDowncast<WorkerOrWorkletGlobalScope>(*this).derefAllowingPartiallyDestroyed();
-        break;
-    case Type::EmptyScriptExecutionContext:
-        uncheckedDowncast<EmptyScriptExecutionContext>(*this).derefAllowingPartiallyDestroyed();
-        break;
-    }
-}
-
 class ScriptExecutionContextDispatcher final
     : public ThreadSafeRefCounted<ScriptExecutionContextDispatcher>
     , public RefCountedSerialFunctionDispatcher {
@@ -989,7 +959,7 @@ bool ScriptExecutionContext::requiresScriptExecutionTelemetry(ScriptTelemetryCat
     if (!page->reportScriptTelemetry(taintedURL, category))
         return true;
 
-    addConsoleMessage(MessageSource::JS, MessageLevel::Info, makeString(taintedURL.string(), " tried to access "_s, description(category)));
+    addConsoleMessage(MessageSource::JS, MessageLevel::Info, makeLogMessage(taintedURL, category));
     return true;
 }
 

@@ -96,7 +96,7 @@ RemoteGraphicsContextGL::RemoteGraphicsContextGL(GPUConnectionToWebProcess& gpuC
 #endif
     , m_renderingResourcesRequest(ScopedWebGLRenderingResourcesRequest::acquire())
     , m_webProcessIdentifier(gpuConnectionToWebProcess.webProcessIdentifier())
-    , m_sharedPreferencesForWebProcess(gpuConnectionToWebProcess.sharedPreferencesForWebProcess())
+    , m_sharedPreferencesForWebProcess(gpuConnectionToWebProcess.sharedPreferencesForWebProcessValue())
 {
     assertIsMainRunLoop();
 }
@@ -199,7 +199,7 @@ void RemoteGraphicsContextGL::ensureExtensionEnabled(String&& extension)
 void RemoteGraphicsContextGL::drawSurfaceBufferToImageBuffer(WebCore::GraphicsContextGL::SurfaceBuffer buffer, WebCore::RenderingResourceIdentifier imageBufferIdentifier, CompletionHandler<void()>&& completionHandler)
 {
     assertIsCurrent(workQueue());
-    m_context->withBufferAsNativeImage(buffer, [&](NativeImage& image) {
+    protectedContext()->withBufferAsNativeImage(buffer, [&](NativeImage& image) {
         paintNativeImageToImageBuffer(image, imageBufferIdentifier);
     });
     completionHandler();
@@ -210,8 +210,8 @@ void RemoteGraphicsContextGL::surfaceBufferToVideoFrame(WebCore::GraphicsContext
 {
     assertIsCurrent(workQueue());
     std::optional<WebKit::RemoteVideoFrameProxy::Properties> result;
-    if (auto videoFrame = m_context->surfaceBufferToVideoFrame(buffer))
-        result = m_videoFrameObjectHeap->add(videoFrame.releaseNonNull());
+    if (auto videoFrame = protectedContext()->surfaceBufferToVideoFrame(buffer))
+        result = protectedVideoFrameObjectHeap()->add(videoFrame.releaseNonNull());
     completionHandler(WTFMove(result));
 }
 #endif
@@ -225,8 +225,9 @@ void RemoteGraphicsContextGL::paintNativeImageToImageBuffer(NativeImage& image, 
     Condition conditionVariable;
     bool isFinished = false;
 
-    m_renderingBackend->dispatch([&]() mutable {
-        if (auto imageBuffer = m_renderingBackend->imageBuffer(imageBufferIdentifier)) {
+    Ref renderingBackend = m_renderingBackend;
+    renderingBackend->dispatch([&]() mutable {
+        if (auto imageBuffer = renderingBackend->imageBuffer(imageBufferIdentifier)) {
             // Here we do not try to play back pending commands for imageBuffer. Currently this call is only made for empty
             // image buffers and there's no good way to add display lists.
             GraphicsContextGL::paintToCanvas(image, imageBuffer->backendSize(), imageBuffer->context());
@@ -285,8 +286,9 @@ void RemoteGraphicsContextGL::getBufferSubDataInline(uint32_t target, uint64_t o
     assertIsCurrent(workQueue());
     static constexpr size_t getBufferSubDataInlineSizeLimit = 64 * KB; // NOTE: when changing, change the value in RemoteGraphicsContextGLProxy too.
 
+    RefPtr context = m_context;
     if (!dataSize || dataSize > getBufferSubDataInlineSizeLimit) {
-        m_context->addError(GCGLErrorCode::InvalidOperation);
+        context->addError(GCGLErrorCode::InvalidOperation);
         completionHandler({ });
         return;
     }
@@ -296,10 +298,10 @@ void RemoteGraphicsContextGL::getBufferSubDataInline(uint32_t target, uint64_t o
     bufferStore = MallocPtr<uint8_t>::tryMalloc(dataSize);
     if (bufferStore) {
         bufferData = { bufferStore.get(), dataSize };
-        if (!protectedContext()->getBufferSubDataWithStatus(target, offset, bufferData))
+        if (!context->getBufferSubDataWithStatus(target, offset, bufferData))
             bufferData = { };
     } else
-        m_context->addError(GCGLErrorCode::OutOfMemory);
+        context->addError(GCGLErrorCode::OutOfMemory);
 
     completionHandler(bufferData);
 }
@@ -316,12 +318,14 @@ void RemoteGraphicsContextGL::getBufferSubDataSharedMemory(uint32_t target, uint
         return;
     }
 
+    RefPtr context = m_context;
+
     handle.setOwnershipOfMemory(m_sharedResourceCache->resourceOwner(), WebKit::MemoryLedger::Default);
     auto buffer = SharedMemory::map(WTFMove(handle), SharedMemory::Protection::ReadWrite);
     if (buffer && dataSize <= buffer->size())
-        validBufferData = protectedContext()->getBufferSubDataWithStatus(target, offset, buffer->mutableSpan().subspan(0, dataSize));
+        validBufferData = context->getBufferSubDataWithStatus(target, offset, buffer->mutableSpan().subspan(0, dataSize));
     else
-        m_context->addError(GCGLErrorCode::InvalidOperation);
+        context->addError(GCGLErrorCode::InvalidOperation);
 
     completionHandler(validBufferData);
 }
@@ -343,11 +347,13 @@ void RemoteGraphicsContextGL::readPixelsInline(WebCore::IntRect rect, uint32_t f
         if (pixelsStore)
             pixels = { pixelsStore.get(), replyImageBytes };
     }
+
+    RefPtr context = m_context;
     std::optional<WebCore::IntSize> readArea;
     if (pixels.size() == replyImageBytes)
-        readArea = protectedContext()->readPixelsWithStatus(rect, format, type, packReverseRowOrder, pixels);
+        readArea = context->readPixelsWithStatus(rect, format, type, packReverseRowOrder, pixels);
     else
-        m_context->addError(GCGLErrorCode::OutOfMemory);
+        context->addError(GCGLErrorCode::OutOfMemory);
     if (!readArea) {
         pixels = { };
         pixelsStore = { };
@@ -361,11 +367,12 @@ void RemoteGraphicsContextGL::readPixelsSharedMemory(WebCore::IntRect rect, uint
     assertIsCurrent(workQueue());
     std::optional<WebCore::IntSize> readArea;
 
+    RefPtr context = m_context;
     handle.setOwnershipOfMemory(m_sharedResourceCache->resourceOwner(), WebKit::MemoryLedger::Default);
     if (auto buffer = SharedMemory::map(WTFMove(handle), SharedMemory::Protection::ReadWrite))
-        readArea = protectedContext()->readPixelsWithStatus(rect, format, type, packReverseRowOrder, buffer->mutableSpan());
+        readArea = context->readPixelsWithStatus(rect, format, type, packReverseRowOrder, buffer->mutableSpan());
     else
-        m_context->addError(GCGLErrorCode::InvalidOperation);
+        context->addError(GCGLErrorCode::InvalidOperation);
 
     completionHandler(readArea);
 }
@@ -439,6 +446,13 @@ RefPtr<RemoteGraphicsContextGL::GCGLContext> RemoteGraphicsContextGL::protectedC
     assertIsCurrent(workQueue());
     return m_context;
 }
+
+#if ENABLE(VIDEO)
+Ref<RemoteVideoFrameObjectHeap> RemoteGraphicsContextGL::protectedVideoFrameObjectHeap() const
+{
+    return m_videoFrameObjectHeap;
+}
+#endif
 
 } // namespace WebKit
 

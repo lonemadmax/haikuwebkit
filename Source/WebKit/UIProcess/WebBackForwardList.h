@@ -84,10 +84,8 @@ public:
     BackForwardListState backForwardListState(WTF::Function<bool (WebBackForwardListItem&)>&&) const;
     void restoreFromState(BackForwardListState);
 
-    Vector<BackForwardListItemState> itemStates() const;
-    Vector<BackForwardListItemState> filteredItemStates(Function<bool(WebBackForwardListItem&)>&&) const;
-
-    void addRootChildFrameItem(Ref<WebBackForwardListItem>&&) const;
+    Vector<Ref<FrameState>> itemStates() const;
+    Vector<Ref<FrameState>> filteredItemStates(Function<bool(WebBackForwardListItem&)>&&) const;
 
 #if !LOG_DISABLED
     String loggingString();

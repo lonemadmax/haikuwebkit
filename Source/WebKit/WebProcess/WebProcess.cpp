@@ -285,7 +285,7 @@ WebProcess& WebProcess::singleton()
 }
 
 WebProcess::WebProcess()
-    : m_webLoaderStrategy(*new WebLoaderStrategy)
+    : m_webLoaderStrategy(makeUniqueRef<WebLoaderStrategy>())
 #if PLATFORM(COCOA) && USE(LIBWEBRTC) && ENABLE(WEB_CODECS)
     , m_remoteVideoCodecFactory(*this)
 #endif
@@ -982,6 +982,14 @@ bool WebProcess::dispatchMessage(IPC::Connection& connection, IPC::Decoder& deco
     return false;
 }
 
+bool WebProcess::filterUnhandledMessage(IPC::Connection&, IPC::Decoder& decoder)
+{
+    // Note: due to receiving messages to non-existing IDs, we have to filter the messages.
+    // This should be removed once these messages are fixed.
+    LOG_ERROR("Unhandled web process message '%s' (destination: %" PRIu64 " pid: %d)", description(decoder.messageName()).characters(), decoder.destinationID(), static_cast<int>(getCurrentProcessID()));
+    return true;
+}
+
 void WebProcess::didClose(IPC::Connection& connection)
 {
 #if ENABLE(VIDEO)
@@ -1216,7 +1224,6 @@ NetworkProcessConnection& WebProcess::ensureNetworkProcessConnection()
 #if HAVE(AUDIT_TOKEN)
         m_networkProcessConnection->setNetworkProcessAuditToken(connectionInfo.auditToken ? std::optional(connectionInfo.auditToken->auditToken()) : std::nullopt);
 #endif
-        setNetworkProcessConnectionID(m_networkProcessConnection->connection().uniqueID());
         m_networkProcessConnection->connection().send(Messages::NetworkConnectionToWebProcess::RegisterURLSchemesAsCORSEnabled(WebCore::LegacySchemeRegistry::allURLSchemesRegisteredAsCORSEnabled()), 0);
 
         if (!Document::allDocuments().isEmpty() || SharedWorkerThreadProxy::hasInstances())
@@ -1270,7 +1277,7 @@ void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connec
     ASSERT_UNUSED(connection, m_networkProcessConnection == connection);
 
     for (auto key : copyToVector(m_storageAreaMaps.keys())) {
-        if (auto map = m_storageAreaMaps.get(key))
+        if (RefPtr map = m_storageAreaMaps.get(key).get())
             map->disconnect();
     }
 
@@ -1289,11 +1296,10 @@ void WebProcess::networkProcessConnectionClosed(NetworkProcessConnection* connec
         SWContextManager::singleton().stopAllServiceWorkers();
 
     m_networkProcessConnection = nullptr;
-    setNetworkProcessConnectionID({ });
 
     logDiagnosticMessageForNetworkProcessCrash();
 
-    m_webLoaderStrategy.networkProcessCrashed();
+    m_webLoaderStrategy->networkProcessCrashed();
     m_webSocketChannelManager.networkProcessCrashed();
     m_broadcastChannelRegistry->networkProcessCrashed();
 
@@ -2368,19 +2374,6 @@ RemoteMediaEngineConfigurationFactory& WebProcess::mediaEngineConfigurationFacto
     return *supplement<RemoteMediaEngineConfigurationFactory>();
 }
 #endif
-
-IPC::Connection::UniqueID WebProcess::networkProcessConnectionID()
-{
-    Locker lock { m_lockNetworkProcessConnectionID };
-    return m_networkProcessConnectionID;
-}
-
-void WebProcess::setNetworkProcessConnectionID(IPC::Connection::UniqueID uniqueID)
-{
-    Locker lock { m_lockNetworkProcessConnectionID };
-    m_networkProcessConnectionID = uniqueID;
-
-}
 
 WebTransportSession* WebProcess::webTransportSession(WebTransportSessionIdentifier identifier)
 {

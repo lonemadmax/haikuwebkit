@@ -69,13 +69,13 @@ class FunctionIPIntMetadataGenerator {
     friend class IPIntCallee;
 
 public:
-    FunctionIPIntMetadataGenerator(uint32_t functionIndex, std::span<const uint8_t> bytecode)
+    FunctionIPIntMetadataGenerator(FunctionCodeIndex functionIndex, std::span<const uint8_t> bytecode)
         : m_functionIndex(functionIndex)
         , m_bytecode(bytecode)
     {
     }
 
-    uint32_t functionIndex() const { return m_functionIndex; }
+    FunctionCodeIndex functionIndex() const { return m_functionIndex; }
     const BitVector& tailCallSuccessors() const { return m_tailCallSuccessors; }
     bool tailCallClobbersInstance() const { return m_tailCallClobbersInstance ; }
 
@@ -102,15 +102,16 @@ private:
     void addLEB128ConstantInt32AndLength(uint32_t value, size_t length);
     void addLEB128ConstantAndLengthForType(Type, uint64_t value, size_t length);
     void addLEB128V128Constant(v128_t value, size_t length);
-    void addReturnData(const Vector<Type, 16>& types);
+    void addReturnData(const FunctionSignature&);
 
-    uint32_t m_functionIndex;
+    FunctionCodeIndex m_functionIndex;
     bool m_tailCallClobbersInstance { false };
     BitVector m_tailCallSuccessors;
 
     std::span<const uint8_t> m_bytecode;
     Vector<uint8_t> m_metadata { };
     Vector<uint8_t, 8> m_uINTBytecode { };
+    unsigned m_highestReturnStackOffset;
 
     uint32_t m_bytecodeOffset { 0 };
     unsigned m_maxFrameSizeInV128 { 0 };
@@ -125,6 +126,11 @@ private:
     HashMap<IPIntPC, IPIntTierUpCounter::OSREntryData> m_tierUpCounter;
     Vector<UnlinkedHandlerInfo> m_exceptionHandlers;
 };
+
+void FunctionIPIntMetadataGenerator::addBlankSpace(size_t size)
+{
+    m_metadata.grow(m_metadata.size() + size);
+}
 
 } } // namespace JSC::Wasm
 

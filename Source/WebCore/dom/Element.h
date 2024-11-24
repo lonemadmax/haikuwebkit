@@ -274,6 +274,7 @@ public:
     WEBCORE_EXPORT int clientTop();
     WEBCORE_EXPORT int clientWidth();
     WEBCORE_EXPORT int clientHeight();
+    double currentCSSZoom();
 
     virtual int scrollLeft();
     virtual int scrollTop();
@@ -821,6 +822,7 @@ public:
     bool hasAutoTextDirectionState() const;
 
     void updateEffectiveTextDirection();
+    void updateEffectiveTextDirectionIfNeeded();
 
 protected:
     Element(const QualifiedName&, Document&, OptionSet<TypeFlag>);

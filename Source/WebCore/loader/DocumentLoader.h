@@ -207,9 +207,7 @@ public:
         return adoptRef(*new DocumentLoader(request, data));
     }
 
-    using CachedRawResourceClient::weakPtrFactory;
-    using CachedRawResourceClient::WeakValueType;
-    using CachedRawResourceClient::WeakPtrImplType;
+    USING_CAN_MAKE_WEAKPTR(CachedRawResourceClient);
 
     WEBCORE_EXPORT static DocumentLoader* fromScriptExecutionContextIdentifier(ScriptExecutionContextIdentifier);
 
@@ -220,7 +218,7 @@ public:
     WEBCORE_EXPORT virtual void detachFromFrame(LoadWillContinueInAnotherProcess);
 
     WEBCORE_EXPORT FrameLoader* frameLoader() const;
-    CheckedPtr<FrameLoader> checkedFrameLoader() const;
+    RefPtr<FrameLoader> protectedFrameLoader() const;
     WEBCORE_EXPORT SubresourceLoader* mainResourceLoader() const;
     WEBCORE_EXPORT RefPtr<FragmentedSharedBuffer> mainResourceData() const;
     
@@ -499,7 +497,7 @@ public:
     bool idempotentModeAutosizingOnlyHonorsPercentages() const { return m_idempotentModeAutosizingOnlyHonorsPercentages; }
 
     WEBCORE_EXPORT bool setControllingServiceWorkerRegistration(ServiceWorkerRegistrationData&&);
-    WEBCORE_EXPORT ScriptExecutionContextIdentifier resultingClientId() const;
+    std::optional<ScriptExecutionContextIdentifier> resultingClientId() const { return m_resultingClientId; }
 
     bool lastNavigationWasAppInitiated() const { return m_lastNavigationWasAppInitiated; }
     void setLastNavigationWasAppInitiated(bool lastNavigationWasAppInitiated) { m_lastNavigationWasAppInitiated = lastNavigationWasAppInitiated; }
@@ -687,7 +685,7 @@ private:
     String m_clientRedirectSourceForHistory;
     DocumentLoadTiming m_loadTiming;
 
-    ResourceLoaderIdentifier m_identifierForLoadWithoutResourceLoader;
+    Markable<ResourceLoaderIdentifier> m_identifierForLoadWithoutResourceLoader;
 
     DataLoadToken m_dataLoadToken;
 
@@ -728,7 +726,7 @@ private:
 
     Vector<TargetedElementSelectors> m_visibilityAdjustmentSelectors;
 
-    ScriptExecutionContextIdentifier m_resultingClientId;
+    Markable<ScriptExecutionContextIdentifier> m_resultingClientId;
 
     std::unique_ptr<ServiceWorkerRegistrationData> m_serviceWorkerRegistrationData;
 

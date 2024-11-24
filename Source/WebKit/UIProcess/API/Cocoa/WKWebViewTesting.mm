@@ -174,7 +174,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (void)_setPageScale:(CGFloat)scale withOrigin:(CGPoint)origin
 {
-    _page->scalePage(scale, WebCore::roundedIntPoint(origin));
+    _page->scalePage(scale, WebCore::roundedIntPoint(origin), [] { });
 }
 
 - (CGFloat)_pageScale
@@ -459,9 +459,9 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
 
 - (NSString*)_scrollbarStateForScrollingNodeID:(uint64_t)scrollingNodeID processID:(uint64_t)processID isVertical:(bool)isVertical
 {
-    if (_page)
-        return _page->scrollbarStateForScrollingNodeID(WebCore::ScrollingNodeID(LegacyNullableObjectIdentifier<WebCore::ScrollingNodeIDType>(scrollingNodeID), LegacyNullableObjectIdentifier<WebCore::ProcessIdentifierType>(processID)), isVertical);
-    return @"";
+    if (!_page || !ObjectIdentifier<WebCore::ProcessIdentifierType>::isValidIdentifier(processID))
+        return @"";
+    return _page->scrollbarStateForScrollingNodeID(WebCore::ScrollingNodeID(LegacyNullableObjectIdentifier<WebCore::ScrollingNodeIDType>(scrollingNodeID), ObjectIdentifier<WebCore::ProcessIdentifierType>(processID)), isVertical);
 }
 
 - (WKWebViewAudioRoutingArbitrationStatus)_audioRoutingArbitrationStatus
@@ -685,9 +685,7 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse)
             return adoptRef(*new WKMediaSessionCoordinatorForTesting(privateCoordinator));
         }
 
-        using WebCore::MediaSessionCoordinatorClient::weakPtrFactory;
-        using WebCore::MediaSessionCoordinatorClient::WeakValueType;
-        using WebCore::MediaSessionCoordinatorClient::WeakPtrImplType;
+        USING_CAN_MAKE_WEAKPTR(WebCore::MediaSessionCoordinatorClient);
 
     private:
         explicit WKMediaSessionCoordinatorForTesting(id <_WKMediaSessionCoordinator> clientCoordinator)

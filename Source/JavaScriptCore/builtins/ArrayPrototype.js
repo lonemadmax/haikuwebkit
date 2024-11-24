@@ -350,7 +350,7 @@ function concatSlowPath()
     "use strict";
 
     var currentElement = @toObject(this, "Array.prototype.concat requires that |this| not be null or undefined");
-    var argCount = arguments.length;
+    var argCount = @argumentCount();
 
     var result = @newArrayWithSpecies(0, currentElement);
     var resultIsArray = @isJSArray(result);
@@ -402,7 +402,8 @@ function concat(first)
 
     if (@argumentCount() === 0
         && @isJSArray(this)
-        && @tryGetByIdWithWellKnownSymbol(this, "isConcatSpreadable") === @undefined) {
+        && @tryGetByIdWithWellKnownSymbol(this, "isConcatSpreadable") === @undefined
+        && @arraySpeciesWatchpointIsValid(this)) {
 
         var result = @arrayFromFastFillWithEmpty(@Array, this);
         if (result)
@@ -636,12 +637,13 @@ function toSpliced(start, deleteCount /*, ...items */)
     var actualDeleteCount;
 
     // Step 8-10.
-    if (arguments.length === 0)
+    var argCount = @argumentCount();
+    if (argCount === 0)
         actualDeleteCount = 0;
-    else if (arguments.length === 1)
+    else if (argCount === 1)
         actualDeleteCount = length - actualStart;
     else {
-        insertCount = arguments.length - 2;
+        insertCount = argCount - 2;
         var tempDeleteCount = @toIntegerOrInfinity(deleteCount);
         tempDeleteCount = tempDeleteCount > 0 ? tempDeleteCount : 0;
         actualDeleteCount = @min(tempDeleteCount, length - actualStart);
@@ -703,6 +705,11 @@ function with(index, value)
         @throwRangeError("Array index out of Range");
 
     // Step 7.
+    var fastResult = @arrayFromFastFillWithUndefined(@Array, array);
+    if (fastResult) {
+        @putByValDirect(fastResult, actualIndex, value);
+        return fastResult;
+    }
     var result = @newArrayWithSize(length);
 
     // Step 8-9

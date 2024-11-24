@@ -993,6 +993,18 @@ mintAlign(_fa2)
 mintAlign(_fa3)
     break
 
+mintAlign(_fa4)
+    break
+
+mintAlign(_fa5)
+    break
+
+mintAlign(_fa6)
+    break
+
+mintAlign(_fa7)
+    break
+
 mintAlign(_stackzero)
     break
 
@@ -1042,6 +1054,18 @@ mintAlign(_fr2)
 mintAlign(_fr3)
     break
 
+mintAlign(_fr4)
+    break
+
+mintAlign(_fr5)
+    break
+
+mintAlign(_fr6)
+    break
+
+mintAlign(_fr7)
+    break
+
 mintAlign(_stack)
     break
 
@@ -1055,7 +1079,46 @@ _uint_begin:
 uintAlign(_r1)
     break
 
+uintAlign(_r2)
+    break
+
+uintAlign(_r3)
+    break
+
+uintAlign(_r4)
+    break
+
+uintAlign(_r5)
+    break
+
+uintAlign(_r6)
+    break
+
+uintAlign(_r7)
+    break
+
 uintAlign(_fr0)
+    break
+
+uintAlign(_fr1)
+    break
+
+uintAlign(_fr2)
+    break
+
+uintAlign(_fr3)
+    break
+
+uintAlign(_fr4)
+    break
+
+uintAlign(_fr5)
+    break
+
+uintAlign(_fr6)
+    break
+
+uintAlign(_fr7)
     break
 
 uintAlign(_stack)
@@ -1109,6 +1172,18 @@ argumINTAlign(_fa2)
     break
 
 argumINTAlign(_fa3)
+    break
+
+argumINTAlign(_fa4)
+    break
+
+argumINTAlign(_fa5)
+    break
+
+argumINTAlign(_fa6)
+    break
+
+argumINTAlign(_fa7)
     break
 
 argumINTAlign(_stack)

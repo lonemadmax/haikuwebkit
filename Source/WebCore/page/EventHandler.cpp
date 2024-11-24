@@ -1830,7 +1830,7 @@ HandleUserInputEventResult EventHandler::handleMousePressEvent(const PlatformMou
     UserGestureIndicator gestureIndicator(IsProcessingUserGesture::Yes, frame->protectedDocument().get(), userGestureTypeForPlatformEvent(platformMouseEvent));
 
     // FIXME (bug 68185): this call should be made at another abstraction layer
-    frame->checkedLoader()->resetMultipleFormSubmissionProtection();
+    frame->protectedLoader()->resetMultipleFormSubmissionProtection();
 
 #if !ENABLE(IOS_TOUCH_EVENTS)
     cancelFakeMouseMoveEvent();
@@ -3390,14 +3390,14 @@ std::optional<WheelScrollGestureState> EventHandler::updateWheelGestureState(con
 
 void EventHandler::clearLatchedState()
 {
-    RefPtrAllowingPartiallyDestroyed<Page> page = m_frame->page();
+    RefPtr<Page> page = m_frame->page();
     if (!page)
         return;
 
 #if ENABLE(WHEEL_EVENT_LATCHING)
     LOG_WITH_STREAM(ScrollLatching, stream << "EventHandler::clearLatchedState()");
     if (auto* scrollLatchingController = page->scrollLatchingControllerIfExists())
-        scrollLatchingController->removeLatchingStateForFrame(RefAllowingPartiallyDestroyed<LocalFrame> { m_frame.get() });
+        scrollLatchingController->removeLatchingStateForFrame(Ref<LocalFrame> { m_frame.get() });
 #endif
 }
 
@@ -3853,7 +3853,7 @@ bool EventHandler::internalKeyEvent(const PlatformKeyboardEvent& initialKeyEvent
     UserTypingGestureIndicator typingGestureIndicator(frame);
 
     // FIXME (bug 68185): this call should be made at another abstraction layer
-    frame->checkedLoader()->resetMultipleFormSubmissionProtection();
+    frame->protectedLoader()->resetMultipleFormSubmissionProtection();
 
     // In IE, access keys are special, they are handled after default keydown processing, but cannot be canceled - this is hard to match.
     // On Mac OS X, we process them before dispatching keydown, as the default keydown handler implements Emacs key bindings, which may conflict

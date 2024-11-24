@@ -665,7 +665,7 @@ void ControlData::fillLabels(CCallHelpers::Label label)
         *box = label;
 }
 
-BBQJIT::BBQJIT(CCallHelpers& jit, const TypeDefinition& signature, BBQCallee& callee, const FunctionData& function, uint32_t functionIndex, const ModuleInformation& info, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, MemoryMode mode, InternalFunction* compilation, std::optional<bool> hasExceptionHandlers, unsigned loopIndexForOSREntry, TierUpCount* tierUp)
+BBQJIT::BBQJIT(CCallHelpers& jit, const TypeDefinition& signature, BBQCallee& callee, const FunctionData& function, FunctionCodeIndex functionIndex, const ModuleInformation& info, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, MemoryMode mode, InternalFunction* compilation, std::optional<bool> hasExceptionHandlers, unsigned loopIndexForOSREntry)
     : m_jit(jit)
     , m_callee(callee)
     , m_function(function)
@@ -675,7 +675,6 @@ BBQJIT::BBQJIT(CCallHelpers& jit, const TypeDefinition& signature, BBQCallee& ca
     , m_mode(mode)
     , m_unlinkedWasmToWasmCalls(unlinkedWasmToWasmCalls)
     , m_hasExceptionHandlers(hasExceptionHandlers)
-    , m_tierUp(tierUp)
     , m_loopIndexForOSREntry(loopIndexForOSREntry)
     , m_gprBindings(jit.numberOfRegisters(), RegisterBinding::none())
     , m_fprBindings(jit.numberOfFPRegisters(), RegisterBinding::none())
@@ -745,6 +744,20 @@ BBQJIT::BBQJIT(CCallHelpers& jit, const TypeDefinition& signature, BBQCallee& ca
         m_arguments.append(i);
     }
     m_localStorage = m_frameSize; // All stack slots allocated so far are locals.
+}
+
+bool BBQJIT::canTierUpToOMG() const
+{
+    if (!Options::useOMGJIT())
+        return false;
+
+    if (!Options::useBBQTierUpChecks())
+        return false;
+
+    if (m_function.data.size() > Options::maximumOMGCandidateCost())
+        return false;
+
+    return true;
 }
 
 void BBQJIT::setParser(FunctionParser<BBQJIT>* parser)
@@ -2923,7 +2936,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addRefEq(Value ref0, Value ref1, Value&
     return addI64Eq(ref0, ref1, result);
 }
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addRefFunc(uint32_t index, Value& result)
+PartialResult WARN_UNUSED_RETURN BBQJIT::addRefFunc(FunctionSpaceIndex index, Value& result)
 {
     // FIXME: Emit this inline <https://bugs.webkit.org/show_bug.cgi?id=198506>.
     TypeKind returnType = TypeKind::Ref;
@@ -2940,12 +2953,12 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addRefFunc(uint32_t index, Value& resul
 
 void BBQJIT::emitEntryTierUpCheck()
 {
-    if (!m_tierUp || !Options::useOMGJIT() || !Options::useBBQTierUpChecks())
+    if (!canTierUpToOMG())
         return;
 
 #if ENABLE(WEBASSEMBLY_OMGJIT)
     static_assert(GPRInfo::nonPreservedNonArgumentGPR0 == wasmScratchGPR);
-    m_jit.move(TrustedImmPtr(bitwise_cast<uintptr_t>(&m_tierUp->m_counter)), wasmScratchGPR);
+    m_jit.move(TrustedImmPtr(bitwise_cast<uintptr_t>(&m_callee.tierUpCounter().m_counter)), wasmScratchGPR);
     Jump tierUp = m_jit.branchAdd32(CCallHelpers::PositiveOrZero, TrustedImm32(TierUpCount::functionEntryIncrement()), Address(wasmScratchGPR));
     MacroAssembler::Label tierUpResume = m_jit.label();
     auto functionIndex = m_functionIndex;
@@ -2965,8 +2978,7 @@ ControlData WARN_UNUSED_RETURN BBQJIT::addTopLevel(BlockSignature signature)
 {
     if (UNLIKELY(Options::verboseBBQJITInstructions())) {
         auto nameSection = m_info.nameSection;
-        auto functionIndexSpace = m_info.isImportedFunctionFromFunctionIndexSpace(m_functionIndex) ? m_functionIndex : m_functionIndex + m_info.importFunctionCount();
-        std::pair<const Name*, RefPtr<NameSection>> name = nameSection->get(functionIndexSpace);
+        std::pair<const Name*, RefPtr<NameSection>> name = nameSection->get(m_functionIndex);
         dataLog("BBQ\tFunction ");
         if (name.first)
             dataLog(makeString(*name.first));
@@ -3170,7 +3182,7 @@ MacroAssembler::Label BBQJIT::addLoopOSREntrypoint()
     // This operation shuffles around values on the stack, until everything is in the right place. Then,
     // it returns the address of the loop we're jumping to in wasmScratchGPR (so we don't interfere with
     // anything we just loaded from the scratch buffer into a register)
-    m_jit.probe(tagCFunction<JITProbePtrTag>(operationWasmLoopOSREnterBBQJIT), m_tierUp, m_usesSIMD ? SavedFPWidth::SaveVectors : SavedFPWidth::DontSaveVectors);
+    m_jit.probe(tagCFunction<JITProbePtrTag>(operationWasmLoopOSREnterBBQJIT), nullptr, m_usesSIMD ? SavedFPWidth::SaveVectors : SavedFPWidth::DontSaveVectors);
 
     // We expect the loop address to be populated by the probe operation.
     static_assert(wasmScratchGPR == GPRInfo::nonPreservedNonArgumentGPR0);
@@ -3292,26 +3304,24 @@ StackMap BBQJIT::makeStackMap(const ControlData& data, Stack& enclosingStack)
 
 void BBQJIT::emitLoopTierUpCheckAndOSREntryData(const ControlData& data, Stack& enclosingStack, unsigned loopIndex)
 {
-    if (!m_tierUp)
-        return;
-
-    ASSERT(m_tierUp->osrEntryTriggers().size() == loopIndex);
-    m_tierUp->osrEntryTriggers().append(TierUpCount::TriggerReason::DontTrigger);
+    auto& tierUpCounter = m_callee.tierUpCounter();
+    ASSERT(tierUpCounter.osrEntryTriggers().size() == loopIndex);
+    tierUpCounter.osrEntryTriggers().append(TierUpCount::TriggerReason::DontTrigger);
 
     unsigned outerLoops = m_outerLoops.isEmpty() ? UINT32_MAX : m_outerLoops.last();
-    m_tierUp->outerLoops().append(outerLoops);
+    tierUpCounter.outerLoops().append(outerLoops);
     m_outerLoops.append(loopIndex);
 
-    OSREntryData& osrEntryData = m_tierUp->addOSREntryData(m_functionIndex, loopIndex, makeStackMap(data, enclosingStack));
+    OSREntryData& osrEntryData = tierUpCounter.addOSREntryData(m_functionIndex, loopIndex, makeStackMap(data, enclosingStack));
 
-    if (!Options::useOMGJIT() || !Options::useBBQTierUpChecks())
+    if (!canTierUpToOMG())
         return;
 
 #if ENABLE(WEBASSEMBLY_OMGJIT)
     static_assert(GPRInfo::nonPreservedNonArgumentGPR0 == wasmScratchGPR);
-    m_jit.move(TrustedImmPtr(bitwise_cast<uintptr_t>(&m_tierUp->m_counter)), wasmScratchGPR);
+    m_jit.move(TrustedImmPtr(bitwise_cast<uintptr_t>(&tierUpCounter.m_counter)), wasmScratchGPR);
 
-    TierUpCount::TriggerReason* forceEntryTrigger = &(m_tierUp->osrEntryTriggers().last());
+    TierUpCount::TriggerReason* forceEntryTrigger = &(tierUpCounter.osrEntryTriggers().last());
     static_assert(!static_cast<uint8_t>(TierUpCount::TriggerReason::DontTrigger), "the JIT code assumes non-zero means 'enter'");
     static_assert(sizeof(TierUpCount::TriggerReason) == 1, "branchTest8 assumes this size");
 
@@ -3851,8 +3861,7 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addEndToUnreachable(ControlEntry& entry
         entryData.convertLoopToBlock();
         entryData.flushAndSingleExit(*this, entryData, entry.enclosedExpressionStack, false, true, unreachable);
         entryData.linkJumpsTo(entryData.loopLabel(), &m_jit);
-        if (m_tierUp)
-            m_outerLoops.takeLast();
+        m_outerLoops.takeLast();
         break;
     case BlockType::Try:
     case BlockType::Catch:
@@ -4101,7 +4110,7 @@ void BBQJIT::returnValuesFromCall(Vector<Value, N>& results, const FunctionSigna
     }
 }
 
-void BBQJIT::emitTailCall(unsigned functionIndex, const TypeDefinition& signature, ArgumentList& arguments)
+void BBQJIT::emitTailCall(FunctionSpaceIndex functionIndex, const TypeDefinition& signature, ArgumentList& arguments)
 {
     const auto& callingConvention = wasmCallingConvention();
     CallInformation callInfo = callingConvention.callInformationFor(signature, CallRole::Callee);
@@ -4205,7 +4214,7 @@ void BBQJIT::emitTailCall(unsigned functionIndex, const TypeDefinition& signatur
 }
 
 
-PartialResult WARN_UNUSED_RETURN BBQJIT::addCall(unsigned functionIndex, const TypeDefinition& signature, ArgumentList& arguments, ResultList& results, CallType callType)
+PartialResult WARN_UNUSED_RETURN BBQJIT::addCall(FunctionSpaceIndex functionIndex, const TypeDefinition& signature, ArgumentList& arguments, ResultList& results, CallType callType)
 {
     if (callType == CallType::TailCall) {
         emitTailCall(functionIndex, signature, arguments);
@@ -4241,7 +4250,12 @@ PartialResult WARN_UNUSED_RETURN BBQJIT::addCall(unsigned functionIndex, const T
 
     // Our callee could have tail called someone else and changed SP so we need to restore it. Do this after restoring our results so we don't lose them.
     m_frameSizeLabels.append(m_jit.moveWithPatch(TrustedImmPtr(nullptr), wasmScratchGPR));
+#if CPU(ARM_THUMB2)
+    m_jit.subPtr(GPRInfo::callFrameRegister, wasmScratchGPR, wasmScratchGPR);
+    m_jit.move(wasmScratchGPR, MacroAssembler::stackPointerRegister);
+#else
     m_jit.subPtr(GPRInfo::callFrameRegister, wasmScratchGPR, MacroAssembler::stackPointerRegister);
+#endif
 
     if (m_info.callCanClobberInstance(functionIndex) || m_info.isImportedFunctionFromFunctionIndexSpace(functionIndex))
         restoreWebAssemblyGlobalStateAfterWasmCall();
@@ -4278,7 +4292,12 @@ void BBQJIT::emitIndirectCall(const char* opcode, const Value& callee, GPRReg ca
 
     // Our callee could have tail called someone else and changed SP so we need to restore it. Do this after restoring our results so we don't lose them.
     m_frameSizeLabels.append(m_jit.moveWithPatch(TrustedImmPtr(nullptr), wasmScratchGPR));
+#if CPU(ARM_THUMB2)
+    m_jit.subPtr(GPRInfo::callFrameRegister, wasmScratchGPR, wasmScratchGPR);
+    m_jit.move(wasmScratchGPR, MacroAssembler::stackPointerRegister);
+#else
     m_jit.subPtr(GPRInfo::callFrameRegister, wasmScratchGPR, MacroAssembler::stackPointerRegister);
+#endif
 
     restoreWebAssemblyGlobalStateAfterWasmCall();
 
@@ -5054,7 +5073,7 @@ Location BBQJIT::allocateStack(Value value)
 
 } // namespace JSC::Wasm::BBQJITImpl
 
-Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileBBQ(CompilationContext& compilationContext, BBQCallee& callee, const FunctionData& function, const TypeDefinition& signature, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, const ModuleInformation& info, MemoryMode mode, uint32_t functionIndex, std::optional<bool> hasExceptionHandlers, unsigned loopIndexForOSREntry, TierUpCount* tierUp)
+Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileBBQ(CompilationContext& compilationContext, BBQCallee& callee, const FunctionData& function, const TypeDefinition& signature, Vector<UnlinkedWasmToWasmCall>& unlinkedWasmToWasmCalls, const ModuleInformation& info, MemoryMode mode, FunctionCodeIndex functionIndex, std::optional<bool> hasExceptionHandlers, unsigned loopIndexForOSREntry)
 {
     CompilerTimingScope totalTime("BBQ"_s, "Total BBQ"_s);
 
@@ -5064,7 +5083,7 @@ Expected<std::unique_ptr<InternalFunction>, String> parseAndCompileBBQ(Compilati
 
     compilationContext.wasmEntrypointJIT = makeUnique<CCallHelpers>();
 
-    BBQJIT irGenerator(*compilationContext.wasmEntrypointJIT, signature, callee, function, functionIndex, info, unlinkedWasmToWasmCalls, mode, result.get(), hasExceptionHandlers, loopIndexForOSREntry, tierUp);
+    BBQJIT irGenerator(*compilationContext.wasmEntrypointJIT, signature, callee, function, functionIndex, info, unlinkedWasmToWasmCalls, mode, result.get(), hasExceptionHandlers, loopIndexForOSREntry);
     FunctionParser<BBQJIT> parser(irGenerator, function.data, signature, info);
     WASM_FAIL_IF_HELPER_FAILS(parser.parse());
 

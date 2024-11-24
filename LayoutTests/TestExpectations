@@ -420,6 +420,9 @@ imported/w3c/web-platform-tests/editing/crashtests/inserthorizontalrule-in-texta
 imported/w3c/web-platform-tests/selection/anonymous/details-ancestor.html [ Pass Failure ]
 imported/w3c/web-platform-tests/selection/caret/move-around-contenteditable-false.html [ Pass Failure ]
 
+# This crash test is a timeout.
+imported/w3c/web-platform-tests/selection/crashtests/selectall-and-find-svg-text-on-selectstart.html [ Timeout ]
+
 # This test hits a debug assertion in WebKit
 webkit.org/b/266465 imported/w3c/web-platform-tests/editing/run/delete.html?6001-7000 [ Skip ]
 
@@ -442,6 +445,9 @@ imported/w3c/web-platform-tests/service-workers/service-worker/fetch-event-worke
 imported/w3c/web-platform-tests/service-workers/service-worker/claim-worker-fetch.https.html [ Skip ]
 imported/w3c/web-platform-tests/service-workers/service-worker/client-navigate.https.html [ Skip ]
 imported/w3c/web-platform-tests/service-workers/service-worker/update-bytecheck-cors-import.https.html [ Skip ]
+
+# This crash test is a timeout.
+imported/w3c/web-platform-tests/service-workers/cache-storage/crashtests/cache-response-clone.https.html [ Timeout ]
 
 # This test is a flaky timeout.
 imported/w3c/web-platform-tests/service-workers/service-worker/fetch-canvas-tainting-video-cache.https.html [ Skip ]
@@ -499,20 +505,6 @@ imported/w3c/web-platform-tests/server-timing/test_server_timing.html [ Skip ]
 imported/w3c/web-platform-tests/server-timing/test_server_timing.https.html [ Skip ]
 imported/w3c/web-platform-tests/server-timing/navigation_timing_idl.html [ Skip ]
 imported/w3c/web-platform-tests/server-timing/navigation_timing_idl.https.html [ Skip ]
-
-# These need test devlopment to populate clientDataJSON in AuthenticatorResponseData
-webkit.org/b/269751 http/wpt/webauthn/ctap-hid-success.https.html [ Crash ]
-webkit.org/b/269751 http/wpt/webauthn/idl.https.html [ Crash ]
-webkit.org/b/269751 http/wpt/webauthn/public-key-credential-create-success-ccid.https.html [ Crash ]
-webkit.org/b/269751 http/wpt/webauthn/public-key-credential-create-success-hid.https.html [ Crash ]
-webkit.org/b/269751 http/wpt/webauthn/public-key-credential-create-success-nfc.https.html [ Crash ]
-webkit.org/b/269751 http/wpt/webauthn/public-key-credential-create-success-u2f.https.html [ Crash ]
-webkit.org/b/269751 http/wpt/webauthn/public-key-credential-cross-origin.https.html [ Crash ]
-webkit.org/b/269751 http/wpt/webauthn/public-key-credential-get-success-ccid.https.html [ Crash ]
-webkit.org/b/269751 http/wpt/webauthn/public-key-credential-get-success-hid.https.html [ Crash ]
-webkit.org/b/269751 http/wpt/webauthn/public-key-credential-get-success-nfc.https.html [ Crash ]
-webkit.org/b/269751 http/wpt/webauthn/public-key-credential-get-success-u2f.https.html [ Crash ]
-webkit.org/b/269751 http/wpt/webauthn/public-key-credential-same-origin-with-ancestors.https.html [ Crash ]
 
 # Console log lines may appear in a different order so we silence them.
 http/tests/security/cookie-module.html [ DumpJSConsoleLogInStdErr ]
@@ -1111,6 +1103,52 @@ webkit.org/b/279748 imported/w3c/web-platform-tests/html/dom/elements/global-att
 [ Debug ] imported/w3c/web-platform-tests/html/dom/idlharness.https.html [ Skip ]
 [ Debug ] imported/w3c/web-platform-tests/html/dom/idlharness.worker.html [ Skip ]
 [ Debug ] accessibility/visible-character-range-scrolling.html [ Skip ]
+
+# These tests rely on virtual authenticators being supported, which only works in WebDriver, not WKTR.
+imported/w3c/web-platform-tests/webauthn/createcredential-abort.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-attachment.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-badargs-authnrselection.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-badargs-challenge.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-badargs-rp.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-badargs-user.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-clientdata.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-cross-origin-iframe.https.sub.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-excludecredentials.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-extensions.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-getpublickey.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-hints.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-large-blob-not-supported.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-large-blob-supported.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-minpinlength.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-passing.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-prf.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-pubkeycredparams.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-resident-key.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/createcredential-timeout.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/credblob-not-supported.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/credblob-supported.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/conditional-mediation.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getcredential-abort.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getcredential-allowcredentials.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getcredential-attachment.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getcredential-badargs-rpid.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getcredential-badargs-userverification.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getcredential-extensions.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getcredential-hints.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getcredential-large-blob-not-supported.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getcredential-large-blob-supported.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getcredential-passing.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getcredential-prf.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getcredential-rk-passing.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getcredential-timeout.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/public-key-credential-to-json.https.window-expected.txt [ Skip ]
+imported/w3c/web-platform-tests/webauthn/signal-all-accepted-credentials.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/signal-current-user-details.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/getclientcapabilities.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/signal-unknown-credential.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/storecredential.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/webauthn-testdriver-basic.https.html [ Skip ]
+imported/w3c/web-platform-tests/webauthn/remote-desktop-client-override.tentative.https.html  [ Skip ]
 
 # This test adds a lot of iframes and is slow to run.
 fast/dom/connected-subframe-counter-overflow.html [ Slow ]
@@ -2124,6 +2162,8 @@ webkit.org/b/269522 imported/w3c/web-platform-tests/svg/linking/reftests/url-pro
 webkit.org/b/269522 imported/w3c/web-platform-tests/svg/linking/reftests/url-processing-whitespace-003.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/linking/reftests/view-viewbox-override.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/render/reftests/render-sync-with-font-size.html [ Skip ]
+imported/w3c/web-platform-tests/svg/render/order/z-index.svg [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/svg/render/reftests/blending-001.svg [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/svg/shapes/ellipse-02.svg [ Skip ]
 imported/w3c/web-platform-tests/svg/shapes/ellipse-03.svg [ Skip ]
 imported/w3c/web-platform-tests/svg/shapes/ellipse-05.svg [ Skip ]
@@ -2176,7 +2216,6 @@ webkit.org/b/139595 http/tests/xmlhttprequest/workers/abort-exception-assert.htm
 [ Debug ] fast/history/history-back-while-pdf-in-pagecache.html [ Skip ]
 webkit.org/b/121628 [ Release ] fast/history/history-back-while-pdf-in-pagecache.html [ Pass ImageOnlyFailure ]
 [ Debug ] fullscreen/full-screen-iframe-legacy.html [ Pass Crash ]
-webkit.org/b/151488 [ Debug ] imported/blink/editing/selection/deleteFromDocument-undo-crash.html [ Skip ]
 
 webkit.org/b/139634 [ Debug ] fast/selectors/is-backtracking.html [ Slow ]
 webkit.org/b/139634 [ Debug ] fast/selectors/matches-backtracking.html [ Slow ]
@@ -2946,7 +2985,6 @@ imported/w3c/web-platform-tests/css/css-text/hanging-punctuation/hanging-punctua
 imported/w3c/web-platform-tests/css/css-text/hanging-punctuation/hanging-punctuation-first-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/hanging-punctuation/hanging-punctuation-last-001.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-auto-005.html [ ImageOnlyFailure ]
-webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-auto-001.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-auto-010.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-auto-inline-010.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-none-011.html [ ImageOnlyFailure ]
@@ -2954,7 +2992,6 @@ webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-none-013.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-shaping-001.html [ ImageOnlyFailure ]
 webkit.org/b/214290 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-span-002.html [ ImageOnlyFailure ]
-webkit.org/b/257011 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphenate-character-002.html [ ImageOnlyFailure ]
 webkit.org/b/257011 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphenate-character-005.html [ ImageOnlyFailure ]
 webkit.org/b/257011 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphenate-limit-chars-001.html [ ImageOnlyFailure ]
 webkit.org/b/257011 imported/w3c/web-platform-tests/css/css-text/hyphens/hyphens-auto-003.html [ ImageOnlyFailure ]
@@ -3680,6 +3717,7 @@ webkit.org/b/179176 svg/wicd/test-rightsizing-a.xhtml [ Pass Failure ]
 webkit.org/b/187183 http/tests/security/pasteboard-file-url.html [ Skip ]
 
 [ Debug ] fast/multicol/last-set-crash.html [ Skip ]
+[ Debug ] fast/inline/line-clamp-discard-assert.html [ Skip ]
 
 webkit.org/b/202805 [ Debug ] fast/multicol/fragflow-gains-new-in-flow-descendant-crash.html [ Skip ]
 
@@ -3694,7 +3732,6 @@ imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-eleme
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-iframe-element/iframe_sandbox_popups_nonescaping-2.html [ Skip ]
 
 imported/w3c/web-platform-tests/css/css-images/multiple-position-color-stop-conic.html [ ImageOnlyFailure ]
-webkit.org/b/277218 [ Debug ] imported/w3c/web-platform-tests/css/css-images/radial-gradient-transition-hint-crash.html [ Skip ]
 
 webkit.org/b/187773 http/tests/webAPIStatistics [ Skip ]
 
@@ -3894,6 +3931,10 @@ imported/w3c/web-platform-tests/websockets/Send-binary-blob.any.worker.html?wpt_
 imported/w3c/web-platform-tests/websockets/Send-data.any.html?wpt_flags=h2 [ Skip ]
 imported/w3c/web-platform-tests/websockets/Send-data.any.worker.html?wpt_flags=h2 [ Skip ]
 imported/w3c/web-platform-tests/websockets/Send-data.worker.js?wpt_flags=h2 [ Skip ]
+imported/w3c/web-platform-tests/websockets/send-many-64K-messages-with-backpressure.any.html?wpt_flags=h2 [ Skip ]
+imported/w3c/web-platform-tests/websockets/send-many-64K-messages-with-backpressure.any.serviceworker.html?wpt_flags=h2 [ Skip ]
+imported/w3c/web-platform-tests/websockets/send-many-64K-messages-with-backpressure.any.sharedworker.html?wpt_flags=h2 [ Skip ]
+imported/w3c/web-platform-tests/websockets/send-many-64K-messages-with-backpressure.any.worker.html?wpt_flags=h2 [ Skip ]
 imported/w3c/web-platform-tests/websockets/Send-null.any.html?wpt_flags=h2 [ Skip ]
 imported/w3c/web-platform-tests/websockets/Send-null.any.worker.html?wpt_flags=h2 [ Skip ]
 imported/w3c/web-platform-tests/websockets/Send-paired-surrogates.any.html?wpt_flags=h2 [ Skip ]
@@ -3907,23 +3948,23 @@ imported/w3c/web-platform-tests/websockets/unload-a-document/002.html?wpt_flags=
 imported/w3c/web-platform-tests/websockets/unload-a-document/005.html?wpt_flags=h2 [ Skip ]
 
 # Flaky WebSocket tests.
-imported/w3c/web-platform-tests/websockets/cookies/005.html [ Skip ]
-imported/w3c/web-platform-tests/websockets/constructor/014.html [ Skip ]
+imported/w3c/web-platform-tests/websockets/cookies/005.html?default [ Skip ]
+imported/w3c/web-platform-tests/websockets/constructor/014.html?default [ Skip ]
 imported/w3c/web-platform-tests/websockets/constructor/014.html?wss [ Skip ]
-imported/w3c/web-platform-tests/websockets/Send-unicode-data.any.html [ Skip ]
-imported/w3c/web-platform-tests/websockets/Send-65K-data.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/close/close-connecting.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/close/close-basic.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/Close-undefined.any.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/readyState/006.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/015.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/readyState/007.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/cookies/001.html [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/Send-unicode-data.any.html?default [ Skip ]
+imported/w3c/web-platform-tests/websockets/Send-65K-data.any.worker.html?default [ Skip ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/close/close-connecting.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/close/close-basic.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/Close-undefined.any.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/readyState/006.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/015.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/readyState/007.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/cookies/001.html?default [ Pass Failure ]
 
 # Timing out WebSocket tests.
-imported/w3c/web-platform-tests/websockets/binaryType-wrong-value.any.html [ Skip ]
-imported/w3c/web-platform-tests/websockets/binaryType-wrong-value.any.worker.html [ Skip ]
-imported/w3c/web-platform-tests/websockets/bufferedAmount-unchanged-by-sync-xhr.any.html [ Skip ]
+imported/w3c/web-platform-tests/websockets/binaryType-wrong-value.any.html?default [ Skip ]
+imported/w3c/web-platform-tests/websockets/binaryType-wrong-value.any.worker.html?default [ Skip ]
+imported/w3c/web-platform-tests/websockets/bufferedAmount-unchanged-by-sync-xhr.any.html?default [ Skip ]
 imported/w3c/web-platform-tests/websockets/Create-on-worker-shutdown.any.html [ Skip ]
 
 # iOS only
@@ -5596,11 +5637,6 @@ webanimations/translate-property-and-translate-animation-with-delay-on-forced-la
 # Container queries
 imported/w3c/web-platform-tests/css/css-conditional/container-queries/custom-layout-container-001.https.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-conditional/container-queries/inline-size-bfc-floats.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-conditional/container-queries/no-layout-containment-abspos-dynamic.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-conditional/container-queries/no-layout-containment-abspos.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-conditional/container-queries/no-layout-containment-baseline.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-conditional/container-queries/no-layout-containment-fixedpos-dynamic.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-conditional/container-queries/no-layout-containment-fixedpos.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-conditional/container-queries/pseudo-elements-010.html [ ImageOnlyFailure ]
 
 webkit.org/b/279424 [ Debug ] imported/w3c/web-platform-tests/css/css-conditional/container-queries/svg-foreignobject-no-size-container.html [ Skip ] # Crash
@@ -7183,12 +7219,73 @@ imported/w3c/web-platform-tests/webtransport/back-forward-cache-with-closed-webt
 [ Debug ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/iframe-popup-same-origin-allow-popups-to-same-origin.https.html?7-8 [ Skip ]
 [ Debug ] imported/w3c/web-platform-tests/html/cross-origin-opener-policy/iframe-popup-same-origin-allow-popups-to-same-origin.https.html?9-last [ Skip ]
 
-# Canvas Layers API not supported yet.
-webkit.org/b/259784 imported/w3c/web-platform-tests/html/canvas/element/layers [ Skip ]
+# Some of Canvas Layer API features are not supported yet.
+
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.anisotropic-blur.isotropic.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.anisotropic-blur.mostly-x.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.anisotropic-blur.mostly-y.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.anisotropic-blur.x-only.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.anisotropic-blur.y-only.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.blur-from-outside-canvas.no-clipping.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.blur-from-outside-canvas.with-clipping.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.css-filters.blur-and-shadow.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.css-filters.blur.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.css-filters.shadow.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.ctm.ctx-filter.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.ctm.filter.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.ctm.resetTransform.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.ctm.setTransform.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.ctm.shadow-in-transformed-layer.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.global-states.ctx-filter.no-transform.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.global-states.ctx-filter.rotation.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.global-states.filter.ctx-filter.no-transform.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.global-states.filter.ctx-filter.rotation.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.global-states.filter.no-cxt-filter.no-transform.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.global-states.filter.no-cxt-filter.rotation.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.global-states.no-cxt-filter.rotation.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.nested-filters.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.non-invertible-matrix.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.non-invertible-matrix.shadow.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.non-invertible-matrix.with-render-states-and-filter.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.opaque-canvas.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.shadow-from-outside-canvas.long-distance-with-clipping.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.shadow-from-outside-canvas.long-distance.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.shadow-from-outside-canvas.short-distance-with-clipping.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.shadow-from-outside-canvas.short-distance.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.invalid-calls.beginLayer-reset-endLayer.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.invalid-calls.beginLayer-restore.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.invalid-calls.beginLayer-save-endLayer.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.invalid-calls.endLayer.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.invalid-calls.save-beginLayer-restore.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.invalid-calls.save-endLayer.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.valid-calls.beginLayer-endLayer.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.valid-calls.beginLayer-save.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.valid-calls.beginLayer.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.valid-calls.save-beginLayer.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/layers/2d.layer.valid-calls.save_reset_restore.html [ Failure ]
+
 webkit.org/b/259784 imported/w3c/web-platform-tests/html/canvas/offscreen/layers [ Skip ]
 
-# New failures after re-importing html/canvas
+# Some of Canvas Filter API features are not supported yet.
+
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.canvasFilterObject.blur.exceptions.tentative.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.canvasFilterObject.colorMatrix.tentative.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.canvasFilterObject.convolveMatrix.exceptions.tentative.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.canvasFilterObject.turbulence.inputTypes.tentative.html [ Failure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.canvasFilterObject.componentTransfer.discrete.tentative.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.canvasFilterObject.componentTransfer.gamma.tentative.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.canvasFilterObject.componentTransfer.identity.tentative.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.canvasFilterObject.componentTransfer.linear.tentative.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.canvasFilterObject.componentTransfer.table.tentative.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.canvasFilterObject.dropShadow.tentative.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.canvasFilterObject.gaussianBlur.tentative.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.layers.componentTransfer.discrete.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.layers.componentTransfer.gamma.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.layers.componentTransfer.linear.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.layers.componentTransfer.table.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.layers.dropShadow.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/canvas/element/filters/2d.filter.layers.gaussianBlur.html [ ImageOnlyFailure ]
+
 imported/w3c/web-platform-tests/html/canvas/element/manual/drawing-text-to-the-canvas/canvas.2d.disconnected-font-size-math.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/filters/canvas-filter-opacity-alpha-and-fillStyle.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/canvas/element/manual/filters/canvas-filter-opacity.html [ ImageOnlyFailure ]
@@ -7389,8 +7486,9 @@ imported/w3c/web-platform-tests/scroll-animations/css/scroll-timeline-inline-ori
 imported/w3c/web-platform-tests/scroll-animations/scroll-timelines/custom-property.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/scroll-animations/view-timelines/range-boundary.html [ ImageOnlyFailure ]
 
-# webkit.org/b/229520 CSS @scope unimplemented
+# CSS @scope with shadow DOM
 imported/w3c/web-platform-tests/css/css-cascade/scope-visited.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-cascade/scope-shadow-sharing.html [ ImageOnlyFailure ]
 
 webkit.org/b/263923 animations/transition-and-animation-2.html [ Failure Pass ]
 
@@ -7944,7 +8042,6 @@ imported/blink/fast/ruby/ruby-first-letter.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-ruby/ruby-line-breaking-003.html [ ImageOnlyFailure ]
 webkit.org/b/276007 [ Debug ] fast/ruby/ruby-with-continuation-crash.html [ Skip ]
 
-webkit.org/b/266537 [ Debug ] imported/w3c/web-platform-tests/css/css-ruby/empty-ruby-text-container-float.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-ruby/break-within-bases/basic.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-ruby/break-within-bases/no-break-opportunity-at-end.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-ruby/break-within-bases/nowrap.html [ ImageOnlyFailure ]

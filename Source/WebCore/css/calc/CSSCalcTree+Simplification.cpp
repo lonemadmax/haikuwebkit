@@ -25,7 +25,9 @@
 #include "config.h"
 #include "CSSCalcTree+Simplification.h"
 
+#include "AnchorPositionEvaluator.h"
 #include "CSSCalcSymbolTable.h"
+#include "CSSCalcTree+Evaluation.h"
 #include "CSSCalcTree+NumericIdentity.h"
 #include "CSSCalcTree+Traversal.h"
 #include "CSSCalcTree.h"
@@ -34,6 +36,7 @@
 #include "CalculationExecutor.h"
 #include "RenderStyle.h"
 #include "RenderStyleInlines.h"
+#include "StyleBuilderState.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
@@ -41,7 +44,7 @@ namespace CSSCalc {
 
 static auto copyAndSimplify(const Children&, const SimplificationOptions&) -> Children;
 static auto copyAndSimplify(const std::optional<Child>&, const SimplificationOptions&) -> std::optional<Child>;
-static auto copyAndSimplify(const NoneRaw&, const SimplificationOptions&) -> NoneRaw;
+static auto copyAndSimplify(const CSS::NoneRaw&, const SimplificationOptions&) -> CSS::NoneRaw;
 static auto copyAndSimplify(const ChildOrNone&, const SimplificationOptions&) -> ChildOrNone;
 
 template<typename Op, typename... Args> static double executeMathOperation(Args&&... args)
@@ -65,6 +68,7 @@ static bool percentageResolveToDimension(const SimplificationOptions& options)
     case Calculation::Category::Flex:
         return false;
 
+    case Calculation::Category::AnglePercentage:
     case Calculation::Category::LengthPercentage:
         return true;
     }
@@ -249,11 +253,10 @@ std::optional<CanonicalDimension> canonicalize(NonCanonicalDimension root, const
     case CSSUnitType::CSS_INTEGER:
     case CSSUnitType::CSS_PERCENTAGE:
     // Non-numeric types should never be stored in a NonCanonicalDimension.
-    case CSSUnitType::CSS_ANCHOR:
     case CSSUnitType::CSS_ATTR:
     case CSSUnitType::CSS_CALC:
+    case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_ANGLE:
     case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_LENGTH:
-    case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_NUMBER:
     case CSSUnitType::CSS_DIMENSION:
     case CSSUnitType::CSS_FONT_FAMILY:
     case CSSUnitType::CSS_IDENT:
@@ -861,6 +864,8 @@ std::optional<Child> simplify(Product& root, const SimplificationOptions& option
                 return makeChild(CanonicalDimension { .value = productResult.value, .dimension = CanonicalDimension::Dimension::Length });
             case Calculation::Category::Angle:
                 return makeChild(CanonicalDimension { .value = productResult.value, .dimension = CanonicalDimension::Dimension::Angle });
+            case Calculation::Category::AnglePercentage:
+                return makeChild(Percentage { .value = productResult.value, .hint = PercentHint::Angle });
             case Calculation::Category::Time:
                 return makeChild(CanonicalDimension { .value = productResult.value, .dimension = CanonicalDimension::Dimension::Time });
             case Calculation::Category::Frequency:
@@ -957,8 +962,8 @@ std::optional<Child> simplify(Max& root, const SimplificationOptions& options)
 
 std::optional<Child> simplify(Clamp& root, const SimplificationOptions& options)
 {
-    auto minIsNone = std::holds_alternative<NoneRaw>(root.min);
-    auto maxIsNone = std::holds_alternative<NoneRaw>(root.max);
+    auto minIsNone = std::holds_alternative<CSS::NoneRaw>(root.min);
+    auto maxIsNone = std::holds_alternative<CSS::NoneRaw>(root.max);
 
     if (minIsNone && maxIsNone) {
         // - clamp(none, VAL, none) is equivalent to just calc(VAL).
@@ -1279,9 +1284,58 @@ std::optional<Child> simplify(Sign& root, const SimplificationOptions& options)
     );
 }
 
+std::optional<Child> simplify(Progress& root, const SimplificationOptions& options)
+{
+    if (root.progress.index() != root.from.index() || root.from.index() != root.to.index())
+        return std::nullopt;
+
+    return WTF::switchOn(root.progress,
+        [&]<Numeric T>(T& numericProgress) -> std::optional<Child> {
+            auto& numericFrom = std::get<T>(root.from);
+            auto& numericTo = std::get<T>(root.to);
+
+            if (!unitsMatch(numericProgress, numericFrom, options) || !unitsMatch(numericFrom, numericTo, options) || !fullyResolved(numericProgress, options))
+                return std::nullopt;
+
+            return makeChild(Number { .value = executeMathOperation<Progress>(numericProgress.value, numericFrom.value, numericTo.value) });
+        },
+        [](auto&) -> std::optional<Child> {
+            return std::nullopt;
+        }
+    );
+}
+
+std::optional<Child> simplify(Anchor& anchor, const SimplificationOptions& options)
+{
+    if (!options.conversionData || !options.conversionData->styleBuilderState())
+        return { };
+
+    auto evaluationOptions = EvaluationOptions { .conversionData = options.conversionData, .symbolTable = options.symbolTable };
+
+    auto result = evaluateWithoutFallback(anchor, evaluationOptions);
+    if (!result) {
+        // https://drafts.csswg.org/css-anchor-position-1/#anchor-valid
+        // "If any of these conditions are false, the anchor() function resolves to its specified fallback value.
+        // If no fallback value is specified, it makes the declaration referencing it invalid at computed-value time."
+
+        if (!anchor.fallback)
+            options.conversionData->styleBuilderState()->setCurrentPropertyInvalidAtComputedValueTime();
+
+        // Replace the anchor node with the fallback node.
+        return std::exchange(anchor.fallback, { });
+    }
+    return CanonicalDimension { .value = *result, .dimension = CanonicalDimension::Dimension::Length };
+}
+
+std::optional<Child> simplify(AnchorSize&, const SimplificationOptions&)
+{
+    // FIXME (webkit.org/b/280789): evaluate anchor-size()
+    return CanonicalDimension { .value = 0, .dimension = CanonicalDimension::Dimension::Length };
+}
+
 // MARK: Copy & Simplify.
 
-NoneRaw copyAndSimplify(const NoneRaw& root, const SimplificationOptions&)
+CSS::NoneRaw copyAndSimplify(const CSS::NoneRaw& root, const SimplificationOptions&)
 {
     return root;
 }
@@ -1311,6 +1365,11 @@ template<Leaf Op> static auto copyAndSimplifyChildren(const Op& op, const Simpli
 template<typename Op> static auto copyAndSimplifyChildren(const IndirectNode<Op>& root, const SimplificationOptions& options) -> Op
 {
     return WTF::apply([&](const auto& ...x) { return Op { copyAndSimplify(x, options)... }; } , *root);
+}
+
+static auto copyAndSimplifyChildren(const IndirectNode<Anchor>& anchor, const SimplificationOptions& options) -> Anchor
+{
+    return Anchor { .elementName = anchor->elementName, .side = copy(anchor->side), .fallback = copyAndSimplify(anchor->fallback, options) };
 }
 
 Child copyAndSimplify(const Child& root, const SimplificationOptions& options)

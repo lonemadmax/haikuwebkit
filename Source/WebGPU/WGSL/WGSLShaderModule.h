@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021-2023 Apple Inc. All rights reserved.
+ * Copyright (c) 2021-2024 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -251,11 +251,18 @@ public:
         vector.clear();
     }
 
-    void revertReplacements()
+    size_t currentReplacementSize() const
     {
-        for (int i = m_replacements.size() - 1; i >= 0; --i)
+        return m_replacements.size();
+    }
+
+    void revertReplacements(size_t limit)
+    {
+        if (m_replacements.size() == limit)
+            return;
+        for (size_t i = m_replacements.size() - 1; i >= limit; --i)
             m_replacements[i]();
-        m_replacements.clear();
+        m_replacements.shrinkCapacity(limit);
     }
 
     OptionSet<Extension>& enabledExtensions() { return m_enabledExtensions; }
@@ -269,6 +276,15 @@ public:
         m_pipelineOverrideIds.add(idValue);
     }
     bool hasFeature(const String& featureName) const { return m_configuration.supportedFeatures.contains(featureName); }
+
+    template<typename Validator>
+    void addOverrideValidation(AST::Expression& expression, Validator&& validator)
+    {
+        auto result = m_overrideValidations.add(&expression, Vector<Function<std::optional<String>(const ConstantValue&)>> { });
+        result.iterator->value.append(WTFMove(validator));
+    }
+
+    std::optional<Error> validateOverrides(const HashMap<String, ConstantValue>&);
 
 private:
     String m_source;
@@ -306,6 +322,7 @@ private:
     std::optional<CallGraph> m_callGraph;
     Vector<std::function<void()>> m_replacements;
     HashSet<uint32_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_pipelineOverrideIds;
+    HashMap<const AST::Expression*, Vector<Function<std::optional<String>(const ConstantValue&)>>> m_overrideValidations;
 };
 
 } // namespace WGSL

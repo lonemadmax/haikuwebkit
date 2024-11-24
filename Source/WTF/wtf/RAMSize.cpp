@@ -35,9 +35,9 @@
 #include <OS.h>
 #elif OS(LINUX) || OS(FREEBSD)
 #include <sys/sysinfo.h>
-#elif OS(UNIX)
+#elif OS(UNIX) || OS(HAIKU)
 #include <unistd.h>
-#endif // OS(LINUX) || OS(FREEBSD) || OS(UNIX)
+#endif // OS(LINUX) || OS(FREEBSD) || OS(UNIX) || OS(HAIKU)
 #else
 #include <bmalloc/bmalloc.h>
 #endif
@@ -66,7 +66,7 @@ static size_t computeRAMSize()
     struct sysinfo si;
     sysinfo(&si);
     return si.totalram * si.mem_unit;
-#elif OS(UNIX)
+#elif OS(UNIX) || OS(HAIKU)
     long pages = sysconf(_SC_PHYS_PAGES);
     long pageSize = sysconf(_SC_PAGE_SIZE);
     return pages * pageSize;
@@ -76,7 +76,7 @@ static size_t computeRAMSize()
     return si.max_pages * B_PAGE_SIZE;
 #else
 #error "Missing a platform specific way of determining the available RAM"
-#endif // OS(LINUX) || OS(FREEBSD) || OS(UNIX)
+#endif // OS(LINUX) || OS(FREEBSD) || OS(UNIX) || OS(HAIKU)
 #else
     return bmalloc::api::availableMemory();
 #endif

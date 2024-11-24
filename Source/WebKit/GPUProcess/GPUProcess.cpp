@@ -237,7 +237,7 @@ void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters,
     SandboxExtension::consumePermanently(parameters.microphoneSandboxExtensionHandle);
 #endif
 #if PLATFORM(IOS_FAMILY)
-    CoreAudioSharedUnit::unit().setStatusBarWasTappedCallback([weakProcess = WeakPtr { *this }] (auto completionHandler) {
+    CoreAudioSharedUnit::singleton().setStatusBarWasTappedCallback([weakProcess = WeakPtr { *this }] (auto completionHandler) {
         if (RefPtr process = weakProcess.get())
             process->parentProcessConnection()->sendWithAsyncReply(Messages::GPUProcessProxy::StatusBarWasTapped(), [] { }, 0);
         completionHandler();
@@ -431,6 +431,22 @@ void GPUProcess::setOrientationForMediaCapture(WebCore::IntDegrees orientation)
     m_orientation = orientation;
     for (auto& connection : m_webProcessConnections.values())
         connection->setOrientationForMediaCapture(orientation);
+}
+
+void GPUProcess::enableMicrophoneMuteStatusAPI()
+{
+#if PLATFORM(COCOA)
+    CoreAudioSharedUnit::singleton().setMuteStatusChangedCallback([weakProcess = WeakPtr { *this }] (bool isMuting) {
+        if (RefPtr process = weakProcess.get())
+            process->protectedParentProcessConnection()->send(Messages::GPUProcessProxy::MicrophoneMuteStatusChanged(isMuting), 0);
+    });
+#endif
+}
+
+void GPUProcess::rotationAngleForCaptureDeviceChanged(const String& persistentId, WebCore::VideoFrameRotation rotation)
+{
+    for (auto& connection : m_webProcessConnections.values())
+        connection->rotationAngleForCaptureDeviceChanged(persistentId, rotation);
 }
 
 void GPUProcess::updateCaptureAccess(bool allowAudioCapture, bool allowVideoCapture, bool allowDisplayCapture, WebCore::ProcessIdentifier processID, CompletionHandler<void()>&& completionHandler)

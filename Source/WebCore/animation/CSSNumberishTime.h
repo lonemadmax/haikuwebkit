@@ -33,33 +33,57 @@ namespace WebCore {
 class CSSNumberishTime {
 public:
     CSSNumberishTime() = default;
+    WEBCORE_EXPORT CSSNumberishTime(std::optional<Seconds>, std::optional<double>);
 
-    CSSNumberishTime(double);
-    CSSNumberishTime(CSSNumberish);
+    CSSNumberishTime(const Seconds&);
+    CSSNumberishTime(const CSSNumberish&);
 
-    std::optional<Seconds> time() const;
-    std::optional<double> percentage() const;
+    static CSSNumberishTime fromPercentage(double);
+
+    WEBCORE_EXPORT std::optional<Seconds> time() const;
+    WEBCORE_EXPORT std::optional<double> percentage() const;
 
     bool isValid() const;
+    bool isInfinity() const;
+    bool isZero() const;
+    bool approximatelyEqualTo(const CSSNumberishTime&) const;
 
-    CSSNumberishTime operator+(CSSNumberishTime) const;
-    CSSNumberishTime operator-(CSSNumberishTime) const;
-    bool operator<(CSSNumberishTime) const;
-    bool operator<=(CSSNumberishTime) const;
-    bool operator>(CSSNumberishTime) const;
-    bool operator>=(CSSNumberishTime) const;
+    CSSNumberishTime operator+(const CSSNumberishTime&) const;
+    CSSNumberishTime operator-(const CSSNumberishTime&) const;
+    double operator/(const CSSNumberishTime&) const;
+    CSSNumberishTime& operator+=(const CSSNumberishTime&);
+    CSSNumberishTime& operator-=(const CSSNumberishTime&);
+    bool operator<(const CSSNumberishTime&) const;
+    bool operator<=(const CSSNumberishTime&) const;
+    bool operator>(const CSSNumberishTime&) const;
+    bool operator>=(const CSSNumberishTime&) const;
+    bool operator==(const CSSNumberishTime&) const;
 
+    CSSNumberishTime operator+(const Seconds&) const;
+    CSSNumberishTime operator-(const Seconds&) const;
+    bool operator<(const Seconds&) const;
+    bool operator<=(const Seconds&) const;
+    bool operator>(const Seconds&) const;
+    bool operator>=(const Seconds&) const;
+    bool operator==(const Seconds&) const;
+
+    CSSNumberishTime operator*(double) const;
+    CSSNumberishTime operator/(double) const;
+
+    operator Seconds() const;
     operator CSSNumberish() const;
+
+    void dump(TextStream&) const;
 
 private:
     enum class Type : uint8_t { Unknown, Time, Percentage };
-    enum class Source : uint8_t { Literal, Number, Milliseconds, Seconds, Percentage };
 
-    CSSNumberishTime(Type, Source, double);
+    CSSNumberishTime(Type, double);
 
     Type m_type { Type::Unknown };
-    Source m_source { Source::Literal };
     double m_value { 0 };
 };
+
+TextStream& operator<<(TextStream&, const CSSNumberishTime&);
 
 } // namespace WebCore

@@ -105,7 +105,8 @@ ExceptionOr<Ref<RTCPeerConnection>> RTCPeerConnection::create(Document& document
                 WTFLogLevel level = LogWebRTC.level;
                 if (level != WTFLogLevel::Debug && document.settings().webRTCMediaPipelineAdditionalLoggingEnabled())
                     level = WTFLogLevel::Info;
-                page->webRTCProvider().setLoggingLevel(level);
+                if (document.settings().webCodecsVideoEnabled() || document.settings().peerConnectionEnabled())
+                    page->webRTCProvider().setLoggingLevel(level);
             }
 #endif
         }
@@ -539,7 +540,7 @@ ExceptionOr<Vector<MediaEndpointConfiguration::IceServerInfo>> RTCPeerConnection
                         if (server.credential.utf8().length() > MaxTurnUsernameLength || server.username.utf8().length() > MaxTurnUsernameLength)
                             return Exception { ExceptionCode::TypeError, "TURN/TURNS username and/or credential are too long"_s };
                     }
-                } else if (!serverURL.protocolIs("stun"_s))
+                } else if (!serverURL.protocolIs("stun"_s) && !serverURL.protocolIs("stuns"_s))
                     return Exception { ExceptionCode::SyntaxError, "ICE server protocol not supported"_s };
             }
             if (serverURLs.size())

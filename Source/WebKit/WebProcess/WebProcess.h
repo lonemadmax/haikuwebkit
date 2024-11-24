@@ -84,6 +84,11 @@ OBJC_CLASS NSMutableDictionary;
 #include <WebCore/CaptionUserPreferences.h>
 #endif
 
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+#include "LogStreamIdentifier.h"
+#include "StreamClientConnection.h"
+#endif
+
 namespace API {
 class Object;
 }
@@ -238,7 +243,6 @@ public:
     NetworkProcessConnection& ensureNetworkProcessConnection();
     void networkProcessConnectionClosed(NetworkProcessConnection*);
     NetworkProcessConnection* existingNetworkProcessConnection() { return m_networkProcessConnection.get(); }
-    IPC::Connection::UniqueID networkProcessConnectionID();
     WebLoaderStrategy& webLoaderStrategy();
     WebFileSystemStorageConnection& fileSystemStorageConnection();
 
@@ -565,6 +569,8 @@ private:
     void stopRunLoop() override;
 #endif
 
+    bool filterUnhandledMessage(IPC::Connection&, IPC::Decoder&) override;
+
 #if ENABLE(MEDIA_STREAM)
     void addMockMediaDevice(const WebCore::MockMediaDevice&);
     void clearMockMediaDevices();
@@ -660,8 +666,13 @@ private:
     void accessibilitySettingsDidChange() final;
 #endif
 
-    void setNetworkProcessConnectionID(IPC::Connection::UniqueID);
     void accessibilityRelayProcessSuspended(bool);
+
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+    void registerLogHook();
+    void setupLogStream();
+    void sendLogOnStream(std::span<const uint8_t> logChannel, std::span<const uint8_t> logCategory, std::span<uint8_t> logString, os_log_type_t);
+#endif
 
     HashMap<WebCore::PageIdentifier, RefPtr<WebPage>> m_pageMap;
     HashMap<PageGroupIdentifier, RefPtr<WebPageGroupProxy>> m_pageGroupMap;
@@ -699,9 +710,7 @@ private:
 
     String m_uiProcessBundleIdentifier;
     RefPtr<NetworkProcessConnection> m_networkProcessConnection;
-    Lock m_lockNetworkProcessConnectionID;
-    IPC::Connection::UniqueID m_networkProcessConnectionID WTF_GUARDED_BY_LOCK(m_lockNetworkProcessConnectionID);
-    WebLoaderStrategy& m_webLoaderStrategy;
+    UniqueRef<WebLoaderStrategy> m_webLoaderStrategy;
     RefPtr<WebFileSystemStorageConnection> m_fileSystemStorageConnection;
 
 #if ENABLE(GPU_PROCESS)
@@ -843,6 +852,10 @@ private:
     HashMap<WebTransportSessionIdentifier, WeakPtr<WebTransportSession>> m_webTransportSessions;
     HashSet<WebCore::RegistrableDomain> m_domainsWithStorageAccessQuirks;
     std::unique_ptr<ScriptTelemetryFilter> m_scriptTelemetryFilter;
+#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
+    RefPtr<IPC::StreamClientConnection> m_logStreamConnection;
+    LogStreamIdentifier m_logStreamIdentifier { LogStreamIdentifier::generate() };
+#endif
 };
 
 } // namespace WebKit

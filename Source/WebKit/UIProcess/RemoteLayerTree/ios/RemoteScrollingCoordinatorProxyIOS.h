@@ -28,6 +28,7 @@
 #if PLATFORM(IOS_FAMILY) && ENABLE(ASYNC_SCROLLING)
 
 #include "RemoteScrollingCoordinatorProxy.h"
+#include <wtf/TZoneMalloc.h>
 
 OBJC_CLASS UIScrollView;
 OBJC_CLASS WKBaseScrollView;
@@ -42,11 +43,12 @@ class RemoteLayerTreeDrawingAreaProxyIOS;
 class RemoteLayerTreeNode;
 
 class RemoteScrollingCoordinatorProxyIOS final : public RemoteScrollingCoordinatorProxy {
+    WTF_MAKE_TZONE_ALLOCATED(RemoteScrollingCoordinatorProxyIOS);
 public:
     explicit RemoteScrollingCoordinatorProxyIOS(WebPageProxy&);
     ~RemoteScrollingCoordinatorProxyIOS() = default;
 
-    UIScrollView *scrollViewForScrollingNodeID(WebCore::ScrollingNodeID) const;
+    UIScrollView *scrollViewForScrollingNodeID(std::optional<WebCore::ScrollingNodeID>) const;
 
     OptionSet<WebCore::TouchAction> activeTouchActionsForTouchIdentifier(unsigned touchIdentifier) const;
     void setTouchActionsForTouchIdentifier(OptionSet<WebCore::TouchAction>, unsigned);

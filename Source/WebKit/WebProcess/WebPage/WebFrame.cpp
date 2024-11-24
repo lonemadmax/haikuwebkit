@@ -140,8 +140,8 @@ Ref<WebFrame> WebFrame::createSubframe(WebPage& page, WebFrame& parent, const At
     auto frameID = WebCore::FrameIdentifier::generate();
     auto frame = create(page, frameID);
     ASSERT(page.corePage());
-    auto coreFrame = LocalFrame::createSubframe(*page.corePage(), [frame] (auto& localFrame) {
-        return makeUniqueRef<WebLocalFrameLoaderClient>(localFrame, frame.get(), frame->makeInvalidator());
+    auto coreFrame = LocalFrame::createSubframe(*page.corePage(), [frame] (auto& localFrame, auto& frameLoader) {
+        return makeUniqueRef<WebLocalFrameLoaderClient>(localFrame, frameLoader, frame.get(), frame->makeInvalidator());
     }, frameID, effectiveSandboxFlags, ownerElement);
     frame->m_coreFrame = coreFrame.get();
 
@@ -403,8 +403,8 @@ void WebFrame::createProvisionalFrame(ProvisionalFrameCreationParameters&& param
     }
 
     RefPtr parent = remoteFrame->tree().parent();
-    auto clientCreator = [this, protectedThis = Ref { *this }] (auto& localFrame) mutable {
-        return makeUniqueRef<WebLocalFrameLoaderClient>(localFrame, WTFMove(protectedThis), makeInvalidator());
+    auto clientCreator = [this, protectedThis = Ref { *this }] (auto& localFrame, auto& frameLoader) mutable {
+        return makeUniqueRef<WebLocalFrameLoaderClient>(localFrame, frameLoader, WTFMove(protectedThis), makeInvalidator());
     };
     auto localFrame = parent ? LocalFrame::createProvisionalSubframe(*corePage, WTFMove(clientCreator), m_frameID, parameters.effectiveSandboxFlags, *parent) : LocalFrame::createMainFrame(*corePage, WTFMove(clientCreator), m_frameID, parameters.effectiveSandboxFlags, remoteFrame->opener());
     m_provisionalFrame = localFrame.ptr();
@@ -603,7 +603,7 @@ void WebFrame::addConsoleMessage(MessageSource messageSource, MessageLevel messa
     auto* localFrame = dynamicDowncast<LocalFrame>(m_coreFrame.get());
     if (!localFrame)
         return;
-    if (auto* document = localFrame->document())
+    if (RefPtr document = localFrame->document())
         document->addConsoleMessage(messageSource, messageLevel, message, requestID);
 }
 

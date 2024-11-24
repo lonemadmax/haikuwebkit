@@ -24,9 +24,9 @@
 
 #pragma once
 
-#include "CSSAnchorValue.h"
+#include "CSSCalcTree.h"
 #include "EventTarget.h"
-#include <memory>
+#include "LayoutUnit.h"
 #include <wtf/HashMap.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakHashMap.h>
@@ -61,8 +61,10 @@ using AnchorPositionedStates = WeakHashMap<Element, std::unique_ptr<AnchorPositi
 
 class AnchorPositionEvaluator {
 public:
-    static Length resolveAnchorValue(const BuilderState&, const CSSAnchorValue&);
     static void findAnchorsForAnchorPositionedElement(Ref<const Element> anchorPositionedElement);
+
+    using Side = std::variant<CSSValueID, double>;
+    static std::optional<double> evaluate(const BuilderState&, AtomString elementName, Side);
 };
 
 } // namespace Style

@@ -560,8 +560,7 @@ static JSValueRef jsSendWithAsyncReply(IPC::Connection& connection, uint64_t des
 
 static JSValueRef jsSendSync(IPC::Connection& connection, uint64_t destinationID, IPC::MessageName messageName, IPC::Timeout timeout, JSContextRef context, const JSValueRef messageArguments, JSValueRef* exception)
 {
-    IPC::Connection::SyncRequestID syncRequestID;
-    auto encoder = connection.createSyncMessageEncoder(messageName, destinationID, syncRequestID);
+    auto [encoder, syncRequestID] = connection.createSyncMessageEncoder(messageName, destinationID);
     if (messageArguments && !encodeArgument(encoder.get(), context, messageArguments, exception))
         return JSValueMakeUndefined(context);
     auto replyDecoderOrError = connection.sendSyncMessage(syncRequestID, WTFMove(encoder), timeout, { });
@@ -2364,11 +2363,11 @@ static bool encodeArgument(IPC::Encoder& encoder, JSContextRef context, JSValueR
     if (type == "FrameID"_s) {
         uint64_t frameIdentifier = jsValue.get(globalObject, 0u).toBigUInt64(globalObject);
         uint64_t processIdentifier = jsValue.get(globalObject, 1u).toBigUInt64(globalObject);
-        if (!frameIdentifier || !processIdentifier)
+        if (!ObjectIdentifier<WebCore::FrameIdentifierType>::isValidIdentifier(frameIdentifier) || !ObjectIdentifier<WebCore::ProcessIdentifierType>::isValidIdentifier(processIdentifier))
             return false;
         encoder << WebCore::FrameIdentifier {
             ObjectIdentifier<WebCore::FrameIdentifierType>(frameIdentifier),
-            LegacyNullableObjectIdentifier<WebCore::ProcessIdentifierType>(processIdentifier)
+            ObjectIdentifier<WebCore::ProcessIdentifierType>(processIdentifier)
         };
         return true;
     }
@@ -2423,8 +2422,8 @@ static JSC::JSObject* jsResultFromReplyDecoder(JSC::JSGlobalObject* globalObject
     auto& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    if (decoder.hasSyncMessageDeserializationFailure()) {
-        throwException(globalObject, scope, JSC::createTypeError(globalObject, "Failed to successfully deserialize the message"_s));
+    if (decoder.messageName() == IPC::MessageName::CancelSyncMessageReply) {
+        throwException(globalObject, scope, JSC::createTypeError(globalObject, "Receiver cancelled the reply due to invalid destination or deserialization error"_s));
         return nullptr;
     }
 

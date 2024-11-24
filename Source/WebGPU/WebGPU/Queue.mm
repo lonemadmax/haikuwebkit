@@ -35,6 +35,9 @@
 #import "MetalSPI.h"
 #import "Texture.h"
 #import "TextureView.h"
+#if ENABLE(WEBGPU_SWIFT)
+#import "WebGPUSwiftInternal.h"
+#endif
 #import <wtf/CheckedArithmetic.h>
 #import <wtf/StdLibExtras.h>
 #import <wtf/TZoneMallocInlines.h>
@@ -68,10 +71,10 @@ Queue::~Queue()
         endEncoding(m_blitCommandEncoder, m_commandBuffer);
 }
 
-void Queue::ensureBlitCommandEncoder()
+id<MTLBlitCommandEncoder> Queue::ensureBlitCommandEncoder()
 {
     if (m_blitCommandEncoder && m_blitCommandEncoder == encoderForBuffer(m_commandBuffer))
-        return;
+        return m_blitCommandEncoder;
 
     auto *commandBufferDescriptor = [MTLCommandBufferDescriptor new];
     commandBufferDescriptor.errorOptions = MTLCommandBufferErrorOptionEncoderExecutionStatus;
@@ -79,6 +82,7 @@ void Queue::ensureBlitCommandEncoder()
     m_commandBuffer = blitCommandBuffer;
     m_blitCommandEncoder = [m_commandBuffer blitCommandEncoder];
     setEncoderForBuffer(m_commandBuffer, m_blitCommandEncoder);
+    return m_blitCommandEncoder;
 }
 
 void Queue::finalizeBlitCommandEncoder()
@@ -403,8 +407,11 @@ void Queue::writeBuffer(Buffer& buffer, uint64_t bufferOffset, std::span<uint8_t
             return;
         }
     }
-
+#if ENABLE(WEBGPU_SWIFT)
+    WebGPU::writeBuffer(this, &buffer, bufferOffset, data);
+#else
     writeBuffer(buffer.buffer(), bufferOffset, data);
+#endif
 }
 
 void Queue::writeBuffer(id<MTLBuffer> buffer, uint64_t bufferOffset, std::span<uint8_t> data)
@@ -933,8 +940,7 @@ void Queue::clearTextureViewIfNeeded(TextureView& textureView)
             if (parentTexture.previouslyCleared(parentMipLevel, parentSlice))
                 continue;
 
-            ensureBlitCommandEncoder();
-            CommandEncoder::clearTextureIfNeeded(parentTexture, parentMipLevel, parentSlice, *devicePtr, m_blitCommandEncoder);
+            CommandEncoder::clearTextureIfNeeded(parentTexture, parentMipLevel, parentSlice, *devicePtr, ensureBlitCommandEncoder());
         }
     }
     finalizeBlitCommandEncoder();

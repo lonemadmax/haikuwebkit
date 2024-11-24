@@ -80,7 +80,7 @@ public:
 
     virtual WebCore::DelegatedScrollingMode delegatedScrollingMode() const;
 
-    virtual void deviceScaleFactorDidChange() = 0;
+    virtual void deviceScaleFactorDidChange(CompletionHandler<void()>&&) = 0;
     virtual void colorSpaceDidChange() { }
     virtual void windowScreenDidChange(WebCore::PlatformDisplayID) { }
     virtual std::optional<WebCore::FramesPerSecond> displayNominalFramesPerSecond() { return std::nullopt; }
@@ -108,7 +108,7 @@ public:
 
     virtual void updateDebugIndicator() { }
 
-    virtual void waitForDidUpdateActivityState(ActivityStateChangeID, WebProcessProxy&) { }
+    virtual void waitForDidUpdateActivityState(ActivityStateChangeID) { }
 
     // Hide the content until the currently pending update arrives.
     virtual void hideContentUntilPendingUpdate() { ASSERT_NOT_REACHED(); }

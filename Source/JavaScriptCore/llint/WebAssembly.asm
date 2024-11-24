@@ -547,6 +547,13 @@ end
     break
 end
 
+macro branchIfWasmException(exceptionTarget)
+    loadp JSWebAssemblyInstance::m_vm[cfr], t3
+    btpz VM::m_exception[t3], .noException
+    jmp exceptionTarget
+.noException:
+end
+
 macro zeroExtend32ToWord(r)
     if JSVALUE64
         andq 0xffffffff, r
@@ -713,6 +720,7 @@ end
     cCall3(_operationJSToWasmEntryWrapperBuildFrame)
 
 if ARMv7
+    # CodeBlock slot is not an instance yet, so use JS version.
     branchIfException(_wasm_throw_from_slow_path_trampoline)
 else
     btpnz r1, _wasm_throw_from_slow_path_trampoline
@@ -860,7 +868,7 @@ end
     cCall2(_operationJSToWasmEntryWrapperBuildReturnFrame)
 
 if ARMv7
-    branchIfException(_wasm_throw_from_slow_path_trampoline)
+    branchIfWasmException(_wasm_throw_from_slow_path_trampoline)
 else
     btpnz r1, _wasm_throw_from_slow_path_trampoline
 end
@@ -880,6 +888,11 @@ end)
 # This is the interpreted analogue to WasmBinding.cpp:wasmToWasm
 op(wasm_to_wasm_wrapper_entry, macro()
     loadp (Callee - PrologueStackPointerDelta)[sp], ws0
+    loadp [ws0], ws0
+
+if JSVALUE64
+    andp ~(constexpr JSValue::NativeCalleeTag), ws0
+end
 
     loadi Wasm::Callee::m_index[ws0], ws1
 
@@ -1615,28 +1628,28 @@ end
                 macro callNarrow()
                     if ARM64E
                         leap _g_config, ws1
-                        jmp JSCConfigGateMapOffset + (constexpr Gate::%opcodeName%) * PtrSize[ws1], NativeToJITGatePtrTag # JSEntrySlowPathPtrTag
+                        jmp JSCConfigGateMapOffset + (constexpr Gate::%opcodeName%) * PtrSize[ws1], NativeToJITGatePtrTag # WasmEntryPtrTag
                     end
                     _wasm_trampoline_%opcodeName%:
-                    call ws0, JSEntrySlowPathPtrTag
+                    call ws0, WasmEntryPtrTag
                 end
 
                 macro callWide16()
                     if ARM64E
                         leap _g_config, ws1
-                        jmp JSCConfigGateMapOffset + (constexpr Gate::%opcodeName%_wide16) * PtrSize[ws1], NativeToJITGatePtrTag # JSEntrySlowPathPtrTag
+                        jmp JSCConfigGateMapOffset + (constexpr Gate::%opcodeName%_wide16) * PtrSize[ws1], NativeToJITGatePtrTag # WasmEntryPtrTag
                     end
                     _wasm_trampoline_%opcodeName%_wide16:
-                    call ws0, JSEntrySlowPathPtrTag
+                    call ws0, WasmEntryPtrTag
                 end
 
                 macro callWide32()
                     if ARM64E
                         leap _g_config, ws1
-                        jmp JSCConfigGateMapOffset + (constexpr Gate::%opcodeName%_wide32) * PtrSize[ws1], NativeToJITGatePtrTag # JSEntrySlowPathPtrTag
+                        jmp JSCConfigGateMapOffset + (constexpr Gate::%opcodeName%_wide32) * PtrSize[ws1], NativeToJITGatePtrTag # WasmEntryPtrTag
                     end
                     _wasm_trampoline_%opcodeName%_wide32:
-                    call ws0, JSEntrySlowPathPtrTag
+                    call ws0, WasmEntryPtrTag
                 end
 
                 size(callNarrow, callWide16, callWide32, macro (gen) gen() end)
@@ -1854,28 +1867,28 @@ end
                 macro jumpNarrow()
                     if ARM64E
                         leap _g_config, ws1
-                        jmp JSCConfigGateMapOffset + (constexpr Gate::wasmTailCallJSEntrySlowPathPtrTag) * PtrSize[ws1], NativeToJITGatePtrTag # JSEntrySlowPathPtrTag
+                        jmp JSCConfigGateMapOffset + (constexpr Gate::wasmTailCallWasmEntryPtrTag) * PtrSize[ws1], NativeToJITGatePtrTag # WasmEntryPtrTag
                     end
                     _wasm_trampoline_%opcodeName%:
-                    jmp ws0, JSEntrySlowPathPtrTag
+                    jmp ws0, WasmEntryPtrTag
                 end
 
                 macro jumpWide16()
                     if ARM64E
                         leap _g_config, ws1
-                        jmp JSCConfigGateMapOffset + (constexpr Gate::wasmTailCallJSEntrySlowPathPtrTag) * PtrSize[ws1], NativeToJITGatePtrTag # JSEntrySlowPathPtrTag
+                        jmp JSCConfigGateMapOffset + (constexpr Gate::wasmTailCallWasmEntryPtrTag) * PtrSize[ws1], NativeToJITGatePtrTag # WasmEntryPtrTag
                     end
                     _wasm_trampoline_%opcodeName%_wide16:
-                    jmp ws0, JSEntrySlowPathPtrTag
+                    jmp ws0, WasmEntryPtrTag
                 end
 
                 macro jumpWide32()
                     if ARM64E
                         leap _g_config, ws1
-                        jmp JSCConfigGateMapOffset + (constexpr Gate::wasmTailCallJSEntrySlowPathPtrTag) * PtrSize[ws1], NativeToJITGatePtrTag # JSEntrySlowPathPtrTag
+                        jmp JSCConfigGateMapOffset + (constexpr Gate::wasmTailCallWasmEntryPtrTag) * PtrSize[ws1], NativeToJITGatePtrTag # WasmEntryPtrTag
                     end
                     _wasm_trampoline_%opcodeName%_wide32:
-                    jmp ws0, JSEntrySlowPathPtrTag
+                    jmp ws0, WasmEntryPtrTag
                 end
 
                 size(jumpNarrow, jumpWide16, jumpWide32, macro (gen) gen() end)

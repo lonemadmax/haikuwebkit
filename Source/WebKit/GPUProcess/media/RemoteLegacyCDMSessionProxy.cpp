@@ -51,7 +51,7 @@ RemoteLegacyCDMSessionProxy::RemoteLegacyCDMSessionProxy(RemoteLegacyCDMFactoryP
     : m_factory(factory)
 #if !RELEASE_LOG_DISABLED
     , m_logger(factory.logger())
-    , m_logIdentifier(reinterpret_cast<const void*>(parentLogIdentifier))
+    , m_logIdentifier(parentLogIdentifier)
 #endif
     , m_identifier(sessionIdentifier)
     , m_session(cdm.createSession(*this))
@@ -153,10 +153,11 @@ void RemoteLegacyCDMSessionProxy::cachedKeyForKeyID(String keyId, CachedKeyForKe
 
 void RemoteLegacyCDMSessionProxy::sendMessage(Uint8Array* message, String destinationURL)
 {
-    if (!m_factory)
+    RefPtr factory = m_factory.get();
+    if (!factory)
         return;
 
-    RefPtr gpuConnectionToWebProcess = m_factory->gpuConnectionToWebProcess();
+    RefPtr gpuConnectionToWebProcess = factory->gpuConnectionToWebProcess();
     if (!gpuConnectionToWebProcess)
         return;
 
@@ -165,10 +166,11 @@ void RemoteLegacyCDMSessionProxy::sendMessage(Uint8Array* message, String destin
 
 void RemoteLegacyCDMSessionProxy::sendError(MediaKeyErrorCode errorCode, uint32_t systemCode)
 {
-    if (!m_factory)
+    RefPtr factory = m_factory.get();
+    if (!factory)
         return;
 
-    RefPtr gpuConnectionToWebProcess = m_factory->gpuConnectionToWebProcess();
+    RefPtr gpuConnectionToWebProcess = factory->gpuConnectionToWebProcess();
     if (!gpuConnectionToWebProcess)
         return;
 
@@ -177,10 +179,11 @@ void RemoteLegacyCDMSessionProxy::sendError(MediaKeyErrorCode errorCode, uint32_
 
 String RemoteLegacyCDMSessionProxy::mediaKeysStorageDirectory() const
 {
-    if (!m_factory)
+    RefPtr factory = m_factory.get();
+    if (!factory)
         return emptyString();
 
-    RefPtr gpuConnectionToWebProcess = m_factory->gpuConnectionToWebProcess();
+    RefPtr gpuConnectionToWebProcess = factory->gpuConnectionToWebProcess();
     if (!gpuConnectionToWebProcess)
         return emptyString();
 
@@ -194,9 +197,13 @@ WTFLogChannel& RemoteLegacyCDMSessionProxy::logChannel() const
 }
 #endif
 
-const SharedPreferencesForWebProcess& RemoteLegacyCDMSessionProxy::sharedPreferencesForWebProcess() const
+std::optional<SharedPreferencesForWebProcess> RemoteLegacyCDMSessionProxy::sharedPreferencesForWebProcess() const
 {
-    return m_factory->sharedPreferencesForWebProcess();
+    if (!m_factory)
+        return std::nullopt;
+
+    // FIXME: Remove SUPPRESS_UNCOUNTED_ARG once https://github.com/llvm/llvm-project/pull/111198 lands.
+    SUPPRESS_UNCOUNTED_ARG return m_factory->sharedPreferencesForWebProcess();
 }
 
 } // namespace WebKit

@@ -95,7 +95,6 @@ struct CSSParserContext {
     bool cssTextWrapPrettyEnabled : 1 { false };
     bool highlightAPIEnabled : 1 { false };
     bool grammarAndSpellingPseudoElementsEnabled : 1 { false };
-    bool customStateSetEnabled : 1 { false };
     bool thumbAndTrackPseudoElementsEnabled : 1 { false };
 #if ENABLE(SERVICE_CONTROLS)
     bool imageControlsEnabled : 1 { false };
@@ -105,6 +104,7 @@ struct CSSParserContext {
     bool contrastColorEnabled : 1 { false };
     bool targetTextPseudoElementEnabled : 1 { false };
     bool viewTransitionTypesEnabled : 1 { false };
+    bool cssProgressFunctionEnabled : 1 { false };
 
     // Settings, those affecting properties.
     CSSPropertySettings propertySettings;

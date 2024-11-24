@@ -293,11 +293,10 @@ Type Type::determineType(CSSUnitType unitType)
         // the type is «[ "percent" → 1 ]».
         return Type { .percent = 1 };
 
-    case CSSUnitType::CSS_ANCHOR:
     case CSSUnitType::CSS_ATTR:
     case CSSUnitType::CSS_CALC:
+    case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_ANGLE:
     case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_LENGTH:
-    case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_NUMBER:
     case CSSUnitType::CSS_DIMENSION:
     case CSSUnitType::CSS_FONT_FAMILY:
     case CSSUnitType::CSS_IDENT:
@@ -333,6 +332,8 @@ Type::PercentHintValue Type::determinePercentHint(Calculation::Category category
 
     case Calculation::Category::LengthPercentage:
         return PercentHint::Length;
+    case Calculation::Category::AnglePercentage:
+        return PercentHint::Angle;
     }
 
     ASSERT_NOT_REACHED();
@@ -361,6 +362,8 @@ bool Type::matches(Calculation::Category category) const
         return matchesAny<Match::Flex>();
     case Calculation::Category::LengthPercentage:
         return matchesAny<Match::Length, Match::Percent>({ .allowsPercentHint = true });
+    case Calculation::Category::AnglePercentage:
+        return matchesAny<Match::Angle, Match::Percent>({ .allowsPercentHint = true });
     }
 
     ASSERT_NOT_REACHED();
@@ -395,7 +398,8 @@ std::optional<Calculation::Category> Type::calculationCategory() const
             return Calculation::Category::LengthPercentage;
         return Calculation::Category::Length;
     case BaseType::Angle:
-        ASSERT(!percentHint);
+        if (percentHint)
+            return Calculation::Category::AnglePercentage;
         return Calculation::Category::Angle;
     case BaseType::Time:
         ASSERT(!percentHint);

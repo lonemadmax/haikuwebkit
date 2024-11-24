@@ -748,7 +748,13 @@ imported/w3c/web-platform-tests/web-locks/resource-names.tentative.https.any.sha
 imported/w3c/web-platform-tests/web-locks/secure-context.tentative.https.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/web-locks/signal.tentative.https.any.sharedworker.html [ Skip ]
 imported/w3c/web-platform-tests/web-locks/steal.tentative.https.any.sharedworker.html [ Skip ]
-imported/w3c/web-platform-tests/websockets/bufferedAmount-unchanged-by-sync-xhr.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/websockets/bufferedAmount-unchanged-by-sync-xhr.any.sharedworker.html?default [ Skip ]
+imported/w3c/web-platform-tests/websockets/mixed-content.https.any.serviceworker.html [ Skip ]
+imported/w3c/web-platform-tests/websockets/mixed-content.https.any.sharedworker.html [ Skip ]
+imported/w3c/web-platform-tests/websockets/send-many-64K-messages-with-backpressure.any.serviceworker.html?default [ Skip ]
+imported/w3c/web-platform-tests/websockets/send-many-64K-messages-with-backpressure.any.serviceworker.html?wss [ Skip ]
+imported/w3c/web-platform-tests/websockets/send-many-64K-messages-with-backpressure.any.sharedworker.html?default [ Skip ]
+imported/w3c/web-platform-tests/websockets/send-many-64K-messages-with-backpressure.any.sharedworker.html?wss [ Skip ]
 imported/w3c/web-platform-tests/workers/SharedWorker_blobUrl.html [ Skip ]
 imported/w3c/web-platform-tests/workers/SharedWorker-constructor.html [ Skip ]
 imported/w3c/web-platform-tests/workers/SharedWorker-detach-frame-in-error-event.html [ Skip ]
@@ -940,20 +946,20 @@ editing/async-clipboard/clipboard-read-text-from-platform.html [ Skip ]
 editing/async-clipboard/clipboard-read-text-same-origin.html [ Skip ]
 editing/async-clipboard/sanitize-when-reading-markup.html [ Skip ]
 
-imported/w3c/web-platform-tests/websockets/Close-1000-reason.any.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/Close-1000-reason.any.worker.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/binary/001.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/closing-handshake/002.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/closing-handshake/003.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/constructor/006.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/constructor/009.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/cookies/001.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/cookies/002.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/interfaces/CloseEvent/clean-close.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/bufferedAmount/bufferedAmount-arraybuffer.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/bufferedAmount/bufferedAmount-blob.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/015.html [ Pass Failure ]
-imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/readyState/006.html [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/Close-1000-reason.any.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/Close-1000-reason.any.worker.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/binary/001.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/closing-handshake/002.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/closing-handshake/003.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/constructor/006.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/constructor/009.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/cookies/001.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/cookies/002.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/CloseEvent/clean-close.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/bufferedAmount/bufferedAmount-arraybuffer.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/bufferedAmount/bufferedAmount-blob.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/events/015.html?default [ Pass Failure ]
+imported/w3c/web-platform-tests/websockets/interfaces/WebSocket/readyState/006.html?default [ Pass Failure ]
 
 # ShouldSuppressTextInputFromEditingDuringProvisionalNavigation not supported in WK1
 http/tests/navigation/keyboard-events-during-provisional-navigation.html [ Skip ]
@@ -1611,11 +1617,6 @@ storage/indexeddb/modern/exceed-open-file-limit.html
 # Only fails in WK1
 imported/w3c/web-platform-tests/cookies/secure/set-from-ws.sub.html [ Failure ]
 
-webkit.org/b/276371 imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/cfrg_curves_bits.https.any.html [ Failure ]
-webkit.org/b/276371 imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/cfrg_curves_bits.https.any.worker.html [ Failure ]
-webkit.org/b/276371 imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/cfrg_curves_keys.https.any.html [ Failure ]
-webkit.org/b/276371 imported/w3c/web-platform-tests/WebCryptoAPI/derive_bits_keys/cfrg_curves_keys.https.any.worker.html [ Failure ]
-
 webkit.org/b/244308 imported/w3c/web-platform-tests/cookies/attributes/attributes-ctl.sub.html [ Pass Failure ]
 
 # Only flakey in WK1
@@ -1935,6 +1936,7 @@ webkit.org/b/230062 fast/text/FontFaceSet-check-after-style-update.html [ Pass F
 http/wpt/credential-management/ [ Skip ]
 http/wpt/webauthn/ [ Skip ]
 imported/w3c/web-platform-tests/credential-management/ [ Skip ]
+imported/w3c/web-platform-tests/webauthn [ Skip ]
 
 # Skip Digital Credentials API
 http/wpt/identity/ [ Skip ]
@@ -2948,8 +2950,13 @@ imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-mode
 [ Ventura Sonoma ] http/tests/cookies/same-site/fetch-after-navigating-iframe-in-cross-origin-page.html [ Failure ]
 [ Ventura Sonoma ] http/tests/cookies/same-site/popup-cross-site-post.html [ Failure ]
 
+webkit.org/b/276636 imported/w3c/web-platform-tests/content-security-policy/reporting-api/reporting-api-report-only-sends-reports-on-violation.https.sub.html [ Failure ]
+
 # webkit.org/b/278293 [MacOS WK1] imported/w3c/web-platform-tests/content-security-policy/reporting-api/reporting-api-report-to-only-sends-reports-to-first-endpoint.https.sub.html is a flakey failure
 imported/w3c/web-platform-tests/content-security-policy/reporting-api/reporting-api-report-to-only-sends-reports-to-first-endpoint.https.sub.html [ Pass Failure ]
 
 # webkit.org/b/280000 [ macOS wk1 Debug ] svg/zoom/page/zoom-svg-through-object-with-override-size.html is a flaky crash.
 [ Debug ] svg/zoom/page/zoom-svg-through-object-with-override-size.html [ Pass Crash ]
+
+# webkit.org/b/279712 Clipboard API not supported on WK1
+imported/w3c/web-platform-tests/clipboard-apis/clipboard-item.https.html [ Skip ]

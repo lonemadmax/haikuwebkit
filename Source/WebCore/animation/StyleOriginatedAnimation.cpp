@@ -131,13 +131,13 @@ void StyleOriginatedAnimation::syncPropertiesWithBackingAnimation()
 {
 }
 
-std::optional<double> StyleOriginatedAnimation::bindingsStartTime() const
+std::optional<CSSNumberishTime> StyleOriginatedAnimation::bindingsStartTime() const
 {
     flushPendingStyleChanges();
     return WebAnimation::bindingsStartTime();
 }
 
-std::optional<double> StyleOriginatedAnimation::bindingsCurrentTime() const
+std::optional<CSSNumberishTime> StyleOriginatedAnimation::bindingsCurrentTime() const
 {
     flushPendingStyleChanges();
     return WebAnimation::bindingsCurrentTime();
@@ -329,7 +329,7 @@ void StyleOriginatedAnimation::invalidateDOMEvents(ShouldFireEvents shouldFireEv
             auto iterationBoundary = iteration;
             if (m_previousIteration > iteration)
                 iterationBoundary++;
-            auto elapsedTime = animationEffect ? animationEffect->iterationDuration() * (iterationBoundary - animationEffect->iterationStart()) : 0_s;
+            auto elapsedTime = animationEffect ? animationEffect->iterationDuration() * (iterationBoundary - animationEffect->iterationStart()) : zeroTime();
             enqueueDOMEvent(eventNames().animationiterationEvent, elapsedTime, effectTimeAtIteration(iteration));
         } else if (wasActive && isAfter)
             enqueueDOMEvent(eventNames().animationendEvent, intervalEnd, effectTimeAtEnd());

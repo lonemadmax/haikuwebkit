@@ -71,26 +71,6 @@ namespace WasmOperationsInternal {
 static constexpr bool verbose = false;
 }
 
-static constexpr unsigned gprToIndex(GPRReg r)
-{
-    for (unsigned i = 0; i < GPRInfo::numberOfArgumentRegisters; ++i) {
-        if (GPRInfo::toArgumentRegister(i) == r)
-            return i;
-    }
-    RELEASE_ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return 0;
-}
-
-static constexpr unsigned fprToIndex(FPRReg r)
-{
-    for (unsigned i = 0; i < FPRInfo::numberOfArgumentRegisters; ++i) {
-        if (FPRInfo::toArgumentRegister(i) == r)
-            return i;
-    }
-    RELEASE_ASSERT_NOT_REACHED_UNDER_CONSTEXPR_CONTEXT();
-    return 0;
-}
-
 JSC_DEFINE_JIT_OPERATION(operationJSToWasmEntryWrapperBuildFrame, JSEntrypointCallee*, (void* sp, CallFrame* callFrame, WebAssemblyFunction* function))
 {
     dataLogLnIf(WasmOperationsInternal::verbose, "operationJSToWasmEntryWrapperBuildFrame sp: ", RawPointer(sp), " fp: ", RawPointer(callFrame));
@@ -143,9 +123,9 @@ JSC_DEFINE_JIT_OPERATION(operationJSToWasmEntryWrapperBuildFrame, JSEntrypointCa
         } else {
             int dst = 0;
             if (wasmFrameConvention.params[i].location.isFPR())
-                dst = GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + fprToIndex(wasmFrameConvention.params[i].location.fpr()) * bytesForWidth(Width::Width64);
+                dst = GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + FPRInfo::toArgumentIndex(wasmFrameConvention.params[i].location.fpr()) * bytesForWidth(Width::Width64);
             else
-                dst = gprToIndex(wasmFrameConvention.params[i].location.jsr().payloadGPR()) * sizeof(UCPURegister);
+                dst = GPRInfo::toArgumentIndex(wasmFrameConvention.params[i].location.jsr().payloadGPR()) * sizeof(UCPURegister);
             ASSERT(dst >= 0);
 
             dataLogLnIf(WasmOperationsInternal::verbose, "* Register Arg ", i, " ", dst);
@@ -245,20 +225,20 @@ JSC_DEFINE_JIT_OPERATION(operationJSToWasmEntryWrapperBuildReturnFrame, EncodedJ
             JSValue result;
             switch (type.kind) {
             case TypeKind::I32:
-                result = jsNumber(*access.operator()<int32_t>(registerSpace, gprToIndex(loc.jsr().payloadGPR()) * sizeof(UCPURegister)));
+                result = jsNumber(*access.operator()<int32_t>(registerSpace, GPRInfo::toArgumentIndex(loc.jsr().payloadGPR()) * sizeof(UCPURegister)));
                 break;
             case TypeKind::I64:
-                result = JSBigInt::makeHeapBigIntOrBigInt32(instance->globalObject(), *access.operator()<int64_t>(registerSpace, gprToIndex(loc.jsr().payloadGPR()) * sizeof(UCPURegister)));
+                result = JSBigInt::makeHeapBigIntOrBigInt32(instance->globalObject(), *access.operator()<int64_t>(registerSpace, GPRInfo::toArgumentIndex(loc.jsr().payloadGPR()) * sizeof(UCPURegister)));
                 OPERATION_RETURN_IF_EXCEPTION(scope, encodedJSValue());
                 break;
             case TypeKind::F32:
-                result = jsNumber(purifyNaN(*access.operator()<float>(registerSpace, GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + fprToIndex(loc.fpr()) * bytesForWidth(Width::Width64))));
+                result = jsNumber(purifyNaN(*access.operator()<float>(registerSpace, GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + FPRInfo::toArgumentIndex(loc.fpr()) * bytesForWidth(Width::Width64))));
                 break;
             case TypeKind::F64:
-                result = jsNumber(purifyNaN(*access.operator()<double>(registerSpace, GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + fprToIndex(loc.fpr()) * bytesForWidth(Width::Width64))));
+                result = jsNumber(purifyNaN(*access.operator()<double>(registerSpace, GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + FPRInfo::toArgumentIndex(loc.fpr()) * bytesForWidth(Width::Width64))));
                 break;
             default:
-                result = *access.operator()<JSValue>(registerSpace, gprToIndex(loc.jsr().payloadGPR()) * sizeof(UCPURegister));
+                result = *access.operator()<JSValue>(registerSpace, GPRInfo::toArgumentIndex(loc.jsr().payloadGPR()) * sizeof(UCPURegister));
                 break;
             }
             resultArray->initializeIndex(initializationScope, i, result);
@@ -314,7 +294,7 @@ JSC_DEFINE_JIT_OPERATION(operationGetWasmCalleeStackSize, EncodedJSValue, (JSWeb
     OPERATION_RETURN(scope, stackOffset);
 }
 
-JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, EncodedJSValue, (void* sp, CallFrame* cfr, void* argumentRegisters, JSWebAssemblyInstance* instance))
+JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, bool, (void* sp, CallFrame* cfr, void* argumentRegisters, JSWebAssemblyInstance* instance))
 {
     auto access = []<typename V>(auto* arr, int i) -> V* {
         return &reinterpret_cast<V*>(arr)[i / sizeof(V)];
@@ -338,7 +318,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, EncodedJSValue, 
     const auto& jsCC = jsCallingConvention().callInformationFor(typeDefinition, CallRole::Callee);
 
     if (Options::useWasmSIMD() && (wasmCC.argumentsOrResultsIncludeV128))
-        OPERATION_RETURN(scope, 0);
+        OPERATION_RETURN(scope, false);
 
     for (unsigned argNum = 0; argNum < argCount; ++argNum) {
         Type argType = signature.argumentType(argNum);
@@ -380,7 +360,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, EncodedJSValue, 
                 else
                     *access.operator()<uint64_t>(calleeFrame, dst) = raw;
             } else {
-                auto raw = *access.operator()<uint64_t>(argumentRegisters, wasmParam.jsr().payloadGPR() * sizeof(UCPURegister));
+                auto raw = *access.operator()<uint64_t>(argumentRegisters, GPRInfo::toArgumentIndex(wasmParam.jsr().payloadGPR()) * sizeof(UCPURegister));
 #if USE(JSVALUE64)
                 if (argType.isI32())
                     *access.operator()<uint64_t>(calleeFrame, dst) = static_cast<uint32_t>(raw) | JSValue::NumberTag;
@@ -395,11 +375,11 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, EncodedJSValue, 
         case TypeKind::I64: {
             if (wasmParam.isStackArgument()) {
                 auto result = JSBigInt::makeHeapBigIntOrBigInt32(instance->globalObject(), *access.operator()<int64_t>(cfr, wasmParam.offsetFromSP() + sizeof(CallerFrameAndPC)));
-                OPERATION_RETURN_IF_EXCEPTION(scope, 0);
+                OPERATION_RETURN_IF_EXCEPTION(scope, false);
                 *access.operator()<uint64_t>(calleeFrame, dst) = JSValue::encode(result);
             } else {
-                auto result = JSBigInt::makeHeapBigIntOrBigInt32(instance->globalObject(), *access.operator()<int64_t>(argumentRegisters, gprToIndex(wasmParam.jsr().payloadGPR()) * bytesForWidth(Width::Width64)));
-                OPERATION_RETURN_IF_EXCEPTION(scope, 0);
+                auto result = JSBigInt::makeHeapBigIntOrBigInt32(instance->globalObject(), *access.operator()<int64_t>(argumentRegisters, GPRInfo::toArgumentIndex(wasmParam.jsr().payloadGPR()) * bytesForWidth(Width::Width64)));
+                OPERATION_RETURN_IF_EXCEPTION(scope, false);
                 *access.operator()<uint64_t>(calleeFrame, dst) = JSValue::encode(result);
             }
             break;
@@ -409,7 +389,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, EncodedJSValue, 
             if (wasmParam.isStackArgument())
                 val = *access.operator()<float>(cfr, wasmParam.offsetFromSP() + sizeof(CallerFrameAndPC));
             else
-                val = *access.operator()<float>(argumentRegisters, GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + fprToIndex(wasmParam.fpr()) * bytesForWidth(Width::Width64));
+                val = *access.operator()<float>(argumentRegisters, GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + FPRInfo::toArgumentIndex(wasmParam.fpr()) * bytesForWidth(Width::Width64));
 
             double marshalled = purifyNaN(val);
             uint64_t raw = bitwise_cast<uint64_t>(marshalled);
@@ -424,7 +404,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, EncodedJSValue, 
             if (wasmParam.isStackArgument())
                 val = *access.operator()<double>(cfr, wasmParam.offsetFromSP() + sizeof(CallerFrameAndPC));
             else
-                val = *access.operator()<double>(argumentRegisters, GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + fprToIndex(wasmParam.fpr()) * bytesForWidth(Width::Width64));
+                val = *access.operator()<double>(argumentRegisters, GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + FPRInfo::toArgumentIndex(wasmParam.fpr()) * bytesForWidth(Width::Width64));
 
             double marshalled = purifyNaN(val);
             uint64_t raw = bitwise_cast<uint64_t>(marshalled);
@@ -441,32 +421,18 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalArguments, EncodedJSValue, 
 
     // materializeImportJSCell and store
     auto* newCallee = instance->importFunctionInfo(functionIndex);
-#if USE(JSVALUE64)
-    *access.operator()<uint64_t>(calleeFrame, CallFrameSlot::callee * static_cast<int>(sizeof(Register))) = bitwise_cast<uint64_t>(newCallee->importFunction);
-#else
-    *access.operator()<uint32_t>(calleeFrame, CallFrameSlot::callee * static_cast<int>(sizeof(Register))) = bitwise_cast<uint32_t>(newCallee->importFunction);
-#endif
-
+    *access.operator()<uintptr_t>(calleeFrame, CallFrameSlot::callee * static_cast<int>(sizeof(Register))) = bitwise_cast<uintptr_t>(newCallee->importFunction);
     *access.operator()<uint32_t>(calleeFrame, CallFrameSlot::argumentCountIncludingThis * static_cast<int>(sizeof(Register)) + PayloadOffset) = argCount + 1; // including this = +1
 
     // set up codeblock
     auto singletonCallee = CalleeBits::boxNativeCallee(&WasmToJSCallee::singleton());
-#if USE(JSVALUE64)
-    *access.operator()<uint64_t>(cfr, CallFrameSlot::codeBlock * sizeof(Register)) = bitwise_cast<uint64_t>(instance);
-    *access.operator()<uint64_t>(cfr, CallFrameSlot::callee * sizeof(Register)) = bitwise_cast<uint64_t>(singletonCallee);
-#else
-    *access.operator()<uint32_t>(cfr, CallFrameSlot::codeBlock * sizeof(Register)) = bitwise_cast<uint32_t>(instance);
-    *access.operator()<uint32_t>(cfr, CallFrameSlot::callee * sizeof(Register)) = bitwise_cast<uint32_t>(singletonCallee);
-#endif
+    *access.operator()<uintptr_t>(cfr, CallFrameSlot::codeBlock * sizeof(Register)) = bitwise_cast<uintptr_t>(instance);
+    *access.operator()<uintptr_t>(cfr, CallFrameSlot::callee * sizeof(Register)) = bitwise_cast<uintptr_t>(singletonCallee);
 
-#if USE(JSVALUE64)
-    OPERATION_RETURN(scope, bitwise_cast<uint64_t>(newCallee));
-#else
-    OPERATION_RETURN(scope, bitwise_cast<uint32_t>(newCallee));
-#endif
+    OPERATION_RETURN(scope, true);
 }
 
-JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, EncodedJSValue, (void* sp, CallFrame* cfr, JSWebAssemblyInstance* instance))
+JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, void, (void* sp, CallFrame* cfr, JSWebAssemblyInstance* instance))
 {
     auto access = []<typename V>(auto* arr, int i) -> V* {
         return &reinterpret_cast<V*>(arr)[i / sizeof(V)];
@@ -512,7 +478,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, EncodedJSValu
         }
         case TypeKind::F32: {
             FPRReg dest = wasmCC.results[0].location.fpr();
-            auto offset = GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + fprToIndex(dest) * bytesForWidth(Width::Width64);
+            auto offset = GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + FPRInfo::toArgumentIndex(dest) * bytesForWidth(Width::Width64);
             if (returned.isNumber()) {
                 if (returned.isInt32()) {
                     float result = static_cast<float>(*access.operator()<uint32_t>(registerSpace, 0));
@@ -534,7 +500,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, EncodedJSValu
         }
         case TypeKind::F64: {
             FPRReg dest = wasmCC.results[0].location.fpr();
-            auto offset = GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + fprToIndex(dest) * bytesForWidth(Width::Width64);
+            auto offset = GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + FPRInfo::toArgumentIndex(dest) * bytesForWidth(Width::Width64);
             if (returned.isNumber()) {
                 if (returned.isInt32()) {
                     double result = static_cast<float>(*access.operator()<uint32_t>(registerSpace, 0));
@@ -565,7 +531,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, EncodedJSValu
                     WebAssemblyWrapperFunction* wasmWrapperFunction = nullptr;
                     if (UNLIKELY(!isWebAssemblyHostFunction(value, wasmFunction, wasmWrapperFunction) && !value.isNull())) {
                         throwTypeError(globalObject, scope, "Funcref value is not a function"_s);
-                        OPERATION_RETURN(scope, 0);
+                        OPERATION_RETURN(scope);
                     }
 
                     if (isRefWithTypeIndex(returnType) && !value.isNull()) {
@@ -573,7 +539,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, EncodedJSValu
                         Wasm::TypeIndex argIndex = wasmFunction ? wasmFunction->typeIndex() : wasmWrapperFunction->typeIndex();
                         if (paramIndex != argIndex) {
                             throwVMTypeError(globalObject, scope, "Argument function did not match the reference type"_s);
-                            OPERATION_RETURN(scope, 0);
+                            OPERATION_RETURN(scope);
                         }
                     }
                 } else {
@@ -582,7 +548,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, EncodedJSValu
                     value = Wasm::internalizeExternref(value);
                     if (UNLIKELY(!Wasm::TypeInformation::castReference(value, returnType.isNullable(), returnType.index))) {
                         throwTypeError(globalObject, scope, "Argument value did not match reference type"_s);
-                        OPERATION_RETURN(scope, 0);
+                        OPERATION_RETURN(scope);
                     }
                 }
                 // do nothing, the register is already there
@@ -606,15 +572,15 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, EncodedJSValu
             ++iterationCount;
         });
 
-        OPERATION_RETURN_IF_EXCEPTION(scope, 0);
+        OPERATION_RETURN_IF_EXCEPTION(scope);
         if (buffer.hasOverflowed()) {
             throwOutOfMemoryError(globalObject, scope, "JS results to Wasm are too large"_s);
-            OPERATION_RETURN(scope, 0);
+            OPERATION_RETURN(scope);
         }
 
         if (iterationCount != signature.returnCount()) {
             throwVMTypeError(globalObject, scope, "Incorrect number of values returned to Wasm from JS"_s);
-            OPERATION_RETURN(scope, 0);
+            OPERATION_RETURN(scope);
         }
         for (unsigned index = 0; index < buffer.size(); ++index) {
             JSValue value = buffer.at(index);
@@ -643,14 +609,14 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, EncodedJSValu
                         WebAssemblyWrapperFunction* wasmWrapperFunction = nullptr;
                         if (UNLIKELY(!isWebAssemblyHostFunction(value, wasmFunction, wasmWrapperFunction) && !value.isNull())) {
                             throwTypeError(globalObject, scope, "Funcref value is not a function"_s);
-                            OPERATION_RETURN(scope, 0);
+                            OPERATION_RETURN(scope);
                         }
                         if (Wasm::isRefWithTypeIndex(returnType) && !value.isNull()) {
                             Wasm::TypeIndex paramIndex = returnType.index;
                             Wasm::TypeIndex argIndex = wasmFunction ? wasmFunction->typeIndex() : wasmWrapperFunction->typeIndex();
                             if (paramIndex != argIndex) {
                                 throwTypeError(globalObject, scope, "Argument function did not match the reference type"_s);
-                                OPERATION_RETURN(scope, 0);
+                                OPERATION_RETURN(scope);
                             }
                         }
                     } else {
@@ -658,7 +624,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, EncodedJSValu
                         value = Wasm::internalizeExternref(value);
                         if (UNLIKELY(!Wasm::TypeInformation::castReference(value, returnType.isNullable(), returnType.index))) {
                             throwTypeError(globalObject, scope, "Argument value did not match reference type"_s);
-                            OPERATION_RETURN(scope, 0);
+                            OPERATION_RETURN(scope);
                         }
                     }
                 } else
@@ -666,19 +632,19 @@ JSC_DEFINE_JIT_OPERATION(operationWasmToJSExitMarshalReturnValues, EncodedJSValu
                 unboxedValue = bitwise_cast<uint64_t>(value);
             }
             }
-            OPERATION_RETURN_IF_EXCEPTION(scope, 0);
+            OPERATION_RETURN_IF_EXCEPTION(scope);
 
             auto rep = wasmCC.results[index];
             if (rep.location.isGPR())
-                *access.operator()<uint64_t>(registerSpace, rep.location.jsr().payloadGPR() * sizeof(UCPURegister)) = unboxedValue;
+                *access.operator()<uint64_t>(registerSpace, GPRInfo::toArgumentIndex(rep.location.jsr().payloadGPR()) * sizeof(UCPURegister)) = unboxedValue;
             else if (rep.location.isFPR())
-                *access.operator()<uint64_t>(registerSpace, GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + fprToIndex(rep.location.fpr()) * bytesForWidth(Width::Width64)) = unboxedValue;
+                *access.operator()<uint64_t>(registerSpace, GPRInfo::numberOfArgumentRegisters * sizeof(UCPURegister) + FPRInfo::toArgumentIndex(rep.location.fpr()) * bytesForWidth(Width::Width64)) = unboxedValue;
             else
                 *access.operator()<uint64_t>(callerStackFrame, rep.location.offsetFromSP()) = unboxedValue;
         }
     }
 
-    OPERATION_RETURN(scope, 0);
+    OPERATION_RETURN(scope);
 }
 
 #if ENABLE(WEBASSEMBLY_OMGJIT)
@@ -692,7 +658,7 @@ static bool shouldTriggerOMGCompile(TierUpCount& tierUp, OMGCallee* replacement,
     return true;
 }
 
-static void triggerOMGReplacementCompile(TierUpCount& tierUp, OMGCallee* replacement, JSWebAssemblyInstance* instance, Wasm::CalleeGroup& calleeGroup, uint32_t functionIndex, std::optional<bool> hasExceptionHandlers)
+static void triggerOMGReplacementCompile(TierUpCount& tierUp, OMGCallee* replacement, JSWebAssemblyInstance* instance, Wasm::CalleeGroup& calleeGroup, FunctionCodeIndex functionIndex, std::optional<bool> hasExceptionHandlers)
 {
     if (replacement) {
         tierUp.optimizeSoon(functionIndex);
@@ -875,35 +841,40 @@ static void doOSREntry(JSWebAssemblyInstance* instance, Probe::Context& context,
     context.gpr(GPRInfo::nonPreservedNonArgumentGPR0) = bitwise_cast<UCPURegister>(osrEntryCallee.entrypoint().taggedPtr<>());
 }
 
-inline bool shouldJIT(unsigned functionIndex)
+inline bool shouldOMGJIT(JSWebAssemblyInstance* instance, unsigned functionIndex)
 {
+    auto& info = instance->module().moduleInformation();
+    if (info.functions[functionIndex].data.size() > Options::maximumOMGCandidateCost())
+        return false;
     if (!Options::wasmFunctionIndexRangeToCompile().isInRange(functionIndex))
         return false;
     return true;
 }
 
-JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmTriggerTierUpNow, void, (JSWebAssemblyInstance* instance, uint32_t functionIndex))
+JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmTriggerTierUpNow, void, (JSWebAssemblyInstance* instance, uint32_t functionCodeIndex))
 {
     Wasm::CalleeGroup& calleeGroup = *instance->calleeGroup();
     ASSERT(instance->memory()->mode() == calleeGroup.mode());
 
-    uint32_t functionIndexInSpace = functionIndex + calleeGroup.functionImportCount();
+    FunctionCodeIndex functionIndex = FunctionCodeIndex(functionCodeIndex);
+    FunctionSpaceIndex functionIndexInSpace = calleeGroup.toSpaceIndex(functionIndex);
     ASSERT(calleeGroup.wasmBBQCalleeFromFunctionIndexSpace(functionIndexInSpace).compilationMode() == Wasm::CompilationMode::BBQMode);
     BBQCallee& callee = static_cast<BBQCallee&>(calleeGroup.wasmBBQCalleeFromFunctionIndexSpace(functionIndexInSpace));
-    TierUpCount& tierUp = *callee.tierUpCount();
+    TierUpCount& tierUp = callee.tierUpCounter();
 
-    if (!shouldJIT(functionIndex)) {
+    if (!shouldOMGJIT(instance, functionIndex)) {
         tierUp.deferIndefinitely();
         return;
     }
 
-    dataLogLnIf(Options::verboseOSR(), "Consider OMGPlan for [", functionIndex, "] with executeCounter = ", tierUp, " ", RawPointer(callee.replacement()));
+    OMGCallee* replacement = calleeGroup.omgCallee(Locker { calleeGroup.m_lock }, functionIndex);
+    dataLogLnIf(Options::verboseOSR(), "Consider OMGPlan for [", functionIndex, "] with executeCounter = ", tierUp, " ", RawPointer(replacement));
 
-    if (shouldTriggerOMGCompile(tierUp, callee.replacement(), functionIndex))
-        triggerOMGReplacementCompile(tierUp, callee.replacement(), instance, calleeGroup, functionIndex, callee.hasExceptionHandlers());
+    if (shouldTriggerOMGCompile(tierUp, replacement, functionIndex))
+        triggerOMGReplacementCompile(tierUp, replacement, instance, calleeGroup, functionIndex, callee.hasExceptionHandlers());
 
     // We already have an OMG replacement.
-    if (callee.replacement()) {
+    if (replacement) {
         // No OSR entry points. Just defer indefinitely.
         if (tierUp.osrEntryTriggers().isEmpty()) {
             dataLogLnIf(Options::verboseOSR(), "delayOMGCompile replacement in place, delaying indefinitely for ", functionIndex);
@@ -926,7 +897,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmTriggerTierUpNow, void, (JSWebAss
 JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe::Context& context))
 {
     OSREntryData& osrEntryData = *context.arg<OSREntryData*>();
-    uint32_t functionIndex = osrEntryData.functionIndex();
+    auto functionIndex = FunctionCodeIndex(osrEntryData.functionIndex());
     uint32_t loopIndex = osrEntryData.loopIndex();
     JSWebAssemblyInstance* instance = context.gpr<JSWebAssemblyInstance*>(GPRInfo::wasmContextInstancePointer);
 
@@ -952,30 +923,32 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe:
     MemoryMode memoryMode = instance->memory()->mode();
     ASSERT(memoryMode == calleeGroup.mode());
 
-    uint32_t functionIndexInSpace = functionIndex + calleeGroup.functionImportCount();
+    FunctionSpaceIndex functionIndexInSpace = calleeGroup.toSpaceIndex(functionIndex);
     ASSERT(calleeGroup.wasmBBQCalleeFromFunctionIndexSpace(functionIndexInSpace).compilationMode() == Wasm::CompilationMode::BBQMode);
     BBQCallee& callee = static_cast<BBQCallee&>(calleeGroup.wasmBBQCalleeFromFunctionIndexSpace(functionIndexInSpace));
-    TierUpCount& tierUp = *callee.tierUpCount();
+    TierUpCount& tierUp = callee.tierUpCounter();
 
-    if (!shouldJIT(functionIndex)) {
+    if (!shouldOMGJIT(instance, functionIndex)) {
         tierUp.deferIndefinitely();
         return returnWithoutOSREntry();
     }
 
-    dataLogLnIf(Options::verboseOSR(), "Consider OSREntryPlan for [", functionIndex, "] loopIndex#", loopIndex, " with executeCounter = ", tierUp, " ", RawPointer(callee.replacement()));
+    OMGCallee* replacement = calleeGroup.omgCallee(Locker { calleeGroup.m_lock }, functionIndex);
+    dataLogLnIf(Options::verboseOSR(), "Consider OSREntryPlan for [", functionIndex, "] loopIndex#", loopIndex, " with executeCounter = ", tierUp, " ", RawPointer(replacement));
 
     if (!Options::useWasmOSR()) {
-        if (shouldTriggerOMGCompile(tierUp, callee.replacement(), functionIndex))
-            triggerOMGReplacementCompile(tierUp, callee.replacement(), instance, calleeGroup, functionIndex, callee.hasExceptionHandlers());
+        if (shouldTriggerOMGCompile(tierUp, replacement, functionIndex))
+            triggerOMGReplacementCompile(tierUp, replacement, instance, calleeGroup, functionIndex, callee.hasExceptionHandlers());
 
         // We already have an OMG replacement.
-        if (callee.replacement()) {
+        if (replacement) {
             // No OSR entry points. Just defer indefinitely.
             if (tierUp.osrEntryTriggers().isEmpty()) {
                 tierUp.dontOptimizeAnytimeSoon(functionIndex);
                 return;
             }
 
+            // FIXME: Is this ever taken?
             // Found one OSR entry point. Since we do not have a way to jettison Wasm::Callee right now, this means that tierUp function is now meaningless.
             // Not call it as much as possible.
             if (callee.osrEntryCallee()) {
@@ -1030,13 +1003,13 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe:
         }
     }
 
-    if (!shouldTriggerOMGCompile(tierUp, callee.replacement(), functionIndex) && !triggeredSlowPathToStartCompilation)
+    if (!shouldTriggerOMGCompile(tierUp, replacement, functionIndex) && !triggeredSlowPathToStartCompilation)
         return returnWithoutOSREntry();
 
     if (!triggeredSlowPathToStartCompilation) {
-        triggerOMGReplacementCompile(tierUp, callee.replacement(), instance, calleeGroup, functionIndex, callee.hasExceptionHandlers());
+        triggerOMGReplacementCompile(tierUp, replacement, instance, calleeGroup, functionIndex, callee.hasExceptionHandlers());
 
-        if (!callee.replacement())
+        if (!replacement)
             return returnWithoutOSREntry();
     }
 
@@ -1140,7 +1113,6 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe:
 
 JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmLoopOSREnterBBQJIT, void, (Probe::Context & context))
 {
-    TierUpCount& tierUp = *context.arg<TierUpCount*>();
     uint64_t* osrEntryScratchBuffer = bitwise_cast<uint64_t*>(context.gpr(GPRInfo::argumentGPR0));
     unsigned loopIndex = osrEntryScratchBuffer[0]; // First entry in scratch buffer is the loop index when tiering up to BBQ.
 
@@ -1148,7 +1120,7 @@ JSC_DEFINE_NOEXCEPT_JIT_OPERATION(operationWasmLoopOSREnterBBQJIT, void, (Probe:
     CalleeBits calleeBits = *bitwise_cast<CalleeBits*>(bitwise_cast<uint8_t*>(context.fp()) + (unsigned)CallFrameSlot::callee * sizeof(Register));
     BBQCallee& callee = *bitwise_cast<BBQCallee*>(calleeBits.asNativeCallee());
 
-    OSREntryData& entryData = tierUp.osrEntryData(loopIndex);
+    OSREntryData& entryData = callee.tierUpCounter().osrEntryData(loopIndex);
     RELEASE_ASSERT(entryData.loopIndex() == loopIndex);
 
     const StackMap& stackMap = entryData.values();

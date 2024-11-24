@@ -64,28 +64,32 @@ using namespace WebCore;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(LibWebRTCCodecsProxy);
 
-Ref<LibWebRTCCodecsProxy> LibWebRTCCodecsProxy::create(GPUConnectionToWebProcess& webProcessConnection)
+Ref<LibWebRTCCodecsProxy> LibWebRTCCodecsProxy::create(GPUConnectionToWebProcess& webProcessConnection, SharedPreferencesForWebProcess& sharedPreferencesForWebProcess)
 {
-    auto instance = adoptRef(*new LibWebRTCCodecsProxy(webProcessConnection));
+    auto instance = adoptRef(*new LibWebRTCCodecsProxy(webProcessConnection, sharedPreferencesForWebProcess));
     instance->initialize();
     return instance;
 }
 
-LibWebRTCCodecsProxy::LibWebRTCCodecsProxy(GPUConnectionToWebProcess& webProcessConnection)
+LibWebRTCCodecsProxy::LibWebRTCCodecsProxy(GPUConnectionToWebProcess& webProcessConnection, SharedPreferencesForWebProcess& sharedPreferencesForWebProcess)
     : m_connection(webProcessConnection.connection())
     , m_queue(webProcessConnection.gpuProcess().libWebRTCCodecsQueue())
     , m_videoFrameObjectHeap(webProcessConnection.videoFrameObjectHeap())
     , m_resourceOwner(webProcessConnection.webProcessIdentity())
+    , m_sharedPreferencesForWebProcess(sharedPreferencesForWebProcess)
 {
+    protectedWorkQueue()->dispatch([this, sharedPreferencesForWebProcess] {
+        m_sharedPreferencesForWebProcess = sharedPreferencesForWebProcess;
+    });
 }
 
 LibWebRTCCodecsProxy::~LibWebRTCCodecsProxy() = default;
 
 void LibWebRTCCodecsProxy::stopListeningForIPC(Ref<LibWebRTCCodecsProxy>&& refFromConnection)
 {
-    m_connection->removeWorkQueueMessageReceiver(Messages::LibWebRTCCodecsProxy::messageReceiverName());
+    protectedConnection()->removeWorkQueueMessageReceiver(Messages::LibWebRTCCodecsProxy::messageReceiverName());
 
-    m_queue->dispatch([this, protectedThis = WTFMove(refFromConnection)] {
+    protectedWorkQueue()->dispatch([this, protectedThis = WTFMove(refFromConnection)] {
         assertIsCurrent(workQueue());
         auto decoders = WTFMove(m_decoders);
         for (auto& decoder : decoders.values()) {
@@ -104,7 +108,7 @@ void LibWebRTCCodecsProxy::stopListeningForIPC(Ref<LibWebRTCCodecsProxy>&& refFr
 
 void LibWebRTCCodecsProxy::initialize()
 {
-    m_connection->addWorkQueueMessageReceiver(Messages::LibWebRTCCodecsProxy::messageReceiverName(), m_queue, *this);
+    protectedConnection()->addWorkQueueMessageReceiver(Messages::LibWebRTCCodecsProxy::messageReceiverName(), protectedWorkQueue(), *this);
 }
 
 auto LibWebRTCCodecsProxy::createDecoderCallback(VideoDecoderIdentifier identifier, bool useRemoteFrames, bool enableAdditionalLogging)
@@ -226,7 +230,7 @@ void LibWebRTCCodecsProxy::releaseDecoder(VideoDecoderIdentifier identifier)
     if (iterator == m_decoders.end())
         return;
 
-    m_queue->dispatch([decodingCallbacks = WTFMove(iterator->value.decodingCallbacks)] () mutable {
+    protectedWorkQueue()->dispatch([decodingCallbacks = WTFMove(iterator->value.decodingCallbacks)] () mutable {
         while (!decodingCallbacks.isEmpty())
             decodingCallbacks.takeFirst()(-2);
     });
@@ -257,7 +261,7 @@ void LibWebRTCCodecsProxy::decodeFrame(VideoDecoderIdentifier identifier, int64_
         if (decoder.frameRateMonitor)
             decoder.frameRateMonitor->update();
         if (decoder.webrtcDecoder->decodeFrame(timeStamp, data)) {
-            m_connection->send(Messages::LibWebRTCCodecs::FailedDecoding { identifier }, 0);
+            protectedConnection()->send(Messages::LibWebRTCCodecs::FailedDecoding { identifier }, 0);
             callback(false);
             return;
         }
@@ -384,7 +388,7 @@ void LibWebRTCCodecsProxy::releaseEncoder(VideoEncoderIdentifier identifier)
 
     webrtc::releaseLocalEncoder(encoder.webrtcEncoder);
 
-    m_queue->dispatch([encodingCallbacks = WTFMove(encoder.encodingCallbacks)] () mutable {
+    protectedWorkQueue()->dispatch([encodingCallbacks = WTFMove(encoder.encodingCallbacks)] () mutable {
         while (!encodingCallbacks.isEmpty())
             encodingCallbacks.takeFirst()(-2);
     });
@@ -433,7 +437,7 @@ void LibWebRTCCodecsProxy::encodeFrame(VideoEncoderIdentifier identifier, Shared
     if (!encoder) {
         // Make sure to read RemoteVideoFrameReadReference to prevent memory leaks.
         if (std::holds_alternative<RemoteVideoFrameReadReference>(sharedVideoFrame.buffer))
-            m_videoFrameObjectHeap->get(WTFMove(std::get<RemoteVideoFrameReadReference>(sharedVideoFrame.buffer)));
+            Ref { m_videoFrameObjectHeap }->get(WTFMove(std::get<RemoteVideoFrameReadReference>(sharedVideoFrame.buffer)));
         callback(false);
         return;
     }
@@ -465,7 +469,7 @@ void LibWebRTCCodecsProxy::encodeFrame(VideoEncoderIdentifier identifier, Shared
 
 void LibWebRTCCodecsProxy::notifyEncoderResult(VideoEncoderIdentifier identifier, bool result)
 {
-    m_queue->dispatch([this, weakThis = ThreadSafeWeakPtr { *this }, identifier, result] {
+    protectedWorkQueue()->dispatch([this, weakThis = ThreadSafeWeakPtr { *this }, identifier, result] {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
@@ -478,7 +482,7 @@ void LibWebRTCCodecsProxy::notifyEncoderResult(VideoEncoderIdentifier identifier
 
 void LibWebRTCCodecsProxy::notifyDecoderResult(VideoDecoderIdentifier identifier, bool result)
 {
-    m_queue->dispatch([this, weakThis = ThreadSafeWeakPtr { *this }, identifier, result] {
+    protectedWorkQueue()->dispatch([this, weakThis = ThreadSafeWeakPtr { *this }, identifier, result] {
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;
@@ -545,6 +549,13 @@ bool LibWebRTCCodecsProxy::allowsExitUnderMemoryPressure() const
 void LibWebRTCCodecsProxy::setRTCLoggingLevel(WTFLogLevel level)
 {
     WebCore::LibWebRTCProvider::setRTCLogging(level);
+}
+
+void LibWebRTCCodecsProxy::updateSharedPreferencesForWebProcess(SharedPreferencesForWebProcess sharedPreferencesForWebProcess)
+{
+    protectedWorkQueue()->dispatch([this, sharedPreferencesForWebProcess = WTFMove(sharedPreferencesForWebProcess)] {
+        m_sharedPreferencesForWebProcess = sharedPreferencesForWebProcess;
+    });
 }
 
 }

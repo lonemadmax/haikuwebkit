@@ -342,7 +342,7 @@ public:
     virtual MediaPlayerClientIdentifier mediaPlayerClientIdentifier() const { return { }; }
 
 #if !RELEASE_LOG_DISABLED
-    virtual const void* mediaPlayerLogIdentifier() { return nullptr; }
+    virtual uint64_t mediaPlayerLogIdentifier() { return 0; }
     virtual const Logger& mediaPlayerLogger() = 0;
 #endif
 
@@ -704,7 +704,7 @@ public:
 
 #if !RELEASE_LOG_DISABLED
     const Logger& mediaPlayerLogger();
-    const void* mediaPlayerLogIdentifier() { return client().mediaPlayerLogIdentifier(); }
+    uint64_t mediaPlayerLogIdentifier() { return client().mediaPlayerLogIdentifier(); }
 #endif
 
     void applicationWillResignActive();
@@ -737,6 +737,7 @@ public:
 
     const MediaPlayerPrivateInterface* playerPrivate() const;
     MediaPlayerPrivateInterface* playerPrivate();
+    RefPtr<MediaPlayerPrivateInterface> protectedPlayerPrivate();
 
     DynamicRangeMode preferredDynamicRangeMode() const { return m_preferredDynamicRangeMode; }
     void setPreferredDynamicRangeMode(DynamicRangeMode);

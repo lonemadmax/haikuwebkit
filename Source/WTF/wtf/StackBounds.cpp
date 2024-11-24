@@ -33,7 +33,7 @@
 
 #include <windows.h>
 
-#elif OS(UNIX)
+#elif OS(UNIX) || OS(HAIKU)
 
 #include <pthread.h>
 #if HAVE(PTHREAD_NP_H)
@@ -81,24 +81,7 @@ StackBounds StackBounds::currentThreadStackBoundsInternal()
     return newThreadStackBounds(pthread_self());
 }
 
-#elif OS(HAIKU)
-
-StackBounds StackBounds::newThreadStackBounds(PlatformThreadHandle thread)
-{
-    thread_info threadInfo;
-    get_thread_info(get_pthread_thread_id(thread), &threadInfo);
-	return StackBounds { threadInfo.stack_end, threadInfo.stack_base };
-}
-
-StackBounds StackBounds::currentThreadStackBoundsInternal()
-{
-    thread_info threadInfo;
-    get_thread_info(find_thread(NULL), &threadInfo);
-	return StackBounds { threadInfo.stack_end, threadInfo.stack_base };
-}
-
-
-#elif OS(UNIX)
+#elif OS(UNIX) || OS(HAIKU)
 
 #if OS(OPENBSD)
 

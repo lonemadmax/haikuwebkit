@@ -80,16 +80,13 @@ class MediaSource
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(MediaSource);
 public:
     DEFINE_VIRTUAL_REFCOUNTED;
+    USING_CAN_MAKE_WEAKPTR(CanMakeWeakPtr<MediaSource>);
 
     static void setRegistry(URLRegistry*);
     static MediaSource* lookup(const String& url) { return s_registry ? static_cast<MediaSource*>(s_registry->lookup(url)) : nullptr; }
 
     static Ref<MediaSource> create(ScriptExecutionContext&, MediaSourceInit&&);
     virtual ~MediaSource();
-
-    using CanMakeWeakPtr<MediaSource>::weakPtrFactory;
-    using CanMakeWeakPtr<MediaSource>::WeakValueType;
-    using CanMakeWeakPtr<MediaSource>::WeakPtrImplType;
 
     static bool enabledForContext(ScriptExecutionContext&);
 
@@ -143,10 +140,10 @@ public:
 
 #if !RELEASE_LOG_DISABLED
     const Logger& logger() const final { return m_logger.get(); }
-    const void* logIdentifier() const final { return m_logIdentifier; }
+    uint64_t logIdentifier() const final { return m_logIdentifier; }
     ASCIILiteral logClassName() const final { return "MediaSource"_s; }
     WTFLogChannel& logChannel() const final;
-    void setLogIdentifier(const void*);
+    void setLogIdentifier(uint64_t);
 
     Ref<Logger> logger(ScriptExecutionContext&);
     void didLogMessage(const WTFLogChannel&, WTFLogLevel, Vector<JSONLogValue>&&) final;
@@ -247,7 +244,7 @@ private:
 
 #if !RELEASE_LOG_DISABLED
     Ref<const Logger> m_logger;
-    const void* m_logIdentifier { nullptr };
+    uint64_t m_logIdentifier { 0 };
 #endif
     std::atomic<uint64_t> m_associatedRegistryCount { 0 };
     Ref<MediaSourceClientImpl> m_client;

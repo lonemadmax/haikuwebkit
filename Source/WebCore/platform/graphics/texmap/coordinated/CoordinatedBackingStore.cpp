@@ -42,7 +42,7 @@ void CoordinatedBackingStoreTile::swapBuffers(TextureMapper& textureMapper)
         return;
 
     WTFBeginSignpost(this, CoordinatedSwapBuffers, "%lu updates", updatesCount);
-    for (unsigned updateIndex = 0; updateIndex < updates.size(); ++updateIndex) {
+    for (unsigned updateIndex = 0; updateIndex < updatesCount; ++updateIndex) {
         auto& update = updates[updateIndex];
         if (!update.buffer)
             continue;
@@ -75,7 +75,14 @@ void CoordinatedBackingStoreTile::swapBuffers(TextureMapper& textureMapper)
         if (update.buffer->isBackedByOpenGL()) {
             WTFBeginSignpost(this, CopyTextureGPUToGPU);
             auto& buffer = static_cast<Nicosia::AcceleratedBuffer&>(*update.buffer);
-            m_texture->copyFromExternalTexture(buffer.texture().id(), update.sourceRect, toIntSize(update.bufferOffset));
+
+            // Fast path: whole tile content changed -- take ownership of the incoming texture, replacing the existing tile buffer (avoiding texture copies).
+            if (update.sourceRect.size() == update.tileRect.size()) {
+                ASSERT(update.sourceRect.location().isZero());
+                m_texture->swapTexture(buffer.texture());
+            } else
+                m_texture->copyFromExternalTexture(buffer.texture().id(), update.sourceRect, toIntSize(update.bufferOffset));
+
             update.buffer = nullptr;
             WTFEndSignpost(this, CopyTextureGPUToGPU);
             WTFEndSignpost(this, CoordinatedSwapBuffer);
@@ -97,32 +104,27 @@ void CoordinatedBackingStoreTile::swapBuffers(TextureMapper& textureMapper)
 
 void CoordinatedBackingStore::createTile(uint32_t id, float scale)
 {
-    m_tiles.add(id, CoordinatedBackingStoreTile(scale));
+    // FIXME: scale set shouldn't be done in createTile, it sould be moved to resize().
     m_scale = scale;
+    m_tiles.add(id, CoordinatedBackingStoreTile(m_scale));
 }
 
 void CoordinatedBackingStore::removeTile(uint32_t id)
 {
     ASSERT(m_tiles.contains(id));
-    m_tilesToRemove.add(id);
-}
-
-void CoordinatedBackingStore::removeAllTiles()
-{
-    for (auto& key : m_tiles.keys())
-        m_tilesToRemove.add(key);
+    m_tiles.remove(id);
 }
 
 void CoordinatedBackingStore::updateTile(uint32_t id, const IntRect& sourceRect, const IntRect& tileRect, RefPtr<Nicosia::Buffer>&& buffer, const IntPoint& offset)
 {
-    CoordinatedBackingStoreTileMap::iterator it = m_tiles.find(id);
+    auto it = m_tiles.find(id);
     ASSERT(it != m_tiles.end());
     it->value.addUpdate({ WTFMove(buffer), sourceRect, tileRect, offset });
 }
 
-void CoordinatedBackingStore::setSize(const FloatSize& size)
+void CoordinatedBackingStore::resize(const FloatSize& size)
 {
-    m_pendingSize = size;
+    m_size = size;
 }
 
 void CoordinatedBackingStore::paintTilesToTextureMapper(Vector<TextureMapperTile*>& tiles, TextureMapper& textureMapper, const TransformationMatrix& transform, float opacity, const FloatRect& rect)
@@ -166,7 +168,7 @@ void CoordinatedBackingStore::paintToTextureMapper(TextureMapper& textureMapper,
     }
 
     // targetRect is on the contents coordinate system, so we must compare two rects on the contents coordinate system.
-    // See TiledBackingStore.
+    // See CoodinatedBackingStoreProxy.
     TransformationMatrix adjustedTransform = transform * adjustedTransformForRect(targetRect);
 
     paintTilesToTextureMapper(previousTilesToPaint, textureMapper, adjustedTransform, opacity, rect());
@@ -187,17 +189,8 @@ void CoordinatedBackingStore::drawRepaintCounter(TextureMapper& textureMapper, i
         textureMapper.drawNumber(repaintCount, borderColor, tile.rect().location(), adjustedTransform);
 }
 
-void CoordinatedBackingStore::commitTileOperations(TextureMapper& textureMapper)
+void CoordinatedBackingStore::swapBuffers(TextureMapper& textureMapper)
 {
-    if (!m_pendingSize.isZero()) {
-        m_size = m_pendingSize;
-        m_pendingSize = FloatSize();
-    }
-
-    for (auto& tileToRemove : m_tilesToRemove)
-        m_tiles.remove(tileToRemove);
-    m_tilesToRemove.clear();
-
     for (auto& tile : m_tiles.values())
         tile.swapBuffers(textureMapper);
 }

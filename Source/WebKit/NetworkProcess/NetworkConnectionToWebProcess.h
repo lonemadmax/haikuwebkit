@@ -96,6 +96,10 @@ enum class HTTPCookieAcceptPolicy : uint8_t;
 enum class IncludeSecureCookies : bool;
 }
 
+namespace IPC {
+struct StreamServerConnectionHandle;
+}
+
 namespace WebKit {
 
 class NetworkOriginAccessPatterns;
@@ -137,15 +141,14 @@ class NetworkConnectionToWebProcess final
     WTF_MAKE_FAST_ALLOCATED;
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(NetworkConnectionToWebProcess);
 public:
-    using MessageReceiver::weakPtrFactory;
-    using MessageReceiver::WeakValueType;
-    using MessageReceiver::WeakPtrImplType;
+    USING_CAN_MAKE_WEAKPTR(MessageReceiver);
+
     using RegistrableDomain = WebCore::RegistrableDomain;
 
     static Ref<NetworkConnectionToWebProcess> create(NetworkProcess&, WebCore::ProcessIdentifier, PAL::SessionID, NetworkProcessConnectionParameters&&, IPC::Connection::Identifier);
     virtual ~NetworkConnectionToWebProcess();
 
-    const SharedPreferencesForWebProcess& sharedPreferencesForWebProcess() const { return m_sharedPreferencesForWebProcess; }
+    std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess() const { return m_sharedPreferencesForWebProcess; }
     void updateSharedPreferencesForWebProcess(SharedPreferencesForWebProcess&& sharedPreferencesForWebProcess) { m_sharedPreferencesForWebProcess = WTFMove(sharedPreferencesForWebProcess); }
 
     PAL::SessionID sessionID() const { return m_sessionID; }
@@ -225,6 +228,7 @@ public:
     WebSharedWorkerServerConnection* sharedWorkerConnection();
 
     NetworkSchemeRegistry& schemeRegistry() { return m_schemeRegistry.get(); }
+    Ref<NetworkSchemeRegistry> protectedSchemeRegistry();
 
     void cookieAcceptPolicyChanged(WebCore::HTTPCookieAcceptPolicy);
 
@@ -235,9 +239,6 @@ public:
 
 #if ENABLE(CONTENT_FILTERING)
     void installMockContentFilter(WebCore::MockContentFilterSettings&&);
-#endif
-#if ENABLE(LOGD_BLOCKING_IN_WEBCONTENT)
-    void logOnBehalfOfWebContent(std::span<const char> logChannelIncludingNullTerminator, std::span<const char> logCategoryIncludingNullTerminator, std::span<const char> logStringIncludingNullTerminator, uint8_t logType, int32_t pid);
 #endif
 
     void useRedirectionForCurrentNavigation(WebCore::ResourceLoaderIdentifier, WebCore::ResourceResponse&&);
@@ -418,7 +419,7 @@ private:
         }
 
         WebCore::PageIdentifier pageID;
-        WebCore::ResourceLoaderIdentifier resourceID;
+        Markable<WebCore::ResourceLoaderIdentifier> resourceID;
         bool isRootActivity { false };
         NetworkActivityTracker networkActivity;
     };
@@ -453,6 +454,7 @@ private:
     void paymentCoordinatorRemoveMessageReceiver(WebPaymentCoordinatorProxy&, IPC::ReceiverName) final;
     void getPaymentCoordinatorEmbeddingUserAgent(WebPageProxyIdentifier, CompletionHandler<void(const String&)>&&) final;
     CocoaWindow *paymentCoordinatorPresentingWindow(const WebPaymentCoordinatorProxy&) const final;
+        std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebPaymentMessages() const final;
 #endif // ENABLE(APPLE_PAY_REMOTE_UI)
 
     Ref<IPC::Connection> m_connection;

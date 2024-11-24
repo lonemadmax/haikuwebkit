@@ -61,10 +61,7 @@ class Worker final : public AbstractWorker, public ActiveDOMObject, private Work
     WTF_MAKE_TZONE_OR_ISO_ALLOCATED(Worker);
 public:
     DEFINE_VIRTUAL_REFCOUNTED;
-
-    using AbstractWorker::weakPtrFactory;
-    using AbstractWorker::WeakValueType;
-    using AbstractWorker::WeakPtrImplType;
+    USING_CAN_MAKE_WEAKPTR(AbstractWorker);
 
     static ExceptionOr<Ref<Worker>> create(ScriptExecutionContext&, JSC::RuntimeFlags, std::variant<RefPtr<TrustedScriptURL>, String>&&, WorkerOptions&&);
     virtual ~Worker();
@@ -97,8 +94,8 @@ private:
 
     enum EventTargetInterfaceType eventTargetInterface() const final { return EventTargetInterfaceType::Worker; }
 
-    void didReceiveResponse(ScriptExecutionContextIdentifier, ResourceLoaderIdentifier, const ResourceResponse&) final;
-    void notifyFinished(ScriptExecutionContextIdentifier) final;
+    void didReceiveResponse(ScriptExecutionContextIdentifier, std::optional<ResourceLoaderIdentifier>, const ResourceResponse&) final;
+    void notifyFinished(std::optional<ScriptExecutionContextIdentifier>) final;
 
     // ActiveDOMObject.
     void stop() final;

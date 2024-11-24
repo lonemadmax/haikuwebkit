@@ -27,6 +27,7 @@
 #include "AnimationEffect.h"
 
 #include "CSSAnimation.h"
+#include "CSSNumericValue.h"
 #include "CSSPropertyParserConsumer+TimingFunction.h"
 #include "CSSTimingFunctionValue.h"
 #include "CommonAtomStrings.h"
@@ -55,6 +56,27 @@ void AnimationEffect::setAnimation(WebAnimation* animation)
         animation->updateRelevance();
 }
 
+enum class IsComputed : bool { No, Yes };
+static std::variant<double, RefPtr<CSSNumericValue>, String> durationAPIValue(const CSSNumberishTime& duration, IsComputed isComputed)
+{
+    if (duration.percentage())
+        return autoAtom();
+
+    ASSERT(duration.time());
+    if (duration.isZero()) {
+        if (isComputed == IsComputed::Yes)
+            return 0.0;
+        return autoAtom();
+    }
+
+    CSSNumberish numberishDuration { duration };
+    if (auto* doubleValue = std::get_if<double>(&numberishDuration))
+        return *doubleValue;
+
+    ASSERT(std::holds_alternative<RefPtr<CSSNumericValue>>(numberishDuration));
+    return std::get<RefPtr<CSSNumericValue>>(numberishDuration);
+}
+
 EffectTiming AnimationEffect::getBindingsTiming() const
 {
     if (auto* styleOriginatedAnimation = dynamicDowncast<StyleOriginatedAnimation>(animation()))
@@ -66,16 +88,13 @@ EffectTiming AnimationEffect::getBindingsTiming() const
     timing.fill = m_timing.fill;
     timing.iterationStart = m_timing.iterationStart;
     timing.iterations = m_timing.iterations;
-    if (m_timing.iterationDuration == 0_s)
-        timing.duration = autoAtom();
-    else
-        timing.duration = secondsToWebAnimationsAPITime(m_timing.iterationDuration);
+    timing.duration = durationAPIValue(m_timing.iterationDuration, IsComputed::No);
     timing.direction = m_timing.direction;
     timing.easing = m_timing.timingFunction->cssText();
     return timing;
 }
 
-std::optional<Seconds> AnimationEffect::localTime(std::optional<Seconds> startTime) const
+std::optional<CSSNumberishTime> AnimationEffect::localTime(std::optional<CSSNumberishTime> startTime) const
 {
     // 4.5.4. Local time
     // https://drafts.csswg.org/web-animations-1/#local-time-section
@@ -93,7 +112,7 @@ double AnimationEffect::playbackRate() const
     return m_animation ? m_animation->playbackRate() : 1;
 }
 
-BasicEffectTiming AnimationEffect::getBasicTiming(std::optional<Seconds> startTime) const
+BasicEffectTiming AnimationEffect::getBasicTiming(std::optional<CSSNumberishTime> startTime) const
 {
     return m_timing.getBasicTiming(localTime(startTime), playbackRate());
 }
@@ -105,7 +124,7 @@ ComputedEffectTiming AnimationEffect::getBindingsComputedTiming() const
     return getComputedTiming();
 }
 
-ComputedEffectTiming AnimationEffect::getComputedTiming(std::optional<Seconds> startTime) const
+ComputedEffectTiming AnimationEffect::getComputedTiming(std::optional<CSSNumberishTime> startTime) const
 {
     auto localTime = this->localTime(startTime);
     auto resolvedTiming = m_timing.resolve(localTime, playbackRate());
@@ -116,13 +135,12 @@ ComputedEffectTiming AnimationEffect::getComputedTiming(std::optional<Seconds> s
     computedTiming.fill = m_timing.fill == FillMode::Auto ? FillMode::None : m_timing.fill;
     computedTiming.iterationStart = m_timing.iterationStart;
     computedTiming.iterations = m_timing.iterations;
-    computedTiming.duration = secondsToWebAnimationsAPITime(m_timing.iterationDuration);
+    computedTiming.duration = durationAPIValue(m_timing.iterationDuration, IsComputed::Yes);
     computedTiming.direction = m_timing.direction;
     computedTiming.easing = m_timing.timingFunction->cssText();
-    computedTiming.endTime = secondsToWebAnimationsAPITime(m_timing.endTime);
-    computedTiming.activeDuration = secondsToWebAnimationsAPITime(m_timing.activeDuration);
-    if (localTime)
-        computedTiming.localTime = secondsToWebAnimationsAPITime(*localTime);
+    computedTiming.endTime = m_timing.endTime;
+    computedTiming.activeDuration = m_timing.activeDuration;
+    computedTiming.localTime = localTime;
     computedTiming.simpleIterationProgress = resolvedTiming.simpleIterationProgress;
     computedTiming.progress = resolvedTiming.transformedProgress;
     computedTiming.currentIteration = resolvedTiming.currentIteration;

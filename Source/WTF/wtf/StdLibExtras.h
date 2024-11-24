@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008-2022 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008-2024 Apple Inc. All Rights Reserved.
  * Copyright (C) 2013 Patrick Gansterer <paroga@paroga.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,6 +27,8 @@
 #pragma once
 
 #include <algorithm>
+#include <climits>
+#include <concepts>
 #include <cstring>
 #include <functional>
 #include <memory>
@@ -38,7 +40,10 @@
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/Compiler.h>
 #include <wtf/GetPtr.h>
+#include <wtf/IterationStatus.h>
 #include <wtf/TypeCasts.h>
+
+#define SINGLE_ARG(...) __VA_ARGS__ // useful when a macro argument includes a comma
 
 // Use this macro to declare and define a debug-only global variable that may have a
 // non-trivial constructor and destructor. When building with clang, this will suppress
@@ -393,7 +398,7 @@ bool findBitInWord(T word, size_t& startOrResultIndex, size_t endIndex, bool val
 {
     static_assert(std::is_unsigned<T>::value, "Type used in findBitInWord must be unsigned");
 
-    constexpr size_t bitsInWord = sizeof(word) * 8;
+    constexpr size_t bitsInWord = sizeof(word) * CHAR_BIT;
     ASSERT_UNUSED(bitsInWord, startOrResultIndex <= bitsInWord && endIndex <= bitsInWord);
 
     size_t index = startOrResultIndex;
@@ -737,37 +742,6 @@ constexpr auto constructFixedSizeArrayWithArguments(Args&&... args) -> decltype(
     return constructFixedSizeArrayWithArgumentsImpl<ResultType>(tuple, std::forward<Args>(args)...);
 }
 
-// FIXME: Use std::is_sorted instead of this and remove it, once we require C++20.
-template<typename Iterator, typename Predicate> constexpr bool isSortedConstExpr(Iterator first, Iterator last, Predicate predicate)
-{
-    if (first == last)
-        return true;
-    auto current = first;
-    auto previous = current;
-    while (++current != last) {
-        if (!predicate(*previous, *current))
-            return false;
-        previous = current;
-    }
-    return true;
-}
-
-// FIXME: Use std::is_sorted instead of this and remove it, once we require C++20.
-template<typename Iterator> constexpr bool isSortedConstExpr(Iterator first, Iterator last)
-{
-    return isSortedConstExpr(first, last, [] (auto& a, auto& b) { return a < b; });
-}
-
-// FIXME: Use std::all_of instead of this and remove it, once we require C++20.
-template<typename Iterator, typename Predicate> constexpr bool allOfConstExpr(Iterator first, Iterator last, Predicate predicate)
-{
-    for (; first != last; ++first) {
-        if (!predicate(*first))
-            return false;
-    }
-    return true;
-}
-
 template<typename OptionalType, class Callback> typename OptionalType::value_type valueOrCompute(OptionalType optional, Callback callback) 
 {
     return optional ? *optional : callback();
@@ -779,11 +753,18 @@ template<typename OptionalType> auto valueOrDefault(OptionalType&& optionalValue
 }
 
 template<typename T, typename U, std::size_t Extent>
-std::span<T, Extent> spanReinterpretCast(std::span<U, Extent> span)
+std::span<T, Extent == std::dynamic_extent ? std::dynamic_extent : (sizeof(U) * Extent) / sizeof(T)> spanReinterpretCast(std::span<U, Extent> span)
 {
-    RELEASE_ASSERT(!(span.size_bytes() % sizeof(T)));
-    static_assert(std::is_const_v<T> || (!std::is_const_v<T> && !std::is_const_v<U>), "spanCast will not remove constness from source");
-    return std::span<T, Extent> { reinterpret_cast<T*>(const_cast<std::remove_const_t<U>*>(span.data())), span.size_bytes() / sizeof(T) };
+    if constexpr (Extent == std::dynamic_extent) {
+        if constexpr (sizeof(U) < sizeof(T) || sizeof(U) % sizeof(T))
+            RELEASE_ASSERT_WITH_MESSAGE(!(span.size_bytes() % sizeof(T)), "spanReinterpretCast will not change size in bytes from source");
+    } else
+        static_assert(!((sizeof(U) * Extent) % sizeof(T)), "spanReinterpretCast will not change size in bytes from source");
+
+    static_assert(std::is_const_v<T> || (!std::is_const_v<T> && !std::is_const_v<U>), "spanReinterpretCast will not remove constness from source");
+
+    using ReturnType = std::span<T, Extent == std::dynamic_extent ? std::dynamic_extent : (sizeof(U) * Extent) / sizeof(T)>;
+    return ReturnType { reinterpret_cast<T*>(const_cast<std::remove_const_t<U>*>(span.data())), span.size_bytes() / sizeof(T) };
 }
 
 template<typename T, std::size_t Extent>
@@ -885,6 +866,98 @@ template<class F, class T>
 constexpr decltype(auto) apply(F&& functor, T&& tupleLike)
 {
     return apply_impl(std::forward<F>(functor), std::forward<T>(tupleLike), std::make_index_sequence<std::tuple_size_v<std::remove_reference_t<T>>> { });
+}
+
+template<typename WordType, typename Func>
+ALWAYS_INLINE constexpr void forEachSetBit(std::span<const WordType> bits, const Func& func)
+{
+    constexpr size_t wordSize = sizeof(WordType) * CHAR_BIT;
+    for (size_t i = 0; i < bits.size(); ++i) {
+        WordType word = bits[i];
+        if (!word)
+            continue;
+        size_t base = i * wordSize;
+
+#if CPU(X86_64) || CPU(ARM64)
+        // We should only use ctz() when we know that ctz() is implementated using
+        // a fast hardware instruction. Otherwise, this will actually result in
+        // worse performance.
+        while (word) {
+            WordType temp = word & -word;
+            size_t offset = ctz(word);
+            if constexpr (std::is_same_v<IterationStatus, decltype(func(base + offset))>) {
+                if (func(base + offset) == IterationStatus::Done)
+                    return;
+            } else
+                func(base + offset);
+            word ^= temp;
+        }
+#else
+        for (size_t j = 0; j < wordSize; ++j) {
+            if (word & 1) {
+                if constexpr (std::is_same_v<IterationStatus, decltype(func(base + j))>) {
+                    if (func(base + j) == IterationStatus::Done)
+                        return;
+                } else
+                    func(base + j);
+            }
+            word >>= 1;
+        }
+#endif
+    }
+}
+
+template<typename WordType, typename Func>
+ALWAYS_INLINE constexpr void forEachSetBit(std::span<const WordType> bits, size_t startIndex, const Func& func)
+{
+    constexpr size_t wordSize = sizeof(WordType) * CHAR_BIT;
+    auto iterate = [&](WordType word, size_t i) ALWAYS_INLINE_LAMBDA {
+        size_t base = i * wordSize;
+
+#if CPU(X86_64) || CPU(ARM64)
+        // We should only use ctz() when we know that ctz() is implementated using
+        // a fast hardware instruction. Otherwise, this will actually result in
+        // worse performance.
+        while (word) {
+            WordType temp = word & -word;
+            size_t offset = ctz(word);
+            if constexpr (std::is_same_v<IterationStatus, decltype(func(base + offset))>) {
+                if (func(base + offset) == IterationStatus::Done)
+                    return;
+            } else
+                func(base + offset);
+            word ^= temp;
+        }
+#else
+        for (size_t j = 0; j < wordSize; ++j) {
+            if (word & 1) {
+                if constexpr (std::is_same_v<IterationStatus, decltype(func(base + j))>) {
+                    if (func(base + j) == IterationStatus::Done)
+                        return;
+                } else
+                    func(base + j);
+            }
+            word >>= 1;
+        }
+#endif
+    };
+
+    size_t startWord = startIndex / wordSize;
+    if (startWord >= bits.size())
+        return;
+
+    WordType word = bits[startWord];
+    size_t startIndexInWord = startIndex - startWord * wordSize;
+    WordType masked = word & (~((static_cast<WordType>(1) << startIndexInWord) - 1));
+    if (masked)
+        iterate(masked, startWord);
+
+    for (size_t i = startWord + 1; i < bits.size(); ++i) {
+        WordType word = bits[i];
+        if (!word)
+            continue;
+        iterate(word, i);
+    }
 }
 
 } // namespace WTF

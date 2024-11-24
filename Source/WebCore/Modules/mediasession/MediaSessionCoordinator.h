@@ -68,9 +68,7 @@ public:
 
     void setMediaSession(MediaSession*);
 
-    using MediaSessionCoordinatorClient::weakPtrFactory;
-    using MediaSessionCoordinatorClient::WeakValueType;
-    using MediaSessionCoordinatorClient::WeakPtrImplType;
+    USING_CAN_MAKE_WEAKPTR(MediaSessionCoordinatorClient);
 
     struct PlaySessionCommand {
         std::optional<double> atTime;
@@ -107,7 +105,7 @@ private:
     bool currentPositionApproximatelyEqualTo(double) const;
 
     const Logger& logger() const { return m_logger; }
-    const void* logIdentifier() const { return m_logIdentifier; }
+    uint64_t logIdentifier() const { return m_logIdentifier; }
     static WTFLogChannel& logChannel();
     static ASCIILiteral logClassName() { return "MediaSessionCoordinator"_s; }
     bool shouldFireEvents() const;
@@ -115,7 +113,7 @@ private:
     WeakPtr<MediaSession> m_session;
     RefPtr<MediaSessionCoordinatorPrivate> m_privateCoordinator;
     const Ref<const Logger> m_logger;
-    const void* m_logIdentifier;
+    const uint64_t m_logIdentifier;
     MediaSessionCoordinatorState m_state { MediaSessionCoordinatorState::Closed };
     bool m_hasCoordinatorsStateChangeEventListener { false };
     std::optional<PlaySessionCommand> m_currentPlaySessionCommand;

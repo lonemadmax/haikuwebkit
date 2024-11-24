@@ -64,7 +64,7 @@ list(APPEND WebKit_MESSAGES_IN_FILES
 
     WebProcess/WebPage/dmabuf/AcceleratedSurfaceDMABuf
 
-    WebProcess/gtk/GtkSettingsManagerProxy
+    WebProcess/glib/SystemSettingsProxy
 )
 
 if (USE_GBM)
@@ -75,6 +75,7 @@ list(APPEND WebKit_SERIALIZATION_IN_FILES
     Shared/glib/DMABufRendererBufferFormat.serialization.in
     Shared/glib/DMABufRendererBufferMode.serialization.in
     Shared/glib/InputMethodState.serialization.in
+    Shared/glib/SystemSettings.serialization.in
     Shared/glib/UserMessage.serialization.in
 
     Shared/gtk/ArgumentCodersGtk.serialization.in
@@ -285,8 +286,6 @@ list(APPEND WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/Platform/generic"
     "${WEBKIT_DIR}/Shared/API/c/gtk"
     "${WEBKIT_DIR}/Shared/API/glib"
-    "${WEBKIT_DIR}/Shared/CoordinatedGraphics"
-    "${WEBKIT_DIR}/Shared/CoordinatedGraphics/threadedcompositor"
     "${WEBKIT_DIR}/Shared/Extensions"
     "${WEBKIT_DIR}/Shared/glib"
     "${WEBKIT_DIR}/Shared/gtk"
@@ -442,7 +441,7 @@ add_custom_command(
     VERBATIM
 )
 
-WEBKIT_BUILD_INSPECTOR_GRESOURCES(${WebKitGTK_DERIVED_SOURCES_DIR})
+WEBKIT_BUILD_INSPECTOR_GRESOURCES(${WebKitGTK_DERIVED_SOURCES_DIR} "InspectorGResourceBundle.c")
 
 set(WebKitResources "")
 list(APPEND WebKitResources "<file alias=\"css/gtk-theme.css\">gtk-theme.css</file>\n")

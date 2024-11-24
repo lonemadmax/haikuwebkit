@@ -205,8 +205,8 @@ void UnifiedPDFPlugin::teardown()
     RefPtr page = this->page();
     if (m_scrollingNodeID && page) {
         RefPtr scrollingCoordinator = page->scrollingCoordinator();
-        scrollingCoordinator->unparentChildrenAndDestroyNode(m_scrollingNodeID);
-        m_frame->coreLocalFrame()->protectedView()->removePluginScrollableAreaForScrollingNodeID(m_scrollingNodeID);
+        scrollingCoordinator->unparentChildrenAndDestroyNode(*m_scrollingNodeID);
+        m_frame->coreLocalFrame()->protectedView()->removePluginScrollableAreaForScrollingNodeID(*m_scrollingNodeID);
     }
 
     [[NSNotificationCenter defaultCenter] removeObserver:m_pdfMutationObserver.get() name:mutationObserverNotificationString() object:m_pdfDocument.get()];
@@ -524,11 +524,6 @@ void UnifiedPDFPlugin::didSameDocumentNavigationForFrame(WebFrame& frame)
     revealFragmentIfNeeded();
 }
 
-ScrollingNodeID UnifiedPDFPlugin::scrollingNodeID() const
-{
-    return m_scrollingNodeID;
-}
-
 void UnifiedPDFPlugin::createScrollingNodeIfNecessary()
 {
     if (m_scrollingNodeID)
@@ -543,24 +538,24 @@ void UnifiedPDFPlugin::createScrollingNodeIfNecessary()
         return;
 
     m_scrollingNodeID = scrollingCoordinator->uniqueScrollingNodeID();
-    scrollingCoordinator->createNode(m_frame->coreLocalFrame()->rootFrame().frameID(), ScrollingNodeType::PluginScrolling, m_scrollingNodeID);
+    scrollingCoordinator->createNode(m_frame->coreLocalFrame()->rootFrame().frameID(), ScrollingNodeType::PluginScrolling, *m_scrollingNodeID);
 
 #if ENABLE(SCROLLING_THREAD)
-    m_scrollContainerLayer->setScrollingNodeID(m_scrollingNodeID);
+    m_scrollContainerLayer->setScrollingNodeID(*m_scrollingNodeID);
 
     if (auto* layer = layerForHorizontalScrollbar())
-        layer->setScrollingNodeID(m_scrollingNodeID);
+        layer->setScrollingNodeID(*m_scrollingNodeID);
 
     if (auto* layer = layerForVerticalScrollbar())
-        layer->setScrollingNodeID(m_scrollingNodeID);
+        layer->setScrollingNodeID(*m_scrollingNodeID);
 
     if (auto* layer = layerForScrollCorner())
-        layer->setScrollingNodeID(m_scrollingNodeID);
+        layer->setScrollingNodeID(*m_scrollingNodeID);
 #endif
 
-    m_frame->coreLocalFrame()->protectedView()->setPluginScrollableAreaForScrollingNodeID(m_scrollingNodeID, *this);
+    m_frame->coreLocalFrame()->protectedView()->setPluginScrollableAreaForScrollingNodeID(*m_scrollingNodeID, *this);
 
-    scrollingCoordinator->setScrollingNodeScrollableAreaGeometry(m_scrollingNodeID, *this);
+    scrollingCoordinator->setScrollingNodeScrollableAreaGeometry(*m_scrollingNodeID, *this);
 
     WebCore::ScrollingCoordinator::NodeLayers nodeLayers;
     nodeLayers.layer = m_rootLayer.get();
@@ -569,7 +564,7 @@ void UnifiedPDFPlugin::createScrollingNodeIfNecessary()
     nodeLayers.horizontalScrollbarLayer = layerForHorizontalScrollbar();
     nodeLayers.verticalScrollbarLayer = layerForVerticalScrollbar();
 
-    scrollingCoordinator->setNodeLayers(m_scrollingNodeID, nodeLayers);
+    scrollingCoordinator->setNodeLayers(*m_scrollingNodeID, nodeLayers);
 }
 
 void UnifiedPDFPlugin::updateLayerHierarchy()
@@ -610,9 +605,14 @@ void UnifiedPDFPlugin::didChangeSettings()
         layer.setShowDebugBorder(showDebugBorders);
         layer.setShowRepaintCounter(showRepaintCounter);
     };
-    propagateSettingsToLayer(*m_rootLayer);
-    propagateSettingsToLayer(*m_scrollContainerLayer);
-    propagateSettingsToLayer(*m_scrolledContentsLayer);
+    if (m_rootLayer)
+        propagateSettingsToLayer(*m_rootLayer);
+
+    if (m_scrollContainerLayer)
+        propagateSettingsToLayer(*m_scrollContainerLayer);
+
+    if (m_scrolledContentsLayer)
+        propagateSettingsToLayer(*m_scrolledContentsLayer);
 
     if (m_layerForHorizontalScrollbar)
         propagateSettingsToLayer(*m_layerForHorizontalScrollbar);
@@ -3079,13 +3079,62 @@ void UnifiedPDFPlugin::updateFindOverlay(HideFindIndicator hideFindIndicator)
 
 Vector<FloatRect> UnifiedPDFPlugin::rectsForTextMatchesInRect(const IntRect&) const
 {
+    return visibleRectsForFindMatchRects(m_findMatchRects);
+}
+
+Vector<WebFoundTextRange::PDFData> UnifiedPDFPlugin::findTextMatches(const String& target, WebCore::FindOptions options)
+{
+    Vector<WebFoundTextRange::PDFData> matches;
+    if (!target.length())
+        return matches;
+
+    RetainPtr foundSelections = [m_pdfDocument findString:target withOptions:compareOptionsForFindOptions(options)];
+    for (PDFSelection *selection in foundSelections.get()) {
+        RetainPtr startPage = [[selection pages] firstObject];
+        NSRange startPageRange = [selection rangeAtIndex:0 onPage:startPage.get()];
+        NSUInteger startPageIndex = [m_pdfDocument indexForPage:startPage.get()];
+        NSUInteger startPageOffset = startPageRange.location;
+
+        RetainPtr endPage = [[selection pages] lastObject];
+        NSUInteger endPageTextRangeCount = [selection numberOfTextRangesOnPage:endPage.get()];
+        NSRange endPageRange = [selection rangeAtIndex:(endPageTextRangeCount - 1) onPage:endPage.get()];
+        NSUInteger endPageIndex = [m_pdfDocument indexForPage:endPage.get()];
+        NSUInteger endPageOffset = endPageRange.location + endPageRange.length;
+
+        matches.append(WebFoundTextRange::PDFData { startPageIndex, startPageOffset, endPageIndex, endPageOffset });
+    }
+
+    return matches;
+}
+
+Vector<FloatRect> UnifiedPDFPlugin::rectsForTextMatch(const WebFoundTextRange::PDFData& data)
+{
+    RetainPtr selection = selectionFromWebFoundTextRangePDFData(data);
+    if (!selection)
+        return { };
+
+    PDFPageCoverage findMatchRects;
+    for (PDFPage *page in [selection pages]) {
+        auto pageIndex = m_documentLayout.indexForPage(page);
+        if (!pageIndex)
+            continue;
+
+        auto perPageInfo = PerPageInfo { *pageIndex, [selection boundsForPage:page] };
+        findMatchRects.append(WTFMove(perPageInfo));
+    }
+
+    return visibleRectsForFindMatchRects(findMatchRects);
+}
+
+Vector<WebCore::FloatRect> UnifiedPDFPlugin::visibleRectsForFindMatchRects(PDFPageCoverage findMatchRects) const
+{
     auto visibleRow = m_presentationController->visibleRow();
 
     Vector<FloatRect> rectsInPluginCoordinates;
     if (!visibleRow)
-        rectsInPluginCoordinates.reserveCapacity(m_findMatchRects.size());
+        rectsInPluginCoordinates.reserveCapacity(findMatchRects.size());
 
-    for (auto& perPageInfo : m_findMatchRects) {
+    for (auto& perPageInfo : findMatchRects) {
         if (visibleRow && !visibleRow->containsPage(perPageInfo.pageIndex))
             continue;
 
@@ -3094,6 +3143,52 @@ Vector<FloatRect> UnifiedPDFPlugin::rectsForTextMatchesInRect(const IntRect&) co
     }
 
     return rectsInPluginCoordinates;
+}
+
+PDFSelection *UnifiedPDFPlugin::selectionFromWebFoundTextRangePDFData(const WebFoundTextRange::PDFData& data) const
+{
+    RetainPtr startPage = [m_pdfDocument pageAtIndex:data.startPage];
+    if (!startPage)
+        return nil;
+
+    RetainPtr endPage = [m_pdfDocument pageAtIndex:data.endPage];
+    if (!endPage)
+        return nil;
+
+    return [m_pdfDocument selectionFromPage:startPage.get() atCharacterIndex:data.startOffset toPage:endPage.get() atCharacterIndex:(data.endOffset - 1)];
+}
+
+void UnifiedPDFPlugin::scrollToRevealTextMatch(const WebFoundTextRange::PDFData& data)
+{
+    RetainPtr selection = selectionFromWebFoundTextRangePDFData(data);
+    if (!selection)
+        return;
+
+    RetainPtr firstPageForSelection = [[selection pages] firstObject];
+    if (!firstPageForSelection)
+        return;
+
+    auto firstPageIndex = m_documentLayout.indexForPage(firstPageForSelection);
+    if (!firstPageIndex)
+        return;
+
+    if (scrollingMode() == DelegatedScrollingMode::DelegatedToNativeScrollView) {
+        auto rect = rectForSelectionInMainFrameContentsSpace(selection.get());
+        if (RefPtr page = this->page())
+            page->chrome().scrollMainFrameToRevealRect(enclosingIntRect(rect));
+    } else
+        revealRectInPage([selection boundsForPage:firstPageForSelection.get()], *firstPageIndex);
+
+    setCurrentSelection(WTFMove(selection));
+}
+
+RefPtr<WebCore::TextIndicator> UnifiedPDFPlugin::textIndicatorForTextMatch(const WebFoundTextRange::PDFData& data, WebCore::TextIndicatorPresentationTransition transition)
+{
+    RetainPtr selection = selectionFromWebFoundTextRangePDFData(data);
+    if (!selection)
+        return { };
+
+    return textIndicatorForSelection(selection.get(), { WebCore::TextIndicatorOption::IncludeMarginIfRangeMatchesSelection }, transition);
 }
 
 RefPtr<TextIndicator> UnifiedPDFPlugin::textIndicatorForCurrentSelection(OptionSet<WebCore::TextIndicatorOption> options, WebCore::TextIndicatorPresentationTransition transition)

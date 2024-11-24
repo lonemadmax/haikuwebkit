@@ -432,7 +432,7 @@ bool MediaPlayerPrivateGStreamer::isPipelineWaitingPreroll() const
 void MediaPlayerPrivateGStreamer::play()
 {
     if (isMediaStreamPlayer()) {
-        m_pausedTime = MediaTime::invalidTime();
+        m_pausedTime.reset();
         if (m_startTime.isInvalid())
             m_startTime = MediaTime::createWithDouble(MonotonicTime::now().secondsSinceEpoch().value());
     }
@@ -708,13 +708,13 @@ MediaTime MediaPlayerPrivateGStreamer::currentTime() const
 {
     if (isMediaStreamPlayer()) {
         if (m_pausedTime)
-            return m_pausedTime;
+            return *m_pausedTime;
 
         return MediaTime::createWithDouble(MonotonicTime::now().secondsSinceEpoch().value()) - m_startTime;
     }
 
     if (!m_pipeline || m_didErrorOccur)
-        return MediaTime::invalidTime();
+        return MediaTime::zeroTime();
 
     GST_TRACE_OBJECT(pipeline(), "seeking: %s, seekTarget: %s", boolForPrinting(m_isSeeking), m_seekTarget.toString().utf8().data());
     if (m_isSeeking)
@@ -1355,9 +1355,12 @@ std::optional<int> MediaPlayerPrivateGStreamer::queryBufferingPercentage()
         elementName = "<undefined>"_s;
     GST_TRACE_OBJECT(pipeline(), "[Buffering] %s reports %d buffering", elementName.characters(), percentage);
 
-    if (mode != GST_BUFFERING_DOWNLOAD) {
-        GST_WARNING_OBJECT(pipeline(), "[Buffering] mode isn't GST_BUFFERING_DOWNLOAD, but it should be!");
-        ASSERT_NOT_REACHED();
+    // Normally, the fillTimer only works with buffering download (GstDownloadBuffer present), but for some
+    // protocols, such as mediastream or file, that element isn't present and que query works in buffering
+    // stream mode. When buffering has reached 100%, we stop the fillTimer because it won't ever go down.
+    if (mode != GST_BUFFERING_DOWNLOAD && percentage >= 100.0) {
+        m_fillTimer.stop();
+        GST_DEBUG_OBJECT(pipeline(), "[Buffering] fillTimer not in GST_BUFFERING_DOWNLOAD mode and buffer level 100%%, disabling fillTimer.");
         return percentage;
     }
 
@@ -2001,7 +2004,6 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
         // all. If that's the case, it's considered to be one of those spureous EOS and is ignored.
         // Live streams (infinite duration) are special and we still have to detect legitimate EOS there, so
         // this message bailout isn't done in those cases.
-        MediaTime playbackPosition = MediaTime::invalidTime();
         MediaTime duration = this->duration();
         GstClockTime gstreamerPosition = gstreamerPositionFromSinks();
         bool eosFlagIsSetInSink = false;
@@ -2015,9 +2017,8 @@ void MediaPlayerPrivateGStreamer::handleMessage(GstMessage* message)
             eosFlagIsSetInSink = sinkPad && GST_PAD_IS_EOS(sinkPad.get());
         }
 
-        if (GST_CLOCK_TIME_IS_VALID(gstreamerPosition))
-            playbackPosition = MediaTime(gstreamerPosition, GST_SECOND);
-        if (!player->isLooping() && !eosFlagIsSetInSink && playbackPosition.isValid() && duration.isValid()
+        MediaTime playbackPosition = GST_CLOCK_TIME_IS_VALID(gstreamerPosition)? MediaTime(gstreamerPosition, GST_SECOND) : MediaTime::zeroTime();
+        if (!player->isLooping() && !eosFlagIsSetInSink && duration.isValid()
             && ((m_playbackRate >= 0 && playbackPosition < duration && duration.isFinite())
             || (m_playbackRate < 0 && playbackPosition > MediaTime::zeroTime()))) {
             GST_DEBUG_OBJECT(pipeline(), "EOS received but position %s is still in the finite playable limits [%s, %s], ignoring it",
@@ -3143,8 +3144,7 @@ void MediaPlayerPrivateGStreamer::createGSTPlayBin(const URL& url)
     }
 
 #if !RELEASE_LOG_DISABLED
-    auto logIdentifier = makeString(hex(reinterpret_cast<uintptr_t>(mediaPlayerLogIdentifier())));
-    GST_INFO_OBJECT(m_pipeline.get(), "WebCore logs identifier for this pipeline is: %s", logIdentifier.ascii().data());
+    GST_INFO_OBJECT(m_pipeline.get(), "WebCore logs identifier for this pipeline is: %" PRIx64, mediaPlayerLogIdentifier());
 #endif
     registerActivePipeline(m_pipeline);
 
@@ -3374,7 +3374,7 @@ bool MediaPlayerPrivateGStreamer::performTaskAtTime(Function<void()>&& task, con
 
     // Ignore the cases when the time isn't marching on or the position is unknown.
     MediaTime currentTime = playbackPosition();
-    if (!m_pipeline || m_didErrorOccur || m_isSeeking || m_isPaused || !m_playbackRate || !currentTime.isValid())
+    if (!m_pipeline || m_didErrorOccur || m_isSeeking || m_isPaused || !m_playbackRate)
         return false;
 
     std::optional<Function<void()>> taskToSchedule;

@@ -46,22 +46,24 @@ if (USE_COORDINATED_GRAPHICS)
         platform/graphics/texmap/TextureMapperPlatformLayerProxy.cpp
 
         platform/graphics/texmap/coordinated/CoordinatedBackingStore.cpp
+        platform/graphics/texmap/coordinated/CoordinatedBackingStoreProxy.cpp
+        platform/graphics/texmap/coordinated/CoordinatedBackingStoreProxyTile.cpp
         platform/graphics/texmap/coordinated/CoordinatedGraphicsLayer.cpp
+        platform/graphics/texmap/coordinated/CoordinatedImageBackingStore.cpp
         platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferExternalOES.cpp
         platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferHolePunch.cpp
         platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferNativeImage.cpp
         platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferRGB.cpp
         platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBufferYUV.cpp
-        platform/graphics/texmap/coordinated/Tile.cpp
-        platform/graphics/texmap/coordinated/TiledBackingStore.cpp
     )
     list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
         platform/graphics/texmap/coordinated/CoordinatedBackingStore.h
+        platform/graphics/texmap/coordinated/CoordinatedBackingStoreProxy.h
+        platform/graphics/texmap/coordinated/CoordinatedBackingStoreProxyClient.h
+        platform/graphics/texmap/coordinated/CoordinatedBackingStoreProxyTile.h
         platform/graphics/texmap/coordinated/CoordinatedGraphicsLayer.h
+        platform/graphics/texmap/coordinated/CoordinatedImageBackingStore.h
         platform/graphics/texmap/coordinated/CoordinatedPlatformLayerBuffer.h
-        platform/graphics/texmap/coordinated/Tile.h
-        platform/graphics/texmap/coordinated/TiledBackingStore.h
-        platform/graphics/texmap/coordinated/TiledBackingStoreClient.h
     )
 
     if (USE_GSTREAMER)
@@ -124,8 +126,6 @@ if (USE_NICOSIA)
         platform/graphics/nicosia/NicosiaBackingStore.h
         platform/graphics/nicosia/NicosiaBuffer.h
         platform/graphics/nicosia/NicosiaCompositionLayer.h
-        platform/graphics/nicosia/NicosiaImageBacking.h
-        platform/graphics/nicosia/NicosiaImageBackingStore.h
         platform/graphics/nicosia/NicosiaPlatformLayer.h
         platform/graphics/nicosia/NicosiaScene.h
         platform/graphics/nicosia/NicosiaSceneIntegration.h

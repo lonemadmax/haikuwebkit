@@ -856,6 +856,13 @@
    },
    {
       "emails" : [
+         "anil_hebbar@apple.com"
+      ],
+      "github" : "anil-hebbar",
+      "name" : "Anil Hebbar"
+   },
+   {
+      "emails" : [
          "anjalik_22@apple.com"
       ],
       "name" : "Anjali Kumar",
@@ -4121,11 +4128,22 @@
          "jcheung23@apple.com",
          "cheungje@usc.edu"
       ],
+      "github" : "jesxilin",
       "name" : "Jessica Cheung",
       "nicks" : [
          "jesxilin"
       ],
       "status" : "committer"
+   },
+   {
+      "emails" : [
+         "jlee53@apple.com"
+      ],
+      "github" : "jelee53",
+      "name" : "Jessica Lee",
+      "nicks" : [
+         "jlee53"
+      ]
    },
    {
       "emails" : [
@@ -5224,7 +5242,8 @@
          "lily_spiniolas@apple.com"
       ],
       "github" : "lilyspiniolas",
-      "name" : "Lily Spiniolas"
+      "name" : "Lily Spiniolas",
+      "status" : "committer"
    },
    {
       "emails" : [
@@ -6422,6 +6441,19 @@
    },
    {
       "emails" : [
+         "pvarangot@apple.com",
+         "pedrov@gmail.com"
+      ],
+      "github" : "pedrovarangot",
+      "name" : "Pedro Varangot",
+      "nicks" : [
+         "pvarangot",
+         "pedrov",
+         "piter"
+      ]
+   },
+   {
+      "emails" : [
          "peng.liu6@apple.com",
          "peng.liu6@icloud.com"
       ],
@@ -6996,6 +7028,13 @@
          "rreno"
       ],
       "status" : "reviewer"
+   },
+   {
+      "emails" : [
+         "ryosei.otaka@sony.com"
+      ],
+      "github" : "r-otaka",
+      "name" : "Ryosei Otaka"
    },
    {
       "emails" : [

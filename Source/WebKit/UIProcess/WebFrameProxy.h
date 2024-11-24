@@ -64,6 +64,7 @@ class FrameProcess;
 class ProvisionalFrameProxy;
 class BrowsingWarning;
 class UserData;
+class WebBackForwardListFrameItem;
 class WebFramePolicyListenerProxy;
 class WebPageProxy;
 class WebProcessProxy;
@@ -82,9 +83,9 @@ struct WebsitePoliciesData;
 
 class WebFrameProxy : public API::ObjectImpl<API::Object::Type::Frame>, public CanMakeWeakPtr<WebFrameProxy> {
 public:
-    static Ref<WebFrameProxy> create(WebPageProxy& page, FrameProcess& process, WebCore::FrameIdentifier frameID, WebCore::SandboxFlags sandboxFlags, IsMainFrame isMainFrame)
+    static Ref<WebFrameProxy> create(WebPageProxy& page, FrameProcess& process, WebCore::FrameIdentifier frameID, WebCore::SandboxFlags sandboxFlags, WebFrameProxy* opener, IsMainFrame isMainFrame)
     {
-        return adoptRef(*new WebFrameProxy(page, process, frameID, sandboxFlags, isMainFrame));
+        return adoptRef(*new WebFrameProxy(page, process, frameID, sandboxFlags, opener, isMainFrame));
     }
 
     static WebFrameProxy* webFrame(std::optional<WebCore::FrameIdentifier>);
@@ -195,8 +196,9 @@ public:
     TraversalResult traverseNext(CanWrap) const;
     TraversalResult traversePrevious(CanWrap);
 
-    void setHasPendingBackForwardItem(bool hasPendingBackForwardItem) { m_hasPendingBackForwardItem = hasPendingBackForwardItem; }
-    bool hasPendingBackForwardItem() { return m_hasPendingBackForwardItem; }
+    void setPendingChildBackForwardItem(WebBackForwardListFrameItem*);
+    bool hasPendingChildBackForwardItem() const { return !!m_pendingChildBackForwardItem; };
+    WebBackForwardListFrameItem* takePendingChildBackForwardItem();
 
     WebCore::LayerHostingContextIdentifier layerHostingContextIdentifier() const { return m_layerHostingContextIdentifier; }
     void setRemoteFrameSize(WebCore::IntSize size) { m_remoteFrameSize = size; }
@@ -204,8 +206,10 @@ public:
     WebCore::SandboxFlags effectiveSandboxFlags() const { return m_effectiveSandboxFlags; }
     void updateSandboxFlags(WebCore::SandboxFlags sandboxFlags) { m_effectiveSandboxFlags = sandboxFlags; }
 
+    WebFrameProxy* opener() { return m_opener.get(); }
+    void disownOpener() { m_opener = nullptr; }
 private:
-    WebFrameProxy(WebPageProxy&, FrameProcess&, WebCore::FrameIdentifier, WebCore::SandboxFlags, IsMainFrame);
+    WebFrameProxy(WebPageProxy&, FrameProcess&, WebCore::FrameIdentifier, WebCore::SandboxFlags, WebFrameProxy*, IsMainFrame);
 
     std::optional<WebCore::PageIdentifier> pageIdentifier() const;
 
@@ -217,6 +221,7 @@ private:
 
     WeakPtr<WebPageProxy> m_page;
     Ref<FrameProcess> m_frameProcess;
+    WeakPtr<WebFrameProxy> m_opener;
 
     FrameLoadState m_frameLoadState;
 
@@ -235,7 +240,7 @@ private:
 #endif
     CompletionHandler<void(std::optional<WebCore::PageIdentifier>, std::optional<WebCore::FrameIdentifier>)> m_navigateCallback;
     const WebCore::LayerHostingContextIdentifier m_layerHostingContextIdentifier;
-    bool m_hasPendingBackForwardItem { false };
+    WeakPtr<WebBackForwardListFrameItem> m_pendingChildBackForwardItem;
     std::optional<WebCore::IntSize> m_remoteFrameSize;
     WebCore::SandboxFlags m_effectiveSandboxFlags;
 };

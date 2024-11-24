@@ -224,6 +224,25 @@ op :iterator_open,
         getNext: nil,
     }
 
+# Semantically, this is dst = value instanceof constructor.
+op :instanceof,
+    args: {
+        dst: VirtualRegister,
+        value: VirtualRegister,
+        constructor: VirtualRegister,
+        hasInstanceValueProfile: unsigned,
+        prototypeValueProfile: unsigned,
+    },
+    metadata: {
+        hasInstanceModeMetadata: GetByIdModeMetadata,
+        prototypeModeMetadata: GetByIdModeMetadata,
+    },
+    checkpoints: {
+        getHasInstance: nil,
+        getPrototype: nil,
+        instanceof: nil,
+    }
+
 # Opcodes with metadata come next, in decreasing order of metadata alignment requirements
 # Alignment: 8
 op :set_private_brand, args: {
@@ -1007,7 +1026,6 @@ op_group :SwitchValue,
     ],
     args: {
         tableIndex: unsigned,
-        defaultOffset: BoundLabel,
         scrutinee: VirtualRegister,
     }
 
@@ -1366,21 +1384,6 @@ op :identity_with_profile,
 op :overrides_has_instance,
     args: {
         dst: VirtualRegister,
-        constructor: VirtualRegister,
-        hasInstanceValue: VirtualRegister,
-    }
-
-op :instanceof,
-    args: {
-        dst: VirtualRegister,
-        value: VirtualRegister,
-        prototype: VirtualRegister,
-    }
-
-op :instanceof_custom,
-    args: {
-        dst: VirtualRegister,
-        value: VirtualRegister,
         constructor: VirtualRegister,
         hasInstanceValue: VirtualRegister,
     }

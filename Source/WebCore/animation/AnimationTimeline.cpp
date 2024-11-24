@@ -36,7 +36,11 @@
 
 namespace WebCore {
 
-AnimationTimeline::AnimationTimeline() = default;
+AnimationTimeline::AnimationTimeline(std::optional<CSSNumberishTime> duration)
+    : m_duration(duration)
+{
+}
+
 AnimationTimeline::~AnimationTimeline() = default;
 
 void AnimationTimeline::animationTimingDidChange(WebAnimation& animation)
@@ -73,14 +77,6 @@ void AnimationTimeline::removeAnimation(WebAnimation& animation)
             styleable->ensureKeyframeEffectStack().removeEffect(*keyframeEffect);
         }
     }
-}
-
-std::optional<double> AnimationTimeline::bindingsCurrentTime()
-{
-    auto time = currentTime();
-    if (!time)
-        return std::nullopt;
-    return secondsToWebAnimationsAPITime(*time);
 }
 
 void AnimationTimeline::detachFromDocument()

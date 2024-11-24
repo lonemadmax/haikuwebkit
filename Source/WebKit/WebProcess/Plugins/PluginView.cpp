@@ -543,7 +543,7 @@ void PluginView::paint(GraphicsContext& context, const IntRect& dirtyRect, Widge
         return;
 
     if (m_transientPaintingSnapshot) {
-        if (!context.platformContext()) {
+        if (!context.hasPlatformContext()) {
             RefPtr image = m_transientPaintingSnapshot->createImage();
             if (!image)
                 return;
@@ -640,6 +640,38 @@ RefPtr<TextIndicator> PluginView::textIndicatorForCurrentSelection(OptionSet<Web
     return protectedPlugin()->textIndicatorForCurrentSelection(options, transition);
 }
 
+Vector<WebFoundTextRange::PDFData> PluginView::findTextMatches(const String& target, WebCore::FindOptions options)
+{
+    if (!m_isInitialized)
+        return { };
+
+    return protectedPlugin()->findTextMatches(target, options);
+}
+
+Vector<FloatRect> PluginView::rectsForTextMatch(const WebFoundTextRange::PDFData& match)
+{
+    if (!m_isInitialized)
+        return { };
+
+    return protectedPlugin()->rectsForTextMatch(match);
+}
+
+RefPtr<WebCore::TextIndicator> PluginView::textIndicatorForTextMatch(const WebFoundTextRange::PDFData& match, WebCore::TextIndicatorPresentationTransition transition)
+{
+    if (!m_isInitialized)
+        return { };
+
+    return protectedPlugin()->textIndicatorForTextMatch(match, transition);
+}
+
+void PluginView::scrollToRevealTextMatch(const WebFoundTextRange::PDFData& match)
+{
+    if (!m_isInitialized)
+        return;
+
+    return protectedPlugin()->scrollToRevealTextMatch(match);
+}
+
 String PluginView::selectionString() const
 {
     if (!m_isInitialized)
@@ -731,10 +763,10 @@ bool PluginView::usesAsyncScrolling() const
     return protectedPlugin()->usesAsyncScrolling();
 }
 
-ScrollingNodeID PluginView::scrollingNodeID() const
+std::optional<ScrollingNodeID> PluginView::scrollingNodeID() const
 {
     if (!m_isInitialized)
-        return { };
+        return std::nullopt;
 
     return protectedPlugin()->scrollingNodeID();
 }

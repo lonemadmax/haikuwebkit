@@ -796,18 +796,18 @@ void Page::setOpenedByDOM()
     m_openedByDOM = true;
 }
 
-void Page::goToItem(Frame& mainFrame, HistoryItem& item, FrameLoadType type, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad)
+void Page::goToItem(Frame& frame, HistoryItem& item, FrameLoadType type, ShouldTreatAsContinuingLoad shouldTreatAsContinuingLoad)
 {
     // stopAllLoaders may end up running onload handlers, which could cause further history traversals that may lead to the passed in HistoryItem
     // being deref()-ed. Make sure we can still use it with HistoryController::goToItem later.
     Ref protectedItem { item };
 
-    ASSERT(mainFrame.isMainFrame());
-    if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(mainFrame)) {
-        if (localMainFrame->checkedHistory()->shouldStopLoadingForHistoryItem(item))
-            localMainFrame->checkedLoader()->stopAllLoadersAndCheckCompleteness();
+    ASSERT(frame.isRootFrame());
+    if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame)) {
+        if (localFrame->checkedHistory()->shouldStopLoadingForHistoryItem(item))
+            localFrame->protectedLoader()->stopAllLoadersAndCheckCompleteness();
     }
-    mainFrame.checkedHistory()->goToItem(item, type, shouldTreatAsContinuingLoad);
+    frame.checkedHistory()->goToItem(item, type, shouldTreatAsContinuingLoad);
 }
 
 void Page::setGroupName(const String& name)
@@ -918,14 +918,15 @@ bool Page::showAllPlugins() const
 
 inline std::optional<std::pair<WeakRef<MediaCanStartListener>, WeakRef<Document, WeakPtrImplWithEventTargetData>>>  Page::takeAnyMediaCanStartListener()
 {
-    for (auto* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
-        auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+    for (RefPtr frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        RefPtr localFrame = dynamicDowncast<LocalFrame>(frame);
         if (!localFrame)
             continue;
-        if (!localFrame->document())
+        RefPtr document = localFrame->document();
+        if (!document)
             continue;
-        if (MediaCanStartListener* listener = localFrame->protectedDocument()->takeAnyMediaCanStartListener())
-            return { { *listener, *localFrame->document() } };
+        if (MediaCanStartListener* listener = document->takeAnyMediaCanStartListener())
+            return { { *listener, *document } };
     }
     return std::nullopt;
 }
@@ -1364,7 +1365,7 @@ void Page::setDefersLoading(bool defers)
     m_defersLoading = defers;
     for (auto* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
         if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame))
-            localFrame->checkedLoader()->setDefersLoading(defers);
+            localFrame->protectedLoader()->setDefersLoading(defers);
     }
 }
 
@@ -1429,45 +1430,51 @@ void Page::setPageScaleFactor(float scale, const IntPoint& origin, bool inStable
 {
     LOG_WITH_STREAM(Viewports, stream << "Page " << this << " setPageScaleFactor " << scale << " at " << origin << " - stable " << inStableState);
     auto* localMainFrame = dynamicDowncast<LocalFrame>(mainFrame());
-    if (!localMainFrame)
-        return;
-    RefPtr document = localMainFrame->document();
-    RefPtr view = document->view();
+    RefPtr mainDocument = localMainFrame ? localMainFrame->document() : nullptr;
+    RefPtr mainFrameView = mainDocument ? mainDocument->view() : nullptr;
 
     if (scale == m_pageScaleFactor) {
-        if (view && view->scrollPosition() != origin && !delegatesScaling())
-            document->updateLayoutIgnorePendingStylesheets({ WebCore::LayoutOptions::UpdateCompositingLayers });
+        if (mainFrameView && mainFrameView->scrollPosition() != origin && !delegatesScaling())
+            mainDocument->updateLayoutIgnorePendingStylesheets({ WebCore::LayoutOptions::UpdateCompositingLayers });
     } else {
         m_pageScaleFactor = scale;
 
-        if (view && !delegatesScaling()) {
-            view->setNeedsLayoutAfterViewConfigurationChange();
-            view->setNeedsCompositingGeometryUpdate();
-            view->setDescendantsNeedUpdateBackingAndHierarchyTraversal();
+        for (auto& rootFrame : m_rootFrames) {
+            ASSERT(rootFrame->isRootFrame());
+            RefPtr view = rootFrame->view();
+            if (!view)
+                continue;
 
-            document->resolveStyle(Document::ResolveStyleType::Rebuild);
+            if (!delegatesScaling()) {
+                view->setNeedsLayoutAfterViewConfigurationChange();
+                view->setNeedsCompositingGeometryUpdate();
+                view->setDescendantsNeedUpdateBackingAndHierarchyTraversal();
 
-            // Transform change on RenderView doesn't trigger repaint on non-composited contents.
-            localMainFrame->protectedView()->invalidateRect(IntRect(LayoutRect::infiniteRect()));
+                if (RefPtr doc = rootFrame->document())
+                    doc->resolveStyle(Document::ResolveStyleType::Rebuild);
+
+                // Transform change on RenderView doesn't trigger repaint on non-composited contents.
+                view->invalidateRect(IntRect(LayoutRect::infiniteRect()));
+            }
+
+            rootFrame->deviceOrPageScaleFactorChanged();
+
+            if (view->fixedElementsLayoutRelativeToFrame())
+                view->setViewportConstrainedObjectsNeedLayout();
         }
 
-        localMainFrame->deviceOrPageScaleFactorChanged();
-
-        if (view && view->fixedElementsLayoutRelativeToFrame())
-            view->setViewportConstrainedObjectsNeedLayout();
-
-        if (view && view->scrollPosition() != origin && !delegatesScaling() && document->renderView() && document->renderView()->needsLayout() && view->didFirstLayout()) {
-            view->layoutContext().layout();
-            view->updateCompositingLayersAfterLayoutIfNeeded();
+        if (mainFrameView && mainFrameView->scrollPosition() != origin && !delegatesScaling() && mainDocument->renderView() && mainDocument->renderView()->needsLayout() && mainFrameView->didFirstLayout()) {
+            mainFrameView->layoutContext().layout();
+            mainFrameView->updateCompositingLayersAfterLayoutIfNeeded();
         }
     }
 
-    if (view && view->scrollPosition() != origin) {
-        if (view->delegatedScrollingMode() != DelegatedScrollingMode::DelegatedToNativeScrollView)
-            view->setScrollPosition(origin);
+    if (mainFrameView && mainFrameView->scrollPosition() != origin) {
+        if (mainFrameView->delegatedScrollingMode() != DelegatedScrollingMode::DelegatedToNativeScrollView)
+            mainFrameView->setScrollPosition(origin);
 #if USE(COORDINATED_GRAPHICS)
         else
-            view->requestScrollToPosition(origin);
+            mainFrameView->requestScrollToPosition(origin);
 #endif
     }
 
@@ -1916,7 +1923,7 @@ void Page::updateRendering()
 
     runProcessingStep(RenderingUpdateStep::RestoreScrollPositionAndViewState, [] (Document& document) {
         if (RefPtr frame = document.frame())
-            frame->checkedLoader()->restoreScrollPositionAndViewStateNowIfNeeded();
+            frame->protectedLoader()->restoreScrollPositionAndViewStateNowIfNeeded();
     });
 
 #if ENABLE(ASYNC_SCROLLING)
@@ -2603,7 +2610,7 @@ void Page::setMemoryCacheClientCallsEnabled(bool enabled)
 
     for (RefPtr frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
         if (RefPtr localFrame = dynamicDowncast<LocalFrame>(frame))
-            localFrame->checkedLoader()->tellClientAboutPastMemoryCacheLoads();
+            localFrame->protectedLoader()->tellClientAboutPastMemoryCacheLoads();
     }
     m_hasPendingMemoryCacheLoadNotifications = false;
 }
@@ -3386,7 +3393,7 @@ void Page::addRelevantRepaintedObject(const RenderObject& object, const LayoutRe
         m_isCountingRelevantRepaintedObjects = false;
         resetRelevantPaintedObjectCounter();
         if (RefPtr frame = dynamicDowncast<LocalFrame>(mainFrame()))
-            frame->checkedLoader()->didReachLayoutMilestone(LayoutMilestone::DidHitRelevantRepaintedObjectsAreaThreshold);
+            frame->protectedLoader()->didReachLayoutMilestone(LayoutMilestone::DidHitRelevantRepaintedObjectsAreaThreshold);
     }
 }
 
@@ -4137,11 +4144,11 @@ void Page::forEachWindowEventLoop(const Function<void(WindowEventLoop&)>& functo
 {
     HashSet<Ref<WindowEventLoop>> windowEventLoops;
     WindowEventLoop* lastEventLoop = nullptr;
-    for (const Frame* frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
-        auto* localFrame = dynamicDowncast<LocalFrame>(frame);
+    for (RefPtr frame = &mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        RefPtr localFrame = dynamicDowncast<LocalFrame>(frame);
         if (!localFrame)
             continue;
-        auto* document = localFrame->document();
+        RefPtr document = localFrame->document();
         if (!document)
             continue;
         Ref currentEventLoop = document->windowEventLoop();
@@ -4342,7 +4349,7 @@ void Page::configureLoggingChannel(const String& channelName, WTFLogChannelState
 
 #if USE(LIBWEBRTC)
         RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
-        if (channel == &LogWebRTC && localMainFrame && localMainFrame->document() && !sessionID().isEphemeral())
+        if (channel == &LogWebRTC && localMainFrame && localMainFrame->document() && !sessionID().isEphemeral() && (m_settings->webCodecsVideoEnabled() || m_settings->peerConnectionEnabled()))
             webRTCProvider().setLoggingLevel(LogWebRTC.level);
 #endif
     }
@@ -4451,12 +4458,12 @@ void Page::injectUserStyleSheet(UserStyleSheet& userStyleSheet)
 {
 #if ENABLE(APP_BOUND_DOMAINS)
     if (RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get())) {
-        if (localMainFrame->checkedLoader()->client().shouldEnableInAppBrowserPrivacyProtections()) {
+        if (localMainFrame->protectedLoader()->client().shouldEnableInAppBrowserPrivacyProtections()) {
             if (RefPtr document = localMainFrame->document())
                 document->addConsoleMessage(MessageSource::Security, MessageLevel::Warning, "Ignoring user style sheet for non-app bound domain."_s);
             return;
         }
-        localMainFrame->checkedLoader()->client().notifyPageOfAppBoundBehavior();
+        localMainFrame->protectedLoader()->client().notifyPageOfAppBoundBehavior();
     }
 #endif
 
@@ -4679,7 +4686,7 @@ void Page::setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& 
     if (!localMainFrame)
         return;
     // FIXME: <rdar://117922051> Investigate if the correct origins are set here with site isolation enabled.
-    localMainFrame->checkedLoader()->initForSynthesizedDocument({ });
+    localMainFrame->protectedLoader()->initForSynthesizedDocument({ });
     Ref document = Document::createNonRenderedPlaceholder(*localMainFrame, scriptURL);
     document->createDOMWindow();
     document->storageBlockingStateDidChange();
@@ -4689,7 +4696,7 @@ void Page::setupForRemoteWorker(const URL& scriptURL, const SecurityOriginData& 
     document->setSiteForCookies(originAsURL);
     document->setFirstPartyForCookies(originAsURL);
 
-    if (RefPtr documentLoader = localMainFrame->checkedLoader()->documentLoader())
+    if (RefPtr documentLoader = localMainFrame->protectedLoader()->documentLoader())
         documentLoader->setAdvancedPrivacyProtections(advancedPrivacyProtections);
 
     if (document->settings().storageBlockingPolicy() != StorageBlockingPolicy::BlockThirdParty)

@@ -38,8 +38,12 @@ class FlexFormattingUtils {
 public:
     FlexFormattingUtils(const FlexFormattingContext&);
 
-    static bool isMainAxisParallelWithInlineAxis(const ElementBox& flexBox);
-    static bool isReversedToContentDirection(const ElementBox& flexBox);
+    static bool isMainAxisParallelWithInlineAxis(const ElementBox& flexContainer);
+    static bool isMainReversedToContentDirection(const ElementBox& flexContainer);
+    static bool areFlexLinesReversedInCrossAxis(const ElementBox& flexContainer);
+
+    static LayoutUnit rowGapValue(const ElementBox& flexContainer, LayoutUnit flexContainercCntentBoxHeight);
+    static LayoutUnit columnGapValue(const ElementBox& flexContainer, LayoutUnit flexContainercCntentBoxWidth);
 
     LayoutUnit usedMinimumMainSize(const LogicalFlexItem&) const;
     std::optional<LayoutUnit> usedMaxiumMainSize(const LogicalFlexItem&) const;

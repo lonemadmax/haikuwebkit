@@ -48,7 +48,7 @@ namespace WasmOMGPlanInternal {
 static constexpr bool verbose = false;
 }
 
-OMGPlan::OMGPlan(VM& vm, Ref<Module>&& module, uint32_t functionIndex, std::optional<bool> hasExceptionHandlers, MemoryMode mode, CompletionTask&& task)
+OMGPlan::OMGPlan(VM& vm, Ref<Module>&& module, FunctionCodeIndex functionIndex, std::optional<bool> hasExceptionHandlers, MemoryMode mode, CompletionTask&& task)
     : Base(vm, const_cast<ModuleInformation&>(module->moduleInformation()), WTFMove(task))
     , m_module(WTFMove(module))
     , m_calleeGroup(*m_module->calleeGroupFor(mode))
@@ -73,7 +73,7 @@ FunctionAllowlist& OMGPlan::ensureGlobalOMGAllowlist()
     return omgAllowlist;
 }
 
-void OMGPlan::dumpDisassembly(CompilationContext& context, LinkBuffer& linkBuffer, unsigned functionIndex, const TypeDefinition& signature, unsigned functionIndexSpace)
+void OMGPlan::dumpDisassembly(CompilationContext& context, LinkBuffer& linkBuffer, FunctionCodeIndex functionIndex, const TypeDefinition& signature, FunctionSpaceIndex functionIndexSpace)
 {
     dataLogLnIf(context.procedure->shouldDumpIR() || shouldDumpDisassemblyFor(CompilationMode::OMGMode), "Generated OMG code for WebAssembly OMG function[", functionIndex, "] ", signature.toString().ascii().data(), " name ", makeString(IndexOrName(functionIndexSpace, m_moduleInformation->nameSection->get(functionIndexSpace))).ascii().data());
     if (UNLIKELY(shouldDumpDisassemblyFor(CompilationMode::OMGMode))) {
@@ -106,9 +106,7 @@ void OMGPlan::work(CompilationEffort)
     ASSERT(m_calleeGroup.ptr() == m_module->calleeGroupFor(mode()));
     const FunctionData& function = m_moduleInformation->functions[m_functionIndex];
 
-    const uint32_t functionIndexSpace = m_functionIndex + m_module->moduleInformation().importFunctionCount();
-    ASSERT(functionIndexSpace < m_module->moduleInformation().functionIndexSpaceSize());
-
+    const FunctionSpaceIndex functionIndexSpace = m_moduleInformation->toSpaceIndex(m_functionIndex);
     TypeIndex typeIndex = m_moduleInformation->internalFunctionTypeIndices[m_functionIndex];
     const TypeDefinition& signature = TypeInformation::get(typeIndex).expand();
 
@@ -122,7 +120,7 @@ void OMGPlan::work(CompilationEffort)
 
     if (UNLIKELY(!parseAndCompileResult)) {
         Locker locker { m_lock };
-        fail(makeString(parseAndCompileResult.error(), "when trying to tier up "_s, m_functionIndex), Plan::Error::Parse);
+        fail(makeString(parseAndCompileResult.error(), "when trying to tier up "_s, m_functionIndex.rawIndex()), Plan::Error::Parse);
         return;
     }
 
@@ -130,7 +128,7 @@ void OMGPlan::work(CompilationEffort)
     LinkBuffer linkBuffer(*context.wasmEntrypointJIT, callee.ptr(), LinkBuffer::Profile::WasmOMG, JITCompilationCanFail);
     if (UNLIKELY(linkBuffer.didFailToAllocate())) {
         Locker locker { m_lock };
-        Base::fail(makeString("Out of executable memory while tiering up function at index "_s, m_functionIndex), Plan::Error::OutOfMemory);
+        Base::fail(makeString("Out of executable memory while tiering up function at index "_s, m_functionIndex.rawIndex()), Plan::Error::OutOfMemory);
         return;
     }
 
@@ -163,6 +161,7 @@ void OMGPlan::work(CompilationEffort)
         Locker locker { m_calleeGroup->m_lock };
 
         m_calleeGroup->setOMGCallee(locker, m_functionIndex, callee.copyRef());
+        ASSERT(m_calleeGroup->replacement(locker, callee->index()) == callee.ptr());
 
         for (auto& call : callee->wasmToWasmCallsites()) {
             CodePtr<WasmEntryPtrTag> entrypoint;
@@ -182,21 +181,19 @@ void OMGPlan::work(CompilationEffort)
         m_calleeGroup->callsiteCollection().updateCallsitesToCallUs(locker, m_calleeGroup, CodeLocationLabel<WasmEntryPtrTag>(entrypoint), m_functionIndex, functionIndexSpace);
 
         {
+            // These locks store barrier the set of OMG callee above.
             if (BBQCallee* bbqCallee = m_calleeGroup->bbqCallee(locker, m_functionIndex)) {
-                Locker locker { bbqCallee->tierUpCount()->getLock() };
-                bbqCallee->setReplacement(callee.copyRef());
-                bbqCallee->tierUpCount()->setCompilationStatusForOMG(mode(), TierUpCount::CompilationStatus::Compiled);
+                Locker locker { bbqCallee->tierUpCounter().getLock() };
+                bbqCallee->tierUpCounter().setCompilationStatusForOMG(mode(), TierUpCount::CompilationStatus::Compiled);
             }
             if (Options::useWasmIPInt() && m_calleeGroup->m_ipintCallees) {
                 IPIntCallee& ipintCallee = m_calleeGroup->m_ipintCallees->at(m_functionIndex).get();
                 Locker locker { ipintCallee.tierUpCounter().m_lock };
-                ipintCallee.setReplacement(callee.copyRef(), mode());
                 ipintCallee.tierUpCounter().setCompilationStatus(mode(), IPIntTierUpCounter::CompilationStatus::Compiled);
             }
             if (!Options::useWasmIPInt() && m_calleeGroup->m_llintCallees) {
                 LLIntCallee& llintCallee = m_calleeGroup->m_llintCallees->at(m_functionIndex).get();
                 Locker locker { llintCallee.tierUpCounter().m_lock };
-                llintCallee.setReplacement(callee.copyRef(), mode());
                 llintCallee.tierUpCounter().setCompilationStatus(mode(), LLIntTierUpCounter::CompilationStatus::Compiled);
             }
         }

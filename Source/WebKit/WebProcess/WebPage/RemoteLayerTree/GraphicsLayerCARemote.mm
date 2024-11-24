@@ -55,7 +55,7 @@ GraphicsLayerCARemote::GraphicsLayerCARemote(Type layerType, GraphicsLayerClient
 
 GraphicsLayerCARemote::~GraphicsLayerCARemote()
 {
-    if (RefPtrAllowingPartiallyDestroyed<RemoteLayerTreeContext> protectedContext = m_context.get())
+    if (RefPtr<RemoteLayerTreeContext> protectedContext = m_context.get())
         protectedContext->graphicsLayerWillLeaveContext(*this);
 }
 
@@ -69,8 +69,10 @@ Ref<PlatformCALayer> GraphicsLayerCARemote::createPlatformCALayer(PlatformCALaye
     RELEASE_ASSERT(m_context.get());
     auto result = PlatformCALayerRemote::create(layerType, owner, *m_context);
 
-    if (result->canHaveBackingStore())
-        result->setWantsDeepColorBackingStore(screenSupportsExtendedColor());
+    if (result->canHaveBackingStore()) {
+        auto* localMainFrameView = m_context->webPage().localMainFrameView();
+        result->setContentsFormat(screenContentsFormat(localMainFrameView, owner));
+    }
 
     return WTFMove(result);
 }
@@ -182,7 +184,7 @@ private:
     Markable<WebCore::PlatformLayerIdentifier> m_layerID;
     Lock m_surfaceLock;
     std::optional<ImageBufferBackendHandle> m_surfaceBackendHandle WTF_GUARDED_BY_LOCK(m_surfaceLock);
-    WebCore::RenderingResourceIdentifier m_surfaceIdentifier WTF_GUARDED_BY_LOCK(m_surfaceLock);
+    Markable<WebCore::RenderingResourceIdentifier> m_surfaceIdentifier WTF_GUARDED_BY_LOCK(m_surfaceLock);
 };
 
 RefPtr<WebCore::GraphicsLayerAsyncContentsDisplayDelegate> GraphicsLayerCARemote::createAsyncContentsDisplayDelegate(GraphicsLayerAsyncContentsDisplayDelegate* existing)

@@ -27,6 +27,7 @@
 
 #include "CSSNumericValue.h"
 #include "ScrollTimeline.h"
+#include "TimelineRange.h"
 #include "ViewTimelineOptions.h"
 #include <wtf/Ref.h>
 #include <wtf/WeakPtr.h>
@@ -53,13 +54,23 @@ public:
     static Ref<ViewTimeline> createFromCSSValue(Style::BuilderState&, const CSSViewValue&);
 
     Element* subject() const { return m_subject.get(); }
-    const CSSNumericValue& startOffset() const { return m_startOffset.get(); }
-    const CSSNumericValue& endOffset() const { return m_endOffset.get(); }
+    const CSSNumericValue& startOffset() const;
+    const CSSNumericValue& endOffset() const;
     const ViewTimelineInsets& insets() const { return m_insets; }
     AnimationTimeline::ShouldUpdateAnimationsAndSendEvents documentWillUpdateAnimationsAndSendEvents() override;
     AnimationTimelinesController* controller() const override;
 
+    RenderBox* sourceRenderer() const;
+    Element* source() const override;
+
 private:
+    struct Data {
+        float scrollOffset { 0 };
+        float rangeStart { 0 };
+        float rangeEnd { 0 };
+    };
+    Data computeViewTimelineData(const TimelineRange& = { }) const;
+
     explicit ViewTimeline(ViewTimelineOptions&& = { });
     explicit ViewTimeline(const AtomString&, ScrollAxis, ViewTimelineInsets&&);
 
@@ -68,8 +79,6 @@ private:
     bool isViewTimeline() const final { return true; }
 
     WeakPtr<Element, WeakPtrImplWithEventTargetData> m_subject;
-    Ref<CSSNumericValue> m_startOffset;
-    Ref<CSSNumericValue> m_endOffset;
     ViewTimelineInsets m_insets;
 };
 

@@ -120,10 +120,8 @@ RefPtr<CSSValue> consumeOffsetRotate(CSSParserTokenRange&, const CSSParserContex
 RefPtr<CSSValue> consumeTextSpacingTrim(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeTextAutospace(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeTextUnderlinePosition(CSSParserTokenRange&, const CSSParserContext&);
-RefPtr<CSSPrimitiveValue> consumeAnchor(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeWebKitRubyPosition(CSSParserTokenRange&, const CSSParserContext&);
 RefPtr<CSSValue> consumeDeclarationValue(CSSParserTokenRange&, const CSSParserContext&);
-
 
 } // namespace CSSPropertyParserHelpers
 

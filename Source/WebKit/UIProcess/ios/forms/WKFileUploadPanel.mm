@@ -380,6 +380,7 @@ static NSString * firstUTIThatConformsTo(NSArray<NSString *> *typeIdentifiers, U
     RetainPtr<NSSet<NSString *>> _acceptedUTIs;
     OptionSet<WKFileUploadPanelImagePickerType> _allowedImagePickerTypes;
     CGPoint _interactionPoint;
+    BOOL _allowDirectories;
     BOOL _allowMultipleFiles;
     BOOL _usingCamera;
 #if ENABLE(TRANSCODE_UIIMAGEPICKERCONTROLLER_VIDEO)
@@ -493,6 +494,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     ASSERT(!_listener);
 
     _listener = listener;
+    _allowDirectories = parameters->allowDirectories();
     _allowMultipleFiles = parameters->allowMultipleFiles();
     _interactionPoint = [_view lastInteractionLocation];
 
@@ -819,12 +821,17 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
 - (void)showFilePickerMenu
 {
     NSArray *mediaTypes = [_acceptedUTIs allObjects];
-    NSArray *documentTypes = mediaTypes.count ? mediaTypes : @[ UTTypeItem.identifier ];
+    NSArray *documentTypes;
+    if (_allowDirectories)
+        documentTypes = @[ UTTypeFolder.identifier ];
+    else
+        documentTypes = mediaTypes.count ? mediaTypes : @[ UTTypeItem.identifier ];
 
     _uploadFileManager = adoptNS([[NSFileManager alloc] init]);
     _uploadFileCoordinator = adoptNS([[NSFileCoordinator alloc] init]);
 
-    _documentPickerController = adoptNS([[UIDocumentPickerViewController alloc] initWithDocumentTypes:documentTypes inMode:UIDocumentPickerModeImport]);
+    auto pickerMode = _allowDirectories ? UIDocumentPickerModeOpen : UIDocumentPickerModeImport;
+    _documentPickerController = adoptNS([[UIDocumentPickerViewController alloc] initWithDocumentTypes:documentTypes inMode:pickerMode]);
     [_documentPickerController setAllowsMultipleSelection:_allowMultipleFiles];
     [_documentPickerController setDelegate:self];
     [_documentPickerController presentationController].delegate = self;
@@ -837,11 +844,14 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
 {
     // FIXME 49961589: Support picking media with UIImagePickerController
 #if HAVE(UICONTEXTMENU_LOCATION)
-    if (_allowedImagePickerTypes.containsAny({ WKFileUploadPanelImagePickerType::Image, WKFileUploadPanelImagePickerType::Video }))
+    // If directories are allowed or no image/video types are accepted, skip showing the context menu.
+    if (!_allowDirectories && _allowedImagePickerTypes.containsAny({ WKFileUploadPanelImagePickerType::Image, WKFileUploadPanelImagePickerType::Video }))
         self.contextMenuPresenter.present(_interactionPoint);
-    else // Image and Video types are not accepted so bypass the menu and open the file picker directly.
-#endif
+    else
         [self showFilePickerMenu];
+#else
+    [self showFilePickerMenu];
+#endif
 
     // Clear out the view controller we just presented. Don't save a reference to the UIDocumentPickerViewController as it is self dismissing.
     _presentationViewController = nil;
@@ -953,11 +963,28 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
     [self _dismissDisplayAnimated:YES];
 
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), makeBlockPtr([retainedSelf = retainPtr(self), urlsFromUIKit = retainPtr(urlsFromUIKit)] () mutable {
+        // When using UIDocumentPickerModeOpen, which is required for selecting directories, urlsFromUIKit consists of urls
+        // pointing directly to selected items rather than imported copies of the items.
+        bool filesImportedByUIKit = !retainedSelf->_allowDirectories;
         RetainPtr<NSMutableArray<NSURL *>> maybeMovedURLs = adoptNS([[NSMutableArray alloc] initWithCapacity:urlsFromUIKit.get().count]);
-        for (NSURL *originalURL in urlsFromUIKit.get()) {
-            auto [maybeMovedURL, temporaryURL] = [retainedSelf _copyToNewTemporaryDirectory:originalURL];
+        for (NSURL *url in urlsFromUIKit.get()) {
+            if (!filesImportedByUIKit)
+                [url startAccessingSecurityScopedResource];
 
-            if (maybeMovedURL)
+            // If the file hasn't already been imported by UIKit, we must import it into a new temporary directory ourselves
+            // and leave the original intact. If it has been imported by UIKit, we must move the imported file into a new temporary
+            // directory as a workaround for rdar://136776473.
+            auto [maybeMovedURL, temporaryURL] = [WKFileUploadPanel _copyToNewTemporaryDirectory:url fileCoordinator:retainedSelf->_uploadFileCoordinator.get() fileManager:retainedSelf->_uploadFileManager.get()];
+
+            if (!filesImportedByUIKit)
+                [url stopAccessingSecurityScopedResource];
+
+            // If the selected item was initially imported by UIKit, we have some copy of it to try to upload regardless
+            // of whether or not the move operation succeeded. If the file hadn't already been imported and doing so
+            // ourselves was unsuccessful, we have no copy to upload.
+            if (maybeMovedURL && filesImportedByUIKit) {
+                [maybeMovedURLs addObject:maybeMovedURL.get()];
+            } else if (maybeMovedURL && ![maybeMovedURL isEqual:url])
                 [maybeMovedURLs addObject:maybeMovedURL.get()];
 
             if (temporaryURL)
@@ -1117,7 +1144,7 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
                 return;
             }
 
-            auto [maybeMovedURL, temporaryURL] = [self _copyToNewTemporaryDirectory:url];
+            auto [maybeMovedURL, temporaryURL] = [WKFileUploadPanel _copyToNewTemporaryDirectory:url fileCoordinator:_uploadFileCoordinator.get() fileManager:_uploadFileManager.get()];
             self->_temporaryUploadedFileURLs.append(WTFMove(temporaryURL));
 
             successBlock(adoptNS([[_WKVideoFileUploadItem alloc] initWithFileURL:maybeMovedURL.get()]).get());
@@ -1148,7 +1175,7 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
             return;
         }
 
-        auto [maybeMovedURL, temporaryURL] = [self _copyToNewTemporaryDirectory:url];
+        auto [maybeMovedURL, temporaryURL] = [WKFileUploadPanel _copyToNewTemporaryDirectory:url fileCoordinator:_uploadFileCoordinator.get() fileManager:_uploadFileManager.get()];
         self->_temporaryUploadedFileURLs.append(WTFMove(temporaryURL));
 
         successBlock(adoptNS([[_WKImageFileUploadItem alloc] initWithFileURL:maybeMovedURL.get()]).get());
@@ -1307,7 +1334,7 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
 
 #endif
 
-- (std::pair<RetainPtr<NSURL>, RetainPtr<NSURL>>)_copyToNewTemporaryDirectory:(NSURL *)originalURL
++ (std::pair<RetainPtr<NSURL>, RetainPtr<NSURL>>)_copyToNewTemporaryDirectory:(NSURL *)originalURL fileCoordinator:(NSFileCoordinator *)fileCoordinator fileManager:(NSFileManager *)fileManager
 {
     NSError *error = nil;
     NSString *temporaryDirectory = FileSystem::createTemporaryDirectory(@"WKFileUploadPanel");
@@ -1319,9 +1346,9 @@ static NSString *displayStringForDocumentsAtURLs(NSArray<NSURL *> *urls)
     auto destinationFileURL = adoptNS([[NSURL alloc] initFileURLWithPath:filePath isDirectory:NO]);
 
     __block std::pair<RetainPtr<NSURL>, RetainPtr<NSURL>> result;
-    [_uploadFileCoordinator coordinateWritingItemAtURL:originalURL options:NSFileCoordinatorWritingForMoving error:&error byAccessor:^(NSURL *coordinatedOriginalURL) {
+    [fileCoordinator coordinateWritingItemAtURL:originalURL options:NSFileCoordinatorWritingForMoving error:&error byAccessor:^(NSURL *coordinatedOriginalURL) {
         NSError *error = nil;
-        if (![_uploadFileManager moveItemAtURL:coordinatedOriginalURL toURL:destinationFileURL.get() error:&error] || error) {
+        if (![fileManager moveItemAtURL:coordinatedOriginalURL toURL:destinationFileURL.get() error:&error] || error) {
             // If moving fails, keep the original URL and our 60 second time limit before it is deleted. We tried our best to extend it.
             result = { coordinatedOriginalURL, adoptNS([[NSURL alloc] initFileURLWithPath:temporaryDirectory isDirectory:YES]) };
         } else

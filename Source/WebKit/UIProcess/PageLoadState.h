@@ -33,21 +33,14 @@
 #include <wtf/text/WTFString.h>
 
 namespace WebKit {
-class PageLoadStateObserverBase;
-}
-
-namespace WTF {
-template<typename T> struct IsDeprecatedWeakRefSmartPointerException;
-template<> struct IsDeprecatedWeakRefSmartPointerException<WebKit::PageLoadStateObserverBase> : std::true_type { };
-}
-
-namespace WebKit {
 
 class WebPageProxy;
 
 class PageLoadStateObserverBase : public CanMakeWeakPtr<PageLoadStateObserverBase> {
 public:
     virtual ~PageLoadStateObserverBase() = default;
+
+    DECLARE_VIRTUAL_REFCOUNTED;
 
     virtual void willChangeIsLoading() = 0;
     virtual void didChangeIsLoading() = 0;
@@ -123,14 +116,16 @@ public:
 #endif
         };
 
-        RefPtr<WebPageProxy> m_webPageProxy;
-        PageLoadState* m_pageLoadState;
+        RefPtr<PageLoadState> m_pageLoadState;
     };
 
     struct PendingAPIRequest {
         Markable<WebCore::NavigationIdentifier> navigationID;
         String url;
     };
+
+    void ref() const;
+    void deref() const;
 
     void addObserver(Observer&);
     void removeObserver(Observer&);

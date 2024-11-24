@@ -27,6 +27,7 @@
 
 #include "Connection.h"
 #include <WebCore/ProcessIdentifier.h>
+#include <wtf/CheckedPtr.h>
 #include <wtf/HashMap.h>
 #include <wtf/ProcessID.h>
 #include <wtf/RefPtr.h>
@@ -92,6 +93,12 @@ public:
 #if PLATFORM(COCOA)
         virtual RefPtr<XPCEventHandler> xpcEventHandler() const { return nullptr; }
 #endif
+
+        // CanMakeCheckedPtr.
+        virtual uint32_t ptrCount() const = 0;
+        virtual uint32_t ptrCountWithoutThreadCheck() const = 0;
+        virtual void incrementPtrCount() const = 0;
+        virtual void decrementPtrCount() const = 0;
     };
     
     enum class ProcessType {
@@ -109,21 +116,21 @@ public:
     };
 
     struct LaunchOptions {
-        ProcessType processType;
         WebCore::ProcessIdentifier processIdentifier;
-        HashMap<String, String> extraInitializationData;
+        ProcessType processType { ProcessType::Web };
+        HashMap<String, String> extraInitializationData { };
         bool nonValidInjectedCodeAllowed { false };
         bool shouldMakeProcessLaunchFailForTesting { false };
 
 #if PLATFORM(GTK) || PLATFORM(WPE) || PLATFORM(HAIKU)
-        HashMap<CString, SandboxPermission> extraSandboxPaths;
+        HashMap<CString, SandboxPermission> extraSandboxPaths { };
 #if ENABLE(DEVELOPER_MODE)
-        String processCmdPrefix;
+        String processCmdPrefix { };
 #endif
 #endif
 
 #if PLATFORM(PLAYSTATION)
-        String processPath;
+        String processPath { };
         int32_t userId { -1 };
 #endif
     };
@@ -164,7 +171,7 @@ private:
     void terminateXPCConnection();
 #endif
 
-    Client* m_client;
+    CheckedPtr<Client> m_client;
 
 #if PLATFORM(COCOA)
     OSObjectPtr<xpc_connection_t> m_xpcConnection;
@@ -186,6 +193,7 @@ private:
 
 #if USE(GLIB) && OS(LINUX)
     GSocketMonitor m_socketMonitor;
+    int m_pidServerSocket { -1 };
 #endif
 };
 

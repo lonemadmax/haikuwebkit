@@ -102,14 +102,16 @@ WEBCORE_EXPORT bool isReload(FrameLoadType);
 
 using ContentPolicyDecisionFunction = CompletionHandler<void(PolicyAction)>;
 
-class FrameLoader final : public CanMakeCheckedPtr<FrameLoader> {
+class FrameLoader final : public CanMakeWeakPtr<FrameLoader> {
     WTF_MAKE_NONCOPYABLE(FrameLoader);
     WTF_MAKE_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Loader);
-    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FrameLoader);
     friend class PolicyChecker;
 public:
-    FrameLoader(LocalFrame&, UniqueRef<LocalFrameLoaderClient>&&);
+    FrameLoader(LocalFrame&, CompletionHandler<UniqueRef<LocalFrameLoaderClient>(LocalFrame&, FrameLoader&)>&& clientCreator);
     ~FrameLoader();
+
+    WEBCORE_EXPORT void ref() const;
+    WEBCORE_EXPORT void deref() const;
 
     WEBCORE_EXPORT void init();
     void initForSynthesizedDocument(const URL&);
@@ -231,6 +233,8 @@ public:
 
     const LocalFrameLoaderClient& client() const { return m_client.get(); }
     LocalFrameLoaderClient& client() { return m_client.get(); }
+    WEBCORE_EXPORT Ref<const LocalFrameLoaderClient> protectedClient() const;
+    WEBCORE_EXPORT Ref<LocalFrameLoaderClient> protectedClient();
 
     WEBCORE_EXPORT FrameIdentifier frameID() const;
 
@@ -418,7 +422,7 @@ private:
 
     bool shouldReload(const URL& currentURL, const URL& destinationURL);
 
-    void requestFromDelegate(ResourceRequest&, IsMainResourceLoad, ResourceLoaderIdentifier&, ResourceError&);
+    ResourceLoaderIdentifier requestFromDelegate(ResourceRequest&, IsMainResourceLoad, ResourceError&);
 
     WEBCORE_EXPORT void detachChildren();
     void closeAndRemoveChild(LocalFrame&);

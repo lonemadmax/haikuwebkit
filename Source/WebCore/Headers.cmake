@@ -598,6 +598,11 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/system-preview/ARKitBadgeSystemImage.h
 
+    Modules/url-pattern/URLPattern.h
+    Modules/url-pattern/URLPatternInit.h
+    Modules/url-pattern/URLPatternOptions.h
+    Modules/url-pattern/URLPatternResult.h
+
     Modules/web-locks/WebLock.h
     Modules/web-locks/WebLockIdentifier.h
     Modules/web-locks/WebLockManagerSnapshot.h
@@ -606,14 +611,20 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     Modules/webauthn/AttestationConveyancePreference.h
     Modules/webauthn/AuthenticationExtensionsClientInputs.h
+    Modules/webauthn/AuthenticationExtensionsClientInputsJSON.h
     Modules/webauthn/AuthenticationExtensionsClientOutputs.h
+    Modules/webauthn/AuthenticationExtensionsClientOutputsJSON.h
     Modules/webauthn/AuthenticatorCoordinator.h
     Modules/webauthn/AuthenticatorCoordinatorClient.h
     Modules/webauthn/AuthenticatorResponseData.h
     Modules/webauthn/AuthenticatorTransport.h
     Modules/webauthn/PublicKeyCredentialCreationOptions.h
+    Modules/webauthn/PublicKeyCredentialCreationOptionsJSON.h
     Modules/webauthn/PublicKeyCredentialDescriptor.h
+    Modules/webauthn/PublicKeyCredentialDescriptorJSON.h
+    Modules/webauthn/PublicKeyCredentialParameters.h
     Modules/webauthn/PublicKeyCredentialRequestOptions.h
+    Modules/webauthn/PublicKeyCredentialRequestOptionsJSON.h
     Modules/webauthn/PublicKeyCredentialType.h
     Modules/webauthn/UserVerificationRequirement.h
     Modules/webauthn/WebAuthenticationConstants.h
@@ -713,6 +724,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     animation/ScrollAxis.h
     animation/ScrollTimeline.h
     animation/ScrollTimelineOptions.h
+    animation/TimelineRange.h
     animation/TimelineScope.h
     animation/ViewTimeline.h
     animation/ViewTimelineOptions.h
@@ -841,7 +853,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     crypto/SerializedCryptoKeyWrap.h
     crypto/WrappedCryptoKey.h
 
-    css/CSSAnchorValue.h
     css/CSSConditionRule.h
     css/CSSCounterStyle.h
     css/CSSCounterStyleDescriptors.h
@@ -903,6 +914,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/StyleSheetContents.h
     css/StyleSheetList.h
 
+    css/calc/CSSCalcSymbolTable.h
     css/calc/CSSCalcSymbolsAllowed.h
     css/calc/CSSCalcTree.h
     css/calc/CSSCalcType.h
@@ -919,9 +931,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/parser/CSSParserMode.h
     css/parser/CSSParserToken.h
     css/parser/CSSParserTokenRange.h
-    css/parser/CSSPropertyParserConsumer+Primitives.h
-    css/parser/CSSPropertyParserConsumer+RawTypes.h
-    css/parser/CSSPropertyParserConsumer+UnevaluatedCalc.h
     css/parser/CSSSelectorParser.h
     css/parser/CSSSelectorParserContext.h
     css/parser/CSSTokenizer.h
@@ -938,6 +947,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     css/typedom/numeric/CSSNumericBaseType.h
     css/typedom/numeric/CSSNumericType.h
+
+    css/values/CSSPrimitiveNumericTypes.h
+    css/values/CSSUnevaluatedCalc.h
+    css/values/CSSValueTypes.h
 
     cssjit/CompiledSelector.h
 
@@ -1895,6 +1908,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/audio/PushPullFIFO.h
     platform/audio/SharedAudioDestination.h
 
+    platform/calc/CalculationCategory.h
     platform/calc/CalculationOperator.h
     platform/calc/CalculationTree.h
     platform/calc/CalculationValue.h
@@ -1945,6 +1959,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ColorTypes.h
     platform/graphics/ColorUtilities.h
     platform/graphics/ComplexTextController.h
+    platform/graphics/ContentsFormat.h
     platform/graphics/ContentTypeUtilities.h
     platform/graphics/Damage.h
     platform/graphics/DashArray.h
@@ -2558,6 +2573,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/StyleUpdate.h
     style/StyleValidity.h
     style/Styleable.h
+
+    style/values/StylePrimitiveNumericTypes.h
+    style/values/StyleValueTypes.h
 
     svg/SVGElement.h
     svg/SVGLengthContext.h

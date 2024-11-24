@@ -47,9 +47,6 @@
 namespace WebKit {
 using namespace WebCore;
 
-// FIXME <rdar://problem/8819268>: This leaks all HistoryItems that go into these maps.
-// We need to clear up the life time of these objects.
-
 typedef HashMap<BackForwardItemIdentifier, RefPtr<HistoryItem>> IDToHistoryItemMap; // "ID" here is the item ID.
 static IDToHistoryItemMap& idToHistoryItemMap()
 {
@@ -96,7 +93,13 @@ void WebBackForwardListProxy::addItem(FrameIdentifier targetFrameID, Ref<History
 
     LOG(BackForward, "(Back/Forward) WebProcess pid %i setting item %p for id %s with url %s", getCurrentProcessID(), item.ptr(), item->identifier().toString().utf8().data(), item->urlString().utf8().data());
     clearCachedListCounts();
-    m_page->send(Messages::WebPageProxy::BackForwardAddItem(targetFrameID, toBackForwardListItemState(item.get())));
+    m_page->send(Messages::WebPageProxy::BackForwardAddItem(targetFrameID, toFrameState(item.get())));
+}
+
+void WebBackForwardListProxy::setChildItem(BackForwardItemIdentifier identifier, Ref<HistoryItem>&& item)
+{
+    if (RefPtr page = m_page.get())
+        page->send(Messages::WebPageProxy::BackForwardSetChildItem(identifier, toFrameState(item)));
 }
 
 void WebBackForwardListProxy::goToItem(HistoryItem& item)
@@ -109,12 +112,12 @@ void WebBackForwardListProxy::goToItem(HistoryItem& item)
     m_cachedBackForwardListCounts = backForwardListCounts;
 }
 
-RefPtr<HistoryItem> WebBackForwardListProxy::itemAtIndex(int itemIndex)
+RefPtr<HistoryItem> WebBackForwardListProxy::itemAtIndex(int itemIndex, FrameIdentifier frameID)
 {
     if (!m_page)
         return nullptr;
 
-    auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::BackForwardItemAtIndex(itemIndex), m_page->identifier());
+    auto sendResult = WebProcess::singleton().parentProcessConnection()->sendSync(Messages::WebPageProxy::BackForwardItemAtIndex(itemIndex, frameID), m_page->identifier());
     auto [itemID] = sendResult.takeReplyOr(std::nullopt);
     if (!itemID)
         return nullptr;

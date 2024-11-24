@@ -102,7 +102,7 @@ void HistoryController::saveScrollPositionAndViewStateToItem(HistoryItem* item)
     }
 
     // FIXME: It would be great to work out a way to put this code in WebCore instead of calling through to the client.
-    frame->checkedLoader()->client().saveViewStateToItem(*item);
+    frame->protectedLoader()->client().saveViewStateToItem(*item);
 
     // Notify clients that the HistoryItem has changed.
     item->notifyChanged();
@@ -150,7 +150,7 @@ void HistoryController::restoreScrollPositionAndViewState()
 
     // FIXME: It would be great to work out a way to put this code in WebCore instead of calling
     // through to the client.
-    frame->checkedLoader()->client().restoreViewState();
+    frame->protectedLoader()->client().restoreViewState();
 
 #if !PLATFORM(IOS_FAMILY)
     // Don't restore scroll point on iOS as LocalFrameLoaderClient::restoreViewState() does that.
@@ -160,6 +160,7 @@ void HistoryController::restoreScrollPositionAndViewState()
         RefPtr page = frame->page();
         auto desiredScrollPosition = currentItem->shouldRestoreScrollPosition() ? currentItem->scrollPosition() : view->scrollPosition();
         LOG(Scrolling, "HistoryController::restoreScrollPositionAndViewState scrolling to %d,%d", desiredScrollPosition.x(), desiredScrollPosition.y());
+        // FIXME: Page scale should be set in the UI process using WebPageProxy.
         if (page && frame->isMainFrame() && currentItem->pageScaleFactor())
             page->setPageScaleFactor(currentItem->pageScaleFactor() * page->viewScaleFactor(), desiredScrollPosition);
         else
@@ -169,7 +170,7 @@ void HistoryController::restoreScrollPositionAndViewState()
         if (frame->isMainFrame()) {
             auto adjustedDesiredScrollPosition = view->adjustScrollPositionWithinRange(desiredScrollPosition);
             if (desiredScrollPosition == adjustedDesiredScrollPosition)
-                frame->checkedLoader()->client().didRestoreScrollPosition();
+                frame->protectedLoader()->client().didRestoreScrollPosition();
         }
 
     }
@@ -188,7 +189,7 @@ void HistoryController::saveDocumentState()
         return;
     // FIXME: Reading this bit of FrameLoader state here is unfortunate.  I need to study
     // this more to see if we can remove this dependency.
-    if (frame->checkedLoader()->stateMachine().creatingInitialEmptyDocument())
+    if (frame->protectedLoader()->stateMachine().creatingInitialEmptyDocument())
         return;
 
     // For a standard page load, we will have a previous item set, which will be used to
@@ -313,7 +314,7 @@ void HistoryController::goToItem(HistoryItem& targetItem, FrameLoadType type, Sh
 {
     LOG(History, "HistoryController %p goToItem %p type=%d", this, &targetItem, static_cast<int>(type));
 
-    ASSERT(!m_frame->tree().parent());
+    ASSERT(m_frame->isRootFrame());
 
     // shouldGoToHistoryItem is a private delegate method. This is needed to fix:
     // <rdar://problem/3951283> can view pages from the back/forward cache that should be disallowed by Parental Controls
@@ -323,7 +324,7 @@ void HistoryController::goToItem(HistoryItem& targetItem, FrameLoadType type, Sh
     if (!page)
         return;
     if (RefPtr frame = dynamicDowncast<LocalFrame>(m_frame.ptr())) {
-        if (!frame->checkedLoader()->client().shouldGoToHistoryItem(targetItem))
+        if (!frame->protectedLoader()->client().shouldGoToHistoryItem(targetItem))
             return;
     }
     if (m_defersLoading) {
@@ -336,7 +337,7 @@ void HistoryController::goToItem(HistoryItem& targetItem, FrameLoadType type, Sh
     // - plus, it only makes sense for the top level of the operation through the frame tree,
     // as opposed to happening for some/one of the page commits that might happen soon
     CheckedRef backForward = page->backForward();
-    RefPtr currentItem = backForward->currentItem();
+    RefPtr currentItem = backForward->currentItem(m_frame->frameID());
     backForward->setCurrentItem(targetItem);
 
     // First set the provisional item of any frames that are not actually navigating.
@@ -412,7 +413,7 @@ void HistoryController::updateForStandardLoad(HistoryUpdateType updateType)
         return;
     LOG(History, "HistoryController %p updateForStandardLoad: Updating History for standard load in frame %p (main frame %d) %s", this, frame.get(), frame->isMainFrame(), frame->loader().documentLoader()->url().string().ascii().data());
 
-    CheckedRef frameLoader = frame->loader();
+    Ref frameLoader = frame->loader();
 
     bool usesEphemeralSession = m_frame->page() ? m_frame->page()->usesEphemeralSession() : true;
     const URL& historyURL = frameLoader->protectedDocumentLoader()->urlForHistory();
@@ -459,7 +460,7 @@ void HistoryController::updateForRedirectWithLockedBackForwardList()
             if (!historyURL.isEmpty()) {
                 updateBackForwardListClippedAtTarget(true);
                 if (!usesEphemeralSession) {
-                    CheckedRef frameLoader = frame->loader();
+                    Ref frameLoader = frame->loader();
                     frameLoader->client().updateGlobalHistory();
                     documentLoader->setDidCreateGlobalHistoryEntry(true);
                     if (documentLoader->unreachableURL().isEmpty())
@@ -473,8 +474,11 @@ void HistoryController::updateForRedirectWithLockedBackForwardList()
         RefPtr page = m_frame->page();
         RefPtr parentFrame = dynamicDowncast<LocalFrame>(m_frame->tree().parent());
         if (page && parentFrame) {
-            if (RefPtr parentCurrentItem = parentFrame->history().currentItem())
-                parentCurrentItem->setChildItem(createItem(page->historyItemClient()));
+            if (RefPtr parentCurrentItem = parentFrame->history().currentItem()) {
+                Ref item = createItem(page->historyItemClient());
+                parentCurrentItem->setChildItem(item.copyRef());
+                page->checkedBackForward()->setChildItem(parentCurrentItem->identifier(), WTFMove(item));
+            }
         }
     }
 
@@ -483,7 +487,7 @@ void HistoryController::updateForRedirectWithLockedBackForwardList()
             addVisitedLink(*page, historyURL);
 
         if (!documentLoader->didCreateGlobalHistoryEntry() && documentLoader->unreachableURL().isEmpty())
-            frame->checkedLoader()->client().updateGlobalHistoryRedirectLinks();
+            frame->protectedLoader()->client().updateGlobalHistoryRedirectLinks();
     }
 }
 
@@ -515,7 +519,7 @@ void HistoryController::updateForCommit()
     RefPtr frame = dynamicDowncast<LocalFrame>(m_frame.ptr());
     if (!frame)
         return;
-    CheckedRef frameLoader = frame->loader();
+    Ref frameLoader = frame->loader();
     LOG(History, "HistoryController %p updateForCommit: Updating History for commit in frame %p (main frame %d) %s", this, frame.get(), frame->isMainFrame(), frame->loader().documentLoader() ? frame->loader().documentLoader()->url().string().utf8().data() : "");
 
     FrameLoadType type = frameLoader->loadType();
@@ -619,7 +623,7 @@ void HistoryController::updateForSameDocumentNavigation()
     if (RefPtr currentItem = m_currentItem) {
         currentItem->setURL(frame->document()->url());
         if (!usesEphemeralSession)
-            frame->checkedLoader()->client().updateGlobalHistory();
+            frame->protectedLoader()->client().updateGlobalHistory();
     }
 }
 
@@ -824,7 +828,7 @@ void HistoryController::recursiveGoToItem(HistoryItem& item, HistoryItem* fromIt
 {
     if (!itemsAreClones(item, fromItem)) {
         if (RefPtr frame = dynamicDowncast<LocalFrame>(m_frame.ptr()))
-            frame->checkedLoader()->loadItem(item, fromItem, type, shouldTreatAsContinuingLoad);
+            frame->protectedLoader()->loadItem(item, fromItem, type, shouldTreatAsContinuingLoad);
         return;
     }
 
@@ -876,8 +880,8 @@ void HistoryController::updateBackForwardListClippedAtTarget(bool doClip)
     if (frame->loader().protectedDocumentLoader()->urlForHistory().isEmpty())
         return;
 
-    Ref mainFrame = frame->mainFrame();
-    Ref topItem = mainFrame->checkedHistory()->createItemTree(page->historyItemClient(), *frame, doClip);
+    Ref rootFrame = frame->rootFrame();
+    Ref topItem = rootFrame->checkedHistory()->createItemTree(page->historyItemClient(), *frame, doClip);
     LOG(History, "HistoryController %p updateBackForwardListClippedAtTarget: Adding backforward item %p in frame %p (main frame %d) %s", this, topItem.ptr(), frame.get(), frame->isMainFrame(), frame->loader().documentLoader()->url().string().utf8().data());
 
     page->checkedBackForward()->addItem(frame->frameID(), WTFMove(topItem));
@@ -950,7 +954,7 @@ void HistoryController::pushState(RefPtr<SerializedScriptValue>&& stateObject, c
         return;
 
     addVisitedLink(*page, URL({ }, urlString));
-    frame->checkedLoader()->client().updateGlobalHistory();
+    frame->protectedLoader()->client().updateGlobalHistory();
 
     if (document && document->settings().navigationAPIEnabled())
         document->protectedWindow()->protectedNavigation()->updateForNavigation(*currentItem, NavigationNavigationType::Push);
@@ -980,7 +984,7 @@ void HistoryController::replaceState(RefPtr<SerializedScriptValue>&& stateObject
         return;
 
     addVisitedLink(*page, URL({ }, urlString));
-    frame->checkedLoader()->client().updateGlobalHistory();
+    frame->protectedLoader()->client().updateGlobalHistory();
 
     if (RefPtr document = frame->document(); document && document->settings().navigationAPIEnabled()) {
         currentItem->setNavigationAPIStateObject(nullptr);

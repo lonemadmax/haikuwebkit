@@ -97,7 +97,7 @@ NetworkProcessConnection::~NetworkProcessConnection()
 bool NetworkProcessConnection::dispatchMessage(IPC::Connection& connection, IPC::Decoder& decoder)
 {
     if (decoder.messageReceiverName() == Messages::WebResourceLoader::messageReceiverName()) {
-        if (auto* webResourceLoader = WebProcess::singleton().webLoaderStrategy().webResourceLoaderForIdentifier(LegacyNullableAtomicObjectIdentifier<WebCore::ResourceLoader>(decoder.destinationID())))
+        if (auto* webResourceLoader = WebProcess::singleton().webLoaderStrategy().webResourceLoaderForIdentifier(AtomicObjectIdentifier<WebCore::ResourceLoader>(decoder.destinationID())))
             webResourceLoader->didReceiveMessage(connection, decoder);
         return true;
     }
@@ -115,7 +115,7 @@ bool NetworkProcessConnection::dispatchMessage(IPC::Connection& connection, IPC:
         return true;
     }
     if (decoder.messageReceiverName() == Messages::StorageAreaMap::messageReceiverName()) {
-        if (auto storageAreaMap = WebProcess::singleton().storageAreaMap(LegacyNullableObjectIdentifier<StorageAreaMapIdentifierType>(decoder.destinationID())))
+        if (auto storageAreaMap = WebProcess::singleton().storageAreaMap(ObjectIdentifier<StorageAreaMapIdentifierType>(decoder.destinationID())))
             storageAreaMap->didReceiveMessage(connection, decoder);
         return true;
     }
@@ -141,7 +141,7 @@ bool NetworkProcessConnection::dispatchMessage(IPC::Connection& connection, IPC:
     if (decoder.messageReceiverName() == Messages::WebRTCResolver::messageReceiverName()) {
         auto& network = WebProcess::singleton().libWebRTCNetwork();
         if (network.isActive())
-            network.resolver(LegacyNullableAtomicObjectIdentifier<LibWebRTCResolverIdentifierType>(decoder.destinationID())).didReceiveMessage(connection, decoder);
+            network.resolver(AtomicObjectIdentifier<LibWebRTCResolverIdentifierType>(decoder.destinationID())).didReceiveMessage(connection, decoder);
         else
             RELEASE_LOG_ERROR(WebRTC, "Received WebRTCResolver message while libWebRTCNetwork is not active");
         return true;
@@ -326,7 +326,7 @@ void NetworkProcessConnection::broadcastConsoleMessage(MessageSource source, Mes
 
     Page::forEachPage([&] (auto& page) {
         if (auto* localMainFrame = dynamicDowncast<LocalFrame>(page.mainFrame()))
-            if (auto* document = localMainFrame->document())
+            if (RefPtr document = localMainFrame->document())
                 document->addConsoleMessage(source, level, message);
     });
 }

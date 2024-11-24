@@ -215,9 +215,10 @@ void RemoteLayerTreeDrawingArea::updatePreferences(const WebPreferencesStore& pr
     DebugPageOverlays::settingsChanged(page);
 }
 
-void RemoteLayerTreeDrawingArea::setDeviceScaleFactor(float deviceScaleFactor)
+void RemoteLayerTreeDrawingArea::setDeviceScaleFactor(float deviceScaleFactor, CompletionHandler<void()>&& completionHandler)
 {
     Ref { m_webPage.get() }->setDeviceScaleFactor(deviceScaleFactor);
+    completionHandler();
 }
 
 DelegatedScrollingMode RemoteLayerTreeDrawingArea::delegatedScrollingMode() const
@@ -471,6 +472,15 @@ auto RemoteLayerTreeDrawingArea::rootLayerInfoWithFrameIdentifier(WebCore::Frame
     }
     return &m_rootLayers[index];
 }
+
+#if HAVE(HDR_SUPPORT)
+bool RemoteLayerTreeDrawingArea::hdrForImagesEnabled() const
+{
+    if (auto corePage = m_webPage->corePage())
+        return corePage->settings().hdrForImagesEnabled();
+    return false;
+}
+#endif
 
 void RemoteLayerTreeDrawingArea::mainFrameContentSizeChanged(WebCore::FrameIdentifier frameID, const IntSize& contentsSize)
 {
