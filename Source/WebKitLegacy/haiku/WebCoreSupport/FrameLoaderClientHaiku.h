@@ -59,7 +59,7 @@ struct LoadErrorResetToken;
 
 class FrameLoaderClientHaiku : public LocalFrameLoaderClient {
  public:
-    explicit FrameLoaderClientHaiku(BWebPage*);
+    explicit FrameLoaderClientHaiku(FrameLoader& loader, BWebPage*);
     ~FrameLoaderClientHaiku();
 
     void setFrame(BWebFrame* frame) {m_webFrame = frame;}

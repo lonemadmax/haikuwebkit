@@ -57,6 +57,11 @@ DestinationColorSpace PlatformImageNativeImageBackend::colorSpace() const
     return DestinationColorSpace::SRGB();
 }
 
+Headroom PlatformImageNativeImageBackend::headroom() const
+{
+    return Headroom::None;
+}
+
 void NativeImage::draw(GraphicsContext& context, const FloatRect& destinationRect, const FloatRect& sourceRect, ImagePaintingOptions options)
 {
     context.drawNativeImageInternal(*this, destinationRect, sourceRect, options);

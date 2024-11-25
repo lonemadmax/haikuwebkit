@@ -108,7 +108,7 @@ bool BackForwardList::containsItem(const WebCore::HistoryItem& entry) const
     return m_entries.contains(const_cast<HistoryItem*>(&entry));
 }
 
-RefPtr<HistoryItem> BackForwardList::itemAtIndex(int index)
+RefPtr<HistoryItem> BackForwardList::itemAtIndex(int index, FrameIdentifier)
 {
     // Do range checks without doing math on index to avoid overflow.
     if (index < -static_cast<int>(m_current))

@@ -97,8 +97,9 @@
 
 namespace WebCore {
 
-FrameLoaderClientHaiku::FrameLoaderClientHaiku(BWebPage* webPage)
-    : m_webPage(webPage)
+FrameLoaderClientHaiku::FrameLoaderClientHaiku(WebCore::FrameLoader& loader, BWebPage* webPage)
+    : LocalFrameLoaderClient(loader)
+    , m_webPage(webPage)
     , m_webFrame(nullptr)
     , m_messenger()
     , m_loadingErrorPage(false)

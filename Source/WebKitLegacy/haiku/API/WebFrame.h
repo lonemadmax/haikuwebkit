@@ -32,8 +32,10 @@
 #include <Point.h>
 #include <String.h>
 
-#include "WebCore/FindOptions.h"
+#include <JavaScriptCore/JSExportMacros.h>
 #include <JavaScriptCore/APICast.h>
+
+#include "WebCore/FindOptions.h"
 
 class BMessenger;
 class BWebPage;
@@ -45,6 +47,7 @@ class DumpRenderTreeClient;
 class Frame;
 class FrameLoaderClientHaiku;
 class HTMLFrameOwnerElement;
+class LocalFrame;
 }
 
 namespace WTF {

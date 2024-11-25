@@ -403,11 +403,6 @@ bool EditorClientHaiku::spellingUIIsShowing()
     return false;
 }
 
-void EditorClientHaiku::willSetInputMethodState()
-{
-    notImplemented();
-}
-
 void EditorClientHaiku::setInputMethodState(Element*)
 {
     notImplemented();

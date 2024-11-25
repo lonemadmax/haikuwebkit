@@ -300,8 +300,8 @@ BWebPage::BWebPage(BWebView* webView, BPrivate::Network::BUrlContext* context)
         CookieJar::create(storageProvider.copyRef()),
         makeUniqueRef<ProgressTrackerClientHaiku>(this),
         WebCore::PageConfiguration::LocalMainFrameCreationParameters {
-            CompletionHandler<UniqueRef<WebCore::LocalFrameLoaderClient>(WebCore::LocalFrame&)> { [this] (WebCore::LocalFrame&) {
-                return makeUniqueRef<FrameLoaderClientHaiku>(this);
+            CompletionHandler<UniqueRef<WebCore::LocalFrameLoaderClient>(WebCore::LocalFrame&, WebCore::FrameLoader&)> { [this] (WebCore::LocalFrame&, auto& frameLoader) {
+                return makeUniqueRef<FrameLoaderClientHaiku>(frameLoader, this);
             } },
             WebCore::SandboxFlags {}
         },

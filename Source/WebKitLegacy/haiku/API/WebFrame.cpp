@@ -28,7 +28,6 @@
 
 #include "config.h"
 
-#include <WebCore/ScriptController.h>
 
 #include "WebFrame.h"
 
@@ -52,6 +51,8 @@
 #include "WebCore/RenderObject.h"
 #include "WebCore/RenderTreeAsText.h"
 #include "WebCore/RenderView.h"
+#include "WebCore/ScriptController.h"
+
 #include "wtf/URL.h"
 #include "WebFramePrivate.h"
 #include "WebPage.h"
@@ -428,13 +429,13 @@ BWebFrame* BWebFrame::AddChild(BWebPage* page, BString name,
 
     if (ownerElement) {
         data->frame = WebCore::LocalFrame::createSubframe(*fData->page,
-            CompletionHandler<UniqueRef<WebCore::LocalFrameLoaderClient>(WebCore::LocalFrame&)> {
-                [page] (auto&) { return makeUniqueRef<FrameLoaderClientHaiku>(page); } },
+            CompletionHandler<UniqueRef<WebCore::LocalFrameLoaderClient>(WebCore::LocalFrame&, WebCore::FrameLoader&)> {
+                [page] (auto&, auto& frameLoader) { return makeUniqueRef<FrameLoaderClientHaiku>(frameLoader, page); } },
             WebCore::FrameIdentifier::generate(), {}, *ownerElement);
     } else {
         data->frame = WebCore::LocalFrame::createMainFrame(*fData->page,
-            CompletionHandler<UniqueRef<WebCore::LocalFrameLoaderClient>(WebCore::LocalFrame&)> {
-                [page] (auto&) { return makeUniqueRef<FrameLoaderClientHaiku>(page); } },
+            CompletionHandler<UniqueRef<WebCore::LocalFrameLoaderClient>(WebCore::LocalFrame&, WebCore::FrameLoader&)> {
+                [page] (auto&, auto& frameLoader) { return makeUniqueRef<FrameLoaderClientHaiku>(frameLoader, page); } },
             WebCore::FrameIdentifier::generate(), {}, nullptr);
     }
     FrameLoaderClientHaiku& client = static_cast<FrameLoaderClientHaiku&>(data->frame->loader().client());

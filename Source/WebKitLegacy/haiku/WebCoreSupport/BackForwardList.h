@@ -47,7 +47,8 @@ public:
     //WebCore::HistoryItem& backItem() override;
     //WebCore::HistoryItem& currentItem() override;
     //WebCore::HistoryItem& forwardItem() override;
-	RefPtr<WebCore::HistoryItem> itemAtIndex(int) override;
+	RefPtr<WebCore::HistoryItem> itemAtIndex(int, WebCore::FrameIdentifier) override;
+	void setChildItem(WebCore::BackForwardItemIdentifier, WTF::Ref<WebCore::HistoryItem>&&) override {};
 
     //void backListWithLimit(int, HistoryItemVector&) override;
     //void forwardListWithLimit(int, HistoryItemVector&) override;
